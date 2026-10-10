@@ -68,6 +68,42 @@ Describe "getIndexJobBlocker" -Tag Unit {
         param ($isIndexing, $indexBusy, $archiveBusy, $expected)
         getIndexJobBlocker $isIndexing $indexBusy $archiveBusy | Should -Be $expected
     }
+
+    It "インデックス名を決めている間（namingBusy）も止める。作成中の次、削除・名前の変更中より先" -TestCases @(
+        @{ isIndexing = $false; indexBusy = $false; archiveBusy = $false; expected = "インデックス名の決定中" }
+        @{ isIndexing = $false; indexBusy = $true;  archiveBusy = $true;  expected = "インデックス名の決定中" }
+        @{ isIndexing = $true;  indexBusy = $false; archiveBusy = $false; expected = "インデックス作成中" }
+    ) {
+        param ($isIndexing, $indexBusy, $archiveBusy, $expected)
+        getIndexJobBlocker $isIndexing $indexBusy $archiveBusy $true | Should -Be $expected
+    }
+}
+
+Describe "getIndexStoreSourceFolderError" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "戻り値が空なら空"; output = @(); expected = "" }
+        @{ label = "書けたなら空"; output = @(@{ SourceFolderError = "" }); expected = "" }
+        @{ label = "書けなかった理由を取り出す"; output = @(@{ SourceFolderError = "届きません" }); expected = "届きません" }
+        @{ label = "ほかの出力が混ざっていても取り出す"; output = @("x", @{ SourceFolderError = "届きません" }); expected = "届きません" }
+    ) {
+        param ($label, $output, $expected)
+        getIndexStoreSourceFolderError $output | Should -Be $expected
+    }
+}
+
+Describe "testCloseWaitsForIndexJob" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "仕事が無ければ待たない"; busy = $false; asked = $false; expected = $false }
+        @{ label = "仕事の途中の 1 回目は待つ"; busy = $true; asked = $false; expected = $true }
+        @{ label = "待っている間にもう一度閉じようとしたら待たない"; busy = $true; asked = $true; expected = $false }
+    ) {
+        param ($label, $busy, $asked, $expected)
+        testCloseWaitsForIndexJob $busy $asked | Should -Be $expected
+    }
+
+    It "待つときの文言を返す" {
+        getIndexJobClosingStatus | Should -Not -Be ""
+    }
 }
 
 Describe "getIndexJobBlockedMessage" -Tag Unit {
@@ -83,6 +119,8 @@ Describe "getIndexJobBlockedMessage" -Tag Unit {
         @{ blocker = "インデックス作成中"; operation = "ワークスペースの変更"; expected = "更新中はワークスペースを変えられません。更新が終わるまでお待ちください（［中止］で止められます）。" }
         @{ blocker = "削除・名前の変更中"; operation = "ワークスペースの変更"; expected = "前のインデックスの削除・名前の変更が終わるまでお待ちください。" }
         @{ blocker = "エクスポート・インポート中"; operation = "ワークスペースの変更"; expected = "エクスポート・インポートが終わるまでお待ちください。" }
+        @{ blocker = "インデックス名の決定中"; operation = "ワークスペースの変更"; expected = "インデックスの一覧を読み込んでいます。終わるまでお待ちください。" }
+        @{ blocker = "インデックス名の決定中"; operation = "削除"; expected = "インデックス名の決定中は削除できません。終わるまでお待ちください。" }
     ) {
         param ($blocker, $operation, $expected)
         getIndexJobBlockedMessage $blocker $operation | Should -Be $expected

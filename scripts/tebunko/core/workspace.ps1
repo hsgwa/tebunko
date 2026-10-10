@@ -76,21 +76,14 @@ function getOfficePidDir {
 }
 
 function getWorkspaceJobQueue {
-    # ワークスペースの中を読む・書く startJob の列。共有に届かないと待たされるため、ネットワークの場所なら専用の列（"network"）
+    # ネットワークの場所に触るかもしれない startJob の列を決める唯一の関数。
+    # paths（ワークスペース・インデックスのフォルダ・元のフォルダ・記録の置き場所など）の中に 1 つでもネットワークの場所があれば、
+    # 届かない共有で待たされても他の仕事を巻き込まない専用の列（"network"）、無ければ既定の列（"default"）
     param (
-        [string]$dir
+        [string[]]$paths
     )
 
-    return $(if (testNetworkPath $dir) { "network" } else { "default" })
-}
-
-function getOfficePidQueue {
-    # 記録の置き場所を読む startJob の列（getWorkspaceJobQueue と同じ）
-    param (
-        [string]$dir
-    )
-
-    return getWorkspaceJobQueue $dir
+    return $(if (testAnyNetworkPath $paths) { "network" } else { "default" })
 }
 
 function getWorkspaceTmpDir {

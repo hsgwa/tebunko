@@ -238,6 +238,8 @@ function startGui {
     $script:closeDeadline = $null   # これを過ぎたら、インデックス作成が起動した Office を止める
     $script:closeKilled = $false    # Office を止めた
     $script:closeReady = $false     # 待ち終えた（もう聞かずに閉じる）
+    $script:closeAskedDuringIndexJob = $false   # インデックスの削除・名前の変更の途中で閉じようとして、終わるのを待った
+    $script:closeAfterIndexJob = $false         # 終わったら閉じる（待たずに閉じると決めたら戻す）
     ${closeWaitSeconds} = 60        # インデックス作成が止まるのを待つ時間。過ぎたら Office を止めて、さらに closeKillWaitSeconds 待つ
     ${closeKillWaitSeconds} = 15
 
@@ -296,6 +298,15 @@ function startGui {
             return
         }
         try {
+            # インデックスの削除・名前の変更の途中で閉じると、設定とインデックスのフォルダの名前が食い違う。終わるまで待って閉じる
+            if (testCloseWaitsForIndexJob ([bool]$script:indexBusy) ([bool]$script:closeAskedDuringIndexJob)) {
+                $script:closeAskedDuringIndexJob = $true
+                $script:closeAfterIndexJob = $true
+                $e.Cancel = $true
+                setStatus (getIndexJobClosingStatus)
+                return
+            }
+            $script:closeAfterIndexJob = $false
             # インデックス作成は画面のプロセスで動いているため、画面を閉じるときは止める
             if (isIndexing) {
                 $answer = showConfirm `
@@ -390,7 +401,7 @@ function startGui {
         # 1 回照会し、画面のスレッドのキャッシュに入れる（画面のスレッドで CIM を照会しないようにする。方針 5）。
         # ローカルだけの利用者には、列も CIM の照会も増えない
         $paths = @($script:targetItems | ForEach-Object { [string]$_.Path }) + @(readIndexSources | ForEach-Object { [string]$_.Path })
-        if (!(testAnyNetworkPath $paths)) {
+        if ((getWorkspaceJobQueue $paths) -ne "network") {
             return
         }
         startJob {
@@ -400,7 +411,7 @@ function startGui {
             if (!$errorText -and $output -and $output.Count -gt 0) {
                 setDriveTargets $output[0]
             }
-        } "network"
+        } (getWorkspaceJobQueue $paths)
     }
 
     function loadStartupData {

@@ -489,11 +489,33 @@ Describe "元の場所の対応の読み込み（ネットワークのワーク�
         Should -Invoke setClipboardText -Times 1 -Exactly
     }
 
-    It "パスをコピー: 待っている間に別の依頼が出たら、写さない" {
+    It "パスをコピー: 待っている間に別のコピーの依頼が出たら、写さない" {
+        Mock getSourceFolderMap { newSourceMap }
+        Mock getCurrentHitRow { newNetworkRow }
+        Mock setClipboardText { }
+        $fake.BeforeDone = { $script:copySourceRequest.Value++ }
+
+        copySourcePath
+
+        Should -Invoke setClipboardText -Times 0 -Exactly
+    }
+
+    It "パスをコピー: [開く] の依頼が出ても、コピーの結果は捨てない（番号を分けている）" {
         Mock getSourceFolderMap { newSourceMap }
         Mock getCurrentHitRow { newNetworkRow }
         Mock setClipboardText { }
         $fake.BeforeDone = { $script:openSourceRequest.Value++ }
+
+        copySourcePath
+
+        Should -Invoke setClipboardText -Times 1 -Exactly
+    }
+
+    It "パスをコピー: 検索し直し・ワークスペースの変更（cancelPendingSourceLookup）では、コピーの結果も捨てる" {
+        Mock getSourceFolderMap { newSourceMap }
+        Mock getCurrentHitRow { newNetworkRow }
+        Mock setClipboardText { }
+        $fake.BeforeDone = { cancelPendingSourceLookup }
 
         copySourcePath
 

@@ -143,7 +143,7 @@ function checkFastSearchAvailable {
         }
         $script:fastAvailable = if ($result) { [bool]$result.Available } else { $false }
         updateFastSearchView
-    }
+    } (getWorkspaceJobQueue $workspace.SystemIndexDir)
 }
 
 function getCurrentWordNotice {

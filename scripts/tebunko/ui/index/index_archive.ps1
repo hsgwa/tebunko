@@ -9,7 +9,8 @@ function startIndexArchiveJob {
         [string]$operation,          # "エクスポート" / "インポート"（表示に使う）
         [scriptblock]$scriptBlock,
         [object[]]$arguments,
-        [scriptblock]$onSuccess      # 成功したときに画面のスレッドで行うこと { param($output) }
+        [scriptblock]$onSuccess,     # 成功したときに画面のスレッドで行うこと { param($output) }
+        [string[]]$paths = @()       # 仕事が触る、ワークスペースのほかの場所（書き出し先・取り込む zip）。ワークスペースと合わせて、裏の列を選ぶ
     )
 
     $script:archiveBusy = $true
@@ -29,7 +30,7 @@ function startIndexArchiveJob {
             & $script:archiveJobOnSuccess $output[0]
         }
         updateIndexingButton
-    }
+    } (getWorkspaceJobQueue (@($workspace.Dir) + @($paths)))
 }
 
 function showIndexExportDialog {
@@ -155,7 +156,7 @@ function newBulkExportIndexes {
     } @(,$names + @($folder, $workspace.Dir, ${settingsFile})) {
         param ($results)
         showBulkIndexResult "エクスポート" $results
-    }
+    } @($folder)
 }
 
 function showIndexImportDialog {
@@ -282,7 +283,7 @@ function newImportIndex {
     } @($zipPath) {
         param ($info)
         & $continueImport $zipPath $info
-    }.GetNewClosure()
+    }.GetNewClosure() @($zipPath)
 }
 
 function continueImportIndex {
@@ -329,5 +330,5 @@ function continueImportIndex {
         loadTargets
         refreshIndexViews
         setStatus (getImportResultStatus $result)
-    }
+    } @($zipPath, $result.Path)
 }

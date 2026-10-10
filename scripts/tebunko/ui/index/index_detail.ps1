@@ -88,7 +88,7 @@ function updateIndexingButton {
     }
 
     $state = $script:indexingState
-    if ($script:indexBusy -or $script:archiveBusy -or $script:indexingPreparing) {
+    if ($script:indexBusy -or $script:archiveBusy -or $script:indexingPreparing -or $script:targetsNaming) {
         # インデックスの削除・名前の変更中・エクスポート・インポート中（別スレッド）・ワークスペースを確かめている間は、インデックス作成もインデックスの操作も始めない
         $ready = $false
     }
@@ -118,7 +118,7 @@ function updateIndexingButton {
     # インデックスの追加・編集・削除・エクスポート・インポートと、［設定］のワークスペースの［変更…］は互いに排他
     # （getIndexJobBlocker・getIndexTabButtonsEnabled。settings\settings.ps1 の testWorkspaceChangeable も同じ排他を見る）
     $selected = $null -ne (getIndexTargetItem)
-    $blocker = getIndexJobBlocker (isIndexingOrPreparing) $script:indexBusy $script:archiveBusy
+    $blocker = getCurrentIndexJobBlocker
     $buttons = getIndexTabButtonsEnabled $blocker $selected
     $ui.NewIndexButton.IsEnabled = $buttons.New
     $ui.IndexDetailPathButton.IsEnabled = $buttons.ChangeFolder
@@ -169,7 +169,7 @@ function refreshIndexingState {
         if ($script:stateAgain) {
             refreshIndexingState
         }
-    }
+    } (getWorkspaceJobQueue $script:stateJobPath)
 }
 
 function getIndexingRatio {
@@ -295,7 +295,7 @@ function openFailedFileFolder {
         } else {
             & $apply $output[0] $output[1]
         }
-    }.GetNewClosure() "network"
+    }.GetNewClosure() (getWorkspaceJobQueue $path)
 }
 
 function applyFailedFileState {
@@ -450,5 +450,5 @@ function refreshIndexSummary {
         if ($script:summaryAgain) {
             refreshIndexSummary
         }
-    }
+    } (getWorkspaceJobQueue $script:summaryJobDir)
 }

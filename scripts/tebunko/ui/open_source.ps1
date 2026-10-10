@@ -14,11 +14,17 @@ $script:openSourcePendingRow = [ref]$null  # 裏のスレッドに依頼を出�
 # 同じ行をもう一度開いても新しい依頼を出さない（届かない共有では、列の 2 つのスレッドが同じ行の依頼で塞がるため）
 $script:openSourcePendingPath = [ref]""  # 待っている行を、確かめている間の文言に出すためのパス（もう一度開いたときに出し直す）
 
+# パスのコピーの依頼は、[開く] とは別の番号・箱にする（同じ番号を共有すると、先に出した方の結果が黙って捨てられるため）
+$script:copySourceRequest = [ref]0
+$script:copySourcePendingRow = [ref]$null
+
 function cancelPendingSourceLookup {
     # 待っている元のファイルの確認を打ち切る（新しく検索を始めたとき・ワークスペースを変えたときに呼ぶ）。
     # 依頼の番号を進めて前の依頼の結果を捨て、待っている行の記録・カーソルを戻す
     $script:openSourceRequest.Value++
     $script:openSourcePendingRow.Value = $null
+    $script:copySourceRequest.Value++
+    $script:copySourcePendingRow.Value = $null
     $window.Cursor = $null
 }
 
@@ -70,7 +76,7 @@ function findSourceLocationAsync {
             return
         }
         & $applyLocation $output $errorText $maps $onLocation
-    }.GetNewClosure() "network"
+    }.GetNewClosure() (getWorkspaceJobQueue @($found.Pending, $indexDir))
 }
 
 function applySourceLocation {
@@ -177,7 +183,7 @@ function continueFindSourceFile {
         } else {
             & $apply $output[0]
         }
-    }.GetNewClosure() "network"
+    }.GetNewClosure() (getWorkspaceJobQueue $location.Folder)
 }
 
 function applySourceFileState {
@@ -606,10 +612,10 @@ function copySourcePath {
     if ($null -eq $row) {
         return
     }
-    $requestBox = $script:openSourceRequest
+    $requestBox = $script:copySourceRequest
     $requestBox.Value++
     $requestId = $requestBox.Value
-    $pendingRowBox = $script:openSourcePendingRow
+    $pendingRowBox = $script:copySourcePendingRow
     $complete = ${function:completeCopySourcePath}
     findSourceLocationAsync $row {
         param ($location)

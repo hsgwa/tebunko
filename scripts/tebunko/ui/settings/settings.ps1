@@ -20,7 +20,7 @@ function testWorkspaceChangeable {
     # インデックス作成中（インデクサが今のワークスペースに書いている。画面を使わずに起動したものも含む）・
     # 前のインデックスの削除中・エクスポート・インポート中（別スレッド。今のワークスペースの content_index・取り込み一覧・設定を使っている）は、
     # ワークスペースを変えない。可否と文言は、インデックス管理の操作と同じ判断層（getIndexJobBlocker・getIndexJobBlockedMessage）で決める
-    $blocker = getIndexJobBlocker ((isIndexingOrPreparing) -or (testIndexerRunning)) $script:indexBusy $script:archiveBusy
+    $blocker = getCurrentIndexJobBlocker (testIndexerRunning)
     if ($blocker -ne "") {
         showMessage (getIndexJobBlockedMessage $blocker "ワークスペースの変更") "OK" "Warning" | Out-Null
         return $false

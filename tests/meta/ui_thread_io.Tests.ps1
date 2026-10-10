@@ -38,7 +38,7 @@ BeforeAll {
         @{ Name = "getSettingsFilePath"; Reason = "setting.config の場所を決める（ツールのフォルダ。書き込めないときは既定のワークスペース。どちらもローカル）" }
         @{ Name = "readVersionFile"; Reason = "配布物の VERSION.txt を読む（ツールのフォルダの中）" }
         @{ Name = "getPartLoad"; Reason = "部品（lib.ps1 など）の場所を確かめる（ツールのフォルダの中）" }
-        @{ Name = "testDefaultWorkspace"; Reason = "既定のワークスペース（ドキュメントの tebunko_ws。ローカル）の中身を数える" }
+        @{ Name = "testDefaultWorkspace"; Reason = "既定のワークスペース（ドキュメントの tebunko_ws）の中身を数える。ネットワークの場所（プロファイルが共有にある・環境変数が UNC）は testNetworkPath で先に返し、触らない" }
     )
 
     # 状態層から自動で求めた名前（BeforeAll の最後に求める）

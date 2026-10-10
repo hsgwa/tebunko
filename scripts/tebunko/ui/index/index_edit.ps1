@@ -280,7 +280,14 @@ function startIndexStoreJob {
         param ($kind, $name, $newName, $folders, $dir, $statusPath, $settingsPath)
         if ($kind -eq "rename") {
             renameIndex $name $newName $dir $statusPath $settingsPath
-            writeSourceFolderFile $folders $dir
+            # 元のフォルダの記録の書き直しに失敗しても、改名は済んでいる。改名の失敗にはせず、書けなかった理由を別に返す
+            $sourceFolderError = ""
+            try {
+                writeSourceFolderFile $folders $dir
+            } catch {
+                $sourceFolderError = $_.Exception.Message
+            }
+            @{ SourceFolderError = $sourceFolderError }
         } else {
             removeIndex $name $dir $statusPath $settingsPath
         }
@@ -296,6 +303,7 @@ function startIndexStoreJob {
                 loadTargets
             }
             refreshIndexViews
+            finishIndexJobClose
             return
         }
         if ($script:indexJobKind -ne "rename") {
@@ -304,7 +312,23 @@ function startIndexStoreJob {
         if ($script:indexJobOnDone) {
             & $script:indexJobOnDone
         }
+        if ($script:indexJobKind -eq "rename") {
+            # 改名は済んでいるので、行への反映（上の onDone）は行い、元のフォルダの記録だけ書けなかったことを知らせる
+            $sourceFolderError = getIndexStoreSourceFolderError $output
+            if ($sourceFolderError -ne "") {
+                setStatus (getSourceFolderFileFailedStatus $sourceFolderError)
+            }
+        }
+        finishIndexJobClose
     } (getWorkspaceJobQueue $workspace.IndexDir)
+}
+
+function finishIndexJobClose {
+    # 改名・削除の途中で閉じようとして待っていたなら、終わったので閉じる（設定への反映は済んでいる）
+    if ($script:closeAfterIndexJob) {
+        $script:closeAfterIndexJob = $false
+        $window.Close()
+    }
 }
 
 function deleteIndexes {
@@ -343,6 +367,7 @@ function deleteIndexes {
             setStatus "削除に失敗しました：${errorText}"
             loadTargets
             refreshIndexViews
+            finishIndexJobClose
             return
         }
         # 消せたものを一覧から外す（失敗したものは残す）
@@ -356,7 +381,8 @@ function deleteIndexes {
         updateIndexListView
         refreshIndexViews
         showBulkIndexResult "削除" $results
-    }
+        finishIndexJobClose
+    } (getWorkspaceJobQueue $workspace.IndexDir)
 }
 
 function deleteIndex {

@@ -49,6 +49,7 @@ $script:indexingStart = $null
 $script:ingestFailed = 0  # インデックス作成中に一覧へ反映済みの失敗件数
 $script:indexingState = $null
 $script:indexSummary = $null
+$script:targetsNaming = $false  # ネットワークのワークスペースで、一覧のインデックス名を裏で決めている間（loadTargets）。この間は一覧が空で、追加・削除・インデックス作成の開始・ワークスペースの変更をしない
 $script:archiveBusy = $false  # エクスポート・インポート中（別スレッド）。settings\settings.ps1 の testWorkspaceChangeable も見る
 $script:archiveJobOperation = ""
 $script:archiveJobOnSuccess = $null
@@ -77,6 +78,16 @@ function isIndexingOrPreparing {
     # インデックス作成が動いている、または始める前にワークスペースを確かめている間（startIndexing）。
     # どちらの間も、インデックスの操作・ワークスペースの変更・次のインデックス作成の開始はしない
     return (isIndexing) -or [bool]$script:indexingPreparing
+}
+
+function getCurrentIndexJobBlocker {
+    # いま動いている処理の名前（getIndexJobBlocker の結果。無ければ空文字列）。画面の状態から集める。
+    #   extraIndexing: ほかに「インデックス作成中」とみなすもの（画面を使わずに起動したインデクサなど）
+    param (
+        [bool]$extraIndexing = $false
+    )
+
+    return (getIndexJobBlocker ((isIndexingOrPreparing) -or $extraIndexing) ([bool]$script:indexBusy) ([bool]$script:archiveBusy) ([bool]$script:targetsNaming))
 }
 
 function shouldRefreshFastSearchStatus {
@@ -117,7 +128,7 @@ function refreshFolderStatus {
     $script:folderCheckAgain = $false
     # 届かないネットワークのフォルダが 1 つでもあれば、専用の列（network）を使う。
     # プレビュー等の列（既定。2 スレッド）は、届かない共有の Test-Path で塞がれても待たされないようにする
-    $queue = if (testAnyNetworkPath $paths) { "network" } else { "default" }
+    $queue = getWorkspaceJobQueue $paths
     startJob {
         param ($paths)
         $result = @{}
@@ -183,7 +194,7 @@ function refreshFastSearchStatus {
     $script:fastSearchJobDir = $workspace.Dir
     $script:fastSearchJobGeneration = $script:fastSearchGeneration
     # 届かないネットワークのワークスペースでは、フォルダの有無と同じ専用の列（network）を使う
-    $queue = if (testAnyNetworkPath @($workspace.Dir)) { "network" } else { "default" }
+    $queue = getWorkspaceJobQueue $workspace.Dir
     startJob {
         param ($systemRoot, $indexRoot, $statePath)
         $connection = openWindowsSearch
@@ -297,13 +308,17 @@ function loadTargets {
     # 終わるまで一覧は空のまま（届かない場所で画面のスレッドが止まらないように）
     $requestBox = $script:targetsLoadRequest
     $requestBox.Value++
+    $script:targetsNaming = $false
     # 読み直しても、チェック（一時の選択）は名前で引き継ぐ
     $checkedNames = @(getIndexCheckedItems @($script:targetItems) | ForEach-Object { $_.Name })
     $folders = @(getTargetFolders)
     if (@($folders | Where-Object { $_ -and !$_.Name }).Count -gt 0) {
         if ((getWorkspaceJobQueue $workspace.Dir) -eq "network") {
             $script:targetItems.Clear()
+            # 名前が決まって一覧を読み込み直すまで、ほかの操作を止める（空の一覧に保存して、設定のほかのインデックスを消さないため）
+            $script:targetsNaming = $true
             updateIndexListView
+            updateIndexingButton
             setStatus (getIndexNamingStatus)
             $requestId = $requestBox.Value
             $finish = ${function:finishTargetsNaming}   # 終わったときの処理は、関数を変数に取って呼ぶ（クロージャからは関数の名前を引けないため）
@@ -318,7 +333,7 @@ function loadTargets {
                     return
                 }
                 & $finish $errorText $checkedNames
-            }.GetNewClosure() "network"
+            }.GetNewClosure() (getWorkspaceJobQueue $workspace.Dir)
             return
         }
         saveAssignedIndexNames @(assignIndexNames $folders (readStatusFile).Folders)
@@ -334,10 +349,12 @@ function finishTargetsNaming {
         [string[]]$checkedNames
     )
 
+    $script:targetsNaming = $false
     if ($errorText) {
         setStatus (getIndexNamingFailedStatus $errorText)
     }
     fillTargetItems @(getTargetFolders) $checkedNames
+    updateIndexingButton
 }
 
 function fillTargetItems {
@@ -454,7 +471,7 @@ function setIndexRowActions {
     # 行の右端のボタン（［更新］［中止］・何も出さない）を、行の状態（IndexLevel）と動いている処理に合わせる。判断は getIndexRowActions
     param ($item)
 
-    $blocker = getIndexJobBlocker (isIndexingOrPreparing) $script:indexBusy $script:archiveBusy
+    $blocker = getCurrentIndexJobBlocker
     $actions = getIndexRowActions $item.IndexLevel $blocker
     $item.SetRowActions($actions.Action, $actions.UpdateEnabled)
 }
@@ -468,7 +485,7 @@ function updateSelectedIndexes {
     )
 
     $names = @($names | Where-Object { $_ })
-    if ($names.Count -eq 0 -or (getIndexJobBlocker (isIndexingOrPreparing) $script:indexBusy $script:archiveBusy) -ne "") {
+    if ($names.Count -eq 0 -or (getCurrentIndexJobBlocker) -ne "") {
         return
     }
     startIndexing $names
@@ -533,7 +550,7 @@ function openIndexSourceFolder {
         } else {
             & $apply $output[0]
         }
-    }.GetNewClosure() "network"
+    }.GetNewClosure() (getWorkspaceJobQueue $path)
 }
 
 function updateIndexSelectionView {
@@ -599,7 +616,7 @@ function testIndexOperable {
         [string]$operation
     )
 
-    $blocker = getIndexJobBlocker (isIndexingOrPreparing) $script:indexBusy $script:archiveBusy
+    $blocker = getCurrentIndexJobBlocker
     if ($blocker -ne "") {
         showMessage (getIndexJobBlockedMessage $blocker $operation) "OK" "Warning" | Out-Null
         return $false

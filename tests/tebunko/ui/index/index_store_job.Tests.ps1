@@ -113,6 +113,57 @@ Describe "applyIndexEdit" -Tag Unit {
         $script:calls | Should -Not -Contain "saveTargets"
     }
 
+    It "裏の仕事は、元のフォルダの記録だけが書けなくても失敗にせず、書けなかった理由を別に返す" {
+        Mock renameIndex { }
+        Mock writeSourceFolderFile { throw "届きません" }
+
+        applyIndexEdit $item @{ Path = $item.Path; Name = "営業部" }
+        $result = @(runJob $script:jobs[0])
+
+        Should -Invoke renameIndex -Times 1 -Exactly
+        $result[0].SourceFolderError | Should -Be "届きません"
+    }
+
+    It "記録だけが書けなかったときも、改名は反映して保存し、書けなかったことだけを知らせる（改名の失敗にはしない）" {
+        applyIndexEdit $item @{ Path = $item.Path; Name = "営業部" }
+
+        & $script:jobs[0].OnDone @(@{ SourceFolderError = "届きません" }) ""
+
+        $item.Name | Should -Be "営業部"
+        $script:indexBusy | Should -Be $false
+        $script:calls | Should -Contain "saveTargets"
+        $script:calls | Should -Not -Contain "loadTargets"
+        $script:statuses[$script:statuses.Count - 1] | Should -Be (getSourceFolderFileFailedStatus "届きません")
+        ($script:statuses -join "`n") | Should -Not -Match "名前の変更に失敗しました"
+    }
+
+    It "名前を変えている途中で閉じようとして待っていたなら、反映が終わってから閉じる" {
+        $script:closed = 0
+        $script:window = [pscustomobject]@{}
+        $script:window | Add-Member ScriptMethod Close { $script:closed++ }
+        $script:closeAfterIndexJob = $true
+        applyIndexEdit $item @{ Path = $item.Path; Name = "営業部" }
+        $script:calls.Clear()
+
+        & $script:jobs[0].OnDone @() ""
+
+        $script:calls | Should -Contain "saveTargets"
+        $script:closed | Should -Be 1
+        $script:closeAfterIndexJob | Should -Be $false
+    }
+
+    It "待っていなければ閉じない" {
+        $script:closed = 0
+        $script:window = [pscustomobject]@{}
+        $script:window | Add-Member ScriptMethod Close { $script:closed++ }
+        $script:closeAfterIndexJob = $false
+        applyIndexEdit $item @{ Path = $item.Path; Name = "営業部" }
+
+        & $script:jobs[0].OnDone @() ""
+
+        $script:closed | Should -Be 0
+    }
+
     It "ローカルのワークスペースの改名も、裏の仕事（default の列）で行う" {
         $script:workspace = newTestWorkspace @{ IndexDir = "C:\Users\test\tebunko_ws\work\index" }
 
@@ -180,6 +231,50 @@ Describe "startIndexStoreJob（削除）" -Tag Unit {
         runJob $script:jobs[0]
 
         Should -Invoke removeIndex -Times 1 -Exactly -ParameterFilter { $name -eq "営業" }
+    }
+}
+
+Describe "deleteIndexes（複数削除）" -Tag Unit {
+    BeforeEach {
+        $script:calls.Clear()
+        $script:statuses.Clear()
+        $script:jobs.Clear()
+        $script:indexBusy = $false
+        $script:closeAfterIndexJob = $false
+        $script:targetItems = New-Object System.Collections.Generic.List[object]
+        function testIndexOperable { param($operation) $true }
+        function showConfirm { param($title, $heading, $hint, $choices) "delete" }
+        function showBulkIndexResult { param($operation, $results) }
+        function updateIndexListView { }
+        function updateIndexSourceFile { }
+    }
+
+    It "<expected> の列に出す" -TestCases @(
+        @{ dir = "\\fileserver\共有\ws\work\index"; expected = "network" }
+        @{ dir = "C:\Users\test\tebunko_ws\work\index"; expected = "default" }
+    ) {
+        param ($dir, $expected)
+        $script:workspace = newTestWorkspace @{ IndexDir = $dir }
+
+        deleteIndexes @("営業", "技術")
+
+        $script:jobs.Count | Should -Be 1
+        $script:jobs[0].Queue | Should -Be $expected
+        $script:indexBusy | Should -Be $true
+    }
+
+    It "削除の途中で閉じようとして待っていたなら、終わってから閉じる" {
+        $script:workspace = newTestWorkspace @{ IndexDir = "C:\Users\test\tebunko_ws\work\index" }
+        $script:closed = 0
+        $script:window = [pscustomobject]@{}
+        $script:window | Add-Member ScriptMethod Close { $script:closed++ }
+        deleteIndexes @("営業", "技術")
+        $script:closeAfterIndexJob = $true
+
+        & $script:jobs[0].OnDone @() ""
+
+        $script:closed | Should -Be 1
+        $script:indexBusy | Should -Be $false
     }
 }
 

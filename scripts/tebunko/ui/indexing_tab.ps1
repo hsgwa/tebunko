@@ -177,7 +177,7 @@ function startIndexing {
         [string[]]$onlyNames = @()
     )
 
-    if (isIndexingOrPreparing) {
+    if ((isIndexingOrPreparing) -or $script:targetsNaming) {
         return
     }
 
@@ -208,7 +208,7 @@ function startIndexing {
     } @($workspace.Dir) {
         param ($output, $errorText)
         & $finish $output $errorText $onlyNames
-    }.GetNewClosure() "network"
+    }.GetNewClosure() (getWorkspaceJobQueue $workspace.Dir)
 }
 
 function finishWorkspaceCheck {

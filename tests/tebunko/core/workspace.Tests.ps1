@@ -421,22 +421,20 @@ Describe "clearLegacySystemIndex" -Tag Io {
     }
 }
 
-Describe "getOfficePidQueue" -Tag Unit {
-    It "<name>" -TestCases @(
-        @{ name = "ローカルのフォルダは既定の列"; dir = "C:\Users\test\Documents\tebunko_ws\office_pids\ab12cd34"; expected = "default" }
-        @{ name = "UNC は専用の列"; dir = "\\server\share\ws\office_pids\ab12cd34"; expected = "network" }
-        @{ name = "\\?\UNC\ も専用の列"; dir = "\\?\UNC\server\share\ws\office_pids\ab12cd34"; expected = "network" }
-    ) {
-        getOfficePidQueue $dir | Should -Be $expected
-        getWorkspaceJobQueue $dir | Should -Be $expected
-    }
-}
-
 Describe "getWorkspaceJobQueue" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "ローカルのワークスペースは既定の列"; dir = "C:\Users\test\Documents\tebunko_ws"; expected = "default" }
         @{ name = "UNC のワークスペースは専用の列"; dir = "\\fileserver\共有\tebunko_ws"; expected = "network" }
+        @{ name = "記録の置き場所（ローカル）は既定の列"; dir = "C:\Users\test\Documents\tebunko_ws\office_pids\ab12cd34"; expected = "default" }
+        @{ name = "記録の置き場所（UNC）は専用の列"; dir = "\\server\share\ws\office_pids\ab12cd34"; expected = "network" }
+        @{ name = "\\?\UNC\ も専用の列"; dir = "\\?\UNC\server\share\ws\office_pids\ab12cd34"; expected = "network" }
     ) {
         getWorkspaceJobQueue $dir | Should -Be $expected
+    }
+
+    It "複数の場所のうち 1 つでもネットワークなら専用の列、すべてローカルなら既定の列、空も既定の列" {
+        getWorkspaceJobQueue @("C:\Users\test\a", "\\server\share\b") | Should -Be "network"
+        getWorkspaceJobQueue @("C:\Users\test\a", "D:\b") | Should -Be "default"
+        getWorkspaceJobQueue @() | Should -Be "default"
     }
 }

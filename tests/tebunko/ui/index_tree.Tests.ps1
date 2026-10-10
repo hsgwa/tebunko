@@ -475,13 +475,15 @@ Describe "ネットワークのワークスペース" -Tag Unit {
         (@($node.Children | ForEach-Object { $_.Name }) -join ",") | Should -Be "設計"
     }
 
-    It "読めなかったときは、読み込み中のまま残して、フォルダを知らせる" {
+    It "読めなかったときは、フォルダを閉じて読み込み前に戻し、フォルダを知らせる" {
         $node = [IndexNode]::CreateRoot($netDir, "技術部", "技術部", $null, $true, $true)
+        $node.SetExpanded($true)
         expandIndexNode $node
 
         & $fake.Jobs[0].OnDone @(@{ HasFiles = $false; Folders = @(); Error = "アクセスできません" }) ""
 
         $node.NeedsLoad() | Should -Be $true
+        $node.IsExpanded | Should -Be $false
         $node.Children[0].IsPlaceholder | Should -Be $true
         $fake.Statuses[$fake.Statuses.Count - 1] | Should -Be "フォルダを読み込めませんでした：技術部（アクセスできません）"
         # もう一度開けば読み直す

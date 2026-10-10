@@ -54,7 +54,7 @@ function loadIndexTree {
         } else {
             & $applyData $output[0] $expandedPaths
         }
-    }.GetNewClosure() "network"
+    }.GetNewClosure() (getWorkspaceJobQueue $dir)
 }
 
 function applyIndexTreeChildren {
@@ -124,7 +124,7 @@ function applyIndexTreeData {
 
 function expandIndexNode {
     # フォルダを展開したときに、子を読み込む。ネットワークの場所なら、裏の列（network）で読む間は「読み込み中…」を出しておく。
-    # 読めなかったときは「読み込み中…」のまま残し（もう一度開けば読み直す）、ステータスに知らせる
+    # 読めなかったときは、フォルダを閉じて読み込み前の状態に戻し（「読み込み中…」を見せ続けない。もう一度開けば読み直す）、ステータスに知らせる
     param (
         [IndexNode]$node
     )
@@ -157,17 +157,18 @@ function expandIndexNode {
             return
         }
         & $applyChildren $node $output[0]
-    }.GetNewClosure() "network"
+    }.GetNewClosure() (getWorkspaceJobQueue $dir)
 }
 
 function applyIndexFolderChildren {
-    # expandIndexNode の続き。子を入れる（読めなかったときはステータスだけ）
+    # expandIndexNode の続き。子を入れる（読めなかったときは、フォルダを閉じて読み込み前に戻し、ステータスに知らせる）
     param (
         [IndexNode]$node,
         $data
     )
 
     if ($data.Error) {
+        $node.SetExpanded($false)
         setStatus (getTreeFolderFailedText $node.Name ([string]$data.Error))
         return
     }

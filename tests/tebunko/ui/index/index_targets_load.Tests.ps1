@@ -6,6 +6,7 @@ BeforeAll {
     $script:statuses = New-Object System.Collections.Generic.List[string]
     $script:jobs = New-Object System.Collections.Generic.List[object]
     $script:calls = New-Object System.Collections.Generic.List[string]
+    $script:messages = New-Object System.Collections.Generic.List[string]
 
     function setStatus { param([string]$text) $script:statuses.Add($text) }
     function startJob {
@@ -14,6 +15,9 @@ BeforeAll {
         $script:jobs.Add(@{ ScriptBlock = $scriptBlock; Arguments = $arguments; OnDone = $onDone; Queue = $queue })
     }
     function updateIndexListView { $script:calls.Add("updateIndexListView") }
+    function updateIndexingButton { $script:calls.Add("updateIndexingButton") }
+    function isIndexing { return $false }
+    function showMessage { param($text, $buttons, $icon) $script:messages.Add($text); return "OK" }
     function refreshFolderStatus { $script:calls.Add("refreshFolderStatus") }
     function refreshFastSearchStatus { $script:calls.Add("refreshFastSearchStatus") }
     function newFolderItem {
@@ -27,7 +31,7 @@ BeforeAll {
 
     # index_list.ps1 は画面の型を使うため、読み込まずに必要な関数だけを取り出す
     $ast = [System.Management.Automation.Language.Parser]::ParseFile("${scriptsDir}\tebunko\ui\index\index_list.ps1", [ref]$null, [ref]$null)
-    foreach ($name in @("loadTargets", "finishTargetsNaming", "fillTargetItems")) {
+    foreach ($name in @("loadTargets", "finishTargetsNaming", "fillTargetItems", "getCurrentIndexJobBlocker", "isIndexingOrPreparing", "testIndexOperable")) {
         $node = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }, $true)
         . ([scriptblock]::Create($node.Extent.Text))
     }
@@ -101,6 +105,36 @@ Describe "loadTargets" -Tag Unit {
             Should -Invoke readStatusFile -Times 1 -Exactly -ParameterFilter { $path -eq "\\fileserver\共有\ws\work\ingest_status.tsv" }
             Should -Invoke assignIndexNames -Times 1 -Exactly
             Should -Invoke saveAssignedIndexNames -Times 1 -Exactly
+        }
+
+        It "ネットワークのワークスペース: 名前を決めている間は、追加・削除などの操作を止める（空の一覧を保存して、ほかのインデックスを消さないため）" {
+            $script:workspace = newTestWorkspace @{ Dir = "\\fileserver\共有\ws" }
+            loadTargets
+
+            $script:targetsNaming | Should -Be $true
+            (getCurrentIndexJobBlocker) | Should -Be "インデックス名の決定中"
+            testIndexOperable "追加" | Should -Be $false
+            testIndexOperable "削除" | Should -Be $false
+            $script:messages[0] | Should -Be (getIndexJobBlockedMessage "インデックス名の決定中" "追加")
+        }
+
+        It "ネットワークのワークスペース: 結果が届いたら、操作の停止を解く（失敗したときも）" {
+            $script:workspace = newTestWorkspace @{ Dir = "\\fileserver\共有\ws" }
+            loadTargets
+            $script:namedNow = $true
+
+            & $script:jobs[0].OnDone @() ""
+
+            $script:targetsNaming | Should -Be $false
+            (getCurrentIndexJobBlocker) | Should -Be ""
+            testIndexOperable "追加" | Should -Be $true
+
+            $script:namedNow = $false
+            loadTargets
+            $script:targetsNaming | Should -Be $true
+            & $script:jobs[1].OnDone @() "届きません"
+
+            $script:targetsNaming | Should -Be $false
         }
 
         It "ネットワークのワークスペース: 結果が届いてから、名前の付いた一覧を並べる" {

@@ -120,6 +120,37 @@ function getIndexStoreJobFailedStatus {
     return "インデックス [${name}] の${operation}に失敗しました：${errorText}"
 }
 
+function getIndexStoreSourceFolderError {
+    # 名前の変更の裏の仕事の戻り値（@{ SourceFolderError }）から、元のフォルダの記録を書けなかった理由を取り出す（書けたなら ""）
+    param (
+        $output
+    )
+
+    foreach ($item in @($output)) {
+        if ($item -is [hashtable] -and $item.ContainsKey("SourceFolderError")) {
+            return [string]$item.SourceFolderError
+        }
+    }
+    return ""
+}
+
+function testCloseWaitsForIndexJob {
+    # インデックスの削除・名前の変更の途中で画面を閉じようとしたとき、終わるまで待つか（$true）。
+    # 閉じると設定への反映が抜けて、設定とインデックスのフォルダの名前が食い違うため、1 回目は待つ。
+    # 待っている間にもう一度閉じようとしたときは、利用者が閉じると決めたので待たない
+    param (
+        [bool]$indexBusy,
+        [bool]$alreadyAsked
+    )
+
+    return $indexBusy -and -not $alreadyAsked
+}
+
+function getIndexJobClosingStatus {
+    # 削除・名前の変更の途中で閉じようとして、待っているときのステータス
+    return "インデックスの変更が終わってから閉じます…（待たずに閉じるには、もう一度閉じる操作をします）"
+}
+
 function getSourceFolderFileFailedStatus {
     # 元のフォルダの記録（source_folder.txt）を書き直せなかったときのステータス
     param (
@@ -135,11 +166,15 @@ function getIndexJobBlocker {
     param (
         [bool]$isIndexing,   # インデックス作成中
         [bool]$indexBusy,    # 前のインデックスの削除・名前の変更中
-        [bool]$archiveBusy   # エクスポート・インポート中
+        [bool]$archiveBusy,  # エクスポート・インポート中
+        [bool]$namingBusy = $false   # ネットワークのワークスペースで、インデックスの名前を裏で決めている間（一覧はまだ空。この間に保存すると、ほかのインデックスが設定から消える）
     )
 
     if ($isIndexing) {
         return "インデックス作成中"
+    }
+    if ($namingBusy) {
+        return "インデックス名の決定中"
     }
     if ($indexBusy) {
         return "削除・名前の変更中"
@@ -166,6 +201,9 @@ function getIndexJobBlockedMessage {
         }
         if ($blocker -eq "削除・名前の変更中") {
             return "前のインデックスの削除・名前の変更が終わるまでお待ちください。"
+        }
+        if ($blocker -eq "インデックス名の決定中") {
+            return "インデックスの一覧を読み込んでいます。終わるまでお待ちください。"
         }
         return "エクスポート・インポートが終わるまでお待ちください。"
     }
