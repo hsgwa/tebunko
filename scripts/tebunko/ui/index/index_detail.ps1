@@ -464,7 +464,7 @@ function updateIndexSummaryText {
 }
 
 function refreshIndexSummary {
-    # 集約ファイルの件数は数えるのに時間がかかることがあるため、別スレッドで数える
+    # 本文インデックスのファイルの件数は数えるのに時間がかかることがあるため、別スレッドで数える
     if ($script:summaryRunning) {
         $script:summaryAgain = $true
         return

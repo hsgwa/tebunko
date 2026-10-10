@@ -4,12 +4,12 @@
 $targetExtensions = @(${officeExtensions}) + @(${textExtensions})
 
 # tebunko が作ったファイルを、名前だけで見分けるパターン（テキストの拡張子のものだけに当たる。どこにあっても外す）。
-#   ・今の版の本文インデックス（content_index.xlsx.001.tsv 等。packFileNamePattern と同じ組み立て）
-#   ・前の版（名前をそろえる前）の集約ファイル（content.xlsx.001.tsv 等）
+#   ・今の版の本文インデックス（content_index.xlsx.001.tsv 等。contentIndexFileNamePattern と同じ組み立て）
+#   ・前の版（名前をそろえる前）の本文インデックスのファイル（content.xlsx.001.tsv 等）
 #   ・システムインデックス（今の版 system_index*.txt・前の版 システムインデックス*.txt。search_gram.ps1 の systemIndexFileName・
 #     workspace.ps1 の legacySystemIndexPattern と同じ組み立て）
 ${tebunkoOwnFileNamePatterns} = @(
-    "${packFileNamePrefix}.*.tsv",
+    "${contentIndexFileNamePrefix}.*.tsv",
     "content.*.tsv",
     "$([System.IO.Path]::GetFileNameWithoutExtension(${systemIndexFileName}))*.txt",
     ${legacySystemIndexPattern}
@@ -154,7 +154,7 @@ function createTargetList {
     # クロール対象フォルダを1つ検索して取り込み一覧の行を作り直し、次を返す。
     #   Rows   : 全ファイルの行 / Targets: 取り込む行 / Failed: 前回失敗し、更新の無い行
     #   Plan   : 画面の確認に出す件数（newIngestPlanRow。取り込み予定.tsv の1行）
-    #   Removed: 元のファイルが無くなったファイルの相対パス（呼び出し元が集約ファイルから外す）
+    #   Removed: 元のファイルが無くなったファイルの相対パス（呼び出し元が本文インデックスのファイルから外す）
     # 行の相対パスは "インデックス名\フォルダからの相対パス"（= work\index からの相対パス）とする。
     # ・前回の一覧と更新日時・サイズが同じで取り込み済み（済）のファイルは取り込まない
     # ・取り込み済みでも、インデックス（TSV）が無くなっていれば取り込み直す（利用者が work\index を直接削除した場合など）

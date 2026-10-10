@@ -837,15 +837,15 @@ function useGuiFileOpenPicker {
 # ---- テストデータ ----
 
 function newGuiSampleIndex {
-    # 検索できるインデックス（集約ファイル）を、写した先のワークスペースに作る。Root は TSV の置き場所。
+    # 検索できるインデックス（本文インデックスのファイル）を、写した先のワークスペースに作る。Root は TSV の置き場所。
     # 元のファイル（見積.xlsx・議事録.docx）は実在しない（元のファイルが無い行の確かめに使う）。
-    # 呼び出す側で tests\helpers\load.ps1 を読み込んでおく（newTsv・newPackIndex・toIndexFileName）
+    # 呼び出す側で tests\helpers\load.ps1 を読み込んでおく（newTsv・newContentIndexFiles・toIndexFileName）
     param ($Tool, [string]$Root, [string]$Name = "営業")
 
     $tsvRoot = Join-Path $Root "tsv_$Name"
     newTsv "$tsvRoot\$Name\見積.xlsx\$(toIndexFileName "見積")" @("品名`t数量`t単価", "", "りんご`t10`t100", "ABC`tabc")
     newTsv "$tsvRoot\$Name\議事録.docx\$(toIndexFileName "ページ001")" @("見積の方針", "単価は据え置き")
-    [void](newPackIndex $tsvRoot "$($Tool.Work)\content_index")
+    [void](newContentIndexFiles $tsvRoot "$($Tool.Work)\content_index")
 }
 
 function findGuiAnywhere {

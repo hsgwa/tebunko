@@ -43,7 +43,7 @@ flowchart LR
 
 PSScriptAnalyzer は Windows PowerShell 5.1 に標準では入っていないため、未導入の環境では静的解析の 3 件を自動的に飛ばす（`It -Skip`）。導入は `Install-Module PSScriptAnalyzer -Scope CurrentUser`。CI では必ず入れて実行する。安全性にかかわるルールの選定と、全ルールで出る指摘の内訳は [安全性の要約](../../safety/index.md) の [静的解析: PSScriptAnalyzer（Microsoft）](../../safety/scans.md#静的解析-psscriptanalyzermicrosoft) に記載している。
 
-`TypeNotFound`（継承元の型が別ファイルにあるための指摘）は、1 ファイルだけでは解決できないため除く。読み込む順で解決できることは `tests/meta/structure.Tests.ps1` で確かめる。
+`TypeNotFound`（継承元の型が別ファイルにあるための指摘）は、1 ファイルだけでは解決できないため除く。読み込む順で解決できることは `tests/meta/structure.Tests.ps1` で確かめる。あわせて同じファイルで、`scripts/` の関数・変数・ハッシュテーブルのキー・呼ぶ名前・`newWorkerState` に渡す名前に `pack` を使わないことを、AST から名前を拾って確かめる（本文インデックスのコードの名前は `contentIndex`。コメントや `package` は拾わない）。
 
 **インストーラーの検査（`tests/meta/installer.Tests.ps1`）**
 

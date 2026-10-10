@@ -1,5 +1,5 @@
-﻿# 検索用の集約ファイル（pack_format.ps1）を検索する。
-# 集約ファイルの全文に 1 回照合し、一致しないファイルは飛ばす。一致したら、位置から場所と行を求める。
+﻿# 検索用の本文インデックスのファイル（content_index_format.ps1）を検索する。
+# 本文インデックスのファイルの全文に 1 回照合し、一致しないファイルは飛ばす。一致したら、位置から場所と行を求める。
 # 照合のしかた（lines・filter・scan。search_query.ps1 の getRegexScanMode）で、全文への照合と 1 行ずつの照合の結果を同じにする。
 # Excel の図形・コメントの行は「セル番地 + タブ + 文字」の形のため、区切りのタブより後から始まる一致だけをヒットにする（セル番地だけの一致を除く）。
 
@@ -16,14 +16,14 @@ function testCellPrefixedHit {
 }
 
 
-function searchPackFiles {
-    # packs の start から count 件の集約ファイルを読み、regex に一致する行を PSCustomObject で返す（1 行に複数一致しても 1 件）。
+function searchContentIndexFiles {
+    # contentIndexFiles の start から count 件の本文インデックスのファイルを読み、regex に一致する行を PSCustomObject で返す（1 行に複数一致しても 1 件）。
     # max 以上（max+1 件目）が見つかった時点で打ち切る（負は上限なし）。読めないファイルは飛ばす。
     #   include / exclude: 元のファイル名の条件（$null は条件なし） / excludePlace: 除く場所（図形・コメント）
     #   cache: newTsvTextCache。更新日時・大きさが同じなら、前に読んだ内容と場所の一覧を使う
     # 照合が時間切れ（RegexMatchTimeoutException）なら、そのまま呼び出し元へ伝える
     param (
-        $packs,
+        $contentIndexFiles,
         [int]$start,
         [int]$count,
         [regex]$regex,
@@ -38,19 +38,19 @@ function searchPackFiles {
 
     # 並列検索の別スレッドでも動くよう、コマンドレットは使わない
     $hits = [System.Collections.Generic.List[psobject]]::new()
-    $end = [Math]::Min($packs.Count, $start + $count)
+    $end = [Math]::Min($contentIndexFiles.Count, $start + $count)
     $lf = [char]10
     $mark = [char]0x1E
     $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
     $mode = if ($null -eq $textRegex) { "scan" } else { $scanMode }
     for ($i = $start; $i -lt $end; $i++) {
-        $pack = $packs[$i]
+        $contentIndexFile = $contentIndexFiles[$i]
         $text = $null
         $places = $null
         $cached = $false
         if ($null -ne $cache) {
             $entry = $null
-            if ($cache.Texts.TryGetValue($pack.Path, [ref]$entry) -and $entry[0] -eq $pack.Ticks -and $entry[1] -eq $pack.Size) {
+            if ($cache.Texts.TryGetValue($contentIndexFile.Path, [ref]$entry) -and $entry[0] -eq $contentIndexFile.Ticks -and $entry[1] -eq $contentIndexFile.Size) {
                 $text = $entry[2]
                 $places = $entry[3]
                 $cached = $true
@@ -60,7 +60,7 @@ function searchPackFiles {
         }
         if ($null -eq $text) {
             try {
-                $stream = [System.IO.FileStream]::new($pack.Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
+                $stream = [System.IO.FileStream]::new($contentIndexFile.Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
                 $reader = [System.IO.StreamReader]::new($stream, [System.Text.Encoding]::Unicode, $true)
                 try { $text = $reader.ReadToEnd() } finally { $reader.Dispose() }
             } catch [System.IO.IOException] {
@@ -71,27 +71,27 @@ function searchPackFiles {
         }
         # 一致しなければ、場所の一覧も作らずに次へ（場所の一覧は、一致したときか、キャッシュに入れるときだけ作る）。
         # 全文への照合が時間切れなら、このファイルは 1 行ずつ照合する
-        $packMode = $mode
+        $contentIndexMode = $mode
         $matched = $true
-        if ($packMode -ne "scan") {
+        if ($contentIndexMode -ne "scan") {
             try {
                 $matched = $textRegex.IsMatch($text)
             } catch [System.Text.RegularExpressions.RegexMatchTimeoutException] {
-                $packMode = "scan"
+                $contentIndexMode = "scan"
             }
         }
         if ($null -eq $places -and ($matched -or $null -ne $cache)) {
-            $places = readPackPlaces $text
+            $places = readContentIndexPlaces $text
         }
         if ($null -ne $cache -and !$cached) {
             [System.Threading.Monitor]::Enter($cache)
             try {
                 $old = $null
-                if ($cache.Texts.TryRemove($pack.Path, [ref]$old)) {
+                if ($cache.Texts.TryRemove($contentIndexFile.Path, [ref]$old)) {
                     $cache.Chars[0] -= $old[2].Length
                 }
                 if ($cache.Chars[0] + $text.Length -le $cache.MaxChars) {
-                    $cache.Texts[$pack.Path] = [object[]]@($pack.Ticks, $pack.Size, $text, $places, $cache.Generation[0])
+                    $cache.Texts[$contentIndexFile.Path] = [object[]]@($contentIndexFile.Ticks, $contentIndexFile.Size, $text, $places, $cache.Generation[0])
                     $cache.Chars[0] += $text.Length
                 }
             } finally {
@@ -101,7 +101,7 @@ function searchPackFiles {
         if (!$matched) { continue }
 
         $before = $hits.Count
-        $lineMode = $packMode -eq "lines"
+        $lineMode = $contentIndexMode -eq "lines"
         if ($lineMode) {
             try {
                 $length = $text.Length
@@ -127,7 +127,7 @@ function searchPackFiles {
                     if ($p -ge $places.Count) { break }
                     $place = $places[$p]
                     if ($p -ne $lastP) {
-                        $isTextBook = ((getPackFileKind $place.Book) -eq "テキスト")
+                        $isTextBook = ((getContentIndexFileKind $place.Book) -eq "テキスト")
                         $lastP = $p
                     }
                     $skip = ($include -and !$include.IsMatch($place.Book)) -or ($exclude -and $exclude.IsMatch($place.Book)) -or
@@ -157,7 +157,7 @@ function searchPackFiles {
                         $line = truncateHitLine $line ($index - $lineStart)
                     }
                     $hits.Add([pscustomobject]@{
-                        Root = $pack.Root; RelPath = $pack.RelPath; RelDir = $pack.RelDir; FileName = $place.Book
+                        Root = $contentIndexFile.Root; RelPath = $contentIndexFile.RelPath; RelDir = $contentIndexFile.RelDir; FileName = $place.Book
                         Book = $place.Book; Location = $place.Location; LineNumber = $number; Line = $line
                     })
                     if ($max -ge 0 -and $hits.Count -gt $max) { return , $hits }
@@ -175,7 +175,7 @@ function searchPackFiles {
             if ($include -and !$include.IsMatch($place.Book)) { continue }
             if ($exclude -and $exclude.IsMatch($place.Book)) { continue }
             if ($excludePlace -and $excludePlace.IsMatch($place.Location)) { continue }
-            $isTextBook = ((getPackFileKind $place.Book) -eq "テキスト")
+            $isTextBook = ((getContentIndexFileKind $place.Book) -eq "テキスト")
             $number = 0
             $pos = $place.Start
             while ($pos -lt $place.End) {
@@ -191,7 +191,7 @@ function searchPackFiles {
                     $line = truncateHitLine $line $lineMatch.Index
                 }
                 $hits.Add([pscustomobject]@{
-                    Root = $pack.Root; RelPath = $pack.RelPath; RelDir = $pack.RelDir; FileName = $place.Book
+                    Root = $contentIndexFile.Root; RelPath = $contentIndexFile.RelPath; RelDir = $contentIndexFile.RelDir; FileName = $place.Book
                     Book = $place.Book; Location = $place.Location; LineNumber = $number; Line = $line
                 })
                 if ($max -ge 0 -and $hits.Count -gt $max) { return , $hits }
@@ -202,14 +202,14 @@ function searchPackFiles {
 }
 
 
-# 集約ファイルの検索で、1 つのスレッドにまとめて渡す大きさの目安（バイト）
-${packTaskBytes} = 16MB
+# 本文インデックスのファイルの検索で、1 つのスレッドにまとめて渡す大きさの目安（バイト）
+${contentIndexTaskBytes} = 16MB
 
-# 集約ファイルの検索の各スレッドで動かすスクリプト。@{ Hits; Timeout } を返す
-${packWorkerScript} = {
-    param ($packs, $start, $count, $regex, $max, $textRegex, $scanMode, $cache, $include, $exclude, $excludePlace)
+# 本文インデックスのファイルの検索の各スレッドで動かすスクリプト。@{ Hits; Timeout } を返す
+${contentIndexWorkerScript} = {
+    param ($contentIndexFiles, $start, $count, $regex, $max, $textRegex, $scanMode, $cache, $include, $exclude, $excludePlace)
     try {
-        $hits = searchPackFiles $packs $start $count $regex $max $textRegex $scanMode $cache $include $exclude $excludePlace
+        $hits = searchContentIndexFiles $contentIndexFiles $start $count $regex $max $textRegex $scanMode $cache $include $exclude $excludePlace
         @{ Hits = $hits; Timeout = $false }
     } catch {
         if ($_.Exception -is [System.Text.RegularExpressions.RegexMatchTimeoutException] -or
@@ -222,32 +222,32 @@ ${packWorkerScript} = {
 }
 
 
-function newPackWorkerPool {
-    # 集約ファイルの照合のプール（WorkerPool）を作る。各スレッドには照合に要る関数と値だけを読み込む。
+function newContentIndexWorkerPool {
+    # 本文インデックスのファイルの照合のプール（WorkerPool）を作る。各スレッドには照合に要る関数と値だけを読み込む。
     # 利用者が結果を待つ処理のため、優先度は下げない（docs/design/structure/threads.md「スレッドの一覧」）
     param (
         [int]$workers = (getWorkerCount)
     )
 
-    $state = newWorkerState @("searchPackFiles", "testCellPrefixedHit", "readPackPlaces", "testPackCellPrefixed", "convertPackMetaToPlace", "decodePackValue", "getPackFileKind", "testTextExtension", "truncateHitLine") `
-        @("packMark", "packVersion", "packPlaceKeys", "placeKindShape", "placeKindComment", "placeKindHeaderFooter", "placeKindEmbed", "textExtensions", "hitLineMaxChars", "hitLineBeforeMatchChars")
+    $state = newWorkerState @("searchContentIndexFiles", "testCellPrefixedHit", "readContentIndexPlaces", "testContentIndexCellPrefixed", "convertContentIndexMetaToPlace", "decodeContentIndexValue", "getContentIndexFileKind", "testTextExtension", "truncateHitLine") `
+        @("contentIndexMark", "contentIndexVersion", "contentIndexPlaceKeys", "placeKindShape", "placeKindComment", "placeKindHeaderFooter", "placeKindEmbed", "textExtensions", "hitLineMaxChars", "hitLineBeforeMatchChars")
     return [WorkerPool]::new($workers, $state, $Host, "Normal")
 }
 
 
-function splitPackTasks {
-    # 集約ファイルの並びを、1 つのスレッドに渡す単位（@{ Start; Count }）に分ける（合計がおよそ packTaskBytes になるまでまとめる）
+function splitContentIndexTasks {
+    # 本文インデックスのファイルの並びを、1 つのスレッドに渡す単位（@{ Start; Count }）に分ける（合計がおよそ contentIndexTaskBytes になるまでまとめる）
     param (
-        $packs,
-        [long]$taskBytes = ${packTaskBytes}
+        $contentIndexFiles,
+        [long]$taskBytes = ${contentIndexTaskBytes}
     )
 
     $tasks = New-Object System.Collections.Generic.List[hashtable]
     $start = 0
     $bytes = 0L
-    for ($i = 0; $i -lt $packs.Count; $i++) {
-        $bytes += [long]$packs[$i].Size
-        if ($bytes -ge $taskBytes -or $i -eq $packs.Count - 1) {
+    for ($i = 0; $i -lt $contentIndexFiles.Count; $i++) {
+        $bytes += [long]$contentIndexFiles[$i].Size
+        if ($bytes -ge $taskBytes -or $i -eq $contentIndexFiles.Count - 1) {
             $tasks.Add(@{ Start = $start; Count = $i - $start + 1 })
             $start = $i + 1
             $bytes = 0L
@@ -257,25 +257,25 @@ function splitPackTasks {
 }
 
 
-function searchPackIndex {
-    # 集約ファイルをワードで検索し、ヒットした行を返す（画面の検索処理）。
-    #   packs        : getPackFiles・getIndexPackFiles の結果
+function searchContentIndex {
+    # 本文インデックスのファイルをワードで検索し、ヒットした行を返す（画面の検索処理）。
+    #   contentIndexFiles        : findContentIndexFiles・getContentIndexFiles の結果
     #   simpleMatch  : $true なら文字どおりに検索する。$false なら正規表現として検索し、正規表現として不正なら文字どおりに検索する
     #   limit        : 件数の上限（0 は上限なし）。超えたら打ち切る
     #   shouldStop   : $true を返すと中止する
     #   caseSensitive: 英字の大文字・小文字を区別する（newSearchRegex）
     #   fileFilter   : 対象ファイル（newFileFilter）。元のファイル名が一致しないものは検索しない
     #   workerCount  : 並列に検索するスレッドの数（0 は CPU のコア数から決める。最大 4）
-    #   cache        : 読んだ集約ファイルの内容を次の検索で使い回す入れ物（newTsvTextCache。$null は使い回さない）
+    #   cache        : 読んだ本文インデックスのファイルの内容を次の検索で使い回す入れ物（newTsvTextCache。$null は使い回さない）
     #   includeShapes / includeComments: 図形・コメントの場所（"<シート名>[図形]" 等）も検索する（newPlaceExclude）
     #   taskBytes    : 1 つのスレッドにまとめて渡す大きさの目安（バイト）
-    #   onProgress   : 1 つの作業を照合するたびに呼ぶ { param($done, $total, $newHits) }（done・total は集約ファイルの数）
-    #   pool         : 照合に使うプール（newPackWorkerPool。検索の司令が使い回す）。$null なら、並列にするときだけ作って最後に閉じる
-    # @{ Hits; SimpleMatch（実際に文字どおり検索したか）; Total（集約ファイルの数）; Truncated; Cancelled } を返す。
-    # Hits の各要素は PSCustomObject（Root; RelPath（集約ファイル）; RelDir; FileName; Book; Location; LineNumber; Line）
+    #   onProgress   : 1 つの作業を照合するたびに呼ぶ { param($done, $total, $newHits) }（done・total は本文インデックスのファイルの数）
+    #   pool         : 照合に使うプール（newContentIndexWorkerPool。検索の司令が使い回す）。$null なら、並列にするときだけ作って最後に閉じる
+    # @{ Hits; SimpleMatch（実際に文字どおり検索したか）; Total（本文インデックスのファイルの数）; Truncated; Cancelled } を返す。
+    # Hits の各要素は PSCustomObject（Root; RelPath（本文インデックスのファイル）; RelDir; FileName; Book; Location; LineNumber; Line）
     param (
         [string]$word,
-        $packs,
+        $contentIndexFiles,
         [bool]$simpleMatch = $false,
         [int]$limit = 0,
         [scriptblock]$shouldStop = $null,
@@ -285,7 +285,7 @@ function searchPackIndex {
         $cache = $null,
         [bool]$includeShapes = $true,
         [bool]$includeComments = $true,
-        [long]$taskBytes = ${packTaskBytes},
+        [long]$taskBytes = ${contentIndexTaskBytes},
         [scriptblock]$onProgress = $null,
         $pool = $null
     )
@@ -294,9 +294,9 @@ function searchPackIndex {
     $filter = newFileFilter $fileFilter
     $excludePlace = newPlaceExclude $includeShapes $includeComments
     $hits = New-Object System.Collections.Generic.List[psobject]
-    $result = @{ Hits = $hits; SimpleMatch = $search.SimpleMatch; Total = $packs.Count; Truncated = $false; Cancelled = $false }
+    $result = @{ Hits = $hits; SimpleMatch = $search.SimpleMatch; Total = $contentIndexFiles.Count; Truncated = $false; Cancelled = $false }
     $timeoutMessage = "正規表現の照合に時間がかかりすぎるため、検索を中止しました。正規表現を見直してください。"
-    $tasks = splitPackTasks $packs $taskBytes
+    $tasks = splitContentIndexTasks $contentIndexFiles $taskBytes
     $workers = if ($pool) { $pool.Size } elseif ($workerCount -gt 0) { $workerCount } else { getWorkerCount }
     if ($tasks.Count -lt 2) { $workers = 1 }
 
@@ -306,7 +306,7 @@ function searchPackIndex {
         if ($workers -le 1) {
             $pool = $null
         } elseif ($null -eq $pool) {
-            $ownPool = newPackWorkerPool $workers
+            $ownPool = newContentIndexWorkerPool $workers
             $pool = $ownPool
         }
         $next = 0
@@ -319,7 +319,7 @@ function searchPackIndex {
                 while ($pending.Count -lt $workers * 2 -and $next -lt $tasks.Count) {
                     $max = if ($limit -gt 0) { $limit - $hits.Count } else { -1 }
                     $task = $tasks[$next]
-                    $job = $pool.Submit(${packWorkerScript}.ToString(), @($packs, $task.Start, $task.Count, $search.Regex, $max, $search.TextRegex,
+                    $job = $pool.Submit(${contentIndexWorkerScript}.ToString(), @($contentIndexFiles, $task.Start, $task.Count, $search.Regex, $max, $search.TextRegex,
                             $search.ScanMode, $cache, $filter.Include, $filter.Exclude, $excludePlace))
                     $job.Done = $task.Start + $task.Count
                     $pending.Enqueue($job)
@@ -335,7 +335,7 @@ function searchPackIndex {
                 $done = $task.Start + $task.Count
                 $max = if ($limit -gt 0) { $limit - $hits.Count } else { -1 }
                 try {
-                    $newHits = searchPackFiles $packs $task.Start $task.Count $search.Regex $max $search.TextRegex $search.ScanMode $cache $filter.Include $filter.Exclude $excludePlace
+                    $newHits = searchContentIndexFiles $contentIndexFiles $task.Start $task.Count $search.Regex $max $search.TextRegex $search.ScanMode $cache $filter.Include $filter.Exclude $excludePlace
                 } catch [System.Text.RegularExpressions.RegexMatchTimeoutException] {
                     throw $timeoutMessage
                 }
@@ -347,7 +347,7 @@ function searchPackIndex {
             }
             $hits.AddRange($newHits)
             if ($onProgress) {
-                & $onProgress $done $packs.Count $newHits
+                & $onProgress $done $contentIndexFiles.Count $newHits
             }
             if ($result.Truncated) { break }
         }
@@ -361,12 +361,12 @@ function searchPackIndex {
 }
 
 
-function getIndexPackFiles {
-    # 検索対象の集約ファイルを集め、@{ Folders; Packs } を返す。
+function getContentIndexFiles {
+    # 検索対象の本文インデックスのファイルを集め、@{ Folders; ContentIndexFiles } を返す。
     #   folders: 検索対象インデックスのフォルダ（文字列。フォルダ以下すべて）、または
     #            @{ Root（インデックスのフォルダ）; RelPath（その中のフォルダ。空は Root 自身）; Recurse（$false は直下のファイルだけ） }
     #   Folders: フォルダごとの @{ Path; Root（フルパス）; Exists; Count }
-    #   Packs  : getPackFiles の結果をつないだもの（入れ子のフォルダを選んでも重複しない）
+    #   ContentIndexFiles  : findContentIndexFiles の結果をつないだもの（入れ子のフォルダを選んでも重複しない）
     #   onProgress: 数えた件数を知らせる { param($count) }
     param (
         [object[]]$folders = @($workspace.IndexDir),
@@ -374,7 +374,7 @@ function getIndexPackFiles {
     )
 
     $folderInfo = New-Object System.Collections.Generic.List[object]
-    $packs = New-Object System.Collections.Generic.List[hashtable]
+    $contentIndexFiles = New-Object System.Collections.Generic.List[hashtable]
     $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($target in $folders) {
         if ($target -is [string]) {
@@ -387,14 +387,14 @@ function getIndexPackFiles {
             continue
         }
         $root = (Resolve-Path -LiteralPath $target.Root).ProviderPath.TrimEnd("\")
-        $found = getPackFiles $root $relPath ([bool]$target.Recurse)
+        $found = findContentIndexFiles $root $relPath ([bool]$target.Recurse)
         $folderInfo.Add(@{ Path = $dir; Root = $root; Exists = $true; Count = $found.Count })
-        foreach ($pack in $found) {
-            if ($seen.Add($pack.Path)) { $packs.Add($pack) }
+        foreach ($contentIndexFile in $found) {
+            if ($seen.Add($contentIndexFile.Path)) { $contentIndexFiles.Add($contentIndexFile) }
         }
-        if ($onProgress) { & $onProgress $packs.Count }
+        if ($onProgress) { & $onProgress $contentIndexFiles.Count }
     }
-    # フォルダの順、フォルダの中は名前の順（getPackFiles と同じ）。検索対象を複数選んだときも順が崩れないよう並べ直す
-    $sorted = [hashtable[]]@($packs | Sort-Object @{ Expression = { $_.Root } }, @{ Expression = { $_.RelDir } }, @{ Expression = { [System.IO.Path]::GetFileName($_.RelPath) } })
-    return @{ Folders = $folderInfo.ToArray(); Packs = $sorted }
+    # フォルダの順、フォルダの中は名前の順（findContentIndexFiles と同じ）。検索対象を複数選んだときも順が崩れないよう並べ直す
+    $sorted = [hashtable[]]@($contentIndexFiles | Sort-Object @{ Expression = { $_.Root } }, @{ Expression = { $_.RelDir } }, @{ Expression = { [System.IO.Path]::GetFileName($_.RelPath) } })
+    return @{ Folders = $folderInfo.ToArray(); ContentIndexFiles = $sorted }
 }
