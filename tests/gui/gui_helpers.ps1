@@ -160,7 +160,9 @@ function getGuiProcessCommand {
         $action = '{ $o = ''thr='' + @((Get-Process -Id $PID).Threads).Count; try { $o += '' rs='' + (@(Get-Runspace | ForEach-Object { [string]$_.RunspaceStateInfo.State }) -join ''/''); $a = [System.Windows.Application]::Current; $o += '' App='' + ($null -ne $a) } catch { $o += '' 例外'' }; [IO.File]::WriteAllText(''EXITINGPATH'' + $PID + ''.txt'', (Get-Date).ToString(''o'') + '' '' + $o) }'.Replace('EXITINGPATH', $exiting)
         $head = "[void](Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action $action); "
     }
-    return "`$env:TEBUNKO_CLOSE_TRACE = '1'; $head& '$gui'; `$r = `$?; `$c = `$LASTEXITCODE; $write; if (!`$r) { exit 1 }$tail"
+    # 【一時】notrace・noprod: 本体の跡のファイル追記を止める（TEBUNKO_CLOSE_TRACE を 1 にしない）
+    $traceFlag = if ($variants -contains 'notrace' -or $variants -contains 'noprod') { '0' } else { '1' }
+    return "`$env:TEBUNKO_CLOSE_TRACE = '$traceFlag'; $head& '$gui'; `$r = `$?; `$c = `$LASTEXITCODE; $write; if (!`$r) { exit 1 }$tail"
 }
 
 function startGuiProcess {
@@ -301,8 +303,37 @@ function captureGuiHangMaterial {
             [void]$out.Add("---- cdb ---- 失敗: " + $_.Exception.Message)
         }
     }
+    # 20 秒の時点で、窓の状態をもう一度取り、同じ窓にもう一度 WindowPattern.Close を送って 5 秒までに終わるかを記録する（スタックを取った後）
+    try {
+        $again = @(getGuiWindowStates $S) -join ' / '
+        $t0 = Get-Date
+        $sendErr = "なし"
+        try { closeGuiWindowAsync $S $S.Window "20 秒後の再送" } catch { $sendErr = $_.Exception.Message }
+        while (!$S.Process.HasExited -and ((Get-Date) - $t0).TotalSeconds -lt 5) { Start-Sleep -Milliseconds 100 }
+        $secs = [Math]::Round(((Get-Date) - $t0).TotalSeconds, 1)
+        [void]$out.Add("再送 窓の状態(再取得)=" + $again + " 再送の例外=" + $sendErr + " 結果=" + $(if ($S.Process.HasExited) { "再送のあと ${secs} 秒で終わった（1 回目の閉じる要求が失われた材料）" } else { "5 秒たっても終わらない" }))
+    } catch {
+        [void]$out.Add("再送 失敗: " + $_.Exception.Message)
+    }
     $S.HangMaterial = $out
     foreach ($l in $out) { Write-Host ("GUI-HANGMAT 場面=" + $S.Scene + " " + $l) }
+}
+
+function removeGuiToolTrace {
+    # 【一時】ツールの写し（$Tool.Dir 配下）から、閉じる道の跡を全部外す（writeCloseTrace の呼び出し・2 つ目の Add_Closing・Add_Closed・診断のブロック）。
+    # 直し（InvokeShutdown）は残す。写しだけを変え、元の scripts は変えない
+    param ($Tool)
+
+    $enc = New-Object System.Text.UTF8Encoding($true)
+    foreach ($rel in "scripts\tebunko\ui\gui_main.ps1", "scripts\tebunko\gui.ps1") {
+        $path = Join-Path $Tool.Dir $rel
+        $text = [IO.File]::ReadAllText($path, $enc)
+        $text = [regex]::Replace($text, '(?s)    # 【一時】閉じる道の跡（出口と Closed）\r?\n.*?    \}\)\r?\n    \$window\.Add_Closed\(\{\r?\n.*?\r?\n    \}\)\r?\n', '')
+        $text = [regex]::Replace($text, '(?s)        try \{\r?\n            \$diagJobs.*?\} catch \{ writeCloseTrace[^\r\n]*\}\r?\n', '')
+        $text = [regex]::Replace($text, '(?m)^[ \t]*writeCloseTrace [^\r\n]*\r?\n', '')
+        [IO.File]::WriteAllText($path, $text, $enc)
+        if ($text -match 'writeCloseTrace [("]' -or $text -match 'Add_Closed') { throw "跡が外れていない: $rel" }
+    }
 }
 
 function getGuiClosePathLines {

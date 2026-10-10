@@ -1,5 +1,5 @@
 ﻿# 【一時】Dispatcher を止める直しで、終了コード 5 が出なくなるかを確かめる（確かめが済んだら消す）。
-# 条件ごとに画面を 50 回ずつ起動して閉じる。落ちた条件は、場面の名前（条件の名前-回）と終了の記録で分かる。
+# 条件ごとに画面を 100 回ずつ起動して閉じる。落ちた条件は、場面の名前（条件の名前-回）と終了の記録で分かる。
 # 環境変数 TEBUNKO_BISECT が立っているときだけ条件を作る（ふだんの Gui の実行では何もしない）。
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
@@ -8,19 +8,23 @@ BeforeAll {
 
 Describe "終了コードの切り分け" -Tag Gui {
     BeforeAll {
-        $script:toolIndex = newGuiTool (Join-Path $TestDrive "index")
-        newGuiSampleIndex $script:toolIndex (Join-Path $TestDrive "index_root")
+        # 型 P: 本体の跡を全部外した写し。型 Q: 跡の呼び出しは残し、ファイル追記だけ止める（本体はそのまま）
+        $script:toolP = newGuiTool (Join-Path $TestDrive "indexP")
+        removeGuiToolTrace $script:toolP
+        newGuiSampleIndex $script:toolP (Join-Path $TestDrive "index_rootP")
+        $script:toolQ = newGuiTool (Join-Path $TestDrive "indexQ")
+        newGuiSampleIndex $script:toolQ (Join-Path $TestDrive "index_rootQ")
     }
 
     It "<Name>" -ForEach (@(
         if ($env:TEBUNKO_BISECT) {
-            foreach ($n in 1..50) {
-                @{ Name = "V1開閉とバージョン情報-$n"; Op = "about"; Variant = "exiting" }
-                @{ Name = "C2Exit-$n"; Op = "about"; Variant = "exiting,envexit" }
+            foreach ($n in 1..100) {
+                @{ Name = "P跡なし-$n"; Op = "about"; Variant = "exiting,noprod"; Kind = "P" }
+                @{ Name = "Q追記なし-$n"; Op = "about"; Variant = "exiting,notrace"; Kind = "Q" }
             }
         }
     ) | Where-Object { !$env:TEBUNKO_BISECT_ONLY -or $_.Name -eq $env:TEBUNKO_BISECT_ONLY }) {
-        $tool = $script:toolIndex
+        $tool = if ($Kind -eq "P") { $script:toolP } else { $script:toolQ }
         $env:TEBUNKO_TEST_EXIT_VARIANT = $Variant
         try {
             $S = startGui $tool $Name
