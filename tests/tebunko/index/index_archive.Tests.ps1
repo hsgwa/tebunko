@@ -966,3 +966,45 @@ Describe "testImportFreeSpace" -Tag Unit {
         if ($expectEmpty) { $reason | Should -Be "" } else { $reason | Should -BeLike "*空き容量*" }
     }
 }
+
+Describe "getImportArchiveInfo" -Tag Io {
+    It "目録の元のフォルダが <label> のとき、Test-Path を呼ばず SourceExists は `$null" -TestCases @(
+        @{ label = "UNC"; folder = "\\server\share" }
+        @{ label = "\\?\UNC\ の書き方"; folder = "\\?\UNC\server\share" }
+        @{ label = "末尾に \ が付いた UNC"; folder = "\\server\share\営業\" }
+    ) {
+        param ($folder)
+        $sourceFolder = $folder
+        Mock readIndexArchiveInfo { @{ IndexName = "営業"; SourceFolder = $sourceFolder } }.GetNewClosure()
+        Mock Test-Path { $true }
+
+        $info = getImportArchiveInfo "$TestDrive\dummy.zip"
+
+        $info.SourceExists | Should -Be $null
+        $info.IndexName | Should -Be "営業"
+        Should -Invoke Test-Path -Times 0 -Exactly
+    }
+
+    It "ローカルの元のフォルダは、有る・無いが真偽で入る" -TestCases @(
+        @{ label = "有る"; exists = $true }
+        @{ label = "無い"; exists = $false }
+    ) {
+        param ($exists)
+        $folder = "$TestDrive\local_$exists"
+        if ($exists) {
+            [System.IO.Directory]::CreateDirectory($folder) | Out-Null
+        }
+        $sourceFolder = $folder
+        Mock readIndexArchiveInfo { @{ IndexName = "営業"; SourceFolder = $sourceFolder } }.GetNewClosure()
+
+        $info = getImportArchiveInfo "$TestDrive\dummy.zip"
+
+        $info.SourceExists | Should -Be $exists
+    }
+
+    It "元のフォルダが空なら false" {
+        Mock readIndexArchiveInfo { @{ IndexName = "営業"; SourceFolder = "" } }
+
+        (getImportArchiveInfo "$TestDrive\dummy.zip").SourceExists | Should -Be $false
+    }
+}

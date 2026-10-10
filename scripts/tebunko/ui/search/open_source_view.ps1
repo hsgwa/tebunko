@@ -86,3 +86,91 @@ function getSourceConnectFailureDialog {
         Hint    = "アクセスの権限・サインインを確かめてください"
     }
 }
+
+# ---- もらったインデックスの元のフォルダを確かめる ----
+
+# マクロ（ファイルの中に仕込まれたプログラム）を持てる形式。もらったインデックスのものは、読み取り専用で開く
+${macroCapableExtensions} = @(".xlsm", ".xlsb", ".xls", ".docm", ".doc", ".pptm", ".ppt")
+
+function testSourceNeedsConfirm {
+    # 元のフォルダに触れる前に、利用者に確かめるかを返す。
+    # 元のフォルダが分かっていて（known）、そのインデックス名が確かめ済みの名前（設定の targetFolders・indexSources）に無いとき真。
+    # 名前が空・元のフォルダが分からないときは偽（フォルダを選んでもらう流れに進む）
+    param (
+        [string]$name,
+        [bool]$known,
+        [string[]]$confirmedNames = @()
+    )
+
+    if (!$known -or $name -eq "") {
+        return $false
+    }
+    foreach ($confirmed in @($confirmedNames)) {
+        if ($confirmed -ieq $name) {
+            return $false
+        }
+    }
+    return $true
+}
+
+function getSourceConfirmDialog {
+    # もらったインデックスの元のフォルダを確かめるダイアログの中身。
+    #   isNetwork: 元のフォルダがネットワークの場所か（真なら、接続とサインイン情報について注意を足す）
+    # 返すもの: @{ Heading; Title; Detail; Hint; UseText; PickText }
+    param (
+        [string]$book,
+        [string]$name,
+        [string]$folder,
+        [bool]$isNetwork
+    )
+
+    $hint = "［このフォルダを使う］を選ぶと、次からはこのインデックスについて聞きません"
+    if ($isNetwork) {
+        $hint = "開くと、このフォルダに接続し、Windows のサインイン情報が送られることがあります。心当たりのない場所なら、［フォルダを選ぶ］で別のフォルダを選んでください。" + $hint
+    }
+    return @{
+        Heading  = "${book} の元のフォルダを確かめてください"
+        Title    = "インデックス [${name}] に書かれた元のフォルダ"
+        Detail   = $folder
+        Hint     = $hint
+        UseText  = "このフォルダを使う"
+        PickText = "フォルダを選ぶ"
+    }
+}
+
+function getSourceConfirmCanceledStatus {
+    # 元のフォルダの確認でキャンセルしたときのステータス
+    return "開くのをやめました"
+}
+
+function getSourceOpenMode {
+    # 元のファイルの開き方を決める。もらったインデックス（received）のマクロを持てる形式（${macroCapableExtensions}）は、
+    # 開き方が通常・新規でも読み取り専用にする。
+    # 返すもの: @{ Mode; Notice; Strict }
+    #   Notice: 開けたときに添えて出す知らせ（読み取り専用に替えなかったとき、もう読み取り専用だったときは空）
+    #   Strict: 読み取り専用で開けないとき、通常に落とさず開かないこと
+    param (
+        [string]$book,
+        [string]$mode,
+        [bool]$received
+    )
+
+    $extension = [System.IO.Path]::GetExtension($book).ToLowerInvariant()
+    if (!$received -or ${macroCapableExtensions} -notcontains $extension) {
+        return @{ Mode = $mode; Notice = ""; Strict = $false }
+    }
+    $notice = ""
+    if ($mode -ne ${openModeReadOnly}) {
+        $notice = "もらったインデックスのため、マクロを持てる形式は読み取り専用で開きます"
+    }
+    return @{ Mode = ${openModeReadOnly}; Notice = $notice; Strict = $true }
+}
+
+function getSourceReadOnlyFailedStatus {
+    # 読み取り専用で開けなかったとき（通常で開くとマクロが動くことがあるため、開かない）のステータス
+    param (
+        [string]$path
+    )
+
+    return "もらったインデックスのファイルは読み取り専用で開けなかったため、開きませんでした。［ファイルのパスをコピー］で場所を調べ、確かめてから開いてください：${path}"
+}

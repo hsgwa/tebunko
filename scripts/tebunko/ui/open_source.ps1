@@ -162,6 +162,27 @@ function continueFindSourceFile {
         promptSourceMissing $location $book (joinSourcePath $row.Root $row.RelDir $book) $relPath "" $onFound
         return
     }
+    if ($requestId -ne $requestBox.Value) {
+        # 場所を調べている間に別の行を開いた・新しく検索した・ワークスペースを変えた。前の依頼は捨てる（確認も出さない）
+        return
+    }
+    if (testSourceNeedsConfirm $location.Name $location.Known (getConfirmedSourceNames).Confirmed) {
+        # 設定に無い名前（content_index\ に手でコピーしたインデックス）の元のフォルダは、持ち主が書いたもの。
+        # 元のフォルダに触れる前（有無の確認・ネットワークへの接続の前）に利用者に確かめる
+        $answer = promptSourceConfirm $location $book
+        if ($answer -eq "pick") {
+            $path = joinSourcePath $location.Folder $location.Rest $book
+            $relPath = if ($location.Rest) { "$($location.Rest)\$book" } else { $book }
+            promptSourceMissing $location $book $path $relPath "" $onFound -pickFirst
+            return
+        }
+        if ($answer -ne "use") {
+            setStatus (getSourceConfirmCanceledStatus)
+            return
+        }
+        setIndexSourceFolder $location.Name $location.Folder
+        $script:sourceFolderMaps = @{}
+    }
     if (!(testNetworkPath $location.Folder)) {
         & $apply (findSourceFileState $location $book)
         return
@@ -237,6 +258,20 @@ function promptSourceConnectFailure {
     }
 }
 
+function promptSourceConfirm {
+    # もらったインデックスの元のフォルダを、使う前に利用者に確かめる。"use"（このフォルダを使う）・"pick"（フォルダを選ぶ）、
+    # キャンセルは $null を返す
+    param (
+        $location,
+        [string]$book
+    )
+
+    $dialog = getSourceConfirmDialog $book $location.Name $location.Folder (testNetworkPath $location.Folder)
+    return (showConfirm -title "元のフォルダを確かめてください" -heading $dialog.Heading -hint $dialog.Hint `
+        -facts @((factWarn $dialog.Title $dialog.Detail)) `
+        -choices @(@{ Text = $dialog.PickText; Value = "pick" }, @{ Text = $dialog.UseText; Value = "use" }))
+}
+
 function promptSourceMissing {
     # 見つからない・記録が無いとき、フォルダを選んでもらって探す（見つかるまで繰り返す）。
     # findMovedSource は、選んだ直後のフォルダ（届いている）を調べるため画面のスレッドのままにする。
@@ -249,7 +284,8 @@ function promptSourceMissing {
         [string]$path,
         [string]$relPath,
         [string]$initial,
-        [scriptblock]$onFound
+        [scriptblock]$onFound,
+        [switch]$pickFirst   # 最初の「見つかりません」の確認を飛ばして、すぐフォルダ選択から始める
     )
 
     if ($location.Known) {
@@ -262,12 +298,14 @@ function promptSourceMissing {
         $description = "$book のあるフォルダ（またはインデックス [$($location.Name)] の元のフォルダ）を選んでください"
     }
     $facts = @()
+    $skipConfirm = [bool]$pickFirst
     while ($true) {
-        if ((showConfirm -title "元のファイルが見つかりません" -heading $heading -hint $hint -facts $facts `
+        if (!$skipConfirm -and (showConfirm -title "元のファイルが見つかりません" -heading $heading -hint $hint -facts $facts `
                 -choices @(@{ Text = "フォルダを選ぶ"; Value = "pick" })) -ne "pick") {
             setStatus (getSourceNotFoundStatus $path)
             return
         }
+        $skipConfirm = $false
         $picked = selectFolder $description $initial
         if (!$picked) {
             setStatus (getSourceNotFoundStatus $path)
@@ -298,9 +336,11 @@ function openWithShell {
     # ファイルを既定のアプリで開く。開き方（mode）は、エクスプローラーの右クリックメニューと同じ動詞で行う。
     #   読み取り専用 → OpenAsReadOnly、新規 → New（元のファイルを基にした無題の文書。元のファイルを占有しない）
     # その動詞が登録されていない種類のファイルは、そのまま開いて $false を返す
+    # （noFallback のときは、そのまま開かずに $false を返す。もらったインデックスのマクロを持てる形式を、通常で開かないため）
     param (
         [string]$path,
-        [string]$mode
+        [string]$mode,
+        [switch]$noFallback
     )
 
     $verb = switch ($mode) {
@@ -320,6 +360,9 @@ function openWithShell {
         } catch [System.ComponentModel.Win32Exception] {
             # その動詞が登録されていない
         }
+    }
+    if ($noFallback) {
+        return $false
     }
     Invoke-Item -LiteralPath $path
     return (-not $verb)
@@ -368,21 +411,36 @@ function openInExcel {
         $excel.UserControl = $true
     }
 
+    # プログラムから開いたときの Excel の既定はマクロ有効のため、開く間だけ Excel の設定に従う（msoAutomationSecurityByUI = 2。
+    # 既定ではマクロを止めて警告する）にし、開き終えたら元の値に戻す（使っていた Excel の設定を変えたままにしない）
+    $previousSecurity = $null
+    try {
+        $previousSecurity = $excel.AutomationSecurity
+        $excel.AutomationSecurity = 2
+    } catch {
+        $previousSecurity = $null
+    }
     $book = $null
-    if ($mode -eq ${openModeNew}) {
-        # 元のファイルをテンプレートとして新しいブックを作る（読み込んだ後は元のファイルを開いたままにしない）
-        $book = $excel.Workbooks.Add($path)
-    } else {
-        # 既に開いているブックがあれば、そのまま使う（同じブックを二重に開けないため。開き方も既に開いたときのまま）
-        foreach ($openBook in $excel.Workbooks) {
-            if ($openBook.FullName -eq $path) {
-                $book = $openBook
-                break
+    try {
+        if ($mode -eq ${openModeNew}) {
+            # 元のファイルをテンプレートとして新しいブックを作る（読み込んだ後は元のファイルを開いたままにしない）
+            $book = $excel.Workbooks.Add($path)
+        } else {
+            # 既に開いているブックがあれば、そのまま使う（同じブックを二重に開けないため。開き方も既に開いたときのまま）
+            foreach ($openBook in $excel.Workbooks) {
+                if ($openBook.FullName -eq $path) {
+                    $book = $openBook
+                    break
+                }
+            }
+            if ($null -eq $book) {
+                #   引数: Filename, UpdateLinks, ReadOnly
+                $book = $excel.Workbooks.Open($path, [Type]::Missing, ($mode -eq ${openModeReadOnly}))
             }
         }
-        if ($null -eq $book) {
-            #   引数: Filename, UpdateLinks, ReadOnly
-            $book = $excel.Workbooks.Open($path, [Type]::Missing, ($mode -eq ${openModeReadOnly}))
+    } finally {
+        if ($null -ne $previousSecurity) {
+            try { $excel.AutomationSecurity = $previousSecurity } catch { }
         }
     }
     $book.Activate()
@@ -536,6 +594,15 @@ function openFoundSource {
         [string]$mode
     )
 
+    # もらったインデックス（このワークスペースで自分が作ったのではないもの）のマクロを持てる形式は、読み取り専用で開く
+    $found = findSourceLocationInMaps $row $script:sourceFolderMaps
+    $crawled = @((getConfirmedSourceNames).Crawled)
+    $received = !($found.Resolved -and ($crawled -contains $found.Location.Name))
+    $openMode = getSourceOpenMode $path $mode $received
+    $mode = $openMode.Mode
+    $strict = $openMode.Strict
+    $notice = if ($openMode.Notice) { "（$($openMode.Notice)）" } else { "" }
+
     $how = switch ($mode) {
         ${openModeReadOnly} { "読み取り専用で開きました" }
         ${openModeNew}      { "新規で開きました" }
@@ -552,11 +619,13 @@ function openFoundSource {
         try {
             # 図形・コメントの場所（"<シート名>[図形]" 等）は、そのシートの図形の左上・コメントのセルを選ぶ
             openInExcel $path (splitObjectPlace $row.Location).Base $row.MatchCell $mode
-            setStatus "${how}：${path}"
+            setStatus "${how}：${path}${notice}"
         } catch {
             # Excel を操作できない場合（ダイアログを表示中など）は、ファイルを開くだけにする
-            if (openWithShell $path $mode) {
-                setStatus "${how}（該当セルへの移動はできませんでした）：${path}"
+            if (openWithShell $path $mode -noFallback:$strict) {
+                setStatus "${how}（該当セルへの移動はできませんでした）：${path}${notice}"
+            } elseif ($strict) {
+                setStatus (getSourceReadOnlyFailedStatus $path)
             } else {
                 setStatus "${fallback}（該当セルへの移動はできませんでした）：${path}"
             }
@@ -577,8 +646,10 @@ function openFoundSource {
             [void](openWithShell $path ${openModeNormal})
             setStatus "開きました：${path}"
         }
-    } elseif (openWithShell $path $mode) {
-        setStatus "${how}：${path}"
+    } elseif (openWithShell $path $mode -noFallback:$strict) {
+        setStatus "${how}：${path}${notice}"
+    } elseif ($strict) {
+        setStatus (getSourceReadOnlyFailedStatus $path)
     } else {
         setStatus "${fallback}：${path}"
     }

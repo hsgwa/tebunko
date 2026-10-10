@@ -49,11 +49,14 @@ function scan { param([string[]]$Pattern)
 | 設定 | 値 | 意味 |
 |---|---|---|
 | `AutomationSecurity` | `3`（`msoAutomationSecurityForceDisable`） | **マクロを強制的に無効にする**。マクロ有効ファイル（`.xlsm` / `.docm` / `.pptm`）でもマクロは実行されない（Excel・Word・PowerPoint とも） |
+| `AutomationSecurity`（検索結果から元の Excel ファイルを開くとき） | `2`（`msoAutomationSecurityByUI`） | 利用者の Excel のマクロの設定（セキュリティセンター）に従う。設定を緩める値（`1`）にはしない。開いた後は元の値に戻す（`tebunko/ui/open_source.ps1` の `openInExcel`）。上の `3` はインデクサ（取り込み）の設定で、利用者が編集する用途の「開く」とは分けている |
 | `EnableEvents` | `$false` | `Workbook_Open` などのイベントマクロを発火させない（Excel） |
 | `AskToUpdateLinks` | `$false`、`Workbooks.Open` の `UpdateLinks` = `0` | **外部リンクを更新しない**。他ブックや外部データソースへのアクセスが発生しない（Excel） |
 | `Visible` | `$false` | 画面に出さずに処理する（Excel・Word。PowerPoint はアプリを隠せないため、`Open` の `WithWindow` = False でウィンドウ無しで開く） |
 | `DisplayAlerts` | 無効 | ダイアログで処理が止まらないようにする |
 | `Open` の `ReadOnly` | 真 | 読み取り専用で開く（`tebunko/indexer/extract_office.ps1:122`（Excel）・`202`（Word）・`228`（PowerPoint）） |
+
+`Workbooks.Open` / `Workbooks.Add` / `Documents.Open` / `Presentations.Open` を呼ぶファイルは、`AutomationSecurity` を `2` にしていることを `tests/meta/safety.Tests.ps1` が確かめる（インデクサの `office_app.ps1` と `extract_office.ps1` は上の `3`）。もらったインデックスのマクロを持てる形式の開き方は [もらったインデックスのマクロを持てる形式](../design/gui/open-file.md#もらったインデックスのマクロを持てる形式) にある。
 
 パスワード付きファイルは、開くときに固定文字列 `"dummy"` をパスワードとして渡す（同じ 3 行）。これはパスワードを破るための処理ではなく、**パスワード入力ダイアログを出さずに確実に失敗させる**ための指定である。パスワード付きファイルは取り込まれず、`work\ingest_status.tsv` に失敗として記録される。本ツールがパスワードを入力・保存・送信することはない。
 

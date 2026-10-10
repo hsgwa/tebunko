@@ -58,3 +58,84 @@ Describe "getSourceLookingStatus / getSourceLookupFailedStatus" -Tag Unit {
         getSourceLookupFailedStatus $message | Should -Be $expected
     }
 }
+
+Describe "testSourceNeedsConfirm" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "設定に無い名前は確かめる"; name = "受領"; known = $true; confirmed = @("見積"); expected = $true }
+        @{ label = "確かめ済みの名前は確かめない"; name = "見積"; known = $true; confirmed = @("見積"); expected = $false }
+        @{ label = "大文字・小文字は区別しない"; name = "ABC"; known = $true; confirmed = @("abc"); expected = $false }
+        @{ label = "元のフォルダが分からなければ確かめない"; name = "受領"; known = $false; confirmed = @(); expected = $false }
+        @{ label = "名前が空なら確かめない"; name = ""; known = $true; confirmed = @(); expected = $false }
+        @{ label = "確かめ済みが無ければ確かめる"; name = "受領"; known = $true; confirmed = @(); expected = $true }
+    ) {
+        param ($name, $known, $confirmed, $expected)
+        testSourceNeedsConfirm $name $known $confirmed | Should -Be $expected
+    }
+}
+
+Describe "getSourceConfirmDialog / getSourceConfirmCanceledStatus" -Tag Unit {
+    It "名前と元のフォルダを入れる" {
+        $dialog = getSourceConfirmDialog "a.xlsx" "受領" "C:\共有\営業部" $false
+        $dialog.Heading | Should -BeLike "a.xlsx *"
+        $dialog.Title | Should -BeLike "*[[]受領]*"
+        $dialog.Detail | Should -Be "C:\共有\営業部"
+        $dialog.UseText | Should -Be "このフォルダを使う"
+        $dialog.PickText | Should -Be "フォルダを選ぶ"
+    }
+
+    It "ネットワークの場所のときだけ、サインイン情報の注意を足す" -TestCases @(
+        @{ isNetwork = $true; expected = $true }
+        @{ isNetwork = $false; expected = $false }
+    ) {
+        param ($isNetwork, $expected)
+        $dialog = getSourceConfirmDialog "a.xlsx" "受領" "\\server\share" $isNetwork
+        ($dialog.Hint -like "*サインイン情報*") | Should -Be $expected
+    }
+
+    It "キャンセルの文言" {
+        getSourceConfirmCanceledStatus | Should -Be "開くのをやめました"
+    }
+}
+
+Describe "getSourceOpenMode / getSourceReadOnlyFailedStatus" -Tag Unit {
+    It "もらったインデックスのマクロを持てる形式 <book> は、<mode> でも読み取り専用にする" -TestCases @(
+        @{ book = "a.xlsm"; mode = "normal" }
+        @{ book = "a.XLSM"; mode = "normal" }
+        @{ book = "a.xlsb"; mode = "new" }
+        @{ book = "a.xls"; mode = "normal" }
+        @{ book = "a.docm"; mode = "normal" }
+        @{ book = "a.doc"; mode = "new" }
+        @{ book = "a.pptm"; mode = "normal" }
+        @{ book = "a.ppt"; mode = "normal" }
+    ) {
+        param ($book, $mode)
+        $result = getSourceOpenMode $book $mode $true
+        $result.Mode | Should -Be "readOnly"
+        $result.Strict | Should -Be $true
+        $result.Notice | Should -Not -BeNullOrEmpty
+    }
+
+    It "もう読み取り専用なら知らせは空" {
+        $result = getSourceOpenMode "a.xlsm" "readOnly" $true
+        $result.Mode | Should -Be "readOnly"
+        $result.Strict | Should -Be $true
+        $result.Notice | Should -Be ""
+    }
+
+    It "<label> はそのまま開く" -TestCases @(
+        @{ label = "もらった .xlsx"; book = "a.xlsx"; received = $true }
+        @{ label = "もらった .docx"; book = "a.docx"; received = $true }
+        @{ label = "もらった .pptx"; book = "a.pptx"; received = $true }
+        @{ label = "自分で取り込んだ .xlsm"; book = "a.xlsm"; received = $false }
+    ) {
+        param ($book, $received)
+        $result = getSourceOpenMode $book "normal" $received
+        $result.Mode | Should -Be "normal"
+        $result.Strict | Should -Be $false
+        $result.Notice | Should -Be ""
+    }
+
+    It "開けなかったときの文言にパスを入れる" {
+        getSourceReadOnlyFailedStatus "C:\x\a.docm" | Should -BeLike "*C:\x\a.docm"
+    }
+}

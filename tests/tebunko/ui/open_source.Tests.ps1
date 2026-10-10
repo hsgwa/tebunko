@@ -56,10 +56,11 @@ BeforeAll {
     function getSelectedRows { }
     function getViewRows { }
     function toggleFileGroup { param($group) }
-    function showConfirm { param([string]$heading, [object[]]$facts, [object[]]$choices) }
+    function showConfirm { param([string]$title, [string]$heading, [string]$hint, [object[]]$facts, [object[]]$choices) }
     function selectFolder { param([string]$description, [string]$initial, $owner, [bool]$knownExisting) }
     function factGone { param([string]$title, [string]$detail) "✗ ${title}" }
     function factNext { param([string]$title, [string]$detail) "→ ${title}" }
+    function factWarn { param([string]$title, [string]$detail) "! ${title}" }
     function testNetworkPath { param([string]$path) $false }  # 既定はローカル。テストごとに Mock で切り替える
     function startJob {
         # 画面の裏の仕事（BackgroundQueue）の代わりに、その場で実行して結果を渡す。
@@ -113,6 +114,7 @@ Describe "findSourceFile" -Tag Io {
         $script:openSourcePendingRow.Value = $null
         $script:openSourcePendingPath.Value = ""
         $fake.BeforeDone = $null
+        Mock getConfirmedSourceNames { @{ Confirmed = @("営業"); Crawled = @("営業") } }
     }
 
     It "ローカルのパスは、画面のスレッドでその場で確かめて開く（裏の仕事は使わない）" {
@@ -407,6 +409,7 @@ Describe "元の場所の対応の読み込み（ネットワークのワーク�
         $fake.BeforeDone = $null
         Mock testNetworkPath { ([string]$path).StartsWith("\\") }
         Mock getSourceLocation { throw "画面のスレッドで対応を読んだ" }
+        Mock getConfirmedSourceNames { @{ Confirmed = @("営業"); Crawled = @("営業") } }
     }
 
     It "開く: 対応が未読なら、画面のスレッドで読まず、裏の仕事で読んでから元のファイルを確かめる" {
@@ -558,6 +561,15 @@ Describe "openWithShell" -Tag Io {
     }
 }
 
+Describe "openWithShell（-noFallback）" -Tag Io {
+    It "読み取り専用で開けなくても、既定のアプリで開き直さず `$false を返す" {
+        Mock Invoke-Item { }
+
+        openWithShell "$TestDrive\無い_open_source.docm" ${openModeReadOnly} -noFallback | Should -Be $false
+        Should -Invoke Invoke-Item -Times 0 -Exactly
+    }
+}
+
 Describe "openWithNotepad" -Tag Io {
     It "固定のパス（%SystemRoot%\System32\notepad.exe）で、対象のパスを引数にして開く" {
         Mock Start-Process { }
@@ -612,6 +624,8 @@ Describe "openSource" -Tag Unit {
     BeforeEach {
         $script:statuses = New-Object System.Collections.Generic.List[string]
         $script:openMode = $null
+        Mock getConfirmedSourceNames { @{ Confirmed = @("営業"); Crawled = @("営業") } }
+        Mock findSourceLocationInMaps { @{ Resolved = $true; Location = @{ Name = "営業" } } }
     }
 
     It "元のファイルが見つからなければ開かない" {
@@ -722,6 +736,193 @@ Describe "openSource" -Tag Unit {
         Should -Invoke openWithShell -Times 1 -Exactly -ParameterFilter { $path -eq "C:\data\解析.py" }
         Should -Invoke openWithNotepad -Times 0 -Exactly
         lastStatus | Should -Be "開きました：C:\data\解析.py"
+    }
+}
+
+Describe "findSourceFile（もらったインデックスの元のフォルダの確認）" -Tag Io {
+    BeforeEach {
+        $script:statuses = New-Object System.Collections.Generic.List[string]
+        $script:sourceFolderMaps = @{ 記録 = 1 }
+        $script:startJobCalls = 0
+        $script:foundPaths = New-Object System.Collections.Generic.List[string]
+        $script:order = New-Object System.Collections.Generic.List[string]
+        $script:hints = New-Object System.Collections.Generic.List[string]
+        $script:confirmedNow = @("営業")
+        $script:openSourcePendingRow.Value = $null
+        $script:openSourcePendingPath.Value = ""
+        $fake.BeforeDone = $null
+        # 設定に無い名前「受取」（content_index\ に手でコピーしたインデックス）。元のフォルダは共有フォルダ
+        Mock getSourceLocation { @{ Name = "受取"; Folder = "\\host\share\営業"; Rest = "sub"; Known = $true } }
+        Mock getConfirmedSourceNames { @{ Confirmed = $script:confirmedNow; Crawled = $script:confirmedNow } }
+        Mock testNetworkPath { ([string]$path).StartsWith("\\") }
+        Mock findSourceFileState {
+            $script:order.Add("state")
+            @{ State = "Found"; Path = "\\host\share\営業\sub\見積.xlsx" }
+        }
+        Mock setIndexSourceFolder { $script:order.Add("set"); $script:confirmedNow = @($script:confirmedNow) + $name }
+        Mock showConfirm {
+            $script:order.Add("confirm")
+            $script:hints.Add($hint)
+            "use"
+        }
+    }
+
+    It "設定に無い名前の元のフォルダは、フォルダに触れる前に確認する（有無の確認・接続の前）" {
+        findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
+
+        Should -Invoke showConfirm -Times 1 -Exactly -ParameterFilter { $title -eq "元のフォルダを確かめてください" }
+        $script:order -join "," | Should -Be "confirm,set,state"
+        $script:foundPaths -join "," | Should -Be "\\host\share\営業\sub\見積.xlsx"
+        Should -Invoke setIndexSourceFolder -Times 1 -Exactly -ParameterFilter { $name -eq "受取" -and $folder -eq "\\host\share\営業" }
+    }
+
+    It "共有フォルダのときは、サインイン情報が送られることがあると添える" {
+        findSourceFile (newRow) { param ($path) }
+
+        $script:hints[0] | Should -Match "サインイン情報"
+    }
+
+    It "ローカルのフォルダでも確認する（サインイン情報の注意は添えない）" {
+        Mock testNetworkPath { $false }
+        Mock getSourceLocation { @{ Name = "受取"; Folder = "C:\営業"; Rest = "sub"; Known = $true } }
+        Mock findSourceFileState { @{ State = "Found"; Path = "C:\営業\sub\見積.xlsx" } }
+
+        findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
+
+        $script:hints.Count | Should -Be 1
+        $script:hints[0] | Should -Not -Match "サインイン情報"
+        $script:foundPaths -join "," | Should -Be "C:\営業\sub\見積.xlsx"
+        $script:startJobCalls | Should -Be 0
+    }
+
+    It "キャンセルしたら、何も確かめず、何も記録せず、開くのをやめたと出す" {
+        Mock showConfirm { $script:order.Add("confirm"); $null }
+
+        findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
+
+        Should -Invoke findSourceFileState -Times 0 -Exactly
+        Should -Invoke setIndexSourceFolder -Times 0 -Exactly
+        $script:startJobCalls | Should -Be 0
+        $script:foundPaths.Count | Should -Be 0
+        lastStatus | Should -Be (getSourceConfirmCanceledStatus)
+    }
+
+    It "［フォルダを選ぶ］は、「見つかりません」の確認を挟まずにフォルダ選択から始める（選ばなければ何も記録しない）" {
+        Mock showConfirm { $script:order.Add("confirm:$title"); "pick" }
+        Mock selectFolder { $script:order.Add("select"); $null }
+
+        findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
+
+        $script:order -join "," | Should -Be "confirm:元のフォルダを確かめてください,select"
+        Should -Invoke findSourceFileState -Times 0 -Exactly
+        Should -Invoke setIndexSourceFolder -Times 0 -Exactly
+        $script:foundPaths.Count | Should -Be 0
+    }
+
+    It "設定にある名前（自分で作ったインデックス・確認済み）は、確認しない" {
+        $script:confirmedNow = @("営業", "受取")
+
+        findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
+
+        Should -Invoke showConfirm -Times 0 -Exactly
+        $script:foundPaths.Count | Should -Be 1
+    }
+
+    It "［このフォルダを使う］で記録したら、同じインデックスは次から聞かない" {
+        findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
+        findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
+
+        Should -Invoke showConfirm -Times 1 -Exactly
+        $script:foundPaths.Count | Should -Be 2
+    }
+}
+
+Describe "openSource（もらったインデックスのマクロを持てる形式）" -Tag Unit {
+    BeforeEach {
+        $script:statuses = New-Object System.Collections.Generic.List[string]
+        $script:openMode = $null
+        $script:indexName = "受取"
+        Mock getConfirmedSourceNames { @{ Confirmed = @("営業"); Crawled = @("営業") } }
+        Mock findSourceLocationInMaps { @{ Resolved = $true; Location = @{ Name = $script:indexName } } }
+    }
+
+    It "もらったインデックスの .xlsm は、通常の開き方でも読み取り専用で開き、知らせを添える" {
+        Mock getCurrentHitRow { newRow "マクロ.xlsm" }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\マクロ.xlsm" }
+        Mock openInExcel { }
+
+        openSource ${openModeNormal}
+
+        Should -Invoke openInExcel -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeReadOnly} }
+        lastStatus | Should -Be "読み取り専用で開きました：C:\data\マクロ.xlsm（もらったインデックスのため、マクロを持てる形式は読み取り専用で開きます）"
+    }
+
+    It "自分で作ったインデックスの .xlsm は、選んだ開き方のまま" {
+        $script:indexName = "営業"
+        Mock getCurrentHitRow { newRow "マクロ.xlsm" }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\マクロ.xlsm" }
+        Mock openInExcel { }
+
+        openSource ${openModeNormal}
+
+        Should -Invoke openInExcel -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeNormal} }
+        lastStatus | Should -Be "開きました：C:\data\マクロ.xlsm"
+    }
+
+    It "もらったインデックスでも、マクロを持てない形式（.xlsx）は選んだ開き方のまま" {
+        Mock getCurrentHitRow { newRow "見積.xlsx" }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\見積.xlsx" }
+        Mock openInExcel { }
+
+        openSource ${openModeNew}
+
+        Should -Invoke openInExcel -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeNew} }
+        lastStatus | Should -Be "新規で開きました：C:\data\見積.xlsx"
+    }
+
+    It "もらったインデックスの .docm は、読み取り専用で開き、開けなければ通常には落とさず開かない" {
+        Mock getCurrentHitRow { newRow "報告.docm" $false }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\報告.docm" }
+        Mock openWithShell { $false }
+
+        openSource ${openModeNormal}
+
+        Should -Invoke openWithShell -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeReadOnly} -and [bool]$noFallback }
+        lastStatus | Should -Be (getSourceReadOnlyFailedStatus "C:\data\報告.docm")
+    }
+
+    It "もらったインデックスの .docm を読み取り専用で開けたら、知らせを添える" {
+        Mock getCurrentHitRow { newRow "報告.docm" $false }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\報告.docm" }
+        Mock openWithShell { $true }
+
+        openSource ${openModeNew}
+
+        lastStatus | Should -Be "読み取り専用で開きました：C:\data\報告.docm（もらったインデックスのため、マクロを持てる形式は読み取り専用で開きます）"
+    }
+
+    It "Excel を操作できなくても、もらったインデックスの .xlsm は通常の開き方には落とさない" {
+        Mock getCurrentHitRow { newRow "マクロ.xlsm" }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\マクロ.xlsm" }
+        Mock openInExcel { throw "ダイアログを表示中" }
+        Mock openWithShell { $false }
+
+        openSource ${openModeNormal}
+
+        Should -Invoke openWithShell -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeReadOnly} -and [bool]$noFallback }
+        lastStatus | Should -Be (getSourceReadOnlyFailedStatus "C:\data\マクロ.xlsm")
+    }
+
+    It "自分で作ったインデックスの .docm は、これまでどおり開けなければ元のファイルを開く" {
+        $script:indexName = "営業"
+        Mock getCurrentHitRow { newRow "報告.docm" $false }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\報告.docm" }
+        Mock openWithShell { $false }
+
+        openSource ${openModeReadOnly}
+
+        Should -Invoke openWithShell -Times 1 -Exactly -ParameterFilter { -not [bool]$noFallback }
+        lastStatus | Should -Be "読み取り専用で開けなかったため、元のファイルを開きました：C:\data\報告.docm"
     }
 }
 

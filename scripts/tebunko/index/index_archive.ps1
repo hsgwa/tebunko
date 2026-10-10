@@ -323,6 +323,30 @@ function readIndexArchiveInfo {
     }
 }
 
+function getImportArchiveInfo {
+    # readIndexArchiveInfo の結果に、元のフォルダがこの PC にあるか（SourceExists）を足して返す（インポートの裏の仕事で使う）。
+    # 目録の元のフォルダは zip の送り手が自由に書けるため、ネットワークの場所なら接続せず（Test-Path を呼ばず）$null（分からない）にする。
+    # 利用者が元のフォルダを見て確かめる前に、サインイン情報が相手のサーバーへ送られないようにするため
+    param (
+        [string]$zipPath
+    )
+
+    $info = readIndexArchiveInfo $zipPath
+    $exists = $false
+    try {
+        $folder = normalizeFolderPath ([string]$info.SourceFolder)
+        if ($folder -and (testNetworkPath $folder)) {
+            $exists = $null
+        } else {
+            $exists = [bool]($folder -and (Test-Path -LiteralPath $folder -PathType Container))
+        }
+    } catch {
+        # 使えない文字を含むなど。無いものとして扱う
+    }
+    $info.SourceExists = $exists
+    return $info
+}
+
 function getImportUsedIndexNames {
     # 今使われているインデックス名（設定の targetFolders・indexSources、content_index\ 直下のフォルダ、
     # 取り込み一覧のクロール対象フォルダの行）を集めて返す（大文字・小文字を区別しない集合）
