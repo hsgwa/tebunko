@@ -116,7 +116,7 @@ Windows のクライアント版（Windows 10 / 11）は、実行ポリシーの
 
 ## 検索結果から開くと Excel が前面に出る
 
-検索結果から元の Excel ファイルを開くときは、Excel を可視化して前面に出す（`tebunko/ui/open_source.ps1:162`・`213`）。利用者が開くよう操作したときの動作である。インデクサ側の Office は常に不可視で動作する（[Office ファイルを開くときの設定](checks.md#office-ファイルを開くときの設定)。`safety.Tests.ps1` が、`Visible = $true` は `open_source.ps1` にしか無いことを確かめる）。
+検索結果から元の Excel ファイルを開くときは、Excel を可視化して前面に出す（`tebunko/ui/open_source.ps1:162`・`213`）。利用者が開くよう操作したときの動作である。インデクサ側の Office は不可視で動作する。ただし、画面の無い Excel・Word・PowerPoint に利用者が開いたファイルが入ったときは、そのファイルを閉じないよう終了させずに窓を出して利用者に渡す（[Office ファイルを開くときの設定](checks.md#office-ファイルを開くときの設定)。`safety.Tests.ps1` が、`Visible = $true` は `open_source.ps1` と、渡す処理（`office_app.ps1` の `restoreHandedOverApp`。`handOverApp` と `retryKeptApps` が呼ぶ）にしか無いことを確かめる）。
 
 ## もらったインデックスの元のフォルダ
 

@@ -326,7 +326,7 @@ function splitTextLines {
 
 function readTextFile {
     # テキストファイルを読み、行の並び（splitTextLines と同じ形）にして返す。
-    # 元のファイルは読み取りだけで開く（共有は copyFileShared と同じ ReadWrite|Delete。コピーは作らない）。
+    # 元のファイルは読み取りだけで開く（共有は copyFileShared と同じ ReadWrite|Delete）。インデックス作成は、作業領域のコピーをこれで読む。
     # 大きさの上限を超える・バイナリと判定したときは、取り込み一覧・ログにそのまま出す文言で例外にする。
     # maxBytes はテストで上限を小さく差し替えるための引数（既定は textFileMaxBytes）
     param (
