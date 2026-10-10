@@ -495,6 +495,11 @@ function startGui {
         $script:searchService.Close()
         writeCloseTrace "finally: jobTimer.Stop の前"
         $script:jobTimer.Stop()
+        try {
+            $diagJobs = @($script:backgroundQueue.Jobs)
+            $diagNet = if ($script:networkQueue) { @($script:networkQueue.Jobs) } else { @() }
+            writeCloseTrace ("DIAG bg 全=" + $diagJobs.Count + " 未完了=" + @($diagJobs | Where-Object { !$_.Handle.IsCompleted }).Count + " net 全=" + $diagNet.Count + " 未完了=" + @($diagNet | Where-Object { !$_.Handle.IsCompleted }).Count + " bgPool=" + $script:backgroundQueue.Pool.Pool.RunspacePoolStateInfo.State)
+        } catch { writeCloseTrace ("DIAG 失敗 " + $_.Exception.Message) }
         writeCloseTrace "finally: backgroundQueue.Abandon の前"
         $script:backgroundQueue.Abandon()
         writeCloseTrace "finally: networkQueue.Abandon の前"

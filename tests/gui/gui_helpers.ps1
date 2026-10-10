@@ -139,7 +139,8 @@ function getGuiProcessCommand {
     $gui = $Tool.Gui.Replace("'", "''")
     $returned = (Join-Path $Tool.Dir "gui_returned_").Replace("'", "''")
     $write = "try { `$e = (@(`$Error | Select-Object -First 3 | ForEach-Object { [string]`$_ }) -join ' / '); " +
-        "[IO.File]::WriteAllText('$returned' + `$PID + '.txt', ('returned=' + (Get-Date).ToString('o') + ' ok=' + `$r + ' LASTEXITCODE=' + `$c + ' Error=' + `$e)) } catch { }"
+        "`$t = (@((Get-Process -Id `$PID).Threads | ForEach-Object { [string]`$_.Id + ':' + [string]`$_.ThreadState + ':' + [string]`$_.WaitReason }) -join ','); " +
+        "[IO.File]::WriteAllText('$returned' + `$PID + '.txt', ('returned=' + (Get-Date).ToString('o') + ' ok=' + `$r + ' LASTEXITCODE=' + `$c + ' Error=' + `$e + ' THREADS=' + `$t)) } catch { }"
     return "`$env:TEBUNKO_CLOSE_TRACE = '1'; & '$gui'; `$r = `$?; `$c = `$LASTEXITCODE; $write; if (!`$r) { exit 1 }"
 }
 
@@ -248,6 +249,7 @@ function assertGuiExited {
     param ($S)
 
     if ($S.Process.ExitCode -eq 0) {
+        if ($S.ClosingAt) { Write-Host ("GUI-DIAG exit=0 closing-to-exit=" + [math]::Round(((Get-Date) - $S.ClosingAt).TotalSeconds, 2)) }
         return
     }
     collectGuiExitMaterial $S
