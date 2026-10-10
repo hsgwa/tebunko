@@ -214,6 +214,19 @@ function isIndexingConfirmNothing {
     return ($targets -eq 0 -and $failed -eq 0 -and $dropped -eq 0)
 }
 
+function getIndexingConfirmIntro {
+    # 確認の説明文。削除予定があるときは、消すことが分かる文にする
+    param (
+        [int]$dropped = 0  # 削除予定のインデックスの数（getIndexingDroppedCount）
+    )
+
+    $base = "元のファイルの更新日時とサイズを、前回更新したときの記録と比べました。"
+    if ($dropped -gt 0) {
+        return $base + "［更新を開始］を押すと、更新するファイルを更新し、設定に無いインデックスを削除します。"
+    }
+    return $base + "［更新を開始］を押すと、更新するファイルだけを更新します。"
+}
+
 function getIndexingConfirmText {
     # 「失敗分も更新し直す」のチェックに合わせた、合計の文言と主ボタンの文言
     param (

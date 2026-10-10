@@ -114,7 +114,19 @@ Describe "getIndexingDroppedCount・削除予定のある確認の文言" -Tag U
         param ($targets, $failed, $dropped, $expected)
         isIndexingConfirmNothing $targets $failed $dropped | Should -Be $expected
     }
+
+    It "確認の説明文: 削除予定 <dropped> 件のとき <expected>" -TestCases @(
+        @{ dropped = 0; expected = "［更新を開始］を押すと、更新するファイルだけを更新します。" }
+        @{ dropped = 1; expected = "［更新を開始］を押すと、更新するファイルを更新し、設定に無いインデックスを削除します。" }
+        @{ dropped = 3; expected = "［更新を開始］を押すと、更新するファイルを更新し、設定に無いインデックスを削除します。" }
+    ) {
+        param ($dropped, $expected)
+        $text = getIndexingConfirmIntro $dropped
+        $text | Should -BeLike "元のファイルの更新日時とサイズを、前回更新したときの記録と比べました。*"
+        $text | Should -BeLike "*$expected"
+    }
 }
+
 Describe "getIndexingCurrentName・getIndexingSkippedView" -Tag Unit {
     It "取り込み中のファイル <current> のインデックス名は <expected>" -TestCases @(
         @{ current = "営業\2025\a.xlsx"; expected = "営業" }

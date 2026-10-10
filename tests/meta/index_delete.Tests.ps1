@@ -5,7 +5,7 @@
 # 判定の単位は関数（クラスのメソッドを含む）。本体に IndexDir・content_index・getWorkspaceEntries のどれかと、Remove-Item・removeDirectoryRetry・
 # Directory.Delete・.Delete( のどれかがある関数を対象にする（変数を経由した削除、$dir = Join-Path $ws.IndexDir ... のあとの削除も拾うため）。
 # 拾えないもの: 上の語を本体に書かずに、引数で渡されたパスを消す関数（moveWorkspaceEntry は引数のフォルダを移し終えたあとに消す。ワークスペースを移す moveWorkspace の中だけで呼ばれ、
-# 拾えていない）。そういう関数を足すときは、呼ぶ側の関数の名前をこの先頭の説明に書く。
+# 拾えていない。removeBookDir（indexer_plan.ps1）も removeDirectoryRetry を呼ぶだけで、本文に上の語が無く拾えない）。そういう関数を足すときは、呼ぶ側の関数の名前をこの先頭の説明に書く。
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
 
@@ -66,9 +66,16 @@ Describe "インデックスのフォルダを消す関数" -Tag Meta {
     }
 
     It "removeDroppedFolders は、インデクサの中で確認のあとにだけ呼ばれる" {
+        # scripts の全体で、呼び出しは indexer_run.ps1 の 1 か所だけ（定義の function 行とコメント行は数えない）
+        $callers = New-Object System.Collections.Generic.List[string]
+        foreach ($file in @(Get-ChildItem -LiteralPath ${scriptsDir} -Filter "*.ps1" -Recurse)) {
+            $own = [System.IO.File]::ReadAllText($file.FullName)
+            foreach ($m in [regex]::Matches($own, "(?m)^(?!\s*(function\s|#)).*removeDroppedFolders")) {
+                $callers.Add($file.Name)
+            }
+        }
+        @($callers) | Should -Be @("indexer_run.ps1")
         $text = [System.IO.File]::ReadAllText("${scriptsDir}\tebunko\indexer\indexer_run.ps1")
-        $calls = [regex]::Matches($text, "removeDroppedFolders")
-        $calls.Count | Should -Be 1
         $text.IndexOf("removeDroppedFolders") | Should -BeGreaterThan $text.IndexOf("WaitForApproval")
     }
 }

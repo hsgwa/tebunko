@@ -101,8 +101,7 @@ function showIndexingConfirmDialog {
     $script:confirmDialog = @{ Window = $dialog; Ctrl = $ctrl; Targets = $targets; Failed = $failed; Plan = $plan; Answer = $null }
 
     $ctrl.PlanGrid.ItemsSource = buildPlanRows $plan
-    $ctrl.IntroText.Text = "元のファイルの更新日時とサイズを、前回更新したときの記録と比べました。" +
-        "［更新を開始］を押すと、更新するファイルだけを更新します。"
+    $ctrl.IntroText.Text = getIndexingConfirmIntro (getIndexingDroppedCount $plan)
     if ($failed -gt 0) {
         $ctrl.RetryCheck.Visibility = "Visible"
         $ctrl.RetryCheck.Content = "前回更新に失敗し、その後変わっていないファイル {0:#,0} 件も更新し直す（パスワード付きなど）" -f $failed

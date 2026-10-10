@@ -363,6 +363,42 @@ Describe "getDroppedStatusRows" -Tag Unit {
     }
 }
 
+Describe "writeStatusKeepingDropped" -Tag Unit {
+    BeforeAll {
+        function newFakeLedger {
+            $ledger = [pscustomobject]@{ Folders = $null; Rows = $null }
+            $ledger | Add-Member -MemberType ScriptMethod -Name WriteStatus -Value {
+                param ($folders, $rows)
+                $this.Folders = @($folders)
+                $this.Rows = @($rows)
+            }
+            return $ledger
+        }
+    }
+
+    It "外れたインデックス <kept> 件のとき、フォルダ <folderCount>・行 <rowCount> を渡す" -TestCases @(
+        @{ kept = 0; folderCount = 1; rowCount = 1 }
+        @{ kept = 1; folderCount = 2; rowCount = 2 }
+    ) {
+        param ($kept, $folderCount, $rowCount)
+        $ledger = newFakeLedger
+        $previous = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
+        $previous["技術\a.docx"] = [pscustomobject]@{ 相対パス = "技術\a.docx" }
+        $dropped = @()
+        if ($kept -gt 0) { $dropped = @([pscustomobject]@{ Path = "C:\data\技術"; Name = "技術" }) }
+        $folder = [pscustomobject]@{ Path = "C:\data\営業"; Name = "営業" }
+        $row = [pscustomobject]@{ 相対パス = "営業\c.docx" }
+        writeStatusKeepingDropped $ledger @($folder) @($row) $dropped $previous
+        $ledger.Folders.Count | Should -Be $folderCount
+        $ledger.Rows.Count | Should -Be $rowCount
+        $ledger.Folders[0].Name | Should -Be "営業"
+        if ($kept -gt 0) {
+            $ledger.Folders[1].Name | Should -Be "技術"
+            $ledger.Rows[1].相対パス | Should -Be "技術\a.docx"
+        }
+    }
+}
+
 Describe "removeDroppedFolders" -Tag Io {
     It "クロール対象から削除されたフォルダのインデックスだけを削除する" {
         $indexDir = "$TestDrive\dropped\index"
