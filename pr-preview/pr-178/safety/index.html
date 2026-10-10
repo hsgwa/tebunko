@@ -4097,7 +4097,7 @@
 </tr>
 <tr>
 <td>マクロ</td>
-<td><strong>実行させない</strong>。Office のマクロを強制無効にしてから開く</td>
+<td><strong>実行させない</strong>。Office のマクロを強制無効にしてから開く。検索結果から開くときは、もらったインデックスのマクロを持てる形式を読み取り専用で開き、Excel の <code>AutomationSecurity</code> は <code>2</code>（Excel の設定に従う）にする</td>
 <td><code>safety.Tests.ps1</code></td>
 <td><a href="checks/#office-ファイルを開くときの設定">Office ファイルを開くときの設定</a></td>
 </tr>
@@ -4109,7 +4109,7 @@
 </tr>
 <tr>
 <td>資格情報</td>
-<td>保存・送信・入力要求のいずれも行わない。パスワード付きファイルは解除を試みず、失敗として記録する。IRM・秘密度ラベルで暗号化されたファイルは、ライセンス取得・サインイン画面が出る前に、開かずに失敗として記録する（ファイルを開く前に暗号化の種類を判定する）</td>
+<td>保存・送信・入力要求のいずれも行わない。パスワード付きファイルは解除を試みず、失敗として記録する。IRM・秘密度ラベルで暗号化されたファイルは、ライセンス取得・サインイン画面が出る前に、開かずに失敗として記録する（ファイルを開く前に暗号化の種類を判定する）。もらったインデックスの元のフォルダが共有フォルダのとき、開く操作で Windows がサインイン情報を送ることがあるため、開く前に確認する（<a href="disclosure/#もらったインデックスの元のフォルダ">もらったインデックスの元のフォルダ</a>）</td>
 <td><code>safety.Tests.ps1</code>・PSScriptAnalyzer</td>
 <td><a href="checks/#office-ファイルを開くときの設定">Office ファイルを開くときの設定</a></td>
 </tr>
@@ -4146,7 +4146,7 @@
 </tbody>
 </table>
 <p>第三者が作ったツールでの検査結果は <a href="scans/">第三者のツールによる検査結果</a>のとおり。PSScriptAnalyzer（Microsoft）の安全性にかかわるルールは<strong>指摘 0 件</strong>、Microsoft Defender のスキャンは<strong>検出 0 件</strong>である。</p>
-<p>利用者の明示操作により影響が出る機能と、ツールの性質上避けられない情報リスクは <a href="disclosure/">開示事項</a>で開示している（前回残った Office の終了、Mark-of-the-Web の解除、<strong>インデックスが元文書の本文を保持すること</strong>、一時コピー、Excel が前面に出ること、<strong>透過暗号化の製品が平文で見せたファイルの本文が平文でインデックスに入ること</strong>）。</p>
+<p>利用者の明示操作により影響が出る機能と、ツールの性質上避けられない情報リスクは <a href="disclosure/">開示事項</a>で開示している（前回残った Office の終了、Mark-of-the-Web の解除、<strong>インデックスが元文書の本文を保持すること</strong>、一時コピー、Excel が前面に出ること、<strong>透過暗号化の製品が平文で見せたファイルの本文が平文でインデックスに入ること</strong>、もらったインデックスの元のフォルダ）。</p>
 <h2 id="安全性のページ">安全性のページ<a class="headerlink" href="#安全性のページ" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="checks/">危険とされる処理の検査結果</a></li>
