@@ -13,6 +13,7 @@
 # ・中身には U+001C〜U+001F を入れない（書くときに取り除く）ため、行の先頭が RS ならメタ情報の行
 # ・改行は LF にそろえる。行の分け方は StreamReader.ReadLine と同じ（CRLF・LF・CR）にし、行番号を変えない
 # ・文字コードは UTF-16LE（BOM 付き。pack_store.ps1 が読み書きする）
+# ・Excel の図形・コメントの行は「セル番地 + タブ + 文字」の形。検索は区切りのタブ（最初のタブ）より後だけを照合する（CellPrefixed。pack_search.ps1）
 
 # 集約ファイルの名前は「content_index.<元のファイルの拡張子（小文字）>.<番号（3 桁以上）>.tsv」（content_index.xlsx.001.tsv など）。
 # 1 つの集約ファイルが packFileMaxBytes 以上になったら、それ以上ブックを足さず、次の番号の集約ファイルに足す
@@ -351,8 +352,20 @@ function measurePackPartBytes {
     return [long]$chars * 2
 }
 
+function testPackCellPrefixed {
+    # 場所の行が「セル番地 + 区切りのタブ + 文字」の形か（Excel の図形・コメント）を返す。検索は、この形の行では区切りのタブより後だけを照合する
+    param (
+        [string]$book,
+        $meta
+    )
+
+    $target = [string]$meta["対象"]
+    return ((getPackFileKind $book) -eq "Excel") -and ($target -eq ${placeKindShape} -or $target -eq ${placeKindComment})
+}
+
+
 function readPackPlaces {
-    # 集約ファイルの文字列を読み、場所ごとの @{ Book; Location（今の場所の名前）; Start（中身の先頭の位置）; End（中身の終わりの次の位置） }
+    # 集約ファイルの文字列を読み、場所ごとの @{ Book; Location（今の場所の名前）; CellPrefixed（行の先頭がセル番地と区切りのタブか）; Start（中身の先頭の位置）; End（中身の終わりの次の位置） }
     # を先頭から順に返す。版が分からないときは例外にする
     param (
         [string]$text
@@ -383,6 +396,7 @@ function readPackPlaces {
                 if ($current) {
                     $current.End = $pos
                     $current.Location = convertPackMetaToPlace $meta
+                    $current.CellPrefixed = testPackCellPrefixed $current.Book $meta
                     $places.Add($current)
                     $current = $null
                 }
@@ -390,7 +404,7 @@ function readPackPlaces {
                     $book = $value
                 } else {
                     $meta = [ordered]@{ $key = $value }
-                    $current = @{ Book = $book; Location = ""; Start = $lineEnd + 1; End = $lineEnd + 1 }
+                    $current = @{ Book = $book; Location = ""; CellPrefixed = $false; Start = $lineEnd + 1; End = $lineEnd + 1 }
                 }
             } elseif ($current) {
                 $meta[$key] = $value
@@ -402,6 +416,7 @@ function readPackPlaces {
     if ($current) {
         $current.End = $text.Length
         $current.Location = convertPackMetaToPlace $meta
+        $current.CellPrefixed = testPackCellPrefixed $current.Book $meta
         $places.Add($current)
     }
     if (!$versionSeen -and $text.Length -gt 0) {
