@@ -88,8 +88,8 @@ function updateIndexingButton {
     }
 
     $state = $script:indexingState
-    if ($script:indexBusy -or $script:archiveBusy) {
-        # インデックスの削除中・エクスポート・インポート中（別スレッド）は、インデックス作成もインデックスの操作も始めない
+    if ($script:indexBusy -or $script:archiveBusy -or $script:indexingPreparing) {
+        # インデックスの削除・名前の変更中・エクスポート・インポート中（別スレッド）・ワークスペースを確かめている間は、インデックス作成もインデックスの操作も始めない
         $ready = $false
     }
     if (isIndexing) {
@@ -118,7 +118,7 @@ function updateIndexingButton {
     # インデックスの追加・編集・削除・エクスポート・インポートと、［設定］のワークスペースの［変更…］は互いに排他
     # （getIndexJobBlocker・getIndexTabButtonsEnabled。settings\settings.ps1 の testWorkspaceChangeable も同じ排他を見る）
     $selected = $null -ne (getIndexTargetItem)
-    $blocker = getIndexJobBlocker (isIndexing) $script:indexBusy $script:archiveBusy
+    $blocker = getIndexJobBlocker (isIndexingOrPreparing) $script:indexBusy $script:archiveBusy
     $buttons = getIndexTabButtonsEnabled $blocker $selected
     $ui.NewIndexButton.IsEnabled = $buttons.New
     $ui.IndexDetailPathButton.IsEnabled = $buttons.ChangeFolder

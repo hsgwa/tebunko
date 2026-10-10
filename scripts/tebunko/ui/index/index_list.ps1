@@ -17,6 +17,7 @@ foreach ($footerName in @("IndexEmptyAddButton")) {
 }
 $script:loadingTargets = $false
 $script:targetsLoadRequest = @{ Value = 0 }  # 一覧の読み込みの依頼番号（新しい依頼が出たら、前の依頼の結果は捨てる）
+$script:indexingPreparing = $false  # インデックス作成を始める前に、ネットワークのワークスペースを裏で確かめている間
 $script:indexBusy = $false  # 前のインデックスの削除・名前の変更中（別スレッド）。getIndexJobBlocker に [bool] で渡すため、$null のままにしない
 # 行のチェック（一時の選択。保存しない）の状態が変わったら、行の値と画面の表示を合わせる（Checked・Unchecked。
 # ToggleButton の状態が変わったときに出る、バブルするイベント）。マウスの Click だけでなく、UI オートメーションの
@@ -70,6 +71,12 @@ $script:fastSearchTimer = newTimer (5 * 60 * 1000) { safe { refreshFastSearchSta
 
 function isIndexing {
     return ($null -ne $script:indexingSession) -and $script:indexingSession.IsRunning()
+}
+
+function isIndexingOrPreparing {
+    # インデックス作成が動いている、または始める前にワークスペースを確かめている間（startIndexing）。
+    # どちらの間も、インデックスの操作・ワークスペースの変更・次のインデックス作成の開始はしない
+    return (isIndexing) -or [bool]$script:indexingPreparing
 }
 
 function shouldRefreshFastSearchStatus {
@@ -447,7 +454,7 @@ function setIndexRowActions {
     # 行の右端のボタン（［更新］［中止］・何も出さない）を、行の状態（IndexLevel）と動いている処理に合わせる。判断は getIndexRowActions
     param ($item)
 
-    $blocker = getIndexJobBlocker (isIndexing) $script:indexBusy $script:archiveBusy
+    $blocker = getIndexJobBlocker (isIndexingOrPreparing) $script:indexBusy $script:archiveBusy
     $actions = getIndexRowActions $item.IndexLevel $blocker
     $item.SetRowActions($actions.Action, $actions.UpdateEnabled)
 }
@@ -461,7 +468,7 @@ function updateSelectedIndexes {
     )
 
     $names = @($names | Where-Object { $_ })
-    if ($names.Count -eq 0 -or (getIndexJobBlocker (isIndexing) $script:indexBusy $script:archiveBusy) -ne "") {
+    if ($names.Count -eq 0 -or (getIndexJobBlocker (isIndexingOrPreparing) $script:indexBusy $script:archiveBusy) -ne "") {
         return
     }
     startIndexing $names
@@ -592,7 +599,7 @@ function testIndexOperable {
         [string]$operation
     )
 
-    $blocker = getIndexJobBlocker (isIndexing) $script:indexBusy $script:archiveBusy
+    $blocker = getIndexJobBlocker (isIndexingOrPreparing) $script:indexBusy $script:archiveBusy
     if ($blocker -ne "") {
         showMessage (getIndexJobBlockedMessage $blocker $operation) "OK" "Warning" | Out-Null
         return $false
