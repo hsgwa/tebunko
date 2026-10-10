@@ -82,7 +82,7 @@ jobs:
         run: |
           $fail = 0
           foreach ($i in 1..5) {
-            .	estsun.ps1 -Tag Gui
+            .\tests\run.ps1 -Tag Gui
             Write-Host "PASS-$i exit=$LASTEXITCODE"
             if ($LASTEXITCODE -ne 0) { $fail++ }
           }
