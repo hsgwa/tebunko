@@ -780,6 +780,13 @@ Describe "readXlsxObjectUnits（ヘッダー・フッター）" -Tag Io {
             "xl/worksheets/sheet1.xml" = @{ bytes = $utf8.GetBytes("<worksheet $xNs><sheetData>$rows</sheetData>$(hf 'oddHeader=&C偽のシート')</worksheet>"); compress = $compress; fakeSize = 100 }
             "xl/worksheets/sheet2.xml" = @{ bytes = $utf8.GetBytes("<worksheet $xNs><sheetData/>$(hf 'oddHeader=&C小さいシート')</worksheet>") }
         }
+        # 申告の書き換えが効いていること（効かないと、事前の申告の判定で同じ結果になり、偽りを止める枝を通らない）
+        $check = [System.IO.Compression.ZipFile]::OpenRead($path)
+        try {
+            $check.GetEntry("xl/worksheets/sheet1.xml").Length | Should -Be 100
+        } finally {
+            $check.Dispose()
+        }
         # 上限が十分大きければ、同じファイルが最後まで読める（止まる原因が上限であることの対照）
         $script:zipTotalReadBytes = 0
         $fails = New-Object System.Collections.Generic.List[string]

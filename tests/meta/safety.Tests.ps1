@@ -260,7 +260,7 @@ Describe "Office ファイルを安全に開くこと（docs/safety/checks.md「
 
 Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を守ること（docs/safety/checks.md「Office ファイルを開くときの設定」）" -Tag Meta {
     It "XmlDocument への読み込みは newXmlDocument 関数だけで行う（LoadXml を直接呼ばない）" {
-        # shared/ui/ は、このツール自身の XAML（利用者の Office ファイルではない）を読むので対象外
+        # shared/ui/app_host.ps1 だけは、このツール自身の XAML（利用者の Office ファイルではない）を読むので対象外
         (findPattern @($code | Where-Object { $_.Path -notlike "*\shared\ui\app_host.ps1" }) '\.LoadXml\(') | Should -Be ""
     }
 
