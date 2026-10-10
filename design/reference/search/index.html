@@ -4558,6 +4558,14 @@
 <td>resolveSourcePath, 画面</td>
 </tr>
 <tr>
+<td><code>getConfirmedSourceNames</code></td>
+<td>settingsPath（既定 <code>$settingsFile</code>）</td>
+<td><code>@{Confirmed; Crawled}</code>（名前の配列）</td>
+<td>設定を読み直し、<code>Crawled</code>（<code>targetFolders</code> の名前）と <code>Confirmed</code>（<code>Crawled</code> に <code>indexSources</code> の名前を足したもの）を返す。<code>Confirmed</code> に無い名前は、もらったインデックスとして元のフォルダを確かめる</td>
+<td><a href="../../gui/open-file/#もらったインデックスの元のフォルダを確かめる">もらったインデックスの元のフォルダを確かめる</a></td>
+<td>画面（元のファイルを開く）</td>
+</tr>
+<tr>
 <td><code>readSourceLocation</code></td>
 <td>hit, maps, statusPath, settingsPath, indexDir</td>
 <td><code>@{Location; Maps}</code></td>

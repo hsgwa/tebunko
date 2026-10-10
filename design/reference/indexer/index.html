@@ -4643,6 +4643,14 @@
 <td>インデックス作成, resolveSourcePath</td>
 </tr>
 <tr>
+<td><code>testSourceNameRecordable</code></td>
+<td>name</td>
+<td>bool</td>
+<td>元のフォルダを設定に記録できる名前か（空・前後に空白があれば偽。<code>setIndexSourceFolder</code> の入口と、確認ダイアログの文言で使う）</td>
+<td><a href="../../gui/open-file/">元のファイルを開く</a></td>
+<td>判断</td>
+</tr>
+<tr>
 <td><code>testIndexName</code></td>
 <td>name, usedNames</td>
 <td>string（使えれば空）</td>
@@ -4761,6 +4769,14 @@
 <td>zip の目録を読んで確かめる（インポートはしない）。インポートの確認ダイアログの既定値に使う</td>
 <td>同上</td>
 <td>画面（［インポート…］）</td>
+</tr>
+<tr>
+<td><code>getImportArchiveInfo</code></td>
+<td>zipPath</td>
+<td><code>readIndexArchiveInfo</code> の結果に <code>SourceExists</code>（元のフォルダがあるか。ローカルのドライブでなければ有無を調べず <code>$null</code>）を足したもの</td>
+<td>インポートの確認ダイアログ用。目録の元のフォルダが共有フォルダでも、接続を待たない</td>
+<td>同上</td>
+<td>画面（［インポート…］の別スレッド）</td>
 </tr>
 <tr>
 <td><code>importIndex</code></td>
