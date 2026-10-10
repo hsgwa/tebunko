@@ -3070,7 +3070,7 @@
   <span class="md-ellipsis">
     
   
-    元のフォルダ・元のファイルがネットワークにあるとき
+    元のフォルダ・元のファイル・ワークスペースがネットワークにあるとき
   
 
     
@@ -4292,7 +4292,7 @@
 </table>
 <ul>
 <li>インデックス作成は、画面のプロセスの中のスレッドで実行する（<code>newIndexingSession</code>。インデクサの司令のスレッドが <code>scripts\tebunko\indexer.ps1 -Channel &lt;受け渡しの口&gt;</code> を実行する）。受け渡しの口（<code>newIndexerChannel -confirmTargets $true</code>）の <code>ConfirmTargets</code> で、更新の対象を数えたところでいったん止まって画面の確認（<a href="#インデックス更新の確認ダイアログ">インデックス更新の確認ダイアログ</a>）を待つ。別の <code>powershell.exe</code> は起動しない（<a href="../../structure/threads/">プロセスとスレッド</a>）。</li>
-<li>行の［更新］・メニューの［更新］は、名前の配列を渡して同じ流れで始める（<code>startIndexing</code>）。対象の <code>enabled</code> を <code>true</code> にして保存してから起動し（確認で取りやめても戻さない）、受け渡しの口の <code>OnlyNames</code> に名前を入れる。更新の確認にも、その回のインデックスだけを出す。インデクサが更新できなかった名前（<code>OnlySkipped</code>）は、終わりにメッセージで知らせる。</li>
+<li>行の［更新］・メニューの［更新］は、名前の配列を渡して同じ流れで始める（<code>startIndexing</code>）。ワークスペースがネットワークにあるときは、始める前に、届くかと前の版のインデックスの有無を裏の列で確かめる（確かめている間は他の操作を止める。届かなければ <code>ワークスペースに接続できません：&lt;パス&gt;</code> を出して始めない。<a href="../network/#ワークスペースがネットワークにあるとき">ワークスペースがネットワークにあるとき</a>）。対象の <code>enabled</code> を <code>true</code> にして保存してから起動し（確認で取りやめても戻さない）、受け渡しの口の <code>OnlyNames</code> に名前を入れる。更新の確認にも、その回のインデックスだけを出す。インデクサが更新できなかった名前（<code>OnlySkipped</code>）は、終わりにメッセージで知らせる。</li>
 <li>更新中の名前・件数・残り時間は <code>$script:indexingView</code>（<code>Name</code>・<code>Processed</code>・<code>Total</code>・<code>Failed</code>・<code>Eta</code>・<code>Ratio</code>・<code>Current</code>）に値で持ち、更新の帯・詳細の「インデックス」の箱が読む。<code>Name</code> は更新中のファイル（<code>&lt;名前&gt;\&lt;相対パス&gt;</code>）のインデックス名。件数は回全体（インデックスごとの件数は無い）。</li>
 <li>「インデックス作成中」は、この画面で始めたインデックス作成のスレッドが終わるまでとする（<code>isIndexing</code>）。インデックス作成の二重起動を防ぐ。</li>
 <li>画面を使わずに起動した <code>indexer.ps1</code> と重なった場合は、インデクサがミューテックスで止め、<code>ほかのインデックス作成が実行中です。…</code> のエラーで終わる（<a href="#中止終了ログ">中止・終了・ログ</a>）。</li>
