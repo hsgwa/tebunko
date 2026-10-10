@@ -87,6 +87,8 @@
 | `removeIndex` | name, dir（既定 `$workspace.IndexDir`）, statusPath, settingsPath（既定 `$settingsFile`） | – | インデックスを削除する。`work\content_index\<名前>` を中身ごと削除し、取り込み一覧からもその記録を取り除く（`removeStatusIndexName`）。そのインデックスの下の `searchExcludes` も消す（`removeSearchExcludesUnder`） | 同上 | 画面（［削除］） |
 | `removeIndexes` | names, dir, statusPath, settingsPath（`removeIndex` と同じ） | `@{Name; Ok; Reason}` の配列（名前ごと） | 選んだインデックスをまとめて削除する。`removeIndex` を 1 つずつ呼び、1 つ失敗しても残りを続ける（`Reason` は失敗の理由。空の名前は失敗にする）。画面は別スレッドの仕事の中で呼ぶ | 同上 | 画面（［削除］） |
 | `getSearchIndexes` | dir（既定 `$workspace.IndexDir`）, statusPath, settingsPath | `@{Name; Path; SourcePath}` の配列 | インデックスの一覧（`work\content_index` 直下のフォルダ 1 つがインデックス 1 つ）。並びは［インデックス管理］の一覧と同じで、一覧に無いもの（コピーしたインデックスなど）は名前順で後ろ。`SourcePath` は元のフォルダ（分からなければ空） | [インデックスの一覧](../search/index.md#インデックスの一覧getsearchindexes) | 画面（検索対象のツリー） |
+| `getIndexTreeData` | dir, paths（展開・チェックを外したフォルダ） | `@{State; Message; Root; Sources; ...}` | 検索対象ツリーの材料（ワークスペースの状態・インデックスの一覧・展開したフォルダの子）を 1 回で集める。ワークスペースがネットワークにあるときの裏の仕事で呼ぶ（届かなければ State と Message で知らせる） | [検索対象のツリー](../gui/search-tree.md) | 画面（検索対象のツリー） |
+| `getIndexFolderChildren` | dir | `@{HasFiles; Folders; Error}` | インデックスのフォルダの子（本のフォルダを除いた名前順）。読めなければ Error に文面を入れる | 同上 | 画面（ツリーの展開） |
 
 ## インデックスのエクスポート・インポート（`tebunko/index/index_archive_rules.ps1`・`index_archive.ps1`）
 
