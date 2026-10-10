@@ -455,7 +455,7 @@ Describe "indexer.ps1（クラウドにだけあるファイル）" -Tag Io {
     }
 
     It "前回未完了でクラウドにだけあるファイルは、<name>" -TestCases @(
-        @{ name = "確認で取りやめたら、前回の行を残し、取り込み途中のインデックスを消さない（終わりの書き出しで本文インデックスのファイルに入る）"; mode = "cancel"; exitCode = 2; rowKept = $true; dirKept = $true }
+        @{ name = "確認で取りやめたら、前回の行と取り込み済みの中身を残す（フォルダは実行の始めに本文インデックスのファイルへまとめる）"; mode = "cancel"; exitCode = 2; rowKept = $true; dirKept = $true }
         @{ name = "確認でダウンロードせずに進めたら、行を作らず、取り込み途中のインデックスのフォルダを消す"; mode = "approve"; exitCode = 0; rowKept = $false; dirKept = $false }
         @{ name = "画面なしの実行でも、行を作らず、取り込み途中のインデックスのフォルダを消す"; mode = "none"; exitCode = 0; rowKept = $false; dirKept = $false }
     ) {
@@ -475,7 +475,7 @@ Describe "indexer.ps1（クラウドにだけあるファイル）" -Tag Io {
             $rows = (readTestStatus $root).Rows
             $rows.ContainsKey("雲\議事録.docx") | Should -Be $rowKept
             if ($rowKept) { $rows["雲\議事録.docx"].状態 | Should -Be ${stateNew} }
-            # 取り込み途中のインデックス（TSV）は、残すなら終わりの書き出しで本文インデックスのファイルに入る。消すなら、入らずにフォルダごと無くなる
+            # 取り込み途中のインデックス（TSV）は、実行の始めに本文インデックスのファイルへまとめるため、フォルダそのものはどの場合も無くなる。残すなら中身がそのファイルに入り、消すなら入らない
             [System.IO.Directory]::Exists($case.BookDir) | Should -Be $false
             [System.IO.File]::Exists("$root\work\content_index\雲\content_index.docx.001.tsv") | Should -Be $dirKept
         } finally {

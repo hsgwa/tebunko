@@ -148,7 +148,7 @@ function showIndexingConfirmDialog {
     $answer = $script:confirmDialog.Answer
     if ($null -eq $answer -and $nothing) {
         # 取り込むものが無いときは、どう閉じても同じ（インデクサはそのまま終わる）
-        $answer = @{ RetryFailed = $false }
+        $answer = @{ RetryFailed = $false; IncludeCloud = $false }
     }
     $script:confirmDialog = $null
     return $answer

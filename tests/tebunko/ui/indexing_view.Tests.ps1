@@ -262,7 +262,7 @@ Describe "クラウドにだけあるファイルの確認の文言" -Tag Unit {
     It "newPlanViewRows は、内訳に「クラウドにだけある N 件」を出す（取り込み対象には数えない）" {
         $rows = newPlanViewRows @((newPlanItem ${planKindIngest} 10 2 2 0 0 3 1 3000 500))
         $rows[0].DetailText | Should -Be "更新するファイル 2 件（新規 2 件 / クラウドにだけある 4 件）"
-        $rows = newPlanViewRows @((newPlanItem ${planKindIngest} 10 0 0 0 0 0 3))
+        $rows = newPlanViewRows @((newPlanItem ${planKindIngest} 10 0 0 0 0 3))
         # 取り込み対象が 0 件でも、クラウドにだけあるファイルがあれば「最新」にせず、注意の色で出す
         $rows[0].StatusText | Should -Be "要確認"
         $rows[0].Level | Should -Be "Wait"
@@ -270,10 +270,11 @@ Describe "クラウドにだけあるファイルの確認の文言" -Tag Unit {
         $rows = newPlanViewRows @((newPlanItem ${planKindIngest} 10 0 0 0 0 0 0 0 0))
         $rows[0].StatusText | Should -Be "最新"
         $rows[0].Level | Should -Be "Ok"
-        # 前回失敗だけがクラウドにだけある場合も同じ
+        # 前回失敗だけがクラウドにだけある場合は、手元の前回失敗と同じく「最新」のまま、内訳に出す（更新し直す指定のときだけ取り込む）
         $rows = newPlanViewRows @((newPlanItem ${planKindIngest} 10 0 0 0 0 0 1 0 500))
-        $rows[0].StatusText | Should -Be "要確認"
-        $rows[0].Level | Should -Be "Wait"
+        $rows[0].StatusText | Should -Be "最新"
+        $rows[0].Level | Should -Be "Ok"
+        $rows[0].DetailText | Should -Be "クラウドにだけある 1 件"
     }
 
     It "formatCloudSize は KB・MB・GB のどれかで、小数点以下 1 桁にする" -TestCases @(
@@ -416,7 +417,7 @@ Describe "getIndexingEndText（クラウドにだけあるファイル）" -Tag 
 Describe "getIndexingConfirmView（チェックの値で変わる表示）" -Tag Unit {
     # 1 つのインデックス（ファイル 20 件）。targets・failed（手元にある前回失敗）・cloud・cloudFailed（クラウドにだけある前回失敗）で組む
     It "<name>" -TestCases @(
-        @{ name = "クラウドにだけある前回失敗だけ・更新し直さない: 更新し直すのチェックを出し、クラウドの欄は出さない"
+        @{ name = "クラウドにだけある前回失敗だけ・更新し直さない: 更新し直すのチェックを出し、クラウドの欄は出さない（ダウンロードのチェックが付いたままでも取り込まない）"
            targets = 0; failed = 0; cloud = 0; cloudFailed = 1; retry = $false; checked = $true
            retryVisible = $true; retryText = "前回更新に失敗し、その後変わっていないファイル 1 件も更新し直す（パスワード付きなど）。うちクラウドにだけある 1 件は、ダウンロードして取り込むを選んだときだけ"
            cloudVisible = $false; include = $false; nothing = $false; total = 0; button = "閉じる"
@@ -431,11 +432,6 @@ Describe "getIndexingConfirmView（チェックの値で変わる表示）" -Tag
            retryVisible = $true; retryText = "前回更新に失敗し、その後変わっていないファイル 1 件も更新し直す（パスワード付きなど）。うちクラウドにだけある 1 件は、ダウンロードして取り込むを選んだときだけ"
            cloudVisible = $true; include = $true; nothing = $false; total = 1; button = "更新を開始"
            text = "更新対象: 1 フォルダ / 1 ファイル（最新のフォルダは更新しません）" }
-        @{ name = "更新し直さないなら、クラウドの欄が消えるので、チェックが付いたままでも取り込まない"
-           targets = 0; failed = 0; cloud = 0; cloudFailed = 1; retry = $false; checked = $true
-           retryVisible = $true; retryText = "前回更新に失敗し、その後変わっていないファイル 1 件も更新し直す（パスワード付きなど）。うちクラウドにだけある 1 件は、ダウンロードして取り込むを選んだときだけ"
-           cloudVisible = $false; include = $false; nothing = $false; total = 0; button = "閉じる"
-           text = "更新が必要なファイルはありません（すべて最新です）。" }
         @{ name = "手元にある前回失敗 2 件とクラウド 3 件・更新し直す・ダウンロードしない"
            targets = 12; failed = 2; cloud = 3; cloudFailed = 0; retry = $true; checked = $false
            retryVisible = $true; retryText = "前回更新に失敗し、その後変わっていないファイル 2 件も更新し直す（パスワード付きなど）"

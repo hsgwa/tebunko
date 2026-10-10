@@ -53,8 +53,9 @@ function newPlanViewRows {
                 $row.StatusText = "要更新"
                 $row.Level = "Wait"
                 $row.DetailText = "更新するファイル {0:#,0} 件（{1}）" -f $item.取り込み対象, ($parts -join " / ")
-            } elseif ($item.クラウド -gt 0 -or $item.クラウド失敗 -gt 0) {
+            } elseif ($item.クラウド -gt 0) {
                 # 取り込み対象は無いが、クラウドにだけあるため残すファイルがある。「最新」とは言わず、注意の色で出す
+                # （クラウドにだけある前回失敗は、更新し直す指定が無ければ取り込み対象にならない。手元の前回失敗と同じく「最新」のまま内訳に出す）
                 $row.StatusText = "要確認"
                 $row.Level = "Wait"
                 $row.DetailText = $parts -join " / "
