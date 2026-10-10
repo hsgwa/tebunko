@@ -98,7 +98,7 @@ Describe "長いパス（260文字超）" -Tag Io {
         }
     }
 
-    It "長いパスのフォルダでも、集約ファイルを作り・列挙・検索でき、相対パスは \\?\ の無い形になる" {
+    It "長いパスのフォルダでも、本文インデックスのファイルを作り・列挙・検索でき、相対パスは \\?\ の無い形になる" {
         $root = "$TestDrive\indexLong"
         $dir = "$root\$deepRel"
         [void][System.IO.Directory]::CreateDirectory((toLongPath "$dir\book.xlsx"))
@@ -107,14 +107,14 @@ Describe "長いパス（260文字超）" -Tag Io {
         [System.IO.File]::WriteAllText("$root\short.xlsx\Sheet1.tsv", "hello`r`n", $utf8Bom)
         try {
             foreach ($folder in (findIndexFoldersWithBooks $root)) {
-                [void](updateIndexFolderPack $folder)
+                [void](updateFolderContentIndex $folder)
             }
-            $index = getIndexPackFiles @($root)
+            $index = getContentIndexFiles @($root)
             $index.Folders[0].Count | Should -Be 2
-            $rel = @($index.Packs | ForEach-Object { $_.RelPath } | Sort-Object)
+            $rel = @($index.ContentIndexFiles | ForEach-Object { $_.RelPath } | Sort-Object)
             $rel | Should -Be @("$deepRel\content_index.xlsx.001.tsv", "content_index.xlsx.001.tsv")
 
-            $hits = @((searchPackIndex "hello" $index.Packs).Hits)
+            $hits = @((searchContentIndex "hello" $index.ContentIndexFiles).Hits)
             $hits.Count | Should -Be 2
             @($hits | Where-Object { $_.RelDir -eq $deepRel }).Count | Should -Be 1
 

@@ -16,7 +16,7 @@
 
 - `【検索文字列　…】` の空白は全角スペース。ブロックの後に空行を 1 行出力する。
 - ファイル名は、インデックスフォルダからの相対フォルダ（= クロール対象フォルダからの相対フォルダ）付き。直下のファイルはフォルダ部分なし。
-- **場所・種別** は、ヒットの `Location`（場所の名前。本文インデックスのメタ情報から組み立てる。[ファイル名・場所の求め方](#ファイル名場所の求め方readpackplaces)）を場所ごとの表記にしたもの（`describePlace`。画面の見出しの要約と同じ）。結果の表の「場所」列は、Excel ではこれにセル番地を足した行ごとの表記（`describeHitPlace`。`[シート]売上!B12`）を出すが、この出力にはセル番地を付けない。
+- **場所・種別** は、ヒットの `Location`（場所の名前。本文インデックスのメタ情報から組み立てる。[ファイル名・場所の求め方](#ファイル名場所の求め方readcontentindexplaces)）を場所ごとの表記にしたもの（`describePlace`。画面の見出しの要約と同じ）。結果の表の「場所」列は、Excel ではこれにセル番地を足した行ごとの表記（`describeHitPlace`。`[シート]売上!B12`）を出すが、この出力にはセル番地を付けない。
 
   | 場所の名前（`Location`） | 場所 | 種別 |
   |---|---|---|
@@ -36,7 +36,7 @@
   - Word のページは、Word が保存したときのページ区切りから数えた目安のため「（目安）」を付ける（[Word](../indexing/word.md)・[既知の問題](../indexing/known-issues.md#word-の注意点既知の問題)）。
   - Excel の図形・コメントは、該当行の 1 列目が図形の左上・コメントのセル番地、2 列目が文字（[Excel の図形・コメントの読み取り](../indexing/excel.md#excel-の図形コメントの読み取りreadxlsxobjectunits)）。Excel のヘッダー・フッターは、該当行が文字だけ（セル番地の列は無い。行番号はその場所の中の何行目か）。
   - シート名にタブ・改行が入っている場合（Excel は付けられる）は、列・行が分かれないようスペースにする。
-- **行番号** は場所の中の行番号（`searchPackIndex` の `LineNumber`。元の TSV の行番号と同じ）。Excel ではシートの行番号、Word・PowerPoint では場所（ページ・スライド等）の中で何行目か。
+- **行番号** は場所の中の行番号（`searchContentIndex` の `LineNumber`。元の TSV の行番号と同じ）。Excel ではシートの行番号、Word・PowerPoint では場所（ページ・スライド等）の中で何行目か。
 - **該当行** は、結果をすべて選択して Excel に貼り付けたとき、5 列目以降に元の列の順（5 列目 = A 列）でセルが並ぶように出力する。見出しの列名（A, B, C…）と行番号で、元のセル位置が分かる。
   - Excel: TSV の行をそのまま出力し、セル内改行（U+2028）だけを LF に戻す。改行を含むセルは Excel の出力時点で `"` で囲まれているため、貼り付けても 1 セル内の改行となり、右隣のセル・後続の行はずれない。このため結果ファイルをテキストエディタで開くと、改行を含むセルは複数行に見える。
   - Word・PowerPoint: 行（段落、または表の 1 行をタブ区切りにしたもの）は `"` で囲まれていない。Excel は `"` で始まるセルを囲みの `"` と解釈して後続がずれるため、`"` で始まるセルだけを `"` で囲み、中の `"` を `""` にする。途中に `"` を含むセルはそのままで、貼り付けても文字どおりになる。
@@ -57,7 +57,7 @@ sub dir\old.xls	[シート]Sheet1	セル	3	古い形式 りんご
 
 ```mermaid
 flowchart LR
-    H["searchPackIndex のヒット<br>（RelDir, Book, Location, LineNumber, Line）"] --> T["toResultLine<br>ヒットのファイル名（Book）・場所（Location）"]
+    H["searchContentIndex のヒット<br>（RelDir, Book, Location, LineNumber, Line）"] --> T["toResultLine<br>ヒットのファイル名（Book）・場所（Location）"]
     T --> X{"Excel のインデックス？<br>（.xls? のファイル）"}
     X -- はい --> XL["U+2028 → LF"]
     X -- いいえ --> WD["#quot; で始まるセルを #quot; で囲む"]
@@ -67,27 +67,27 @@ flowchart LR
     J -- いいえ --> O2["ファイル名 TAB 場所 TAB 種別 TAB 行番号 TAB 該当行"]
 ```
 
-## ファイル名・場所の求め方（`readPackPlaces`）
+## ファイル名・場所の求め方（`readContentIndexPlaces`）
 
 ヒット 1 件の元のファイル名（Book）・場所（Location: シート名・ページ・スライド）・元のファイルのあるフォルダ（RelDir）は、次のように求める。
 
 | 値 | 求め方 |
 |---|---|
-| RelDir | 本文インデックスのファイルのあるフォルダの、インデックスのフォルダ（`Root`）からの相対パス（`getPackFiles`） |
+| RelDir | 本文インデックスのファイルのあるフォルダの、インデックスのフォルダ（`Root`）からの相対パス（`findContentIndexFiles`） |
 | Book | 一致した位置より前の、いちばん近い `ファイル名=` の値 |
-| Location | 一致した位置を含む場所のメタ情報（`シート` / `ページ` / `スライド` / `部分`・`対象`・`非表示`）から組み立てた場所の名前（`convertPackMetaToPlace`。`見積[図形]`・`ページ001`・`スライド002（非表示）`・`スライド001_ノート` など。[インデックスのファイルの形](../index-data/format.md#配置命名規則)「本文インデックスの形式」） |
+| Location | 一致した位置を含む場所のメタ情報（`シート` / `ページ` / `スライド` / `部分`・`対象`・`非表示`）から組み立てた場所の名前（`convertContentIndexMetaToPlace`。`見積[図形]`・`ページ001`・`スライド002（非表示）`・`スライド001_ノート` など。[インデックスのファイルの形](../index-data/format.md#配置命名規則)「本文インデックスの形式」） |
 | LineNumber | 場所の中身の先頭から数えた行番号（場所のメタ情報の後の最初の行が 1） |
 
 ```mermaid
 flowchart TD
-    A["本文インデックスの全文"] --> B["readPackPlaces<br>先頭が RS の行（メタ情報）を順に読む"]
+    A["本文インデックスの全文"] --> B["readContentIndexPlaces<br>先頭が RS の行（メタ情報）を順に読む"]
     B --> C["ファイル名= で元のファイルが変わる<br>シート= / ページ= / スライド= / 部分= で場所が変わる"]
     C --> D["場所ごとの一覧<br>（Book, Location, 中身の先頭の位置, 終わりの位置）"]
     D --> E["一致の位置を含む場所を探し、<br>場所の先頭から改行を数えて行番号にする"]
 ```
 
 - 場所の一覧は、全文で一致したとき（と、読んだ内容を使い回すために残すとき）だけ作る。一致しない本文インデックスのファイルでは作らない（[検索を速くする仕組み](speed.md)）。
-- 画面の選択行のプレビュー（`readPackContext`）も同じ一覧で、Book・Location が一致する場所の中から前後の行を取り出す（[検索タブ](../gui/search-tab.md) [選択行のプレビュー](../gui/preview.md)）。
+- 画面の選択行のプレビュー（`readContentIndexContext`）も同じ一覧で、Book・Location が一致する場所の中から前後の行を取り出す（[検索タブ](../gui/search-tab.md) [選択行のプレビュー](../gui/preview.md)）。
 - 検索では TSV の相対パスを分解しない。TSV の名前（フォルダ名 = 元のファイル名、ファイル名 = 場所）は、本文インデックスに入れるとき（`getIndexFolderBooks`）だけに使う。
 
 場所の付け方は [インデックス作成](../indexing/index.md) の [インデックスのファイルの形](../index-data/format.md#配置命名規則)・[場所の符号化](../index-data/format.md#場所の符号化encodeindexplace--decodeindexplace) を参照。
@@ -97,6 +97,6 @@ flowchart TD
 テキストファイル（`.txt` 等）は、1 行に数 MB の内容が入ることがある（`.json` `.xml` `.log` など）。取り込み・検索の一致そのものは行を切らずに行う（行番号と検索の一致がずれないため）が、結果の表・プレビュー・この検索結果ファイル・画面の［コピー］に出す行は、`search_query.ps1` の `truncateHitLine` で `${hitLineMaxChars}`（1,000 文字）に切る。
 
 - 一致した行（結果の表・検索結果ファイル）は、一致の位置の `${hitLineBeforeMatchChars}`（200）文字前から 1,000 文字を取る（一致の位置が分からない図形・コメント等では先頭から）。
-- 選択行のプレビューの前後の行（`readPackContext`）は、一致していないため常に先頭から 1,000 文字を取る。
+- 選択行のプレビューの前後の行（`readContentIndexContext`）は、一致していないため常に先頭から 1,000 文字を取る。
 - 切った側に `…` を付ける（先頭・末尾のどちらか、または両方）。
-- Excel・Word・PowerPoint の行は切らない（Excel は列の位置がずれるため。詳細は [テキストファイルの読み取り](../indexing/text.md)）。`pack_search.ps1` の `searchPackFiles` は、元のファイル名の拡張子（`getPackFileKind`）がテキストのときだけ切る。
+- Excel・Word・PowerPoint の行は切らない（Excel は列の位置がずれるため。詳細は [テキストファイルの読み取り](../indexing/text.md)）。`content_index_search.ps1` の `searchContentIndexFiles` は、元のファイル名の拡張子（`getContentIndexFileKind`）がテキストのときだけ切る。

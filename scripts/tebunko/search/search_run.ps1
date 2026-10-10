@@ -1,4 +1,4 @@
-﻿# 検索結果の組み立て・書き出しと、インデックスの有無・件数（検索そのものは pack_search.ps1）。
+﻿# 検索結果の組み立て・書き出しと、インデックスの有無・件数（検索そのものは content_index_search.ps1）。
 
 function toResultLine {
     # 検索結果1件を "ファイル名<TAB>場所<TAB>種別<TAB>行番号<TAB>該当行" に整形する。場所・種別は場所ごとの表記（describePlace。画面の見出しの要約と同じ）。
@@ -42,14 +42,14 @@ function toResultHeader {
 }
 
 
-# 検索で読んだ集約ファイルの内容を残しておく量の上限（文字数。1 文字 2 バイトのため約 128MB）
+# 検索で読んだ本文インデックスのファイルの内容を残しておく量の上限（文字数。1 文字 2 バイトのため約 128MB）
 ${searchCacheMaxChars} = 64000000
 
 function newTsvTextCache {
-    # 検索で読んだ集約ファイルの内容を、次の検索で使い回すための入れ物を作る（画面が 1 つ持ち、検索のたびに searchPackIndex に渡す）。
-    # 2 回目以降の検索ではファイルを開かない。更新日時・サイズが列挙したときと違う集約ファイル（書き直した等）は読み直す。
+    # 検索で読んだ本文インデックスのファイルの内容を、次の検索で使い回すための入れ物を作る（画面が 1 つ持ち、検索のたびに searchContentIndex に渡す）。
+    # 2 回目以降の検索ではファイルを開かない。更新日時・サイズが列挙したときと違う本文インデックスのファイル（書き直した等）は読み直す。
     # 並列検索の各スレッドから使うため、中身は ConcurrentDictionary。
-    #   Texts: 集約ファイルの \\?\ 付きのパス → @(更新日時（UTC の Ticks）, サイズ, 内容, 場所の一覧, 最後に使った世代) / Chars: 残している文字数 / MaxChars: 上限
+    #   Texts: 本文インデックスのファイルの \\?\ 付きのパス → @(更新日時（UTC の Ticks）, サイズ, 内容, 場所の一覧, 最後に使った世代) / Chars: 残している文字数 / MaxChars: 上限
     #   Generation: 今の世代（検索 1 回ごとに trimTsvTextCache が 1 つ進める）
     param (
         [long]$maxChars = ${searchCacheMaxChars}
@@ -68,8 +68,8 @@ ${searchCacheKeepRatio} = 0.9
 
 function trimTsvTextCache {
     # 検索 1 回の後に呼ぶ（検索の司令のスレッド）。上限の keepRatio を超えていたら、今の世代で使わなかったものを、
-    # 古い世代から追い出す（消した集約ファイル・検索しなくなったフォルダの分）。今の世代で使ったものは残す
-    # （毎回同じ集約ファイルを順に読むため、使った順だけで追い出すと、上限より大きいインデックスでは何も残らない）。
+    # 古い世代から追い出す（消した本文インデックスのファイル・検索しなくなったフォルダの分）。今の世代で使ったものは残す
+    # （毎回同じ本文インデックスのファイルを順に読むため、使った順だけで追い出すと、上限より大きいインデックスでは何も残らない）。
     # 最後に世代を 1 つ進める。追い出した数を返す
     param (
         $cache,
@@ -131,8 +131,8 @@ function newSearchRequest {
 function invokeSearchRequest {
     # 検索の要求（newSearchRequest）を実行し、ヒットと進み具合を要求に少しずつ入れる。最後に Finished を立てる。
     # 例外は投げずに Error に入れる。始める前に取り消されていたら（次の要求が来た等）、何もせずに Cancelled にする。
-    #   pool : 照合のプール（newPackWorkerPool）。$null なら searchPackIndex が必要なときだけ作る
-    #   cache: 読んだ集約ファイルの内容の入れ物（newTsvTextCache）
+    #   pool : 照合のプール（newContentIndexWorkerPool）。$null なら searchContentIndex が必要なときだけ作る
+    #   cache: 読んだ本文インデックスのファイルの内容の入れ物（newTsvTextCache）
     param (
         [hashtable]$request,
         $pool = $null,
@@ -152,19 +152,19 @@ function invokeSearchRequest {
             $own = [Workspace]::new($request.WorkDir)
             $request.FastAvailable = testWindowsSearch $own.SystemIndexDir
             if ($request.FastAvailable) {
-                $index = getFastSearchPackFiles $word $folders -indexRoot $own.IndexDir -systemRoot $own.SystemIndexDir -statePath $own.SystemIndexStateFile `
+                $index = getFastSearchContentIndexFiles $word $folders -indexRoot $own.IndexDir -systemRoot $own.SystemIndexDir -statePath $own.SystemIndexStateFile `
                     -onProgress { param ($count) $request.Scanned = $count }
             }
         }
         $request.FastUsed = ($null -ne $index)
         if ($null -eq $index) {
             # 途中の件数を画面に伝える（止まって見えないように）
-            $index = getIndexPackFiles $folders { param ($count) $request.Scanned = $count }
+            $index = getContentIndexFiles $folders { param ($count) $request.Scanned = $count }
         }
         $request.Folders = $index.Folders
-        $request.Total = $index.Packs.Count
-        $request.IndexTotal = $index.Packs.Count
-        $result = searchPackIndex $word $index.Packs $request.SimpleMatch $request.Limit -caseSensitive $request.CaseSensitive `
+        $request.Total = $index.ContentIndexFiles.Count
+        $request.IndexTotal = $index.ContentIndexFiles.Count
+        $result = searchContentIndex $word $index.ContentIndexFiles $request.SimpleMatch $request.Limit -caseSensitive $request.CaseSensitive `
             -fileFilter $request.FileFilter -cache $cache -includeShapes $request.IncludeShapes -includeComments $request.IncludeComments -pool $pool `
             -onProgress {
             param ($done, $total, $newHits)
@@ -185,7 +185,7 @@ function invokeSearchRequest {
 }
 
 function testIndexExists {
-    # 検索対象インデックスに集約ファイルが1件でもあるか（最初の1件が見つかった時点で打ち切る）
+    # 検索対象インデックスに本文インデックスのファイルが1件でもあるか（最初の1件が見つかった時点で打ち切る）
     param (
         [string[]]$folders = @($workspace.IndexDir)
     )
@@ -197,12 +197,12 @@ function testIndexExists {
         try {
             # 1 件見つけたらやめる。列挙子を閉じずに戻ると content_index の下のフォルダを掴んだまま残り、
             # 続くインポートの上書きで移動できなくなるため testAnyEntry を通す
-            if (testAnyEntry ([System.IO.Directory]::EnumerateFiles((toLongPath (Resolve-Path -LiteralPath $dir).ProviderPath), ${packFilePattern}, [System.IO.SearchOption]::AllDirectories))) {
+            if (testAnyEntry ([System.IO.Directory]::EnumerateFiles((toLongPath (Resolve-Path -LiteralPath $dir).ProviderPath), ${contentIndexFilePattern}, [System.IO.SearchOption]::AllDirectories))) {
                 return $true
             }
         } catch {
             # アクセスできないフォルダがある場合は、件数を数える方で判定する
-            if (@(Get-ChildItem -LiteralPath $dir -Filter ${packFilePattern} -File -Recurse -ErrorAction SilentlyContinue).Count -gt 0) {
+            if (@(Get-ChildItem -LiteralPath $dir -Filter ${contentIndexFilePattern} -File -Recurse -ErrorAction SilentlyContinue).Count -gt 0) {
                 return $true
             }
         }
@@ -211,7 +211,7 @@ function testIndexExists {
 }
 
 function getIndexSummary {
-    # 検索対象インデックスの集約ファイルの件数と最新の更新日時を返す: @{ Count; LastWrite（無ければ $null）; Missing（存在しないフォルダ） }
+    # 検索対象インデックスの本文インデックスのファイルの件数と最新の更新日時を返す: @{ Count; LastWrite（無ければ $null）; Missing（存在しないフォルダ） }
     param (
         [string[]]$folders = @($workspace.IndexDir)
     )
@@ -226,9 +226,9 @@ function getIndexSummary {
         $longDir = toLongPath (Resolve-Path -LiteralPath $dir).ProviderPath
         # アクセスできないフォルダがあると .NET の列挙は途中で止まるため、そのときは Get-ChildItem で数える（読めるものだけ）
         try {
-            $found = [System.IO.DirectoryInfo]::new($longDir).GetFiles(${packFilePattern}, [System.IO.SearchOption]::AllDirectories)
+            $found = [System.IO.DirectoryInfo]::new($longDir).GetFiles(${contentIndexFilePattern}, [System.IO.SearchOption]::AllDirectories)
         } catch {
-            $found = @(Get-ChildItem -LiteralPath $longDir -Filter ${packFilePattern} -File -Recurse -ErrorAction SilentlyContinue)
+            $found = @(Get-ChildItem -LiteralPath $longDir -Filter ${contentIndexFilePattern} -File -Recurse -ErrorAction SilentlyContinue)
         }
         foreach ($file in $found) {
             if (!$seen.Add($file.FullName)) {

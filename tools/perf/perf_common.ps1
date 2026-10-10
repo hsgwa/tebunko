@@ -33,6 +33,32 @@ function assertTebunkoFunctions {
     }
 }
 
+function resolveTebunkoFunction {
+    # 候補の名前の並び（新しい名前から先）から、読み込んだ tebunko にある最初の関数の名前を返す。
+    # 名前を改めた前の版（古い名前だけある）も、改めた後の版も測れるようにする。どれも無ければ assertTebunkoFunctions と同じ文言で止める
+    param (
+        [string[]]$names
+    )
+
+    foreach ($name in $names) {
+        if (Get-Command $name -CommandType Function -ErrorAction SilentlyContinue) { return $name }
+    }
+    throw "測る tebunko に $($names[0]) がありません。pack 形式より前の版は測れません（関数の引数が変わった場合は、この計測スクリプトを直してください）。"
+}
+
+function getTebunkoProperty {
+    # 候補の名前の並び（新しい名前から先）から、ハッシュテーブルにある最初の項目の値を返す（getIndexPackFiles の戻り値の項目の新旧）
+    param (
+        [hashtable]$table,
+        [string[]]$names
+    )
+
+    foreach ($name in $names) {
+        if ($table.ContainsKey($name)) { return $table[$name] }
+    }
+    return $null
+}
+
 # リソースを 1 回記録する。記録用のスレッドと、段階を切り替える呼び出し元の両方で使う
 $perfTakeSample = {
     param ($monitor, $cpuCounter, $memCounter)

@@ -201,7 +201,7 @@ Describe "findTargetFiles（tebunko が作ったものの除外）" -Tag Io {
         @($scan.Files | ForEach-Object { $_.Name }) | Should -Not -Contain "sheet.tsv"
     }
 
-    It "名前で分かる本文インデックス・前の版の集約ファイル・システムインデックスは、どこにあっても外れる" {
+    It "名前で分かる本文インデックス・前の版の本文インデックスのファイル・システムインデックスは、どこにあっても外れる" {
         $workspace = newTestWorkspace @{} (Join-Path $TestDrive "ws-out-of-tree3")
         newFile "content_index.txt.001.tsv"
         newFile "content.xlsx.001.tsv"

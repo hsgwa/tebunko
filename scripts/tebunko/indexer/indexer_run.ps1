@@ -1,7 +1,7 @@
 ﻿# インデックス作成の本体（invokeIndexer）。画面を使わない起動口（indexer.ps1）と、画面のインデクサのスレッド（IndexingSession）が呼ぶ。
 # 設計は docs/design/indexing/parallel.md、docs/design/structure/threads.md「画面とインデクサの受け渡し」。
 #
-# ・司令のスレッド（invokeIndexer を呼んだスレッド）が、クロール・確認・取り込み一覧・集約ファイルとシステムインデックスの書き出しを行う。
+# ・司令のスレッド（invokeIndexer を呼んだスレッド）が、クロール・確認・取り込み一覧・本文インデックスのファイルとシステムインデックスの書き出しを行う。
 #   Office の COM には触らない
 # ・1 ファイルの取り込み（Office で開いて TSV にする）は、取り込みのスレッド（STA）が行う。スレッドごとに自分の Office を持つ。
 #   スレッドの数が 0 のときは、司令のスレッドで取り込む（テストで、途中に割り込むため）
@@ -40,7 +40,7 @@ ${ingestWorkerScript} = {
     }
 }
 
-# 司令が並びの先を見る件数（空いているレーン向けのファイルを先に渡すため）。大きくすると、集約ファイルの書き出しが遅れるフォルダが増える
+# 司令が並びの先を見る件数（空いているレーン向けのファイルを先に渡すため）。大きくすると、本文インデックスのファイルの書き出しが遅れるフォルダが増える
 ${ingestLookAhead} = 200
 
 function runIngestWorker {
@@ -422,7 +422,7 @@ function invokeIndexerBody {
     $folders = @(assignIndexNames $targetFolders $status.Folders)
     $previous = $status.Rows
     removeDroppedFolders $folders $status.Folders
-    # 前回のインデックス作成が途中で止まり、集約ファイルに入れていない TSV（元のファイルごとのフォルダ）が残っていれば、先に入れる
+    # 前回のインデックス作成が途中で止まり、本文インデックスのファイルに入れていない TSV（元のファイルごとのフォルダ）が残っていれば、先に入れる
     $leftover = findIndexFoldersWithBooks $workspace.IndexDir
     if ($leftover.Count -gt 0) {
         writeIndexerLog "集約ファイルに入れていないインデックス（$($leftover.Count) フォルダ）をまとめています…"
@@ -589,7 +589,7 @@ function invokeIndexerBody {
     if ($targets.Count -eq 0) {
         writeIndexerLog ""
         writeIndexerLog "取り込みが必要なファイルはありません。（一覧: $(Split-Path $workspace.StatusFile -Leaf)）" "Green"
-        # 元のファイルが無くなったフォルダは、集約ファイルから外す
+        # 元のファイルが無くなったフォルダは、本文インデックスのファイルから外す
         flushPending -All
         # 取り込むファイルが無くても、システムインデックスがまだ無いフォルダ（この版に上げた直後など）は作る
         $reporter.Progress(${indexingPhaseFinish}, 0, 0, 0, "システムインデックス（高速検索用）を確かめています…")
@@ -621,7 +621,7 @@ function invokeIndexerBody {
     $remaining = 0
     # 取り込み中のファイル: 相対パス → @{ Row; Count; Folder; Number; Lane; Task }
     $inflight = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
-    # フォルダごとの取り込み中の数と、まだ渡していない数（どちらも 0 になったら集約ファイルに書き出す）は $pending が持つ
+    # フォルダごとの取り込み中の数と、まだ渡していない数（どちらも 0 になったら本文インデックスのファイルに書き出す）は $pending が持つ
     # レーンごとの取り込み中の数（レーンに渡せる数は ingestLaneCapacity）
     $laneBusy = @{}
     $lanes = New-Object string[] $total
@@ -809,7 +809,7 @@ function invokeIndexerBody {
                 # 制限時間を過ぎて強制終了したアプリは使えないため、すべて終了して次に必要になったときに起動し直す
                 stopAllApps
             }
-            # 取り込みが揃ったフォルダ（取り込み中が無く、まだ渡していないファイルも無い）を、集約ファイルに書き出す
+            # 取り込みが揃ったフォルダ（取り込み中が無く、まだ渡していないファイルも無い）を、本文インデックスのファイルに書き出す
             flushPending
         }
     } finally {
@@ -828,7 +828,7 @@ function invokeIndexerBody {
         $script:officeRecordDir = $null
         removeTmpDir
         $ledger.RemoveIngestingFile()
-        # 取り込んだ TSV は、中止したときも残さず集約ファイルに入れる（残すとインデックスの容量が倍になる）
+        # 取り込んだ TSV は、中止したときも残さず本文インデックスのファイルに入れる（残すとインデックスの容量が倍になる）
         $reporter.Progress(${indexingPhaseFinish}, $processed, 0, $ledger.Failures.Count, "インデックスをまとめています…")
         flushPending -All
         $reporter.Progress(${indexingPhaseFinish}, $processed, 0, $ledger.Failures.Count, "更新の記録を書き直しています…")
