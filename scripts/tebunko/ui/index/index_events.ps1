@@ -1,12 +1,35 @@
 ﻿# インデックス管理の画面のイベントの登録（ボタン・一覧の操作・行のメニュー）。
 
-# 頭の ⓘ と、ステータス列の見出しの説明（文言は index_view.ps1 が決める）
-$ui.IndexScreenInfo.ToolTip = (getIndexScreenInfoText) -join "`n"
-[System.Windows.Automation.AutomationProperties]::SetHelpText($ui.IndexScreenInfo, $ui.IndexScreenInfo.ToolTip)
+# ステータス列の見出しの説明（文言は index_view.ps1 が決める）
 $ui.StatusColumnHeader.ToolTip = (getIndexStatusHelpText) -join "`n"
+# 帯の閉じるボタンと、帯が自動で消えるときの時計（時間は setIndexingBannerBehavior が決めて動かす）
+$script:indexingBannerTimer = newTimer 8000 { safe { closeIndexingBanner } }
+$ui.IndexingBannerClose.Add_Click({ safe { closeIndexingBanner } })
 $ui.NewIndexButton.Add_Click({ safe { newIndex } })
 $ui.IndexEmptyAddButton.Add_Click({ safe { newIndex } })
-$ui.EditIndexButton.Add_Click({ safe { editIndex } })
+# 詳細の名前・フォルダパスの欄: Enter か欄から出たときに確定、Esc で取り消す（確かめと反映は commitIndexDetailEdit）
+foreach ($editBox in @($ui.IndexDetailName, $ui.IndexDetailPath)) {
+    $editBox.Add_KeyDown({
+        param ($sender, $e)
+        if ($e.Key -eq "Return") {
+            safe { commitIndexDetailEdit $true }
+            $e.Handled = $true
+        } elseif ($e.Key -eq "Escape") {
+            safe { restoreIndexDetailEdit }
+            $e.Handled = $true
+        }
+    })
+    $editBox.Add_LostFocus({ safe { commitIndexDetailEdit $false } })
+    # 欄の中身が行の値に戻ったら、前のエラーの文言を消す
+    $editBox.Add_TextChanged({
+        safe {
+            $edited = $script:detailEditItem
+            if ($null -ne $edited -and $ui.IndexDetailName.Text -ceq $edited.Name -and $ui.IndexDetailPath.Text -eq $edited.Path) {
+                setIndexDetailEditError ""
+            }
+        }
+    })
+}
 # 行の右クリックの［更新］は、行の右端の［更新］と同じ処理（押した行だけを更新する）
 $ui.RowMenuUpdate.Add_Click({
     safe {
@@ -37,18 +60,6 @@ $ui.ActionExport.Add_Click({
             newExportIndex
         } elseif ($checked.Count -ge 2) {
             newBulkExportIndexes @($checked | ForEach-Object { $_.Name })
-        }
-    }
-})
-# ［編集…］も同じ（1 件にだけ効く）。チェックが 1 件ならその行を選んでから、チェックが無ければ押した行に対して動く。2 件以上は使えない
-$ui.ActionEdit.Add_Click({
-    safe {
-        $checked = @(getIndexCheckedItems @($script:targetItems))
-        if ($checked.Count -eq 1) {
-            $ui.IndexGrid.SelectedItem = $checked[0]
-            editIndex
-        } elseif ($checked.Count -eq 0) {
-            editIndex
         }
     }
 })
@@ -119,7 +130,6 @@ $ui.IndexGrid.Add_ContextMenuOpening({
     }
 })
 $ui.IndexGrid.Add_SelectionChanged({ safe { updateIndexListView } })
-$ui.IndexGrid.Add_MouseDoubleClick({ safe { editIndex } })
 $ui.IndexGrid.Add_KeyDown({
     param ($sender, $e)
     if ($e.Key -eq "Delete") {

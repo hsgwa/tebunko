@@ -1,4 +1,4 @@
-﻿# 現行の画面を、状態ごとに全部（40 枚）自動で撮る道具。GUI を直す前の記録として docs\images\screens\ に置き、
+﻿# 現行の画面を、状態ごとに全部（36 枚）自動で撮る道具。GUI を直す前の記録として docs\images\screens\ に置き、
 # docs\design\gui\screens\ の写真として載せる。詳しい経緯・撮る状態の一覧・撮らないものは docs\design\gui\screens\index.md。
 #
 #   .\tools\capture_screens.ps1                 すべての状態を撮り直す
@@ -257,35 +257,11 @@ function captureStarterScene {
             clickGui $S $about "CloseButton" "［閉じる］"
             waitGuiWindowClosed $S $about "「バージョン情報」"
 
-            setGuiStep $S "［＋ フォルダを追加］"
+            # 追加: OS のフォルダ選択を開き、選んだフォルダ名のインデックスが一覧に加わる（追加のダイアログは無い）
+            setGuiStep $S "［＋ フォルダを追加］→ フォルダを選ぶ"
             clickGui $S $S.Window "NewIndexButton" "［＋ フォルダを追加］"
-            $dialog = waitGuiWindow $S "追加のダイアログ" -Id "FolderBox"
-            captureGuiState -S $S -Id "index-tab/add" -Ids $Ids -OutDir $OutDir `
-                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($dialog)
-
-            setGuiStep $S "［＋ フォルダを追加］入力が足りないまま［OK］"
-            clickGui $S $dialog "OkButton" "［OK］"
-            waitGui $S "注意（ErrorText）" ${guiDefaultTimeout} { (getGuiText (findGui $dialog -Id "ErrorText")) -ne "" } | Out-Null
-            captureGuiState -S $S -Id "index-tab/add-error" -Ids $Ids -OutDir $OutDir `
-                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($dialog)
-
-            setGuiStep $S "フォルダを入れて追加"
-            setGuiText $S (findGui $dialog -Id "FolderBox") $source
-            waitGui $S "名前が自動で入る" ${guiDefaultTimeout} { (getGuiValue (findGui $dialog -Id "NameBox")) -eq "営業" } | Out-Null
-            clickGui $S $dialog "OkButton" "［OK］"
-            waitGuiWindowClosed $S $dialog "追加のダイアログ"
+            useGuiFolderPicker $S $source
             $row = waitGui $S "一覧に加わる" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")) | Select-Object -First 1 }
-
-            # 編集のダイアログ（index-tab/edit）は、［アクション ▾］の［編集…］で開く（行の右クリックとダブルクリックは
-            # UI オートメーションからは開けない）
-            setGuiStep $S "［アクション ▾］→［編集…］"
-            selectGui $row
-            clickGuiAction $S "ActionEdit" "［編集…］"
-            $dialog = waitGuiWindow $S "インデックスの編集のダイアログ" -Id "FolderBox"
-            captureGuiState -S $S -Id "index-tab/edit" -Ids $Ids -OutDir $OutDir `
-                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($dialog)
-            clickGui $S $dialog "CancelButton" "［キャンセル］"
-            waitGuiWindowClosed $S $dialog "編集のダイアログ"
 
             setGuiStep $S "行のチェックを付ける"
             $row = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]

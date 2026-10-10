@@ -34,7 +34,7 @@
   <!-- 平らな面。上に細い線、見出しの帯（薄い地）、その下に左右 2 列（間は線 1 本） -->
   <Border BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,1,0,0">
     <DockPanel>
-      <Border DockPanel.Dock="Top" Background="{StaticResource Bg.Hover}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,0,1" Padding="16,11">
+      <Border DockPanel.Dock="Top" Background="{StaticResource Bg.Hover}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,0,1" Padding="16,8">
         <StackPanel Orientation="Horizontal">
           <Path Data="{StaticResource Icon.Info}" Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource Ink.Muted}"
                 StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -42,7 +42,7 @@
         </StackPanel>
       </Border>
       <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Margin="16,12,16,12">
+        <StackPanel Margin="16,10,16,10">
 
           <!-- 2 件以上を選んだとき（見出しは「N 件を選択中」）の案内 -->
           <TextBlock x:Name="MultiSelectHintText" Style="{StaticResource Meta}" Visibility="Collapsed" />
@@ -64,9 +64,8 @@
                   <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Style="{StaticResource Label}" Text="名前" VerticalAlignment="Center" />
-                <Border Grid.Column="1" Style="{StaticResource FieldBox}">
-                  <TextBlock x:Name="IndexDetailName" Foreground="{StaticResource Ink.Value}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
-                </Border>
+                <!-- 名前はその場で直す。Enter か欄から出たときに確定、Esc で取り消す（index_events.ps1・commitIndexDetailEdit） -->
+                <TextBox x:Name="IndexDetailName" Grid.Column="1" AutomationProperties.AutomationId="IndexDetailName" AutomationProperties.Name="インデックスの名前" />
               </Grid>
               <Grid Margin="0,8,0,0">
                 <Grid.ColumnDefinitions>
@@ -75,10 +74,8 @@
                   <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Style="{StaticResource Label}" Text="フォルダパス" VerticalAlignment="Center" />
-                <Border Grid.Column="1" Style="{StaticResource FieldBox}" CornerRadius="4,0,0,4">
-                  <TextBlock x:Name="IndexDetailPath" Foreground="{StaticResource Ink.Value}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
-                </Border>
-                <!-- フォルダの場所をその場で変える［...］。欄の右にくっつけて置く。押すとフォルダを選ぶ画面を出し、［編集…］のダイアログで場所を変えて［OK］したときと同じ道（changeIndexFolder）を通る -->
+                <TextBox x:Name="IndexDetailPath" Grid.Column="1" AutomationProperties.AutomationId="IndexDetailPath" AutomationProperties.Name="元のフォルダのパス" />
+                <!-- フォルダの場所をその場で変える［...］。欄の右に置く。押すとフォルダを選ぶ画面を出し、選んだ場所を欄に入れて、欄に入力したときと同じ道（changeIndexFolder → commitIndexDetailEdit）で変える -->
                 <Button x:Name="IndexDetailPathButton" Grid.Column="2" Width="34" MinWidth="34" Padding="0"
                         AutomationProperties.AutomationId="IndexDetailPathButton" AutomationProperties.Name="フォルダの場所を変える"
                         ToolTip="元のフォルダの場所を変えます（インデックスはそのまま使います）">
@@ -108,6 +105,8 @@
                   </Button.Template>
                 </Button>
               </Grid>
+              <!-- 名前・フォルダパスを確定できなかったときの理由（commitIndexDetailEdit） -->
+              <TextBlock x:Name="IndexDetailEditError" Style="{StaticResource ErrorText}" Margin="90,4,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
               <TextBlock x:Name="IndexDetailFolderStatus" Style="{StaticResource Meta}" Margin="90,4,0,0" />
               <Border Style="{StaticResource InfoCard}" Margin="0,10,0,0">
                 <StackPanel>

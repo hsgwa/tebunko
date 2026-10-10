@@ -102,6 +102,7 @@ function showIndexingConfirmDialog {
 
     $ctrl.PlanGrid.ItemsSource = buildPlanRows $plan
     $ctrl.IntroText.Text = getIndexingConfirmIntro (getIndexingDroppedCount $plan)
+    $ctrl.IntroText.Visibility = if ($ctrl.IntroText.Text) { "Visible" } else { "Collapsed" }
     if ($failed -gt 0) {
         $ctrl.RetryCheck.Visibility = "Visible"
         $ctrl.RetryCheck.Content = "前回更新に失敗し、その後変わっていないファイル {0:#,0} 件も更新し直す（パスワード付きなど）" -f $failed
@@ -423,19 +424,16 @@ function finishIndexing {
         setIndexingBanner (getIndexingBannerLevel $exitCode 0) "done"
         $ui.IndexingProgressText.Text = "インデックスを更新できませんでした"
         $ui.IndexingProgressDetail.Text = $message
-        setStatus "インデックスを更新できませんでした：$message"
         showMessage "インデックスを更新できませんでした。`n`n$message" "OK" "Error" | Out-Null
     } elseif ($exitCode -eq 2 -and $script:indexingCanceledAtConfirm) {
         # 確認のダイアログで取りやめた（1件も取り込んでいない）
         setIndexingBanner "warn" "done"
         $ui.IndexingProgressText.Text = "更新を取りやめました"
         $ui.IndexingProgressDetail.Text = "更新したファイルはありません。［すべて更新］を押すと、もう一度確認できます。"
-        setStatus $ui.IndexingProgressText.Text
     } elseif ($exitCode -eq 2) {
         setIndexingBanner "warn" "done"
         $ui.IndexingProgressText.Text = if ($counts) { "更新を中止しました（$counts）" } else { "更新を中止しました" }
         $ui.IndexingProgressDetail.Text = "次回は続きから再開できます。"
-        setStatus $ui.IndexingProgressText.Text
     } else {
         # 完了（後回し・失敗の件数に応じた見出しと説明は判断層（indexing_view.ps1）が決める）
         $success = if ($progress) { $progress.Processed - $progress.Failed } else { 0 }
@@ -444,14 +442,16 @@ function finishIndexing {
         $endText = getIndexingEndText $success $failed $session.GetPostponed() $session.GetNotice()
         $ui.IndexingProgressText.Text = $endText.Text
         $ui.IndexingProgressDetail.Text = $endText.Detail
-        setStatus $ui.IndexingProgressText.Text
     }
     $ui.IndexingProgressEta.Text = ""
     $ui.IndexingStopButton.Visibility = "Collapsed"
     $ui.IndexingProgress.Visibility = "Collapsed"
     $skippedView = getIndexingSkippedView $onlySkipped
     if ($skippedView -and $exitCode -ne 1) {
+        # メッセージを読んでいる間に成功の帯が消えないよう、時計を止め、閉じたあとから数え直す
+        $script:indexingBannerTimer.Stop()
         showMessage "$($skippedView.Heading)`n`n$($skippedView.Detail)" "OK" "Warning" | Out-Null
+        setIndexingBannerBehavior
     }
     $ui.IndexingSearchButton.Visibility = if ($exitCode -ne 1) { "Visible" } else { "Collapsed" }
 

@@ -9,8 +9,8 @@
 ${captureIds} = @(
     "window/about", "window/close-confirm", "window/settings-broken",
     "window/leftover", "window/leftover-open", "window/leftover-many", "window/leftover-search", "window/leftover-killed", "window/leftover-partial",
-    "index-tab/empty", "index-tab/normal", "index-tab/interrupted", "index-tab/add", "index-tab/add-error",
-    "index-tab/edit", "index-tab/delete-confirm", "index-tab/checked", "index-tab/start-confirm",
+    "index-tab/empty", "index-tab/normal", "index-tab/interrupted",
+    "index-tab/delete-confirm", "index-tab/checked", "index-tab/start-confirm",
     "index-tab/running", "index-tab/stop-confirm", "index-tab/done", "index-tab/failed",
     "search-tab/no-index", "search-tab/initial", "search-tab/results", "search-tab/no-results", "search-tab/limit",
     "search-tab/regex-error", "search-tab/tree-none", "search-tab/collapsed", "search-tab/filtered",
