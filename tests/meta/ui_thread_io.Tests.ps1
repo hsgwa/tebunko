@@ -49,19 +49,11 @@ BeforeAll {
         @{ File = "app_host.ps1"; Function = "writeErrorLog"; Call = "New-Item"; Reason = "画面のエラーの記録（ワークスペースの側。分けた PR で扱うかを決める）" }
         @{ File = "app_host.ps1"; Function = "writeErrorLog"; Call = "[System.IO.File]"; Reason = "画面のエラーの記録（ワークスペースの側。分けた PR で扱うかを決める）" }
 
-        # ---- tebunko/ui/settings.ps1・index_tree.ps1・types.ps1（ワークスペースの側。分けた PR） ----
+        # ---- tebunko/ui/settings.ps1（ワークスペースの側。分けた PR） ----
         @{ File = "settings.ps1"; Function = "resetWorkspace"; Call = "[System.IO.Directory]"; Reason = "ワークスペースの側（分けた PR）" }
         @{ File = "settings.ps1"; Function = "getFolderEntrySample"; Call = "[System.IO.Directory]"; Reason = "ワークスペースの側（分けた PR）" }
         @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = "Test-Path"; Reason = "ワークスペースの側（分けた PR）" }
         @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = "[System.IO.Directory]"; Reason = "ワークスペースの側（分けた PR）" }
-        @{ File = "index_tree.ps1"; Function = "loadIndexTree"; Call = "Test-Path"; Reason = "ワークスペースの側（分けた PR）" }
-        @{ File = "index_tree.ps1"; Function = "loadIndexTree"; Call = "Resolve-Path"; Reason = "ワークスペースの側（分けた PR）" }
-        @{ File = "index_tree.ps1"; Function = "loadIndexTree"; Call = "getSearchIndexes"; Reason = "ワークスペースの側（分けた PR）" }
-        @{ File = "types.ps1"; Function = "CreateRoot"; Call = "[System.IO.Directory]"; Reason = "ワークスペースの側（分けた PR）" }
-        @{ File = "types.ps1"; Function = "LoadChildren"; Call = "[System.IO.Directory]"; Reason = "ワークスペースの側（分けた PR）" }
-        @{ File = "types.ps1"; Function = "IsBookDirPath"; Call = "[System.IO.Directory]"; Reason = "ワークスペースの側（分けた PR）" }
-        @{ File = "types.ps1"; Function = "HasSubfolders"; Call = "[System.IO.Directory]"; Reason = "ワークスペースの側（分けた PR）" }
-        @{ File = "types.ps1"; Function = "HasFiles"; Call = "[System.IO.Directory]"; Reason = "ワークスペースの側（分けた PR）" }
 
         # ---- tebunko/ui/index/ ----
         @{ File = "index_list.ps1"; Function = "updateIndexSourceFile"; Call = "Test-Path"; Reason = "IndexDir の有無（ワークスペースの側。分けた PR）" }
