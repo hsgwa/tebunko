@@ -16,8 +16,8 @@ $script:apps = @{}
 #   Items      : 開いているファイルの一覧を持つ、アプリのプロパティの名前（Workbooks・Documents・Presentations）
 #   Close      : 自分のファイルを保存せずに閉じる処理（引数は 1 つのファイル）
 #   Restore    : 渡すときに戻す設定。getApp が変える設定は、ここに全部ある（テストで確かめる）。Required は戻らないと渡し切れない設定、
-#                Optional は戻ればよい設定、ShowWindow は窓を出すか（Visible を真にする行は restoreHandedOverApp の中の 1 か所だけ）。
-#                WindowCheck は、ファイルの一覧を読めないとき、見える窓があるかで利用者のものかを判断するか
+#                Optional は戻ればよい設定、ShowWindow は窓を出すか（Visible を真にする行は restoreHandedOverApp の中の 1 か所だけ）
+#   WindowCheck: ファイルの一覧を読めないとき、見える窓があるかで利用者のものかを判断するか
 #                （Word は自分で窓を隠しているため窓では判断できない。読めなければ渡しも終了もせず、持ち続けて後で読み直す）
 $appInfo = @{
     Excel      = @{
@@ -26,8 +26,9 @@ $appInfo = @{
         Restore = @{
             Required = @(@("DisplayAlerts", $true), @("UserControl", $true))
             Optional = @(@("EnableEvents", $true), @("ScreenUpdating", $true), @("AskToUpdateLinks", $true), @("AutomationSecurity", 1))
-            ShowWindow = $true; WindowCheck = $true
+            ShowWindow = $true
         }
+        WindowCheck = $true
     }
     Word       = @{
         ProgId = "Word.Application"; Process = "WINWORD"; ExitWait = 5000
@@ -35,8 +36,9 @@ $appInfo = @{
         Restore = @{
             Required = @(,@("DisplayAlerts", -1))  # wdAlertsAll
             Optional = @(,@("AutomationSecurity", 1))
-            ShowWindow = $true; WindowCheck = $false
+            ShowWindow = $true
         }
+        WindowCheck = $false
     }
     # SingleInstance: 1つのセッションに1つのプロセスしか持てないアプリ（PowerPointだけ）。
     # 既に起動している（利用者が開いている）ときは、接続せずに使わない（下の getApp）
@@ -46,8 +48,9 @@ $appInfo = @{
         Restore = @{
             Required = @(,@("DisplayAlerts", 2))  # ppAlertsAll
             Optional = @(,@("AutomationSecurity", 1))
-            ShowWindow = $false; WindowCheck = $true
+            ShowWindow = $false
         }
+        WindowCheck = $true
     }
 }
 
@@ -69,7 +72,7 @@ $script:officeRecordDir = $null
 # 自分が開くファイルの置き場（インデックス作成の作業領域の一時フォルダ。$null なら、開いているファイルをすべて利用者のものとみなす）。
 # 使う側が入れる。置き場の外のファイルが Excel・Word・PowerPoint に開かれたら、利用者が開いたファイルとして扱う（getForeignWorkbookCount・handOverApp）
 $script:officeOwnDir = $null
-# Excel・Word・PowerPoint を利用者に渡そうとしたときに呼ぶ処理（スクリプトブロック。引数はアプリ名と、渡し切れたか（戻しきれたか）。$null なら何もしない）。ログを書く使う側が入れる
+# Excel・Word・PowerPoint を利用者に渡そうとしたときに呼ぶ処理（スクリプトブロック。引数はアプリ名と、渡し切れたか（戻しきれたか。$null は、渡すか決められず持ち続ける）。呼ぶ変数が $null なら何もしない）。ログを書く使う側が入れる
 $script:onOfficeHandOver = $null
 # 渡そうとして戻しきれなかったアプリ（COM の参照を放さずに持ち続ける）
 $script:officeKeptApps = @()
@@ -120,7 +123,7 @@ function getWorkbookSplit {
     # 開いたファイルの FullName を控えて照合する方法は、失敗の途中で Open が戻らなかったファイルを控えられないため採らない。
     # 短い名前（~ を含む）は長い名前にしてから比べる。読めなければ、置き場の下と確かめられないので利用者のものと数える
     # （データを失わない側。自分のものは置き場の下にあり、読める）
-    param ($com, [string]$name = "Excel")
+    param ($com, [string]$name)
 
     $own = New-Object System.Collections.ArrayList
     $foreign = New-Object System.Collections.ArrayList
@@ -144,15 +147,22 @@ function getWorkbookSplit {
     return @{ Own = $own; Foreign = $foreign }
 }
 
+function releaseWorkbookSplit {
+    # getWorkbookSplit で取り出したファイルの参照を放す（残すとアプリが終わらなくなる）
+    param ($split)
+
+    foreach ($book in @($split.Own) + @($split.Foreign)) { try { releaseComObject $book } catch {} }
+}
+
 function getForeignWorkbookCount {
     # アプリで利用者が開いたファイル（置き場の外）の数。読めない（COM の例外）ときは -1（分からない。handOverForeignApp が判断する）
-    param ($com, [string]$name = "Excel")
+    param ($com, [string]$name)
 
     try {
         $split = getWorkbookSplit $com $name
         $count = @($split.Foreign).Count
         # 取り出したファイルの参照を残すとアプリが終わらなくなるため、数えたら放す
-        foreach ($book in @($split.Own) + @($split.Foreign)) { try { releaseComObject $book } catch {} }
+        releaseWorkbookSplit $split
         return $count
     } catch {
         return -1
@@ -279,7 +289,7 @@ function restoreHandedOverApp {
             $books = getWorkbookSplit $com $state.Name
             # 前の回の一覧の参照は、取り直した一覧に置き換える前に放す
             if ($state.Books) {
-                foreach ($book in @($state.Books.Own) + @($state.Books.Foreign)) { try { releaseComObject $book } catch {} }
+                releaseWorkbookSplit $state.Books
             }
             $closeFailed = $false
             foreach ($book in $books.Own) {
@@ -314,7 +324,7 @@ function releaseHandedOverApp {
 
     try {
         if ($state.Books) {
-            foreach ($book in @($state.Books.Own) + @($state.Books.Foreign)) { try { releaseComObject $book } catch {} }
+            releaseWorkbookSplit $state.Books
         }
         releaseComObject $state.Com
         [GC]::Collect()
@@ -349,20 +359,43 @@ function keepUndecidedApp {
     $app = $script:apps[$name]
     untrackApp $name $app
     $script:officeKeptApps += , @{ Name = $name; Com = $app.Com; Pid = [int]$app.Pid; BooksClosed = $false; Books = $null; Done = @{}; Undecided = $true }
+    if ($script:onOfficeHandOver) {
+        # 渡したかどうかがまだ決まっていない（$null）ことを知らせる
+        try { & $script:onOfficeHandOver $name $null } catch {}
+    }
+}
+
+function quitApp {
+    # アプリを終了させる。Quit し、COM の参照を放し、控えた PID のプロセス（名前も合うもの）が終わるのを待つ。
+    # GC::WaitForPendingFinalizers() は COM の解放待ちで長時間（約 60 秒）止まることがあるため使わず、
+    # 待ち時間（ExitWait）を過ぎても終わらなければ PID を指定して強制終了する（名前では止めない）。終わったと確かめられたら $true
+    param ([string]$name, $com, [int]$processId)
+
+    try { $com.Quit() } catch {}
+    try { releaseComObject $com } catch {}
+    if ($processId -le 0) {
+        return $true
+    }
+    $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
+    if ($null -eq $process -or $process.ProcessName -ne $appInfo[$name].Process) {
+        return $true
+    }
+    $wait = $appInfo[$name].ExitWait
+    if ($process.WaitForExit($wait)) {
+        return $true
+    }
+    # 終了処理中のプロセスは Kill() が「アクセス拒否」で失敗することがあるが、そのまま終了するため無視する
+    try { $process.Kill() } catch {}
+    # 強制終了は非同期のため、同じ上限で終わるのを待つ。それでも残った場合は、次の getApp が
+    # 利用者のものとみなして後回しにする（安全な側に倒れる）
+    return [bool]$process.WaitForExit($wait)
 }
 
 function quitKeptApp {
-    # 自分のファイルだけだと分かった、持ち続けたアプリを終了させる（stopApp と同じ。待ち時間を過ぎたら PID で強制終了する）
+    # 自分のファイルだけだと分かった、持ち続けたアプリを終了させる（quitApp）
     param ($state)
 
-    try { $state.Com.Quit() } catch {}
-    releaseHandedOverApp $state
-    if ($state.Pid -gt 0) {
-        $process = Get-Process -Id $state.Pid -ErrorAction SilentlyContinue
-        if ($process -and $process.ProcessName -eq $appInfo[$state.Name].Process -and -not $process.WaitForExit($appInfo[$state.Name].ExitWait)) {
-            try { $process.Kill() } catch {}
-        }
-    }
+    [void](quitApp $state.Name $state.Com $state.Pid)
 }
 
 function handOverApp {
@@ -408,9 +441,11 @@ function retryKeptApps {
         }
         if ($kept.Undecided) {
             # 利用者のファイルがあるか、一覧を読み直す。まだ読めなければ、そのまま持ち続ける
-            try { $probe = getWorkbookSplit $kept.Com $kept.Name } catch { $remaining += , $kept; continue }
-            $foreignCount = @($probe.Foreign).Count
-            foreach ($book in @($probe.Own) + @($probe.Foreign)) { try { releaseComObject $book } catch {} }
+            $foreignCount = getForeignWorkbookCount $kept.Com $kept.Name
+            if ($foreignCount -lt 0) {
+                $remaining += , $kept
+                continue
+            }
             if ($foreignCount -eq 0) {
                 quitKeptApp $kept
                 continue
@@ -462,7 +497,7 @@ function handOverForeignApp {
     #   窓で判断できるアプリ（Excel・PowerPoint）: 見える窓があれば利用者が使っているとみなして渡し、無ければ何もしない（今までどおり終了させる）
     #   窓で判断できないアプリ（Word。自分で窓を隠している）: 渡しも終了もさせず、持ち続けて後で一覧を読み直す（空の窓を出さず、データも失わない）
     if ($count -lt 0) {
-        if ($appInfo[$name].Restore.WindowCheck) {
+        if ($appInfo[$name].WindowCheck) {
             if (-not (testProcessHasWindow ([int]$app.Pid) $appInfo[$name].Process)) { return $false }
         } else {
             keepUndecidedApp $name
@@ -489,30 +524,15 @@ function stopApp {
     $script:apps.Remove($name)
     updateWatchedPids
 
-    # 利用者のアプリに接続したもの（Shared）は、終了させない
-    $inUse = $app.Shared
-
-    if (-not $inUse) {
-        try { $app.Com.Quit() } catch {}
+    # 利用者のアプリに接続したもの（Shared）は、終了させず、参照だけ放す。利用者に渡したものとして、記録も消す
+    if ($app.Shared) {
+        try { releaseComObject $app.Com } catch {}
+        $exited = $true
+    } else {
+        $exited = quitApp $name $app.Com $app.Pid
     }
-    try { [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($app.Com) } catch {}
-
-    # GC::WaitForPendingFinalizers() はCOMの解放待ちで長時間（約60秒）止まることがあるため使わず、
-    # 終了しなかったアプリはプロセスIDを指定して強制終了する
-    $exited = $true
-    if (-not $inUse -and $app.Pid) {
-        $process = Get-Process -Id $app.Pid -ErrorAction SilentlyContinue
-        if ($process -and -not $process.WaitForExit($appInfo[$name].ExitWait)) {
-            # 終了処理中のプロセスは Kill() が「アクセス拒否」で失敗することがあるが、そのまま終了するため無視する
-            try { $process.Kill() } catch {}
-            # 強制終了は非同期のため、同じ上限で終わるのを待つ。それでも残った場合は、次の getApp が
-            # 利用者のものとみなして後回しにする（安全な側に倒れる）
-            $exited = [bool]$process.WaitForExit($appInfo[$name].ExitWait)
-        }
-    }
-    # 記録は、プロセスが終わったと確かめてから消す。終わらなければ残す（次の起動の確認に任せる）。
-    # 利用者がファイルを開いていて止めなかったとき（inUse）は、利用者に渡したものとして消す
-    if ($app.Pid -and $script:officeRecordDir -and ($inUse -or $exited)) {
+    # 記録は、プロセスが終わったと確かめてから消す。終わらなければ残す（次の起動の確認に任せる）
+    if ($app.Pid -and $script:officeRecordDir -and $exited) {
         removeOfficeRecord $script:officeRecordDir ([int]$app.Pid)
     }
     if ($app.Pid -and $script:officePidSink) {

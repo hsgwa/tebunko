@@ -1122,7 +1122,6 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
     It "<app> の取り込みのあとに利用者が開いたファイルがあれば、閉じずに渡し、次の取り込みは新しく起動する" -TestCases @(
         @{ app = "Excel"; ext = "xlsx"; items = "Workbooks"; shown = $true }
         @{ app = "Word"; ext = "docx"; items = "Documents"; shown = $true }
-        @{ app = "PowerPoint"; ext = "pptx"; items = "Presentations"; shown = $false }
     ) {
         param ($app, $ext, $items, $shown)
         ${tmpDir} = Join-Path $TestDrive "handover_tmp_$app"
@@ -1162,6 +1161,51 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
             $script:officeOwnDir = $null
             $script:onOfficeHandOver = $null
             Remove-Variable -Name handoverFake, handoverStarts, handoverApp -Scope Global
+        }
+    }
+
+    It "PowerPoint の取り込みのあとに利用者が開いたファイルがあれば、閉じずに渡し、次のファイルは後回しにする（渡した PowerPoint が利用者のものとして残るため）" {
+        ${tmpDir} = Join-Path $TestDrive "handover_tmp_PowerPoint"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+        $script:officeOwnDir = ${tmpDir}
+        $script:onOfficeHandOver = ${officeHandOverNotice}
+        $global:handoverFake = New-Object psobject -Property @{
+            Visible = $false; DisplayAlerts = 1; AutomationSecurity = 3
+            Presentations = @([pscustomobject]@{ FullName = "C:\利用者\山田の資料.pptx" })
+        }
+        $global:handoverFake | Add-Member -MemberType ScriptMethod -Name Quit -Value { throw "Quit は呼ばない" }
+        # 1 回目の起動の前後は、まだ PowerPoint がいない → 1 つ増える。そのあとは、渡した PowerPoint が残っている
+        $global:handoverPids = New-Object System.Collections.Queue
+        foreach ($ids in @(@(), @(), @(4242))) { $global:handoverPids.Enqueue($ids) }
+        Mock getOwnSessionProcessIds {
+            if ($global:handoverPids.Count -gt 0) { return , @($global:handoverPids.Dequeue()) }
+            return , @(4242)
+        }
+        Mock New-Object { $global:handoverFake } -ParameterFilter { $ComObject -eq "PowerPoint.Application" }
+        Mock ingestFile { [void](getApp "PowerPoint"); return 1 }
+        Mock publishTsv { }
+        Mock getBookDir { "x" }
+        Mock getExtractVersion { "1" }
+        try {
+            $first = invokeIngestTask @{ RelPath = "資料\a.pptx"; SourcePath = "C:\data\a.pptx" } 10
+            $first.Ok | Should -Be $true
+            $first.Log | Should -Match "開かれたファイルがあるため PowerPoint を利用者に渡しました"
+            $script:apps.ContainsKey("PowerPoint") | Should -Be $false
+            # PowerPoint は窓を隠していないため、窓は触らない。マクロの設定は戻る
+            $global:handoverFake.Visible | Should -Be $false
+            $global:handoverFake.AutomationSecurity | Should -Be 1
+
+            # 渡した PowerPoint が残っているため、次のファイルは起動せず後回しにする
+            $second = invokeIngestTask @{ RelPath = "資料\b.pptx"; SourcePath = "C:\data\b.pptx" } 10
+            $second.Postponed | Should -Be $true
+            $second.Ok | Should -Be $false
+            $script:apps.ContainsKey("PowerPoint") | Should -Be $false
+            Should -Invoke New-Object -Times 1 -Exactly -Scope It -ParameterFilter { $ComObject -eq "PowerPoint.Application" }
+        } finally {
+            $script:apps.Remove("PowerPoint")
+            $script:officeOwnDir = $null
+            $script:onOfficeHandOver = $null
+            Remove-Variable -Name handoverFake, handoverPids -Scope Global
         }
     }
 

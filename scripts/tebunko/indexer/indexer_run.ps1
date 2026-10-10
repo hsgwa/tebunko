@@ -7,10 +7,14 @@
 #   スレッドの数が 0 のときは、司令のスレッドで取り込む（テストで、途中に割り込むため）
 # ・画面とのやり取りは受け渡しの口（newIndexerChannel）で行う。表示内容は indexing_log.txt に書く
 
-# Excel・Word・PowerPoint を利用者に渡したときのログ（indexing_log.txt）への 1 行。office_app.ps1 の handOverApp が呼ぶ
+# Excel・Word・PowerPoint を利用者に渡したとき・渡すか決められず持ち続けるときのログ（indexing_log.txt）への 1 行。
+# office_app.ps1 の handOverApp・keepUndecidedApp が呼ぶ
 ${officeHandOverNotice} = {
     param ($name, $shown)
-    if ($shown) {
+    if ($null -eq $shown) {
+        # shown が $null: ファイルの一覧を読めず、利用者のファイルがあるか分からない。終了させずに持ち続け、後で読み直す
+        writeIndexerLog "${name} のファイルの一覧を読めなかったため、終了させずに残しています（あとで読み直します）" "Yellow"
+    } elseif ($shown) {
         writeIndexerLog "開かれたファイルがあるため ${name} を利用者に渡しました"
     } else {
         writeIndexerLog "開かれたファイルがあるため ${name} を利用者に渡しましたが、窓や設定を戻しきれませんでした（終了させずに残しています）" "Yellow"
