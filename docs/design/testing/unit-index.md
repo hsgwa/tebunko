@@ -75,7 +75,7 @@ flowchart LR
 | `getPackFileName` / `readPackFileName` / `planPackParts` / `splitPackBooksByExtension` / `encodePackValue` / `decodePackValue` / `convertToPackBody` | 本文インデックスのファイルの名前、拡張子ごとの分け方、値の `%XX` の往復、中身の改行を LF にそろえ U+001C〜U+001F を除く |
 | `convertToPackText` / `readPackPlaces` | 文字列にしてから読み戻すと、元のファイル・場所・中身の範囲が同じになる、Excel の図形・コメントだけ `CellPrefixed` が `$true`（Word・PowerPoint・Excel のセル・ヘッダー・フッターは `$false`）、版の無い・違う本文インデックスのファイルは例外 |
 | `convertIndexFolderToPack` / `updateIndexFolderPack` / `findIndexFoldersWithBooks` / `publishIndexFolders` | フォルダごと・拡張子ごとに作る、元のファイルが無くなった拡張子の本文インデックスのファイルは消す、UTF-16LE（BOM 付き）で一時ファイルを残さない、置かれた TSV を入れて TSV を消し変わらない元のファイルは写す、TSV の残ったフォルダを見つけて本文インデックスとシステムインデックスに入れる |
-| `searchPackIndex` / `getIndexPackFiles` / `readPackContext` | 結果が TSV を 1 行ずつ照合したときと同じ（改行の種類・照合のしかた・検索語ごと）、大文字・小文字・図形とコメントの除外・対象ファイル、上限・中止・並列・キャッシュ（書き直したら読み直す）、全文への照合の時間切れは 1 行ずつに切り替える、列挙（フォルダの一部・直下だけ・無いフォルダ）、プレビューの前後の行。Excel の図形・コメントの行は、セル番地だけに一致する語（`C2`・`2`・`C`）ではヒットにならず、文字（文字の中のタブを含む）に一致すればヒットになる、除いた行があっても行番号がずれない、除いた行は件数・上限に数えない（1 スレッドと並列で同じ） |
+| `searchPackIndex` / `getIndexPackFiles` / `readPackContext` | 結果が TSV を 1 行ずつ照合したときと同じ（改行の種類・照合のしかた・検索語ごと）、大文字・小文字・図形とコメントの除外・対象ファイル、上限・中止・並列・キャッシュ（書き直したら読み直す）、全文への照合の時間切れは 1 行ずつに切り替える、列挙（フォルダの一部・直下だけ・無いフォルダ）、プレビューの前後の行。Excel の図形・コメントの行は、セル番地だけに一致する語（`C2`・`2`・`C`）ではヒットにならず、文字（文字の中のタブを含む）に一致すればヒットになる、除いた行があっても行番号がずれない、除いた行は件数・上限に数えない（1 スレッドと並列で同じ）、複数行（セル内改行）の文字は 2 行目以降の語でも一致し番地だけでは一致しない、`"` を含む文字は囲み・`""` の形のまま照合する |
 
 **前の版との互換（`tests/tebunko/indexer/index_compat`・`tests/tebunko/core/settings_compat`・`tests/meta/compat`）**
 

@@ -757,3 +757,19 @@ Describe "readPackContext" -Tag Io {
     }
 }
 
+Describe "testCellPrefixedHit（セル番地 + 区切りのタブ + 文字の行で、最初のタブより後の一致だけを数える）" -Tag Unit {
+    It "<Name>" -ForEach @(
+        @{ Name = "タブが無い行は一致なし"; Pattern = "C2"; Line = "C2 納期"; Expected = $false }
+        @{ Name = "文字が空（タブの後ろに何も無い）なら、番地に一致する語は一致なし"; Pattern = "C2"; Line = "C2`t"; Expected = $false }
+        @{ Name = "文字が空でも、タブに当たる語は区切りのタブなので一致なし"; Pattern = "`t"; Line = "C2`t"; Expected = $false }
+        @{ Name = "番地だけに一致する語は一致なし"; Pattern = "C2"; Line = "C2`t納期"; Expected = $false }
+        @{ Name = "文字に一致する語は一致"; Pattern = "納期"; Line = "C2`t納期"; Expected = $true }
+        @{ Name = "文字の中にも同じ語があれば一致"; Pattern = "C2"; Line = "C2`tC2 の部品"; Expected = $true }
+        @{ Name = "行頭の ^ は、文字の先頭に一致しない（既知の制限）"; Pattern = "^C2"; Line = "C2`tC2 の部品"; Expected = $false }
+        @{ Name = "区切りのタブを見る後読みは、文字の先頭に一致する"; Pattern = "(?<=	)納期"; Line = "C2`t納期"; Expected = $true }
+        @{ Name = "文字の中のタブも検索の対象"; Pattern = "品名`t納期"; Line = "C3`t`"品名`t納期`""; Expected = $true }
+        @{ Name = "文字の中のタブだけに当たる語も一致"; Pattern = "`t"; Line = "C3`t`"品名`t納期`""; Expected = $true }
+    ) {
+        testCellPrefixedHit ([regex]::new($Pattern)) $Line | Should -Be $Expected
+    }
+}
