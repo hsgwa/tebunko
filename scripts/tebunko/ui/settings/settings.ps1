@@ -122,7 +122,7 @@ function applyWorkspace {
         $folder = $sub
     }
 
-    # 集約ファイルを読んでいる検索があると移せないため、先に止める
+    # 本文インデックスのファイルを読んでいる検索があると移せないため、先に止める
     clearSearchView
     $previous = $workspace.Dir
     if ($answer -eq "use") {

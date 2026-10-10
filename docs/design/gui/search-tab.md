@@ -39,7 +39,7 @@ stateDiagram-v2
     Done --> Searching : ［検索］（新しい要求）
 ```
 
-- **検索処理は `tebunko/search/pack_search.ps1` の関数**（`getIndexPackFiles` / `searchPackIndex`、[実装構成](implementation.md#実装構成)）で行う。対象・照合・速度の仕様は [検索](../search/index.md) のとおり。
+- **検索処理は `tebunko/search/content_index_search.ps1` の関数**（`getContentIndexFiles` / `searchContentIndex`、[実装構成](implementation.md#実装構成)）で行う。対象・照合・速度の仕様は [検索](../search/index.md) のとおり。
   - 検索対象は No.13 のツリーでチェックしたインデックス・フォルダ配下の `*.tsv`（[検索対象のツリー](search-tree.md)）。結果のフォルダ（相対パス）は、選んだフォルダではなくインデックスのフォルダ（`work\content_index`）から求めるため、フォルダを絞っても結果の表示・元のファイルを開く動作は変わらない。
 - **検索の司令のスレッド（`SearchService`）で実行**し、検索中も画面を操作できるようにする。司令のスレッドと照合のプールは画面を開いている間使い回し、検索のたびに作らない（[寿命](../structure/threads.md#寿命)）。検索 1 回は要求（`newSearchRequest`）として渡し、新しい検索を始めると前の検索は取り消す（要求の `Stop`）。
   - 高速検索が使えるとき（検索ワードの下の `高速検索：使用可`）は、Windows Search で検索語を含みうるフォルダを先に絞り、その本文インデックスだけを検索する（[検索](../search/index.md) [高速検索（Windows Search）](../search/fast-search.md)）。`高速検索：使用可 / 使用不可` は、ワード・［正規表現］を変えるとすぐ変わる（`getFastSearchView`。Windows Search が使えるかは、画面を開いたときと検索のたびに確かめる）。

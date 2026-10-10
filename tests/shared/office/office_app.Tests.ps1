@@ -10,12 +10,17 @@ BeforeAll {
     $otherSession = $ownSession + 1
 
     # 偽のアプリ。設定されなかったプロパティは「未設定」のまま残る
-    function newFakeApp([int]$openDocuments = 0) {
-        $app = New-Object psobject -Property @{
+    function newFakeApp([int]$openDocuments = 0, [string]$appName = "Excel") {
+        # 利用者が開いたファイル（置き場の外）が openDocuments 個ある状態にする。ファイルの一覧は、そのアプリの分だけ持つ
+        # （取り違えて別の一覧を読むとテストが落ちる）
+        $items = @()
+        if ($openDocuments -gt 0) { $items = @([pscustomobject]@{ FullName = "C:\docs\x\山田.docx" }) }
+        $properties = @{
             Visible = "未設定"; DisplayAlerts = "未設定"; EnableEvents = "未設定"; ScreenUpdating = "未設定"
             AskToUpdateLinks = "未設定"; AutomationSecurity = "未設定"
-            Documents = @{ Count = $openDocuments }; Presentations = @{ Count = $openDocuments }
         }
+        $properties[$appInfo[$appName].Items] = $items
+        $app = New-Object psobject -Property $properties
         $app | Add-Member -MemberType ScriptMethod -Name Quit -Value { [void]$log.Add("Quit") }
         return $app
     }
@@ -62,7 +67,8 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
 
         # 終了待ち（5 秒）で終わらなかったプロセス
         Mock Get-Process {
-            $process = [pscustomobject]@{ Id = $Id[0] }
+            $names = @{ 200 = "EXCEL"; 300 = "WINWORD"; 400 = "POWERPNT" }
+            $process = [pscustomobject]@{ Id = $Id[0]; ProcessName = $names[[int]$Id[0]] }
             $process | Add-Member -MemberType ScriptMethod -Name WaitForExit -Value { [void]$log.Add("WaitForExit:$($args[0])"); return $false }
             $process | Add-Member -MemberType ScriptMethod -Name Kill -Value { [void]$log.Add("Kill:$($this.Id)") }
             return $process
@@ -101,7 +107,7 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
     }
 
     It "PID の入れ物があれば、自分で起動したアプリの PID とプロセス名を入れ、終了したら外す" {
-        $fake = newFakeApp
+        $fake = newFakeApp -appName "Word"
         Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Word.Application" }
         setProcesses @(100) @(100, 300)
         $script:officePidSink = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'
@@ -120,7 +126,7 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
         @{ Name = "PowerPoint"; Prog = "PowerPoint.Application"; SingleInstance = $true }
     ) {
         param ($Name, $Prog, $SingleInstance)
-        $fake = newFakeApp
+        $fake = newFakeApp -appName $Name
         Mock New-Object { $fake } -ParameterFilter { $ComObject -eq $Prog }
         if ($SingleInstance) {
             setSingleInstanceProcesses @() @(300)
@@ -133,7 +139,7 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
     }
 
     It "PowerPoint はウィンドウを隠さず（Visible を変えない）、警告なし・マクロ無効で起動する" {
-        $fake = newFakeApp
+        $fake = newFakeApp -appName "PowerPoint"
         Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "PowerPoint.Application" }
         setSingleInstanceProcesses @() @(400)
 
@@ -141,6 +147,30 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
         $app.Visible | Should -Be "未設定"
         $app.DisplayAlerts | Should -Be 1
         $app.AutomationSecurity | Should -Be 3
+    }
+
+    It "getApp が変える設定は、渡すときに戻す設定にある（<Name>。新しい設定を足して戻し忘れると落ちる）" -TestCases @(
+        @{ Name = "Excel"; Prog = "Excel.Application"; Single = $false }
+        @{ Name = "Word"; Prog = "Word.Application"; Single = $false }
+        @{ Name = "PowerPoint"; Prog = "PowerPoint.Application"; Single = $true }
+    ) {
+        param ($Name, $Prog, $Single)
+        $fake = newFakeApp -appName $Name
+        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq $Prog }
+        if ($Single) { setSingleInstanceProcesses @() @(300) } else { setProcesses @(100) @(100, 300) }
+
+        [void](getApp $Name)
+
+        # 偽のアプリのプロパティのうち、getApp が値を入れた（「未設定」でなくなった）設定。ファイルの一覧は設定ではない
+        $changed = @($fake.PSObject.Properties | Where-Object { $_.Name -ne $appInfo[$Name].Items -and [string]$_.Value -ne "未設定" } | ForEach-Object { $_.Name })
+        $restore = $appInfo[$Name].Restore
+        $restored = @(@($restore.Required) + @($restore.Optional) | ForEach-Object { $_[0] })
+        $changed.Count | Should -BeGreaterThan 0
+        foreach ($setting in $changed) {
+            if ($setting -ne "Visible") { $restored | Should -Contain $setting }
+        }
+        # 窓を出す印（ShowWindow）は、getApp が窓を隠すアプリ（Visible を変えるアプリ）だけに付く
+        $restore.ShowWindow | Should -Be ($changed -contains "Visible")
     }
 
     It "自分で起動したアプリは Quit し、待ち時間（Excel は 1 秒、Word・PowerPoint は 5 秒）で終わらなければプロセスを強制終了し、同じ待ち時間で終わるのを待つ" {
@@ -155,7 +185,7 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
         @($script:watchdog.Pids).Count | Should -Be 0
 
         $log.Clear()
-        $fakeWord = newFakeApp
+        $fakeWord = newFakeApp -appName "Word"
         Mock New-Object { $fakeWord } -ParameterFilter { $ComObject -eq "Word.Application" }
         setProcesses @(100) @(100, 300)
         [void](getApp "Word")
@@ -176,16 +206,6 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
         @($log).Count | Should -Be 0
     }
 
-    It "インデックス作成中に利用者が同じ Word で文書を開いた場合は、終了させない" {
-        $fake = newFakeApp -openDocuments 1
-        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Word.Application" }
-        setProcesses @() @(600)
-        [void](getApp "Word")
-
-        stopApp "Word"
-        @($log).Count | Should -Be 0
-    }
-
     It "起動の前後で同じアプリのプロセスが複数増えた（どれが自分のか分からない）ときは、強制終了の対象にしない" {
         $fake = newFakeApp
         Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Excel.Application" }
@@ -199,7 +219,7 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
     }
 
     It "起動の前後にほかのセッションのプロセスが増えても、自分のものと取り違えない（Pid・見張りの対象に入らない）" {
-        $fake = newFakeApp
+        $fake = newFakeApp -appName "Word"
         Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Word.Application" }
         setProcesses @() @() @() @(999)
         [void](getApp "Word")
@@ -210,7 +230,7 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
     }
 
     It "PowerPoint は自分のセッションに既に起動していれば、New-Object を呼ばずに例外を投げる（利用者が開いている・強制終了で終わらずに残った場合を含む）" {
-        Mock New-Object { newFakeApp } -ParameterFilter { $ComObject -eq "PowerPoint.Application" }
+        Mock New-Object { newFakeApp -appName "PowerPoint" } -ParameterFilter { $ComObject -eq "PowerPoint.Application" }
         setPrecheckProcesses @(500)
 
         { getApp "PowerPoint" } | Should -Throw -ExpectedMessage "*PowerPoint が起動しているため*" -ExceptionType ([System.InvalidOperationException])
@@ -219,7 +239,7 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
     }
 
     It "PowerPoint はほかのセッションにだけ起動していれば、接続せず新しく起動する" {
-        $fake = newFakeApp
+        $fake = newFakeApp -appName "PowerPoint"
         Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "PowerPoint.Application" }
         setSingleInstanceProcesses @() @(410) @(999) @(999)
 
@@ -230,7 +250,7 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
 
     It "PowerPoint は起動後に新しいプロセスが増えなければ、設定を変える前に解放して例外を投げる（`$script:apps に残さない）" {
         # 事前の確認から New-Object の間に、利用者が先にアプリを起動した場合に当たる
-        $fake = newFakeApp
+        $fake = newFakeApp -appName "PowerPoint"
         Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "PowerPoint.Application" }
         setSingleInstanceProcesses @() @()
 
@@ -334,7 +354,7 @@ Describe "getApp（起動したプロセスの優先度）" -Tag Unit {
 
     It "起動した Office の優先度は変えない（利用者とプロセスを共有しうるため）" {
         $script:started = @{}
-        Mock New-Object { newFakeApp } -ParameterFilter { $ComObject -eq "PowerPoint.Application" -or $ComObject -eq "Excel.Application" }
+        Mock New-Object { newFakeApp -appName $(if ($ComObject -eq "PowerPoint.Application") { "PowerPoint" } else { "Excel" }) } -ParameterFilter { $ComObject -eq "PowerPoint.Application" -or $ComObject -eq "Excel.Application" }
         foreach ($name in @("Excel", "PowerPoint")) { $script:apps.Remove($name) }
         setSingleInstanceProcesses @() @(410)
         [void](getApp "PowerPoint")
@@ -446,14 +466,709 @@ Describe "起動した Office の PID の記録（getApp・stopApp）" -Tag Io {
     }
 
     It "利用者が文書を開いて止めなかったときは、利用者に渡したものとして記録を消す" {
-        $fake = newFakeApp
+        $fake = newFakeApp -appName "Word"
         Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Word.Application" }
         $script:byId[300] = newRecordProcess 300 "WINWORD" ([datetime]"2030-01-01T00:00:00Z")
         setProcesses @(100) @(100, 300)
         [void](getApp "Word")
-        $fake.Documents = @{ Count = 1 }
+        $fake.Documents = @([pscustomobject]@{ FullName = "C:\docs\x\山田.docx" })
 
         stopApp "Word"
         Test-Path "$dir\300.txt" | Should -Be $false
+    }
+}
+
+Describe "利用者が開いたブックの見分けと、利用者への引き渡し（isUnderDir・getForeignWorkbookCount・handOverApp・stopApp）" -Tag Unit {
+    BeforeAll {
+        function newBook([string]$fullName) {
+            $book = [pscustomobject]@{ FullName = $fullName }
+            $book | Add-Member -MemberType ScriptMethod -Name Close -Value { [void]$log.Add("Close:$($this.FullName)|$($args[0])") }
+            return $book
+        }
+        function newKeptState($com, [string]$name = "Excel", [int]$processId = 0) {
+            return @{ Name = $name; Com = $com; Pid = $processId; BooksClosed = $false; Books = $null; Done = @{} }
+        }
+        function newHandOverApp([object[]]$books = @(), [string]$appName = "Excel") {
+            # ファイルの一覧は、そのアプリの分だけ持つ（取り違えて別の一覧を読むとテストが落ちる）
+            $properties = @{
+                Visible = $false; UserControl = $false; DisplayAlerts = $false; EnableEvents = $false; ScreenUpdating = $false
+                AskToUpdateLinks = $false; AutomationSecurity = 3
+            }
+            $properties[$appInfo[$appName].Items] = $books
+            $app = New-Object psobject -Property $properties
+            $app | Add-Member -MemberType ScriptMethod -Name Quit -Value { [void]$log.Add("Quit") }
+            return $app
+        }
+        $own = "C:\work\tmp\w1"
+        # アプリごとの、利用者のファイルを渡したときに窓を出すか（PowerPoint の窓は、利用者のファイルが開いた時点で見えている）。アプリを足したら、ここにも足す
+        $handOverExpect = [ordered]@{ Excel = $true; Word = $true; PowerPoint = $false }
+    }
+
+    BeforeEach {
+        foreach ($name in @("Excel", "Word", "PowerPoint")) { $script:apps.Remove($name) }
+        $log.Clear()
+        $script:officeOwnDir = $own
+        $script:officePidSink = $null
+        $script:officeRecordDir = $null
+        $script:onOfficeHandOver = $null
+        $script:officeKeptApps = @()
+        updateWatchedPids
+        Mock Get-Process { $null }
+    }
+
+    AfterEach {
+        $script:officeOwnDir = $null
+        $script:officePidSink = $null
+        $script:officeRecordDir = $null
+        $script:onOfficeHandOver = $null
+        foreach ($name in @("Excel", "Word", "PowerPoint")) { $script:apps.Remove($name) }
+        updateWatchedPids
+    }
+
+    It "isUnderDir: <name>" -TestCases @(
+        @{ name = "置き場の下"; path = "C:\work\tmp\w1\a.xlsx"; dir = "C:\work\tmp\w1"; expected = $true }
+        @{ name = "大文字小文字だけが違う"; path = "c:\WORK\TMP\W1\A.xlsx"; dir = "C:\work\tmp\w1"; expected = $true }
+        @{ name = "置き場の末尾に区切りがある"; path = "C:\work\tmp\w1\a.xlsx"; dir = "C:\work\tmp\w1\"; expected = $true }
+        @{ name = "置き場の名前を前置に持つ別フォルダ"; path = "C:\work\tmp\w10\a.xlsx"; dir = "C:\work\tmp\w1"; expected = $false }
+        @{ name = "置き場の外"; path = "C:\docs\x\a.xlsx"; dir = "C:\work\tmp\w1"; expected = $false }
+        @{ name = "URL（正規化できない）"; path = "https://example.com/a.xlsx"; dir = "C:\work\tmp\w1"; expected = $false }
+    ) {
+        param ($name, $path, $dir, $expected)
+        isUnderDir $path $dir | Should -Be $expected
+    }
+
+    It "getForeignWorkbookCount: <name>" -TestCases @(
+        @{ name = "ブックが無ければ 0"; books = @(); ownDir = "C:\work\tmp\w1"; expected = 0 }
+        @{ name = "置き場の下だけなら 0"; books = @("C:\work\tmp\w1\a.xlsx"); ownDir = "C:\work\tmp\w1"; expected = 0 }
+        @{ name = "外のブックがあれば数える"; books = @("C:\work\tmp\w1\a.xlsx", "C:\docs\x\山田.xlsx"); ownDir = "C:\work\tmp\w1"; expected = 1 }
+        @{ name = "置き場が決まっていなければ全部数える"; books = @("C:\work\tmp\w1\a.xlsx", "C:\docs\x\山田.xlsx"); ownDir = $null; expected = 2 }
+        @{ name = "tmp と tmp2 を取り違えない"; books = @("C:\work\tmp2\a.xlsx"); ownDir = "C:\work\tmp"; expected = 1 }
+    ) {
+        param ($name, $books, $ownDir, $expected)
+        $script:officeOwnDir = $ownDir
+        $com = newHandOverApp @($books | ForEach-Object { newBook $_ })
+        getForeignWorkbookCount $com "Excel" | Should -Be $expected
+    }
+
+    It "getForeignWorkbookCount: Workbooks が例外なら -1（分からない）" {
+        # 本物の COM は Workbooks の取り出しで例外を投げる（偽物の ScriptProperty は例外を握りつぶすため、一覧を読む処理を差し替える）
+        Mock getWorkbookSplit { throw "呼び出しが拒否されました" }
+        getForeignWorkbookCount (newHandOverApp) "Excel" | Should -Be -1
+    }
+
+    It "getForeignWorkbookCount: 置き場の下にある 8.3 の短い名前のブックは自分のものと数える（ファイルごとに窓を出さない）" {
+        Mock Get-Item { [pscustomobject]@{ FullName = "C:\work\tmp\w1\長い名前のブック.xlsx" } } -ParameterFilter { $LiteralPath -eq "C:\work\tmp\w1\長い名前~1.xlsx" }
+        $com = newHandOverApp @((newBook "C:\work\tmp\w1\長い名前~1.xlsx"))
+        getForeignWorkbookCount $com "Excel" | Should -Be 0
+    }
+
+    It "stopApp: <app> のファイルの一覧が読めないとき、<name>" -TestCases @(
+        @{ app = "Excel"; processName = "EXCEL"; name = "見える窓があれば渡す（Quit も強制終了もしない）"; mainWindow = 777; handed = $true }
+        @{ app = "Excel"; processName = "EXCEL"; name = "見える窓が無ければ今までどおり Quit する"; mainWindow = 0; handed = $false }
+        @{ app = "PowerPoint"; processName = "POWERPNT"; name = "見える窓があれば渡す（Quit も強制終了もしない）"; mainWindow = 777; handed = $true }
+        @{ app = "PowerPoint"; processName = "POWERPNT"; name = "見える窓が無ければ今までどおり Quit する"; mainWindow = 0; handed = $false }
+    ) {
+        param ($app, $processName, $name, $mainWindow, $handed)
+        $process = [pscustomobject]@{ ProcessName = $processName; MainWindowHandle = [IntPtr]$mainWindow }
+        $process | Add-Member -MemberType ScriptMethod -Name WaitForExit -Value { $true }
+        Mock Get-Process { $process } -ParameterFilter { $Id -eq 4242 }
+        Mock getWorkbookSplit { throw "呼び出しが拒否されました" }
+        $com = newHandOverApp @() $app
+        $script:apps[$app] =@{ Com = $com; Pid = 4242; Shared = $false }
+
+        stopApp $app
+
+        $script:apps.ContainsKey($app) | Should -Be $false
+        # 渡したときだけ、マクロ無効（3）が解かれる
+        ($com.AutomationSecurity -eq 1) | Should -Be $handed
+        (@($log) -contains "Quit") | Should -Be (-not $handed)
+    }
+
+    It "stopApp: Word は一覧が読めないとき、窓の有無にかかわらず渡しも終了もさせず、持ち続ける（<title>）" -TestCases @(
+        @{ title = "窓なし"; mainWindow = 0 }
+        @{ title = "窓あり"; mainWindow = 777 }
+    ) {
+        param ($title, $mainWindow)
+        $process = [pscustomobject]@{ ProcessName = "WINWORD"; MainWindowHandle = [IntPtr]$mainWindow }
+        $process | Add-Member -MemberType ScriptMethod -Name WaitForExit -Value { $true }
+        Mock Get-Process { $process } -ParameterFilter { $Id -eq 4242 }
+        Mock Stop-Process {}
+        Mock getWorkbookSplit { throw "呼び出しが拒否されました" }
+        $com = newHandOverApp @() "Word"
+        $script:apps["Word"] = @{ Com = $com; Pid = 4242; Shared = $false }
+
+        stopApp "Word"
+
+        # 窓を出さず（空の窓を作らない）、設定もそのまま。Quit も強制終了もしない。誰の対象でもなくなり、後で試し直す
+        $script:apps.ContainsKey("Word") | Should -Be $false
+        $com.Visible | Should -Be $false
+        $com.AutomationSecurity | Should -Be 3
+        @($log).Count | Should -Be 0
+        Should -Invoke Stop-Process -Times 0 -Exactly -Scope It
+        @($script:officeKeptApps).Count | Should -Be 1
+        $script:officeKeptApps[0].Undecided | Should -Be $true
+    }
+
+    It "retryKeptApps: 一覧が読めなかった Word を試し直す。<title>" -TestCases @(
+        @{ title = "まだ読めなければ持ち続ける"; procId = 0; split = "throw"; kept = 1; logged = @(); notice = @() }
+        @{ title = "利用者のファイルがあれば渡す（窓を出して設定を戻す）"; procId = 0; split = "foreign"; kept = 0; logged = @(); notice = @("通知:Word:True") }
+        @{ title = "自分のファイルだけなら終了させる"; procId = 0; split = "own"; kept = 0; logged = @("Quit"); notice = @() }
+        @{ title = "プロセスがもう無ければ参照を放すだけ"; procId = 4242; split = "foreign"; kept = 0; logged = @(); notice = @() }
+    ) {
+        param ($title, $procId, $split, $kept, $logged, $notice)
+        $global:eobSplit = $split
+        Mock releaseComObject {}
+        Mock Get-Process { $null }
+        Mock getWorkbookSplit {
+            if ($global:eobSplit -eq "throw") { throw "呼び出しが拒否されました" }
+            $foreignFiles = New-Object System.Collections.ArrayList
+            if ($global:eobSplit -eq "foreign") { [void]$foreignFiles.Add([pscustomobject]@{ FullName = "C:\docs\x\山田.docx" }) }
+            return @{ Own = (New-Object System.Collections.ArrayList); Foreign = $foreignFiles }
+        }
+        $script:onOfficeHandOver = { param ($n, $shown) [void]$log.Add("通知:${n}:${shown}") }
+        $com = newHandOverApp @()
+        $script:apps["Word"] = @{ Com = $com; Pid = $procId; Shared = $false }
+        try {
+            keepUndecidedApp "Word"
+            @($script:officeKeptApps).Count | Should -Be 1
+            # 持ち続けることをログに知らせる（渡したかどうかを決められない = $null）
+            @($log) | Should -Be @("通知:Word:")
+            $log.Clear()
+            retryKeptApps
+        } finally {
+            Remove-Variable -Name eobSplit -Scope Global
+        }
+
+        @($script:officeKeptApps).Count | Should -Be $kept
+        @($log) | Should -Be @($logged + $notice)
+        # 渡したときだけ、窓が出てマクロの設定が戻る
+        $com.Visible | Should -Be ($split -eq "foreign" -and $procId -eq 0)
+    }
+
+    It "getForeignWorkbookCount: 短い名前（~ を含む）は長い名前にしてから比べる。読めなければ利用者のものと数える" {
+        Mock Get-Item { [pscustomobject]@{ FullName = "C:\work\tmp\w1\長い名前.xlsx" } } -ParameterFilter { $LiteralPath -eq "C:\work\tmp\w1\LONGNA~1.xlsx" }
+        Mock Get-Item { throw "読めません" } -ParameterFilter { $LiteralPath -eq "C:\work\tmp\w1\SHORT~1.xlsx" }
+        Mock Get-Item { throw "読めません" } -ParameterFilter { $LiteralPath -eq "C:\other\SHORT~1.xlsx" }
+        $com = newHandOverApp @((newBook "C:\work\tmp\w1\LONGNA~1.xlsx"))
+        getForeignWorkbookCount $com "Excel" | Should -Be 0
+        # 置き場の下にあるように見えても、読めなければ置き場の下と確かめられない
+        $com = newHandOverApp @((newBook "C:\work\tmp\w1\SHORT~1.xlsx"), (newBook "C:\other\SHORT~1.xlsx"))
+        getForeignWorkbookCount $com "Excel" | Should -Be 2
+    }
+
+    It "getForeignWorkbookCount: 取り出した Workbooks の参照も放す" {
+        Mock releaseComObject {}
+        $books = @((newBook "C:\work\tmp\w1\a.xlsx"))
+        $com = newHandOverApp $books
+        $workbooks = $com.Workbooks
+        [void](getForeignWorkbookCount $com "Excel")
+        Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $workbooks) } -Times 1 -Exactly -Scope It
+    }
+
+    It "testProcessHasWindow: <name>" -TestCases @(
+        @{ name = "名前が合い、窓が見える"; id = 4242; processName = "EXCEL"; handle = 777; expected = $true }
+        @{ name = "窓が無い"; id = 4242; processName = "EXCEL"; handle = 0; expected = $false }
+        @{ name = "PID が別の名前のプロセスに再利用された"; id = 4242; processName = "notepad"; handle = 777; expected = $false }
+        @{ name = "PID を控えていない（0）"; id = 0; processName = "EXCEL"; handle = 777; expected = $false }
+    ) {
+        param ($name, $id, $processName, $handle, $expected)
+        $process = [pscustomobject]@{ ProcessName = $processName; MainWindowHandle = [IntPtr]$handle }
+        Mock Get-Process { $process }
+
+        testProcessHasWindow $id "EXCEL" | Should -Be $expected
+    }
+
+    It "resolveOwnDir: <name>" -TestCases @(
+        @{ name = "長い名前にできればその名前"; dir = "C:\TEST~1\tmp"; mocked = "C:\Test Long\tmp"; expected = "C:\Test Long\tmp" }
+        @{ name = "読めなければ元の名前"; dir = "C:\TEST~1\tmp"; mocked = $null; expected = "C:\TEST~1\tmp" }
+        @{ name = "置き場が無ければ `$null"; dir = ""; mocked = $null; expected = $null }
+    ) {
+        param ($name, $dir, $mocked, $expected)
+        if ($mocked) { Mock Get-Item { [pscustomobject]@{ FullName = $mocked } } } else { Mock Get-Item { throw "読めません" } }
+        resolveOwnDir $dir | Should -Be $expected
+    }
+
+    It "handOverApp: 見張り・一括終了・記録から外し、設定を戻して窓を出し、Quit も強制終了もしない" {
+        $com = newHandOverApp @((newBook "C:\docs\x\山田.xlsx"))
+        $script:apps["Excel"] = @{ Com = $com; Pid = 4242; Shared = $false }
+        updateWatchedPids
+        $script:watchdog.Pids | Should -Contain 4242
+        $script:officePidSink = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'
+        $script:officePidSink[4242] = "EXCEL"
+        $script:officeRecordDir = Join-Path $TestDrive "hand_over_records"
+        [System.IO.Directory]::CreateDirectory($script:officeRecordDir) | Out-Null
+        [System.IO.File]::WriteAllText("$($script:officeRecordDir)\4242.txt", "EXCEL`t1`t1")
+        Mock Stop-Process {}
+
+        handOverApp "Excel"
+
+        $script:apps.ContainsKey("Excel") | Should -Be $false
+        @($script:watchdog.Pids) | Should -Not -Contain 4242
+        $script:officePidSink.ContainsKey(4242) | Should -Be $false
+        Test-Path "$($script:officeRecordDir)\4242.txt" | Should -Be $false
+        $com.Visible | Should -Be $true
+        $com.UserControl | Should -Be $true
+        $com.DisplayAlerts | Should -Be $true
+        $com.EnableEvents | Should -Be $true
+        $com.ScreenUpdating | Should -Be $true
+        $com.AskToUpdateLinks | Should -Be $true
+        $com.AutomationSecurity | Should -Be 1
+        @($log).Count | Should -Be 0
+        Should -Invoke Get-Process -Times 0 -Exactly -Scope It
+        Should -Invoke Stop-Process -Times 0 -Exactly -Scope It
+    }
+
+    It "handOverApp: 置き場の下と確かめられない（読めない ~ の）ブックは閉じない" {
+        Mock Get-Item { throw "読めません" }
+        $com = newHandOverApp @((newBook "C:\work\tmp\w1\SHORT~1.xlsx"), (newBook "C:\docs\x\予算~案.xlsx"))
+        $script:apps["Excel"] = @{ Com = $com; Pid = 4242; Shared = $false }
+
+        handOverApp "Excel"
+
+        @($log).Count | Should -Be 0
+    }
+
+    It "handOverApp: 窓や設定を戻せたら `$true を返し、通知に渡し切れたことを伝える" {
+        $script:onOfficeHandOver = { param ($name, $shown) [void]$log.Add("通知:${name}:${shown}") }
+        $script:apps["Excel"] = @{ Com = (newHandOverApp); Pid = 4242; Shared = $false }
+
+        (handOverApp "Excel") | Should -Be $true
+
+        @($log) | Should -Be @("通知:Excel:True")
+    }
+
+    It "handOverApp: 戻しきれなかったら `$false を返し、COM を放さずに持ち続け（止めも強制終了もしない）、通知に伝える" {
+        Mock releaseComObject {}
+        Mock Stop-Process {}
+        $script:officeKeptApps = @()
+        $script:onOfficeHandOver = { param ($name, $shown) [void]$log.Add("通知:${name}:${shown}") }
+        $com = newHandOverApp @((newBook "C:\docs\x\山田.xlsx"))
+        $com.PSObject.Properties.Remove("Visible")
+        $com | Add-Member -MemberType ScriptProperty -Name Visible -Value { $false } -SecondValue { throw "設定できません" }
+        $script:apps["Excel"] = @{ Com = $com; Pid = 4242; Shared = $false }
+        updateWatchedPids
+
+        (handOverApp "Excel") | Should -Be $false
+
+        @($log) | Should -Be @("通知:Excel:False")
+        $script:apps.ContainsKey("Excel") | Should -Be $false
+        @($script:watchdog.Pids) | Should -Not -Contain 4242
+        @($script:officeKeptApps).Count | Should -Be 1
+        [object]::ReferenceEquals($script:officeKeptApps[0].Com, $com) | Should -Be $true
+        Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $com) } -Times 0 -Exactly -Scope It
+        Should -Invoke Stop-Process -Times 0 -Exactly -Scope It
+        $script:officeKeptApps = @()
+    }
+
+    It "handOverApp: 一度失敗しても、やり直して戻しきれたら `$true" {
+        $script:attempts = 0
+        $com = newHandOverApp @((newBook "C:\docs\x\山田.xlsx"))
+        $com.PSObject.Properties.Remove("UserControl")
+        $com | Add-Member -MemberType ScriptProperty -Name UserControl -Value { $script:uc } -SecondValue {
+            $script:attempts++
+            if ($script:attempts -lt 2) { throw "呼び出しが拒否されました" }
+            $script:uc = $args[0]
+        }
+        $script:apps["Excel"] = @{ Com = $com; Pid = 4242; Shared = $false }
+
+        (handOverApp "Excel") | Should -Be $true
+
+        $script:attempts | Should -Be 2
+    }
+
+    It "handOverApp: 設定を戻すところで例外が出ても、見張り・一括終了・記録からは外れている" {
+        $com = New-Object psobject -Property @{ Workbooks = @() }
+        foreach ($property in "Visible", "UserControl", "DisplayAlerts", "EnableEvents", "ScreenUpdating", "AskToUpdateLinks", "AutomationSecurity") {
+            $com | Add-Member -MemberType ScriptProperty -Name $property -Value { 0 } -SecondValue { throw "設定できません" }
+        }
+        $script:apps["Excel"] = @{ Com = $com; Pid = 4242; Shared = $false }
+        $script:officePidSink = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'
+        $script:officePidSink[4242] = "EXCEL"
+        updateWatchedPids
+
+        { handOverApp "Excel" } | Should -Not -Throw
+
+        $script:apps.ContainsKey("Excel") | Should -Be $false
+        @($script:watchdog.Pids) | Should -Not -Contain 4242
+        $script:officePidSink.ContainsKey(4242) | Should -Be $false
+    }
+
+    It "stopAllApps: 起動し直しやスレッドの終わりの一括終了でも、渡したことを知らせる" {
+        $script:onOfficeHandOver = { param ($name, $shown) [void]$log.Add("通知:${name}:${shown}") }
+        $script:apps["Excel"] = @{ Com = (newHandOverApp @((newBook "C:\docs\x\山田.xlsx"))); Pid = 4242; Shared = $false }
+
+        stopAllApps
+
+        @($log) | Should -Be @("通知:Excel:True")
+        @($log) -contains "Quit" | Should -Be $false
+    }
+
+    It "handOverApp: 利用者の Excel に接続したもの（Shared）には当てない（設定も変えない）" {
+        $com = newHandOverApp @((newBook "C:\docs\x\山田.xlsx"))
+        $script:apps["Excel"] = @{ Com = $com; Pid = 0; Shared = $true }
+
+        handOverApp "Excel"
+
+        $script:apps.ContainsKey("Excel") | Should -Be $true
+        $com.Visible | Should -Be $false
+        $com.DisplayAlerts | Should -Be $false
+        $com.AutomationSecurity | Should -Be 3
+    }
+
+    It "stopApp の表が appInfo と一致する（アプリを足して行が欠けたら落ちる）" {
+        @($handOverExpect.Keys | Sort-Object) | Should -Be @($appInfo.Keys | Sort-Object)
+    }
+
+    It "stopApp: 利用者が開いたファイルがあるとき、<app> は渡す（Quit も強制終了もしない）" -TestCases @(
+        @{ app = "Excel" }
+        @{ app = "Word" }
+        @{ app = "PowerPoint" }
+    ) {
+        param ($app)
+        $com = newHandOverApp @((newBook "C:\docs\x\山田.xlsx")) $app
+        $script:apps[$app] = @{ Com = $com; Pid = 4242; Shared = $false }
+
+        stopApp $app
+
+        $script:apps.ContainsKey($app) | Should -Be $false
+        @($log) -contains "Quit" | Should -Be $false
+        $com.Visible | Should -Be $handOverExpect[$app]
+        Should -Invoke Get-Process -Times 0 -Exactly -Scope It
+    }
+
+    It "stopApp: <app> は自分のファイルだけが残っていれば、今までどおり Quit で終了させる" -TestCases @(
+        @{ app = "Excel"; ownFile = "C:\work\tmp\w1\a.xlsx" }
+        @{ app = "Word"; ownFile = "C:\work\tmp\w1\a.docx" }
+        @{ app = "PowerPoint"; ownFile = "C:\work\tmp\w1\a.pptx" }
+    ) {
+        param ($app, $ownFile)
+        $com = newHandOverApp @((newBook $ownFile)) $app
+        $script:apps[$app] = @{ Com = $com; Pid = 0; Shared = $false }
+
+        stopApp $app
+
+        $script:apps.ContainsKey($app) | Should -Be $false
+        @($log) | Should -Be @("Quit")
+        $com.AutomationSecurity | Should -Be 3
+    }
+
+    It "quitApp: <title>" -TestCases @(
+        @{ title = "名前が合い、待ち時間で終わらなければ PID で強制終了し、同じ待ち時間でもう一度待つ（終われば `$true）"; app = "Excel"; processName = "EXCEL"; waits = @($false, $true); expectedLog = @("Quit", "Wait:1000", "Kill:4242", "Wait:1000"); expected = $true }
+        @{ title = "強制終了しても終わらなければ `$false"; app = "Excel"; processName = "EXCEL"; waits = @($false, $false); expectedLog = @("Quit", "Wait:1000", "Kill:4242", "Wait:1000"); expected = $false }
+        @{ title = "Word の待ち時間は 5 秒"; app = "Word"; processName = "WINWORD"; waits = @($false, $true); expectedLog = @("Quit", "Wait:5000", "Kill:4242", "Wait:5000"); expected = $true }
+        @{ title = "待ち時間のうちに終われば強制終了しない"; app = "Excel"; processName = "EXCEL"; waits = @($true); expectedLog = @("Quit", "Wait:1000"); expected = $true }
+        @{ title = "PID が別の名前のプロセスに再利用されていれば、待たず強制終了もしない"; app = "Excel"; processName = "notepad"; waits = @(); expectedLog = @("Quit"); expected = $true }
+    ) {
+        param ($title, $app, $processName, $waits, $expectedLog, $expected)
+        # 偽のプロセスだけを使う（本物のプロセスは止めない）
+        $script:waitResults = New-Object System.Collections.Queue
+        foreach ($result in $waits) { $script:waitResults.Enqueue($result) }
+        $process = [pscustomobject]@{ Id = 4242; ProcessName = $processName }
+        $process | Add-Member -MemberType ScriptMethod -Name WaitForExit -Value { [void]$log.Add("Wait:$($args[0])"); return $script:waitResults.Dequeue() }
+        $process | Add-Member -MemberType ScriptMethod -Name Kill -Value { [void]$log.Add("Kill:$($this.Id)") }
+        Mock Get-Process { $process } -ParameterFilter { $Id -eq 4242 }
+        Mock releaseComObject {}
+        $com = newHandOverApp @() $app
+
+        (quitApp $app $com 4242) | Should -Be $expected
+
+        @($log) | Should -Be $expectedLog
+    }
+
+    It "quitApp: PID を控えていない（0）・プロセスがもう無いときは、Quit して待たない（<title>）" -TestCases @(
+        @{ title = "PID を控えていない"; processId = 0 }
+        @{ title = "プロセスがもう無い"; processId = 4242 }
+    ) {
+        param ($title, $processId)
+        Mock Get-Process { $null }
+        Mock releaseComObject {}
+        $com = newHandOverApp @() "Word"
+
+        (quitApp "Word" $com $processId) | Should -Be $true
+
+        @($log) | Should -Be @("Quit")
+    }
+
+    It "handOverApp: <app> は自分のファイルだけ閉じ、利用者のファイルは閉じず、設定を戻す" -TestCases @(
+        @{ app = "Excel"; ownFile = "C:\work\tmp\w1\壊れた.xlsx"; foreign = "C:\docs\x\山田.xlsx"; closed = "Close:C:\work\tmp\w1\壊れた.xlsx|False"; alerts = $true }
+        @{ app = "Word"; ownFile = "C:\work\tmp\w1\壊れた.docx"; foreign = "C:\docs\x\山田.docx"; closed = "Close:C:\work\tmp\w1\壊れた.docx|0"; alerts = -1 }
+        @{ app = "PowerPoint"; ownFile = "C:\work\tmp\w1\壊れた.pptx"; foreign = "C:\docs\x\山田.pptx"; closed = "Close:C:\work\tmp\w1\壊れた.pptx|"; alerts = 2 }
+    ) {
+        param ($app, $ownFile, $foreign, $closed, $alerts)
+        $com = newHandOverApp @((newBook $ownFile), (newBook $foreign)) $app
+        $script:apps[$app] = @{ Com = $com; Pid = 4242; Shared = $false }
+        updateWatchedPids
+        Mock Stop-Process {}
+
+        (handOverApp $app) | Should -Be $true
+
+        # 自分のファイルだけを保存せずに閉じる。Quit も強制終了もしない
+        @($log) | Should -Be @($closed)
+        $script:apps.ContainsKey($app) | Should -Be $false
+        @($script:watchdog.Pids) | Should -Not -Contain 4242
+        Should -Invoke Stop-Process -Times 0 -Exactly -Scope It
+        # 警告の設定と窓（PowerPoint の窓は触らない）とマクロの設定が、表どおりに戻る
+        $com.DisplayAlerts | Should -Be $alerts
+        $com.Visible | Should -Be $handOverExpect[$app]
+        $com.AutomationSecurity | Should -Be 1
+    }
+
+    It "retryKeptApps: <app> も、戻しきれなかったものを後で仕上げて「渡した」と知らせる" -TestCases @(
+        @{ app = "Excel" }
+        @{ app = "Word" }
+        @{ app = "PowerPoint" }
+    ) {
+        param ($app)
+        Mock releaseComObject {}
+        $script:onOfficeHandOver = { param ($name, $shown) [void]$log.Add("通知:${name}:${shown}") }
+        $script:attempts = 0
+        $com = newHandOverApp @((newBook "C:\docs\x\山田.xlsx")) $app
+        $com.PSObject.Properties.Remove("DisplayAlerts")
+        $com | Add-Member -MemberType ScriptProperty -Name DisplayAlerts -Value { $script:da } -SecondValue {
+            $script:attempts++
+            if ($script:attempts -lt 2) { throw "呼び出しが拒否されました" }
+            $script:da = $args[0]
+        }
+        $state = newKeptState $com $app
+
+        (restoreHandedOverApp $state 1) | Should -Be $false
+        $script:officeKeptApps = @($state)
+        retryKeptApps
+
+        @($log) | Should -Be @("通知:${app}:True")
+        @($script:officeKeptApps).Count | Should -Be 0
+        Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $com) } -Times 1 -Exactly -Scope It
+    }
+
+    It "retryKeptApps: 全部通って初めて参照を放して「渡した」と知らせる。任意の設定も戻し、自分のブックだけ閉じ、通らなければ持ち続ける（待たない・止めない）" {
+        Mock releaseComObject {}
+        Mock Stop-Process {}
+        $script:onOfficeHandOver = { param ($name, $shown) [void]$log.Add("通知:${name}:${shown}") }
+        $good = newHandOverApp @((newBook "C:\work\tmp\w1\壊れた.xlsx"), (newBook "C:\docs\x\山田.xlsx"))
+        $bad = newHandOverApp
+        $bad.PSObject.Properties.Remove("Visible")
+        $bad | Add-Member -MemberType ScriptProperty -Name Visible -Value { $false } -SecondValue { throw "設定できません" }
+        $script:officeKeptApps = @((newKeptState $good), (newKeptState $bad))
+
+        retryKeptApps
+
+        $good.Visible | Should -Be $true
+        $good.UserControl | Should -Be $true
+        $good.DisplayAlerts | Should -Be $true
+        $good.EnableEvents | Should -Be $true
+        $good.ScreenUpdating | Should -Be $true
+        $good.AutomationSecurity | Should -Be 1
+        # 自分のブックだけ Close($false)。利用者のブックは閉じない
+        @($log) | Should -Be @("Close:C:\work\tmp\w1\壊れた.xlsx|False", "通知:Excel:True")
+        Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $good) } -Times 1 -Exactly -Scope It
+        Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $bad) } -Times 0 -Exactly -Scope It
+        Should -Invoke Stop-Process -Times 0 -Exactly -Scope It
+        @($script:officeKeptApps).Count | Should -Be 1
+        [object]::ReferenceEquals($script:officeKeptApps[0].Com, $bad) | Should -Be $true
+    }
+
+    It "retryKeptApps: 任意の設定が通らないうちは「渡した」としない（必須が通っていても持ち続ける）" {
+        Mock releaseComObject {}
+        $com = newHandOverApp
+        $com.PSObject.Properties.Remove("ScreenUpdating")
+        $com | Add-Member -MemberType ScriptProperty -Name ScreenUpdating -Value { $false } -SecondValue { throw "設定できません" }
+        $script:officeKeptApps = @((newKeptState $com))
+
+        retryKeptApps
+
+        @($script:officeKeptApps).Count | Should -Be 1
+        Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $com) } -Times 0 -Exactly -Scope It
+    }
+
+    It "retryKeptApps: 最初にブックの一覧を読めなくて閉じられなかった自分のブックも、後で閉じる" {
+        Mock releaseComObject {}
+        $script:splitCalls = 0
+        $book = newBook "C:\work\tmp\w1\壊れた.xlsx"
+        $com = newHandOverApp @($book)
+        $state = newKeptState $com
+        Mock getWorkbookSplit { $script:splitCalls++; if ($script:splitCalls -eq 1) { throw "呼び出しが拒否されました" }; @{ Own = @($book); Foreign = @() } }
+
+        (restoreHandedOverApp $state 1) | Should -Be $false
+        @($log).Count | Should -Be 0
+        $script:officeKeptApps = @($state)
+        retryKeptApps
+
+        @($log) | Should -Be @("Close:C:\work\tmp\w1\壊れた.xlsx|False")
+        @($script:officeKeptApps).Count | Should -Be 0
+        Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $book) } -Times 1 -Exactly -Scope It
+    }
+
+    It "restoreHandedOverApp: 閉じ損ねて一覧を取り直すとき、前の回の一覧のブックを放してから置き換える" {
+        Mock releaseComObject {}
+        $first = newBook "C:\work\tmp\w1\壊れた.xlsx"
+        $first.PSObject.Methods.Remove("Close")
+        $first | Add-Member -MemberType ScriptMethod -Name Close -Value { throw "閉じられません" }
+        $foreign = newBook "C:\docs\x\山田.xlsx"
+        $second = newBook "C:\work\tmp\w1\壊れた.xlsx"
+        $com = newHandOverApp
+        $state = newKeptState $com
+        $global:splitRounds = @(@{ Own = @($first); Foreign = @($foreign) }, @{ Own = @($second); Foreign = @() })
+        $global:splitCall = 0
+        Mock getWorkbookSplit { $r = $global:splitRounds[$global:splitCall]; $global:splitCall++; $r }
+
+        (restoreHandedOverApp $state 1) | Should -Be $false
+        $state.BooksClosed | Should -Be $false
+        Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $first) } -Times 0 -Exactly -Scope It
+
+        (restoreHandedOverApp $state 1) | Should -Be $true
+        $state.BooksClosed | Should -Be $true
+        Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $first) } -Times 1 -Exactly -Scope It
+        Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $foreign) } -Times 1 -Exactly -Scope It
+        Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $second) } -Times 0 -Exactly -Scope It
+        Remove-Variable splitRounds, splitCall -Scope Global
+    }
+
+    It "retryKeptApps: 自分のブックの Close が拒まれたら「渡した」としない。次回に一覧を取り直して閉じる" {
+        Mock releaseComObject {}
+        $global:closeFails = $true
+        $book = [pscustomobject]@{ FullName = "C:\work\tmp\w1\壊れた.xlsx" }
+        $book | Add-Member -MemberType ScriptMethod -Name Close -Value {
+            if ($global:closeFails) { throw "呼び出しが拒否されました" }
+            [void]$log.Add("Close:$($this.FullName)|$($args[0])")
+        }
+        $com = newHandOverApp @($book)
+        $script:officeKeptApps = @((newKeptState $com))
+
+        retryKeptApps
+        @($script:officeKeptApps).Count | Should -Be 1
+        @($log).Count | Should -Be 0
+        Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $com) } -Times 0 -Exactly -Scope It
+
+        $global:closeFails = $false
+        retryKeptApps
+        @($script:officeKeptApps).Count | Should -Be 0
+        @($log) | Should -Be @("Close:C:\work\tmp\w1\壊れた.xlsx|False")
+        Remove-Variable -Name closeFails -Scope Global
+    }
+
+    It "retryKeptApps: 利用者が先に終えた Excel（控えた PID のプロセスが無い）は、参照だけ放して一覧から外す。通知もしない" {
+        Mock releaseComObject {}
+        Mock Stop-Process {}
+        Mock Get-Process { $null }
+        $com = newHandOverApp
+        $script:onOfficeHandOver = { param ($name, $shown) [void]$log.Add("通知:${name}:${shown}") }
+        $script:officeKeptApps = @((newKeptState $com "Excel" 4242))
+
+        retryKeptApps
+
+        @($script:officeKeptApps).Count | Should -Be 0
+        @($log).Count | Should -Be 0
+        Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $com) } -Times 1 -Exactly -Scope It
+        Should -Invoke Stop-Process -Times 0 -Exactly -Scope It
+    }
+
+    It "retryKeptApps: 控えた PID の EXCEL がまだ動いていれば、持ち続ける（名前が違えば無いものとみなす）" -TestCases @(
+        @{ processName = "EXCEL"; kept = 1 }
+        @{ processName = "notepad"; kept = 0 }
+    ) {
+        param ($processName, $kept)
+        Mock releaseComObject {}
+        Mock Stop-Process {}
+        $global:keptProcessName = $processName
+        Mock Get-Process { [pscustomobject]@{ Id = 4242; ProcessName = $global:keptProcessName } }
+        $com = newHandOverApp
+        $com.PSObject.Properties.Remove("ScreenUpdating")
+        $com | Add-Member -MemberType ScriptProperty -Name ScreenUpdating -Value { $false } -SecondValue { throw "設定できません" }
+        $script:officeKeptApps = @((newKeptState $com "Excel" 4242))
+
+        retryKeptApps
+
+        @($script:officeKeptApps).Count | Should -Be $kept
+        Should -Invoke Stop-Process -Times 0 -Exactly -Scope It
+        Remove-Variable -Name keptProcessName -Scope Global
+    }
+
+    Context "waitKeptApps（取り込みのスレッドの終わりの待ち。時計は Start-Sleep の差し替えで進める）" {
+        BeforeAll {
+            # Visible を、指定した回数だけ拒んでから通す偽の Excel
+            function newSlowApp([int]$failures) {
+                $script:failsLeft = $failures
+                $app = newHandOverApp
+                $app.PSObject.Properties.Remove("Visible")
+                $app | Add-Member -MemberType ScriptProperty -Name Visible -Value { $false } -SecondValue {
+                    if ($script:failsLeft -gt 0) { $script:failsLeft--; throw "設定できません" }
+                }
+                return $app
+            }
+        }
+        BeforeEach {
+            Mock Start-Sleep { $script:slept += $Milliseconds; $script:clock += $Milliseconds }
+            Mock getMonotonicMilliseconds { $script:clock }
+            $script:clock = 1000
+            Mock releaseComObject {}
+            Mock Stop-Process {}
+            $script:slept = 0
+            $script:onOfficeHandOver = { param ($name, $shown) [void]$log.Add("通知:${name}:${shown}") }
+        }
+        It "待つうちに通れば、そこで渡して抜ける" {
+            $script:officeKeptApps = @((newKeptState (newSlowApp 2)))
+
+            waitKeptApps
+
+            @($script:officeKeptApps).Count | Should -Be 0
+            @($log) | Should -Be @("通知:Excel:True")
+            $script:slept | Should -Be (2 * $script:officeKeptWaitStep)
+        }
+
+        It "上限まで通らなければ諦める（上限の秒数だけ待ち、Quit・強制終了・参照の解放はしない）" {
+            $script:officeKeptApps = @((newKeptState (newSlowApp 100000)))
+
+            waitKeptApps
+
+            $script:slept | Should -Be ($script:officeKeptWaitSeconds * 1000)
+            @($script:officeKeptApps).Count | Should -Be 1
+            @($log).Count | Should -Be 0
+            Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $script:officeKeptApps[0].Com) } -Times 0 -Exactly -Scope It
+            Should -Invoke Stop-Process -Times 0 -Exactly -Scope It
+        }
+
+        It "待っている途中で中止の合図が来たら、次の刻みで抜ける" {
+            $script:officeKeptApps = @((newKeptState (newSlowApp 100000)))
+            $script:stopAfter = 3
+            $script:checks = 0
+
+            waitKeptApps { $script:checks++; $script:checks -gt $script:stopAfter }
+
+            $script:slept | Should -Be ($script:stopAfter * $script:officeKeptWaitStep)
+            @($script:officeKeptApps).Count | Should -Be 1
+        }
+
+        It "持ち続けが無ければ待たない" {
+            $script:officeKeptApps = @()
+
+            waitKeptApps
+
+            $script:slept | Should -Be 0
+            Should -Invoke Start-Sleep -Times 0 -Exactly -Scope It
+        }
+
+        It "中止の合図が来ていれば、待たずに抜ける" {
+            $script:officeKeptApps = @((newKeptState (newSlowApp 100000)))
+
+            waitKeptApps { $true }
+
+            $script:slept | Should -Be 0
+            @($script:officeKeptApps).Count | Should -Be 1
+        }
+    }
+
+    It "持ち続けている Excel は、<when>に設定し直される" -TestCases @(
+        @{ when = "次の Excel のファイルの確かめ（handOverForeignApp）"; run = { [void](handOverForeignApp "Excel") } }
+        @{ when = "一括終了（stopAllApps）"; run = { stopAllApps } }
+    ) {
+        param ($when, $run)
+        Mock releaseComObject {}
+        $kept = newHandOverApp
+        $script:officeKeptApps = @((newKeptState $kept))
+
+        & $run
+
+        $kept.Visible | Should -Be $true
+        @($script:officeKeptApps).Count | Should -Be 0
     }
 }

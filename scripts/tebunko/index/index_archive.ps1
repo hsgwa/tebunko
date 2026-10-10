@@ -156,15 +156,15 @@ function exportIndexCore {
     # 入れる前の TSV（本文インデックスのファイル以外の *.tsv）が残っていれば、途中で止まったインデックスとして止める
     $longIndexDir = toLongPath $indexDir
     $prefixLength = $indexDir.TrimEnd("\").Length + 1
-    $packFiles = New-Object System.Collections.Generic.List[string]
+    $contentIndexFiles = New-Object System.Collections.Generic.List[string]
     # 途中で throw して抜けても下のフォルダを掴んだまま残らないよう、列挙子（EnumerateFiles）でなく配列（GetFiles）で受ける
     foreach ($file in [System.IO.Directory]::GetFiles($longIndexDir, "*.tsv", [System.IO.SearchOption]::AllDirectories)) {
         $rel = (fromLongPath $file).Substring($prefixLength)
         $fileName = [System.IO.Path]::GetFileName($rel)
-        if ($null -eq (readPackFileName $fileName)) {
+        if ($null -eq (readContentIndexFileName $fileName)) {
             throw "更新を最後まで行ってからエクスポートしてください（更新の途中のファイルが残っています: ${rel}）。"
         }
-        $packFiles.Add($rel)
+        $contentIndexFiles.Add($rel)
     }
 
     # 取り込み一覧のうち、このインデックスの行だけを抜き出し、相対パスの先頭の "<名前>\" を外す
@@ -199,7 +199,7 @@ function exportIndexCore {
             $manifestFiles.Add([ordered]@{ path = ${indexArchiveStatusEntryName}; size = [long]$statusBytes.Length; sha256 = (getBytesSha256 $statusBytes) })
             $totalBytes += $statusBytes.Length
 
-            foreach ($rel in $packFiles) {
+            foreach ($rel in $contentIndexFiles) {
                 $entryPath = "content_index/" + $rel.Replace("\", "/")
                 $written = writeArchiveFile $archive $entryPath (Join-Path $indexDir $rel)
                 $manifestFiles.Add([ordered]@{ path = $entryPath; size = [long]$written.Size; sha256 = $written.Sha256 })

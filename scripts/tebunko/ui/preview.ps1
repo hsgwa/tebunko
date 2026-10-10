@@ -53,15 +53,15 @@ function showDetail {
     # セル番地（MatchCell）・「場所」の列の表記（PlaceDisplay）が空のままになる。ここで作っておく（作り済みなら何もしない）
     prepareHitRow $row
 
-    # 前後の行を集約ファイルから読む。行数はプレビューの高さに合わせる。検索で読んだ内容があれば使う。
-    # 読み込みは画面のスレッドでは行わない（キャッシュに無いと集約ファイル全体を読むため）。読み終わったら applyDetail で表にする。
+    # 前後の行を本文インデックスのファイルから読む。行数はプレビューの高さに合わせる。検索で読んだ内容があれば使う。
+    # 読み込みは画面のスレッドでは行わない（キャッシュに無いと本文インデックスのファイル全体を読むため）。読み終わったら applyDetail で表にする。
     # 読んでいる間に別の行を選んだら、古い結果は捨てる（番号で見分ける）
     $lines = getPreviewContextLines
     $script:previewRequest++
     $script:previewRow = $row
     startJob {
         param ($id, $path, $book, $location, $lineNumber, $before, $after, $cache)
-        @{ Id = $id; Context = @(readPackContext $path $book $location $lineNumber $before $after $cache) }
+        @{ Id = $id; Context = @(readContentIndexContext $path $book $location $lineNumber $before $after $cache) }
     } @($script:previewRequest, [System.IO.Path]::Combine($row.Root, $row.RelPath), $row.Book, $row.Location, $row.LineNumber, $lines[0], $lines[1], $script:tsvCache) {
         param ($output, $errorText)
         if ($output -and $output.Count -gt 0 -and $output[0].Id -eq $script:previewRequest) {
@@ -74,7 +74,7 @@ function showDetail {
 }
 
 function applyDetail {
-    # 読んだ前後の行（readPackContext の結果）でプレビューの表を作る
+    # 読んだ前後の行（readContentIndexContext の結果）でプレビューの表を作る
     param (
         $row,
         [object[]]$context

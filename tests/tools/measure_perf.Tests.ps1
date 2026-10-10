@@ -64,6 +64,38 @@ Describe "perf_common.ps1 の統計値" -Tag Unit {
     }
 }
 
+Describe "perf_common.ps1 の関数の名前の選び方（名前を改めた前後の版）" -Tag Unit {
+    BeforeAll {
+        # 測る tebunko の関数の代わりに、名前だけが違う関数を置く
+        function global:newNameOnlyFunction { }
+        function global:oldNameOnlyFunction { }
+    }
+    AfterAll {
+        Remove-Item function:global:newNameOnlyFunction, function:global:oldNameOnlyFunction -ErrorAction SilentlyContinue
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "新しい名前だけがあれば、新しい名前"; candidates = @("newNameOnlyFunction", "noSuchFunction"); expect = "newNameOnlyFunction" }
+        @{ name = "古い名前だけがあれば、古い名前"; candidates = @("noSuchFunction", "oldNameOnlyFunction"); expect = "oldNameOnlyFunction" }
+        @{ name = "両方あれば、先に書いた名前"; candidates = @("oldNameOnlyFunction", "newNameOnlyFunction"); expect = "oldNameOnlyFunction" }
+    ) {
+        param ($candidates, $expect)
+        resolveTebunkoFunction $candidates | Should -Be $expect
+    }
+
+    It "どれも無ければ、先頭の名前を挙げて止まる" {
+        { resolveTebunkoFunction @("noSuchFunction", "noSuchOldFunction") } | Should -Throw "*noSuchFunction がありません*"
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "新しい項目名だけがあれば、その値"; table = @{ ContentIndexFiles = @(1, 2) }; expect = 2 }
+        @{ name = "古い項目名だけがあれば、その値"; table = @{ Packs = @(1, 2, 3) }; expect = 3 }
+    ) {
+        param ($table, $expect)
+        @(getTebunkoProperty $table @("ContentIndexFiles", "Packs")).Count | Should -Be $expect
+    }
+}
+
 Describe "perf_common.ps1 の入力しながらの検索の部品" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "該当無し を -MinLength 1 で（4 つ）"; word = "該当無し"; isRegex = $false; minLength = 1; steps = @("該", "該当", "該当無", "該当無し") }

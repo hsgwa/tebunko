@@ -136,14 +136,14 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         $status.Rows["営業\資料\提案.pptx"].状態 | Should -Be ${stateDone}
         $status.Rows["営業\壊れた.pptx"].状態 | Should -Be ${stateFailed}
         $status.Rows["営業\壊れた.pptx"].エラー | Should -Match "PowerPoint"
-        # 取り込んだ TSV はフォルダの集約ファイルに入れ、元のファイルごとのフォルダは残さない
+        # 取り込んだ TSV はフォルダの本文インデックスのファイルに入れ、元のファイルごとのフォルダは残さない
         [System.IO.File]::Exists("$root\work\content_index\営業\content_index.docx.001.tsv") | Should -Be $true
         [System.IO.Directory]::Exists("$root\work\content_index\営業\議事録.docx") | Should -Be $false
         Test-Path -LiteralPath "$root\work\content_index\営業\source_folder.txt" | Should -Be $true
         # フォルダごとのシステムインデックスを作り、インデックスを対応済みにする
         [System.IO.File]::Exists("$root\work\system_index\営業\${systemIndexFileName}") | Should -Be $true
         (readTestSystemState $root).Covered.Contains("営業") | Should -Be $true
-        # content_index（フォルダ・集約ファイル・source_folder.txt）は Windows Search の対象から外れ、
+        # content_index（フォルダ・本文インデックスのファイル・source_folder.txt）は Windows Search の対象から外れ、
         # system_index はそのまま索引され続ける
         ([System.IO.File]::GetAttributes("$root\work\content_index") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
         ([System.IO.File]::GetAttributes("$root\work\content_index\営業") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
@@ -266,8 +266,8 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         $status.Rows["テキスト混在\メモ.txt"].状態 | Should -Be ${stateDone}
         $status.Rows["テキスト混在\議事録.docx"].状態 | Should -Be ${stateDone}
 
-        $packs = (getIndexPackFiles @("$root\work\content_index")).Packs
-        $hits = @((searchPackIndex "検索語" $packs $true).Hits)
+        $contentIndexFiles = (getContentIndexFiles @("$root\work\content_index")).ContentIndexFiles
+        $hits = @((searchContentIndex "検索語" $contentIndexFiles $true).Hits)
         $hits.Count | Should -Be 1
         $hits[0].Book | Should -Be "メモ.txt"
         $hits[0].LineNumber | Should -Be 2
@@ -376,6 +376,29 @@ Describe "indexer.ps1（後回しの司令の流れ。実際のPowerPointは使�
             Remove-Variable -Name testOfficeAppInUseMessage, testUserPptOpen -Scope Global -ErrorAction SilentlyContinue
         }
     }
+
+    It "司令のスレッドで取り込む形では、終わりの待ちに、中止の合図（Channel.Stop）を見る判定を渡す（立てる前は偽・立てたあとは真）" {
+        $dir = Join-Path $TestDrive "待ち配線"
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        Copy-Item -LiteralPath $docxSource -Destination "$dir\議事録.docx"
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "待ち配線"; path = $dir; enabled = $true })
+        $global:waitAnswers = New-Object System.Collections.ArrayList
+        Mock stopAllApps {}
+        Mock waitKeptApps {
+            [void]$global:waitAnswers.Add((& $shouldStop))
+            # 渡された判定が閉じ込めた $channel に、中止の合図を立てる
+            & $shouldStop.Module { $channel.Stop = $true }
+            [void]$global:waitAnswers.Add((& $shouldStop))
+        }
+        try {
+            # 待ちの中で中止の合図を立てるため、終了コードは見ない
+            [void](runIndexer $root @{ Workers = 0 })
+            @($global:waitAnswers) | Should -Be @($false, $true)
+        } finally {
+            Remove-Variable -Name waitAnswers -Scope Global -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 Describe "indexer.ps1（クラウドにだけあるファイル）" -Tag Io {
@@ -432,7 +455,7 @@ Describe "indexer.ps1（クラウドにだけあるファイル）" -Tag Io {
     }
 
     It "前回未完了でクラウドにだけあるファイルは、<name>" -TestCases @(
-        @{ name = "確認で取りやめたら、前回の行を残し、取り込み途中のインデックスを消さない（終わりの書き出しで集約ファイルに入る）"; mode = "cancel"; exitCode = 2; rowKept = $true; dirKept = $true }
+        @{ name = "確認で取りやめたら、前回の行を残し、取り込み途中のインデックスを消さない（終わりの書き出しで本文インデックスのファイルに入る）"; mode = "cancel"; exitCode = 2; rowKept = $true; dirKept = $true }
         @{ name = "確認でダウンロードせずに進めたら、行を作らず、取り込み途中のインデックスのフォルダを消す"; mode = "approve"; exitCode = 0; rowKept = $false; dirKept = $false }
         @{ name = "画面なしの実行でも、行を作らず、取り込み途中のインデックスのフォルダを消す"; mode = "none"; exitCode = 0; rowKept = $false; dirKept = $false }
     ) {
@@ -452,7 +475,7 @@ Describe "indexer.ps1（クラウドにだけあるファイル）" -Tag Io {
             $rows = (readTestStatus $root).Rows
             $rows.ContainsKey("雲\議事録.docx") | Should -Be $rowKept
             if ($rowKept) { $rows["雲\議事録.docx"].状態 | Should -Be ${stateNew} }
-            # 取り込み途中のインデックス（TSV）は、残すなら終わりの書き出しで集約ファイルに入る。消すなら、入らずにフォルダごと無くなる
+            # 取り込み途中のインデックス（TSV）は、残すなら終わりの書き出しで本文インデックスのファイルに入る。消すなら、入らずにフォルダごと無くなる
             [System.IO.Directory]::Exists($case.BookDir) | Should -Be $false
             [System.IO.File]::Exists("$root\work\content_index\雲\content_index.docx.001.tsv") | Should -Be $dirKept
         } finally {
@@ -569,7 +592,7 @@ Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
         $progress = readTestProgress
         $progress.Processed | Should -Be 1
         $progress.Remaining | Should -Be 2
-        # 取り込んだ TSV は元のファイルごとのフォルダに残さず（集約ファイルに入れる）、途中なので対応済みにはしない
+        # 取り込んだ TSV は元のファイルごとのフォルダに残さず（本文インデックスのファイルに入れる）、途中なので対応済みにはしない
         (findIndexFoldersWithBooks "$root\work\content_index").Count | Should -Be 0
         (readTestSystemState $root).Covered.Count | Should -Be 0
     }
@@ -585,23 +608,23 @@ Describe "indexer.ps1（設定から外れたインデックス）" -Tag Io {
             $root = newRoot
             writeTestSettings $root @(@{ name = "総務"; path = $a; enabled = $true }, @{ name = "企画"; path = $b; enabled = $true })
             runIndexer $root | Should -Be 0
-            $pack = @(Get-ChildItem -LiteralPath "$root\work\content_index\企画" -Filter "*.tsv" -File)[0]
+            $contentIndexFile = @(Get-ChildItem -LiteralPath "$root\work\content_index\企画" -Filter "*.tsv" -File)[0]
             writeTestSettings $root @(@{ name = "総務"; path = $a; enabled = $true })
-            return @{ Root = $root; Source = $a; Pack = $pack.FullName; Time = $pack.LastWriteTimeUtc; Hash = (Get-FileHash -LiteralPath $pack.FullName).Hash }
+            return @{ Root = $root; Source = $a; ContentIndexFile = $contentIndexFile.FullName; Time = $contentIndexFile.LastWriteTimeUtc; Hash = (Get-FileHash -LiteralPath $contentIndexFile.FullName).Hash }
         }
         function assertDroppedKept {
             param ($state)
             $dir = "$($state.Root)\work\content_index\企画"
-            Test-Path -LiteralPath $state.Pack | Should -Be $true
-            (Get-Item -LiteralPath $state.Pack).LastWriteTimeUtc | Should -Be $state.Time
-            (Get-FileHash -LiteralPath $state.Pack).Hash | Should -Be $state.Hash
+            Test-Path -LiteralPath $state.ContentIndexFile | Should -Be $true
+            (Get-Item -LiteralPath $state.ContentIndexFile).LastWriteTimeUtc | Should -Be $state.Time
+            (Get-FileHash -LiteralPath $state.ContentIndexFile).Hash | Should -Be $state.Hash
             $status = readTestStatus $state.Root
             @($status.Folders | ForEach-Object { $_.Name }) | Should -Contain "企画"
             @($status.Rows.Keys | Where-Object { $_ -like "企画\*" }).Count | Should -BeGreaterThan 0
-            # 検索の経路（pack_search.ps1）で、残したインデックスの中の語が今までどおり当たる
-            $found = getIndexPackFiles @("$($state.Root)\work\content_index")
+            # 検索の経路（content_index_search.ps1）で、残したインデックスの中の語が今までどおり当たる
+            $found = getContentIndexFiles @("$($state.Root)\work\content_index")
             $regex = New-Object regex ([regex]::Escape("大文字拡張子"))
-            @(searchPackFiles $found.Packs 0 $found.Packs.Count $regex -1 $regex "lines").Count | Should -BeGreaterThan 0
+            @(searchContentIndexFiles $found.ContentIndexFiles 0 $found.ContentIndexFiles.Count $regex -1 $regex "lines").Count | Should -BeGreaterThan 0
         }
     }
 
@@ -762,7 +785,7 @@ Describe "indexer.ps1（取り込み中に元のファイルが無くなる）" 
         $status.Rows.ContainsKey("人事\壊れた.pptx") | Should -Be $false
     }
 
-    It "前回の作成で残った TSV（元のファイルごとのフォルダ）は、次の作成の始めに集約ファイルへ入れる" {
+    It "前回の作成で残った TSV（元のファイルごとのフォルダ）は、次の作成の始めに本文インデックスのファイルへ入れる" {
         $source = newSourceFolder "総務3"
         $root = newRoot
         writeTestSettings $root @(@{ name = "総務3"; path = $source; enabled = $true })
@@ -771,8 +794,8 @@ Describe "indexer.ps1（取り込み中に元のファイルが無くなる）" 
 
         runIndexer $root | Should -Be 0
         [System.IO.Directory]::Exists("$root\work\content_index\総務3\残った.xlsx") | Should -Be $false
-        $packs = getPackFiles "$root\work\content_index" "総務3" $false
-        (searchPackIndex "残っていた中身" $packs $true).Hits.Count | Should -Be 1
+        $contentIndexFiles = findContentIndexFiles "$root\work\content_index" "総務3" $false
+        (searchContentIndex "残っていた中身" $contentIndexFiles $true).Hits.Count | Should -Be 1
     }
 
     It "クロール対象フォルダごと見えなくなったら、残りを未取り込みのまま 1 で終わる" {
@@ -894,10 +917,10 @@ Describe "indexer.ps1（取り込みのスレッド）" -Tag Io {
         Copy-Item -LiteralPath $docxSource -Destination "$source\資料\下\報告.docx"
         Copy-Item -LiteralPath $pptxSource -Destination "$source\資料\報告2.pptx"
 
-        function script:readPackLines([string]$root) {
-            # 集約ファイルの中身（ファイル名・場所・行）を、パスの順に並べて返す
+        function script:readContentIndexLines([string]$root) {
+            # 本文インデックスのファイルの中身（ファイル名・場所・行）を、パスの順に並べて返す
             $lines = New-Object System.Collections.Generic.List[string]
-            foreach ($file in @([System.IO.Directory]::GetFiles("$root\work\content_index", ${packFilePattern}, "AllDirectories") | Sort-Object)) {
+            foreach ($file in @([System.IO.Directory]::GetFiles("$root\work\content_index", ${contentIndexFilePattern}, "AllDirectories") | Sort-Object)) {
                 $lines.Add($file.Substring("$root\work\content_index".Length))
                 $lines.AddRange([string[]]@([System.IO.File]::ReadAllLines($file)))
             }
@@ -905,7 +928,7 @@ Describe "indexer.ps1（取り込みのスレッド）" -Tag Io {
         }
     }
 
-    It "取り込みのスレッドで取り込んでも、取り込み一覧・集約ファイルはスレッドを使わないときと同じになる" {
+    It "取り込みのスレッドで取り込んでも、取り込み一覧・本文インデックスのファイルはスレッドを使わないときと同じになる" {
         $single = newRoot
         writeTestSettings $single @(@{ name = "並列"; path = $source; enabled = $true })
         runIndexer $single @{ Workers = 0 } | Should -Be 0
@@ -920,7 +943,7 @@ Describe "indexer.ps1（取り込みのスレッド）" -Tag Io {
             $actual.Rows[$key].状態 | Should -Be $expected.Rows[$key].状態
             $actual.Rows[$key].TSV数 | Should -Be $expected.Rows[$key].TSV数
         }
-        (readPackLines $parallel) -join "`n" | Should -BeExactly ((readPackLines $single) -join "`n")
+        (readContentIndexLines $parallel) -join "`n" | Should -BeExactly ((readContentIndexLines $single) -join "`n")
         # 取り込んだ TSV（元のファイルごとのフォルダ）・取り込み中の記録・一時フォルダは残さない
         (findIndexFoldersWithBooks "$parallel\work\content_index").Count | Should -Be 0
         Test-Path -LiteralPath "$parallel\work\ingesting.txt" | Should -Be $false
@@ -1015,6 +1038,41 @@ Describe "取り込みのスレッドのスクリプト（ingestWorkerScript）"
         $failed.Ok | Should -Be $false
         $failed.Message | Should -Not -BeNullOrEmpty
     }
+
+    It "終わりの待ちには、設定の Channel の Stop を見る判定を渡す（立てる前は偽・立てたあとは真）" {
+        $root = Join-Path $TestDrive "worker_wait"
+        foreach ($dir in "content_index", "tmp", "publish") {
+            [System.IO.Directory]::CreateDirectory("$root\$dir") | Out-Null
+        }
+        $tasks = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
+        $results = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
+        $tasks.CompleteAdding()
+        $global:waitChannel = [pscustomobject]@{ Stop = $false }
+        $global:waitAnswers = New-Object System.Collections.ArrayList
+        $settings = @{
+            Lib = getPartLoad indexerLib
+            WorkDir = $root; TmpDir = "$root\tmp"; PublishDir = "$root\publish"
+            FileTimeoutMinutes = 10; RestartInterval = 1
+            OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'
+            Lane = ${laneExcel}; Channel = $global:waitChannel
+        }
+        Mock startWatchdog {}
+        Mock stopWatchdog {}
+        Mock stopAllApps {}
+        Mock waitKeptApps {
+            [void]$global:waitAnswers.Add((& $shouldStop))
+            $global:waitChannel.Stop = $true
+            [void]$global:waitAnswers.Add((& $shouldStop))
+        }
+        $priority = [System.Threading.Thread]::CurrentThread.Priority
+        try {
+            & ${ingestWorkerScript} $settings $tasks $results 8
+            @($global:waitAnswers) | Should -Be @($false, $true)
+        } finally {
+            [System.Threading.Thread]::CurrentThread.Priority = $priority
+            Remove-Variable -Name waitChannel, waitAnswers -Scope Global -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 Describe "runIngestWorker・invokeIngestTask（レーン）" -Tag Io {
@@ -1076,6 +1134,8 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
         . "${scriptsDir}\shared\office\office_app.ps1"
         . "${scriptsDir}\tebunko\indexer\extract_office.ps1"
         . "${scriptsDir}\tebunko\indexer\index_migrate.ps1"
+        . "${scriptsDir}\tebunko\indexer\indexer_plan.ps1"
+        . "${scriptsDir}\tebunko\indexer\indexer_decide.ps1"
         . $runPath
         . "$PSScriptRoot\..\..\helpers\cfb.ps1"
     }
@@ -1187,6 +1247,169 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
         $result.Ok | Should -Be $false
         $result.Message | Should -Be "ふつうの失敗です。"
         $result.Log | Should -Not -Match "サイズの上限"
+    }
+
+    It "<app> の取り込みのあとに利用者が開いたファイルがあれば、閉じずに渡し、次の取り込みは新しく起動する" -TestCases @(
+        @{ app = "Excel"; ext = "xlsx"; items = "Workbooks"; shown = $true }
+        @{ app = "Word"; ext = "docx"; items = "Documents"; shown = $true }
+    ) {
+        param ($app, $ext, $items, $shown)
+        ${tmpDir} = Join-Path $TestDrive "handover_tmp_$app"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+        $script:officeOwnDir = ${tmpDir}
+        $script:onOfficeHandOver = ${officeHandOverNotice}
+        $global:handoverApp = $app
+        $global:handoverFake = New-Object psobject -Property @{
+            Visible = $false; UserControl = $false; DisplayAlerts = $false; EnableEvents = $false; ScreenUpdating = $false
+            AskToUpdateLinks = $false; AutomationSecurity = 3
+        }
+        $global:handoverFake | Add-Member -MemberType NoteProperty -Name $items -Value @([pscustomobject]@{ FullName = "C:\利用者\山田の資料.$ext" })
+        $global:handoverFake | Add-Member -MemberType ScriptMethod -Name Quit -Value { throw "Quit は呼ばない" }
+        $global:handoverStarts = New-Object System.Collections.ArrayList
+        Mock ingestFile {
+            [void]$global:handoverStarts.Add(-not $script:apps.ContainsKey($global:handoverApp))
+            $script:apps[$global:handoverApp] = @{ Com = $global:handoverFake; Pid = 4242; Shared = $false }
+            return 1
+        }
+        Mock publishTsv { }
+        Mock getBookDir { "x" }
+        Mock getExtractVersion { "1" }
+        try {
+            $first = invokeIngestTask @{ RelPath = "資料\a.$ext"; SourcePath = "C:\data\a.$ext" } 10
+            $first.Ok | Should -Be $true
+            $first.Log | Should -Match "開かれたファイルがあるため $app を利用者に渡しました"
+            $script:apps.ContainsKey($app) | Should -Be $false
+            $global:handoverFake.Visible | Should -Be $shown
+            $global:handoverFake.AutomationSecurity | Should -Be 1
+
+            # 渡したあとの次のファイルは、新しいアプリを起動する（渡したアプリを使い続けない）
+            $global:handoverFake.$items = @()
+            [void](invokeIngestTask @{ RelPath = "資料\b.$ext"; SourcePath = "C:\data\b.$ext" } 10)
+            @($global:handoverStarts) | Should -Be @($true, $true)
+        } finally {
+            $script:apps.Remove($app)
+            $script:officeOwnDir = $null
+            $script:onOfficeHandOver = $null
+            Remove-Variable -Name handoverFake, handoverStarts, handoverApp -Scope Global
+        }
+    }
+
+    It "PowerPoint の取り込みのあとに利用者が開いたファイルがあれば、閉じずに渡し、次のファイルは後回しにする（渡した PowerPoint が利用者のものとして残るため）" {
+        ${tmpDir} = Join-Path $TestDrive "handover_tmp_PowerPoint"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+        $script:officeOwnDir = ${tmpDir}
+        $script:onOfficeHandOver = ${officeHandOverNotice}
+        $global:handoverFake = New-Object psobject -Property @{
+            Visible = $false; DisplayAlerts = 1; AutomationSecurity = 3
+            Presentations = @([pscustomobject]@{ FullName = "C:\利用者\山田の資料.pptx" })
+        }
+        $global:handoverFake | Add-Member -MemberType ScriptMethod -Name Quit -Value { throw "Quit は呼ばない" }
+        # 1 回目の起動の前後は、まだ PowerPoint がいない → 1 つ増える。そのあとは、渡した PowerPoint が残っている
+        $global:handoverPids = New-Object System.Collections.Queue
+        foreach ($ids in @(@(), @(), @(4242))) { $global:handoverPids.Enqueue($ids) }
+        Mock getOwnSessionProcessIds {
+            if ($global:handoverPids.Count -gt 0) { return , @($global:handoverPids.Dequeue()) }
+            return , @(4242)
+        }
+        Mock New-Object { $global:handoverFake } -ParameterFilter { $ComObject -eq "PowerPoint.Application" }
+        Mock ingestFile { [void](getApp "PowerPoint"); return 1 }
+        Mock publishTsv { }
+        Mock getBookDir { "x" }
+        Mock getExtractVersion { "1" }
+        try {
+            $first = invokeIngestTask @{ RelPath = "資料\a.pptx"; SourcePath = "C:\data\a.pptx" } 10
+            $first.Ok | Should -Be $true
+            $first.Log | Should -Match "開かれたファイルがあるため PowerPoint を利用者に渡しました"
+            $script:apps.ContainsKey("PowerPoint") | Should -Be $false
+            # PowerPoint は窓を隠していないため、窓は触らない。マクロの設定は戻る
+            $global:handoverFake.Visible | Should -Be $false
+            $global:handoverFake.AutomationSecurity | Should -Be 1
+
+            # 渡した PowerPoint が残っているため、次のファイルは起動せず後回しにする
+            $second = invokeIngestTask @{ RelPath = "資料\b.pptx"; SourcePath = "C:\data\b.pptx" } 10
+            $second.Postponed | Should -Be $true
+            $second.Ok | Should -Be $false
+            $script:apps.ContainsKey("PowerPoint") | Should -Be $false
+            Should -Invoke New-Object -Times 1 -Exactly -Scope It -ParameterFilter { $ComObject -eq "PowerPoint.Application" }
+        } finally {
+            $script:apps.Remove("PowerPoint")
+            $script:officeOwnDir = $null
+            $script:onOfficeHandOver = $null
+            Remove-Variable -Name handoverFake, handoverPids -Scope Global
+        }
+    }
+
+    It "渡すときに窓や設定を戻しきれなければ、ログは「窓や設定を戻しきれませんでした」の文言になり、Excel は終了させず残す" {
+        ${tmpDir} = Join-Path $TestDrive "handover_fail_tmp"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+        $script:officeOwnDir = ${tmpDir}
+        $script:onOfficeHandOver = ${officeHandOverNotice}
+        $script:officeKeptApps = @()
+        $global:handoverFake = New-Object psobject -Property @{
+            UserControl = $false; DisplayAlerts = $false; EnableEvents = $false; ScreenUpdating = $false
+            AskToUpdateLinks = $false; AutomationSecurity = 3
+            Workbooks = @([pscustomobject]@{ FullName = "C:\利用者\山田の資料.xlsx" })
+        }
+        $global:handoverFake | Add-Member -MemberType ScriptProperty -Name Visible -Value { $false } -SecondValue { throw "設定できません" }
+        $global:handoverFake | Add-Member -MemberType ScriptMethod -Name Quit -Value { throw "Quit は呼ばない" }
+        Mock ingestFile {
+            $script:apps["Excel"] = @{ Com = $global:handoverFake; Pid = 4242; Shared = $false }
+            return 1
+        }
+        Mock publishTsv { }
+        Mock getBookDir { "x" }
+        Mock getExtractVersion { "1" }
+        Mock Stop-Process { }
+        try {
+            $result = invokeIngestTask @{ RelPath = "資料\a.xlsx"; SourcePath = "C:\data\a.xlsx" } 10
+            $result.Ok | Should -Be $true
+            $result.Log | Should -Match "窓や設定を戻しきれませんでした"
+            $result.Log | Should -Not -Match "(?m)利用者に渡しました$"
+            $script:apps.ContainsKey("Excel") | Should -Be $false
+            @($script:officeKeptApps).Count | Should -Be 1
+            Should -Invoke Stop-Process -Times 0 -Exactly -Scope It
+        } finally {
+            $script:apps.Remove("Excel")
+            $script:officeKeptApps = @()
+            $script:officeOwnDir = $null
+            $script:onOfficeHandOver = $null
+            Remove-Variable -Name handoverFake -Scope Global
+        }
+    }
+
+    It "Word のファイルの一覧を読めなければ、ログは「一覧を読めなかったため、終了させずに残しています」の文言になり、Word は終了させず残す" {
+        ${tmpDir} = Join-Path $TestDrive "handover_keep_tmp"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+        $script:officeOwnDir = ${tmpDir}
+        $script:onOfficeHandOver = ${officeHandOverNotice}
+        $script:officeKeptApps = @()
+        $global:handoverFake = New-Object psobject -Property @{ Visible = $false; DisplayAlerts = 0; AutomationSecurity = 3 }
+        $global:handoverFake | Add-Member -MemberType ScriptMethod -Name Quit -Value { throw "Quit は呼ばない" }
+        # 一覧を読めない（COM が呼び出しを拒んだ）ことにする
+        Mock getWorkbookSplit { throw "呼び出しを拒まれました" }
+        Mock ingestFile {
+            $script:apps["Word"] = @{ Com = $global:handoverFake; Pid = 4242; Shared = $false }
+            return 1
+        }
+        Mock publishTsv { }
+        Mock getBookDir { "x" }
+        Mock getExtractVersion { "1" }
+        Mock Stop-Process { }
+        try {
+            $result = invokeIngestTask @{ RelPath = "資料\a.docx"; SourcePath = "C:\data\a.docx" } 10
+            $result.Ok | Should -Be $true
+            $result.Log | Should -Match "Word のファイルの一覧を読めなかったため、終了させずに残しています"
+            $result.Log | Should -Not -Match "利用者に渡しました"
+            $script:apps.ContainsKey("Word") | Should -Be $false
+            @($script:officeKeptApps).Count | Should -Be 1
+            Should -Invoke Stop-Process -Times 0 -Exactly -Scope It
+        } finally {
+            $script:apps.Remove("Word")
+            $script:officeKeptApps = @()
+            $script:officeOwnDir = $null
+            $script:onOfficeHandOver = $null
+            Remove-Variable -Name handoverFake -Scope Global
+        }
     }
 }
 

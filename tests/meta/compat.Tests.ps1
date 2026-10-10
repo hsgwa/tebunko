@@ -33,15 +33,15 @@ Describe "前の版のファイル（compat\index）" -Tag Meta {
             $problems = New-Object System.Collections.Generic.List[string]
             $wsDir = "$($sample.FullName)\ws"
 
-            # packVersion: 集約ファイル（content_index\...\content_index.*.tsv）の先頭行 "版=<packVersion>"
-            $packFile = @(Get-ChildItem -LiteralPath "$wsDir\content_index" -Recurse -File -Filter "${packFileNamePrefix}.*.tsv" -ErrorAction SilentlyContinue | Select-Object -First 1)
-            if ($packFile.Count -eq 0) {
-                $problems.Add("packFileNamePrefix（${packFileNamePrefix}）に当たる集約ファイルが無い")
+            # contentIndexVersion: 本文インデックスのファイル（content_index\...\content_index.*.tsv）の先頭行 "版=<contentIndexVersion>"
+            $contentIndexFile = @(Get-ChildItem -LiteralPath "$wsDir\content_index" -Recurse -File -Filter "${contentIndexFileNamePrefix}.*.tsv" -ErrorAction SilentlyContinue | Select-Object -First 1)
+            if ($contentIndexFile.Count -eq 0) {
+                $problems.Add("contentIndexFileNamePrefix（${contentIndexFileNamePrefix}）に当たる本文インデックスのファイルが無い")
             } else {
-                $text = [System.IO.File]::ReadAllText($packFile[0].FullName, [System.Text.Encoding]::Unicode)
+                $text = [System.IO.File]::ReadAllText($contentIndexFile[0].FullName, [System.Text.Encoding]::Unicode)
                 $m = [regex]::Match($text, "版=(\d+)")
-                if (!$m.Success -or $m.Groups[1].Value -ne [string]${packVersion}) {
-                    $problems.Add("packVersion（${packVersion}）が $($packFile[0].Name) に見つからない")
+                if (!$m.Success -or $m.Groups[1].Value -ne [string]${contentIndexVersion}) {
+                    $problems.Add("contentIndexVersion（${contentIndexVersion}）が $($contentIndexFile[0].Name) に見つからない")
                 }
             }
 

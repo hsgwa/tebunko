@@ -48,6 +48,62 @@ BeforeAll {
         return (@($lines | Where-Object { $_.Text -match $pattern } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ")
     }
 
+    function getSourcePathViolations {
+        # 取り込みの入口の関数の中で、元のパス（変数 sourcePath）の渡し先が許した処理だけかを調べる。
+        # 返す: Found = 見つけた入口の名前、Violations = 許さない渡し先の行（"関数名:行"）。コードを文字列で渡せるので、通ってはいけない形で落ちることをテストで確かめられる。
+        # 許す: copyFileShared（コピー）・getAppName・testTextExtension（拡張子の判定）・入口どうしの受け渡し・
+        #       [System.IO.Path]::GetExtension / GetFileName・[System.IO.FileInfo]::new(toLongPath ...)（大きさをメタデータで見る。元は開かない）
+        param (
+            [string]$code,
+            [string[]]$entries
+        )
+
+        $allowedCommands = @("copyFileShared", "getAppName", "testTextExtension", "extractTextFile", "extractWorkbook", "extractDocument")
+        $tree = [System.Management.Automation.Language.Parser]::ParseInput($code, [ref]$null, [ref]$null)
+        $functions = @($tree.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Where-Object { $entries -contains $_.Name })
+        $violations = New-Object System.Collections.Generic.List[string]
+        foreach ($function in $functions) {
+            $uses = $function.Body.FindAll({ param($n) $n -is [System.Management.Automation.Language.VariableExpressionAst] -and $n.VariablePath.UserPath -eq "sourcePath" }, $true)
+            foreach ($use in $uses) {
+                if ($use.Parent -is [System.Management.Automation.Language.ParameterAst]) {
+                    continue
+                }
+                $parent = $use.Parent
+                while ($null -ne $parent -and $parent -isnot [System.Management.Automation.Language.CommandAst] -and $parent -isnot [System.Management.Automation.Language.InvokeMemberExpressionAst]) {
+                    $parent = $parent.Parent
+                }
+                $ok = $false
+                if ($parent -is [System.Management.Automation.Language.CommandAst]) {
+                    $commandName = $parent.GetCommandName()
+                    if ($commandName -eq "copyFileShared") {
+                        # 元（コピー元）になる 1 番目の引数のときだけ。2 番目（コピー先）に元を渡すと上書きする
+                        $ok = [object]::ReferenceEquals($parent.CommandElements[1], $use)
+                    } elseif ($allowedCommands -contains $commandName) {
+                        $ok = $true
+                    } elseif ($commandName -eq "toLongPath") {
+                        # 外側が FileInfo の new のときだけ（OpenRead・ReadAllBytes などに渡すのは不可）
+                        $outer = $parent.Parent
+                        while ($null -ne $outer -and $outer -isnot [System.Management.Automation.Language.InvokeMemberExpressionAst] -and $outer -isnot [System.Management.Automation.Language.CommandAst]) {
+                            $outer = $outer.Parent
+                        }
+                        $ok = ($outer -is [System.Management.Automation.Language.InvokeMemberExpressionAst] -and $outer.Static -and $outer.Expression.Extent.Text -eq "[System.IO.FileInfo]" -and $outer.Member.Extent.Text -eq "new")
+                        if ($ok) {
+                            # new(...).Length（メンバーの読み取り）だけ。.OpenRead()・.Delete() などの呼び出しは不可
+                            $access = $outer.Parent
+                            $ok = ($access -is [System.Management.Automation.Language.MemberExpressionAst] -and $access -isnot [System.Management.Automation.Language.InvokeMemberExpressionAst] -and $access.Member.Extent.Text -eq "Length")
+                        }
+                    }
+                } elseif ($parent -is [System.Management.Automation.Language.InvokeMemberExpressionAst]) {
+                    $ok = ($parent.Static -and $parent.Expression.Extent.Text -eq "[System.IO.Path]" -and @("GetExtension", "GetFileName") -contains $parent.Member.Extent.Text)
+                }
+                if (!$ok) {
+                    $violations.Add("$($function.Name):$($use.Extent.StartLineNumber)")
+                }
+            }
+        }
+        return [pscustomobject]@{ Found = @($functions | ForEach-Object { $_.Name }); Violations = $violations.ToArray() }
+    }
+
     function getWritePlaceViolations {
         # 書き込み先を環境から得る書き方が、許すものの一覧に収まっているかを調べ、外れたものを文字列の一覧で返す（無ければ空）。
         # $codeLines は getCodeLines の形（コメントを除いた行）、$batText は tebunko.bat の全文。
@@ -252,9 +308,17 @@ Describe "Office ファイルを安全に開くこと（docs/safety/checks.md「
 
     It "インデクサの Office は画面に出さない（Visible = false）" {
         (findPattern $app 'Visible\s*=\s*\$false') | Should -Not -Be ""
-        # 可視にするのは画面から元のファイルを開くときだけ（ui/open_source.ps1）
-        $visible = @($code | Where-Object { $_.Text -match 'Visible\s*=\s*\$true' })
-        (@($visible | Where-Object { $_.File -ne "open_source.ps1" } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
+        # 可視にするのは、画面から元のファイルを開くとき（ui/open_source.ps1）と、利用者のファイルが入った Excel・Word・PowerPoint を利用者に渡すとき（office_app.ps1 の restoreHandedOverApp。handOverApp と retryKeptApps が呼ぶ）だけ
+        $visible = @($code | Where-Object { $_.Text -match 'Visible["'']?\s*[=,]\s*\$true' })
+        (@($visible | Where-Object { $_.File -ne "open_source.ps1" -and $_.File -ne "office_app.ps1" } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
+        # office_app.ps1 では、restoreHandedOverApp の定義の中に 1 か所だけ（Visible を真にする設定は、表の行 `@("Visible", $true)` の形）
+        $inApp = @($visible | Where-Object { $_.File -eq "office_app.ps1" })
+        $inApp.Count | Should -Be 1
+        $lines = [System.IO.File]::ReadAllLines($inApp[0].Path)
+        $start = @(0..($lines.Count - 1) | Where-Object { $lines[$_] -match '^function restoreHandedOverApp\b' })[0]
+        $end = @(($start + 1)..($lines.Count - 1) | Where-Object { $lines[$_] -match '^function ' })[0]
+        ($inApp[0].Line - 1) | Should -BeGreaterThan $start
+        ($inApp[0].Line - 1) | Should -BeLessThan $end
     }
 
     It "Office の文書を COM で開く呼び出しを書いたファイルは、Excel などの設定に従わせる（AutomationSecurity = 2）。インデックス作成の 2 ファイルは = 3 で守る" {
@@ -404,6 +468,36 @@ Describe "取り込み対象のファイルを書き換えないこと（docs/sa
             $_.Text -match 'Remove-Item|WriteAllText|WriteAllLines|StreamWriter|Move-Item|\[System\.IO\.(File|Directory)\]::(Move|Delete|WriteAll)'
         } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
         (findPattern $fs '\[System\.IO\.FileAccess\]::Read') | Should -Not -Be ""
+    }
+
+    It "取り込みの入口（ingestFile・extractTextFile・extractWorkbook・extractDocument）が元のパス（sourcePath 変数）を渡してよいのは、許した処理だけ" {
+        # 元を直接読む処理に sourcePath を渡すと落ちる。読むのは、作業領域のコピー（copyFileShared の先）だけ。許す処理は getSourcePathViolations のコメントにある
+        $entries = @("ingestFile", "extractTextFile", "extractWorkbook", "extractDocument")
+        $found = New-Object System.Collections.Generic.List[string]
+        $bad = New-Object System.Collections.Generic.List[string]
+        foreach ($file in @("extract_text.ps1", "extract_office.ps1")) {
+            $result = getSourcePathViolations ([System.IO.File]::ReadAllText("$scriptsDir\tebunko\indexer\$file")) $entries
+            foreach ($name in $result.Found) { $found.Add($name) }
+            foreach ($violation in $result.Violations) { $bad.Add("${file}:$violation") }
+        }
+        (($found | Sort-Object) -join ",") | Should -Be (($entries | Sort-Object) -join ",")
+        ($bad -join ", ") | Should -Be ""
+    }
+
+    It "元のパスの検査は、<name> を見逃さない" -TestCases @(
+        @{ name = "toLongPath 越しの OpenRead"; code = 'function ingestFile { param([string]$sourcePath) [System.IO.File]::OpenRead((toLongPath $sourcePath)) }'; ok = $false }
+        @{ name = "toLongPath 越しの ReadAllBytes"; code = 'function ingestFile { param([string]$sourcePath) [System.IO.File]::ReadAllBytes((toLongPath $sourcePath)) }'; ok = $false }
+        @{ name = "readTextFile への直接の引数"; code = 'function ingestFile { param([string]$sourcePath) readTextFile $sourcePath 10 }'; ok = $false }
+        @{ name = "FileInfo の OpenRead"; code = 'function ingestFile { param([string]$sourcePath) [System.IO.FileInfo]::new((toLongPath $sourcePath)).OpenRead() }'; ok = $false }
+        @{ name = "FileInfo の Delete"; code = 'function ingestFile { param([string]$sourcePath) [System.IO.FileInfo]::new((toLongPath $sourcePath)).Delete() }'; ok = $false }
+        @{ name = "元をコピー先にした copyFileShared"; code = 'function ingestFile { param([string]$sourcePath) copyFileShared "x" $sourcePath }'; ok = $false }
+        @{ name = "GetFullPath"; code = 'function ingestFile { param([string]$sourcePath) [System.IO.Path]::GetFullPath($sourcePath) }'; ok = $false }
+        @{ name = "FileInfo の大きさ（許す）"; code = 'function ingestFile { param([string]$sourcePath) [System.IO.FileInfo]::new((toLongPath $sourcePath)).Length }'; ok = $true }
+        @{ name = "copyFileShared と GetExtension（許す）"; code = 'function ingestFile { param([string]$sourcePath) copyFileShared $sourcePath "x"; [System.IO.Path]::GetExtension($sourcePath) }'; ok = $true }
+    ) {
+        $result = getSourcePathViolations $code @("ingestFile")
+        $result.Found.Count | Should -Be 1
+        ($result.Violations.Count -eq 0) | Should -Be $ok
     }
 
     It "Office の SaveAs の保存先は作業フォルダのパスだけ" {
@@ -569,19 +663,19 @@ set "PSCMD=%PSCMD%x"').Count | Should -Be 0
         (@($testCallers | ForEach-Object { $_.File } | Sort-Object -Unique) -join ", ") | Should -Be "index_migrate.ps1"
 
         # 呼ぶのは全体に付ける indexer_run.ps1・取り込みの作業フォルダに付ける index_migrate.ps1・
-        # 入れた直後に付ける index_store.ps1・pack_store.ps1・source_map.ps1・インポートで入れたフォルダ全体に付ける index_archive.ps1 の 6 ファイルだけ
+        # 入れた直後に付ける index_store.ps1・content_index_store.ps1・source_map.ps1・インポートで入れたフォルダ全体に付ける index_archive.ps1 の 6 ファイルだけ
         $callers = @($code | Where-Object { $_.Text -match "setNotContentIndexed" -and $_.Text -notmatch "function setNotContentIndexed" })
         $callerFiles = @($callers | ForEach-Object { $_.File } | Sort-Object -Unique)
         $callerFiles.Count | Should -Be 6
         ($callerFiles -contains "indexer_run.ps1") | Should -Be $true
         ($callerFiles -contains "index_migrate.ps1") | Should -Be $true
         ($callerFiles -contains "index_store.ps1") | Should -Be $true
-        ($callerFiles -contains "pack_store.ps1") | Should -Be $true
+        ($callerFiles -contains "content_index_store.ps1") | Should -Be $true
         ($callerFiles -contains "source_map.ps1") | Should -Be $true
         ($callerFiles -contains "index_archive.ps1") | Should -Be $true
 
         # 渡す引数まで確かめる（indexer_run.ps1 は $workspace.IndexDir、index_migrate.ps1 は取り込みの作業フォルダ（$dir）、
-        # index_store.ps1 は $bookDir、pack_store.ps1 は $folder、index_archive.ps1 は $targetIndexDir）。
+        # index_store.ps1 は $bookDir、content_index_store.ps1 は $folder、index_archive.ps1 は $targetIndexDir）。
         # -Recurse で下をたどるのは indexer_run.ps1（content_index 全体）と index_archive.ps1（インポートで入れた 1 つのインデックス。Directory.Move で入るため）だけ（ほかは 1 か所ずつなので要らない）
         (findPattern $callers 'setNotContentIndexed\s+\$workspace\.IndexDir\s+-Recurse') | Should -Not -Be ""
         (findPattern $callers 'setNotContentIndexed\s+\$dir\)') | Should -Not -Be ""

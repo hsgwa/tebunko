@@ -18,8 +18,8 @@ function testIndexBookName {
 }
 
 function testIndexBookDirPath {
-    # 元のファイルごとのフォルダ（集約する前の TSV・中身が空のファイルのフォルダ）か。名前が .xlsx などで終わる本物のフォルダと
-    # 区別するため、サブフォルダも集約ファイル（content_index.*.tsv）も無いことも見る（pack_store.ps1 の testIndexBookDir と同じ判定）
+    # 元のファイルごとのフォルダ（本文インデックスにする前の TSV・中身が空のファイルのフォルダ）か。名前が .xlsx などで終わる本物のフォルダと
+    # 区別するため、サブフォルダも本文インデックスのファイル（content_index.*.tsv）も無いことも見る（content_index_store.ps1 の testIndexBookDir と同じ判定）
     param (
         [string]$dir
     )
@@ -32,7 +32,7 @@ function testIndexBookDirPath {
         # content_index\<名前> を移動できなくなる。直下だけなので配列（Get*）で受ける（ここの関数はどれも同じ）
         $long = toLongPath $dir
         if ([System.IO.Directory]::GetDirectories($long).Length -gt 0) { return $false }
-        if ([System.IO.Directory]::GetFiles($long, ${packFilePattern}).Length -gt 0) { return $false }
+        if ([System.IO.Directory]::GetFiles($long, ${contentIndexFilePattern}).Length -gt 0) { return $false }
         return $true
     } catch {
         return $false
@@ -56,15 +56,15 @@ function testIndexFolderHasSubfolders {
 }
 
 function testIndexFolderHasFiles {
-    # インデックスのフォルダの直下に、ファイル（集約ファイル・集約する前の TSV）があるか
+    # インデックスのフォルダの直下に、ファイル（本文インデックスのファイル・本文インデックスにする前の TSV）があるか
     param (
         [string]$dir
     )
 
     try {
-        # 集約ファイル（content_index.<拡張子>.tsv。pack_format.ps1 の packFilePattern）か、集約する前の TSV があれば、フォルダ直下にファイルがある
+        # 本文インデックスのファイル（content_index.<拡張子>.tsv。content_index_format.ps1 の contentIndexFilePattern）か、本文インデックスにする前の TSV があれば、フォルダ直下にファイルがある
         $long = toLongPath $dir
-        if ([System.IO.Directory]::GetFiles($long, ${packFilePattern}).Length -gt 0) { return $true }
+        if ([System.IO.Directory]::GetFiles($long, ${contentIndexFilePattern}).Length -gt 0) { return $true }
         foreach ($sub in [System.IO.Directory]::GetDirectories($long)) {
             if (-not (testIndexBookDirPath $sub)) { continue }
             if ([System.IO.Directory]::GetFiles($sub, "*.tsv").Length -gt 0) { return $true }

@@ -5,7 +5,7 @@ $script:search = $null
 $script:lastSearch = $null
 $script:sourceFolderMaps = @{}  # インデックスのフォルダ → インデックス名とクロール対象フォルダの対応（getSourceLocation のキャッシュ）
 $script:filterText = ""
-# 検索で読んだ集約ファイルの内容（画面を閉じるまで残し、次の検索では更新の無い集約ファイルをファイルから読まない）
+# 検索で読んだ本文インデックスのファイルの内容（画面を閉じるまで残し、次の検索では更新の無い本文インデックスのファイルをファイルから読まない）
 $script:tsvCache = newTsvTextCache
 # 検索の司令のスレッド（画面を開いている間 1 つ。閉じるときに gui.ps1 が Close する）
 $script:searchService = newSearchService $script:tsvCache
@@ -187,7 +187,7 @@ function finishSearch {
         updateFastSearchView
     }
 
-    # 高速検索では、候補の無いフォルダの集約ファイルを集めないため、集めた数が 0 でも「インデックスが無い」とは限らない
+    # 高速検索では、候補の無いフォルダの本文インデックスのファイルを集めないため、集めた数が 0 でも「インデックスが無い」とは限らない
     if (!$shared.FastUsed -and $shared.IndexTotal -gt 0 -and $shared.Total -eq 0) {
         $ui.SummaryText.Text = getNoKindMatchText $s.Option.FileKinds
     } elseif (!$shared.FastUsed -and $shared.Total -eq 0) {

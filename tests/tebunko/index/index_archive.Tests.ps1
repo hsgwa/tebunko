@@ -19,19 +19,19 @@ BeforeAll {
         $ws = [Workspace]::new($dir)
         $indexDir = Join-Path $ws.IndexDir $name
         $relDir = Split-Path $relPath -Parent
-        $packDir = if ($relDir) { Join-Path $indexDir $relDir } else { $indexDir }
+        $contentIndexDir = if ($relDir) { Join-Path $indexDir $relDir } else { $indexDir }
         $book = @{ Name = (Split-Path $relPath -Leaf); Places = @(@{ Place = "Sheet1"; Text = $text }) }
-        $packText = convertToPackText @($book)
-        $packPath = Join-Path $packDir (getPackFileName (getPackExtension $relPath))
-        [System.IO.Directory]::CreateDirectory((toLongPath $packDir)) | Out-Null
-        [System.IO.File]::WriteAllText((toLongPath $packPath), $packText, (New-Object System.Text.UTF8Encoding($true)))
+        $contentIndexText = convertToContentIndexText @($book)
+        $contentIndexPath = Join-Path $contentIndexDir (getContentIndexFileName (getContentIndexExtension $relPath))
+        [System.IO.Directory]::CreateDirectory((toLongPath $contentIndexDir)) | Out-Null
+        [System.IO.File]::WriteAllText((toLongPath $contentIndexPath), $contentIndexText, (New-Object System.Text.UTF8Encoding($true)))
 
         writeStatusFile @([pscustomobject]@{ Path = $sourcePath; Name = $name }) @(
             (newStatusRow "$name\$relPath" "2024/01/01 00:00:00" "100" ${stateDone} "1" "2024/01/01 00:00:00" "" ([string](getExtractVersion $relPath)))
         ) $ws.StatusFile
         writeTargetFolders @([pscustomobject]@{ Name = $name; Path = $sourcePath; Enabled = $true }) $settingsPath
 
-        return @{ Workspace = $ws; SettingsPath = $settingsPath; RelPath = $relPath; Text = $text; PackPath = $packPath }
+        return @{ Workspace = $ws; SettingsPath = $settingsPath; RelPath = $relPath; Text = $text; ContentIndexPath = $contentIndexPath }
     }
 
     function getStatusRowArray {
@@ -46,12 +46,12 @@ BeforeAll {
     }
 
     function readSearchWord {
-        # ワークスペース ws のインデックスから word を検索し、当たった行を返す（pack_search.ps1）
+        # ワークスペース ws のインデックスから word を検索し、当たった行を返す（content_index_search.ps1）
         param ($ws, [string]$word)
 
-        $found = getIndexPackFiles @($ws.IndexDir)
+        $found = getContentIndexFiles @($ws.IndexDir)
         $regex = New-Object regex ([regex]::Escape($word))
-        return @(searchPackFiles $found.Packs 0 $found.Packs.Count $regex -1 $regex "lines")
+        return @(searchContentIndexFiles $found.ContentIndexFiles 0 $found.ContentIndexFiles.Count $regex -1 $regex "lines")
     }
 }
 
@@ -698,7 +698,7 @@ Describe "importIndex" -Tag Io {
         ) $settingsB
         writeSearchOption @{ UseRegex = $true } $settingsB
         writeSearchExcludes @([pscustomobject]@{ Path = (Join-Path $wsB.IndexDir "営業\見積"); Subfolders = $true }) $settingsB
-        $packBefore = [System.IO.File]::ReadAllBytes($fixtureB.PackPath)
+        $contentIndexBefore = [System.IO.File]::ReadAllBytes($fixtureB.ContentIndexPath)
         $statusBefore = [System.IO.File]::ReadAllText($wsB.StatusFile)
 
         # 取り込み一覧の書き込みだけを失敗させる（設定の登録と content_index の入れ替えまでは進む）
@@ -706,7 +706,7 @@ Describe "importIndex" -Tag Io {
         { importIndex $dest ${importCollisionOverwrite} "" "C:\新しい場所" $wsB $settingsB } | Should -Throw "*取り込み一覧を書けない*"
 
         # content_index\営業 は前の中身のまま
-        [System.IO.File]::ReadAllBytes($fixtureB.PackPath) | Should -Be $packBefore
+        [System.IO.File]::ReadAllBytes($fixtureB.ContentIndexPath) | Should -Be $contentIndexBefore
         Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業\source_folder.txt") | Should -Be $false
         Test-Path -LiteralPath (Join-Path $wsB.PublishDir "import") | Should -Be $false
         # 取り込み一覧は変わらない
@@ -726,13 +726,13 @@ Describe "importIndex" -Tag Io {
         $fixtureB = newIndexFixture "$TestDrive\revert_set_b" "営業" "C:\前の場所"
         $wsB = $fixtureB.Workspace
         $settingsB = $fixtureB.SettingsPath
-        $packBefore = [System.IO.File]::ReadAllBytes($fixtureB.PackPath)
+        $contentIndexBefore = [System.IO.File]::ReadAllBytes($fixtureB.ContentIndexPath)
         $statusBefore = [System.IO.File]::ReadAllText($wsB.StatusFile)
 
         Mock writeTargetFolders { throw "設定を書けない" }
         { importIndex $dest ${importCollisionOverwrite} "" "C:\新しい場所" $wsB $settingsB } | Should -Throw "*設定を書けない*"
 
-        [System.IO.File]::ReadAllBytes($fixtureB.PackPath) | Should -Be $packBefore
+        [System.IO.File]::ReadAllBytes($fixtureB.ContentIndexPath) | Should -Be $contentIndexBefore
         [System.IO.File]::ReadAllText($wsB.StatusFile) | Should -Be $statusBefore
         Test-Path -LiteralPath (Join-Path $wsB.PublishDir "import") | Should -Be $false
         @(getTargetFolders $settingsB)[0].Path | Should -Be "C:\前の場所"
@@ -746,13 +746,13 @@ Describe "importIndex" -Tag Io {
         $fixtureB = newIndexFixture "$TestDrive\revert_swap_b" "営業" "C:\前の場所"
         $wsB = $fixtureB.Workspace
         $settingsB = $fixtureB.SettingsPath
-        $packBefore = [System.IO.File]::ReadAllBytes($fixtureB.PackPath)
+        $contentIndexBefore = [System.IO.File]::ReadAllBytes($fixtureB.ContentIndexPath)
 
         # 設定の登録の後の、content_index の入れ替えを失敗させる
         Mock swapInImportedIndexDir { throw "入れ替えられない" }
         { importIndex $dest ${importCollisionOverwrite} "" "C:\新しい場所" $wsB $settingsB } | Should -Throw "*入れ替えられない*"
 
-        [System.IO.File]::ReadAllBytes($fixtureB.PackPath) | Should -Be $packBefore
+        [System.IO.File]::ReadAllBytes($fixtureB.ContentIndexPath) | Should -Be $contentIndexBefore
         @(getTargetFolders $settingsB)[0].Path | Should -Be "C:\前の場所"
         Test-Path -LiteralPath (Join-Path $wsB.PublishDir "import") | Should -Be $false
     }
@@ -920,14 +920,14 @@ Describe "importIndex" -Tag Io {
         param ($label, $broken)
         # インポートは本文インデックスのファイルの中身の形を確かめない（大きさと SHA-256 で、作ったときのままであることだけを見る）。
         # 壊れた行があっても、検索が例外で止まらないことをここで確かめる
-        $fixtureA = newIndexFixture "$TestDrive\brokenpack_a_$([Guid]::NewGuid().ToString('N'))" "営業" "C:\共有\営業部"
-        $original = [System.IO.File]::ReadAllText($fixtureA.PackPath)
-        [System.IO.File]::WriteAllText($fixtureA.PackPath, (& $broken $original), (New-Object System.Text.UTF8Encoding($true)))
+        $fixtureA = newIndexFixture "$TestDrive\brokenindex_a_$([Guid]::NewGuid().ToString('N'))" "営業" "C:\共有\営業部"
+        $original = [System.IO.File]::ReadAllText($fixtureA.ContentIndexPath)
+        [System.IO.File]::WriteAllText($fixtureA.ContentIndexPath, (& $broken $original), (New-Object System.Text.UTF8Encoding($true)))
 
-        $dest = "$($fixtureA.Workspace.Dir)\brokenpack.zip"
+        $dest = "$($fixtureA.Workspace.Dir)\brokenindex.zip"
         exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
 
-        $wsB = [Workspace]::new("$TestDrive\brokenpack_b_$([Guid]::NewGuid().ToString('N'))")
+        $wsB = [Workspace]::new("$TestDrive\brokenindex_b_$([Guid]::NewGuid().ToString('N'))")
         $result = importIndex $dest ${importCollisionRename} "" "C:\新しい場所" $wsB "$($wsB.Dir)\setting.config"
 
         $result.Files | Should -Be 2

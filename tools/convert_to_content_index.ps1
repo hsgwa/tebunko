@@ -1,7 +1,7 @@
-﻿# 今の形式のインデックス（場所ごとの TSV）を、検索用の集約ファイル（フォルダごと・拡張子ごとの content_index.xlsx.001.tsv など）に変換する（PoC 用）。
-# 元のインデックスは読むだけで書き換えない。変換先に同じフォルダの集約ファイルがあれば飛ばすため、止めても続きから変換できる。
+﻿# 今の形式のインデックス（場所ごとの TSV）を、検索用の本文インデックスのファイル（フォルダごと・拡張子ごとの content_index.xlsx.001.tsv など）に変換する（PoC 用）。
+# 元のインデックスは読むだけで書き換えない。変換先に同じフォルダの本文インデックスのファイルがあれば飛ばすため、止めても続きから変換できる。
 #
-#   .\tools\convert_to_pack.ps1 -Source <元の index フォルダ> -Dest <変換先の index フォルダ>
+#   .\tools\convert_to_content_index.ps1 -Source <元の index フォルダ> -Dest <変換先の index フォルダ>
 #   -Minutes 9   … この時間を過ぎたら新しいフォルダを始めない（1 回の実行を短く切る）
 #   -Workers 4   … 並行して変換するスレッドの数
 param (
@@ -34,7 +34,7 @@ $todo = @($folders | Where-Object {
     $rel = if ($_.Length -gt $Source.Length) { $_.Substring($Source.Length + 1) } else { "" }
     $target = if ($rel) { "$Dest\$rel" } else { $Dest }
     $longTarget = toLongPath $target
-    !([System.IO.Directory]::Exists($longTarget) -and [System.IO.Directory]::GetFiles($longTarget, ${packFilePattern}).Count -gt 0)
+    !([System.IO.Directory]::Exists($longTarget) -and [System.IO.Directory]::GetFiles($longTarget, ${contentIndexFilePattern}).Count -gt 0)
 })
 Write-Host ("フォルダ {0:N0} 件（うち変換済み {1:N0} 件）。列挙 {2:N1} 秒" -f $folders.Count, ($folders.Count - $todo.Count), $watch.Elapsed.TotalSeconds)
 
@@ -53,7 +53,7 @@ $jobs = foreach ($k in 0..($Workers - 1)) {
             $folder = $list[$i]
             $rel = if ($folder.Length -gt $source.Length) { $folder.Substring($source.Length + 1) } else { "" }
             $target = if ($rel) { "$dest\$rel" } else { $dest }
-            $r = convertIndexFolderToPack $folder $target
+            $r = convertFolderToContentIndex $folder $target
             $done++; $tsv += $r.Tsv; $chars += $r.Chars
         }
         @{ Done = $done; Tsv = $tsv; Chars = $chars }

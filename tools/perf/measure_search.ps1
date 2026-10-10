@@ -19,7 +19,10 @@ $ErrorActionPreference = "Stop"
 . "$PSScriptRoot\perf_common.ps1"
 $lib = resolveTebunkoLib $Tool
 . $lib
-assertTebunkoFunctions @("getIndexPackFiles", "searchPackIndex", "newTsvTextCache")
+assertTebunkoFunctions @("newTsvTextCache")
+# 本文インデックスを列挙・検索する関数は、名前を改めた後と前の両方を受け付ける
+$getFiles = resolveTebunkoFunction @("getContentIndexFiles", "getIndexPackFiles")
+$searchIndex = resolveTebunkoFunction @("searchContentIndex", "searchPackIndex")
 $spec = [System.IO.File]::ReadAllText($WordFile, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
 $Name = [string]$spec.Name
 $Word = [string]$spec.Word
@@ -48,19 +51,22 @@ function invokeServiceSearch($service) {
 
 # runspace: #102 より前の画面の流れ（検索のたびに新しい Runspace で lib.ps1 を読み込む）
 $runspaceScript = {
-    param ($lib, $index, $word, $simple, $cache)
+    param ($lib, $index, $word, $simple, $cache, $getFiles, $searchIndex, $filesNames)
     $total = [System.Diagnostics.Stopwatch]::StartNew(); $step = [System.Diagnostics.Stopwatch]::StartNew()
     . $lib
     $load = $step.Elapsed.TotalMilliseconds; $step.Restart()
-    $found = getIndexPackFiles @($index)
+    $found = & $getFiles @($index)
     $list = $step.Elapsed.TotalMilliseconds; $step.Restart()
-    $r = searchPackIndex $word $found.Packs $simple 10000 -cache $cache
-    @{ LoadMs = $load; ListMs = $list; MatchMs = $step.Elapsed.TotalMilliseconds; TotalMs = $total.Elapsed.TotalMilliseconds; Packs = $found.Packs.Count; Hits = $r.Hits.Count; Truncated = [bool]$r.Truncated }
+    $filesName = $filesNames | Where-Object { $found.ContainsKey($_) } | Select-Object -First 1
+    if (!$filesName) { throw "取得した本文インデックスの一覧に項目がありません" }
+    $files = $found[$filesName]
+    $r = & $searchIndex $word $files $simple 10000 -cache $cache
+    @{ LoadMs = $load; ListMs = $list; MatchMs = $step.Elapsed.TotalMilliseconds; TotalMs = $total.Elapsed.TotalMilliseconds; Packs = $files.Count; Hits = $r.Hits.Count; Truncated = [bool]$r.Truncated }
 }
 function invokeRunspaceSearch($cache) {
     $ps = [powershell]::Create()
     try {
-        [void]$ps.AddScript($runspaceScript.ToString()).AddArgument($lib).AddArgument($Index).AddArgument($Word).AddArgument(!$Regex).AddArgument($cache)
+        [void]$ps.AddScript($runspaceScript.ToString()).AddArgument($lib).AddArgument($Index).AddArgument($Word).AddArgument(!$Regex).AddArgument($cache).AddArgument($getFiles).AddArgument($searchIndex).AddArgument(@("ContentIndexFiles", "Packs"))
         return $ps.Invoke()[0]
     } finally {
         $ps.Dispose()

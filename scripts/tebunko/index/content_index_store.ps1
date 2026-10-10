@@ -1,9 +1,9 @@
-﻿# 検索用の集約ファイル（pack_format.ps1）の読み書き（状態層）。
-# 集約ファイルは work\content_index の中のフォルダごと・元のファイルの拡張子ごとに、大きさで分けて置く（content_index.xlsx.001.tsv など）。UTF-16LE（BOM 付き）で書く
+﻿# 検索用の本文インデックスのファイル（content_index_format.ps1）の読み書き（状態層）。
+# 本文インデックスのファイルは work\content_index の中のフォルダごと・元のファイルの拡張子ごとに、大きさで分けて置く（content_index.xlsx.001.tsv など）。UTF-16LE（BOM 付き）で書く
 # （UTF-8 より文字列への変換が速い。日本語が多いと大きさはほとんど変わらない）。
 
-function writePackFile {
-    # 集約ファイルを書く。一時ファイル（<名前>.tmp）に書き終えてから置き換えるため、途中で止まっても前のファイルが残る
+function writeContentIndexFile {
+    # 本文インデックスのファイルを書く。一時ファイル（<名前>.tmp）に書き終えてから置き換えるため、途中で止まっても前のファイルが残る
     param (
         [string]$path,
         [string]$text
@@ -21,8 +21,8 @@ function writePackFile {
 }
 
 
-function readPackText {
-    # 集約ファイルを文字列で読む（インデックス作成中の置き換えと同時に読めるよう、共有モードは ReadWrite|Delete）
+function readContentIndexText {
+    # 本文インデックスのファイルを文字列で読む（インデックス作成中の置き換えと同時に読めるよう、共有モードは ReadWrite|Delete）
     param (
         [string]$path
     )
@@ -39,12 +39,12 @@ function readPackText {
 
 
 function testIndexBookDir {
-    # インデックスの中のフォルダが、元のファイルごとのフォルダ（<ファイル名.xlsx>\<場所>.tsv。集約ファイルに入れる前の TSV の置き場所）か。
+    # インデックスの中のフォルダが、元のファイルごとのフォルダ（<ファイル名.xlsx>\<場所>.tsv。本文インデックスのファイルに入れる前の TSV の置き場所）か。
     # 名前だけでは、名前が .xlsx などで終わる本物のフォルダ（元のフォルダの名前をそのまま使う）と区別できないため、中身も見る:
     #   ・名前が Office・テキストの拡張子で終わる（indexBookDirPattern）
-    #   ・サブフォルダも集約ファイル（content_index.<拡張子>.tsv）も無い
-    #   ・withTsv なら、TSV が 1 つ以上ある（取り込んだが中身が空のファイルのフォルダは、集約ファイルに入れるものが無い）
-    # 読めないフォルダは $false（集約ファイルに入れる・消す対象にしない）
+    #   ・サブフォルダも本文インデックスのファイル（content_index.<拡張子>.tsv）も無い
+    #   ・withTsv なら、TSV が 1 つ以上ある（取り込んだが中身が空のファイルのフォルダは、本文インデックスのファイルに入れるものが無い）
+    # 読めないフォルダは $false（本文インデックスのファイルに入れる・消す対象にしない）
     param (
         [string]$dir,
         [bool]$withTsv = $true
@@ -61,7 +61,7 @@ function testIndexBookDir {
         }
         $hasTsv = $false
         foreach ($file in [System.IO.Directory]::GetFiles($long, "*.tsv")) {
-            if ([System.IO.Path]::GetFileName($file) -like ${packFilePattern}) {
+            if ([System.IO.Path]::GetFileName($file) -like ${contentIndexFilePattern}) {
                 return $false
             }
             $hasTsv = $true
@@ -73,7 +73,7 @@ function testIndexBookDir {
 }
 
 function getIndexFolderBooks {
-    # 今の形式のインデックスのフォルダ 1 つ（直下の <ファイル名.xlsx>\<場所>.tsv）から、集約ファイルに入れる元のファイルの並びを作る。
+    # 今の形式のインデックスのフォルダ 1 つ（直下の <ファイル名.xlsx>\<場所>.tsv）から、本文インデックスのファイルに入れる元のファイルの並びを作る。
     # 並びは今の検索結果と同じ順（前の名前の付け方（フォルダのパス + encodeIndexPlace 場所 + ".tsv"）で並べたときと同じ順に
     # なるよう、実際のファイル名（英語の固定名・符号化したシート名）から場所を戻し、その前の名前の付け方の文字列を並べ替えの鍵にする）。
     # @{ Name; Places（@{ Place; Path } の並び） } の並びを返す
@@ -118,24 +118,24 @@ function getIndexFolderBooks {
 }
 
 
-function convertIndexFolderToPack {
-    # 今の形式のインデックスのフォルダ 1 つ（直下の <ファイル名.xlsx>\<場所>.tsv）から、拡張子ごと・番号ごとの集約ファイル
-    # （destFolder\content_index.xlsx.001.tsv など）を書く。destFolder に前の集約ファイルがあれば、それとまぜる（planPackParts）:
-    #   ・TSV のある元のファイルは、TSV の中身で入れ替える（前の集約ファイルに無ければ、最後の番号の集約ファイルに足す。
-    #     packFileMaxBytes 以上なら次の番号の集約ファイルを作る）
+function convertFolderToContentIndex {
+    # 今の形式のインデックスのフォルダ 1 つ（直下の <ファイル名.xlsx>\<場所>.tsv）から、拡張子ごと・番号ごとの本文インデックスのファイル
+    # （destFolder\content_index.xlsx.001.tsv など）を書く。destFolder に前の本文インデックスのファイルがあれば、それとまぜる（planContentIndexParts）:
+    #   ・TSV のある元のファイルは、TSV の中身で入れ替える（前の本文インデックスのファイルに無ければ、最後の番号の本文インデックスのファイルに足す。
+    #     contentIndexFileMaxBytes 以上なら次の番号の本文インデックスのファイルを作る）
     #   ・removeBooks に挙げた元のファイルは外す（元のファイルが無くなった）
-    #   ・それ以外の元のファイルは、前の集約ファイルのまま。変わらない集約ファイルは書き直さない
-    # 元のファイルが無くなった集約ファイルは消す。removeTsv なら、集約ファイルを書き終えた後に、
+    #   ・それ以外の元のファイルは、前の本文インデックスのファイルのまま。変わらない本文インデックスのファイルは書き直さない
+    # 元のファイルが無くなった本文インデックスのファイルは消す。removeTsv なら、本文インデックスのファイルを書き終えた後に、
     # 読み込んだ元のファイルのフォルダ（TSV）を消す（TSV は一時的な置き場で、残すとインデックスの容量が倍になるため）。
-    # 書き終える前に止まっても、TSV か前の集約ファイルのどちらかに中身が残る。
-    # @{ Books; Tsv; Chars; Files（集約ファイルの数）; Written（書き直した数）;
-    #    Texts（そのフォルダのすべての集約ファイルの中身。システムインデックスを読み直さずに作るため） } を返す
+    # 書き終える前に止まっても、TSV か前の本文インデックスのファイルのどちらかに中身が残る。
+    # @{ Books; Tsv; Chars; Files（本文インデックスのファイルの数）; Written（書き直した数）;
+    #    Texts（そのフォルダのすべての本文インデックスのファイルの中身。システムインデックスを読み直さずに作るため） } を返す
     param (
         [string]$folder,
         [string]$destFolder,
         [string[]]$removeBooks = @(),
         [bool]$removeTsv = $false,
-        [long]$maxBytes = ${packFileMaxBytes}
+        [long]$maxBytes = ${contentIndexFileMaxBytes}
     )
 
     $books = getIndexFolderBooks $folder
@@ -146,29 +146,29 @@ function convertIndexFolderToPack {
             $place.Text = [System.IO.File]::ReadAllText($place.Path)
             $tsvCount++
         }
-        $newBooks.Add(@{ Name = $book.Name; Block = (convertBookToPackBlock $book) })
+        $newBooks.Add(@{ Name = $book.Name; Block = (convertBookToContentIndexBlock $book) })
     }
     $longDest = toLongPath $destFolder
-    # 前の集約ファイル（番号の付いた名前のもの）を読む
+    # 前の本文インデックスのファイル（番号の付いた名前のもの）を読む
     $parts = New-Object System.Collections.Generic.List[hashtable]
     $oldTexts = @{}
     if ([System.IO.Directory]::Exists($longDest)) {
-        foreach ($old in [System.IO.Directory]::GetFiles($longDest, ${packFilePattern})) {
-            $info = readPackFileName ([System.IO.Path]::GetFileName($old))
+        foreach ($old in [System.IO.Directory]::GetFiles($longDest, ${contentIndexFilePattern})) {
+            $info = readContentIndexFileName ([System.IO.Path]::GetFileName($old))
             if ($null -eq $info) { continue }
-            $text = readPackText $old
-            $oldTexts[(getPackFileName $info.Extension $info.Part)] = $text
-            $parts.Add(@{ Extension = $info.Extension; Part = $info.Part; Books = (splitPackTextByBook $text) })
+            $text = readContentIndexText $old
+            $oldTexts[(getContentIndexFileName $info.Extension $info.Part)] = $text
+            $parts.Add(@{ Extension = $info.Extension; Part = $info.Part; Books = (splitContentIndexTextByBook $text) })
         }
     }
 
-    $plan = planPackParts $parts $newBooks $removeBooks $maxBytes
+    $plan = planContentIndexParts $parts $newBooks $removeBooks $maxBytes
     $texts = New-Object System.Collections.Generic.List[string]
     $bookTotal = 0
     $written = 0
     $chars = 0L
     foreach ($part in $plan) {
-        $name = getPackFileName $part.Extension $part.Part
+        $name = getContentIndexFileName $part.Extension $part.Part
         $path = Join-Path $destFolder $name
         if ($part.Books.Count -eq 0) {
             if ([System.IO.File]::Exists((toLongPath $path))) { [System.IO.File]::Delete((toLongPath $path)) }
@@ -176,8 +176,8 @@ function convertIndexFolderToPack {
         }
         if ($part.Changed) {
             [void][System.IO.Directory]::CreateDirectory($longDest)
-            $text = convertToPackText $part.Books
-            writePackFile $path $text
+            $text = convertToContentIndexText $part.Books
+            writeContentIndexFile $path $text
             $written++
         } else {
             $text = $oldTexts[$name]
@@ -195,22 +195,22 @@ function convertIndexFolderToPack {
     return @{ Books = $bookTotal; Tsv = $tsvCount; Chars = $chars; Files = $texts.Count; Written = $written; Texts = [string[]]$texts.ToArray() }
 }
 
-function updateIndexFolderPack {
-    # インデックスのフォルダ 1 つで、置かれた TSV（追加・更新した元のファイル）を集約ファイルに入れ、TSV を消す。
-    # removeBooks に挙げた元のファイル（無くなったもの）は集約ファイルから外す
+function updateFolderContentIndex {
+    # インデックスのフォルダ 1 つで、置かれた TSV（追加・更新した元のファイル）を本文インデックスのファイルに入れ、TSV を消す。
+    # removeBooks に挙げた元のファイル（無くなったもの）は本文インデックスのファイルから外す
     param (
         [string]$folder,
         [string[]]$removeBooks = @()
     )
 
-    return convertIndexFolderToPack $folder $folder $removeBooks $true
+    return convertFolderToContentIndex $folder $folder $removeBooks $true
 }
 
-function getPackFiles {
-    # インデックスのフォルダ以下の集約ファイルを列挙し、フォルダの順・フォルダの中は名前の順に並べて返す。
+function findContentIndexFiles {
+    # インデックスのフォルダ以下の本文インデックスのファイルを列挙し、フォルダの順・フォルダの中は名前の順に並べて返す。
     #   root   : インデックスのフォルダ（相対パスの基準）
     #   relPath: その中のフォルダ（空は root 自身）
-    #   recurse: $false なら、そのフォルダの集約ファイルだけ
+    #   recurse: $false なら、そのフォルダの本文インデックスのファイルだけ
     # 各要素は @{ Path（\\?\ 付き）; Root; RelDir（root からのフォルダ）; RelPath; Ticks; Size }
     param (
         [string]$root,
@@ -226,7 +226,7 @@ function getPackFiles {
         return , @()
     }
     $option = if ($recurse) { [System.IO.SearchOption]::AllDirectories } else { [System.IO.SearchOption]::TopDirectoryOnly }
-    $found = [System.IO.DirectoryInfo]::new($longDir).GetFiles(${packFilePattern}, $option)
+    $found = [System.IO.DirectoryInfo]::new($longDir).GetFiles(${contentIndexFilePattern}, $option)
     $plainDir = fromLongPath $longDir
     $list = New-Object System.Collections.Generic.List[hashtable]
     foreach ($file in $found) {
@@ -238,14 +238,14 @@ function getPackFiles {
             Ticks = $file.LastWriteTimeUtc.Ticks; Size = $file.Length
         })
     }
-    # フォルダの順、フォルダの中は集約ファイルの名前の順（現在のカルチャ・大文字と小文字を区別しない）
+    # フォルダの順、フォルダの中は本文インデックスのファイルの名前の順（現在のカルチャ・大文字と小文字を区別しない）
     $items = [hashtable[]]@($list | Sort-Object @{ Expression = { $_.RelDir } }, @{ Expression = { [System.IO.Path]::GetFileName($_.RelPath) } })
     return , $items
 }
 
 
 function findIndexFoldersWithBooks {
-    # インデックスのフォルダ以下で、元のファイルごとのフォルダ（<ファイル名.xlsx>。集約ファイルに入れる前の TSV）が
+    # インデックスのフォルダ以下で、元のファイルごとのフォルダ（<ファイル名.xlsx>。本文インデックスのファイルに入れる前の TSV）が
     # 直下にあるフォルダを返す（インデックス作成が途中で止まったとき）。root 自身も含む
     param (
         [string]$root
@@ -269,9 +269,9 @@ function findIndexFoldersWithBooks {
 
 function publishIndexFolders {
     # インデックス作成で TSV を置いた・元のファイルが無くなったフォルダを、まとめて書き出す。フォルダごとに次を続けて行う:
-    #   1. 集約ファイルを書く（前の集約ファイルとまぜ、無くなった元のファイルは外す）
+    #   1. 本文インデックスのファイルを書く（前の本文インデックスのファイルとまぜ、無くなった元のファイルは外す）
     #   2. 元のファイルごとのフォルダの TSV を消す
-    #   3. 書いた集約ファイルの中身から、そのフォルダのシステムインデックスの txt を作る（読み直さない）
+    #   3. 書いた本文インデックスのファイルの中身から、そのフォルダのシステムインデックスの txt を作る（読み直さない）
     # txt の状態（反映待ち）はまとめて状態ファイルに書く。書き出したフォルダの数を返す。
     #   pending: フォルダ（フルパス）→ 無くなった元のファイル名の集まり
     param (
@@ -283,10 +283,10 @@ function publishIndexFolders {
 
     $results = New-Object System.Collections.Generic.List[hashtable]
     foreach ($folder in @($pending.Keys)) {
-        $pack = updateIndexFolderPack $folder ([string[]]@($pending[$folder]))
-        # 書いた集約ファイルは、フォルダごとに書いた直後にここで NotContentIndexed を付ける（件数が多いため失敗してもログに出さない）
+        $contentIndexFile = updateFolderContentIndex $folder ([string[]]@($pending[$folder]))
+        # 書いた本文インデックスのファイルは、フォルダごとに書いた直後にここで NotContentIndexed を付ける（件数が多いため失敗してもログに出さない）
         [void](setNotContentIndexed $folder)
-        $results.Add((writeSystemIndexFolder $folder $indexRoot $systemRoot $pack.Texts))
+        $results.Add((writeSystemIndexFolder $folder $indexRoot $systemRoot $contentIndexFile.Texts))
     }
     if ($results.Count -gt 0) {
         $saved = updateSystemIndexState { param ($state) setSystemIndexResults $state $results.ToArray() } $statePath
@@ -298,10 +298,10 @@ function publishIndexFolders {
 }
 
 
-function readPackContext {
-    # 集約ファイルの中の、元のファイル book・場所 location の lineNumber 行目と、その前後 before 行・after 行を
+function readContentIndexContext {
+    # 本文インデックスのファイルの中の、元のファイル book・場所 location の lineNumber 行目と、その前後 before 行・after 行を
     # @{ LineNumber; Line } の配列で返す（画面の選択行のプレビュー。行の数え方は検索と同じ）。
-    # cache（検索のキャッシュ）に同じ集約ファイルの内容があれば、ファイルを読み直さない。読めない・見つからなければ空
+    # cache（検索のキャッシュ）に同じ本文インデックスのファイルの内容があれば、ファイルを読み直さない。読めない・見つからなければ空
     param (
         [string]$path,
         [string]$book,
@@ -329,15 +329,15 @@ function readPackContext {
     }
     try {
         if ($null -eq $text) {
-            $text = readPackText $path
-            $places = readPackPlaces $text
+            $text = readContentIndexText $path
+            $places = readContentIndexPlaces $text
         }
     } catch [System.IO.IOException] {
         return @()
     } catch [System.UnauthorizedAccessException] {
         return @()
     }
-    $isTextBook = (getPackFileKind $book) -eq "テキスト"
+    $isTextBook = (getContentIndexFileKind $book) -eq "テキスト"
     foreach ($place in $places) {
         if ($place.Book -ne $book -or $place.Location -ne $location) { continue }
         $number = 0

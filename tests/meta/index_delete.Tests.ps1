@@ -22,7 +22,7 @@ BeforeAll {
         @{ File = "system_index.ps1"; Function = "removeSystemIndexOf"; Reason = "システムインデックス（インデックスから作り直せる派生物）だけを消す" }
         @{ File = "workspace.ps1"; Function = "clearLegacySystemIndex"; Reason = "前の版のシステムインデックス（作り直せる派生物）だけを消す" }
         @{ File = "workspace.ps1"; Function = "removeWorkspaceEntries"; Reason = "ワークスペースを変えるときの確認で、利用者が［最初からやり直す］を選んだ回だけ" }
-        @{ File = "pack_store.ps1"; Function = "convertIndexFolderToPack"; Reason = "集約ファイルに入れ終えた、元のファイルごとの TSV のフォルダだけを消す（同じ内容が集約ファイルに残る）" }
+        @{ File = "content_index_store.ps1"; Function = "convertFolderToContentIndex"; Reason = "本文インデックスのファイルに入れ終えた、元のファイルごとの TSV のフォルダだけを消す（同じ内容が本文インデックスのファイルに残る）" }
     )
 
     function findIndexDeleteFunctions {

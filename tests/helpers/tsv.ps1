@@ -10,11 +10,11 @@ function newTsv {
     [System.IO.File]::WriteAllText($path, (($lines -join "`r`n") + "`r`n"), ${utf8Bom})
 }
 
-function newPackIndex {
-    # TSV のインデックス（tsvRoot）から、フォルダごとの集約ファイル（packRoot。同じ相対パス）を作り、getPackFiles の結果を返す
-    param ([string]$tsvRoot, [string]$packRoot)
+function newContentIndexFiles {
+    # TSV のインデックス（tsvRoot）から、フォルダごとの本文インデックスのファイル（contentIndexRoot。同じ相対パス）を作り、findContentIndexFiles の結果を返す
+    param ([string]$tsvRoot, [string]$contentIndexRoot)
     foreach ($folder in (findIndexFoldersWithBooks $tsvRoot)) {
-        [void](convertIndexFolderToPack $folder ($packRoot + $folder.Substring($tsvRoot.Length)))
+        [void](convertFolderToContentIndex $folder ($contentIndexRoot + $folder.Substring($tsvRoot.Length)))
     }
-    return , (getPackFiles $packRoot)
+    return , (findContentIndexFiles $contentIndexRoot)
 }

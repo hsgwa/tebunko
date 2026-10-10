@@ -90,7 +90,7 @@ function testIndexArchiveEntryLocation {
     }
     $lastSlash = $name.LastIndexOf("/")
     $fileName = if ($lastSlash -ge 0) { $name.Substring($lastSlash + 1) } else { $name }
-    return ($null -ne (readPackFileName $fileName))
+    return ($null -ne (readContentIndexFileName $fileName))
 }
 
 

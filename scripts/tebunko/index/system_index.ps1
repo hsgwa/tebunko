@@ -1,11 +1,11 @@
 ﻿# システムインデックス（system_index の txt）と、その状態ファイル（system_index_state.tsv）の読み書き（状態層）。
 # txt は index の中のフォルダ 1 つにつき 1 つ（分けたときは複数）で、index と同じ相対パスの system_index の中に置く。
-# 中身は、そのフォルダ直下の集約ファイル（content_index.<拡張子>.tsv）と、インデックス作成の途中で残った、直下のブックのフォルダ（<ファイル名.xlsx>）の中の TSV から作る（search_gram.ps1）。
-# 集約ファイルのメタ情報の行は除く（getPackContentText）。
+# 中身は、そのフォルダ直下の本文インデックスのファイル（content_index.<拡張子>.tsv）と、インデックス作成の途中で残った、直下のブックのフォルダ（<ファイル名.xlsx>）の中の TSV から作る（search_gram.ps1）。
+# 本文インデックスのファイルのメタ情報の行は除く（getContentIndexBodyText）。
 
 function getSystemIndexFolderTsvPaths {
-    # index の中のフォルダ 1 つの、システムインデックスの元になるファイル（直下の集約ファイル・TSV と、直下のブックのフォルダの中の TSV。\\?\ 付き）。
-    # 検索対象のツリーで「フォルダ直下のファイル」を選んだときと同じ範囲（getIndexPackFiles の Recurse = $false）
+    # index の中のフォルダ 1 つの、システムインデックスの元になるファイル（直下の本文インデックスのファイル・TSV と、直下のブックのフォルダの中の TSV。\\?\ 付き）。
+    # 検索対象のツリーで「フォルダ直下のファイル」を選んだときと同じ範囲（getContentIndexFiles の Recurse = $false）
     param (
         [string]$folder
     )
@@ -27,8 +27,8 @@ function getSystemIndexFolderTsvPaths {
 function writeSystemIndexFolder {
     # index の中のフォルダ 1 つについて、system_index の txt を作り直す。
     # @{ Rel（index からの相対パス）; Files（@{ Rel（system_index からの txt の相対パス）; Ticks（更新日時。UTC の Ticks） } の配列）;
-    #    Excluded（パスが長すぎて作らなかった） } を返す。集約ファイル・TSV が無くなったフォルダは txt を消して Files を空で返す
-    #   texts: そのフォルダの集約ファイルの中身（インデックス作成で書いたばかりのもの）。渡せばファイルを読み直さない
+    #    Excluded（パスが長すぎて作らなかった） } を返す。本文インデックスのファイル・TSV が無くなったフォルダは txt を消して Files を空で返す
+    #   texts: そのフォルダの本文インデックスのファイルの中身（インデックス作成で書いたばかりのもの）。渡せばファイルを読み直さない
     param (
         [string]$folder,
         [string]$indexRoot,
@@ -53,7 +53,7 @@ function writeSystemIndexFolder {
             return $result
         }
         foreach ($text in $texts) {
-            addTextGrams $set (getPackContentText $text)
+            addTextGrams $set (getContentIndexBodyText $text)
         }
     } else {
         $tsvPaths = getSystemIndexFolderTsvPaths $folder
@@ -62,8 +62,8 @@ function writeSystemIndexFolder {
         }
         foreach ($path in $tsvPaths) {
             $text = [System.IO.File]::ReadAllText($path)
-            if ([System.IO.Path]::GetFileName($path) -like ${packFilePattern}) {
-                $text = getPackContentText $text
+            if ([System.IO.Path]::GetFileName($path) -like ${contentIndexFilePattern}) {
+                $text = getContentIndexBodyText $text
             }
             addTextGrams $set $text
         }
@@ -127,8 +127,8 @@ function writeSystemIndexFolders {
     # 各スレッドには必要な関数・値だけを読み込む（lib.ps1 全体を読み込むと、スレッドを用意するだけで時間がかかるため）。
     # インデックス作成の処理のため、スレッドの優先度を下げる（画面・検索を先に動かす。docs/design/structure/threads.md「スレッドの一覧」）
     $state = newWorkerState @("writeSystemIndexFolder", "getSystemIndexFolderTsvPaths", "addTextGrams", "convertToGramText",
-        "getGramPartCount", "getSystemIndexFileNames", "testSystemIndexPath", "toLongPath", "getPackContentText", "testIndexBookDir", "testAnyEntry") `
-        @("systemIndexFileName", "systemIndexPartBytes", "systemIndexPathMax", "indexBookDirPattern", "packFilePattern")
+        "getGramPartCount", "getSystemIndexFileNames", "testSystemIndexPath", "toLongPath", "getContentIndexBodyText", "testIndexBookDir", "testAnyEntry") `
+        @("systemIndexFileName", "systemIndexPartBytes", "systemIndexPathMax", "indexBookDirPattern", "contentIndexFilePattern")
     $pool = [WorkerPool]::new($workers, $state, $Host, "BelowNormal")
     $pending = New-Object System.Collections.Generic.Queue[hashtable]
     $jobScript = {
@@ -307,7 +307,7 @@ function getSystemIndexStaleFolders {
     }
     $rootLength = $indexRoot.TrimEnd("\").Length
     foreach ($longDir in [System.IO.Directory]::EnumerateDirectories($longRoot, "*", [System.IO.SearchOption]::AllDirectories)) {
-        # 元のファイルごとのフォルダ（集約する前の TSV・中身が空のファイル）は、親のフォルダの txt に入る
+        # 元のファイルごとのフォルダ（本文インデックスにする前の TSV・中身が空のファイル）は、親のフォルダの txt に入る
         if (testIndexBookDir $longDir $false) {
             continue
         }

@@ -172,7 +172,7 @@ function updateSearchButton {
 
 function updateSearchTarget {
     # 左の欄の見出し（選んだ数 / 全部の数）、インデックスが無いときの結果欄の案内。
-    # 検索対象の詳しい中身（先頭の数件・集約ファイルの数・最終更新）は、見出しのツールチップに出す
+    # 検索対象の詳しい中身（先頭の数件・本文インデックスのファイルの数・最終更新）は、見出しのツールチップに出す
     $targets = @(getSearchTargets)
     $summary = $script:indexSummary
     $total = @($script:indexRoots).Count

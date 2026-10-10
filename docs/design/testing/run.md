@@ -18,9 +18,9 @@ flowchart LR
 | `tests/shared/office/` | `office_process`・`office_reader`・`office_embedded`・`office_app` |
 | `tests/shared/ui/` | 画面の型（`types`） |
 | `tests/tebunko/core/` | `settings`（`setting.config`）・`workspace` |
-| `tests/tebunko/index/` | `index_name`・`index_store`・`pack_format`・`system_index` |
+| `tests/tebunko/index/` | `index_name`・`index_store`・`content_index_format`・`system_index` |
 | `tests/tebunko/indexer/` | `indexer_state`・`indexer_decide`・`indexer_plan`・`extract_office`・`index_migrate`・`indexing_session`、起動口の通しのテスト（`indexer`） |
-| `tests/tebunko/search/` | `search_query`・`search_run`・`pack_search`・`search_service`・`source_map`・高速検索（`search_gram`・`fast_search`・`windows_search`） |
+| `tests/tebunko/search/` | `search_query`・`search_run`・`content_index_search`・`search_service`・`source_map`・高速検索（`search_gram`・`fast_search`・`windows_search`） |
 | `tests/tebunko/ui/` | 画面の判断層（`index_view`・`indexing_view`・`search\*_view`・`preview_view`・`settings\settings_view`）と、`$ui` を偽物にした画面の部品（`result_list`・`open_source`・`preview`・`index_tree`）・型（`types`） |
 | `tests/gui/` | 画面のスモークテスト（`gui_helpers`＝共通の関数、`smoke`・`index`・`search`・`settings`・`leftover`・`leftover_real`＝場面。タグ `Gui`。[画面のスモークテスト](gui-smoke.md)） |
 | `tests/tools/` | 開発用の道具（`run_isolated`・`check_commit_message`・`check_signoff`・`check_release_tag`・`check_markdown_links`・`measure_perf`・`run_commit_tests`・`pr_checks_comment`） |

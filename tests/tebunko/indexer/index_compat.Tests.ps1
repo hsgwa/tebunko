@@ -70,8 +70,8 @@ BeforeAll {
         $ws = [Workspace]::new($workDir)
         foreach ($search in $s.Expected.searches) {
             $folders = @(@{ Root = $ws.IndexDir; RelPath = ""; Recurse = $true })
-            $index = getIndexPackFiles $folders
-            $found = searchPackIndex $search.word $index.Packs $true 0 -caseSensitive $false -includeShapes $true -includeComments $true
+            $index = getContentIndexFiles $folders
+            $found = searchContentIndex $search.word $index.ContentIndexFiles $true 0 -caseSensitive $false -includeShapes $true -includeComments $true
             $actualHits = @($found.Hits | ForEach-Object {
                 [pscustomobject]@{ relativePath = (toRelativePath $s $_.RelDir $_.Book); location = $_.Location; line = $_.Line }
             } | Sort-Object relativePath, location, line)
@@ -161,7 +161,7 @@ BeforeAll {
         # フォルダの下の本文インデックス（content_index.*.tsv）の内容の SHA256。@{ フォルダからの相対パス = ハッシュ }
         param ([string]$root)
         $hashes = @{}
-        foreach ($file in @(Get-ChildItem -LiteralPath $root -Recurse -File -Filter "${packFileNamePrefix}.*.tsv")) {
+        foreach ($file in @(Get-ChildItem -LiteralPath $root -Recurse -File -Filter "${contentIndexFileNamePrefix}.*.tsv")) {
             $hashes[$file.FullName.Substring($root.Length + 1)] = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash
         }
         return $hashes
@@ -176,7 +176,7 @@ BeforeAll {
         $exempt = @($reingestKeys | ForEach-Object {
             $folder = Split-Path -Parent $_
             $ext = [System.IO.Path]::GetExtension($_).TrimStart(".").ToLowerInvariant()
-            "$folder\${packFileNamePrefix}.$ext."
+            "$folder\${contentIndexFileNamePrefix}.$ext."
         })
         foreach ($path in $before.Keys) {
             if (@($exempt | Where-Object { $path.StartsWith($_, [System.StringComparison]::OrdinalIgnoreCase) }).Count -gt 0) { continue }
@@ -213,11 +213,11 @@ Describe "見本をそのまま読む（index_compat a）" -Tag Io {
 }
 
 Describe "システムインデックスの語（index_compat b）" -Tag Io {
-    It "<Sample>: writeSystemIndexFolders が作る語が、見本の system_index と同じになる（convertToGramText・getPackContentText）" -TestCases $samples {
+    It "<Sample>: writeSystemIndexFolders が作る語が、見本の system_index と同じになる（convertToGramText・getContentIndexBodyText）" -TestCases $samples {
         $s = getSample $Sample
         $contentIndexRoot = "$($s.WsDir)\content_index"
         $outRoot = Join-Path $TestDrive "sysidx_out_$Sample"
-        $folders = @(Get-ChildItem -LiteralPath "$contentIndexRoot\$($s.IndexName)" -Recurse -File -Filter "${packFileNamePrefix}.*.tsv" |
+        $folders = @(Get-ChildItem -LiteralPath "$contentIndexRoot\$($s.IndexName)" -Recurse -File -Filter "${contentIndexFileNamePrefix}.*.tsv" |
             ForEach-Object { $_.DirectoryName } | Sort-Object -Unique)
         $folders.Count | Should -BeGreaterThan 0
 
@@ -254,7 +254,7 @@ Describe "システムインデックスの語（index_compat b）" -Tag Io {
 }
 
 Describe "検索結果（index_compat c）" -Tag Io {
-    It "<Sample>: getIndexPackFiles・searchPackIndex の結果が、見本（expected.json）と同じになる" -TestCases $samples {
+    It "<Sample>: getContentIndexFiles・searchContentIndex の結果が、見本（expected.json）と同じになる" -TestCases $samples {
         $s = getSample $Sample
         assertSearchHitsMatchExpected $s $s.WsDir
     }

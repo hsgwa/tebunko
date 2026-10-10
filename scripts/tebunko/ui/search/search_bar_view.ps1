@@ -145,7 +145,7 @@ function getSearchTargetText {
         [int]$targetCount,         # 検索対象に選ばれている数
         [bool]$allChecked,         # インデックスがすべてチェックされているか
         [string]$targetsText,      # 選ばれた検索対象の表示（describeSearchTargets）
-        $summary                   # 集約ファイルの集計（Count・LastWrite。まだ数えていなければ $null）
+        $summary                   # 本文インデックスのファイルの集計（Count・LastWrite。まだ数えていなければ $null）
     )
 
     if ($loading) {

@@ -7,7 +7,7 @@ flowchart LR
     core["tests/shared/core/<br>共通基盤"] --> settings["tests/tebunko/core/<br>設定ファイル"]
     settings --> name["tests/tebunko/index/index_name<br>インデックス名"]
     name --> store["tests/tebunko/index/index_store<br>インデックスの管理"]
-    store --> pack["tests/tebunko/index/pack_format<br>tests/tebunko/search/pack_search<br>本文インデックス"]
+    store --> contentIndex["tests/tebunko/index/content_index_format<br>tests/tebunko/search/content_index_search<br>本文インデックス"]
 ```
 
 **共通基盤（`tests/shared/core/`）**
@@ -67,15 +67,15 @@ flowchart LR
 | `getIndexTsvCounts` / `testIndexComplete` | 本文インデックスのファイルはそのファイルの相対パスで数える（0 バイトは壊れているとする）、本文インデックスのファイルがあれば元のファイルごとのフォルダが無くても「済」のまま、フォルダごとの TSV の数（TSV の無いフォルダは 0 件、大文字・小文字を区別しない、インデックス直下の TSV は数えない）、TSV がそろっていれば「済」のまま、フォルダごと削除・TSV が足りない場合は取り込み直す、0 バイトの TSV があるフォルダは壊れているとして作り直す（ほかのファイルは巻き込まない・後の TSV で数え直さない）、TSV 数が空の行・数えられなかった場合は確認しない |
 | `publishIndexFiles` | 作業フォルダの TSV をインデックスのフォルダへまとめて入れる、以前のインデックスを残さず入れ替える、TSV が 1 件も無ければ空のフォルダ、前回の出力用フォルダが残っていても入れ替えられる |
 
-**本文インデックス（`tests/tebunko/index/pack_format`・`tests/tebunko/search/pack_search`）**
+**本文インデックス（`tests/tebunko/index/content_index_format`・`tests/tebunko/search/content_index_search`）**
 
 | 対象 | 主な確認内容 |
 |---|---|
-| `convertPlaceToPackMeta` / `convertPackMetaToPlace` | 場所の名前（シート・ページ・スライド・非表示・ノート・図形・コメント・Excel のヘッダー・フッター・それ以外の部分）とメタ情報の往復、組み立て直して同じにならない名前はそのまま持つ |
-| `getPackFileName` / `readPackFileName` / `planPackParts` / `splitPackBooksByExtension` / `encodePackValue` / `decodePackValue` / `convertToPackBody` | 本文インデックスのファイルの名前、拡張子ごとの分け方、値の `%XX` の往復、中身の改行を LF にそろえ U+001C〜U+001F を除く |
-| `convertToPackText` / `readPackPlaces` | 文字列にしてから読み戻すと、元のファイル・場所・中身の範囲が同じになる、Excel の図形・コメントだけ `CellPrefixed` が `$true`（Word・PowerPoint・Excel のセル・ヘッダー・フッターは `$false`）、版の無い・違う本文インデックスのファイルは例外 |
-| `convertIndexFolderToPack` / `updateIndexFolderPack` / `findIndexFoldersWithBooks` / `publishIndexFolders` | フォルダごと・拡張子ごとに作る、元のファイルが無くなった拡張子の本文インデックスのファイルは消す、UTF-16LE（BOM 付き）で一時ファイルを残さない、置かれた TSV を入れて TSV を消し変わらない元のファイルは写す、TSV の残ったフォルダを見つけて本文インデックスとシステムインデックスに入れる |
-| `searchPackIndex` / `getIndexPackFiles` / `readPackContext` | 結果が TSV を 1 行ずつ照合したときと同じ（改行の種類・照合のしかた・検索語ごと）、大文字・小文字・図形とコメントの除外・対象ファイル、上限・中止・並列・キャッシュ（書き直したら読み直す）、全文への照合の時間切れは 1 行ずつに切り替える、列挙（フォルダの一部・直下だけ・無いフォルダ）、プレビューの前後の行。Excel の図形・コメントの行は、セル番地だけに一致する語（`C2`・`2`・`C`）ではヒットにならず、文字（文字の中のタブを含む）に一致すればヒットになる、除いた行があっても行番号がずれない、除いた行は件数・上限に数えない（1 スレッドと並列で同じ）、複数行（セル内改行）の文字は 2 行目以降の語でも一致し番地だけでは一致しない、`"` を含む文字は囲み・`""` の形のまま照合する |
+| `convertPlaceToContentIndexMeta` / `convertContentIndexMetaToPlace` | 場所の名前（シート・ページ・スライド・非表示・ノート・図形・コメント・Excel のヘッダー・フッター・それ以外の部分）とメタ情報の往復、組み立て直して同じにならない名前はそのまま持つ |
+| `getContentIndexFileName` / `readContentIndexFileName` / `planContentIndexParts` / `splitContentIndexBooksByExtension` / `encodeContentIndexValue` / `decodeContentIndexValue` / `convertToContentIndexBody` | 本文インデックスのファイルの名前、拡張子ごとの分け方、値の `%XX` の往復、中身の改行を LF にそろえ U+001C〜U+001F を除く |
+| `convertToContentIndexText` / `readContentIndexPlaces` | 文字列にしてから読み戻すと、元のファイル・場所・中身の範囲が同じになる、Excel の図形・コメントだけ `CellPrefixed` が `$true`（Word・PowerPoint・Excel のセル・ヘッダー・フッターは `$false`）、版の無い・違う本文インデックスのファイルは例外 |
+| `convertFolderToContentIndex` / `updateFolderContentIndex` / `findIndexFoldersWithBooks` / `publishIndexFolders` | フォルダごと・拡張子ごとに作る、元のファイルが無くなった拡張子の本文インデックスのファイルは消す、UTF-16LE（BOM 付き）で一時ファイルを残さない、置かれた TSV を入れて TSV を消し変わらない元のファイルは写す、TSV の残ったフォルダを見つけて本文インデックスとシステムインデックスに入れる |
+| `searchContentIndex` / `getContentIndexFiles` / `readContentIndexContext` | 結果が TSV を 1 行ずつ照合したときと同じ（改行の種類・照合のしかた・検索語ごと）、大文字・小文字・図形とコメントの除外・対象ファイル、上限・中止・並列・キャッシュ（書き直したら読み直す）、全文への照合の時間切れは 1 行ずつに切り替える、列挙（フォルダの一部・直下だけ・無いフォルダ）、プレビューの前後の行。Excel の図形・コメントの行は、セル番地だけに一致する語（`C2`・`2`・`C`）ではヒットにならず、文字（文字の中のタブを含む）に一致すればヒットになる、除いた行があっても行番号がずれない、除いた行は件数・上限に数えない（1 スレッドと並列で同じ）、複数行（セル内改行）の文字は 2 行目以降の語でも一致し番地だけでは一致しない、`"` を含む文字は囲み・`""` の形のまま照合する |
 
 **前の版との互換（`tests/tebunko/indexer/index_compat`・`tests/tebunko/core/settings_compat`・`tests/meta/compat`）**
 
@@ -83,4 +83,4 @@ flowchart LR
 |---|---|
 | `tests/tebunko/indexer/index_compat`（`-Tag Io`） | 前の版が作った見本（[前の版との互換](../index-data/format.md#前の版との互換)）の本文インデックス・システムインデックス・取り込み一覧・エクスポート zip を、今のコードで読める・検索できる・取り込み直しが起きない・エクスポートし直しても同じ配置になること |
 | `tests/tebunko/core/settings_compat`（`-Tag Io`） | 前の版が作った見本（[前の版との互換](../structure/settings-file.md#前の版との互換)）の `setting.config` が壊れたと判定されない、今のコードで同じ値として読める、書き足してもほかの値を保つこと、今の版が書く形がどれかの見本に含まれること |
-| `tests/meta/compat`（`Meta`） | 見本の 5 つの要素（`source`・`ws`・`export.zip`・`file_times.tsv`・`expected.json`）がそろっていること、今のコードの形式の目印（`$packVersion`・`$statusColumns` など）が見本のどれかに残っていること。設定の見本（`compat/settings/`）に `setting.config`・`expected.json` がそろっていること、`newSettings` の全キーがどれか 1 つの見本の `expected.json` にあること |
+| `tests/meta/compat`（`Meta`） | 見本の 5 つの要素（`source`・`ws`・`export.zip`・`file_times.tsv`・`expected.json`）がそろっていること、今のコードの形式の目印（`$contentIndexVersion`・`$statusColumns` など）が見本のどれかに残っていること。設定の見本（`compat/settings/`）に `setting.config`・`expected.json` がそろっていること、`newSettings` の全キーがどれか 1 つの見本の `expected.json` にあること |

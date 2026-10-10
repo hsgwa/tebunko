@@ -30,15 +30,15 @@ Describe "testIndexExists / getIndexSummary" -Tag Io {
         $other = Join-Path $TestDrive "other"
         foreach ($item in @(@{ Folder = "$index"; Name = "b.xlsx" }, @{ Folder = "$index\sub"; Name = "a.xlsx" }, @{ Folder = "$other"; Name = "c.docx" })) {
             [void][System.IO.Directory]::CreateDirectory($item.Folder)
-            writePackFile "$($item.Folder)\$(getPackFileName (getPackExtension $item.Name))" (convertToPackText @(@{ Name = $item.Name; Places = @(@{ Place = "S"; Text = "x" }) }))
+            writeContentIndexFile "$($item.Folder)\$(getContentIndexFileName (getContentIndexExtension $item.Name))" (convertToContentIndexText @(@{ Name = $item.Name; Places = @(@{ Place = "S"; Text = "x" }) }))
         }
         (Get-Item -LiteralPath "$other\content_index.docx.001.tsv").LastWriteTime = [datetime]"2030-01-02 03:04:05"
-        # 集約する前の TSV（インデックス作成の途中）は数えない
+        # 本文インデックスにする前の TSV（インデックス作成の途中）は数えない
         newTsv "$other\d.xlsx\S.tsv" @("d")
         $missing = Join-Path $TestDrive "missing"
     }
 
-    It "集約ファイルの有無を判定する" {
+    It "本文インデックスのファイルの有無を判定する" {
         testIndexExists @($missing, $other) | Should -Be $true
         testIndexExists @($missing) | Should -Be $false
     }
@@ -48,7 +48,7 @@ Describe "testIndexExists / getIndexSummary" -Tag Io {
         $root = Join-Path $TestDrive "exists_handle"
         foreach ($name in @("a.xlsx", "b.xlsx")) {
             [void][System.IO.Directory]::CreateDirectory("$root\営業\見積")
-            writePackFile "$root\営業\見積\$(getPackFileName (getPackExtension $name))" (convertToPackText @(@{ Name = $name; Places = @(@{ Place = "S"; Text = "x" }) }))
+            writeContentIndexFile "$root\営業\見積\$(getContentIndexFileName (getContentIndexExtension $name))" (convertToContentIndexText @(@{ Name = $name; Places = @(@{ Place = "S"; Text = "x" }) }))
         }
         newTsv "$root\営業\見積\c.xlsx\S.tsv" @("c")
 
@@ -57,14 +57,14 @@ Describe "testIndexExists / getIndexSummary" -Tag Io {
         { [System.IO.Directory]::Move("$root\営業", "$TestDrive\exists_handle_moved") } | Should -Not -Throw
     }
 
-    It "集約ファイルの件数・最新の更新日時・存在しないフォルダを返す" {
+    It "本文インデックスのファイルの件数・最新の更新日時・存在しないフォルダを返す" {
         $summary = getIndexSummary @($index, $other, $missing, $index)
         $summary.Count | Should -Be 3
         $summary.LastWrite | Should -Be ([datetime]"2030-01-02 03:04:05")
         $summary.Missing.Count | Should -Be 1
     }
 
-    It "集約ファイルの無いフォルダ・存在しないフォルダだけなら、なし・件数 0・更新日時なし" {
+    It "本文インデックスのファイルの無いフォルダ・存在しないフォルダだけなら、なし・件数 0・更新日時なし" {
         $empty = Join-Path $TestDrive "empty_index"
         New-Item -ItemType Directory -Path "$empty\sub" -Force | Out-Null
         newTsv "$empty\sub\e.xlsx\S.tsv" @("e")
@@ -77,12 +77,12 @@ Describe "testIndexExists / getIndexSummary" -Tag Io {
     }
 }
 
-Describe "検索結果の行（集約ファイルのヒット）" -Tag Io {
+Describe "検索結果の行（本文インデックスのファイルのヒット）" -Tag Io {
     It "ファイル名に .xlsx_ を含んでも、元のファイル名と場所で組み立てる" {
         $index = Join-Path $TestDrive "search_dir"
         newTsv "$index\A社.xlsx_old.xlsx\$(toIndexFileName "Sheet1")" @("りんご`t200")
-        foreach ($folder in (findIndexFoldersWithBooks $index)) { [void](updateIndexFolderPack $folder) }
-        $hit = @((searchPackIndex "りんご" (getIndexPackFiles @($index)).Packs $true).Hits)[0]
+        foreach ($folder in (findIndexFoldersWithBooks $index)) { [void](updateFolderContentIndex $folder) }
+        $hit = @((searchContentIndex "りんご" (getContentIndexFiles @($index)).ContentIndexFiles $true).Hits)[0]
         $hit.Book | Should -Be "A社.xlsx_old.xlsx"
         (toSearchResultLines @($hit)).Lines[0] | Should -Be "A社.xlsx_old.xlsx`t[シート]Sheet1`tセル`t1`tりんご`t200"
     }
@@ -90,8 +90,8 @@ Describe "検索結果の行（集約ファイルのヒット）" -Tag Io {
     It "Excel の図形の場所（名前に [ ] を含む）も検索でき、セル内改行を戻して出力する" {
         $objectIndex = Join-Path $TestDrive "search_object"
         newTsv "$objectIndex\[確定]見積.xlsx\$(toIndexFileName "見積[図形]")" @("F2`t`"納期は$([char]0x2028)別途`"")
-        foreach ($folder in (findIndexFoldersWithBooks $objectIndex)) { [void](updateIndexFolderPack $folder) }
-        $hit = @((searchPackIndex "納期" (getIndexPackFiles @($objectIndex)).Packs $true).Hits)[0]
+        foreach ($folder in (findIndexFoldersWithBooks $objectIndex)) { [void](updateFolderContentIndex $folder) }
+        $hit = @((searchContentIndex "納期" (getContentIndexFiles @($objectIndex)).ContentIndexFiles $true).Hits)[0]
         $hit.Book | Should -Be "[確定]見積.xlsx"
         $hit.Location | Should -Be "見積[図形]"
         (toSearchResultLines @($hit)).Lines[0] | Should -Be "[確定]見積.xlsx`t[シート]見積`t図形`t1`tF2`t`"納期は`n別途`""
@@ -102,8 +102,8 @@ Describe "toSearchResultLines / writeSearchResult" -Tag Io {
         $index = Join-Path $TestDrive "result"
         newTsv "$index\x\A社.xlsx\Sheet1.tsv" @("a`t`"りんご${cellNewLine}みかん`"`tc")
         newTsv "$index\文書.docx\ページ001.tsv" @("`"引用`"で始まる りんご")
-        foreach ($folder in (findIndexFoldersWithBooks $index)) { [void](updateIndexFolderPack $folder) }
-        $hits = @((searchPackIndex "りんご" (getIndexPackFiles @($index)).Packs $true).Hits | Sort-Object RelDir -Descending)
+        foreach ($folder in (findIndexFoldersWithBooks $index)) { [void](updateFolderContentIndex $folder) }
+        $hits = @((searchContentIndex "りんご" (getContentIndexFiles @($index)).ContentIndexFiles $true).Hits | Sort-Object RelDir -Descending)
     }
 
     It "相対フォルダ付きのファイル名・場所・行番号・該当行にし、見出しに最大セル数分の列名を付ける" {
