@@ -886,11 +886,11 @@ Describe "extractDocument（暗号化されたファイル）" -Tag Io {
         $word = newWord ""
         $word.Documents.Doc | Add-Member -MemberType ScriptMethod -Name Repaginate -Value { throw "強制終了されました。" } -Force
         Mock getApp { $word } -ParameterFilter { $name -eq "Word" }
-        $script:watchdog.TimedOut = $true
+        $script:officeWatchdog.State.TimedOut = $true
         try {
             { extractDocument $source } | Should -Throw -ExpectedMessage "*強制終了されました。*"
         } finally {
-            $script:watchdog.TimedOut = $false
+            $script:officeWatchdog.State.TimedOut = $false
         }
     }
 }

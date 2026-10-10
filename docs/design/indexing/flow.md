@@ -53,7 +53,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     A(["レーンのスレッドを始める<br>（Office のレーンは STA、読み取りは MTA。BelowNormal）"]) --> OW{"Office のレーン？"}
-    OW -- はい --> W["自分の監視を始める（startWatchdog）"] --> Q
+    OW -- はい --> W["自分の監視を始める（OfficeWatchdog の Start）"] --> Q
     OW -- いいえ --> Q{"自分のレーンの列にファイルがある？<br>（列が閉じられるまで待つ）"}
     Q -- はい --> F["1 ファイルを取り込む（invokeIngestTask。制限時間 10 分）<br>TSV を元のファイル名のフォルダに置く<br>Office はこの時点で起動"]
     F --> RES["結果（成功・失敗・回し直し・TSV の数・ログ）を結果の列に入れる<br>読み取りのスレッドで Office が要ると分かったら Reroute"]

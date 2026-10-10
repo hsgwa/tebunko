@@ -129,7 +129,7 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
         }
 
         [void](getApp $Name)
-        $script:watchdog.Pids | Should -Be @(300)
+        $script:officeWatchdog.State.Pids | Should -Be @(300)
     }
 
     It "PowerPoint はウィンドウを隠さず（Visible を変えない）、警告なし・マクロ無効で起動する" {
@@ -152,7 +152,7 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
 
         stopApp "Excel"
         $log -join "|" | Should -Be "Quit|WaitForExit:1000|Kill:200|WaitForExit:1000"
-        @($script:watchdog.Pids).Count | Should -Be 0
+        @($script:officeWatchdog.State.Pids).Count | Should -Be 0
 
         $log.Clear()
         $fakeWord = newFakeApp
@@ -170,7 +170,7 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
         Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Excel.Application" }
         setProcesses @(500) @(500)
         [void](getApp "Excel")
-        @($script:watchdog.Pids).Count | Should -Be 0
+        @($script:officeWatchdog.State.Pids).Count | Should -Be 0
 
         stopApp "Excel"
         @($log).Count | Should -Be 0
@@ -191,7 +191,7 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
         Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Excel.Application" }
         setProcesses @(100) @(100, 700, 800)
         [void](getApp "Excel")
-        @($script:watchdog.Pids).Count | Should -Be 0
+        @($script:officeWatchdog.State.Pids).Count | Should -Be 0
 
         # 自分で起動したことにはなるため Quit はするが、プロセスを指定した強制終了はしない
         stopApp "Excel"
@@ -206,7 +206,7 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
 
         $script:apps["Word"].Pid | Should -Be 0
         $script:apps["Word"].Shared | Should -Be $true
-        @($script:watchdog.Pids) | Should -Not -Contain 999
+        @($script:officeWatchdog.State.Pids) | Should -Not -Contain 999
     }
 
     It "PowerPoint は自分のセッションに既に起動していれば、New-Object を呼ばずに例外を投げる（利用者が開いている・強制終了で終わらずに残った場合を含む）" {
@@ -273,36 +273,36 @@ Describe "releaseComObject" -Tag Unit {
     }
 }
 
-Describe "startWatchdog / stopWatchdog（1 ファイルの制限時間の監視）" -Tag Unit {
+Describe "OfficeWatchdog（1 ファイルの制限時間の監視）" -Tag Unit {
     AfterEach {
-        stopWatchdog
-        $script:watchdog.Stop = $false
-        $script:watchdog.TimedOut = $false
-        $script:watchdog.Deadline = [datetime]::MaxValue
-        $script:watchdog.Pids = @()
+        $script:officeWatchdog.Stop()
+        $script:officeWatchdog.State.Stop = $false
+        $script:officeWatchdog.State.TimedOut = $false
+        $script:officeWatchdog.State.Deadline = [datetime]::MaxValue
+        $script:officeWatchdog.State.Pids = @()
     }
 
     It "制限時間を過ぎたら TimedOut を立て、制限時刻を戻す。Office 以外のプロセスは終了させない" {
         # Office アプリではない自分自身のプロセス（ID が再利用された場合に当たる）
-        $script:watchdog.Pids = @($PID)
-        startWatchdog
-        $script:watchdog.Deadline = [datetime]::Now.AddSeconds(-1)
+        $script:officeWatchdog.State.Pids = @($PID)
+        $script:officeWatchdog.Start()
+        $script:officeWatchdog.State.Deadline = [datetime]::Now.AddSeconds(-1)
         $deadline = [datetime]::Now.AddSeconds(10)
-        while (-not $script:watchdog.TimedOut -and [datetime]::Now -lt $deadline) {
+        while (-not $script:officeWatchdog.State.TimedOut -and [datetime]::Now -lt $deadline) {
             Start-Sleep -Milliseconds 100
         }
-        $script:watchdog.TimedOut | Should -Be $true
-        $script:watchdog.Deadline | Should -Be ([datetime]::MaxValue)
+        $script:officeWatchdog.State.TimedOut | Should -Be $true
+        $script:officeWatchdog.State.Deadline | Should -Be ([datetime]::MaxValue)
         (Get-Process -Id $PID).HasExited | Should -Be $false
     }
 
     It "制限時間内なら TimedOut を立てない。止めると監視のスレッドを片付ける" {
-        startWatchdog
-        $script:watchdog.Deadline = [datetime]::Now.AddMinutes(10)
+        $script:officeWatchdog.Start()
+        $script:officeWatchdog.State.Deadline = [datetime]::Now.AddMinutes(10)
         Start-Sleep -Milliseconds 700
-        $script:watchdog.TimedOut | Should -Be $false
-        stopWatchdog
-        $script:watchdogThread | Should -Be $null
+        $script:officeWatchdog.State.TimedOut | Should -Be $false
+        $script:officeWatchdog.Stop()
+        $script:officeWatchdog.IsRunning() | Should -Be $false
     }
 }
 

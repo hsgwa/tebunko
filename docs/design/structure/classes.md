@@ -74,7 +74,7 @@ refactor で作るクラス（`IndexCatalog` など）は下の「目的ごと�
 
 ## 目的ごとのクラス
 
-refactor で作る予定の設計。作ったら、この節を実装に合わせて直す。`StatusLedger`・`PendingPublish`・`IndexingReporter` は実装ずみ（#147）。残り 5 つは予定のまま。
+refactor で作る予定の設計。作ったら、この節を実装に合わせて直す。`StatusLedger`・`PendingPublish`・`IndexingReporter` は実装ずみ（#147）。`OfficeWatchdog` も実装ずみ。残り 4 つは予定のまま。
 
 ```mermaid
 classDiagram
@@ -98,7 +98,7 @@ classDiagram
 | `PendingPublish` | フォルダごとの取り込み中の数（Busy）とまだ渡していない数（Pending）を数え、どちらも 0 になったフォルダを本文インデックスに書き出してよいと決める | 司令のスレッド | 状態層 | `tebunko/indexer/pending_publish.ps1`（`indexer_lib.ps1`） | 実装ずみ。`Add`・`MarkFolder`（書き出し待ちの記録）・`AddPending`・`Dispatch`・`Skip`・`Complete`（数える）・`TakeFlushable`・`TakeAll`（取り出す） | ファイルの相対パスからフォルダを決める `getBookDir`（`indexer_plan.ps1`）。書き出し（`publishIndexFolders`）は `TakeFlushable` / `TakeAll` が返した結果を見て司令（`invokeIndexerBody` の中の `flushPending`）が呼ぶ |
 | `IndexingReporter` | 進み具合の書き込みと、画面の確認を待つこと。受け渡しの口（hashtable のまま）を持って書く | 司令のスレッド | 状態層 | `tebunko/indexer/indexing_reporter.ps1`（`indexer_lib.ps1`） | 実装ずみ。`Progress`・`WaitForApproval`（`waitForIndexingApproval` だった処理）。段階（`${indexingPhase*}`）はクラスの本体で読まず、呼び出し元（司令）から引数で受け取る。ログ（`writeIndexerLog`・`$script:indexerLog`）は部品のまま、`IndexingReporter` には入れない | 受け渡しの口（hashtable）、ログの書き込みの部品 |
 | `IngestPlanner` | 対象フォルダ・名前・クロール・前回失敗・強制終了の回数から、取り込む順番を決める。取り込み直すかの判断は `indexer_decide.ps1`（判断層の関数）のまま呼ぶ | 司令のスレッド | 状態層 | `tebunko/indexer/indexer_plan.ps1`（`indexer_lib.ps1`） | `invokeIndexerBody` の前半、`indexer_plan.ps1`・`indexer_decide.ps1` | `indexer_decide.ps1`（判断層）、クロールの部品。前回の失敗・強制終了の回数は、司令が `StatusLedger` から取り出したデータで受け取る |
-| `OfficeWatchdog` | Office の制限時間を見張り、止まったら止める。見張りのスレッド（`startWatchdog` が `[PowerShell]::Create()` で作る別のランスペース）へは、今のまま `[hashtable]::Synchronized` を渡す（クラスにしない）。Office が使えなくなったこと（`$script:officeUnavailable`）はツールの判断なので、クラスには入れず今の場所に残す | 取り込みのスレッド（Office のレーンごとに、そのスレッドで作る） | 状態層（`shared/`） | `shared/office/office_app.ps1`（`indexer_lib.ps1` から今と同じく読む）。どのツールからも使う Office の部品なので `shared/` に置き、ツールを知らない | `shared/office/office_app.ps1` の `$script:watchdog`・`$script:watchdogThread`・`startWatchdog`・`stopWatchdog`・`updateWatchedPids`（`ingestWorkerScript` は呼ぶだけ）。`$script:officeUnavailable` は `tebunko/indexer/extract_office.ps1`・`indexer_run.ps1` | `shared/office/` の部品（`office_process.ps1` など）だけ。ツールのものに依存しない |
+| `OfficeWatchdog` | Office の制限時間を見張り、止まったら止める。見張りのスレッド（`Start` が `[PowerShell]::Create()` で作る別のランスペース）へは、今のまま `[hashtable]::Synchronized`（`State`）を渡す（クラスにしない）。Office が使えなくなったこと（`$script:officeUnavailable`）はツールの判断なので、クラスには入れず今の場所に残す | 取り込みのスレッド（Office のレーンごとに、そのスレッドで作る） | 状態層（`shared/`） | `shared/office/office_app.ps1`（`indexer_lib.ps1` から今と同じく読む）。実装ずみ。`State`（`Deadline`・`Pids`・`TimedOut`・`Stop`）・`Start`・`Stop`・`UpdateWatchedPids`・`IsRunning`。インスタンスは、office_app.ps1 を読み込むときにランスペースごとに `$script:officeWatchdog` として 1 つ作る（読み取りのレーンも `State` を読み書きするため）。どのツールからも使う Office の部品なので `shared/` に置き、ツールを知らない | 実装ずみ（元は `$script:watchdog`・`startWatchdog`・`stopWatchdog`・`updateWatchedPids`）。`ingestWorkerScript` は `Start` / `Stop` を呼ぶだけ。`$script:officeUnavailable` は `tebunko/indexer/extract_office.ps1`・`indexer_run.ps1` | `shared/office/` の部品（`office_process.ps1` など）だけ。ツールのものに依存しない |
 | `IngestDispatcher` | プール・レーン・先読み・取り込み中の管理（性能に効く経路）。取り込みのスレッドとは今までどおり hashtable と .NET のコレクションで受け渡す | 司令のスレッド | 状態層 | `tebunko/indexer/indexer_run.ps1`（`indexer_lib.ps1`） | `invokeIndexerBody` の取り込みの繰り返し、`newIngestPool` など | 取り込みのスレッド（レーンごとに `CreateRunspace` で作る STA・MTA のランスペース。今の `newIngestPool`・`addIngestTask`）と `BlockingCollection`、取り込みのスレッドのスクリプト。`WorkerPool` には寄せない（今の形を変えない）。終わった取り込みの結果は hashtable で司令に返す |
 
 **クラスのつなぎ方**

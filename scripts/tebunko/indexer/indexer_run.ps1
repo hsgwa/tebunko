@@ -28,13 +28,13 @@ ${ingestWorkerScript} = {
     [System.Threading.Thread]::CurrentThread.Priority = [System.Threading.ThreadPriority]::BelowNormal
 
     if (!$script:officeUnavailable) {
-        startWatchdog
+        $script:officeWatchdog.Start()
     }
     try {
         runIngestWorker $tasks $results $settings.FileTimeoutMinutes $settings.RestartInterval
     } finally {
         if (!$script:officeUnavailable) {
-            stopWatchdog
+            $script:officeWatchdog.Stop()
             stopAllApps
         }
     }
@@ -126,12 +126,12 @@ function invokeIngestTask {
     $script:indexerLog = $log
     try {
         clearTmpDir
-        $script:watchdog.TimedOut = $false
-        $script:watchdog.Deadline = (Get-Date).AddMinutes($fileTimeoutMinutes)
+        $script:officeWatchdog.State.TimedOut = $false
+        $script:officeWatchdog.State.Deadline = (Get-Date).AddMinutes($fileTimeoutMinutes)
         try {
             $result.TsvCount = ingestFile $task.SourcePath
         } finally {
-            $script:watchdog.Deadline = [datetime]::MaxValue
+            $script:officeWatchdog.State.Deadline = [datetime]::MaxValue
         }
         publishTsv (getBookDir $task.RelPath)
         $result.ExtractVersion = [string](getExtractVersion $task.RelPath)
@@ -152,7 +152,7 @@ function invokeIngestTask {
         # $result.Message は今までどおり簡潔な文言のまま（describeIngestError がそのまま通す）
         writeZipSizeLimitLog $base
         $message = describeIngestError $_.Exception
-        if ($script:watchdog.TimedOut) {
+        if ($script:officeWatchdog.State.TimedOut) {
             $message = "${fileTimeoutMinutes} 分以内に更新が終わらなかったため中止しました（Officeアプリを強制終了しました）"
         }
         $result.Message = $message
@@ -163,7 +163,7 @@ function invokeIngestTask {
             try { stopApp (getAppName $task.RelPath) } catch {}
         }
     } finally {
-        $result.TimedOut = [bool]$script:watchdog.TimedOut
+        $result.TimedOut = [bool]$script:officeWatchdog.State.TimedOut
         $script:indexerLog = $previousLog
         $result.Log = $log.ToString()
     }
@@ -664,7 +664,7 @@ function invokeIndexerBody {
         } else {
             $script:officePidSink = $channel.OfficePids
             $script:officeRecordDir = $officeRecordDir
-            startWatchdog
+            $script:officeWatchdog.Start()
         }
 
         while ($true) {
@@ -834,7 +834,7 @@ function invokeIndexerBody {
         if ($pool) {
             stopIngestWorkers $pool
         } else {
-            stopWatchdog
+            $script:officeWatchdog.Stop()
             stopAllApps
         }
         $script:officePidSink = $null

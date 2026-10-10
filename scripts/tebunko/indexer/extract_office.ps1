@@ -58,7 +58,7 @@ function isPassthroughIngestException {
         [System.Exception]$exception
     )
 
-    if ($script:watchdog.TimedOut) {
+    if ($script:officeWatchdog.State.TimedOut) {
         return $true
     }
     if (isOfficeRequiredException $exception) {
