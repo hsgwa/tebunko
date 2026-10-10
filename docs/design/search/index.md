@@ -5,8 +5,8 @@
 | 項目 | 内容 |
 |---|---|
 | 画面 | ［検索］タブ（[検索タブ](../gui/search-tab.md)） |
-| スクリプト | `scripts/tebunko/search/search_query.ps1`（検索条件）・`pack_search.ps1`（本文インデックスの列挙と検索）・`search_run.ps1`（結果の組み立て）。`scripts/tebunko/lib.ps1` から読み込み、画面 `scripts/tebunko/gui.ps1` から呼ぶ |
-| 使用する共通関数 | `getFastSearchPackFiles`（高速検索。[高速検索（Windows Search）](fast-search.md)）/ `getIndexPackFiles` / `getSearchIndexes` / `searchPackIndex` / `writeSearchResult`（→ `toSearchResultLines` → `toResultLine` / `toResultHeader`）（[部品ごとの関数](../reference/search.md)） |
+| スクリプト | `scripts/tebunko/search/search_query.ps1`（検索条件）・`content_index_search.ps1`（本文インデックスの列挙と検索）・`search_run.ps1`（結果の組み立て）。`scripts/tebunko/lib.ps1` から読み込み、画面 `scripts/tebunko/gui.ps1` から呼ぶ |
+| 使用する共通関数 | `getFastSearchContentIndexFiles`（高速検索。[高速検索（Windows Search）](fast-search.md)）/ `getContentIndexFiles` / `getSearchIndexes` / `searchContentIndex` / `writeSearchResult`（→ `toSearchResultLines` → `toResultLine` / `toResultHeader`）（[部品ごとの関数](../reference/search.md)） |
 
 全体構成・動作環境・フォルダ構成は [設計の概要](../index.md) を参照。インデックス（本文インデックス）の作り方は [インデックス作成](../indexing/index.md) を参照。画面の操作・表示は [検索タブ](../gui/search-tab.md) を参照。
 
@@ -40,17 +40,17 @@ flowchart TD
 - 1 件を `@{ Name（インデックス名）; Path（インデックスのフォルダ）; SourcePath（元のフォルダ。分からなければ空） }` で返す。
 - 別の場所・PC で作ったインデックスは、そのフォルダを `work/content_index` 直下に置けば一覧に並ぶ（[クロール対象フォルダと取り込み対象](../indexing/crawl.md)）。
 - `work/content_index` が無ければ空を返す。`setting.config` は作成しない。
-- 画面では、インデックス 1 件を一番上にしたツリーで、検索するインデックス・フォルダを選ぶ（[［検索］タブ](../gui/search-tab.md) [検索対象のツリー](../gui/search-tree.md)）。選んだ範囲は `getIndexPackFiles` に `@{ Root（インデックスのフォルダ `work/content_index`）; RelPath（`<インデックス名>` またはその下のフォルダ）; Recurse }` の配列で渡す。`Recurse` が `$false` なら、そのフォルダ直下の本文インデックスのファイルだけを列挙する。結果の相対パス（`RelPath`・`RelDir`）は `Root` から求めるため、フォルダを絞っても結果の形は変わらない。
+- 画面では、インデックス 1 件を一番上にしたツリーで、検索するインデックス・フォルダを選ぶ（[［検索］タブ](../gui/search-tab.md) [検索対象のツリー](../gui/search-tree.md)）。選んだ範囲は `getContentIndexFiles` に `@{ Root（インデックスのフォルダ `work/content_index`）; RelPath（`<インデックス名>` またはその下のフォルダ）; Recurse }` の配列で渡す。`Recurse` が `$false` なら、そのフォルダ直下の本文インデックスのファイルだけを列挙する。結果の相対パス（`RelPath`・`RelDir`）は `Root` から求めるため、フォルダを絞っても結果の形は変わらない。
 - チェックを外したフォルダは `searchExcludes`（`@{ path（フルパス）; subfolders（$false は直下のファイルだけ） }` の配列）に保存する（`readSearchExcludes` / `writeSearchExcludes`）。無ければすべてを検索する。
 
 ```mermaid
 flowchart TD
-    S(["画面で検索を実行"]) --> C["getIndexPackFiles<br>各インデックスフォルダ配下の content_index.*.tsv を列挙<br>（存在しないフォルダは Exists = False）"]
+    S(["画面で検索を実行"]) --> C["getContentIndexFiles<br>各インデックスフォルダ配下の content_index.*.tsv を列挙<br>（存在しないフォルダは Exists = False）"]
     C --> D{"本文インデックスのファイルが 1 件以上ある？"}
     D -- いいえ --> E1["画面に案内を表示<br>（インデックス作成を促す）"]
     D -- はい --> M["newSearchRegex<br>検索条件（文字どおり／正規表現・大文字と小文字の区別）<br>から照合用の正規表現を作る"]
     M --> F["newFileKindFilter / newFileFilter / newPlaceExclude<br>ファイルの種類・図形とコメントの条件（元のファイル名・場所の名前で判定）"]
-    F --> SS["searchPackIndex<br>本文インデックスを約 16MB ずつ .NET（StreamReader＋regex）で照合<br>（進捗を画面に通知、上限・中止を確認）"]
+    F --> SS["searchContentIndex<br>本文インデックスを約 16MB ずつ .NET（StreamReader＋regex）で照合<br>（進捗を画面に通知、上限・中止を確認）"]
     SS --> R["ヒット: Root・RelPath・RelDir・FileName・<br>Book・Location・LineNumber・Line"]
     R --> G["画面の表に表示"]
     G -- "［結果をファイルに出力］" --> W["writeSearchResult<br>work/search_results.txt に書き出して開く"]
@@ -64,9 +64,9 @@ flowchart TD
 | 項目 | 仕様 |
 |---|---|
 | 検索対象 | 各インデックスフォルダ配下（再帰）のうち、画面のツリーでチェックしたフォルダの本文インデックス `content_index.*.tsv`（[インデックスの一覧](#インデックスの一覧getsearchindexes)）。フォルダの順、フォルダの中は本文インデックスのファイルの名前（拡張子・番号）の順、本文インデックスのファイルの中は入れた順に検索する |
-| ファイルの種類 | 画面の種類のチップ（`setting.config` の `fileKinds`。選んだ種類の拡張子の条件を `newFileKindFilter` が作る）を絞ると、**元のファイル名**（[ファイル名・場所の求め方](output.md#ファイル名場所の求め方readpackplaces) の Book。本文インデックスの `ファイル名=` の値）が一致する元のファイルだけを検索する（[検索条件（サクラエディタの Grep にならう）](#検索条件サクラエディタの-grep-にならう)）。空ならすべて |
+| ファイルの種類 | 画面の種類のチップ（`setting.config` の `fileKinds`。選んだ種類の拡張子の条件を `newFileKindFilter` が作る）を絞ると、**元のファイル名**（[ファイル名・場所の求め方](output.md#ファイル名場所の求め方readcontentindexplaces) の Book。本文インデックスの `ファイル名=` の値）が一致する元のファイルだけを検索する（[検索条件（サクラエディタの Grep にならう）](#検索条件サクラエディタの-grep-にならう)）。空ならすべて |
 | 図形・コメント | 既定は検索する。画面の［図形も検索］［コメントも検索］（`setting.config` の `includeShapes` / `includeComments`）をオフにすると、場所が `<元の場所>[図形]`（と `<元の場所>[埋め込みN]`。埋め込みは図形と一緒に切り替える）/ `<元の場所>[コメント]`（本文インデックスのメタ情報 `対象=図形` / `対象=コメント`）の中を検索しない（`newPlaceExclude`。Excel・Word・PowerPoint で共通の決まり。[インデックスのファイルの形](../index-data/format.md#配置命名規則)「図形・コメントの場所」） |
-| Excel の図形・コメントの行 | 行は `<セル番地><TAB><文字>` の形のため、**区切りのタブ（行の最初のタブ）より後から始まる一致だけ**をヒットにする（`searchPackFiles`。セル番地だけには一致しない。文字の中のタブは文字として検索の対象。除いた行は件数・上限に数えない）。セル番地から文字まで続く正規表現（`C2\t納期`）と、区切りのタブに当たる `\t` は一致しない。Word・PowerPoint の図形・コメント、Excel のセル・ヘッダー・フッターの行は行全体を照合する |
+| Excel の図形・コメントの行 | 行は `<セル番地><TAB><文字>` の形のため、**区切りのタブ（行の最初のタブ）より後から始まる一致だけ**をヒットにする（`searchContentIndexFiles`。セル番地だけには一致しない。文字の中のタブは文字として検索の対象。除いた行は件数・上限に数えない）。セル番地から文字まで続く正規表現（`C2\t納期`）と、区切りのタブに当たる `\t` は一致しない。Word・PowerPoint の図形・コメント、Excel のセル・ヘッダー・フッターの行は行全体を照合する |
 | 長いパス | 列挙と検索（.NET の `DirectoryInfo`・`StreamReader`）には `\\?\` を付けたパスを渡す（`toLongPath`）。付けないと、約 248 文字を超えるフォルダの中を列挙できず、260 文字を超える本文インデックスのファイルを読めない。結果の相対パスは `\\?\` の無い形で扱う（[入れ替えと書き出し](../index-data/publish.md#長いパス260-文字超の扱い)） |
 | 読み込み文字コード | UTF-16LE（BOM があれば BOM に従う） |
 | 読めない本文インデックスのファイル | 列挙した後に読めなくなった本文インデックスのファイル（インデックス作成中に削除された等）は飛ばして、検索を続ける。読み込み中の本文インデックスのファイルは、インデクサの置き換え・削除を妨げないよう共有モードで開く |
@@ -75,7 +75,7 @@ flowchart TD
 | セル内改行 | インデックスでは U+2028 になっているため、正規表現の `.` や `\s` にマッチする（例: `1行目.2行目`）。改行をはさんだ文字列をそのまま連結したワード（`1行目2行目`）はヒットしない |
 | マッチ方式 | 画面の［正規表現を使う］がオフなら文字どおり、オンなら正規表現として検索する。どちらも `newSearchRegex` で 1 つの正規表現にして照合し、画面の一致箇所の強調にも同じ正規表現を使う（[検索条件（サクラエディタの Grep にならう）](#検索条件サクラエディタの-grep-にならう)） |
 | 大文字と小文字 | 既定は区別しない。画面の［大文字と小文字を区別］がオンなら区別する（全角の英字も同じ） |
-| 不正な正規表現 | ［正規表現を使う］がオンでも、正規表現として不正なワード（`(` 単独など）は文字どおりの検索に切り替える（`searchPackIndex` の戻り値 `SimpleMatch` が `$true` になる）。画面は、不正なワードでは検索を始めない（吹き出しで知らせる。[検索タブ](../gui/search-tab.md#エラーの吹き出し)） |
+| 不正な正規表現 | ［正規表現を使う］がオンでも、正規表現として不正なワード（`(` 単独など）は文字どおりの検索に切り替える（`searchContentIndex` の戻り値 `SimpleMatch` が `$true` になる）。画面は、不正なワードでは検索を始めない（吹き出しで知らせる。[検索タブ](../gui/search-tab.md#エラーの吹き出し)） |
 | 照合の時間切れ | 1 行の照合に 5 秒を超えた（正規表現によっては終わらなくなる）場合は、`正規表現の照合に時間がかかりすぎるため、検索を中止しました。正規表現を見直してください。` として検索を止める。本文インデックスのファイルの全文への照合が時間切れになったときは、その本文インデックスのファイルを 1 行ずつ照合し直す（[検索を速くする仕組み](speed.md)） |
 | 複数フォルダ | 全フォルダの本文インデックスをまとめて検索する |
 

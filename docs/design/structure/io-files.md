@@ -64,7 +64,7 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 
 | パス | 読む／書く | 内容 |
 |---|---|---|
-| `work/content_index/`（`<インデックス名>/…/content_index.<拡張子>.<番号>.tsv`・`source_folder.txt`） | 読む・書く | 本文インデックス。インデックス作成が書き、検索・一覧が読む。インポートで置き換え、クロール対象から外したフォルダの分は消す。`<名前>.tmp` に書いてから置き換える（`writePackFile`）。改名のときは `<名前>_rename_<PID>` を経由する |
+| `work/content_index/`（`<インデックス名>/…/content_index.<拡張子>.<番号>.tsv`・`source_folder.txt`） | 読む・書く | 本文インデックス。インデックス作成が書き、検索・一覧が読む。インポートで置き換え、クロール対象から外したフォルダの分は消す。`<名前>.tmp` に書いてから置き換える（`writeContentIndexFile`）。改名のときは `<名前>_rename_<PID>` を経由する |
 | `work/system_index/<インデックス名>/…/system_index.txt` | 読む・書く | システムインデックス（2-gram の txt）。Windows Search が読む（[システムインデックス](../index-data/system-index.md)） |
 | `work/system_index_state.tsv` | 読む・書く | システムインデックスの状態。排他で開いて書き換える |
 | `work/ingest_status.tsv`（`.tmp` を経由して置き換える） | 読む・書く | 取り込み一覧 |

@@ -127,15 +127,15 @@ BeforeAll {
         clearDetail
     }
 
-    function writeHitPack {
-        # インデックスの集約ファイル（TestDrive に作る）に、元のファイル book の場所 location の行を書く
+    function writeHitContentIndex {
+        # インデックスの本文インデックスのファイル（TestDrive に作る）に、元のファイル book の場所 location の行を書く
         param ([string]$path, [string]$book, [string]$location, [string[]]$lines)
         [void][System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($path))
-        writePackFile $path (convertToPackText @(@{ Name = $book; Places = @(@{ Place = $location; Text = (($lines -join "`r`n") + "`r`n") }) }))
+        writeContentIndexFile $path (convertToContentIndexText @(@{ Name = $book; Places = @(@{ Place = $location; Text = (($lines -join "`r`n") + "`r`n") }) }))
     }
 
     function newHitRow {
-        # インデックスの集約ファイル（TestDrive に作る）の lineNumber 行目にヒットした行
+        # インデックスの本文インデックスのファイル（TestDrive に作る）の lineNumber 行目にヒットした行
         param (
             [string]$book,
             [string]$location,
@@ -145,9 +145,9 @@ BeforeAll {
         )
 
         $root = "$TestDrive\index"
-        $name = getPackFileName (getPackExtension $book)
+        $name = getContentIndexFileName (getContentIndexExtension $book)
         $relPath = if ($relDir) { "$relDir\$name" } else { $name }
-        writeHitPack "$root\$relPath" $book $location $lines
+        writeHitContentIndex "$root\$relPath" $book $location $lines
         $row = [HitRow]::Create("営業部", $root, $relPath, $relDir, $book, $book, $location, $lineNumber, $lines[$lineNumber - 1], "見積", [regex]"見積")
         $described = describePlace $book $location
         $row.PlaceText = $described.Place
@@ -289,7 +289,7 @@ Describe "showDetail" -Tag Io {
 
     Context "前後の行を読めないとき" {
         It "選んだ行だけを出す" {
-            Mock readPackContext { throw "読めません" }
+            Mock readContentIndexContext { throw "読めません" }
             $fake.Current = newHitRow "議事録.docx" "ページ001" 2 @("はじめに", "見積の件", "おわりに") ""
 
             showDetail
@@ -335,7 +335,7 @@ Describe "showDetail" -Tag Io {
 
     It "検索のあとにインデックスが短くなり、選んだ行が無くなっていても落ちない" {
         $row = newHitRow "見積.xlsx" "4月" 5 @("`ta", "`tb", "`tc", "`td", "`t見積")
-        writeHitPack ([System.IO.Path]::Combine($row.Root, $row.RelPath)) $row.Book $row.Location @("`ta", "`tb")
+        writeHitContentIndex ([System.IO.Path]::Combine($row.Root, $row.RelPath)) $row.Book $row.Location @("`ta", "`tb")
         $fake.Current = $row
 
         showDetail
@@ -345,7 +345,7 @@ Describe "showDetail" -Tag Io {
         $fake.Scrolls[-1] | Should -Be 0
     }
 
-    It "インデックスの集約ファイルが読めなければ、選んだ行だけを出す" {
+    It "インデックスの本文インデックスのファイルが読めなければ、選んだ行だけを出す" {
         $row = newHitRow "見積.xlsx" "4月" 2 @("`t前", "`t見積", "`t後")
         Remove-Item -LiteralPath ([System.IO.Path]::Combine($row.Root, $row.RelPath))
         $fake.Current = $row

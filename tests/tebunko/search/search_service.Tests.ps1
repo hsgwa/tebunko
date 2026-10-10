@@ -43,12 +43,12 @@ Describe "invokeSearchRequest" -Tag Io {
         $tsvRoot = Join-Path $TestDrive "request_tsv"
         newTsv "$tsvRoot\A社.xlsx\Sheet1.tsv" @("見積先：`t(株)山田商事", "単価`t105")
         newTsv "$tsvRoot\sub\文書.docx\ページ001.tsv" @("単価は別紙")
-        $packRoot = Join-Path $TestDrive "request_pack"
-        [void](newPackIndex $tsvRoot $packRoot)
+        $contentIndexRoot = Join-Path $TestDrive "request_content_index"
+        [void](newContentIndexFiles $tsvRoot $contentIndexRoot)
     }
 
     It "ヒットを列に入れ、件数と終わったことを伝える" {
-        $request = newSearchRequest "単価" $true @($packRoot) 0
+        $request = newSearchRequest "単価" $true @($contentIndexRoot) 0
         invokeSearchRequest $request
         $request.Finished | Should -Be $true
         $request.Error | Should -BeNullOrEmpty
@@ -59,9 +59,9 @@ Describe "invokeSearchRequest" -Tag Io {
     }
 
     It "照合のプールを渡しても同じ結果になる" {
-        $pool = newPackWorkerPool 2
+        $pool = newContentIndexWorkerPool 2
         try {
-            $request = newSearchRequest "単価" $true @($packRoot) 0
+            $request = newSearchRequest "単価" $true @($contentIndexRoot) 0
             invokeSearchRequest $request $pool
             (takeHits $request).Count | Should -Be 2
         } finally {
@@ -73,12 +73,12 @@ Describe "invokeSearchRequest" -Tag Io {
         $hfTsvRoot = Join-Path $TestDrive "pool_hf_tsv"
         newTsv "$hfTsvRoot\B社.xlsx\$(toIndexFileName "4月[ヘッダー・フッター]")" @("社外秘")
         newTsv "$hfTsvRoot\B社.xlsx\$(toIndexFileName "4月[図形]")" @("A1`t社外秘の図")
-        $hfPackRoot = Join-Path $TestDrive "pool_hf_pack"
-        [void](newPackIndex $hfTsvRoot $hfPackRoot)
+        $hfContentIndexRoot = Join-Path $TestDrive "pool_hf_content_index"
+        [void](newContentIndexFiles $hfTsvRoot $hfContentIndexRoot)
 
-        $pool = newPackWorkerPool 2
+        $pool = newContentIndexWorkerPool 2
         try {
-            $request = newSearchRequest "社外秘" $true @($hfPackRoot) 0 @{ IncludeShapes = $false; IncludeComments = $false }
+            $request = newSearchRequest "社外秘" $true @($hfContentIndexRoot) 0 @{ IncludeShapes = $false; IncludeComments = $false }
             invokeSearchRequest $request $pool
             $hits = @(takeHits $request)
             $hits.Count | Should -Be 1
@@ -88,17 +88,17 @@ Describe "invokeSearchRequest" -Tag Io {
         }
     }
 
-    It "照合のプールの別スレッドでも、テキストの長い行を切る（newPackWorkerPool に渡す関数・変数が揃っている）" {
+    It "照合のプールの別スレッドでも、テキストの長い行を切る（newContentIndexWorkerPool に渡す関数・変数が揃っている）" {
         $poolTsvRoot = Join-Path $TestDrive "pool_text_tsv"
         $longLine = ("あ" * 100000) + "対象語" + ("あ" * 100000)
         newTsv "$poolTsvRoot\長い.log\$(toIndexFileName "本文")" @($longLine)
-        $poolPacks = newPackIndex $poolTsvRoot (Join-Path $TestDrive "pool_text_pack")
+        $poolContentIndexFiles = newContentIndexFiles $poolTsvRoot (Join-Path $TestDrive "pool_text_content_index")
 
-        $pool = newPackWorkerPool 2
+        $pool = newContentIndexWorkerPool 2
         try {
-            # searchPackIndex のタスク分けを経由せず、プールのスレッドに直接照合させる（pack_search.ps1 と同じ呼び方）
+            # searchContentIndex のタスク分けを経由せず、プールのスレッドに直接照合させる（content_index_search.ps1 と同じ呼び方）
             $search = newSearchRegex "対象語" $true
-            $job = $pool.Submit(${packWorkerScript}.ToString(), @($poolPacks, 0, $poolPacks.Count, $search.Regex, -1, $search.TextRegex, $search.ScanMode, $null, $null, $null, $null))
+            $job = $pool.Submit(${contentIndexWorkerScript}.ToString(), @($poolContentIndexFiles, 0, $poolContentIndexFiles.Count, $search.Regex, -1, $search.TextRegex, $search.ScanMode, $null, $null, $null, $null))
             $output = $pool.Receive($job)
             $output[0].Timeout | Should -Be $false
             $hits = @($output[0].Hits)
@@ -111,7 +111,7 @@ Describe "invokeSearchRequest" -Tag Io {
     }
 
     It "始める前に取り消されていたら、検索せずに終える" {
-        $request = newSearchRequest "単価" $true @($packRoot) 0
+        $request = newSearchRequest "単価" $true @($contentIndexRoot) 0
         $request.Stop = $true
         invokeSearchRequest $request
         $request.Cancelled | Should -Be $true
@@ -120,8 +120,8 @@ Describe "invokeSearchRequest" -Tag Io {
     }
 
     It "検索できなかった理由を Error に入れる（例外は投げない）" {
-        Mock getIndexPackFiles { throw "読めません" }
-        $request = newSearchRequest "単価" $true @($packRoot) 0
+        Mock getContentIndexFiles { throw "読めません" }
+        $request = newSearchRequest "単価" $true @($contentIndexRoot) 0
         invokeSearchRequest $request
         $request.Error | Should -Be "読めません"
         $request.Finished | Should -Be $true
@@ -133,19 +133,19 @@ Describe "SearchService" -Tag Io {
         $tsvRoot = Join-Path $TestDrive "service_tsv"
         newTsv "$tsvRoot\A社.xlsx\Sheet1.tsv" @("単価`t105", "単価`t200")
         newTsv "$tsvRoot\B社.xlsx\Sheet1.tsv" @("単価`t300")
-        $packRoot = Join-Path $TestDrive "service_pack"
-        [void](newPackIndex $tsvRoot $packRoot)
+        $contentIndexRoot = Join-Path $TestDrive "service_content_index"
+        [void](newContentIndexFiles $tsvRoot $contentIndexRoot)
         $libLoad = getPartLoad lib
     }
 
     It "要求を順に実行し、同じスレッドを使い続ける" {
         $service = newSearchService (newTsvTextCache) 2
         try {
-            $first = $service.Request((newSearchRequest "単価" $true @($packRoot) 0))
+            $first = $service.Request((newSearchRequest "単価" $true @($contentIndexRoot) 0))
             waitRequest $first | Should -Be $true
             (takeHits $first).Count | Should -Be 3
             $thread = $service.PowerShell
-            $second = $service.Request((newSearchRequest "200" $true @($packRoot) 0))
+            $second = $service.Request((newSearchRequest "200" $true @($contentIndexRoot) 0))
             waitRequest $second | Should -Be $true
             (takeHits $second).Count | Should -Be 1
             [object]::ReferenceEquals($thread, $service.PowerShell) | Should -Be $true
@@ -159,9 +159,9 @@ Describe "SearchService" -Tag Io {
     It "次の要求を渡すと、前の要求を取り消す" {
         $service = newSearchService $null 1
         try {
-            $first = newSearchRequest "単価" $true @($packRoot) 0
+            $first = newSearchRequest "単価" $true @($contentIndexRoot) 0
             [void]$service.Request($first)
-            $second = $service.Request((newSearchRequest "単価" $true @($packRoot) 0))
+            $second = $service.Request((newSearchRequest "単価" $true @($contentIndexRoot) 0))
             $first.Stop | Should -Be $true
             waitRequest $second | Should -Be $true
             (takeHits $second).Count | Should -Be 3
@@ -192,7 +192,7 @@ Describe "SearchService" -Tag Io {
             $service.IsRunning() | Should -Be $false
             $service.GetFailure() | Should -Not -BeNullOrEmpty
             $service.LibLoad = $libLoad
-            $request = $service.Request((newSearchRequest "単価" $true @($packRoot) 0))
+            $request = $service.Request((newSearchRequest "単価" $true @($contentIndexRoot) 0))
             waitRequest $request | Should -Be $true
             (takeHits $request).Count | Should -Be 3
         } finally {
@@ -225,7 +225,7 @@ Describe "SearchService" -Tag Io {
         } finally {
             $service.Close()
         }
-        $pool = newPackWorkerPool
+        $pool = newContentIndexWorkerPool
         try {
             $pool.Size | Should -Be (getWorkerCount)
         } finally {
@@ -293,20 +293,20 @@ Describe "trimTsvTextCache" -Tag Unit {
     }
 }
 
-Describe "読んだ内容の世代（searchPackIndex）" -Tag Io {
+Describe "読んだ内容の世代（searchContentIndex）" -Tag Io {
     BeforeAll {
         $tsvRoot = Join-Path $TestDrive "generation_tsv"
         newTsv "$tsvRoot\A社.xlsx\Sheet1.tsv" @("単価`t105")
-        $packs = newPackIndex $tsvRoot (Join-Path $TestDrive "generation_pack")
+        $contentIndexFiles = newContentIndexFiles $tsvRoot (Join-Path $TestDrive "generation_content_index")
     }
 
     It "入れたとき・使ったときの世代を残す" {
         $cache = newTsvTextCache
-        [void](searchPackIndex "単価" $packs $true -cache $cache)
-        $cache.Texts[$packs[0].Path][4] | Should -Be 0
+        [void](searchContentIndex "単価" $contentIndexFiles $true -cache $cache)
+        $cache.Texts[$contentIndexFiles[0].Path][4] | Should -Be 0
         [void](trimTsvTextCache $cache)
-        [void](searchPackIndex "単価" $packs $true -cache $cache)
-        $cache.Texts[$packs[0].Path][4] | Should -Be 1
+        [void](searchContentIndex "単価" $contentIndexFiles $true -cache $cache)
+        $cache.Texts[$contentIndexFiles[0].Path][4] | Should -Be 1
     }
 }
 
@@ -316,14 +316,14 @@ Describe "検索の司令のスクリプト（searchServiceScript）" -Tag Io {
         $tsvRoot = Join-Path $TestDrive "script_tsv"
         newTsv "$tsvRoot\A社.xlsx\Sheet1.tsv" @("単価`t105", "単価`t200")
         newTsv "$tsvRoot\B社.xlsx\Sheet1.tsv" @("単価`t300")
-        $packRoot = Join-Path $TestDrive "script_pack"
-        [void](newPackIndex $tsvRoot $packRoot)
+        $contentIndexRoot = Join-Path $TestDrive "script_content_index"
+        [void](newContentIndexFiles $tsvRoot $contentIndexRoot)
     }
 
     It "要求の列の要求を順に実行し、検索のたびに読んだ内容を整理する。列が閉じられたら終わる" {
         $requests = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
-        $first = newSearchRequest "単価" $true @($packRoot) 0
-        $second = newSearchRequest "300" $true @($packRoot) 0
+        $first = newSearchRequest "単価" $true @($contentIndexRoot) 0
+        $second = newSearchRequest "300" $true @($contentIndexRoot) 0
         $requests.Add($first)
         $requests.Add($second)
         $requests.CompleteAdding()
@@ -343,18 +343,18 @@ Describe "invokeSearchRequest（高速検索）" -Tag Io {
     BeforeAll {
         $tsvRoot = Join-Path $TestDrive "fast_tsv"
         newTsv "$tsvRoot\A社.xlsx\Sheet1.tsv" @("単価`t105")
-        $packRoot = Join-Path $TestDrive "fast_pack"
-        $packs = newPackIndex $tsvRoot $packRoot
+        $contentIndexRoot = Join-Path $TestDrive "fast_content_index"
+        $contentIndexFiles = newContentIndexFiles $tsvRoot $contentIndexRoot
     }
 
-    It "Windows Search が使えれば、候補の集約ファイルだけを照合する" {
+    It "Windows Search が使えれば、候補の本文インデックスのファイルだけを照合する" {
         Mock testWindowsSearch { $true }
-        Mock getFastSearchPackFiles { @{ Folders = @(); Packs = $packs } }
-        $request = newSearchRequest "単価" $true @($packRoot) 0 @{} $true
+        Mock getFastSearchContentIndexFiles { @{ Folders = @(); ContentIndexFiles = $contentIndexFiles } }
+        $request = newSearchRequest "単価" $true @($contentIndexRoot) 0 @{} $true
         invokeSearchRequest $request
         $request.FastAvailable | Should -Be $true
         $request.FastUsed | Should -Be $true
         (takeHits $request).Count | Should -Be 1
-        Should -Invoke getFastSearchPackFiles -Times 1 -Exactly
+        Should -Invoke getFastSearchContentIndexFiles -Times 1 -Exactly
     }
 }

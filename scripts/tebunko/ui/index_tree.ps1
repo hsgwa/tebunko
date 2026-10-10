@@ -182,7 +182,7 @@ function applyIndexFolderChildren {
 }
 
 function getSearchTargets {
-    # 検索対象ツリーでチェックしたフォルダ（SearchTarget の配列。getIndexPackFiles に渡す）
+    # 検索対象ツリーでチェックしたフォルダ（SearchTarget の配列。getContentIndexFiles に渡す）
     $targets = New-Object 'System.Collections.Generic.List[SearchTarget]'
     foreach ($node in $script:indexRoots) {
         $node.AddTargets($targets)

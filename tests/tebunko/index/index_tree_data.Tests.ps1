@@ -40,7 +40,7 @@ Describe "インデックスのフォルダの読み取り" -Tag Io {
         [System.IO.Directory]::CreateDirectory("$script:indexRoot\総務部") | Out-Null
     }
 
-    It "testIndexBookDirPath は、名前が .xlsx などで終わる本物のフォルダ（集約ファイル・サブフォルダがある）を見分ける" {
+    It "testIndexBookDirPath は、名前が .xlsx などで終わる本物のフォルダ（本文インデックスのファイル・サブフォルダがある）を見分ける" {
         $dir = "$TestDrive\bookdir_path"
         newTsv "$dir\資料.xlsx\content_index.docx.001.tsv" @("x")
         [void][System.IO.Directory]::CreateDirectory("$dir\親.xlsx\子")
@@ -82,7 +82,7 @@ Describe "インデックスのフォルダの読み取り" -Tag Io {
         { [System.IO.Directory]::Move($dir, "$TestDrive\node_handle\moved") } | Should -Not -Throw
     }
 
-    It "直下の集約ファイルもファイルとして数える（ほかの .tsv は数えない）" {
+    It "直下の本文インデックスのファイルもファイルとして数える（ほかの .tsv は数えない）" {
         newTsv "$script:indexRoot\人事部\a.tsv" @("x")
         testIndexFolderHasFiles "$script:indexRoot\人事部" | Should -Be $false
         newTsv "$script:indexRoot\総務部\content_index.xlsx.001.tsv" @("x")
@@ -116,13 +116,13 @@ Describe "インデックスのフォルダの読み取り" -Tag Io {
         $result.HasFiles | Should -Be $false
     }
 
-    It "集約ファイルの型は packFilePattern と同じ（index_tree_data.ps1 のソースを読んで確かめる）" {
+    It "本文インデックスのファイルの型は contentIndexFilePattern と同じ（index_tree_data.ps1 のソースを読んで確かめる）" {
         $source = [System.IO.File]::ReadAllText("${scriptsDir}\tebunko\index\index_tree_data.ps1")
         # 直下のブックのフォルダの中を探す "*.tsv" は対象外
         $literals = @([regex]::Matches($source, 'GetFiles\([^,]+,\s*"([^"]*\.tsv)"\)') |
             ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -ne "*.tsv" })
         $literals.Count | Should -Be 0
-        ([regex]::Matches($source, 'GetFiles\([^,]+,\s*\$\{packFilePattern\}\)')).Count | Should -Be 2
+        ([regex]::Matches($source, 'GetFiles\([^,]+,\s*\$\{contentIndexFilePattern\}\)')).Count | Should -Be 2
     }
 }
 

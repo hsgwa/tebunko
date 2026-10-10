@@ -10,8 +10,8 @@ Word に固有のものは [Word の注意点・既知の問題](#word-の注意
 flowchart LR
     A["クロール<br>normalizeFolderPath・testSameFolder"] --> B["取り込み対象の決定<br>createTargetList・getIndexTsvCounts"]
     B --> C["抽出<br>extractWorkbook・prettyTsv"]
-    C --> D["本文インデックス<br>updateIndexFolderPack"]
-    D --> E["検索<br>searchPackIndex"]
+    C --> D["本文インデックス<br>updateFolderContentIndex"]
+    D --> E["検索<br>searchContentIndex"]
     E --> F["元のファイルを開く<br>openInExcel"]
 ```
 
