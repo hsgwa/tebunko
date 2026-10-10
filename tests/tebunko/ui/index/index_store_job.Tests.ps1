@@ -22,10 +22,21 @@ BeforeAll {
     . "${scriptsDir}\tebunko\ui\index_view.ps1"
     . "${scriptsDir}\tebunko\ui\index\index_edit.ps1"
 
-    # index_list.ps1 は画面の型を使うため、読み込まずに updateIndexSourceFile だけを取り出す
-    $ast = [System.Management.Automation.Language.Parser]::ParseFile("${scriptsDir}\tebunko\ui\index\index_list.ps1", [ref]$null, [ref]$null)
-    $node = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq "updateIndexSourceFile" }, $true)
-    . ([scriptblock]::Create($node.Extent.Text))
+    # index_list.ps1・index_tree.ps1・search_bar_view.ps1 は画面の型を使うものを含むため、読み込まずに必要な関数だけを取り出す
+    $imports = @(
+        @{ Path = "${scriptsDir}\tebunko\ui\index\index_list.ps1"; Name = "updateIndexSourceFile" }
+        @{ Path = "${scriptsDir}\tebunko\ui\index\index_list.ps1"; Name = "refreshIndexViewsKeepingStatus" }
+        @{ Path = "${scriptsDir}\tebunko\ui\index_tree.ps1"; Name = "applyIndexTreeData" }
+        @{ Path = "${scriptsDir}\tebunko\ui\search\search_bar_view.ps1"; Name = "getWorkspaceUnreachableText" }
+    )
+    foreach ($import in $imports) {
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($import.Path, [ref]$null, [ref]$null)
+        $importName = $import.Name
+        $node = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $importName }, $true)
+        . ([scriptblock]::Create($node.Extent.Text))
+    }
+    function updateSearchTarget { }
+    $script:indexRoots = New-Object 'System.Collections.ObjectModel.ObservableCollection[object]'
 
     function runJob {
         # 裏の仕事の中身を、この場の Mock が効くように作り直して（startJob と同じく文字列から）流す
@@ -154,6 +165,20 @@ Describe "applyIndexEdit" -Tag Unit {
         $script:statuses[$script:statuses.Count - 1] | Should -BeLike "*名前の変更に失敗しました*ワークスペースに接続できません*"
     }
 
+    It "届かないときの失敗の知らせは、そのあとに届くツリーの読み直し（接続できない）で消えない（名前の変更）" {
+        $script:indexTreeKeepStatus = $false
+        applyIndexEdit $item @{ Path = $item.Path; Name = "営業部" }
+
+        & $script:jobs[0].OnDone @() "ワークスペースに接続できません：\\fileserver\共有"
+        applyIndexTreeData @{ State = $script:unreachableState; Message = "届きません" } @()
+
+        $script:statuses[$script:statuses.Count - 1] | Should -BeLike "*名前の変更に失敗しました*"
+        $script:indexTreeKeepStatus | Should -Be $false
+        # 一度きり。次に届く結果は、ふつうに接続できない旨を出す
+        applyIndexTreeData @{ State = $script:unreachableState; Message = "届きません" } @()
+        $script:statuses[$script:statuses.Count - 1] | Should -BeLike "ワークスペースに接続できません*"
+    }
+
     It "記録だけが書けなかったときも、改名は反映して保存し、書けなかったことだけを知らせる（改名の失敗にはしない）" {
         applyIndexEdit $item @{ Path = $item.Path; Name = "営業部" }
 
@@ -204,6 +229,21 @@ Describe "applyIndexEdit" -Tag Unit {
 
         $script:closed | Should -Be 1
         $script:closeAskedDuringIndexJob | Should -Be $false
+    }
+
+    It "待たずに閉じるかの確認を出している間に仕事が終わっても、ここでは閉じない（確認から戻ったときに閉じる）" {
+        $script:closed = 0
+        $script:window = newWindowStub
+        $script:closeAfterIndexJob = $true
+        $script:closeConfirming = $true
+        applyIndexEdit $item @{ Path = $item.Path; Name = "営業部" }
+
+        & $script:jobs[0].OnDone @() ""
+
+        $script:closed | Should -Be 0
+        $script:closeAfterIndexJob | Should -Be $true
+        $script:closeAskedDuringIndexJob | Should -Be $false
+        $script:closeConfirming = $false
     }
 
     It "待っていなければ閉じない" {
@@ -340,6 +380,31 @@ Describe "deleteIndex（1 件の削除）" -Tag Unit {
         $script:statuses[$script:statuses.Count - 1] | Should -Be "インデックス [営業] を削除しました"
     }
 
+    It "届かないときの失敗の知らせは、そのあとに届くツリーの読み直し（接続できない）で消えない（削除）" {
+        $script:indexTreeKeepStatus = $false
+        deleteIndex
+
+        & $script:jobs[0].OnDone @() "ワークスペースに接続できません：\\fileserver\共有"
+        applyIndexTreeData @{ State = $script:unreachableState; Message = "届きません" } @()
+
+        $script:statuses[$script:statuses.Count - 1] | Should -BeLike "*削除に失敗しました*"
+    }
+
+    It "終わるまでの間に一覧が読み直されて行が別のオブジェクトになっていても、名前で探して外す" {
+        deleteIndex
+        $reloaded = New-Object System.Collections.Generic.List[object]
+        $reloaded.Add((newItem "営業" "\\fileserver\共有\営業"))
+        $reloaded.Add((newItem "技術" "\\fileserver\共有\技術"))
+        $script:targetItems = $reloaded
+        $script:calls.Clear()
+
+        & $script:jobs[0].OnDone @() ""
+
+        $script:targetItems.Count | Should -Be 1
+        $script:targetItems[0].Name | Should -Be "技術"
+        $script:calls | Should -Contain "saveTargets"
+    }
+
     It "届かないとき、設定を変えず失敗を知らせる（一覧にも残す）" {
         Mock getPathState { @{ State = $script:unreachableState; IsDirectory = $false; Message = "ネットワークに届きません" } }
         Mock removeIndex { }
@@ -416,6 +481,17 @@ Describe "deleteIndexes（複数削除）" -Tag Unit {
         $script:closed | Should -Be 1
         $script:targetItems.Count | Should -Be 1
         $script:statuses[$script:statuses.Count - 1] | Should -Be "1 件のインデックスは削除できませんでした"
+    }
+
+    It "届かないときの失敗の知らせは、そのあとに届くツリーの読み直し（接続できない）で消えない（複数削除）" {
+        $script:workspace = newTestWorkspace @{ IndexDir = "\\fileserver\共有\ws\work\index" }
+        $script:indexTreeKeepStatus = $false
+        deleteIndexes @("営業", "技術")
+
+        & $script:jobs[0].OnDone @() "ワークスペースに接続できません：\\fileserver\共有"
+        applyIndexTreeData @{ State = $script:unreachableState; Message = "届きません" } @()
+
+        $script:statuses[$script:statuses.Count - 1] | Should -BeLike "削除に失敗しました*"
     }
 
     It "待っていなければ、結果のダイアログを出す" {

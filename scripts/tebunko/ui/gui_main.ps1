@@ -240,6 +240,7 @@ function startGui {
     $script:closeReady = $false     # 待ち終えた（もう聞かずに閉じる）
     $script:closeAskedDuringIndexJob = $false   # インデックスの削除・名前の変更の途中で閉じようとして、終わるのを待った
     $script:closeAfterIndexJob = $false         # 終わったら閉じる（待たずに閉じると決めたら戻す）
+    $script:closeConfirming = $false            # 待たずに閉じるかの確認を出している間（この間は仕事が終わっても閉じず、確認から戻ったときに閉じる）
     ${closeWaitSeconds} = 60        # インデックス作成が止まるのを待つ時間。過ぎたら Office を止めて、さらに closeKillWaitSeconds 待つ
     ${closeKillWaitSeconds} = 15
 
@@ -299,23 +300,31 @@ function startGui {
         }
         try {
             # インデックスの削除・名前の変更の途中で閉じると、設定とインデックスのフォルダの名前が食い違う。終わるまで待って閉じる
-            if (testCloseWaitsForIndexJob ([bool]$script:indexBusy) ([bool]$script:closeAskedDuringIndexJob)) {
+            $indexJobClose = getIndexJobCloseAction ([bool]$script:indexBusy) ([bool]$script:closeAskedDuringIndexJob)
+            if ($indexJobClose -eq "wait") {
                 $script:closeAskedDuringIndexJob = $true
                 $script:closeAfterIndexJob = $true
                 $e.Cancel = $true
                 setStatus (getIndexJobClosingStatus)
                 return
             }
-            if ([bool]$script:indexBusy -and [bool]$script:closeAskedDuringIndexJob) {
-                # 待っている間にもう一度閉じようとした。ステータスの 1 行は他の表示で消えて見落とされるため、確かめてから閉じる
+            if ($indexJobClose -eq "confirm") {
+                # 待っている間にもう一度閉じようとした。ステータスの 1 行は他の表示で消えて見落とされるため、確かめてから閉じる。
+                # 確認はこのハンドラの中のモーダル。その間に仕事が終わっても、ここで閉じずに（閉じ途中の窓に Close を呼ばないよう）、戻ってから決める
                 $e.Cancel = $true
-                $answer = showConfirm `
-                    -title "変更の途中です" `
-                    -heading "インデックスの変更の途中です。閉じますか？" `
-                    -hint "いま閉じると、設定とインデックスのフォルダの名前が食い違うことがあります。終わるまで待てば、自動で閉じます。" `
-                    -choices @(@{ Text = "待たずに閉じる"; Value = "close"; Danger = $true }) `
-                    -cancelText "終わるまで待つ"
-                if ($answer -eq "close") {
+                $confirm = getIndexJobCloseConfirm
+                $script:closeConfirming = $true
+                try {
+                    $answer = showConfirm `
+                        -title $confirm.Title `
+                        -heading $confirm.Heading `
+                        -hint $confirm.Hint `
+                        -choices @(@{ Text = $confirm.CloseText; Value = $confirm.CloseValue; Danger = $true }) `
+                        -cancelText $confirm.CancelText
+                } finally {
+                    $script:closeConfirming = $false
+                }
+                if ((getIndexJobCloseAfterConfirm ([string]$answer) ([bool]$script:indexBusy)) -eq "close") {
                     $script:closeAfterIndexJob = $false
                     $script:closeReady = $true
                     $window.Dispatcher.BeginInvoke([action]{ $window.Close() }) | Out-Null

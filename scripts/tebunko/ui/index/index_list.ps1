@@ -423,6 +423,19 @@ function refreshIndexViews {
     updateIndexDetailPanel
 }
 
+function refreshIndexViewsKeepingStatus {
+    # 失敗の知らせ（$notice）を出したまま、画面を読み直す。ネットワークのワークスペースでは検索対象のツリーが裏で読み直され、
+    # 届かないときはその結果がステータスを「接続できません」で上書きするため、その 1 回はステータスを書かせない
+    # （接続できない旨は検索対象の欄に出る）。ローカルの読み直しが同じ呼び出しの中で終わる場合のため、読み直したあとにも書く
+    param (
+        [string]$notice
+    )
+
+    $script:indexTreeKeepStatus = $true
+    refreshIndexViews
+    setStatus $notice
+}
+
 function applyIndexStats {
     # 取り込み一覧の集計（getIndexStats）を一覧の各行のファイル数・最終更新・「ステータス」列に反映し、
     # 「高速検索」列も（getIndexStats の Done を使って）置き直す。

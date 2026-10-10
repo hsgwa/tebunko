@@ -300,12 +300,12 @@ function startIndexStoreJob {
         $name = $script:indexJobName
         if ($errorText) {
             try {
-                setStatus (getIndexStoreJobFailedStatus $script:indexJobKind $name $errorText)
                 if ($script:indexJobKind -eq "rename") {
                     # 行にはまだ反映していない。一覧を保存済みの内容に戻す
                     loadTargets
                 }
-                refreshIndexViews
+                # 読み直しの結果（届かないときの「接続できません」）で、失敗の知らせが消えないようにする
+                refreshIndexViewsKeepingStatus (getIndexStoreJobFailedStatus $script:indexJobKind $name $errorText)
             } finally {
                 finishIndexJobClose
             }
@@ -337,6 +337,10 @@ function finishIndexJobClose {
     # 改名・削除の途中で閉じようとして待っていたなら、終わったので閉じる（設定への反映は済んでいる）。
     # 同じ周期で動く残りの仕事の結果が、閉じた窓に届かないよう、閉じるのは画面のスレッドの次の順番にする
     $script:closeAskedDuringIndexJob = $false
+    if ($script:closeConfirming) {
+        # 「待たずに閉じるか」の確認を出している間（Closing の途中）。ここで Close を呼ぶと窓が壊れるので、確認から戻ったときに閉じる
+        return
+    }
     if ($script:closeAfterIndexJob) {
         $script:closeAfterIndexJob = $false
         $window.Dispatcher.BeginInvoke([action]{ $window.Close() }) | Out-Null
@@ -379,9 +383,8 @@ function deleteIndexes {
         updateIndexingButton
         try {
             if ($errorText) {
-                setStatus "削除に失敗しました：${errorText}"
                 loadTargets
-                refreshIndexViews
+                refreshIndexViewsKeepingStatus "削除に失敗しました：${errorText}"
                 return
             }
             # 消せたものを一覧から外す（失敗したものは残す）
@@ -398,7 +401,7 @@ function deleteIndexes {
                 # 閉じるのを待っているときは、結果のダイアログ（閉じるまで進めない）を出さずに、失敗があればステータスに残して閉じる
                 $failed = @($results | Where-Object { !$_.Ok })
                 if ($failed.Count -gt 0) {
-                    setStatus "$($failed.Count) 件のインデックスは削除できませんでした"
+                    setStatus (getBulkDeleteFailedStatus $failed.Count)
                 }
             } else {
                 showBulkIndexResult "削除" $results
@@ -428,9 +431,10 @@ function deleteIndex {
 
     # インデックスの削除（時間がかかることがある）は別スレッドで行う。一覧からの除去と設定の保存は、削除できてから行う
     # （ワークスペースに届かないときは、一覧も設定も変えずに失敗を知らせる）
-    $script:indexJobItem = $item
+    # （終わるまでの間に一覧が読み直されると、行は別のオブジェクトになる。名前で探して外す）
     startIndexStoreJob "delete" $item.Name "" @() {
-        $script:targetItems.Remove($script:indexJobItem) | Out-Null
+        $removed = @($script:targetItems | Where-Object { $_.Name -eq $script:indexJobName })[0]
+        if ($removed) { $script:targetItems.Remove($removed) | Out-Null }
         saveTargets
         updateIndexSourceFile
         updateIndexListView

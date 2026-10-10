@@ -91,14 +91,39 @@ Describe "getIndexStoreSourceFolderError" -Tag Unit {
     }
 }
 
-Describe "testCloseWaitsForIndexJob" -Tag Unit {
+Describe "getIndexJobCloseAction" -Tag Unit {
     It "<label>" -TestCases @(
-        @{ label = "仕事が無ければ待たない"; busy = $false; asked = $false; expected = $false }
-        @{ label = "仕事の途中の 1 回目は待つ"; busy = $true; asked = $false; expected = $true }
-        @{ label = "待っている間にもう一度閉じようとしたら待たない"; busy = $true; asked = $true; expected = $false }
+        @{ label = "仕事が無ければふつうの閉じ方に進む"; busy = $false; asked = $false; expected = "proceed" }
+        @{ label = "仕事が終わっていれば、待った印が残っていても進む"; busy = $false; asked = $true; expected = "proceed" }
+        @{ label = "仕事の途中の 1 回目は待つ"; busy = $true; asked = $false; expected = "wait" }
+        @{ label = "待っている間にもう一度閉じようとしたら確かめる"; busy = $true; asked = $true; expected = "confirm" }
     ) {
         param ($label, $busy, $asked, $expected)
-        testCloseWaitsForIndexJob $busy $asked | Should -Be $expected
+        getIndexJobCloseAction $busy $asked | Should -Be $expected
+    }
+
+    It "確認の文言を返す" {
+        $confirm = getIndexJobCloseConfirm
+        $confirm.Title | Should -Be "変更の途中です"
+        $confirm.Heading | Should -BeLike "*閉じますか*"
+        $confirm.Hint | Should -BeLike "*食い違う*"
+        $confirm.CloseText | Should -Be "待たずに閉じる"
+        $confirm.CancelText | Should -Be "終わるまで待つ"
+        $confirm.CloseValue | Should -Not -BeNullOrEmpty
+    }
+
+    It "<label>" -TestCases @(
+        @{ label = "［待たずに閉じる］なら、まだ仕事の途中でも閉じる"; answer = "close"; busy = $true; expected = "close" }
+        @{ label = "［終わるまで待つ］で、まだ仕事の途中なら閉じない"; answer = ""; busy = $true; expected = "stay" }
+        @{ label = "聞いている間に仕事が終わったなら、［終わるまで待つ］でも閉じる"; answer = ""; busy = $false; expected = "close" }
+        @{ label = "聞いている間に仕事が終わったなら、［待たずに閉じる］でも閉じる"; answer = "close"; busy = $false; expected = "close" }
+    ) {
+        param ($label, $answer, $busy, $expected)
+        getIndexJobCloseAfterConfirm $answer $busy | Should -Be $expected
+    }
+
+    It "複数削除の失敗の件数を知らせる" {
+        getBulkDeleteFailedStatus 2 | Should -Be "2 件のインデックスは削除できませんでした"
     }
 
     It "待つときの文言を返す" {

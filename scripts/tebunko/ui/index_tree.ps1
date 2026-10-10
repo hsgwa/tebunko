@@ -9,6 +9,7 @@ $ui.IndexTree.ItemsSource = $script:indexRoots
 $script:indexTreeRequest = @{ Value = 0 }   # ツリーの読み込みの依頼番号（新しい依頼が出たら、前の依頼の結果は捨てる）
 $script:indexTreeLoading = $false           # 検索対象のツリーを読み込んでいる最中か（ネットワークのとき、裏で読む間）
 $script:indexTreeConnectError = ""          # ワークスペースに接続できなかったときの、そのワークスペース（できたなら空）
+$script:indexTreeKeepStatus = $false        # 次に届くツリーの結果で、接続できない旨をステータスに書かない（先に出した失敗の知らせを残す。1 回で戻る）
 
 function loadIndexTree {
     # インデックスの一覧（getIndexTreeData）をツリーに読み込む。一番上の項目がインデックス 1 件で、
@@ -87,12 +88,16 @@ function applyIndexTreeData {
         [string[]]$expanded = @()
     )
 
+    $keepStatus = [bool]$script:indexTreeKeepStatus
+    $script:indexTreeKeepStatus = $false
     $script:indexTreeLoading = $false
     $script:indexTreeConnectError = ""
     $script:indexRoots.Clear()
     if ($data.State -eq ${pathStateUnreachable} -or $data.State -eq ${pathStateOther}) {
         $script:indexTreeConnectError = [string]$workspace.Dir
-        setStatus (getWorkspaceUnreachableText $workspace.Dir)
+        if (!$keepStatus) {
+            setStatus (getWorkspaceUnreachableText $workspace.Dir)
+        }
         updateSearchTarget
         return
     }

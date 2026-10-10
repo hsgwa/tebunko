@@ -120,6 +120,15 @@ function getIndexStoreJobFailedStatus {
     return "インデックス [${name}] の${operation}に失敗しました：${errorText}"
 }
 
+function getBulkDeleteFailedStatus {
+    # 複数削除で、閉じるのを待っていて結果のダイアログを出さないときに、失敗があったことをステータスに残す文
+    param (
+        [int]$failedCount
+    )
+
+    return "${failedCount} 件のインデックスは削除できませんでした"
+}
+
 function getIndexStoreSourceFolderError {
     # 名前の変更の裏の仕事の戻り値（@{ SourceFolderError }）から、元のフォルダの記録を書けなかった理由を取り出す（書けたなら ""）
     param (
@@ -134,16 +143,49 @@ function getIndexStoreSourceFolderError {
     return ""
 }
 
-function testCloseWaitsForIndexJob {
-    # インデックスの削除・名前の変更の途中で画面を閉じようとしたとき、終わるまで待つか（$true）。
-    # 閉じると設定への反映が抜けて、設定とインデックスのフォルダの名前が食い違うため、1 回目は待つ。
-    # 待っている間にもう一度閉じようとしたときは、利用者が閉じると決めたので待たない
+function getIndexJobCloseAction {
+    # インデックスの削除・名前の変更の途中で画面を閉じようとしたときの動き。
+    #   "wait"    … 閉じずに、終わるまで待って閉じる（1 回目。閉じると設定への反映が抜けて、設定とインデックスのフォルダの名前が食い違うため）
+    #   "confirm" … 待っている間にもう一度閉じようとした。待たずに閉じてよいかを確かめる
+    #   "proceed" … 仕事が無い。ふつうの閉じ方に進む
     param (
         [bool]$indexBusy,
         [bool]$alreadyAsked
     )
 
-    return $indexBusy -and -not $alreadyAsked
+    if (!$indexBusy) {
+        return "proceed"
+    }
+    if ($alreadyAsked) {
+        return "confirm"
+    }
+    return "wait"
+}
+
+function getIndexJobCloseConfirm {
+    # 待っている間にもう一度閉じようとしたときの確認（showConfirm に渡す文言）
+    return @{
+        Title      = "変更の途中です"
+        Heading    = "インデックスの変更の途中です。閉じますか？"
+        Hint       = "いま閉じると、設定とインデックスのフォルダの名前が食い違うことがあります。終わるまで待てば、自動で閉じます。"
+        CloseText  = "待たずに閉じる"
+        CloseValue = "close"
+        CancelText = "終わるまで待つ"
+    }
+}
+
+function getIndexJobCloseAfterConfirm {
+    # 確認から戻ったときの動き（"close" か "stay"）。聞いている間に仕事が終わったなら、答えにかかわらず閉じる
+    # （終わったときの「終わったら閉じる」は、確認の間は動かさないため）
+    param (
+        [string]$answer,
+        [bool]$indexBusy
+    )
+
+    if (!$indexBusy -or $answer -eq (getIndexJobCloseConfirm).CloseValue) {
+        return "close"
+    }
+    return "stay"
 }
 
 function getIndexJobClosingStatus {
