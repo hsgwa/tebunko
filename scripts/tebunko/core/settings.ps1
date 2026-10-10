@@ -374,7 +374,7 @@ function setIndexSourceFolder {
     # 前後を削るため同じ名前として読み戻せない。記録しない（確認の判定と食い違わせない）
     $name = [string]$name
     $folder = normalizeFolderPath $folder
-    if ($name.Trim() -eq "" -or $name -ne $name.Trim() -or $folder -eq "") {
+    if (!(testSourceNameRecordable $name) -or $folder -eq "") {
         return
     }
 

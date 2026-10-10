@@ -145,17 +145,22 @@ function testSourceNeedsConfirm {
 
 function getSourceConfirmDialog {
     # もらったインデックスの元のフォルダを確かめるダイアログの中身。
-    #   isNetwork: 元のフォルダがネットワークの場所か（真なら、接続とサインイン情報について注意を足す）
+    #   mayConnect: 元のフォルダがローカルのドライブと分からないか（真なら、接続とサインイン情報について注意を足す）
+    #   recordable: 名前を記録できるか（testSourceNameRecordable。偽なら「次からは聞きません」と言わず、毎回確かめると伝える）
     # 返すもの: @{ Heading; Title; Detail; Hint; UseText; PickText }
     param (
         [string]$book,
         [string]$name,
         [string]$folder,
-        [bool]$isNetwork
+        [bool]$mayConnect,
+        [bool]$recordable = $true
     )
 
     $hint = "［このフォルダを使う］を選ぶと、次からはこのインデックスについて聞きません"
-    if ($isNetwork) {
+    if (!$recordable) {
+        $hint = "このインデックスの名前は記録できないため、［このフォルダを使う］を選んでも、開くたびに確かめます"
+    }
+    if ($mayConnect) {
         $hint = "開くと、このフォルダに接続し、Windows のサインイン情報が送られることがあります。心当たりのない場所なら、［フォルダを選ぶ］で別のフォルダを選んでください。" + $hint
     }
     return @{

@@ -109,13 +109,23 @@ Describe "getSourceConfirmDialog / getSourceConfirmCanceledStatus" -Tag Unit {
         $dialog.PickText | Should -Be "フォルダを選ぶ"
     }
 
-    It "ネットワークの場所のときだけ、サインイン情報の注意を足す" -TestCases @(
-        @{ isNetwork = $true; expected = $true }
-        @{ isNetwork = $false; expected = $false }
+    It "ローカルのドライブと分からないときだけ、サインイン情報の注意を足す" -TestCases @(
+        @{ mayConnect = $true; expected = $true }
+        @{ mayConnect = $false; expected = $false }
     ) {
-        param ($isNetwork, $expected)
-        $dialog = getSourceConfirmDialog "a.xlsx" "受領" "\\server\share" $isNetwork
+        param ($mayConnect, $expected)
+        $dialog = getSourceConfirmDialog "a.xlsx" "受領" "\\server\share" $mayConnect
         ($dialog.Hint -like "*サインイン情報*") | Should -Be $expected
+    }
+
+    It "記録できる名前は「次からは聞きません」、記録できない名前は「開くたびに確かめます」と伝える" -TestCases @(
+        @{ recordable = $true; ask = "*次からはこのインデックスについて聞きません"; notAsk = "*開くたびに確かめます" }
+        @{ recordable = $false; ask = "*開くたびに確かめます"; notAsk = "*次からはこのインデックスについて聞きません" }
+    ) {
+        param ($recordable, $ask, $notAsk)
+        $dialog = getSourceConfirmDialog "a.xlsx" "受領" "C:\x" $false $recordable
+        $dialog.Hint | Should -BeLike $ask
+        $dialog.Hint | Should -Not -BeLike $notAsk
     }
 
     It "キャンセルの文言" {

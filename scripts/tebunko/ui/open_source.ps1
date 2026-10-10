@@ -227,7 +227,7 @@ function applySourceFileState {
 
     $window.Cursor = $null
     if ($state.State -eq ${pathStateFound}) {
-        if ($state.Alias -and $location.Name) {
+        if ($state.Alias -and (testSourceNameRecordable ([string]$location.Name))) {
             setIndexSourceFolder $location.Name $state.Alias
             $script:sourceFolderMaps = @{}
             setStatus "インデックス [$($location.Name)] の元のフォルダを $($state.Alias) に変えました"
@@ -274,7 +274,7 @@ function promptSourceConfirm {
         [string]$book
     )
 
-    $dialog = getSourceConfirmDialog $book $location.Name $location.Folder (!(testLocalDrivePath (normalizeFolderPath ([string]$location.Folder))))
+    $dialog = getSourceConfirmDialog $book $location.Name $location.Folder (!(testLocalDrivePath (normalizeFolderPath ([string]$location.Folder)))) (testSourceNameRecordable ([string]$location.Name))
     return (showConfirm -title "元のフォルダを確かめてください" -heading $dialog.Heading -hint $dialog.Hint `
         -facts @((factWarn $dialog.Title $dialog.Detail)) `
         -choices @(@{ Text = $dialog.PickText; Value = "pick" }, @{ Text = $dialog.UseText; Value = "use" }))
@@ -328,7 +328,7 @@ function promptSourceMissing {
 
         $found = findMovedSource $picked $location.Rest $book
         if ($found) {
-            if ($found.Root -and $location.Name) {
+            if ($found.Root -and (testSourceNameRecordable ([string]$location.Name))) {
                 setIndexSourceFolder $location.Name $found.Root
                 $script:sourceFolderMaps = @{}
                 setStatus "インデックス [$($location.Name)] の元のフォルダを $($found.Root) に変えました"
