@@ -355,6 +355,47 @@ function captureFailedScene {
     }
 }
 
+function captureCloudScene {
+    # index-tab/cloud-confirm（クラウドにだけあるファイルの欄を出した更新の確認と、ダウンロードの確認）。
+    # クラウドにだけあるファイルは、OFFLINE 属性を付けた写しで代わりにする（本物の OneDrive・SharePoint には触れず、ダウンロードも起きない）
+    param ($Ids, $Root, $OutDir, $UserName, $ComputerName, $UserProfile, $Sizes)
+    if ($Ids -notcontains "index-tab/cloud-confirm") { return }
+
+    $dir = Join-Path $Root "cloud"
+    $tool = newGuiTool $dir
+    $source = Join-Path (Join-Path $Root "cloud-元") "営業"
+    newGuiSourceFolder $source
+    $offline = @(Get-ChildItem -LiteralPath $source -File)
+    foreach ($file in $offline) { [IO.File]::SetAttributes($file.FullName, [IO.FileAttributes]::Offline) }
+    $config = readGuiConfig $tool
+    $config | Add-Member -NotePropertyName targetFolders -NotePropertyValue @(@{ name = "営業"; path = $source; enabled = $true }) -Force
+    writeGuiConfig $tool.Dir $config
+
+    $S = startGui $tool "cloud"
+    try {
+        invokeGuiScene $S {
+            selectGuiTab $S "IndexTab" "IndexingButton"
+            setGuiStep $S "［すべて更新］（クラウドにだけあるファイルだけ）"
+            clickGui $S $S.Window "IndexingButton" "［すべて更新］"
+            $confirm = waitGuiWindow $S "取り込みの確認" -Id "StartButton" -Timeout ${guiIndexTimeout}
+            captureGuiState -S $S -Id "index-tab/cloud-confirm" -Ids $Ids -OutDir $OutDir `
+                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($confirm)
+            # 取り込まずに閉じる（ダウンロードして取り込むチェックは付けない）
+            clickGui $S $confirm "CancelButton" "確認の［キャンセル］"
+            waitGuiWindowClosed $S $confirm "取り込みの確認"
+            # 取りやめた回が終わり、［すべて更新］が押せるようになってから閉じる（更新中のままだと、閉じる確認が出る）
+            waitGui $S "取りやめた更新が終わる" ${guiIndexTimeout} {
+                $b = findGui $S.Window -Id "IndexingButton"
+                $b.Current.IsEnabled -and $b.Current.Name -eq "すべて更新"
+            } | Out-Null
+            closeGui $S
+        }
+    } finally {
+        stopGui $S
+        foreach ($file in $offline) { [IO.File]::SetAttributes($file.FullName, [IO.FileAttributes]::Normal) }
+    }
+}
+
 function captureHeavyScene {
     # index-tab の running・stop-confirm・interrupted、settings-tab/running-warning、window/close-confirm
     param ($Ids, $Root, $OutDir, $UserName, $ComputerName, $UserProfile, $Sizes)
@@ -726,6 +767,7 @@ try {
     captureBrokenConfigScene $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureStarterScene      $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureFailedScene       $ids $root $OutDir $userName $computerName $userProfile $sizes
+    captureCloudScene        $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureHeavyScene        $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureSearchScene       $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureSettingsScene     $ids $root $OutDir $userName $computerName $userProfile $sizes

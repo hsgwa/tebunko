@@ -26,6 +26,9 @@ function newStatusRow {
 }
 
 
+# 1ファイルの取り込みの制限時間（分）。超えたらOfficeアプリを強制終了し、そのファイルは失敗とする（クラウドからのダウンロードも含む。確認の文言も同じ値を使う）
+${ingestFileTimeoutMinutes} = 10
+
 # 1行1件を保つため、タブ・改行はスペースにする（この文字を含む値だけ置き換える）
 ${statusLineBreaks} = [char[]]@("`t", "`r", "`n")
 

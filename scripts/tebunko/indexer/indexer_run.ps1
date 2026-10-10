@@ -375,10 +375,11 @@ function invokeIndexerBody {
     $reporter.Progress(${indexingPhaseCrawl}, 0, 0, 0, "インデックス作成の準備をしています…")
 
     $restartInterval = 100  # Officeアプリを再起動する間隔（取り込みのスレッドごとのファイル数）。メモリ肥大化対策（再起動 1 回で約 2 秒かかるため、間隔を詰めすぎない）
-    $fileTimeoutMinutes = 10  # 1ファイルの取り込みの制限時間（分）。超えたらOfficeアプリを強制終了し、そのファイルは失敗とする
+    $fileTimeoutMinutes = ${ingestFileTimeoutMinutes}  # 1ファイルの取り込みの制限時間（分）。超えたらOfficeアプリを強制終了し、そのファイルは失敗とする
     $approvalTimeoutMinutes = 60  # 画面の返事を待つ制限時間（分）。画面が返事をしない場合に待ち続けないよう打ち切る
     $interruptLimit = 2       # 取り込み中に続けて強制終了した回数がこれに達したファイルは、失敗として以降スキップする
     $failureListLimit = 50    # 終了時に失敗したファイルと原因を表示する最大件数（残りは取り込み一覧で確認する）
+    $cloudListLimit = 50      # クラウドにだけあるため残したファイルを、ログに 1 件ずつ書く最大件数（残りは「ほか N 件」にする）
 
     $targetFolders = @(getTargetFolders)
     if ($targetFolders.Count -eq 0) {
@@ -595,13 +596,21 @@ function invokeIndexerBody {
         foreach ($group in ($cloudSkippedItems | Group-Object { ([string]$_.RelPath).Split("\")[0] })) {
             writeIndexerLog "  [$($group.Name)] $($group.Count) 件"
         }
+        $listed = 0
         foreach ($item in $cloudSkippedItems) {
-            writeIndexerLog "    $($item.RelPath)"
+            # 大きいフォルダでは毎回この件数ぶん出るため、先頭の $cloudListLimit 件だけ書き、残りは件数にする
+            if ($listed -lt $cloudListLimit) {
+                writeIndexerLog "    $($item.RelPath)"
+                $listed++
+            }
             if ($item.PendingOld) {
                 # 前回未完了のまま残っている取り込み途中のインデックスは、使えないため消す（一覧にも行を残さない）
                 removeBookDir (getBookDir $item.RelPath)
                 $pending.Add($item.RelPath, $true)
             }
+        }
+        if ($cloudSkipped -gt $listed) {
+            writeIndexerLog "    ほか $($cloudSkipped - $listed) 件"
         }
     }
 

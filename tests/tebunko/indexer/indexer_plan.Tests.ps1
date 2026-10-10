@@ -319,7 +319,10 @@ Describe "createTargetList（クラウドにだけあるファイル）" -Tag Io
 
     It "前回未完了でクラウドにだけあれば、一覧に行を作らない（前回の取り込み途中のインデックスは、取り込みを決める側が消す）" {
         $pendingRow = newStatusRow "雲\c.xlsx" $updated $size ${stateNew}
+        [System.IO.Directory]::CreateDirectory($bookDir) | Out-Null
         $result = createTargetList $folder (newPrevious @($pendingRow)) $null
+        # ここでは消さない（消すのは取り込みを決める側。取りやめたときは残す）
+        [System.IO.Directory]::Exists($bookDir) | Should -Be $true
         $result.Rows.Count | Should -Be 0
         $result.Targets.Count | Should -Be 0
         $result.Cloud.Count | Should -Be 1

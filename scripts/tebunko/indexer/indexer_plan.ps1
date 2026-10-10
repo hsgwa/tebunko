@@ -175,6 +175,11 @@ function createTargetList {
     $targets = New-Object System.Collections.Generic.List[object]
     $failed = New-Object System.Collections.Generic.List[object]
     $cloud = New-Object System.Collections.Generic.List[object]
+    # 取り込み予定に出す、クラウドにだけあるファイルの件数と容量（取り込みの対象と、前回失敗を分けて、下のループで足す）
+    $cloudCount = 0
+    $cloudFailedCount = 0
+    [long]$cloudBytes = 0
+    [long]$cloudFailedBytes = 0
     $found = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
     $count = @{ Done = 0; New = 0; Updated = 0; Pending = 0; Lost = 0 }
 
@@ -212,6 +217,13 @@ function createTargetList {
         if (($decision.Ingest -or $decision.Reason -eq "failed") -and (testCloudOnlyAttributes ([int]$file.Attributes))) {
             $isFailed = (-not $decision.Ingest)
             $pendingOld = [bool]($old -and $old.状態 -eq ${stateNew})
+            if ($isFailed) {
+                $cloudFailedCount++
+                $cloudFailedBytes += [long]$file.Length
+            } else {
+                $cloudCount++
+                $cloudBytes += [long]$file.Length
+            }
             $cloud.Add(@{
                 RelPath    = $relPath
                 Row        = $(if ($isFailed) { $old } else { newStatusRow $relPath $updated $size ${stateNew} })
@@ -283,8 +295,6 @@ function createTargetList {
 
     $plan = newIngestPlanRow $folder.Name $folder.Path ${planKindIngest} $scan.Files.Count $targets.Count `
         $count.New $count.Updated $count.Pending $count.Lost $failed.Count `
-        @($cloud | Where-Object { -not $_.Failed }).Count @($cloud | Where-Object { $_.Failed }).Count `
-        ([long](($cloud | Where-Object { -not $_.Failed } | ForEach-Object { $_.Length } | Measure-Object -Sum).Sum)) `
-        ([long](($cloud | Where-Object { $_.Failed } | ForEach-Object { $_.Length } | Measure-Object -Sum).Sum))
+        $cloudCount $cloudFailedCount $cloudBytes $cloudFailedBytes
     return @{ Rows = $rows; Targets = $targets; Failed = $failed; Cloud = $cloud; Plan = $plan; Removed = $removed.ToArray() }
 }

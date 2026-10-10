@@ -51,7 +51,7 @@ stateDiagram-v2
 
 ## 撮る状態の一覧
 
-「遷移」は[画面遷移の一覧](../../testing/gui-smoke.md#画面のスモークテスト)の番号。計 39 枚。
+「遷移」は[画面遷移の一覧](../../testing/gui-smoke.md#画面のスモークテスト)の番号。計 40 枚。
 
 **本体・共通（`window`）**
 
@@ -80,6 +80,7 @@ stateDiagram-v2
 | `index-tab/delete-confirm` | 削除の確認 | 15 |
 | `index-tab/checked` | 行のチェックを付けた（［アクション ▾］の対象） | 16 |
 | `index-tab/start-confirm` | 更新の確認ダイアログ（件数・失敗分の更新し直し） | 17 |
+| `index-tab/cloud-confirm` | 更新の確認ダイアログ・クラウドにだけあるファイルの欄（警告とダウンロードして取り込むチェック） | 17 |
 | `index-tab/running` | 更新中（更新の帯・行の［中止］・全体の進み・ステータスバーの 1 行。［＋ フォルダを追加］と［アクション ▾］の項目が押せない） | 17・20 |
 | `index-tab/stop-confirm` | 中止の確認 | 19 |
 | `index-tab/done` | 更新が終わった（失敗なし） | 18 |

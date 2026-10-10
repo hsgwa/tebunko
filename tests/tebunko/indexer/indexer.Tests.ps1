@@ -409,6 +409,103 @@ Describe "indexer.ps1（クラウドにだけあるファイル）" -Tag Io {
             [System.IO.File]::SetAttributes($cloudFile, [System.IO.FileAttributes]::Normal)
         }
     }
+
+    # 前回未完了・前回失敗の行を持つ、クラウドにだけあるファイル（OFFLINE 属性）を作る。戻りは @{ Dir; File; Row; BookDir }
+    # （本物の OneDrive には触れず、ダウンロードも起きない）
+    BeforeAll {
+    function newCloudCase {
+        param ([string]$name, [string]$root, [string]$state)
+        $dir = Join-Path $TestDrive $name
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        $file = Join-Path $dir "議事録.docx"
+        Copy-Item -LiteralPath $docxSource -Destination $file
+        [System.IO.File]::SetAttributes($file, [System.IO.FileAttributes]::Offline)
+        writeTestSettings $root @(@{ name = "雲"; path = $dir; enabled = $true })
+        $info = Get-Item -LiteralPath $file
+        $row = newStatusRow "雲\議事録.docx" (formatFileTime $info.LastWriteTime) ([string]$info.Length) $state "" "" "" ""
+        writeStatusFile @(@{ Path = $dir; Name = "雲" }) @($row) "$root\work\ingest_status.tsv"
+        $bookDir = "$root\work\content_index\雲\議事録.docx"
+        [System.IO.Directory]::CreateDirectory($bookDir) | Out-Null
+        [System.IO.File]::WriteAllText("$bookDir\途中.tsv", "x")
+        return @{ File = $file; BookDir = $bookDir }
+    }
+    }
+
+    It "前回未完了でクラウドにだけあるファイルは、<name>" -TestCases @(
+        @{ name = "確認で取りやめたら、前回の行を残し、取り込み途中のインデックスを消さない（終わりの書き出しで集約ファイルに入る）"; mode = "cancel"; exitCode = 2; rowKept = $true; dirKept = $true }
+        @{ name = "確認でダウンロードせずに進めたら、行を作らず、取り込み途中のインデックスのフォルダを消す"; mode = "approve"; exitCode = 0; rowKept = $false; dirKept = $false }
+        @{ name = "画面なしの実行でも、行を作らず、取り込み途中のインデックスのフォルダを消す"; mode = "none"; exitCode = 0; rowKept = $false; dirKept = $false }
+    ) {
+        param ($name, $mode, $exitCode, $rowKept, $dirKept)
+        $root = newRoot
+        $case = newCloudCase "雲の未完了_$mode" $root ${stateNew}
+        try {
+            $options = @{}
+            $breaks = @()
+            if ($mode -ne "none") {
+                $options.ConfirmTargets = $true
+                $answer = @{ Script = $reporterPath; Pattern = '^\s+if \(!\$ch\.Answered\.WaitOne' }
+                $answer.Action = if ($mode -eq "cancel") { { answerIndexingPlan $channel $null } } else { { answerIndexingPlan $channel @{ RetryFailed = $false; IncludeCloud = $false } } }
+                $breaks = @($answer)
+            }
+            runIndexer $root $options $breaks | Should -Be $exitCode
+            $rows = (readTestStatus $root).Rows
+            $rows.ContainsKey("雲\議事録.docx") | Should -Be $rowKept
+            if ($rowKept) { $rows["雲\議事録.docx"].状態 | Should -Be ${stateNew} }
+            # 取り込み途中のインデックス（TSV）は、残すなら終わりの書き出しで集約ファイルに入る。消すなら、入らずにフォルダごと無くなる
+            [System.IO.Directory]::Exists($case.BookDir) | Should -Be $false
+            [System.IO.File]::Exists("$root\work\content_index\雲\content_index.docx.001.tsv") | Should -Be $dirKept
+        } finally {
+            [System.IO.File]::SetAttributes($case.File, [System.IO.FileAttributes]::Normal)
+        }
+    }
+
+    It "前回失敗でクラウドにだけあるファイルは、失敗分を更新し直す=<retry>・ダウンロードする=<include> のとき、<expect>" -TestCases @(
+        @{ retry = $false; include = $false; skipped = 0; done = $false; expect = "残す（クラウドのせいで残した件数には数えない）" }
+        @{ retry = $false; include = $true; skipped = 0; done = $false; expect = "更新し直さないので残す" }
+        @{ retry = $true; include = $false; skipped = 1; done = $false; expect = "ダウンロードせずに残す（件数に数える）" }
+        @{ retry = $true; include = $true; skipped = 0; done = $true; expect = "ダウンロードして取り込む" }
+    ) {
+        param ($retry, $include, $skipped, $done, $expect)
+        $root = newRoot
+        $case = newCloudCase "雲の失敗_${retry}_${include}" $root ${stateFailed}
+        try {
+            runIndexer $root @{ RetryFailed = $retry; IncludeCloud = $include } | Should -Be 0
+            $script:lastChannel.CloudSkipped | Should -Be $skipped
+            (readTestStatus $root).Rows["雲\議事録.docx"].状態 | Should -Be $(if ($done) { ${stateDone} } else { ${stateFailed} })
+        } finally {
+            [System.IO.File]::SetAttributes($case.File, [System.IO.FileAttributes]::Normal)
+        }
+    }
+
+    It "画面なしの実行は、設定の cloudFiles が <mode> のとき、クラウドにだけあるファイルを<expect>" -TestCases @(
+        @{ mode = "ask"; imported = $false; expect = "ダウンロードせずに残す" }
+        @{ mode = "download"; imported = $true; expect = "ダウンロードして取り込む" }
+    ) {
+        param ($mode, $imported, $expect)
+        $root = newRoot
+        $dir = Join-Path $TestDrive "雲の画面なし_$mode"
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        $file = Join-Path $dir "議事録.docx"
+        Copy-Item -LiteralPath $docxSource -Destination $file
+        [System.IO.File]::SetAttributes($file, [System.IO.FileAttributes]::Offline)
+        writeTestSettings $root @(@{ name = "雲"; path = $dir; enabled = $true })
+        writeCloudFiles $mode "$root\setting.config"
+        $global:indexerTestRoot = $root
+        $point = Set-PSBreakpoint -Script $settingsScriptPath -Line (findLine $settingsScriptPath '^\$\{settingsFile\}\s*=') -Action {
+            Set-Variable -Name rootDir -Value $global:indexerTestRoot -Scope 1
+        }
+        try {
+            $global:LASTEXITCODE = 0
+            & $indexerPath *> $null
+            $LASTEXITCODE | Should -Be 0
+            (readTestStatus $root).Rows.ContainsKey("雲\議事録.docx") | Should -Be $imported
+        } finally {
+            Remove-PSBreakpoint -Breakpoint $point
+            Remove-Variable -Name indexerTestRoot -Scope Global -ErrorAction SilentlyContinue
+            [System.IO.File]::SetAttributes($file, [System.IO.FileAttributes]::Normal)
+        }
+    }
 }
 
 Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
