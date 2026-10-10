@@ -4370,10 +4370,10 @@
 <tr>
 <td><code>OfficeWatchdog</code></td>
 <td>Office の制限時間を見張り、止まったら止める。見張りのスレッド（<code>Start</code> が <code>[PowerShell]::Create()</code> で作る別のランスペース）へは、今のまま <code>[hashtable]::Synchronized</code>（<code>State</code>）を渡す（クラスにしない）。Office が使えなくなったこと（<code>$script:officeUnavailable</code>）はツールの判断なので、クラスには入れず今の場所に残す</td>
-<td>取り込みのスレッド（Office のレーンごとに、そのスレッドで作る）</td>
+<td>読み込んだランスペースごとに 1 つ（<code>$script:officeWatchdog</code>）。見張りのスレッドを始める（<code>Start</code>）のは、Office のレーンと、スレッドを分けないときの指揮役だけ</td>
 <td>状態層（<code>shared/</code>）</td>
 <td><code>shared/office/office_app.ps1</code>（<code>indexer_lib.ps1</code> から今と同じく読む）。実装ずみ。<code>State</code>（<code>Deadline</code>・<code>Pids</code>・<code>TimedOut</code>・<code>Stop</code>）・<code>Start</code>・<code>Stop</code>・<code>UpdateWatchedPids</code>・<code>IsRunning</code>。インスタンスは、office_app.ps1 を読み込むときにランスペースごとに <code>$script:officeWatchdog</code> として 1 つ作る（読み取りのレーンも <code>State</code> を読み書きするため）。どのツールからも使う Office の部品なので <code>shared/</code> に置き、ツールを知らない</td>
-<td>実装ずみ（元は <code>$script:watchdog</code>・<code>startWatchdog</code>・<code>stopWatchdog</code>・<code>updateWatchedPids</code>）。<code>ingestWorkerScript</code> は <code>Start</code> / <code>Stop</code> を呼ぶだけ。<code>$script:officeUnavailable</code> は <code>tebunko/indexer/extract_office.ps1</code>・<code>indexer_run.ps1</code></td>
+<td>実装ずみ。<code>ingestWorkerScript</code> は <code>Start</code> / <code>Stop</code> を呼ぶだけ。<code>$script:officeUnavailable</code> は <code>tebunko/indexer/extract_office.ps1</code>・<code>indexer_run.ps1</code></td>
 <td><code>shared/office/</code> の部品（<code>office_process.ps1</code> など）だけ。ツールのものに依存しない</td>
 </tr>
 <tr>
