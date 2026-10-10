@@ -4238,6 +4238,7 @@
 </tr>
 </tbody>
 </table>
+<p><code>ZipSizeLimitException</code>（<code>System.Exception</code> を継承。<code>shared/office/office_reader.ps1</code>）は、上の表の「作って使うスレッド」の対象外（値を持たせて投げる・捕まえるだけの例外であり、インスタンスを保って使い回さない）。<code>readZipEntry</code> が ZIP の部品・1 ファイルの合計のサイズの上限を超えたときに投げ、部品名（<code>PartName</code>）・大きさ（<code>MeasuredBytes</code>）・部品ごとか合計か（<code>LimitKind</code>）を持つ。<code>.Message</code> は画面・取り込み一覧向けの簡潔な文言のままとし、この 3 つのプロパティは呼び出し元（<code>extract_office.ps1</code>・<code>indexer_run.ps1</code>）が <code>writeZipSizeLimitLog</code>（<code>indexer/indexer_state.ps1</code>）でインデックス作成のログにだけ書く（<a href="../../../safety/checks/#細工した-office-ファイルから身を守ること">細工した Office ファイルから身を守ること</a>）。</p>
 <p>refactor で作るクラス（<code>IndexCatalog</code> など）は下の「目的ごとのクラス」へ。</p>
 <p>画面層のクラス（<code>shared/ui/types.ps1</code> の <code>NotifyBase</code>・<code>ConfirmFact</code>、<code>tebunko/ui/types.ps1</code> の WPF に渡す型）は、上の表と決まりの外（画面のスレッドだけで使う）。</p>
 <p><strong>速さ</strong>（1 回あたりの時間。10 万回 × 3 回の中央値、空ループ 0.64μs を含む）</p>
