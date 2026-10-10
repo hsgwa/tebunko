@@ -12,25 +12,24 @@ Describe "終了コードの切り分け" -Tag Gui {
         $script:toolP = newGuiTool (Join-Path $TestDrive "indexP")
         removeGuiToolTrace $script:toolP
         newGuiSampleIndex $script:toolP (Join-Path $TestDrive "index_rootP")
-        $script:toolQ = newGuiTool (Join-Path $TestDrive "indexQ")
-        newGuiSampleIndex $script:toolQ (Join-Path $TestDrive "index_rootQ")
     }
 
     It "<Name>" -ForEach (@(
         if ($env:TEBUNKO_BISECT) {
             foreach ($n in 1..100) {
-                @{ Name = "P跡なし-$n"; Op = "about"; Variant = "exiting,noprod"; Kind = "P" }
-                @{ Name = "Q追記なし-$n"; Op = "about"; Variant = "exiting,notrace"; Kind = "Q" }
+                @{ Name = "R事前読みなし-$n"; Op = "about"; Variant = "exiting,noprod"; Kind = "R" }
+                @{ Name = "S事前読みあり-$n"; Op = "about"; Variant = "exiting,noprod"; Kind = "S" }
             }
         }
     ) | Where-Object { !$env:TEBUNKO_BISECT_ONLY -or $_.Name -eq $env:TEBUNKO_BISECT_ONLY }) {
-        $tool = if ($Kind -eq "P") { $script:toolP } else { $script:toolQ }
+        $tool = $script:toolP
         $env:TEBUNKO_TEST_EXIT_VARIANT = $Variant
         try {
             $S = startGui $tool $Name
         } finally {
             $env:TEBUNKO_TEST_EXIT_VARIANT = $null
         }
+        $S.SkipPreRead = ($Kind -eq "R")
         $doOp = $Op
         invokeGuiScene $S {
             if ($doOp -eq "about") {

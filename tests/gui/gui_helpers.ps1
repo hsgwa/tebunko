@@ -241,9 +241,12 @@ function closeGui {
     $pattern = $S.Window.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern)
     $S.ClosePath = New-Object System.Collections.ArrayList
     $pre = ""
-    try {
+    # 【一時】型 R は、Close の前の UIA の事前読みをしない（$S.SkipPreRead）
+    if ($S.SkipPreRead) {
+        $pre = "（事前読みなし）"
+    } else { try {
         $pre = "WindowInteractionState=" + $pattern.Current.WindowInteractionState + " IsModal=" + $pattern.Current.IsModal + " IsEnabled=" + $S.Window.Current.IsEnabled + " IsOffscreen=" + $S.Window.Current.IsOffscreen
-    } catch { $pre = "直前の状態を取れなかった: " + $_.Exception.Message }
+    } catch { $pre = "直前の状態を取れなかった: " + $_.Exception.Message } }
     $callAt = (Get-Date).ToString('HH:mm:ss.fff')
     $caught = $null
     try { $pattern.Close() } catch { $caught = $_ }
@@ -280,6 +283,10 @@ function captureGuiHangMaterial {
     }
     [void]$out.Add("---- 20 秒の時点の窓 ----")
     foreach ($l in @(getGuiWindowStates $S)) { [void]$out.Add($l) }
+    # Close を呼んだ後の、窓のハンドルの様子（事前読みにならないよう、20 秒たってから読む）
+    try {
+        [void]$out.Add("20 秒時点の窓 NativeWindowHandle=" + $S.Window.Current.NativeWindowHandle + " IsEnabled=" + $S.Window.Current.IsEnabled + " 事前読み=" + $(if ($S.SkipPreRead) { "なし(R)" } else { "あり(S)" }))
+    } catch { [void]$out.Add("20 秒時点の窓のハンドルを読めなかった（窓が無い）: " + $_.Exception.Message) }
     [void]$out.Add("---- 閉じる道の跡 ----")
     foreach ($l in @(getGuiClosePathLines $S)) { [void]$out.Add($l) }
     $cdb = $env:TEBUNKO_CDB
