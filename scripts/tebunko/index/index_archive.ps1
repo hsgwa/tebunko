@@ -335,10 +335,12 @@ function getImportArchiveInfo {
     $exists = $false
     try {
         $folder = normalizeFolderPath ([string]$info.SourceFolder)
-        if ($folder -and (testNetworkPath $folder)) {
+        if ($folder -match '^[A-Za-z]:\\' -and !(testNetworkPath $folder)) {
+            $exists = [bool](Test-Path -LiteralPath $folder -PathType Container)
+        } elseif ($folder) {
+            # ローカルのドライブと分かるときだけ調べる。ネットワークの場所や、デバイス名の形（\\.\UNC\・\\.\GLOBALROOT\ など）は
+            # 調べず「分からない」にする
             $exists = $null
-        } else {
-            $exists = [bool]($folder -and (Test-Path -LiteralPath $folder -PathType Container))
         }
     } catch {
         # 使えない文字を含むなど。無いものとして扱う

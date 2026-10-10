@@ -67,9 +67,34 @@ Describe "testSourceNeedsConfirm" -Tag Unit {
         @{ label = "元のフォルダが分からなければ確かめない"; name = "受領"; known = $false; confirmed = @(); expected = $false }
         @{ label = "名前が空なら確かめない"; name = ""; known = $true; confirmed = @(); expected = $false }
         @{ label = "確かめ済みが無ければ確かめる"; name = "受領"; known = $true; confirmed = @(); expected = $true }
+        @{ label = "見えない文字（ソフトハイフン）が混じった名前は別の名前として確かめる"; name = ("見" + [string][char]0xAD + "積"); known = $true; confirmed = @("見積"); expected = $true }
+        @{ label = "幅ゼロの文字が混じった名前は別の名前として確かめる"; name = ("見" + [string][char]0x200B + "積"); known = $true; confirmed = @("見積"); expected = $true }
+        @{ label = "全角の英字は半角の英字と別の名前として確かめる"; name = "ＡＢＣ"; known = $true; confirmed = @("abc"); expected = $true }
     ) {
         param ($name, $known, $confirmed, $expected)
         testSourceNeedsConfirm $name $known $confirmed | Should -Be $expected
+    }
+}
+
+Describe "testNameInList / testSourceReceived" -Tag Unit {
+    It "testNameInList: <label>" -TestCases @(
+        @{ label = "同じ名前"; name = "営業"; list = @("見積", "営業"); expected = $true }
+        @{ label = "大文字・小文字は区別しない"; name = "ABC"; list = @("abc"); expected = $true }
+        @{ label = "見えない文字が混じれば別の名前"; name = ("営" + [string][char]0xAD + "業"); list = @("営業"); expected = $false }
+        @{ label = "一覧が空"; name = "営業"; list = @(); expected = $false }
+    ) {
+        param ($name, $list, $expected)
+        testNameInList $name $list | Should -Be $expected
+    }
+
+    It "testSourceReceived: <label>" -TestCases @(
+        @{ label = "自分で作った名前はもらったものではない"; name = "営業"; crawled = @("営業"); expected = $false }
+        @{ label = "一覧に無い名前はもらったもの"; name = "受取"; crawled = @("営業"); expected = $true }
+        @{ label = "見えない文字が混じった名前はもらったもの"; name = ("営" + [string][char]0xAD + "業"); crawled = @("営業"); expected = $true }
+        @{ label = "名前が分からないときはもらったもの"; name = ""; crawled = @("営業"); expected = $true }
+    ) {
+        param ($name, $crawled, $expected)
+        testSourceReceived $name $crawled | Should -Be $expected
     }
 }
 

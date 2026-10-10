@@ -972,6 +972,8 @@ Describe "getImportArchiveInfo" -Tag Io {
         @{ label = "UNC"; folder = "\\server\share" }
         @{ label = "\\?\UNC\ の書き方"; folder = "\\?\UNC\server\share" }
         @{ label = "末尾に \ が付いた UNC"; folder = "\\server\share\営業\" }
+        @{ label = "\\.\UNC\ のデバイス名の書き方"; folder = "\\.\UNC\server\share" }
+        @{ label = "\\.\GLOBALROOT\ のデバイス名の書き方"; folder = "\\.\GLOBALROOT\Device\Mup\server\share" }
     ) {
         param ($folder)
         $sourceFolder = $folder

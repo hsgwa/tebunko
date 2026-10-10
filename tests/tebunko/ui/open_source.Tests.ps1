@@ -62,6 +62,7 @@ BeforeAll {
     function factNext { param([string]$title, [string]$detail) "→ ${title}" }
     function factWarn { param([string]$title, [string]$detail) "! ${title}" }
     function testNetworkPath { param([string]$path) $false }  # 既定はローカル。テストごとに Mock で切り替える
+    function normalizeFolderPath { param([string]$path) $path.Trim() }  # 前後の空白を取るだけの代わり（本物は shared\core\folder.ps1）
     function startJob {
         # 画面の裏の仕事（BackgroundQueue）の代わりに、その場で実行して結果を渡す。
         # 返すまでの間に選択が変わった場合を試すため、$fake.BeforeDone があれば結果を渡す前に呼ぶ
@@ -625,7 +626,6 @@ Describe "openSource" -Tag Unit {
         $script:statuses = New-Object System.Collections.Generic.List[string]
         $script:openMode = $null
         Mock getConfirmedSourceNames { @{ Confirmed = @("営業"); Crawled = @("営業") } }
-        Mock findSourceLocationInMaps { @{ Resolved = $true; Location = @{ Name = "営業" } } }
     }
 
     It "元のファイルが見つからなければ開かない" {
@@ -835,6 +835,46 @@ Describe "findSourceFile（もらったインデックスの元のフォルダ�
         Should -Invoke showConfirm -Times 1 -Exactly
         $script:foundPaths.Count | Should -Be 2
     }
+
+    It "前後に空白のある共有フォルダの書き方でも、サインイン情報の注意を添える（整えてから共有フォルダか調べる）" {
+        Mock getSourceLocation { @{ Name = "受取"; Folder = " \\host\share\営業 "; Rest = "sub"; Known = $true } }
+
+        findSourceFile (newRow) { param ($path) }
+
+        $script:hints[0] | Should -Match "サインイン情報"
+    }
+
+    It "確認で <answer> を選んだら、変えていたカーソルを戻す" -TestCases @(
+        @{ answer = $null }
+        @{ answer = "pick" }
+    ) {
+        param ($answer)
+        $script:answer = $answer
+        Mock showConfirm { $script:answer }
+        Mock selectFolder { $null }
+        $window.Cursor = [System.Windows.Input.Cursors]::AppStarting
+
+        findSourceFile (newRow) { param ($path) }
+
+        $window.Cursor | Should -Be $null
+    }
+
+    It "確かめている間に別の行の確認をキャンセルしたら、前の行の結果は捨てて開かない" {
+        $script:confirmedNow = @("営業", "受取")
+        Mock showConfirm { $null }
+        $fake.BeforeDone = {
+            # 前の行を裏で確かめている間に、確認が要る別の行を開いてキャンセルする
+            $fake.BeforeDone = $null
+            $script:confirmedNow = @("営業")
+            findSourceFile (newRow "別.xlsx") { param ($path) $script:foundPaths.Add("別:$path") }
+        }
+
+        findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
+
+        $script:foundPaths.Count | Should -Be 0
+        lastStatus | Should -Be (getSourceConfirmCanceledStatus)
+        $script:openSourcePendingRow.Value | Should -Be $null
+    }
 }
 
 Describe "openSource（もらったインデックスのマクロを持てる形式）" -Tag Unit {
@@ -843,12 +883,11 @@ Describe "openSource（もらったインデックスのマクロを持てる形
         $script:openMode = $null
         $script:indexName = "受取"
         Mock getConfirmedSourceNames { @{ Confirmed = @("営業"); Crawled = @("営業") } }
-        Mock findSourceLocationInMaps { @{ Resolved = $true; Location = @{ Name = $script:indexName } } }
     }
 
     It "もらったインデックスの .xlsm は、通常の開き方でも読み取り専用で開き、知らせを添える" {
         Mock getCurrentHitRow { newRow "マクロ.xlsm" }
-        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\マクロ.xlsm" }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\マクロ.xlsm" $script:indexName }
         Mock openInExcel { }
 
         openSource ${openModeNormal}
@@ -860,7 +899,7 @@ Describe "openSource（もらったインデックスのマクロを持てる形
     It "自分で作ったインデックスの .xlsm は、選んだ開き方のまま" {
         $script:indexName = "営業"
         Mock getCurrentHitRow { newRow "マクロ.xlsm" }
-        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\マクロ.xlsm" }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\マクロ.xlsm" $script:indexName }
         Mock openInExcel { }
 
         openSource ${openModeNormal}
@@ -871,7 +910,7 @@ Describe "openSource（もらったインデックスのマクロを持てる形
 
     It "もらったインデックスでも、マクロを持てない形式（.xlsx）は選んだ開き方のまま" {
         Mock getCurrentHitRow { newRow "見積.xlsx" }
-        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\見積.xlsx" }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\見積.xlsx" $script:indexName }
         Mock openInExcel { }
 
         openSource ${openModeNew}
@@ -882,7 +921,7 @@ Describe "openSource（もらったインデックスのマクロを持てる形
 
     It "もらったインデックスの .docm は、読み取り専用で開き、開けなければ通常には落とさず開かない" {
         Mock getCurrentHitRow { newRow "報告.docm" $false }
-        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\報告.docm" }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\報告.docm" $script:indexName }
         Mock openWithShell { $false }
 
         openSource ${openModeNormal}
@@ -893,7 +932,7 @@ Describe "openSource（もらったインデックスのマクロを持てる形
 
     It "もらったインデックスの .docm を読み取り専用で開けたら、知らせを添える" {
         Mock getCurrentHitRow { newRow "報告.docm" $false }
-        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\報告.docm" }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\報告.docm" $script:indexName }
         Mock openWithShell { $true }
 
         openSource ${openModeNew}
@@ -903,7 +942,7 @@ Describe "openSource（もらったインデックスのマクロを持てる形
 
     It "Excel を操作できなくても、もらったインデックスの .xlsm は通常の開き方には落とさない" {
         Mock getCurrentHitRow { newRow "マクロ.xlsm" }
-        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\マクロ.xlsm" }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\マクロ.xlsm" $script:indexName }
         Mock openInExcel { throw "ダイアログを表示中" }
         Mock openWithShell { $false }
 
@@ -916,13 +955,50 @@ Describe "openSource（もらったインデックスのマクロを持てる形
     It "自分で作ったインデックスの .docm は、これまでどおり開けなければ元のファイルを開く" {
         $script:indexName = "営業"
         Mock getCurrentHitRow { newRow "報告.docm" $false }
-        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\報告.docm" }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\報告.docm" $script:indexName }
         Mock openWithShell { $false }
 
         openSource ${openModeReadOnly}
 
         Should -Invoke openWithShell -Times 1 -Exactly -ParameterFilter { -not [bool]$noFallback }
         lastStatus | Should -Be "読み取り専用で開けなかったため、元のファイルを開きました：C:\data\報告.docm"
+    }
+
+    It "インデックスの名前に見えない文字が混じっていれば、自分で作った名前とは別物（もらったインデックス）として読み取り専用で開く" {
+        $script:indexName = "営" + [string][char]0xAD + "業"
+        Mock getCurrentHitRow { newRow "マクロ.xlsm" }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\マクロ.xlsm" $script:indexName }
+        Mock openInExcel { }
+
+        openSource ${openModeNormal}
+
+        Should -Invoke openInExcel -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeReadOnly} }
+    }
+
+    It "インデックスの名前が渡されないときも、もらったインデックスとして読み取り専用で開く" {
+        Mock getCurrentHitRow { newRow "マクロ.xlsm" }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\マクロ.xlsm" }
+        Mock openInExcel { }
+
+        openSource ${openModeNormal}
+
+        Should -Invoke openInExcel -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeReadOnly} }
+    }
+}
+
+Describe "setExcelAutomationSecurity" -Tag Unit {
+    It "設定して、前の値を返す" {
+        $excel = [pscustomobject]@{ AutomationSecurity = 1 }
+
+        setExcelAutomationSecurity $excel 2 | Should -Be 1
+        $excel.AutomationSecurity | Should -Be 2
+    }
+
+    It "設定できなければ例外を投げる（マクロが動く設定のまま開かない）" {
+        $excel = New-Object PSObject
+        $excel | Add-Member ScriptProperty AutomationSecurity { 1 } { throw "設定できません" }
+
+        { setExcelAutomationSecurity $excel 2 } | Should -Throw "*設定できません*"
     }
 }
 

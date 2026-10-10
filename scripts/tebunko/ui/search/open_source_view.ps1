@@ -89,8 +89,40 @@ function getSourceConnectFailureDialog {
 
 # ---- もらったインデックスの元のフォルダを確かめる ----
 
-# マクロ（ファイルの中に仕込まれたプログラム）を持てる形式。もらったインデックスのものは、読み取り専用で開く
+# マクロ（ファイルの中に仕込まれたプログラム）を持てる形式。もらったインデックスのものは、読み取り専用で開く。
+# 取り込みの対象の拡張子（${officeExtensions}）のうち、マクロを持てるものを全部入れる（.xltm・.dotm などは取り込みの対象外のため入れない）
 ${macroCapableExtensions} = @(".xlsm", ".xlsb", ".xls", ".docm", ".doc", ".pptm", ".ppt")
+
+function testNameInList {
+    # name が list のどれかと等しいか。大文字・小文字を区別せず、文字の並びそのもので比べる（OrdinalIgnoreCase。
+    # PowerShell の -ieq・-contains はカルチャに従い、ソフトハイフンなどの見えない文字を無視して一致してしまう。
+    # 設定の名前の辞書（source_map.ps1）と同じ比べ方にそろえる）
+    param (
+        [string]$name,
+        [string[]]$list = @()
+    )
+
+    foreach ($item in @($list)) {
+        if ([string]::Equals($item, $name, [System.StringComparison]::OrdinalIgnoreCase)) {
+            return $true
+        }
+    }
+    return $false
+}
+
+function testSourceReceived {
+    # もらったインデックス（このワークスペースで自分が作ったのではないもの）か。名前が分からないときも、もらったものとして扱う。
+    #   crawledNames: 自分で作ったインデックスの名前（設定の targetFolders）
+    param (
+        [string]$name,
+        [string[]]$crawledNames = @()
+    )
+
+    if ($name -eq "") {
+        return $true
+    }
+    return !(testNameInList $name $crawledNames)
+}
 
 function testSourceNeedsConfirm {
     # 元のフォルダに触れる前に、利用者に確かめるかを返す。
@@ -105,12 +137,7 @@ function testSourceNeedsConfirm {
     if (!$known -or $name -eq "") {
         return $false
     }
-    foreach ($confirmed in @($confirmedNames)) {
-        if ($confirmed -ieq $name) {
-            return $false
-        }
-    }
-    return $true
+    return !(testNameInList $name $confirmedNames)
 }
 
 function getSourceConfirmDialog {
@@ -156,7 +183,7 @@ function getSourceOpenMode {
     )
 
     $extension = [System.IO.Path]::GetExtension($book).ToLowerInvariant()
-    if (!$received -or ${macroCapableExtensions} -notcontains $extension) {
+    if (!$received -or !(testNameInList $extension ${macroCapableExtensions})) {
         return @{ Mode = $mode; Notice = ""; Strict = $false }
     }
     $notice = ""

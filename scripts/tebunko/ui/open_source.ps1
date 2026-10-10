@@ -141,6 +141,11 @@ function continueFindSourceFile {
 
     $book = $row.Book
 
+    # 見つけたときの続きには、パスに加えてインデックスの名前も渡す（もらったインデックスかをキャッシュから引き直さないため）
+    $foundInner = $onFound
+    $locationName = [string]$location.Name
+    $onFound = { param ($path) & $foundInner $path $locationName }.GetNewClosure()
+
     # 呼ぶ関数は変数で捕まえてから閉じ込める（スクリプトブロックの中で名前のまま呼ぶと、遠く離れたスレッド・
     # タイマーから呼ばれたときに見つからないことがあるため）
     $applyState = ${function:applySourceFileState}
@@ -170,6 +175,7 @@ function continueFindSourceFile {
         # 設定に無い名前（content_index\ に手でコピーしたインデックス）の元のフォルダは、持ち主が書いたもの。
         # 元のフォルダに触れる前（有無の確認・ネットワークへの接続の前）に利用者に確かめる
         $answer = promptSourceConfirm $location $book
+        $window.Cursor = $null
         if ($answer -eq "pick") {
             $path = joinSourcePath $location.Folder $location.Rest $book
             $relPath = if ($location.Rest) { "$($location.Rest)\$book" } else { $book }
@@ -266,7 +272,7 @@ function promptSourceConfirm {
         [string]$book
     )
 
-    $dialog = getSourceConfirmDialog $book $location.Name $location.Folder (testNetworkPath $location.Folder)
+    $dialog = getSourceConfirmDialog $book $location.Name $location.Folder (testNetworkPath (normalizeFolderPath ([string]$location.Folder)))
     return (showConfirm -title "元のフォルダを確かめてください" -heading $dialog.Heading -hint $dialog.Hint `
         -facts @((factWarn $dialog.Title $dialog.Detail)) `
         -choices @(@{ Text = $dialog.PickText; Value = "pick" }, @{ Text = $dialog.UseText; Value = "use" }))
@@ -384,6 +390,19 @@ function openWithNotepad {
     }
 }
 
+function setExcelAutomationSecurity {
+    # Excel のマクロの扱い（AutomationSecurity）を設定し、前の値を返す。設定できなければ例外のまま外へ出す
+    # （マクロが動く設定のまま開かないため。呼ぶ側が、ファイルを開くだけの道に切り替える）
+    param (
+        $excel,
+        [int]$value
+    )
+
+    $previous = $excel.AutomationSecurity
+    $excel.AutomationSecurity = $value
+    return $previous
+}
+
 function openInExcel {
     # 表示中の Excel（無ければ新しく起動）でブックを開き、該当シートの該当セルを選択する。
     # 開き方（mode）: 通常 = そのまま開く / 読み取り専用 = ReadOnly で開く /
@@ -413,13 +432,8 @@ function openInExcel {
 
     # プログラムから開いたときの Excel の既定はマクロ有効のため、開く間だけ Excel の設定に従う（msoAutomationSecurityByUI = 2。
     # 既定ではマクロを止めて警告する）にし、開き終えたら元の値に戻す（使っていた Excel の設定を変えたままにしない）
-    $previousSecurity = $null
-    try {
-        $previousSecurity = $excel.AutomationSecurity
-        $excel.AutomationSecurity = 2
-    } catch {
-        $previousSecurity = $null
-    }
+    # 設定できなければ例外のまま外へ出し、開かない（マクロが動く設定のまま開かないため。呼ぶ側が、ファイルを開くだけの道に切り替える）
+    $previousSecurity = setExcelAutomationSecurity $excel 2
     $book = $null
     try {
         if ($mode -eq ${openModeNew}) {
@@ -439,9 +453,7 @@ function openInExcel {
             }
         }
     } finally {
-        if ($null -ne $previousSecurity) {
-            try { $excel.AutomationSecurity = $previousSecurity } catch { }
-        }
+        try { $excel.AutomationSecurity = $previousSecurity } catch { }
     }
     $book.Activate()
 
@@ -581,8 +593,8 @@ function openSource {
     # 呼ぶ関数は変数で捕まえてから閉じ込める（findSourceFile の $apply と同じ理由）
     $openFound = ${function:openFoundSource}
     findSourceFile $row {
-        param ($path)
-        & $openFound $path $row $mode
+        param ($path, $name)
+        & $openFound $path $row $mode $name
     }.GetNewClosure()
 }
 
@@ -591,13 +603,12 @@ function openFoundSource {
     param (
         [string]$path,
         $row,
-        [string]$mode
+        [string]$mode,
+        [string]$indexName = ""   # 元のファイルを見つけたインデックスの名前（findSourceFile が渡す）
     )
 
     # もらったインデックス（このワークスペースで自分が作ったのではないもの）のマクロを持てる形式は、読み取り専用で開く
-    $found = findSourceLocationInMaps $row $script:sourceFolderMaps
-    $crawled = @((getConfirmedSourceNames).Crawled)
-    $received = !($found.Resolved -and ($crawled -contains $found.Location.Name))
+    $received = testSourceReceived $indexName @((getConfirmedSourceNames).Crawled)
     $openMode = getSourceOpenMode $path $mode $received
     $mode = $openMode.Mode
     $strict = $openMode.Strict
