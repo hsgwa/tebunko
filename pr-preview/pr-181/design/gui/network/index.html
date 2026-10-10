@@ -27,7 +27,7 @@
     
     
       
-        <title>元のフォルダ・元のファイルがネットワークにあるとき - tebunko</title>
+        <title>元のフォルダ・元のファイル・ワークスペースがネットワークにあるとき - tebunko</title>
       
     
     
@@ -74,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#元のフォルダ元のファイルがネットワークにあるとき" class="md-skip">
+        <a href="#元のフォルダ元のファイルワークスペースがネットワークにあるとき" class="md-skip">
           コンテンツにスキップ
         </a>
       
@@ -107,7 +107,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              元のフォルダ・元のファイルがネットワークにあるとき
+              元のフォルダ・元のファイル・ワークスペースがネットワークにあるとき
             
           </span>
         </div>
@@ -2948,6 +2948,24 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    元のフォルダ・元のファイル・ワークスペースがネットワークにあるとき
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -2955,7 +2973,7 @@
   <span class="md-ellipsis">
     
   
-    元のフォルダ・元のファイルがネットワークにあるとき
+    元のフォルダ・元のファイル・ワークスペースがネットワークにあるとき
   
 
     
@@ -2964,6 +2982,36 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="目次">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#ワークスペースがネットワークにあるとき" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ワークスペースがネットワークにあるとき
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -4004,6 +4052,25 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#ワークスペースがネットワークにあるとき" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ワークスペースがネットワークにあるとき
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -4022,8 +4089,8 @@
   
 
 
-<h1 id="元のフォルダ元のファイルがネットワークにあるとき">元のフォルダ・元のファイルがネットワークにあるとき<a class="headerlink" href="#元のフォルダ元のファイルがネットワークにあるとき" title="Permanent link">&para;</a></h1>
-<p>扱うこと: 元のフォルダ・元のファイルが UNC パス・ネットワークドライブにあるときに、画面が固まらないように確かめる仕組み。扱わないこと: 元のファイルを開く処理そのもの（<a href="../open-file/">元のファイルを開く</a>）。先に読むページ: <a href="../open-file/">元のファイルを開く</a>。</p>
+<h1 id="元のフォルダ元のファイルワークスペースがネットワークにあるとき">元のフォルダ・元のファイル・ワークスペースがネットワークにあるとき<a class="headerlink" href="#元のフォルダ元のファイルワークスペースがネットワークにあるとき" title="Permanent link">&para;</a></h1>
+<p>扱うこと: 元のフォルダ・元のファイル・ワークスペースが UNC パス・ネットワークドライブにあるときに、画面が固まらないように確かめる仕組み。扱わないこと: 元のファイルを開く処理そのもの（<a href="../open-file/">元のファイルを開く</a>）。先に読むページ: <a href="../open-file/">元のファイルを開く</a>。</p>
 <p>元のフォルダが UNC パス（<code>\\server\share\…</code>）・ネットワークドライブにあると、届かない共有（VPN の切断・サーバーの停止）では <code>Test-Path</code> などの OS の呼び出しが十数秒〜二十秒戻らず、画面のスレッドで確かめると「応答なし」になる（<a href="../../structure/threads/#スレッドの一覧">スレッドの一覧</a>）。このため、ネットワークのパスかどうかを <code>testNetworkPath</code> で共有に接続せずに見分け、ネットワークのパスだけを裏のスレッド（<code>startJob -queue "network"</code>。<a href="../responsiveness/">別スレッドとタイマーの扱い</a>）で <code>findSourceFileState</code> に確かめさせる。ローカルのパスは今までどおり画面のスレッドでその場で確かめ、速さは変わらない。</p>
 <pre class="mermaid"><code>flowchart TD
     A["元のファイルを開く"] --&gt; N{"元のフォルダは&lt;br&gt;ネットワークのパス？&lt;br&gt;（testNetworkPath）"}
@@ -4047,6 +4114,59 @@
 <li><strong>その他のときのダイアログ</strong>: 知らせは <code>✗ 元のファイルを確かめられませんでした</code>（例外の文面）＋ <code>→ アクセスの権限・サインインを確かめてください</code>。ステータスは <code>元のファイルを確かめられませんでした：&lt;例外の文面&gt;</code>。</li>
 <li><strong>ローカルのパスには別名が無いため、ローカルのときは <code>getDriveTargets</code>（CIM）を呼ばない。</strong> ネットワークのパスで別名（ネットワークドライブ⇔UNC）を調べるときだけ、ドライブの割り当てを照会する（キャッシュが空なら裏のスレッドで照会してよい）。</li>
 <li><strong>更新に失敗したファイルのダブルクリック</strong>（<a href="../index-tab/">インデックス一覧の管理</a>の一覧）も同じ形にする。ステータスは <code>元のファイルを確かめています…：&lt;パス&gt;</code>、接続できないときは <code>元のフォルダに接続できません：&lt;パス&gt;</code>（見つからないときの文言とは別にする）。</li>
+</ul>
+<h2 id="ワークスペースがネットワークにあるとき">ワークスペースがネットワークにあるとき<a class="headerlink" href="#ワークスペースがネットワークにあるとき" title="Permanent link">&para;</a></h2>
+<p>ワークスペース（インデックス・取り込み一覧・ログの置き場所）が UNC パス・ネットワークドライブにあるときも、届かない共有で画面が固まらないようにする。画面のスレッドは、ワークスペースの中のファイル・フォルダに触らない。判定は同じ <code>testNetworkPath</code>（共有に接続せず、文字列だけで見分ける）で、ローカルのワークスペースは今までどおり画面のスレッドでその場で行う。</p>
+<ul>
+<li><strong>列の選び方は <code>getWorkspaceJobQueue</code></strong>（<code>core/workspace.ps1</code>）の 1 つだけ。渡した場所（ワークスペース・インデックスのフォルダ・元のフォルダ・Office の記録の置き場所・書き出し先など。複数でもよい）に 1 つでもネットワークのパスがあれば <code>"network"</code>、無ければ <code>"default"</code> を返す。ワークスペースの中に触る仕事（取り込みの状態・件数の集計、削除・名前の変更、エクスポート・インポート、高速検索の確かめを含む）は <code>startJob</code> にこの列を渡し、元のフォルダの確かめと同じネットワークを調べる列で動かす。<code>"network"</code> の文字を直接書かない。</li>
+<li><strong>ネットワークのワークスペースで裏に出す操作</strong></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>操作</th>
+<th>裏で行うこと</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>起動・ワークスペースの切り替え</td>
+<td>前の版のインデックスの有無を調べ、あれば分かったときにステータスへ出す（<code>refreshLegacyIndexMessage</code>）。起動時の画面は、中身を調べずに［検索］を開く（<code>testStartupIndexExists</code>）</td>
+</tr>
+<tr>
+<td>検索対象のツリー（［検索］の左の欄）</td>
+<td>インデックスの一覧・フォルダの子を読む（<code>loadIndexTree</code>・<code>expandIndexNode</code>）。読み込み中は検索できず、届かなければ「ワークスペースに接続できません」を見出しと欄に出す</td>
+</tr>
+<tr>
+<td>インデックス一覧の読み込み</td>
+<td>名前の決まっていないインデックスへの名前の割り当て（<code>loadTargets</code>）</td>
+</tr>
+<tr>
+<td>インデックスの名前の変更・削除</td>
+<td>改名・削除と、取り込み一覧・設定の書き換え（<code>startIndexStoreJob</code>）。終わるまで他の操作を止める</td>
+</tr>
+<tr>
+<td>元のフォルダの記録（<code>source_folder.txt</code>）の書き直し</td>
+<td><code>updateIndexSourceFile</code></td>
+</tr>
+<tr>
+<td>検索結果から元のファイルを開く</td>
+<td>元のファイルの場所の記録を読む（<code>getSourceLocation</code>）</td>
+</tr>
+<tr>
+<td>インデックス作成の開始</td>
+<td>始める前にワークスペースが届くかと前の版のインデックスの有無を確かめる（<code>startIndexing</code>）。届かなければ始めない</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>名前の変更・削除の進み方</strong>: 改名の仕事は、インデックスのフォルダの改名・取り込み一覧の書き換え・元のフォルダの記録の書き直しをまとめて行い、結果を分けて返す。元のフォルダの記録だけが書けなかったときは、改名の失敗にせず、書けなかったことだけをステータスに出す。仕事の先頭でワークスペースに届くかを確かめ（<code>assertWorkspaceReachable</code>。届かない・確かめられないときは例外にする。まだ無いだけなら続ける）、届かなければ何もせずに失敗として返す（設定だけが変わらないように。一覧は保存済みの内容に戻し、削除は一覧にも残す）。仕事の間にウィンドウを閉じようとしたら、1 回目は閉じずに終わりを待ち、終わってから閉じる。待っている間にもう一度閉じようとしたときは、確認のダイアログ（［待たずに閉じる］／［終わるまで待つ］）を出す（ステータスの 1 行は他の表示で消えるため。動きの分岐は <code>getIndexJobCloseAction</code>・<code>getIndexJobCloseAfterConfirm</code>）。確認は閉じる処理の途中のモーダルなので、聞いている間に仕事が終わっても、その場では閉じず（閉じ途中の窓に閉じる指示を出さないため）、確認から戻ったときに、答えにかかわらず閉じる。［待たずに閉じる］で閉じたあとの状態は、<a href="../../structure/closing/">閉じるときの順番</a>にある。失敗の知らせは、そのあとの検索対象のツリーの読み直しの結果（届かないときの「接続できません」）で上書きしない（<code>refreshIndexViewsKeepingStatus</code>。接続できない旨は検索対象の欄に出る）。複数削除の結果のダイアログは、閉じるのを待っているときは出さずに閉じる（失敗があればステータスに残す）。インデックス名の割り当て（<code>loadTargets</code>）の間は、追加・削除・名前の変更・作成の開始を止める（設定の保存で、まだ一覧に出ていないインデックスが消えないように）。</li>
+<li><strong>記録の書き直しと画面の読み直しの順</strong>: 追加・変更・削除で <code>updateIndexSourceFile</code>（裏）を出したあと、<code>refreshIndexViews</code> はその終わりを待たずに続ける。画面が読み直すのは一覧・件数・状態で、元のフォルダの記録は元のファイルを開くときに読み直す（<code>$script:sourceFolderMaps</code> を捨てて、次に開くときに読む）ため、順が前後しても結果は変わらない。</li>
+<li><strong>検索結果から開く・パスをコピーは、依頼の番号を別にする</strong>（<code>openSourceRequest</code>・<code>copySourceRequest</code>）。一方の依頼が、もう一方の結果を黙って捨てない。検索し直し・ワークスペースの変更では両方を捨てる。</li>
+<li><strong>待っている間は、ステータスにその旨を出す</strong>（例: <code>インデックス名を決めています…（共有フォルダに接続できないときは、しばらくかかります）</code>）。画面は操作できる。操作を止めるのは、書き込む仕事（名前の変更・削除・作成の開始）の間だけで、止めている間の表示は <code>getIndexJobBlocker</code> が決める（<code>削除・名前の変更中</code>）。</li>
+<li><strong>待っている間にワークスペースを切り替えたら、前の依頼の結果は捨てる</strong>（依頼に番号を付け、最後の依頼だけを反映する）。</li>
+<li><strong>画面のスレッドに残すもの</strong>: 利用者が今選んだフォルダ（［変更…］で選んだ先）への操作と、ワークスペースの中身を移す処理（<code>applyWorkspace</code>・<code>moveWorkspace</code>）、まれなエラーログの書き込み（<code>writeErrorLog</code>）。選んだ直後のフォルダは届くと分かっているため、また、落ちる前に確実に残す必要があるため。</li>
+<li><strong>見落としを防ぐ検査</strong>: <code>tests/meta/ui_thread_io.Tests.ps1</code> が、状態層の関数・クラスのメソッドのうちファイル・フォルダに触るもの（それを呼ぶものも、たどって）を自動で見つけ、画面のスレッドで動く呼び出し（<code>startJob</code> の仕事のスクリプトブロックの外）を一覧にある理由付きのものだけに限る。状態層に新しく触る関数を足しても、画面から呼べば検査が落ちる（<a href="../../structure/threads/#スレッドの一覧">スレッドの一覧</a>）。見つけられるのは関数の呼び出しと、メソッド名が状態層のクラスのメソッドと同じ呼び出しまで。型の変換（キャスト）のあとのインスタンスのメソッドやプロパティ経由の呼び出しは見つけられないので、レビューで確かめる。列の名前を <code>startJob</code> に文字列の <code>"network"</code> で直接書くことも、同じ検査が落とす。</li>
 </ul>
 
 

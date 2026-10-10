@@ -2944,7 +2944,7 @@
   <span class="md-ellipsis">
     
   
-    元のフォルダ・元のファイルがネットワークにあるとき
+    元のフォルダ・元のファイル・ワークスペースがネットワークにあるとき
   
 
     
@@ -4697,6 +4697,22 @@
 <td>インデックスの一覧（<code>work\content_index</code> 直下のフォルダ 1 つがインデックス 1 つ）。並びは［インデックス管理］の一覧と同じで、一覧に無いもの（コピーしたインデックスなど）は名前順で後ろ。<code>SourcePath</code> は元のフォルダ（分からなければ空）</td>
 <td><a href="../../search/#インデックスの一覧getsearchindexes">インデックスの一覧</a></td>
 <td>画面（検索対象のツリー）</td>
+</tr>
+<tr>
+<td><code>getIndexTreeData</code></td>
+<td>dir, paths（展開・チェックを外したフォルダ）</td>
+<td><code>@{State; Message; Root; Sources; ...}</code></td>
+<td>検索対象ツリーの材料（ワークスペースの状態・インデックスの一覧・展開したフォルダの子）を 1 回で集める。ワークスペースがネットワークにあるときの裏の仕事で呼ぶ（届かなければ State と Message で知らせる）</td>
+<td><a href="../../gui/search-tree/">検索対象のツリー</a></td>
+<td>画面（検索対象のツリー）</td>
+</tr>
+<tr>
+<td><code>getIndexFolderChildren</code></td>
+<td>dir</td>
+<td><code>@{HasFiles; Folders; Error}</code></td>
+<td>インデックスのフォルダの子（本のフォルダを除いた名前順）。読めなければ Error に文面を入れる</td>
+<td>同上</td>
+<td>画面（ツリーの展開）</td>
 </tr>
 </tbody>
 </table>
