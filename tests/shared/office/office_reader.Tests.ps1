@@ -311,10 +311,39 @@ Describe "writeUnits" -Tag Io {
 
         # ファイル名はフォルダ名（インデクサが作業フォルダから移す先）になるため、TSVの名前は場所だけ
         writeUnits $units $outDir | Should -Be 2
-        [System.IO.File]::ReadAllText("$outDir\ページ001.tsv") | Should -Be "a`tb`r`n"
-        Test-Path -LiteralPath "$outDir\ページ002.tsv" | Should -Be $false
-        # 場所の _ は符号化する（toIndexFileName）
-        Test-Path -LiteralPath "$outDir\スライド001%5Fノート.tsv" | Should -Be $true
+        [System.IO.File]::ReadAllText("$outDir\page_001.tsv") | Should -Be "a`tb`r`n"
+        Test-Path -LiteralPath "$outDir\page_002.tsv" | Should -Be $false
+        # 固定名に当てはまる場所は英語の固定名にする（toIndexFileName）
+        Test-Path -LiteralPath "$outDir\slide_001_notes.tsv" | Should -Be $true
+    }
+
+    It "testdata の docx・pptx すべてで、出力するファイル名がASCIIになる（再発防止。場所や種類を足して英語の名前を忘れると、ここで落ちる）" {
+        $root = [System.IO.Path]::GetFullPath("$PSScriptRoot\..\..\testdata\office")
+        $files = @(Get-ChildItem -Path $root -Recurse -File -Include "*.docx", "*.pptx")
+        $files.Count | Should -BeGreaterThan 0
+
+        $checked = 0
+        foreach ($file in $files) {
+            $units = $null
+            try {
+                $units = $(if ($file.Extension -ieq ".docx") { readDocxUnits $file.FullName } else { readPptxUnits $file.FullName })
+            } catch {
+                continue
+            }
+            if ($null -eq $units -or $units.Count -eq 0) {
+                continue
+            }
+
+            $sweepDir = "$TestDrive\ascii_sweep\$([Guid]::NewGuid().ToString('N'))"
+            [System.IO.Directory]::CreateDirectory($sweepDir) | Out-Null
+            writeUnits $units $sweepDir | Out-Null
+            foreach ($written in Get-ChildItem -Path $sweepDir -File) {
+                $written.Name | Should -Match "^[\x20-\x7E]+$"
+            }
+            $checked++
+        }
+
+        $checked | Should -BeGreaterThan 0
     }
 }
 
@@ -546,6 +575,178 @@ Describe "readXlsxObjectUnits（グラフ・SmartArt・グラフシート）" -T
     It "図形の部品自身のリレーションシップ（drawingN.xml.rels）が壊れていても、そのグラフだけを空にし、ほかの図形は出す" {
         @($units["壊れたrels[図形]"]) -join "|" | Should -Be "A6`t壊れたrelsでも出る図形"
         @($failures) | Should -Be @("xl/charts/broken.xml", "xl/drawings/drawing4.xml")
+    }
+}
+
+Describe "getHeaderFooterLines" -Tag Unit {
+    It "<Name>" -TestCases @(
+        @{ Name = "左・中央・右を、この順の 3 行にする"; Code = '&L左&C中&R右'; Expected = "左|中|右" }
+        @{ Name = "区切りが無いときは中央 1 行"; Code = '中央だけ'; Expected = "中央だけ" }
+        @{ Name = "&& は & 1 文字"; Code = '&L会社&&部'; Expected = "会社&部" }
+        @{ Name = "ページ番号・総ページ・ページの加減を取り除く"; Code = '&C&P / &N ページ'; Expected = "/  ページ" }
+        @{ Name = "&P+1 の数字も取り除く"; Code = '&C&P+1 &P-2ページ'; Expected = "ページ" }
+        @{ Name = "日付・時刻・パス・ファイル名・シート名・画像は文字にしない"; Code = '&L&D &T&C&Z&F&R&A&G'; Expected = "" }
+        @{ Name = "フォントと文字の大きさを取り除く"; Code = '&C&"ＭＳ ゴシック,太字"&12見出し'; Expected = "見出し" }
+        @{ Name = "大きさの後のスペースは、前後の空白として落とす"; Code = '&C&11 2024年度'; Expected = "2024年度" }
+        @{ Name = "色（16 進 6 桁・テーマ色）を取り除く"; Code = '&C&KFF0000赤&K04+000青'; Expected = "赤青" }
+        @{ Name = "太字・斜体・下線などを取り除く"; Code = '&C&B&I&U&E&S&X&Y&O&H太字'; Expected = "太字" }
+        @{ Name = "知らない & の続きはそのまま残す"; Code = '&C&Q残る'; Expected = "&Q残る" }
+        @{ Name = "末尾の & は残す"; Code = '&C末尾&'; Expected = "末尾&" }
+        @{ Name = "閉じていないフォントの指定は残す"; Code = '&C&"壊れ'; Expected = '"&""壊れ"' }
+        @{ Name = "空の区分は出さない"; Code = '&L&C&R右だけ'; Expected = "右だけ" }
+        @{ Name = "区分の中の改行は別の行にする"; Code = "&C1行目`n2行目`r`n3行目"; Expected = "1行目|2行目|3行目" }
+        @{ Name = "タブはスペースにし、前後の空白を落とす"; Code = "&C  会社`t名  "; Expected = "会社 名" }
+        @{ Name = "`" を含む行は toObjectCellText の形（囲んで `"`" にする）"; Code = '&C"至急" と "確認"'; Expected = '"""至急"" と ""確認"""' }
+    ) {
+        (@(getHeaderFooterLines $Code) -join "|") | Should -BeExactly $Expected
+    }
+}
+
+Describe "readXlsxObjectUnits（ヘッダー・フッター）" -Tag Io {
+    BeforeAll {
+        function hf([string]$body, [string]$attributes = "") {
+            # ヘッダー・フッターの XML。文字は & を含むためエスケープする（子の要素は名前 → 書式コード付きの文字）
+            $children = ""
+            foreach ($name in @("oddHeader", "oddFooter", "evenHeader", "evenFooter", "firstHeader", "firstFooter")) {
+                $m = [regex]::Match($body, "(?:^|\|)${name}=([^|]*)")
+                if ($m.Success) { $children += "<$name>$([System.Security.SecurityElement]::Escape($m.Groups[1].Value))</$name>" }
+            }
+            return "<headerFooter${attributes}>${children}</headerFooter>"
+        }
+
+        $manyRows = (1..300 | ForEach-Object { "<row r=`"$_`"><c r=`"A$_`" t=`"inlineStr`"><is><t>行$_</t></is></c></row>" }) -join ""
+        $sales = "<worksheet $xNs><sheetData>$manyRows</sheetData>" +
+            (hf 'oddHeader=&L社外秘&C&"ＭＳ ゴシック,太字"&12見出し&R会議|oddFooter=&C&P / &N ページ|evenHeader=&C偶数ヘッダー|evenFooter=&C偶数の注記|firstHeader=&C表紙の見出し|firstFooter=&C社外秘' ' differentOddEven="1" differentFirst="true"') +
+            "<drawing r:id=`"rId1`"/></worksheet>"
+        $plain = "<worksheet $xNs><sheetData/>" +
+            (hf 'oddHeader=&C通常のみ|firstHeader=&C読まない先頭|evenFooter=&C読まない偶数') + "</worksheet>"
+        $prefixed = '<x:worksheet xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><x:sheetData/>' +
+            '<x:headerFooter><x:oddHeader>&amp;C接頭辞付き</x:oddHeader></x:headerFooter></x:worksheet>'
+
+        $path = "$TestDrive\headerfooter.xlsx"
+        newZip $path @{
+            "xl/workbook.xml" = "<workbook $xNs><sheets>" +
+                "<sheet name=`"売上`" sheetId=`"1`" r:id=`"rId1`"/>" +
+                "<sheet name=`"通常`" sheetId=`"2`" r:id=`"rId2`"/>" +
+                "<sheet name=`"隠し`" sheetId=`"3`" state=`"hidden`" r:id=`"rId3`"/>" +
+                "<sheet name=`"グラフ`" sheetId=`"4`" r:id=`"rId4`"/>" +
+                "<sheet name=`"なし`" sheetId=`"5`" r:id=`"rId5`"/>" +
+                "<sheet name=`"空`" sheetId=`"6`" r:id=`"rId6`"/>" +
+                "<sheet name=`"接頭辞`" sheetId=`"7`" r:id=`"rId7`"/>" +
+                "<sheet name=`"引用`" sheetId=`"8`" r:id=`"rId8`"/>" +
+                "<sheet name=`"隠しグラフ`" sheetId=`"9`" state=`"hidden`" r:id=`"rId9`"/>" +
+                "</sheets></workbook>"
+            "xl/_rels/workbook.xml.rels" = "<Relationships $relNs>" +
+                "<Relationship Id=`"rId1`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet1.xml`"/>" +
+                "<Relationship Id=`"rId2`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet2.xml`"/>" +
+                "<Relationship Id=`"rId3`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet3.xml`"/>" +
+                "<Relationship Id=`"rId4`" Type=`"$officeRel/chartsheet`" Target=`"chartsheets/sheet1.xml`"/>" +
+                "<Relationship Id=`"rId5`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet4.xml`"/>" +
+                "<Relationship Id=`"rId6`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet5.xml`"/>" +
+                "<Relationship Id=`"rId7`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet6.xml`"/>" +
+                "<Relationship Id=`"rId8`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet7.xml`"/>" +
+                "<Relationship Id=`"rId9`" Type=`"$officeRel/chartsheet`" Target=`"chartsheets/sheet2.xml`"/>" +
+                "</Relationships>"
+            "xl/worksheets/sheet1.xml" = $sales
+            "xl/worksheets/_rels/sheet1.xml.rels" = "<Relationships $relNs><Relationship Id=`"rId1`" Type=`"$officeRel/drawing`" Target=`"../drawings/drawing1.xml`"/></Relationships>"
+            "xl/drawings/drawing1.xml" = "<xdr:wsDr $xdrNs>$(xAnchor 0 0 (xSp @('図形の文字')))</xdr:wsDr>"
+            "xl/worksheets/sheet2.xml" = $plain
+            "xl/worksheets/sheet3.xml" = "<worksheet $xNs><sheetData/>$(hf 'oddHeader=&C隠しシートのヘッダー')</worksheet>"
+            "xl/chartsheets/sheet1.xml" = "<chartsheet $xNs><sheetViews/>$(hf 'oddHeader=&Cグラフの見出し|oddFooter=&R&Pページ')</chartsheet>"
+            "xl/chartsheets/sheet2.xml" = "<chartsheet $xNs>$(hf 'oddHeader=&C隠しグラフシートのヘッダー')</chartsheet>"
+            "xl/worksheets/sheet4.xml" = "<worksheet $xNs><sheetData/></worksheet>"
+            "xl/worksheets/sheet5.xml" = "<worksheet $xNs><sheetData/><headerFooter/></worksheet>"
+            "xl/worksheets/sheet6.xml" = $prefixed
+            "xl/worksheets/sheet7.xml" = "<worksheet $xNs><sheetData/>$(hf 'oddHeader=&C"至急" と "確認"')</worksheet>"
+        }
+        $failures = New-Object System.Collections.Generic.List[string]
+        $units = readXlsxObjectUnits $path $failures
+    }
+
+    It "表示のワークシート・グラフシートの <シート名>[ヘッダー・フッター] を、図形・コメントの後に返す（非表示シート・ヘッダーの無いシートは出さない）" {
+        @($units.Keys) -join "|" | Should -Be "売上[図形]|売上[ヘッダー・フッター]|通常[ヘッダー・フッター]|グラフ[ヘッダー・フッター]|接頭辞[ヘッダー・フッター]|引用[ヘッダー・フッター]"
+        @($failures).Count | Should -Be 0
+    }
+
+    It "sheetData（多数の行）の後にある headerFooter を、ヘッダー → フッター、先頭 → 奇数 → 偶数、左 → 中央 → 右の順に読む。書式コードは文字にせず、同じ文字は 1 回だけ" {
+        @($units["売上[ヘッダー・フッター]"]) -join "|" | Should -Be "表紙の見出し|社外秘|見出し|会議|偶数ヘッダー|/  ページ|偶数の注記"
+    }
+
+    It "differentFirst・differentOddEven が無いシートは、先頭・偶数ページのものを読まない" {
+        @($units["通常[ヘッダー・フッター]"]) -join "|" | Should -Be "通常のみ"
+    }
+
+    It "表示のグラフシートのヘッダー・フッターを読む" {
+        @($units["グラフ[ヘッダー・フッター]"]) -join "|" | Should -Be "グラフの見出し|ページ"
+    }
+
+    It "接頭辞付き（x:headerFooter）で書いたシートも読む" {
+        @($units["接頭辞[ヘッダー・フッター]"]) -join "|" | Should -Be "接頭辞付き"
+    }
+
+    It "`" を含む行は、Excel のテキスト保存と同じ形（囲んで `"`" にする）で返す" {
+        @($units["引用[ヘッダー・フッター]"]) -join "|" | Should -Be '"""至急"" と ""確認"""'
+    }
+
+    It "XML が壊れたシートのヘッダー・フッターだけを飛ばし、ほかのシートの図形・ヘッダー・フッターは返す。読めなかった部品を `$failures に返す" {
+        $broken = "$TestDrive\broken_hf.xlsx"
+        newZip $broken @{
+            "xl/workbook.xml" = "<workbook $xNs><sheets><sheet name=`"壊れ`" sheetId=`"1`" r:id=`"rId1`"/><sheet name=`"正常`" sheetId=`"2`" r:id=`"rId2`"/></sheets></workbook>"
+            "xl/_rels/workbook.xml.rels" = "<Relationships $relNs>" +
+                "<Relationship Id=`"rId1`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet1.xml`"/>" +
+                "<Relationship Id=`"rId2`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet2.xml`"/></Relationships>"
+            "xl/worksheets/sheet1.xml" = "<worksheet $xNs><sheetData/><headerFooter><oddHeader>&amp;C途中まで"  # 閉じタグの無い壊れた XML
+            "xl/worksheets/sheet2.xml" = "<worksheet $xNs><sheetData/>$(hf 'oddHeader=&C正常なヘッダー')</worksheet>"
+        }
+        $fails = New-Object System.Collections.Generic.List[string]
+        $result = readXlsxObjectUnits $broken $fails
+        @($result.Keys) -join "|" | Should -Be "正常[ヘッダー・フッター]"
+        @($result["正常[ヘッダー・フッター]"]) -join "|" | Should -Be "正常なヘッダー"
+        @($fails) | Should -Be @("xl/worksheets/sheet1.xml")
+    }
+
+    It "DTD を含むシートは読まず（外部のものを読み込まない）、部品として読めなかったことにする" {
+        $dtd = "$TestDrive\dtd_hf.xlsx"
+        newZip $dtd @{
+            "xl/workbook.xml" = "<workbook $xNs><sheets><sheet name=`"S`" sheetId=`"1`" r:id=`"rId1`"/></sheets></workbook>"
+            "xl/_rels/workbook.xml.rels" = "<Relationships $relNs><Relationship Id=`"rId1`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet1.xml`"/></Relationships>"
+            "xl/worksheets/sheet1.xml" = "<!DOCTYPE worksheet [<!ENTITY x `"x`">]><worksheet $xNs><sheetData/><headerFooter><oddHeader>&amp;C&x;</oddHeader></headerFooter></worksheet>"
+        }
+        $fails = New-Object System.Collections.Generic.List[string]
+        (readXlsxObjectUnits $dtd $fails).Count | Should -Be 0
+        @($fails) | Should -Be @("xl/worksheets/sheet1.xml")
+    }
+
+    It "部品の上限を超えて大きいシートは、流れで読んでも上限で打ち切り、そのシートのヘッダー・フッターだけ読めなかったことにする" {
+        $big = "$TestDrive\big_hf.xlsx"
+        $rows = "<row r=`"1`"><c r=`"A1`" t=`"inlineStr`"><is><t>$('あ' * 3000)</t></is></c></row>"
+        newZip $big @{
+            "xl/workbook.xml" = "<workbook $xNs><sheets><sheet name=`"大`" sheetId=`"1`" r:id=`"rId1`"/><sheet name=`"小`" sheetId=`"2`" r:id=`"rId2`"/></sheets></workbook>"
+            "xl/_rels/workbook.xml.rels" = "<Relationships $relNs>" +
+                "<Relationship Id=`"rId1`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet1.xml`"/>" +
+                "<Relationship Id=`"rId2`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet2.xml`"/></Relationships>"
+            "xl/worksheets/sheet1.xml" = "<worksheet $xNs><sheetData>$rows</sheetData>$(hf 'oddHeader=&C大きいシート')</worksheet>"
+            "xl/worksheets/sheet2.xml" = "<worksheet $xNs><sheetData/>$(hf 'oddHeader=&C小さいシート')</worksheet>"
+        }
+        $orig = $script:zipPartMaxBytes
+        $script:zipPartMaxBytes = 2000
+        try {
+            $script:zipTotalReadBytes = 0
+            $fails = New-Object System.Collections.Generic.List[string]
+            $result = readXlsxObjectUnits $big $fails
+            @($result.Keys) -join "|" | Should -Be "小[ヘッダー・フッター]"
+            @($fails) | Should -Be @("xl/worksheets/sheet1.xml")
+        } finally {
+            $script:zipPartMaxBytes = $orig
+        }
+    }
+}
+
+Describe "readXlsxObjectUnits（実物のブック・ヘッダー）" -Tag Io {
+    It "Excel で付けたヘッダー・フッター（オブジェクトのシート。左・中央・右、ページ番号の差し込みを含む）を読む" {
+        $path = [System.IO.Path]::GetFullPath("$PSScriptRoot\..\..\testdata\office\Excel\セル内容.xlsx")
+        $units = readXlsxObjectUnits $path
+        @($units["オブジェクト[ヘッダー・フッター]"]) -join "|" | Should -Be "TC10-O05 左ヘッダー|TC10 ヘッダーのテキスト|TC10-O05 右ヘッダー|TC10-O05 左フッター|TC10-O05 通常フッター|/  ページ"
     }
 }
 
@@ -791,7 +992,7 @@ Describe "readZipEntry（部品・合計のサイズの上限、偽りのヘッ�
             newRawZip $path @{ "a.xml" = @{ bytes = [System.Text.Encoding]::UTF8.GetBytes("123456") } }
             $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
             try {
-                { readZipEntry $zip "a.xml" } | Should -Throw -ExpectedMessage "*大きすぎるため取り込めません*"
+                { readZipEntry $zip "a.xml" } | Should -Throw -ExpectedMessage "*大きすぎるため更新できません*"
                 $caught = $null
                 try { readZipEntry $zip "a.xml" } catch { $caught = $_.Exception }
                 # [ZipSizeLimitException] の型リテラルは、Pester の It ブロックからは解決できない
@@ -821,7 +1022,7 @@ Describe "readZipEntry（部品・合計のサイズの上限、偽りのヘッ�
                 $caught = $null
                 try { readZipEntry $zip "b.xml" } catch { $caught = $_.Exception }  # 合計10 > 8
                 $caught.GetType().Name | Should -Be "ZipSizeLimitException"
-                $caught.Message | Should -BeLike "*大きすぎるため取り込めません*"
+                $caught.Message | Should -BeLike "*大きすぎるため更新できません*"
                 $caught.PartName | Should -Be "b.xml"
                 # MeasuredBytes は Total のときは超えた時点の「申告の合計」（b.xml 自身の大きさ5ではなく、a.xml と合わせた10）
                 $caught.MeasuredBytes | Should -Be 10
@@ -839,7 +1040,7 @@ Describe "readZipEntry（部品・合計のサイズの上限、偽りのヘッ�
         newRawZip $path @{ "a.xml" = @{ bytes = [System.Text.Encoding]::UTF8.GetBytes("0123456789"); fakeSize = 3 } }  # 実際は10バイトだが3バイトと偽る
         $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
         try {
-            { readZipEntry $zip "a.xml" } | Should -Throw -ExpectedMessage "*大きすぎるため取り込めません*"
+            { readZipEntry $zip "a.xml" } | Should -Throw -ExpectedMessage "*大きすぎるため更新できません*"
             $caught = $null
             try { readZipEntry $zip "a.xml" } catch { $caught = $_.Exception }
             $caught.GetType().Name | Should -Be "ZipSizeLimitException"
@@ -867,7 +1068,7 @@ Describe "readZipEntry（部品・合計のサイズの上限、偽りのヘッ�
         newRawZip $path @{ "a.xml" = @{ bytes = $bytes; fakeSize = ($bytes.Length - 1) } }
         $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
         try {
-            { readZipEntry $zip "a.xml" } | Should -Throw -ExpectedMessage "*大きすぎるため取り込めません*"
+            { readZipEntry $zip "a.xml" } | Should -Throw -ExpectedMessage "*大きすぎるため更新できません*"
         } finally {
             $zip.Dispose()
         }
@@ -919,7 +1120,7 @@ Describe "readZipEntry（部品・合計のサイズの上限、偽りのヘッ�
             newRawZip $path @{ "a.xml" = @{ bytes = $bytes; fakeSize = ($bytes.Length - 1) } }
             $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
             try {
-                { readZipEntry $zip "a.xml" } | Should -Throw -ExpectedMessage "*大きすぎるため取り込めません*"
+                { readZipEntry $zip "a.xml" } | Should -Throw -ExpectedMessage "*大きすぎるため更新できません*"
             } finally {
                 $zip.Dispose()
             }
@@ -959,7 +1160,7 @@ Describe "readDocxUnits・readPptxUnits・readXlsxObjectUnits（部品がサイ�
         try {
             $path = "$TestDrive\big.docx"
             newZip $path @{ "word/document.xml" = "<w:document ${wNs}><w:body>$('あ' * 20)</w:body></w:document>" }
-            { readDocxUnits $path } | Should -Throw -ExpectedMessage "*大きすぎるため取り込めません*"
+            { readDocxUnits $path } | Should -Throw -ExpectedMessage "*大きすぎるため更新できません*"
         } finally {
             $script:zipPartMaxBytes = $orig
         }
@@ -971,7 +1172,7 @@ Describe "readDocxUnits・readPptxUnits・readXlsxObjectUnits（部品がサイ�
         try {
             $path = "$TestDrive\big.pptx"
             newZip $path @{ "ppt/presentation.xml" = "<p:presentation ${pNs}><p:sldIdLst>$('<!-- big -->' * 5)</p:sldIdLst></p:presentation>" }
-            { readPptxUnits $path } | Should -Throw -ExpectedMessage "*大きすぎるため取り込めません*"
+            { readPptxUnits $path } | Should -Throw -ExpectedMessage "*大きすぎるため更新できません*"
         } finally {
             $script:zipPartMaxBytes = $orig
         }
@@ -1003,7 +1204,7 @@ Describe "readDocxUnits・readPptxUnits・readXlsxObjectUnits（部品がサイ�
                 "xl/worksheets/_rels/sheet1.xml.rels" = $sheetRelsXml
                 "xl/drawings/drawing1.xml" = $drawingXml
             }
-            { readXlsxObjectUnits $path } | Should -Throw -ExpectedMessage "*大きすぎるため取り込めません*"
+            { readXlsxObjectUnits $path } | Should -Throw -ExpectedMessage "*大きすぎるため更新できません*"
         } finally {
             $script:zipPartMaxBytes = $orig
         }
@@ -1074,7 +1275,7 @@ Describe "readDocxUnits・readPptxUnits・readXlsxObjectUnits（部品がサイ�
             $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
             try {
                 readZipEntry $zip "a.xml" | Out-Null  # 申告8バイト。まだ上限(15)以下
-                { readZipEntry $zip "b.xml" } | Should -Throw -ExpectedMessage "*大きすぎるため取り込めません*"  # 申告の合計16 > 15
+                { readZipEntry $zip "b.xml" } | Should -Throw -ExpectedMessage "*大きすぎるため更新できません*"  # 申告の合計16 > 15
             } finally {
                 $zip.Dispose()
             }
@@ -1093,7 +1294,7 @@ Describe "readDocxUnits・readPptxUnits・readXlsxObjectUnits（部品がサイ�
             $overPath = "$TestDrive\total_over_first.docx"
             newZip $overPath @{ "word/document.xml" = $firstXml }
             $script:zipTotalMaxBytes = 1
-            { readDocxUnits $overPath } | Should -Throw -ExpectedMessage "*大きすぎるため取り込めません*"
+            { readDocxUnits $overPath } | Should -Throw -ExpectedMessage "*大きすぎるため更新できません*"
 
             # 2つ目: この内容だけなら収まるが、1つ目の残り（10バイト超）が足されたままだと超えてしまう上限にする。
             # readDocxUnits が呼び出しのたびに $script:zipTotalReadBytes を0から数え直していれば、収まって読める

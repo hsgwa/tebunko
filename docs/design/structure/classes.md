@@ -1,4 +1,4 @@
-﻿# クラスと関数の使い分け
+# クラスと関数の使い分け
 
 扱うこと: PowerShell 5.1 でクラスを使ってよいところ・使ってはいけないところ（試した結果と決まり）、目的ごとのクラス設計（refactor で作る予定）とそのつなぎ方。扱わないこと: スレッド・プロセスの一覧そのもの（[プロセスとスレッド](threads.md)）。先に読むページ: [プロセスとスレッド](threads.md)。
 
@@ -64,6 +64,14 @@ refactor で作るクラス（`IndexCatalog` など）は下の「目的ごと�
 - 読み取り方: 変数・プロパティ・hashtable の読みは、どれも空ループ（0.64μs）と区別できないほど小さく、差は無いものとみる。比べるのは関数とメソッドの呼び出しの差だけで、メソッドは関数の約 10 分の 1。**クラスにしても呼び出しは遅くならない。** ただしメソッドの中から関数を呼べば関数の時間がそのまま足される。取り込みの 1 ファイルごとに通る経路（`IngestDispatcher`・`OfficeWatchdog`）では、書き直しで関数の呼び出しの段を増やさない。1 ファイル 1 回増えると 1,000 ファイルで約 40ms で、1 ファイルの取り込み（Office を使えば数百 ms 以上）に比べれば小さいが、段を重ねると積み上がるため。
 - 性能を落としていないかの判断は、この表ではなく取り込みの計測（[性能とリソースの計測のしかた](../testing/perf.md) の「計測の口」）で、同じ日に main と比べて行う。
 
+### 別スレッドが読むコードに、画面のクラスを含めない
+
+別スレッド（検索・背景の仕事・インデックス作成の取り込み）は、`getPartLoad`（`scripts/tebunko/core/parts.ps1`）が返す部品（`lib`・`indexerLib`）だけを読み込む。この部品には、画面（`ui\` 配下）のクラス（`SearchTarget`・`IndexNode` など、画面の部品を持つもの）を入れない。
+
+- 単一 .ps1 版では、部品の文字列を関数（`importTebunkoPart`）として別のランスペースに登録し、そこで構文解析する。画面のクラスが混ざると、画面のスレッドのクラスと別の型として定義され、`-is` の比較や型の指定が食い違う。
+- 同じ名前のクラスを別のランスペースで使うときの食い違いは、`tests/tebunko/core/parts.Tests.ps1`（同じランスペースの使い回し・別のランスペースの取り違え・2 スレッドが 1 つの State を共有する場合）が確かめる。
+- 部品に入れるファイルの範囲は、`tests/meta/structure.Tests.ps1` と `tools/new_single_script.ps1` の検査が、読み込み口（`lib.ps1`・`indexer_lib.ps1`・`indexer_main.ps1`）からたどれる範囲と一致するかで確かめる。
+
 ## 目的ごとのクラス
 
 refactor で作る予定の設計。作ったら、この節を実装に合わせて直す。`StatusLedger`・`PendingPublish`・`IndexingReporter` は実装ずみ（#147）。残り 5 つは予定のまま。
@@ -84,7 +92,7 @@ classDiagram
 
 | クラス | 目的（1 つに絞る。凝集） | 作って使うスレッド | 層 | 置くファイル（案） | 今ある場所 | 依存してよい相手 |
 |---|---|---|---|---|---|---|
-| `IndexCatalog` | インデックスの追加・改名・削除・名前の割り当て。保存先（`targetFolders`・取り込み一覧・元のフォルダの記録・`searchExcludes`・`system_index`）を漏れなく書き換える手順と順番、途中で失敗したときの扱い（戻す・残す）だけを持つ。保存先の形式は知らない。`Workspace` と設定ファイルの場所を受け取って作る（場所を暗黙に使わない） | 画面のスレッド。インデクサが名前を引くときは司令のスレッドで別に作る | 状態層 | `tebunko/index/index_catalog.ps1`（`lib.ps1`） | `index_store.ps1`、`ui/index_tab.ps1` の `editIndex`・`loadTargets`・`saveTargets`・`updateIndexSourceFile`、`core/settings.ps1` の `saveAssignedIndexNames`・`removeSearchExcludesUnder`（`renameIndex`・`removeIndex` から呼ぶ） | 保存先ごとの読み書きの部品（既存の関数でよい。設定は `invokeSettingsLocked`・`saveAssignedIndexNames`、元のフォルダの記録・`system_index` はその読み書きの関数）、`searchExcludes` の読み書きの部品（`core/settings.ps1` の `readSearchExcludes`・`writeSearchExcludes`・`removeSearchExcludesUnder`。`WorkspaceMover` と同じものを通す）、取り込み一覧は作る側から渡された `StatusLedger`、`index_name.ps1`（判断層）、`Workspace` |
+| `IndexCatalog` | インデックスの追加・改名・削除・名前の割り当て。保存先（`targetFolders`・取り込み一覧・元のフォルダの記録・`searchExcludes`・`system_index`）を漏れなく書き換える手順と順番、途中で失敗したときの扱い（戻す・残す）だけを持つ。保存先の形式は知らない。`Workspace` と設定ファイルの場所を受け取って作る（場所を暗黙に使わない） | 画面のスレッド。インデクサが名前を引くときは司令のスレッドで別に作る | 状態層 | `tebunko/index/index_catalog.ps1`（`lib.ps1`） | `index_store.ps1`、`ui/index/index_edit.ps1` の `editIndex`、`ui/index/index_list.ps1` の `loadTargets`・`saveTargets`・`updateIndexSourceFile`、`core/settings.ps1` の `saveAssignedIndexNames`・`removeSearchExcludesUnder`（`renameIndex`・`removeIndex` から呼ぶ） | 保存先ごとの読み書きの部品（既存の関数でよい。設定は `invokeSettingsLocked`・`saveAssignedIndexNames`、元のフォルダの記録・`system_index` はその読み書きの関数）、`searchExcludes` の読み書きの部品（`core/settings.ps1` の `readSearchExcludes`・`writeSearchExcludes`・`removeSearchExcludesUnder`。`WorkspaceMover` と同じものを通す）、取り込み一覧は作る側から渡された `StatusLedger`、`index_name.ps1`（判断層）、`Workspace` |
 | `WorkspaceMover` | ワークスペースの切り替え（移す・`searchExcludes` の付け替え・保存・失敗したら戻す） | 画面のスレッド | 状態層 | `tebunko/core/workspace_mover.ps1`（`lib.ps1`） | `core/workspace.ps1`、`ui/settings_tab.ps1` | 設定の読み書きの部品（`invokeSettingsLocked`）、`searchExcludes` の読み書きの部品（`core/settings.ps1` の `readSearchExcludes`・`writeSearchExcludes`。`IndexCatalog` と同じものを通す）、ファイルの移動の部品（`fs.ps1`）、`Workspace` |
 | `StatusLedger` | 取り込み一覧・取り込み中のファイル・今回の失敗と消えたファイルの記録。改名・削除の書き換えもラップする。列と状態の定義（`core/paths.ps1`）は判断層・`index_store.ps1` なども読むため動かさない | インデクサの司令のスレッド。画面が取り込み一覧を読むときは画面のスレッドで別に作る | 状態層 | `tebunko/indexer/indexer_state.ps1`（`lib.ps1`） | 実装ずみ。`ReadStatus`・`WriteStatus`・`AddRow`・`ReadIngestingFiles`・`WriteIngestingFiles`・`RemoveIngestingFile`・`RenameIndexName`・`RemoveIndexName`・`Failures`（プロパティ）・`DroppedRows`（プロパティ）。`getIndexNameMap`・`getIndexStats`（`index_store.ps1`）は読むだけの部品として外に残す | 取り込み一覧・状態ファイルの読み書きの部品（`indexer_state.ps1` の関数）、コンストラクタで受け取った `Workspace`（場所を暗黙に使わない） |
 | `PendingPublish` | フォルダごとの取り込み中の数（Busy）とまだ渡していない数（Pending）を数え、どちらも 0 になったフォルダを本文インデックスに書き出してよいと決める | 司令のスレッド | 状態層 | `tebunko/indexer/pending_publish.ps1`（`indexer_lib.ps1`） | 実装ずみ。`Add`・`MarkFolder`（書き出し待ちの記録）・`AddPending`・`Dispatch`・`Skip`・`Complete`（数える）・`TakeFlushable`・`TakeAll`（取り出す） | ファイルの相対パスからフォルダを決める `getBookDir`（`indexer_plan.ps1`）。書き出し（`publishIndexFolders`）は `TakeFlushable` / `TakeAll` が返した結果を見て司令（`invokeIndexerBody` の中の `flushPending`）が呼ぶ |

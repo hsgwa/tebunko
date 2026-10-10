@@ -4,9 +4,56 @@
 # 起動口（gui.ps1・indexer.ps1）が lib.ps1 より先に、このファイルだけを読み込んで設定を確かめる（repairBrokenSettings）ため、ここで決める
 ${appId} = "tebunko"
 
+function getDefaultWorkDir {
+    # 既定のワークスペース（%USERPROFILE%\Documents\tebunko_ws）。高速検索のため、Windows Search の索引の対象になる場所に置く。
+    # OneDrive にリダイレクトされた「ドキュメント」ではなく、プロファイルの直下の Documents を使う（インデックスが同期でクラウドに上がらないように）
+    # 環境変数 TEBUNKO_DEFAULT_WORKSPACE に絶対パスが入っていれば、それを既定のワークスペースにする（開発・確かめ用。
+    # テストや実機の確かめが、利用者の既定のワークスペースに触れないようにするための差し替えの口）。入っているのに絶対パスでなければ、
+    # 黙って既定のワークスペースに戻らないよう例外にする。引数 profileDir を渡したときは、環境変数を見ない
+    param (
+        [string]$profileDir = [System.Environment]::GetFolderPath("UserProfile")
+    )
+
+    $override = $env:TEBUNKO_DEFAULT_WORKSPACE
+    if (!$PSBoundParameters.ContainsKey("profileDir") -and ![string]::IsNullOrWhiteSpace($override)) {
+        $override = $override.Trim()
+        # ドライブ直下だけ（C:\）やサーバー名だけ（\\server\）は、末尾の区切りを削ると別の意味になるため受け付けない
+        if ($override -notmatch '^([A-Za-z]:[\\/]+[^\\/]|\\\\[^\\/]+[\\/]+[^\\/])') {
+            throw "TEBUNKO_DEFAULT_WORKSPACE はフォルダまで含めた絶対パスで指定してください: $override"
+        }
+        return $override.TrimEnd("\", "/")
+    }
+
+    return Join-Path $profileDir "Documents\tebunko_ws"
+}
+
+function getSettingsFilePath {
+    # 設定ファイルのパス。ツールのフォルダに書き込めればそこ、書き込めないとき（Program Files・読み取り専用の共有フォルダ）は
+    # 既定のワークスペースの直下に置く（shared\core\data_dir.ps1 の getDataDir）。設定はワークスペースの場所を読む前に見つかる必要があるため、
+    # ワークスペースを別の場所に移しても、設定は既定のワークスペースに残る
+    param (
+        [string]$root,
+        [string]$defaultWorkDir
+    )
+
+    return Join-Path (getDataDir $root $defaultWorkDir) "setting.config"
+}
+
 # 設定ファイル（画面が読み書きする。インデクサはクロール対象フォルダと work の置き場所を読む）。内容は JSON。
-# ツールのフォルダに書き込めないときは、利用者ごとの場所に置く（shared\core\data_dir.ps1 の getDataDir）
-${settingsFile} = "${dataDir}\setting.config"
+# ツールのフォルダに書き込めないときは、既定のワークスペースの直下に置く
+${settingsFile} = getSettingsFilePath ${rootDir} (getDefaultWorkDir)
+
+function testSettingsFileName {
+    # 設定ファイルと、それに付いてできるファイルの名前か（setting.config・保存の途中で止まると残る setting.config.tmp・
+    # 壊れた設定の退避 setting.config.broken-<日時>（同じ名前があれば -2・-3… が付く））。
+    # 既定のワークスペースの空の判定では、これらを tebunko のファイルとして数えない
+    param (
+        [string]$name
+    )
+
+    $base = [regex]::Escape([System.IO.Path]::GetFileName(${settingsFile}))
+    return [bool]($name -imatch "^${base}(\.tmp|\.broken-\d{8}-\d{6}(-\d+)?)?$")
+}
 
 # 検索結果から元のファイルを開くときの開き方（設定 openMode の値）
 ${openModeNormal}   = "normal"    # そのまま開く（編集する）
@@ -14,15 +61,18 @@ ${openModeReadOnly} = "readOnly"  # 読み取り専用で開く（誤って上�
 ${openModeNew}      = "new"       # 新規（元のファイルを基にした無題の文書）で開く。元のファイルを占有しない
 ${openModes}        = @(${openModeNormal}, ${openModeReadOnly}, ${openModeNew})
 
+# 検索の対象にするファイルの種類（検索バーのチップ。設定ファイルの fileKinds の値）
+${fileKindNames} = @("excel", "word", "powerpoint", "text")
+
 function newSettings {
     # 設定の既定値。設定ファイル（JSON）のキーと同じ
     return [ordered]@{
         targetFolders      = @()      # クロール対象フォルダ: @{ name（インデックス名）; path（今フォルダが置かれている場所）; enabled }（記載順。enabled が false は登録のみで取り込まない）
         indexSources       = @()      # 取り込まないインデックスの元のフォルダ: @{ name; path }（別のPC・場所で作ったインデックスを検索するとき）
         searchExcludes     = @()      # 画面の検索対象ツリーでチェックを外したフォルダ: @{ path（フルパス）; subfolders（false はフォルダ直下のファイルだけ） }
+        fileKinds          = @()      # 検索の対象にするファイルの種類（excel・word・powerpoint・text の配列。キーが無い・空ならすべて。readFileKinds）
         useRegex           = $false   # 検索ワードを正規表現として扱う
         caseSensitive      = $false   # 英字の大文字と小文字を区別する
-        fileFilter         = ""       # 対象ファイル（元のファイル名のワイルドカード。; 区切り、! で始まるものは除外。空ならすべて）
         includeShapes      = $true    # 図形（テキストボックス等）の文字も検索する（場所 "<元の場所>[図形]"。index_name.ps1 の objectPlacePattern）
         includeComments    = $true    # コメントも検索する（場所 "<元の場所>[コメント]"）
         openMode           = ${openModeNormal}  # 検索結果の元のファイルの開き方: 通常（編集する）/ 読み取り専用 / 新規（元のファイルを基にした無題の文書。占有しない）
@@ -402,14 +452,14 @@ function removeSearchExcludesUnder {
 
 
 ${searchOptionKeys} = [ordered]@{
-    UseRegex = "useRegex"; CaseSensitive = "caseSensitive"; FileFilter = "fileFilter"
+    UseRegex = "useRegex"; CaseSensitive = "caseSensitive"
     IncludeShapes = "includeShapes"; IncludeComments = "includeComments"
 }
 
 
 function readSearchOption {
-    # 画面の検索オプションを @{ UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments } で返す。
-    # 設定が無ければ、文字どおり・大文字と小文字を区別しない・対象ファイルはすべて・図形とコメントも検索する
+    # 画面の検索オプションを @{ UseRegex; CaseSensitive; IncludeShapes; IncludeComments } で返す。
+    # 設定が無ければ、文字どおり・大文字と小文字を区別しない・図形とコメントも検索する（検索するファイルの種類は readFileKinds）
     param (
         [string]$path = ${settingsFile}
     )
@@ -440,6 +490,39 @@ function writeSearchOption {
     }
 }
 
+function readFileKinds {
+    # 検索の対象にするファイルの種類（${fileKindNames} の値）を、${fileKindNames} の順の配列で返す。
+    # キーが無い・空・知らない値だけのときは、すべての種類（絞り込まない）
+    param (
+        [string]$path = ${settingsFile}
+    )
+
+    $chosen = @(@((readSettings $path).fileKinds) | ForEach-Object { ([string]$_).Trim().ToLowerInvariant() })
+    $kinds = @(${fileKindNames} | Where-Object { $chosen -contains $_ })
+    if ($kinds.Count -eq 0) {
+        return @(${fileKindNames})
+    }
+    return $kinds
+}
+
+function writeFileKinds {
+    # 検索の対象にするファイルの種類を保存する。知らない値は捨てる（すべての種類を選んでいるときは空で保存する）。
+    # 1 つも選んでいないときは保存しない（空は「すべて」の意味で保存の形を変えないため、前に保存した種類のまま）
+    param (
+        [object[]]$kinds,
+        [string]$path = ${settingsFile}
+    )
+
+    $chosen = @(${fileKindNames} | Where-Object { @($kinds) -contains $_ })
+    if ($chosen.Count -eq 0) {
+        return
+    }
+    if ($chosen.Count -eq ${fileKindNames}.Count) {
+        $chosen = @()
+    }
+    updateSettings "fileKinds" ([object[]]$chosen) $path
+}
+
 function readOpenMode {
     # 元のファイルの開き方（${openModes} のいずれか）を返す。設定が無い・知らない値なら「通常」
     param (
@@ -462,28 +545,18 @@ function writeOpenMode {
     updateSettings "openMode" $mode $path
 }
 
-function getDefaultWorkDir {
-    # 既定のワークスペース（%USERPROFILE%\Documents\tebunko_ws）。高速検索のため、Windows Search の索引の対象になる場所に置く。
-    # OneDrive にリダイレクトされた「ドキュメント」ではなく、プロファイルの直下の Documents を使う（インデックスが同期でクラウドに上がらないように）
-    param (
-        [string]$profileDir = [System.Environment]::GetFolderPath("UserProfile")
-    )
-
-    return Join-Path $profileDir "Documents\tebunko_ws"
-}
-
 # 既定のワークスペースが空でないときの文言（画面の［既定に戻す］・起動時、インデクサで共通）
 function getDefaultWorkspaceError {
     param (
         [string]$folder
     )
 
-    return "「${folder}」は空のフォルダではありません。ワークスペースには別の空のフォルダを選んでください（［8 設定］の［変更…］）。"
+    return "「${folder}」は空のフォルダではありません。ワークスペースには別の空のフォルダを選んでください（［設定］の［変更…］）。"
 }
 
 function testDefaultWorkspace {
     # 既定のワークスペースを使えるか: @{ Usable; Folder; Message }。
-    # 使える: 無い（使うときに作る）・空・前から使っているワークスペース（content_index・前の版の index・取り込み一覧.tsv がある）。
+    # 使える: 無い（使うときに作る）・空（設定ファイルと、それに付いてできるファイルだけの場合を含む）・前から使っているワークスペース（content_index・前の版の index・ingest_status.tsv がある）。
     # それ以外（ほかのファイルが置いてある）は、インデックスのファイルと混ざるため使わせない
     param (
         [string]$folder = (getDefaultWorkDir)
@@ -493,7 +566,11 @@ function testDefaultWorkspace {
     if (![System.IO.Directory]::Exists($folder)) {
         return $result
     }
-    $names = @(foreach ($entry in (selectFirstEntries ([System.IO.Directory]::EnumerateFileSystemEntries($folder)) 1000)) { [System.IO.Path]::GetFileName($entry) })
+    # 設定ファイルと、それに付いてできるファイルは数えない（既定のワークスペースは、書き込めないときの設定ファイルの置き場所でもある）
+    $names = @(foreach ($entry in (selectFirstEntries ([System.IO.Directory]::EnumerateFileSystemEntries($folder)) 1000)) {
+        $name = [System.IO.Path]::GetFileName($entry)
+        if (-not (testSettingsFileName $name)) { $name }
+    })
     if ($names.Count -eq 0 -or ($names -contains "content_index") -or ($names -contains "index") -or ($names -contains [System.IO.Path]::GetFileName($workspace.StatusFile))) {
         return $result
     }
@@ -504,7 +581,7 @@ function testDefaultWorkspace {
 
 function getWorkspaceBlockMessage {
     # 今のワークスペースが既定の場所で、そこにほかのファイルが置いてあるなら、その文言（使えるなら空）。
-    # インデックスのファイルと混ざるため、インデックス作成を始めず、［8 設定］で別のフォルダを選んでもらう
+    # インデックスのファイルと混ざるため、インデックス作成を始めず、［設定］で別のフォルダを選んでもらう
     param (
         [string]$current = $workspace.Dir,
         [string]$defaultDir = (getDefaultWorkDir)

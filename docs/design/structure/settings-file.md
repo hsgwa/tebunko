@@ -2,7 +2,7 @@
 
 扱うこと: `setting.config` の形式（キーの一覧）、読み込み・保存の流れ、壊れた設定ファイルの退避、画面での読み書きのタイミング。扱わないこと: データの置き場所の決め方そのもの（[データの置き場所とパスの決め方](data.md)）。先に読むページ: [データの置き場所とパスの決め方](data.md)。
 
-設定は、ツール直下（書き込めなければ利用者ごとの場所。[データの置き場所とパスの決め方](data.md)）の `setting.config`（内容は JSON）の 1 ファイルにまとめ、画面が読み書きする。利用者が手で編集する前提にはしない。インデクサ（画面のプロセスの別のスレッド、または画面を使わずに起動した `indexer.ps1`）は、画面が保存したクロール対象フォルダとワークスペースの場所をこのファイルから読む。読み書きの関数は `scripts/tebunko/core/settings.ps1` にある。
+設定は、ツール直下（書き込めなければ既定のワークスペースの直下。[データの置き場所とパスの決め方](data.md)）の `setting.config`（内容は JSON）の 1 ファイルにまとめ、画面が読み書きする。利用者が手で編集する前提にはしない。インデクサ（画面のプロセスの別のスレッド、または画面を使わずに起動した `indexer.ps1`）は、画面が保存したクロール対象フォルダとワークスペースの場所をこのファイルから読む。読み書きの関数は `scripts/tebunko/core/settings.ps1` にある。
 
 ## 形式
 
@@ -18,7 +18,7 @@
     "searchExcludes": [],
     "useRegex": false,
     "caseSensitive": false,
-    "fileFilter": "",
+    "fileKinds": [],
     "includeShapes": true,
     "includeComments": true,
     "openMode": "normal",
@@ -34,7 +34,7 @@
 | `searchExcludes` | `{path, subfolders}` の配列 | 空 | 画面の検索対象のツリーでチェックを外したフォルダ（フルパス）。`subfolders` が `false` はフォルダ直下のファイルだけを外す。利便性のための一時的な記録で、インデックスの名前を変えたり削除したりするとそのインデックスの下の記録は消える（外したフォルダは検索対象に戻る）。空ならすべてを検索する（[検索](../search/index.md#インデックスの一覧getsearchindexes)） | `readSearchExcludes` / `writeSearchExcludes` / `removeSearchExcludesUnder` |
 | `useRegex` | true / false | false | ［正規表現を使う］の状態 | `readSearchOption` / `writeSearchOption` |
 | `caseSensitive` | true / false | false | ［大文字と小文字を区別］の状態（[検索](../search/index.md#検索条件サクラエディタの-grep-にならう)） | `readSearchOption` / `writeSearchOption` |
-| `fileFilter` | 文字列 | 空 | 「対象ファイル」の指定（例: `*.xlsx;見積;!*old*`）。空ならすべて（同上） | `readSearchOption` / `writeSearchOption` |
+| `fileKinds` | 文字列の配列 | 空 | 検索する種類のチップ（`excel` `word` `powerpoint` `text`）。空・無い・知らない値だけならすべて。前の版の `fileFilter`（対象ファイルの指定）は読まず、書き直しのときに消える | `readFileKinds` / `writeFileKinds` |
 | `includeShapes` | true / false | true | ［図形も検索］の状態。オフなら図形の場所（`<元の場所>[図形]`）を検索しない（同上） | `readSearchOption` / `writeSearchOption` |
 | `includeComments` | true / false | true | ［コメントも検索］の状態。オフならコメントの場所（`<元の場所>[コメント]`）を検索しない（同上） | `readSearchOption` / `writeSearchOption` |
 | `openMode` | `normal` / `readOnly` / `new` | `normal` | ［開き方］の状態。検索結果の元のファイルを、通常（編集する）・読み取り専用・新規（元のファイルを基にした無題の文書。占有しない）のどれで開くか（[元のファイルを開く](../gui/open-file.md)）。知らない値は `normal` とする | `readOpenMode` / `writeOpenMode` |
@@ -75,9 +75,23 @@ flowchart TD
 
 ## 画面での読み書き
 
-画面は設定を変えたその場で保存する。［8 設定］タブの画面の仕様は [［8 設定］タブ](../gui/settings-tab.md) にある。
+画面は設定を変えたその場で保存する。［設定］タブの画面の仕様は [［設定］タブ](../gui/settings-tab.md) にある。
 
 | 項目 | 仕様 |
 |---|---|
-| 保存のタイミング | インデックス一覧：追加・編集・削除・チェックの変更のたび。検索対象のツリー：チェックを変えたとき。検索条件のチェックボックス（正規表現・大文字と小文字・図形・コメント）：クリックしたとき。対象ファイル：欄からフォーカスが外れたときと検索したとき（検索したときは検索条件をまとめて保存する）。［開き方］：選び直したとき（起動時の読み込みでは保存しない）。ワークスペース：［8 設定］で変えたとき（[［8 設定］タブ](../gui/settings-tab.md)）。インデックスの元のフォルダ：［編集…］で変えたとき・検索結果からフォルダを選んで見つかったとき。インデックス名：インデックスを作成したとき・［編集…］で変えたとき（名前の無い設定を読み込んだときは、読み込み時に割り当てて保存する） |
+| 保存のタイミング | インデックス一覧：追加・編集・削除・チェックの変更のたび。検索対象のツリー：チェックを変えたとき。検索条件のチェックボックス（正規表現・大文字と小文字・図形・コメント）・種類のチップ：クリックしたとき（検索したときは検索条件をまとめて保存する）。［開き方］：選び直したとき（起動時の読み込みでは保存しない）。ワークスペース：［設定］で変えたとき（[［設定］タブ](../gui/settings-tab.md)）。インデックスの元のフォルダ：［編集…］で変えたとき・検索結果からフォルダを選んで見つかったとき。インデックス名：インデックスを作成したとき・［編集…］で変えたとき（名前の無い設定を読み込んだときは、読み込み時に割り当てて保存する） |
 | 外部での編集 | ウィンドウがアクティブになったとき、保存されているインデックス一覧を、画面が最後に読み込み・保存した一覧と比べ（`getTargetsKey`）、異なれば読み直す（画面側の変更はその場で保存済みのため、失われるものは無い） |
+
+## 前の版との互換
+
+前の版が作った `setting.config` を、新しい版がそのまま読めることを、見本（golden）で確かめる（テストは `tests/tebunko/core/settings_compat`。[単体テスト（インデックスと検索）](../testing/unit-index.md) にも一覧がある）。見本は `tests/testdata/compat/settings/<見本の名前>/`（`setting.config`・`expected.json`。作り方は [tests/testdata/README.md](../../../tests/testdata/README.md) の「前の版のファイル（`compat\`）」）に置く。
+
+**固定するもの**: 上の「形式」の表にあるキーの名前・型・既定値と、`getTargetFolders`・`readIndexSources`・`readSearchExcludes`・`readSearchOption`・`readOpenMode`・`getWorkDir` が返す値の形（`expected.json` の `functions`）。**固定しないもの**: JSON のキーの並び順・空白、画面に出さない内部の実装。
+
+キーや一覧項目（`targetFolders` など）を足す、上の表の読み方を変える、JSON 以外の形式にするなど、`setting.config` の読み方を変える PR は、新しい見本を 1 つ足す（上書きではなく追加。古い見本も読めることを確かめ続けるため）。
+
+見本は**足すだけ**で、既にある見本を変える・消すのはタイトルに `!` を付けた PR だけができる（`tools/check_compat_golden.ps1`。CI の `pr-title` が確かめる）。`!` の PR が見本を消したときは、どれを・どの PR で・なぜ消したかを次の表に 1 行残す。
+
+| 消した見本 | PR | 理由 |
+|---|---|---|
+| （まだ無し） | | |

@@ -140,7 +140,7 @@ function promptSourceConnectFailure {
 
     $dialog = getSourceConnectFailureDialog $book $state.State $location.Folder $state.Message
     setStatus (getSourceConnectFailureStatus $state.State $location.Folder $state.Message)
-    $answer = showConfirm -heading $dialog.Heading `
+    $answer = showConfirm -title "元のファイルが見つかりません" -heading $dialog.Heading `
         -facts @((factGone $dialog.Title $dialog.Detail), (factNext $dialog.Hint)) `
         -choices @(@{ Text = "フォルダを選ぶ"; Value = "pick" })
     if ($answer -eq "pick") {
@@ -166,19 +166,17 @@ function promptSourceMissing {
     )
 
     if ($location.Known) {
-        $missing = factGone "記録されていた場所にありません" $path
+        $heading = "元のファイルが見つかりません。フォルダを移動した場合は、移動先のフォルダを選んでください。"
+        $hint = "元の場所: $path"
         $description = "「$($location.Folder)」に当たるフォルダ（または $book のあるフォルダ）を選んでください"
     } else {
-        $missing = factGone "このファイルが今どこにあるか、記録がありません" $relPath
+        $heading = "元のファイルが見つかりません。場所の記録もないため、$book のあるフォルダを選んでください。"
+        $hint = "ファイル: $relPath"
         $description = "$book のあるフォルダ（またはインデックス [$($location.Name)] の元のフォルダ）を選んでください"
     }
-    $facts = @(
-        $missing,
-        (factNext "今ある場所のフォルダを選べば開けます" "選んだ場所はインデックス「$($location.Name)」に覚えさせるので、同じインデックスのほかのファイルも次から開けます")
-    )
-
+    $facts = @()
     while ($true) {
-        if ((showConfirm -heading "$book が見つかりません" -facts $facts `
+        if ((showConfirm -title "元のファイルが見つかりません" -heading $heading -hint $hint -facts $facts `
                 -choices @(@{ Text = "フォルダを選ぶ"; Value = "pick" })) -ne "pick") {
             setStatus (getSourceNotFoundStatus $path)
             return
@@ -238,6 +236,22 @@ function openWithShell {
     }
     Invoke-Item -LiteralPath $path
     return (-not $verb)
+}
+
+function openWithNotepad {
+    # ファイルをメモ帳（固定のパス）で開く。.bat・.ps1・.js など、既定のアプリで開くと実行・登録になる拡張子はこちらを使う
+    # （openWithShell・Invoke-Item は使わない。既定のアプリの登録がどうなっていても実行されない）。
+    # メモ帳が無い（Windows 11 の「オプション機能」で外された等）・起動できないときは、既定のアプリには戻さずに $false を返す
+    param (
+        [string]$path
+    )
+
+    try {
+        Start-Process -FilePath "$env:SystemRoot\System32\notepad.exe" -ArgumentList "`"${path}`""
+        return $true
+    } catch {
+        return $false
+    }
 }
 
 function openInExcel {
@@ -332,40 +346,80 @@ function openInExcel {
 }
 
 function getOpenMode {
-    # ダブルクリック・Enter・［開く］での開き方（［開き方］の選択。${openModes} のいずれか）
-    $item = $ui.OpenModeCombo.SelectedItem
-    if ($null -ne $item -and (${openModes} -contains $item.Tag)) {
-        return [string]$item.Tag
+    # ダブルクリック・Enter・［開く］での開き方（${openModes} のいずれか。選んでいなければ通常）
+    if ($null -ne $script:openMode -and (${openModes} -contains $script:openMode)) {
+        return [string]$script:openMode
     }
     return ${openModeNormal}
 }
 
 function setOpenMode {
-    # ［開き方］の選択を設定の値に合わせる（起動時。選んだことにはしないため、設定は保存しない）
+    # 既定の開き方を設定の値に合わせる（起動時。選んだことにはしないため、設定は保存しない）
     param (
         [string]$mode
     )
 
-    $script:loadingOpenMode = $true
-    try {
-        foreach ($item in $ui.OpenModeCombo.Items) {
-            if ($item.Tag -eq $mode) {
-                $ui.OpenModeCombo.SelectedItem = $item
-                return
-            }
+    $script:openMode = if (${openModes} -contains $mode) { $mode } else { ${openModeNormal} }
+}
+
+function setContextMenuItems {
+    # 右クリックメニューを、判断層が決めた並び（@{ Id; Header; Bold } の並び）で組み直す。
+    # parts は Id → 項目（MenuItem）の表。区切りは Id が "separator"。ここでは並べるだけで、並び・文言・太字は決めない
+    param (
+        $menu,
+        $items,
+        $parts
+    )
+
+    $menu.Items.Clear()
+    foreach ($item in $items) {
+        if ($item.Id -eq "separator") {
+            [void]$menu.Items.Add((New-Object System.Windows.Controls.Separator))
+            continue
         }
-        $ui.OpenModeCombo.SelectedIndex = 0
-    } finally {
-        $script:loadingOpenMode = $false
+        $menuItem = $parts[$item.Id]
+        $menuItem.Header = $item.Header
+        $menuItem.FontWeight = $(if ($item.Bold) { [System.Windows.FontWeights]::Bold } else { [System.Windows.FontWeights]::Normal })
+        [void]$menu.Items.Add($menuItem)
     }
 }
 
-function updateOpenMenu {
-    # 右クリックメニューは3つの開き方をすべて出し、既定の開き方（ダブルクリック・Enter と同じ）に Enter を表示する
-    $mode = getOpenMode
-    $ui.MenuOpen.InputGestureText         = $(if ($mode -eq ${openModeNormal})   { "Enter" } else { "" })
-    $ui.MenuOpenReadOnly.InputGestureText = $(if ($mode -eq ${openModeReadOnly}) { "Enter" } else { "" })
-    $ui.MenuOpenNew.InputGestureText      = $(if ($mode -eq ${openModeNew})      { "Enter" } else { "" })
+function selectResultRowForMenu {
+    # 右クリックした行を選んでからメニューを出す（選んでいる別の行にメニューが効かないようにする）。
+    # 行（ヒットした行）を複数選んでいて、その中の行を右クリックしたときだけ、選びを変えない（［選んだ行をコピー］のため）。
+    # 見出しや、見出しを含む選びのときは、右クリックした行だけを選ぶ。メニューの種類も押したときの対象も、この選びで決まる
+    param (
+        $row
+    )
+
+    if (!(testResultMenuKeepSelection $row.IsSelected $row.Item @($ui.ResultGrid.SelectedItems))) {
+        $ui.ResultGrid.SelectedItem = $row.Item
+    }
+}
+
+function showResultMenu {
+    # 結果の右クリックメニューを組み直す。出してよければ $true（行の無い所では $false）。
+    # cursorLeft が負のときはキーボードで開いたとき（選んでいる行に出す）
+    param (
+        $source,
+        [double]$cursorLeft
+    )
+
+    if ($cursorLeft -ge 0 -and $null -eq (getDataGridRowAt $source)) {
+        return $false
+    }
+    $item = $ui.ResultGrid.SelectedItem
+    if ($null -eq $item) {
+        return $false
+    }
+
+    $context = getResultMenuContext $item
+    $parts = @{
+        openNormal = $ui.MenuOpen; openNew = $ui.MenuOpenNew; openReadOnly = $ui.MenuOpenReadOnly; openFolder = $ui.MenuOpenFolder
+        copyRows = $ui.MenuCopy; copyPath = $ui.MenuCopyPath; toggleGroup = $ui.MenuToggleGroup
+    }
+    setContextMenuItems $ui.ResultMenu (getResultMenuItems $context.Target (getOpenMode) $context.Expanded) $parts
+    return $true
 }
 
 function openSource {
@@ -424,9 +478,18 @@ function openFoundSource {
         }
     } elseif ($row.IsText) {
         # テキストは既定のアプリに開き方（読み取り専用・新規）の動詞が無いことが多く、毎回「開けなかったため…」と出るのを避けるため、
-        # 動詞を試さずにそのまま開く（openWithShell に通常の開き方を渡すと動詞を試さない）。行への移動はしない
-        [void](openWithShell $path ${openModeNormal})
-        setStatus "開きました：${path}"
+        # 動詞を試さずにそのまま開く（openWithShell に通常の開き方を渡すと動詞を試さない）。行への移動はしない。
+        # .bat・.ps1・.js など、既定のアプリで開くと実行・登録になる拡張子はメモ帳で開く
+        if (testTextOpenWithNotepad $path) {
+            if (openWithNotepad $path) {
+                setStatus "メモ帳で開きました：${path}"
+            } else {
+                setStatus "メモ帳で開けませんでした：${path}"
+            }
+        } else {
+            [void](openWithShell $path ${openModeNormal})
+            setStatus "開きました：${path}"
+        }
     } elseif (openWithShell $path $mode) {
         setStatus "${how}：${path}"
     } else {
@@ -485,33 +548,27 @@ function exportResults {
             $writer.Close()
         }
     } catch [System.IO.IOException] {
-        setStatus "検索結果.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。"
+        setStatus "search_results.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。"
         return
     } catch [System.UnauthorizedAccessException] {
         # 読み取り専用・書き込み権限が無いときは、アプリを閉じても直らないため別の文言にする
-        setStatus "検索結果.txt に書き込む権限がありません（読み取り専用など）。$($workspace.ResultFile) を確かめてから、もう一度出力してください。"
+        setStatus "search_results.txt に書き込む権限がありません（読み取り専用など）。$($workspace.ResultFile) を確かめてから、もう一度出力してください。"
         return
     }
     Invoke-Item -LiteralPath $workspace.ResultFile
     if ($rows.Count -lt $script:hitCount) {
-        setStatus "絞り込み後の $($rows.Count.ToString('N0')) 件を検索結果.txt に出力しました"
+        setStatus "絞り込み後の $($rows.Count.ToString('N0')) 件を search_results.txt に出力しました"
     } else {
-        setStatus "検索結果.txt に出力しました（$($rows.Count.ToString('N0')) 件）"
+        setStatus "search_results.txt に出力しました（$($rows.Count.ToString('N0')) 件）"
     }
 }
 
 $ui.ResultGrid.Add_MouseDoubleClick({
     param ($sender, $e)
-    # 行の上でのダブルクリックだけを対象にする（列見出し・スクロールバーは除く）
-    $element = $e.OriginalSource
-    while ($element -and !($element -is [System.Windows.Controls.DataGridRow])) {
-        if ($element -is [System.Windows.Controls.Primitives.DataGridColumnHeader] -or $element -is [System.Windows.Controls.Primitives.ScrollBar]) {
-            return
-        }
-        $element = [System.Windows.Media.VisualTreeHelper]::GetParent($element)
-    }
+    # 行の上でのダブルクリックだけを対象にする（列見出し・スクロールバーは除く）。
     # 見出しの行は、クリックで閉じる・開く（result_list.ps1）ので、ダブルクリックでは開かない
-    if ($element -and !($element.Item -is [FileGroup])) {
+    $row = getDataGridRowAt $e.OriginalSource
+    if ($row -and !($row.Item -is [FileGroup])) {
         safe { openSource }
     }
 })
@@ -532,22 +589,59 @@ $ui.ResultGrid.Add_PreviewKeyDown({
         $e.Handled = $true
     }
 })
+# 右クリックした行を選び、行の無い所ではメニューを出さない（インデックスの一覧の右クリックと同じ）
+$ui.ResultGrid.Add_PreviewMouseRightButtonDown({
+    param ($sender, $e)
+    safe {
+        $row = getDataGridRowAt $e.OriginalSource
+        if ($row) {
+            selectResultRowForMenu $row
+        }
+    }
+})
+$ui.ResultGrid.Add_ContextMenuOpening({
+    param ($sender, $e)
+    safe {
+        if (!(showResultMenu $e.OriginalSource $e.CursorLeft)) {
+            $e.Handled = $true
+        }
+    }
+})
 $ui.MenuOpen.Add_Click({ safe { openSource ${openModeNormal} } })
 $ui.MenuOpenReadOnly.Add_Click({ safe { openSource ${openModeReadOnly} } })
 $ui.MenuOpenNew.Add_Click({ safe { openSource ${openModeNew} } })
-$ui.OpenModeCombo.Add_SelectionChanged({
-    safe {
-        # 起動時の読み込みでは保存しない（設定していない利用者の setting.config を作らないため）
-        if (-not $script:loadingOpenMode) {
-            writeOpenMode (getOpenMode)
-        }
-        updateOpenMenu
-    }
-})
 $ui.MenuOpenFolder.Add_Click({ safe { openSourceFolder } })
 $ui.OpenButton.Add_Click({ safe { openSource } })
+# ［開く ▾］のメニュー。選んだ開き方は次からの既定（ダブルクリック・Enter・［開く］）にもなり、そのまま開く
+function selectOpenMode {
+    param (
+        [string]$mode
+    )
+
+    if (${openModes} -contains $mode) {
+        $script:openMode = $mode
+        writeOpenMode $mode
+    }
+    openSource $mode
+}
+$ui.OpenMenuButton.Add_Click({
+    $menu = $ui.OpenMenuButton.ContextMenu
+    $menu.PlacementTarget = $ui.OpenMenuButton
+    $menu.Placement = [System.Windows.Controls.Primitives.PlacementMode]::Bottom
+    $menu.IsOpen = $true
+})
+$ui.MenuOpenModeNormal.Add_Click({ safe { selectOpenMode ${openModeNormal} } })
+$ui.MenuOpenModeNew.Add_Click({ safe { selectOpenMode ${openModeNew} } })
+$ui.MenuOpenModeReadOnly.Add_Click({ safe { selectOpenMode ${openModeReadOnly} } })
 $ui.OpenFolderButton.Add_Click({ safe { openSourceFolder } })
 
+$ui.MenuToggleGroup.Add_Click({
+    safe {
+        if ($ui.ResultGrid.SelectedItem -is [FileGroup]) {
+            toggleFileGroup $ui.ResultGrid.SelectedItem
+        }
+    }
+})
 $ui.MenuCopy.Add_Click({ safe { copySelectedRows } })
 $ui.MenuCopyPath.Add_Click({ safe { copySourcePath } })
 $ui.ExportButton.Add_Click({ safe { exportResults } })

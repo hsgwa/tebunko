@@ -1,4 +1,4 @@
-# 部品ごとの関数（検索・スレッド・元のファイル・画面）
+﻿# 部品ごとの関数（検索・スレッド・元のファイル・画面）
 
 扱うこと: 検索（`search_query.ps1`・`pack_search.ps1`・`search_run.ps1`）、スレッドとプール（`worker_pool.ps1`・`search_service.ps1`・`indexing_session.ps1`）、元のファイルの特定（`source_map.ps1`）、画面が使う集計・設定・Office プロセスの関数一覧。扱わないこと: TSV・本文インデックスそのものの関数（[部品ごとの関数（TSV と本文インデックス）](tsv.md)）。先に読むページ: [部品から関数一覧を引く](index.md)。
 
@@ -20,6 +20,7 @@ flowchart LR
 | `isValidRegex` | pattern | bool | 正規表現として正しいか | – | 検索・画面 |
 | `newSearchRegex` | word, simpleMatch, caseSensitive | `@{Regex; SimpleMatch; TextRegex; ScanMode}` | 検索条件から照合用の正規表現を作る（文字どおりならエスケープ、大文字と小文字を区別しないなら IgnoreCase、正規表現として不正なら文字どおりにする）。1 行の照合は 5 秒で時間切れ。TextRegex は本文インデックスの全文にかける正規表現（Multiline）、ScanMode はそれを全文にかけてよいか（`getRegexScanMode`） | [検索](../search/index.md#検索条件サクラエディタの-grep-にならう) | 検索・画面（一致箇所の強調） |
 | `getRegexScanMode` | pattern | string（`lines` / `filter` / `scan`） | 正規表現を全文にかけて、1 行ずつの照合と同じ結果になるかを判定する。`lines` は全文での一致の位置から行が分かる、`filter` は全文で一致しない本文インデックスのファイルを読み飛ばせる、`scan` は 1 行ずつ照合する。分からない書き方は安全側（`filter` か `scan`）に倒す | [検索を速くする仕組み](../search/speed.md) | newSearchRegex |
+| `newFileKindFilter` | kinds | string | 選んだ種類（`readFileKinds` の値）から、対象ファイルの条件（`*.xlsx;*.xls` の形）を作る。すべて選んでいる・空なら空 | [検索](../search/index.md) | newSearchRequest |
 | `newFileFilter` | filter | `@{Include; Exclude}` | 対象ファイルの指定（`*.xlsx;見積;!*old*`）を、元のファイル名に対する正規表現にする（無い側は `$null`） | [検索](../search/index.md#検索条件サクラエディタの-grep-にならう) | `searchPackIndex` |
 | `newPlaceExclude` | includeShapes, includeComments | regex / `$null` | 検索から外す図形・コメントの場所（名前の末尾 `[図形]` `[コメント]`）の正規表現。どちらも検索するなら `$null` | 同上 | `searchPackIndex` |
 | `truncateHitLine` | line, matchIndex（既定 -1） | string | 長い行（テキストのヒットの行・プレビューの前後の行）を、一致の位置（`matchIndex`。分からなければ -1 で先頭から）から前後 `hitLineMaxChars`（1,000 文字）に切る。切った側に `…` を付ける。`hitLineMaxChars` 以下ならそのまま | [長い行を切る](../search/output.md#長い行を切る) | searchPackFiles, readPackContext |
@@ -35,9 +36,19 @@ flowchart LR
 | `newSearchRequest` | word, simpleMatch, folders, limit, option, useFast | 検索の要求（`[hashtable]::Synchronized`） | 検索 1 回分の要求を作る。画面が条件と `Stop`（取り消し）を書き、検索の司令がヒット（`Queue`）・進み具合・`Finished` を書く | [プロセスとスレッド](../structure/threads.md#寿命) | 画面 |
 | `invokeSearchRequest` | request, pool, cache | – | 検索の要求を実行し、ヒットと進み具合を要求に少しずつ入れる。例外は投げずに `Error` に入れる。始める前に取り消されていたら何もせずに `Cancelled` にする | 同上 | 検索の司令 |
 | `toResultLine` | book, location, lineNumber, line | string | `ファイル名<TAB>場所<TAB>種別<TAB>行番号<TAB>該当行` を返す（場所・種別は `describePlace` の表記）。Excel はセル内改行を LF に戻し、Word・PowerPoint は `"` で始まるセルを `"` で囲む。場所のタブ・改行（Excel のシート名に付けられる）はスペースにする | [検索結果ファイル](../search/output.md#1-行の組み立て) | 検索 |
-| `toResultHeader` | columnCount | string | 見出し行 `ファイル名<TAB>場所<TAB>種別<TAB>行<TAB>A<TAB>B…` を返す | [検索結果ファイル](../search/output.md#出力フォーマットwork検索結果txt) | 検索 |
+| `toResultHeader` | columnCount | string | 見出し行 `ファイル名<TAB>場所<TAB>種別<TAB>行<TAB>A<TAB>B…` を返す | [検索結果ファイル](../search/output.md#出力フォーマットworksearch_resultstxt) | 検索 |
 | `toSearchResultLines` | hits | `@{Header; Lines}` | 検索結果ファイルの見出し行と各行（相対フォルダ付き `toResultLine`、最大セル数の `toResultHeader`） | 同上 | 検索・画面 |
 | `writeSearchResult` | writer, word, hits | – | 1 ワード分の `【検索文字列　X】 N 件`・見出し行・各行・空行を書き出す | 同上 | 検索・画面 |
+
+## 高速検索（Windows Search）の状態（`tebunko/search/windows_search.ps1`・`fast_search.ps1`）
+
+詳細は [高速検索（Windows Search）](../search/fast-search.md)。
+
+| 関数 | 入力 | 出力 | 概要 | 使用元 |
+|---|---|---|---|---|
+| `openWindowsSearch` | – | `OleDbConnection` / `$null` | Windows Search への接続を開く（開けなければ `$null`） | getWindowsSearchState, getSystemIndexProgress, 検索（高速検索） |
+| `getWindowsSearchState` | systemRoot（既定 `$workspace.SystemIndexDir`）, workspaceDir, connection | string（`NoFolder` / `NoConnection` / `NotInScope` / `NotYet` / `Ok`） | 高速検索に使えるかと、使えない理由。`system_index` のフォルダの有無・Windows Search への接続・ワークスペースが索引の対象かを順に確かめる | 画面（一覧の「高速検索」列）、testWindowsSearch |
+| `getSystemIndexProgress` | query（既定 `$null` で自分で問い合わせる）, indexRoot, systemRoot, statePath, connection | `@{Folders; Waiting; ContentIndexed; ByIndex}` / `$null` | システムインデックスが Windows Search にどこまで反映されたかを数える。`ByIndex` はインデックス名 → `@{Folders; Waiting}` の辞書（OrdinalIgnoreCase）。状態ファイルを読めない・問い合わせられないときは `$null` | 画面（一覧の「高速検索」列） |
 
 ## スレッドとプール（`shared/core/worker_pool.ps1`・`tebunko/search/search_service.ps1`・`tebunko/indexer/indexing_session.ps1`）
 
@@ -70,7 +81,7 @@ flowchart LR
 
 | 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |
 |---|---|---|---|---|---|
-| `readSearchOption` / `writeSearchOption` | path（既定 `$settingsFile`） / option（`@{UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments}` のうち変える項目）, path | `@{UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments}` / – | 画面の検索条件（`setting.config` の `useRegex` / `caseSensitive` / `fileFilter` / `includeShapes` / `includeComments`。無ければオフ・空、図形とコメントはオン）。保存は option にある項目だけを変える | [設定ファイル（setting.config）](../structure/settings-file.md) | 画面 |
+| `readSearchOption` / `writeSearchOption` | path（既定 `$settingsFile`） / option（`@{UseRegex; CaseSensitive; IncludeShapes; IncludeComments}` のうち変える項目）, path | `@{UseRegex; CaseSensitive; IncludeShapes; IncludeComments}` / – | 画面の検索条件（`setting.config` の `useRegex` / `caseSensitive` / `fileFilter` / `includeShapes` / `includeComments`。無ければオフ・空、図形とコメントはオン）。保存は option にある項目だけを変える | [設定ファイル（setting.config）](../structure/settings-file.md) | 画面 |
 | `getIndexingState` | since, path | `@{Exists; Folders; Total; Pending; Failed; Done; IngestedSince; Updated; FailedRows; IndexStats}` | 取り込み一覧の状態ごとの件数、since 以降に取り込んだ件数、失敗したファイルの行（FailedRows。取り込み日時の新しい順）、インデックス名ごとの集計（IndexStats。`getIndexStats`。取り込み一覧を読み直さずに済むよう同じ読み込みから作る） | [状態と操作の流れ](../gui/state-flow.md) | 画面 |
-| `getOfficeProcesses` | – | プロセス情報の配列 | 実行中の Excel・Word・PowerPoint（Id・ProcessName・AppName・Background・StartTime・MemoryMB・Title）。`MainWindowHandle` が 0 ならバックグラウンド | [［9 プロセス停止］タブ](../gui/process-tab.md) | 画面 |
-| `stopOfficeProcesses` | ids | `@{Id; Stopped; Message}` の配列 | `Stop-Process -Force` で終了し、成否と理由を返す | 同上 | 画面 |
+| `getOfficeProcesses` | recordDir, selfId, selfStartTicks | `@{Id; ProcessName; AppName; StartTime; HasWindow; Owned; Owner}` の配列 | 実行中の Excel・Word・PowerPoint。記録（`office_pids`）と照らして `Owned`（記録と同じプロセスか）・`Owner`（Self／Other／Gone）を付ける。`HasWindow` は `MainWindowHandle` が 0 でないこと | [前回残った Office の確認](../gui/leftover-office.md) | 画面 |
+| `stopOfficeProcesses` | targets, recordDir | `@{Id; Stopped; Status; Reason}` の配列 | 止める直前に PID が記録と同じプロセスか照らし直し、同じものだけ `Stop-Process -Force` で終了する。`Status` は Stopped／Changed／Gone／Failed | 同上 | 画面 |

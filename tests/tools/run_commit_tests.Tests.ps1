@@ -14,10 +14,11 @@ Describe "run_commit_tests.ps1 の選び方" -Tag Unit {
         @{ name = "インデクサの起動口は indexer フォルダのテスト"; files = @("scripts/tebunko/indexer.ps1"); expected = @("tests/tebunko/indexer/indexer.Tests.ps1", "tests/meta/structure.Tests.ps1", "tests/meta/layers.Tests.ps1") }
         @{ name = "\ 区切りのパスも同じに扱う"; files = @("scripts\shared\core\fs.ps1"); expected = @("tests/shared/core/fs.Tests.ps1", "tests/meta/structure.Tests.ps1", "tests/meta/layers.Tests.ps1") }
         @{ name = "カンマ区切りの 1 つの文字列も分ける（powershell.exe -File の渡し方）"; files = @("tests/shared/core/text.Tests.ps1,README.md"); expected = @("tests/shared/core/text.Tests.ps1", "tests/meta/links.Tests.ps1") }
-        @{ name = "XAML は structure"; files = @("scripts/tebunko/xaml/tab_search.xaml"); expected = @("tests/meta/structure.Tests.ps1") }
+        @{ name = "XAML は structure"; files = @("scripts/tebunko/xaml/search/search.xaml"); expected = @("tests/meta/structure.Tests.ps1") }
         @{ name = "テストを変えたらそのテスト"; files = @("tests/shared/core/text.Tests.ps1"); expected = @("tests/shared/core/text.Tests.ps1") }
         @{ name = "Markdown と docs の中は links"; files = @("README.md", "docs/images/none.png"); expected = @("tests/meta/links.Tests.ps1") }
         @{ name = "道具はそのテスト。リンクの検査は links も"; files = @("tools/check_signoff.ps1", "tools/check_markdown_links.ps1"); expected = @("tests/tools/check_signoff.Tests.ps1", "tests/tools/check_markdown_links.Tests.ps1", "tests/meta/links.Tests.ps1") }
+        @{ name = "既定のワークスペースを守る共通の関数は run_isolated のテスト"; files = @("tools/isolation/isolation_common.ps1"); expected = @("tests/tools/run_isolated.Tests.ps1") }
         @{ name = "個人情報の除去はそのテスト"; files = @("tests/testdata/scrub_personal.ps1"); expected = @("tests/testdata/scrub_personal.Tests.ps1") }
         @{ name = "同じテストは 1 回だけ"; files = @("scripts/shared/core/fs.ps1", "tests/shared/core/fs.Tests.ps1", "scripts/shared/core/text.ps1"); expected = @("tests/shared/core/fs.Tests.ps1", "tests/meta/structure.Tests.ps1", "tests/meta/layers.Tests.ps1", "tests/shared/core/text.Tests.ps1") }
     ) {

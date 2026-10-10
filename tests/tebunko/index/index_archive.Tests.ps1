@@ -78,7 +78,7 @@ Describe "exportIndex" -Tag Io {
         Set-Content -LiteralPath (Join-Path $fixture.Workspace.IndexDir "営業\見積\B社.xlsx\Sheet1.tsv") -Value "本文" -Encoding UTF8
 
         $dest = "$TestDrive\export_pending\out.zip"
-        { exportIndex "営業" $dest $fixture.Workspace $fixture.SettingsPath } | Should -Throw "*取り込みの途中*"
+        { exportIndex "営業" $dest $fixture.Workspace $fixture.SettingsPath } | Should -Throw "*更新の途中*"
         Test-Path -LiteralPath $dest | Should -Be $false
         Test-Path -LiteralPath "${dest}.tmp" | Should -Be $false
     }
@@ -88,7 +88,7 @@ Describe "exportIndex" -Tag Io {
         $lock = newAppMutex "indexer" $fixture.Workspace.Dir
         $lock.Acquired | Should -Be $true
         try {
-            { exportIndex "営業" "$TestDrive\export_locked\out.zip" $fixture.Workspace $fixture.SettingsPath } | Should -Throw "*インデックス作成中*"
+            { exportIndex "営業" "$TestDrive\export_locked\out.zip" $fixture.Workspace $fixture.SettingsPath } | Should -Throw "*更新中は*"
         } finally {
             $lock.Mutex.ReleaseMutex()
             $lock.Mutex.Dispose()
@@ -110,7 +110,7 @@ Describe "exportIndex" -Tag Io {
         $archive = [System.IO.Compression.ZipFile]::Open($dest, [System.IO.Compression.ZipArchiveMode]::Read, [System.Text.Encoding]::UTF8)
         try {
             @($archive.Entries | ForEach-Object { $_.FullName }) | Sort-Object | Should -Be @(
-                "content_index/見積/content_index.xlsx.001.tsv", "tebunko-index.json", "取り込み一覧.tsv"
+                "content_index/見積/content_index.xlsx.001.tsv", "ingest_status.tsv", "tebunko-index.json"
             )
             $manifestEntry = $archive.GetEntry("tebunko-index.json")
             $reader = New-Object System.IO.StreamReader($manifestEntry.Open())
@@ -120,7 +120,7 @@ Describe "exportIndex" -Tag Io {
             $manifest.sourceFolder | Should -Be "C:\共有\営業部"
             $manifest.formatVersion | Should -Be 1
 
-            $statusEntry = $archive.GetEntry("取り込み一覧.tsv")
+            $statusEntry = $archive.GetEntry("ingest_status.tsv")
             $statusReader = New-Object System.IO.StreamReader($statusEntry.Open(), [System.Text.Encoding]::UTF8)
             $statusText = $statusReader.ReadToEnd()
             $statusReader.Dispose()
@@ -129,6 +129,59 @@ Describe "exportIndex" -Tag Io {
         } finally {
             $archive.Dispose()
         }
+    }
+}
+
+Describe "exportIndexToFolder" -Tag Io {
+    It "止める: 書き出し先のフォルダが無ければ、フォルダ名を添えて例外にする" {
+        $fixture = newIndexFixture "$TestDrive\exportf_nofolder" "営業" "C:\共有\営業部"
+        $missing = "$TestDrive\exportf_nofolder\無い場所"
+
+        { exportIndexToFolder "営業" $missing $fixture.Workspace $fixture.SettingsPath } | Should -Throw "*書き出し先のフォルダが見つかりません*無い場所*"
+    }
+
+    It "フォルダの中に既定のファイル名で書き出し、同じ名前があれば番号を付ける" {
+        $fixture = newIndexFixture "$TestDrive\exportf_ok" "営業" "C:\共有\営業部"
+        $out = "$TestDrive\exportf_ok\out"
+        New-Item -ItemType Directory -Path $out | Out-Null
+
+        $first = exportIndexToFolder "営業" $out $fixture.Workspace $fixture.SettingsPath
+        $second = exportIndexToFolder "営業" $out $fixture.Workspace $fixture.SettingsPath
+
+        (Split-Path $first.Path -Parent) | Should -Be $out
+        (Split-Path $first.Path -Leaf) | Should -Match "^営業_インデックス_\d{8}\.zip$"
+        (Split-Path $second.Path -Leaf) | Should -Match "^営業_インデックス_\d{8}\(2\)\.zip$"
+        @(Get-ChildItem -LiteralPath $out -File).Count | Should -Be 2
+    }
+}
+
+Describe "exportIndexes" -Tag Io {
+    It "選んだインデックスを 1 つずつ zip にし、1 つ失敗しても残りを続けて、名前ごとの結果を返す" {
+        $fixture = newIndexFixture "$TestDrive\exports_ok" "営業" "C:\共有\営業部"
+        $out = "$TestDrive\exports_ok\out"
+        New-Item -ItemType Directory -Path $out | Out-Null
+
+        $results = exportIndexes @("無い名前", "営業") $out $fixture.Workspace $fixture.SettingsPath
+
+        @($results).Count | Should -Be 2
+        $results[0].Name | Should -Be "無い名前"
+        $results[0].Ok | Should -Be $false
+        $results[0].Reason | Should -Not -BeNullOrEmpty
+        $results[0].Path | Should -Be ""
+        $results[1].Name | Should -Be "営業"
+        $results[1].Ok | Should -Be $true
+        $results[1].Reason | Should -Be ""
+        (Split-Path $results[1].Path -Leaf) | Should -Match "^営業_インデックス_\d{8}\.zip$"
+        Test-Path -LiteralPath $results[1].Path | Should -Be $true
+    }
+
+    It "書き出し先のフォルダが無ければ、名前ごとに失敗として返す（例外にしない）" {
+        $fixture = newIndexFixture "$TestDrive\exports_nofolder" "営業" "C:\共有\営業部"
+
+        $results = exportIndexes @("営業") "$TestDrive\exports_nofolder\無い場所" $fixture.Workspace $fixture.SettingsPath
+
+        $results[0].Ok | Should -Be $false
+        $results[0].Reason | Should -Match "書き出し先のフォルダが見つかりません"
     }
 }
 
@@ -388,7 +441,7 @@ Describe "importIndex" -Tag Io {
         $plan.Rows.Count | Should -Be 1
     }
 
-    It "登録: targetFolders に名前・場所が入り、元のフォルダが無ければ Enabled が `$false。取り込み一覧・元のフォルダ.txt もできる" {
+    It "登録: targetFolders に名前・場所が入り、元のフォルダが無ければ Enabled が `$false。取り込み一覧・source_folder.txt もできる" {
         $fixtureA = newIndexFixture "$TestDrive\register_a" "営業" "C:\共有\営業部"
         $dest = "$TestDrive\register.zip"
         exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
@@ -407,7 +460,7 @@ Describe "importIndex" -Tag Io {
         $status = readStatusFile $wsB.StatusFile
         @($status.Folders | Where-Object { $_.Name -eq "営業" }).Count | Should -Be 1
         $status.Rows.ContainsKey("営業\見積\A社.xlsx") | Should -Be $true
-        Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業\元のフォルダ.txt") | Should -Be $true
+        Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業\source_folder.txt") | Should -Be $true
         Test-Path -LiteralPath (Join-Path $wsB.SystemIndexDir "営業") | Should -Be $false
     }
 
@@ -512,7 +565,7 @@ Describe "importIndex" -Tag Io {
         $settingsB = "$TestDrive\import_locked_b\setting.config"
         $lock = newAppMutex "indexer" $wsB.Dir
         try {
-            { importIndex $dest ${importCollisionRename} "" "C:\新しい場所" $wsB $settingsB } | Should -Throw "*インデックス作成中*"
+            { importIndex $dest ${importCollisionRename} "" "C:\新しい場所" $wsB $settingsB } | Should -Throw "*更新中は*"
         } finally {
             $lock.Mutex.ReleaseMutex()
             $lock.Mutex.Dispose()
@@ -654,7 +707,7 @@ Describe "importIndex" -Tag Io {
 
         # content_index\営業 は前の中身のまま
         [System.IO.File]::ReadAllBytes($fixtureB.PackPath) | Should -Be $packBefore
-        Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業\元のフォルダ.txt") | Should -Be $false
+        Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業\source_folder.txt") | Should -Be $false
         Test-Path -LiteralPath (Join-Path $wsB.PublishDir "import") | Should -Be $false
         # 取り込み一覧は変わらない
         [System.IO.File]::ReadAllText($wsB.StatusFile) | Should -Be $statusBefore
@@ -725,7 +778,7 @@ Describe "importIndex" -Tag Io {
             [pscustomobject]@{ Name = "総務"; Path = "C:\総務"; Enabled = $true }
         ) $settingsB
         updateSettings "caseSensitive" $true $settingsB
-        updateSettings "fileFilter" "*.xlsx" $settingsB
+        updateSettings "useRegex" $true $settingsB
         $status = readStatusFile $wsB.StatusFile
         writeStatusFile @(
             [pscustomobject]@{ Path = "C:\経理"; Name = "経理" }
@@ -746,7 +799,7 @@ Describe "importIndex" -Tag Io {
         @($targets | Where-Object { $_.Name -eq "経理" })[0].Path | Should -Be "C:\経理"
         $settings = readSettings $settingsB
         $settings.caseSensitive | Should -Be $true
-        $settings.fileFilter | Should -Be "*.xlsx"
+        $settings.useRegex | Should -Be $true
 
         # インデックス作成の始めと同じ手順: 名前の割り当て・消えたフォルダの整理。今の設定にあるインデックスは消えない
         $folders = @(assignIndexNames $targets (readStatusFile $wsB.StatusFile).Folders)

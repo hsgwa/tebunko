@@ -12,17 +12,17 @@ Describe "S1 起動・検索・閉じる" -Tag Gui {
         newGuiSampleIndex $script:tool $TestDrive
     }
 
-    It "起動して［2 検索］が選ばれ、4 つのタブ・検索・プレビュー・「tebunko について」・多重起動・閉じるが動く" {
+    It "起動して［検索］が選ばれ、3 つのタブ・検索・プレビュー・「バージョン情報」・多重起動・閉じるが動く" {
         $S = startGui $script:tool "S1"
         invokeGuiScene $S {
-            # 起動・インデックスがあれば［2 検索］が選ばれる（#1・#2）
+            # 起動・インデックスがあれば［検索］が選ばれる（#1・#2）
             setGuiStep $S "起動時のタブ"
             getGuiSelectedTab $S | Should -Be "SearchTab"
 
-            # 4 つのタブを選ぶ。タブの中の部品が UI オートメーションに出る（theme.xaml の PART_SelectedContentHost）（#7）
+            # 3 つの画面を選ぶ。選んだ画面の中の部品が UI オートメーションに出る（ContentHost の中身）（#7）
             foreach ($tab in @(
                 @{ Id = "IndexTab"; Content = "IndexGrid" }, @{ Id = "SettingsTab"; Content = "ChangeWorkspaceButton" },
-                @{ Id = "KillTab"; Content = "ProcessGrid" }, @{ Id = "SearchTab"; Content = "WordBox" })) {
+                @{ Id = "SearchTab"; Content = "WordBox" })) {
                 setGuiStep $S "タブ $($tab.Id) を選ぶ"
                 selectGuiTab $S $tab.Id $tab.Content
             }
@@ -33,9 +33,9 @@ Describe "S1 起動・検索・閉じる" -Tag Gui {
             $sw = [Diagnostics.Stopwatch]::StartNew()
             clickGui $S $S.Window "SearchButton" "［検索］"
             setGuiStep $S "検索の結果（該当 2 件）"
-            waitGui $S "件数の表示（該当 2 件）" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "SummaryText")) -like "該当 2 件*" } | Out-Null
+            waitGui $S "件数の表示（該当 2 件）" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "SummaryText")) -like "一致 2 件（*" } | Out-Null
             $S.Timing["検索"] = [Math]::Round($sw.Elapsed.TotalSeconds, 1)
-            clickGui $S $S.Window "ExpandAllButton" "［すべて展開］"
+            clickGui $S $S.Window "ExpandAllButton" "［すべて開く］"
             setGuiStep $S "結果の行を選んでプレビュー"
             $row = waitGui $S "結果の行" ${guiDefaultTimeout} { getGuiHitRows (findGui $S.Window -Id "ResultGrid") | Select-Object -Last 1 }
             selectGui $row
@@ -44,15 +44,13 @@ Describe "S1 起動・検索・閉じる" -Tag Gui {
             } | Out-Null
             (getGuiText (findGui $S.Window -Id "DetailTitle")) | Should -BeLike "*見積.xlsx*"
 
-            # ［⋯］→「tebunko について」（#8）
-            setGuiStep $S "［⋯］から「tebunko について」を開く"
-            clickGui $S $S.Window "MoreButton" "［⋯］"
-            $item = waitGui $S "メニューの「tebunko について」" ${guiDefaultTimeout} { findGuiAnywhere $S -Id "AboutMenuItem" }
-            invokeGui $S $item "「tebunko について」"
-            $about = waitGuiWindow $S "「tebunko について」のダイアログ" -Id "VersionText"
-            (getGuiText (findGui $about -Id "VersionText")) | Should -BeLike "版: *"
-            clickGui $S $about "CloseButton" "［閉じる］"
-            waitGuiWindowClosed $S $about "「tebunko について」"
+            # 左の欄の「バージョン情報」（#8）
+            setGuiStep $S "「バージョン情報」を開く"
+            clickGui $S $S.Window "AboutLink" "バージョン情報"
+            $about = waitGuiWindow $S "「バージョン情報」のダイアログ" -Id "VersionText"
+            (getGuiText (findGui $about -Id "VersionText")) | Should -BeLike "バージョン *"
+            clickGui $S $about "CloseButton" "［OK］"
+            waitGuiWindowClosed $S $about "「バージョン情報」"
 
             # 同じフォルダのツールをもう一度起動すると、2 つ目はすぐ終わり、1 つ目は残る（#6）
             setGuiStep $S "多重起動"
@@ -70,5 +68,45 @@ Describe "S1 起動・検索・閉じる" -Tag Gui {
 
     It "利用者の環境（作業ツリーの設定・work\content_index・LOCALAPPDATA・既定のワークスペース・Office のプロセス）に触っていない" {
         compareGuiEnvSnapshot $script:envBefore (getGuiEnvSnapshot) | Should -BeNullOrEmpty
+    }
+}
+
+Describe "S8 単一 .ps1 版: 起動・検索・閉じる" -Tag Gui {
+    BeforeAll {
+        $script:envBeforeSingle = getGuiEnvSnapshot
+        $script:singleTool = newGuiSingleScriptTool $TestDrive
+        newGuiSampleIndex $script:singleTool $TestDrive "single"
+    }
+
+    It "起動して［検索］が選ばれ、検索で当たり、閉じると終了コード 0" {
+        $S = startGui $script:singleTool "S8"
+        invokeGuiScene $S {
+            setGuiStep $S "起動時のタブ"
+            getGuiSelectedTab $S | Should -Be "SearchTab"
+
+            setGuiStep $S "検索ワードを入れて［検索］"
+            setGuiText $S (waitGuiById $S $S.Window "WordBox") "単価"
+            clickGui $S $S.Window "SearchButton" "［検索］"
+            setGuiStep $S "検索の結果（該当 2 件）"
+            waitGui $S "件数の表示（該当 2 件）" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "SummaryText")) -like "一致 2 件（*" } | Out-Null
+
+            closeGui $S
+        }
+    }
+
+    It "利用者の環境に触っていない" {
+        compareGuiEnvSnapshot $script:envBeforeSingle (getGuiEnvSnapshot) | Should -BeNullOrEmpty
+    }
+}
+
+Describe "S1 同梱のフォント" -Tag Gui {
+    It "配布する形（scripts\ の写し）に同梱のフォントがあり、Font.Body がそこから作られる" -Skip:($env:TEBUNKO_GUI_SINGLE -eq "1") {
+        $tool = newGuiTool $TestDrive
+        $fonts = "$($tool.Dir)\scripts\shared\fonts"
+        Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
+        . "$($tool.Dir)\scripts\shared\ui\app_host.ps1"
+        $family = newAppFontFamily $fonts
+        $family.BaseUri.LocalPath | Should -Be "$fonts\"
+        @([System.Windows.Media.Fonts]::GetFontFamilies($family.BaseUri) | ForEach-Object { $_.FamilyNames.Values }) | Should -Contain "Rethink Sans"
     }
 }

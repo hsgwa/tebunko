@@ -104,19 +104,19 @@ function testIndexName {
 
     $name = [string]$name
     if ($name -eq "") {
-        return "インデックス名を入力してください。"
+        return "名前を入力してください。"
     }
     if ($name -ne $name.Trim()) {
-        return "インデックス名の前後に空白は使えません。"
+        return "名前の前後に空白は使えません。"
     }
     if ($name.Length -gt ${maxFileNameLength}) {
-        return "インデックス名が長すぎます（${maxFileNameLength} 文字まで）。"
+        return "名前が長すぎます（${maxFileNameLength} 文字まで）。"
     }
     if (@([System.IO.Path]::GetInvalidFileNameChars() | Where-Object { $name.IndexOf($_) -ge 0 }).Count -gt 0) {
-        return "インデックス名に使えない文字が含まれています（\ / : * ? " + [char]34 + " < > | と制御文字）。"
+        return "名前に使えない文字が含まれています（\ / : * ? " + [char]34 + " < > | と制御文字）。"
     }
     if ($name.EndsWith(".")) {
-        return "インデックス名の最後に . は使えません。"
+        return "名前の最後に . は使えません。"
     }
     if (${reservedFileNames} -contains $name.Split(".")[0].ToUpperInvariant()) {
         return "「${name}」は Windows で使えない名前です。"
@@ -153,19 +153,91 @@ function decodeIndexPlace {
     return [regex]::Replace($place, '%(?:[01][0-9A-F]|2[25AF]|3[ACEF]|5[CF]|7C)', { param($m) [string][char][Convert]::ToInt32($m.Value.Substring(1), 16) })
 }
 
+# 決まった場所（ページ・スライド・ヘッダー/フッター・脚注・文書・本文）は、ファイル名を ASCII の固定名にする。
+# 符号化した場所（encodeIndexPlace）には "_" が出ないため（"_" は "%5F" にする）、固定名に "_" を使っても
+# シート名由来のファイル名と重ならない（convertIndexFileNameToPlace で戻すときの手掛かりにする）。
+function convertPlaceBaseToFixedFileName {
+    # 場所の元の部分（種類を除いた部分）を、決まったASCIIのファイル名にする（当てはまらなければ空文字列）。
+    #   数字はそのまま桁を写す（int にしない。"001" は "001" のまま）
+    param (
+        [string]$base
+    )
+
+    if ($base -match '^ページ(\d+)$') { return "page_$($Matches[1])" }
+    if ($base -match '^スライド(\d+)（非表示）$') { return "slide_$($Matches[1])_hidden" }
+    if ($base -match '^スライド(\d+)_ノート$') { return "slide_$($Matches[1])_notes" }
+    if ($base -match '^スライド(\d+)$') { return "slide_$($Matches[1])" }
+    if ($base -eq "ヘッダー・フッター") { return "header_footer" }
+    if ($base -eq "脚注") { return "doc_footnotes" }
+    if ($base -eq "文書") { return "doc_whole" }
+    if ($base -eq "本文") { return "doc_body" }
+    return ""
+}
+
+function convertFixedFileNameToPlaceBase {
+    # convertPlaceBaseToFixedFileName の逆変換（当てはまらなければ空文字列）
+    param (
+        [string]$fileBase
+    )
+
+    if ($fileBase -match '^page_(\d+)$') { return "ページ$($Matches[1])" }
+    if ($fileBase -match '^slide_(\d+)_hidden$') { return "スライド$($Matches[1])（非表示）" }
+    if ($fileBase -match '^slide_(\d+)_notes$') { return "スライド$($Matches[1])_ノート" }
+    if ($fileBase -match '^slide_(\d+)$') { return "スライド$($Matches[1])" }
+    if ($fileBase -eq "header_footer") { return "ヘッダー・フッター" }
+    if ($fileBase -eq "doc_footnotes") { return "脚注" }
+    if ($fileBase -eq "doc_whole") { return "文書" }
+    if ($fileBase -eq "doc_body") { return "本文" }
+    return ""
+}
+
 function toIndexFileName {
-    # インデックスのTSVのファイル名 "<場所>.tsv" を返す（場所は encodeIndexPlace で符号化する）。
+    # インデックスのTSVのファイル名 "<場所>.tsv" を返す。
+    #   ・決まった場所（ページ・スライド・ヘッダー/フッター・脚注・文書・本文）は ASCII の固定名にする
+    #   ・それ以外（Excelのシート名）は encodeIndexPlace で符号化する
+    #   ・図形・コメント・ヘッダー・フッターは、末尾に英語の種類 "[shape]" "[comment]" "[header_footer]" を付ける（placeKindFileNames）
     # 元のファイル名はフォルダ名（= 元のファイル名そのもの）にするため、ファイル名には入れない。
     # ファイル名の上限（255文字）は長いパスの対応（toLongPath）でも超えられないため、超える場合は分かるメッセージで例外にする
     param (
         [string]$place
     )
 
-    $name = "{0}.tsv" -f (encodeIndexPlace $place)
+    $split = splitObjectPlace $place
+    $fixedName = convertPlaceBaseToFixedFileName $split.Base
+    $base = if ($fixedName) { $fixedName } else { encodeIndexPlace $split.Base }
+    $suffix = if ($split.Kind) { "[$(${placeKindFileNames}[$split.Kind])]" } else { "" }
+    $name = "{0}{1}.tsv" -f $base, $suffix
     if ($name.Length -gt ${maxFileNameLength}) {
         throw "インデックスのファイル名が長すぎるため保存できません（$($name.Length) 文字。上限 ${maxFileNameLength} 文字）: ${name}"
     }
     return $name
+}
+
+function convertIndexFileNameToPlace {
+    # toIndexFileName の逆変換。ファイル名（拡張子 .tsv を除いたもの）から場所を復元する。
+    #   戻す順番: (1) 末尾の "[shape]"・"[comment]"・"[header_footer]"（placeKindFileNames の値）を外す →
+    #             (2) 残りに "_" があれば固定の場所の表で戻し、無ければ decodeIndexPlace で戻す →
+    #             (3) (1) で外した種類を日本語（[図形]・[コメント]・[ヘッダー・フッター]）で付け直す
+    param (
+        [string]$fileNameWithoutExtension
+    )
+
+    $kind = ""
+    $body = $fileNameWithoutExtension
+    $fileKindAlternation = (${placeKindFileNames}.Values | ForEach-Object { [regex]::Escape($_) }) -join "|"
+    if ($fileNameWithoutExtension -match "^(?<base>.+)\[(?<kind>$fileKindAlternation)\]`$") {
+        $body = $Matches.base
+        $kind = (${placeKindFileNames}.GetEnumerator() | Where-Object { $_.Value -eq $Matches.kind } | Select-Object -First 1).Key
+    }
+
+    if ($body.IndexOf("_") -ge 0) {
+        $base = convertFixedFileNameToPlaceBase $body
+    } else {
+        $base = decodeIndexPlace $body
+    }
+
+    if ($kind) { return "$base[$kind]" }
+    return $base
 }
 
 
@@ -177,7 +249,14 @@ function toIndexFileName {
 # 種類を足すときは、ここ・書き出す側（office_reader.ps1）・画面（types.ps1 の HitRow.ObjectPlaceRegex）をそろえる
 ${placeKindShape}   = "図形"      # 図形・テキストボックス・WordArt・SmartArt・グラフ（PowerPoint のテキストボックス・図形はスライドの本文）
 ${placeKindComment} = "コメント"  # コメント（メモ・スレッド形式のコメント）
-${objectPlacePattern} = "^(?<base>.*)\[(?<kind>${placeKindShape}|${placeKindComment})\]$"
+${placeKindHeaderFooter} = "ヘッダー・フッター"  # Excel のヘッダー・フッター（Word・PowerPoint の "ヘッダー・フッター" は場所の名前で、種類ではない）。いつも検索する（除外の選択肢は無い）
+
+# 種類ごとの、TSVのファイル名に付ける英語の名前（toIndexFileName・convertIndexFileNameToPlace で使う）
+${placeKindFileNames} = @{ ${placeKindShape} = "shape"; ${placeKindComment} = "comment"; ${placeKindHeaderFooter} = "header_footer" }
+
+# ${objectPlacePattern} の種類の選択肢は ${placeKindFileNames} のキーから組み立てる（足し忘れを防ぐ）
+${objectPlaceKindAlternation} = (${placeKindFileNames}.Keys | ForEach-Object { [regex]::Escape($_) }) -join "|"
+${objectPlacePattern} = "^(?<base>.*)\[(?<kind>${objectPlaceKindAlternation})\]$"
 
 
 function splitObjectPlace {
@@ -198,6 +277,7 @@ function describePlace {
     # 場所ごとの表記と「種別」を @{ Place; Kind } で返す（TSV の名前は変えず、表示だけを変える）。
     # 画面の見出しの要約・検索結果ファイル・コピーに使う。表の「場所」の列は、これにセル番地を足した describeHitPlace を使う
     #   Excel      : "売上" → [シート]売上・セル / "売上[図形]" → [シート]売上・図形 / "売上[コメント]" → [シート]売上・コメント
+    #                / "売上[ヘッダー・フッター]" → [シート]売上・ヘッダー・フッター
     #   Word       : "ページ003" → 3 ページ（目安）・本文（ページは保存時の区切りから数えた目安のため）/ "脚注" → 脚注・本文
     #   PowerPoint : "スライド002（非表示）" → スライド 2（非表示）・本文 / "スライド002_ノート" → スライド 2・ノート
     #   テキスト   : "本文" → 空・本文（場所は 1 つだけのため、表の「場所」の列は describeHitPlace の "N 行目" だけで足りる）
@@ -240,6 +320,7 @@ function describeHitPlace {
     # Excel だけ足す（Word・PowerPoint は場所ごとと同じ）。テキストは行番号だけ（"N 行目"）を返す（場所は 1 つしかないため）。
     #   セル             : [シート]売上!B12 / 1 行に複数のセルが一致 [シート]売上!B12 ほか 2 / セル番地が求まらないとき [シート]売上 12 行目
     #   図形・コメント   : [シート]売上!D5 / セル番地が求まらないとき [シート]売上（行番号は通し番号のため出さない）
+    #   ヘッダー・フッター: [シート]売上（行にセル番地が無く、matchCell が空のため）
     #   テキスト         : 12 行目
     param (
         [string]$place,

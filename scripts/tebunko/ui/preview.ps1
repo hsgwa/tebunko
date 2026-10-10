@@ -1,4 +1,4 @@
-﻿# ［2 検索］タブの、選択した行の前後を表で見せるプレビュー。
+﻿# ［検索］タブの、選択した行の前後を表で見せるプレビュー。
 
 # 選択行のプレビューは、↑↓で続けて選択が変わったときは最後の1回だけ読む（巨大なTSVでも操作が重くならないようにする）。
 # プレビューの高さを変えたときも、入る行数に合わせて読み直すためにこのタイマーを使う
@@ -25,6 +25,7 @@ function clearDetail {
     $ui.PreviewHeaderScroll.Visibility = "Collapsed"
     $ui.PreviewPlaceholder.Visibility = "Visible"
     $ui.OpenButton.IsEnabled = $false
+    $ui.OpenMenuButton.IsEnabled = $false
     $ui.OpenFolderButton.IsEnabled = $false
 }
 
@@ -46,11 +47,11 @@ function showDetail {
     $ui.PreviewPlaceholder.Visibility = "Collapsed"
     $ui.PreviewHeaderScroll.Visibility = "Visible"
     $ui.OpenButton.IsEnabled = $true
+    $ui.OpenMenuButton.IsEnabled = $true
     $ui.OpenFolderButton.IsEnabled = $true
     # 閉じている見出しを選んだときの先頭の行は、まだ画面に出ていない（LoadingRow で Prepare されていない）ため、
     # セル番地（MatchCell）・「場所」の列の表記（PlaceDisplay）が空のままになる。ここで作っておく（作り済みなら何もしない）
     prepareHitRow $row
-    $ui.OpenButton.Content = if ($row.IsExcel) { "Excel で開く" } else { "開く" }
 
     # 前後の行を集約ファイルから読む。行数はプレビューの高さに合わせる。検索で読んだ内容があれば使う。
     # 読み込みは画面のスレッドでは行わない（キャッシュに無いと集約ファイル全体を読むため）。読み終わったら applyDetail で表にする。
@@ -98,13 +99,17 @@ function applyDetail {
     } else {
         $ui.PreviewNote.Visibility = "Collapsed"
     }
+    $script:previewTable = $table
+    $script:previewBaseWidth = if ($table.Columns.Count -eq 1) { $table.Columns[0].Width } else { 0 }
+    $script:previewFitWidth = $script:previewBaseWidth
     $ui.PreviewHeader.ItemsSource = $table.Columns
     $ui.PreviewRows.ItemsSource = $table.Rows
-    $script:previewTable = $table
 
     # 一致したセルが見えるよう横にスクロールする（左端から見えていればそのまま）。
-    # 高さを変えただけのときは、見ていた横の位置をそのままにする
+    # 高さを変えただけのときは、見ていた横の位置をそのままにする。
+    # 列の幅は、行を入れて縦のバーが出るかどうかが決まってから（見える幅が定まってから）合わせる
     $ui.PreviewScroll.UpdateLayout()
+    fitPreviewWidth
     if ($script:detailKeepScroll) {
         $script:detailKeepScroll = $false
         return
@@ -114,6 +119,21 @@ function applyDetail {
         $offset = [math]::Max(0, $table.HitOffset - 120)
     }
     $ui.PreviewScroll.ScrollToHorizontalOffset($offset)
+}
+
+function fitPreviewWidth {
+    # Excel 以外は列が 1 つなので、その幅を枠の幅いっぱいにする（段落は幅いっぱいに折り返して読めるようにする）。
+    # 見える幅が変わるたびに呼ぶ（縦のバーの出入り・窓や欄の幅の変更）。幅の決め方は getPreviewFillWidth
+    if ($null -eq $script:previewTable -or $script:previewTable.Columns.Count -ne 1 -or $script:previewTable.IsExcel) {
+        return
+    }
+    $column = $script:previewTable.Columns[0]
+    $width = getPreviewFillWidth $ui.PreviewScroll.ViewportWidth ([HitRow]::NumberWidth) $script:previewBaseWidth $column.Width $script:previewFitWidth ([PreviewColumn]::MinWidth)
+    # 手で変えた幅のときは、今の幅がそのまま返る。そのときは「前に合わせた幅」を変えず、手で変えたことを覚えておく
+    if ($width -ne $column.Width) {
+        $column.SetWidth($width)
+        $script:previewFitWidth = $column.Width
+    }
 }
 
 function getPreviewCell {
@@ -135,7 +155,7 @@ function getPreviewCell {
 function copyPreviewSelection {
     # プレビューで選んだセルの値をクリップボードに入れる（1 セルならその値のまま、複数ならタブ区切り）
     if ($null -eq $script:previewTable -or !$script:previewTable.HasSelection()) {
-        setStatus "プレビューでコピーするセルをクリックしてください（Shift＋クリック・ドラッグで複数選べます）。"
+        setStatus "プレビューでコピーするセルをクリックしてください。"
         return
     }
     $text = $script:previewTable.GetSelectionText()
@@ -161,7 +181,11 @@ $ui.ResultGrid.Add_SelectionChanged({
 
 # 列見出しは行とは別のスクロールに置いている（縦に隠れないようにするため）ので、横位置を行に合わせる
 $ui.PreviewScroll.Add_ScrollChanged({
+    param ($sender, $e)
     $ui.PreviewHeaderScroll.ScrollToHorizontalOffset($ui.PreviewScroll.HorizontalOffset)
+    if ($e.ViewportWidthChange -ne 0) {
+        fitPreviewWidth
+    }
 })
 # プレビューの高さを変えたら（GridSplitter のドラッグ）、入る行数に合わせて前後の行を読み直す。
 # ドラッグ中は何度も起きるので、ほかと同じタイマーでまとめて 1 回だけ読む
@@ -175,6 +199,8 @@ $ui.PreviewScroll.Add_SizeChanged({
 })
 # プレビューのセルをクリックすると、その値をコピーできるように選ぶ（Shift＋クリック・ドラッグで範囲、Ctrl+C でコピー）
 $script:previewTable = $null
+$script:previewBaseWidth = 0
+$script:previewFitWidth = 0
 $ui.PreviewRows.Add_PreviewMouseLeftButtonDown({
     param ($sender, $e)
     safe {
@@ -215,6 +241,19 @@ $ui.PreviewScroll.Add_PreviewKeyDown({
         $e.Handled = $true
     }
 })
+# プレビューが無いとき（結果を選んでいない・読めなかったとき）はメニューを出さない
+$ui.PreviewScroll.Add_ContextMenuOpening({
+    param ($sender, $e)
+    safe {
+        if ($null -eq $script:previewTable) {
+            $e.Handled = $true
+            return
+        }
+        $parts = @{ openHere = $ui.MenuPreviewOpen; copyCell = $ui.MenuPreviewCopy; copyRow = $ui.MenuPreviewCopyRow }
+        setContextMenuItems $ui.PreviewMenu (getPreviewMenuItems) $parts
+    }
+})
+$ui.MenuPreviewOpen.Add_Click({ safe { openSource } })
 $ui.MenuPreviewCopy.Add_Click({ safe { copyPreviewSelection } })
 $ui.MenuPreviewCopyRow.Add_Click({
     safe {

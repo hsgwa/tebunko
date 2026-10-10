@@ -13,7 +13,7 @@ BeforeAll {
         "Invoke-Item", "Start-Process",
         "New-Item", "Remove-Item", "Copy-Item", "Move-Item", "Rename-Item", "Set-Content", "Out-File",
         "getSearchIndexes", "testIndexExists", "getSourceFolderMap", "getExistingAncestorFolder", "getDriveTargets",
-        "getPathState", "findSourceFileState"
+        "getPathState", "findSourceFileState", "getOfficeProcesses"
     )
     # 見つける静的メソッドの型（[System.IO.File]::GetAttributes のように、どのメソッドでも見つける）
     ${uiIoStaticTypes} = @("System.IO.File", "System.IO.Directory", "System.IO.DirectoryInfo", "System.IO.FileInfo")
@@ -24,39 +24,36 @@ BeforeAll {
     # Call（見つかった呼び出しの表記）・Reason（理由）。行番号ではなく名前で引く
     ${uiIoAllowed} = @(
         # ---- gui.ps1（トップレベル） ----
-        @{ File = "gui.ps1"; Function = ""; Call = "[System.IO.File]"; Reason = "起動中の表示（起動時に読む splash.xaml。ツールのフォルダの中）" }
         @{ File = "gui.ps1"; Function = ""; Call = "Get-ChildItem"; Reason = "Mark-of-the-Web を消す（ツールのフォルダの中。Unblock-File）" }
-        @{ File = "gui.ps1"; Function = ""; Call = "testIndexExists"; Reason = "起動時のタブ選び（ワークスペースの側。分けた PR で直す）" }
-        @{ File = "gui.ps1"; Function = "getExistingRecordFile"; Call = "Test-Path"; Reason = "起動そのものに失敗したときの trap が、記録が実際に書けたかを確かめる（窓が無い・応答なしにならない起動の失敗時だけ）" }
-        @{ File = "gui.ps1"; Function = "writeStartupErrorFile"; Call = "Test-Path"; Reason = "起動そのものに失敗したときの記録（trap から。窓が無い・応答なしにならない起動の失敗時だけ）" }
-        @{ File = "gui.ps1"; Function = "writeStartupErrorFile"; Call = "New-Item"; Reason = "起動そのものに失敗したときの記録（trap から。窓が無い・応答なしにならない起動の失敗時だけ）" }
 
-        # ---- tebunko/ui/indexing_tab.ps1（ワークスペースの側。分けた PR） ----
-        @{ File = "indexing_tab.ps1"; Function = "finishIndexing"; Call = "Test-Path"; Reason = "取り込みログの有無（ワークスペースの側。分けた PR）" }
-        @{ File = "indexing_tab.ps1"; Function = ""; Call = "Test-Path"; Reason = "［ログを開く］でのログの有無（ワークスペースの側。分けた PR）" }
-        @{ File = "indexing_tab.ps1"; Function = ""; Call = "Invoke-Item"; Reason = "［ログを開く］でログを開く（ワークスペースの側。分けた PR）" }
+        # ---- tebunko/ui/splash.ps1・startup_error.ps1（起動口から読み込む部品） ----
+        @{ File = "splash.ps1"; Function = "getSplashXamlText"; Call = "[System.IO.File]"; Reason = "起動中の表示（起動時に読む splash.xaml と app_icon.xaml。ツールのフォルダの中）" }
+        @{ File = "startup_error.ps1"; Function = "getExistingRecordFile"; Call = "Test-Path"; Reason = "起動そのものに失敗したときの reportStartupFailure が、記録が実際に書けたかを確かめる（窓が無い・応答なしにならない起動の失敗時だけ）" }
+
+        # ---- tebunko/ui/gui_main.ps1（startGui） ----
+        @{ File = "gui_main.ps1"; Function = "startGui"; Call = "testIndexExists"; Reason = "起動時のタブ選び（ワークスペースの側。分けた PR で直す）" }
 
         # ---- tebunko/ui/open_source.ps1 ----
         @{ File = "open_source.ps1"; Function = "findSourceFile"; Call = "findSourceFileState"; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
         @{ File = "open_source.ps1"; Function = "openWithShell"; Call = "[System.Diagnostics.Process]"; Reason = "既定のアプリで開く（元のファイルは確かめ済み。プロセスの起動は待たない）" }
         @{ File = "open_source.ps1"; Function = "openWithShell"; Call = "Invoke-Item"; Reason = "既定のアプリで開く（元のファイルは確かめ済み。プロセスの起動は待たない）" }
         @{ File = "open_source.ps1"; Function = "openSourceFolder"; Call = "Start-Process"; Reason = "エクスプローラーで選ぶ（元のファイルは確かめ済み。プロセスの起動は待たない）" }
-        @{ File = "open_source.ps1"; Function = "exportResults"; Call = "[System.IO.Directory]"; Reason = "検索結果.txt の出力先（ワークスペースの側。分けた PR）" }
-        @{ File = "open_source.ps1"; Function = "exportResults"; Call = "Invoke-Item"; Reason = "検索結果.txt を開く（プロセスの起動は待たない）" }
+        @{ File = "open_source.ps1"; Function = "openWithNotepad"; Call = "Start-Process"; Reason = "固定のパスのメモ帳で開く（実行・登録になる拡張子。元のファイルは確かめ済み。プロセスの起動は待たない）" }
+        @{ File = "open_source.ps1"; Function = "exportResults"; Call = "[System.IO.Directory]"; Reason = "search_results.txt の出力先（ワークスペースの側。分けた PR）" }
+        @{ File = "open_source.ps1"; Function = "exportResults"; Call = "Invoke-Item"; Reason = "search_results.txt を開く（プロセスの起動は待たない）" }
 
         # ---- tebunko/ui/about_dialog.ps1・shared/ui/app_host.ps1（アイコン・XAML。ツールのフォルダの中） ----
-        @{ File = "about_dialog.ps1"; Function = "showAboutDialog"; Call = "Test-Path"; Reason = "アイコン（ツールのフォルダの中）" }
-        @{ File = "app_host.ps1"; Function = "loadXaml"; Call = "[System.IO.File]"; Reason = "画面定義（XAML）の読み込み（ツールのフォルダの中）" }
-        @{ File = "app_host.ps1"; Function = "loadWindow"; Call = "Test-Path"; Reason = "アイコン（ツールのフォルダの中）" }
+        @{ File = "app_host.ps1"; Function = "getXamlText"; Call = "[System.IO.File]"; Reason = "画面定義（XAML）の読み込み（ツールのフォルダの中）" }
+        @{ File = "app_host.ps1"; Function = "newAppFontFamily"; Call = "Test-Path"; Reason = "同梱のフォント（ツールのフォルダの中）" }
         @{ File = "app_host.ps1"; Function = "writeErrorLog"; Call = "Test-Path"; Reason = "画面のエラーの記録（ワークスペースの側。分けた PR で扱うかを決める）" }
         @{ File = "app_host.ps1"; Function = "writeErrorLog"; Call = "New-Item"; Reason = "画面のエラーの記録（ワークスペースの側。分けた PR で扱うかを決める）" }
         @{ File = "app_host.ps1"; Function = "writeErrorLog"; Call = "[System.IO.File]"; Reason = "画面のエラーの記録（ワークスペースの側。分けた PR で扱うかを決める）" }
 
-        # ---- tebunko/ui/settings_tab.ps1・index_tree.ps1・types.ps1（ワークスペースの側。分けた PR） ----
-        @{ File = "settings_tab.ps1"; Function = "resetWorkspace"; Call = "[System.IO.Directory]"; Reason = "ワークスペースの側（分けた PR）" }
-        @{ File = "settings_tab.ps1"; Function = "getFolderEntrySample"; Call = "[System.IO.Directory]"; Reason = "ワークスペースの側（分けた PR）" }
-        @{ File = "settings_tab.ps1"; Function = "applyWorkspace"; Call = "Test-Path"; Reason = "ワークスペースの側（分けた PR）" }
-        @{ File = "settings_tab.ps1"; Function = "applyWorkspace"; Call = "[System.IO.Directory]"; Reason = "ワークスペースの側（分けた PR）" }
+        # ---- tebunko/ui/settings.ps1・index_tree.ps1・types.ps1（ワークスペースの側。分けた PR） ----
+        @{ File = "settings.ps1"; Function = "resetWorkspace"; Call = "[System.IO.Directory]"; Reason = "ワークスペースの側（分けた PR）" }
+        @{ File = "settings.ps1"; Function = "getFolderEntrySample"; Call = "[System.IO.Directory]"; Reason = "ワークスペースの側（分けた PR）" }
+        @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = "Test-Path"; Reason = "ワークスペースの側（分けた PR）" }
+        @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = "[System.IO.Directory]"; Reason = "ワークスペースの側（分けた PR）" }
         @{ File = "index_tree.ps1"; Function = "loadIndexTree"; Call = "Test-Path"; Reason = "ワークスペースの側（分けた PR）" }
         @{ File = "index_tree.ps1"; Function = "loadIndexTree"; Call = "Resolve-Path"; Reason = "ワークスペースの側（分けた PR）" }
         @{ File = "index_tree.ps1"; Function = "loadIndexTree"; Call = "getSearchIndexes"; Reason = "ワークスペースの側（分けた PR）" }
@@ -66,14 +63,18 @@ BeforeAll {
         @{ File = "types.ps1"; Function = "HasSubfolders"; Call = "[System.IO.Directory]"; Reason = "ワークスペースの側（分けた PR）" }
         @{ File = "types.ps1"; Function = "HasFiles"; Call = "[System.IO.Directory]"; Reason = "ワークスペースの側（分けた PR）" }
 
-        # ---- tebunko/ui/index_tab.ps1 ----
-        @{ File = "index_tab.ps1"; Function = "updateIndexSourceFile"; Call = "Test-Path"; Reason = "IndexDir の有無（ワークスペースの側。分けた PR）" }
-        @{ File = "index_tab.ps1"; Function = "openFailedFileFolder"; Call = "getPathState"; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
-        @{ File = "index_tab.ps1"; Function = "applyFailedFileState"; Call = "Start-Process"; Reason = "エクスプローラーで開く（プロセスの起動は待たない）" }
+        # ---- tebunko/ui/index/ ----
+        @{ File = "index_list.ps1"; Function = "updateIndexSourceFile"; Call = "Test-Path"; Reason = "IndexDir の有無（ワークスペースの側。分けた PR）" }
+        @{ File = "index_detail.ps1"; Function = "openFailedFileFolder"; Call = "getPathState"; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
+        @{ File = "index_detail.ps1"; Function = "applyFailedFileState"; Call = "Start-Process"; Reason = "エクスプローラーで開く（プロセスの起動は待たない）" }
+        @{ File = "index_list.ps1"; Function = "openIndexSourceFolder"; Call = "getPathState"; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
+        @{ File = "index_list.ps1"; Function = "applyIndexSourceFolderState"; Call = "Start-Process"; Reason = "エクスプローラーで開く（プロセスの起動は待たない）" }
 
         # ---- shared/ui/shell.ps1・folder_dialog.ps1 ----
         @{ File = "shell.ps1"; Function = "readTextShared"; Call = "Test-Path"; Reason = "ローカルのパスに限って呼ぶところ（ワークスペース内のファイルを読む）" }
         @{ File = "shell.ps1"; Function = "readTextShared"; Call = "New-Object"; Reason = "ローカルのパスに限って呼ぶところ（ワークスペース内のファイルを読む）" }
+        @{ File = "shell.ps1"; Function = "showErrorDialog"; Call = "Test-Path"; Reason = "ツールのフォルダにあるエラーの記録（ローカル）" }
+        @{ File = "shell.ps1"; Function = "showErrorDialog"; Call = "Start-Process"; Reason = "メモ帳で開く（プロセスの起動は待たない）" }
         @{ File = "folder_dialog.ps1"; Function = "selectFolder"; Call = "getExistingAncestorFolder"; Reason = "フォルダ選択の開始フォルダ（ネットワークのパスは調べない引数を渡す）" }
         @{ File = "folder_dialog.ps1"; Function = "getDroppedFolders"; Call = "Test-Path"; Reason = "ドロップされた直後のフォルダ" }
     )
@@ -81,7 +82,7 @@ BeforeAll {
     function getUiIoTargetFiles {
         return @(
             (Resolve-Path "${scriptsDir}\tebunko\gui.ps1").Path
-        ) + @(Get-ChildItem "${scriptsDir}\tebunko\ui" -Filter "*.ps1" | ForEach-Object { $_.FullName }) `
+        ) + @(Get-ChildItem "${scriptsDir}\tebunko\ui" -Filter "*.ps1" -Recurse | ForEach-Object { $_.FullName }) `
           + @(Get-ChildItem "${scriptsDir}\shared\ui" -Filter "*.ps1" | ForEach-Object { $_.FullName })
     }
 

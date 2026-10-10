@@ -1,6 +1,60 @@
-﻿# ［2 検索］タブ
+﻿# ［検索］タブ
 
-部品と並び・状態と遷移・表示する文言・改善の候補は、写真を載せた後の別のアイテムでまとめる。細かい仕様は [［2 検索］タブ](../search-tab.md) にある。
+細かい仕様は [［検索］タブ](../search-tab.md) にある。
+
+## 目的
+
+インデックスの中から語を探し、該当するファイル・場所・行を見つけ、元のファイルを開く。
+
+## 部品と並び
+
+- 左に「検索対象」のツリー（チェックしたインデックス・フォルダだけを検索する。［すべて］［解除］）。
+- 右上に「検索ワード」の欄と［検索］、その下に種類のチップ（Excel・Word・PowerPoint・テキスト）、［ファイル内の対象 ▾］（本文・図形・コメント）、右に「大文字・小文字を区別」「正規表現」と高速検索の状態。
+- 正規表現が正しくないとき・種類を 1 つも選んでいないときは、その下に出る吹き出し（[エラーの吹き出し](../search-tab.md#エラーの吹き出し)）で知らせる。
+- 結果は、［すべて開く］［すべて折りたたむ］、「結果を絞り込み」の欄、場所・種別・該当行の表。
+- 表の下に、プレビュー（選んだ行の前後）、［開く］（［▾］で開き方の選択）・［フォルダを開く］、［結果をファイルに出力］。
+
+## 状態と遷移
+
+```mermaid
+stateDiagram-v2
+    state "search-tab/no-index" as noindex
+    state "search-tab/initial" as initial
+    state "search-tab/results" as results
+    state "search-tab/no-results" as noresults
+    state "search-tab/limit" as limit
+    state "search-tab/regex-error" as regex
+    state "search-tab/tree-none" as tree
+    state "search-tab/collapsed" as collapsed
+    state "search-tab/filtered" as filtered
+    state "search-tab/missing-source" as missing
+    noindex --> initial: インデックスを作る（26）
+    initial --> results: ［検索］（23）
+    initial --> noresults: ［検索］（23）
+    initial --> limit: ［検索］（23）
+    initial --> regex: 不正な正規表現（24）
+    initial --> tree: すべて解除（25）
+    results --> collapsed: すべて折りたたむ（27）
+    results --> filtered: 絞り込み（27）
+    results --> missing: ファイルを開く（29）
+```
+
+- 最小の大きさ（1024 × 640）でも結果とプレビューが見える（`search-tab/min-width`）。
+- 不正な正規表現のときは、［正規表現］の下に吹き出しを出し、入力欄の枠を赤くして、［検索］を押せなくする（検索バーの高さは変わらない）。
+状態の判定と画面の更新は[状態の判定と操作の流れ](../state-flow.md)、メッセージの一覧は[メッセージ一覧](../messages.md)にあり、ここには書き写さない。
+## 表示する文言
+
+| 状態 | 文言 |
+|---|---|
+| インデックスが無い | 「インデックスがありません。［インデックス管理］でインデックスを作成してください。」「検索対象：なし（…）」、［インデックスを作成する］、「高速検索：使用不可」 |
+| 起動直後 | 「検索対象：すべて（集約ファイル 3 件・最終更新 11:59）」 |
+| 0 件 | 結果欄は空、状態の欄は「検索しました：… 0 件」 |
+| 上限 | 「一致 10,000 件（1 ファイル）」「10,000 件を超えたため、ここで打ち切りました。…」 |
+| 不正な正規表現 | 吹き出し「正規表現が正しくありません」 |
+| すべて解除 | 「検索対象：なし（左の一覧で、検索するインデックス・フォルダにチェックを付けてください）」 |
+| 折りたたみ・絞り込み | 「一致 2 件（2 ファイル）」「2 件中 1 件を表示」 |
+| 元のファイルが無い | 「見積.xlsx が見つかりません」、［フォルダを選ぶ］［キャンセル］。窓の下端には「元のファイルが見つかりません：…」 |
+| 開く | ［開く］と［▾］（通常・新規・読み取り専用）、［フォルダを開く］ |
 
 ## 写真
 
@@ -24,9 +78,9 @@
 
 ![件数の上限で打ち切った](../../../images/screens/search-tab/limit.png)
 
-### search-tab/regex-error（不正な正規表現の注意。遷移 24）
+### search-tab/regex-error（不正な正規表現の吹き出し。遷移 24）
 
-![不正な正規表現の注意](../../../images/screens/search-tab/regex-error.png)
+![正規表現が正しくないときの吹き出し](../../../images/screens/search-tab/regex-error.png)
 
 ### search-tab/tree-none（検索対象のツリーですべて解除した注意。遷移 25）
 

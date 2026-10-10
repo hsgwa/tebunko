@@ -1,4 +1,4 @@
-﻿# ［2 検索］の選択行のプレビュー（tebunko\ui\preview.ps1）のテスト。
+﻿# ［検索］の選択行のプレビュー（tebunko\ui\preview.ps1）のテスト。
 # 画面の部品（$ui.PreviewRows など）は偽物にして、表示する中身と状態の変化を確かめる。
 # クリップボードは利用者の PC のものを書き換えるため、コピーは「選んでいないとき」だけを確かめる。
 BeforeAll {
@@ -7,7 +7,9 @@ BeforeAll {
     . "${scriptsDir}\shared\ui\types.ps1"
     . "${scriptsDir}\tebunko\ui\types.ps1"
     . "${scriptsDir}\tebunko\ui\preview_view.ps1"
-    . "${scriptsDir}\tebunko\ui\search_view.ps1"
+    . "${scriptsDir}\tebunko\ui\search\search_bar_view.ps1"
+    . "${scriptsDir}\tebunko\ui\search\result_list_view.ps1"
+    . "${scriptsDir}\tebunko\ui\search\open_source_view.ps1"
 
     # gui.ps1 で決める値
     ${previewRowHeight}     = 22
@@ -35,7 +37,7 @@ BeforeAll {
         return $part
     }
 
-    $previewScroll = newFakePart "PreviewScroll" @{ ViewportHeight = 220.0; ActualHeight = 0.0; ViewportWidth = 400.0; HorizontalOffset = 0.0 } @("ScrollChanged", "SizeChanged", "PreviewKeyDown")
+    $previewScroll = newFakePart "PreviewScroll" @{ ViewportHeight = 220.0; ActualHeight = 0.0; ViewportWidth = 400.0; HorizontalOffset = 0.0 } @("ScrollChanged", "SizeChanged", "PreviewKeyDown", "ContextMenuOpening")
     $previewScroll | Add-Member ScriptMethod UpdateLayout { }
     $previewScroll | Add-Member ScriptMethod Focus { $true }
     $previewScroll | Add-Member ScriptMethod ScrollToHorizontalOffset { param ($offset) $fake.Scrolls += $offset }
@@ -54,7 +56,10 @@ BeforeAll {
         PreviewPlaceholder  = newFakePart "PreviewPlaceholder" @{ Visibility = "Visible" }
         DetailTitle         = newFakePart "DetailTitle" @{ Text = ""; ToolTip = $null }
         OpenButton          = newFakePart "OpenButton" @{ IsEnabled = $false; Content = "" }
+        OpenMenuButton      = newFakePart "OpenMenuButton" @{ IsEnabled = $false }
         OpenFolderButton    = newFakePart "OpenFolderButton" @{ IsEnabled = $false }
+        PreviewMenu         = newFakePart "PreviewMenu"
+        MenuPreviewOpen     = newFakePart "MenuPreviewOpen" @{} @("Click")
         MenuPreviewCopy     = newFakePart "MenuPreviewCopy" @{} @("Click")
         MenuPreviewCopyRow  = newFakePart "MenuPreviewCopyRow" @{} @("Click")
     }
@@ -78,6 +83,13 @@ BeforeAll {
     }
     function getCurrentHitRow {
         return $fake.Current
+    }
+    function openSource { $fake.Opened++ }
+    function setContextMenuItems {
+        # 判断層が決めた並びを、メニューに組むところの代わり（受け取った並びを取っておく）
+        param ($menu, $items, $parts)
+        $fake.MenuItems = $items
+        $fake.MenuParts = $parts
     }
     function startJob {
         # 画面の裏の仕事（BackgroundQueue）の代わりに、その場で実行して結果を渡す。
@@ -160,6 +172,7 @@ Describe "clearDetail" -Tag Unit {
         $ui.PreviewPlaceholder.Visibility | Should -Be "Visible"
         $ui.PreviewHeaderScroll.Visibility | Should -Be "Collapsed"
         $ui.OpenButton.IsEnabled | Should -Be $false
+        $ui.OpenMenuButton.IsEnabled | Should -Be $false
         $ui.OpenFolderButton.IsEnabled | Should -Be $false
     }
 }
@@ -211,8 +224,8 @@ Describe "showDetail" -Tag Io {
         $ui.PreviewPlaceholder.Visibility | Should -Be "Collapsed"
         $ui.PreviewHeaderScroll.Visibility | Should -Be "Visible"
         $ui.OpenButton.IsEnabled | Should -Be $true
+        $ui.OpenMenuButton.IsEnabled | Should -Be $true
         $ui.OpenFolderButton.IsEnabled | Should -Be $true
-        $ui.OpenButton.Content | Should -Be "Excel で開く"
         $ui.DetailTitle.Text | Should -Be "営業部\見積.xlsx ・ [シート]4月!B3 ・ セル"
         $ui.DetailTitle.ToolTip | Should -Be $ui.DetailTitle.Text
         $ui.PreviewNote.Visibility | Should -Be "Collapsed"
@@ -228,8 +241,26 @@ Describe "showDetail" -Tag Io {
 
         showDetail
 
-        $ui.OpenButton.Content | Should -Be "開く"
         $ui.DetailTitle.Text | Should -Be "議事録.docx ・ 1 ページ（目安） ・ 本文"
+    }
+
+    It "Word の 1 列は、行番号を除いた見える幅（400 - 44）いっぱいにする" {
+        $fake.Current = newHitRow "議事録.docx" "ページ001" 1 @("見積の件") ""
+
+        showDetail
+
+        $script:previewTable.IsExcel | Should -Be $false
+        $script:previewTable.Columns[0].Width | Should -Be 356
+    }
+
+    It "Excel の列は中身の幅のまま（枠いっぱいにしない）" {
+        $fake.Current = newHitRow "見積.xlsx" "4月" 1 @("`t見積の件") "営業部"
+
+        showDetail
+
+        $script:previewTable.IsExcel | Should -Be $true
+        $script:previewTable.Columns[0].Width | Should -Not -Be 356
+        $script:previewTable.Columns[0].Width | Should -BeLessThan 356
     }
 
     It "読んでいる間に別の行を選んだら、読み終えた古い行の結果は出さない" {
@@ -326,12 +357,49 @@ Describe "showDetail" -Tag Io {
     }
 }
 
+Describe "プレビューの右クリックメニュー" -Tag Unit {
+    BeforeEach {
+        resetPreview
+        $fake.Opened = 0
+        $fake.MenuItems = $null
+    }
+
+    It "プレビューが無いときは、メニューを出さない" {
+        $script:previewTable = $null
+        $e = [pscustomobject]@{ Handled = $false }
+
+        & $handlers["PreviewScroll.ContextMenuOpening"] $null $e
+
+        $e.Handled | Should -Be $true
+        $fake.MenuItems | Should -BeNullOrEmpty
+    }
+
+    It "プレビューがあるときは、判断層の並びでメニューを組む" {
+        $script:previewTable = [PreviewTable]::new()
+        $e = [pscustomobject]@{ Handled = $false }
+
+        & $handlers["PreviewScroll.ContextMenuOpening"] $null $e
+
+        $e.Handled | Should -Be $false
+        ($fake.MenuItems | ForEach-Object { $_.Id }) -join "/" | Should -Be "openHere/separator/copyCell/copyRow"
+        $fake.MenuParts["openHere"].PartName | Should -Be "MenuPreviewOpen"
+        $fake.MenuParts["copyCell"].PartName | Should -Be "MenuPreviewCopy"
+        $fake.MenuParts["copyRow"].PartName | Should -Be "MenuPreviewCopyRow"
+    }
+
+    It "［元のファイルのこの場所を開く］は、選んでいる結果の行を開く処理を呼ぶ" {
+        & $handlers["MenuPreviewOpen.Click"]
+
+        $fake.Opened | Should -Be 1
+    }
+}
+
 Describe "copyPreviewSelection" -Tag Unit {
     BeforeEach { resetPreview }
 
     It "プレビューが無いときは、セルを選ぶよう案内する" {
         copyPreviewSelection
-        $fake.Status | Should -Match "^プレビューでコピーするセルをクリックしてください"
+        $fake.Status | Should -BeExactly "プレビューでコピーするセルをクリックしてください。"
     }
 
     It "<name>" -TestCases @(
@@ -343,7 +411,7 @@ Describe "copyPreviewSelection" -Tag Unit {
 
         & $handlers[$menu]
 
-        $fake.Status | Should -Match "^プレビューでコピーするセルをクリックしてください"
+        $fake.Status | Should -BeExactly "プレビューでコピーするセルをクリックしてください。"
     }
 }
 
@@ -389,10 +457,54 @@ Describe "イベント" -Tag Unit {
         $fake.TimerStarts | Should -Be 0
     }
 
+    It "<name>" -TestCases @(
+        @{ name = "見える幅が変わると、列の幅を合わせ直す"; views = @(400); manual = $null; excel = $false; expected = 356 }
+        @{ name = "見える幅が狭まると、列の幅も狭まる"; views = @(400, 300); manual = $null; excel = $false; expected = 256 }
+        @{ name = "狭まりきったら、初めの幅（100）まで戻る"; views = @(400, 120); manual = $null; excel = $false; expected = 100 }
+        @{ name = "手で変えた幅は、見える幅が変わっても保つ"; views = @(400, 300, 290, 280); manual = 500; excel = $false; expected = 500 }
+        @{ name = "Excel の列は合わせ直さない"; views = @(400); manual = $null; excel = $true; expected = 100 }
+    ) {
+        param ($name, $views, $manual, $excel, $expected)
+        $column = [PreviewColumn]::new()
+        $column.Width = 100
+        $table = [PreviewTable]::new()
+        $table.Columns = [System.Collections.Generic.List[PreviewColumn]]::new()
+        $table.Columns.Add($column)
+        $table.IsExcel = $excel
+        $script:previewTable = $table
+        $script:previewBaseWidth = 100
+        $script:previewFitWidth = 100
+
+        foreach ($view in $views) {
+            $ui.PreviewScroll.ViewportWidth = [double]$view
+            & $handlers["PreviewScroll.ScrollChanged"] $ui.PreviewScroll ([pscustomobject]@{ ViewportWidthChange = -17.0 })
+            if ($null -ne $manual -and $view -eq $views[0]) {
+                $column.SetWidth($manual)
+            }
+        }
+
+        $column.Width | Should -Be $expected
+    }
+
+    It "見える幅が変わらないスクロールでは、列の幅を合わせ直さない" {
+        $column = [PreviewColumn]::new()
+        $column.Width = 100
+        $table = [PreviewTable]::new()
+        $table.Columns = [System.Collections.Generic.List[PreviewColumn]]::new()
+        $table.Columns.Add($column)
+        $script:previewTable = $table
+        $script:previewBaseWidth = 100
+        $script:previewFitWidth = 100
+
+        & $handlers["PreviewScroll.ScrollChanged"] $ui.PreviewScroll ([pscustomobject]@{ ViewportWidthChange = 0.0 })
+
+        $column.Width | Should -Be 100
+    }
+
     It "行を横にスクロールしたら、列見出しも同じ位置にする" {
         $ui.PreviewScroll.HorizontalOffset = 150.0
 
-        & $handlers["PreviewScroll.ScrollChanged"]
+        & $handlers["PreviewScroll.ScrollChanged"] $ui.PreviewScroll ([pscustomobject]@{ ViewportWidthChange = 0.0 })
 
         $fake.HeaderScrolls[-1] | Should -Be 150.0
     }

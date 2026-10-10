@@ -1,49 +1,82 @@
-﻿<!-- 確認ダイアログ。「押すと何が起きるか」を見出し・結果・ボタンの文言で見せる。gui.ps1 の showConfirm が読み込む。
+﻿<!-- 確認ダイアログ。「押すと何が起きるか」を見出し・結果・ボタンの文言で見せる。shell.ps1 の showConfirm が読み込む。
+     題は OS のタイトルバーに出す（showConfirm の -title）。幅は形（normal・danger・choice）ごとに showConfirm が置く。
      色・文字・コントロールの形は scripts/shared/xaml/theme.xaml にまとめてある。 -->
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="確認" Width="560" SizeToContent="Height" MaxHeight="620"
+        Title="確認" Width="520" SizeToContent="Height" MaxHeight="620"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="NoResize"
-        FontFamily="Yu Gothic UI, Meiryo UI" FontSize="13"
+        FontFamily="{DynamicResource Font.Body}" FontSize="13"
         TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType"
-        Background="White" UseLayoutRounding="True" SnapsToDevicePixels="True">
+        Background="{DynamicResource Bg.Surface}" UseLayoutRounding="True" SnapsToDevicePixels="True">
   <Window.Resources>
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="theme.xaml" />
       </ResourceDictionary.MergedDictionaries>
-      <!-- 下部のボタンは gui.ps1 が並べるため、間隔はここで付ける -->
+      <!-- 下部のボタンは shell.ps1 が並べるため、間隔はここで付ける -->
       <Style TargetType="Button" BasedOn="{StaticResource Button.Base}">
-        <Setter Property="MinWidth" Value="104" />
+        <Setter Property="MinWidth" Value="80" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="Margin" Value="8,0,0,0" />
+      </Style>
+      <!-- 主なボタン・取り消せない操作のボタンも、ほかのボタンと同じ高さ・最小幅・間隔にそろえる（テーマのままだと高さ 30・最小幅 88 で、並べると 2 画素低く、間隔も無い） -->
+      <Style x:Key="Primary" TargetType="Button" BasedOn="{StaticResource Primary}">
+        <Setter Property="MinWidth" Value="80" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="Margin" Value="8,0,0,0" />
+      </Style>
+      <Style x:Key="Danger.Filled" TargetType="Button" BasedOn="{StaticResource Danger.Filled}">
+        <Setter Property="MinWidth" Value="80" />
         <Setter Property="Height" Value="32" />
         <Setter Property="Margin" Value="8,0,0,0" />
       </Style>
     </ResourceDictionary>
   </Window.Resources>
 
-  <DockPanel Margin="22,20,22,18">
-    <!-- 下部：選択肢が 1 つのときは［実行］＋［キャンセル］、2 つ以上のときは［キャンセル］だけを置く -->
-    <StackPanel x:Name="ButtonPanel" DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0" />
+  <DockPanel Margin="20,16,20,20">
+    <!-- 下部：［キャンセル］の右に選択肢のボタンを並べる（最後の 1 つが主なボタン） -->
+    <StackPanel x:Name="ButtonPanel" DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0" />
 
     <StackPanel>
-      <!-- 見出し：これから何をするか（1 行で読み切れる長さにする） -->
-      <TextBlock x:Name="HeadingText" Style="{StaticResource DialogHeading}" />
+      <!-- 見出し：これから何をするか・知らせたいこと。左のアイコンは種類で変わる（shell.ps1 の setDialogLook。確認は「?」・取り消せない操作は赤い「!」・お知らせ・警告・誤りもここ） -->
+      <DockPanel>
+        <!-- アイコンは Label で包む（Path は UI オートメーションに出ず、読み上げの名前を付けられないため） -->
+        <Label x:Name="HeadingIconHost" DockPanel.Dock="Left" Padding="0" Margin="0,0,10,0" VerticalAlignment="Top" Focusable="False"
+               Visibility="Collapsed" AutomationProperties.AutomationId="HeadingIcon">
+          <Path x:Name="HeadingIcon" Data="{StaticResource Icon.CircleAlert}" Width="20" Height="20" Stretch="Uniform"
+                Stroke="{StaticResource Danger.Text}" StrokeThickness="1.8"
+                StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+        </Label>
+        <TextBlock x:Name="HeadingText" Style="{StaticResource Body}" TextWrapping="Wrap" VerticalAlignment="Center" />
+      </DockPanel>
 
       <!-- 結果：実行すると何が消えて何が残るか -->
-      <Border x:Name="FactsPanel" Visibility="Collapsed" Margin="0,14,0,0"
-              Background="#FAFBFC" BorderBrush="{StaticResource Border.Soft}" BorderThickness="1" CornerRadius="8" Padding="14,10">
+      <Border x:Name="FactsPanel" Visibility="Collapsed" Margin="0,12,0,0"
+              Background="{StaticResource Bg.Subtle}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="1"
+              CornerRadius="{StaticResource Radius.Card}" Padding="14,10">
         <ItemsControl x:Name="FactsList">
           <ItemsControl.ItemTemplate>
             <DataTemplate>
               <DockPanel Margin="0,5">
-                <TextBlock DockPanel.Dock="Left" Width="22" VerticalAlignment="Top" FontWeight="SemiBold"
-                           Text="{Binding Mark}" Foreground="{Binding MarkBrush}" />
+                <!-- 印（Mark）：✓ 残る・✗ 消える・→ 続けて起きること・! 注意。Lucide の形で出す -->
+                <Path x:Name="MarkIcon" DockPanel.Dock="Left" Width="14" Height="14" Margin="0,3,8,0" VerticalAlignment="Top" Stretch="Uniform"
+                      Data="{StaticResource Icon.TriangleAlert}" Stroke="{Binding MarkBrush}" StrokeThickness="2"
+                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
                 <StackPanel>
                   <TextBlock Text="{Binding Title}" Foreground="{StaticResource Ink.Strong}" TextWrapping="Wrap" />
                   <TextBlock x:Name="FactDetail" Style="{StaticResource Meta}" Text="{Binding Detail}" Margin="0,3,0,0" />
                 </StackPanel>
               </DockPanel>
               <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Mark}" Value="✓">
+                  <Setter TargetName="MarkIcon" Property="Data" Value="{StaticResource Icon.Check}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Mark}" Value="✗">
+                  <Setter TargetName="MarkIcon" Property="Data" Value="{StaticResource Icon.Close}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Mark}" Value="→">
+                  <Setter TargetName="MarkIcon" Property="Data" Value="{StaticResource Icon.ArrowRight}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding Detail}" Value="">
                   <Setter TargetName="FactDetail" Property="Visibility" Value="Collapsed" />
                 </DataTrigger>
@@ -53,11 +86,16 @@
         </ItemsControl>
       </Border>
 
-      <!-- 選択肢が 2 つ以上のときのボタン（gui.ps1 が組み立てる） -->
-      <StackPanel x:Name="ChoicePanel" Margin="0,14,0,0" />
+      <!-- 補足：読まなくても操作できる内容だけを書く（見出しの下に淡く出す） -->
+      <TextBlock x:Name="HintText" Style="{StaticResource Note}" Visibility="Collapsed" Margin="0,8,0,0" />
 
-      <!-- 補足：読まなくても操作できる内容だけを書く -->
-      <TextBlock x:Name="HintText" Style="{StaticResource Meta}" Visibility="Collapsed" Margin="0,14,0,0" />
+      <!-- 詳しい内容（エラーの文面など）。選べる・コピーできるよう TextBox で出す -->
+      <Border x:Name="DetailBox" Visibility="Collapsed" Margin="0,12,0,0"
+              Background="{StaticResource Bg.Subtle}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="1"
+              CornerRadius="{StaticResource Radius.Control}" Padding="10,8">
+        <TextBox x:Name="DetailText" IsReadOnly="True" TextWrapping="Wrap" BorderThickness="0" Background="Transparent"
+                 Foreground="{StaticResource Ink.Muted}" FontSize="12" MaxHeight="160" VerticalScrollBarVisibility="Auto" />
+      </Border>
     </StackPanel>
   </DockPanel>
 </Window>

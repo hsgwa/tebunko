@@ -92,9 +92,9 @@ Describe "readSettings / writeSettings" -Tag Io {
 
     It "文字列の項目に数値が書かれていても文字列として読む。一覧に 1 件だけ書かれていても配列にする" {
         $path = "$TestDrive\型違い.json"
-        [System.IO.File]::WriteAllText($path, '{ "fileFilter": 123, "targetFolders": { "path": "C:\\a" }, "indexSources": null }', ${utf8Bom})
+        [System.IO.File]::WriteAllText($path, '{ "workspaceFolder": 123, "targetFolders": { "path": "C:\\a" }, "indexSources": null }', ${utf8Bom})
         $settings = readSettings $path
-        $settings.fileFilter | Should -BeExactly "123"
+        $settings.workspaceFolder | Should -BeExactly "123"
         @($settings.targetFolders).Count | Should -Be 1
         @($settings.indexSources).Count | Should -Be 0
     }
@@ -109,7 +109,7 @@ Describe "readSettings / writeSettings" -Tag Io {
 
     It "ほかのプログラムが開いていて読めないときは、壊れているとはせず IOException のまま" {
         $path = "$TestDrive\ロック中.json"
-        [System.IO.File]::WriteAllText($path, '{ "fileFilter": "a" }', ${utf8Bom})
+        [System.IO.File]::WriteAllText($path, '{ "workspaceFolder": "a" }', ${utf8Bom})
         $stream = [System.IO.File]::Open($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
         try {
             # PowerShell は .NET のメソッドの例外を MethodInvocationException に包むため、中身の型を確かめる
@@ -151,7 +151,7 @@ Describe "repairBrokenSettings / getSettingsRecoveryMessage" -Tag Io {
     }
 
     It "<name> のファイルは何もせず空文字を返す" -TestCases @(
-        @{ name = "壊れていない"; content = '{ "fileFilter": "a" }' }
+        @{ name = "壊れていない"; content = '{ "useRegex": true }' }
         @{ name = "空"; content = "" }
         @{ name = "空白だけ"; content = "  `r`n" }
         @{ name = "null だけ"; content = "null" }
@@ -404,15 +404,59 @@ Describe "removeSearchExcludesUnder" -Tag Io {
     }
 }
 
+Describe "readFileKinds / writeFileKinds" -Tag Io {
+    # json: 設定ファイルの中身（$null ならファイルを作らない）、expected: readFileKinds の結果
+    It "<name>" -TestCases @(
+        @{ name = "ファイルが無ければすべての種類"; json = $null; expected = @("excel", "word", "powerpoint", "text") }
+        @{ name = "キーが無ければすべての種類"; json = '{ "useRegex": true }'; expected = @("excel", "word", "powerpoint", "text") }
+        @{ name = "空の配列ならすべての種類"; json = '{ "fileKinds": [] }'; expected = @("excel", "word", "powerpoint", "text") }
+        @{ name = "excel だけなら Excel だけ"; json = '{ "fileKinds": ["excel"] }'; expected = @("excel") }
+        @{ name = "順番は種類の並びにそろえ、大文字小文字は区別しない"; json = '{ "fileKinds": ["Text", "word"] }'; expected = @("word", "text") }
+        @{ name = "知らない値は捨てる"; json = '{ "fileKinds": ["pdf", "excel"] }'; expected = @("excel") }
+        @{ name = "知らない値だけならすべての種類"; json = '{ "fileKinds": ["pdf"] }'; expected = @("excel", "word", "powerpoint", "text") }
+        @{ name = "前の版の fileFilter は種類に読み替えない"; json = '{ "fileFilter": "*.xlsx;!~$*" }'; expected = @("excel", "word", "powerpoint", "text") }
+    ) {
+        param ($name, $json, $expected)
+        $path = Join-Path $TestDrive "kinds_$([guid]::NewGuid()).config"
+        if ($null -ne $json) {
+            [System.IO.File]::WriteAllText($path, $json, ${utf8Bom})
+        }
+        (@(readFileKinds $path) -join ",") | Should -Be ($expected -join ",")
+    }
+
+    It "書いた種類を読み返せ、ほかの設定は変えない" {
+        $path = "$TestDrive\kinds_write.config"
+        writeSearchOption @{ UseRegex = $true } $path
+        writeFileKinds @("text", "excel", "pdf") $path
+        (@(readFileKinds $path) -join ",") | Should -Be "excel,text"
+        (readSearchOption $path).UseRegex | Should -Be $true
+    }
+
+    It "1 つも選んでいないときは保存しない（前に保存した種類のまま。保存の形は変えない）" {
+        $path = "$TestDrive\kinds_none.config"
+        writeFileKinds @("word") $path
+        writeFileKinds @() $path
+        (@(readFileKinds $path) -join ",") | Should -Be "word"
+    }
+
+    It "すべての種類を書いたときは、設定ファイルの fileKinds を空にする" {
+        $path = "$TestDrive\kinds_all.config"
+        writeFileKinds @("excel") $path
+        writeFileKinds @("excel", "word", "powerpoint", "text") $path
+        @((readSettings $path).fileKinds).Count | Should -Be 0
+        @(readFileKinds $path).Count | Should -Be 4
+    }
+}
+
 Describe "readSearchOption / writeSearchOption" -Tag Io {
     # writes: 順に保存する項目、expected: 読み込んだときの値
     It "<name>" -TestCases @(
-        @{ name = "ファイルが無ければ、文字どおり・大文字と小文字を区別しない・対象ファイルはすべて"; writes = @()
-           expected = @{ UseRegex = $false; CaseSensitive = $false; FileFilter = ""; IncludeShapes = $true; IncludeComments = $true } }
+        @{ name = "ファイルが無ければ、文字どおり・大文字と小文字を区別しない・図形とコメントも検索する"; writes = @()
+           expected = @{ UseRegex = $false; CaseSensitive = $false; IncludeShapes = $true; IncludeComments = $true } }
         @{ name = "図形・コメントを検索するかを保存・読み込みできる"; writes = @(@{ IncludeShapes = $false })
            expected = @{ IncludeShapes = $false; IncludeComments = $true } }
-        @{ name = "指定した項目だけを変え、ほかの項目は保つ"; writes = @(@{ UseRegex = $true; CaseSensitive = $true; FileFilter = "*.xlsx;!*old*" }, @{ CaseSensitive = $false })
-           expected = @{ UseRegex = $true; CaseSensitive = $false; FileFilter = "*.xlsx;!*old*" } }
+        @{ name = "指定した項目だけを変え、ほかの項目は保つ"; writes = @(@{ UseRegex = $true; CaseSensitive = $true; IncludeShapes = $false }, @{ CaseSensitive = $false })
+           expected = @{ UseRegex = $true; CaseSensitive = $false; IncludeShapes = $false } }
     ) {
         param ($name, $writes, $expected)
         $path = Join-Path $TestDrive "setting_$([guid]::NewGuid()).config"
@@ -426,9 +470,22 @@ Describe "readSearchOption / writeSearchOption" -Tag Io {
     }
 }
 
+Describe "前の版の fileFilter" -Tag Io {
+    It "読み込んだ検索オプションに FileFilter は無く、設定を保存し直しても fileFilter は残らない" {
+        $path = Join-Path $TestDrive "old_$([guid]::NewGuid()).config"
+        [System.IO.File]::WriteAllText($path, '{ "fileFilter": "*.xlsx;!~$*", "useRegex": true }', ${utf8Bom})
+        (readSearchOption $path).ContainsKey("FileFilter") | Should -Be $false
+        (newSettings).Contains("fileFilter") | Should -Be $false
+        writeSearchOption @{ CaseSensitive = $true } $path
+        (Get-Content -LiteralPath $path -Raw -Encoding UTF8) | Should -Not -Match "fileFilter"
+    }
+}
+
 Describe "getWorkDir / writeWorkspaceFolder" -Tag Io {
-    It "設定が無ければ、既定の場所（%USERPROFILE%\Documents\tebunko_ws）" {
-        getWorkDir "$TestDrive\既定\setting.config" | Should -Be (Join-Path ([System.Environment]::GetFolderPath("UserProfile")) "Documents\tebunko_ws")
+    It "設定が無ければ、既定の場所（%USERPROFILE%\Documents\tebunko_ws。テストでは環境変数で差し替わる）" {
+        getWorkDir "$TestDrive\既定\setting.config" | Should -Be (getDefaultWorkDir)
+        getWorkDir "$TestDrive\既定\setting.config" | Should -Be $env:TEBUNKO_DEFAULT_WORKSPACE.TrimEnd("\", "/")
+        getDefaultWorkDir ([System.Environment]::GetFolderPath("UserProfile")) | Should -Be (getRealDefaultWorkspace)
     }
 
     It "保存したフォルダを返し、ほかの設定は保つ" {
@@ -456,6 +513,119 @@ Describe "getWorkDir / writeWorkspaceFolder" -Tag Io {
     }
 }
 
+Describe "getSettingsFilePath" -Tag Io {
+    It "<Case>" -TestCases @(
+        @{ Case = "書き込めるツールのフォルダなら、そこの setting.config"; Writable = $true }
+        @{ Case = "書き込めない（存在しない）ツールのフォルダなら、既定のワークスペースの setting.config"; Writable = $false }
+    ) {
+        $root = "$TestDrive\ツール-$Writable"
+        if ($Writable) {
+            [System.IO.Directory]::CreateDirectory($root) | Out-Null
+        }
+        $expected = if ($Writable) { "$root\setting.config" } else { "$TestDrive\既定のワークスペース\setting.config" }
+        getSettingsFilePath $root "$TestDrive\既定のワークスペース" | Should -Be $expected
+    }
+
+    It "ツールのフォルダに書けず、既定のワークスペースがまだ無いとき、保存でフォルダができ、同じ場所から読める" {
+        # 書く先は $TestDrive の下だけ（既定のワークスペースは $TestDrive に向ける。本物の Documents には書かない）
+        $toolDir = "$TestDrive\無いツールのフォルダ"
+        $defaultWork = "$TestDrive\まだ無い既定のワークスペース"
+        $path = getSettingsFilePath $toolDir $defaultWork
+        $path.StartsWith($TestDrive, [System.StringComparison]::OrdinalIgnoreCase) | Should -Be $true
+        Test-Path -LiteralPath $defaultWork | Should -Be $false
+
+        writeSettings @{ ingestThreads = 3 } $path
+
+        Test-Path -LiteralPath $defaultWork -PathType Container | Should -Be $true
+        $path | Should -Be "$defaultWork\setting.config"
+        Test-Path -LiteralPath $path -PathType Leaf | Should -Be $true
+        Test-Path -LiteralPath $toolDir | Should -Be $false
+        (readSettings $path).ingestThreads | Should -Be 3
+        # 同じ場所を、もう一度求めても同じ（保存したあとは書き込めるワークスペースになるが、ツールのフォルダは無いまま）
+        getSettingsFilePath $toolDir $defaultWork | Should -Be $path
+    }
+}
+
+Describe "testSettingsFileName / testDefaultWorkspace（設定ファイルとそれに付いてできるファイル）" -Tag Io {
+    It "名前の判定: <Name> は <Expected>" -TestCases @(
+        @{ Name = "setting.config"; Expected = $true }
+        @{ Name = "SETTING.CONFIG"; Expected = $true }
+        @{ Name = "setting.config.tmp"; Expected = $true }
+        @{ Name = "setting.config.broken-20261003-120000"; Expected = $true }
+        @{ Name = "setting.config.broken-20261003-120000-2"; Expected = $true }
+        @{ Name = "setting.config.bak"; Expected = $false }
+        @{ Name = "my_setting.config"; Expected = $false }
+        @{ Name = "setting.config.broken-"; Expected = $false }
+        @{ Name = "setting.config.tmp.old"; Expected = $false }
+    ) {
+        testSettingsFileName $Name | Should -Be $Expected
+    }
+
+    It "<Case>" -TestCases @(
+        @{ Case = "setting.config だけなら使える"; Names = @("setting.config"); Usable = $true }
+        @{ Case = ".tmp と .broken-<日時>（連番付きを含む）が付いていても使える"; Names = @("setting.config", "setting.config.tmp", "setting.config.broken-20261003-120000", "setting.config.broken-20261003-120000-2"); Usable = $true }
+        @{ Case = "似た名前（.bak）があれば使えない"; Names = @("setting.config", "setting.config.bak"); Usable = $false }
+        @{ Case = "似た名前（my_setting.config）があれば使えない"; Names = @("my_setting.config"); Usable = $false }
+        @{ Case = "ほかのファイルが 1 つでもあれば使えない"; Names = @("setting.config", "README.md"); Usable = $false }
+    ) {
+        $dir = "$TestDrive\既定-" + [guid]::NewGuid().ToString("N")
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        foreach ($name in $Names) {
+            [System.IO.File]::WriteAllText("$dir\$name", "")
+        }
+        (testDefaultWorkspace $dir).Usable | Should -Be $Usable
+    }
+}
+Describe "getDefaultWorkDir の差し替え（環境変数 TEBUNKO_DEFAULT_WORKSPACE）" -Tag Io {
+    # 場所を求めるだけで、そこに書かない。環境変数は必ず元に戻す（外したまま後のテストが書くと、既定のワークスペースに書く）
+    BeforeEach {
+        $script:savedWorkspace = $env:TEBUNKO_DEFAULT_WORKSPACE
+    }
+    AfterEach {
+        $env:TEBUNKO_DEFAULT_WORKSPACE = $script:savedWorkspace
+    }
+
+    It "<Case>" -TestCases @(
+        @{ Case = "未設定なら、プロファイルの Documents\tebunko_ws"; Value = $null; Expected = (Join-Path ([System.Environment]::GetFolderPath("UserProfile")) "Documents\tebunko_ws") }
+        @{ Case = "空なら、プロファイルの Documents\tebunko_ws"; Value = ""; Expected = (Join-Path ([System.Environment]::GetFolderPath("UserProfile")) "Documents\tebunko_ws") }
+        @{ Case = "空白だけなら、プロファイルの Documents\tebunko_ws"; Value = "  "; Expected = (Join-Path ([System.Environment]::GetFolderPath("UserProfile")) "Documents\tebunko_ws") }
+        @{ Case = "絶対パスならそれ"; Value = "C:\Users\test\ws"; Expected = "C:\Users\test\ws" }
+        @{ Case = "末尾の区切りは除く"; Value = "C:\Users\test\ws\"; Expected = "C:\Users\test\ws" }
+        @{ Case = "ドライブ直下の区切りが / でもよい"; Value = "D:/work/ws"; Expected = "D:/work/ws" }
+        @{ Case = "UNC のパスもよい"; Value = "\\server\share\ws"; Expected = "\\server\share\ws" }
+    ) {
+        $env:TEBUNKO_DEFAULT_WORKSPACE = $Value
+        getDefaultWorkDir | Should -Be $Expected
+    }
+
+    It "絶対パスでない値は例外にする（黙って既定のワークスペースに戻らない）: <Value>" -TestCases @(
+        @{ Value = "ws" }
+        @{ Value = "..\ws" }
+        @{ Value = "\ws" }
+        @{ Value = "C:ws" }
+        @{ Value = "\\server" }
+        @{ Value = "C:\" }
+        @{ Value = "C:\\" }
+        @{ Value = "\\server\" }
+        @{ Value = "\\server\\" }
+    ) {
+        $env:TEBUNKO_DEFAULT_WORKSPACE = $Value
+        { getDefaultWorkDir } | Should -Throw "*絶対パス*"
+    }
+
+    It "引数でプロファイルを渡したときは、環境変数を見ない" {
+        $env:TEBUNKO_DEFAULT_WORKSPACE = "C:\Users\test\ws"
+        getDefaultWorkDir "C:\Users\test" | Should -Be "C:\Users\test\Documents\tebunko_ws"
+    }
+
+    It "getWorkDir（workspaceFolder が空）と、設定ファイルの逃げ先も、差し替えた場所になる" {
+        $env:TEBUNKO_DEFAULT_WORKSPACE = "$TestDrive\差し替えた既定"
+        getWorkDir "$TestDrive\無い設定\setting.config" | Should -Be "$TestDrive\差し替えた既定"
+        # ツールのフォルダに書けない（存在しない）とき、設定ファイルは既定のワークスペースの直下
+        getSettingsFilePath "$TestDrive\無いツール" (getDefaultWorkDir) | Should -Be "$TestDrive\差し替えた既定\setting.config"
+    }
+}
+
 Describe "getDefaultWorkDir / testDefaultWorkspace / getWorkspaceBlockMessage" -Tag Io {
     It "既定はプロファイルの Documents\tebunko_ws（OneDrive のドキュメントではない）" {
         getDefaultWorkDir "C:\Users\test" | Should -Be "C:\Users\test\Documents\tebunko_ws"
@@ -470,7 +640,7 @@ Describe "getDefaultWorkDir / testDefaultWorkspace / getWorkspaceBlockMessage" -
         [System.IO.Directory]::CreateDirectory("$TestDrive\前から2\content_index") | Out-Null
         (testDefaultWorkspace "$TestDrive\前から2").Usable | Should -Be $true
         [System.IO.Directory]::CreateDirectory("$TestDrive\一覧だけ") | Out-Null
-        [System.IO.File]::WriteAllText("$TestDrive\一覧だけ\取り込み一覧.tsv", "")
+        [System.IO.File]::WriteAllText("$TestDrive\一覧だけ\ingest_status.tsv", "")
         (testDefaultWorkspace "$TestDrive\一覧だけ").Usable | Should -Be $true
     }
 
@@ -479,7 +649,7 @@ Describe "getDefaultWorkDir / testDefaultWorkspace / getWorkspaceBlockMessage" -
         [System.IO.File]::WriteAllText("$TestDrive\ほか\README.md", "")
         $check = testDefaultWorkspace "$TestDrive\ほか"
         $check.Usable | Should -Be $false
-        $check.Message | Should -Be "「$TestDrive\ほか」は空のフォルダではありません。ワークスペースには別の空のフォルダを選んでください（［8 設定］の［変更…］）。"
+        $check.Message | Should -Be "「$TestDrive\ほか」は空のフォルダではありません。ワークスペースには別の空のフォルダを選んでください（［設定］の［変更…］）。"
     }
 
     It "今のワークスペースが既定の場所で、使えないときだけ文言を返す" {
@@ -494,12 +664,12 @@ Describe "getDefaultWorkDir / testDefaultWorkspace / getWorkspaceBlockMessage" -
 Describe "writeSettings の書き込み（一時ファイルから置き換え）" -Tag Io {
     It "一時ファイルを残さず、BOM なし UTF-8 で書き、読み戻せる" {
         $path = "$TestDrive\原子的\setting.config"
-        writeSettings ([ordered]@{ fileFilter = "*.xlsx"; useRegex = $true }) $path
+        writeSettings ([ordered]@{ workspaceFolder = "C:"; useRegex = $true }) $path
         Test-Path -LiteralPath "${path}.tmp" | Should -Be $false
         $bytes = [System.IO.File]::ReadAllBytes($path)
         ($bytes[0] -eq 239 -and $bytes[1] -eq 187) | Should -Be $false
         $settings = readSettings $path
-        $settings.fileFilter | Should -Be "*.xlsx"
+        $settings.workspaceFolder | Should -Be "C:"
         $settings.useRegex | Should -Be $true
     }
 }
@@ -517,7 +687,7 @@ Describe "設定の同時の書き込み" -Tag Io {
             }
         }
         $jobs = @()
-        foreach ($pair in @(@("fileFilter", "f"), @("workspaceFolder", "w"))) {
+        foreach ($pair in @(@("openMode", "f"), @("workspaceFolder", "w"))) {
             $runspace = [runspacefactory]::CreateRunspace()
             $runspace.ThreadOptions = [System.Management.Automation.Runspaces.PSThreadOptions]::UseNewThread
             $runspace.Open()
@@ -534,7 +704,7 @@ Describe "設定の同時の書き込み" -Tag Io {
         }
         { Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json } | Should -Not -Throw
         $settings = readSettings $path
-        $settings.fileFilter | Should -Be "f50"
+        $settings.openMode | Should -Be "f50"
         $settings.workspaceFolder | Should -Be "w50"
     }
 }

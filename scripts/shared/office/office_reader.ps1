@@ -5,8 +5,8 @@
 # 読み出した結果は「場所 → 行の一覧」の順序付き辞書（ユニット）で返す。
 #   Word      : ページ001, ページ001[図形], ページ001[コメント], ページ002, ..., ヘッダー・フッター, 脚注
 #   PowerPoint: スライド001, スライド001[図形], スライド001[コメント], スライド001_ノート, スライド002（非表示）, ..., ヘッダー・フッター
-#   Excel     : <シート名>[図形]（グラフ・SmartArt の文字を含む。表示のグラフシートも含む）, <シート名>[コメント]
-#              （セルの値はインデクサが Excel で読む）
+#   Excel     : <シート名>[図形]（グラフ・SmartArt の文字を含む。表示のグラフシートも含む）, <シート名>[コメント],
+#              <シート名>[ヘッダー・フッター]（セルの値はインデクサが Excel で読む）
 # 1行は段落1つ、または表の1行（セルをタブ区切り）。図形・コメントの場所は図形・コメント1つ
 # （Word・PowerPoint は文字だけ、Excel は "<セル番地><TAB><文字>"）。
 
@@ -41,7 +41,7 @@ $script:zipTotalReadBytes = 0
 # 原因を調べられるよう、部品名・大きさ・部品ごとか合計かはインデックス作成のログにだけ書く。
 # shared/ はツール（インデックス作成のログ）を知らないため、ここでは書かず、
 # ZipSizeLimitException のプロパティで呼び出し元（tebunko/indexer）に伝える
-$script:zipTooLargeMessage = "ファイルサイズが大きすぎるため取り込めません。"
+$script:zipTooLargeMessage = "ファイルサイズが大きすぎるため更新できません。"
 
 class ZipSizeLimitException : System.Exception {
     # .Message は今までどおり利用者向けの簡潔な文言のまま（$script:zipTooLargeMessage）。
@@ -1042,11 +1042,189 @@ function addSortedShapeLines {
     }
 }
 
+function getHeaderFooterLines {
+    # Excel のヘッダー・フッターの書式コード付きの文字（例: "&L社外秘&C&"ＭＳ ゴシック,太字"&12見出し&R&P / &N ページ"）を、
+    # 検索する行の一覧にする。左（&L）・中央（&C。区切りが無い先頭も中央）・右（&R）の順で、1 区分の 1 段落が 1 行。
+    # 印刷時に決まる値（&P ページ・&N 総ページ・&D 日付・&T 時刻・&Z パス・&F ファイル名・&A シート名・&G 画像）と、
+    # 書式（フォント・大きさ・色・&B &I &U &E &S &X &Y &O &H）は文字にしない。&& は & 1 文字。知らない & の続きはそのまま残す。
+    # タブはスペースにして前後の空白を落とし、空の行は出さない。1 行ずつ toObjectCellText を通す
+    # （Excel の行は " で囲んだセルを外す前提のため）
+    param (
+        [string]$code
+    )
+
+    $sections = @{ L = New-Object System.Text.StringBuilder; C = New-Object System.Text.StringBuilder; R = New-Object System.Text.StringBuilder }
+    $current = $sections["C"]
+    $length = $code.Length
+    $i = 0
+    while ($i -lt $length) {
+        $ch = $code[$i]
+        if ($ch -ne '&' -or $i + 1 -ge $length) {
+            [void]$current.Append($ch)
+            $i++
+            continue
+        }
+        $next = $code[$i + 1]
+        if ($next -eq '&') {
+            [void]$current.Append('&')
+            $i += 2
+        } elseif ($next -cin @('L', 'C', 'R')) {
+            $current = $sections[[string]$next]
+            $i += 2
+        } elseif ($next -ceq 'P') {
+            # &P+1 &P-1（ページ番号の加減）の数字も取り除く
+            $m = [regex]::Match($code.Substring($i), '^&P(?:[+-]\d+)?')
+            $i += $m.Length
+        } elseif ($next -cin @('N', 'D', 'T', 'Z', 'F', 'A', 'G', 'B', 'I', 'U', 'E', 'S', 'X', 'Y', 'O', 'H')) {
+            $i += 2
+        } elseif ($next -eq '"') {
+            $close = $code.IndexOf('"', $i + 2)
+            if ($close -lt 0) {
+                [void]$current.Append('&')
+                $i++
+            } else {
+                $i = $close + 1
+            }
+        } elseif ($next -ceq 'K') {
+            $m = [regex]::Match($code.Substring($i), '^&K(?:[0-9A-Fa-f]{6}|[0-9]{2}[+-][0-9]{3})')
+            if ($m.Success) {
+                $i += $m.Length
+            } else {
+                [void]$current.Append('&')
+                $i++
+            }
+        } elseif ($next -ge [char]'0' -and $next -le [char]'9') {
+            $m = [regex]::Match($code.Substring($i), '^&\d{1,3}')
+            $i += $m.Length
+        } else {
+            [void]$current.Append('&')
+            $i++
+        }
+    }
+
+    $lines = New-Object System.Collections.Generic.List[string]
+    foreach ($key in @("L", "C", "R")) {
+        foreach ($part in ($sections[$key].ToString() -split "\r\n|\r|\n")) {
+            $text = $part.Replace("`t", " ").Trim()
+            if ($text -ne "") {
+                $lines.Add((toObjectCellText @($text)))
+            }
+        }
+    }
+    return $lines.ToArray()
+}
+
+function readXlsxHeaderFooterLines {
+    # シート（ワークシート・グラフシート）の XML（XmlReader）から、ヘッダー・フッターの検索する行を返す。
+    # 並びは ヘッダー → フッター、それぞれ 先頭ページ（differentFirst のとき）→ 奇数（通常）ページ →
+    # 偶数ページ（differentOddEven のとき）。同じ文字の行は 1 回だけ。
+    # sheetData（セルの値。大きいシートでは数百 MB になる）は読まずに飛ばし、headerFooter を読んだら終わる
+    param (
+        [System.Xml.XmlReader]$reader
+    )
+
+    $nsSheet = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    $texts = @{}
+    $differentFirst = $false
+    $differentOddEven = $false
+    $hasNode = $reader.Read()
+    while ($hasNode) {
+        if ($reader.NodeType -eq [System.Xml.XmlNodeType]::Element -and $reader.NamespaceURI -eq $nsSheet) {
+            if ($reader.LocalName -eq "sheetData") {
+                $reader.Skip()
+                $hasNode = -not $reader.EOF
+                continue
+            }
+            if ($reader.LocalName -eq "headerFooter") {
+                $differentFirst = $reader.GetAttribute("differentFirst") -in @("1", "true")
+                $differentOddEven = $reader.GetAttribute("differentOddEven") -in @("1", "true")
+                $sub = $reader.ReadSubtree()
+                try {
+                    $sub.Read() | Out-Null  # headerFooter 自身
+                    $hasChild = $sub.Read()
+                    while ($hasChild) {
+                        if ($sub.NodeType -eq [System.Xml.XmlNodeType]::Element -and $sub.Depth -eq 1 -and $sub.NamespaceURI -eq $nsSheet) {
+                            $childName = $sub.LocalName  # 読んだ後は位置が進むため、先に控える
+                            $texts[$childName] = $sub.ReadElementContentAsString()
+                            $hasChild = -not $sub.EOF
+                        } else {
+                            $hasChild = $sub.Read()
+                        }
+                    }
+                } finally {
+                    $sub.Dispose()
+                }
+                break
+            }
+        }
+        $hasNode = $reader.Read()
+    }
+
+    $names = New-Object System.Collections.Generic.List[string]
+    foreach ($kind in @("Header", "Footer")) {
+        if ($differentFirst) { $names.Add("first$kind") }
+        $names.Add("odd$kind")
+        if ($differentOddEven) { $names.Add("even$kind") }
+    }
+    $lines = New-Object System.Collections.Generic.List[string]
+    $seen = New-Object System.Collections.Generic.HashSet[string]
+    foreach ($name in $names) {
+        if (-not $texts.ContainsKey($name)) {
+            continue
+        }
+        foreach ($line in (getHeaderFooterLines $texts[$name])) {
+            if ($seen.Add($line)) { $lines.Add($line) }
+        }
+    }
+    return $lines.ToArray()
+}
+
+function readXlsxSheetHeaderFooter {
+    # ZIP の中のシートの部品（$entryName）か、読み込み済みの文字列（$xml。グラフシート）から、
+    # ヘッダー・フッターの行を返す。読めない（XML が壊れているなど）ときは空にし、$failures に部品の名前を足す
+    param (
+        [System.IO.Compression.ZipArchive]$zip,
+        [string]$entryName,
+        [string]$xml = $null,
+        [System.Collections.Generic.List[string]]$failures = $null
+    )
+
+    $settings = New-Object System.Xml.XmlReaderSettings
+    $settings.DtdProcessing = [System.Xml.DtdProcessing]::Prohibit
+    # シートの部品は sheetData が大きいため、文字列にせず流れで読む（readZipEntry は使わない）。
+    # 代わりに読む文字数に部品の上限を設け、細工した大きな部品でも上限で打ち切る（XmlException → 読めなかった扱い）
+    $settings.MaxCharactersInDocument = $script:zipPartMaxBytes
+    $stream = $null
+    $reader = $null
+    try {
+        if ($xml) {
+            $reader = [System.Xml.XmlReader]::Create((New-Object System.IO.StringReader($xml)), $settings)
+        } else {
+            $entry = $zip.GetEntry($entryName)
+            if ($null -eq $entry) {
+                return @()
+            }
+            $stream = $entry.Open()
+            $reader = [System.Xml.XmlReader]::Create($stream, $settings)
+        }
+        return @(readXlsxHeaderFooterLines $reader)
+    } catch {
+        if ($null -ne $failures) {
+            $failures.Add($entryName)
+        }
+        return @()
+    } finally {
+        if ($null -ne $reader) { $reader.Dispose() }
+        if ($null -ne $stream) { $stream.Dispose() }
+    }
+}
+
 function readXlsxObjectUnits {
     # Excel（.xlsx / .xlsm）の表示シート・表示のグラフシートにある図形（テキストボックス・グループ・WordArt・
-    # グラフ・SmartArt を含む）とコメントの文字を、"<シート名>[図形]" "<シート名>[コメント]" の場所ごとに返す
-    # （シート名には [ ] を使えないため、実在のシートと重ならない）。
-    # 1 行は "<セル番地><TAB><文字>"。セル番地は図形の左上・コメントのセルで、シートの上の行から順に並べる。
+    # グラフ・SmartArt を含む）・コメント・ヘッダー／フッターの文字を、"<シート名>[図形]" "<シート名>[コメント]"
+    # "<シート名>[ヘッダー・フッター]" の場所ごとに返す（シート名には [ ] を使えないため、実在のシートと重ならない）。
+    # 図形・コメントの 1 行は "<セル番地><TAB><文字>"。セル番地は図形の左上・コメントのセルで、シートの上の行から順に並べる。
+    # ヘッダー・フッターの 1 行は文字だけ（セル番地は無い。getHeaderFooterLines・readXlsxHeaderFooterLines）。
     # セルの値は Excel のテキスト保存で読むため、ここでは読まない。
     # ZIP の中身が Excel のブック（xl/workbook.xml）でなければ（.xlsb など）、何も返さない。
     # $failures を渡すと、読めなかったグラフ・SmartArt の部品の名前を追加する（呼び出し元でログに書く。
@@ -1100,6 +1278,10 @@ function readXlsxObjectUnits {
                     }
                 }
                 addSortedShapeLines $units "${sheetName}[図形]" $shapes
+                $headerFooter = @(readXlsxSheetHeaderFooter $zip $rel.Target $chartsheetXml $failures)
+                if ($headerFooter.Count -gt 0) {
+                    addUnitLines $units "${sheetName}[ヘッダー・フッター]" $headerFooter
+                }
                 continue
             }
             if ($rel.Type -notlike "*/worksheet") {
@@ -1129,6 +1311,11 @@ function readXlsxObjectUnits {
                 ForEach-Object { "$($_.Replace('$', ''))`t$(toObjectCellText @($comments[$_] -split "\r\n|\r|\n"))" })
             if ($lines.Count -gt 0) {
                 addUnitLines $units "${sheetName}[コメント]" $lines
+            }
+
+            $headerFooter = @(readXlsxSheetHeaderFooter $zip $rel.Target $null $failures)
+            if ($headerFooter.Count -gt 0) {
+                addUnitLines $units "${sheetName}[ヘッダー・フッター]" $headerFooter
             }
         }
     } finally {

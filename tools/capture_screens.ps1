@@ -186,48 +186,6 @@ function captureGuiState {
     }
 }
 
-# ---- 起動中の表示（本体の窓が出る前）を撮る ----
-
-function captureStartupSplash {
-    # 起動中の表示は、出てから本体の窓に変わるまでが一瞬で、UI オートメーションの provider がまだこの窓を
-    # 認識していない（AutomationElement 経由では見つからない・大きさが 0 x 0 のまま）ことがあるため、
-    # captureGuiState は使わず、Win32 の EnumWindows・GetWindowRect だけで窓を探して撮る。
-    # 起動中の表示は固定の文言（「tebunko」「起動しています…」）だけで、利用者に関わる中身が無いため、
-    # 塗りつぶし（利用者名などの検出）は行わない
-    param ($S, [string]$Id, [string[]]$Ids, [string]$OutDir, [System.Collections.Generic.List[long]]$Sizes)
-
-    if ($Ids -notcontains $Id) { return }
-
-    $sw = [Diagnostics.Stopwatch]::StartNew()
-    $rect = $null
-    $handle = [IntPtr]::Zero
-    while (!$rect) {
-        $windows = @(getGuiNativeProcessWindows $S.Process.Id)
-        if ($windows.Count -gt 0) {
-            # この時点では本体の窓（Tabs）はまだ無く、起動中の表示だけが見えているはず
-            $rect = $windows[0].Rect
-            $handle = $windows[0].Handle
-        }
-        if (!$rect) {
-            if ($S.Process.HasExited) { throw "画面が終了した（$Id を撮れなかった）" }
-            if ($sw.Elapsed.TotalSeconds -gt ${guiDefaultTimeout}) { throw "$Id の窓が ${guiDefaultTimeout} 秒以内に見つからなかった" }
-            Start-Sleep -Milliseconds 10
-        }
-    }
-    # ほかの窓（通知・別のツールの窓）が重なって写らないよう、撮る直前に前へ出す（UI オートメーションを使わないぶん速い）
-    [void][TebunkoGuiNative]::SetForegroundWindow($handle)
-
-    $bitmap = New-Object Drawing.Bitmap($rect.Width, $rect.Height)
-    $graphics = [Drawing.Graphics]::FromImage($bitmap)
-    try {
-        $graphics.CopyFromScreen($rect.Left, $rect.Top, 0, 0, (New-Object Drawing.Size($rect.Width, $rect.Height)))
-        saveCaptureBitmap -Bitmap $bitmap -Id $Id -OutDir $OutDir -Sizes $Sizes
-    } finally {
-        $graphics.Dispose()
-        $bitmap.Dispose()
-    }
-}
-
 # ---- 場面: window（起動中・メニュー・about・壊れた設定） ----
 
 function captureBrokenConfigScene {
@@ -242,7 +200,7 @@ function captureBrokenConfigScene {
     invokeGuiScene $S {
         setGuiStep $S "壊れた設定ファイルの知らせ"
         $window = waitGuiWindow $S "壊れた設定ファイルの知らせ" -Text "設定ファイルが壊れていた"
-        # 設定が既定に戻るため、本体の窓は既定のワークスペース（Documents\tebunko_ws）の中身で変わる
+        # 設定が既定に戻るため、本体の窓は既定のワークスペース（使い捨てに差し替えたもの）の中身で変わる
         # （利用者名を含まないため塗りつぶしでも消えない。計画で 5・22・35 を撮らないものにした理由と同じ）。
         # メッセージボックスの窓だけを撮り、本体は重ねない
         captureGuiState -S $S -Id "window/settings-broken" -Ids $Ids -OutDir $OutDir `
@@ -251,16 +209,14 @@ function captureBrokenConfigScene {
         # （手元では、両方を送ってようやく閉じた）。閉じるまで両方を送り直す
         waitGui $S "壊れた設定ファイルの知らせが閉じる" ${guiDefaultTimeout} {
             try {
-                $okButton = findGui $window -Name "OK"
-                if ($okButton) { clickGuiNativeButton $okButton }
-                pressGuiEnterKey $window
+                pressGuiMessageOk $window
             } catch { }
             Start-Sleep -Milliseconds 300
             !(@(getGuiOtherWindows $S) | Where-Object { (@(getGuiTexts $_) -join " ") -like "*設定ファイルが壊れていた*" })
         } | Out-Null
 
-        # 既定に戻った設定で、この機械の既定のワークスペース（Documents\tebunko_ws）が空でなければ、続けて
-        # 「空のフォルダではありません」の警告も出る。利用者の環境には触れない（読むだけ）ので、それが出ていれば閉じるだけにする
+        # 既定に戻った設定で、既定のワークスペース（使い捨てに差し替えたもの）が空でなければ、続けて
+        # 「空のフォルダではありません」の警告も出る。それが出ていれば閉じるだけにする
         $extraWarning = @(getGuiOtherWindows $S) | Select-Object -First 1
         if ($extraWarning) {
             closeGuiNativeMessage $S $extraWarning "既定のワークスペースの警告"
@@ -281,46 +237,33 @@ function captureStarterScene {
 
     $S = startGui $tool "starter"
     try {
-        if ($Ids -contains "window/startup") {
-            setGuiStep $S "起動中の表示"
-            captureStartupSplash -S $S -Id "window/startup" -Ids $Ids -OutDir $OutDir -Sizes $Sizes
-        }
-
         invokeGuiScene $S {
             setGuiStep $S "起動時のタブ（インデックスが無い）"
-            waitGui $S "［1 インデックス管理］が選ばれる" ${guiDefaultTimeout} { (getGuiSelectedTab $S) -eq "IndexTab" } | Out-Null
+            waitGui $S "［インデックス管理］が選ばれる" ${guiDefaultTimeout} { (getGuiSelectedTab $S) -eq "IndexTab" } | Out-Null
             captureGuiState -S $S -Id "index-tab/empty" -Ids $Ids -OutDir $OutDir `
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
 
-            setGuiStep $S "［2 検索］（インデックスが無い）"
+            setGuiStep $S "［検索］（インデックスが無い）"
             selectGuiTab $S "SearchTab" "GoIndexTabButton"
             captureGuiState -S $S -Id "search-tab/no-index" -Ids $Ids -OutDir $OutDir `
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
             selectGuiTab $S "IndexTab" "NewIndexButton"
 
-            setGuiStep $S "［⋯］のメニュー"
-            $more = waitGuiById $S $S.Window "MoreButton"
-            invokeGui $S $more "［⋯］"
-            $menu = waitGui $S "メニュー" ${guiDefaultTimeout} { (getGuiOtherWindows $S) | Select-Object -First 1 }
-            captureGuiState -S $S -Id "window/menu" -Ids $Ids -OutDir $OutDir `
-                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($menu)
-
-            setGuiStep $S "「tebunko について」"
-            $item = waitGui $S "メニューの「tebunko について」" ${guiDefaultTimeout} { findGuiAnywhere $S -Id "AboutMenuItem" }
-            invokeGui $S $item "「tebunko について」"
-            $about = waitGuiWindow $S "「tebunko について」のダイアログ" -Id "VersionText"
+            setGuiStep $S "「バージョン情報」"
+            clickGui $S $S.Window "AboutLink" "バージョン情報"
+            $about = waitGuiWindow $S "「バージョン情報」のダイアログ" -Id "VersionText"
             captureGuiState -S $S -Id "window/about" -Ids $Ids -OutDir $OutDir `
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($about)
             clickGui $S $about "CloseButton" "［閉じる］"
-            waitGuiWindowClosed $S $about "「tebunko について」"
+            waitGuiWindowClosed $S $about "「バージョン情報」"
 
-            setGuiStep $S "［追加…］"
-            clickGui $S $S.Window "NewIndexButton" "［追加…］"
+            setGuiStep $S "［＋ フォルダを追加］"
+            clickGui $S $S.Window "NewIndexButton" "［＋ フォルダを追加］"
             $dialog = waitGuiWindow $S "追加のダイアログ" -Id "FolderBox"
             captureGuiState -S $S -Id "index-tab/add" -Ids $Ids -OutDir $OutDir `
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($dialog)
 
-            setGuiStep $S "［追加…］入力が足りないまま［OK］"
+            setGuiStep $S "［＋ フォルダを追加］入力が足りないまま［OK］"
             clickGui $S $dialog "OkButton" "［OK］"
             waitGui $S "注意（ErrorText）" ${guiDefaultTimeout} { (getGuiText (findGui $dialog -Id "ErrorText")) -ne "" } | Out-Null
             captureGuiState -S $S -Id "index-tab/add-error" -Ids $Ids -OutDir $OutDir `
@@ -333,39 +276,37 @@ function captureStarterScene {
             waitGuiWindowClosed $S $dialog "追加のダイアログ"
             $row = waitGui $S "一覧に加わる" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")) | Select-Object -First 1 }
 
-            setGuiStep $S "［編集…］"
+            # 編集のダイアログ（index-tab/edit）は、［アクション ▾］の［編集…］で開く（行の右クリックとダブルクリックは
+            # UI オートメーションからは開けない）
+            setGuiStep $S "［アクション ▾］→［編集…］"
             selectGui $row
-            clickGui $S $S.Window "EditIndexButton" "［編集…］"
-            $editDialog = waitGuiWindow $S "編集のダイアログ" -Id "NameBox"
+            clickGuiAction $S "ActionEdit" "［編集…］"
+            $dialog = waitGuiWindow $S "インデックスの編集のダイアログ" -Id "FolderBox"
             captureGuiState -S $S -Id "index-tab/edit" -Ids $Ids -OutDir $OutDir `
-                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($editDialog)
-            clickGui $S $editDialog "CancelButton" "［キャンセル］"
-            waitGuiWindowClosed $S $editDialog "編集のダイアログ"
+                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($dialog)
+            clickGui $S $dialog "CancelButton" "［キャンセル］"
+            waitGuiWindowClosed $S $dialog "編集のダイアログ"
 
-            setGuiStep $S "［作成］のチェックを外す"
+            setGuiStep $S "行のチェックを付ける"
             $row = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
-            $check = findGui $row -Type CheckBox
-            toggleGui $check
-            waitGui $S "チェックが外れる" ${guiDefaultTimeout} { (getGuiToggleState (findGui $row -Type CheckBox)) -eq "Off" } | Out-Null
-            captureGuiState -S $S -Id "index-tab/unchecked" -Ids $Ids -OutDir $OutDir `
+            checkGuiRow $S $row
+            captureGuiState -S $S -Id "index-tab/checked" -Ids $Ids -OutDir $OutDir `
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
-            toggleGui (findGui $row -Type CheckBox)
-            waitGui $S "チェックが付く" ${guiDefaultTimeout} { (getGuiToggleState (findGui $row -Type CheckBox)) -eq "On" } | Out-Null
 
             setGuiStep $S "［削除］"
-            clickGui $S $S.Window "RemoveIndexButton" "［削除］"
-            $deleteConfirm = waitGuiWindow $S "削除の確認" -Id "HeadingText" -Text "一覧から削除しますか"
+            clickGuiAction $S "ActionDelete" "［削除…］"
+            $deleteConfirm = waitGuiWindow $S "削除の確認" -Id "HeadingText" -Text "インデックスを削除しますか"
             captureGuiState -S $S -Id "index-tab/delete-confirm" -Ids $Ids -OutDir $OutDir `
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($deleteConfirm)
             clickGuiByName $S $deleteConfirm "キャンセル"
             waitGuiWindowClosed $S $deleteConfirm "削除の確認"
 
-            setGuiStep $S "［インデックス作成を開始］"
-            clickGui $S $S.Window "IndexingButton" "［インデックス作成を開始］"
+            setGuiStep $S "［すべて更新］"
+            clickGui $S $S.Window "IndexingButton" "［すべて更新］"
             $startConfirm = waitGuiWindow $S "取り込みの確認" -Id "StartButton" -Timeout ${guiIndexTimeout}
             captureGuiState -S $S -Id "index-tab/start-confirm" -Ids $Ids -OutDir $OutDir `
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($startConfirm)
-            clickGui $S $startConfirm "StartButton" "確認の［インデックス作成を開始］"
+            clickGui $S $startConfirm "StartButton" "確認の［更新を開始］"
             waitGuiWindowClosed $S $startConfirm "取り込みの確認"
 
             setGuiStep $S "取り込みの完了"
@@ -436,13 +377,18 @@ function captureHeavyScene {
         startGuiIndexing $S
         waitGui $S "取り込み中" ${guiDefaultTimeout} { testGuiIndexing $S } | Out-Null
         if (!(testGuiIndexing $S)) { throw $tooFast }
+        # 行の［中止］・全体の進み・ステータスバーの 1 行がそろうまで待ってから撮る
+        $runningRow = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
+        waitGui $S "行に［中止］が出る" ${guiDefaultTimeout} { findGui $runningRow -Id "IndexRowStopButton" } | Out-Null
+        waitGui $S "進み具合の件数が出る" ${guiIndexTimeout} { (getGuiIndexingBannerText $S) -like "*/*" } | Out-Null
+        if (!(testGuiIndexing $S)) { throw $tooFast }
         captureGuiState -S $S -Id "index-tab/running" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
 
-        setGuiStep $S "取り込み中の［8 設定］の［変更…］"
+        setGuiStep $S "取り込み中の［設定］の［変更…］"
         selectGuiTab $S "SettingsTab" "ChangeWorkspaceButton"
         clickGui $S $S.Window "ChangeWorkspaceButton" "［変更…］"
-        $warning = waitGuiWindow $S "作成中の警告" -Text "作成中はワークスペースを変えられません"
+        $warning = waitGuiWindow $S "作成中の警告" -Text "更新中はワークスペースを変えられません"
         captureGuiState -S $S -Id "settings-tab/running-warning" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($warning)
         closeGuiNativeMessage $S $warning "作成中の警告"
@@ -455,9 +401,9 @@ function captureHeavyScene {
         captureGuiState -S $S -Id "index-tab/stop-confirm" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($stopConfirm)
         clickGuiByName $S $stopConfirm "中止する"
-        waitGui $S "取り込みが止まる" ${guiIndexTimeout} {
+        waitGui $S "更新が止まる" ${guiIndexTimeout} {
             $b = findGui $S.Window -Id "IndexingButton"
-            $b.Current.IsEnabled -and $b.Current.Name -like "続きから再開*"
+            $b.Current.IsEnabled -and $b.Current.Name -eq "すべて更新" -and (findGui $S.Window -Id "IndexingResumeButton")
         } | Out-Null
         closeGui $S
     }
@@ -467,9 +413,9 @@ function captureHeavyScene {
         invokeGuiScene $S {
             $tooFastGuard = { if (!(testGuiIndexing $S)) { throw $tooFast } }
             setGuiStep $S "中断した取り込み"
-            selectGuiTab $S "IndexTab" "IndexingStateText"
+            selectGuiTab $S "IndexTab" "IndexingButton"
             waitGui $S "まだ取り込んでいないファイルがある" ${guiDefaultTimeout} {
-                (getGuiText (findGui $S.Window -Id "IndexingStateText")) -like "*まだ取り込んでいないファイルがあります*"
+                (getGuiIndexingBannerText $S) -like "*更新を中断しました*"
             } | Out-Null
             captureGuiState -S $S -Id "index-tab/interrupted" -Ids $Ids -OutDir $OutDir `
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
@@ -479,17 +425,17 @@ function captureHeavyScene {
             waitGui $S "取り込み中" ${guiDefaultTimeout} { testGuiIndexing $S } | Out-Null
             if (!(testGuiIndexing $S)) { throw $tooFast }
             closeGuiWindowAsync $S $S.Window
-            $closeConfirm = waitGuiWindow $S "閉じる確認" -Id "HeadingText" -Text "止めてから閉じますか" -Guard $tooFastGuard
+            $closeConfirm = waitGuiWindow $S "閉じる確認" -Id "HeadingText" -Text "中止して閉じますか" -Guard $tooFastGuard
             captureGuiState -S $S -Id "window/close-confirm" -Ids $Ids -OutDir $OutDir `
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($closeConfirm)
             clickGuiByName $S $closeConfirm "閉じない"
             waitGuiWindowClosed $S $closeConfirm "閉じる確認"
 
-            # 片づけ: もう一度閉じて、今度は「インデックス作成を止めて閉じる」で終える（closeGui は、この確認を扱えない）
+            # 片づけ: もう一度閉じて、今度は「中止して閉じる」で終える（closeGui は、この確認を扱えない）
             setGuiStep $S "取り込みを止めて閉じる"
             closeGuiWindowAsync $S $S.Window
-            $confirm2 = waitGuiWindow $S "閉じる確認" -Id "HeadingText" -Text "止めてから閉じますか" -Guard $tooFastGuard
-            clickGuiByName $S $confirm2 "インデックス作成を止めて閉じる"
+            $confirm2 = waitGuiWindow $S "閉じる確認" -Id "HeadingText" -Text "中止して閉じますか" -Guard $tooFastGuard
+            clickGuiByName $S $confirm2 "中止して閉じる"
             waitGui $S "取り込みを止めて画面が終了する" ${guiIndexTimeout} -AllowExited { $S.Process.HasExited } | Out-Null
         }
     }
@@ -513,27 +459,27 @@ function captureSearchScene {
 
     $S = startGui $tool "search"
     invokeGuiScene $S {
-        setGuiStep $S "起動時の［2 検索］"
-        waitGui $S "［2 検索］が選ばれる" ${guiDefaultTimeout} { (getGuiSelectedTab $S) -eq "SearchTab" } | Out-Null
+        setGuiStep $S "起動時の［検索］"
+        waitGui $S "［検索］が選ばれる" ${guiDefaultTimeout} { (getGuiSelectedTab $S) -eq "SearchTab" } | Out-Null
         captureGuiState -S $S -Id "search-tab/initial" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
 
         setGuiStep $S "正規表現で不正な式"
         toggleGui (findGui $S.Window -Id "RegexCheck")
         setGuiText $S (findGui $S.Window -Id "WordBox") "("
-        waitGui $S "注意（WordNotice）が出る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "WordNotice")) -like "*文字どおり検索*" } | Out-Null
+        waitGui $S "吹き出し（RegexBalloon）が出る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "RegexBalloonText")) -eq "正規表現が正しくありません" } | Out-Null
         captureGuiState -S $S -Id "search-tab/regex-error" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
         setGuiText $S (findGui $S.Window -Id "WordBox") ""
         toggleGui (findGui $S.Window -Id "RegexCheck")
 
         setGuiStep $S "検索対象の［すべて解除］"
-        clickGui $S $S.Window "UncheckAllIndexButton" "［すべて解除］"
-        waitGui $S "検索対象が「なし」になる" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "SearchTargetText")) -like "検索対象：なし*" } | Out-Null
+        clickGui $S $S.Window "UncheckAllIndexButton" "［解除］"
+        waitGui $S "検索対象が「なし」になる" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "TargetCountText")) -like "検索対象 0 / *" } | Out-Null
         captureGuiState -S $S -Id "search-tab/tree-none" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
-        clickGui $S $S.Window "CheckAllIndexButton" "［すべて選択］"
-        waitGui $S "検索対象が戻る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "SearchTargetText")) -like "検索対象：すべて*" } | Out-Null
+        clickGui $S $S.Window "CheckAllIndexButton" "［すべて］"
+        waitGui $S "検索対象が戻る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "TargetCountText")) -match "^検索対象 (\d+) / \1$" } | Out-Null
 
         $search = {
             param ($word)
@@ -546,7 +492,7 @@ function captureSearchScene {
 
         setGuiStep $S "見つからない検索"
         & $search "存在しないはずのことば"
-        waitGui $S "見つからない" ${guiDefaultTimeout} { (& $summary) -like "見つかりませんでした*" } | Out-Null
+        waitGui $S "見つからない（ステータスバーに 0 件）" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "StatusText")) -like "検索しました：* 0 件" } | Out-Null
         captureGuiState -S $S -Id "search-tab/no-results" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
 
@@ -558,8 +504,8 @@ function captureSearchScene {
 
         setGuiStep $S "検索して結果を選ぶ"
         & $search "単価"
-        waitGui $S "該当 2 件" ${guiDefaultTimeout} { (& $summary) -like "該当 2 件*" } | Out-Null
-        clickGui $S $S.Window "ExpandAllButton" "［すべて展開］"
+        waitGui $S "該当 2 件" ${guiDefaultTimeout} { (& $summary) -like "一致 2 件（*" } | Out-Null
+        clickGui $S $S.Window "ExpandAllButton" "［すべて開く］"
         $row = waitGui $S "結果の行" ${guiDefaultTimeout} { @(& $hitRows) | Select-Object -Last 1 }
         selectGui $row
         waitGui $S "プレビューが出る" ${guiDefaultTimeout} {
@@ -580,7 +526,7 @@ function captureSearchScene {
         waitGui $S "結果の行が隠れる" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 0 } | Out-Null
         captureGuiState -S $S -Id "search-tab/collapsed" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
-        clickGui $S $S.Window "ExpandAllButton" "［すべて展開］"
+        clickGui $S $S.Window "ExpandAllButton" "［すべて開く］"
         waitGui $S "結果の行が戻る" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 2 } | Out-Null
         setGuiText $S (findGui $S.Window -Id "FilterBox") "議事録"
         waitGui $S "絞り込んだ件数" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 1 } | Out-Null
@@ -600,7 +546,7 @@ function captureSearchScene {
         waitGuiWindowClosed $S $missing "見つからない確認"
 
         setGuiStep $S "最小の大きさ"
-        resizeGuiWindow $S 760 580
+        resizeGuiWindow $S 1024 640
         Start-Sleep -Milliseconds 300
         captureGuiState -S $S -Id "search-tab/min-width" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
@@ -635,7 +581,7 @@ function captureSettingsScene {
             useGuiFolderPicker $S $path
         }
 
-        setGuiStep $S "［8 設定］（既定でないワークスペース）"
+        setGuiStep $S "［設定］（既定でないワークスペース）"
         selectGuiTab $S "SettingsTab" "ChangeWorkspaceButton"
         captureGuiState -S $S -Id "settings-tab/normal" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
@@ -649,7 +595,7 @@ function captureSettingsScene {
 
         setGuiStep $S "空のフォルダの確認"
         & $changeWorkspace $emptyDir
-        $emptyConfirm = waitGuiWindow $S "ワークスペースを変える確認" -Id "HeadingText" -Text "ワークスペースを変えますか"
+        $emptyConfirm = waitGuiWindow $S "ワークスペースを変える確認" -Id "HeadingText" -Text "へ移動します"
         captureGuiState -S $S -Id "settings-tab/empty-confirm" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($emptyConfirm)
         clickGuiByName $S $emptyConfirm "キャンセル"
@@ -675,69 +621,85 @@ function captureSettingsScene {
     }
 }
 
-function captureProcessScene {
-    # process-tab の状態（偽のプロセスを使う）
+function newCaptureLeftoverFile {
+    # 偽の行（TEBUNKO_GUI_LEFTOVER_FILE が指す JSON）を作る。本物の Office は使わない。Kind: basic（3 件）・many（12 件）・partial（3 件。Word の 1 件が確認の後に変わる）
+    param ([string]$Path, [string]$Kind)
+
+    $rows = New-Object System.Collections.ArrayList
+    if ($Kind -eq "many") {
+        $apps = @(1..7 | ForEach-Object { "EXCEL" }) + @(1..3 | ForEach-Object { "WINWORD" }) + @(1..2 | ForEach-Object { "POWERPNT" })
+        for ($i = 0; $i -lt $apps.Count; $i++) {
+            [void]$rows.Add(@{ Id = 12840 + $i * 311; ProcessName = $apps[$i]; StartTime = "2030-10-04T18:{0:00}:00" -f (20 + $i) })
+        }
+    } else {
+        [void]$rows.Add(@{ Id = 12840; ProcessName = "EXCEL"; StartTime = "2030-10-04T18:32:00" })
+        [void]$rows.Add(@{ Id = 15012; ProcessName = "EXCEL"; StartTime = "2030-10-04T18:32:00" })
+        $word = @{ Id = 9316; ProcessName = "WINWORD"; StartTime = "2030-10-04T18:41:00" }
+        if ($Kind -eq "partial") { $word.StopStatus = "Changed" }
+        [void]$rows.Add($word)
+    }
+    [IO.File]::WriteAllText($Path, (ConvertTo-Json -InputObject @($rows.ToArray())), (New-Object Text.UTF8Encoding($false)))
+}
+
+function captureLeftoverScene {
+    # window/leftover 系（起動時の「前回残った Office」の確認と、終了したあとのステータス）。
+    # 偽の行を環境変数で差し込む（本物の Office には触れない。終了も偽の結果を作るだけ）
     param ($Ids, $Root, $OutDir, $UserName, $ComputerName, $UserProfile, $Sizes)
 
-    $needed = @("process-tab/empty", "process-tab/list", "process-tab/stop-all-confirm", "process-tab/stop-background-confirm", "process-tab/stop-selected-confirm")
+    $needed = @("window/leftover", "window/leftover-open", "window/leftover-many", "window/leftover-search", "window/leftover-killed", "window/leftover-partial")
     if (@($needed | Where-Object { $Ids -contains $_ }).Count -eq 0) { return }
 
-    $dir = Join-Path $Root "process"
-    $tool = newGuiTool $dir
-
-    $S = startGui $tool "process"
-    try {
-        invokeGuiScene $S {
-            setGuiStep $S "［9 プロセス停止］（プロセスが無い）"
-            selectGuiTab $S "KillTab" "ProcessGrid"
-            captureGuiState -S $S -Id "process-tab/empty" -Ids $Ids -OutDir $OutDir `
-                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
-
-            $fakeDir = Join-Path $Root "process-fake"
-            [void][IO.Directory]::CreateDirectory($fakeDir)
-            Copy-Item -LiteralPath (Join-Path $env:windir "System32\PING.EXE") -Destination "$fakeDir\EXCEL.EXE"
-            $script:fake = Start-Process "$fakeDir\EXCEL.EXE" -ArgumentList "127.0.0.1", "-n", "600" -WindowStyle Hidden -PassThru
-            $null = $script:fake.Handle
-            $S.Extra += $script:fake
-            $pidText = [string]$script:fake.Id
-            $findFakeRow = { @(getGuiGridRows (findGui $S.Window -Id "ProcessGrid")) | Where-Object { (getGuiRowTexts $_) -contains $pidText } | Select-Object -First 1 }
-
-            setGuiStep $S "偽のプロセスが出る"
-            clickGui $S $S.Window "RefreshProcessButton" "［更新］"
-            $row = waitGui $S "一覧に偽のプロセス" ${guiDefaultTimeout} $findFakeRow
-            captureGuiState -S $S -Id "process-tab/list" -Ids $Ids -OutDir $OutDir `
-                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
-
-            setGuiStep $S "［すべて終了］の確認"
-            clickGui $S $S.Window "KillAllButton" "［すべて終了］"
-            $allConfirm = waitGuiWindow $S "終了の確認（すべて）" -Id "HeadingText" -Text "終了しますか"
-            captureGuiState -S $S -Id "process-tab/stop-all-confirm" -Ids $Ids -OutDir $OutDir `
-                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($allConfirm)
-            clickGuiByName $S $allConfirm "キャンセル"
-            waitGuiWindowClosed $S $allConfirm "終了の確認（すべて）"
-
-            setGuiStep $S "［バックグラウンドのみ終了］の確認"
-            clickGui $S $S.Window "KillBackgroundButton" "［バックグラウンドのみ終了］"
-            $backgroundConfirm = waitGuiWindow $S "終了の確認（バックグラウンド）" -Id "HeadingText" -Text "終了しますか"
-            captureGuiState -S $S -Id "process-tab/stop-background-confirm" -Ids $Ids -OutDir $OutDir `
-                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($backgroundConfirm)
-            clickGuiByName $S $backgroundConfirm "キャンセル"
-            waitGuiWindowClosed $S $backgroundConfirm "終了の確認（バックグラウンド）"
-
-            setGuiStep $S "選んで終了の確認"
-            $row = waitGui $S "一覧に偽のプロセス" ${guiDefaultTimeout} $findFakeRow
-            selectGui $row
-            clickGui $S $S.Window "KillSelectedButton" "［選択したプロセスを終了］"
-            $selectedConfirm = waitGuiWindow $S "終了の確認（選択）" -Id "HeadingText" -Text "終了しますか"
-            captureGuiState -S $S -Id "process-tab/stop-selected-confirm" -Ids $Ids -OutDir $OutDir `
-                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($selectedConfirm)
-            clickGuiByName $S $selectedConfirm "キャンセル"
-            waitGuiWindowClosed $S $selectedConfirm "終了の確認（選択）"
-
-            closeGui $S
+    $run = {
+        param ([string]$Name, [string]$Kind, [scriptblock]$Scene)
+        $tool = newGuiTool (Join-Path $Root "leftover-$Name")
+        newGuiSampleIndex $tool $Root "営業"
+        $file = Join-Path $Root "leftover-$Name.json"
+        newCaptureLeftoverFile $file $Kind
+        $env:TEBUNKO_GUI_LEFTOVER_FILE = $file
+        try {
+            $S = startGui $tool "leftover-$Name"
+        } finally {
+            Remove-Item Env:\TEBUNKO_GUI_LEFTOVER_FILE -ErrorAction SilentlyContinue
         }
-    } finally {
-        if ($script:fake -and !$script:fake.HasExited) { Stop-Process -Id $script:fake.Id -Force -ErrorAction SilentlyContinue }
+        invokeGuiScene $S { & $Scene $S }
+    }
+    $common = @{ Ids = $Ids; OutDir = $OutDir; UserName = $UserName; ComputerName = $ComputerName; UserProfile = $UserProfile; Sizes = $Sizes }
+
+    & $run "basic" "basic" {
+        param ($S)
+        $dialog = waitGuiWindow $S "Office の終了" -Id "HeadingText" -Text "残ったまま動いています"
+        captureGuiState -S $S -Id "window/leftover-search" @common -Extra @($dialog)
+        captureGuiState -S $S -Id "window/leftover" @common -Primary $dialog
+        toggleGui (findGui $dialog -Id "LeftoverDetailToggle")
+        waitGui $S "詳細が開く" ${guiDefaultTimeout} { (@(getGuiTexts $dialog) -join " ") -like "*12840*" } | Out-Null
+        captureGuiState -S $S -Id "window/leftover-open" @common -Primary $dialog
+        clickGui $S $dialog "LeftoverCancelButton" "［今回は終了しない］"
+        waitGuiWindowClosed $S $dialog "Office の終了"
+        closeGui $S
+    }
+    & $run "many" "many" {
+        param ($S)
+        $dialog = waitGuiWindow $S "Office の終了" -Id "HeadingText" -Text "残ったまま動いています"
+        toggleGui (findGui $dialog -Id "LeftoverDetailToggle")
+        waitGui $S "詳細が開く" ${guiDefaultTimeout} { (@(getGuiTexts $dialog) -join " ") -like "*12840*" } | Out-Null
+        captureGuiState -S $S -Id "window/leftover-many" @common -Primary $dialog
+        clickGui $S $dialog "LeftoverCancelButton" "［今回は終了しない］"
+        waitGuiWindowClosed $S $dialog "Office の終了"
+        closeGui $S
+    }
+    & $run "killed" "basic" {
+        param ($S)
+        answerGuiConfirm $S "Office の終了" "残ったまま動いています" "終了する"
+        waitGui $S "結果がステータスに出る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "StatusText")) -like "Office を*" } | Out-Null
+        captureGuiState -S $S -Id "window/leftover-killed" @common
+        closeGui $S
+    }
+    & $run "partial" "partial" {
+        param ($S)
+        answerGuiConfirm $S "Office の終了" "残ったまま動いています" "終了する"
+        waitGui $S "結果がステータスに出る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "StatusText")) -like "Office を*" } | Out-Null
+        captureGuiState -S $S -Id "window/leftover-partial" @common
+        closeGui $S
     }
 }
 
@@ -751,9 +713,13 @@ $computerName = $env:COMPUTERNAME
 $userProfile = [System.Environment]::GetFolderPath("UserProfile")
 
 $tempBase = Join-Path ([IO.Path]::GetTempPath()) ("tebunko-capture-" + [Guid]::NewGuid().ToString("N").Substring(0, 8))
-$drive = useCaptureDrive $tempBase
+$drive = $null
 $sizes = New-Object System.Collections.Generic.List[long]
+# 撮る間は、使い捨ての既定のワークスペースに差し替える（環境変数 TEBUNKO_DEFAULT_WORKSPACE。起動する画面にも引き継がれる）。
+# 設定が既定に戻る場面（captureBrokenConfigScene）も、利用者の既定のワークスペースには触れない。終わったら元に戻し、既定のワークスペースの前後を比べる
+$workspaceGuard = startWorkspaceGuard -Prefix "tebunko-capture-ws"
 try {
+    $drive = useCaptureDrive $tempBase
     $root = "$drive\"
     Write-Host "撮る状態: $($ids.Count) 件（$($drive) を写す先にする）"
 
@@ -763,7 +729,7 @@ try {
     captureHeavyScene        $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureSearchScene       $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureSettingsScene     $ids $root $OutDir $userName $computerName $userProfile $sizes
-    captureProcessScene      $ids $root $OutDir $userName $computerName $userProfile $sizes
+    captureLeftoverScene     $ids $root $OutDir $userName $computerName $userProfile $sizes
 
     $total = ($sizes | Measure-Object -Sum).Sum
     Write-Host "撮った写真: $($sizes.Count) 枚・合計 $([Math]::Round($total / 1KB)) KB"
@@ -771,6 +737,10 @@ try {
         throw "写真の合計が 5 MB を超えました（$([Math]::Round($total / 1MB, 1)) MB）。範囲・形式を見直してください。"
     }
 } finally {
-    removeCaptureDrive $drive
+    if ($drive) { removeCaptureDrive $drive }
     Remove-Item -LiteralPath $tempBase -Recurse -Force -ErrorAction SilentlyContinue
+    $guardReport = finishWorkspaceGuard $workspaceGuard
+}
+if ($guardReport.ExitCode -ne 0) {
+    throw ($guardReport.Lines -join "`n")
 }

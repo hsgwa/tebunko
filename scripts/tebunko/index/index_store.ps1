@@ -136,6 +136,33 @@ function removeIndex {
     removeSearchExcludesUnder $target $settingsPath
 }
 
+function removeIndexes {
+    # 選んだインデックスをまとめて削除する（画面の［削除］）。1 つずつ removeIndex を呼び、途中で 1 つ失敗しても残りを続ける。
+    # 戻り値は名前ごとの結果の配列（@{ Name; Ok; Reason }）。Reason は失敗したときの理由（成功なら ""）。
+    # 画面のスレッドでは呼ばず、別スレッドの仕事の中で呼ぶ
+    param (
+        [string[]]$names,
+        [string]$dir = $workspace.IndexDir,
+        [string]$statusPath = $workspace.StatusFile,
+        [string]$settingsPath = ${settingsFile}
+    )
+
+    $results = New-Object System.Collections.Generic.List[object]
+    foreach ($name in @($names)) {
+        if ([string]::IsNullOrEmpty($name)) {
+            $results.Add([pscustomobject]@{ Name = [string]$name; Ok = $false; Reason = "インデックス名が空です" })
+            continue
+        }
+        try {
+            removeIndex $name $dir $statusPath $settingsPath
+            $results.Add([pscustomobject]@{ Name = $name; Ok = $true; Reason = "" })
+        } catch {
+            $results.Add([pscustomobject]@{ Name = $name; Ok = $false; Reason = $_.Exception.Message })
+        }
+    }
+    return , $results.ToArray()
+}
+
 function removeSystemIndexOfWorkspace {
     # インデックスのフォルダ（dir = <ワークスペース>\index）と同じワークスペースの system_index から、インデックス name の分を消す。
     # 消せなくても（状態ファイルがほかに開かれている等）インデックスの操作は続ける。次のインデックス作成で整理される
@@ -154,7 +181,7 @@ function removeSystemIndexOfWorkspace {
 function getSearchIndexes {
     # インデックスの一覧（work\index 直下のフォルダ 1 つがインデックス 1 つ）を
     # @{ Name（インデックス名）; Path（インデックスのフォルダのフルパス）; SourcePath（元のフォルダ。分からなければ ""） } の配列で返す。
-    # 並びは［1 インデックス管理］の一覧（targetFolders）と同じにし、その一覧に無いもの
+    # 並びは［インデックス管理］の一覧（targetFolders）と同じにし、その一覧に無いもの
     # （別の場所・PC から work\index にコピーしたインデックスなど）は名前順で後ろに付ける
     param (
         [string]$dir = $workspace.IndexDir,
@@ -168,7 +195,7 @@ function getSearchIndexes {
     $root = (Resolve-Path -LiteralPath $dir).ProviderPath.TrimEnd("\")
     $sources = getSourceFolderMap $root $statusPath $settingsPath
 
-    # ［1 インデックス管理］の一覧の順番（インデックス名 → 何番目か）
+    # ［インデックス管理］の一覧の順番（インデックス名 → 何番目か）
     $order = New-Object 'System.Collections.Generic.Dictionary[string,int]' ([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($folder in @(getTargetFolders $settingsPath | Where-Object { $_.Name })) {
         if (!$order.ContainsKey($folder.Name)) {
@@ -182,7 +209,7 @@ function getSearchIndexes {
         $path = (fromLongPath $sub.FullName)
         if (!$sources.ContainsKey($name)) {
             # 取り込み一覧にも設定にも無いインデックス（別の場所・PC からコピーしたものなど）は、
-            # そのフォルダの中の 元のフォルダ.txt から元のフォルダを読む
+            # そのフォルダの中の source_folder.txt から元のフォルダを読む
             $own = readSourceFolderFile $path
             if ($own.ContainsKey($name)) {
                 $sources[$name] = $own[$name]

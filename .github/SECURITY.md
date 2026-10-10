@@ -1,4 +1,4 @@
-# Security
+﻿# Security
 
 English | [日本語](SECURITY.ja.md)
 
@@ -7,6 +7,8 @@ This page collects information about the safety of tebunko and explains how to c
 ## How the tool stays safe
 
 What the tool does and does not do, why it does not use dangerous operations or libraries, and the results of checks by third-party tools are described in [docs/safety/index.md](../docs/safety/index.md) (Japanese). If you are reviewing the tool before introducing it, read this document first.
+
+The index keeps the body text of the documents. For fast search, the tool also writes a system index text file made of two-character pairs taken from the body, and has Windows Search index it. The folder of the body index itself is excluded from Windows Search automatically. See [docs/safety/disclosure.md](../docs/safety/disclosure.md) (Japanese).
 
 The claims can be checked automatically with the following command (the checks are in `tests/meta/safety.Tests.ps1`).
 
@@ -27,7 +29,7 @@ Please include:
 - What happened (which file, which operation, and what went wrong)
 - Steps to reproduce (conditions of the crawled folder, types of files and so on)
 - Your environment (Windows version, Windows PowerShell version, Office version)
-- Related logs (`work\インデックス作成ログ.txt` and the error message shown on the screen; hide any confidential information in them)
+- Related logs (`work\indexing_log.txt` and the error message shown on the screen; hide any confidential information in them)
 
 **Do not send the Office files themselves, because they may contain confidential information.** Attach a file only if you can make a minimal file that causes the same problem.
 

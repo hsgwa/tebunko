@@ -34,9 +34,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests\testdata\make_testdata
 
 ## 使い方
 
-1. 画面の［1 インデックス管理］の［追加…］で `tests\testdata\office` を追加する。
-2. ［インデックス作成を開始］で取り込む。
-3. ［2 検索］で下の「検索ワードと件数」のワードを 1 つずつ検索し、件数を照らし合わせる。正規表現のワード（`\d{2,4}-\d{2,4}-\d{4}` など）は［正規表現を使う］をオンにする。［図形も検索］［コメントも検索］は既定のオンのままにする。
+1. 画面の［インデックス管理］の［＋ フォルダを追加］で `tests\testdata\office` を追加する。
+2. ［すべて更新］で取り込む。
+3. ［検索］で下の「検索ワードと件数」のワードを 1 つずつ検索し、件数を照らし合わせる。正規表現のワード（`\d{2,4}-\d{2,4}-\d{4}` など）は［正規表現を使う］をオンにする。［図形も検索］［コメントも検索］は既定のオンのままにする。
 
 各ケースのセルには `TC01` のようなケース ID を入れてあるので、ID で検索すると該当ケースの行だけを確認できる。
 
@@ -78,7 +78,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests\testdata\make_testdata
 | 数値と日付 | TC10-N01〜21 | 桁区切り、円表記、百分率、▲負数、指数、15 桁超、分数、日付、和暦、曜日、時刻、経過時間、郵便番号書式、真偽値、ゼロ非表示、列幅不足（`####` 表示） | 表示形式どおりの文字列になる（`12.5%`、`36:00`、`100-0001` など）。桁区切りのある値は `"1,234,567"` のように `"` で囲まれる。列幅不足でも値は出力される。**表示形式の和暦は `4月1日令和6年` と順序が崩れて出力される** |
 | 数式 | TC10-F01〜12 | 計算結果、文字列連結、`#DIV/0!` `#N/A` `#NAME?`、VLOOKUP、空文字、TEXT 関数、他シート参照、HYPERLINK、改行を含む結果 | 結果（表示値）が出力される。D 列に数式を文字列で置いてあるので、`VLOOKUP` はその D 列だけにヒットする |
 | レイアウト | TC10-L01〜10 | D5 から始まる表、結合セル、非表示行・非表示列、オートフィルタで隠れた行、空白だけの行、300 列の行、書式だけの遠いセル（AZ300） | 非表示行・列、フィルタで隠れた行も出力される。TSV の N 行目・k 列目がシートの N 行目・k 列目になる（Excel は使用範囲の左上から出力するため、先頭の空行・空列を補う）。検索結果を Excel に貼り付けると、行番号と見出しの列名（A, B, C…）で元のセル位置が分かる |
-| オブジェクト | TC10-O01〜04 | コメント、テキストボックス、ハイパーリンク（URL）、入力規則、ヘッダー | コメントは場所 `オブジェクト[コメント]` に `C2<TAB>TC10 コメント内のテキスト`、テキストボックスは場所 `オブジェクト[図形]` に `F2<TAB>TC10 テキストボックス内のテキスト`（左上のセル）として出力される。URL・ヘッダーは検索できない |
+| オブジェクト | TC10-O01〜05 | コメント、テキストボックス、ハイパーリンク（URL）、入力規則、ヘッダー・フッター（左・中央・右をそれぞれ別の文字にし、フッターにページ番号の差し込み `&P &N` を含む） | コメントは場所 `オブジェクト[コメント]` に `C2<TAB>TC10 コメント内のテキスト`、テキストボックスは場所 `オブジェクト[図形]` に `F2<TAB>TC10 テキストボックス内のテキスト`（左上のセル）として出力される。ヘッダー・フッターは場所 `オブジェクト[ヘッダー・フッター]` に、文字だけの行（セル番地なし）として左・中央・右の順に次の 6 行が出力される: `TC10-O05 左ヘッダー`・`TC10 ヘッダーのテキスト`・`TC10-O05 右ヘッダー`・`TC10-O05 左フッター`・`TC10-O05 通常フッター`・`/  ページ`（ページ番号の差し込みコードを除いた残り）。URL は検索できない |
 
 ### グラフ・SmartArt（`Excel\グラフとSmartArt.xlsx`）
 
@@ -152,8 +152,8 @@ C 列に比較用のふつうの文字、D 列に特殊な文字を置いてあ�
 | TC15-5 | `Excel\異常系\中身はCSV.xls` | CSV（Shift_JIS）を .xls にリネーム | 取り込まれる。1 行が 1 セル（`"TC15-5,中身は CSV"`）になる |
 | TC15-6 | `Excel\異常系\中身はHTML.xls` | HTML の表を .xls にリネーム | 取り込まれる |
 
-Excel・Word・PowerPoint の 300 件を取り込んだ結果は、成功 290 件・失敗 10 件（TSV は 584 件）。取り込みには 15 分程度かかる（`フォルダ\ファイル数が多い\` の 200 件が大半）。`work\取り込み一覧.tsv` で、Excel の TC15-1・TC15-2・空ファイル・TC15-3、Word・PowerPoint の読み取りパスワード付き 4 件（TC20-E01・E02、TC21-E01・E02）、PowerPoint の `壊れたファイル.pptx`・`空ファイル.pptx` の状態が「失敗」になる。
-もう一度［インデックス作成を開始］を押すと、確認のダイアログに「前回取り込みに失敗し、その後更新されていないファイル 10 件も再取り込みする（パスワード付きなど）」のチェックが出る（ほかのファイルは更新が無いため取り込まれない）。
+Excel・Word・PowerPoint の 300 件を取り込んだ結果は、成功 290 件・失敗 10 件（TSV は 584 件）。取り込みには 15 分程度かかる（`フォルダ\ファイル数が多い\` の 200 件が大半）。`work\ingest_status.tsv` で、Excel の TC15-1・TC15-2・空ファイル・TC15-3、Word・PowerPoint の読み取りパスワード付き 4 件（TC20-E01・E02、TC21-E01・E02）、PowerPoint の `壊れたファイル.pptx`・`空ファイル.pptx` の状態が「失敗」になる。
+もう一度［すべて更新］を押すと、確認のダイアログに「前回取り込みに失敗し、その後更新されていないファイル 10 件も再取り込みする（パスワード付きなど）」のチェックが出る（ほかのファイルは更新が無いため取り込まれない）。
 
 ### ファイル名・フォルダ
 
@@ -268,6 +268,84 @@ Word・PowerPoint のインデックス作成の確認用。
 - `設定例\検索ワード_100件.txt` … ワードが多いとき
 - `Excel\大量データ.xlsx`（20,001 行、横長シートは 2,000 セル）、`Excel\特殊文字.xlsx`（32,767 文字のセル）
 - `フォルダ\ファイル数が多い\`（200 ファイル）… ファイル数が多いとき
+
+## テキストファイル（`text\`）
+
+`.txt` 検索の対象拡張子（既定のアプリで開く 68 個・メモ帳固定の 7 個。合わせて 75 個）ごとに、取り込み・検索を確かめる小さなサンプル。
+対象の拡張子は `scripts\shared\core\text_file.ps1` の `${textOpenExtensions}`・`${textNotepadExtensions}` にある。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tests\testdata\text\make_testdata.ps1
+```
+
+- `${textOpenExtensions} + ${textNotepadExtensions}` を 1 つずつ、足した順番の番号を付けた `TXT<NN>.<拡張子>`（`TXT01.txt` 〜 `TXT75.sh`）にする。中身はどれも「山田 太郎」を含む（既定は UTF-8・BOM 無し）。
+- 実行・登録が既定の動作になる 7 個（`.bat` `.cmd` `.ps1` `.vbs` `.js` `.reg` `.sh`）は、実行・登録しても何も起きない中身（コメントだけ）にする。`.reg` には `Windows Registry Editor Version 5.00` の見出しを付けず、レジストリ編集として成立しないようにする。
+- 文字コードの違いは一部のファイルで作り分ける（下表）。それ以外は既定の UTF-8（BOM 無し）。
+- `異常系\バイナリ.log`（NUL を含む 0x00〜0xFF の並び）、`異常系\末尾NUL.log`（先頭 64KB の外、約 70000 バイト目に NUL が 1 つだけある UTF-8 のログ）は、どちらもテキストとして取り込めない（ファイル全体を見て NUL を検出するため）。
+- `大きいテキスト.log`（約 90KB。NUL を含まない日本語＋英数字のログ 1500 行）は、64KB を超えるが普通に取り込める。
+
+文字コードを作り分けたファイル:
+
+| ファイル | 拡張子 | 文字コード |
+|---|---|---|
+| `TXT01.txt` | `.txt` | UTF-8（BOM 付き） |
+| `TXT02.csv` | `.csv` | EUC-JP（かなを含む） |
+| `TXT49.yml` | `.yml` | UTF-16LE（BOM 付き） |
+| `TXT50.toml` | `.toml` | UTF-16LE（BOM 無し。かなの割合で判定） |
+| `TXT51.ini` | `.ini` | Shift_JIS |
+| `TXT54.properties` | `.properties` | UTF-16BE（BOM 付き） |
+| `TXT58.graphql` | `.graphql` | ISO-2022-JP |
+
+確かめ方は `tests\shared\core\text_file.Tests.ps1` の `Describe "readTextFile（対象の拡張子ごとの実ファイル。tests\testdata\text）"`（タグ `Io`）。全 75 個が対象の拡張子であること、メモ帳固定かどうかが拡張子どおりであること、`readTextFile` で「山田」を読み込めること、異常系 2 個が失敗すること、大きいテキスト.log が 64KB を超えて成功することを確かめる。
+
+## 前の版のファイル（`compat\`）
+
+前の版が作った本文インデックス・システムインデックス・取り込み一覧・エクスポートの zip を、今のコードがそのまま読めることを確かめるための見本（golden）。[前の版との互換](../../docs/design/index-data/format.md#前の版との互換) も参照。
+
+一覧（`tests\testdata\compat\index\<見本の名前>\`。今は `v0.3.1+english-names` の 1 つ）:
+
+| 中身 | 内容 |
+|---|---|
+| `source\` | クロール対象フォルダに置くファイル（Excel・Word・PowerPoint・`.txt`・`.md`。サブフォルダ・`(株)`・`[確定]` を含むファイル名もある） |
+| `ws\` | ワークスペースのうち、版が上がっても残る部分だけ（`content_index\`・`system_index\`・`system_index_state.tsv`・`ingest_status.tsv`）。フォルダ名を `work` ではなく `ws` にしているのは、`.gitignore` の `work/` に引っかからないようにするため |
+| `export.zip` | `exportIndex` で書き出したインデックスの zip |
+| `file_times.tsv` | `source\` の各ファイルの更新日時（秒まで・タイムゾーンなしの Ticks）と、`ws\` の `content_index\`・`system_index\` の各ファイルの更新日時（UTC の Ticks）。git は取り出すときにファイルの更新日時を今の日時にしてしまうため、テストがこの値で書き戻す。`ws\` の分は、システムインデックスを作り直すかの判定（`content_index` の TSV と `system_index.txt` の更新日時の前後、`system_index_state.tsv` の「反映待ち」に書いた更新日時）を再現するのに要る |
+| `expected.json` | インデックス名・取り込み一覧の行・検索語ごとのヒットという、見本に対する期待（手で書く。中身は日本語のまま） |
+
+`ws\`・`export.zip` には `tmp\`・`publish\`・`ingesting.txt`・`indexing_log.txt`・`gui_error_log.txt`・`search_results.txt`・`setting.config` を含めない（取り込み中・画面の動作ログで、前の版との互換の確かめには要らないため）。
+
+**作り方**（`tools\make_index_golden.ps1`）:
+
+1. `source\` に見本のファイルを手で置く（このスクリプトは触らない）。
+2. `setting.config` のクロール対象フォルダに `source\` を指したフォルダ（利用者名を含まない固定のパス）を登録し、`indexer.ps1` を 1 回動かして固定のパスのワークスペースを作る。
+3. `exportIndex` でそのワークスペースを zip に書き出す。
+4. `tools\make_index_golden.ps1 -WorkspaceDir <ワークスペース> -ExportZip <zip> -SampleDir tests\testdata\compat\index\<見本の名前>` で、`ws\`・`export.zip`・`file_times.tsv` を見本へコピー・作成する（ワークスペースは `C:\tebunko_golden\ws`）。
+5. `expected.json` は手で書く（このスクリプトは作らない）。
+
+**`source\` の `.md` ファイルに相対リンクを書かない。** `tests\meta\links.Tests.ps1` がリポジトリ内の全 Markdown のリンクを確かめるため、見本の中の壊れたリンク（見本どうしを指すリンクなど）があると、関係のない変更でもテストが落ちる。
+
+**見本は足すだけ。** 既にある見本を変える・消すのは、PR タイトルに `!` を付けたときだけできる（CI の `pr-title` が `tools\check_compat_golden.ps1` で確かめる）。`!` の PR で見本を消したときは、どれを・どの PR で・なぜ消したかを [前の版との互換](../../docs/design/index-data/format.md#前の版との互換) の表に 1 行残す。
+
+### 設定ファイル（`compat\settings\`）
+
+前の版が作った `setting.config` を、今のコードがそのまま読めることを確かめるための見本（golden）。[前の版との互換](../../docs/design/structure/settings-file.md#前の版との互換) も参照。
+
+一覧（`tests\testdata\compat\settings\<見本の名前>\`。今は `v0.3.1` の 1 つ）:
+
+| 中身 | 内容 |
+|---|---|
+| `setting.config` | 既定値ではない値をすべてのキーに書いた設定ファイル（`tests\helpers\settings_golden.ps1` の `writeGoldenSettings` が書く） |
+| `expected.json` | `setting.config` を今のコードで読んだときに返る値（`readSettings` のキーと同じ形。手で書く） |
+
+**作り方**（`tools\make_settings_golden.ps1`）:
+
+1. 見本にしたい版をチェックアウトした別のツリーを用意する（例: `git worktree add --detach <場所> <タグ>`）。
+2. `tools\make_settings_golden.ps1 -Tree <そのツリー> -Name <見本の名前>` を動かす。別の Windows PowerShell 5.1 プロセスで、そのツリーの `shared.ps1`・`settings.ps1` と、今のツリーの `tests\helpers\settings_golden.ps1` を読み込み、`writeGoldenSettings` を呼んで `tests\testdata\compat\settings\<見本の名前>\setting.config` に書く。
+3. `expected.json` は手で書く（このスクリプトは作らない）。
+
+`tests\helpers\settings_golden.ps1` は `tests\helpers\load.ps1` に頼らず、`settings.ps1` が公開する書く関数（`writeTargetFolders`・`writeIndexSources`・`writeSearchExcludes`・`writeSearchOption`・`writeOpenMode`・`writeWorkspaceFolder`・`updateSettings`）だけを呼ぶ。見本にしたい版の `settings.ps1` がそれらの関数を持ってさえいれば、そのまま上で動く。
+
+**見本は足すだけ。** 既にある見本を変える・消すのは、PR タイトルに `!` を付けたときだけできる（上の index の見本と同じ検査が確かめる）。
 
 ## 検索ワードと件数（`設定例\検索ワード.txt`）
 

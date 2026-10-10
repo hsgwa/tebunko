@@ -1,0 +1,70 @@
+﻿<!-- ナビ（左の欄）。tebunko.xaml の NavHost に入れる（gui_main.ps1）。
+     項目の名前（SearchTab・IndexTab・SettingsTab）は、画面の切り替えと tests/gui が使う。画面の切り替えは ui/shell/nav.ps1 の selectScreen を通す。
+     NavPaneHost は、検索の画面のときに検索対象のツリーを差す口。 -->
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      Background="{DynamicResource Bg.Subtle}">
+  <Grid.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="../../../shared/xaml/theme.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Grid.Resources>
+  <Grid.RowDefinitions>
+    <RowDefinition Height="Auto" />
+    <RowDefinition Height="1" />
+    <RowDefinition Height="*" />
+    <RowDefinition Height="1" />
+    <RowDefinition Height="28" />
+  </Grid.RowDefinitions>
+
+  <ListBox x:Name="NavList" Grid.Row="0" Style="{StaticResource Nav.List}" Margin="0,8,0,0"
+           AutomationProperties.Name="画面">
+    <ListBoxItem x:Name="SearchTab" Style="{StaticResource NavItem}">
+      <TextBlock Style="{x:Null}" Text="検索" />
+    </ListBoxItem>
+    <ListBoxItem x:Name="IndexTab" Style="{StaticResource NavItem}">
+      <DockPanel>
+        <!-- 更新中の割合・中断・失敗の印（文言と色は ui/index_view.ps1 の getIndexNavBadge） -->
+        <TextBlock x:Name="IndexTabBadge" DockPanel.Dock="Right" Style="{x:Null}" Text="⚠" Visibility="Collapsed" FontSize="10" Margin="6,0,0,0"
+                   Foreground="{StaticResource Warn.Strong}" VerticalAlignment="Center" ToolTip="更新に失敗したファイルがあります" />
+        <TextBlock Style="{x:Null}" Text="インデックス管理" />
+      </DockPanel>
+    </ListBoxItem>
+    <ListBoxItem x:Name="SettingsTab" Style="{StaticResource NavItem}">
+      <TextBlock Style="{x:Null}" Text="設定" />
+    </ListBoxItem>
+  </ListBox>
+
+  <Rectangle Grid.Row="1" Fill="{StaticResource Border.Separator}" />
+
+  <ContentControl x:Name="NavPaneHost" Grid.Row="2" Focusable="False" IsTabStop="False"
+                  HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
+
+  <Rectangle Grid.Row="3" Fill="{StaticResource Border.Separator}" />
+  <!-- ⓘ バージョン情報（押すとバージョン情報のダイアログを開く） -->
+  <Button x:Name="AboutLink" Grid.Row="4" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="13,0,12,0"
+          Cursor="Hand" AutomationProperties.Name="バージョン情報">
+    <Button.Template>
+      <ControlTemplate TargetType="Button">
+        <Border Background="Transparent" Padding="8,2">
+          <StackPanel Orientation="Horizontal">
+            <Path Data="{StaticResource Icon.Info}" Width="13" Height="13" Stretch="Uniform" VerticalAlignment="Center"
+                  Stroke="{StaticResource Ink.Muted}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+            <TextBlock x:Name="T" Text="バージョン情報" FontSize="12" Margin="6,0,0,0" VerticalAlignment="Center"
+                       Foreground="{StaticResource Ink.Muted}" />
+          </StackPanel>
+        </Border>
+        <ControlTemplate.Triggers>
+          <Trigger Property="IsMouseOver" Value="True">
+            <Setter TargetName="T" Property="Foreground" Value="{StaticResource Ink.Strong}" />
+          </Trigger>
+          <Trigger Property="IsKeyboardFocused" Value="True">
+            <Setter TargetName="T" Property="TextDecorations" Value="Underline" />
+          </Trigger>
+        </ControlTemplate.Triggers>
+      </ControlTemplate>
+    </Button.Template>
+  </Button>
+</Grid>

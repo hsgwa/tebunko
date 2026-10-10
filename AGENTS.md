@@ -15,7 +15,7 @@
 - **main へは PR 経由でだけ入れる。** main への直接 push はブランチ保護（ruleset）で禁止し、必須チェック（`test.yml` の `test`・`title.yml` の `pr-title`・`docs.yml` の `docs`・`codeql.yml` の `analyze`）が通らないとマージできない。PR のブランチが最新の main を取り込んでいないときもマージできない。
 - **1 つの PR には 1 つの目的だけを入れる。** 目的と関係のない修正は別の PR にする。
 - **PR 本文は `.github/pull_request_template.md` に沿って書く。** Issue があれば `Closes #<番号>` でつなぐ（マージすると Issue が自動で閉じる）。無ければ「目的・解決策」に目的を書く。
-- **前の版と互換が無くなる PR は、タイトルの型に `!` を付ける**（下の Conventional Commits）。設定ファイル（`setting.config`）・インデックスの形式、起動の仕方、配布物のファイル構成が変わり、前の版のものがそのまま使えなくなるときがこれに当たる。PR 本文に移行の手順を書く。
+- **前の版と互換が無くなる PR は、タイトルの型に `!` を付ける**（下の Conventional Commits）。設定ファイル（`setting.config`）・インデックスの形式、起動の仕方、配布物のファイル構成が変わり、前の版のものがそのまま使えなくなるときがこれに当たる。PR 本文に移行の手順を書く。本文インデックス・システムインデックス・取り込み一覧・エクスポートの zip・設定ファイル（`setting.config`）の形やファイル名を変える PR は、見本（`tests/testdata/compat/`）を足す。既にある見本を変える・消すなら `!`（CI の `pr-title` が確かめる）。
 - **PR を出す前に最新の main を取り込む。** 取り込みは merge で行い、push 済みのブランチを rebase して force push しない。
 
   ```
@@ -96,8 +96,8 @@ git config user.email <ID>+<アカウント名>@users.noreply.github.com
 
 - `shared/` はツールを知らない。ツール同士も互いを読み込まない。
 - 判断層（`*_view.ps1`・`index_name.ps1`・`search_query.ps1`・`text.ps1`）は `$ui` / `$window` / WPF の型に触らない。画面に出す文言や可否の判定はここに置き、テストを書く。
-- 状態層（`tebunko/` の `core/`・`index/`・`indexer/`・`search/`、`shared/` の `core/`・`office/`）は画面に触らない（`$ui` / `$window` / `System.Windows` を書かない）。画面以外の読み込み口（`shared/shared.ps1`・`tebunko/lib.ps1`・`indexer.ps1`）から `ui/` のファイルを読み込まない。
-- 足したファイルは、必ず読み込み口（`shared/shared.ps1`・`tebunko/lib.ps1`・`gui.ps1`・`indexer.ps1`）から読み込む。
+- 状態層（`tebunko/` の `core/`・`index/`・`indexer/`・`search/`、`shared/` の `core/`・`office/`）は画面に触らない（`$ui` / `$window` / `System.Windows` を書かない）。画面以外の読み込み口（`shared/shared.ps1`・`tebunko/lib.ps1`・`indexer.ps1`・`tebunko/indexer/indexer_lib.ps1`）から `ui/` のファイルを読み込まない。
+- 足したファイルは、必ず読み込み口（`shared/shared.ps1`・`tebunko/lib.ps1`・`gui.ps1`・`indexer.ps1`・`tebunko/indexer/indexer_lib.ps1`）から読み込む。
 - スクリプト・XAML は BOM 付き UTF-8・CRLF で保存する。
 
 テストは `.\tests\run.ps1`（タグ `Unit` / `Io` / `Meta` / `Office` / `Slow` / `Gui`。`Gui` は本物の画面を開くので、既定では流さず、CI の `gui.yml` と `-Tag Gui` で流す）。コミット前に通す。

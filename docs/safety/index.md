@@ -9,7 +9,7 @@
 | 観点 | 本ツールの挙動 | 守らせている仕組み | 詳細 |
 |---|---|---|---|
 | 構成物 | **zip 版**: Windows PowerShell スクリプト（`scripts/**/*.ps1`）、画面定義（`*.xaml`）、起動用 `tebunko.bat`、アイコン `tebunko.ico`、版とコミットの記録 `VERSION.txt` のみ。実行可能バイナリ（`.exe` / `.dll`）を同梱しない。**インストーラー版**: 同じスクリプトに、起動用の `tebunko.exe`（本リポジトリのソースからビルド）と、Inno Setup のインストーラー・アンインストーラーが加わる | zip の中身は `tools/new_release_package.ps1`、インストーラーの中身は `installer/tebunko.iss` が決める（`installer.Tests.ps1`） | [配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）](scans.md#配布物の完全性カタログハッシュ一覧来歴の署名)・[インストーラー版](disclosure.md#インストーラー版) |
-| 第三者ライブラリ | **使用しない**。実行時の依存は Windows 標準の .NET アセンブリと Microsoft Office のみ | `new_sbom.Tests.ps1`（SBOM に第三者の部品が無いこと） | [供給網（サプライチェーン）とライセンス](supply-chain.md) |
+| 第三者ライブラリ | **使用しない**。実行時の依存は Windows 標準の .NET アセンブリと Microsoft Office のみ。同梱する第三者の部品は、フォント Rethink Sans（OFL-1.1）とアイコンの形 Lucide（ISC）の 2 つだけで、実行されるコードではない | `new_sbom.Tests.ps1`（SBOM の第三者の部品がこの 2 件だけで、`purl` を持つものが無いこと） | [供給網（サプライチェーン）とライセンス](supply-chain.md) |
 | ネットワーク通信 | **行わない**。通信用の API を使っていない | `safety.Tests.ps1`「ネットワーク通信を行わない」 | [検査項目と結果](checks.md#検査項目と結果) |
 | 動的コード実行・難読化 | **行わない**。`Invoke-Expression`、文字列からのスクリプト生成、Base64 のコマンドを使っていない | `safety.Tests.ps1`・PSScriptAnalyzer | [検査項目と結果](checks.md#検査項目と結果) |
 | 実行時コンパイル・P/Invoke | **行わない**。C# の `Add-Type` コンパイル（`csc.exe` の起動）と Windows API の直接呼び出しを使っていない | `safety.Tests.ps1`・`structure.Tests.ps1` | [検査項目と結果](checks.md#検査項目と結果) |
@@ -21,15 +21,15 @@
 | マクロ | **実行させない**。Office のマクロを強制無効にしてから開く | `safety.Tests.ps1` | [Office ファイルを開くときの設定](checks.md#office-ファイルを開くときの設定) |
 | 細工した Office ファイル | ZIP（`.xlsx` / `.docx` / `.pptx`）を直接読む処理は、部品 1 つ 100MB・1 ファイル合計 300MB のサイズの上限（ヘッダーを偽ったものも検知）と、DTD（`<!DOCTYPE>`）の処理の禁止で、時間・メモリを使い切らせる細工から身を守る | `safety.Tests.ps1` | [細工した Office ファイルから身を守ること](checks.md#細工した-office-ファイルから身を守ること) |
 | 資格情報 | 保存・送信・入力要求のいずれも行わない。パスワード付きファイルは解除を試みず、失敗として記録する。IRM・秘密度ラベルで暗号化されたファイルは、ライセンス取得・サインイン画面が出る前に、開かずに失敗として記録する（ファイルを開く前に暗号化の種類を判定する） | `safety.Tests.ps1`・PSScriptAnalyzer | [Office ファイルを開くときの設定](checks.md#office-ファイルを開くときの設定) |
-| 外部プロセスの起動 | スクリプトが起動するのは `explorer.exe`（一覧・検索結果から元のファイルの場所を開く）のみ。**起動そのものに失敗したときだけ**、`tebunko.bat` が理由を示す `notepad.exe` を開く | `safety.Tests.ps1` | [外部プロセスの起動（3 か所）](checks.md#外部プロセスの起動3-か所) |
-| 書き込み先 | `work/` 配下（既定は `%USERPROFILE%\Documents\tebunko_ws`。利用者が画面で選んだフォルダ（ワークスペース）にも置ける）、`%TEMP%\tebunko\<PID>` 配下、`setting.config`（ツールのフォルダに書き込めなければ `%LOCALAPPDATA%\tebunko\<鍵>`）、利用者が指定した検索結果の出力先、起動に失敗したときの記録（`%LOCALAPPDATA%\tebunko\startup_error.txt`。書き込めなければ `%TEMP%\tebunko_startup_error.txt`）のみ | `safety.Tests.ps1` | [書き込み・削除する場所](file-access.md#書き込み削除する場所) |
+| 外部プロセスの起動 | スクリプトが起動するのは `explorer.exe`（一覧・検索結果から元のファイルの場所を開く）と、固定のパスの `notepad.exe`（検索結果から、実行・登録になる拡張子のテキストファイルを開く）のみ。**起動そのものに失敗したときだけ**、`tebunko.bat` が理由を示す `notepad.exe` を開く | `safety.Tests.ps1` | [外部プロセスの起動（4 か所）](checks.md#外部プロセスの起動4-か所) |
+| 書き込み先 | `work/` 配下（既定は `%USERPROFILE%\Documents\tebunko_ws`。利用者が画面で選んだフォルダ（ワークスペース）にも置ける。取り込みの作業領域 `work/tmp/<PC の鍵>/<PID>` を含む。ワークスペースのパスに `[` `]` があるか長すぎるときは作らず、取り込みをすべてスキップする（どのファイルも中間 TSV などをこの作業領域に作るため、テキストファイルを含めすべて対象になる）。`%TEMP%` には逃がさない）、`setting.config`（ツールのフォルダに書き込めなければ既定のワークスペースの直下）、利用者が指定した検索結果の出力先、起動に失敗したときの記録（ツールのフォルダの `startup_error.txt`）のみ | `safety.Tests.ps1` | [書き込み・削除する場所](file-access.md#書き込み削除する場所) |
 | 配布物の完全性 | 配布 zip と並べて、カタログ（`tebunko.cat`）とハッシュ一覧（`SHA256SUMS.txt`）をリリースに載せ、zip とインストーラーにはビルドの来歴の署名を付ける | `release.yml` | [配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）](scans.md#配布物の完全性カタログハッシュ一覧来歴の署名) |
 | 開発の過程 | main へは PR からだけ入れ、テスト・CodeQL などの必須チェックを通す。コミットには `Signed-off-by`（DCO）を付ける。GitHub Actions は版を固定し、Dependabot が更新する | ブランチ保護・CI | [供給網（サプライチェーン）とライセンス](supply-chain.md) |
-| 規模（監査の目安） | `scripts/` 配下 57 ファイル・12,326 行（空行を除く）・419 関数（2026-09-26 時点）。第三者依存が無いため、監査対象はこの範囲で閉じる | – | [同梱の機械検査と品質の指標](scans.md#同梱の機械検査と品質の指標) |
+| 規模（監査の目安） | `scripts/` 配下 57 ファイル・12,326 行（空行を除く）・419 関数（2026-09-26 時点）。第三者のコードの依存が無いため、監査対象はこの範囲で閉じる | – | [同梱の機械検査と品質の指標](scans.md#同梱の機械検査と品質の指標) |
 
 第三者が作ったツールでの検査結果は [第三者のツールによる検査結果](scans.md)のとおり。PSScriptAnalyzer（Microsoft）の安全性にかかわるルールは**指摘 0 件**、Microsoft Defender のスキャンは**検出 0 件**である。
 
-利用者の明示操作により影響が出る機能と、ツールの性質上避けられない情報リスクは [開示事項](disclosure.md)で開示している（Office プロセスの強制終了、Mark-of-the-Web の解除、**インデックスが元文書の本文を保持すること**、一時コピー、Excel が前面に出ること、**透過暗号化の製品が平文で見せたファイルの本文が平文でインデックスに入ること**）。
+利用者の明示操作により影響が出る機能と、ツールの性質上避けられない情報リスクは [開示事項](disclosure.md)で開示している（前回残った Office の終了、Mark-of-the-Web の解除、**インデックスが元文書の本文を保持すること**、一時コピー、Excel が前面に出ること、**透過暗号化の製品が平文で見せたファイルの本文が平文でインデックスに入ること**）。
 
 ## 安全性のページ
 

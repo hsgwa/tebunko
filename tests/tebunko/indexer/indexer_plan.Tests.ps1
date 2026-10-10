@@ -41,13 +41,13 @@ Describe "createTargetList" -Tag Io {
     # 一覧の行（state が $null なら一覧に無い。modified は元のファイルが更新されたか、version は抽出版）と
     # TSV の数え上げ（tsv が $null なら数えない・0 なら数え上げに無い）→ 取り込み対象・失敗の数と、取り込み予定のどの件数に数えるか
     It "<name>" -TestCases @(
-        @{ name = "一覧に無いファイルは取り込み対象になる（新規）"; state = $null; modified = $false; version = "3"; tsv = $null; targets = 1; failed = 0; field = "新規" }
-        @{ name = "取り込み済みで更新が無ければ取り込まない"; state = $stateDone; modified = $false; version = "3"; tsv = 1; targets = 0; failed = 0; field = "" }
+        @{ name = "一覧に無いファイルは取り込み対象になる（新規）"; state = $null; modified = $false; version = "4"; tsv = $null; targets = 1; failed = 0; field = "新規" }
+        @{ name = "取り込み済みで更新が無ければ取り込まない"; state = $stateDone; modified = $false; version = "4"; tsv = 1; targets = 0; failed = 0; field = "" }
         @{ name = "前の抽出版で取り込んだファイルは、更新が無くても取り込み直す（更新ありに数える）"; state = $stateDone; modified = $false; version = ""; tsv = 1; targets = 1; failed = 0; field = "更新あり" }
-        @{ name = "取り込み済みでも TSV が無ければ取り込み直す（インデックスなし）"; state = $stateDone; modified = $false; version = "3"; tsv = 0; targets = 1; failed = 0; field = "インデックスなし" }
-        @{ name = "更新されていれば取り込み対象になる（更新あり）"; state = $stateDone; modified = $true; version = "3"; tsv = 1; targets = 1; failed = 0; field = "更新あり" }
-        @{ name = "前回失敗して更新が無ければ、取り込み対象ではなく失敗として返す"; state = $stateFailed; modified = $false; version = "3"; tsv = 1; targets = 0; failed = 1; field = "前回失敗" }
-        @{ name = "前回「未取り込み」で終わっていれば取り込み対象になる（前回未完了）"; state = $stateNew; modified = $false; version = "3"; tsv = 1; targets = 1; failed = 0; field = "前回未完了" }
+        @{ name = "取り込み済みでも TSV が無ければ取り込み直す（インデックスなし）"; state = $stateDone; modified = $false; version = "4"; tsv = 0; targets = 1; failed = 0; field = "インデックスなし" }
+        @{ name = "更新されていれば取り込み対象になる（更新あり）"; state = $stateDone; modified = $true; version = "4"; tsv = 1; targets = 1; failed = 0; field = "更新あり" }
+        @{ name = "前回失敗して更新が無ければ、取り込み対象ではなく失敗として返す"; state = $stateFailed; modified = $false; version = "4"; tsv = 1; targets = 0; failed = 1; field = "前回失敗" }
+        @{ name = "前回「未取り込み」で終わっていれば取り込み対象になる（前回未完了）"; state = $stateNew; modified = $false; version = "4"; tsv = 1; targets = 1; failed = 0; field = "前回未完了" }
     ) {
         param ($name, $state, $modified, $version, $tsv, $targets, $failed, $field)
         $rows = @()
@@ -145,22 +145,22 @@ Describe "findTargetFiles" -Tag Io {
     BeforeAll {
         $source = Join-Path $TestDrive "scan"
         [System.IO.Directory]::CreateDirectory("$source\下\さらに下") | Out-Null
-        foreach ($name in @("a.xlsx", "下\b.DOCX", "下\さらに下\c.pptm", "d.txt", "e.pdf", ('~$' + "a.xlsx"), "f.xls", "g.ppt")) {
+        foreach ($name in @("a.xlsx", "下\b.DOCX", "下\さらに下\c.pptm", "d.txt", "e.pdf", ('~$' + "a.xlsx"), "f.xls", "g.ppt", "h.py", "i.cpp", "j.exe", "k.ts")) {
             [System.IO.File]::WriteAllText((Join-Path $source $name), "dummy")
         }
         $workspace = newTestWorkspace @{} (Join-Path $TestDrive "ws-out-of-tree")
     }
 
-    It "サブフォルダも含めて Office・テキストの拡張子のファイルだけを返す（大文字の拡張子も含め、~$ で始まるロックファイルは除く）" {
+    It "サブフォルダも含めて Office・テキストの拡張子のファイルだけを返す（.py・.cpp も対象、.exe・.ts は対象外、大文字の拡張子も含め、~$ で始まるロックファイルは除く）" {
         $scan = findTargetFiles $source
-        @($scan.Files | ForEach-Object { $_.Name } | Sort-Object) -join "," | Should -Be "a.xlsx,b.DOCX,c.pptm,d.txt,f.xls,g.ppt"
+        @($scan.Files | ForEach-Object { $_.Name } | Sort-Object) -join "," | Should -Be "a.xlsx,b.DOCX,c.pptm,d.txt,f.xls,g.ppt,h.py,i.cpp"
         $scan.HasError | Should -Be $false
     }
 
     It "末尾に \ を付けたフォルダでも同じフォルダを列挙する" {
         $scan = findTargetFiles "$source\"
         $scan.Root.TrimEnd("\") | Should -Be $source
-        $scan.Files.Count | Should -Be 6
+        $scan.Files.Count | Should -Be 8
     }
 }
 
@@ -182,7 +182,7 @@ Describe "findTargetFiles（tebunko が作ったものの除外）" -Tag Io {
         $workspace = newTestWorkspace @{} $wsDir
         newFile "ws\content_index\sheet.tsv"
         newFile "ws\system_index\system_index.txt"
-        newFile "ws\取り込み一覧.tsv"
+        newFile "ws\ingest_status.tsv"
         newFile "ws\my.xlsx"
         newFile "ws\my.txt"
 
@@ -190,9 +190,9 @@ Describe "findTargetFiles（tebunko が作ったものの除外）" -Tag Io {
         @($scan.Files | ForEach-Object { $_.Name } | Sort-Object) -join "," | Should -Be "my.txt,my.xlsx"
     }
 
-    It "取り込み一覧.tsv のある別のフォルダ（ほかのワークスペース）の content_index の下は外れる" {
+    It "ingest_status.tsv のある別のフォルダ（ほかのワークスペース）の content_index の下は外れる" {
         $workspace = newTestWorkspace @{} (Join-Path $TestDrive "ws-out-of-tree2")
-        newFile "other-ws\取り込み一覧.tsv"
+        newFile "other-ws\ingest_status.tsv"
         newFile "other-ws\content_index\sheet.tsv"
         newFile "other-ws\my-file.txt"
 
@@ -222,5 +222,26 @@ Describe "findTargetFiles（tebunko が作ったものの除外）" -Tag Io {
         newFile ('~$locked.txt')
         $scan = findTargetFiles $source
         @($scan.Files | ForEach-Object { $_.Name }) | Should -Not -Contain '~$locked.txt'
+    }
+}
+
+Describe "selectOnlyNames" -Tag Unit {
+    BeforeAll {
+        $folders = @(
+            [pscustomobject]@{ Name = "営業"; Enabled = $true }
+            [pscustomobject]@{ Name = "技術"; Enabled = $false }
+        )
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "チェックの付いた名前は選ばれる"; names = @("営業"); selected = @("営業"); skipped = @() }
+        @{ name = "チェックが付いていない名前は、理由付きで外す"; names = @("営業", "技術"); selected = @("営業"); skipped = @("技術:チェックが付いていません") }
+        @{ name = "設定に無い名前は、理由付きで外す"; names = @("総務"); selected = @(); skipped = @("総務:設定にありません") }
+        @{ name = "空の名前は無いものとして扱う"; names = @("", "営業"); selected = @("営業"); skipped = @() }
+    ) {
+        param ($name, $names, $selected, $skipped)
+        $result = selectOnlyNames $folders $names
+        @($result.Selected | Sort-Object) | Should -Be @($selected)
+        @($result.Skipped | ForEach-Object { "$($_.Name):$($_.Reason)" }) | Should -Be @($skipped)
     }
 }

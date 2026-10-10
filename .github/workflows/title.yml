@@ -17,6 +17,11 @@ on:
 permissions:
   contents: read
 
+# opened と edited が同時に動いても、コメントが 2 件できないよう PR ごとに順に動かす（動いている実行は取り消さない）
+concurrency:
+  group: title-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: false
+
 jobs:
   pr-title:
     if: github.event_name == 'pull_request'
@@ -25,12 +30,46 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - name: PR のタイトル
         shell: pwsh
         env:
           TITLE: ${{ github.event.pull_request.title }}
         run: ./tools/check_commit_message.ps1 -Title $env:TITLE
+
+      - name: 見本（tests/testdata/compat/）の変更
+        shell: pwsh
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: ./tools/check_compat_golden.ps1 -Title $env:TITLE -Base $env:BASE_SHA
+
+  # 結果を PR のコメントに書く（docs/design/testing/ci.md「結果を PR のコメントに書く」）。
+  # フォークの PR では書けないことがあるが、ジョブは失敗にしない（結果は Summary に残る）
+  pr-comment:
+    needs: [pr-title]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: 既定のブランチの内容を取り出す（PR のコードは使わない）
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: |
+            tools/pr_checks_comment.ps1
+            .github/actions/pr-comment/
+          sparse-checkout-cone-mode: false
+
+      - name: 結果を書く
+        uses: ./.github/actions/pr-comment
+        with:
+          workflow-key: title
+          result: ${{ needs['pr-title'].result }}
 
   issue-title:
     if: github.event_name == 'issues'

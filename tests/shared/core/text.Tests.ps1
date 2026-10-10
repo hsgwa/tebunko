@@ -125,3 +125,23 @@ Describe "splitTsvCells" -Tag Io {
         $cells[2] | Should -Be "x`ty"
     }
 }
+
+Describe "testTextTrimmed" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "ちょうど入る"; actual = 100.0; required = 100.0; expected = $false }
+        @{ name = "入って余る"; actual = 100.0; required = 60.0; expected = $false }
+        @{ name = "1px 超えると切れている"; actual = 100.0; required = 101.0; expected = $true }
+        @{ name = "誤差の内の超過は切れていない"; actual = 100.0; required = 100.4; expected = $false }
+        @{ name = "誤差ちょうどの超過も切れていない"; actual = 100.0; required = 100.5; expected = $false }
+        @{ name = "幅 0（まだ配置されていない）は切れていない"; actual = 0.0; required = 80.0; expected = $false }
+        @{ name = "文字が空なら切れていない"; actual = 100.0; required = 0.0; expected = $false }
+    ) {
+        param ($name, $actual, $required, $expected)
+        testTextTrimmed $actual $required | Should -Be $expected
+    }
+
+    It "誤差を渡せる" {
+        testTextTrimmed 100 101 2 | Should -Be $false
+        testTextTrimmed 100 103 2 | Should -Be $true
+    }
+}

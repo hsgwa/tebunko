@@ -11,7 +11,7 @@ GitHub Release の配布 zip（`tebunko-<タグ>.zip`）は、`v` で始まる�
 | `tebunko.bat`・`scripts/` | zip の中 | ツール本体 |
 | `README.md` | zip の中 | 使い方。相対リンクと画像は、その版の GitHub の URL に書き換えて入れる（`docs/` や画像は zip に入れないため） |
 | `LICENSE` | zip の中 | ライセンス（MIT。写しに許諾表示を含めるため同梱する） |
-| `VERSION.txt` | zip の中 | 版とコミットの記録（タグ名とコミットの SHA の2行。`tools/new_version_text.ps1` が作る。画面の「tebunko について」に出す） |
+| `VERSION.txt` | zip の中 | 版とコミットの記録（タグ名とコミットの SHA の2行。`tools/new_version_text.ps1` が作る。画面の「バージョン情報」に出す） |
 | `tebunko-setup-<タグ>.exe` | リリース（zip の横） | インストーラー版（[インストーラー版](disclosure.md#インストーラー版)。`tools/new_installer.ps1` が作る）。中身のスクリプトは zip と同じ |
 | `tebunko.cat`・`SHA256SUMS.txt` | リリース（zip の横） | 改ざんの確認用（`tools/new_release_files.ps1` が作る） |
 | `sbom.cdx.json` | リリース（zip の横） | 部品表（CycloneDX 1.6）。版・`serialNumber`・`timestamp` と、zip に入る全ファイルのパス・SHA-256 を載せる（`tools/new_sbom.ps1` が、配布物を作るたびに zip の中身から作る。リポジトリの `sbom.cdx.json` は雛形） |
@@ -51,6 +51,12 @@ gh attestation verify .\tebunko-v0.1.0.zip -R hsgwa/tebunko
 ```
 
 署名の bundle（`tebunko-<タグ>.zip.sigstore.json`）もリリースに載せている。GitHub に問い合わせずに確かめるときは `--bundle .\tebunko-v0.1.0.zip.sigstore.json` を付ける。zip 自体の SHA256 はリリースの説明に書いてある（[複数エンジンでの検査: VirusTotal（外部へファイルを送信する）](#複数エンジンでの検査-virustotal外部へファイルを送信する) の照会に使える）。インストーラー（`tebunko-setup-<タグ>.exe`）にも同じく来歴の署名を付け、bundle（`tebunko-setup-<タグ>.exe.sigstore.json`）と SHA256 をリリースに載せる。確かめ方は zip と同じ（`gh attestation verify .\tebunko-setup-<タグ>.exe -R hsgwa/tebunko`）。
+
+**単一 .ps1 版（試験版）の確認**: 展開せずに動く `tebunko-<タグ>.ps1`（[単一 PowerShell のビルド](../design/structure/single-script.md)）は、1 本のファイルのため `tebunko.cat` の対象にしない。公開前の検査は `tools/new_single_script.ps1` 自身が行う（連結の順・構文・禁止の語・部品の過不足。通らなければ `release.yml` がそこで止まる）。改ざんの確認は `SHA256SUMS.txt` に追記した行と、zip・インストーラーと同じ来歴の署名（bundle は `tebunko-<タグ>.ps1.sigstore.json`）で行う。
+
+```powershell
+gh attestation verify .\tebunko-v0.1.0.ps1 -R hsgwa/tebunko
+```
 
 ## 静的解析: PSScriptAnalyzer（Microsoft）
 
@@ -147,7 +153,7 @@ Get-MpComputerStatus | Select-Object AMProductVersion, AntivirusSignatureVersion
 
 | 手段 | 何が分かるか | 手順 |
 |---|---|---|
-| Process Monitor（Sysinternals）または Sysmon | ファイル・レジストリ・ネットワーク・プロセス生成の**全アクセス**。「`work` と `%TEMP%` 以外に書いていない」「通信していない」を実測で示せる | Procmon でプロセス名 `powershell.exe` / `EXCEL.EXE` を絞り込み、インデックス作成を 1 回実行して保存する |
+| Process Monitor（Sysinternals）または Sysmon | ファイル・レジストリ・ネットワーク・プロセス生成の**全アクセス**。「`work` 配下以外に書いていない（前の版が残した作業フォルダの片付けだけ `%TEMP%` に触れる。`%LOCALAPPDATA%\tebunko` には書かない。インストーラー版の入れ先 `%LOCALAPPDATA%\Programs\tebunko` の中は、ツールのフォルダとして書く）」「通信していない」を実測で示せる | Procmon でプロセス名 `powershell.exe` / `EXCEL.EXE` を絞り込み、インデックス作成を 1 回実行して保存する |
 | 送信の全遮断で完走 | 通信が不要であること | Windows ファイアウォールで送信を全ブロック、または Windows Sandbox（ネットワーク無効）でインデックス作成を完走させる |
 | PowerShell のログ | 実行された全コマンド | グループポリシーでスクリプトブロックログ（イベント ID 4104）・モジュールログ・トランスクリプションを有効にして 1 回実行し、記録を提出する |
 | 標準ユーザーで完走 | 管理者権限が不要であること | 管理者権限のないアカウントで起動して一通り操作する |
@@ -184,7 +190,7 @@ Get-FileHash .\tebunko-v0.1.0.zip -Algorithm SHA256    # この値を VirusTotal
 - [危険とされる処理の検査結果](checks.md)の禁止する処理が 0 件であること、許す処理（`Add-Type`・`Start-Process`・`Stop-Process`）が限定されていること
 - Office をマクロ無効・イベント無効・外部リンク更新なし・不可視・読み取り専用で開くこと
 - 原本のパスを書き込み・削除の API に渡さないこと、`SaveAs` の保存先が作業フォルダだけであること、原本を読むのは `copyFileShared` の読み取りだけであること
-- 書き込み先が `work` 配下と `%TEMP%` 配下に限られること、異常終了で残った作業フォルダを次回起動時に回収すること（[原本の一時コピーと、その回収](disclosure.md#原本の一時コピーとその回収)）
+- 書き込み先が `work` 配下に限られること（前の版が残した作業フォルダの片付けだけ `%TEMP%` 配下に触れる）、異常終了で残った作業フォルダを次回起動時に回収すること（[原本の一時コピーと、その回収](disclosure.md#原本の一時コピーとその回収)）
 - PSScriptAnalyzer の安全性ルール・`Error` 重大度・制限言語モードの指摘が 0 件であること（未導入の環境では飛ばす）
 - 安全性の説明（`docs/safety/`）・[SECURITY.md](../../.github/SECURITY.ja.md)・`tools\new_release_files.ps1`・[sbom.cdx.json](../../sbom.cdx.json)・[LICENSE](../../LICENSE) がそろっており、SBOM の雛形が本体の説明・ライセンス・前提ソフトウェアを持ち、作った SBOM が第三者の部品を含まず zip の中身と一致すること、LICENSE が MIT の条文と著作権表示を含み SBOM の記載と一致すること
 
@@ -193,8 +199,8 @@ Get-FileHash .\tebunko-v0.1.0.zip -Algorithm SHA256    # この値を VirusTotal
 | 指標 | 値 |
 |---|---|
 | テスト件数 | 1,189 件（既定のタグ Unit・Io・Meta。失敗 0 件。うち安全性・構成の検査（タグ `Meta`）が 122 件） |
-| コードカバレッジ | 97.0%（6,473/6,671 コマンド。手元の実測。CI では本物の Windows Search を使うテストが保留になるため少し低くなる）。対象は画面の起動口・タブ・ダイアログを除くスクリプト（`tests/run.ps1` の `CodeCoverage` の条件）。Office の COM を使うインデクサは、COM の入口（`getApp`）を偽のオブジェクトに差し替えて検証している。検索結果の一覧・プレビューなど計測の対象に入る画面の部品は、画面のコントロールを偽のオブジェクトに差し替えて検証している。下限は `tests/coverage.baseline`（90.0%）で、下回ると CI が失敗する |
+| コードカバレッジ | 97.0%（6,473/6,671 コマンド。手元の実測。CI では本物の Windows Search を使うテストが保留になるため少し低くなる）。対象は画面の起動口・枠・タブ・ダイアログを除くスクリプト（`tests/run.ps1` の `CodeCoverage` の条件）。Office の COM を使うインデクサは、COM の入口（`getApp`）を偽のオブジェクトに差し替えて検証している。検索結果の一覧・プレビューなど計測の対象に入る画面の部品は、画面のコントロールを偽のオブジェクトに差し替えて検証している。下限は `tests/coverage.baseline`（90.0%）で、下回ると CI が失敗する |
 | 規模 | `scripts/` 配下 57 ファイル・12,326 行（空行を除く）・419 関数（2026-09-26 時点） |
-| 第三者依存 | 0 件 |
+| 第三者依存 | コードは 0 件（同梱するのはフォント Rethink Sans とアイコンの形 Lucide の 2 つ。どちらも実行されない） |
 
-規模と依存の数を示す意味は、**監査にかかる手間を見積もれる**ことである。第三者依存が無いため、読む範囲はこの 12,326 行で閉じる。
+規模と依存の数を示す意味は、**監査にかかる手間を見積もれる**ことである。第三者のコードの依存が無いため、読む範囲はこの 12,326 行で閉じる。

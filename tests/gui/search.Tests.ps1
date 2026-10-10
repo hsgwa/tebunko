@@ -28,47 +28,107 @@ Describe "S4 検索の遷移" -Tag Gui {
 
             getGuiSelectedTab $S | Should -Be "SearchTab"
 
-            # 正規表現で不正な式を入れると、注意が出る（文字どおり検索にする案内。［検索］は押せたまま）。式を直すと消える（#24）
+            # 正規表現で不正な式を入れると、［正規表現］の下に吹き出しが出て、入力欄の枠が赤くなり、［検索］は押せなくなる（検索バーの高さは変わらない）。式を直すと消える（#24）
             setGuiStep $S "正規表現で不正な式"
             $regex = waitGuiById $S $S.Window "RegexCheck"
             toggleGui $regex
             waitGui $S "「正規表現を使う」が付く" ${guiDefaultTimeout} { (getGuiToggleState (findGui $S.Window -Id "RegexCheck")) -eq "On" } | Out-Null
             setGuiText $S (findGui $S.Window -Id "WordBox") "("
-            waitGui $S "注意（WordNotice）が出る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "WordNotice")) -like "*文字どおり検索*" } | Out-Null
+            waitGui $S "吹き出し（RegexBalloon）が出る" ${guiDefaultTimeout} {
+                $text = findGui $S.Window -Id "RegexBalloonText"
+                !$text.Current.IsOffscreen -and (getGuiText $text) -eq "正規表現が正しくありません"
+            } | Out-Null
+            $regexRect = (findGui $S.Window -Id "RegexBalloonText").Current.BoundingRectangle
+            $regexCheckRect = (findGui $S.Window -Id "RegexCheck").Current.BoundingRectangle
+            ($regexRect.Top - $regexCheckRect.Bottom) | Should -BeGreaterThan 0 -Because "吹き出しは［正規表現］の下に出す"
+            ($regexRect.Top - $regexCheckRect.Bottom) | Should -BeLessThan 15 -Because "吹き出しは［正規表現］のすぐ下に出す"
+            $regexRect.Right | Should -BeLessOrEqual $S.Window.Current.BoundingRectangle.Right -Because "吹き出しは窓の右端からはみ出さない"
+            (findGui $S.Window -Id "SearchButton").Current.IsEnabled | Should -BeFalse -Because "正規表現が正しくないと検索を始めない"
+            $resultTop = (findGui $S.Window -Id "FilterBox").Current.BoundingRectangle.Top
+            $resultTop | Should -BeLessThan 100000 -Because "絞り込みの欄が見えている（高さの比べの基準）"
             setGuiStep $S "式を直す"
             setGuiText $S (findGui $S.Window -Id "WordBox") "単価"
-            waitGui $S "注意が消える" ${guiDefaultTimeout} { (findGui $S.Window -Id "WordNotice").Current.IsOffscreen } | Out-Null
+            waitGui $S "吹き出しが消え［検索］が押せる" ${guiDefaultTimeout} {
+                (findGui $S.Window -Id "RegexBalloonText").Current.IsOffscreen -and (findGui $S.Window -Id "SearchButton").Current.IsEnabled
+            } | Out-Null
+            (findGui $S.Window -Id "FilterBox").Current.BoundingRectangle.Top | Should -Be $resultTop -Because "吹き出しを出しても検索バーの高さは変わらない"
             toggleGui (findGui $S.Window -Id "RegexCheck")
 
             # 検索対象のツリーで［すべて解除］すると検索できず、［すべて選択］で戻る（#25）
             setGuiStep $S "検索対象の［すべて解除］"
-            clickGui $S $S.Window "UncheckAllIndexButton" "［すべて解除］"
+            clickGui $S $S.Window "UncheckAllIndexButton" "［解除］"
             waitGui $S "検索対象が「なし」になり［検索］が押せない" ${guiDefaultTimeout} {
-                (getGuiText (findGui $S.Window -Id "SearchTargetText")) -like "検索対象：なし*" -and !(findGui $S.Window -Id "SearchButton").Current.IsEnabled
+                (getGuiText (findGui $S.Window -Id "TargetCountText")) -like "検索対象 0 / *" -and !(findGui $S.Window -Id "SearchButton").Current.IsEnabled
             } | Out-Null
             setGuiStep $S "検索対象の［すべて選択］"
-            clickGui $S $S.Window "CheckAllIndexButton" "［すべて選択］"
+            clickGui $S $S.Window "CheckAllIndexButton" "［すべて］"
             waitGui $S "検索対象が戻り［検索］が押せる" ${guiDefaultTimeout} {
-                (getGuiText (findGui $S.Window -Id "SearchTargetText")) -like "検索対象：すべて*" -and (findGui $S.Window -Id "SearchButton").Current.IsEnabled
+                (getGuiText (findGui $S.Window -Id "TargetCountText")) -match "^検索対象 (\d+) / \1$" -and (findGui $S.Window -Id "SearchButton").Current.IsEnabled
             } | Out-Null
 
-            # 検索して、［すべて展開］［すべて折りたたむ］・絞り込み（#27）
+            # 検索して、［すべて開く］［すべて折りたたむ］・絞り込み（#27）
             setGuiStep $S "検索"
             & $search "単価"
-            waitGui $S "該当 2 件" ${guiDefaultTimeout} { (& $summary) -like "該当 2 件*" } | Out-Null
-            setGuiStep $S "［すべて展開］"
-            clickGui $S $S.Window "ExpandAllButton" "［すべて展開］"
+            waitGui $S "該当 2 件" ${guiDefaultTimeout} { (& $summary) -like "一致 2 件（*" } | Out-Null
+            setGuiStep $S "［すべて開く］"
+            clickGui $S $S.Window "ExpandAllButton" "［すべて開く］"
             waitGui $S "結果の行が 2 件出る" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 2 } | Out-Null
             setGuiStep $S "［すべて折りたたむ］"
             clickGui $S $S.Window "CollapseAllButton" "［すべて折りたたむ］"
             waitGui $S "結果の行が隠れる" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 0 } | Out-Null
             setGuiStep $S "結果の絞り込み"
-            clickGui $S $S.Window "ExpandAllButton" "［すべて展開］"
+            clickGui $S $S.Window "ExpandAllButton" "［すべて開く］"
             waitGui $S "結果の行が 2 件出る" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 2 } | Out-Null
             setGuiText $S (findGui $S.Window -Id "FilterBox") "議事録"
             waitGui $S "絞り込んだ件数（結果の行が 1 件）" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 1 } | Out-Null
             setGuiText $S (findGui $S.Window -Id "FilterBox") ""
             waitGui $S "絞り込みを消すと 2 件に戻る" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 2 } | Out-Null
+
+            # 種類のチップを外すと、その種類のファイルが検索から外れる。戻すと元に戻る（全部外すこともできるが、そのままでは検索を始めない）
+            setGuiStep $S "種類のチップ［Word］を外して検索"
+            toggleGui (findGui $S.Window -Id "KindChipWord")
+            waitGui $S "チップ［Word］が外れる" ${guiDefaultTimeout} { (getGuiToggleState (findGui $S.Window -Id "KindChipWord")) -eq "Off" } | Out-Null
+            & $search "単価"
+            waitGui $S "Word を除いた該当 1 件" ${guiDefaultTimeout} { (& $summary) -like "一致 1 件（*" } | Out-Null
+            setGuiStep $S "チップ［Word］を戻して検索"
+            toggleGui (findGui $S.Window -Id "KindChipWord")
+            waitGui $S "チップ［Word］が付く" ${guiDefaultTimeout} { (getGuiToggleState (findGui $S.Window -Id "KindChipWord")) -eq "On" } | Out-Null
+            & $search "単価"
+            waitGui $S "該当 2 件に戻る" ${guiDefaultTimeout} { (& $summary) -like "一致 2 件（*" } | Out-Null
+
+            # 種類のチップを全部外せる。1 つも選んでいないと検索を始めず、種類のチップの下の吹き出しで知らせる。1 つ選べば検索できる
+            $chipIds = @("KindChipExcel", "KindChipWord", "KindChipPowerPoint", "KindChipText")
+            setGuiStep $S "種類のチップを全部外す"
+            foreach ($chipId in $chipIds) { toggleGui (findGui $S.Window -Id $chipId) }
+            waitGui $S "チップが全部外れる" ${guiDefaultTimeout} {
+                @($chipIds | Where-Object { (getGuiToggleState (findGui $S.Window -Id $_)) -eq "On" }).Count -eq 0
+            } | Out-Null
+            & $search "単価"
+            waitGui $S "種類を選ぶ吹き出し" ${guiDefaultTimeout} {
+                $text = findGui $S.Window -Id "SearchKindBalloonText"
+                !$text.Current.IsOffscreen -and (getGuiText $text) -eq "種類を 1 つ以上選んでください"
+            } | Out-Null
+            $balloonRect = (findGui $S.Window -Id "SearchKindBalloonText").Current.BoundingRectangle
+            $chipRect = (findGui $S.Window -Id "KindChipExcel").Current.BoundingRectangle
+            # 吹き出しの文字は、チップの左端から枠・余白・アイコンの分（20〜40）だけ右、チップの下端から 0〜15 下
+            ($balloonRect.Left - $chipRect.Left) | Should -BeGreaterThan 20 -Because "左端はチップの左端にそろう"
+            ($balloonRect.Left - $chipRect.Left) | Should -BeLessThan 40 -Because "左端はチップの左端にそろう"
+            ($balloonRect.Top - $chipRect.Bottom) | Should -BeGreaterThan 0 -Because "吹き出しは種類のチップの下に出す"
+            ($balloonRect.Top - $chipRect.Bottom) | Should -BeLessThan 15 -Because "吹き出しはチップのすぐ下に出す"
+            (findGui $S.Window -Id "FilterBox").Current.BoundingRectangle.Top | Should -Be $resultTop -Because "吹き出しを出しても検索バーの高さは変わらない"
+            (findGui $S.Window -Id "SearchButton").Current.IsEnabled | Should -BeTrue -Because "種類が無くても［検索］は押せる"
+            (& $summary) | Should -BeLike "一致 2 件（*" -Because "検索を始めないため、前の結果のまま"
+            setGuiStep $S "チップ［Excel］だけ選んで検索"
+            toggleGui (findGui $S.Window -Id "KindChipExcel")
+            & $search "単価"
+            waitGui $S "種類を選んだので吹き出しが消える" ${guiDefaultTimeout} { (findGui $S.Window -Id "SearchKindBalloonText").Current.IsOffscreen } | Out-Null
+            waitGui $S "Excel だけの該当 1 件" ${guiDefaultTimeout} { (& $summary) -like "一致 1 件（*" } | Out-Null
+            setGuiStep $S "チップを全部戻して検索"
+            foreach ($chipId in @("KindChipWord", "KindChipPowerPoint", "KindChipText")) { toggleGui (findGui $S.Window -Id $chipId) }
+            & $search "単価"
+            waitGui $S "該当 2 件に戻る" ${guiDefaultTimeout} { (& $summary) -like "一致 2 件（*" } | Out-Null
+            clickGui $S $S.Window "ExpandAllButton" "［すべて開く］"
+            waitGui $S "結果の行が 2 件出る" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 2 } | Out-Null
 
             # 元のファイルが無い行で［… で開く］を押すと、確認が出る。［キャンセル］／［フォルダを選ぶ］→ フォルダ選択［キャンセル］（#29）
             setGuiStep $S "結果の行を選ぶ"

@@ -1,6 +1,6 @@
 ﻿# 1ファイルから文字を抽出して TSV に書き出す（Excel のセルは COM、Excel の図形・コメントと Word・PowerPoint はファイルを直接読む）。
+# $excelMaxPath（Excelで開けるパスの長さの目安）は paths.ps1 で定義する（selectTmpDir でも使うため）
 
-$excelMaxPath = 218       # Excelで開けるパスの長さの目安（古い版の上限）。作業フォルダのコピーのパスがこれ以上なら短い名前にする
 $excelExtraCells = 1000000  # 使用範囲がデータの範囲よりこのセル数以上広いシートは、データの範囲だけを一時シートにコピーしてから書き出す
 
 # ----------------------------------------------------------------------------
@@ -208,13 +208,13 @@ function extractWorkbook {
             writeZipSizeLimitLog $_.Exception
             writeIndexerLog "    図形・コメントを読み取れませんでした: $($_.Exception.Message)" "Yellow"
         }
-        # 1つのグラフ・SmartArtが読めなくても、そこだけを空にしてほかの図形・コメントは読む（readXlsxObjectUnits）。
-        # shared/ はツールを知らないため、読めなかった部品の名前・サイズの上限の詳細はここでログに書く
+        # 1つのグラフ・SmartArt・シートのヘッダー/フッターが読めなくても、そこだけを空にしてほかは読む（readXlsxObjectUnits）。
+        # shared/ はツールを知らないため、読めなかった部品の名前・サイズの上限の詳細をここでログに書く
         foreach ($sizeFailure in $chartSizeFailures) {
             writeZipSizeLimitLog $sizeFailure
         }
         foreach ($failure in $chartFailures) {
-            writeIndexerLog "    グラフ・SmartArt を読み取れませんでした: $failure" "Yellow"
+            writeIndexerLog "    一部を読み取れませんでした: $failure" "Yellow"
         }
     } else {
         # IRM・秘密度ラベルの暗号化は、Excelを起動せずに失敗にする（サインイン画面を防ぐ）。
@@ -384,7 +384,7 @@ function extractWithPowerPoint {
 # 読み取りのスレッド（Office を持たない）なら $true。Office が要るファイルは「Office が要る」の例外にする
 $script:officeUnavailable = $false
 # Office が要るときの例外の文言（invokeIngestTask が見分けて、司令に回し直しを頼む）
-${officeRequiredMessage} = "このファイルの取り込みには Word・PowerPoint が要ります。"
+${officeRequiredMessage} = "このファイルの更新には Word・PowerPoint が要ります。"
 
 function extractWithOffice {
     # Word・PowerPointどちらかで新形式に変換する（呼び分けをまとめる）。

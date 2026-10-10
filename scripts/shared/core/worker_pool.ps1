@@ -22,6 +22,35 @@ function newWorkerState {
     return $state
 }
 
+function joinWorkerScript {
+    # 部品の読み込み（Prelude）を、本体のスクリプト（script）につなぐ。呼び出し側の書き換えをせず、
+    # 意味を変えない形でつなぐため、挿入する場所は本体の構文解析で決める:
+    #   param ブロックがあればその直後、続けて最初の文が `$ErrorActionPreference = "Stop"` ならそのあとにも進める
+    #   （部品が読めないときにスレッドを終える今の動きを保つため。tests/shared/core/worker_pool.Tests.ps1 が確かめる）。
+    # Prelude は、同じランスペースで仕事のたびに呼ばれても 1 回だけ実行する（$global:workerPreludeDone で守る。
+    # ランスペースを使い回さない呼び出し元でも害はない）
+    param (
+        [string]$prelude,
+        [string]$script
+    )
+
+    $tokens = $null
+    $errors = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseInput($script, [ref]$tokens, [ref]$errors)
+    if ($errors.Count -gt 0) {
+        throw "joinWorkerScript: つなぐ本体の構文エラーです: $($errors[0].Message)"
+    }
+    $insertAt = if ($ast.ParamBlock) { $ast.ParamBlock.Extent.EndOffset } else { 0 }
+    $statements = @($ast.EndBlock.Statements)
+    if ($statements.Count -gt 0 -and $statements[0].Extent.Text -match '^\$ErrorActionPreference\s*=\s*"Stop"$') {
+        $insertAt = $statements[0].Extent.EndOffset
+    }
+    $head = $script.Substring(0, $insertAt)
+    $tail = $script.Substring($insertAt)
+    $guarded = "`r`nif (!`$global:workerPreludeDone) {`r`n$prelude`r`n`$global:workerPreludeDone = `$true`r`n}"
+    return "$head$guarded$tail"
+}
+
 function getWorkerCount {
     # プールのスレッドの数の既定（画面のために 1 コアを残す。1〜max）
     param (
@@ -70,11 +99,12 @@ class WorkerPool {
         }
         # 優先度を設定してから仕事のスクリプトを呼ぶ（AddStatement で文を分けると、引数付きのスクリプトが終わらなくなるため、1 つのスクリプトにする）
         $text = "[System.Threading.Thread]::CurrentThread.Priority = '$($this.Priority)'`r`n"
+        $body = "& {`r`n$script`r`n} @args"
         if ($this.Prelude) {
-            # if の中は新しいスコープにならないため、prelude で dot-source した関数はランスペースに残り、次の仕事でも使える
-            $text += "if (!`$global:workerPreludeDone) {`r`n$($this.Prelude)`r`n`$global:workerPreludeDone = `$true`r`n}`r`n"
+            # if の中は新しいスコープにならないため、prelude で読み込んだ関数はランスペースに残り、次の仕事でも使える
+            $body = joinWorkerScript $this.Prelude $body
         }
-        [void]$ps.AddScript("$text& {`r`n$script`r`n} @args")
+        [void]$ps.AddScript("$text$body")
         foreach ($argument in $arguments) {
             [void]$ps.AddArgument($argument)
         }
@@ -126,10 +156,12 @@ class BackgroundQueue {
     hidden [WorkerPool]$Pool
     hidden [System.Collections.Generic.List[hashtable]]$Jobs
 
-    BackgroundQueue([int]$size, [string]$prelude, [System.Management.Automation.Host.PSHost]$hostUi) {
+    BackgroundQueue([int]$size, [hashtable]$load, [System.Management.Automation.Host.PSHost]$hostUi) {
+        # load は部品の読み込み口が返す @{ State; Prelude }。呼び出し元が Prelude に続けて
+        # 呼びたい文を足したいときは、渡す前に $load.Prelude を書き換える
         $this.Jobs = New-Object 'System.Collections.Generic.List[hashtable]'
-        $this.Pool = [WorkerPool]::new($size, [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault2(), $hostUi, "Normal")
-        $this.Pool.Prelude = $prelude
+        $this.Pool = [WorkerPool]::new($size, $load.State, $hostUi, "Normal")
+        $this.Pool.Prelude = $load.Prelude
     }
 
     [void] Post([string]$script, [object[]]$arguments, [scriptblock]$onDone) {

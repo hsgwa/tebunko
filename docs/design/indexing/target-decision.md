@@ -1,4 +1,4 @@
-# 取り込み対象の決定
+﻿# 取り込み対象の決定
 
 扱うこと: クロールで見つけたファイルを取り込み対象にするかどうかの判定（更新の判定・前の抽出版・インデックスが無くなった・壊れている場合・元ファイルが無くなった場合）、画面の確認に出す取り込み予定と件数。扱わないこと: クロール対象フォルダの登録・インデックス名（[クロール対象フォルダと取り込み対象](crawl.md)）、強制終了・時間切れからの再開そのもの（[取り込み一覧](ingest-list.md#強制終了時間切れからの再開)）。先に読むページ: [クロール対象フォルダと取り込み対象](crawl.md)。
 
@@ -21,7 +21,7 @@ flowchart TD
     Q -- はい --> Q1{"RetryFailed？<br>（画面で「失敗分も再取り込みする」を選んだ・-RetryFailed）"}
     Q1 -- はい --> ADD["前回失敗も取り込み対象に加える"] --> INT
     Q1 -- いいえ --> INT
-    Q -- いいえ --> INT{"取り込み中.txt のファイル（すべて）が取り込み対象にある？<br>（前回、取り込み中に強制終了した）"}
+    Q -- いいえ --> INT{"ingesting.txt のファイル（すべて）が取り込み対象にある？<br>（前回、取り込み中に強制終了した）"}
     INT -- "はい（1 回目）" --> LAST["取り込み対象の最後に回す"] --> W
     INT -- "はい（続けて 2 回目）" --> FAIL2["『失敗』にして取り込み対象から除く"] --> W
     INT -- いいえ --> W["取り込み一覧を書き出す（writeStatusFile）"]
@@ -42,7 +42,7 @@ flowchart TD
 ## 取り込み予定（画面の確認に出す件数）
 
 受け渡しの口の `ConfirmTargets`（画面から実行したとき）なら、取り込み対象を決めた後、インデックスごとの件数を 1 行にし（`newIngestPlanRow`）、受け渡しの口の `Plan` に入れる（`IndexingReporter.WaitForApproval`）。
-画面はこれを読んで確認のダイアログを出す（[インデックス作成の確認ダイアログ](../gui/indexing-run.md#インデックス作成の確認ダイアログ)）。返事を受け取ったら `Plan` を外す。次の例は、1 行を列の順にタブで区切って並べたものである。
+画面はこれを読んで確認のダイアログを出す（[インデックス作成の確認ダイアログ](../gui/indexing-run.md#インデックス更新の確認ダイアログ)）。返事を受け取ったら `Plan` を外す。次の例は、1 行を列の順にタブで区切って並べたものである。
 
 ```
 インデックス名	元のフォルダ	区分	ファイル数	取り込み対象	新規	更新あり	前回未完了	インデックスなし	前回失敗
@@ -75,12 +75,12 @@ stateDiagram-v2
 
 クロールで列挙するファイルの条件（`findTargetFiles`）:
 
-- 拡張子が `.xlsx` `.xlsm` `.xls` `.xlsb` `.docx` `.docm` `.doc` `.pptx` `.pptm` `.ppt`（Office）または `.txt` `.csv` `.tsv` `.md` `.log` `.json` `.xml`（テキスト。[テキストファイルの読み取り](text.md)）（大文字・小文字を区別しない）。テンプレート（`.xltx` `.dotx` `.potx` 等）は対象外
+- 拡張子が `.xlsx` `.xlsm` `.xls` `.xlsb` `.docx` `.docm` `.doc` `.pptx` `.pptm` `.ppt`（Office、10 個）または [対象の拡張子](text.md#対象の拡張子)（テキスト、75 個）（大文字・小文字を区別しない）。テンプレート（`.xltx` `.dotx` `.potx` 等）は対象外
 - ファイル名が `~$` で始まるもの（Office のロックファイル）は除外
 - アクセスできないサブフォルダは無視して続行（元ファイルが無くなったかどうかの確認は行わない）
 - 相対パスは、実際に列挙したフォルダ（`Resolve-Path` で解決した `Root`。`findTargetFiles` が返す）から求める。列挙したファイルのパスが `\\?\` 付きの `Root` で始まれば先頭を切り落とし（ファイルが多いときに速い）、そうでなければ `getPathUnderFolder` で求める。
   設定に書かれたパスとは書き方が違うことがあるため（末尾の `\`、`\\?\` 付き、`.` ・ `..` を含む、`/` 区切り）、設定のパスの文字数では切り出さない
-- tebunko が作ったファイル（今のワークスペースの中身・`取り込み一覧.tsv` の印があるほかのワークスペースの中身・名前で分かる本文インデックスやシステムインデックス）は対象に含めない（テキストの拡張子（`.tsv` 等）でこれらを拾わないため。詳細は [テキストファイルの読み取り](text.md#tebunko-が作ったファイルの除外)）
+- tebunko が作ったファイル（今のワークスペースの中身・`ingest_status.tsv` の印があるほかのワークスペースの中身・名前で分かる本文インデックスやシステムインデックス）は対象に含めない（テキストの拡張子（`.tsv` 等）でこれらを拾わないため。詳細は [テキストファイルの読み取り](text.md#tebunko-が作ったファイルの除外)）
 
 各ファイルは拡張子で抽出方法を振り分ける（`ingestFile`）。`.xls*` は [Excel の抽出処理](excel.md#excel-の抽出処理extractworkbook)（Excel、[Excel](excel.md)）、`.doc*` `.ppt*` は [Word・PowerPoint の抽出処理](office-apps.md#wordpowerpoint-の抽出処理extractdocument)（Word・PowerPoint 共通、[Word・PowerPoint の共通処理と Office アプリの管理](office-apps.md)）と [Word の旧形式の変換](word.md#word-の旧形式の変換extractwithword)（Word、[Word](word.md)）・[PowerPoint の旧形式の変換](powerpoint.md#powerpoint-の旧形式の変換extractwithpowerpoint)（PowerPoint、[PowerPoint](powerpoint.md)）。テキストの拡張子は [テキストファイルの抽出処理](text.md#テキストファイルの抽出処理extracttextfile)（`extractTextFile`）。
 成功時は `TSV N 件を作成しました。` を表示する。

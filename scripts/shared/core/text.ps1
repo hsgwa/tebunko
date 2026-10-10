@@ -104,3 +104,19 @@ function splitTsvCells {
     }
     return , $cells.ToArray()
 }
+
+function testTextTrimmed {
+    # 文字が枠に入りきらず、省略（…）で切れているか。実際の幅（枠の ActualWidth）より、要る幅（文字を 1 行で出すのに要る幅）が
+    # 誤差より大きいときだけ $true。幅 0 以下（まだ配置されていない・隠れている）は切れていないものとして $false。
+    # 測る側（画面層）は幅を渡すだけで、切れているかの判定はここで決める
+    param (
+        [double]$actualWidth,
+        [double]$requiredWidth,
+        [double]$tolerance = 0.5   # 測り方による小数の誤差（これ以下の超過は切れていないとみなす）
+    )
+
+    if ($actualWidth -le 0) {
+        return $false
+    }
+    return (($requiredWidth - $actualWidth) -gt $tolerance)
+}

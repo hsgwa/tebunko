@@ -1,6 +1,6 @@
 ﻿# インデクサの起動口（tebunko\indexer.ps1）と本体（indexer\indexer_run.ps1 の invokeIndexer）のテスト。
 # indexer.ps1 は indexer_lib.ps1（lib.ps1 を含む）を読み込み、置き場所（リポジトリ直下の setting.config・work\）を決める。
-# リポジトリの設定・インデックスを書き換えないよう、data_dir.ps1 で ${dataDir} を決める直前に止めて、
+# リポジトリの設定・インデックスを書き換えないよう、settings.ps1 で ${settingsFile} を決める直前に止めて、
 # ツールのフォルダ（${rootDir}）をテスト用のフォルダ（TestDrive）に差し替えてから続けさせる（Set-PSBreakpoint の -Action）。
 # 同じやり方で、取り込みの途中に中止・画面の返事・元のファイルの削除を起こす。
 # 画面とのやり取りは受け渡しの口（newIndexerChannel）で行う。途中に割り込むテストは、取り込みのスレッドを使わない
@@ -8,43 +8,14 @@
 # Excel は COM が要るため使わない。Word・PowerPoint の新形式（.docx・.pptx）はファイルを直接読むため、そのまま取り込む。
 BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
+    # findLine・newRoot・writeTestSettings・runIndexer・readTestStatus・readTestSystemState・readTestError・readTestProgress は
+    # index_compat.Tests.ps1 と共通のため tests\helpers\indexer.ps1 にある（中身は変えていない）
+    . "$PSScriptRoot\..\..\helpers\indexer.ps1"
 
-    $indexerPath = "${scriptsDir}\tebunko\indexer.ps1"
-    $runPath     = "${scriptsDir}\tebunko\indexer\indexer_run.ps1"
-    $dataDirPath = "${scriptsDir}\shared\core\data_dir.ps1"
     $planPath    = "${scriptsDir}\tebunko\indexer\indexer_plan.ps1"
     $reporterPath = "${scriptsDir}\tebunko\indexer\indexing_reporter.ps1"
     $docxSource  = "${testDataDir}\office\Word\形式\大文字拡張子.DOCX"
     $pptxSource  = "${testDataDir}\office\PowerPoint\基本.pptx"
-
-    function findLine {
-        # ファイルの中で pattern に一致する最初の行の番号を返す（テストが行番号を直接書かないようにする）
-        param ([string]$path, [string]$pattern)
-        $lines = [System.IO.File]::ReadAllLines($path)
-        for ($i = 0; $i -lt $lines.Count; $i++) {
-            if ($lines[$i] -match $pattern) { return $i + 1 }
-        }
-        throw "${path} に ${pattern} がありません"
-    }
-
-    $script:rootCount = 0
-    function newRoot {
-        # テストごとに別のツールの置き場所（setting.config・work\ を置くフォルダ）を作る
-        $script:rootCount++
-        $root = Join-Path $TestDrive "tool$($script:rootCount)"
-        [System.IO.Directory]::CreateDirectory("$root\work") | Out-Null
-        return $root
-    }
-
-    function writeTestSettings {
-        # テスト用の置き場所に setting.config を書く。folders は @{ name; path; enabled } の配列
-        param ([string]$root, [object[]]$folders)
-        $settings = newSettings
-        $settings.targetFolders = @($folders)
-        # 既定のワークスペース（%USERPROFILE%\Documents\tebunko_ws）には利用者のインデックスがあるため、テスト用の work を指す
-        $settings.workspaceFolder = "$root\work"
-        writeSettings $settings "$root\setting.config"
-    }
 
     function newSourceFolder {
         # 取り込むフォルダを作り、Word・PowerPoint のファイルと、壊れた PowerPoint のファイルを置く
@@ -55,59 +26,6 @@ BeforeAll {
         Copy-Item -LiteralPath $pptxSource -Destination "$dir\資料\提案.pptx"
         [System.IO.File]::WriteAllText("$dir\壊れた.pptx", "PowerPoint ではない内容")
         return $dir
-    }
-
-    # 最後に動かしたインデックス作成の受け渡しの口（進み具合・エラーを確かめる）
-    $script:lastChannel = $null
-
-    function runIndexer {
-        # テスト用の置き場所（root）で indexer.ps1 を動かし、終了コードを返す。
-        #   options: @{ RetryFailed; ConfirmTargets; Workers（既定 0 = 取り込みのスレッドを使わない） }
-        #   breaks : 途中で動かす処理 @{ Script; Pattern; Action }（Pattern に一致する行に来るたびに Action を動かす）
-        param (
-            [string]$root,
-            [hashtable]$options = @{},
-            [object[]]$breaks = @()
-        )
-
-        $workers = if ($options.ContainsKey("Workers")) { $options.Workers } else { 0 }
-        $channel = newIndexerChannel ([bool]$options.RetryFailed) ([bool]$options.ConfirmTargets) $workers
-        $script:lastChannel = $channel
-        $global:indexerTestRoot = $root
-        $points = New-Object System.Collections.Generic.List[object]
-        try {
-            # ${dataDir} を決める行で、その前に ${rootDir} を差し替える（テスト用のフォルダには書き込めるため、setting.config・work もそこになる）。
-            # Action は止まった場所の子のスコープで動く
-            $points.Add((Set-PSBreakpoint -Script $dataDirPath -Line (findLine $dataDirPath '^\$\{dataDir\}\s*=') -Action {
-                Set-Variable -Name rootDir -Value $global:indexerTestRoot -Scope 1
-            }))
-            foreach ($break in $breaks) {
-                $points.Add((Set-PSBreakpoint -Script $break.Script -Line (findLine $break.Script $break.Pattern) -Action $break.Action))
-            }
-            & $indexerPath -Channel $channel *> $null
-            return $channel.ExitCode
-        } finally {
-            foreach ($point in $points) { Remove-PSBreakpoint -Breakpoint $point }
-            Remove-Variable -Name indexerTestRoot -Scope Global -ErrorAction SilentlyContinue
-        }
-    }
-
-    function readTestStatus {
-        param ([string]$root)
-        return (readStatusFile "$root\work\取り込み一覧.tsv")
-    }
-
-    function readTestSystemState {
-        param ([string]$root)
-        return (readSystemIndexState "$root\work\システムインデックスの状態.tsv")
-    }
-
-    function readTestError {
-        return $script:lastChannel.Error
-    }
-
-    function readTestProgress {
-        return (readIndexingProgress $script:lastChannel)
     }
 }
 
@@ -130,7 +48,7 @@ Describe "indexer.ps1（続けられないエラー）" -Tag Io {
         $root = newRoot
         writeTestSettings $root @()
         $global:indexerTestRoot = $root
-        $point = Set-PSBreakpoint -Script $dataDirPath -Line (findLine $dataDirPath '^\$\{dataDir\}\s*=') -Action {
+        $point = Set-PSBreakpoint -Script $settingsScriptPath -Line (findLine $settingsScriptPath '^\$\{settingsFile\}\s*=') -Action {
             Set-Variable -Name rootDir -Value $global:indexerTestRoot -Scope 1
         }
         try {
@@ -141,34 +59,35 @@ Describe "indexer.ps1（続けられないエラー）" -Tag Io {
             Remove-PSBreakpoint -Breakpoint $point
             Remove-Variable -Name indexerTestRoot -Scope Global -ErrorAction SilentlyContinue
         }
-        [System.IO.File]::ReadAllText("$root\work\インデックス作成ログ.txt") | Should -Match "クロール対象フォルダがありません"
+        [System.IO.File]::ReadAllText("$root\work\indexing_log.txt") | Should -Match "クロール対象フォルダがありません"
     }
 
     It "画面なしで壊れた setting.config のまま起動すると、退避して既定の設定で動き、ログに知らせを残して 1 で終わる" {
         $root = newRoot
         [System.IO.File]::WriteAllText("$root\setting.config", '{ "targetFolders": [', ${utf8Bom})
-        # 退避すると既定のワークスペースになるため、利用者の本物の tebunko_ws に書かないよう、既定の場所（プロファイルの位置）もテスト用に差し替える
+        # 退避すると既定のワークスペースになるため、利用者の既定のワークスペース（tebunko_ws） に書かないよう、既定の場所もテスト用に差し替える
+        # （環境変数 TEBUNKO_DEFAULT_WORKSPACE。テストの間だけ入れ替え、終わったら元に戻す）
         $global:indexerTestRoot = $root
         $points = @(
-            (Set-PSBreakpoint -Script $dataDirPath -Line (findLine $dataDirPath '^\$\{dataDir\}\s*=') -Action {
+            (Set-PSBreakpoint -Script $settingsScriptPath -Line (findLine $settingsScriptPath '^\$\{settingsFile\}\s*=') -Action {
                 Set-Variable -Name rootDir -Value $global:indexerTestRoot -Scope 1
             })
-            (Set-PSBreakpoint -Script "${scriptsDir}\tebunko\core\settings.ps1" -Line (findLine "${scriptsDir}\tebunko\core\settings.ps1" 'return Join-Path \$profileDir') -Action {
-                Set-Variable -Name profileDir -Value "$($global:indexerTestRoot)\profile" -Scope 1
-            })
         )
+        $previousWorkspace = $env:TEBUNKO_DEFAULT_WORKSPACE
+        $env:TEBUNKO_DEFAULT_WORKSPACE = "$root\profile\Documents\tebunko_ws"
         try {
             $global:LASTEXITCODE = 0
             & $indexerPath *> $null
             $LASTEXITCODE | Should -Be 1
         } finally {
+            $env:TEBUNKO_DEFAULT_WORKSPACE = $previousWorkspace
             foreach ($point in $points) { Remove-PSBreakpoint -Breakpoint $point }
             Remove-Variable -Name indexerTestRoot -Scope Global -ErrorAction SilentlyContinue
         }
         $broken = @(Get-ChildItem -LiteralPath $root -Filter "setting.config.broken-*")
         $broken.Count | Should -Be 1
         [System.IO.File]::ReadAllText($broken[0].FullName, [System.Text.Encoding]::UTF8) | Should -Be '{ "targetFolders": ['
-        $log = [System.IO.File]::ReadAllText("$root\profile\Documents\tebunko_ws\インデックス作成ログ.txt")
+        $log = [System.IO.File]::ReadAllText("$root\profile\Documents\tebunko_ws\indexing_log.txt")
         $log | Should -Match "設定ファイルが壊れていたため、既定の設定で起動しました"
         $log | Should -Match ([regex]::Escape($broken[0].FullName))
         $log | Should -Match "クロール対象フォルダがありません"
@@ -178,7 +97,7 @@ Describe "indexer.ps1（続けられないエラー）" -Tag Io {
         $root = newRoot
         writeTestSettings $root @(@{ name = "営業"; path = $TestDrive; enabled = $true })
         # 実行中のインデックス作成が画面とやり取りしているファイル
-        $files = @("インデックス作成ログ.txt")
+        $files = @("indexing_log.txt")
         foreach ($name in $files) {
             [System.IO.File]::WriteAllText("$root\work\$name", "実行中")
         }
@@ -220,16 +139,16 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         # 取り込んだ TSV はフォルダの集約ファイルに入れ、元のファイルごとのフォルダは残さない
         [System.IO.File]::Exists("$root\work\content_index\営業\content_index.docx.001.tsv") | Should -Be $true
         [System.IO.Directory]::Exists("$root\work\content_index\営業\議事録.docx") | Should -Be $false
-        Test-Path -LiteralPath "$root\work\content_index\営業\元のフォルダ.txt" | Should -Be $true
+        Test-Path -LiteralPath "$root\work\content_index\営業\source_folder.txt" | Should -Be $true
         # フォルダごとのシステムインデックスを作り、インデックスを対応済みにする
         [System.IO.File]::Exists("$root\work\system_index\営業\${systemIndexFileName}") | Should -Be $true
         (readTestSystemState $root).Covered.Contains("営業") | Should -Be $true
-        # content_index（フォルダ・集約ファイル・元のフォルダ.txt）は Windows Search の対象から外れ、
+        # content_index（フォルダ・集約ファイル・source_folder.txt）は Windows Search の対象から外れ、
         # system_index はそのまま索引され続ける
         ([System.IO.File]::GetAttributes("$root\work\content_index") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
         ([System.IO.File]::GetAttributes("$root\work\content_index\営業") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
         ([System.IO.File]::GetAttributes("$root\work\content_index\営業\content_index.docx.001.tsv") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
-        ([System.IO.File]::GetAttributes("$root\work\content_index\営業\元のフォルダ.txt") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
+        ([System.IO.File]::GetAttributes("$root\work\content_index\営業\source_folder.txt") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
         ([System.IO.File]::GetAttributes("$root\work\system_index") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Be 0
         ([System.IO.File]::GetAttributes("$root\work\system_index\営業\${systemIndexFileName}") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Be 0
         # 名前の無かったフォルダには名前を割り当てて保存する
@@ -239,7 +158,22 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         $progress.Phase | Should -Be ${indexingPhaseFinish}
         $progress.Failed | Should -Be 1
         readTestError | Should -BeNullOrEmpty
-        Test-Path -LiteralPath "$root\work\取り込み中.txt" | Should -Be $false
+        Test-Path -LiteralPath "$root\work\ingesting.txt" | Should -Be $false
+        # 取り込みの作業フォルダ（work\tmp\<PC の鍵>\<PID>）も削除する
+        Test-Path -LiteralPath (Join-Path "$root\work\tmp\$(getMachineKey)" "$PID") | Should -Be $false
+        # 取り込み中は、前の版の片付けだけに使う場所（%TEMP%）ではなくワークスペースの tmp の下を使う
+        $global:capturedTmpDir | Should -Not -BeNullOrEmpty
+        $global:capturedTmpDir.StartsWith("$root\work\tmp", [System.StringComparison]::OrdinalIgnoreCase) | Should -Be $true
+        # ${legacyTmpParent} の差し替えが取り込み中も効いていた（本物の %TEMP%\tebunko を指していない）ことを確かめる
+        $global:capturedLegacyTmpParent | Should -Be (Join-Path $root "legacy_tmp")
+        Test-Path -LiteralPath (Join-Path "$root\legacy_tmp" "$PID") | Should -Be $false
+        # ワークスペースの直下・content_index\<名前>\ の直下のファイル名はすべて英語にする（再発防止）
+        foreach ($entry in @(Get-ChildItem -LiteralPath "$root\work")) {
+            $entry.Name | Should -Match "^[\x20-\x7E]+$"
+        }
+        foreach ($entry in @(Get-ChildItem -LiteralPath "$root\work\content_index\営業" -File)) {
+            $entry.Name | Should -Match "^[\x20-\x7E]+$"
+        }
     }
 
     It "2 回目は更新の無いファイルを取り込まず、前回失敗したファイルもスキップする" {
@@ -250,7 +184,7 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
 
         runIndexer $root | Should -Be 0
         $progress = readTestProgress
-        $progress.Detail | Should -Be "取り込みが必要なファイルはありませんでした"
+        $progress.Detail | Should -Be "更新が必要なファイルはありませんでした"
         $status = readTestStatus $root
         $status.Rows.Count | Should -Be 3
         $status.Rows["営業\壊れた.pptx"].状態 | Should -Be ${stateFailed}
@@ -271,26 +205,50 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         [System.IO.File]::Exists("$root\work\content_index\一時\content_index.docx.001.tsv") | Should -Be $true
     }
 
+    It "ワークスペースのパスに [ ] があれば、テキストファイルを含むすべての取り込みを失敗として記録し、%TEMP% には書き込まない" {
+        # テキストファイルも中間 TSV を $tmpDir に作るため、docx・pptx と同じくスキップの対象になることを確かめる
+        $bracketSource = newSourceFolder "角かっこ用"
+        [System.IO.File]::WriteAllText("$bracketSource\メモ.txt", "テキストファイルの内容", [System.Text.Encoding]::UTF8)
+        $root = Join-Path $TestDrive "[共有]tool"
+        [System.IO.Directory]::CreateDirectory("$root\work") | Out-Null
+        writeTestSettings $root @(@{ name = ""; path = $bracketSource; enabled = $true })
+
+        runIndexer $root | Should -Be 0
+
+        $status = readTestStatus $root
+        $status.Rows.Count | Should -Be 4
+        foreach ($row in $status.Rows.Values) {
+            $row.状態 | Should -Be ${stateFailed}
+            $row.エラー | Should -Match "\[ \]"
+        }
+        $progress = readTestProgress
+        $progress.Failed | Should -Be 4
+        # 取り込み中も、置けない代わりに %TEMP% には書き込まない
+        $global:capturedTmpDir | Should -BeNullOrEmpty
+        Test-Path -LiteralPath (Join-Path "$root\legacy_tmp" "$PID") | Should -Be $false
+        (Get-Content -LiteralPath "$root\work\indexing_log.txt" -Raw) | Should -Match "スキップ"
+    }
+
     It "前回取り込み中に強制終了したファイルは最後に回して取り込む" {
         $root = newRoot
         writeTestSettings $root @(@{ name = "営業"; path = $source; enabled = $true })
-        writeListFile "$root\work\取り込み中.txt" @("1`t営業\議事録.docx")
+        writeListFile "$root\work\ingesting.txt" @("1`t営業\議事録.docx")
 
         runIndexer $root | Should -Be 0
         (readTestStatus $root).Rows["営業\議事録.docx"].状態 | Should -Be ${stateDone}
-        Test-Path -LiteralPath "$root\work\取り込み中.txt" | Should -Be $false
+        Test-Path -LiteralPath "$root\work\ingesting.txt" | Should -Be $false
     }
 
     It "続けて強制終了したファイルは取り込まずに失敗とする" {
         $root = newRoot
         writeTestSettings $root @(@{ name = "営業"; path = $source; enabled = $true })
-        writeListFile "$root\work\取り込み中.txt" @("2`t営業\議事録.docx")
+        writeListFile "$root\work\ingesting.txt" @("2`t営業\議事録.docx")
 
         runIndexer $root | Should -Be 0
         $row = (readTestStatus $root).Rows["営業\議事録.docx"]
         $row.状態 | Should -Be ${stateFailed}
         $row.エラー | Should -Match "強制終了"
-        Test-Path -LiteralPath "$root\work\取り込み中.txt" | Should -Be $false
+        Test-Path -LiteralPath "$root\work\ingesting.txt" | Should -Be $false
     }
 
     It "Office に加えてテキスト（Shift_JIS の .txt）も取り込み、その語で検索すると正しい行番号でヒットする" {
@@ -349,7 +307,7 @@ Describe "indexer.ps1（利用者のPowerPointが起動している場合）" -T
             $progress.Remaining | Should -Be 1
             readTestError | Should -BeNullOrEmpty
             $script:lastChannel.Postponed | Should -Be 1
-            $script:lastChannel.Notice | Should -Match "PowerPoint が起動していたため、1 件を取り込まずに残しました"
+            $script:lastChannel.Notice | Should -Match "PowerPoint が起動していたため、1 件を更新せずに残しました"
             # 利用者のPowerPointは、インデックス作成の間も強制終了されていない（プロセスが残っていることで確かめる）
             $userPptId | Should -Not -BeNullOrEmpty
             (Get-Process -Id $userPptId -ErrorAction SilentlyContinue) | Should -Not -BeNullOrEmpty
@@ -404,7 +362,7 @@ Describe "indexer.ps1（後回しの司令の流れ。実際のPowerPointは使�
             $status.Rows["後回し2\旧形式.ppt"].状態 | Should -Be ${stateNew}
             $status.Rows["後回し2\議事録.docx"].状態 | Should -Be ${stateDone}
             $script:lastChannel.Postponed | Should -Be 1
-            $script:lastChannel.Notice | Should -Match "1 件を取り込まずに残しました"
+            $script:lastChannel.Notice | Should -Match "1 件を更新せずに残しました"
             # stopAllApps は後片付け（finally）で 1 回だけ呼ばれる。後回しを取り込んだ件数に数えると
             # 100 件ごとの起動し直しの判定が早まって途中でも呼ばれるが、ここでは増えない
             # （RestartInterval を差し替えられる runIngestWorker 単体の It で、数えないことを詳しく確かめている）
@@ -487,6 +445,75 @@ Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
     }
 }
 
+Describe "indexer.ps1（選んだインデックスだけを更新する。OnlyNames）" -Tag Io {
+    BeforeAll {
+        $approvalLine = @{ Script = $reporterPath; Pattern = '^\s+if \(!\$ch\.Answered\.WaitOne' }
+        $global:seenPlan = $null
+    }
+
+    BeforeEach {
+        # 総務・企画の 2 つをチェック付きで取り込んだあと、両方のファイルを更新した状態にする
+        $script:a = newSourceFolder "総務"
+        $script:b = newSourceFolder "企画"
+        $script:c = newSourceFolder "休み"
+        $script:root = newRoot
+        writeTestSettings $script:root @(
+            @{ name = "総務"; path = $script:a; enabled = $true }
+            @{ name = "企画"; path = $script:b; enabled = $true }
+            @{ name = "休み"; path = $script:c; enabled = $false }
+        )
+        runIndexer $script:root | Should -Be 0
+        foreach ($dir in @($script:a, $script:b)) {
+            (Get-Item -LiteralPath "$dir\議事録.docx").LastWriteTime = (Get-Date).AddDays(1)
+        }
+        $script:before = (readTestStatus $script:root).Rows
+    }
+
+    It "選んだインデックスだけを取り込み、選ばなかったインデックスの記録・確認の表には触れない" {
+        $approve = $approvalLine.Clone()
+        $approve.Action = { $global:seenPlan = @($channel.Plan); answerIndexingPlan $channel @{ RetryFailed = $false } }
+
+        runIndexer $script:root @{ ConfirmTargets = $true; OnlyNames = @("企画") } @($approve) | Should -Be 0
+
+        $rows = (readTestStatus $script:root).Rows
+        $rows["企画\議事録.docx"].更新日時 | Should -Not -Be $script:before["企画\議事録.docx"].更新日時
+        # 選ばなかった総務は、更新されたファイルがあっても前回のまま（状態・日時・失敗の記録も含め行ごと同じ）
+        foreach ($key in @($script:before.Keys | Where-Object { $_.StartsWith("総務\") })) {
+            $rows[$key].更新日時 | Should -Be $script:before[$key].更新日時
+            $rows[$key].状態 | Should -Be $script:before[$key].状態
+            $rows[$key].エラー | Should -Be $script:before[$key].エラー
+        }
+        # 確認の表は、選んだインデックスだけ（選ばなかった行を「チェックなし」などと出さない）
+        @($global:seenPlan | ForEach-Object { $_.インデックス名 }) | Should -Be @("企画")
+        $script:lastChannel.OnlySkipped.Count | Should -Be 0
+    }
+
+    It "選んだ名前が設定に無い・チェックが付いていないときは、結果に残し、ほかの選んだものは更新する" {
+        runIndexer $script:root @{ OnlyNames = @("企画", "休み", "無い名前") } | Should -Be 0
+
+        $skipped = @($script:lastChannel.OnlySkipped)
+        @($skipped | ForEach-Object { "$($_.Name):$($_.Reason)" }) | Should -Be @("休み:チェックが付いていません", "無い名前:設定にありません")
+        $rows = (readTestStatus $script:root).Rows
+        $rows["企画\議事録.docx"].更新日時 | Should -Not -Be $script:before["企画\議事録.docx"].更新日時
+        $rows["総務\議事録.docx"].更新日時 | Should -Be $script:before["総務\議事録.docx"].更新日時
+    }
+
+    It "選んだ名前がどれも更新できなければ、エラーにして何も更新しない" {
+        runIndexer $script:root @{ OnlyNames = @("休み") } | Should -Be 1
+
+        readTestError | Should -Match "更新できるものがありません"
+        (readTestStatus $script:root).Rows["総務\議事録.docx"].更新日時 | Should -Be $script:before["総務\議事録.docx"].更新日時
+    }
+
+    It "OnlyNames が空なら、チェックの付いたものすべてを更新する（これまでどおり）" {
+        runIndexer $script:root @{ OnlyNames = @() } | Should -Be 0
+
+        $rows = (readTestStatus $script:root).Rows
+        $rows["企画\議事録.docx"].更新日時 | Should -Not -Be $script:before["企画\議事録.docx"].更新日時
+        $rows["総務\議事録.docx"].更新日時 | Should -Not -Be $script:before["総務\議事録.docx"].更新日時
+    }
+}
+
 Describe "indexer.ps1（制限時間）" -Tag Io {
     It "制限時間を過ぎて失敗したファイルは、制限時間で中止したことをエラーに書く" {
         $source = newSourceFolder "監査"
@@ -498,7 +525,7 @@ Describe "indexer.ps1（制限時間）" -Tag Io {
         runIndexer $root @{} @($timeout) | Should -Be 0
         $status = readTestStatus $root
         $status.Rows["監査\壊れた.pptx"].状態 | Should -Be ${stateFailed}
-        $status.Rows["監査\壊れた.pptx"].エラー | Should -Match "分以内に取り込みが終わらなかった"
+        $status.Rows["監査\壊れた.pptx"].エラー | Should -Match "分以内に更新が終わらなかった"
         # 取り込めたファイルは、制限時間の印が立っていても成功のまま
         $status.Rows["監査\議事録.docx"].状態 | Should -Be ${stateDone}
     }
@@ -593,14 +620,14 @@ Describe "indexer.ps1（前の版のインデックス）" -Tag Io {
         newTsv "$work\index\$name\議事録.docx\S.tsv" @("旧いインデックス")
         newTsv "$work\index\$name\元のフォルダ.txt" @("# 前の版の記録", "$name`tC:\旧い場所")
         newTsv "$work\system_index\$name\システムインデックス.txt" @("x00000000")
-        newTsv "$work\システムインデックスの状態.tsv" @("対応済み`t$name`t")
+        newTsv "$work\system_index_state.tsv" @("対応済み`t$name`t")
         $docxFile = Get-Item -LiteralPath "$sourcePath\議事録.docx"
         $updated = formatFileTime $docxFile.LastWriteTime
         $size = [string]$docxFile.Length
         $extractVersion = [string]$extractVersions[".docx"]
         writeStatusFile @([pscustomobject]@{ Path = $sourcePath; Name = $name }) @(
             (newStatusRow "$name\議事録.docx" $updated $size ${stateDone} "1" "2026/09/01 10:00:00" "" $extractVersion)
-        ) "$work\取り込み一覧.tsv"
+        ) "$work\ingest_status.tsv"
     }
 
     It "前の版のインデックスがあれば知らせて片付け、取り込み直す（前の版の index には触らない）" {
@@ -612,14 +639,14 @@ Describe "indexer.ps1（前の版のインデックス）" -Tag Io {
 
         runIndexer $root | Should -Be 0
 
-        $log = [System.IO.File]::ReadAllText("$root\work\インデックス作成ログ.txt")
+        $log = [System.IO.File]::ReadAllText("$root\work\indexing_log.txt")
         $log | Should -Match "前の版のインデックス"
         # 「済」の行が取り込み直された理由が、本文インデックスが無いこと（lost）であることをログで確かめる
         $log | Should -Match "インデックスが無い・壊れている 1 件"
         [System.IO.File]::Exists("$root\work\content_index\旧版\content_index.docx.001.tsv") | Should -Be $true
         [System.IO.File]::Exists("$root\work\system_index\旧版\system_index.txt") | Should -Be $true
         @([System.IO.Directory]::GetFiles("$root\work\system_index", "システムインデックス*.txt", "AllDirectories")).Count | Should -Be 0
-        $stateText = [System.IO.File]::ReadAllText("$root\work\システムインデックスの状態.tsv")
+        $stateText = [System.IO.File]::ReadAllText("$root\work\system_index_state.tsv")
         $stateText | Should -Not -Match "システムインデックス"
         (readTestSystemState $root).Covered.Contains("旧版") | Should -Be $true
         # 取り込み一覧の「済」の行（前の版の記録）も、本文インデックスが無いため取り込み直す
@@ -689,24 +716,32 @@ Describe "indexer.ps1（取り込みのスレッド）" -Tag Io {
         (readPackLines $parallel) -join "`n" | Should -BeExactly ((readPackLines $single) -join "`n")
         # 取り込んだ TSV（元のファイルごとのフォルダ）・取り込み中の記録・一時フォルダは残さない
         (findIndexFoldersWithBooks "$parallel\work\content_index").Count | Should -Be 0
-        Test-Path -LiteralPath "$parallel\work\取り込み中.txt" | Should -Be $false
-        @(Get-ChildItem -LiteralPath "$parallel\work\取り込み出力" -Force -ErrorAction SilentlyContinue).Count | Should -Be 0
+        Test-Path -LiteralPath "$parallel\work\ingesting.txt" | Should -Be $false
+        @(Get-ChildItem -LiteralPath "$parallel\work\publish" -Force -ErrorAction SilentlyContinue).Count | Should -Be 0
+        Test-Path -LiteralPath (Join-Path "$parallel\work\tmp\$(getMachineKey)" "$PID") | Should -Be $false
+        # 取り込み中は、前の版の片付けだけに使う場所（%TEMP%）ではなくワークスペースの tmp の下を使う
+        $global:capturedTmpDir | Should -Not -BeNullOrEmpty
+        $global:capturedTmpDir.StartsWith("$parallel\work\tmp", [System.StringComparison]::OrdinalIgnoreCase) | Should -Be $true
+        # ${legacyTmpParent} の差し替えが取り込み中も効いていた（本物の %TEMP%\tebunko を指していない）ことを確かめる
+        $global:capturedLegacyTmpParent | Should -Be (Join-Path $parallel "legacy_tmp")
+        Test-Path -LiteralPath (Join-Path "$parallel\legacy_tmp" "$PID") | Should -Be $false
         $progress = readTestProgress
         $progress.Processed | Should -Be 5
         $progress.Failed | Should -Be 1
-        (Get-Content -LiteralPath "$parallel\work\インデックス作成ログ.txt" -Raw) | Should -Match "3 個のスレッドで並べて取り込みます"
+        (Get-Content -LiteralPath "$parallel\work\indexing_log.txt" -Raw) | Should -Match "3 個のスレッドで並べて取り込みます"
     }
 
-    It "取り込みのスレッドが始められなければ、続けられないエラーで 1 を返す" {
+    It "取り込みのスレッドが読み込む部品が見つからなければ、続けられないエラーで 1 を返す" {
         $root = newRoot
         writeTestSettings $root @(@{ name = "並列"; path = $source; enabled = $true })
-        # 取り込みのスレッドが読み込む部品の場所を、無い場所にする
+        # getPartLoad indexerLib が部品を見つけられないようにする（単一 .ps1 版の分岐に入れる。
+        # bundledParts はこの breakpoint が止まった関数（invokeIndexerBody）のスコープだけに置き、他のテストに残さない）
         $broken = @{ Script = $runPath; Pattern = '^\s+\$pool = newIngestPool'; Action = {
-                Set-Variable -Name indexerLibPath -Value (Join-Path $TestDrive "無い.ps1") -Scope 1
+                Set-Variable -Name bundledParts -Value @{} -Scope 1
             }
         }
         runIndexer $root @{ Workers = 2 } @($broken) | Should -Be 1
-        readTestError | Should -Match "取り込みのスレッドが止まりました"
+        readTestError | Should -Match "indexerLib の部品が入っていません"
     }
 }
 
@@ -729,10 +764,11 @@ Describe "getIngestWorkerCount" -Tag Unit {
 }
 
 Describe "取り込みのスレッドのスクリプト（ingestWorkerScript）" -Tag Io {
-    # 取り込みのスレッドで動くスクリプトを、このスレッドで直接動かして確かめる（スレッドの中の動きはブレークポイントで止められないため）
+    # 取り込みのスレッドで動くスクリプトを、このスレッドで直接動かして確かめる（スレッドの中の動きはブレークポイントで止められないため）。
+    # 本物は addIngestTask が indexerLib の Prelude をつないでから動かすため（newWorkerTmpDir など indexer_lib.ps1 の関数を使う）、
+    # ここでは直接呼ぶため indexer_lib.ps1 をまとめて読み込んでおく
     BeforeAll {
-        . $runPath
-        . "${scriptsDir}\shared\office\office_app.ps1"
+        . "${scriptsDir}\tebunko\indexer\indexer_lib.ps1"
     }
 
     It "取り込み待ちの列のファイルを取り込んで結果の列に入れ、列が閉じられたら Office を片づけて終わる" {
@@ -746,7 +782,7 @@ Describe "取り込みのスレッドのスクリプト（ingestWorkerScript）"
         $tasks.Add(@{ RelPath = "営業\無い.docx"; SourcePath = (Join-Path $TestDrive "無い.docx") })
         $tasks.CompleteAdding()
         $settings = @{
-            Lib = "${scriptsDir}\tebunko\indexer\indexer_lib.ps1"
+            Lib = getPartLoad indexerLib
             WorkDir = $root; TmpDir = "$root\tmp"; PublishDir = "$root\publish"
             FileTimeoutMinutes = 10; RestartInterval = 1
             OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'
@@ -850,7 +886,7 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
         $result.Ok | Should -Be $false
         $result.Reroute | Should -Be $false
         $result.Postponed | Should -Be $false
-        $result.Message | Should -Be "IRM・秘密度ラベルで暗号化されているため取り込めません。"
+        $result.Message | Should -Be "IRM・秘密度ラベルで暗号化されているため更新できません。"
         Should -Invoke getApp -Times 0 -Exactly -Scope It
     }
 
@@ -924,7 +960,7 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
             $result = invokeIngestTask @{ RelPath = "資料\big_for_indexer.docx"; SourcePath = $path } 10
             $result.Ok | Should -Be $false
             $result.Reroute | Should -Be $false
-            $result.Message | Should -Be "ファイルサイズが大きすぎるため取り込めません。"
+            $result.Message | Should -Be "ファイルサイズが大きすぎるため更新できません。"
             Should -Invoke getApp -Times 0 -Exactly -Scope It
             # 原因を調べられるよう、画面・取り込み一覧には出さない部品名・大きさ・部品ごとか合計かを、インデックス作成のログにだけ書く
             $result.Log | Should -Match "word/document\.xml"

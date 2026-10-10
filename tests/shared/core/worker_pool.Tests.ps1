@@ -22,6 +22,43 @@ Describe "newWorkerState" -Tag Unit {
     }
 }
 
+Describe "joinWorkerScript" -Tag Unit {
+    BeforeEach {
+        # workerPreludeDone は「同じランスペースでは 1 回だけ」を global で覚える印のため、
+        # It をまたいで残らないよう、各テストの前後で消す
+        Remove-Variable -Name workerPreludeDone, preludeRunCount -Scope Global -ErrorAction SilentlyContinue
+    }
+    AfterEach {
+        Remove-Variable -Name workerPreludeDone, preludeRunCount -Scope Global -ErrorAction SilentlyContinue
+    }
+
+    It "param ブロックだけがあれば、その直後に差し込む" {
+        $joined = joinWorkerScript 'function p { "pre" }' 'param ($a) "$a $(p)"'
+        $joined | Should -Match '(?s)^param \(\$a\).*function p'
+        & ([scriptblock]::Create($joined)) "x" | Should -Be "x pre"
+    }
+
+    It "param の後に `$ErrorActionPreference = `"Stop`" があれば、その後ろに差し込む（読めないとき、そこで止まる動きを保つ）" {
+        $joined = joinWorkerScript 'throw "読めません"' 'param ($a) $ErrorActionPreference = "Stop"
+"$a"'
+        $joined | Should -Match '(?s)^param \(\$a\)\s*\$ErrorActionPreference = "Stop".*throw'
+        { & ([scriptblock]::Create($joined)) "x" } | Should -Throw "*読めません*"
+    }
+
+    It "param ブロックが無ければ、先頭に差し込む" {
+        $joined = joinWorkerScript 'function p { "pre" }' '"$(p)"'
+        $joined | Should -Match '^\s*\r?\nif'
+        & ([scriptblock]::Create($joined)) | Should -Be "pre"
+    }
+
+    It "同じランスペースで仕事を繰り返しても、prelude は 1 回だけ実行する" {
+        $joined = joinWorkerScript '$global:preludeRunCount = [int]$global:preludeRunCount + 1' '"ok"'
+        & ([scriptblock]::Create($joined)) | Out-Null
+        & ([scriptblock]::Create($joined)) | Out-Null
+        $global:preludeRunCount | Should -Be 1
+    }
+}
+
 Describe "WorkerPool" -Tag Unit {
     BeforeEach {
         function workerPoolTestDouble($x) { $x * 2 }
@@ -95,7 +132,7 @@ Describe "WorkerPool（Prelude）" -Tag Unit {
 
 Describe "BackgroundQueue" -Tag Unit {
     BeforeEach {
-        $script:queue = [BackgroundQueue]::new(2, 'function queueHelper($x) { "[$x]" }', $null)
+        $script:queue = [BackgroundQueue]::new(2, @{ State = (newWorkerState); Prelude = 'function queueHelper($x) { "[$x]" }' }, $null)
         $script:done = New-Object System.Collections.Generic.List[string]
     }
     AfterEach {
@@ -144,7 +181,7 @@ Describe "BackgroundQueue" -Tag Unit {
         # Start-Sleep（直す前の Close の確かめ方）は Stop で割り込めるため、このテストでは使わない。
         # $script:queue（BeforeEach・AfterEach で Close する共有の列）は使わない。この専用の列は Abandon の後、
         # 片づけをプロセスの終わりに任せる決まりのとおり Close しない（Close すると、居座る仕事の分だけ AfterEach が遅くなる）
-        $stuck = [BackgroundQueue]::new(1, "", $null)
+        $stuck = [BackgroundQueue]::new(1, @{ State = (newWorkerState); Prelude = "" }, $null)
         $stuck.Post('[System.Threading.Thread]::Sleep(30000)', @(), $null)
         $watch = [System.Diagnostics.Stopwatch]::StartNew()
         $stuck.Abandon()
@@ -152,7 +189,7 @@ Describe "BackgroundQueue" -Tag Unit {
         $watch.Elapsed.TotalSeconds | Should -BeLessThan 2
 
         # Abandon の後、新しい列を作って使える（片づけていないランスペースが残っていても、新しい列は困らない）
-        $next = [BackgroundQueue]::new(1, "", $null)
+        $next = [BackgroundQueue]::new(1, @{ State = (newWorkerState); Prelude = "" }, $null)
         try {
             $next.Post('"次の列"', @(), { param ($output, $errorText) $script:done.Add("$($output[0])") })
             $watch2 = [System.Diagnostics.Stopwatch]::StartNew()

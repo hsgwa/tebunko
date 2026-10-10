@@ -43,10 +43,12 @@ Describe "splitObjectPlace" -Tag Unit {
         # 画面のクラスはスクリプトの変数を使えず、shared はツールの変数を使えないため、同じ名前を別々に書いている
         $reader = [System.IO.File]::ReadAllText("${scriptsDir}\shared\office\office_reader.ps1")
         $hitRow = [System.IO.File]::ReadAllText("${scriptsDir}\tebunko\ui\types.ps1")
-        foreach ($kind in @(${placeKindShape}, ${placeKindComment})) {
+        foreach ($kind in @(${placeKindShape}, ${placeKindComment}, ${placeKindHeaderFooter})) {
             $reader.Contains("[$kind]") | Should -Be $true
         }
-        $hitRow.Contains("\[(?:${placeKindShape}|${placeKindComment})\]") | Should -Be $true
+        $hitRow.Contains("\[(?:${placeKindShape}|${placeKindComment}|${placeKindHeaderFooter})\]") | Should -Be $true
+        # セル番地が無い場所（ヘッダー・フッター）の判定（IsCelllessPlace）も、同じ種類の名前で書く
+        $hitRow.Contains("CelllessPlaceRegex = [regex]::new(`"\[${placeKindHeaderFooter}\]") | Should -Be $true
     }
 }
 
@@ -62,8 +64,12 @@ Describe "describePlace" -Tag Unit {
         described "見積.xlsx" "売上" | Should -Be "[シート]売上|セル"
         described "見積.xlsx" "売上[図形]" | Should -Be "[シート]売上|図形"
         described "見積.xlsx" "売上[コメント]" | Should -Be "[シート]売上|コメント"
+        described "見積.xlsx" "売上[ヘッダー・フッター]" | Should -Be "[シート]売上|ヘッダー・フッター"
         # シート名が「ページ001」でも、Excel ならシートとして出す
         described "旧.XLS" "ページ001" | Should -Be "[シート]ページ001|セル"
+        # シート名が固定名のファイル名（page_001）・Word の固定の場所（ヘッダー・フッター）と同じ文字列でも、Excel ならシートとして出す
+        described "旧.XLS" "page_001" | Should -Be "[シート]page_001|セル"
+        described "旧.XLS" "ヘッダー・フッター" | Should -Be "[シート]ヘッダー・フッター|セル"
     }
 
     It "Word のページは番号にし、目安であることを付ける。番号の無い場所は名前のまま" {
@@ -98,6 +104,7 @@ Describe "describeHitPlace" -Tag Unit {
         @{ name = "Excel のセル番地が求まらないときは行番号を足す"; place = "[シート]売上"; excel = $true; object = $false; cell = ""; count = 0; line = 12; expected = "[シート]売上 12 行目" }
         @{ name = "Excel の図形・コメントは、左上・コメントのセル番地を足す"; place = "[シート]売上"; excel = $true; object = $true; cell = "D5"; count = 1; line = 1; expected = "[シート]売上!D5" }
         @{ name = "Excel の図形・コメントでセル番地が求まらないときは、通し番号のため行番号を出さない"; place = "[シート]売上"; excel = $true; object = $true; cell = ""; count = 0; line = 2; expected = "[シート]売上" }
+        @{ name = "Excel のヘッダー・フッターは、セル番地が無いのでシート名だけ"; place = "[シート]売上"; excel = $true; object = $true; cell = ""; count = 1; line = 3; expected = "[シート]売上" }
         @{ name = "Word は場所ごとの表記のまま"; place = "3 ページ（目安）"; excel = $false; object = $false; cell = ""; count = 0; line = 5; expected = "3 ページ（目安）" }
         @{ name = "PowerPoint は場所ごとの表記のまま"; place = "スライド 9（非表示）"; excel = $false; object = $true; cell = ""; count = 0; line = 2; expected = "スライド 9（非表示）" }
         @{ name = "テキストは行番号だけ（場所は 1 つしかないため）"; place = ""; excel = $false; object = $false; cell = ""; count = 0; line = 12; expected = "12 行目"; text = $true }
@@ -123,6 +130,56 @@ Describe "toIndexFileName" -Tag Unit {
         } else {
             (toIndexFileName $place).Length | Should -Be 255
         }
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "ページは page_<番号>"; place = "ページ001"; fileName = "page_001.tsv"; ascii = $true }
+        @{ name = "桁数の多いページ番号もそのまま写す"; place = "ページ12345"; fileName = "page_12345.tsv"; ascii = $true }
+        @{ name = "非表示のスライドは slide_<番号>_hidden"; place = "スライド002（非表示）"; fileName = "slide_002_hidden.tsv"; ascii = $true }
+        @{ name = "スライドのノートは slide_<番号>_notes"; place = "スライド002_ノート"; fileName = "slide_002_notes.tsv"; ascii = $true }
+        @{ name = "ふつうのスライドは slide_<番号>"; place = "スライド002"; fileName = "slide_002.tsv"; ascii = $true }
+        @{ name = "ヘッダー・フッターは header_footer"; place = "ヘッダー・フッター"; fileName = "header_footer.tsv"; ascii = $true }
+        @{ name = "脚注は doc_footnotes"; place = "脚注"; fileName = "doc_footnotes.tsv"; ascii = $true }
+        @{ name = "文書は doc_whole"; place = "文書"; fileName = "doc_whole.tsv"; ascii = $true }
+        @{ name = "本文は doc_body"; place = "本文"; fileName = "doc_body.tsv"; ascii = $true }
+        @{ name = "固定名の場所の図形は末尾に [shape]"; place = "スライド002[図形]"; fileName = "slide_002[shape].tsv"; ascii = $true }
+        @{ name = "固定名の場所のコメントは末尾に [comment]"; place = "ページ001[コメント]"; fileName = "page_001[comment].tsv"; ascii = $true }
+        @{ name = "非表示のスライドの図形も末尾に [shape]"; place = "スライド002（非表示）[図形]"; fileName = "slide_002_hidden[shape].tsv"; ascii = $true }
+        @{ name = "文書のコメントは doc_whole[comment]"; place = "文書[コメント]"; fileName = "doc_whole[comment].tsv"; ascii = $true }
+        @{ name = "Excel の任意のシート名は符号化する（固定名に当てはまらない）"; place = "売上"; fileName = "売上.tsv"; ascii = $false }
+        @{ name = "シート名の図形は末尾に [shape]"; place = "売上[図形]"; fileName = "売上[shape].tsv"; ascii = $false }
+        @{ name = "シート名の _ は %5F にする（固定名と区別するため）"; place = "2024_上期"; fileName = "2024%5F上期.tsv"; ascii = $false }
+        @{ name = "シート名が固定名のファイル名（page_001）と同じでも、_ を %5F にするため区別できる"; place = "page_001"; fileName = "page%5F001.tsv"; ascii = $true }
+        @{ name = "シート名の % は %25 にする"; place = "50%引き"; fileName = "50%25引き.tsv"; ascii = $false }
+        @{ name = "シート名のファイル名禁止文字は符号化する"; place = "記号<>"; fileName = "記号%3C%3E.tsv"; ascii = $false }
+        @{ name = "Excel のシート名のヘッダー・フッターは末尾に [header_footer]"; place = "売上[ヘッダー・フッター]"; fileName = "売上[header_footer].tsv"; ascii = $false }
+        @{ name = "固定名のヘッダー・フッター（Word・PowerPoint）に、同名のシートの種類の [header_footer] が付いても戻せる"; place = "ヘッダー・フッター[ヘッダー・フッター]"; fileName = "header_footer[header_footer].tsv"; ascii = $true }
+    ) {
+        param ($name, $place, $fileName, $ascii)
+        toIndexFileName $place | Should -Be $fileName
+        # convertIndexFileNameToPlace で元の場所へ一意に戻せる（往復できる）
+        convertIndexFileNameToPlace ([System.IO.Path]::GetFileNameWithoutExtension($fileName)) | Should -Be $place
+        if ($ascii) {
+            $fileName | Should -Match "^[\x00-\x7F]+$"
+        }
+    }
+}
+
+Describe "placeKindFileNames" -Tag Unit {
+    It "objectPlacePattern の種類の選択肢が、表（placeKindFileNames）のキーと集合として同じ（足し忘れを防ぐ）" {
+        $marker = "(?<kind>"
+        $start = ${objectPlacePattern}.IndexOf($marker) + $marker.Length
+        $end = ${objectPlacePattern}.IndexOf(")\]`$")
+        $alt = ${objectPlacePattern}.Substring($start, $end - $start)
+        $patternKinds = $alt -split '\|' | ForEach-Object { [regex]::Unescape($_) }
+        ($patternKinds | Sort-Object) | Should -Be (${placeKindFileNames}.Keys | Sort-Object)
+    }
+
+    It "表のキーだけが objectPlacePattern に一致し、知らない種類は一致しない" {
+        foreach ($kind in ${placeKindFileNames}.Keys) {
+            "売上[$kind]" | Should -Match ${objectPlacePattern}
+        }
+        "売上[未知の種類]" | Should -Not -Match ${objectPlacePattern}
     }
 }
 
@@ -254,6 +311,15 @@ Describe "testIndexName" -Tag Unit {
     ) {
         param ($name, $value, $used, $pattern)
         testIndexName $value $used | Should -Match $pattern
+    }
+
+    It "画面に出す理由は「インデックス名」でなく「名前」で言う（一覧の見出し・編集の欄と同じ言葉）" -TestCases @(
+        @{ value = "" }, @{ value = " 営業" }, @{ value = "営業\部" }, @{ value = "営業." }, @{ value = ("あ" * 256) }
+    ) {
+        param ($value)
+        $reason = testIndexName $value @()
+        $reason | Should -Match "^名前"
+        $reason | Should -Not -Match "インデックス名"
     }
 }
 

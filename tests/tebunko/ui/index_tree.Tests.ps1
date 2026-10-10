@@ -1,4 +1,4 @@
-﻿# ［2 検索］の検索対象インデックスのツリー（tebunko\ui\index_tree.ps1）のテスト。
+﻿# ［検索］の検索対象インデックスのツリー（tebunko\ui\index_tree.ps1）のテスト。
 # 画面の部品（$ui.IndexTree など）は偽物にし、インデックス・設定ファイルは TestDrive に作って確かめる。
 BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
@@ -23,12 +23,11 @@ BeforeAll {
 
     $ui = [pscustomobject]@{
         IndexTree             = $tree
-        IndexTreePlaceholder  = [pscustomobject]@{ Visibility = "Collapsed" }
         CheckAllIndexButton   = newFakeButton "CheckAll"
         UncheckAllIndexButton = newFakeButton "UncheckAll"
     }
 
-    # 画面の共通部品（shared\ui\shell.ps1）と［2 検索］タブ（search_tab.ps1）の代わり
+    # 画面の共通部品（shared\ui\shell.ps1）と［検索］の検索条件の画面（ui\search\search_bar.ps1）の代わり
     function safe {
         param ([scriptblock]$block)
         & $block
@@ -43,7 +42,7 @@ BeforeAll {
     $safeDir = Join-Path ([System.IO.Path]::GetTempPath()) "tebunko_index_tree_test_$([guid]::NewGuid())"
     $indexDir = "$safeDir\index"
     $settingsFile = "$safeDir\setting.config"
-    $statusFile = "$safeDir\取り込み一覧.tsv"
+    $statusFile = "$safeDir\ingest_status.tsv"
     $workspace = newTestWorkspace @{ IndexDir = $indexDir; StatusFile = $statusFile }
 
     # ---- テストの準備 ----
@@ -105,7 +104,7 @@ Describe "loadIndexTree" -Tag Io {
     BeforeAll {
         $indexDir = "$TestDrive\index"
         $settingsFile = "$TestDrive\setting.config"
-        $statusFile = "$TestDrive\取り込み一覧.tsv"
+        $statusFile = "$TestDrive\ingest_status.tsv"
         $workspace = newTestWorkspace @{ IndexDir = $indexDir; StatusFile = $statusFile }
     }
 
@@ -115,11 +114,10 @@ Describe "loadIndexTree" -Tag Io {
         $fake.TargetUpdates = 0
     }
 
-    It "インデックスが無ければ案内を出す" {
+    It "インデックスが無ければ空のまま対象を更新する" {
         loadIndexTree
 
         $script:indexRoots.Count | Should -Be 0
-        $ui.IndexTreePlaceholder.Visibility | Should -Be "Visible"
         $fake.TargetUpdates | Should -Be 1
         @(getSearchTargets).Count | Should -Be 0
     }
@@ -131,7 +129,6 @@ Describe "loadIndexTree" -Tag Io {
         loadIndexTree
 
         (@($script:indexRoots | ForEach-Object { $_.Name }) -join ",") | Should -Be "総務部,営業部"
-        $ui.IndexTreePlaceholder.Visibility | Should -Be "Collapsed"
         (getRoot "営業部").SourcePath | Should -Be "C:\共有\営業部"
         (getRoot "営業部").ToolTip | Should -Match "^元のフォルダ：C:\\共有\\営業部"
         isAllIndexChecked | Should -Be $true
@@ -210,7 +207,7 @@ Describe "saveSearchExcludes・setAllIndexChecked" -Tag Io {
     BeforeAll {
         $indexDir = "$TestDrive\index"
         $settingsFile = "$TestDrive\setting.config"
-        $statusFile = "$TestDrive\取り込み一覧.tsv"
+        $statusFile = "$TestDrive\ingest_status.tsv"
         $workspace = newTestWorkspace @{ IndexDir = $indexDir; StatusFile = $statusFile }
     }
 
@@ -291,7 +288,7 @@ Describe "イベント" -Tag Io {
     BeforeAll {
         $indexDir = "$TestDrive\index"
         $settingsFile = "$TestDrive\setting.config"
-        $statusFile = "$TestDrive\取り込み一覧.tsv"
+        $statusFile = "$TestDrive\ingest_status.tsv"
         $workspace = newTestWorkspace @{ IndexDir = $indexDir; StatusFile = $statusFile }
     }
 

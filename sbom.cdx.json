@@ -21,7 +21,7 @@
     "properties": [
       {
         "name": "tebunko:thirdPartyComponents",
-        "value": "0"
+        "value": "2"
       },
       {
         "name": "tebunko:prerequisite",
@@ -41,7 +41,7 @@
       },
       {
         "name": "tebunko:note",
-        "value": "ツール本体に第三者ライブラリ・パッケージマネージャー（NuGet・npm・PyPI）由来の部品を含まない。したがって第三者部品に由来する既知脆弱性（CVE）とライセンス義務が発生しない。zip 版は実行可能バイナリ（.exe / .dll）も含まない。"
+        "value": "ツール本体に第三者ライブラリ・パッケージマネージャー（NuGet・npm・PyPI）由来のコードを含まない。同梱する第三者の部品は、フォント Rethink Sans（SIL Open Font License 1.1）とアイコンの形 Lucide（ISC ライセンス）の 2 つで、どちらも実行されるコードではなく、ライセンス文を scripts/shared/fonts/ に添えている。したがって第三者のコードに由来する既知脆弱性（CVE）は発生しない。zip 版は実行可能バイナリ（.exe / .dll）も含まない。"
       },
       {
         "name": "tebunko:note",

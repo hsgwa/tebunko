@@ -1,32 +1,35 @@
-﻿# インデックス作成の確認ダイアログ・進み具合に出す文言の決定。
+﻿# インデックス更新の確認ダイアログ・進み具合に出す文言の決定。
 # 画面に触らないため、そのままテストできる（tests\tebunko\ui\indexing_view.Tests.ps1）。
 #
-# 色は「意味」（Tone）で返し、実際の色は画面側（indexing_tab.ps1）で対応表から引く。
-#   info = これから取り込む / ok = 取り込みの必要なし / warn = 注意 / ng = 取り込めない / gray = 対象外
+# 色は Level（Ok / Wait / Ng / Run / None）で返し、実際の色は theme.xaml の Badge.* から引く（画面側）。
 
 function newPlanViewRows {
-    # 取り込み予定（取り込み予定.tsv の行）を、確認のダイアログに出す形にする
+    # 更新の予定（取り込み予定.tsv の行）を、確認のダイアログに出す形にする。
+    # 行は Name・Path・TotalText（対象ファイル数）・StatusText（バッジの文言）・Level（バッジの色。Wait / Ok / None / Ng）・DetailText（バッジの ToolTip）
+    #   onlyNames: 選んだものだけの回のインデックス名（空なら全部）。選ばなかったものは出さない（「対象外」とも出さない）
     param (
-        $plan  # readIngestPlan の結果
+        $plan,  # readIngestPlan の結果
+        [string[]]$onlyNames = @()
     )
 
     $rows = New-Object System.Collections.Generic.List[object]
     foreach ($item in @($plan)) {
         # 空の配列を渡すと @($plan) に $null が 1 つ入るため、ここで外す
         if ($null -eq $item) { continue }
-        $row = @{ Name = $item.インデックス名; Path = $item.元のフォルダ; Tone = "info" }
+        if (@($onlyNames).Count -gt 0 -and @($onlyNames) -notcontains [string]$item.インデックス名) { continue }
+        $row = @{ Name = $item.インデックス名; Path = $item.元のフォルダ }
         if ($item.区分 -eq ${planKindUnchecked}) {
-            $row.TargetText = "取り込みません"
-            $row.Tone = "gray"
-            $row.DetailText = "［作成］のチェックが外れています（インデックスはそのまま残します）"
             $row.TotalText = "－"
+            $row.StatusText = "対象外"
+            $row.Level = "None"
+            $row.DetailText = "設定で［すべて更新］の対象から外れているため更新しません（インデックスはそのまま残します）"
         } elseif ($item.区分 -eq ${planKindMissing}) {
-            $row.TargetText = "取り込めません"
-            $row.Tone = "ng"
-            $row.DetailText = "元のフォルダが見つかりません（［編集…］で場所を変えられます）"
             $row.TotalText = "－"
+            $row.StatusText = "フォルダなし"
+            $row.Level = "Ng"
+            $row.DetailText = "元のフォルダが見つかりません（［編集…］で場所を変えられます）"
         } else {
-            $row.TotalText = "{0:#,0} 件" -f $item.ファイル数
+            $row.TotalText = "{0:#,0}" -f $item.ファイル数
             # 0 件の内訳は出さない（ふだんは「新規」「更新あり」だけになる）
             $parts = New-Object System.Collections.Generic.List[string]
             foreach ($pair in @(
@@ -40,17 +43,58 @@ function newPlanViewRows {
                 }
             }
             if ($item.取り込み対象 -gt 0) {
-                $row.TargetText = "{0:#,0} 件" -f $item.取り込み対象
-                $row.Tone = "info"
+                $row.StatusText = "要更新"
+                $row.Level = "Wait"
+                $row.DetailText = "更新するファイル {0:#,0} 件（{1}）" -f $item.取り込み対象, ($parts -join " / ")
             } else {
-                $row.TargetText = "更新不要"
-                $row.Tone = "ok"
+                $row.StatusText = "最新"
+                $row.Level = "Ok"
+                $row.DetailText = if ($parts.Count -gt 0) { $parts -join " / " } else { "すべて最新です" }
             }
-            $row.DetailText = if ($parts.Count -gt 0) { $parts -join " / " } else { "すべて取り込み済みです" }
         }
         $rows.Add($row)
     }
     return , $rows.ToArray()
+}
+
+function getIndexingSkippedView {
+    # 選んだものだけの回で、更新できなかった名前（インデクサの OnlySkipped。@{ Name; Reason } の配列）を知らせる文言。
+    # 無ければ $null。@{ Heading; Detail }
+    param (
+        [object[]]$skipped
+    )
+
+    $skipped = @($skipped | Where-Object { $null -ne $_ })
+    if ($skipped.Count -eq 0) { return $null }
+    return @{
+        Heading = "{0:#,0} 件のインデックスは更新できませんでした。" -f $skipped.Count
+        Detail = ($skipped | ForEach-Object { "「$($_.Name)」: $($_.Reason)" }) -join "`n"
+    }
+}
+
+function getIndexingCurrentName {
+    # 取り込み中のファイル（<インデックス名>\<相対パス>）から、インデックス名を取り出す。取れなければ空文字列
+    param (
+        [string]$current
+    )
+
+    $index = $current.IndexOf("\")
+    if ($index -lt 1) { return "" }
+    return $current.Substring(0, $index)
+}
+
+function getIndexingBannerLevel {
+    # 更新が終わった帯の色の種類（info/warn/ok/ng のうち、ここでは warn か ok）。
+    # 注意が要る終わり方（更新そのものができなかった・中止・取りやめ・失敗したファイルがある）は橙の warn、
+    # 失敗なく終わったときだけ緑の ok。赤（ng）は、使えない状態（ワークスペースが使えないなど）にだけ使う
+    param (
+        [int]$exitCode,  # インデクサの終了コード（0 完了、1 続けられないエラー、2 中止・取りやめ）
+        [int]$failed     # 失敗したファイルの件数
+    )
+
+    if ($exitCode -ne 0) { return "warn" }
+    if ($failed -gt 0) { return "warn" }
+    return "ok"
 }
 
 function getIndexingEndText {
@@ -71,17 +115,17 @@ function getIndexingEndText {
         }
         $parts = New-Object System.Collections.Generic.List[string]
         if ($failed -gt 0) {
-            $parts.Add("失敗したファイルと原因は「取り込みに失敗したファイル」の一覧で確認できます。")
+            $parts.Add("失敗したファイルと原因は「更新に失敗したファイル」の一覧で確認できます。")
         }
         if ($notice) {
             $parts.Add($notice)
         }
-        return @{ Text = "インデックス作成が終わりました（${counts}）"; Detail = ($parts -join " ") }
+        return @{ Text = "更新が終わりました（${counts}）"; Detail = ($parts -join " ") }
     }
     if ($postponed -gt 0) {
-        return @{ Text = "インデックス作成が終わりました（取り込まずに残したファイル ${postponed} 件）"; Detail = $notice }
+        return @{ Text = "更新が終わりました（更新せずに残したファイル ${postponed} 件）"; Detail = $notice }
     }
-    return @{ Text = "取り込みが必要なファイルはありませんでした"; Detail = "" }
+    return @{ Text = "更新が必要なファイルはありませんでした"; Detail = "" }
 }
 
 function getIndexingStateText {
@@ -93,13 +137,13 @@ function getIndexingStateText {
     )
 
     if ($pending -gt 0 -and !$indexing) {
-        return "⏸ まだ取り込んでいないファイルがあります（残り ${pending} 件）"
+        return "更新を中断しました（残り ${pending} 件）"
     }
     return ""
 }
 
 function getReingestConfirm {
-    # ［インデックス作成を開始］の確かめ。前の版のしるしがあり content_index\ が空のときだけ確かめの文言を返し、
+    # ［すべて更新］の確かめ。前の版のしるしがあり content_index\ が空のときだけ確かめの文言を返し、
     # ほかの 3 通り（しるしが無い・空でない）では確かめを出さない（空を返す）
     param (
         [bool]$hasLegacyIndex,
@@ -107,17 +151,35 @@ function getReingestConfirm {
     )
 
     if ($hasLegacyIndex -and $contentEmpty) {
-        return "前の版のインデックスは使えないため、元のファイルをすべて取り込み直します。ファイルが多いと時間がかかります。始めますか？"
+        return "前の版のインデックスは使えないため、元のファイルをすべて更新し直します。ファイルが多いと時間がかかります。始めますか？"
     }
     return ""
 }
 
-function getIndexingConfirmText {
-    # 「失敗分も再取り込みする」のチェックに合わせた、合計の文言と主ボタンの文言
+function getIndexingConfirmFolderCount {
+    # 確認の合計に出す「更新するフォルダの数」。取り込む対象（失敗分を含めるなら前回失敗も）が 1 件以上あるフォルダだけを数える
     param (
-        [int]$targets,      # 取り込み対象の件数
-        [int]$failed,       # 前回失敗した件数
-        [bool]$retryFailed  # 失敗分も再取り込みするか
+        [object[]]$plan,    # readIngestPlan の結果
+        [bool]$retryFailed  # 失敗分も更新し直すか
+    )
+
+    $folders = 0
+    foreach ($item in @($plan)) {
+        if ($null -eq $item -or $item.区分 -ne ${planKindIngest}) { continue }
+        $count = [int]$item.取り込み対象
+        if ($retryFailed) { $count += [int]$item.前回失敗 }
+        if ($count -gt 0) { $folders++ }
+    }
+    return $folders
+}
+
+function getIndexingConfirmText {
+    # 「失敗分も更新し直す」のチェックに合わせた、合計の文言と主ボタンの文言
+    param (
+        [int]$targets,      # 更新対象のファイル数
+        [int]$failed,       # 前回失敗したファイル数
+        [bool]$retryFailed, # 失敗分も更新し直すか
+        [int]$folders = 0   # 更新するフォルダの数（失敗分を含めるかは呼び出し側で数える）
     )
 
     $total = $targets
@@ -125,7 +187,7 @@ function getIndexingConfirmText {
         $total += $failed
     }
     if ($total -gt 0) {
-        return @{ Total = $total; Text = "合計 {0:#,0} 件を取り込みます。" -f $total; Button = "インデックス作成を開始" }
+        return @{ Total = $total; Text = "更新対象: {0:#,0} フォルダ / {1:#,0} ファイル（最新のフォルダは更新しません）" -f $folders, $total; Button = "更新を開始" }
     }
-    return @{ Total = 0; Text = "更新が必要なファイルはありません（すべて取り込み済みです）。"; Button = "閉じる" }
+    return @{ Total = 0; Text = "更新が必要なファイルはありません（すべて最新です）。"; Button = "閉じる" }
 }

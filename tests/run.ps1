@@ -61,12 +61,17 @@ if ($Ci) {
     # ブレークポイントを使う計測は遅いため、使わない計測（Profiler）にする
     $config.CodeCoverage.Enabled = $true
     $config.CodeCoverage.UseBreakpoints = $false
-    $config.CodeCoverage.Path = @(Get-ChildItem "$rootDir\scripts" -Recurse -Filter "*.ps1" |
-        Where-Object { $_.Name -notmatch "^(gui|shell|app_host)\.ps1$" -and $_.Name -notmatch "_tab\.ps1$" -and $_.Name -notmatch "_dialog\.ps1$" } |
-        ForEach-Object { $_.FullName })
+    . "$PSScriptRoot\helpers\coverage_targets.ps1"
+    $config.CodeCoverage.Path = @(getCoverageTargets "$rootDir\scripts")
     # Pester が書き出す XML には絶対パスが入るため、work\test（CI の成果物に入る）には置かず、使わない（下の writeCobertura で書く）
     $config.CodeCoverage.OutputPath = Join-Path ([System.IO.Path]::GetTempPath()) "tebunko-coverage-$PID.xml"
 }
+
+# テストは、使い捨ての既定のワークスペースで流す（環境変数 TEBUNKO_DEFAULT_WORKSPACE。同じプロセスのテストにも、そこから起動した画面・
+# indexer.ps1・単一 .ps1 版にも引き継がれる）。入れた場所が利用者の既定のワークスペースを指していれば、流さずに止まる。
+# 流す前後で、既定のワークスペースの名前・大きさ・更新時刻を比べ、違えば失敗にする（どのタグでも行う）
+. "$rootDir\tools\isolation\isolation_common.ps1"
+$workspaceGuard = startWorkspaceGuard
 
 if ($Ci) {
     # カバレッジの計測（Profiler）はトレースを使う。Windows PowerShell 5.1 では、最後のブレークポイントを外すとデバッガが止まり、
@@ -78,6 +83,12 @@ try {
     $result = Invoke-Pester -Configuration $config
 } finally {
     if ($Ci) { Remove-PSBreakpoint -Breakpoint $keepDebugger }
+    # Invoke-Pester が例外で抜けたときも、既定のワークスペースの前後の比べを表示する
+    $guardReport = finishWorkspaceGuard $workspaceGuard
+    $guardReport.Lines | ForEach-Object { Write-Host $_ -ForegroundColor Red }
+}
+if ($guardReport.ExitCode -ne 0) {
+    exit $guardReport.ExitCode
 }
 if (!$result) {
     Write-Host "テストを実行できませんでした（-Path $($Path -join ',')）。" -ForegroundColor Red

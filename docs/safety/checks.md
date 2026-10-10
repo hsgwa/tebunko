@@ -24,8 +24,8 @@ function scan { param([string[]]$Pattern)
 | 8 | 実行ポリシーの恒久変更・`Bypass` | 該当 0 件 | `scan 'Set-ExecutionPolicy','ExecutionPolicy\s+Bypass'` と `Select-String -Path .\tebunko.bat -Pattern 'Bypass','Set-ExecutionPolicy'` |
 | 9 | 資格情報の入力要求・保存 | 該当 0 件 | `scan 'Get-Credential','ConvertTo-SecureString','PSCredential'` |
 | 10 | リモート実行 | 該当 0 件 | `scan 'Invoke-Command','New-PSSession','Enter-PSSession','WinRM'` |
-| 11 | 外部プロセスの起動 | 3 か所のみ（[外部プロセスの起動（3 か所）](#外部プロセスの起動3-か所)） | `scan 'Start-Process'` |
-| 12 | プロセスの強制終了 | 1 か所のみ（[Office プロセスの強制終了（［9 プロセス停止］タブ）](disclosure.md#office-プロセスの強制終了9-プロセス停止タブ)） | `scan 'Stop-Process'` |
+| 11 | 外部プロセスの起動 | 4 か所のみ（[外部プロセスの起動（4 か所）](#外部プロセスの起動4-か所)） | `scan 'Start-Process'` |
+| 12 | プロセスの強制終了 | 1 か所のみ（[前回残った Office の終了（起動時の確認）](disclosure.md#前回残った-office-の終了起動時の確認)） | `scan 'Stop-Process'` |
 | 13 | 壊れたハッシュ（MD5・SHA-1）、FIPS 準拠でないハッシュの実装 | 該当 0 件 | `scan 'MD5','SHA1','RIPEMD','SHA256Managed','SHA384Managed','SHA512Managed','HashAlgorithm\]::Create'` |
 | 14 | 内部の型（`NonPublic`）のリフレクションでの呼び出し | 1 か所のみ（下） | `scan 'NonPublic','Reflection\.BindingFlags'` |
 
@@ -55,7 +55,7 @@ function scan { param([string[]]$Pattern)
 | `DisplayAlerts` | 無効 | ダイアログで処理が止まらないようにする |
 | `Open` の `ReadOnly` | 真 | 読み取り専用で開く（`tebunko/indexer/extract_office.ps1:122`（Excel）・`202`（Word）・`228`（PowerPoint）） |
 
-パスワード付きファイルは、開くときに固定文字列 `"dummy"` をパスワードとして渡す（同じ 3 行）。これはパスワードを破るための処理ではなく、**パスワード入力ダイアログを出さずに確実に失敗させる**ための指定である。パスワード付きファイルは取り込まれず、`work\取り込み一覧.tsv` に失敗として記録される。本ツールがパスワードを入力・保存・送信することはない。
+パスワード付きファイルは、開くときに固定文字列 `"dummy"` をパスワードとして渡す（同じ 3 行）。これはパスワードを破るための処理ではなく、**パスワード入力ダイアログを出さずに確実に失敗させる**ための指定である。パスワード付きファイルは取り込まれず、`work\ingest_status.tsv` に失敗として記録される。本ツールがパスワードを入力・保存・送信することはない。
 
 Excel は、セルの値をテキストに書き出すために、すべてのブックを上の設定で開く。Word・PowerPoint で開くのは、ZIP 形式でない旧形式（`.doc` / `.ppt`）などを新形式に変換するときだけである。新形式（`.xlsx` / `.docx` / `.pptx`）の図形・コメント・本文・SmartArt・グラフの文字は、Office を使わずに ZIP の中の XML を直接読む（`shared/office/office_reader.ps1`）。いずれも作業フォルダのコピーを読む（[取り込み対象のファイルは書き換えない](file-access.md#取り込み対象のファイルは書き換えない)）。
 
@@ -63,29 +63,32 @@ Excel は、セルの値をテキストに書き出すために、すべての�
 
 ZIP（`.xlsx` / `.docx` / `.pptx`）を直接読む処理は、細工したファイルで時間・メモリを使い切らせる攻撃（ZIP 爆弾・DTD の実体参照を入れ子にして膨張させる攻撃 等）を想定し、次の 2 つを行う。`tests/meta/safety.Tests.ps1` の「細工したOfficeファイル（.docx・.pptx・.xlsx）から身を守ること」がこれを確かめる。
 
-- **ZIP の部品のサイズの上限**: ZIP 内の 1 部品を読む `readZipEntry`（`shared/office/office_reader.ps1`）だけが ZIP の中身を読み、展開後の大きさに**部品 1 つにつき 100MB**・**1 ファイルで読む合計 300MB** の上限を設ける。超えたら、部品名・大きさ・部品ごとか合計かの区別を出さない簡潔な文言（`ファイルサイズが大きすぎるため取り込めません。`。画面・取り込み一覧向け。区別を出すと悪用のヒントになるため）の `ZipSizeLimitException` で例外にする。原因を調べられるよう、部品名・大きさ・部品ごとか合計かは `work/インデックス作成ログ.txt` にだけ書く（`writeZipSizeLimitLog`。`tebunko/indexer/indexer_state.ps1`）。ZIP のヘッダー（中央ディレクトリ）が実際より小さい大きさを偽って書いてあるものも、`Length + 1` バイトの入れ物を作って読み切ることで検知する。上限の値は `setting.config` に出しておらず、変えるには `shared/office/office_reader.ps1` の `$script:zipPartMaxBytes`・`$script:zipTotalMaxBytes` を直す（[既知の問題](../design/indexing/known-issues.md#共通)）。
+- **ZIP の部品のサイズの上限**: ZIP 内の 1 部品を読む `readZipEntry`（`shared/office/office_reader.ps1`）だけが ZIP の中身を読み、展開後の大きさに**部品 1 つにつき 100MB**・**1 ファイルで読む合計 300MB** の上限を設ける。超えたら、部品名・大きさ・部品ごとか合計かの区別を出さない簡潔な文言（`ファイルサイズが大きすぎるため更新できません。`。画面・取り込み一覧向け。区別を出すと悪用のヒントになるため）の `ZipSizeLimitException` で例外にする。原因を調べられるよう、部品名・大きさ・部品ごとか合計かは `work/indexing_log.txt` にだけ書く（`writeZipSizeLimitLog`。`tebunko/indexer/indexer_state.ps1`）。ZIP のヘッダー（中央ディレクトリ）が実際より小さい大きさを偽って書いてあるものも、読む量を `Length + 1` バイトまでに絞り、`Length` を超えて読めたら例外にすることで検知する（大きな配列は作らず、小さな入れ物を使い回して読む）。上限の値は `setting.config` に出しておらず、変えるには `shared/office/office_reader.ps1` の `$script:zipPartMaxBytes`・`$script:zipTotalMaxBytes` を直す（[既知の問題](../design/indexing/known-issues.md#共通)）。
 - **DTD（`<!DOCTYPE>`）の処理を禁止**: `XmlDocument` を作るところ（`LoadXml` を直接呼ばず、すべて `newXmlDocument` を通す）は `XmlReaderSettings.DtdProcessing` を `Prohibit` にし、DTD 宣言を含む XML を例外にする。
 
 いずれも、見つからなかった部品があるときと同じ扱い（ファイル全体を失敗にするか、1 つの図形・グラフ・SmartArt だけを空にして続けるか）は、読んだ関数の呼び出し元の決まりに従う（[Word・PowerPoint のテキスト読み取り](../design/indexing/office-apps.md#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1)・[Excel の図形・コメントの読み取り](../design/indexing/excel.md#excel-の図形コメントの読み取りreadxlsxobjectunits)）。
 
 ## 取り込み対象の拡張子
 
-Office に加えてテキストファイルも取り込むが、対象の拡張子は `shared/office/office_files.ps1` の `$officeExtensions`（10 個）と `shared/core/text_file.ps1` の `$textExtensions`（`.txt` `.csv` `.tsv` `.md` `.log` `.json` `.xml` の 7 個）を合わせた、**固定の 17 個の一覧**である（[テキストファイルの読み取り](../design/indexing/text.md)）。設定ファイルで拡張子を足す仕組みは無い。
+Office に加えてテキストファイルも取り込むが、対象の拡張子は `shared/office/office_files.ps1` の `$officeExtensions`（10 個）と `shared/core/text_file.ps1` の `$textExtensions`（75 個。既定のアプリで開く `$textOpenExtensions` 68 個 + メモ帳で開く `$textNotepadExtensions` 7 個）を合わせた、**固定の 85 個の一覧**である（[テキストファイルの読み取り](../design/indexing/text.md)）。設定ファイルで拡張子を足す仕組みは無い。
 
-危険な種類のファイル（実行される・既定のアプリがスクリプトを実行する `.bat` `.js` `.vbs` `.ps1` `.hta` 等）を、実行される種類を並べて弾く形にすると、一覧から漏れて対象に紛れ込む恐れがある。そのため `tests/meta/safety.Tests.ps1` は「対象の拡張子が固定であること」として、`$textExtensions` がちょうど 7 個であること、`$officeExtensions` と `$textExtensions` を合わせた一覧がこの 17 個ちょうどであることを確かめる。対象の拡張子を足す変更は必ずこのテストを落とし、この一覧の見直しを促す。
+危険な種類のファイル（実行される・既定のアプリがスクリプトを実行する `.exe` `.com` `.scr` `.hta` `.wsf` `.wsh` `.jse` `.vbe` `.lnk` `.url` `.msi` `.cpl` `.inf` 等）を、実行される種類を並べて弾く形にすると、一覧から漏れて対象に紛れ込む恐れがある。そのため `tests/meta/safety.Tests.ps1` は「対象の拡張子が固定であること」として、`$textExtensions` がちょうど 75 個（内 `$textNotepadExtensions` が 7 個）であること、`$officeExtensions` と `$textExtensions` を合わせた一覧がこの 85 個ちょうどであること、上に挙げた危険な種類の拡張子がどちらの一覧にも含まれないことを確かめる。対象の拡張子を足す変更は必ずこのテストを落とし、この一覧の見直しを促す。
+
+`$textNotepadExtensions`（`.bat` `.cmd` `.ps1` `.vbs` `.js` `.reg` `.sh`）は、既定のアプリで開くと実行・登録になるため取り込みの対象ではあるが、検索結果から開くときは既定のアプリではなくメモ帳で開く（下の「外部プロセスの起動」）。
 
 `.xml` は、既定のアプリ（Windows の「XML エディター」）が先頭の `<?mso-application progid=…?>` を見て Excel・Word で開くことがあるが、マクロは既定で無効（上の「Office ファイルを開くときの設定」）であるため、開くこと自体の害は小さい。
 
-## 外部プロセスの起動（3 か所）
+## 外部プロセスの起動（4 か所）
 
-`tests/meta/safety.Tests.ps1` の「外部プロセスの起動は explorer.exe だけ」が確かめる。
+`tests/meta/safety.Tests.ps1` の「外部プロセスの起動は explorer.exe・notepad.exe だけ」が確かめる。
 
 | 場所 | 起動するもの | 用途 |
 |---|---|---|
-| `tebunko/ui/index_tab.ps1:618`・`623`、`tebunko/ui/open_source.ps1:311` | `explorer.exe` | 一覧・検索結果から元のファイルの場所を開く（利用者の操作時のみ） |
+| `tebunko/ui/index/index_detail.ps1:195`・`205`、`tebunko/ui/open_source.ps1:460` | `explorer.exe` | 一覧・検索結果から元のファイルの場所を開く（利用者の操作時のみ） |
+| `tebunko/ui/open_source.ps1:250`（`openWithNotepad`） | `notepad.exe`（固定のパス `%SystemRoot%\System32\notepad.exe`） | 検索結果から、既定のアプリで開くと実行・登録になる拡張子（`$textNotepadExtensions`）のテキストファイルを開く（利用者の操作時のみ） |
 
 インデックス作成は画面のプロセスの中のスレッドで動かすため、インデックス作成のために `powershell.exe` を起動することはない（[プロセス](../design/structure/threads.md#プロセス)）。
 
-元のファイルを開く操作（`tebunko/ui/open_source.ps1:125`）では、`Start-Process` ではなく `ProcessStartInfo` を使う（`Start-Process` は `[` `]` を含むパスをワイルドカードとして解釈するため）。起動対象は、利用者が選んだ行のファイルと、それに関連付けられたアプリケーションである。
+元のファイルを既定のアプリで開く操作（`tebunko/ui/open_source.ps1` の `openWithShell`）では、`Start-Process` ではなく `ProcessStartInfo` を使う（`Start-Process` は `[` `]` を含むパスをワイルドカードとして解釈するため）。起動対象は、利用者が選んだ行のファイルと、それに関連付けられたアプリケーションである。`ProcessStartInfo`・`[System.Diagnostics.Process]::Start` を使うのはこの 1 か所だけであることを `tests/meta/safety.Tests.ps1` が確かめる。
 
 `tebunko.bat` は、上の 3 か所とは別に、**起動そのものに失敗したとき（画面が開く前）だけ** `notepad.exe` を開く（[起動に失敗したときの知らせ](disclosure.md#起動に失敗したときの知らせtebunkobat)）。制限言語モード・実行ポリシーでスクリプトの読み込みが止まる場面では WPF・WinForms のメッセージボックスを出せないため、失敗の理由と記録のファイルの名前をメモ帳で示す。`tests/meta/safety.Tests.ps1` の「tebunko.bat が起動する外部のプログラムは conhost.exe・powershell.exe・notepad.exe だけ」が、`tebunko.bat` が起動する外部のプログラムをこの 3 つに限る。

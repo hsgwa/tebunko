@@ -83,7 +83,7 @@ function exportIndex {
     $lock = newAppMutex "indexer" $ws.Dir
     if (!$lock.Acquired) {
         $lock.Mutex.Dispose()
-        throw "インデックス作成中はエクスポートできません。インデックス作成が終わってからやり直してください。"
+        throw "更新中はエクスポートできません。更新が終わってからやり直してください。"
     }
     try {
         return (exportIndexCore $name $destPath $ws $settingsPath)
@@ -91,6 +91,49 @@ function exportIndex {
         $lock.Mutex.ReleaseMutex()
         $lock.Mutex.Dispose()
     }
+}
+
+function exportIndexToFolder {
+    # 1 つのインデックスを、書き出し先のフォルダの中の zip に書き出す（ファイル名は getExportFileName で決め、
+    # フォルダに同じ名前があれば番号を付ける）。書き出し先のフォルダが無ければ例外。戻り値は exportIndex と同じ。
+    # 届かないネットワークのフォルダで止まりうるので、画面のスレッドでは呼ばず、別スレッドの仕事の中で呼ぶ
+    param (
+        [string]$name,
+        [string]$folder,
+        $ws = $workspace,
+        [string]$settingsPath = ${settingsFile}
+    )
+
+    if (!(Test-Path -LiteralPath (toLongPath $folder) -PathType Container)) {
+        throw "書き出し先のフォルダが見つかりません：$folder"
+    }
+    $used = @(Get-ChildItem -LiteralPath (toLongPath $folder) -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })
+    $destPath = Join-Path $folder (getExportFileName $name $used)
+    return (exportIndex $name $destPath $ws $settingsPath)
+}
+
+function exportIndexes {
+    # 選んだインデックスを、書き出し先のフォルダの中の zip にまとめて書き出す（インデックス 1 つにつき zip 1 つ）。
+    # 1 つずつ exportIndexToFolder を呼び、途中で 1 つ失敗しても残りを続ける。
+    # 戻り値は名前ごとの結果の配列（@{ Name; Ok; Reason; Path }）。Reason は失敗したときの理由（成功なら ""）、Path は書き出した zip（失敗なら ""）。
+    # 画面のスレッドでは呼ばず、別スレッドの仕事の中で呼ぶ
+    param (
+        [string[]]$names,
+        [string]$destination,
+        $ws = $workspace,
+        [string]$settingsPath = ${settingsFile}
+    )
+
+    $results = New-Object System.Collections.Generic.List[object]
+    foreach ($name in @($names)) {
+        try {
+            $exported = exportIndexToFolder $name $destination $ws $settingsPath
+            $results.Add([pscustomobject]@{ Name = $name; Ok = $true; Reason = ""; Path = $exported.Path })
+        } catch {
+            $results.Add([pscustomobject]@{ Name = $name; Ok = $false; Reason = $_.Exception.Message; Path = "" })
+        }
+    }
+    return , $results.ToArray()
 }
 
 function exportIndexCore {
@@ -119,7 +162,7 @@ function exportIndexCore {
         $rel = (fromLongPath $file).Substring($prefixLength)
         $fileName = [System.IO.Path]::GetFileName($rel)
         if ($null -eq (readPackFileName $fileName)) {
-            throw "インデックス作成を最後まで行ってからエクスポートしてください（取り込みの途中のファイルが残っています: ${rel}）。"
+            throw "更新を最後まで行ってからエクスポートしてください（更新の途中のファイルが残っています: ${rel}）。"
         }
         $packFiles.Add($rel)
     }
@@ -254,7 +297,7 @@ function openIndexArchive {
 
 function readIndexArchiveInfo {
     # 目録だけを読んで確かめる（インポートせずに、画面が既定の名前・元のフォルダ・合計の大きさを出すために使う）。
-    # 返すもの: @{ IndexName; SourceFolder; Files; Bytes; FormatVersion; AppVersion }
+    # 返すもの: @{ IndexName; SourceFolder; Files; Bytes; FormatVersion; AppVersion; ExportedAt（目録の exportedAt のまま。無ければ空） }
     param (
         [string]$zipPath
     )
@@ -273,6 +316,7 @@ function readIndexArchiveInfo {
             Bytes         = $bytes
             FormatVersion = [int]$manifest.formatVersion
             AppVersion    = [string]$manifest.appVersion
+            ExportedAt    = [string]$manifest.exportedAt
         }
     } finally {
         $opened.Archive.Dispose()
@@ -386,7 +430,7 @@ function importIndex {
     $lock = newAppMutex "indexer" $ws.Dir
     if (!$lock.Acquired) {
         $lock.Mutex.Dispose()
-        throw "インデックス作成中はインポートできません。インデックス作成が終わってからやり直してください。"
+        throw "更新中はインポートできません。更新が終わってからやり直してください。"
     }
     try {
         return (importIndexCore $zipPath $collisionMode $name $sourceFolder $ws $settingsPath $getFreeSpace)
@@ -422,7 +466,7 @@ function testImportFreeSpace {
 
 function expandImportArchive {
     # 7. 目録にあるエントリーを作業フォルダ（<workDir>\new）に展開する（目録のパスからだけ作る。エントリーの名前からは作らない）。
-    # 書き込む前に、大きさと SHA-256 を目録と比べる。元のフォルダ.txt もここで作る。
+    # 書き込む前に、大きさと SHA-256 を目録と比べる。source_folder.txt もここで作る。
     # 返すもの: @{ NewDir; Rows }（Rows は取り込み一覧に足す行。相対パスの先頭にインデックス名を付けたもの）。
     # 途中で失敗したら、作業フォルダを消して例外にする
     param (
@@ -454,7 +498,7 @@ function expandImportArchive {
                 $statusLines = @($text -split "\r?\n" | Where-Object { $_ -ne "" })
                 $reason = testImportedStatusLines $statusLines
                 if ($reason) {
-                    throw "取り込み一覧.tsv を読み込めません（${reason}）"
+                    throw "ingest_status.tsv を読み込めません（${reason}）"
                 }
             } else {
                 $rel = $path.Substring("content_index/".Length).Replace("/", "\")

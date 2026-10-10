@@ -63,6 +63,7 @@ class PreviewTable {
     [int]$TotalColumns
     [int]$ShownColumns
     [string]$RangeLabel
+    [bool]$IsExcel   # Excel の表か（Excel 以外は列が 1 つで、幅を枠いっぱいにする。preview.ps1 の fitPreviewWidth）
 
     hidden [int]$anchorRow = -1
     hidden [int]$anchorColumn = -1
@@ -146,9 +147,9 @@ class PreviewTable {
 
 # 検索結果の、元のファイル 1 つ分（結果の表の見出しの行）。検索のヒットは生のまま Hits に持ち、表の行（HitRow）は
 # 開いたとき・絞り込み・並べ替え・出力のときに初めて作って Rows に入れる。開いているときだけ、見出しの下に表の行として並べる（result_list.ps1）。
-# 文言（AppKind・LocationText）は画面側で判断層（search_view.ps1）の関数から作って入れる
+# 文言（AppKind・LocationText）は画面側で判断層（search\result_list_view.ps1）の関数から作って入れる
 class FileGroup : NotifyBase {
-    [bool]$IsFileHeader = $true   # 結果の表で見出しの形にする（tab_search.xaml の FileHeaderRow）
+    [bool]$IsFileHeader = $true   # 結果の表で見出しの形にする（search/result_list.xaml の FileHeaderRow）
     [int]$Order                   # 見つかった順（並べ替えで同じ値のときの順）
     [string]$Book
     [string]$RelDir
@@ -210,8 +211,9 @@ class HitRow : NotifyBase {
     static [regex] $QuoteRegex = [regex]::new("^`"((?:[^`"]|`"`")*)`"(.*)`$", [System.Text.RegularExpressions.RegexOptions]::Singleline)
     static [regex] $ExcelRegex = [regex]::new("\.xls[a-z]?`$", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
     # 図形・コメントの場所 "<元の場所>[<種類>]"（index_name.ps1 の objectPlacePattern と同じ形。クラスからはスクリプトの変数が見えないため、ここにも書く）。
-    # Excel の 1 行は "<セル番地><TAB><文字>"
-    static [regex] $ObjectPlaceRegex = [regex]::new("\[(?:図形|コメント)\]`$")
+    # Excel の図形・コメントの 1 行は "<セル番地><TAB><文字>"。ヘッダー・フッターの 1 行は文字だけ（セル番地が無い）
+    static [regex] $ObjectPlaceRegex = [regex]::new("\[(?:図形|コメント|ヘッダー・フッター)\]`$")
+    static [regex] $CelllessPlaceRegex = [regex]::new("\[ヘッダー・フッター\]`$")
     static [char] $CellNewLine = [char]0x2028   # TSV のセル内改行（shared\core\text.ps1 の cellNewLine）
     static [int] $LeadLength = 40
     static [int] $MaxDisplay = 600
@@ -239,6 +241,7 @@ class HitRow : NotifyBase {
     [bool]$IsExcel
     [bool]$IsText          # テキストの拡張子（.txt 等）の行か（describeHitPlace・open_source.ps1 が使う。呼び出し側が入れる）
     [bool]$IsObjectPlace
+    [bool]$IsCelllessPlace  # 行にセル番地が無い場所（ヘッダー・フッター）か（$IsObjectPlace の一種）
     [string]$MatchCell
     [int]$MatchCount        # 1 行のうち一致したセルの数（Excel のセルの行だけ。図形・コメントは 0 か 1）
     [string]$DisplayLine
@@ -270,6 +273,7 @@ class HitRow : NotifyBase {
         $row.pattern = $pattern
         $row.IsExcel = [HitRow]::ExcelRegex.IsMatch($(if ($null -eq $book) { "" } else { $book }))
         $row.IsObjectPlace = [HitRow]::ObjectPlaceRegex.IsMatch($(if ($null -eq $location) { "" } else { $location }))
+        $row.IsCelllessPlace = [HitRow]::CelllessPlaceRegex.IsMatch($(if ($null -eq $location) { "" } else { $location }))
         return $row
     }
 
@@ -293,7 +297,8 @@ class HitRow : NotifyBase {
             # Excel の図形・コメントの行は、先頭のセルが図形の左上・コメントのセルの番地
             $hit = $false
             foreach ($cell in $cells) { if ([HitRow]::HasMatch($cell, $this.word, $this.pattern)) { $hit = $true; break } }
-            if ($hit -and $cells.Count -gt 0) { $this.MatchCell = $cells[0] }
+            # ヘッダー・フッターの行は文字だけでセル番地が無い（MatchCell は空のまま。場所は [シート]<名前> になる）
+            if ($hit -and $cells.Count -gt 0 -and -not $this.IsCelllessPlace) { $this.MatchCell = $cells[0] }
             $this.MatchCount = $(if ($hit) { 1 } else { 0 })
             return
         }
@@ -367,6 +372,7 @@ class HitRow : NotifyBase {
     hidden [string] ShownText() {
         if (-not ($this.IsExcel -and $this.IsObjectPlace)) { return $this.Line }
         $cells = [HitRow]::SplitCells($this.Line, $true)
+        if ($this.IsCelllessPlace) { return ($cells -join "`t") }
         if ($cells.Count -lt 2) { return $this.Line }
         return ($cells.GetRange(1, $cells.Count - 1) -join "`t")
     }
@@ -446,6 +452,7 @@ class HitRow : NotifyBase {
         $table.HitWidth = 0
         $table.TotalColumns = $columnCount
         $table.ShownColumns = $shownColumns
+        $table.IsExcel = $this.IsExcel
         $table.RangeLabel = $(if ($shownColumns -gt 0) { $this.ColumnLabel($firstColumn + 1) + "〜" + $this.ColumnLabel($firstColumn + $shownColumns) } else { "" })
         for ($i = 0; $i -lt $shownColumns; $i++) {
             $c = $firstColumn + $i
@@ -508,6 +515,7 @@ class HitRow : NotifyBase {
     }
 
     hidden [string] ColumnLabel([int]$number) {
+        if ($this.IsExcel -and $this.IsCelllessPlace -and $number -eq 1) { return "文字" }
         if ($this.IsExcel -and $this.IsObjectPlace) {
             return $(switch ($number) { 1 { "セル" } 2 { "文字" } default { $number.ToString() } })
         }
@@ -534,17 +542,7 @@ class HitRow : NotifyBase {
     }
 }
 
-# ［9 プロセス停止］の1行
-class ProcRow {
-    [int]$Id
-    [string]$AppName
-    [bool]$Background
-    [string]$StartText
-    [string]$MemoryText
-    [string]$TitleText
-}
-
-# ［1 インデックス管理］の取り込みに失敗したファイル1件
+# ［インデックス管理］の取り込みに失敗したファイル1件
 class FailRow {
     [string]$RelPath
     [string]$Reason
@@ -552,22 +550,29 @@ class FailRow {
     [string]$SourcePath
 }
 
-# インデックス作成の確認ダイアログに出すインデックス1件（取り込み予定.tsv の1行）
+# インデックスの詳細のパネルの値の 1 行（getIndexDetailView）
+class DetailRow {
+    [string]$Label
+    [string]$Value
+}
+
+# インデックス更新の確認ダイアログに出すインデックス 1 件（取り込み予定.tsv の 1 行）
 class PlanRow {
     [string]$Name
     [string]$Path
-    [string]$TargetText   # 取り込み対象の件数（"12 件" / "更新不要" / "取り込みません"）
-    [object]$TargetBrush
-    [string]$DetailText   # 内訳（新規 N 件 / 更新あり N 件 …）
-    [string]$TotalText    # 見つかった Office ファイルの数
+    [string]$TotalText    # 対象ファイル数（"1,243"。数えない行は "－"）
+    [string]$StatusText   # ステータスのバッジの文言（"要更新" / "最新" / "対象外" / "フォルダなし"）
+    [string]$Level        # バッジの色（Wait / Ok / None / Ng）
+    [string]$DetailText   # バッジの ToolTip（更新するファイルの内訳）
 }
 
-# ［1 インデックス管理］のインデックス一覧 1 件。プログラムから変えたときに画面へ反映するため通知する。
-# ［作成］チェックの TwoWay バインドは値の往復に使い、保存はチェックボックスの Click で行う（PS class はセッターにロジックを書けないため）
+# ［インデックス管理］のインデックス一覧 1 件。プログラムから変えたときに画面へ反映するため通知する。
+# 行のチェックの TwoWay バインドは値の往復に使い、保存はチェックボックスの Click で行う（PS class はセッターにロジックを書けないため）
 class FolderItem : NotifyBase {
     [string]$Name          # インデックス名（work\index 直下のフォルダ名）
     [string]$Path
-    [bool]$Enabled
+    [bool]$Enabled         # 設定の enabled（［すべて更新］で更新する対象か。画面にチェックは出さない）
+    [bool]$Checked         # 一覧のチェック（一時の選択。保存しない。［アクション ▾］・行の操作の対象）
     [string]$StatusText
     [object]$StatusBrush
     [string]$FileCountText
@@ -575,16 +580,42 @@ class FolderItem : NotifyBase {
     [string]$LastIngestedText
     [bool]$StatusChecked   # フォルダの有無を調べ終えたか（別スレッドで調べる。refreshFolderStatus）
     [bool]$FolderExists    # 調べた結果、フォルダがあったか
+    # 一覧の「ステータス」列（本文の取り込みの状態。getIndexRowView）。色は XAML で Level から選ぶ（Ok/Wait/Ng/Run/None）
+    [string]$IndexText = "－"
+    [string]$IndexToolTip
+    [string]$IndexLevel = "None"
+    [double]$IndexPercent = 0   # 更新中のバッジの下の棒の長さ（0〜100）
+    [string]$IndexSub = ""   # ステータスのバッジの下の補足（途中で止まったときの「残り N 件」。無ければ空）
+    # 一覧の「高速検索」列（システムインデックスの反映の状態。getFastSearchRowView）
+    [string]$FastText = "確認中…"
+    [string]$FastToolTip
+    [string]$FastLevel = "None"
+    # 一覧の行の右端のボタン（getIndexRowActions）。RowAction は Update / Stop / None
+    [string]$RowAction = "Update"
+    [bool]$RowUpdateEnabled = $false
 
     FolderItem() {}   # 既定のコンストラクタを明示する（理由は shared\ui\types.ps1 の NotifyBase）
 
     [void] SetEnabled([bool]$value) { if ($this.Enabled -ne $value) { $this.Enabled = $value; $this.Raise("Enabled") } }
+    [void] SetRowChecked([bool]$value) { if ($this.Checked -ne $value) { $this.Checked = $value; $this.Raise("Checked") } }
     [void] SetName([string]$value) { if ($this.Name -ne $value) { $this.Name = $value; $this.Raise("Name") } }
     [void] SetPath([string]$value) { if ($this.Path -ne $value) { $this.Path = $value; $this.Raise("Path") } }
     [void] SetStatus([string]$text, [object]$brush) { $this.StatusText = $text; $this.StatusBrush = $brush; $this.Raise("StatusText"); $this.Raise("StatusBrush") }
     [void] SetStats([string]$countText, [string]$toolTip, [string]$lastIngested) {
         $this.FileCountText = $countText; $this.FileCountToolTip = $toolTip; $this.LastIngestedText = $lastIngested
         $this.Raise("FileCountText"); $this.Raise("FileCountToolTip"); $this.Raise("LastIngestedText")
+    }
+    [void] SetIndexState([string]$text, [string]$toolTip, [string]$level, [string]$sub, [double]$percent) {
+        $this.IndexText = $text; $this.IndexToolTip = $toolTip; $this.IndexLevel = $level; $this.IndexSub = $sub; $this.IndexPercent = $percent
+        $this.Raise("IndexText"); $this.Raise("IndexToolTip"); $this.Raise("IndexLevel"); $this.Raise("IndexSub"); $this.Raise("IndexPercent")
+    }
+    [void] SetRowActions([string]$action, [bool]$updateEnabled) {
+        $this.RowAction = $action; $this.RowUpdateEnabled = $updateEnabled
+        $this.Raise("RowAction"); $this.Raise("RowUpdateEnabled")
+    }
+    [void] SetFast([string]$text, [string]$toolTip, [string]$level) {
+        $this.FastText = $text; $this.FastToolTip = $toolTip; $this.FastLevel = $level
+        $this.Raise("FastText"); $this.Raise("FastToolTip"); $this.Raise("FastLevel")
     }
 }
 

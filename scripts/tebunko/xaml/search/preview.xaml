@@ -1,0 +1,221 @@
+﻿<!-- プレビュー（選んだ行の前後の行と、元のファイルを開く操作）。search.xaml の PreviewHost に入れる（gui_main.ps1）。 -->
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="../../../shared/xaml/theme.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Grid.Resources>
+  <DockPanel>
+      <!-- 横に長い行で、表示した列の範囲を知らせる（ふだんは隠す） -->
+      <TextBlock x:Name="PreviewNote" DockPanel.Dock="Bottom" Style="{StaticResource WarnText}" Margin="16,4" HorizontalAlignment="Right"
+                 TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Visibility="Collapsed" />
+      <!-- 選択行のプレビュー（前後の行をシートのように表示する。行番号の列の幅 44 は gui.ps1 の NumberWidth と合わせる）。
+           行を選んでいなくても枠は出したままにする（高さが変わらず、次に選んだときもその場に出る） -->
+      <DockPanel x:Name="DetailPanel" Margin="0">
+        <!-- 見出しの帯（選んだ行の場所と、元のファイルを開く操作）。行を選ぶまでは押せない（プレビューの枠は行を選んでいなくても出したままにするため） -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource Bg.Window}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,0,1" Padding="16,8">
+          <DockPanel>
+            <Button x:Name="OpenFolderButton" DockPanel.Dock="Right" Style="{StaticResource Link}" Content="フォルダを開く" Margin="14,0,0,0" IsEnabled="False"
+                    VerticalAlignment="Center" />
+            <!-- ［開く ▾］。［開く］は選んである開き方で開き、▾ から開き方を選ぶ（選んだ開き方は次からも使う。ダブルクリック・Enter も同じ） -->
+            <Border DockPanel.Dock="Right" CornerRadius="6" BorderThickness="1"
+                    Background="{StaticResource Bg.Surface}" VerticalAlignment="Center" Height="26">
+              <!-- 使えないときは、枠・仕切り・文字・▾ をそろえて Ink.Disabled にする（枠だけ Accent のまま残さない） -->
+              <Border.Style>
+                <Style TargetType="Border">
+                  <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+                  <Style.Triggers>
+                    <DataTrigger Binding="{Binding ElementName=OpenButton, Path=IsEnabled}" Value="False">
+                      <Setter Property="BorderBrush" Value="{StaticResource Ink.Disabled}" />
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </Border.Style>
+              <StackPanel Orientation="Horizontal">
+                <Button x:Name="OpenButton" Content="開く" IsEnabled="False" Cursor="Hand" FontSize="11" Padding="12,0" MinWidth="0" Height="Auto"
+                        Foreground="{StaticResource Accent.Hover}" Background="Transparent" BorderThickness="0">
+                  <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                      <Border x:Name="Bg" Background="Transparent" CornerRadius="5,0,0,5" Padding="{TemplateBinding Padding}">
+                        <TextBlock x:Name="Label" Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                      </Border>
+                      <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bg" Property="Background" Value="{StaticResource Select.Soft}" /></Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Label" Property="Foreground" Value="{StaticResource Ink.Disabled}" /></Trigger>
+                      </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                  </Button.Template>
+                </Button>
+                <Rectangle Width="1">
+                  <Rectangle.Style>
+                    <Style TargetType="Rectangle">
+                      <Setter Property="Fill" Value="{StaticResource Accent}" />
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding ElementName=OpenButton, Path=IsEnabled}" Value="False">
+                          <Setter Property="Fill" Value="{StaticResource Ink.Disabled}" />
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </Rectangle.Style>
+                </Rectangle>
+                <Button x:Name="OpenMenuButton" IsEnabled="False" Cursor="Hand" Padding="6,0" MinWidth="0" Height="Auto" Background="Transparent" BorderThickness="0"
+                        AutomationProperties.Name="開き方を選ぶ" ToolTip="開き方を選びます">
+                  <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                      <Border x:Name="Bg" Background="Transparent" CornerRadius="0,5,5,0" Padding="{TemplateBinding Padding}">
+                        <Path x:Name="Arrow" Data="{StaticResource Icon.ChevronDown}" Width="11" Height="11" Stretch="Uniform"
+                              Stroke="{StaticResource Accent.Hover}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              StrokeLineJoin="Round" VerticalAlignment="Center" />
+                      </Border>
+                      <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bg" Property="Background" Value="{StaticResource Select.Soft}" /></Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Arrow" Property="Stroke" Value="{StaticResource Ink.Disabled}" /></Trigger>
+                      </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                  </Button.Template>
+                  <Button.ContextMenu>
+                    <ContextMenu>
+                      <MenuItem x:Name="MenuOpenModeNormal" Header="開く" ToolTip="元のファイルをそのまま開きます。編集して上書き保存できます。" />
+                      <MenuItem x:Name="MenuOpenModeNew" Header="新規で開く"
+                                ToolTip="元のファイルを基にした新しい（無題の）ブック・文書として開きます。元のファイルを占有しないため、ほかの人が編集中でも開け、ほかの人の編集も妨げません。保存するときは名前を付けて保存します。" />
+                      <MenuItem x:Name="MenuOpenModeReadOnly" Header="読み取り専用で開く"
+                                ToolTip="元のファイルを読み取り専用で開きます。誤って上書き保存することがありません（編集するときは名前を付けて保存します）。" />
+                    </ContextMenu>
+                  </Button.ContextMenu>
+                </Button>
+              </StackPanel>
+            </Border>
+            <TextBlock x:Name="DetailTitle" FontSize="11" Foreground="{StaticResource Ink.Body}" VerticalAlignment="Center" Margin="0,0,12,0"
+                       TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+          </DockPanel>
+        </Border>
+        <!-- 枠は引かない（結果の表との境目は、見出しの帯の線と、窓の枠が示す） -->
+        <Border Background="{StaticResource Bg.Surface}" ClipToBounds="True">
+          <Grid>
+            <DockPanel>
+              <!-- 列見出しは、枠を低くしても隠れないよう、行とは別のスクロールに置く（横位置は gui.ps1 で PreviewScroll に合わせる） -->
+              <ScrollViewer x:Name="PreviewHeaderScroll" DockPanel.Dock="Top" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
+                            Focusable="False" Visibility="Collapsed">
+                <StackPanel TextElement.FontSize="12">
+
+                  <!-- 列見出し（右端をドラッグすると、その列の幅が変わる。幅は PreviewColumn を各行のセルと共有する） -->
+                  <StackPanel Orientation="Horizontal">
+                    <!-- 行番号の列の分（幅 44 は gui.ps1 の NumberWidth と合わせる） -->
+                    <Border Width="44" Background="{StaticResource Bg.Hover}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,1,1" />
+                    <ItemsControl x:Name="PreviewHeader">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Border Width="{Binding Width}" Background="{StaticResource Bg.Subtle}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,1,1">
+                            <Grid>
+                              <TextBlock Text="{Binding Label}" Padding="6,3" FontSize="11" TextAlignment="Left" FontWeight="SemiBold"
+                                         Foreground="{StaticResource Ink.Muted}"
+                                         TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                              <Thumb HorizontalAlignment="Right" Width="6" Cursor="SizeWE"
+                                     ToolTip="ドラッグすると列の幅を変えられます">
+                                <Thumb.Template>
+                                  <ControlTemplate TargetType="Thumb">
+                                    <Border Background="Transparent" />
+                                  </ControlTemplate>
+                                </Thumb.Template>
+                              </Thumb>
+                            </Grid>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </StackPanel>
+              </ScrollViewer>
+
+              <!-- 枠の高さはドラッグで変わるため、行が入りきらないときは縦にもスクロールできるようにする -->
+              <ScrollViewer x:Name="PreviewScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                            Focusable="True">
+                <ScrollViewer.ContextMenu>
+                  <!-- 項目の並び・文言・太字は、メニューを開くたびに判断層（getPreviewMenuItems）の結果で組み直す -->
+                  <ContextMenu x:Name="PreviewMenu">
+                    <MenuItem x:Name="MenuPreviewOpen" Header="元のファイルのこの場所を開く" />
+                    <MenuItem x:Name="MenuPreviewCopy" Header="選んだセルをコピー" />
+                    <MenuItem x:Name="MenuPreviewCopyRow" Header="この行をコピー" />
+                  </ContextMenu>
+                </ScrollViewer.ContextMenu>
+                <StackPanel TextElement.FontSize="12">
+
+                  <ItemsControl x:Name="PreviewRows">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <StackPanel x:Name="RowPanel" Orientation="Horizontal">
+                          <Border Width="44" Background="{StaticResource Bg.Hover}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,1,1">
+                            <TextBlock x:Name="Num" Text="{Binding Number}" Padding="4,2,6,2" FontSize="11" TextAlignment="Right"
+                                       Foreground="{StaticResource Ink.Faint}" />
+                          </Border>
+                          <ItemsControl ItemsSource="{Binding Cells}">
+                            <ItemsControl.ItemsPanel>
+                              <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" />
+                              </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate>
+                                <!-- セル内改行のあるセルは折り返して複数行で表示する（高さの上限まで。全文はツールチップ） -->
+                                <Border x:Name="CellBorder" Width="{Binding Column.Width}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,1,1">
+                                  <TextBlock x:Name="CellText" Text="{Binding Display}" ToolTip="{Binding ToolTip}" Padding="6,3"
+                                             Foreground="{StaticResource Ink.Body}"
+                                             TextTrimming="CharacterEllipsis" TextWrapping="Wrap" MaxHeight="58" />
+                                </Border>
+                                <DataTemplate.Triggers>
+                                  <!-- コピーのために選んだセル（一致したセルは黄色のまま、枠だけを青にする） -->
+                                  <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                    <Setter TargetName="CellBorder" Property="Background" Value="{StaticResource Accent.Ring}" />
+                                    <Setter TargetName="CellBorder" Property="BorderBrush" Value="{StaticResource Accent.Hover}" />
+                                    <Setter TargetName="CellBorder" Property="BorderThickness" Value="1" />
+                                  </DataTrigger>
+                                  <DataTrigger Binding="{Binding IsHit}" Value="True">
+                                    <Setter TargetName="CellBorder" Property="Background" Value="{StaticResource Hit.Cell}" />
+                                    <Setter TargetName="CellText" Property="FontWeight" Value="SemiBold" />
+                                    <Setter TargetName="CellText" Property="Foreground" Value="{StaticResource Ink.Strong}" />
+                                  </DataTrigger>
+                                  <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                      <Condition Binding="{Binding IsHit}" Value="True" />
+                                      <Condition Binding="{Binding IsSelected}" Value="True" />
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter TargetName="CellBorder" Property="BorderBrush" Value="{StaticResource Accent.Hover}" />
+                                    <Setter TargetName="CellBorder" Property="BorderThickness" Value="1" />
+                                  </MultiDataTrigger>
+                                </DataTemplate.Triggers>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                        </StackPanel>
+                        <DataTemplate.Triggers>
+                          <!-- 選択行は行全体を薄い青にし、行番号を目立たせる -->
+                          <DataTrigger Binding="{Binding IsHitRow}" Value="True">
+                            <Setter TargetName="RowPanel" Property="Background" Value="{StaticResource Select.Soft}" />
+                            <Setter TargetName="Num" Property="FontWeight" Value="SemiBold" />
+                            <Setter TargetName="Num" Property="Foreground" Value="{StaticResource Accent.Hover}" />
+                          </DataTrigger>
+                        </DataTemplate.Triggers>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </ScrollViewer>
+            </DockPanel>
+            <!-- 行を選んでいないときの案内（プレビューの枠は出したままにする） -->
+            <TextBlock x:Name="PreviewPlaceholder" Style="{StaticResource Placeholder}" Margin="12,10"
+                       VerticalAlignment="Top" TextWrapping="Wrap"
+                       Text="行を選ぶと、その前後を表示します。" />
+          </Grid>
+        </Border>
+      </DockPanel>
+  </DockPanel>
+</Grid>

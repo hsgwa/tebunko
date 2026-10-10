@@ -1,4 +1,4 @@
-# 部品ごとの関数（TSV と本文インデックス）
+﻿# 部品ごとの関数（TSV と本文インデックス）
 
 扱うこと: TSV の名前と場所・整形（`fs.ps1`・`index_name.ps1`・`text.ps1`）、インデックスへの配置（`index_store.ps1`）、本文インデックスの形式と読み書き（`pack_format.ps1`・`pack_store.ps1`）の関数一覧。扱わないこと: 検索そのものの関数（[部品ごとの関数（検索・スレッド・元のファイル・画面）](search.md)）。先に読むページ: [部品から関数一覧を引く](index.md)。
 
@@ -8,11 +8,14 @@
 |---|---|---|---|---|---|
 | `toSafeFileName` | name | string | ファイル名禁止文字を全角に置換 | [インデックス作成](../indexing/index.md) | インデックス名（newIndexName・getTargetFolders）、シート名の照合（画面。元のファイルを開くとき） |
 | `encodeIndexPlace` | place | string | TSV のファイル名に入れる場所を符号化する（ファイル名禁止文字・制御文字・`_`・`%` を `%XX` に） | [インデックスのファイルの形](../index-data/format.md#場所の符号化encodeindexplace--decodeindexplace) | toIndexFileName |
-| `decodeIndexPlace` | place | string | `encodeIndexPlace` の `%XX` を元に戻す（それ以外の `%` はそのまま） | 同上 | getIndexFolderBooks |
-| `toIndexFileName` | place | string | インデックスの TSV のファイル名 `<場所>.tsv`（場所は `encodeIndexPlace`）。元のファイル名はフォルダ名にするため入れない。`$maxFileNameLength`（255）文字を超えれば例外 | [インデックスのファイルの形](../index-data/format.md#配置命名規則) | インデックス作成（Excel・Word・PowerPoint） |
-| `splitObjectPlace` | place | `@{Base; Kind}` | 図形・コメントの場所（`<元の場所>[図形]` 等）を、元の場所と種類に分ける。ふつうの場所は Kind が空 | [インデックスのファイルの形](../index-data/format.md#配置命名規則)「図形・コメントの場所」 | 元のファイルを開く、convertPlaceToPackMeta |
-| `describePlace` | book, place | `@{Place; Kind}` | 場所ごとの表記と種別（見出しの要約・検索結果ファイル・コピーに出す文字。`[シート]売上`・図形、`3 ページ（目安）`・本文 など） | [出力フォーマット](../search/output.md#出力フォーマットwork検索結果txt) | 画面・`toResultLine` |
-| `describeHitPlace` | place, isExcel, isObjectPlace, matchCell, matchCount, lineNumber, isText（既定 `$false`） | string | 結果の表の「場所」列・プレビューの題に出す、行ごとの表記（Excel は場所ごとの表記にセル番地を足す。`[シート]売上!B12`・`[シート]売上!B12 ほか 2`・`[シート]売上 12 行目`。図形・コメントは `[シート]売上!D5`。Word・PowerPoint は場所ごとのまま。テキストは `isText` が真なら行番号だけ `12 行目`） | [結果の表](../gui/search-tab.md#結果の表) | 画面（`prepareHitRow`） |
+| `decodeIndexPlace` | place | string | `encodeIndexPlace` の `%XX` を元に戻す（それ以外の `%` はそのまま） | 同上 | convertIndexFileNameToPlace |
+| `convertPlaceBaseToFixedFileName` | base | string（固定名 / 空） | 場所の元の名前（`ページ001` など）が決まった種類なら、固定の英語のファイル名（`page_001` など）を返す。決まった種類でなければ空文字列 | [インデックスのファイルの形](../index-data/format.md#配置命名規則) | toIndexFileName |
+| `convertFixedFileNameToPlaceBase` | fileBase | string（元の名前 / 空） | `convertPlaceBaseToFixedFileName` の逆（`page_001` → `ページ001`）。固定名でなければ空文字列 | 同上 | convertIndexFileNameToPlace |
+| `toIndexFileName` | place | string | インデックスの TSV のファイル名 `<場所>.tsv`（場所は `convertPlaceBaseToFixedFileName` の固定名、無ければ `encodeIndexPlace`）。図形・コメント・ヘッダー・フッターは、末尾に英語の種類 `[shape]` `[comment]` `[header_footer]` を付ける。元のファイル名はフォルダ名にするため入れない。`$maxFileNameLength`（255）文字を超えれば例外 | [インデックスのファイルの形](../index-data/format.md#配置命名規則) | インデックス作成（Excel・Word・PowerPoint） |
+| `convertIndexFileNameToPlace` | fileNameWithoutExtension | string | `toIndexFileName` の逆。図形・コメント・ヘッダー・フッターの種類（`[shape]` `[comment]` `[header_footer]`）を外してから、固定名なら `convertFixedFileNameToPlaceBase`、そうでなければ `decodeIndexPlace` で場所の元の名前に戻す | 同上 | getIndexFolderBooks |
+| `splitObjectPlace` | place | `@{Base; Kind}` | 図形・コメント・ヘッダー・フッターの場所（`<元の場所>[図形]` 等）を、元の場所と種類に分ける。ふつうの場所は Kind が空 | [インデックスのファイルの形](../index-data/format.md#配置命名規則)「図形・コメントの場所」 | 元のファイルを開く、convertPlaceToPackMeta |
+| `describePlace` | book, place | `@{Place; Kind}` | 場所ごとの表記と種別（見出しの要約・検索結果ファイル・コピーに出す文字。`[シート]売上`・図形、`3 ページ（目安）`・本文 など） | [出力フォーマット](../search/output.md#出力フォーマットworksearch_resultstxt) | 画面・`toResultLine` |
+| `describeHitPlace` | place, isExcel, isObjectPlace, matchCell, matchCount, lineNumber, isText（既定 `$false`） | string | 結果の表の「場所」列・プレビューの題に出す、行ごとの表記（Excel は場所ごとの表記にセル番地を足す。`[シート]売上!B12`・`[シート]売上!B12 ほか 2`・`[シート]売上 12 行目`。図形・コメントは `[シート]売上!D5`。ヘッダー・フッターはセル番地が無く `[シート]売上`。Word・PowerPoint は場所ごとのまま。テキストは `isText` が真なら行番号だけ `12 行目`） | [結果の表](../gui/search-tab.md#結果の表) | 画面（`prepareHitRow`） |
 | `toLongPath` | path | string | ファイル操作に渡すパスの先頭に `\\?\`（ネットワークのパスは `\\?\UNC\`）を付け、260 文字を超えるパスも扱えるようにする。付いていればそのまま | [入れ替えと書き出し](../index-data/publish.md#長いパス260-文字超の扱い) | インデックス作成・検索 |
 | `fromLongPath` | path | string | `toLongPath` で付けた `\\?\` を外す（`Get-ChildItem` の `FullName` から相対パスを求めるため） | 同上 | インデックス作成・検索 |
 | `removeDirectoryRetry` | path, tries（既定 3）, waitMilliseconds（既定 200） | – | フォルダを中身ごと削除する。ほかのアプリが一時的に掴んでいることがあるため、少し待って数回試す | – | インデックス作成（インデックス・作業フォルダの削除） |
@@ -30,6 +33,7 @@
 | `countTsvFields` | line | int | Excel に貼り付けたときのセル数（`"` で始まるセルは閉じる `"` までを 1 セルとする。先頭のセルが空でも数え落とさない） | [1 行の組み立て](../search/output.md#1-行の組み立て) | 検索 |
 | `toColumnName` | number | string | 列番号を列名に変換（1 → `A`、27 → `AA`） | 同上 | toResultHeader |
 | `splitTsvCells` | line | string[] | TSV の 1 行をセルに分ける（`"` で囲まれたセルは 1 セルとし、囲みを外す。`countTsvFields` と同じ区切り方。画面のプレビューは同じ区切り方を型 `HitRow`（`types.ps1`）の中に持つ） | – | テストだけ |
+| `testTextTrimmed` | actualWidth, requiredWidth, tolerance | bool | 文字が枠に入りきらず省略（…）で切れているか（要る幅が実際の幅より誤差を超えて大きいときだけ $true。幅 0 以下は $false） | 同上 | addTrimmedToolTip（`shared/ui/trimmed_tooltip.ps1`） |
 
 ## テキストファイルの読み取り（`shared/core/text_file.ps1`）
 
@@ -38,6 +42,7 @@
 | 関数 | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
 | `testTextExtension` | path | bool | 拡張子が対象のテキストの拡張子（`$textExtensions`。大文字・小文字を区別しない）か | ingestFile, getPackFileKind, describePlace, getAppKind, findTargetFiles（`$targetExtensions`） |
+| `testTextOpenWithNotepad` | path | bool | 拡張子が、既定のアプリではなくメモ帳で開く拡張子（`$textNotepadExtensions`。開くと実行・登録になるもの。大文字・小文字を区別しない）か | openFoundSource（[元のファイルを開く](../gui/open-file.md)） |
 | `detectTextEncoding` | bytes | string / `$null` | バイト列だけから文字コード（`UTF8` / `UTF16LE` / `UTF16BE` / `ShiftJIS` / `EUCJP` / `ISO2022JP`）を判定する。判定できない・あいまいなものは `$null`（取り込まない） | readTextFile |
 | `detectJapaneseUtf16WithoutNul` | bytes | string / `$null` | NUL の無い BOM 無し UTF-16（日本語だけの文章）を、かなの割合と日本語の文章に出る文字の割合で判定する（`UTF16LE` / `UTF16BE`） | detectTextEncoding |
 | `getIso2022JpVerdict` | bytes | string | ISO-2022-JP かの判定（`yes` / `broken`（ESC $ B があるが 8 ビット・規格外の ESC がある）/ `none`） | detectTextEncoding |
@@ -67,7 +72,7 @@
 | `getPackExtension` / `getPackFileName` / `readPackFileName` | book / extension, part / name | string / `@{Extension; Part}` | 本文インデックスを分ける拡張子（小文字・`.` なし） / 本文インデックスのファイルの名前（`content_index.<拡張子>.<番号>.tsv`） / 名前から拡張子と番号を取り出す | convertIndexFolderToPack, getIndexTsvCounts |
 | `splitPackBooksByExtension` | books | [ordered] 拡張子 → 並び | 元のファイルの並びを拡張子ごとに分ける（各並びの中の順は変えない） | convertIndexFolderToPack |
 | `encodePackValue` / `decodePackValue` | value | string | メタ情報の値の制御文字（タブを除く）と `%` を `%XX` にする / 戻す | convertToPackText, readPackPlaces |
-| `convertPlaceToPackMeta` | book, place | [ordered] キー → 値 | 場所の名前（TSV のファイル名。`見積[図形]`・`ページ001` など）を場所のメタ情報にする。組み立て直して同じ名前にならないものは `部分=<名前>`・`対象=本文` | convertToPackText |
+| `convertPlaceToPackMeta` | book, place | [ordered] キー → 値 | 場所の名前（TSV のファイル名。`見積[図形]`・`見積[ヘッダー・フッター]`・`ページ001` など）を場所のメタ情報にする。組み立て直して同じ名前にならないものは `部分=<名前>`・`対象=本文` | convertToPackText |
 | `convertPackMetaToPlace` | meta | string | 場所のメタ情報から場所の名前を組み立てる（画面の表示・図形とコメントの除外・元のファイルを開く処理が使う形） | readPackPlaces |
 | `convertToPackBody` | text | string | TSV の中身を本文インデックスに入れる形にする（改行を LF に、末尾に LF、U+001C〜U+001F を除く） | convertToPackText |
 | `convertToPackText` | books | string | 元のファイルの並び（TSV から新しく作るもの、または前の本文インデックスから写すまとまり）から、本文インデックスの文字列を作る | convertIndexFolderToPack |
@@ -80,11 +85,11 @@
 | 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |
 |---|---|---|---|---|---|
 | `writePackFile` / `readPackText` | path, text / path | – / string | 本文インデックスのファイルを UTF-16LE（BOM 付き）で書く（`<名前>.tmp` に書いてから `File.Replace` で置き換える） / 読む（置き換え・削除を妨げない共有モード） | [インデックスのファイルの形](../index-data/format.md#配置命名規則) | convertIndexFolderToPack, readPackContext |
-| `getIndexFolderBooks` | folder | `@{Name; Places}` の並び | フォルダ直下の元のファイルごとのフォルダ（`<ファイル名.xlsx>\<場所>.tsv`）から、本文インデックスに入れる元のファイルと場所の並びを作る | 同上 | convertIndexFolderToPack |
+| `getIndexFolderBooks` | folder | `@{Name; Places}` の並び | フォルダ直下の元のファイルごとのフォルダ（`<ファイル名.xlsx>\<場所>.tsv`）から、本文インデックスに入れる元のファイルと場所の並びを作る（ファイル名は `convertIndexFileNameToPlace` で場所に戻す。並びは前の版と同じになるよう、戻した場所を符号化し直したキーで並べ替える） | 同上 | convertIndexFolderToPack |
 | `convertIndexFolderToPack` | folder, destFolder, removeBooks, removeTsv | `@{Books; Tsv; Chars; Files; Texts}` | フォルダ 1 つの TSV から拡張子ごとの本文インデックスのファイルを書く。前の本文インデックスのファイルとまぜ（TSV のある元のファイルは入れ替え、removeBooks は外し、ほかは写す）、元のファイルが無くなった拡張子の本文インデックスのファイルは消す。removeTsv なら書き終えた後に TSV のフォルダを消す。Texts は書いた中身 | 同上 | updateIndexFolderPack |
 | `updateIndexFolderPack` | folder, removeBooks | 同上 | `convertIndexFolderToPack` を同じフォルダに書き、TSV を消す形で呼ぶ | 同上 | publishIndexFolders |
 | `getPackFiles` | root, relPath, recurse | `@{Path; Root; RelDir; RelPath; Ticks; Size}` の配列 | フォルダ以下の本文インデックスのファイルを列挙し、フォルダの順・フォルダの中は名前の順に並べる（Path は `\\?\` 付き。Ticks・Size は読んだ内容を使い回してよいかの判定に使う） | [検索を速くする仕組み](../search/speed.md) | getIndexPackFiles |
 | `findIndexFoldersWithBooks` | root | string[] | 元のファイルごとのフォルダ（本文インデックスに入れる前の TSV）が直下にあるフォルダを返す（インデックス作成が途中で止まったとき） | [インデックスのファイルの形](../index-data/format.md#配置命名規則) | インデックス作成（開始時） |
 | `publishIndexFolders` | pending（フォルダ → 無くなった元のファイル名）, indexRoot, systemRoot, statePath | 書き出したフォルダの数 | フォルダごとに、本文インデックスに書き（`updateIndexFolderPack`）、TSV を消し、書いた中身からシステムインデックスの txt を作る（`writeSystemIndexFolder`）。txt の「反映待ち」はまとめて状態ファイルに書く | 同上 | インデックス作成（indexer_run.ps1 の flushPending） |
-| `readPackContext` | path, book, location, lineNumber, before（既定 3）, after（既定 3）, cache | `@{LineNumber; Line}` の配列 | 本文インデックスのファイルの中の元のファイル book・場所 location の lineNumber 行目と前後の行を返す（行の数え方は検索と同じ）。cache（`newTsvTextCache`）に同じ本文インデックスのファイルの内容があれば読み直さない。読めない・見つからなければ空 | [［2 検索］タブ](../gui/search-tab.md) [選択行のプレビュー](../gui/preview.md) | 画面 |
+| `readPackContext` | path, book, location, lineNumber, before（既定 3）, after（既定 3）, cache | `@{LineNumber; Line}` の配列 | 本文インデックスのファイルの中の元のファイル book・場所 location の lineNumber 行目と前後の行を返す（行の数え方は検索と同じ）。cache（`newTsvTextCache`）に同じ本文インデックスのファイルの内容があれば読み直さない。読めない・見つからなければ空 | [［検索］タブ](../gui/search-tab.md) [選択行のプレビュー](../gui/preview.md) | 画面 |
 

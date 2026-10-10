@@ -1,14 +1,15 @@
-# CI
+﻿# CI
 
-扱うこと: GitHub Actions のワークフロー一覧（test・title・docs・codeql・scorecard・gui・release）と、それぞれの必須チェックの内容。扱わないこと: 性能の計測（[性能とリソースの計測のしかた](perf.md)）、速さの回帰テスト（[速さの回帰テストと上限の決め方](perf-check.md)）、コミット前のフック（[コミット前に動く検査](pre-commit.md)）。先に読むページ: [テストの実行](run.md)。
+扱うこと: GitHub Actions のワークフロー一覧（test・title・docs・codeql・scorecard・gui・perf-check・release）と、それぞれの必須チェックの内容。扱わないこと: 性能の計測（[性能とリソースの計測のしかた](perf.md)）、速さの回帰テスト（[速さの回帰テストと上限の決め方](perf-check.md)）、コミット前のフック（[コミット前に動く検査](pre-commit.md)）。先に読むページ: [テストの実行](run.md)。
 
 ```mermaid
 flowchart TD
-    C["コミット・PR"] --> T["test.yml<br>test"]
-    C --> TI["title.yml<br>pr-title・issue-title"]
-    C --> D["docs.yml<br>docs（ほか changes・publish）"]
-    C --> CQ["codeql.yml<br>analyze"]
-    C --> G["gui.yml<br>gui-smoke"]
+    C["コミット・PR"] --> T["test.yml<br>test → pr-comment"]
+    C --> TI["title.yml<br>pr-title・issue-title → pr-comment"]
+    C --> D["docs.yml<br>changes・build → pr-comment（ほか publish）"]
+    C --> CQ["codeql.yml<br>analyze → pr-comment"]
+    C --> G["gui.yml<br>gui-smoke → pr-comment"]
+    C --> PCK["perf-check.yml<br>search・ingest → pr-comment"]
     M["main への push"] --> SC["scorecard.yml<br>analysis"]
     TAG["v* タグの push"] --> R["release.yml<br>guard → test → release"]
 ```
@@ -17,22 +18,24 @@ GitHub Actions のワークフローは次のとおり。使うアクション�
 
 | ワークフロー | ジョブ（チェック名） | 動く時 | 内容 | main の必須チェック |
 |---|---|---|---|---|
-| `test.yml` | `test` | PR、main への push、`release.yml` からの呼び出し | 個人情報・文字コードの検査、`Signed-off-by` の検査（PR のみ）、テスト（`run.ps1 -Ci`）、Codecov への送信、PSScriptAnalyzer | ○ |
-| `title.yml` | `pr-title`・`issue-title` | PR・Issue の作成と編集（PR は push でも） | タイトルが Conventional Commits の形か | ○（`pr-title`） |
-| `docs.yml` | `docs`（ほかに `changes`・`publish`） | PR、main で設計書が変わったとき | 設計書のサイトを作り、GitHub Pages に公開する | ○ |
-| `codeql.yml` | `analyze` | PR、main への push、毎週 1 回 | ワークフローの静的解析 | ○ |
+| `test.yml` | `test`（ほか `pr-comment`） | PR、main への push、`release.yml` からの呼び出し | 個人情報・文字コードの検査、`Signed-off-by` の検査（PR のみ）、テスト（`run.ps1 -Ci`）、Codecov への送信、PSScriptAnalyzer | ○ |
+| `title.yml` | `pr-title`・`issue-title`（ほか `pr-comment`） | PR・Issue の作成と編集（PR は push でも） | タイトルが Conventional Commits の形か | ○（`pr-title`） |
+| `docs.yml` | `docs`（ほかに `changes`・`publish`・`pr-comment`） | PR、main で設計書が変わったとき | 設計書のサイトを作り、GitHub Pages に公開する | ○ |
+| `codeql.yml` | `analyze`（ほか `pr-comment`） | PR、main への push、毎週 1 回 | ワークフローの静的解析 | ○ |
 | `scorecard.yml` | `analysis` | main への push、ブランチ保護の変更、毎週 1 回 | OpenSSF Scorecard の採点 | – |
 | `release.yml` | `guard`・`test`・`release` | `v` で始まるタグの push、手動（`workflow_dispatch`。タグを打たずに配布物を作る手順だけ試す） | テストのうえ、配布 zip とインストーラーを GitHub Release に載せる | – |
-| `gui.yml` | `gui-smoke` | PR、main への push | 本物の画面を windows ランナーで開き、画面遷移（[画面のスモークテスト](gui-smoke.md)）を UI オートメーションで確かめる | –（必須にしない。しばらく安定して通ることを見てから、持ち主が決める） |
+| `gui.yml` | `gui-smoke`（ほか `pr-comment`） | PR、main への push | 本物の画面を windows ランナーで開き、画面遷移（[画面のスモークテスト](gui-smoke.md)）を UI オートメーションで確かめる | –（必須にしない。しばらく安定して通ることを見てから、持ち主が決める） |
 | `perf.yml` | `perf` | 手動（`workflow_dispatch`） | Office からの取り込み（.docx・.pptx）・本文インデックスの作成・検索の速さとリソースの推移を測る | – |
-| `perf-check.yml` | `search`・`ingest` | PR にラベル `perf-check` を付けたとき（付けたあとの push でも）、main への push（速さに効くファイルが変わったとき）、手動 | 検索・本文インデックスの作成・取り込み（.docx・.pptx）の速さを上限と比べる（回帰テスト） | –（流した PR で落ちていればマージしない） |
+| `perf-check.yml` | `search`・`ingest`（ほか `pr-comment`） | PR にラベル `perf-check` を付けたとき（付けたあとの push でも）、main への push（速さに効くファイルが変わったとき）、手動 | 検索・本文インデックスの作成・取り込み（.docx・.pptx）の速さを上限と比べる（回帰テスト） | –（流した PR で落ちていればマージしない） |
+
+`pr-comment` は 6 つのワークフロー（test・title・docs・codeql・gui・perf-check）それぞれが持つ、自分の結果を PR のコメントに書くジョブ（下の「結果を PR のコメントに書く（`pr-comment` ジョブ）」）。これらの結果を 1 つにまとめる集約ワークフローは無い。
 
 **`test.yml`**
 
 pull request と main への push のたびに windows ランナーで実行する。作業ブランチへの push だけでは動かない（PR のブランチで同じテストが 2 回走らないようにするため）。PR を出す前に CI で確かめたいときは、下書き（draft）の PR を出す。
 
 - Windows PowerShell 5.1 はランナーに最初から入っている（`shell: powershell` を明示する。`pwsh`（PowerShell 7）では COM と文字コードの扱いが変わる）
-- **どのワークフローも、`shell: powershell` の `run` は ASCII だけで書く。** Actions は `run` の内容を BOM の無い UTF-8 の一時スクリプトにして渡すが、Windows PowerShell 5.1 はこれを ANSI として読むため、日本語などの ASCII 以外の文字があると文字化けして構文エラーになる（v0.3.0 のタグの release で実際に起きた）。メッセージなどで日本語が要るときは `tools/` の BOM 付き UTF-8 のスクリプトに移して呼び出す（`shell: pwsh` はこの制限を受けない）。`tests/meta/encoding.Tests.ps1` の「shell: powershell の run は ASCII だけ」が確かめる
+- **どのワークフローも、`shell: powershell` の `run` は ASCII だけで書く。** Actions は `run` の内容を BOM の無い UTF-8 の一時スクリプトにして渡すが、Windows PowerShell 5.1 はこれを ANSI として読むため、日本語などの ASCII 以外の文字があると文字化けして構文エラーになる。メッセージなどで日本語が要るときは `tools/` の BOM 付き UTF-8 のスクリプトに移して呼び出す（`shell: pwsh` はこの制限を受けない）。`tests/meta/encoding.Tests.ps1` の「shell: powershell の run は ASCII だけ」が確かめる
 - ランナーには Windows に最初から入っている Pester 3.4 もある。`tests/run.ps1` は `Import-Module Pester -RequiredVersion 5.9.0` で版を指定し、CI は 5.9.0 が無ければ入れる（版は `test.yml` の `PESTER_VERSION` と `tests/run.ps1` の 2 か所で同じにする）
 - スクリプトの改行はランナーの `core.autocrlf` に左右されないよう、`.gitattributes` で `.ps1`・`.xaml`・`.bat` を CRLF に固定している
 - ランナーに Office は入っていないため、タグ `Office` のテストは既定で外れる。COM を使うインデックス作成の確認は手元で行う（[結合テスト（手動）](index.md#結合テスト手動)）
@@ -53,6 +56,7 @@ pull request と main への push のたびに windows ランナーで実行す�
 PR と Issue のタイトルを `tools/check_commit_message.ps1 -Title` で確かめる。squash merge では PR のタイトルが main のコミットのタイトルになるため、main の履歴の形はここで決まる。
 
 - PR（ジョブ `pr-title`）… 形が違えば失敗にする。ブランチ保護の必須のチェックにしてあり、失敗するとマージできない。必須のチェックは head のコミットごとに要るため、タイトルの編集だけでなく push でも動かす
+- `pr-title` は `tools/check_compat_golden.ps1` も呼び、前の版との互換の見本（`tests/testdata/compat/`。[前の版との互換](../index-data/format.md#前の版との互換)）を `!` 無しで変える・消す PR を落とす
 - Issue（ジョブ `issue-title`）… 作成は止められないため、形が違えば `.github/title_comment.md` の直し方を 1 回だけコメントする（1 行目の目印が付いたコメントが既にあれば書かない）
 - タイトルは誰でも書ける信頼できない入力のため、式で `run` に埋め込まず環境変数で渡す
 - 起動の速い ubuntu のランナーで `pwsh`（PowerShell 7）を使う。そのため `tools/check_commit_message.ps1` は 5.1 と 7 の両方で動くように書く
@@ -60,17 +64,35 @@ PR と Issue のタイトルを `tools/check_commit_message.ps1 -Title` で確�
 
 **`gui.yml`（画面のスモークテスト）**
 
-本物の画面（WPF）を windows ランナーで別のプロセスとして開き、UI オートメーションで、起動・タブ・検索・インデックスの追加から作成・ワークスペースの変更・プロセス停止・閉じるまでを動かす（`tests/gui/*.Tests.ps1`、タグ `Gui`。何を動かすかは [画面のスモークテスト](gui-smoke.md)）。ジョブは `gui-smoke` 1 つで、`.\tests\run.ps1 -Tag Gui` を流す。
+本物の画面（WPF）を windows ランナーで別のプロセスとして開き、UI オートメーションで、起動・タブ・検索・インデックスの追加から作成・ワークスペースの変更・閉じるまでを動かす（`tests/gui/*.Tests.ps1`、タグ `Gui`。何を動かすかは [画面のスモークテスト](gui-smoke.md)）。ジョブは `gui-smoke` 1 つで、`.\tests\run.ps1 -Tag Gui` を流す。
 
 - **`test.yml` には入れない。** `test.yml` は `release.yml` から呼ばれ、release は test を待つため、画面のテストが不安定なときにリリースまで止まる。別のワークフローにすれば `test` と並んで動き、`test` の時間も延びない
 - **必須チェックにしない。** 必須チェックを変えるのは持ち主で、しばらく安定して通ることを見てから諮る。必須にするときに、文書だけの PR で pending のまま残らないよう、`paths` の絞り込みは付けていない
 - `tests\run.ps1 -Ci` は使わない。カバレッジの下限を確かめるが、画面は別のプロセスで動くので計測できず、`Gui` だけを流すと下限を割るため
 - 1 回に 8〜9 分ほどかかる（場面ごとの秒数は各場面の出力に出る）。`timeout-minutes` は 20。同じブランチに続けて push したときは、古い実行を取り消す（`concurrency`）
-- 落ちたときの材料（画面の画像・写した先の `画面エラー.txt`・`インデックス作成ログ.txt`・窓の一覧）は、成否にかかわらず成果物 `gui-smoke-results`（`work/test/gui/<場面>/`）として保存する
+- 落ちたときの材料（画面の画像・写した先の `gui_error_log.txt`・`indexing_log.txt`・窓の一覧）は、成否にかかわらず成果物 `gui-smoke-results`（`work/test/gui/<場面>/`）として保存する
 - **落ちたときの再実行は 1 回まで。** 2 回続けて同じ段階で落ちたら、偶然ではなく直すものとして扱う（画面の文言を変えたときは、探している文言のテストを直す）
-- **CI だけで流す場面がある。** S6（既定のワークスペース）は、利用者の本物のワークスペース（`%USERPROFILE%\Documents\tebunko_ws`）を使うため、`GITHUB_ACTIONS` が `true` のときだけ流す。手元では理由を出して飛ばす
-- **手元で飛ばす段階がある。** S7 の［すべて終了］［バックグラウンドのみ終了］は、確認を出す作りが壊れていると本物の Office を止めるため、手元（`GITHUB_ACTIONS` が無いとき）で偽のプロセスのほかに Excel・Word・PowerPoint が動いていれば、その段階だけを飛ばして理由をログに出す
-- ツールは `scripts/` を `$TestDrive` に写して起動し、設定ファイルもワークスペースも写した先に置く。作業ツリーの `setting.config`・`work\index`、`%LOCALAPPDATA%\tebunko`、（手元では）`Documents\tebunko_ws` が、流す前後で変わらないことも各場面で確かめる
+- **S6 も手元で流す。** 既定のワークスペースは環境変数 `TEBUNKO_DEFAULT_WORKSPACE` で差し替えた場所で画面を起動するため、利用者の既定のワークスペースには触れない
+- ツールは `scripts/` を `$TestDrive` に写して起動し、設定ファイルもワークスペースも写した先に置く。作業ツリーの `setting.config`・`work\index`、`%LOCALAPPDATA%\tebunko`、`Documents\tebunko_ws` が、流す前後で変わらないことも各場面で確かめる
+
+**結果を PR のコメントに書く（`pr-comment` ジョブ）**
+
+test・title・docs・codeql・gui・perf-check の 6 つのワークフローは、どれも自分の確認のジョブに続けて `pr-comment` ジョブを持つ。共有の複合アクション `.github/actions/pr-comment`（中身は `tools/pr_checks_comment.ps1` を呼ぶだけ）を使い、**そのワークフロー自身の結果**（成功・失敗・取り消し・スキップ）と実行へのリンクを PR のコメントに書く・書き換える。結果を 1 つのコメントにまとめる集約ワークフローは無い。個別のワークフローをやり直しても、そのワークフロー自身のコメントだけが書き換わる。
+
+- **`pull_request_target` は使わない。** `pr-comment` ジョブは、ほかのジョブと同じ `pull_request` のワークフロー実行の中にある。PR のコードを動かすジョブ（`test`・`build` など）とは分け、複合アクションを呼ぶ前に、既定のブランチ（`github.event.repository.default_branch`）の内容で `tools/pr_checks_comment.ps1` と `.github/actions/pr-comment/` だけを改めて checkout する。ローカルの複合アクションは、呼ぶ時点で作業ツリーに置かれている内容で動くため、PR のブランチの内容のままにしておくと、PR で書き換えた道具・アクションが `pull-requests: write` の権限で動いてしまう。これを避けるための守りで、効く範囲は限られる（フォークの PR のトークンはそもそも読み取りだけで、同じリポジトリのブランチからの PR はワークフローの YAML 自体を書き換えられるため）。権限をジョブ単位に絞ることなどと重ねた多重の守りの 1 つ
+- **この道具・複合アクションを変える PR では、その PR の CI で動くのは既定のブランチ（main）の版になる。** 新しく作った PR では main にまだ無いため `pr-comment` ジョブが「Can't find 'action.yml'」で失敗する（必須チェックではないのでマージは止まらない）。入力を足したときも、main に入るまでその PR の CI では効かない
+- **`pull-requests: write` は `pr-comment` ジョブだけに付ける。** ワークフロー全体には広げず、ほかのジョブ・ステップは今までどおり読み取りだけにする
+- **フォークの PR では書けないことがある。** `pull_request` イベントはフォークからの PR では読み取り専用のトークンになり、コメントの作成・書き換えが 403 になる。`tools/pr_checks_comment.ps1` はこれを例外にせず、警告を出すだけでジョブを失敗にしない。結果は常に（書けたかどうかに関わらず）Actions の Summary に書くため、フォークの PR でも結果は見える
+- **PR の番号は `github.event.pull_request.number` からそのまま取る。** `pull_request` イベントの中で動くため、`workflow_run` のときのように head の SHA から開いている PR を探し直す必要が無い
+- **書き換えるコメントは、作者が `github-actions[bot]` で、1 行目がそのワークフロー専用の目印（`<!-- pr-check:<id> -->`。`id` は `test`・`title`・`docs`・`codeql`・`gui`・`perf-check`）のものだけ。** 無ければ新しく書く。目印がワークフローごとに違うため、ほかのワークフローが書いたコメントは書き換えない
+- **perf-check は `search`・`ingest` の 2 つのジョブの結果をまとめる。** カンマ区切りで両方の結果を渡し、悪いほうの結果（`failure` > `cancelled` > `skipped` > `success`）を 1 件のコメントにする。数字（検索・pack の作成・取り込みの速さ）はここに書き写さず、ジョブの Summary で見る
+- **perf-check は、`search`・`ingest` の両方がスキップのとき（`perf-check` のラベルが無いとき・`perf-check` 以外のラベルを付けて起動した実行）は書かない。** 書くのは、どちらかが動いたときだけ。書くと前の結果（失敗など）が「スキップ」に書き換わるため。ラベルを外したあとは、前の結果のコメントが残る（対象のコミットで見分ける）
+- **`pr-comment` ジョブの条件は `!cancelled()`。** 取り消された実行はコメントを書き換えない（古い実行が新しい結果を消さないため）。前段のジョブが失敗・スキップのときは書く（perf-check の両方スキップを除く）
+- **`title.yml` は PR・Issue ごとに順に動かす（`concurrency`。グループは `title-<番号>`、`cancel-in-progress: false`）。** `opened` と `edited` が同時に動いて Issue のコメントが 2 件できるのを防ぐ。実行中のものは取り消さないが、待ちに入れるのは 1 本だけなので、続けて編集・push すると、待っていた古い実行は取り消される（最新の実行は必ず動く。head に「取り消し」の `pr-title` が一時的に見えることがある）
+- **コメントには、PR の head のコミットを短い形で添える。** 遅れて終わった古い実行が新しい結果を上書きしたときに見分けるため
+- **Dependabot の PR にはコメントしない。** PR の作者（`github.event.pull_request.user.login`）が `dependabot[bot]` の実行は対象から外す
+- `release.yml` は `test.yml` を `workflow_call` で呼ぶ。呼ばれる側の `pr-comment` ジョブが `pull-requests: write` を求めるため、呼ぶ側の `test` ジョブにも同じ許可を付けてある（足りないと、ワークフローが不正として起動せず、タグを打っても release が動かない）。タグの push では `pr-comment` 自体はスキップされる
+- 手元・CI 上からの確かめ方は `-DryRun`（`gh` を呼ばず、組み立てたコメントの本文だけを標準出力に出す）
 
 **`codeql.yml`・`scorecard.yml`（サプライチェーンの安全性）**
 
