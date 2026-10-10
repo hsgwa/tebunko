@@ -345,6 +345,32 @@ Describe "集約ファイルの作成と検索" -Tag Io {
     }
 }
 
+Describe "searchPackIndex（埋め込みの場所。[図形も検索] を切ると除かれる）" -Tag Io {
+    BeforeAll {
+        $embedRoot = Join-Path $TestDrive "embed_tsv"
+        $embedDir = "$embedRoot\idx"
+        newTsv "$embedDir\報告.docx\$(toIndexFileName "ページ001")" @("本文の合計")
+        newTsv "$embedDir\報告.docx\$(toIndexFileName "ページ001[埋め込み1]")" @("品名`t合計", "りんご`t合計 100")
+        newTsv "$embedDir\資料.pptx\$(toIndexFileName "スライド002[埋め込み12]")" @("埋め込みの合計")
+        $embedPacks = newPackIndex $embedRoot (Join-Path $TestDrive "embed_pack")
+    }
+
+    It "既定では、埋め込みの中の文字もヒットになり、場所の名前に [埋め込みN] が付く" {
+        sortedKeys (searchPackIndex "合計" $embedPacks $true).Hits | Should -BeExactly ((@(
+            "idx|報告.docx|ページ001|1|本文の合計"
+            "idx|報告.docx|ページ001[埋め込み1]|1|品名`t合計"
+            "idx|報告.docx|ページ001[埋め込み1]|2|りんご`t合計 100"
+            "idx|資料.pptx|スライド002[埋め込み12]|1|埋め込みの合計"
+        ) | Sort-Object) -join "`n")
+    }
+
+    It "図形を除いた検索では、埋め込みの中の文字は出ない。TSV を 1 行ずつ照合したときと同じ" {
+        $hits = (searchPackIndex "合計" $embedPacks $true -includeShapes $false).Hits
+        toKeys $hits | Should -Be @("idx|報告.docx|ページ001|1|本文の合計")
+        sortedKeys $hits | Should -BeExactly (referenceKeys $embedRoot "合計" $true $false "" $false $true)
+    }
+}
+
 Describe "searchPackIndex（テキストの長い行を切る。search_query.ps1 の truncateHitLine）" -Tag Io {
     BeforeAll {
         $tsvRoot = Join-Path $TestDrive "tsv-long"

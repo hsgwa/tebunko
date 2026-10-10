@@ -1,4 +1,4 @@
-# 単体テスト（Office）
+﻿# 単体テスト（Office）
 
 扱うこと: Office ファイルの読み取り（ZIP を直接読む）・COM を使う処理の単体テストが何を確かめるか。扱わないこと: インデックス作成の流れそのもののテスト（[単体テスト（インデックス作成）](unit-indexer.md)）。先に読むページ: [単体テスト（インデックスと検索）](unit-index.md)。
 
@@ -24,7 +24,17 @@ Word・PowerPoint・Excel は使わず、最小限の `.docx` `.pptx` `.xlsx`（
 | `readObjectText` / `readChartText` | 参照先が無ければ空、グラフはタイトル・軸ラベル・系列名を読み（セル参照・直値のどちらでも読む）、項目名（多段の `multiLvlStrCache` を含む）・数値は読まない、項目の点数が多くても速く終わる |
 | `readDocxUnits` / `readPptxUnits`（壊れた ZIP） | 本文・プレゼンテーション情報が無ければ、分かるメッセージで例外にする |
 | `readZipEntry`（サイズの上限） / `newXmlDocument`（DTD） | 部品 1 つの展開後の大きさ・1 ファイルで読む合計が、それぞれの上限を超えると簡潔なメッセージ（`ZipSizeLimitException`。`PartName`・`MeasuredBytes`・`LimitKind`（`Part` / `Total`）を持つ）で例外にする、ヘッダーの大きさを偽って小さく見せた部品も検知する（型は `GetType().Name` が `ZipSizeLimitException` であること、部品名・大きさ・種類はプロパティで確かめる。上限ちょうどは読め、1 バイト超えると例外になる境界、空の部品、Deflate 圧縮の部品の偽りのヘッダー、申告が大きくても中身が小さければ中身を返すことも確かめる）。Excel のヘッダー・フッターの流れ読みの上限（`zipSheetStreamMaxBytes`）は、申告が上限を超えるシートを開かないこと、部品の上限（100MB）を超えるシートは読めること、申告を小さく偽ったシート（無圧縮・Deflate）を読む途中で止めることを確かめる（上限を小さい値に差し替える）、`readDocxUnits` / `readPptxUnits` / `readXlsxObjectUnits` が呼ぶたびに合計を数え直す、DTD（`<!DOCTYPE>`）宣言を含む XML は例外にする（実体参照を入れ子にして膨張させる攻撃を防ぐ）、既存の BOM 判定・文字コードの扱いは変わらない |
+| `readZipEntryBytes` | 中身をバイト列で返す、部品の上限・偽りのヘッダーは `ZipSizeLimitException`（Part） |
 | `writeUnits` | 場所ごとの TSV 出力、空の場所は出力しない、`[` `]` を含むパス |
+
+**埋め込みの読み取り（`tests/shared/office/office_embedded`）**
+
+Word・PowerPoint は使わず、埋め込みのあるファイルをテスト内で作る。
+
+| 対象 | 主な確認内容 |
+|---|---|
+| `readXlsxCellLines` | 表示のシートの文字のセルを行ごとにタブでつなぐ、数値・非表示のシート・読み仮名は読まない、流れ読みの上限 |
+| `readEmbeddedObjectLines`（`readDocxUnits` / `readPptxUnits` 経由） | Excel・Word・PowerPoint の埋め込みを `[埋め込みN]` に入れる、入れ子は読まない、同じ部品は 1 回、ZIP でない・形式の分からないものは読み飛ばす、壊れた XML と部品の上限はその埋め込みだけ失敗、合計の上限は全体の失敗 |
 
 **暗号化されたファイルの判定（`tests/shared/office/office_protection_view`・`office_protection`）**
 

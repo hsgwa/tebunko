@@ -2,6 +2,7 @@
 # 画面は読み込まない（インデックス作成は、画面のインデクサのスレッドが indexer.ps1 を実行して行う）
 . "$PSScriptRoot\..\lib.ps1"
 . "$PSScriptRoot\..\..\shared\office\office_reader.ps1"
+. "$PSScriptRoot\..\..\shared\office\office_embedded.ps1"
 . "$PSScriptRoot\..\..\shared\office\office_app.ps1"
 . "$PSScriptRoot\pending_publish.ps1"
 . "$PSScriptRoot\indexing_reporter.ps1"

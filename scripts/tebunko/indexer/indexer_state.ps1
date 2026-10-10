@@ -389,7 +389,7 @@ function writeZipSizeLimitLog {
         return
     }
 
-    $kindText = if ($exception.LimitKind -eq "Total") { "1ファイルの合計" } else { "部品ごと" }
+    $kindText = switch ($exception.LimitKind) { "Total" { "1ファイルの合計" } "Output" { "埋め込みから出す文字の合計" } default { "部品ごと" } }
     $mb = [math]::Round($exception.MeasuredBytes / 1MB, 1)
     writeIndexerLog "    サイズの上限（${kindText}）を超えました: $($exception.PartName)（$($exception.MeasuredBytes) バイト、約${mb}MB）" "Yellow"
 }

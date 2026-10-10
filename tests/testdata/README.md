@@ -302,7 +302,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests\testdata\text\make_tes
 
 前の版が作った本文インデックス・システムインデックス・取り込み一覧・エクスポートの zip を、今のコードがそのまま読めることを確かめるための見本（golden）。[前の版との互換](../../docs/design/index-data/format.md#前の版との互換) も参照。
 
-一覧（`tests\testdata\compat\index\<見本の名前>\`。今は `v0.3.1+english-names` の 1 つ）:
+一覧（`tests\testdata\compat\index\<見本の名前>\`。今は `v0.3.1+english-names`（Excel・Word・PowerPoint・テキスト）と `v0.4.0+embedded-objects`（Excel のブックを埋め込んだ Word・PowerPoint。`[埋め込みN]` の場所）の 2 つ）:
 
 | 中身 | 内容 |
 |---|---|
