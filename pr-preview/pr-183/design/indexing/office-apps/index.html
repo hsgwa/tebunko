@@ -4472,6 +4472,7 @@
     state "停止" as Stopped
     state "起動中（PID を保持）" as Running
     state "利用者に渡した" as HandedOver
+    state "持ち続け（参照を放さず、後で試し直す）" as Kept
 
     [*] --&gt; Stopped
     Stopped --&gt; Running : getApp（最初に必要になったとき。COM 生成の前後のプロセス一覧の差分で PID を取得）
@@ -4479,6 +4480,10 @@
     Running --&gt; Stopped : stopApp（Quit → Excel は 1 秒・Word/PowerPoint は 5 秒待ち → 残っていれば PID で Kill）
     Running --&gt; HandedOver : Excel・Word・PowerPoint に利用者のファイルが入った（1 ファイルの取り込みごとと stopApp で確かめる）
     HandedOver --&gt; [*] : Quit も Kill もせず、窓を出して利用者に渡す
+    Running --&gt; Kept : 窓や設定を戻しきれない・Word で一覧を読めない
+    Kept --&gt; HandedOver : retryKeptApps（waitKeptApps）で戻しきれた
+    Kept --&gt; Stopped : 一覧を読み直して自分のファイルだけと分かった（Word。quitApp）
+    Kept --&gt; [*] : スレッドの終わりで上限まで通らず、参照が切れる
     Stopped --&gt; Running : 次に必要になったとき
     Stopped --&gt; [*] : finally（正常終了・中止・続けられないエラー）</code></pre>
 <table>
@@ -4591,7 +4596,7 @@
 <td></td>
 </tr>
 <tr>
-<td>- <strong>残りうるもの</strong>: 上限まで通らなかったもの、または待たずに抜けたもの（中止したとき・画面を閉じたとき）は、そのまま持ち続け、スレッドが終わると参照が切れる。そのとき残りうるのは、<code>DisplayAlerts</code> が偽のまま（利用者がブックを閉じるときの保存の確認が出ない）、任意の設定が戻らないまま、自分の一時コピーが閉じられないまま、窓が出ないまま、である。窓も操作する人もいなければ、そのアプリは終わることがある。一覧を読めないまま持ち続けた Word も、スレッドが終わると参照が切れ、窓の無い Word が残りうる。</td>
+<td>- <strong>残りうるもの</strong>: 上限まで通らなかったもの、または待たずに抜けたもの（中止したとき・画面を閉じたとき）は、そのまま持ち続け、スレッドが終わると参照が切れる。そのとき残りうるのは、<code>DisplayAlerts</code> が偽のまま（利用者がブックを閉じるときの保存の確認が出ない）、任意の設定が戻らないまま、自分の一時コピーが閉じられないまま、窓が出ないまま、である。窓も操作する人もいなければ、そのアプリは終わることがある。一覧を読めないまま持ち続けた Word も、スレッドが終わると参照が切れ、窓の無い Word が残りうる。持ち続けたアプリが、閉じ損ねた自分の一時コピーを開いたままのときは、同じレーンの次のファイルの取り込みの最初の作業フォルダの片付け（<code>clearTmpDir</code>）が失敗し、そのファイルは取り込みの失敗として記録される（次の更新で取り込み直す）。</td>
 <td></td>
 <td></td>
 </tr>
