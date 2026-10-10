@@ -4,15 +4,6 @@
 # ---- 元のファイルを開く・コピー・出力 ----
 
 
-function getSourcePath {
-    # 元のファイルのパス（ファイルがあるかは確かめない）。元の場所が分からなければ $null
-    param (
-        $row
-    )
-
-    return resolveSourcePath $row $script:sourceFolderMaps
-}
-
 $script:openSourceRequest = [ref]0  # 元のファイルを確かめる依頼の番号。増やすたびに前の依頼の結果を捨てる。
 # [ref] のまま閉じ込める（スクリプトブロックの中で $script:openSourceRequest を読むと、遠く離れたスレッド・
 # タイマーから呼ばれたときに増やす前の値のまま固まって読めることがあるため。tests\tebunko\ui\open_source.Tests.ps1 で確かめている）
@@ -23,12 +14,90 @@ $script:openSourcePendingRow = [ref]$null  # 裏のスレッドに依頼を出�
 # 同じ行をもう一度開いても新しい依頼を出さない（届かない共有では、列の 2 つのスレッドが同じ行の依頼で塞がるため）
 $script:openSourcePendingPath = [ref]""  # 待っている行を、確かめている間の文言に出すためのパス（もう一度開いたときに出し直す）
 
+# パスのコピーの依頼は、[開く] とは別の番号・箱にする（同じ番号を共有すると、先に出した方の結果が黙って捨てられるため）
+$script:copySourceRequest = [ref]0
+$script:copySourcePendingRow = [ref]$null
+
 function cancelPendingSourceLookup {
     # 待っている元のファイルの確認を打ち切る（新しく検索を始めたとき・ワークスペースを変えたときに呼ぶ）。
     # 依頼の番号を進めて前の依頼の結果を捨て、待っている行の記録・カーソルを戻す
     $script:openSourceRequest.Value++
     $script:openSourcePendingRow.Value = $null
+    $script:copySourceRequest.Value++
+    $script:copySourcePendingRow.Value = $null
     $window.Cursor = $null
+}
+
+function findSourceLocationAsync {
+    # 検索結果の行の元のファイルの場所（getSourceLocation の結果）を求め、onLocation { param($location) } に渡す。
+    # キャッシュ（$script:sourceFolderMaps）にあればその場で渡す。無ければ対応を読む必要があり、
+    # ネットワークの場所なら裏の列（network）で読み、結果が届くまで画面のスレッドは待たない。ローカルならその場で読む
+    #   requestBox・requestId: 呼ぶ側が進めた依頼の番号（待っている間に別の依頼が出たら、この結果は捨てる）
+    #   pendingRowBox: 裏に依頼を出している間の行を入れる箱
+    param (
+        $row,
+        [scriptblock]$onLocation,
+        $requestBox,
+        [int]$requestId,
+        $pendingRowBox
+    )
+
+    $found = findSourceLocationInMaps $row $script:sourceFolderMaps
+    if ($found.Resolved) {
+        & $onLocation $found.Location
+        return
+    }
+    if (!(testNetworkPath $found.Pending)) {
+        & $onLocation (getSourceLocation $row $script:sourceFolderMaps)
+        return
+    }
+
+    $pendingRowBox.Value = $row
+    $script:openSourcePendingPath.Value = ""
+    setStatus (getSourceLookingStatus)
+    $window.Cursor = [System.Windows.Input.Cursors]::AppStarting
+    # 呼ぶ関数は変数で捕まえてから閉じ込める（クロージャの中では、名前のままでは関数を引けないため）
+    $applyLocation = ${function:applySourceLocation}
+    $maps = $script:sourceFolderMaps
+    $sendMaps = $maps.Clone()
+    $statusPath = [string]$workspace.StatusFile
+    $settingsPath = [string]${settingsFile}
+    $indexDir = [string]$workspace.IndexDir
+    startJob {
+        param ($row, $maps, $statusPath, $settingsPath, $indexDir)
+        readSourceLocation $row $maps $statusPath $settingsPath $indexDir
+    } @($row, $sendMaps, $statusPath, $settingsPath, $indexDir) {
+        param ($output, $errorText)
+        if ($row -eq $pendingRowBox.Value) {
+            $pendingRowBox.Value = $null
+        }
+        if ($requestId -ne $requestBox.Value) {
+            # 待っている間に別の行を開いた・新しく検索した・ワークスペースを変えた。前の依頼は捨てる
+            return
+        }
+        & $applyLocation $output $errorText $maps $onLocation
+    }.GetNewClosure() (getWorkspaceJobQueue @($found.Pending, $indexDir))
+}
+
+function applySourceLocation {
+    # findSourceLocationAsync の裏の仕事の結果を反映する。読めたら、読んだ対応をキャッシュ（maps）に足して onLocation を呼ぶ
+    param (
+        $output,
+        $errorText,
+        [hashtable]$maps,
+        [scriptblock]$onLocation
+    )
+
+    $window.Cursor = $null
+    if ($errorText -or !$output -or @($output).Count -eq 0) {
+        setStatus (getSourceLookupFailedStatus ([string]$errorText))
+        return
+    }
+    $result = @($output)[0]
+    foreach ($key in @($result.Maps.Keys)) {
+        $maps[$key] = $result.Maps[$key]
+    }
+    & $onLocation $result.Location
 }
 
 function findSourceFile {
@@ -44,14 +113,32 @@ function findSourceFile {
     $pendingRowBox = $script:openSourcePendingRow
     if ($row -eq $pendingRowBox.Value) {
         # この行はもう裏のスレッドに依頼済みで、まだ結果が届いていない。確かめている最中であることを出し直す
-        setStatus (getSourceCheckingStatus $script:openSourcePendingPath.Value)
+        $pendingPath = $script:openSourcePendingPath.Value
+        setStatus $(if ($pendingPath) { getSourceCheckingStatus $pendingPath } else { getSourceLookingStatus })
         return
     }
 
     $requestBox = $script:openSourceRequest
     $requestBox.Value++
     $requestId = $requestBox.Value
-    $location = getSourceLocation $row $script:sourceFolderMaps
+    $continue = ${function:continueFindSourceFile}
+    findSourceLocationAsync $row {
+        param ($location)
+        & $continue $row $location $requestBox $requestId $pendingRowBox $onFound
+    }.GetNewClosure() $requestBox $requestId $pendingRowBox
+}
+
+function continueFindSourceFile {
+    # findSourceFile の続き。元のファイルの場所（location）が分かったので、ファイルがあるかを確かめる
+    param (
+        $row,
+        $location,
+        $requestBox,
+        [int]$requestId,
+        $pendingRowBox,
+        [scriptblock]$onFound
+    )
+
     $book = $row.Book
 
     # 呼ぶ関数は変数で捕まえてから閉じ込める（スクリプトブロックの中で名前のまま呼ぶと、遠く離れたスレッド・
@@ -96,7 +183,7 @@ function findSourceFile {
         } else {
             & $apply $output[0]
         }
-    }.GetNewClosure() "network"
+    }.GetNewClosure() (getWorkspaceJobQueue $location.Folder)
 }
 
 function applySourceFileState {
@@ -520,16 +607,46 @@ function copySelectedRows {
 }
 
 function copySourcePath {
+    # 元のファイルのパスをクリップボードに写す。元の場所の対応を読む必要があるときは、ネットワークの場所なら裏で読む
     $row = getCurrentHitRow
     if ($null -eq $row) {
         return
     }
-    $path = getSourcePath $row
+    $requestBox = $script:copySourceRequest
+    $requestBox.Value++
+    $requestId = $requestBox.Value
+    $pendingRowBox = $script:copySourcePendingRow
+    $complete = ${function:completeCopySourcePath}
+    findSourceLocationAsync $row {
+        param ($location)
+        & $complete $row $location
+    }.GetNewClosure() $requestBox $requestId $pendingRowBox
+}
+
+function setClipboardText {
+    param (
+        [string]$text
+    )
+
+    [System.Windows.Clipboard]::SetText($text)
+}
+
+function completeCopySourcePath {
+    # copySourcePath の続き。場所が分かったので、パスを写す
+    param (
+        $row,
+        $location
+    )
+
+    $path = $null
+    if ($location.Known) {
+        $path = joinSourcePath $location.Folder $location.Rest $row.Book
+    }
     if (!$path) {
         # 元のファイルの場所が分からない（インデックスだけを別の PC にコピーした等）ときは、インデックスの中の位置（フォルダ\元のファイル名）を写す
         $path = if ($row.RelDir) { "$($row.RelDir)\$($row.Book)" } else { $row.Book }
     }
-    [System.Windows.Clipboard]::SetText($path)
+    setClipboardText $path
     setStatus "パスをコピーしました：${path}"
 }
 

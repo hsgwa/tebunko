@@ -563,6 +563,11 @@ function testDefaultWorkspace {
     )
 
     $result = @{ Usable = $true; Folder = $folder; Message = "" }
+    # 既定の場所がネットワークにある（プロファイルが共有にある・環境変数 TEBUNKO_DEFAULT_WORKSPACE が UNC のパス）ときは、
+    # 画面のスレッドで中身を数えない（届かないと止まる）。確かめず、使えるものとして扱う
+    if (testNetworkPath $folder) {
+        return $result
+    }
     if (![System.IO.Directory]::Exists($folder)) {
         return $result
     }

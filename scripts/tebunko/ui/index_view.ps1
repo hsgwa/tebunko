@@ -80,20 +80,146 @@ function getFailedFileOtherStatus {
     return "元のファイルを確かめられませんでした：${message}"
 }
 
+function getIndexNamingStatus {
+    # 名前の決まっていないインデックスに名前を付けている間（ネットワークのワークスペースでは裏で行う）のステータス
+    return "インデックス名を決めています…（共有フォルダに接続できないときは、しばらくかかります）"
+}
+
+function getIndexNamingFailedStatus {
+    # インデックス名を決められなかったときのステータス
+    param (
+        [string]$errorText
+    )
+
+    return "インデックス名を決められませんでした：${errorText}"
+}
+
+function getIndexStoreJobStatus {
+    # インデックスの削除・名前の変更を別スレッドで始めたときのステータス
+    param (
+        [string]$kind,      # "delete"（削除）か "rename"（名前の変更）
+        [string]$name,
+        [string]$newName
+    )
+
+    if ($kind -eq "rename") {
+        return "インデックス [${name}] の名前を [${newName}] に変えています…（共有フォルダでは少し時間がかかります）"
+    }
+    return "インデックス [${name}] を削除しています…（件数によっては少し時間がかかります）"
+}
+
+function getIndexStoreJobFailedStatus {
+    # 削除・名前の変更が失敗したときのステータス
+    param (
+        [string]$kind,
+        [string]$name,
+        [string]$errorText
+    )
+
+    $operation = if ($kind -eq "rename") { "名前の変更" } else { "削除" }
+    return "インデックス [${name}] の${operation}に失敗しました：${errorText}"
+}
+
+function getBulkDeleteFailedStatus {
+    # 複数削除で、閉じるのを待っていて結果のダイアログを出さないときに、失敗があったことをステータスに残す文
+    param (
+        [int]$failedCount
+    )
+
+    return "${failedCount} 件のインデックスは削除できませんでした"
+}
+
+function getIndexStoreSourceFolderError {
+    # 名前の変更の裏の仕事の戻り値（@{ SourceFolderError }）から、元のフォルダの記録を書けなかった理由を取り出す（書けたなら ""）
+    param (
+        $output
+    )
+
+    foreach ($item in @($output)) {
+        if ($item -is [hashtable] -and $item.ContainsKey("SourceFolderError")) {
+            return [string]$item.SourceFolderError
+        }
+    }
+    return ""
+}
+
+function getIndexJobCloseAction {
+    # インデックスの削除・名前の変更の途中で画面を閉じようとしたときの動き。
+    #   "wait"    … 閉じずに、終わるまで待って閉じる（1 回目。閉じると設定への反映が抜けて、設定とインデックスのフォルダの名前が食い違うため）
+    #   "confirm" … 待っている間にもう一度閉じようとした。待たずに閉じてよいかを確かめる
+    #   "proceed" … 仕事が無い。ふつうの閉じ方に進む
+    param (
+        [bool]$indexBusy,
+        [bool]$alreadyAsked
+    )
+
+    if (!$indexBusy) {
+        return "proceed"
+    }
+    if ($alreadyAsked) {
+        return "confirm"
+    }
+    return "wait"
+}
+
+function getIndexJobCloseConfirm {
+    # 待っている間にもう一度閉じようとしたときの確認（showConfirm に渡す文言）
+    return @{
+        Title      = "変更の途中です"
+        Heading    = "インデックスの変更の途中です。閉じますか？"
+        Hint       = "いま閉じると、設定とインデックスのフォルダの名前が食い違うことがあります。終わるまで待てば、自動で閉じます。"
+        CloseText  = "待たずに閉じる"
+        CloseValue = "close"
+        CancelText = "終わるまで待つ"
+    }
+}
+
+function getIndexJobCloseAfterConfirm {
+    # 確認から戻ったときの動き（"close" か "stay"）。聞いている間に仕事が終わったなら、答えにかかわらず閉じる
+    # （終わったときの「終わったら閉じる」は、確認の間は動かさないため）
+    param (
+        [string]$answer,
+        [bool]$indexBusy
+    )
+
+    if (!$indexBusy -or $answer -eq (getIndexJobCloseConfirm).CloseValue) {
+        return "close"
+    }
+    return "stay"
+}
+
+function getIndexJobClosingStatus {
+    # 削除・名前の変更の途中で閉じようとして、待っているときのステータス
+    return "インデックスの変更が終わってから閉じます…（待たずに閉じるには、もう一度閉じる操作をします）"
+}
+
+function getSourceFolderFileFailedStatus {
+    # 元のフォルダの記録（source_folder.txt）を書き直せなかったときのステータス
+    param (
+        [string]$errorText
+    )
+
+    return "元のフォルダの記録を書き直せませんでした：${errorText}"
+}
+
 function getIndexJobBlocker {
     # インデックス作成・削除・エクスポート・インポート・ワークスペースの変更は互いに排他（画面の可否の表）。
     # 動いているものがあれば、その名前を返す（無ければ空文字列。空なら操作してよい）
     param (
         [bool]$isIndexing,   # インデックス作成中
-        [bool]$indexBusy,    # 前のインデックスの削除中
-        [bool]$archiveBusy   # エクスポート・インポート中
+        [bool]$indexBusy,    # 前のインデックスの削除・名前の変更中
+        [bool]$archiveBusy,  # エクスポート・インポート中
+        [bool]$namingBusy = $false   # ネットワークのワークスペースで、インデックスの名前を裏で決めている間（一覧はまだ空。この間に保存すると、ほかのインデックスが設定から消える）
     )
 
     if ($isIndexing) {
         return "インデックス作成中"
     }
+    if ($namingBusy) {
+        return "インデックス名の決定中"
+    }
     if ($indexBusy) {
-        return "削除中"
+        return "削除・名前の変更中"
     }
     if ($archiveBusy) {
         return "エクスポート・インポート中"
@@ -115,8 +241,11 @@ function getIndexJobBlockedMessage {
         if ($blocker -eq "インデックス作成中") {
             return "更新中はワークスペースを変えられません。更新が終わるまでお待ちください（［中止］で止められます）。"
         }
-        if ($blocker -eq "削除中") {
-            return "前のインデックスの削除が終わるまでお待ちください。"
+        if ($blocker -eq "削除・名前の変更中") {
+            return "前のインデックスの削除・名前の変更が終わるまでお待ちください。"
+        }
+        if ($blocker -eq "インデックス名の決定中") {
+            return "インデックスの一覧を読み込んでいます。終わるまでお待ちください。"
         }
         return "エクスポート・インポートが終わるまでお待ちください。"
     }

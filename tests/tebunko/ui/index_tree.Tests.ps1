@@ -5,11 +5,13 @@ BeforeAll {
     Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
     . "${scriptsDir}\shared\ui\types.ps1"
     . "${scriptsDir}\tebunko\ui\types.ps1"
+    . "${scriptsDir}\tebunko\ui\search\search_bar_view.ps1"
 
     # ---- 画面の偽物 ----
     # 読み込み時に登録されるイベントの処理は $handlers に、呼ばれた操作は $fake に取っておく
     $handlers = @{}
-    $fake = @{ TargetUpdates = 0 }
+    $script:sourceFolderMaps = @{}   # 元のフォルダの対応のキャッシュ（［検索］の画面の search_session.ps1 が持つ）
+    $fake = @{ TargetUpdates = 0; Statuses = (New-Object System.Collections.Generic.List[string]); Jobs = (New-Object System.Collections.Generic.List[object]) }
 
     function newFakeButton([string]$name) {
         $button = [pscustomobject]@{ PartName = $name }
@@ -34,6 +36,15 @@ BeforeAll {
     }
     function updateSearchTarget {
         $fake.TargetUpdates++
+    }
+    function setStatus {
+        param ([string]$text)
+        $fake.Statuses.Add($text)
+    }
+    function startJob {
+        # 裏の列には出さず、依頼を取っておく（テストが onDone を呼んで、終わったことにする）
+        param ([scriptblock]$scriptBlock, [object[]]$arguments, [scriptblock]$onDone, [string]$queue = "default")
+        $fake.Jobs.Add(@{ ScriptBlock = $scriptBlock; Arguments = $arguments; OnDone = $onDone; Queue = $queue })
     }
 
     . "${scriptsDir}\tebunko\ui\index_tree.ps1"
@@ -169,6 +180,7 @@ Describe "loadIndexTree" -Tag Io {
         loadIndexTree
         $sales = getRoot "営業部"
         $sales.SetExpanded($true)
+        expandIndexNode $sales
         $year = @($sales.Children | Where-Object { $_.Name -eq "2024" })[0]
         $year.SetExpanded($true)
 
@@ -188,7 +200,7 @@ Describe "loadIndexTree" -Tag Io {
         $sales = getRoot "営業部"
         $sales.SourcePath | Should -Be ""
         $sales.ToolTip | Should -Be "$root\営業部"
-        $sales.LoadChildren()
+        expandIndexNode $sales
         (@($sales.Children | ForEach-Object { $_.ToolTip }) -join "|") | Should -Be "サブフォルダを除く、$root\営業部 の直下のファイル|$root\営業部\2024"
     }
 
@@ -353,5 +365,139 @@ Describe "イベント" -Tag Io {
 
         isAllIndexChecked | Should -Be $true
         $fake.TargetUpdates | Should -Be 0
+    }
+}
+
+Describe "ネットワークのワークスペース" -Tag Unit {
+    BeforeAll {
+        $netDir = "\\fileserver\共有\work\index"
+        $settingsFile = "$TestDrive\setting.config"
+        $workspace = newTestWorkspace @{ IndexDir = $netDir; StatusFile = "\\fileserver\共有\work\ingest_status.tsv" } "\\fileserver\共有\work"
+
+        function newNetData {
+            # 裏で集めた結果の形（getIndexTreeData）
+            return @{
+                State = ${pathStateFound}; Message = ""; Root = $netDir; Sources = @{ "営業部" = "C:\共有\営業部" }
+                Indexes = @(
+                    @{ Name = "営業部"; SourcePath = "C:\共有\営業部"; Exists = $true; HasSubfolders = $true }
+                    @{ Name = "総務部"; SourcePath = ""; Exists = $true; HasSubfolders = $false }
+                )
+                Children = @{
+                    "$netDir\営業部" = @{ HasFiles = $true; Folders = @(@{ Name = "2024"; HasSubfolders = $false }); Error = "" }
+                }
+            }
+        }
+    }
+
+    BeforeEach {
+        $script:indexRoots.Clear()
+        $script:indexTreeLoading = $false
+        $script:indexTreeConnectError = ""
+        $script:sourceFolderMaps = @{}
+        $fake.TargetUpdates = 0
+        $fake.Statuses.Clear()
+        $fake.Jobs.Clear()
+    }
+
+    It "画面のスレッドでは読まず、裏の列（network）に出して、読み込み中にする" {
+        loadIndexTree
+
+        $fake.Jobs.Count | Should -Be 1
+        $fake.Jobs[0].Queue | Should -Be "network"
+        $script:indexTreeLoading | Should -Be $true
+        $script:indexRoots.Count | Should -Be 0
+        $fake.TargetUpdates | Should -Be 1
+    }
+
+    It "裏の結果が届いたら、ツリーを組み立てて読み込み中を終える" {
+        loadIndexTree
+
+        & $fake.Jobs[0].OnDone @(newNetData) ""
+
+        $script:indexTreeLoading | Should -Be $false
+        (@($script:indexRoots | ForEach-Object { $_.Name }) -join ",") | Should -Be "営業部,総務部"
+        # 展開の材料が一緒に届いていれば、展開する前から子が入っている
+        (@((getRoot "営業部").Children | ForEach-Object { $_.Name }) -join ",") | Should -Be "（このフォルダ直下のファイル）,2024"
+        $script:sourceFolderMaps[$netDir]["営業部"] | Should -Be "C:\共有\営業部"
+    }
+
+    It "やり直した読み込みがあれば、前の依頼の結果は捨てる" {
+        loadIndexTree
+        loadIndexTree
+
+        & $fake.Jobs[0].OnDone @(newNetData) ""
+
+        $script:indexRoots.Count | Should -Be 0
+        $script:indexTreeLoading | Should -Be $true
+        & $fake.Jobs[1].OnDone @(newNetData) ""
+        $script:indexRoots.Count | Should -Be 2
+    }
+
+    It "<name>のときは、ツリーを空にして、接続できないことを知らせる" -TestCases @(
+        @{ name = "届かない"; state = "Unreachable" }
+        @{ name = "その他の失敗"; state = "Other" }
+    ) {
+        param ($name, $state)
+        loadIndexTree
+
+        & $fake.Jobs[0].OnDone @(@{ State = (Get-Variable "pathState$state").Value; Message = "x"; Root = $netDir; Sources = @{}; Indexes = @(); Children = @{} }) ""
+
+        $script:indexTreeLoading | Should -Be $false
+        $script:indexTreeConnectError | Should -Be $workspace.Dir
+        $script:indexRoots.Count | Should -Be 0
+        $fake.Statuses[$fake.Statuses.Count - 1] | Should -Be "ワークスペースに接続できません：$($workspace.Dir)"
+    }
+
+    It "裏の仕事が失敗したときも、接続できないことを知らせる" {
+        loadIndexTree
+
+        & $fake.Jobs[0].OnDone @() "失敗しました"
+
+        $script:indexTreeConnectError | Should -Be $workspace.Dir
+        $script:indexTreeLoading | Should -Be $false
+    }
+
+    It "ネットワークのフォルダを展開すると、裏で読む間は読み込み中のまま、読めたら子を入れる" {
+        loadIndexTree
+        & $fake.Jobs[0].OnDone @((newNetData)) ""
+        $fake.Jobs.Clear()
+        $node = [IndexNode]::CreateRoot($netDir, "技術部", "技術部", $null, $true, $true)
+
+        expandIndexNode $node
+        expandIndexNode $node
+
+        $fake.Jobs.Count | Should -Be 1
+        $fake.Jobs[0].Queue | Should -Be "network"
+        $node.IsLoading | Should -Be $true
+        $node.Children[0].IsPlaceholder | Should -Be $true
+        & $fake.Jobs[0].OnDone @(@{ HasFiles = $false; Folders = @(@{ Name = "設計"; HasSubfolders = $false }); Error = "" }) ""
+        $node.IsLoading | Should -Be $false
+        (@($node.Children | ForEach-Object { $_.Name }) -join ",") | Should -Be "設計"
+    }
+
+    It "読めなかったときは、フォルダを閉じて読み込み前に戻し、フォルダを知らせる" {
+        $node = [IndexNode]::CreateRoot($netDir, "技術部", "技術部", $null, $true, $true)
+        $node.SetExpanded($true)
+        expandIndexNode $node
+
+        & $fake.Jobs[0].OnDone @(@{ HasFiles = $false; Folders = @(); Error = "アクセスできません" }) ""
+
+        $node.NeedsLoad() | Should -Be $true
+        $node.IsExpanded | Should -Be $false
+        $node.Children[0].IsPlaceholder | Should -Be $true
+        $fake.Statuses[$fake.Statuses.Count - 1] | Should -Be "フォルダを読み込めませんでした：技術部（アクセスできません）"
+        # もう一度開けば読み直す
+        expandIndexNode $node
+        $fake.Jobs.Count | Should -Be 2
+    }
+
+    It "展開の途中でツリーを読み込み直したら、前の結果は入れない" {
+        $node = [IndexNode]::CreateRoot($netDir, "技術部", "技術部", $null, $true, $true)
+        expandIndexNode $node
+        loadIndexTree
+
+        & $fake.Jobs[0].OnDone @(@{ HasFiles = $false; Folders = @(@{ Name = "設計"; HasSubfolders = $false }); Error = "" }) ""
+
+        $node.Children[0].IsPlaceholder | Should -Be $true
     }
 }

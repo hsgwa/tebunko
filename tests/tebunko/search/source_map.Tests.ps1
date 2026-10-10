@@ -140,6 +140,63 @@ Describe "writeSourceFolderFile / readSourceFolderFile / getSourceLocation" -Tag
     }
 }
 
+Describe "findSourceLocationInMaps" -Tag Unit {
+    BeforeEach {
+        $root = "\\fileserver\共有\ws\work\index"
+        $hit = [pscustomobject]@{ Root = $root; RelDir = "営業\2024"; Book = "a.xlsx" }
+    }
+
+    It "キャッシュに無いフォルダが要るときは、ファイルを読まずに Pending で知らせる" {
+        Mock getSourceFolderMap { throw "キャッシュに無いフォルダを読んだ" }
+
+        $found = findSourceLocationInMaps $hit @{}
+
+        $found.Resolved | Should -Be $false
+        $found.Pending | Should -Be $root
+        Should -Invoke getSourceFolderMap -Times 0
+    }
+
+    It "キャッシュにあれば、場所を返す" {
+        $map = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([System.StringComparer]::OrdinalIgnoreCase)
+        $map["営業"] = "\\fileserver\共有\営業"
+
+        $found = findSourceLocationInMaps $hit @{ $root = $map }
+
+        $found.Resolved | Should -Be $true
+        $found.Location.Known | Should -Be $true
+        $found.Location.Folder | Should -Be "\\fileserver\共有\営業"
+        $found.Location.Rest | Should -Be "2024"
+    }
+
+    It "候補がすべてキャッシュにあって記録が無ければ、Known = false で決まる" {
+        $empty = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([System.StringComparer]::OrdinalIgnoreCase)
+        $maps = @{ $root = $empty; "$root\営業" = $empty; "\\fileserver\共有\ws\work" = $empty }
+
+        $found = findSourceLocationInMaps $hit $maps
+
+        $found.Resolved | Should -Be $true
+        $found.Location.Known | Should -Be $false
+        $found.Location.Name | Should -Be "営業"
+    }
+}
+
+Describe "readSourceLocation" -Tag Io {
+    It "場所を引数で受けて対応を読み、渡したキャッシュは書き換えずに、足した複製を返す" {
+        $dir = "$TestDrive\readLoc\index"
+        [void][System.IO.Directory]::CreateDirectory("$dir\見積")
+        writeSourceFolderFile @([pscustomobject]@{ Path = "C:\data\見積"; Name = "見積" }) $dir
+        $maps = @{}
+        $hit = [pscustomobject]@{ Root = $dir; RelDir = "見積\2024"; Book = "a.xlsx" }
+
+        $result = readSourceLocation $hit $maps "$TestDrive\readLoc\status.tsv" "$TestDrive\readLoc\setting.config" $dir
+
+        $result.Location.Known | Should -Be $true
+        $result.Location.Folder | Should -Be "C:\data\見積"
+        $result.Maps.ContainsKey($dir) | Should -Be $true
+        $maps.Count | Should -Be 0
+    }
+}
+
 Describe "findSourceFileState" -Tag Io {
     BeforeAll {
         $dir = "$TestDrive\fsState\見積"
