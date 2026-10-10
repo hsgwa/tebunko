@@ -140,7 +140,9 @@ function getGuiProcessCommand {
     $returned = (Join-Path $Tool.Dir "gui_returned_").Replace("'", "''")
     $write = "try { `$e = (@(`$Error | Select-Object -First 3 | ForEach-Object { [string]`$_ }) -join ' / '); " +
         "`$t = (@((Get-Process -Id `$PID).Threads | ForEach-Object { [string]`$_.Id + ':' + [string]`$_.ThreadState + ':' + [string]`$_.WaitReason }) -join ','); " +
-        "[IO.File]::WriteAllText('$returned' + `$PID + '.txt', ('returned=' + (Get-Date).ToString('o') + ' ok=' + `$r + ' LASTEXITCODE=' + `$c + ' Error=' + `$e + ' THREADS=' + `$t)) } catch { }"
+        "`$rs = (@(Get-Runspace | ForEach-Object { [string]`$_.Id + '/' + [string]`$_.Name + '/' + [string]`$_.RunspaceStateInfo.State + '/' + [string]`$_.RunspaceAvailability }) -join ','); " +
+        "`$pr = Get-Process -Id `$PID; `$ev = (@(`$pr.Threads | Where-Object { [string]`$_.WaitReason -eq 'EventPairLow' } | ForEach-Object { [string][int](`$_.StartTime - `$pr.StartTime).TotalSeconds }) -join ','); " +
+        "[IO.File]::WriteAllText('$returned' + `$PID + '.txt', ('returned=' + (Get-Date).ToString('o') + ' ok=' + `$r + ' LASTEXITCODE=' + `$c + ' Error=' + `$e + ' THREADS=' + `$t + ' RUNSPACES(' + @(Get-Runspace).Count + ')=' + `$rs + ' EVENTPAIR_START_SEC=' + `$ev)) } catch { }"
     return "`$env:TEBUNKO_CLOSE_TRACE = '1'; & '$gui'; `$r = `$?; `$c = `$LASTEXITCODE; $write; if (!`$r) { exit 1 }"
 }
 
@@ -249,7 +251,13 @@ function assertGuiExited {
     param ($S)
 
     if ($S.Process.ExitCode -eq 0) {
-        if ($S.ClosingAt) { Write-Host ("GUI-DIAG exit=0 closing-to-exit=" + [math]::Round(((Get-Date) - $S.ClosingAt).TotalSeconds, 2)) }
+        try {
+            $diagFile = Join-Path $S.Tool.Dir "gui_returned_$($S.Process.Id).txt"
+            $diagText = if (Test-Path -LiteralPath $diagFile) { [IO.File]::ReadAllText($diagFile) } else { "returned 無し" }
+            $diagThreads = ([regex]::Match($diagText, 'THREADS=([^ ]*)').Groups[1].Value -split ',').Count
+            $diagText = ($diagText -replace ' Error=.*?(?= THREADS=)', '') -replace 'THREADS=[^ ]*', "THREADS_COUNT=$diagThreads"
+            Write-Host ("GUI-DIAG exit=0 " + $diagText)
+        } catch { Write-Host ("GUI-DIAG 失敗 " + $_.Exception.Message) }
         return
     }
     collectGuiExitMaterial $S
