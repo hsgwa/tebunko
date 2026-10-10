@@ -4239,7 +4239,7 @@
 <h2 id="wordpowerpoint-の抽出処理extractdocument">Word・PowerPoint の抽出処理（<code>extractDocument</code>）<a class="headerlink" href="#wordpowerpoint-の抽出処理extractdocument" title="Permanent link">&para;</a></h2>
 <p>Word・PowerPoint で共通の処理。旧形式などをアプリで変換する処理は <a href="../word/#word-の旧形式の変換extractwithword">Word の旧形式の変換</a>（Word）・<a href="../powerpoint/#powerpoint-の旧形式の変換extractwithpowerpoint">PowerPoint の旧形式の変換</a>（PowerPoint）、ファイルの読み取りは <a href="#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1">Word・PowerPoint のテキスト読み取り</a>（共通）・<a href="../word/#word-のテキスト読み取りと-tsv-の場所readdocxunits">Word のテキスト読み取りと TSV の場所</a>（Word）・<a href="../powerpoint/#powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits">PowerPoint のテキスト読み取りと TSV の場所</a>（PowerPoint）。</p>
 <pre class="mermaid"><code>flowchart TD
-    A["extractDocument(パス)"] --&gt; CP["作業領域に source.#lt;拡張子#gt; としてコピー&lt;br&gt;（copyFileShared。元のファイルを占有しない）"]
+    A["extractDocument(パス)"] --&gt; CP["作業領域に source.#lt;拡張子#gt; としてコピー&lt;br&gt;（copyFileShared。元のファイルに影響を出さない）"]
     CP --&gt; Z{"コピーの先頭が&lt;br&gt;ZIP のシグネチャ（PK）？"}
     Z -- はい --&gt; R["コピーをそのまま読む（6.4〜6.6）&lt;br&gt;readDocxUnits / readPptxUnits"]
     Z -- いいえ --&gt; K{"暗号化の種類&lt;br&gt;（下の「暗号化されたファイルの判定」）"}
@@ -4262,7 +4262,7 @@
     R &amp; R2 --&gt; W["writeUnits: 場所ごとに&lt;br&gt;#lt;場所#gt;.tsv を作業領域に出力&lt;br&gt;（空の場所は出力しない）"]
     W --&gt; D["作業領域のコピー・変換したファイルを削除（finally）"]</code></pre>
 <ul>
-<li>元のファイルは直接読まず、先に作業領域へコピーする（Excel と同じく <code>copyFileShared</code>。<a href="../excel/">Excel</a> の補足）。ZIP を直接開くと、読んでいる間ほかのアプリの書き込みを拒否するうえ、利用者が編集中（書き込みで開いている）のファイルは共有違反で読めないため。</li>
+<li>元のファイルは直接読まず、先に作業領域へコピーする（Excel・テキストと同じく <code>copyFileShared</code>。<a href="../excel/">Excel</a> の補足）。元のファイルに絶対に影響を出さない方針のため。効果として、読んでいる間も利用者が上書き保存でき、利用者が編集中（書き込みで開いている）のファイルも読める。</li>
 <li>ZIP でないコピーは、開く前に<strong>暗号化の種類</strong>を判定する（下の「暗号化されたファイルの判定」）。パスワード付き（新形式）・IRM は Word・PowerPoint を起動せずに失敗にする。旧形式・テキストらしい内容は今までどおり開く。</li>
 <li>コピーに旧形式の拡張子を付けてから開くのは、Word・PowerPoint が拡張子と中身が異なるファイル（中身が <code>.doc</code> の <code>.docx</code> 等）を開けないため。「形式の分からないバイナリ」（下記）は拡張子を変えない。</li>
 <li>パスワード付きの <code>.docx</code> <code>.pptx</code> は、Word・PowerPointを起動せずに失敗にする（下記）。Excel はパスワード付きでもそのまま <code>Workbooks.Open</code> に任せる（<a href="../excel/">Excel</a> の判定）。</li>
