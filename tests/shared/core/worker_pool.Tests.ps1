@@ -187,6 +187,8 @@ Describe "BackgroundQueue" -Tag Unit {
         $stuck.Abandon()
         $watch.Stop()
         $watch.Elapsed.TotalSeconds | Should -BeLessThan 2
+        # 終わっていない仕事があるので、プールは片づけない（片づけると止まった仕事を待って戻らない）
+        $stuck.Pool.Pool | Should -Not -BeNullOrEmpty
 
         # Abandon の後、新しい列を作って使える（片づけていないランスペースが残っていても、新しい列は困らない）
         $next = [BackgroundQueue]::new(1, @{ State = (newWorkerState); Prelude = "" }, $null)
@@ -202,7 +204,7 @@ Describe "BackgroundQueue" -Tag Unit {
         $script:done -join "," | Should -Be "次の列"
     }
 
-    It "Abandon は、終わっている仕事は片づける（次に使えるように戻す）。onDone は呼ばない" {
+    It "Abandon は、終わっていない仕事が無ければ、プールまで片づける（開いたままのスレッドを残さない）。onDone は呼ばない" {
         $script:queue.Post('"終わった仕事"', @(), { param ($output, $errorText) $script:done.Add("$($output[0])") })
         # Poll は呼ばない（先に片づけてしまうと、Abandon の「終わっている仕事」を片づける分岐を通らないため）。
         # Handle.IsCompleted を直に見て、Poll を挟まずに仕事が終わるのを待つ
@@ -214,9 +216,10 @@ Describe "BackgroundQueue" -Tag Unit {
 
         $script:queue.Abandon()
 
-        # 終わっている仕事は Receive で片づけ、次に使えるようインスタンスを戻す（Close の Cancel は使い回さず捨てる）
+        # 終わっている仕事は Receive で片づけ、終わっていない仕事が無いので、アイドルのインスタンスとプールも片づける
         $script:queue.Jobs.Count | Should -Be 0
-        $script:queue.Pool.Idle.Count | Should -Be 1
+        $script:queue.Pool.Idle.Count | Should -Be 0
+        $script:queue.Pool.Pool | Should -BeNullOrEmpty
         # onDone は Poll の仕事のため、Abandon では呼ばない（画面を閉じている途中で画面のスレッドに触らないため）
         $script:done.Count | Should -Be 0
     }
