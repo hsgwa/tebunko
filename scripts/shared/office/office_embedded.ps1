@@ -1,7 +1,8 @@
 ﻿# Word・PowerPoint に埋め込んだ Office のファイル（Office Open XML。Word 文書・Excel ブック・PowerPoint）の中の文字を読み出す。
 # 埋め込んだファイルは、親のファイルの ZIP の中の 1 つの部品（word/embeddings/*.xlsx など。リレーションシップの種類が package）で、
 # それ自体が ZIP になっている。部品をバイト列で読み（readZipEntryBytes。部品ごと・1ファイルの合計の上限は親と同じに数える）、
-# メモリ上で開いて読む。ファイルには書き出さない。
+# メモリ上で開いて読む。ファイルには書き出さない。埋め込んだブックのシートも同じ readZipEntryBytes で読むため、
+# 申告の大きさを偽ったシートも、親と同じく部品ごとの上限（zipPartMaxBytes）で打ち切り、シートの大きさは合計に数える
 # office_reader.ps1 を先に読み込んでおくこと（readDocxUnits・readPptxUnits が readEmbeddedObjectLines を呼ぶ）。
 #
 # ・形式は、拡張子や名前ではなく中身で決める（xl/workbook.xml があれば Excel、word/document.xml があれば Word、
@@ -9,14 +10,36 @@
 # ・Excel のブックは、表示のシートの文字のセル（共有文字列・インライン文字列・数式の文字の結果）を、行ごとに
 #   タブ区切りの 1 行にして返す。表示の範囲に限らず、ほかの表示のシートも読む（非表示・完全に非表示のシートは読まない）
 # ・Word・PowerPoint は、中の全ユニットの行を順に並べて返す（埋め込みの中の埋め込みは読まない。深さは 1 段まで）
-# ・同じ部品を指す参照（代替表示と本体など）は 1 回だけ読む。N は 1 ファイルの中で、読んだ順の通し番号
+# ・同じ部品を指す参照（代替表示と本体など）は 1 回だけ読む。N は 1 ファイルの中の、参照の順の通し番号
+#   （番号は読む前に振るため、読めなかったものは欠番になる）
+# ・出す量にも上限がある。共有文字列は 1 つを多数のセルが参照でき、数 KB の埋め込みから巨大な行ができるため、
+#   読んだ入力の大きさとは別に、出す行の文字数（共有文字列を解いた後・参照のたびに数える）を 1 ファイル（親）の中の
+#   全埋め込みで合計し、embeddedOutputMaxChars を超えたらその埋め込みを読まない（ZipSizeLimitException の LimitKind が Output）
 
-# 埋め込みの Excel のシートを流れで読むときの、1 ファイルの合計の上限は zipSheetStreamMaxBytes（office_reader.ps1）を使う。
-# 親と同じく、申告の大きさ（entry.Length）で数える
+# 1 ファイル（親の Word・PowerPoint）の全埋め込みから出す、行の文字数の合計の上限（文字）。
+# $script: の変数は読み取りのスレッド（runspace）ごとに別になる（テストから一時的に値を変えるときは、この変数を直接上書きする）
+$script:embeddedOutputMaxChars = 32MB
 
 function newEmbeddedState {
-    # 1 ファイル（親の Word・PowerPoint）の埋め込みを数える状態を返す（通し番号と、読んだ部品の名前）
-    return @{ Next = 1; Seen = (New-Object System.Collections.Generic.HashSet[string]) }
+    # 1 ファイル（親の Word・PowerPoint）の埋め込みを数える状態を返す（通し番号・読んだ部品の名前・出した文字数の合計）
+    return @{ Next = 1; Seen = (New-Object System.Collections.Generic.HashSet[string]); OutputChars = 0L }
+}
+
+function addEmbeddedOutputChars {
+    # 埋め込みから出す行の文字数を合計に足し、上限（embeddedOutputMaxChars）を超えたら ZipSizeLimitException（Output）にする。
+    # $state が $null のときは数えない
+    param (
+        [hashtable]$state,
+        [long]$chars
+    )
+
+    if ($null -eq $state) {
+        return
+    }
+    $state.OutputChars += $chars
+    if ($state.OutputChars -gt $script:embeddedOutputMaxChars) {
+        throw [ZipSizeLimitException]::new($script:zipTooLargeMessage, "(埋め込みから出す文字)", $state.OutputChars, "Output")
+    }
 }
 
 function readXlsxSharedStrings {
@@ -73,15 +96,17 @@ function readXlsxSharedStrings {
 }
 
 function readXlsxSheetCellLines {
-    # シートの部品（xl/worksheets/sheetN.xml）を流れで読み、文字のセルを行ごとにタブ区切りにして返す
+    # シートの部品（xl/worksheets/sheetN.xml）を流れで読み、文字のセルを行ごとにタブ区切りにして返す。
+    # 文字のセルの文字数は、共有文字列を解いたあとで、参照のたびに $state の合計に足す（上限を超えたら例外。addEmbeddedOutputChars）
     param (
         [System.IO.Stream]$stream,
-        [string[]]$sharedStrings
+        [string[]]$sharedStrings,
+        [hashtable]$state = $null
     )
 
     $settings = New-Object System.Xml.XmlReaderSettings
     $settings.DtdProcessing = [System.Xml.DtdProcessing]::Prohibit
-    $settings.MaxCharactersInDocument = $script:zipSheetStreamMaxBytes
+    $settings.MaxCharactersInDocument = $script:zipPartMaxBytes
     $reader = [System.Xml.XmlReader]::Create($stream, $settings)
     $lines = New-Object System.Collections.Generic.List[string]
     try {
@@ -136,6 +161,7 @@ function readXlsxSheetCellLines {
                         $text = $valueText.ToString()
                     }
                     if ($null -ne $text) {
+                        addEmbeddedOutputChars $state ($text.Length + 1)
                         $text = ($text -replace "[\r\n\t]+", " ").Trim()
                         if ($text -ne "") {
                             $rowCells.Add($text)
@@ -164,11 +190,12 @@ function readXlsxSheetCellLines {
 
 function readXlsxCellLines {
     # 開いたブック（ZipArchive）の、表示のワークシートの文字のセルを、シートの順・行の順に並べた行の配列で返す
-    # （数値・日付・空のセルは読まない）。シートの部品は申告の大きさ（entry.Length）が、全シートの合計で
-    # zipSheetStreamMaxBytes を超えるなら、そこから先は読まない（$failures に部品の名前を追加する）
+    # （数値・日付・空のセルは読まない）。シートの部品は readZipEntryBytes でバイト列に読む（部品ごとの上限・
+    # 1 ファイルの合計の上限は親と同じ。申告を偽ったシートは、部品ごとの上限の超過として例外になる）。
+    # 出す文字数は $state の合計に数え、上限を超えたら例外にする
     param (
         [System.IO.Compression.ZipArchive]$zip,
-        [System.Collections.Generic.List[string]]$failures = $null
+        [hashtable]$state = $null
     )
 
     $lines = New-Object System.Collections.Generic.List[string]
@@ -181,7 +208,6 @@ function readXlsxCellLines {
     $nsSheet = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 
     $sharedStrings = $null
-    $streamedBytes = 0L
     foreach ($sheet in $workbook.GetElementsByTagName("sheet", $nsSheet)) {
         if ($sheet.GetAttribute("state") -in @("hidden", "veryHidden")) {
             continue
@@ -190,23 +216,16 @@ function readXlsxCellLines {
         if ($null -eq $rel -or $rel.Type -notlike "*/worksheet") {
             continue
         }
-        $entry = $zip.GetEntry($rel.Target)
-        if ($null -eq $entry) {
+        $bytes = readZipEntryBytes $zip $rel.Target
+        if ($null -eq $bytes) {
             continue
-        }
-        $streamedBytes += $entry.Length
-        if ($streamedBytes -gt $script:zipSheetStreamMaxBytes) {
-            if ($null -ne $failures) {
-                $failures.Add("$($rel.Target)（流れ読みの上限 $([long]($script:zipSheetStreamMaxBytes / 1MB))MB を超えています）")
-            }
-            break
         }
         if ($null -eq $sharedStrings) {
             $sharedStrings = @(readXlsxSharedStrings $zip)
         }
-        $stream = $entry.Open()
+        $stream = New-Object System.IO.MemoryStream (, $bytes)
         try {
-            $lines.AddRange([string[]]@(readXlsxSheetCellLines $stream $sharedStrings))
+            $lines.AddRange([string[]]@(readXlsxSheetCellLines $stream $sharedStrings $state))
         } finally {
             $stream.Dispose()
         }
@@ -218,6 +237,7 @@ function readEmbeddedPackageLines {
     # 埋め込んだファイルのバイト列から、文字の行を返す（形式は中身で決める。読めない形式は空）
     param (
         [byte[]]$bytes,
+        [hashtable]$state = $null,
         [System.Collections.Generic.List[string]]$failures = $null,
         [System.Collections.Generic.List[object]]$sizeFailures = $null
     )
@@ -233,16 +253,21 @@ function readEmbeddedPackageLines {
     try {
         $inner = New-Object System.IO.Compression.ZipArchive ($memory, [System.IO.Compression.ZipArchiveMode]::Read, $false)
         if ($null -ne $inner.GetEntry("xl/workbook.xml")) {
-            $lines.AddRange([string[]]@(readXlsxCellLines $inner $failures))
-        } elseif ($null -ne $inner.GetEntry("word/document.xml")) {
-            $units = readDocxUnits "" $failures $sizeFailures $inner
-            foreach ($unitName in $units.Keys) {
-                $lines.AddRange([string[]]@($units[$unitName]))
+            $lines.AddRange([string[]]@(readXlsxCellLines $inner $state))
+        } else {
+            $units = $null
+            if ($null -ne $inner.GetEntry("word/document.xml")) {
+                $units = readDocxUnitsFromZip $inner $false $failures $sizeFailures
+            } elseif ($null -ne $inner.GetEntry("ppt/presentation.xml")) {
+                $units = readPptxUnitsFromZip $inner $false $failures $sizeFailures
             }
-        } elseif ($null -ne $inner.GetEntry("ppt/presentation.xml")) {
-            $units = readPptxUnits "" $failures $sizeFailures $inner
-            foreach ($unitName in $units.Keys) {
-                $lines.AddRange([string[]]@($units[$unitName]))
+            if ($null -ne $units) {
+                foreach ($unitName in $units.Keys) {
+                    foreach ($line in $units[$unitName]) {
+                        addEmbeddedOutputChars $state ($line.Length + 1)
+                        $lines.Add($line)
+                    }
+                }
             }
         }
     } finally {
@@ -257,9 +282,10 @@ function readEmbeddedObjectLines {
     # 戻り値: @{ Number = 通し番号; Lines = 行の配列 }。読まない（参照の先が無い・埋め込んだファイルではない・
     # 読んだことのある部品・読めない）ときは $null。
     #
-    # 読めないとき: 部品ごとの上限（ZipSizeLimitException の LimitKind が Part）・壊れた XML・壊れた ZIP は、その埋め込みだけを
-    # 読まなかった扱いにし、$failures に部品の名前、上限なら $sizeFailures に例外を追加して続ける（ほかの埋め込み・親の文字は出す）。
-    # 1 ファイルの合計の上限（LimitKind が Total）は、ファイル全体の上限なので、そのまま投げ直す
+    # 読めないとき: 部品ごとの上限・出す量の上限（ZipSizeLimitException の LimitKind が Part・Output）・壊れた XML・壊れた ZIP など
+    # 何かの例外は、その埋め込みだけを読まなかった扱いにし、$failures に部品の名前、大きさの上限なら $sizeFailures に例外を
+    # 追加して続ける（ほかの埋め込み・親の文字は出す。埋め込み 1 つで親のファイルの取り込みを失敗にしない）。
+    # 投げ直すのは、1 ファイルの合計の上限（LimitKind が Total。ファイル全体の上限）と、中止・停止・メモリ不足の例外
     param (
         [System.IO.Compression.ZipArchive]$zip,
         [hashtable]$rels,   # readRelationships の結果
@@ -278,13 +304,14 @@ function readEmbeddedObjectLines {
     }
     $number = $state.Next
     $state.Next = $number + 1
+    $outputBefore = $state.OutputChars  # 読めなかった埋め込みが出しかけた分は、合計から戻す（あとの埋め込みを巻き込まない）
 
     try {
         $bytes = readZipEntryBytes $zip $rel.Target
         if ($null -eq $bytes) {
             return $null
         }
-        $lines = @(readEmbeddedPackageLines $bytes $failures $sizeFailures)
+        $lines = @(readEmbeddedPackageLines $bytes $state $failures $sizeFailures)
     } catch {
         $exception = $_.Exception
         # .NET のメソッド（XmlReader.Read など）の例外は、MethodInvocationException に包まれて届く
@@ -295,9 +322,11 @@ function readEmbeddedObjectLines {
         if ($isSize -and $exception.LimitKind -eq "Total") {
             throw
         }
-        if (-not ($isSize -or $exception -is [System.Xml.XmlException] -or $exception -is [System.IO.InvalidDataException])) {
+        if ($exception -is [System.OperationCanceledException] -or $exception -is [System.Management.Automation.PipelineStoppedException] -or
+            $exception -is [System.OutOfMemoryException]) {
             throw
         }
+        $state.OutputChars = $outputBefore
         if ($isSize -and $null -ne $sizeFailures) {
             $sizeFailures.Add($exception)
         }
