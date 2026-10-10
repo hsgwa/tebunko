@@ -4201,6 +4201,10 @@
 <td>既定は検索する。画面の［図形も検索］［コメントも検索］（<code>setting.config</code> の <code>includeShapes</code> / <code>includeComments</code>）をオフにすると、場所が <code>&lt;元の場所&gt;[図形]</code> / <code>&lt;元の場所&gt;[コメント]</code>（本文インデックスのメタ情報 <code>対象=図形</code> / <code>対象=コメント</code>）の中を検索しない（<code>newPlaceExclude</code>。Excel・Word・PowerPoint で共通の決まり。<a href="../index-data/format/#配置命名規則">インデックスのファイルの形</a>「図形・コメントの場所」）</td>
 </tr>
 <tr>
+<td>Excel の図形・コメントの行</td>
+<td>行は <code>&lt;セル番地&gt;&lt;TAB&gt;&lt;文字&gt;</code> の形のため、<strong>区切りのタブ（行の最初のタブ）より後から始まる一致だけ</strong>をヒットにする（<code>searchPackFiles</code>。セル番地だけには一致しない。文字の中のタブは文字として検索の対象。除いた行は件数・上限に数えない）。セル番地から文字まで続く正規表現（<code>C2\t納期</code>）と、区切りのタブに当たる <code>\t</code> は一致しない。Word・PowerPoint の図形・コメント、Excel のセル・ヘッダー・フッターの行は行全体を照合する</td>
+</tr>
+<tr>
 <td>長いパス</td>
 <td>列挙と検索（.NET の <code>DirectoryInfo</code>・<code>StreamReader</code>）には <code>\\?\</code> を付けたパスを渡す（<code>toLongPath</code>）。付けないと、約 248 文字を超えるフォルダの中を列挙できず、260 文字を超える本文インデックスのファイルを読めない。結果の相対パスは <code>\\?\</code> の無い形で扱う（<a href="../index-data/publish/#長いパス260-文字超の扱い">入れ替えと書き出し</a>）</td>
 </tr>
@@ -4309,6 +4313,11 @@
 <td>2</td>
 <td>結果ファイルを Excel で開いたまま［結果をファイルに出力］すると、ファイルがロックされて書き込めない（画面に <code>search_results.txt に書き込めません。…</code> と表示する）</td>
 <td>◎</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Excel の図形・コメントの行頭の <code>^</code> は、文字の先頭には一致しない（行の先頭はセル番地のため。開始位置つきの照合でも <code>^</code> は文字列の先頭にだけ一致する。直すには、インデックスの形式の変更か照合の作り直しが要る）</td>
+<td>○</td>
 </tr>
 </tbody>
 </table>
