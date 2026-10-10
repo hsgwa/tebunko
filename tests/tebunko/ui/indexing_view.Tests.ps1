@@ -66,6 +66,67 @@ Describe "newPlanViewRows（選んだものだけの回）" -Tag Unit {
     }
 }
 
+Describe "newPlanViewRows（削除予定）" -Tag Unit {
+    It "設定から外れたインデックスは「削除予定」（赤）で、削除されることを ToolTip に出す" {
+        $row = (newPlanViewRows (newPlanItem ${planKindDropped}))[0]
+        $row.StatusText | Should -Be "削除予定"
+        $row.Level | Should -Be "Ng"
+        $row.TotalText | Should -Be "－"
+        $row.DetailText | Should -Be "設定に無いため、［更新を開始］でこのインデックスを削除します"
+    }
+
+    It "選んだものだけの回でも、onlyNames に無い名前の削除予定は必ず出す" {
+        $plan = @(
+            [pscustomobject]@{ インデックス名 = "見積"; 元のフォルダ = "C:\data\見積"; 区分 = ${planKindUnchecked}; ファイル数 = 0; 取り込み対象 = 0; 新規 = 0; 更新あり = 0; 前回未完了 = 0; インデックスなし = 0; 前回失敗 = 0 }
+            (newPlanItem ${planKindDropped})
+        )
+        $rows = newPlanViewRows $plan @("見積")
+        $rows.Count | Should -Be 2
+        @($rows | Where-Object { $_.StatusText -eq "削除予定" }).Count | Should -Be 1
+    }
+}
+
+Describe "getIndexingDroppedCount・削除予定のある確認の文言" -Tag Unit {
+    It "削除予定の行だけを数える" {
+        getIndexingDroppedCount @((newPlanItem ${planKindDropped}), (newPlanItem ${planKindIngest} 10 2), $null) | Should -Be 1
+        getIndexingDroppedCount @() | Should -Be 0
+    }
+
+    It "確認の文言: 更新 <targets>・失敗 <failed>・再取り込み <retry>・削除予定 <dropped> のとき、ボタンは <button>" -TestCases @(
+        @{ targets = 0; failed = 0; retry = $false; dropped = 2; button = "更新を開始"; text = "設定に無いインデックス 2 件を削除します" }
+        @{ targets = 0; failed = 1; retry = $false; dropped = 1; button = "更新を開始"; text = "設定に無いインデックス 1 件を削除します" }
+        @{ targets = 0; failed = 1; retry = $true; dropped = 1; button = "更新を開始"; text = "1 ファイル.*設定に無いインデックス 1 件を削除します" }
+        @{ targets = 12; failed = 0; retry = $false; dropped = 1; button = "更新を開始"; text = "12 ファイル.*設定に無いインデックス 1 件を削除します" }
+        @{ targets = 0; failed = 0; retry = $false; dropped = 0; button = "閉じる"; text = "すべて最新" }
+    ) {
+        param ($targets, $failed, $retry, $dropped, $button, $text)
+        $view = getIndexingConfirmText $targets $failed $retry 1 $dropped
+        $view.Button | Should -Be $button
+        $view.Text | Should -Match $text
+    }
+
+    It "閉じるだけにするか: 更新 <targets>・失敗 <failed>・削除予定 <dropped> のとき <expected>" -TestCases @(
+        @{ targets = 0; failed = 0; dropped = 0; expected = $true }
+        @{ targets = 0; failed = 0; dropped = 1; expected = $false }
+        @{ targets = 0; failed = 1; dropped = 0; expected = $false }
+        @{ targets = 3; failed = 0; dropped = 0; expected = $false }
+    ) {
+        param ($targets, $failed, $dropped, $expected)
+        isIndexingConfirmNothing $targets $failed $dropped | Should -Be $expected
+    }
+
+    It "確認の説明文: 削除予定 <dropped> 件のとき <expected>" -TestCases @(
+        @{ dropped = 0; expected = "［更新を開始］を押すと、更新するファイルだけを更新します。" }
+        @{ dropped = 1; expected = "［更新を開始］を押すと、更新するファイルを更新し、設定に無いインデックスを削除します。" }
+        @{ dropped = 3; expected = "［更新を開始］を押すと、更新するファイルを更新し、設定に無いインデックスを削除します。" }
+    ) {
+        param ($dropped, $expected)
+        $text = getIndexingConfirmIntro $dropped
+        $text | Should -BeLike "元のファイルの更新日時とサイズを、前回更新したときの記録と比べました。*"
+        $text | Should -BeLike "*$expected"
+    }
+}
+
 Describe "getIndexingCurrentName・getIndexingSkippedView" -Tag Unit {
     It "取り込み中のファイル <current> のインデックス名は <expected>" -TestCases @(
         @{ current = "営業\2025\a.xlsx"; expected = "営業" }

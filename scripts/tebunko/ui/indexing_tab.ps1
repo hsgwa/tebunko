@@ -69,7 +69,7 @@ function updateIndexingConfirmTotal {
     $d = $script:confirmDialog
     $retry = [bool]$d.Ctrl.RetryCheck.IsChecked
     $folders = getIndexingConfirmFolderCount $d.Plan $retry
-    $view = getIndexingConfirmText $d.Targets $d.Failed $retry $folders
+    $view = getIndexingConfirmText $d.Targets $d.Failed $retry $folders (getIndexingDroppedCount $d.Plan)
     $d.Ctrl.TotalText.Text = $view.Text
     $d.Ctrl.StartButton.Content = $view.Button
 }
@@ -101,13 +101,14 @@ function showIndexingConfirmDialog {
     $script:confirmDialog = @{ Window = $dialog; Ctrl = $ctrl; Targets = $targets; Failed = $failed; Plan = $plan; Answer = $null }
 
     $ctrl.PlanGrid.ItemsSource = buildPlanRows $plan
-    $ctrl.IntroText.Text = "元のファイルの更新日時とサイズを、前回更新したときの記録と比べました。" +
-        "［更新を開始］を押すと、更新するファイルだけを更新します。"
+    $ctrl.IntroText.Text = getIndexingConfirmIntro (getIndexingDroppedCount $plan)
     if ($failed -gt 0) {
         $ctrl.RetryCheck.Visibility = "Visible"
         $ctrl.RetryCheck.Content = "前回更新に失敗し、その後変わっていないファイル {0:#,0} 件も更新し直す（パスワード付きなど）" -f $failed
     }
-    if ($targets -eq 0 -and $failed -eq 0) {
+    # 削除予定があるときは、取りやめと［更新を開始］を選べるままにする（閉じるだけにすると、見せたまま消してしまう）
+    $nothing = isIndexingConfirmNothing $targets $failed (getIndexingDroppedCount $plan)
+    if ($nothing) {
         # 取り込むものが無いときは、閉じるだけ（［キャンセル］との違いが無い）
         $ctrl.CancelButton.Visibility = "Collapsed"
         $ctrl.NoteText.Visibility = "Visible"
@@ -127,7 +128,7 @@ function showIndexingConfirmDialog {
     $null = showOwnedDialog $dialog
 
     $answer = $script:confirmDialog.Answer
-    if ($null -eq $answer -and $targets -eq 0 -and $failed -eq 0) {
+    if ($null -eq $answer -and $nothing) {
         # 取り込むものが無いときは、どう閉じても同じ（インデクサはそのまま終わる）
         $answer = @{ RetryFailed = $false }
     }

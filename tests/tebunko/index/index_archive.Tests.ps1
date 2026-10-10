@@ -804,7 +804,7 @@ Describe "importIndex" -Tag Io {
         # インデックス作成の始めと同じ手順: 名前の割り当て・消えたフォルダの整理。今の設定にあるインデックスは消えない
         $folders = @(assignIndexNames $targets (readStatusFile $wsB.StatusFile).Folders)
         function writeIndexerLog { param ($m, $c) }
-        removeDroppedFolders $folders (readStatusFile $wsB.StatusFile).Folders $wsB
+        removeDroppedFolders @(findDroppedIndexes $folders (readStatusFile $wsB.StatusFile).Folders) $wsB
         foreach ($name in $expected) {
             $folders.Name | Should -Contain $name
             # 名前の割り当てだけでなく、removeDroppedFolders が実際に何も消していないこと
