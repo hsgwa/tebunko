@@ -13,7 +13,7 @@ ${searchServiceScript} = {
     $ErrorActionPreference = "Stop"
     initWorkspace
     $ErrorActionPreference = "Continue"
-    $pool = if ($workers -gt 1) { newPackWorkerPool $workers } else { $null }
+    $pool = if ($workers -gt 1) { newContentIndexWorkerPool $workers } else { $null }
     try {
         foreach ($request in $requests.GetConsumingEnumerable()) {
             invokeSearchRequest $request $pool $cache

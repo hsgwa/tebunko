@@ -451,11 +451,11 @@ function captureSearchScene {
     $dir = Join-Path $Root "search"
     $tool = newGuiTool $dir
     newGuiSampleIndex $tool $Root "営業"
-    # 件数の上限（10,000 件）を超えるための、語を繰り返すだけの集約ファイル
+    # 件数の上限（10,000 件）を超えるための、語を繰り返すだけの本文インデックスのファイル
     $limitRoot = Join-Path $Root "search-limit-tsv"
     $limitLines = 1..10005 | ForEach-Object { "上限テスト" }
     newTsv "$limitRoot\大量\上限.xlsx\$(toIndexFileName "上限")" $limitLines
-    [void](newPackIndex $limitRoot "$($tool.Work)\content_index")
+    [void](newContentIndexFiles $limitRoot "$($tool.Work)\content_index")
 
     $S = startGui $tool "search"
     invokeGuiScene $S {

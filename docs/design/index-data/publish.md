@@ -29,7 +29,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    P(["書き出し待ちのフォルダ<br>（フォルダ → 無くなった元のファイル名）"]) --> A["1. 本文インデックスを書く（updateIndexFolderPack）<br>TSV のある元のファイル: TSV の中身で入れ替える<br>無くなった元のファイル: 外す<br>それ以外: 前の本文インデックスからそのまま写す"]
+    P(["書き出し待ちのフォルダ<br>（フォルダ → 無くなった元のファイル名）"]) --> A["1. 本文インデックスを書く（updateFolderContentIndex）<br>TSV のある元のファイル: TSV の中身で入れ替える<br>無くなった元のファイル: 外す<br>それ以外: 前の本文インデックスからそのまま写す"]
     A --> B["拡張子ごとに #lt;名前#gt;.tmp に書いてから置き換える<br>（File.Replace。元のファイルが無くなった拡張子の本文インデックスのファイルは消す）"]
     B --> C["2. 元のファイルごとのフォルダ（TSV）を消す"]
     C --> D["3. 書いた本文インデックスの中身から、そのフォルダの<br>システムインデックスの txt を作る（読み直さない）"]
@@ -66,7 +66,7 @@ flowchart TD
 | 場面 | `\\?\` を付けない場合（実測） | 対応 |
 |---|---|---|
 | クロール（`findTargetFiles`） | パスが約 248 文字を超えるフォルダの中を検索できず、アクセスできないフォルダ扱いになる（そのファイルは取り込まれない） | `\\?\` 付きで検索し、`FullName` から相対パスを求めるときは `fromLongPath` で外す |
-| TSV・本文インデックスの保存・移動・削除（`prettyTsv` / `writeUnits` / `publishTsv` / `writePackFile` / `updateIndexFolderPack`） | 260 文字を超えるパスは「パスの一部が見つかりません」で失敗する。`Test-Path` は `$false` を返す | `\\?\` 付きで操作する |
+| TSV・本文インデックスの保存・移動・削除（`prettyTsv` / `writeUnits` / `publishTsv` / `writeContentIndexFile` / `updateFolderContentIndex`） | 260 文字を超えるパスは「パスの一部が見つかりません」で失敗する。`Test-Path` は `$false` を返す | `\\?\` 付きで操作する |
 | 設定から削除したフォルダのインデックスの削除（`removeDroppedFolders`） | 中に長いパスがあると `Remove-Item -Recurse` が失敗する | `\\?\` 付きで削除する |
 | Excel で開く | 約 256 文字以上（古い版は 218 文字以上）のパスは開けない。`\\?\` 付きのパスも開けない | [Excel の取り込み](../indexing/excel.md#excel-の抽出処理extractworkbook)（常に作業フォルダにコピーしてから開く。コピーは短いパスになる） |
 

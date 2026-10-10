@@ -180,7 +180,7 @@ Describe "新しい runspace での部品（lib）の読み込み（結合した
         $ps = [powershell]::Create()
         $ps.Runspace = $runspace
         try {
-            [void]$ps.AddScript($part.Prelude + "`r`n" + 'return @(Get-Command searchPackIndex, newSearchRequest -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })')
+            [void]$ps.AddScript($part.Prelude + "`r`n" + 'return @(Get-Command searchContentIndex, newSearchRequest -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })')
             $handle = $ps.BeginInvoke()
             $completed = $handle.AsyncWaitHandle.WaitOne(30000)
             if (!$completed) {
@@ -189,7 +189,7 @@ Describe "新しい runspace での部品（lib）の読み込み（結合した
             }
             $names = @($ps.EndInvoke($handle))
             $ps.HadErrors | Should -Be $false
-            $names | Should -Contain "searchPackIndex"
+            $names | Should -Contain "searchContentIndex"
             $names | Should -Contain "newSearchRequest"
         } finally {
             $ps.Dispose()
@@ -284,11 +284,11 @@ Describe "`-Part indexer`（結合した単一 .ps1）" -Tag Slow {
         try {
             [void]$ps.AddScript($part.Prelude + "`r`n" + @'
                 initWorkspace
-                $packs = getPackFiles $workspace.IndexDir
+                $contentIndexFiles = findContentIndexFiles $workspace.IndexDir
                 $search = newSearchRegex "TC21" $true $false
                 $filter = newFileFilter ""
                 $excludePlace = newPlaceExclude $true $true
-                $hits = searchPackFiles $packs 0 $packs.Count $search.Regex -1 $search.TextRegex $search.ScanMode $null $filter.Include $filter.Exclude $excludePlace
+                $hits = searchContentIndexFiles $contentIndexFiles 0 $contentIndexFiles.Count $search.Regex -1 $search.TextRegex $search.ScanMode $null $filter.Include $filter.Exclude $excludePlace
                 return $hits.Count
 '@)
             $handle = $ps.BeginInvoke()

@@ -1,7 +1,7 @@
-﻿# 高速検索: Windows Search で検索語を含みうるフォルダを先に絞り、照合する集約ファイルを集める（状態層）。
-# 集めた集約ファイルは、今までどおり searchPackIndex で照合する。結果（行・行番号・順番）は、すべてを照合したときと同じになる:
-#   反映済みの システムインデックスには、そのフォルダの集約ファイルのすべての 2-gram が入っていて、検索語の語はその一部のため、
-#   当たる集約ファイルのフォルダは必ず候補に入る。反映済みでない・対象外・対応済みでないものは、候補に関係なく照合する。
+﻿# 高速検索: Windows Search で検索語を含みうるフォルダを先に絞り、照合する本文インデックスのファイルを集める（状態層）。
+# 集めた本文インデックスのファイルは、今までどおり searchContentIndex で照合する。結果（行・行番号・順番）は、すべてを照合したときと同じになる:
+#   反映済みの システムインデックスには、そのフォルダの本文インデックスのファイルのすべての 2-gram が入っていて、検索語の語はその一部のため、
+#   当たる本文インデックスのファイルのフォルダは必ず候補に入る。反映済みでない・対象外・対応済みでないものは、候補に関係なく照合する。
 
 function getReflectedSystemIndexEntries {
     # 状態ファイルの反映待ちの行を、Windows Search の索引と照らして、反映済みになったものとまだのものに分ける。
@@ -32,11 +32,11 @@ function getReflectedSystemIndexEntries {
     return @{ Reflected = $reflected; Unreflected = $unreflected }
 }
 
-function getFastSearchPackFiles {
-    # 高速検索で照合する集約ファイルを、getIndexPackFiles と同じ形（@{ Folders; Packs }）に Fast（@{ Candidates; Unreflected }）を足して返す。
+function getFastSearchContentIndexFiles {
+    # 高速検索で照合する本文インデックスのファイルを、getContentIndexFiles と同じ形（@{ Folders; ContentIndexFiles }）に Fast（@{ Candidates; Unreflected }）を足して返す。
     # 高速検索を使えないとき（検索語から語を作れない・状態ファイルを読めない・Windows Search に問い合わせられない）は $null
-    # （呼び出し側が getIndexPackFiles ですべての集約ファイルを集める）。
-    #   folders: getIndexPackFiles と同じ（文字列、または @{ Root; RelPath; Recurse }）
+    # （呼び出し側が getContentIndexFiles ですべての本文インデックスのファイルを集める）。
+    #   folders: getContentIndexFiles と同じ（文字列、または @{ Root; RelPath; Recurse }）
     #   query  : { param($sql) 行（object[]）の一覧 }。$null なら Windows Search を開いて問い合わせる（テストで差し替える）
     param (
         [string]$word,
@@ -130,7 +130,7 @@ function getFastSearchPackFiles {
         }
     }
 
-    $index = getIndexPackFiles $targets.ToArray() $onProgress
+    $index = getContentIndexFiles $targets.ToArray() $onProgress
     if ($reflected.Count -gt 0) {
         # 反映済みになった行を消す（txt が書き直されて日時が変わった行は残す）。書けなくても検索は続ける。
         # 書き換えの中から見る値は、updateSystemIndexState の変数と名前が重ならないようにする（呼び出し先の $state が見えてしまう）
@@ -152,10 +152,10 @@ function getSystemIndexProgress {
     # システムインデックス（高速検索用の txt）が Windows Search にどこまで反映されたかを数える。画面が「確かめるとき」だけ呼ぶ（検索では呼ばない）。
     # @{ Folders; Waiting; ContentIndexed; ByIndex } を返す。状態ファイルを読めない・Windows Search に問い合わせられないときは $null。
     #   Folders       : txt があるフォルダと、状態ファイルの反映待ちのフォルダを合わせた数（分けた txt は 1 つのフォルダに数える）
-    #   Waiting       : 反映待ちのうち、Windows Search でまだ反映済みでないフォルダの数（getFastSearchPackFiles と同じ判定）
+    #   Waiting       : 反映待ちのうち、Windows Search でまだ反映済みでないフォルダの数（getFastSearchContentIndexFiles と同じ判定）
     #   ContentIndexed: 本文インデックス（index の TSV）も Windows Search に索引されているか（反映が遅い理由の案内に使う）
     #   ByIndex       : インデックス名（system_index からの相対パスの先頭のフォルダ名） → @{ Folders; Waiting } の辞書（OrdinalIgnoreCase）
-    #   query         : getFastSearchPackFiles と同じ。$null なら Windows Search を開いて問い合わせる（テストで差し替える）
+    #   query         : getFastSearchContentIndexFiles と同じ。$null なら Windows Search を開いて問い合わせる（テストで差し替える）
     #   connection    : 開いた接続（渡したら呼び出し側が閉じる）。$null なら query が無いときだけ自分で開いて閉じる
     param (
         [scriptblock]$query = $null,
