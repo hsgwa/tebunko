@@ -4118,7 +4118,7 @@
 </tbody>
 </table>
 <p>PSScriptAnalyzer は Windows PowerShell 5.1 に標準では入っていないため、未導入の環境では静的解析の 3 件を自動的に飛ばす（<code>It -Skip</code>）。導入は <code>Install-Module PSScriptAnalyzer -Scope CurrentUser</code>。CI では必ず入れて実行する。安全性にかかわるルールの選定と、全ルールで出る指摘の内訳は <a href="../../../safety/">安全性の要約</a> の <a href="../../../safety/scans/#静的解析-psscriptanalyzermicrosoft">静的解析: PSScriptAnalyzer（Microsoft）</a> に記載している。</p>
-<p><code>TypeNotFound</code>（継承元の型が別ファイルにあるための指摘）は、1 ファイルだけでは解決できないため除く。読み込む順で解決できることは <code>tests/meta/structure.Tests.ps1</code> で確かめる。</p>
+<p><code>TypeNotFound</code>（継承元の型が別ファイルにあるための指摘）は、1 ファイルだけでは解決できないため除く。読み込む順で解決できることは <code>tests/meta/structure.Tests.ps1</code> で確かめる。あわせて同じファイルで、<code>scripts/</code> の関数・変数・ハッシュテーブルのキー・呼ぶ名前・<code>newWorkerState</code> に渡す名前に <code>pack</code> を使わないことを、AST から名前を拾って確かめる（本文インデックスのコードの名前は <code>contentIndex</code>。コメントや <code>package</code> は拾わない）。</p>
 <p><strong>インストーラーの検査（<code>tests/meta/installer.Tests.ps1</code>）</strong></p>
 <p>タグ <code>Meta</code> で、インストーラー（<code>installer/</code>）が <a href="../../../safety/">安全性の要約</a> の <a href="../../../safety/disclosure/#インストーラー版">インストーラー版</a> のとおりであることを確かめる。インストーラーそのもののビルド（Inno Setup）は <code>release.yml</code> だけで行い、ここではスクリプトを読んで確かめる。</p>
 <table>

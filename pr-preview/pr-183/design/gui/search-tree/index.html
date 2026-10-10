@@ -4051,7 +4051,7 @@
 </tr>
 <tr>
 <td>直下のファイル</td>
-<td>サブフォルダと本文インデックスのファイル（<code>content_index.*.tsv</code>）の両方があるフォルダには、先頭に <code>（このフォルダ直下のファイル）</code> の項目を置く（灰色）。サブフォルダの一部だけを選んだとき、そのフォルダ直下のファイルを含めるかをこの項目のチェックで表す（<code>getIndexPackFiles</code> の <code>Recurse</code> が <code>$false</code> のときと同じ）。本文インデックスに入れる前の TSV（元のファイル名のフォルダの中）が残っているフォルダも、直下のファイルがあるものとして扱う（<code>IndexNode.HasFiles</code>）</td>
+<td>サブフォルダと本文インデックスのファイル（<code>content_index.*.tsv</code>）の両方があるフォルダには、先頭に <code>（このフォルダ直下のファイル）</code> の項目を置く（灰色）。サブフォルダの一部だけを選んだとき、そのフォルダ直下のファイルを含めるかをこの項目のチェックで表す（<code>getContentIndexFiles</code> の <code>Recurse</code> が <code>$false</code> のときと同じ）。本文インデックスに入れる前の TSV（元のファイル名のフォルダの中）が残っているフォルダも、直下のファイルがあるものとして扱う（<code>IndexNode.HasFiles</code>）</td>
 </tr>
 <tr>
 <td>チェック</td>
@@ -4059,7 +4059,7 @@
 </tr>
 <tr>
 <td>検索する範囲</td>
-<td>チェックありの一番上のフォルダごとに、その配下（<code>（このフォルダ直下のファイル）</code> は直下だけ）の本文インデックスのファイルを検索する（<code>getIndexPackFiles</code> に Root＝<code>work\content_index</code>・RelPath＝<code>&lt;インデックス名&gt;</code> からの相対パス・Recurse を渡す）</td>
+<td>チェックありの一番上のフォルダごとに、その配下（<code>（このフォルダ直下のファイル）</code> は直下だけ）の本文インデックスのファイルを検索する（<code>getContentIndexFiles</code> に Root＝<code>work\content_index</code>・RelPath＝<code>&lt;インデックス名&gt;</code> からの相対パス・Recurse を渡す）</td>
 </tr>
 <tr>
 <td>保存</td>
@@ -4077,7 +4077,7 @@
     C --&gt; D["チェックなしの一番上のフォルダを&lt;br&gt;setting.config の searchExcludes に保存"]
     D --&gt; E["No.4 の検索対象の表示・［検索］の有効/無効を更新"]
     F["［検索］"] --&gt; G["チェックありの一番上のフォルダを集める&lt;br&gt;（Root・RelPath・Recurse）"]
-    G --&gt; H["getIndexPackFiles → searchPackIndex"]</code></pre>
+    G --&gt; H["getContentIndexFiles → searchContentIndex"]</code></pre>
 
 
 

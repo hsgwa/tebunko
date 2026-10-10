@@ -4054,8 +4054,8 @@
 <pre class="mermaid"><code>flowchart LR
     settings["core/settings.ps1・workspace.ps1&lt;br&gt;core/fs.ps1・folder.ps1"] --&gt; P1["settings.md"]
     indexer["indexer/indexer_state.ps1&lt;br&gt;indexer_decide.ps1・index/index_name.ps1・index_store.ps1&lt;br&gt;index_archive_rules.ps1・index_archive.ps1"] --&gt; P2["indexer.md"]
-    tsv["core/fs.ps1・text.ps1・text_file.ps1&lt;br&gt;index/index_name.ps1・index_store.ps1・pack_format.ps1・pack_store.ps1"] --&gt; P3["tsv.md"]
-    search["search/search_query.ps1・pack_search.ps1&lt;br&gt;search_run.ps1・search_service.ps1・source_map.ps1"] --&gt; P4["search.md"]</code></pre>
+    tsv["core/fs.ps1・text.ps1・text_file.ps1&lt;br&gt;index/index_name.ps1・index_store.ps1・content_index_format.ps1・content_index_store.ps1"] --&gt; P3["tsv.md"]
+    search["search/search_query.ps1・content_index_search.ps1&lt;br&gt;search_run.ps1・search_service.ps1・source_map.ps1"] --&gt; P4["search.md"]</code></pre>
 <h2 id="libps1-から読み込まれない部品">lib.ps1 から読み込まれない部品<a class="headerlink" href="#libps1-から読み込まれない部品" title="Permanent link">&para;</a></h2>
 <p><code>lib.ps1</code> から読み込まれない部品の関数は、それぞれの設計書に記載する。</p>
 <table>
@@ -4169,7 +4169,7 @@
         FT["formatTsv"]
         PT["prettyTsv"]
         PUB["publishIndexFolders&lt;br&gt;（本文インデックスへの書き出し）"]
-        RPP["readPackPlaces"]
+        RPP["readContentIndexPlaces"]
         TRL["toResultLine"]
         CTF["countTsvFields"]
         TRH["toResultHeader"]
@@ -4182,10 +4182,10 @@
     OT --&gt; TSF
     OT --&gt; PT --&gt; FT --&gt; RNL
     OT --&gt; PUB
-    GR --&gt; ITF["getIndexPackFiles"] --&gt; GIF --&gt; RCL
-    GR --&gt; SI["searchPackIndex"]
+    GR --&gt; ITF["getContentIndexFiles"] --&gt; GIF --&gt; RCL
+    GR --&gt; SI["searchContentIndex"]
     SI --&gt; NSR["newSearchRegex / newFileFilter / newPlaceExclude"]
-    SI --&gt; STF["searchPackFiles&lt;br&gt;（.NET の StreamReader＋regex）"] --&gt; RPP
+    SI --&gt; STF["searchContentIndexFiles&lt;br&gt;（.NET の StreamReader＋regex）"] --&gt; RPP
     GR --&gt; WSR["writeSearchResult"] --&gt; TSR["toSearchResultLines"]
     TSR --&gt; TRL
     TSR --&gt; CTF
@@ -4199,8 +4199,8 @@
         TF["getTargetFolders / writeTargetFolders"]
         CS["getIndexingState"] --&gt; RSF2["readStatusFile"]
         SUM["getIndexSummary / testIndexExists"]
-        SI2["searchPackIndex / toSearchResultLines / writeSearchResult"]
-        RPC["readPackContext（選択行のプレビュー）"]
+        SI2["searchContentIndex / toSearchResultLines / writeSearchResult"]
+        RPC["readContentIndexContext（選択行のプレビュー）"]
         RSP["resolveSourcePath"] --&gt; SL["getSourceLocation"] --&gt; SFM["getSourceFolderMap"] --&gt; INM["getIndexNameMap"] --&gt; RSF2
         SFM --&gt; RSFF["readSourceFolderFile"]
         SFM --&gt; TGT["getTargetFolders / readIndexSources"]

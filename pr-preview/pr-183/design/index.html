@@ -4193,7 +4193,7 @@
 <td>本文インデックス</td>
 <td>検索が照合する本体。フォルダ 1 つ・元のファイルの拡張子 1 つにつき、大きさで分けて 1 つ以上。<code>work/content_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/content_index.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code>。1 つずつを指すときは「本文インデックスのファイル」</td>
 <td>出さない</td>
-<td><code>pack</code></td>
+<td><code>contentIndex</code></td>
 </tr>
 <tr>
 <td>システムインデックス</td>
@@ -4227,7 +4227,7 @@
 </tr>
 </tbody>
 </table>
-<p><code>content_index/</code> の中身は本文インデックス・入れる前の TSV・元のフォルダの記録の 3 種類で、本文インデックスは <code>content_index/</code> の中身すべてではない。コードの名前 <code>pack</code>（関数・変数・計測の結果の項目）は、設計書でもそのまま書く。</p>
+<p><code>content_index/</code> の中身は本文インデックス・入れる前の TSV・元のフォルダの記録の 3 種類で、本文インデックスは <code>content_index/</code> の中身すべてではない。コードの名前 <code>contentIndex</code>（関数・変数・ファイル名）は、設計書でもそのまま書く。計測の結果の項目（<code>Index.Pack</code> など）と段階の名前（<code>pack の作成</code>）は、実行をまたいで数字を比べるため、前の名前のまま残している。</p>
 <p>「変換」は、旧形式を新形式に保存し直す処理（<code>.doc</code> → <code>.docx</code> など）のように、形式を変えることだけに使う。検索ワード・件・該当行・元のファイルは検索エンジンの用語に合わせず、そのまま使う。</p>
 <h2 id="全体構成">全体構成<a class="headerlink" href="#全体構成" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart LR
