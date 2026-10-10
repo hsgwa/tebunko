@@ -4359,6 +4359,10 @@
 <td><code>$objects</code> を渡したとき、<code>dgm:relIds</code> の <code>r:dm</code>・<code>c:chart</code> の <code>r:id</code>・<code>w:commentReference</code> の <code>w:id</code> をページ付きで集める（中身は呼び出し元がリレーションシップの先から読む）</td>
 </tr>
 <tr>
+<td>埋め込みオブジェクト</td>
+<td><code>$collect</code> のとき、<code>w:objectEmbed</code>・<code>o:OLEObject</code>（<code>Type="Embed"</code>）・<code>p:oleObj</code> をページ（スライド）付きで集める。中の文字は呼び出し元が <code>readEmbeddedObjectLines</code>（<code>office_embedded.ps1</code>。<a href="../word/#埋め込みの読み取りreadembeddedobjectlines">Word</a>）で読む</td>
+</tr>
+<tr>
 <td>互換用の代替表示（<code>mc:Fallback</code>）</td>
 <td>読まない（<code>mc:Choice</code> と同じ内容が重複するため）</td>
 </tr>
@@ -4481,7 +4485,7 @@
 </tr>
 <tr>
 <td>利用者のブックが入った Excel</td>
-<td>画面の無い Excel に、利用者がダブルクリックしたブックが入ることがある（入るのを防ぐ設定は使わない。<a href="../../structure/threads/#スレッドの一覧">スレッドの一覧</a>）。そこで Excel は、1 ファイルを取り込むたび（成功・失敗とも）と <code>stopApp</code> の前に、<code>Workbooks</code> の中に作業用フォルダの外のブックがあるかを確かめる（<code>handOverForeignApp</code>）。あれば <code>Quit()</code> も強制終了もせず、利用者に渡す（<code>handOverApp</code>）。渡すとは、監視の PID・受け渡しの口・起動の記録から外し、置き場の下と確かめられた自分の取り込み用のブックだけを保存せずに閉じ、<code>DisplayAlerts</code> などの設定を元に戻し、<code>Visible</code> と <code>UserControl</code> を真にして窓を出すことである。窓を出す設定が通らなければ数回やり直し、それでも通らなければ COM の参照を放さずに持ち続け（<code>Quit()</code> も強制終了もしない）、ログには窓を出せなかったことを書く。次のファイルからは新しい Excel を起動する。渡したことはインデックス作成のログに 1 行残す。比較は <code>GetFullPath</code> で正規化した作業用フォルダの前方一致（大文字小文字を区別せず、末尾に <code>\</code> を付けて <code>tmp</code> と <code>tmp2</code> を取り違えない）で行い、<code>~</code> を含む短い名前は <code>Get-Item</code> で長い名前にしてから比べる（読めなければ、置き場の下と確かめられないので利用者のブックと数える。データを失わない側に倒す）。<code>FullName</code> を正規化できないもの（URL・保存前の <code>Book1</code> など）も利用者のブックと数える。<code>Workbooks</code> を読めない（COM が呼び出しを拒んだ。利用者が操作中のことがある）ときは、起動で控えた PID のプロセスに見える窓があれば利用者が使っているとみなして渡し、無ければ従来どおり終了させる（窓を中身で探すことはしない）。渡した Excel を作るとき、一覧に使う <code>Workbooks</code> の参照は数えたあとに放す</td>
+<td>画面の無い Excel に、利用者がダブルクリックしたブックが入ることがある（入るのを防ぐ設定は使わない。<a href="../../structure/threads/#スレッドの一覧">スレッドの一覧</a>）。そこで Excel は、1 ファイルを取り込むたび（成功・失敗とも）と <code>stopApp</code> の前に、<code>Workbooks</code> の中に作業用フォルダの外のブックがあるかを確かめる（<code>handOverForeignApp</code>）。あれば <code>Quit()</code> も強制終了もせず、利用者に渡す（<code>handOverApp</code>）。渡すとは、監視の PID・受け渡しの口・起動の記録から外し、置き場の下と確かめられた自分の取り込み用のブックだけを保存せずに閉じ、<code>DisplayAlerts</code> などの設定を元に戻し、<code>Visible</code> と <code>UserControl</code> を真にして窓を出すことである。窓を出す設定が通らなければ数回やり直し、それでも通らなければ COM の参照を放さずに持ち続け（<code>Quit()</code> も強制終了もしない）、ログには窓を出せなかったことを書く。持ち続けた Excel は、次の Excel のファイルの確かめ・一括終了（<code>stopAllApps</code>）のたびに設定し直し（<code>retryKeptApps</code>）、通れば参照を放して渡したことをログに書く（待たない）。それでも通らないものは、インデックス作成が終わるまで持ち続ける。インデックス作成が終わると取り込みのスレッドごと参照が切れ、その Excel は、窓も操作する人もいなければ終わることがある。次のファイルからは新しい Excel を起動する。渡したことは、1 ファイルの取り込みの中で渡したときはインデックス作成のログに 1 行残す（取り込みのスレッドが終わるときと起動し直しの一括終了で渡した分は、ログに出る場所が無いため残らない）。比較は <code>GetFullPath</code> で正規化した作業用フォルダの前方一致（大文字小文字を区別せず、末尾に <code>\</code> を付けて <code>tmp</code> と <code>tmp2</code> を取り違えない）で行い、<code>~</code> を含む短い名前は <code>Get-Item</code> で長い名前にしてから比べる（読めなければ、置き場の下と確かめられないので利用者のブックと数える。データを失わない側に倒す）。<code>FullName</code> を正規化できないもの（URL・保存前の <code>Book1</code> など）も利用者のブックと数える。<code>Workbooks</code> を読めない（COM が呼び出しを拒んだ。利用者が操作中のことがある）ときは、起動で控えた PID のプロセスに見える窓があれば利用者が使っているとみなして渡し、無ければ従来どおり終了させる（窓を中身で探すことはしない）。確かめに使う <code>Workbooks</code> の参照は、数えたあとに放す</td>
 </tr>
 <tr>
 <td>終了</td>
