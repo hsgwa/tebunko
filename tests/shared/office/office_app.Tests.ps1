@@ -274,6 +274,26 @@ Describe "releaseComObject" -Tag Unit {
 }
 
 Describe "OfficeWatchdog（1 ファイルの制限時間の監視）" -Tag Unit {
+    It "本物のインスタンスは、Office アプリ 3 つのプロセス名を見張る" {
+        @($script:officeWatchdog.ProcessNames | Sort-Object) | Should -Be @("EXCEL", "POWERPNT", "WINWORD")
+    }
+
+    It "制限時間内なら TimedOut を立てない。止めると監視のスレッドを片付ける" {
+        $watchdog = [OfficeWatchdog]::new([string[]]@("NoSuchOfficeApp"))
+        $watchdog.Start()
+        try {
+            $watchdog.State.Deadline = [datetime]::Now.AddMinutes(10)
+            Start-Sleep -Milliseconds 700
+            $watchdog.State.TimedOut | Should -Be $false
+        } finally {
+            $watchdog.Stop()
+        }
+        $watchdog.IsRunning() | Should -Be $false
+    }
+}
+
+# 実際に子プロセスを起動して、制限時間を過ぎたときに止めるプロセスを確かめる
+Describe "OfficeWatchdog（実際のプロセスを止める）" -Tag Io {
     BeforeAll {
         # 制限時間を過ぎるまで待つ（見張りは 500 ミリ秒ごとに見る）
         function waitTimedOut($watchdog) {
@@ -289,51 +309,39 @@ Describe "OfficeWatchdog（1 ファイルの制限時間の監視）" -Tag Unit 
     }
 
     It "制限時間を過ぎたら TimedOut を立て、制限時刻を戻す。名前が合わないプロセスは終了させない" {
-        $watchdog = [OfficeWatchdog]::new([string[]]@("NoSuchOfficeApp"))
         $child = startHarmlessChild
+        $watchdog = $null
         try {
+            $watchdog = [OfficeWatchdog]::new([string[]]@("NoSuchOfficeApp"))
             $watchdog.State.Pids = @($child.Id)
             $watchdog.Start()
             $watchdog.State.Deadline = [datetime]::Now.AddSeconds(-1)
             waitTimedOut $watchdog
             $watchdog.State.TimedOut | Should -Be $true
             $watchdog.State.Deadline | Should -Be ([datetime]::MaxValue)
-            $child.Refresh()
-            $child.HasExited | Should -Be $false
+            # 見張りが動いた後、少し待っても終わらない
+            $child.WaitForExit(1500) | Should -Be $false
         } finally {
-            $watchdog.Stop()
+            if ($watchdog) { $watchdog.Stop() }
             if (-not $child.HasExited) { $child.Kill() }
         }
     }
 
     It "制限時間を過ぎたら、見張る名前に合うプロセスだけ終了させる" {
         $child = startHarmlessChild
-        $watchdog = [OfficeWatchdog]::new([string[]]@($child.ProcessName))
+        $watchdog = $null
         try {
+            $watchdog = [OfficeWatchdog]::new([string[]]@($child.ProcessName))
             $watchdog.State.Pids = @($child.Id)
             $watchdog.Start()
             $watchdog.State.Deadline = [datetime]::Now.AddSeconds(-1)
             waitTimedOut $watchdog
             $watchdog.State.TimedOut | Should -Be $true
-            $null = $child.WaitForExit(10000)
-            $child.HasExited | Should -Be $true
+            $child.WaitForExit(10000) | Should -Be $true
         } finally {
-            $watchdog.Stop()
+            if ($watchdog) { $watchdog.Stop() }
             if (-not $child.HasExited) { $child.Kill() }
         }
-    }
-
-    It "制限時間内なら TimedOut を立てない。止めると監視のスレッドを片付ける" {
-        $watchdog = [OfficeWatchdog]::new([string[]]@("NoSuchOfficeApp"))
-        $watchdog.Start()
-        try {
-            $watchdog.State.Deadline = [datetime]::Now.AddMinutes(10)
-            Start-Sleep -Milliseconds 700
-            $watchdog.State.TimedOut | Should -Be $false
-        } finally {
-            $watchdog.Stop()
-        }
-        $watchdog.IsRunning() | Should -Be $false
     }
 }
 
