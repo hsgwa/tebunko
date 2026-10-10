@@ -237,8 +237,45 @@ function closeGui {
     markGuiClosing $S
     $pattern = $S.Window.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern)
     $pattern.Close()
-    waitGui $S "画面が終了する" $Timeout -AllowExited { $S.Process.HasExited } | Out-Null
+    $S.Samples = New-Object System.Collections.ArrayList
+    $S.NextSampleAt = $S.ClosingAt.AddSeconds(1)
+    try {
+        waitGui $S "画面が終了する" $Timeout -AllowExited {
+            if ($S.Process.HasExited) { return $true }
+            sampleGuiThreadsIfDue $S
+            return $false
+        } | Out-Null
+    } finally {
+        # 【一時】終わらないときの材料: 待つ間のスレッドの様子（成功のときも、待ちが 1 秒を超えたら残る）
+        foreach ($line in @($S.Samples)) { Write-Host ("GUI-HANG 場面=" + $S.Scene + " " + $line) }
+    }
     assertGuiExited $S
+}
+
+function sampleGuiThreadsIfDue {
+    # 【一時】閉じる操作の 1 秒後から 5 秒おきに、画面のプロセスのスレッドごとの状態・待ちの理由・開始アドレス（モジュール名+オフセット）・CPU 時間を控える
+    param ($S)
+
+    if ((Get-Date) -lt $S.NextSampleAt) { return }
+    $S.NextSampleAt = (Get-Date).AddSeconds(5)
+    try {
+        $p = Get-Process -Id $S.Process.Id -ErrorAction Stop
+        $mods = @(); try { $mods = @($p.Modules) } catch { }
+        $parts = foreach ($t in $p.Threads) {
+            $addr = ""
+            try {
+                $a = $t.StartAddress.ToInt64()
+                $m = $mods | Where-Object { $a -ge $_.BaseAddress.ToInt64() -and $a -lt ($_.BaseAddress.ToInt64() + $_.ModuleMemorySize) } | Select-Object -First 1
+                $addr = if ($m) { $m.ModuleName + "+0x" + ($a - $m.BaseAddress.ToInt64()).ToString("x") } else { "0x" + $a.ToString("x") }
+            } catch { $addr = "?" }
+            $cpu = ""; try { $cpu = [Math]::Round($t.TotalProcessorTime.TotalMilliseconds) } catch { }
+            [string]$t.Id + ":" + [string]$t.ThreadState + ":" + [string]$t.WaitReason + ":" + $addr + ":cpu" + $cpu
+        }
+        $sec = [Math]::Round(((Get-Date) - $S.ClosingAt).TotalSeconds, 1)
+        [void]$S.Samples.Add("閉じてから ${sec} 秒 スレッド $($p.Threads.Count) 動作中 " + (@($parts) -join ' | '))
+    } catch {
+        [void]$S.Samples.Add("様子を取れなかった: " + $_.Exception.Message)
+    }
 }
 
 function markGuiClosing {
@@ -274,7 +311,14 @@ function assertGuiExited {
             $diagText = ($diagText -replace ' Error=.*?(?= THREADS=)', '') -replace 'THREADS=[^ ]*', "THREADS_COUNT=$diagThreads"
             $exitingFile = Join-Path $S.Tool.Dir "gui_exiting_$($S.Process.Id).txt"
             $exitingText = if (Test-Path -LiteralPath $exitingFile) { [IO.File]::ReadAllText($exitingFile) } else { "無し" }
-            Write-Host ("GUI-DIAG exit=0 場面=" + $S.Scene + " EXITING=" + $exitingText + " " + $diagText)
+            $traceTail = ""
+            try {
+                foreach ($f in @(getGuiCloseTraceFiles $S)) {
+                    $mine = @([IO.File]::ReadAllLines($f.Path) | Where-Object { $_ -like "*PID $($S.Process.Id)`t*" })
+                    if ($mine.Count -gt 0) { $traceTail += " TRACE=" + ((@($mine | Select-Object -Last 4) | ForEach-Object { ($_ -split "`t")[0] + " " + ($_ -split "`t")[2] }) -join ' ; ') }
+                }
+            } catch { }
+            Write-Host ("GUI-DIAG exit=0 場面=" + $S.Scene + " EXITING=" + $exitingText + $traceTail + " " + $diagText)
         } catch { Write-Host ("GUI-DIAG 失敗 " + $_.Exception.Message) }
         return
     }

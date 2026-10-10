@@ -519,5 +519,6 @@ function startGui {
     # 終わらないことがある（docs/design/structure/closing.md「閉じるときの順番」）。例外で抜けるときは通らない
     # （起動の失敗を知らせる画面（reportStartupFailure）が、この Dispatcher を使うため）
     [System.Windows.Threading.Dispatcher]::CurrentDispatcher.InvokeShutdown()
+    writeCloseTrace "InvokeShutdown の後"
     writeCloseTrace "startGui の最後"
 }

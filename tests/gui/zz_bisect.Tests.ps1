@@ -14,14 +14,18 @@ Describe "終了コードの切り分け" -Tag Gui {
 
     It "<Name>" -ForEach (@(
         if ($env:TEBUNKO_BISECT) {
-            foreach ($n in 1..12) {
+            foreach ($n in 1..60) {
                 @{ Name = "V1開閉とバージョン情報-$n"; Search = $false }
-                @{ Name = "V2検索と行とバージョン情報-$n"; Search = $true }
             }
         }
     ) | Where-Object { !$env:TEBUNKO_BISECT_ONLY -or $_.Name -eq $env:TEBUNKO_BISECT_ONLY }) {
         $tool = $script:toolIndex
-        $S = startGui $tool $Name
+        $env:TEBUNKO_TEST_EXIT_VARIANT = "exiting"
+        try {
+            $S = startGui $tool $Name
+        } finally {
+            $env:TEBUNKO_TEST_EXIT_VARIANT = $null
+        }
         $doSearch = $Search
         invokeGuiScene $S {
             if ($doSearch) {
