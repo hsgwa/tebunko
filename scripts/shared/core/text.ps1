@@ -42,25 +42,6 @@ function formatTsv {
     return ($lines -join "`r`n")
 }
 
-function prettyTsv {
-    # Excelが出力したTSV（UTF-16）を整形してUTF-8で保存する。内容が空なら保存せず $false を返す
-    #   firstRow, firstColumn: Excelが出力した範囲の左上のセルの行・列番号
-    param (
-        [string]$inputFilePath,
-        [string]$outputFilePath,
-        [int]$firstRow = 1,
-        [int]$firstColumn = 1
-    )
-
-    $content = formatTsv ([System.IO.File]::ReadAllText((toLongPath $inputFilePath))) $firstRow $firstColumn
-    if ($content -eq "") {
-        return $false
-    }
-
-    [System.IO.File]::WriteAllText((toLongPath $outputFilePath), "${content}`r`n", ${utf8Bom})
-    return $true
-}
-
 function countTsvFields {
     # TSVの1行をExcelに貼り付けたときのセル数を返す。
     # Excelと同じく、" で始まるセルは閉じる " までを1セルとする（中のタブ・改行は区切りとしない）
