@@ -153,7 +153,7 @@ function getSourceConfirmDialog {
         [string]$name,
         [string]$folder,
         [bool]$mayConnect,
-        [bool]$recordable = $true
+        [Parameter(Mandatory)][bool]$recordable
     )
 
     $hint = "［このフォルダを使う］を選ぶと、次からはこのインデックスについて聞きません"

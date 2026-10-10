@@ -101,7 +101,7 @@ Describe "testNameInList / testSourceReceived" -Tag Unit {
 
 Describe "getSourceConfirmDialog / getSourceConfirmCanceledStatus" -Tag Unit {
     It "名前と元のフォルダを入れる" {
-        $dialog = getSourceConfirmDialog "a.xlsx" "受領" "C:\共有\営業部" $false
+        $dialog = getSourceConfirmDialog "a.xlsx" "受領" "C:\共有\営業部" $false $true
         $dialog.Heading | Should -BeLike "a.xlsx *"
         $dialog.Title | Should -BeLike "*[[]受領]*"
         $dialog.Detail | Should -Be "C:\共有\営業部"
@@ -114,16 +114,17 @@ Describe "getSourceConfirmDialog / getSourceConfirmCanceledStatus" -Tag Unit {
         @{ mayConnect = $false; expected = $false }
     ) {
         param ($mayConnect, $expected)
-        $dialog = getSourceConfirmDialog "a.xlsx" "受領" "\\server\share" $mayConnect
+        $dialog = getSourceConfirmDialog "a.xlsx" "受領" "\\server\share" $mayConnect $true
         ($dialog.Hint -like "*サインイン情報*") | Should -Be $expected
     }
 
     It "記録できる名前は「次からは聞きません」、記録できない名前は「開くたびに確かめます」と伝える" -TestCases @(
         @{ recordable = $true; ask = "*次からはこのインデックスについて聞きません"; notAsk = "*開くたびに確かめます" }
         @{ recordable = $false; ask = "*開くたびに確かめます"; notAsk = "*次からはこのインデックスについて聞きません" }
+        @{ recordable = $false; ask = "*開くたびに確かめます"; notAsk = "*次からはこのインデックスについて聞きません"; mayConnect = $true }
     ) {
-        param ($recordable, $ask, $notAsk)
-        $dialog = getSourceConfirmDialog "a.xlsx" "受領" "C:\x" $false $recordable
+        param ($recordable, $ask, $notAsk, $mayConnect = $false)
+        $dialog = getSourceConfirmDialog "a.xlsx" "受領" "C:\x" $mayConnect $recordable
         $dialog.Hint | Should -BeLike $ask
         $dialog.Hint | Should -Not -BeLike $notAsk
     }

@@ -186,7 +186,7 @@ function continueFindSourceFile {
             setStatus (getSourceConfirmCanceledStatus)
             return
         }
-        if ($location.Name) {
+        if (testSourceNameRecordable ([string]$location.Name)) {
             setIndexSourceFolder $location.Name $location.Folder
         }
         $script:sourceFolderMaps = @{}

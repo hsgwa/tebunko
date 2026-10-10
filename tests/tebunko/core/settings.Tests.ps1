@@ -331,7 +331,7 @@ Describe "indexSources / setIndexSourceFolder" -Tag Io {
         param ($Id, $Label, $Other, $Recorded)
         $path = "$TestDrive\sources_lookalike_$Id.config"
         writeTargetFolders @([pscustomobject]@{ Name = "営業"; Path = "C:\data\mine"; Enabled = $true }) $path
-        setIndexSourceFolder $Other "\evil\share\x" $path
+        setIndexSourceFolder $Other "\\evil\share\x" $path
 
         @(getTargetFolders $path)[0].Path | Should -Be "C:\data\mine"
         @(readIndexSources $path).Count | Should -Be $Recorded
