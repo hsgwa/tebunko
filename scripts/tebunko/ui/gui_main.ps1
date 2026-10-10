@@ -521,4 +521,8 @@ function startGui {
         $mutex.ReleaseMutex()
         $mutex.Dispose()
     }
+    # 画面のスレッドの Dispatcher を止める。止めずに戻ると、PowerShell が終わるときの片づけで、まれに終了コード 5 で終わることがある
+    # （docs/design/structure/closing.md「閉じるときの順番」）。例外で抜けるときは通らない
+    # （起動の失敗を知らせる画面（reportStartupFailure）が、この Dispatcher を使うため）
+    [System.Windows.Threading.Dispatcher]::CurrentDispatcher.InvokeShutdown()
 }
