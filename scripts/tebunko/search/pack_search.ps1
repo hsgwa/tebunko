@@ -230,7 +230,7 @@ function newPackWorkerPool {
     )
 
     $state = newWorkerState @("searchPackFiles", "testCellPrefixedHit", "readPackPlaces", "testPackCellPrefixed", "convertPackMetaToPlace", "decodePackValue", "getPackFileKind", "testTextExtension", "truncateHitLine") `
-        @("packMark", "packVersion", "packPlaceKeys", "placeKindShape", "placeKindComment", "placeKindHeaderFooter", "textExtensions", "hitLineMaxChars", "hitLineBeforeMatchChars")
+        @("packMark", "packVersion", "packPlaceKeys", "placeKindShape", "placeKindComment", "placeKindHeaderFooter", "placeKindEmbed", "textExtensions", "hitLineMaxChars", "hitLineBeforeMatchChars")
     return [WorkerPool]::new($workers, $state, $Host, "Normal")
 }
 

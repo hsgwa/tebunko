@@ -1,0 +1,29 @@
+{
+    "indexName": "資料",
+    "ingestList": [
+        { "relativePath": "見積書.docx", "status": "済", "extractVersion": 4 },
+        { "relativePath": "説明.pptx", "status": "済", "extractVersion": 4 }
+    ],
+    "searches": [
+        {
+            "word": "ALPHA",
+            "hits": [
+                { "relativePath": "見積書.docx", "location": "ページ001[埋め込み1]", "line": "埋め込み売上ALPHA" },
+                { "relativePath": "説明.pptx", "location": "スライド001[埋め込み1]", "line": "埋め込み売上ALPHA" }
+            ]
+        },
+        {
+            "word": "GAMMA",
+            "hits": [
+                { "relativePath": "見積書.docx", "location": "ページ001[埋め込み1]", "line": "範囲外GAMMA" },
+                { "relativePath": "説明.pptx", "location": "スライド001[埋め込み1]", "line": "範囲外GAMMA" }
+            ]
+        },
+        {
+            "word": "DELTA",
+            "hits": [
+                { "relativePath": "見積書.docx", "location": "ページ001", "line": "Word本文DELTA" }
+            ]
+        }
+    ]
+}

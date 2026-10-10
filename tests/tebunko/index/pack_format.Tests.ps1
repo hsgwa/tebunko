@@ -29,6 +29,15 @@ Describe "convertPlaceToPackMeta / convertPackMetaToPlace" -Tag Unit {
         }
     }
 
+    It "埋め込みの場所は、対象=埋め込みと番号をメタ情報に持ち、元の名前に戻せる" {
+        foreach ($c in @(@("議事録.docx", "ページ003[埋め込み2]"), @("提案.pptx", "スライド001[埋め込み12]"), @("議事録.docx", "ヘッダー・フッター[埋め込み1]"))) {
+            $meta = convertPlaceToPackMeta $c[0] $c[1]
+            $meta["対象"] | Should -Be "埋め込み"
+            $meta["埋め込み"] | Should -Be ($c[1] -replace '^.*埋め込み(\d+)\]$', '$1')
+            convertPackMetaToPlace $meta | Should -BeExactly $c[1]
+        }
+    }
+
     It "種類の分からないファイルは、部分に場所の名前を持つ" {
         getPackFileKind "メモ.pdf" | Should -Be ""
         $meta = convertPlaceToPackMeta "メモ.pdf" "本文[図形]"

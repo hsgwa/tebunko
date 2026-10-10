@@ -303,8 +303,11 @@ Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を�
         $funcStarts = @($officeReaderLines | Where-Object { $_.Text -match '^\s*function\s+\w+' } | Sort-Object Line)
         # readZipEntry のほかに、シートのヘッダー・フッターを流れで読む readXlsxSheetHeaderFooter だけは、
         # 大きさの上限（zipSheetStreamMaxBytes。偽りの申告は MaxCharactersInDocument で打ち切る）を付けて entry.Open() してよい
+        # readZipEntryBytes（埋め込んだファイルをバイト列で読む）は、readZipEntry と同じ上限の数え方（checkZipEntrySize）を通し、
+        # 申告の大きさだけ確保して読む。埋め込みの Excel のシートも readZipEntryBytes で読む（office_embedded.ps1 では
+        # entry.Open() を使わない）。出す文字数は addEmbeddedOutputChars で数えて上限を付ける
         $ranges = @()
-        foreach ($fn in @("readZipEntry", "readXlsxSheetHeaderFooter")) {
+        foreach ($fn in @("readZipEntry", "readXlsxSheetHeaderFooter", "readZipEntryBytes")) {
             $start = ($funcStarts | Where-Object { $_.Text -match "function\s+$fn\b" }).Line
             $start | Should -Not -BeNullOrEmpty
             $end = ($funcStarts | Where-Object { $_.Line -gt $start } | Sort-Object Line | Select-Object -First 1).Line
@@ -314,6 +317,23 @@ Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を�
         $streamed = @($officeReaderLines | Where-Object { $_.Line -ge $ranges[1][0] -and $_.Line -lt $ranges[1][1] })
         (findPattern $streamed 'MaxCharactersInDocument\s*=\s*\$script:zipSheetStreamMaxBytes') | Should -Not -Be ""
 
+        $embeddedLines = @($code | Where-Object { $_.File -eq "office_embedded.ps1" })
+        $embeddedStarts = @($embeddedLines | Where-Object { $_.Text -match '^\s*function\s+\w+' } | Sort-Object Line)
+        function getEmbeddedFunctionLines([string]$name) {
+            $start = ($embeddedStarts | Where-Object { $_.Text -match "function\s+$name\b" }).Line
+            $start | Should -Not -BeNullOrEmpty
+            $end = ($embeddedStarts | Where-Object { $_.Line -gt $start } | Sort-Object Line | Select-Object -First 1).Line
+            if (-not $end) { $end = [int]::MaxValue }
+            return @($embeddedLines | Where-Object { $_.Line -ge $start -and $_.Line -lt $end })
+        }
+        # シートは readZipEntryBytes で読む（偽りの申告は部品ごとの上限で止まり、読んだ大きさは合計に数わる）
+        (findPattern (getEmbeddedFunctionLines "readXlsxCellLines") 'readZipEntryBytes\s+\$zip') | Should -Not -Be ""
+        # シートの XML の文字数にも上限を付け、文字のセルごとに出す文字数を数える
+        $sheetLines = getEmbeddedFunctionLines "readXlsxSheetCellLines"
+        (findPattern $sheetLines 'MaxCharactersInDocument\s*=\s*\$script:zipPartMaxBytes') | Should -Not -Be ""
+        (findPattern $sheetLines 'addEmbeddedOutputChars\s+\$state') | Should -Not -Be ""
+        (findPattern (getEmbeddedFunctionLines "addEmbeddedOutputChars") '-gt\s+\$script:embeddedOutputMaxChars') | Should -Not -Be ""
+
         # 対象は Office の読み取りと取り込みの全ファイル。ExtractToFile・CopyTo も同じく上限を迂回して中身を出せる
         $readerFiles = @($code | Where-Object { $_.Path -like "*\scripts\shared\office\*" -or $_.Path -like "*\scripts\tebunko\indexer\*" })
         # ZIP と関係のない既存の使い方（runspace を開く・状態ファイルを読む）は対象から外す
@@ -321,6 +341,9 @@ Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を�
         $targets = @($readerFiles | Where-Object { $_.Text -match '\.Open\(\)|ReadToEnd\(\)|ExtractToFile|ExtractToDirectory|Expand-Archive|\.CopyTo\(' -and $_.Text -notmatch $notZip })
         $outside = @($targets | Where-Object {
             $t = $_
+            if ($t.File -eq "office_embedded.ps1") {
+                return $true  # 埋め込みを読むファイルは、部品を直接開かない（readZipEntry・readZipEntryBytes を通す）
+            }
             $t.File -ne "office_reader.ps1" -or @($ranges | Where-Object { $t.Line -ge $_[0] -and $t.Line -lt $_[1] }).Count -eq 0
         })
         (@($outside | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""

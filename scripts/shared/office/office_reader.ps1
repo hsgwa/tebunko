@@ -3,12 +3,14 @@
 # インデクサ・テストから dot-source して使う。共通の部品（shared.ps1）を先に読み込んでおくこと。
 #
 # 読み出した結果は「場所 → 行の一覧」の順序付き辞書（ユニット）で返す。
-#   Word      : ページ001, ページ001[図形], ページ001[コメント], ページ002, ..., ヘッダー・フッター, 脚注
-#   PowerPoint: スライド001, スライド001[図形], スライド001[コメント], スライド001_ノート, スライド002（非表示）, ..., ヘッダー・フッター
+#   Word      : ページ001, ページ001[図形], ページ001[コメント], ページ001[埋め込み1], ページ002, ..., ヘッダー・フッター, 脚注
+#   PowerPoint: スライド001, スライド001[図形], スライド001[コメント], スライド001[埋め込み1], スライド001_ノート, スライド002（非表示）, ..., ヘッダー・フッター
 #   Excel     : <シート名>[図形]（グラフ・SmartArt の文字を含む。表示のグラフシートも含む）, <シート名>[コメント],
 #              <シート名>[ヘッダー・フッター]（セルの値はインデクサが Excel で読む）
 # 1行は段落1つ、または表の1行（セルをタブ区切り）。図形・コメントの場所は図形・コメント1つ
 # （Word・PowerPoint は文字だけ、Excel は "<セル番地><TAB><文字>"）。
+# 埋め込みの場所は、埋め込んだ Office のファイル（Office Open XML）1 つの中の文字をまとめたもの
+# （office_embedded.ps1。[埋め込み<N>] の N は 1 ファイルの中の通し番号）。
 
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -21,6 +23,7 @@ ${nsRel}     = "http://schemas.openxmlformats.org/officeDocument/2006/relationsh
 ${nsPkgRel}  = "http://schemas.openxmlformats.org/package/2006/relationships"
 ${nsDiagram} = "http://schemas.openxmlformats.org/drawingml/2006/diagram"
 ${nsChart}   = "http://schemas.openxmlformats.org/drawingml/2006/chart"
+${nsOffice}  = "urn:schemas-microsoft-com:office:office"
 
 # PowerPointで読み飛ばすプレースホルダー（スライド番号・日付・ヘッダー・フッター・スライド画像）
 ${skipPlaceholderTypes} = @("sldNum", "dt", "hdr", "ftr", "sldImg")
@@ -109,6 +112,66 @@ function isCompoundFile {
 $script:zipReadBufferSize = 32768
 $script:zipReadBuffer = $null
 
+function checkZipEntrySize {
+    # 部品の展開後の大きさ（entry.Length）を、部品ごとの上限（zipPartMaxBytes）と1ファイルの合計の上限
+    # （zipTotalMaxBytes）に照らして数え、超えれば ZipSizeLimitException にする。超えなければ大きさを返す
+    # （readZipEntry・readZipEntryBytes が、読む前に呼ぶ。合計は「確保する大きさ」で数える）
+    param (
+        [System.IO.Compression.ZipArchiveEntry]$entry,
+        [string]$entryName
+    )
+
+    $length = $entry.Length
+    if ($length -gt $script:zipPartMaxBytes) {
+        throw [ZipSizeLimitException]::new($script:zipTooLargeMessage, $entryName, $length, "Part")
+    }
+    $script:zipTotalReadBytes += $length
+    if ($script:zipTotalReadBytes -gt $script:zipTotalMaxBytes) {
+        throw [ZipSizeLimitException]::new($script:zipTooLargeMessage, $entryName, $script:zipTotalReadBytes, "Total")
+    }
+    return $length
+}
+
+function readZipEntryBytes {
+    # ZIP内のファイルをバイト列で返す。無ければ $null（埋め込んだファイルを読むときに使う。ふつうの部品は readZipEntry）。
+    # 大きさの数え方と上限は readZipEntry と同じ。バイト列は申告の大きさ（entry.Length。上限の範囲内）だけ確保し、
+    # 読み終えたあとにもう 1 バイト読めたら、中身がヘッダーより長い（偽りのヘッダー）として部品ごとの上限の超過にする
+    param (
+        [System.IO.Compression.ZipArchive]$zip,
+        [string]$entryName
+    )
+
+    $entry = $zip.GetEntry($entryName)
+    if ($null -eq $entry) {
+        return $null
+    }
+
+    $length = checkZipEntrySize $entry $entryName
+    $bytes = New-Object byte[] ([int]$length)
+    $filled = 0
+    $stream = $entry.Open()
+    try {
+        while ($filled -lt $length) {
+            $read = $stream.Read($bytes, $filled, [int]($length - $filled))
+            if ($read -le 0) {
+                break
+            }
+            $filled += $read
+        }
+        if ($filled -eq $length -and $stream.ReadByte() -ge 0) {
+            throw [ZipSizeLimitException]::new($script:zipTooLargeMessage, $entryName, $length + 1, "Part")
+        }
+    } finally {
+        $stream.Dispose()
+    }
+    if ($filled -lt $length) {
+        $shortBytes = New-Object byte[] $filled
+        [System.Array]::Copy($bytes, $shortBytes, $filled)
+        $bytes = $shortBytes
+    }
+    return , $bytes
+}
+
 function readZipEntry {
     # ZIP内のファイルを文字列で返す。無ければ $null。
     #
@@ -136,14 +199,7 @@ function readZipEntry {
         return $null
     }
 
-    $length = $entry.Length
-    if ($length -gt $script:zipPartMaxBytes) {
-        throw [ZipSizeLimitException]::new($script:zipTooLargeMessage, $entryName, $length, "Part")
-    }
-    $script:zipTotalReadBytes += $length
-    if ($script:zipTotalReadBytes -gt $script:zipTotalMaxBytes) {
-        throw [ZipSizeLimitException]::new($script:zipTooLargeMessage, $entryName, $script:zipTotalReadBytes, "Total")
-    }
+    $length = checkZipEntrySize $entry $entryName
 
     if ($null -eq $script:zipReadBuffer) {
         # BOM の見分けに先頭 3 バイトが要るため、3 より小さくしない
@@ -312,6 +368,8 @@ function readXmlLines {
     #     @{ Kind = "diagram"; Page; RelId }  SmartArt（dgm:relIds の r:dm。データはリレーションシップの先）
     #     @{ Kind = "chart";   Page; RelId }  グラフ（c:chart の r:id）
     #     @{ Kind = "comment"; Page; Id }     コメントの参照（w:commentReference の w:id）
+    #     @{ Kind = "embed";   Page; RelId }  埋め込んだファイル（Word は o:OLEObject（Type="Embed"）・w:objectEmbed、
+    #                                         PowerPoint は p:oleObj の r:id。リレーションシップの先は呼び出し元が読む）
     param (
         [string]$xml,
         [string]$ns,
@@ -436,6 +494,12 @@ function readXmlLines {
                         }
                     } elseif ($collect -and $name -eq "commentReference") {
                         $objects.Add(@{ Kind = "comment"; Page = $page; Id = $reader.GetAttribute("id", $ns) })
+                    } elseif ($collect -and $name -eq "objectEmbed") {
+                        $objects.Add(@{ Kind = "embed"; Page = $page; RelId = $reader.GetAttribute("id", ${nsRel}) })
+                    }
+                } elseif ($collect -and $uri -eq ${nsOffice} -and $name -eq "OLEObject") {
+                    if ($reader.GetAttribute("Type") -eq "Embed") {
+                        $objects.Add(@{ Kind = "embed"; Page = $page; RelId = $reader.GetAttribute("id", ${nsRel}) })
                     }
                 } elseif ($collect -and $uri -eq ${nsDiagram} -and $name -eq "relIds") {
                     $objects.Add(@{ Kind = "diagram"; Page = $page; RelId = $reader.GetAttribute("dm", ${nsRel}) })
@@ -450,6 +514,8 @@ function readXmlLines {
                         } else {
                             $skipShapeText = ($reader.GetAttribute("type") -in ${skipPlaceholderTypes})
                         }
+                    } elseif ($collect -and $name -eq "oleObj") {
+                        $objects.Add(@{ Kind = "embed"; Page = $page; RelId = $reader.GetAttribute("id", ${nsRel}) })
                     }
                 }
             } elseif ($nodeType -eq $endElementType) {
@@ -695,172 +761,239 @@ function readSlideComments {
 function readDocxUnits {
     # Word（.docx / .docm）のテキストを、ページ・ヘッダー/フッター・脚注ごとに返す。
     # 本文のテキストボックス・図形内の文字と SmartArt・グラフの文字は "ページNNN[図形]"、
-    # コメントは "ページNNN[コメント]"（コメントを付けた所のページ）に分ける（1 行は図形・コメント 1 つ）
+    # コメントは "ページNNN[コメント]"（コメントを付けた所のページ）に分ける（1 行は図形・コメント 1 つ）。
+    # 埋め込んだ Office のファイルの文字は "ページNNN[埋め込み<N>]"（N は 1 ファイルの中の、参照の順の通し番号。
+    # 読まなかったものは欠番。office_embedded.ps1）。
+    # $failures・$sizeFailures を渡すと、読めなかった埋め込みの部品の名前と、大きさの上限の例外を追加する
+    # （呼び出し元がインデックス作成のログに書く。shared/ はツールを知らないため、ここでは書かない）。
+    # ファイルを開き、合計（zipTotalReadBytes）を 0 から数え直して、閉じる。読む本体は readDocxUnitsFromZip
     param (
-        [string]$path
+        [string]$path,
+        [System.Collections.Generic.List[string]]$failures = $null,
+        [System.Collections.Generic.List[object]]$sizeFailures = $null
     )
 
     $script:zipTotalReadBytes = 0  # このファイル1つ分の、readZipEntryが読む合計（zipTotalMaxBytes）を0から数え直す
-    $units = New-Object System.Collections.Specialized.OrderedDictionary
     $zip = [System.IO.Compression.ZipFile]::OpenRead((toLongPath $path))
     try {
-        $body = readZipEntry $zip "word/document.xml"
-        if ($null -eq $body) {
-            throw "Word文書の本文（word/document.xml）がありません。"
-        }
-
-        # Wordで保存されたファイルには、保存時点のページ区切りが記録されている。無ければ手動の改ページで数える
-        $pageMode = $(if ($body.Contains("lastRenderedPageBreak")) { "rendered" } else { "explicit" })
-        # 本文は行数が多いため、1行ずつ addUnitLines を呼ばずにページのユニットへ入れる（結果は addUnitLines と同じ）
-        $lastPage = $null
-        $pageLines = $null
-        $objects = New-Object System.Collections.Generic.List[object]
-        foreach ($line in (readXmlLines $body ${nsWord} $pageMode $null $objects)) {
-            if ($null -eq $pageLines -or $line.Page -ne $lastPage) {
-                $unitName = "ページ{0:D3}" -f $line.Page
-                if (-not $units.Contains($unitName)) {
-                    $units[$unitName] = New-Object System.Collections.Generic.List[string]
-                }
-                $pageLines = $units[$unitName]
-                $lastPage = $line.Page
-            }
-            $pageLines.Add($line.Text)
-        }
-
-        # 図形（テキストボックス・SmartArt・グラフ）とコメント。文書の中の順に、そのページの場所へ入れる
-        $rels = readRelationships $zip "word/document.xml"
-        $comments = readWordComments (readZipEntry $zip "word/comments.xml")
-        $usedComments = New-Object System.Collections.Generic.HashSet[string]
-        foreach ($object in $objects) {
-            $base = "ページ{0:D3}" -f $object.Page
-            if ($object.Kind -eq "shape") {
-                addUnitLines $units "${base}[図形]" @($object.Text)
-            } elseif ($object.Kind -eq "comment") {
-                $id = [string]$object.Id
-                if ($comments.ContainsKey($id) -and $usedComments.Add($id)) {
-                    addUnitLines $units "${base}[コメント]" @($comments[$id])
-                }
-            } else {
-                $text = readObjectText $zip $rels $object
-                if ($text -ne "") {
-                    addUnitLines $units "${base}[図形]" @($text)
-                }
-            }
-        }
-        # 本文に参照の無いコメント（ヘッダー・脚注に付けたものなど）は、場所が分からないため "文書[コメント]" にまとめる
-        foreach ($id in @($comments.Keys | Sort-Object { $n = 0; [void][int]::TryParse($_, [ref]$n); $n })) {
-            if (-not $usedComments.Contains($id)) {
-                addUnitLines $units "文書[コメント]" @($comments[$id])
-            }
-        }
-
-        # ヘッダー・フッター（セクションごとに同じ内容が並ぶため、重複は除く）
-        $seen = New-Object System.Collections.Generic.HashSet[string]
-        $parts = @($zip.Entries | Where-Object { $_.FullName -match "^word/(header|footer)\d*\.xml$" } |
-            Sort-Object { $_.FullName -notmatch "/header" }, FullName)  # ヘッダー → フッターの順
-        foreach ($part in $parts) {
-            foreach ($line in (readXmlLines (readZipEntry $zip $part.FullName) ${nsWord})) {
-                if ($seen.Add($line.Text)) {
-                    addUnitLines $units "ヘッダー・フッター" @($line.Text)
-                }
-            }
-        }
-
-        # 脚注・文末脚注
-        foreach ($partName in @("word/footnotes.xml", "word/endnotes.xml")) {
-            $xml = readZipEntry $zip $partName
-            if ($null -ne $xml) {
-                addUnitLines $units "脚注" @(readXmlLines $xml ${nsWord} | ForEach-Object { $_.Text })
-            }
-        }
+        return (readDocxUnitsFromZip $zip $true $failures $sizeFailures)
     } finally {
         $zip.Dispose()
     }
+}
+
+function readDocxUnitsFromZip {
+    # 開いた Word の ZipArchive から、readDocxUnits と同じユニットを返す（開く・閉じる・合計の数え直しはしない）。
+    # $readEmbeds が $false なら埋め込みは読まない（埋め込みの中の Word 文書を読むとき。深さは 1 段まで）
+    param (
+        [System.IO.Compression.ZipArchive]$zip,
+        [bool]$readEmbeds,
+        [System.Collections.Generic.List[string]]$failures = $null,
+        [System.Collections.Generic.List[object]]$sizeFailures = $null
+    )
+
+    $units = New-Object System.Collections.Specialized.OrderedDictionary
+    $body = readZipEntry $zip "word/document.xml"
+    if ($null -eq $body) {
+        throw "Word文書の本文（word/document.xml）がありません。"
+    }
+
+    # Wordで保存されたファイルには、保存時点のページ区切りが記録されている。無ければ手動の改ページで数える
+    $pageMode = $(if ($body.Contains("lastRenderedPageBreak")) { "rendered" } else { "explicit" })
+    # 本文は行数が多いため、1行ずつ addUnitLines を呼ばずにページのユニットへ入れる（結果は addUnitLines と同じ）
+    $lastPage = $null
+    $pageLines = $null
+    $objects = New-Object System.Collections.Generic.List[object]
+    foreach ($line in (readXmlLines $body ${nsWord} $pageMode $null $objects)) {
+        if ($null -eq $pageLines -or $line.Page -ne $lastPage) {
+            $unitName = "ページ{0:D3}" -f $line.Page
+            if (-not $units.Contains($unitName)) {
+                $units[$unitName] = New-Object System.Collections.Generic.List[string]
+            }
+            $pageLines = $units[$unitName]
+            $lastPage = $line.Page
+        }
+        $pageLines.Add($line.Text)
+    }
+
+    # 本文の XML の文字列は、ここから先で使わない。埋め込みを読む前に放す（同時に持つメモリを抑える）
+    $body = $null
+
+    # 図形（テキストボックス・SmartArt・グラフ）・コメント・埋め込み。文書の中の順に、そのページの場所へ入れる
+    $rels = readRelationships $zip "word/document.xml"
+    $comments = readWordComments (readZipEntry $zip "word/comments.xml")
+    $usedComments = New-Object System.Collections.Generic.HashSet[string]
+    $embedState = newEmbeddedState
+    foreach ($object in $objects) {
+        $base = "ページ{0:D3}" -f $object.Page
+        if ($object.Kind -eq "shape") {
+            addUnitLines $units "${base}[図形]" @($object.Text)
+        } elseif ($object.Kind -eq "comment") {
+            $id = [string]$object.Id
+            if ($comments.ContainsKey($id) -and $usedComments.Add($id)) {
+                addUnitLines $units "${base}[コメント]" @($comments[$id])
+            }
+        } elseif ($object.Kind -eq "embed") {
+            if ($readEmbeds) {
+                $embedded = readEmbeddedObjectLines $zip $rels $object $embedState $failures $sizeFailures
+                if ($null -ne $embedded -and $embedded.Lines.Count -gt 0) {
+                    addUnitLines $units "${base}[埋め込み$($embedded.Number)]" $embedded.Lines
+                }
+            }
+        } else {
+            $text = readObjectText $zip $rels $object
+            if ($text -ne "") {
+                addUnitLines $units "${base}[図形]" @($text)
+            }
+        }
+    }
+    # 本文に参照の無いコメント（ヘッダー・脚注に付けたものなど）は、場所が分からないため "文書[コメント]" にまとめる
+    foreach ($id in @($comments.Keys | Sort-Object { $n = 0; [void][int]::TryParse($_, [ref]$n); $n })) {
+        if (-not $usedComments.Contains($id)) {
+            addUnitLines $units "文書[コメント]" @($comments[$id])
+        }
+    }
+
+    # ヘッダー・フッター（セクションごとに同じ内容が並ぶため、重複は除く）
+    $seen = New-Object System.Collections.Generic.HashSet[string]
+    $parts = @($zip.Entries | Where-Object { $_.FullName -match "^word/(header|footer)\d*\.xml$" } |
+        Sort-Object { $_.FullName -notmatch "/header" }, FullName)  # ヘッダー → フッターの順
+    foreach ($part in $parts) {
+        foreach ($line in (readXmlLines (readZipEntry $zip $part.FullName) ${nsWord})) {
+            if ($seen.Add($line.Text)) {
+                addUnitLines $units "ヘッダー・フッター" @($line.Text)
+            }
+        }
+    }
+
+    # 脚注・文末脚注
+    foreach ($partName in @("word/footnotes.xml", "word/endnotes.xml")) {
+        $xml = readZipEntry $zip $partName
+        if ($null -ne $xml) {
+            addUnitLines $units "脚注" @(readXmlLines $xml ${nsWord} | ForEach-Object { $_.Text })
+        }
+    }
+
     return $units
 }
 
 function readPptxUnits {
     # PowerPoint（.pptx / .pptm）のテキストを、スライド・ノートごと（スライドの表示順）と、
-    # スライドのフッター（全スライド分をまとめ、重複を除く）に分けて返す
+    # スライドのフッター（全スライド分をまとめ、重複を除く）に分けて返す。
+    # 埋め込んだ Office のファイルの文字は "スライドNNN[埋め込み<N>]"（N は 1 ファイルの中の、参照の順の通し番号。
+    # 読まなかったものは欠番。office_embedded.ps1）。
+    # $failures・$sizeFailures の意味と、ファイルの開閉・合計の数え直しは readDocxUnits と同じ。読む本体は readPptxUnitsFromZip
     param (
-        [string]$path
+        [string]$path,
+        [System.Collections.Generic.List[string]]$failures = $null,
+        [System.Collections.Generic.List[object]]$sizeFailures = $null
     )
 
     $script:zipTotalReadBytes = 0  # このファイル1つ分の、readZipEntryが読む合計（zipTotalMaxBytes）を0から数え直す
-    $units = New-Object System.Collections.Specialized.OrderedDictionary
-    $footers = New-Object System.Collections.Generic.List[string]
-    $seenFooters = New-Object System.Collections.Generic.HashSet[string]
     $zip = [System.IO.Compression.ZipFile]::OpenRead((toLongPath $path))
     try {
-        $presentationXml = readZipEntry $zip "ppt/presentation.xml"
-        if ($null -eq $presentationXml) {
-            throw "PowerPointのプレゼンテーション情報（ppt/presentation.xml）がありません。"
-        }
-        $presentation = newXmlDocument $presentationXml
-        $presentationRels = readRelationships $zip "ppt/presentation.xml"
-
-        # スライドの表示順は sldIdLst の順（ファイル名の番号とは一致しないことがある）
-        $number = 0
-        foreach ($slideId in $presentation.GetElementsByTagName("sldId", ${nsPresent})) {
-            $number++
-            $rel = $presentationRels[$slideId.GetAttribute("id", ${nsRel})]
-            if ($null -eq $rel) {
-                continue
-            }
-
-            $slideXml = readZipEntry $zip $rel.Target
-            if ($null -eq $slideXml) {
-                continue
-            }
-
-            $unitName = "スライド{0:D3}" -f $number
-            if ($slideXml -match '^[\s\S]{0,2000}?<p:sld\b[^>]*\sshow="(0|false)"') {
-                $unitName += "（非表示）"
-            }
-            # テキストボックス・図形の文字はスライドの本文にする（スライドの文字はほとんどが図形のため）。
-            # SmartArt・グラフの文字は "スライドNNN[図形]"、コメントは "スライドNNN[コメント]" に分ける
-            $objects = New-Object System.Collections.Generic.List[object]
-            addUnitLines $units $unitName @(readXmlLines $slideXml ${nsDrawing} "none" $null $objects | ForEach-Object { $_.Text })
-            $slideRels = readRelationships $zip $rel.Target
-            foreach ($object in $objects) {
-                $text = readObjectText $zip $slideRels $object
-                if ($text -ne "") {
-                    addUnitLines $units "${unitName}[図形]" @($text)
-                }
-            }
-            foreach ($slideRel in $slideRels.Values) {
-                if ($slideRel.Type -like "*/comments") {
-                    $commentsXml = readZipEntry $zip $slideRel.Target
-                    if ($null -ne $commentsXml) {
-                        addUnitLines $units "${unitName}[コメント]" @(readSlideComments $commentsXml)
-                    }
-                }
-            }
-
-            # スライドのフッター（各スライドに同じ内容が並ぶため、重複は除く）
-            foreach ($line in (readXmlLines $slideXml ${nsDrawing} "none" @("ftr"))) {
-                if ($seenFooters.Add($line.Text)) {
-                    $footers.Add($line.Text)
-                }
-            }
-
-            # 発表者ノート
-            foreach ($slideRel in $slideRels.Values) {
-                if ($slideRel.Type -like "*/notesSlide") {
-                    $notesXml = readZipEntry $zip $slideRel.Target
-                    if ($null -ne $notesXml) {
-                        addUnitLines $units ("スライド{0:D3}_ノート" -f $number) @(readXmlLines $notesXml ${nsDrawing} | ForEach-Object { $_.Text })
-                    }
-                }
-            }
-        }
-
-        if ($footers.Count -gt 0) {
-            addUnitLines $units "ヘッダー・フッター" $footers.ToArray()
-        }
+        return (readPptxUnitsFromZip $zip $true $failures $sizeFailures)
     } finally {
         $zip.Dispose()
     }
+}
+
+function readPptxUnitsFromZip {
+    # 開いた PowerPoint の ZipArchive から、readPptxUnits と同じユニットを返す（開く・閉じる・合計の数え直しはしない）。
+    # $readEmbeds が $false なら埋め込みは読まない（埋め込みの中の PowerPoint を読むとき。深さは 1 段まで）
+    param (
+        [System.IO.Compression.ZipArchive]$zip,
+        [bool]$readEmbeds,
+        [System.Collections.Generic.List[string]]$failures = $null,
+        [System.Collections.Generic.List[object]]$sizeFailures = $null
+    )
+
+    $units = New-Object System.Collections.Specialized.OrderedDictionary
+    $footers = New-Object System.Collections.Generic.List[string]
+    $seenFooters = New-Object System.Collections.Generic.HashSet[string]
+    $embedState = newEmbeddedState
+    $presentationXml = readZipEntry $zip "ppt/presentation.xml"
+    if ($null -eq $presentationXml) {
+        throw "PowerPointのプレゼンテーション情報（ppt/presentation.xml）がありません。"
+    }
+    $presentation = newXmlDocument $presentationXml
+    $presentationRels = readRelationships $zip "ppt/presentation.xml"
+
+    # スライドの表示順は sldIdLst の順（ファイル名の番号とは一致しないことがある）
+    $number = 0
+    foreach ($slideId in $presentation.GetElementsByTagName("sldId", ${nsPresent})) {
+        $number++
+        $rel = $presentationRels[$slideId.GetAttribute("id", ${nsRel})]
+        if ($null -eq $rel) {
+            continue
+        }
+
+        $slideXml = readZipEntry $zip $rel.Target
+        if ($null -eq $slideXml) {
+            continue
+        }
+
+        $unitName = "スライド{0:D3}" -f $number
+        if ($slideXml -match '^[\s\S]{0,2000}?<p:sld\b[^>]*\sshow="(0|false)"') {
+            $unitName += "（非表示）"
+        }
+        # テキストボックス・図形の文字はスライドの本文にする（スライドの文字はほとんどが図形のため）。
+        # SmartArt・グラフの文字は "スライドNNN[図形]"、コメントは "スライドNNN[コメント]" に分ける
+        $objects = New-Object System.Collections.Generic.List[object]
+        addUnitLines $units $unitName @(readXmlLines $slideXml ${nsDrawing} "none" $null $objects | ForEach-Object { $_.Text })
+        $slideRels = readRelationships $zip $rel.Target
+        foreach ($object in $objects) {
+            if ($object.Kind -eq "embed") {
+                continue  # 埋め込みは、スライドの文字をすべて読んだあとに読む（下）
+            }
+            $text = readObjectText $zip $slideRels $object
+            if ($text -ne "") {
+                addUnitLines $units "${unitName}[図形]" @($text)
+            }
+        }
+        foreach ($slideRel in $slideRels.Values) {
+            if ($slideRel.Type -like "*/comments") {
+                $commentsXml = readZipEntry $zip $slideRel.Target
+                if ($null -ne $commentsXml) {
+                    addUnitLines $units "${unitName}[コメント]" @(readSlideComments $commentsXml)
+                }
+            }
+        }
+
+        # スライドのフッター（各スライドに同じ内容が並ぶため、重複は除く）
+        foreach ($line in (readXmlLines $slideXml ${nsDrawing} "none" @("ftr"))) {
+            if ($seenFooters.Add($line.Text)) {
+                $footers.Add($line.Text)
+            }
+        }
+
+        # 発表者ノート
+        foreach ($slideRel in $slideRels.Values) {
+            if ($slideRel.Type -like "*/notesSlide") {
+                $notesXml = readZipEntry $zip $slideRel.Target
+                if ($null -ne $notesXml) {
+                    addUnitLines $units ("スライド{0:D3}_ノート" -f $number) @(readXmlLines $notesXml ${nsDrawing} | ForEach-Object { $_.Text })
+                }
+            }
+        }
+
+        # 埋め込んだファイル（スライドの中の XML の順）。スライドの XML の文字列は、ここから先で使わない
+        # ので、埋め込みを読む前に放す（同時に持つメモリを抑える）
+        $slideXml = $null
+        if ($readEmbeds) {
+            foreach ($object in @($objects | Where-Object { $_.Kind -eq "embed" })) {
+                $embedded = readEmbeddedObjectLines $zip $slideRels $object $embedState $failures $sizeFailures
+                if ($null -ne $embedded -and $embedded.Lines.Count -gt 0) {
+                    addUnitLines $units "${unitName}[埋め込み$($embedded.Number)]" $embedded.Lines
+                }
+            }
+        }
+    }
+
+    if ($footers.Count -gt 0) {
+        addUnitLines $units "ヘッダー・フッター" $footers.ToArray()
+    }
+
     return $units
 }
 

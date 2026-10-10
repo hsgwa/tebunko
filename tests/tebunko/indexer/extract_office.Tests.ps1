@@ -4,6 +4,7 @@
 BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
     . "${scriptsDir}\shared\office\office_reader.ps1"
+    . "${scriptsDir}\shared\office\office_embedded.ps1"
     . "${scriptsDir}\shared\office\office_app.ps1"
     . "${scriptsDir}\tebunko\indexer\extract_office.ps1"
 
@@ -569,6 +570,37 @@ Describe "extractDocument（偽の Word・PowerPoint）" -Tag Io {
         extractDocument $source | Should -Be 1
         (readTsv "page_001.tsv").Trim() | Should -Be "新形式の本文"
         Should -Invoke getApp -Times 0 -Exactly -Scope It
+    }
+
+    It "埋め込んだファイルが壊れていても本文は取り込み、読めなかった埋め込みはログに残す" {
+        $source = Join-Path $TestDrive "埋め込み入り.docx"
+        $officeRel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+        $wNs = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
+        $enc = New-Object System.Text.UTF8Encoding($false)
+        function addEntry($zip, [string]$name, [byte[]]$bytes) {
+            $w = $zip.CreateEntry($name).Open(); $w.Write($bytes, 0, $bytes.Length); $w.Dispose()
+        }
+        # 中身が壊れた xlsx（workbook.xml が閉じていない）
+        $inner = New-Object System.IO.MemoryStream
+        $innerZip = New-Object System.IO.Compression.ZipArchive($inner, [System.IO.Compression.ZipArchiveMode]::Create, $true)
+        addEntry $innerZip "xl/workbook.xml" $enc.GetBytes("<workbook><sheets>")
+        $innerZip.Dispose()
+        $stream = [System.IO.File]::Create($source)
+        $zip = New-Object System.IO.Compression.ZipArchive($stream, [System.IO.Compression.ZipArchiveMode]::Create)
+        try {
+            addEntry $zip "word/document.xml" $enc.GetBytes("<w:document $wNs><w:body><w:p><w:r><w:t>本文</w:t></w:r></w:p><w:p><w:r><w:object><o:OLEObject Type=`"Embed`" r:id=`"rId5`"/></w:object></w:r></w:p></w:body></w:document>")
+            addEntry $zip "word/_rels/document.xml.rels" $enc.GetBytes("<Relationships xmlns=`"http://schemas.openxmlformats.org/package/2006/relationships`"><Relationship Id=`"rId5`" Type=`"$officeRel/package`" Target=`"embeddings/bad.xlsx`"/></Relationships>")
+            addEntry $zip "word/embeddings/bad.xlsx" $inner.ToArray()
+        } finally {
+            $zip.Dispose()
+            $stream.Dispose()
+        }
+        Mock writeIndexerLog {}
+        Mock getApp { throw "Word を起動してはいけない" }
+
+        extractDocument $source | Should -Be 1
+        (readTsv "page_001.tsv").Trim() | Should -Be "本文"
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { "$text" -match "埋め込みを読み取れませんでした.*bad\.xlsx" }
     }
 
     It "旧形式（.doc）は Word で読み取り専用・ウィンドウ無しで開き、ページ割りを確定させてから .docx で保存して読む" {

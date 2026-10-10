@@ -89,6 +89,7 @@ ZIP の部品（エントリ）を読む `readZipEntry` は、展開後の大き
 | 表の行（`tr`） | 1 行。セル（`tc`）をタブ区切りにし、行末の空セルは除く。セル内の複数段落はスペース区切り。入れ子の表は外側のセルの中でスペース区切り |
 | テキストボックス | Word の本文（`$objects` を渡したとき）: 本文の行には入れず、段落をスペースでつないで図形 1 つとして集める（[Word のテキスト読み取りと TSV の場所](word.md#word-のテキスト読み取りと-tsv-の場所readdocxunits)の `ページNNN[図形]`）。ヘッダー・フッター・脚注: 中の段落をそれぞれ 1 行とする（アンカーの段落の前に出力される） |
 | SmartArt・グラフ・コメントの参照 | `$objects` を渡したとき、`dgm:relIds` の `r:dm`・`c:chart` の `r:id`・`w:commentReference` の `w:id` をページ付きで集める（中身は呼び出し元がリレーションシップの先から読む） |
+| 埋め込みオブジェクト | `$collect` のとき、`w:objectEmbed`・`o:OLEObject`（`Type="Embed"`）・`p:oleObj` をページ（スライド）付きで集める。中の文字は呼び出し元が `readEmbeddedObjectLines`（`office_embedded.ps1`。[Word](word.md#埋め込みの読み取りreadembeddedobjectlines)）で読む |
 | 互換用の代替表示（`mc:Fallback`） | 読まない（`mc:Choice` と同じ内容が重複するため） |
 | 変更履歴 | 削除された文字（`w:delText`）と移動元（`w:moveFrom`）は読まない。挿入された文字は読む |
 | フィールドコード（`w:instrText`） | 読まない（表示される結果の文字は読む） |
