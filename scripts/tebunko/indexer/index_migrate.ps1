@@ -120,18 +120,63 @@ function removeStaleProcessDirs {
     }
 }
 
-function removeDroppedFolders {
-    # クロール対象フォルダから削除されたフォルダのインデックス（work\content_index\<インデックス名>）を削除する。
-    # チェックを外しただけのフォルダは削除しない
+function findDroppedIndexes {
+    # 前回の取り込み一覧にあって、今回のクロール対象フォルダに無いインデックス（設定から外れたもの）を返す。見つけるだけで、消さない
+    # （消すかどうかは利用者が確認ダイアログで決める。removeDroppedFolders）。チェックを外しただけのフォルダは、今回の一覧にあるため含まない
     param (
         [object[]]$folders,          # assignIndexNames の結果
-        [object[]]$previousFolders,  # readStatusFile の Folders
+        [object[]]$previousFolders   # readStatusFile の Folders
+    )
+
+    # インデックス名で比べる。フォルダを移動して登録し直した場合は、同じ名前を引き継ぐため含めない（assignIndexNames）
+    $current = @($folders | ForEach-Object { $_.Name })
+    return @($previousFolders | Where-Object { $_ -and $_.Name -and $current -notcontains $_.Name })
+}
+
+function getDroppedStatusRows {
+    # 消さずに残す外れたインデックスの、前回の取り込み一覧の行（次の回にまた見つけられるよう、書き直す一覧に残す）
+    param (
+        [object[]]$dropped,
+        $previousRows  # readStatusFile の Rows（相対パス → 行）
+    )
+
+    $result = New-Object System.Collections.Generic.List[object]
+    if ($null -eq $previousRows) {
+        return $result.ToArray()
+    }
+    foreach ($item in @($dropped | Where-Object { $_ })) {
+        $prefix = "$($item.Name)\"
+        foreach ($key in @($previousRows.Keys)) {
+            if ($key.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+                $result.Add($previousRows[$key])
+            }
+        }
+    }
+    return $result.ToArray()
+}
+
+function writeStatusKeepingDropped {
+    # 取り込み一覧を書く。消さずに残す外れたインデックスのフォルダの行と各行も、前回のまま足して書く（次の回にまた見つけられるように）
+    param (
+        $ledger,
+        [object[]]$folders,      # 今回のクロール対象フォルダ
+        [object[]]$rows,         # 今回の各行
+        [object[]]$keptDropped,  # 消さずに残す外れたインデックス
+        $previousRows            # readStatusFile の Rows（前回の行）
+    )
+
+    $ledger.WriteStatus((@($folders) + @($keptDropped)), (@($rows) + @(getDroppedStatusRows $keptDropped $previousRows)))
+}
+
+function removeDroppedFolders {
+    # 設定から外れたインデックス（findDroppedIndexes の結果。work\content_index\<インデックス名>）を削除する。
+    # 利用者が確認ダイアログで［更新を開始］を押した回でだけ呼ぶ
+    param (
+        [object[]]$dropped,
         $ws = $workspace             # 対象のワークスペース（テストが差し替える）
     )
 
-    # インデックス名で比べる。フォルダを移動して登録し直した場合は、同じ名前を引き継ぐため削除しない（assignIndexNames）
-    $current = @($folders | ForEach-Object { $_.Name })
-    foreach ($previous in @($previousFolders | Where-Object { $_.Name -and $current -notcontains $_.Name })) {
+    foreach ($previous in @($dropped | Where-Object { $_ })) {
         $dir = Join-Path $ws.IndexDir $previous.Name
         if (Test-Path -LiteralPath $dir) {
             # 中に長いパス（260文字超）のTSVがあっても削除できるよう \\?\ 付きで削除する
