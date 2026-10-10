@@ -319,6 +319,44 @@ Describe "indexSources / setIndexSourceFolder" -Tag Io {
         @(readIndexSources $path).Count | Should -Be 0
     }
 
+    It "見た目が似ているだけの名前は、利用者自身のクロール対象フォルダを書き換えない（<Label>）" -TestCases @(
+        @{ Id = 1; Label = "ソフトハイフン付き"; Other = ("営業" + [char]0x00AD); Recorded = 1 }
+        @{ Id = 2; Label = "幅ゼロの文字入り"; Other = ("営" + [char]0x200B + "業"); Recorded = 1 }
+        @{ Id = 3; Label = "前に全角空白"; Other = ([string][char]0x3000 + "営業"); Recorded = 0 }
+        @{ Id = 4; Label = "後ろに全角空白"; Other = ("営業" + [char]0x3000); Recorded = 0 }
+        @{ Id = 5; Label = "後ろに NBSP"; Other = ("営業" + [char]0x00A0); Recorded = 0 }
+        @{ Id = 6; Label = "後ろにタブ"; Other = ("営業" + [char]9); Recorded = 0 }
+        @{ Id = 7; Label = "後ろに半角空白"; Other = "営業 "; Recorded = 0 }
+    ) {
+        param ($Id, $Label, $Other, $Recorded)
+        $path = "$TestDrive\sources_lookalike_$Id.config"
+        writeTargetFolders @([pscustomobject]@{ Name = "営業"; Path = "C:\data\mine"; Enabled = $true }) $path
+        setIndexSourceFolder $Other "\\evil\share\x" $path
+
+        @(getTargetFolders $path)[0].Path | Should -Be "C:\data\mine"
+        @(readIndexSources $path).Count | Should -Be $Recorded
+    }
+
+    It "記録した名前は削られずそのまま残り、読み戻して確かめ済みの名前になる" {
+        $path = "$TestDrive\sources_roundtrip.config"
+        $name = "受領" + [char]0x00AD
+        setIndexSourceFolder $name "D:\recv" $path
+        $sources = @(readIndexSources $path)
+        $sources.Count | Should -Be 1
+        [string]::Equals($sources[0].Name, $name, [System.StringComparison]::Ordinal) | Should -Be $true
+        $confirmed = (getConfirmedSourceNames $path).Confirmed
+        $ordinal = [System.StringComparison]::Ordinal
+        @($confirmed | Where-Object { [string]::Equals($_, $name, $ordinal) }).Count | Should -Be 1
+        @($confirmed | Where-Object { [string]::Equals($_, "受領", $ordinal) }).Count | Should -Be 0
+    }
+
+    It "大文字・小文字だけ違う名前は同じ名前として、そのクロール対象フォルダを書き換える" {
+        $path = "$TestDrive\sources_case.config"
+        writeTargetFolders @([pscustomobject]@{ Name = "Sales"; Path = "C:\data\mine"; Enabled = $true }) $path
+        setIndexSourceFolder "SALES" "D:\moved" $path
+        @(getTargetFolders $path)[0].Path | Should -Be "D:\moved"
+    }
+
     It "名前・フォルダが空の記録と、同じ名前（大文字・小文字の違いも）の 2 つ目以降は読まない" {
         $path = "$TestDrive\sources_hand.config"
         [System.IO.File]::WriteAllText($path, @'

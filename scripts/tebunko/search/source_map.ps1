@@ -260,3 +260,18 @@ function resolveSourcePath {
     }
     return (joinSourcePath $location.Folder $location.Rest $hit.Book)
 }
+
+function getConfirmedSourceNames {
+    # 利用者が元のフォルダを決めている（確かめ済みの）インデックス名を返す: @{ Confirmed; Crawled }
+    #   Confirmed: 設定の targetFolders と indexSources の名前（元のフォルダの記録が設定にあるもの）
+    #   Crawled  : そのうち targetFolders の名前（このワークスペースで自分が作ったインデックス）
+    # この外のインデックス（content_index\ に手でコピーしたもの）の元のフォルダは、source_folder.txt を書いた人が決めたもの。
+    # 設定は小さいローカルのファイルのため、呼ぶたびに読む（キャッシュしない）
+    param (
+        [string]$settingsPath = ${settingsFile}
+    )
+
+    $crawled = @(getTargetFolders $settingsPath | Where-Object { $_.Name } | ForEach-Object { [string]$_.Name })
+    $confirmed = @($crawled) + @(readIndexSources $settingsPath | ForEach-Object { [string]$_.Name })
+    return @{ Confirmed = [string[]]$confirmed; Crawled = [string[]]$crawled }
+}

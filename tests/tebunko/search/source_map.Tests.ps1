@@ -317,3 +317,22 @@ Describe "findMovedSource" -Tag Io {
         findMovedSource $moved "2024\A社" "フォルダ.xlsx" | Should -Be $null
     }
 }
+
+Describe "getConfirmedSourceNames" -Tag Io {
+    It "targetFolders と indexSources の名前を Confirmed に、targetFolders の名前だけを Crawled に返す" {
+        $settings = "$TestDrive\confirmed.config"
+        updateSettings "targetFolders" ([object[]]@([pscustomobject]@{ name = "自作"; path = "C:\共有\自作"; enabled = $true })) $settings
+        setIndexSourceFolder "受領" "C:\共有\受領" $settings
+
+        $names = getConfirmedSourceNames $settings
+
+        @($names.Crawled) | Should -Be @("自作")
+        @($names.Confirmed | Sort-Object) | Should -Be @("受領", "自作" | Sort-Object)
+    }
+
+    It "設定ファイルが無ければ空" {
+        $names = getConfirmedSourceNames "$TestDrive\none.config"
+        @($names.Confirmed).Count | Should -Be 0
+        @($names.Crawled).Count | Should -Be 0
+    }
+}

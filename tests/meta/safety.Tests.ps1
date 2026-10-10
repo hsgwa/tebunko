@@ -264,6 +264,19 @@ Describe "Office ファイルを安全に開くこと（docs/safety/checks.md「
         ($inApp[0].Line - 1) | Should -BeGreaterThan $start
         ($inApp[0].Line - 1) | Should -BeLessThan $end
     }
+
+    It "Office の文書を COM で開く呼び出しを書いたファイルは、Excel などの設定に従わせる（AutomationSecurity = 2）。インデックス作成の 2 ファイルは = 3 で守る" {
+        # 画面から開く Excel は、プログラムから開くと既定でマクロが有効になる。どこに開く処理を足しても、ここで止まるよう scripts/ 全体を見る。
+        # 除くのはインデックス作成（マクロを強制的に無効にする。上の「AutomationSecurity = 3」の It が守る）
+        $opens = @($code | Where-Object { $_.Text -match '\b(Workbooks\.(Open|Add)|Documents\.Open|Presentations\.Open)\(' -and $_.Path -notlike "*\scripts\shared\office\office_app.ps1" -and $_.Path -notlike "*\scripts\tebunko\indexer\extract_office.ps1" })
+        $missing = New-Object System.Collections.Generic.List[string]
+        foreach ($path in @($opens | ForEach-Object { $_.Path } | Select-Object -Unique)) {
+            if (@($code | Where-Object { $_.Path -eq $path -and $_.Text -match 'AutomationSecurity\s*=\s*2|setExcelAutomationSecurity\s+\$\w+\s+2' }).Count -eq 0) {
+                $missing.Add($path)
+            }
+        }
+        $missing | Should -BeNullOrEmpty
+    }
 }
 
 Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を守ること（docs/safety/checks.md「Office ファイルを開くときの設定」）" -Tag Meta {
