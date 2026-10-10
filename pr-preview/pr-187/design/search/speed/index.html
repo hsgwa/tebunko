@@ -4024,8 +4024,8 @@
 
 <h1 id="検索を速くする仕組み">検索を速くする仕組み<a class="headerlink" href="#検索を速くする仕組み" title="Permanent link">&para;</a></h1>
 <p>扱うこと: 本文インデックスの読み込みと照合の実装、正規表現の判定（<code>lines</code>/<code>filter</code>/<code>scan</code>）、並列検索・スレッドの使い回し・読んだ内容の使い回しによる速さの実測。扱わないこと: 検索の仕様そのもの（<a href="../">検索</a>）、Windows Search による高速検索（<a href="../fast-search/">高速検索（Windows Search）</a>）。先に読むページ: <a href="../">検索</a>。</p>
-<p>本文インデックス（<a href="../../index-data/format/#配置命名規則">インデックスのファイルの形</a>）の読み込みと照合、結果 1 件の作成は PowerShell から .NET を直接呼ぶ（<code>tebunko/search/pack_search.ps1</code> の <code>searchPackIndex</code>／<code>searchPackFiles</code>。<code>FileStream</code>＋<code>StreamReader</code>＋<code>[regex]</code>。<code>Select-String</code> で 1 件ずつ結果を作ると件数が多いときに遅いため）。資産管理・EDR に注目されやすい実行時コンパイル（<code>Add-Type</code>／csc.exe）は使わない（<a href="../../gui/implementation/#実行時コンパイルcscexeを使わない">画面の実装</a>。実測: 50 万行で約 0.6 秒）。</p>
-<p>1 行ずつ PowerShell で照合すると、行数に比例して時間がかかる（1 行あたり十数マイクロ秒）。このため本文インデックスのファイルを丸ごと読み（改行は書くときに LF にそろえてある）、正規表現を全文に 1 回かける（.NET の中で走る）。<strong>全文で一致しない本文インデックスのファイルは、そのまま飛ばす。</strong> 一致したときだけ、メタ情報の行から場所ごとの範囲（元のファイル名・場所の名前・中身の先頭と終わりの位置）の一覧を作り（<code>readPackPlaces</code>）、一致の位置から元のファイル・場所・行番号を求める（<a href="../output/#ファイル名場所の求め方readpackplaces">ファイル名・場所の求め方</a>）。全文にかけてよいかは <code>getRegexScanMode</code> が正規表現の書き方から判定する。</p>
+<p>本文インデックス（<a href="../../index-data/format/#配置命名規則">インデックスのファイルの形</a>）の読み込みと照合、結果 1 件の作成は PowerShell から .NET を直接呼ぶ（<code>tebunko/search/content_index_search.ps1</code> の <code>searchContentIndex</code>／<code>searchContentIndexFiles</code>。<code>FileStream</code>＋<code>StreamReader</code>＋<code>[regex]</code>。<code>Select-String</code> で 1 件ずつ結果を作ると件数が多いときに遅いため）。資産管理・EDR に注目されやすい実行時コンパイル（<code>Add-Type</code>／csc.exe）は使わない（<a href="../../gui/implementation/#実行時コンパイルcscexeを使わない">画面の実装</a>。実測: 50 万行で約 0.6 秒）。</p>
+<p>1 行ずつ PowerShell で照合すると、行数に比例して時間がかかる（1 行あたり十数マイクロ秒）。このため本文インデックスのファイルを丸ごと読み（改行は書くときに LF にそろえてある）、正規表現を全文に 1 回かける（.NET の中で走る）。<strong>全文で一致しない本文インデックスのファイルは、そのまま飛ばす。</strong> 一致したときだけ、メタ情報の行から場所ごとの範囲（元のファイル名・場所の名前・中身の先頭と終わりの位置）の一覧を作り（<code>readContentIndexPlaces</code>）、一致の位置から元のファイル・場所・行番号を求める（<a href="../output/#ファイル名場所の求め方readcontentindexplaces">ファイル名・場所の求め方</a>）。全文にかけてよいかは <code>getRegexScanMode</code> が正規表現の書き方から判定する。</p>
 <table>
 <thead>
 <tr>
@@ -4053,13 +4053,13 @@
 </tbody>
 </table>
 <ul>
-<li><code>^</code> <code>$</code> は全文用の正規表現に <code>Multiline</code> を付けて行の先頭・末尾に一致させる。判定は安全側に倒し、どの照合でも検索結果（行・行番号）は、元の TSV を 1 行ずつ照合したときと同じになる（<code>pack_search.Tests.ps1</code> で改行の種類・照合のしかたごとに突き合わせている）。</li>
+<li><code>^</code> <code>$</code> は全文用の正規表現に <code>Multiline</code> を付けて行の先頭・末尾に一致させる。判定は安全側に倒し、どの照合でも検索結果（行・行番号）は、元の TSV を 1 行ずつ照合したときと同じになる（<code>content_index_search.Tests.ps1</code> で改行の種類・照合のしかたごとに突き合わせている）。</li>
 <li>全文への照合が時間切れになった本文インデックスのファイルは、1 行ずつ照合し直す。</li>
 <li>ファイルの種類（<code>newFileKindFilter</code> から作る <code>newFileFilter</code>）・図形とコメント（<code>newPlaceExclude</code>）の条件は、場所ごとに元のファイル名・場所の名前で判定し、当てはまらない場所の一致は結果に入れない（1 行ずつ照合するときは、その場所を照合しない）。</li>
 </ul>
 <p>さらに、次の 4 つで待ち時間を減らしている。</p>
 <pre class="mermaid"><code>flowchart TD
-    files[("本文インデックスの&lt;br&gt;ファイル群")] --&gt; split["splitPackTasks&lt;br&gt;合計およそ 16MB ずつの作業に分ける"]
+    files[("本文インデックスの&lt;br&gt;ファイル群")] --&gt; split["splitContentIndexTasks&lt;br&gt;合計およそ 16MB ずつの作業に分ける"]
     split --&gt; many{"作業が 2 つ以上？"}
     many -- はい --&gt; pool["WorkerPool&lt;br&gt;（コア数 − 1、1〜4）で並行して照合"]
     many -- いいえ --&gt; single["1 スレッドで照合"]
@@ -4077,19 +4077,19 @@
 <tbody>
 <tr>
 <td>並列検索</td>
-<td>本文インデックスのファイルを、大きさの合計がおよそ 16MB になるまでまとめて 1 つの作業にし（<code>splitPackTasks</code>）、作業が 2 つ以上なら照合のプール（<code>WorkerPool</code>。コア数 − 1、1〜4）で並行して照合する。各スレッドには照合に要る関数（<code>searchPackFiles</code>・<code>readPackPlaces</code> など）と値だけを読み込む。結果は作業の順に取り込み、上限・中止・進み具合（1 つの作業を照合するたびに通知。件数は本文インデックスのファイルの数）の扱いは 1 スレッドのときと同じ</td>
+<td>本文インデックスのファイルを、大きさの合計がおよそ 16MB になるまでまとめて 1 つの作業にし（<code>splitContentIndexTasks</code>）、作業が 2 つ以上なら照合のプール（<code>WorkerPool</code>。コア数 − 1、1〜4）で並行して照合する。各スレッドには照合に要る関数（<code>searchContentIndexFiles</code>・<code>readContentIndexPlaces</code> など）と値だけを読み込む。結果は作業の順に取り込み、上限・中止・進み具合（1 つの作業を照合するたびに通知。件数は本文インデックスのファイルの数）の扱いは 1 スレッドのときと同じ</td>
 </tr>
 <tr>
 <td>スレッドの使い回し</td>
-<td>画面は、検索の司令のスレッド（<code>SearchService</code>）を画面を開いている間 1 つだけ動かす。lib.ps1 の読み込みと照合のプールの用意（<code>newPackWorkerPool</code>）は、司令のスレッドを始めたときに 1 回だけ行い、検索のたびに行わない。検索 1 回は要求（<code>newSearchRequest</code>）として渡し、<code>invokeSearchRequest</code> が実行する。新しい要求を渡すと、前の要求の <code>Stop</code> を立てて取り消す（<a href="../../structure/threads/#寿命">寿命</a>）</td>
+<td>画面は、検索の司令のスレッド（<code>SearchService</code>）を画面を開いている間 1 つだけ動かす。lib.ps1 の読み込みと照合のプールの用意（<code>newContentIndexWorkerPool</code>）は、司令のスレッドを始めたときに 1 回だけ行い、検索のたびに行わない。検索 1 回は要求（<code>newSearchRequest</code>）として渡し、<code>invokeSearchRequest</code> が実行する。新しい要求を渡すと、前の要求の <code>Stop</code> を立てて取り消す（<a href="../../structure/threads/#寿命">寿命</a>）</td>
 </tr>
 <tr>
 <td>列挙</td>
-<td>本文インデックスのファイルの列挙（<code>getIndexPackFiles</code> → <code>getPackFiles</code>）は、.NET（<code>DirectoryInfo.GetFiles</code>）で <code>content_index.*.tsv</code> を 1 回で集め、更新日時・サイズも列挙のときに得る</td>
+<td>本文インデックスのファイルの列挙（<code>getContentIndexFiles</code> → <code>findContentIndexFiles</code>）は、.NET（<code>DirectoryInfo.GetFiles</code>）で <code>content_index.*.tsv</code> を 1 回で集め、更新日時・サイズも列挙のときに得る</td>
 </tr>
 <tr>
 <td>読んだ内容の使い回し</td>
-<td>画面は <code>newTsvTextCache</code> を 1 つ持ち、検索で読んだ本文インデックスのファイルの内容と場所の一覧を残す（上限 6,400 万文字＝約 128MB）。次の検索では、更新日時・サイズが列挙したときと同じ本文インデックスのファイルはファイルを開かない。書き直した本文インデックスのファイルは更新日時・サイズが変わるため読み直す。選択行のプレビュー（<code>readPackContext</code>）も同じ内容を使う。検索 1 回が終わるたびに、上限の 9 割を超えていれば、その検索で使わなかった内容を古いものから追い出す（<code>trimTsvTextCache</code>。<a href="../../structure/closing/#gc-とメモリ">GC とメモリ</a>）</td>
+<td>画面は <code>newTsvTextCache</code> を 1 つ持ち、検索で読んだ本文インデックスのファイルの内容と場所の一覧を残す（上限 6,400 万文字＝約 128MB）。次の検索では、更新日時・サイズが列挙したときと同じ本文インデックスのファイルはファイルを開かない。書き直した本文インデックスのファイルは更新日時・サイズが変わるため読み直す。選択行のプレビュー（<code>readContentIndexContext</code>）も同じ内容を使う。検索 1 回が終わるたびに、上限の 9 割を超えていれば、その検索で使わなかった内容を古いものから追い出す（<code>trimTsvTextCache</code>。<a href="../../structure/closing/#gc-とメモリ">GC とメモリ</a>）</td>
 </tr>
 </tbody>
 </table>

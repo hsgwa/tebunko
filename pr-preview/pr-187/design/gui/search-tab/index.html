@@ -4296,7 +4296,7 @@
     Searching --&gt; Idle : ［中止］（Esc）
     Done --&gt; Searching : ［検索］（新しい要求）</code></pre>
 <ul>
-<li><strong>検索処理は <code>tebunko/search/pack_search.ps1</code> の関数</strong>（<code>getIndexPackFiles</code> / <code>searchPackIndex</code>、<a href="../implementation/#実装構成">実装構成</a>）で行う。対象・照合・速度の仕様は <a href="../../search/">検索</a> のとおり。</li>
+<li><strong>検索処理は <code>tebunko/search/content_index_search.ps1</code> の関数</strong>（<code>getContentIndexFiles</code> / <code>searchContentIndex</code>、<a href="../implementation/#実装構成">実装構成</a>）で行う。対象・照合・速度の仕様は <a href="../../search/">検索</a> のとおり。</li>
 <li>検索対象は No.13 のツリーでチェックしたインデックス・フォルダ配下の <code>*.tsv</code>（<a href="../search-tree/">検索対象のツリー</a>）。結果のフォルダ（相対パス）は、選んだフォルダではなくインデックスのフォルダ（<code>work\content_index</code>）から求めるため、フォルダを絞っても結果の表示・元のファイルを開く動作は変わらない。</li>
 <li><strong>検索の司令のスレッド（<code>SearchService</code>）で実行</strong>し、検索中も画面を操作できるようにする。司令のスレッドと照合のプールは画面を開いている間使い回し、検索のたびに作らない（<a href="../../structure/threads/#寿命">寿命</a>）。検索 1 回は要求（<code>newSearchRequest</code>）として渡し、新しい検索を始めると前の検索は取り消す（要求の <code>Stop</code>）。</li>
 <li>高速検索が使えるとき（検索ワードの下の <code>高速検索：使用可</code>）は、Windows Search で検索語を含みうるフォルダを先に絞り、その本文インデックスだけを検索する（<a href="../../search/">検索</a> <a href="../../search/fast-search/">高速検索（Windows Search）</a>）。<code>高速検索：使用可 / 使用不可</code> は、ワード・［正規表現］を変えるとすぐ変わる（<code>getFastSearchView</code>。Windows Search が使えるかは、画面を開いたときと検索のたびに確かめる）。</li>

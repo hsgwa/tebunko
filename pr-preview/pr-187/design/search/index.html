@@ -4102,11 +4102,11 @@
 </tr>
 <tr>
 <td>スクリプト</td>
-<td><code>scripts/tebunko/search/search_query.ps1</code>（検索条件）・<code>pack_search.ps1</code>（本文インデックスの列挙と検索）・<code>search_run.ps1</code>（結果の組み立て）。<code>scripts/tebunko/lib.ps1</code> から読み込み、画面 <code>scripts/tebunko/gui.ps1</code> から呼ぶ</td>
+<td><code>scripts/tebunko/search/search_query.ps1</code>（検索条件）・<code>content_index_search.ps1</code>（本文インデックスの列挙と検索）・<code>search_run.ps1</code>（結果の組み立て）。<code>scripts/tebunko/lib.ps1</code> から読み込み、画面 <code>scripts/tebunko/gui.ps1</code> から呼ぶ</td>
 </tr>
 <tr>
 <td>使用する共通関数</td>
-<td><code>getFastSearchPackFiles</code>（高速検索。<a href="fast-search/">高速検索（Windows Search）</a>）/ <code>getIndexPackFiles</code> / <code>getSearchIndexes</code> / <code>searchPackIndex</code> / <code>writeSearchResult</code>（→ <code>toSearchResultLines</code> → <code>toResultLine</code> / <code>toResultHeader</code>）（<a href="../reference/search/">部品ごとの関数</a>）</td>
+<td><code>getFastSearchContentIndexFiles</code>（高速検索。<a href="fast-search/">高速検索（Windows Search）</a>）/ <code>getContentIndexFiles</code> / <code>getSearchIndexes</code> / <code>searchContentIndex</code> / <code>writeSearchResult</code>（→ <code>toSearchResultLines</code> → <code>toResultLine</code> / <code>toResultHeader</code>）（<a href="../reference/search/">部品ごとの関数</a>）</td>
 </tr>
 </tbody>
 </table>
@@ -4162,16 +4162,16 @@
 <li>1 件を <code>@{ Name（インデックス名）; Path（インデックスのフォルダ）; SourcePath（元のフォルダ。分からなければ空） }</code> で返す。</li>
 <li>別の場所・PC で作ったインデックスは、そのフォルダを <code>work/content_index</code> 直下に置けば一覧に並ぶ（<a href="../indexing/crawl/">クロール対象フォルダと取り込み対象</a>）。</li>
 <li><code>work/content_index</code> が無ければ空を返す。<code>setting.config</code> は作成しない。</li>
-<li>画面では、インデックス 1 件を一番上にしたツリーで、検索するインデックス・フォルダを選ぶ（<a href="../gui/search-tab/">［検索］タブ</a> <a href="../gui/search-tree/">検索対象のツリー</a>）。選んだ範囲は <code>getIndexPackFiles</code> に <code>@{ Root（インデックスのフォルダ</code>work/content_index<code>）; RelPath（</code>&lt;インデックス名&gt;<code>またはその下のフォルダ）; Recurse }</code> の配列で渡す。<code>Recurse</code> が <code>$false</code> なら、そのフォルダ直下の本文インデックスのファイルだけを列挙する。結果の相対パス（<code>RelPath</code>・<code>RelDir</code>）は <code>Root</code> から求めるため、フォルダを絞っても結果の形は変わらない。</li>
+<li>画面では、インデックス 1 件を一番上にしたツリーで、検索するインデックス・フォルダを選ぶ（<a href="../gui/search-tab/">［検索］タブ</a> <a href="../gui/search-tree/">検索対象のツリー</a>）。選んだ範囲は <code>getContentIndexFiles</code> に <code>@{ Root（インデックスのフォルダ</code>work/content_index<code>）; RelPath（</code>&lt;インデックス名&gt;<code>またはその下のフォルダ）; Recurse }</code> の配列で渡す。<code>Recurse</code> が <code>$false</code> なら、そのフォルダ直下の本文インデックスのファイルだけを列挙する。結果の相対パス（<code>RelPath</code>・<code>RelDir</code>）は <code>Root</code> から求めるため、フォルダを絞っても結果の形は変わらない。</li>
 <li>チェックを外したフォルダは <code>searchExcludes</code>（<code>@{ path（フルパス）; subfolders（$false は直下のファイルだけ） }</code> の配列）に保存する（<code>readSearchExcludes</code> / <code>writeSearchExcludes</code>）。無ければすべてを検索する。</li>
 </ul>
 <pre class="mermaid"><code>flowchart TD
-    S(["画面で検索を実行"]) --&gt; C["getIndexPackFiles&lt;br&gt;各インデックスフォルダ配下の content_index.*.tsv を列挙&lt;br&gt;（存在しないフォルダは Exists = False）"]
+    S(["画面で検索を実行"]) --&gt; C["getContentIndexFiles&lt;br&gt;各インデックスフォルダ配下の content_index.*.tsv を列挙&lt;br&gt;（存在しないフォルダは Exists = False）"]
     C --&gt; D{"本文インデックスのファイルが 1 件以上ある？"}
     D -- いいえ --&gt; E1["画面に案内を表示&lt;br&gt;（インデックス作成を促す）"]
     D -- はい --&gt; M["newSearchRegex&lt;br&gt;検索条件（文字どおり／正規表現・大文字と小文字の区別）&lt;br&gt;から照合用の正規表現を作る"]
     M --&gt; F["newFileKindFilter / newFileFilter / newPlaceExclude&lt;br&gt;ファイルの種類・図形とコメントの条件（元のファイル名・場所の名前で判定）"]
-    F --&gt; SS["searchPackIndex&lt;br&gt;本文インデックスを約 16MB ずつ .NET（StreamReader＋regex）で照合&lt;br&gt;（進捗を画面に通知、上限・中止を確認）"]
+    F --&gt; SS["searchContentIndex&lt;br&gt;本文インデックスを約 16MB ずつ .NET（StreamReader＋regex）で照合&lt;br&gt;（進捗を画面に通知、上限・中止を確認）"]
     SS --&gt; R["ヒット: Root・RelPath・RelDir・FileName・&lt;br&gt;Book・Location・LineNumber・Line"]
     R --&gt; G["画面の表に表示"]
     G -- "［結果をファイルに出力］" --&gt; W["writeSearchResult&lt;br&gt;work/search_results.txt に書き出して開く"]</code></pre>
@@ -4194,7 +4194,7 @@
 </tr>
 <tr>
 <td>ファイルの種類</td>
-<td>画面の種類のチップ（<code>setting.config</code> の <code>fileKinds</code>。選んだ種類の拡張子の条件を <code>newFileKindFilter</code> が作る）を絞ると、<strong>元のファイル名</strong>（<a href="output/#ファイル名場所の求め方readpackplaces">ファイル名・場所の求め方</a> の Book。本文インデックスの <code>ファイル名=</code> の値）が一致する元のファイルだけを検索する（<a href="#検索条件サクラエディタの-grep-にならう">検索条件（サクラエディタの Grep にならう）</a>）。空ならすべて</td>
+<td>画面の種類のチップ（<code>setting.config</code> の <code>fileKinds</code>。選んだ種類の拡張子の条件を <code>newFileKindFilter</code> が作る）を絞ると、<strong>元のファイル名</strong>（<a href="output/#ファイル名場所の求め方readcontentindexplaces">ファイル名・場所の求め方</a> の Book。本文インデックスの <code>ファイル名=</code> の値）が一致する元のファイルだけを検索する（<a href="#検索条件サクラエディタの-grep-にならう">検索条件（サクラエディタの Grep にならう）</a>）。空ならすべて</td>
 </tr>
 <tr>
 <td>図形・コメント</td>
@@ -4202,7 +4202,7 @@
 </tr>
 <tr>
 <td>Excel の図形・コメントの行</td>
-<td>行は <code>&lt;セル番地&gt;&lt;TAB&gt;&lt;文字&gt;</code> の形のため、<strong>区切りのタブ（行の最初のタブ）より後から始まる一致だけ</strong>をヒットにする（<code>searchPackFiles</code>。セル番地だけには一致しない。文字の中のタブは文字として検索の対象。除いた行は件数・上限に数えない）。セル番地から文字まで続く正規表現（<code>C2\t納期</code>）と、区切りのタブに当たる <code>\t</code> は一致しない。Word・PowerPoint の図形・コメント、Excel のセル・ヘッダー・フッターの行は行全体を照合する</td>
+<td>行は <code>&lt;セル番地&gt;&lt;TAB&gt;&lt;文字&gt;</code> の形のため、<strong>区切りのタブ（行の最初のタブ）より後から始まる一致だけ</strong>をヒットにする（<code>searchContentIndexFiles</code>。セル番地だけには一致しない。文字の中のタブは文字として検索の対象。除いた行は件数・上限に数えない）。セル番地から文字まで続く正規表現（<code>C2\t納期</code>）と、区切りのタブに当たる <code>\t</code> は一致しない。Word・PowerPoint の図形・コメント、Excel のセル・ヘッダー・フッターの行は行全体を照合する</td>
 </tr>
 <tr>
 <td>長いパス</td>
@@ -4238,7 +4238,7 @@
 </tr>
 <tr>
 <td>不正な正規表現</td>
-<td>［正規表現を使う］がオンでも、正規表現として不正なワード（<code>(</code> 単独など）は文字どおりの検索に切り替える（<code>searchPackIndex</code> の戻り値 <code>SimpleMatch</code> が <code>$true</code> になる）。画面は、不正なワードでは検索を始めない（吹き出しで知らせる。<a href="../gui/search-tab/#エラーの吹き出し">検索タブ</a>）</td>
+<td>［正規表現を使う］がオンでも、正規表現として不正なワード（<code>(</code> 単独など）は文字どおりの検索に切り替える（<code>searchContentIndex</code> の戻り値 <code>SimpleMatch</code> が <code>$true</code> になる）。画面は、不正なワードでは検索を始めない（吹き出しで知らせる。<a href="../gui/search-tab/#エラーの吹き出し">検索タブ</a>）</td>
 </tr>
 <tr>
 <td>照合の時間切れ</td>

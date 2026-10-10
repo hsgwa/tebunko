@@ -4014,10 +4014,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#本文インデックスの形式tebunkoindexpack_formatps1" class="md-nav__link">
+  <a href="#本文インデックスの形式tebunkoindexcontent_index_formatps1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        本文インデックスの形式（tebunko/index/pack_format.ps1）
+        本文インデックスの形式（tebunko/index/content_index_format.ps1）
       
     </span>
   </a>
@@ -4025,10 +4025,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#本文インデックスの読み書きtebunkoindexpack_storeps1" class="md-nav__link">
+  <a href="#本文インデックスの読み書きtebunkoindexcontent_index_storeps1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        本文インデックスの読み書き（tebunko/index/pack_store.ps1）
+        本文インデックスの読み書き（tebunko/index/content_index_store.ps1）
       
     </span>
   </a>
@@ -4158,10 +4158,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#本文インデックスの形式tebunkoindexpack_formatps1" class="md-nav__link">
+  <a href="#本文インデックスの形式tebunkoindexcontent_index_formatps1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        本文インデックスの形式（tebunko/index/pack_format.ps1）
+        本文インデックスの形式（tebunko/index/content_index_format.ps1）
       
     </span>
   </a>
@@ -4169,10 +4169,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#本文インデックスの読み書きtebunkoindexpack_storeps1" class="md-nav__link">
+  <a href="#本文インデックスの読み書きtebunkoindexcontent_index_storeps1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        本文インデックスの読み書き（tebunko/index/pack_store.ps1）
+        本文インデックスの読み書き（tebunko/index/content_index_store.ps1）
       
     </span>
   </a>
@@ -4200,7 +4200,7 @@
 
 
 <h1 id="部品ごとの関数tsv-と本文インデックス">部品ごとの関数（TSV と本文インデックス）<a class="headerlink" href="#部品ごとの関数tsv-と本文インデックス" title="Permanent link">&para;</a></h1>
-<p>扱うこと: TSV の名前と場所・整形（<code>fs.ps1</code>・<code>index_name.ps1</code>・<code>text.ps1</code>）、インデックスへの配置（<code>index_store.ps1</code>）、本文インデックスの形式と読み書き（<code>pack_format.ps1</code>・<code>pack_store.ps1</code>）の関数一覧。扱わないこと: 検索そのものの関数（<a href="../search/">部品ごとの関数（検索・スレッド・元のファイル・画面）</a>）。先に読むページ: <a href="../">部品から関数一覧を引く</a>。</p>
+<p>扱うこと: TSV の名前と場所・整形（<code>fs.ps1</code>・<code>index_name.ps1</code>・<code>text.ps1</code>）、インデックスへの配置（<code>index_store.ps1</code>）、本文インデックスの形式と読み書き（<code>content_index_format.ps1</code>・<code>content_index_store.ps1</code>）の関数一覧。扱わないこと: 検索そのものの関数（<a href="../search/">部品ごとの関数（検索・スレッド・元のファイル・画面）</a>）。先に読むページ: <a href="../">部品から関数一覧を引く</a>。</p>
 <h2 id="tsv-の名前と場所sharedcorefsps1tebunkoindexindex_nameps1">TSV の名前と場所（<code>shared/core/fs.ps1</code>・<code>tebunko/index/index_name.ps1</code>）<a class="headerlink" href="#tsv-の名前と場所sharedcorefsps1tebunkoindexindex_nameps1" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4276,7 +4276,7 @@
 <td><code>@{Base; Kind}</code></td>
 <td>図形・コメント・ヘッダー・フッターの場所（<code>&lt;元の場所&gt;[図形]</code> 等）を、元の場所と種類に分ける。ふつうの場所は Kind が空</td>
 <td><a href="../../index-data/format/#配置命名規則">インデックスのファイルの形</a>「図形・コメントの場所」</td>
-<td>元のファイルを開く、convertPlaceToPackMeta</td>
+<td>元のファイルを開く、convertPlaceToContentIndexMeta</td>
 </tr>
 <tr>
 <td><code>describePlace</code></td>
@@ -4433,7 +4433,7 @@
 <td>path</td>
 <td>bool</td>
 <td>拡張子が対象のテキストの拡張子（<code>$textExtensions</code>。大文字・小文字を区別しない）か</td>
-<td>ingestFile, getPackFileKind, describePlace, getAppKind, findTargetFiles（<code>$targetExtensions</code>）</td>
+<td>ingestFile, getContentIndexFileKind, describePlace, getAppKind, findTargetFiles（<code>$targetExtensions</code>）</td>
 </tr>
 <tr>
 <td><code>testTextOpenWithNotepad</code></td>
@@ -4553,7 +4553,7 @@
 </tr>
 </tbody>
 </table>
-<h2 id="本文インデックスの形式tebunkoindexpack_formatps1">本文インデックスの形式（<code>tebunko/index/pack_format.ps1</code>）<a class="headerlink" href="#本文インデックスの形式tebunkoindexpack_formatps1" title="Permanent link">&para;</a></h2>
+<h2 id="本文インデックスの形式tebunkoindexcontent_index_formatps1">本文インデックスの形式（<code>tebunko/index/content_index_format.ps1</code>）<a class="headerlink" href="#本文インデックスの形式tebunkoindexcontent_index_formatps1" title="Permanent link">&para;</a></h2>
 <p>形式は <a href="../../index-data/format/#配置命名規則">インデックスのファイルの形</a>「本文インデックスの形式」。判断層のため、ファイルを読み書きしない。</p>
 <table>
 <thead>
@@ -4567,84 +4567,84 @@
 </thead>
 <tbody>
 <tr>
-<td><code>getPackFileKind</code></td>
+<td><code>getContentIndexFileKind</code></td>
 <td>book</td>
 <td>string</td>
 <td>元のファイル名から種類（<code>Excel</code> / <code>Word</code> / <code>PowerPoint</code> / <code>テキスト</code>。分からなければ空）</td>
-<td>convertToPackText, convertPlaceToPackMeta, describePlace, getAppKind, searchPackFiles（長い行を切るかの判定）, readPackContext</td>
+<td>convertToContentIndexText, convertPlaceToContentIndexMeta, describePlace, getAppKind, searchContentIndexFiles（長い行を切るかの判定）, readContentIndexContext</td>
 </tr>
 <tr>
-<td><code>getPackExtension</code> / <code>getPackFileName</code> / <code>readPackFileName</code></td>
+<td><code>getContentIndexExtension</code> / <code>getContentIndexFileName</code> / <code>readContentIndexFileName</code></td>
 <td>book / extension, part / name</td>
 <td>string / <code>@{Extension; Part}</code></td>
 <td>本文インデックスを分ける拡張子（小文字・<code>.</code> なし） / 本文インデックスのファイルの名前（<code>content_index.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code>） / 名前から拡張子と番号を取り出す</td>
-<td>convertIndexFolderToPack, getIndexTsvCounts</td>
+<td>convertFolderToContentIndex, getIndexTsvCounts</td>
 </tr>
 <tr>
-<td><code>splitPackBooksByExtension</code></td>
+<td><code>splitContentIndexBooksByExtension</code></td>
 <td>books</td>
 <td>[ordered] 拡張子 → 並び</td>
 <td>元のファイルの並びを拡張子ごとに分ける（各並びの中の順は変えない）</td>
-<td>convertIndexFolderToPack</td>
+<td>convertFolderToContentIndex</td>
 </tr>
 <tr>
-<td><code>encodePackValue</code> / <code>decodePackValue</code></td>
+<td><code>encodeContentIndexValue</code> / <code>decodeContentIndexValue</code></td>
 <td>value</td>
 <td>string</td>
 <td>メタ情報の値の制御文字（タブを除く）と <code>%</code> を <code>%XX</code> にする / 戻す</td>
-<td>convertToPackText, readPackPlaces</td>
+<td>convertToContentIndexText, readContentIndexPlaces</td>
 </tr>
 <tr>
-<td><code>convertPlaceToPackMeta</code></td>
+<td><code>convertPlaceToContentIndexMeta</code></td>
 <td>book, place</td>
 <td>[ordered] キー → 値</td>
 <td>場所の名前（TSV のファイル名。<code>見積[図形]</code>・<code>見積[ヘッダー・フッター]</code>・<code>ページ001</code> など）を場所のメタ情報にする。組み立て直して同じ名前にならないものは <code>部分=&lt;名前&gt;</code>・<code>対象=本文</code></td>
-<td>convertToPackText</td>
+<td>convertToContentIndexText</td>
 </tr>
 <tr>
-<td><code>convertPackMetaToPlace</code></td>
+<td><code>convertContentIndexMetaToPlace</code></td>
 <td>meta</td>
 <td>string</td>
 <td>場所のメタ情報から場所の名前を組み立てる（画面の表示・図形とコメントの除外・元のファイルを開く処理が使う形）</td>
-<td>readPackPlaces</td>
+<td>readContentIndexPlaces</td>
 </tr>
 <tr>
-<td><code>convertToPackBody</code></td>
+<td><code>convertToContentIndexBody</code></td>
 <td>text</td>
 <td>string</td>
 <td>TSV の中身を本文インデックスに入れる形にする（改行を LF に、末尾に LF、U+001C〜U+001F を除く）</td>
-<td>convertToPackText</td>
+<td>convertToContentIndexText</td>
 </tr>
 <tr>
-<td><code>convertToPackText</code></td>
+<td><code>convertToContentIndexText</code></td>
 <td>books</td>
 <td>string</td>
 <td>元のファイルの並び（TSV から新しく作るもの、または前の本文インデックスから写すまとまり）から、本文インデックスの文字列を作る</td>
-<td>convertIndexFolderToPack</td>
+<td>convertFolderToContentIndex</td>
 </tr>
 <tr>
-<td><code>readPackPlaces</code></td>
+<td><code>readContentIndexPlaces</code></td>
 <td>text</td>
 <td><code>@{Book; Location; CellPrefixed; Start; End}</code> の並び</td>
-<td>本文インデックスの文字列から、場所ごとの元のファイル名・場所の名前・行の先頭がセル番地か（<code>CellPrefixed</code>。Excel の図形・コメントが <code>$true</code>。<code>testPackCellPrefixed</code>）・中身の範囲を先頭から順に返す。版が違えば例外</td>
-<td>検索（searchPackFiles）、readPackContext</td>
+<td>本文インデックスの文字列から、場所ごとの元のファイル名・場所の名前・行の先頭がセル番地か（<code>CellPrefixed</code>。Excel の図形・コメントが <code>$true</code>。<code>testContentIndexCellPrefixed</code>）・中身の範囲を先頭から順に返す。版が違えば例外</td>
+<td>検索（searchContentIndexFiles）、readContentIndexContext</td>
 </tr>
 <tr>
-<td><code>testPackCellPrefixed</code></td>
+<td><code>testContentIndexCellPrefixed</code></td>
 <td>book, meta</td>
 <td>bool</td>
 <td>場所の行が「セル番地 + タブ + 文字」の形か（元のファイルが Excel で、対象が図形・コメント）</td>
-<td>readPackPlaces</td>
+<td>readContentIndexPlaces</td>
 </tr>
 <tr>
-<td><code>splitPackTextByBook</code></td>
+<td><code>splitContentIndexTextByBook</code></td>
 <td>text</td>
 <td><code>@{Name; Block}</code> の並び</td>
 <td>本文インデックスの文字列を元のファイルごとのまとまりに分ける（入れ替えない元のファイルをそのまま写すため）。版が違えば例外</td>
-<td>convertIndexFolderToPack</td>
+<td>convertFolderToContentIndex</td>
 </tr>
 <tr>
-<td><code>getPackContentText</code></td>
+<td><code>getContentIndexBodyText</code></td>
 <td>text</td>
 <td>string</td>
 <td>メタ情報の行を除いた中身（システムインデックスの語を作るため）</td>
@@ -4652,7 +4652,7 @@
 </tr>
 </tbody>
 </table>
-<h2 id="本文インデックスの読み書きtebunkoindexpack_storeps1">本文インデックスの読み書き（<code>tebunko/index/pack_store.ps1</code>）<a class="headerlink" href="#本文インデックスの読み書きtebunkoindexpack_storeps1" title="Permanent link">&para;</a></h2>
+<h2 id="本文インデックスの読み書きtebunkoindexcontent_index_storeps1">本文インデックスの読み書き（<code>tebunko/index/content_index_store.ps1</code>）<a class="headerlink" href="#本文インデックスの読み書きtebunkoindexcontent_index_storeps1" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
@@ -4666,12 +4666,12 @@
 </thead>
 <tbody>
 <tr>
-<td><code>writePackFile</code> / <code>readPackText</code></td>
+<td><code>writeContentIndexFile</code> / <code>readContentIndexText</code></td>
 <td>path, text / path</td>
 <td>– / string</td>
 <td>本文インデックスのファイルを UTF-16LE（BOM 付き）で書く（<code>&lt;名前&gt;.tmp</code> に書いてから <code>File.Replace</code> で置き換える） / 読む（置き換え・削除を妨げない共有モード）</td>
 <td><a href="../../index-data/format/#配置命名規則">インデックスのファイルの形</a></td>
-<td>convertIndexFolderToPack, readPackContext</td>
+<td>convertFolderToContentIndex, readContentIndexContext</td>
 </tr>
 <tr>
 <td><code>getIndexFolderBooks</code></td>
@@ -4679,31 +4679,31 @@
 <td><code>@{Name; Places}</code> の並び</td>
 <td>フォルダ直下の元のファイルごとのフォルダ（<code>&lt;ファイル名.xlsx&gt;\&lt;場所&gt;.tsv</code>）から、本文インデックスに入れる元のファイルと場所の並びを作る（ファイル名は <code>convertIndexFileNameToPlace</code> で場所に戻す。並びは前の版と同じになるよう、戻した場所を符号化し直したキーで並べ替える）</td>
 <td>同上</td>
-<td>convertIndexFolderToPack</td>
+<td>convertFolderToContentIndex</td>
 </tr>
 <tr>
-<td><code>convertIndexFolderToPack</code></td>
+<td><code>convertFolderToContentIndex</code></td>
 <td>folder, destFolder, removeBooks, removeTsv</td>
 <td><code>@{Books; Tsv; Chars; Files; Texts}</code></td>
 <td>フォルダ 1 つの TSV から拡張子ごとの本文インデックスのファイルを書く。前の本文インデックスのファイルとまぜ（TSV のある元のファイルは入れ替え、removeBooks は外し、ほかは写す）、元のファイルが無くなった拡張子の本文インデックスのファイルは消す。removeTsv なら書き終えた後に TSV のフォルダを消す。Texts は書いた中身</td>
 <td>同上</td>
-<td>updateIndexFolderPack</td>
+<td>updateFolderContentIndex</td>
 </tr>
 <tr>
-<td><code>updateIndexFolderPack</code></td>
+<td><code>updateFolderContentIndex</code></td>
 <td>folder, removeBooks</td>
 <td>同上</td>
-<td><code>convertIndexFolderToPack</code> を同じフォルダに書き、TSV を消す形で呼ぶ</td>
+<td><code>convertFolderToContentIndex</code> を同じフォルダに書き、TSV を消す形で呼ぶ</td>
 <td>同上</td>
 <td>publishIndexFolders</td>
 </tr>
 <tr>
-<td><code>getPackFiles</code></td>
+<td><code>findContentIndexFiles</code></td>
 <td>root, relPath, recurse</td>
 <td><code>@{Path; Root; RelDir; RelPath; Ticks; Size}</code> の配列</td>
 <td>フォルダ以下の本文インデックスのファイルを列挙し、フォルダの順・フォルダの中は名前の順に並べる（Path は <code>\\?\</code> 付き。Ticks・Size は読んだ内容を使い回してよいかの判定に使う）</td>
 <td><a href="../../search/speed/">検索を速くする仕組み</a></td>
-<td>getIndexPackFiles</td>
+<td>getContentIndexFiles</td>
 </tr>
 <tr>
 <td><code>findIndexFoldersWithBooks</code></td>
@@ -4717,12 +4717,12 @@
 <td><code>publishIndexFolders</code></td>
 <td>pending（フォルダ → 無くなった元のファイル名）, indexRoot, systemRoot, statePath</td>
 <td>書き出したフォルダの数</td>
-<td>フォルダごとに、本文インデックスに書き（<code>updateIndexFolderPack</code>）、TSV を消し、書いた中身からシステムインデックスの txt を作る（<code>writeSystemIndexFolder</code>）。txt の「反映待ち」はまとめて状態ファイルに書く</td>
+<td>フォルダごとに、本文インデックスに書き（<code>updateFolderContentIndex</code>）、TSV を消し、書いた中身からシステムインデックスの txt を作る（<code>writeSystemIndexFolder</code>）。txt の「反映待ち」はまとめて状態ファイルに書く</td>
 <td>同上</td>
 <td>インデックス作成（indexer_run.ps1 の flushPending）</td>
 </tr>
 <tr>
-<td><code>readPackContext</code></td>
+<td><code>readContentIndexContext</code></td>
 <td>path, book, location, lineNumber, before（既定 3）, after（既定 3）, cache</td>
 <td><code>@{LineNumber; Line}</code> の配列</td>
 <td>本文インデックスのファイルの中の元のファイル book・場所 location の lineNumber 行目と前後の行を返す（行の数え方は検索と同じ）。cache（<code>newTsvTextCache</code>）に同じ本文インデックスのファイルの内容があれば読み直さない。読めない・見つからなければ空</td>

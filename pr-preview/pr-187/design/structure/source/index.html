@@ -4187,7 +4187,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/index/</code></td>
-<td>インデックス名と TSV の名前の決め方（<code>index_name.ps1</code>）・インデックスの作成と集計（<code>index_store.ps1</code>）・検索用の本文インデックスの形式（<code>pack_format.ps1</code>）と読み書き（<code>pack_store.ps1</code>）・高速検索用の システムインデックスと状態（<code>system_index.ps1</code>）</td>
+<td>インデックス名と TSV の名前の決め方（<code>index_name.ps1</code>）・インデックスの作成と集計（<code>index_store.ps1</code>）・検索用の本文インデックスの形式（<code>content_index_format.ps1</code>）と読み書き（<code>content_index_store.ps1</code>）・高速検索用の システムインデックスと状態（<code>system_index.ps1</code>）</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/indexer/</code></td>
@@ -4195,7 +4195,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/search/</code></td>
-<td>検索条件（<code>search_query.ps1</code>）・本文インデックスの検索（<code>pack_search.ps1</code>）・検索結果の組み立てとインデックスの件数（<code>search_run.ps1</code>）・元のファイルの場所（<code>source_map.ps1</code>）・高速検索の決まり（<code>search_gram.ps1</code>）・Windows Search への問い合わせ（<code>windows_search.ps1</code>）・高速検索で照合する本文インデックスの収集（<code>fast_search.ps1</code>）・検索の司令のスレッド（<code>search_service.ps1</code>。<code>SearchService</code>）</td>
+<td>検索条件（<code>search_query.ps1</code>）・本文インデックスの検索（<code>content_index_search.ps1</code>）・検索結果の組み立てとインデックスの件数（<code>search_run.ps1</code>）・元のファイルの場所（<code>source_map.ps1</code>）・高速検索の決まり（<code>search_gram.ps1</code>）・Windows Search への問い合わせ（<code>windows_search.ps1</code>）・高速検索で照合する本文インデックスの収集（<code>fast_search.ps1</code>）・検索の司令のスレッド（<code>search_service.ps1</code>。<code>SearchService</code>）</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/</code></td>
@@ -4215,12 +4215,12 @@
 <tbody>
 <tr>
 <td>判断層（入力は素の値、出力は素の値）</td>
-<td><code>text.ps1</code>・<code>index_name.ps1</code>・<code>pack_format.ps1</code>・<code>search_query.ps1</code>・<code>search_gram.ps1</code>・<code>indexer_decide.ps1</code>・<code>*_view.ps1</code>（<code>tebunko/ui/</code> の画面の判断層のほか、<code>shared/office/office_protection_view.ps1</code> のように <code>ui/</code> の外にも置く。テスト（<code>layers.Tests.ps1</code>）とカバレッジは名前で拾うため、置き場所によらず判断層として扱われる）</td>
+<td><code>text.ps1</code>・<code>index_name.ps1</code>・<code>content_index_format.ps1</code>・<code>search_query.ps1</code>・<code>search_gram.ps1</code>・<code>indexer_decide.ps1</code>・<code>*_view.ps1</code>（<code>tebunko/ui/</code> の画面の判断層のほか、<code>shared/office/office_protection_view.ps1</code> のように <code>ui/</code> の外にも置く。テスト（<code>layers.Tests.ps1</code>）とカバレッジは名前で拾うため、置き場所によらず判断層として扱われる）</td>
 <td>する（主にタグ <code>Unit</code>）</td>
 </tr>
 <tr>
 <td>状態層（ファイル・COM を読み書きする）</td>
-<td><code>indexer_state.ps1</code>・<code>index_store.ps1</code>・<code>pack_store.ps1</code>・<code>pack_search.ps1</code>・<code>search_run.ps1</code>・<code>system_index.ps1</code>・<code>fast_search.ps1</code>・<code>windows_search.ps1</code>・<code>version.ps1</code></td>
+<td><code>indexer_state.ps1</code>・<code>index_store.ps1</code>・<code>content_index_store.ps1</code>・<code>content_index_search.ps1</code>・<code>search_run.ps1</code>・<code>system_index.ps1</code>・<code>fast_search.ps1</code>・<code>windows_search.ps1</code>・<code>version.ps1</code></td>
 <td>する（主にタグ <code>Io</code>。<code>$TestDrive</code> を使う）</td>
 </tr>
 <tr>

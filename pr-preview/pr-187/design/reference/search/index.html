@@ -3996,10 +3996,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#検索tebunkosearchsearch_queryps1pack_searchps1search_runps1" class="md-nav__link">
+  <a href="#検索tebunkosearchsearch_queryps1content_index_searchps1search_runps1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        検索（tebunko/search/search_query.ps1・pack_search.ps1・search_run.ps1）
+        検索（tebunko/search/search_query.ps1・content_index_search.ps1・search_run.ps1）
       
     </span>
   </a>
@@ -4118,10 +4118,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#検索tebunkosearchsearch_queryps1pack_searchps1search_runps1" class="md-nav__link">
+  <a href="#検索tebunkosearchsearch_queryps1content_index_searchps1search_runps1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        検索（tebunko/search/search_query.ps1・pack_search.ps1・search_run.ps1）
+        検索（tebunko/search/search_query.ps1・content_index_search.ps1・search_run.ps1）
       
     </span>
   </a>
@@ -4210,14 +4210,14 @@
 
 
 <h1 id="部品ごとの関数検索スレッド元のファイル画面">部品ごとの関数（検索・スレッド・元のファイル・画面）<a class="headerlink" href="#部品ごとの関数検索スレッド元のファイル画面" title="Permanent link">&para;</a></h1>
-<p>扱うこと: 検索（<code>search_query.ps1</code>・<code>pack_search.ps1</code>・<code>search_run.ps1</code>）、スレッドとプール（<code>worker_pool.ps1</code>・<code>search_service.ps1</code>・<code>indexing_session.ps1</code>）、元のファイルの特定（<code>source_map.ps1</code>）、画面が使う集計・設定・Office プロセスの関数一覧。扱わないこと: TSV・本文インデックスそのものの関数（<a href="../tsv/">部品ごとの関数（TSV と本文インデックス）</a>）。先に読むページ: <a href="../">部品から関数一覧を引く</a>。</p>
-<h2 id="検索tebunkosearchsearch_queryps1pack_searchps1search_runps1">検索（<code>tebunko/search/search_query.ps1</code>・<code>pack_search.ps1</code>・<code>search_run.ps1</code>）<a class="headerlink" href="#検索tebunkosearchsearch_queryps1pack_searchps1search_runps1" title="Permanent link">&para;</a></h2>
+<p>扱うこと: 検索（<code>search_query.ps1</code>・<code>content_index_search.ps1</code>・<code>search_run.ps1</code>）、スレッドとプール（<code>worker_pool.ps1</code>・<code>search_service.ps1</code>・<code>indexing_session.ps1</code>）、元のファイルの特定（<code>source_map.ps1</code>）、画面が使う集計・設定・Office プロセスの関数一覧。扱わないこと: TSV・本文インデックスそのものの関数（<a href="../tsv/">部品ごとの関数（TSV と本文インデックス）</a>）。先に読むページ: <a href="../">部品から関数一覧を引く</a>。</p>
+<h2 id="検索tebunkosearchsearch_queryps1content_index_searchps1search_runps1">検索（<code>tebunko/search/search_query.ps1</code>・<code>content_index_search.ps1</code>・<code>search_run.ps1</code>）<a class="headerlink" href="#検索tebunkosearchsearch_queryps1content_index_searchps1search_runps1" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart LR
-    A["getIndexPackFiles&lt;br&gt;本文インデックスのファイルを列挙"] --&gt; B["searchPackIndex"]
+    A["getContentIndexFiles&lt;br&gt;本文インデックスのファイルを列挙"] --&gt; B["searchContentIndex"]
     B --&gt; C["newSearchRegex / newFileFilter / newPlaceExclude&lt;br&gt;条件を正規表現に"]
-    B --&gt; T["splitPackTasks&lt;br&gt;約 16MB ずつの作業に分ける"]
-    T --&gt; E["searchPackFiles&lt;br&gt;読み込みと照合（作業が 2 つ以上なら並列）"]
-    E --&gt; P["readPackPlaces&lt;br&gt;一致の位置から元のファイル・場所・行"]
+    B --&gt; T["splitContentIndexTasks&lt;br&gt;約 16MB ずつの作業に分ける"]
+    T --&gt; E["searchContentIndexFiles&lt;br&gt;読み込みと照合（作業が 2 つ以上なら並列）"]
+    E --&gt; P["readContentIndexPlaces&lt;br&gt;一致の位置から元のファイル・場所・行"]
     E --&gt; F["Hits"]
     F --&gt; G["toSearchResultLines / writeSearchResult&lt;br&gt;検索結果ファイル"]</code></pre>
 <table>
@@ -4270,7 +4270,7 @@
 <td><code>@{Include; Exclude}</code></td>
 <td>対象ファイルの指定（<code>*.xlsx;見積;!*old*</code>）を、元のファイル名に対する正規表現にする（無い側は <code>$null</code>）</td>
 <td><a href="../../search/#検索条件サクラエディタの-grep-にならう">検索</a></td>
-<td><code>searchPackIndex</code></td>
+<td><code>searchContentIndex</code></td>
 </tr>
 <tr>
 <td><code>newPlaceExclude</code></td>
@@ -4278,7 +4278,7 @@
 <td>regex / <code>$null</code></td>
 <td>検索から外す図形・コメントの場所（名前の末尾 <code>[図形]</code> <code>[コメント]</code>）の正規表現。どちらも検索するなら <code>$null</code></td>
 <td>同上</td>
-<td><code>searchPackIndex</code></td>
+<td><code>searchContentIndex</code></td>
 </tr>
 <tr>
 <td><code>truncateHitLine</code></td>
@@ -4286,15 +4286,15 @@
 <td>string</td>
 <td>長い行（テキストのヒットの行・プレビューの前後の行）を、一致の位置（<code>matchIndex</code>。分からなければ -1 で先頭から）から前後 <code>hitLineMaxChars</code>（1,000 文字）に切る。切った側に <code>…</code> を付ける。<code>hitLineMaxChars</code> 以下ならそのまま</td>
 <td><a href="../../search/output/#長い行を切る">長い行を切る</a></td>
-<td>searchPackFiles, readPackContext</td>
+<td>searchContentIndexFiles, readContentIndexContext</td>
 </tr>
 <tr>
-<td><code>getIndexPackFiles</code></td>
+<td><code>getContentIndexFiles</code></td>
 <td>folders（既定 <code>$workspace.IndexDir</code>。フォルダの文字列、または <code>@{Root; RelPath; Recurse}</code>（画面のツリーで選んだ範囲。<code>Recurse</code> が <code>$false</code> なら直下だけ）の配列）, onProgress（フォルダを 1 つ数えるたびに <code>{ param($count) }</code> を呼ぶ）</td>
-<td><code>@{Folders; Packs}</code></td>
-<td>検索対象の本文インデックスのファイルを列挙する（<code>getPackFiles</code>）。結果の相対パスは <code>Root</code> から求める。Folders はフォルダごとの <code>@{Path; Root; Exists; Count}</code>、Packs は <code>getPackFiles</code> の要素をつないだもの（フォルダの順・名前の順、重複なし）</td>
+<td><code>@{Folders; ContentIndexFiles}</code></td>
+<td>検索対象の本文インデックスのファイルを列挙する（<code>findContentIndexFiles</code>）。結果の相対パスは <code>Root</code> から求める。Folders はフォルダごとの <code>@{Path; Root; Exists; Count}</code>、ContentIndexFiles は <code>findContentIndexFiles</code> の要素をつないだもの（フォルダの順・名前の順、重複なし）</td>
 <td><a href="../../search/speed/">検索を速くする仕組み</a></td>
-<td>検索・画面、getFastSearchPackFiles</td>
+<td>検索・画面、getFastSearchContentIndexFiles</td>
 </tr>
 <tr>
 <td><code>testIndexExists</code></td>
@@ -4313,20 +4313,20 @@
 <td>画面</td>
 </tr>
 <tr>
-<td><code>splitPackTasks</code></td>
-<td>packs, taskBytes（既定 16MB）</td>
+<td><code>splitContentIndexTasks</code></td>
+<td>contentIndexFiles, taskBytes（既定 16MB）</td>
 <td><code>@{Start; Count}</code> の並び</td>
 <td>本文インデックスのファイルの並びを、大きさの合計がおよそ taskBytes になるまでまとめて、1 つのスレッドに渡す作業に分ける</td>
 <td>同上</td>
-<td>searchPackIndex</td>
+<td>searchContentIndex</td>
 </tr>
 <tr>
-<td><code>searchPackFiles</code></td>
-<td>packs, start, count, regex, max, textRegex, scanMode, cache, include, exclude, excludePlace</td>
+<td><code>searchContentIndexFiles</code></td>
+<td>contentIndexFiles, start, count, regex, max, textRegex, scanMode, cache, include, exclude, excludePlace</td>
 <td>ヒットの一覧</td>
-<td>packs の start から count 件を読み、regex に一致する行を返す（1 行に複数一致しても 1 件）。<code>ScanMode</code> に応じて全文に 1 回照合し、一致しない本文インデックスのファイルは飛ばす。一致の位置から場所・行を求める（<code>readPackPlaces</code>）。Excel の図形・コメントの行（<code>CellPrefixed</code>）は、区切りのタブより後から始まる一致だけをヒットにする（<code>testCellPrefixedHit</code>。セル番地だけの一致は件数・上限に数えない）。元のファイルがテキストの拡張子（<code>getPackFileKind</code>）なら、ヒットの行を <code>truncateHitLine</code> で切る（Excel・Word・PowerPoint は切らない）。インデックス作成中の本文インデックスのファイルも読めるよう共有して開き、読めないものは飛ばす</td>
+<td>contentIndexFiles の start から count 件を読み、regex に一致する行を返す（1 行に複数一致しても 1 件）。<code>ScanMode</code> に応じて全文に 1 回照合し、一致しない本文インデックスのファイルは飛ばす。一致の位置から場所・行を求める（<code>readContentIndexPlaces</code>）。Excel の図形・コメントの行（<code>CellPrefixed</code>）は、区切りのタブより後から始まる一致だけをヒットにする（<code>testCellPrefixedHit</code>。セル番地だけの一致は件数・上限に数えない）。元のファイルがテキストの拡張子（<code>getContentIndexFileKind</code>）なら、ヒットの行を <code>truncateHitLine</code> で切る（Excel・Word・PowerPoint は切らない）。インデックス作成中の本文インデックスのファイルも読めるよう共有して開き、読めないものは飛ばす</td>
 <td>同上</td>
-<td>searchPackIndex（並列検索のスレッドでも動く）</td>
+<td>searchContentIndex（並列検索のスレッドでも動く）</td>
 </tr>
 <tr>
 <td><code>testCellPrefixedHit</code></td>
@@ -4334,13 +4334,13 @@
 <td>bool</td>
 <td>セル番地 + 区切りのタブ + 文字の行（Excel の図形・コメント）で、最初のタブより後から始まる一致があるか（開始位置つきの <code>IsMatch</code>。タブが無い行は <code>$false</code>）</td>
 <td>同上</td>
-<td>searchPackFiles（並列検索のスレッドでも動く）</td>
+<td>searchContentIndexFiles（並列検索のスレッドでも動く）</td>
 </tr>
 <tr>
-<td><code>searchPackIndex</code></td>
-<td>word, packs, simpleMatch, limit, shouldStop, caseSensitive, fileFilter, workerCount（並列のスレッド数。0 は自動で最大 4）, cache（<code>newTsvTextCache</code>）, includeShapes, includeComments（図形・コメントの場所も検索するか。<code>newPlaceExclude</code>）, taskBytes, onProgress（<code>{ param($done, $total, $newHits) }</code>。done・total は本文インデックスのファイルの数）, pool（照合のプール <code>newPackWorkerPool</code>。<code>$null</code> なら並列にするときだけ作って最後に閉じる）</td>
+<td><code>searchContentIndex</code></td>
+<td>word, contentIndexFiles, simpleMatch, limit, shouldStop, caseSensitive, fileFilter, workerCount（並列のスレッド数。0 は自動で最大 4）, cache（<code>newTsvTextCache</code>）, includeShapes, includeComments（図形・コメントの場所も検索するか。<code>newPlaceExclude</code>）, taskBytes, onProgress（<code>{ param($done, $total, $newHits) }</code>。done・total は本文インデックスのファイルの数）, pool（照合のプール <code>newContentIndexWorkerPool</code>。<code>$null</code> なら並列にするときだけ作って最後に閉じる）</td>
 <td><code>@{Hits; SimpleMatch; Total; Truncated; Cancelled}</code></td>
-<td>本文インデックスを検索する（照合は <code>searchPackFiles</code>＝.NET の <code>StreamReader</code>＋<code>[regex]</code>）。Hits は PSCustomObject（Root・RelPath（本文インデックスのファイル）・RelDir・FileName・Book・Location・LineNumber・Line）。Total は本文インデックスのファイルの数。作業（約 16MB）ごとに進捗を知らせ、上限・中止に対応する。作業が 2 つ以上なら複数スレッドで並行して検索する（結果の順は変わらない）。照合が時間切れになれば例外にする</td>
+<td>本文インデックスを検索する（照合は <code>searchContentIndexFiles</code>＝.NET の <code>StreamReader</code>＋<code>[regex]</code>）。Hits は PSCustomObject（Root・RelPath（本文インデックスのファイル）・RelDir・FileName・Book・Location・LineNumber・Line）。Total は本文インデックスのファイルの数。作業（約 16MB）ごとに進捗を知らせ、上限・中止に対応する。作業が 2 つ以上なら複数スレッドで並行して検索する（結果の順は変わらない）。照合が時間切れになれば例外にする</td>
 <td><a href="../../search/">検索</a></td>
 <td>検索・画面</td>
 </tr>
@@ -4353,12 +4353,12 @@
 <td>画面</td>
 </tr>
 <tr>
-<td><code>newPackWorkerPool</code></td>
+<td><code>newContentIndexWorkerPool</code></td>
 <td>workers（既定 <code>getWorkerCount</code>）</td>
 <td><code>WorkerPool</code></td>
-<td>本文インデックスの照合のプールを作る（各スレッドには照合に要る関数と値だけを読み込む。<code>searchPackFiles</code>・<code>testCellPrefixedHit</code>・<code>readPackPlaces</code>・<code>testPackCellPrefixed</code>・<code>convertPackMetaToPlace</code>・<code>decodePackValue</code>・<code>getPackFileKind</code>・<code>testTextExtension</code>・<code>truncateHitLine</code> と、<code>textExtensions</code>・<code>hitLineMaxChars</code>・<code>hitLineBeforeMatchChars</code> などの定数。優先度は Normal）</td>
+<td>本文インデックスの照合のプールを作る（各スレッドには照合に要る関数と値だけを読み込む。<code>searchContentIndexFiles</code>・<code>testCellPrefixedHit</code>・<code>readContentIndexPlaces</code>・<code>testContentIndexCellPrefixed</code>・<code>convertContentIndexMetaToPlace</code>・<code>decodeContentIndexValue</code>・<code>getContentIndexFileKind</code>・<code>testTextExtension</code>・<code>truncateHitLine</code> と、<code>textExtensions</code>・<code>hitLineMaxChars</code>・<code>hitLineBeforeMatchChars</code> などの定数。優先度は Normal）</td>
 <td><a href="../../structure/threads/#寿命">プロセスとスレッド</a></td>
-<td>検索の司令（<code>SearchService</code>）、searchPackIndex</td>
+<td>検索の司令（<code>SearchService</code>）、searchContentIndex</td>
 </tr>
 <tr>
 <td><code>trimTsvTextCache</code></td>
@@ -4472,7 +4472,7 @@
 <td>functions, variables</td>
 <td><code>InitialSessionState</code></td>
 <td>プールの各スレッドに読み込む関数・値だけを入れた状態を作る（lib.ps1 全体を読み込むと、スレッドを用意するだけで時間がかかるため）</td>
-<td>newPackWorkerPool, writeSystemIndexFolders</td>
+<td>newContentIndexWorkerPool, writeSystemIndexFolders</td>
 </tr>
 <tr>
 <td><code>getWorkerCount</code></td>

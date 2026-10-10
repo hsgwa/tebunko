@@ -4026,12 +4026,12 @@
 <p>扱うこと: システムインデックス（<code>system_index.txt</code>）の中身・作り方・状態ファイル。扱わないこと: システムインデックスを使った高速検索そのもの（<a href="../../search/fast-search/">高速検索（Windows Search）</a>）。先に読むページ: <a href="../format/">インデックスのファイルの形</a>。</p>
 <p>高速検索（<a href="../../search/">検索</a>・<a href="../../search/fast-search/">高速検索（Windows Search）</a>）のため、インデックス作成は本文インデックスとは別に、Windows Search に索引させる txt（システムインデックス）を作る（<code>tebunko/index/system_index.ps1</code>。語の決まりは <code>tebunko/search/search_gram.ps1</code>）。</p>
 <pre class="mermaid"><code>flowchart TD
-    A["本文インデックスを書き出したフォルダ"] --&gt; B["getPackContentText&lt;br&gt;本文インデックスの中身（メタ情報の行を除く）を集める&lt;br&gt;（TSV が残っていればそれも入れる）"]
+    A["本文インデックスを書き出したフォルダ"] --&gt; B["getContentIndexBodyText&lt;br&gt;本文インデックスの中身（メタ情報の行を除く）を集める&lt;br&gt;（TSV が残っていればそれも入れる）"]
     B --&gt; C["getSearchGrams 相当&lt;br&gt;本文を小文字にし、隣り合う 2 文字を&lt;br&gt;UTF-16LE 4 バイトの 16 進語（x+8 桁）にする"]
     C --&gt; D["重複を除いて空白区切りで&lt;br&gt;system_index.txt に書く（8MB 超は分割）"]
     D --&gt; E["状態ファイルに「反映待ち」として記録"]
     E --&gt; F["Windows Search が索引する"]
-    F --&gt; G["検索時: getFastSearchPackFiles が&lt;br&gt;候補フォルダを問い合わせる"]</code></pre>
+    F --&gt; G["検索時: getFastSearchContentIndexFiles が&lt;br&gt;候補フォルダを問い合わせる"]</code></pre>
 <div class="highlight"><pre><span></span><code>work/content_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/content_index.&lt;拡張子&gt;.&lt;番号&gt;.tsv              … 本文インデックス
 work/system_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/system_index.txt … システムインデックス
 work/system_index_state.tsv                                         … その状態
@@ -4046,7 +4046,7 @@ work/system_index_state.tsv                                         … その�
 <tbody>
 <tr>
 <td>単位</td>
-<td><code>work/content_index</code> の中のフォルダ 1 つにつき 1 つ。中身は、そのフォルダ直下の本文インデックス（拡張子ごとのものすべて）から作る。本文インデックスのメタ情報の行（ファイル名・シート名など）は除く（<code>getPackContentText</code>。入れると、その語で探したときにどのフォルダも候補になるため）。本文インデックスに入れる前の TSV（直下のブックのフォルダ <code>&lt;ファイル名.xlsx&gt;</code> の中の TSV）が残っていれば、それも入れる。サブフォルダのブックは、サブフォルダの txt に入る</td>
+<td><code>work/content_index</code> の中のフォルダ 1 つにつき 1 つ。中身は、そのフォルダ直下の本文インデックス（拡張子ごとのものすべて）から作る。本文インデックスのメタ情報の行（ファイル名・シート名など）は除く（<code>getContentIndexBodyText</code>。入れると、その語で探したときにどのフォルダも候補になるため）。本文インデックスに入れる前の TSV（直下のブックのフォルダ <code>&lt;ファイル名.xlsx&gt;</code> の中の TSV）が残っていれば、それも入れる。サブフォルダのブックは、サブフォルダの txt に入る</td>
 </tr>
 <tr>
 <td>中身</td>
