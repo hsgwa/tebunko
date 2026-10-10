@@ -4115,7 +4115,7 @@
 <p>扱うこと: クロールで見つけたファイルを取り込み対象にするかどうかの判定（更新の判定・前の抽出版・インデックスが無くなった・壊れている場合・元ファイルが無くなった場合）、画面の確認に出す取り込み予定と件数。扱わないこと: クロール対象フォルダの登録・インデックス名（<a href="../crawl/">クロール対象フォルダと取り込み対象</a>）、強制終了・時間切れからの再開そのもの（<a href="../ingest-list/#強制終了時間切れからの再開">取り込み一覧</a>）。先に読むページ: <a href="../crawl/">クロール対象フォルダと取り込み対象</a>。</p>
 <h2 id="取り込み対象の決定createtargetlist">取り込み対象の決定（<code>createTargetList</code>）<a class="headerlink" href="#取り込み対象の決定createtargetlist" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart TD
-    A["取り込み一覧を読む（readStatusFile）"] --&gt; N["インデックス名の割り当て（assignIndexNames）&lt;br&gt;設定から削除したフォルダのインデックスを削除（removeDroppedFolders）&lt;br&gt;本文インデックスに入れていない TSV を本文インデックスに書き出す"]
+    A["取り込み一覧を読む（readStatusFile）"] --&gt; N["インデックス名の割り当て（assignIndexNames）&lt;br&gt;設定から外れたインデックスを見つける（findDroppedIndexes。削除は確認で［更新を開始］が押された後）&lt;br&gt;本文インデックスに入れていない TSV を本文インデックスに書き出す"]
     N --&gt; C["インデックスにある本文インデックスのファイル・TSV の数を数える（getIndexTsvCounts）"]
     C --&gt; FOLDER{"クロール対象フォルダごと（設定の順）"}
     FOLDER -- "チェックなし・フォルダが見つからない" --&gt; KEEP["取り込まない&lt;br&gt;前回の行をそのまま残す"]
