@@ -3439,10 +3439,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#search-tabregex-error不正な正規表現の注意遷移-24" class="md-nav__link">
+  <a href="#search-tabregex-error不正な正規表現の吹き出し遷移-24" class="md-nav__link">
     <span class="md-ellipsis">
       
-        search-tab/regex-error（不正な正規表現の注意。遷移 24）
+        search-tab/regex-error（不正な正規表現の吹き出し。遷移 24）
       
     </span>
   </a>
@@ -4343,10 +4343,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#search-tabregex-error不正な正規表現の注意遷移-24" class="md-nav__link">
+  <a href="#search-tabregex-error不正な正規表現の吹き出し遷移-24" class="md-nav__link">
     <span class="md-ellipsis">
       
-        search-tab/regex-error（不正な正規表現の注意。遷移 24）
+        search-tab/regex-error（不正な正規表現の吹き出し。遷移 24）
       
     </span>
   </a>
@@ -4439,10 +4439,10 @@
 <p>インデックスの中から語を探し、該当するファイル・場所・行を見つけ、元のファイルを開く。</p>
 <h2 id="部品と並び">部品と並び<a class="headerlink" href="#部品と並び" title="Permanent link">&para;</a></h2>
 <ul>
-<li>左に「検索対象」のツリー（チェックしたインデックス・フォルダだけを検索する。名前の絞り込み・［すべて］［解除］）。</li>
+<li>左に「検索対象」のツリー（チェックしたインデックス・フォルダだけを検索する。［すべて］［解除］）。</li>
 <li>右上に「検索ワード」の欄と［検索］、その下に種類のチップ（Excel・Word・PowerPoint・テキスト）、［ファイル内の対象 ▾］（本文・図形・コメント）、右に「大文字・小文字を区別」「正規表現」と高速検索の状態。</li>
-<li>その下に、注意・「検索対象」の説明・「高速検索」の状態を出す行。</li>
-<li>結果は、［すべて開く］［すべて折りたたむ］、「絞り込み」の欄、場所・種別・該当行の表。</li>
+<li>正規表現が正しくないとき・種類を 1 つも選んでいないときは、その下に出る吹き出し（<a href="../../search-tab/#エラーの吹き出し">エラーの吹き出し</a>）で知らせる。</li>
+<li>結果は、［すべて開く］［すべて折りたたむ］、「結果を絞り込み」の欄、場所・種別・該当行の表。</li>
 <li>表の下に、プレビュー（選んだ行の前後）、［開く］（［▾］で開き方の選択）・［フォルダを開く］、［結果をファイルに出力］。</li>
 </ul>
 <h2 id="状態と遷移">状態と遷移<a class="headerlink" href="#状態と遷移" title="Permanent link">&para;</a></h2>
@@ -4468,7 +4468,7 @@
     results --&gt; missing: ファイルを開く（29）</code></pre>
 <ul>
 <li>最小の大きさ（1024 × 640）でも結果とプレビューが見える（<code>search-tab/min-width</code>）。</li>
-<li>不正な正規表現のときは文字どおり検索にして、［検索］は押せたままになる。
+<li>不正な正規表現のときは、［正規表現］の下に吹き出しを出し、入力欄の枠を赤くして、［検索］を押せなくする（検索バーの高さは変わらない）。
 状態の判定と画面の更新は<a href="../../state-flow/">状態の判定と操作の流れ</a>、メッセージの一覧は<a href="../../messages/">メッセージ一覧</a>にあり、ここには書き写さない。</li>
 </ul>
 <h2 id="表示する文言">表示する文言<a class="headerlink" href="#表示する文言" title="Permanent link">&para;</a></h2>
@@ -4494,11 +4494,11 @@
 </tr>
 <tr>
 <td>上限</td>
-<td>「該当 10,000 件（1 ファイル）」「10,000 件を超えたため、ここで打ち切りました。…」</td>
+<td>「一致 10,000 件（1 ファイル）」「10,000 件を超えたため、ここで打ち切りました。…」</td>
 </tr>
 <tr>
 <td>不正な正規表現</td>
-<td>「正規表現が正しくありません」</td>
+<td>吹き出し「正規表現が正しくありません」</td>
 </tr>
 <tr>
 <td>すべて解除</td>
@@ -4506,7 +4506,7 @@
 </tr>
 <tr>
 <td>折りたたみ・絞り込み</td>
-<td>「該当 2 件（2 ファイル）」「2 件中 1 件を表示」</td>
+<td>「一致 2 件（2 ファイル）」「2 件中 1 件を表示」</td>
 </tr>
 <tr>
 <td>元のファイルが無い</td>
@@ -4529,8 +4529,8 @@
 <p><img alt="結果が 0 件" src="../../../../images/screens/search-tab/no-results.png" /></p>
 <h3 id="search-tablimit件数の上限で打ち切った遷移-23">search-tab/limit（件数の上限で打ち切った。遷移 23）<a class="headerlink" href="#search-tablimit件数の上限で打ち切った遷移-23" title="Permanent link">&para;</a></h3>
 <p><img alt="件数の上限で打ち切った" src="../../../../images/screens/search-tab/limit.png" /></p>
-<h3 id="search-tabregex-error不正な正規表現の注意遷移-24">search-tab/regex-error（不正な正規表現の注意。遷移 24）<a class="headerlink" href="#search-tabregex-error不正な正規表現の注意遷移-24" title="Permanent link">&para;</a></h3>
-<p><img alt="不正な正規表現の注意" src="../../../../images/screens/search-tab/regex-error.png" /></p>
+<h3 id="search-tabregex-error不正な正規表現の吹き出し遷移-24">search-tab/regex-error（不正な正規表現の吹き出し。遷移 24）<a class="headerlink" href="#search-tabregex-error不正な正規表現の吹き出し遷移-24" title="Permanent link">&para;</a></h3>
+<p><img alt="正規表現が正しくないときの吹き出し" src="../../../../images/screens/search-tab/regex-error.png" /></p>
 <h3 id="search-tabtree-none検索対象のツリーですべて解除した注意遷移-25">search-tab/tree-none（検索対象のツリーですべて解除した注意。遷移 25）<a class="headerlink" href="#search-tabtree-none検索対象のツリーですべて解除した注意遷移-25" title="Permanent link">&para;</a></h3>
 <p><img alt="検索対象のツリーですべて解除した注意" src="../../../../images/screens/search-tab/tree-none.png" /></p>
 <h3 id="search-tabcollapsed結果をすべて折りたたんだ遷移-27">search-tab/collapsed（結果をすべて折りたたんだ。遷移 27）<a class="headerlink" href="#search-tabcollapsed結果をすべて折りたたんだ遷移-27" title="Permanent link">&para;</a></h3>
