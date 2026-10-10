@@ -87,6 +87,14 @@ class IndexingSession {
         return 0
     }
 
+    [int] GetCloudSkipped() {
+        # クラウドにだけあるため、ダウンロードせずに残した件数。無ければ 0
+        if ($null -ne $this.Channel.CloudSkipped) {
+            return [int]$this.Channel.CloudSkipped
+        }
+        return 0
+    }
+
     hidden [string]$Failure = ""
     hidden [bool]$Ended = $false
 

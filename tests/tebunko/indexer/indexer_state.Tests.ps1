@@ -248,6 +248,13 @@ Describe "newIndexerChannel / writeIndexingProgress / readIndexingProgress" -Tag
         $channel.OfficePids.Count | Should -Be 0
     }
 
+    It "クラウドにだけあるファイルをダウンロードして取り込むか（IncludeCloud）は既定で取り込まない。残した件数（CloudSkipped）は 0" {
+        $channel = newIndexerChannel
+        $channel.IncludeCloud | Should -Be $false
+        $channel.CloudSkipped | Should -Be 0
+        (newIndexerChannel -includeCloud $true).IncludeCloud | Should -Be $true
+    }
+
     It "選んだインデックス名（OnlyNames）は、空の名前を除いて入れる。無ければ空" {
         (newIndexerChannel).OnlyNames.Count | Should -Be 0
         $channel = newIndexerChannel $false $false -1 @("営業", "", "技術")
@@ -287,6 +294,13 @@ Describe "requestIndexingStop / answerIndexingPlan" -Tag Unit {
         $channel.Answer.RetryFailed | Should -Be $true
         $channel.Stop | Should -Be $false
         $channel.Answered.WaitOne(0) | Should -Be $true
+    }
+
+    It "ダウンロードして取り込む返事（IncludeCloud）もそのまま渡す" {
+        $channel = newIndexerChannel
+        answerIndexingPlan $channel @{ RetryFailed = $false; IncludeCloud = $true }
+        $channel.Answer.IncludeCloud | Should -Be $true
+        $channel.Stop | Should -Be $false
     }
 
     It "取りやめの返事（`$null）は中止にする" {
@@ -502,5 +516,23 @@ Describe "StatusLedger" -Tag Io {
         $ledger.DroppedRows.Contains("営業\消えた.xlsx") | Should -Be $true
         # 相対パスの大文字・小文字は区別しない（取り込み一覧と同じ比べ方）
         $ledger.DroppedRows.Contains("営業\消えた.XLSX") | Should -Be $true
+    }
+}
+
+Describe "newIngestPlanRow（クラウドにだけあるファイル）" -Tag Unit {
+    It "クラウドの件数・失敗の件数・合計サイズを入れる。渡さなければ 0" {
+        $row = newIngestPlanRow "営業" "C:\data" ${planKindIngest} 10 2 1 1 0 0 0 3 1 3000 500
+        $row.クラウド | Should -Be 3
+        $row.クラウド失敗 | Should -Be 1
+        $row.クラウド容量 | Should -Be 3000
+        $row.クラウド失敗容量 | Should -Be 500
+        $empty = newIngestPlanRow "営業" "C:\data"
+        $empty.クラウド | Should -Be 0
+        $empty.クラウド容量 | Should -Be 0
+    }
+
+    It "列は ingestPlanColumns と同じ" {
+        $row = newIngestPlanRow "営業" "C:\data"
+        @($row.PSObject.Properties.Name) | Should -Be @(${ingestPlanColumns})
     }
 }

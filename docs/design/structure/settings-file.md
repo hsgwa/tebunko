@@ -22,6 +22,7 @@
     "includeShapes": true,
     "includeComments": true,
     "openMode": "normal",
+    "cloudFiles": "ask",
     "workspaceFolder": "",
     "ingestThreads": 0
 }
@@ -38,6 +39,7 @@
 | `includeShapes` | true / false | true | ［図形も検索］の状態。オフなら図形の場所（`<元の場所>[図形]`）と埋め込みの場所（`<元の場所>[埋め込みN]`）を検索しない（同上） | `readSearchOption` / `writeSearchOption` |
 | `includeComments` | true / false | true | ［コメントも検索］の状態。オフならコメントの場所（`<元の場所>[コメント]`）を検索しない（同上） | `readSearchOption` / `writeSearchOption` |
 | `openMode` | `normal` / `readOnly` / `new` | `normal` | ［開き方］の状態。検索結果の元のファイルを、通常（編集する）・読み取り専用・新規（元のファイルを基にした無題の文書。占有しない）のどれで開くか（[元のファイルを開く](../gui/open-file.md)）。知らない値は `normal` とする | `readOpenMode` / `writeOpenMode` |
+| `cloudFiles` | `ask` / `download` | `ask` | クラウドにだけあるファイル（OneDrive・SharePoint のオンデマンド）の扱い。`ask` はダウンロードせずに残し、確認のダイアログで取り込むかを選ばせる。`download` は確認を出さずにダウンロードして取り込む（ダイアログの「次からこの確認を出さずにダウンロードする」で保存する）。ヘッドレスのインデクサは `download` のときだけダウンロードして取り込む。知らない値は `ask` とする（[取り込み対象の決定](../indexing/target-decision.md#クラウドにだけあるファイル)） | `readCloudFiles` / `writeCloudFiles` |
 | `workspaceFolder` | 文字列 | 空 | ワークスペース（インデックス・取り込み一覧・ログを置くフォルダ）。空なら既定の `%USERPROFILE%\Documents\tebunko_ws`（[データの置き場所とパスの決め方](data.md)）。既定の場所を選んだときも空で保存する。手で書いた相対パスは設定ファイルのフォルダから、`%変数%` は展開して読む | `getWorkDir` / `writeWorkspaceFolder` |
 | `ingestThreads` | 数値 | 0 | インデックス作成で、Office を使わずに読むファイル（`.docx`・`.pptx` など）を並べて取り込む読み取りのスレッドの数（1〜4。4 より大きい値は 4 にする）。0 はコア数 − 1（1〜4）にする。取り込むファイルの数より多くはしない。Excel・Word・PowerPoint のファイルは、この値にかかわらず種類ごとにスレッド 1 つ・Office 1 つで取り込む。画面には出さない（手で書き換える）（[取り込みの並列化](../indexing/parallel.md)） | `readSettings`（インデクサの `getIngestWorkerCount`） |
 
@@ -86,7 +88,7 @@ flowchart TD
 
 前の版が作った `setting.config` を、新しい版がそのまま読めることを、見本（golden）で確かめる（テストは `tests/tebunko/core/settings_compat`。[単体テスト（インデックスと検索）](../testing/unit-index.md) にも一覧がある）。見本は `tests/testdata/compat/settings/<見本の名前>/`（`setting.config`・`expected.json`。作り方は [tests/testdata/README.md](../../../tests/testdata/README.md) の「前の版のファイル（`compat\`）」）に置く。
 
-**固定するもの**: 上の「形式」の表にあるキーの名前・型・既定値と、`getTargetFolders`・`readIndexSources`・`readSearchExcludes`・`readSearchOption`・`readOpenMode`・`getWorkDir` が返す値の形（`expected.json` の `functions`）。**固定しないもの**: JSON のキーの並び順・空白、画面に出さない内部の実装。
+**固定するもの**: 上の「形式」の表にあるキーの名前・型・既定値と、`getTargetFolders`・`readIndexSources`・`readSearchExcludes`・`readSearchOption`・`readOpenMode`・`readCloudFiles`・`getWorkDir` が返す値の形（`expected.json` の `functions`）。**固定しないもの**: JSON のキーの並び順・空白、画面に出さない内部の実装。
 
 キーや一覧項目（`targetFolders` など）を足す、上の表の読み方を変える、JSON 以外の形式にするなど、`setting.config` の読み方を変える PR は、新しい見本を 1 つ足す（上書きではなく追加。古い見本も読めることを確かめ続けるため）。
 

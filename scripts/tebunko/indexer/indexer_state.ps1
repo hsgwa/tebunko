@@ -250,25 +250,27 @@ function removeIngestingFile {
 
 function newIndexerChannel {
     # 受け渡しの口を作る。画面とインデクサのスレッドの両方から読み書きするため Synchronized にする。
-    #   画面が書く      : RetryFailed・ConfirmTargets・Workers（取り込みのスレッドの数。0 は司令のスレッドで取り込む、-1 は設定・コア数から決める）・Stop・Answer・
+    #   画面が書く      : RetryFailed・IncludeCloud（クラウドにだけあるファイルもダウンロードして取り込むか）・ConfirmTargets・Workers（取り込みのスレッドの数。0 は司令のスレッドで取り込む、-1 は設定・コア数から決める）・Stop・Answer・
     #                     OnlyNames（更新するインデックス名の配列。空なら、チェックの付いたものすべて）
     #   インデクサが書く: Progress（readIndexingProgress の形）・Plan（取り込み予定）・Error・ExitCode（0 完了 / 1 エラー / 2 中止）・
     #                     Notice（終わりの一言。無ければ空）・Postponed（利用者のPowerPointが起動していて後回しにした件数）・
+    #                     CloudSkipped（クラウドにだけあるため、ダウンロードせずに残した件数）・
     #                     OnlySkipped（OnlyNames のうち、更新できなかった名前の @{ Name; Reason } の配列）
     #   OfficePids: インデックス作成が起動した Office の PID → プロセス名（閉じるときに止まらなければ、この PID だけを止める）
     param (
         [bool]$retryFailed = $false,
         [bool]$confirmTargets = $false,
         [int]$workers = -1,
-        [string[]]$onlyNames = @()
+        [string[]]$onlyNames = @(),
+        [bool]$includeCloud = $false
     )
 
     return [hashtable]::Synchronized(@{
-        RetryFailed = $retryFailed; ConfirmTargets = $confirmTargets; Workers = $workers
+        RetryFailed = $retryFailed; IncludeCloud = $includeCloud; ConfirmTargets = $confirmTargets; Workers = $workers
         OnlyNames = @($onlyNames | Where-Object { $_ }); OnlySkipped = @()
         Progress = $null; Stop = $false
         Plan = $null; Answer = $null; Answered = New-Object System.Threading.ManualResetEvent($false)
-        Error = ""; ExitCode = $null; Notice = ""; Postponed = 0
+        Error = ""; ExitCode = $null; Notice = ""; Postponed = 0; CloudSkipped = 0
         OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'
     })
 }
@@ -315,7 +317,7 @@ function requestIndexingStop {
 }
 
 function answerIndexingPlan {
-    # 確認の返事を返す。取り込む → @{ RetryFailed } ／ 取りやめ → $null
+    # 確認の返事を返す。取り込む → @{ RetryFailed; IncludeCloud } ／ 取りやめ → $null
     param (
         $channel,
         $answer
@@ -406,7 +408,11 @@ function newIngestPlanRow {
         [int]$updated = 0,
         [int]$pending = 0,
         [int]$lost = 0,     # インデックス（TSV）が無くなった・壊れているため取り込み直す
-        [int]$failed = 0    # 前回失敗し、その後更新されていない（再取り込みするかは画面で選ぶ）
+        [int]$failed = 0,   # 前回失敗し、その後更新されていない（再取り込みするかは画面で選ぶ）
+        [int]$cloud = 0,        # クラウドにだけあるため、取り込み対象に数えていないファイル（新規・更新あり・前回未完了など）
+        [int]$cloudFailed = 0,  # クラウドにだけあり、前回失敗したファイル
+        [long]$cloudBytes = 0,  # クラウドにだけあり、取り込み対象のファイルの合計サイズ（バイト）
+        [long]$cloudFailedBytes = 0  # クラウドにだけあり、前回失敗したファイルの合計サイズ（バイト）
     )
 
     return [pscustomobject]@{
@@ -420,6 +426,10 @@ function newIngestPlanRow {
         前回未完了     = $pending
         インデックスなし   = $lost
         前回失敗       = $failed
+        クラウド       = $cloud
+        クラウド失敗   = $cloudFailed
+        クラウド容量   = $cloudBytes
+        クラウド失敗容量 = $cloudFailedBytes
     }
 }
 

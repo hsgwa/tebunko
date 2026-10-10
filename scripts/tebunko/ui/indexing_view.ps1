@@ -43,7 +43,8 @@ function newPlanViewRows {
                     @("更新あり", $item.更新あり),
                     @("前回未完了", $item.前回未完了),
                     @("インデックスが無い・壊れている", $item.インデックスなし),
-                    @("前回失敗", $item.前回失敗))) {
+                    @("前回失敗", $item.前回失敗),
+                    @("クラウドにだけある", ($item.クラウド + $item.クラウド失敗)))) {
                 if ($pair[1] -gt 0) {
                     $parts.Add("$($pair[0]) $('{0:#,0}' -f $pair[1]) 件")
                 }
@@ -110,9 +111,11 @@ function getIndexingEndText {
         [int]$success,
         [int]$failed,
         [int]$postponed,
-        [string]$notice = ""
+        [string]$notice = "",
+        [int]$cloudSkipped = 0  # クラウドにだけあるため、ダウンロードせずに残した件数
     )
 
+    $cloudText = if ($cloudSkipped -gt 0) { "クラウドにだけあるファイル {0:#,0} 件は、ダウンロードせずに残しました（次のインデックス作成でも確かめます）。" -f $cloudSkipped } else { "" }
     $processed = $success + $failed
     if ($processed -gt 0) {
         $counts = "成功 ${success} 件 / 失敗 ${failed} 件"
@@ -126,10 +129,16 @@ function getIndexingEndText {
         if ($notice) {
             $parts.Add($notice)
         }
+        if ($cloudText) {
+            $parts.Add($cloudText)
+        }
         return @{ Text = "更新が終わりました（${counts}）"; Detail = ($parts -join " ") }
     }
     if ($postponed -gt 0) {
-        return @{ Text = "更新が終わりました（更新せずに残したファイル ${postponed} 件）"; Detail = $notice }
+        return @{ Text = "更新が終わりました（更新せずに残したファイル ${postponed} 件）"; Detail = (@($notice, $cloudText) | Where-Object { $_ }) -join " " }
+    }
+    if ($cloudSkipped -gt 0) {
+        return @{ Text = $cloudText; Detail = "" }
     }
     return @{ Text = "更新が必要なファイルはありませんでした"; Detail = "" }
 }
@@ -180,7 +189,8 @@ function getIndexingConfirmFolderCount {
     # 確認の合計に出す「更新するフォルダの数」。取り込む対象（失敗分を含めるなら前回失敗も）が 1 件以上あるフォルダだけを数える
     param (
         [object[]]$plan,    # readIngestPlan の結果
-        [bool]$retryFailed  # 失敗分も更新し直すか
+        [bool]$retryFailed, # 失敗分も更新し直すか
+        [bool]$includeCloud = $false  # クラウドにだけあるファイルもダウンロードして取り込むか
     )
 
     $folders = 0
@@ -188,6 +198,10 @@ function getIndexingConfirmFolderCount {
         if ($null -eq $item -or $item.区分 -ne ${planKindIngest}) { continue }
         $count = [int]$item.取り込み対象
         if ($retryFailed) { $count += [int]$item.前回失敗 }
+        if ($includeCloud) {
+            $count += [int]$item.クラウド
+            if ($retryFailed) { $count += [int]$item.クラウド失敗 }
+        }
         if ($count -gt 0) { $folders++ }
     }
     return $folders
@@ -208,10 +222,11 @@ function isIndexingConfirmNothing {
     param (
         [int]$targets,  # 更新対象のファイル数
         [int]$failed,   # 前回失敗したファイル数
-        [int]$dropped   # 削除予定のインデックスの数（getIndexingDroppedCount）
+        [int]$dropped,  # 削除予定のインデックスの数（getIndexingDroppedCount）
+        [int]$cloud = 0 # クラウドにだけあるファイル数（1 件でもあれば、ダウンロードして取り込むかを選べるよう、閉じるだけにしない）
     )
 
-    return ($targets -eq 0 -and $failed -eq 0 -and $dropped -eq 0)
+    return ($targets -eq 0 -and $failed -eq 0 -and $dropped -eq 0 -and $cloud -eq 0)
 }
 
 function getIndexingConfirmIntro {
@@ -234,19 +249,131 @@ function getIndexingConfirmText {
         [int]$failed,       # 前回失敗したファイル数
         [bool]$retryFailed, # 失敗分も更新し直すか
         [int]$folders = 0,  # 更新するフォルダの数（失敗分を含めるかは呼び出し側で数える）
-        [int]$dropped = 0   # 削除予定のインデックスの数（getIndexingDroppedCount）
+        [int]$dropped = 0,  # 削除予定のインデックスの数（getIndexingDroppedCount）
+        [int]$cloud = 0,    # クラウドにだけあるファイル数（getIndexingCloudView。取り込み対象には数えていない）
+        [bool]$includeCloud = $false  # クラウドにだけあるファイルもダウンロードして取り込むか
     )
 
     $total = $targets
     if ($retryFailed) {
         $total += $failed
     }
+    if ($includeCloud) {
+        $total += $cloud
+    }
     $droppedText = if ($dropped -gt 0) { "設定に無いインデックス {0:#,0} 件を削除します。" -f $dropped } else { "" }
+    $cloudText = if ($cloud -gt 0 -and -not $includeCloud) { "クラウドにだけあるファイル {0:#,0} 件は、ダウンロードせずに残します。" -f $cloud } else { "" }
+    $tail = (@($droppedText, $cloudText) | Where-Object { $_ }) -join " "
     if ($total -gt 0) {
-        return @{ Total = $total; Text = ("更新対象: {0:#,0} フォルダ / {1:#,0} ファイル（最新のフォルダは更新しません）" -f $folders, $total) + $(if ($dropped -gt 0) { " " + $droppedText } else { "" }); Button = "更新を開始" }
+        return @{ Total = $total; Text = ("更新対象: {0:#,0} フォルダ / {1:#,0} ファイル（最新のフォルダは更新しません）" -f $folders, $total) + $(if ($tail) { " " + $tail } else { "" }); Button = "更新を開始" }
     }
     if ($dropped -gt 0) {
-        return @{ Total = 0; Text = "更新が必要なファイルはありません。" + $droppedText; Button = "更新を開始" }
+        return @{ Total = 0; Text = "更新が必要なファイルはありません。" + $tail; Button = "更新を開始" }
+    }
+    if ($cloud -gt 0) {
+        return @{ Total = 0; Text = "更新が必要なファイルはありません。" + $cloudText; Button = "閉じる" }
     }
     return @{ Total = 0; Text = "更新が必要なファイルはありません（すべて最新です）。"; Button = "閉じる" }
+}
+
+# ---- クラウドにだけあるファイル（OneDrive・SharePoint のオンデマンド） ----
+
+function formatCloudSize {
+    # 合計サイズの書き方。KB・MB・GB のどれかで、小数点以下 1 桁（"約 12.3 MB"）。1 KB に満たなければ "1 KB 未満"
+    param (
+        [long]$bytes
+    )
+
+    $culture = [System.Globalization.CultureInfo]::InvariantCulture
+    if ($bytes -lt 1KB) { return "1 KB 未満" }
+    if ($bytes -lt 1MB) { return "約 " + ($bytes / 1KB).ToString("0.0", $culture) + " KB" }
+    if ($bytes -lt 1GB) { return "約 " + ($bytes / 1MB).ToString("0.0", $culture) + " MB" }
+    return "約 " + ($bytes / 1GB).ToString("0.0", $culture) + " GB"
+}
+
+function getIndexingCloudView {
+    # 確認に出す、クラウドにだけあるファイルの件数と合計サイズ（@{ Count; Bytes }）。
+    # 前回失敗したファイルは、「失敗分も更新し直す」を選んだときだけ数える（選ばなければ、クラウドに関係なく取り込まないため）
+    param (
+        [object[]]$plan,    # readIngestPlan の結果
+        [bool]$retryFailed,
+        [string[]]$onlyNames = @()
+    )
+
+    $count = 0
+    [long]$bytes = 0
+    foreach ($item in @($plan)) {
+        if ($null -eq $item -or $item.区分 -ne ${planKindIngest}) { continue }
+        if (@($onlyNames).Count -gt 0 -and @($onlyNames) -notcontains [string]$item.インデックス名) { continue }
+        $count += [int]$item.クラウド
+        $bytes += [long]$item.クラウド容量
+        if ($retryFailed) {
+            $count += [int]$item.クラウド失敗
+            $bytes += [long]$item.クラウド失敗容量
+        }
+    }
+    return @{ Count = $count; Bytes = $bytes }
+}
+
+function getIndexingCloudWarning {
+    # 確認に出す、クラウドにだけあるファイルの注意書き
+    param (
+        [int]$count,
+        [long]$bytes
+    )
+
+    return ("クラウドにだけあるファイル {0:#,0} 件（合計 {1}）は、既定ではダウンロードせずに残します。" -f $count, (formatCloudSize $bytes))
+}
+
+function getIndexingCloudCheckText {
+    param (
+        [int]$count
+    )
+
+    return ("クラウドにだけあるファイル {0:#,0} 件もダウンロードして取り込む" -f $count)
+}
+
+${indexingCloudRememberText} = "次からこの確認を出さずにダウンロードする"
+
+function getIndexingCloudConfirmView {
+    # ダウンロードして取り込む前の、2 度目の確認の文言（showConfirm に渡す）
+    param (
+        [int]$count,
+        [long]$bytes,
+        [int]$timeoutMinutes = 10
+    )
+
+    return @{
+        Heading = ("{0:#,0} 件（合計 {1}）をダウンロードして取り込みますか？" -f $count, (formatCloudSize $bytes))
+        Facts = @(
+            "ダウンロードの間、ネットワークの帯域とこの PC のディスクの空きを使います。"
+            "ダウンロードしたファイルは、OneDrive の［空き容量を増やす］を行うまで、この PC に残ります。"
+            "ダウンロードも含めて 1 ファイルが ${timeoutMinutes} 分以内に終わらなければ、そのファイルは失敗になります。"
+        )
+        Choices = @(@{ Text = "ダウンロードして取り込む"; Value = "download" })
+        CancelText = "キャンセル"
+    }
+}
+
+function testIndexingCloudNeedsConfirm {
+    # ダウンロードして取り込むときに、2 度目の確認を出すか。設定がすでに download（確認を出さない）なら出さない
+    param (
+        [bool]$cloudChecked,
+        [string]$savedMode
+    )
+
+    return ($cloudChecked -and $savedMode -ne ${cloudFilesDownload})
+}
+
+function getIndexingCloudSavedMode {
+    # 開始するときに設定へ保存する値。両方のチェックが付いていれば download、それ以外は ask
+    param (
+        [bool]$cloudChecked,
+        [bool]$rememberChecked
+    )
+
+    if ($cloudChecked -and $rememberChecked) {
+        return ${cloudFilesDownload}
+    }
+    return ${cloudFilesAsk}
 }

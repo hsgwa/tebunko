@@ -812,3 +812,27 @@ Describe "saveAssignedIndexNames の返す一覧" -Tag Io {
         $saved[0].Name | Should -Be "営業"
     }
 }
+
+Describe "クラウドにだけあるファイルの扱い（cloudFiles）" -Tag Io {
+    It "既定は ask。保存した download を読み込める（他の設定は変わらない）" {
+        $path = "$TestDrive\クラウド\setting.config"
+        (newSettings).cloudFiles | Should -Be "ask"
+        readCloudFiles $path | Should -Be ${cloudFilesAsk}   # ファイルが無い
+        updateSettings "useRegex" $true $path
+        writeCloudFiles ${cloudFilesDownload} $path
+        readCloudFiles $path | Should -Be ${cloudFilesDownload}
+        (readSettings $path).useRegex | Should -Be $true
+        writeCloudFiles ${cloudFilesAsk} $path
+        readCloudFiles $path | Should -Be ${cloudFilesAsk}
+    }
+
+    It "知らない値・空は ask として読む" -TestCases @(
+        @{ value = "知らない値" }
+        @{ value = "" }
+    ) {
+        param ($value)
+        $path = "$TestDrive\クラウド2\setting.config"
+        updateSettings "cloudFiles" $value $path
+        readCloudFiles $path | Should -Be ${cloudFilesAsk}
+    }
+}
