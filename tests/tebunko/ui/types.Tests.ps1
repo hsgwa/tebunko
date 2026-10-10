@@ -235,6 +235,12 @@ Describe "HitRow.Create" -Tag Unit {
         (newHitRow -location "[シート]4月").IsObjectPlace | Should -Be $false
     }
 
+    It "埋め込みの場所（番号つき）は図形の場所の一種で、番号なしはふつうの場所" {
+        (newHitRow -book "議事録.docx" -location "ページ001[埋め込み1]").IsObjectPlace | Should -Be $true
+        (newHitRow -book "議事録.docx" -location "ページ001[埋め込み12]").IsObjectPlace | Should -Be $true
+        (newHitRow -book "議事録.docx" -location "ページ001[埋め込み]").IsObjectPlace | Should -Be $false
+    }
+
     It "Excel のヘッダー・フッターの場所は、図形の場所の一種で、行にセル番地が無い場所として決める" {
         $row = newHitRow -location "[シート]4月[ヘッダー・フッター]"
         $row.IsObjectPlace | Should -Be $true

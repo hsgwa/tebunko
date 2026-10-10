@@ -195,7 +195,7 @@ function toIndexFileName {
     # インデックスのTSVのファイル名 "<場所>.tsv" を返す。
     #   ・決まった場所（ページ・スライド・ヘッダー/フッター・脚注・文書・本文）は ASCII の固定名にする
     #   ・それ以外（Excelのシート名）は encodeIndexPlace で符号化する
-    #   ・図形・コメント・ヘッダー・フッターは、末尾に英語の種類 "[shape]" "[comment]" "[header_footer]" を付ける（placeKindFileNames）
+    #   ・図形・コメント・ヘッダー・フッター・埋め込みは、末尾に英語の種類 "[shape]" "[comment]" "[header_footer]" "[embed<N>]" を付ける（placeKindFileNames）
     # 元のファイル名はフォルダ名（= 元のファイル名そのもの）にするため、ファイル名には入れない。
     # ファイル名の上限（255文字）は長いパスの対応（toLongPath）でも超えられないため、超える場合は分かるメッセージで例外にする
     param (
@@ -205,7 +205,7 @@ function toIndexFileName {
     $split = splitObjectPlace $place
     $fixedName = convertPlaceBaseToFixedFileName $split.Base
     $base = if ($fixedName) { $fixedName } else { encodeIndexPlace $split.Base }
-    $suffix = if ($split.Kind) { "[$(${placeKindFileNames}[$split.Kind])]" } else { "" }
+    $suffix = if ($split.Kind) { "[$(${placeKindFileNames}[$split.Kind])$(if ($split.Number -gt 0) { $split.Number })]" } else { "" }
     $name = "{0}{1}.tsv" -f $base, $suffix
     if ($name.Length -gt ${maxFileNameLength}) {
         throw "インデックスのファイル名が長すぎるため保存できません（$($name.Length) 文字。上限 ${maxFileNameLength} 文字）: ${name}"
@@ -215,9 +215,9 @@ function toIndexFileName {
 
 function convertIndexFileNameToPlace {
     # toIndexFileName の逆変換。ファイル名（拡張子 .tsv を除いたもの）から場所を復元する。
-    #   戻す順番: (1) 末尾の "[shape]"・"[comment]"・"[header_footer]"（placeKindFileNames の値）を外す →
+    #   戻す順番: (1) 末尾の "[shape]"・"[comment]"・"[header_footer]"・"[embed<N>]"（placeKindFileNames の値）を外す →
     #             (2) 残りに "_" があれば固定の場所の表で戻し、無ければ decodeIndexPlace で戻す →
-    #             (3) (1) で外した種類を日本語（[図形]・[コメント]・[ヘッダー・フッター]）で付け直す
+    #             (3) (1) で外した種類を日本語（[図形]・[コメント]・[ヘッダー・フッター]・[埋め込み<N>]）で付け直す
     param (
         [string]$fileNameWithoutExtension
     )
@@ -225,9 +225,16 @@ function convertIndexFileNameToPlace {
     $kind = ""
     $body = $fileNameWithoutExtension
     $fileKindAlternation = (${placeKindFileNames}.Values | ForEach-Object { [regex]::Escape($_) }) -join "|"
-    if ($fileNameWithoutExtension -match "^(?<base>.+)\[(?<kind>$fileKindAlternation)\]`$") {
-        $body = $Matches.base
-        $kind = (${placeKindFileNames}.GetEnumerator() | Where-Object { $_.Value -eq $Matches.kind } | Select-Object -First 1).Key
+    if ($fileNameWithoutExtension -match "^(?<base>.+)\[(?<kind>$fileKindAlternation)(?<number>[1-9][0-9]{0,8})?\]`$") {
+        $kindName = $Matches.kind
+        $kind = (${placeKindFileNames}.GetEnumerator() | Where-Object { $_.Value -eq $kindName } | Select-Object -First 1).Key
+        # 番号は埋め込みにだけ付く（ほかの種類に付いた名前は、この関数が作らない形のため戻さない）
+        if (($kind -eq ${placeKindEmbed}) -eq [bool]$Matches.number) {
+            $body = $Matches.base
+            if ($Matches.number) { $kind = "${kind}$($Matches.number)" }
+        } else {
+            $kind = ""
+        }
     }
 
     if ($body.IndexOf("_") -ge 0) {
@@ -250,26 +257,34 @@ function convertIndexFileNameToPlace {
 ${placeKindShape}   = "図形"      # 図形・テキストボックス・WordArt・SmartArt・グラフ（PowerPoint のテキストボックス・図形はスライドの本文）
 ${placeKindComment} = "コメント"  # コメント（メモ・スレッド形式のコメント）
 ${placeKindHeaderFooter} = "ヘッダー・フッター"  # Excel のヘッダー・フッター（Word・PowerPoint の "ヘッダー・フッター" は場所の名前で、種類ではない）。いつも検索する（除外の選択肢は無い）
+${placeKindEmbed}   = "埋め込み"  # Word・PowerPoint に埋め込んだ Office のファイル（.xlsx・.docx・.pptx など）の中の文字。場所は "<元の場所>[埋め込み<N>]"（N は 1 ファイルの中の通し番号。ほかの種類と違い、番号が付く）。図形と一緒に検索の有無を切り替える
 
-# 種類ごとの、TSVのファイル名に付ける英語の名前（toIndexFileName・convertIndexFileNameToPlace で使う）
-${placeKindFileNames} = @{ ${placeKindShape} = "shape"; ${placeKindComment} = "comment"; ${placeKindHeaderFooter} = "header_footer" }
+# 種類ごとの、TSVのファイル名に付ける英語の名前（toIndexFileName・convertIndexFileNameToPlace で使う）。
+# 番号の付く種類（埋め込み）のファイル名は "[embed<N>]"
+${placeKindFileNames} = @{ ${placeKindShape} = "shape"; ${placeKindComment} = "comment"; ${placeKindHeaderFooter} = "header_footer"; ${placeKindEmbed} = "embed" }
 
-# ${objectPlacePattern} の種類の選択肢は ${placeKindFileNames} のキーから組み立てる（足し忘れを防ぐ）
-${objectPlaceKindAlternation} = (${placeKindFileNames}.Keys | ForEach-Object { [regex]::Escape($_) }) -join "|"
-${objectPlacePattern} = "^(?<base>.*)\[(?<kind>${objectPlaceKindAlternation})\]$"
+# ${objectPlacePattern} の種類の選択肢は ${placeKindFileNames} のキーから組み立てる（足し忘れを防ぐ）。
+# 番号の付く種類（埋め込み）は選択肢に入れず、番号（先頭が 0 でない数字）を付けた形だけを別に当てる
+# （"[埋め込み]"・"[埋め込み01]" はふつうの場所とする）
+${objectPlaceKindAlternation} = (${placeKindFileNames}.Keys | Where-Object { $_ -ne ${placeKindEmbed} } | ForEach-Object { [regex]::Escape($_) }) -join "|"
+${objectPlacePattern} = "^(?<base>.*)\[(?:(?<kind>${objectPlaceKindAlternation})|(?<numberedKind>$([regex]::Escape(${placeKindEmbed})))(?<number>[1-9][0-9]{0,8}))\]$"
 
 
 function splitObjectPlace {
-    # 場所を @{ Base（元の場所）; Kind（種類。ふつうの場所は空） } に分ける。
-    #   例: "売上[図形]" → @{ Base = "売上"; Kind = "図形" } / "ページ001" → @{ Base = "ページ001"; Kind = "" }
+    # 場所を @{ Base（元の場所）; Kind（種類。ふつうの場所は空）; Number（埋め込みの番号。ほかは 0） } に分ける。
+    #   例: "売上[図形]" → @{ Base = "売上"; Kind = "図形"; Number = 0 } / "ページ001" → @{ Base = "ページ001"; Kind = ""; Number = 0 }
+    #       "ページ003[埋め込み2]" → @{ Base = "ページ003"; Kind = "埋め込み"; Number = 2 }
     param (
         [string]$place
     )
 
     if ($place -match ${objectPlacePattern}) {
-        return @{ Base = $Matches.base; Kind = $Matches.kind }
+        if ($Matches.numberedKind) {
+            return @{ Base = $Matches.base; Kind = $Matches.numberedKind; Number = [int]$Matches.number }
+        }
+        return @{ Base = $Matches.base; Kind = $Matches.kind; Number = 0 }
     }
-    return @{ Base = $place; Kind = "" }
+    return @{ Base = $place; Kind = ""; Number = 0 }
 }
 
 
@@ -281,7 +296,8 @@ function describePlace {
     #   Word       : "ページ003" → 3 ページ（目安）・本文（ページは保存時の区切りから数えた目安のため）/ "脚注" → 脚注・本文
     #   PowerPoint : "スライド002（非表示）" → スライド 2（非表示）・本文 / "スライド002_ノート" → スライド 2・ノート
     #   テキスト   : "本文" → 空・本文（場所は 1 つだけのため、表の「場所」の列は describeHitPlace の "N 行目" だけで足りる）
-    # 種別は、図形・コメントなら場所の種類の名前そのまま（検索条件の［図形も検索］［コメントも検索］と同じ言葉）
+    # 種別は、図形・コメントなら場所の種類の名前そのまま（検索条件の［図形も検索］［コメントも検索］と同じ言葉）。
+    # 埋め込みは番号を付けた "埋め込み 1"（場所は元の場所のページ・スライドの表記のまま）
     param (
         [string]$book,
         [string]$place
@@ -294,6 +310,7 @@ function describePlace {
     $split = splitObjectPlace $place
     $base = $split.Base
     $kind = $split.Kind
+    if ($split.Number -gt 0) { $kind = "$kind $($split.Number)" }
 
     if ($book -match '\.xls[a-z]?$') {
         return @{ Place = "[シート]$base"; Kind = $(if ($kind) { $kind } else { "セル" }) }

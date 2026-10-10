@@ -20,7 +20,7 @@
 | フォルダ | 置くもの |
 |---|---|
 | `scripts/shared/core/` | パス定義（`paths.ps1`）・ファイルの読み書き（`fs.ps1`）・データの置き場所（`data_dir.ps1`）・TSV とセルの文字列（`text.ps1`）・フォルダのパスと一覧（`folder.ps1`）・スレッドのプール（`worker_pool.ps1`。`WorkerPool`・`BackgroundQueue`）・配布物の版の記録（`version.ps1`。`VERSION.txt` の読み取り） |
-| `scripts/shared/office/` | Office ファイルの判定（`office_files.ps1`）・プロセスの一覧と強制終了（`office_process.ps1`）・Office ファイルを ZIP として読む処理（`office_reader.ps1`）・Office アプリ（COM）の起動と終了（`office_app.ps1`）・暗号化されたファイルの種類の判定（判断層 `office_protection_view.ps1`）とその読み取り（`office_protection.ps1`） |
+| `scripts/shared/office/` | Office ファイルの判定（`office_files.ps1`）・プロセスの一覧と強制終了（`office_process.ps1`）・Office ファイルを ZIP として読む処理（`office_reader.ps1`）とその中の埋め込みファイルを読む処理（`office_embedded.ps1`）・Office アプリ（COM）の起動と終了（`office_app.ps1`）・暗号化されたファイルの種類の判定（判断層 `office_protection_view.ps1`）とその読み取り（`office_protection.ps1`） |
 | `scripts/shared/ui/` | 画面の土台と共通部品（`types.ps1`・`app_host.ps1`・`shell.ps1`・`folder_dialog.ps1`） |
 | `scripts/tebunko/core/` | tebunko のパス定義（`paths.ps1`）・設定ファイル（`settings.ps1`）・ワークスペース（`workspace.ps1`） |
 | `scripts/tebunko/index/` | インデックス名と TSV の名前の決め方（`index_name.ps1`）・インデックスの作成と集計（`index_store.ps1`）・検索用の本文インデックスの形式（`pack_format.ps1`）と読み書き（`pack_store.ps1`）・高速検索用の システムインデックスと状態（`system_index.ps1`） |
@@ -45,7 +45,7 @@ flowchart TD
     GUI["tebunko/gui.ps1<br>（画面の起動口）"] --> LIB
     IDX["tebunko/indexer.ps1<br>（インデックス作成の起動口）"]
     GUI --> UI["shared/ui/*・tebunko/ui/*"]
-    IDX --> IXL["tebunko/indexer/indexer_lib.ps1"] --> IXO["shared/office/office_reader.ps1・office_app.ps1<br>tebunko/indexer/indexer_plan.ps1・extract_office.ps1・index_migrate.ps1・indexer_run.ps1"]
+    IDX --> IXL["tebunko/indexer/indexer_lib.ps1"] --> IXO["shared/office/office_reader.ps1・office_embedded.ps1・office_app.ps1<br>tebunko/indexer/indexer_plan.ps1・extract_office.ps1・index_migrate.ps1・indexer_run.ps1"]
     IXL --> LIB
     LIB["tebunko/lib.ps1"] --> SH["shared/shared.ps1"]
     LIB --> TG["tebunko の core/・index/・search/<br>indexer/indexer_state.ps1・indexer_decide.ps1・indexing_session.ps1"]
@@ -58,9 +58,9 @@ flowchart TD
 |---|---|---|
 | `scripts/shared/shared.ps1` | 共通基盤（`core/` のすべてと、`office/` のうち `office_files.ps1`・`office_process.ps1`・`office_protection_view.ps1`・`office_protection.ps1`） | `tebunko/lib.ps1` |
 | `scripts/tebunko/lib.ps1` | 上記＋ tebunko の `core/`・`index/`・`search/` と、`indexer/` のうち `indexer_state.ps1`・`indexer_decide.ps1`・`indexing_session.ps1` | 画面・インデクサ・テスト・画面が起こす別スレッド |
-| `scripts/tebunko/indexer/indexer_lib.ps1` | `lib.ps1` ＋ インデックス作成だけで使う `office_reader.ps1`・`office_app.ps1`・`indexer_plan.ps1`・`extract_office.ps1`・`index_migrate.ps1`・`indexer_run.ps1` | `indexer.ps1`・取り込みのスレッド（画面は読み込まない） |
+| `scripts/tebunko/indexer/indexer_lib.ps1` | `lib.ps1` ＋ インデックス作成だけで使う `office_reader.ps1`・`office_embedded.ps1`・`office_app.ps1`・`indexer_plan.ps1`・`extract_office.ps1`・`index_migrate.ps1`・`indexer_run.ps1` | `indexer.ps1`・取り込みのスレッド（画面は読み込まない） |
 
-画面の部品（`shared/ui/`・`tebunko/ui/`）は `gui.ps1` が、インデックス作成だけで使うもの（`office_reader.ps1`・`office_app.ps1`・`indexer_plan.ps1`・`extract_office.ps1`・`index_migrate.ps1`・`indexer_run.ps1`）は `indexer/indexer_lib.ps1` が読み込む。`indexer_lib.ps1` は `indexer.ps1` と取り込みのスレッドが読み込む（画面は読み込まない）。
+画面の部品（`shared/ui/`・`tebunko/ui/`）は `gui.ps1` が、インデックス作成だけで使うもの（`office_reader.ps1`・`office_embedded.ps1`・`office_app.ps1`・`indexer_plan.ps1`・`extract_office.ps1`・`index_migrate.ps1`・`indexer_run.ps1`）は `indexer/indexer_lib.ps1` が読み込む。`indexer_lib.ps1` は `indexer.ps1` と取り込みのスレッドが読み込む（画面は読み込まない）。
 
 各スクリプト・テストからは dot-source（`. "$PSScriptRoot\lib.ps1"`）して使う。`ui/` の部品は `$PSScriptRoot` ではなく、`gui.ps1` から渡された `$TebunkoDir`（`tebunko/` 直下のパス）を基準に読み込む。
 
@@ -72,6 +72,7 @@ flowchart TD
 |---|---|---|
 | `scripts/shared/` | スクリプト | どのツールからも使う部品（`core/`・`office/`・`ui/`・`xaml/`） |
 | `scripts/shared/shared.ps1` | スクリプト | 共通基盤の読み込み口 |
+| `scripts/shared/office/office_embedded.ps1` | スクリプト | Word・PowerPoint に埋め込んだ Office のファイル（.xlsx・.docx・.pptx）を、メモリの上で ZIP として読み、中の文字を取り出す。`office_reader.ps1` の後に読み込む（読み方は [Word の埋め込みの読み取り](../indexing/word.md#埋め込みの読み取りreadembeddedobjectlines)） |
 | `scripts/shared/office/office_reader.ps1` | スクリプト | Office ファイルを ZIP として直接読み、Word・PowerPoint の本文・図形・コメント・SmartArt・グラフと、Excel の図形・コメント・SmartArt・グラフ（表示のグラフシートを含む）の文字を取り出す（[インデックスのファイルの形](../index-data/format.md)、[Word・PowerPoint の共通処理と Office アプリの管理](../indexing/office-apps.md)、Word は [Word](../indexing/word.md)、PowerPoint は [PowerPoint](../indexing/powerpoint.md)、Excel は [Excel](../indexing/excel.md)） |
 | `scripts/shared/xaml/` | 画面定義 | 共通の画面定義（`theme.xaml`・確認ダイアログ） |
 | `scripts/tebunko/` | スクリプト | tebunko 固有の処理と画面（`core/`・`index/`・`indexer/`・`search/`・`ui/`・`xaml/`） |

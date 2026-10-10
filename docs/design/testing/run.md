@@ -15,7 +15,7 @@ flowchart LR
 |---|---|
 | `tests/helpers/` | 共通の準備（`load.ps1`。`$here`・`${scriptsDir}`・`${testDataDir}` を決めて `tebunko/lib.ps1` を読み込む）とテスト用の TSV 作成（`tsv.ps1`） |
 | `tests/shared/core/` | `fs`・`text`・`folder`・`worker_pool`・`data_dir` |
-| `tests/shared/office/` | `office_process`・`office_reader`・`office_app` |
+| `tests/shared/office/` | `office_process`・`office_reader`・`office_embedded`・`office_app` |
 | `tests/shared/ui/` | 画面の型（`types`） |
 | `tests/tebunko/core/` | `settings`（`setting.config`）・`workspace` |
 | `tests/tebunko/index/` | `index_name`・`index_store`・`pack_format`・`system_index` |
