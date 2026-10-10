@@ -4340,6 +4340,8 @@
     C -- フォルダを選ぶ --&gt; P["フォルダ選択から始める&lt;br&gt;（「見つかりません」の確認は挟まない）"]</code></pre>
 <ul>
 <li>確かめるかどうかは<strong>インデックス名</strong>を単位にする。設定（<code>targetFolders</code> / <code>indexSources</code>）にある名前（この PC で作ったインデックス・確かめ済みのインデックス）は聞かない。設定は開くたびに読み直す（<code>getConfirmedSourceNames</code>。キャッシュしない）。名前は大文字・小文字だけを区別せず、文字の並びそのもので比べる（<code>testNameInList</code>。OrdinalIgnoreCase。ソフトハイフンなどの見えない文字が混じった名前は別の名前になり、確認を避けられない）。</li>
+<li>確認のあとに元のフォルダを記録する道（［このフォルダを使う］・［フォルダを選ぶ］で見つかったとき。<code>setIndexSourceFolder</code>）も、同じ比べ方（OrdinalIgnoreCase・前後の空白を削らない）にそろえる。カルチャに従う <code>-eq</code> や <code>.Trim()</code> で比べると、確認では別の名前とされた名前が、利用者自身の <code>targetFolders</code> の行に一致して元のフォルダを書き換えてしまう。前後に空白（全角空白を含む）がある名前は、設定を読み戻すと空白が削られて確かめ済みにならないため記録せず、開くたびに確かめる。名前が空のときも、確かめ済みと言えないので毎回確かめる（記録はしない）。</li>
+<li>［フォルダを選ぶ］のあとにフォルダ選択をやめたときは、「見つかりません」ではなく「開くのをやめました」と出す。</li>
 <li>元のフォルダがローカルでも確かめる。共有フォルダ（UNC・ネットワークドライブ）のときは、確認の説明に「開くと、このフォルダに接続し、Windows のサインイン情報が送られることがあります」と添える（<code>getSourceConfirmDialog</code>。tebunko 自身は通信せず、接続するのは Windows）。</li>
 <li>キャンセルしたときは、確認の間に変えていたカーソルを戻す。その行を開く依頼は取り下げる。待っていた別の行の結果も捨てる（依頼の番号を進めるため。<a href="../network/">元のフォルダ・元のファイル・ワークスペースがネットワークにあるとき</a>）。</li>
 <li>zip からのインポートは、確認ダイアログで利用者が元のフォルダを確かめて登録する。このため、その確認ダイアログは、目録の元のフォルダがローカルのドライブ（<code>C:\</code> の形）でなければ（共有フォルダ・<code>\\.\UNC\</code> や <code>\\.\GLOBALROOT\</code> のようなデバイス名の形）有無を調べず（<code>SourceExists</code> は <code>$null</code>。接続を待たない。<code>getImportArchiveInfo</code>）、文言は変えない。</li>
@@ -4386,6 +4388,7 @@
 <li>読み取り専用に替えたときは、ステータスの終わりに <code>（もらったインデックスのため、マクロを持てる形式は読み取り専用で開きます）</code> を添える。もう読み取り専用を選んでいるときは添えない。</li>
 <li>読み取り専用で開けないとき（動詞 <code>OpenAsReadOnly</code> が登録されていない・Excel の COM が使えず動詞でも開けない）は、<strong>通常の開き方には落とさず、開かない</strong>（<code>openWithShell</code> の <code>-noFallback</code>）。ステータスに <code>もらったインデックスのファイルは読み取り専用で開けなかったため、開きませんでした。［ファイルのパスをコピー］で場所を調べ、確かめてから開いてください：&lt;パス&gt;</code> と出す。</li>
 <li>読み取り専用で開くために Excel の <code>AutomationSecurity</code> を <code>2</code> にできなかったときは、Excel では開かず（マクロが動く設定のまま開かないため）、上の「読み取り専用で開けないとき」と同じ扱いにする（<code>setExcelAutomationSecurity</code> が例外を出す）。</li>
+<li>拡張子は、ファイル名の終わりの <code>.</code> と空白を落としてから見る（Windows は <code>evil.xlsm.</code> を <code>evil.xlsm</code> として開くため）。</li>
 <li>自分で作ったインデックス（<code>targetFolders</code> にある名前）と、マクロを持てない形式（<code>.xlsx</code> <code>.docx</code> <code>.pptx</code> など）は、選んだ開き方のまま開く。</li>
 <li>読み取り専用は、ファイルを上書きしないための開き方であって、それだけでマクロの実行を止めるものではない。マクロを実行するかは Office の設定（セキュリティセンター）に従う。</li>
 </ul>
