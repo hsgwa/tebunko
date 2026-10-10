@@ -4532,7 +4532,7 @@
 <ul>
 <li><strong>確かめ</strong>: <code>Workbooks</code> の中に、作業用フォルダの外のブックがあるかを調べる。比較は <code>GetFullPath</code> で正規化した作業用フォルダの前方一致（大文字小文字を区別せず、末尾に <code>\</code> を付けて <code>tmp</code> と <code>tmp2</code> を取り違えない）で行い、<code>~</code> を含む短い名前は <code>Get-Item</code> で長い名前にしてから比べる。読めない名前と、<code>FullName</code> を正規化できないもの（URL・保存前の <code>Book1</code> など）は利用者のブックと数える（データを失わない側に倒す）。確かめに使う <code>Workbooks</code> の参照は、数えたあとに放す。</li>
 <li><strong><code>Workbooks</code> を読めないとき</strong>（COM が呼び出しを拒んだ。利用者が操作中のことがある）: 起動で控えた PID のプロセスに見える窓があれば、利用者が使っているとみなして渡す。無ければ従来どおり終了させる（窓を中身で探すことはしない）。</li>
-<li><strong>渡す処理</strong>（<code>restoreHandedOverApp</code>。<code>handOverApp</code> と <code>retryKeptApps</code> が呼ぶ）: 監視の PID・受け渡しの口・起動の記録から外したうえで、次を順に行う。<ol>
+<li><strong>渡す処理</strong>（<code>restoreHandedOverApp</code>。<code>handOverApp</code> と <code>retryKeptApps</code> が呼ぶ）: <code>handOverApp</code> が、監視の PID・受け渡しの口・起動の記録から外す（<code>retryKeptApps</code> からの呼び出しでは外さない。外し済みのため）。そのうえで、次を順に行う。<ol>
 <li>置き場の下と確かめられた自分の取り込み用のブックだけを、保存せずに閉じる。1 つでも閉じられなければ、次回に一覧を取り直して閉じる（閉じたものは一覧から消えるので、二重には閉じない）。</li>
 <li>必須の設定（<code>DisplayAlerts</code> を真に戻す・<code>Visible</code> と <code>UserControl</code> を真にして窓を出す）を、数回やり直しながら行う。</li>
 <li>任意の設定（<code>EnableEvents</code>・<code>ScreenUpdating</code>・<code>AskToUpdateLinks</code>・マクロ無効の解除）を戻す。</li>
