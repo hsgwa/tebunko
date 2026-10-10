@@ -3,31 +3,10 @@
 # ui\ 配下のファイルは $PSScriptRoot を使わない（ここは tebunko\ui\ に置くため、$PSScriptRoot は ui\ を指してしまう）。
 # tebunko\ のパスが要るときは、呼び出し元（gui.ps1）から渡された $TebunkoDir を使う。
 
-function writeCloseTrace {
-    # 画面を閉じる順番の記録（テストの診断用）。環境変数 TEBUNKO_CLOSE_TRACE が 1 のときだけ、ワークスペースの close_trace.txt に
-    # 1 行（時刻・PID・節目の名前・スレッドの数）を足す。環境変数はスイッチとしてだけ使い、パスとしては読まない。書けなくても例外は外に出さない
-    param ([string]$Point)
-
-    if ($env:TEBUNKO_CLOSE_TRACE -eq "1") {
-        try {
-            $threads = [System.Diagnostics.Process]::GetCurrentProcess().Threads.Count
-            $line = "$((Get-Date).ToString('HH:mm:ss.fff'))`tPID $PID`t$Point`tスレッド $threads`r`n"
-            # 【一時】同じ行を、ツールのフォルダの gui_closepath_<PID>.txt にも足す（作業場所の取り違えが起きない所）
-            if ($script:closePathDir) {
-                [System.IO.File]::AppendAllText((Join-Path $script:closePathDir "gui_closepath_$PID.txt"), $line, (New-Object System.Text.UTF8Encoding($false)))
-            }
-            [System.IO.File]::AppendAllText($script:workspace.CloseTraceFile, $line, (New-Object System.Text.UTF8Encoding($false)))
-        } catch { }
-    }
-}
-
 function startGui {
     param (
         [string]$TebunkoDir
     )
-
-    # 【一時】閉じる道の跡を置くフォルダ（TebunkoDir は <ツール>の scripts 配下の tebunko）
-    $script:closePathDir = Split-Path -Parent (Split-Path -Parent $TebunkoDir)
 
     # 検索・画面の裏の仕事も同じプロセスのスレッドで動くため、画面を止める重い GC（全体の GC）をなるべく後回しにする
     # （docs/design/structure/closing.md「GC とメモリ」）
@@ -311,8 +290,6 @@ function startGui {
 
     $window.Add_Closing({
         param ($sender, $e)
-        writeCloseTrace "Closing に入った"
-        writeCloseTrace ("Closing 入口 Cancel=" + $e.Cancel + " closeReady=" + $script:closeReady + " closeWaiting=" + $script:closeWaiting)
         if ($script:closeReady) {
             return
         }
@@ -398,16 +375,6 @@ function startGui {
             $e.Cancel = $true
             enterIndexingStopFlow
         }
-    })
-
-    # 【一時】閉じる道の跡（出口と Closed）
-    $window.Add_Closing({
-        param ($sender, $e)
-        $branch = if (!$e.Cancel) { "取り消さない" } elseif ($script:closeWaiting) { "止まるのを待つ流れで取り消し" } else { "確認・止める流れで取り消し" }
-        writeCloseTrace ("Closing 出口 Cancel=" + $e.Cancel + " 分岐=" + $branch + " closeReady=" + $script:closeReady + " closeWaiting=" + $script:closeWaiting)
-    })
-    $window.Add_Closed({
-        writeCloseTrace "Closed"
     })
 
     $window.Add_Loaded({
@@ -533,48 +500,29 @@ function startGui {
 
     try {
         [void]$window.ShowDialog()
-        writeCloseTrace "ShowDialog から戻った"
     } finally {
         # インデックス作成のスレッド、検索の司令のスレッドと照合のプール、画面の裏の仕事のスレッドを片づける
         # （docs/design/structure/closing.md「閉じるときの順番」）。片づける順番はそのまま変えない。
         # 画面の裏の仕事（$script:backgroundQueue・$script:networkQueue）だけ、止まった仕事（届かない共有の
         # Test-Path など、OS の呼び出しで戻らないもの）を待たずに戻る Abandon（前は Close）を使う
-        writeCloseTrace "finally: closeTimer.Stop の前"
         $script:closeTimer.Stop()
-        writeCloseTrace "finally: indexingTimer.Stop の前"
         $script:indexingTimer.Stop()
-        writeCloseTrace "finally: indexingSession.Close の前"
         if ($script:indexingSession) {
             $script:indexingSession.Close()
         }
-        writeCloseTrace "finally: searchService.Close の前"
         $script:searchService.Close()
-        writeCloseTrace "finally: jobTimer.Stop の前"
         $script:jobTimer.Stop()
-        try {
-            $diagJobs = @($script:backgroundQueue.Jobs)
-            $diagNet = if ($script:networkQueue) { @($script:networkQueue.Jobs) } else { @() }
-            writeCloseTrace ("DIAG bg 全=" + $diagJobs.Count + " 未完了=" + @($diagJobs | Where-Object { !$_.Handle.IsCompleted }).Count + " net 全=" + $diagNet.Count + " 未完了=" + @($diagNet | Where-Object { !$_.Handle.IsCompleted }).Count + " bgPool=" + $script:backgroundQueue.Pool.Pool.RunspacePoolStateInfo.State)
-        } catch { writeCloseTrace ("DIAG 失敗 " + $_.Exception.Message) }
-        writeCloseTrace "finally: backgroundQueue.Abandon の前"
         $script:backgroundQueue.Abandon()
-        writeCloseTrace "finally: networkQueue.Abandon の前"
         if ($script:networkQueue) {
             $script:networkQueue.Abandon()
         }
-        writeCloseTrace "finally: activateTimer.Stop の前"
         $activateTimer.Stop()
-        writeCloseTrace "finally: activateEvent.Close の前"
         $activateEvent.Close()
-        writeCloseTrace "finally: mutex.ReleaseMutex の前"
         $mutex.ReleaseMutex()
-        writeCloseTrace "finally: mutex.Dispose の前"
         $mutex.Dispose()
     }
     # 画面のスレッドの Dispatcher を止める。止めずに戻ると、PowerShell が終わるときの片づけで、たまに終了コード 5 で終わる・
     # 終わらないことがある（docs/design/structure/closing.md「閉じるときの順番」）。例外で抜けるときは通らない
     # （起動の失敗を知らせる画面（reportStartupFailure）が、この Dispatcher を使うため）
     [System.Windows.Threading.Dispatcher]::CurrentDispatcher.InvokeShutdown()
-    writeCloseTrace "InvokeShutdown の後"
-    writeCloseTrace "startGui の最後"
 }

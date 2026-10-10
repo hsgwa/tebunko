@@ -46,7 +46,6 @@ try {
 
     . "$PSScriptRoot\ui\gui_main.ps1"
     startGui -TebunkoDir $PSScriptRoot
-    writeCloseTrace "gui.ps1 の最後"
 } catch {
     exit (reportStartupFailure $_)
 }

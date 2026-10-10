@@ -18,7 +18,6 @@ Describe "Workspace" -Tag Unit {
         $target.ResultFile | Should -Be "C:\Users\test\Documents\tebunko_ws\search_results.txt"
         $target.IndexingLogFile | Should -Be "C:\Users\test\Documents\tebunko_ws\indexing_log.txt"
         $target.GuiErrorLogFile | Should -Be "C:\Users\test\Documents\tebunko_ws\gui_error_log.txt"
-        $target.CloseTraceFile | Should -Be "C:\Users\test\Documents\tebunko_ws\close_trace.txt"
         $target.TmpRoot | Should -Be "C:\Users\test\Documents\tebunko_ws\tmp"
     }
 

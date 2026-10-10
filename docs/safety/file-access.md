@@ -6,7 +6,7 @@
 
 | 場所 | 内容 | 定義 |
 |---|---|---|
-| `work/` 配下（既定は `%USERPROFILE%\Documents\tebunko_ws`。テスト・実機の確かめでは環境変数 `TEBUNKO_DEFAULT_WORKSPACE` の場所に差し替わる。利用者が画面で選んだフォルダ（ワークスペース）にも置ける） | 本文インデックス（`work/content_index/`）、取り込み一覧・インデックス作成ログ・制御用ファイル、検索結果、閉じる順番の記録（`close_trace.txt`。環境変数 `TEBUNKO_CLOSE_TRACE` が `1` のときだけ、テストの診断用に追記する。パスは環境変数から受け取らない） | `tebunko/core/paths.ps1`（`$workspace`）、`tebunko/core/workspace.ps1`（`Workspace`） |
+| `work/` 配下（既定は `%USERPROFILE%\Documents\tebunko_ws`。テスト・実機の確かめでは環境変数 `TEBUNKO_DEFAULT_WORKSPACE` の場所に差し替わる。利用者が画面で選んだフォルダ（ワークスペース）にも置ける） | 本文インデックス（`work/content_index/`）、取り込み一覧・インデックス作成ログ・制御用ファイル、検索結果 | `tebunko/core/paths.ps1`（`$workspace`）、`tebunko/core/workspace.ps1`（`Workspace`） |
 | `work/office_pids/<PC の鍵>/<PID>.txt` | インデックス作成が起動した Office の PID の記録（起動時の確認で、記録のあるものだけを終了するため）。Office を終了したとき・起動時の確認のときに消す | `tebunko/core/workspace.ps1`（`OfficePidRoot`）、`shared/office/office_process.ps1`（`addOfficeRecord`） |
 | `work/tmp/<PC の鍵>/<PID>` 配下（ワークスペースのパスに `[` `]` があるか長すぎるときは作らない。どのファイルも中間 TSV などをこの作業領域に作るため、テキストファイルを含めすべての取り込みをスキップする） | 取り込みの作業領域（原本のコピー・中間 TSV）。インデックス作成の完了時・開始時に空にする | `tebunko/indexer/index_migrate.ps1` の `initTmpDir` |
 | `setting.config`（ツールを置いたフォルダの直下。書き込めないときは既定のワークスペース `%USERPROFILE%\Documents\tebunko_ws` の直下） | 画面が保存する設定（クロール対象フォルダ・検索対象インデックス・`work` の置き場所など）。書き込めない場所（Program Files・読み取り専用の共有フォルダ）に置いたときだけ、ワークスペースの既定の場所に置く（[データの置き場所とパスの決め方](../design/structure/data.md)）。保存のときの一時ファイル `setting.config.tmp` と、壊れた設定の退避 `setting.config.broken-<日時>` も同じフォルダに置く | `shared/core/data_dir.ps1`、`tebunko/core/settings.ps1` の `getSettingsFilePath` |

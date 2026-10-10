@@ -61,7 +61,6 @@ BeforeAll {
 
         # ---- tebunko/ui/indexing_tab.ps1 ----
         @{ File = "indexing_tab.ps1"; Function = "startIndexing"; Call = "getLegacyIndexState"; Reason = "ワークスペースの場所がローカルのときに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で調べる）" }
-        @{ File = "gui_main.ps1"; Function = "writeCloseTrace"; Call = "[System.IO.File]"; Count = 2; Reason = "TEBUNKO_CLOSE_TRACE=1 のときだけ、閉じる途中にワークスペースの決まったファイル（close_trace.txt）へ 1 行足す。テストの診断用（ワークスペースが届かない共有にあると閉じるのが遅れ得るが、テストのときだけ）" }
 
         # ---- tebunko/ui/open_source.ps1 ----
         @{ File = "open_source.ps1"; Function = "continueFindSourceFile"; Call = "findSourceFileState"; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
