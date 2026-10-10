@@ -13,7 +13,9 @@ param (
 $ErrorActionPreference = "Stop"
 . "$PSScriptRoot\perf_common.ps1"
 . (resolveTebunkoLib $Tool)
-assertTebunkoFunctions @("findIndexFoldersWithBooks", "publishIndexFolders", "getIndexPackFiles", "testIndexBookDir")
+assertTebunkoFunctions @("findIndexFoldersWithBooks", "publishIndexFolders", "testIndexBookDir")
+# 本文インデックスのファイルを列挙する関数は、名前を改めた後が getContentIndexFiles、前が getIndexPackFiles
+$getFiles = resolveTebunkoFunction @("getContentIndexFiles", "getIndexPackFiles")
 
 $monitor = startResourceMonitor $SampleMs
 $result = [ordered]@{ Pack = $null }
@@ -35,7 +37,7 @@ try {
         $seconds = $watch.Elapsed.TotalSeconds
 
         setMonitorPhase $monitor "集計"
-        $packs = (getIndexPackFiles @($Index)).Packs
+        $packs = @(getTebunkoProperty (& $getFiles @($Index)) @("ContentIndexFiles", "Packs"))
         $packBytes = 0L
         foreach ($p in $packs) { $packBytes += $p.Size }
         $systemBytes = 0L

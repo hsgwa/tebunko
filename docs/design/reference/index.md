@@ -13,8 +13,8 @@
 flowchart LR
     settings["core/settings.ps1・workspace.ps1<br>core/fs.ps1・folder.ps1"] --> P1["settings.md"]
     indexer["indexer/indexer_state.ps1<br>indexer_decide.ps1・index/index_name.ps1・index_store.ps1<br>index_archive_rules.ps1・index_archive.ps1"] --> P2["indexer.md"]
-    tsv["core/fs.ps1・text.ps1・text_file.ps1<br>index/index_name.ps1・index_store.ps1・pack_format.ps1・pack_store.ps1"] --> P3["tsv.md"]
-    search["search/search_query.ps1・pack_search.ps1<br>search_run.ps1・search_service.ps1・source_map.ps1"] --> P4["search.md"]
+    tsv["core/fs.ps1・text.ps1・text_file.ps1<br>index/index_name.ps1・index_store.ps1・content_index_format.ps1・content_index_store.ps1"] --> P3["tsv.md"]
+    search["search/search_query.ps1・content_index_search.ps1<br>search_run.ps1・search_service.ps1・source_map.ps1"] --> P4["search.md"]
 ```
 
 ## lib.ps1 から読み込まれない部品
@@ -63,7 +63,7 @@ flowchart LR
         FT["formatTsv"]
         PT["prettyTsv"]
         PUB["publishIndexFolders<br>（本文インデックスへの書き出し）"]
-        RPP["readPackPlaces"]
+        RPP["readContentIndexPlaces"]
         TRL["toResultLine"]
         CTF["countTsvFields"]
         TRH["toResultHeader"]
@@ -76,10 +76,10 @@ flowchart LR
     OT --> TSF
     OT --> PT --> FT --> RNL
     OT --> PUB
-    GR --> ITF["getIndexPackFiles"] --> GIF --> RCL
-    GR --> SI["searchPackIndex"]
+    GR --> ITF["getContentIndexFiles"] --> GIF --> RCL
+    GR --> SI["searchContentIndex"]
     SI --> NSR["newSearchRegex / newFileFilter / newPlaceExclude"]
-    SI --> STF["searchPackFiles<br>（.NET の StreamReader＋regex）"] --> RPP
+    SI --> STF["searchContentIndexFiles<br>（.NET の StreamReader＋regex）"] --> RPP
     GR --> WSR["writeSearchResult"] --> TSR["toSearchResultLines"]
     TSR --> TRL
     TSR --> CTF
@@ -97,8 +97,8 @@ flowchart LR
         TF["getTargetFolders / writeTargetFolders"]
         CS["getIndexingState"] --> RSF2["readStatusFile"]
         SUM["getIndexSummary / testIndexExists"]
-        SI2["searchPackIndex / toSearchResultLines / writeSearchResult"]
-        RPC["readPackContext（選択行のプレビュー）"]
+        SI2["searchContentIndex / toSearchResultLines / writeSearchResult"]
+        RPC["readContentIndexContext（選択行のプレビュー）"]
         RSP["resolveSourcePath"] --> SL["getSourceLocation"] --> SFM["getSourceFolderMap"] --> INM["getIndexNameMap"] --> RSF2
         SFM --> RSFF["readSourceFolderFile"]
         SFM --> TGT["getTargetFolders / readIndexSources"]

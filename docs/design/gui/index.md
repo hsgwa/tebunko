@@ -6,7 +6,7 @@
 |---|---|
 | 起動 | zip 版は `tebunko.bat`（名称は [決めたこと](implementation.md#決めたこと) U1）、インストーラー版は `tebunko.exe`（`installer/tebunko.cs`）。どちらも PowerShell の窓を残さずに画面だけを開く（[配布と実行ポリシー（Mark-of-the-Web）](common.md#配布と実行ポリシーmark-of-the-web)） |
 | スクリプト | `scripts/tebunko/gui.ps1`（処理）/ `scripts/tebunko/xaml/tebunko.xaml`（画面定義） |
-| 使用する共通関数 | `writeListFile` / `readStatusFile` / `getSearchIndexes` / `readPackContext` / `toResultLine` / `toResultHeader`（[部品ごとの関数](../reference/index.md)）、および画面で追加する関数（[実装構成](implementation.md#実装構成)） |
+| 使用する共通関数 | `writeListFile` / `readStatusFile` / `getSearchIndexes` / `readContentIndexContext` / `toResultLine` / `toResultHeader`（[部品ごとの関数](../reference/index.md)）、および画面で追加する関数（[実装構成](implementation.md#実装構成)） |
 | 起動する処理 | `scripts/tebunko/indexer.ps1`（[インデックス作成](../indexing/index.md)）を、画面のプロセスの中のスレッドで実行する（別のプロセスは起動しない。[プロセスとスレッド](../structure/threads.md)）。検索（[検索](../search/index.md)）と残った Office の終了（[前回残った Office の確認](leftover-office.md)）は画面内で実行する |
 
 全体構成・動作環境・フォルダ構成は [設計の概要](../index.md) を参照。

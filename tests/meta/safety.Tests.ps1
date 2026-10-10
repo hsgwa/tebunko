@@ -655,19 +655,19 @@ set "PSCMD=%PSCMD%x"').Count | Should -Be 0
         (@($testCallers | ForEach-Object { $_.File } | Sort-Object -Unique) -join ", ") | Should -Be "index_migrate.ps1"
 
         # 呼ぶのは全体に付ける indexer_run.ps1・取り込みの作業フォルダに付ける index_migrate.ps1・
-        # 入れた直後に付ける index_store.ps1・pack_store.ps1・source_map.ps1・インポートで入れたフォルダ全体に付ける index_archive.ps1 の 6 ファイルだけ
+        # 入れた直後に付ける index_store.ps1・content_index_store.ps1・source_map.ps1・インポートで入れたフォルダ全体に付ける index_archive.ps1 の 6 ファイルだけ
         $callers = @($code | Where-Object { $_.Text -match "setNotContentIndexed" -and $_.Text -notmatch "function setNotContentIndexed" })
         $callerFiles = @($callers | ForEach-Object { $_.File } | Sort-Object -Unique)
         $callerFiles.Count | Should -Be 6
         ($callerFiles -contains "indexer_run.ps1") | Should -Be $true
         ($callerFiles -contains "index_migrate.ps1") | Should -Be $true
         ($callerFiles -contains "index_store.ps1") | Should -Be $true
-        ($callerFiles -contains "pack_store.ps1") | Should -Be $true
+        ($callerFiles -contains "content_index_store.ps1") | Should -Be $true
         ($callerFiles -contains "source_map.ps1") | Should -Be $true
         ($callerFiles -contains "index_archive.ps1") | Should -Be $true
 
         # 渡す引数まで確かめる（indexer_run.ps1 は $workspace.IndexDir、index_migrate.ps1 は取り込みの作業フォルダ（$dir）、
-        # index_store.ps1 は $bookDir、pack_store.ps1 は $folder、index_archive.ps1 は $targetIndexDir）。
+        # index_store.ps1 は $bookDir、content_index_store.ps1 は $folder、index_archive.ps1 は $targetIndexDir）。
         # -Recurse で下をたどるのは indexer_run.ps1（content_index 全体）と index_archive.ps1（インポートで入れた 1 つのインデックス。Directory.Move で入るため）だけ（ほかは 1 か所ずつなので要らない）
         (findPattern $callers 'setNotContentIndexed\s+\$workspace\.IndexDir\s+-Recurse') | Should -Not -Be ""
         (findPattern $callers 'setNotContentIndexed\s+\$dir\)') | Should -Not -Be ""

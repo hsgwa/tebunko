@@ -41,7 +41,7 @@ flowchart TD
 | クラス | 作って使うスレッド |
 |---|---|
 | `SearchService`・`BackgroundQueue`・`IndexingSession` | 画面のスレッド |
-| `WorkerPool` | プールを持つ側のスレッドで作り、そのスレッドから使う: 画面のスレッド（`BackgroundQueue` の中。`shared/core/worker_pool.ps1`）・検索の司令のスレッド（`newPackWorkerPool`。`tebunko/search/pack_search.ps1`）・インデクサの司令のスレッド（`writeSystemIndexFolders`。`tebunko/index/system_index.ps1`） |
+| `WorkerPool` | プールを持つ側のスレッドで作り、そのスレッドから使う: 画面のスレッド（`BackgroundQueue` の中。`shared/core/worker_pool.ps1`）・検索の司令のスレッド（`newContentIndexWorkerPool`。`tebunko/search/content_index_search.ps1`）・インデクサの司令のスレッド（`writeSystemIndexFolders`。`tebunko/index/system_index.ps1`） |
 | `Workspace`（`tebunko/core/workspace.ps1`） | `lib.ps1` を読む各ランスペース（画面・インデクサの司令・取り込み・検索のスレッド）で、それぞれ作る。別のスレッドへは `Dir` の文字列を渡し、そこで作り直す（`workspace.ps1` の先頭のコメント・`core/paths.ps1`・`indexer/indexer_run.ps1`・`search/search_run.ps1`）。新しい決まり「作ったランスペースで使い、渡さない」の先例として書く |
 
 `ZipSizeLimitException`（`System.Exception` を継承。`shared/office/office_reader.ps1`）は、上の表の「作って使うスレッド」の対象外（値を持たせて投げる・捕まえるだけの例外であり、インスタンスを保って使い回さない）。`readZipEntry` が ZIP の部品・1 ファイルの合計のサイズの上限を超えたときに投げ、部品名（`PartName`）・大きさ（`MeasuredBytes`）・部品ごとか合計か（`LimitKind`）を持つ。`.Message` は画面・取り込み一覧向けの簡潔な文言のままとし、この 3 つのプロパティは呼び出し元（`extract_office.ps1`・`indexer_run.ps1`）が `writeZipSizeLimitLog`（`indexer/indexer_state.ps1`）でインデックス作成のログにだけ書く（[細工した Office ファイルから身を守ること](../../safety/checks.md#細工した-office-ファイルから身を守ること)）。

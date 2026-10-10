@@ -141,6 +141,48 @@ Describe "スクリプトの構文" -Tag Meta {
         # 読み込む順で解決できることは、下の「型の読み込み」で実際に読み込んで確かめる
         @($errors | Where-Object { $_.ErrorId -ne "TypeNotFound" }).Count | Should -Be 0
     }
+
+    It "ファイル名・関数・変数・ハッシュテーブルのキー・メンバーの名前・呼ぶ名前・並列の照合に渡す名前に pack を使わない（本文インデックスのコードの名前は contentIndex）" {
+        # コメントや package の URL を拾わないよう、正規表現で本文を探さずに AST から名前を拾う
+        $found = New-Object System.Collections.Generic.List[string]
+        foreach ($file in Get-ChildItem "$PSScriptRoot\..\..\scripts" -Recurse -Filter "*.ps1") {
+            $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$null)
+            $names = New-Object System.Collections.Generic.List[object]
+            foreach ($node in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)) {
+                $names.Add(@($node.Name, $node.Extent.StartLineNumber))
+            }
+            $names.Add(@($file.Name, 1))
+            foreach ($node in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.MemberExpressionAst] -and $n.Member -is [System.Management.Automation.Language.StringConstantExpressionAst] }, $true)) {
+                $names.Add(@($node.Member.Value, $node.Extent.StartLineNumber))
+            }
+            foreach ($node in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.PropertyMemberAst] -or $n -is [System.Management.Automation.Language.FunctionMemberAst] }, $true)) {
+                $names.Add(@($node.Name, $node.Extent.StartLineNumber))
+            }
+            foreach ($node in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.VariableExpressionAst] }, $true)) {
+                $names.Add(@($node.VariablePath.UserPath, $node.Extent.StartLineNumber))
+            }
+            foreach ($node in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.HashtableAst] }, $true)) {
+                foreach ($pair in $node.KeyValuePairs) {
+                    if ($pair.Item1 -is [System.Management.Automation.Language.StringConstantExpressionAst]) { $names.Add(@($pair.Item1.Value, $pair.Item1.Extent.StartLineNumber)) }
+                }
+            }
+            foreach ($node in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.CommandAst] }, $true)) {
+                $commandName = $node.GetCommandName()
+                if ($commandName) { $names.Add(@($commandName, $node.Extent.StartLineNumber)) }
+                if ($commandName -eq "newWorkerState") {
+                    foreach ($text in $node.FindAll({ param($n) $n -is [System.Management.Automation.Language.StringConstantExpressionAst] }, $true)) {
+                        $names.Add(@($text.Value, $text.Extent.StartLineNumber))
+                    }
+                }
+            }
+            foreach ($entry in $names) {
+                if ($entry[0] -match "(?i)pack(?!age)") { $found.Add("$($file.Name):$($entry[1]) $($entry[0])") }
+            }
+        }
+        if ($found.Count) {
+            throw "名前に pack を使っています。本文インデックスのコードの名前は contentIndex です（docs/design/index.md の用語の表）: $(($found | Select-Object -Unique) -join ' / ')"
+        }
+    }
 }
 
 Describe "画面定義（XAML）" -Tag Meta {
