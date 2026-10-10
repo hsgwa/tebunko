@@ -206,6 +206,25 @@ Describe "testNetworkPath" -Tag Unit {
     }
 }
 
+Describe "testLocalDrivePath" -Tag Unit {
+    BeforeAll {
+        $driveType = { param ($drive) if ($drive -eq "Z:\") { [System.IO.DriveType]::Network } else { [System.IO.DriveType]::Fixed } }
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "ローカルのドライブ"; path = "C:\data\見積"; expected = $true }
+        @{ name = "ネットワークドライブ"; path = "Z:\見積"; expected = $false }
+        @{ name = "UNC"; path = "\server\share"; expected = $false }
+        @{ name = "デバイス名の形（UNC）"; path = "\.\UNC\server\share"; expected = $false }
+        @{ name = "デバイス名の形（GLOBALROOT）"; path = "\.\GLOBALROOT\Device\x"; expected = $false }
+        @{ name = "相対パス"; path = "見積\2024"; expected = $false }
+        @{ name = "空"; path = ""; expected = $false }
+    ) {
+        param ($name, $path, $expected)
+        testLocalDrivePath $path $driveType | Should -Be $expected
+    }
+}
+
 Describe "testAnyNetworkPath" -Tag Unit {
     It "1 つでもネットワークのパスがあれば `$true" {
         testAnyNetworkPath @("C:\data", "\\server\share") | Should -Be $true
