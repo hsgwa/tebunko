@@ -17,8 +17,10 @@ BeforeAll {
     )
     # 見つける静的メソッドの型（[System.IO.File]::GetAttributes のように、どのメソッドでも見つける）
     ${uiIoStaticTypes} = @("System.IO.File", "System.IO.Directory", "System.IO.DirectoryInfo", "System.IO.FileInfo")
-    # New-Object で見つける型（第一引数・-TypeName がこの型のときだけ）
-    ${uiIoNewObjectTypes} = @("System.IO.FileStream", "System.IO.StreamReader", "System.IO.StreamWriter")
+    # 上のほかに、System.IO. で始まる型（[System.IO.FileStream]::new・[IO.File]・[System.IO.Compression.ZipFile]・[System.IO.DriveInfo] など）の
+    # メソッド（コンストラクターの ::new を含む）の呼び出しと、New-Object の第一引数の型も見つける。
+    # System. を省いた短い名前（[IO.File]）も同じに扱う。ファイルに触らない型だけは除く
+    ${uiIoNonFileTypes} = @("System.IO.Path", "System.IO.MemoryStream", "System.IO.StringReader", "System.IO.StringWriter", "System.IO.TextReader", "System.IO.TextWriter")
 
     # 状態層（画面に触らない）のフォルダ。ここにある関数・クラスのメソッドのうち、ファイル・フォルダに触るものと、
     # それを呼ぶものの名前を自動で求め（getStateIoNames）、画面のスレッドから呼んでいれば、組み込みのコマンドと同じように見つける。
@@ -43,7 +45,7 @@ BeforeAll {
     ${stateIoNames} = $null
 
     # 許可の一覧: File（ファイル名）・Function（囲む関数・クラスのメソッド名。トップレベルは ""）・
-    # Call（見つかった呼び出しの表記）・Reason（理由）。行番号ではなく名前で引く
+    # Call（見つかった呼び出しの表記）・Count（同じ関数の同じ呼び出しの数。書かなければ 1）・Reason（理由）。行番号ではなく名前で引く
     ${uiIoAllowed} = @(
         # ---- gui.ps1（トップレベル） ----
         @{ File = "gui.ps1"; Function = ""; Call = "Get-ChildItem"; Reason = "Mark-of-the-Web を消す（ツールのフォルダの中。Unblock-File）" }
@@ -82,18 +84,18 @@ BeforeAll {
         # ---- tebunko/ui/settings/settings.ps1（［変更…］・［既定に戻す］） ----
         @{ File = "settings.ps1"; Function = "resetWorkspace"; Call = "[System.IO.Directory]"; Reason = "既定のワークスペース（ドキュメントの tebunko_ws。ローカル）を作る" }
         @{ File = "settings.ps1"; Function = "getFolderEntrySample"; Call = "[System.IO.Directory]"; Reason = "選んだ直後のフォルダ（［変更…］・［既定に戻す］で選んだ場所）の中身を数える" }
-        @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = "Test-Path"; Reason = "選んだ直後のフォルダ（［変更…］・［既定に戻す］で選んだ場所）" }
+        @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = "Test-Path"; Count = 2; Reason = "選んだ直後のフォルダ（［変更…］・［既定に戻す］で選んだ場所）" }
         @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = "[System.IO.Directory]"; Reason = "選んだ直後のフォルダ（［変更…］・［既定に戻す］で選んだ場所）の下に作る" }
         @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = "getWorkspaceEntries"; Reason = "選んだ直後のフォルダ（［変更…］・［既定に戻す］で選んだ場所）の中身" }
-        @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = "testWritableFolder"; Reason = "選んだ直後のフォルダ（［変更…］・［既定に戻す］で選んだ場所）に書き込めるか" }
+        @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = "testWritableFolder"; Count = 2; Reason = "選んだ直後のフォルダ（［変更…］・［既定に戻す］で選んだ場所）に書き込めるか" }
         @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = "useWorkspaceTargets"; Reason = "選んだ直後のフォルダ（［変更…］・［既定に戻す］で選んだ場所）にあるインデックスの一覧を読む" }
         @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = "removeWorkspaceEntries"; Reason = "選んだ直後のフォルダ（［変更…］・［既定に戻す］で選んだ場所）のインデックスを消して最初からやり直す（利用者が選んだときだけ）" }
         @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = "moveWorkspace"; Reason = "前のワークスペースの中身を移す（移す量だけかかる。裏に移すのは別の改善。利用者が変えたときだけ）" }
 
         # ---- tebunko/ui/index/ ----
-        @{ File = "index_detail.ps1"; Function = "openFailedFileFolder"; Call = "getPathState"; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
-        @{ File = "index_detail.ps1"; Function = "applyFailedFileState"; Call = "Start-Process"; Reason = "エクスプローラーで開く（プロセスの起動は待たない）" }
-        @{ File = "index_list.ps1"; Function = "openIndexSourceFolder"; Call = "getPathState"; Reason = "%s" }
+        @{ File = "index_detail.ps1"; Function = "openFailedFileFolder"; Call = "getPathState"; Count = 2; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
+        @{ File = "index_detail.ps1"; Function = "applyFailedFileState"; Call = "Start-Process"; Count = 2; Reason = "エクスプローラーで開く（プロセスの起動は待たない）" }
+        @{ File = "index_list.ps1"; Function = "openIndexSourceFolder"; Call = "getPathState"; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
         @{ File = "index_list.ps1"; Function = "loadTargets"; Call = "readStatusFile"; Reason = "ワークスペースの場所がローカルのときに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で名前を決める）" }
         @{ File = "index_tree.ps1"; Function = "loadIndexTree"; Call = "getIndexTreeData"; Reason = "ワークスペースの場所がローカルのときに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で集める）" }
         @{ File = "index_tree.ps1"; Function = "expandIndexNode"; Call = "getIndexFolderChildren"; Reason = "ワークスペースの場所がローカルのときに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で読む）" }
@@ -110,7 +112,7 @@ BeforeAll {
         return @(
             (Resolve-Path "${scriptsDir}\tebunko\gui.ps1").Path
         ) + @(Get-ChildItem "${scriptsDir}\tebunko\ui" -Filter "*.ps1" -Recurse | ForEach-Object { $_.FullName }) `
-          + @(Get-ChildItem "${scriptsDir}\shared\ui" -Filter "*.ps1" | ForEach-Object { $_.FullName })
+          + @(Get-ChildItem "${scriptsDir}\shared\ui" -Filter "*.ps1" -Recurse | ForEach-Object { $_.FullName })
     }
 
     function getStateTargetFiles {
@@ -184,6 +186,34 @@ BeforeAll {
         return $false
     }
 
+    function testIoTypeName {
+        # ファイル・フォルダに触る System.IO の型の名前か（System. を省いた短い名前も同じに扱う）
+        param ([string]$typeName)
+
+        $full = getFullIoTypeName $typeName
+        if ($full -notlike "System.IO.*") {
+            return $false
+        }
+        return -not (${uiIoNonFileTypes} -contains $full)
+    }
+
+    function getFullIoTypeName {
+        param ([string]$typeName)
+
+        if ($typeName -like "IO.*") {
+            return "System.$typeName"
+        }
+        return $typeName
+    }
+
+    function testPlaceholderReason {
+        # 置き場所の文字列（%s・{0}）や、短すぎる理由か
+        param ([string]$reason)
+
+        $text = $reason.Trim()
+        return ($text.Length -lt 12) -or ($text -match '%[sd]|\{\d*\}')
+    }
+
     function newNameSet {
         # 大文字・小文字を区別しない名前の集合。関数の戻り値にしても配列に開かれないよう、, でくるんで返す
         param ([string[]]$names = @())
@@ -223,7 +253,7 @@ BeforeAll {
                         $typeArg = $second.Value
                     }
                 }
-                if ($null -ne $typeArg -and (${uiIoNewObjectTypes} -contains $typeArg)) {
+                if ($null -ne $typeArg -and (testIoTypeName $typeArg)) {
                     $found.Add(@{ Node = $command; Call = "New-Object" })
                 }
                 continue
@@ -250,8 +280,12 @@ BeforeAll {
             }
             if ($member.Static -and $member.Expression -is [System.Management.Automation.Language.TypeExpressionAst]) {
                 $typeName = $member.Expression.TypeName.FullName
-                if (${uiIoStaticTypes} -contains $typeName) {
-                    $found.Add(@{ Node = $member; Call = "[$typeName]" })
+                if (${uiIoStaticTypes} -contains (getFullIoTypeName $typeName)) {
+                    $found.Add(@{ Node = $member; Call = "[$(getFullIoTypeName $typeName)]" })
+                    continue
+                }
+                if ($member -is [System.Management.Automation.Language.InvokeMemberExpressionAst] -and (testIoTypeName $typeName)) {
+                    $found.Add(@{ Node = $member; Call = "[$(getFullIoTypeName $typeName)]" })
                     continue
                 }
                 if ($typeName -eq "System.Diagnostics.Process" -and $methodName -eq "Start") {
@@ -261,6 +295,22 @@ BeforeAll {
             }
             if ($member -is [System.Management.Automation.Language.InvokeMemberExpressionAst] -and $null -ne $methodName -and $null -ne $methodNames -and $methodNames.Contains($methodName)) {
                 $found.Add(@{ Node = $member; Call = ".${methodName}()" })
+            }
+        }
+
+        # ${function:名前} で関数を取り出す所（変数に入れて & で呼ぶ形。取り出した時点で、呼ぶものとして見つける）
+        $variables = $ast.FindAll({ param ($n) $n -is [System.Management.Automation.Language.VariableExpressionAst] }, $true)
+        foreach ($variable in $variables) {
+            if (testInExcludedRange $variable $excluded) {
+                continue
+            }
+            $path = $variable.VariablePath.UserPath
+            if ($path -notlike "function:*") {
+                continue
+            }
+            $functionName = $path.Substring("function:".Length)
+            if ($null -ne $functionNames -and $functionNames.Contains($functionName)) {
+                $found.Add(@{ Node = $variable; Call = $functionName })
             }
         }
 
@@ -363,7 +413,7 @@ Describe "画面のスレッドのファイル・フォルダ操作" -Tag Meta {
         $files = @(
             (Resolve-Path "$PSScriptRoot\..\..\scripts\tebunko\gui.ps1").Path
         ) + @(Get-ChildItem "$PSScriptRoot\..\..\scripts\tebunko\ui" -Filter "*.ps1" -Recurse | ForEach-Object { $_.FullName }) `
-          + @(Get-ChildItem "$PSScriptRoot\..\..\scripts\shared\ui" -Filter "*.ps1" | ForEach-Object { $_.FullName })
+          + @(Get-ChildItem "$PSScriptRoot\..\..\scripts\shared\ui" -Filter "*.ps1" -Recurse | ForEach-Object { $_.FullName })
         $cases = @($files | ForEach-Object { @{ Name = (Split-Path $_ -Leaf); Path = $_ } })
     }
 
@@ -379,6 +429,25 @@ Describe "画面のスレッドのファイル・フォルダ操作" -Tag Meta {
         })
         $lines = @($unexpected | ForEach-Object { "$($_.File):$($_.Function):$($_.Call)" })
         ($lines -join ", ") | Should -Be ""
+    }
+
+    It "同じ関数の同じ呼び出しが、許可した数より増えていない（Count が無い項目は 1 回）" {
+        # 許可の単位は (File, Function, Call)。同じ関数に 2 つ目の呼び出しを足しても通らないよう、数も見る
+        $files = getUiIoTargetFiles
+        $allCalls = @($files | ForEach-Object { findUiIoCalls $_ })
+        $over = @($allCalls | Group-Object { "$($_.File)|$($_.Function)|$($_.Call)" } | ForEach-Object {
+            $group = $_
+            $first = $group.Group[0]
+            $allow = @(${uiIoAllowed} | Where-Object { $_.File -eq $first.File -and $_.Function -eq $first.Function -and $_.Call -eq $first.Call })
+            $limit = 1
+            if ($allow.Count -gt 0 -and $allow[0].ContainsKey("Count")) {
+                $limit = $allow[0].Count
+            }
+            if ($allow.Count -gt 0 -and $group.Count -gt $limit) {
+                "$($first.File):$($first.Function):$($first.Call)=$($group.Count)"
+            }
+        })
+        ($over -join ", ") | Should -Be ""
     }
 
     It "許可の一覧に、今のコードに無い項目が残っていない" {
@@ -401,6 +470,11 @@ Describe "画面のスレッドのファイル・フォルダ操作" -Tag Meta {
         ($noReason -join ", ") | Should -Be ""
         $excludedVague = @(${stateIoExcluded} | Where-Object { [string]::IsNullOrWhiteSpace($_.Reason) -or $_.Reason -match "分けた PR|ワークスペースの側" } | ForEach-Object { $_.Name })
         ($excludedVague -join ", ") | Should -Be ""
+        # 「%s」のような置き場所の文字列や、短すぎる理由では、何が安全なのか読み取れない
+        $placeholder = @(${uiIoAllowed} | Where-Object { (testPlaceholderReason $_.Reason) } | ForEach-Object { "$($_.File):$($_.Function):$($_.Call)" })
+        ($placeholder -join ", ") | Should -Be ""
+        $excludedPlaceholder = @(${stateIoExcluded} | Where-Object { (testPlaceholderReason $_.Reason) } | ForEach-Object { $_.Name })
+        ($excludedPlaceholder -join ", ") | Should -Be ""
     }
 
     It "許可の一覧の項目を囲む関数が、どこかで呼ばれている（使われない関数の項目は消す）" {
@@ -453,9 +527,9 @@ Describe "画面のスレッドのファイル・フォルダ操作" -Tag Meta {
 
     It "除く一覧の名前は、除かなければ入る名前で、実際には入っていない" {
         $without = getStateIoNames ${stateIoDefinitions} @()
-        $stale = @(${stateIoExcluded} | Where-Object { -not $without.Functions.Contains($_.Name) } | ForEach-Object { $_.Name })
+        $stale = @(${stateIoExcluded} | Where-Object { -not ($without.Functions.Contains($_.Name) -or $without.Methods.Contains($_.Name)) } | ForEach-Object { $_.Name })
         ($stale -join ", ") | Should -Be ""
-        $leaked = @(${stateIoExcluded} | Where-Object { $stateIoNames.Functions.Contains($_.Name) } | ForEach-Object { $_.Name })
+        $leaked = @(${stateIoExcluded} | Where-Object { $stateIoNames.Functions.Contains($_.Name) -or $stateIoNames.Methods.Contains($_.Name) } | ForEach-Object { $_.Name })
         ($leaked -join ", ") | Should -Be ""
     }
 
@@ -479,6 +553,41 @@ function sample {
             $found = @(findIoNodes $ast (getStartJobExcludedRanges $ast) $functions $methods | ForEach-Object { $_.Call })
 
             $found | Should -Be @("renameIndex", "New-Object", "Test-Path", ".Rename()", "[System.IO.File]")
+        }
+
+        It "System.IO の型（コンストラクター・短い名前・圧縮・ドライブ）と、取り出した関数も見つけ、ファイルに触らない型は見つけない" {
+            $sample = @'
+function sample {
+    [System.IO.FileStream]::new($p, 'Open')
+    [System.IO.StreamReader]::new($p)
+    [System.IO.Compression.ZipFile]::OpenRead($p)
+    [System.IO.DriveInfo]::new("C")
+    [IO.File]::Exists($p)
+    New-Object System.IO.Compression.ZipArchive($s)
+    $reader = ${function:readSomething}
+    & $reader
+    [System.IO.Path]::Combine($a, $b)
+    New-Object System.IO.MemoryStream
+    [System.IO.FileMode]::Open
+}
+'@
+            $ast = [System.Management.Automation.Language.Parser]::ParseInput($sample, [ref]$null, [ref]$null)
+            $functions = newNameSet @("readSomething")
+
+            $found = @(findIoNodes $ast @() $functions (newNameSet) | ForEach-Object { $_.Call })
+
+            $found | Should -Be @("New-Object", "[System.IO.FileStream]", "[System.IO.StreamReader]", "[System.IO.Compression.ZipFile]", "[System.IO.DriveInfo]", "[System.IO.File]", "readSomething")
+        }
+
+        It "理由が置き場所の文字列や短すぎる文字列のとき、置き場所とみなす" -TestCases @(
+            @{ Reason = "%s"; Expected = $true }
+            @{ Reason = "{0} を読む"; Expected = $true }
+            @{ Reason = "ローカル"; Expected = $true }
+            @{ Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み）"; Expected = $false }
+        ) {
+            param ($Reason, $Expected)
+
+            (testPlaceholderReason $Reason) | Should -Be $Expected
         }
 
         It "状態層の関数を呼ぶ関数・メソッドも、増えなくなるまでたどって入れる（除いた名前は入れない）" {
