@@ -2316,10 +2316,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#利用者のブックが入った-excel-の扱い" class="md-nav__link">
+  <a href="#利用者のファイルが入ったアプリの扱い" class="md-nav__link">
     <span class="md-ellipsis">
       
-        利用者のブックが入った Excel の扱い
+        利用者のファイルが入ったアプリの扱い
       
     </span>
   </a>
@@ -4187,10 +4187,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#利用者のブックが入った-excel-の扱い" class="md-nav__link">
+  <a href="#利用者のファイルが入ったアプリの扱い" class="md-nav__link">
     <span class="md-ellipsis">
       
-        利用者のブックが入った Excel の扱い
+        利用者のファイルが入ったアプリの扱い
       
     </span>
   </a>
@@ -4477,7 +4477,7 @@
     Stopped --&gt; Running : getApp（最初に必要になったとき。COM 生成の前後のプロセス一覧の差分で PID を取得）
     Running --&gt; Running : ファイルを取り込む
     Running --&gt; Stopped : stopApp（Quit → Excel は 1 秒・Word/PowerPoint は 5 秒待ち → 残っていれば PID で Kill）
-    Running --&gt; HandedOver : Excel に利用者のブックが入った（1 ファイルの取り込みごとと stopApp で確かめる）
+    Running --&gt; HandedOver : Excel・Word・PowerPoint に利用者のファイルが入った（1 ファイルの取り込みごとと stopApp で確かめる）
     HandedOver --&gt; [*] : Quit も Kill もせず、窓を出して利用者に渡す
     Stopped --&gt; Running : 次に必要になったとき
     Stopped --&gt; [*] : finally（正常終了・中止・続けられないエラー）</code></pre>
@@ -4506,8 +4506,8 @@
 <td>新しいプロセスが増えなかった場合は利用者のアプリとみなし、<code>Quit()</code> も強制終了もしない。PowerPoint は、そもそも利用者のアプリに接続しない（下の「PowerPoint」）</td>
 </tr>
 <tr>
-<td>利用者のブックが入った Excel</td>
-<td>画面の無い Excel に、利用者がダブルクリックしたブックが入ることがある（入るのを防ぐ設定は使わない。<a href="../../structure/threads/#スレッドの一覧">スレッドの一覧</a>）。1 ファイルを取り込むたびと <code>stopApp</code> の前に、作業用フォルダの外のブックがあるかを確かめ（<code>handOverForeignApp</code>）、あれば <code>Quit()</code> も強制終了もせず利用者に渡す（<code>handOverApp</code>）。詳しくは下の「<a href="#利用者のブックが入った-excel-の扱い">利用者のブックが入った Excel の扱い</a>」</td>
+<td>利用者のファイルが入ったアプリ（Excel・Word・PowerPoint）</td>
+<td>窓の無いアプリに、利用者がダブルクリックしたファイルが入ることがある（入るのを防ぐ設定は使わない。<a href="../../structure/threads/#スレッドの一覧">スレッドの一覧</a>）。1 ファイルを取り込むたびと <code>stopApp</code> の前に、作業用フォルダの外のファイルがあるかを確かめ（<code>handOverForeignApp</code>）、あれば <code>Quit()</code> も強制終了もせず利用者に渡す（<code>handOverApp</code>）。詳しくは下の「<a href="#利用者のファイルが入ったアプリの扱い">利用者のファイルが入ったアプリの扱い</a>」</td>
 </tr>
 <tr>
 <td>終了</td>
@@ -4527,26 +4527,82 @@
 </tr>
 </tbody>
 </table>
-<p>利用者のブックを渡す前に残る隙間がある。1 ファイルの取り込みの途中に利用者のブックが入ったときは、そのファイルの取り込みが終わるまで確かめない。隙間の長さは、最長で 1 ファイルの制限時間までである。その間に制限時間の監視の強制終了や、画面を閉じるときの <code>OfficePids</code> による終了が来ると、そのブックも閉じる。また、渡した Excel は、利用者がブックを閉じたあとも窓の無いまま残ることがある。Word と PowerPoint の同じ場合は別に扱う。</p>
-<h3 id="利用者のブックが入った-excel-の扱い">利用者のブックが入った Excel の扱い<a class="headerlink" href="#利用者のブックが入った-excel-の扱い" title="Permanent link">&para;</a></h3>
+<p>利用者のファイルを渡す前に残る隙間がある。1 ファイルの取り込みの途中に利用者のファイルが入ったときは、そのファイルの取り込みが終わるまで確かめない。隙間の長さは、最長で 1 ファイルの制限時間までである。その間に制限時間の監視の強制終了や、画面を閉じるときの <code>OfficePids</code> による終了が来ると、そのファイルも閉じる（この隙間をふさぐ対応は別に扱う。<a href="../known-issues/">既知の問題</a>）。また、渡した Excel は、利用者がブックを閉じたあとも窓の無いまま残ることがある。</p>
+<h3 id="利用者のファイルが入ったアプリの扱い">利用者のファイルが入ったアプリの扱い<a class="headerlink" href="#利用者のファイルが入ったアプリの扱い" title="Permanent link">&para;</a></h3>
+<p>Excel（<code>Workbooks</code>）・Word（<code>Documents</code>）・PowerPoint（<code>Presentations</code>）で同じ流れを使う。アプリごとの違い（ファイルの一覧・自分のファイルの閉じ方・戻す設定）は、<code>office_app.ps1</code> の <code>$appInfo</code> の表にある。</p>
 <ul>
-<li><strong>確かめ</strong>: <code>Workbooks</code> の中に、作業用フォルダの外のブックがあるかを調べる。比較は <code>GetFullPath</code> で正規化した作業用フォルダの前方一致（大文字小文字を区別せず、末尾に <code>\</code> を付けて <code>tmp</code> と <code>tmp2</code> を取り違えない）で行い、<code>~</code> を含む短い名前は <code>Get-Item</code> で長い名前にしてから比べる。読めない名前と、<code>FullName</code> を正規化できないもの（URL・保存前の <code>Book1</code> など）は利用者のブックと数える（データを失わない側に倒す）。確かめに使う <code>Workbooks</code> の参照は、数えたあとに放す。</li>
-<li><strong><code>Workbooks</code> を読めないとき</strong>（COM が呼び出しを拒んだ。利用者が操作中のことがある）: 起動で控えた PID のプロセスに見える窓があれば、利用者が使っているとみなして渡す。無ければ従来どおり終了させる（窓を中身で探すことはしない）。</li>
-<li><strong>渡す処理</strong>（<code>restoreHandedOverApp</code>。<code>handOverApp</code> と <code>retryKeptApps</code> が呼ぶ）: <code>handOverApp</code> が、監視の PID・受け渡しの口・起動の記録から外す（<code>retryKeptApps</code> からの呼び出しでは外さない。外し済みのため）。そのうえで、次を順に行う。<ol>
-<li>置き場の下と確かめられた自分の取り込み用のブックだけを、保存せずに閉じる。1 つでも閉じられなければ、次回に一覧を取り直して閉じる（閉じたものは一覧から消えるので、二重には閉じない）。</li>
-<li>必須の設定（<code>DisplayAlerts</code> を真に戻す・<code>Visible</code> と <code>UserControl</code> を真にして窓を出す）を、数回やり直しながら行う。</li>
-<li>任意の設定（<code>EnableEvents</code>・<code>ScreenUpdating</code>・<code>AskToUpdateLinks</code>・マクロ無効の解除）を戻す。</li>
+<li><strong>確かめ</strong>: ファイルの一覧（<code>Workbooks</code>・<code>Documents</code>・<code>Presentations</code>）の中に、作業用フォルダの外のファイルがあるかを調べる。比較は <code>GetFullPath</code> で正規化した作業用フォルダの前方一致（大文字小文字を区別せず、末尾に <code>\</code> を付けて <code>tmp</code> と <code>tmp2</code> を取り違えない）で行い、<code>~</code> を含む短い名前は <code>Get-Item</code> で長い名前にしてから比べる。読めない名前と、<code>FullName</code> を正規化できないもの（URL・保存前の <code>Book1</code> など）は利用者のファイルと数える（データを失わない側に倒す）。確かめに使う一覧の参照は、数えたあとに放す。</li>
+<li><strong>一覧を読めないとき</strong>（COM が呼び出しを拒んだ。利用者が操作中のことがある）: Excel・PowerPoint は、起動で控えた PID のプロセスに見える窓があれば、利用者が使っているとみなして渡す。無ければ従来どおり終了させる（窓を中身で探すことはしない）。Word は自分で窓を隠していて窓では分からないため、渡しも終了もさせず、持ち続けて後で一覧を読み直す（<code>keepUndecidedApp</code>。空の窓を出さず、利用者のファイルも閉じない）。持ち続けた Word は、<code>retryKeptApps</code> が一覧を読み直し、利用者のファイルがあれば渡し、自分のファイルだけなら終了させ、まだ読めなければそのまま持ち続ける。</li>
+<li>
+<p><strong>渡す処理</strong>（<code>restoreHandedOverApp</code>。<code>handOverApp</code> と <code>retryKeptApps</code> が呼ぶ）: <code>handOverApp</code> が、監視の PID・受け渡しの口・起動の記録から外す（<code>retryKeptApps</code> からの呼び出しでは外さない。外し済みのため）。そのうえで、次を順に行う。</p>
+<ol>
+<li>置き場の下と確かめられた自分の取り込み用のファイルだけを、保存せずに閉じる。1 つでも閉じられなければ、次回に一覧を取り直して閉じる（閉じたものは一覧から消えるので、二重には閉じない）。</li>
+<li>必須の設定を、数回やり直しながら戻す。</li>
+<li>任意の設定を戻す。</li>
 </ol>
+<p>戻す設定はアプリごとに次のとおり。<code>getApp</code> が変える設定は、この表にすべて入っている（テストで確かめる）。</p>
+<table>
+<thead>
+<tr>
+<th>アプリ</th>
+<th>必須</th>
+<th>任意</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Excel</td>
+<td><code>DisplayAlerts</code> を真に戻す・<code>Visible</code> と <code>UserControl</code> を真にして窓を出す</td>
+<td><code>EnableEvents</code>・<code>ScreenUpdating</code>・<code>AskToUpdateLinks</code>・マクロ無効の解除</td>
+</tr>
+<tr>
+<td>Word</td>
+<td><code>DisplayAlerts</code> を <code>wdAlertsAll</code>（-1）に戻す・<code>Visible</code> を真にして窓を出す</td>
+<td>マクロ無効の解除</td>
+</tr>
+<tr>
+<td>PowerPoint</td>
+<td><code>DisplayAlerts</code> を <code>ppAlertsAll</code>（2）に戻す（窓は、利用者のファイルが開いた時点で見えているため触らない）</td>
+<td>マクロ無効の解除</td>
+</tr>
+<tr>
+<td>- <strong>渡したとみなす条件</strong>: 上の全部が通ったときだけ。通らなければ COM の参照を放さずに持ち続け（<code>Quit()</code> も強制終了もしない）、ログには窓や設定を戻しきれなかったことを書く。済んだ設定は控えるので、やり直しは済んでいないものだけを行う。</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>- <strong>持ち続けたアプリの仕上げ直し</strong>:</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>- 次のファイルの確かめと一括終了（<code>stopAllApps</code>）のたびに、<code>retryKeptApps</code> が仕上げ直す（待たない）。全部通れば参照を放して、渡したことをログに書く。</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>- 控えた PID のプロセス（名前が <code>EXCEL</code>・<code>WINWORD</code>・<code>POWERPNT</code>）がもう無ければ、利用者が先に終えたので、参照だけ放して一覧から外す（PID と名前だけを見る。窓は探さず、プロセスは止めない）。</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>- 取り込みのスレッドの終わり（司令のスレッドで取り込むときはその終わり）に限り、持ち続けがあるときだけ、<code>waitKeptApps</code> が間を置いて、経過時間で 30 秒（定数 <code>officeKeptWaitSeconds</code>）まで仕上げ直す。持ち続けが無ければ待たない。100 件ごとの起動し直しでは待たない。中止・画面を閉じる合図が来たら、次の刻みで抜ける。</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>- <strong>残りうるもの</strong>: 上限まで通らなかったもの、または待たずに抜けたもの（中止したとき・画面を閉じたとき）は、そのまま持ち続け、スレッドが終わると参照が切れる。そのとき残りうるのは、<code>DisplayAlerts</code> が偽のまま（利用者がブックを閉じるときの保存の確認が出ない）、任意の設定が戻らないまま、自分の一時コピーが閉じられないまま、窓が出ないまま、である。窓も操作する人もいなければ、そのアプリは終わることがある。一覧を読めないまま持ち続けた Word も、スレッドが終わると参照が切れ、窓の無い Word が残りうる。</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>- <strong>渡したあと</strong>: 次のファイルからは新しいアプリを起動する（PowerPoint は、渡した PowerPoint が残っているため起動せず、残りの PowerPoint のファイルを後回しにする。上の「PowerPoint」）。渡したことは、1 ファイルの取り込みの中で渡したときはインデックス作成のログに 1 行残す（取り込みのスレッドが終わるときと起動し直しの一括終了で渡した分は、ログに出る場所が無いため残らない）。</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
 </li>
-<li><strong>渡したとみなす条件</strong>: 上の全部が通ったときだけ。通らなければ COM の参照を放さずに持ち続け（<code>Quit()</code> も強制終了もしない）、ログには窓や設定を戻しきれなかったことを書く。済んだ設定は控えるので、やり直しは済んでいないものだけを行う。</li>
-<li><strong>持ち続けた Excel の仕上げ直し</strong>:<ul>
-<li>次の Excel のファイルの確かめと一括終了（<code>stopAllApps</code>）のたびに、<code>retryKeptApps</code> が仕上げ直す（待たない）。全部通れば参照を放して、渡したことをログに書く。</li>
-<li>控えた PID のプロセス（名前が <code>EXCEL</code>）がもう無ければ、利用者が先に終えたので、参照だけ放して一覧から外す（PID と名前だけを見る。窓は探さず、プロセスは止めない）。</li>
-<li>取り込みのスレッドの終わり（司令のスレッドで取り込むときはその終わり）に限り、持ち続けがあるときだけ、<code>waitKeptApps</code> が間を置いて、経過時間で 30 秒（定数 <code>officeKeptWaitSeconds</code>）まで仕上げ直す。持ち続けが無ければ待たない。100 件ごとの起動し直しでは待たない。中止・画面を閉じる合図が来たら、次の刻みで抜ける。</li>
-</ul>
-</li>
-<li><strong>残りうるもの</strong>: 上限まで通らなかったもの、または待たずに抜けたもの（中止したとき・画面を閉じたとき）は、そのまま持ち続け、スレッドが終わると参照が切れる。そのとき残りうるのは、<code>DisplayAlerts</code> が偽のまま（利用者がブックを閉じるときの保存の確認が出ない）、任意の設定が戻らないまま、自分の一時コピーが閉じられないまま、窓が出ないまま、である。窓も操作する人もいなければ、その Excel は終わることがある。</li>
-<li><strong>渡したあと</strong>: 次のファイルからは新しい Excel を起動する。渡したことは、1 ファイルの取り込みの中で渡したときはインデックス作成のログに 1 行残す（取り込みのスレッドが終わるときと起動し直しの一括終了で渡した分は、ログに出る場所が無いため残らない）。</li>
 </ul>
 <h3 id="word-の起動終了">Word の起動・終了<a class="headerlink" href="#word-の起動終了" title="Permanent link">&para;</a></h3>
 <p>Word では、利用者が同じアプリで作業していることがあるため、次の場合は終了させない（PowerPoint は利用者のアプリに接続しないため、この状態にならない。上の「PowerPoint」）。</p>
@@ -4564,7 +4620,7 @@
 </tr>
 <tr>
 <td>インデックス作成中に利用者がファイルを開いた</td>
-<td>終了時に <code>Documents.Count</code> が 1 以上なら、利用者が使用中とみなして終了させない</td>
+<td>作業用フォルダの外の文書があれば、利用者に渡す（上の「利用者のファイルが入ったアプリの扱い」）。自分の文書だけなら、今までどおり終了させる</td>
 </tr>
 </tbody>
 </table>

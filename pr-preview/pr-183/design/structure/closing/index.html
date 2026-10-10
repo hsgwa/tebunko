@@ -4156,6 +4156,7 @@
     G-&gt;&gt;S: 検索の司令（照合のプール）を閉じる
     G-&gt;&gt;S: バックグラウンド・ネットワークを調べる列に Abandon（止まった仕事を待たない）
     G-&gt;&gt;G: ミューテックスを解放
+    G-&gt;&gt;G: 画面のスレッドの Dispatcher を止める
     G-&gt;&gt;U: 閉じる</code></pre>
 <ul>
 <li>確認の選択肢は［中止して閉じる］と［閉じない］だけである。インデックス作成を続けたまま画面を閉じることはできない。確認している間にインデックス作成が終わっていれば、そのまま閉じる。</li>
@@ -4164,6 +4165,7 @@
 <li>止めるのを待っている間にもう一度閉じようとしても、何もしない。</li>
 <li><strong>バックグラウンド・ネットワークを調べる列は、<code>Close</code> ではなく <code>BackgroundQueue.Abandon</code> で片づける。</strong> 届かない共有の <code>Test-Path</code> など、OS の呼び出しで戻らない仕事があると、<code>Close</code>（<code>WorkerPool.Cancel</code> → <code>PowerShell.Stop()</code> → <code>Dispose()</code>）は止まるまで待ってしまう。<code>Abandon</code> は、終わった仕事は片づけ、終わっていない仕事には止める依頼（<code>BeginStop</code>）だけを出してすぐ戻る。終わっていない仕事の <code>PowerShell</code> とランスペースのプールは <code>Dispose</code> せず、後始末はプロセスの終わりに任せる。<code>WorkerPool.Cancel</code>・<code>BackgroundQueue.Close</code> 自体の動き（止まるまで待つ）は変えない。中止した検索がその後にヒットや件数を書かないことが、検索の中止（<a href="../../indexing/parallel/">取り込みの並列化</a>ではなく <code>pack_search.ps1</code> の中止）で前提になっているため。</li>
 <li><strong>多重起動の鍵（ミューテックス）は、止まった裏の仕事を待たずにすぐ放す。</strong> 画面はすぐ消え、前のプロセスは止まった呼び出しが戻った後（OS の呼び出しの分だけ）に自分で終わる。次の起動は、鍵が放たれていれば数秒以内にできる。</li>
+<li><strong>最後に、画面のスレッドの Dispatcher を止める（<code>InvokeShutdown</code>）。</strong> 止めずに <code>startGui</code> から戻ると、PowerShell が終わるときの片づけで、まれに終了コード 5 で終わることがある。例外で抜けるときは止めない（起動の失敗を知らせる画面が同じ Dispatcher を使うため）。二重起動で早く抜ける道筋（<code>exit</code>）も通らず、この直しの対象にしていない。</li>
 <li>閉じる処理の途中で予期しない例外が起きたら、知らせたうえで、インデックス作成中なら確認を出さずに止める流れに入り、そうでなければそのまま閉じる。</li>
 </ul>
 <h2 id="インデックスの削除名前の変更の途中で閉じるとき">インデックスの削除・名前の変更の途中で閉じるとき<a class="headerlink" href="#インデックスの削除名前の変更の途中で閉じるとき" title="Permanent link">&para;</a></h2>
