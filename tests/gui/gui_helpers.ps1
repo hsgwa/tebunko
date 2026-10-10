@@ -145,14 +145,18 @@ function getGuiProcessCommand {
         "[IO.File]::WriteAllText('$returned' + `$PID + '.txt', ('returned=' + (Get-Date).ToString('o') + ' ok=' + `$r + ' LASTEXITCODE=' + `$c + ' Error=' + `$e + ' THREADS=' + `$t + ' RUNSPACES(' + @(Get-Runspace).Count + ')=' + `$rs + ' EVENTPAIR_START_SEC=' + `$ev)) } catch { }"
     # 【一時】終わり方の比べ（環境変数 TEBUNKO_TEST_EXIT_VARIANT が立っているときだけ。立っていなければ変わらない）
     #   envexit: 戻ったあと [Environment]::Exit(0) で終わる / exiting: PowerShell.Exiting の時刻を gui_exiting_<PID>.txt に書く
-    $variant = $env:TEBUNKO_TEST_EXIT_VARIANT
+    $variants = @(([string]$env:TEBUNKO_TEST_EXIT_VARIANT) -split ',' | Where-Object { $_ })
     $head = ""
     $tail = ""
-    if ($variant -eq 'envexit') { $tail = "; [Environment]::Exit(0)" }
-    if ($variant -eq 'exiting') {
+    # 戻ったあとの終わらせ方（Exiting の記録とは重ねて指定できる）
+    if ($variants -contains 'envexit') { $tail = "; [Environment]::Exit(0)" }
+    if ($variants -contains 'exit0') { $tail = "; exit 0" }
+    if ($variants -contains 'dispatcher') { $tail = "; [System.Windows.Threading.Dispatcher]::CurrentDispatcher.InvokeShutdown()" }
+    if ($variants -contains 'gc') { $tail = "; [GC]::Collect(); [GC]::WaitForPendingFinalizers(); [GC]::Collect()" }
+    if ($variants -contains 'exiting') {
         $exiting = (Join-Path $Tool.Dir "gui_exiting_").Replace("'", "''")
-        # Exiting の中では待たない・重い処理をしない（結果を変えないため）。スレッド数と、WPF の窓・Dispatcher の終わりの様子を書くだけ
-        $action = '{ $o = ''thr='' + @((Get-Process -Id $PID).Threads).Count; try { $a = [System.Windows.Application]::Current; $o += '' App='' + ($null -ne $a); if ($a) { $d = $a.Dispatcher; $o += '' DispStart='' + $d.HasShutdownStarted + '' DispFin='' + $d.HasShutdownFinished; try { $o += '' Wins='' + $a.Windows.Count } catch { $o += '' Wins=例外'' } } } catch { $o += '' 例外'' }; [IO.File]::WriteAllText(''EXITINGPATH'' + $PID + ''.txt'', (Get-Date).ToString(''o'') + '' '' + $o) }'.Replace('EXITINGPATH', $exiting)
+        # Exiting の中では待たない・重い処理をしない（結果を変えないため）。スレッド数・Runspace の数と状態（前景のスレッドの数は PowerShell からは取れないため、取らない）を書くだけ
+        $action = '{ $o = ''thr='' + @((Get-Process -Id $PID).Threads).Count; try { $o += '' rs='' + (@(Get-Runspace | ForEach-Object { [string]$_.RunspaceStateInfo.State }) -join ''/''); $a = [System.Windows.Application]::Current; $o += '' App='' + ($null -ne $a) } catch { $o += '' 例外'' }; [IO.File]::WriteAllText(''EXITINGPATH'' + $PID + ''.txt'', (Get-Date).ToString(''o'') + '' '' + $o) }'.Replace('EXITINGPATH', $exiting)
         $head = "[void](Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action $action); "
     }
     return "`$env:TEBUNKO_CLOSE_TRACE = '1'; $head& '$gui'; `$r = `$?; `$c = `$LASTEXITCODE; $write; if (!`$r) { exit 1 }$tail"

@@ -15,11 +15,11 @@ Describe "終了コードの切り分け" -Tag Gui {
     It "<Name>" -ForEach (@(
         if ($env:TEBUNKO_BISECT) {
             foreach ($n in 1..6) {
-                @{ Name = "B開閉-$n"; Search = $false; Dialog = ""; Variant = "" }
-                @{ Name = "E全部-$n"; Search = $true; Dialog = "about"; Variant = "exiting" }
-                @{ Name = "F全部Exit-$n"; Search = $true; Dialog = "about"; Variant = "envexit" }
-                @{ Name = "E2開閉と情報-$n"; Search = $false; Dialog = "about"; Variant = "exiting" }
-                @{ Name = "E3全部と追加-$n"; Search = $true; Dialog = "add"; Variant = "exiting" }
+                @{ Name = "E2基準-$n"; Variant = "exiting" }
+                @{ Name = "F2Exit-$n"; Variant = "envexit" }
+                @{ Name = "S1Dispatcher-$n"; Variant = "exiting,dispatcher" }
+                @{ Name = "S2GC-$n"; Variant = "exiting,gc" }
+                @{ Name = "S3exit0-$n"; Variant = "exiting,exit0" }
             }
         }
     ) | Where-Object { !$env:TEBUNKO_BISECT_ONLY -or $_.Name -eq $env:TEBUNKO_BISECT_ONLY }) {
@@ -31,7 +31,7 @@ Describe "終了コードの切り分け" -Tag Gui {
             $env:TEBUNKO_TEST_EXIT_VARIANT = $null
         }
         invokeGuiScene $S {
-            if ($Search) {
+            if ($false) {
                 setGuiStep $S "検索"
                 setGuiText $S (waitGuiById $S $S.Window "WordBox") "単価"
                 clickGui $S $S.Window "SearchButton" "［検索］"
@@ -44,14 +44,14 @@ Describe "終了コードの切り分け" -Tag Gui {
                     @(findAllGui (findGui $S.Window -Id "PreviewScroll") -Type Text | Where-Object { $_.Current.Name -eq "りんご" }).Count -gt 0
                 } | Out-Null
             }
-            if ($Dialog -eq "about") {
+            if ($true) {
                 setGuiStep $S "バージョン情報"
                 clickGui $S $S.Window "AboutLink" "バージョン情報"
                 $about = waitGuiWindow $S "「バージョン情報」のダイアログ" -Id "VersionText"
                 clickGui $S $about "CloseButton" "［OK］"
                 waitGuiWindowClosed $S $about "「バージョン情報」"
             }
-            if ($Dialog -eq "add") {
+            if ($false) {
                 setGuiStep $S "［インデックス管理］で［＋ フォルダを追加］→［キャンセル］"
                 selectGuiTab $S "IndexTab" "NewIndexButton"
                 clickGui $S $S.Window "NewIndexButton" "［＋ フォルダを追加］"
