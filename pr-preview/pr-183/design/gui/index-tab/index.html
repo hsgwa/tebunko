@@ -4473,7 +4473,7 @@
 <li><code>setting.config</code> から外して保存し、元のフォルダの記録を書き直す</li>
 <li>検索対象のツリーでチェックを外していたフォルダの記録（<code>searchExcludes</code>）のうち、そのインデックスの下のものを消す（<code>removeSearchExcludesUnder</code>。手順 2 の直後に別スレッドの中で行う。消せなくても削除は止めず、画面にエラーも出さない）</li>
 </ol>
-<p>インデクサの <code>removeDroppedFolders</code>（<a href="../../indexing/crawl/#クロール対象フォルダとインデックス名">クロール対象フォルダと取り込み対象</a>）は、画面を通さずに設定を書き換えた場合の後始末として残す。画面から削除した場合は、その場で消えているため何もしない。</p>
+<p>画面を通さずに設定を書き換えた場合は、インデクサが設定から外れたインデックスを見つけ（<code>findDroppedIndexes</code>。<a href="../../indexing/crawl/#クロール対象フォルダとインデックス名">クロール対象フォルダと取り込み対象</a>）、インデックス更新の確認に <code>削除予定</code> として出す。［更新を開始］を押したときだけ削除し、取りやめたときは残す。画面から削除した場合は、その場で消えているため何もしない。</p>
 <h2 id="エクスポートインポート">エクスポート・インポート<a class="headerlink" href="#エクスポートインポート" title="Permanent link">&para;</a></h2>
 <p>［インポート…］［エクスポート…］は、一覧の右上の［アクション ▾］のメニューの項目に置く（［エクスポート…］は行の右クリックのメニューにも置く）。中身の zip の形式・<code>exportIndex</code>・<code>importIndex</code> の手順は <a href="../../index-data/format/#インデックスのエクスポートインポート">インデックスのエクスポート・インポート</a> を参照。</p>
 <table>
