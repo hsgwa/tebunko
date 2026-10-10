@@ -1,6 +1,20 @@
 ﻿# 検索用の集約ファイル（pack_format.ps1）を検索する。
 # 集約ファイルの全文に 1 回照合し、一致しないファイルは飛ばす。一致したら、位置から場所と行を求める。
 # 照合のしかた（lines・filter・scan。search_query.ps1 の getRegexScanMode）で、全文への照合と 1 行ずつの照合の結果を同じにする。
+# Excel の図形・コメントの行は「セル番地 + タブ + 文字」の形のため、区切りのタブより後から始まる一致だけをヒットにする（セル番地だけの一致を除く）。
+
+function testCellPrefixedHit {
+    # セル番地 + 区切りのタブ + 文字 の行で、区切りのタブ（最初のタブ）より後から始まる一致があるか。文字の中のタブは文字として扱う。
+    # 開始位置つきの照合なので、後読みは前の文字（区切りのタブ）も見える。区切りのタブが無い行は一致なし
+    param (
+        [regex]$regex,
+        [string]$line
+    )
+
+    $tab = $line.IndexOf([char]9)
+    return ($tab -ge 0) -and $regex.IsMatch($line, $tab + 1)
+}
+
 
 function searchPackFiles {
     # packs の start から count 件の集約ファイルを読み、regex に一致する行を PSCustomObject で返す（1 行に複数一致しても 1 件）。
@@ -133,6 +147,12 @@ function searchPackFiles {
                     }
                     $pos = $lineStart
                     $line = $text.Substring($lineStart, $lineEnd - $lineStart)
+                    if ($place.CellPrefixed -and !(testCellPrefixedHit $regex $line)) {
+                        # セル番地だけに一致した行はヒットにしない（行番号の数え方は崩さない）
+                        if ($lineEnd -ge $length) { break }
+                        $m = $textRegex.Match($text, $lineEnd + 1)
+                        continue
+                    }
                     if ($isTextBook) {
                         $line = truncateHitLine $line ($index - $lineStart)
                     }
@@ -166,6 +186,7 @@ function searchPackFiles {
                 $pos = $n + 1
                 $lineMatch = $regex.Match($line)
                 if (!$lineMatch.Success) { continue }
+                if ($place.CellPrefixed -and !(testCellPrefixedHit $regex $line)) { continue }
                 if ($isTextBook) {
                     $line = truncateHitLine $line $lineMatch.Index
                 }
@@ -208,7 +229,7 @@ function newPackWorkerPool {
         [int]$workers = (getWorkerCount)
     )
 
-    $state = newWorkerState @("searchPackFiles", "readPackPlaces", "convertPackMetaToPlace", "decodePackValue", "getPackFileKind", "testTextExtension", "truncateHitLine") `
+    $state = newWorkerState @("searchPackFiles", "testCellPrefixedHit", "readPackPlaces", "testPackCellPrefixed", "convertPackMetaToPlace", "decodePackValue", "getPackFileKind", "testTextExtension", "truncateHitLine") `
         @("packMark", "packVersion", "packPlaceKeys", "placeKindShape", "placeKindComment", "placeKindHeaderFooter", "textExtensions", "hitLineMaxChars", "hitLineBeforeMatchChars")
     return [WorkerPool]::new($workers, $state, $Host, "Normal")
 }

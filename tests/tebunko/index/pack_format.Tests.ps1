@@ -188,6 +188,25 @@ Describe "convertToPackText / readPackPlaces" -Tag Unit {
         $places[0].Location | Should -Be "S[図形]"
     }
 
+    It "<Book> の <Target> の場所は、行の先頭がセル番地か（CellPrefixed）= <Expected>" -ForEach @(
+        @{ Book = "a.xlsx"; Target = "図形"; Expected = $true }
+        @{ Book = "a.xlsx"; Target = "コメント"; Expected = $true }
+        @{ Book = "a.xlsx"; Target = "本文"; Expected = $false }
+        @{ Book = "a.xlsx"; Target = "ヘッダー・フッター"; Expected = $false }
+        @{ Book = "a.docx"; Target = "図形"; Expected = $false }
+        @{ Book = "a.docx"; Target = "コメント"; Expected = $false }
+        @{ Book = "a.pptx"; Target = "図形"; Expected = $false }
+        @{ Book = "a.pptx"; Target = "コメント"; Expected = $false }
+        @{ Book = "a.pptx"; Target = "ノート"; Expected = $false }
+    ) {
+        $mark = [string][char]0x1E
+        $unit = if ($Book -like "*.xlsx") { "シート" } elseif ($Book -like "*.docx") { "ページ" } else { "スライド" }
+        $value = if ($unit -eq "シート") { "S" } else { "1" }
+        $places = readPackPlaces "$mark 版=1`n$mark ファイル名=$Book`n$mark $unit=$value`n$mark 対象=$Target`nC2`t文字`n"
+        $places.Count | Should -Be 1
+        $places[0].CellPrefixed | Should -Be $Expected
+    }
+
     It "Excel のヘッダー・フッターの場所（シート名 + 対象）を、場所の名前に戻して読む" {
         $mark = [string][char]0x1E
         $places = readPackPlaces "$mark 版=1`n$mark ファイル名=a.xlsx`n$mark シート=S`n$mark 対象=ヘッダー・フッター`n中央`n"

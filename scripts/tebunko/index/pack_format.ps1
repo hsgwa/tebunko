@@ -344,8 +344,20 @@ function measurePackPartBytes {
     return [long]$chars * 2
 }
 
+function testPackCellPrefixed {
+    # 場所の行が「セル番地 + 区切りのタブ + 文字」の形か（Excel の図形・コメント）を返す。検索は、この形の行では区切りのタブより後だけを照合する
+    param (
+        [string]$book,
+        $meta
+    )
+
+    $target = [string]$meta["対象"]
+    return ((getPackFileKind $book) -eq "Excel") -and ($target -eq ${placeKindShape} -or $target -eq ${placeKindComment})
+}
+
+
 function readPackPlaces {
-    # 集約ファイルの文字列を読み、場所ごとの @{ Book; Location（今の場所の名前）; Start（中身の先頭の位置）; End（中身の終わりの次の位置） }
+    # 集約ファイルの文字列を読み、場所ごとの @{ Book; Location（今の場所の名前）; CellPrefixed（行の先頭がセル番地と区切りのタブか）; Start（中身の先頭の位置）; End（中身の終わりの次の位置） }
     # を先頭から順に返す。版が分からないときは例外にする
     param (
         [string]$text
@@ -376,6 +388,7 @@ function readPackPlaces {
                 if ($current) {
                     $current.End = $pos
                     $current.Location = convertPackMetaToPlace $meta
+                    $current.CellPrefixed = testPackCellPrefixed $current.Book $meta
                     $places.Add($current)
                     $current = $null
                 }
@@ -383,7 +396,7 @@ function readPackPlaces {
                     $book = $value
                 } else {
                     $meta = [ordered]@{ $key = $value }
-                    $current = @{ Book = $book; Location = ""; Start = $lineEnd + 1; End = $lineEnd + 1 }
+                    $current = @{ Book = $book; Location = ""; CellPrefixed = $false; Start = $lineEnd + 1; End = $lineEnd + 1 }
                 }
             } elseif ($current) {
                 $meta[$key] = $value
@@ -395,6 +408,7 @@ function readPackPlaces {
     if ($current) {
         $current.End = $text.Length
         $current.Location = convertPackMetaToPlace $meta
+        $current.CellPrefixed = testPackCellPrefixed $current.Book $meta
         $places.Add($current)
     }
     if (!$versionSeen -and $text.Length -gt 0) {
