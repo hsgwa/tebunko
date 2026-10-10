@@ -199,13 +199,20 @@ function extractWorkbook {
     $protection = $null
     if (isZipFile $copyPath) {
         $chartFailures = New-Object System.Collections.Generic.List[string]
+        $chartSizeFailures = New-Object System.Collections.Generic.List[object]
         try {
-            $objectUnits = readXlsxObjectUnits $copyPath $chartFailures
+            $objectUnits = readXlsxObjectUnits $copyPath $chartFailures $chartSizeFailures
         } catch {
+            # サイズの上限を超えたとき（ZipSizeLimitException）は、原因を調べられるよう部品名・大きさ・
+            # 部品ごとか合計かをインデックス作成のログに書く。画面には出さない（悪用のヒントになるため）
+            writeZipSizeLimitLog $_.Exception
             writeIndexerLog "    図形・コメントを読み取れませんでした: $($_.Exception.Message)" "Yellow"
         }
         # 1つのグラフ・SmartArt・シートのヘッダー/フッターが読めなくても、そこだけを空にしてほかは読む（readXlsxObjectUnits）。
-        # shared/ はツールを知らないため、読めなかった部品の名前をここでログに書く
+        # shared/ はツールを知らないため、読めなかった部品の名前・サイズの上限の詳細をここでログに書く
+        foreach ($sizeFailure in $chartSizeFailures) {
+            writeZipSizeLimitLog $sizeFailure
+        }
         foreach ($failure in $chartFailures) {
             writeIndexerLog "    一部を読み取れませんでした: $failure" "Yellow"
         }

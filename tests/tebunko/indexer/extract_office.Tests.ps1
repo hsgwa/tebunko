@@ -413,14 +413,130 @@ Describe "extractWorkbook（偽の Excel）" -Tag Io {
         Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { "$text" -match "一部を読み取れませんでした.*xl/worksheets/sheet2\.xml" }
     }
 
-    It "図形・コメントを読めなくても、セルの値は取り込む" {
+    It "図形（drawingN.xml）が部品のサイズの上限を超えたら、部品名・大きさをインデックス作成のログに書き、セルの値は取り込む" {
+        $zipSource = Join-Path $TestDrive "図形大きすぎ.xlsx"
+        $xNs = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
+        $xdrNs = 'xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"'
+        $relNs = 'xmlns="http://schemas.openxmlformats.org/package/2006/relationships"'
+        $officeRel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+
+        $workbookXml = "<workbook $xNs><sheets><sheet name=`"売上`" sheetId=`"1`" r:id=`"rId1`"/></sheets></workbook>"
+        $workbookRelsXml = "<Relationships $relNs><Relationship Id=`"rId1`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet1.xml`"/></Relationships>"
+        $sheetXml = "<worksheet $xNs/>"
+        $sheetRelsXml = "<Relationships $relNs><Relationship Id=`"rId1`" Type=`"$officeRel/drawing`" Target=`"../drawings/drawing1.xml`"/></Relationships>"
+        $drawingXml = "<xdr:wsDr $xdrNs>$('<!-- big -->' * 50)</xdr:wsDr>"
+
+        # drawing1.xml だけが上限を超えるように、ほかの部品の大きさから上限を決める（読む順で先に超えないようにする）
+        $otherParts = @($workbookXml, $workbookRelsXml, $sheetXml, $sheetRelsXml)
+        $maxOtherBytes = ($otherParts | ForEach-Object { [System.Text.Encoding]::UTF8.GetByteCount($_) } | Measure-Object -Maximum).Maximum
+        $drawingBytes = [System.Text.Encoding]::UTF8.GetByteCount($drawingXml)
+        $drawingBytes | Should -BeGreaterThan $maxOtherBytes
+
+        $entries = [ordered]@{
+            "xl/workbook.xml" = $workbookXml
+            "xl/_rels/workbook.xml.rels" = $workbookRelsXml
+            "xl/worksheets/sheet1.xml" = $sheetXml
+            "xl/worksheets/_rels/sheet1.xml.rels" = $sheetRelsXml
+            "xl/drawings/drawing1.xml" = $drawingXml
+        }
+        $stream = [System.IO.File]::Create($zipSource)
+        $zip = New-Object System.IO.Compression.ZipArchive($stream, [System.IO.Compression.ZipArchiveMode]::Create)
+        foreach ($name in $entries.Keys) {
+            $writer = New-Object System.IO.StreamWriter($zip.CreateEntry($name).Open(), (New-Object System.Text.UTF8Encoding($false)))
+            $writer.Write($entries[$name])
+            $writer.Dispose()
+        }
+        $zip.Dispose()
+        $stream.Dispose()
+
+        $excel = newExcel @((newSheet "売上" -1 "品名`r`n"))
+        Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
+        Mock writeIndexerLog {}
+
+        $orig = $script:zipPartMaxBytes
+        $script:zipPartMaxBytes = $maxOtherBytes + 1
+        try {
+            extractWorkbook $zipSource | Should -Be 1
+            listTmp | Should -Be @("売上.tsv")
+            # 原因を調べられるよう、部品名・大きさ・部品ごとか合計かをインデックス作成のログに書く（画面には出さない）
+            Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { "$text" -match "サイズの上限（部品ごと）を超えました.*xl/drawings/drawing1\.xml" }
+        } finally {
+            $script:zipPartMaxBytes = $orig
+        }
+    }
+
+    It "グラフ（xl/charts/chart1.xml）だけが部品のサイズの上限を超えても、そのグラフだけを空にし、部品名・大きさをログに書いて、ほかの図形・セルは取り込む" {
+        $zipSource = Join-Path $TestDrive "グラフ大きすぎ.xlsx"
+        $xNs = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
+        $xdrNs = 'xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"'
+        $cNs = 'xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
+        $relNs = 'xmlns="http://schemas.openxmlformats.org/package/2006/relationships"'
+        $officeRel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+        $anchor = "<xdr:twoCellAnchor><xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>" +
+            "<xdr:to><xdr:col>2</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>2</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>" +
+            "<xdr:graphicFrame macro=`"`"><xdr:nvGraphicFramePr><xdr:cNvPr id=`"3`" name=`"c`"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm/>" +
+            "<a:graphic><a:graphicData><c:chart $cNs r:id=`"rId1`"/></a:graphicData></a:graphic></xdr:graphicFrame><xdr:clientData/></xdr:twoCellAnchor>"
+
+        $workbookXml = "<workbook $xNs><sheets><sheet name=`"売上`" sheetId=`"1`" r:id=`"rId1`"/></sheets></workbook>"
+        $workbookRelsXml = "<Relationships $relNs><Relationship Id=`"rId1`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet1.xml`"/></Relationships>"
+        $sheetXml = "<worksheet $xNs/>"
+        $sheetRelsXml = "<Relationships $relNs><Relationship Id=`"rId1`" Type=`"$officeRel/drawing`" Target=`"../drawings/drawing1.xml`"/></Relationships>"
+        $drawingXml = "<xdr:wsDr $xdrNs>$anchor</xdr:wsDr>"
+        $drawingRelsXml = "<Relationships $relNs><Relationship Id=`"rId1`" Type=`"$officeRel/chart`" Target=`"../charts/chart1.xml`"/></Relationships>"
+        $chartXml = "<c:chartSpace $cNs>$('<!-- big -->' * 100)</c:chartSpace>"
+
+        # chart1.xml だけが上限を超えるように、ほかの部品の大きさから上限を決める（読む順で先に超えないようにする）
+        $otherParts = @($workbookXml, $workbookRelsXml, $sheetXml, $sheetRelsXml, $drawingXml, $drawingRelsXml)
+        $maxOtherBytes = ($otherParts | ForEach-Object { [System.Text.Encoding]::UTF8.GetByteCount($_) } | Measure-Object -Maximum).Maximum
+        $chartBytes = [System.Text.Encoding]::UTF8.GetByteCount($chartXml)
+        $chartBytes | Should -BeGreaterThan $maxOtherBytes
+
+        $entries = [ordered]@{
+            "xl/workbook.xml" = $workbookXml
+            "xl/_rels/workbook.xml.rels" = $workbookRelsXml
+            "xl/worksheets/sheet1.xml" = $sheetXml
+            "xl/worksheets/_rels/sheet1.xml.rels" = $sheetRelsXml
+            "xl/drawings/drawing1.xml" = $drawingXml
+            "xl/drawings/_rels/drawing1.xml.rels" = $drawingRelsXml
+            "xl/charts/chart1.xml" = $chartXml
+        }
+        $stream = [System.IO.File]::Create($zipSource)
+        $zip = New-Object System.IO.Compression.ZipArchive($stream, [System.IO.Compression.ZipArchiveMode]::Create)
+        foreach ($name in $entries.Keys) {
+            $writer = New-Object System.IO.StreamWriter($zip.CreateEntry($name).Open(), (New-Object System.Text.UTF8Encoding($false)))
+            $writer.Write($entries[$name])
+            $writer.Dispose()
+        }
+        $zip.Dispose()
+        $stream.Dispose()
+
+        $excel = newExcel @((newSheet "売上" -1 "品名`r`n"))
+        Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
+        Mock writeIndexerLog {}
+
+        $orig = $script:zipPartMaxBytes
+        $script:zipPartMaxBytes = $maxOtherBytes + 1
+        try {
+            extractWorkbook $zipSource | Should -Be 1
+            listTmp | Should -Be @("売上.tsv")
+            Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { "$text" -match "一部を読み取れませんでした.*xl/charts/chart1\.xml" }
+            # 原因を調べられるよう、部品名・大きさ・部品ごとか合計かをインデックス作成のログに書く（画面には出さない）
+            Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { "$text" -match "サイズの上限（部品ごと）を超えました.*xl/charts/chart1\.xml" }
+        } finally {
+            $script:zipPartMaxBytes = $orig
+        }
+    }
+
+    It "図形・コメントを読めなくても（サイズの上限以外の壊れ方）、セルの値は取り込み、サイズの上限の詳細はログに書かない" {
         $broken = Join-Path $TestDrive "壊れたZIP.xlsx"
         [System.IO.File]::WriteAllBytes($broken, [byte[]](0x50, 0x4B, 0x03, 0x04, 0x00))
         $excel = newExcel @((newSheet "売上" -1 "品名`r`n"))
         Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
+        Mock writeIndexerLog {}
 
         extractWorkbook $broken | Should -Be 1
         listTmp | Should -Be @("売上.tsv")
+        Should -Invoke writeIndexerLog -Times 0 -Exactly -Scope It -ParameterFilter { "$text" -match "サイズの上限" }
     }
 
     It "開けない（パスワード付きなど）ときは例外を返す" {

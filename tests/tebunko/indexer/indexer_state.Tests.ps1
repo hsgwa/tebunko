@@ -1,6 +1,9 @@
 ﻿# インデックス作成の状態ファイル（tebunko\indexer\indexer_state.ps1）のテスト
 BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
+    # ZipSizeLimitException（writeZipSizeLimitLog のテストで使う）は office_reader.ps1 にあり、
+    # 本番の読み込み口（lib.ps1）には含まれない（indexer_lib.ps1 が別に読み込む）ため、ここで直接読み込む
+    . "${scriptsDir}\shared\office\office_reader.ps1"
 }
 
 Describe "readStatusFile / writeStatusFile / addStatusRow" -Tag Io {
@@ -338,6 +341,38 @@ Describe "writeIndexerLog" -Tag Unit {
         $writer.Dispose()
         $script:indexerLog = $writer
         { writeIndexerLog "書けない" } | Should -Not -Throw
+    }
+}
+
+Describe "writeZipSizeLimitLog" -Tag Unit {
+    BeforeAll {
+        # [ZipSizeLimitException] の型リテラルは、Pester の It ブロックからは直接解決できない
+        # （BeforeAll で dot-source したクラスでも、実行スコープが分かれるため）。
+        # BeforeAll で定義したこの関数の中でだけ型リテラルを使い、It からは関数越しに呼ぶ
+        function newZipSizeLimitException([string]$message, [string]$partName, [long]$measuredBytes, [string]$limitKind) {
+            return [ZipSizeLimitException]::new($message, $partName, $measuredBytes, $limitKind)
+        }
+    }
+
+    AfterEach {
+        $script:indexerLog = $null
+    }
+
+    It "<limitKind>: 部品名・大きさ・部品ごとか合計かをログに書く" -TestCases @(
+        @{ limitKind = "Part"; kindText = "部品ごと" }
+        @{ limitKind = "Total"; kindText = "1ファイルの合計" }
+    ) {
+        param ($limitKind, $kindText)
+        $script:indexerLog = New-Object System.IO.StringWriter
+        $exception = newZipSizeLimitException "ファイルサイズが大きすぎるため更新できません。" "xl/charts/chart1.xml" 123456789 $limitKind
+        writeZipSizeLimitLog $exception
+        $script:indexerLog.ToString() | Should -Be "    サイズの上限（${kindText}）を超えました: xl/charts/chart1.xml（123456789 バイト、約117.7MB）`r`n"
+    }
+
+    It "ZipSizeLimitException でなければ何もしない" {
+        $script:indexerLog = New-Object System.IO.StringWriter
+        writeZipSizeLimitLog (New-Object System.Exception("ふつうの失敗です。"))
+        $script:indexerLog.ToString() | Should -Be ""
     }
 }
 

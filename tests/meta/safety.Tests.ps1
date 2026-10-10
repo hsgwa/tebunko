@@ -28,6 +28,7 @@ BeforeAll {
                 }
                 $result.Add([pscustomobject]@{
                     File = [System.IO.Path]::GetFileName($path)
+                    Path = $path
                     Line = $number
                     Text = $code
                 })
@@ -261,6 +262,98 @@ Describe "Office ファイルを安全に開くこと（docs/safety/checks.md「
         # 可視にするのは画面から元のファイルを開くときだけ（ui/open_source.ps1）
         $visible = @($code | Where-Object { $_.Text -match 'Visible\s*=\s*\$true' })
         (@($visible | Where-Object { $_.File -ne "open_source.ps1" } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
+    }
+}
+
+Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を守ること（docs/safety/checks.md「Office ファイルを開くときの設定」）" -Tag Meta {
+    It "XmlDocument への読み込みは newXmlDocument 関数だけで行う（LoadXml を直接呼ばない）" {
+        # shared/ui/app_host.ps1 だけは、このツール自身の XAML（利用者の Office ファイルではない）を読むので対象外
+        (findPattern @($code | Where-Object { $_.Path -notlike "*\shared\ui\app_host.ps1" }) '\.LoadXml\(') | Should -Be ""
+    }
+
+    It "XmlDocument は newXmlDocument 経由でだけ作る（New-Object System.Xml.XmlDocument は office_reader.ps1 の中だけ）" {
+        $news = @($code | Where-Object { $_.Text -match 'New-Object\s+System\.Xml\.XmlDocument' })
+        (@($news | Where-Object { $_.File -ne "office_reader.ps1" -and $_.Path -notlike "*\shared\ui\app_host.ps1" } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
+    }
+
+    It "[xml] への型変換で XML を読み込まない（DTD 無効化を回避できてしまうため）" {
+        (findPattern $code '\[xml\]') | Should -Be ""
+    }
+
+    It "XmlReaderSettings を作るところは、すべて DTD の処理を禁止する（DtdProcessing = Prohibit）" {
+        # 作る数と、Prohibit を入れる数を比べる（ファイルに 1 か所あれば足りる、という見逃しを防ぐ）
+        $creations = @($code | Where-Object { $_.Text -match 'New-Object\s+System\.Xml\.XmlReaderSettings' })
+        $prohibits = @($code | Where-Object { $_.Text -match 'DtdProcessing\s*=\s*\[System\.Xml\.DtdProcessing\]::Prohibit' })
+        ($creations.Count -gt 0) | Should -Be $true
+        $prohibits.Count | Should -Be $creations.Count -Because "XmlReaderSettings を作った数だけ Prohibit が要る（作った場所: $(findPattern $creations '.')）"
+    }
+
+    It "ZIP の部品・1ファイルの合計のサイズに上限があり、読むのは readZipEntry だけ" {
+        (findPattern $code 'zipPartMaxBytes') | Should -Not -Be ""
+        (findPattern $code 'zipTotalMaxBytes') | Should -Not -Be ""
+        $reads = @($code | Where-Object { $_.Text -match 'function readZipEntry' } | ForEach-Object { $_.File } | Sort-Object -Unique)
+        ($reads -join ", ") | Should -Be "office_reader.ps1"
+    }
+
+    It "ZIP の部品の中身を実際に読む（entry.Open()・ReadToEnd）のは readZipEntry 関数と、上限を付けたシートの流れ読みだけ" {
+        # 上限の判定（zipPartMaxBytes・zipTotalMaxBytes）を迂回して、office_reader.ps1 のほかの関数が
+        # 直接 ZIP の中身を読んでしまわないことを、関数の行範囲で確かめる
+        $officeReaderLines = @($code | Where-Object { $_.File -eq "office_reader.ps1" })
+        $funcStarts = @($officeReaderLines | Where-Object { $_.Text -match '^\s*function\s+\w+' } | Sort-Object Line)
+        # readZipEntry のほかに、シートのヘッダー・フッターを流れで読む readXlsxSheetHeaderFooter だけは、
+        # 大きさの上限（zipSheetStreamMaxBytes。偽りの申告は MaxCharactersInDocument で打ち切る）を付けて entry.Open() してよい
+        $ranges = @()
+        foreach ($fn in @("readZipEntry", "readXlsxSheetHeaderFooter")) {
+            $start = ($funcStarts | Where-Object { $_.Text -match "function\s+$fn\b" }).Line
+            $start | Should -Not -BeNullOrEmpty
+            $end = ($funcStarts | Where-Object { $_.Line -gt $start } | Sort-Object Line | Select-Object -First 1).Line
+            if (-not $end) { $end = [int]::MaxValue }
+            $ranges += , @($start, $end)
+        }
+        $streamed = @($officeReaderLines | Where-Object { $_.Line -ge $ranges[1][0] -and $_.Line -lt $ranges[1][1] })
+        (findPattern $streamed 'MaxCharactersInDocument\s*=\s*\$script:zipSheetStreamMaxBytes') | Should -Not -Be ""
+
+        # 対象は Office の読み取りと取り込みの全ファイル。ExtractToFile・CopyTo も同じく上限を迂回して中身を出せる
+        $readerFiles = @($code | Where-Object { $_.Path -like "*\scripts\shared\office\*" -or $_.Path -like "*\scripts\tebunko\indexer\*" })
+        # ZIP と関係のない既存の使い方（runspace を開く・状態ファイルを読む）は対象から外す
+        $notZip = '^\s*(\$runspace|\$this\.Runspace)\.Open\(\)\s*$|^\s*\$(lines|text)\s*=\s*\$reader\.ReadToEnd\(\)'
+        $targets = @($readerFiles | Where-Object { $_.Text -match '\.Open\(\)|ReadToEnd\(\)|ExtractToFile|ExtractToDirectory|Expand-Archive|\.CopyTo\(' -and $_.Text -notmatch $notZip })
+        $outside = @($targets | Where-Object {
+            $t = $_
+            $t.File -ne "office_reader.ps1" -or @($ranges | Where-Object { $t.Line -ge $_[0] -and $t.Line -lt $_[1] }).Count -eq 0
+        })
+        (@($outside | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
+        ($targets.Count -gt 0) | Should -Be $true  # 検査の取りこぼし（対象0件で通る）を防ぐ
+    }
+
+    It "readZipEntry の StringBuilder に容量を渡さない（申告の大きさぶんのメモリを先に確保しないため）" {
+        $officeReaderLines = @($code | Where-Object { $_.File -eq "office_reader.ps1" })
+        $funcStarts = @($officeReaderLines | Where-Object { $_.Text -match '^\s*function\s+\w+' } | Sort-Object Line)
+        $start = ($funcStarts | Where-Object { $_.Text -match 'function\s+readZipEntry\b' }).Line
+        $start | Should -Not -BeNullOrEmpty
+        $end = ($funcStarts | Where-Object { $_.Line -gt $start } | Sort-Object Line | Select-Object -First 1).Line
+        if (-not $end) { $end = [int]::MaxValue }
+        $inside = @($officeReaderLines | Where-Object { $_.Line -ge $start -and $_.Line -lt $end })
+        $builders = @($inside | Where-Object { $_.Text -match 'System\.Text\.StringBuilder' })
+        ($builders.Count -gt 0) | Should -Be $true
+        # 引数なし（行末が StringBuilder）であること。容量を渡す書き方（括弧・数字）は、どれも当たらない
+        (@($builders | Where-Object { $_.Text -notmatch 'System\.Text\.StringBuilder\s*$' } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
+    }
+
+    It "XmlDocument を作る（New-Object System.Xml.XmlDocument）のは newXmlDocument 関数の中だけ" {
+        # ファイル単位の確かめ（上の「newXmlDocument 経由でだけ作る」）に加え、office_reader.ps1 の
+        # ほかの関数が newXmlDocument を経由せずに直接 XmlDocument を作っていないことを、関数の行範囲で確かめる
+        $officeReaderLines = @($code | Where-Object { $_.File -eq "office_reader.ps1" })
+        $funcStarts = @($officeReaderLines | Where-Object { $_.Text -match '^\s*function\s+\w+' } | Sort-Object Line)
+        $start = ($funcStarts | Where-Object { $_.Text -match 'function\s+newXmlDocument\b' }).Line
+        $start | Should -Not -BeNullOrEmpty
+        $end = ($funcStarts | Where-Object { $_.Line -gt $start } | Sort-Object Line | Select-Object -First 1).Line
+        if (-not $end) { $end = [int]::MaxValue }
+
+        $targets = @($officeReaderLines | Where-Object { $_.Text -match 'New-Object\s+System\.Xml\.XmlDocument' })
+        $outside = @($targets | Where-Object { $_.Line -lt $start -or $_.Line -ge $end })
+        (@($outside | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
+        ($targets.Count -gt 0) | Should -Be $true
     }
 }
 
