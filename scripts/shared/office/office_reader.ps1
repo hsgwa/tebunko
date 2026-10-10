@@ -25,6 +25,43 @@ ${nsChart}   = "http://schemas.openxmlformats.org/drawingml/2006/chart"
 # PowerPointで読み飛ばすプレースホルダー（スライド番号・日付・ヘッダー・フッター・スライド画像）
 ${skipPlaceholderTypes} = @("sldNum", "dt", "hdr", "ftr", "sldImg")
 
+# ZIPの部品（ファイル）1つの展開後の大きさと、1ファイルの合計（readDocxUnits・readPptxUnits・
+# readXlsxObjectUnitsがファイルを開くたびに0から数える）の上限。どちらもバイト（entry.Lengthと同じ単位）。
+# ZIP爆弾（小さく圧縮した巨大な部品）・部品を大量に並べたファイルでメモリを使い切るのを防ぐ（readZipEntry）。
+# setting.config には出さない定数（値を変えたい場合は docs/design/indexing/known-issues.md を参照）。
+# $script: の変数は読み取りのスレッド（runspace）ごとに別になる。ファイルの合計はスレッドごとに独立して
+# 数えたいので都合がよい（テストから一時的に値を変えるときは、この $script: を直接上書きする）
+$script:zipPartMaxBytes = 100MB
+$script:zipTotalMaxBytes = 300MB
+# シートの部品を流れで読む（readXlsxSheetHeaderFooter）ときの、展開後の大きさ（バイト）の上限。流れ読みは文字列にしない
+# のでメモリを使わず、かかるのは時間だけ。シートは sheetData が大きく、実在のブックでも部品の上限（100MB）を超えうる
+# ため、部品の上限より大きい別の値にする（超えたシートは、そのシートのヘッダー・フッターだけ読めなかった扱い）。
+# 1ファイルの合計（zipTotalMaxBytes）には数えないので、シートごとに最大この大きさまで読む
+$script:zipSheetStreamMaxBytes = 1000MB
+# 1ファイルの合計（バイト）。readZipEntry が確保する大きさ（entry.Length）を足していく
+$script:zipTotalReadBytes = 0
+
+# サイズの上限を超えた（ZIP爆弾・巨大なXML等の見込み）ときに投げる、利用者向けの短い文言。
+# 画面には部品ごとか合計かの区別・部品名・大きさを出さない（分かると悪用のヒントになるため）。
+# 原因を調べられるよう、部品名・大きさ・部品ごとか合計かはインデックス作成のログにだけ書く。
+# shared/ はツール（インデックス作成のログ）を知らないため、ここでは書かず、
+# ZipSizeLimitException のプロパティで呼び出し元（tebunko/indexer）に伝える
+$script:zipTooLargeMessage = "ファイルサイズが大きすぎるため更新できません。"
+
+class ZipSizeLimitException : System.Exception {
+    # .Message は今までどおり利用者向けの簡潔な文言のまま（$script:zipTooLargeMessage）。
+    # 部品名・大きさ・部品ごとか合計かは、ここのプロパティにだけ持ち、呼び出し元がインデックス作成のログに書く
+    [string]$PartName     # ZIP内のパス（例: "word/document.xml"）
+    [long]$MeasuredBytes  # 超えたと分かった時点の大きさ（バイト）。偽りのヘッダーのときは、実際の大きさまでは分からないため、検出できた時点の値
+    [string]$LimitKind    # "Part"（部品ごとの上限。偽りのヘッダーを含む）または "Total"（1ファイルの合計の上限）
+
+    ZipSizeLimitException([string]$message, [string]$partName, [long]$measuredBytes, [string]$limitKind) : base($message) {
+        $this.PartName = $partName
+        $this.MeasuredBytes = $measuredBytes
+        $this.LimitKind = $limitKind
+    }
+}
+
 function isZipFile {
     # ファイルの先頭がZIPのシグネチャ（PK\x03\x04）かどうか。
     # パスワード付きのOfficeファイルや旧形式は、拡張子が .docx 等でもZIPではない
@@ -66,8 +103,29 @@ function isCompoundFile {
     }
 }
 
+# 読み取りのスレッド（runspace）ごとに使い回す、部品の読み取り用の入れ物。大きな部品を読むときに、
+# 部品の大きさぶんの配列を毎回確保しない（ラージオブジェクトヒープに乗らない大きさ（85,000 バイト
+# 未満。既定 32768 バイト）にとどめ、GC の負担を減らす）
+$script:zipReadBufferSize = 32768
+$script:zipReadBuffer = $null
+
 function readZipEntry {
-    # ZIP内のファイルを文字列で返す。無ければ $null
+    # ZIP内のファイルを文字列で返す。無ければ $null。
+    #
+    # 展開後の大きさ（entry.Length。中央ディレクトリの値）が部品ごとの上限（zipPartMaxBytes）を超える、
+    # または1ファイルの合計（zipTotalReadBytes）が合計の上限（zipTotalMaxBytes）を超えると例外にする。
+    # 合計は、実際に読んだ量ではなく「確保する大きさ」（entry.Length）で、読む前に数える
+    # （ヘッダーの大きさを偽って中身を小さくした部品を並べても、合計の上限で打ち切るため）。
+    #
+    # entry.Length の値は、細工して実際より小さく書き換えられる（偽りのヘッダー）。これを見つけるため、
+    # 実際に読む量を Length + 1 バイトまでに絞る（入れ物は小さく使い回し、1回ごとの Stream.Read の
+    # 要求バイト数を「残り（Length + 1 - 既読量）」で頭打ちにする）。既読量が Length + 1 バイトに届いたら、
+    # 中身がヘッダーより長いと分かるので、そこで止めて例外にする。展開はここで必ず止まり、
+    # 上限のバイト数を超えて進まない（部品の大きさぶんの配列は作らない）。
+    #
+    # 読んだバイト列は、今までの StreamReader（UTF-8を指定し、BOMを見て文字コードを決める）と同じ規則で
+    # 文字列にする（BOM付きUTF-8・UTF-16 LE/BEを見分け、無ければUTF-8）。入れ物（$script:zipReadBuffer）に
+    # 入った分だけ Decoder で文字に直し、StringBuilder に積む（文字の境界がまたがっても Decoder が覚える）
     param (
         [System.IO.Compression.ZipArchive]$zip,
         [string]$entryName
@@ -77,12 +135,87 @@ function readZipEntry {
     if ($null -eq $entry) {
         return $null
     }
-    $reader = New-Object System.IO.StreamReader($entry.Open(), [System.Text.Encoding]::UTF8)
-    try {
-        return $reader.ReadToEnd()
-    } finally {
-        $reader.Dispose()
+
+    $length = $entry.Length
+    if ($length -gt $script:zipPartMaxBytes) {
+        throw [ZipSizeLimitException]::new($script:zipTooLargeMessage, $entryName, $length, "Part")
     }
+    $script:zipTotalReadBytes += $length
+    if ($script:zipTotalReadBytes -gt $script:zipTotalMaxBytes) {
+        throw [ZipSizeLimitException]::new($script:zipTooLargeMessage, $entryName, $script:zipTotalReadBytes, "Total")
+    }
+
+    if ($null -eq $script:zipReadBuffer) {
+        # BOM の見分けに先頭 3 バイトが要るため、3 より小さくしない
+        $script:zipReadBuffer = New-Object byte[] ([Math]::Max(3, $script:zipReadBufferSize))
+    }
+    $buffer = $script:zipReadBuffer
+    $budget = $length + 1  # 偽りのヘッダーを見つけるため、読む量はこれより増やさない
+    $totalRead = 0L
+    $sb = New-Object System.Text.StringBuilder  # 容量は渡さない（申告の大きさぶんを先に確保しないため）
+    $decoder = $null
+    $charBuffer = $null
+    $first = $true
+
+    $stream = $entry.Open()
+    try {
+        while ($totalRead -lt $budget) {
+            $want = [Math]::Min($buffer.Length, [long]($budget - $totalRead))
+            $filled = 0
+            $endOfStream = $false
+            while ($filled -lt $want) {
+                $read = $stream.Read($buffer, $filled, [int]($want - $filled))
+                if ($read -le 0) {
+                    $endOfStream = $true
+                    break
+                }
+                $filled += $read
+            }
+            $totalRead += $filled
+            if ($totalRead -gt $length) {
+                # 中身がヘッダーの値より長い（偽りのヘッダー）。実際の大きさは分からないため、検出できた時点の値を記録する
+                throw [ZipSizeLimitException]::new($script:zipTooLargeMessage, $entryName, $totalRead, "Part")
+            }
+
+            $byteOffset = 0
+            if ($first) {
+                $first = $false
+                $encoding = [System.Text.Encoding]::UTF8
+                if ($filled -ge 3 -and $buffer[0] -eq 0xEF -and $buffer[1] -eq 0xBB -and $buffer[2] -eq 0xBF) {
+                    $byteOffset = 3
+                } elseif ($filled -ge 2 -and $buffer[0] -eq 0xFF -and $buffer[1] -eq 0xFE) {
+                    $encoding = [System.Text.Encoding]::Unicode
+                    $byteOffset = 2
+                } elseif ($filled -ge 2 -and $buffer[0] -eq 0xFE -and $buffer[1] -eq 0xFF) {
+                    $encoding = [System.Text.Encoding]::BigEndianUnicode
+                    $byteOffset = 2
+                }
+                $decoder = $encoding.GetDecoder()
+                $charBuffer = New-Object char[] ($encoding.GetMaxCharCount($buffer.Length))
+            }
+            $byteCount = $filled - $byteOffset
+            if ($byteCount -gt 0) {
+                $charCount = $decoder.GetChars($buffer, $byteOffset, $byteCount, $charBuffer, 0, $false)
+                if ($charCount -gt 0) {
+                    [void]$sb.Append($charBuffer, 0, $charCount)
+                }
+            }
+            if ($endOfStream) {
+                break
+            }
+        }
+        if ($null -ne $decoder) {
+            # 最後にDecoderの中に残っている分（サロゲートペアの前半など）を吐き出させる
+            $charCount = $decoder.GetChars([byte[]]@(), 0, 0, $charBuffer, 0, $true)
+            if ($charCount -gt 0) {
+                [void]$sb.Append($charBuffer, 0, $charCount)
+            }
+        }
+    } finally {
+        $stream.Dispose()
+    }
+
+    return $sb.ToString()
 }
 
 function resolveZipPath {
@@ -107,6 +240,30 @@ function resolveZipPath {
     return ($parts -join "/")
 }
 
+function newXmlDocument {
+    # XML文字列から XmlDocument を作る。既存の New-Object + LoadXml と同じ挙動
+    # （文字の検査はせず、余白は詰める）にしつつ、DTD（<!DOCTYPE ...>）の処理を禁止する。
+    # DTDの実体参照を入れ子にして膨張させる攻撃（billion laughs）を防ぐため
+    # （readXmlLines と同じ禁止を、LoadXmlを使うすべての呼び出し元にも揃える）
+    param (
+        [string]$xml
+    )
+
+    $settings = New-Object System.Xml.XmlReaderSettings
+    $settings.DtdProcessing = [System.Xml.DtdProcessing]::Prohibit
+    $settings.XmlResolver = $null
+    $settings.CheckCharacters = $false
+    $reader = [System.Xml.XmlReader]::Create((New-Object System.IO.StringReader($xml)), $settings)
+    try {
+        $doc = New-Object System.Xml.XmlDocument
+        $doc.PreserveWhitespace = $false
+        $doc.Load($reader)
+        return , $doc  # XmlDocument は IEnumerable なので、, を付けないとパイプラインで展開される
+    } finally {
+        $reader.Dispose()
+    }
+}
+
 function readRelationships {
     # .rels ファイルを読み、Id → @{ Type; Target（ZIP内のパス） } の辞書を返す
     param (
@@ -123,8 +280,7 @@ function readRelationships {
         return $result
     }
 
-    $doc = New-Object System.Xml.XmlDocument
-    $doc.LoadXml($xml)
+    $doc = newXmlDocument $xml
     foreach ($rel in $doc.GetElementsByTagName("Relationship", ${nsPkgRel})) {
         if ($rel.GetAttribute("TargetMode") -eq "External") {
             continue
@@ -448,8 +604,7 @@ function readChartText {
     foreach ($line in (readXmlLines $xml ${nsDrawing})) {
         if ($seen.Add($line.Text)) { $texts.Add($line.Text) }
     }
-    $doc = New-Object System.Xml.XmlDocument
-    $doc.LoadXml($xml)
+    $doc = newXmlDocument $xml
     # タイトル・軸ラベルのうち、セル参照の文字（c:title/c:tx/c:strRef/c:strCache/c:pt/c:v。直値の c:rich は上で読み済み）
     foreach ($title in $doc.GetElementsByTagName("title", ${nsChart})) {
         foreach ($text in (readChartTxText $title)) {
@@ -498,8 +653,7 @@ function readWordComments {
     if (-not $xml) {
         return $comments  # コメントが無い（[string] の引数は $null を空文字にする）
     }
-    $doc = New-Object System.Xml.XmlDocument
-    $doc.LoadXml($xml)
+    $doc = newXmlDocument $xml
     foreach ($comment in $doc.GetElementsByTagName("comment", ${nsWord})) {
         $text = @(readXmlLines $comment.OuterXml ${nsWord} | ForEach-Object { $_.Text }) -join " "
         if ($text -ne "") {
@@ -518,8 +672,7 @@ function readSlideComments {
     )
 
     $texts = New-Object System.Collections.Generic.List[string]
-    $doc = New-Object System.Xml.XmlDocument
-    $doc.LoadXml($xml)
+    $doc = newXmlDocument $xml
     foreach ($cm in @($doc.SelectNodes("//*") | Where-Object { $_.LocalName -eq "cm" })) {
         if ($cm.NamespaceURI -eq ${nsPresent}) {
             $body = @($cm.ChildNodes | Where-Object { $_.LocalName -eq "text" })
@@ -547,6 +700,7 @@ function readDocxUnits {
         [string]$path
     )
 
+    $script:zipTotalReadBytes = 0  # このファイル1つ分の、readZipEntryが読む合計（zipTotalMaxBytes）を0から数え直す
     $units = New-Object System.Collections.Specialized.OrderedDictionary
     $zip = [System.IO.Compression.ZipFile]::OpenRead((toLongPath $path))
     try {
@@ -632,6 +786,7 @@ function readPptxUnits {
         [string]$path
     )
 
+    $script:zipTotalReadBytes = 0  # このファイル1つ分の、readZipEntryが読む合計（zipTotalMaxBytes）を0から数え直す
     $units = New-Object System.Collections.Specialized.OrderedDictionary
     $footers = New-Object System.Collections.Generic.List[string]
     $seenFooters = New-Object System.Collections.Generic.HashSet[string]
@@ -641,8 +796,7 @@ function readPptxUnits {
         if ($null -eq $presentationXml) {
             throw "PowerPointのプレゼンテーション情報（ppt/presentation.xml）がありません。"
         }
-        $presentation = New-Object System.Xml.XmlDocument
-        $presentation.LoadXml($presentationXml)
+        $presentation = newXmlDocument $presentationXml
         $presentationRels = readRelationships $zip "ppt/presentation.xml"
 
         # スライドの表示順は sldIdLst の順（ファイル名の番号とは一致しないことがある）
@@ -732,17 +886,19 @@ function readXlsxShapeRows {
     # 参照も解決し、テキストボックスの段落 → グラフ・SmartArt の文字（XML の順）の順に 1 つの図形（1 行）にする。
     # リレーションシップ（_rels）は、参照が 1 つ以上あるときだけ読む。
     # 参照の先・リレーションシップが無い、部品が読めない（XML が壊れているなど）ときは、そのグラフ・SmartArt だけを
-    # 空にして続ける（同じ図形の中のほかの文字、ほかの図形は出す）。$failures を渡すと、読めなかった部品の名前を追加する
+    # 空にして続ける（同じ図形の中のほかの文字、ほかの図形は出す）。$failures を渡すと、読めなかった部品の名前を追加する。
+    # サイズの上限（ZipSizeLimitException）で読めなかったときは、原因を調べられるよう、その例外自体を
+    # $sizeFailures に追加する（呼び出し元がインデックス作成のログに部品名・大きさ・部品ごとか合計かを書く）
     param (
         [string]$xml,
         [System.IO.Compression.ZipArchive]$zip = $null,
         [string]$drawingPath = $null,
-        [System.Collections.Generic.List[string]]$failures = $null
+        [System.Collections.Generic.List[string]]$failures = $null,
+        [System.Collections.Generic.List[object]]$sizeFailures = $null
     )
 
     $nsSheetDrawing = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
-    $doc = New-Object System.Xml.XmlDocument
-    $doc.LoadXml($xml)
+    $doc = newXmlDocument $xml
     $rows = New-Object System.Collections.Generic.List[object]
     $rels = $null  # この図形の部品（drawingN.xml）自身のリレーションシップ。参照が1つ以上あるときだけ読む
     foreach ($anchor in @($doc.DocumentElement.SelectNodes("//*")) | Where-Object {
@@ -774,6 +930,10 @@ function readXlsxShapeRows {
                 }
                 $text = readObjectText $zip $rels $object
             } catch {
+                if ($null -ne $sizeFailures -and $_.Exception -is [ZipSizeLimitException]) {
+                    # サイズの上限を超えたときは、例外自体を渡す（部品名は例外の PartName に入っている）
+                    $sizeFailures.Add($_.Exception)
+                }
                 if ($null -ne $failures) {
                     if ($null -eq $rels -and $drawingPath) {
                         # リレーションシップ自体（drawingN.xml.rels）が読めなかった場合は、図形の部品の名前を記録する
@@ -819,8 +979,7 @@ function readXlsxCommentRows {
     $result = [ordered]@{}
 
     foreach ($xml in @($threadedXmls | Where-Object { $_ })) {
-        $doc = New-Object System.Xml.XmlDocument
-        $doc.LoadXml($xml)
+        $doc = newXmlDocument $xml
         foreach ($comment in $doc.GetElementsByTagName("threadedComment", $nsThreaded)) {
             $ref = $comment.GetAttribute("ref")
             $text = @($comment.GetElementsByTagName("text", $nsThreaded) | ForEach-Object { $_.InnerText }) -join "`n"
@@ -836,8 +995,7 @@ function readXlsxCommentRows {
     }
 
     if ($commentsXml) {
-        $doc = New-Object System.Xml.XmlDocument
-        $doc.LoadXml($commentsXml)
+        $doc = newXmlDocument $commentsXml
         foreach ($comment in $doc.GetElementsByTagName("comment", $nsSheet)) {
             $ref = $comment.GetAttribute("ref")
             if (-not $ref -or $result.Contains($ref)) {
@@ -1039,6 +1197,10 @@ function readXlsxSheetHeaderFooter {
 
     $settings = New-Object System.Xml.XmlReaderSettings
     $settings.DtdProcessing = [System.Xml.DtdProcessing]::Prohibit
+    # シートの部品は sheetData が大きいため、文字列にせず流れで読む（readZipEntry は使わない）。
+    # 代わりに、申告の大きさ（entry.Length）が上限（zipSheetStreamMaxBytes）を超える部品は開かずに読めなかった扱いにする。
+    # MaxCharactersInDocument は、申告を偽った部品（実際は大きいのに小さく申告）を打ち切る守り（XmlException → 読めなかった扱い）
+    $settings.MaxCharactersInDocument = $script:zipSheetStreamMaxBytes
     $stream = $null
     $reader = $null
     try {
@@ -1049,13 +1211,24 @@ function readXlsxSheetHeaderFooter {
             if ($null -eq $entry) {
                 return @()
             }
+            if ($entry.Length -gt $script:zipSheetStreamMaxBytes) {
+                # 申告の大きさが流れ読みの上限を超える（開かずに読めなかった扱いにし、理由をログに出せるようにする）
+                if ($null -ne $failures) {
+                    $failures.Add("$entryName（流れ読みの上限 $([long]($script:zipSheetStreamMaxBytes / 1MB))MB を超えています）")
+                }
+                return @()
+            }
             $stream = $entry.Open()
             $reader = [System.Xml.XmlReader]::Create($stream, $settings)
         }
         return @(readXlsxHeaderFooterLines $reader)
     } catch {
         if ($null -ne $failures) {
-            $failures.Add($entryName)
+            if ($_.Exception.Message -like "*MaxCharactersInDocument*") {
+                $failures.Add("$entryName（流れ読みの上限 $([long]($script:zipSheetStreamMaxBytes / 1MB))MB を超えています）")
+            } else {
+                $failures.Add($entryName)
+            }
         }
         return @()
     } finally {
@@ -1073,12 +1246,16 @@ function readXlsxObjectUnits {
     # セルの値は Excel のテキスト保存で読むため、ここでは読まない。
     # ZIP の中身が Excel のブック（xl/workbook.xml）でなければ（.xlsb など）、何も返さない。
     # $failures を渡すと、読めなかったグラフ・SmartArt の部品の名前を追加する（呼び出し元でログに書く。
-    # shared/ はツールを知らないため、ここでは書かない）
+    # shared/ はツールを知らないため、ここでは書かない）。
+    # $sizeFailures を渡すと、サイズの上限（ZipSizeLimitException）で読めなかったグラフ・SmartArt の
+    # 例外自体を追加する（呼び出し元が部品名・大きさ・部品ごとか合計かをログに書く）
     param (
         [string]$path,
-        [System.Collections.Generic.List[string]]$failures = $null
+        [System.Collections.Generic.List[string]]$failures = $null,
+        [System.Collections.Generic.List[object]]$sizeFailures = $null
     )
 
+    $script:zipTotalReadBytes = 0  # このファイル1つ分の、readZipEntryが読む合計（zipTotalMaxBytes）を0から数え直す
     $units = New-Object System.Collections.Specialized.OrderedDictionary
     $nsSheet = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
     $zip = [System.IO.Compression.ZipFile]::OpenRead((toLongPath $path))
@@ -1087,8 +1264,7 @@ function readXlsxObjectUnits {
         if ($null -eq $workbookXml) {
             return $units
         }
-        $workbook = New-Object System.Xml.XmlDocument
-        $workbook.LoadXml($workbookXml)
+        $workbook = newXmlDocument $workbookXml
         $workbookRels = readRelationships $zip "xl/workbook.xml"
 
         foreach ($sheet in $workbook.GetElementsByTagName("sheet", $nsSheet)) {
@@ -1116,7 +1292,7 @@ function readXlsxObjectUnits {
                     }
                     $xml = readZipEntry $zip $csRel.Target
                     if ($null -ne $xml) {
-                        $shapes.AddRange([object[]]@(readXlsxShapeRows $xml $zip $csRel.Target $failures))
+                        $shapes.AddRange([object[]]@(readXlsxShapeRows $xml $zip $csRel.Target $failures $sizeFailures))
                     }
                 }
                 addSortedShapeLines $units "${sheetName}[図形]" $shapes
@@ -1134,12 +1310,16 @@ function readXlsxObjectUnits {
             $commentsXml = $null
             $threadedXmls = New-Object System.Collections.Generic.List[string]
             foreach ($sheetRel in (readRelationships $zip $rel.Target).Values) {
+                # 要る 3 種類だけ読む（埋め込み・背景の画像など、関係のない大きな部品でサイズの上限に当たらないように）
+                if ($sheetRel.Type -notlike "*/drawing" -and $sheetRel.Type -notlike "*/comments" -and $sheetRel.Type -notlike "*/threadedComment") {
+                    continue
+                }
                 $xml = readZipEntry $zip $sheetRel.Target
                 if ($null -eq $xml) {
                     continue
                 }
                 if ($sheetRel.Type -like "*/drawing") {
-                    $shapes.AddRange([object[]]@(readXlsxShapeRows $xml $zip $sheetRel.Target $failures))
+                    $shapes.AddRange([object[]]@(readXlsxShapeRows $xml $zip $sheetRel.Target $failures $sizeFailures))
                 } elseif ($sheetRel.Type -like "*/comments") {
                     $commentsXml = $xml
                 } elseif ($sheetRel.Type -like "*/threadedComment") {
