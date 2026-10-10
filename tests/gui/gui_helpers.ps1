@@ -999,7 +999,7 @@ function testGuiVisible {
 }
 
 function getGuiIndexingBannerText {
-    # 更新の帯（IndexingProgressText）の文字。帯が隠れているときは空文字列（隠れた部品は UI Automation に出ない）
+    # 更新の帯（IndexingProgressText）の文字。帯が隠れているときは空文字列（隠れた部品も返すことがあるので、見えているかは testGuiVisible で見る）
     param ($S)
     $e = findGui $S.Window -Id "IndexingProgressText"
     if ($e) { return [string]$e.Current.Name }

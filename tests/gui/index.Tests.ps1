@@ -292,11 +292,10 @@ Describe "S3 作成中の操作" -Tag Gui {
         }
     }
 
-
     It "中断した取り込みを再開して最後まで終えると、帯に閉じるボタンが出る" {
         # 中断の帯（残りあり）では閉じられないが、残りが無くなった完了の帯は閉じられる（8 秒は待たない）。
         # 最後まで終えられるよう、ファイルの数を減らした別の作業場所で行う
-        $tooFast = "取り込みが終わってしまい、中止が間に合わなかった。tests\gui\index.Tests.ps1 の smallCopies（ファイルの数）を増やす"
+        $tooFast = "取り込みが終わってしまい、中止が間に合わなかった。tests\gui\index.Tests.ps1 の少量の場面のファイルの数（Copies）を増やす"
         $smallDir = Join-Path $TestDrive "少量"
         $tool = newGuiTool $smallDir @{ ingestThreads = 1 }
         $source = Join-Path $smallDir "元のフォルダ\少量"

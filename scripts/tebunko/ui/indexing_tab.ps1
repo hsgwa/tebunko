@@ -448,7 +448,10 @@ function finishIndexing {
     $ui.IndexingProgress.Visibility = "Collapsed"
     $skippedView = getIndexingSkippedView $onlySkipped
     if ($skippedView -and $exitCode -ne 1) {
+        # メッセージを読んでいる間に成功の帯が消えないよう、時計を止め、閉じたあとから数え直す
+        $script:indexingBannerTimer.Stop()
         showMessage "$($skippedView.Heading)`n`n$($skippedView.Detail)" "OK" "Warning" | Out-Null
+        setIndexingBannerBehavior
     }
     $ui.IndexingSearchButton.Visibility = if ($exitCode -ne 1) { "Visible" } else { "Collapsed" }
 
