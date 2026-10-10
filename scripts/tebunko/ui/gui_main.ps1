@@ -179,6 +179,7 @@ function startGui {
     . "$TebunkoDir\ui\preview.ps1"
     . "$TebunkoDir\ui\open_source.ps1"
     . "$TebunkoDir\ui\index_tree.ps1"
+    . "$TebunkoDir\ui\workspace_jobs.ps1"
     . "$TebunkoDir\ui\settings\settings.ps1"
     . "$TebunkoDir\ui\about_dialog.ps1"
     . "$TebunkoDir\ui\leftover_dialog.ps1"
@@ -405,6 +406,8 @@ function startGui {
     function loadStartupData {
         try {
             loadWorkspaceViews
+            # 前の版のインデックス（index\）が見つかれば、その知らせを覚える（ネットワークの場所は裏で調べ、分かったらステータスに出す）
+            refreshLegacyIndexMessage
             ensureNetworkDriveCache
         } finally {
             $script:startupLoaded = $true
@@ -429,10 +432,9 @@ function startGui {
     $ui.IndexGridPlaceholder.Visibility = "Collapsed"
 
     # 起動時の画面：インデックス作成が中断中、またはインデックスが無ければ［インデックス管理］、それ以外は［検索］
-    $openIndexTab = ($script:indexingState -and $script:indexingState.Pending -gt 0) -or !(testIndexExists)
+    # （ネットワークのワークスペースは、画面のスレッドで調べず、［検索］を開く）
+    $openIndexTab = ($script:indexingState -and $script:indexingState.Pending -gt 0) -or !(testStartupIndexExists $workspace.Dir)
     selectScreen $(if ($openIndexTab) { "IndexTab" } else { "SearchTab" })
-    # 前の版のインデックス（index\）が見つかれば、その知らせを覚えておく（ステータスには、一覧を読み込んだあとに出す）
-    $script:legacyIndexMessage = getLegacyIndexMessage $workspace.Dir (getLegacyIndexState $workspace.Dir).HasLegacyIndex
     # 既定のワークスペースにほかのファイルが置いてあれば、［設定］を開いて別のフォルダを選んでもらう（画面を出した後に知らせる）
     $script:workspaceBlock = getWorkspaceBlockMessage
     if ($script:workspaceBlock) {

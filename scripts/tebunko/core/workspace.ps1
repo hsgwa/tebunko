@@ -75,13 +75,22 @@ function getOfficePidDir {
     return Join-Path $workspace.OfficePidRoot (getMachineKey)
 }
 
-function getOfficePidQueue {
-    # 記録の置き場所を読む startJob の列。共有に届かないと待たされるため、ネットワークの場所なら専用の列（"network"）
+function getWorkspaceJobQueue {
+    # ワークスペースの中を読む・書く startJob の列。共有に届かないと待たされるため、ネットワークの場所なら専用の列（"network"）
     param (
         [string]$dir
     )
 
     return $(if (testNetworkPath $dir) { "network" } else { "default" })
+}
+
+function getOfficePidQueue {
+    # 記録の置き場所を読む startJob の列（getWorkspaceJobQueue と同じ）
+    param (
+        [string]$dir
+    )
+
+    return getWorkspaceJobQueue $dir
 }
 
 function getWorkspaceTmpDir {

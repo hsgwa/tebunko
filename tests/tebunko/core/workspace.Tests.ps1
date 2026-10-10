@@ -428,5 +428,15 @@ Describe "getOfficePidQueue" -Tag Unit {
         @{ name = "\\?\UNC\ も専用の列"; dir = "\\?\UNC\server\share\ws\office_pids\ab12cd34"; expected = "network" }
     ) {
         getOfficePidQueue $dir | Should -Be $expected
+        getWorkspaceJobQueue $dir | Should -Be $expected
+    }
+}
+
+Describe "getWorkspaceJobQueue" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "ローカルのワークスペースは既定の列"; dir = "C:\Users\test\Documents\tebunko_ws"; expected = "default" }
+        @{ name = "UNC のワークスペースは専用の列"; dir = "\\fileserver\共有\tebunko_ws"; expected = "network" }
+    ) {
+        getWorkspaceJobQueue $dir | Should -Be $expected
     }
 }

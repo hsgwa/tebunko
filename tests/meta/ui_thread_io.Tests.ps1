@@ -30,8 +30,8 @@ BeforeAll {
         @{ File = "splash.ps1"; Function = "getSplashXamlText"; Call = "[System.IO.File]"; Reason = "起動中の表示（起動時に読む splash.xaml と app_icon.xaml。ツールのフォルダの中）" }
         @{ File = "startup_error.ps1"; Function = "getExistingRecordFile"; Call = "Test-Path"; Reason = "起動そのものに失敗したときの reportStartupFailure が、記録が実際に書けたかを確かめる（窓が無い・応答なしにならない起動の失敗時だけ）" }
 
-        # ---- tebunko/ui/gui_main.ps1（startGui） ----
-        @{ File = "gui_main.ps1"; Function = "startGui"; Call = "testIndexExists"; Reason = "起動時のタブ選び（ワークスペースの側。分けた PR で直す）" }
+        # ---- tebunko/ui/workspace_jobs.ps1 ----
+        @{ File = "workspace_jobs.ps1"; Function = "testStartupIndexExists"; Call = "testIndexExists"; Reason = "ローカルの場所だけ（ネットワークの場所は先に真を返し、呼ばない）" }
 
         # ---- tebunko/ui/open_source.ps1 ----
         @{ File = "open_source.ps1"; Function = "findSourceFile"; Call = "findSourceFileState"; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }

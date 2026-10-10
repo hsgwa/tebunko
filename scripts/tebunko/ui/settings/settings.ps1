@@ -168,9 +168,10 @@ function switchWorkspace {
     $ui.IndexingProgressPanel.Visibility = "Collapsed"
     updateSettingsView
     loadWorkspaceViews
-    $legacyMessage = getLegacyIndexMessage $workspace.Dir (getLegacyIndexState $workspace.Dir).HasLegacyIndex
-    if ($legacyMessage) {
-        setStatus $legacyMessage
+    # 前の版のインデックスの知らせ。ネットワークの場所は裏で調べるため、分かったときにステータスへ出す
+    refreshLegacyIndexMessage
+    if ($script:legacyIndexMessage) {
+        setStatus $script:legacyIndexMessage
     } else {
         setStatus "ワークスペースを「$($workspace.Dir)」に切り替えました"
     }
