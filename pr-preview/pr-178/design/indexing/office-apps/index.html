@@ -3065,7 +3065,7 @@
   <span class="md-ellipsis">
     
   
-    元のフォルダ・元のファイルがネットワークにあるとき
+    元のフォルダ・元のファイル・ワークスペースがネットワークにあるとき
   
 
     
@@ -4357,6 +4357,10 @@
 <tr>
 <td>SmartArt・グラフ・コメントの参照</td>
 <td><code>$objects</code> を渡したとき、<code>dgm:relIds</code> の <code>r:dm</code>・<code>c:chart</code> の <code>r:id</code>・<code>w:commentReference</code> の <code>w:id</code> をページ付きで集める（中身は呼び出し元がリレーションシップの先から読む）</td>
+</tr>
+<tr>
+<td>埋め込みオブジェクト</td>
+<td><code>$collect</code> のとき、<code>w:objectEmbed</code>・<code>o:OLEObject</code>（<code>Type="Embed"</code>）・<code>p:oleObj</code> をページ（スライド）付きで集める。中の文字は呼び出し元が <code>readEmbeddedObjectLines</code>（<code>office_embedded.ps1</code>。<a href="../word/#埋め込みの読み取りreadembeddedobjectlines">Word</a>）で読む</td>
 </tr>
 <tr>
 <td>互換用の代替表示（<code>mc:Fallback</code>）</td>

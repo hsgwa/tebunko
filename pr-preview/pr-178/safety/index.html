@@ -2942,7 +2942,7 @@
   <span class="md-ellipsis">
     
   
-    元のフォルダ・元のファイルがネットワークにあるとき
+    元のフォルダ・元のファイル・ワークスペースがネットワークにあるとき
   
 
     
@@ -4103,7 +4103,7 @@
 </tr>
 <tr>
 <td>細工した Office ファイル</td>
-<td>ZIP（<code>.xlsx</code> / <code>.docx</code> / <code>.pptx</code>）を直接読む処理は、部品 1 つ 100MB・1 ファイル合計 300MB のサイズの上限（ヘッダーを偽ったものも検知）と、DTD（<code>&lt;!DOCTYPE&gt;</code>）の処理の禁止で、時間・メモリを使い切らせる細工から身を守る</td>
+<td>ZIP（<code>.xlsx</code> / <code>.docx</code> / <code>.pptx</code>）を直接読む処理は、部品 1 つ 100MB・1 ファイル合計 300MB のサイズの上限（ヘッダーを偽ったものも検知。Word・PowerPoint に埋め込んだ Office のファイルを読むときも同じ上限の中で読み、入れ子は読まない）と、DTD（<code>&lt;!DOCTYPE&gt;</code>）の処理の禁止で、時間・メモリを使い切らせる細工から身を守る</td>
 <td><code>safety.Tests.ps1</code></td>
 <td><a href="checks/#細工した-office-ファイルから身を守ること">細工した Office ファイルから身を守ること</a></td>
 </tr>

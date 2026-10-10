@@ -2944,7 +2944,7 @@
   <span class="md-ellipsis">
     
   
-    元のフォルダ・元のファイルがネットワークにあるとき
+    元のフォルダ・元のファイル・ワークスペースがネットワークにあるとき
   
 
     
@@ -4083,8 +4083,13 @@
 <td><a href="../gui/implementation/#実装構成">画面の実装構成</a></td>
 </tr>
 <tr>
+<td><code>shared/office/office_embedded.ps1</code></td>
+<td><code>readEmbeddedObjectLines</code>（埋め込んだ Office のファイルの文字）/ <code>readEmbeddedPackageLines</code> / <code>readXlsxCellLines</code> / <code>readXlsxSheetCellLines</code> / <code>readXlsxSharedStrings</code> / <code>newEmbeddedState</code> / <code>addEmbeddedOutputChars</code></td>
+<td><a href="../indexing/word/#埋め込みの読み取りreadembeddedobjectlines">Word の埋め込みの読み取り</a>、<a href="../indexing/powerpoint/">PowerPoint</a></td>
+</tr>
+<tr>
 <td><code>shared/office/office_reader.ps1</code></td>
-<td><code>isZipFile</code> / <code>isCompoundFile</code> / <code>readDocxUnits</code> / <code>readPptxUnits</code> / <code>readXlsxObjectUnits</code>（ヘッダー・フッターは <code>readXlsxSheetHeaderFooter</code> / <code>readXlsxHeaderFooterLines</code> / <code>getHeaderFooterLines</code>） / <code>writeUnits</code></td>
+<td><code>isZipFile</code> / <code>isCompoundFile</code> / <code>readZipEntryBytes</code> / <code>readDocxUnits</code> / <code>readDocxUnitsFromZip</code> / <code>readPptxUnits</code> / <code>readPptxUnitsFromZip</code> / <code>readXlsxObjectUnits</code>（ヘッダー・フッターは <code>readXlsxSheetHeaderFooter</code> / <code>readXlsxHeaderFooterLines</code> / <code>getHeaderFooterLines</code>） / <code>writeUnits</code></td>
 <td><a href="../indexing/office-apps/#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1">Word・PowerPoint の共通処理と Office アプリの管理</a>、<a href="../indexing/excel/">Excel</a>、<a href="../indexing/word/">Word</a>、<a href="../indexing/powerpoint/">PowerPoint</a></td>
 </tr>
 <tr>

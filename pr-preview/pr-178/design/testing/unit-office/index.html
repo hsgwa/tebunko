@@ -2944,7 +2944,7 @@
   <span class="md-ellipsis">
     
   
-    元のフォルダ・元のファイルがネットワークにあるとき
+    元のフォルダ・元のファイル・ワークスペースがネットワークにあるとき
   
 
     
@@ -4075,8 +4075,32 @@
 <td>部品 1 つの展開後の大きさ・1 ファイルで読む合計が、それぞれの上限を超えると簡潔なメッセージ（<code>ZipSizeLimitException</code>。<code>PartName</code>・<code>MeasuredBytes</code>・<code>LimitKind</code>（<code>Part</code> / <code>Total</code>）を持つ）で例外にする、ヘッダーの大きさを偽って小さく見せた部品も検知する（型は <code>GetType().Name</code> が <code>ZipSizeLimitException</code> であること、部品名・大きさ・種類はプロパティで確かめる。上限ちょうどは読め、1 バイト超えると例外になる境界、空の部品、Deflate 圧縮の部品の偽りのヘッダー、申告が大きくても中身が小さければ中身を返すことも確かめる）。Excel のヘッダー・フッターの流れ読みの上限（<code>zipSheetStreamMaxBytes</code>）は、申告が上限を超えるシートを開かないこと、部品の上限（100MB）を超えるシートは読めること、申告を小さく偽ったシート（無圧縮・Deflate）を読む途中で止めることを確かめる（上限を小さい値に差し替える）、<code>readDocxUnits</code> / <code>readPptxUnits</code> / <code>readXlsxObjectUnits</code> が呼ぶたびに合計を数え直す、DTD（<code>&lt;!DOCTYPE&gt;</code>）宣言を含む XML は例外にする（実体参照を入れ子にして膨張させる攻撃を防ぐ）、既存の BOM 判定・文字コードの扱いは変わらない</td>
 </tr>
 <tr>
+<td><code>readZipEntryBytes</code></td>
+<td>中身をバイト列で返す、部品の上限・偽りのヘッダーは <code>ZipSizeLimitException</code>（Part）</td>
+</tr>
+<tr>
 <td><code>writeUnits</code></td>
 <td>場所ごとの TSV 出力、空の場所は出力しない、<code>[</code> <code>]</code> を含むパス</td>
+</tr>
+</tbody>
+</table>
+<p><strong>埋め込みの読み取り（<code>tests/shared/office/office_embedded</code>）</strong></p>
+<p>Word・PowerPoint は使わず、埋め込みのあるファイルをテスト内で作る。</p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>readXlsxCellLines</code></td>
+<td>表示のシートの文字のセルを行ごとにタブでつなぐ、数値・非表示のシート・読み仮名は読まない、流れ読みの上限</td>
+</tr>
+<tr>
+<td><code>readEmbeddedObjectLines</code>（<code>readDocxUnits</code> / <code>readPptxUnits</code> 経由）</td>
+<td>Excel・Word・PowerPoint の埋め込みを <code>[埋め込みN]</code> に入れる、入れ子は読まない、同じ部品は 1 回、ZIP でない・形式の分からないものは読み飛ばす、壊れた XML と部品の上限はその埋め込みだけ失敗、合計の上限は全体の失敗</td>
 </tr>
 </tbody>
 </table>

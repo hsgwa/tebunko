@@ -2942,7 +2942,7 @@
   <span class="md-ellipsis">
     
   
-    元のフォルダ・元のファイルがネットワークにあるとき
+    元のフォルダ・元のファイル・ワークスペースがネットワークにあるとき
   
 
     
@@ -4556,6 +4556,14 @@
 <td>検索結果のインデックス名・元のフォルダ・その下の相対フォルダ。検索対象フォルダの対応 → その下の <code>&lt;インデックス名&gt;</code> のフォルダのもの → 検索対象フォルダ自身・その親のもの（インデックス名のフォルダを直接指定した場合）の順に使う。分からなければ Known = <code>$false</code>・Folder = 空（Name は返すため、フォルダを選んでもらえば設定に記録できる）</td>
 <td>同上</td>
 <td>resolveSourcePath, 画面</td>
+</tr>
+<tr>
+<td><code>readSourceLocation</code></td>
+<td>hit, maps, statusPath, settingsPath, indexDir</td>
+<td><code>@{Location; Maps}</code></td>
+<td><code>getSourceLocation</code> の、裏のスレッドから呼ぶ版。場所を引数で受け、maps を書き換えず複製に足して返す</td>
+<td><a href="../../gui/network/#ワークスペースがネットワークにあるとき">ワークスペースがネットワークにあるとき</a></td>
+<td>画面（元のファイルを開く）</td>
 </tr>
 <tr>
 <td><code>joinSourcePath</code></td>
