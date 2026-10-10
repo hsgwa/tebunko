@@ -77,13 +77,31 @@ function getOfficePidDir {
     return Join-Path $workspace.OfficePidRoot (getMachineKey)
 }
 
-function getOfficePidQueue {
-    # 記録の置き場所を読む startJob の列。共有に届かないと待たされるため、ネットワークの場所なら専用の列（"network"）
+function getWorkspaceJobQueue {
+    # ネットワークの場所に触るかもしれない startJob の列を決める唯一の関数。
+    # paths（ワークスペース・インデックスのフォルダ・元のフォルダ・記録の置き場所など）の中に 1 つでもネットワークの場所があれば、
+    # 届かない共有で待たされても他の仕事を巻き込まない専用の列（"network"）、無ければ既定の列（"default"）
+    param (
+        [string[]]$paths
+    )
+
+    return $(if (testAnyNetworkPath $paths) { "network" } else { "default" })
+}
+
+function assertWorkspaceReachable {
+    # インデックスの削除・名前の変更の裏の仕事の先頭で呼ぶ。ワークスペース（のインデックスのフォルダ）に届かないとき、
+    # 例外にする（届かないのに「何もせず成功」にして、設定だけ変えてしまわないため）。無いこと（まだインデックスを作っていない）は例外にしない
     param (
         [string]$dir
     )
 
-    return $(if (testNetworkPath $dir) { "network" } else { "default" })
+    $state = getPathState $dir
+    if ($state.State -eq ${pathStateUnreachable}) {
+        throw "ワークスペースに接続できません：${dir}"
+    }
+    if ($state.State -eq ${pathStateOther}) {
+        throw "ワークスペースを確かめられません：$($state.Message)"
+    }
 }
 
 function getWorkspaceTmpDir {

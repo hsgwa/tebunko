@@ -167,11 +167,50 @@ Describe "newSearchButtonState" -Tag Unit {
         @{ name = "検索対象が選ばれていなければ押せない"; searching = $false; stopping = $false; word = "見積"; hasIndex = $true; targetCount = 0; content = "検索"; enabled = $false }
         @{ name = "正規表現が正しくなければ押せない"; searching = $false; stopping = $false; word = "("; hasIndex = $true; targetCount = 2; content = "検索"; enabled = $false; invalid = $true }
         @{ name = "検索中は正規表現の誤りに関わらず［中止］を押せる"; searching = $true; stopping = $false; word = "("; hasIndex = $true; targetCount = 2; content = "中止"; enabled = $true; invalid = $true }
+        @{ name = "検索対象のツリーを読み込んでいる間は押せない"; searching = $false; stopping = $false; word = "見積"; hasIndex = $true; targetCount = 2; content = "検索"; enabled = $false; loading = $true }
     ) {
-        param ($name, $searching, $stopping, $word, $hasIndex, $targetCount, $content, $enabled, $invalid = $false)
-        $state = newSearchButtonState $searching $stopping $word $hasIndex $targetCount $invalid
+        param ($name, $searching, $stopping, $word, $hasIndex, $targetCount, $content, $enabled, $invalid = $false, $loading = $false)
+        $state = newSearchButtonState $searching $stopping $word $hasIndex $targetCount $invalid $loading
         $state.Content | Should -Be $content
         $state.Enabled | Should -Be $enabled
+    }
+}
+
+Describe "ワークスペースの読み込みの文言" -Tag Unit {
+    It "接続できないときの知らせにワークスペースを入れる" {
+        getWorkspaceUnreachableText "\\fileserver\共有\ws" | Should -Be "ワークスペースに接続できません：\\fileserver\共有\ws"
+    }
+
+    It "確かめている間のステータス" {
+        getWorkspaceCheckingText | Should -Be "ワークスペースを確かめています…"
+    }
+
+    It "フォルダを読み込めなかったときのステータスにフォルダと理由を入れる" {
+        getTreeFolderFailedText "営業部" "アクセスできません" | Should -Be "フォルダを読み込めませんでした：営業部（アクセスできません）"
+    }
+}
+
+Describe "getSearchTargetText" -Tag Unit {
+    BeforeAll {
+        function formatTime($time) { return $time.ToString("yyyy/MM/dd HH:mm") }
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "読み込み中は、ほかの状態より先に読み込み中と出す"; loading = $true; error = "\\fileserver\共有\ws"; total = 0; count = 0; all = $true; summary = $null; expected = "検索対象：読み込んでいます…" }
+        @{ name = "接続できないときは、ワークスペースを入れて知らせる"; loading = $false; error = "\\fileserver\共有\ws"; total = 0; count = 0; all = $true; summary = $null; expected = "検索対象：なし（ワークスペースに接続できません：\\fileserver\共有\ws）" }
+        @{ name = "インデックスが無ければ案内を出す"; loading = $false; error = ""; total = 0; count = 0; all = $true; summary = $null; expected = "［インデックス管理］で作ったインデックスの一覧です" }
+        @{ name = "チェックが 1 つも無ければ「なし」"; loading = $false; error = ""; total = 2; count = 0; all = $false; summary = $null; expected = "検索対象：なし" }
+        @{ name = "一部だけなら選んだ対象を出す"; loading = $false; error = ""; total = 2; count = 1; all = $false; summary = $null; targets = "営業部"; expected = "検索対象：営業部" }
+        @{ name = "すべてで、集計がまだなら確認中"; loading = $false; error = ""; total = 2; count = 2; all = $true; summary = $null; expected = "検索対象：すべて（確認中…）" }
+    ) {
+        param ($name, $loading, $error, $total, $count, $all, $summary, $expected, $targets = "")
+        getSearchTargetText $loading $error $total $count $all $targets $summary | Should -Be $expected
+    }
+
+    It "すべてで、集計があれば件数と最終更新を出す" {
+        $summary = @{ Count = 12345; LastWrite = [datetime]"2026-09-20 10:30" }
+
+        getSearchTargetText $false "" 2 2 $true "" $summary | Should -Be "検索対象：すべて（集約ファイル 12,345 件 ・ 最終更新 2026/09/20 10:30）"
     }
 }
 

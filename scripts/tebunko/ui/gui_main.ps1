@@ -200,6 +200,7 @@ function startGui {
     . "$TebunkoDir\ui\preview.ps1"
     . "$TebunkoDir\ui\open_source.ps1"
     . "$TebunkoDir\ui\index_tree.ps1"
+    . "$TebunkoDir\ui\workspace_jobs.ps1"
     . "$TebunkoDir\ui\settings\settings.ps1"
     . "$TebunkoDir\ui\about_dialog.ps1"
     . "$TebunkoDir\ui\leftover_dialog.ps1"
@@ -258,6 +259,9 @@ function startGui {
     $script:closeDeadline = $null   # これを過ぎたら、インデックス作成が起動した Office を止める
     $script:closeKilled = $false    # Office を止めた
     $script:closeReady = $false     # 待ち終えた（もう聞かずに閉じる）
+    $script:closeAskedDuringIndexJob = $false   # インデックスの削除・名前の変更の途中で閉じようとして、終わるのを待った
+    $script:closeAfterIndexJob = $false         # 終わったら閉じる（待たずに閉じると決めたら戻す）
+    $script:closeConfirming = $false            # 待たずに閉じるかの確認を出している間（この間は仕事が終わっても閉じず、確認から戻ったときに閉じる）
     ${closeWaitSeconds} = 60        # インデックス作成が止まるのを待つ時間。過ぎたら Office を止めて、さらに closeKillWaitSeconds 待つ
     ${closeKillWaitSeconds} = 15
 
@@ -318,6 +322,39 @@ function startGui {
             return
         }
         try {
+            # インデックスの削除・名前の変更の途中で閉じると、設定とインデックスのフォルダの名前が食い違う。終わるまで待って閉じる
+            $indexJobClose = getIndexJobCloseAction ([bool]$script:indexBusy) ([bool]$script:closeAskedDuringIndexJob)
+            if ($indexJobClose -eq "wait") {
+                $script:closeAskedDuringIndexJob = $true
+                $script:closeAfterIndexJob = $true
+                $e.Cancel = $true
+                setStatus (getIndexJobClosingStatus)
+                return
+            }
+            if ($indexJobClose -eq "confirm") {
+                # 待っている間にもう一度閉じようとした。ステータスの 1 行は他の表示で消えて見落とされるため、確かめてから閉じる。
+                # 確認はこのハンドラの中のモーダル。その間に仕事が終わっても、ここで閉じずに（閉じ途中の窓に Close を呼ばないよう）、戻ってから決める
+                $e.Cancel = $true
+                $confirm = getIndexJobCloseConfirm
+                $script:closeConfirming = $true
+                try {
+                    $answer = showConfirm `
+                        -title $confirm.Title `
+                        -heading $confirm.Heading `
+                        -hint $confirm.Hint `
+                        -choices @(@{ Text = $confirm.CloseText; Value = $confirm.CloseValue; Danger = $true }) `
+                        -cancelText $confirm.CancelText
+                } finally {
+                    $script:closeConfirming = $false
+                }
+                if ((getIndexJobCloseAfterConfirm ([string]$answer) ([bool]$script:indexBusy)) -eq "close") {
+                    $script:closeAfterIndexJob = $false
+                    $script:closeReady = $true
+                    $window.Dispatcher.BeginInvoke([action]{ $window.Close() }) | Out-Null
+                }
+                return
+            }
+            $script:closeAfterIndexJob = $false
             # インデックス作成は画面のプロセスで動いているため、画面を閉じるときは止める
             if (isIndexing) {
                 $answer = showConfirm `
@@ -422,7 +459,7 @@ function startGui {
         # 1 回照会し、画面のスレッドのキャッシュに入れる（画面のスレッドで CIM を照会しないようにする。方針 5）。
         # ローカルだけの利用者には、列も CIM の照会も増えない
         $paths = @($script:targetItems | ForEach-Object { [string]$_.Path }) + @(readIndexSources | ForEach-Object { [string]$_.Path })
-        if (!(testAnyNetworkPath $paths)) {
+        if ((getWorkspaceJobQueue $paths) -ne "network") {
             return
         }
         startJob {
@@ -432,12 +469,14 @@ function startGui {
             if (!$errorText -and $output -and $output.Count -gt 0) {
                 setDriveTargets $output[0]
             }
-        } "network"
+        } (getWorkspaceJobQueue $paths)
     }
 
     function loadStartupData {
         try {
             loadWorkspaceViews
+            # 前の版のインデックス（index\）が見つかれば、その知らせを覚える（ネットワークの場所は裏で調べ、分かったらステータスに出す）
+            refreshLegacyIndexMessage
             ensureNetworkDriveCache
         } finally {
             $script:startupLoaded = $true
@@ -462,10 +501,9 @@ function startGui {
     $ui.IndexGridPlaceholder.Visibility = "Collapsed"
 
     # 起動時の画面：インデックス作成が中断中、またはインデックスが無ければ［インデックス管理］、それ以外は［検索］
-    $openIndexTab = ($script:indexingState -and $script:indexingState.Pending -gt 0) -or !(testIndexExists)
+    # （ネットワークのワークスペースは、画面のスレッドで調べず、［検索］を開く）
+    $openIndexTab = ($script:indexingState -and $script:indexingState.Pending -gt 0) -or !(testStartupIndexExists $workspace.Dir)
     selectScreen $(if ($openIndexTab) { "IndexTab" } else { "SearchTab" })
-    # 前の版のインデックス（index\）が見つかれば、その知らせを覚えておく（ステータスには、一覧を読み込んだあとに出す）
-    $script:legacyIndexMessage = getLegacyIndexMessage $workspace.Dir (getLegacyIndexState $workspace.Dir).HasLegacyIndex
     # 既定のワークスペースにほかのファイルが置いてあれば、［設定］を開いて別のフォルダを選んでもらう（画面を出した後に知らせる）
     $script:workspaceBlock = getWorkspaceBlockMessage
     if ($script:workspaceBlock) {

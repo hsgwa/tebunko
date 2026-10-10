@@ -10,6 +10,23 @@ function getSourceCheckingStatus {
     return "元のファイルを確かめています…：${path}（共有フォルダに接続できないときは、しばらくかかります）"
 }
 
+function getSourceLookingStatus {
+    # 元のファイルの場所の記録を読んでいる間のステータス（ネットワークのワークスペースにあるときだけ出す）
+    return "パスを調べています…（共有フォルダに接続できないときは、しばらくかかります）"
+}
+
+function getSourceLookupFailedStatus {
+    # 元のファイルの場所の記録を読めなかったときのステータス
+    param (
+        [string]$message
+    )
+
+    if ($message) {
+        return "元のファイルの場所を調べられませんでした：${message}"
+    }
+    return "元のファイルの場所を調べられませんでした"
+}
+
 function getSourceNotFoundStatus {
     # 見つからない・確認で選ばなかったときのステータス
     param (

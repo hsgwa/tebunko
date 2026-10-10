@@ -16,7 +16,9 @@ foreach ($footerName in @("IndexEmptyAddButton")) {
     $ui[$footerName] = $ui.IndexListHost.Content.FindName($footerName)
 }
 $script:loadingTargets = $false
-$script:indexBusy = $false  # 前のインデックスの削除中（別スレッド）。getIndexJobBlocker に [bool] で渡すため、$null のままにしない
+$script:targetsLoadRequest = @{ Value = 0 }  # 一覧の読み込みの依頼番号（新しい依頼が出たら、前の依頼の結果は捨てる）
+$script:indexingPreparing = $false  # インデックス作成を始める前に、ネットワークのワークスペースを裏で確かめている間
+$script:indexBusy = $false  # 前のインデックスの削除・名前の変更中（別スレッド）。getIndexJobBlocker に [bool] で渡すため、$null のままにしない
 # 行のチェック（一時の選択。保存しない）の状態が変わったら、行の値と画面の表示を合わせる（Checked・Unchecked。
 # ToggleButton の状態が変わったときに出る、バブルするイベント）。マウスの Click だけでなく、UI オートメーションの
 # TogglePattern（キーボード操作も同様）でも状態が変わったときに出るため、どの操作でも拾える。
@@ -47,6 +49,7 @@ $script:indexingStart = $null
 $script:ingestFailed = 0  # インデックス作成中に一覧へ反映済みの失敗件数
 $script:indexingState = $null
 $script:indexSummary = $null
+$script:targetsNaming = $false  # ネットワークのワークスペースで、一覧のインデックス名を裏で決めている間（loadTargets）。この間は一覧が空で、追加・削除・インデックス作成の開始・ワークスペースの変更をしない
 $script:archiveBusy = $false  # エクスポート・インポート中（別スレッド）。settings\settings.ps1 の testWorkspaceChangeable も見る
 $script:archiveJobOperation = ""
 $script:archiveJobOnSuccess = $null
@@ -69,6 +72,22 @@ $script:fastSearchTimer = newTimer (5 * 60 * 1000) { safe { refreshFastSearchSta
 
 function isIndexing {
     return ($null -ne $script:indexingSession) -and $script:indexingSession.IsRunning()
+}
+
+function isIndexingOrPreparing {
+    # インデックス作成が動いている、または始める前にワークスペースを確かめている間（startIndexing）。
+    # どちらの間も、インデックスの操作・ワークスペースの変更・次のインデックス作成の開始はしない
+    return (isIndexing) -or [bool]$script:indexingPreparing
+}
+
+function getCurrentIndexJobBlocker {
+    # いま動いている処理の名前（getIndexJobBlocker の結果。無ければ空文字列）。画面の状態から集める。
+    #   extraIndexing: ほかに「インデックス作成中」とみなすもの（画面を使わずに起動したインデクサなど）
+    param (
+        [bool]$extraIndexing = $false
+    )
+
+    return (getIndexJobBlocker ((isIndexingOrPreparing) -or $extraIndexing) ([bool]$script:indexBusy) ([bool]$script:archiveBusy) ([bool]$script:targetsNaming))
 }
 
 function shouldRefreshFastSearchStatus {
@@ -109,7 +128,7 @@ function refreshFolderStatus {
     $script:folderCheckAgain = $false
     # 届かないネットワークのフォルダが 1 つでもあれば、専用の列（network）を使う。
     # プレビュー等の列（既定。2 スレッド）は、届かない共有の Test-Path で塞がれても待たされないようにする
-    $queue = if (testAnyNetworkPath $paths) { "network" } else { "default" }
+    $queue = getWorkspaceJobQueue $paths
     startJob {
         param ($paths)
         $result = @{}
@@ -175,7 +194,7 @@ function refreshFastSearchStatus {
     $script:fastSearchJobDir = $workspace.Dir
     $script:fastSearchJobGeneration = $script:fastSearchGeneration
     # 届かないネットワークのワークスペースでは、フォルダの有無と同じ専用の列（network）を使う
-    $queue = if (testAnyNetworkPath @($workspace.Dir)) { "network" } else { "default" }
+    $queue = getWorkspaceJobQueue $workspace.Dir
     startJob {
         param ($systemRoot, $indexRoot, $statePath)
         $connection = openWindowsSearch
@@ -282,19 +301,78 @@ function newFolderItem {
 }
 
 function loadTargets {
+    # 設定のインデックス一覧を画面の一覧に読み込む。
+    # 名前の決まっていないインデックス（設定ファイルを直接書き換えた場合など）には、ここで名前を割り当てて確定する。
+    # 一覧・編集・削除はインデックス名で扱うため、画面に出す時点で名前があるようにする（インデクサと同じ assignIndexNames を使う）。
+    # 名前を決めるには取り込み一覧（ワークスペースの中）を読む。ワークスペースがネットワークの場所なら裏の列で読み、
+    # 終わるまで一覧は空のまま（届かない場所で画面のスレッドが止まらないように）
+    $requestBox = $script:targetsLoadRequest
+    $requestBox.Value++
+    $script:targetsNaming = $false
+    # 読み直しても、チェック（一時の選択）は名前で引き継ぐ
+    $checkedNames = @(getIndexCheckedItems @($script:targetItems) | ForEach-Object { $_.Name })
+    $folders = @(getTargetFolders)
+    if (@($folders | Where-Object { $_ -and !$_.Name }).Count -gt 0) {
+        if ((getWorkspaceJobQueue $workspace.Dir) -eq "network") {
+            $script:targetItems.Clear()
+            # 名前が決まって一覧を読み込み直すまで、ほかの操作を止める（空の一覧に保存して、設定のほかのインデックスを消さないため）
+            $script:targetsNaming = $true
+            try {
+                updateIndexListView
+                updateIndexingButton
+                setStatus (getIndexNamingStatus)
+                $requestId = $requestBox.Value
+                $finish = ${function:finishTargetsNaming}   # 終わったときの処理は、関数を変数に取って呼ぶ（クロージャからは関数の名前を引けないため）
+                startJob {
+                    param ($folders, $statusPath)
+                    # 取り込み一覧の読み込みは排他の外で済ませ、設定の読み直しと書き込みだけを saveAssignedIndexNames が排他の中で行う
+                    [void](saveAssignedIndexNames @(assignIndexNames $folders (readStatusFile $statusPath).Folders))
+                } @(,$folders + @($workspace.StatusFile)) {
+                    param ($output, $errorText)
+                    if ($requestId -ne $requestBox.Value) {
+                        # 待っている間にもう一度読み込んだ・ワークスペースを切り替えた。この結果は捨てる
+                        return
+                    }
+                    & $finish $errorText $checkedNames
+                }.GetNewClosure() (getWorkspaceJobQueue $workspace.Dir)
+            } catch {
+                # 裏の仕事を出せなかったときは、印を戻す（残ると、ほかの操作が止まったままになる）
+                $script:targetsNaming = $false
+                throw
+            }
+            return
+        }
+        saveAssignedIndexNames @(assignIndexNames $folders (readStatusFile).Folders)
+        $folders = @(getTargetFolders)
+    }
+    fillTargetItems $folders $checkedNames
+}
+
+function finishTargetsNaming {
+    # ネットワークのワークスペースで、裏の名前の割り当てが終わったときの処理。保存し直された一覧を読み込む（失敗したら理由を出し、設定のまま）
+    param (
+        [string]$errorText,
+        [string[]]$checkedNames
+    )
+
+    $script:targetsNaming = $false
+    if ($errorText) {
+        setStatus (getIndexNamingFailedStatus $errorText)
+    }
+    fillTargetItems @(getTargetFolders) $checkedNames
+    updateIndexingButton
+}
+
+function fillTargetItems {
+    # 画面の一覧を folders（@{ Name; Path; Enabled }）の内容に置き換える。checkedNames の名前の行はチェックを付ける
+    param (
+        [object[]]$folders,
+        [string[]]$checkedNames
+    )
+
     $script:loadingTargets = $true
     try {
-        # 読み直しても、チェック（一時の選択）は名前で引き継ぐ
-        $checkedNames = @(getIndexCheckedItems @($script:targetItems) | ForEach-Object { $_.Name })
         $script:targetItems.Clear()
-        $folders = @(getTargetFolders)
-        # 名前の決まっていないインデックス（設定ファイルを直接書き換えた場合など）には、ここで名前を割り当てて確定する。
-        # 一覧・編集・削除はインデックス名で扱うため、画面に出す時点で名前があるようにする（インデクサと同じ assignIndexNames を使う）。
-        # 取り込み一覧の読み込み（ネットワーク上のこともある）は排他の外で済ませ、設定の読み直しと書き込みだけを saveAssignedIndexNames が排他の中で行う
-        if (@($folders | Where-Object { $_ -and !$_.Name }).Count -gt 0) {
-            saveAssignedIndexNames @(assignIndexNames $folders (readStatusFile).Folders)
-            $folders = @(getTargetFolders)
-        }
         foreach ($folder in $folders) {
             $newItem = newFolderItem $folder.Path $folder.Enabled $folder.Name
             $newItem.Checked = ($folder.Name -and $checkedNames -contains $folder.Name)
@@ -317,11 +395,20 @@ function saveTargets {
 
 function updateIndexSourceFile {
     # インデックスのフォルダの source_folder.txt を今の一覧に合わせて書き直す。
-    # 次のインデックス作成を待たずに、検索結果から元のファイルを開けるようにする（インデックスが無ければ何もしない）
-    if (!(Test-Path -LiteralPath $workspace.IndexDir -PathType Container)) {
-        return
-    }
-    writeSourceFolderFile @($script:targetItems | Where-Object { $_.Name } | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Path = $_.Path } })
+    # 次のインデックス作成を待たずに、検索結果から元のファイルを開けるようにする（インデックスが無いフォルダには書かない）。
+    # 書くのは別スレッドで行う（ワークスペースが届かない共有フォルダにあっても、画面のスレッドが止まらないように）。
+    # 書けなかったときはステータスに知らせる
+    $folders = @($script:targetItems | Where-Object { $_.Name } | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Path = $_.Path } })
+    $dir = [string]$workspace.IndexDir
+    startJob {
+        param ($folders, $dir)
+        writeSourceFolderFile $folders $dir
+    } @(,$folders + @($dir)) {
+        param ($output, $errorText)
+        if ($errorText) {
+            setStatus (getSourceFolderFileFailedStatus $errorText)
+        }
+    } (getWorkspaceJobQueue $dir)
 }
 
 function refreshIndexViews {
@@ -334,6 +421,19 @@ function refreshIndexViews {
     refreshIndexingState
     refreshFastSearchStatus
     updateIndexDetailPanel
+}
+
+function refreshIndexViewsKeepingStatus {
+    # 失敗の知らせ（$notice）を出したまま、画面を読み直す。ネットワークのワークスペースでは検索対象のツリーが裏で読み直され、
+    # 届かないときはその結果がステータスを「接続できません」で上書きするため、その 1 回はステータスを書かせない
+    # （接続できない旨は検索対象の欄に出る）。ローカルの読み直しが同じ呼び出しの中で終わる場合のため、読み直したあとにも書く
+    param (
+        [string]$notice
+    )
+
+    $script:indexTreeKeepStatus = $true
+    refreshIndexViews
+    setStatus $notice
 }
 
 function applyIndexStats {
@@ -390,7 +490,7 @@ function setIndexRowActions {
     # 行の右端のボタン（［更新］［中止］・何も出さない）を、行の状態（IndexLevel）と動いている処理に合わせる。判断は getIndexRowActions
     param ($item)
 
-    $blocker = getIndexJobBlocker (isIndexing) $script:indexBusy $script:archiveBusy
+    $blocker = getCurrentIndexJobBlocker
     $actions = getIndexRowActions $item.IndexLevel $blocker
     $item.SetRowActions($actions.Action, $actions.UpdateEnabled)
 }
@@ -404,7 +504,7 @@ function updateSelectedIndexes {
     )
 
     $names = @($names | Where-Object { $_ })
-    if ($names.Count -eq 0 -or (getIndexJobBlocker (isIndexing) $script:indexBusy $script:archiveBusy) -ne "") {
+    if ($names.Count -eq 0 -or (getCurrentIndexJobBlocker) -ne "") {
         return
     }
     startIndexing $names
@@ -469,7 +569,7 @@ function openIndexSourceFolder {
         } else {
             & $apply $output[0]
         }
-    }.GetNewClosure() "network"
+    }.GetNewClosure() (getWorkspaceJobQueue $path)
 }
 
 function updateIndexSelectionView {
@@ -535,7 +635,7 @@ function testIndexOperable {
         [string]$operation
     )
 
-    $blocker = getIndexJobBlocker (isIndexing) $script:indexBusy $script:archiveBusy
+    $blocker = getCurrentIndexJobBlocker
     if ($blocker -ne "") {
         showMessage (getIndexJobBlockedMessage $blocker $operation) "OK" "Warning" | Out-Null
         return $false

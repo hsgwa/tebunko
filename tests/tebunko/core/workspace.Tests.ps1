@@ -69,6 +69,37 @@ Describe "getOfficePidDir" -Tag Unit {
     }
 }
 
+Describe "assertWorkspaceReachable" -Tag Unit {
+    It "<label>ときの判定" -TestCases @(
+        @{ label = "見つかった"; state = "Found"; throws = $false }
+        @{ label = "まだ無い（インデックスを作っていない）"; state = "Missing"; throws = $false }
+        @{ label = "届かない"; state = "Unreachable"; throws = $true }
+        @{ label = "確かめられない（アクセス拒否など）"; state = "Other"; throws = $true }
+    ) {
+        param ($label, $state, $throws)
+        $script:fakeState = switch ($state) {
+            "Found" { ${pathStateFound} }
+            "Missing" { ${pathStateMissing} }
+            "Unreachable" { ${pathStateUnreachable} }
+            default { ${pathStateOther} }
+        }
+        Mock getPathState { @{ State = $script:fakeState; IsDirectory = $true; Message = "理由" } }
+
+        if ($throws) {
+            { assertWorkspaceReachable "\\fileserver\共有\ws" } | Should -Throw "*ワークスペース*"
+        } else {
+            { assertWorkspaceReachable "\\fileserver\共有\ws" } | Should -Not -Throw
+        }
+    }
+
+    It "届かないときの文面に、場所を入れる" {
+        $script:fakeState = ${pathStateUnreachable}
+        Mock getPathState { @{ State = $script:fakeState; IsDirectory = $false; Message = "理由" } }
+
+        { assertWorkspaceReachable "\\fileserver\共有\ws" } | Should -Throw "ワークスペースに接続できません：\\fileserver\共有\ws"
+    }
+}
+
 Describe "getWorkspaceTmpDir" -Tag Unit {
     It "ワークスペースの tmp の下に、PC の鍵とプロセスIDで組み立てる" {
         $workspace = newTestWorkspace @{} "$TestDrive\getwtd"
@@ -422,12 +453,20 @@ Describe "clearLegacySystemIndex" -Tag Io {
     }
 }
 
-Describe "getOfficePidQueue" -Tag Unit {
+Describe "getWorkspaceJobQueue" -Tag Unit {
     It "<name>" -TestCases @(
-        @{ name = "ローカルのフォルダは既定の列"; dir = "C:\Users\test\Documents\tebunko_ws\office_pids\ab12cd34"; expected = "default" }
-        @{ name = "UNC は専用の列"; dir = "\\server\share\ws\office_pids\ab12cd34"; expected = "network" }
+        @{ name = "ローカルのワークスペースは既定の列"; dir = "C:\Users\test\Documents\tebunko_ws"; expected = "default" }
+        @{ name = "UNC のワークスペースは専用の列"; dir = "\\fileserver\共有\tebunko_ws"; expected = "network" }
+        @{ name = "記録の置き場所（ローカル）は既定の列"; dir = "C:\Users\test\Documents\tebunko_ws\office_pids\ab12cd34"; expected = "default" }
+        @{ name = "記録の置き場所（UNC）は専用の列"; dir = "\\server\share\ws\office_pids\ab12cd34"; expected = "network" }
         @{ name = "\\?\UNC\ も専用の列"; dir = "\\?\UNC\server\share\ws\office_pids\ab12cd34"; expected = "network" }
     ) {
-        getOfficePidQueue $dir | Should -Be $expected
+        getWorkspaceJobQueue $dir | Should -Be $expected
+    }
+
+    It "複数の場所のうち 1 つでもネットワークなら専用の列、すべてローカルなら既定の列、空も既定の列" {
+        getWorkspaceJobQueue @("C:\Users\test\a", "\\server\share\b") | Should -Be "network"
+        getWorkspaceJobQueue @("C:\Users\test\a", "D:\b") | Should -Be "default"
+        getWorkspaceJobQueue @() | Should -Be "default"
     }
 }
