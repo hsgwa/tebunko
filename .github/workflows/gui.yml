@@ -55,6 +55,47 @@ jobs:
           path: work/test/gui/
           if-no-files-found: ignore
 
+  # temporary: count how often closing hangs or exits with code 5 (remove after reading)
+  gui-smoke-repeat:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        number: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Pester setup
+        shell: powershell
+        env:
+          PESTER_VERSION: 5.9.0
+        run: |
+          if (!(Get-Module Pester -ListAvailable | Where-Object { $_.Version -eq [version]$env:PESTER_VERSION })) {
+            Install-Module Pester -RequiredVersion $env:PESTER_VERSION -Force -Scope CurrentUser -SkipPublisherCheck
+          }
+
+      - name: gui tests x5
+        shell: powershell
+        run: |
+          $fail = 0
+          foreach ($i in 1..5) {
+            .	estsun.ps1 -Tag Gui
+            Write-Host "PASS-$i exit=$LASTEXITCODE"
+            if ($LASTEXITCODE -ne 0) { $fail++ }
+          }
+          if ($fail -gt 0) { exit 1 }
+
+      - name: save results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: gui-smoke-results-${{ matrix.number }}
+          path: work/test/gui/
+          if-no-files-found: ignore
+
   # 結果を PR のコメントに書く（docs/design/testing/ci.md「結果を PR のコメントに書く」）。
   # フォークの PR では書けないことがあるが、ジョブは失敗にしない（結果は Summary に残る）
   pr-comment:
