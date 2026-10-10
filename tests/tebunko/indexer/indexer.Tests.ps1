@@ -378,6 +378,39 @@ Describe "indexer.ps1（後回しの司令の流れ。実際のPowerPointは使�
     }
 }
 
+Describe "indexer.ps1（クラウドにだけあるファイル）" -Tag Io {
+    It "既定ではダウンロードせずに残し（一覧に行を作らない・件数とパスをログに残す）、ダウンロードして取り込む指定なら取り込んで検索できる" {
+        # クラウドにだけあるファイルは、OFFLINE 属性で代わりに作る（本物の OneDrive には触れず、ダウンロードも起きない）
+        $dir = Join-Path $TestDrive "雲の資料"
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        $cloudFile = Join-Path $dir "議事録.docx"
+        Copy-Item -LiteralPath $docxSource -Destination $cloudFile
+        [System.IO.File]::SetAttributes($cloudFile, [System.IO.FileAttributes]::Offline)
+        try {
+            $root = newRoot
+            writeTestSettings $root @(@{ name = "雲"; path = $dir; enabled = $true })
+
+            runIndexer $root | Should -Be 0
+            $channel = $script:lastChannel
+            $channel.CloudSkipped | Should -Be 1
+            (readTestStatus $root).Rows.Count | Should -Be 0
+            [System.IO.File]::Exists("$root\work\content_index\雲\content_index.docx.001.tsv") | Should -Be $false
+            $log = [System.IO.File]::ReadAllText("$root\work\indexing_log.txt")
+            $log | Should -Match "クラウドにだけあるファイル 1 件は、ダウンロードせずに残します"
+            $log | Should -Match ([regex]::Escape("雲\議事録.docx"))
+            (readTestProgress).Detail | Should -Be "クラウドにだけあるファイルは、ダウンロードせずに残しました"
+
+            # 次のインデックス作成でも確かめる。ダウンロードして取り込む指定なら取り込む
+            runIndexer $root @{ IncludeCloud = $true } | Should -Be 0
+            $script:lastChannel.CloudSkipped | Should -Be 0
+            (readTestStatus $root).Rows["雲\議事録.docx"].状態 | Should -Be ${stateDone}
+            [System.IO.File]::Exists("$root\work\content_index\雲\content_index.docx.001.tsv") | Should -Be $true
+        } finally {
+            [System.IO.File]::SetAttributes($cloudFile, [System.IO.FileAttributes]::Normal)
+        }
+    }
+}
+
 Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
     BeforeAll {
         $source = newSourceFolder "総務"

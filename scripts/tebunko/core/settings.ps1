@@ -61,6 +61,11 @@ ${openModeReadOnly} = "readOnly"  # 読み取り専用で開く（誤って上�
 ${openModeNew}      = "new"       # 新規（元のファイルを基にした無題の文書）で開く。元のファイルを占有しない
 ${openModes}        = @(${openModeNormal}, ${openModeReadOnly}, ${openModeNew})
 
+# インデックス作成で、クラウドにだけあるファイル（OneDrive・SharePoint のオンデマンド）をどうするか（設定 cloudFiles の値）
+${cloudFilesAsk}      = "ask"       # ダウンロードせずに残す（確認の画面で、ダウンロードして取り込むかを選べる）
+${cloudFilesDownload} = "download"  # 確認なしでダウンロードして取り込む
+${cloudFilesModes}    = @(${cloudFilesAsk}, ${cloudFilesDownload})
+
 # 検索の対象にするファイルの種類（検索バーのチップ。設定ファイルの fileKinds の値）
 ${fileKindNames} = @("excel", "word", "powerpoint", "text")
 
@@ -77,6 +82,7 @@ function newSettings {
         includeComments    = $true    # コメントも検索する（場所 "<元の場所>[コメント]"）
         openMode           = ${openModeNormal}  # 検索結果の元のファイルの開き方: 通常（編集する）/ 読み取り専用 / 新規（元のファイルを基にした無題の文書。占有しない）
         workspaceFolder    = ""       # ワークスペース（インデックス・取り込み一覧・ログを置くフォルダ）。空なら既定（%USERPROFILE%\Documents\tebunko_ws。getDefaultWorkDir）
+        cloudFiles         = ${cloudFilesAsk}  # クラウドにだけあるファイルの扱い: ask（ダウンロードせずに残す。確認の画面で選べる）/ download（ダウンロードして取り込む）。知らない値は ask（readCloudFiles）
         ingestThreads      = 0        # Office を使わずに読むファイル（.docx・.pptx など）の読み取りのスレッドの数（1〜4。0 はコア数から決める。getIngestWorkerCount）。Excel・Word・PowerPoint は種類ごとに 1 つ
     }
 }
@@ -547,6 +553,28 @@ function writeOpenMode {
     )
 
     updateSettings "openMode" $mode $path
+}
+
+function readCloudFiles {
+    # クラウドにだけあるファイルの扱い（${cloudFilesModes} のいずれか）を返す。設定が無い・知らない値なら ask
+    param (
+        [string]$path = ${settingsFile}
+    )
+
+    $mode = (readSettings $path).cloudFiles
+    if (${cloudFilesModes} -contains $mode) {
+        return $mode
+    }
+    return ${cloudFilesAsk}
+}
+
+function writeCloudFiles {
+    param (
+        [string]$mode,
+        [string]$path = ${settingsFile}
+    )
+
+    updateSettings "cloudFiles" $mode $path
 }
 
 # 既定のワークスペースが空でないときの文言（画面の［既定に戻す］・起動時、インデクサで共通）

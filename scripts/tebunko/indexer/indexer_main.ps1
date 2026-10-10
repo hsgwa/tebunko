@@ -18,7 +18,7 @@ function invokeIndexerMain {
     initWorkspace
 
     if ($null -eq $Channel) {
-        $Channel = newIndexerChannel -retryFailed ([bool]$RetryFailed)
+        $Channel = newIndexerChannel -retryFailed ([bool]$RetryFailed) -includeCloud ((readCloudFiles) -eq ${cloudFilesDownload})
         $script:indexerEcho = $true
     }
     # 途中の処理が出力した値が混ざらないよう、最後の値（終了コード）を使う

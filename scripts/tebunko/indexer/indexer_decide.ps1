@@ -117,3 +117,27 @@ function getOfficeLane {
     }
     return ${laneWord}
 }
+function splitCloudItems {
+    # クラウドにだけあるファイルの一覧を、取り込むものと、ダウンロードせずに残すものに分ける。
+    #   取り込む: 「ダウンロードして取り込む」が選ばれていて、取り込み対象のもの（Failed が $false）。
+    #            前回失敗したもの（Failed が $true）は、「前回失敗したものも取り込み直す」も選ばれているときだけ
+    #   items の各要素は createTargetList が返す Cloud の要素（Failed: 前回失敗したファイルか）
+    param (
+        $items,
+        [bool]$retryFailed,
+        [bool]$includeCloud
+    )
+
+    $included = New-Object System.Collections.Generic.List[object]
+    $skipped = New-Object System.Collections.Generic.List[object]
+    # List[object] を @() に渡すと PowerShell 5.1 で落ちることがあるため、そのまま回す
+    foreach ($item in $items) {
+        if ($includeCloud -and ((-not $item.Failed) -or $retryFailed)) {
+            $included.Add($item)
+        }
+        else {
+            $skipped.Add($item)
+        }
+    }
+    return @{ Included = $included; Skipped = $skipped }
+}

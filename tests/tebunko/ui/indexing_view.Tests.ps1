@@ -4,11 +4,13 @@ BeforeAll {
     . "${scriptsDir}\tebunko\ui\indexing_view.ps1"
 
     function newPlanItem {
-        param ([string]$kind, [int]$files = 0, [int]$targets = 0, [int]$new = 0, [int]$updated = 0, [int]$failed = 0)
+        param ([string]$kind, [int]$files = 0, [int]$targets = 0, [int]$new = 0, [int]$updated = 0, [int]$failed = 0,
+            [int]$cloud = 0, [int]$cloudFailed = 0, [long]$cloudBytes = 0, [long]$cloudFailedBytes = 0, [string]$name = "売上")
         return [pscustomobject]@{
-            インデックス名 = "売上"; 元のフォルダ = "C:\data\売上"; 区分 = $kind
+            インデックス名 = $name; 元のフォルダ = "C:\data\売上"; 区分 = $kind
             ファイル数 = $files; 取り込み対象 = $targets; 新規 = $new; 更新あり = $updated
             前回未完了 = 0; インデックスなし = 0; 前回失敗 = $failed
+            クラウド = $cloud; クラウド失敗 = $cloudFailed; クラウド容量 = $cloudBytes; クラウド失敗容量 = $cloudFailedBytes
         }
     }
 }
@@ -253,5 +255,140 @@ Describe "getReingestConfirm" -Tag Unit {
         } else {
             $text | Should -Be ""
         }
+    }
+}
+
+Describe "クラウドにだけあるファイルの確認の文言" -Tag Unit {
+    It "newPlanViewRows は、内訳に「クラウドにだけある N 件」を出す（取り込み対象には数えない）" {
+        $rows = newPlanViewRows @((newPlanItem ${planKindIngest} 10 2 2 0 0 3 1 3000 500))
+        $rows[0].DetailText | Should -Be "更新するファイル 2 件（新規 2 件 / クラウドにだけある 4 件）"
+        $rows = newPlanViewRows @((newPlanItem ${planKindIngest} 10 0 0 0 0 0 3))
+        $rows[0].StatusText | Should -Be "最新"
+        $rows[0].DetailText | Should -Be "クラウドにだけある 3 件"
+    }
+
+    It "formatCloudSize は KB・MB・GB のどれかで、小数点以下 1 桁にする" -TestCases @(
+        @{ bytes = 0; expected = "1 KB 未満" }
+        @{ bytes = 1023; expected = "1 KB 未満" }
+        @{ bytes = 1024; expected = "約 1.0 KB" }
+        @{ bytes = 1536; expected = "約 1.5 KB" }
+        @{ bytes = 1048576; expected = "約 1.0 MB" }
+        @{ bytes = 13002342; expected = "約 12.4 MB" }
+        @{ bytes = 1073741824; expected = "約 1.0 GB" }
+        @{ bytes = 5368709120; expected = "約 5.0 GB" }
+    ) {
+        param ($bytes, $expected)
+        formatCloudSize $bytes | Should -Be $expected
+    }
+
+    It "getIndexingCloudView は件数と合計サイズを足す。前回失敗は「失敗分も更新し直す」のときだけ足し、選んだものだけの回は選んだインデックスだけ" {
+        $plan = @(
+            (newPlanItem ${planKindIngest} 10 2 2 0 0 3 1 3000 500 "営業")
+            (newPlanItem ${planKindIngest} 10 0 0 0 0 2 0 200 0 "経理")
+            (newPlanItem ${planKindUnchecked} 0 0 0 0 0 9 9 9 9 "対象外")
+        )
+        $all = getIndexingCloudView $plan $false
+        $all.Count | Should -Be 5
+        $all.Bytes | Should -Be 3200
+        $retry = getIndexingCloudView $plan $true
+        $retry.Count | Should -Be 6
+        $retry.Bytes | Should -Be 3700
+        $only = getIndexingCloudView $plan $false @("経理")
+        $only.Count | Should -Be 2
+        $only.Bytes | Should -Be 200
+        (getIndexingCloudView @() $true).Count | Should -Be 0
+    }
+
+    It "getIndexingConfirmFolderCount は、ダウンロードして取り込むときだけ、クラウドだけのフォルダも数える" {
+        $plan = @((newPlanItem ${planKindIngest} 10 5), (newPlanItem ${planKindIngest} 10 0 0 0 0 2), (newPlanItem ${planKindIngest} 10 0 0 0 0 0 3))
+        getIndexingConfirmFolderCount $plan $false | Should -Be 1
+        getIndexingConfirmFolderCount $plan $false $true | Should -Be 2
+        getIndexingConfirmFolderCount $plan $true $true | Should -Be 3
+    }
+
+    It "isIndexingConfirmNothing は、クラウドにだけあるファイルが 1 件でもあれば「何も無い」にしない" {
+        isIndexingConfirmNothing 0 0 0 | Should -Be $true
+        isIndexingConfirmNothing 0 0 0 0 | Should -Be $true
+        isIndexingConfirmNothing 0 0 0 1 | Should -Be $false
+    }
+
+    It "getIndexingConfirmText は、クラウドにだけあるファイルの合計・ボタンをチェックに合わせる" -TestCases @(
+        @{ name = "対象があり、ダウンロードしない"; targets = 12; cloud = 3; include = $false; total = 12; button = "更新を開始"
+           text = "更新対象: 2 フォルダ / 12 ファイル（最新のフォルダは更新しません） クラウドにだけあるファイル 3 件は、ダウンロードせずに残します。" }
+        @{ name = "対象があり、ダウンロードする"; targets = 12; cloud = 3; include = $true; total = 15; button = "更新を開始"
+           text = "更新対象: 2 フォルダ / 15 ファイル（最新のフォルダは更新しません）" }
+        @{ name = "対象が 0 件でクラウドだけ、ダウンロードしない"; targets = 0; cloud = 3; include = $false; total = 0; button = "閉じる"
+           text = "更新が必要なファイルはありません。クラウドにだけあるファイル 3 件は、ダウンロードせずに残します。" }
+        @{ name = "対象が 0 件でクラウドだけ、ダウンロードする"; targets = 0; cloud = 3; include = $true; total = 3; button = "更新を開始"
+           text = "更新対象: 2 フォルダ / 3 ファイル（最新のフォルダは更新しません）" }
+        @{ name = "クラウドが無ければ今までどおり"; targets = 12; cloud = 0; include = $false; total = 12; button = "更新を開始"
+           text = "更新対象: 2 フォルダ / 12 ファイル（最新のフォルダは更新しません）" }
+    ) {
+        param ($name, $targets, $cloud, $include, $total, $button, $text)
+        $view = getIndexingConfirmText $targets 0 $false 2 0 $cloud $include
+        $view.Total | Should -Be $total
+        $view.Text | Should -Be $text
+        $view.Button | Should -Be $button
+    }
+
+    It "getIndexingConfirmText は、削除予定とクラウドの文を並べる" {
+        $view = getIndexingConfirmText 0 0 $false 0 1 3 $false
+        $view.Button | Should -Be "更新を開始"
+        $view.Text | Should -Be "更新が必要なファイルはありません。設定に無いインデックス 1 件を削除します。 クラウドにだけあるファイル 3 件は、ダウンロードせずに残します。"
+    }
+
+    It "注意書き・チェックの文言に件数と合計サイズを入れる" {
+        getIndexingCloudWarning 3 13002342 | Should -Be "クラウドにだけあるファイル 3 件（合計 約 12.4 MB）は、既定ではダウンロードせずに残します。"
+        getIndexingCloudCheckText 1234 | Should -Be "クラウドにだけあるファイル 1,234 件もダウンロードして取り込む"
+        ${indexingCloudRememberText} | Should -Be "次からこの確認を出さずにダウンロードする"
+    }
+
+    It "2 度目の確認は、見出しに件数と合計サイズを入れ、通信量・ディスク・残り続けること・制限時間を知らせる" {
+        $view = getIndexingCloudConfirmView 3 13002342
+        $view.Heading | Should -Be "3 件（合計 約 12.4 MB）をダウンロードして取り込みますか？"
+        $view.Facts.Count | Should -Be 3
+        $view.Facts[0] | Should -Match "帯域.*ディスクの空き"
+        $view.Facts[1] | Should -Match "空き容量を増やす"
+        $view.Facts[2] | Should -Match "10 分以内"
+        $view.Choices[0].Text | Should -Be "ダウンロードして取り込む"
+        $view.CancelText | Should -Be "キャンセル"
+    }
+
+    It "testIndexingCloudNeedsConfirm は、チェックが付いていて、設定がまだ download でないときだけ 2 度目の確認を出す" -TestCases @(
+        @{ checked = $true; saved = "ask"; expected = $true }
+        @{ checked = $true; saved = "download"; expected = $false }
+        @{ checked = $false; saved = "ask"; expected = $false }
+        @{ checked = $false; saved = "download"; expected = $false }
+    ) {
+        param ($checked, $saved, $expected)
+        testIndexingCloudNeedsConfirm $checked $saved | Should -Be $expected
+    }
+
+    It "getIndexingCloudSavedMode は、両方のチェックが付いているときだけ download を保存する" -TestCases @(
+        @{ cloud = $true; remember = $true; expected = "download" }
+        @{ cloud = $true; remember = $false; expected = "ask" }
+        @{ cloud = $false; remember = $true; expected = "ask" }
+        @{ cloud = $false; remember = $false; expected = "ask" }
+    ) {
+        param ($cloud, $remember, $expected)
+        getIndexingCloudSavedMode $cloud $remember | Should -Be $expected
+    }
+}
+
+Describe "getIndexingEndText（クラウドにだけあるファイル）" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "取り込みが 0 件でクラウドを残したなら、その一言だけ（「更新が必要なファイルはありませんでした」は出さない）"; success = 0; failed = 0; cloud = 2
+           text = "クラウドにだけあるファイル 2 件は、ダウンロードせずに残しました（次のインデックス作成でも確かめます）。"; detail = "" }
+        @{ name = "取り込んだものがあり、クラウドを残したなら、説明に足す"; success = 5; failed = 0; cloud = 2
+           text = "更新が終わりました（成功 5 件 / 失敗 0 件）"; detail = "クラウドにだけあるファイル 2 件は、ダウンロードせずに残しました（次のインデックス作成でも確かめます）。" }
+        @{ name = "取り込んだものがあり、クラウドを残していなければ今までどおり"; success = 5; failed = 0; cloud = 0
+           text = "更新が終わりました（成功 5 件 / 失敗 0 件）"; detail = "" }
+        @{ name = "どちらも 0 件なら今までどおり"; success = 0; failed = 0; cloud = 0
+           text = "更新が必要なファイルはありませんでした"; detail = "" }
+    ) {
+        param ($name, $success, $failed, $cloud, $text, $detail)
+        $view = getIndexingEndText $success $failed 0 "" $cloud
+        $view.Text | Should -Be $text
+        $view.Detail | Should -Be $detail
     }
 }

@@ -68,14 +68,20 @@ function updateIndexingConfirmTotal {
     # 「失敗分も更新し直す」のチェックに合わせて、合計と主ボタンの文言を変える
     $d = $script:confirmDialog
     $retry = [bool]$d.Ctrl.RetryCheck.IsChecked
-    $folders = getIndexingConfirmFolderCount $d.Plan $retry
-    $view = getIndexingConfirmText $d.Targets $d.Failed $retry $folders (getIndexingDroppedCount $d.Plan)
+    $cloudChecked = [bool]$d.Ctrl.CloudCheck.IsChecked
+    $cloud = getIndexingCloudView $d.Plan $retry @($script:indexingOnlyNames)
+    $folders = getIndexingConfirmFolderCount $d.Plan $retry $cloudChecked
+    $view = getIndexingConfirmText $d.Targets $d.Failed $retry $folders (getIndexingDroppedCount $d.Plan) $cloud.Count $cloudChecked
     $d.Ctrl.TotalText.Text = $view.Text
     $d.Ctrl.StartButton.Content = $view.Button
+    # 「次から確認を出さない」は、ダウンロードして取り込むを選んだときだけ選べる
+    $d.Ctrl.CloudRememberCheck.IsEnabled = $cloudChecked
+    $d.Ctrl.CloudWarnText.Text = getIndexingCloudWarning $cloud.Count $cloud.Bytes
+    $d.Ctrl.CloudCheck.Content = getIndexingCloudCheckText $cloud.Count
 }
 function showIndexingConfirmDialog {
     # インデックス作成の確認。インデクサが数えた結果（インデックスごとの取り込み対象の件数）を出して、取り込むかどうかを選んでもらう。
-    #   取り込む → @{ RetryFailed } ／ 取りやめ → $null
+    #   取り込む → @{ RetryFailed; IncludeCloud } ／ 取りやめ → $null
     param (
         $plan  # readIngestPlan の結果
     )
@@ -95,7 +101,7 @@ function showIndexingConfirmDialog {
     $dialog = loadWindow "${xamlDir}\dialog_indexing_confirm.xaml" ${fontsDir}
     $dialog.Owner = $window
     $ctrl = @{}
-    foreach ($name in @("StartButton", "CancelButton", "RetryCheck", "TotalText", "NoteText", "IntroText", "PlanGrid")) {
+    foreach ($name in @("StartButton", "CancelButton", "RetryCheck", "CloudWarnText", "CloudCheck", "CloudRememberCheck", "TotalText", "NoteText", "IntroText", "PlanGrid")) {
         $ctrl[$name] = $dialog.FindName($name)
     }
     $script:confirmDialog = @{ Window = $dialog; Ctrl = $ctrl; Targets = $targets; Failed = $failed; Plan = $plan; Answer = $null }
@@ -106,8 +112,22 @@ function showIndexingConfirmDialog {
         $ctrl.RetryCheck.Visibility = "Visible"
         $ctrl.RetryCheck.Content = "前回更新に失敗し、その後変わっていないファイル {0:#,0} 件も更新し直す（パスワード付きなど）" -f $failed
     }
+    # クラウドにだけあるファイルが 1 件でもあれば、ダウンロードして取り込むかを選べるようにする（既定は取り込まない）
+    $savedCloud = readCloudFiles
+    $cloud = getIndexingCloudView $plan $true @($script:indexingOnlyNames)
+    if ($cloud.Count -gt 0) {
+        $ctrl.CloudWarnText.Visibility = "Visible"
+        $ctrl.CloudCheck.Visibility = "Visible"
+        $ctrl.CloudRememberCheck.Visibility = "Visible"
+        $ctrl.CloudRememberCheck.Content = ${indexingCloudRememberText}
+        if ($savedCloud -eq ${cloudFilesDownload}) {
+            # 前回「次から確認を出さずにダウンロードする」を選んだ。チェックを付けておく
+            $ctrl.CloudCheck.IsChecked = $true
+            $ctrl.CloudRememberCheck.IsChecked = $true
+        }
+    }
     # 削除予定があるときは、取りやめと［更新を開始］を選べるままにする（閉じるだけにすると、見せたまま消してしまう）
-    $nothing = isIndexingConfirmNothing $targets $failed (getIndexingDroppedCount $plan)
+    $nothing = isIndexingConfirmNothing $targets $failed (getIndexingDroppedCount $plan) $cloud.Count
     if ($nothing) {
         # 取り込むものが無いときは、閉じるだけ（［キャンセル］との違いが無い）
         $ctrl.CancelButton.Visibility = "Collapsed"
@@ -118,10 +138,27 @@ function showIndexingConfirmDialog {
     updateIndexingConfirmTotal
 
     $ctrl.RetryCheck.Add_Click({ safe { updateIndexingConfirmTotal } })
+    $ctrl.CloudCheck.Add_Click({ safe { updateIndexingConfirmTotal } })
     $ctrl.StartButton.Add_Click({
         safe {
             $d = $script:confirmDialog
-            $d.Answer = @{ RetryFailed = [bool]$d.Ctrl.RetryCheck.IsChecked }
+            $retry = [bool]$d.Ctrl.RetryCheck.IsChecked
+            $cloudChecked = [bool]$d.Ctrl.CloudCheck.IsChecked
+            if ($cloudChecked -and (testIndexingCloudNeedsConfirm $cloudChecked (readCloudFiles))) {
+                # ダウンロードして取り込む前に、もう一度確かめる。キャンセルなら、この確認に戻る（閉じない）
+                $cloudView = getIndexingCloudView $d.Plan $retry @($script:indexingOnlyNames)
+                $text = getIndexingCloudConfirmView $cloudView.Count $cloudView.Bytes
+                $facts = @($text.Facts | ForEach-Object { factWarn $_ })
+                $choice = showConfirm -heading $text.Heading -choices $text.Choices -facts $facts -cancelText $text.CancelText -owner $d.Window
+                if ($null -eq $choice) {
+                    return
+                }
+            }
+            # 開始するときの選び方を設定に残す（次から確認を出さずにダウンロードするか）
+            if ($d.Ctrl.CloudCheck.Visibility -eq "Visible") {
+                writeCloudFiles (getIndexingCloudSavedMode $cloudChecked ([bool]$d.Ctrl.CloudRememberCheck.IsChecked))
+            }
+            $d.Answer = @{ RetryFailed = $retry; IncludeCloud = $cloudChecked }
             $d.Window.DialogResult = $true
         }
     })
@@ -441,7 +478,7 @@ function finishIndexing {
         $success = if ($progress) { $progress.Processed - $progress.Failed } else { 0 }
         $failed = if ($progress) { $progress.Failed } else { 0 }
         setIndexingBanner (getIndexingBannerLevel $exitCode $failed) "done"
-        $endText = getIndexingEndText $success $failed $session.GetPostponed() $session.GetNotice()
+        $endText = getIndexingEndText $success $failed $session.GetPostponed() $session.GetNotice() $session.GetCloudSkipped()
         $ui.IndexingProgressText.Text = $endText.Text
         $ui.IndexingProgressDetail.Text = $endText.Detail
         setStatus $ui.IndexingProgressText.Text
