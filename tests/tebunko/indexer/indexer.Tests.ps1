@@ -1022,6 +1022,44 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
             Remove-Variable -Name handoverFake, handoverStarts -Scope Global
         }
     }
+
+    It "渡すときに窓を出せなければ、ログは「窓を出せませんでした」の文言になり、Excel は終了させず残す" {
+        ${tmpDir} = Join-Path $TestDrive "handover_fail_tmp"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+        $script:officeOwnDir = ${tmpDir}
+        $script:onOfficeHandOver = ${officeHandOverNotice}
+        $script:officeKeptApps = @()
+        $global:handoverFake = New-Object psobject -Property @{
+            UserControl = $false; DisplayAlerts = $false; EnableEvents = $false; ScreenUpdating = $false
+            AskToUpdateLinks = $false; AutomationSecurity = 3
+            Workbooks = @([pscustomobject]@{ FullName = "C:\利用者\山田の資料.xlsx" })
+        }
+        $global:handoverFake | Add-Member -MemberType ScriptProperty -Name Visible -Value { $false } -SecondValue { throw "設定できません" }
+        $global:handoverFake | Add-Member -MemberType ScriptMethod -Name Quit -Value { throw "Quit は呼ばない" }
+        Mock ingestFile {
+            $script:apps["Excel"] = @{ Com = $global:handoverFake; Pid = 4242; Shared = $false }
+            return 1
+        }
+        Mock publishTsv { }
+        Mock getBookDir { "x" }
+        Mock getExtractVersion { "1" }
+        Mock Stop-Process { }
+        try {
+            $result = invokeIngestTask @{ RelPath = "資料\a.xlsx"; SourcePath = "C:\data\a.xlsx" } 10
+            $result.Ok | Should -Be $true
+            $result.Log | Should -Match "窓を出せませんでした"
+            $result.Log | Should -Not -Match "利用者に渡しました$"
+            $script:apps.ContainsKey("Excel") | Should -Be $false
+            @($script:officeKeptApps).Count | Should -Be 1
+            Should -Invoke Stop-Process -Times 0 -Exactly -Scope It
+        } finally {
+            $script:apps.Remove("Excel")
+            $script:officeKeptApps = @()
+            $script:officeOwnDir = $null
+            $script:onOfficeHandOver = $null
+            Remove-Variable -Name handoverFake -Scope Global
+        }
+    }
 }
 
 Describe "getIngestLaneCapacity" -Tag Unit {

@@ -226,16 +226,18 @@ function handOverApp {
 
     $app = $script:apps[$name]
     if ($null -eq $app -or $app.Shared) {
-        return
+        return $false
     }
+    # (a) 見張りの対象から外す (b) 一括終了の対象から外す (c) 残り物の確認の記録を消す。それぞれ、ほかが失敗しても行う
+    try { $script:apps.Remove($name) } catch {}
+    try { updateWatchedPids } catch {}
     try {
-        # (a) 見張りの対象から外す (b) 一括終了の対象から外す (c) 残り物の確認の記録を消す
-        $script:apps.Remove($name)
-        updateWatchedPids
         if ($app.Pid -and $script:officePidSink) {
             $removed = $null
             [void]$script:officePidSink.TryRemove([int]$app.Pid, [ref]$removed)
         }
+    } catch {}
+    try {
         if ($app.Pid -and $script:officeRecordDir) {
             removeOfficeRecord $script:officeRecordDir ([int]$app.Pid)
         }
@@ -279,8 +281,9 @@ function handOverApp {
             [GC]::Collect()
         } catch {}
     } else {
-        # 窓を出せなかった Excel は、参照を放すと終わるおそれがあるため、放さずに持ち続ける（止めも強制終了もしない）
-        $script:officeKeptApps += , $com
+        # 窓を出せなかった Excel は、参照を放すと終わるおそれがあるため、放さずに持ち続ける（止めも強制終了もしない）。
+        # 次の確かめの時機に retryKeptApps が設定し直す。インデックス作成が終わると取り込みのスレッドごと参照が切れる
+        $script:officeKeptApps += , @{ Name = $name; Com = $com; Pending = $pending }
     }
 
     if ($script:onOfficeHandOver) {
@@ -289,10 +292,35 @@ function handOverApp {
     return $ok
 }
 
+function retryKeptApps {
+    # 窓を出せずに持ち続けている Excel の設定をもう一度戻し、通ったら参照を放して「渡した」ログを書く。待たない（通らなければ次の時機に回す）
+    if (@($script:officeKeptApps).Count -eq 0) {
+        return
+    }
+    $remaining = @()
+    foreach ($kept in @($script:officeKeptApps)) {
+        $ok = $true
+        foreach ($setting in @($kept.Pending)) {
+            try { $kept.Com.($setting[0]) = $setting[1] } catch { $ok = $false }
+        }
+        if ($ok) {
+            try { releaseComObject $kept.Com; [GC]::Collect() } catch {}
+            if ($script:onOfficeHandOver) {
+                try { & $script:onOfficeHandOver $kept.Name $true } catch {}
+            }
+        } else {
+            $remaining += , $kept
+        }
+    }
+    $script:officeKeptApps = $remaining
+}
+
 function handOverForeignApp {
     # 起動した Excel に利用者が開いたブックがあれば、利用者に渡して $true を返す。無ければ何もせず $false
     param ([string]$name)
 
+    # 前に窓を出せなかった Excel があれば、ここで設定し直す
+    retryKeptApps
     $app = $script:apps[$name]
     if ($name -ne "Excel" -or $null -eq $app -or $app.Shared) {
         return $false
@@ -366,6 +394,7 @@ function stopApp {
 }
 
 function stopAllApps {
+    retryKeptApps
     # 1つのアプリの終了に失敗しても、残りのアプリは終了させる
     foreach ($name in @($script:apps.Keys)) {
         try {

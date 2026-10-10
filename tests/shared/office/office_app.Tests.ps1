@@ -575,6 +575,19 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $workbooks) } -Times 1 -Exactly -Scope It
     }
 
+    It "testProcessHasWindow: <name>" -TestCases @(
+        @{ name = "名前が合い、窓が見える"; id = 4242; processName = "EXCEL"; handle = 777; expected = $true }
+        @{ name = "窓が無い"; id = 4242; processName = "EXCEL"; handle = 0; expected = $false }
+        @{ name = "PID が別の名前のプロセスに再利用された"; id = 4242; processName = "notepad"; handle = 777; expected = $false }
+        @{ name = "PID を控えていない（0）"; id = 0; processName = "EXCEL"; handle = 777; expected = $false }
+    ) {
+        param ($name, $id, $processName, $handle, $expected)
+        $process = [pscustomobject]@{ ProcessName = $processName; MainWindowHandle = [IntPtr]$handle }
+        Mock Get-Process { $process }
+
+        testProcessHasWindow $id "EXCEL" | Should -Be $expected
+    }
+
     It "resolveOwnDir: <name>" -TestCases @(
         @{ name = "長い名前にできればその名前"; dir = "C:\TEST~1\tmp"; mocked = "C:\Test Long\tmp"; expected = "C:\Test Long\tmp" }
         @{ name = "読めなければ元の名前"; dir = "C:\TEST~1\tmp"; mocked = $null; expected = "C:\TEST~1\tmp" }
@@ -660,7 +673,7 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         $script:apps.ContainsKey("Excel") | Should -Be $false
         @($script:watchdog.Pids) | Should -Not -Contain 4242
         @($script:officeKeptApps).Count | Should -Be 1
-        [object]::ReferenceEquals($script:officeKeptApps[0], $com) | Should -Be $true
+        [object]::ReferenceEquals($script:officeKeptApps[0].Com, $com) | Should -Be $true
         Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $com) } -Times 0 -Exactly -Scope It
         Should -Invoke Stop-Process -Times 0 -Exactly -Scope It
         $script:officeKeptApps = @()
@@ -699,15 +712,6 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         $script:officePidSink.ContainsKey(4242) | Should -Be $false
     }
 
-    It "handOverApp: 渡したことを知らせる処理があれば呼ぶ" {
-        $script:onOfficeHandOver = { param ($name, $shown) [void]$log.Add("通知:$name") }
-        $script:apps["Excel"] = @{ Com = (newHandOverApp); Pid = 4242; Shared = $false }
-
-        [void](handOverApp "Excel")
-
-        @($log) | Should -Be @("通知:Excel")
-    }
-
     It "stopAllApps: 起動し直しやスレッドの終わりの一括終了でも、渡したことを知らせる" {
         $script:onOfficeHandOver = { param ($name, $shown) [void]$log.Add("通知:${name}:${shown}") }
         $script:apps["Excel"] = @{ Com = (newHandOverApp @((newBook "C:\docs\x\山田.xlsx"))); Pid = 4242; Shared = $false }
@@ -730,21 +734,65 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         $com.AutomationSecurity | Should -Be 3
     }
 
-    It "stopApp: 利用者が開いたブック・文書があるとき、Excel は渡し（Quit も強制終了もしない）、Word・PowerPoint は止めない" {
-        # 表が appInfo と一致する（アプリを足して行が欠けたら落ちる）
+    It "stopApp の表が appInfo と一致する（アプリを足して行が欠けたら落ちる）" {
         @($handOverExpect.Keys | Sort-Object) | Should -Be @($appInfo.Keys | Sort-Object)
-        foreach ($app in $handOverExpect.Keys) {
-            $log.Clear()
-            $com = newHandOverApp @((newBook "C:\docs\x\山田.xlsx")) 1
-            $script:apps[$app] = @{ Com = $com; Pid = 4242; Shared = $false }
+    }
 
-            stopApp $app
+    It "stopApp: 利用者が開いたブック・文書があるとき、<app> は<expected>" -TestCases @(
+        @{ app = "Excel"; expected = "渡し（Quit も強制終了もしない）" }
+        @{ app = "Word"; expected = "止めない" }
+        @{ app = "PowerPoint"; expected = "止めない" }
+    ) {
+        param ($app, $expected)
+        $com = newHandOverApp @((newBook "C:\docs\x\山田.xlsx")) 1
+        $script:apps[$app] = @{ Com = $com; Pid = 4242; Shared = $false }
 
-            $script:apps.ContainsKey($app) | Should -Be $false -Because $app
-            @($log) -contains "Quit" | Should -Be $false -Because $app
-            $com.Visible | Should -Be $handOverExpect[$app] -Because $app
-        }
+        stopApp $app
+
+        $script:apps.ContainsKey($app) | Should -Be $false
+        @($log) -contains "Quit" | Should -Be $false
+        $com.Visible | Should -Be $handOverExpect[$app]
         Should -Invoke Get-Process -Times 0 -Exactly -Scope It
+    }
+
+    It "retryKeptApps: 設定が通れば参照を放して「渡した」と知らせ、通らなければ持ち続ける（待たない・止めない）" {
+        Mock releaseComObject {}
+        Mock Stop-Process {}
+        $script:onOfficeHandOver = { param ($name, $shown) [void]$log.Add("通知:${name}:${shown}") }
+        $good = newHandOverApp
+        $bad = newHandOverApp
+        $bad.PSObject.Properties.Remove("Visible")
+        $bad | Add-Member -MemberType ScriptProperty -Name Visible -Value { $false } -SecondValue { throw "設定できません" }
+        $pending = @(@("DisplayAlerts", $true), @("Visible", $true), @("UserControl", $true))
+        $script:officeKeptApps = @(@{ Name = "Excel"; Com = $good; Pending = $pending }, @{ Name = "Excel"; Com = $bad; Pending = $pending })
+
+        retryKeptApps
+
+        $good.Visible | Should -Be $true
+        $good.UserControl | Should -Be $true
+        $good.DisplayAlerts | Should -Be $true
+        @($log) | Should -Be @("通知:Excel:True")
+        Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $good) } -Times 1 -Exactly -Scope It
+        Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $bad) } -Times 0 -Exactly -Scope It
+        Should -Invoke Stop-Process -Times 0 -Exactly -Scope It
+        @($script:officeKeptApps).Count | Should -Be 1
+        [object]::ReferenceEquals($script:officeKeptApps[0].Com, $bad) | Should -Be $true
+        $script:officeKeptApps = @()
+    }
+
+    It "持ち続けている Excel は、<when>に設定し直される" -TestCases @(
+        @{ when = "次の Excel のファイルの確かめ（handOverForeignApp）"; run = { [void](handOverForeignApp "Excel") } }
+        @{ when = "一括終了（stopAllApps）"; run = { stopAllApps } }
+    ) {
+        param ($when, $run)
+        Mock releaseComObject {}
+        $kept = newHandOverApp
+        $script:officeKeptApps = @(@{ Name = "Excel"; Com = $kept; Pending = @(,@("Visible", $true)) })
+
+        & $run
+
+        $kept.Visible | Should -Be $true
+        @($script:officeKeptApps).Count | Should -Be 0
     }
 
     It "stopApp: Excel に利用者が開いたブックが無ければ、今までどおり Quit する" {
