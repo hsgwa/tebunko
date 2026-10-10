@@ -107,9 +107,10 @@ function getIndexingBannerBehavior {
     # 帯がいつ消えるか。@{ Closable; AutoCloseSeconds }
     #   Closable: 閉じるボタン（×）を出すか
     #   AutoCloseSeconds: 出してから自動で消すまでの秒数（0 なら自動では消えない）
-    # 更新中（run）は終わるまで残し、閉じるボタンも出さない（［中止］がある）。
-    # 残りがあって更新していないとき（pending が 1 以上。内部では resume として扱う）は、［続きから再開］を載せているので、種類にかかわらず閉じられない。
-    # 成功（ok）は数秒で消える。それ以外（warn・info・ng）は、閉じるまで残り、閉じてもよい
+    # 帯はどの種類でも閉じられる（閉じるボタンを出す）。更新中（run）は、進み具合がステータスバーと行にも出るので閉じてよい。
+    # 閉じるのは見せ方だけで、更新は止まらない（止めるのは行の［中止］）。
+    # 自動で消えるのは、残りの無い成功（ok）だけ（数秒）。更新中と、残りがあって更新していないとき（pending が 1 以上。
+    # 内部では resume として扱う）は、［続きから再開］を載せているので、消さずに残す。それ以外（warn・info・ng）も閉じるまで残る
     param (
         [string]$level,  # run / ok / info / warn / ng
         [int]$pending = 0  # 取り込みの残りの件数
@@ -117,7 +118,7 @@ function getIndexingBannerBehavior {
 
     if ($level -ne "run" -and $pending -gt 0) { $level = "resume" }
     switch ($level) {
-        { $_ -in @("run", "resume") } { return @{ Closable = $false; AutoCloseSeconds = 0 } }
+        { $_ -in @("run", "resume") } { return @{ Closable = $true; AutoCloseSeconds = 0 } }
         "ok" { return @{ Closable = $true; AutoCloseSeconds = 8 } }
         default { return @{ Closable = $true; AutoCloseSeconds = 0 } }
     }

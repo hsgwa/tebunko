@@ -67,6 +67,8 @@
   <SolidColorBrush x:Key="Accent.Soft"    Color="#E5F1FB" />
   <SolidColorBrush x:Key="Accent.Ring"    Color="#BFD3FE" />
   <SolidColorBrush x:Key="Select.Soft"    Color="#E1F2FF" />
+  <!-- 入力欄で選んだ文字の地。SelectionOpacity 0.4 で重ねる（TextBox.Base） -->
+  <SolidColorBrush x:Key="Select.Text"    Color="#0078D4" />
   <SolidColorBrush x:Key="Hit"            Color="#FFF176" />
   <SolidColorBrush x:Key="Hit.Cell"       Color="#FFF3CD" />
   <SolidColorBrush x:Key="Ok"             Color="#218A21" />
@@ -723,7 +725,8 @@
     <Setter Property="FontSize" Value="13" />
     <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
     <Setter Property="CaretBrush" Value="{StaticResource Ink.Strong}" />
-    <Setter Property="SelectionBrush" Value="{StaticResource Select.Soft}" />
+    <Setter Property="SelectionBrush" Value="{StaticResource Select.Text}" />
+    <Setter Property="SelectionOpacity" Value="0.4" />
     <Setter Property="Background" Value="{StaticResource Bg.Surface}" />
     <Setter Property="BorderBrush" Value="{StaticResource Border.Normal}" />
     <Setter Property="VerticalContentAlignment" Value="Center" />

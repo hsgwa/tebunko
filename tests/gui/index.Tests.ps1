@@ -237,8 +237,8 @@ Describe "S3 作成中の操作" -Tag Gui {
             } | Out-Null
             $S.Timing["中止まで"] = [Math]::Round($sw.Elapsed.TotalSeconds, 1)
 
-            # 中止のあとは残りがあるので、帯に閉じるボタンは出ず、［続きから再開］が残る
-            testGuiVisible (findGui $S.Window -Id "IndexingBannerClose") | Should -BeFalse -Because "残りがあるあいだは帯を閉じられない"
+            # 中止のあとは残りがあるので、帯に［続きから再開］が出る。閉じるボタンもあり、閉じても再開の入口（［すべて更新］）は残る
+            testGuiVisible (findGui $S.Window -Id "IndexingBannerClose") | Should -BeTrue -Because "中止の帯も閉じられる"
 
             # 帯のボタンが 2 つ並ぶ（残りがあれば［検索する］と［続きから再開］）ときは、見える枠の間が 10
             $search = findGui $S.Window -Id "IndexingSearchButton"
@@ -248,6 +248,13 @@ Describe "S3 作成中の操作" -Tag Gui {
             $gap = $resume.Current.BoundingRectangle.Left - $search.Current.BoundingRectangle.Right
             $gap | Should -BeGreaterThan 9.5
             $gap | Should -BeLessThan 10.5
+
+            setGuiStep $S "中止の帯を×で閉じる（再開の入口は残る）"
+            clickGui $S $S.Window "IndexingBannerClose" "帯の×"
+            waitGui $S "帯が消える" ${guiDefaultTimeout} { !(testGuiVisible (findGui $S.Window -Id "IndexingProgressText")) } | Out-Null
+            $b = findGui $S.Window -Id "IndexingButton"
+            $b.Current.IsEnabled | Should -BeTrue
+            $b.Current.Name | Should -Be "すべて更新"
 
             # 取り込みが止まると、また押せる（#20）
             setGuiStep $S "止まった後の［＋ フォルダを追加］・詳細の名前とフォルダパスの欄・［削除］"
@@ -269,7 +276,7 @@ Describe "S3 作成中の操作" -Tag Gui {
             setGuiStep $S "起動時のタブを［インデックス管理］にする（#4 は別の fix で直すまでの回避）"
             selectGuiTab $S "IndexTab" "IndexingButton"
             waitGui $S "「更新を中断しました」" ${guiDefaultTimeout} { (getGuiIndexingBannerText $S) -like "*更新を中断しました*" } | Out-Null
-            testGuiVisible (findGui $S.Window -Id "IndexingBannerClose") | Should -BeFalse -Because "中断の帯は閉じられない"
+            testGuiVisible (findGui $S.Window -Id "IndexingBannerClose") | Should -BeTrue -Because "中断の帯も閉じられる"
 
             setGuiStep $S "続きから再開"
             startGuiIndexing $S

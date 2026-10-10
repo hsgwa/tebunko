@@ -446,6 +446,8 @@ function finishIndexing {
     $ui.IndexingProgressEta.Text = ""
     $ui.IndexingStopButton.Visibility = "Collapsed"
     $ui.IndexingProgress.Visibility = "Collapsed"
+    # 更新中の帯を閉じていても、終わりの知らせは出す
+    $ui.IndexingProgressPanel.Visibility = "Visible"
     $skippedView = getIndexingSkippedView $onlySkipped
     if ($skippedView -and $exitCode -ne 1) {
         # メッセージを読んでいる間に成功の帯が消えないよう、時計を止め、閉じたあとから数え直す

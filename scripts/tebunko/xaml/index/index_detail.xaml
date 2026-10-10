@@ -13,6 +13,36 @@
       <Style x:Key="FieldName" TargetType="TextBlock" BasedOn="{StaticResource Label}">
         <Setter Property="Margin" Value="0,0,0,4" />
       </Style>
+      <!-- ボタンと並べる入力欄（フォルダパス）。右の角を丸めず、焦点の輪も右に出さない（右の辺をボタンとの境の線にして、ボタンに重ならない） -->
+      <Style x:Key="TextBox.Joined" TargetType="TextBox" BasedOn="{StaticResource TextBox.Base}">
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="TextBox">
+              <Border x:Name="Ring" CornerRadius="7,0,0,7" Padding="1,1,0,1" Background="Transparent">
+                <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
+                        CornerRadius="6,0,0,6">
+                  <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
+                                VerticalAlignment="Center" Focusable="False" HorizontalScrollBarVisibility="Hidden" />
+                </Border>
+              </Border>
+              <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                  <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Ink.Faint}" />
+                </Trigger>
+                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                  <Setter TargetName="Ring" Property="Background" Value="{StaticResource Accent.Ring}" />
+                  <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                  <Setter TargetName="Bd" Property="Background" Value="{StaticResource Bg.Hover}" />
+                  <Setter Property="Foreground" Value="{StaticResource Ink.Faint}" />
+                </Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
       <!-- 値を入れる枠（読むだけ） -->
       <Style x:Key="FieldBox" TargetType="Border">
         <Setter Property="Background" Value="{StaticResource Bg.Subtle}" />
@@ -74,7 +104,7 @@
                   <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Style="{StaticResource Label}" Text="フォルダパス" VerticalAlignment="Center" />
-                <TextBox x:Name="IndexDetailPath" Grid.Column="1" AutomationProperties.AutomationId="IndexDetailPath" AutomationProperties.Name="元のフォルダのパス" />
+                <TextBox x:Name="IndexDetailPath" Grid.Column="1" Style="{StaticResource TextBox.Joined}" AutomationProperties.AutomationId="IndexDetailPath" AutomationProperties.Name="元のフォルダのパス" />
                 <!-- フォルダの場所をその場で変える［...］。欄の右に置く。押すとフォルダを選ぶ画面を出し、選んだ場所を欄に入れて、欄に入力したときと同じ道（changeIndexFolder → commitIndexDetailEdit）で変える -->
                 <Button x:Name="IndexDetailPathButton" Grid.Column="2" Width="34" MinWidth="34" Padding="0"
                         AutomationProperties.AutomationId="IndexDetailPathButton" AutomationProperties.Name="フォルダの場所を変える"
@@ -87,7 +117,7 @@
                   <Button.Template>
                     <ControlTemplate TargetType="Button">
                       <Border x:Name="Bd" Background="{StaticResource Bg.Window}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,1,1,1"
-                              CornerRadius="0,4,4,0" SnapsToDevicePixels="True">
+                              CornerRadius="0,6,6,0" SnapsToDevicePixels="True">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                       </Border>
                       <ControlTemplate.Triggers>

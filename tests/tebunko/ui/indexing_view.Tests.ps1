@@ -125,17 +125,17 @@ Describe "getIndexingDroppedCount・削除予定のある確認の文言" -Tag U
     }
 
     It "帯の消え方: <level> のとき 閉じるボタン <closable>・自動で消えるまで <seconds> 秒" -TestCases @(
-        @{ level = "run"; closable = $false; seconds = 0 }
-        @{ level = "resume"; closable = $false; seconds = 0 }
+        @{ level = "run"; closable = $true; seconds = 0 }
+        @{ level = "resume"; closable = $true; seconds = 0 }
         @{ level = "ok"; closable = $true; seconds = 8 }
         @{ level = "info"; closable = $true; seconds = 0 }
         @{ level = "warn"; closable = $true; seconds = 0 }
         @{ level = "ng"; closable = $true; seconds = 0 }
         @{ level = ""; closable = $true; seconds = 0 }
-        @{ level = "ok"; pending = 3; closable = $false; seconds = 0 }
-        @{ level = "warn"; pending = 1; closable = $false; seconds = 0 }
-        @{ level = "ng"; pending = 2; closable = $false; seconds = 0 }
-        @{ level = "run"; pending = 5; closable = $false; seconds = 0 }
+        @{ level = "ok"; pending = 3; closable = $true; seconds = 0 }
+        @{ level = "warn"; pending = 1; closable = $true; seconds = 0 }
+        @{ level = "ng"; pending = 2; closable = $true; seconds = 0 }
+        @{ level = "run"; pending = 5; closable = $true; seconds = 0 }
         @{ level = "ok"; pending = 0; closable = $true; seconds = 8 }
     ) {
         param ($level, $closable, $seconds, $pending = 0)
