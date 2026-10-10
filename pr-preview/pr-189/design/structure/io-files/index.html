@@ -4558,7 +4558,7 @@
 </tr>
 <tr>
 <td>取り込み対象のファイル（<code>.xlsx</code> <code>.xlsm</code> <code>.xls</code> <code>.xlsb</code> <code>.docx</code> <code>.docm</code> <code>.doc</code> <code>.pptx</code> <code>.pptm</code> <code>.ppt</code> とテキストファイル）</td>
-<td>取り込むとき。元のファイルを占有しないよう、作業領域へコピーしてから読む（<code>copyFileShared</code>）。保護の判定のため先頭を読む（<code>office_protection.ps1</code>）</td>
+<td>取り込むとき。元のファイルに影響を出さないよう、作業領域へコピーしてから読む（<code>copyFileShared</code>）。保護の判定のため先頭を読む（<code>office_protection.ps1</code>）</td>
 </tr>
 <tr>
 <td>元のファイル</td>
@@ -4831,7 +4831,7 @@
 <td>インデックス作成</td>
 <td>インデックス作成</td>
 <td>–</td>
-<td>取り込み中の元ファイルのコピー（Excel は元と同じファイル名、長すぎれば <code>source.&lt;拡張子&gt;</code>。Word・PowerPoint は <code>source.&lt;拡張子&gt;</code>。元のファイルを占有しないため）、抽出途中の <code>sheet&lt;N&gt;.tmp</code>（UTF-16LE）/ <code>*.tsv</code>、旧形式の変換用の <code>source.doc</code> <code>source.ppt</code> / <code>converted.docx</code> <code>converted.pptx</code>（<a href="../data/">データの置き場所とパスの決め方</a>「自動生成（<code>work/</code>）」）</td>
+<td>取り込み中の元ファイルのコピー（Excel は元と同じファイル名、長すぎれば <code>source.&lt;拡張子&gt;</code>。Word・PowerPoint は <code>source.&lt;拡張子&gt;</code>。テキストは <code>source.copy</code>。元のファイルに影響を出さないため）、抽出途中の <code>sheet&lt;N&gt;.tmp</code>（UTF-16LE）/ <code>*.tsv</code>、旧形式の変換用の <code>source.doc</code> <code>source.ppt</code> / <code>converted.docx</code> <code>converted.pptx</code>（<a href="../data/">データの置き場所とパスの決め方</a>「自動生成（<code>work/</code>）」）</td>
 </tr>
 <tr>
 <td><code>work/indexing_log.txt</code></td>
