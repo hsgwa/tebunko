@@ -179,7 +179,19 @@ function removeSystemIndexOfWorkspace {
 }
 
 function getSearchIndexes {
-    # インデックスの一覧（work\index 直下のフォルダ 1 つがインデックス 1 つ）を
+    # インデックスの一覧（getSearchIndexData の Indexes）。引数は getSearchIndexData と同じ
+    param (
+        [string]$dir = $workspace.IndexDir,
+        [string]$statusPath = $workspace.StatusFile,
+        [string]$settingsPath = ${settingsFile}
+    )
+
+    return @((getSearchIndexData $dir $statusPath $settingsPath).Indexes)
+}
+
+function getSearchIndexData {
+    # @{ Root（dir のフルパス）; Sources（インデックス名 → 元のフォルダ。getSourceFolderMap の結果）; Indexes } を返す。
+    # Indexes はインデックスの一覧（work\index 直下のフォルダ 1 つがインデックス 1 つ）で、
     # @{ Name（インデックス名）; Path（インデックスのフォルダのフルパス）; SourcePath（元のフォルダ。分からなければ ""） } の配列で返す。
     # 並びは［インデックス管理］の一覧（targetFolders）と同じにし、その一覧に無いもの
     # （別の場所・PC から work\index にコピーしたインデックスなど）は名前順で後ろに付ける
@@ -190,7 +202,7 @@ function getSearchIndexes {
     )
 
     if (!(Test-Path -LiteralPath $dir -PathType Container)) {
-        return @()
+        return @{ Root = $dir; Indexes = @(); Sources = @{} }
     }
     $root = (Resolve-Path -LiteralPath $dir).ProviderPath.TrimEnd("\")
     $sources = getSourceFolderMap $root $statusPath $settingsPath
@@ -222,9 +234,10 @@ function getSearchIndexes {
             Order      = $(if ($order.ContainsKey($name)) { $order[$name] } else { [int]::MaxValue })
         })
     }
-    return @($indexes | Sort-Object Order, Name | ForEach-Object {
+    $sorted = @($indexes | Sort-Object Order, Name | ForEach-Object {
         [pscustomobject]@{ Name = $_.Name; Path = $_.Path; SourcePath = $_.SourcePath }
     })
+    return @{ Root = $root; Indexes = $sorted; Sources = $sources }
 }
 
 

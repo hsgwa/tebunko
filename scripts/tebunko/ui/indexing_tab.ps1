@@ -170,12 +170,14 @@ function confirmIndexingTargets {
 
 function startIndexing {
     # インデックス作成を始める。onlyNames があれば、その名前のインデックスだけの回にする（行の［更新］・メニューの［更新］）。
-    # 選んだ行は、設定の enabled を true にして取り込む（確認で取りやめても戻さない）。無ければ今までどおり、enabled の行すべて
+    # 選んだ行は、設定の enabled を true にして取り込む（確認で取りやめても戻さない）。無ければ今までどおり、enabled の行すべて。
+    # ワークスペースがネットワークの場所なら、前の版のインデックスの有無と届くかどうかを裏の列で確かめてから、続きを始める
+    # （届かない場所を画面のスレッドで調べると、画面が止まる）。確かめている間は、ほかの操作を止める
     param (
         [string[]]$onlyNames = @()
     )
 
-    if (isIndexing) {
+    if ((isIndexingOrPreparing) -or $script:targetsNaming) {
         return
     }
 
@@ -187,8 +189,54 @@ function startIndexing {
         return
     }
 
+    if ((getWorkspaceJobQueue $workspace.Dir) -ne "network") {
+        continueStartIndexing (getLegacyIndexState $workspace.Dir) $onlyNames
+        return
+    }
+
+    $script:indexingPreparing = $true
+    updateIndexingButton
+    setStatus (getWorkspaceCheckingStatus)
+    $finish = ${function:finishWorkspaceCheck}   # 終わったときの処理は、関数を変数に取って呼ぶ（クロージャからは関数の名前を引けないため）
+    startJob {
+        param ($dir)
+        # 届かない場所は、前の版のインデックスの有無を調べずに知らせる
+        if ((getPathState $dir).State -eq ${pathStateUnreachable}) {
+            return @{ Unreachable = $true; LegacyState = $null }
+        }
+        @{ Unreachable = $false; LegacyState = (getLegacyIndexState $dir) }
+    } @($workspace.Dir) {
+        param ($output, $errorText)
+        & $finish $output $errorText $onlyNames
+    }.GetNewClosure() (getWorkspaceJobQueue $workspace.Dir)
+}
+
+function finishWorkspaceCheck {
+    # ネットワークのワークスペースの確かめが終わったときの処理。届いて調べられたら、インデックス作成の続きを始める
+    param (
+        $output,
+        [string]$errorText,
+        [string[]]$onlyNames
+    )
+
+    $script:indexingPreparing = $false
+    updateIndexingButton
+    $result = @($output)[0]
+    if ($errorText -or $null -eq $result -or $result.Unreachable) {
+        setStatus (getWorkspaceUnreachableStatus ([string]$workspace.Dir))
+        return
+    }
+    continueStartIndexing $result.LegacyState $onlyNames
+}
+
+function continueStartIndexing {
+    # startIndexing の続き。前の版のインデックスがあれば確かめ、インデクサを始める
+    param (
+        $legacyState,        # getLegacyIndexState の結果
+        [string[]]$onlyNames
+    )
+
     # 前の版のインデックス（index\）があり、まだ取り込み直していなければ、始める前に確かめる
-    $legacyState = getLegacyIndexState $workspace.Dir
     $reingestConfirm = getReingestConfirm $legacyState.HasLegacyIndex $legacyState.ContentEmpty
     if ($reingestConfirm) {
         $answer = showConfirm -heading $reingestConfirm -choices @(@{ Text = "更新し直す"; Value = "start" })

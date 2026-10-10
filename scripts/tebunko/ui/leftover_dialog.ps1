@@ -33,7 +33,7 @@ function startLeftoverCheck {
             }
             decideLeftoverPrompt $processes
         }
-    } (getOfficePidQueue $workspace.Dir)
+    } (getWorkspaceJobQueue $workspace.Dir)
 }
 
 function decideLeftoverPrompt {
@@ -150,9 +150,9 @@ function stopLeftoverProcesses {
                     return
                 }
                 safe { finishLeftoverStop @($output[0].Results) }
-            } (getOfficePidQueue $workspace.Dir)
+            } (getWorkspaceJobQueue $workspace.Dir)
         }
-    } (getOfficePidQueue $workspace.Dir)
+    } (getWorkspaceJobQueue $workspace.Dir)
 }
 
 function finishLeftoverStop {

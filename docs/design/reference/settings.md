@@ -35,6 +35,8 @@
 | 関数 | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
 | `getMachineKey` | – | string（8 文字） | この PC を識別する短い鍵（`getFolderKey` の先頭 8 文字）。共有フォルダのワークスペースを複数の PC から使うとき、一時フォルダを PC ごとに分ける | getWorkspaceTmpDir |
+| `assertWorkspaceReachable` | dir | – | 裏の仕事の先頭でワークスペースに届くかを確かめる。届かない・確かめられないときは「ワークスペースに接続できません：…」「ワークスペースを確かめられません：…」の例外にする。まだ無いだけなら何もしない（呼び出しは裏の仕事の中。画面のスレッドでは呼ばない） | index_edit.ps1 |
+| `getWorkspaceJobQueue` | 場所（複数可） | string | 裏の列を選ぶ。渡した場所のどれかがネットワークなら `network`、それ以外は `default`。届かない共有の仕事が、ほかの仕事を待たせないため | index_edit.ps1, index_tree.ps1 ほか |
 | `getWorkspaceTmpDir` | workspace | string | 取り込みの作業フォルダの候補 `<TmpRoot>\<PC の鍵>\<PID>`。副作用は無い | selectTmpDir, index_migrate.ps1 |
 | `selectTmpDir` | workspace | `@{Dir; Reason}` | 作業フォルダの置き場所を決める。候補のパスに `[` `]` があれば（Excel が保存できない）`Dir` を空にして `Reason = Brackets`、候補の長さに取り込みのスレッドが下に作る名前の分を足して `$excelMaxPath` 以上なら `Reason = TooLong`。どちらでもなければ候補のまま（`Reason` は空）。`%TEMP%` には逃がさない | paths.ps1, indexer_run.ps1, extract_office.ps1, index_migrate.ps1 |
 | `getTmpDirUnavailableMessage` | reason | string | 作業フォルダを置けない理由（`Brackets`・`TooLong`・その他）を、利用者向けの 1 文にする | indexer_run.ps1, index_migrate.ps1 |

@@ -184,7 +184,7 @@ nav:
           - インデックス作成の実行: design/gui/indexing-run.md
           - 検索タブ: design/gui/search-tab.md
           - 元のファイルを開く: design/gui/open-file.md
-          - 元のフォルダ・元のファイルがネットワークにあるとき: design/gui/network.md
+          - 元のフォルダ・元のファイル・ワークスペースがネットワークにあるとき: design/gui/network.md
           - 選択行のプレビュー: design/gui/preview.md
           - 検索対象のツリー: design/gui/search-tree.md
           - ［設定］タブ: design/gui/settings-tab.md

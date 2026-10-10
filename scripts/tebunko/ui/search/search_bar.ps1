@@ -143,7 +143,7 @@ function checkFastSearchAvailable {
         }
         $script:fastAvailable = if ($result) { [bool]$result.Available } else { $false }
         updateFastSearchView
-    }
+    } (getWorkspaceJobQueue $workspace.SystemIndexDir)
 }
 
 function getCurrentWordNotice {
@@ -165,7 +165,7 @@ function updateSearchButton {
     $notice = getCurrentWordNotice
     $noIndex = $script:indexSummary -and $script:indexSummary["Count"] -eq 0
     $state = newSearchButtonState ([bool]$script:search) ([bool]($script:search -and $script:search.Shared.Stop)) `
-        (getWordText) (!$noIndex) @(getSearchTargets).Count ($notice -ne "")
+        (getWordText) (!$noIndex) @(getSearchTargets).Count ($notice -ne "") ([bool]$script:indexTreeLoading)
     $ui.SearchButton.Content = $state.Content
     $ui.SearchButton.IsEnabled = $state.Enabled
 }
@@ -178,19 +178,12 @@ function updateSearchTarget {
     $total = @($script:indexRoots).Count
     $checked = @($script:indexRoots | Where-Object { $_.IsChecked -eq $true }).Count
     $ui.TargetCountText.Text = getTargetCountText $checked $total
-    $ui.TargetCountText.ToolTip = if ($total -eq 0) {
-        "［インデックス管理］で作ったインデックスの一覧です"
-    } elseif ($targets.Count -eq 0) {
-        "検索対象：なし"
-    } elseif (!(isAllIndexChecked)) {
-        "検索対象：$(describeSearchTargets $targets)"
-    } elseif ($null -eq $summary) {
-        "検索対象：すべて（確認中…）"
-    } else {
-        "検索対象：すべて（集約ファイル $($summary['Count'].ToString('N0')) 件 ・ 最終更新 $(formatTime $summary['LastWrite'])）"
-    }
-    # インデックスが無いときは、結果の表の代わりに空の状態（［インデックス管理を開く］）を出す
-    $noIndex = [bool]($summary -and $summary["Count"] -eq 0)
+    $targetsText = if ($targets.Count -gt 0) { describeSearchTargets $targets } else { "" }
+    $ui.TargetCountText.ToolTip = getSearchTargetText ([bool]$script:indexTreeLoading) ([string]$script:indexTreeConnectError) `
+        $total $targets.Count (isAllIndexChecked) $targetsText $summary
+    # インデックスが無いときは、結果の表の代わりに空の状態（［インデックス管理を開く］）を出す。
+    # 読み込み中・接続できないときは、「インデックスが無い」とは違うため出さない
+    $noIndex = [bool]($summary -and $summary["Count"] -eq 0 -and !$script:indexTreeLoading -and !$script:indexTreeConnectError)
     $ui.ResultEmptyState.Visibility = if ($noIndex) { "Visible" } else { "Collapsed" }
     # 検索できるインデックスが無いときは、高速検索の状態も出さない
     $ui.FastBadge.Visibility = if ($noIndex) { "Collapsed" } else { "Visible" }

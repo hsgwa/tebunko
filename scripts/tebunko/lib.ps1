@@ -10,6 +10,7 @@
 . "$PSScriptRoot\index\index_name.ps1"
 . "$PSScriptRoot\index\index_store.ps1"
 . "$PSScriptRoot\index\pack_format.ps1"
+. "$PSScriptRoot\index\index_tree_data.ps1"
 . "$PSScriptRoot\index\pack_store.ps1"
 . "$PSScriptRoot\index\system_index.ps1"
 . "$PSScriptRoot\indexer\indexer_state.ps1"
