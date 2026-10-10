@@ -3992,6 +3992,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#tsv-のファイルの書き出しsharedcoretsv_fileps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TSV のファイルの書き出し（shared/core/tsv_file.ps1）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#テキストファイルの読み取りsharedcoretext_fileps1" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4136,6 +4147,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#tsv-のファイルの書き出しsharedcoretsv_fileps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TSV のファイルの書き出し（shared/core/tsv_file.ps1）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#テキストファイルの読み取りsharedcoretext_fileps1" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4200,7 +4222,7 @@
 
 
 <h1 id="部品ごとの関数tsv-と本文インデックス">部品ごとの関数（TSV と本文インデックス）<a class="headerlink" href="#部品ごとの関数tsv-と本文インデックス" title="Permanent link">&para;</a></h1>
-<p>扱うこと: TSV の名前と場所・整形（<code>fs.ps1</code>・<code>index_name.ps1</code>・<code>text.ps1</code>）、インデックスへの配置（<code>index_store.ps1</code>）、本文インデックスの形式と読み書き（<code>content_index_format.ps1</code>・<code>content_index_store.ps1</code>）の関数一覧。扱わないこと: 検索そのものの関数（<a href="../search/">部品ごとの関数（検索・スレッド・元のファイル・画面）</a>）。先に読むページ: <a href="../">部品から関数一覧を引く</a>。</p>
+<p>扱うこと: TSV の名前と場所・整形（<code>fs.ps1</code>・<code>index_name.ps1</code>・<code>text.ps1</code>・<code>tsv_file.ps1</code>）、インデックスへの配置（<code>index_store.ps1</code>）、本文インデックスの形式と読み書き（<code>content_index_format.ps1</code>・<code>content_index_store.ps1</code>）の関数一覧。扱わないこと: 検索そのものの関数（<a href="../search/">部品ごとの関数（検索・スレッド・元のファイル・画面）</a>）。先に読むページ: <a href="../">部品から関数一覧を引く</a>。</p>
 <h2 id="tsv-の名前と場所sharedcorefsps1tebunkoindexindex_nameps1">TSV の名前と場所（<code>shared/core/fs.ps1</code>・<code>tebunko/index/index_name.ps1</code>）<a class="headerlink" href="#tsv-の名前と場所sharedcorefsps1tebunkoindexindex_nameps1" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4374,14 +4396,6 @@
 <td>prettyTsv</td>
 </tr>
 <tr>
-<td><code>prettyTsv</code></td>
-<td>入力パス, 出力パス, firstRow（既定 1）, firstColumn（既定 1）</td>
-<td>bool</td>
-<td>入力（UTF-16）を読み、<code>formatTsv</code> して UTF-8（BOM 付き）で保存。内容が空なら保存せず <code>$false</code></td>
-<td>同上</td>
-<td>インデックス作成</td>
-</tr>
-<tr>
 <td><code>countTsvFields</code></td>
 <td>line</td>
 <td>int</td>
@@ -4412,6 +4426,29 @@
 <td>文字が枠に入りきらず省略（…）で切れているか（要る幅が実際の幅より誤差を超えて大きいときだけ $true。幅 0 以下は $false）</td>
 <td>同上</td>
 <td>addTrimmedToolTip（<code>shared/ui/trimmed_tooltip.ps1</code>）</td>
+</tr>
+</tbody>
+</table>
+<h2 id="tsv-のファイルの書き出しsharedcoretsv_fileps1">TSV のファイルの書き出し（<code>shared/core/tsv_file.ps1</code>）<a class="headerlink" href="#tsv-のファイルの書き出しsharedcoretsv_fileps1" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>関数</th>
+<th>入力</th>
+<th>出力</th>
+<th>概要</th>
+<th>詳細</th>
+<th>使用元</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>prettyTsv</code></td>
+<td>入力パス, 出力パス, firstRow（既定 1）, firstColumn（既定 1）</td>
+<td>bool</td>
+<td>入力（UTF-16）を読み、<code>formatTsv</code> して UTF-8（BOM 付き）で保存。内容が空なら保存せず <code>$false</code></td>
+<td>同上</td>
+<td>インデックス作成</td>
 </tr>
 </tbody>
 </table>
