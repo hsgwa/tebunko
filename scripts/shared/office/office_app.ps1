@@ -38,9 +38,9 @@ $script:officeRecordDir = $null
 # 自分が開くブックの置き場（インデックス作成の作業領域の一時フォルダ。$null なら、開いているブックをすべて利用者のものとみなす）。
 # 使う側が入れる。置き場の外のブックが Excel に開かれたら、利用者が開いたブックとして扱う（getForeignWorkbookCount・handOverApp）
 $script:officeOwnDir = $null
-# Excel を利用者に渡したときに呼ぶ処理（スクリプトブロック。引数はアプリ名と、窓を出せたか。$null なら何もしない）。ログを書く使う側が入れる
+# Excel を利用者に渡そうとしたときに呼ぶ処理（スクリプトブロック。引数はアプリ名と、渡し切れたか（戻しきれたか）。$null なら何もしない）。ログを書く使う側が入れる
 $script:onOfficeHandOver = $null
-# 渡そうとして窓を出せなかった Excel（COM の参照を放さずに持ち続ける）
+# 渡そうとして戻しきれなかった Excel（COM の参照を放さずに持ち続ける）
 $script:officeKeptApps = @()
 # 渡し切れずに持ち続けた Excel を仕上げ直して待つ、取り込みのスレッドの終わりの上限（秒）と間隔（ミリ秒）
 $script:officeKeptWaitSeconds = 30
@@ -138,6 +138,19 @@ function testProcessHasWindow {
     return [bool]($process -and $process.ProcessName -eq $processName -and $process.MainWindowHandle -ne 0)
 }
 
+function testProcessExists {
+    # 指定した PID に、指定した名前のプロセスがあるか。PID と名前だけを見る
+    param ([int]$processId, [string]$processName)
+
+    $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
+    return [bool]($process -and $process.ProcessName -eq $processName)
+}
+
+function getMonotonicMilliseconds {
+    # 経過時間の計測用の、戻らない時計（ミリ秒）
+    return [long]([System.Diagnostics.Stopwatch]::GetTimestamp() * 1000 / [System.Diagnostics.Stopwatch]::Frequency)
+}
+
 function getOwnSessionProcessIds {
     # 自分のセッションで動いている、指定した名前のプロセスのIDの一覧。
     # ほかのセッション（同じPCの別の利用者・別の作業フォルダの tebunko 等）のプロセスは、自分のものと取り違えないため数えない
@@ -231,11 +244,13 @@ function restoreHandedOverApp {
     if (-not $state.BooksClosed) {
         try {
             $books = getWorkbookSplit $com
+            $closeFailed = $false
             foreach ($book in $books.Own) {
-                try { $book.Close($false) } catch {}
+                try { $book.Close($false) } catch { $closeFailed = $true }
             }
             $state.Books = $books
-            $state.BooksClosed = $true
+            # 閉じられなかったものが 1 つでもあれば、立てない（次回に一覧を取り直す。閉じたものは一覧から消えるので二重には閉じない）
+            $state.BooksClosed = (-not $closeFailed)
         } catch {}
     }
     # 窓・UserControl・DisplayAlerts が戻らないまま参照を放すと、Excel が保存の確認なしに終わりうるため、成功を確かめる
@@ -294,7 +309,7 @@ function handOverApp {
     } catch {}
 
     # 自分のブックを閉じる・設定を戻す・窓を出す、を全部通して初めて「渡した」。通らなければ、持ち続けて後で設定し直す
-    $state = @{ Name = $name; Com = $app.Com; BooksClosed = $false; Books = $null; Done = @{} }
+    $state = @{ Name = $name; Com = $app.Com; Pid = [int]$app.Pid; BooksClosed = $false; Books = $null; Done = @{} }
     $ok = restoreHandedOverApp $state 3
     if ($ok) {
         releaseHandedOverApp $state
@@ -311,12 +326,17 @@ function handOverApp {
 }
 
 function retryKeptApps {
-    # 渡し切れずに持ち続けている Excel をもう一度仕上げる（済んでいないものだけ）。全部通れば参照を放して「渡した」ログを書く。待たない
+    # 渡し切れずに持ち続けている Excel をもう一度仕上げる（済んでいないものだけ）。全部通れば参照を放して「渡した」ログを書く。待たない。
+    # 控えた PID のプロセスが（その名前で）もう無ければ、利用者が先に終えたので、参照だけ放して一覧から外す（PID と名前だけを見る。窓は探さない。止めない）
     if (@($script:officeKeptApps).Count -eq 0) {
         return
     }
     $remaining = @()
     foreach ($kept in @($script:officeKeptApps)) {
+        if ($kept.Pid -gt 0 -and -not (testProcessExists ([int]$kept.Pid) $appInfo[$kept.Name].Process)) {
+            releaseHandedOverApp $kept
+            continue
+        }
         if (restoreHandedOverApp $kept 1) {
             releaseHandedOverApp $kept
             if ($script:onOfficeHandOver) {
@@ -334,14 +354,13 @@ function waitKeptApps {
     # shouldStop が真を返したら（中止・画面を閉じる）すぐ抜ける。上限に届かなかったものは、そのまま持ち続け（スレッドが終わると参照が切れる）
     param ([scriptblock]$shouldStop = { $false })
 
-    $waited = 0
+    $started = getMonotonicMilliseconds
     while (@($script:officeKeptApps).Count -gt 0) {
         retryKeptApps
-        if (@($script:officeKeptApps).Count -eq 0 -or $waited -ge ($script:officeKeptWaitSeconds * 1000) -or (& $shouldStop)) {
+        if (@($script:officeKeptApps).Count -eq 0 -or ((getMonotonicMilliseconds) - $started) -ge ($script:officeKeptWaitSeconds * 1000) -or (& $shouldStop)) {
             break
         }
         Start-Sleep -Milliseconds $script:officeKeptWaitStep
-        $waited += $script:officeKeptWaitStep
     }
 }
 
@@ -349,7 +368,7 @@ function handOverForeignApp {
     # 起動した Excel に利用者が開いたブックがあれば、利用者に渡して $true を返す。無ければ何もせず $false
     param ([string]$name)
 
-    # 前に窓を出せなかった Excel があれば、ここで設定し直す
+    # 前に戻しきれなかった Excel があれば、ここで仕上げ直す
     retryKeptApps
     $app = $script:apps[$name]
     if ($name -ne "Excel" -or $null -eq $app -or $app.Shared) {

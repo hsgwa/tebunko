@@ -49,7 +49,7 @@ ${ingestWorkerScript} = {
             stopWatchdog
             stopAllApps
             # 渡し切れずに持ち続けている Excel は、ここで上限まで仕上げ直す（中止・画面を閉じるときは待たない）
-            waitKeptApps { [bool]$settings.Channel.Stop }
+            waitKeptApps ({ [bool]$settings.Channel.Stop }.GetNewClosure())
         }
     }
 }
@@ -843,7 +843,7 @@ function invokeIndexerBody {
         } else {
             stopWatchdog
             stopAllApps
-            waitKeptApps { [bool]$channel.Stop }
+            waitKeptApps ({ [bool]$channel.Stop }.GetNewClosure())
         }
         $script:officePidSink = $null
         $script:officeRecordDir = $null

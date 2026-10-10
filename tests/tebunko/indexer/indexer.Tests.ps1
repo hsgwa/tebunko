@@ -376,6 +376,29 @@ Describe "indexer.ps1（後回しの司令の流れ。実際のPowerPointは使�
             Remove-Variable -Name testOfficeAppInUseMessage, testUserPptOpen -Scope Global -ErrorAction SilentlyContinue
         }
     }
+
+    It "司令のスレッドで取り込む形では、終わりの待ちに、中止の合図（Channel.Stop）を見る判定を渡す（立てる前は偽・立てたあとは真）" {
+        $dir = Join-Path $TestDrive "待ち配線"
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        Copy-Item -LiteralPath $docxSource -Destination "$dir\議事録.docx"
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "待ち配線"; path = $dir; enabled = $true })
+        $global:waitAnswers = New-Object System.Collections.ArrayList
+        Mock stopAllApps {}
+        Mock waitKeptApps {
+            [void]$global:waitAnswers.Add((& $shouldStop))
+            # 渡された判定が閉じ込めた $channel に、中止の合図を立てる
+            & $shouldStop.Module { $channel.Stop = $true }
+            [void]$global:waitAnswers.Add((& $shouldStop))
+        }
+        try {
+            # 待ちの中で中止の合図を立てるため、終了コードは見ない
+            [void](runIndexer $root @{ Workers = 0 })
+            @($global:waitAnswers) | Should -Be @($false, $true)
+        } finally {
+            Remove-Variable -Name waitAnswers -Scope Global -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
@@ -808,6 +831,41 @@ Describe "取り込みのスレッドのスクリプト（ingestWorkerScript）"
         $failed.Ok | Should -Be $false
         $failed.Message | Should -Not -BeNullOrEmpty
     }
+
+    It "終わりの待ちには、設定の Channel の Stop を見る判定を渡す（立てる前は偽・立てたあとは真）" {
+        $root = Join-Path $TestDrive "worker_wait"
+        foreach ($dir in "content_index", "tmp", "publish") {
+            [System.IO.Directory]::CreateDirectory("$root\$dir") | Out-Null
+        }
+        $tasks = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
+        $results = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
+        $tasks.CompleteAdding()
+        $global:waitChannel = [pscustomobject]@{ Stop = $false }
+        $global:waitAnswers = New-Object System.Collections.ArrayList
+        $settings = @{
+            Lib = getPartLoad indexerLib
+            WorkDir = $root; TmpDir = "$root\tmp"; PublishDir = "$root\publish"
+            FileTimeoutMinutes = 10; RestartInterval = 1
+            OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'
+            Lane = ${laneExcel}; Channel = $global:waitChannel
+        }
+        Mock startWatchdog {}
+        Mock stopWatchdog {}
+        Mock stopAllApps {}
+        Mock waitKeptApps {
+            [void]$global:waitAnswers.Add((& $shouldStop))
+            $global:waitChannel.Stop = $true
+            [void]$global:waitAnswers.Add((& $shouldStop))
+        }
+        $priority = [System.Threading.Thread]::CurrentThread.Priority
+        try {
+            & ${ingestWorkerScript} $settings $tasks $results 8
+            @($global:waitAnswers) | Should -Be @($false, $true)
+        } finally {
+            [System.Threading.Thread]::CurrentThread.Priority = $priority
+            Remove-Variable -Name waitChannel, waitAnswers -Scope Global -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 Describe "runIngestWorker・invokeIngestTask（レーン）" -Tag Io {
@@ -1024,7 +1082,7 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
         }
     }
 
-    It "渡すときに窓を出せなければ、ログは「窓や設定を戻しきれませんでした」の文言になり、Excel は終了させず残す" {
+    It "渡すときに窓や設定を戻しきれなければ、ログは「窓や設定を戻しきれませんでした」の文言になり、Excel は終了させず残す" {
         ${tmpDir} = Join-Path $TestDrive "handover_fail_tmp"
         [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
         $script:officeOwnDir = ${tmpDir}
