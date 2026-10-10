@@ -7,6 +7,20 @@
 #   スレッドの数が 0 のときは、司令のスレッドで取り込む（テストで、途中に割り込むため）
 # ・画面とのやり取りは受け渡しの口（newIndexerChannel）で行う。表示内容は indexing_log.txt に書く
 
+# Excel・Word・PowerPoint を利用者に渡したとき・渡すか決められず持ち続けるときのログ（indexing_log.txt）への 1 行。
+# office_app.ps1 の handOverApp・keepUndecidedApp が呼ぶ
+${officeHandOverNotice} = {
+    param ($name, $shown)
+    if ($null -eq $shown) {
+        # shown が $null: ファイルの一覧を読めず、利用者のファイルがあるか分からない。終了させずに持ち続け、後で読み直す
+        writeIndexerLog "${name} のファイルの一覧を読めなかったため、終了させずに残しています（あとで読み直します）" "Yellow"
+    } elseif ($shown) {
+        writeIndexerLog "開かれたファイルがあるため ${name} を利用者に渡しました"
+    } else {
+        writeIndexerLog "開かれたファイルがあるため ${name} を利用者に渡しましたが、窓や設定を戻しきれませんでした（終了させずに残しています）" "Yellow"
+    }
+}
+
 # 取り込みのスレッドで動かすスクリプト。自分のレーンの列（tasks）から 1 ファイルずつ取り出して取り込み、結果を results に入れる。
 # Office のレーン（Excel・Word・PowerPoint）は STA で、そのアプリを 1 つ持つ。読み取りのレーンは Office を持たない。
 # 列が閉じられたら（CompleteAdding）、Office を終了して終わる
@@ -24,6 +38,8 @@ ${ingestWorkerScript} = {
     [System.IO.Directory]::CreateDirectory($workspace.PublishDir) | Out-Null
     $script:officePidSink = $settings.OfficePids
     $script:officeRecordDir = $settings.OfficeRecordDir
+    $script:officeOwnDir = resolveOwnDir $tmpDir
+    $script:onOfficeHandOver = ${officeHandOverNotice}
     $script:officeUnavailable = ($settings.Lane -eq ${laneReader})
     [System.Threading.Thread]::CurrentThread.Priority = [System.Threading.ThreadPriority]::BelowNormal
 
@@ -36,6 +52,8 @@ ${ingestWorkerScript} = {
         if (!$script:officeUnavailable) {
             stopWatchdog
             stopAllApps
+            # 渡し切れずに持ち続けているアプリは、ここで上限まで仕上げ直す（中止・画面を閉じるときは待たない）
+            waitKeptApps ({ [bool]$settings.Channel.Stop }.GetNewClosure())
         }
     }
 }
@@ -163,6 +181,11 @@ function invokeIngestTask {
             try { stopApp (getAppName $task.RelPath) } catch {}
         }
     } finally {
+        # Excel・Word・PowerPoint で利用者が開いたファイルがあれば、閉じずに利用者に渡す（次のファイルは新しいアプリで取り込む。PowerPoint は後回しになる）
+        $appName = getAppName $task.RelPath
+        if (!$script:officeUnavailable -and $appName) {
+            try { [void](handOverForeignApp $appName) } catch {}
+        }
         $result.TimedOut = [bool]$script:watchdog.TimedOut
         $script:indexerLog = $previousLog
         $result.Log = $log.ToString()
@@ -659,11 +682,13 @@ function invokeIndexerBody {
                 Lib = (getPartLoad indexerLib)
                 WorkDir = $workspace.Dir; TmpDir = ${tmpDir}; TmpDirReason = ${tmpDirReason}; PublishDir = $workspace.PublishDir
                 FileTimeoutMinutes = $fileTimeoutMinutes; RestartInterval = $restartInterval; OfficePids = $channel.OfficePids
-                OfficeRecordDir = $officeRecordDir
+                OfficeRecordDir = $officeRecordDir; Channel = $channel
             }
         } else {
             $script:officePidSink = $channel.OfficePids
             $script:officeRecordDir = $officeRecordDir
+            $script:officeOwnDir = resolveOwnDir ${tmpDir}
+            $script:onOfficeHandOver = ${officeHandOverNotice}
             startWatchdog
         }
 
@@ -836,9 +861,12 @@ function invokeIndexerBody {
         } else {
             stopWatchdog
             stopAllApps
+            waitKeptApps ({ [bool]$channel.Stop }.GetNewClosure())
         }
         $script:officePidSink = $null
         $script:officeRecordDir = $null
+        $script:officeOwnDir = $null
+        $script:onOfficeHandOver = $null
         removeTmpDir
         $ledger.RemoveIngestingFile()
         # 取り込んだ TSV は、中止したときも残さず本文インデックスのファイルに入れる（残すとインデックスの容量が倍になる）
