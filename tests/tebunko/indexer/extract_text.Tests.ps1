@@ -64,6 +64,7 @@ Describe "extractTextFile" -Tag Io {
         Mock Remove-Item { throw "拒否" }
         $source = newSourceFile "stuck.txt" ([System.Text.Encoding]::UTF8.GetBytes("あ"))
         { extractTextFile $source $outDir } | Should -Throw "作業領域のコピーを消せませんでした*"
+        Test-Path -LiteralPath (Join-Path $outDir "doc_body.tsv") | Should -Be $false
     }
 
     It "元のファイルが無いときは、ファイルが見つからない例外になる（コピーは作らない）" {

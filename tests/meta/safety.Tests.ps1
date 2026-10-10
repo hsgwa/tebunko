@@ -75,7 +75,10 @@ BeforeAll {
                 $ok = $false
                 if ($parent -is [System.Management.Automation.Language.CommandAst]) {
                     $commandName = $parent.GetCommandName()
-                    if ($allowedCommands -contains $commandName) {
+                    if ($commandName -eq "copyFileShared") {
+                        # 元（コピー元）になる 1 番目の引数のときだけ。2 番目（コピー先）に元を渡すと上書きする
+                        $ok = [object]::ReferenceEquals($parent.CommandElements[1], $use)
+                    } elseif ($allowedCommands -contains $commandName) {
                         $ok = $true
                     } elseif ($commandName -eq "toLongPath") {
                         # 外側が FileInfo の new のときだけ（OpenRead・ReadAllBytes などに渡すのは不可）
@@ -84,6 +87,11 @@ BeforeAll {
                             $outer = $outer.Parent
                         }
                         $ok = ($outer -is [System.Management.Automation.Language.InvokeMemberExpressionAst] -and $outer.Static -and $outer.Expression.Extent.Text -eq "[System.IO.FileInfo]" -and $outer.Member.Extent.Text -eq "new")
+                        if ($ok) {
+                            # new(...).Length（メンバーの読み取り）だけ。.OpenRead()・.Delete() などの呼び出しは不可
+                            $access = $outer.Parent
+                            $ok = ($access -is [System.Management.Automation.Language.MemberExpressionAst] -and $access -isnot [System.Management.Automation.Language.InvokeMemberExpressionAst] -and $access.Member.Extent.Text -eq "Length")
+                        }
                     }
                 } elseif ($parent -is [System.Management.Automation.Language.InvokeMemberExpressionAst]) {
                     $ok = ($parent.Static -and $parent.Expression.Extent.Text -eq "[System.IO.Path]" -and @("GetExtension", "GetFileName") -contains $parent.Member.Extent.Text)
@@ -472,6 +480,9 @@ Describe "取り込み対象のファイルを書き換えないこと（docs/sa
         @{ name = "toLongPath 越しの OpenRead"; code = 'function ingestFile { param([string]$sourcePath) [System.IO.File]::OpenRead((toLongPath $sourcePath)) }'; ok = $false }
         @{ name = "toLongPath 越しの ReadAllBytes"; code = 'function ingestFile { param([string]$sourcePath) [System.IO.File]::ReadAllBytes((toLongPath $sourcePath)) }'; ok = $false }
         @{ name = "readTextFile への直接の引数"; code = 'function ingestFile { param([string]$sourcePath) readTextFile $sourcePath 10 }'; ok = $false }
+        @{ name = "FileInfo の OpenRead"; code = 'function ingestFile { param([string]$sourcePath) [System.IO.FileInfo]::new((toLongPath $sourcePath)).OpenRead() }'; ok = $false }
+        @{ name = "FileInfo の Delete"; code = 'function ingestFile { param([string]$sourcePath) [System.IO.FileInfo]::new((toLongPath $sourcePath)).Delete() }'; ok = $false }
+        @{ name = "元をコピー先にした copyFileShared"; code = 'function ingestFile { param([string]$sourcePath) copyFileShared "x" $sourcePath }'; ok = $false }
         @{ name = "GetFullPath"; code = 'function ingestFile { param([string]$sourcePath) [System.IO.Path]::GetFullPath($sourcePath) }'; ok = $false }
         @{ name = "FileInfo の大きさ（許す）"; code = 'function ingestFile { param([string]$sourcePath) [System.IO.FileInfo]::new((toLongPath $sourcePath)).Length }'; ok = $true }
         @{ name = "copyFileShared と GetExtension（許す）"; code = 'function ingestFile { param([string]$sourcePath) copyFileShared $sourcePath "x"; [System.IO.Path]::GetExtension($sourcePath) }'; ok = $true }

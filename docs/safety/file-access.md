@@ -37,11 +37,12 @@ scan 'NotContentIndexed'
 
 ### 取り込みの作業フォルダに置くもの
 
-取り込みの作業フォルダ（既定 `work\tmp\<PC の鍵>\<PID>\w<番号>\`）には、原本のコピー・Excel のシートごとの一時保存・旧形式から変換した一時ファイル・公開前の中間 TSV を置く。置き場所はワークスペースの下である。
+取り込みの作業フォルダ（既定 `work\tmp\<PC の鍵>\<PID>\w<番号>\`）には、原本のコピー（テキストを含む）・Excel のシートごとの一時保存・旧形式から変換した一時ファイル・公開前の中間 TSV を置く。置き場所はワークスペースの下である。
 
 | 内容 | 今の置き場所 | 定義 |
 |---|---|---|
 | 原本のコピー（Excel・Word・PowerPoint が開く対象） | `work\tmp\<PC の鍵>\<PID>\w<番号>\<元のファイル名>` | `extract_office.ps1` の `copyFileShared` 呼び出し |
+| テキストファイルのコピー（読み終えたら消す） | 同上の下の `source.copy` | `extract_text.ps1` の `extractTextFile` |
 | Excel のシートごとの一時保存（`sheet<番号>.tmp`） | 同上の下 | `extract_office.ps1` の `extractWorkbook` |
 | 旧形式・不明な形式から変換した一時ファイル（`converted.docx`・`converted.pptx`、リネームした `source.doc`・`source.ppt`） | 同上の下 | `extract_office.ps1` の `extractDocument` |
 | 公開前の中間 TSV（本文・シート・図形などの TSV。テキストファイルの `doc_body.tsv` を含む） | 同上の下 | `index_migrate.ps1` の `publishTsv`、`extract_text.ps1` の `extractTextFile` |
@@ -64,7 +65,7 @@ scan 'NotContentIndexed'
 
 ## 取り込み対象のファイルは書き換えない
 
-本ツールは、クロール対象フォルダのファイルを**直接開かない**。作業フォルダへコピーし、そのコピーだけを開く（`tebunko/indexer/extract_office.ps1:103`・`261` の `copyFileShared`）。コピー元は読み取り専用で開く（`shared/core/fs.ps1:121`。`FileAccess::Read` で開き、ほかのアプリの読み書き・削除を妨げない）。
+本ツールは、クロール対象フォルダのファイルを**直接開かない**。作業フォルダへコピーし、そのコピーだけを開く（`tebunko/indexer/extract_office.ps1:192`・`434` と `tebunko/indexer/extract_text.ps1:23`（`extractTextFile`）の `copyFileShared`）。コピー元は読み取り専用で開く（`shared/core/fs.ps1:140`。`FileAccess::Read` で開き、ほかのアプリの読み書き・削除を妨げない）。
 
 この設計は、原本に絶対に影響を出さないために入れたもので（効果として、インデックス作成中も利用者が原本を上書き保存・移動できる）、結果として原本への書き込み経路そのものが存在しない。
 
@@ -87,7 +88,7 @@ flowchart LR
 
 Office の `SaveAs` は 3 か所あるが、保存先は常に作業フォルダ内のパス（`$tmpPath` / `$destPath`）である（`extract_office.ps1:156`・`210`・`234`）。原本のパスを `SaveAs` に渡す経路は無い。
 
-テキストファイル（`.txt` 等）も、Office と同じく作業フォルダの `source.copy` へコピーし（`copyFileShared`）、そのコピーを読み（`shared/core/text_file.ps1` の `readTextFile`）、読み終えたら消す。原本は開かず、書き込みの API には渡さない。
+テキストファイル（`.txt` 等）も、Office と同じく作業フォルダの `source.copy` へコピーし（`copyFileShared`）、そのコピーを読み（`shared/core/text_file.ps1` の `readTextFile`）、読み終えたら消す。原本は直接読まず、書き込みの API には渡さない。
 
 `tests/meta/safety.Tests.ps1` の「取り込み対象のファイルを書き換えないこと」が、原本のパスを書き込み・削除の API に渡さないこと、原本を読むのは `copyFileShared` の読み取りだけであること、`SaveAs` の保存先が作業フォルダだけであること、Word・PowerPoint を読み取り専用で開くことを確かめる（Excel を読み取り専用で開くことは「Office ファイルを安全に開くこと」が確かめる）。
 
