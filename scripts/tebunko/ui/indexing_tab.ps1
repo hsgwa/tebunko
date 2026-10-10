@@ -108,7 +108,7 @@ function showIndexingConfirmDialog {
         $ctrl.RetryCheck.Content = "前回更新に失敗し、その後変わっていないファイル {0:#,0} 件も更新し直す（パスワード付きなど）" -f $failed
     }
     # 削除予定があるときは、取りやめと［更新を開始］を選べるままにする（閉じるだけにすると、見せたまま消してしまう）
-    $nothing = $targets -eq 0 -and $failed -eq 0 -and (getIndexingDroppedCount $plan) -eq 0
+    $nothing = isIndexingConfirmNothing $targets $failed (getIndexingDroppedCount $plan)
     if ($nothing) {
         # 取り込むものが無いときは、閉じるだけ（［キャンセル］との違いが無い）
         $ctrl.CancelButton.Visibility = "Collapsed"

@@ -538,7 +538,7 @@ function invokeIndexerBody {
             }
             writeIndexerLog ""
             writeIndexerLog "画面で取りやめたため、取り込みません。（取り込み一覧は前回のままです）" "Yellow"
-            $ledger.WriteStatus(@($folders) + $keptDropped, $keep.ToArray() + @(getDroppedStatusRows $keptDropped $previous))
+            writeStatusKeepingDropped $ledger $folders $keep.ToArray() $keptDropped $previous
             writeSourceFolderFile $folders
             $reporter.Progress(${indexingPhaseFinish}, 0, 0, 0, "インデックス作成を取りやめました")
             removeTmpDir
@@ -589,7 +589,7 @@ function invokeIndexerBody {
     }
     $ledger.WriteIngestingFiles(@($carried.Keys | ForEach-Object { @{ RelPath = $_; Count = $carried[$_] } }))
     $reporter.Progress(${indexingPhaseCrawl}, 0, $targets.Count, 0, "更新の記録を書き出しています…")
-    $ledger.WriteStatus(@($folders) + $keptDropped, $rows.ToArray() + @(getDroppedStatusRows $keptDropped $previous))
+    writeStatusKeepingDropped $ledger $folders $rows.ToArray() $keptDropped $previous
     # インデックスのフォルダごと別の場所・PCへコピーしても元のファイルの場所が分かるよう、インデックス名とクロール対象フォルダの対応を置く
     writeSourceFolderFile $folders
 
@@ -846,7 +846,7 @@ function invokeIndexerBody {
         flushPending -All
         $reporter.Progress(${indexingPhaseFinish}, $processed, 0, $ledger.Failures.Count, "更新の記録を書き直しています…")
         # 取り込みの直前に無くなっていたファイルの行は除く（次回の検索でも見つからず、インデックスも削除済み）
-        $ledger.WriteStatus(@($folders) + $keptDropped, @($rows | Where-Object { $_ -and !$ledger.DroppedRows.Contains([string]$_.相対パス) }) + @(getDroppedStatusRows $keptDropped $previous))
+        writeStatusKeepingDropped $ledger $folders @($rows | Where-Object { $_ -and !$ledger.DroppedRows.Contains([string]$_.相対パス) }) $keptDropped $previous
         # 初めて取り込んだインデックスは、最初に書き出した時点ではまだフォルダが無いため、ここでもう一度書く
         # （work\content_index\<インデックス名>\source_folder.txt。インデックス 1 個だけをコピーしても元のファイルの場所が分かる）
         writeSourceFolderFile $folders

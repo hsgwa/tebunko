@@ -155,6 +155,19 @@ function getDroppedStatusRows {
     return $result.ToArray()
 }
 
+function writeStatusKeepingDropped {
+    # 取り込み一覧を書く。消さずに残す外れたインデックスのフォルダの行と各行も、前回のまま足して書く（次の回にまた見つけられるように）
+    param (
+        $ledger,
+        [object[]]$folders,      # 今回のクロール対象フォルダ
+        [object[]]$rows,         # 今回の各行
+        [object[]]$keptDropped,  # 消さずに残す外れたインデックス
+        $previousRows            # readStatusFile の Rows（前回の行）
+    )
+
+    $ledger.WriteStatus((@($folders) + @($keptDropped)), (@($rows) + @(getDroppedStatusRows $keptDropped $previousRows)))
+}
+
 function removeDroppedFolders {
     # 設定から外れたインデックス（findDroppedIndexes の結果。work\content_index\<インデックス名>）を削除する。
     # 利用者が確認ダイアログで［更新を開始］を押した回でだけ呼ぶ

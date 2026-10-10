@@ -457,7 +457,7 @@ Describe "indexer.ps1（設定から外れたインデックス）" -Tag Io {
             runIndexer $root | Should -Be 0
             $pack = @(Get-ChildItem -LiteralPath "$root\work\content_index\企画" -Filter "*.tsv" -File)[0]
             writeTestSettings $root @(@{ name = "総務"; path = $a; enabled = $true })
-            return @{ Root = $root; Pack = $pack.FullName; Time = $pack.LastWriteTimeUtc; Hash = (Get-FileHash -LiteralPath $pack.FullName).Hash }
+            return @{ Root = $root; Source = $a; Pack = $pack.FullName; Time = $pack.LastWriteTimeUtc; Hash = (Get-FileHash -LiteralPath $pack.FullName).Hash }
         }
         function assertDroppedKept {
             param ($state)
@@ -475,8 +475,16 @@ Describe "indexer.ps1（設定から外れたインデックス）" -Tag Io {
         }
     }
 
-    It "確認なし（画面なしの実行）では、設定から外れたインデックスを消さず、黄色のログで知らせる" {
+    It "確認なし（画面なしの実行）では、設定から外れたインデックスを消さず、黄色のログで知らせる（取り込むファイルが <added> 件）" -TestCases @(
+        @{ added = 0 }
+        @{ added = 1 }
+    ) {
+        param ($added)
         $state = newDroppedRoot
+        if ($added -gt 0) {
+            # 取り込むファイルがある回は、終わりの書き出し（取り込み一覧を書き直す所）を通る
+            Copy-Item -LiteralPath $docxSource -Destination "$($state.Source)\追加.docx"
+        }
         runIndexer $state.Root | Should -Be 0
         assertDroppedKept $state
         [System.IO.File]::ReadAllText("$($state.Root)\work\indexing_log.txt") | Should -Match "設定に無いインデックス（企画: .*）は削除せずに残しました"

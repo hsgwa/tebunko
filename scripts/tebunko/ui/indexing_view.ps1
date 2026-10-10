@@ -202,6 +202,18 @@ function getIndexingDroppedCount {
     return @(@($plan) | Where-Object { $null -ne $_ -and $_.区分 -eq ${planKindDropped} }).Count
 }
 
+function isIndexingConfirmNothing {
+    # 確認に出すものが何も無いか（更新するファイルも、前回の失敗も、削除予定も無い）。真なら閉じるだけのダイアログにする。
+    # 削除予定があるのに閉じるだけにすると、閉じることが承認扱いになり、見せたまま消してしまう
+    param (
+        [int]$targets,  # 更新対象のファイル数
+        [int]$failed,   # 前回失敗したファイル数
+        [int]$dropped   # 削除予定のインデックスの数（getIndexingDroppedCount）
+    )
+
+    return ($targets -eq 0 -and $failed -eq 0 -and $dropped -eq 0)
+}
+
 function getIndexingConfirmText {
     # 「失敗分も更新し直す」のチェックに合わせた、合計の文言と主ボタンの文言
     param (

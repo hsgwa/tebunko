@@ -6,7 +6,7 @@ BeforeAll {
     function newPlanItem {
         param ([string]$kind, [int]$files = 0, [int]$targets = 0, [int]$new = 0, [int]$updated = 0, [int]$failed = 0)
         return [pscustomobject]@{
-            インデックス名 = "売上"; 元のフォルダ = "C:data\売上"; 区分 = $kind
+            インデックス名 = "売上"; 元のフォルダ = "C:\data\売上"; 区分 = $kind
             ファイル数 = $files; 取り込み対象 = $targets; 新規 = $new; 更新あり = $updated
             前回未完了 = 0; インデックスなし = 0; 前回失敗 = $failed
         }
@@ -57,8 +57,8 @@ Describe "newPlanViewRows" -Tag Unit {
 Describe "newPlanViewRows（選んだものだけの回）" -Tag Unit {
     It "onlyNames に無いインデックスは出さない（空なら全部）" {
         $plan = @(
-            [pscustomobject]@{ インデックス名 = "売上"; 元のフォルダ = "C:data\売上"; 区分 = ${planKindUnchecked}; ファイル数 = 0; 取り込み対象 = 0; 新規 = 0; 更新あり = 0; 前回未完了 = 0; インデックスなし = 0; 前回失敗 = 0 }
-            [pscustomobject]@{ インデックス名 = "見積"; 元のフォルダ = "C:data\見積"; 区分 = ${planKindUnchecked}; ファイル数 = 0; 取り込み対象 = 0; 新規 = 0; 更新あり = 0; 前回未完了 = 0; インデックスなし = 0; 前回失敗 = 0 }
+            [pscustomobject]@{ インデックス名 = "売上"; 元のフォルダ = "C:\data\売上"; 区分 = ${planKindUnchecked}; ファイル数 = 0; 取り込み対象 = 0; 新規 = 0; 更新あり = 0; 前回未完了 = 0; インデックスなし = 0; 前回失敗 = 0 }
+            [pscustomobject]@{ インデックス名 = "見積"; 元のフォルダ = "C:\data\見積"; 区分 = ${planKindUnchecked}; ファイル数 = 0; 取り込み対象 = 0; 新規 = 0; 更新あり = 0; 前回未完了 = 0; インデックスなし = 0; 前回失敗 = 0 }
         )
         (newPlanViewRows $plan @("見積")).Count | Should -Be 1
         (newPlanViewRows $plan @("見積"))[0].Name | Should -Be "見積"
@@ -77,7 +77,7 @@ Describe "newPlanViewRows（削除予定）" -Tag Unit {
 
     It "選んだものだけの回でも、onlyNames に無い名前の削除予定は必ず出す" {
         $plan = @(
-            [pscustomobject]@{ インデックス名 = "見積"; 元のフォルダ = "C:data\見積"; 区分 = ${planKindUnchecked}; ファイル数 = 0; 取り込み対象 = 0; 新規 = 0; 更新あり = 0; 前回未完了 = 0; インデックスなし = 0; 前回失敗 = 0 }
+            [pscustomobject]@{ インデックス名 = "見積"; 元のフォルダ = "C:\data\見積"; 区分 = ${planKindUnchecked}; ファイル数 = 0; 取り込み対象 = 0; 新規 = 0; 更新あり = 0; 前回未完了 = 0; インデックスなし = 0; 前回失敗 = 0 }
             (newPlanItem ${planKindDropped})
         )
         $rows = newPlanViewRows $plan @("見積")
@@ -92,17 +92,29 @@ Describe "getIndexingDroppedCount・削除予定のある確認の文言" -Tag U
         getIndexingDroppedCount @() | Should -Be 0
     }
 
-    It "更新するファイルが無くても、削除予定があれば［更新を開始］にして件数を出す（閉じるだけにしない）" {
-        $view = getIndexingConfirmText 0 0 $false 0 2
-        $view.Button | Should -Be "更新を開始"
-        $view.Text | Should -Match "設定に無いインデックス 2 件を削除します"
+    It "確認の文言: 更新 <targets>・失敗 <failed>・再取り込み <retry>・削除予定 <dropped> のとき、ボタンは <button>" -TestCases @(
+        @{ targets = 0; failed = 0; retry = $false; dropped = 2; button = "更新を開始"; text = "設定に無いインデックス 2 件を削除します" }
+        @{ targets = 0; failed = 1; retry = $false; dropped = 1; button = "更新を開始"; text = "設定に無いインデックス 1 件を削除します" }
+        @{ targets = 0; failed = 1; retry = $true; dropped = 1; button = "更新を開始"; text = "1 ファイル.*設定に無いインデックス 1 件を削除します" }
+        @{ targets = 12; failed = 0; retry = $false; dropped = 1; button = "更新を開始"; text = "12 ファイル.*設定に無いインデックス 1 件を削除します" }
+        @{ targets = 0; failed = 0; retry = $false; dropped = 0; button = "閉じる"; text = "すべて最新" }
+    ) {
+        param ($targets, $failed, $retry, $dropped, $button, $text)
+        $view = getIndexingConfirmText $targets $failed $retry 1 $dropped
+        $view.Button | Should -Be $button
+        $view.Text | Should -Match $text
     }
 
-    It "更新するファイルがあるときは、削除する件数も足す" {
-        (getIndexingConfirmText 12 0 $false 2 1).Text | Should -Match "12 ファイル.*設定に無いインデックス 1 件を削除します"
+    It "閉じるだけにするか: 更新 <targets>・失敗 <failed>・削除予定 <dropped> のとき <expected>" -TestCases @(
+        @{ targets = 0; failed = 0; dropped = 0; expected = $true }
+        @{ targets = 0; failed = 0; dropped = 1; expected = $false }
+        @{ targets = 0; failed = 1; dropped = 0; expected = $false }
+        @{ targets = 3; failed = 0; dropped = 0; expected = $false }
+    ) {
+        param ($targets, $failed, $dropped, $expected)
+        isIndexingConfirmNothing $targets $failed $dropped | Should -Be $expected
     }
 }
-
 Describe "getIndexingCurrentName・getIndexingSkippedView" -Tag Unit {
     It "取り込み中のファイル <current> のインデックス名は <expected>" -TestCases @(
         @{ current = "営業\2025\a.xlsx"; expected = "営業" }
