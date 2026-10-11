@@ -30,7 +30,7 @@ Describe "git_repo.ps1 の一時のリポジトリの守り" -Tag Io {
     } -TestCases @(
         @{ name = "別のフォルダ"; rootRel = "other"; pathRel = "outside1" }
         @{ name = "名前が root で始まる隣のフォルダ"; rootRel = "rep"; pathRel = "repo" }
-        @{ name = ".. で root の外へ出る"; rootRel = "sub"; pathRel = "sub\..\..\x" }
+        @{ name = ".. で root の外へ出る"; rootRel = "a\sub"; pathRel = "a\sub\..\x" }
     )
 
     It "環境変数を外していれば root の下にリポジトリを作る" {
