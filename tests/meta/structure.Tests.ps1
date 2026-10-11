@@ -118,10 +118,12 @@ Describe "画面の既定のフォント（起動した窓の Font.Body）" -Tag
         $problems -join ", " | Should -Be ""
     }
 
-    It "同梱のフォントのファイルが無い" {
+    It "同梱するのはアイコンの形のライセンスの文面だけで、フォントのファイルは無い" {
+        Test-Path -LiteralPath "$here\..\scripts\shared\fonts\LICENSE-Lucide.txt" | Should -Be $true
         @(Get-ChildItem "$here\..\scripts" -Recurse -File | Where-Object { $_.Extension -in ".ttf", ".otf", ".ttc" -or $_.Name -eq "OFL.txt" }).Count | Should -Be 0
     }
 }
+
 Describe "スクリプトの構文" -Tag Meta {
     BeforeDiscovery {
         $scriptFiles = @(Get-ChildItem "$PSScriptRoot\..\..\scripts" -Recurse -Filter "*.ps1" |

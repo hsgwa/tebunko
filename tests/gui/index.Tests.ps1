@@ -41,6 +41,8 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             # 窓を最小の幅（1024）にしても、頭の 3 つのボタンと説明は右で切れない。説明が出るのは、まだフォルダが無い今だけ（追加すると説明は消える）なので、ここで測る（ナビを最大に広げた幅は、ドラッグでしか作れないので、単体では見られない）
             setGuiStep $S "一覧の横幅と頭のボタン（最小の幅）"
             resizeGuiWindow $S 1024 600
+            [math]::Round($S.Window.Current.BoundingRectangle.Width) | Should -BeGreaterThan 1000
+            [math]::Round($S.Window.Current.BoundingRectangle.Width) | Should -BeLessThan 1100
             $edge = {
                 param ($id)
                 return (findGui $S.Window -Id $id).Current.BoundingRectangle
@@ -76,6 +78,8 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             # 窓を低くしても、詳細を縦にスクロールして、一番下の「すべてのインデックスの合計」まで届く（使えない理由と手順の出し分けは、判断層の単体テストで確かめる）
             setGuiStep $S "詳細のスクロール"
             resizeGuiWindow $S 1024 600
+            [math]::Round($S.Window.Current.BoundingRectangle.Width) | Should -BeGreaterThan 1000
+            [math]::Round($S.Window.Current.BoundingRectangle.Width) | Should -BeLessThan 1100
             $summaryText = waitGuiById $S $S.Window "IndexSummaryText"
             $scrollItem = $null
             if ($summaryText.TryGetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern, [ref]$scrollItem)) { $scrollItem.ScrollIntoView() }

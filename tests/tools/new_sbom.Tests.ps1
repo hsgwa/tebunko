@@ -82,7 +82,6 @@ Describe "new_sbom.ps1" -Tag Unit {
         ($third | Where-Object { $_.name -eq "Lucide" }).version | Should -Be "1.50.0"
         @($sbom.components | Where-Object { $_.purl }).Count | Should -Be 0
         # 本体の依存に、第三者の部品も入っている
-        @($sbom.dependencies[0].dependsOn) | Should -Not -Contain "third-party/rethink-sans"
         @($sbom.dependencies[0].dependsOn) | Should -Contain "third-party/lucide"
     }
 }

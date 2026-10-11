@@ -100,11 +100,10 @@ Describe "S8 単一 .ps1 版: 起動・検索・閉じる" -Tag Gui {
 }
 
 Describe "S1 画面のフォント" -Tag Gui {
-    It "配布する形（scripts\ の写し）でも、Font.Body は Windows 標準のフォント（Segoe UI・Yu Gothic UI・Meiryo UI）で、フォントのファイルが無い" -Skip:($env:TEBUNKO_GUI_SINGLE -eq "1") {
+    It "配布する形（scripts\ の写し）でも、Font.Body は Windows 標準のフォント（Segoe UI・Yu Gothic UI・Meiryo UI）" -Skip:($env:TEBUNKO_GUI_SINGLE -eq "1") {
         $tool = newGuiTool $TestDrive
         Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
         . "$($tool.Dir)\scripts\shared\ui\app_host.ps1"
         (newAppFontFamily).Source | Should -Be "Segoe UI, Yu Gothic UI, Meiryo UI"
-        @(Get-ChildItem "$($tool.Dir)\scripts\shared" -Recurse -File | Where-Object { $_.Extension -in ".ttf", ".otf", ".ttc" }).Count | Should -Be 0
     }
 }

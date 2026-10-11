@@ -8,11 +8,10 @@ BeforeAll {
     Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
     . "${scriptsDir}\shared\ui\app_host.ps1"
     . "$PSScriptRoot\..\..\helpers\button_ink.ps1"
-    $script:fonts = "${scriptsDir}\tebunko\fonts"
     $script:roots = @{}
     function getRoot([string]$relative) {
         if (-not $script:roots.ContainsKey($relative)) {
-            $script:roots[$relative] = loadXaml "${scriptsDir}\tebunko\xaml\$relative" $script:fonts
+            $script:roots[$relative] = loadXaml "${scriptsDir}\tebunko\xaml\$relative"
         }
         return $script:roots[$relative]
     }
@@ -142,7 +141,7 @@ Describe "帯のボタンの見える枠の大きさ" -Tag Unit {
 Describe "メッセージの画面のボタン・見出しの位置（描いた画素で測る）" -Tag Unit {
     BeforeAll {
         function newMessageRoot {
-            $w = loadXaml "${scriptsDir}\shared\xaml\dialog_confirm.xaml" "${scriptsDir}\shared\fonts"
+            $w = loadXaml "${scriptsDir}\shared\xaml\dialog_confirm.xaml"
             $content = $w.Content
             $w.Content = $null
             $root = New-Object System.Windows.Controls.Grid
@@ -217,7 +216,7 @@ Describe "高速検索の印の幅" -Tag Unit {
     }
 
     It "ⓘ は最初から出している（updateFastSearchView は出し入れしない）" {
-        $fresh = loadXaml "${scriptsDir}\tebunko\xaml\search\search_bar.xaml" $script:fonts
+        $fresh = loadXaml "${scriptsDir}\tebunko\xaml\search\search_bar.xaml"
         $fresh.FindName("FastBadgeInfo").Visibility | Should -Be "Visible"
     }
 }

@@ -79,7 +79,7 @@ function loadXaml {
     }
 
     # 画面の既定のフォント（Font.Body）。XAML のルートが FontFamily="{DynamicResource Font.Body}" で使う。
-    # XamlReader.Load は XAML 内の FontFamily を使う側に入れられないため、ここで作って入れる
+    # フォントはコードで 1 か所（newAppFontFamily）から入れる。展開した版でも単一 .ps1 版でも同じ値になる
     if ($loaded -is [System.Windows.FrameworkElement]) {
         # 型を明示する（PowerShell のラッパーのまま入れると、DynamicResource が文字列として解決して失敗する）
         $loaded.Resources["Font.Body"] = [System.Windows.Media.FontFamily](newAppFontFamily)
@@ -92,6 +92,7 @@ function loadXaml {
 function newAppFontFamily {
     return New-Object System.Windows.Media.FontFamily -ArgumentList "Segoe UI, Yu Gothic UI, Meiryo UI"
 }
+
 function loadWindow {
     param (
         [string]$path

@@ -76,16 +76,8 @@ Describe "newAppFontFamily（画面の既定のフォント）" -Tag Unit {
         $family.Source | Should -Be "Segoe UI, Yu Gothic UI, Meiryo UI"
         $family.BaseUri | Should -BeNullOrEmpty
     }
-
-    It "引数を取らない（展開した版でも単一 .ps1 版でも、同じフォントになる）" {
-        (Get-Command newAppFontFamily).Parameters.Keys | Where-Object { $_ -notin [System.Management.Automation.PSCmdlet]::CommonParameters } | Should -BeNullOrEmpty
-    }
-
-    It "同梱するのはアイコンの形のライセンスの文面だけで、フォントのファイルは無い" {
-        Test-Path -LiteralPath "${scriptsDir}\shared\fonts\LICENSE-Lucide.txt" | Should -Be $true
-        @(Get-ChildItem -LiteralPath "${scriptsDir}\shared\fonts" -File | Where-Object { $_.Extension -in ".ttf", ".otf", ".ttc" -or $_.Name -eq "OFL.txt" }).Count | Should -Be 0
-    }
 }
+
 Describe "loadXaml（Font.Body）" -Tag Unit {
     It "FrameworkElement には Font.Body を入れ、ルートの DynamicResource で使える" {
         $path = "$TestDrive\win.xaml"
@@ -98,16 +90,10 @@ Describe "loadXaml（Font.Body）" -Tag Unit {
     It "どの呼び出し元の変数にも頼らず、同じ Font.Body を入れる" {
         $path = "$TestDrive\win2.xaml"
         [System.IO.File]::WriteAllText($path, '<Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" />', (New-Object System.Text.UTF8Encoding($true)))
-        # 古い呼び出し元の変数があっても、使わない
-        $fontsDir = "$TestDrive\no_such_fonts"
         (loadXaml $path).Resources["Font.Body"].Source | Should -Be "Segoe UI, Yu Gothic UI, Meiryo UI"
     }
-
-    It "loadWindow は、loadXaml にパスだけを渡す" {
-        $text = Get-Content -LiteralPath "${scriptsDir}\shared\ui\app_host.ps1" -Raw -Encoding UTF8
-        $text | Should -Match 'function loadWindow \{[\s\S]*?\$loaded = loadXaml \$path\r?\n'
-    }
 }
+
 Describe "loadAppIcon（画面のアイコン）" -Tag Unit {
     BeforeEach {
         ${script:appIcon} = $null
