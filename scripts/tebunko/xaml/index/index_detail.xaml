@@ -13,6 +13,43 @@
       <Style x:Key="FieldName" TargetType="TextBlock" BasedOn="{StaticResource Label}">
         <Setter Property="Margin" Value="0,0,0,4" />
       </Style>
+      <!-- ボタンと並べる入力欄（フォルダパス）。高さ 28・角は左だけ 4。右の辺をボタンとの境の線にする。
+           焦点の青い枠は欄の内側に 2px で重ねて描き（欄の大きさ・位置は変えない）、外へはみ出さないので親の切り抜きで欠けない -->
+      <Style x:Key="TextBox.Joined" TargetType="TextBox" BasedOn="{StaticResource TextBox.Base}">
+        <Setter Property="Height" Value="28" />
+        <Setter Property="Padding" Value="8,0" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{StaticResource Ink.Value}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Border.Normal}" />
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="TextBox">
+              <Grid SnapsToDevicePixels="True">
+                <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
+                        CornerRadius="4,0,0,4">
+                  <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
+                                VerticalAlignment="Center" Focusable="False" HorizontalScrollBarVisibility="Hidden" />
+                </Border>
+                <Border x:Name="FocusFrame" BorderBrush="{StaticResource Accent}" BorderThickness="2"
+                        CornerRadius="4,0,0,4" IsHitTestVisible="False" Visibility="Collapsed" />
+              </Grid>
+              <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                  <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Ink.Faint}" />
+                </Trigger>
+                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                  <Setter TargetName="FocusFrame" Property="Visibility" Value="Visible" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                  <Setter TargetName="Bd" Property="Background" Value="{StaticResource Bg.Hover}" />
+                  <Setter Property="Foreground" Value="{StaticResource Ink.Faint}" />
+                </Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
       <!-- 値を入れる枠（読むだけ） -->
       <Style x:Key="FieldBox" TargetType="Border">
         <Setter Property="Background" Value="{StaticResource Bg.Subtle}" />
@@ -34,7 +71,7 @@
   <!-- 平らな面。上に細い線、見出しの帯（薄い地）、その下に左右 2 列（間は線 1 本） -->
   <Border BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,1,0,0">
     <DockPanel>
-      <Border DockPanel.Dock="Top" Background="{StaticResource Bg.Hover}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,0,1" Padding="16,11">
+      <Border DockPanel.Dock="Top" Background="{StaticResource Bg.Hover}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,0,1" Padding="16,8">
         <StackPanel Orientation="Horizontal">
           <Path Data="{StaticResource Icon.Info}" Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource Ink.Muted}"
                 StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -42,7 +79,7 @@
         </StackPanel>
       </Border>
       <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Margin="16,12,16,12">
+        <StackPanel Margin="16,10,16,10">
 
           <!-- 2 件以上を選んだとき（見出しは「N 件を選択中」）の案内 -->
           <TextBlock x:Name="MultiSelectHintText" Style="{StaticResource Meta}" Visibility="Collapsed" />
@@ -60,26 +97,23 @@
               <TextBlock Style="{StaticResource Label.Strong}" Text="基本設定" Margin="0,0,0,8" />
               <Grid>
                 <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="90" />
+                  <ColumnDefinition Width="98" />
                   <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Style="{StaticResource Label}" Text="名前" VerticalAlignment="Center" />
-                <Border Grid.Column="1" Style="{StaticResource FieldBox}">
-                  <TextBlock x:Name="IndexDetailName" Foreground="{StaticResource Ink.Value}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
-                </Border>
+                <!-- 名前はその場で直す。Enter か欄から出たときに確定、Esc で取り消す（index_events.ps1・commitIndexDetailEdit） -->
+                <TextBox x:Name="IndexDetailName" Grid.Column="1" AutomationProperties.AutomationId="IndexDetailName" AutomationProperties.Name="インデックスの名前" />
               </Grid>
-              <Grid Margin="0,8,0,0">
+              <Grid Margin="0,10,0,0" UseLayoutRounding="True">
                 <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="90" />
+                  <ColumnDefinition Width="98" />
                   <ColumnDefinition Width="*" />
-                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="36" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Style="{StaticResource Label}" Text="フォルダパス" VerticalAlignment="Center" />
-                <Border Grid.Column="1" Style="{StaticResource FieldBox}" CornerRadius="4,0,0,4">
-                  <TextBlock x:Name="IndexDetailPath" Foreground="{StaticResource Ink.Value}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
-                </Border>
-                <!-- フォルダの場所をその場で変える［...］。欄の右にくっつけて置く。押すとフォルダを選ぶ画面を出し、［編集…］のダイアログで場所を変えて［OK］したときと同じ道（changeIndexFolder）を通る -->
-                <Button x:Name="IndexDetailPathButton" Grid.Column="2" Width="34" MinWidth="34" Padding="0"
+                <TextBox x:Name="IndexDetailPath" Grid.Column="1" Style="{StaticResource TextBox.Joined}" AutomationProperties.AutomationId="IndexDetailPath" AutomationProperties.Name="元のフォルダのパス" />
+                <!-- フォルダの場所をその場で変える［...］。欄の右に置く。押すとフォルダを選ぶ画面を出し、選んだ場所を欄に入れて、欄に入力したときと同じ道（changeIndexFolder → commitIndexDetailEdit）で変える -->
+                <Button x:Name="IndexDetailPathButton" Grid.Column="2" Width="36" MinWidth="36" Height="28" Padding="0" Foreground="{StaticResource Button.Text}"
                         AutomationProperties.AutomationId="IndexDetailPathButton" AutomationProperties.Name="フォルダの場所を変える"
                         ToolTip="元のフォルダの場所を変えます（インデックスはそのまま使います）">
                   <!-- 点 3 つは字ではなく図形で描く（字の「...」は行の下端に点が並び、枠の真ん中に見えない） -->
@@ -89,7 +123,7 @@
                   </Button.Content>
                   <Button.Template>
                     <ControlTemplate TargetType="Button">
-                      <Border x:Name="Bd" Background="{StaticResource Bg.Window}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,1,1,1"
+                      <Border x:Name="Bd" Background="{StaticResource Bg.Button}" BorderBrush="{StaticResource Border.Normal}" BorderThickness="0,1,1,1"
                               CornerRadius="0,4,4,0" SnapsToDevicePixels="True">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                       </Border>
@@ -108,7 +142,10 @@
                   </Button.Template>
                 </Button>
               </Grid>
-              <TextBlock x:Name="IndexDetailFolderStatus" Style="{StaticResource Meta}" Margin="90,4,0,0" />
+              <!-- 名前・フォルダパスを確定できなかったときの理由（commitIndexDetailEdit） -->
+              <TextBlock x:Name="IndexDetailEditError" Style="{StaticResource ErrorText}" Margin="98,4,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
+              <!-- 文字の色は updateIndexDetailPanel が getIndexDetailView の FolderBrush で当てる -->
+              <TextBlock x:Name="IndexDetailFolderStatus" Margin="98,4,0,0" FontSize="11" />
               <Border Style="{StaticResource InfoCard}" Margin="0,10,0,0">
                 <StackPanel>
                   <StackPanel Orientation="Horizontal">

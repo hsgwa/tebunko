@@ -101,6 +101,7 @@ function showIndexingConfirmDialog {
 
     $ctrl.PlanGrid.ItemsSource = buildPlanRows $plan
     $ctrl.IntroText.Text = getIndexingConfirmIntro (getIndexingDroppedCount $plan)
+    $ctrl.IntroText.Visibility = if ($ctrl.IntroText.Text) { "Visible" } else { "Collapsed" }
     $ctrl.CloudRememberCheck.Content = ${indexingCloudRememberText}
     if ($savedCloud -eq ${cloudFilesDownload}) {
         # 前回「次から確認を出さずにダウンロードする」を選んだ。チェックを付けておく（欄が出るときに効く）
@@ -178,13 +179,13 @@ function confirmIndexingTargets {
         $ui.IndexingProgressText.Text = "更新を取りやめています…"
         $ui.IndexingProgressDetail.Text = ""
         answerIndexingPlan $channel $null
-        setStatus "更新を取りやめました"
         return
     }
     answerIndexingPlan $channel $answer
+    # 更新を始めることは新しい操作なので、前の操作の結果の文は消す（取りやめたときは消さない）
+    setStatus ""
     $script:indexingRate = $null  # 残り時間の目安は、確認を待っていた時間を含めずに計る
     $ui.IndexingProgressText.Text = "更新を始めています…"
-    setStatus "更新を開始しました"
 }
 
 function startIndexing {
@@ -245,6 +246,8 @@ function finishWorkspaceCheck {
         setStatus (getWorkspaceUnreachableStatus ([string]$workspace.Dir))
         return
     }
+    # 確かめ中の文を消す（以後の確認を断っても、続きを始めても、残さない）
+    setStatus ""
     continueStartIndexing $result.LegacyState $onlyNames
 }
 
@@ -270,7 +273,7 @@ function continueStartIndexing {
             $item.SetEnabled($true)
         }
     }
-    saveTargets
+    saveTargets -Quiet   # 文は出さない（確認で取りやめたとき、前の操作の結果の代わりに残らないように）
     updateIndexDetailPanel
     # 何件取り込むかは、元のファイルの更新日時とサイズを見ないと分からない。
     # ConfirmTargets にすると、インデクサは数え終えたところで止まって確認の返事（answerIndexingPlan）を待つ。
@@ -285,7 +288,6 @@ function continueStartIndexing {
     $script:indexingSession = newIndexingSession $channel
 
     showIndexingPanel
-    setStatus "更新するファイルを調べています…"
     updateIndexingButton
     $script:indexingTimer.Start()
 }
@@ -305,7 +307,6 @@ function stopIndexing {
     requestIndexingStop $script:indexingSession.Channel
     $ui.IndexingStopButton.IsEnabled = $false
     $ui.IndexingProgressDetail.Text = "中止しています…（更新中のファイルが終わるまでお待ちください）"
-    setStatus "更新の中止を要求しました"
 }
 
 function updateIndexingProgress {
@@ -403,7 +404,7 @@ function finishIndexing {
     $script:indexingView = $null
     $taskbar.ProgressState = "None"
     # インデックス作成完了の通知。以前はタスクバーのボタンを光らせていたが（FlashWindowEx）、P/Invoke は
-    # 実行時コンパイル（csc.exe）を無くすため廃止した。完了は進捗表示・ステータスで分かる。
+    # 実行時コンパイル（csc.exe）を無くすため廃止した。完了は帯で分かる。
     $session = $script:indexingSession
     $progress = $null
     try {
@@ -441,19 +442,16 @@ function finishIndexing {
         setIndexingBanner (getIndexingBannerLevel $exitCode 0) "done"
         $ui.IndexingProgressText.Text = "インデックスを更新できませんでした"
         $ui.IndexingProgressDetail.Text = $message
-        setStatus "インデックスを更新できませんでした：$message"
         showMessage "インデックスを更新できませんでした。`n`n$message" "OK" "Error" | Out-Null
     } elseif ($exitCode -eq 2 -and $script:indexingCanceledAtConfirm) {
         # 確認のダイアログで取りやめた（1件も取り込んでいない）
         setIndexingBanner "warn" "done"
         $ui.IndexingProgressText.Text = "更新を取りやめました"
         $ui.IndexingProgressDetail.Text = "更新したファイルはありません。［すべて更新］を押すと、もう一度確認できます。"
-        setStatus $ui.IndexingProgressText.Text
     } elseif ($exitCode -eq 2) {
         setIndexingBanner "warn" "done"
         $ui.IndexingProgressText.Text = if ($counts) { "更新を中止しました（$counts）" } else { "更新を中止しました" }
         $ui.IndexingProgressDetail.Text = "次回は続きから再開できます。"
-        setStatus $ui.IndexingProgressText.Text
     } else {
         # 完了（後回し・失敗の件数に応じた見出しと説明は判断層（indexing_view.ps1）が決める）
         $success = if ($progress) { $progress.Processed - $progress.Failed } else { 0 }
@@ -462,14 +460,18 @@ function finishIndexing {
         $endText = getIndexingEndText $success $failed $session.GetPostponed() $session.GetNotice() $session.GetCloudSkipped()
         $ui.IndexingProgressText.Text = $endText.Text
         $ui.IndexingProgressDetail.Text = $endText.Detail
-        setStatus $ui.IndexingProgressText.Text
     }
     $ui.IndexingProgressEta.Text = ""
     $ui.IndexingStopButton.Visibility = "Collapsed"
     $ui.IndexingProgress.Visibility = "Collapsed"
+    # 更新中の帯を閉じていても、終わりの知らせは出す
+    $ui.IndexingProgressPanel.Visibility = "Visible"
     $skippedView = getIndexingSkippedView $onlySkipped
     if ($skippedView -and $exitCode -ne 1) {
+        # メッセージを読んでいる間に成功の帯が消えないよう、時計を止め、閉じたあとから数え直す
+        $script:indexingBannerTimer.Stop()
         showMessage "$($skippedView.Heading)`n`n$($skippedView.Detail)" "OK" "Warning" | Out-Null
+        setIndexingBannerBehavior
     }
     $ui.IndexingSearchButton.Visibility = if ($exitCode -ne 1) { "Visible" } else { "Collapsed" }
 

@@ -26,6 +26,8 @@
         <Button x:Name="IndexingSearchButton" Style="{StaticResource Banner.Button}" Margin="10,0,0,0" Content="検索する" Visibility="Collapsed" />
         <Button x:Name="IndexingResumeButton" Style="{StaticResource Banner.Button}" Margin="10,0,0,0" Content="続きから再開" MinWidth="88" Visibility="Collapsed" />
         <Button x:Name="IndexingStopButton" Style="{StaticResource Banner.Button}" Margin="10,0,0,0" Content="中止" MinWidth="72" />
+        <Button x:Name="IndexingBannerClose" Style="{StaticResource Banner.Close}" Margin="10,0,0,0" ToolTip="閉じる"
+                AutomationProperties.Name="帯を閉じる" Visibility="Collapsed" />
       </StackPanel>
       <Grid VerticalAlignment="Center">
         <Grid.ColumnDefinitions>
@@ -54,7 +56,7 @@
     <RowDefinition x:Name="IndexDetailRow" Height="397" MinHeight="240" MaxHeight="397" />
   </Grid.RowDefinitions>
 
-  <ContentControl x:Name="IndexListHost" Grid.Row="0" Margin="16,12,16,0" Focusable="False" IsTabStop="False"
+  <ContentControl x:Name="IndexListHost" Grid.Row="0" Margin="16,8,16,0" Focusable="False" IsTabStop="False"
                   HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
 
   <!-- 一覧と詳細の境目。上下にドラッグすると詳細の高さが変わる -->

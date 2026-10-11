@@ -184,7 +184,7 @@ function showIndexImportDialog {
     $ctrl.NameBox.Text = $suggestedName
     $ctrl.NoticeText.Visibility = "Collapsed"
 
-    # 追加・編集のダイアログ（editIndex の $script:editDialog）と同じく、ボタンの Click からは
+    # ほかのダイアログと同じく、ボタンの Click からは
     # script スコープの入れ物を参照する。GetNewClosure() でこの関数のローカル変数（$ctrl・$dialog）を
     # 取り込むと、tebunko.bat の起動（powershell -Command "...; & gui.ps1"）のように呼び出しが
     # 入れ子になっている実機では、閉じ込めたスクリプトブロックから名前で関数を解決できなくなるため
