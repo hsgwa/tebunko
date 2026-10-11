@@ -31,6 +31,17 @@ function getIndexNameMap {
     return , $map
 }
 
+function testStatusRowFailed {
+    # 取り込み一覧の行を「失敗」として数えるか。状態が「失敗」の行と、「未取り込み」で理由（エラー）が書いてある行
+    # （利用者の PowerPoint のために取り込めなかったファイル。次の更新で取り込むため状態は「未取り込み」のまま）
+    param (
+        $row
+    )
+
+    $state = [string]$row.状態
+    return ($state -eq ${stateFailed}) -or ($state -eq ${stateNew} -and [string]$row.エラー -ne "")
+}
+
 function getIndexStats {
     # 取り込み一覧の行をインデックス名ごとに集計する（画面のインデックス一覧に出す件数・最終更新）:
     #   インデックス名（大文字・小文字を区別しない）→ @{ Total; Done; Pending; Failed; LastIngested（"yyyy/MM/dd HH:mm:ss"。無ければ空） }
@@ -56,10 +67,10 @@ function getIndexStats {
         $state = [string]$entry.Value.状態
         if ($state -eq ${stateDone}) {
             $stat.Done++
+        } elseif (testStatusRowFailed $entry.Value) {
+            $stat.Failed++
         } elseif ($state -eq ${stateNew}) {
             $stat.Pending++
-        } elseif ($state -eq ${stateFailed}) {
-            $stat.Failed++
         }
         # 取り込み日時は "yyyy/MM/dd HH:mm:ss" のため、文字列のまま比べて新しい方を残せる
         $ingested = [string]$entry.Value.取り込み日時
@@ -68,99 +79,6 @@ function getIndexStats {
         }
     }
     return , $stats
-}
-
-function renameIndex {
-    # インデックス名を変える（画面の詳細の名前の欄）。インデックスのフォルダ（work\index\<名前>）を改名し、
-    # 取り込み一覧の記録も書き換えるため、名前を変えてもインデックスは作り直さない。
-    # インデックス作成中は呼ばない（画面はインデックス作成中この操作を無効にする）
-    param (
-        [string]$oldName,
-        [string]$newName,
-        [string]$dir = $workspace.IndexDir,
-        [string]$statusPath = $workspace.StatusFile,
-        [string]$settingsPath = ${settingsFile}
-    )
-
-    # 大文字・小文字だけの変更も改名するため、同じ名前かは大文字・小文字を区別して比べる（-ceq）
-    if ($oldName -eq "" -or $newName -eq "" -or $oldName -ceq $newName) {
-        return
-    }
-
-    $from = Join-Path $dir $oldName
-    $to   = Join-Path $dir $newName
-    if (Test-Path -LiteralPath $from -PathType Container) {
-        if ([string]::Equals($oldName, $newName, [System.StringComparison]::OrdinalIgnoreCase)) {
-            # 大文字・小文字だけを変える場合は、そのままでは改名できないため一時名を経由する
-            $tmp = Join-Path $dir "${oldName}_rename_${PID}"
-            [System.IO.Directory]::Move((toLongPath $from), (toLongPath $tmp))
-            [System.IO.Directory]::Move((toLongPath $tmp), (toLongPath $to))
-        } else {
-            if (Test-Path -LiteralPath $to) {
-                throw "「${newName}」のフォルダが既にあるため、名前を変えられません: ${to}"
-            }
-            [System.IO.Directory]::Move((toLongPath $from), (toLongPath $to))
-        }
-    }
-    renameStatusIndexName $oldName $newName $statusPath
-    # 高速検索の システムインデックス（同じワークスペースの system_index）は古い名前の分を消す。次のインデックス作成で作り直す
-    removeSystemIndexOfWorkspace $oldName $dir
-    # 外したフォルダの記録（searchExcludes）は旧名・新名の下のものを消す（付け替えず、検索対象に戻す）
-    removeSearchExcludesUnder $from $settingsPath
-    removeSearchExcludesUnder $to $settingsPath
-}
-
-function removeIndex {
-    # インデックスを削除する（画面の［削除］）。インデックスのフォルダ（work\index\<名前>）と、取り込み一覧の記録を削除する。
-    # インデックス作成中は呼ばない（画面はインデックス作成中この操作を無効にする）
-    param (
-        [string]$name,
-        [string]$dir = $workspace.IndexDir,
-        [string]$statusPath = $workspace.StatusFile,
-        [string]$settingsPath = ${settingsFile}
-    )
-
-    if ($name -eq "") {
-        return
-    }
-    $target = Join-Path $dir $name
-    if (Test-Path -LiteralPath $target -PathType Container) {
-        # 中に長いパス（260文字超）のTSVがあっても削除できるよう \\?\ 付きで削除する。
-        # 画面は別スレッド（$ErrorActionPreference が既定の Continue）で呼ぶため、消せなければ例外にして
-        # 取り込み一覧の記録を残す（-ErrorAction Stop が無いと、フォルダが残ったまま記録だけ消える）
-        Remove-Item -LiteralPath (toLongPath $target) -Recurse -Force -ErrorAction Stop
-    }
-    removeStatusIndexName $name $statusPath
-    removeSystemIndexOfWorkspace $name $dir
-    # 外したフォルダの記録（searchExcludes）も消す
-    removeSearchExcludesUnder $target $settingsPath
-}
-
-function removeIndexes {
-    # 選んだインデックスをまとめて削除する（画面の［削除］）。1 つずつ removeIndex を呼び、途中で 1 つ失敗しても残りを続ける。
-    # 戻り値は名前ごとの結果の配列（@{ Name; Ok; Reason }）。Reason は失敗したときの理由（成功なら ""）。
-    # 画面のスレッドでは呼ばず、別スレッドの仕事の中で呼ぶ
-    param (
-        [string[]]$names,
-        [string]$dir = $workspace.IndexDir,
-        [string]$statusPath = $workspace.StatusFile,
-        [string]$settingsPath = ${settingsFile}
-    )
-
-    $results = New-Object System.Collections.Generic.List[object]
-    foreach ($name in @($names)) {
-        if ([string]::IsNullOrEmpty($name)) {
-            $results.Add([pscustomobject]@{ Name = [string]$name; Ok = $false; Reason = "インデックス名が空です" })
-            continue
-        }
-        try {
-            removeIndex $name $dir $statusPath $settingsPath
-            $results.Add([pscustomobject]@{ Name = $name; Ok = $true; Reason = "" })
-        } catch {
-            $results.Add([pscustomobject]@{ Name = $name; Ok = $false; Reason = $_.Exception.Message })
-        }
-    }
-    return , $results.ToArray()
 }
 
 function removeSystemIndexOfWorkspace {

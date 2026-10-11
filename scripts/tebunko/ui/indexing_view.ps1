@@ -168,12 +168,10 @@ function getIndexingResumeBannerDecision {
 
 function getIndexingEndText {
     # インデックス作成が完了した（終了コード 0）ときの、進み具合の見出しと説明（@{ Text; Detail }）を返す。
-    # 後回し（利用者のPowerPointが起動していて取り込まなかったファイル）がある場合の文言もここで決める
+    # 利用者のPowerPointのために取り込めなかったファイルは、失敗の件数に入っている
     param (
         [int]$success,
         [int]$failed,
-        [int]$postponed,
-        [string]$notice = "",
         [int]$cloudSkipped = 0  # クラウドにだけあるため、ダウンロードせずに残した件数
     )
 
@@ -181,23 +179,14 @@ function getIndexingEndText {
     $processed = $success + $failed
     if ($processed -gt 0) {
         $counts = "成功 ${success} 件 / 失敗 ${failed} 件"
-        if ($postponed -gt 0) {
-            $counts += " / 残り ${postponed} 件"
-        }
         $parts = New-Object System.Collections.Generic.List[string]
         if ($failed -gt 0) {
             $parts.Add("失敗したファイルと原因は「更新に失敗したファイル」の一覧で確認できます。")
-        }
-        if ($notice) {
-            $parts.Add($notice)
         }
         if ($cloudText) {
             $parts.Add($cloudText)
         }
         return @{ Text = "更新が終わりました（${counts}）"; Detail = ($parts -join " ") }
-    }
-    if ($postponed -gt 0) {
-        return @{ Text = "更新が終わりました（更新せずに残したファイル ${postponed} 件）"; Detail = (@($notice, $cloudText) | Where-Object { $_ }) -join " " }
     }
     if ($cloudSkipped -gt 0) {
         return @{ Text = $cloudText; Detail = "" }

@@ -224,7 +224,7 @@ function saveSearchExcludes {
     $roots = @($script:indexRoots | Where-Object { $_.Exists } | ForEach-Object { $_.FullPath().TrimEnd("\") })
     $kept = @(readSearchExcludes | Where-Object {
         $path = $_.Path
-        @($roots | Where-Object { $path -eq $_ -or $path.StartsWith("$_\", [System.StringComparison]::OrdinalIgnoreCase) }).Count -eq 0
+        @($roots | Where-Object { testFolderOrUnder $path $_ }).Count -eq 0
     })
     writeSearchExcludes (@($kept) + @($excludes.ToArray()))
 }

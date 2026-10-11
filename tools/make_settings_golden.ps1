@@ -4,13 +4,14 @@
 #
 # 手順（詳しくは tests/testdata/README.md の「前の版のファイル（compat\）」）:
 #   1. -Tree に、見本にしたい版をチェックアウトした別のツリー（例: git worktree add --detach）を指す
-#   2. 別の Windows PowerShell 5.1 プロセスで、そのツリーの shared.ps1・settings.ps1 と、
+#   2. 別の Windows PowerShell 5.1 プロセスで、そのツリーの shared.ps1・settings.ps1（と、あれば core\search_excludes.ps1）と、
 #      今のツリーの tests/helpers/settings_golden.ps1 を読み込み、writeGoldenSettings を呼んで
 #      tests/testdata/compat/settings/<Name>/setting.config に書く
 #   3. expected.json は手で書く（このスクリプトは作らない）
 #
 # tests/helpers/settings_golden.ps1 は load.ps1 に頼らず、settings.ps1 が公開する書く関数だけを呼ぶ。
 # そのため、見本にしたい版の settings.ps1 がそれらの関数を持ってさえいれば、そのまま上で動く。
+# searchExcludes を書く関数は、新しい版では core\search_excludes.ps1 にある（前の版では settings.ps1 の中）。そのため、ファイルがあるときだけ settings.ps1 の直後に読み込む。
 param (
     [Parameter(Mandatory = $true)]
     [string]$Tree,
@@ -23,6 +24,7 @@ $ErrorActionPreference = "Stop"
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $sharedPath = Join-Path $Tree "scripts\shared\shared.ps1"
 $settingsScriptPath = Join-Path $Tree "scripts\tebunko\core\settings.ps1"
+$searchExcludesPath = Join-Path $Tree "scripts\tebunko\core\search_excludes.ps1"
 $goldenHelperPath = Join-Path $repoRoot "tests\helpers\settings_golden.ps1"
 
 foreach ($p in @($sharedPath, $settingsScriptPath, $goldenHelperPath)) {
@@ -45,10 +47,12 @@ function escapeSingleQuoted {
 }
 
 $runnerPath = Join-Path ([System.IO.Path]::GetTempPath()) "make_settings_golden_$([guid]::NewGuid().ToString("N")).ps1"
+$searchExcludesLine = if (Test-Path -LiteralPath $searchExcludesPath) { ". ([WildcardPattern]::Escape('$(escapeSingleQuoted $searchExcludesPath)'.Replace([string][char]96, [string][char]96 + [char]96)))" } else { "" }
 $runner = @"
 `$ErrorActionPreference = "Stop"
 . ([WildcardPattern]::Escape('$(escapeSingleQuoted $sharedPath)'.Replace([string][char]96, [string][char]96 + [char]96)))
 . ([WildcardPattern]::Escape('$(escapeSingleQuoted $settingsScriptPath)'.Replace([string][char]96, [string][char]96 + [char]96)))
+$searchExcludesLine
 . ([WildcardPattern]::Escape('$(escapeSingleQuoted $goldenHelperPath)'.Replace([string][char]96, [string][char]96 + [char]96)))
 writeGoldenSettings -path '$(escapeSingleQuoted $settingsPath)'
 "@

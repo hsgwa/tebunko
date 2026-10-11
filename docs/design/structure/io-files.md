@@ -78,7 +78,7 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 | `work/index/`（過去の版が置いた本文インデックス）・`work/system_index/` の古い名前の txt | 読む・消す | 残っているかの調べ・知らせ・［設定］の「移す」「消して最初から」のときだけ。ここには書かない |
 | `work/release/`・`work/test/`・`work/site/`・`work/cache/` | – | 開発用（`tools/` が書く。配布物には入らない）。tebunko 本体は触らない |
 
-ワークスペースを移すとき（`moveWorkspace`）は、`Workspace.Entries()` のものだけを新しい場所へ移す・写す。
+ワークスペースを移すとき（`WorkspaceMover.MoveEntries`）は、`Workspace.Entries()` のものだけを新しい場所へ移す・写す。
 
 ### クロール対象フォルダ
 

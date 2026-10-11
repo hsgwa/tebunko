@@ -127,10 +127,11 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
     }
 
     It "自分で起動したアプリは、制限時間を過ぎたら強制終了してよいプロセスに入れる" -TestCases @(
-        @{ Name = "Word"; Prog = "Word.Application"; SingleInstance = $false; Id = 300 }
-        @{ Name = "PowerPoint"; Prog = "PowerPoint.Application"; SingleInstance = $true; Id = 400 }
+        @{ Name = "Excel"; Prog = "Excel.Application"; SingleInstance = $false; Id = 200; Guard = $false }
+        @{ Name = "Word"; Prog = "Word.Application"; SingleInstance = $false; Id = 300; Guard = $false }
+        @{ Name = "PowerPoint"; Prog = "PowerPoint.Application"; SingleInstance = $true; Id = 400; Guard = $true }
     ) {
-        param ($Name, $Prog, $SingleInstance, $Id)
+        param ($Name, $Prog, $SingleInstance, $Id, $Guard)
         $fake = newFakeApp -appName $Name
         Mock New-Object { $fake } -ParameterFilter { $ComObject -eq $Prog }
         if ($SingleInstance) {
@@ -146,6 +147,9 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
         $entries[0].ProcessName | Should -Be $appInfo[$Name].Process
         $entries[0].StartTicks | Should -Be ([datetime]"2030-01-01T00:00:00Z").ToUniversalTime().Ticks
         $script:apps[$Name].StartTicks | Should -Be $entries[0].StartTicks
+        # 窓を見張るのは PowerPoint だけ（利用者が同じプロセスを使う。Excel・Word は今までどおり止める）
+        $script:apps[$Name].GuardWindow | Should -Be $Guard
+        $entries[0].GuardWindow | Should -Be $Guard
     }
 
     It "起動時刻が読めなければ、StartTicks は `$null（入れ物と見張りには入るが、照合で止めない対象になる）" {
@@ -408,6 +412,218 @@ Describe "OfficeWatchdog（実際のプロセスを止める）" -Tag Io {
     }
 }
 
+# 利用者が PowerPoint を使っている（見える窓がある）ときは、制限時間を過ぎても止めない。窓の有無は偽の関数（環境変数で切り替える）で見る。
+# 子プロセスは ping.exe（Office は使わない）。止めるのは起動した ID だけ
+Describe "OfficeWatchdog（利用者が使っているプロセスは止めない）" -Tag Io {
+    BeforeAll {
+        function global:testFakeOfficeWindow {
+            param ($process)
+            return ($env:TEBUNKO_TEST_FAKE_WINDOW -eq '1')
+        }
+        function waitUntil($condition) {
+            $limit = [datetime]::Now.AddSeconds(10)
+            while (-not (& $condition) -and [datetime]::Now -lt $limit) {
+                Start-Sleep -Milliseconds 100
+            }
+        }
+        function startHarmlessChild {
+            return Start-Process -FilePath "$env:SystemRoot\System32\ping.exe" -ArgumentList "-n", "120", "127.0.0.1" -WindowStyle Hidden -PassThru
+        }
+    }
+    AfterAll {
+        Remove-Item Function:\testFakeOfficeWindow -ErrorAction SilentlyContinue
+        $env:TEBUNKO_TEST_FAKE_WINDOW = $null
+    }
+
+    It "窓が一度でも見えたプロセスは、窓が消えて（ゴースト窓）制限時間を過ぎても止めず、レーンを諦める。<title>" -TestCases @(
+        @{ title = "窓を見たあとで消えた"; ghost = $true }
+        @{ title = "窓が見えたまま"; ghost = $false }
+    ) {
+        param ($title, $ghost)
+        $child = startHarmlessChild
+        $watchdog = $null
+        try {
+            $watchdog = [OfficeWatchdog]::new([string[]]@($child.ProcessName))
+            $watchdog.State.WindowProbe = 'testFakeOfficeWindow'
+            $watchdog.State.Abandon = [hashtable]::Synchronized(@{ Abandoned = $false })
+            $watchdog.State.Pids = @(@{ Id = $child.Id; ProcessName = $child.ProcessName; StartTicks = (getOfficeStartTicks $child); GuardWindow = $true })
+            $env:TEBUNKO_TEST_FAKE_WINDOW = '1'
+            $watchdog.Start()
+            $watchdog.State.Deadline = [datetime]::Now.AddMinutes(10)
+            waitUntil { $watchdog.State.Users.ContainsKey($child.Id) }
+            $watchdog.State.Users.ContainsKey($child.Id) | Should -Be $true
+            if ($ghost) { $env:TEBUNKO_TEST_FAKE_WINDOW = '0' }
+            $watchdog.State.Deadline = [datetime]::Now.AddSeconds(-1)
+            waitUntil { $watchdog.State.Abandon.Abandoned }
+            $watchdog.State.Abandon.Abandoned | Should -Be $true
+            $watchdog.State.TimedOut | Should -Be $false
+            $watchdog.State.Deadline | Should -Be ([datetime]::MaxValue)
+            # 諦めたあとは、窓が消えたままでも、もう止めない。もう一度期限を過ぎた刻みが済んだ（Deadline が戻った）ことを待ってから確かめる
+            # （1 回目の刻みの止める処理は、2 回目の刻みの前に済んでいる）
+            $env:TEBUNKO_TEST_FAKE_WINDOW = '0'
+            $watchdog.State.Deadline = [datetime]::Now.AddSeconds(-1)
+            waitUntil { $watchdog.State.Deadline -eq [datetime]::MaxValue }
+            $watchdog.State.Deadline | Should -Be ([datetime]::MaxValue)
+            $child.HasExited | Should -Be $false
+        } finally {
+            $env:TEBUNKO_TEST_FAKE_WINDOW = $null
+            if ($watchdog) { $watchdog.Stop() }
+            if (-not $child.HasExited) { $child.Kill() }
+        }
+    }
+
+    It "窓を一度も見ていないプロセスは、今までどおり制限時間を過ぎたら止める。諦めない" {
+        $child = startHarmlessChild
+        $watchdog = $null
+        try {
+            $watchdog = [OfficeWatchdog]::new([string[]]@($child.ProcessName))
+            $watchdog.State.WindowProbe = 'testFakeOfficeWindow'
+            $watchdog.State.Abandon = [hashtable]::Synchronized(@{ Abandoned = $false })
+            $watchdog.State.Pids = @(@{ Id = $child.Id; ProcessName = $child.ProcessName; StartTicks = (getOfficeStartTicks $child); GuardWindow = $true })
+            $env:TEBUNKO_TEST_FAKE_WINDOW = '0'
+            $watchdog.Start()
+            $watchdog.State.Deadline = [datetime]::Now.AddSeconds(-1)
+            waitUntil { $watchdog.State.TimedOut }
+            $watchdog.State.TimedOut | Should -Be $true
+            $watchdog.State.Abandon.Abandoned | Should -Be $false
+            $child.WaitForExit(10000) | Should -Be $true
+        } finally {
+            $env:TEBUNKO_TEST_FAKE_WINDOW = $null
+            if ($watchdog) { $watchdog.Stop() }
+            if (-not $child.HasExited) { $child.Kill() }
+        }
+    }
+
+    It "印の起動時刻が違うプロセス（PID が使い回された）は、印があっても止める" {
+        $child = startHarmlessChild
+        $watchdog = $null
+        try {
+            $ticks = getOfficeStartTicks $child
+            $watchdog = [OfficeWatchdog]::new([string[]]@($child.ProcessName))
+            $watchdog.State.WindowProbe = 'testFakeOfficeWindow'
+            $watchdog.State.Pids = @(@{ Id = $child.Id; ProcessName = $child.ProcessName; StartTicks = $ticks; GuardWindow = $true })
+            $watchdog.State.Users[$child.Id] = @{ ProcessName = $child.ProcessName; StartTicks = ($ticks - 10000000) }
+            $env:TEBUNKO_TEST_FAKE_WINDOW = '0'
+            $watchdog.Start()
+            $watchdog.State.Deadline = [datetime]::Now.AddSeconds(-1)
+            waitUntil { $watchdog.State.TimedOut }
+            $watchdog.State.TimedOut | Should -Be $true
+            $child.WaitForExit(10000) | Should -Be $true
+        } finally {
+            $env:TEBUNKO_TEST_FAKE_WINDOW = $null
+            if ($watchdog) { $watchdog.Stop() }
+            if (-not $child.HasExited) { $child.Kill() }
+        }
+    }
+
+    It "諦める入れ物が無い（司令のスレッドで取り込む）ときも、印のあるプロセスは止めない。TimedOut も立てない" {
+        $child = startHarmlessChild
+        $watchdog = $null
+        try {
+            $watchdog = [OfficeWatchdog]::new([string[]]@($child.ProcessName))
+            $watchdog.State.WindowProbe = 'testFakeOfficeWindow'
+            $watchdog.State.Pids = @(@{ Id = $child.Id; ProcessName = $child.ProcessName; StartTicks = (getOfficeStartTicks $child); GuardWindow = $true })
+            $env:TEBUNKO_TEST_FAKE_WINDOW = '1'
+            $watchdog.Start()
+            $watchdog.State.Deadline = [datetime]::Now.AddSeconds(-1)
+            waitUntil { $watchdog.State.Deadline -eq [datetime]::MaxValue }
+            $watchdog.State.Deadline | Should -Be ([datetime]::MaxValue)
+            # 止める処理は期限を戻したあとの同じ刻みにあるので、もう一度期限を過ぎた刻みが済むのを待ってから確かめる
+            $watchdog.State.Deadline = [datetime]::Now.AddSeconds(-1)
+            waitUntil { $watchdog.State.Deadline -eq [datetime]::MaxValue }
+            $watchdog.State.TimedOut | Should -Be $false
+            $child.HasExited | Should -Be $false
+        } finally {
+            $env:TEBUNKO_TEST_FAKE_WINDOW = $null
+            if ($watchdog) { $watchdog.Stop() }
+            if (-not $child.HasExited) { $child.Kill() }
+        }
+    }
+
+    It "窓を見ない種類のアプリ（GuardWindow でない）は、窓が見えても今までどおり止める" {
+        $child = startHarmlessChild
+        $watchdog = $null
+        try {
+            $watchdog = [OfficeWatchdog]::new([string[]]@($child.ProcessName))
+            $watchdog.State.WindowProbe = 'testFakeOfficeWindow'
+            $watchdog.State.Pids = @(@{ Id = $child.Id; ProcessName = $child.ProcessName; StartTicks = (getOfficeStartTicks $child) })
+            $env:TEBUNKO_TEST_FAKE_WINDOW = '1'
+            $watchdog.Start()
+            $watchdog.State.Deadline = [datetime]::Now.AddSeconds(-1)
+            waitUntil { $watchdog.State.TimedOut }
+            $watchdog.State.TimedOut | Should -Be $true
+            $child.WaitForExit(10000) | Should -Be $true
+        } finally {
+            $env:TEBUNKO_TEST_FAKE_WINDOW = $null
+            if ($watchdog) { $watchdog.Stop() }
+            if (-not $child.HasExited) { $child.Kill() }
+        }
+    }
+}
+
+Describe "OfficeWatchdog.UpdateWatchedPids（利用者が使った印の片付け）" -Tag Unit {
+    It "見張りから外れたプロセスと、起動時刻が違うプロセスの印を消す。ほかの PID の印は残す" {
+        $watchdog = [OfficeWatchdog]::new([string[]]@("POWERPNT"))
+        $watchdog.State.Users[10] = @{ ProcessName = "POWERPNT"; StartTicks = 111 }
+        $watchdog.State.Users[20] = @{ ProcessName = "POWERPNT"; StartTicks = 222 }
+        $watchdog.State.Users[30] = @{ ProcessName = "POWERPNT"; StartTicks = 333 }
+        $watchdog.State.Users[99] = @{ ProcessName = "POWERPNT"; StartTicks = 999 }
+        $watchdog.UpdateWatchedPids(@{
+            a = @{ Pid = 10; ProcessName = "POWERPNT"; StartTicks = 111; GuardWindow = $true }
+            b = @{ Pid = 20; ProcessName = "POWERPNT"; StartTicks = 222; GuardWindow = $true }
+            c = @{ Pid = 30; ProcessName = "POWERPNT"; StartTicks = 333; GuardWindow = $true }
+        })
+        # 10・20・30 は見張り続ける（印は残る）
+        $watchdog.State.Users.ContainsKey(10) | Should -Be $true
+        # 20 の起動時刻が変わった（PID の使い回し）→ 印は消える
+        $watchdog.UpdateWatchedPids(@{
+            b = @{ Pid = 20; ProcessName = "POWERPNT"; StartTicks = 223; GuardWindow = $true }
+        })
+        $watchdog.State.Users.ContainsKey(20) | Should -Be $false
+        # 10・30 は見張りから外れた → 印は消える
+        $watchdog.State.Users.ContainsKey(10) | Should -Be $false
+        $watchdog.State.Users.ContainsKey(30) | Should -Be $false
+        # 一度も見張っていない PID の印（ほかのレーンのもの）は消さない
+        $watchdog.State.Users.ContainsKey(99) | Should -Be $true
+    }
+}
+
+Describe "OfficeWatchdog.UpdateWatchedPids（窓を見張るかの写し）" -Tag Unit {
+    It "自分で起動したアプリの GuardWindow を見張りの対象に写す。利用者のアプリ（Shared）は入れない" {
+        $watchdog = [OfficeWatchdog]::new([string[]]@("POWERPNT", "WINWORD", "EXCEL"))
+        $watchdog.UpdateWatchedPids(@{
+            PowerPoint = @{ Pid = 10; ProcessName = "POWERPNT"; StartTicks = 1; GuardWindow = $true }
+            Word       = @{ Pid = 20; ProcessName = "WINWORD"; StartTicks = 2; GuardWindow = $false }
+            Excel      = @{ Pid = 30; ProcessName = "EXCEL"; StartTicks = 3; GuardWindow = $true; Shared = $true }
+        })
+        $entries = @($watchdog.State.Pids)
+        $entries.Count | Should -Be 2
+        ($entries | Where-Object { $_.Id -eq 10 }).GuardWindow | Should -Be $true
+        ($entries | Where-Object { $_.Id -eq 20 }).GuardWindow | Should -Be $false
+    }
+}
+
+Describe "getWatchdogVerdict（見張りが止めるか・残すかの決め方）" -Tag Unit {
+    It "<title>" -TestCases @(
+        @{ title = "期限の前は、窓が無ければ何もしない"; guard = $true; window = $false; due = $false; mark = $null; expected = "Skip"; marked = $false }
+        @{ title = "期限の前に窓が見えたら印を付け、何もしない"; guard = $true; window = $true; due = $false; mark = $null; expected = "Skip"; marked = $true }
+        @{ title = "期限を過ぎて窓が見えれば、止めずに残す（印を付ける）"; guard = $true; window = $true; due = $true; mark = $null; expected = "Spare"; marked = $true }
+        @{ title = "期限を過ぎて窓が消えていても、前に印があれば残す"; guard = $true; window = $false; due = $true; mark = "same"; expected = "Spare"; marked = $true }
+        @{ title = "期限を過ぎて窓も印も無ければ止める"; guard = $true; window = $false; due = $true; mark = $null; expected = "Kill"; marked = $false }
+        @{ title = "印の起動時刻が違えば（PID の使い回し）止める"; guard = $true; window = $false; due = $true; mark = "other"; expected = "Kill"; marked = $true }
+        @{ title = "窓を見張らないアプリは、窓が見えても期限を過ぎたら止める（印を付けない）"; guard = $false; window = $true; due = $true; mark = $null; expected = "Kill"; marked = $false }
+        @{ title = "窓を見張らないアプリは、期限の前は何もしない"; guard = $false; window = $true; due = $false; mark = $null; expected = "Skip"; marked = $false }
+    ) {
+        param ($title, $guard, $window, $due, $mark, $expected, $marked)
+        $entry = @{ Id = 77; ProcessName = "POWERPNT"; StartTicks = 1000; GuardWindow = $guard }
+        $users = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'
+        if ($mark -eq "same") { $users[77] = @{ ProcessName = "POWERPNT"; StartTicks = 1000 } }
+        if ($mark -eq "other") { $users[77] = @{ ProcessName = "POWERPNT"; StartTicks = 999 } }
+        (getWatchdogVerdict $entry $window $users $due) | Should -Be $expected
+        $users.ContainsKey(77) | Should -Be $marked
+    }
+}
+
 Describe "getAppName" -Tag Unit {
     It "拡張子から抽出に使うアプリを決める（大文字でも同じ）" {
         getAppName "a.xlsx" | Should -Be "Excel"
@@ -658,6 +874,30 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         $script:officeOwnDir = $ownDir
         $com = newHandOverApp @($books | ForEach-Object { newBook $_ })
         getForeignWorkbookCount $com "Excel" | Should -Be $expected
+    }
+
+    It "handOverForeignApp: 利用者のファイルが無くなっていれば利用者が使った印を消し、あれば（読めないときも）残す。印が消えたあとは、固まれば止める（<name>）" -TestCases @(
+        @{ name = "利用者が窓を開いて閉じた（0 件）"; count = 0; window = $false; handedOver = $false; markRemains = $false; verdict = "Kill" }
+        @{ name = "利用者のファイルが開いている"; count = 1; window = $true; handedOver = $true; markRemains = $true; verdict = "Spare" }
+        @{ name = "一覧を読めず窓が見える"; count = -1; window = $true; handedOver = $true; markRemains = $true; verdict = "Spare" }
+        @{ name = "一覧を読めず窓も見えない（分からないときは消さない）"; count = -1; window = $false; handedOver = $false; markRemains = $true; verdict = "Spare" }
+    ) {
+        param ($name, $count, $window, $handedOver, $markRemains, $verdict)
+        $script:fakeForeignCount = $count
+        $script:fakeHasWindow = $window
+        Mock getForeignWorkbookCount { $script:fakeForeignCount }
+        Mock testProcessHasWindow { $script:fakeHasWindow }
+        Mock handOverApp { $true }
+        $script:apps["PowerPoint"] = @{ Com = (newHandOverApp @() "PowerPoint"); Pid = 4242; Shared = $false; ProcessName = "POWERPNT"; StartTicks = 55; GuardWindow = $true }
+        $script:officeWatchdog.UpdateWatchedPids($script:apps)
+        $users = $script:officeWatchdog.State.Users
+        $users[4242] = @{ ProcessName = "POWERPNT"; StartTicks = 55 }
+
+        (handOverForeignApp "PowerPoint") | Should -Be $handedOver
+        $users.ContainsKey(4242) | Should -Be $markRemains
+        # 次のファイルで固まって期限が来たとき、印が消えていれば止める・残っていれば止めない
+        $entry = @{ Id = 4242; ProcessName = "POWERPNT"; StartTicks = 55; GuardWindow = $true }
+        getWatchdogVerdict $entry $false $users $true | Should -Be $verdict
     }
 
     It "getForeignWorkbookCount: Workbooks が例外なら -1（分からない）" {

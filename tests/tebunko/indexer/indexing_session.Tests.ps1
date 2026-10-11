@@ -118,23 +118,47 @@ $Channel.ExitCode = 2
         }
     }
 
-    It "GetNotice・GetPostponed は受け渡しの口の値を返す。入っていなければ空・0" {
-        $session = newFakeIndexingSession '$Channel.Notice = "PowerPoint が起動していたため、2 件を更新せずに残しました。"; $Channel.Postponed = 2; $Channel.ExitCode = 0' (newIndexerChannel)
+    It "KillOffice は、利用者が使った印のある PID を止めず、数えない。印の起動時刻が違うものは止める" {
+        $session = newFakeIndexingSession '$Channel.ExitCode = 0' (newIndexerChannel)
+        $marked = Start-Process -FilePath "ping.exe" -ArgumentList "-n 30 127.0.0.1" -WindowStyle Hidden -PassThru
+        $staleMark = Start-Process -FilePath "ping.exe" -ArgumentList "-n 30 127.0.0.1" -WindowStyle Hidden -PassThru
         try {
-            [void]$session.Wait(30000)
-            $session.GetNotice() | Should -Be "PowerPoint が起動していたため、2 件を更新せずに残しました。"
-            $session.GetPostponed() | Should -Be 2
+            $markedTicks = getOfficeStartTicks $marked
+            $staleTicks = getOfficeStartTicks $staleMark
+            $session.Channel.OfficePids[$marked.Id] = @{ ProcessName = $marked.ProcessName; StartTicks = $markedTicks }
+            $session.Channel.OfficePids[$staleMark.Id] = @{ ProcessName = $staleMark.ProcessName; StartTicks = $staleTicks }
+            $session.Channel.UserOfficePids[$marked.Id] = @{ ProcessName = $marked.ProcessName; StartTicks = $markedTicks }
+            $session.Channel.UserOfficePids[$staleMark.Id] = @{ ProcessName = $staleMark.ProcessName; StartTicks = ($staleTicks - 10000000) }
+            $session.KillOffice() | Should -Be 1
+            # KillOffice は同じ呼び出しで両方を見終えて戻るので、戻ったあとの状態をそのまま確かめる
+            $staleMark.WaitForExit(10000) | Should -Be $true
+            $marked.HasExited | Should -Be $false
         } finally {
+            foreach ($process in @($marked, $staleMark)) {
+                if (!$process.HasExited) { $process.Kill() }
+            }
             $session.Close()
         }
+    }
 
-        $emptySession = newFakeIndexingSession '$Channel.ExitCode = 0' (newIndexerChannel)
+    It "KillOffice は、印が無くても、今見える窓があるプロセスは止めず、数えない。窓が無ければ止める" {
+        $session = newFakeIndexingSession '$Channel.ExitCode = 0' (newIndexerChannel)
+        $withWindow = Start-Process -FilePath "ping.exe" -ArgumentList "-n 30 127.0.0.1" -WindowStyle Hidden -PassThru
+        $noWindow = Start-Process -FilePath "ping.exe" -ArgumentList "-n 30 127.0.0.1" -WindowStyle Hidden -PassThru
         try {
-            [void]$emptySession.Wait(30000)
-            $emptySession.GetNotice() | Should -Be ""
-            $emptySession.GetPostponed() | Should -Be 0
+            $session.Channel.OfficePids[$withWindow.Id] = @{ ProcessName = $withWindow.ProcessName; StartTicks = (getOfficeStartTicks $withWindow) }
+            $session.Channel.OfficePids[$noWindow.Id] = @{ ProcessName = $noWindow.ProcessName; StartTicks = (getOfficeStartTicks $noWindow) }
+            # ping.exe は窓を出さないので、窓の有無の判定だけを差し替える
+            $script:windowIds = @($withWindow.Id)
+            Mock testOfficeProcessHasWindow { return ($script:windowIds -contains $process.Id) }
+            $session.KillOffice() | Should -Be 1
+            $noWindow.WaitForExit(10000) | Should -Be $true
+            $withWindow.HasExited | Should -Be $false
         } finally {
-            $emptySession.Close()
+            foreach ($process in @($withWindow, $noWindow)) {
+                if (!$process.HasExited) { $process.Kill() }
+            }
+            $session.Close()
         }
     }
 

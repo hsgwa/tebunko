@@ -4,7 +4,9 @@
 # 設定を先に読み込む（ワークスペースは設定の workspaceFolder で決まる。paths.ps1 の initWorkspace を
 # 起動口（startGui・invokeIndexerMain）が壊れた設定ファイルの退避の後に呼んで決める）
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\settings.ps1".Replace('`', '``')))
+. ([WildcardPattern]::Escape("$PSScriptRoot\core\search_excludes.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\workspace.ps1".Replace('`', '``')))
+. ([WildcardPattern]::Escape("$PSScriptRoot\core\workspace_mover.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\parts.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\paths.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\index\index_name.ps1".Replace('`', '``')))
@@ -14,6 +16,7 @@
 . ([WildcardPattern]::Escape("$PSScriptRoot\index\content_index_store.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\index\system_index.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\indexer\indexer_state.ps1".Replace('`', '``')))
+. ([WildcardPattern]::Escape("$PSScriptRoot\index\index_catalog.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\indexer\indexer_decide.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\indexer\indexing_session.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\search\search_query.ps1".Replace('`', '``')))

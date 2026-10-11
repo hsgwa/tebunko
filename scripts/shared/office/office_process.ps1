@@ -24,6 +24,23 @@ function getOfficeStartTicks {
     }
 }
 
+function testOfficeProcessHasWindow {
+    # process に見えている窓があるか（Process.MainWindowHandle が 0 でない）。COM を使わず、相手のプロセスにメッセージも送らないため、固まったプロセスにも戻ってくる。
+    # 利用者がそのプロセスを使っているかの見分けに使う（インデックス作成はファイルを窓無しで開くので、自分の取り込みだけなら窓は無い）。
+    # 値を取り直してから見る（取り直さないと、前に読んだ値のままになる）。読めない（終わっているなど）ときは $false
+    param (
+        $process
+    )
+
+    try {
+        try { $process.Refresh() } catch {}
+        $handle = $process.MainWindowHandle
+        return ($handle -is [IntPtr] -and $handle -ne [IntPtr]::Zero)
+    } catch {
+        return $false
+    }
+}
+
 function compareOfficeProcess {
     # process を、控えたとき（プロセス名・起動時刻）と比べる。"Same"（同じ）・"Different"（別のプロセス）・"Unknown"（分からない）を返す。
     # 先に Handle を読んでプロセスのハンドルを開く（Process が持ち続けるので、このあと同じ process で Kill() するまで、その PID は別のプロセスに使われない）。
@@ -254,7 +271,7 @@ function getOfficeProcesses {
             ProcessName = $process.ProcessName
             AppName     = ${officeProcessNames}[$process.ProcessName]
             StartTime   = $startTime
-            HasWindow   = ($process.MainWindowHandle -ne [IntPtr]::Zero)
+            HasWindow   = (testOfficeProcessHasWindow $process)
             Owned       = $owned
             Owner       = $(if ($owned) { getOfficeRecordOwner $record $selfId $selfStartTicks } else { "" })
         })

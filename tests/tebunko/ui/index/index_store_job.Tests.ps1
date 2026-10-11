@@ -19,6 +19,30 @@ BeforeAll {
     function loadTargets { $script:calls.Add("loadTargets") }
     function updateFolderItemStatus { param($item) $script:calls.Add("updateFolderItemStatus") }
 
+    # 裏の仕事が作る IndexCatalog は偽物にする（本物の動きは tests\tebunko\index\index_catalog.Tests.ps1）。
+    # 偽物は、呼ばれたことを下の関数に渡す（テストが Mock で受ける。dir はワークスペースの場所）
+    function script:catalogRename { param($oldName, $newName, $dir) }
+    function script:catalogRemove { param($name, $dir) }
+    function script:catalogRemoveMany { param($names, $dir) }
+    function script:catalogWriteSourceFile { param($folders, $dir) }
+    function newIndexCatalog {
+        param ([string]$workspaceDir, [string]$settingsPath)
+        $fake = [pscustomobject]@{ Dir = $workspaceDir }
+        $fake | Add-Member ScriptMethod AssertReachable { assertWorkspaceReachable "$($this.Dir)\content_index" }
+        $fake | Add-Member ScriptMethod RenameIndex { param($oldName, $newName) catalogRename $oldName $newName $this.Dir }
+        $fake | Add-Member ScriptMethod RenameIndexWithSource {
+            param($oldName, $newName, $folders)
+            catalogRename $oldName $newName $this.Dir
+            $reason = ""
+            try { catalogWriteSourceFile $folders $this.Dir } catch { $reason = $_.Exception.Message }
+            @{ SourceFolderError = $reason }
+        }
+        $fake | Add-Member ScriptMethod RemoveIndex { param($name) catalogRemove $name $this.Dir }
+        $fake | Add-Member ScriptMethod RemoveIndexes { param($names) catalogRemoveMany $names $this.Dir }
+        $fake | Add-Member ScriptMethod WriteSourceFile { param($folders) catalogWriteSourceFile $folders $this.Dir }
+        return $fake
+    }
+
     . "${scriptsDir}\tebunko\ui\index_view.ps1"
     . "${scriptsDir}\tebunko\ui\index\index_store.ps1"
 
@@ -71,7 +95,7 @@ Describe "applyIndexEdit" -Tag Unit {
         $script:statuses.Clear()
         $script:jobs.Clear()
         $script:indexBusy = $false
-        $script:workspace = newTestWorkspace @{ IndexDir = "\\fileserver\共有\ws\work\index"; StatusFile = "\\fileserver\共有\ws\work\ingest_status.tsv" }
+        $script:workspace = newTestWorkspace @{} "\\fileserver\共有\ws\work"
         $script:item = newItem "営業" "\\fileserver\共有\営業"
         $script:other = newItem "技術" "\\fileserver\共有\技術"
         $script:targetItems = New-Object System.Collections.Generic.List[object]
@@ -80,11 +104,11 @@ Describe "applyIndexEdit" -Tag Unit {
     }
 
     It "名前を変えるときは、画面のスレッドで改名せず、裏の列（network）に出して、indexBusy で他の操作を止める" {
-        Mock renameIndex { throw "画面のスレッドで改名した" }
+        Mock catalogRename { throw "画面のスレッドで改名した" }
 
         applyIndexEdit $item @{ Path = $item.Path; Name = "営業部" }
 
-        Should -Invoke renameIndex -Times 0
+        Should -Invoke catalogRename -Times 0
         $script:jobs.Count | Should -Be 1
         $script:jobs[0].Queue | Should -Be "network"
         $script:indexBusy | Should -Be $true
@@ -110,16 +134,16 @@ Describe "applyIndexEdit" -Tag Unit {
 
     It "裏の仕事は、改名のあと、新しい名前と場所で元のフォルダの記録を書き直す" {
         Mock assertWorkspaceReachable { }
-        Mock renameIndex { $script:calls.Add("renameIndex") }
-        Mock writeSourceFolderFile { $script:calls.Add("writeSourceFolderFile:" + (($folders | ForEach-Object { "$($_.Name)=$($_.Path)" }) -join ",")) }
+        Mock catalogRename { $script:calls.Add("catalogRename") }
+        Mock catalogWriteSourceFile { $script:calls.Add("writeSourceFolderFile:" + (($folders | ForEach-Object { "$($_.Name)=$($_.Path)" }) -join ",")) }
 
         applyIndexEdit $item @{ Path = "\\fileserver\共有\新営業"; Name = "営業部" }
         $script:calls.Clear()
         runJob $script:jobs[0]
 
-        $script:calls[0] | Should -Be "renameIndex"
+        $script:calls[0] | Should -Be "catalogRename"
         $script:calls[1] | Should -Be "writeSourceFolderFile:営業部=\\fileserver\共有\新営業,技術=\\fileserver\共有\技術"
-        Should -Invoke renameIndex -Times 1 -Exactly -ParameterFilter { $oldName -eq "営業" -and $newName -eq "営業部" -and $dir -eq "\\fileserver\共有\ws\work\index" }
+        Should -Invoke catalogRename -Times 1 -Exactly -ParameterFilter { $oldName -eq "営業" -and $newName -eq "営業部" -and $dir -eq "\\fileserver\共有\ws\work" }
     }
 
     It "名前の変更に失敗したら、理由をステータスに出し、一覧を保存済みの内容に戻す（行は変えない）" {
@@ -137,28 +161,29 @@ Describe "applyIndexEdit" -Tag Unit {
 
     It "裏の仕事は、元のフォルダの記録だけが書けなくても失敗にせず、書けなかった理由を別に返す" {
         Mock assertWorkspaceReachable { }
-        Mock renameIndex { }
-        Mock writeSourceFolderFile { throw "届きません" }
+        Mock catalogRename { }
+        Mock catalogWriteSourceFile { throw "届きません" }
 
         applyIndexEdit $item @{ Path = $item.Path; Name = "営業部" }
         $result = @(runJob $script:jobs[0])
 
-        Should -Invoke renameIndex -Times 1 -Exactly
+        Should -Invoke catalogRename -Times 1 -Exactly
+        # 偽物は、元のフォルダの記録で起きた例外の理由をそのまま入れて返す（本物のクラスの返りは index_catalog.Tests.ps1 で確かめる）
         $result[0].SourceFolderError | Should -Be "届きません"
     }
 
     It "届かないワークスペースでは、裏の仕事は何もせず失敗にし、結果が届いても設定を変えない（名前の変更）" {
         Mock getPathState { @{ State = $script:unreachableState; IsDirectory = $false; Message = "ネットワークに届きません" } }
-        Mock renameIndex { }
-        Mock writeSourceFolderFile { }
+        Mock catalogRename { }
+        Mock catalogWriteSourceFile { }
 
         applyIndexEdit $item @{ Path = $item.Path; Name = "営業部" }
         { runJob $script:jobs[0] } | Should -Throw "*ワークスペースに接続できません*"
         $script:calls.Clear()
         & $script:jobs[0].OnDone @() "ワークスペースに接続できません"
 
-        Should -Invoke renameIndex -Times 0
-        Should -Invoke writeSourceFolderFile -Times 0
+        Should -Invoke catalogRename -Times 0
+        Should -Invoke catalogWriteSourceFile -Times 0
         $item.Name | Should -Be "営業"
         $script:calls | Should -Not -Contain "saveTargets"
         $script:calls | Should -Contain "loadTargets"
@@ -258,7 +283,7 @@ Describe "applyIndexEdit" -Tag Unit {
     }
 
     It "ローカルのワークスペースの改名も、裏の仕事（default の列）で行う" {
-        $script:workspace = newTestWorkspace @{ IndexDir = "C:\Users\test\tebunko_ws\work\index" }
+        $script:workspace = newTestWorkspace @{} "C:\Users\test\tebunko_ws\work"
 
         applyIndexEdit $item @{ Path = $item.Path; Name = "営業部" }
 
@@ -291,7 +316,7 @@ Describe "startIndexStoreJob（削除）" -Tag Unit {
         $script:statuses.Clear()
         $script:jobs.Clear()
         $script:indexBusy = $false
-        $script:workspace = newTestWorkspace @{ IndexDir = "\\fileserver\共有\ws\work\index"; StatusFile = "\\fileserver\共有\ws\work\ingest_status.tsv" }
+        $script:workspace = newTestWorkspace @{} "\\fileserver\共有\ws\work"
     }
 
     It "裏の列に出し、終わったら indexBusy を戻して後始末を呼ぶ" {
@@ -317,24 +342,24 @@ Describe "startIndexStoreJob（削除）" -Tag Unit {
         $script:calls | Should -Not -Contain "loadTargets"
     }
 
-    It "裏の仕事は removeIndex を呼ぶ" {
+    It "裏の仕事は IndexCatalog.RemoveIndex を呼ぶ" {
         Mock assertWorkspaceReachable { }
-        Mock removeIndex { }
+        Mock catalogRemove { }
         startIndexStoreJob "delete" "営業" "" @() { }
 
         runJob $script:jobs[0]
 
-        Should -Invoke removeIndex -Times 1 -Exactly -ParameterFilter { $name -eq "営業" }
+        Should -Invoke catalogRemove -Times 1 -Exactly -ParameterFilter { $name -eq "営業" }
     }
 
     It "届かないワークスペースでは、裏の仕事は何もせず失敗にする" {
         Mock getPathState { @{ State = $script:unreachableState; IsDirectory = $false; Message = "ネットワークに届きません" } }
-        Mock removeIndex { }
+        Mock catalogRemove { }
         startIndexStoreJob "delete" "営業" "" @() { }
 
         { runJob $script:jobs[0] } | Should -Throw "*ワークスペースに接続できません*"
 
-        Should -Invoke removeIndex -Times 0
+        Should -Invoke catalogRemove -Times 0
     }
 }
 
@@ -345,7 +370,7 @@ Describe "deleteIndex（1 件の削除）" -Tag Unit {
         $script:jobs.Clear()
         $script:indexBusy = $false
         $script:closeAfterIndexJob = $false
-        $script:workspace = newTestWorkspace @{ IndexDir = "\\fileserver\共有\ws\work\index"; StatusFile = "\\fileserver\共有\ws\work\ingest_status.tsv" }
+        $script:workspace = newTestWorkspace @{} "\\fileserver\共有\ws\work"
         $script:item = newItem "営業" "\\fileserver\共有\営業"
         $script:other = newItem "技術" "\\fileserver\共有\技術"
         $script:targetItems = New-Object System.Collections.Generic.List[object]
@@ -407,14 +432,14 @@ Describe "deleteIndex（1 件の削除）" -Tag Unit {
 
     It "届かないとき、設定を変えず失敗を知らせる（一覧にも残す）" {
         Mock getPathState { @{ State = $script:unreachableState; IsDirectory = $false; Message = "ネットワークに届きません" } }
-        Mock removeIndex { }
+        Mock catalogRemove { }
         deleteIndex
         { runJob $script:jobs[0] } | Should -Throw "*ワークスペースに接続できません*"
         $script:calls.Clear()
 
         & $script:jobs[0].OnDone @() "ワークスペースに接続できません"
 
-        Should -Invoke removeIndex -Times 0
+        Should -Invoke catalogRemove -Times 0
         $script:targetItems.Count | Should -Be 2
         $script:calls | Should -Not -Contain "saveTargets"
         $script:calls | Should -Not -Contain "updateIndexSourceFile"
@@ -439,11 +464,11 @@ Describe "deleteIndexes（複数削除）" -Tag Unit {
     }
 
     It "<expected> の列に出す" -TestCases @(
-        @{ dir = "\\fileserver\共有\ws\work\index"; expected = "network" }
-        @{ dir = "C:\Users\test\tebunko_ws\work\index"; expected = "default" }
+        @{ dir = "\\fileserver\共有\ws\work"; expected = "network" }
+        @{ dir = "C:\Users\test\tebunko_ws\work"; expected = "default" }
     ) {
         param ($dir, $expected)
-        $script:workspace = newTestWorkspace @{ IndexDir = $dir }
+        $script:workspace = newTestWorkspace @{} $dir
 
         deleteIndexes @("営業", "技術")
 
@@ -453,7 +478,7 @@ Describe "deleteIndexes（複数削除）" -Tag Unit {
     }
 
     It "削除の途中で閉じようとして待っていたなら、終わってから閉じる" {
-        $script:workspace = newTestWorkspace @{ IndexDir = "C:\Users\test\tebunko_ws\work\index" }
+        $script:workspace = newTestWorkspace @{} "C:\Users\test\tebunko_ws\work"
         $script:closed = 0
         $script:window = newWindowStub
         deleteIndexes @("営業", "技術")
@@ -466,7 +491,7 @@ Describe "deleteIndexes（複数削除）" -Tag Unit {
     }
 
     It "閉じるのを待っているときは、結果のダイアログを出さずに閉じ、失敗があればステータスに残す" {
-        $script:workspace = newTestWorkspace @{ IndexDir = "C:\Users\test\tebunko_ws\work\index" }
+        $script:workspace = newTestWorkspace @{} "C:\Users\test\tebunko_ws\work"
         $script:closed = 0
         $script:window = newWindowStub
         $script:targetItems.Add((newItem "営業" "C:\営業"))
@@ -484,7 +509,7 @@ Describe "deleteIndexes（複数削除）" -Tag Unit {
     }
 
     It "届かないときの失敗の知らせは、そのあとに届くツリーの読み直し（接続できない）で消えない（複数削除）" {
-        $script:workspace = newTestWorkspace @{ IndexDir = "\\fileserver\共有\ws\work\index" }
+        $script:workspace = newTestWorkspace @{} "\\fileserver\共有\ws\work"
         $script:indexTreeKeepStatus = $false
         deleteIndexes @("営業", "技術")
 
@@ -495,7 +520,7 @@ Describe "deleteIndexes（複数削除）" -Tag Unit {
     }
 
     It "待っていなければ、結果のダイアログを出す" {
-        $script:workspace = newTestWorkspace @{ IndexDir = "C:\Users\test\tebunko_ws\work\index" }
+        $script:workspace = newTestWorkspace @{} "C:\Users\test\tebunko_ws\work"
         deleteIndexes @("営業", "技術")
         $script:calls.Clear()
 
@@ -506,8 +531,8 @@ Describe "deleteIndexes（複数削除）" -Tag Unit {
 
     It "届かないとき、設定を変えず失敗を知らせる" {
         Mock getPathState { @{ State = $script:unreachableState; IsDirectory = $false; Message = "ネットワークに届きません" } }
-        Mock removeIndexes { }
-        $script:workspace = newTestWorkspace @{ IndexDir = "\\fileserver\共有\ws\work\index" }
+        Mock catalogRemoveMany { }
+        $script:workspace = newTestWorkspace @{} "\\fileserver\共有\ws\work"
         $script:targetItems.Add((newItem "営業" "\\fileserver\共有\営業"))
         deleteIndexes @("営業", "技術")
         { runJob $script:jobs[0] } | Should -Throw "*ワークスペースに接続できません*"
@@ -515,7 +540,7 @@ Describe "deleteIndexes（複数削除）" -Tag Unit {
 
         & $script:jobs[0].OnDone @() "ワークスペースに接続できません"
 
-        Should -Invoke removeIndexes -Times 0
+        Should -Invoke catalogRemoveMany -Times 0
         $script:targetItems.Count | Should -Be 1
         $script:calls | Should -Not -Contain "saveTargets"
         $script:calls | Should -Not -Contain "showBulkIndexResult"
@@ -527,29 +552,29 @@ Describe "updateIndexSourceFile" -Tag Unit {
     BeforeEach {
         $script:statuses.Clear()
         $script:jobs.Clear()
-        $script:workspace = newTestWorkspace @{ IndexDir = "\\fileserver\共有\ws\work\index" }
+        $script:workspace = newTestWorkspace @{} "\\fileserver\共有\ws\work"
         $script:targetItems = New-Object System.Collections.Generic.List[object]
         $script:targetItems.Add((newItem "営業" "\\fileserver\共有\営業"))
     }
 
     It "場所に触れず、書き直しを裏の列（network）に出す" {
-        Mock writeSourceFolderFile { throw "画面のスレッドで書いた" }
+        Mock catalogWriteSourceFile { throw "画面のスレッドで書いた" }
 
         updateIndexSourceFile
 
-        Should -Invoke writeSourceFolderFile -Times 0
+        Should -Invoke catalogWriteSourceFile -Times 0
         $script:jobs.Count | Should -Be 1
         $script:jobs[0].Queue | Should -Be "network"
     }
 
-    It "裏の仕事は、今の一覧と IndexDir を引数で受けて書く" {
-        Mock writeSourceFolderFile { }
+    It "裏の仕事は、今の一覧とワークスペースの場所を引数で受けて書く" {
+        Mock catalogWriteSourceFile { }
         updateIndexSourceFile
 
         runJob $script:jobs[0]
 
-        Should -Invoke writeSourceFolderFile -Times 1 -Exactly -ParameterFilter {
-            $dir -eq "\\fileserver\共有\ws\work\index" -and @($folders).Count -eq 1 -and $folders[0].Name -eq "営業"
+        Should -Invoke catalogWriteSourceFile -Times 1 -Exactly -ParameterFilter {
+            $dir -eq "\\fileserver\共有\ws\work" -and @($folders).Count -eq 1 -and $folders[0].Name -eq "営業"
         }
     }
 
