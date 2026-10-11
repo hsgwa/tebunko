@@ -260,6 +260,7 @@ function newIndexerChannel {
     #                     CloudSkipped（クラウドにだけあるため、ダウンロードせずに残した件数）・
     #                     OnlySkipped（OnlyNames のうち、更新できなかった名前の @{ Name; Reason } の配列）
     #   OfficePids: インデックス作成が起動した Office の PID → @{ ProcessName; StartTicks }（閉じるときに止まらなければ、名前と起動時刻が合う PID だけを止める）
+    #   UserOfficePids: 取り込み中に見える窓があった（利用者が使った）PowerPoint の PID → @{ ProcessName; StartTicks }（制限時間を過ぎても、閉じるときも止めない）
     param (
         [bool]$retryFailed = $false,
         [bool]$confirmTargets = $false,
@@ -275,6 +276,7 @@ function newIndexerChannel {
         Plan = $null; Answer = $null; Answered = New-Object System.Threading.ManualResetEvent($false)
         Error = ""; ExitCode = $null; Notice = ""; Postponed = 0; CloudSkipped = 0
         OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'
+        UserOfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'
     })
 }
 

@@ -377,6 +377,42 @@ Describe "indexer.ps1（後回しの司令の流れ。実際のPowerPointは使�
         }
     }
 
+    It "取り込みのスレッドのレーンを諦めたら、そのレーンのファイルを未取り込みのまま後回しにし、0 で終わる。取り込み一覧・インデックスは変えない" {
+        $dir = Join-Path $TestDrive "諦め"
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        foreach ($name in "a", "b", "c") {
+            Copy-Item -LiteralPath $docxSource -Destination "$dir\$name.docx"
+        }
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "諦め"; path = $dir; enabled = $true })
+        # 最初のファイルを渡す直前に、そのレーンを諦めたことにする（本物では、制限時間を過ぎたときの監視が立てる）
+        $global:testAbandonDone = $false
+        $hook = @{ Script = $runPath; Pattern = '^\s+addIngestTask \$pool \$lane \$task'; Action = {
+                if (-not $global:testAbandonDone) {
+                    $global:testAbandonDone = $true
+                    $pool.LaneStates[$lane].Abandoned = $true
+                }
+            }
+        }
+        try {
+            runIndexer $root @{ Workers = 2 } @($hook) | Should -Be 0
+        } finally {
+            Remove-Variable -Name testAbandonDone -Scope Global -ErrorAction SilentlyContinue
+        }
+
+        $status = readTestStatus $root
+        foreach ($name in "a", "b", "c") {
+            $status.Rows["諦め\$name.docx"].状態 | Should -Be ${stateNew}
+        }
+        $script:lastChannel.Postponed | Should -Be 3
+        $script:lastChannel.Notice | Should -Match "3 件を更新せずに残しました"
+        # 書き出していない（取り込んだ TSV もインデックスも無い）。取り込み中の記録・書き出しの置き場にも残さない
+        (findIndexFoldersWithBooks "$root\work\content_index").Count | Should -Be 0
+        Test-Path -LiteralPath "$root\work\ingesting.txt" | Should -Be $false
+        @(Get-ChildItem -LiteralPath "$root\work\publish" -Recurse -File -Force -ErrorAction SilentlyContinue).Count | Should -Be 0
+        (Get-Content -LiteralPath "$root\work\indexing_log.txt" -Raw) | Should -Match "PowerPoint を使っている方がいるため"
+    }
+
     It "司令のスレッドで取り込む形では、終わりの待ちに、中止の合図（Channel.Stop）を見る判定を渡す（立てる前は偽・立てたあとは真）" {
         $dir = Join-Path $TestDrive "待ち配線"
         [System.IO.Directory]::CreateDirectory($dir) | Out-Null
@@ -1408,6 +1444,123 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
             $script:officeOwnDir = $null
             $script:onOfficeHandOver = $null
             Remove-Variable -Name handoverFake -Scope Global
+        }
+    }
+}
+
+Describe "諦めたレーン（制限時間を過ぎても利用者が使っている PowerPoint を止めなかったとき）" -Tag Io {
+    # 実際の PowerPoint は使わない。監視が立てる合図（レーンの Abandoned）を、テストが立てる
+    BeforeAll {
+        . "${scriptsDir}\shared\office\office_reader.ps1"
+        . "${scriptsDir}\shared\office\office_embedded.ps1"
+        . "${scriptsDir}\shared\office\office_app.ps1"
+        . "${scriptsDir}\tebunko\indexer\extract_office.ps1"
+        . "${scriptsDir}\tebunko\indexer\index_migrate.ps1"
+        . "${scriptsDir}\tebunko\indexer\indexer_plan.ps1"
+        . "${scriptsDir}\tebunko\indexer\indexer_decide.ps1"
+        . $runPath
+    }
+
+    BeforeEach {
+        $global:testLaneState = [hashtable]::Synchronized(@{ Abandoned = $false; Handled = $false })
+        $script:laneState = $global:testLaneState
+        ${tmpDir} = Join-Path $TestDrive "abandoned_tmp"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+    }
+    AfterEach {
+        $script:laneState = $null
+        $script:officeUnavailable = $false
+        Remove-Variable -Name testLaneState -Scope Global -ErrorAction SilentlyContinue
+    }
+
+    It "<title>" -TestCases @(
+        @{ title = "諦めたレーンのファイルは、取り込まずに後回しにする"; when = "before" }
+        @{ title = "取り込みが戻ったときに諦めていたら、書き出さずに後回しにする（司令と同じフォルダを書き換えない）"; when = "after" }
+        @{ title = "取り込みが失敗して戻ったときに諦めていても、失敗にせず、アプリも終了させない"; when = "throw" }
+    ) {
+        param ($title, $when)
+        $global:testLaneWhen = $when
+        Mock ingestFile {
+            if ($global:testLaneWhen -eq "throw") { $global:testLaneState.Abandoned = $true; throw "固まった呼び出しが、失敗で戻った" }
+            if ($global:testLaneWhen -eq "after") { $global:testLaneState.Abandoned = $true }
+            return 1
+        }
+        Mock publishTsv { }
+        Mock stopApp { }
+        Mock handOverForeignApp { }
+        if ($when -eq "before") { $global:testLaneState.Abandoned = $true }
+        try {
+            $result = invokeIngestTask @{ RelPath = "資料\発表.pptx"; SourcePath = "C:\data\発表.pptx" } 10
+        } finally {
+            Remove-Variable -Name testLaneWhen -Scope Global -ErrorAction SilentlyContinue
+        }
+        $result.Postponed | Should -Be $true
+        $result.Ok | Should -Be $false
+        $result.Message | Should -BeNullOrEmpty
+        Should -Invoke publishTsv -Times 0 -Exactly -Scope It
+        Should -Invoke stopApp -Times 0 -Exactly -Scope It
+        Should -Invoke handOverForeignApp -Times 0 -Exactly -Scope It
+        Should -Invoke ingestFile -Times $(if ($when -eq "before") { 0 } else { 1 }) -Exactly -Scope It
+    }
+
+    It "諦めていないレーンは、今までどおり書き出して成功にする" {
+        Mock ingestFile { return 1 }
+        Mock publishTsv { }
+        Mock getExtractVersion { return "1" }
+        Mock handOverForeignApp { }
+        $script:officeUnavailable = $true
+        $result = invokeIngestTask @{ RelPath = "資料\発表.pptx"; SourcePath = "C:\data\発表.pptx" } 10
+        $result.Ok | Should -Be $true
+        $result.Postponed | Should -Be $false
+        Should -Invoke publishTsv -Times 1 -Exactly -Scope It
+    }
+
+    It "getUnhandledAbandonedLanes は、スレッドを始めたレーンのうち、諦めて司令がまだ後回しを済ませていないものだけを返す" {
+        $pool = newIngestPool 1 @{}
+        $pool.Started[${laneExcel}] = $true
+        $pool.Started[${lanePowerPoint}] = $true
+        @(getUnhandledAbandonedLanes $pool).Count | Should -Be 0
+        $pool.LaneStates[${lanePowerPoint}].Abandoned = $true
+        # スレッドを始めていないレーンは返さない
+        $pool.LaneStates[${laneWord}].Abandoned = $true
+        @(getUnhandledAbandonedLanes $pool) | Should -Be @(${lanePowerPoint})
+        $pool.LaneStates[${lanePowerPoint}].Handled = $true
+        @(getUnhandledAbandonedLanes $pool).Count | Should -Be 0
+        stopIngestWorkers $pool
+    }
+
+    It "receiveIngestResult は、諦めたレーンがあれば、戻らない結果を待たずに `$null を返す。結果があればそちらを返す" {
+        $pool = newIngestPool 1 @{}
+        $pool.Started[${lanePowerPoint}] = $true
+        $pool.LaneStates[${lanePowerPoint}].Abandoned = $true
+        $pool.Results.Add(@{ RelPath = "a.docx" })
+        (receiveIngestResult $pool).RelPath | Should -Be "a.docx"
+        receiveIngestResult $pool | Should -BeNullOrEmpty
+        stopIngestWorkers $pool
+    }
+
+    It "stopIngestWorkers は、諦めたレーンの固まったスレッドが終わるのを待たずに戻る（止める依頼だけを出す）" {
+        $pool = newIngestPool 1 @{}
+        $pool.Started[${lanePowerPoint}] = $true
+        $pool.LaneStates[${lanePowerPoint}].Abandoned = $true
+        $gate = New-Object System.Threading.ManualResetEvent($false)
+        $runspace = [runspacefactory]::CreateRunspace()
+        $runspace.Open()
+        $ps = [powershell]::Create()
+        $ps.Runspace = $runspace
+        [void]$ps.AddScript({ param ($gate) [void]$gate.WaitOne() }).AddArgument($gate)
+        $worker = @{ PowerShell = $ps; Runspace = $runspace; Handle = $ps.BeginInvoke(); Ended = $false; Lane = ${lanePowerPoint} }
+        $pool.Workers.Add($worker)
+        try {
+            $watch = [System.Diagnostics.Stopwatch]::StartNew()
+            stopIngestWorkers $pool
+            $watch.Elapsed.TotalSeconds | Should -BeLessThan 20
+            $worker.Ended | Should -Be $true
+        } finally {
+            [void]$gate.Set()
+            [void]$worker.Handle.AsyncWaitHandle.WaitOne(10000)
+            $ps.Dispose()
+            $runspace.Dispose()
         }
     }
 }

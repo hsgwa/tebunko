@@ -118,6 +118,28 @@ $Channel.ExitCode = 2
         }
     }
 
+    It "KillOffice は、利用者が使った印のある PID を止めず、数えない。印の起動時刻が違うものは止める" {
+        $session = newFakeIndexingSession '$Channel.ExitCode = 0' (newIndexerChannel)
+        $marked = Start-Process -FilePath "ping.exe" -ArgumentList "-n 30 127.0.0.1" -WindowStyle Hidden -PassThru
+        $staleMark = Start-Process -FilePath "ping.exe" -ArgumentList "-n 30 127.0.0.1" -WindowStyle Hidden -PassThru
+        try {
+            $markedTicks = getOfficeStartTicks $marked
+            $staleTicks = getOfficeStartTicks $staleMark
+            $session.Channel.OfficePids[$marked.Id] = @{ ProcessName = $marked.ProcessName; StartTicks = $markedTicks }
+            $session.Channel.OfficePids[$staleMark.Id] = @{ ProcessName = $staleMark.ProcessName; StartTicks = $staleTicks }
+            $session.Channel.UserOfficePids[$marked.Id] = @{ ProcessName = $marked.ProcessName; StartTicks = $markedTicks }
+            $session.Channel.UserOfficePids[$staleMark.Id] = @{ ProcessName = $staleMark.ProcessName; StartTicks = ($staleTicks - 10000000) }
+            $session.KillOffice() | Should -Be 1
+            $staleMark.WaitForExit(10000) | Should -Be $true
+            $marked.WaitForExit(1500) | Should -Be $false
+        } finally {
+            foreach ($process in @($marked, $staleMark)) {
+                if (!$process.HasExited) { $process.Kill() }
+            }
+            $session.Close()
+        }
+    }
+
     It "GetNotice・GetPostponed は受け渡しの口の値を返す。入っていなければ空・0" {
         $session = newFakeIndexingSession '$Channel.Notice = "PowerPoint が起動していたため、2 件を更新せずに残しました。"; $Channel.Postponed = 2; $Channel.ExitCode = 0' (newIndexerChannel)
         try {

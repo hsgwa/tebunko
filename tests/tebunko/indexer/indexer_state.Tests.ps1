@@ -246,6 +246,7 @@ Describe "newIndexerChannel / writeIndexingProgress / readIndexingProgress" -Tag
         $channel.Notice | Should -Be ""
         $channel.Postponed | Should -Be 0
         $channel.OfficePids.Count | Should -Be 0
+        $channel.UserOfficePids.Count | Should -Be 0
     }
 
     It "クラウドにだけあるファイルをダウンロードして取り込むか（IncludeCloud）は既定で取り込まない。残した件数（CloudSkipped）は 0" {

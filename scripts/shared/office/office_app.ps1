@@ -19,6 +19,8 @@ $script:apps = @{}
 #                Optional は戻ればよい設定、ShowWindow は窓を出すか（Visible を真にする行は restoreHandedOverApp の中の 1 か所だけ）
 #   WindowCheck: ファイルの一覧を読めないとき、見える窓があるかで利用者のものかを判断するか
 #                （Word は自分で窓を隠しているため窓では判断できない。読めなければ渡しも終了もせず、持ち続けて後で読み直す）
+#   GuardUserWindow: 取り込み中に、見える窓が一度でもあったプロセス（利用者がファイルを開いた）を、制限時間を過ぎても強制終了しない（OfficeWatchdog）。
+#                （PowerPoint だけ。Excel・Word は、非表示のプロセスで利用者のファイルを開いたときに窓が見えるかを確かめていないため対象にしない）
 $appInfo = @{
     Excel      = @{
         ProgId = "Excel.Application"; Process = "EXCEL"; ExitWait = 1000
@@ -51,6 +53,7 @@ $appInfo = @{
             ShowWindow = $false
         }
         WindowCheck = $true
+        GuardUserWindow = $true
     }
 }
 
@@ -276,6 +279,7 @@ function getApp {
             ProcessName = $info.Process
             StartTicks  = $startTicks
             Shared      = ($newIds.Count -eq 0)
+            GuardWindow = [bool]$info.GuardUserWindow
         }
         $script:officeWatchdog.UpdateWatchedPids($script:apps)
     }
@@ -600,27 +604,57 @@ class OfficeWatchdog {
     #   Pids    : 強制終了してよいプロセス（自分で起動したOfficeアプリ）。@{ Id; ProcessName; StartTicks } の配列。止める前に起動時刻を照らす
     #   TimedOut: 制限時間を過ぎて強制終了した
     #   Stop    : 見張りのスレッドに終わりを伝える
+    #   Users   : 取り込み中に、見える窓が一度でもあったプロセス（利用者が使った印）。PID → @{ ProcessName; StartTicks }（ConcurrentDictionary）。
+    #             印のあるプロセスは、制限時間を過ぎても強制終了しない。画面を閉じるときの KillOffice と共有するため、使う側が入れ替える
+    #   Abandon : 印のあるプロセスを止めずに、制限時間を過ぎたレーンを諦めたと、司令に伝える入れ物（Synchronized な @{ Abandoned }）。
+    #             取り込みのスレッドが入れる。無ければ（司令のスレッドで取り込むとき）止めないだけにする
+    #   WindowProbe: 窓があるかを見分ける関数の名前（既定は testOfficeProcessHasWindow。テストで差し替える）
     [hashtable]$State
     # 強制終了してよいプロセスの名前（Officeアプリ）
     [string[]]$ProcessNames
     hidden $Thread
 
     OfficeWatchdog([string[]]$processNames) {
-        $this.State = [hashtable]::Synchronized(@{ Deadline = [datetime]::MaxValue; Pids = @(); TimedOut = $false; Stop = $false })
+        $this.State = [hashtable]::Synchronized(@{
+            Deadline = [datetime]::MaxValue; Pids = @(); TimedOut = $false; Stop = $false
+            Users = (New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'); Abandon = $null
+            WindowProbe = 'testOfficeProcessHasWindow'
+        })
         $this.ProcessNames = $processNames
         $this.Thread = $null
     }
 
     [void] UpdateWatchedPids([hashtable]$apps) {
         # 強制終了してよいプロセスIDを、起動中のアプリのうち自分で起動したものにする（利用者のアプリは終了させない）
+        $previous = @($this.State.Pids)
         $this.State.Pids = @($apps.Values | Where-Object { -not $_.Shared -and $_.Pid } |
-            ForEach-Object { @{ Id = [int]$_.Pid; ProcessName = $_.ProcessName; StartTicks = $_.StartTicks } })
+            ForEach-Object { @{ Id = [int]$_.Pid; ProcessName = $_.ProcessName; StartTicks = $_.StartTicks; GuardWindow = [bool]$_.GuardWindow } })
+        # 見張りから外れたプロセス（終わった・利用者に渡した）と、同じ PID でも起動時刻が違うもの（PID が使い回された）の「利用者が使った」印は消す
+        # （古い印で、別のプロセスを止めなくならないように）。ほかのレーンの印は、自分が見張ったことのある PID だけを対象にして消さない
+        foreach ($old in $previous) {
+            $now = @($this.State.Pids | Where-Object { $_.Id -eq $old.Id })
+            if ($now.Count -eq 0 -or $now[0].StartTicks -ne $old.StartTicks) {
+                $removed = $null
+                [void]$this.State.Users.TryRemove([int]$old.Id, [ref]$removed)
+            }
+        }
+        foreach ($entry in @($this.State.Pids)) {
+            $mark = $null
+            if ($this.State.Users.TryGetValue([int]$entry.Id, [ref]$mark) -and $mark.StartTicks -ne $entry.StartTicks) {
+                $removed = $null
+                [void]$this.State.Users.TryRemove([int]$entry.Id, [ref]$removed)
+            }
+        }
     }
 
     [void] Start() {
         # 見張りは別のランスペースで動くので、照合の関数の定義を渡す（式を書き写さない。worker_pool.ps1 と同じ InitialSessionState の形）
         $sessionState = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault2()
-        foreach ($name in @('isSameOfficeProcess', 'compareOfficeProcess', 'getOfficeStartTicks')) {
+        $functionNames = @('isSameOfficeProcess', 'compareOfficeProcess', 'getOfficeStartTicks', 'testOfficeProcessHasWindow')
+        if ($this.State.WindowProbe -and $functionNames -notcontains [string]$this.State.WindowProbe) {
+            $functionNames += [string]$this.State.WindowProbe
+        }
+        foreach ($name in $functionNames) {
             $sessionState.Commands.Add([System.Management.Automation.Runspaces.SessionStateFunctionEntry]::new($name, (Get-Command $name -CommandType Function).Definition))
         }
         $runspace = [System.Management.Automation.Runspaces.RunspaceFactory]::CreateRunspace($sessionState)
@@ -631,17 +665,52 @@ class OfficeWatchdog {
             param($watch, [string[]]$processNames)
             while (-not $watch.Stop) {
                 Start-Sleep -Milliseconds 500
-                if ([datetime]::Now -lt $watch.Deadline) {
+                $deadline = $watch.Deadline
+                if ($deadline -eq [datetime]::MaxValue) {
                     continue
                 }
-                $watch.Deadline = [datetime]::MaxValue
-                $watch.TimedOut = $true
+                $due = ([datetime]::Now -ge $deadline)
+                # 取り込み中は毎回、窓のあるプロセスに「利用者が使った」印を残す（固まったプロセスの窓は、約 5 秒で別のプロセスのゴースト窓に差し替わって
+                # 見えなくなるので、制限時間を過ぎたときに見るだけでは足りない。固まる前に見た窓を、固まった後の判断に使う）。
+                # 制限時間を過ぎたとき、印のあるプロセスは止めず、止めた分だけを targets に集める
+                $spared = $false
+                $targets = New-Object System.Collections.Generic.List[object]
                 foreach ($entry in @($watch.Pids)) {
                     try {
                         # 終了済みでIDが別のプロセスに再利用されている場合に備え、Officeアプリであること、控えたときと同じプロセスであること（名前・起動時刻）を確かめる
                         $process = [System.Diagnostics.Process]::GetProcessById([int]$entry.Id)
-                        if ((isSameOfficeProcess $process $entry.ProcessName $entry.StartTicks) -and $processNames -contains $process.ProcessName) {
-                            $process.Kill()
+                        if (-not ((isSameOfficeProcess $process $entry.ProcessName $entry.StartTicks) -and $processNames -contains $process.ProcessName)) {
+                            continue
+                        }
+                        if ($entry.GuardWindow) {
+                            if (& $watch.WindowProbe $process) {
+                                $watch.Users[[int]$entry.Id] = @{ ProcessName = $entry.ProcessName; StartTicks = $entry.StartTicks }
+                            }
+                            $mark = $null
+                            if ($watch.Users.TryGetValue([int]$entry.Id, [ref]$mark) -and $mark.StartTicks -eq $entry.StartTicks) {
+                                if ($due) { $spared = $true }
+                                continue
+                            }
+                        }
+                        if ($due) {
+                            $targets.Add(@{ Entry = $entry; Process = $process })
+                        }
+                    } catch {}
+                }
+                if (-not $due) {
+                    continue
+                }
+                $watch.Deadline = [datetime]::MaxValue
+                if ($spared -and $null -ne $watch.Abandon) {
+                    $watch.Abandon.Abandoned = $true
+                }
+                if ($targets.Count -gt 0 -or -not $spared) {
+                    $watch.TimedOut = $true
+                }
+                foreach ($target in $targets) {
+                    try {
+                        if (isSameOfficeProcess $target.Process $target.Entry.ProcessName $target.Entry.StartTicks) {
+                            $target.Process.Kill()
                         }
                     } catch {}
                 }

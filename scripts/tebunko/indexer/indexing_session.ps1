@@ -127,6 +127,14 @@ class IndexingSession {
                 # 終了済みで ID が別のプロセスに使われている場合に備え、記録したプロセス名と起動時刻が同じか確かめる
                 $entry = $this.Channel.OfficePids[$id]
                 if (isSameOfficeProcess $process $entry.ProcessName $entry.StartTicks) {
+                    # 利用者が使っている（取り込み中に見える窓があった）PowerPoint は止めない
+                    $mark = $null
+                    if ($this.Channel.UserOfficePids.TryGetValue($id, [ref]$mark) -and $mark.StartTicks -eq $entry.StartTicks) {
+                        continue
+                    }
+                    if ($entry.ProcessName -eq 'POWERPNT' -and (testOfficeProcessHasWindow $process)) {
+                        continue
+                    }
                     $process.Kill()
                     $count++
                 }
