@@ -30,7 +30,7 @@ function getCoverageTargets {
             return $true
         } |
         Where-Object {
-            $_.Name -notmatch "^(gui|gui_main|shell|app_host|splash|trimmed_tooltip)\.ps1$" -and
+            $_.Name -notmatch "^(gui|gui_main|shell|app_host|splash|trimmed_tooltip|notice_banner)\.ps1$" -and
             $_.Name -notmatch "_tab\.ps1$" -and
             $_.Name -notmatch "_dialog\.ps1$"
         } |
