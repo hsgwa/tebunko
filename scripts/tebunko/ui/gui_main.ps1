@@ -82,7 +82,8 @@ function startGui {
         @{ File = "index\index.xaml"; Slot = "ContentHost"; Screen = "IndexTab"; Names = @(
             "IndexListHost", "IndexDetailHost", "IndexDetailRow", "IndexSplitter",
             "IndexingProgressPanel", "IndexingBannerIcon", "IndexingProgressText", "IndexingProgressEta", "IndexingProgress",
-            "IndexingProgressDetail", "IndexingStopButton", "IndexingResumeButton", "IndexingSearchButton", "IndexingBannerClose") }
+            "IndexingProgressDetail", "IndexingStopButton", "IndexingResumeButton", "IndexingSearchButton", "IndexingBannerClose",
+            "IndexNoticePanel", "IndexNoticeIcon", "IndexNoticeText", "IndexNoticeButton", "IndexNoticeClose") }
         @{ File = "index\index_list.xaml"; Slot = "IndexListHost"; Names = @(
             "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "ActionsButton", "ActionsMenu", "ActionUpdate", "ActionExport", "ActionImport", "ActionDelete", "SelectionCountText", "SelectAllCheckBox", "IndexingButton", "IndexingHint", "StatusColumnHeader",
             "IndexRowMenu", "RowMenuUpdate", "RowMenuOpenFolder", "RemoveIndexButton", "ExportIndexButton") }
@@ -91,7 +92,8 @@ function startGui {
             "IndexDetailRows", "IndexDetailFastPanel", "IndexDetailFastText", "IndexDetailFastBar",
             "FailedPanel", "FailedHeading", "FailedGrid") }
         @{ File = "search\search.xaml"; Slot = "ContentHost"; Screen = "SearchTab"; Names = @(
-            "SearchBarHost", "ResultListHost", "PreviewHost", "DetailRow", "PreviewSplitter", "ResultEmptyState", "GoIndexTabButton") }
+            "SearchBarHost", "ResultListHost", "PreviewHost", "DetailRow", "PreviewSplitter", "ResultEmptyState", "GoIndexTabButton",
+            "SearchNoticePanel", "SearchNoticeIcon", "SearchNoticeText", "SearchNoticeButton", "SearchNoticeClose") }
         @{ File = "search\search_bar.xaml"; Slot = "SearchBarHost"; Names = @(
             "WordBox", "SearchButton", "RegexCheck", "CaseCheck", "ShapeCheck", "CommentCheck", "ScopeButton",
             "ConditionsPanel", "ConditionsSpacer", "FastSearchSlot", "KindChipExcel", "KindChipWord", "KindChipPowerPoint", "KindChipText",
@@ -112,7 +114,8 @@ function startGui {
     )
 
     $ui = @{}
-    foreach ($name in @("NavHost", "ContentHost", "StatusBarHost", "ScrimOverlay")) {
+    foreach ($name in @("NavHost", "ContentHost", "StatusBarHost", "ScrimOverlay",
+            "WorkspaceNoticePanel", "WorkspaceNoticeIcon", "WorkspaceNoticeText", "WorkspaceNoticeButton", "WorkspaceNoticeClose")) {
         $ui[$name] = $window.FindName($name)
     }
     $script:screenContents = @{}
@@ -165,6 +168,7 @@ function startGui {
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\about_view.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\shell\nav_view.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\shell\status_bar_view.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\shell\notice_banner_view.ps1".Replace('`', '``')))
     stepSplash 80
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\index\index_list.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\index\index_store.ps1".Replace('`', '``')))
@@ -195,6 +199,7 @@ function startGui {
     # ナビと画面の切り替え（selectScreen・getCurrentScreen）。$script:startupLoaded を決めた後に読み込む
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\shell\nav.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\shell\status_bar.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\shell\notice_banner.ps1".Replace('`', '``')))
 
     $window.Add_Activated({
         if (!$script:startupLoaded) {
@@ -473,6 +478,7 @@ function startGui {
     selectScreen $(if ($openIndexTab) { "IndexTab" } else { "SearchTab" })
     # 既定のワークスペースにほかのファイルが置いてあれば、［設定］を開いて別のフォルダを選んでもらう（画面を出した後に知らせる）
     $script:workspaceBlock = getWorkspaceBlockMessage
+    updateWorkspaceBanner
     if ($script:workspaceBlock) {
         selectScreen "SettingsTab"
     }

@@ -746,6 +746,7 @@ function exportResults {
         return
     }
     $rows = getViewRows
+    hideNoticeBanner "SearchNotice"
     try {
         [System.IO.Directory]::CreateDirectory($workspace.Dir) | Out-Null
         $writer = New-Object System.IO.StreamWriter($workspace.ResultFile, $false, ${utf8Bom})
@@ -755,11 +756,11 @@ function exportResults {
             $writer.Close()
         }
     } catch [System.IO.IOException] {
-        setStatus "search_results.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。"
+        showNoticeBanner "SearchNotice" "ResultSaveFailed" "search_results.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。"
         return
     } catch [System.UnauthorizedAccessException] {
         # 読み取り専用・書き込み権限が無いときは、アプリを閉じても直らないため別の文言にする
-        setStatus "search_results.txt に書き込む権限がありません（読み取り専用など）。$($workspace.ResultFile) を確かめてから、もう一度出力してください。"
+        showNoticeBanner "SearchNotice" "ResultSaveFailed" "search_results.txt に書き込む権限がありません（読み取り専用など）。$($workspace.ResultFile) を確かめてから、もう一度出力してください。"
         return
     }
     Invoke-Item -LiteralPath $workspace.ResultFile

@@ -166,6 +166,9 @@ function switchWorkspace {
     clearSearchView
     $script:workspace = [Workspace]::new((getWorkDir))
     $script:workspaceBlock = getWorkspaceBlockMessage
+    updateWorkspaceBanner
+    hideNoticeBanner "SearchNotice"
+    hideNoticeBanner "IndexNotice"
     $script:indexingState = $null
     $script:indexSummary = $null
     resetIndexingBanner

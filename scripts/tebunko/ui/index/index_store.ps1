@@ -334,6 +334,7 @@ function deleteIndexes {
             if ($errorText) {
                 loadTargets
                 refreshIndexViewsKeepingStatus "削除に失敗しました：${errorText}"
+                showNoticeBanner "IndexNotice" "BulkFailed" "削除に失敗しました：${errorText}"
                 return
             }
             # 消せたものを一覧から外す（失敗したものは残す）

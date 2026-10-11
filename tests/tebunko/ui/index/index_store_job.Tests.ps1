@@ -6,8 +6,10 @@ BeforeAll {
     $script:calls = New-Object System.Collections.Generic.List[string]
     $script:statuses = New-Object System.Collections.Generic.List[string]
     $script:jobs = New-Object System.Collections.Generic.List[object]
+    $script:banners = New-Object System.Collections.Generic.List[string]
 
     function setStatus { param([string]$text) $script:statuses.Add($text) }
+    function showNoticeBanner { param($prefix, $kind, $message) $script:banners.Add("$prefix/$kind/$message") }
     function startJob {
         # 裏の列には出さず、依頼を取っておく（テストが onDone を呼んで、終わったことにする）
         param ([scriptblock]$scriptBlock, [object[]]$arguments, [scriptblock]$onDone, [string]$queue = "default")
@@ -492,6 +494,7 @@ Describe "deleteIndexes（複数削除）" -Tag Unit {
         applyIndexTreeData @{ State = $script:unreachableState; Message = "届きません" } @()
 
         $script:statuses[$script:statuses.Count - 1] | Should -BeLike "削除に失敗しました*"
+        ($script:banners -join "`n") | Should -Match "IndexNotice/BulkFailed/削除に失敗しました"
     }
 
     It "待っていなければ、結果のダイアログを出す" {

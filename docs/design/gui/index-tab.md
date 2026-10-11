@@ -52,7 +52,7 @@
 
 ### 仮の部分
 
-終わりの失敗の見せ方（`getIndexBulkResultView`）は仮で、文言を後で決める。
+終わりの失敗は、メッセージボックスではなく、この画面の上の橙の帯に出す（`getNoticeBannerView`。閉じられる。[帯とステータスバー](indexing-run.md#帯とステータスバー)）。文言（`getIndexBulkResultView`）は仮で、後で決める。
 
 ## 名前とフォルダパスの編集
 

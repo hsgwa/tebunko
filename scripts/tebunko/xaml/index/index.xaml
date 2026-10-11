@@ -17,7 +17,8 @@
   <!-- 画面の上の帯。更新中・中断・終了を 1 行で知らせる（地・線・文字・アイコンの色と形は index_detail.ps1 の setIndexingBanner が状態で変える）。
        右の枠（ContentHost の余白）をはみ出して、右の領域の上端・左右いっぱいに置く（下の Grid.Margin）。
        更新中は、見本にない細い進みの棒と、いま見ているファイルを同じ 1 行に並べる -->
-  <Border x:Name="IndexingProgressPanel" Grid.Row="0" Visibility="Collapsed" Style="{StaticResource Banner}"
+  <StackPanel Grid.Row="0">
+  <Border x:Name="IndexingProgressPanel" Visibility="Collapsed" Style="{StaticResource Banner}"
           Background="{StaticResource Badge.Run.Bg}" BorderBrush="{StaticResource Accent}">
     <DockPanel>
       <!-- 帯の右の組。ボタンの間・見積もり時間とボタンの間は 10（ボタンの左の余白で取る。右の空き 12 は帯の余白） -->
@@ -47,6 +48,23 @@
       </Grid>
     </DockPanel>
   </Border>
+  <!-- まとめてのエクスポート・削除に失敗があったときの知らせの帯（notice_banner.ps1）。更新の帯の下に重ねて並べる -->
+  <Border x:Name="IndexNoticePanel" Visibility="Collapsed" Style="{StaticResource Banner}"
+          Background="{StaticResource Warn.Soft}" BorderBrush="{StaticResource Warn}">
+    <DockPanel>
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+        <Button x:Name="IndexNoticeButton" Style="{StaticResource Banner.Button}" Margin="10,0,0,0" Visibility="Collapsed" />
+        <Button x:Name="IndexNoticeClose" Style="{StaticResource Banner.Close}" Margin="10,0,0,0" ToolTip="閉じる"
+                AutomationProperties.Name="帯を閉じる" />
+      </StackPanel>
+      <Path x:Name="IndexNoticeIcon" DockPanel.Dock="Left" Data="{StaticResource Icon.CircleAlert}" Width="16" Height="16" Stretch="Uniform"
+            Stroke="{StaticResource Warn}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+            Fill="Transparent" VerticalAlignment="Center" Margin="0,0,10,0" />
+      <TextBlock x:Name="IndexNoticeText" Style="{StaticResource Focal}" FontSize="12" FontWeight="Medium" Foreground="{StaticResource Banner.Warn.Text}"
+                 VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+    </DockPanel>
+  </Border>
+  </StackPanel>
 
   <!-- 帯の下。ContentHost の余白（16,12,16,12）を帯のために負の余白で打ち消した。一覧は余白を自分で戻し、仕切りと詳細は左右いっぱいに置く -->
   <Grid Grid.Row="1">

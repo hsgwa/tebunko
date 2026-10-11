@@ -42,12 +42,29 @@
     <!-- 主な領域：中身（画面）とステータスバー。ステータスバーは左の欄の下には付かない -->
     <Grid Grid.Column="2">
       <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
         <RowDefinition Height="*" />
         <RowDefinition Height="24" />
       </Grid.RowDefinitions>
-      <ContentControl x:Name="ContentHost" Grid.Row="0" Margin="16,12,16,12" Focusable="False" IsTabStop="False"
+      <!-- 窓の上の知らせの帯（ワークスペースが使えないとき。notice_banner.ps1）。画面を切り替えても残る -->
+      <Border x:Name="WorkspaceNoticePanel" Visibility="Collapsed" Style="{StaticResource Banner}"
+          Background="{StaticResource Warn.Soft}" BorderBrush="{StaticResource Warn}">
+    <DockPanel>
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+        <Button x:Name="WorkspaceNoticeButton" Style="{StaticResource Banner.Button}" Margin="10,0,0,0" Visibility="Collapsed" />
+        <Button x:Name="WorkspaceNoticeClose" Style="{StaticResource Banner.Close}" Margin="10,0,0,0" ToolTip="閉じる"
+                AutomationProperties.Name="帯を閉じる" />
+      </StackPanel>
+      <Path x:Name="WorkspaceNoticeIcon" DockPanel.Dock="Left" Data="{StaticResource Icon.CircleAlert}" Width="16" Height="16" Stretch="Uniform"
+            Stroke="{StaticResource Warn}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+            Fill="Transparent" VerticalAlignment="Center" Margin="0,0,10,0" />
+      <TextBlock x:Name="WorkspaceNoticeText" Style="{StaticResource Focal}" FontSize="12" FontWeight="Medium" Foreground="{StaticResource Banner.Warn.Text}"
+                 VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+    </DockPanel>
+  </Border>
+      <ContentControl x:Name="ContentHost" Grid.Row="1" Margin="16,12,16,12" Focusable="False" IsTabStop="False"
                       HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
-      <ContentControl x:Name="StatusBarHost" Grid.Row="1" Focusable="False" IsTabStop="False"
+      <ContentControl x:Name="StatusBarHost" Grid.Row="2" Focusable="False" IsTabStop="False"
                       HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
     </Grid>
 
