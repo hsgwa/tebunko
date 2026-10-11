@@ -4300,8 +4300,8 @@
 <td>開くのにパスワードが要る PDF</td>
 </tr>
 <tr>
-<td>空の利用者パスワードで開ける暗号化された PDF（下の「暗号化された PDF」）</td>
-<td>下の 4 方式以外の暗号化</td>
+<td>空の利用者パスワードで開ける AES-256 の暗号化された PDF（下の「暗号化された PDF」）</td>
+<td>AES-256 以外の暗号化（RC4 40・128 ビット、AES-128 など）</td>
 </tr>
 <tr>
 <td>圧縮なし、<code>FlateDecode</code></td>
@@ -4340,7 +4340,7 @@
 <li>文字の位置・向き・列の並び（段組み）は見ない。ページの中の文字は、ファイルに書かれた順に並ぶ。</li>
 </ul>
 <h2 id="暗号化された-pdf">暗号化された PDF<a class="headerlink" href="#暗号化された-pdf" title="Permanent link">&para;</a></h2>
-<p>所有者のパスワードだけが設定され、利用者のパスワードが空の PDF は、ブラウザーと同じようにパスワード無しで開ける。これを復号して読む（<code>pdf_crypt.ps1</code>）。読む方式は標準のセキュリティハンドラー（<code>/Filter /Standard</code>）の次の 4 つ。</p>
+<p>所有者のパスワードだけが設定され、利用者のパスワードが空の PDF は、ブラウザーと同じようにパスワード無しで開ける。このうち AES-256 のものを復号して読む（<code>pdf_crypt.ps1</code>）。読む方式は標準のセキュリティハンドラー（<code>/Filter /Standard</code>）の次の 1 つだけ。</p>
 <table>
 <thead>
 <tr>
@@ -4351,21 +4351,6 @@
 </thead>
 <tbody>
 <tr>
-<td>RC4 40 ビット</td>
-<td>1・2</td>
-<td>RC4</td>
-</tr>
-<tr>
-<td>RC4 128 ビット</td>
-<td>2・3</td>
-<td>RC4</td>
-</tr>
-<tr>
-<td>AES-128</td>
-<td>4・4</td>
-<td>AES-CBC（オブジェクトごとの鍵）</td>
-</tr>
-<tr>
 <td>AES-256</td>
 <td>5・5 と 5・6</td>
 <td>AES-CBC（ファイルの鍵をそのまま使う。R6 はアルゴリズム 2.B）</td>
@@ -4373,11 +4358,12 @@
 </tbody>
 </table>
 <ul>
-<li>空のパスワードから鍵を作り、<code>/U</code> と照らす。合わなければ（開くのにパスワードが要る）<code>PDFにパスワードが必要なため読めません。</code>。パスワードを探す・試す処理は無い。</li>
-<li>独自のフィルター・知らない <code>/V</code> <code>/R</code>・知らない暗号方式（<code>/CFM</code>）は <code>PDFの暗号化の方式に対応していないため読めません。</code>。<code>/O</code> <code>/U</code> <code>/UE</code> が短いなどの壊れた辞書は <code>PDFの暗号化の情報が壊れているため読めません。</code>。暗号化されたストリームの長さや詰め物が壊れているときは <code>PDFの暗号化されたデータが壊れているため読めません。</code>。どれもそのファイルだけの失敗（暗号化まわりの文言は 4 つ）。</li>
-<li>復号するのはストリームだけ（文字列は読む内容がストリームの中にあるため、復号しない）。相互参照のストリームは暗号化されないので復号しない。<code>/EncryptMetadata false</code> のメタデータ・<code>/StmF /Identity</code>・<code>/CFM /None</code>・ストリームごとの <code>/Crypt</code> フィルターの <code>/Identity</code> も復号しない。</li>
-<li>辞書の <code>/Length</code> は 40〜128 の 8 の倍数だけ受ける。R6 の鍵の計算の繰り返しは上限（300 回。仕様どおりなら最大 288 回で終わる）で止める。鍵・途中の値は、例外の文にも記録にも出さない。</li>
-<li>MD5 と RC4 は PDF の仕様が求めるため自前で書く（.NET の型は FIPS 準拠を強制した機械では使えず、4 方式とも読めなくなるため）。SHA-2 と AES は FIPS でも使える <code>*CryptoServiceProvider</code> を使う。</li>
+<li>空のパスワードから <code>/U</code> と照らして鍵を作る。合わなければ（開くのにパスワードが要る）<code>PDFにパスワードが必要なため読めません。</code>。パスワードを探す・試す処理は無い。</li>
+<li>RC4 40・128 ビットと AES-128（<code>/V</code> が 4 以下）は読まない。これらは鍵の導出に MD5 が要り、MD5 は FIPS 準拠を強制した機械で .NET の型が例外になる上、自前でも書かない方針のため、空のパスワードで開けるかも判断できない。そのため、パスワードの有無にかかわらず常に <code>PDFの暗号化の方式に対応していないため読めません。</code> で失敗にする。</li>
+<li>独自のフィルター・知らない <code>/V</code> <code>/R</code>・知らない暗号方式（<code>/CFM</code>）も同じ <code>PDFの暗号化の方式に対応していないため読めません。</code>。<code>/U</code> <code>/UE</code> が短いなどの壊れた辞書は <code>PDFの暗号化の情報が壊れているため読めません。</code>。暗号化されたストリームの長さや詰め物が壊れているときは <code>PDFの暗号化されたデータが壊れているため読めません。</code>。どれもそのファイルだけの失敗（暗号化まわりの文言は 4 つ）。</li>
+<li>復号するのはストリームだけ（文字列は読む内容がストリームの中にあるため、復号しない）。相互参照のストリームは暗号化されないので復号しない。<code>/StmF /Identity</code>・<code>/CFM /None</code>・ストリームごとの <code>/Crypt</code> フィルターの <code>/Identity</code> も復号しない。</li>
+<li>R6 の鍵の計算の繰り返しは上限（300 回。仕様どおりなら最大 288 回で終わる）で止める。鍵・途中の値は、例外の文にも記録にも出さない。</li>
+<li>SHA-2 と AES は FIPS でも使える <code>*CryptoServiceProvider</code> を使う。</li>
 </ul>
 <h2 id="読み取りの上限">読み取りの上限<a class="headerlink" href="#読み取りの上限" title="Permanent link">&para;</a></h2>
 <p>細工した PDF で固まったり、メモリを使い切ったりしないよう、すべて上限を設ける。超えたら失敗にする（<code>PDF</code> で始まるメッセージの例外）。</p>
@@ -4458,8 +4444,8 @@
 </ul>
 <h2 id="テスト">テスト<a class="headerlink" href="#テスト" title="Permanent link">&para;</a></h2>
 <ul>
-<li><code>tests/shared/core/pdf_file.Tests.ps1</code> … 読み取り（自作した PDF のバイト列。圧縮・相互参照のストリーム・フォント・上限・壊れた入力・4 方式の暗号化 PDF・パスワードが要る PDF・未対応や壊れた暗号化の辞書）。</li>
-<li><code>tests/shared/core/pdf_crypt.Tests.ps1</code> … 暗号の部品（MD5・RC4・SHA の公開されている正解の値、R2〜R6 の鍵の導出と R5・R6 のハッシュを別に書いた計算と照らす、オブジェクトのストリームごと暗号化した PDF・/EncryptMetadata false を読む、ストリームごとの復号の方式の選び方）。暗号化 PDF を組み立てる道具（<code>tests/helpers/pdf.ps1</code> の <code>newEncryptedPdf</code>）は、読む側の MD5・RC4 を使わず、.NET の型で別に書く。</li>
+<li><code>tests/shared/core/pdf_file.Tests.ps1</code> … 読み取り（自作した PDF のバイト列。圧縮・相互参照のストリーム・フォント・上限・壊れた入力・AES-256 の暗号化 PDF・パスワードが要る PDF・未対応や壊れた暗号化の辞書）。</li>
+<li><code>tests/shared/core/pdf_crypt.Tests.ps1</code> … 暗号の部品（SHA の公開されている正解の値、R5・R6 のハッシュと鍵の導出を別に書いた計算と照らす、オブジェクトのストリームごと暗号化した PDF を読む、ストリームごとの復号の方式の選び方）。暗号化 PDF を組み立てる道具（<code>tests/helpers/pdf.ps1</code> の <code>newEncryptedPdf</code>）は、読む側の部品を使わず、.NET の型で別に書く。</li>
 <li><code>tests/tebunko/indexer/extract_pdf.Tests.ps1</code> … コピーの扱い・TSV の書き出し・失敗の扱い。</li>
 <li><code>tests/testdata/compat/index/v0.4.0+pdf/</code> … 前の版の見本（取り込み済みのインデックスを読み、検索できること）。</li>
 <li>テストに使う PDF は、テストの中で自作する（作成者などのメタデータを入れない）。</li>
