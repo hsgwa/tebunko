@@ -719,3 +719,64 @@ Describe "readPdfToken" -Tag Unit {
         $st.K | Should -Be "eof"
     }
 }
+
+Describe "undoPdfPredictor" -Tag Unit {
+    BeforeAll {
+        # 1 バイトずつ種類を調べる素直な書き方（基準）
+        function undoPdfPredictorReference([byte[]]$data, [int]$rowLength, [int]$bpp) {
+            $rows = [int][Math]::Floor($data.Length / ($rowLength + 1))
+            $out = New-Object byte[] ($rows * $rowLength)
+            for ($r = 0; $r -lt $rows; $r++) {
+                $src = $r * ($rowLength + 1)
+                $type = $data[$src]
+                $dst = $r * $rowLength
+                $prev = $dst - $rowLength
+                for ($i = 0; $i -lt $rowLength; $i++) {
+                    $x = [int]$data[$src + 1 + $i]
+                    $left = 0
+                    if ($i -ge $bpp) { $left = [int]$out[$dst + $i - $bpp] }
+                    $up = 0
+                    if ($r -gt 0) { $up = [int]$out[$prev + $i] }
+                    $upLeft = 0
+                    if ($r -gt 0 -and $i -ge $bpp) { $upLeft = [int]$out[$prev + $i - $bpp] }
+                    if ($type -eq 0) { $v = $x }
+                    elseif ($type -eq 1) { $v = $x + $left }
+                    elseif ($type -eq 2) { $v = $x + $up }
+                    elseif ($type -eq 3) { $v = $x + [int][Math]::Floor(($left + $up) / 2) }
+                    else {
+                        $pp = $left + $up - $upLeft
+                        $pa = [Math]::Abs($pp - $left)
+                        $pb = [Math]::Abs($pp - $up)
+                        $pc = [Math]::Abs($pp - $upLeft)
+                        if ($pa -le $pb -and $pa -le $pc) { $pred = $left } elseif ($pb -le $pc) { $pred = $up } else { $pred = $upLeft }
+                        $v = $x + $pred
+                    }
+                    $out[$dst + $i] = [byte]($v -band 255)
+                }
+            }
+            return , $out
+        }
+    }
+
+    It "行の種類 <types>・<columns> 列・<colors> 色は、基準の書き方と同じ結果になる" -TestCases @(
+        @{ types = @(0, 1, 2, 3, 4); columns = 10; colors = 1 }
+        @{ types = @(4, 3, 2, 1, 0, 4, 4); columns = 7; colors = 3 }
+        @{ types = @(1, 2, 3, 4); columns = 1; colors = 1 }
+        @{ types = @(1, 3, 4, 2); columns = 2; colors = 4 }
+    ) {
+        param($types, $columns, $colors)
+        $random = New-Object System.Random(7)
+        $rowLength = $columns * $colors
+        $data = New-Object byte[] ($types.Count * ($rowLength + 1))
+        $random.NextBytes($data)
+        for ($r = 0; $r -lt $types.Count; $r++) { $data[$r * ($rowLength + 1)] = [byte]$types[$r] }
+        $params = @{ Predictor = 15; Columns = $columns; Colors = $colors }
+        $actual = undoPdfPredictor $data $params
+        $expected = undoPdfPredictorReference $data $rowLength $colors
+        [Convert]::ToBase64String($actual) | Should -BeExactly ([Convert]::ToBase64String($expected))
+    }
+
+    It "行の種類が 0〜4 でなければ例外にする" {
+        { undoPdfPredictor ([byte[]]@(9, 1, 2, 3)) @{ Predictor = 15; Columns = 3 } } | Should -Throw
+    }
+}

@@ -530,33 +530,54 @@ function undoPdfPredictor {
     $rows = [int][Math]::Floor($data.Length / ($rowLength + 1))
     $out = New-Object byte[] ($rows * $rowLength)
     for ($r = 0; $r -lt $rows; $r++) {
-        $src = $r * ($rowLength + 1)
-        $type = $data[$src]
+        $src = $r * ($rowLength + 1) + 1
+        $type = $data[$src - 1]
         $dst = $r * $rowLength
         $prev = $dst - $rowLength
-        for ($i = 0; $i -lt $rowLength; $i++) {
-            $x = [int]$data[$src + 1 + $i]
-            $left = 0
-            if ($i -ge $bpp) { $left = [int]$out[$dst + $i - $bpp] }
-            $up = 0
-            if ($r -gt 0) { $up = [int]$out[$prev + $i] }
-            $upLeft = 0
-            if ($r -gt 0 -and $i -ge $bpp) { $upLeft = [int]$out[$prev + $i - $bpp] }
-            if ($type -eq 0) { $v = $x }
-            elseif ($type -eq 1) { $v = $x + $left }
-            elseif ($type -eq 2) { $v = $x + $up }
-            elseif ($type -eq 3) { $v = $x + [int][Math]::Floor(($left + $up) / 2) }
-            elseif ($type -eq 4) {
+        # 行の種類ごとに回す（1 バイトごとに種類を調べない）。左・上・左上は、行の左端と最初の行では 0
+        if ($type -eq 0) {
+            [System.Buffer]::BlockCopy($data, $src, $out, $dst, $rowLength)
+        } elseif ($type -eq 1) {
+            $head = [Math]::Min($bpp, $rowLength)
+            [System.Buffer]::BlockCopy($data, $src, $out, $dst, $head)
+            for ($i = $head; $i -lt $rowLength; $i++) {
+                $out[$dst + $i] = [byte](($data[$src + $i] + $out[$dst + $i - $bpp]) -band 255)
+            }
+        } elseif ($type -eq 2) {
+            if ($r -eq 0) {
+                [System.Buffer]::BlockCopy($data, $src, $out, $dst, $rowLength)
+            } else {
+                for ($i = 0; $i -lt $rowLength; $i++) {
+                    $out[$dst + $i] = [byte](($data[$src + $i] + $out[$prev + $i]) -band 255)
+                }
+            }
+        } elseif ($type -eq 3) {
+            for ($i = 0; $i -lt $rowLength; $i++) {
+                $left = 0
+                if ($i -ge $bpp) { $left = [int]$out[$dst + $i - $bpp] }
+                $up = 0
+                if ($r -gt 0) { $up = [int]$out[$prev + $i] }
+                $out[$dst + $i] = [byte](($data[$src + $i] + (($left + $up) -shr 1)) -band 255)
+            }
+        } elseif ($type -eq 4) {
+            for ($i = 0; $i -lt $rowLength; $i++) {
+                $left = 0
+                $up = 0
+                $upLeft = 0
+                if ($i -ge $bpp) { $left = [int]$out[$dst + $i - $bpp] }
+                if ($r -gt 0) {
+                    $up = [int]$out[$prev + $i]
+                    if ($i -ge $bpp) { $upLeft = [int]$out[$prev + $i - $bpp] }
+                }
                 $pp = $left + $up - $upLeft
                 $pa = [Math]::Abs($pp - $left)
                 $pb = [Math]::Abs($pp - $up)
                 $pc = [Math]::Abs($pp - $upLeft)
                 if ($pa -le $pb -and $pa -le $pc) { $pred = $left } elseif ($pb -le $pc) { $pred = $up } else { $pred = $upLeft }
-                $v = $x + $pred
-            } else {
-                throw "PDFの圧縮のデータが壊れているため読めません。"
+                $out[$dst + $i] = [byte](($data[$src + $i] + $pred) -band 255)
             }
-            $out[$dst + $i] = [byte]($v -band 255)
+        } else {
+            throw "PDFの圧縮のデータが壊れているため読めません。"
         }
     }
     return , $out
