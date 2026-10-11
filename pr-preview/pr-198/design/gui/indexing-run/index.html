@@ -4435,6 +4435,44 @@
 <li>この画面では、窓の下の右に <code>登録済み: N フォルダ</code> と <code>合計: N ファイル</code> も出す（<a href="../index-tab/">インデックス一覧の管理</a>）。</li>
 <li>帯とステータスバーに同じ知らせを重ねて出さない。更新の結果は帯に、利用者が起こした操作の結果はステータスバーに出す。</li>
 </ul>
+<p><strong>更新以外の帯</strong>（判断層の getNoticeBannerView。xaml の &lt;名前&gt;Panel・&lt;名前&gt;Text・&lt;名前&gt;Close・&lt;名前&gt;Button）:</p>
+<table>
+<thead>
+<tr>
+<th>場面</th>
+<th>出す場所</th>
+<th>見た目</th>
+<th>閉じる</th>
+<th>消えるとき</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>検索結果の保存に失敗した</td>
+<td>検索画面の上（SearchNotice）</td>
+<td>橙（warn）</td>
+<td>×で閉じる。自動では消えない</td>
+<td>保存をやり直す・作業フォルダを替える</td>
+</tr>
+<tr>
+<td>インデックスの削除・まとめての操作に失敗した</td>
+<td>［インデックス管理］の上（IndexNotice）</td>
+<td>橙（warn）</td>
+<td>×で閉じる。自動では消えない</td>
+<td>次の操作で成功する・作業フォルダを替える</td>
+</tr>
+<tr>
+<td>作業フォルダが使えない</td>
+<td>窓の上端（WorkspaceNotice）</td>
+<td>赤（ng）</td>
+<td>閉じられない。［設定を開く］を載せる</td>
+<td>使える状態になる（起動時と作業フォルダの切り替えで確かめる）</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>失敗の理由は帯に 1 行で出し、全文はツールチップで見せる。削除・まとめての操作の失敗は、メッセージボックスではなくこの帯で知らせる。［すべて更新］の確認のメッセージボックスは変えない。</li>
+</ul>
 <h2 id="更新し直しの確かめ">更新し直しの確かめ<a class="headerlink" href="#更新し直しの確かめ" title="Permanent link">&para;</a></h2>
 <p>前の版のインデックス（<code>index\</code>。しるしあり）が見つかり、<code>content_index\</code> が空のまま［すべて更新］を押すと、更新の対象を数える前に確かめのダイアログを出す（<code>getReingestConfirm</code>。<code>tebunko/ui/indexing_view.ps1</code>）。</p>
 <ul>

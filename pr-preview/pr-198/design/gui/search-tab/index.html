@@ -4469,7 +4469,7 @@
 <li>表示中の結果（絞り込み後。閉じているファイルの行も含む）を <code>work/search_results.txt</code> に出力し、既定のアプリで開く。ステータスには <code>search_results.txt に出力しました（N 件）</code> と表示する。</li>
 <li>形式は <a href="../../search/output/">検索結果ファイル</a> のとおり。出力は <code>tebunko/search/search_run.ps1</code> の関数（<code>toSearchResultLines</code> / <code>writeSearchResult</code>、<a href="../implementation/#実装構成">実装構成</a>）で行う。</li>
 <li>絞り込み中は、見出しの件数を表示中の件数とし、ステータスに <code>絞り込み後の K 件を search_results.txt に出力しました</code> と表示する（U7）。</li>
-<li>書き込めないときはステータスに表示する。ファイルが開かれているときは <code>search_results.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。</code>、読み取り専用・権限が無いときは <code>search_results.txt に書き込む権限がありません（読み取り専用など）。&lt;パス&gt; を確かめてから、もう一度出力してください。</code>。</li>
+<li>書き込めないときは、検索画面の上の橙の帯に出す（閉じられる。<a href="../indexing-run/#帯とステータスバー">帯とステータスバー</a>）。ファイルが開かれているときは <code>search_results.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。</code>、読み取り専用・権限が無いときは <code>search_results.txt に書き込む権限がありません（読み取り専用など）。&lt;パス&gt; を確かめてから、もう一度出力してください。</code>。</li>
 <li>まだ検索していなければ <code>先に検索してください。</code> と表示する。</li>
 </ul>
 

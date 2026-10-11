@@ -2927,10 +2927,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#名前を変えたときの処理renameindex" class="md-nav__link">
+  <a href="#名前を変えたときの処理" class="md-nav__link">
     <span class="md-ellipsis">
       
-        名前を変えたときの処理（renameIndex）
+        名前を変えたときの処理
       
     </span>
   </a>
@@ -2938,10 +2938,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#削除したときの処理removeindex" class="md-nav__link">
+  <a href="#削除したときの処理" class="md-nav__link">
     <span class="md-ellipsis">
       
-        削除したときの処理（removeIndex）
+        削除したときの処理
       
     </span>
   </a>
@@ -4166,10 +4166,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#名前を変えたときの処理renameindex" class="md-nav__link">
+  <a href="#名前を変えたときの処理" class="md-nav__link">
     <span class="md-ellipsis">
       
-        名前を変えたときの処理（renameIndex）
+        名前を変えたときの処理
       
     </span>
   </a>
@@ -4177,10 +4177,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#削除したときの処理removeindex" class="md-nav__link">
+  <a href="#削除したときの処理" class="md-nav__link">
     <span class="md-ellipsis">
       
-        削除したときの処理（removeIndex）
+        削除したときの処理
       
     </span>
   </a>
@@ -4258,7 +4258,7 @@
 <tr>
 <td>4</td>
 <td>［削除…］</td>
-<td>［アクション ▾］のメニューの項目（行の右クリックのメニューの［削除］・Delete キーでも同じ）。チェックを付けた行に対して動く（1 件は下の確認、2 件以上は 1 回の確認でまとめて削除する）。確認ダイアログ（<a href="../common/#確認ダイアログshowconfirm">確認ダイアログ</a>）で確認する。見出しは 1 件なら <code>「&lt;名前&gt;」のインデックスを削除しますか？</code>、2 件以上なら <code>選んだ N 件のインデックスを削除しますか？</code>。本文は 2 件以上なら <code>「A」「B」を削除します。元のファイルは削除されません。</code>（名前は 3 件まで。4 件以上は <code>「A」「B」「C」ほか N 件を削除します。…</code> と、残りの件数を添える。1 件は <code>元のファイルは削除されません。</code> だけ。<code>getIndexDeleteConfirmMessage</code>）、ボタンは赤い［削除する］（既定は［キャンセル］）。［削除する］で、削除が終わってから一覧から外して設定を保存する（ワークスペースに届かないときは、一覧も設定も変えずに、失敗をステータスに出す）。<code>work\content_index\&lt;名前&gt;</code> と取り込み一覧の記録の削除（<code>removeIndex</code>）は<strong>別スレッド</strong>で行う（数万フォルダでは数十秒かかることがあり、画面のスレッドで行うと「応答なし」になるため）。削除の間はステータスに <code>インデックス [&lt;名前&gt;] を削除しています…（件数によっては少し時間がかかります）</code> と出し、インデックスの操作・インデックス作成の開始はできないようにする。終わったらステータスに <code>インデックス [&lt;名前&gt;] を削除しました</code> と表示する</td>
+<td>［アクション ▾］のメニューの項目（行の右クリックのメニューの［削除］・Delete キーでも同じ）。チェックを付けた行に対して動く（1 件は下の確認、2 件以上は 1 回の確認でまとめて削除する）。確認ダイアログ（<a href="../common/#確認ダイアログshowconfirm">確認ダイアログ</a>）で確認する。見出しは 1 件なら <code>「&lt;名前&gt;」のインデックスを削除しますか？</code>、2 件以上なら <code>選んだ N 件のインデックスを削除しますか？</code>。本文は 2 件以上なら <code>「A」「B」を削除します。元のファイルは削除されません。</code>（名前は 3 件まで。4 件以上は <code>「A」「B」「C」ほか N 件を削除します。…</code> と、残りの件数を添える。1 件は <code>元のファイルは削除されません。</code> だけ。<code>getIndexDeleteConfirmMessage</code>）、ボタンは赤い［削除する］（既定は［キャンセル］）。［削除する］で、削除が終わってから一覧から外して設定を保存する（ワークスペースに届かないときは、一覧も設定も変えずに、失敗をステータスに出す）。<code>work\content_index\&lt;名前&gt;</code> と取り込み一覧の記録の削除（<code>IndexCatalog.RemoveIndex</code>）は<strong>別スレッド</strong>で行う（数万フォルダでは数十秒かかることがあり、画面のスレッドで行うと「応答なし」になるため）。削除の間はステータスに <code>インデックス [&lt;名前&gt;] を削除しています…（件数によっては少し時間がかかります）</code> と出し、インデックスの操作・インデックス作成の開始はできないようにする。終わったらステータスに <code>インデックス [&lt;名前&gt;] を削除しました</code> と表示する</td>
 </tr>
 <tr>
 <td>5</td>
@@ -4333,7 +4333,7 @@
 <tr>
 <td>ステータス</td>
 <td>170</td>
-<td>本文の更新の状態を丸いバッジで表す。バッジには状態の名前だけを出し、数字はバッジの右の補足に出す。<code>未作成</code>（灰）/ <code>更新中</code>（青。Select.Soft の地・Accent の文字。補足は <code>45%</code>（更新全体の進みで、分からないうちは補足なし）。下に File.Folder の色の細い進み具合の棒を更新中の行だけに出す）/ <code>要更新</code>（黄。補足は <code>残り N 件</code>）/ <code>エラー</code>（赤）/ <code>最新</code>（緑）。設定の <code>enabled</code> が <code>false</code> のときは、ツールヒントに［すべて更新］の対象から外れている旨を足す（<code>getIndexRowView</code>）</td>
+<td>本文の更新の状態を丸いバッジで表す。バッジには状態の名前だけを出し、数字はバッジの右の補足に出す。<code>未作成</code>（灰）/ <code>更新中</code>（青。Select.Soft の地・Accent の文字。補足は <code>45%</code>（更新全体の進みで、分からないうちは補足なし）。下に File.Folder の色の細い進み具合の棒を更新中の行だけに出す）/ <code>要更新</code>（黄。補足は <code>残り N 件</code>）/ <code>エラー</code>（赤）/ <code>最新</code>（緑）/ <code>エクスポート中</code>（青。更新中と同じ色で、棒と補足は出さない。エクスポートで書き出している間だけ、書き出している行に出す。書き出しの終わりで元の状態に戻る。<code>getIndexRowView</code> の <code>exporting</code> 引数）。設定の <code>enabled</code> が <code>false</code> のときは、ツールヒントに［すべて更新］の対象から外れている旨を足す（<code>getIndexRowView</code>）</td>
 </tr>
 <tr>
 <td>高速検索</td>
@@ -4343,14 +4343,14 @@
 <tr>
 <td>操作</td>
 <td>96</td>
-<td>更新中の行は［中止］（今の更新全体を止める。［すべて更新］の［中止］と同じ）、エラーの行は何も出さず（場所は空ける）、ほかの行は［更新］。文言と可否は判断層の <code>getIndexRowActions</code></td>
+<td>更新中の行は［中止］（今の更新全体を止める。［すべて更新］の［中止］と同じ）、エラーの行とエクスポート中の行は何も出さず（場所は空ける）、ほかの行は［更新］。文言と可否は判断層の <code>getIndexRowActions</code></td>
 </tr>
 </tbody>
 </table>
 <p>ツールヒントは、状態の札（ステータス・高速検索のバッジ）と、「ステータス」「高速検索」の列見出しにだけ付ける（文は「です・ます」で書く）。［＋ フォルダを追加］［アクション ▾］とそのメニューの項目・行の［更新］［中止］・全選択のチェックには付けない（見た目と名前で分かるため）。一覧の「名前」「パス」の列と、詳細の名前・フォルダパス・更新中のファイル名は、「…」で切れているときだけ全文をツールヒントで見せる（<code>shared/ui/trimmed_tooltip.ps1</code> の <code>addTrimmedToolTip</code>。一覧は行の Loaded で付ける）。切れていなければ出さない。「ステータス」の列見出しには、状態の名前と意味を並べた説明（<code>getIndexStatusHelpText</code>）を、「高速検索」の列見出しには、インデックス（高速検索用）が Windows Search にどこまで反映されたかの説明を出す。</p>
 <p>「ファイル」「最終更新」は取り込み一覧（<code>work/ingest_status.tsv</code>）の集計で、状態を読み直すたび（起動時・ウィンドウがアクティブになったとき・インデックス作成中は 1 秒ごと）に更新する。「高速検索」は、一覧の読み込み時・ウィンドウがアクティブになったとき（前回の確認から 60 秒以上たっていれば）・インデックス作成が終わったとき・追加／編集／削除／インポートの後に確かめ直す。<code>反映待ち</code>・<code>反映中 N%</code> の行が 1 つでもある間は、5 分ごとのタイマーでも確かめ直す（インデックス作成中は確かめない）。</p>
 <h3 id="仮の部分">仮の部分<a class="headerlink" href="#仮の部分" title="Permanent link">&para;</a></h3>
-<p>終わりの失敗の見せ方（<code>getIndexBulkResultView</code>）は仮で、文言を後で決める。</p>
+<p>終わりの失敗は、メッセージボックスではなく、この画面の上の橙の帯に出す（<code>getNoticeBannerView</code>。閉じられる。<a href="../indexing-run/#帯とステータスバー">帯とステータスバー</a>）。文言（<code>getIndexBulkResultView</code>）は仮で、後で決める。</p>
 <h2 id="名前とフォルダパスの編集">名前とフォルダパスの編集<a class="headerlink" href="#名前とフォルダパスの編集" title="Permanent link">&para;</a></h2>
 <p>追加・編集のダイアログは無い。名前とフォルダパスは、詳細の「基本設定」の欄（<code>IndexDetailName</code>・<code>IndexDetailPath</code>）で直接直す。</p>
 <pre class="mermaid"><code>stateDiagram-v2
@@ -4454,7 +4454,7 @@
 </tbody>
 </table>
 <p>フォルダが見つからない場合も追加・変更できる（一覧の「フォルダの状態」に <code>✗ フォルダが見つかりません</code> と出す）。ネットワークドライブが一時的に切れている場合に登録できなくなるのを避けるため。</p>
-<h3 id="名前を変えたときの処理renameindex">名前を変えたときの処理（<code>renameIndex</code>）<a class="headerlink" href="#名前を変えたときの処理renameindex" title="Permanent link">&para;</a></h3>
+<h3 id="名前を変えたときの処理">名前を変えたときの処理<a class="headerlink" href="#名前を変えたときの処理" title="Permanent link">&para;</a></h3>
 <pre class="mermaid"><code>flowchart TD
     A["work\content_index\旧名→新名 に改名&lt;br&gt;（\\?\ 付き）"] --&gt; B["取り込み一覧の名前・相対パスを書き換え&lt;br&gt;（renameStatusIndexName）"]
     B --&gt; C["targetFolders[].name を保存・source_folder.txt を書き直す&lt;br&gt;（updateIndexSourceFile）"]
@@ -4466,7 +4466,7 @@
 <li><code>setting.config</code> の <code>targetFolders[].name</code> を保存し、各インデックスの元のフォルダの記録（<code>source_folder.txt</code>）を書き直す（<code>updateIndexSourceFile</code>。裏で書く）</li>
 <li>検索対象のツリーでチェックを外していたフォルダの記録（<code>searchExcludes</code>）のうち、旧名・新名の下のものを消す（<code>removeSearchExcludesUnder</code>）。付け替えないため、外していたフォルダは検索対象に戻る。消せなくても改名は止めず、画面にエラーも出さない</li>
 </ol>
-<h3 id="削除したときの処理removeindex">削除したときの処理（<code>removeIndex</code>）<a class="headerlink" href="#削除したときの処理removeindex" title="Permanent link">&para;</a></h3>
+<h3 id="削除したときの処理">削除したときの処理<a class="headerlink" href="#削除したときの処理" title="Permanent link">&para;</a></h3>
 <pre class="mermaid"><code>flowchart TD
     A["work\content_index\名前 を中身ごと削除&lt;br&gt;（別スレッド）"] --&gt; B["取り込み一覧から行を除く&lt;br&gt;（removeStatusIndexName）"]
     B --&gt; C["setting.config から外して保存&lt;br&gt;元のフォルダの記録を書き直す"]
@@ -4490,11 +4490,11 @@
 <tbody>
 <tr>
 <td>［エクスポート…］</td>
-<td>チェックを付けた行に対して動く（2 件以上は書き出し先を 1 回だけ選び、1 つずつ書き出す）。押すとエクスポートのダイアログ（<code>xaml/dialog_export.xaml</code>。見出しの代わりに、書き出す対象の枠（名前。2 件以上は <code>N 件のインデックス</code>。その下にファイル数。大きさは数えていないので出さない。<code>getIndexExportHeader</code>）を上に置き、書き出し先のフォルダの欄 <code>ExportPathBox</code>・［参照…］・［エクスポート］・［キャンセル］。欄の初めはワークスペースのフォルダ。フォルダのドラッグ＆ドロップでも指定できる。欄の下に <code>&lt;名前&gt;_インデックス_&lt;yyyyMMdd&gt;.zip として保存します</code>、ボタンの上に橙の枠で <code>このファイルには、元のファイルの本文と元のフォルダの場所が含まれます。元のファイルと同じように取り扱ってください。</code> を出す）を出す。［エクスポート］で、空なら <code>書き出し先のフォルダを指定してください。</code>（<code>testIndexExportInput</code>）と出し、決まれば <code>&lt;名前&gt;_インデックス_&lt;yyyyMMdd&gt;.zip</code>（書き出し先のフォルダに同名があれば <code>(2)</code> …）で書き出す（<code>getExportFileName</code>）。書き出しは別スレッド（<code>exportIndex</code>）で行い、終わるまでステータスに <code>エクスポートしています…</code> と出す。終わったら <code>インデックス [&lt;名前&gt;] を「&lt;zip のパス&gt;」に書き出しました（&lt;件数&gt; ファイル）</code>（<code>&lt;名前&gt;</code> は <code>exportIndex</code> の戻り値の <code>Name</code>。<code>tests/gui/index_archive.Tests.ps1</code> で名前まで確かめる）</td>
+<td>チェックを付けた行に対して動く（2 件以上は書き出し先を 1 回だけ選び、1 つずつ書き出す）。押すと、まず大きさを別スレッド（<code>getIndexExportSize</code>。ステータスに <code>エクスポートの大きさを数えています…</code> を出し、数える間はほかの操作と同じく止める）で数え、数え終えたらエクスポートのダイアログ（<code>xaml/dialog_export.xaml</code>。見出しの代わりに、書き出す対象の枠（名前。2 件以上は <code>N 件のインデックス</code>。その下に <code>2,530 ファイル・94.0 MB</code>（ファイル数と、zip に入れる本文インデックスのファイルの大きさの合計。<code>getIndexExportHeader</code>）を上に置き、書き出し先のフォルダの欄 <code>ExportPathBox</code>・［参照…］・［エクスポート］・［キャンセル］。欄の初めはワークスペースのフォルダ。フォルダのドラッグ＆ドロップでも指定できる。欄の下に <code>&lt;名前&gt;_インデックス_&lt;yyyyMMdd&gt;.zip として保存します</code>、ボタンの上に橙の枠で <code>このファイルには、元のファイルの本文と元のフォルダの場所が含まれます。元のファイルと同じように取り扱ってください。</code> を出す）を出す。数える間に対象のインデックスが無くなっていたら、ダイアログは開かずステータスに <code>対象のインデックスが見つかりません</code> と出す（<code>getIndexExportMissingText</code>）。［エクスポート］で、空なら <code>書き出し先のフォルダを指定してください。</code>（<code>testIndexExportInput</code>）と出し、決まれば <code>&lt;名前&gt;_インデックス_&lt;yyyyMMdd&gt;.zip</code>（書き出し先のフォルダに同名があれば <code>(2)</code> …）で書き出す（<code>getExportFileName</code>）。書き出しは別スレッド（<code>exportIndex</code>）で行い、終わるまでステータスに <code>エクスポートしています…</code> と出す。終わったら <code>インデックス [&lt;名前&gt;] を「&lt;zip のパス&gt;」に書き出しました（&lt;件数&gt; ファイル）</code>（<code>&lt;名前&gt;</code> は <code>exportIndex</code> の戻り値の <code>Name</code>。<code>tests/gui/index_archive.Tests.ps1</code> で名前まで確かめる）</td>
 </tr>
 <tr>
 <td>［インポート…］</td>
-<td>zip を選ぶダイアログ（Windows 標準のファイルを開くダイアログ）を出し、目録を読んで確かめる（<code>readIndexArchiveInfo</code>）。壊れている・別の版なら、その場でエラーを表示して終える。読めれば、インポートのダイアログ（<code>xaml/dialog_import.xaml</code>。表題は「インデックスのインポート」）を開く。上に zip の中身の枠（名前・<code>エクスポートした日時 2026/09/27 10:00</code>・<code>2,530 ファイル・56.6 MB・v0.3.0</code>。目録の <code>exportedAt</code> と大きさと版。<code>getIndexImportHeader</code>。注意の枠は置かない）を出し、その下に元のフォルダ（目録の値）と、欄の下の 1 行（<code>見つかりました</code>（緑）／<code>元のフォルダがこの PC に見つかりません。検索はできますが、元のフォルダを設定するまで更新できません。</code>（橙）／<code>「&lt;名前&gt;」の元のフォルダと重なっています</code>（赤）。有無は目録を読む別スレッドで調べ、入力を変えた後は［参照…］で選んだものだけ <code>見つかりました</code> にする。<code>getImportSourceCheckText</code>）、名前（ラベルは <code>名前</code>。既にあれば重ならない名前を提案）を出す。名前が今の一覧にあれば、橙で <code>同じ名前のインデックスがあります。［インポート］を押すと、上書きするか別の名前にするかを選べます。</code> を出す（<code>getImportNameNoticeText</code>）。名前を既にあるインデックスと同じにして［インポート］を押すと、上書き・別名・取りやめの確認ダイアログを出す。決まったら別スレッド（<code>importIndex</code>）でインポートし、終わったら一覧を読み直し、ステータスに件数と <code>高速検索は次の更新の後に効きます。</code>、<code>Warnings</code>（同じ元のフォルダが別の名前で登録されているときなど）を出す（<code>getImportResultStatus</code>）。名前・元のフォルダのダイアログや上書きの確認を取りやめたときは、ステータスを <code>インポートを取りやめました</code> に書き換える</td>
+<td>zip を選ぶダイアログ（Windows 標準のファイルを開くダイアログ）を出し、目録を読んで確かめる（<code>readIndexArchiveInfo</code>）。壊れている・別の版なら、その場でエラーを表示して終える。読めれば、インポートのダイアログ（<code>xaml/dialog_import.xaml</code>。表題は「インデックスのインポート」）を開く。上に zip の中身の枠（名前・<code>エクスポートした日時 2026/09/27 10:00</code>・<code>2,530 ファイル・56.6 MB・v0.3.0</code>。目録の <code>exportedAt</code> と大きさと版。<code>getIndexImportHeader</code>。注意の枠は置かない）を出し、その下に元のフォルダ（目録の値）と、欄の下の 1 行（<code>見つかりました</code>（緑）／<code>元のフォルダがこの PC に見つかりません。検索はできますが、元のフォルダを設定するまで更新できません。</code>（橙）／<code>「&lt;名前&gt;」の元のフォルダと重なっています</code>（赤）。有無は目録を読む別スレッドで調べ、入力を変えた後は［参照…］で選んだものだけ <code>見つかりました</code> にする。<code>getImportSourceCheckText</code>）、名前（ラベルは <code>名前</code>。既にあれば重ならない名前を提案）を出す。名前が今の一覧にあれば（zip の名前と同じ名前のまま初めて開いたときを含む）、名前の下に橙の見出し <code>同じ名前のインデックスがあります</code> と選択肢 <code>別の名前にする</code>（初めの選択。名前の欄に重ならない名前を入れる）・<code>置き換える</code>（名前の欄を zip の名前に戻す。［インポート］が赤くなる）を出す。重ならなくなれば消える（<code>getImportCollisionChoiceView</code>）。［インポート］を押しても確認のダイアログは出さず、選んだ方でそのまま進む。決まったら別スレッド（<code>importIndex</code>）でインポートし、終わったら一覧を読み直し、ステータスに件数と <code>高速検索は次の更新の後に効きます。</code>、<code>Warnings</code>（同じ元のフォルダが別の名前で登録されているときなど）を出す（<code>getImportResultStatus</code>）。名前・元のフォルダのダイアログを取りやめたときは、ステータスを <code>インポートを取りやめました</code> に書き換える</td>
 </tr>
 </tbody>
 </table>
