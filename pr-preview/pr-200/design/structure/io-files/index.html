@@ -4654,7 +4654,7 @@
 <tr>
 <td><code>work/gui_error_log.txt</code></td>
 <td>書く</td>
-<td>画面の予期しないエラー（追記。<code>writeErrorLog</code>）。プロセスごとの最初の記録の前に版と環境の見出しを書く。1 MB 以上なら次の記録の前に <code>gui_error_log_previous.txt</code> へ移す。起動に失敗したときも、ここに書けるならここに書く</td>
+<td>画面の予期しないエラー（追記。<code>writeErrorLog</code>）。見出しを最後に書いた記録先と今の記録先が違うとき（プロセスの最初の記録・ワークスペースの切り替えの後）と、ファイルが無いとき（1 MB で移した直後を含む）に、記録の前に版と環境の見出しを書く。切り替えで記録が移るため、1 つのファイルに見出しが 2 つ入ることがある。1 MB 以上なら次の記録の前に <code>gui_error_log_previous.txt</code> へ移す。起動に失敗したときも、ここに書けるならここに書く</td>
 </tr>
 <tr>
 <td><code>work/gui_error_log_previous.txt</code></td>
