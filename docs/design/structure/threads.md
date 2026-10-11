@@ -138,7 +138,7 @@ sequenceDiagram
 | Notice・Postponed | インデクサ | 画面（`IndexingSession.GetNotice` / `GetPostponed`） | 終わりの案内（利用者の PowerPoint が起動していて後回しにしたファイルがあるときの一言。無ければ空）と、後回しにした件数（未取り込みのまま残した件数。無ければ 0） |
 | IncludeCloud | 画面（確認の返事。ヘッドレスでは設定 `cloudFiles` が `download` のとき） | インデクサ | クラウドにだけあるファイルもダウンロードして取り込むか（既定は取り込まない） |
 | CloudSkipped | インデクサ | 画面（`IndexingSession.GetCloudSkipped`） | クラウドにだけあるため、ダウンロードせずに残した件数（無ければ 0） |
-| OfficePids | 取り込みスレッド | 画面 | インデックス作成が起動した Office の PID とプロセス名（`ConcurrentDictionary`）。閉じるときに止まらなければ、これだけを止める |
+| OfficePids | 取り込みスレッド | 画面 | インデックス作成が起動した Office の PID → `@{ ProcessName; StartTicks }`（`ConcurrentDictionary`）。閉じるときに止まらなければ、名前と起動時刻が合うものだけを止める |
 
 画面のスレッドがファイル・フォルダに触る呼び出しは、`tests/meta/ui_thread_io.Tests.ps1` が機械的に見つける。組み込みのコマンドと `System.IO` の静的メソッドに加え、状態層の関数・クラスのメソッドのうち、中でファイル・フォルダに触るもの（それを呼ぶものも、呼び出しをたどって）を自動で求める。`startJob` の仕事のスクリプトブロックの外にある呼び出しは、理由を付けて一覧に載せたものだけを許す。一覧のものが使われていない・理由が空・先送りの書き方のときも落ちる。
 
