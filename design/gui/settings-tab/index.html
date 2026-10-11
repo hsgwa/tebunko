@@ -4024,7 +4024,7 @@
 
 <h1 id="設定タブ">［設定］タブ<a class="headerlink" href="#設定タブ" title="Permanent link">&para;</a></h1>
 <p>扱うこと: ワークスペース（インデックス・取り込み一覧・ログの置き場所）の表示・変更、設定ファイルの場所の表示。扱わないこと: 設定ファイルの中身そのもの（<a href="../../structure/settings-file/">設定ファイル（setting.config）</a>）。先に読むページ: <a href="../">画面</a>、<a href="../../structure/data/">データの置き場所とパスの決め方</a>。</p>
-<p>設定の画面（<code>xaml\settings\settings.xaml</code>・<code>ui\settings\settings.ps1</code>）は、題と説明は置かず、小見出し「インデックス設定」（上の余白 16）から始め、その下に「ワークスペース」と「設定ファイル」の 2 つの行を縦に並べる。表示件数や最大並列処理数の行は置かない。節の間は 24、節の中の行の間は 12。節の見出しの下に細い線（<code>Bg.Section</code>）を引く。中身が窓の高さを超えるときは、画面全体が縦にスクロールする。左の欄の最後の画面にする。</p>
+<p>設定の画面（<code>xaml\settings\settings.xaml</code>・<code>ui\settings\settings.ps1</code>）は、題と説明は置かず、節ごとの枠つきのカードを縦に並べる。いまの節は「インデックス設定」で、その中に「ワークスペース」と「設定ファイル」の 2 つの行を置く。表示件数や最大並列処理数の行は置かない。中身の左端は、検索・インデックス管理と同じ位置（窓の中身の左端から 16）にそろえ、上の余白は 16。中身の幅は最大 880 で、左に寄せる。節は <code>Section.Card</code>（枠つきの面）の中に、<code>Section.Header</code>（見出しの帯。高さ 32）と <code>Section.Row</code>（行。上に細い線）を縦に並べて作り、節（カード）の間は 16 にする（2 つ目からのカードに <code>Margin="0,16,0,0"</code> を付ける）。値を見せるだけの箱は <code>Field.ReadOnly</code>（高さ 30）。節を足すときもこの形で作る。中身が窓の高さを超えるときは、画面全体が縦にスクロールする。左の欄の最後の画面にする。</p>
 <p>今の画面の写真は<a href="../screens/settings-tab/">画面設計（現行）</a>にある。</p>
 <p><strong>ワークスペース</strong>は、インデックス・取り込み一覧・ログ（<code>work</code> の中身。<a href="../../structure/folders/">配布物と開発用のフォルダ構成</a>）を置くフォルダ。既定は <code>%USERPROFILE%\Documents\tebunko_ws</code>（高速検索のため、Windows Search の索引の対象になる場所。<a href="../../structure/data/">データの置き場所とパスの決め方</a>）。</p>
 <pre class="mermaid"><code>stateDiagram-v2
@@ -4035,7 +4035,7 @@
     DefaultLoc --&gt; Custom : ［変更…］→ 確認 → moveWorkspace
     Custom --&gt; Custom : ［変更…］→ 別のフォルダへ
     Custom --&gt; DefaultLoc : ［既定に戻す］</code></pre>
-<p>「ワークスペース」の枠には、今のワークスペースのフォルダを出し、その下に補足を出す。既定の場所なら <code>既定の場所（ドキュメントの tebunko）です。</code>、既定でなければ <code>既定の場所は「&lt;既定の場所&gt;」です。</code>。「設定ファイル」の枠には <code>setting.config</code> の場所を出し（表示だけ）、ツールのフォルダにあれば <code>ツールのフォルダに置いています。</code>、既定のワークスペースの直下なら <code>ツールのフォルダ（&lt;ツールのフォルダ&gt;）に書き込めないため、既定のワークスペースに置いています。</code> と補足する。文言は判断層の <code>getWorkspaceView</code>・<code>getSettingsFileView</code>（<code>settings_view.ps1</code>）が決める。</p>
+<p>「ワークスペース」の行には、今のワークスペースのフォルダを出し、その下に補足を出す。既定の場所なら <code>既定の場所（ドキュメントの tebunko）です。</code>、既定でなければ <code>既定の場所は「&lt;既定の場所&gt;」です。</code>。「設定ファイル」の枠には <code>setting.config</code> の場所を出し（表示だけ）、ツールのフォルダにあれば <code>ツールのフォルダに置いています。</code>、既定のワークスペースの直下なら <code>ツールのフォルダ（&lt;ツールのフォルダ&gt;）に書き込めないため、既定のワークスペースに置いています。</code> と補足する。文言は判断層の <code>getWorkspaceView</code>・<code>getSettingsFileView</code>（<code>settings_view.ps1</code>）が決める。</p>
 <ul>
 <li>［変更…］: フォルダ選択ダイアログ（<a href="../common/#フォルダ選択ダイアログ参照">フォルダ選択ダイアログ（［参照…］）</a>。説明は <code>ワークスペースにする空のフォルダを選んでください。…</code>）で<strong>空のフォルダ</strong>を選んでもらい、ワークスペースにする。空でなければ警告する（下）。</li>
 <li>［既定に戻す］: 既定の場所に戻す（無ければ作る）。ほかのファイルが置いてあれば <code>「…」は空のフォルダではありません。…</code> と出して戻さない（前から使っているワークスペースなら戻す）。設定ファイル（<code>setting.config</code> と、それに付く <code>.tmp</code>・<code>.broken-&lt;日時&gt;</code>）は、ツールのフォルダに書けないときに既定の場所へ置くので、ほかのファイルとして数えない。既定でない場所のときだけ表示する。</li>
