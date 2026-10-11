@@ -161,13 +161,11 @@ function confirmIndexingTargets {
         $ui.IndexingProgressText.Text = "更新を取りやめています…"
         $ui.IndexingProgressDetail.Text = ""
         answerIndexingPlan $channel $null
-        setStatus (getIndexingRunStatus "Canceled")
         return
     }
     answerIndexingPlan $channel $answer
     $script:indexingRate = $null  # 残り時間の目安は、確認を待っていた時間を含めずに計る
     $ui.IndexingProgressText.Text = "更新を始めています…"
-    setStatus (getIndexingRunStatus "Started")
 }
 
 function startIndexing {
@@ -268,7 +266,6 @@ function continueStartIndexing {
     $script:indexingSession = newIndexingSession $channel
 
     showIndexingPanel
-    setStatus (getIndexingRunStatus "Checking")
     updateIndexingButton
     $script:indexingTimer.Start()
 }
@@ -288,7 +285,6 @@ function stopIndexing {
     requestIndexingStop $script:indexingSession.Channel
     $ui.IndexingStopButton.IsEnabled = $false
     $ui.IndexingProgressDetail.Text = "中止しています…（更新中のファイルが終わるまでお待ちください）"
-    setStatus (getIndexingRunStatus "StopRequested")
 }
 
 function updateIndexingProgress {
@@ -385,10 +381,8 @@ function finishIndexing {
     $script:indexingTimer.Stop()
     $script:indexingView = $null
     $taskbar.ProgressState = "None"
-    # 更新の途中の文（「更新を開始しました」など）をステータスバーに残さない。終わりは帯が知らせる
-    if (testIndexingRunStatus $ui.StatusText.Text) { setStatus "" }
     # インデックス作成完了の通知。以前はタスクバーのボタンを光らせていたが（FlashWindowEx）、P/Invoke は
-    # 実行時コンパイル（csc.exe）を無くすため廃止した。完了は進捗表示・ステータスで分かる。
+    # 実行時コンパイル（csc.exe）を無くすため廃止した。完了は帯とタスクバーの進み具合で分かる。
     $session = $script:indexingSession
     $progress = $null
     try {
