@@ -3966,6 +3966,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#ワークスペースの切り替えtebunkocoreworkspace_moverps1workspacemover" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ワークスペースの切り替え（tebunko/core/workspace_mover.ps1。WorkspaceMover）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#検索対象でチェックを外したフォルダtebunkocoresearch_excludesps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        検索対象でチェックを外したフォルダ（tebunko/core/search_excludes.ps1）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#ファイルとフォルダsharedcorefsps1folderps1sharedofficeoffice_filesps1" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4133,6 +4155,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#ワークスペースの切り替えtebunkocoreworkspace_moverps1workspacemover" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ワークスペースの切り替え（tebunko/core/workspace_mover.ps1。WorkspaceMover）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#検索対象でチェックを外したフォルダtebunkocoresearch_excludesps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        検索対象でチェックを外したフォルダ（tebunko/core/search_excludes.ps1）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#ファイルとフォルダsharedcorefsps1folderps1sharedofficeoffice_filesps1" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4164,7 +4208,7 @@
 
 
 <h1 id="部品ごとの関数設定ファイル">部品ごとの関数（設定・ファイル）<a class="headerlink" href="#部品ごとの関数設定ファイル" title="Permanent link">&para;</a></h1>
-<p>扱うこと: 設定ファイル（<code>tebunko/core/settings.ps1</code>）、ワークスペース（<code>tebunko/core/workspace.ps1</code>）とファイル・フォルダ操作（<code>shared/core/fs.ps1</code>・<code>folder.ps1</code>・<code>office_files.ps1</code>）の関数一覧（入力・出力・概要・使用元）。扱わないこと: 取り込み一覧・インデックスの管理（<a href="../indexer/">部品ごとの関数（インデックス作成）</a>）。先に読むページ: <a href="../">部品から関数一覧を引く</a>。</p>
+<p>扱うこと: 設定ファイル（<code>tebunko/core/settings.ps1</code>）、検索対象でチェックを外したフォルダ（<code>search_excludes.ps1</code>）、ワークスペース（<code>workspace.ps1</code>）とその切り替え（<code>workspace_mover.ps1</code>）、ファイル・フォルダ操作（<code>shared/core/fs.ps1</code>・<code>folder.ps1</code>・<code>office_files.ps1</code>）の関数一覧（入力・出力・概要・使用元）。扱わないこと: 取り込み一覧・インデックスの管理（<a href="../indexer/">部品ごとの関数（インデックス作成）</a>）。先に読むページ: <a href="../">部品から関数一覧を引く</a>。</p>
 <h2 id="設定ファイルtebunkocoresettingsps1">設定ファイル（<code>tebunko/core/settings.ps1</code>）<a class="headerlink" href="#設定ファイルtebunkocoresettingsps1" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4200,7 +4244,7 @@
 <td>bool</td>
 <td>設定ファイルの真偽値を読む。文字列の <code>"true"</code> / <code>"false"</code> も読み、読めなければ default</td>
 <td>同上</td>
-<td>readSettings, readSearchExcludes</td>
+<td>readSettings, readSearchExcludes（<code>search_excludes.ps1</code>）</td>
 </tr>
 <tr>
 <td><code>writeSettings</code></td>
@@ -4283,22 +4327,6 @@
 <td>画面</td>
 </tr>
 <tr>
-<td><code>readSearchExcludes</code> / <code>writeSearchExcludes</code></td>
-<td>path（既定 <code>$settingsFile</code>） / excludes, path</td>
-<td><code>@{Path; Subfolders}</code> の配列 / –</td>
-<td>画面の検索対象のツリーでチェックを外したフォルダ（<code>searchExcludes</code>）を読み書きする。無ければ空（すべて検索）</td>
-<td><a href="../../search/#インデックスの一覧getsearchindexes">インデックスの一覧</a></td>
-<td>画面（検索対象のツリー）</td>
-</tr>
-<tr>
-<td><code>removeSearchExcludesUnder</code></td>
-<td>folder, path（既定 <code>$settingsFile</code>）</td>
-<td>–</td>
-<td>フォルダとその下の <code>searchExcludes</code> を、大文字・小文字を区別せずに消す（<code>Sales</code> を消しても <code>Sales2</code> は消さない）。設定の書き込みは <code>invokeSettingsLocked</code> の中で行い、消せなくても例外にしない（インデックスの改名・削除を止めない）</td>
-<td>同上</td>
-<td><code>renameIndex</code> / <code>removeIndex</code></td>
-</tr>
-<tr>
 <td><code>readVersionFile</code></td>
 <td>path（配布物の <code>VERSION.txt</code> のパス）</td>
 <td><code>@{Tag; Sha}</code> / <code>$null</code></td>
@@ -4357,7 +4385,7 @@
 </tbody>
 </table>
 <h2 id="ワークスペースtebunkocoreworkspaceps1">ワークスペース（<code>tebunko/core/workspace.ps1</code>）<a class="headerlink" href="#ワークスペースtebunkocoreworkspaceps1" title="Permanent link">&para;</a></h2>
-<p><code>Workspace</code> クラスは、ワークスペースのフォルダ（Dir）から、中のファイル・フォルダの場所を組み立てるだけで、設定は読まない。どのフォルダを使うかは設定の <code>workspaceFolder</code> で決まる（<code>getWorkDir</code>）。関数はその場所を使って、取り込みの作業フォルダの置き場所の判断・前の版のワークスペースの扱い・ワークスペースの移動を行う。画面の操作は <a href="../../structure/data/">データの置き場所とパスの決め方</a>、［設定］タブは <a href="../../gui/settings-tab/">［設定］タブ</a> を参照。</p>
+<p><code>Workspace</code> クラスは、ワークスペースのフォルダ（Dir）から、中のファイル・フォルダの場所を組み立てるだけで、設定は読まない。どのフォルダを使うかは設定の <code>workspaceFolder</code> で決まる（<code>getWorkDir</code>）。関数はその場所を使って、取り込みの作業フォルダの置き場所の判断・前の版のワークスペースの扱いを行う（ワークスペースの移動は下の <code>WorkspaceMover</code>）。画面の操作は <a href="../../structure/data/">データの置き場所とパスの決め方</a>、［設定］タブは <a href="../../gui/settings-tab/">［設定］タブ</a> を参照。</p>
 <table>
 <thead>
 <tr>
@@ -4381,7 +4409,7 @@
 <td>dir</td>
 <td>–</td>
 <td>裏の仕事の先頭でワークスペースに届くかを確かめる。届かない・確かめられないときは「ワークスペースに接続できません：…」「ワークスペースを確かめられません：…」の例外にする。まだ無いだけなら何もしない（呼び出しは裏の仕事の中。画面のスレッドでは呼ばない）</td>
-<td>index_store.ps1</td>
+<td><code>IndexCatalog.AssertReachable</code>（index_catalog.ps1）</td>
 </tr>
 <tr>
 <td><code>getWorkspaceJobQueue</code></td>
@@ -4416,7 +4444,7 @@
 <td>dir</td>
 <td><code>@{HasLegacyIndex; ContentEmpty; HasLegacySystemIndex}</code></td>
 <td>前の版のワークスペースの状態。<code>index\</code> の直下のフォルダに元のフォルダ.txt があれば前の版のしるし（<code>HasLegacyIndex</code>）。<code>content_index\</code> が空か（<code>ContentEmpty</code>）。空のときだけ、<code>system_index\</code> に前の名前の txt があるかも調べる</td>
-<td>gui_main.ps1, indexing_tab.ps1, settings_tab.ps1, index_archive.ps1, indexer_run.ps1, paths.ps1</td>
+<td>gui_main.ps1, indexing_tab.ps1, workspace_jobs.ps1, index_archive.ps1, indexer_run.ps1, paths.ps1</td>
 </tr>
 <tr>
 <td><code>testLegacyCleanupNeeded</code></td>
@@ -4430,7 +4458,7 @@
 <td>dir, hasLegacyIndex</td>
 <td>string</td>
 <td>前の版のインデックスが見つかったときの知らせ。しるしが無ければ空</td>
-<td>gui_main.ps1, settings_tab.ps1, indexer_run.ps1</td>
+<td>gui_main.ps1, workspace_jobs.ps1, indexer_run.ps1</td>
 </tr>
 <tr>
 <td><code>clearLegacySystemIndex</code></td>
@@ -4440,60 +4468,111 @@
 <td>indexer_run.ps1, index_archive.ps1</td>
 </tr>
 <tr>
-<td><code>getWorkspaceEntries</code></td>
+<td><code>newWorkspace</code></td>
+<td>dir</td>
+<td><code>Workspace</code></td>
+<td><code>Workspace</code> のインスタンスを作る（クラスの本体では型の名前を書けないため、<code>WorkspaceMover</code>・<code>IndexCatalog</code> がこの関数を通して作る）</td>
+<td>workspace_mover.ps1</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ワークスペースの切り替えtebunkocoreworkspace_moverps1workspacemover">ワークスペースの切り替え（<code>tebunko/core/workspace_mover.ps1</code>。<code>WorkspaceMover</code>）<a class="headerlink" href="#ワークスペースの切り替えtebunkocoreworkspace_moverps1workspacemover" title="Permanent link">&para;</a></h2>
+<p>画面のスレッドで使う。作るのは <code>[WorkspaceMover]::new(設定ファイルの場所)</code>。画面（<code>applyWorkspace</code>）は、選んだ直後のフォルダを確かめて利用者に選ばせたあと <code>ChangeWorkspace</code> を呼び、結果を出して画面を切り替える。クラスの考え方は <a href="../../structure/classes/">クラスと関数の使い分け</a>。</p>
+<table>
+<thead>
+<tr>
+<th>メソッド</th>
+<th>入力</th>
+<th>出力</th>
+<th>概要</th>
+<th>使用元</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ListEntries</code></td>
 <td>dir</td>
 <td>string[]</td>
-<td>tebunko のファイル・フォルダ（<code>Workspace.Entries</code> のうち、あるもの）のフルパス。利用者のほかのファイルは含めない</td>
-<td>settings_tab.ps1, settings_view.ps1</td>
+<td>tebunko のファイル・フォルダ（<code>Workspace.Entries</code> のうち、あるもの）のフルパス。利用者のほかのファイルは含めない（旧 <code>getWorkspaceEntries</code>）</td>
+<td>settings.ps1</td>
 </tr>
 <tr>
-<td><code>getWorkspaceMoveConflicts</code></td>
+<td><code>Conflicts</code></td>
 <td>from, to</td>
 <td>string[]</td>
-<td>from の中身を to へ移すとき、to に同じ名前が既にあるものの名前</td>
-<td>moveWorkspace</td>
+<td>from の中身を to へ移すとき、to に同じ名前が既にあるものの名前（旧 <code>getWorkspaceMoveConflicts</code>）</td>
+<td><code>MoveEntries</code></td>
 </tr>
 <tr>
-<td><code>moveWorkspaceEntry</code></td>
-<td>source, dest</td>
-<td>–</td>
-<td>ファイル・フォルダを 1 つ移す。同じドライブならそのまま移し、別のドライブのフォルダは写してから元を消す。写している途中で失敗したら、写した分を消して例外にする</td>
-<td>moveWorkspace</td>
+<td><code>ChangeWorkspace</code></td>
+<td>mode（<code>use</code>・<code>move</code>・<code>reset</code>）, from, to</td>
+<td><code>@{Ok; Stage; Message; Targets; Count}</code></td>
+<td>ワークスペースを from から to に変えて設定に保存する。<code>use</code> は to のインデックスを使う（<code>UseTargets</code>。from の中身は移さない）、<code>move</code> は中身を移す、<code>reset</code> は to の中身を消してから移す（<code>RemoveEntries</code>・<code>MoveEntries</code>）。移したあとに <code>searchExcludes</code> を付け替える（<code>moveSearchExcludes</code>）。失敗したときは設定を変えず、<code>Stage</code>（<code>remove</code>・<code>move</code>）と <code>Message</code> を返す</td>
+<td>settings.ps1</td>
 </tr>
 <tr>
-<td><code>copyDirectoryTree</code></td>
-<td>source, dest（<code>\\?\</code> 付き）</td>
-<td>–</td>
-<td>フォルダを中身ごと写す</td>
-<td>moveWorkspaceEntry</td>
+<td><code>MoveEntries</code></td>
+<td>from, to</td>
+<td>int</td>
+<td>from の中身を to へ移し、移した数を返す。to に同じ名前があれば何も移さずに例外にする。途中で移せなければ、移した分を from へ戻してから例外にする（旧 <code>moveWorkspace</code>。1 つずつ移す <code>MoveEntry</code> と、別のドライブへ写す <code>CopyTree</code> は内部）</td>
+<td><code>ChangeWorkspace</code></td>
 </tr>
 <tr>
-<td><code>removeWorkspaceEntries</code></td>
+<td><code>RemoveEntries</code></td>
 <td>dir</td>
 <td>int</td>
-<td>tebunko のファイル・フォルダを削除し、削除した数を返す。「消して、最初からやり直す」で使う</td>
-<td>settings_tab.ps1</td>
+<td>tebunko のファイル・フォルダを削除し、削除した数を返す。「消して、最初からやり直す」で使う（旧 <code>removeWorkspaceEntries</code>）</td>
+<td><code>ChangeWorkspace</code></td>
 </tr>
 <tr>
-<td><code>useWorkspaceTargets</code></td>
-<td>dir, path（既定 <code>$settingsFile</code>）</td>
+<td><code>UseTargets</code></td>
+<td>dir</td>
 <td>int</td>
-<td>dir の取り込み一覧にあるクロール対象フォルダを、インデックスの一覧（<code>targetFolders</code>）にし、その数を返す。取り込み一覧が無ければ一覧は変えない</td>
-<td>settings_tab.ps1</td>
+<td>dir の取り込み一覧にあるクロール対象フォルダを、インデックスの一覧（<code>targetFolders</code>）にし、その数を返す。取り込み一覧が無ければ一覧は変えない（旧 <code>useWorkspaceTargets</code>）</td>
+<td><code>ChangeWorkspace</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="検索対象でチェックを外したフォルダtebunkocoresearch_excludesps1">検索対象でチェックを外したフォルダ（<code>tebunko/core/search_excludes.ps1</code>）<a class="headerlink" href="#検索対象でチェックを外したフォルダtebunkocoresearch_excludesps1" title="Permanent link">&para;</a></h2>
+<p>設定の <code>searchExcludes</code> の読み書きと、フォルダとその下の比べ方。<code>IndexCatalog</code>（改名・削除）、<code>WorkspaceMover</code>（切り替え）、検索対象のツリーが同じ部品を通す。</p>
+<table>
+<thead>
+<tr>
+<th>関数</th>
+<th>入力</th>
+<th>出力</th>
+<th>概要</th>
+<th>使用元</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>testFolderOrUnder</code></td>
+<td>path, folder</td>
+<td>bool</td>
+<td>path が folder そのもの、または folder の下かを返す。<code>searchExcludes</code> の削除・付け替え・保存でのフォルダとその下の比べ方はここだけ。大文字・小文字を区別しない序数の比べ（<code>OrdinalIgnoreCase</code>）で、folder の末尾の <code>\</code> は外し、<code>&lt;folder&gt;\</code> で始まるものだけを「下」にする（<code>Sales</code> の下に <code>Sales2</code> は入らない）。folder が空ならどれも含まない。既知の制限: <code>\\?\</code> 付きと無し、<code>/</code> 区切り、<code>..</code>、8.3 形式の短い名前は同じ場所として扱わない（書き方は呼び出す側がそろえる）</td>
+<td><code>removeSearchExcludesUnder</code>, <code>moveSearchExcludes</code>, 検索対象のツリー（<code>saveSearchExcludes</code>）</td>
+</tr>
+<tr>
+<td><code>readSearchExcludes</code> / <code>writeSearchExcludes</code></td>
+<td>path（既定 <code>$settingsFile</code>） / excludes, path</td>
+<td><code>@{Path; Subfolders}</code> の配列 / –</td>
+<td>画面の検索対象のツリーでチェックを外したフォルダ（<code>searchExcludes</code>）を読み書きする。無ければ空（すべて検索）</td>
+<td>画面（検索対象のツリー）</td>
+</tr>
+<tr>
+<td><code>removeSearchExcludesUnder</code></td>
+<td>folder, path（既定 <code>$settingsFile</code>）</td>
+<td>–</td>
+<td>フォルダとその下の <code>searchExcludes</code> を消す（<code>Sales</code> を消しても <code>Sales2</code> は消さない）。設定の書き込みは <code>invokeSettingsLocked</code> の中で行い、消せなくても例外にしない（インデックスの改名・削除を止めない）</td>
+<td><code>IndexCatalog.RenameIndex</code> / <code>RemoveIndex</code></td>
 </tr>
 <tr>
 <td><code>moveSearchExcludes</code></td>
 <td>from, to, path（既定 <code>$settingsFile</code>）</td>
 <td>int</td>
 <td>検索対象ツリーでチェックを外したフォルダ（<code>searchExcludes</code>）のうち、from の <code>content_index</code> の下のものを to の下に付け替えて保存し、付け替えた数を返す</td>
-<td>settings_tab.ps1</td>
-</tr>
-<tr>
-<td><code>moveWorkspace</code></td>
-<td>from, to</td>
-<td>int</td>
-<td>from の中身を to へ移し、移した数を返す。to に同じ名前があれば何も移さずに例外にする。途中で移せなければ、移した分を from へ戻してから例外にする</td>
-<td>settings_tab.ps1, settings_view.ps1</td>
+<td><code>WorkspaceMover.ChangeWorkspace</code></td>
 </tr>
 </tbody>
 </table>
