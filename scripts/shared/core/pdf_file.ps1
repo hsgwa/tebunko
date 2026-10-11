@@ -221,13 +221,14 @@ function readPdfToken {
             if ($e -lt 0) { $e = $n }
             $hex = $s.Substring($p + 1, $e - $p - 1) -replace '[^0-9A-Fa-f]', ''
             if ($hex.Length % 2 -eq 1) { $hex += "0" }
-            $sb = [System.Text.StringBuilder]::new()
-            for ($i = 0; $i -lt $hex.Length; $i += 2) {
-                [void]$sb.Append([char][Convert]::ToInt32($hex.Substring($i, 2), 16))
+            # 2 桁ずつバイトにして、1 バイト 1 文字（Latin-1）の文字列にする
+            $text = ""
+            if ($hex.Length -gt 0) {
+                $text = ${pdfLatin1}.GetString([System.Runtime.Remoting.Metadata.W3cXsd2001.SoapHexBinary]::Parse($hex).Value)
             }
             $st.P = [Math]::Min($e + 1, $n)
             $st.K = "str"
-            return $sb.ToString()
+            return $text
         }
         if ($c -eq '>') {
             if ($p + 1 -lt $n -and $s[$p + 1] -eq '>') {

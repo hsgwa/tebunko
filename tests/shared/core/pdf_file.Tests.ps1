@@ -701,6 +701,9 @@ Describe "readPdfToken" -Tag Unit {
         @{ name = "名前（# の 16 進・空の名前）"; text = "/Name /A#42C /"; expected = "name:Name name:ABC name:" }
         @{ name = "文字列（入れ子・エスケープ・8 進）"; text = "(abc) (a(b)c) (a\)b) (a\101)"; expected = "str:abc str:a(b)c str:a)b str:aA" }
         @{ name = "16 進の文字列と << >>"; text = "<41 42> << >>"; expected = "str:AB <<: >>:" }
+        @{ name = "16 進の文字列（小文字・上位のバイト・空）"; text = "<ff80 4a> <> <7a>"; expected = "str:$([char]255)$([char]128)J str: str:z" }
+        @{ name = "16 進の文字列（16 進でない文字は捨てる）"; text = "<4g1 x>"; expected = "str:A" }
+        @{ name = "16 進の文字列（閉じていない・奇数桁）"; text = "<4"; expected = "str:@" }
         @{ name = "配列と波括弧"; text = "[1 2] { }"; expected = "[: num:1 num:2 ]: kw:{ kw:}" }
         @{ name = "コメントは読み飛ばす"; text = "% comment`n12 a%c`nb"; expected = "num:12 kw:a kw:b" }
         @{ name = "単独の > と ) は読み飛ばす"; text = "a) b > c"; expected = "kw:a kw:b kw:c" }
