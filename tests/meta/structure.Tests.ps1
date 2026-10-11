@@ -122,6 +122,15 @@ Describe "画面の既定のフォント（起動した窓の Font.Body）" -Tag
         Test-Path -LiteralPath "$here\..\scripts\shared\fonts\LICENSE-Lucide.txt" | Should -Be $true
         @(Get-ChildItem "$here\..\scripts" -Recurse -File | Where-Object { $_.Extension -in ".ttf", ".otf", ".ttc" -or $_.Name -eq "OFL.txt" }).Count | Should -Be 0
     }
+
+    It "起動画面（splash.xaml）が直に書くフォントの並びは、newAppFontFamily（Font.Body）と同じ" {
+        $splash = [System.IO.File]::ReadAllText("$here\..\scripts\tebunko\xaml\splash.xaml")
+        $host_ = [System.IO.File]::ReadAllText("$here\..\scripts\shared\ui\app_host.ps1")
+        $splash -match '<Window[^>]*?\sFontFamily="([^"]+)"' | Should -BeTrue
+        $splashFont = $Matches[1]
+        $host_ -match '(?s)function newAppFontFamily \{.*?-ArgumentList "([^"]+)"' | Should -BeTrue
+        $splashFont | Should -Be $Matches[1]
+    }
 }
 
 Describe "スクリプトの構文" -Tag Meta {

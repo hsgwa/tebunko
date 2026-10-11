@@ -23,38 +23,40 @@ Describe "getWorkspaceView" -Tag Unit {
 Describe "getWorkspaceInputDecision" -Tag Unit {
     BeforeAll { $script:drives = @{ "C" = "\Device\HarddiskVolume3"; "D" = "\Device\HarddiskVolume4" } }
 
+    # blocked: 今は変えられない理由（空なら変えられる）。type: ドライブの種類（Fixed なら、ふつうのローカルのドライブ）
     It "<name>" -TestCases @(
-        @{ name = "空にすると入力を促す"; text = "  "; action = "Invalid"; like = "*入力してください*"; path = "C:\tool\work" }
-        @{ name = "相対パスは受けない"; text = "ws\新"; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
-        @{ name = "ドライブ文字のない絶対パス風（\ 始まり）も受けない"; text = "\ws\新"; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
-        @{ name = "ドライブ文字だけ（\ 無し）は受けない"; text = "C:"; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
-        @{ name = "ドライブ文字の相対（C:相対）は受けない"; text = "C:相対"; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
-        @{ name = "定義の無い環境変数は相対パスとして断る"; text = "%TEBUNKO_NO_SUCH_VARIABLE%\ws"; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
-        @{ name = "% で始まるだけの文字は断る"; text = "%data"; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
-        @{ name = "今と同じなら何もしない（大文字小文字・末尾の \ の違い）"; text = "c:\TOOL\work\"; action = "None"; like = ""; path = "C:\tool\work" }
-        @{ name = "あるフォルダは確かめに進む"; text = "D:\新しい"; action = "Apply"; like = ""; path = "D:\新しい" }
-        @{ name = "引用符と空白を取って進む"; text = " ""D:\新しい"" "; action = "Apply"; like = ""; path = "D:\新しい" }
-        @{ name = "/ 区切りは \ にそろえて進む"; text = "D:/新しい"; action = "Apply"; like = ""; path = "D:\新しい" }
-        @{ name = "末尾の \ と空白は取って進む"; text = "D:\新しい\ "; action = "Apply"; like = ""; path = "D:\新しい" }
-        @{ name = "環境変数は展開してから判定する（<SystemDrive> の下）"; text = "%SystemDrive%\新しい"; action = "Apply"; like = ""; path = "$($env:SystemDrive)\新しい" }
-        @{ name = "ネットワークのパスは受けず、［変更…］へ案内する"; text = "\\server\share\ws"; action = "Invalid"; like = '*\\サーバー\共有*［変更…］*'; path = "C:\tool\work" }
-        @{ name = "/ 区切りのネットワークのパスも受けない"; text = "//server/share"; action = "Invalid"; like = "*［変更…］*"; path = "C:\tool\work" }
+        @{ name = "空にすると入力を促す"; text = "  "; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*入力してください*"; path = "C:\tool\work" }
+        @{ name = "相対パスは受けない"; text = "ws\新"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
+        @{ name = "ドライブ文字のない絶対パス風（\ 始まり）も受けない"; text = "\ws\新"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
+        @{ name = "ドライブ文字だけ（\ 無し）は受けない"; text = "C:"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
+        @{ name = "ドライブ文字の相対（C:相対）は受けない"; text = "C:相対"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
+        @{ name = "環境変数で始まるパスは受けない（定義の有無を問わず）"; text = "%TEBUNKO_NO_SUCH_VARIABLE%\ws"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
+        @{ name = "環境変数は展開せず断る（<SystemDrive>）"; text = "%SystemDrive%\新しい"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
+        @{ name = "% で始まるだけの文字は断る"; text = "%data"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
+        @{ name = "ドライブ文字の後ろに % があるパスも断る"; text = "D:\%data%"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*% を含むパス*［変更…］*"; path = "C:\tool\work" }
+        @{ name = "今と同じなら何もしない（大文字小文字・末尾の \ の違い）"; text = "c:\TOOL\work\"; type = "Fixed"; blocked = ""; action = "None"; like = ""; path = "C:\tool\work" }
+        @{ name = "あるフォルダは確かめに進む"; text = "D:\新しい"; type = "Fixed"; blocked = ""; action = "Apply"; like = ""; path = "D:\新しい" }
+        @{ name = "取り外せるドライブも進む"; text = "D:\新しい"; type = "Removable"; blocked = ""; action = "Apply"; like = ""; path = "D:\新しい" }
+        @{ name = "引用符と空白を取って進む"; text = " ""D:\新しい"" "; type = "Fixed"; blocked = ""; action = "Apply"; like = ""; path = "D:\新しい" }
+        @{ name = "/ 区切りは \ にそろえて進む"; text = "D:/新しい"; type = "Fixed"; blocked = ""; action = "Apply"; like = ""; path = "D:\新しい" }
+        @{ name = "末尾の \ と空白は取って進む"; text = "D:\新しい\ "; type = "Fixed"; blocked = ""; action = "Apply"; like = ""; path = "D:\新しい" }
+        @{ name = "ネットワークのパスは受けず、［変更…］へ案内する"; text = "\\server\share\ws"; type = "Fixed"; blocked = ""; action = "Invalid"; like = '*\\サーバー\共有*［変更…］*'; path = "C:\tool\work" }
+        @{ name = "/ 区切りのネットワークのパスも受けない"; text = "//server/share"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*［変更…］*"; path = "C:\tool\work" }
+        @{ name = "デバイス名の形のネットワークのパス（\\.\UNC\）は受けない"; text = "\\.\UNC\server\share\ws"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
+        @{ name = "長いパスの形のネットワークのパス（\\?\UNC\）は受けない"; text = "\\?\UNC\server\share\ws"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
+        @{ name = "デバイス名の形のドライブ（\\.\C:\）は受けない"; text = "\\.\C:\ws"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
+        @{ name = "長いパスの形のドライブ（\\?\C:\）は受けない"; text = "\\?\C:\ws"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
+        @{ name = "割り当てたネットワークのドライブは受けない"; text = "Z:\ws"; type = "Network"; blocked = ""; action = "Invalid"; like = "*［変更…］*"; path = "C:\tool\work" }
+        @{ name = "つながっていないドライブは受けない"; text = "Z:\ws"; type = "NoRootDirectory"; blocked = ""; action = "Invalid"; like = "*［変更…］*"; path = "C:\tool\work" }
+        @{ name = "更新中などは、進める場所でも Blocked で理由を返す"; text = "D:\新しい"; type = "Fixed"; blocked = "更新中は変えられません。"; action = "Blocked"; like = "更新中は変えられません。"; path = "C:\tool\work" }
+        @{ name = "更新中でも、今と同じなら何もしない"; text = "C:\tool\work"; type = "Fixed"; blocked = "更新中は変えられません。"; action = "None"; like = ""; path = "C:\tool\work" }
+        @{ name = "更新中でも、直してほしい入力は Invalid"; text = "ws\新"; type = "Fixed"; blocked = "更新中は変えられません。"; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
     ) {
-        $d = getWorkspaceInputDecision $text "C:\tool\work" $script:drives { param ($drive) [System.IO.DriveType]::Fixed }
+        $driveType = { param ($drive) [System.IO.DriveType]$type }.GetNewClosure()
+        $d = getWorkspaceInputDecision $text "C:\tool\work" $script:drives $driveType $blocked
         $d.Action | Should -Be $action
         if ($like) { $d.Message | Should -BeLike $like }
         $d.Path | Should -Be $path
-    }
-
-    It "割り当てたネットワークのドライブ・つながっていないドライブも受けない" -TestCases @(
-        @{ type = [System.IO.DriveType]::Network }
-        @{ type = [System.IO.DriveType]::NoRootDirectory }
-    ) {
-        param ($type)
-        $driveType = { param ($drive) $type }.GetNewClosure()
-        $d = getWorkspaceInputDecision "Z:\ws" "C:\tool\work" $script:drives $driveType
-        $d.Action | Should -Be "Invalid"
-        $d.Message | Should -BeLike "*［変更…］*"
     }
 }
 

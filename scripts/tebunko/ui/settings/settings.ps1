@@ -50,15 +50,20 @@ function invokeWorkspaceChange {
 function chooseWorkspace {
     # ［変更…］。空のフォルダを選んで、ワークスペースにする（空でなければ警告する）
     invokeWorkspaceChange {
-        if (!(testWorkspaceChangeable)) {
-            return
+        try {
+            if (!(testWorkspaceChangeable)) {
+                return
+            }
+            $folder = selectFolder "ワークスペースにする空のフォルダを選んでください。インデックス・ログをここに置きます。" $workspace.Dir
+            if ($null -eq $folder) {
+                return
+            }
+            applyWorkspace $folder $true
+        } finally {
+            # どの終わり方でも、入力途中の文字と知らせを消し、欄を今の場所に戻す（切り替えたときは新しい場所）
+            $ui.WorkspaceBox.Text = $workspace.Dir
+            setWorkspaceInputError ""
         }
-        $folder = selectFolder "ワークスペースにする空のフォルダを選んでください。インデックス・ログをここに置きます。" $workspace.Dir
-        if ($null -eq $folder) {
-            return
-        }
-        applyWorkspace $folder $true
-        $ui.WorkspaceBox.Text = $workspace.Dir
     }
 }
 
@@ -84,29 +89,24 @@ function commitWorkspaceInputCore {
         setWorkspaceInputError ""
         return
     }
-    # 更新中などは反映しない。欄から出たときは、割り込まないよう、メッセージを出さず今の場所に戻す。
-    # Enter のときは、［変更…］と同じ理由を欄の下に出し、入力した文字は残す
+    # 更新中などは反映しない（判断層が Blocked で返す。理由は［変更…］と同じ文言）。
+    # 欄から出たときは、割り込まないよう、メッセージを出さず今の場所に戻す。Enter のときは、理由を欄の下に出し、入力した文字は残す
     $blocker = getCurrentIndexJobBlocker (testIndexerRunning)
-    if ($blocker -ne "") {
-        if ($keepText) {
-            setWorkspaceInputError (getIndexJobBlockedMessage $blocker "ワークスペースの変更")
-        } else {
-            $ui.WorkspaceBox.Text = $current
-            setWorkspaceInputError ""
-        }
-        return
-    }
-    $decision = getWorkspaceInputDecision $text $current
+    $blockedMessage = if ($blocker -ne "") { getIndexJobBlockedMessage $blocker "ワークスペースの変更" } else { "" }
+    $decision = getWorkspaceInputDecision $text $current $null $null $blockedMessage
     if ($decision.Action -eq "None") {
         $ui.WorkspaceBox.Text = $current
         setWorkspaceInputError ""
         return
     }
-    if ($decision.Action -eq "Invalid") {
-        if (!$keepText) {
+    if ($decision.Action -eq "Invalid" -or $decision.Action -eq "Blocked") {
+        if ($keepText) {
+            setWorkspaceInputError $decision.Message
+        } else {
             $ui.WorkspaceBox.Text = $current
+            # 直してほしい入力の理由は、欄から出たあとも出しておく。更新中（Blocked）は割り込まないよう、出さない
+            setWorkspaceInputError $(if ($decision.Action -eq "Invalid") { $decision.Message } else { "" })
         }
-        setWorkspaceInputError $decision.Message
         return
     }
     setWorkspaceInputError ""
@@ -118,21 +118,27 @@ function commitWorkspaceInputCore {
 function resetWorkspace {
     # ［既定に戻す］。既定の場所（ドキュメントの tebunko_ws）に戻す（無ければ作る）。ほかのファイルが置いてあれば戻さない
     invokeWorkspaceChange {
-        if (!(testWorkspaceChangeable)) {
-            return
-        }
-        $folder = getDefaultWorkDir
-        $check = testDefaultWorkspace $folder
-        if (!$check.Usable) {
-            showMessage $check.Message "OK" "Warning" | Out-Null
-            return
-        }
         try {
-            [System.IO.Directory]::CreateDirectory($folder) | Out-Null
-        } catch {
-            # 作れなければ、書き込めないフォルダとして下の確認で伝える
+            if (!(testWorkspaceChangeable)) {
+                return
+            }
+            $folder = getDefaultWorkDir
+            $check = testDefaultWorkspace $folder
+            if (!$check.Usable) {
+                showMessage $check.Message "OK" "Warning" | Out-Null
+                return
+            }
+            try {
+                [System.IO.Directory]::CreateDirectory($folder) | Out-Null
+            } catch {
+                # 作れなければ、書き込めないフォルダとして下の確認で伝える
+            }
+            applyWorkspace $folder $false
+        } finally {
+            # どの終わり方でも、入力途中の文字と知らせを消し、欄を今の場所に戻す（切り替えたときは新しい場所）
+            $ui.WorkspaceBox.Text = $workspace.Dir
+            setWorkspaceInputError ""
         }
-        applyWorkspace $folder $false
     }
 }
 

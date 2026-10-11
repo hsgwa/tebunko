@@ -85,15 +85,17 @@ function testWorkspaceChoice {
 
 function getWorkspaceInputDecision {
     # 設定のワークスペースの欄に入力したパスを確定するときの判断。@{ Action; Message; Path }
-    #   Action: None（変わっていない。欄を今の場所に戻す）/ Invalid（直してほしい。Message に理由）/ Apply（Path で、［変更…］で選んだときと同じ確かめ・切り替えに進む）
-    # 相対パスは受けない（ツールのフォルダからの位置と取り違えないため）。環境変数（%USERPROFILE% など）は展開した結果で判定する（定義の無いもの・相対パスになるものは断る）。
-    # ネットワークの場所は受けない（画面のスレッドでネットワークに触らないため。［変更…］で選んでもらう）。
+    #   Action: None（変わっていない。欄を今の場所に戻す）/ Invalid（直してほしい。Message に理由）/ Blocked（今は変えられない。Message に理由）/ Apply（Path で、［変更…］で選んだときと同じ確かめ・切り替えに進む）
+    # 入力した文字のまま判断し、ドライブ文字で始まるローカルのドライブのパスだけを進める（共有に触れうる整形は、そのあとで行う）。
+    # 相対パス・環境変数（%…%）・ネットワークの場所・デバイス名の形（\\.\ \\?\）は受けない
+    # （画面のスレッドでネットワークに触らないため。ネットワークは［変更…］で選んでもらう）。
     # フォルダの有無・書き込めるかは、［変更…］で選んだときと同じ testWorkspaceChoice（applyWorkspace）が調べる
     param (
         [string]$text,       # 入力された文字
         [string]$current,    # 今のワークスペース
         $drives = $null,     # ドライブ文字 → 割り当て先（テストで差し替える）
-        [scriptblock]$driveType = $null   # ドライブの種類を引く関数（テストで差し替える。null なら実際のドライブ）
+        [scriptblock]$driveType = $null,  # ドライブの種類を引く関数（テストで差し替える。null なら実際のドライブ）
+        [string]$blockedMessage = ""      # 今は変えられない理由（更新中など。空なら変えられる）
     )
 
     $trimmed = $text.Trim().Trim([char]34).Trim()
@@ -101,21 +103,31 @@ function getWorkspaceInputDecision {
         return @{ Action = "Invalid"; Message = "ワークスペースにするフォルダのパスを入力してください。"; Path = $current }
     }
     $startMessage = "ドライブ文字から始まるパス（例 D:\tebunko_ws）で入力してください。"
-    $startsWithVariable = $trimmed.StartsWith("%")
-    if (-not $startsWithVariable -and $trimmed -notmatch '^([A-Za-z]:[\\/]|\\\\|//)') {
+    $networkMessage = "ネットワークの場所（\\サーバー\共有 など）や、つながっていないドライブは、入力では指定できません。［変更…］でフォルダを選んでください。"
+    $typed = $trimmed.Replace("/", "\")
+    if ($typed.StartsWith("\\?\") -or $typed.StartsWith("\\.\")) {
         return @{ Action = "Invalid"; Message = $startMessage; Path = $current }
     }
-    # 環境変数の展開は normalizeFolderPath が行う。定義の無い変数は % が残る（ツールのフォルダからの相対パスにされるため、断る）
-    $folder = normalizeFolderPath $trimmed
-    if ($startsWithVariable -and ($folder.Contains("%") -or $folder -notmatch '^([A-Za-z]:\\|\\\\)')) {
+    if ($typed.StartsWith("\\")) {
+        return @{ Action = "Invalid"; Message = $networkMessage; Path = $current }
+    }
+    if ($typed -notmatch '^[A-Za-z]:\\') {
         return @{ Action = "Invalid"; Message = $startMessage; Path = $current }
     }
-    $isNetwork = if ($null -ne $driveType) { testNetworkPath $folder $driveType } else { testNetworkPath $folder }
-    if ($isNetwork) {
-        return @{ Action = "Invalid"; Message = "ネットワークの場所（\\サーバー\共有 など）や、つながっていないドライブは、入力では指定できません。［変更…］でフォルダを選んでください。"; Path = $current }
+    $isLocal = if ($null -ne $driveType) { testLocalDrivePath $typed $driveType } else { testLocalDrivePath $typed }
+    if (!$isLocal) {
+        return @{ Action = "Invalid"; Message = $networkMessage; Path = $current }
     }
+    if ($typed.Contains("%")) {
+        return @{ Action = "Invalid"; Message = "% を含むパス（環境変数）は入力では指定できません。パスをそのまま入力するか、［変更…］でフォルダを選んでください。"; Path = $current }
+    }
+    # ローカルのドライブと分かってから整形する（短い名前の展開などで共有に触れないため）
+    $folder = normalizeFolderPath $typed
     if (testSameFolder $folder $current $drives) {
         return @{ Action = "None"; Message = ""; Path = $current }
+    }
+    if ($blockedMessage -ne "") {
+        return @{ Action = "Blocked"; Message = $blockedMessage; Path = $current }
     }
     return @{ Action = "Apply"; Message = ""; Path = $folder }
 }
