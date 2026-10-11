@@ -4145,7 +4145,7 @@
 </tr>
 <tr>
 <td>状態</td>
-<td><code>未取り込み</code>（取り込み待ち・中断）/ <code>済</code> / <code>失敗</code></td>
+<td><code>未取り込み</code>（取り込み待ち・中断。利用者の PowerPoint のために取り込めなかったファイルもここで、理由がエラーの列にある）/ <code>済</code> / <code>失敗</code></td>
 </tr>
 <tr>
 <td>TSV数</td>
@@ -4157,7 +4157,7 @@
 </tr>
 <tr>
 <td>エラー</td>
-<td>失敗の原因（<code>describeIngestError</code> で例外から作る。<a href="../office-apps/#失敗の原因describeingesterror">失敗の原因</a>。タブ・改行はスペースにする）</td>
+<td>失敗の原因（<code>describeIngestError</code> で例外から作る。<a href="../office-apps/#失敗の原因describeingesterror">失敗の原因</a>。タブ・改行はスペースにする）。<code>未取り込み</code> の行には、利用者の PowerPoint のために取り込めなかった理由が入る（<a href="../errors/">エラーメッセージ</a>）。エラーが空の <code>未取り込み</code> は、取り込み待ち・中断</td>
 </tr>
 <tr>
 <td>抽出版</td>
@@ -4229,7 +4229,7 @@
 </tr>
 <tr>
 <td>PowerPoint が要るファイルの後回し（Postponed）</td>
-<td>PowerPoint は 1 つのセッションに 1 つのプロセスしか持てないため、利用者が PowerPoint を開いていると接続することになり、固まっても止められない（<a href="../office-apps/#office-アプリexcelwordpowerpointの管理">Word・PowerPoint の共通処理と Office アプリの管理</a>「PowerPoint」）。そこで、そもそも接続せず、そのファイルを取り込まずに「未取り込み」のまま残す（<code>indexer_run.ps1</code> の司令が <code>Postponed</code> の結果を受けたとき。取り込み中の記録・取り込み一覧・インデックスは変えない）。後回しにした件数だけ進み具合の「残り」に足し、終わりに件数と案内（<code>Notice</code>）をログと受け渡しの口に入れる。利用者が PowerPoint を閉じれば、次のインデックス作成で取り込む（強制終了の回数には数えない。取り込み中に強制終了した場合とは別の扱い）</td>
+<td>PowerPoint は 1 つのセッションに 1 つのプロセスしか持てないため、利用者が PowerPoint を開いていると接続することになり、固まっても止められない（<a href="../office-apps/#office-アプリexcelwordpowerpointの管理">Word・PowerPoint の共通処理と Office アプリの管理</a>「PowerPoint」）。そこで、そもそも接続せず、そのファイルを取り込まず、<strong>失敗として数えて理由を見せる</strong>（<code>indexer_run.ps1</code> の司令が <code>Postponed</code> の結果を受けたとき。<code>StatusLedger.AddFailure</code> に理由を入れ、進み具合の失敗の件数と、終わりの「更新に失敗したファイル」に出す。インデックスと取り込み中の記録は変えない）。取り込み一覧の行は状態を「未取り込み」のまま、理由を「エラー」の列に書く（前回の行があれば、TSV 数・取り込み日時・抽出版は前回のまま残す。無ければ新しい行にする）。<strong>状態を「失敗」にしない</strong>のは、「失敗」の行は次の更新で飛ばされ、失敗分の再取り込みを選ばないと取り込まないため。「未取り込み」なら、利用者が PowerPoint を閉じてからの次のインデックス作成で、選ばなくても取り込む。「未取り込み」でエラーが空でない行は、<code>testStatusRowFailed</code>（<code>index_store.ps1</code>）で失敗に数える（<code>getIndexingState</code>・<code>getIndexStats</code>）。理由は 2 つある（<code>indexer_decide.ps1</code> の <code>postponedReasonRunning</code>・<code>postponedReasonInUse</code>。文は <a href="../errors/">エラーメッセージ</a>）。利用者が PowerPoint を閉じれば、次のインデックス作成で取り込む（この扱いは PowerPoint だけ。Word は利用者のアプリを共有するため、Excel は新しいプロセスを起動して利用者が開いたファイルを渡すため、取り込めないことがない）（強制終了の回数には数えない。取り込み中に強制終了した場合とは別の扱い）。取り込み中に利用者が PowerPoint の窓を使い始め、制限時間を過ぎても、その PowerPoint は強制終了しない。そのレーンを諦め、取り込み中のファイルと残りの PowerPoint のファイルを、同じく取り込まず、使っている方がいた理由で失敗として見せる（状態は「未取り込み」のまま。詳しくは <a href="../office-apps/#office-アプリexcelwordpowerpointの管理">Office アプリの管理</a>「利用者が使っている PowerPoint」）</td>
 </tr>
 </tbody>
 </table>

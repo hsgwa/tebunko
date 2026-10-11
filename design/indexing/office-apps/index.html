@@ -4527,6 +4527,10 @@
 <td>監視のスレッドは Excel・Word・PowerPoint のレーンのスレッドごとに 1 つ（<code>OfficeWatchdog</code> の <code>Start</code>。読み取りのスレッドは持たない）。<code>getApp</code> / <code>stopApp</code> のたびに、そのスレッドが自分で起動したアプリの PID を監視スレッドに渡す（<code>OfficeWatchdog</code> の <code>UpdateWatchedPids</code>）。1 ファイルの制限時間を過ぎたら、監視スレッドがそれらを強制終了する（<a href="../ingest-list/#強制終了時間切れからの再開">取り込み一覧</a>）。ほかのレーンのアプリは止めない。PID が別のプロセスに再利用されている場合に備え、プロセス名が <code>EXCEL</code> / <code>WINWORD</code> / <code>POWERPNT</code> で、かつ控えた名前・起動時刻と同じ（<code>isSameOfficeProcess</code>）ときだけ終了させる。起動時刻が読めないときは止めない（<code>quitApp</code>・画面を閉じるときの <code>KillOffice</code> も同じ。下の「起動時刻が読めないとき」）</td>
 </tr>
 <tr>
+<td>利用者が使っている PowerPoint</td>
+<td>取り込み中に、利用者が PowerPoint にファイルを開く（インデックス作成が起動した PowerPoint に、利用者が窓を出して使い始める）ことがある。固まった PowerPoint の窓は、約 5 秒でゴースト窓に差し替わって見えなくなるため、制限時間を過ぎたときに窓を探しても見つからない。そこで監視のスレッドは、取り込み中は 500 ミリ秒ごとに、PowerPoint の PID の <code>Process.MainWindowHandle</code> を取り直して見る（<code>testOfficeProcessHasWindow</code>。COM も窓へのメッセージも使わないので、固まったプロセスにも戻る。窓の中身で探さず、PID だけを見る）。見えた窓があれば、その PID と起動時刻を「利用者が使った」印（<code>OfficeWatchdog</code> の <code>State.Users</code>、受け渡しの口の <code>UserOfficePids</code>）に残す。制限時間を過ぎたとき、印のあるプロセスは<strong>止めない</strong>（窓が消えていても止めない）。印は、ファイルを取り込み終えた境目（<code>handOverForeignApp</code>）で COM が利用者のファイルを 0 件と答えたとき（利用者が窓を開いて閉じた）、PID が見張りから外れたとき（<code>UpdateWatchedPids</code>・<code>stopApp</code>・<code>untrackApp</code>）と、同じ PID で起動時刻が違うとき（PID の使い回し）に消す。止めない代わりに、監視は取り込みのスレッドのレーンを<strong>諦めた</strong>と司令に伝える（レーンの状態 <code>Abandoned</code>）。司令は、そのレーンで取り込み中だったファイルと、まだ渡していないファイルを、取り込まず、理由付きの失敗として見せる（一覧の状態は「未取り込み」のまま、理由はエラーの列。インデックスは変えない。<a href="../ingest-list/#強制終了時間切れからの再開">取り込み一覧</a>）。固まった呼び出しから戻らないスレッドは待たず（<code>stopIngestWorkers</code> は止める依頼だけを出す）、戻ってきた結果は捨てる。戻ってきたスレッドも、書き出さず、アプリも終了させない。印が無い（窓を一度も見ていない）プロセスは、今までどおり制限時間で止める。司令のスレッドで取り込む形（<code>-Workers 0</code>）では諦めるレーンが無く、止めないだけにする</td>
+</tr>
+<tr>
 <td>起動時刻が読めないとき</td>
 <td>起動時刻を読めなかった Office（アクセスが拒否されたなど）は、控えず、止める対象にしない。制限時間を過ぎても監視は止めず、COM の呼び出しが戻らなければ取り込みが進まない。画面を閉じるときの <code>KillOffice</code> でも止まらず、利用者がタスクマネージャーで止めることになる。起きるのはまれで、別のプロセスを止めてしまうより安全なため、この動きにしている</td>
 </tr>
@@ -4605,7 +4609,7 @@
 <td></td>
 </tr>
 <tr>
-<td>- <strong>渡したあと</strong>: 次のファイルからは新しいアプリを起動する（PowerPoint は、渡した PowerPoint が残っているため起動せず、残りの PowerPoint のファイルを後回しにする。上の「PowerPoint」）。渡したこと（と、一覧を読めずに持ち続けたこと）は、1 ファイルの取り込みの中で起きたときはインデックス作成のログに 1 行残す（取り込みのスレッドが終わるときと起動し直しの一括終了で渡した分は、ログに出る場所が無いため残らない）。</td>
+<td>- <strong>渡したあと</strong>: 次のファイルからは新しいアプリを起動する（PowerPoint は、渡した PowerPoint が残っているため起動せず、残りの PowerPoint のファイルを取り込まず、失敗として理由を見せる。上の「PowerPoint」）。渡したこと（と、一覧を読めずに持ち続けたこと）は、1 ファイルの取り込みの中で起きたときはインデックス作成のログに 1 行残す（取り込みのスレッドが終わるときと起動し直しの一括終了で渡した分は、ログに出る場所が無いため残らない）。</td>
 <td></td>
 <td></td>
 </tr>
