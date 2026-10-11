@@ -39,14 +39,29 @@ ${pdfLatin1} = [System.Text.Encoding]::GetEncoding(28591)
 ${pdfWinAnsi} = [System.Text.Encoding]::GetEncoding(1252)
 ${pdfDelimiters} = [char[]]@(0, 9, 10, 12, 13, 32, '(', ')', '<', '>', '[', ']', '{', '}', '/', '%')
 ${pdfStringStops} = [char[]]@('(', ')', '\')
-# readPdfPageText の字句の切り出し用。空白（コード 32 以下）を飛ばして、(1) 数値・キーワード、または (2) 名前・入れ子もエスケープも無い文字列・<< >> [ ] { } を 1 つ取る。
-# 区切りは ${pdfDelimiters} と同じ。コメント・16 進の文字列・入れ子やエスケープのある文字列・単独の < > ) は取らない（readPdfToken の 1 文字ずつ進める道に任せる）
-${pdfTokenRegex} = [regex]::new('\G(?>[\x00-\x20]*)(?:([^\x00-\x20()<>\[\]{}/%][^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*)|(/[^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*|\([^()\\]*\)|<<|>>|[\[\]{}]))', [System.Text.RegularExpressions.RegexOptions]::Compiled)
+# readPdfPageText の字句の切り出し用の正規表現。部品は 1 か所で定義し、2 つの正規表現をここから組み立てる。
+# 区切り・空白は ${pdfDelimiters} と同じ（テストが全コードで確かめる）。実行時のコンパイル（RegexOptions.Compiled）は使わない。
+${pdfRegexSpace} = '[\x00-\x20]*'
+${pdfRegexNotStart} = '\x00-\x20()<>\[\]{}/%'
+${pdfRegexRest} = '[^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]'
+${pdfRegexWord} = "[^${pdfRegexNotStart}]${pdfRegexRest}*"
+${pdfRegexName} = "/${pdfRegexRest}*"
+${pdfRegexString} = '\([^()\\]*\)'
+# ページの内容で、文字の位置や文字列に効く命令（' と " は英字で始まらないので、正規表現には要らない）。readPdfPageText の分岐と同じであることをテストが確かめる
+${pdfTextOpNames} = [string[]]@("Tj", "TJ", "Tf", "BT", "Td", "TD", "TL", "T*", "Tm", "BI")
+${pdfRegexTextOps} = (@(${pdfTextOpNames} | ForEach-Object { [regex]::Escape($_) }) -join "|")
+# 空白を飛ばして、(1) 数値・キーワード、または (2) 名前・入れ子もエスケープも無い文字列・<< >> [ ] { } を 1 つ取る。
+# コメント・16 進の文字列・入れ子やエスケープのある文字列・単独の < > ) は取らない（readPdfToken の 1 文字ずつ進める道に任せる）
+${pdfTokenRegex} = [regex]::new("\G(?>${pdfRegexSpace})(?:(${pdfRegexWord})|(${pdfRegexName}|${pdfRegexString}|<<|>>|[\[\]{}]))")
 # ページの内容の読み取り用。字句の取り方は pdfTokenRegex と同じで、先頭に「読み飛ばす並び」を足してある（グループ 1。語は 2、それ以外は 3）。
-# 読み飛ばす並び = 数・名前・単純な文字列などの引数が並び、文字に効かない命令（英字で始まる語で、Tj・TJ・Tf・BT・Td・TD・TL・T*・Tm・BI 以外）で終わる。
+# 読み飛ばす並び = 数・名前・単純な文字列などの引数が最大 16 個並び、文字に効かない命令（英字で始まる語で、pdfTextOpNames 以外）で終わる。
 # 命令を読むと数・名前・文字列は捨てられるので、飛ばしても結果は変わらない。文字に効く命令の前の引数は要るので、並びの終わりが文字に効かない命令のときだけ飛ばす。
+# 並びの個数に上限があるのは、引数が延々と続く内容で、試みのたびに最後まで走って遅くなる（字句の数の 2 乗）のを防ぐため。上限より長い並びは 1 字句ずつ読む（結果は同じ）。
 # 配列・辞書・コメント・入れ子の文字列を含むところは、ここに合わず 1 字句ずつ読む。
-${pdfPageRegex} = [regex]::new(('\G(?:((?>(?>[\x00-\x20]*)(?:[^\x00-\x20()<>\[\]{}/%A-Za-z''"][^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*|/[^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*|\([^()\\]*\)))*(?>[\x00-\x20]*)(?!(?:Tj|TJ|Tf|BT|Td|TD|TL|T\*|Tm|BI)(?![^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]))[A-Za-z][^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*)|(?>[\x00-\x20]*)(?:([^\x00-\x20()<>\[\]{}/%][^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*)|(/[^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*|\([^()\\]*\)|<<|>>|[\[\]{}])))'), [System.Text.RegularExpressions.RegexOptions]::Compiled)
+${pdfRegexArgStart} = "[^${pdfRegexNotStart}A-Za-z'`"]"
+${pdfRegexArg} = "(?:${pdfRegexArgStart}${pdfRegexRest}*|${pdfRegexName}|${pdfRegexString})"
+${pdfRegexSkip} = "(?>(?>${pdfRegexSpace})${pdfRegexArg}){0,16}(?>${pdfRegexSpace})(?!(?:${pdfRegexTextOps})(?!${pdfRegexRest}))[A-Za-z]${pdfRegexRest}*"
+${pdfPageRegex} = [regex]::new("\G(?:(${pdfRegexSkip})|(?>${pdfRegexSpace})(?:(${pdfRegexWord})|(${pdfRegexName}|${pdfRegexString}|<<|>>|[\[\]{}])))")
 
 function testPdfExtension {
     # ファイル名（またはパス）の拡張子が、取り込み対象の PDF の拡張子か（大文字・小文字を区別しない）
@@ -115,6 +130,7 @@ function readPdfToken {
             if ($e -lt 0) { $e = $n }
             $name = $s.Substring($p + 1, $e - $p - 1)
             if ($name.Contains("#")) {
+                # 名前の # の戻しは readPdfPageText の字句の取り方と同じ。変えるときは 2 か所をそろえる
                 $name = [regex]::Replace($name, '#([0-9A-Fa-f]{2})', { param($m) [string][char][Convert]::ToInt32($m.Groups[1].Value, 16) })
             }
             $st.P = $e
@@ -213,6 +229,7 @@ function readPdfToken {
         $st.P = $e
         $d = 0.0
         if (($c -ge '0' -and $c -le '9') -or $c -eq '-' -or $c -eq '+' -or $c -eq '.') {
+            # 数の判定は readPdfPageText の字句の取り方（2 か所）と同じ。変えるときは 3 か所をそろえる
             if ([double]::TryParse($token, [System.Globalization.NumberStyles]::Float, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$d) -and -not [double]::IsInfinity($d) -and -not [double]::IsNaN($d)) {
                 $st.K = "num"
                 return $d
@@ -1089,6 +1106,7 @@ function readPdfPageText {
                 $c = $t[0]
                 if (($c -ge '0' -and $c -le '9') -or $c -eq '-' -or $c -eq '+' -or $c -eq '.') {
                     $d = 0.0
+                    # 数の判定は readPdfToken と、TJ の配列の中の取り方と同じ。変えるときは 3 か所をそろえる
                     if ([double]::TryParse($t, [System.Globalization.NumberStyles]::Float, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$d) -and -not [double]::IsInfinity($d) -and -not [double]::IsNaN($d)) {
                         $t = $d
                         $kind = "num"
@@ -1103,6 +1121,7 @@ function readPdfPageText {
                     $kind = "name"
                     $t = $t.Substring(1)
                     if ($t.Contains("#")) {
+                        # 名前の # の戻しは readPdfToken と同じ。変えるときは 2 か所をそろえる
                         $t = [regex]::Replace($t, '#([0-9A-Fa-f]{2})', { param($m) [string][char][Convert]::ToInt32($m.Groups[1].Value, 16) })
                     }
                 } elseif ($c -eq '(') {
@@ -1139,6 +1158,7 @@ function readPdfPageText {
                         $c = $g.Value[0]
                         if (($c -ge '0' -and $c -le '9') -or $c -eq '-' -or $c -eq '+' -or $c -eq '.') {
                             $d = 0.0
+                            # 数の判定は readPdfToken と、readPdfPageText の最初の字句の取り方と同じ。変えるときは 3 か所をそろえる
                             if ([double]::TryParse($g.Value, [System.Globalization.NumberStyles]::Float, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$d) -and -not [double]::IsInfinity($d) -and -not [double]::IsNaN($d)) {
                                 $items.Add($d)
                             }

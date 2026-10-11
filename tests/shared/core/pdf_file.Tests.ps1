@@ -702,7 +702,77 @@ Describe "readPdfPageText（命令の読み方）" -Tag Unit {
         @{ name = "読み飛ばす並びの文字列・名前は残らない"; content = '(skip) /N 1 2 re (a) Tj'; expected = "a" }
         @{ name = "BT の外の Td と色"; content = '5 7 Td 1 0 0 rg (a) Tj'; expected = "a" }
         @{ name = "TL のあとの線幅の命令"; content = 'BT 14 TL (a) Tj 9 w T* (b) Tj ET'; expected = "a`nb" }
+        @{ name = "前方一致: Tj の続き"; content = '(a) Tjx (b) Tj'; expected = "b" }
+        @{ name = "前方一致: BI の続き"; content = 'BIx (a) Tj'; expected = "a" }
+        @{ name = "前方一致: T* の続き"; content = '(a) Tj T*x (b) Tj'; expected = "ab" }
+        @{ name = "大文字・小文字を区別する"; content = '(a) tj (b) Tj'; expected = "b" }
+        @{ name = "空白なしの w と文字列"; content = '1 w(a)Tj'; expected = "a" }
+        @{ name = "空白なしの BT と名前"; content = 'BT/F1 12 Tf(a)Tj 0 -14 Td(b)Tj ET'; expected = "a`nb" }
+        @{ name = "空白なしの BI"; content = 'BI/W 1 ID x EI (p) Tj'; expected = "p" }
+        @{ name = "二重引用符で行を分ける"; content = '(a) Tj 0 0 (b) "'; expected = "a`nb" }
+        @{ name = "引用符で始まる未知の語"; content = "(a) 'x (b) Tj"; expected = "b" }
+        @{ name = "英字で始まらない未知の語（*）"; content = '(a) *x Tj'; expected = "" }
+        @{ name = "英字で始まらない未知の語（数字）"; content = '(a) 1x Tj'; expected = "" }
+        @{ name = "コメントの中の命令の名前"; content = "1 0 0 % rg (x) Tj`n rg (a) Tj"; expected = "a" }
+        @{ name = "配列の中のコメント"; content = "[(a) % (x)`n (b)] TJ"; expected = "ab" }
+        @{ name = "読み飛ばしの直後のエスケープのある文字列"; content = '1 w (a\)b) Tj'; expected = "a)b" }
+        @{ name = "読み飛ばしの直後の 16 進の文字列"; content = '0 g <41> Tj'; expected = "A" }
+        @{ name = "配列の中のエスケープ・入れ子・16 進の文字列"; content = '[(a\)) (b(c)) <41>] TJ'; expected = "a)b(c)A" }
+        @{ name = "辞書の入れ子"; content = '/P << /A << /B (x) Tj >> >> BDC (a) Tj'; expected = "a" }
+        @{ name = "閉じない文字列"; content = '(a) Tj (bc'; expected = "a" }
+        @{ name = "閉じない配列"; content = '(a) Tj [(b) (c)'; expected = "a" }
+        @{ name = "ID のあとが閉じないインライン画像"; content = '(a) Tj BI /W 1 ID xx'; expected = "a" }
+        @{ name = "ID の無いインライン画像"; content = '(a) Tj BI /W 1'; expected = "a" }
+        @{ name = "符号つきの数"; content = 'BT (a) Tj +0 -14. Td (b) Tj ET'; expected = "a`nb" }
+        @{ name = "TJ の中の小数の字間"; content = '[(A) -.3e3 (B)] TJ'; expected = "A B" }
+        @{ name = "TJ の中の数でないものは字間にしない"; content = '[(A) --300 (B)] TJ'; expected = "AB" }
+        @{ name = "空白の種類（タブ・改ページ・復帰）"; content = "(a)`t Tj`f(b)`r Tj"; expected = "ab" }
+        @{ name = "空白の種類（コード 0）"; content = "(a)$([char]0)Tj$([char]0)(b)$([char]0)Tj"; expected = "ab" }
+        @{ name = "空の文字列"; content = '() Tj (a) Tj'; expected = "a" }
     ) {
         readPdfPageText @{ Fonts = @{}; CMaps = @{} } $content $null | Should -BeExactly $expected
+    }
+}
+
+Describe "readPdfPageText（引数が延々と続く内容でも終わる）" -Tag Unit {
+    # 読み飛ばしの試みが字句の数の 2 乗の時間になっていないことを、結果と、余裕のある上限の時間で確かめる
+    It "<name>" -TestCases @(
+        @{ name = "数が続いてから Tj"; make = { ('0 ' * 200000) + '(a) Tj' }; expected = "a" }
+        @{ name = "文字列が続いてから Tj"; make = { ('(x) ' * 100000) + 'Tj' }; expected = "x" }
+        @{ name = "名前が続いて命令なしで終わる"; make = { '/N ' * 200000 }; expected = "" }
+        @{ name = "数が続いてから TJ"; make = { ('0 ' * 200000) + '[(a)] TJ' }; expected = "a" }
+    ) {
+        $content = & $make
+        $watch = [System.Diagnostics.Stopwatch]::StartNew()
+        $text = readPdfPageText @{ Fonts = @{}; CMaps = @{} } $content $null
+        $watch.Stop()
+        $text | Should -BeExactly $expected
+        $watch.Elapsed.TotalSeconds | Should -BeLessThan 120
+    }
+}
+
+Describe "PDF の字句の正規表現（部品と分岐のつながり）" -Tag Unit {
+    It "語の字の表は、区切りと空白の表（pdfDelimiters）と同じ" {
+        $delimiters = [System.Collections.Generic.HashSet[char]]::new([char[]]${pdfDelimiters})
+        $rest = [regex]::new('^' + ${pdfRegexRest} + '\z')
+        $start = [regex]::new('^[^' + ${pdfRegexNotStart} + ']\z')
+        $restDiff = @(0..255 | Where-Object { $rest.IsMatch([string][char]$_) -eq $delimiters.Contains([char]$_) })
+        $startDiff = @(0..255 | Where-Object { $start.IsMatch([string][char]$_) -eq ($delimiters.Contains([char]$_) -or $_ -le 32) })
+        $restDiff | Should -BeNullOrEmpty
+        $startDiff | Should -BeNullOrEmpty
+    }
+
+    It "文字に効く命令の一覧は、readPdfPageText の分岐と同じ" {
+        $source = (Get-Command readPdfPageText).ScriptBlock.ToString()
+        $branches = @([regex]::Matches($source, '\$t -ceq (?:"([^"]+)"|''([^'']+)'')') | ForEach-Object {
+            if ($_.Groups[1].Success) { $_.Groups[1].Value } else { $_.Groups[2].Value }
+        } | Sort-Object -Unique -CaseSensitive)
+        $listed = @(@(${pdfTextOpNames}) + "'" + '"' | Sort-Object -Unique -CaseSensitive)
+        ($branches -join " ") | Should -BeExactly ($listed -join " ")
+    }
+
+    It "実行時のコンパイル（Compiled）を使わない" {
+        ([int](${pdfTokenRegex}.Options -band [System.Text.RegularExpressions.RegexOptions]::Compiled)) | Should -Be 0
+        ([int](${pdfPageRegex}.Options -band [System.Text.RegularExpressions.RegexOptions]::Compiled)) | Should -Be 0
     }
 }
