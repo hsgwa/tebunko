@@ -225,7 +225,7 @@ function updateResultPaneHeight {
         $content = $root.DesiredSize.Height
         $root.InvalidateMeasure()
     }
-    $height = getPreviewRowHeight $available $content
+    $height = getPreviewRowHeight $available $content -itemCount $itemCount
     if ([Math]::Abs($ui.DetailRow.Height.Value - $height) -ge 1) {
         $ui.DetailRow.Height = [System.Windows.GridLength]::new($height)
     }

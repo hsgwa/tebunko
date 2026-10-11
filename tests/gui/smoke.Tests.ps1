@@ -19,6 +19,16 @@ Describe "S1 起動・検索・閉じる" -Tag Gui {
             setGuiStep $S "起動時のタブ"
             getGuiSelectedTab $S | Should -Be "SearchTab"
 
+            # 起動直後は、結果の側（検索バーの下から、境目まで）がプレビューの側（境目から、ステータスバーまで）より大きい
+            setGuiStep $S "起動直後の結果とプレビューの高さ"
+            $rects = @{}
+            foreach ($rectId in @("WordBox", "PreviewSplitter", "StatusText")) {
+                $rects[$rectId] = (findGui $S.Window -Id $rectId).Current.BoundingRectangle
+            }
+            $resultHeight = $rects.PreviewSplitter.Top - $rects.WordBox.Bottom
+            $previewHeight = $rects.StatusText.Top - $rects.PreviewSplitter.Top
+            $resultHeight | Should -BeGreaterThan $previewHeight
+
             # 3 つの画面を選ぶ。選んだ画面の中の部品が UI オートメーションに出る（ContentHost の中身）（#7）
             foreach ($tab in @(
                 @{ Id = "IndexTab"; Content = "IndexGrid" }, @{ Id = "SettingsTab"; Content = "ChangeWorkspaceButton" },

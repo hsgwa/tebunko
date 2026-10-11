@@ -106,9 +106,11 @@ Describe "getPreviewRowHeight" -Tag Unit {
         @{ name = "結果が少なければ、表を内容の高さにしてプレビューを広げる"; available = 600; content = 150; expected = 450 }
         @{ name = "表は最低の高さより低くしない"; available = 600; content = 10; expected = 540 }
         @{ name = "全体が低くてもプレビューは今までの高さより低くしない"; available = 200; content = 20; expected = 180 }
+        @{ name = "行がまだ無い（起動直後・検索前・0 件）ときは、内容が小さくても今までの高さ"; available = 600; content = 40; itemCount = 0; expected = 180 }
+        @{ name = "行が 1 つでもあれば、広げる"; available = 600; content = 150; itemCount = 1; expected = 450 }
     ) {
-        param ($name, $available, $content, $expected)
-        getPreviewRowHeight $available $content | Should -Be $expected
+        param ($name, $available, $content, $expected, $itemCount = -1)
+        getPreviewRowHeight $available $content -itemCount $itemCount | Should -Be $expected
     }
 }
 

@@ -118,15 +118,18 @@ function getPreviewRowHeight {
     # 結果の表とプレビューの境目。結果が少ないとき（表が内容の高さで足りるとき）は、表を内容の高さまで縮めて、プレビューを広げる。
     #   available: 表とプレビューを合わせた高さ
     #   content  : 表（件数・絞り込みなどの行を含む）が内容に要る高さ。多くて測らないときは $null
-    # 表が内容より低くなる（スクロールが要る）ときは、今までどおりの高さ（defaultHeight）にする。表は minResultHeight より低くしない
+    # 表が内容より低くなる（スクロールが要る）ときは、今までどおりの高さ（defaultHeight）にする。表は minResultHeight より低くしない。
+    # 表に行がまだ無いとき（起動直後・検索前・0 件）は、内容が空なので広げても使い道が無い。defaultHeight にして、結果の側を大きく保つ
+    #   itemCount: 表の行の数（既定は -1 = 行の数を問わない）
     param (
         [double]$available,
         $content,
         [double]$defaultHeight = 180,
-        [double]$minResultHeight = 60
+        [double]$minResultHeight = 60,
+        [int]$itemCount = -1
     )
 
-    if ($null -eq $content) {
+    if ($null -eq $content -or $itemCount -eq 0) {
         return $defaultHeight
     }
     $height = $available - [double]$content

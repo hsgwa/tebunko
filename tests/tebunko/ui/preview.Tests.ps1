@@ -205,6 +205,11 @@ Describe "updateResultPaneHeight" -Tag Unit {
         $ui.DetailRow.Height.Value | Should -Be 330
     }
 
+    It "表に行がまだ無いとき（起動直後）は、広げずに元の高さのまま" {
+        updateResultPaneHeight 0
+        $ui.DetailRow.Height.Value | Should -Be 180
+    }
+
     It "表の内容が増えて、表が足りなくなったら、プレビューを元の高さに戻す" {
         updateResultPaneHeight 2
         $ui.ResultListHost.Content.Needs = 400.0
