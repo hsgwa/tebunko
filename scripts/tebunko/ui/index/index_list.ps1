@@ -265,7 +265,7 @@ function updateFastSearchRows {
             $hasContent = ($stats[$item.Name].Done -ge 1)
         }
         $row = getFastSearchRowView $script:fastSearchReason $script:fastSearchProgress $item.Name $hasContent $script:fastSearchCheckedAt (isIndexing)
-        $item.SetFast($row.Text, $row.ToolTip, $row.Level)
+        $item.SetFast($row.Text, $row.ToolTip, $row.Level, [string[]]@($row.Steps))
         if ($row.Level -eq "Wait") {
             $waiting = $true
         }

@@ -750,7 +750,8 @@ function addIndexRowNotice {
 
 function getFastSearchRowView {
     # 一覧の「高速検索」列（システムインデックスが Windows Search にどこまで反映されたか）の
-    # 文言・ツールヒント・色の区分を返す。@{ Text; ToolTip; Level }
+    # 文言・ツールヒント・色の区分・対処の手順を返す。@{ Text; ToolTip; Level; Steps }
+    # 使えないとき（不可）の Level は Warn（失敗の赤でなく注意の色）。Steps は詳細に出す対処の手順の短い箇条（無ければ空）
     #   reason     : getWindowsSearchState の値（NoFolder; NoConnection; NotInScope; NotYet; Ok）。$null ならまだ確かめていない
     #   progress   : getSystemIndexProgress の値（$null なら読めなかった・問い合わせに失敗した）
     #   name       : インデックス名（progress.ByIndex を引く）
@@ -774,10 +775,14 @@ function getFastSearchRowView {
         return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "まだ作っていません。更新が終わると状態を表示します。" $checkedAt) }
     }
     if ($reason -eq "NoConnection") {
-        return newFastSearchRowResult "不可" "Ng" @("Windows Search に接続できません。Windows Search のサービスが動いているかを確かめてください。") $true $checkedAt $progress
+        return newFastSearchRowResult "不可" "Warn" @("Windows Search に接続できません。") $true $checkedAt $progress @(
+            "Windows Search のサービスが動いているかを確かめてください。")
     }
     if ($reason -eq "NotInScope") {
-        return newFastSearchRowResult "不可" "Ng" @("ワークスペースが Windows Search の索引の対象外です。［インデックスのオプション］でワークスペースの system_index を対象に加えてください（管理者の権限が要る PC では、PC の管理者に頼んでください）。") $true $checkedAt $progress
+        return newFastSearchRowResult "不可" "Warn" @("ワークスペースが Windows Search の索引の対象外です。") $true $checkedAt $progress @(
+            "スタートで「インデックスのオプション」と入力して開きます。",
+            "ワークスペースの system_index を対象に加えます。",
+            "管理者の権限が要る PC では、PC の管理者に頼みます。")
     }
     if (($reason -eq "Ok" -or $reason -eq "NotYet") -and $null -eq $progress) {
         return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "反映の進み具合を確かめられませんでした。画面を前に出し直すと、もう一度確かめます。" $checkedAt) }
@@ -791,7 +796,7 @@ function getFastSearchRowView {
             return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "更新中です。終わると状態を表示します。" $checkedAt) }
         }
         if ($hasContent) {
-            return newFastSearchRowResult "不可" "Ng" @("このインデックスには高速検索用のデータがありません。") $false $checkedAt $null
+            return newFastSearchRowResult "不可" "Warn" @("このインデックスには高速検索用のデータがありません。") $false $checkedAt $null
         }
         return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "まだ作っていません。更新が終わると状態を表示します。" $checkedAt) }
     }
@@ -815,10 +820,12 @@ function getFastSearchRowView {
 
 function newFastSearchRowResult {
     # getFastSearchRowView の共通の組み立て: 理由の行＋（使っても結果は同じという注記）＋ ContentIndexed の案内＋最終確認
-    param ([string]$text, [string]$level, [string[]]$lines, [bool]$withUsageNotice, $checkedAt, $progress)
+    # steps は対処の手順（ツールヒントでは理由の次の行に並べ、詳細では理由と別の箇条にする）
+    param ([string]$text, [string]$level, [string[]]$lines, [bool]$withUsageNotice, $checkedAt, $progress, [string[]]$steps = @())
 
     $all = New-Object 'System.Collections.Generic.List[string]'
     foreach ($line in $lines) { [void]$all.Add($line) }
+    foreach ($step in $steps) { [void]$all.Add($step) }
     if ($withUsageNotice) {
         [void]$all.Add("使えなくても検索の結果は同じで、時間だけが違います。")
         if ($progress -and $progress.ContentIndexed) {
@@ -826,7 +833,7 @@ function newFastSearchRowResult {
         }
     }
     $tooltip = addFastSearchCheckedAt ($all -join "`n") $checkedAt
-    return @{ Text = $text; Level = $level; ToolTip = $tooltip }
+    return @{ Text = $text; Level = $level; ToolTip = $tooltip; Steps = @($steps) }
 }
 
 function addFastSearchCheckedAt {
@@ -888,13 +895,13 @@ function getIndexDetailView {
     # インデックスの詳細のパネルに出す内容を返す。1 つ選んでいるときだけ中身を出す
     # （何も選んでいない・複数のときは見出しだけ。一覧の下の合計は別の部品）。
     #   items         : 選んでいる行。@{ Name; Path; Enabled; FolderStatus; FolderMissing（元のフォルダが無いと分かったか）; FolderChecked（有無を調べ終えたか。$false のときだけ「確認中」。省くと調べ終えたものとする）; IndexText; IndexLevel; IndexSub; FileCountText;
-    #                   LastIngestedText; FastText; FastLevel; FastToolTip; FastCheckedText }
+    #                   LastIngestedText; FastText; FastLevel; FastToolTip; FastSteps; FastCheckedText }
     #   fastEntry     : getSystemIndexProgress の ByIndex のそのインデックスの値（@{ Folders; Waiting }）。無ければ $null
     #   multiCount    : 2 以上なら、詳細は出さず「N 件を選択中」と案内だけにする（getIndexDetailMultiCount）
     #   running       : 更新の進み具合（@{ Ratio; Processed; Total; Failed; Eta; Current }）。更新中の行の「インデックス」の箱に出す。無ければ $null
     # 戻り値: @{ Title; Selected; Name; Path; FolderStatus; FolderBrush（フォルダの状態の文の色のキー。ある = Ok／無い = Danger.Text／確認中・何も出さない = Ink.Muted）; Badge（@{ Text; Level }）; Updated; Count;
     #            Rows（右の「インデックス情報」の @{ Label; Value } の配列）; RowsKey;
-    #            Fast（@{ Shown（反映の進みの棒を出すか）; Value（0〜1）; Text; State; Level; Reason; Checked; Note }）;
+    #            Fast（@{ Shown（反映の進みの棒を出すか）; Value（0〜1）; Text; State; Level; Reason; Steps（対処の手順の箇条）; Checked; Note }）;
     #            Multi（複数を選んでいるか）; Hint（Multi のときの案内）;
     #            Run（@{ Shown（更新中の棒・件数・ファイル名を出すか）; Value（0〜1）; CountText; FileText }）;
     #            Error・ErrorHint（元のフォルダが無いときの理由と直し方。無ければ空。バッジは「エラー」の Ng になる） }
@@ -907,7 +914,7 @@ function getIndexDetailView {
     )
 
     $noRun = @{ Shown = $false; Value = 0.0; CountText = ""; FileText = "" }
-    $emptyFast = @{ Shown = $false; Value = 0.0; Text = ""; State = ""; Level = "None"; Reason = ""; Checked = ""; Note = "" }
+    $emptyFast = @{ Shown = $false; Value = 0.0; Text = ""; State = ""; Level = "None"; Reason = ""; Steps = @(); Checked = ""; Note = "" }
     $none = @{
         Title = "インデックスの状態"; Selected = $false; Name = ""; Path = ""; FolderStatus = ""; FolderMissing = $false; FolderBrush = "Ink.Muted"
         Badge = @{ Text = ""; Level = "None" }; Updated = ""; Count = ""; Rows = @(); RowsKey = ""; Fast = $emptyFast
@@ -934,9 +941,10 @@ function getIndexDetailView {
     [void]$rows.Add(@{ Label = "対象ファイル数"; Value = $(if ($hasCount) { "$($item.FileCountText) ファイル" } else { "－" }) })
     [void]$rows.Add(@{ Label = "最終更新"; Value = $(if ($item.LastIngestedText) { [string]$item.LastIngestedText } else { "－" }) })
 
-    $fast = @{ Shown = $false; Value = 0.0; Text = ""; State = [string]$item.FastText; Level = [string]$item.FastLevel; Reason = ""; Checked = [string]$item.FastCheckedText; Note = "" }
-    if ($item.FastLevel -eq "Ng" -and $item.FastToolTip) {
+    $fast = @{ Shown = $false; Value = 0.0; Text = ""; State = [string]$item.FastText; Level = [string]$item.FastLevel; Reason = ""; Steps = @(); Checked = [string]$item.FastCheckedText; Note = "" }
+    if ($item.FastLevel -in @("Ng", "Warn") -and $item.FastToolTip) {
         $fast.Reason = ([string]$item.FastToolTip -split "`n")[0]
+        $fast.Steps = @($item.FastSteps)
     }
     if ($null -ne $fastEntry -and $fastEntry.Folders -gt 0) {
         $done = [Math]::Max(0, [Math]::Min([int]$fastEntry.Folders, [int]$fastEntry.Folders - [int]$fastEntry.Waiting))
@@ -979,7 +987,7 @@ function getIndexDetailView {
     $folderBrush = if ($item.FolderMissing) { "Danger.Text" } elseif ($item.FolderChecked -eq $false) { "Ink.Muted" } else { "Ok" }
     $fixed = @(
         $item.Name, $item.Path, $item.FolderStatus, $folderBrush, $badge.Text, $badge.Level, $badge.Sub, $updated, $count
-        $fast.State, $fast.Level, $fast.Reason, $fast.Checked
+        $fast.State, $fast.Level, $fast.Reason, (@($fast.Steps) -join "|"), $fast.Checked
     ) -join "`t"
     $rowsKey = $fixed + "`n" + (@($rows | ForEach-Object { "$($_.Label)`t$($_.Value)" }) -join "`n")
     return @{

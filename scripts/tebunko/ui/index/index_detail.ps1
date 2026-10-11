@@ -4,7 +4,7 @@
 foreach ($detailName in @(
         "IndexDetailBody", "IndexDetailName", "IndexDetailPath", "IndexDetailPathButton", "IndexDetailEditError", "IndexDetailFolderStatus",
         "IndexDetailBadge", "IndexDetailBadgeText", "IndexDetailBadgeSub", "IndexErrorText", "IndexErrorHintText", "IndexDetailUpdated", "IndexDetailCount",
-        "IndexDetailFastBadge", "IndexDetailFastBadgeText", "IndexDetailFastReason", "IndexDetailFastChecked", "IndexDetailFastNote",
+        "IndexDetailFastBadge", "IndexDetailFastBadgeText", "IndexDetailFastReason", "IndexDetailFastSteps", "IndexDetailFastChecked", "IndexDetailFastNote",
         "IndexingDetailPanel", "IndexingProgressBar", "IndexingCountText", "IndexingFileText", "MultiSelectHintText")) {
     $ui[$detailName] = $ui.IndexDetailHost.Content.FindName($detailName)
 }
@@ -12,10 +12,10 @@ foreach ($detailName in @(
 addTrimmedToolTip $ui.IndexingFileText
 
 function setIndexBadge {
-    # 詳細の状態のバッジの文言と色（一覧の LevelBadge と同じ組み合わせ。level は Ok / Wait / Ng / Run / None）
+    # 詳細の状態のバッジの文言と色（一覧の LevelBadge と同じ組み合わせ。level は Ok / Wait / Warn / Ng / Run / None）
     param ($border, $textBlock, [string]$text, [string]$level)
 
-    $kind = if ($level -in @("Ok", "Wait", "Ng", "Run")) { $level } else { "None" }
+    $kind = if ($level -in @("Ok", "Wait", "Warn", "Ng", "Run")) { $level } else { "None" }
     $border.Background = themeBrush "Badge.${kind}.Bg"
     $border.BorderBrush = themeBrush "Badge.${kind}.Bg"
     $textBlock.Foreground = themeBrush "Badge.${kind}.Text"
@@ -389,7 +389,7 @@ function updateIndexDetailPanel {
             FolderMissing = ($item.StatusChecked -and !$item.FolderExists); FolderChecked = [bool]$item.StatusChecked
             IndexText = $item.IndexText; IndexLevel = $item.IndexLevel; IndexSub = $item.IndexSub; FileCountText = $item.FileCountText
             LastIngestedText = $item.LastIngestedText; FastText = $item.FastText; FastLevel = $item.FastLevel
-            FastToolTip = $item.FastToolTip; FastCheckedText = $checkedText
+            FastToolTip = $item.FastToolTip; FastSteps = $item.FastSteps; FastCheckedText = $checkedText
         })
         $progress = $script:fastSearchProgress
         if ($progress -and $progress.ByIndex -and $progress.ByIndex.ContainsKey($item.Name)) {
@@ -445,6 +445,8 @@ function updateIndexDetailPanel {
     setIndexBadge $ui.IndexDetailFastBadge $ui.IndexDetailFastBadgeText $view.Fast.State $view.Fast.Level
     $ui.IndexDetailFastReason.Text = $view.Fast.Reason
     $ui.IndexDetailFastReason.Visibility = if ($view.Fast.Reason) { "Visible" } else { "Collapsed" }
+    $ui.IndexDetailFastSteps.Text = (@($view.Fast.Steps | ForEach-Object { "・$_" }) -join "`n")
+    $ui.IndexDetailFastSteps.Visibility = if (@($view.Fast.Steps).Count -gt 0) { "Visible" } else { "Collapsed" }
     $ui.IndexDetailFastPanel.Visibility = if ($view.Fast.Shown) { "Visible" } else { "Collapsed" }
     $ui.IndexDetailFastText.Text = $view.Fast.Text
     $ui.IndexDetailFastBar.Value = $view.Fast.Value

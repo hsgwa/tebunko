@@ -177,6 +177,7 @@
                     </Border>
                   </StackPanel>
                   <TextBlock x:Name="IndexDetailFastReason" Style="{StaticResource WarnText}" Margin="0,6,0,0" TextWrapping="Wrap" />
+                  <TextBlock x:Name="IndexDetailFastSteps" Style="{StaticResource Meta}" Margin="0,4,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
                   <StackPanel x:Name="IndexDetailFastPanel" Margin="0,6,0,0" Visibility="Collapsed">
                     <TextBlock x:Name="IndexDetailFastText" Style="{StaticResource Meta}" />
                     <ProgressBar x:Name="IndexDetailFastBar" Margin="0,4,0,0" Maximum="1" Height="6" />

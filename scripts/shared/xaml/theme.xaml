@@ -98,6 +98,9 @@
   <SolidColorBrush x:Key="Badge.Ok.Text"   Color="#218A21" />
   <SolidColorBrush x:Key="Badge.Wait.Bg"   Color="#FFF5E0" />
   <SolidColorBrush x:Key="Badge.Wait.Text" Color="#BA7D00" />
+  <!-- 使えない・足りないが、失敗ではないもの（高速検索の「不可」など）。Wait と同じ黄の系統で、文字だけ濃くする -->
+  <SolidColorBrush x:Key="Badge.Warn.Bg"   Color="#FFF5E0" />
+  <SolidColorBrush x:Key="Badge.Warn.Text" Color="#8A5A00" />
   <SolidColorBrush x:Key="Badge.Ng.Bg"     Color="#FFE6E6" />
   <SolidColorBrush x:Key="Badge.Ng.Text"   Color="#D13438" />
   <SolidColorBrush x:Key="Badge.None.Bg"   Color="#F1F3F4" />
@@ -376,7 +379,7 @@
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="Padding" Value="8,2,8,2" />
   </Style>
-  <!-- 状態を丸いバッジで出す。Tag に Level（Ok / Wait / Ng / Run / None）を入れて、色だけ切り替える。状態の色の組は Badge.* にだけ置く -->
+  <!-- 状態を丸いバッジで出す。Tag に Level（Ok / Wait / Warn / Ng / Run / None）を入れて、色だけ切り替える。状態の色の組は Badge.* にだけ置く -->
   <Style x:Key="LevelBadge" TargetType="Border" BasedOn="{StaticResource StatusBadge}">
     <Setter Property="HorizontalAlignment" Value="Left" />
     <Setter Property="VerticalAlignment" Value="Center" />
@@ -388,6 +391,9 @@
       </DataTrigger>
       <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Wait">
         <Setter Property="Background" Value="{StaticResource Badge.Wait.Bg}" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Warn">
+        <Setter Property="Background" Value="{StaticResource Badge.Warn.Bg}" />
       </DataTrigger>
       <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Ng">
         <Setter Property="Background" Value="{StaticResource Badge.Ng.Bg}" />
@@ -409,6 +415,9 @@
       </DataTrigger>
       <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Wait">
         <Setter Property="Foreground" Value="{StaticResource Badge.Wait.Text}" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Warn">
+        <Setter Property="Foreground" Value="{StaticResource Badge.Warn.Text}" />
       </DataTrigger>
       <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Ng">
         <Setter Property="Foreground" Value="{StaticResource Badge.Ng.Text}" />

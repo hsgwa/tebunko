@@ -672,22 +672,22 @@ Describe "getFastSearchRowView" -Tag Unit {
            text = "－"; level = "None" }
         @{ label = "NoFolder だが本文がある（インポートなど）: 不可"
            reason = "NoFolder"; byIndex = $null; name = "営業"; hasContent = $true
-           text = "不可"; level = "Ng" }
+           text = "不可"; level = "Warn" }
         @{ label = "NoFolder だが本文がある・インデックス作成中: 不可にせず－（作成中は前の結果のままにしない）"
            reason = "NoFolder"; byIndex = $null; name = "営業"; hasContent = $true; indexing = $true
            text = "－"; level = "None" }
         @{ label = "NoConnection: 不可"
            reason = "NoConnection"; byIndex = $null; name = "営業"; hasContent = $false
-           text = "不可"; level = "Ng" }
+           text = "不可"; level = "Warn" }
         @{ label = "NotInScope: 不可"
            reason = "NotInScope"; byIndex = $null; name = "営業"; hasContent = $false
-           text = "不可"; level = "Ng" }
+           text = "不可"; level = "Warn" }
         @{ label = "Ok で進み具合を確かめられない: －"
            reason = "Ok"; byIndex = $null; name = "営業"; hasContent = $true
            text = "－"; level = "None" }
         @{ label = "Ok で ByIndex に無く本文がある（インポートなど）: 不可"
            reason = "Ok"; byIndex = @{}; name = "営業"; hasContent = $true
-           text = "不可"; level = "Ng" }
+           text = "不可"; level = "Warn" }
         @{ label = "Ok で ByIndex に無く本文がある・インデックス作成中: 不可にせず－"
            reason = "Ok"; byIndex = @{}; name = "営業"; hasContent = $true; indexing = $true
            text = "－"; level = "None" }
@@ -712,6 +712,14 @@ Describe "getFastSearchRowView" -Tag Unit {
         $view = getFastSearchRowView $reason $progress $name $hasContent $null $indexing
         $view.Text | Should -Be $text
         $view.Level | Should -Be $level
+    }
+
+    It "NotInScope は対処の手順を持ち、使えない状態は注意の色（Warn）で、手順はツールヒントにも入る" {
+        $v = getFastSearchRowView "NotInScope" $null "営業" $false $null
+        $v.Level | Should -Be "Warn"
+        @($v.Steps).Count | Should -BeGreaterThan 1
+        $v.ToolTip | Should -Match "インデックスのオプション"
+        (getFastSearchRowView "Ok" (newFastProgress @{ "営業" = @{ Folders = 4; Waiting = 0 } }) "営業" $true $null).Steps.Count | Should -Be 0
     }
 
     It "Text は 可・反映中 N%・反映待ち・不可・－・確認中… のどれかだけ" {
@@ -961,6 +969,16 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         $view.Fast.Text | Should -Be $text
         # 反映待ちのフォルダがあるときだけ、通常の検索で調べる旨の注記を出す
         ($view.Fast.Note -ne "") | Should -Be $note
+    }
+
+    It "高速検索が不可（Warn）のときも、理由と手順を出す" {
+        $item = newDetailItem -fastLevel "Warn" -fastTip "対象外です。"
+        $item.FastSteps = @("手順 1", "手順 2")
+        $view = getIndexDetailView @($item) $null
+        $view.Fast.Reason | Should -Be "対象外です。"
+        @($view.Fast.Steps) | Should -Be @("手順 1", "手順 2")
+        $item.FastSteps = @("手順 1")
+        (getIndexDetailView @($item) $null).RowsKey | Should -Not -Be $view.RowsKey
     }
 
     It "高速検索が不可のときは、理由（ツールヒントの 1 行目）を出す" {
