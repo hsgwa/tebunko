@@ -204,6 +204,31 @@ Describe "getIndexingBannerLevel（更新が終わった帯の色の種類）" -
     }
 }
 
+Describe "getIndexingRunStatus・testIndexingRunStatus（更新の途中のステータスの文）" -Tag Unit {
+    It "<kind> の文は <text>" -TestCases @(
+        @{ kind = "Started"; text = "更新を開始しました" }
+        @{ kind = "Canceled"; text = "更新を取りやめました" }
+        @{ kind = "Checking"; text = "更新するファイルを調べています…" }
+        @{ kind = "StopRequested"; text = "更新の中止を要求しました" }
+        @{ kind = "Other"; text = "" }
+    ) {
+        param ($kind, $text)
+        getIndexingRunStatus $kind | Should -Be $text
+    }
+
+    It "更新が終わったときに消す文か: <text> は <expected>" -TestCases @(
+        @{ text = "更新を開始しました"; expected = $true }
+        @{ text = "更新するファイルを調べています…"; expected = $true }
+        @{ text = "更新の中止を要求しました"; expected = $true }
+        @{ text = "更新を取りやめました"; expected = $true }
+        @{ text = "インデックス [営業] を削除しました"; expected = $false }
+        @{ text = ""; expected = $false }
+    ) {
+        param ($text, $expected)
+        testIndexingRunStatus $text | Should -Be $expected
+    }
+}
+
 Describe "getIndexingEndText" -Tag Unit {
     It "取り込んだ（成功＋失敗）が1件以上なら、成功・失敗（・残り）の見出し" -TestCases @(
         @{ Success = 10; Failed = 0; Postponed = 0; Notice = ""; Text = "更新が終わりました（成功 10 件 / 失敗 0 件）"; Detail = "" }

@@ -159,6 +159,33 @@ function getIndexingResumeBannerDecision {
     return @{ Action = $action; Dismissed = $dismissed; CanResume = $canResume }
 }
 
+function getIndexingRunStatus {
+    # 更新の途中でステータスバーのいつもの文に出す文。kind は Started（確認で［更新を開始］）/ Canceled（確認で取りやめ）/
+    # Checking（更新するファイルを調べている）/ StopRequested（［中止］を要求した）
+    param (
+        [string]$kind
+    )
+
+    switch ($kind) {
+        "Started" { return "更新を開始しました" }
+        "Canceled" { return "更新を取りやめました" }
+        "Checking" { return "更新するファイルを調べています…" }
+        "StopRequested" { return "更新の中止を要求しました" }
+        default { return "" }
+    }
+}
+
+function testIndexingRunStatus {
+    # いつもの文が、更新の途中の文（getIndexingRunStatus）か。終わったあとも残らないよう、更新が終わったときに消す
+    # （更新の結果は帯に出すので、ステータスバーには残さない。ほかの操作の結果の文は消さない）
+    param (
+        [string]$text
+    )
+
+    if (!$text) { return $false }
+    return @("Started", "Canceled", "Checking", "StopRequested" | ForEach-Object { getIndexingRunStatus $_ }) -contains $text
+}
+
 function getIndexingEndText {
     # インデックス作成が完了した（終了コード 0）ときの、進み具合の見出しと説明（@{ Text; Detail }）を返す。
     # 後回し（利用者のPowerPointが起動していて取り込まなかったファイル）がある場合の文言もここで決める
