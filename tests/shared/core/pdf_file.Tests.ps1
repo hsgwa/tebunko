@@ -698,6 +698,10 @@ Describe "readPdfPageText（命令の読み方）" -Tag Unit {
         @{ name = "BT の外の文字列も出す"; content = '0 g (n) Tj BT (m) Tj ET'; expected = "nm" }
         @{ name = "TJ の中の指数の数は字間"; content = 'BT [(a) 1e3 (b)] TJ ET'; expected = "ab" }
         @{ name = "波括弧のあとも読む"; content = '{ (a) Tj } BT (b) Tj ET'; expected = "ab" }
+        @{ name = "文字に効かない命令の前後の引数"; content = 'BT 5 w 0 -14 Td (a) Tj 3 7 Td /GS gs (b) Tj ET'; expected = "a`nb" }
+        @{ name = "読み飛ばす並びの文字列・名前は残らない"; content = '(skip) /N 1 2 re (a) Tj'; expected = "a" }
+        @{ name = "BT の外の Td と色"; content = '5 7 Td 1 0 0 rg (a) Tj'; expected = "a" }
+        @{ name = "TL のあとの線幅の命令"; content = 'BT 14 TL (a) Tj 9 w T* (b) Tj ET'; expected = "a`nb" }
     ) {
         readPdfPageText @{ Fonts = @{}; CMaps = @{} } $content $null | Should -BeExactly $expected
     }
