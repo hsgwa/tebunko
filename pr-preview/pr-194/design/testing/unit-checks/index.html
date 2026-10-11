@@ -4073,7 +4073,7 @@
 </tr>
 <tr>
 <td><code>check_signoff.ps1</code></td>
-<td>作者の <code>Signed-off-by</code> があれば通す、無い・作者と違うメールアドレスなら止める、コメント行と <code>git commit -v</code> の差分の中は数えない、マージコミット・bot は調べない</td>
+<td>作者の <code>Signed-off-by</code> があり、ほかの <code>Signed-off-by:</code> の行（山かっこ無し・後ろに文字が続く・山かっこが 2 つ・名前だけの行を含む）が無ければ通す、無い・作者の形でない行が 1 つでもあれば止める（出力に違う行のメールアドレスは出さず、<code>-Range</code> は SHA だけ）、コメント行と <code>git commit -v</code> の差分の中は数えない、マージコミット・bot は調べない</td>
 </tr>
 <tr>
 <td><code>check_release_tag.ps1</code></td>

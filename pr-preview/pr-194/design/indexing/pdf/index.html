@@ -4269,7 +4269,7 @@
 <thead>
 <tr>
 <th>読む</th>
-<th>読まない（読めない PDF として失敗にする）</th>
+<th>読まない（暗号化・<code>FlateDecode</code> 以外の圧縮・<code>ToUnicode</code> の無い複合フォント・壊れた相互参照は読めない PDF として失敗にする。そのほかは失敗にせず読み飛ばす）</th>
 </tr>
 </thead>
 <tbody>
@@ -4293,11 +4293,23 @@
 <td><code>ToUnicode</code> の無い単純フォント（WinAnsi 相当の 1 バイト文字）</td>
 <td>OCR（画像の文字は読まない）</td>
 </tr>
+<tr>
+<td><code>XRefStm</code>（表で解放済みとされた番号を補う）・<code>Prev</code></td>
+<td><code>Do</code> で呼ぶ Form XObject の中の文字</td>
+</tr>
+<tr>
+<td></td>
+<td>注釈・フォームの欄・しおり（アウトライン）の文字</td>
+</tr>
+<tr>
+<td></td>
+<td>単純フォントの <code>/Encoding</code> と <code>/Differences</code>（<code>ToUnicode</code> が無ければ、常に Windows-1252 で読む）</td>
+</tr>
 </tbody>
 </table>
 <ul>
 <li><strong>場所</strong>: ページの順に <code>ページ001</code> <code>ページ002</code> …（<code>ページ{0:D3}</code>）。場所の名前は Word のページと同じ形。</li>
-<li><strong>行</strong>: 縦に動く <code>Td</code> <code>TD</code>、<code>T*</code>、<code>'</code> <code>"</code>、縦の位置が変わる <code>Tm</code>、テキストの終わり <code>ET</code> で行を分ける。横だけ動くときは行を分けず、半角の文字どうしなら空白でつなぐ。<code>TJ</code> の詰めの数値が <code>-250</code> 以下で、前後の文字がどちらも半角のときだけ半角の空白を 1 つ入れる。</li>
+<li><strong>行</strong>: 文字を出すとき、縦の位置（<code>BT</code> で 0 に戻り、<code>Td</code> <code>TD</code> で足し、<code>Tm</code> で決め、<code>T*</code> <code>'</code> <code>"</code> では行送り <code>TL</code> の分だけ引く）が、前に出した文字と 1 ポイントより大きく違えば行を分ける。<code>T*</code> <code>'</code> <code>"</code> は、必ず行を分ける。<code>ET</code> では分けない（Word や Chromium が 1 行を複数の <code>BT</code>〜<code>ET</code> に分けても、同じ縦位置なら同じ行になる）。横だけ動く <code>Td</code> と、<code>Tm</code> で位置を決め直すときは、半角の文字どうしなら空白でつなぐ（文字の幅は見ないので、同じ語の途中で位置が動くと空白が入ることがある）。<code>TJ</code> の詰めの数値が <code>-250</code> 以下で、前後の文字がどちらも半角のときだけ半角の空白を 1 つ入れる。</li>
 <li><strong>画像のインラインデータ</strong>（<code>BI</code> … <code>ID</code> … <code>EI</code>）は読み飛ばす。</li>
 <li>文字の位置・向き・列の並び（段組み）は見ない。ページの中の文字は、ファイルに書かれた順に並ぶ。</li>
 </ul>
@@ -4318,7 +4330,7 @@
 <td><code>ファイルサイズが大きすぎるため更新できません。</code></td>
 </tr>
 <tr>
-<td>解凍後の大きさの合計</td>
+<td>取り出したストリームの大きさの合計（圧縮を解いた後。圧縮なしも、参照されるたびに数える）</td>
 <td>100MB</td>
 <td><code>PDFの解凍後の大きさが上限を超えるため読めません。</code></td>
 </tr>
@@ -4328,9 +4340,24 @@
 <td><code>PDFのオブジェクトの数が上限を超えるため読めません。</code></td>
 </tr>
 <tr>
-<td>入れ子の深さ（配列・辞書・間接参照・ページツリー）</td>
+<td>入れ子の深さ（配列・辞書・ページツリー）</td>
 <td>64</td>
 <td><code>PDFの入れ子が深すぎるため読めません。</code> など</td>
+</tr>
+<tr>
+<td>読み込み中の間接参照の重なり（<code>/Length</code> が別のストリームを指す連なりなど）</td>
+<td>64</td>
+<td><code>PDFの参照が深すぎるため読めません。</code></td>
+</tr>
+<tr>
+<td>文字の対応表（<code>ToUnicode</code>）の項目の合計（同じ表を使うフォントは 1 度だけ数える）</td>
+<td>1,000,000</td>
+<td><code>PDFの文字の対応表が大きすぎるため読めません。</code></td>
+</tr>
+<tr>
+<td>たどる相互参照（<code>Prev</code>・<code>XRefStm</code>）の数</td>
+<td>1,000</td>
+<td><code>PDFの相互参照の数が上限を超えるため読めません。</code></td>
 </tr>
 <tr>
 <td>ページ数</td>
@@ -4339,7 +4366,7 @@
 </tr>
 </tbody>
 </table>
-<p>参照の循環（ページツリー・間接参照・古い相互参照のつながり）と、ファイルの外を指す相互参照の位置は、例外にする。</p>
+<p>参照の循環（ページツリー・間接参照・古い相互参照のつながり）と、ファイルの外を指す相互参照の位置は、例外にする。<code>Prev</code> は呼び出しの入れ子にせず、順に読む。<code>/Length</code> が合わないストリームの終わりの探し直しは、直前に見つけた位置を使い回す（長さが合わないストリームが多くても、同じ範囲を何度も探さない）。</p>
 <h2 id="読めない-pdf">読めない PDF<a class="headerlink" href="#読めない-pdf" title="Permanent link">&para;</a></h2>
 <p>読めないときは、そのファイルだけが取り込みの失敗になり、インデックス作成は続く。画面・取り込み一覧のメッセージは <code>PDF</code> で始まる短い文言（<a href="../errors/">エラーメッセージ一覧</a>）。<code>readPdfPages</code> は、<code>PDF</code> で始まらない例外を <code>PDFが壊れているため読めません。</code> に言い換える（内部の例外の文言を出さない）。</p>
 <h2 id="検索開く">検索・開く<a class="headerlink" href="#検索開く" title="Permanent link">&para;</a></h2>

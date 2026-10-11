@@ -4185,7 +4185,7 @@
 <tr>
 <td><code>commit-msg</code></td>
 <td>2</td>
-<td><code>tools/check_signoff.ps1 -Path &lt;メッセージのファイル&gt;</code>：作者（<code>git var GIT_AUTHOR_IDENT</code>）のメールアドレスの <code>Signed-off-by:</code> 行があるか（<code>git commit -s</code> で付く。大文字・小文字は区別しない）。<code>#</code> で始まる行と、<code>git commit -v</code> の切り取り線より後ろ（差分）は数えない。マージコミット（1 行目が <code>Merge</code>）と bot の作者は調べない</td>
+<td><code>tools/check_signoff.ps1 -Path &lt;メッセージのファイル&gt;</code>：作者（<code>git var GIT_AUTHOR_IDENT</code>）のメールアドレスの <code>Signed-off-by:</code> 行があり、作者と違うメールアドレスの <code>Signed-off-by:</code> 行が無いか（<code>git commit -s</code> で付く。大文字・小文字は区別しない）。<code>#</code> で始まる行と、<code>git commit -v</code> の切り取り線より後ろ（差分）は数えない。マージコミット（1 行目が <code>Merge</code>）と bot の作者は調べない</td>
 <td>–</td>
 </tr>
 </tbody>
