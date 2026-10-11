@@ -40,6 +40,10 @@ Describe "S5 ワークスペースの変更" -Tag Gui {
             $texts | Should -Contain "ワークスペース"
             $texts | Should -Contain "設定ファイル"
             $texts | Should -Not -Contain "インデックスの保存先を設定します。"
+            # 設定ファイルの場所は、押す欄に見えない読み取り専用の文字（選んでコピーできる TextBox）
+            $fileText = findGui $S.Window -Id "SettingsFileText" -Type "Edit"
+            $fileText | Should -Not -BeNullOrEmpty
+            $fileText.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).Current.IsReadOnly | Should -BeTrue
             @($texts | Where-Object { $_ -eq "設定" }).Count | Should -BeLessOrEqual 1 -Because "題「設定」を置かない（ナビの項目の 1 つだけ）"
             @($texts | Where-Object { $_ -like "*表示設定*" -or $_ -like "*最大並列*" -or $_ -like "*インデックスの保存先*" }) | Should -BeNullOrEmpty
 

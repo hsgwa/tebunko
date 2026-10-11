@@ -17,6 +17,14 @@ function getWorkspaceView {
     return @{ Path = $workDir; Note = $note; CanReset = -not $isDefault }
 }
 
+function getWorkspaceCautionTexts {
+    # ワークスペースの説明。注意（文字がそのまま入る・更新中は変えられない）を先に、変え方をあとに出す。@{ Caution; HowTo }
+    return @{
+        Caution = "インデックスには文書の文字がそのまま入ります。アクセス権を絞ったフォルダや、容量のあるドライブを選べます。更新中は変えられません。"
+        HowTo   = "空のフォルダを選んでください。変えるとすぐに切り替わり、今のワークスペースの中身（インデックス・ログ）は新しいフォルダへ移します。"
+    }
+}
+
 function getSettingsFileView {
     # 設定ファイルの場所の表示: @{ Path; Note（ツールのフォルダに置いているか） }
     param (

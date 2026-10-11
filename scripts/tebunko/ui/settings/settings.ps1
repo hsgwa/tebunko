@@ -8,6 +8,9 @@ function updateSettingsView {
     $ui.WorkspaceText.Text = $view.Path
     $ui.WorkspaceText.ToolTip = $view.Path  # 長いパスは省略して出すため、全体はツールチップで見せる
     $ui.WorkspaceNote.Text = $view.Note
+    $caution = getWorkspaceCautionTexts
+    $ui.WorkspaceCaution.Text = $caution.Caution
+    $ui.WorkspaceHowTo.Text = $caution.HowTo
     $ui.ResetWorkspaceButton.Visibility = if ($view.CanReset) { "Visible" } else { "Collapsed" }
 
     $file = getSettingsFileView ${settingsFile} ${rootDir}

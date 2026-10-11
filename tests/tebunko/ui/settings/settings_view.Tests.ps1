@@ -62,6 +62,15 @@ Describe "getCountedEntryPaths（既定のワークスペースの設定ファ�
     }
 }
 
+Describe "getWorkspaceCautionTexts" -Tag Unit {
+    It "注意（文字がそのまま入る・更新中は変えられない）を先の段落に、変え方をあとの段落に出す" {
+        $texts = getWorkspaceCautionTexts
+        $texts.Caution | Should -BeLike "インデックスには文書の文字がそのまま入ります。*更新中は変えられません。"
+        $texts.HowTo | Should -BeLike "空のフォルダを選んでください。*"
+        $texts.HowTo | Should -Not -BeLike "*更新中*"
+    }
+}
+
 Describe "testWorkspaceChoice" -Tag Unit {
     It "今と同じ場所（書き方の違いも）なら same" {
         (testWorkspaceChoice "C:\TOOL\work\" "C:\tool\work" $true @{}).Kind | Should -Be "same"
