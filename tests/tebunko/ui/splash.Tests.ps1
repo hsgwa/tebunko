@@ -27,6 +27,12 @@ Describe "showSplash" -Tag Gui {
         $window.FindName("SplashIcon").Source | Should -BeNullOrEmpty
     }
 
+    It "文字のフォントは本体の画面と同じ（Segoe UI・Yu Gothic UI・Meiryo UI）で、名前の下に説明を出す" {
+        $window = showSplash $xamlPath
+        $window.FontFamily.Source | Should -Be "Segoe UI, Yu Gothic UI, Meiryo UI"
+        $window.FindName("SplashTagline").Text | Should -Be "Office ファイル内テキスト検索ツール"
+    }
+
     It "stepSplash で進み具合が変わり、closeSplash で閉じる" {
         $window = showSplash $xamlPath
         stepSplash 40
