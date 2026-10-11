@@ -146,7 +146,7 @@ function updateIndexingButton {
     if (!$ready -and !(isIndexing)) {
         $hint = if ($script:targetItems.Count -eq 0) { "フォルダを追加すると更新できます" } else { "更新できるインデックスがありません（行の［更新］で更新できます）。" }
     } elseif ($state -and $state.Failed -gt 0 -and !(isIndexing)) {
-        $hint = "前回うまく更新できなかったファイルがあります（原因は、更新のあとの「更新に失敗したファイル」で確かめられます）。"
+        $hint = "前回うまく更新できなかったファイルがあります（原因は、下の「更新に失敗したファイル」で確かめられます）。"
     }
     $ui.IndexingHint.Text = $hint
     $ui.IndexingHint.Visibility = if ($hint) { "Visible" } else { "Collapsed" }
