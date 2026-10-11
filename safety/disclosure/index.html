@@ -4329,13 +4329,15 @@
     <span class="k">start</span> <span class="s2">""</span> notepad.exe <span class="s2">"</span><span class="nv">%~dp0</span><span class="s2">scripts\tebunko\startup\no_powershell.txt"</span>
     <span class="k">exit</span> /b 1
 <span class="p">)</span>
+<span class="c1">rem The tool's folder (ends with a backslash), passed to PowerShell by environment.</span>
+<span class="k">set</span> <span class="s2">"TEBUNKO_ROOT=</span><span class="nv">%~dp0</span><span class="s2">"</span>
 <span class="c1">rem Step 1: the notepad opener (kept as a single assignment so a test can</span>
 <span class="c1">rem replace it) and the tool's folder paths, used by every later step.</span>
-<span class="k">set</span> <span class="s2">"PSCMD=$opener='notepad.exe';$root='</span><span class="nv">%~dp0</span><span class="s2">';$startup=Join-Path $root 'scripts\tebunko\startup';$gui=Join-Path $root 'scripts\tebunko\gui.ps1';"</span>
+<span class="k">set</span> <span class="s2">"PSCMD=$opener='notepad.exe';$root=$env:TEBUNKO_ROOT;$startup=Join-Path $root 'scripts\tebunko\startup';$gui=Join-Path $root 'scripts\tebunko\gui.ps1';"</span>
 <span class="c1">rem Step 2: clear Mark-of-the-Web from the scripts folder (see the comment above).</span>
 <span class="k">set</span> <span class="s2">"PSCMD=</span><span class="nv">%PSCMD%</span><span class="s2">Get-ChildItem -LiteralPath (Join-Path $root 'scripts') -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue; "</span>
 <span class="c1">rem Step 3: run the GUI script, catching a failure from before its own window opens.</span>
-<span class="k">set</span> <span class="s2">"PSCMD=</span><span class="nv">%PSCMD%</span><span class="s2">try { &amp; $gui } catch { $err = $_; "</span>
+<span class="k">set</span> <span class="s2">"PSCMD=</span><span class="nv">%PSCMD%</span><span class="s2">try { &amp; ([System.Management.Automation.WildcardPattern]::Escape($gui.Replace('`','``'))) } catch { $err = $_; "</span>
 <span class="c1">rem Step 4: in the catch, pick the reason (missing gui.ps1, Constrained Language</span>
 <span class="c1">rem Mode, execution policy, or something else) and its text file.</span>
 <span class="k">set</span> <span class="s2">"PSCMD=</span><span class="nv">%PSCMD%</span><span class="s2">if (-not (Test-Path -LiteralPath $gui)) { $reason = Join-Path $startup 'missing_files.txt' } elseif ($ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage') { $reason = Join-Path $startup 'constrained_language.txt' } elseif ($err.FullyQualifiedErrorId -like 'UnauthorizedAccess*') { $reason = Join-Path $startup 'execution_policy.txt' } else { $reason = Join-Path $startup 'failed.txt' }; $reasonLines = @(if (Test-Path -LiteralPath $reason) { Get-Content -LiteralPath $reason -Encoding UTF8 } else { @('tebunko could not start.') }); "</span>
@@ -4346,7 +4348,7 @@
 <span class="k">set</span> <span class="s2">"PSCMD=</span><span class="nv">%PSCMD%</span><span class="s2">$openTarget = $reason; $candidate = Join-Path $root 'startup_error.txt'; try { Set-Content -LiteralPath $candidate -Value $allLines -Encoding UTF8 -ErrorAction Stop; $openTarget = $candidate } catch { }; &amp; $opener $openTarget }"</span>
 <span class="k">start</span> <span class="s2">""</span> conhost.exe <span class="s2">"</span><span class="nv">%PS1%</span><span class="s2">"</span> -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -Command <span class="s2">"</span><span class="nv">%PSCMD%</span><span class="s2">"</span>
 </code></pre></div>
-<p><code>-Command</code> の中身は 1 行に書かず、意味のまとまりごとに <code>set "PSCMD=..."</code> を積み重ねて組み立てる（<code>tebunko.bat</code> が長い 1 行になって読みにくくならないようにするため）。<code>delayed expansion</code> は使わず、各 <code>set</code> は前の行までの <code>%PSCMD%</code> を展開してから文字列を足すだけなので、素直な変数展開で足りる。<code>tests/meta/launcher.Tests.ps1</code> が、組み立てた結果が想定した文字列とちょうど一致することを確かめる。（<code>try</code>/<code>catch</code> の中身は、次の「起動に失敗したときの知らせ」で説明する。）</p>
+<p><code>-Command</code> の中身は 1 行に書かず、意味のまとまりごとに <code>set "PSCMD=..."</code> を積み重ねて組み立てる（<code>tebunko.bat</code> が長い 1 行になって読みにくくならないようにするため）。<code>delayed expansion</code> は使わず（先頭の <code>setlocal EnableExtensions DisableDelayedExpansion</code> で、利用者の設定で有効になっていても無効にする。パスの <code>!</code> が消えないため）、ツールのフォルダは環境変数 <code>TEBUNKO_ROOT</code> で渡して <code>-Command</code> の文字列には埋め込まない（パスに <code>'</code> などがあっても PowerShell の構文として読まれない）。各 <code>set</code> は前の行までの <code>%PSCMD%</code> を展開してから文字列を足すだけなので、素直な変数展開で足りる。<code>TEBUNKO_ROOT</code> は、その起動のプロセスの中だけの環境変数で、中身はツールのフォルダのパスだけ。利用者・システムの環境変数は変えず（<code>setx</code> もレジストリも使わず、<code>setlocal</code> で、呼んだ cmd にも残らない）、起動した PowerShell とその子プロセスには引き継がれる。<code>tests/meta/launcher.Tests.ps1</code> が、組み立てた結果が想定した文字列とちょうど一致することを確かめる。（<code>try</code>/<code>catch</code> の中身は、次の「起動に失敗したときの知らせ」で説明する。）</p>
 <ul>
 <li><strong>理由</strong>: zip で配布したものを展開すると全ファイルに Mark-of-the-Web が付き、実行ポリシー <code>RemoteSigned</code> では未署名スクリプトが実行できないため。</li>
 <li><strong>範囲</strong>: <code>%~dp0scripts</code>（<code>tebunko.bat</code> があるフォルダの <code>scripts</code>）配下のみ。実行するスクリプトはすべてここにある。インデックス（<code>work</code>）には触らない。システム全体やユーザーのドキュメントには影響しない。画面（<code>gui.ps1</code>）も起動時に同じ <code>scripts</code> 配下に対して同じ解除を行う（ショートカットから直接起動したときのため）。</li>
