@@ -3389,39 +3389,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#index-tabadd追加のダイアログ遷移-11" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        index-tab/add（追加のダイアログ。遷移 11）
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#index-tabadd-error追加のダイアログの注意遷移-12" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        index-tab/add-error（追加のダイアログの注意。遷移 12）
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#index-tabedit編集のダイアログ遷移-14" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        index-tab/edit（編集のダイアログ。遷移 14）
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#index-tabdelete-confirm削除の確認遷移-15" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4354,39 +4321,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#index-tabadd追加のダイアログ遷移-11" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        index-tab/add（追加のダイアログ。遷移 11）
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#index-tabadd-error追加のダイアログの注意遷移-12" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        index-tab/add-error（追加のダイアログの注意。遷移 12）
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#index-tabedit編集のダイアログ遷移-14" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        index-tab/edit（編集のダイアログ。遷移 14）
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#index-tabdelete-confirm削除の確認遷移-15" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4507,16 +4441,14 @@
 <ul>
 <li>上に「更新の帯」。右の領域の上端いっぱいの高さ 40 の 1 行で、左端に状態の色の太い線とアイコンを置く。更新中（青）・中断（橙）・終わった（失敗なく終わったときは緑、注意が要る終わり方は橙）を 1 枚で出す。更新中は進み具合と［中止］、中断は［続きから再開］、終わったは［検索する］を右に置く。帯が無いときは場所を取らない。</li>
 <li>その下に「インデックス一覧」。行のチェックは［アクション ▾］で操作する行を選ぶ一時の選び（保存しない。初めは全部外れている）。列は チェック・名前・パス・ファイル数・最終更新・ステータス・高速検索・操作。表の下に <code>登録済み: N フォルダ</code> と <code>合計: N ファイル</code>。</li>
-<li>頭は見出し・説明を置かず、高さ 56 の操作の行にする。右から［＋ フォルダを追加］［アクション ▾］［すべて更新］とこの画面の説明の ⓘ、左に <code>N / M 件を選択中</code>。［アクション ▾］のメニューは［更新］［エクスポート…］［インポート…］と、区切りの下に［削除…］。表の見出し行の左端に全選択のチェック。［更新］［エクスポート…］［削除…］はチェックを付けた行に対して動く。インデックスが 1 件も無いときは、表の中の案内にも同じ動きの［＋ フォルダを追加］を置く。行の右端のボタンは［更新］［中止］だけ。行の右クリックのメニューに［編集…］［エクスポート…］［削除…］。一覧へのドラッグ＆ドロップでも追加できる。</li>
+<li>頭は見出し・説明を置かず、高さ 56 の操作の行にする。右から［＋ フォルダを追加］［アクション ▾］［すべて更新］、左に <code>N / M 件を選択中</code>。［アクション ▾］のメニューは［更新］［エクスポート…］［インポート…］と、区切りの下に［削除…］。表の見出し行の左端に全選択のチェック。［更新］［エクスポート…］［削除…］はチェックを付けた行に対して動く。インデックスが 1 件も無いときは、表の中の案内にも同じ動きの［＋ フォルダを追加］を置く。行の右端のボタンは［更新］［中止］だけ。行の右クリックのメニューに［エクスポート…］［削除…］。一覧へのドラッグ＆ドロップでも追加できる。</li>
 <li>下に「インデックスの状態」（選んだ行の詳細。選んでいなければ、すべてのインデックスの合計）。</li>
 <li>ナビの［インデックス管理］の横に、更新中は <code>● 66%</code>、中断中は <code>中断</code>、失敗があるだけなら <code>失敗</code>。失敗があると、失敗したファイルの一覧と「失敗の原因」の列が出る。</li>
 </ul>
 <h2 id="状態と遷移">状態と遷移<a class="headerlink" href="#状態と遷移" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>stateDiagram-v2
     state "index-tab/empty" as empty
-    state "index-tab/add" as add
     state "index-tab/normal" as normal
-    state "index-tab/edit" as edit
     state "index-tab/delete-confirm" as del
     state "index-tab/start-confirm" as start
     state "index-tab/cloud-confirm" as cloud
@@ -4525,10 +4457,7 @@
     state "index-tab/interrupted" as interrupted
     state "index-tab/done" as done
     state "index-tab/failed" as failed
-    empty --&gt; add: ［＋ フォルダを追加］（11）
-    add --&gt; normal: ［OK］
-    normal --&gt; edit: ［編集…］（14）
-    edit --&gt; normal: ［OK］
+    empty --&gt; normal: ［＋ フォルダを追加］→ フォルダを選ぶ（11）
     normal --&gt; del: ［削除］（15）
     del --&gt; normal: ［削除する］
     normal --&gt; start: 開始（17）
@@ -4542,7 +4471,7 @@
     running --&gt; done: 失敗なし（18）
     running --&gt; failed: 失敗あり（18）</code></pre>
 <ul>
-<li>追加のダイアログで入力が足りないと、ダイアログの中に注意が出る（<code>index-tab/add-error</code>。12）。</li>
+<li>名前の欄に使えない名前を入れて欄から出ると、欄の下に注意が出て、欄は元の名前に戻る（12）。名前とフォルダパスの編集は、詳細の欄で行う（編集のダイアログは無い）。</li>
 <li>行のチェックを付けると、［アクション ▾］の［更新］［エクスポート…］［削除…］がその行に動く（<code>index-tab/checked</code>。16）。［すべて更新］はチェックと関係なく全部を更新する。</li>
 <li>更新中は［＋ フォルダを追加］と［アクション ▾］のメニューの項目、ほかの行の［更新］、［すべて更新］が押せない（20）。更新中の行には［中止］が出て、押すと回全体を止める。更新が終わると、また押せる。</li>
 <li>前回の作成が中断したまま起動すると、この画面が選ばれて <code>index-tab/interrupted</code> になる（4）。
@@ -4562,12 +4491,8 @@
 <td>「フォルダを追加してください」「検索したいフォルダを追加すると、ここに表示されます。」と［＋ フォルダを追加］、［すべて更新］の下に「フォルダを追加すると更新できます」。詳細は「まだインデックスがありません。」</td>
 </tr>
 <tr>
-<td>追加</td>
-<td>「インデックスの追加」。欄は「元のフォルダ（Office ファイルのある場所）」「名前」。注意は「元のフォルダを指定してください。」</td>
-</tr>
-<tr>
-<td>編集</td>
-<td>「インデックスの編集」。名前と場所だけを変えられる旨の注記</td>
+<td>名前・フォルダパスの編集</td>
+<td>欄の下に注意（<code>IndexDetailEditError</code>）。例: 「元のフォルダを指定してください。」</td>
 </tr>
 <tr>
 <td>削除の確認</td>
@@ -4606,12 +4531,6 @@
 <p><img alt="インデックスがあり、更新済み" src="../../../../images/screens/index-tab/normal.png" /></p>
 <h3 id="index-tabinterrupted前回の作成が中断している遷移-4">index-tab/interrupted（前回の作成が中断している。遷移 4）<a class="headerlink" href="#index-tabinterrupted前回の作成が中断している遷移-4" title="Permanent link">&para;</a></h3>
 <p><img alt="前回の作成が中断している" src="../../../../images/screens/index-tab/interrupted.png" /></p>
-<h3 id="index-tabadd追加のダイアログ遷移-11">index-tab/add（追加のダイアログ。遷移 11）<a class="headerlink" href="#index-tabadd追加のダイアログ遷移-11" title="Permanent link">&para;</a></h3>
-<p><img alt="追加のダイアログ" src="../../../../images/screens/index-tab/add.png" /></p>
-<h3 id="index-tabadd-error追加のダイアログの注意遷移-12">index-tab/add-error（追加のダイアログの注意。遷移 12）<a class="headerlink" href="#index-tabadd-error追加のダイアログの注意遷移-12" title="Permanent link">&para;</a></h3>
-<p><img alt="追加のダイアログの注意" src="../../../../images/screens/index-tab/add-error.png" /></p>
-<h3 id="index-tabedit編集のダイアログ遷移-14">index-tab/edit（編集のダイアログ。遷移 14）<a class="headerlink" href="#index-tabedit編集のダイアログ遷移-14" title="Permanent link">&para;</a></h3>
-<p><img alt="編集のダイアログ" src="../../../../images/screens/index-tab/edit.png" /></p>
 <h3 id="index-tabdelete-confirm削除の確認遷移-15">index-tab/delete-confirm（削除の確認。遷移 15）<a class="headerlink" href="#index-tabdelete-confirm削除の確認遷移-15" title="Permanent link">&para;</a></h3>
 <p><img alt="削除の確認" src="../../../../images/screens/index-tab/delete-confirm.png" /></p>
 <h3 id="index-tabchecked行のチェックを付けた遷移-16">index-tab/checked（行のチェックを付けた。遷移 16）<a class="headerlink" href="#index-tabchecked行のチェックを付けた遷移-16" title="Permanent link">&para;</a></h3>
