@@ -2351,6 +2351,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#暗号化された-pdf" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        暗号化された PDF
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#読み取りの上限" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4188,6 +4199,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#暗号化された-pdf" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        暗号化された PDF
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#読み取りの上限" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4254,7 +4276,7 @@
 <h1 id="pdf-ファイルの読み取り">PDF ファイルの読み取り<a class="headerlink" href="#pdf-ファイルの読み取り" title="Permanent link">&para;</a></h1>
 <p>扱うこと: PDF ファイル（<code>.pdf</code>）から文字を読む範囲、読めない PDF の扱い、読み取りの上限、場所（ページ）の付け方、取り込みの流れ。扱わないこと: Office ファイルの取り込み（<a href="../crawl/">クロール対象フォルダと取り込み対象</a>・<a href="../excel/">Excel</a>）、テキストファイルの取り込み（<a href="../text/">テキストファイルの読み取り</a>）、細工した PDF から身を守る確認（<a href="../../../safety/checks/">安全性の確認の詳細</a>）。先に読むページ: <a href="../crawl/">クロール対象フォルダと取り込み対象</a>、<a href="../target-decision/">取り込み対象の決定</a>。</p>
 <h2 id="方針">方針<a class="headerlink" href="#方針" title="Permanent link">&para;</a></h2>
-<p>PDF は PowerShell だけで読む（<code>shared/core/pdf_file.ps1</code>）。外の部品・ライブラリ・Office・外部プロセスは使わない。Office は起動しないので、取り込みは Office を使わない読み取りのレーン（<code>Reader</code>）で並べて行う。</p>
+<p>PDF は PowerShell だけで読む（<code>shared/core/pdf_file.ps1</code>・暗号化の復号は <code>shared/core/pdf_crypt.ps1</code>）。外の部品・ライブラリ・Office・外部プロセスは使わない。Office は起動しないので、取り込みは Office を使わない読み取りのレーン（<code>Reader</code>）で並べて行う。</p>
 <p>画面にもファイルにも触らない関数（<code>readPdfPages</code>。バイト列からページごとの文字列を作る）と、ファイルを開いて読む関数（<code>readPdfFile</code>）に分ける。取り込みは <code>tebunko/indexer/extract_pdf.ps1</code> の <code>extractPdfFile</code> が行う。</p>
 <h2 id="取り込みの流れ">取り込みの流れ<a class="headerlink" href="#取り込みの流れ" title="Permanent link">&para;</a></h2>
 <ol>
@@ -4269,13 +4291,17 @@
 <thead>
 <tr>
 <th>読む</th>
-<th>読まない（暗号化・<code>FlateDecode</code> 以外の圧縮・<code>ToUnicode</code> の無い複合フォント・壊れた相互参照は読めない PDF として失敗にする。そのほかは失敗にせず読み飛ばす）</th>
+<th>読まない（パスワードが要る暗号化・未対応の暗号化の方式・<code>FlateDecode</code> 以外の圧縮・<code>ToUnicode</code> の無い複合フォント・壊れた相互参照は読めない PDF として失敗にする。そのほかは失敗にせず読み飛ばす）</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>相互参照の表・相互参照のストリーム（PNG の予測つきを含む）・オブジェクトのストリーム</td>
-<td>暗号化された PDF</td>
+<td>開くのにパスワードが要る PDF</td>
+</tr>
+<tr>
+<td>空の利用者パスワードで開ける暗号化された PDF（下の「暗号化された PDF」）</td>
+<td>下の 4 方式以外の暗号化</td>
 </tr>
 <tr>
 <td>圧縮なし、<code>FlateDecode</code></td>
@@ -4312,6 +4338,46 @@
 <li><strong>行</strong>: 文字を出すとき、縦の位置（<code>BT</code> で 0 に戻り、<code>Td</code> <code>TD</code> で足し、<code>Tm</code> で決め、<code>T*</code> <code>'</code> <code>"</code> では行送り <code>TL</code> の分だけ引く）が、前に出した文字と 1 ポイントより大きく違えば行を分ける。<code>T*</code> <code>'</code> <code>"</code> は、必ず行を分ける。<code>ET</code> では分けない（Word や Chromium が 1 行を複数の <code>BT</code>〜<code>ET</code> に分けても、同じ縦位置なら同じ行になる）。横だけ動く <code>Td</code>（後ろ向き、または今のフォントの大きさ（1 em）以上の動き）と、<code>Tm</code> で位置を決め直すときは、半角の文字どうしなら空白でつなぐ。直前の <code>Td</code> 以降に出した文字が 1 字形（フォントの 1 コード）以下で、1 em より小さい前向きの <code>Td</code> は、1 文字ずつ並べる PDF（Chromium など）の語を切らないよう、空白を入れない（2 文字以上の語の後ろは空白でつなぐ）。文字の幅は見ないので、1 文字の短い語（<code>a</code> など）の後ろの空白が消えることと、1 em 以上の幅の文字（<code>@</code> など）の後ろに空白が入ることがある。縦の動きには <code>Tm</code> の拡大（縦横の成分 c・d から求めた倍率）を掛ける。<code>cm</code> による位置の移動は見ないので、<code>cm</code> で位置を決める PDF は、縦の位置が変わらず 1 行になることがある。<code>TJ</code> の詰めの数値が <code>-250</code> 以下で、前後の文字がどちらも半角のときだけ半角の空白を 1 つ入れる。</li>
 <li><strong>画像のインラインデータ</strong>（<code>BI</code> … <code>ID</code> … <code>EI</code>）は読み飛ばす。</li>
 <li>文字の位置・向き・列の並び（段組み）は見ない。ページの中の文字は、ファイルに書かれた順に並ぶ。</li>
+</ul>
+<h2 id="暗号化された-pdf">暗号化された PDF<a class="headerlink" href="#暗号化された-pdf" title="Permanent link">&para;</a></h2>
+<p>所有者のパスワードだけが設定され、利用者のパスワードが空の PDF は、ブラウザーと同じようにパスワード無しで開ける。これを復号して読む（<code>pdf_crypt.ps1</code>）。読む方式は標準のセキュリティハンドラー（<code>/Filter /Standard</code>）の次の 4 つ。</p>
+<table>
+<thead>
+<tr>
+<th>方式</th>
+<th><code>/V</code> <code>/R</code></th>
+<th>復号</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RC4 40 ビット</td>
+<td>1・2</td>
+<td>RC4</td>
+</tr>
+<tr>
+<td>RC4 128 ビット</td>
+<td>2・3</td>
+<td>RC4</td>
+</tr>
+<tr>
+<td>AES-128</td>
+<td>4・4</td>
+<td>AES-CBC（オブジェクトごとの鍵）</td>
+</tr>
+<tr>
+<td>AES-256</td>
+<td>5・5 と 5・6</td>
+<td>AES-CBC（ファイルの鍵をそのまま使う。R6 はアルゴリズム 2.B）</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>空のパスワードから鍵を作り、<code>/U</code> と照らす。合わなければ（開くのにパスワードが要る）<code>PDFにパスワードが必要なため読めません。</code>。パスワードを探す・試す処理は無い。</li>
+<li>独自のフィルター・知らない <code>/V</code> <code>/R</code>・知らない暗号方式（<code>/CFM</code>）は <code>PDFの暗号化の方式に対応していないため読めません。</code>。<code>/O</code> <code>/U</code> <code>/UE</code> が短いなどの壊れた辞書は <code>PDFの暗号化の情報が壊れているため読めません。</code>。どれもそのファイルだけの失敗。</li>
+<li>復号するのはストリームだけ（文字列は読む内容がストリームの中にあるため、復号しない）。相互参照のストリームは暗号化されないので復号しない。<code>/EncryptMetadata false</code> のメタデータ・<code>/StmF /Identity</code>・<code>/CFM /None</code>・ストリームごとの <code>/Crypt</code> フィルターの <code>/Identity</code> も復号しない。</li>
+<li>辞書の <code>/Length</code> は 40〜128 の 8 の倍数だけ受ける。R6 の鍵の計算の繰り返しは上限（300 回。仕様どおりなら最大 288 回で終わる）で止める。鍵・途中の値は、例外の文にも記録にも出さない。</li>
+<li>旧式の 128 ビットのハッシュ（RFC 1321）と RC4 は自前で書く（.NET の型は FIPS 準拠を強制した機械では使えず、4 方式とも読めなくなるため）。SHA-2 と AES は FIPS でも使える <code>*CryptoServiceProvider</code> を使う。</li>
 </ul>
 <h2 id="読み取りの上限">読み取りの上限<a class="headerlink" href="#読み取りの上限" title="Permanent link">&para;</a></h2>
 <p>細工した PDF で固まったり、メモリを使い切ったりしないよう、すべて上限を設ける。超えたら失敗にする（<code>PDF</code> で始まるメッセージの例外）。</p>
@@ -4392,7 +4458,8 @@
 </ul>
 <h2 id="テスト">テスト<a class="headerlink" href="#テスト" title="Permanent link">&para;</a></h2>
 <ul>
-<li><code>tests/shared/core/pdf_file.Tests.ps1</code> … 読み取り（自作した PDF のバイト列。圧縮・相互参照のストリーム・フォント・上限・壊れた入力）。</li>
+<li><code>tests/shared/core/pdf_file.Tests.ps1</code> … 読み取り（自作した PDF のバイト列。圧縮・相互参照のストリーム・フォント・上限・壊れた入力・4 方式の暗号化 PDF・パスワードが要る PDF・未対応や壊れた暗号化の辞書）。</li>
+<li><code>tests/shared/core/pdf_crypt.Tests.ps1</code> … 暗号の部品（旧式のハッシュ・RC4・SHA の公開されている正解の値、R5・R6 の鍵の計算を別に書いた計算と照らす、ストリームごとの復号の方式の選び方）。暗号化 PDF を組み立てる道具（<code>tests/helpers/pdf.ps1</code> の <code>newEncryptedPdf</code>）は、読む側の旧式のハッシュ・RC4 を使わず、.NET の型で別に書く。</li>
 <li><code>tests/tebunko/indexer/extract_pdf.Tests.ps1</code> … コピーの扱い・TSV の書き出し・失敗の扱い。</li>
 <li><code>tests/testdata/compat/index/v0.4.0+pdf/</code> … 前の版の見本（取り込み済みのインデックスを読み、検索できること）。</li>
 <li>テストに使う PDF は、テストの中で自作する（作成者などのメタデータを入れない）。</li>
