@@ -56,7 +56,7 @@ Describe "getSearchStatusText" -Tag Unit {
 
 Describe "getFilteredSummaryText" -Tag Unit {
     It "全部の件数のうち、見せている件数を出す" {
-        getFilteredSummaryText 1234 56 | Should -Be "1,234 件中 56 件を表示"
+        getFilteredSummaryText 1234 56 | Should -Be "一致 1,234 件中 56 件を表示"
     }
 }
 

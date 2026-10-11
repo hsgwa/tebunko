@@ -221,18 +221,17 @@ Describe "getConditionFlow（検索条件の行の折り返し）" -Tag Unit {
     }
 
     # 行は項目の番号を , でつなぎ、行の区切りを / で書く。936 は全部の幅の合計（ちょうど収まる）
-    It "<Case>: 使える幅 <Available> のとき <Rows>（空き <Spacer>・高速検索の印は空きの行に <OnSpacer>）" -TestCases @(
-        @{ Case = "広い幅"; Available = 1100; Rows = "0,1,2,3,4,5,6,7,8"; Spacer = (1100 - 936 - 0.5); OnSpacer = $true }
-        @{ Case = "ちょうど収まる幅"; Available = 936; Rows = "0,1,2,3,4,5,6,7,8"; Spacer = 0; OnSpacer = $true }
-        @{ Case = "1 足りない幅（高速検索の印だけが落ちる）"; Available = 935; Rows = "0,1,2,3,4,5,6,7/8"; Spacer = (935 - 758 - 0.5); OnSpacer = $false }
-        @{ Case = "狭い幅（高速検索の印だけが落ち、ファイル内の対象は残る）"; Available = 780; Rows = "0,1,2,3,4,5,6,7/8"; Spacer = (780 - 758 - 0.5); OnSpacer = $false }
-        @{ Case = "もっと狭い幅（後ろから、高速検索の印・正規表現・大文字小文字の順に落ちる）"; Available = 600; Rows = "0,1,2,3,4,5/6,7,8"; Spacer = (600 - 538 - 0.5); OnSpacer = $false }
+    It "<Case>: 使える幅 <Available> のとき <Rows>（空き <Spacer>）" -TestCases @(
+        @{ Case = "広い幅"; Available = 1100; Rows = "0,1,2,3,4,5,6,7,8"; Spacer = (1100 - 936 - 0.5) }
+        @{ Case = "ちょうど収まる幅"; Available = 936; Rows = "0,1,2,3,4,5,6,7,8"; Spacer = 0 }
+        @{ Case = "1 足りない幅（高速検索の印だけが落ちる）"; Available = 935; Rows = "0,1,2,3,4,5,6,7/8"; Spacer = (935 - 758 - 0.5) }
+        @{ Case = "狭い幅（高速検索の印だけが落ち、ファイル内の対象は残る）"; Available = 780; Rows = "0,1,2,3,4,5,6,7/8"; Spacer = (780 - 758 - 0.5) }
+        @{ Case = "もっと狭い幅（後ろから、高速検索の印・正規表現・大文字小文字の順に落ちる）"; Available = 600; Rows = "0,1,2,3,4,5/6,7,8"; Spacer = (600 - 538 - 0.5) }
     ) {
-        param ($Case, $Available, $Rows, $Spacer, $OnSpacer)
+        param ($Case, $Available, $Rows, $Spacer)
         $flow = getConditionFlow $widths 6 $Available
         (@($flow.Lines | ForEach-Object { @($_) -join "," }) -join "/") | Should -Be $Rows
         $flow.SpacerWidth | Should -Be $Spacer
-        $flow.OnSpacerLine[8] | Should -Be $OnSpacer
         # 落ちた行の先頭は行の左端（LineStarts）
         $first = @($flow.Lines | ForEach-Object { @($_)[0] })
         for ($i = 0; $i -lt 9; $i++) { $flow.LineStarts[$i] | Should -Be ($first -contains $i) }

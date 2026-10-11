@@ -48,7 +48,7 @@ function getFilteredSummaryText {
         [int]$shown
     )
 
-    return "$($hits.ToString('N0')) 件中 $($shown.ToString('N0')) 件を表示"
+    return "一致 $($hits.ToString('N0')) 件中 $($shown.ToString('N0')) 件を表示"
 }
 
 function getAppKind {
