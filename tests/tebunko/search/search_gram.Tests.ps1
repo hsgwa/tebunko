@@ -1,4 +1,9 @@
 ﻿# 高速検索の決まり（tebunko\search\search_gram.ps1）のテスト
+BeforeDiscovery {
+    . "$PSScriptRoot\..\..\helpers\path_chars.ps1"
+    $pathCharCases = getPathCharCases
+}
+
 BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
 
@@ -108,6 +113,14 @@ Describe "convertFolderRoot / convertItemUrl / convertToScopeUrl" -Tag Unit {
 
     It "SCOPE の URL は ' を重ねる" {
         convertToScopeUrl "C:\ws\R&D's\" | Should -Be "file:C:/ws/R&D''s"
+    }
+
+    It "パスに <label> が入っていても、SCOPE の URL から元のパスに戻る" -TestCases $pathCharCases {
+        param ($label, $ch)
+        $path = "C:\ws\a$ch\c"
+        # SQL の文字列で重ねた ' を元に戻したものが、検索が返す ItemUrl になる
+        $itemUrl = (convertToScopeUrl $path).Replace("''", "'")
+        convertItemUrl $itemUrl | Should -Be $path
     }
 }
 
