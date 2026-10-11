@@ -16,7 +16,7 @@ BeforeAll {
         @{ File = "index_archive.ps1"; Function = "expandImportArchive"; Reason = "インポートの作業フォルダ（workDir）だけを消す。インデックスのフォルダは消さない" }
         @{ File = "index_archive.ps1"; Function = "swapInImportedIndexDir"; Reason = "消さずに移すだけ（前のフォルダは退避する）。コメントに removeDirectoryRetry の語があって拾われる" }
         @{ File = "index_archive.ps1"; Function = "restoreSwappedIndexDir"; Reason = "インポートの途中で失敗したとき、入れたばかりのフォルダを消して、退避した前のフォルダを戻す（取り消し）" }
-        @{ File = "index_archive.ps1"; Function = "importIndexCore"; Reason = "作業フォルダを消す。上書きは、画面の確認（上書きする／別の名前）で利用者が選んだ回だけ" }
+        @{ File = "index_archive.ps1"; Function = "importIndexCore"; Reason = "作業フォルダを消す。置き換えは、インポートのダイアログで利用者が［置き換える］を選んだ回だけ" }
         @{ File = "index_store.ps1"; Function = "publishIndexFiles"; Reason = "取り込みで作り直す元のファイル 1 つ分のフォルダを、更新の確認を経た取り込みの結果に置き換える" }
         @{ File = "system_index.ps1"; Function = "removeSystemIndexOf"; Reason = "システムインデックス（インデックスから作り直せる派生物）だけを消す" }
         @{ File = "workspace_mover.ps1"; Function = "RemoveEntries"; Reason = "ワークスペースを変えるときの確認で、利用者が［消して、最初からやり直す］を選んだ回だけ、選んだフォルダの tebunko のファイル・フォルダを消す（画面は applyWorkspace が ChangeWorkspace を呼ぶ）" }

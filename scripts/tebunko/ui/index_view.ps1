@@ -613,11 +613,14 @@ function getImportCollisionChoiceView {
     #   name     : 名前の欄の今の値
     #   zipName  : zip の中のインデックスの名前
     #   usedNames: getUsedIndexNames の結果
-    #   mode     : 選んでいる方（Rename か Overwrite。既定は Rename）
+    #   mode     : 利用者が選んでいる方（Rename か Overwrite。既定は Rename）
     # 出すのは、名前の欄が今の一覧にある名前のとき、または zip の名前が一覧にあって名前の欄が別の名前の候補のまま（初めの状態）のとき。
-    # 名前の欄を手で一覧に無い名前にしたら隠す。Mode は、出ていないときは Rename（重ならないので別の名前の扱いと同じ）。
-    # Danger は［インポート］を危険の型（赤）にするか（置き換えるを選んでいるとき）。
-    # Candidate は［別の名前にする］を選んだときに名前の欄へ入れる候補、OverwriteName は［置き換える］を選んだときに戻す名前（zip の名前）
+    # 名前の欄を手で一覧に無い名前にしたら隠す。
+    # 置き換える相手（TargetName）は、名前の欄が一覧にある名前ならその名前、そうでなければ zip の名前。
+    # Mode は、置き換える相手が名前の欄で決まっている（名前の欄が一覧にある名前の）ときだけ Overwrite になれる。
+    # 名前の欄が一覧に無い名前なら、選んでいても Rename（重ならないので別の名前の扱いと同じ）。
+    # Danger は［インポート］を危険の型（赤）にするか（Mode が Overwrite のとき）。Notice は置き換えるときに添える一文。
+    # Candidate は［別の名前にする］を選んだときに名前の欄へ入れる候補、OverwriteName は［置き換える］を選んだときの名前の欄の値
     param (
         [string]$name,
         [string]$zipName,
@@ -630,22 +633,25 @@ function getImportCollisionChoiceView {
     $nameCollides = $trimmed -ne "" -and (testImportNameCollision $trimmed $usedNames)
     $zipCollides = testImportNameCollision $zipName $usedNames
     $visible = $nameCollides -or ($zipCollides -and $trimmed -ieq $candidate)
-    $effective = if ($visible -and $mode -eq ${importCollisionOverwrite}) { ${importCollisionOverwrite} } else { ${importCollisionRename} }
+    $effective = if ($nameCollides -and $mode -eq ${importCollisionOverwrite}) { ${importCollisionOverwrite} } else { ${importCollisionRename} }
+    $target = if ($nameCollides) { $trimmed } else { $zipName }
     return @{
         Visible       = $visible
         Mode          = $effective
         Danger        = ($effective -eq ${importCollisionOverwrite})
-        Heading       = "同じ名前のインデックスがあります"
+        Heading       = if ($visible) { "同じ名前のインデックス [${target}] があります" } else { "" }
         RenameText    = "別の名前にする"
         OverwriteText = "置き換える"
+        Notice        = if ($visible -and $effective -eq ${importCollisionOverwrite}) { "今のインデックス [${target}] は、インポートするもので置き換わります。" } else { "" }
+        TargetName    = $target
         Candidate     = $candidate
-        OverwriteName = $zipName
+        OverwriteName = $target
     }
 }
 
 function testIndexImportInput {
     # インポートのダイアログの入力を調べ、直してほしい内容を返す（問題なければ空文字列）。
-    # 名前が既にあるインデックスと重なることは断らない（上書き・別名・取りやめの確認に回す。getImportIndexName）。
+    # 名前が既にあるインデックスと重なることは断らない（別の名前にするか置き換えるかの選びに回す。getImportCollisionChoiceView）。
     # 元のフォルダは、追加と詳細欄の編集と同じ決まり（getIndexFolderConflict）で調べる。同じ名前の行は上書きで置き換わる
     # （別名なら残る）ため、ここでは比べる相手から外す（別名で入れて重なったときは、インポートの側で止める）
     param (
@@ -680,7 +686,7 @@ function getImportSuggestedName {
 }
 
 function testImportNameCollision {
-    # 入力された名前が今の一覧にあり、上書き・別名・取りやめの確認が要るか（大文字・小文字は区別しない）
+    # 入力された名前が今の一覧にあり、別の名前にするか置き換えるかの選びが要るか（大文字・小文字は区別しない）
     param (
         [string]$name,
         $usedNames = $null   # getUsedIndexNames の結果（集合・配列・文字列・$null。入れ子の集合でもよい）

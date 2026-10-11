@@ -200,7 +200,7 @@ function newBulkExportIndexes {
     startExportSizeCount @($script:targetItems | Where-Object { $names -contains $_.Name })
 }
 function showIndexImportDialog {
-    # インポートのダイアログ。決めた内容 @{ Path; Name } を返す（キャンセルは $null）
+    # インポートのダイアログ。決めた内容 @{ Path; Name; CollisionMode } を返す（キャンセルは $null）
     param (
         [string]$suggestedName,
         $info   # readIndexArchiveInfo の結果
@@ -210,7 +210,7 @@ function showIndexImportDialog {
     $dialog.Owner = $window
     $dialog.Title = "インデックスのインポート"
     $ctrl = @{}
-    foreach ($name in @("ImportButton", "BrowseButton", "FolderBox", "NameBox", "IntroText", "ErrorText", "CollisionPanel", "CollisionHeading", "RenameRadio", "OverwriteRadio",
+    foreach ($name in @("ImportButton", "BrowseButton", "FolderBox", "NameBox", "IntroText", "ErrorText", "CollisionPanel", "CollisionHeading", "CollisionNotice", "RenameRadio", "OverwriteRadio",
             "ImportTitleText", "ImportExportedText", "ImportSizeText", "SourceCheckText")) {
         $ctrl[$name] = $dialog.FindName($name)
     }
@@ -235,8 +235,8 @@ function showIndexImportDialog {
     if ($null -ne $info.SourceExists) {
         $exists[(normalizeFolderPath $info.SourceFolder).ToLowerInvariant()] = [bool]$info.SourceExists
     }
-    # ZipName は zip の中の名前、Choice は同じ名前のときの選び方の今の表示（getImportCollisionChoiceView）、Setting は選んだ方を名前の欄へ反映している間の印
-    $script:importDialog = @{ Window = $dialog; Ctrl = $ctrl; Exists = $exists; ZipName = [string]$info.IndexName; Mode = ${importCollisionRename}; Setting = $false }
+    # ZipName は zip の中の名前、Mode は同じ名前のときの選び方の今の値（getImportCollisionChoiceView の Mode）
+    $script:importDialog = @{ Window = $dialog; Ctrl = $ctrl; Exists = $exists; ZipName = [string]$info.IndexName; Mode = ${importCollisionRename} }
 
     $ctrl.FolderBox.Add_TextChanged({ safe { updateImportDialogChecks } })
     $ctrl.NameBox.Add_TextChanged({ safe { updateImportDialogChecks } })
@@ -291,30 +291,33 @@ function updateImportDialogChecks {
     $ctrl.SourceCheckText.Visibility = if ($check.Text) { "Visible" } else { "Collapsed" }
     $choice = getImportCollisionChoiceView $ctrl.NameBox.Text $d.ZipName (getUsedIndexNames $script:targetItems) $d.Mode
     $ctrl.CollisionHeading.Text = $choice.Heading
+    $ctrl.CollisionNotice.Text = $choice.Notice
+    $ctrl.CollisionNotice.Visibility = if ($choice.Notice) { "Visible" } else { "Collapsed" }
     $ctrl.RenameRadio.Content = $choice.RenameText
     $ctrl.OverwriteRadio.Content = $choice.OverwriteText
     $ctrl.CollisionPanel.Visibility = if ($choice.Visible) { "Visible" } else { "Collapsed" }
+    # 名前の欄を手で替えて置き換えられなくなったときは、選び方も別の名前にするに戻す
+    # （Mode を先に揃えるので、下の選び直しで selectImportCollisionMode は何もしない）
+    $d.Mode = $choice.Mode
+    $ctrl.RenameRadio.IsChecked = ($choice.Mode -eq ${importCollisionRename})
+    $ctrl.OverwriteRadio.IsChecked = ($choice.Mode -eq ${importCollisionOverwrite})
     $ctrl.ImportButton.Style = $d.Window.FindResource($(if ($choice.Visible -and $choice.Danger) { "Danger.Filled" } else { "Primary" }))
 }
 
 function selectImportCollisionMode {
-    # 同じ名前のときの選び方を選んだとき。名前の欄を、別の名前にするなら候補、置き換えるなら zip の名前にする
+    # 同じ名前のときの選び方を利用者が選んだとき。名前の欄を、別の名前にするなら候補、置き換えるなら置き換える相手の名前にする
+    # （updateImportDialogChecks が選び方を揃えたときは、Mode が同じなので何もしない）
     param (
         [string]$mode
     )
 
     $d = $script:importDialog
-    if ($d.Setting) {
+    if ($d.Mode -eq $mode) {
         return
     }
     $d.Mode = $mode
     $choice = getImportCollisionChoiceView $d.Ctrl.NameBox.Text $d.ZipName (getUsedIndexNames $script:targetItems) $mode
-    $d.Setting = $true
-    try {
-        $d.Ctrl.NameBox.Text = if ($mode -eq ${importCollisionOverwrite}) { $choice.OverwriteName } else { $choice.Candidate }
-    } finally {
-        $d.Setting = $false
-    }
+    $d.Ctrl.NameBox.Text = if ($mode -eq ${importCollisionOverwrite}) { $choice.OverwriteName } else { $choice.Candidate }
     updateImportDialogChecks
 }
 

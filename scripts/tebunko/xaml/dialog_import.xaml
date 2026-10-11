@@ -32,11 +32,12 @@
       </Border>
       <!-- 同じ名前のインデックスが一覧にあるとき（getImportCollisionChoiceView）の選び方。名前の欄が一覧に無い名前になったら隠す -->
       <StackPanel x:Name="CollisionPanel" Margin="0,10,0,0" Visibility="Collapsed">
-        <TextBlock x:Name="CollisionHeading" Style="{StaticResource WarnText}" />
+        <TextBlock x:Name="CollisionHeading" Style="{StaticResource WarnText}" TextWrapping="Wrap" />
         <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
           <RadioButton x:Name="RenameRadio" GroupName="Collision" Margin="0,0,20,0" IsChecked="True" />
           <RadioButton x:Name="OverwriteRadio" GroupName="Collision" />
         </StackPanel>
+        <TextBlock x:Name="CollisionNotice" Style="{StaticResource WarnText}" Margin="0,6,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
       </StackPanel>
       <TextBlock x:Name="IntroText" Style="{StaticResource Meta}" Margin="0,8,0,6" TextWrapping="Wrap" />
 

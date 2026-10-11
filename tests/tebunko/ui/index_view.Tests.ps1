@@ -542,20 +542,35 @@ Describe "getImportCollisionChoiceView" -Tag Unit {
         @{ label = "名前の欄を手で一覧に無い名前にしたら隠す"; name = "営業の別件"; zip = "営業"; mode = "Overwrite"; visible = $false; effective = "Rename"; danger = $false }
         @{ label = "zip の名前が重ならず、名前の欄がそのままなら出さない"; name = "経理"; zip = "経理"; mode = "Rename"; visible = $false; effective = "Rename"; danger = $false }
         @{ label = "名前の欄が空なら出さない"; name = " "; zip = "経理"; mode = "Rename"; visible = $false; effective = "Rename"; danger = $false }
+        @{ label = "zip が一覧にあり、名前の欄が別の一覧の名前のとき、置き換える相手は名前の欄の名前"; name = "総務"; zip = "営業"; mode = "Overwrite"; visible = $true; effective = "Overwrite"; danger = $true; target = "総務"; overwriteName = "総務" }
+        @{ label = "zip が一覧に無く、名前の欄が一覧の名前のとき、置き換える相手は名前の欄の名前"; name = "総務"; zip = "経理"; mode = "Overwrite"; visible = $true; effective = "Overwrite"; danger = $true; target = "総務"; overwriteName = "総務" }
+        @{ label = "置き換えるを選んだあと、名前の欄を候補に戻したら、置き換えにならず赤くもしない"; name = "営業(2)"; zip = "営業"; mode = "Overwrite"; visible = $true; effective = "Rename"; danger = $false; target = "営業" }
+        @{ label = "置き換えるを選んだあと、名前の欄を一覧に無い名前にしたら、置き換えにならず赤くもしない"; name = "営業の別件"; zip = "営業"; mode = "Overwrite"; visible = $false; effective = "Rename"; danger = $false; target = "営業" }
     ) {
-        param ($label, $name, $zip, $mode, $visible, $effective, $danger)
+        param ($label, $name, $zip, $mode, $visible, $effective, $danger, $target, $overwriteName)
         $view = getImportCollisionChoiceView $name $zip @("営業", "総務") $mode
         $view.Visible | Should -Be $visible
         $view.Mode | Should -Be $effective
         $view.Danger | Should -Be $danger
+        if ($target) { $view.TargetName | Should -Be $target }
+        if ($overwriteName) { $view.OverwriteName | Should -Be $overwriteName }
     }
 
-    It "選んだときに名前の欄へ入れる名前は、別の名前にするなら候補、置き換えるなら zip の名前" {
+    It "選んだときに名前の欄へ入れる名前は、別の名前にするなら候補、置き換えるなら置き換える相手の名前" {
         $view = getImportCollisionChoiceView "営業(2)" "営業" @("営業", "総務")
         $view.Candidate | Should -Be "営業(2)"
         $view.OverwriteName | Should -Be "営業"
         $view.RenameText | Should -Be "別の名前にする"
         $view.OverwriteText | Should -Be "置き換える"
+    }
+
+    It "見出しに重なっている名前を、置き換えるときは今のインデックスが置き換わることを添える" {
+        (getImportCollisionChoiceView "営業(2)" "営業" @("営業", "総務")).Heading | Should -Be "同じ名前のインデックス [営業] があります"
+        (getImportCollisionChoiceView "営業(2)" "営業" @("営業", "総務")).Notice | Should -Be ""
+        $overwrite = getImportCollisionChoiceView "総務" "営業" @("営業", "総務") "Overwrite"
+        $overwrite.Heading | Should -Be "同じ名前のインデックス [総務] があります"
+        $overwrite.Notice | Should -Be "今のインデックス [総務] は、インポートするもので置き換わります。"
+        (getImportCollisionChoiceView "新規" "新規" @("営業")).Heading | Should -Be ""
     }
 }
 

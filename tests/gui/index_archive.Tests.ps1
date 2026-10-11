@@ -77,11 +77,12 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             clickGuiAction $S "ActionImport" "［インポート…］"
             useGuiFileOpenPicker $S $zip[0].FullName
             $dialog = waitGuiWindow $S "インポートのダイアログ" -Id "NameBox"
-            getGuiText (findGui $dialog -Id "CollisionHeading") | Should -Be "同じ名前のインデックスがあります"
+            getGuiText (findGui $dialog -Id "CollisionHeading") | Should -Be "同じ名前のインデックス [営業] があります"
             getGuiValue (findGui $dialog -Id "NameBox") | Should -Be "営業(2)" -Because "初めの選択は別の名前にする"
             isGuiSelected (findGui $dialog -Id "RenameRadio") | Should -BeTrue
             selectGui (findGui $dialog -Id "OverwriteRadio")
             getGuiValue (findGui $dialog -Id "NameBox") | Should -Be "営業" -Because "置き換えるときは zip の名前に戻す"
+            getGuiText (findGui $dialog -Id "CollisionNotice") | Should -Be "今のインデックス [営業] は、インポートするもので置き換わります。"
             clickGui $S $dialog "ImportButton" "［インポート］"
             waitGuiWindowClosed $S $dialog "インポートのダイアログ"
             waitGui $S "置き換えの完了" ${guiDefaultTimeout} {
