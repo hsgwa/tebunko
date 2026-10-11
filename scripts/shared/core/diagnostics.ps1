@@ -15,7 +15,11 @@ function getEnvironmentInfo {
         $kernel = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("$env:SystemRoot\System32\ntoskrnl.exe")
         $info.OsFileVersion = "$($kernel.FileMajorPart).$($kernel.FileMinorPart).$($kernel.FileBuildPart).$($kernel.FilePrivatePart)"
     } catch {}
-    try { $info.Office = @(findOfficeApps) } catch {}
+    try {
+        $info.Office = @(findOfficeApps -os64 ($info.Os64 -ne $false))
+    } catch {
+        $info.Office = $null   # 調べられなかった（見出しでは「不明」。「見つからない」とは区別する）
+    }
     return $info
 }
 
@@ -23,12 +27,27 @@ function findOfficeApps {
     # 決まった場所にある Office の実行ファイル（EXCEL.EXE・WINWORD.EXE・POWERPNT.EXE）を探し、@{ Name; Version; Kind; Bits } の配列を返す。
     # Program Files は、Windows のあるドライブ（$env:SystemRoot のドライブ）の決まった名前のフォルダとする
     # （環境変数 ProgramFiles は 32 ビットの PowerShell で x86 側を指し、安全性の検査も SystemRoot 以外の環境変数を許さないため）
-    $systemDrive = [System.IO.Path]::GetPathRoot($env:SystemRoot)
-    if (-not $systemDrive) {
-        return @()
+    #   programFiles64 / programFilesX86: 探す 2 つの場所（省略すると Windows のあるドライブの決まった名前。テストでは別の場所を渡す）
+    #   os64: 64 ビットの Windows か。32 ビットなら programFiles64 の場所を 32 ビット版の置き場として扱う
+    # 調べている途中で例外になったら、そのまま投げる（呼び出し側が「不明」にする）
+    param (
+        [string]$programFiles64,
+        [string]$programFilesX86,
+        [bool]$os64 = $true
+    )
+
+    if (-not $programFiles64 -and -not $programFilesX86) {
+        $systemDrive = [System.IO.Path]::GetPathRoot($env:SystemRoot)
+        if (-not $systemDrive) {
+            return @()
+        }
+        $programFiles64 = Join-Path $systemDrive "Program Files"
+        $programFilesX86 = Join-Path $systemDrive "Program Files (x86)"
     }
-    $programFiles64 = Join-Path $systemDrive "Program Files"
-    $programFilesX86 = Join-Path $systemDrive "Program Files (x86)"
+    $x86Root = $programFilesX86
+    if (-not $os64) {
+        $x86Root = $programFiles64
+    }
     $subDirs = @("Microsoft Office\root\Office16", "Microsoft Office\Office16", "Microsoft Office\Office15")
     $apps = @(@("Excel", "EXCEL.EXE"), @("Word", "WINWORD.EXE"), @("PowerPoint", "POWERPNT.EXE"))
     $found = New-Object System.Collections.Generic.List[object]
@@ -45,7 +64,7 @@ function findOfficeApps {
             }
         }
         if ($hit) {
-            $kind = getOfficeKind $hit $programFiles64 $programFilesX86
+            $kind = getOfficeKind $hit $programFiles64 $x86Root
             $version = $null
             try { $version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($hit).FileVersion } catch {}
             $found.Add(@{ Name = $app[0]; Version = $version; Kind = $kind.Kind; Bits = $kind.Bits })
@@ -82,9 +101,11 @@ function rotateLogFile {
         }
         $previous = getPreviousLogPath $path
         if ([System.IO.File]::Exists($previous)) {
-            [System.IO.File]::Delete($previous)
+            # 置き換えは、移せないとき前回の分を残す（先に消さない）
+            [System.IO.File]::Replace($path, $previous, [NullString]::Value)
+        } else {
+            [System.IO.File]::Move($path, $previous)
         }
-        [System.IO.File]::Move($path, $previous)
         return $true
     } catch {
         return $false

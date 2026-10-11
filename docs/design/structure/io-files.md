@@ -122,6 +122,8 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 | `%SystemRoot%\System32\notepad.exe` | 起動する | ログ・拡張子が危ないファイルを開く（`openWithNotepad`・［ログを開く］） |
 | `%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe` | 起動する | 起動口（`tebunko.bat`・`tebunko.exe`）。PATH からは探さない |
 | `explorer.exe` | 起動する | ［フォルダを開く］・フォルダの選択 |
+| `%SystemRoot%\System32\ntoskrnl.exe` | 読む（ファイルの版だけ） | ログの見出しの OS の版（`getEnvironmentInfo`） |
+| Windows のあるドライブの `Program Files`・`Program Files (x86)` の `Microsoft Office\root\Office16`・`Microsoft Office\Office16`・`Microsoft Office\Office15` の `EXCEL.EXE`・`WINWORD.EXE`・`POWERPNT.EXE` | 読む（有無とファイルの版だけ。起動しない） | ログの見出しの Office の版・形態・ビット数（`findOfficeApps`）。ほかのドライブや別の版の Office は `見つからない` と出る |
 | Windows Search（`Search.CollatorDSO`） | 読む（SELECT だけ） | 高速検索。システムインデックスを索引させ、問い合わせる |
 | Excel・Word・PowerPoint のプロセス | 起動・終了 | 古い形式の変換・元のファイルを開く。起動した PID は `work/office_pids/` に記録する |
 | 設定値の `%…%`（`ExpandEnvironmentVariables`） | 読む | クロール対象フォルダ・ワークスペースに環境変数があれば展開する（`folder.ps1`・`settings.ps1`） |
@@ -179,7 +181,7 @@ tebunko が作るファイルとフォルダが、何年使っても溜まり続
 | `search_results.txt` | 上書き | 1 つ |
 | `indexing_log.txt` | 実行ごとに上書き | 1 回分。始めるとき（二重起動の鍵を取った後）に今の分を `indexing_log_previous.txt` へ移す |
 | `indexing_log_previous.txt` | 実行ごとに上書き | 1 回分。合わせて 2 回分で止まる |
-| `gui_error_log.txt` | 追記（同じ例外は 60 秒に 1 回） | 1 MB 以上になる前の記録で `gui_error_log_previous.txt` へ移す |
+| `gui_error_log.txt` | 追記（同じ例外は 60 秒に 1 回） | 1 MB 以上なら、次の記録を書く前に `gui_error_log_previous.txt` へ移す |
 | `gui_error_log_previous.txt` | 移すたびに上書き | 1 つ。合わせておよそ 2 MB で止まる |
 | `publish` | 実行ごとに `<PID>` を作る | 終了時・インポートの後に消す。残りは次のインデックス作成の始めに消す |
 | `tmp` | 実行ごとに `<PC の鍵>\<PID>` を作る | 終了時に消す。強制終了の残りは次のインデックス作成の始めに、この PC の終わったプロセスの分を消す。共有のワークスペースでは、ほかの PC の残りは消えない（別に直す） |
@@ -189,7 +191,7 @@ tebunko が作るファイルとフォルダが、何年使っても溜まり続
 
 | 名前 | 増え方 | 上限・片付け |
 |---|---|---|
-| `startup_error.txt` | `tebunko.bat` は上書き、`gui.ps1`（`writeStartupErrorFile`）は追記 | 追記の側は 1 MB 以上になる前の記録で `startup_error_previous.txt` へ移す。`.bat` の側は 1 回分 |
+| `startup_error.txt` | `tebunko.bat` は上書き、`gui.ps1`（`writeStartupErrorFile`）は追記 | 追記の側は 1 MB 以上なら、次の記録を書く前に `startup_error_previous.txt` へ移す。`.bat` の側は 1 回分 |
 | `startup_error_previous.txt` | 移すたびに上書き | 1 つ。合わせておよそ 2 MB で止まる |
 | `setting.config.tmp` | 保存のたび | 同じ名前で上書きされ 1 つまで |
 | `.tebunko_write_test_<GUID>.tmp` | 調べるたび | 閉じると消える（`DeleteOnClose`） |

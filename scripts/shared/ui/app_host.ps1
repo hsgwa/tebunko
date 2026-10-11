@@ -149,6 +149,8 @@ function themeBrush {
 
 # 画面エラーの記録の上限（これ以上になったら前回の分に回す）
 ${guiErrorLogMaxBytes} = 1MB
+# 見出しを最後に書いた記録先（writeErrorLog が、最初の記録・記録先の変更で見出しを書くために覚える）
+${script:errorLogHeaderPath} = $null
 
 # 予期しないエラーを getGuiErrorLogFile のファイルに残す。画面に出したメッセージだけでは、
 # どこで起きたのかが後から分からないため（利用者に見せるのは従来どおりメッセージだけ）

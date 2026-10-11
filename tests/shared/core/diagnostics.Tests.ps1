@@ -68,6 +68,65 @@ Describe "rotateLogFile" -Tag Io {
         } finally {
             [System.IO.File]::SetAttributes($script:prev, [System.IO.FileAttributes]::Normal)
         }
+        [System.IO.File]::ReadAllText($script:prev) | Should -Be "古い"
+    }
+
+    It "今のログが開いたままで移せないとき、前回の分は消えずに残る" {
+        [System.IO.File]::WriteAllText($script:prev, "古い")
+        [System.IO.File]::WriteAllText($script:log, "新しい")
+        $stream = [System.IO.File]::Open($script:log, "Open", "Read", "None")
+        try {
+            rotateLogFile $script:log 0 | Should -Be $false
+        } finally {
+            $stream.Dispose()
+        }
+        [System.IO.File]::ReadAllText($script:prev) | Should -Be "古い"
+        [System.IO.File]::ReadAllText($script:log) | Should -Be "新しい"
+    }
+}
+
+Describe "findOfficeApps" -Tag Io {
+    BeforeAll {
+        function newExe($base, $sub, $name) {
+            $dir = Join-Path $base $sub
+            New-Item -ItemType Directory -Path $dir -Force | Out-Null
+            [System.IO.File]::WriteAllText((Join-Path $dir $name), "x")
+        }
+    }
+
+    BeforeEach {
+        $script:pf64 = Join-Path $TestDrive "pf64"
+        $script:pf86 = Join-Path $TestDrive "pf86"
+        Remove-Item -LiteralPath $script:pf64, $script:pf86 -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    It "何も無ければ空" {
+        @(findOfficeApps -programFiles64 $script:pf64 -programFilesX86 $script:pf86).Count | Should -Be 0
+    }
+
+    It "64 ビット側の Click-to-Run の Excel を見つける" {
+        newExe $script:pf64 "Microsoft Office\root\Office16" "EXCEL.EXE"
+        $apps = @(findOfficeApps -programFiles64 $script:pf64 -programFilesX86 $script:pf86)
+        $apps.Count | Should -Be 1
+        $apps[0].Name | Should -Be "Excel"
+        $apps[0].Kind | Should -Be "Click-to-Run"
+        $apps[0].Bits | Should -Be 64
+    }
+
+    It "x86 側の MSI の Word は 32 ビット" {
+        newExe $script:pf86 "Microsoft Office\Office15" "WINWORD.EXE"
+        $apps = @(findOfficeApps -programFiles64 $script:pf64 -programFilesX86 $script:pf86)
+        $apps.Count | Should -Be 1
+        $apps[0].Name | Should -Be "Word"
+        $apps[0].Kind | Should -Be "MSI"
+        $apps[0].Bits | Should -Be 32
+    }
+
+    It "32 ビットの Windows では Program Files の Office を 32 ビットとする" {
+        newExe $script:pf64 "Microsoft Office\Office16" "POWERPNT.EXE"
+        $apps = @(findOfficeApps -programFiles64 $script:pf64 -programFilesX86 $script:pf86 -os64 $false)
+        $apps.Count | Should -Be 1
+        $apps[0].Bits | Should -Be 32
     }
 }
 
@@ -81,8 +140,10 @@ Describe "getEnvironmentInfo" -Tag Io {
 
     It "見出しの全文に、利用者名・コンピューター名・ドメイン・プロファイルのパスが含まれない" {
         $text = (formatDiagnosticHeader "tebunko" $null (getEnvironmentInfo) ([System.DateTimeOffset]::Now)) -join "`n"
+        # 見出しの決まった語と重なる名前（利用者名が見出しの語の一部など）は、取り込みの有無を見分けられないので除く
+        $fixedText = (formatDiagnosticHeader "tebunko" $null @{ Office = @() } ([System.DateTimeOffset]::Now)) -join "`n"
         foreach ($value in @($env:USERNAME, $env:COMPUTERNAME, $env:USERDOMAIN)) {
-            if ($value -and $value.Length -ge 3) {
+            if ($value -and $value.Length -ge 3 -and $fixedText.IndexOf($value, [System.StringComparison]::OrdinalIgnoreCase) -lt 0) {
                 $text.IndexOf($value, [System.StringComparison]::OrdinalIgnoreCase) | Should -Be -1
             }
         }

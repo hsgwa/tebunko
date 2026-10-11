@@ -71,7 +71,9 @@ function formatDiagnosticHeader {
 
     $officeText = "見つからない"
     $officeItems = @($envInfo.Office)
-    if ($officeItems.Count -gt 0) {
+    if ($null -eq $envInfo.Office) {
+        $officeText = $unknown
+    } elseif ($officeItems.Count -gt 0) {
         $officeText = (@($officeItems | ForEach-Object {
             "$($_.Name) $(& $orUnknown $_.Version) $($_.Kind) $($_.Bits) ビット"
         })) -join " / "

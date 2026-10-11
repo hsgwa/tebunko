@@ -106,10 +106,10 @@
 |---|---|---|---|---|
 | `getVersionLabel` | versionInfo（`readVersionFile` の結果） | `@{Version; Commit}` | 版の表示。タグとコミットの先頭 7 桁。`$null` なら `開発版`（Commit は空）。判断層 | `getAboutView`, `formatDiagnosticHeader` |
 | `getOfficeKind` | exePath, programFiles64, programFilesX86 | `@{Kind; Bits}` | Office の実行ファイルのパスから、Click-to-Run か MSI か、32・64 ビットかを決める。判断層 | `findOfficeApps` |
-| `hideUserProfile` | text, profileDir | string | 文字列の中のプロファイルのフォルダを `%USERPROFILE%` に置き換える（大文字小文字は区別しない。前方だけ一致する別のフォルダは置き換えない）。判断層 | 診断情報の組み立て |
+| `hideUserProfile` | text, profileDir | string | 文字列の中のプロファイルのフォルダを `%USERPROFILE%` に置き換える（大文字小文字は区別しない。前方だけ一致する別のフォルダは置き換えない）。判断層。今は呼び出し元が無い（見出しにプロファイルのパスを入れないため） | – |
 | `formatDiagnosticHeader` | toolName, versionInfo, envInfo, now | string[]（見出しの行） | 日時・版・OS・PowerShell・Office・表示言語の見出しを組み立てる。調べられない項目は `不明`。判断層 | `getToolDiagnosticHeader` |
-| `getEnvironmentInfo` | – | hashtable | OS・PowerShell・Office・表示言語を調べる。項目ごとに調べ、失敗した項目は空にする。レジストリ・WMI・COM は使わず、Office は起動しない | `getToolDiagnosticHeader` |
-| `findOfficeApps` | – | `@{Name; Version; Kind; Bits}` の配列 | `Program Files` の決まった場所の EXCEL・WINWORD・POWERPNT を探し、ファイルの版を読む | `getEnvironmentInfo` |
-| `getPreviousLogPath` | path | string | `<名前>_previous<拡張子>`（同じフォルダ） | `rotateLogFile`, `Workspace` |
-| `rotateLogFile` | path, maxBytes | bool | ファイルが maxBytes 以上なら `_previous` へ移す（あれば上書き）。maxBytes が 0 なら、あれば必ず移す。移したら `$true`、ファイルが無い・小さい・移せないときは `$false`（例外にしない） | `invokeIndexer`, `writeErrorLog` |
+| `getEnvironmentInfo` | – | hashtable | OS・PowerShell・Office・表示言語を調べる。項目ごとに調べ、失敗した項目は空にする（Office を調べている途中で失敗したら `$null`。見出しでは `不明`）。レジストリ・WMI・COM は使わず、Office は起動しない | `getToolDiagnosticHeader` |
+| `findOfficeApps` | programFiles64, programFilesX86（省略すると Windows のあるドライブの決まった名前）, os64 | `@{Name; Version; Kind; Bits}` の配列 | `Program Files` の決まった場所の EXCEL・WINWORD・POWERPNT を探し、ファイルの版を読む。32 ビットの Windows では `Program Files` の Office を 32 ビットとする。例外は投げたまま（呼び出し側が `不明` にする） | `getEnvironmentInfo` |
+| `getPreviousLogPath` | path | string | `<名前>_previous<拡張子>`（同じフォルダ） | `rotateLogFile` |
+| `rotateLogFile` | path, maxBytes | bool | ファイルが maxBytes 以上なら `_previous` へ移す（あれば `File.Replace` で置き換える。今のログが移せないときも前回の分は消えない）。maxBytes が 0 なら、あれば必ず移す。移したら `$true`、ファイルが無い・小さい・移せないときは `$false`（例外にしない） | `invokeIndexer`, `writeErrorLog` |
 | `getToolDiagnosticHeader` | – | string[] | このツールの版（`VERSION.txt`）と環境の見出し | `invokeIndexer`, `getGuiErrorLogHeader` |

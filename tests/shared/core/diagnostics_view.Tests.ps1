@@ -60,6 +60,13 @@ Describe "formatDiagnosticHeader" -Tag Unit {
         $text | Should -Match "Office: 見つからない"
     }
 
+    It "Office を調べられなかった（`$null）ときは 見つからない ではなく 不明" {
+        $info = $script:env.Clone()
+        $info.Office = $null
+        $text = (formatDiagnosticHeader "tebunko" $null $info $script:now) -join "`n"
+        $text | Should -Match "Office: 不明"
+    }
+
     It "調べられない項目は 不明 と書く" {
         $info = @{ Office = @() }
         $text = (formatDiagnosticHeader "tebunko" $null $info $script:now) -join "`n"

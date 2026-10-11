@@ -75,7 +75,7 @@ Describe "writeStartupErrorFile" -Tag Io {
         @{ name = "1 MB 未満なら追記だけで、前回の分は作らない"; size = 100; hasPrevious = $false; blockPrevious = $false; expectPrevious = $false }
         @{ name = "1 MB 以上なら startup_error_previous.txt に移して新しいファイルに書く"; size = (1MB + 1); hasPrevious = $false; blockPrevious = $false; expectPrevious = $true }
         @{ name = "1 MB 以上で前回の分があれば上書きする"; size = (1MB + 1); hasPrevious = $true; blockPrevious = $false; expectPrevious = $true }
-        @{ name = "1 MB 以上で移せなくても（前回の分が読み取り専用）記録を書いてパスを返す"; size = (1MB + 1); hasPrevious = $true; blockPrevious = $true; expectPrevious = $true }
+        @{ name = "1 MB 以上で移せなくても（前回の分が開いたまま）元のファイルに追記してパスを返す"; size = (1MB + 1); hasPrevious = $true; blockPrevious = $true; expectPrevious = $true }
     ) {
         $tool = Join-Path $TestDrive ("tool-rot-" + [guid]::NewGuid().ToString("N"))
         [System.IO.Directory]::CreateDirectory($tool) | Out-Null
@@ -83,15 +83,21 @@ Describe "writeStartupErrorFile" -Tag Io {
         $previous = Join-Path $tool "startup_error_previous.txt"
         [System.IO.File]::WriteAllText($file, ("x" * $size), (New-Object System.Text.UTF8Encoding($true)))
         if ($hasPrevious) { [System.IO.File]::WriteAllText($previous, "古い") }
-        if ($blockPrevious) { [System.IO.File]::SetAttributes($previous, [System.IO.FileAttributes]::ReadOnly) }
+        # 前回の分を開いたままにして、上書きの移動を確実に失敗させる（読み取り専用では -Force が上書きできることがある）
+        $held = $null
+        if ($blockPrevious) { $held = [System.IO.File]::Open($previous, "Open", "Read", "None") }
         try {
             writeStartupErrorFile "新しい記録" $tool | Should -Be $file
         } finally {
-            if ($blockPrevious) { [System.IO.File]::SetAttributes($previous, [System.IO.FileAttributes]::Normal) }
+            if ($held) { $held.Dispose() }
         }
         Test-Path -LiteralPath $previous | Should -Be $expectPrevious
         (Get-Content -LiteralPath $file -Raw) | Should -Match "新しい記録"
-        if ($size -gt 1MB -and -not $blockPrevious) {
+        if ($blockPrevious) {
+            # 移せなかったので、元のファイルは大きいまま新しい記録が追記され、前回の分は変わらない
+            (Get-Content -LiteralPath $file -Raw) | Should -Match "x{1000}"
+            [System.IO.File]::ReadAllText($previous) | Should -Be "古い"
+        } elseif ($size -gt 1MB) {
             (Get-Content -LiteralPath $file -Raw) | Should -Not -Match "x{1000}"
             (Get-Content -LiteralPath $previous -Raw) | Should -Match "x{1000}"
         }

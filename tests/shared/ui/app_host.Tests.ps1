@@ -185,6 +185,8 @@ Describe "writeErrorLog（版と環境の見出しと、大きさでの入れ替
         $script:errorLogHeaderPath = $null
         $global:testErrorLog = Join-Path $TestDrive ("err_" + [guid]::NewGuid().ToString("N") + "\gui_error_log.txt")
         function global:getGuiErrorLogFile { return $global:testErrorLog }
+        # 前の It が定義した見出しの関数を残さない（「無い」場合を本当に無い状態で確かめるため）
+        Remove-Item function:global:getGuiErrorLogHeader -ErrorAction SilentlyContinue
     }
 
     AfterAll {
