@@ -944,7 +944,6 @@
     <Setter Property="IsReadOnly" Value="True" />
     <Setter Property="HeadersVisibility" Value="Column" />
     <Setter Property="GridLinesVisibility" Value="None" />
-    <Setter Property="BorderBrush" Value="{StaticResource Border.Soft}" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="Background" Value="{StaticResource Bg.Surface}" />
     <Setter Property="RowHeaderWidth" Value="0" />
