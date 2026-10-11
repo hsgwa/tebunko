@@ -115,12 +115,14 @@ Describe "convertFolderRoot / convertItemUrl / convertToScopeUrl" -Tag Unit {
         convertToScopeUrl "C:\ws\R&D's\" | Should -Be "file:C:/ws/R&D''s"
     }
 
-    It "パスに <label> が入っていても、SCOPE の URL から元のパスに戻る" -TestCases $pathCharCases {
+    It "パスに <label> が入っていても、SCOPE の URL から system_index の下の相対パスに戻る" -TestCases $pathCharCases {
         param ($label, $ch)
-        $path = "C:\ws\a$ch\c"
-        # SQL の文字列で重ねた ' を元に戻したものが、検索が返す ItemUrl になる
-        $itemUrl = (convertToScopeUrl $path).Replace("''", "'")
-        convertItemUrl $itemUrl | Should -Be $path
+        # 範囲の URL にしたパスが、SQL の ' の重ねを戻しただけで検索の結果の URL（ItemUrl）になると仮定する（Windows 検索では確かめていない）。
+        # 高速検索が使う道（fast_search.ps1 の getRelativePath (convertItemUrl …) $systemRootPath）と同じ組み立てで、相対パスが戻ることを見る
+        $systemRoot = "C:\ws\system_index"
+        $relative = "営業${ch}a\system_index.txt"
+        $itemUrl = (convertToScopeUrl "$systemRoot\$relative").Replace("''", "'")
+        getRelativePath (convertItemUrl $itemUrl) $systemRoot | Should -Be $relative
     }
 }
 

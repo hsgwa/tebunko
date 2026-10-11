@@ -1,5 +1,6 @@
-﻿# フォルダ名に入れて起動を確かめる文字の表（tests/meta/launcher.Tests.ps1・tests/meta/installer.Tests.ps1 が
-# BeforeDiscovery で dot-source し、-TestCases に渡す）。
+﻿# フォルダ名に入れて確かめる文字の表（tests/meta/launcher.Tests.ps1・tests/meta/installer.Tests.ps1・tests/meta/structure.Tests.ps1・
+# tests/tebunko/core/parts.Tests.ps1・tests/shared/ui/app_host.Tests.ps1・tests/tebunko/search/search_gram.Tests.ps1 が
+# BeforeDiscovery で dot-source し、-TestCases に渡す）。取り込み・検索の通しのテスト（indexer_path_chars.Tests.ps1）は、ワークスペースの名前に [ ] を入れられないため、別の表を持つ。
 #   label はテスト名に出す説明、ch はフォルダ名に入れる文字（PowerShell・cmd の構文で特別な意味を持つもの・日本語など）
 
 function getPathCharCases {
