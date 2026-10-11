@@ -69,6 +69,9 @@ function invokeShortcutAction {
             return $true
         }
         "Refresh" {
+            if (!(testIndexReadAllowed ([bool]$script:workspaceMoving))) {
+                return $true
+            }
             safe {
                 refreshIndexingState
                 refreshIndexSummary

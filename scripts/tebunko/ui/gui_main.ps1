@@ -218,6 +218,9 @@ function startGui {
         if (!$script:startupLoaded) {
             return
         }
+        if (!(testIndexReadAllowed ([bool]$script:workspaceMoving))) {
+            return
+        }
         safe {
             # クロール対象フォルダがほかの画面で変更されていれば読み直す
             if ((getTargetsKey @(getTargetFolders)) -ne $script:savedTargets) {

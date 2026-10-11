@@ -259,6 +259,16 @@ function getIndexJobBlocker {
     return ""
 }
 
+function testIndexReadAllowed {
+    # インデックス・設定を読む操作（検索を始める・F5 で読み直す・窓を前に出したときの読み直し）をしてよいか。
+    # ワークスペースの中身を移している間は、移動元と移動先の両方を移す側が使っているため、キー操作でも始めない
+    param (
+        [bool]$workspaceMoving = $false
+    )
+
+    return -not $workspaceMoving
+}
+
 function getIndexJobBlockedMessage {
     # 排他で操作をできないときのメッセージ（blocker は getIndexJobBlocker の結果。空なら空文字列）
     param (

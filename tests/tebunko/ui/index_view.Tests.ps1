@@ -87,6 +87,20 @@ Describe "getIndexJobBlocker" -Tag Unit {
     }
 }
 
+Describe "testIndexReadAllowed" -Tag Unit {
+    It "ワークスペースを移している間だけ、インデックスを読む操作を止める" -TestCases @(
+        @{ moving = $false; expected = $true }
+        @{ moving = $true; expected = $false }
+    ) {
+        param ($moving, $expected)
+        testIndexReadAllowed $moving | Should -Be $expected
+    }
+
+    It "引数が無ければ読んでよい" {
+        testIndexReadAllowed | Should -BeTrue
+    }
+}
+
 Describe "getIndexStoreSourceFolderError" -Tag Unit {
     It "<label>" -TestCases @(
         @{ label = "戻り値が空なら空"; output = @(); expected = "" }
