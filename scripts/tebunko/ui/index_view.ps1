@@ -130,7 +130,7 @@ function getIndexArchiveCancelledStatus {
 }
 
 function getBulkDeleteErrorStatus {
-    # 複数削除が、裏の仕事ごと失敗した（ワークスペースに届かないなど）ときのステータスと帯の文
+    # 削除が失敗した（1 件の削除の失敗と、複数削除が裏の仕事ごと失敗した場合。ワークスペースに届かないなど）ときのステータスと帯の文
     param (
         [string]$errorText
     )

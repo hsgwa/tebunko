@@ -1,5 +1,5 @@
 ﻿# 画面の上の知らせの帯（画面層）。gui_main.ps1 が読み込む。
-# 検索の画面の上（SearchNotice。結果を保存できなかったとき）・インデックス管理の画面の上（IndexNotice。まとめてのエクスポート・削除の失敗）・
+# 検索の画面の上（SearchNotice。結果を保存できなかったとき）・インデックス管理の画面の上（IndexNotice。1 件・まとめての削除と、まとめてのエクスポートの失敗）・
 # 窓の上（WorkspaceNotice。ワークスペースが使えないとき）の 3 つ。どれも同じ作りで、部品の名前は <接頭辞>Panel・Icon・Text・Button・Close。
 # 文言と色の区分・閉じられるか・ボタンは判断層（getNoticeBannerView）が決め、ここは結果を画面に当てるだけ。
 

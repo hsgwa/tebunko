@@ -880,12 +880,17 @@ Describe "画面の部品の名前" -Tag Meta {
 
     It "gui_main.ps1 の領域の表の各ファイルに、使う名前がすべてある" {
         # $regions の `File = "..."; ... Names = @(...)` を全部取り出して、XAML と突き合わせる
-        $entries = @([regex]::Matches($gui, 'File\s*=\s*"([^"]+)".*?Names\s*=\s*@\(([^)]*)\)'))
+        $entries = @([regex]::Matches($gui, 'File\s*=\s*"([^"]+)".*?Names\s*=\s*(?:@\(([^)]*)\)|\$(\w+))'))
         $entries.Count -gt 0 | Should -Be $true
         $problems = New-Object System.Collections.Generic.List[string]
         foreach ($entry in $entries) {
             $file = $entry.Groups[1].Value
-            $wanted = @([regex]::Matches($entry.Groups[2].Value, '"([A-Za-z]+)"') | ForEach-Object { $_.Groups[1].Value })
+            $list = $entry.Groups[2].Value
+            if ($entry.Groups[3].Success) {
+                # Names = $変数名 のときは、変数の `@(...)` を読む
+                $list = [regex]::Match($gui, '\$' + $entry.Groups[3].Value + '\s*=\s*@\(([^)]*)\)').Groups[1].Value
+            }
+            $wanted = @([regex]::Matches($list, '"([A-Za-z]+)"') | ForEach-Object { $_.Groups[1].Value })
             $path = "$here\..\scripts\tebunko\xaml\$file"
             if (-not (Test-Path -LiteralPath $path)) { $problems.Add("$file が無い"); continue }
             $names = getXamlNames $path

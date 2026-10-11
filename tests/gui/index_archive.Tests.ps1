@@ -118,6 +118,29 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
 
             setGuiStep $S "2 件にチェックを付けてまとめて［エクスポート…］"
             foreach ($row in @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))) { checkGuiRow $S $row }
+
+            setGuiStep $S "エクスポートのダイアログを［キャンセル］で閉じる"
+            clickGuiAction $S "ActionExport" "［エクスポート…］"
+            $cancelDialog = waitGuiWindow $S "エクスポートのダイアログ" -Id "ExportPathBox"
+            clickGui $S $cancelDialog "CancelButton" "［キャンセル］"
+            waitGuiWindowClosed $S $cancelDialog "エクスポートのダイアログ"
+            (getGuiText (findGui $S.Window -Id "StatusText")) | Should -Be "エクスポートを取りやめました"
+
+            setGuiStep $S "書き出し先が無いと、画面の上の帯に理由が出る"
+            clickGuiAction $S "ActionExport" "［エクスポート…］"
+            $failDialog = waitGuiWindow $S "エクスポートのダイアログ" -Id "ExportPathBox"
+            setGuiText $S (findGui $failDialog -Id "ExportPathBox") (Join-Path $TestDrive "無い書き出し先")
+            clickGui $S $failDialog "ExportButton" "［エクスポート］"
+            waitGuiWindowClosed $S $failDialog "エクスポートのダイアログ"
+            waitGui $S "帯に理由が出る" ${guiDefaultTimeout} {
+                (getGuiText (findGui $S.Window -Id "IndexNoticeText")) -like "*見つかりません*"
+            } | Out-Null
+            $noticeRect = (findGui $S.Window -Id "IndexNoticeText").Current.BoundingRectangle
+            ($S.Window.Current.BoundingRectangle.Right - $noticeRect.Right) | Should -BeLessThan 80
+            clickGui $S $S.Window "IndexNoticeClose" "帯の［閉じる］"
+            waitGui $S "帯が消える" ${guiDefaultTimeout} { (findGui $S.Window -Id "IndexNoticeText").Current.IsOffscreen } | Out-Null
+
+            setGuiStep $S "2 件にチェックを付けてまとめて［エクスポート…］"
             clickGuiAction $S "ActionExport" "［エクスポート…］"
             $dialog = waitGuiWindow $S "エクスポートのダイアログ" -Id "ExportPathBox"
             getGuiText (findGui $dialog -Id "ExportTitleText") | Should -Be "2 件のインデックス"
@@ -129,6 +152,7 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
                 (getGuiText (findGui $S.Window -Id "StatusText")) -like "*2 件のインデックスをエクスポートしました*"
             } | Out-Null
             @(Get-ChildItem -LiteralPath $dest -Filter "*.zip").Count | Should -Be 2
+            (findGui $S.Window -Id "IndexNoticeText").Current.IsOffscreen | Should -BeTrue
 
             setGuiStep $S "まとめて［削除…］"
             clickGuiAction $S "ActionDelete" "［削除…］"

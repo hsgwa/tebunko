@@ -75,7 +75,9 @@ function startGui {
     # 領域ごとに FindName する（名前の一覧も領域ごとに分けておく）。
     # 領域の表: File = xaml\ からの相対パス、Slot = 差す口（窓の x:Name）、Screen = 画面の名前（Slot が ContentHost のものだけ。
     # 画面の中身は $script:screenContents に持ち、selectScreen が選んだものを ContentHost に差す）、Names = 使う x:Name
-    $regions = @(
+    # 知らせの帯の部品（shell\notice_banner.xaml）の名前。3 か所に差す（下の表で Prefix を付けて持つ）
+$noticeBannerNames = @("NoticePanel", "NoticeIcon", "NoticeText", "NoticeButton", "NoticeClose")
+$regions = @(
         @{ File = "shell\nav.xaml"; Slot = "NavHost"; Names = @(
             "NavList", "SearchTab", "IndexTab", "SettingsTab", "IndexTabBadge", "NavPaneHost", "AboutLink") }
         @{ File = "shell\status_bar.xaml"; Slot = "StatusBarHost"; Names = @("StatusText", "IndexingStatusText", "IndexFooterFolders", "IndexFooterFiles") }
@@ -94,12 +96,9 @@ function startGui {
         @{ File = "search\search.xaml"; Slot = "ContentHost"; Screen = "SearchTab"; Names = @(
             "SearchBarHost", "ResultListHost", "PreviewHost", "DetailRow", "PreviewSplitter", "ResultEmptyState", "GoIndexTabButton",
             "SearchNoticeHost") }
-        @{ File = "shell\notice_banner.xaml"; Slot = "SearchNoticeHost"; Prefix = "Search"; Margin = @(-16, -12, -16, 8); Names = @(
-            "NoticePanel", "NoticeIcon", "NoticeText", "NoticeButton", "NoticeClose") }
-        @{ File = "shell\notice_banner.xaml"; Slot = "IndexNoticeHost"; Prefix = "Index"; Names = @(
-            "NoticePanel", "NoticeIcon", "NoticeText", "NoticeButton", "NoticeClose") }
-        @{ File = "shell\notice_banner.xaml"; Slot = "WorkspaceNoticeHost"; Prefix = "Workspace"; Names = @(
-            "NoticePanel", "NoticeIcon", "NoticeText", "NoticeButton", "NoticeClose") }
+        @{ File = "shell\notice_banner.xaml"; Slot = "SearchNoticeHost"; Prefix = "Search"; Margin = @(-16, -12, -16, 8); Names = $noticeBannerNames }
+        @{ File = "shell\notice_banner.xaml"; Slot = "IndexNoticeHost"; Prefix = "Index"; Names = $noticeBannerNames }
+        @{ File = "shell\notice_banner.xaml"; Slot = "WorkspaceNoticeHost"; Prefix = "Workspace"; Names = $noticeBannerNames }
         @{ File = "search\search_bar.xaml"; Slot = "SearchBarHost"; Names = @(
             "WordBox", "SearchButton", "RegexCheck", "CaseCheck", "ShapeCheck", "CommentCheck", "ScopeButton",
             "ConditionsPanel", "ConditionsSpacer", "FastSearchSlot", "KindChipExcel", "KindChipWord", "KindChipPowerPoint", "KindChipText",
