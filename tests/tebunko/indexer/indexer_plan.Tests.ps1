@@ -308,7 +308,7 @@ Describe "IngestPlanner" -Tag Io {
 
         It "保存した名前を設定ファイルに書き、Folders をその一覧にする" {
             $planner.SaveNames($read, (newSaver $file))
-            $saved =@(getTargetFolders $file)
+            $saved = @(getTargetFolders $file)
             @($saved | ForEach-Object { $_.Name }) | Should -Not -Contain ""
             @($planner.Folders | ForEach-Object { $_.Name }) | Should -Be @($saved | ForEach-Object { $_.Name })
             @($planner.Folders | ForEach-Object { $_.Path }) | Should -Be @("C:\営業", "C:\経理")
@@ -427,7 +427,7 @@ Describe "IngestPlanner" -Tag Io {
 
     It "強制終了した回数が上限に達していなければ最後に回し、達していれば失敗にして外す" {
         $planner = [IngestPlanner]::new($kinds)
-        $first =newStatusRow "売上\1.xlsx"
+        $first = newStatusRow "売上\1.xlsx"
         $second = newStatusRow "売上\2.xlsx"
         $third = newStatusRow "売上\3.xlsx"
         $planner.Targets.AddRange([object[]]@($first, $second, $third))

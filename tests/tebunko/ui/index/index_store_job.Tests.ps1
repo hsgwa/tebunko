@@ -168,7 +168,7 @@ Describe "applyIndexEdit" -Tag Unit {
         $result = @(runJob $script:jobs[0])
 
         Should -Invoke catalogRename -Times 1 -Exactly
-        # 偽物のオブジェクトのメソッドは例外を包むため、理由を含むかで確かめる（本物のクラスは理由そのものを返す）
+        # 偽物は、元のフォルダの記録で起きた例外の理由をそのまま入れて返す（本物のクラスの返りは index_catalog.Tests.ps1 で確かめる）
         $result[0].SourceFolderError | Should -Be "届きません"
     }
 
@@ -342,7 +342,7 @@ Describe "startIndexStoreJob（削除）" -Tag Unit {
         $script:calls | Should -Not -Contain "loadTargets"
     }
 
-    It "裏の仕事は IndexCatalog.Remove を呼ぶ" {
+    It "裏の仕事は IndexCatalog.RemoveIndex を呼ぶ" {
         Mock assertWorkspaceReachable { }
         Mock catalogRemove { }
         startIndexStoreJob "delete" "営業" "" @() { }
