@@ -4055,7 +4055,7 @@
 </tr>
 <tr>
 <td><code>getIndexingState</code></td>
-<td>状態ごとの件数、失敗したファイルの行の並び、指定した時刻以降に取り込んだ件数</td>
+<td>状態ごとの件数、失敗したファイルの行の並び（<code>未取り込み</code> でエラーがある行は失敗に数え、エラーが空の <code>未取り込み</code> は待ちのまま）、指定した時刻以降に取り込んだ件数</td>
 </tr>
 <tr>
 <td><code>newIndexerChannel</code> / <code>writeIndexingProgress</code> / <code>readIndexingProgress</code></td>
@@ -4075,7 +4075,7 @@
 </tr>
 <tr>
 <td><code>getExtractVersion</code> / <code>getIngestDecision</code></td>
-<td>形式ごとの抽出版、取り込むかどうかと理由（新規・更新あり・前回未完了・インデックスなし・前回失敗・前の抽出版）</td>
+<td>形式ごとの抽出版、取り込むかどうかと理由（新規・更新あり・前回未完了（<code>未取り込み</code> でエラーがあっても同じ）・インデックスなし・前回失敗・前の抽出版）</td>
 </tr>
 <tr>
 <td><code>getIngestLane</code> / <code>getOfficeLane</code></td>
@@ -4107,7 +4107,7 @@
 </tr>
 <tr>
 <td><code>indexer.ps1</code>（起動口）</td>
-<td>設定とインデックスを <code>$TestDrive</code> に差し替え、<code>indexer.ps1 -Channel</code> で通しで動かす（受け渡しの口の <code>Workers</code> を 0 にし、取り込みは司令のスレッドで行う。Excel は使わず、<code>.docx</code>・<code>.pptx</code> を取り込む）。代表的な場面だけを確かめる（関数の単位で確かめられることは各モジュールのテストで確かめる）。続けられないエラーと終了コード、ほかのインデックス作成が実行中なら触らない、基本の流れ（取り込み・本文インデックス・システムインデックス）、2 回目は更新の無いファイルを取り込まない、フォルダが見つからないときは前回の結果を残す、強制終了したファイルを最後に回す・続けて強制終了したら失敗にする、画面の確認での取りやめと失敗分の取り込み直し、中止（終了コード 2。元のファイルごとのフォルダを残さず、対応済みにしない）、制限時間、取り込み中に元のファイル・フォルダが無くなった場合、名前に記号（<code>'</code>・<code>[ ]</code>・<code>&amp;</code>・バッククォート）を含むクロール対象フォルダ・ワークスペースでテキストファイルを取り込んで検索できる（ワークスペースは <code>[ ]</code> を除く。<code>indexer_path_chars.Tests.ps1</code>）、前回残った TSV を次の作成の始めに本文インデックスへ入れる、既定のワークスペースが空でなければ何も書かない。利用者の PowerPoint が起動していれば <code>.ppt</code> を後回し（未取り込みのまま残す。実際に PowerPoint を起動して確かめる）にし、ほかのファイルは取り込む。閉じれば次回に取り込む</td>
+<td>設定とインデックスを <code>$TestDrive</code> に差し替え、<code>indexer.ps1 -Channel</code> で通しで動かす（受け渡しの口の <code>Workers</code> を 0 にし、取り込みは司令のスレッドで行う。Excel は使わず、<code>.docx</code>・<code>.pptx</code> を取り込む）。代表的な場面だけを確かめる（関数の単位で確かめられることは各モジュールのテストで確かめる）。続けられないエラーと終了コード、ほかのインデックス作成が実行中なら触らない、基本の流れ（取り込み・本文インデックス・システムインデックス）、2 回目は更新の無いファイルを取り込まない、フォルダが見つからないときは前回の結果を残す、強制終了したファイルを最後に回す・続けて強制終了したら失敗にする、画面の確認での取りやめと失敗分の取り込み直し、中止（終了コード 2。元のファイルごとのフォルダを残さず、対応済みにしない）、制限時間、取り込み中に元のファイル・フォルダが無くなった場合、名前に記号（<code>'</code>・<code>[ ]</code>・<code>&amp;</code>・バッククォート）を含むクロール対象フォルダ・ワークスペースでテキストファイルを取り込んで検索できる（ワークスペースは <code>[ ]</code> を除く。<code>indexer_path_chars.Tests.ps1</code>）、前回残った TSV を次の作成の始めに本文インデックスへ入れる、既定のワークスペースが空でなければ何も書かない。利用者の PowerPoint が起動していれば <code>.ppt</code> を取り込まず、理由付きの失敗に数え（一覧は未取り込みのまま、エラーの列に理由。実際に PowerPoint を起動して確かめる）、ほかのファイルは取り込む。閉じれば、失敗分の再取り込みを選ばなくても次回に取り込む</td>
 </tr>
 <tr>
 <td><code>indexer.ps1</code>（取り込みのスレッド）</td>
@@ -4123,11 +4123,11 @@
 </tr>
 <tr>
 <td><code>runIngestWorker</code> / <code>invokeIngestTask</code>（レーン）</td>
-<td>列の順に取り込み、結果を 1 件に 1 つ返して、列が閉じられたら終わる、読み取りのスレッドは Office を起動し直さない。「Office が要る」の例外なら、失敗にせず回し直し（<code>Reroute</code>）として返し、Office も終了しない。利用者の PowerPoint が使用中の例外なら、失敗にせず後回し（<code>Postponed</code>）として返し、Office も終了しない。後回しは取り込んだ件数に数えず、起動し直しを早めない。<strong>暗号化の判定でOfficeにまだ触れていない失敗</strong>（<a href="../../indexing/office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>の<code>throwProtectionFailure</code>）は失敗にするがOfficeは終了しない。ふつうの失敗は今までどおりOfficeを終了する。<strong>諦められたレーン</strong>（制限時間を過ぎても利用者の PowerPoint を止めなかったとき）のファイルは、取り込む前・取り込んだ後・例外のどこでも、公開せず <code>Postponed</code> を返し、Office を終了しない。司令は、そのレーンの取り込み中と未送出のファイルを後回しにし、遅れて届いた結果は捨て、スレッドの終わりを待たずに止める。回し直し先のレーンを諦めていれば渡さずに後回しにする（司令の流れ）。諦めたレーンのスレッドが正常に終わっても失敗にしない（<code>receiveIngestResult</code>）。取り込みのスレッドのスクリプトが、レーンの状態と利用者が使った印の入れ物を見張りに渡し、諦めたレーンでは Office を片づけない（配線）</td>
+<td>列の順に取り込み、結果を 1 件に 1 つ返して、列が閉じられたら終わる、読み取りのスレッドは Office を起動し直さない。「Office が要る」の例外なら、失敗にせず回し直し（<code>Reroute</code>）として返し、Office も終了しない。利用者の PowerPoint が使用中の例外なら、失敗にせず後回し（<code>Postponed</code>）として返し（司令が理由付きの失敗として数える）、Office も終了しない。後回しは取り込んだ件数に数えず、起動し直しを早めない。<strong>暗号化の判定でOfficeにまだ触れていない失敗</strong>（<a href="../../indexing/office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>の<code>throwProtectionFailure</code>）は失敗にするがOfficeは終了しない。ふつうの失敗は今までどおりOfficeを終了する。<strong>諦められたレーン</strong>（制限時間を過ぎても利用者の PowerPoint を止めなかったとき）のファイルは、取り込む前・取り込んだ後・例外のどこでも、公開せず <code>Postponed</code> を返し、Office を終了しない。司令は、そのレーンの取り込み中と未送出のファイルを、理由付きの失敗にして（状態は「未取り込み」のまま）、遅れて届いた結果は捨て、スレッドの終わりを待たずに止める。回し直し先のレーンを諦めていれば渡さずに後回しにする（司令の流れ）。諦めたレーンのスレッドが正常に終わっても失敗にしない（<code>receiveIngestResult</code>）。取り込みのスレッドのスクリプトが、レーンの状態と利用者が使った印の入れ物を見張りに渡し、諦めたレーンでは Office を片づけない（配線）</td>
 </tr>
 <tr>
 <td><code>IndexingSession</code>（<code>indexing_session</code>）</td>
-<td>インデクサを別のスレッド（MTA・優先度を下げる）で動かし終了コードを返す、中止を求めると受け渡しの口の <code>Stop</code> を立てて返事を待つのをやめさせる、終了コードを入れずに止まったら 1 と止まった理由、インデクサが入れたエラーの内容、<code>Close</code> は動いていれば中止を求めて待つ（何度呼んでもよい）、<code>KillOffice</code> は記録した PID のうちプロセス名と起動時刻が同じものだけを止める（利用者が使っていた印のあるものと、窓のある PowerPoint は止めない）、<code>GetNotice</code>／<code>GetPostponed</code> は受け渡しの口の値を返す（無ければ空・0）</td>
+<td>インデクサを別のスレッド（MTA・優先度を下げる）で動かし終了コードを返す、中止を求めると受け渡しの口の <code>Stop</code> を立てて返事を待つのをやめさせる、終了コードを入れずに止まったら 1 と止まった理由、インデクサが入れたエラーの内容、<code>Close</code> は動いていれば中止を求めて待つ（何度呼んでもよい）、<code>KillOffice</code> は記録した PID のうちプロセス名と起動時刻が同じものだけを止める（利用者が使っていた印のあるものと、窓のある PowerPoint は止めない）</td>
 </tr>
 </tbody>
 </table>

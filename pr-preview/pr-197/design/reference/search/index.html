@@ -4506,7 +4506,7 @@
 <td><code>newIndexingSession</code> / <code>IndexingSession</code></td>
 <td>indexerPath, channel</td>
 <td><code>IndexingSession</code></td>
-<td>インデックス作成 1 回分のスレッド（MTA・BelowNormal）を作り、<code>indexer.ps1 -Channel &lt;channel&gt;</code> を実行する。<code>IsRunning</code>・<code>Stop</code>・<code>Wait</code>・<code>GetExitCode</code>（終了コードが無ければ 1）・<code>GetError</code>・<code>GetNotice</code>（終わりの案内。無ければ空）・<code>GetPostponed</code>（後回しにした件数。無ければ 0）・<code>GetCloudSkipped</code>（クラウドにだけあるため残した件数。無ければ 0）・<code>KillOffice</code>（<code>OfficePids</code> に記録した Office だけを、プロセス名と起動時刻を確かめて止める）・<code>Close</code></td>
+<td>インデックス作成 1 回分のスレッド（MTA・BelowNormal）を作り、<code>indexer.ps1 -Channel &lt;channel&gt;</code> を実行する。<code>IsRunning</code>・<code>Stop</code>・<code>Wait</code>・<code>GetExitCode</code>（終了コードが無ければ 1）・<code>GetError</code>・<code>GetCloudSkipped</code>（クラウドにだけあるため残した件数。無ければ 0）・<code>KillOffice</code>（<code>OfficePids</code> に記録した Office だけを、プロセス名と起動時刻を確かめて止める）・<code>Close</code></td>
 <td>画面</td>
 </tr>
 </tbody>
@@ -4624,7 +4624,7 @@
 <td><code>getIndexingState</code></td>
 <td>since, path</td>
 <td><code>@{Exists; Folders; Total; Pending; Failed; Done; IngestedSince; Updated; FailedRows; IndexStats}</code></td>
-<td>取り込み一覧の状態ごとの件数、since 以降に取り込んだ件数、失敗したファイルの行（FailedRows。取り込み日時の新しい順）、インデックス名ごとの集計（IndexStats。<code>getIndexStats</code>。取り込み一覧を読み直さずに済むよう同じ読み込みから作る）</td>
+<td>取り込み一覧の状態ごとの件数、since 以降に取り込んだ件数、失敗したファイルの行（FailedRows。取り込み日時の新しい順。<code>未取り込み</code> でエラーの列に理由がある行も入る。<code>testStatusRowFailed</code>）、インデックス名ごとの集計（IndexStats。<code>getIndexStats</code>。取り込み一覧を読み直さずに済むよう同じ読み込みから作る）</td>
 <td><a href="../../gui/state-flow/">状態と操作の流れ</a></td>
 <td>画面</td>
 </tr>
@@ -4680,7 +4680,7 @@
 <td><code>testLaneAbandoned</code> / <code>getUnhandledAbandonedLanes</code></td>
 <td>– / pool</td>
 <td>bool / レーンの配列</td>
-<td>取り込みのスレッドが自分のレーンが諦められたか見る / 司令がまだ後回しにしていない、諦められたレーンを返す。諦められたレーンのファイルは取り込まず <code>Postponed</code> にする</td>
+<td>取り込みのスレッドが自分のレーンが諦められたか見る / 司令がまだ後回しにしていない、諦められたレーンを返す。諦められたレーンのファイルは取り込まず、理由付きの失敗にする（状態は「未取り込み」のまま）</td>
 <td><a href="../../indexing/ingest-list/">取り込み一覧</a></td>
 <td><code>invokeIngestTask</code>・<code>receiveIngestResult</code>・<code>invokeIndexerBody</code></td>
 </tr>

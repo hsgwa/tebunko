@@ -4192,8 +4192,8 @@
 </thead>
 <tbody>
 <tr>
-<td><code>getIndexStats</code></td>
-<td>インデックス名ごとの件数（合計・済・未取り込み・失敗）と最終取り込み日時を集計する</td>
+<td><code>getIndexStats</code> / <code>testStatusRowFailed</code></td>
+<td>インデックス名ごとの件数（合計・済・未取り込み・失敗）と最終取り込み日時を集計する。<code>未取り込み</code> でエラーがある行（利用者の PowerPoint のために取り込めなかったファイル）は失敗に数え、待ちに数えない</td>
 </tr>
 <tr>
 <td><code>renameIndex</code></td>
