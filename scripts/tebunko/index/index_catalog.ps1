@@ -74,6 +74,7 @@ class IndexCatalog {
         }
         return @{ SourceFolderError = $sourceError }
     }
+
     [void] RemoveIndex([string]$name) {
         # インデックスを削除する（画面の［削除］）。インデックスのフォルダ（content_index\<名前>）と、取り込み一覧の記録を削除する。
         # インデックス作成中は呼ばない（画面はインデックス作成中この操作を無効にする）。

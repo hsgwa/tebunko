@@ -106,7 +106,7 @@
 
 ### IndexCatalog（`tebunko/index/index_catalog.ps1`。画面のスレッドで作る。別のスレッドの仕事の中では `newIndexCatalog` で作り直す）
 
-インデックスの改名・削除・名前の割り当て・一覧と元のフォルダの記録の保存。インデックス 1 つの情報が置かれている保存先（設定の `targetFolders`・取り込み一覧・インデックスのフォルダと `source_folder.txt`・設定の `searchExcludes`・`system_index`）を漏れなく書き換える手順と順番、途中で失敗したときの扱いだけを持つ。保存先ごとの読み書きは既存の関数と、作る側が渡す `StatusLedger`（取り込み一覧）に任せる。場所はコンストラクタで受け取る `Workspace` と設定ファイルの場所で決める。作り方は `newIndexCatalog`（ワークスペースの場所の文字列から、`StatusLedger` も作って渡す）。以前の `index_store.ps1` の `renameIndex`・`removeIndex`・`removeIndexes` の手順をそのまま移したもの。
+インデックスの改名・削除・名前の割り当て・一覧と元のフォルダの記録の保存。インデックス 1 つの情報が置かれている保存先（設定の `targetFolders`・取り込み一覧・インデックスのフォルダと `source_folder.txt`・設定の `searchExcludes`・`system_index`）のうち、改名・削除が書き換えるものの手順と順番、途中で失敗したときの扱いだけを持つ（一覧 `targetFolders` と元のフォルダの記録の書き直しは、画面が `SaveTargets`・`WriteSourceFile` で呼ぶ。改名のあとの記録は `RenameIndexWithSource` が書く）。保存先ごとの読み書きは既存の関数と、作る側が渡す `StatusLedger`（取り込み一覧）に任せる。場所はコンストラクタで受け取る `Workspace` と設定ファイルの場所で決める。作り方は `newIndexCatalog`（ワークスペースの場所の文字列から、`StatusLedger` も作って渡す）。以前の `index_store.ps1` の `renameIndex`・`removeIndex`・`removeIndexes` の手順をそのまま移したもの。
 
 | メソッド | 入力 | 出力 | 概要 | 詳細 | 使用元 |
 |---|---|---|---|---|---|

@@ -4,7 +4,7 @@
 #
 # 判定の単位は関数（クラスのメソッドを含む）。本体に IndexDir・content_index・ListEntries のどれかと、Remove-Item・removeDirectoryRetry・
 # Directory.Delete・.Delete( のどれかがある関数を対象にする（変数を経由した削除、$dir = Join-Path $ws.IndexDir ... のあとの削除も拾うため）。
-# 拾えないもの: 上の語を本体に書かずに、引数で渡されたパスを消す関数（WorkspaceMover の MoveEntry は引数のフォルダを移し終えたあとに消す。ワークスペースを移す MoveEntries の中だけで呼ばれる）。removeBookDir（indexer_plan.ps1）も removeDirectoryRetry を呼ぶだけで、本文に上の語が無く拾えない）。そういう関数を足すときは、呼ぶ側の関数の名前をこの先頭の説明に書く。
+# 拾えないもの: 上の語を本体に書かずに、引数で渡されたパスを消す関数（WorkspaceMover の MoveEntry は引数のフォルダを移し終えたあとに消す。ワークスペースを移す MoveEntries の中だけで呼ばれる）。removeBookDir（indexer_plan.ps1）も removeDirectoryRetry を呼ぶだけで、本文に上の語が無く拾えない。そういう関数を足すときは、呼ぶ側の関数の名前をこの先頭の説明に書く。
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
 
