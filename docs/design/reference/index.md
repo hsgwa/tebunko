@@ -35,6 +35,7 @@ flowchart LR
 | `tebunko/indexer/extract_office.ps1` | `ingestFile` / `extractWorkbook` / `extractDocument` | [Excel](../indexing/excel.md)、[Word・PowerPoint の共通処理と Office アプリの管理](../indexing/office-apps.md#wordpowerpoint-の抽出処理extractdocument) |
 | `tebunko/indexer/extract_text.ps1` | `extractTextFile` | [テキストファイルの読み取り](../indexing/text.md#テキストファイルの抽出処理extracttextfile) |
 | `tebunko/indexer/extract_pdf.ps1` | `extractPdfFile` | [PDF ファイルの読み取り](../indexing/pdf.md#取り込みの流れ) |
+| `shared/core/pdf_crypt.ps1` | `newPdfCrypt` `getPdfStreamCryptMethod` `unprotectPdfData` `getPdfRfc1321Hash` `invokePdfRc4` `getPdfSha` `invokePdfAesCbc` `getPdfCryptHashR56` | [PDF ファイルの読み取り](../indexing/pdf.md#暗号化された-pdf) |
 | `shared/core/pdf_file.ps1` | `readPdfPages` `readPdfFile` `testPdfExtension` `newPdfLimits` | [PDF ファイルの読み取り](../indexing/pdf.md) |
 | `tebunko/indexer/index_migrate.ps1` | `publishTsv` / `initTmpDir` / `newWorkerTmpDir` / `removeStaleTmpDirs` / `findDroppedIndexes` / `getDroppedStatusRows` / `writeStatusKeepingDropped` / `removeDroppedFolders` | [クロール対象フォルダと取り込み対象](../indexing/crawl.md)、[インデックスのファイルの形](../index-data/format.md#配置命名規則) |
 | `tebunko/indexer/pending_publish.ps1` | `PendingPublish`（`Add` / `MarkFolder` / `AddPending` / `Dispatch` / `Skip` / `Complete` / `TakeFlushable` / `TakeAll`） | [入れ替えと書き出し](../index-data/publish.md)「本文インデックスへの書き出し」、[取り込みの並列化](../indexing/parallel.md) |

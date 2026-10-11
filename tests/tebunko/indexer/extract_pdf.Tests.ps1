@@ -26,6 +26,12 @@ Describe "extractPdfFile" -Tag Io {
         ([System.IO.File]::ReadAllLines((Join-Path $outDir "page_002.tsv")) -join "|") | Should -Be "two"
     }
 
+    It "空のパスワードで開ける暗号化された PDF は、復号して書き出す" {
+        $source = newSourceFile "enc.pdf" (newEncryptedPdf -pages @("BT /F1 12 Tf (one) Tj ET") -method aes256r6 -compress)
+        (extractPdfFile $source $outDir) | Should -Be 1
+        ([System.IO.File]::ReadAllLines((Join-Path $outDir "page_001.tsv")) -join "|") | Should -Be "one"
+    }
+
     It "文字の無いページは出さない" {
         $source = newSourceFile "gap.pdf" (newSimplePdf -pages @("BT /F1 12 Tf (one) Tj ET", "0 0 m 1 1 l S", "BT /F1 12 Tf (three) Tj ET"))
         (extractPdfFile $source $outDir) | Should -Be 2
@@ -34,7 +40,7 @@ Describe "extractPdfFile" -Tag Io {
 
     It "<name> は、コピーが残らず（出力フォルダが空）、結果は <expected>" -TestCases @(
         @{ name = "文字の無い PDF（画像だけ）"; kind = "noText"; message = $null; expected = "0" }
-        @{ name = "暗号化された PDF"; kind = "encrypted"; message = "PDFが暗号化されているため読めません。"; expected = "失敗" }
+        @{ name = "開くのにパスワードが要る PDF"; kind = "encrypted"; message = "PDFにパスワードが必要なため読めません。"; expected = "失敗" }
         @{ name = "壊れた PDF"; kind = "broken"; message = "PDFの相互参照が見つからないため読めません。"; expected = "失敗" }
         @{ name = "大きさの上限を超える PDF"; kind = "tooBig"; message = "ファイルサイズが大きすぎるため更新できません。"; expected = "失敗" }
     ) {
@@ -43,11 +49,7 @@ Describe "extractPdfFile" -Tag Io {
         switch ($kind) {
             "noText" { $bytes = newSimplePdf -pages @("0 0 m 1 1 l S") }
             "encrypted" {
-                $objs = @{}
-                $objs[1] = '<< /Type /Catalog /Pages 2 0 R >>'
-                $objs[2] = '<< /Type /Pages /Kids [] /Count 0 >>'
-                $objs[3] = '<< /Filter /Standard /V 1 /R 2 >>'
-                $bytes = newPdfFromObjects $objs '/Root 1 0 R /Encrypt 3 0 R'
+                $bytes = newEncryptedPdf -pages @("BT /F1 12 Tf (x) Tj ET") -method aes256r6 -userPassword "pass"
             }
             "broken" { $bytes = toPdfBytes "%PDF-1.4`nbroken" }
             "tooBig" { $bytes = newSimplePdf -pages @("BT /F1 12 Tf (x) Tj ET"); $max = 10 }
