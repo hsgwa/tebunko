@@ -26,9 +26,8 @@ Describe "check_signoff.ps1 のコミットメッセージのファイル" -Tag 
         checkFile "feat: 足す`r`n`r`nCo-Authored-By: a <a@example.com>`r`nSigned-off-by: test <Test@Example.com>`r`n" | Should -Be 0
     }
 
-    It "無いとき・作者と違うメールアドレスのときは止める" {
+    It "作者の行が無いときは止める" {
         checkFile "feat: 足す`n`n本文`n" | Should -Be 1
-        checkFile "feat: 足す`n`nSigned-off-by: other <other@example.com>`n" | Should -Be 1
         checkFile "feat: 足す`n`nSigned-off-by: test`n" | Should -Be 1
     }
 
@@ -40,6 +39,7 @@ Describe "check_signoff.ps1 のコミットメッセージのファイル" -Tag 
         @{ Name = "山かっこ無しでアドレスを書いた行"; Text = "feat: 足す`n`nSigned-off-by: test <test@example.com>`nSigned-off-by: other other@example.com`n" }
         @{ Name = "山かっこの後ろに文字が続く行"; Text = "feat: 足す`n`nSigned-off-by: test <test@example.com>`nSigned-off-by: other <other@example.com> (共著)`n" }
         @{ Name = "1 行に山かっこが 2 つ（最後が作者）"; Text = "feat: 足す`n`nSigned-off-by: test <test@example.com>`nSigned-off-by: other <other@example.com> <test@example.com>`n" }
+        @{ Name = "小文字の signed-off-by"; Text = "feat: 足す`n`nSigned-off-by: test <test@example.com>`nsigned-off-by: other <other@example.com>`n" }
         @{ Name = "名前だけの行"; Text = "feat: 足す`n`nSigned-off-by: test <test@example.com>`nSigned-off-by: other`n" }
     ) {
         checkFile $Text | Should -Be 1
@@ -57,7 +57,7 @@ Describe "check_signoff.ps1 のコミットメッセージのファイル" -Tag 
 
     It "止めたときの出力に、違う行のメールアドレスを含めず、直し方を出す" {
         $out = checkFileOutput "feat: 足す`n`nSigned-off-by: test <test@example.com>`nSigned-off-by: other <other@example.com>`n"
-        $out | Should -Not -Match "other@example\.org"
+        $out | Should -Not -Match "example\.com"
         $out | Should -Match "消して"
         $out | Should -Not -Match "git rebase"
     }

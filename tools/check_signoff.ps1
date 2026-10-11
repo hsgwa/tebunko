@@ -39,6 +39,7 @@ function signOffState([string[]]$lines, [string]$mail) {
 function showFix([bool]$rebase) {
     if (!$rebase) {
         Write-Host "コミットメッセージから、作者と違う Signed-off-by の行を消してください。作者の行は git commit -s で付きます。"
+        Write-Host "-s が付けるのは user.email の行です。コミットの作者と違うときは、user.email を揃えるか、git commit --reset-author を付けてください。"
         return
     }
     Write-Host "直し方（対話なし）: Signed-off-by を全部消してから、git config user.email を直したうえで git commit -s で作者の 1 行だけを付け直す。"
