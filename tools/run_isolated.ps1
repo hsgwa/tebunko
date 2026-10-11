@@ -23,7 +23,7 @@ param (
 
 $ErrorActionPreference = "Stop"
 
-$repoRoot = (Resolve-Path "$PSScriptRoot\..").Path
+$repoRoot = [System.IO.Path]::GetFullPath("$PSScriptRoot\..")
 . "$PSScriptRoot\isolation\isolation_common.ps1"
 
 function getIsolatedProbeResult {

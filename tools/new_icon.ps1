@@ -19,7 +19,7 @@ param (
 
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Drawing
-. "$PSScriptRoot\icon_xaml.ps1"
+. ([WildcardPattern]::Escape("$PSScriptRoot\icon_xaml.ps1"))
 
 $rootDir = Split-Path $PSScriptRoot -Parent
 if (!$Svg) {

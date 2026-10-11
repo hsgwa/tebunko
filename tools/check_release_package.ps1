@@ -34,7 +34,7 @@ $failures = New-Object System.Collections.Generic.List[string]
 
 # 読み込み口からのたどり方は tools\script_rules.ps1 と共有する（tests\meta\layers.Tests.ps1・
 # tests\meta\safety.Tests.ps1・tools\new_single_script.ps1 も同じ場所を読む）
-. "$PSScriptRoot\script_rules.ps1"
+. ([WildcardPattern]::Escape("$PSScriptRoot\script_rules.ps1"))
 
 function Get-DotSourceTargets([string]$Path, [string]$TebunkoDir) {
     return getDotSourceTargets $Path $TebunkoDir

@@ -21,5 +21,9 @@ function getPathCharCases {
         @{ label = "@"; ch = "@" }
         @{ label = "日本語"; ch = "営業部" }
         @{ label = "角括弧"; ch = "[1]" }
+        @{ label = "角括弧の中が空 []"; ch = "[]" }
+        @{ label = "開く角括弧だけ"; ch = "[" }
+        @{ label = "閉じる角括弧だけ"; ch = "]" }
+        @{ label = "引用符・&・角括弧の組み合わせ"; ch = "O'aa&[]fds" }
     )
 }

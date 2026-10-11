@@ -419,14 +419,23 @@ Describe "単一 .ps1 化の決まり（AST。docs/design/structure/single-scrip
         }
 
         function isLoaderLine {
-            # 読み込み口の行: . "$PSScriptRoot\..." や . "$here\..." の形（$PSScriptRoot・固定文字列の組み立て）。
-            # ここでは「読み込み口が使ってよい形」として、$PSScriptRoot を使った文字列展開のドットソースだけを対象にする
+            # 読み込み口の行: . ([WildcardPattern]::Escape("$PSScriptRoot\...")) の形。
+            # パスにワイルドカードの文字（[ ]）が入っていても読めるよう、相手のパスは必ず Escape を通す
+            # （通さない . "$PSScriptRoot\..." は、読み込み口の行として認めない）
             param ($commandAst)
             if ($commandAst.InvocationOperator -ne "Dot") { return $false }
             if ($commandAst.CommandElements.Count -lt 1) { return $false }
             $first = $commandAst.CommandElements[0]
-            return $first -is [System.Management.Automation.Language.ExpandableStringExpressionAst] -or
-                $first -is [System.Management.Automation.Language.StringConstantExpressionAst]
+            if ($first -isnot [System.Management.Automation.Language.ParenExpressionAst]) { return $false }
+            $inner = $first.Pipeline
+            if ($inner -isnot [System.Management.Automation.Language.PipelineAst] -or $inner.PipelineElements.Count -ne 1) { return $false }
+            $expr = $inner.PipelineElements[0].Expression
+            if ($expr -isnot [System.Management.Automation.Language.InvokeMemberExpressionAst]) { return $false }
+            if (-not $expr.Static -or $expr.Member.Value -ne "Escape") { return $false }
+            if ($expr.Expression -isnot [System.Management.Automation.Language.TypeExpressionAst] -or $expr.Expression.TypeName.Name -ne "WildcardPattern") { return $false }
+            if ($expr.Arguments.Count -ne 1) { return $false }
+            return $expr.Arguments[0] -is [System.Management.Automation.Language.ExpandableStringExpressionAst] -or
+                $expr.Arguments[0] -is [System.Management.Automation.Language.StringConstantExpressionAst]
         }
 
         function commandOf {
@@ -506,8 +515,8 @@ Describe "単一 .ps1 化の決まり（AST。docs/design/structure/single-scrip
         ($bad -join ", ") | Should -Be ""
     }
 
-    It "M2(ii) の例: 変数やプロパティを渡す形（. `$libPath・. `$x.Path）は読み込み口の行として検出しない" {
-        $badSamples = @('. $libPath', '. $x.Path')
+    It "M2(ii) の例: 変数やプロパティを渡す形（. `$libPath・. `$x.Path）と、Escape を通さない形は読み込み口の行として検出しない" {
+        $badSamples = @('. $libPath', '. $x.Path', '. "$PSScriptRoot\x.ps1"', '. (Escape "$PSScriptRoot\x.ps1")')
         foreach ($sample in $badSamples) {
             $fixtureAst = [System.Management.Automation.Language.Parser]::ParseInput($sample, [ref]$null, [ref]$null)
             $cmd = @($fixtureAst.FindAll({ $args[0] -is [System.Management.Automation.Language.CommandAst] }, $true))[0]

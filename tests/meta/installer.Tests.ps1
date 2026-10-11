@@ -49,7 +49,7 @@ Describe "起動口 tebunko.exe（installer\tebunko.cs）" -Tag Meta {
     It "起動するのは Windows の PowerShell 5.1 だけで、実行ポリシーは RemoteSigned（Bypass を使わない）" {
         @([regex]::Matches($source, 'new ProcessStartInfo\(')).Count | Should -Be 1
         $source -match 'WindowsPowerShell\\v1\.0\\powershell\.exe' | Should -Be $true
-        $source -match '-ExecutionPolicy RemoteSigned -File' | Should -Be $true
+        $source -match '-ExecutionPolicy RemoteSigned -Command' | Should -Be $true
         $source -match 'Bypass|Unrestricted|EncodedCommand' | Should -Be $false
     }
 
@@ -65,8 +65,8 @@ Describe "起動口 tebunko.exe（installer\tebunko.cs）" -Tag Meta {
 }
 
 Describe "起動口 tebunko.exe が渡す引数（フォルダ名の文字）" -Tag Meta {
-    # tebunko.exe は gui.ps1 のパスを -File "<パス>" で渡す。パスは PowerShell の構文として読まれないので、
-    # ' などを含むフォルダでも起動できるはず。ビルドした exe の BuildArguments の返す引数で、実際に確かめる
+    # tebunko.exe は gui.ps1 のパスを環境変数で渡し、-Command で WildcardPattern.Escape を通して呼ぶ。
+    # ' や [ ] などを含むフォルダでも起動できるはず。ビルドした exe の BuildArguments の返す引数で、実際に確かめる
     BeforeAll {
         $csc = Join-Path ([System.Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory()) "csc.exe"
         $out = Join-Path $TestDrive "tebunko_args.exe"
@@ -77,19 +77,29 @@ Describe "起動口 tebunko.exe が渡す引数（フォルダ名の文字）" -
         $buildArguments = $assembly.GetType("Program").GetMethod("BuildArguments", [System.Reflection.BindingFlags]"NonPublic,Public,Static")
         $powershell = Join-Path ([Environment]::GetFolderPath("System")) "WindowsPowerShell\v1.0\powershell.exe"
         $script:caseCount = 0
+        $script:trialRoots = @()
+    }
+
+    AfterAll {
+        foreach ($root in $script:trialRoots) {
+            if ([System.IO.Directory]::Exists($root)) { [System.IO.Directory]::Delete($root, $true) }
+        }
     }
 
     It "フォルダ名に <label> を含んでも、tebunko.exe の引数で gui.ps1 が起動する" -TestCases $pathCharCases {
         param ($label, $ch)
         $script:caseCount++
-        $guiDir = Join-Path $TestDrive "exe$($script:caseCount)_a${ch}b\scripts\tebunko"
+        # TestDrive は片付けに -Path を使い、[ を含む名前を消せないので、TEMP に作って .NET で消す
+        $script:trialRoots += ,(Join-Path ([System.IO.Path]::GetTempPath()) ("exe_" + [guid]::NewGuid().ToString("N")))
+        $guiDir = Join-Path $script:trialRoots[-1] "a${ch}b\scripts\tebunko"
         [System.IO.Directory]::CreateDirectory($guiDir) | Out-Null
         $gui = "$guiDir\gui.ps1"
         [System.IO.File]::WriteAllText($gui, "Set-Content -LiteralPath (Join-Path `$PSScriptRoot 'marker.txt') -Value `$PSScriptRoot -Encoding UTF8`r`nexit 0`r`n", (New-Object System.Text.UTF8Encoding($true)))
 
-        $psi = New-Object System.Diagnostics.ProcessStartInfo($powershell, $buildArguments.Invoke($null, @($gui)))
+        $psi = New-Object System.Diagnostics.ProcessStartInfo($powershell, $buildArguments.Invoke($null, @()))
         $psi.UseShellExecute = $false
         $psi.CreateNoWindow = $true
+        $psi.EnvironmentVariables["TEBUNKO_GUI"] = $gui
         $process = [System.Diagnostics.Process]::Start($psi)
         try {
             $process.WaitForExit(20000) | Out-Null

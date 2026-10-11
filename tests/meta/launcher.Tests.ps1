@@ -29,12 +29,14 @@ BeforeAll {
     $script:launcherCommand = $script:pscmdPieces -join ""
 
     $script:toolCount = 0
+    $script:launcherToolRoots = New-Object System.Collections.Generic.List[string]
     function newLauncherTool {
         # テストごとに別の場所（ツールの形・サンドボックスの LOCALAPPDATA・TEMP）を作る。
         # Suffix は、フォルダ名に入れる文字（パスの文字の確かめ用）
         param ([string]$Suffix = "")
         $script:toolCount++
         $root = Join-Path $TestDrive "tool$($script:toolCount)$Suffix"
+        [void]$script:launcherToolRoots.Add($root)
         [System.IO.Directory]::CreateDirectory("$root\scripts\tebunko\startup") | Out-Null
         # フォルダ名に ` や [ が入ることがあるので、ワイルドカードを解釈しない .NET でコピーする
         foreach ($file in [System.IO.Directory]::GetFiles($startupSourceDir)) {
@@ -50,6 +52,15 @@ BeforeAll {
             LocalAppData = "$sandbox\LOCALAPPDATA"
             Temp         = "$sandbox\TEMP"
         }
+    }
+
+    function removeLauncherTools {
+        # Pester の TestDrive の後始末は Remove-Item -Path を使うため、フォルダ名に [ ] が入ると失敗する。
+        # 名前にワイルドカードの文字が入ったツールの場所は、ワイルドカードを解釈しない .NET で先に消す
+        foreach ($dir in $script:launcherToolRoots) {
+            if ([System.IO.Directory]::Exists($dir)) { [System.IO.Directory]::Delete($dir, $true) }
+        }
+        $script:launcherToolRoots.Clear()
     }
 
     function useRealScripts {
@@ -301,6 +312,8 @@ Describe "tebunko.bat の起動失敗の知らせ（scripts\tebunko\startup\）"
 }
 
 Describe "tebunko.bat をダブルクリックと同じ形で起動する（フォルダ名の文字）" -Tag Meta {
+    AfterEach { removeLauncherTools }
+
     # 実装前の形（$root='%~dp0' を -Command に埋め込む）は、' を含むパスで PowerShell の構文エラーになり、
     # try/catch に届かず何も知らせずに終わっていた。cmd を通して実際に起動し、gui.ps1 に渡るパスを確かめる
     It "フォルダ名に <label> を含んでも、gui.ps1 が起動し、渡ったフォルダのパスがちょうど一致する" -TestCases $pathCharCases {
@@ -377,7 +390,7 @@ Describe "tebunko.bat の書式（ASCII・CRLF・PowerShell の場所・外部�
         # 記録の書き込みと表示）と同じ区切りで書く。ここが変わったら、この期待値も同じ PR で直す
         $step1Prepare = "`$opener='notepad.exe';`$root=`$env:TEBUNKO_ROOT;`$startup=Join-Path `$root 'scripts\tebunko\startup';`$gui=Join-Path `$root 'scripts\tebunko\gui.ps1';"
         $step2Unblock = "Get-ChildItem -LiteralPath (Join-Path `$root 'scripts') -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue; "
-        $step3TryGui = "try { & `$gui } catch { `$err = `$_; "
+        $step3TryGui = "try { & ([System.Management.Automation.WildcardPattern]::Escape(`$gui)) } catch { `$err = `$_; "
         $step4PickReason = "if (-not (Test-Path -LiteralPath `$gui)) { `$reason = Join-Path `$startup 'missing_files.txt' } elseif (`$ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage') { `$reason = Join-Path `$startup 'constrained_language.txt' } elseif (`$err.FullyQualifiedErrorId -like 'UnauthorizedAccess*') { `$reason = Join-Path `$startup 'execution_policy.txt' } else { `$reason = Join-Path `$startup 'failed.txt' }; `$reasonLines = @(if (Test-Path -LiteralPath `$reason) { Get-Content -LiteralPath `$reason -Encoding UTF8 } else { @('tebunko could not start.') }); "
         $step5Detail = "`$detailLines = @(('==== {0} startup ====' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')), ('Tool: {0}' -f `$root), ('LanguageMode: {0}' -f `$ExecutionContext.SessionState.LanguageMode), ('PSVersion: {0}' -f `$PSVersionTable.PSVersion), (Get-ExecutionPolicy -List | Out-String), ('{0}' -f `$err.Exception.Message)); `$allLines = `$reasonLines + '' + `$detailLines; "
         $step6WriteShow = "`$openTarget = `$reason; `$candidate = Join-Path `$root 'startup_error.txt'; try { Set-Content -LiteralPath `$candidate -Value `$allLines -Encoding UTF8 -ErrorAction Stop; `$openTarget = `$candidate } catch { }; & `$opener `$openTarget }"

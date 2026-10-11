@@ -6,7 +6,7 @@ param (
     $Channel = $null
 )
 
-. "$PSScriptRoot\indexer\indexer_lib.ps1"
-. "$PSScriptRoot\indexer\indexer_main.ps1"
+. ([WildcardPattern]::Escape("$PSScriptRoot\indexer\indexer_lib.ps1"))
+. ([WildcardPattern]::Escape("$PSScriptRoot\indexer\indexer_main.ps1"))
 
 exit (invokeIndexerMain -RetryFailed:$RetryFailed -Channel $Channel)

@@ -1,5 +1,10 @@
 ﻿# 部品（lib・indexerLib）の読み込み先（tebunko\core\parts.ps1）のテスト。
 # 設計は docs/design/structure/single-script.md・docs/design/structure/classes.md「クラスのつなぎ方」
+BeforeDiscovery {
+    . "$PSScriptRoot\..\..\helpers\path_chars.ps1"
+    $pathCharCases = getPathCharCases
+}
+
 BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
 }
@@ -191,6 +196,49 @@ function newProbeTypeC { return [ProbeTypeC]::new() }
         } finally {
             $queue.Close()
             Remove-Variable -Name bundledParts -Scope Global -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+Describe "getPartLoad（フォルダ名に特別な文字が入っていても、Prelude で部品を読み込める）" -Tag Io {
+    It "フォルダ名に <label> を含んでも、新しいランスペースで Prelude が部品を読み込める" -ForEach $pathCharCases {
+        # 本物の parts.ps1 を、名前に <ch> を含む場所の core\ へ写し、隣の部品（lib・indexer_lib・indexer_main）は印の関数だけの偽物にする
+        $base = Join-Path ([System.IO.Path]::GetTempPath()) ("parts_" + [guid]::NewGuid().ToString("N"))
+        $root = Join-Path $base "tool_a${ch}b\tebunko"
+        try {
+            [void][System.IO.Directory]::CreateDirectory("$root\core")
+            [void][System.IO.Directory]::CreateDirectory("$root\indexer")
+            [System.IO.File]::Copy("$scriptsDir\tebunko\core\parts.ps1", "$root\core\parts.ps1")
+            [System.IO.File]::WriteAllText("$root\lib.ps1", 'function partMarkerLib { "lib" }')
+            [System.IO.File]::WriteAllText("$root\indexer\indexer_lib.ps1", 'function partMarkerIndexerLib { "indexerLib" }')
+            [System.IO.File]::WriteAllText("$root\indexer\indexer_main.ps1", 'function partMarkerIndexerMain { "indexerMain" }')
+
+            $partsPath = "$root\core\parts.ps1"
+            $loads = & {
+                . ([WildcardPattern]::Escape($partsPath))
+                @{ lib = (getPartLoad lib); indexerLib = (getPartLoad indexerLib) }
+            }
+
+            $runspace = [runspacefactory]::CreateRunspace($loads.lib.State)
+            $runspace.Open()
+            try {
+                $ps = [powershell]::Create()
+                $ps.Runspace = $runspace
+                [void]$ps.AddScript("$($loads.lib.Prelude); partMarkerLib")
+                $ps.Invoke() | Should -Be "lib" -Because "$($ps.Streams.Error | Out-String)"
+                $ps.Dispose()
+
+                $ps = [powershell]::Create()
+                $ps.Runspace = $runspace
+                [void]$ps.AddScript("$($loads.indexerLib.Prelude); partMarkerIndexerLib; partMarkerIndexerMain")
+                (@($ps.Invoke()) -join ",") | Should -Be "indexerLib,indexerMain" -Because "$($ps.Streams.Error | Out-String)"
+                $ps.Dispose()
+            } finally {
+                $runspace.Dispose()
+            }
+        } finally {
+            # Pester の TestDrive でなく TEMP に作ったので、ワイルドカードを解釈しない .NET で消す
+            if ([System.IO.Directory]::Exists($base)) { [System.IO.Directory]::Delete($base, $true) }
         }
     }
 }

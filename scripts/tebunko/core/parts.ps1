@@ -58,7 +58,8 @@ function getPartLoad {
         "indexerLib" { @("$PSScriptRoot\..\indexer\indexer_lib.ps1", "$PSScriptRoot\..\indexer\indexer_main.ps1") }
     }
     $prelude = ($paths | ForEach-Object {
-        $resolved = (Resolve-Path $_).Path.Replace("'", "''")
+        # 一重引用符の文字（' と、PowerShell が同じ引用符として扱う U+2018・U+2019・U+201A・U+201B）は、重ねて文字列の中に入れる
+        $resolved = [regex]::Replace([System.Management.Automation.WildcardPattern]::Escape([System.IO.Path]::GetFullPath($_)), "(['\u2018\u2019\u201A\u201B])", '$1$1')
         ". '$resolved'"
     }) -join "; "
     if ($then) { $prelude = "$prelude; $then" }

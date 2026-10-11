@@ -7,9 +7,9 @@
 # 起動そのものに失敗したとき（Add-Type・読み込み・画面の組み立てで例外）は、ui\startup_error.ps1 の reportStartupFailure が知らせる。
 
 # 起動の失敗の記録（startup_error.txt）はツールのフォルダ（${rootDir}）に書く。その前に、どこで失敗しても書けるよう、先にパスの定義だけを読み込む
-. "$PSScriptRoot\..\shared\core\paths.ps1"
-. "$PSScriptRoot\ui\startup_error_view.ps1"
-. "$PSScriptRoot\ui\startup_error.ps1"
+. ([WildcardPattern]::Escape("$PSScriptRoot\..\shared\core\paths.ps1"))
+. ([WildcardPattern]::Escape("$PSScriptRoot\ui\startup_error_view.ps1"))
+. ([WildcardPattern]::Escape("$PSScriptRoot\ui\startup_error.ps1"))
 
 try {
     Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms
@@ -17,7 +17,7 @@ try {
     # ---- 起動中の表示 ----
     # スクリプトの読み込みに数秒かかるため、先に小さなウィンドウ（xaml\splash.xaml）を出して、起動していることを知らせる。
     # 画面（$window）を描き終わったら閉じる（ContentRendered）。多重起動の判定より前に出すため、2 つ目の起動でも一瞬出る
-    . "$PSScriptRoot\ui\splash.ps1"
+    . ([WildcardPattern]::Escape("$PSScriptRoot\ui\splash.ps1"))
     $script:splash = showSplash "$PSScriptRoot\xaml\splash.xaml" "$PSScriptRoot\xaml\app_icon.xaml"
     stepSplash 5
 
@@ -33,18 +33,18 @@ try {
         } catch { }
     }
 
-    . "$PSScriptRoot\..\shared\shared.ps1"
-    . "$PSScriptRoot\core\settings.ps1"
-    . "$PSScriptRoot\lib.ps1"
+    . ([WildcardPattern]::Escape("$PSScriptRoot\..\shared\shared.ps1"))
+    . ([WildcardPattern]::Escape("$PSScriptRoot\core\settings.ps1"))
+    . ([WildcardPattern]::Escape("$PSScriptRoot\lib.ps1"))
     stepSplash 40
 
-    . "$PSScriptRoot\..\shared\ui\types.ps1"
-    . "$PSScriptRoot\ui\types.ps1"
-    . "$PSScriptRoot\..\shared\ui\app_host.ps1"
-    . "$PSScriptRoot\..\shared\ui\trimmed_tooltip.ps1"
+    . ([WildcardPattern]::Escape("$PSScriptRoot\..\shared\ui\types.ps1"))
+    . ([WildcardPattern]::Escape("$PSScriptRoot\ui\types.ps1"))
+    . ([WildcardPattern]::Escape("$PSScriptRoot\..\shared\ui\app_host.ps1"))
+    . ([WildcardPattern]::Escape("$PSScriptRoot\..\shared\ui\trimmed_tooltip.ps1"))
     stepSplash 50
 
-    . "$PSScriptRoot\ui\gui_main.ps1"
+    . ([WildcardPattern]::Escape("$PSScriptRoot\ui\gui_main.ps1"))
     startGui -TebunkoDir $PSScriptRoot
 } catch {
     exit (reportStartupFailure $_)
