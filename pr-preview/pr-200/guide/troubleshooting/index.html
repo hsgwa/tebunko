@@ -4571,7 +4571,7 @@
 </tr>
 <tr>
 <td><code>gui_error_log.txt</code></td>
-<td>画面で発生した予期しないエラーの記録。追記されます。画面を開いて最初の記録の前に、版と環境の見出しを書きます。1 MB 以上になると、前の分を <code>gui_error_log_previous.txt</code> に移して新しく書きます</td>
+<td>画面で発生した予期しないエラーの記録。追記されます。画面を開いて最初の記録の前に、版と環境の見出しを書きます。1 MB 以上になると、前の分を <code>gui_error_log_previous.txt</code> に移して新しく書きます。前の分が読み取り専用・ほかのアプリで開いているあいだは移せず、1 MB を超えることがあります。閉じる・前の分を消すと、次の記録のときに移ります</td>
 </tr>
 <tr>
 <td><code>gui_error_log_previous.txt</code></td>
