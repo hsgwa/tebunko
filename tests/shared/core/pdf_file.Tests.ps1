@@ -29,7 +29,10 @@ BeforeDiscovery {
         @{ name = "TD で行が変わり、行送りを覚えて T* で送る"; pages = @("BT /F1 12 Tf 0 -14 TD (a) Tj 0 -14 TD (b) Tj T* (c) Tj ET"); expected = @("a`nb`nc") }
         @{ name = "TL の行送りで T* と ' が送る"; pages = @("BT /F1 12 Tf 14 TL (a) Tj T* (b) Tj (c) ' ET"); expected = @("a`nb`nc") }
         @{ name = "横だけの Td は同じ行（半角どうしなら空白）"; pages = @("BT /F1 12 Tf (a) Tj 50 0 Td (b) Tj ET"); expected = @("a b") }
-        @{ name = "縦のずれが小さい Td は同じ行（上付き文字など）"; pages = @("BT /F1 12 Tf (a) Tj 5 0.5 Td (b) Tj ET"); expected = @("a b") }
+        @{ name = "1 em より小さい Td は詰めにしない（1 文字ずつ並べる PDF）"; pages = @("BT /F1 16 Tf 8 94 Td (E) Tj 9 0 Td (d) Tj 9.9 0 Td (g) Tj ET"); expected = @("Edg") }
+        @{ name = "1 em 以上の Td は空白でつなぐ"; pages = @("BT /F1 16 Tf (a) Tj 16 0 Td (b) Tj ET"); expected = @("a b") }
+        @{ name = "後ろ向きの Td は空白でつなぐ"; pages = @("BT /F1 16 Tf (a) Tj -3 0 Td (b) Tj ET"); expected = @("a b") }
+        @{ name = "縦のずれが小さい Td は同じ行（上付き文字など）"; pages = @("BT /F1 12 Tf (a) Tj 20 0.5 Td (b) Tj ET"); expected = @("a b") }
         @{ name = "BT で縦位置が 0 に戻る"; pages = @("BT /F1 12 Tf 0 -14 Td (a) Tj ET BT /F1 12 Tf 0 -14 Td (b) Tj ET"); expected = @("ab") }
         @{ name = "16 進の空白と奇数桁"; pages = @("BT /F1 12 Tf <41 42 4> Tj ET"); expected = @("AB@") }
     )

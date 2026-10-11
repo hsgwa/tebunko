@@ -44,12 +44,12 @@
         <Setter Property="Template">
           <Setter.Value>
             <ControlTemplate TargetType="ToggleButton">
-              <Border x:Name="Box" Style="{StaticResource Chip.Box}" Padding="9,4"
+              <Border x:Name="Box" Style="{StaticResource Chip.Box}" Padding="5,4"
                       Background="{StaticResource Bg.Surface}" BorderBrush="{StaticResource Border.Input}">
                 <StackPanel Orientation="Horizontal">
                   <Path x:Name="Mark" Data="{StaticResource Icon.Check}" Width="11" Height="11" Stretch="Uniform"
                         Stroke="{StaticResource Accent}" StrokeThickness="2" StrokeStartLineCap="Round"
-                        StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,5,0" Visibility="Hidden" />
+                        StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,3,0" Visibility="Hidden" />
                   <TextBlock x:Name="Label" Text="{TemplateBinding Content}" FontSize="11"
                              Foreground="{StaticResource Ink.Muted}" VerticalAlignment="Center" />
                 </StackPanel>

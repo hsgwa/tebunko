@@ -985,6 +985,7 @@ function readPdfPageText {
     $lastName = $null
     $lastArray = $null
     $font = $null
+    $fontSize = 0.0
     while ($true) {
         $t = readPdfToken $st
         $kind = $st.K
@@ -1033,6 +1034,7 @@ function readPdfPageText {
             breakPdfLine $ts
             if ($null -ne $lastStr) { addPdfText $ts (convertPdfStringToText $font $lastStr) }
         } elseif ($t -ceq "Tf") {
+            $fontSize = if ($nums.Count -ge 1) { [Math]::Abs($nums[$nums.Count - 1]) } else { 0.0 }
             $font = $null
             if ($null -ne $lastName -and (testPdfDict $fontDict) -and $fontDict.ContainsKey($lastName)) {
                 $font = getPdfFont $doc $fontDict[$lastName]
@@ -1044,8 +1046,9 @@ function readPdfPageText {
             if ($nums.Count -ge 2) {
                 $ts.Y += $nums[1]
                 if ($t -ceq "TD") { $ts.Leading = - $nums[1] }
-                # 横にだけ動いたときは詰め。縦に動いたときは、次の文字を出すときに行を分ける
-                if ($nums[0] -ne 0) { $ts.Gap = $true }
+                # 横にだけ動いたときは詰め。縦に動いたときは、次の文字を出すときに行を分ける。
+                # 1 文字ずつ Td で並べる PDF（Chromium など）の文字を離さないよう、前向きに 1 em より小さい動きは詰めにしない（空白は文字として入っている）
+                if ($nums[0] -ne 0 -and ($fontSize -le 0 -or $nums[0] -lt 0 -or $nums[0] -ge $fontSize)) { $ts.Gap = $true }
             }
         } elseif ($t -ceq "TL") {
             if ($nums.Count -ge 1) { $ts.Leading = $nums[0] }
