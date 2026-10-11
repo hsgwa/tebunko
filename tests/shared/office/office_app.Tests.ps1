@@ -384,53 +384,23 @@ Describe "OfficeWatchdog（実際のプロセスを止める）" -Tag Io {
         }
     }
 
-    It "制限時間を過ぎたら TimedOut を立て、制限時刻を戻す。名前が合わないプロセスは終了させない" {
+    It "制限時間を過ぎたら TimedOut を立て、制限時刻を戻す。<title>" -TestCases @(
+        @{ title = "見張る名前に合わないプロセスは終了させない"; names = "NoSuchOfficeApp"; shift = 0; killed = $false }
+        @{ title = "控えた起動時刻と違うプロセス（PID が使い回された）は終了させない"; names = ""; shift = -10000000; killed = $false }
+        @{ title = "見張る名前に合い、起動時刻も合うプロセスだけ終了させる"; names = ""; shift = 0; killed = $true }
+    ) {
+        param ($title, $names, $shift, $killed)
         $child = startHarmlessChild
         $watchdog = $null
         try {
-            $watchdog = [OfficeWatchdog]::new([string[]]@("NoSuchOfficeApp"))
-            $watchdog.State.Pids = @(@{ Id = $child.Id; ProcessName = $child.ProcessName; StartTicks = (getOfficeStartTicks $child) })
+            $watchdog = [OfficeWatchdog]::new([string[]]@($(if ($names) { $names } else { $child.ProcessName })))
+            $watchdog.State.Pids = @(@{ Id = $child.Id; ProcessName = $child.ProcessName; StartTicks = ((getOfficeStartTicks $child) + $shift) })
             $watchdog.Start()
             $watchdog.State.Deadline = [datetime]::Now.AddSeconds(-1)
             waitTimedOut $watchdog
             $watchdog.State.TimedOut | Should -Be $true
             $watchdog.State.Deadline | Should -Be ([datetime]::MaxValue)
-            # 見張りが動いた後、少し待っても終わらない
-            $child.WaitForExit(1500) | Should -Be $false
-        } finally {
-            if ($watchdog) { $watchdog.Stop() }
-            if (-not $child.HasExited) { $child.Kill() }
-        }
-    }
-
-    It "制限時間を過ぎても、控えた起動時刻と違うプロセス（PID が使い回された）は終了させない。TimedOut は立てる" {
-        $child = startHarmlessChild
-        $watchdog = $null
-        try {
-            $watchdog = [OfficeWatchdog]::new([string[]]@($child.ProcessName))
-            $watchdog.State.Pids = @(@{ Id = $child.Id; ProcessName = $child.ProcessName; StartTicks = ((getOfficeStartTicks $child) - 10000000) })
-            $watchdog.Start()
-            $watchdog.State.Deadline = [datetime]::Now.AddSeconds(-1)
-            waitTimedOut $watchdog
-            $watchdog.State.TimedOut | Should -Be $true
-            $child.WaitForExit(1500) | Should -Be $false
-        } finally {
-            if ($watchdog) { $watchdog.Stop() }
-            if (-not $child.HasExited) { $child.Kill() }
-        }
-    }
-
-    It "制限時間を過ぎたら、見張る名前に合い、起動時刻も合うプロセスだけ終了させる" {
-        $child = startHarmlessChild
-        $watchdog = $null
-        try {
-            $watchdog = [OfficeWatchdog]::new([string[]]@($child.ProcessName))
-            $watchdog.State.Pids = @(@{ Id = $child.Id; ProcessName = $child.ProcessName; StartTicks = (getOfficeStartTicks $child) })
-            $watchdog.Start()
-            $watchdog.State.Deadline = [datetime]::Now.AddSeconds(-1)
-            waitTimedOut $watchdog
-            $watchdog.State.TimedOut | Should -Be $true
-            $child.WaitForExit(10000) | Should -Be $true
+            $child.WaitForExit($(if ($killed) { 10000 } else { 1500 })) | Should -Be $killed
         } finally {
             if ($watchdog) { $watchdog.Stop() }
             if (-not $child.HasExited) { $child.Kill() }
@@ -1001,13 +971,14 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         @{ title = "起動時刻が違えば（控えたプロセスはもう無い）、待たず強制終了もしない（終わったものとして `$true）"; app = "Excel"; processName = "EXCEL"; start = "other"; waits = @(); expectedLog = @("Quit"); expected = $true }
         @{ title = "今の起動時刻が読めなければ、待たず強制終了もしない（`$false）"; app = "Excel"; processName = "EXCEL"; start = "unreadable"; waits = @(); expectedLog = @("Quit"); expected = $false }
         @{ title = "控えた起動時刻が無ければ、待たず強制終了もしない（`$false）"; app = "Excel"; processName = "EXCEL"; start = "noticks"; waits = @(); expectedLog = @("Quit"); expected = $false }
+        @{ title = "照合が合わなくても、Quit の直後に自分で終わっていれば `$true（待たず強制終了もしない）"; app = "Excel"; processName = "EXCEL"; start = "unreadable"; exited = $true; waits = @(); expectedLog = @("Quit"); expected = $true }
     ) {
-        param ($title, $app, $processName, $waits, $expectedLog, $expected, $start = "same")
+        param ($title, $app, $processName, $waits, $expectedLog, $expected, $start = "same", $exited = $false)
         # 偽のプロセスだけを使う（本物のプロセスは止めない）
         $script:waitResults = New-Object System.Collections.Queue
         foreach ($result in $waits) { $script:waitResults.Enqueue($result) }
         $began = [datetime]"2030-01-01T00:00:00Z"
-        $process = [pscustomobject]@{ Id = 4242; ProcessName = $processName; Handle = [IntPtr]1; StartTime = $(if ($start -eq "other") { $began.AddSeconds(1) } else { $began }) }
+        $process = [pscustomobject]@{ Id = 4242; ProcessName = $processName; Handle = [IntPtr]1; HasExited = $exited; StartTime = $(if ($start -eq "other") { $began.AddSeconds(1) } else { $began }) }
         if ($start -eq "unreadable") {
             $process | Add-Member -MemberType ScriptProperty -Name StartTime -Value { throw "アクセスが拒否されました" } -Force
         }

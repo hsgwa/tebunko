@@ -389,8 +389,9 @@ function quitApp {
         return $true
     }
     if (-not (isSameOfficeProcess $process $appInfo[$name].Process $startTicks)) {
-        $actual = getOfficeStartTicks $process
-        return ($null -ne $actual -and $null -ne $startTicks -and [long]$startTicks -gt 0 -and [long]$actual -ne [long]$startTicks)
+        # Quit の直後に自分で終わったものは、終わったとして返す。起動時刻が違えば控えたプロセスは終わっている。分からないときは $false
+        try { if ($process.HasExited) { return $true } } catch {}
+        return ((compareOfficeProcess $process $appInfo[$name].Process $startTicks) -eq "Different")
     }
     $wait = $appInfo[$name].ExitWait
     if ($process.WaitForExit($wait)) {
@@ -619,7 +620,7 @@ class OfficeWatchdog {
     [void] Start() {
         # 見張りは別のランスペースで動くので、照合の関数の定義を渡す（式を書き写さない。worker_pool.ps1 と同じ InitialSessionState の形）
         $sessionState = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault2()
-        foreach ($name in @('isSameOfficeProcess', 'getOfficeStartTicks')) {
+        foreach ($name in @('isSameOfficeProcess', 'compareOfficeProcess', 'getOfficeStartTicks')) {
             $sessionState.Commands.Add([System.Management.Automation.Runspaces.SessionStateFunctionEntry]::new($name, (Get-Command $name -CommandType Function).Definition))
         }
         $runspace = [System.Management.Automation.Runspaces.RunspaceFactory]::CreateRunspace($sessionState)
@@ -639,7 +640,7 @@ class OfficeWatchdog {
                     try {
                         # 終了済みでIDが別のプロセスに再利用されている場合に備え、Officeアプリであること、控えたときと同じプロセスであること（名前・起動時刻）を確かめる
                         $process = [System.Diagnostics.Process]::GetProcessById([int]$entry.Id)
-                        if ($processNames -contains $process.ProcessName -and (isSameOfficeProcess $process $entry.ProcessName $entry.StartTicks)) {
+                        if ((isSameOfficeProcess $process $entry.ProcessName $entry.StartTicks) -and $processNames -contains $process.ProcessName) {
                             $process.Kill()
                         }
                     } catch {}

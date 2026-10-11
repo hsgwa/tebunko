@@ -24,10 +24,10 @@ function getOfficeStartTicks {
     }
 }
 
-function isSameOfficeProcess {
-    # process が、控えたときと同じプロセス（プロセス名と起動時刻が同じ）か。止める前に必ず通す（PID が別のプロセスに使い回されていないかの確認）。
+function compareOfficeProcess {
+    # process を、控えたとき（プロセス名・起動時刻）と比べる。"Same"（同じ）・"Different"（別のプロセス）・"Unknown"（分からない）を返す。
     # 先に Handle を読んでプロセスのハンドルを開く（Process が持ち続けるので、このあと同じ process で Kill() するまで、その PID は別のプロセスに使われない）。
-    # ハンドルが開けない・名前が違う・控えた起動時刻が無い（$null・0）・今の起動時刻が読めない・起動時刻が違うときは $false（止めない）
+    # ハンドルが開けない・控えた起動時刻が無い（$null・0）・今の起動時刻が読めないときは "Unknown"（止めない）。名前か起動時刻が違えば "Different"
     param (
         $process,
         [string]$processName,
@@ -35,17 +35,35 @@ function isSameOfficeProcess {
     )
 
     try {
-        if ($null -eq $process.Handle -or $process.ProcessName -ne $processName) {
-            return $false
+        if ($null -eq $process.Handle) {
+            return "Unknown"
+        }
+        if ($process.ProcessName -ne $processName) {
+            return "Different"
         }
     } catch {
-        return $false
+        return "Unknown"
     }
     if ($null -eq $startTicks -or [long]$startTicks -le 0) {
-        return $false
+        return "Unknown"
     }
     $actual = getOfficeStartTicks $process
-    return ($null -ne $actual -and [long]$actual -eq [long]$startTicks)
+    if ($null -eq $actual) {
+        return "Unknown"
+    }
+    return $(if ([long]$actual -eq [long]$startTicks) { "Same" } else { "Different" })
+}
+
+function isSameOfficeProcess {
+    # process が、控えたときと同じプロセス（プロセス名と起動時刻が同じ）か。止める前に必ず通す（PID が別のプロセスに使い回されていないかの確認）。
+    # 同じと言えるときだけ $true。違う・分からないときは $false（止めない）。比べ方は compareOfficeProcess
+    param (
+        $process,
+        [string]$processName,
+        $startTicks
+    )
+
+    return ((compareOfficeProcess $process $processName $startTicks) -eq "Same")
 }
 
 # ----------------------------------------------------------------------------

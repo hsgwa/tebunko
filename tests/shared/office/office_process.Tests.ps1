@@ -273,19 +273,25 @@ Describe "stopOfficeProcesses" -Tag Io {
 
 Describe "isSameOfficeProcess" -Tag Unit {
     It "<name>" -TestCases @(
-        @{ name = "名前も起動時刻も同じなら `$true"; procName = "EXCEL"; start = "same"; handle = "ok"; expected = $true }
-        @{ name = "起動時刻が違えば `$false（PID が使い回された）"; procName = "EXCEL"; start = "other"; handle = "ok"; expected = $false }
-        @{ name = "名前が違えば `$false"; procName = "notepad"; start = "same"; handle = "ok"; expected = $false }
-        @{ name = "今の起動時刻が読めなければ `$false"; procName = "EXCEL"; start = "unreadable"; handle = "ok"; expected = $false }
-        @{ name = "ハンドルが開けなければ `$false"; procName = "EXCEL"; start = "same"; handle = "denied"; expected = $false }
-        @{ name = "控えた起動時刻が `$null なら `$false"; procName = "EXCEL"; start = "null"; handle = "ok"; expected = $false }
-        @{ name = "控えた起動時刻が 0 なら `$false"; procName = "EXCEL"; start = "zero"; handle = "ok"; expected = $false }
+        @{ name = "名前も起動時刻も同じなら `$true（Same）"; procName = "EXCEL"; start = "same"; handle = "ok"; expected = $true; compare = "Same" }
+        @{ name = "起動時刻が違えば `$false（PID が使い回された。Different）"; procName = "EXCEL"; start = "other"; handle = "ok"; expected = $false; compare = "Different" }
+        @{ name = "名前が違えば `$false（Different）"; procName = "notepad"; start = "same"; handle = "ok"; expected = $false; compare = "Different" }
+        @{ name = "今の起動時刻が読めなければ `$false（Unknown）"; procName = "EXCEL"; start = "unreadable"; handle = "ok"; expected = $false; compare = "Unknown" }
+        @{ name = "ハンドルが開けなければ `$false（Unknown）"; procName = "EXCEL"; start = "same"; handle = "denied"; expected = $false; compare = "Unknown" }
+        @{ name = "ハンドルを読むと例外になれば `$false（Unknown）"; procName = "EXCEL"; start = "same"; handle = "throws"; expected = $false; compare = "Unknown" }
+        @{ name = "控えた起動時刻が `$null なら `$false（Unknown）"; procName = "EXCEL"; start = "null"; handle = "ok"; expected = $false; compare = "Unknown" }
+        @{ name = "控えた起動時刻が 0 なら `$false（Unknown）"; procName = "EXCEL"; start = "zero"; handle = "ok"; expected = $false; compare = "Unknown" }
     ) {
-        param ($name, $procName, $start, $handle, $expected)
+        param ($name, $procName, $start, $handle, $expected, $compare)
         $actual = [datetime]"2030-01-01T00:00:00Z"
         $process = newFakeProcess 10 $procName $(if ($start -eq "unreadable") { $null } else { $actual })
         if ($handle -eq "denied") {
             $process.Handle = $null   # ハンドルが開けない（本物の Process では例外か、開けないもの）
+        }
+        if ($handle -eq "throws") {
+            # ScriptProperty の例外は PowerShell が握りつぶすので、厳格モードで「無いプロパティを読む」例外にする
+            $process.PSObject.Properties.Remove("Handle")
+            Set-StrictMode -Version Latest
         }
         $ticks = switch ($start) {
             "same" { $actual.ToUniversalTime().Ticks }
@@ -295,6 +301,7 @@ Describe "isSameOfficeProcess" -Tag Unit {
             default { $null }
         }
         isSameOfficeProcess $process "EXCEL" $ticks | Should -Be $expected
+        compareOfficeProcess $process "EXCEL" $ticks | Should -Be $compare
     }
 
     It "ハンドルを開いてから、名前と起動時刻を読む（順番を守る）" {
