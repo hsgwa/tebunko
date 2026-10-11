@@ -140,6 +140,14 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             clickGui $S $S.Window "IndexNoticeClose" "帯の［閉じる］"
             waitGui $S "帯が消える" ${guiDefaultTimeout} { (findGui $S.Window -Id "IndexNoticeText").Current.IsOffscreen } | Out-Null
 
+            setGuiStep $S "もう一度失敗させて帯を出し、続けて成功させると帯が自分で消える（閉じるボタンで消えたあとでは確かめにならないので、出したままにする）"
+            clickGuiAction $S "ActionExport" "［エクスポート…］"
+            $failDialog2 = waitGuiWindow $S "エクスポートのダイアログ" -Id "ExportPathBox"
+            setGuiText $S (findGui $failDialog2 -Id "ExportPathBox") (Join-Path $TestDrive "無い書き出し先")
+            clickGui $S $failDialog2 "ExportButton" "［エクスポート］"
+            waitGuiWindowClosed $S $failDialog2 "エクスポートのダイアログ"
+            waitGui $S "帯が出る" ${guiDefaultTimeout} { -not (findGui $S.Window -Id "IndexNoticeText").Current.IsOffscreen } | Out-Null
+
             setGuiStep $S "2 件にチェックを付けてまとめて［エクスポート…］"
             clickGuiAction $S "ActionExport" "［エクスポート…］"
             $dialog = waitGuiWindow $S "エクスポートのダイアログ" -Id "ExportPathBox"
@@ -152,7 +160,7 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
                 (getGuiText (findGui $S.Window -Id "StatusText")) -like "*2 件のインデックスをエクスポートしました*"
             } | Out-Null
             @(Get-ChildItem -LiteralPath $dest -Filter "*.zip").Count | Should -Be 2
-            (findGui $S.Window -Id "IndexNoticeText").Current.IsOffscreen | Should -BeTrue
+            waitGui $S "成功で帯が消える" ${guiDefaultTimeout} { (findGui $S.Window -Id "IndexNoticeText").Current.IsOffscreen } | Out-Null
 
             setGuiStep $S "まとめて［削除…］"
             clickGuiAction $S "ActionDelete" "［削除…］"

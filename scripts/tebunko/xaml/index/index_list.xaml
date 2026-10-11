@@ -95,12 +95,12 @@
             <DataGridTemplateColumn Width="52">
               <!-- 見出しの全選択（一部だけ選んでいるときは横棒）。押したときの動きは index_events.ps1 -->
               <DataGridTemplateColumn.Header>
-                <CheckBox x:Name="SelectAllCheckBox" IsThreeState="True" HorizontalAlignment="Left" Margin="16,0,0,0"
+                <CheckBox x:Name="SelectAllCheckBox" IsThreeState="True" HorizontalAlignment="Left" Margin="6,0,0,0"
                           AutomationProperties.Name="すべて選ぶ" />
               </DataGridTemplateColumn.Header>
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
-                  <CheckBox IsChecked="{Binding Checked, Mode=TwoWay}" HorizontalAlignment="Left" Margin="16,0,0,0" />
+                  <CheckBox IsChecked="{Binding Checked, Mode=TwoWay}" HorizontalAlignment="Left" Margin="6,0,0,0" />
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>

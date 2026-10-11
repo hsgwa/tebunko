@@ -75,8 +75,8 @@ function startGui {
     # 領域の表: File = xaml\ からの相対パス、Slot = 差す口（窓の x:Name）、Screen = 画面の名前（Slot が ContentHost のものだけ。
     # 画面の中身は $script:screenContents に持ち、selectScreen が選んだものを ContentHost に差す）、Names = 使う x:Name
     # 知らせの帯の部品（shell\notice_banner.xaml）の名前。3 か所に差す（下の表で Prefix を付けて持つ）
-$noticeBannerNames = @("NoticePanel", "NoticeIcon", "NoticeText", "NoticeButton", "NoticeClose")
-$regions = @(
+    $noticeBannerNames = @("NoticePanel", "NoticeIcon", "NoticeText", "NoticeButton", "NoticeClose")
+    $regions = @(
         @{ File = "shell\nav.xaml"; Slot = "NavHost"; Names = @(
             "NavList", "SearchTab", "IndexTab", "SettingsTab", "IndexTabBadge", "NavPaneHost", "AboutLink") }
         @{ File = "shell\status_bar.xaml"; Slot = "StatusBarHost"; Names = @("StatusText", "IndexingStatusText", "IndexFooterFolders", "IndexFooterFiles") }

@@ -874,6 +874,9 @@ Describe "画面の部品の名前" -Tag Meta {
         # $regions の `File = "..."; ... Names = @(...)` を全部取り出して、XAML と突き合わせる
         $entries = @([regex]::Matches($gui, 'File\s*=\s*"([^"]+)".*?Names\s*=\s*(?:@\(([^)]*)\)|\$(\w+))'))
         $entries.Count -gt 0 | Should -Be $true
+        # 表の行の数と、読めた行の数が合う（形が崩れて読み落とした行が、確かめの外に出ない）
+        $fileCount = @([regex]::Matches($gui, '@\{\s*File\s*=\s*"')).Count
+        $entries.Count | Should -Be $fileCount
         $problems = New-Object System.Collections.Generic.List[string]
         foreach ($entry in $entries) {
             $file = $entry.Groups[1].Value
@@ -885,6 +888,7 @@ Describe "画面の部品の名前" -Tag Meta {
             $wanted = @([regex]::Matches($list, '"([A-Za-z]+)"') | ForEach-Object { $_.Groups[1].Value })
             $path = "$here\..\scripts\tebunko\xaml\$file"
             if (-not (Test-Path -LiteralPath $path)) { $problems.Add("$file が無い"); continue }
+            if ($wanted.Count -eq 0) { $problems.Add("$file の Names が読めない（空）") }
             $names = getXamlNames $path
             foreach ($w in $wanted) {
                 if ($names -notcontains $w) { $problems.Add("$file に $w が無い") }

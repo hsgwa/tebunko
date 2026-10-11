@@ -37,6 +37,29 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             useGuiFolderPicker $S
             @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count | Should -Be 0
 
+            # 一覧の表は右の領域の横いっぱいに広がる（仕切りと同じ左右の端）。
+            # 窓を最小の幅（1024）にしても、頭の 3 つのボタンと説明は右で切れない。説明が出るのは、まだフォルダが無い今だけ（追加すると説明は消える）なので、ここで測る（ナビを最大に広げた幅は、ドラッグでしか作れないので、単体では見られない）
+            setGuiStep $S "一覧の横幅と頭のボタン（最小の幅）"
+            resizeGuiWindow $S 1024 600
+            $edge = {
+                param ($id)
+                return (findGui $S.Window -Id $id).Current.BoundingRectangle
+            }
+            # 表の右端は窓の右端まで届く（窓の枠・影の分だけ内側。以前は右に 16 の余白があり、枠の分と合わせて 20 を超えていた）
+            $win = $S.Window.Current.BoundingRectangle
+            $gridRect = & $edge "IndexGrid"
+            ($win.Right - $gridRect.Right) | Should -BeLessOrEqual 12 -Because "表が右の領域の端まで広がる"
+            $area = $gridRect
+            $buttons = New-Object System.Collections.Generic.List[object]
+            foreach ($id in @("IndexingButton", "ActionsButton", "NewIndexButton")) { $buttons.Add((& $edge $id)) }
+            foreach ($b in $buttons) { $b.Right | Should -BeLessOrEqual $area.Right -Because "頭のボタンが右で切れない" }
+            $buttons[1].Left | Should -BeGreaterThan $buttons[0].Right -Because "頭のボタンが重ならない"
+            $buttons[2].Left | Should -BeGreaterThan $buttons[1].Right -Because "頭のボタンが重ならない"
+            $hintRect = & $edge "IndexingHint"
+            $hintRect.Width | Should -BeGreaterThan 0 -Because "説明が出ている状態で測る（空だと矩形が空になり、比べても何も確かめられない）"
+            $hintRect.Right | Should -BeLessOrEqual $area.Right -Because "説明が右で切れない"
+            resizeGuiWindow $S 1280 800
+
             # 追加: フォルダを選ぶと、フォルダ名のインデックスが一覧に加わる（追加のダイアログは無い）
             setGuiStep $S "［＋ フォルダを追加］→ OS のフォルダ選択（フォルダを選ぶ）"
             clickGui $S $S.Window "NewIndexButton" "［＋ フォルダを追加］"
@@ -99,27 +122,6 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             useGuiFolderPicker $S $script:source
             waitGui $S "フォルダパスが元に戻る" ${guiDefaultTimeout} { (& $pathText) -eq $script:source } | Out-Null
 
-            # 一覧の表は右の領域の横いっぱいに広がり（仕切りと同じ左右の端）、チェックの左端は頭の件数の左端にそろう。
-            # 窓を最小の幅にしても、頭の 3 つのボタンと説明は右で切れない（ナビを最大に広げた幅は、ドラッグでしか作れないので、単体では見られない）
-            setGuiStep $S "一覧の横幅と頭のボタン"
-            $edge = {
-                param ($id)
-                return (findGui $S.Window -Id $id).Current.BoundingRectangle
-            }
-            # 表の右端は窓の右端まで届く（窓の枠・影の分だけ内側。以前は右に 16 の余白があり、枠の分と合わせて 20 を超えていた）
-            $win = $S.Window.Current.BoundingRectangle
-            $gridRect = & $edge "IndexGrid"
-            ($win.Right - $gridRect.Right) | Should -BeLessOrEqual 12 -Because "表が右の領域の端まで広がる"
-            $area = $gridRect
-            $all = (findGui @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0] -Type CheckBox).Current.BoundingRectangle
-            ($all.Left - $gridRect.Left) | Should -BeLessOrEqual 30 -Because "チェックの左端は表の左端から 16 の余白（頭の件数の左端にそろう）。表の外に白い余白が無い"
-            ($all.Left - $gridRect.Left) | Should -BeGreaterThan 10
-            $buttons = New-Object System.Collections.Generic.List[object]
-            foreach ($id in @("IndexingButton", "ActionsButton", "NewIndexButton")) { $buttons.Add((& $edge $id)) }
-            foreach ($b in $buttons) { $b.Right | Should -BeLessOrEqual $area.Right -Because "頭のボタンが右で切れない" }
-            $buttons[1].Left | Should -BeGreaterThan $buttons[0].Right -Because "頭のボタンが重ならない"
-            $buttons[2].Left | Should -BeGreaterThan $buttons[1].Right -Because "頭のボタンが重ならない"
-            (& $edge "IndexingHint").Right | Should -BeLessOrEqual $area.Right -Because "説明が右で切れない"
             (findGui $S.Window -Id "IndexDetailPathButton").Current.Name | Should -Be "フォルダの場所を変える"
             # チェックは、保存しないその場の選び。初めは付いておらず、付けても設定は書き換わず、［すべて更新］の可否も変わらない（#16）
             setGuiStep $S "行のチェックの切り替え"
@@ -128,6 +130,11 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             $configWriteTime = (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc
             toggleGui $check
             waitGui $S "チェックが付く" ${guiDefaultTimeout} { (getGuiToggleState (findGui $row -Type CheckBox)) -eq "On" } | Out-Null
+            # チェックの左端は、頭の「N / M 件を選択中」の左端にそろう（表の左端から 16。セルの内側の余白の分は、チェックの左の余白で引いてある）
+            waitGui $S "件数の文が出る" ${guiDefaultTimeout} { (findGui $S.Window -Id "SelectionCountText").Current.BoundingRectangle.Width -gt 0 } | Out-Null
+            $countLeft = (findGui $S.Window -Id "SelectionCountText").Current.BoundingRectangle.Left
+            $checkLeft = (findGui $row -Type CheckBox).Current.BoundingRectangle.Left
+            [Math]::Abs($checkLeft - $countLeft) | Should -BeLessOrEqual 2 -Because "チェックの左端と件数の文の左端がそろう"
             waitGui $S "［アクション ▾］が押せる" ${guiDefaultTimeout} { (findGui $S.Window -Id "ActionsButton").Current.IsEnabled } | Out-Null
             (findGui $S.Window -Id "IndexingButton").Current.IsEnabled | Should -BeTrue
             (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc | Should -Be $configWriteTime -Because "チェックは保存しない"
