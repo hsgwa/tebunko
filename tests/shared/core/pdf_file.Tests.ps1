@@ -619,6 +619,27 @@ Describe "readPdfPages" -Tag Unit {
         $r[0] | Should -BeExactly "abc"
     }
 
+    It "暗号化された PDF（<method>）で、カタログ・ページの木・ページがオブジェクトのストリームの中にあっても読む（ストリームは自分の番号で 1 回だけ復号し、中は復号しない）" -TestCases @(
+        @{ method = "rc128" }
+        @{ method = "aes128" }
+        @{ method = "aes256r6" }
+    ) {
+        param ($method)
+        $pages = @("BT /F1 12 Tf (first) Tj ET", "BT /F1 12 Tf (second) Tj ET")
+        $r = readPdfPages (newEncryptedPdf -pages $pages -method $method -compress -objectStream)
+        $r.Count | Should -Be 2
+        $r[0] | Should -BeExactly "first"
+        $r[1] | Should -BeExactly "second"
+    }
+
+    It "/EncryptMetadata false の PDF（aes128）は、鍵の計算に FF×4 を足して読む（足さない鍵では「パスワードが必要」になる）" {
+        $r = readPdfPages (newEncryptedPdf -pages @("BT /F1 12 Tf (meta) Tj ET") -method aes128 -encryptMetadata $false)
+        $r[0] | Should -BeExactly "meta"
+        $bytes = newEncryptedPdf -pages @("BT /F1 12 Tf (meta) Tj ET") -method aes128 -encryptMetadata $false
+        $text = [System.Text.Encoding]::GetEncoding(28591).GetString($bytes).Replace("/EncryptMetadata false", "/EncryptMetadata true ")
+        { readPdfPages ([System.Text.Encoding]::GetEncoding(28591).GetBytes($text)) } | Should -Throw "PDFにパスワードが必要なため読めません。"
+    }
+
     It "開くのにパスワードが要る PDF（<method>）は、そのファイルだけ「パスワードが必要」で失敗する" -TestCases @(
         @{ method = "rc40" }
         @{ method = "rc128" }
@@ -637,6 +658,10 @@ Describe "readPdfPages" -Tag Unit {
         @{ name = "V と R の組み合わせが違う"; dict = "/Filter /Standard /V 2 /R 6"; message = "PDFの暗号化の方式に対応していないため読めません。" }
         @{ name = "未知の暗号方式"; dict = "/Filter /Standard /V 4 /R 4 /CF << /StdCF << /CFM /Other >> >> /StmF /StdCF /O <00> /U <00> /P -4"; message = "PDFの暗号化の方式に対応していないため読めません。" }
         @{ name = "巨大な鍵の長さ"; dict = "/Filter /Standard /V 2 /R 3 /Length 99999999 /O <00> /U <00> /P -4"; message = "PDFの暗号化の方式に対応していないため読めません。" }
+        @{ name = "StmF が名前でない"; dict = "/Filter /Standard /V 4 /R 4 /CF << /StdCF << /CFM /AESV2 >> >> /StmF 5 /O <00> /U <00> /P -4"; message = "PDFの暗号化の方式に対応していないため読めません。" }
+        @{ name = "StmF があるのに CF が辞書でない"; dict = "/Filter /Standard /V 4 /R 4 /CF 5 /StmF /StdCF /O <00> /U <00> /P -4"; message = "PDFの暗号化の方式に対応していないため読めません。" }
+        @{ name = "V が数でない"; dict = "/Filter /Standard /V /x /R 3 /O <00> /U <00> /P -4"; message = "PDFの暗号化の方式に対応していないため読めません。" }
+        @{ name = "P が無い（R3）"; dict = "/Filter /Standard /V 2 /R 3 /O <0000000000000000000000000000000000000000000000000000000000000000> /U <0000000000000000000000000000000000000000000000000000000000000000>"; message = "PDFの暗号化の情報が壊れているため読めません。" }
         @{ name = "短い O と U（R3）"; dict = "/Filter /Standard /V 2 /R 3 /O <00> /U <00> /P -4"; message = "PDFの暗号化の情報が壊れているため読めません。" }
         @{ name = "短い U と UE（R6）"; dict = "/Filter /Standard /V 5 /R 6 /CF << /StdCF << /CFM /AESV3 >> >> /StmF /StdCF /O <00> /U <00> /UE <00>"; message = "PDFの暗号化の情報が壊れているため読めません。" }
     ) {

@@ -6,7 +6,7 @@
 # 復号するのはストリームだけ（内容・フォントの対応表・オブジェクトのストリーム）。文字列は、読む内容がストリームの中にあるため復号しない。
 # PDF の仕様が求める旧式の 128 ビットのハッシュ（RFC 1321）と RC4 は自前で書く。.NET の同じ働きの型は、FIPS 準拠を強制した機械では使えず、4 方式とも読めなくなるため。
 # SHA-2 と AES は、FIPS でも使える *CryptoServiceProvider の型を使う（SHA256Managed・AesManaged は FIPS で例外になる）。
-# 鍵・途中の値は、例外の文にも記録にも出さない。壊れた辞書は、決まった長さの確かめと、R6 の繰り返しの上限（288 回）で止める。
+# 鍵・途中の値は、例外の文にも記録にも出さない。壊れた辞書は、決まった長さの確かめと、R6 の繰り返しの上限（300 回。仕様では最大でも 288 回で終わる）で止める。
 # 例外の文言は「PDF」で始める（readPdfPages は、それ以外の例外を「壊れている」に言い換える）。
 
 # 利用者パスワードを鍵の元にするときの詰め物（PDF 32000-1 の表の Algorithm 2）
@@ -26,6 +26,9 @@ ${pdfDigestS} = [int[]]@(
 
 # R6 の鍵の計算の繰り返しの上限（仕様では最後のバイトで終わる。最大でも 64 + 224 = 288 回で必ず終わる）
 ${pdfCryptR6MaxRounds} = 300
+
+# 対応していない方式の例外の文
+${pdfCryptUnsupported} = "PDFの暗号化の方式に対応していないため読めません。"
 
 function joinPdfCryptBytes {
     # バイト列を順につなげる
@@ -230,18 +233,94 @@ function getPdfCryptMethod {
 
     if ($name -ceq "/Identity") { return "None" }
     if (-not (testPdfDict $cf) -or $name.Length -lt 2) {
-        throw "PDFの暗号化の方式に対応していないため読めません。"
+        throw ${pdfCryptUnsupported}
     }
     $filter = resolvePdf $doc $cf[$name.Substring(1)]
     if (-not (testPdfDict $filter)) {
-        throw "PDFの暗号化の方式に対応していないため読めません。"
+        throw ${pdfCryptUnsupported}
     }
     $cfm = resolvePdf $doc $filter["CFM"]
     if ($cfm -ceq "/None") { return "None" }
     if ($version -eq 4 -and $cfm -ceq "/V2") { return "RC4" }
     if ($version -eq 4 -and $cfm -ceq "/AESV2") { return "AESV2" }
     if ($version -eq 5 -and $cfm -ceq "/AESV3") { return "AESV3" }
-    throw "PDFの暗号化の方式に対応していないため読めません。"
+    throw ${pdfCryptUnsupported}
+}
+
+function getPdfSlice {
+    # バイト列の一部を新しい配列に写す
+    param (
+        [byte[]]$bytes,
+        [int]$offset,
+        [int]$length
+    )
+
+    $out = New-Object byte[] $length
+    [Array]::Copy($bytes, $offset, $out, 0, $length)
+    return , $out
+}
+
+function getPdfKeyR234 {
+    # R2〜R4 のファイルの鍵（Algorithm 2）を、空の利用者パスワードで作り、/U と照らす（Algorithm 4・5）。
+    # 合わなければ「パスワードが必要」の例外。鍵の長さ n はバイト、p は /P の値、idBytes は /ID の 1 つ目
+    param (
+        [int]$revision,
+        [int]$n,
+        [byte[]]$ownerBytes,
+        [byte[]]$userBytes,
+        [double]$p,
+        [byte[]]$idBytes,
+        [bool]$encryptMetadata
+    )
+
+    $pBytes = New-Object byte[] 4
+    $pLong = [long]$p
+    for ($i = 0; $i -lt 4; $i++) { $pBytes[$i] = [byte](($pLong -shr (8 * $i)) -band 255) }
+    $parts = @(${pdfPasswordPad}, (getPdfSlice $ownerBytes 0 32), $pBytes, $idBytes)
+    if ($revision -ge 4 -and -not $encryptMetadata) { $parts += , ([byte[]]@(255, 255, 255, 255)) }
+    $hash = getPdfRfc1321Hash (joinPdfCryptBytes $parts)
+    if ($revision -ge 3) {
+        for ($i = 0; $i -lt 50; $i++) {
+            $hash = getPdfRfc1321Hash (getPdfSlice $hash 0 $n)
+        }
+    }
+    $key = getPdfSlice $hash 0 $n
+
+    if ($revision -eq 2) {
+        $expected = invokePdfRc4 $key ${pdfPasswordPad}
+        $compare = 32
+    } else {
+        $x = invokePdfRc4 $key (getPdfRfc1321Hash (joinPdfCryptBytes @(${pdfPasswordPad}, $idBytes)))
+        for ($i = 1; $i -le 19; $i++) {
+            $step = New-Object byte[] $n
+            for ($j = 0; $j -lt $n; $j++) { $step[$j] = $key[$j] -bxor $i }
+            $x = invokePdfRc4 $step $x
+        }
+        $expected = $x
+        $compare = 16
+    }
+    $same = $true
+    for ($i = 0; $i -lt $compare; $i++) { if ($expected[$i] -ne $userBytes[$i]) { $same = $false } }
+    if (-not $same) { throw "PDFにパスワードが必要なため読めません。" }
+    return , $key
+}
+
+function getPdfKeyR56 {
+    # R5・R6 のファイルの鍵を、空の利用者パスワードで作る。/U の検証用のハッシュと合わなければ「パスワードが必要」の例外。
+    # userBytes は /U（48 バイト以上）、userExtra は /UE（32 バイト以上）
+    param (
+        [int]$revision,
+        [byte[]]$userBytes,
+        [byte[]]$userExtra
+    )
+
+    $empty = New-Object byte[] 0
+    $check = getPdfCryptHashR56 $revision $empty (getPdfSlice $userBytes 32 8) $empty
+    $same = $true
+    for ($i = 0; $i -lt 32; $i++) { if ($check[$i] -ne $userBytes[$i]) { $same = $false } }
+    if (-not $same) { throw "PDFにパスワードが必要なため読めません。" }
+    $intermediate = getPdfCryptHashR56 $revision $empty (getPdfSlice $userBytes 40 8) $empty
+    return , (invokePdfAesCbc $intermediate (New-Object byte[] 16) (getPdfSlice $userExtra 0 32) $false)
 }
 
 function newPdfCrypt {
@@ -254,16 +333,15 @@ function newPdfCrypt {
         [string]$id
     )
 
-    $unsupported = "PDFの暗号化の方式に対応していないため読めません。"
     $broken = "PDFの暗号化の情報が壊れているため読めません。"
-    if ((resolvePdf $doc $enc["Filter"]) -cne "/Standard") { throw $unsupported }
+    if ((resolvePdf $doc $enc["Filter"]) -cne "/Standard") { throw ${pdfCryptUnsupported} }
     $v = resolvePdf $doc $enc["V"]
     $r = resolvePdf $doc $enc["R"]
-    if ($v -isnot [double] -or $r -isnot [double]) { throw $unsupported }
+    if ($v -isnot [double] -or $r -isnot [double]) { throw ${pdfCryptUnsupported} }
     $v = [int]$v
     $r = [int]$r
     $supported = (($v -eq 1 -or $v -eq 2) -and ($r -eq 2 -or $r -eq 3)) -or ($v -eq 4 -and $r -eq 4) -or ($v -eq 5 -and ($r -eq 5 -or $r -eq 6))
-    if (-not $supported) { throw $unsupported }
+    if (-not $supported) { throw ${pdfCryptUnsupported} }
 
     # 鍵の長さ（バイト）
     if ($v -eq 1) {
@@ -271,7 +349,7 @@ function newPdfCrypt {
     } elseif ($v -eq 2) {
         $bitLength = resolvePdf $doc $enc["Length"]
         if ($null -eq $bitLength) { $bitLength = 40.0 }
-        if ($bitLength -isnot [double] -or $bitLength -lt 40 -or $bitLength -gt 128 -or $bitLength % 8 -ne 0) { throw $unsupported }
+        if ($bitLength -isnot [double] -or $bitLength -lt 40 -or $bitLength -gt 128 -or $bitLength % 8 -ne 0) { throw ${pdfCryptUnsupported} }
         $n = [int]($bitLength / 8)
     } elseif ($v -eq 4) {
         $n = 16
@@ -282,7 +360,7 @@ function newPdfCrypt {
     $ownerBytes = getPdfStringBytes (resolvePdf $doc $enc["O"])
     $userBytes = getPdfStringBytes (resolvePdf $doc $enc["U"])
     $encryptMetadata = $true
-    if ((resolvePdf $doc $enc["EncryptMetadata"]) -eq $false) { $encryptMetadata = $false }
+    if ((resolvePdf $doc $enc["EncryptMetadata"]) -is [bool] -and -not (resolvePdf $doc $enc["EncryptMetadata"])) { $encryptMetadata = $false }
 
     # 復号の方式（ストリーム）
     $cf = $null
@@ -291,67 +369,19 @@ function newPdfCrypt {
         $cf = resolvePdf $doc $enc["CF"]
         $stmName = resolvePdf $doc $enc["StmF"]
         if ($null -eq $stmName) { $stmName = "/Identity" }
-        if ($stmName -isnot [string]) { throw $unsupported }
+        if ($stmName -isnot [string]) { throw ${pdfCryptUnsupported} }
         $method = getPdfCryptMethod $doc $cf $stmName $v
     }
 
-    $key = $null
     if ($r -ge 5) {
         $userExtra = getPdfStringBytes (resolvePdf $doc $enc["UE"])
         if ($null -eq $userBytes -or $userBytes.Length -lt 48 -or $null -eq $userExtra -or $userExtra.Length -lt 32) { throw $broken }
-        $empty = New-Object byte[] 0
-        $validation = New-Object byte[] 8
-        $keySalt = New-Object byte[] 8
-        [Array]::Copy($userBytes, 32, $validation, 0, 8)
-        [Array]::Copy($userBytes, 40, $keySalt, 0, 8)
-        $check = getPdfCryptHashR56 $r $empty $validation $empty
-        $same = $true
-        for ($i = 0; $i -lt 32; $i++) { if ($check[$i] -ne $userBytes[$i]) { $same = $false } }
-        if (-not $same) { throw "PDFにパスワードが必要なため読めません。" }
-        $intermediate = getPdfCryptHashR56 $r $empty $keySalt $empty
-        $ue = New-Object byte[] 32
-        [Array]::Copy($userExtra, 0, $ue, 0, 32)
-        $key = invokePdfAesCbc $intermediate (New-Object byte[] 16) $ue $false
+        $key = getPdfKeyR56 $r $userBytes $userExtra
     } else {
         if ($null -eq $ownerBytes -or $ownerBytes.Length -lt 32 -or $null -eq $userBytes -or $userBytes.Length -lt 32) { throw $broken }
         $p = resolvePdf $doc $enc["P"]
         if ($p -isnot [double]) { throw $broken }
-        $pBytes = New-Object byte[] 4
-        $pLong = [long]$p
-        for ($i = 0; $i -lt 4; $i++) { $pBytes[$i] = [byte](($pLong -shr (8 * $i)) -band 255) }
-        $owner32 = New-Object byte[] 32
-        [Array]::Copy($ownerBytes, 0, $owner32, 0, 32)
-        $idBytes = ${pdfLatin1}.GetBytes($id)
-        $parts = @(${pdfPasswordPad}, $owner32, $pBytes, $idBytes)
-        if ($r -ge 4 -and -not $encryptMetadata) { $parts += , ([byte[]]@(255, 255, 255, 255)) }
-        $hash = getPdfRfc1321Hash (joinPdfCryptBytes $parts)
-        if ($r -ge 3) {
-            for ($i = 0; $i -lt 50; $i++) {
-                $head = New-Object byte[] $n
-                [Array]::Copy($hash, 0, $head, 0, $n)
-                $hash = getPdfRfc1321Hash $head
-            }
-        }
-        $key = New-Object byte[] $n
-        [Array]::Copy($hash, 0, $key, 0, $n)
-
-        # /U と照らす（Algorithm 4・5）
-        if ($r -eq 2) {
-            $expected = invokePdfRc4 $key ${pdfPasswordPad}
-            $compare = 32
-        } else {
-            $x = invokePdfRc4 $key (getPdfRfc1321Hash (joinPdfCryptBytes @(${pdfPasswordPad}, $idBytes)))
-            for ($i = 1; $i -le 19; $i++) {
-                $step = New-Object byte[] $n
-                for ($j = 0; $j -lt $n; $j++) { $step[$j] = $key[$j] -bxor $i }
-                $x = invokePdfRc4 $step $x
-            }
-            $expected = $x
-            $compare = 16
-        }
-        $same = $true
-        for ($i = 0; $i -lt $compare; $i++) { if ($expected[$i] -ne $userBytes[$i]) { $same = $false } }
-        if (-not $same) { throw "PDFにパスワードが必要なため読めません。" }
+        $key = getPdfKeyR234 $r $n $ownerBytes $userBytes $p (${pdfLatin1}.GetBytes($id)) $encryptMetadata
     }
     return @{ Key = $key; Version = $v; StmMethod = $method; Cf = $cf; EncryptMetadata = $encryptMetadata }
 }
@@ -381,7 +411,7 @@ function getPdfStreamCryptMethod {
                     $params = resolvePdf $doc $paramsList[$i]
                     if ((testPdfDict $params) -and $null -ne (resolvePdf $doc $params["Name"])) { $name = resolvePdf $doc $params["Name"] }
                 }
-                if ($name -isnot [string]) { throw "PDFの暗号化の方式に対応していないため読めません。" }
+                if ($name -isnot [string]) { throw ${pdfCryptUnsupported} }
                 return (getPdfCryptMethod $doc $crypt.Cf $name $crypt.Version)
             }
         }
@@ -419,16 +449,10 @@ function unprotectPdfData {
     if ($data.Length -lt 32 -or $data.Length % 16 -ne 0) {
         throw "PDFの暗号化されたデータが壊れているため読めません。"
     }
-    $iv = New-Object byte[] 16
-    [Array]::Copy($data, 0, $iv, 0, 16)
-    $body = New-Object byte[] ($data.Length - 16)
-    [Array]::Copy($data, 16, $body, 0, $body.Length)
-    $plain = invokePdfAesCbc $key $iv $body $false
+    $plain = invokePdfAesCbc $key (getPdfSlice $data 0 16) (getPdfSlice $data 16 ($data.Length - 16)) $false
     $pad = $plain[$plain.Length - 1]
     if ($pad -lt 1 -or $pad -gt 16) {
         throw "PDFの暗号化されたデータが壊れているため読めません。"
     }
-    $result = New-Object byte[] ($plain.Length - $pad)
-    [Array]::Copy($plain, 0, $result, 0, $result.Length)
-    return , $result
+    return , (getPdfSlice $plain 0 ($plain.Length - $pad))
 }

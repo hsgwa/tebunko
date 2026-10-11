@@ -120,7 +120,8 @@ function newPdfWithXrefStream {
         [int]$pngType = 2,
         [switch]$useIndex,
         [switch]$badHeader,
-        [switch]$reverseIndex
+        [switch]$reverseIndex,
+        [scriptblock]$protectObjStm = $null
     )
 
     $objs = @{}
@@ -139,7 +140,10 @@ function newPdfWithXrefStream {
         $headText = $head.ToString()
         if ($badHeader) { $headText = "x" + $headText.Substring(1) }
         $data = toPdfBytes ($headText + $body.ToString())
-        $objs[$objStmId] = newPdfStreamObject "/Type /ObjStm /N $($packedIds.Count) /First $($head.Length) /Filter /FlateDecode" (compressPdfBytes $data)
+        $objStmData = compressPdfBytes $data
+        # protectObjStm: オブジェクトのストリーム自身の番号で暗号化する（中のオブジェクトは暗号化しない）
+        if ($null -ne $protectObjStm) { $objStmData = & $protectObjStm $objStmId $objStmData }
+        $objs[$objStmId] = newPdfStreamObject "/Type /ObjStm /N $($packedIds.Count) /First $($head.Length) /Filter /FlateDecode" $objStmData
     }
 
     $ms = New-Object System.IO.MemoryStream
@@ -284,6 +288,8 @@ function getTestHashR56([int]$revision, [byte[]]$password, [byte[]]$salt) {
 
 function newEncryptedPdf {
     # method: rc40（V1 R2）・rc128（V2 R3）・aes128（V4 R4）・aes256r5・aes256r6。userPassword が空でなければ、空のパスワードでは開けない。
+    # objectStream なら、カタログ・ページの木・ページをオブジェクトのストリームに入れ、そのストリームを自分の番号の鍵で暗号化する（xrefStream も兼ねる）。
+    # encryptMetadata を false にすると、Encrypt に /EncryptMetadata false を書き、鍵の計算に FF×4 を足す（aes128 だけ）。
     # encryptDict を渡すと、Encrypt の辞書をそれに替える（鍵と暗号は method のまま）。xrefStream なら相互参照をストリームにする
     param (
         [string[]]$pages,
@@ -291,7 +297,9 @@ function newEncryptedPdf {
         [string]$userPassword = '',
         [switch]$compress,
         [string]$encryptDict = '',
-        [switch]$xrefStream
+        [switch]$xrefStream,
+        [switch]$objectStream,
+        [bool]$encryptMetadata = $true
     )
 
     $pad = [byte[]]@(0x28, 0xBF, 0x4E, 0x5E, 0x4E, 0x75, 0x8A, 0x41, 0x64, 0x00, 0x4E, 0x56, 0xFF, 0xFA, 0x01, 0x08, 0x2E, 0x2E, 0x00, 0xB6, 0xD0, 0x68, 0x3E, 0x80, 0x2F, 0x0C, 0xA9, 0xFE, 0x64, 0x53, 0x69, 0x7A)
@@ -318,7 +326,9 @@ function newEncryptedPdf {
         $p = -4
         $pBytes = [byte[]](0xFC, 0xFF, 0xFF, 0xFF)
         $padded = [byte[]](($pw + $pad)[0..31])
-        $h = getTestDigest 'MD5' (joinPdfBytes @($padded, $o, $pBytes, $id))
+        $hashParts = @($padded, $o, $pBytes, $id)
+        if ($r -ge 4 -and -not $encryptMetadata) { $hashParts += , ([byte[]](255, 255, 255, 255)) }
+        $h = getTestDigest 'MD5' (joinPdfBytes $hashParts)
         if ($r -ge 3) { for ($i = 0; $i -lt 50; $i++) { $h = getTestDigest 'MD5' ([byte[]]$h[0..($n - 1)]) } }
         $key = [byte[]]$h[0..($n - 1)]
         if ($r -eq 2) {
@@ -330,6 +340,7 @@ function newEncryptedPdf {
             $u = joinPdfBytes @($x, [byte[]](1..16))
         }
         $dict += " /O $(& $hex $o) /U $(& $hex $u) /P $p"
+        if (-not $encryptMetadata) { $dict += ' /EncryptMetadata false' }
         $trailerId = "/ID [$(& $hex $id) $(& $hex $id)]"
     }
     else {
@@ -368,6 +379,11 @@ function newEncryptedPdf {
         $flate = ''
         if ($compress) { $data = compressPdfBytes $data; $flate = '/Filter /FlateDecode' }
         $objs[$contentId] = newPdfStreamObject $flate (& $protect $contentId $data)
+    }
+    if ($objectStream) {
+        $packed = @{}
+        foreach ($k in @(1, 2) + @(0..($pages.Count - 1) | ForEach-Object { 10 + $_ * 2 })) { $packed[$k] = $objs[$k]; $objs.Remove($k) }
+        return , (newPdfWithXrefStream -normal $objs -packed $packed -trailerExtra "/Root 1 0 R /Encrypt 5 0 R $trailerId" -protectObjStm $protect)
     }
     $extra = "/Root 1 0 R /Encrypt 5 0 R $trailerId"
     if ($xrefStream) { return , (newPdfWithXrefStream -normal $objs -trailerExtra $extra) }
