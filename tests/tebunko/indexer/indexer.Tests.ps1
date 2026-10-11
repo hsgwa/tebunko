@@ -296,18 +296,17 @@ Describe "indexer.ps1（利用者のPowerPointが起動している場合）" -T
             runIndexer $root | Should -Be 0
 
             $status = readTestStatus $root
-            # PowerPointが要るファイルは「未取り込み」のまま残す（失敗にはしない）
+            # PowerPointが要るファイルは「未取り込み」のまま残し（「失敗」にすると次の更新で飛ばされる）、理由を「エラー」列に書く
             $status.Rows["後回し\旧形式.ppt"].状態 | Should -Be ${stateNew}
+            $status.Rows["後回し\旧形式.ppt"].エラー | Should -Be ${postponedReasonRunning}
             # Office を使わないファイルはそのまま取り込む
             $status.Rows["後回し\議事録.docx"].状態 | Should -Be ${stateDone}
 
             $progress = readTestProgress
-            $progress.Processed | Should -Be 1
-            $progress.Failed | Should -Be 0
-            $progress.Remaining | Should -Be 1
+            $progress.Processed | Should -Be 2
+            $progress.Failed | Should -Be 1
+            $progress.Remaining | Should -Be 0
             readTestError | Should -BeNullOrEmpty
-            $script:lastChannel.Postponed | Should -Be 1
-            $script:lastChannel.Notice | Should -Match "PowerPoint が起動していたため、1 件を更新せずに残しました"
             # 利用者のPowerPointは、インデックス作成の間も強制終了されていない（プロセスが残っていることで確かめる）
             $userPptId | Should -Not -BeNullOrEmpty
             (Get-Process -Id $userPptId -ErrorAction SilentlyContinue) | Should -Not -BeNullOrEmpty
@@ -325,7 +324,9 @@ Describe "indexer.ps1（利用者のPowerPointが起動している場合）" -T
 
         # 利用者がPowerPointを閉じたので、次のインデックス作成で取り込む
         runIndexer $root | Should -Be 0
-        (readTestStatus $root).Rows["後回し\旧形式.ppt"].状態 | Should -Be ${stateDone}
+        $second = (readTestStatus $root).Rows["後回し\旧形式.ppt"]
+        $second.状態 | Should -Be ${stateDone}
+        $second.エラー | Should -BeNullOrEmpty
     }
 }
 
@@ -359,10 +360,21 @@ Describe "indexer.ps1（後回しの司令の流れ。実際のPowerPointは使�
             runIndexer $root @{ Workers = 0 } | Should -Be 0
 
             $status = readTestStatus $root
+            # 失敗として数え、取り込み一覧は「未取り込み」のまま理由を「エラー」列に書く
             $status.Rows["後回し2\旧形式.ppt"].状態 | Should -Be ${stateNew}
+            $status.Rows["後回し2\旧形式.ppt"].エラー | Should -Be ${postponedReasonRunning}
             $status.Rows["後回し2\議事録.docx"].状態 | Should -Be ${stateDone}
-            $script:lastChannel.Postponed | Should -Be 1
-            $script:lastChannel.Notice | Should -Match "1 件を更新せずに残しました"
+            $progress = readTestProgress
+            $progress.Failed | Should -Be 1
+            $progress.Remaining | Should -Be 0
+            # 画面の「更新に失敗したファイル」の一覧（getIndexingState）に理由付きで出る。待ちの件数には入らない
+            $indexingState = getIndexingState ([datetime]::MaxValue) "$root\work\ingest_status.tsv"
+            $indexingState.Failed | Should -Be 1
+            $indexingState.Pending | Should -Be 0
+            @($indexingState.FailedRows).Count | Should -Be 1
+            $indexingState.FailedRows[0].エラー | Should -Be ${postponedReasonRunning}
+            (Get-Content -LiteralPath "$root\work\indexing_log.txt" -Raw) | Should -Match "PowerPoint を閉じてからもう一度更新すると、そのまま取り込みます"
+            (Get-Content -LiteralPath "$root\work\indexing_log.txt" -Raw) | Should -Not -Match "失敗分も再取り込みする"
             # stopAllApps は後片付け（finally）で 1 回だけ呼ばれる。後回しを取り込んだ件数に数えると
             # 100 件ごとの起動し直しの判定が早まって途中でも呼ばれるが、ここでは増えない
             # （RestartInterval を差し替えられる runIngestWorker 単体の It で、数えないことを詳しく確かめている）
@@ -371,7 +383,48 @@ Describe "indexer.ps1（後回しの司令の流れ。実際のPowerPointは使�
             # 利用者が PowerPoint を閉じたことにすると、後回しにしたファイルを取り込む
             $global:testUserPptOpen = $false
             runIndexer $root | Should -Be 0
-            (readTestStatus $root).Rows["後回し2\旧形式.ppt"].状態 | Should -Be ${stateDone}
+            # 再取り込みを選ばなくても取り込み、エラー列は空になる
+            $second = (readTestStatus $root).Rows["後回し2\旧形式.ppt"]
+            $second.状態 | Should -Be ${stateDone}
+            $second.エラー | Should -BeNullOrEmpty
+        } finally {
+            Remove-Variable -Name testOfficeAppInUseMessage, testUserPptOpen -Scope Global -ErrorAction SilentlyContinue
+        }
+    }
+
+    It "前回取り込み済みのファイルが後回しになったときは、状態とエラーだけを替え、TSV 数・取り込み日時・抽出版は前回のまま残す" {
+        $dir = Join-Path $TestDrive "後回し3"
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        Copy-Item -LiteralPath "${testDataDir}\office\PowerPoint\形式\旧形式.ppt" -Destination "$dir\旧形式.ppt"
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "後回し3"; path = $dir; enabled = $true })
+
+        $global:testOfficeAppInUseMessage = ${officeAppInUseMessage}
+        $global:testUserPptOpen = $false
+        Mock ingestFile {
+            if ($global:testUserPptOpen) {
+                throw (New-Object System.InvalidOperationException "PowerPoint$global:testOfficeAppInUseMessage")
+            }
+            return 1
+        } -ParameterFilter { $sourcePath -like "*.ppt" }
+        Mock stopAllApps {}
+
+        try {
+            runIndexer $root @{ Workers = 0 } | Should -Be 0
+            $before = (readTestStatus $root).Rows["後回し3\旧形式.ppt"]
+            $before.状態 | Should -Be ${stateDone}
+
+            # ファイルが更新され、利用者の PowerPoint が起動している
+            (Get-Item -LiteralPath "$dir\旧形式.ppt").LastWriteTime = (Get-Date).AddMinutes(-5)
+            $global:testUserPptOpen = $true
+            runIndexer $root @{ Workers = 0 } | Should -Be 0
+
+            $after = (readTestStatus $root).Rows["後回し3\旧形式.ppt"]
+            $after.状態 | Should -Be ${stateNew}
+            $after.エラー | Should -Be ${postponedReasonRunning}
+            $after.TSV数 | Should -Be $before.TSV数
+            $after.取り込み日時 | Should -Be $before.取り込み日時
+            $after.抽出版 | Should -Be $before.抽出版
         } finally {
             Remove-Variable -Name testOfficeAppInUseMessage, testUserPptOpen -Scope Global -ErrorAction SilentlyContinue
         }
@@ -403,14 +456,14 @@ Describe "indexer.ps1（後回しの司令の流れ。実際のPowerPointは使�
         $status = readTestStatus $root
         foreach ($name in "a", "b", "c") {
             $status.Rows["諦め\$name.docx"].状態 | Should -Be ${stateNew}
+            $status.Rows["諦め\$name.docx"].エラー | Should -Be ${postponedReasonInUse}
         }
-        $script:lastChannel.Postponed | Should -Be 3
-        $script:lastChannel.Notice | Should -Match "3 件を更新せずに残しました"
+        (readTestProgress).Failed | Should -Be 3
         # 書き出していない（取り込んだ TSV もインデックスも無い）。取り込み中の記録・書き出しの置き場にも残さない
         (findIndexFoldersWithBooks "$root\work\content_index").Count | Should -Be 0
         Test-Path -LiteralPath "$root\work\ingesting.txt" | Should -Be $false
         @(Get-ChildItem -LiteralPath "$root\work\publish" -Recurse -File -Force -ErrorAction SilentlyContinue).Count | Should -Be 0
-        (Get-Content -LiteralPath "$root\work\indexing_log.txt" -Raw) | Should -Match "PowerPoint を使っている方がいるため"
+        (Get-Content -LiteralPath "$root\work\indexing_log.txt" -Raw) | Should -Match "PowerPoint を使っている方がいたため取り込めませんでした"
     }
 
     It "回し直し先のレーンを諦めていたら、渡さずに未取り込みのまま後回しにし、0 で終わる" {
@@ -435,9 +488,10 @@ Describe "indexer.ps1（後回しの司令の流れ。実際のPowerPointは使�
             Remove-Variable -Name testRerouteDone -Scope Global -ErrorAction SilentlyContinue
         }
 
-        (readTestStatus $root).Rows["回し直し先を諦め\議事録.docx"].状態 | Should -Be ${stateNew}
-        $script:lastChannel.Postponed | Should -Be 1
-        $script:lastChannel.Notice | Should -Match "1 件を更新せずに残しました"
+        $row = (readTestStatus $root).Rows["回し直し先を諦め\議事録.docx"]
+        $row.状態 | Should -Be ${stateNew}
+        $row.エラー | Should -Be ${postponedReasonInUse}
+        (readTestProgress).Failed | Should -Be 1
         Test-Path -LiteralPath "$root\work\ingesting.txt" | Should -Be $false
     }
 

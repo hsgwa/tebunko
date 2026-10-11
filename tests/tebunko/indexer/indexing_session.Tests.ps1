@@ -162,26 +162,6 @@ $Channel.ExitCode = 2
         }
     }
 
-    It "GetNotice・GetPostponed は受け渡しの口の値を返す。入っていなければ空・0" {
-        $session = newFakeIndexingSession '$Channel.Notice = "PowerPoint が起動していたため、2 件を更新せずに残しました。"; $Channel.Postponed = 2; $Channel.ExitCode = 0' (newIndexerChannel)
-        try {
-            [void]$session.Wait(30000)
-            $session.GetNotice() | Should -Be "PowerPoint が起動していたため、2 件を更新せずに残しました。"
-            $session.GetPostponed() | Should -Be 2
-        } finally {
-            $session.Close()
-        }
-
-        $emptySession = newFakeIndexingSession '$Channel.ExitCode = 0' (newIndexerChannel)
-        try {
-            [void]$emptySession.Wait(30000)
-            $emptySession.GetNotice() | Should -Be ""
-            $emptySession.GetPostponed() | Should -Be 0
-        } finally {
-            $emptySession.Close()
-        }
-    }
-
     It "インデクサが止まらずにエラーだけを書いて終わったら、その内容を理由として返す" {
         $session = newFakeIndexingSession 'Write-Error "読み込めないファイルがありました"' (newIndexerChannel)
         try {

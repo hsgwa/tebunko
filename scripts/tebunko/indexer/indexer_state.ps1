@@ -256,7 +256,6 @@ function newIndexerChannel {
     #   画面が書く      : RetryFailed・IncludeCloud（クラウドにだけあるファイルもダウンロードして取り込むか）・ConfirmTargets・Workers（取り込みのスレッドの数。0 は司令のスレッドで取り込む、-1 は設定・コア数から決める）・Stop・Answer・
     #                     OnlyNames（更新するインデックス名の配列。空なら、チェックの付いたものすべて）
     #   インデクサが書く: Progress（readIndexingProgress の形）・Plan（取り込み予定）・Error・ExitCode（0 完了 / 1 エラー / 2 中止）・
-    #                     Notice（終わりの一言。無ければ空）・Postponed（利用者のPowerPointが起動していて後回しにした件数）・
     #                     CloudSkipped（クラウドにだけあるため、ダウンロードせずに残した件数）・
     #                     OnlySkipped（OnlyNames のうち、更新できなかった名前の @{ Name; Reason } の配列）
     #   OfficePids: インデックス作成が起動した Office の PID → @{ ProcessName; StartTicks }（閉じるときに止まらなければ、名前と起動時刻が合う PID だけを止める）
@@ -274,7 +273,7 @@ function newIndexerChannel {
         OnlyNames = @($onlyNames | Where-Object { $_ }); OnlySkipped = @()
         Progress = $null; Stop = $false
         Plan = $null; Answer = $null; Answered = New-Object System.Threading.ManualResetEvent($false)
-        Error = ""; ExitCode = $null; Notice = ""; Postponed = 0; CloudSkipped = 0
+        Error = ""; ExitCode = $null; CloudSkipped = 0
         OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'
         UserOfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'
     })
@@ -547,11 +546,11 @@ function getIndexingState {
     $sinceSecond = if ($countSince) { $since.AddTicks(-($since.Ticks % [timespan]::TicksPerSecond)) } else { $since }
     $failedRows = New-Object System.Collections.Generic.List[object]
     foreach ($row in $status.Rows.Values) {
-        if ($row.状態 -eq ${stateNew}) {
-            $state.Pending++
-        } elseif ($row.状態 -eq ${stateFailed}) {
+        if (testStatusRowFailed $row) {
             $state.Failed++
             $failedRows.Add($row)
+        } elseif ($row.状態 -eq ${stateNew}) {
+            $state.Pending++
         } elseif ($row.状態 -eq ${stateDone}) {
             $state.Done++
         }

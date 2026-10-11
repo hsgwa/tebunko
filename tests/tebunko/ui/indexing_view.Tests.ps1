@@ -207,26 +207,21 @@ Describe "getIndexingBannerLevel（更新が終わった帯の色の種類）" -
 }
 
 Describe "getIndexingEndText" -Tag Unit {
-    It "取り込んだ（成功＋失敗）が1件以上なら、成功・失敗（・残り）の見出し" -TestCases @(
-        @{ Success = 10; Failed = 0; Postponed = 0; Notice = ""; Text = "更新が終わりました（成功 10 件 / 失敗 0 件）"; Detail = "" }
-        @{ Success = 8; Failed = 2; Postponed = 0; Notice = ""; Text = "更新が終わりました（成功 8 件 / 失敗 2 件）"; Detail = "失敗したファイルと原因は「更新に失敗したファイル」の一覧で確認できます。" }
-        @{ Success = 9; Failed = 0; Postponed = 3; Notice = "案内"; Text = "更新が終わりました（成功 9 件 / 失敗 0 件 / 残り 3 件）"; Detail = "案内" }
-        @{ Success = 7; Failed = 1; Postponed = 2; Notice = "案内"; Text = "更新が終わりました（成功 7 件 / 失敗 1 件 / 残り 2 件）"; Detail = "失敗したファイルと原因は「更新に失敗したファイル」の一覧で確認できます。 案内" }
+    It "取り込んだ（成功＋失敗）が1件以上なら、成功・失敗の見出し。利用者のPowerPointのために取り込めなかったファイルも失敗の件数に入っていて、「更新せずに残した」「残り」の文言は出ない" -TestCases @(
+        @{ Success = 10; Failed = 0; Text = "更新が終わりました（成功 10 件 / 失敗 0 件）"; Detail = "" }
+        @{ Success = 8; Failed = 2; Text = "更新が終わりました（成功 8 件 / 失敗 2 件）"; Detail = "失敗したファイルと原因は「更新に失敗したファイル」の一覧で確認できます。" }
+        @{ Success = 9; Failed = 3; Text = "更新が終わりました（成功 9 件 / 失敗 3 件）"; Detail = "失敗したファイルと原因は「更新に失敗したファイル」の一覧で確認できます。" }
     ) {
-        param ($Success, $Failed, $Postponed, $Notice, $Text, $Detail)
-        $view = getIndexingEndText $Success $Failed $Postponed $Notice
+        param ($Success, $Failed, $Text, $Detail)
+        $view = getIndexingEndText $Success $Failed
         $view.Text | Should -Be $Text
         $view.Detail | Should -Be $Detail
-    }
-
-    It "取り込んだのが0件で後回しがあれば、後回しの見出しと終わりの一言" {
-        $view = getIndexingEndText 0 0 5 "PowerPoint が起動していたため、5 件を更新せずに残しました。"
-        $view.Text | Should -Be "更新が終わりました（更新せずに残したファイル 5 件）"
-        $view.Detail | Should -Be "PowerPoint が起動していたため、5 件を更新せずに残しました。"
+        $view.Text | Should -Not -Match "更新せずに残した|残り"
+        $view.Detail | Should -Not -Match "更新せずに残した"
     }
 
     It "どちらも0件なら「更新が必要なファイルはありませんでした」" {
-        $view = getIndexingEndText 0 0 0 ""
+        $view = getIndexingEndText 0 0
         $view.Text | Should -Be "更新が必要なファイルはありませんでした"
         $view.Detail | Should -Be ""
     }
@@ -455,7 +450,7 @@ Describe "getIndexingEndText（クラウドにだけあるファイル）" -Tag 
            text = "更新が必要なファイルはありませんでした"; detail = "" }
     ) {
         param ($name, $success, $failed, $cloud, $text, $detail)
-        $view = getIndexingEndText $success $failed 0 "" $cloud
+        $view = getIndexingEndText $success $failed $cloud
         $view.Text | Should -Be $text
         $view.Detail | Should -Be $detail
     }
@@ -580,18 +575,5 @@ Describe "getIndexingConfirmText（失敗分の更新し直し × クラウド�
         $view.Total | Should -Be $total
         $view.Text | Should -Be $text
         $view.Button | Should -Be "更新を開始"
-    }
-}
-
-Describe "getIndexingEndText（後回し × クラウド）" -Tag Unit {
-    It "取り込みが 0 件で、後回しとクラウドがあれば、見出しは後回し、説明にクラウドの一言" {
-        $view = getIndexingEndText 0 0 2 "" 3
-        $view.Text | Should -Be "更新が終わりました（更新せずに残したファイル 2 件）"
-        $view.Detail | Should -Be "クラウドにだけあるファイル 3 件は、ダウンロードせずに残しました（次のインデックス作成でも確かめます）。"
-    }
-
-    It "取り込みが 0 件で、後回しとお知らせとクラウドがあれば、お知らせ・クラウドの順に説明へ並べる" {
-        $view = getIndexingEndText 0 0 2 "PowerPoint が起動しています。" 3
-        $view.Detail | Should -Be "PowerPoint が起動しています。 クラウドにだけあるファイル 3 件は、ダウンロードせずに残しました（次のインデックス作成でも確かめます）。"
     }
 }

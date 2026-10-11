@@ -457,16 +457,28 @@ function invokeIndexerBody {
         }
     }
 
-    # 利用者が使っている PowerPoint のために、取り込まずに残すファイルのログを書く（件数は呼び出す側が数える）
-    function writeUserPowerPointPostponed {
-        param ([int]$number, [string]$relPath)
+    # 利用者が使っている PowerPoint のために取り込めなかったファイルを、失敗として記録する（件数は呼び出す側が数える）。
+    # 取り込み一覧の行は「未取り込み」のまま、理由を「エラー」列に書く（「失敗」にすると、次の更新で飛ばされるため）。
+    # 前回の行があれば、TSV 数・取り込み日時・抽出版は前回のまま残す（インデックスは変えていない）
+    function recordUserPowerPointPostponed {
+        param ([int]$number, $row, [string]$reason)
 
+        $relPath = [string]$row.相対パス
+        $old = $null
+        if ($previous.TryGetValue($relPath, [ref]$old) -and $old) {
+            $row.TSV数 = $old.TSV数
+            $row.取り込み日時 = $old.取り込み日時
+            $row.抽出版 = $old.抽出版
+        }
+        $row.状態 = ${stateNew}
+        $row.エラー = $reason
+        $ledger.AddFailure($relPath, $reason)
         writeIndexerLog ("[{0}/{1}] {2}" -f $number, $total, $relPath)
-        writeIndexerLog "    PowerPoint を使っている方がいるため、取り込まずに残しました（PowerPoint を閉じてから、もう一度更新すると取り込みます）。" "Yellow"
+        writeIndexerLog "    取り込めませんでした（次の更新で取り込みます）: $reason" "Yellow"
     }
-    # 取り込み中のファイルを、取り込み中から外して残す（書き出し待ちを済ませ、ログを書く。releaseLane: レーンの取り込み中の数も減らす）
+    # 取り込み中のファイルを、取り込み中から外して残す（書き出し待ちを済ませ、失敗として記録する。releaseLane: レーンの取り込み中の数も減らす）
     function postponeInflightForUser {
-        param ([string]$relKey, [switch]$releaseLane)
+        param ([string]$relKey, [string]$reason, [switch]$releaseLane)
 
         $lost = $inflight[$relKey]
         [void]$inflight.Remove($relKey)
@@ -474,7 +486,7 @@ function invokeIndexerBody {
             $laneBusy[$lost.Lane] = $laneBusy[$lost.Lane] - 1
         }
         $pending.Complete($lost.Folder)
-        writeUserPowerPointPostponed $lost.Number $relKey
+        recordUserPowerPointPostponed $lost.Number $lost.Row $reason
     }
 
     $reporter.Progress(${indexingPhaseCrawl}, 0, 0, 0, "インデックス作成の準備をしています…")
@@ -705,8 +717,7 @@ function invokeIndexerBody {
     }
 
     $successCount = 0
-    $abandonedAny = $false  # 制限時間を過ぎても利用者が使っている PowerPoint を止めずに、レーンを諦めたことがある（終わりの案内に、応答しないときの閉じ方を足す）
-    $postponedCount = 0 # 利用者のPowerPointが起動していて後回しにした件数（未取り込みのまま次回に回す）
+    $postponedCount = 0 # 利用者のPowerPointのために取り込めなかった件数（失敗の件数に含む。一覧は「未取り込み」のまま次回に回す。終わりの案内で、再取り込みの選択が要る失敗と分ける）
     $stopped = $false
     # 今回失敗したファイル（$ledger.Failures。@{ RelPath; Message } の並び）・
     # 取り込みの直前に元のファイルが無くなっていた相対パス（$ledger.DroppedRows。取り込み一覧から除く）は StatusLedger が持つ
@@ -758,16 +769,15 @@ function invokeIndexerBody {
             if ($pool) {
                 foreach ($abandonedLane in @(getUnhandledAbandonedLanes $pool)) {
                     $pool.LaneStates[$abandonedLane].Handled = $true
-                    $abandonedAny = $true
                     foreach ($relKey in @($inflight.Keys)) {
                         if ($inflight[$relKey].Lane -ne $abandonedLane) {
                             continue
                         }
-                        postponeInflightForUser $relKey -releaseLane
+                        postponeInflightForUser $relKey ${postponedReasonInUse} -releaseLane
                         $postponedCount++
                     }
                     $ledger.WriteIngestingFiles((getIngestingEntries $inflight $carried))
-                    $reporter.Progress(${indexingPhaseIngest}, ($successCount + $ledger.Failures.Count), ($total - $successCount - $ledger.Failures.Count - $postponedCount), $ledger.Failures.Count, $currentPath)
+                    $reporter.Progress(${indexingPhaseIngest}, ($successCount + $ledger.Failures.Count), ($total - $successCount - $ledger.Failures.Count), $ledger.Failures.Count, $currentPath)
                     flushPending
                 }
             }
@@ -792,7 +802,8 @@ function invokeIndexerBody {
                     $undispatched--
                     $pending.Skip($bookFolders[$i])
                     $postponedCount++
-                    writeUserPowerPointPostponed ($i + 1) $targets[$i].相対パス
+                    recordUserPowerPointPostponed ($i + 1) $targets[$i] ${postponedReasonInUse}
+                    $reporter.Progress(${indexingPhaseIngest}, ($successCount + $ledger.Failures.Count), ($total - $successCount - $ledger.Failures.Count), $ledger.Failures.Count, $currentPath)
                     continue
                 }
                 if ($pool) {
@@ -885,7 +896,7 @@ function invokeIndexerBody {
                 $entry.Lane = getOfficeLane $result.RelPath
                 if ($pool.LaneStates[$entry.Lane].Abandoned) {
                     # 回し先が諦めたレーンのときは、渡さずに後回しにする
-                    postponeInflightForUser $result.RelPath
+                    postponeInflightForUser $result.RelPath ${postponedReasonInUse}
                     $postponedCount++
                     $ledger.WriteIngestingFiles((getIngestingEntries $inflight $carried))
                     flushPending
@@ -896,16 +907,17 @@ function invokeIndexerBody {
                 continue
             }
             if ($result.Postponed) {
-                # 利用者のPowerPointが起動していて使えなかった。取り込まず「未取り込み」のまま残し、次回のインデックス作成で取り込む
-                # （取り込み一覧・インデックスは変えない。$ledger.AddRow・$pending.Add はしない）
+                # 利用者のPowerPointが起動していて使えなかった。失敗として理由を見せ、取り込み一覧は「未取り込み」のまま残して次回のインデックス作成で取り込む
+                # （インデックスは変えない。$ledger.AddRow・$pending.Add はしない）
                 [void]$inflight.Remove($result.RelPath)
                 $laneBusy[$entry.Lane] = $laneBusy[$entry.Lane] - 1
                 $pending.Complete($entry.Folder)
                 $postponedCount++
-                writeIndexerLog ("[{0}/{1}] {2}" -f $entry.Number, $total, $result.RelPath)
-                writeIndexerLog "    PowerPoint が起動しているため、取り込まずに残しました（次のインデックス作成で取り込みます）。" "Yellow"
+                # 諦めたレーンのスレッドが返した後回しは「使っている方がいた」、始めから起動していたときは「起動していた」
+                $postponedReason = if ($pool -and $pool.LaneStates[$entry.Lane].Abandoned) { ${postponedReasonInUse} } else { ${postponedReasonRunning} }
+                recordUserPowerPointPostponed $entry.Number $entry.Row $postponedReason
                 $ledger.WriteIngestingFiles((getIngestingEntries $inflight $carried))
-                $reporter.Progress(${indexingPhaseIngest}, ($successCount + $ledger.Failures.Count), ($total - $successCount - $ledger.Failures.Count - $postponedCount), $ledger.Failures.Count, $currentPath)
+                $reporter.Progress(${indexingPhaseIngest}, ($successCount + $ledger.Failures.Count), ($total - $successCount - $ledger.Failures.Count), $ledger.Failures.Count, $currentPath)
                 flushPending
                 continue
             }
@@ -991,15 +1003,14 @@ function invokeIndexerBody {
                 writeIndexerLog "システムインデックスを作れませんでした（次のインデックス作成で作り直します）: $($_.Exception.Message)" "Yellow"
             }
         }
-        # 画面が終わり方（成功・失敗の件数）を読めるよう、進み具合は消さずに最後の状態を残す。
-        # 「残り」には後回しにした件数も足す（未取り込みのまま残っているため）
-        $reporter.Progress(${indexingPhaseFinish}, $processed, ($remaining + $postponedCount), $ledger.Failures.Count, "")
+        # 画面が終わり方（成功・失敗の件数）を読めるよう、進み具合は消さずに最後の状態を残す
+        $reporter.Progress(${indexingPhaseFinish}, $processed, $remaining, $ledger.Failures.Count, "")
     }
 
     if ($folderLost) {
         # クロール対象フォルダが見えなくなった場合は、続けられないエラーとして画面に知らせる（残りは未取り込みのまま）
         $message = "クロール対象フォルダが見つからなくなったため、インデックス作成を中止しました: ${folderLost}" +
-            "（残り ${remaining} 件は更新せずに残しました。フォルダを使えるようにしてから、もう一度更新してください）"
+            "（残り ${remaining} 件は取り込まずに残しました。フォルダを使えるようにしてから、もう一度更新してください）"
         writeIndexerLog ""
         writeIndexerLog $message "Red"
         $channel.Error = $message
@@ -1015,16 +1026,6 @@ function invokeIndexerBody {
     if ($ledger.DroppedRows.Count -gt 0) {
         writeIndexerLog "取り込みの直前に元のファイルが無くなった $($ledger.DroppedRows.Count) 件は、取り込まずに一覧から除きました。" "Yellow"
     }
-    if ($postponedCount -gt 0) {
-        # 利用者のPowerPointを閉じれば、次のインデックス作成で取り込む（未取り込みのまま残したファイル）
-        $notice = "PowerPoint が起動していたため、${postponedCount} 件を更新せずに残しました。PowerPoint を閉じてから、もう一度更新を始めると更新します。"
-        if ($abandonedAny) {
-            $notice = "PowerPoint を使っている方がいたため、${postponedCount} 件を更新せずに残しました。PowerPoint が応答していないときは、保存して閉じてください。閉じてから、もう一度更新を始めると更新します。"
-        }
-        writeIndexerLog $notice "Yellow"
-        $channel.Notice = $notice
-    }
-    $channel.Postponed = $postponedCount
     writeIndexerLog "各ファイルの状態・更新日時は $(Split-Path $workspace.StatusFile -Leaf) で確認できます。"
     if ($ledger.Failures.Count -gt 0) {
         # インデックス作成中の表示は流れて見えなくなるため、失敗したファイルと原因を最後にまとめて表示する
@@ -1038,7 +1039,13 @@ function invokeIndexerBody {
             writeIndexerLog "  ほか $($ledger.Failures.Count - $failureListLimit) 件（一覧の「状態」が「${stateFailed}」の行。原因は「エラー」列）"
         }
         writeIndexerLog ""
-        writeIndexerLog "失敗したファイルは、画面で「失敗分も再取り込みする」を選んで取り込むと再取り込みします。" "Yellow"
+        if ($ledger.Failures.Count -gt $postponedCount) {
+            writeIndexerLog "失敗したファイルは、画面で「失敗分も再取り込みする」を選んで取り込むと再取り込みします。" "Yellow"
+        }
+        if ($postponedCount -gt 0) {
+            # 一覧の状態は「未取り込み」のため、PowerPoint を閉じてからの次の更新で選ばなくても取り込む
+            writeIndexerLog "PowerPoint のために取り込めなかった ${postponedCount} 件は、PowerPoint を閉じてからもう一度更新すると、そのまま取り込みます。" "Yellow"
+        }
     }
 
     if ($stopped) {

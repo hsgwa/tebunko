@@ -1,4 +1,9 @@
 ﻿# インデックスの追加・集計・改名・削除（tebunko\index\index_store.ps1）のテスト
+BeforeDiscovery {
+    # -TestCases の表が使う一覧の状態（$stateDone など）
+    . "$PSScriptRoot\..\..\helpers\load.ps1"
+}
+
 BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
 }
@@ -26,6 +31,34 @@ Describe "getIndexStats" -Tag Io {
         $stats["技術"].LastIngested | Should -Be "2026/09/17 09:00:00"
     }
 
+}
+
+Describe "testStatusRowFailed" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "済は失敗に数えない"; state = $stateDone; errorText = ""; expected = $false }
+        @{ name = "失敗は失敗に数える"; state = $stateFailed; errorText = "原因"; expected = $true }
+        @{ name = "エラーが空の失敗も失敗に数える"; state = $stateFailed; errorText = ""; expected = $true }
+        @{ name = "エラーが空の未取り込みは待ち（失敗に数えない）"; state = $stateNew; errorText = ""; expected = $false }
+        @{ name = "エラー（理由）が書いてある未取り込みは失敗に数える"; state = $stateNew; errorText = ${postponedReasonRunning}; expected = $true }
+    ) {
+        param ($name, $state, $errorText, $expected)
+        testStatusRowFailed (newStatusRow "営業\a.ppt" "" "" $state "" "" $errorText) | Should -Be $expected
+    }
+}
+
+Describe "getIndexStats（エラーが書いてある未取り込み）" -Tag Unit {
+    It "「未取り込み」でエラーが書いてある行は Failed に数え、Pending には数えない" {
+        $rows = [ordered]@{
+            "営業\a.ppt" = (newStatusRow "営業\a.ppt" "" "" $stateNew "" "" ${postponedReasonInUse})
+            "営業\b.ppt" = (newStatusRow "営業\b.ppt" "" "" $stateNew)
+            "営業\c.ppt" = (newStatusRow "営業\c.ppt" "" "" $stateDone "1" "2026/09/19 10:00:00")
+        }
+        $stats = getIndexStats $rows
+        $stats["営業"].Total | Should -Be 3
+        $stats["営業"].Failed | Should -Be 1
+        $stats["営業"].Pending | Should -Be 1
+        $stats["営業"].Done | Should -Be 1
+    }
 }
 
 Describe "renameIndex" -Tag Io {
