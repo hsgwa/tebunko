@@ -110,6 +110,8 @@ Describe "indexer.ps1（続けられないエラー）" -Tag Io {
         foreach ($name in $files) {
             [System.IO.File]::ReadAllText("$root\work\$name") | Should -Be "実行中"
         }
+        # 鍵が取れなかったときは、前回の分へ移さない
+        [System.IO.File]::Exists("$root\work\indexing_log_previous.txt") | Should -Be $false
         readTestError | Should -Match "ほかのインデックス作成が実行中です"
     }
 }
@@ -181,8 +183,14 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         writeTestSettings $root @(@{ name = "営業"; path = $source; enabled = $true })
         runIndexer $root | Should -Be 0
         $first = (readTestStatus $root).Rows["営業\壊れた.pptx"].取り込み日時
+        $firstLog = [System.IO.File]::ReadAllText("$root\work\indexing_log.txt")
+        $firstLog | Should -Match "^﻿?==== tebunko の診断情報 ===="
+        [System.IO.File]::Exists("$root\work\indexing_log_previous.txt") | Should -Be $false
 
         runIndexer $root | Should -Be 0
+        # 前回の記録を 1 世代残し、今回の記録の先頭にも版と環境が入る
+        [System.IO.File]::ReadAllText("$root\work\indexing_log_previous.txt") | Should -Be $firstLog
+        [System.IO.File]::ReadAllText("$root\work\indexing_log.txt") | Should -Match "^﻿?==== tebunko の診断情報 ===="
         $progress = readTestProgress
         $progress.Detail | Should -Be "更新が必要なファイルはありませんでした"
         $status = readTestStatus $root

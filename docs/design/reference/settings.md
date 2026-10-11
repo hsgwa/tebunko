@@ -97,3 +97,19 @@
 | `testFolderUnder` | path, folder, drives（既定 `getDriveTargets`） | bool | path が folder 自身か folder の下のフォルダか（`testSameFolder` と同じく書き方の違いをたどる）。クロール対象フォルダが入れ子にならないかの確認に使う | 同上 | 画面（インデックスの追加・編集） |
 | `getFolderLeafName` | folderPath | string | フォルダ名（ドライブ直下はドライブ名、UNC は共有名） | [取り込み一覧](../indexing/ingest-list.md) | newIndexName |
 | `getExistingAncestorFolder` | folder | string | folder が今もあればそのまま、無ければその上の今もあるフォルダ。どこにも無ければ空 | [フォルダ選択ダイアログ（［参照…］）](../gui/common.md#フォルダ選択ダイアログ参照) | 画面（フォルダ選択） |
+
+## 診断情報とログの世代（`shared/core/diagnostics_view.ps1`・`diagnostics.ps1`・`tebunko/core/diagnostics.ps1`）
+
+ログの先頭に書く版と環境の見出しと、ログの入れ替え。仕様は[ログに書く版と環境の情報](../../safety/disclosure.md#ログに書く版と環境の情報)と[増え方と片付け](../structure/io-files.md#増え方と片付け)。
+
+| 関数 | 入力 | 出力 | 概要 | 使用元 |
+|---|---|---|---|---|
+| `getVersionLabel` | versionInfo（`readVersionFile` の結果） | `@{Version; Commit}` | 版の表示。タグとコミットの先頭 7 桁。`$null` なら `開発版`（Commit は空）。判断層 | `getAboutView`, `formatDiagnosticHeader` |
+| `getOfficeKind` | exePath, programFiles64, programFilesX86 | `@{Kind; Bits}` | Office の実行ファイルのパスから、Click-to-Run か MSI か、32・64 ビットかを決める。判断層 | `findOfficeApps` |
+| `hideUserProfile` | text, profileDir | string | 文字列の中のプロファイルのフォルダを `%USERPROFILE%` に置き換える（大文字小文字は区別しない。前方だけ一致する別のフォルダは置き換えない）。判断層 | 診断情報の組み立て |
+| `formatDiagnosticHeader` | toolName, versionInfo, envInfo, now | string[]（見出しの行） | 日時・版・OS・PowerShell・Office・表示言語の見出しを組み立てる。調べられない項目は `不明`。判断層 | `getToolDiagnosticHeader` |
+| `getEnvironmentInfo` | – | hashtable | OS・PowerShell・Office・表示言語を調べる。項目ごとに調べ、失敗した項目は空にする。レジストリ・WMI・COM は使わず、Office は起動しない | `getToolDiagnosticHeader` |
+| `findOfficeApps` | – | `@{Name; Version; Kind; Bits}` の配列 | `Program Files` の決まった場所の EXCEL・WINWORD・POWERPNT を探し、ファイルの版を読む | `getEnvironmentInfo` |
+| `getPreviousLogPath` | path | string | `<名前>_previous<拡張子>`（同じフォルダ） | `rotateLogFile`, `Workspace` |
+| `rotateLogFile` | path, maxBytes | bool | ファイルが maxBytes 以上なら `_previous` へ移す（あれば上書き）。maxBytes が 0 なら、あれば必ず移す。移したら `$true`、ファイルが無い・小さい・移せないときは `$false`（例外にしない） | `invokeIndexer`, `writeErrorLog` |
+| `getToolDiagnosticHeader` | – | string[] | このツールの版（`VERSION.txt`）と環境の見出し | `invokeIndexer`, `getGuiErrorLogHeader` |

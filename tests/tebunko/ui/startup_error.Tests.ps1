@@ -71,6 +71,32 @@ Describe "writeStartupErrorFile" -Tag Io {
         $content | Should -Match "2 回目"
     }
 
+    It "<name>" -ForEach @(
+        @{ name = "1 MB 未満なら追記だけで、前回の分は作らない"; size = 100; hasPrevious = $false; blockPrevious = $false; expectPrevious = $false }
+        @{ name = "1 MB 以上なら startup_error_previous.txt に移して新しいファイルに書く"; size = (1MB + 1); hasPrevious = $false; blockPrevious = $false; expectPrevious = $true }
+        @{ name = "1 MB 以上で前回の分があれば上書きする"; size = (1MB + 1); hasPrevious = $true; blockPrevious = $false; expectPrevious = $true }
+        @{ name = "1 MB 以上で移せなくても（前回の分が読み取り専用）記録を書いてパスを返す"; size = (1MB + 1); hasPrevious = $true; blockPrevious = $true; expectPrevious = $true }
+    ) {
+        $tool = Join-Path $TestDrive ("tool-rot-" + [guid]::NewGuid().ToString("N"))
+        [System.IO.Directory]::CreateDirectory($tool) | Out-Null
+        $file = Join-Path $tool "startup_error.txt"
+        $previous = Join-Path $tool "startup_error_previous.txt"
+        [System.IO.File]::WriteAllText($file, ("x" * $size), (New-Object System.Text.UTF8Encoding($true)))
+        if ($hasPrevious) { [System.IO.File]::WriteAllText($previous, "古い") }
+        if ($blockPrevious) { [System.IO.File]::SetAttributes($previous, [System.IO.FileAttributes]::ReadOnly) }
+        try {
+            writeStartupErrorFile "新しい記録" $tool | Should -Be $file
+        } finally {
+            if ($blockPrevious) { [System.IO.File]::SetAttributes($previous, [System.IO.FileAttributes]::Normal) }
+        }
+        Test-Path -LiteralPath $previous | Should -Be $expectPrevious
+        (Get-Content -LiteralPath $file -Raw) | Should -Match "新しい記録"
+        if ($size -gt 1MB -and -not $blockPrevious) {
+            (Get-Content -LiteralPath $file -Raw) | Should -Not -Match "x{1000}"
+            (Get-Content -LiteralPath $previous -Raw) | Should -Match "x{1000}"
+        }
+    }
+
     It "ツールのフォルダに書けなければ、記録を残さず `$null を返す（LOCALAPPDATA・TEMP には書かない）" {
         # startup_error.txt の名前でフォルダを置いて、ファイルを作れなくする（ACL に頼らない）
         $tool = Join-Path $TestDrive "tool-blocked"

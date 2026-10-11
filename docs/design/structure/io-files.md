@@ -43,7 +43,8 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 | `setting.config` | 読む・書く | 設定（[設定ファイル（setting.config）](settings-file.md)）。ツールのフォルダに書けるときだけここに置く。書けないときは「既定のワークスペースの直下」 |
 | `setting.config.tmp` | 書く | 設定を保存する途中の一時ファイル。書き終えたら `setting.config` に置き換える（`writeTextLinesAtomic`） |
 | `setting.config.broken-<日時>[-<番号>]` | 書く | JSON として読めない設定の退避（`repairBrokenSettings`。起動のとき 1 回だけ） |
-| `startup_error.txt` | 書く | 起動そのものに失敗したときの記録。`tebunko.bat` は上書き、`gui.ps1` は追記（`writeStartupErrorFile`）。ツールのフォルダの直下にだけ書き、書けなければ残さない。インストーラー版のアンインストールで消える |
+| `startup_error.txt` | 書く | 起動そのものに失敗したときの記録。`tebunko.bat` は上書き、`gui.ps1` は追記（`writeStartupErrorFile`）。ツールのフォルダの直下にだけ書き、書けなければ残さない。インストーラー版のアンインストールで消える。`gui.ps1` が追記する前に 1 MB 以上なら `startup_error_previous.txt` へ移す（[増え方と片付け](#増え方と片付け)） |
+| `startup_error_previous.txt` | 書く | `startup_error.txt` の前回の分（1 MB を超えたとき、あれば上書きして移す）。`startup_error.txt` と同じく、ワークスペースと一緒には動かない |
 | `.tebunko_write_test_<GUID>.tmp` | 書く（すぐ消える） | ツールのフォルダに書けるかを、ファイルを作って調べる（`testWritableFolder`。閉じると消える `DeleteOnClose`）。EDR・DLP の記録に、この名前の作成が出る |
 | `tebunko.exe`（インストーラー版） | 読む | 起動口。`scripts/tebunko/gui.ps1` を PowerShell で起動する |
 | `tebunko.bat`（zip 版） | 読む | 起動口 |
@@ -72,8 +73,10 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 | `work/publish/<PID>/`（`import/new/`・`import/previous/` を含む） | 読む・書く | 本文インデックスに入れる直前の TSV と、インポートの展開先 |
 | `work/tmp/<PC の鍵>/<PID>/w<番号>/` | 読む・書く | 取り込みの作業領域。元のファイルのコピー・抽出途中のファイル。`NotContentIndexed` 属性を付ける（`SetAttributes`） |
 | `work/office_pids/<PC の鍵>/<PID>.tmp`→`<PID>.txt` | 読む・書く | このツールが起動した Office の記録（`office_process.ps1`。`.tmp` に書いてから `.txt` に改名）。起動時の確認で読む |
-| `work/indexing_log.txt` | 書く | インデクサの表示内容（実行ごとに上書き。`writeIndexerLog`）。［ログを開く］で Notepad が開く |
-| `work/gui_error_log.txt` | 書く | 画面の予期しないエラー（追記。`writeErrorLog`）。起動に失敗したときも、ここに書けるならここに書く |
+| `work/indexing_log.txt` | 書く | インデクサの表示内容（実行ごとに上書き。`writeIndexerLog`）。先頭に版と環境の見出しを書く。［ログを開く］で Notepad が開く |
+| `work/indexing_log_previous.txt` | 書く | 前回のインデックス作成の記録。インデックス作成が二重起動の鍵を取った後、今の `indexing_log.txt` をここへ移す（あれば上書き） |
+| `work/gui_error_log.txt` | 書く | 画面の予期しないエラー（追記。`writeErrorLog`）。プロセスごとの最初の記録の前に版と環境の見出しを書く。1 MB 以上なら次の記録の前に `gui_error_log_previous.txt` へ移す。起動に失敗したときも、ここに書けるならここに書く |
+| `work/gui_error_log_previous.txt` | 書く | `gui_error_log.txt` の前回の分（移すたびに上書き） |
 | `work/search_results.txt` | 書く | 検索結果の出力 |
 | `work/index/`（過去の版が置いた本文インデックス）・`work/system_index/` の古い名前の txt | 読む・消す | 残っているかの調べ・知らせ・［設定］の「移す」「消して最初から」のときだけ。ここには書かない |
 | `work/release/`・`work/test/`・`work/site/`・`work/cache/` | – | 開発用（`tools/` が書く。配布物には入らない）。tebunko 本体は触らない |
@@ -155,6 +158,54 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 - レジストリ: インストーラーが書くアンインストールの情報を除き、読みも書きもしない。
 - クロール対象フォルダ・元のファイル: 書かない（読むだけ）。
 
+## 増え方と片付け
+
+tebunko が作るファイルとフォルダが、何年使っても溜まり続けないことを、置き場ごとの表で確かめる。新しくファイルを足すときは、増え方と上限、誰がいつ消すかを決めてから、この表に行を足す。期間（何日より古いか）で消す処理は持たない。大きさと世代で止める。
+
+- 掃除の時機: 起動時・終了時のまとめての掃除はしない。ログは書く直前に大きさを見て回す（書かなければ増えないため。起動を遅くせず、届かない共有フォルダで起動が待たされない）。作業のフォルダは、終了時に消し、残りは次のインデックス作成の始めに消す。
+- 画面のスレッドとの関係: ログを回す移動は、書く直前に 1 回だけ行う（今の追記と同じ種類の I/O。`docs/design/gui/responsiveness.md` の考えを超えない）。
+- ワークスペースの表の 1 列目は `Workspace.Entries()` の名前（`GetFileName`）と完全一致で `tests/meta/workspace_files.Tests.ps1` が比べる。ワークスペースの外の置き場の表は、テストの対象外。
+
+### ワークスペース（`Workspace.Entries()`）
+
+| 名前 | 増え方 | 上限・片付け |
+|---|---|---|
+| `content_index` | 元のファイルの数に比例 | 元のファイルが無くなれば消す。外したフォルダの分は利用者が確認ダイアログで消す（利用者のデータ。自動で期間では消さない） |
+| `index` | 増えない（過去の版が置いたもの） | ［設定］の「移す」「消して最初から」・インデックス作成の始めに片付ける |
+| `system_index` | 元のファイルの数に比例 | `content_index` と同じ |
+| `system_index_state.tsv` | 上書き | 1 つ |
+| `ingest_status.tsv` | 上書き（`.tmp` を経由。`.tmp` は同じ名前で上書きされ 1 つまで） | 1 つ |
+| `ingesting.txt` | 上書き | 1 つ。インデックス作成が終われば消す |
+| `search_results.txt` | 上書き | 1 つ |
+| `indexing_log.txt` | 実行ごとに上書き | 1 回分。始めるとき（二重起動の鍵を取った後）に今の分を `indexing_log_previous.txt` へ移す |
+| `indexing_log_previous.txt` | 実行ごとに上書き | 1 回分。合わせて 2 回分で止まる |
+| `gui_error_log.txt` | 追記（同じ例外は 60 秒に 1 回） | 1 MB 以上になる前の記録で `gui_error_log_previous.txt` へ移す |
+| `gui_error_log_previous.txt` | 移すたびに上書き | 1 つ。合わせておよそ 2 MB で止まる |
+| `publish` | 実行ごとに `<PID>` を作る | 終了時・インポートの後に消す。残りは次のインデックス作成の始めに消す |
+| `tmp` | 実行ごとに `<PC の鍵>\<PID>` を作る | 終了時に消す。強制終了の残りは次のインデックス作成の始めに、この PC の終わったプロセスの分を消す。共有のワークスペースでは、ほかの PC の残りは消えない（別に直す） |
+| `office_pids` | Office を起動するたびに `<PC の鍵>\<PID>.txt` | Office を閉じたら消す。残りは画面の起動時の確かめで消す |
+
+### ツールのフォルダ
+
+| 名前 | 増え方 | 上限・片付け |
+|---|---|---|
+| `startup_error.txt` | `tebunko.bat` は上書き、`gui.ps1`（`writeStartupErrorFile`）は追記 | 追記の側は 1 MB 以上になる前の記録で `startup_error_previous.txt` へ移す。`.bat` の側は 1 回分 |
+| `startup_error_previous.txt` | 移すたびに上書き | 1 つ。合わせておよそ 2 MB で止まる |
+| `setting.config.tmp` | 保存のたび | 同じ名前で上書きされ 1 つまで |
+| `.tebunko_write_test_<GUID>.tmp` | 調べるたび | 閉じると消える（`DeleteOnClose`） |
+
+### 既定のワークスペースの直下
+
+| 名前 | 増え方 | 上限・片付け |
+|---|---|---|
+| `setting.config.broken-<日時>` | 設定が壊れるたびに 1 つ | 自動では消さない（壊れたときだけできる。設定を戻す手がかりそのもの） |
+
+### 利用者が選んだ場所
+
+| 名前 | 増え方 | 上限・片付け |
+|---|---|---|
+| `<名前>.zip.tmp`（エクスポート） | エクスポートのたび | 書き終えたら置き換える。強制終了の残りは同じ名前の次のエクスポートで消え、1 つまで |
+
 ## 処理ごとのファイルの表
 
 画面（`gui.ps1`）とインデクサ（`indexer.ps1`）は同じプロセスの別のスレッドで動き、進み具合・取り込み予定・確認の返事・中止・エラーはメモリ上の受け渡しの口（`newIndexerChannel`）で受け渡す（[画面とインデクサの受け渡し](threads.md#画面とインデクサの受け渡し)）。この節の表は、上の一覧のうち画面とインデクサが使うファイルに絞って、作成・使用・文字コード・内容を足した表である。
@@ -183,8 +234,8 @@ flowchart LR
 | `work/ingesting.txt` | インデックス作成の状態 | インデックス作成 | インデックス作成 | UTF-8（BOM 付き） | 取り込み中のファイルごとに `<回数><TAB><相対パス>` の 1 行（取り込みを複数のスレッドで行うため、取り込み中のものすべて。`readIngestingFiles` / `writeIngestingFiles` / `removeIngestingFile`）。取り込みが終わったファイルの行は消し、インデックス作成が終われば削除する。残っていれば、書かれたファイルの取り込み中に強制終了した（[取り込み一覧](../indexing/ingest-list.md#強制終了時間切れからの再開)） |
 | `work/publish/<PID>/` | 作業領域 | インデックス作成 | インデックス作成 | – | 1 ファイル分の TSV（`<元のファイル名>/<場所>.tsv`）。集め終わったら `work/content_index` の中へフォルダごと移す（`publishIndexFiles`） |
 | `work/tmp/<PC の鍵>/<PID>/`（ワークスペースのパスに `[` `]` があるか長すぎるときは作らない。どのファイルも中間 TSV などをこのフォルダに作るため、テキストファイルを含めすべての取り込みをスキップする） | 作業領域 | インデックス作成 | インデックス作成 | – | 取り込み中の元ファイルのコピー（Excel は元と同じファイル名、長すぎれば `source.<拡張子>`。Word・PowerPoint は `source.<拡張子>`。テキストは `source.copy`。元のファイルに影響を出さないため）、抽出途中の `sheet<N>.tmp`（UTF-16LE）/ `*.tsv`、旧形式の変換用の `source.doc` `source.ppt` / `converted.docx` `converted.pptx`（[データの置き場所とパスの決め方](data.md)「自動生成（`work/`）」） |
-| `work/indexing_log.txt` | 記録 | インデックス作成 | 利用者 | UTF-8（BOM 付き） | インデクサの表示内容（`writeIndexerLog`。実行ごとに上書き） |
-| `work/gui_error_log.txt` | 記録 | 画面 | 利用者 | UTF-8（BOM 付き） | 画面で起きた予期しないエラーの内容（`writeErrorLog`。追記） |
+| `work/indexing_log.txt` | 記録 | インデックス作成 | 利用者 | UTF-8（BOM 付き） | インデクサの表示内容（`writeIndexerLog`。実行ごとに上書き。先頭に版と環境の見出し）。前回の分は `indexing_log_previous.txt` |
+| `work/gui_error_log.txt` | 記録 | 画面 | 利用者 | UTF-8（BOM 付き） | 画面で起きた予期しないエラーの内容（`writeErrorLog`。追記。1 MB で `gui_error_log_previous.txt` へ移す） |
 | `work/content_index/` | インデックス | インデックス作成 | 検索 | 本文インデックスは UTF-16LE（BOM 付き）、LF。本文インデックスに入れる前の TSV は UTF-8（BOM 付き）、CRLF | フォルダ・拡張子ごとの本文インデックス（`content_index.<拡張子>.<番号>.tsv`。元のファイルごと・場所（シート・ページ・スライド、図形・コメント・ヘッダー・フッター）ごとに、メタ情報の行と TSV の中身を並べる）。取り込み中だけ、シート・ページ・スライドごとの TSV と図形・コメント・ヘッダー・フッターの TSV（`<元の場所>[shape]`・`<元の場所>[comment]`・`<元の場所>[header_footer]`） |
 | `work/content_index/<インデックス名>/source_folder.txt` | インデックス | インデックス作成 | 画面 | UTF-8（BOM 付き）、タブ区切り | 1 行目は説明、2 行目は `<インデックス名><TAB><元のフォルダ>`（[クロール対象フォルダと取り込み対象](../indexing/crawl.md#クロール対象フォルダとインデックス名)）。`.tsv` にすると検索対象になるため `.txt` |
 | `work/search_results.txt` | 出力 | 画面 | 利用者 | UTF-8（BOM 付き）、CRLF | 検索結果（[検索結果ファイル](../search/output.md)） |

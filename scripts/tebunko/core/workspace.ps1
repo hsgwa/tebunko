@@ -23,7 +23,9 @@ class Workspace {
     [string]$ResultFile
     # インデックス作成の記録。画面とインデクサの受け渡しはメモリ上で行う（indexer_state.ps1 の newIndexerChannel）
     [string]$IndexingLogFile  # インデクサの表示内容の記録（実行ごとに上書き）
-    [string]$GuiErrorLogFile  # 画面で起きた予期しないエラーの記録（追記。原因を後から追えるようにする）
+    [string]$GuiErrorLogFile  # 画面で起きた予期しないエラーの記録（追記。原因を後から追えるようにする。1 MB で下の前回の分に回す）
+    [string]$IndexingLogPreviousFile  # 前回のインデックス作成の記録（インデックス作成を始めるとき、今の記録をここへ移す）
+    [string]$GuiErrorLogPreviousFile  # 画面エラーの記録の前回の分（1 MB を超えたとき、今の記録をここへ移す）
     # 取り込みの作業フォルダの置き場所（下は <PC の鍵>\<PID>\w<番号> と分かれる。selectTmpDir・getWorkspaceTmpDir）。
     # 前の版までの %TEMP%\tebunko\<PID> の代わりに、ワークスペースの中に置く（共有フォルダでも 1 か所にまとまる）
     [string]$TmpRoot
@@ -43,6 +45,8 @@ class Workspace {
         $this.ResultFile = "$dir\search_results.txt"
         $this.IndexingLogFile = "$dir\indexing_log.txt"
         $this.GuiErrorLogFile = "$dir\gui_error_log.txt"
+        $this.IndexingLogPreviousFile = "$dir\indexing_log_previous.txt"
+        $this.GuiErrorLogPreviousFile = "$dir\gui_error_log_previous.txt"
         $this.TmpRoot = "$dir\tmp"
         $this.OfficePidRoot = "$dir\office_pids"
     }
@@ -52,7 +56,8 @@ class Workspace {
     # LegacyIndexDir は、あれば前の版のワークスペースとして tebunko のものと扱う（あるものだけが WorkspaceMover.ListEntries で拾われる）
     [string[]] Entries() {
         return @($this.IndexDir, $this.LegacyIndexDir, $this.SystemIndexDir, $this.SystemIndexStateFile, $this.StatusFile, $this.IngestingFile,
-            $this.ResultFile, $this.IndexingLogFile, $this.GuiErrorLogFile, [System.IO.Path]::GetDirectoryName($this.PublishDir), $this.TmpRoot, $this.OfficePidRoot)
+            $this.ResultFile, $this.IndexingLogFile, $this.GuiErrorLogFile,
+            $this.IndexingLogPreviousFile, $this.GuiErrorLogPreviousFile, [System.IO.Path]::GetDirectoryName($this.PublishDir), $this.TmpRoot, $this.OfficePidRoot)
     }
 }
 

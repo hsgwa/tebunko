@@ -9,6 +9,8 @@
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\tsv_file.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\folder.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\version.ps1".Replace('`', '``')))
+. ([WildcardPattern]::Escape("$PSScriptRoot\core\diagnostics_view.ps1".Replace('`', '``')))
+. ([WildcardPattern]::Escape("$PSScriptRoot\core\diagnostics.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\office\office_files.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\office\office_process.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\office\office_protection_view.ps1".Replace('`', '``')))

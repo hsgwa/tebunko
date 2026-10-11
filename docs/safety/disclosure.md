@@ -78,6 +78,24 @@ Windows のクライアント版（Windows 10 / 11）は、実行ポリシーの
 | `Unrestricted` | インターネットから来た未署名のスクリプトも、確認を出したうえで実行できてしまう。確認はウィンドウを隠した起動では見えず、処理が止まる |
 | `AllSigned` | すべてのスクリプトに署名が要る。本ツールはまだ署名していない（署名すれば `AllSigned` でも動く。上の「恒久的な解消策」） |
 
+## ログに書く版と環境の情報
+
+インデックス作成のログ（`indexing_log.txt`）の先頭と、画面のエラーの記録（`gui_error_log.txt`）のプロセスごとの最初の記録の前に、不具合の切り分けに使う見出しを書く（`getToolDiagnosticHeader`）。
+
+| 項目 | 内容 | 調べ方 |
+|---|---|---|
+| 日時 | UTC との差を含む | `DateTimeOffset.Now` |
+| tebunko の版 | `VERSION.txt` のタグと、コミットの先頭 7 桁。無ければ `開発版` | ツールのフォルダの `VERSION.txt` |
+| OS | `OSVersion.Version`・`ntoskrnl.exe` のファイルバージョン・64 ビットか | .NET の `Environment`・`FileVersionInfo` |
+| PowerShell | 版・64 ビットか・言語モード | `$PSVersionTable`・`$ExecutionContext` |
+| Office | Excel・Word・PowerPoint の実行ファイルの版・Click-to-Run か MSI か・ビット数。無ければ `見つからない` | `Program Files` の決まった場所のファイルを `FileVersionInfo` で読む |
+| 表示言語 | 画面の言語 | `CurrentUICulture` |
+
+- 調べられない項目は `不明` と書く。1 項目が調べられなくても、ほかの項目と記録の本体は書く。
+- **利用者名・コンピューター名・ドメイン名・パス・ネットワークの情報・Office のアカウントは書かない。**
+- レジストリ・WMI・COM は使わない。Office は起動せず、ファイルの版を読むだけである。
+- ログのファイルは、増え続けないよう世代を決めている（インデックス作成のログは前回の分を `indexing_log_previous.txt` へ、画面のエラーの記録は 1 MB 以上で `gui_error_log_previous.txt` へ、起動の失敗の記録は 1 MB 以上で `startup_error_previous.txt` へ移す）。年月での自動削除はしない。仕様は[ファイルの読み書き](../design/structure/io-files.md#増え方と片付け)。
+
 ## インデックスが元文書の本文を保持する（情報の集約）
 
 本ツールは全文検索のために、**元の文書の本文を平文の TSV として本文インデックス（インデックスのうち `work\content_index\` の TSV）に保持する**。これはツールの目的そのものであり、避けられない。審査では次の点が論点になる。

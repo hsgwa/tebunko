@@ -18,6 +18,8 @@ Describe "Workspace" -Tag Unit {
         $target.ResultFile | Should -Be "C:\Users\test\Documents\tebunko_ws\search_results.txt"
         $target.IndexingLogFile | Should -Be "C:\Users\test\Documents\tebunko_ws\indexing_log.txt"
         $target.GuiErrorLogFile | Should -Be "C:\Users\test\Documents\tebunko_ws\gui_error_log.txt"
+        $target.IndexingLogPreviousFile | Should -Be "C:\Users\test\Documents\tebunko_ws\indexing_log_previous.txt"
+        $target.GuiErrorLogPreviousFile | Should -Be "C:\Users\test\Documents\tebunko_ws\gui_error_log_previous.txt"
         $target.TmpRoot | Should -Be "C:\Users\test\Documents\tebunko_ws\tmp"
     }
 
@@ -34,6 +36,11 @@ Describe "Workspace" -Tag Unit {
         @($target.Entries()) | Should -Contain $target.IndexDir
         @($target.Entries()) | Should -Contain $target.TmpRoot
         @($target.Entries()) | Should -Contain $target.OfficePidRoot
+        @($target.Entries()) | Should -Contain $target.IndexingLogPreviousFile
+        @($target.Entries()) | Should -Contain $target.GuiErrorLogPreviousFile
+        # 前回の分の名前は getPreviousLogPath の結果と同じ
+        $target.IndexingLogPreviousFile | Should -Be (getPreviousLogPath $target.IndexingLogFile)
+        $target.GuiErrorLogPreviousFile | Should -Be (getPreviousLogPath $target.GuiErrorLogFile)
     }
 
     It "文字列のプロパティ（Dir・Legacy で始まるものを除く）は、Dir より後ろが ASCII（再発防止。後から足したプロパティも捕まえる）" {

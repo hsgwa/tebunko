@@ -14,6 +14,11 @@ function getGuiErrorLogFile {
     return $script:workspace.GuiErrorLogFile
 }
 
+# gui_error_log.txt の先頭（プロセスごとの最初の記録の前）に書く版と環境の見出し（行の配列）。app_host.ps1 の writeErrorLog が使う
+function getGuiErrorLogHeader {
+    return getToolDiagnosticHeader
+}
+
 # 実際に書けた記録のファイルだけを返す（writeErrorLog は書けなくても例外を出さないため）
 function getExistingRecordFile {
     param (
@@ -40,6 +45,13 @@ function writeStartupErrorFile {
     $candidate = $null
     try {
         $candidate = Join-Path $toolDir "startup_error.txt"
+        try {
+            # 1 MB 以上なら前回の分に回す（溜まり続けないように）。移せなくても記録は書く
+            if ((Get-Item -LiteralPath $candidate -ErrorAction Stop).Length -ge 1MB) {
+                Move-Item -LiteralPath $candidate -Destination (Join-Path $toolDir "startup_error_previous.txt") -Force -ErrorAction Stop
+            }
+        } catch {
+        }
         Add-Content -LiteralPath $candidate -Value $text -Encoding UTF8 -ErrorAction Stop
         return $candidate
     } catch {

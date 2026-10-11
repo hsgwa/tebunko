@@ -1,5 +1,6 @@
 ﻿# 画面の土台（XAML の読み込み・見た目の共通定義・エラーの記録）。
-# 使う側が themeFile・iconXamlFile と、エラーの記録先を返す関数 getGuiErrorLogFile を定義しておくこと。
+# 使う側が themeFile・iconXamlFile と、エラーの記録先を返す関数 getGuiErrorLogFile、
+# 記録の先頭に書く見出しの行を返す関数 getGuiErrorLogHeader を定義しておくこと（見出しが無くても記録は書く）。
 
 # 見た目の共通定義を読み込む（画面自体は XAML の MergedDictionaries で読み込む）
 function loadTheme {
@@ -146,6 +147,9 @@ function themeBrush {
     return (loadTheme)[$key]
 }
 
+# 画面エラーの記録の上限（これ以上になったら前回の分に回す）
+${guiErrorLogMaxBytes} = 1MB
+
 # 予期しないエラーを getGuiErrorLogFile のファイルに残す。画面に出したメッセージだけでは、
 # どこで起きたのかが後から分からないため（利用者に見せるのは従来どおりメッセージだけ）
 function writeErrorLog {
@@ -160,7 +164,20 @@ function writeErrorLog {
         if (-not (Test-Path -LiteralPath $dir)) {
             [void][System.IO.Directory]::CreateDirectory($dir)
         }
-        $text = @(
+        # 1 MB 以上なら前回の分（gui_error_log_previous.txt）に回す。合わせておよそ 2 MB で止まる
+        try { [void](rotateLogFile $path ${guiErrorLogMaxBytes}) } catch {}
+        # 見出し（版と環境）は、このプロセスで最初の記録・記録先が変わった（ワークスペースの切り替え）・ファイルが無かった（回した直後）ときに書く。
+        # 見出しを作れなくても記録は書く（起動中は getGuiErrorLogHeader がまだ読み込まれていないことがある）
+        $headerText = ""
+        if (${script:errorLogHeaderPath} -ne $path -or -not [System.IO.File]::Exists($path)) {
+            try {
+                $headerText = (@(getGuiErrorLogHeader) -join "`r`n") + "`r`n`r`n"
+                ${script:errorLogHeaderPath} = $path
+            } catch {
+                $headerText = ""
+            }
+        }
+        $body = @(
             "==== $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ${context} ===="
             "$($record.Exception.GetType().FullName): $($record.Exception.Message)"
             "$($record.InvocationInfo.PositionMessage)"
@@ -168,6 +185,7 @@ function writeErrorLog {
             if ($record.Exception.InnerException) { "内側: $($record.Exception.InnerException)" }
             ""
         ) -join "`r`n"
+        $text = $headerText + $body
         [System.IO.File]::AppendAllText($path, $text, (New-Object System.Text.UTF8Encoding($true)))
     } catch {
         # 記録できなくても、画面の動作は止めない

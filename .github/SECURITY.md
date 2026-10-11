@@ -29,7 +29,7 @@ Please include:
 - What happened (which file, which operation, and what went wrong)
 - Steps to reproduce (conditions of the crawled folder, types of files and so on)
 - Your environment (Windows version, Windows PowerShell version, Office version)
-- Related logs (`work\indexing_log.txt` and the error message shown on the screen; hide any confidential information in them)
+- Related logs (`indexing_log.txt` in the workspace and the error message shown on the screen; hide any confidential information in them)
 
 **Do not send the Office files themselves, because they may contain confidential information.** Attach a file only if you can make a minimal file that causes the same problem.
 
@@ -51,7 +51,7 @@ Security fixes are made for the latest minor version (the latest `v<major>.<mino
 
 ## What we ask of users
 
-The tool **keeps the text of the original documents in plain text in the content index (the TSV files in `work\content_index\`), which is part of the index**. The access rights of the original files are not carried over. Please note the following (details in [docs/safety/disclosure.md](../docs/safety/disclosure.md), Japanese).
+The tool **keeps the text of the original documents in plain text in the content index (the TSV files in `content_index\` in the workspace), which is part of the index**. The access rights of the original files are not carried over. Please note the following (details in [docs/safety/disclosure.md](../docs/safety/disclosure.md), Japanese).
 
 - Restrict access to the folder where the tool is placed to at least the same level as the crawled folders.
 - Do not put the index as is in a shared folder that users with different access rights can read.

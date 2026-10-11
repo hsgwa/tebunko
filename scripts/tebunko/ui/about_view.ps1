@@ -9,8 +9,5 @@ function getAboutView {
         $versionInfo
     )
 
-    if ($null -eq $versionInfo) {
-        return @{ Version = "開発版"; Commit = "" }
-    }
-    return @{ Version = $versionInfo.Tag; Commit = $versionInfo.Sha.Substring(0, 7) }
+    return getVersionLabel $versionInfo
 }

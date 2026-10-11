@@ -52,6 +52,9 @@ BeforeAll {
         # ---- tebunko/ui/splash.ps1・startup_error.ps1（起動口から読み込む部品） ----
         @{ File = "splash.ps1"; Function = "getSplashXamlText"; Call = "[System.IO.File]"; Reason = "起動中の表示（起動時に読む splash.xaml と app_icon.xaml。ツールのフォルダの中）" }
         @{ File = "startup_error.ps1"; Function = "writeStartupErrorFile"; Call = "Add-Content"; Reason = "起動そのものに失敗したときに、ツールのフォルダの startup_error.txt へ書く（窓が無い・応答なしにならない起動の失敗時だけ）" }
+        @{ File = "startup_error.ps1"; Function = "writeStartupErrorFile"; Call = "Get-Item"; Reason = "起動そのものに失敗したときに、ツールのフォルダの startup_error.txt の大きさを見る（1 MB 以上なら前回の分へ移す。窓が無い・応答なしにならない起動の失敗時だけ）" }
+        @{ File = "startup_error.ps1"; Function = "writeStartupErrorFile"; Call = "Move-Item"; Reason = "起動そのものに失敗したときに、大きくなった startup_error.txt を startup_error_previous.txt へ移す（ツールのフォルダの中。窓が無い・応答なしにならない起動の失敗時だけ）" }
+        @{ File = "startup_error.ps1"; Function = "getGuiErrorLogHeader"; Call = "getToolDiagnosticHeader"; Reason = "画面のエラーの記録の見出し（版と環境。ツールのフォルダの VERSION.txt と Program Files の Office の版を読むだけ。エラーの記録はまれで、プロセスごとに最初の 1 回だけ）" }
         @{ File = "startup_error.ps1"; Function = "getExistingRecordFile"; Call = "Test-Path"; Reason = "起動そのものに失敗したときの reportStartupFailure が、記録が実際に書けたかを確かめる（窓が無い・応答なしにならない起動の失敗時だけ）" }
 
         # ---- tebunko/ui/workspace_jobs.ps1 ----
@@ -78,7 +81,8 @@ BeforeAll {
         @{ File = "app_host.ps1"; Function = "newAppFontFamily"; Call = "Test-Path"; Reason = "同梱のフォント（ツールのフォルダの中）" }
         @{ File = "app_host.ps1"; Function = "writeErrorLog"; Call = "Test-Path"; Reason = "画面のエラーの記録（まれ。プロセスが落ちる前に確実に残すため、画面のスレッドで書く）" }
         @{ File = "app_host.ps1"; Function = "writeErrorLog"; Call = "[System.IO.Directory]"; Reason = "画面のエラーの記録（まれ。プロセスが落ちる前に確実に残すため、画面のスレッドで書く）" }
-        @{ File = "app_host.ps1"; Function = "writeErrorLog"; Call = "[System.IO.File]"; Reason = "画面のエラーの記録（まれ。プロセスが落ちる前に確実に残すため、画面のスレッドで書く）" }
+        @{ File = "app_host.ps1"; Function = "writeErrorLog"; Call = "[System.IO.File]"; Count = 2; Reason = "画面のエラーの記録（まれ。プロセスが落ちる前に確実に残すため、画面のスレッドで書く。ファイルの有無を見る 1 回と、追記する 1 回）" }
+        @{ File = "app_host.ps1"; Function = "writeErrorLog"; Call = "rotateLogFile"; Reason = "画面のエラーの記録が 1 MB 以上のとき、前回の分へ移す（まれ。ファイル 1 つの移動で、書く直前に同じスレッドで行う）" }
 
         # ---- tebunko/ui/settings/settings.ps1（［変更…］・［既定に戻す］） ----
         @{ File = "settings.ps1"; Function = "resetWorkspace"; Call = "[System.IO.Directory]"; Reason = "既定のワークスペース（ドキュメントの tebunko_ws。ローカル）を作る" }
