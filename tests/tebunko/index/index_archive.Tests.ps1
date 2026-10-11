@@ -155,6 +155,38 @@ Describe "exportIndexToFolder" -Tag Io {
     }
 }
 
+Describe "getIndexExportSize" -Tag Io {
+    It "zip に入れる元のファイルの大きさの合計と一致する（複数のインデックスも足し、無い名前は Missing に出す）" {
+        $a = newIndexFixture "$TestDrive\size_ws" "営業" "C:\共有\営業部"
+        $out = "$TestDrive\size_ws\out"
+        New-Item -ItemType Directory -Path $out | Out-Null
+
+        $expected = [long]0
+        foreach ($name in @("営業", "総務")) {
+            if ($name -eq "総務") {
+                # 取り込み一覧は 1 つしか持てない作りの fixture なので、2 つ目は 1 つ目を書き出したあとに作る
+                $null = newIndexFixture "$TestDrive\size_ws" "総務" "C:\共有\総務部" "見積\B社.xlsx" "品名`t数量`n消しゴム`t5`n" $a.SettingsPath
+            }
+            $zipPath = (exportIndexToFolder $name $out $a.Workspace $a.SettingsPath).Path
+            $archive = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
+            try {
+                foreach ($entry in $archive.Entries) {
+                    if ($entry.FullName.StartsWith("content_index/")) { $expected += $entry.Length }
+                }
+            } finally {
+                $archive.Dispose()
+            }
+        }
+
+        $one = getIndexExportSize @("営業") $a.Workspace
+        $one.Bytes | Should -BeGreaterThan 0
+        $one.Missing.Count | Should -Be 0
+        $both = getIndexExportSize @("営業", "総務", "無い") $a.Workspace
+        $both.Bytes | Should -Be $expected
+        $both.Missing | Should -Be @("無い")
+    }
+}
+
 Describe "exportIndexes" -Tag Io {
     It "選んだインデックスを 1 つずつ zip にし、1 つ失敗しても残りを続けて、名前ごとの結果を返す" {
         $fixture = newIndexFixture "$TestDrive\exports_ok" "営業" "C:\共有\営業部"

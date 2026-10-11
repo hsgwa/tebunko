@@ -510,14 +510,20 @@ function formatArchiveSize {
     return ($mb.ToString("0.0", [System.Globalization.CultureInfo]::InvariantCulture) + " MB")
 }
 
+function getIndexExportMissingText {
+    # エクスポートする大きさを数えている間に、対象のインデックスが無くなっていたときのステータス
+    return "対象のインデックスが見つかりません"
+}
+
 function getIndexExportHeader {
     # エクスポートのダイアログの上の枠（対象・大きさ・zip の名前）と注意。
     #   items: 書き出すインデックス（Name と FileCountText（"2,530"。無ければ "－" か空）を持つ行）。1 件でも 2 件以上でもよい
-    # 戻り値: @{ Title（1 件は名前、2 件以上は「N 件のインデックス」）; Size（「2,530 ファイル」。数が分からなければ空。大きさは数えていないので出さない）;
+    # 戻り値: @{ Title（1 件は名前、2 件以上は「N 件のインデックス」）; Size（「2,530 ファイル」。大きさを数え終えていれば「2,530 ファイル・94.0 MB」。数が分からなければ空）;
     #            FileText（書き出し先の下の「<名前>_インデックス_<yyyyMMdd>.zip として保存します」）; Caution }
     param (
         [object[]]$items,
-        [datetime]$now = (Get-Date)
+        [datetime]$now = (Get-Date),
+        [long]$bytes = -1   # 数え終えた zip に入る大きさ。省略（負）なら大きさは出さない
     )
 
     $items = @($items | Where-Object { $null -ne $_ })
@@ -531,6 +537,9 @@ function getIndexExportHeader {
         }
     }
     $size = if ($known) { "{0:#,0} ファイル" -f $total } else { "" }
+    if ($known -and $bytes -ge 0) {
+        $size += "・" + (formatArchiveSize $bytes)
+    }
     if ($items.Count -eq 1) {
         $title = [string]$items[0].Name
         $fileText = "$(getExportFileName $title @() $now) として保存します"

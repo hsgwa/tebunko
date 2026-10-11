@@ -34,6 +34,7 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             clickGuiAction $S "ActionExport" "［エクスポート…］"
             $dialog = waitGuiWindow $S "エクスポートのダイアログ" -Id "ExportPathBox"
             getGuiText (findGui $dialog -Id "ExportTitleText") | Should -Be "営業" -Because "見出しの代わりに対象の名前を枠に出す"
+            getGuiText (findGui $dialog -Id "ExportSizeText") | Should -Match "^\d+ ファイル・\d+\.\d MB$" -Because "ダイアログを開く前に別スレッドで数えた大きさが出る"
             getGuiText (findGui $dialog -Id "ExportFileText") | Should -BeLike "営業_インデックス_*.zip として保存します"
             getGuiText (findGui $dialog -Id "CautionText") | Should -BeLike "このファイルには、元のファイルの本文と元のフォルダの場所が含まれます。*"
             setGuiText $S (findGui $dialog -Id "ExportPathBox") $script:exportDest
@@ -118,6 +119,8 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             foreach ($row in @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))) { checkGuiRow $S $row }
             clickGuiAction $S "ActionExport" "［エクスポート…］"
             $dialog = waitGuiWindow $S "エクスポートのダイアログ" -Id "ExportPathBox"
+            getGuiText (findGui $dialog -Id "ExportTitleText") | Should -Be "2 件のインデックス"
+            getGuiText (findGui $dialog -Id "ExportSizeText") | Should -Match "^\d+ ファイル・\d+\.\d MB$"
             setGuiText $S (findGui $dialog -Id "ExportPathBox") $dest
             clickGui $S $dialog "ExportButton" "［エクスポート］"
             waitGuiWindowClosed $S $dialog "エクスポートのダイアログ"

@@ -10,14 +10,15 @@ function startIndexArchiveJob {
         [scriptblock]$scriptBlock,
         [object[]]$arguments,
         [scriptblock]$onSuccess,     # 成功したときに画面のスレッドで行うこと { param($output) }
-        [string[]]$paths = @()       # 仕事が触る、ワークスペースのほかの場所（書き出し先・取り込む zip）。ワークスペースと合わせて、裏の列を選ぶ
+        [string[]]$paths = @(),      # 仕事が触る、ワークスペースのほかの場所（書き出し先・取り込む zip）。ワークスペースと合わせて、裏の列を選ぶ
+        [string]$busyText = ""       # 動いている間のステータス。空なら「<operation>しています…」
     )
 
     $script:archiveBusy = $true
     $script:archiveJobOperation = $operation
     $script:archiveJobOnSuccess = $onSuccess
     updateIndexingButton
-    setStatus "${operation}しています…"
+    setStatus $(if ($busyText) { $busyText } else { "${operation}しています…" })
     startJob $scriptBlock $arguments {
         param ($output, $errorText)
         $script:archiveBusy = $false
@@ -36,7 +37,8 @@ function startIndexArchiveJob {
 function showIndexExportDialog {
     # エクスポートのダイアログ。書き出し先のフォルダを返す（キャンセルは $null）
     param (
-        [object[]]$items   # 書き出すインデックス（Name・FileCountText を持つ行）
+        [object[]]$items,  # 書き出すインデックス（Name・FileCountText を持つ行）
+        [long]$bytes = -1  # 数え終えた zip に入る大きさ（getIndexExportSize）。負なら大きさは出さない
     )
 
     $dialog = loadWindow "${xamlDir}\dialog_export.xaml" ${fontsDir}
@@ -45,7 +47,7 @@ function showIndexExportDialog {
     foreach ($name in @("ExportButton", "BrowseButton", "ExportPathBox", "IntroText", "ErrorText", "ExportTitleText", "ExportSizeText", "ExportFileText", "CautionText")) {
         $ctrl[$name] = $dialog.FindName($name)
     }
-    $header = getIndexExportHeader $items
+    $header = getIndexExportHeader $items (Get-Date) $bytes
     $ctrl.ExportTitleText.Text = $header.Title
     $ctrl.ExportSizeText.Text = $header.Size
     $ctrl.ExportSizeText.Visibility = if ($header.Size) { "Visible" } else { "Collapsed" }
@@ -104,23 +106,67 @@ function newExportIndex {
     if ($null -eq $item -or !(testIndexOperable "エクスポート")) {
         return
     }
-    $folder = showIndexExportDialog @($item)
+    startExportSizeCount @($item)
+}
+
+function startExportSizeCount {
+    # エクスポートのダイアログを開く前に、zip に入れる大きさを別スレッドで数える（数える間は archiveBusy で他の操作を止める）。
+    # 数え終えたら continueExport がダイアログを開く。対象は script スコープの入れ物に置いて渡す
+    # （GetNewClosure() したスクリプトブロックから名前で関数を呼べない環境があるため、閉じ込めない）
+    param (
+        [object[]]$items   # 書き出すインデックス（Name・FileCountText を持つ行）
+    )
+
+    $script:exportPlan = @{ Items = @($items) }
+    startIndexArchiveJob "エクスポート" {
+        param ($names, $dir)
+        $ws = [Workspace]::new($dir)
+        getIndexExportSize $names $ws
+    } @(,@($items | ForEach-Object { $_.Name }) + @($workspace.Dir)) {
+        param ($size)
+        continueExport $size
+    } @() "エクスポートの大きさを数えています…"
+}
+
+function continueExport {
+    # startExportSizeCount の続き（大きさを数え終えたところから）。ダイアログで書き出し先を決め、書き出す
+    param (
+        $size   # getIndexExportSize の結果
+    )
+
+    if (@($size.Missing).Count -gt 0) {
+        setStatus (getIndexExportMissingText)
+        return
+    }
+    $items = @($script:exportPlan.Items)
+    $folder = showIndexExportDialog $items $size.Bytes
     if ($null -eq $folder) {
         return
     }
-    $name = $item.Name
-
-    # 保存先フォルダの中身を数えるのも別スレッドで行う（届かないネットワークのフォルダで画面が止まらないように）
-    startIndexArchiveJob "エクスポート" {
-        param ($name, $folder, $dir, $statusPath, $settingsPath)
-        $ws = [Workspace]::new($dir)
-        exportIndexToFolder $name $folder $ws $settingsPath
-    } @($name, $folder, $workspace.Dir, $workspace.StatusFile, ${settingsFile}) {
-        param ($result)
-        setStatus "インデックス [$($result.Name)] を「$($result.Path)」に書き出しました（$($result.Files) ファイル）"
+    if ($items.Count -eq 1) {
+        $name = $items[0].Name
+        # 保存先フォルダの中身を数えるのも別スレッドで行う（届かないネットワークのフォルダで画面が止まらないように）
+        startIndexArchiveJob "エクスポート" {
+            param ($name, $folder, $dir, $statusPath, $settingsPath)
+            $ws = [Workspace]::new($dir)
+            exportIndexToFolder $name $folder $ws $settingsPath
+        } @($name, $folder, $workspace.Dir, $workspace.StatusFile, ${settingsFile}) {
+            param ($result)
+            setStatus "インデックス [$($result.Name)] を「$($result.Path)」に書き出しました（$($result.Files) ファイル）"
+        }
+        return
     }
+    $names = @($items | ForEach-Object { $_.Name })
+    startIndexArchiveJob "エクスポート" {
+        param ($names, $folder, $dir, $settingsPath)
+        $ws = [Workspace]::new($dir)
+        $results = exportIndexes -names $names -destination $folder -ws $ws -settingsPath $settingsPath
+        , $results
+    } @(,$names + @($folder, $workspace.Dir, ${settingsFile})) {
+        param ($results)
+        showBulkIndexResult "エクスポート" $results
+    } @($folder)
 }
-
 function showBulkIndexResult {
     # まとめてのエクスポート・削除の終わりに、ステータスバーの 1 行を出し、失敗があれば名前と理由を出す
     param (
@@ -144,21 +190,8 @@ function newBulkExportIndexes {
     if (!(testIndexOperable "エクスポート")) {
         return
     }
-    $folder = showIndexExportDialog @($script:targetItems | Where-Object { $names -contains $_.Name })
-    if ($null -eq $folder) {
-        return
-    }
-    startIndexArchiveJob "エクスポート" {
-        param ($names, $folder, $dir, $settingsPath)
-        $ws = [Workspace]::new($dir)
-        $results = exportIndexes -names $names -destination $folder -ws $ws -settingsPath $settingsPath
-        , $results
-    } @(,$names + @($folder, $workspace.Dir, ${settingsFile})) {
-        param ($results)
-        showBulkIndexResult "エクスポート" $results
-    } @($folder)
+    startExportSizeCount @($script:targetItems | Where-Object { $names -contains $_.Name })
 }
-
 function showIndexImportDialog {
     # インポートのダイアログ。決めた内容 @{ Path; Name } を返す（キャンセルは $null）
     param (

@@ -444,6 +444,23 @@ Describe "getIndexExportHeader（エクスポートのダイアログの枠）" 
     }
 }
 
+Describe "getIndexExportHeader（大きさを数え終えたあと）" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "1 件: ファイル数のあとに大きさ"; items = @(@{ Name = "営業部"; FileCountText = "2,530" }); bytes = 98566144; size = "2,530 ファイル・94.0 MB" }
+        @{ label = "2 件: 合計のファイル数と合計の大きさ"; items = @(@{ Name = "営業"; FileCountText = "1,000" }, @{ Name = "総務"; FileCountText = "20" }); bytes = 52428800; size = "1,020 ファイル・50.0 MB" }
+        @{ label = "0 バイトでも 0.1 MB と出す"; items = @(@{ Name = "営業"; FileCountText = "1" }); bytes = 0; size = "1 ファイル・0.1 MB" }
+        @{ label = "ファイル数が分からないときは大きさも出さない"; items = @(@{ Name = "営業"; FileCountText = "－" }); bytes = 1048576; size = "" }
+        @{ label = "大きさを渡さなければ今までどおり"; items = @(@{ Name = "営業"; FileCountText = "5" }); bytes = -1; size = "5 ファイル" }
+    ) {
+        param ($label, $items, $bytes, $size)
+        (getIndexExportHeader $items ([datetime]"2026-09-27 10:00:00") $bytes).Size | Should -Be $size
+    }
+
+    It "数えている間に対象が無くなったときの文言" {
+        getIndexExportMissingText | Should -Be "対象のインデックスが見つかりません"
+    }
+}
+
 Describe "getIndexExportNotice" -Tag Unit {
     It "別の PC・ワークスペースで使えることを伝える" {
         getIndexExportNotice | Should -Match "インポートして使えます"
