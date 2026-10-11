@@ -1085,6 +1085,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#クラウドにだけあるファイル" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        クラウドにだけあるファイル
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#読み取りのみであることの実証" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4149,6 +4160,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#クラウドにだけあるファイル" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        クラウドにだけあるファイル
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#読み取りのみであることの実証" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4355,6 +4377,8 @@
 <p>Office の <code>SaveAs</code> は 3 か所あるが、保存先は常に作業フォルダ内のパス（<code>$tmpPath</code> / <code>$destPath</code>）である（<code>extract_office.ps1:156</code>・<code>210</code>・<code>234</code>）。原本のパスを <code>SaveAs</code> に渡す経路は無い。</p>
 <p>テキストファイル（<code>.txt</code> 等）も、Office と同じく作業フォルダの <code>source.copy</code> へコピーし（<code>copyFileShared</code>）、そのコピーを読み（<code>shared/core/text_file.ps1</code> の <code>readTextFile</code>）、読み終えたら消す。原本は直接読まず、書き込みの API には渡さない。</p>
 <p><code>tests/meta/safety.Tests.ps1</code> の「取り込み対象のファイルを書き換えないこと」が、原本のパスを書き込み・削除の API に渡さないこと、原本を読むのは <code>copyFileShared</code> の読み取りだけであること、<code>SaveAs</code> の保存先が作業フォルダだけであること、Word・PowerPoint を読み取り専用で開くことを確かめる（Excel を読み取り専用で開くことは「Office ファイルを安全に開くこと」が確かめる）。</p>
+<h2 id="クラウドにだけあるファイル">クラウドにだけあるファイル<a class="headerlink" href="#クラウドにだけあるファイル" title="Permanent link">&para;</a></h2>
+<p>OneDrive・SharePoint のオンデマンドで、中身がこの PC に無いファイルは、フォルダの一覧と同時に分かる属性だけで見分け、既定ではファイルを開かない。開けばダウンロードが始まり、ネットワークの帯域・ディスクの空きを使い、ファイルがこの PC に残るため。利用者が確認のダイアログで選んだとき（または設定 <code>cloudFiles</code> が <code>download</code> のとき）だけ、ほかのファイルと同じようにコピーして読む。見分けのための属性の読み取りは、ファイルを書き換えない。</p>
 <h2 id="読み取りのみであることの実証">読み取りのみであることの実証<a class="headerlink" href="#読み取りのみであることの実証" title="Permanent link">&para;</a></h2>
 <p>静的な確認に加えて、実際に動かして確認できる。第三者が再現できる手順は次の 2 つ。</p>
 <p><strong>手順 A: ハッシュの比較</strong></p>

@@ -4196,6 +4196,7 @@
 <span class="w">    </span><span class="nt">"includeShapes"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"includeComments"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"openMode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"normal"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"cloudFiles"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ask"</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"workspaceFolder"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"ingestThreads"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
 <span class="p">}</span>
@@ -4275,6 +4276,13 @@
 <td><code>readOpenMode</code> / <code>writeOpenMode</code></td>
 </tr>
 <tr>
+<td><code>cloudFiles</code></td>
+<td><code>ask</code> / <code>download</code></td>
+<td><code>ask</code></td>
+<td>クラウドにだけあるファイル（OneDrive・SharePoint のオンデマンド）の扱い。<code>ask</code> はダウンロードせずに残し、確認のダイアログで取り込むかを選ばせる。<code>download</code> は確認を出さずにダウンロードして取り込む（ダイアログの「次からこの確認を出さずにダウンロードする」で保存する）。ヘッドレスのインデクサは <code>download</code> のときだけダウンロードして取り込む。知らない値は <code>ask</code> とする（<a href="../../indexing/target-decision/#クラウドにだけあるファイル">取り込み対象の決定</a>）</td>
+<td><code>readCloudFiles</code> / <code>writeCloudFiles</code></td>
+</tr>
+<tr>
 <td><code>workspaceFolder</code></td>
 <td>文字列</td>
 <td>空</td>
@@ -4340,7 +4348,7 @@
 </table>
 <h2 id="前の版との互換">前の版との互換<a class="headerlink" href="#前の版との互換" title="Permanent link">&para;</a></h2>
 <p>前の版が作った <code>setting.config</code> を、新しい版がそのまま読めることを、見本（golden）で確かめる（テストは <code>tests/tebunko/core/settings_compat</code>。<a href="../../testing/unit-index/">単体テスト（インデックスと検索）</a> にも一覧がある）。見本は <code>tests/testdata/compat/settings/&lt;見本の名前&gt;/</code>（<code>setting.config</code>・<code>expected.json</code>。作り方は <a href="https://github.com/hsgwa/tebunko/blob/main/tests/testdata/README.md">tests/testdata/README.md</a> の「前の版のファイル（<code>compat\</code>）」）に置く。</p>
-<p><strong>固定するもの</strong>: 上の「形式」の表にあるキーの名前・型・既定値と、<code>getTargetFolders</code>・<code>readIndexSources</code>・<code>readSearchExcludes</code>・<code>readSearchOption</code>・<code>readOpenMode</code>・<code>getWorkDir</code> が返す値の形（<code>expected.json</code> の <code>functions</code>）。<strong>固定しないもの</strong>: JSON のキーの並び順・空白、画面に出さない内部の実装。</p>
+<p><strong>固定するもの</strong>: 上の「形式」の表にあるキーの名前・型・既定値と、<code>getTargetFolders</code>・<code>readIndexSources</code>・<code>readSearchExcludes</code>・<code>readSearchOption</code>・<code>readOpenMode</code>・<code>readCloudFiles</code>・<code>getWorkDir</code> が返す値の形（<code>expected.json</code> の <code>functions</code>）。<strong>固定しないもの</strong>: JSON のキーの並び順・空白、画面に出さない内部の実装。</p>
 <p>キーや一覧項目（<code>targetFolders</code> など）を足す、上の表の読み方を変える、JSON 以外の形式にするなど、<code>setting.config</code> の読み方を変える PR は、新しい見本を 1 つ足す（上書きではなく追加。古い見本も読めることを確かめ続けるため）。</p>
 <p>見本は<strong>足すだけ</strong>で、既にある見本を変える・消すのはタイトルに <code>!</code> を付けた PR だけができる（<code>tools/check_compat_golden.ps1</code>。CI の <code>pr-title</code> が確かめる）。<code>!</code> の PR が見本を消したときは、どれを・どの PR で・なぜ消したかを次の表に 1 行残す。</p>
 <table>

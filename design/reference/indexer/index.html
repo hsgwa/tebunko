@@ -4338,9 +4338,9 @@
 </tr>
 <tr>
 <td><code>newIndexerChannel</code></td>
-<td>retryFailed, confirmTargets, workers（既定 -1）, onlyNames（既定は空）</td>
+<td>retryFailed, confirmTargets, workers（既定 -1）, onlyNames（既定は空）, includeCloud（既定 <code>$false</code>）</td>
 <td>受け渡しの口（<code>[hashtable]::Synchronized</code>）</td>
-<td>画面とインデクサの受け渡しの口を作る（<code>RetryFailed</code>・<code>ConfirmTargets</code>・<code>Workers</code>・<code>OnlyNames</code>（更新するインデックス名。空ならチェックの付いたものすべて）・<code>OnlySkipped</code>（<code>OnlyNames</code> のうち更新できなかった名前と理由）・<code>Progress</code>・<code>Stop</code>・<code>Plan</code>・<code>Answer</code>・<code>Answered</code>・<code>Error</code>・<code>ExitCode</code>・<code>Notice</code>・<code>Postponed</code>・<code>OfficePids</code>）。<code>Workers</code> は -1 で設定・コア数から決める、0 で司令のスレッドで取り込む（テスト）</td>
+<td>画面とインデクサの受け渡しの口を作る（<code>RetryFailed</code>・<code>ConfirmTargets</code>・<code>Workers</code>・<code>OnlyNames</code>（更新するインデックス名。空ならチェックの付いたものすべて）・<code>OnlySkipped</code>（<code>OnlyNames</code> のうち更新できなかった名前と理由）・<code>Progress</code>・<code>Stop</code>・<code>Plan</code>・<code>Answer</code>・<code>Answered</code>・<code>Error</code>・<code>ExitCode</code>・<code>Notice</code>・<code>Postponed</code>・<code>IncludeCloud</code>（クラウドにだけあるファイルもダウンロードして取り込むか）・<code>CloudSkipped</code>（ダウンロードせずに残した件数）・<code>OfficePids</code>）。<code>Workers</code> は -1 で設定・コア数から決める、0 で司令のスレッドで取り込む（テスト）</td>
 <td><a href="../../structure/threads/#画面とインデクサの受け渡し">画面とインデクサの受け渡し</a></td>
 <td>画面・indexer.ps1</td>
 </tr>
@@ -4370,7 +4370,7 @@
 </tr>
 <tr>
 <td><code>answerIndexingPlan</code></td>
-<td>channel, answer（<code>@{RetryFailed}</code> / <code>$null</code>）</td>
+<td>channel, answer（<code>@{RetryFailed; IncludeCloud}</code> / <code>$null</code>）</td>
 <td>–</td>
 <td>確認のダイアログの返事をインデクサに伝える。<code>$null</code> は取りやめ（<code>Stop</code> も立てる）</td>
 <td><a href="../../gui/indexing-run/#インデックス更新の確認ダイアログ">インデックス作成の実行</a></td>
@@ -4402,7 +4402,7 @@
 </tr>
 <tr>
 <td><code>newIngestPlanRow</code></td>
-<td>name, path, kind, total, targets, new, updated, pending, lost, failed</td>
+<td>name, path, kind, total, targets, new, updated, pending, lost, failed, cloud, cloudFailed, cloudBytes, cloudFailedBytes</td>
 <td>取り込み予定の 1 行（<code>[pscustomobject]</code>）</td>
 <td>インデックス 1 件分の取り込み対象の件数を作る（<code>$ingestPlanColumns</code> と同じ列）</td>
 <td><a href="../../indexing/target-decision/#取り込み予定画面の確認に出す件数">取り込み対象の決定</a></td>
