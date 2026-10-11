@@ -4310,7 +4310,7 @@
 <h2 id="配布と実行ポリシーmark-of-the-web">配布と実行ポリシー（Mark-of-the-Web）<a class="headerlink" href="#配布と実行ポリシーmark-of-the-web" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart TD
     B(["tebunko.bat を起動"]) --&gt; U["scripts 配下の Mark-of-the-Web を Unblock-File で消す&lt;br&gt;（-Command の中身は実行ポリシーの対象外）"]
-    U --&gt; G["&amp; $gui（TEBUNKO_ROOT の gui.ps1）を RemoteSigned で起動&lt;br&gt;（conhost.exe 経由・-WindowStyle Hidden）"]
+    U --&gt; G["&amp; $gui（環境変数 TEBUNKO_ROOT のフォルダの gui.ps1）を RemoteSigned で起動&lt;br&gt;（conhost.exe 経由・-WindowStyle Hidden）"]
     G --&gt; G2["gui.ps1 も起動時に自フォルダの印を消す&lt;br&gt;（ショートカット起動・差し替え後のため）"]</code></pre>
 <p>起動は、zip 版は <code>tebunko.bat</code>、インストーラー版は起動口の <code>tebunko.exe</code>（<code>installer/tebunko.cs</code>）から行う。どちらも Windows の PowerShell 5.1 を、そのプロセスだけの実行ポリシー <code>RemoteSigned</code> で起動する。<code>Bypass</code> を使わない理由、実行ポリシーの設定を変えないこと、Mark-of-the-Web を解除する範囲は、安全性の <a href="../../../safety/disclosure/#mark-of-the-web-の解除tebunkobat">Mark-of-the-Web の解除</a> にまとめている。ここには実装の決まりだけを書く。</p>
 <ul>
