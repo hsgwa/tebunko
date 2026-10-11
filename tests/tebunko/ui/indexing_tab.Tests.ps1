@@ -17,6 +17,8 @@ BeforeAll {
     function updateIndexingButton { $script:buttonUpdates++ }
     function showMessage { param($text, $button, $kind) $script:statuses.Add("message:$text") }
     function selectScreen { param($name) }
+    function showIndexingConfirmDialog { param ($plan) $script:dialogAnswer }
+    function answerIndexingPlan { param ($channel, $answer) }
     function continueStartIndexing {
         # 続きの中身（前の版のインデックスの確かめとインデクサの開始）は画面を使うため、受け取った引数だけを記録する
         param ($legacyState, [string[]]$onlyNames)
@@ -28,7 +30,7 @@ BeforeAll {
     # 画面の型を使うファイルは読み込まず、必要な関数だけを取り出す
     # （dot-source は、この場の scope で行う）
     foreach ($source in @(
-            @{ File = "${scriptsDir}\tebunko\ui\indexing_tab.ps1"; Names = @("startIndexing", "finishWorkspaceCheck") }
+            @{ File = "${scriptsDir}\tebunko\ui\indexing_tab.ps1"; Names = @("startIndexing", "finishWorkspaceCheck", "confirmIndexingTargets") }
             @{ File = "${scriptsDir}\tebunko\ui\index\index_list.ps1"; Names = @("isIndexing", "isIndexingOrPreparing") }
         )) {
         $ast = [System.Management.Automation.Language.Parser]::ParseFile($source.File, [ref]$null, [ref]$null)
@@ -115,6 +117,7 @@ Describe "startIndexing" -Tag Unit {
             $script:indexingPreparing | Should -Be $false
             $script:continued.Count | Should -Be 1
             $script:continued[0].OnlyNames | Should -Be @("営業")
+            $script:statuses[$script:statuses.Count - 1] | Should -Be ""
         }
 
         It "届かなかったら、接続できないことを出して、始めない" {
@@ -161,6 +164,124 @@ Describe "startIndexing" -Tag Unit {
         $script:jobs.Count | Should -Be 0
         $script:continued.Count | Should -Be 0
         $script:indexingPreparing | Should -Be $false
+    }
+}
+
+Describe "confirmIndexingTargets" -Tag Unit {
+    BeforeEach {
+        $script:statuses.Clear()
+        $script:indexingConfirmed = $false
+        $script:indexingCanceledAtConfirm = $false
+        $script:indexingRate = 1
+        $script:indexingSession = @{ Channel = @{ Plan = @{} } }
+        $script:ui = @{
+            IndexingProgress     = [pscustomobject]@{ IsIndeterminate = $false }
+            IndexingProgressText = [pscustomobject]@{ Text = "" }
+            IndexingProgressDetail = [pscustomobject]@{ Text = "" }
+            IndexingStopButton   = [pscustomobject]@{ IsEnabled = $true }
+        }
+    }
+
+    It "更新を始める返事のときは、前の操作の結果の文を消す" {
+        $script:dialogAnswer = @{ RetryFailed = $false; IncludeCloud = $false }
+
+        confirmIndexingTargets
+
+        $script:statuses.Count | Should -Be 1
+        $script:statuses[0] | Should -Be ""
+    }
+
+    It "取りやめたときは、ステータスバーの文に触れない" {
+        $script:dialogAnswer = $null
+
+        confirmIndexingTargets
+
+        $script:indexingCanceledAtConfirm | Should -Be $true
+        $script:statuses.Count | Should -Be 0
+    }
+}
+
+Describe "更新を始める道（continueStartIndexing から確認まで）のステータスバーの文" -Tag Unit {
+    BeforeAll {
+        # 続きの本物と、一覧の保存の本物を取り出し、画面と状態を触る口だけを偽物にして、道の全体を通す
+        foreach ($source in @(
+                @{ File = "${scriptsDir}\tebunko\ui\indexing_tab.ps1"; Names = @("continueStartIndexing") }
+                @{ File = "${scriptsDir}\tebunko\ui\index\index_list.ps1"; Names = @("saveTargets") }
+            )) {
+            $ast = [System.Management.Automation.Language.Parser]::ParseFile($source.File, [ref]$null, [ref]$null)
+            foreach ($functionName in $source.Names) {
+                $node = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $functionName }, $true)
+                . ([scriptblock]::Create($node.Extent.Text))
+            }
+        }
+        function writeTargetFolders { param ($folders) }
+        function getTargetFolders { @() }
+        function getTargetsKey { param ($folders) "" }
+        function updateIndexDetailPanel { }
+        function newIndexerChannel { param ($confirmTargets, $onlyNames) @{ Plan = @{} } }
+        function newIndexingSession { param ($channel) @{ Channel = $channel } }
+        function showIndexingPanel { }
+    }
+
+    BeforeEach {
+        $script:statuses.Clear()
+        $script:targetItems = @()
+        $script:indexingTimer = [pscustomobject]@{} | Add-Member -MemberType ScriptMethod -Name Start -Value { } -PassThru
+        $script:indexingConfirmed = $false
+        $script:ui = @{
+            IndexingProgress       = [pscustomobject]@{ IsIndeterminate = $false }
+            IndexingProgressText   = [pscustomobject]@{ Text = "" }
+            IndexingProgressDetail = [pscustomobject]@{ Text = "" }
+            IndexingStopButton     = [pscustomobject]@{ IsEnabled = $true }
+        }
+        $legacy = @{ HasLegacyIndex = $false; ContentEmpty = $true }
+        continueStartIndexing $legacy @()
+    }
+
+    It "確認で取りやめたら、ステータスバーに何も出さない（前の操作の結果を残す）" {
+        $script:dialogAnswer = $null
+
+        confirmIndexingTargets
+
+        $script:statuses.Count | Should -Be 0
+    }
+
+    It "確認で進めたら、前の操作の結果の文を消す（空の 1 回だけ）" {
+        $script:dialogAnswer = @{ RetryFailed = $false; IncludeCloud = $false }
+
+        confirmIndexingTargets
+
+        $script:statuses.Count | Should -Be 1
+        $script:statuses[0] | Should -Be ""
+    }
+}
+
+Describe "saveTargets" -Tag Unit {
+    BeforeAll {
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile("${scriptsDir}\tebunko\ui\index\index_list.ps1", [ref]$null, [ref]$null)
+        $node = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq "saveTargets" }, $true)
+        . ([scriptblock]::Create($node.Extent.Text))
+        function writeTargetFolders { param ($folders) }
+        function getTargetFolders { @() }
+        function getTargetsKey { param ($folders) "" }
+    }
+
+    BeforeEach {
+        $script:statuses.Clear()
+        $script:targetItems = @()
+    }
+
+    It "ふだんは、保存した旨をステータスバーに出す" {
+        saveTargets
+
+        $script:statuses.Count | Should -Be 1
+        $script:statuses[0] | Should -BeLike "インデックス一覧を保存しました（*）"
+    }
+
+    It "-Quiet のときは、保存しても文を出さない" {
+        saveTargets -Quiet
+
+        $script:statuses.Count | Should -Be 0
     }
 }
 

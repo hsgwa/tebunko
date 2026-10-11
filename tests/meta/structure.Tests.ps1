@@ -73,7 +73,7 @@ Describe "カバレッジの計測の対象（画面層だけを分母から外�
     It "画面層（<file>）は計測の対象に入っていない" -ForEach @(
         @{ file = "tebunko\ui\gui_main.ps1" }
         @{ file = "tebunko\ui\index\index_list.ps1" }
-        @{ file = "tebunko\ui\index\index_edit.ps1" }
+        @{ file = "tebunko\ui\index\index_store.ps1" }
         @{ file = "tebunko\ui\index\index_archive.ps1" }
         @{ file = "tebunko\ui\index\index_detail.ps1" }
         @{ file = "tebunko\ui\index\index_events.ps1" }
@@ -239,6 +239,7 @@ Describe "theme のキー（色の値は Figma の設計どおり）" -Tag Meta 
         @{ Key = "Accent.Hover"; Color = "#0B5CAD"; Opacity = 1 }
         @{ Key = "Accent.Soft"; Color = "#E5F1FB"; Opacity = 1 }
         @{ Key = "Select.Soft"; Color = "#E1F2FF"; Opacity = 1 }
+        @{ Key = "Select.Text"; Color = "#0078D4"; Opacity = 1 }
         @{ Key = "Hit"; Color = "#FFF176"; Opacity = 1 }
         @{ Key = "Hit.Cell"; Color = "#FFF3CD"; Opacity = 1 }
         @{ Key = "Ok"; Color = "#218A21"; Opacity = 1 }
@@ -278,6 +279,19 @@ Describe "theme のキー（色の値は Figma の設計どおり）" -Tag Meta 
         $brushes[$key].GetAttribute("Color") | Should -Be $color
         $actualOpacity = if ($brushes[$key].HasAttribute("Opacity")) { [double]$brushes[$key].GetAttribute("Opacity") } else { 1 }
         $actualOpacity | Should -Be $opacity
+    }
+
+    It "入力欄の選択色は Select.Text を 40% で重ねる" {
+        $setters = @{}
+        foreach ($node in $themeXml.DocumentElement.ChildNodes) {
+            if ($node.LocalName -eq "Style" -and $node.GetAttribute("Key", $xns) -eq "TextBox.Base") {
+                foreach ($setter in $node.ChildNodes) {
+                    if ($setter.LocalName -eq "Setter") { $setters[$setter.GetAttribute("Property")] = $setter.GetAttribute("Value") }
+                }
+            }
+        }
+        $setters["SelectionBrush"] | Should -Be "{StaticResource Select.Text}"
+        $setters["SelectionOpacity"] | Should -Be "0.4"
     }
 }
 

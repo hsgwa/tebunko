@@ -1,6 +1,6 @@
 ﻿<!-- インデックスの一覧（操作の行・［すべて更新］・［アクション ▾］・フォルダの追加・一覧の表・件数の帯）。index.xaml の IndexListHost に入れる（gui_main.ps1）。
      行の右端のボタンは［更新］［中止］だけ。エクスポート・削除・インポートは［アクション ▾］のメニュー（ActionExport・ActionDelete・ActionImport）。
-     行の右クリックのメニュー（編集・エクスポート・削除。名前は EditIndexButton・ExportIndexButton・RemoveIndexButton）も残してある。 -->
+     行の右クリックのメニュー（更新・元のフォルダを開く・エクスポート・削除）も残してある。名前と元のフォルダは、詳細欄で直接直す。 -->
 <Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <Grid.Resources>
@@ -42,17 +42,11 @@
         <RowDefinition Height="*" MinHeight="90" />
       </Grid.RowDefinitions>
 
-      <!-- 頭は高さ 56 の操作の行（上下 12・ボタン 32）。左に「N / M 件を選択中」、右に ⓘ・［すべて更新］・［アクション ▾］・［＋ フォルダを追加］。
-           ⓘ の説明（IndexScreenInfo の ToolTip）は index_view.ps1 の getIndexScreenInfoText が決める -->
+      <!-- 頭は高さ 48 の操作の行（上下 8・ボタン 32）。左に「N / M 件を選択中」、右に［すべて更新］・［アクション ▾］・［＋ フォルダを追加］ -->
       <StackPanel Grid.Row="0">
-        <Grid Height="56">
+        <Grid Height="48">
           <TextBlock x:Name="SelectionCountText" Style="{StaticResource Meta}" VerticalAlignment="Center" HorizontalAlignment="Left" />
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-            <Label x:Name="IndexScreenInfo" Padding="0" Margin="0,0,12,0" VerticalAlignment="Center" ToolTipService.ShowDuration="30000"
-                   AutomationProperties.Name="この画面の説明">
-              <Path Data="{StaticResource Icon.Info}" Width="16" Height="16" Stretch="Uniform" Stroke="{StaticResource Ink.Muted}"
-                    StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent" />
-            </Label>
             <Button x:Name="IndexingButton" Content="すべて更新" ContentTemplate="{StaticResource ButtonIcon.Refresh}" MinWidth="104" Height="32" Margin="0,0,8,0" />
             <!-- ［アクション ▾］: 押すと下にメニューを開く（index_events.ps1）。メニューの項目の可否は updateIndexingButton が決める -->
             <Button x:Name="ActionsButton" Height="32" Margin="0,0,8,0">
@@ -66,7 +60,6 @@
               <Button.ContextMenu>
                 <ContextMenu x:Name="ActionsMenu">
                   <MenuItem x:Name="ActionUpdate" Header="更新" />
-                  <MenuItem x:Name="ActionEdit" Header="編集…" />
                   <MenuItem x:Name="ActionExport" Header="エクスポート…" />
                   <MenuItem x:Name="ActionImport" Header="インポート…" />
                   <Separator />
@@ -80,12 +73,11 @@
         <TextBlock x:Name="IndexingHint" Style="{StaticResource Meta}" Margin="0,0,0,0" TextWrapping="Wrap" TextAlignment="Right" />
       </StackPanel>
 
-      <Grid Grid.Row="1" Margin="0,8,0,0">
+      <Grid Grid.Row="1" Margin="0,4,0,0">
         <DataGrid x:Name="IndexGrid" RowStyle="{StaticResource IndexRow}" SelectionMode="Single" CanUserSortColumns="False" AllowDrop="True" MinHeight="90">
           <DataGrid.ContextMenu>
             <ContextMenu x:Name="IndexRowMenu">
               <MenuItem x:Name="RowMenuUpdate" Header="更新" ToolTip="押したインデックスだけを更新します（行の［更新］と同じです）" />
-              <MenuItem x:Name="EditIndexButton" Header="編集…" ToolTip="選んだインデックスの名前と、元のフォルダの場所を変えます（インデックスはそのまま使います）" />
               <MenuItem x:Name="RowMenuOpenFolder" Header="元のフォルダを開く" ToolTip="インデックスの元のフォルダを、エクスプローラーで開きます" />
               <MenuItem x:Name="ExportIndexButton" Header="エクスポート…" ToolTip="選んだインデックスを 1 つの zip に書き出します（別の PC・ワークスペースで使えます）" />
               <Separator />
