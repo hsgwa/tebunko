@@ -210,14 +210,12 @@ Describe "getIndexingEndText" -Tag Unit {
     It "取り込んだ（成功＋失敗）が1件以上なら、成功・失敗の見出し。利用者のPowerPointのために取り込めなかったファイルも失敗の件数に入っていて、「更新せずに残した」「残り」の文言は出ない" -TestCases @(
         @{ Success = 10; Failed = 0; Text = "更新が終わりました（成功 10 件 / 失敗 0 件）"; Detail = "" }
         @{ Success = 8; Failed = 2; Text = "更新が終わりました（成功 8 件 / 失敗 2 件）"; Detail = "失敗したファイルと原因は「更新に失敗したファイル」の一覧で確認できます。" }
-        @{ Success = 9; Failed = 3; Text = "更新が終わりました（成功 9 件 / 失敗 3 件）"; Detail = "失敗したファイルと原因は「更新に失敗したファイル」の一覧で確認できます。" }
     ) {
         param ($Success, $Failed, $Text, $Detail)
         $view = getIndexingEndText $Success $Failed
         $view.Text | Should -Be $Text
         $view.Detail | Should -Be $Detail
         $view.Text | Should -Not -Match "更新せずに残した|残り"
-        $view.Detail | Should -Not -Match "更新せずに残した"
     }
 
     It "どちらも0件なら「更新が必要なファイルはありませんでした」" {

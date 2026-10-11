@@ -1036,7 +1036,7 @@ function invokeIndexerBody {
             writeIndexerLog "    → $($failure.Message)" "Red"
         }
         if ($ledger.Failures.Count -gt $failureListLimit) {
-            writeIndexerLog "  ほか $($ledger.Failures.Count - $failureListLimit) 件（一覧の「状態」が「${stateFailed}」の行。原因は「エラー」列）"
+            writeIndexerLog "  ほか $($ledger.Failures.Count - $failureListLimit) 件（原因は一覧の「エラー」列）"
         }
         writeIndexerLog ""
         if ($ledger.Failures.Count -gt $postponedCount) {
