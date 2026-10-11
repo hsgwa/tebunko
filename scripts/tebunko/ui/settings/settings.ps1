@@ -110,9 +110,12 @@ function commitWorkspaceInputCore {
         return
     }
     setWorkspaceInputError ""
-    applyWorkspace $decision.Path $true
-    # 取りやめ・使えないときは、欄を今の場所に戻す（切り替えたときは updateSettingsView が新しい場所を入れる）
-    $ui.WorkspaceBox.Text = $workspace.Dir
+    try {
+        applyWorkspace $decision.Path $true
+    } finally {
+        # どの終わり方でも、欄を今の場所に戻す（切り替えたときは updateSettingsView が新しい場所を入れる）
+        $ui.WorkspaceBox.Text = $workspace.Dir
+    }
 }
 
 function resetWorkspace {

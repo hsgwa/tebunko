@@ -105,6 +105,9 @@ function getWorkspaceInputDecision {
     $startMessage = "ドライブ文字から始まるパス（例 D:\tebunko_ws）で入力してください。"
     $networkMessage = "ネットワークの場所（\\サーバー\共有 など）や、つながっていないドライブは、入力では指定できません。［変更…］でフォルダを選んでください。"
     $typed = $trimmed.Replace("/", "\")
+    if ($typed.Contains("%")) {
+        return @{ Action = "Invalid"; Message = "% を含むパス（環境変数）は入力では指定できません。パスをそのまま入力するか、［変更…］でフォルダを選んでください。"; Path = $current }
+    }
     if ($typed.StartsWith("\\?\") -or $typed.StartsWith("\\.\")) {
         return @{ Action = "Invalid"; Message = $startMessage; Path = $current }
     }
@@ -118,11 +121,12 @@ function getWorkspaceInputDecision {
     if (!$isLocal) {
         return @{ Action = "Invalid"; Message = $networkMessage; Path = $current }
     }
-    if ($typed.Contains("%")) {
-        return @{ Action = "Invalid"; Message = "% を含むパス（環境変数）は入力では指定できません。パスをそのまま入力するか、［変更…］でフォルダを選んでください。"; Path = $current }
-    }
     # ローカルのドライブと分かってから整形する（短い名前の展開などで共有に触れないため）
     $folder = normalizeFolderPath $typed
+    # 予約デバイス名（con・nul など）は、整形でドライブ文字の形でなくなることがある。進めない
+    if ($folder -notmatch '^[A-Za-z]:\\') {
+        return @{ Action = "Invalid"; Message = $startMessage; Path = $current }
+    }
     if (testSameFolder $folder $current $drives) {
         return @{ Action = "None"; Message = ""; Path = $current }
     }

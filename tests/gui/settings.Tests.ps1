@@ -197,9 +197,15 @@ Describe "S6 既定のワークスペース" -Tag Gui {
             answerGuiConfirm $S "ワークスペースを変える確認" "へ移動します" "移動する"
             waitGui $S "［既定に戻す］が出る" ${guiDefaultTimeout} { $b = findGui $S.Window -Id "ResetWorkspaceButton"; $b -and !$b.Current.IsOffscreen } | Out-Null
 
-            setGuiStep $S "［既定に戻す］（ほかのファイルがあるので警告）"
+            setGuiStep $S "入力の途中で［既定に戻す］（ほかのファイルがあるので警告）: 入力した文字と理由が消え、欄は今の場所に戻る"
+            $box = findGui $S.Window -Id "WorkspaceBox"
+            $box.SetFocus()
+            setGuiText $S $box "相対\パス"
+            pressGuiKey $S.Window 0x0D
+            waitGui $S "理由が出る（［既定に戻す］の前）" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "WorkspaceInputError")) -like "*ドライブ文字*" } | Out-Null
             clickGui $S $S.Window "ResetWorkspaceButton" "［既定に戻す］"
             closeGuiMessage $S "空のフォルダではありません" "既定に戻す警告" | Out-Null
+            waitGui $S "欄が戻り、理由が消える（［既定に戻す］の警告）" ${guiDefaultTimeout} { (getGuiValue (findGui $S.Window -Id "WorkspaceBox")) -eq $script:emptyDir -and (getGuiText (findGui $S.Window -Id "WorkspaceInputError")) -eq "" } | Out-Null
 
             setGuiStep $S "ほかのファイルを消して［既定に戻す］→ 確認"
             Remove-Item -LiteralPath "$($script:defaultWork)\ほかのファイル.txt" -Force

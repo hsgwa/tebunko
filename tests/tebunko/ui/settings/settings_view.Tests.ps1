@@ -30,9 +30,9 @@ Describe "getWorkspaceInputDecision" -Tag Unit {
         @{ name = "ドライブ文字のない絶対パス風（\ 始まり）も受けない"; text = "\ws\新"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
         @{ name = "ドライブ文字だけ（\ 無し）は受けない"; text = "C:"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
         @{ name = "ドライブ文字の相対（C:相対）は受けない"; text = "C:相対"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
-        @{ name = "環境変数で始まるパスは受けない（定義の有無を問わず）"; text = "%TEBUNKO_NO_SUCH_VARIABLE%\ws"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
-        @{ name = "環境変数は展開せず断る（<SystemDrive>）"; text = "%SystemDrive%\新しい"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
-        @{ name = "% で始まるだけの文字は断る"; text = "%data"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
+        @{ name = "環境変数で始まるパスは受けない（定義の有無を問わず）"; text = "%TEBUNKO_NO_SUCH_VARIABLE%\ws"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*% を含むパス*［変更…］*"; path = "C:\tool\work" }
+        @{ name = "環境変数は展開せず断る（<SystemDrive>）"; text = "%SystemDrive%\新しい"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*% を含むパス*［変更…］*"; path = "C:\tool\work" }
+        @{ name = "% で始まるだけの文字は断る"; text = "%data"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*% を含むパス*［変更…］*"; path = "C:\tool\work" }
         @{ name = "ドライブ文字の後ろに % があるパスも断る"; text = "D:\%data%"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*% を含むパス*［変更…］*"; path = "C:\tool\work" }
         @{ name = "今と同じなら何もしない（大文字小文字・末尾の \ の違い）"; text = "c:\TOOL\work\"; type = "Fixed"; blocked = ""; action = "None"; like = ""; path = "C:\tool\work" }
         @{ name = "あるフォルダは確かめに進む"; text = "D:\新しい"; type = "Fixed"; blocked = ""; action = "Apply"; like = ""; path = "D:\新しい" }
@@ -57,6 +57,20 @@ Describe "getWorkspaceInputDecision" -Tag Unit {
         $d.Action | Should -Be $action
         if ($like) { $d.Message | Should -BeLike $like }
         $d.Path | Should -Be $path
+    }
+
+    # 予約デバイス名は、整形の結果が版で違うことがある。文字列だけを見る（フォルダは作らない）。進めるときは、必ずドライブ文字の形
+    It "予約デバイス名（<text>）は、進めるならドライブ文字の形の Path、そうでなければ Invalid" -TestCases @(
+        @{ text = "D:\con" }
+        @{ text = "D:\ws\nul" }
+    ) {
+        $d = getWorkspaceInputDecision $text "C:\tool\work" $script:drives { param ($drive) [System.IO.DriveType]::Fixed }
+        if ($d.Action -eq "Apply") {
+            $d.Path | Should -Match '^[A-Za-z]:\\'
+        } else {
+            $d.Action | Should -Be "Invalid"
+            $d.Message | Should -BeLike "*ドライブ文字*"
+        }
     }
 }
 
