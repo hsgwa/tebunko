@@ -130,24 +130,35 @@ Describe "getPdfKeyR56" -Tag "Unit" {
 }
 
 Describe "newPdfCrypt" -Tag "Unit" {
-    It "StmF が無い V5 は、鍵は確かめるが、ストリームは復号しない（None）" {
+    BeforeAll {
+        $script:latin1 = [System.Text.Encoding]::GetEncoding(28591)
+        $script:fileKey = [byte[]](1..32 | ForEach-Object { ($_ * 11) % 256 })
         $empty = New-Object byte[] 0
-        $key = [byte[]](1..32 | ForEach-Object { ($_ * 11) % 256 })
         $vsalt = [byte[]](21..28)
         $ksalt = [byte[]](31..38)
-        $u = joinPdfBytes @((getTestHashR56 6 $empty $vsalt), $vsalt, $ksalt)
-        $ue = invokeTestAes (getTestHashR56 6 $empty $ksalt) (New-Object byte[] 16) $key $false
-        $latin1 = [System.Text.Encoding]::GetEncoding(28591)
+        $script:u = joinPdfBytes @((getTestHashR56 6 $empty $vsalt), $vsalt, $ksalt)
+        $script:ue = invokeTestAes (getTestHashR56 6 $empty $ksalt) (New-Object byte[] 16) $script:fileKey $false
+    }
+
+    It "StmF が無い V5 は、鍵を作り、ストリームは復号しない（None）" {
         $enc = @{
             Filter = "/Standard"; V = 5.0; R = 6.0
-            U = @{ PdfType = "str"; V = $latin1.GetString($u) }
-            UE = @{ PdfType = "str"; V = $latin1.GetString($ue) }
+            U = @{ PdfType = "str"; V = $script:latin1.GetString($script:u) }
+            UE = @{ PdfType = "str"; V = $script:latin1.GetString($script:ue) }
         }
         $crypt = newPdfCrypt @{ Cache = @{} } $enc
         $crypt.StmMethod | Should -Be "None"
-        toHexText $crypt.Key | Should -Be (toHexText $key)
-        $u[0] = $u[0] -bxor 1
-        $enc.U = @{ PdfType = "str"; V = $latin1.GetString($u) }
+        toHexText $crypt.Key | Should -Be (toHexText $script:fileKey)
+    }
+
+    It "StmF が無い V5 でも、鍵は確かめる（/U が合わないとパスワードが必要）" {
+        $bad = [byte[]]$script:u.Clone()
+        $bad[0] = $bad[0] -bxor 1
+        $enc = @{
+            Filter = "/Standard"; V = 5.0; R = 6.0
+            U = @{ PdfType = "str"; V = $script:latin1.GetString($bad) }
+            UE = @{ PdfType = "str"; V = $script:latin1.GetString($script:ue) }
+        }
         { newPdfCrypt @{ Cache = @{} } $enc } | Should -Throw "PDFにパスワードが必要なため読めません。"
     }
 }

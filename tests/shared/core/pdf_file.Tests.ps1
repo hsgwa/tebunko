@@ -647,6 +647,7 @@ Describe "readPdfPages" -Tag Unit {
         @{ name = "未知の V"; dict = "/Filter /Standard /V 3 /R 3"; message = "PDFの暗号化の方式に対応していないため読めません。" }
         @{ name = "V が 5 でない小数（4.6）"; dict = "/Filter /Standard /V 4.6 /R 6"; message = "PDFの暗号化の方式に対応していないため読めません。" }
         @{ name = "V が 5 でない小数（5.4）"; dict = "/Filter /Standard /V 5.4 /R 6"; message = "PDFの暗号化の方式に対応していないため読めません。" }
+        @{ name = "R が 5・6 でない小数（6.4）"; dict = "/Filter /Standard /V 5 /R 6.4"; message = "PDFの暗号化の方式に対応していないため読めません。" }
         @{ name = "V と R の組み合わせが違う"; dict = "/Filter /Standard /V 5 /R 4"; message = "PDFの暗号化の方式に対応していないため読めません。" }
         @{ name = "V が数でない"; dict = "/Filter /Standard /V /x /R 6"; message = "PDFの暗号化の方式に対応していないため読めません。" }
         @{ name = "未知の暗号方式"; dict = "/Filter /Standard /V 5 /R 6 /CF << /StdCF << /CFM /Other >> >> /StmF /StdCF /U <00> /UE <00>"; message = "PDFの暗号化の方式に対応していないため読めません。" }
