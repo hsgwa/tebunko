@@ -25,6 +25,8 @@ static class Program
 {
     const string AppTitle = "tebunko";
     const string MutexName = "tebunko-installed-app";
+    // gui.ps1 のパスを PowerShell に渡す環境変数の名前
+    internal const string GuiEnvName = "TEBUNKO_GUI";
     // メッセージに出すエラー出力の長さの上限
     const int MaxErrorLength = 2000;
 
@@ -44,10 +46,12 @@ static class Program
 
         using (var mutex = new Mutex(false, MutexName))
         {
-            var info = new ProcessStartInfo(powershell, BuildArguments(gui));
+            var info = new ProcessStartInfo(powershell, BuildArguments());
             info.UseShellExecute = false;
             info.CreateNoWindow = true;
             info.WorkingDirectory = root;
+            // gui.ps1 のパスは、PowerShell の構文として読まれないよう、環境変数で渡す（フォルダ名に ' や [ ] があっても起動できる）
+            info.EnvironmentVariables[GuiEnvName] = gui;
             info.RedirectStandardError = true;
             // PowerShell は、窓の無いコンソールのコードページ（OEM）でエラー出力を書く
             info.StandardErrorEncoding = Encoding.GetEncoding(CultureInfo.CurrentCulture.TextInfo.OEMCodePage);
@@ -84,10 +88,12 @@ static class Program
         }
     }
 
-    // gui.ps1 を起動する PowerShell の引数（tebunko.bat と同じ。-WindowStyle Hidden は窓を作らないので要らない）
-    internal static string BuildArguments(string gui)
+    // gui.ps1 を起動する PowerShell の引数（tebunko.bat と同じ。-WindowStyle Hidden は窓を作らないので要らない）。
+    // パスは引数に書かず、環境変数 TEBUNKO_GUI から読む（コードとして解釈されない）。-File はパスをワイルドカードとして読み、
+    // [ ] を含むフォルダで起動できないので、-Command で WildcardPattern.Escape を通して呼ぶ
+    internal static string BuildArguments()
     {
-        return "-NoProfile -STA -ExecutionPolicy RemoteSigned -File \"" + gui + "\"";
+        return "-NoProfile -STA -ExecutionPolicy RemoteSigned -Command \"& ([System.Management.Automation.WildcardPattern]::Escape($env:" + GuiEnvName + ".Replace('`', '``'))); if (-not $?) { if ($LASTEXITCODE) { exit $LASTEXITCODE } else { exit 1 } }\"";
     }
 
     static string Truncate(string text)

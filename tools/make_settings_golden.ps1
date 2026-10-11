@@ -21,7 +21,7 @@ param (
 
 $ErrorActionPreference = "Stop"
 
-$repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
+$repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $sharedPath = Join-Path $Tree "scripts\shared\shared.ps1"
 $settingsScriptPath = Join-Path $Tree "scripts\tebunko\core\settings.ps1"
 $searchExcludesPath = Join-Path $Tree "scripts\tebunko\core\search_excludes.ps1"
@@ -34,7 +34,7 @@ foreach ($p in @($sharedPath, $settingsScriptPath, $goldenHelperPath)) {
 }
 
 $sampleDir = Join-Path $repoRoot "tests\testdata\compat\settings\${Name}"
-New-Item -ItemType Directory -Force -Path $sampleDir | Out-Null
+[void][System.IO.Directory]::CreateDirectory($sampleDir)
 $settingsPath = Join-Path $sampleDir "setting.config"
 if (Test-Path -LiteralPath $settingsPath) {
     Remove-Item -LiteralPath $settingsPath -Force
@@ -47,13 +47,13 @@ function escapeSingleQuoted {
 }
 
 $runnerPath = Join-Path ([System.IO.Path]::GetTempPath()) "make_settings_golden_$([guid]::NewGuid().ToString("N")).ps1"
-$searchExcludesLine = if (Test-Path -LiteralPath $searchExcludesPath) { ". '$(escapeSingleQuoted $searchExcludesPath)'" } else { "" }
+$searchExcludesLine = if (Test-Path -LiteralPath $searchExcludesPath) { ". ([WildcardPattern]::Escape('$(escapeSingleQuoted $searchExcludesPath)'.Replace([string][char]96, [string][char]96 + [char]96)))" } else { "" }
 $runner = @"
 `$ErrorActionPreference = "Stop"
-. '$(escapeSingleQuoted $sharedPath)'
-. '$(escapeSingleQuoted $settingsScriptPath)'
+. ([WildcardPattern]::Escape('$(escapeSingleQuoted $sharedPath)'.Replace([string][char]96, [string][char]96 + [char]96)))
+. ([WildcardPattern]::Escape('$(escapeSingleQuoted $settingsScriptPath)'.Replace([string][char]96, [string][char]96 + [char]96)))
 $searchExcludesLine
-. '$(escapeSingleQuoted $goldenHelperPath)'
+. ([WildcardPattern]::Escape('$(escapeSingleQuoted $goldenHelperPath)'.Replace([string][char]96, [string][char]96 + [char]96)))
 writeGoldenSettings -path '$(escapeSingleQuoted $settingsPath)'
 "@
 [System.IO.File]::WriteAllText($runnerPath, $runner, (New-Object System.Text.UTF8Encoding($true)))

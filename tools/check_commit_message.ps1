@@ -20,7 +20,7 @@ $ErrorActionPreference = "Stop"
 
 # 型・判定の正規表現・findProblem は tools/commit_message_rules.ps1 にある
 # （tools/check_compat_golden.ps1 の ! の判定と同じものを使うため、2 か所に書かない）
-. (Join-Path $PSScriptRoot "commit_message_rules.ps1")
+. ([WildcardPattern]::Escape((Join-Path $PSScriptRoot "commit_message_rules.ps1").Replace('`', '``')))
 
 if ($PSCmdlet.ParameterSetName -eq "Path") {
     # git は # で始まる行をコメントとして捨てる。空行も飛ばし、最初の行を 1 行目とする

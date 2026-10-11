@@ -20,9 +20,9 @@ param (
 )
 
 $ErrorActionPreference = "Stop"
-. "$PSScriptRoot\perf_common.ps1"
+. ([WildcardPattern]::Escape("$PSScriptRoot\perf_common.ps1".Replace('`', '``')))
 $lib = resolveTebunkoLib $Tool
-. $lib
+. ([WildcardPattern]::Escape($lib.Replace('`', '``')))
 assertTebunkoFunctions @("newSearchRequest", "newTsvTextCache")
 
 $spec = [System.IO.File]::ReadAllText($WordFile, [System.Text.Encoding]::UTF8) | ConvertFrom-Json

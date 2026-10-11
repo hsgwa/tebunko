@@ -82,7 +82,7 @@ $wsDest = Join-Path $SampleDir "ws"
 if (Test-Path -LiteralPath $wsDest) {
     Remove-Item -LiteralPath $wsDest -Recurse -Force
 }
-New-Item -ItemType Directory -Force -Path $wsDest | Out-Null
+[void][System.IO.Directory]::CreateDirectory($wsDest)
 
 foreach ($entry in $keepEntries) {
     $src = Join-Path $WorkspaceDir $entry

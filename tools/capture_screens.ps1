@@ -27,12 +27,12 @@ $ErrorActionPreference = "Stop"
 
 $Only = @($Only | ForEach-Object { $_ -split "," } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 
-$repoRoot = (Resolve-Path "$PSScriptRoot\..").Path
+$repoRoot = [System.IO.Path]::GetFullPath("$PSScriptRoot\..")
 if (!$OutDir) { $OutDir = Join-Path $repoRoot "docs\images\screens" }
 
-. "$PSScriptRoot\capture\capture_common.ps1"
-. "$repoRoot\tests\helpers\load.ps1"
-. "$repoRoot\tests\gui\gui_helpers.ps1"
+. ([WildcardPattern]::Escape("$PSScriptRoot\capture\capture_common.ps1".Replace('`', '``')))
+. ([WildcardPattern]::Escape("$repoRoot\tests\helpers\load.ps1".Replace('`', '``')))
+. ([WildcardPattern]::Escape("$repoRoot\tests\gui\gui_helpers.ps1".Replace('`', '``')))
 
 # 状態の一覧（${captureIds}）は tools\capture\capture_common.ps1 にある（tests\meta\screens.Tests.ps1 も読むため）
 

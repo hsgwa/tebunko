@@ -194,6 +194,41 @@ Describe "画面定義（XAML）" -Tag Meta {
     It "<name> が XML として読める" -ForEach $xamlFiles {
         { [xml](Get-Content $FullName -Raw -Encoding UTF8) } | Should -Not -Throw
     }
+
+    It "行を分ける仕切りは、共通の Style（Splitter.Rows）を使い、自分のテンプレートを持たない" {
+        $scripts = (Resolve-Path "$PSScriptRoot\..\..\scripts").Path
+        $theme = [xml](Get-Content "$scripts\shared\xaml\theme.xaml" -Raw -Encoding UTF8)
+        $x = "http://schemas.microsoft.com/winfx/2006/xaml"
+        $keys = @($theme.DocumentElement.ChildNodes | Where-Object { $_ -is [System.Xml.XmlElement] } | ForEach-Object { $_.GetAttribute("Key", $x) })
+        $keys | Should -Contain "Splitter.Rows"
+
+        $splitters = @()
+        foreach ($f in Get-ChildItem "$scripts\tebunko\xaml" -Recurse -Filter "*.xaml") {
+            $xml = [xml](Get-Content $f.FullName -Raw -Encoding UTF8)
+            $splitters += @($xml.SelectNodes("//*[local-name()='GridSplitter'][@ResizeDirection='Rows']"))
+        }
+        $splitters.Count | Should -BeGreaterThan 0
+        foreach ($s in $splitters) {
+            $s.GetAttribute("Style") | Should -Be "{StaticResource Splitter.Rows}"
+            $s.SelectNodes("*[local-name()='GridSplitter.Template']").Count | Should -Be 0
+        }
+    }
+
+    It "設定の節は、カードの Style（Section.Card・Section.Header・Section.Row）で作る" {
+        $scripts = (Resolve-Path "$PSScriptRoot\..\..\scripts").Path
+        $theme = [xml](Get-Content "$scripts\shared\xaml\theme.xaml" -Raw -Encoding UTF8)
+        $x = "http://schemas.microsoft.com/winfx/2006/xaml"
+        $keys = @($theme.DocumentElement.ChildNodes | Where-Object { $_ -is [System.Xml.XmlElement] } | ForEach-Object { $_.GetAttribute("Key", $x) })
+        foreach ($k in "Section.Card", "Section.Header", "Section.Row", "Field.ReadOnly") { $keys | Should -Contain $k }
+        $keys | Should -Not -Contain "Bg.Section"
+
+        $settingsText = Get-Content "$scripts\tebunko\xaml\settings\settings.xaml" -Raw -Encoding UTF8
+        $left = @(Get-ChildItem $scripts -Recurse -Include *.xaml, *.ps1 | Where-Object { (Get-Content $_.FullName -Raw -Encoding UTF8) -match "Bg\.Section" } | ForEach-Object Name)
+        $left | Should -BeNullOrEmpty -Because "使われなくなった Bg.Section を scripts の下に残さない"
+        $settingsText | Should -Match 'Style="\{StaticResource Section\.Card\}"'
+        $settingsText | Should -Match 'Style="\{StaticResource Section\.Header\}"'
+        $settingsText | Should -Match 'Style="\{StaticResource Section\.Row\}"'
+    }
 }
 
 Describe "theme のキー（色の値は Figma の設計どおり）" -Tag Meta {
@@ -209,7 +244,6 @@ Describe "theme のキー（色の値は Figma の設計どおり）" -Tag Meta 
         @{ Key = "Bg.Tag"; Color = "#F1F3F4"; Opacity = 1 }
         @{ Key = "Bg.Button"; Color = "#F2F2F5"; Opacity = 1 }
         @{ Key = "Bg.Summary"; Color = "#F7FAFC"; Opacity = 1 }
-        @{ Key = "Bg.Section"; Color = "#E8EBF0"; Opacity = 1 }
         @{ Key = "Bg.TitleBar"; Color = "#F0F0F0"; Opacity = 1 }
         @{ Key = "Border.Soft"; Color = "#E0E2E5"; Opacity = 1 }
         @{ Key = "Border.Normal"; Color = "#D9DEE3"; Opacity = 1 }
@@ -413,20 +447,101 @@ Describe "単一 .ps1 化の決まり（AST。docs/design/structure/single-scrip
         $singleScriptsDir = (Resolve-Path "$here\..\scripts").Path
         $m1ExemptFiles = @("parts.ps1", "paths.ps1", "gui.ps1", "indexer.ps1")
 
+        function testPathPatternRisk {
+            # パスをパターンとして読むコマンド（M3）に、変数や式のパスを -LiteralPath なしで渡している CommandAst なら $true。
+            # M3 の本体と、M3 の例の表の両方がこの関数を呼ぶ
+            param ($c)
+            $pathCommands = @("Resolve-Path", "New-Item", "Get-ChildItem", "Get-Item", "Test-Path", "Get-Content", "Set-Content", "Add-Content",
+                "Out-File", "Remove-Item", "Copy-Item", "Move-Item", "Rename-Item", "Convert-Path", "Import-Csv", "Export-Csv", "Select-String", "Get-FileHash")
+            # パイプで渡された文字列を Path として受けるもの
+            $pipeByValue = @("Resolve-Path", "Get-ChildItem", "Get-Item", "Test-Path", "Get-Content", "Remove-Item", "Convert-Path",
+                "Copy-Item", "Move-Item", "Rename-Item", "Import-Csv", "Get-FileHash")
+            # 値を取らない（スイッチの）名前。直後の要素は位置引数になる
+            $valueFree = @("Recurse", "Force", "File", "Directory", "Hidden", "ReadOnly", "System", "Append", "NoClobber", "WhatIf", "Confirm",
+                "NoNewline", "Raw", "SimpleMatch", "Quiet", "CaseSensitive", "NotMatch", "List", "AllMatches",
+                "PassThru", "NoTypeInformation", "IsValid", "Container", "Wait")
+            $paramType = [System.Management.Automation.Language.CommandParameterAst]
+            $ignoreCase = [System.StringComparison]::OrdinalIgnoreCase
+            $isRiskyValue = {
+                param ($e)
+                # @params（スプラット）は中身が見えないので対象にしない
+                if ($e -is [System.Management.Automation.Language.VariableExpressionAst]) { return (-not $e.Splatted) }
+                return ($e -is [System.Management.Automation.Language.ExpandableStringExpressionAst] -or
+                    $e -is [System.Management.Automation.Language.ParenExpressionAst] -or
+                    $e -is [System.Management.Automation.Language.SubExpressionAst] -or
+                    $e -is [System.Management.Automation.Language.IndexExpressionAst] -or
+                    $e -is [System.Management.Automation.Language.MemberExpressionAst])
+            }
+
+            $name = $c.GetCommandName()
+            if (-not $name -or $pathCommands -notcontains $name) { return $false }
+            $elements = @($c.CommandElements | Select-Object -Skip 1)
+            if (@($elements | Where-Object { $_ -is $paramType -and $_.ParameterName -like "Lit*" }).Count -gt 0) { return $false }
+
+            $skipNext = $false
+            $positional = 0
+            $namedPattern = ($name -eq "Select-String" -and @($elements | Where-Object { $_ -is $paramType -and $_.ParameterName.Length -ge 4 -and "Pattern".StartsWith($_.ParameterName, $ignoreCase) }).Count -gt 0)
+            foreach ($e in $elements) {
+                if ($e -is $paramType) {
+                    $pn = $e.ParameterName
+                    $isSwitchName = (@($valueFree | Where-Object { $_.Equals($pn, $ignoreCase) }).Count -gt 0)
+                    # Select-String の -Pattern（-Patt 以上）は検索する文字。-Path と取り違えない
+                    $isPatternName = ($name -eq "Select-String" -and $pn.Length -ge 4 -and "Pattern".StartsWith($pn, $ignoreCase))
+                    # -File などのスイッチは、-FilePath の頭と一致しても対象にしない。-FilePath は 5 文字以上の一致だけ見る
+                    if (-not $isSwitchName -and -not $isPatternName -and ("Path".StartsWith($pn, $ignoreCase) -or ($pn.Length -ge 5 -and "FilePath".StartsWith($pn, $ignoreCase)))) { return $true }
+                    if ($null -ne $e.Argument) { continue }
+                    $skipNext = (@($valueFree | Where-Object { $_.StartsWith($pn, $ignoreCase) }).Count -eq 0)
+                    continue
+                }
+                if ($skipNext) { $skipNext = $false; continue }
+                $index = $positional
+                $positional++
+                # Select-String の最初の位置引数は検索する文字（Pattern）で、パスではない
+                if ($name -eq "Select-String" -and $index -eq 0 -and -not $namedPattern) { continue }
+                if (& $isRiskyValue $e) { return $true }
+            }
+
+            # パスの指定が無く、パイプで変数や式の文字列が流れ込む形（$x | Get-Content）
+            if ($positional -eq 0 -and $pipeByValue -contains $name -and $c.Parent -is [System.Management.Automation.Language.PipelineAst]) {
+                $elementsOfPipeline = @($c.Parent.PipelineElements)
+                $at = [array]::IndexOf($elementsOfPipeline, $c)
+                if ($at -gt 0) {
+                    $source = $elementsOfPipeline[$at - 1]
+                    if ($source -is [System.Management.Automation.Language.CommandExpressionAst] -and (& $isRiskyValue $source.Expression)) { return $true }
+                    if ($source -is [System.Management.Automation.Language.CommandAst] -and $source.GetCommandName() -eq "Join-Path") { return $true }
+                }
+            }
+            return $false
+        }
+
         function getRelPath {
             param ([string]$fullName)
             return $fullName.Substring($singleScriptsDir.Length + 1)
         }
 
         function isLoaderLine {
-            # 読み込み口の行: . "$PSScriptRoot\..." や . "$here\..." の形（$PSScriptRoot・固定文字列の組み立て）。
-            # ここでは「読み込み口が使ってよい形」として、$PSScriptRoot を使った文字列展開のドットソースだけを対象にする
+            # 読み込み口の行: . ([WildcardPattern]::Escape("$PSScriptRoot\...")) の形。
+            # パスにワイルドカードの文字（[ ]）が入っていても読めるよう、相手のパスは必ず Escape を通す
+            # （通さない . "$PSScriptRoot\..." は、読み込み口の行として認めない）
             param ($commandAst)
             if ($commandAst.InvocationOperator -ne "Dot") { return $false }
             if ($commandAst.CommandElements.Count -lt 1) { return $false }
             $first = $commandAst.CommandElements[0]
-            return $first -is [System.Management.Automation.Language.ExpandableStringExpressionAst] -or
-                $first -is [System.Management.Automation.Language.StringConstantExpressionAst]
+            if ($first -isnot [System.Management.Automation.Language.ParenExpressionAst]) { return $false }
+            $inner = $first.Pipeline
+            if ($inner -isnot [System.Management.Automation.Language.PipelineAst] -or $inner.PipelineElements.Count -ne 1) { return $false }
+            $expr = $inner.PipelineElements[0].Expression
+            if ($expr -isnot [System.Management.Automation.Language.InvokeMemberExpressionAst]) { return $false }
+            if (-not $expr.Static -or $expr.Member.Value -ne "Escape") { return $false }
+            if ($expr.Expression -isnot [System.Management.Automation.Language.TypeExpressionAst] -or $expr.Expression.TypeName.Name -ne "WildcardPattern") { return $false }
+            if ($expr.Arguments.Count -ne 1) { return $false }
+            # 引数は "<パス>".Replace('`', '``') の形（バッククォートは Escape がエスケープしないので、先に二重にする。対象は PowerShell 5.1 だけ）
+            $arg = $expr.Arguments[0]
+            if ($arg -isnot [System.Management.Automation.Language.InvokeMemberExpressionAst] -or $arg.Static -or $arg.Member.Value -ne "Replace") { return $false }
+            if ($arg.Expression -isnot [System.Management.Automation.Language.ExpandableStringExpressionAst] -and
+                $arg.Expression -isnot [System.Management.Automation.Language.StringConstantExpressionAst]) { return $false }
+            if ($arg.Arguments.Count -ne 2) { return $false }
+            return $arg.Arguments[0].Extent.Text -eq ("'" + [char]96 + "'") -and $arg.Arguments[1].Extent.Text -eq ("'" + [char]96 + [char]96 + "'")
         }
 
         function commandOf {
@@ -506,8 +621,8 @@ Describe "単一 .ps1 化の決まり（AST。docs/design/structure/single-scrip
         ($bad -join ", ") | Should -Be ""
     }
 
-    It "M2(ii) の例: 変数やプロパティを渡す形（. `$libPath・. `$x.Path）は読み込み口の行として検出しない" {
-        $badSamples = @('. $libPath', '. $x.Path')
+    It "M2(ii) の例: 変数やプロパティを渡す形（. `$libPath・. `$x.Path）と、Escape を通さない形は読み込み口の行として検出しない" {
+        $badSamples = @('. $libPath', '. $x.Path', '. "$PSScriptRoot\x.ps1"', '. (Escape "$PSScriptRoot\x.ps1")', '. ([WildcardPattern]::Escape("$PSScriptRoot\x.ps1"))')
         foreach ($sample in $badSamples) {
             $fixtureAst = [System.Management.Automation.Language.Parser]::ParseInput($sample, [ref]$null, [ref]$null)
             $cmd = @($fixtureAst.FindAll({ $args[0] -is [System.Management.Automation.Language.CommandAst] }, $true))[0]
@@ -515,6 +630,66 @@ Describe "単一 .ps1 化の決まり（AST。docs/design/structure/single-scrip
         }
     }
 
+    It "M2(iv): & の相手に、パスの文字列は直接書かない（スクリプトのパスは Escape を通す。変数・式は、スクリプトブロックと見分けられないので検査しない）" {
+        # 変数・式（& $x・& ($x)）は、スクリプトブロック（& { }）と構文だけでは見分けられないので検査しない（元の不具合の & $gui も、この検査では止まらない）。文字列で書いたパスだけを見る
+        $bad = New-Object System.Collections.Generic.List[string]
+        foreach ($f in $allScriptFiles) {
+            $ast = $parsedAsts[$f.FullName]
+            $cmds = $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.CommandAst] -and $args[0].InvocationOperator -eq "Ampersand" }, $true)
+            foreach ($c in $cmds) {
+                $first = $c.CommandElements[0]
+                if ($first -is [System.Management.Automation.Language.StringConstantExpressionAst] -or $first -is [System.Management.Automation.Language.ExpandableStringExpressionAst]) {
+                    $bad.Add("$(getRelPath $f.FullName):$($c.Extent.StartLineNumber):$($c.Extent.Text)")
+                }
+            }
+        }
+        ($bad -join ", ") | Should -Be ""
+    }
+
+    It "M3: パスをワイルドカードとして読むコマンド（-Path・-FilePath・位置引数・パイプ）に、変数や式のパスを渡さない（-LiteralPath を使う。-Filter・-like は別）" {
+        $bad = New-Object System.Collections.Generic.List[string]
+        foreach ($f in $allScriptFiles) {
+            $ast = $parsedAsts[$f.FullName]
+            $cmds = $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.CommandAst] }, $true)
+            foreach ($c in $cmds) {
+                if (testPathPatternRisk $c) { $bad.Add("$(getRelPath $f.FullName):$($c.Extent.StartLineNumber):$($c.GetCommandName())") }
+            }
+        }
+        ($bad -join ", ") | Should -Be ""
+    }
+
+    It "M3 の例（本体と同じ判定）: <code> は検出<expected>" -ForEach @(
+        @{ code = 'Resolve-Path $x'; expected = $true }
+        @{ code = 'New-Item -Path $x -Force'; expected = $true }
+        @{ code = 'Get-Item "$dir\a"'; expected = $true }
+        @{ code = 'Get-ChildItem -Recurse $dir'; expected = $true }
+        @{ code = 'Remove-Item -Force $x'; expected = $true }
+        @{ code = 'New-Item -Force $x'; expected = $true }
+        @{ code = 'Out-File -FilePath $x'; expected = $true }
+        @{ code = '$x | Get-Content'; expected = $true }
+        @{ code = 'Join-Path $a $b | Get-Item'; expected = $true }
+        @{ code = 'Select-String $pattern $file'; expected = $true }
+        @{ code = '$rows | Export-Csv -NoTypeInformation $path'; expected = $true }
+        @{ code = 'Copy-Item -PassThru $x $y'; expected = $true }
+        @{ code = 'Select-String -Pattern $p $file'; expected = $true }
+        @{ code = 'Select-String $file -Pattern $p'; expected = $true }
+        @{ code = 'Get-Item $a[0]'; expected = $true }
+        @{ code = 'Get-Item $(Join-Path $a $b)'; expected = $true }
+        @{ code = 'Get-ChildItem -File'; expected = $false }
+        @{ code = 'Get-ChildItem -File -Filter *.x'; expected = $false }
+        @{ code = 'Get-ChildItem @params'; expected = $false }
+        @{ code = 'Select-String -Pattern $p -LiteralPath $file'; expected = $false }
+        @{ code = 'Get-Item -LiteralPath $x'; expected = $false }
+        @{ code = 'Get-ChildItem -Recurse -File -LiteralPath $dir'; expected = $false }
+        @{ code = '$text | Select-String $pattern'; expected = $false }
+        @{ code = '$x | Set-Content -LiteralPath $y'; expected = $false }
+        @{ code = 'Get-ChildItem -LiteralPath $dir | Get-Content -Raw -LiteralPath $f'; expected = $false }
+    ) {
+        $fixtureAst = [System.Management.Automation.Language.Parser]::ParseInput($code, [ref]$null, [ref]$null)
+        $cmds = @($fixtureAst.FindAll({ $args[0] -is [System.Management.Automation.Language.CommandAst] }, $true))
+        $hit = @($cmds | Where-Object { testPathPatternRisk $_ }).Count -gt 0
+        $hit | Should -Be $expected
+    }
     It "M2(iii): `&` での `.Path` 呼び出し・`-Part` を付けた呼び出しは書かない（自己起動を禁じる）" {
         $bad = New-Object System.Collections.Generic.List[string]
         foreach ($f in $allScriptFiles) {
@@ -756,5 +931,82 @@ Describe "メッセージは自前の画面で出す" -Tag Meta {
         $here = (Resolve-Path "$PSScriptRoot\..").Path
         $hits = @(Select-String -LiteralPath "$here\..\scripts\shared\ui\shell.ps1" -Pattern 'MessageBox\]::Show' | Where-Object { $_.Line.TrimStart() -notmatch '^#' })
         $hits.Count | Should -Be 2
+    }
+}
+
+Describe "フォルダ名に特別な文字が入っていても、本物の読み込み口を読める（scripts\ を写して読む）" -Tag Meta {
+    BeforeDiscovery {
+        . "$PSScriptRoot\..\helpers\path_chars.ps1"
+        $pathCharCases = getPathCharCases
+        # 名前の隣に、パターンとして読むと当たってしまう別のフォルダがある場面（実在する方を読むこと）
+        $libCases = @($pathCharCases | Where-Object { @("一重引用符 '", "角括弧の中が空 []", "引用符・&・角括弧の組み合わせ", "バッククォートと開く角括弧", "日本語") -contains $_.label })
+        $siblingCases = @(
+            @{ label = "[1] と 1"; ch = "[1]"; sibling = "1" }
+            @{ label = "バッククォートと、バッククォート抜き"; ch = ([string][char]96); sibling = "" }
+        )
+    }
+
+    BeforeAll {
+        $here = Split-Path -Parent $PSCommandPath
+        $realScripts = (Resolve-Path -LiteralPath "$here\..\..\scripts").Path
+        $powershell = Join-Path ([Environment]::GetFolderPath("System")) "WindowsPowerShell\v1.0\powershell.exe"
+        $script:trialRoots = @()
+
+        function copyTree {
+            param ([string]$from, [string]$to)
+            [void][System.IO.Directory]::CreateDirectory($to)
+            foreach ($file in [System.IO.Directory]::GetFiles($from)) {
+                [System.IO.File]::Copy($file, [System.IO.Path]::Combine($to, [System.IO.Path]::GetFileName($file)))
+            }
+            foreach ($dir in [System.IO.Directory]::GetDirectories($from)) {
+                copyTree $dir ([System.IO.Path]::Combine($to, [System.IO.Path]::GetFileName($dir)))
+            }
+        }
+    }
+
+    AfterAll {
+        # Pester の TestDrive は [ を含む名前を消せないので、TEMP に作って .NET で消す
+        foreach ($root in $script:trialRoots) {
+            if ([System.IO.Directory]::Exists($root)) { [System.IO.Directory]::Delete($root, $true) }
+        }
+    }
+
+    It "フォルダ名に <label> を含む場所へ scripts\ を写しても、lib.ps1 を最後まで読める" -ForEach $libCases {
+        $root = Join-Path ([System.IO.Path]::GetTempPath()) ("lib_" + [guid]::NewGuid().ToString("N"))
+        $script:trialRoots += ,$root
+        $copy = Join-Path $root "tool_a${ch}b\scripts"
+        copyTree $realScripts $copy
+
+        $psi = New-Object System.Diagnostics.ProcessStartInfo($powershell, '-NoProfile -ExecutionPolicy RemoteSigned -Command "& { $p = $env:TEBUNKO_TEST_LIB; . ([WildcardPattern]::Escape($p.Replace([string][char]96, [string][char]96 + [char]96))); if (Get-Command readSettings -ErrorAction SilentlyContinue) { Write-Output loaded } } 2>&1"')
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $psi.RedirectStandardOutput = $true
+        $psi.EnvironmentVariables["TEBUNKO_TEST_LIB"] = "$copy\tebunko\lib.ps1"
+        $process = [System.Diagnostics.Process]::Start($psi)
+        $outText = ""
+        try {
+            # エラーは -Command の中で標準出力にまとめてある（標準エラーを別に読むと、パイプがいっぱいになったときに固まるため）
+            $outText = $process.StandardOutput.ReadToEnd()
+            $process.WaitForExit(60000) | Out-Null
+        } finally {
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+        }
+        $outText.Trim() | Should -Be "loaded"
+    }
+
+    It "<label> の隣に別のフォルダがあっても、実在する方の部品を読む" -ForEach $siblingCases {
+        $root = Join-Path ([System.IO.Path]::GetTempPath()) ("sib_" + [guid]::NewGuid().ToString("N"))
+        $script:trialRoots += ,$root
+        $target = Join-Path $root "a${ch}b"
+        $other = Join-Path $root "a${sibling}b"
+        [void][System.IO.Directory]::CreateDirectory($target)
+        [void][System.IO.Directory]::CreateDirectory($other)
+        [System.IO.File]::WriteAllText("$target\part.ps1", '$script:partOwner = "target"')
+        [System.IO.File]::WriteAllText("$other\part.ps1", '$script:partOwner = "other"')
+
+        $script:partOwner = $null
+        $dir = $target
+        . ([WildcardPattern]::Escape("$dir\part.ps1".Replace([string][char]96, [string][char]96 + [char]96)))
+        $script:partOwner | Should -Be "target"
     }
 }

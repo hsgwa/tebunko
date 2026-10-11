@@ -27,7 +27,7 @@ if ($Version -notmatch '^[A-Za-z0-9._-]+$') {
 }
 
 # VERSION.txt の中身を先に作る（git の SHA が取れないときは、ここで止めてビルドを始めない）
-$versionBytes = & (Join-Path $PSScriptRoot "new_version_text.ps1") -Version $Version
+$versionBytes = & ([WildcardPattern]::Escape((Join-Path $PSScriptRoot "new_version_text.ps1").Replace('`', '``'))) -Version $Version
 
 function getNumericVersion {
     # exe の版の情報に書く数字だけの版（v1.2.3 → 1.2.3.0）。数字の版でないとき（手元での試し）は 0.0.0.0

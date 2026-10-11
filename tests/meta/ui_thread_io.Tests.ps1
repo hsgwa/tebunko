@@ -37,7 +37,6 @@ BeforeAll {
         @{ Name = "repairBrokenSettings"; Reason = "壊れた setting.config を退避する（ツールのフォルダ。ローカル）" }
         @{ Name = "getSettingsFilePath"; Reason = "setting.config の場所を決める（ツールのフォルダ。書き込めないときは既定のワークスペース。どちらもローカル）" }
         @{ Name = "readVersionFile"; Reason = "配布物の VERSION.txt を読む（ツールのフォルダの中）" }
-        @{ Name = "getPartLoad"; Reason = "部品（lib.ps1 など）の場所を確かめる（ツールのフォルダの中）" }
         @{ Name = "testDefaultWorkspace"; Reason = "既定のワークスペース（ドキュメントの tebunko_ws）の中身を数える。ネットワークの場所（プロファイルが共有にある・環境変数が UNC）は testNetworkPath で先に返し、触らない" }
     )
 
@@ -78,7 +77,7 @@ BeforeAll {
         @{ File = "app_host.ps1"; Function = "getXamlText"; Call = "[System.IO.File]"; Reason = "画面定義（XAML）の読み込み（ツールのフォルダの中）" }
         @{ File = "app_host.ps1"; Function = "newAppFontFamily"; Call = "Test-Path"; Reason = "同梱のフォント（ツールのフォルダの中）" }
         @{ File = "app_host.ps1"; Function = "writeErrorLog"; Call = "Test-Path"; Reason = "画面のエラーの記録（まれ。プロセスが落ちる前に確実に残すため、画面のスレッドで書く）" }
-        @{ File = "app_host.ps1"; Function = "writeErrorLog"; Call = "New-Item"; Reason = "画面のエラーの記録（まれ。プロセスが落ちる前に確実に残すため、画面のスレッドで書く）" }
+        @{ File = "app_host.ps1"; Function = "writeErrorLog"; Call = "[System.IO.Directory]"; Reason = "画面のエラーの記録（まれ。プロセスが落ちる前に確実に残すため、画面のスレッドで書く）" }
         @{ File = "app_host.ps1"; Function = "writeErrorLog"; Call = "[System.IO.File]"; Reason = "画面のエラーの記録（まれ。プロセスが落ちる前に確実に残すため、画面のスレッドで書く）" }
 
         # ---- tebunko/ui/settings/settings.ps1（［変更…］・［既定に戻す］） ----

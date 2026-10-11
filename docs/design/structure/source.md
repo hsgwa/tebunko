@@ -52,7 +52,7 @@ flowchart TD
     SH --> SC["shared/core/*・office/office_files.ps1・office_process.ps1<br>office_protection_view.ps1・office_protection.ps1"]
 ```
 
-読み込み口は次の 2 つ。ファイルを足したら、読み込み口か起動口のどれかから読み込む（読み込み漏れは `tests/meta/layers.Tests.ps1` が起動口からたどって検出する）。読み込みは、起動口と読み込み口（`lib.ps1` など）では `. "$PSScriptRoot\..."` の形、画面の部品（`tebunko/ui/` の `gui_main.ps1` など）では `. "$TebunkoDir\..."` の形で書く（検査はこの 2 つの形の行をたどる）。
+読み込み口は次の 2 つ。ファイルを足したら、読み込み口か起動口のどれかから読み込む（読み込み漏れは `tests/meta/layers.Tests.ps1` が起動口からたどって検出する）。読み込みは、起動口と読み込み口（`lib.ps1` など）では `. ([WildcardPattern]::Escape("$PSScriptRoot\...".Replace('`', '``')))` の形、画面の部品（`tebunko/ui/` の `gui_main.ps1` など）では `. ([WildcardPattern]::Escape("$TebunkoDir\...".Replace('`', '``')))` の形で書く（検査はこの 2 つの形の行をたどる）。フォルダ名に `[` `]` が入っていても読めるよう、相手のパスは必ず `Escape` を通す（`Escape` は 5.1 ではバッククォートをエスケープしないので、先に二重にする。対象は PowerShell 5.1 だけで、7 以降では二重になる）（通さない `. "$PSScriptRoot\..."` は、`tests/meta/structure.Tests.ps1` が落とす）。
 
 | 読み込み口 | 読み込むもの | 使う側 |
 |---|---|---|
