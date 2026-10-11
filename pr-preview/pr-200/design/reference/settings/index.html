@@ -4841,7 +4841,7 @@
 <td><code>rotateLogFile</code></td>
 <td>path, maxBytes</td>
 <td>bool</td>
-<td>ファイルが maxBytes 以上なら <code>_previous</code> へ移す（あれば <code>File.Replace</code> で置き換える。今のログが移せないときも前回の分は消えない）。maxBytes が 0 なら、あれば必ず移す。移したら <code>$true</code>、ファイルが無い・小さい・移せないときは <code>$false</code>（例外にしない）</td>
+<td>ファイルが maxBytes 以上なら <code>_previous</code> へ移す（あれば <code>File.Replace</code> で置き換える。今のログが移せないときは、どちらにも触らない）。maxBytes が 0 なら、あれば必ず移す。移したら <code>$true</code>、ファイルが無い・小さい・移せないときは <code>$false</code>（例外にしない）</td>
 <td><code>invokeIndexer</code>, <code>writeErrorLog</code></td>
 </tr>
 <tr>

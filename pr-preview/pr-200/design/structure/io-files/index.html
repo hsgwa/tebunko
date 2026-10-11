@@ -4926,7 +4926,7 @@
 <p>tebunko が作るファイルとフォルダが、何年使っても溜まり続けないことを、置き場ごとの表で確かめる。新しくファイルを足すときは、増え方と上限、誰がいつ消すかを決めてから、この表に行を足す。期間（何日より古いか）で消す処理は持たない。大きさと世代で止める。</p>
 <ul>
 <li>掃除の時機: 起動時・終了時のまとめての掃除はしない。ログは書く直前に大きさを見て回す（書かなければ増えないため。起動を遅くせず、届かない共有フォルダで起動が待たされない）。作業のフォルダは、終了時に消し、残りは次のインデックス作成の始めに消す。</li>
-<li>移せないとき: <code>rotateLogFile</code> は <code>File.Replace</code> で前回の分を置き換え、使えない置き場所では複写して元を消す。複写は一時の名前（<code>&lt;名前&gt;_previous&lt;拡張子&gt;.tmp</code>）へ行い、元を消せたときだけ前回の分に重ねる。今のログを開けない・ほかが読み取りの共有だけで開いていて消せない・前回の分が読み取り専用などで、どちらも失敗したときは、一時を消して前回の分に触らず、元のログに追記を続ける（そのあいだログは増える。次に移せる時機に回る）。起動失敗の記録（<code>startup_error.txt</code>）は、元を <code>startup_error_moving.txt</code> へ移してから前回の分に重ねる。重ねられず、元の名前に戻す移動も失敗したときだけ、<code>startup_error_moving.txt</code> が残る。</li>
+<li>移せないとき: <code>rotateLogFile</code> は <code>File.Replace</code> で前回の分を置き換える。今のログが開いたまま・前回の分が読み取り専用・置き場所が <code>File.Replace</code> に対応しないときは、どちらにも触らず、元のログに追記を続ける（そのあいだログは増える。次に移せる時機に回る）。起動失敗の記録（<code>startup_error.txt</code>）は、元を <code>startup_error_moving.txt</code> へ移してから前回の分に重ねる。重ねられず、元の名前に戻す移動も失敗したときだけ、<code>startup_error_moving.txt</code> が残る。</li>
 <li>画面のスレッドとの関係: ログを回す移動は、書く直前に 1 回だけ行う（今の追記と同じ種類の I/O。<code>docs/design/gui/responsiveness.md</code> の考えを超えない）。</li>
 <li>ワークスペースの表の 1 列目は <code>Workspace.Entries()</code> の名前（<code>GetFileName</code>）と完全一致で <code>tests/meta/workspace_files.Tests.ps1</code> が比べる。ワークスペースの外の置き場の表は、テストの対象外。</li>
 </ul>
@@ -5031,6 +5031,11 @@
 <td><code>startup_error_previous.txt</code></td>
 <td>移すたびに上書き</td>
 <td>1 つ。合わせておよそ 2 MB で止まる</td>
+</tr>
+<tr>
+<td><code>startup_error_moving.txt</code></td>
+<td>移すときだけ</td>
+<td>重ねられず、元の名前へ戻す移動も失敗したときだけ残る。次に移すとき同じ名前で上書きされ、1 つまで</td>
 </tr>
 <tr>
 <td><code>setting.config.tmp</code></td>
