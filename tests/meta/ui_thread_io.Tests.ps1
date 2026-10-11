@@ -73,6 +73,8 @@ BeforeAll {
         @{ File = "open_source.ps1"; Function = "exportResults"; Call = "New-Object"; Reason = "search_results.txt に書く（検索結果の出力の改善で startJob に移す。出力は利用者が押したときだけ）" }
         @{ File = "open_source.ps1"; Function = "exportResults"; Call = "Invoke-Item"; Reason = "search_results.txt を開く（プロセスの起動は待たない）" }
 
+        @{ File = "about_dialog.ps1"; Function = "openAboutLink"; Call = "Start-Process"; Reason = "エクスプローラーで既定のブラウザを開く（getAboutLinks に載せた 2 つのアドレスだけ。プロセスの起動は待たない）" }
+
         # ---- tebunko/ui/about_dialog.ps1・shared/ui/app_host.ps1（アイコン・XAML。ツールのフォルダの中） ----
         @{ File = "app_host.ps1"; Function = "getXamlText"; Call = "[System.IO.File]"; Reason = "画面定義（XAML）の読み込み（ツールのフォルダの中）" }
         @{ File = "app_host.ps1"; Function = "writeErrorLog"; Call = "Test-Path"; Reason = "画面のエラーの記録（まれ。プロセスが落ちる前に確実に残すため、画面のスレッドで書く）" }

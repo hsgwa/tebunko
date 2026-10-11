@@ -49,6 +49,13 @@ Describe "S1 起動・検索・閉じる" -Tag Gui {
             clickGui $S $S.Window "AboutLink" "バージョン情報"
             $about = waitGuiWindow $S "「バージョン情報」のダイアログ" -Id "VersionText"
             (getGuiText (findGui $about -Id "VersionText")) | Should -BeLike "バージョン *"
+            # GitHub とリリースへのリンクが出ていて押せる（押すとブラウザが開くので、ここでは押さない）。ライセンスの文も出ている
+            foreach ($linkId in @("GitHubLink", "ReleasesLink")) {
+                $link = findGui $about -Id $linkId
+                $link.Current.IsEnabled | Should -BeTrue
+                $link.Current.IsOffscreen | Should -BeFalse
+            }
+            (getGuiText (findGui $about -Id "LicenseText")) | Should -BeLike "*MIT*ISC*"
             clickGui $S $about "CloseButton" "［OK］"
             waitGuiWindowClosed $S $about "「バージョン情報」"
 
