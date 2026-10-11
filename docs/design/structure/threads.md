@@ -55,7 +55,7 @@ flowchart TB
 | 取り込み（Word） | 1 | インデックス作成 1 回 | STA | BelowNormal | 旧形式の Word のファイル（`.doc`）を取り込む。Word を 1 つ持つ |
 | 取り込み（PowerPoint） | 1 | インデックス作成 1 回 | STA | BelowNormal | 旧形式の PowerPoint のファイル（`.ppt`）を取り込む。PowerPoint を 1 つ持つ |
 | 取り込み（読み取り） | コア数 − 1（1〜4。設定 `ingestThreads` で変えられる） | インデックス作成 1 回 | MTA | BelowNormal | 新形式の Word・PowerPoint のファイル（`.docx`・`.docm`・`.pptx`・`.pptm`）を、Office を使わずに読む |
-| 監視 | Office の取り込みスレッド 1 つに 1 つ | インデックス作成 1 回 | MTA | Normal | 自分の取り込みスレッドの制限時間を見て、過ぎたらそのスレッドが起動した Office だけを PID で止める |
+| 監視 | Office の取り込みスレッド 1 つに 1 つ | インデックス作成 1 回 | MTA | Normal | 自分の取り込みスレッドの制限時間を見て、過ぎたらそのスレッドが起動した Office だけを PID で止める。ただし、取り込み中に窓が見えた（利用者が使っている）PowerPoint は止めず、そのレーンを諦めたと司令に伝える（レーンの状態 `Abandoned`） |
 | システムインデックスのプール | 最大 4 | インデックス作成 1 回 | MTA | BelowNormal | フォルダごとのシステムインデックスを作る（`WorkerPool`） |
 
 **優先度の決まり。** 利用者が結果を待つもの（画面・検索・バックグラウンド）は Normal にする。インデックス作成のものは BelowNormal にし、インデックス作成中も検索を先に動かす。監視は、固まった Office を止める役目のため Normal のままにする。
@@ -104,7 +104,7 @@ stateDiagram-v2
 
 ## 画面とインデクサの受け渡し
 
-画面とインデクサは、同じプロセスのメモリ上の受け渡しの口（`newIndexerChannel`。`[hashtable]::Synchronized`）でやり取りする。ファイルでの受け渡しは行わない。画面は進み具合を 1 秒ごとに口から読む。画面が書く欄は `RetryFailed`・`IncludeCloud`・`ConfirmTargets`・`Workers`・`Stop`・`Answer`・`OnlyNames`（更新するインデックス名の配列。空なら、チェックの付いたものすべて）で、インデクサが書く欄は `Progress`・`Plan`・`Error`・`ExitCode`・`Notice`・`Postponed`・`CloudSkipped`・`OnlySkipped`（`OnlyNames` のうち更新できなかった名前と理由）・`OfficePids` である。
+画面とインデクサは、同じプロセスのメモリ上の受け渡しの口（`newIndexerChannel`。`[hashtable]::Synchronized`）でやり取りする。ファイルでの受け渡しは行わない。画面は進み具合を 1 秒ごとに口から読む。画面が書く欄は `RetryFailed`・`IncludeCloud`・`ConfirmTargets`・`Workers`・`Stop`・`Answer`・`OnlyNames`（更新するインデックス名の配列。空なら、チェックの付いたものすべて）で、インデクサが書く欄は `Progress`・`Plan`・`Error`・`ExitCode`・`CloudSkipped`・`OnlySkipped`（`OnlyNames` のうち更新できなかった名前と理由）・`OfficePids` である。
 
 ```mermaid
 sequenceDiagram
@@ -135,10 +135,10 @@ sequenceDiagram
 | Stop | 画面（`requestIndexingStop`） | インデクサ | 中止の要求 |
 | Plan・Answer・Answered | インデクサ → 画面（`answerIndexingPlan`） → インデクサ | 両方 | 取り込み予定と、利用者の返事。インデクサは `Answered`（`ManualResetEvent`）で待つ（`IndexingReporter.WaitForApproval`。60 分で取りやめる） |
 | Error・ExitCode | インデクサ | 画面 | 続けられないエラーの内容と、終了コード（0 完了・1 エラー・2 中止）。`ExitCode` は最後に入れる |
-| Notice・Postponed | インデクサ | 画面（`IndexingSession.GetNotice` / `GetPostponed`） | 終わりの案内（利用者の PowerPoint が起動していて後回しにしたファイルがあるときの一言。無ければ空）と、後回しにした件数（未取り込みのまま残した件数。無ければ 0） |
 | IncludeCloud | 画面（確認の返事。ヘッドレスでは設定 `cloudFiles` が `download` のとき） | インデクサ | クラウドにだけあるファイルもダウンロードして取り込むか（既定は取り込まない） |
 | CloudSkipped | インデクサ | 画面（`IndexingSession.GetCloudSkipped`） | クラウドにだけあるため、ダウンロードせずに残した件数（無ければ 0） |
 | OfficePids | 取り込みスレッド | 画面 | インデックス作成が起動した Office の PID → `@{ ProcessName; StartTicks }`（`ConcurrentDictionary`）。閉じるときに止まらなければ、名前と起動時刻が合うものだけを止める |
+| UserOfficePids | 取り込みスレッドの監視 | 取り込みスレッドの監視・画面（`KillOffice`） | 取り込み中に見える窓があった（利用者が使った）PowerPoint の PID → `@{ ProcessName; StartTicks }`（`ConcurrentDictionary`）。印のある PID は、制限時間を過ぎても、閉じるときにも止めない |
 
 画面のスレッドがファイル・フォルダに触る呼び出しは、`tests/meta/ui_thread_io.Tests.ps1` が機械的に見つける。組み込みのコマンドと `System.IO` の静的メソッドに加え、状態層の関数・クラスのメソッドのうち、中でファイル・フォルダに触るもの（それを呼ぶものも、呼び出しをたどって）を自動で求める。`startJob` の仕事のスクリプトブロックの外にある呼び出しは、理由を付けて一覧に載せたものだけを許す。一覧のものが使われていない・理由が空・先送りの書き方のときも落ちる。
 
