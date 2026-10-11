@@ -41,7 +41,9 @@ ${pdfDelimiters} = [char[]]@(0, 9, 10, 12, 13, 32, '(', ')', '<', '>', '[', ']',
 ${pdfStringStops} = [char[]]@('(', ')', '\')
 # readPdfToken の速い道。空白（コード 32 以下）を飛ばして、(1) 数値・キーワード、または (2) 名前・入れ子もエスケープも無い文字列・<< >> [ ] { } を 1 つ取る。
 # 区切りは ${pdfDelimiters} と同じ。コメント・16 進の文字列・入れ子やエスケープのある文字列・単独の < > ) は取らない（1 文字ずつ進める道に任せる）
-${pdfTokenRegex} = [regex]::new('\G(?>[\x00-\x20]*)(?:([^\x00-\x20()<>\[\]{}/%][^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*)|(/[^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*|\([^()\\]*\)|<<|>>|[\[\]{}]))', [System.Text.RegularExpressions.RegexOptions]::Compiled)
+# ページの内容で、文字の位置や文字列に効く命令。これ以外の命令（図形・色など）は、数と文字列を捨てて読み飛ばす
+${pdfTextOps} = [System.Collections.Generic.HashSet[string]]::new([string[]]@("Tj", "TJ", "'", '"', "Tf", "BT", "Td", "TD", "TL", "T*", "Tm", "BI"), [System.StringComparer]::Ordinal)
+${pdfTokenRegex} =[regex]::new('\G(?>[\x00-\x20]*)(?:([^\x00-\x20()<>\[\]{}/%][^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*)|(/[^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*|\([^()\\]*\)|<<|>>|[\[\]{}]))', [System.Text.RegularExpressions.RegexOptions]::Compiled)
 
 function testPdfExtension {
     # ファイル名（またはパス）の拡張子が、取り込み対象の PDF の拡張子か（大文字・小文字を区別しない）
@@ -1094,6 +1096,7 @@ function readPdfPageText {
     $lastName = $null
     $lastArray = $null
     $font = $null
+    $halfGlyph = $false
     $fontSize = 0.0
     while ($true) {
         $t = readPdfToken $st
@@ -1125,14 +1128,21 @@ function readPdfPageText {
             continue
         }
         if ($kind -ne "kw") { continue }
+        if (-not ${pdfTextOps}.Contains($t)) {
+            $nums.Clear()
+            $lastStr = $null
+            $lastName = $null
+            $lastArray = $null
+            continue
+        }
 
         if ($t -ceq "Tj") {
-            if ($null -ne $lastStr) { addPdfText $ts (convertPdfStringToText $font $lastStr) (getPdfGlyphCount $font $lastStr) }
+            if ($null -ne $lastStr) { addPdfText $ts (convertPdfStringToText $font $lastStr) $(if ($halfGlyph) { ($lastStr.Length + 1) -shr 1 } else { $lastStr.Length }) }
         } elseif ($t -ceq "TJ") {
             if ($null -ne $lastArray) {
                 foreach ($item in $lastArray) {
                     if ($item -is [string]) {
-                        addPdfText $ts (convertPdfStringToText $font $item) (getPdfGlyphCount $font $item)
+                        addPdfText $ts (convertPdfStringToText $font $item) $(if ($halfGlyph) { ($item.Length + 1) -shr 1 } else { $item.Length })
                     } elseif ($item -le ${pdfGapThreshold}) {
                         $ts.Gap = $true
                     }
@@ -1142,13 +1152,15 @@ function readPdfPageText {
             $ts.Y -= $ts.Leading * $ts.Scale
             $ts.Run = 0
             breakPdfLine $ts
-            if ($null -ne $lastStr) { addPdfText $ts (convertPdfStringToText $font $lastStr) (getPdfGlyphCount $font $lastStr) }
+            if ($null -ne $lastStr) { addPdfText $ts (convertPdfStringToText $font $lastStr) $(if ($halfGlyph) { ($lastStr.Length + 1) -shr 1 } else { $lastStr.Length }) }
         } elseif ($t -ceq "Tf") {
             $fontSize = if ($nums.Count -ge 1) { [Math]::Abs($nums[$nums.Count - 1]) } else { 0.0 }
             $font = $null
             if ($null -ne $lastName -and (testPdfDict $fontDict) -and $fontDict.ContainsKey($lastName)) {
                 $font = getPdfFont $doc $fontDict[$lastName]
             }
+            # 1 コードが 2 バイトの対応表のあるフォントは、2 文字を 1 字形と数える（getPdfGlyphCount と同じ）
+            $halfGlyph = ($null -ne $font -and $null -ne $font.Map -and $font.Width -eq 2)
         } elseif ($t -ceq "BT") {
             # テキストの行列は BT で初期化される（縦位置は 0 から）
             $ts.Y = 0.0
