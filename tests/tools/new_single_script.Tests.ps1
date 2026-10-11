@@ -73,6 +73,7 @@ BeforeAll {
             $exitCode = $process.ExitCode
         } finally {
             if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+            $process.Dispose()
         }
         $logPath = Join-Path $workspace "indexing_log.txt"
         $log = if (Test-Path -LiteralPath $logPath) { [System.IO.File]::ReadAllText($logPath) } else { "" }
@@ -158,9 +159,10 @@ Describe "new_single_script.ps1 の道具の検査" -Tag Io {
     It "版の文字列が引数（タグ・今のコミットの SHA）と同じ" {
         $text.Contains("Tag = 'v9.9.9'; Sha = '$headSha'") | Should -Be $true
     }
+
     It "別プロセスの Windows PowerShell 5.1 で `-File` 起動する（<name>）" -TestCases @(
         @{ name = "BOM 付きの作ったままのファイルは、構文エラーも文字化けも無く本体が動き、日本語の記録が正しく出る"; withBom = $true }
-        @{ name = "BOM が落ちたファイル（メモ帳などの保存し直しと同じ）は、日本語が化けて正しい記録が出ない（化けを見つけられることの確認）"; withBom = $false }
+        @{ name = "BOM が落ちたファイル（BOM なし UTF-8 のバイト列）は、日本語が化けて正しい記録が出ない（化けを見つけられることの確認）"; withBom = $false }
     ) {
         param ($name, $withBom)
         $expectedLog = "設定ファイルが壊れていたため、既定の設定で起動しました"
@@ -170,6 +172,7 @@ Describe "new_single_script.ps1 の道具の検査" -Tag Io {
             $result.ExitCode | Should -Be 1
             $result.Broken | Should -Be 1
             $result.Log | Should -Match $expectedLog
+            $result.Log | Should -Match "クロール対象フォルダがありません"
         } else {
             if ([System.Text.Encoding]::Default.CodePage -eq 65001) {
                 Set-ItResult -Skipped -Because "システムの既定が UTF-8 の機械では、BOM が無くても正しく読めるため"
@@ -178,7 +181,12 @@ Describe "new_single_script.ps1 の道具の検査" -Tag Io {
             $noBom = New-Object byte[] ($bytes.Length - 3)
             [System.Array]::Copy($bytes, 3, $noBom, 0, $noBom.Length)
             $result = invokeEncodingProbe $TestDrive "without-bom" $noBom
+            $result.ExitCode | Should -Not -Be 0
             $result.Log | Should -Not -Match $expectedLog
+            # 構文エラーになるのは日本語のコードページ（932）で読んだとき。ほかのコードページでは、必ず構文エラーになるとは限らない
+            if ([System.Text.Encoding]::Default.CodePage -eq 932) {
+                $result.ErrorText | Should -Match "ParserError"
+            }
         }
     }
 }
@@ -228,7 +236,6 @@ $x = 1 # Invoke-WebRequest も行内コメントなら見ない
         $hits | Should -Match "Network"
         (@([regex]::Matches($hits, "Network")).Count) | Should -Be 1
     }
-
 }
 
 Describe "新しい runspace での部品（lib）の読み込み（結合した単一 .ps1。getPartLoad の経路）" -Tag Slow {
@@ -282,34 +289,6 @@ Describe "新しい runspace での部品（lib）の読み込み（結合した
 }
 
 Describe "`-Part indexer`（結合した単一 .ps1）" -Tag Slow {
-    It "壊れた setting.config を置いて起動すると、設定を退避し、クロール対象フォルダが無い状態まで正常に進んで終わる（応答なしにならない）" {
-        $dir = Join-Path $TestDrive "broken"
-        New-Item -ItemType Directory -Force -Path $dir | Out-Null
-        $script = Join-Path $dir "tebunko-v9.9.9-broken.ps1"
-        & $tool -Version "v9.9.9" -OutFile $script | Out-Null
-        [System.IO.File]::WriteAllText("$dir\setting.config", '{ "targetFolders": [', ${utf8Bom})
-        $fakeProfile = Join-Path $dir "profile"
-        New-Item -ItemType Directory -Force -Path $fakeProfile | Out-Null
-
-        # 既定のワークスペース（%USERPROFILE%\Documents\tebunko_ws）には利用者のインデックスがあるため、
-        # 環境変数 TEBUNKO_DEFAULT_WORKSPACE（getDefaultWorkDir の差し替えの口）で、テスト用の場所に差し替える
-        $previousWorkspace = $env:TEBUNKO_DEFAULT_WORKSPACE
-        $env:TEBUNKO_DEFAULT_WORKSPACE = "$fakeProfile\Documents\tebunko_ws"
-        try {
-            & $script -Part indexer *> $null
-            $exitCode = $LASTEXITCODE
-        } finally {
-            $env:TEBUNKO_DEFAULT_WORKSPACE = $previousWorkspace
-        }
-
-        $exitCode | Should -Be 1
-        $broken = @(Get-ChildItem -LiteralPath $dir -Filter "setting.config.broken-*")
-        $broken.Count | Should -Be 1
-        $log = [System.IO.File]::ReadAllText("$fakeProfile\Documents\tebunko_ws\indexing_log.txt")
-        $log | Should -Match "設定ファイルが壊れていたため、既定の設定で起動しました"
-        $log | Should -Match "クロール対象フォルダがありません"
-    }
-
     It "tests/testdata の一部を取り込むと、件数が入力のファイル数と同じで失敗が 0 になり、setting.config・work がその場にでき、索引を検索で見つけられる" {
         $dir = Join-Path $TestDrive "ingest"
         New-Item -ItemType Directory -Force -Path $dir | Out-Null
