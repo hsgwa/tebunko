@@ -124,7 +124,7 @@ function updateIndexingButton {
     }
 
     $state = $script:indexingState
-    if ($script:indexBusy -or $script:archiveBusy -or $script:indexingPreparing -or $script:targetsNaming) {
+    if ($script:indexBusy -or $script:archiveBusy -or $script:indexingPreparing -or $script:targetsNaming -or $script:workspaceMoving) {
         # インデックスの削除・名前の変更中・エクスポート・インポート中（別スレッド）・ワークスペースを確かめている間は、インデックス作成もインデックスの操作も始めない
         $ready = $false
     }

@@ -210,3 +210,60 @@ function newWorkspaceConfirm {
         Choices = $choices
     }
 }
+
+function getWorkspaceMoveChange {
+    # 裏のスレッドの仕事の戻り値（output）から、WorkspaceMover.ChangeWorkspace の結果（@{ Ok; Stage; Message; Targets; Count }）を取り出す。無ければ $null
+    param (
+        $output
+    )
+
+    $found = $null
+    foreach ($item in @($output)) {
+        if ($item -is [hashtable] -and $item.ContainsKey("Ok")) {
+            $found = $item
+        }
+    }
+    return $found
+}
+
+function getWorkspaceMoveOutcome {
+    # ワークスペースを移す裏の仕事が終わったときに、画面のスレッドで行うことを決める。画面に触らない。
+    #   change: getWorkspaceMoveChange の結果（無い・例外のときは $null）
+    #   errorText: 裏のスレッドの例外の文（無ければ空）
+    #   closeRequested: 移している間に窓を閉じようとして、終わるのを待っていた
+    # 戻り値: @{ Ok（移せた）; Warning（失敗のとき、利用者に出す文。成功なら空）; Status（成功のとき switchWorkspace のあとに出すステータス。空なら出さない）; Close（終わったら閉じる） }
+    # 成功のときだけ画面を切り替える（Ok）。失敗のときは設定も画面も変えない（WorkspaceMover は失敗したら設定を変えずに戻している）
+    param (
+        $change,
+        [string]$errorText,
+        [bool]$closeRequested,
+        [string]$mode,
+        [string]$folder,
+        [string]$previous
+    )
+
+    $failed = @{ Ok = $false; Warning = ""; Status = ""; Close = $closeRequested }
+    if ($errorText) {
+        $failed.Warning = "ワークスペースを「${folder}」へ移せませんでした（${errorText}）。今のワークスペースのまま使えます。"
+        return $failed
+    }
+    if ($null -eq $change) {
+        $failed.Warning = "ワークスペースを「${folder}」へ移せませんでした。今のワークスペースのまま使えます。"
+        return $failed
+    }
+    if (!$change.Ok) {
+        $failed.Warning = if ($change.Stage -eq "remove") {
+            "「${folder}」のインデックスを削除できませんでした（$($change.Message)）。ファイルを開いているアプリを閉じてから、もう一度変えてください。"
+        } else {
+            [string]$change.Message
+        }
+        return $failed
+    }
+    $status = ""
+    if ($mode -eq "use") {
+        $status = "ワークスペースを「${folder}」に変え、そこにあるインデックスを使います（インデックス $($change.Targets) 件。前のワークスペースの中身は「${previous}」に残しています）"
+    } elseif ($change.Count -gt 0) {
+        $status = "ワークスペースを「${folder}」に変え、中身を移しました（移す前の場所：${previous}）"
+    }
+    return @{ Ok = $true; Warning = ""; Status = $status; Close = $closeRequested }
+}

@@ -214,23 +214,90 @@ function applyWorkspace {
     $previous = $workspace.Dir
     # 共有されたワークスペースなどを使う（use）・消して最初から（reset）・中身を移す（move）。保存まで WorkspaceMover が行う
     $mode = if ($answer -eq "use" -or $answer -eq "reset") { $answer } else { "move" }
-    $change = $mover.ChangeWorkspace($mode, $previous, $folder)
-    if (!$change.Ok) {
-        if ($change.Stage -eq "remove") {
-            showMessage "「${folder}」のインデックスを削除できませんでした（$($change.Message)）。ファイルを開いているアプリを閉じてから、もう一度変えてください。" "OK" "Warning" | Out-Null
-        } else {
-            showMessage $change.Message "OK" "Warning" | Out-Null
+    startWorkspaceMove $mode $previous $folder
+}
+
+function startWorkspaceMove {
+    # 中身を移す・消す処理は、量によっては数十秒かかるため、裏のスレッドで行う（画面のスレッドで行うと「応答なし」になる）。
+    # 動かしている間は待つ間のダイアログを出し、ほかの操作は止める（$script:workspaceMoving。getIndexJobBlocker が見る）。
+    # 終わりの処理は finishWorkspaceMove（画面のスレッド）。閉じるのは、移し終わるまで待つ（gui_main.ps1 の Closing）
+    param (
+        [string]$mode,       # "use"・"reset"・"move"（WorkspaceMover.ChangeWorkspace の mode）
+        [string]$previous,
+        [string]$folder
+    )
+
+    $script:workspaceMoving = $true
+    $script:closeAfterWorkspaceMove = $false
+    try {
+        updateIndexingButton
+        setStatus "ワークスペースを「${folder}」へ移しています…"
+        # ダイアログが出せなくても移動は続ける
+        try { showIndexingWait "Moving" } catch { }
+        # 裏のスレッドは lib.ps1 を読み込んだときの場所を覚えているため、場所は渡す。
+        # 移動元と移動先のどちらかがネットワークの場所なら、届かない共有でほかの仕事を待たせない専用の列を使う
+        startJob {
+            param ($mode, $previous, $folder, $settingsPath)
+            # 届かない場所では、何もせずに成功にしない。失敗として返す（移動元は、使わない "use" のときは調べない）
+            if ($mode -ne "use") {
+                assertWorkspaceReachable $previous
+            }
+            assertWorkspaceReachable $folder
+            $mover = [WorkspaceMover]::new($settingsPath)
+            $mover.ChangeWorkspace($mode, $previous, $folder)
+        } @($mode, $previous, $folder, ${settingsFile}) {
+            param ($output, $errorText)
+            finishWorkspaceMove $mode $previous $folder $output $errorText
+        } (getWorkspaceJobQueue @($previous, $folder))
+    } catch {
+        # 始められなかった。印を戻し、ダイアログを閉じて、元の画面に戻す
+        $script:workspaceMoving = $false
+        try { closeIndexingWait } catch { }
+        try { updateIndexingButton } catch { }
+        throw
+    }
+}
+
+function finishWorkspaceMove {
+    # 裏の移動が終わったときの、画面のスレッドでの後始末（成功・失敗とも）。どの終わり方でも、印を下ろしてダイアログを閉じる。
+    # 成功のときだけ画面を切り替える。移している間に窓を閉じようとしていたなら、最後に閉じる
+    param (
+        [string]$mode,
+        [string]$previous,
+        [string]$folder,
+        $output,
+        [string]$errorText
+    )
+
+    $closeRequested = [bool]$script:closeAfterWorkspaceMove
+    $script:workspaceMoving = $false
+    $script:closeAfterWorkspaceMove = $false
+    $outcome = @{ Ok = $false; Warning = "ワークスペースを移した結果を確かめられませんでした。"; Status = ""; Close = $closeRequested }
+    try {
+        $outcome = getWorkspaceMoveOutcome (getWorkspaceMoveChange $output) $errorText $closeRequested $mode $folder $previous
+        try { closeIndexingWait } catch { }
+        if ($outcome.Ok) {
+            if (!$outcome.Close) {
+                switchWorkspace
+            }
+            if ($outcome.Status -ne "") {
+                setStatus $outcome.Status
+            }
+            return
         }
-        return
-    }
-    switchWorkspace
-    if ($mode -eq "use") {
-        setStatus "ワークスペースを「${folder}」に変え、そこにあるインデックスを使います（インデックス $($change.Targets) 件。前のワークスペースの中身は「${previous}」に残しています）"
-        return
-    }
-    $count = $change.Count
-    if ($count -gt 0) {
-        setStatus "ワークスペースを「${folder}」に変え、中身を移しました（移す前の場所：${previous}）"
+        $ui.WorkspaceBox.Text = $workspace.Dir
+        updateIndexingButton
+        if ($outcome.Close) {
+            # 閉じるのを待っていたときは、確認の画面を出さずに、理由をステータスに残して閉じる
+            setStatus $outcome.Warning
+        } else {
+            showMessage $outcome.Warning "OK" "Warning" | Out-Null
+        }
+    } finally {
+        try { closeIndexingWait } catch { }
+        if ($outcome.Close) {
+            $window.Dispatcher.BeginInvoke([action]{ $window.Close() }) | Out-Null
+        }
     }
 }
 

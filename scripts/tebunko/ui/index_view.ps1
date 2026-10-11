@@ -166,11 +166,16 @@ function getIndexJobCloseAction {
     #   "wait"    … 閉じずに、終わるまで待って閉じる（1 回目。閉じると設定への反映が抜けて、設定とインデックスのフォルダの名前が食い違うため）
     #   "confirm" … 待っている間にもう一度閉じようとした。待たずに閉じてよいかを確かめる
     #   "proceed" … 仕事が無い。ふつうの閉じ方に進む
+    #   "waitMove" … ワークスペースを移している途中。閉じずに、移し終わるまで待って閉じる（途中で止めると移動元と移動先に分かれるため、確認は出さない）
     param (
         [bool]$indexBusy,
-        [bool]$alreadyAsked
+        [bool]$alreadyAsked,
+        [bool]$workspaceMoving = $false
     )
 
+    if ($workspaceMoving) {
+        return "waitMove"
+    }
     if (!$indexBusy) {
         return "proceed"
     }
@@ -211,6 +216,11 @@ function getIndexJobClosingStatus {
     return "インデックスの変更が終わってから閉じます…（待たずに閉じるには、もう一度閉じる操作をします）"
 }
 
+function getWorkspaceMoveClosingStatus {
+    # ワークスペースを移している途中で閉じようとして、待っているときのステータス
+    return "ワークスペースを移し終わってから閉じます…"
+}
+
 function getSourceFolderFileFailedStatus {
     # 元のフォルダの記録（source_folder.txt）を書き直せなかったときのステータス
     param (
@@ -227,9 +237,13 @@ function getIndexJobBlocker {
         [bool]$isIndexing,   # インデックス作成中
         [bool]$indexBusy,    # 前のインデックスの削除・名前の変更中
         [bool]$archiveBusy,  # エクスポート・インポート中
-        [bool]$namingBusy = $false   # ネットワークのワークスペースで、インデックスの名前を裏で決めている間（一覧はまだ空。この間に保存すると、ほかのインデックスが設定から消える）
+        [bool]$namingBusy = $false,  # ネットワークのワークスペースで、インデックスの名前を裏で決めている間（一覧はまだ空。この間に保存すると、ほかのインデックスが設定から消える）
+        [bool]$workspaceMoving = $false   # ワークスペースの中身を移している間（別スレッド。移動元と移動先の両方を使っている）
     )
 
+    if ($workspaceMoving) {
+        return "ワークスペースの移動中"
+    }
     if ($isIndexing) {
         return "インデックス作成中"
     }
@@ -256,6 +270,9 @@ function getIndexJobBlockedMessage {
         return ""
     }
     if ($operation -eq "ワークスペースの変更") {
+        if ($blocker -eq "ワークスペースの移動中") {
+            return "ワークスペースを移している間は、もう一度変えられません。終わるまでお待ちください。"
+        }
         if ($blocker -eq "インデックス作成中") {
             return "更新中はワークスペースを変えられません。更新が終わるまでお待ちください（［中止］で止められます）。"
         }

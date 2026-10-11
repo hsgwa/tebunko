@@ -51,6 +51,8 @@ $script:indexingState = $null
 $script:indexSummary = $null
 $script:targetsNaming = $false  # ネットワークのワークスペースで、一覧のインデックス名を裏で決めている間（loadTargets）。この間は一覧が空で、追加・削除・インデックス作成の開始・ワークスペースの変更をしない
 $script:archiveBusy = $false  # エクスポート・インポート中（別スレッド）。settings\settings.ps1 の testWorkspaceChangeable も見る
+$script:workspaceMoving = $false  # ワークスペースの中身を移している間（別スレッド。settings\settings.ps1 の applyWorkspace）。indexBusy とは分ける。閉じるのは移し終わるまで待つ
+$script:closeAfterWorkspaceMove = $false  # 移している間に窓を閉じようとした（移し終わったら閉じる）
 $script:archiveJobOperation = ""
 $script:archiveJobOnSuccess = $null
 
@@ -87,7 +89,7 @@ function getCurrentIndexJobBlocker {
         [bool]$extraIndexing = $false
     )
 
-    return (getIndexJobBlocker ((isIndexingOrPreparing) -or $extraIndexing) ([bool]$script:indexBusy) ([bool]$script:archiveBusy) ([bool]$script:targetsNaming))
+    return (getIndexJobBlocker ((isIndexingOrPreparing) -or $extraIndexing) ([bool]$script:indexBusy) ([bool]$script:archiveBusy) ([bool]$script:targetsNaming) ([bool]$script:workspaceMoving))
 }
 
 function shouldRefreshFastSearchStatus {

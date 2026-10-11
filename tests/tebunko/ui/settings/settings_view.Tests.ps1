@@ -219,3 +219,49 @@ Describe "newWorkspaceConfirm" -Tag Unit {
         $confirm.Choices[0].Careful | Should -Be $true
     }
 }
+
+Describe "getWorkspaceMoveChange" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "戻り値が空なら null"; output = @(); ok = $null }
+        @{ label = "Ok を持つ表だけ拾う"; output = @("x", @{ Other = 1 }, @{ Ok = $true; Count = 2 }); ok = $true }
+        @{ label = "複数あれば最後のを拾う"; output = @(@{ Ok = $true }, @{ Ok = $false }); ok = $false }
+        @{ label = "Ok の無い表だけなら null"; output = @(@{ Other = 1 }); ok = $null }
+    ) {
+        param ($label, $output, $ok)
+        $change = getWorkspaceMoveChange $output
+        if ($null -eq $ok) { $change | Should -BeNullOrEmpty } else { $change.Ok | Should -Be $ok }
+    }
+}
+
+Describe "getWorkspaceMoveOutcome" -Tag Unit {
+    It "<label>は失敗で、画面を切り替えず、今のワークスペースのまま使えると伝える" -TestCases @(
+        @{ label = "裏の例外"; change = $null; err = "届きません"; expected = "ワークスペースを「D:\新」へ移せませんでした（届きません）。今のワークスペースのまま使えます。" }
+        @{ label = "戻り値なし"; change = $null; err = ""; expected = "ワークスペースを「D:\新」へ移せませんでした。今のワークスペースのまま使えます。" }
+        @{ label = "移せなかった結果"; change = @{ Ok = $false; Stage = "move"; Message = "足りません" }; err = ""; expected = "足りません" }
+        @{ label = "削除できなかった結果"; change = @{ Ok = $false; Stage = "remove"; Message = "使用中" }; err = ""; expected = "「D:\新」のインデックスを削除できませんでした（使用中）。ファイルを開いているアプリを閉じてから、もう一度変えてください。" }
+    ) {
+        param ($label, $change, $err, $expected)
+        $outcome = getWorkspaceMoveOutcome $change $err $false "move" "D:\新" "C:\旧"
+        $outcome.Ok | Should -Be $false
+        $outcome.Warning | Should -Be $expected
+        $outcome.Status | Should -Be ""
+        $outcome.Close | Should -Be $false
+    }
+
+    It "成功したら <label>" -TestCases @(
+        @{ label = "use は使うインデックスの件数と残した場所を出す"; mode = "use"; change = @{ Ok = $true; Targets = 3; Count = 0 }; expected = "ワークスペースを「D:\新」に変え、そこにあるインデックスを使います（インデックス 3 件。前のワークスペースの中身は「C:\旧」に残しています）" }
+        @{ label = "move は移した中身があれば元の場所を出す"; mode = "move"; change = @{ Ok = $true; Targets = 0; Count = 4 }; expected = "ワークスペースを「D:\新」に変え、中身を移しました（移す前の場所：C:\旧）" }
+        @{ label = "move でも中身が無ければ出さない"; mode = "move"; change = @{ Ok = $true; Targets = 0; Count = 0 }; expected = "" }
+    ) {
+        param ($label, $mode, $change, $expected)
+        $outcome = getWorkspaceMoveOutcome $change "" $false $mode "D:\新" "C:\旧"
+        $outcome.Ok | Should -Be $true
+        $outcome.Warning | Should -Be ""
+        $outcome.Status | Should -Be $expected
+    }
+
+    It "移している間に閉じようとしていたら、成功でも失敗でも Close を返す" {
+        (getWorkspaceMoveOutcome @{ Ok = $true; Count = 1 } "" $true "move" "D:\新" "C:\旧").Close | Should -Be $true
+        (getWorkspaceMoveOutcome $null "失敗" $true "move" "D:\新" "C:\旧").Close | Should -Be $true
+    }
+}

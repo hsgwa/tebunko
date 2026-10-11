@@ -330,7 +330,16 @@ function startGui {
         }
         try {
             # インデックスの削除・名前の変更の途中で閉じると、設定とインデックスのフォルダの名前が食い違う。終わるまで待って閉じる
-            $indexJobClose = getIndexJobCloseAction ([bool]$script:indexBusy) ([bool]$script:closeAskedDuringIndexJob)
+            $indexJobClose = getIndexJobCloseAction ([bool]$script:indexBusy) ([bool]$script:closeAskedDuringIndexJob) ([bool]$script:workspaceMoving)
+            if ($indexJobClose -eq "waitMove") {
+                # ワークスペースを移している途中で閉じると、中身が移動元と移動先に分かれる。止めずに、移し終わってから閉じる
+                # （終わりの処理 finishWorkspaceMove が閉じる）。待つ間のダイアログの文だけ「終わったら閉じます」に変える
+                $script:closeAfterWorkspaceMove = $true
+                $e.Cancel = $true
+                setStatus (getWorkspaceMoveClosingStatus)
+                try { updateWaitDialog $script:indexingWait @{ Description = (getWaitDialogView "MovingClose").Description } } catch { }
+                return
+            }
             if ($indexJobClose -eq "wait") {
                 $script:closeAskedDuringIndexJob = $true
                 $script:closeAfterIndexJob = $true

@@ -77,6 +77,14 @@ Describe "getIndexJobBlocker" -Tag Unit {
         param ($isIndexing, $indexBusy, $archiveBusy, $expected)
         getIndexJobBlocker $isIndexing $indexBusy $archiveBusy $true | Should -Be $expected
     }
+
+    It "ワークスペースを移している間（workspaceMoving）は、ほかの何が動いていても最優先で止める" -TestCases @(
+        @{ isIndexing = $false; indexBusy = $false; archiveBusy = $false; naming = $false }
+        @{ isIndexing = $true;  indexBusy = $true;  archiveBusy = $true;  naming = $true }
+    ) {
+        param ($isIndexing, $indexBusy, $archiveBusy, $naming)
+        getIndexJobBlocker $isIndexing $indexBusy $archiveBusy $naming $true | Should -Be "ワークスペースの移動中"
+    }
 }
 
 Describe "getIndexStoreSourceFolderError" -Tag Unit {
@@ -100,6 +108,19 @@ Describe "getIndexJobCloseAction" -Tag Unit {
     ) {
         param ($label, $busy, $asked, $expected)
         getIndexJobCloseAction $busy $asked | Should -Be $expected
+    }
+
+    It "ワークスペースを移している間は、ほかの状態に関わらず移し終わるまで待つ" -TestCases @(
+        @{ busy = $false; asked = $false }
+        @{ busy = $true; asked = $false }
+        @{ busy = $true; asked = $true }
+    ) {
+        param ($busy, $asked)
+        getIndexJobCloseAction $busy $asked $true | Should -Be "waitMove"
+    }
+
+    It "移し終わるまで閉じない旨の表示を返す" {
+        getWorkspaceMoveClosingStatus | Should -Be "ワークスペースを移し終わってから閉じます…"
     }
 
     It "確認の文言を返す" {
@@ -148,6 +169,8 @@ Describe "getIndexJobBlockedMessage" -Tag Unit {
         @{ blocker = "エクスポート・インポート中"; operation = "ワークスペースの変更"; expected = "エクスポート・インポートが終わるまでお待ちください。" }
         @{ blocker = "インデックス名の決定中"; operation = "ワークスペースの変更"; expected = "インデックスの一覧を読み込んでいます。終わるまでお待ちください。" }
         @{ blocker = "インデックス名の決定中"; operation = "削除"; expected = "インデックス名の決定中は削除できません。終わるまでお待ちください。" }
+        @{ blocker = "ワークスペースの移動中"; operation = "ワークスペースの変更"; expected = "ワークスペースを移している間は、もう一度変えられません。終わるまでお待ちください。" }
+        @{ blocker = "ワークスペースの移動中"; operation = "削除"; expected = "ワークスペースの移動中は削除できません。終わるまでお待ちください。" }
     ) {
         param ($blocker, $operation, $expected)
         getIndexJobBlockedMessage $blocker $operation | Should -Be $expected

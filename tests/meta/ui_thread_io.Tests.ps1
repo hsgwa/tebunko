@@ -86,7 +86,6 @@ BeforeAll {
         @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = "[System.IO.Directory]"; Reason = "選んだ直後のフォルダ（［変更…］・［既定に戻す］で選んだ場所）の下に作る" }
         @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = ".ListEntries()"; Reason = "選んだ直後のフォルダ（［変更…］・［既定に戻す］で選んだ場所）の中身" }
         @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = "testWritableFolder"; Count = 2; Reason = "選んだ直後のフォルダ（［変更…］・［既定に戻す］で選んだ場所）に書き込めるか" }
-        @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = ".ChangeWorkspace()"; Reason = "選んだ直後のフォルダ（［変更…］・［既定に戻す］で選んだ場所）にあるインデックスの一覧を読む・消して最初からやり直す（利用者が選んだときだけ）・前のワークスペースの中身を移す（移す量だけかかる。裏に移すのは別の改善。利用者が変えたときだけ）" }
 
         # ---- tebunko/ui/index/ ----
         @{ File = "index_detail.ps1"; Function = "openFailedFileFolder"; Call = "getPathState"; Count = 2; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
