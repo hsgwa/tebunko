@@ -96,8 +96,9 @@ function invokeIsolated {
                         $gui = Join-Path $tool "tebunko-isolated.ps1"
                         & ([WildcardPattern]::Escape("$repoRoot\tools\new_single_script.ps1".Replace('`', '``'))) -Version "v0.0.0-isolated" -OutFile $gui | Out-Null
                     }
+                    $guiEscaped = [WildcardPattern]::Escape($gui.Replace('`', '``')).Replace("'", "''")
                     $p = Start-Process powershell.exe -PassThru -WindowStyle Hidden -ArgumentList @(
-                        "-NoProfile", "-STA", "-ExecutionPolicy", "RemoteSigned", "-Command", "& '$([WildcardPattern]::Escape($gui.Replace('`', '``')).Replace("'", "''"))'")
+                        "-NoProfile", "-STA", "-ExecutionPolicy", "RemoteSigned", "-Command", "& '$guiEscaped'")
                     $null = $p.Handle   # ExitCode を取るため、起動の直後にハンドルを持つ
                     Write-Host "起動したプロセスの PID: $($p.Id)$(if ($Wait -gt 0) { "（$Wait 秒たったら止めます。それまでに画面を閉じれば、そこで終わります）" } else { "（画面を閉じるまで待ちます）" })"
                     $waited = waitIsolationProcess $p $Wait

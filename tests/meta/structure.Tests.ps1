@@ -424,14 +424,18 @@ Describe "単一 .ps1 化の決まり（AST。docs/design/structure/single-scrip
                 "Copy-Item", "Move-Item", "Rename-Item", "Import-Csv", "Get-FileHash")
             # 値を取らない（スイッチの）名前。直後の要素は位置引数になる
             $valueFree = @("Recurse", "Force", "File", "Directory", "Hidden", "ReadOnly", "System", "Append", "NoClobber", "WhatIf", "Confirm",
-                "NoNewline", "Raw", "SimpleMatch", "Quiet", "CaseSensitive", "NotMatch", "List", "AllMatches")
+                "NoNewline", "Raw", "SimpleMatch", "Quiet", "CaseSensitive", "NotMatch", "List", "AllMatches",
+                "PassThru", "NoTypeInformation", "IsValid", "Container", "Wait")
             $paramType = [System.Management.Automation.Language.CommandParameterAst]
             $ignoreCase = [System.StringComparison]::OrdinalIgnoreCase
             $isRiskyValue = {
                 param ($e)
-                return ($e -is [System.Management.Automation.Language.VariableExpressionAst] -or
-                    $e -is [System.Management.Automation.Language.ExpandableStringExpressionAst] -or
+                # @params（スプラット）は中身が見えないので対象にしない
+                if ($e -is [System.Management.Automation.Language.VariableExpressionAst]) { return (-not $e.Splatted) }
+                return ($e -is [System.Management.Automation.Language.ExpandableStringExpressionAst] -or
                     $e -is [System.Management.Automation.Language.ParenExpressionAst] -or
+                    $e -is [System.Management.Automation.Language.SubExpressionAst] -or
+                    $e -is [System.Management.Automation.Language.IndexExpressionAst] -or
                     $e -is [System.Management.Automation.Language.MemberExpressionAst])
             }
 
@@ -442,10 +446,15 @@ Describe "単一 .ps1 化の決まり（AST。docs/design/structure/single-scrip
 
             $skipNext = $false
             $positional = 0
+            $namedPattern = ($name -eq "Select-String" -and @($elements | Where-Object { $_ -is $paramType -and $_.ParameterName.Length -ge 4 -and "Pattern".StartsWith($_.ParameterName, $ignoreCase) }).Count -gt 0)
             foreach ($e in $elements) {
                 if ($e -is $paramType) {
                     $pn = $e.ParameterName
-                    if ("Path".StartsWith($pn, $ignoreCase) -or ($pn.Length -ge 2 -and "FilePath".StartsWith($pn, $ignoreCase))) { return $true }
+                    $isSwitchName = (@($valueFree | Where-Object { $_.Equals($pn, $ignoreCase) }).Count -gt 0)
+                    # Select-String の -Pattern（-Patt 以上）は検索する文字。-Path と取り違えない
+                    $isPatternName = ($name -eq "Select-String" -and $pn.Length -ge 4 -and "Pattern".StartsWith($pn, $ignoreCase))
+                    # -File などのスイッチは、-FilePath の頭と一致しても対象にしない。-FilePath は 5 文字以上の一致だけ見る
+                    if (-not $isSwitchName -and -not $isPatternName -and ("Path".StartsWith($pn, $ignoreCase) -or ($pn.Length -ge 5 -and "FilePath".StartsWith($pn, $ignoreCase)))) { return $true }
                     if ($null -ne $e.Argument) { continue }
                     $skipNext = (@($valueFree | Where-Object { $_.StartsWith($pn, $ignoreCase) }).Count -eq 0)
                     continue
@@ -454,7 +463,7 @@ Describe "単一 .ps1 化の決まり（AST。docs/design/structure/single-scrip
                 $index = $positional
                 $positional++
                 # Select-String の最初の位置引数は検索する文字（Pattern）で、パスではない
-                if ($name -eq "Select-String" -and $index -eq 0) { continue }
+                if ($name -eq "Select-String" -and $index -eq 0 -and -not $namedPattern) { continue }
                 if (& $isRiskyValue $e) { return $true }
             }
 
@@ -626,6 +635,16 @@ Describe "単一 .ps1 化の決まり（AST。docs/design/structure/single-scrip
         @{ code = '$x | Get-Content'; expected = $true }
         @{ code = 'Join-Path $a $b | Get-Item'; expected = $true }
         @{ code = 'Select-String $pattern $file'; expected = $true }
+        @{ code = '$rows | Export-Csv -NoTypeInformation $path'; expected = $true }
+        @{ code = 'Copy-Item -PassThru $x $y'; expected = $true }
+        @{ code = 'Select-String -Pattern $p $file'; expected = $true }
+        @{ code = 'Select-String $file -Pattern $p'; expected = $true }
+        @{ code = 'Get-Item $a[0]'; expected = $true }
+        @{ code = 'Get-Item $(Join-Path $a $b)'; expected = $true }
+        @{ code = 'Get-ChildItem -File'; expected = $false }
+        @{ code = 'Get-ChildItem -File -Filter *.x'; expected = $false }
+        @{ code = 'Get-ChildItem @params'; expected = $false }
+        @{ code = 'Select-String -Pattern $p -LiteralPath $file'; expected = $false }
         @{ code = 'Get-Item -LiteralPath $x'; expected = $false }
         @{ code = 'Get-ChildItem -Recurse -File -LiteralPath $dir'; expected = $false }
         @{ code = '$text | Select-String $pattern'; expected = $false }
