@@ -236,6 +236,9 @@ function startWorkspaceMove {
         try { showIndexingWait "Moving" } catch { }
         # 裏のスレッドは lib.ps1 を読み込んだときの場所を覚えているため、場所は渡す。
         # 移動元と移動先のどちらかがネットワークの場所なら、届かない共有でほかの仕事を待たせない専用の列を使う
+        # 終わったときの処理は、あとからタイマーで呼ばれる。この関数のローカル変数（$mode・$previous・$folder）は
+        # GetNewClosure() で今の値を取り込み、関数は変数に取って & で呼ぶ（クロージャからは関数の名前を引けないため）
+        $finish = ${function:finishWorkspaceMove}
         startJob {
             param ($mode, $previous, $folder, $settingsPath)
             # 届かない場所では、何もせずに成功にしない。失敗として返す（移動元は、使わない "use" のときは調べない）
@@ -247,8 +250,8 @@ function startWorkspaceMove {
             $mover.ChangeWorkspace($mode, $previous, $folder)
         } @($mode, $previous, $folder, ${settingsFile}) {
             param ($output, $errorText)
-            finishWorkspaceMove $mode $previous $folder $output $errorText
-        } (getWorkspaceJobQueue @($previous, $folder))
+            & $finish $mode $previous $folder $output $errorText
+        }.GetNewClosure() (getWorkspaceJobQueue @($previous, $folder))
     } catch {
         # 始められなかった。印を戻し、ダイアログを閉じて、元の画面に戻す
         $script:workspaceMoving = $false

@@ -72,6 +72,9 @@ Describe "S5 ワークスペースの変更" -Tag Gui {
             waitGui $S "ワークスペースが空のフォルダに変わる" ${guiDefaultTimeout} { (& $workspaceText) -eq $script:emptyDir } | Out-Null
             Test-Path -LiteralPath "$($script:emptyDir)\content_index\営業" | Should -BeTrue -Because "今のワークスペースの中身が移る"
             (readGuiConfig $script:tool).workspaceFolder | Should -Be $script:emptyDir
+            # 終わりの処理に、移した先と元の場所が届いている（空だと、ステータスの場所が抜ける）
+            $statusText = { getGuiText (findGui $S.Window -Id "StatusText") }
+            waitGui $S "移したステータスに場所が入る" ${guiDefaultTimeout} { (& $statusText) -like "*「$($script:emptyDir)」に変え*移す前の場所：$($script:tool.Work)*" } | Out-Null
 
             # 空でないフォルダ: 確認でキャンセル、中にフォルダを作って切り替わる（#32）
             setGuiStep $S "［変更…］→ 空でないフォルダ → 確認で［キャンセル］"
@@ -94,6 +97,7 @@ Describe "S5 ワークスペースの変更" -Tag Gui {
             answerGuiConfirm $S "インデックスのあるフォルダの確認" "すでにインデックスがあります" "そのフォルダのインデックスを使う"
             waitGui $S "ワークスペースがインデックスのあるフォルダに変わる" ${guiDefaultTimeout} { (& $workspaceText) -eq $script:sharedDir } | Out-Null
             (readGuiConfig $script:tool).workspaceFolder | Should -Be $script:sharedDir
+            waitGui $S "あるインデックスを使うステータスに場所が入る" ${guiDefaultTimeout} { (& $statusText) -like "*「$($script:sharedDir)」に変え、そこにあるインデックスを使います*" } | Out-Null
 
             # 欄に直接入力して変える（欄から出たときに確定する。確かめ・確認は［変更…］と同じ）
             $typeWorkspace = {
@@ -148,6 +152,34 @@ Describe "S5 ワークスペースの変更" -Tag Gui {
             (& $inputError) | Should -Be ""
 
             closeGui $S
+        }
+    }
+
+    It "移動が失敗したら、警告にフォルダ名が入り、元のワークスペースのまま使える" {
+        # 移す先の content_index の中のファイルをこちらで開いたままにして、消す処理を失敗させる（TestDrive の中だけ）
+        $failTool = newGuiTool (Join-Path $TestDrive "失敗")
+        newGuiSampleIndex $failTool $TestDrive "失敗用"
+        $failDir = Join-Path $TestDrive "消せないインデックスのある先"
+        [void][IO.Directory]::CreateDirectory("$failDir\content_index\あ")
+        $held = [IO.File]::Open("$failDir\content_index\あ\a.tsv", [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+        try {
+            $S = startGui $failTool "S5f"
+            invokeGuiScene $S {
+                selectGuiTab $S "SettingsTab" "ChangeWorkspaceButton"
+                clickGui $S $S.Window "ChangeWorkspaceButton" "［変更…］"
+                useGuiFolderPicker $S $failDir
+                answerGuiConfirm $S "インデックスのあるフォルダの確認" "すでにインデックスがあります" "今のインデックスを移動する*" -Like
+                $warning = waitGuiWindow $S "移動の失敗の警告" -Text "削除できませんでした"
+                $text = @(getGuiTexts $warning) -join " "
+                $text | Should -BeLike "*「$failDir」のインデックスを削除できませんでした*"
+                closeGuiMessage $S "削除できませんでした" "移動の失敗の警告" | Out-Null
+                (getGuiValue (findGui $S.Window -Id "WorkspaceBox")) | Should -Be $failTool.Work
+                (readGuiConfig $failTool).workspaceFolder | Should -Be $failTool.Work
+                Test-Path -LiteralPath "$($failTool.Work)\content_index\失敗用" | Should -BeTrue
+                closeGui $S
+            }
+        } finally {
+            $held.Dispose()
         }
     }
 
