@@ -434,8 +434,13 @@ Describe "単一 .ps1 化の決まり（AST。docs/design/structure/single-scrip
             if (-not $expr.Static -or $expr.Member.Value -ne "Escape") { return $false }
             if ($expr.Expression -isnot [System.Management.Automation.Language.TypeExpressionAst] -or $expr.Expression.TypeName.Name -ne "WildcardPattern") { return $false }
             if ($expr.Arguments.Count -ne 1) { return $false }
-            return $expr.Arguments[0] -is [System.Management.Automation.Language.ExpandableStringExpressionAst] -or
-                $expr.Arguments[0] -is [System.Management.Automation.Language.StringConstantExpressionAst]
+            # 引数は "<パス>".Replace('`', '``') の形（バッククォートは Escape がエスケープしないので、先に二重にする。対象は PowerShell 5.1 だけ）
+            $arg = $expr.Arguments[0]
+            if ($arg -isnot [System.Management.Automation.Language.InvokeMemberExpressionAst] -or $arg.Static -or $arg.Member.Value -ne "Replace") { return $false }
+            if ($arg.Expression -isnot [System.Management.Automation.Language.ExpandableStringExpressionAst] -and
+                $arg.Expression -isnot [System.Management.Automation.Language.StringConstantExpressionAst]) { return $false }
+            if ($arg.Arguments.Count -ne 2) { return $false }
+            return $arg.Arguments[0].Extent.Text -eq ("'" + [char]96 + "'") -and $arg.Arguments[1].Extent.Text -eq ("'" + [char]96 + [char]96 + "'")
         }
 
         function commandOf {
@@ -516,7 +521,7 @@ Describe "単一 .ps1 化の決まり（AST。docs/design/structure/single-scrip
     }
 
     It "M2(ii) の例: 変数やプロパティを渡す形（. `$libPath・. `$x.Path）と、Escape を通さない形は読み込み口の行として検出しない" {
-        $badSamples = @('. $libPath', '. $x.Path', '. "$PSScriptRoot\x.ps1"', '. (Escape "$PSScriptRoot\x.ps1")')
+        $badSamples = @('. $libPath', '. $x.Path', '. "$PSScriptRoot\x.ps1"', '. (Escape "$PSScriptRoot\x.ps1")', '. ([WildcardPattern]::Escape("$PSScriptRoot\x.ps1"))')
         foreach ($sample in $badSamples) {
             $fixtureAst = [System.Management.Automation.Language.Parser]::ParseInput($sample, [ref]$null, [ref]$null)
             $cmd = @($fixtureAst.FindAll({ $args[0] -is [System.Management.Automation.Language.CommandAst] }, $true))[0]
@@ -524,6 +529,73 @@ Describe "単一 .ps1 化の決まり（AST。docs/design/structure/single-scrip
         }
     }
 
+    It "M2(iv): & の相手に、パスの文字列は直接書かない（スクリプトのパスは Escape を通す。変数・スクリプトブロックの & は対象外）" {
+        # 変数（& $x）・スクリプトブロックは、パスをパターンとして読まない。文字列で書いたパスだけを見る
+        $bad = New-Object System.Collections.Generic.List[string]
+        foreach ($f in $allScriptFiles) {
+            $ast = $parsedAsts[$f.FullName]
+            $cmds = $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.CommandAst] -and $args[0].InvocationOperator -eq "Ampersand" }, $true)
+            foreach ($c in $cmds) {
+                $first = $c.CommandElements[0]
+                if ($first -is [System.Management.Automation.Language.StringConstantExpressionAst] -or $first -is [System.Management.Automation.Language.ExpandableStringExpressionAst]) {
+                    $bad.Add("$(getRelPath $f.FullName):$($c.Extent.StartLineNumber):$($c.Extent.Text)")
+                }
+            }
+        }
+        ($bad -join ", ") | Should -Be ""
+    }
+
+    It "M3: パスをワイルドカードとして読むコマンド（-Path・位置引数）に、変数や式のパスを渡さない（-LiteralPath を使う。-Filter・-like は別）" {
+        $pathCommands = @("Resolve-Path", "New-Item", "Get-ChildItem", "Get-Item", "Test-Path", "Get-Content", "Set-Content", "Add-Content",
+            "Out-File", "Remove-Item", "Copy-Item", "Move-Item", "Rename-Item", "Convert-Path", "Import-Csv", "Export-Csv", "Select-String", "Get-FileHash")
+        $bad = New-Object System.Collections.Generic.List[string]
+        foreach ($f in $allScriptFiles) {
+            $ast = $parsedAsts[$f.FullName]
+            $cmds = $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.CommandAst] }, $true)
+            foreach ($c in $cmds) {
+                $name = $c.GetCommandName()
+                if (-not $name -or $pathCommands -notcontains $name) { continue }
+                $elements = @($c.CommandElements | Select-Object -Skip 1)
+                $hasLiteral = @($elements | Where-Object { $_ -is [System.Management.Automation.Language.CommandParameterAst] -and $_.ParameterName -like "Lit*" }).Count -gt 0
+                if ($hasLiteral) { continue }
+                $suspicious = $false
+                for ($i = 0; $i -lt $elements.Count; $i++) {
+                    $e = $elements[$i]
+                    if ($e -is [System.Management.Automation.Language.CommandParameterAst]) {
+                        if ($e.ParameterName -like "P*" -and "Path".StartsWith($e.ParameterName, [System.StringComparison]::OrdinalIgnoreCase)) { $suspicious = $true }
+                        continue
+                    }
+                    # 位置引数（直前が値を取る名前付き引数のときは、その値なので見ない）
+                    if ($i -gt 0 -and $elements[$i - 1] -is [System.Management.Automation.Language.CommandParameterAst] -and $null -eq $elements[$i - 1].Argument) { continue }
+                    if ($e -is [System.Management.Automation.Language.VariableExpressionAst] -or
+                        $e -is [System.Management.Automation.Language.ExpandableStringExpressionAst] -or
+                        $e -is [System.Management.Automation.Language.ParenExpressionAst]) { $suspicious = $true }
+                }
+                if ($suspicious) { $bad.Add("$(getRelPath $f.FullName):$($c.Extent.StartLineNumber):$name") }
+            }
+        }
+        ($bad -join ", ") | Should -Be ""
+    }
+
+    It "M3 の例: -Path に変数を渡す形・位置引数に変数を渡す形は検出し、-LiteralPath の形は検出しない" {
+        $detected = {
+            param ($code)
+            $a = [System.Management.Automation.Language.Parser]::ParseInput($code, [ref]$null, [ref]$null)
+            $c = @($a.FindAll({ $args[0] -is [System.Management.Automation.Language.CommandAst] }, $true))[0]
+            $elements = @($c.CommandElements | Select-Object -Skip 1)
+            $hasLiteral = @($elements | Where-Object { $_ -is [System.Management.Automation.Language.CommandParameterAst] -and $_.ParameterName -like "Lit*" }).Count -gt 0
+            if ($hasLiteral) { return $false }
+            foreach ($e in $elements) {
+                if ($e -is [System.Management.Automation.Language.CommandParameterAst] -and $e.ParameterName -eq "Path") { return $true }
+                if ($e -is [System.Management.Automation.Language.VariableExpressionAst] -or $e -is [System.Management.Automation.Language.ExpandableStringExpressionAst]) { return $true }
+            }
+            return $false
+        }
+        (& $detected 'Resolve-Path $x') | Should -Be $true
+        (& $detected 'New-Item -Path $x -Force') | Should -Be $true
+        (& $detected 'Get-Item "$dir\a"') | Should -Be $true
+        (& $detected 'Get-Item -LiteralPath $x') | Should -Be $false
+    }
     It "M2(iii): `&` での `.Path` 呼び出し・`-Part` を付けた呼び出しは書かない（自己起動を禁じる）" {
         $bad = New-Object System.Collections.Generic.List[string]
         foreach ($f in $allScriptFiles) {
@@ -765,5 +837,83 @@ Describe "メッセージは自前の画面で出す" -Tag Meta {
         $here = (Resolve-Path "$PSScriptRoot\..").Path
         $hits = @(Select-String -LiteralPath "$here\..\scripts\shared\ui\shell.ps1" -Pattern 'MessageBox\]::Show' | Where-Object { $_.Line.TrimStart() -notmatch '^#' })
         $hits.Count | Should -Be 2
+    }
+}
+
+Describe "フォルダ名に特別な文字が入っていても、本物の読み込み口を読める（scripts\ を写して読む）" -Tag Meta {
+    BeforeDiscovery {
+        . "$PSScriptRoot\..\helpers\path_chars.ps1"
+        $pathCharCases = getPathCharCases
+        # 名前の隣に、パターンとして読むと当たってしまう別のフォルダがある場面（実在する方を読むこと）
+        $siblingCases = @(
+            @{ label = "[1] と 1"; ch = "[1]"; sibling = "1" }
+            @{ label = "バッククォートと、バッククォート抜き"; ch = ([string][char]96); sibling = "" }
+        )
+    }
+
+    BeforeAll {
+        $here = Split-Path -Parent $PSCommandPath
+        $realScripts = (Resolve-Path -LiteralPath "$here\..\..\scripts").Path
+        $powershell = Join-Path ([Environment]::GetFolderPath("System")) "WindowsPowerShell\v1.0\powershell.exe"
+        $script:trialRoots = @()
+
+        function copyTree {
+            param ([string]$from, [string]$to)
+            [void][System.IO.Directory]::CreateDirectory($to)
+            foreach ($file in [System.IO.Directory]::GetFiles($from)) {
+                [System.IO.File]::Copy($file, [System.IO.Path]::Combine($to, [System.IO.Path]::GetFileName($file)))
+            }
+            foreach ($dir in [System.IO.Directory]::GetDirectories($from)) {
+                copyTree $dir ([System.IO.Path]::Combine($to, [System.IO.Path]::GetFileName($dir)))
+            }
+        }
+    }
+
+    AfterAll {
+        # Pester の TestDrive は [ を含む名前を消せないので、TEMP に作って .NET で消す
+        foreach ($root in $script:trialRoots) {
+            if ([System.IO.Directory]::Exists($root)) { [System.IO.Directory]::Delete($root, $true) }
+        }
+    }
+
+    It "フォルダ名に <label> を含む場所へ scripts\ を写しても、lib.ps1 を最後まで読める" -ForEach $pathCharCases {
+        $root = Join-Path ([System.IO.Path]::GetTempPath()) ("lib_" + [guid]::NewGuid().ToString("N"))
+        $script:trialRoots += ,$root
+        $copy = Join-Path $root "tool_a${ch}b\scripts"
+        copyTree $realScripts $copy
+
+        $psi = New-Object System.Diagnostics.ProcessStartInfo($powershell, '-NoProfile -ExecutionPolicy RemoteSigned -Command "$p = $env:TEBUNKO_TEST_LIB; . ([WildcardPattern]::Escape($p.Replace([string][char]96, [string][char]96 + [char]96))); if (Get-Command readSettings -ErrorAction SilentlyContinue) { Write-Output loaded }"')
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        $psi.EnvironmentVariables["TEBUNKO_TEST_LIB"] = "$copy\tebunko\lib.ps1"
+        $process = [System.Diagnostics.Process]::Start($psi)
+        $outText = ""
+        $errText = ""
+        try {
+            $outText = $process.StandardOutput.ReadToEnd()
+            $errText = $process.StandardError.ReadToEnd()
+            $process.WaitForExit(60000) | Out-Null
+        } finally {
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+        }
+        $outText.Trim() | Should -Be "loaded" -Because $errText
+    }
+
+    It "<label> の隣に別のフォルダがあっても、実在する方の部品を読む" -ForEach $siblingCases {
+        $root = Join-Path ([System.IO.Path]::GetTempPath()) ("sib_" + [guid]::NewGuid().ToString("N"))
+        $script:trialRoots += ,$root
+        $target = Join-Path $root "a${ch}b"
+        $other = Join-Path $root "a${sibling}b"
+        [void][System.IO.Directory]::CreateDirectory($target)
+        [void][System.IO.Directory]::CreateDirectory($other)
+        [System.IO.File]::WriteAllText("$target\part.ps1", '$script:partOwner = "target"')
+        [System.IO.File]::WriteAllText("$other\part.ps1", '$script:partOwner = "other"')
+
+        $script:partOwner = $null
+        $dir = $target
+        . ([WildcardPattern]::Escape("$dir\part.ps1".Replace([string][char]96, [string][char]96 + [char]96)))
+        $script:partOwner | Should -Be "target"
     }
 }

@@ -59,7 +59,7 @@ function getPartLoad {
     }
     $prelude = ($paths | ForEach-Object {
         # 一重引用符の文字（' と、PowerShell が同じ引用符として扱う U+2018・U+2019・U+201A・U+201B）は、重ねて文字列の中に入れる
-        $resolved = [regex]::Replace([System.Management.Automation.WildcardPattern]::Escape([System.IO.Path]::GetFullPath($_)), "(['\u2018\u2019\u201A\u201B])", '$1$1')
+        $resolved = [regex]::Replace([System.Management.Automation.WildcardPattern]::Escape([System.IO.Path]::GetFullPath($_).Replace('`', '``')), "(['\u2018\u2019\u201A\u201B])", '$1$1')
         ". '$resolved'"
     }) -join "; "
     if ($then) { $prelude = "$prelude; $then" }

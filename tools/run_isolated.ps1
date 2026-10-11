@@ -24,7 +24,7 @@ param (
 $ErrorActionPreference = "Stop"
 
 $repoRoot = [System.IO.Path]::GetFullPath("$PSScriptRoot\..")
-. "$PSScriptRoot\isolation\isolation_common.ps1"
+. ([WildcardPattern]::Escape("$PSScriptRoot\isolation\isolation_common.ps1".Replace('`', '``')))
 
 function getIsolatedProbeResult {
     # 使い捨ての環境で、写しの設定ファイルの場所と work の場所を求める（子プロセス。書き込まない）
@@ -33,7 +33,7 @@ function getIsolatedProbeResult {
     $probe = Join-Path $Base "probe.ps1"
     $text = @'
 param([string]$Lib)
-. $Lib
+. ([WildcardPattern]::Escape($Lib.Replace('`', '``')))
 "settingsFile=" + ${settingsFile}
 "workDir=" + (getWorkDir)
 '@
@@ -94,7 +94,7 @@ function invokeIsolated {
                     $gui = "$tool\scripts\tebunko\gui.ps1"
                     if ($SingleScript) {
                         $gui = Join-Path $tool "tebunko-isolated.ps1"
-                        & "$repoRoot\tools\new_single_script.ps1" -Version "v0.0.0-isolated" -OutFile $gui | Out-Null
+                        & ([WildcardPattern]::Escape("$repoRoot\tools\new_single_script.ps1".Replace('`', '``'))) -Version "v0.0.0-isolated" -OutFile $gui | Out-Null
                     }
                     $p = Start-Process powershell.exe -PassThru -WindowStyle Hidden -ArgumentList @(
                         "-NoProfile", "-STA", "-ExecutionPolicy", "RemoteSigned", "-Command", "& '$($gui.Replace("'", "''"))'")

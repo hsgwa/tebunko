@@ -31,12 +31,12 @@ flowchart LR
 
 ### 読み込み行の差し替え
 
-`scripts/` のファイルは、ほかのファイルを `. ([WildcardPattern]::Escape("$PSScriptRoot\..."))` や `. ([WildcardPattern]::Escape("$TebunkoDir\..."))` の行で読み込む。ビルドは、この行を、読み込まれるファイルの中身に置き換える。置き換えた中身の中にも読み込み行があれば、同じ規則でさらに置き換える。
+`scripts/` のファイルは、ほかのファイルを `. ([WildcardPattern]::Escape("$PSScriptRoot\...".Replace('`', '``')))` や `. ([WildcardPattern]::Escape("$TebunkoDir\...".Replace('`', '``')))` の行で読み込む。ビルドは、この行を、読み込まれるファイルの中身に置き換える。置き換えた中身の中にも読み込み行があれば、同じ規則でさらに置き換える。
 
 例: `lib.ps1` の次の行は、`settings.ps1` の中身に置き換わる。
 
 ```powershell
-. ([WildcardPattern]::Escape("$PSScriptRoot\core\settings.ps1"))
+. ([WildcardPattern]::Escape("$PSScriptRoot\core\settings.ps1".Replace('`', '``')))
 ```
 
 - 同じファイルが 2 回以上読み込まれていたら、中身を入れるのは 1 回目だけにする。2 回目以降の行は空にする（入れ終えたファイルを集合で覚えておく）。

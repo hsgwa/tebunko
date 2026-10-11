@@ -11,8 +11,8 @@ param (
 )
 
 $ErrorActionPreference = "Stop"
-. "$PSScriptRoot\perf_common.ps1"
-. (resolveTebunkoLib $Tool)
+. ([WildcardPattern]::Escape("$PSScriptRoot\perf_common.ps1".Replace('`', '``')))
+. ([WildcardPattern]::Escape((resolveTebunkoLib $Tool).Replace('`', '``')))
 assertTebunkoFunctions @("findIndexFoldersWithBooks", "publishIndexFolders", "testIndexBookDir")
 # 本文インデックスのファイルを列挙する関数は、名前を改めた後が getContentIndexFiles、前が getIndexPackFiles
 $getFiles = resolveTebunkoFunction @("getContentIndexFiles", "getIndexPackFiles")

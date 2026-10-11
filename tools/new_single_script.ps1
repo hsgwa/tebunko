@@ -25,14 +25,14 @@ if ($Version -notmatch '^[A-Za-z0-9._-]+$') {
 }
 
 $rootDir = Split-Path $PSScriptRoot -Parent
-. ([WildcardPattern]::Escape("$PSScriptRoot\script_rules.ps1"))
+. ([WildcardPattern]::Escape("$PSScriptRoot\script_rules.ps1".Replace('`', '``')))
 
 if (!$OutFile) {
     $OutFile = Join-Path $rootDir "work\release\tebunko-$Version.ps1"
 }
 
 # ---- 版の文字列（VERSION.txt と同じ決め方。SHA が取れなければ止める） ----
-$versionBytes = & ([WildcardPattern]::Escape("$PSScriptRoot\new_version_text.ps1")) -Version $Version
+$versionBytes = & ([WildcardPattern]::Escape("$PSScriptRoot\new_version_text.ps1".Replace('`', '``'))) -Version $Version
 $versionText = [System.Text.Encoding]::UTF8.GetString($versionBytes).TrimStart([char]0xFEFF)
 $versionLines = $versionText -split "`r`n" | Where-Object { $_ -ne "" }
 $sha = $versionLines[1]
@@ -50,7 +50,7 @@ function substituteLoaderLines {
         [string]$dir
     )
 
-    $pattern = '^([ \t]*)\.\s+(?:\(\[WildcardPattern\]::Escape\()?"\$(PSScriptRoot|TebunkoDir)\\([^"]+)"(?:\)\))?[ \t]*$'
+    $pattern = '^([ \t]*)\.\s+(?:\(\[WildcardPattern\]::Escape\()?"\$(PSScriptRoot|TebunkoDir)\\([^"]+)"(?:\.Replace\([^)]*\)\)\))?[ \t]*$'
     $lines = $text -split "`r`n"
     $out = New-Object System.Collections.Generic.List[string]
     foreach ($line in $lines) {
@@ -237,7 +237,7 @@ if ($extra.Count -gt 0) {
 }
 
 # 3) 読み込み行（$PSScriptRoot・$TebunkoDir の dot-source）が結果に残っていない
-if ($combined -match '(?m)^[ \t]*\.\s+(?:\(\[WildcardPattern\]::Escape\()?"\$(PSScriptRoot|TebunkoDir)\\[^"]+"(?:\)\))?[ \t]*$') {
+if ($combined -match '(?m)^[ \t]*\.\s+(?:\(\[WildcardPattern\]::Escape\()?"\$(PSScriptRoot|TebunkoDir)\\[^"]+"(?:\.Replace\([^)]*\)\)\))?[ \t]*$') {
     throw "結合した .ps1 に、差し替え忘れの読み込み行が残っています。"
 }
 

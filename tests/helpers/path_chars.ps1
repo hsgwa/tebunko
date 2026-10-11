@@ -25,5 +25,8 @@ function getPathCharCases {
         @{ label = "開く角括弧だけ"; ch = "[" }
         @{ label = "閉じる角括弧だけ"; ch = "]" }
         @{ label = "引用符・&・角括弧の組み合わせ"; ch = "O'aa&[]fds" }
+        @{ label = "バッククォートと開く角括弧"; ch = '`[' }
+        @{ label = "バッククォート 2 つ"; ch = '``' }
+        @{ label = "バッククォートと角括弧の組み合わせ"; ch = '`a[1]`b' }
     )
 }

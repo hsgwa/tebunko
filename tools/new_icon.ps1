@@ -19,7 +19,7 @@ param (
 
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Drawing
-. ([WildcardPattern]::Escape("$PSScriptRoot\icon_xaml.ps1"))
+. ([WildcardPattern]::Escape("$PSScriptRoot\icon_xaml.ps1".Replace('`', '``')))
 
 $rootDir = Split-Path $PSScriptRoot -Parent
 if (!$Svg) {
@@ -52,7 +52,7 @@ if (!$edge) {
 }
 
 $workDir = Join-Path $rootDir "work\icon"
-New-Item -ItemType Directory -Path $workDir -Force | Out-Null
+[void][System.IO.Directory]::CreateDirectory($workDir)
 $htmlPath = Join-Path $workDir "icon.html"
 $pngPath = Join-Path $workDir "icon_$sourceSize.png"
 if (Test-Path -LiteralPath $pngPath) {

@@ -16,9 +16,9 @@ param (
 )
 
 $ErrorActionPreference = "Stop"
-. "$PSScriptRoot\perf_common.ps1"
+. ([WildcardPattern]::Escape("$PSScriptRoot\perf_common.ps1".Replace('`', '``')))
 $lib = resolveTebunkoLib $Tool
-. $lib
+. ([WildcardPattern]::Escape($lib.Replace('`', '``')))
 assertTebunkoFunctions @("newTsvTextCache")
 # 本文インデックスを列挙・検索する関数は、名前を改めた後と前の両方を受け付ける
 $getFiles = resolveTebunkoFunction @("getContentIndexFiles", "getIndexPackFiles")
@@ -53,7 +53,7 @@ function invokeServiceSearch($service) {
 $runspaceScript = {
     param ($lib, $index, $word, $simple, $cache, $getFiles, $searchIndex, $filesNames)
     $total = [System.Diagnostics.Stopwatch]::StartNew(); $step = [System.Diagnostics.Stopwatch]::StartNew()
-    . $lib
+    . ([WildcardPattern]::Escape($lib.Replace('`', '``')))
     $load = $step.Elapsed.TotalMilliseconds; $step.Restart()
     $found = & $getFiles @($index)
     $list = $step.Elapsed.TotalMilliseconds; $step.Restart()

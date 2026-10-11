@@ -93,7 +93,7 @@ static class Program
     // [ ] を含むフォルダで起動できないので、-Command で WildcardPattern.Escape を通して呼ぶ
     internal static string BuildArguments()
     {
-        return "-NoProfile -STA -ExecutionPolicy RemoteSigned -Command \"& ([System.Management.Automation.WildcardPattern]::Escape($env:" + GuiEnvName + ")); exit $LASTEXITCODE\"";
+        return "-NoProfile -STA -ExecutionPolicy RemoteSigned -Command \"& ([System.Management.Automation.WildcardPattern]::Escape($env:" + GuiEnvName + ".Replace('`', '``'))); if (-not $?) { if ($LASTEXITCODE) { exit $LASTEXITCODE } else { exit 1 } }\"";
     }
 
     static string Truncate(string text)

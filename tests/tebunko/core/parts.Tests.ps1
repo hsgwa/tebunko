@@ -215,7 +215,7 @@ Describe "getPartLoad（フォルダ名に特別な文字が入っていても�
 
             $partsPath = "$root\core\parts.ps1"
             $loads = & {
-                . ([WildcardPattern]::Escape($partsPath))
+                . ([WildcardPattern]::Escape($partsPath.Replace('`', '``')))
                 @{ lib = (getPartLoad lib); indexerLib = (getPartLoad indexerLib) }
             }
 

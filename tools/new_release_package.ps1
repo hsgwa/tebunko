@@ -110,7 +110,7 @@ foreach ($name in $sorted) {
 [System.IO.Directory]::CreateDirectory($OutDir) | Out-Null
 $sbomBytes = & (Join-Path $PSScriptRoot "new_sbom.ps1") -Version $Version -Sha $sha -Timestamp $timestamp -Entries $entries
 [System.IO.File]::WriteAllBytes((Join-Path $OutDir "sbom.cdx.json"), [byte[]]$sbomBytes)
-& (Join-Path $PSScriptRoot "new_release_files.ps1") -OutDir $OutDir -Entries $entries -SbomBytes $sbomBytes -Timestamp $timestamp
+& ([WildcardPattern]::Escape((Join-Path $PSScriptRoot "new_release_files.ps1").Replace('`', '``'))) -OutDir $OutDir -Entries $entries -SbomBytes $sbomBytes -Timestamp $timestamp
 
 $zipPath = Join-Path $OutDir "tebunko-$Version.zip"
 if (Test-Path -LiteralPath $zipPath) {

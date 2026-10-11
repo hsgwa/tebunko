@@ -113,6 +113,61 @@ Describe "起動口 tebunko.exe が渡す引数（フォルダ名の文字）" -
     }
 }
 
+Describe "起動口 tebunko.exe の終了コード（gui.ps1 の終わり方）" -Tag Meta {
+    # 以前の -File と同じ終わり方にする: 読み込めない・実行中に例外なら 0 以外でエラー出力あり、
+    # 普通に終われば（途中の外部コマンドが 0 以外で終わっていても）0、exit N なら N
+    BeforeDiscovery {
+        $endCases = @(
+            @{ label = "構文エラーで読み込めない"; body = "if ("; code = 1; hasError = $true }
+            @{ label = "実行中に例外"; body = "throw 'boom'"; code = 1; hasError = $true }
+            @{ label = "普通に終わる"; body = "Write-Output ok"; code = 0; hasError = $false }
+            @{ label = "exit 3 で終わる"; body = "exit 3"; code = 3; hasError = $false }
+            @{ label = "外部コマンドが 0 以外で終わったあと、普通に終わる"; body = "cmd.exe /d /c exit 5`r`nWrite-Output ok"; code = 0; hasError = $false }
+        )
+    }
+
+    BeforeAll {
+        $csc = Join-Path ([System.Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory()) "csc.exe"
+        $out = Join-Path $TestDrive "tebunko_exit.exe"
+        & $csc -nologo -codepage:65001 -target:winexe "-out:$out" $launcherSource | Out-Null
+        if (-not [System.IO.File]::Exists($out)) { throw "tebunko.exe をビルドできなかった" }
+        $assembly = [System.Reflection.Assembly]::Load([System.IO.File]::ReadAllBytes($out))
+        $buildArguments = $assembly.GetType("Program").GetMethod("BuildArguments", [System.Reflection.BindingFlags]"NonPublic,Public,Static")
+        $powershell = Join-Path ([Environment]::GetFolderPath("System")) "WindowsPowerShell\v1.0\powershell.exe"
+        $script:endRoots = @()
+    }
+
+    AfterAll {
+        foreach ($root in $script:endRoots) {
+            if ([System.IO.Directory]::Exists($root)) { [System.IO.Directory]::Delete($root, $true) }
+        }
+    }
+
+    It "gui.ps1 が <label> とき、終了コードは <code>、エラー出力は <hasError>（有り）" -ForEach $endCases {
+        $root = Join-Path ([System.IO.Path]::GetTempPath()) ("exe_end_" + [guid]::NewGuid().ToString("N"))
+        $script:endRoots += ,$root
+        [System.IO.Directory]::CreateDirectory($root) | Out-Null
+        $gui = Join-Path $root "gui.ps1"
+        [System.IO.File]::WriteAllText($gui, $body + "`r`n", (New-Object System.Text.UTF8Encoding($true)))
+
+        $psi = New-Object System.Diagnostics.ProcessStartInfo($powershell, $buildArguments.Invoke($null, @()))
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $psi.RedirectStandardError = $true
+        $psi.EnvironmentVariables["TEBUNKO_GUI"] = $gui
+        $process = [System.Diagnostics.Process]::Start($psi)
+        $errorText = ""
+        try {
+            $errorText = $process.StandardError.ReadToEnd()
+            $process.WaitForExit(20000) | Out-Null
+        } finally {
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+        }
+
+        $process.ExitCode | Should -Be $code
+        ($errorText.Trim().Length -gt 0) | Should -Be $hasError
+    }
+}
 Describe "インストーラー（installer\tebunko.iss）" -Tag Meta {
     It "既定は管理者権限なしで入れる" {
         @(getIssSection "Setup") -contains "PrivilegesRequired=lowest" | Should -Be $true
