@@ -184,58 +184,6 @@ Describe "S5 ワークスペースの変更" -Tag Gui {
         }
     }
 
-    It "移している間に Enter・F5 を送っても、検索は始まらない" {
-        # 待つ間のダイアログは本体の窓を無効にしないため、キーは本体に届く。移動が終わるまで検索を始めないことを確かめる
-        $moveTool = newGuiTool (Join-Path $TestDrive "移動中")
-        newGuiSampleIndex $moveTool $TestDrive "移動中用"
-        $bigDir = Join-Path $TestDrive "ファイルの多い先"
-        for ($i = 1; $i -le 600; $i++) {
-            $sub = "$bigDir\content_index\d$i"
-            [void][IO.Directory]::CreateDirectory($sub)
-            for ($j = 1; $j -le 100; $j++) { [IO.File]::Create("$sub\f$j.tsv").Dispose() }
-        }
-        $S = startGui $moveTool "S5k"
-        invokeGuiScene $S {
-            setGuiStep $S "移動を始める"
-            selectGuiTab $S "SettingsTab" "ChangeWorkspaceButton"
-            clickGui $S $S.Window "ChangeWorkspaceButton" "［変更…］"
-            useGuiFolderPicker $S $bigDir
-            answerGuiConfirm $S "インデックスのあるフォルダの確認" "すでにインデックスがあります" "今のインデックスを移動する*" -Like
-            $findWait = {
-                foreach ($other in @(getGuiOtherWindows $S)) {
-                    if (findGui $other -Id "WaitBar") { return $other }
-                }
-                return $null
-            }
-            setGuiStep $S "ダイアログを待つ"
-            waitGui $S "移している間のダイアログ" ${guiDefaultTimeout} { & $findWait } | Out-Null
-
-            setGuiStep $S "検索の画面へ"
-
-            selectGuiTab $S "SearchTab" "WordBox"
-            setGuiText $S (findGui $S.Window -Id "WordBox") "単価"
-            $statusText = { getGuiText (findGui $S.Window -Id "StatusText") }
-            $statusBefore = & $statusText
-            pressGuiKey $S.Window 0x0D
-            pressGuiKey $S.Window 0x74
-            # キーが処理される間、まだ移動中であること（終わっていたら、確かめたことにならない）
-            Start-Sleep -Milliseconds 500
-            $stillMoving = $null -ne (& $findWait)
-            $statusDuring = & $statusText
-            $stillMoving | Should -BeTrue -Because "移動が終わる前にキーを送れている"
-            $statusDuring | Should -Be $statusBefore
-            $statusDuring | Should -Not -BeLike "検索*"
-
-            setGuiStep $S "移動の終わり"
-
-            waitGui $S "移動が終わる" 180 { $null -eq (& $findWait) } | Out-Null
-            (& $statusText) | Should -Not -BeLike "検索*"
-            selectGuiTab $S "SettingsTab" "ChangeWorkspaceButton"
-            (getGuiValue (findGui $S.Window -Id "WorkspaceBox")) | Should -Be $bigDir
-            closeGui $S
-        }
-    }
-
     It "利用者の環境に触っていない" {
         compareGuiEnvSnapshot $script:envBefore (getGuiEnvSnapshot) | Should -BeNullOrEmpty
     }

@@ -101,6 +101,20 @@ Describe "testIndexReadAllowed" -Tag Unit {
     }
 }
 
+Describe "testMainContentOperable" -Tag Unit {
+    It "ワークスペースを移している間だけ、ナビと中身の操作を受けない" -TestCases @(
+        @{ moving = $false; expected = $true }
+        @{ moving = $true; expected = $false }
+    ) {
+        param ($moving, $expected)
+        testMainContentOperable $moving | Should -Be $expected
+    }
+
+    It "引数が無ければ操作を受ける" {
+        testMainContentOperable | Should -BeTrue
+    }
+}
+
 Describe "getIndexStoreSourceFolderError" -Tag Unit {
     It "<label>" -TestCases @(
         @{ label = "戻り値が空なら空"; output = @(); expected = "" }

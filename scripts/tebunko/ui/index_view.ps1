@@ -269,6 +269,16 @@ function testIndexReadAllowed {
     return -not $workspaceMoving
 }
 
+function testMainContentOperable {
+    # ナビと中身（画面）の操作を受け付けてよいか。ワークスペースの中身を移している間は受け付けない
+    # （マウスもキーも、設定・インデックス・検索の入口のどれからも書き込み・読み込みを始めさせない。待つ間のダイアログ自身は別の窓なので影響しない）
+    param (
+        [bool]$workspaceMoving = $false
+    )
+
+    return -not $workspaceMoving
+}
+
 function getIndexJobBlockedMessage {
     # 排他で操作をできないときのメッセージ（blocker は getIndexJobBlocker の結果。空なら空文字列）
     param (

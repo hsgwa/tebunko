@@ -217,6 +217,14 @@ function applyWorkspace {
     startWorkspaceMove $mode $previous $folder
 }
 
+function updateMainContentOperable {
+    # 移している間は、ナビと中身を操作できなくする（マウス・Tab・Space など、中身の入口をまとめて止める。窓のキーは gui_main.ps1 の PreviewKeyDown）。
+    # 終わったら必ず戻す（始められなかったとき・失敗のときも）
+    $operable = testMainContentOperable ([bool]$script:workspaceMoving)
+    $ui.NavHost.IsEnabled = $operable
+    $ui.ContentHost.IsEnabled = $operable
+}
+
 function startWorkspaceMove {
     # 中身を移す・消す処理は、量によっては数十秒かかるため、裏のスレッドで行う（画面のスレッドで行うと「応答なし」になる）。
     # 動かしている間は待つ間のダイアログを出し、ほかの操作は止める（$script:workspaceMoving。getIndexJobBlocker が見る）。
@@ -230,6 +238,7 @@ function startWorkspaceMove {
     $script:workspaceMoving = $true
     $script:closeAfterWorkspaceMove = $false
     try {
+        updateMainContentOperable
         updateIndexingButton
         setStatus "ワークスペースを「${folder}」へ移しています…"
         # ダイアログが出せなくても移動は続ける
@@ -255,6 +264,7 @@ function startWorkspaceMove {
     } catch {
         # 始められなかった。印を戻し、ダイアログを閉じて、元の画面に戻す
         $script:workspaceMoving = $false
+        try { updateMainContentOperable } catch { }
         try { closeIndexingWait } catch { }
         try { updateIndexingButton } catch { }
         throw
@@ -275,6 +285,7 @@ function finishWorkspaceMove {
     $closeRequested = [bool]$script:closeAfterWorkspaceMove
     $script:workspaceMoving = $false
     $script:closeAfterWorkspaceMove = $false
+    try { updateMainContentOperable } catch { }
     $outcome = @{ Ok = $false; Warning = "ワークスペースを移した結果を確かめられませんでした。"; Status = ""; Close = $false }
     try {
         $outcome = getWorkspaceMoveOutcome (getWorkspaceMoveChange $output) $errorText $closeRequested $mode $folder $previous

@@ -214,7 +214,7 @@ function startGui {
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\shell\status_bar.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\shell\notice_banner.ps1".Replace('`', '``')))
 
-    $window.Add_Activated({
+    function onWindowActivated {
         if (!$script:startupLoaded) {
             return
         }
@@ -237,7 +237,9 @@ function startGui {
             }
             updateSearchTarget
         }
-    })
+    }
+
+    $window.Add_Activated({ onWindowActivated })
 
     $window.Add_PreviewKeyDown({
         param ($sender, $e)
@@ -247,6 +249,11 @@ function startGui {
         # Alt などが混ざったキーは、これまでどおり扱わない
         $others = $modifiers -band (-bnot ([System.Windows.Input.ModifierKeys]::Control -bor [System.Windows.Input.ModifierKeys]::Shift))
         if ($others -ne 0) { return }
+        if (!(testMainContentOperable ([bool]$script:workspaceMoving))) {
+            # ワークスペースの中身を移している間は、窓のキー（Ctrl+Tab・F5・Ctrl+F など）を受けない
+            $e.Handled = $true
+            return
+        }
         $action = getShortcutAction ([string]$e.Key) $ctrl $shift (getCurrentScreen)
         if (invokeShortcutAction $action) {
             $e.Handled = $true
