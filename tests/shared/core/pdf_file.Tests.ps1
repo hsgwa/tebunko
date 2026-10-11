@@ -179,7 +179,7 @@ endcmap end end
                 $objs = @{}
                 $objs[1] = '<< /Type /Catalog /Pages 2 0 R >>'
                 $objs[2] = '<< /Type /Pages /Kids [] /Count 0 >>'
-                $objs[3] = '<< /Filter /Standard /V 1 /R 2 >>'
+                $objs[3] = '<< /Filter /Standard /V 5 /R 6 /CF << /StdCF << /CFM /AESV3 >> >> /StmF /StdCF >>'
                 return , (newPdfFromObjects $objs '/Root 1 0 R /Encrypt 3 0 R')
             }
             "startxrefOutside" {
@@ -593,9 +593,6 @@ Describe "readPdfPages" -Tag Unit {
     }
 
     It "暗号化された PDF（<method>）を、空の利用者パスワードで復号して読む（圧縮なし・Flate）" -TestCases @(
-        @{ method = "rc40" }
-        @{ method = "rc128" }
-        @{ method = "aes128" }
         @{ method = "aes256r5" }
         @{ method = "aes256r6" }
     ) {
@@ -609,19 +606,13 @@ Describe "readPdfPages" -Tag Unit {
         }
     }
 
-    It "暗号化された PDF（<method>）でも、相互参照がストリームなら読む（相互参照は暗号化されない）" -TestCases @(
-        @{ method = "rc128" }
-        @{ method = "aes128" }
-        @{ method = "aes256r6" }
-    ) {
-        param ($method)
-        $r = readPdfPages (newEncryptedPdf -pages @("BT /F1 12 Tf (abc) Tj ET") -method $method -compress -xrefStream)
+    It "暗号化された PDF（AES-256）でも、相互参照がストリームなら読む（相互参照は暗号化されない）" {
+        $r = readPdfPages (newEncryptedPdf -pages @("BT /F1 12 Tf (abc) Tj ET") -method aes256r6 -compress -xrefStream)
         $r[0] | Should -BeExactly "abc"
     }
 
-    It "暗号化された PDF（<method>）で、カタログ・ページの木・ページがオブジェクトのストリームの中にあっても読む（ストリームは自分の番号で 1 回だけ復号し、中は復号しない）" -TestCases @(
-        @{ method = "rc128" }
-        @{ method = "aes128" }
+    It "暗号化された PDF（<method>）で、カタログ・ページの木・ページがオブジェクトのストリームの中にあっても読む（ストリームは 1 回だけ復号し、中は復号しない）" -TestCases @(
+        @{ method = "aes256r5" }
         @{ method = "aes256r6" }
     ) {
         param ($method)
@@ -632,18 +623,7 @@ Describe "readPdfPages" -Tag Unit {
         $r[1] | Should -BeExactly "second"
     }
 
-    It "/EncryptMetadata false の PDF（aes128）は、鍵の計算に FF×4 を足して読む（足さない鍵では「パスワードが必要」になる）" {
-        $r = readPdfPages (newEncryptedPdf -pages @("BT /F1 12 Tf (meta) Tj ET") -method aes128 -encryptMetadata $false)
-        $r[0] | Should -BeExactly "meta"
-        $bytes = newEncryptedPdf -pages @("BT /F1 12 Tf (meta) Tj ET") -method aes128 -encryptMetadata $false
-        $text = [System.Text.Encoding]::GetEncoding(28591).GetString($bytes).Replace("/EncryptMetadata false", "/EncryptMetadata true ")
-        { readPdfPages ([System.Text.Encoding]::GetEncoding(28591).GetBytes($text)) } | Should -Throw "PDFにパスワードが必要なため読めません。"
-    }
-
     It "開くのにパスワードが要る PDF（<method>）は、そのファイルだけ「パスワードが必要」で失敗する" -TestCases @(
-        @{ method = "rc40" }
-        @{ method = "rc128" }
-        @{ method = "aes128" }
         @{ method = "aes256r5" }
         @{ method = "aes256r6" }
     ) {
@@ -652,21 +632,30 @@ Describe "readPdfPages" -Tag Unit {
         { readPdfPages $bytes } | Should -Throw "PDFにパスワードが必要なため読めません。"
     }
 
+    It "AES-256 以外の暗号化（<method>）は、パスワードの有無にかかわらず「方式に対応していない」でそのファイルだけ失敗する" -TestCases @(
+        @{ method = "rc40"; password = "" }
+        @{ method = "rc128"; password = "" }
+        @{ method = "aes128"; password = "" }
+        @{ method = "rc40"; password = "pass" }
+        @{ method = "aes128"; password = "pass" }
+    ) {
+        param ($method, $password)
+        $bytes = newEncryptedPdf -pages @("BT /F1 12 Tf (abc) Tj ET") -method $method -userPassword $password
+        { readPdfPages $bytes } | Should -Throw "PDFの暗号化の方式に対応していないため読めません。"
+    }
+
     It "暗号化の辞書が対応しない・壊れているもの（<name>）は、そのファイルだけ失敗する" -TestCases @(
-        @{ name = "独自のフィルター"; dict = "/Filter /Adobe.PubSec /V 4 /R 4"; message = "PDFの暗号化の方式に対応していないため読めません。" }
+        @{ name = "独自のフィルター"; dict = "/Filter /Adobe.PubSec /V 5 /R 6"; message = "PDFの暗号化の方式に対応していないため読めません。" }
         @{ name = "未知の V"; dict = "/Filter /Standard /V 3 /R 3"; message = "PDFの暗号化の方式に対応していないため読めません。" }
-        @{ name = "V と R の組み合わせが違う"; dict = "/Filter /Standard /V 2 /R 6"; message = "PDFの暗号化の方式に対応していないため読めません。" }
-        @{ name = "未知の暗号方式"; dict = "/Filter /Standard /V 4 /R 4 /CF << /StdCF << /CFM /Other >> >> /StmF /StdCF /O <00> /U <00> /P -4"; message = "PDFの暗号化の方式に対応していないため読めません。" }
-        @{ name = "巨大な鍵の長さ"; dict = "/Filter /Standard /V 2 /R 3 /Length 99999999 /O <00> /U <00> /P -4"; message = "PDFの暗号化の方式に対応していないため読めません。" }
-        @{ name = "StmF が名前でない"; dict = "/Filter /Standard /V 4 /R 4 /CF << /StdCF << /CFM /AESV2 >> >> /StmF 5 /O <00> /U <00> /P -4"; message = "PDFの暗号化の方式に対応していないため読めません。" }
-        @{ name = "StmF があるのに CF が辞書でない"; dict = "/Filter /Standard /V 4 /R 4 /CF 5 /StmF /StdCF /O <00> /U <00> /P -4"; message = "PDFの暗号化の方式に対応していないため読めません。" }
-        @{ name = "V が数でない"; dict = "/Filter /Standard /V /x /R 3 /O <00> /U <00> /P -4"; message = "PDFの暗号化の方式に対応していないため読めません。" }
-        @{ name = "P が無い（R3）"; dict = "/Filter /Standard /V 2 /R 3 /O <0000000000000000000000000000000000000000000000000000000000000000> /U <0000000000000000000000000000000000000000000000000000000000000000>"; message = "PDFの暗号化の情報が壊れているため読めません。" }
-        @{ name = "短い O と U（R3）"; dict = "/Filter /Standard /V 2 /R 3 /O <00> /U <00> /P -4"; message = "PDFの暗号化の情報が壊れているため読めません。" }
+        @{ name = "V と R の組み合わせが違う"; dict = "/Filter /Standard /V 5 /R 4"; message = "PDFの暗号化の方式に対応していないため読めません。" }
+        @{ name = "V が数でない"; dict = "/Filter /Standard /V /x /R 6"; message = "PDFの暗号化の方式に対応していないため読めません。" }
+        @{ name = "未知の暗号方式"; dict = "/Filter /Standard /V 5 /R 6 /CF << /StdCF << /CFM /Other >> >> /StmF /StdCF /U <00> /UE <00>"; message = "PDFの暗号化の方式に対応していないため読めません。" }
+        @{ name = "StmF が名前でない"; dict = "/Filter /Standard /V 5 /R 6 /CF << /StdCF << /CFM /AESV3 >> >> /StmF 5 /U <00> /UE <00>"; message = "PDFの暗号化の方式に対応していないため読めません。" }
+        @{ name = "StmF があるのに CF が辞書でない"; dict = "/Filter /Standard /V 5 /R 6 /CF 5 /StmF /StdCF /U <00> /UE <00>"; message = "PDFの暗号化の方式に対応していないため読めません。" }
         @{ name = "短い U と UE（R6）"; dict = "/Filter /Standard /V 5 /R 6 /CF << /StdCF << /CFM /AESV3 >> >> /StmF /StdCF /O <00> /U <00> /UE <00>"; message = "PDFの暗号化の情報が壊れているため読めません。" }
     ) {
         param ($name, $dict, $message)
-        $bytes = newEncryptedPdf -pages @("BT /F1 12 Tf (abc) Tj ET") -method rc128 -encryptDict $dict
+        $bytes = newEncryptedPdf -pages @("BT /F1 12 Tf (abc) Tj ET") -method aes256r6 -encryptDict $dict
         { readPdfPages $bytes } | Should -Throw $message
     }
 

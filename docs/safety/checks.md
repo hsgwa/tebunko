@@ -26,7 +26,7 @@ function scan { param([string[]]$Pattern)
 | 10 | リモート実行 | 該当 0 件 | `scan 'Invoke-Command','New-PSSession','Enter-PSSession','WinRM'` |
 | 11 | 外部プロセスの起動 | 4 か所のみ（[外部プロセスの起動（4 か所）](#外部プロセスの起動4-か所)） | `scan 'Start-Process'` |
 | 12 | プロセスの強制終了 | 1 か所のみ（[前回残った Office の終了（起動時の確認）](disclosure.md#前回残った-office-の終了起動時の確認)）。止める前に `isSameOfficeProcess` を呼ぶ。`taskkill`・`CloseMainWindow`・WMI の `Terminate` などの別の止め方は 0 件 | `scan 'Stop-Process'`、`scan 'taskkill','CloseMainWindow','Terminate','spps'` |
-| 13 | 壊れたハッシュ（MD5・SHA-1）、FIPS 準拠でないハッシュの実装 | MD5 の自前の実装が 1 か所のみ（`shared/core/pdf_crypt.ps1`。PDF の仕様が定める暗号化の鍵の導出のためだけに使い、署名・改ざんの検知・同一性の判定には使わない）。.NET の FIPS 非準拠の型（`MD5`・`SHA1`・`*Managed`・`HashAlgorithm]::Create`）は 0 件 | `scan 'MD5','SHA1','RIPEMD','SHA256Managed','SHA384Managed','SHA512Managed','HashAlgorithm\]::Create'` |
+| 13 | 壊れたハッシュ（MD5・SHA-1）、FIPS 準拠でないハッシュの実装 | 該当 0 件 | `scan 'MD5','SHA1','RIPEMD','SHA256Managed','SHA384Managed','SHA512Managed','HashAlgorithm\]::Create'` |
 | 14 | 内部の型（`NonPublic`）のリフレクションでの呼び出し | 1 か所のみ（下） | `scan 'NonPublic','Reflection\.BindingFlags'` |
 | 15 | プロセスの強制終了（`.Kill()`） | 3 か所のみ（Office の終了の `quitApp`・制限時間の見張り・画面を閉じるときの `KillOffice`）。どれも、同じ関数の中で、止める前に `isSameOfficeProcess` を呼び、控えたときと同じプロセス（名前・起動時刻）だけを止める。12 の `Stop-Process` も同じ | `scan '\.Kill\('`（`tests/meta/safety.Tests.ps1` が、場所と照合を構文で確かめる） |
 
@@ -97,7 +97,7 @@ PDF は PowerShell だけで読み、外の部品・Office・外部プロセス�
 | ストリームの終わりを探して読み進めた文字数の合計（`/Length` が合わないストリームの細工への対策） | ファイルの大きさの 4 倍 |
 | ページ数 | 10,000 |
 
-参照の循環（`Prev` のつながりを含む）とファイルの外を指す位置は例外にする。`Prev` は呼び出しの入れ子にせず、順に読む。暗号化された PDF は、空の利用者パスワードで開けるもの（RC4 40・128、AES-128・256）だけ復号して読む。パスワードが要るもの・未対応の方式は、そのファイルだけ失敗にする（パスワードを探さない）。壊れた暗号化の辞書（短い `/O` `/U` `/UE`・巨大な `/Length`）は決まった長さの確かめで断り、AES-256 R6 の鍵の計算の繰り返しは 300 回で止める。MD5 と RC4 は PDF の仕様が求めるため自前で書く（FIPS 準拠を強制した機械で .NET の MD5 が例外になり、4 方式とも読めなくなるため）。鍵・途中の値は例外の文にも記録にも出さない。PDF の中のスクリプト・リンク・添付ファイル・外部の参照は、実行も取得もしない（文字の命令だけを読む）。
+参照の循環（`Prev` のつながりを含む）とファイルの外を指す位置は例外にする。`Prev` は呼び出しの入れ子にせず、順に読む。暗号化された PDF は、空の利用者パスワードで開ける AES-256（V5 の R5・R6）だけ復号して読む。パスワードが要るもの・未対応の方式（RC4 40・128、AES-128 など）は、そのファイルだけ失敗にする（パスワードを探さない）。壊れた暗号化の辞書（短い `/U` `/UE`）は決まった長さの確かめで断り、AES-256 R6 の鍵の計算の繰り返しは 300 回で止める。鍵・途中の値は例外の文にも記録にも出さない。PDF の中のスクリプト・リンク・添付ファイル・外部の参照は、実行も取得もしない（文字の命令だけを読む）。
 
 `.xml` は、既定のアプリ（Windows の「XML エディター」）が先頭の `<?mso-application progid=…?>` を見て Excel・Word で開くことがあるが、マクロは既定で無効（上の「Office ファイルを開くときの設定」）であるため、開くこと自体の害は小さい。
 

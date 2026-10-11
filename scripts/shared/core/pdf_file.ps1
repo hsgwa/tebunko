@@ -424,7 +424,7 @@ function readPdfIndirectAt {
         if ($length -gt 0 -and $text[$start + $length - 1] -eq "`n") { $length-- }
         if ($length -gt 0 -and $text[$start + $length - 1] -eq "`r") { $length-- }
     }
-    return @{ PdfType = "stream"; Dict = $value; Start = $start; Length = $length; Num = [int]$a; Gen = [int]$gen }
+    return @{ PdfType = "stream"; Dict = $value; Start = $start; Length = $length; Num = [int]$a }
 }
 
 function expandPdfFlate {
@@ -537,7 +537,7 @@ function getPdfStreamBytes {
     if ($null -ne $doc.Crypt -and $stream.ContainsKey("Num")) {
         # 暗号化された PDF は、圧縮を戻す前に復号する
         $method = getPdfStreamCryptMethod $doc $stream
-        $data = unprotectPdfData $doc.Crypt $method $stream.Num $stream.Gen $data
+        $data = unprotectPdfData $doc.Crypt $method $data
     }
     if ($null -eq $filters) { return , $data }
     $filterList = @($filters)
@@ -788,9 +788,8 @@ function readPdfXrefSection {
         throw "PDFの相互参照のあとの情報が読めないため読めません。"
     }
     if ($trailer.ContainsKey("Encrypt") -and $null -eq $doc.EncryptEntry) {
-        # 新しい方のトレーラーを使う。辞書と /ID は、相互参照がそろってから読む（readPdfPagesCore）
+        # 新しい方のトレーラーを使う。辞書は、相互参照がそろってから読む（readPdfPagesCore）
         $doc.EncryptEntry = $trailer["Encrypt"]
-        $doc.TrailerIdEntry = $trailer["ID"]
     }
     if ($null -eq $doc.Root -and $trailer.ContainsKey("Root")) {
         $doc.Root = $trailer["Root"]
@@ -1253,7 +1252,7 @@ function readPdfPagesCore {
         Bytes = $bytes; Text = $text; Limits = $limits
         Xref = @{}; Cache = @{}; Loading = @{}; ObjStreams = @{}; Fonts = @{}; Visited = @{}; SeenNodes = @{}
         Inflated = [long]0; XrefRows = [long]0; Searched = [long]0; Root = $null; EndSearch = @{ From = 1; At = 0 }; Hybrid = $false; CMaps = @{}; MapEntries = [long]0
-        Crypt = $null; EncryptEntry = $null; TrailerIdEntry = $null
+        Crypt = $null; EncryptEntry = $null
     }
     $start = $text.LastIndexOf("startxref", [StringComparison]::Ordinal)
     if ($start -lt 0) {
@@ -1270,14 +1269,7 @@ function readPdfPagesCore {
         if (-not (testPdfDict $enc)) {
             throw "PDFの暗号化の情報が壊れているため読めません。"
         }
-        # /ID の 1 つ目（配列・要素とも間接参照でもよい）。無ければ空
-        $idText = ""
-        $idList = resolvePdf $doc $doc.TrailerIdEntry
-        if ($idList -is [System.Collections.IList] -and $idList.Count -gt 0) {
-            $idBytes = getPdfStringBytes (resolvePdf $doc $idList[0])
-            if ($null -ne $idBytes) { $idText = ${pdfLatin1}.GetString($idBytes) }
-        }
-        $doc.Crypt = newPdfCrypt $doc $enc $idText
+        $doc.Crypt = newPdfCrypt $doc $enc
     }
 
     $root = resolvePdf $doc $doc.Root
