@@ -26,6 +26,14 @@ BeforeAll {
     }
     function getTargetsKey { param($folders) "key" }
     function getIndexCheckedItems { param($items) @($items | Where-Object { $_.Checked }) }
+    # 名前の割り当て・保存は IndexCatalog の仕事（index_catalog.Tests.ps1 で確かめる）。ここでは呼ばれ方だけを見る偽物にする
+    function script:catalogAssignAndSaveNames { param($folders, $dir) }
+    function newIndexCatalog {
+        param ([string]$workspaceDir, [string]$settingsPath)
+        $fake = [pscustomobject]@{ Dir = $workspaceDir }
+        $fake | Add-Member ScriptMethod AssignAndSaveNames { param($folders) catalogAssignAndSaveNames $folders $this.Dir }
+        return $fake
+    }
 
     . "${scriptsDir}\tebunko\ui\index_view.ps1"
 
@@ -81,12 +89,12 @@ Describe "loadTargets" -Tag Unit {
         It "ネットワークのワークスペース: 場所に触れず、一覧を空にして、裏の列（network）で名前を決める" {
             $script:workspace = newTestWorkspace @{ Dir = "\\fileserver\共有\ws"; StatusFile = "\\fileserver\共有\ws\work\ingest_status.tsv" }
             Mock readStatusFile { throw "画面のスレッドで取り込み一覧を読んだ" }
-            Mock saveAssignedIndexNames { throw "画面のスレッドで保存した" }
+            Mock catalogAssignAndSaveNames { throw "画面のスレッドで保存した" }
 
             loadTargets
 
             Should -Invoke readStatusFile -Times 0
-            Should -Invoke saveAssignedIndexNames -Times 0
+            Should -Invoke catalogAssignAndSaveNames -Times 0
             $script:jobs.Count | Should -Be 1
             $script:jobs[0].Queue | Should -Be "network"
             $script:targetItems.Count | Should -Be 0
@@ -96,15 +104,12 @@ Describe "loadTargets" -Tag Unit {
         It "ネットワークのワークスペース: 裏の仕事は、取り込み一覧を読んで名前を割り当てて保存する" {
             $script:workspace = newTestWorkspace @{ Dir = "\\fileserver\共有\ws"; StatusFile = "\\fileserver\共有\ws\work\ingest_status.tsv" }
             loadTargets
-            Mock readStatusFile { @{ Folders = @(); Rows = @{} } }
-            Mock assignIndexNames { @($folders) }
-            Mock saveAssignedIndexNames { }
+            Mock catalogAssignAndSaveNames { }
 
             runJob $script:jobs[0]
 
-            Should -Invoke readStatusFile -Times 1 -Exactly -ParameterFilter { $path -eq "\\fileserver\共有\ws\work\ingest_status.tsv" }
-            Should -Invoke assignIndexNames -Times 1 -Exactly
-            Should -Invoke saveAssignedIndexNames -Times 1 -Exactly
+            # 取り込み一覧を読んで名前を割り当てて保存する中身は、index_catalog.Tests.ps1（AssignAndSaveNames）で確かめる
+            Should -Invoke catalogAssignAndSaveNames -Times 1 -Exactly -ParameterFilter { $dir -eq "\\fileserver\共有\ws" -and @($folders).Count -eq 1 }
         }
 
         It "ネットワークのワークスペース: 名前を決めている間は、追加・削除などの操作を止める（空の一覧を保存して、ほかのインデックスを消さないため）" {
@@ -173,14 +178,12 @@ Describe "loadTargets" -Tag Unit {
 
         It "ローカルのワークスペース: その場で名前を決めて、並べる（裏の仕事は出さない）" {
             $script:workspace = newTestWorkspace @{ Dir = "C:\Users\test\tebunko_ws" }
-            Mock readStatusFile { @{ Folders = @(); Rows = @{} } }
-            Mock assignIndexNames { @($folders) }
-            Mock saveAssignedIndexNames { $script:namedNow = $true }
+            Mock catalogAssignAndSaveNames { $script:namedNow = $true }
 
             loadTargets
 
             $script:jobs.Count | Should -Be 0
-            Should -Invoke saveAssignedIndexNames -Times 1 -Exactly
+            Should -Invoke catalogAssignAndSaveNames -Times 1 -Exactly
             $script:targetItems[0].Name | Should -Be "営業"
         }
     }

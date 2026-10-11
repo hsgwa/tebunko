@@ -98,7 +98,8 @@ function applyWorkspace {
     $sub = Join-Path $folder ${workspaceSubFolderName}
     $canMakeSub = -not (Test-Path -LiteralPath $sub) -or
         ((Test-Path -LiteralPath $sub -PathType Container) -and (getFolderEntrySample $sub).Count -eq 0)
-    $workspaceNames = @(getWorkspaceEntries $folder | ForEach-Object { [System.IO.Path]::GetFileName($_) })
+    $mover = [WorkspaceMover]::new(${settingsFile})
+    $workspaceNames = @($mover.ListEntries($folder) | ForEach-Object { [System.IO.Path]::GetFileName($_) })
     $confirm = newWorkspaceConfirm $folder $workspace.Dir $entries.Count $entries.Names $entries.Capped $workspaceNames $canMakeSub (!$requireEmpty)
     # switch の中の $_ は switch の値になるため、行を変数に受けてから使う
     $facts = @($confirm.Facts | ForEach-Object {
@@ -125,32 +126,23 @@ function applyWorkspace {
     # 本文インデックスのファイルを読んでいる検索があると移せないため、先に止める
     clearSearchView
     $previous = $workspace.Dir
-    if ($answer -eq "use") {
-        # 共有されたワークスペースなどを使う。今の中身は移さず、インデックスの一覧をこのワークスペースのものにする
-        $targets = useWorkspaceTargets $folder
-        writeWorkspaceFolder $folder
-        switchWorkspace
-        setStatus "ワークスペースを「${folder}」に変え、そこにあるインデックスを使います（インデックス $targets 件。前のワークスペースの中身は「${previous}」に残しています）"
-        return
-    }
-    if ($answer -eq "reset") {
-        try {
-            [void](removeWorkspaceEntries $folder)
-        } catch {
-            showMessage "「${folder}」のインデックスを削除できませんでした（$($_.Exception.Message)）。ファイルを開いているアプリを閉じてから、もう一度変えてください。" "OK" "Warning" | Out-Null
-            return
+    # 共有されたワークスペースなどを使う（use）・消して最初から（reset）・中身を移す（move）。保存まで WorkspaceMover が行う
+    $mode = if ($answer -eq "use" -or $answer -eq "reset") { $answer } else { "move" }
+    $change = $mover.ChangeWorkspace($mode, $previous, $folder)
+    if (!$change.Ok) {
+        if ($change.Stage -eq "remove") {
+            showMessage "「${folder}」のインデックスを削除できませんでした（$($change.Message)）。ファイルを開いているアプリを閉じてから、もう一度変えてください。" "OK" "Warning" | Out-Null
+        } else {
+            showMessage $change.Message "OK" "Warning" | Out-Null
         }
-    }
-    try {
-        $count = moveWorkspace $previous $folder
-    } catch {
-        showMessage $_.Exception.Message "OK" "Warning" | Out-Null
         return
     }
-    # 検索対象ツリーでチェックを外したフォルダも、移した先のインデックスに付け替える
-    [void](moveSearchExcludes $previous $folder)
-    writeWorkspaceFolder $folder
     switchWorkspace
+    if ($mode -eq "use") {
+        setStatus "ワークスペースを「${folder}」に変え、そこにあるインデックスを使います（インデックス $($change.Targets) 件。前のワークスペースの中身は「${previous}」に残しています）"
+        return
+    }
+    $count = $change.Count
     if ($count -gt 0) {
         setStatus "ワークスペースを「${folder}」に変え、中身を移しました（移す前の場所：${previous}）"
     }
