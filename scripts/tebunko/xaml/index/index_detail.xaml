@@ -17,7 +17,7 @@
            焦点の青い枠は欄の内側に 2px で重ねて描き（欄の大きさ・位置は変えない）、外へはみ出さないので親の切り抜きで欠けない -->
       <Style x:Key="TextBox.Joined" TargetType="TextBox" BasedOn="{StaticResource TextBox.Base}">
         <Setter Property="Height" Value="28" />
-        <Setter Property="Padding" Value="8,5" />
+        <Setter Property="Padding" Value="8,0" />
         <Setter Property="FontSize" Value="12" />
         <Setter Property="Foreground" Value="{StaticResource Ink.Value}" />
         <Setter Property="BorderBrush" Value="{StaticResource Border.Normal}" />
@@ -144,7 +144,17 @@
               </Grid>
               <!-- 名前・フォルダパスを確定できなかったときの理由（commitIndexDetailEdit） -->
               <TextBlock x:Name="IndexDetailEditError" Style="{StaticResource ErrorText}" Margin="98,4,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
-              <TextBlock x:Name="IndexDetailFolderStatus" Style="{StaticResource Meta}" Margin="98,4,0,0" />
+              <TextBlock x:Name="IndexDetailFolderStatus" Margin="98,4,0,0" FontSize="11" Foreground="{StaticResource Ok}">
+                <TextBlock.Style>
+                  <Style TargetType="TextBlock">
+                    <Style.Triggers>
+                      <Trigger Property="Tag" Value="Missing">
+                        <Setter Property="Foreground" Value="{StaticResource Danger.Text}" />
+                      </Trigger>
+                    </Style.Triggers>
+                  </Style>
+                </TextBlock.Style>
+              </TextBlock>
               <Border Style="{StaticResource InfoCard}" Margin="0,10,0,0">
                 <StackPanel>
                   <StackPanel Orientation="Horizontal">

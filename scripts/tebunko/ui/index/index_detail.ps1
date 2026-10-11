@@ -81,34 +81,29 @@ function closeIndexingBanner {
 
 function updateIndexingResume {
     # 中断した更新（残りがあり、いま更新していない）の帯。［続きから再開］を出す。
-    # 中断の帯は、残りが無くなったら消す（更新が終わった・中止した直後の帯は消さない）
+    # 判断は getIndexingResumeBannerDecision（判断層）。ここは結果を画面に当てるだけ
     $pending = if ($script:indexingState) { [int]$script:indexingState.Pending } else { 0 }
     $canResume = ($pending -gt 0) -and !(isIndexing)
     $ui.IndexingResumeButton.Visibility = if ($canResume) { "Visible" } else { "Collapsed" }
-    if (!$canResume) {
-        $script:indexingBannerDismissed = $false
-    }
-    if ($canResume -and $ui.IndexingProgressPanel.Visibility -ne "Visible" -and !$script:indexingBannerDismissed) {
-        setIndexingBanner "warn" "interrupted"
-        $ui.IndexingProgressText.Text = getIndexingStateText $pending $false
-        $ui.IndexingProgressEta.Text = ""
-        $ui.IndexingProgressDetail.Text = ""
-        $ui.IndexingProgress.Visibility = "Collapsed"
-        $ui.IndexingStopButton.Visibility = "Collapsed"
-        $ui.IndexingSearchButton.Visibility = "Collapsed"
-        $ui.IndexingProgressPanel.Visibility = "Visible"
-    } elseif ($canResume -and $script:indexingBannerKind -eq "interrupted") {
-        $ui.IndexingProgressText.Text = getIndexingStateText $pending $false
-    } elseif ($script:indexingBannerKind -eq "done" -and $ui.IndexingProgressPanel.Visibility -eq "Visible") {
-        # 終わりの帯（完了・中止）は、出した時点の古い集計で自動で消えるかを決めている。新しい集計で残りの有無が変わったときだけ決め直す
-        # （残りがあれば時計を外して［続きから再開］を隠さず、残りが無くなれば時計を戻す。集計のたびに時計を掛け直さない）
-        $pendingNow = if ($canResume) { $pending } else { 0 }
-        if ((getIndexingBannerBehavior $script:indexingBannerLevel $pendingNow).AutoCloseSeconds -ne $script:indexingBannerAutoClose) {
-            setIndexingBannerBehavior
+    $decision = getIndexingResumeBannerDecision $pending (isIndexing) ($ui.IndexingProgressPanel.Visibility -eq "Visible") $script:indexingBannerKind $script:indexingBannerDismissed $script:indexingBannerLevel $script:indexingBannerAutoClose
+    $script:indexingBannerDismissed = $decision.Dismissed
+    switch ($decision.Action) {
+        "Show" {
+            setIndexingBanner "warn" "interrupted"
+            $ui.IndexingProgressText.Text = getIndexingStateText $pending $false
+            $ui.IndexingProgressEta.Text = ""
+            $ui.IndexingProgressDetail.Text = ""
+            $ui.IndexingProgress.Visibility = "Collapsed"
+            $ui.IndexingStopButton.Visibility = "Collapsed"
+            $ui.IndexingSearchButton.Visibility = "Collapsed"
+            $ui.IndexingProgressPanel.Visibility = "Visible"
         }
-    } elseif (!$canResume -and $script:indexingBannerKind -eq "interrupted") {
-        $ui.IndexingProgressPanel.Visibility = "Collapsed"
-        $script:indexingBannerKind = ""
+        "Text" { $ui.IndexingProgressText.Text = getIndexingStateText $pending $false }
+        "Retime" { setIndexingBannerBehavior }
+        "Hide" {
+            $ui.IndexingProgressPanel.Visibility = "Collapsed"
+            $script:indexingBannerKind = ""
+        }
     }
 }
 
@@ -419,6 +414,7 @@ function updateIndexDetailPanel {
         $ui.IndexDetailPath.Text = $view.Path
     }
     $ui.IndexDetailFolderStatus.Text = $view.FolderStatus
+    $ui.IndexDetailFolderStatus.Tag = if ($view.FolderMissing) { "Missing" } else { "" }   # 無いときだけ赤（既定は緑）
     setIndexBadge $ui.IndexDetailBadge $ui.IndexDetailBadgeText $view.Badge.Text $view.Badge.Level
     $ui.IndexDetailBadgeSub.Text = if ($view.Selected) { [string]$view.Badge.Sub } else { "" }
     $ui.IndexErrorText.Text = $view.Error

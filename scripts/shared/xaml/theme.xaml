@@ -653,9 +653,9 @@
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="Button">
-          <Border x:Name="Ring" CornerRadius="5" Background="Transparent">
+          <Border x:Name="Ring" CornerRadius="4" Background="Transparent">
             <Path Data="{StaticResource Icon.Close}" Width="10" Height="10" Stretch="Uniform"
-                  Stroke="{TemplateBinding Foreground}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                  Stroke="{TemplateBinding Foreground}" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                   HorizontalAlignment="Center" VerticalAlignment="Center" />
           </Border>
           <ControlTemplate.Triggers>

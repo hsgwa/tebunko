@@ -909,7 +909,7 @@ function getIndexDetailView {
     $noRun = @{ Shown = $false; Value = 0.0; CountText = ""; FileText = "" }
     $emptyFast = @{ Shown = $false; Value = 0.0; Text = ""; State = ""; Level = "None"; Reason = ""; Checked = ""; Note = "" }
     $none = @{
-        Title = "インデックスの状態"; Selected = $false; Name = ""; Path = ""; FolderStatus = ""
+        Title = "インデックスの状態"; Selected = $false; Name = ""; Path = ""; FolderStatus = ""; FolderMissing = $false
         Badge = @{ Text = ""; Level = "None" }; Updated = ""; Count = ""; Rows = @(); RowsKey = ""; Fast = $emptyFast
         Multi = $false; Hint = ""; Run = $noRun; Error = ""; ErrorHint = ""
     }
@@ -983,7 +983,7 @@ function getIndexDetailView {
     $rowsKey = $fixed + "`n" + (@($rows | ForEach-Object { "$($_.Label)`t$($_.Value)" }) -join "`n")
     return @{
         Title = "$($item.Name) - 詳細"; Selected = $true; Name = [string]$item.Name; Path = [string]$item.Path
-        FolderStatus = [string]$item.FolderStatus
+        FolderStatus = [string]$item.FolderStatus; FolderMissing = [bool]$item.FolderMissing
         Badge = $badge
         Updated = $updated; Count = $count; Rows = $rows.ToArray(); RowsKey = $rowsKey; Fast = $fast
         Multi = $false; Hint = ""; Run = $run; Error = $errorText; ErrorHint = $errorHint

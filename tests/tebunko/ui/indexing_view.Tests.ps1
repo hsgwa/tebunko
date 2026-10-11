@@ -143,6 +143,34 @@ Describe "getIndexingDroppedCount・削除予定のある確認の文言" -Tag U
         $behavior.Closable | Should -Be $closable
         $behavior.AutoCloseSeconds | Should -Be $seconds
     }
+
+    It "集計を読み直したときの帯: <name> は <action>・閉じた印 <dismissed>" -TestCases @(
+        @{ name = "残りがあり帯が無い"; pending = 3; indexing = $false; visible = $false; kind = ""; was = $false; action = "Show"; dismissed = $false }
+        @{ name = "閉じたあとの読み直しでは出し直さない"; pending = 3; indexing = $false; visible = $false; kind = ""; was = $true; action = "None"; dismissed = $true }
+        @{ name = "更新を始めると印が戻る"; pending = 3; indexing = $true; visible = $false; kind = ""; was = $true; action = "None"; dismissed = $false }
+        @{ name = "残りが 0 になると印が戻る"; pending = 0; indexing = $false; visible = $false; kind = ""; was = $true; action = "None"; dismissed = $false }
+        @{ name = "印が戻ったあとは出る"; pending = 2; indexing = $false; visible = $false; kind = ""; was = $false; action = "Show"; dismissed = $false }
+        @{ name = "出ている中断の帯は文だけ直す"; pending = 2; indexing = $false; visible = $true; kind = "interrupted"; was = $false; action = "Text"; dismissed = $false }
+        @{ name = "残りが無くなった中断の帯は消す"; pending = 0; indexing = $false; visible = $true; kind = "interrupted"; was = $false; action = "Hide"; dismissed = $false }
+        @{ name = "更新中に残っている中断の帯は消す"; pending = 2; indexing = $true; visible = $true; kind = "interrupted"; was = $false; action = "Hide"; dismissed = $false }
+        @{ name = "更新中の帯には何もしない"; pending = 2; indexing = $true; visible = $true; kind = "running"; was = $false; action = "None"; dismissed = $false }
+    ) {
+        param ($pending, $indexing, $visible, $kind, $was, $action, $dismissed)
+        $decision = getIndexingResumeBannerDecision $pending $indexing $visible $kind $was
+        $decision.Action | Should -Be $action
+        $decision.Dismissed | Should -Be $dismissed
+    }
+
+    It "終わりの帯は、残りの有無で秒数が変わったときだけ時計を決め直す: 残り <pending>・いま <current> 秒は <action>" -TestCases @(
+        @{ pending = 0; current = 8; action = "None" }
+        @{ pending = 0; current = 0; action = "Retime" }
+        @{ pending = 3; current = 8; action = "Retime" }
+        @{ pending = 3; current = 0; action = "None" }
+    ) {
+        param ($pending, $current, $action)
+        $decision = getIndexingResumeBannerDecision $pending $false $true "done" $false "ok" $current
+        $decision.Action | Should -Be $action
+    }
 }
 
 Describe "getIndexingCurrentName・getIndexingSkippedView" -Tag Unit {
