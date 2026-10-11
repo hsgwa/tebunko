@@ -90,7 +90,45 @@ Describe "検索条件の行の折り返し" -Tag Gui {
         ($script:narrow.Word.Left - $script:narrow.Excel.Right) | Should -BeLessThan 8.5
     }
 
+    # 高速検索の印の状態（使用可・使用不可）が変わっても、吹き出しの位置（［正規表現］の下・左端をそろえる）は変わらない。最小の幅（印が 2 行目に落ちる）で確かめる
+    It "最小の幅で、印の状態が変わっても、正規表現の吹き出しは［正規表現］の下の同じ位置に出る" {
+        $S = startGui $script:tool "SearchBalloonBadge"
+        $script:pos = @()
+        invokeGuiScene $S {
+            resizeGuiWindow $S 1024 700
+            toggleGui (waitGuiById $S $S.Window "RegexCheck")
+            $measure = {
+                $regex = & $script:rect $S "RegexCheck"
+                $text = & $script:rect $S "RegexBalloonText"
+                @{ Gap = $text.Left - $regex.Left; Right = $text.Right; Window = $S.Window.Current.BoundingRectangle.Right; Below = $text.Top - $regex.Bottom; Badge = (getGuiText (findGui $S.Window -Id "FastSearchText")) }
+            }
+            foreach ($word in @("(", "(a", "ab")) {
+                setGuiText $S (findGui $S.Window -Id "WordBox") $word
+                if ($word -eq "ab") {
+                    # 正規表現として正しい語。吹き出しは消える
+                    waitGui $S "吹き出しが消える" ${guiDefaultTimeout} {
+                        $text = findGui $S.Window -Id "RegexBalloonText"
+                        !$text -or $text.Current.IsOffscreen
+                    } | Out-Null
+                    setGuiText $S (findGui $S.Window -Id "WordBox") "("
+                }
+                $script:pos += waitGui $S "吹き出しが出る（$word）" ${guiDefaultTimeout} {
+                    $text = findGui $S.Window -Id "RegexBalloonText"
+                    if ($text -and !$text.Current.IsOffscreen -and (getGuiText $text) -eq "正規表現が正しくありません") { & $measure }
+                }
+            }
+            closeGui $S
+        }
+        foreach ($p in $script:pos) {
+            # 最小の幅では、右端が窓に収まるまで左へ寄る（左端が［正規表現］より左になる）ので、左端の差は決めず、出し入れで変わらないことを見る
+            $p.Below | Should -BeGreaterThan 0 -Because "吹き出しは［正規表現］の下に出る"
+            $p.Right | Should -BeLessOrEqual $p.Window
+        }
+        ($script:pos | ForEach-Object { [math]::Round($_.Gap) } | Select-Object -Unique).Count | Should -Be 1 -Because "出し入れのあとも左端の位置が変わらない"
+    }
+
     # 1 行に収まる幅（1100 以上）を作るため、窓を 1280×700 にする。画面の作業領域がそれより小さいと窓が切られて作れないので、その画面では飛ばす。
+    # GitHub のホストランナー（windows-latest）の画面は 1024×768 前後で、ここで飛ばされる（CI の gui.yml では画面の大きさを変えていない）。幅を変える手当ては別の起票（#198 の本文）
     # 収まる・収まらないの境目は、getConditionFlow の単体テストで確かめてある
     It "広い幅では 1 行になり、高速検索の印は右端に付く" {
         $wideWidth = 1280

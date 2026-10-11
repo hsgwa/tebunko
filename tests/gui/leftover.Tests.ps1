@@ -36,6 +36,11 @@ Describe "起動時の前回残った Office の確認" -Tag Gui {
             $dialog = waitGuiWindow $S "Office の終了" -Id "HeadingText" -Text "残ったまま動いています"
             (getGuiText (findGui $dialog -Id "HeadingText")) | Should -BeLike "*Office が 3 件*"
             (getGuiTexts $dialog) -join " " | Should -BeLike "*編集中のファイルは閉じません*"
+            # 補足は、ボタンの真上（補足の下端とボタンの上端の間が 30 以内）に出る
+            $hint = (findGui $dialog -Id "HintText").Current.BoundingRectangle
+            $cancelRect = (findGui $dialog -Id "LeftoverCancelButton").Current.BoundingRectangle
+            ($cancelRect.Top - $hint.Bottom) | Should -BeGreaterThan 0
+            ($cancelRect.Top - $hint.Bottom) | Should -BeLessThan 30 -Because "補足がボタンの真上にある"
 
             setGuiStep $S "詳細を開く"
             toggleGui (findGui $dialog -Id "LeftoverDetailToggle")

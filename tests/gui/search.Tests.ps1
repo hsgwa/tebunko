@@ -79,8 +79,11 @@ Describe "S4 検索の遷移" -Tag Gui {
             setGuiStep $S "結果の絞り込み"
             clickGui $S $S.Window "ExpandAllButton" "［すべて開く］"
             waitGui $S "結果の行が 2 件出る" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 2 } | Out-Null
+            $heightTwo = (findGui $S.Window -Id "ResultGrid").Current.BoundingRectangle.Height
             setGuiText $S (findGui $S.Window -Id "FilterBox") "議事録"
             waitGui $S "絞り込んだ件数（結果の行が 1 件）" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 1 } | Out-Null
+            # 結果が少ないときは、結果の一覧が内容の高さまでで、余白が長く残らない（2 件のときより高くならない）
+            waitGui $S "結果の一覧の高さが内容に収まる" ${guiDefaultTimeout} { (findGui $S.Window -Id "ResultGrid").Current.BoundingRectangle.Height -le $heightTwo } | Out-Null
             setGuiText $S (findGui $S.Window -Id "FilterBox") ""
             waitGui $S "絞り込みを消すと 2 件に戻る" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 2 } | Out-Null
 

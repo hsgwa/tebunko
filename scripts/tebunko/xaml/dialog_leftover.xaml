@@ -28,7 +28,7 @@
     </StackPanel>
 
     <!-- ボタンの選び方の補足は、ボタンの真上に置く（本文の下に離して置くと、ボタンを選ぶときに目に入らない） -->
-    <TextBlock x:Name="HintText" DockPanel.Dock="Bottom" Style="{StaticResource Note}" TextWrapping="Wrap" Margin="0,12,0,0" />
+    <TextBlock x:Name="HintText" DockPanel.Dock="Bottom" Style="{StaticResource Meta}" TextWrapping="Wrap" Margin="0,12,0,0" />
 
     <StackPanel>
       <TextBlock x:Name="HeadingText" Style="{StaticResource Body}" TextWrapping="Wrap" />
