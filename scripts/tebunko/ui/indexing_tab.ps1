@@ -307,6 +307,54 @@ function stopIndexing {
     requestIndexingStop $script:indexingSession.Channel
     $ui.IndexingStopButton.IsEnabled = $false
     $ui.IndexingProgressDetail.Text = "中止しています…（更新中のファイルが終わるまでお待ちください）"
+    showIndexingWait "Stopping"
+}
+
+# 中止を待つ間のダイアログ（shared\ui\shell.ps1 の showWaitDialog）。Stopping（［中止］のあと）と CloseWait（閉じるときの待ち）の 1 つだけを出す
+$script:indexingWait = $null
+$script:indexingWaitKind = ""
+
+function showIndexingWait {
+    param (
+        [string]$kind
+    )
+
+    if ($null -ne $script:indexingWait -and $script:indexingWaitKind -eq $kind) {
+        return
+    }
+    closeIndexingWait
+    $view = getWaitDialogView $kind
+    $script:indexingWait = showWaitDialog -heading $view.Heading -description $view.Description -buttonText $view.ButtonText
+    $script:indexingWaitKind = $kind
+}
+
+function updateIndexingWait {
+    # 進み具合の棒を書き換える。secondsLeft（強制終了までの残りの秒）を渡したときは、秒読みの 1 行も書き換える
+    param (
+        $progress,
+        [object]$secondsLeft = $null
+    )
+
+    if ($null -eq $script:indexingWait) {
+        return
+    }
+    $content = @{}
+    if ($null -ne $progress) {
+        $bar = getWaitProgressValue $progress.Processed ($progress.Processed + $progress.Remaining)
+        $content.Indeterminate = $bar.Indeterminate
+        $content.Value = $bar.Value
+    }
+    if ($null -ne $secondsLeft) {
+        $content.Countdown = getForceCloseCountdownText ([double]$secondsLeft)
+    }
+    updateWaitDialog $script:indexingWait $content
+}
+
+function closeIndexingWait {
+    $handle = $script:indexingWait
+    $script:indexingWait = $null
+    $script:indexingWaitKind = ""
+    closeWaitDialog $handle
 }
 
 function updateIndexingProgress {
@@ -323,6 +371,7 @@ function updateIndexingProgress {
     $stopping = !$ui.IndexingStopButton.IsEnabled
 
     $total = $progress.Processed + $progress.Remaining
+    updateIndexingWait $progress
     if (!$progress.Scanned) {
         # クロールしている間（大きいフォルダ・ネットワーク越しでは数分かかることがある）。
         # 何を見ているかが分かるよう、インデクサが書いた内容をそのまま出す
@@ -401,6 +450,7 @@ function updateIndexingProgress {
 
 function finishIndexing {
     $script:indexingTimer.Stop()
+    closeIndexingWait
     $script:indexingView = $null
     $taskbar.ProgressState = "None"
     # インデックス作成完了の通知。以前はタスクバーのボタンを光らせていたが（FlashWindowEx）、P/Invoke は

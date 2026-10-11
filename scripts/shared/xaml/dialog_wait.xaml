@@ -1,0 +1,35 @@
+﻿<!-- 待つ間のダイアログ。閉じるときの待ち・中止の途中など、終わるまで待つ場面で出す。shell.ps1 の showWaitDialog が読み込む。
+     利用者は閉じられない（呼び出し側が閉じる）。文言・秒読み・棒の値は判断層（wait_view.ps1）が決め、ここは並べるだけ。
+     色・文字・コントロールの形は scripts/shared/xaml/theme.xaml にまとめてある。 -->
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="お待ちください" Width="460" SizeToContent="Height" MaxHeight="620"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="NoResize"
+        FontFamily="{DynamicResource Font.Body}" FontSize="13"
+        TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType"
+        Background="{DynamicResource Bg.Surface}" UseLayoutRounding="True" SnapsToDevicePixels="True">
+  <Window.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="theme.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+      <Style TargetType="Button" BasedOn="{StaticResource Button.Base}">
+        <Setter Property="MinWidth" Value="80" />
+        <Setter Property="Height" Value="32" />
+      </Style>
+    </ResourceDictionary>
+  </Window.Resources>
+
+  <StackPanel Margin="20,16,20,20">
+    <!-- 見出し：いま何をしているか -->
+    <TextBlock x:Name="HeadingText" Style="{StaticResource Body}" TextWrapping="Wrap" />
+    <!-- 説明：待つ理由（空なら隠す） -->
+    <TextBlock x:Name="DescriptionText" Style="{StaticResource Note}" TextWrapping="Wrap" Visibility="Collapsed" Margin="0,8,0,0" />
+    <!-- 棒：件数が分からないときは流れる棒、分かるときは割合 -->
+    <ProgressBar x:Name="WaitBar" Minimum="0" Maximum="1" IsIndeterminate="True" Margin="0,14,0,0" />
+    <!-- 秒読み：あと何秒で強制終了するか（空なら隠す） -->
+    <TextBlock x:Name="CountdownText" Style="{StaticResource Meta}" Visibility="Collapsed" Margin="0,8,0,0" />
+    <!-- 押せないボタン：閉じられないことを見せるだけ（空なら隠す） -->
+    <Button x:Name="WaitButton" IsEnabled="False" Visibility="Collapsed" HorizontalAlignment="Right" Margin="0,16,0,0" />
+  </StackPanel>
+</Window>

@@ -174,18 +174,124 @@ function showOwnedDialog {
     )
 
     # ダイアログの上にさらにダイアログ（メッセージなど）を重ねるときは、中のほうが閉じても暗幕は外さない（外側のダイアログがまだ開いている）
-    $scrim = $script:dialogScrim
-    $script:dialogDepth++
-    if ($null -ne $scrim) {
-        $scrim.Visibility = "Visible"
-    }
+    enterDialogScrim
     try {
         return $dialog.ShowDialog()
     } finally {
-        $script:dialogDepth--
-        if ($null -ne $scrim -and $script:dialogDepth -le 0) {
-            $scrim.Visibility = "Collapsed"
+        leaveDialogScrim
+    }
+}
+
+function enterDialogScrim {
+    # ダイアログを 1 つ開くときに、暗幕を掛ける（開いている数を 1 つ増やす）。showOwnedDialog と showWaitDialog が使う
+    $script:dialogDepth++
+    if ($null -ne $script:dialogScrim) {
+        $script:dialogScrim.Visibility = "Visible"
+    }
+}
+
+function leaveDialogScrim {
+    # ダイアログを 1 つ閉じるときに、数を 1 つ減らす。開いているものが無くなったときだけ暗幕を外す
+    $script:dialogDepth--
+    if ($null -ne $script:dialogScrim -and $script:dialogDepth -le 0) {
+        $script:dialogScrim.Visibility = "Collapsed"
+    }
+}
+
+function showWaitDialog {
+    # 待つ間のダイアログ（進み具合の棒・秒読みつき）を、閉じずに出す。showOwnedDialog と同じく本体の窓を親にして暗幕を掛けるが、
+    # ShowDialog でなく Show で出すので、呼び出し側の処理は止まらない。利用者は閉じられず、呼び出し側が closeWaitDialog で閉じる。
+    # 戻り値の入れ物を updateWaitDialog・closeWaitDialog に渡す。
+    #   buttonText: 押せないボタンの文字。空なら出さない
+    #   indeterminate: 件数が分からない（流れる棒）。false なら value（0 から 1）で出す
+    param (
+        [string]$heading,
+        [string]$description = "",
+        [string]$countdown = "",
+        [string]$buttonText = "",
+        [bool]$indeterminate = $true,
+        [double]$value = 0,
+        [string]$title = "",
+        [System.Windows.Window]$owner = $window
+    )
+
+    $dialog = loadWindow "${sharedXamlDir}\dialog_wait.xaml"
+    if ($title -ne "") {
+        $dialog.Title = $title
+    }
+    $dialog.Owner = $owner
+    $handle = @{ Dialog = $dialog; Open = $true }
+    foreach ($name in @("HeadingText", "DescriptionText", "WaitBar", "CountdownText", "WaitButton")) {
+        $handle[$name] = $dialog.FindName($name)
+    }
+    $handle.HeadingText.Text = $heading
+    $dialog.Add_Closing({
+        param ($sender, $e)
+        if ($handle.Open) {
+            $e.Cancel = $true  # 待つ間は閉じさせない（Alt+F4 でも）
         }
+    }.GetNewClosure())
+    updateWaitDialog $handle @{ Description = $description; Countdown = $countdown; ButtonText = $buttonText; Indeterminate = $indeterminate; Value = $value }
+    enterDialogScrim
+    try {
+        $dialog.Show()
+    } catch {
+        $handle.Open = $false
+        leaveDialogScrim
+        throw
+    }
+    return $handle
+}
+
+function updateWaitDialog {
+    # 待つ間のダイアログの中身を書き換える。content に入れたキー（Heading・Description・Countdown・ButtonText・Indeterminate・Value）だけ変える。
+    # 説明・秒読み・ボタンは、空の文字にすると隠す
+    param (
+        $handle,
+        [hashtable]$content
+    )
+
+    if ($null -eq $handle -or !$handle.Open) {
+        return
+    }
+    if ($content.ContainsKey("Heading")) {
+        $handle.HeadingText.Text = [string]$content.Heading
+    }
+    if ($content.ContainsKey("Description")) {
+        $handle.DescriptionText.Text = [string]$content.Description
+        $handle.DescriptionText.Visibility = if ([string]$content.Description -ne "") { "Visible" } else { "Collapsed" }
+    }
+    if ($content.ContainsKey("Countdown")) {
+        $handle.CountdownText.Text = [string]$content.Countdown
+        $handle.CountdownText.Visibility = if ([string]$content.Countdown -ne "") { "Visible" } else { "Collapsed" }
+    }
+    if ($content.ContainsKey("ButtonText")) {
+        $handle.WaitButton.Content = [string]$content.ButtonText
+        $handle.WaitButton.Visibility = if ([string]$content.ButtonText -ne "") { "Visible" } else { "Collapsed" }
+    }
+    if ($content.ContainsKey("Indeterminate")) {
+        $handle.WaitBar.IsIndeterminate = [bool]$content.Indeterminate
+    }
+    if ($content.ContainsKey("Value")) {
+        $handle.WaitBar.Value = [double]$content.Value
+    }
+}
+
+function closeWaitDialog {
+    # 待つ間のダイアログを閉じ、暗幕を外す（開いているものが残っていれば、外側が閉じるまで残す）。
+    # 本体の窓を閉じるときは、これを先に呼ぶ（待つ間のダイアログ → 暗幕 → 本体の窓の順）。もう閉じていれば何もしない
+    param (
+        $handle
+    )
+
+    if ($null -eq $handle -or !$handle.Open) {
+        return
+    }
+    $handle.Open = $false
+    try {
+        $handle.Dialog.Close()
+    } finally {
+        leaveDialogScrim
     }
 }
 

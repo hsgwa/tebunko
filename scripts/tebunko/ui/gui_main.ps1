@@ -171,6 +171,7 @@ function startGui {
     . ([WildcardPattern]::Escape("$TebunkoDir\..\shared\ui\folder_dialog.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\index_view.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\indexing_view.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\wait_view.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\search\search_bar_view.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\search\result_list_view.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\search\open_source_view.ps1".Replace('`', '``')))
@@ -264,9 +265,14 @@ function startGui {
     $script:closeTimer = newTimer 500 {
         safe {
             $now = Get-Date
+            if (isIndexing) {
+                # 待つ間のダイアログの棒と、強制終了までの秒読みを書き換える
+                try { updateIndexingWait (getIndexingProgress) ($script:closeDeadline - $now).TotalSeconds } catch { }
+            }
             if (!(isIndexing)) {
                 $script:closeTimer.Stop()
                 $script:closeReady = $true
+                closeIndexingWait   # 待つ間のダイアログ → 暗幕 → 本体の窓の順に閉じる
                 $window.Close()
             } elseif (!$script:closeKilled -and $now -gt $script:closeDeadline) {
                 # 取り込み中の Office が応答しない。インデックス作成が起動した Office だけを PID で止める（COM の呼び出しが戻る）
@@ -277,6 +283,7 @@ function startGui {
                 # それでも止まらない。スレッドは finally で止める
                 $script:closeTimer.Stop()
                 $script:closeReady = $true
+                closeIndexingWait
                 $window.Close()
             }
         }
@@ -302,6 +309,11 @@ function startGui {
             if (!$script:closeTimer.IsEnabled) {
                 $script:closeTimer.Start()
             }
+        } catch { }
+        # 待つ間のダイアログは、失敗しても止める流れの邪魔にしない
+        try {
+            showIndexingWait "CloseWait"
+            updateIndexingWait (getIndexingProgress) ($script:closeDeadline - (Get-Date)).TotalSeconds
         } catch { }
     }
 
@@ -525,6 +537,7 @@ function startGui {
         # Test-Path など、OS の呼び出しで戻らないもの）を待たずに戻る Abandon（前は Close）を使う
         $script:closeTimer.Stop()
         $script:indexingTimer.Stop()
+        try { closeIndexingWait } catch { }
         if ($script:indexingSession) {
             $script:indexingSession.Close()
         }
