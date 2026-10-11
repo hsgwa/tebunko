@@ -1,6 +1,6 @@
 ﻿# 部品ごとの関数（設定・ファイル）
 
-扱うこと: 設定ファイル（`tebunko/core/settings.ps1`）、ワークスペース（`tebunko/core/workspace.ps1`）とファイル・フォルダ操作（`shared/core/fs.ps1`・`folder.ps1`・`office_files.ps1`）の関数一覧（入力・出力・概要・使用元）。扱わないこと: 取り込み一覧・インデックスの管理（[部品ごとの関数（インデックス作成）](indexer.md)）。先に読むページ: [部品から関数一覧を引く](index.md)。
+扱うこと: 設定ファイル（`tebunko/core/settings.ps1`）、検索対象でチェックを外したフォルダ（`search_excludes.ps1`）、ワークスペース（`workspace.ps1`）とその切り替え（`workspace_mover.ps1`）、ファイル・フォルダ操作（`shared/core/fs.ps1`・`folder.ps1`・`office_files.ps1`）の関数一覧（入力・出力・概要・使用元）。扱わないこと: 取り込み一覧・インデックスの管理（[部品ごとの関数（インデックス作成）](indexer.md)）。先に読むページ: [部品から関数一覧を引く](index.md)。
 
 ## 設定ファイル（`tebunko/core/settings.ps1`）
 
@@ -8,7 +8,7 @@
 |---|---|---|---|---|---|
 | `newSettings` | – | ordered hashtable | 設定の既定値（`targetFolders` `indexSources` `searchExcludes` `useRegex` `caseSensitive` `fileKinds` `includeShapes` `includeComments` `openMode` `workspaceFolder` `ingestThreads`） | [設定ファイル（setting.config）](../structure/settings-file.md) | readSettings |
 | `readSettings` | path（既定 `$settingsFile`） | ordered hashtable | 設定を読む。記載の無いキーは既定値。ファイルが無ければ既定値（ファイルは作らない）。数値のキーは文字列でも数値にして読む（読めなければ既定値）。JSON として読めなければ `FormatException`（ファイルは動かさない）。ロック・共有違反は `IOException` のまま | 同上 | 設定の各関数 |
-| `toSettingBool` | value, default | bool | 設定ファイルの真偽値を読む。文字列の `"true"` / `"false"` も読み、読めなければ default | 同上 | readSettings, readSearchExcludes |
+| `toSettingBool` | value, default | bool | 設定ファイルの真偽値を読む。文字列の `"true"` / `"false"` も読み、読めなければ default | 同上 | readSettings, readSearchExcludes（`search_excludes.ps1`） |
 | `writeSettings` | settings, path（既定 `$settingsFile`） | – | 設定を JSON（UTF-8 BOM なし）で保存。一時ファイルに書いてから置き換える（`writeTextLinesAtomic`） | 同上 | updateSettings |
 | `invokeSettingsLocked` | path, action, timeout（既定 5000 ミリ秒） | action の出力 | 設定ファイルごとの名前付きミューテックス（`Local\tebunko_settings_<getFolderKey の鍵>`）の中で action を実行する。設定の「読む → 変える → 書く」の一続きを囲む。引数の順は path, action, timeout（`-action` は名前で渡す） | [設定ファイル（setting.config）](../structure/settings-file.md) | updateSettings など |
 | `updateSettings` | key, value, path（既定 `$settingsFile`） | – | ファイルを読み直し、key の値だけ変えて保存する（`invokeSettingsLocked` の中） | 同上 | 設定の各関数 |
@@ -19,8 +19,6 @@
 | `mergeAssignedIndexNames` / `saveAssignedIndexNames` | current, assigned / assigned, path | 一覧 / 一覧 | 割り当てたインデックス名（assigned）を、読み直した今の一覧（current）の名前が空の項目にだけ、パスで突き合わせて足す（同じ名前をほかの項目が使っていれば付けない）/ 排他の中で読み直して足して保存し、保存した一覧を返す | [設定ファイル（setting.config）](../structure/settings-file.md) | インデクサ・画面（loadTargets） |
 | `readIndexSources` / `writeIndexSources` | path（既定 `$settingsFile`） / sources, path | `@{Name; Path}` の配列 / – | インデックス作成の対象にしないインデックスの元のフォルダ（`indexSources`）を読み書きする | [設定ファイル（setting.config）](../structure/settings-file.md) | getSourceFolderMap, 画面 |
 | `setIndexSourceFolder` | name, folder, path（既定 `$settingsFile`） | – | インデックス名に対する元のフォルダを記録する。クロール対象フォルダにある名前ならそのフォルダの Path を書き換え、無ければ `indexSources` に記録する | [元のファイルが見つからないとき（元のフォルダを設定する）](../gui/open-file.md#元のファイルが見つからないとき元のフォルダを設定する) | 画面 |
-| `readSearchExcludes` / `writeSearchExcludes` | path（既定 `$settingsFile`） / excludes, path | `@{Path; Subfolders}` の配列 / – | 画面の検索対象のツリーでチェックを外したフォルダ（`searchExcludes`）を読み書きする。無ければ空（すべて検索） | [インデックスの一覧](../search/index.md#インデックスの一覧getsearchindexes) | 画面（検索対象のツリー） |
-| `removeSearchExcludesUnder` | folder, path（既定 `$settingsFile`） | – | フォルダとその下の `searchExcludes` を、大文字・小文字を区別せずに消す（`Sales` を消しても `Sales2` は消さない）。設定の書き込みは `invokeSettingsLocked` の中で行い、消せなくても例外にしない（インデックスの改名・削除を止めない） | 同上 | `renameIndex` / `removeIndex` |
 | `readVersionFile` | path（配布物の `VERSION.txt` のパス） | `@{Tag; Sha}` / `$null` | 版とコミットの記録を読む。無い・読めない・2行でない・形が違えば `$null`（画面は「開発版」と表示する。`about_view.ps1` の `getAboutView`） | [画面](../gui/index.md) | 画面 |
 | `readSearchOption` / `writeSearchOption` | path / option, path | `@{UseRegex; CaseSensitive; IncludeShapes; IncludeComments}` / – | 画面の検索条件（種類は `readFileKinds` / `writeFileKinds`）。[元のファイルの特定・画面](search.md#元のファイルの特定画面) を参照 | [続き](search.md#元のファイルの特定画面) | 画面 |
 | `readCloudFiles` / `writeCloudFiles` | path（既定 `$settingsFile`） / mode, path | string / – | クラウドにだけあるファイルの扱い（`cloudFiles`。`ask` / `download`）を読み書きする。無い・知らない値なら `ask` | [取り込み対象の決定](../indexing/target-decision.md#クラウドにだけあるファイル) | 画面・インデクサ |
@@ -31,28 +29,45 @@
 
 ## ワークスペース（`tebunko/core/workspace.ps1`）
 
-`Workspace` クラスは、ワークスペースのフォルダ（Dir）から、中のファイル・フォルダの場所を組み立てるだけで、設定は読まない。どのフォルダを使うかは設定の `workspaceFolder` で決まる（`getWorkDir`）。関数はその場所を使って、取り込みの作業フォルダの置き場所の判断・前の版のワークスペースの扱い・ワークスペースの移動を行う。画面の操作は [データの置き場所とパスの決め方](../structure/data.md)、［設定］タブは [［設定］タブ](../gui/settings-tab.md) を参照。
+`Workspace` クラスは、ワークスペースのフォルダ（Dir）から、中のファイル・フォルダの場所を組み立てるだけで、設定は読まない。どのフォルダを使うかは設定の `workspaceFolder` で決まる（`getWorkDir`）。関数はその場所を使って、取り込みの作業フォルダの置き場所の判断・前の版のワークスペースの扱いを行う（ワークスペースの移動は下の `WorkspaceMover`）。画面の操作は [データの置き場所とパスの決め方](../structure/data.md)、［設定］タブは [［設定］タブ](../gui/settings-tab.md) を参照。
 
 | 関数 | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
 | `getMachineKey` | – | string（8 文字） | この PC を識別する短い鍵（`getFolderKey` の先頭 8 文字）。共有フォルダのワークスペースを複数の PC から使うとき、一時フォルダを PC ごとに分ける | getWorkspaceTmpDir |
-| `assertWorkspaceReachable` | dir | – | 裏の仕事の先頭でワークスペースに届くかを確かめる。届かない・確かめられないときは「ワークスペースに接続できません：…」「ワークスペースを確かめられません：…」の例外にする。まだ無いだけなら何もしない（呼び出しは裏の仕事の中。画面のスレッドでは呼ばない） | index_store.ps1 |
+| `assertWorkspaceReachable` | dir | – | 裏の仕事の先頭でワークスペースに届くかを確かめる。届かない・確かめられないときは「ワークスペースに接続できません：…」「ワークスペースを確かめられません：…」の例外にする。まだ無いだけなら何もしない（呼び出しは裏の仕事の中。画面のスレッドでは呼ばない） | `IndexCatalog.AssertReachable`（index_catalog.ps1） |
 | `getWorkspaceJobQueue` | 場所（複数可） | string | 裏の列を選ぶ。渡した場所のどれかがネットワークなら `network`、それ以外は `default`。届かない共有の仕事が、ほかの仕事を待たせないため | index_store.ps1, index_tree.ps1 ほか |
 | `getWorkspaceTmpDir` | workspace | string | 取り込みの作業フォルダの候補 `<TmpRoot>\<PC の鍵>\<PID>`。副作用は無い | selectTmpDir, index_migrate.ps1 |
 | `selectTmpDir` | workspace | `@{Dir; Reason}` | 作業フォルダの置き場所を決める。候補のパスに `[` `]` があれば（Excel が保存できない）`Dir` を空にして `Reason = Brackets`、候補の長さに取り込みのスレッドが下に作る名前の分を足して `$excelMaxPath` 以上なら `Reason = TooLong`。どちらでもなければ候補のまま（`Reason` は空）。`%TEMP%` には逃がさない | paths.ps1, indexer_run.ps1, extract_office.ps1, index_migrate.ps1 |
 | `getTmpDirUnavailableMessage` | reason | string | 作業フォルダを置けない理由（`Brackets`・`TooLong`・その他）を、利用者向けの 1 文にする | indexer_run.ps1, index_migrate.ps1 |
-| `getLegacyIndexState` | dir | `@{HasLegacyIndex; ContentEmpty; HasLegacySystemIndex}` | 前の版のワークスペースの状態。`index\` の直下のフォルダに元のフォルダ.txt があれば前の版のしるし（`HasLegacyIndex`）。`content_index\` が空か（`ContentEmpty`）。空のときだけ、`system_index\` に前の名前の txt があるかも調べる | gui_main.ps1, indexing_tab.ps1, settings_tab.ps1, index_archive.ps1, indexer_run.ps1, paths.ps1 |
+| `getLegacyIndexState` | dir | `@{HasLegacyIndex; ContentEmpty; HasLegacySystemIndex}` | 前の版のワークスペースの状態。`index\` の直下のフォルダに元のフォルダ.txt があれば前の版のしるし（`HasLegacyIndex`）。`content_index\` が空か（`ContentEmpty`）。空のときだけ、`system_index\` に前の名前の txt があるかも調べる | gui_main.ps1, indexing_tab.ps1, workspace_jobs.ps1, index_archive.ps1, indexer_run.ps1, paths.ps1 |
 | `testLegacyCleanupNeeded` | state | bool | 取り込み直しを始めるときに、前の版のシステムインデックスを片付けるか。`content_index\` が空で、前の版のしるしか前の名前の txt があるとき | index_archive.ps1, indexer_run.ps1 |
-| `getLegacyIndexMessage` | dir, hasLegacyIndex | string | 前の版のインデックスが見つかったときの知らせ。しるしが無ければ空 | gui_main.ps1, settings_tab.ps1, indexer_run.ps1 |
+| `getLegacyIndexMessage` | dir, hasLegacyIndex | string | 前の版のインデックスが見つかったときの知らせ。しるしが無ければ空 | gui_main.ps1, workspace_jobs.ps1, indexer_run.ps1 |
 | `clearLegacySystemIndex` | dir | `@{Ok; Reason}` | 前の版のシステムインデックスを片付ける。状態ファイルの中身を排他の中で空にしてから、`system_index\` を消す。どちらかに失敗したら `Ok = $false`（次に呼べば続きから） | indexer_run.ps1, index_archive.ps1 |
-| `getWorkspaceEntries` | dir | string[] | tebunko のファイル・フォルダ（`Workspace.Entries` のうち、あるもの）のフルパス。利用者のほかのファイルは含めない | settings_tab.ps1, settings_view.ps1 |
-| `getWorkspaceMoveConflicts` | from, to | string[] | from の中身を to へ移すとき、to に同じ名前が既にあるものの名前 | moveWorkspace |
-| `moveWorkspaceEntry` | source, dest | – | ファイル・フォルダを 1 つ移す。同じドライブならそのまま移し、別のドライブのフォルダは写してから元を消す。写している途中で失敗したら、写した分を消して例外にする | moveWorkspace |
-| `copyDirectoryTree` | source, dest（`\\?\` 付き） | – | フォルダを中身ごと写す | moveWorkspaceEntry |
-| `removeWorkspaceEntries` | dir | int | tebunko のファイル・フォルダを削除し、削除した数を返す。「消して、最初からやり直す」で使う | settings_tab.ps1 |
-| `useWorkspaceTargets` | dir, path（既定 `$settingsFile`） | int | dir の取り込み一覧にあるクロール対象フォルダを、インデックスの一覧（`targetFolders`）にし、その数を返す。取り込み一覧が無ければ一覧は変えない | settings_tab.ps1 |
-| `moveSearchExcludes` | from, to, path（既定 `$settingsFile`） | int | 検索対象ツリーでチェックを外したフォルダ（`searchExcludes`）のうち、from の `content_index` の下のものを to の下に付け替えて保存し、付け替えた数を返す | settings_tab.ps1 |
-| `moveWorkspace` | from, to | int | from の中身を to へ移し、移した数を返す。to に同じ名前があれば何も移さずに例外にする。途中で移せなければ、移した分を from へ戻してから例外にする | settings_tab.ps1, settings_view.ps1 |
+| `newWorkspace` | dir | `Workspace` | `Workspace` のインスタンスを作る（クラスの本体では型の名前を書けないため、`WorkspaceMover`・`IndexCatalog` がこの関数を通して作る） | workspace_mover.ps1 |
+
+## ワークスペースの切り替え（`tebunko/core/workspace_mover.ps1`。`WorkspaceMover`）
+
+画面のスレッドで使う。作るのは `[WorkspaceMover]::new(設定ファイルの場所)`。画面（`applyWorkspace`）は、選んだ直後のフォルダを確かめて利用者に選ばせたあと `ChangeWorkspace` を呼び、結果を出して画面を切り替える。クラスの考え方は [クラスと関数の使い分け](../structure/classes.md)。
+
+| メソッド | 入力 | 出力 | 概要 | 使用元 |
+|---|---|---|---|---|
+| `ListEntries` | dir | string[] | tebunko のファイル・フォルダ（`Workspace.Entries` のうち、あるもの）のフルパス。利用者のほかのファイルは含めない（旧 `getWorkspaceEntries`） | settings.ps1 |
+| `Conflicts` | from, to | string[] | from の中身を to へ移すとき、to に同じ名前が既にあるものの名前（旧 `getWorkspaceMoveConflicts`） | `MoveEntries` |
+| `ChangeWorkspace` | mode（`use`・`move`・`reset`）, from, to | `@{Ok; Stage; Message; Targets; Count}` | ワークスペースを from から to に変えて設定に保存する。`use` は to のインデックスを使う（`UseTargets`。from の中身は移さない）、`move` は中身を移す、`reset` は to の中身を消してから移す（`RemoveEntries`・`MoveEntries`）。移したあとに `searchExcludes` を付け替える（`moveSearchExcludes`）。失敗したときは設定を変えず、`Stage`（`remove`・`move`）と `Message` を返す | settings.ps1 |
+| `MoveEntries` | from, to | int | from の中身を to へ移し、移した数を返す。to に同じ名前があれば何も移さずに例外にする。途中で移せなければ、移した分を from へ戻してから例外にする（旧 `moveWorkspace`。1 つずつ移す `MoveEntry` と、別のドライブへ写す `CopyTree` は内部） | `ChangeWorkspace` |
+| `RemoveEntries` | dir | int | tebunko のファイル・フォルダを削除し、削除した数を返す。「消して、最初からやり直す」で使う（旧 `removeWorkspaceEntries`） | `ChangeWorkspace` |
+| `UseTargets` | dir | int | dir の取り込み一覧にあるクロール対象フォルダを、インデックスの一覧（`targetFolders`）にし、その数を返す。取り込み一覧が無ければ一覧は変えない（旧 `useWorkspaceTargets`） | `ChangeWorkspace` |
+
+## 検索対象でチェックを外したフォルダ（`tebunko/core/search_excludes.ps1`）
+
+設定の `searchExcludes` の読み書きと、フォルダとその下の比べ方。`IndexCatalog`（改名・削除）、`WorkspaceMover`（切り替え）、検索対象のツリーが同じ部品を通す。
+
+| 関数 | 入力 | 出力 | 概要 | 使用元 |
+|---|---|---|---|---|
+| `testFolderOrUnder` | path, folder | bool | path が folder そのもの、または folder の下かを返す。`searchExcludes` の削除・付け替え・保存でのフォルダとその下の比べ方はここだけ。大文字・小文字を区別しない序数の比べ（`OrdinalIgnoreCase`）で、folder の末尾の `\` は外し、`<folder>\` で始まるものだけを「下」にする（`Sales` の下に `Sales2` は入らない）。folder が空ならどれも含まない。既知の制限: `\\?\` 付きと無し、`/` 区切り、`..`、8.3 形式の短い名前は同じ場所として扱わない（書き方は呼び出す側がそろえる） | `removeSearchExcludesUnder`, `moveSearchExcludes`, 検索対象のツリー（`saveSearchExcludes`） |
+| `readSearchExcludes` / `writeSearchExcludes` | path（既定 `$settingsFile`） / excludes, path | `@{Path; Subfolders}` の配列 / – | 画面の検索対象のツリーでチェックを外したフォルダ（`searchExcludes`）を読み書きする。無ければ空（すべて検索） | 画面（検索対象のツリー） |
+| `removeSearchExcludesUnder` | folder, path（既定 `$settingsFile`） | – | フォルダとその下の `searchExcludes` を消す（`Sales` を消しても `Sales2` は消さない）。設定の書き込みは `invokeSettingsLocked` の中で行い、消せなくても例外にしない（インデックスの改名・削除を止めない） | `IndexCatalog.RenameIndex` / `RemoveIndex` |
+| `moveSearchExcludes` | from, to, path（既定 `$settingsFile`） | int | 検索対象ツリーでチェックを外したフォルダ（`searchExcludes`）のうち、from の `content_index` の下のものを to の下に付け替えて保存し、付け替えた数を返す | `WorkspaceMover.ChangeWorkspace` |
 
 ## ファイルとフォルダ（`shared/core/fs.ps1`・`folder.ps1`・`shared/office/office_files.ps1`）
 
