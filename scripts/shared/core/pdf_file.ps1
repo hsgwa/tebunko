@@ -3,8 +3,10 @@
 # ファイルを開いて読む関数（readPdfFile）だけが状態層（ファイルに触る）。
 # 読む範囲と上限は docs/design/indexing/pdf.md、細工した PDF から身を守ることは docs/safety/checks.md。
 #   読む    : 相互参照の表・相互参照のストリーム（オブジェクトのストリーム）、圧縮なし・FlateDecode、
-#             文字の命令 Tj・TJ・'・"、行送り Td・TD・T*・Tm、フォントの ToUnicode、ToUnicode の無い単純フォント（WinAnsi 相当）
-#   読まない: 暗号化、FlateDecode 以外の圧縮、ToUnicode の無い複合フォント（CID）、壊れた相互参照（修復しない）。例外にする
+#             文字の命令 Tj・TJ・'・"、行送り Td・TD・T*・Tm・TL（縦の位置が変わったときに行を分ける。ET では分けない）、
+#             フォントの ToUnicode、ToUnicode の無い単純フォント（WinAnsi 相当）
+#   読まない: 暗号化、FlateDecode 以外の圧縮、ToUnicode の無い複合フォント（CID）、壊れた相互参照（修復しない）。例外にする。
+#             Form XObject（Do）・注釈・フォーム・しおりの文字は例外にせず、読み飛ばす
 # 例外の文言は「PDF」で始める（readPdfPages は、それ以外の例外を「壊れている」に言い換える）。
 
 # 取り込み対象にする PDF の拡張子（小文字）。足す・減らすと tests\meta\safety.Tests.ps1 が固定の一覧で確かめる
@@ -22,6 +24,12 @@ ${pdfNestMaxDepth} = 64
 ${pdfPageMaxCount} = 10000
 # TJ の数値がこの値以下（1/1000 文字幅。負の向きが右への詰め）で、前後の文字がどちらも半角のときだけ空白を入れる
 ${pdfGapThreshold} = -250
+# 文字の対応表（ToUnicode）の項目の、1 ファイルの合計の上限
+${pdfMapMaxEntries} = 1000000
+# たどる相互参照（Prev・XRefStm）の数の上限
+${pdfXrefMaxCount} = 1000
+# 同じ行とみなす縦位置の差（ポイント）の上限
+${pdfLineTolerance} = 1.0
 
 ${pdfLatin1} = [System.Text.Encoding]::GetEncoding(28591)
 ${pdfWinAnsi} = [System.Text.Encoding]::GetEncoding(1252)
@@ -44,10 +52,15 @@ function newPdfLimits {
         [long]$maxInflated = ${pdfInflatedMaxBytes},
         [int]$maxObjects = ${pdfObjectMaxCount},
         [int]$maxDepth = ${pdfNestMaxDepth},
-        [int]$maxPages = ${pdfPageMaxCount}
+        [int]$maxPages = ${pdfPageMaxCount},
+        [int]$maxMapEntries = ${pdfMapMaxEntries},
+        [int]$maxXref = ${pdfXrefMaxCount}
     )
 
-    return @{ MaxInflated = $maxInflated; MaxObjects = $maxObjects; MaxDepth = $maxDepth; MaxPages = $maxPages }
+    return @{
+        MaxInflated = $maxInflated; MaxObjects = $maxObjects; MaxDepth = $maxDepth; MaxPages = $maxPages
+        MaxMapEntries = $maxMapEntries; MaxXref = $maxXref
+    }
 }
 
 function newPdfLexer {
@@ -309,6 +322,9 @@ function getPdfObject {
     if ($doc.Loading.ContainsKey($num)) {
         throw "PDFの参照が循環しているため読めません。"
     }
+    if ($doc.Loading.Count -ge $doc.Limits.MaxDepth) {
+        throw "PDFの参照が深すぎるため読めません。"
+    }
     $doc.Loading[$num] = $true
     try {
         if ($entry.Type -eq 1) {
@@ -365,9 +381,17 @@ function readPdfIndirectAt {
         if ([string]::CompareOrdinal($text, $after + $skip, "endstream", 0, 9) -eq 0) { $length = [int]$declared }
     }
     if ($length -lt 0) {
-        $end = $text.IndexOf("endstream", $start, [StringComparison]::Ordinal)
-        if ($end -lt 0) {
-            throw "PDFのストリームの終わりが無いため読めません。"
+        # 長さが合わないストリームが多くても、同じ範囲を何度も探さないよう、直前に見つけた位置を使い回す
+        $found = $doc.EndSearch
+        if ($start -ge $found.From -and $start -le $found.At) {
+            $end = $found.At
+        } else {
+            $end = $text.IndexOf("endstream", $start, [StringComparison]::Ordinal)
+            if ($end -lt 0) {
+                throw "PDFのストリームの終わりが無いため読めません。"
+            }
+            $found.From = $start
+            $found.At = $end
         }
         $length = $end - $start
         if ($length -gt 0 -and $text[$start + $length - 1] -eq "`n") { $length-- }
@@ -474,10 +498,17 @@ function getPdfStreamBytes {
         [hashtable]$stream
     )
 
-    $data = New-Object byte[] $stream.Length
-    [Array]::Copy($doc.Bytes, $stream.Start, $data, 0, $stream.Length)
     $dict = $stream.Dict
     $filters = resolvePdf $doc $dict["Filter"]
+    if ($null -eq $filters) {
+        # 圧縮なしも、取り出した合計を上限に数える（同じ大きなストリームを何度も参照されても増え続けないように）
+        $doc.Inflated += $stream.Length
+        if ($doc.Inflated -gt $doc.Limits.MaxInflated) {
+            throw "PDFの解凍後の大きさが上限を超えるため読めません。"
+        }
+    }
+    $data = New-Object byte[] $stream.Length
+    [Array]::Copy($doc.Bytes, $stream.Start, $data, 0, $stream.Length)
     if ($null -eq $filters) { return , $data }
     $filterList = @($filters)
     $paramsValue = resolvePdf $doc $dict["DecodeParms"]
@@ -551,16 +582,44 @@ function addPdfXrefEntry {
         if ($doc.Xref.Count -gt $doc.Limits.MaxObjects) {
             throw "PDFのオブジェクトの数が上限を超えるため読めません。"
         }
+    } elseif ($doc.Hybrid -and $doc.Xref[[int]$num].Type -eq 0 -and $entry.Type -ne 0) {
+        $doc.Xref[[int]$num] = $entry
     }
 }
 
 function readPdfXref {
-    # オフセットにある相互参照（表または相互参照のストリーム）を読み、前の相互参照（Prev・XRefStm）もたどる。
-    # 新しいものが先に入る。暗号化（Encrypt）は例外。ファイルの外を指す・循環は例外
+    # オフセットにある相互参照（表または相互参照のストリーム）を読み、前の相互参照（Prev・XRefStm）も順にたどる。
+    # 新しいものが先に入る。暗号化（Encrypt）は例外。ファイルの外を指す・循環・数が上限を超えるのは例外。
+    # 入れ子の呼び出しにせず、待ちの積み上げで読む（Prev が長く続いても呼び出しが深くならない）
     param (
         [hashtable]$doc,
         [long]$offset
     )
+
+    $pending = [System.Collections.Generic.Stack[object]]::new()
+    $pending.Push(@{ Offset = $offset; Hybrid = $false })
+    while ($pending.Count -gt 0) {
+        if ($doc.Visited.Count -ge $doc.Limits.MaxXref) {
+            throw "PDFの相互参照の数が上限を超えるため読めません。"
+        }
+        $job = $pending.Pop()
+        $next = readPdfXrefSection $doc $job.Offset $job.Hybrid
+        # 先に XRefStm、次に Prev の順に読む（Prev を先に積む）
+        if ($next.Prev -ge 0) { $pending.Push(@{ Offset = $next.Prev; Hybrid = $false }) }
+        if ($next.Stm -ge 0) { $pending.Push(@{ Offset = $next.Stm; Hybrid = $true }) }
+    }
+}
+
+function readPdfXrefSection {
+    # 相互参照 1 つ分を読み、次に読む位置 @{ Stm; Prev }（無ければ -1）を返す。
+    # hybrid（XRefStm で読むもの）は、表で「解放済み」とされた番号を上書きする（旧い読み手から隠すための作り）
+    param (
+        [hashtable]$doc,
+        [long]$offset,
+        [bool]$hybrid = $false
+    )
+
+    $doc.Hybrid = $hybrid
 
     $text = $doc.Text
     if ($offset -lt 0 -or $offset -ge $text.Length) {
@@ -681,18 +740,31 @@ function readPdfXref {
     if ($null -eq $doc.Root -and $trailer.ContainsKey("Root")) {
         $doc.Root = $trailer["Root"]
     }
-    if ($trailer.ContainsKey("XRefStm")) {
-        readPdfXref $doc ([long]$trailer["XRefStm"])
-    }
-    if ($trailer.ContainsKey("Prev")) {
-        readPdfXref $doc ([long]$trailer["Prev"])
+    $next = @{ Stm = -1L; Prev = -1L }
+    if ($trailer.ContainsKey("XRefStm")) { $next.Stm = [long]$trailer["XRefStm"] }
+    if ($trailer.ContainsKey("Prev")) { $next.Prev = [long]$trailer["Prev"] }
+    return $next
+}
+
+function addPdfMapEntries {
+    # 文字の対応表の項目を数え、1 ファイルの合計が上限を超えたら例外にする（doc が無いときは数えない）
+    param (
+        $doc,
+        [long]$count
+    )
+
+    if ($null -eq $doc) { return }
+    $doc.MapEntries += $count
+    if ($doc.MapEntries -gt $doc.Limits.MaxMapEntries) {
+        throw "PDFの文字の対応表が大きすぎるため読めません。"
     }
 }
 
 function readPdfToUnicode {
     # ToUnicode の CMap から、文字コード → 文字列の表 Map（キーは int）と、文字コードのバイト数 Width（0 は指定なし）を返す
     param (
-        [string]$text
+        [string]$text,
+        [hashtable]$doc = $null
     )
 
     $map = @{}
@@ -717,6 +789,7 @@ function readPdfToUnicode {
                 $dst = readPdfToken $st
                 if ($st.K -ne "str") { break }
                 if ($src.Length -eq 0 -or $src.Length -gt 3) { continue }
+                addPdfMapEntries $doc 1
                 $map[(convertPdfCode $src)] = convertPdfUtf16 $dst $utf16
             }
         } elseif ($t -ceq "beginbfrange") {
@@ -738,6 +811,7 @@ function readPdfToUnicode {
                 if ($kind -eq "str") {
                     $base = convertPdfUtf16 $dst $utf16
                     if ($base.Length -eq 0) { continue }
+                    if ($to -ge $from) { addPdfMapEntries $doc ($to - $from + 1) }
                     $head = $base.Substring(0, $base.Length - 1)
                     $lastCode = [int]$base[$base.Length - 1]
                     for ($c = $from; $c -le $to; $c++) {
@@ -748,7 +822,10 @@ function readPdfToUnicode {
                     while ($true) {
                         $item = readPdfToken $st
                         if ($st.K -ne "str") { break }
-                        if ($c -le $to) { $map[[int]$c] = convertPdfUtf16 $item $utf16 }
+                        if ($c -le $to) {
+                            addPdfMapEntries $doc 1
+                            $map[[int]$c] = convertPdfUtf16 $item $utf16
+                        }
                         $c++
                     }
                 }
@@ -792,10 +869,19 @@ function newPdfFont {
     if (-not (testPdfDict $dict)) { return $font }
     $isComposite = ($dict["Subtype"] -ceq "/Type0")
     if ($isComposite) { $font.Width = 2 }
-    $toUnicode = resolvePdf $doc $dict["ToUnicode"]
+    $toUnicodeRef = $dict["ToUnicode"]
+    $toUnicode = resolvePdf $doc $toUnicodeRef
     if (testPdfStream $toUnicode) {
-        $bytes = getPdfStreamBytes $doc $toUnicode
-        $cmap = readPdfToUnicode (${pdfLatin1}.GetString($bytes))
+        # 同じ ToUnicode を使うフォントが多くても、1 度だけ読む（番号ごとに控える）
+        $key = $null
+        if (testPdfRef $toUnicodeRef) { $key = $toUnicodeRef["N"] }
+        if ($null -ne $key -and $doc.CMaps.ContainsKey($key)) {
+            $cmap = $doc.CMaps[$key]
+        } else {
+            $bytes = getPdfStreamBytes $doc $toUnicode
+            $cmap = readPdfToUnicode (${pdfLatin1}.GetString($bytes)) $doc
+            if ($null -ne $key) { $doc.CMaps[$key] = $cmap }
+        }
         $font.Map = $cmap.Map
         if ($cmap.Width -gt 0) { $font.Width = $cmap.Width }
     } elseif ($isComposite) {
@@ -853,6 +939,12 @@ function addPdfText {
     )
 
     if ($text.Length -eq 0) { return }
+    # 縦位置が前に出した文字と違うときだけ行を分ける（BT〜ET で分かれていても、同じ縦位置なら同じ行）
+    if ($ts.HasOut -and [Math]::Abs($ts.Y - $ts.OutY) -gt ${pdfLineTolerance}) {
+        breakPdfLine $ts
+    }
+    $ts.HasOut = $true
+    $ts.OutY = $ts.Y
     $sb = $ts.Sb
     if ($ts.Gap -and $sb.Length -gt 0) {
         $last = $sb[$sb.Length - 1]
@@ -885,7 +977,8 @@ function readPdfPageText {
         $fontDict
     )
 
-    $ts = @{ Sb = [System.Text.StringBuilder]::new(); Gap = $false; HasY = $false; Y = 0.0 }
+    # Y は今の文字の縦位置（行の行列の y）、OutY は最後に出した文字の縦位置、Leading は行送り（TL）
+    $ts = @{ Sb = [System.Text.StringBuilder]::new(); Gap = $false; Y = 0.0; OutY = 0.0; HasOut = $false; Leading = 0.0 }
     $st = newPdfLexer $content 0
     $nums = [System.Collections.Generic.List[double]]::new()
     $lastStr = $null
@@ -936,6 +1029,7 @@ function readPdfPageText {
                 }
             }
         } elseif ($t -ceq "'" -or $t -ceq '"') {
+            $ts.Y -= $ts.Leading
             breakPdfLine $ts
             if ($null -ne $lastStr) { addPdfText $ts (convertPdfStringToText $font $lastStr) }
         } elseif ($t -ceq "Tf") {
@@ -943,23 +1037,26 @@ function readPdfPageText {
             if ($null -ne $lastName -and (testPdfDict $fontDict) -and $fontDict.ContainsKey($lastName)) {
                 $font = getPdfFont $doc $fontDict[$lastName]
             }
+        } elseif ($t -ceq "BT") {
+            # テキストの行列は BT で初期化される（縦位置は 0 から）
+            $ts.Y = 0.0
         } elseif ($t -ceq "Td" -or $t -ceq "TD") {
             if ($nums.Count -ge 2) {
-                if ($nums[1] -ne 0) { breakPdfLine $ts } elseif ($nums[0] -ne 0) { $ts.Gap = $true }
+                $ts.Y += $nums[1]
+                if ($t -ceq "TD") { $ts.Leading = - $nums[1] }
+                # 横にだけ動いたときは詰め。縦に動いたときは、次の文字を出すときに行を分ける
+                if ($nums[0] -ne 0) { $ts.Gap = $true }
             }
+        } elseif ($t -ceq "TL") {
+            if ($nums.Count -ge 1) { $ts.Leading = $nums[0] }
         } elseif ($t -ceq "T*") {
+            $ts.Y -= $ts.Leading
             breakPdfLine $ts
         } elseif ($t -ceq "Tm") {
             if ($nums.Count -ge 6) {
-                $y = $nums[5]
-                if ($ts.HasY) {
-                    if ($y -ne $ts.Y) { breakPdfLine $ts } else { $ts.Gap = $true }
-                }
-                $ts.HasY = $true
-                $ts.Y = $y
+                $ts.Y = $nums[5]
+                $ts.Gap = $true
             }
-        } elseif ($t -ceq "ET") {
-            breakPdfLine $ts
         } elseif ($t -ceq "BI") {
             # 画像の中身（バイナリ）は読まない。ID から EI までを飛ばす
             $idPos = $content.IndexOf("ID", $st.P, [StringComparison]::Ordinal)
@@ -1072,7 +1169,7 @@ function readPdfPagesCore {
     $doc = @{
         Bytes = $bytes; Text = $text; Limits = $limits
         Xref = @{}; Cache = @{}; Loading = @{}; ObjStreams = @{}; Fonts = @{}; Visited = @{}; SeenNodes = @{}
-        Inflated = [long]0; Root = $null
+        Inflated = [long]0; Root = $null; EndSearch = @{ From = 1; At = 0 }; Hybrid = $false; CMaps = @{}; MapEntries = [long]0
     }
     $start = $text.LastIndexOf("startxref", [StringComparison]::Ordinal)
     if ($start -lt 0) {

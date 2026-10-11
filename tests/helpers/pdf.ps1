@@ -115,7 +115,10 @@ function newPdfWithXrefStream {
         [System.Collections.IDictionary]$normal,
         [System.Collections.IDictionary]$packed = @{},
         [switch]$predictor,
-        [string]$trailerExtra = '/Root 1 0 R'
+        [string]$trailerExtra = '/Root 1 0 R',
+        [int[]]$widths = @(1, 4, 2),
+        [int]$pngType = 2,
+        [switch]$useIndex
     )
 
     $objs = @{}
@@ -149,27 +152,65 @@ function newPdfWithXrefStream {
     $xrefPos = [int]$ms.Length
     $offsets[$xrefId] = $xrefPos
 
+    # 行の項目（種類・2 番目・3 番目）を、widths の幅のビッグエンディアンで並べる。useIndex なら、ある番号の行だけを /Index の組で書く
+    $rowLength = $widths[0] + $widths[1] + $widths[2]
+    $ids = @(0..$xrefId | Where-Object { -not $useIndex -or $_ -eq 0 -or $offsets.ContainsKey($_) -or $packedIds -contains $_ })
     $rows = New-Object System.Collections.ArrayList
-    for ($i = 0; $i -le $xrefId; $i++) {
+    foreach ($i in $ids) {
         $idx = [array]::IndexOf($packedIds, $i)
-        if ($idx -ge 0) { [void]$rows.Add([byte[]]@(2, 0, 0, 0, 0, 0, 0)); $r = $rows[$rows.Count - 1]; $r[1] = ($objStmId -shr 24) -band 255; $r[2] = ($objStmId -shr 16) -band 255; $r[3] = ($objStmId -shr 8) -band 255; $r[4] = $objStmId -band 255; $r[5] = ($idx -shr 8) -band 255; $r[6] = $idx -band 255 }
-        elseif ($offsets.ContainsKey($i)) { $o = $offsets[$i]; [void]$rows.Add([byte[]]@(1, (($o -shr 24) -band 255), (($o -shr 16) -band 255), (($o -shr 8) -band 255), ($o -band 255), 0, 0)) }
-        else { [void]$rows.Add([byte[]]@(0, 0, 0, 0, 0, 0, 0)) }
+        if ($idx -ge 0) { $fields = @(2, $objStmId, $idx) }
+        elseif ($offsets.ContainsKey($i)) { $fields = @(1, $offsets[$i], 0) }
+        else { $fields = @(0, 0, 0) }
+        $row = New-Object byte[] $rowLength
+        $pos = 0
+        for ($f = 0; $f -lt 3; $f++) {
+            for ($j = $widths[$f] - 1; $j -ge 0; $j--) { $row[$pos + $j] = [byte]($fields[$f] -band 255); $fields[$f] = [int]($fields[$f] -shr 8) }
+            $pos += $widths[$f]
+        }
+        [void]$rows.Add($row)
     }
     $raw = New-Object System.IO.MemoryStream
-    $prev = New-Object byte[] 7
+    $prev = New-Object byte[] $rowLength
     foreach ($row in $rows) {
         if ($predictor) {
-            $raw.WriteByte(2)
-            $d = New-Object byte[] 7
-            for ($j = 0; $j -lt 7; $j++) { $d[$j] = [byte](($row[$j] - $prev[$j] + 256) % 256) }
-            $raw.Write($d, 0, 7)
+            # PNG の行の種類（0 なし・1 Sub・2 Up・3 Average・4 Paeth）で符号化する。bpp は 1
+            $raw.WriteByte([byte]$pngType)
+            $d = New-Object byte[] $rowLength
+            for ($j = 0; $j -lt $rowLength; $j++) {
+                $left = 0; $upLeft = 0
+                if ($j -ge 1) { $left = [int]$row[$j - 1]; $upLeft = [int]$prev[$j - 1] }
+                $up = [int]$prev[$j]
+                switch ($pngType) {
+                    0 { $pred = 0 }
+                    1 { $pred = $left }
+                    2 { $pred = $up }
+                    3 { $pred = [int][Math]::Floor(($left + $up) / 2) }
+                    4 {
+                        $p = $left + $up - $upLeft
+                        $pa = [Math]::Abs($p - $left); $pb = [Math]::Abs($p - $up); $pc = [Math]::Abs($p - $upLeft)
+                        if ($pa -le $pb -and $pa -le $pc) { $pred = $left } elseif ($pb -le $pc) { $pred = $up } else { $pred = $upLeft }
+                    }
+                }
+                $d[$j] = [byte](([int]$row[$j] - $pred + 256) % 256)
+            }
+            $raw.Write($d, 0, $rowLength)
             $prev = $row
         }
-        else { $raw.Write($row, 0, 7) }
+        else { $raw.Write($row, 0, $rowLength) }
     }
-    $parms = if ($predictor) { ' /DecodeParms << /Predictor 12 /Columns 7 >>' } else { '' }
-    $xs = newPdfStreamObject "/Type /XRef /W [1 4 2] /Size $($xrefId + 1) /Filter /FlateDecode$parms $trailerExtra" (compressPdfBytes $raw.ToArray())
+    $parms = if ($predictor) { " /DecodeParms << /Predictor 12 /Columns $rowLength >>" } else { '' }
+    $indexText = ''
+    if ($useIndex) {
+        $runs = New-Object System.Collections.ArrayList
+        $startId = $ids[0]; $count = 1
+        for ($k = 1; $k -lt $ids.Count; $k++) {
+            if ($ids[$k] -eq $ids[$k - 1] + 1) { $count++ }
+            else { [void]$runs.Add("$startId $count"); $startId = $ids[$k]; $count = 1 }
+        }
+        [void]$runs.Add("$startId $count")
+        $indexText = " /Index [$($runs -join ' ')]"
+    }
+    $xs = newPdfStreamObject "/Type /XRef /W [$($widths -join ' ')] /Size $($xrefId + 1)$indexText /Filter /FlateDecode$parms $trailerExtra" (compressPdfBytes $raw.ToArray())
     $b = joinPdfBytes @("$xrefId 0 obj`n", $xs.Dict, "`nstream`n", $xs.Stream, "`nendstream`nendobj`n", "startxref`n$xrefPos`n%%EOF`n")
     $ms.Write($b, 0, $b.Length)
     return , ($ms.ToArray())

@@ -35,7 +35,7 @@ Describe "extractPdfFile" -Tag Io {
     It "<name> は、コピーが残らず（出力フォルダが空）、結果は <expected>" -TestCases @(
         @{ name = "文字の無い PDF（画像だけ）"; kind = "noText"; message = $null; expected = "0" }
         @{ name = "暗号化された PDF"; kind = "encrypted"; message = "PDFが暗号化されているため読めません。"; expected = "失敗" }
-        @{ name = "壊れた PDF"; kind = "broken"; message = "PDF*"; expected = "失敗" }
+        @{ name = "壊れた PDF"; kind = "broken"; message = "PDFの相互参照が見つからないため読めません。"; expected = "失敗" }
         @{ name = "大きさの上限を超える PDF"; kind = "tooBig"; message = "ファイルサイズが大きすぎるため更新できません。"; expected = "失敗" }
     ) {
         param ($name, $kind, $message, $expected)
