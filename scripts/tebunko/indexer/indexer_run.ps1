@@ -443,10 +443,14 @@ function invokeIndexerBody {
 
     # クロール対象フォルダごとにインデックス名（work\content_index 直下のフォルダ名）を決める。前回と同じフォルダは同じ名前を使う
     $status = $ledger.ReadStatus()
-    $folders = @(assignIndexNames $targetFolders $status.Folders)
-    $previous = $status.Rows
+    $planner = [IngestPlanner]::new(@{
+        Unchecked = ${planKindUnchecked}; Missing = ${planKindMissing}; Dropped = ${planKindDropped}; StateFailed = ${stateFailed}
+    }, ${settingsFile})
+    $planner.AssignNames($targetFolders, $status)
+    $folders = $planner.Folders
+    $previous = $planner.Previous
     # 設定から外れたインデックスは、ここでは消さない。確認ダイアログに「削除予定」として出し、［更新を開始］が押されたときだけ消す
-    $dropped = @(findDroppedIndexes $folders $status.Folders)
+    $dropped = $planner.Dropped
     # 前回のインデックス作成が途中で止まり、本文インデックスのファイルに入れていない TSV（元のファイルごとのフォルダ）が残っていれば、先に入れる
     $leftover = findIndexFoldersWithBooks $workspace.IndexDir
     if ($leftover.Count -gt 0) {
@@ -458,17 +462,9 @@ function invokeIndexerBody {
         flushPending -All
     }
 
-    # 新しく割り当てたインデックス名を設定に保存する（インデックスの「名前」と「置き場所」を設定で分けて持つため。
-    # 名前が設定にあれば、フォルダを移してパスを書き換えても同じインデックスとして扱える）
-    if (@($targetFolders | Where-Object { -not $_.Name }).Count -gt 0) {
-        # 保存した一覧（読み直して名前だけを足したもの）の名前で続ける。この間に画面で外した・名前を付けられなかったフォルダは、今回は取り込まない
-        $saved = @(saveAssignedIndexNames $folders)
-        $folders = @($saved | Where-Object {
-            $savedPath = $_.Path
-            $_.Name -and @($targetFolders | Where-Object { $_.Path -eq $savedPath }).Count -gt 0
-        })
-        writeIndexerLog "インデックス名を設定に保存しました: $((@($folders | ForEach-Object { $_.Name }) -join '、'))"
-    }
+    # 新しく割り当てたインデックス名を設定に保存する
+    $planner.SaveNames($targetFolders)
+    $folders = $planner.Folders
 
     writeIndexerLog "出力先フォルダ: $($workspace.IndexDir)"
     writeIndexerLog ""
@@ -482,59 +478,25 @@ function invokeIndexerBody {
     }
     # 選んだインデックスだけを更新するとき（OnlyNames）。選ばなかったインデックスは、この回では一切触らない
     # （取り込み一覧の行は前回のまま・確認の表に出さない・失敗の一覧に加えない）
-    $only = $null
     if (@($channel.OnlyNames).Count -gt 0) {
-        $only = selectOnlyNames $folders @($channel.OnlyNames)
-        foreach ($skip in $only.Skipped) {
-            writeIndexerLog "  [$($skip.Name)] 更新できません（$($skip.Reason)）" "Yellow"
-        }
-        $channel.OnlySkipped = @($only.Skipped)
-        if ($only.Selected.Count -eq 0) {
+        $channel.OnlySkipped = @($planner.SelectOnly([string[]]@($channel.OnlyNames)))
+        if ($planner.Only.Selected.Count -eq 0) {
             throw "選んだインデックスに、更新できるものがありません。"
         }
     }
-    $rows = New-Object System.Collections.Generic.List[object]
-    $targets = New-Object System.Collections.Generic.List[object]
-    $failed = New-Object System.Collections.Generic.List[object]
-    $cloudAll = New-Object System.Collections.Generic.List[object]   # クラウドにだけあるファイル（取り込むかは確認の後に決める）
-    $plan = New-Object System.Collections.Generic.List[object]   # 画面の確認に出す、インデックスごとの件数
-    foreach ($folder in $folders) {
-        if ($null -ne $only -and !$only.Selected.Contains([string]$folder.Name)) {
-            # 選ばなかったインデックス（下で前回の結果をそのまま残す）
-        } elseif (-not $folder.Enabled) {
-            writeIndexerLog "  [$($folder.Name)] $($folder.Path) … チェックなしのため取り込みません（インデックスはそのまま残します）"
-            $plan.Add((newIngestPlanRow $folder.Name $folder.Path ${planKindUnchecked}))
-        } elseif (!(Test-Path -LiteralPath $folder.Path -PathType Container)) {
-            writeIndexerLog "  [$($folder.Name)] $($folder.Path) … フォルダが見つからないため取り込みません" "Yellow"
-            $plan.Add((newIngestPlanRow $folder.Name $folder.Path ${planKindMissing}))
-        } else {
-            writeIndexerLog "  [$($folder.Name)] $($folder.Path)"
-            # 大きいフォルダ・ネットワーク越しでは時間がかかるため、どのフォルダを見ているかを画面に伝える
-            $reporter.Progress(${indexingPhaseCrawl}, 0, 0, 0, "[$($folder.Name)] の対象ファイルを探しています… $($folder.Path)")
-            $list = createTargetList $folder $previous $indexCounts
-            $rows.AddRange($list.Rows)
-            $targets.AddRange($list.Targets)
-            $failed.AddRange($list.Failed)
-            $cloudAll.AddRange($list.Cloud)
-            $plan.Add($list.Plan)
-            foreach ($removedPath in $list.Removed) {
-                $pending.Add($removedPath, $true)
-            }
-            continue
-        }
-
-        # 取り込まないフォルダは前回の結果をそのまま残す
-        $prefix = "$($folder.Name)\"
-        foreach ($key in @($previous.Keys)) {
-            if ($key.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
-                $rows.Add($previous[$key])
-            }
-        }
+    # クロールして、取り込む順番・画面の確認に出す件数・取り込み一覧に書く行を組み立てる
+    $crawlPhase = ${indexingPhaseCrawl}
+    $onCrawlFolder = { param ($target) $reporter.Progress($crawlPhase, 0, 0, 0, "[$($target.Name)] の対象ファイルを探しています… $($target.Path)") }.GetNewClosure()
+    $planner.Crawl($indexCounts, $onCrawlFolder)
+    foreach ($removedPath in $planner.RemovedPaths) {
+        $pending.Add($removedPath, $true)
     }
-
-    foreach ($item in $dropped) {
-        $plan.Add((newIngestPlanRow $item.Name $item.Path ${planKindDropped}))
-    }
+    $rows = $planner.Rows
+    $targets = $planner.Targets
+    $failed = $planner.Failed
+    $plan = $planner.Plan
+    # クラウドにだけあるファイル（取り込むかは確認の後に決める）
+    $cloudAll = $planner.Cloud
     # 消さなかったインデックス（取りやめ・画面なしの実行）は、取り込み一覧に前回のまま残す（次の回にまた見つけて確認に出すため）
     $keptDropped = $dropped
 
@@ -545,33 +507,12 @@ function invokeIndexerBody {
     if ($channel.ConfirmTargets) {
         $answer = $reporter.WaitForApproval(${indexingPhaseConfirm}, $plan.ToArray(), $targets.Count, $failed.Count, $approvalTimeoutMinutes)
         if ($null -eq $answer) {
-            # 取りやめ。1件も取り込んでいないため、取り込み対象にした行は前回の記録のまま（一覧に無かったファイルは記録しない）にする。
-            # 「未取り込み」で記録すると、次回［すべて更新］が［続きから再開］になり、中断したように見えるため。
+            # 取りやめ。取り込み対象にした行は前回の記録のまま（一覧に無かったファイルは記録しない）にする。
             # 取り込み一覧自体は書き直す（無くなったファイルの削除を反映する必要があるため）
-            $targetPaths = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-            foreach ($row in $targets) {
-                [void]$targetPaths.Add($row.相対パス)
-            }
-            $keep = New-Object System.Collections.Generic.List[object]
-            # クラウドにだけあって前回未完了のファイルは、取り込み一覧に前回の行を残す（取りやめでは何も消さない）
-            foreach ($item in $cloudAll) {
-                if ($item.PendingOld) {
-                    $keep.Add($item.Old)
-                }
-            }
-            foreach ($row in $rows) {
-                if (!$targetPaths.Contains($row.相対パス)) {
-                    $keep.Add($row)
-                    continue
-                }
-                $old = $null
-                if ($previous.TryGetValue($row.相対パス, [ref]$old)) {
-                    $keep.Add($old)
-                }
-            }
+            $keep = $planner.KeepForCancel()
             writeIndexerLog ""
             writeIndexerLog "画面で取りやめたため、取り込みません。（取り込み一覧は前回のままです）" "Yellow"
-            writeStatusKeepingDropped $ledger $folders $keep.ToArray() $keptDropped $previous
+            writeStatusKeepingDropped $ledger $folders $keep $keptDropped $previous
             writeSourceFolderFile $folders
             $reporter.Progress(${indexingPhaseFinish}, 0, 0, 0, "インデックス作成を取りやめました")
             removeTmpDir
@@ -637,40 +578,11 @@ function invokeIndexerBody {
         }
     }
 
-    if ($failed.Count -gt 0) {
-        writeIndexerLog ""
-        if ($retryTargets) {
-            writeIndexerLog "前回取り込みに失敗し、その後更新されていないファイル $($failed.Count) 件も再取り込みします。"
-            $targets.AddRange($failed)
-        } else {
-            writeIndexerLog "前回取り込みに失敗し、その後更新されていないファイル $($failed.Count) 件はスキップします。（パスワード付きなど）"
-        }
-    }
-
-    # 前回、取り込み中に強制終了した（ウィンドウを閉じた・PCが停止した等）ファイルは、同じファイルで止まり続けないよう最後に回す。
-    # 続けて $interruptLimit 回強制終了したファイルは、応答しなくなるファイルとみなして失敗とする。
+    $planner.ApplyFailed($retryTargets)
+    # 前回、取り込み中に強制終了したファイルは最後に回す（続けて $interruptLimit 回強制終了したファイルは失敗とする）。
     # 最後に回したファイルは、取り込みを始めるまで記録を残す（その前にまた止まっても、回数が分かるように）
-    $carried = New-Object 'System.Collections.Generic.Dictionary[string,int]' ([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($entry in ($ledger.ReadIngestingFiles())) {
-        $row = @($targets | Where-Object { $_.相対パス -eq $entry.RelPath }) | Select-Object -First 1
-        if (!$row) {
-            continue
-        }
-        [void]$targets.Remove($row)
-        if ($entry.Count -ge $interruptLimit) {
-            $row.状態 = ${stateFailed}
-            $row.TSV数 = ""
-            $row.取り込み日時 = formatFileTime (Get-Date)
-            $row.エラー = "更新中に $($entry.Count) 回続けて強制終了されたため、更新を中止しました（Officeアプリが応答しなくなる可能性があります）"
-            writeIndexerLog ""
-            writeIndexerLog "取り込み中に $($entry.Count) 回続けて強制終了したファイルは、失敗としてスキップします: $($row.相対パス)" "Yellow"
-        } else {
-            $targets.Add($row)
-            $carried[$row.相対パス] = $entry.Count
-            writeIndexerLog ""
-            writeIndexerLog "前回、取り込み中に強制終了したファイルは最後に取り込みます: $($row.相対パス)" "Yellow"
-        }
-    }
+    $planner.ApplyInterrupted(@($ledger.ReadIngestingFiles()), $interruptLimit)
+    $carried = $planner.Carried
     $ledger.WriteIngestingFiles(@($carried.Keys | ForEach-Object { @{ RelPath = $_; Count = $carried[$_] } }))
     $reporter.Progress(${indexingPhaseCrawl}, 0, $targets.Count, 0, "更新の記録を書き出しています…")
     writeStatusKeepingDropped $ledger $folders $rows.ToArray() $keptDropped $previous
@@ -678,10 +590,7 @@ function invokeIndexerBody {
     writeSourceFolderFile $folders
 
     # インデックス名 → クロール対象フォルダ
-    $folderByName = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($folder in $folders) {
-        $folderByName[$folder.Name] = $folder.Path.TrimEnd("\")
-    }
+    $folderByName = $planner.FolderByName()
 
     if ($targets.Count -eq 0) {
         writeIndexerLog ""
