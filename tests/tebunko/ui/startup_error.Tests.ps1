@@ -112,10 +112,13 @@ Describe "writeStartupErrorFile" -Tag Io {
         [System.IO.File]::WriteAllText($previous, "古い")
         $held = [System.IO.File]::Open($file, "Open", "Read", "None")
         try {
-            writeStartupErrorFile "新しい記録" $tool | Out-Null
+            # 元を開いたままでは追記もできないので、記録は残らず $null が返る
+            writeStartupErrorFile "新しい記録" $tool | Should -Be $null
         } finally {
             $held.Dispose()
         }
+        (Get-Content -LiteralPath $file -Raw) | Should -Match "x{1000}"
+        (Get-Content -LiteralPath $file -Raw) | Should -Not -Match "新しい記録"
         [System.IO.File]::ReadAllText($previous) | Should -Be "古い"
         Test-Path -LiteralPath (Join-Path $tool "startup_error_moving.txt") | Should -Be $false
     }

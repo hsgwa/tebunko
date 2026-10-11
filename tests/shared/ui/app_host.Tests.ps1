@@ -234,7 +234,7 @@ Describe "writeErrorLog（版と環境の見出しと、大きさでの入れ替
     ) {
         & $define
         if ($label -eq "無い") {
-            # 読み込んだ本物の定義も外して、本当に無い状態にする（この It の中だけ）
+            # 読み込んだ本物の定義も外して、本当に無い状態にする（このあとも外れたまま。このファイルの最後の It）
             Remove-Item function:getGuiErrorLogHeader -ErrorAction SilentlyContinue
             Get-Command getGuiErrorLogHeader -ErrorAction SilentlyContinue | Should -BeNullOrEmpty
         }
