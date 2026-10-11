@@ -1,4 +1,4 @@
-# 単体テスト（インデックス作成）
+﻿# 単体テスト（インデックス作成）
 
 扱うこと: インデックス作成（`tests/tebunko/indexer/`）・スレッドとプール・元のファイルの特定の単体テストが何を確かめるか。扱わないこと: インデックス名・インデックスの管理・本文インデックスのテスト（[単体テスト（インデックスと検索）](unit-index.md)）、Office のテスト（[単体テスト（Office）](unit-office.md)）。先に読むページ: [単体テスト（インデックスと検索）](unit-index.md)。
 
@@ -34,7 +34,7 @@ flowchart LR
 | `getIngestWorkerCount` | 読み取りのスレッドの数。指定があればその数、無ければ設定（`ingestThreads`）、設定が 0 ならコア数から決める、ファイルの数より多くしない |
 | `getIngestLaneCapacity` | Office のレーンは取り込み中と次の 1 件、読み取りのレーンはスレッドの数の 2 倍まで渡す |
 | `runIngestWorker` / `invokeIngestTask`（レーン） | 列の順に取り込み、結果を 1 件に 1 つ返して、列が閉じられたら終わる、読み取りのスレッドは Office を起動し直さない。「Office が要る」の例外なら、失敗にせず回し直し（`Reroute`）として返し、Office も終了しない。利用者の PowerPoint が使用中の例外なら、失敗にせず後回し（`Postponed`）として返し、Office も終了しない。後回しは取り込んだ件数に数えず、起動し直しを早めない。**暗号化の判定でOfficeにまだ触れていない失敗**（[暗号化されたファイルの判定](../indexing/office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1)の`throwProtectionFailure`）は失敗にするがOfficeは終了しない。ふつうの失敗は今までどおりOfficeを終了する |
-| `IndexingSession`（`indexing_session`） | インデクサを別のスレッド（MTA・優先度を下げる）で動かし終了コードを返す、中止を求めると受け渡しの口の `Stop` を立てて返事を待つのをやめさせる、終了コードを入れずに止まったら 1 と止まった理由、インデクサが入れたエラーの内容、`Close` は動いていれば中止を求めて待つ（何度呼んでもよい）、`KillOffice` は記録した PID のうちプロセス名が同じものだけを止める、`GetNotice`／`GetPostponed` は受け渡しの口の値を返す（無ければ空・0） |
+| `IndexingSession`（`indexing_session`） | インデクサを別のスレッド（MTA・優先度を下げる）で動かし終了コードを返す、中止を求めると受け渡しの口の `Stop` を立てて返事を待つのをやめさせる、終了コードを入れずに止まったら 1 と止まった理由、インデクサが入れたエラーの内容、`Close` は動いていれば中止を求めて待つ（何度呼んでもよい）、`KillOffice` は記録した PID のうちプロセス名と起動時刻が同じものだけを止める、`GetNotice`／`GetPostponed` は受け渡しの口の値を返す（無ければ空・0） |
 
 **スレッドとプール（`tests/shared/core/worker_pool`・`tests/tebunko/search/search_service`）**
 

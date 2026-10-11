@@ -24,6 +24,30 @@ function getOfficeStartTicks {
     }
 }
 
+function isSameOfficeProcess {
+    # process が、控えたときと同じプロセス（プロセス名と起動時刻が同じ）か。止める前に必ず通す（PID が別のプロセスに使い回されていないかの確認）。
+    # 先に Handle を読んでプロセスのハンドルを開く（Process が持ち続けるので、このあと同じ process で Kill() するまで、その PID は別のプロセスに使われない）。
+    # ハンドルが開けない・名前が違う・控えた起動時刻が無い（$null・0）・今の起動時刻が読めない・起動時刻が違うときは $false（止めない）
+    param (
+        $process,
+        [string]$processName,
+        $startTicks
+    )
+
+    try {
+        if ($null -eq $process.Handle -or $process.ProcessName -ne $processName) {
+            return $false
+        }
+    } catch {
+        return $false
+    }
+    if ($null -eq $startTicks -or [long]$startTicks -le 0) {
+        return $false
+    }
+    $actual = getOfficeStartTicks $process
+    return ($null -ne $actual -and [long]$actual -eq [long]$startTicks)
+}
+
 # ----------------------------------------------------------------------------
 # 記録（<ワークスペース>\office_pids\<PC の鍵>\<PID>.txt）
 # 1 行・タブ区切り: <プロセス名> <起動時刻の Ticks> <持ち主の PID> <持ち主の起動時刻の Ticks>
@@ -226,7 +250,7 @@ function stopOfficeProcesses {
     #   Status: Stopped（止めた）・Changed（名前か起動時刻が違う・読めない・Office の名前でない。止めない）・
     #           Gone（もう無い。止めた扱いにも失敗にもしない）・Failed（止めようとして失敗）
     #   Reason: Changed のときは「PID <N> は確認の後に別のプロセスに変わったため、終了しませんでした。」、Failed のときは例外のメッセージ。それ以外は空
-    # recordDir があれば、止めた・もう無いものの記録を消す。プロセスの強制終了は、ここの Stop-Process の 1 か所だけ（tests/meta/safety.Tests.ps1）
+    # recordDir があれば、止めた・もう無いものの記録を消す。プロセスの強制終了は、ここの Stop-Process の 1 か所だけ（tests/meta/safety.Tests.ps1。止める前に isSameOfficeProcess を通す）
     param (
         [object[]]$targets,
         [string]$recordDir = ""
@@ -243,9 +267,7 @@ function stopOfficeProcesses {
         }
         $expected = $null
         try { $expected = [long]$target.StartTime.ToUniversalTime().Ticks } catch {}
-        $actual = getOfficeStartTicks $process
-        if (!${officeProcessNames}.Contains([string]$target.ProcessName) -or $process.ProcessName -ne $target.ProcessName -or
-            $null -eq $expected -or $null -eq $actual -or $expected -ne $actual) {
+        if (!${officeProcessNames}.Contains([string]$target.ProcessName) -or -not (isSameOfficeProcess $process ([string]$target.ProcessName) $expected)) {
             $results.Add(@{ Id = $id; Stopped = $false; Status = "Changed"; Reason = "PID $id は確認の後に別のプロセスに変わったため、終了しませんでした。" })
             continue
         }

@@ -62,7 +62,7 @@ flowchart LR
 | `WorkerPool` | size, state, host, priority | – | ランスペースと PowerShell のインスタンスを使い回すプール。`Submit`（仕事を始める）・`Receive`（終わりを待って出力を返す）・`Cancel`・`Close`。`Priority` は仕事を始めるたびにスレッドに設定する。`Prelude` は各スレッドで最初の仕事の前に 1 回だけ実行する | 照合のプール・システムインデックスのプール・BackgroundQueue |
 | `BackgroundQueue` | size, prelude, host | – | 画面から頼まれる短い仕事のスレッド（画面は 2 つで作る）。`Post`（仕事を始める）・`Poll`（終わった仕事の onDone を画面のスレッドで呼び、残りの数を返す）・`Close` | startJob（`shell.ps1`） |
 | `newSearchService` / `SearchService` | libPath, cache, workers | `SearchService` | 検索の司令のスレッド（画面を開いている間 1 つ）。`Request`（前の要求を取り消して新しい要求を渡す。スレッドが止まっていれば作り直す）・`Cancel`・`IsRunning`・`GetFailure`・`Close`（5 秒待って止まらなければスレッドを止める） | 画面 |
-| `newIndexingSession` / `IndexingSession` | indexerPath, channel | `IndexingSession` | インデックス作成 1 回分のスレッド（MTA・BelowNormal）を作り、`indexer.ps1 -Channel <channel>` を実行する。`IsRunning`・`Stop`・`Wait`・`GetExitCode`（終了コードが無ければ 1）・`GetError`・`GetNotice`（終わりの案内。無ければ空）・`GetPostponed`（後回しにした件数。無ければ 0）・`GetCloudSkipped`（クラウドにだけあるため残した件数。無ければ 0）・`KillOffice`（`OfficePids` に記録した Office だけを、プロセス名を確かめて止める）・`Close` | 画面 |
+| `newIndexingSession` / `IndexingSession` | indexerPath, channel | `IndexingSession` | インデックス作成 1 回分のスレッド（MTA・BelowNormal）を作り、`indexer.ps1 -Channel <channel>` を実行する。`IsRunning`・`Stop`・`Wait`・`GetExitCode`（終了コードが無ければ 1）・`GetError`・`GetNotice`（終わりの案内。無ければ空）・`GetPostponed`（後回しにした件数。無ければ 0）・`GetCloudSkipped`（クラウドにだけあるため残した件数。無ければ 0）・`KillOffice`（`OfficePids` に記録した Office だけを、プロセス名と起動時刻を確かめて止める）・`Close` | 画面 |
 
 ### 元のファイルの特定・画面
 
@@ -88,3 +88,4 @@ flowchart LR
 | `getIndexingState` | since, path | `@{Exists; Folders; Total; Pending; Failed; Done; IngestedSince; Updated; FailedRows; IndexStats}` | 取り込み一覧の状態ごとの件数、since 以降に取り込んだ件数、失敗したファイルの行（FailedRows。取り込み日時の新しい順）、インデックス名ごとの集計（IndexStats。`getIndexStats`。取り込み一覧を読み直さずに済むよう同じ読み込みから作る） | [状態と操作の流れ](../gui/state-flow.md) | 画面 |
 | `getOfficeProcesses` | recordDir, selfId, selfStartTicks | `@{Id; ProcessName; AppName; StartTime; HasWindow; Owned; Owner}` の配列 | 実行中の Excel・Word・PowerPoint。記録（`office_pids`）と照らして `Owned`（記録と同じプロセスか）・`Owner`（Self／Other／Gone）を付ける。`HasWindow` は `MainWindowHandle` が 0 でないこと | [前回残った Office の確認](../gui/leftover-office.md) | 画面 |
 | `stopOfficeProcesses` | targets, recordDir | `@{Id; Stopped; Status; Reason}` の配列 | 止める直前に PID が記録と同じプロセスか照らし直し、同じものだけ `Stop-Process -Force` で終了する。`Status` は Stopped／Changed／Gone／Failed | 同上 | 画面 |
+| `isSameOfficeProcess` | process, processName, startTicks | bool | 止める前の照合。ハンドルを先に開き、名前と起動時刻（UTC の Ticks）が控えたものと同じときだけ `$true`。開けない・読めない・控えが無いときは `$false` | 同上 | `quitApp`・`OfficeWatchdog`・`KillOffice`・`stopOfficeProcesses` |
