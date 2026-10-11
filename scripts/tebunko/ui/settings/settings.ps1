@@ -5,8 +5,9 @@ ${workspaceCountLimit} = 1000      # 選んだフォルダの中身を数える�
 function updateSettingsView {
     # ワークスペースと設定ファイルの場所を表示する
     $view = getWorkspaceView $workspace.Dir (getDefaultWorkDir)
-    $ui.WorkspaceText.Text = $view.Path
-    $ui.WorkspaceText.ToolTip = $view.Path  # 長いパスは省略して出すため、全体はツールチップで見せる
+    $ui.WorkspaceBox.Text = $view.Path
+    $ui.WorkspaceBox.ToolTip = $view.Path  # 長いパスは欄に入りきらないため、全体はツールチップで見せる
+    setWorkspaceInputError ""
     $ui.WorkspaceNote.Text = $view.Note
     $caution = getWorkspaceCautionTexts
     $ui.WorkspaceCaution.Text = $caution.Caution
@@ -41,6 +42,62 @@ function chooseWorkspace {
         return
     }
     applyWorkspace $folder $true
+    $ui.WorkspaceBox.Text = $workspace.Dir
+}
+
+function setWorkspaceInputError {
+    # ワークスペースの欄の下に、直してほしい内容を出す（空なら隠す）
+    param ([string]$message)
+    $ui.WorkspaceInputError.Text = $message
+    $ui.WorkspaceInputError.Visibility = if ($message) { "Visible" } else { "Collapsed" }
+}
+
+function commitWorkspaceInput {
+    # 欄に入力したパスを確定する。確かめ・確認・切り替えは、［変更…］で選んだときと同じ applyWorkspace を通す。
+    # 直してほしいときは欄の下に理由を出し、欄の文字は直せるように残す（$keepText。Enter のとき）。欄から出たときは今の場所に戻す
+    param ([bool]$keepText)
+    if ($script:workspaceCommitting) {
+        return   # 確認の画面を出している間に、欄から出た知らせが重なって、もう一度確認しない
+    }
+    $script:workspaceCommitting = $true
+    try {
+        commitWorkspaceInputCore $keepText
+    } finally {
+        $script:workspaceCommitting = $false
+    }
+}
+
+function commitWorkspaceInputCore {
+    param ([bool]$keepText)
+    $current = $workspace.Dir
+    $text = $ui.WorkspaceBox.Text
+    if ($text -ceq $current) {
+        setWorkspaceInputError ""
+        return
+    }
+    # 更新中などは反映しない（入力の途中の欄から出たときに割り込まないよう、メッセージは出さず今の場所に戻す）
+    if ((getCurrentIndexJobBlocker (testIndexerRunning)) -ne "") {
+        $ui.WorkspaceBox.Text = $current
+        setWorkspaceInputError ""
+        return
+    }
+    $decision = getWorkspaceInputDecision $text $current
+    if ($decision.Action -eq "None") {
+        $ui.WorkspaceBox.Text = $current
+        setWorkspaceInputError ""
+        return
+    }
+    if ($decision.Action -eq "Invalid") {
+        if (!$keepText) {
+            $ui.WorkspaceBox.Text = $current
+        }
+        setWorkspaceInputError $decision.Message
+        return
+    }
+    setWorkspaceInputError ""
+    applyWorkspace $decision.Path $true
+    # 取りやめ・使えないときは、欄を今の場所に戻す（切り替えたときは updateSettingsView が新しい場所を入れる）
+    $ui.WorkspaceBox.Text = $workspace.Dir
 }
 
 function resetWorkspace {
@@ -177,5 +234,19 @@ function switchWorkspace {
 
 # ---- イベント ----
 
+$ui.WorkspaceBox.Add_KeyDown({
+    param ($sender, $e)
+    if ($e.Key -eq "Return") {
+        safe { commitWorkspaceInput $true }
+        $e.Handled = $true
+    } elseif ($e.Key -eq "Escape") {
+        safe { $ui.WorkspaceBox.Text = $workspace.Dir; setWorkspaceInputError "" }
+        $e.Handled = $true
+    }
+})
+# 欄から出た知らせの中で確認の画面を出すと、フォーカスを動かした側（操作を送ったもの）が待たされるため、知らせが終わってから確定する
+$ui.WorkspaceBox.Add_LostFocus({
+    $window.Dispatcher.BeginInvoke([action]{ safe { commitWorkspaceInput $false } }, [System.Windows.Threading.DispatcherPriority]::Background) | Out-Null
+})
 $ui.ChangeWorkspaceButton.Add_Click({ safe { chooseWorkspace } })
 $ui.ResetWorkspaceButton.Add_Click({ safe { resetWorkspace } })

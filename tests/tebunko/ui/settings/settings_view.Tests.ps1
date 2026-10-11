@@ -20,6 +20,26 @@ Describe "getWorkspaceView" -Tag Unit {
     }
 }
 
+Describe "getWorkspaceInputDecision" -Tag Unit {
+    BeforeAll { $script:drives = @{ "C" = "\Device\HarddiskVolume3"; "D" = "\Device\HarddiskVolume4" } }
+
+    It "<name>" -TestCases @(
+        @{ name = "空にすると入力を促す"; text = "  "; action = "Invalid"; like = "*入力してください*" }
+        @{ name = "相対パスは受けない"; text = "ws\新"; action = "Invalid"; like = "*ドライブ文字*" }
+        @{ name = "ドライブ文字のない絶対パス風（\ 始まり）も受けない"; text = "\ws\新"; action = "Invalid"; like = "*ドライブ文字*" }
+        @{ name = "今と同じなら何もしない（大文字小文字・末尾の \ の違い）"; text = "c:\TOOL\work\"; action = "None"; like = "" }
+        @{ name = "あるフォルダは確かめに進む"; text = "D:\新しい"; action = "Apply"; like = "" }
+        @{ name = "引用符と空白を取って進む"; text = " ""D:\新しい"" "; action = "Apply"; like = "" }
+        @{ name = "ネットワークのパスも受ける"; text = "\\server\share\ws"; action = "Apply"; like = "" }
+    ) {
+        $d = getWorkspaceInputDecision $text "C:\tool\work" $script:drives
+        $d.Action | Should -Be $action
+        if ($like) { $d.Message | Should -BeLike $like }
+        if ($action -eq "Apply") { $d.Path | Should -Not -Be "" }
+        if ($action -eq "None") { $d.Path | Should -Be "C:\tool\work" }
+    }
+}
+
 Describe "getSettingsFileView" -Tag Unit {
     It "ツールのフォルダにあれば、そう伝える" {
         $view = getSettingsFileView "C:\tool\setting.config" "C:\Tool\"

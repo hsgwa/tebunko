@@ -184,7 +184,7 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             clickGui $S $S.Window "ChangeWorkspaceButton" "［変更…］"
             useGuiFolderPicker $S $workspaceB
             answerGuiConfirm $S "ワークスペースを変える確認" "へ移動します" "移動する"
-            waitGui $S "ワークスペースが切り替わる" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "WorkspaceText")) -eq $workspaceB } | Out-Null
+            waitGui $S "ワークスペースが切り替わる" ${guiDefaultTimeout} { (getGuiValue (findGui $S.Window -Id "WorkspaceBox")) -eq $workspaceB } | Out-Null
 
             setGuiStep $S "［インポート…］"
             selectGuiTab $S "IndexTab" "ActionsButton"

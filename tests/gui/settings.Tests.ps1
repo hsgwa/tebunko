@@ -14,6 +14,8 @@ Describe "S5 ワークスペースの変更" -Tag Gui {
         $script:emptyDir = Join-Path $TestDrive "空のフォルダ"
         $script:nonEmptyDir = Join-Path $TestDrive "ほかのファイルがあるフォルダ"
         $script:sharedDir = Join-Path $TestDrive "共有のワークスペース"
+        $script:typedDir = Join-Path $TestDrive "入力する空のフォルダ"
+        [void][IO.Directory]::CreateDirectory($script:typedDir)
         [void][IO.Directory]::CreateDirectory($script:emptyDir)
         [void][IO.Directory]::CreateDirectory($script:nonEmptyDir)
         Set-Content -LiteralPath "$script:nonEmptyDir\メモ.txt" -Value "メモ" -Encoding UTF8
@@ -23,7 +25,7 @@ Describe "S5 ワークスペースの変更" -Tag Gui {
     It "［変更…］のキャンセル・使えないフォルダ・空のフォルダ・空でないフォルダ・インデックスのあるフォルダが動く" {
         $S = startGui $script:tool "S5"
         invokeGuiScene $S {
-            $workspaceText = { getGuiText (findGui $S.Window -Id "WorkspaceText") }
+            $workspaceText = { getGuiValue (findGui $S.Window -Id "WorkspaceBox") }
             $changeWorkspace = {
                 param ($path)
                 clickGui $S $S.Window "ChangeWorkspaceButton" "［変更…］"
@@ -93,6 +95,33 @@ Describe "S5 ワークスペースの変更" -Tag Gui {
             waitGui $S "ワークスペースがインデックスのあるフォルダに変わる" ${guiDefaultTimeout} { (& $workspaceText) -eq $script:sharedDir } | Out-Null
             (readGuiConfig $script:tool).workspaceFolder | Should -Be $script:sharedDir
 
+            # 欄に直接入力して変える（欄から出たときに確定する。確かめ・確認は［変更…］と同じ）
+            $typeWorkspace = {
+                param ($text)
+                $box = findGui $S.Window -Id "WorkspaceBox"
+                $box.SetFocus()
+                setGuiText $S $box $text
+                (findGui $S.Window -Id "ChangeWorkspaceButton").SetFocus()
+            }
+            $inputError = { getGuiText (findGui $S.Window -Id "WorkspaceInputError") }
+            setGuiStep $S "欄に入力: 無いフォルダ → 警告が出て変わらず、欄は今の場所に戻る"
+            & $typeWorkspace (Join-Path $TestDrive "無いフォルダ")
+            closeGuiMessage $S "ファイルを作れません" "無いフォルダの警告" | Out-Null
+            & $workspaceText | Should -Be $script:sharedDir
+            setGuiStep $S "欄に入力: 相対パス → 欄の下に理由が出る"
+            & $typeWorkspace "相対\パス"
+            waitGui $S "理由が出る（相対）" ${guiDefaultTimeout} { (& $inputError) -like "*ドライブ文字*" } | Out-Null
+            setGuiStep $S "欄に入力: 今のインデックスの中 → 警告が出て変わらない"
+            & $typeWorkspace "$($script:sharedDir)\content_index\共有"
+            closeGuiMessage $S "インデックスのフォルダの中です" "使えないフォルダの警告" | Out-Null
+            & $workspaceText | Should -Be $script:sharedDir
+            setGuiStep $S "欄に入力: 空のフォルダ → 確認で［移動する］ → 切り替わる"
+            & $typeWorkspace $script:typedDir
+            answerGuiConfirm $S "ワークスペースを変える確認" "へ移動します" "移動する"
+            waitGui $S "ワークスペースが入力したフォルダに変わる" ${guiDefaultTimeout} { (& $workspaceText) -eq $script:typedDir } | Out-Null
+            (readGuiConfig $script:tool).workspaceFolder | Should -Be $script:typedDir
+            (& $inputError) | Should -Be ""
+
             closeGui $S
         }
     }
@@ -153,7 +182,7 @@ Describe "S6 既定のワークスペース" -Tag Gui {
             answerGuiConfirm $S "既定に戻す確認" "へ移動します" "キャンセル"
             clickGui $S $S.Window "ResetWorkspaceButton" "［既定に戻す］"
             answerGuiConfirm $S "既定に戻す確認" "へ移動します" "戻す"
-            waitGui $S "ワークスペースが既定に戻る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "WorkspaceText")) -eq $script:defaultWork } | Out-Null
+            waitGui $S "ワークスペースが既定に戻る" ${guiDefaultTimeout} { (getGuiValue (findGui $S.Window -Id "WorkspaceBox")) -eq $script:defaultWork } | Out-Null
 
             closeGui $S
         }

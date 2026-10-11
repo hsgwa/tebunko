@@ -47,10 +47,9 @@
             <StackPanel>
               <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Top">
-                  <Border Style="{StaticResource Field.ReadOnly}" MaxWidth="360">
-                    <TextBlock x:Name="WorkspaceText" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                               Foreground="{StaticResource Ink.Strong}" />
-                  </Border>
+                  <!-- パスは欄に直接入力して変えられる（Enter か欄から出たときに確定、Esc で取り消す）。［変更…］はフォルダを選ぶ画面から入れる -->
+                  <TextBox x:Name="WorkspaceBox" Width="360" VerticalAlignment="Center"
+                           AutomationProperties.AutomationId="WorkspaceBox" AutomationProperties.Name="ワークスペースのパス" />
                   <Button x:Name="ChangeWorkspaceButton" Content="変更…" MinWidth="64" Margin="8,0,0,0"
                           ToolTip="空のフォルダを選んで、ワークスペースにします（今のワークスペースの中身は新しいフォルダへ移します）" />
                   <Button x:Name="ResetWorkspaceButton" Content="既定に戻す" MinWidth="80" Margin="8,0,0,0" Visibility="Collapsed"
@@ -61,6 +60,8 @@
                   <TextBlock Style="{StaticResource Meta}" Margin="0,2,0,0" Text="インデックスとログの保存先" />
                 </StackPanel>
               </DockPanel>
+              <TextBlock x:Name="WorkspaceInputError" Style="{StaticResource ErrorText}" Margin="0,8,0,0" TextWrapping="Wrap" Visibility="Collapsed"
+                         AutomationProperties.AutomationId="WorkspaceInputError" />
               <TextBlock x:Name="WorkspaceNote" Style="{StaticResource Micro}" Margin="0,8,0,0" TextWrapping="Wrap" />
               <!-- 注意（文字がそのまま入る・更新中は変えられない）を先に、やり方をあとに置く（文言は getWorkspaceCautionTexts） -->
               <TextBlock x:Name="WorkspaceCaution" Style="{StaticResource Meta}" Margin="0,8,0,0" TextWrapping="Wrap" />

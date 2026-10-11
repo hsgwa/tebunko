@@ -83,6 +83,30 @@ function testWorkspaceChoice {
     return @{ Kind = "ok"; Message = "" }
 }
 
+function getWorkspaceInputDecision {
+    # 設定のワークスペースの欄に入力したパスを確定するときの判断。@{ Action; Message; Path }
+    #   Action: None（変わっていない・空にして出た。欄を今の場所に戻す）/ Invalid（直してほしい。Message に理由）/ Apply（Path で、［変更…］で選んだときと同じ確かめ・切り替えに進む）
+    # 相対パスは受けない（ツールのフォルダからの位置と取り違えないため）。フォルダの有無・書き込めるかは、［変更…］で選んだときと同じ testWorkspaceChoice（applyWorkspace）が調べる
+    param (
+        [string]$text,       # 入力された文字
+        [string]$current,    # 今のワークスペース
+        $drives = $null      # ドライブ文字 → 割り当て先（テストで差し替える）
+    )
+
+    $trimmed = $text.Trim().Trim([char]34).Trim()
+    if ($trimmed -eq "") {
+        return @{ Action = "Invalid"; Message = "ワークスペースにするフォルダのパスを入力してください。"; Path = $current }
+    }
+    if ($trimmed -notmatch '^([A-Za-z]:[\\/]|\\\\|//|%)') {
+        return @{ Action = "Invalid"; Message = "ドライブ文字から始まるパス（例 D:\tebunko_ws）か、ネットワークのパス（\サーバー\共有）で入力してください。"; Path = $current }
+    }
+    $folder = normalizeFolderPath $trimmed
+    if (testSameFolder $folder $current $drives) {
+        return @{ Action = "None"; Message = ""; Path = $current }
+    }
+    return @{ Action = "Apply"; Message = ""; Path = $folder }
+}
+
 function newWorkspaceConfirm {
     # ワークスペースを変える前の確認ダイアログの中身:
     #   @{ Title; Heading; Facts（@{ Kind = "next" / "kept" / "warn"; Title; Detail } の配列）; Hint; Choices（@{ Text; Value; Danger; Careful } の配列。最後が主なボタン） }
