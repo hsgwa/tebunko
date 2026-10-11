@@ -15,7 +15,8 @@
   </Grid.RowDefinitions>
 
   <!-- 件数・すべて開く／閉じる・進捗・絞り込み・保存 -->
-  <DockPanel Grid.Row="0" Margin="0" Background="{StaticResource Bg.Subtle}">
+  <Border Grid.Row="0" Background="{StaticResource Bg.Subtle}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,0,1">
+  <DockPanel Margin="0">
     <Button x:Name="ExportButton" DockPanel.Dock="Right" Margin="10,0,0,0" Padding="10,0" MinWidth="0" Height="26" FontSize="11"
             ToolTip="結果をファイルに出力します">
       <StackPanel Orientation="Horizontal">
@@ -42,6 +43,7 @@
               ToolTip="すべてのファイルを閉じて、ファイルの見出しだけを表示します" />
     </StackPanel>
   </DockPanel>
+  </Border>
 
       <!-- 結果の表。ファイルごとの見出しの行（FileGroup）と、開いているファイルの行（HitRow）を並べる（result_list.ps1）。
            見出しの行は、行の形（Template）を FileHeaderRow に替えて、列をまたいだ 1 行にする -->
