@@ -4337,7 +4337,7 @@
 <span class="c1">rem Step 2: clear Mark-of-the-Web from the scripts folder (see the comment above).</span>
 <span class="k">set</span> <span class="s2">"PSCMD=</span><span class="nv">%PSCMD%</span><span class="s2">Get-ChildItem -LiteralPath (Join-Path $root 'scripts') -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue; "</span>
 <span class="c1">rem Step 3: run the GUI script, catching a failure from before its own window opens.</span>
-<span class="k">set</span> <span class="s2">"PSCMD=</span><span class="nv">%PSCMD%</span><span class="s2">try { &amp; ([System.Management.Automation.WildcardPattern]::Escape($gui)) } catch { $err = $_; "</span>
+<span class="k">set</span> <span class="s2">"PSCMD=</span><span class="nv">%PSCMD%</span><span class="s2">try { &amp; ([System.Management.Automation.WildcardPattern]::Escape($gui.Replace('`','``'))) } catch { $err = $_; "</span>
 <span class="c1">rem Step 4: in the catch, pick the reason (missing gui.ps1, Constrained Language</span>
 <span class="c1">rem Mode, execution policy, or something else) and its text file.</span>
 <span class="k">set</span> <span class="s2">"PSCMD=</span><span class="nv">%PSCMD%</span><span class="s2">if (-not (Test-Path -LiteralPath $gui)) { $reason = Join-Path $startup 'missing_files.txt' } elseif ($ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage') { $reason = Join-Path $startup 'constrained_language.txt' } elseif ($err.FullyQualifiedErrorId -like 'UnauthorizedAccess*') { $reason = Join-Path $startup 'execution_policy.txt' } else { $reason = Join-Path $startup 'failed.txt' }; $reasonLines = @(if (Test-Path -LiteralPath $reason) { Get-Content -LiteralPath $reason -Encoding UTF8 } else { @('tebunko could not start.') }); "</span>

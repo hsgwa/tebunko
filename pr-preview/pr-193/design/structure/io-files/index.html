@@ -4344,6 +4344,7 @@
 
 
 <h1 id="どの処理がどのファイルを読み書きするか">どの処理がどのファイルを読み書きするか<a class="headerlink" href="#どの処理がどのファイルを読み書きするか" title="Permanent link">&para;</a></h1>
+<p>| <code>TEBUNKO_GUI</code>（環境変数） | 作る・読む | 作るのは <code>tebunko.exe</code>（インストーラー版の起動口。起動する PowerShell のプロセスの中だけ）。<code>gui.ps1</code> のパスを <code>-Command</code> に渡す。読むのは <code>-Command</code> の <code>WildcardPattern.Escape</code> の引数だけ |</p>
 <p>扱うこと: tebunko が読み書きするファイルとフォルダの全部（置き場ごとの一覧・配布形ごとの置き場・読まない書かない場所）と、画面とインデクサが読み書きするファイルの表（作成・使用・文字コード・内容）。扱わないこと: 各ファイルの形式そのものの詳細（各ファイルのページ）、データの置き場所の決め方（<a href="../data/">データの置き場所とパスの決め方</a>）。先に読むページ: <a href="../data/">データの置き場所とパスの決め方</a>。</p>
 <p>tebunko が読み書きするファイルとフォルダは、このページの「置き場ごとの一覧」にすべて載せる。書けない・読めないときの振る舞い（パスに <code>[</code> <code>]</code> がある・長すぎる・共有に届かない）は <a href="../data/">データの置き場所とパスの決め方</a> が正本で、ここには写さない。</p>
 <h2 id="置き場ごとの一覧">置き場ごとの一覧<a class="headerlink" href="#置き場ごとの一覧" title="Permanent link">&para;</a></h2>
