@@ -2937,6 +2937,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#帯とステータスバー" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        帯とステータスバー
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#更新し直しの確かめ" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4147,6 +4158,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#帯とステータスバー" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        帯とステータスバー
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#更新し直しの確かめ" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4331,9 +4353,87 @@
 </tbody>
 </table>
 <ul>
-<li>中断の帯は、残りが無くなったら消す。終わった帯は、次に更新を始めるまで残す。</li>
+<li>中断の帯は、残りが無くなったら消す。帯の消え方は<a href="#帯とステータスバー">帯とステータスバー</a>に決める。</li>
 <li>帯の色は、注意が要る終わり方（失敗したファイルがある・中止・取りやめ・更新そのものができなかった）は橙、失敗なく終わったときだけ緑にする（判断は <code>getIndexingBannerLevel</code>）。赤は、ワークスペースが使えないなど使えない状態と、一覧の行のバッジ <code>エラー</code>・予期しないエラーのダイアログにだけ使う。</li>
 <li>ナビの［インデックス管理］の横の印も更新に合わせて変える（更新中は <code>● 66%</code>、中断は <code>中断</code>、失敗があるだけなら <code>失敗</code>。<code>getIndexNavBadge</code>）。</li>
+</ul>
+<h2 id="帯とステータスバー">帯とステータスバー<a class="headerlink" href="#帯とステータスバー" title="Permanent link">&para;</a></h2>
+<p>帯（<code>IndexingProgressPanel</code>）は、更新の状態をこの画面の上に残す。ステータスバー（窓の下。<code>xaml/shell/status_bar.xaml</code>）は、直前の操作の結果を 1 行で知らせる。役割を分け、同じことを 2 か所に出さない。</p>
+<p><strong>帯がいつ消えるか</strong>（判断層の <code>getIndexingBannerBehavior</code>。<code>Closable</code>＝閉じるボタン（×）を出すか、<code>AutoCloseSeconds</code>＝出してから自動で消えるまでの秒数。0 は自動では消えない）:</p>
+<table>
+<thead>
+<tr>
+<th>種類（level）</th>
+<th>閉じるボタン</th>
+<th>自動で消えるまで</th>
+<th>理由</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>更新中（画面では kind が running のもの。判断には run を渡す）</td>
+<td>出す</td>
+<td>消えない</td>
+<td>進み具合はステータスバーと行にも出る。閉じても更新は止まらない（止めるのは帯の［中止］か行の［中止］（帯を閉じたあとは行の［中止］））。終わったときは、閉じていても終わりの帯を出す</td>
+</tr>
+<tr>
+<td>成功（ok）</td>
+<td>出す</td>
+<td>8 秒</td>
+<td>失敗なく終わった知らせは、読めば用が済む</td>
+</tr>
+<tr>
+<td>残りがあって更新していないとき（中断の帯のほか、中止・完了の帯も。判断には残りの件数を渡す）</td>
+<td>出す</td>
+<td>消えない</td>
+<td>残りがあるあいだは［続きから再開］を載せて残す。閉じても再開の入口は残る</td>
+</tr>
+<tr>
+<td>注意が要る終わり方（warn）</td>
+<td>出す</td>
+<td>消えない</td>
+<td>読み落とさないための知らせは、閉じるまで残す</td>
+</tr>
+<tr>
+<td>使えない状態（ng）</td>
+<td>出す</td>
+<td>消えない</td>
+<td>同上</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>自動で消える時計は、帯を出すたびに数え直す（<code>setIndexingBanner</code>）。別の種類の帯に替わったら、前の時計は止める。</li>
+<li>閉じるボタン（×。<code>IndexingBannerClose</code>）は右端に置く。閉じても記録には影響しない（帯を隠すだけ）。</li>
+<li>帯はどの種類でも閉じられる。残り（取り込みの Pending）が 1 件以上で更新していないときは、自動では消さない。閉じたあとも、再開の入口（［すべて更新］・行の［更新］・ナビの印）が残る。閉じた帯は、更新を始める・更新が終わる・起動し直すまで出し直さない（状態を読み直しても出さない。<code>updateIndexingResume</code>）。</li>
+</ul>
+<p><strong>ステータスバーに何を出すか</strong>（判断層の <code>getStatusBarView</code>）:</p>
+<table>
+<thead>
+<tr>
+<th>場面</th>
+<th>出すもの</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>更新中</td>
+<td>更新中の 1 行（<code>更新中: &lt;名前&gt;　N / M 件（失敗 K 件）・残り約 N 分</code>。<code>getIndexingStatusLine</code>）。直前の操作の結果の文は、更新を始めたとき（確認で更新を進めると答えたとき）に消す。確認で取りやめたときは消さない。更新が終わったあとは、新しい操作をするまで空</td>
+</tr>
+<tr>
+<td>更新中でなく、直前の操作の結果がある</td>
+<td>その文（追加・変更・削除・エクスポートなどの結果、エラーの理由）</td>
+</tr>
+<tr>
+<td>どちらも無い</td>
+<td>空</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>幅に収まらず <code>…</code> で切れたときだけ、全文をツールチップで見せる（<code>addTrimmedToolTip</code>）。切れていないときは出さない。</li>
+<li>この画面では、窓の下の右に <code>登録済み: N フォルダ</code> と <code>合計: N ファイル</code> も出す（<a href="../index-tab/">インデックス一覧の管理</a>）。</li>
+<li>帯とステータスバーに同じ知らせを重ねて出さない。更新の結果は帯に、利用者が起こした操作の結果はステータスバーに出す。</li>
 </ul>
 <h2 id="更新し直しの確かめ">更新し直しの確かめ<a class="headerlink" href="#更新し直しの確かめ" title="Permanent link">&para;</a></h2>
 <p>前の版のインデックス（<code>index\</code>。しるしあり）が見つかり、<code>content_index\</code> が空のまま［すべて更新］を押すと、更新の対象を数える前に確かめのダイアログを出す（<code>getReingestConfirm</code>。<code>tebunko/ui/indexing_view.ps1</code>）。</p>
@@ -4356,8 +4456,8 @@
 </thead>
 <tbody>
 <tr>
-<td>表題・説明</td>
-<td><code>インデックス更新の確認</code>。<code>元のファイルの更新日時とサイズを、前回更新したときの記録と比べました。［更新を開始］を押すと、更新するファイルだけを更新します。</code>（削除予定があるときは <code>［更新を開始］を押すと、更新するファイルを更新し、設定に無いインデックスを削除します。</code>）</td>
+<td>表題</td>
+<td><code>インデックス更新の確認</code>。説明文は、削除予定があるときだけ <code>［更新を開始］を押すと、設定に無いインデックスも削除します。</code> を出す（無いときは説明文の欄ごと出さない。<code>getIndexingConfirmIntro</code>）。ふだんは、一覧と合計だけを見せる</td>
 </tr>
 <tr>
 <td>一覧</td>
@@ -4385,7 +4485,7 @@
 </tr>
 <tr>
 <td>注意書き</td>
-<td>常に 2 行。<code>※ 更新には時間がかかることがあります。途中で中止しても、次回は続きから再開できます。</code> と（左に Lucide の info の印を付けた）<code>更新のとき、Office のファイルはいったんこの PC にコピーしてから読み込み、読み終えたらコピーを削除します。元のファイルは開いたままにしないため、更新中も編集・保存できます。</code></td>
+<td>置かない。更新にかかる時間の見込みは、確認の時点では分からないため出さない（更新中は帯の <code>残り約 N 分</code> で見せる）。Office のファイルの扱いは<a href="../../../guide/about-index/">インデックスの仕組み</a>に書いてある</td>
 </tr>
 <tr>
 <td>［更新を開始］</td>
@@ -4451,7 +4551,7 @@
 </table>
 <ul>
 <li>更新中の行を選んでいるときは、詳細の「インデックス」の箱にも同じ全体の進みを出す（<code>IndexingProgressBar</code> の棒・<code>IndexingCountText</code> の <code>N / M 件・残り約 N 分</code>・<code>IndexingFileText</code> の更新中のファイル名 1 行）。画面は進み具合を読むたびに、割合・件数・失敗・残り時間・今のファイルを画面側の変数（<code>indexingView</code>）に置いて詳細を書き直す（文言は判断層の <code>getIndexDetailView</code>）。インデックスごとの件数は無い。行の右端は［中止］になり、［すべて更新］の［中止］と同じく今の更新全体を止める。</li>
-<li>タスクバーのアイコンにも進み具合を表示する（失敗があれば黄色）。<strong>インデックス作成が終わったとき、進み具合とステータスで知らせる</strong>。前面には割り込まず、タスクバーのボタンも光らせない（光らせるには P/Invoke（<code>FlashWindowEx</code>）が要るため。<a href="../implementation/#実行時コンパイルcscexeを使わない">実行時コンパイル（csc.exe）を使わない</a>）。</li>
+<li>タスクバーのアイコンにも進み具合を表示する（失敗があれば黄色）。<strong>インデックス作成が終わったときは、帯で知らせる</strong>。前面には割り込まず、タスクバーのボタンも光らせない（光らせるには P/Invoke（<code>FlashWindowEx</code>）が要るため。<a href="../implementation/#実行時コンパイルcscexeを使わない">実行時コンパイル（csc.exe）を使わない</a>）。</li>
 <li><strong>取り込み一覧（<code>work/ingest_status.tsv</code>）は毎秒読まない</strong>。数万行になると 1 回の読み直しに数秒かかり（5 万行で約 5.8 秒）、1 秒ごとに読むと画面が固まる（「応答なし」になる）。進み具合はインデクサが数えて受け渡しの口に入れる（<a href="../../indexing/flow/">インデックス作成のメインフロー</a>）。</li>
 <li>「処理済み」はインデクサが数えた件数（今回の実行で更新したファイルと、更新に失敗したファイル）。前回失敗したファイルを更新し直す場合（確認のダイアログでチェックを付けた場合）も、その分は最初から件数に入る。</li>
 </ul>
