@@ -13,7 +13,7 @@ param (
 
 $ErrorActionPreference = "Stop"
 $lib = Join-Path (Split-Path $PSScriptRoot -Parent) "scripts\tebunko\lib.ps1"
-. $lib
+. ([WildcardPattern]::Escape($lib.Replace('`', '``')))
 $Source = (Resolve-Path -LiteralPath $Source).ProviderPath.TrimEnd("\")
 [void][System.IO.Directory]::CreateDirectory($Dest)
 $Dest = (Resolve-Path -LiteralPath $Dest).ProviderPath.TrimEnd("\")
@@ -46,7 +46,7 @@ $jobs = foreach ($k in 0..($Workers - 1)) {
     $ps.RunspacePool = $pool
     [void]$ps.AddScript({
         param ($lib, $list, $k, $step, $source, $dest, $deadline)
-        . $lib
+        . ([WildcardPattern]::Escape($lib.Replace('`', '``')))
         $done = 0; $tsv = 0; $chars = 0L
         for ($i = $k; $i -lt $list.Count; $i += $step) {
             if ([DateTime]::Now -gt $deadline) { break }

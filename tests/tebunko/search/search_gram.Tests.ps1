@@ -1,4 +1,9 @@
 ﻿# 高速検索の決まり（tebunko\search\search_gram.ps1）のテスト
+BeforeDiscovery {
+    . "$PSScriptRoot\..\..\helpers\path_chars.ps1"
+    $pathCharCases = getPathCharCases
+}
+
 BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
 
@@ -108,6 +113,16 @@ Describe "convertFolderRoot / convertItemUrl / convertToScopeUrl" -Tag Unit {
 
     It "SCOPE の URL は ' を重ねる" {
         convertToScopeUrl "C:\ws\R&D's\" | Should -Be "file:C:/ws/R&D''s"
+    }
+
+    It "パスに <label> が入っていても、SCOPE の URL から system_index の下の相対パスに戻る" -TestCases $pathCharCases {
+        param ($label, $ch)
+        # 範囲の URL にしたパスが、SQL の ' の重ねを戻しただけで検索の結果の URL（ItemUrl）になると仮定する（Windows 検索では確かめていない）。
+        # 高速検索が使う道（fast_search.ps1 の getRelativePath (convertItemUrl …) $systemRootPath）と同じ組み立てで、相対パスが戻ることを見る
+        $systemRoot = "C:\ws\system_index"
+        $relative = "営業${ch}a\system_index.txt"
+        $itemUrl = (convertToScopeUrl "$systemRoot\$relative").Replace("''", "'")
+        getRelativePath (convertItemUrl $itemUrl) $systemRoot | Should -Be $relative
     }
 }
 

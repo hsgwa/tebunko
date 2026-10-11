@@ -60,8 +60,8 @@ param (
 )
 
 $ErrorActionPreference = "Stop"
-. "$PSScriptRoot\perf\perf_common.ps1"
-. "$PSScriptRoot\perf\ingest_common.ps1"
+. ([WildcardPattern]::Escape("$PSScriptRoot\perf\perf_common.ps1".Replace('`', '``')))
+. ([WildcardPattern]::Escape("$PSScriptRoot\perf\ingest_common.ps1".Replace('`', '``')))
 if (!$Index -and !$Office) { throw "-Index と -Office の少なくとも一方を指定してください。" }
 if ($Typing -eq 1) { throw "-Typing は 0 か 2 以上にしてください。" }
 $Tool = (Resolve-Path -LiteralPath $Tool).ProviderPath

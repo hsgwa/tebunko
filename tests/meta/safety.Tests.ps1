@@ -210,8 +210,11 @@ BeforeAll {
                 $problems.Add("bat の変数: $($match.Value)")
             }
         }
-        if ($batText -match '(?i)\$\{?env:') {
-            $problems.Add("bat の環境変数")
+        # 環境変数は、ツールのフォルダを渡す TEBUNKO_ROOT を読むだけ（場所は得ない。パスを -Command の文字列に埋め込まないための受け渡し）
+        foreach ($match in [regex]::Matches($batText, '(?i)\$\{?env:(\w+)')) {
+            if ($match.Groups[1].Value -ne "TEBUNKO_ROOT") {
+                $problems.Add("bat の環境変数")
+            }
         }
         # tebunko.bat の中の PowerShell も、特別なフォルダ・環境変数・一時フォルダを得る API を使わない（許す数は 0）
         foreach ($match in [regex]::Matches($batText, '(?i)GetFolderPath|GetEnvironmentVariable|ExpandEnvironmentVariables|GetTempPath|GetTempFileName|New-TemporaryFile')) {
@@ -721,7 +724,7 @@ Describe "書き込み先が限られていること（docs/safety/file-access.m
             [pscustomobject]@{ File = "settings.ps1"; Line = 6; Text = '    $override = $env:TEBUNKO_DEFAULT_WORKSPACE' }
         )
         @(getWritePlaceViolations $lines 'set "PS1=%SystemRoot%\System32\a.exe"
-set "PSCMD=%PSCMD%x"').Count | Should -Be 0
+set "PSCMD=$root=$env:TEBUNKO_ROOT;x"').Count | Should -Be 0
     }
 
     It "書き込み先の検査は、TEBUNKO_DEFAULT_WORKSPACE を settings.ps1 が 2 回読むと落ちる" {

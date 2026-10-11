@@ -8,7 +8,7 @@ ${pathsBundled} = Get-Variable -Name bundledScriptPath -ErrorAction SilentlyCont
 ${rootDir} = if ($null -ne ${pathsBundled} -and ${pathsBundled}.Value) {
     Split-Path -Parent ${pathsBundled}.Value
 } else {
-    (Resolve-Path "$PSScriptRoot\..\..\..").Path
+    [System.IO.Path]::GetFullPath("$PSScriptRoot\..\..\..")
 }
 Remove-Variable -Name pathsBundled -ErrorAction SilentlyContinue
 # データ（設定ファイル・work）の置き場所は data_dir.ps1 で決める（ツールのフォルダに書き込めないことがあるため）
