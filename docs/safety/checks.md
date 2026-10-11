@@ -24,7 +24,7 @@ function scan { param([string[]]$Pattern)
 | 8 | 実行ポリシーの恒久変更・`Bypass` | 該当 0 件 | `scan 'Set-ExecutionPolicy','ExecutionPolicy\s+Bypass'` と `Select-String -Path .\tebunko.bat -Pattern 'Bypass','Set-ExecutionPolicy'` |
 | 9 | 資格情報の入力要求・保存 | 該当 0 件 | `scan 'Get-Credential','ConvertTo-SecureString','PSCredential'` |
 | 10 | リモート実行 | 該当 0 件 | `scan 'Invoke-Command','New-PSSession','Enter-PSSession','WinRM'` |
-| 11 | 外部プロセスの起動 | 4 か所のみ（[外部プロセスの起動（4 か所）](#外部プロセスの起動4-か所)） | `scan 'Start-Process'` |
+| 11 | 外部プロセスの起動 | 決まった起動だけ（[外部プロセスの起動](#外部プロセスの起動)） | `scan 'Start-Process'` |
 | 12 | プロセスの強制終了 | 1 か所のみ（[前回残った Office の終了（起動時の確認）](disclosure.md#前回残った-office-の終了起動時の確認)）。止める前に `isSameOfficeProcess` を呼ぶ。`taskkill`・`CloseMainWindow`・WMI の `Terminate` などの別の止め方は 0 件 | `scan 'Stop-Process'`、`scan 'taskkill','CloseMainWindow','Terminate','spps'` |
 | 13 | 壊れたハッシュ（MD5・SHA-1）、FIPS 準拠でないハッシュの実装 | 該当 0 件 | `scan 'MD5','SHA1','RIPEMD','SHA256Managed','SHA384Managed','SHA512Managed','HashAlgorithm\]::Create'` |
 | 14 | 内部の型（`NonPublic`）のリフレクションでの呼び出し | 1 か所のみ（下） | `scan 'NonPublic','Reflection\.BindingFlags'` |
@@ -83,7 +83,7 @@ Office に加えてテキストファイルも取り込むが、対象の拡張�
 
 `.xml` は、既定のアプリ（Windows の「XML エディター」）が先頭の `<?mso-application progid=…?>` を見て Excel・Word で開くことがあるが、マクロは既定で無効（上の「Office ファイルを開くときの設定」）であるため、開くこと自体の害は小さい。
 
-## 外部プロセスの起動（4 か所）
+## 外部プロセスの起動
 
 `tests/meta/safety.Tests.ps1` の「外部プロセスの起動は explorer.exe・notepad.exe だけ」が確かめる。
 
