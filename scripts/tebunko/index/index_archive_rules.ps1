@@ -262,7 +262,7 @@ function testImportedStatusLines {
 
 function getIndexFolderConflict {
     # 元のフォルダが、ほかのクロール対象のインデックスと重なるかを調べ、直してほしい内容を返す（問題なければ空文字列）。
-    # 画面の追加・編集（testIndexEditInput）とインポート（importIndex）の両方が使う、1 つの決まり。
+    # 画面の追加と詳細欄の編集（testIndexEditInput）とインポート（importIndex）の両方が使う、1 つの決まり。
     # 同じフォルダは、getTargetFolders が 2 つ目以降を読まないため設定に残らない。入れ子のフォルダは、
     # 同じファイルが 2 つのインデックスに入り、取り込みも検索結果も二重になる
     param (

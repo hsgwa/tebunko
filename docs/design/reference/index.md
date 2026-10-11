@@ -24,7 +24,7 @@ flowchart LR
 | ファイル | 主な関数 | 記載先 |
 |---|---|---|
 | `tebunko/ui/shell/nav_view.ps1`（判断層） | `getScreenOrder` / `isScreenName` / `getNextScreen` / `getShortcutAction` | [画面の実装構成](../gui/implementation.md#実装構成) |
-| `tebunko/ui/shell/status_bar_view.ps1`（判断層） | `getIndexingStatusLine` | [画面の実装構成](../gui/implementation.md#実装構成) |
+| `tebunko/ui/shell/status_bar_view.ps1`（判断層） | `getIndexingStatusLine`・`getStatusBarView` | [画面の実装構成](../gui/implementation.md#実装構成) |
 | `tebunko/ui/shell/nav.ps1` | `getCurrentScreen` / `selectScreen` / `invokeShortcutAction` | [画面の実装構成](../gui/implementation.md#実装構成) |
 | `shared/office/office_embedded.ps1` | `readEmbeddedObjectLines`（埋め込んだ Office のファイルの文字）/ `readEmbeddedPackageLines` / `readXlsxCellLines` / `readXlsxSheetCellLines` / `readXlsxSharedStrings` / `newEmbeddedState` / `addEmbeddedOutputChars` | [Word の埋め込みの読み取り](../indexing/word.md#埋め込みの読み取りreadembeddedobjectlines)、[PowerPoint](../indexing/powerpoint.md) |
 | `shared/office/office_reader.ps1` | `isZipFile` / `isCompoundFile` / `readZipEntryBytes` / `readDocxUnits` / `readDocxUnitsFromZip` / `readPptxUnits` / `readPptxUnitsFromZip` / `readXlsxObjectUnits`（ヘッダー・フッターは `readXlsxSheetHeaderFooter` / `readXlsxHeaderFooterLines` / `getHeaderFooterLines`） / `writeUnits` | [Word・PowerPoint の共通処理と Office アプリの管理](../indexing/office-apps.md#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1)、[Excel](../indexing/excel.md)、[Word](../indexing/word.md)、[PowerPoint](../indexing/powerpoint.md) |

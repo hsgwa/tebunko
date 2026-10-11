@@ -82,10 +82,10 @@ function startGui {
         @{ File = "index\index.xaml"; Slot = "ContentHost"; Screen = "IndexTab"; Names = @(
             "IndexListHost", "IndexDetailHost", "IndexDetailRow", "IndexSplitter",
             "IndexingProgressPanel", "IndexingBannerIcon", "IndexingProgressText", "IndexingProgressEta", "IndexingProgress",
-            "IndexingProgressDetail", "IndexingStopButton", "IndexingResumeButton", "IndexingSearchButton") }
+            "IndexingProgressDetail", "IndexingStopButton", "IndexingResumeButton", "IndexingSearchButton", "IndexingBannerClose") }
         @{ File = "index\index_list.xaml"; Slot = "IndexListHost"; Names = @(
-            "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "ActionsButton", "ActionsMenu", "ActionUpdate", "ActionEdit", "ActionExport", "ActionImport", "ActionDelete", "SelectionCountText", "SelectAllCheckBox", "IndexingButton", "IndexingHint", "IndexScreenInfo", "StatusColumnHeader",
-            "IndexRowMenu", "RowMenuUpdate", "RowMenuOpenFolder", "EditIndexButton", "RemoveIndexButton", "ExportIndexButton") }
+            "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "ActionsButton", "ActionsMenu", "ActionUpdate", "ActionExport", "ActionImport", "ActionDelete", "SelectionCountText", "SelectAllCheckBox", "IndexingButton", "IndexingHint", "StatusColumnHeader",
+            "IndexRowMenu", "RowMenuUpdate", "RowMenuOpenFolder", "RemoveIndexButton", "ExportIndexButton") }
         @{ File = "index\index_detail.xaml"; Slot = "IndexDetailHost"; Names = @(
             "IndexDetailTitle", "IndexSummaryText",
             "IndexDetailRows", "IndexDetailFastPanel", "IndexDetailFastText", "IndexDetailFastBar",
@@ -167,7 +167,7 @@ function startGui {
     . "$TebunkoDir\ui\shell\status_bar_view.ps1"
     stepSplash 80
     . "$TebunkoDir\ui\index\index_list.ps1"
-    . "$TebunkoDir\ui\index\index_edit.ps1"
+    . "$TebunkoDir\ui\index\index_store.ps1"
     . "$TebunkoDir\ui\index\index_archive.ps1"
     . "$TebunkoDir\ui\index\index_detail.ps1"
     . "$TebunkoDir\ui\index\index_events.ps1"
