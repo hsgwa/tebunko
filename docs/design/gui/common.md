@@ -55,7 +55,7 @@
 ```mermaid
 flowchart TD
     B(["tebunko.bat を起動"]) --> U["scripts 配下の Mark-of-the-Web を Unblock-File で消す<br>（-Command の中身は実行ポリシーの対象外）"]
-    U --> G["& $gui（TEBUNKO_ROOT の gui.ps1）を RemoteSigned で起動<br>（conhost.exe 経由・-WindowStyle Hidden）"]
+    U --> G["& $gui（環境変数 TEBUNKO_ROOT のフォルダの gui.ps1）を RemoteSigned で起動<br>（conhost.exe 経由・-WindowStyle Hidden）"]
     G --> G2["gui.ps1 も起動時に自フォルダの印を消す<br>（ショートカット起動・差し替え後のため）"]
 ```
 

@@ -5,6 +5,11 @@
 #   ・ツールの場所は、bat と同じく環境変数 TEBUNKO_ROOT で渡す（TestDrive に作ったツールの場所）
 #   ・子プロセスには -EncodedCommand で渡す（引用符が崩れないため。テストのコードだけで使い、bat では使わない）
 #   ・子プロセスの LOCALAPPDATA・TEMP を TestDrive の下にする（tebunko がここに何も作らないことを確かめる）
+BeforeDiscovery {
+    . "$PSScriptRoot\..\helpers\path_chars.ps1"
+    $pathCharCases = getPathCharCases
+}
+
 BeforeAll {
     $here = (Resolve-Path "$PSScriptRoot\..").Path
     $rootDir = (Resolve-Path "$here\..").Path
@@ -139,12 +144,13 @@ BeforeAll {
         return $null
     }
 
-    # 偽の gui.ps1: 渡されたツールのフォルダ（環境変数 TEBUNKO_ROOT）と自分の PID を印のファイルに書いて終わる。
+    # 偽の gui.ps1: 渡されたツールのフォルダ（環境変数 TEBUNKO_ROOT）・自分の PID・自分のあるフォルダ
+    # （$PSScriptRoot）を印のファイルに書いて終わる。
     # 例外を投げないので、起動が失敗してもメモ帳は開かない（印が無いことで落ちる）。
     # 書きかけを読ませないよう、別の名前に書いてから移す
     $script:guiMarkerWriter = @'
 $tmp = Join-Path $env:TEMP 'gui_marker.tmp'
-Set-Content -LiteralPath $tmp -Value @($env:TEBUNKO_ROOT, $PID) -Encoding UTF8
+Set-Content -LiteralPath $tmp -Value @($env:TEBUNKO_ROOT, $PID, $PSScriptRoot) -Encoding UTF8
 Move-Item -LiteralPath $tmp -Destination (Join-Path $env:TEMP 'gui_marker.txt') -Force
 exit 0
 '@
@@ -152,10 +158,18 @@ exit 0
     function invokeBatThroughCmd {
         # エクスプローラーのダブルクリックと同じ形（cmd.exe /d /c ""<bat>" "）で tebunko.bat を起動し、
         # 偽の gui.ps1 が印を書くまで待つ。Delayed を付けると /v:on（遅延展開が有効な cmd）で起動する。
-        # 印が来なかった・残ったときは、印に書かれた PID だけを止める（名前で探さない）
+        # 止めるのは、自分で起こした cmd.exe だけ（まだ動いているとき）。偽の gui.ps1 は印を移したらすぐ
+        # exit 0 で終わるので、印に書かれた PID は止めず、終わるのを待つだけにする
+        # （PID は終わったあと使い回されるので、その番号の別のプロセスを止めてしまわないため）。
+        # 写した bat の $opener（本物のメモ帳）は、何もしないものに替える
+        # （偽の gui.ps1 が動かず bat の catch に入っても、メモ帳が開いたまま残らないため）
         param ($Tool, [switch]$Delayed, [int]$TimeoutMs = 20000)
 
-        [System.IO.File]::Copy($launcherPath, "$($Tool.Root)\tebunko.bat")
+        $batCopy = $script:batText.Replace("`$opener='notepad.exe'", "`$opener={}")
+        if ($batCopy -eq $script:batText) {
+            throw "tebunko.bat に `$opener='notepad.exe' が見つからない（書き方が変わった？）"
+        }
+        [System.IO.File]::WriteAllText("$($Tool.Root)\tebunko.bat", $batCopy, [System.Text.Encoding]::ASCII)
         setFakeGui $Tool $script:guiMarkerWriter
 
         $switches = if ($Delayed) { "/d /v:on" } else { "/d" }
@@ -181,15 +195,17 @@ exit 0
         } finally {
             if (-not $cmdProcess.HasExited) { Stop-Process -Id $cmdProcess.Id -Force -ErrorAction SilentlyContinue }
             if ($lines.Count -ge 2 -and $lines[1] -match '^\d+$') {
-                $guiProcess = Get-Process -Id ([int]$lines[1]) -ErrorAction SilentlyContinue
-                if ($guiProcess -and $guiProcess.ProcessName -eq "powershell") {
-                    Stop-Process -Id $guiProcess.Id -Force -ErrorAction SilentlyContinue
-                }
+                # 止めずに、終わるのを待つだけ
+                Wait-Process -Id ([int]$lines[1]) -Timeout 5 -ErrorAction SilentlyContinue
             }
         }
+        $startupError = Join-Path $Tool.Root "startup_error.txt"
         return [pscustomobject]@{
-            Started = ($lines.Count -ge 2)
-            Root    = $(if ($lines.Count -ge 1) { $lines[0] } else { $null })
+            Started    = ($lines.Count -ge 3)
+            Root       = $(if ($lines.Count -ge 1) { $lines[0] } else { $null })
+            GuiDir     = $(if ($lines.Count -ge 3) { $lines[2] } else { $null })
+            # 起動に失敗したときの bat の記録（あれば、落ちた理由に添える）
+            StartError = $(if ([System.IO.File]::Exists($startupError)) { [System.IO.File]::ReadAllText($startupError) } else { "" })
         }
     }
 }
@@ -287,37 +303,21 @@ Describe "tebunko.bat の起動失敗の知らせ（scripts\tebunko\startup\）"
 Describe "tebunko.bat をダブルクリックと同じ形で起動する（フォルダ名の文字）" -Tag Meta {
     # 実装前の形（$root='%~dp0' を -Command に埋め込む）は、' を含むパスで PowerShell の構文エラーになり、
     # try/catch に届かず何も知らせずに終わっていた。cmd を通して実際に起動し、gui.ps1 に渡るパスを確かめる
-    It "フォルダ名に <label> を含んでも、gui.ps1 が起動し、渡ったフォルダのパスがちょうど一致する" -TestCases @(
-        @{ label = "一重引用符 '"; ch = "'" }
-        @{ label = "右の一重引用符 U+2019"; ch = [string][char]0x2019 }
-        @{ label = "空白"; ch = " " }
-        @{ label = "丸括弧"; ch = "(1)" }
-        @{ label = "&"; ch = "&" }
-        @{ label = "^"; ch = "^" }
-        @{ label = ";"; ch = ";" }
-        @{ label = ","; ch = "," }
-        @{ label = "="; ch = "=" }
-        @{ label = "単独の %"; ch = "50%" }
-        @{ label = "!"; ch = "!" }
-        @{ label = "$"; ch = '$' }
-        @{ label = "バッククォート"; ch = '`' }
-        @{ label = "#"; ch = "#" }
-        @{ label = "@"; ch = "@" }
-        @{ label = "日本語"; ch = "営業部" }
-        @{ label = "角括弧"; ch = "[1]" }
-    ) {
+    It "フォルダ名に <label> を含んでも、gui.ps1 が起動し、渡ったフォルダのパスがちょうど一致する" -TestCases $pathCharCases {
         param ($label, $ch)
         $tool = newLauncherTool -Suffix "_a${ch}b"
         $result = invokeBatThroughCmd $tool
-        $result.Started | Should -Be $true -Because "gui.ps1 が起動しなかった"
+        $result.Started | Should -Be $true -Because "gui.ps1 が起動しなかった。記録: $($result.StartError)"
         $result.Root | Should -BeExactly "$($tool.Root)\"
+        $result.GuiDir | Should -BeExactly "$($tool.Root)\scripts\tebunko"
     }
 
     It "遅延展開が有効な cmd（/v:on）で起動しても、フォルダ名の ! が消えない（bat の setlocal で防ぐ）" {
         $tool = newLauncherTool -Suffix "_a!b"
         $result = invokeBatThroughCmd $tool -Delayed
-        $result.Started | Should -Be $true -Because "gui.ps1 が起動しなかった"
+        $result.Started | Should -Be $true -Because "gui.ps1 が起動しなかった。記録: $($result.StartError)"
         $result.Root | Should -BeExactly "$($tool.Root)\"
+        $result.GuiDir | Should -BeExactly "$($tool.Root)\scripts\tebunko"
     }
 }
 
@@ -351,14 +351,16 @@ Describe "tebunko.bat の書式（ASCII・CRLF・PowerShell の場所・外部�
         $head | Should -Match ([regex]::Escape('setlocal EnableExtensions DisableDelayedExpansion'))
     }
 
-    It "ツールのフォルダは環境変数 TEBUNKO_ROOT で渡し、PSCMD の set 行に cmd の展開（%~ と %名前%。%PSCMD% を除く）を書かない" {
+    It "ツールのフォルダは環境変数 TEBUNKO_ROOT で渡し、PSCMD の set 行（すべて）に cmd の展開（% の文字。%PSCMD% の先頭の写しは除く）を書かない" {
         $script:batText | Should -Match ([regex]::Escape('set "TEBUNKO_ROOT=%~dp0"'))
         # パスを -Command の文字列（PowerShell のコード）に埋め込むと、' などで構文エラーになり、何も知らせずに終わる
         $pieces = @($script:pscmdPieces)
         $pieces.Count | Should -BeGreaterThan 1
         foreach ($piece in $pieces) {
-            $piece | Should -Not -Match '%~|%[^%\s]+%'
+            $piece | Should -Not -Match '%'
         }
+        # 取り出し方の正規表現に合わない形の set 行（"で閉じない・PSCMD=の前に空白がある など）が増えていない
+        @([regex]::Matches($script:batText, '(?im)^\s*set\s+"?PSCMD=')).Count | Should -Be $pieces.Count
     }
 
     It "docs/safety/disclosure.md のコードブロックに、bat の set ""PS1=（PowerShell の場所）から start 行までがそのまま入っている" {

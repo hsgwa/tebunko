@@ -1,6 +1,11 @@
 ﻿# インストーラー（installer\）の決まりを確かめるテスト（docs/safety/disclosure.md「インストーラー版」）。
 # インストーラーそのもののビルド（Inno Setup）は release.yml で行う。ここでは、起動口 tebunko.exe がビルドできることと、
 # インストーラーが書き込む先・入れるものを広げていないことを、スクリプトを読んで確かめる。
+BeforeDiscovery {
+    . "$PSScriptRoot\..\helpers\path_chars.ps1"
+    $pathCharCases = getPathCharCases
+}
+
 BeforeAll {
     $rootDir = (Resolve-Path "$PSScriptRoot\..\..").Path
     $launcherSource = "$rootDir\installer\tebunko.cs"
@@ -66,6 +71,7 @@ Describe "起動口 tebunko.exe が渡す引数（フォルダ名の文字）" -
         $csc = Join-Path ([System.Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory()) "csc.exe"
         $out = Join-Path $TestDrive "tebunko_args.exe"
         & $csc -nologo -codepage:65001 -target:winexe "-out:$out" $launcherSource | Out-Null
+        if (-not [System.IO.File]::Exists($out)) { throw "tebunko.exe をビルドできなかった" }
         # ファイルを掴まないよう、バイト列から読み込む
         $assembly = [System.Reflection.Assembly]::Load([System.IO.File]::ReadAllBytes($out))
         $buildArguments = $assembly.GetType("Program").GetMethod("BuildArguments", [System.Reflection.BindingFlags]"NonPublic,Public,Static")
@@ -73,25 +79,7 @@ Describe "起動口 tebunko.exe が渡す引数（フォルダ名の文字）" -
         $script:caseCount = 0
     }
 
-    It "フォルダ名に <label> を含んでも、tebunko.exe の引数で gui.ps1 が起動する" -TestCases @(
-        @{ label = "一重引用符 '"; ch = "'" }
-        @{ label = "右の一重引用符 U+2019"; ch = [string][char]0x2019 }
-        @{ label = "空白"; ch = " " }
-        @{ label = "丸括弧"; ch = "(1)" }
-        @{ label = "&"; ch = "&" }
-        @{ label = "^"; ch = "^" }
-        @{ label = ";"; ch = ";" }
-        @{ label = ","; ch = "," }
-        @{ label = "="; ch = "=" }
-        @{ label = "単独の %"; ch = "50%" }
-        @{ label = "!"; ch = "!" }
-        @{ label = "$"; ch = '$' }
-        @{ label = "バッククォート"; ch = '`' }
-        @{ label = "#"; ch = "#" }
-        @{ label = "@"; ch = "@" }
-        @{ label = "日本語"; ch = "営業部" }
-        @{ label = "角括弧"; ch = "[1]" }
-    ) {
+    It "フォルダ名に <label> を含んでも、tebunko.exe の引数で gui.ps1 が起動する" -TestCases $pathCharCases {
         param ($label, $ch)
         $script:caseCount++
         $guiDir = Join-Path $TestDrive "exe$($script:caseCount)_a${ch}b\scripts\tebunko"

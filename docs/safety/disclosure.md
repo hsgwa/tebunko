@@ -43,7 +43,7 @@ set "PSCMD=%PSCMD%$openTarget = $reason; $candidate = Join-Path $root 'startup_e
 start "" conhost.exe "%PS1%" -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -Command "%PSCMD%"
 ```
 
-`-Command` の中身は 1 行に書かず、意味のまとまりごとに `set "PSCMD=..."` を積み重ねて組み立てる（`tebunko.bat` が長い 1 行になって読みにくくならないようにするため）。`delayed expansion` は使わず（先頭の `setlocal EnableExtensions DisableDelayedExpansion` で、利用者の設定で有効になっていても無効にする。パスの `!` が消えないため）、ツールのフォルダは環境変数 `TEBUNKO_ROOT` で渡して `-Command` の文字列には埋め込まない（パスに `'` などがあっても PowerShell の構文として読まれない）。各 `set` は前の行までの `%PSCMD%` を展開してから文字列を足すだけなので、素直な変数展開で足りる。`tests/meta/launcher.Tests.ps1` が、組み立てた結果が想定した文字列とちょうど一致することを確かめる。（`try`/`catch` の中身は、次の「起動に失敗したときの知らせ」で説明する。）
+`-Command` の中身は 1 行に書かず、意味のまとまりごとに `set "PSCMD=..."` を積み重ねて組み立てる（`tebunko.bat` が長い 1 行になって読みにくくならないようにするため）。`delayed expansion` は使わず（先頭の `setlocal EnableExtensions DisableDelayedExpansion` で、利用者の設定で有効になっていても無効にする。パスの `!` が消えないため）、ツールのフォルダは環境変数 `TEBUNKO_ROOT` で渡して `-Command` の文字列には埋め込まない（パスに `'` などがあっても PowerShell の構文として読まれない）。各 `set` は前の行までの `%PSCMD%` を展開してから文字列を足すだけなので、素直な変数展開で足りる。`TEBUNKO_ROOT` は、その起動のプロセスの中だけの環境変数で、中身はツールのフォルダのパスだけ。利用者・システムの環境変数は変えず（`setx` もレジストリも使わず、`setlocal` で、呼んだ cmd にも残らない）、起動した PowerShell とその子プロセスには引き継がれる。`tests/meta/launcher.Tests.ps1` が、組み立てた結果が想定した文字列とちょうど一致することを確かめる。（`try`/`catch` の中身は、次の「起動に失敗したときの知らせ」で説明する。）
 
 - **理由**: zip で配布したものを展開すると全ファイルに Mark-of-the-Web が付き、実行ポリシー `RemoteSigned` では未署名スクリプトが実行できないため。
 - **範囲**: `%~dp0scripts`（`tebunko.bat` があるフォルダの `scripts`）配下のみ。実行するスクリプトはすべてここにある。インデックス（`work`）には触らない。システム全体やユーザーのドキュメントには影響しない。画面（`gui.ps1`）も起動時に同じ `scripts` 配下に対して同じ解除を行う（ショートカットから直接起動したときのため）。
