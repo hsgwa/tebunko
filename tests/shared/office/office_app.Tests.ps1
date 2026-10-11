@@ -880,6 +880,7 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         @{ name = "利用者が窓を開いて閉じた（0 件）"; count = 0; window = $false; handedOver = $false; markRemains = $false; verdict = "Kill" }
         @{ name = "利用者のファイルが開いている"; count = 1; window = $true; handedOver = $true; markRemains = $true; verdict = "Spare" }
         @{ name = "一覧を読めず窓が見える"; count = -1; window = $true; handedOver = $true; markRemains = $true; verdict = "Spare" }
+        @{ name = "一覧を読めず窓も見えない（分からないときは消さない）"; count = -1; window = $false; handedOver = $false; markRemains = $true; verdict = "Spare" }
     ) {
         param ($name, $count, $window, $handedOver, $markRemains, $verdict)
         $script:fakeForeignCount = $count

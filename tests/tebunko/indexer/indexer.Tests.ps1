@@ -1168,6 +1168,8 @@ Describe "取り込みのスレッドのスクリプト（諦めたレーンの�
         Mock stopAllApps {}
         Mock waitKeptApps {}
         $priority = [System.Threading.Thread]::CurrentThread.Priority
+        $previousAbandon = $script:officeWatchdog.State.Abandon
+        $previousUsers = $script:officeWatchdog.State.Users
         try {
             & ${ingestWorkerScript} $settings $tasks $results 9
             # 見張りの State が、司令と同じ入れ物を持つ（別の入れ物にすると、印も諦めた合図も司令に届かない）
@@ -1177,6 +1179,8 @@ Describe "取り込みのスレッドのスクリプト（諦めたレーンの�
             [System.Threading.Thread]::CurrentThread.Priority = $priority
             # 後のテストに諦めたレーンの状態を残さない
             $script:laneState = $null
+            $script:officeWatchdog.State.Abandon = $previousAbandon
+            $script:officeWatchdog.State.Users = $previousUsers
         }
         Should -Invoke stopAllApps -Times $expectedStops -Exactly -Scope It
         Should -Invoke waitKeptApps -Times $expectedStops -Exactly -Scope It
