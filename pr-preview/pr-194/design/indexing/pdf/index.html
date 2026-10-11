@@ -4309,7 +4309,7 @@
 </table>
 <ul>
 <li><strong>場所</strong>: ページの順に <code>ページ001</code> <code>ページ002</code> …（<code>ページ{0:D3}</code>）。場所の名前は Word のページと同じ形。</li>
-<li><strong>行</strong>: 文字を出すとき、縦の位置（<code>BT</code> で 0 に戻り、<code>Td</code> <code>TD</code> で足し、<code>Tm</code> で決め、<code>T*</code> <code>'</code> <code>"</code> では行送り <code>TL</code> の分だけ引く）が、前に出した文字と 1 ポイントより大きく違えば行を分ける。<code>T*</code> <code>'</code> <code>"</code> は、必ず行を分ける。<code>ET</code> では分けない（Word や Chromium が 1 行を複数の <code>BT</code>〜<code>ET</code> に分けても、同じ縦位置なら同じ行になる）。横だけ動く <code>Td</code> と、<code>Tm</code> で位置を決め直すときは、半角の文字どうしなら空白でつなぐ（文字の幅は見ないので、同じ語の途中で位置が動くと空白が入ることがある）。<code>TJ</code> の詰めの数値が <code>-250</code> 以下で、前後の文字がどちらも半角のときだけ半角の空白を 1 つ入れる。</li>
+<li><strong>行</strong>: 文字を出すとき、縦の位置（<code>BT</code> で 0 に戻り、<code>Td</code> <code>TD</code> で足し、<code>Tm</code> で決め、<code>T*</code> <code>'</code> <code>"</code> では行送り <code>TL</code> の分だけ引く）が、前に出した文字と 1 ポイントより大きく違えば行を分ける。<code>T*</code> <code>'</code> <code>"</code> は、必ず行を分ける。<code>ET</code> では分けない（Word や Chromium が 1 行を複数の <code>BT</code>〜<code>ET</code> に分けても、同じ縦位置なら同じ行になる）。横だけ動く <code>Td</code>（後ろ向き、または今のフォントの大きさ（1 em）以上の動き）と、<code>Tm</code> で位置を決め直すときは、半角の文字どうしなら空白でつなぐ。1 em より小さい前向きの <code>Td</code> は、1 文字ずつ並べる PDF（Chromium など）の語を切らないよう、空白を入れない（文字の幅は見ないので、広い文字の続きでは語の途中に空白が入ることがある）。<code>TJ</code> の詰めの数値が <code>-250</code> 以下で、前後の文字がどちらも半角のときだけ半角の空白を 1 つ入れる。</li>
 <li><strong>画像のインラインデータ</strong>（<code>BI</code> … <code>ID</code> … <code>EI</code>）は読み飛ばす。</li>
 <li>文字の位置・向き・列の並び（段組み）は見ない。ページの中の文字は、ファイルに書かれた順に並ぶ。</li>
 </ul>
@@ -4371,7 +4371,7 @@
 <p>読めないときは、そのファイルだけが取り込みの失敗になり、インデックス作成は続く。画面・取り込み一覧のメッセージは <code>PDF</code> で始まる短い文言（<a href="../errors/">エラーメッセージ一覧</a>）。<code>readPdfPages</code> は、<code>PDF</code> で始まらない例外を <code>PDFが壊れているため読めません。</code> に言い換える（内部の例外の文言を出さない）。</p>
 <h2 id="検索開く">検索・開く<a class="headerlink" href="#検索開く" title="Permanent link">&para;</a></h2>
 <ul>
-<li>種類のチップ「PDF」（<code>setting.config</code> の <code>fileKinds</code> の値 <code>pdf</code>）で、PDF だけを絞れる。保存済みの <code>fileKinds</code> が一部の種類だけのときは、PDF は選ばれていない状態から始まる（設定ファイルの形は変えない）。</li>
+<li>種類のチップ「PDF」（<code>setting.config</code> の <code>fileKinds</code> の値 <code>pdf</code>）で、PDF だけを絞れる。前の版の設定は、<code>fileKinds</code> のキーが無い・空ならそのまま PDF も含むすべてになり、一部の種類だけを保存していたときは PDF が選ばれていない状態から始まる（設定ファイルの形は変えない。前の版の見本 <code>settings/v0.3.1</code> の期待する値は、PDF を足したぶん変えた）。</li>
 <li>結果の見出しのアイコンは <code>PDF</code>（<code>getAppKind</code>）。場所は <code>ページN</code>。</li>
 <li>検索結果から開くと、既定のアプリで開く（ページへは移動しない）。ステータスは <code>開きました：&lt;パス&gt;</code>（<a href="../../gui/open-file/">検索結果からファイルを開く</a>）。</li>
 </ul>
