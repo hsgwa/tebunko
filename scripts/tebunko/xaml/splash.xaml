@@ -15,8 +15,6 @@
     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Width="240">
       <Image x:Name="SplashIcon" Width="48" Height="48" HorizontalAlignment="Center" Margin="0,0,0,16" />
       <TextBlock Text="tebunko" FontSize="22" FontWeight="SemiBold" Foreground="#1F2937"
-                 HorizontalAlignment="Center" Margin="0,0,0,6" />
-      <TextBlock x:Name="SplashTagline" Text="Office ファイル内テキスト検索ツール" Foreground="#78828F" FontSize="12"
                  HorizontalAlignment="Center" Margin="0,0,0,18" />
       <ProgressBar x:Name="SplashProgress" Height="4" Minimum="0" Maximum="100" Value="0"
                    Foreground="#2563EB" Background="#E9ECF0" BorderThickness="0" />
