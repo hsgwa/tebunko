@@ -59,7 +59,7 @@ Describe "ボタンの中身の位置（描いた画素で測る）" -Tag Unit {
         @{ Kind = "アイコンと字のボタン（空の表）"; Name = "IndexEmptyAddButton"; File = "index\index_list.xaml"; Horizontal = "・左右"; CheckX = $true }
         @{ Kind = "行のアイコンと字のボタン"; Name = "RowUpdate"; File = "index\index_list.xaml"; Horizontal = "・左右"; CheckX = $true }
         @{ Kind = "行のアイコンと字のボタン"; Name = "RowStop"; File = "index\index_list.xaml"; Horizontal = "・左右"; CheckX = $true }
-        @{ Kind = "詳細の［...］（点は図形）"; Name = "IndexDetailPathButton"; File = "index\index_detail.xaml"; Horizontal = "・左右"; CheckX = $true }
+        @{ Kind = "詳細の［変更…］"; Name = "IndexDetailPathButton"; File = "index\index_detail.xaml"; Horizontal = "・左右"; CheckX = $true }
         @{ Kind = "分割ボタンの［開く］"; Name = "OpenButton"; File = "search\preview.xaml"; Horizontal = "・左右"; CheckX = $true }
         @{ Kind = "分割ボタンの▾"; Name = "OpenMenuButton"; File = "search\preview.xaml"; Horizontal = "・左右"; CheckX = $true }
     ) {

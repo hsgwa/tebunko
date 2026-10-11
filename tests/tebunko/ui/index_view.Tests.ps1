@@ -176,7 +176,7 @@ Describe "getIndexTabButtonsEnabled" -Tag Unit {
         $result = getIndexTabButtonsEnabled $blocker $hasSelection
         $result.New | Should -Be $new
         $result.Edit | Should -Be $edit
-        # 詳細のフォルダパスの［...］は、詳細の名前・フォルダパスの欄と同じ決まり
+        # 詳細のフォルダパスの［変更…］は、詳細の名前・フォルダパスの欄と同じ決まり
         $result.ChangeFolder | Should -Be $edit
         $result.Remove | Should -Be $remove
         $result.Export | Should -Be $export
@@ -934,7 +934,7 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         $view.Badge.Level | Should -Be $badgeLevel
         $view.Error | Should -Be $error
         if ($error) {
-            $view.ErrorHint | Should -Be "フォルダが移動・削除されたか、ネットワークにつながっていない可能性があります。`nフォルダパスの［...］でフォルダを選び直してください。"
+            $view.ErrorHint | Should -Be "フォルダが移動・削除されたか、ネットワークにつながっていない可能性があります。`nフォルダパスの［変更…］でフォルダを選び直してください。"
         } else {
             $view.ErrorHint | Should -Be ""
         }

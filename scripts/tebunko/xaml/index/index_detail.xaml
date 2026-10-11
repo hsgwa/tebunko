@@ -13,43 +13,6 @@
       <Style x:Key="FieldName" TargetType="TextBlock" BasedOn="{StaticResource Label}">
         <Setter Property="Margin" Value="0,0,0,4" />
       </Style>
-      <!-- ボタンと並べる入力欄（フォルダパス）。高さ 28・角は左だけ 4。右の辺をボタンとの境の線にする。
-           焦点の青い枠は欄の内側に 2px で重ねて描き（欄の大きさ・位置は変えない）、外へはみ出さないので親の切り抜きで欠けない -->
-      <Style x:Key="TextBox.Joined" TargetType="TextBox" BasedOn="{StaticResource TextBox.Base}">
-        <Setter Property="Height" Value="28" />
-        <Setter Property="Padding" Value="8,0" />
-        <Setter Property="FontSize" Value="12" />
-        <Setter Property="Foreground" Value="{StaticResource Ink.Value}" />
-        <Setter Property="BorderBrush" Value="{StaticResource Border.Normal}" />
-        <Setter Property="Template">
-          <Setter.Value>
-            <ControlTemplate TargetType="TextBox">
-              <Grid SnapsToDevicePixels="True">
-                <Border x:Name="Bd" Background="{TemplateBinding Background}"
-                        BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
-                        CornerRadius="4,0,0,4">
-                  <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
-                                VerticalAlignment="Center" Focusable="False" HorizontalScrollBarVisibility="Hidden" />
-                </Border>
-                <Border x:Name="FocusFrame" BorderBrush="{StaticResource Accent}" BorderThickness="2"
-                        CornerRadius="4,0,0,4" IsHitTestVisible="False" Visibility="Collapsed" />
-              </Grid>
-              <ControlTemplate.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                  <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Ink.Faint}" />
-                </Trigger>
-                <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                  <Setter TargetName="FocusFrame" Property="Visibility" Value="Visible" />
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                  <Setter TargetName="Bd" Property="Background" Value="{StaticResource Bg.Hover}" />
-                  <Setter Property="Foreground" Value="{StaticResource Ink.Faint}" />
-                </Trigger>
-              </ControlTemplate.Triggers>
-            </ControlTemplate>
-          </Setter.Value>
-        </Setter>
-      </Style>
       <!-- 値を入れる枠（読むだけ） -->
       <Style x:Key="FieldBox" TargetType="Border">
         <Setter Property="Background" Value="{StaticResource Bg.Subtle}" />
@@ -108,39 +71,14 @@
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="98" />
                   <ColumnDefinition Width="*" />
-                  <ColumnDefinition Width="36" />
+                  <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Style="{StaticResource Label}" Text="フォルダパス" VerticalAlignment="Center" />
-                <TextBox x:Name="IndexDetailPath" Grid.Column="1" Style="{StaticResource TextBox.Joined}" AutomationProperties.AutomationId="IndexDetailPath" AutomationProperties.Name="元のフォルダのパス" />
-                <!-- フォルダの場所をその場で変える［...］。欄の右に置く。押すとフォルダを選ぶ画面を出し、選んだ場所を欄に入れて、欄に入力したときと同じ道（changeIndexFolder → commitIndexDetailEdit）で変える -->
-                <Button x:Name="IndexDetailPathButton" Grid.Column="2" Width="36" MinWidth="36" Height="28" Padding="0" Foreground="{StaticResource Button.Text}"
+                <TextBox x:Name="IndexDetailPath" Grid.Column="1" AutomationProperties.AutomationId="IndexDetailPath" AutomationProperties.Name="元のフォルダのパス" />
+                <!-- フォルダの場所をその場で変える［変更…］（設定画面のワークスペースの［変更…］と同じ形）。欄の右に置く。押すとフォルダを選ぶ画面を出し、選んだ場所を欄に入れて、欄に入力したときと同じ道（changeIndexFolder → commitIndexDetailEdit）で変える -->
+                <Button x:Name="IndexDetailPathButton" Grid.Column="2" Content="変更…" MinWidth="64" Margin="8,0,0,0"
                         AutomationProperties.AutomationId="IndexDetailPathButton" AutomationProperties.Name="フォルダの場所を変える"
-                        ToolTip="元のフォルダの場所を変えます（インデックスはそのまま使います）">
-                  <!-- 点 3 つは字ではなく図形で描く（字の「...」は行の下端に点が並び、枠の真ん中に見えない） -->
-                  <Button.Content>
-                    <Path Width="16" Height="16" Stretch="None" Data="M2,8 h.01 M8,8 h.01 M14,8 h.01" StrokeThickness="2.4" StrokeStartLineCap="Round"
-                          StrokeEndLineCap="Round" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                  </Button.Content>
-                  <Button.Template>
-                    <ControlTemplate TargetType="Button">
-                      <Border x:Name="Bd" Background="{StaticResource Bg.Button}" BorderBrush="{StaticResource Border.Normal}" BorderThickness="0,1,1,1"
-                              CornerRadius="0,4,4,0" SnapsToDevicePixels="True">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                      </Border>
-                      <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                          <Setter TargetName="Bd" Property="Background" Value="{StaticResource Bg.Hover}" />
-                        </Trigger>
-                        <Trigger Property="IsKeyboardFocused" Value="True">
-                          <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}" />
-                        </Trigger>
-                        <Trigger Property="IsEnabled" Value="False">
-                          <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
-                        </Trigger>
-                      </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                  </Button.Template>
-                </Button>
+                        ToolTip="元のフォルダの場所を変えます（インデックスはそのまま使います）" />
               </Grid>
               <!-- 名前・フォルダパスを確定できなかったときの理由（commitIndexDetailEdit） -->
               <TextBlock x:Name="IndexDetailEditError" Style="{StaticResource ErrorText}" Margin="98,4,0,0" TextWrapping="Wrap" Visibility="Collapsed" />

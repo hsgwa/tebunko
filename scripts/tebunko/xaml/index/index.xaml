@@ -53,7 +53,7 @@
                     HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
   </StackPanel>
 
-  <!-- 帯の下。ContentHost の余白（16,12,16,12）を帯のために負の余白で打ち消した。一覧は余白を自分で戻し、仕切りと詳細は左右いっぱいに置く -->
+  <!-- 帯の下。ContentHost の余白（16,12,16,12）を帯のために負の余白で打ち消した。一覧の表・仕切り・詳細は左右いっぱいに置き、一覧の頭の操作の行だけが左右 16 の余白を自分で持つ -->
   <Grid Grid.Row="1">
   <Grid.RowDefinitions>
     <RowDefinition Height="*" MinHeight="225" />
@@ -61,7 +61,7 @@
     <RowDefinition x:Name="IndexDetailRow" Height="397" MinHeight="240" MaxHeight="397" />
   </Grid.RowDefinitions>
 
-  <ContentControl x:Name="IndexListHost" Grid.Row="0" Margin="16,8,16,0" Focusable="False" IsTabStop="False"
+  <ContentControl x:Name="IndexListHost" Grid.Row="0" Margin="0,8,0,0" Focusable="False" IsTabStop="False"
                   HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
 
   <!-- 一覧と詳細の境目。上下にドラッグすると詳細の高さが変わる -->

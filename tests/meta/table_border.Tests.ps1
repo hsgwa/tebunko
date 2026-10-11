@@ -49,4 +49,14 @@ Describe "表に外枠を付けない" -Tag Meta {
         }
         ($bad -join "`n") | Should -Be ""
     }
+
+    It "インデックス管理の一覧は、表の上辺だけに線を引く（表を包む Border の BorderThickness が 0,1,0,0）" {
+        $list = $script:docs | Where-Object { $_.Name -eq "index_list.xaml" }
+        $grid = $list.Doc.SelectSingleNode("//*[local-name()='DataGrid'][@*[local-name()='Name']='IndexGrid']")
+        $grid | Should -Not -BeNullOrEmpty
+        $border = $grid.ParentNode
+        while ($null -ne $border -and $border.LocalName -ne 'Border') { $border = $border.ParentNode }
+        $border | Should -Not -BeNullOrEmpty
+        $border.GetAttribute('BorderThickness') -replace '\s', '' | Should -Be "0,1,0,0"
+    }
 }

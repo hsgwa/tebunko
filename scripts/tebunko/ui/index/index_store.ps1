@@ -187,7 +187,7 @@ function commitIndexDetailEdit {
 }
 
 function changeIndexFolder {
-    # 詳細のフォルダパスの［...］。フォルダを選ぶ画面を出し、選んだ場所をフォルダパスの欄に入れて、欄に直接入力したときと同じ確かめ・同じ反映で変える。
+    # 詳細のフォルダパスの［変更…］。フォルダを選ぶ画面を出し、選んだ場所をフォルダパスの欄に入れて、欄に直接入力したときと同じ確かめ・同じ反映で変える。
     # 取り消したとき・同じフォルダを選んだときは何も変えない
     $item = getIndexTargetItem
     if ($null -eq $item -or !(testIndexOperable "編集")) {

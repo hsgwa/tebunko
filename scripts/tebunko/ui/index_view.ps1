@@ -275,7 +275,7 @@ function getIndexJobBlockedMessage {
 
 function getIndexTabButtonsEnabled {
     # 排他（getIndexJobBlocker の結果）と、一覧で選んでいる行の有無から、［インデックス管理］の各ボタンの可否を返す。
-    #   New/Edit/Remove/ChangeFolder: ［＋ フォルダを追加］・詳細の名前とフォルダパスの欄（Edit。欄で直接直す）・［削除］・フォルダパスの［...］（Edit と同じ）/ Export/Import: ［エクスポート…］［インポート…］
+    #   New/Edit/Remove/ChangeFolder: ［＋ フォルダを追加］・詳細の名前とフォルダパスの欄（Edit。欄で直接直す）・［削除］・フォルダパスの［変更…］（Edit と同じ）/ Export/Import: ［エクスポート…］［インポート…］
     # 名前とフォルダパスの欄・［削除］［エクスポート…］は、1 件選んでいるときだけ有効
     # （［すべて更新］は updateIndexingButton が、［設定］の［変更…］は押したときに testWorkspaceChangeable が、
     # 同じ getIndexJobBlocker の結果で止める）
@@ -420,7 +420,7 @@ function getIndexRowActions {
 }
 
 function getIndexDetailItem {
-    # 詳細欄に出す行（詳細の名前・フォルダパスの欄と［...］、右クリックの［削除］［エクスポート…］の対象も同じ行。［アクション ▾］は別で、［更新］［エクスポート…］［削除…］はチェックの行、［インポート…］はチェックが要らない。可否は getIndexActionsEnabled が決める）。押した行があればそれ、
+    # 詳細欄に出す行（詳細の名前・フォルダパスの欄と［変更…］、右クリックの［削除］［エクスポート…］の対象も同じ行。［アクション ▾］は別で、［更新］［エクスポート…］［削除…］はチェックの行、［インポート…］はチェックが要らない。可否は getIndexActionsEnabled が決める）。押した行があればそれ、
     # 無くてチェックが 1 件だけならその行、それ以外は $null。詳細を出す所と可否・対象を決める所で、この 1 つを使う
     param (
         [object]$selectedItem,   # 一覧で押した行（無ければ $null）
@@ -1037,7 +1037,7 @@ function getIndexDetailView {
     if ($item.FolderMissing -and $item.IndexLevel -ne "Run") {
         $badge = @{ Text = "エラー"; Level = "Ng"; Sub = "" }
         $errorText = "フォルダが見つかりません。"
-        $errorHint = "フォルダが移動・削除されたか、ネットワークにつながっていない可能性があります。`nフォルダパスの［...］でフォルダを選び直してください。"
+        $errorHint = "フォルダが移動・削除されたか、ネットワークにつながっていない可能性があります。`nフォルダパスの［変更…］でフォルダを選び直してください。"
     }
     $folderBrush = if ($item.FolderMissing) { "Danger.Text" } elseif ($item.FolderChecked -eq $false) { "Ink.Muted" } else { "Ok" }
     $fixed = @(

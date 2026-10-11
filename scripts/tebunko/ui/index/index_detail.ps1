@@ -371,7 +371,7 @@ $script:detailRowsKey = $null
 $script:indexingView = $null  # 詳細の「インデックス」の箱に出す、全体の進み具合（updateIndexingProgress が置く。更新中でなければ $null）
 
 function getIndexTargetItem {
-    # 詳細に出している行（名前・フォルダパスの欄と［...］、右クリックの［削除］［エクスポート…］の対象・可否もこの行。判定は getIndexDetailItem。［アクション ▾］は別で、可否・対象は getIndexActionsEnabled と、チェックの行が決める）
+    # 詳細に出している行（名前・フォルダパスの欄と［変更…］、右クリックの［削除］［エクスポート…］の対象・可否もこの行。判定は getIndexDetailItem。［アクション ▾］は別で、可否・対象は getIndexActionsEnabled と、チェックの行が決める）
     return getIndexDetailItem $ui.IndexGrid.SelectedItem @(getIndexCheckedItems @($script:targetItems))
 }
 

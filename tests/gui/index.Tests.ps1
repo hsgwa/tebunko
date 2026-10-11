@@ -80,25 +80,47 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             $row = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
             selectGui $row
 
-            # 詳細のフォルダパスの［...］: キャンセルすると変わらず、別のフォルダを選ぶとその場で変わる（欄に入力して確定したときと同じ道）
-            setGuiStep $S "詳細のフォルダパスの［...］→ OS のフォルダ選択（キャンセル）"
+            # 詳細のフォルダパスの［変更…］: キャンセルすると変わらず、別のフォルダを選ぶとその場で変わる（欄に入力して確定したときと同じ道）
+            setGuiStep $S "詳細のフォルダパスの［変更…］→ OS のフォルダ選択（キャンセル）"
             $pathText = { getGuiValue (findGui $S.Window -Id "IndexDetailPath") }
             (findGui $S.Window -Id "IndexDetailPathButton").Current.IsEnabled | Should -BeTrue
             & $pathText | Should -Be $script:source
-            clickGui $S $S.Window "IndexDetailPathButton" "詳細の［...］"
+            clickGui $S $S.Window "IndexDetailPathButton" "詳細の［変更…］"
             useGuiFolderPicker $S
             & $pathText | Should -Be $script:source
-            setGuiStep $S "詳細のフォルダパスの［...］→ OS のフォルダ選択（別のフォルダ）"
+            setGuiStep $S "詳細のフォルダパスの［変更…］→ OS のフォルダ選択（別のフォルダ）"
             $moved = Join-Path (Split-Path -Parent $script:source) "移動先"
             New-Item -ItemType Directory -Path $moved -Force | Out-Null
-            clickGui $S $S.Window "IndexDetailPathButton" "詳細の［...］"
+            clickGui $S $S.Window "IndexDetailPathButton" "詳細の［変更…］"
             useGuiFolderPicker $S $moved
             waitGui $S "フォルダパスが変わる" ${guiDefaultTimeout} { (& $pathText) -eq $moved } | Out-Null
-            setGuiStep $S "詳細のフォルダパスの［...］→ 元のフォルダへ戻す"
-            clickGui $S $S.Window "IndexDetailPathButton" "詳細の［...］"
+            setGuiStep $S "詳細のフォルダパスの［変更…］→ 元のフォルダへ戻す"
+            clickGui $S $S.Window "IndexDetailPathButton" "詳細の［変更…］"
             useGuiFolderPicker $S $script:source
             waitGui $S "フォルダパスが元に戻る" ${guiDefaultTimeout} { (& $pathText) -eq $script:source } | Out-Null
 
+            # 一覧の表は右の領域の横いっぱいに広がり（仕切りと同じ左右の端）、チェックの左端は頭の件数の左端にそろう。
+            # 窓を最小の幅にしても、頭の 3 つのボタンと説明は右で切れない（ナビを最大に広げた幅は、ドラッグでしか作れないので、単体では見られない）
+            setGuiStep $S "一覧の横幅と頭のボタン"
+            $edge = {
+                param ($id)
+                return (findGui $S.Window -Id $id).Current.BoundingRectangle
+            }
+            # 表の右端は窓の右端まで届く（窓の枠・影の分だけ内側。以前は右に 16 の余白があり、枠の分と合わせて 20 を超えていた）
+            $win = $S.Window.Current.BoundingRectangle
+            $gridRect = & $edge "IndexGrid"
+            ($win.Right - $gridRect.Right) | Should -BeLessOrEqual 12 -Because "表が右の領域の端まで広がる"
+            $area = $gridRect
+            $all = (findGui @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0] -Type CheckBox).Current.BoundingRectangle
+            ($all.Left - $gridRect.Left) | Should -BeLessOrEqual 30 -Because "チェックの左端は表の左端から 16 の余白（頭の件数の左端にそろう）。表の外に白い余白が無い"
+            ($all.Left - $gridRect.Left) | Should -BeGreaterThan 10
+            $buttons = New-Object System.Collections.Generic.List[object]
+            foreach ($id in @("IndexingButton", "ActionsButton", "NewIndexButton")) { $buttons.Add((& $edge $id)) }
+            foreach ($b in $buttons) { $b.Right | Should -BeLessOrEqual $area.Right -Because "頭のボタンが右で切れない" }
+            $buttons[1].Left | Should -BeGreaterThan $buttons[0].Right -Because "頭のボタンが重ならない"
+            $buttons[2].Left | Should -BeGreaterThan $buttons[1].Right -Because "頭のボタンが重ならない"
+            (& $edge "IndexingHint").Right | Should -BeLessOrEqual $area.Right -Because "説明が右で切れない"
+            (findGui $S.Window -Id "IndexDetailPathButton").Current.Name | Should -Be "フォルダの場所を変える"
             # チェックは、保存しないその場の選び。初めは付いておらず、付けても設定は書き換わず、［すべて更新］の可否も変わらない（#16）
             setGuiStep $S "行のチェックの切り替え"
             $check = findGui $row -Type CheckBox
