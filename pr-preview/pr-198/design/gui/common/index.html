@@ -4281,7 +4281,7 @@
 <p>インデックス作成と強制終了は影響が大きいため、ショートカットキーを設けない。フォルダ選択ダイアログ（<a href="./#フォルダ選択ダイアログ参照">フォルダ選択ダイアログ（［参照…］）</a>）は Windows 標準のため、キー操作もエクスプローラーと同じになる。</p>
 <h2 id="表示アクセシビリティ">表示・アクセシビリティ<a class="headerlink" href="#表示アクセシビリティ" title="Permanent link">&para;</a></h2>
 <ul>
-<li>フォントは同梱の Rethink Sans を先に使い、日本語など足りない文字は Yu Gothic UI（無ければ Meiryo UI）で表す。13 px とする（<code>scripts/shared/ui/app_host.ps1</code> の <code>newAppFontFamily</code> が作り、<code>loadXaml</code> が各画面の <code>Font.Body</code> に入れる。フォントの置き場所は <code>scripts/shared/fonts/</code>。単一 .ps1 版はフォントを同梱せず Yu Gothic UI・Meiryo UI だけにする）。結果の表は 12 px とする。</li>
+<li>フォントは Windows 標準の Segoe UI を先に使い、日本語など足りない文字は Yu Gothic UI（無ければ Meiryo UI）で表す。13 px とする（<code>scripts/shared/ui/app_host.ps1</code> の <code>newAppFontFamily</code> が作り、<code>loadXaml</code> が各画面の <code>Font.Body</code> に入れる。フォントは同梱しないので、展開した版も単一 .ps1 版も同じ見た目になる）。結果の表は 12 px とする。</li>
 <li>WPF は高 DPI に自動で対応するため、表示倍率 125 %・150 % でもぼやけない。</li>
 <li>状態は<strong>色だけで表さない</strong>。<code>✓</code> <code>✗</code> <code>⚠</code> <code>⏸</code> の記号と文言を併記する。一致箇所の強調は背景色に加えて太字にする。</li>
 <li>文言は「Excel」ではなく「Office ファイル」とする（対象は Excel・Word・PowerPoint）。</li>
