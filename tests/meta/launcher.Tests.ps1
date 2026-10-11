@@ -2,9 +2,14 @@
 # tebunko.bat の -Command はファイルに出来ない（ファイルにすると実行ポリシーの対象になり、
 # 止まる場面で動かせない）ため、bat から中身を取り出し、子プロセス（powershell.exe）で動かして確かめる。
 #   ・$opener（notepad.exe を開く指定）は、開いた対象をファイルに書くだけのものに差し替える
-#   ・$root（%~dp0）は、TestDrive に作ったツールの場所に差し替える
+#   ・ツールの場所は、bat と同じく環境変数 TEBUNKO_ROOT で渡す（TestDrive に作ったツールの場所）
 #   ・子プロセスには -EncodedCommand で渡す（引用符が崩れないため。テストのコードだけで使い、bat では使わない）
 #   ・子プロセスの LOCALAPPDATA・TEMP を TestDrive の下にする（tebunko がここに何も作らないことを確かめる）
+BeforeDiscovery {
+    . "$PSScriptRoot\..\helpers\path_chars.ps1"
+    $pathCharCases = getPathCharCases
+}
+
 BeforeAll {
     $here = (Resolve-Path "$PSScriptRoot\..").Path
     $rootDir = (Resolve-Path "$here\..").Path
@@ -20,15 +25,23 @@ BeforeAll {
     if ($setLines.Count -eq 0) {
         throw "tebunko.bat から PSCMD を組み立てる set 行が見つからない"
     }
-    $script:launcherCommand = ($setLines | ForEach-Object { $_.Groups[1].Value }) -join ""
+    $script:pscmdPieces = @($setLines | ForEach-Object { $_.Groups[1].Value })
+    $script:launcherCommand = $script:pscmdPieces -join ""
 
     $script:toolCount = 0
+    $script:launcherToolRoots = New-Object System.Collections.Generic.List[string]
     function newLauncherTool {
-        # テストごとに別の場所（ツールの形・サンドボックスの LOCALAPPDATA・TEMP）を作る
+        # テストごとに別の場所（ツールの形・サンドボックスの LOCALAPPDATA・TEMP）を作る。
+        # Suffix は、フォルダ名に入れる文字（パスの文字の確かめ用）
+        param ([string]$Suffix = "")
         $script:toolCount++
-        $root = Join-Path $TestDrive "tool$($script:toolCount)"
+        $root = Join-Path $TestDrive "tool$($script:toolCount)$Suffix"
+        [void]$script:launcherToolRoots.Add($root)
         [System.IO.Directory]::CreateDirectory("$root\scripts\tebunko\startup") | Out-Null
-        Copy-Item -Path "$startupSourceDir\*" -Destination "$root\scripts\tebunko\startup"
+        # フォルダ名に ` や [ が入ることがあるので、ワイルドカードを解釈しない .NET でコピーする
+        foreach ($file in [System.IO.Directory]::GetFiles($startupSourceDir)) {
+            [System.IO.File]::Copy($file, "$root\scripts\tebunko\startup\" + [System.IO.Path]::GetFileName($file))
+        }
         $sandbox = Join-Path $TestDrive "sandbox$($script:toolCount)"
         [System.IO.Directory]::CreateDirectory("$sandbox\LOCALAPPDATA") | Out-Null
         [System.IO.Directory]::CreateDirectory("$sandbox\TEMP") | Out-Null
@@ -39,6 +52,15 @@ BeforeAll {
             LocalAppData = "$sandbox\LOCALAPPDATA"
             Temp         = "$sandbox\TEMP"
         }
+    }
+
+    function removeLauncherTools {
+        # Pester の TestDrive の後始末は Remove-Item -Path を使うため、フォルダ名に [ ] が入ると失敗する。
+        # 名前にワイルドカードの文字が入ったツールの場所は、ワイルドカードを解釈しない .NET で先に消す
+        foreach ($dir in $script:launcherToolRoots) {
+            if ([System.IO.Directory]::Exists($dir)) { [System.IO.Directory]::Delete($dir, $true) }
+        }
+        $script:launcherToolRoots.Clear()
     }
 
     function useRealScripts {
@@ -55,7 +77,7 @@ BeforeAll {
     }
 
     function buildLauncherScript {
-        # $opener・$root を差し替えた -Command の中身を返す（LanguageMode を渡すと先頭に付ける）
+        # $opener を差し替えた -Command の中身を返す（LanguageMode を渡すと先頭に付ける）
         param ($Tool, [string]$LanguageMode = "")
 
         $marker = Join-Path $Tool.Temp "opened_marker.txt"
@@ -65,10 +87,8 @@ BeforeAll {
             # bat の書き方が変わって置き換わらないと、本物の notepad.exe が開いたまま残ってしまう
             throw "tebunko.bat に `$opener='notepad.exe' が見つからない（書き方が変わった？）"
         }
-        $beforeRoot = $script
-        $script = $script.Replace("`$root='%~dp0'", "`$root='$($Tool.Root)\'")
-        if ($script -eq $beforeRoot) {
-            throw "tebunko.bat に `$root='%~dp0' が見つからない（書き方が変わった？）"
+        if (-not $script.Contains('$root=$env:TEBUNKO_ROOT;')) {
+            throw "tebunko.bat に `$root=`$env:TEBUNKO_ROOT; が見つからない（書き方が変わった？）"
         }
         if ($LanguageMode) {
             $script = "`$ExecutionContext.SessionState.LanguageMode = '$LanguageMode'`r`n" + $script
@@ -91,6 +111,8 @@ BeforeAll {
         $psi.EnvironmentVariables["LOCALAPPDATA"] = $Tool.LocalAppData
         $psi.EnvironmentVariables["TEMP"] = $Tool.Temp
         $psi.EnvironmentVariables["TMP"] = $Tool.Temp
+        # bat が setlocal の中で作る環境変数と同じもの（末尾は \）
+        $psi.EnvironmentVariables["TEBUNKO_ROOT"] = "$($Tool.Root)\"
         $process = [System.Diagnostics.Process]::Start($psi)
         try {
             if (-not $process.WaitForExit($TimeoutMs)) {
@@ -131,6 +153,71 @@ BeforeAll {
         $marker = Join-Path $Tool.Temp "opened_marker.txt"
         if (Test-Path -LiteralPath $marker) { return (Get-Content -LiteralPath $marker -Encoding UTF8 -Raw).TrimEnd("`r", "`n") }
         return $null
+    }
+
+    # 偽の gui.ps1: 渡されたツールのフォルダ（環境変数 TEBUNKO_ROOT）・自分の PID・自分のあるフォルダ
+    # （$PSScriptRoot）を印のファイルに書いて終わる。
+    # 例外を投げないので、起動が失敗してもメモ帳は開かない（印が無いことで落ちる）。
+    # 書きかけを読ませないよう、別の名前に書いてから移す
+    $script:guiMarkerWriter = @'
+$tmp = Join-Path $env:TEMP 'gui_marker.tmp'
+Set-Content -LiteralPath $tmp -Value @($env:TEBUNKO_ROOT, $PID, $PSScriptRoot) -Encoding UTF8
+Move-Item -LiteralPath $tmp -Destination (Join-Path $env:TEMP 'gui_marker.txt') -Force
+exit 0
+'@
+
+    function invokeBatThroughCmd {
+        # エクスプローラーのダブルクリックと同じ形（cmd.exe /d /c ""<bat>" "）で tebunko.bat を起動し、
+        # 偽の gui.ps1 が印を書くまで待つ。Delayed を付けると /v:on（遅延展開が有効な cmd）で起動する。
+        # 止めるのは、自分で起こした cmd.exe だけ（まだ動いているとき）。偽の gui.ps1 は印を移したらすぐ
+        # exit 0 で終わるので、印に書かれた PID は止めず、終わるのを待つだけにする
+        # （PID は終わったあと使い回されるので、その番号の別のプロセスを止めてしまわないため）。
+        # 写した bat の $opener（本物のメモ帳）は、何もしないものに替える
+        # （偽の gui.ps1 が動かず bat の catch に入っても、メモ帳が開いたまま残らないため）
+        param ($Tool, [switch]$Delayed, [int]$TimeoutMs = 20000)
+
+        $batCopy = $script:batText.Replace("`$opener='notepad.exe'", "`$opener={}")
+        if ($batCopy -eq $script:batText) {
+            throw "tebunko.bat に `$opener='notepad.exe' が見つからない（書き方が変わった？）"
+        }
+        [System.IO.File]::WriteAllText("$($Tool.Root)\tebunko.bat", $batCopy, [System.Text.Encoding]::ASCII)
+        setFakeGui $Tool $script:guiMarkerWriter
+
+        $switches = if ($Delayed) { "/d /v:on" } else { "/d" }
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = "cmd.exe"
+        $psi.Arguments = $switches + ' /c ""' + "$($Tool.Root)\tebunko.bat" + '" "'
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $psi.EnvironmentVariables["LOCALAPPDATA"] = $Tool.LocalAppData
+        $psi.EnvironmentVariables["TEMP"] = $Tool.Temp
+        $psi.EnvironmentVariables["TMP"] = $Tool.Temp
+        $cmdProcess = [System.Diagnostics.Process]::Start($psi)
+        $marker = Join-Path $Tool.Temp "gui_marker.txt"
+        $lines = @()
+        try {
+            $deadline = (Get-Date).AddMilliseconds($TimeoutMs)
+            while (-not (Test-Path -LiteralPath $marker) -and (Get-Date) -lt $deadline) {
+                Start-Sleep -Milliseconds 200
+            }
+            if (Test-Path -LiteralPath $marker) {
+                $lines = @(Get-Content -LiteralPath $marker -Encoding UTF8)
+            }
+        } finally {
+            if (-not $cmdProcess.HasExited) { Stop-Process -Id $cmdProcess.Id -Force -ErrorAction SilentlyContinue }
+            if ($lines.Count -ge 2 -and $lines[1] -match '^\d+$') {
+                # 止めずに、終わるのを待つだけ
+                Wait-Process -Id ([int]$lines[1]) -Timeout 5 -ErrorAction SilentlyContinue
+            }
+        }
+        $startupError = Join-Path $Tool.Root "startup_error.txt"
+        return [pscustomobject]@{
+            Started    = ($lines.Count -ge 3)
+            Root       = $(if ($lines.Count -ge 1) { $lines[0] } else { $null })
+            GuiDir     = $(if ($lines.Count -ge 3) { $lines[2] } else { $null })
+            # 起動に失敗したときの bat の記録（あれば、落ちた理由に添える）
+            StartError = $(if ([System.IO.File]::Exists($startupError)) { [System.IO.File]::ReadAllText($startupError) } else { "" })
+        }
     }
 }
 
@@ -224,6 +311,29 @@ Describe "tebunko.bat の起動失敗の知らせ（scripts\tebunko\startup\）"
     }
 }
 
+Describe "tebunko.bat をダブルクリックと同じ形で起動する（フォルダ名の文字）" -Tag Meta {
+    AfterEach { removeLauncherTools }
+
+    # 実装前の形（$root='%~dp0' を -Command に埋め込む）は、' を含むパスで PowerShell の構文エラーになり、
+    # try/catch に届かず何も知らせずに終わっていた。cmd を通して実際に起動し、gui.ps1 に渡るパスを確かめる
+    It "フォルダ名に <label> を含んでも、gui.ps1 が起動し、渡ったフォルダのパスがちょうど一致する" -TestCases $pathCharCases {
+        param ($label, $ch)
+        $tool = newLauncherTool -Suffix "_a${ch}b"
+        $result = invokeBatThroughCmd $tool
+        $result.Started | Should -Be $true -Because "gui.ps1 が起動しなかった。記録: $($result.StartError)"
+        $result.Root | Should -BeExactly "$($tool.Root)\"
+        $result.GuiDir | Should -BeExactly "$($tool.Root)\scripts\tebunko"
+    }
+
+    It "遅延展開が有効な cmd（/v:on）で起動しても、フォルダ名の ! が消えない（bat の setlocal で防ぐ）" {
+        $tool = newLauncherTool -Suffix "_a!b"
+        $result = invokeBatThroughCmd $tool -Delayed
+        $result.Started | Should -Be $true -Because "gui.ps1 が起動しなかった。記録: $($result.StartError)"
+        $result.Root | Should -BeExactly "$($tool.Root)\"
+        $result.GuiDir | Should -BeExactly "$($tool.Root)\scripts\tebunko"
+    }
+}
+
 Describe "tebunko.bat の書式（ASCII・CRLF・PowerShell の場所・外部プログラム）" -Tag Meta {
     It "ASCII の文字だけで書かれている" {
         $bytes = [System.IO.File]::ReadAllBytes($launcherPath)
@@ -249,6 +359,23 @@ Describe "tebunko.bat の書式（ASCII・CRLF・PowerShell の場所・外部�
         $script:batText | Should -Match ([regex]::Escape('start "" conhost.exe "%PS1%" -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -Command "%PSCMD%"'))
     }
 
+    It "先頭近くで setlocal EnableExtensions DisableDelayedExpansion を実行する（遅延展開が有効な環境でも、パスの ! が消えない）" {
+        $head = ($script:batText -split "`r?`n" | Select-Object -First 3) -join "`n"
+        $head | Should -Match ([regex]::Escape('setlocal EnableExtensions DisableDelayedExpansion'))
+    }
+
+    It "ツールのフォルダは環境変数 TEBUNKO_ROOT で渡し、PSCMD の set 行（すべて）に cmd の展開（% の文字。%PSCMD% の先頭の写しは除く）を書かない" {
+        $script:batText | Should -Match ([regex]::Escape('set "TEBUNKO_ROOT=%~dp0"'))
+        # パスを -Command の文字列（PowerShell のコード）に埋め込むと、' などで構文エラーになり、何も知らせずに終わる
+        $pieces = @($script:pscmdPieces)
+        $pieces.Count | Should -BeGreaterThan 1
+        foreach ($piece in $pieces) {
+            $piece | Should -Not -Match '%'
+        }
+        # 取り出し方の正規表現に合わない形の set 行（"で閉じない・PSCMD=の前に空白がある など）が増えていない
+        @([regex]::Matches($script:batText, '(?im)^\s*set\s+"?PSCMD=')).Count | Should -Be $pieces.Count
+    }
+
     It "docs/safety/disclosure.md のコードブロックに、bat の set ""PS1=（PowerShell の場所）から start 行までがそのまま入っている" {
         # 安全性の開示に載せた bat の全文の写しが、bat とずれていないことを確かめる
         $batBody = [regex]::Match($script:batText, '(?s)set "PS1=.*?\r?\nstart "" conhost\.exe[^\r\n]*').Value
@@ -261,9 +388,9 @@ Describe "tebunko.bat の書式（ASCII・CRLF・PowerShell の場所・外部�
     It "set ""PSCMD=...""（意味のまとまりごと）を順につなぐと、想定した -Command の中身とちょうど一致する" {
         # bat の 6 つの rem（準備・印の解除・try で gui.ps1・catch で理由の選び方・記録の中身・
         # 記録の書き込みと表示）と同じ区切りで書く。ここが変わったら、この期待値も同じ PR で直す
-        $step1Prepare = "`$opener='notepad.exe';`$root='%~dp0';`$startup=Join-Path `$root 'scripts\tebunko\startup';`$gui=Join-Path `$root 'scripts\tebunko\gui.ps1';"
+        $step1Prepare = "`$opener='notepad.exe';`$root=`$env:TEBUNKO_ROOT;`$startup=Join-Path `$root 'scripts\tebunko\startup';`$gui=Join-Path `$root 'scripts\tebunko\gui.ps1';"
         $step2Unblock = "Get-ChildItem -LiteralPath (Join-Path `$root 'scripts') -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue; "
-        $step3TryGui = "try { & `$gui } catch { `$err = `$_; "
+        $step3TryGui = "try { & ([System.Management.Automation.WildcardPattern]::Escape(`$gui.Replace('``','````'))) } catch { `$err = `$_; "
         $step4PickReason = "if (-not (Test-Path -LiteralPath `$gui)) { `$reason = Join-Path `$startup 'missing_files.txt' } elseif (`$ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage') { `$reason = Join-Path `$startup 'constrained_language.txt' } elseif (`$err.FullyQualifiedErrorId -like 'UnauthorizedAccess*') { `$reason = Join-Path `$startup 'execution_policy.txt' } else { `$reason = Join-Path `$startup 'failed.txt' }; `$reasonLines = @(if (Test-Path -LiteralPath `$reason) { Get-Content -LiteralPath `$reason -Encoding UTF8 } else { @('tebunko could not start.') }); "
         $step5Detail = "`$detailLines = @(('==== {0} startup ====' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')), ('Tool: {0}' -f `$root), ('LanguageMode: {0}' -f `$ExecutionContext.SessionState.LanguageMode), ('PSVersion: {0}' -f `$PSVersionTable.PSVersion), (Get-ExecutionPolicy -List | Out-String), ('{0}' -f `$err.Exception.Message)); `$allLines = `$reasonLines + '' + `$detailLines; "
         $step6WriteShow = "`$openTarget = `$reason; `$candidate = Join-Path `$root 'startup_error.txt'; try { Set-Content -LiteralPath `$candidate -Value `$allLines -Encoding UTF8 -ErrorAction Stop; `$openTarget = `$candidate } catch { }; & `$opener `$openTarget }"

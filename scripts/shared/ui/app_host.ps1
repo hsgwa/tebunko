@@ -158,7 +158,7 @@ function writeErrorLog {
         $path = getGuiErrorLogFile
         $dir = Split-Path -Parent $path
         if (-not (Test-Path -LiteralPath $dir)) {
-            New-Item -ItemType Directory -Force -Path $dir | Out-Null
+            [void][System.IO.Directory]::CreateDirectory($dir)
         }
         $text = @(
             "==== $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ${context} ===="

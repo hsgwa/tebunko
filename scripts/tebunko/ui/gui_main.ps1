@@ -137,9 +137,9 @@ function startGui {
     ${grayBrush} = themeBrush "Ink.Muted"
 
     # ---- 画面の中身（それぞれのファイルにイベントの登録まで入っている。$ui を作った後に読み込む） ----
-    . "$TebunkoDir\..\shared\ui\message_view.ps1"
-    . "$TebunkoDir\..\shared\ui\shell.ps1"
-    . "$TebunkoDir\..\shared\ui\data_grid.ps1"
+    . ([WildcardPattern]::Escape("$TebunkoDir\..\shared\ui\message_view.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\..\shared\ui\shell.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\..\shared\ui\data_grid.ps1".Replace('`', '``')))
     setDialogScrim $ui.ScrimOverlay
     # safe で包んでいない処理（PreviewKeyDown・Closing・活性化のタイマーなど）が
     # 投げた例外や、XAML の描画中に WPF が投げる例外を、画面のスレッドの Dispatcher で受ける
@@ -153,36 +153,36 @@ function startGui {
     $newBackgroundQueue = { [BackgroundQueue]::new(${backgroundWorkers}, $backgroundLoad, $Host) }
     $script:backgroundQueue = & $newBackgroundQueue
     setNetworkQueueFactory $newBackgroundQueue
-    . "$TebunkoDir\..\shared\ui\folder_dialog.ps1"
-    . "$TebunkoDir\ui\index_view.ps1"
-    . "$TebunkoDir\ui\indexing_view.ps1"
-    . "$TebunkoDir\ui\search\search_bar_view.ps1"
-    . "$TebunkoDir\ui\search\result_list_view.ps1"
-    . "$TebunkoDir\ui\search\open_source_view.ps1"
-    . "$TebunkoDir\ui\preview_view.ps1"
-    . "$TebunkoDir\ui\settings\settings_view.ps1"
-    . "$TebunkoDir\ui\leftover_view.ps1"
-    . "$TebunkoDir\ui\about_view.ps1"
-    . "$TebunkoDir\ui\shell\nav_view.ps1"
-    . "$TebunkoDir\ui\shell\status_bar_view.ps1"
+    . ([WildcardPattern]::Escape("$TebunkoDir\..\shared\ui\folder_dialog.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\index_view.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\indexing_view.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\search\search_bar_view.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\search\result_list_view.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\search\open_source_view.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\preview_view.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\settings\settings_view.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\leftover_view.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\about_view.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\shell\nav_view.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\shell\status_bar_view.ps1".Replace('`', '``')))
     stepSplash 80
-    . "$TebunkoDir\ui\index\index_list.ps1"
-    . "$TebunkoDir\ui\index\index_store.ps1"
-    . "$TebunkoDir\ui\index\index_archive.ps1"
-    . "$TebunkoDir\ui\index\index_detail.ps1"
-    . "$TebunkoDir\ui\index\index_events.ps1"
-    . "$TebunkoDir\ui\indexing_tab.ps1"
-    . "$TebunkoDir\ui\result_list.ps1"
-    . "$TebunkoDir\ui\search\search_bar.ps1"
-    . "$TebunkoDir\ui\search\search_session.ps1"
-    . "$TebunkoDir\ui\search\result_filter.ps1"
-    . "$TebunkoDir\ui\preview.ps1"
-    . "$TebunkoDir\ui\open_source.ps1"
-    . "$TebunkoDir\ui\index_tree.ps1"
-    . "$TebunkoDir\ui\workspace_jobs.ps1"
-    . "$TebunkoDir\ui\settings\settings.ps1"
-    . "$TebunkoDir\ui\about_dialog.ps1"
-    . "$TebunkoDir\ui\leftover_dialog.ps1"
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\index\index_list.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\index\index_store.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\index\index_archive.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\index\index_detail.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\index\index_events.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\indexing_tab.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\result_list.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\search\search_bar.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\search\search_session.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\search\result_filter.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\preview.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\open_source.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\index_tree.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\workspace_jobs.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\settings\settings.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\about_dialog.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\leftover_dialog.ps1".Replace('`', '``')))
     stepSplash 90
     # ============================================================================
     # ウィンドウ全体
@@ -193,8 +193,8 @@ function startGui {
     $script:startupLoaded = $false
 
     # ナビと画面の切り替え（selectScreen・getCurrentScreen）。$script:startupLoaded を決めた後に読み込む
-    . "$TebunkoDir\ui\shell\nav.ps1"
-    . "$TebunkoDir\ui\shell\status_bar.ps1"
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\shell\nav.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\shell\status_bar.ps1".Replace('`', '``')))
 
     $window.Add_Activated({
         if (!$script:startupLoaded) {

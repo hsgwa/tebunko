@@ -20,8 +20,8 @@ param (
 )
 
 $ErrorActionPreference = "Stop"
-. "$PSScriptRoot\perf_common.ps1"
-. "$PSScriptRoot\ingest_common.ps1"
+. ([WildcardPattern]::Escape("$PSScriptRoot\perf_common.ps1".Replace('`', '``')))
+. ([WildcardPattern]::Escape("$PSScriptRoot\ingest_common.ps1".Replace('`', '``')))
 
 $Tool = (Resolve-Path -LiteralPath $Tool).ProviderPath.TrimEnd("\")
 $Data = (Resolve-Path -LiteralPath $Data).ProviderPath.TrimEnd("\")
@@ -47,7 +47,7 @@ $settings = [ordered]@{
 }
 [System.IO.File]::WriteAllText((Join-Path $toolCopy "setting.config"), ($settings | ConvertTo-Json -Depth 4), (New-Object System.Text.UTF8Encoding($false)))
 
-. (Join-Path $toolCopy "scripts\tebunko\lib.ps1")
+. ([WildcardPattern]::Escape((Join-Path $toolCopy "scripts\tebunko\lib.ps1").Replace('`', '``')))
 assertTebunkoFunctions @("newIndexerChannel")
 $channel = newIndexerChannel -retryFailed $false -confirmTargets $false -workers -1
 
@@ -60,7 +60,7 @@ if ($monitor.Samples.Count -eq 0) { throw "リソースを記録するスレッ�
 $exitCode = -1
 $watch = [System.Diagnostics.Stopwatch]::StartNew()
 try {
-    $null = & (Join-Path $toolCopy "scripts\tebunko\indexer.ps1") -Channel $channel
+    $null = & ([WildcardPattern]::Escape((Join-Path $toolCopy "scripts\tebunko\indexer.ps1").Replace('`', '``'))) -Channel $channel
     $exitCode = $LASTEXITCODE
 } finally {
     $seconds = $watch.Elapsed.TotalSeconds

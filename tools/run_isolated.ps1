@@ -23,8 +23,8 @@ param (
 
 $ErrorActionPreference = "Stop"
 
-$repoRoot = (Resolve-Path "$PSScriptRoot\..").Path
-. "$PSScriptRoot\isolation\isolation_common.ps1"
+$repoRoot = [System.IO.Path]::GetFullPath("$PSScriptRoot\..")
+. ([WildcardPattern]::Escape("$PSScriptRoot\isolation\isolation_common.ps1".Replace('`', '``')))
 
 function getIsolatedProbeResult {
     # 使い捨ての環境で、写しの設定ファイルの場所と work の場所を求める（子プロセス。書き込まない）
@@ -33,7 +33,7 @@ function getIsolatedProbeResult {
     $probe = Join-Path $Base "probe.ps1"
     $text = @'
 param([string]$Lib)
-. $Lib
+. ([WildcardPattern]::Escape($Lib.Replace('`', '``')))
 "settingsFile=" + ${settingsFile}
 "workDir=" + (getWorkDir)
 '@
@@ -94,10 +94,11 @@ function invokeIsolated {
                     $gui = "$tool\scripts\tebunko\gui.ps1"
                     if ($SingleScript) {
                         $gui = Join-Path $tool "tebunko-isolated.ps1"
-                        & "$repoRoot\tools\new_single_script.ps1" -Version "v0.0.0-isolated" -OutFile $gui | Out-Null
+                        & ([WildcardPattern]::Escape("$repoRoot\tools\new_single_script.ps1".Replace('`', '``'))) -Version "v0.0.0-isolated" -OutFile $gui | Out-Null
                     }
+                    $guiEscaped = [WildcardPattern]::Escape($gui.Replace('`', '``')).Replace("'", "''")
                     $p = Start-Process powershell.exe -PassThru -WindowStyle Hidden -ArgumentList @(
-                        "-NoProfile", "-STA", "-ExecutionPolicy", "RemoteSigned", "-Command", "& '$($gui.Replace("'", "''"))'")
+                        "-NoProfile", "-STA", "-ExecutionPolicy", "RemoteSigned", "-Command", "& '$guiEscaped'")
                     $null = $p.Handle   # ExitCode を取るため、起動の直後にハンドルを持つ
                     Write-Host "起動したプロセスの PID: $($p.Id)$(if ($Wait -gt 0) { "（$Wait 秒たったら止めます。それまでに画面を閉じれば、そこで終わります）" } else { "（画面を閉じるまで待ちます）" })"
                     $waited = waitIsolationProcess $p $Wait
