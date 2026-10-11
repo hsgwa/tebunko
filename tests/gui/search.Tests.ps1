@@ -79,11 +79,19 @@ Describe "S4 検索の遷移" -Tag Gui {
             setGuiStep $S "結果の絞り込み"
             clickGui $S $S.Window "ExpandAllButton" "［すべて開く］"
             waitGui $S "結果の行が 2 件出る" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 2 } | Out-Null
-            $heightTwo = (findGui $S.Window -Id "ResultGrid").Current.BoundingRectangle.Height
+            # 全部開いたら、表の行が全部見える（最後の行の下端が表の下端の内側）。下の余白は行 1 つぶん未満
+            $gridRect = { (findGui $S.Window -Id "ResultGrid").Current.BoundingRectangle }
+            $lastRowBottom = { @(& $hitRows)[-1].Current.BoundingRectangle.Bottom }
+            waitGui $S "開いた 2 件が表に全部入る" ${guiDefaultTimeout} { (& $lastRowBottom) -le (& $gridRect).Bottom } | Out-Null
+            ((& $gridRect).Bottom - (& $lastRowBottom)) | Should -BeLessThan 40 -Because "表の下に余白が長く残らない"
+            $previewTwo = (findGui $S.Window -Id "PreviewSplitter").Current.BoundingRectangle.Top
             setGuiText $S (findGui $S.Window -Id "FilterBox") "議事録"
             waitGui $S "絞り込んだ件数（結果の行が 1 件）" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 1 } | Out-Null
             # 結果が少ないときは、結果の一覧が内容の高さまでで、余白が長く残らない（2 件のときより高くならない）
-            waitGui $S "結果の一覧の高さが内容に収まる" ${guiDefaultTimeout} { (findGui $S.Window -Id "ResultGrid").Current.BoundingRectangle.Height -le $heightTwo } | Out-Null
+            waitGui $S "結果の一覧が内容の高さに縮み、下の余白が行 1 つぶん未満になる" ${guiDefaultTimeout} {
+                ((& $gridRect).Bottom - (& $lastRowBottom)) -lt 40
+            } | Out-Null
+            (findGui $S.Window -Id "PreviewSplitter").Current.BoundingRectangle.Top | Should -BeLessThan $previewTwo -Because "表が縮んだぶん、プレビューが上に広がる"
             setGuiText $S (findGui $S.Window -Id "FilterBox") ""
             waitGui $S "絞り込みを消すと 2 件に戻る" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 2 } | Out-Null
 

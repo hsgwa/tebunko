@@ -165,6 +165,7 @@ function flushResults {
         }
     }
     $script:dirtyGroups.Clear()
+    updateResultPaneHeight $script:resultItems.Count
 }
 
 function insertGroupRows {
@@ -219,7 +220,7 @@ function rebuildResults {
         }
     }
     setResultItems (getResultItems $script:groupList)
-    updateResultPaneHeight
+    updateResultPaneHeight $script:resultItems.Count
 }
 
 function toggleFileGroup {
@@ -239,6 +240,7 @@ function toggleFileGroup {
             $script:resultItems.RemoveAt($index)
         }
         $group.DisplayedCount = 0
+        updateResultPaneHeight $script:resultItems.Count
     } else {
         $group.SetExpanded($true)
         ensureRows $group
@@ -247,6 +249,7 @@ function toggleFileGroup {
             return
         }
         insertGroupRows $group
+        updateResultPaneHeight $script:resultItems.Count
     }
 }
 
@@ -324,7 +327,7 @@ function finishResults {
     } elseif ($script:needsRebuild) {
         rebuildResults
     } else {
-        updateResultPaneHeight
+        updateResultPaneHeight $script:resultItems.Count
     }
 }
 

@@ -982,7 +982,7 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
     }
 
     It "高速検索が不可のときは、理由（ツールヒントの 1 行目）を出す" {
-        $view = getIndexDetailView @(newDetailItem -fastLevel "Ng" -fastTip "Windows Search に接続できない。`n最終確認 10:05") $null
+        $view = getIndexDetailView @(newDetailItem -fastLevel "Warn" -fastTip "Windows Search に接続できない。`n最終確認 10:05") $null
         $view.Fast.Reason | Should -Be "Windows Search に接続できない。"
         (getIndexDetailView @(newDetailItem) $null).Fast.Reason | Should -Be ""
     }

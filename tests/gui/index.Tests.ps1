@@ -50,7 +50,7 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             selectGui $row
             waitGui $S "詳細の見出し（営業）" ${guiDefaultTimeout} { (& $detailTitle) -eq "営業 - 詳細" } | Out-Null
 
-            # 詳細は縦にスクロールでき、窓を低くしても一番下の「すべてのインデックスの合計」まで届く。高速検索が使えないときは、理由と手順も詳細に見える
+            # 窓を低くしても、詳細を縦にスクロールして、一番下の「すべてのインデックスの合計」まで届く（使えない理由と手順の出し分けは、判断層の単体テストで確かめる）
             setGuiStep $S "詳細のスクロール"
             resizeGuiWindow $S 1024 600
             $summaryText = waitGuiById $S $S.Window "IndexSummaryText"
@@ -60,12 +60,6 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
                 $rect = (findGui $S.Window -Id "IndexSummaryText").Current.BoundingRectangle
                 $rect.Bottom -le $S.Window.Current.BoundingRectangle.Bottom
             } | Out-Null
-            $reason = findGui $S.Window -Id "IndexDetailFastReason"
-            if ($reason -and !$reason.Current.IsOffscreen) {
-                (getGuiText $reason) | Should -Not -BeNullOrEmpty -Because "使えない理由が詳細に出る"
-                $steps = findGui $S.Window -Id "IndexDetailFastSteps"
-                if ($steps -and !$steps.Current.IsOffscreen) { (getGuiText $steps) | Should -BeLike "・*" }
-            }
             resizeGuiWindow $S 1280 800
 
             # 詳細の名前の欄で直接直す。使えない名前は欄の下に理由が出て名前は変わらず、正しい名前は確定で一覧に反映される（Enter か欄から出る）

@@ -9,6 +9,25 @@
       <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="../../../shared/xaml/theme.xaml" />
       </ResourceDictionary.MergedDictionaries>
+      <!-- 見せるだけの場所の読み取り専用の文字。共通の入力欄の見た目（枠・高さ 30・マウスや選択での枠の色）を持たず、折り返しても全部見える -->
+      <Style x:Key="ReadOnlyValueText" TargetType="TextBox">
+        <Setter Property="IsReadOnly" Value="True" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
+        <Setter Property="SelectionBrush" Value="{StaticResource Select.Text}" />
+        <Setter Property="SelectionOpacity" Value="0.4" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="TextBox">
+              <ScrollViewer x:Name="PART_ContentHost" Focusable="False" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Disabled" />
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
     </ResourceDictionary>
   </ScrollViewer.Resources>
   <Grid Margin="0,16,0,24">
@@ -54,9 +73,8 @@
             <StackPanel>
               <DockPanel>
                 <!-- 見せるだけの場所。押す欄に見えないよう枠を付けず、選んでコピーできる読み取り専用の TextBox にする -->
-                <TextBox x:Name="SettingsFileText" DockPanel.Dock="Right" IsReadOnly="True" BorderThickness="0" Background="Transparent"
-                         Padding="0" Margin="12,0,0,0" MaxWidth="360" VerticalAlignment="Top" TextAlignment="Right" TextWrapping="Wrap"
-                         Foreground="{StaticResource Ink.Strong}" />
+                <TextBox x:Name="SettingsFileText" Style="{StaticResource ReadOnlyValueText}" DockPanel.Dock="Right"
+                         Margin="12,0,0,0" MaxWidth="360" VerticalAlignment="Top" TextAlignment="Right" />
                 <StackPanel>
                   <TextBlock Style="{StaticResource Body}" FontWeight="SemiBold" Foreground="{StaticResource Ink.Strong}" Text="設定ファイル" />
                   <TextBlock Style="{StaticResource Meta}" Margin="0,2,0,0" Text="設定の保存先（変更不可）" />

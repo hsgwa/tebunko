@@ -942,7 +942,7 @@ function getIndexDetailView {
     [void]$rows.Add(@{ Label = "最終更新"; Value = $(if ($item.LastIngestedText) { [string]$item.LastIngestedText } else { "－" }) })
 
     $fast = @{ Shown = $false; Value = 0.0; Text = ""; State = [string]$item.FastText; Level = [string]$item.FastLevel; Reason = ""; Steps = @(); Checked = [string]$item.FastCheckedText; Note = "" }
-    if ($item.FastLevel -in @("Ng", "Warn") -and $item.FastToolTip) {
+    if ($item.FastLevel -eq "Warn" -and $item.FastToolTip) {
         $fast.Reason = ([string]$item.FastToolTip -split "`n")[0]
         $fast.Steps = @($item.FastSteps)
     }

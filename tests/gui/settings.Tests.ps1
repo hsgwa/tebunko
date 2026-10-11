@@ -44,6 +44,13 @@ Describe "S5 ワークスペースの変更" -Tag Gui {
             $fileText = findGui $S.Window -Id "SettingsFileText" -Type "Edit"
             $fileText | Should -Not -BeNullOrEmpty
             $fileText.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).Current.IsReadOnly | Should -BeTrue
+            # 枠を付けない（UI オートメーションでは枠が見えないので、共通の入力欄の見た目を使わず、枠のない専用の見た目を使っていることを XAML で確かめる）。
+            # 共通の見た目だと枠が出て、高さが 30 に決まり、折り返した 2 行目が切れる
+            $xaml = [IO.File]::ReadAllText("$(getGuiRepoRoot)\scripts\tebunko\xaml\settings\settings.xaml")
+            $xaml | Should -Match '<TextBox x:Name="SettingsFileText" Style="\{StaticResource ReadOnlyValueText\}"'
+            $style = [regex]::Match($xaml, '<Style x:Key="ReadOnlyValueText".*?</Style>', "Singleline").Value
+            $style | Should -Match 'BorderThickness" Value="0"'
+            $style | Should -Not -Match '<Border'
             @($texts | Where-Object { $_ -eq "設定" }).Count | Should -BeLessOrEqual 1 -Because "題「設定」を置かない（ナビの項目の 1 つだけ）"
             @($texts | Where-Object { $_ -like "*表示設定*" -or $_ -like "*最大並列*" -or $_ -like "*インデックスの保存先*" }) | Should -BeNullOrEmpty
 

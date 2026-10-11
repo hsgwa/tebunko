@@ -181,6 +181,56 @@ Describe "clearDetail" -Tag Unit {
     }
 }
 
+Describe "updateResultPaneHeight" -Tag Unit {
+    BeforeEach {
+        resetPreview
+        $script:previewHeightDragged = $false
+        $content = [pscustomobject]@{ Needs = 150.0; DesiredSize = [pscustomobject]@{ Height = 0.0 }; Measures = 0 }
+        $content | Add-Member ScriptMethod Measure { param ($size) $this.Measures++; $this.DesiredSize.Height = $this.Needs }
+        $content | Add-Member ScriptMethod InvalidateMeasure { }
+        $ui.ResultListHost | Add-Member NoteProperty Content $content -Force
+        $ui.ResultListHost | Add-Member ScriptMethod UpdateLayout { } -Force
+        $ui.ResultListHost.ActualHeight = 300.0
+        $ui.ResultListHost.ActualWidth = 500.0
+        $detailRow = [pscustomobject]@{ ActualHeight = 180.0; Height = [System.Windows.GridLength]::new(180) }
+        $ui | Add-Member NoteProperty DetailRow $detailRow -Force
+    }
+    AfterEach {
+        $ui.ResultListHost.ActualHeight = 0.0
+        $ui.ResultListHost.ActualWidth = 0.0
+    }
+
+    It "表の内容が低いとき、表を内容の高さまで縮めて、プレビューを広げる" {
+        updateResultPaneHeight 2
+        $ui.DetailRow.Height.Value | Should -Be 330
+    }
+
+    It "表の内容が増えて、表が足りなくなったら、プレビューを元の高さに戻す" {
+        updateResultPaneHeight 2
+        $ui.ResultListHost.Content.Needs = 400.0
+        updateResultPaneHeight 20
+        $ui.DetailRow.Height.Value | Should -Be 180
+    }
+
+    It "行が多いときは、内容を測らずに元の高さにする" {
+        updateResultPaneHeight 41
+        $ui.ResultListHost.Content.Measures | Should -Be 0
+        $ui.DetailRow.Height.Value | Should -Be 180
+    }
+
+    It "利用者が境目を動かしたあとは、高さを変えない" {
+        $script:previewHeightDragged = $true
+        updateResultPaneHeight 2
+        $ui.DetailRow.Height.Value | Should -Be 180
+    }
+
+    It "大きさがまだ取れないときは、何もしない" {
+        $ui.ResultListHost.ActualWidth = 0.0
+        updateResultPaneHeight 2
+        $ui.DetailRow.Height.Value | Should -Be 180
+    }
+}
+
 Describe "getPreviewContextLines" -Tag Unit {
     BeforeEach { resetPreview }
 
