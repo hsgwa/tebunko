@@ -121,6 +121,7 @@ Describe "起動口 tebunko.exe の終了コード（gui.ps1 の終わり方）"
             @{ label = "構文エラーで読み込めない"; body = "if ("; code = 1; hasError = $true }
             @{ label = "実行中に例外"; body = "throw 'boom'"; code = 1; hasError = $true }
             @{ label = "普通に終わる"; body = "Write-Output ok"; code = 0; hasError = $false }
+            @{ label = "エラーを出したあと、普通に終わる"; body = "Write-Error x`r`nWrite-Output ok"; code = 0; hasError = $true }
             @{ label = "exit 3 で終わる"; body = "exit 3"; code = 3; hasError = $false }
             @{ label = "外部コマンドが 0 以外で終わったあと、普通に終わる"; body = "cmd.exe /d /c exit 5`r`nWrite-Output ok"; code = 0; hasError = $false }
         )

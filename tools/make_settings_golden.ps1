@@ -47,9 +47,9 @@ function escapeSingleQuoted {
 $runnerPath = Join-Path ([System.IO.Path]::GetTempPath()) "make_settings_golden_$([guid]::NewGuid().ToString("N")).ps1"
 $runner = @"
 `$ErrorActionPreference = "Stop"
-. '$(escapeSingleQuoted $sharedPath)'
-. '$(escapeSingleQuoted $settingsScriptPath)'
-. '$(escapeSingleQuoted $goldenHelperPath)'
+. ([WildcardPattern]::Escape('$(escapeSingleQuoted $sharedPath)'.Replace([string][char]96, [string][char]96 + [char]96)))
+. ([WildcardPattern]::Escape('$(escapeSingleQuoted $settingsScriptPath)'.Replace([string][char]96, [string][char]96 + [char]96)))
+. ([WildcardPattern]::Escape('$(escapeSingleQuoted $goldenHelperPath)'.Replace([string][char]96, [string][char]96 + [char]96)))
 writeGoldenSettings -path '$(escapeSingleQuoted $settingsPath)'
 "@
 [System.IO.File]::WriteAllText($runnerPath, $runner, (New-Object System.Text.UTF8Encoding($true)))

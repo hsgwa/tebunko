@@ -60,7 +60,7 @@ if ($monitor.Samples.Count -eq 0) { throw "リソースを記録するスレッ�
 $exitCode = -1
 $watch = [System.Diagnostics.Stopwatch]::StartNew()
 try {
-    $null = & (Join-Path $toolCopy "scripts\tebunko\indexer.ps1") -Channel $channel
+    $null = & ([WildcardPattern]::Escape((Join-Path $toolCopy "scripts\tebunko\indexer.ps1").Replace('`', '``'))) -Channel $channel
     $exitCode = $LASTEXITCODE
 } finally {
     $seconds = $watch.Elapsed.TotalSeconds

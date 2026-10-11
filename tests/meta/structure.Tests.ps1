@@ -413,6 +413,64 @@ Describe "単一 .ps1 化の決まり（AST。docs/design/structure/single-scrip
         $singleScriptsDir = (Resolve-Path "$here\..\scripts").Path
         $m1ExemptFiles = @("parts.ps1", "paths.ps1", "gui.ps1", "indexer.ps1")
 
+        function testPathPatternRisk {
+            # パスをパターンとして読むコマンド（M3）に、変数や式のパスを -LiteralPath なしで渡している CommandAst なら $true。
+            # M3 の本体と、M3 の例の表の両方がこの関数を呼ぶ
+            param ($c)
+            $pathCommands = @("Resolve-Path", "New-Item", "Get-ChildItem", "Get-Item", "Test-Path", "Get-Content", "Set-Content", "Add-Content",
+                "Out-File", "Remove-Item", "Copy-Item", "Move-Item", "Rename-Item", "Convert-Path", "Import-Csv", "Export-Csv", "Select-String", "Get-FileHash")
+            # パイプで渡された文字列を Path として受けるもの
+            $pipeByValue = @("Resolve-Path", "Get-ChildItem", "Get-Item", "Test-Path", "Get-Content", "Remove-Item", "Convert-Path",
+                "Copy-Item", "Move-Item", "Rename-Item", "Import-Csv", "Get-FileHash")
+            # 値を取らない（スイッチの）名前。直後の要素は位置引数になる
+            $valueFree = @("Recurse", "Force", "File", "Directory", "Hidden", "ReadOnly", "System", "Append", "NoClobber", "WhatIf", "Confirm",
+                "NoNewline", "Raw", "SimpleMatch", "Quiet", "CaseSensitive", "NotMatch", "List", "AllMatches")
+            $paramType = [System.Management.Automation.Language.CommandParameterAst]
+            $ignoreCase = [System.StringComparison]::OrdinalIgnoreCase
+            $isRiskyValue = {
+                param ($e)
+                return ($e -is [System.Management.Automation.Language.VariableExpressionAst] -or
+                    $e -is [System.Management.Automation.Language.ExpandableStringExpressionAst] -or
+                    $e -is [System.Management.Automation.Language.ParenExpressionAst] -or
+                    $e -is [System.Management.Automation.Language.MemberExpressionAst])
+            }
+
+            $name = $c.GetCommandName()
+            if (-not $name -or $pathCommands -notcontains $name) { return $false }
+            $elements = @($c.CommandElements | Select-Object -Skip 1)
+            if (@($elements | Where-Object { $_ -is $paramType -and $_.ParameterName -like "Lit*" }).Count -gt 0) { return $false }
+
+            $skipNext = $false
+            $positional = 0
+            foreach ($e in $elements) {
+                if ($e -is $paramType) {
+                    $pn = $e.ParameterName
+                    if ("Path".StartsWith($pn, $ignoreCase) -or ($pn.Length -ge 2 -and "FilePath".StartsWith($pn, $ignoreCase))) { return $true }
+                    if ($null -ne $e.Argument) { continue }
+                    $skipNext = (@($valueFree | Where-Object { $_.StartsWith($pn, $ignoreCase) }).Count -eq 0)
+                    continue
+                }
+                if ($skipNext) { $skipNext = $false; continue }
+                $index = $positional
+                $positional++
+                # Select-String の最初の位置引数は検索する文字（Pattern）で、パスではない
+                if ($name -eq "Select-String" -and $index -eq 0) { continue }
+                if (& $isRiskyValue $e) { return $true }
+            }
+
+            # パスの指定が無く、パイプで変数や式の文字列が流れ込む形（$x | Get-Content）
+            if ($positional -eq 0 -and $pipeByValue -contains $name -and $c.Parent -is [System.Management.Automation.Language.PipelineAst]) {
+                $elementsOfPipeline = @($c.Parent.PipelineElements)
+                $at = [array]::IndexOf($elementsOfPipeline, $c)
+                if ($at -gt 0) {
+                    $source = $elementsOfPipeline[$at - 1]
+                    if ($source -is [System.Management.Automation.Language.CommandExpressionAst] -and (& $isRiskyValue $source.Expression)) { return $true }
+                    if ($source -is [System.Management.Automation.Language.CommandAst] -and $source.GetCommandName() -eq "Join-Path") { return $true }
+                }
+            }
+            return $false
+        }
+
         function getRelPath {
             param ([string]$fullName)
             return $fullName.Substring($singleScriptsDir.Length + 1)
@@ -529,8 +587,8 @@ Describe "単一 .ps1 化の決まり（AST。docs/design/structure/single-scrip
         }
     }
 
-    It "M2(iv): & の相手に、パスの文字列は直接書かない（スクリプトのパスは Escape を通す。変数・スクリプトブロックの & は対象外）" {
-        # 変数（& $x）・スクリプトブロックは、パスをパターンとして読まない。文字列で書いたパスだけを見る
+    It "M2(iv): & の相手に、パスの文字列は直接書かない（スクリプトのパスは Escape を通す。変数・式は、スクリプトブロックと見分けられないので検査しない）" {
+        # 変数・式（& $x・& ($x)）は、スクリプトブロック（& { }）と構文だけでは見分けられないので検査しない（元の不具合の & $gui も、この検査では止まらない）。文字列で書いたパスだけを見る
         $bad = New-Object System.Collections.Generic.List[string]
         foreach ($f in $allScriptFiles) {
             $ast = $parsedAsts[$f.FullName]
@@ -545,56 +603,39 @@ Describe "単一 .ps1 化の決まり（AST。docs/design/structure/single-scrip
         ($bad -join ", ") | Should -Be ""
     }
 
-    It "M3: パスをワイルドカードとして読むコマンド（-Path・位置引数）に、変数や式のパスを渡さない（-LiteralPath を使う。-Filter・-like は別）" {
-        $pathCommands = @("Resolve-Path", "New-Item", "Get-ChildItem", "Get-Item", "Test-Path", "Get-Content", "Set-Content", "Add-Content",
-            "Out-File", "Remove-Item", "Copy-Item", "Move-Item", "Rename-Item", "Convert-Path", "Import-Csv", "Export-Csv", "Select-String", "Get-FileHash")
+    It "M3: パスをワイルドカードとして読むコマンド（-Path・-FilePath・位置引数・パイプ）に、変数や式のパスを渡さない（-LiteralPath を使う。-Filter・-like は別）" {
         $bad = New-Object System.Collections.Generic.List[string]
         foreach ($f in $allScriptFiles) {
             $ast = $parsedAsts[$f.FullName]
             $cmds = $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.CommandAst] }, $true)
             foreach ($c in $cmds) {
-                $name = $c.GetCommandName()
-                if (-not $name -or $pathCommands -notcontains $name) { continue }
-                $elements = @($c.CommandElements | Select-Object -Skip 1)
-                $hasLiteral = @($elements | Where-Object { $_ -is [System.Management.Automation.Language.CommandParameterAst] -and $_.ParameterName -like "Lit*" }).Count -gt 0
-                if ($hasLiteral) { continue }
-                $suspicious = $false
-                for ($i = 0; $i -lt $elements.Count; $i++) {
-                    $e = $elements[$i]
-                    if ($e -is [System.Management.Automation.Language.CommandParameterAst]) {
-                        if ($e.ParameterName -like "P*" -and "Path".StartsWith($e.ParameterName, [System.StringComparison]::OrdinalIgnoreCase)) { $suspicious = $true }
-                        continue
-                    }
-                    # 位置引数（直前が値を取る名前付き引数のときは、その値なので見ない）
-                    if ($i -gt 0 -and $elements[$i - 1] -is [System.Management.Automation.Language.CommandParameterAst] -and $null -eq $elements[$i - 1].Argument) { continue }
-                    if ($e -is [System.Management.Automation.Language.VariableExpressionAst] -or
-                        $e -is [System.Management.Automation.Language.ExpandableStringExpressionAst] -or
-                        $e -is [System.Management.Automation.Language.ParenExpressionAst]) { $suspicious = $true }
-                }
-                if ($suspicious) { $bad.Add("$(getRelPath $f.FullName):$($c.Extent.StartLineNumber):$name") }
+                if (testPathPatternRisk $c) { $bad.Add("$(getRelPath $f.FullName):$($c.Extent.StartLineNumber):$($c.GetCommandName())") }
             }
         }
         ($bad -join ", ") | Should -Be ""
     }
 
-    It "M3 の例: -Path に変数を渡す形・位置引数に変数を渡す形は検出し、-LiteralPath の形は検出しない" {
-        $detected = {
-            param ($code)
-            $a = [System.Management.Automation.Language.Parser]::ParseInput($code, [ref]$null, [ref]$null)
-            $c = @($a.FindAll({ $args[0] -is [System.Management.Automation.Language.CommandAst] }, $true))[0]
-            $elements = @($c.CommandElements | Select-Object -Skip 1)
-            $hasLiteral = @($elements | Where-Object { $_ -is [System.Management.Automation.Language.CommandParameterAst] -and $_.ParameterName -like "Lit*" }).Count -gt 0
-            if ($hasLiteral) { return $false }
-            foreach ($e in $elements) {
-                if ($e -is [System.Management.Automation.Language.CommandParameterAst] -and $e.ParameterName -eq "Path") { return $true }
-                if ($e -is [System.Management.Automation.Language.VariableExpressionAst] -or $e -is [System.Management.Automation.Language.ExpandableStringExpressionAst]) { return $true }
-            }
-            return $false
-        }
-        (& $detected 'Resolve-Path $x') | Should -Be $true
-        (& $detected 'New-Item -Path $x -Force') | Should -Be $true
-        (& $detected 'Get-Item "$dir\a"') | Should -Be $true
-        (& $detected 'Get-Item -LiteralPath $x') | Should -Be $false
+    It "M3 の例（本体と同じ判定）: <code> は検出<expected>" -ForEach @(
+        @{ code = 'Resolve-Path $x'; expected = $true }
+        @{ code = 'New-Item -Path $x -Force'; expected = $true }
+        @{ code = 'Get-Item "$dir\a"'; expected = $true }
+        @{ code = 'Get-ChildItem -Recurse $dir'; expected = $true }
+        @{ code = 'Remove-Item -Force $x'; expected = $true }
+        @{ code = 'New-Item -Force $x'; expected = $true }
+        @{ code = 'Out-File -FilePath $x'; expected = $true }
+        @{ code = '$x | Get-Content'; expected = $true }
+        @{ code = 'Join-Path $a $b | Get-Item'; expected = $true }
+        @{ code = 'Select-String $pattern $file'; expected = $true }
+        @{ code = 'Get-Item -LiteralPath $x'; expected = $false }
+        @{ code = 'Get-ChildItem -Recurse -File -LiteralPath $dir'; expected = $false }
+        @{ code = '$text | Select-String $pattern'; expected = $false }
+        @{ code = '$x | Set-Content -LiteralPath $y'; expected = $false }
+        @{ code = 'Get-ChildItem -LiteralPath $dir | Get-Content -Raw -LiteralPath $f'; expected = $false }
+    ) {
+        $fixtureAst = [System.Management.Automation.Language.Parser]::ParseInput($code, [ref]$null, [ref]$null)
+        $cmds = @($fixtureAst.FindAll({ $args[0] -is [System.Management.Automation.Language.CommandAst] }, $true))
+        $hit = @($cmds | Where-Object { testPathPatternRisk $_ }).Count -gt 0
+        $hit | Should -Be $expected
     }
     It "M2(iii): `&` での `.Path` 呼び出し・`-Part` を付けた呼び出しは書かない（自己起動を禁じる）" {
         $bad = New-Object System.Collections.Generic.List[string]
@@ -845,6 +886,7 @@ Describe "フォルダ名に特別な文字が入っていても、本物の読�
         . "$PSScriptRoot\..\helpers\path_chars.ps1"
         $pathCharCases = getPathCharCases
         # 名前の隣に、パターンとして読むと当たってしまう別のフォルダがある場面（実在する方を読むこと）
+        $libCases = @($pathCharCases | Where-Object { @("一重引用符 '", "角括弧の中が空 []", "引用符・&・角括弧の組み合わせ", "バッククォートと開く角括弧", "日本語") -contains $_.label })
         $siblingCases = @(
             @{ label = "[1] と 1"; ch = "[1]"; sibling = "1" }
             @{ label = "バッククォートと、バッククォート抜き"; ch = ([string][char]96); sibling = "" }
@@ -876,29 +918,27 @@ Describe "フォルダ名に特別な文字が入っていても、本物の読�
         }
     }
 
-    It "フォルダ名に <label> を含む場所へ scripts\ を写しても、lib.ps1 を最後まで読める" -ForEach $pathCharCases {
+    It "フォルダ名に <label> を含む場所へ scripts\ を写しても、lib.ps1 を最後まで読める" -ForEach $libCases {
         $root = Join-Path ([System.IO.Path]::GetTempPath()) ("lib_" + [guid]::NewGuid().ToString("N"))
         $script:trialRoots += ,$root
         $copy = Join-Path $root "tool_a${ch}b\scripts"
         copyTree $realScripts $copy
 
-        $psi = New-Object System.Diagnostics.ProcessStartInfo($powershell, '-NoProfile -ExecutionPolicy RemoteSigned -Command "$p = $env:TEBUNKO_TEST_LIB; . ([WildcardPattern]::Escape($p.Replace([string][char]96, [string][char]96 + [char]96))); if (Get-Command readSettings -ErrorAction SilentlyContinue) { Write-Output loaded }"')
+        $psi = New-Object System.Diagnostics.ProcessStartInfo($powershell, '-NoProfile -ExecutionPolicy RemoteSigned -Command "& { $p = $env:TEBUNKO_TEST_LIB; . ([WildcardPattern]::Escape($p.Replace([string][char]96, [string][char]96 + [char]96))); if (Get-Command readSettings -ErrorAction SilentlyContinue) { Write-Output loaded } } 2>&1"')
         $psi.UseShellExecute = $false
         $psi.CreateNoWindow = $true
         $psi.RedirectStandardOutput = $true
-        $psi.RedirectStandardError = $true
         $psi.EnvironmentVariables["TEBUNKO_TEST_LIB"] = "$copy\tebunko\lib.ps1"
         $process = [System.Diagnostics.Process]::Start($psi)
         $outText = ""
-        $errText = ""
         try {
+            # エラーは -Command の中で標準出力にまとめてある（標準エラーを別に読むと、パイプがいっぱいになったときに固まるため）
             $outText = $process.StandardOutput.ReadToEnd()
-            $errText = $process.StandardError.ReadToEnd()
             $process.WaitForExit(60000) | Out-Null
         } finally {
             if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
         }
-        $outText.Trim() | Should -Be "loaded" -Because $errText
+        $outText.Trim() | Should -Be "loaded"
     }
 
     It "<label> の隣に別のフォルダがあっても、実在する方の部品を読む" -ForEach $siblingCases {

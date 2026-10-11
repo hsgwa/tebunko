@@ -59,7 +59,7 @@ if ($changed.Count -gt 0) {
 
 # VERSION.txt の中身を先に作る（git の SHA が取れないときは、ここで止めて何も作らない）。
 # リポジトリの作業ツリーには書かず、下の zip のエントリーへバイト列のまま直接書く
-$versionBytes = & (Join-Path $PSScriptRoot "new_version_text.ps1") -Version $Version
+$versionBytes = & ([WildcardPattern]::Escape((Join-Path $PSScriptRoot "new_version_text.ps1").Replace('`', '``'))) -Version $Version
 
 # テキストの改行を CRLF にそろえる。いったん LF にしてから CRLF にする（CRLF のまま置き換えると \r\r\n になるため）
 function ConvertTo-Crlf([string]$Text) {
@@ -108,7 +108,7 @@ foreach ($name in $sorted) {
 
 # zip の横に並べるもの: 部品表（zip に入れるバイト列から作る）と、カタログ・ハッシュ一覧
 [System.IO.Directory]::CreateDirectory($OutDir) | Out-Null
-$sbomBytes = & (Join-Path $PSScriptRoot "new_sbom.ps1") -Version $Version -Sha $sha -Timestamp $timestamp -Entries $entries
+$sbomBytes = & ([WildcardPattern]::Escape((Join-Path $PSScriptRoot "new_sbom.ps1").Replace('`', '``'))) -Version $Version -Sha $sha -Timestamp $timestamp -Entries $entries
 [System.IO.File]::WriteAllBytes((Join-Path $OutDir "sbom.cdx.json"), [byte[]]$sbomBytes)
 & ([WildcardPattern]::Escape((Join-Path $PSScriptRoot "new_release_files.ps1").Replace('`', '``'))) -OutDir $OutDir -Entries $entries -SbomBytes $sbomBytes -Timestamp $timestamp
 
