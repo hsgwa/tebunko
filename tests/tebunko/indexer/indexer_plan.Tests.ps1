@@ -1,4 +1,4 @@
-﻿# クロール（tebunko\indexer\indexer_plan.ps1 の createTargetList）のテスト。
+﻿# 取り込む順番を決める処理（tebunko\indexer\indexer_plan.ps1 の createTargetList・selectOnlyNames・IngestPlanner）のテスト。
 BeforeDiscovery {
     # -TestCases の表が使う一覧の状態（$stateDone など）
     . "$PSScriptRoot\..\..\helpers\load.ps1"
@@ -7,6 +7,7 @@ BeforeDiscovery {
 BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
     . "${scriptsDir}\tebunko\indexer\indexer_plan.ps1"
+    . "${scriptsDir}\tebunko\indexer\index_migrate.ps1"  # findDroppedIndexes（IngestPlanner）
 
     function newPrevious {
         param ($rows = @())
@@ -246,6 +247,200 @@ Describe "selectOnlyNames" -Tag Unit {
     }
 }
 
+Describe "IngestPlanner" -Tag Io {
+    BeforeAll {
+        $kinds = @{ Unchecked = ${planKindUnchecked}; Missing = ${planKindMissing}; Dropped = ${planKindDropped}; StateFailed = ${stateFailed} }
+        # 名前を保存する設定ファイル（$TestDrive の下。実機の設定には書かない）
+        $settingsFile = Join-Path $TestDrive "planner-setting.config"
+        ${indexDir} = Join-Path $TestDrive "planner-index"
+        $workspace = newTestWorkspace @{ IndexDir = ${indexDir} } (Join-Path $TestDrive "planner-ws")
+
+        $source = Join-Path $TestDrive "planner-src"
+        [System.IO.Directory]::CreateDirectory($source) | Out-Null
+        [System.IO.File]::WriteAllText((Join-Path $source "a.xlsx"), "dummy")
+        $info = Get-Item -LiteralPath (Join-Path $source "a.xlsx")
+        $updated = formatFileTime $info.LastWriteTime
+        $size = [string]$info.Length
+
+        function newPlanner {
+            param ($folders, $previousRows = @(), $previousFolders = @(), $file = $settingsFile)
+            $planner = [IngestPlanner]::new($kinds, $file)
+            $status = @{ Folders = $previousFolders; Rows = (newPrevious $previousRows) }
+            $planner.AssignNames($folders, $status)
+            return $planner
+        }
+    }
+
+    It "名前の無いフォルダに名前を割り当て、前回の一覧に無くなったインデックスを外れたものとして見つける" {
+        $planner = newPlanner @([pscustomobject]@{ Path = $source; Name = ""; Enabled = $true }) @() @(@{ Path = "C:\古い"; Name = "古い" })
+        $planner.Folders.Count | Should -Be 1
+        $planner.Folders[0].Name | Should -Not -BeNullOrEmpty
+        $planner.Folders[0].Path | Should -Be $source
+        @($planner.Dropped | ForEach-Object { $_.Name }) | Should -Be @("古い")
+    }
+
+    It "全部に名前があれば、設定ファイルを書かない" {
+        $named = @([pscustomobject]@{ Path = $source; Name = "売上"; Enabled = $true })
+        $file = Join-Path $TestDrive "保存なし\setting.config"
+        $planner = newPlanner $named @() @() $file
+        $planner.SaveNames($named)
+        Test-Path -LiteralPath $file | Should -Be $false
+        @($planner.Folders | ForEach-Object { $_.Name }) | Should -Be @("売上")
+    }
+
+    Context "名前の無いフォルダがあるとき、割り当てた名前を設定ファイルに保存する" {
+        BeforeEach {
+            $file = Join-Path $TestDrive "保存\$([guid]::NewGuid())\setting.config"
+            writeTargetFolders @(
+                [pscustomobject]@{ Name = ""; Path = "C:\営業"; Enabled = $true }
+                [pscustomobject]@{ Name = ""; Path = "C:\経理"; Enabled = $true }
+            ) $file
+            $read = @(getTargetFolders $file)
+            $planner = newPlanner $read @() @() $file
+        }
+
+        It "保存した名前を設定ファイルに書き、Folders をその一覧にする" {
+            $planner.SaveNames($read)
+            $saved = @(getTargetFolders $file)
+            @($saved | ForEach-Object { $_.Name }) | Should -Not -Contain ""
+            @($planner.Folders | ForEach-Object { $_.Name }) | Should -Be @($saved | ForEach-Object { $_.Name })
+            @($planner.Folders | ForEach-Object { $_.Path }) | Should -Be @("C:\営業", "C:\経理")
+        }
+
+        It "割り当てから保存までの間に設定から外したフォルダは、Folders から落とす" {
+            writeTargetFolders @([pscustomobject]@{ Name = ""; Path = "C:\営業"; Enabled = $true }) $file
+            $planner.SaveNames($read)
+            @($planner.Folders | ForEach-Object { $_.Path }) | Should -Be @("C:\営業")
+        }
+
+        It "名前を付けられなかったフォルダ（同じ名前を、ほかが先に使った）は、Folders から落とす" {
+            $taken = $planner.Folders[0].Name
+            writeTargetFolders @(
+                [pscustomobject]@{ Name = ""; Path = "C:\営業"; Enabled = $true }
+                [pscustomobject]@{ Name = $taken; Path = "C:\総務"; Enabled = $true }
+            ) $file
+            $planner.SaveNames($read)
+            @($planner.Folders | ForEach-Object { $_.Path }) | Should -Not -Contain "C:\営業"
+        }
+    }
+
+    It "kinds に足りない値があれば、作るときに例外にする" -TestCases @(
+        @{ missing = "Unchecked" }
+        @{ missing = "Missing" }
+        @{ missing = "Dropped" }
+        @{ missing = "StateFailed" }
+    ) {
+        param ($missing)
+        $partial = @{} + $kinds
+        $partial.Remove($missing)
+        { [IngestPlanner]::new($partial, $settingsFile) } | Should -Throw "*$missing*"
+    }
+
+    It "AssignNames の前に Crawl を呼ぶと例外にする" {
+        $planner = [IngestPlanner]::new($kinds, $settingsFile)
+        { $planner.Crawl($null, $null) } | Should -Throw "*AssignNames*"
+    }
+
+    It "進み具合を出す処理の例外は、包まずにそのまま伝える" {
+        $folders = @([pscustomobject]@{ Path = $source; Name = "売上"; Enabled = $true })
+        $planner = newPlanner $folders
+        { $planner.Crawl((newCounts), { param ($target) throw "進み具合の失敗" }) } | Should -Throw "進み具合の失敗"
+    }
+
+    It "元のファイルが無くなったファイルは、RemovedPaths に積む" {
+        $folders = @([pscustomobject]@{ Path = $source; Name = "売上"; Enabled = $true })
+        $gone = newStatusRow "売上\消えた.xlsx" "2000/01/01 00:00:00" "1" ${stateDone}
+        $planner = newPlanner $folders @($gone)
+        $planner.Crawl((newCounts @{ "売上\消えた.xlsx" = 1 }), $null)
+        @($planner.RemovedPaths) | Should -Be @("売上\消えた.xlsx")
+    }
+
+    It "クロールで、取り込み対象・チェックなし・フォルダなし・外れたインデックスを画面に出す件数に分ける" {
+        $folders = @(
+            [pscustomobject]@{ Path = $source; Name = "売上"; Enabled = $true }
+            [pscustomobject]@{ Path = (Join-Path $TestDrive "x"); Name = "外し"; Enabled = $false }
+            [pscustomobject]@{ Path = (Join-Path $TestDrive "無い"); Name = "無い"; Enabled = $true }
+        )
+        $kept = newStatusRow "外し\z.xlsx" "2000/01/01 00:00:00" "1" ${stateDone}
+        $planner = newPlanner $folders @($kept) @(@{ Path = "C:\古い"; Name = "古い" })
+        $script:seen = @()
+        $planner.Crawl((newCounts), { param ($target) $script:seen += $target.Name })
+
+        @($planner.Plan | ForEach-Object { $_.区分 }) | Should -Be @(${planKindIngest}, ${planKindUnchecked}, ${planKindMissing}, ${planKindDropped})
+        $planner.Targets.Count | Should -Be 1
+        $planner.Targets[0].相対パス | Should -Be "売上\a.xlsx"
+        # チェックを外したフォルダは、前回の行をそのまま残す
+        @($planner.Rows | ForEach-Object { $_.相対パス }) | Should -Be @("売上\a.xlsx", "外し\z.xlsx")
+        $script:seen | Should -Be @("売上")
+    }
+
+    It "選んだインデックスだけを更新するとき、選ばなかったインデックスは前回の行を残して確認の表にも出さない" {
+        $folders = @(
+            [pscustomobject]@{ Path = $source; Name = "売上"; Enabled = $true }
+            [pscustomobject]@{ Path = (Join-Path $TestDrive "x"); Name = "別"; Enabled = $true }
+        )
+        $other = newStatusRow "別\z.xlsx" "2000/01/01 00:00:00" "1" ${stateDone}
+        $planner = newPlanner $folders @($other)
+        $skipped = @($planner.SelectOnly([string[]]@("売上", "総務")))
+        @($skipped | ForEach-Object { "$($_.Name):$($_.Reason)" }) | Should -Be @("総務:設定にありません")
+        $planner.Only.Selected.Count | Should -Be 1
+        $planner.Crawl($null, $null)
+        @($planner.Plan | ForEach-Object { $_.インデックス名 }) | Should -Be @("売上")
+        @($planner.Rows | ForEach-Object { $_.相対パス }) | Should -Be @("売上\a.xlsx", "別\z.xlsx")
+    }
+
+    It "取りやめるときは、取り込み対象の行を前回の記録のまま（一覧に無かった行は書かない）にする" {
+        $folders = @([pscustomobject]@{ Path = $source; Name = "売上"; Enabled = $true })
+        $old = newStatusRow "売上\a.xlsx" "2000/01/01 00:00:00" $size ${stateDone}
+        $withPrevious = newPlanner $folders @($old)
+        $withPrevious.Crawl((newCounts @{ "売上\a.xlsx" = 1 }), $null)
+        $keep = @($withPrevious.KeepForCancel())
+        $keep.Count | Should -Be 1
+        [object]::ReferenceEquals($keep[0], $old) | Should -Be $true
+
+        $firstTime = newPlanner $folders
+        $firstTime.Crawl($null, $null)
+        @($firstTime.KeepForCancel()).Count | Should -Be 0
+    }
+
+    It "前回の失敗は、再取り込みを選べば取り込み対象に足し、選ばなければ足さない" -TestCases @(
+        @{ retry = $true; count = 1 }
+        @{ retry = $false; count = 0 }
+    ) {
+        param ($retry, $count)
+        $folders = @([pscustomobject]@{ Path = $source; Name = "売上"; Enabled = $true })
+        $failedRow = newStatusRow "売上\a.xlsx" $updated $size ${stateFailed} "" "" "エラー" "4"
+        $planner = newPlanner $folders @($failedRow)
+        $planner.Crawl((newCounts @{ "売上\a.xlsx" = 1 }), $null)
+        $planner.Failed.Count | Should -Be 1
+        $planner.Targets.Count | Should -Be 0
+        $planner.ApplyFailed($retry)
+        $planner.Targets.Count | Should -Be $count
+    }
+
+    It "強制終了した回数が上限に達していなければ最後に回し、達していれば失敗にして外す" {
+        $planner = [IngestPlanner]::new($kinds, $settingsFile)
+        $first = newStatusRow "売上\1.xlsx"
+        $second = newStatusRow "売上\2.xlsx"
+        $third = newStatusRow "売上\3.xlsx"
+        $planner.Targets.AddRange([object[]]@($first, $second, $third))
+        $planner.ApplyInterrupted(@(@{ RelPath = "売上\1.xlsx"; Count = 1 }, @{ RelPath = "売上\2.xlsx"; Count = 2 }, @{ RelPath = "売上\無い.xlsx"; Count = 1 }), 2)
+
+        @($planner.Targets | ForEach-Object { $_.相対パス }) | Should -Be @("売上\3.xlsx", "売上\1.xlsx")
+        $planner.Carried.Count | Should -Be 1
+        $planner.Carried["売上\1.xlsx"] | Should -Be 1
+        $second.状態 | Should -Be ${stateFailed}
+        $second.エラー | Should -BeLike "*2 回続けて強制終了*"
+    }
+
+    It "インデックス名からクロール対象フォルダを引ける（末尾の \ は外す）" {
+        $planner = newPlanner @([pscustomobject]@{ Path = "C:\共有\営業部\"; Name = "営業"; Enabled = $true })
+        $byName = $planner.FolderByName()
+        $byName["営業"] | Should -Be "C:\共有\営業部"
+        $byName["営業".ToUpper()] | Should -Be "C:\共有\営業部"
+    }
+}
+
 Describe "createTargetList（クラウドにだけあるファイル）" -Tag Io {
     BeforeAll {
         $source = Join-Path $TestDrive "cloud_src"
@@ -327,5 +522,50 @@ Describe "createTargetList（クラウドにだけあるファイル）" -Tag Io
         $result.Targets.Count | Should -Be 0
         $result.Cloud.Count | Should -Be 1
         $result.Cloud[0].PendingOld | Should -Be $true
+    }
+}
+
+Describe "IngestPlanner（クラウドにだけあるファイル）" -Tag Io {
+    BeforeAll {
+        $kinds = @{ Unchecked = ${planKindUnchecked}; Missing = ${planKindMissing}; Dropped = ${planKindDropped}; StateFailed = ${stateFailed} }
+        $source = Join-Path $TestDrive "planner_cloud_src"
+        [System.IO.Directory]::CreateDirectory($source) | Out-Null
+        $file = Join-Path $source "c.xlsx"
+        [System.IO.File]::WriteAllText($file, "dummy-cloud")
+        # クラウドにだけあるファイルは、OFFLINE 属性で代わりに作る（ダウンロードは起きない）
+        [System.IO.File]::SetAttributes($file, [System.IO.FileAttributes]::Offline)
+        $info = Get-Item -LiteralPath $file
+        $updated = formatFileTime $info.LastWriteTime
+        $size = [string]$info.Length
+        ${indexDir} = Join-Path $TestDrive "planner_cloud_index"
+        $workspace = newTestWorkspace @{ IndexDir = ${indexDir} }
+
+        function newCloudPlanner {
+            param ($previousRows)
+            $planner = [IngestPlanner]::new($kinds, (Join-Path $TestDrive "planner_cloud.config"))
+            $planner.AssignNames(@([pscustomobject]@{ Path = $source; Name = "雲"; Enabled = $true }), @{ Folders = @(); Rows = (newPrevious $previousRows) })
+            $planner.Crawl($null, $null)
+            return $planner
+        }
+    }
+
+    AfterAll {
+        [System.IO.File]::SetAttributes($file, [System.IO.FileAttributes]::Normal)
+    }
+
+    It "Crawl が、クラウドにだけあるファイルを Cloud に集め、取り込み対象には入れない" {
+        $planner = newCloudPlanner @()
+        $planner.Cloud.Count | Should -Be 1
+        $planner.Cloud[0].RelPath | Should -Be "雲\c.xlsx"
+        $planner.Targets.Count | Should -Be 0
+    }
+
+    It "取りやめるとき、クラウドにだけあって前回未完了のファイルは、前回の行を残す" {
+        $pendingRow = newStatusRow "雲\c.xlsx" $updated $size ${stateNew}
+        $planner = newCloudPlanner @($pendingRow)
+        $planner.Cloud[0].PendingOld | Should -Be $true
+        $keep = @($planner.KeepForCancel())
+        $keep.Count | Should -Be 1
+        [object]::ReferenceEquals($keep[0], $pendingRow) | Should -Be $true
     }
 }
