@@ -82,6 +82,11 @@ function getIngestDecision {
     return @{ Ingest = $true; Reason = "updated" }
 }
 
+# 利用者が使っている PowerPoint のために取り込めなかったファイルの理由（取り込み一覧の「エラー」列と、更新に失敗したファイルの一覧に出す。
+# 状態は「未取り込み」のまま残すので、閉じてからの次の更新で、再取り込みを選ばなくても取り込む）
+${postponedReasonRunning} = "PowerPoint が起動していたため取り込めませんでした。PowerPoint を閉じてから、もう一度更新してください。"
+${postponedReasonInUse}   = "PowerPoint を使っている方がいたため取り込めませんでした。PowerPoint を保存して閉じてから、もう一度更新してください。"
+
 # 取り込みのレーン（docs/design/indexing/parallel.md）。Office のレーンはアプリごとに 1 つのスレッドで、そのアプリを 1 つ持つ。
 # 読み取りのレーンは Office を使わず、ZIP の中の XML を直接読む（複数のスレッド）
 ${laneExcel}      = "Excel"

@@ -80,6 +80,15 @@ Describe "getIngestDecision" -Tag Unit {
     }
 }
 
+Describe "getIngestDecision（利用者のPowerPointのために取り込めなかった行）" -Tag Unit {
+    It "「未取り込み」でエラー（理由）が書いてある行は、更新が無くても取り込む（pending）。「失敗」と違って、再取り込みを選ばなくてよい" {
+        $row = newStatusRow "報告\a.ppt" "2026/01/01 10:00:00" "1000" $stateNew "" "" ${postponedReasonRunning}
+        $d = getIngestDecision $row "2026/01/01 10:00:00" "1000" $true
+        $d.Ingest | Should -Be $true
+        $d.Reason | Should -Be "pending"
+    }
+}
+
 Describe "getIngestLane・getOfficeLane" -Tag Unit {
     It "Excel はすべて Excel のレーン、旧形式の Word・PowerPoint は Office のレーン、新形式は読み取りのレーン" {
         $expected = @(

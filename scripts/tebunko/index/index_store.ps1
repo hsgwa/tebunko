@@ -31,6 +31,17 @@ function getIndexNameMap {
     return , $map
 }
 
+function testStatusRowFailed {
+    # 取り込み一覧の行を「失敗」として数えるか。状態が「失敗」の行と、「未取り込み」で理由（エラー）が書いてある行
+    # （利用者の PowerPoint のために取り込めなかったファイル。次の更新で取り込むため状態は「未取り込み」のまま）
+    param (
+        $row
+    )
+
+    $state = [string]$row.状態
+    return ($state -eq ${stateFailed}) -or ($state -eq ${stateNew} -and [string]$row.エラー -ne "")
+}
+
 function getIndexStats {
     # 取り込み一覧の行をインデックス名ごとに集計する（画面のインデックス一覧に出す件数・最終更新）:
     #   インデックス名（大文字・小文字を区別しない）→ @{ Total; Done; Pending; Failed; LastIngested（"yyyy/MM/dd HH:mm:ss"。無ければ空） }
@@ -56,10 +67,10 @@ function getIndexStats {
         $state = [string]$entry.Value.状態
         if ($state -eq ${stateDone}) {
             $stat.Done++
+        } elseif (testStatusRowFailed $entry.Value) {
+            $stat.Failed++
         } elseif ($state -eq ${stateNew}) {
             $stat.Pending++
-        } elseif ($state -eq ${stateFailed}) {
-            $stat.Failed++
         }
         # 取り込み日時は "yyyy/MM/dd HH:mm:ss" のため、文字列のまま比べて新しい方を残せる
         $ingested = [string]$entry.Value.取り込み日時
