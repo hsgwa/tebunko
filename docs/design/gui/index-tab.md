@@ -99,7 +99,7 @@ stateDiagram-v2
 
 フォルダが見つからない場合も追加・変更できる（一覧の「フォルダの状態」に `✗ フォルダが見つかりません` と出す）。ネットワークドライブが一時的に切れている場合に登録できなくなるのを避けるため。
 
-### 名前を変えたときの処理（`renameIndex`）
+### 名前を変えたときの処理
 
 ```mermaid
 flowchart TD
@@ -115,7 +115,7 @@ flowchart TD
 3. `setting.config` の `targetFolders[].name` を保存し、各インデックスの元のフォルダの記録（`source_folder.txt`）を書き直す（`updateIndexSourceFile`。裏で書く）
 4. 検索対象のツリーでチェックを外していたフォルダの記録（`searchExcludes`）のうち、旧名・新名の下のものを消す（`removeSearchExcludesUnder`）。付け替えないため、外していたフォルダは検索対象に戻る。消せなくても改名は止めず、画面にエラーも出さない
 
-### 削除したときの処理（`removeIndex`）
+### 削除したときの処理
 
 ```mermaid
 flowchart TD

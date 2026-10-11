@@ -4,7 +4,9 @@
 # 設定を先に読み込む（ワークスペースは設定の workspaceFolder で決まる。paths.ps1 の initWorkspace を
 # 起動口（startGui・invokeIndexerMain）が壊れた設定ファイルの退避の後に呼んで決める）
 . "$PSScriptRoot\core\settings.ps1"
+. "$PSScriptRoot\core\search_excludes.ps1"
 . "$PSScriptRoot\core\workspace.ps1"
+. "$PSScriptRoot\core\workspace_mover.ps1"
 . "$PSScriptRoot\core\parts.ps1"
 . "$PSScriptRoot\core\paths.ps1"
 . "$PSScriptRoot\index\index_name.ps1"
@@ -14,6 +16,7 @@
 . "$PSScriptRoot\index\content_index_store.ps1"
 . "$PSScriptRoot\index\system_index.ps1"
 . "$PSScriptRoot\indexer\indexer_state.ps1"
+. "$PSScriptRoot\index\index_catalog.ps1"
 . "$PSScriptRoot\indexer\indexer_decide.ps1"
 . "$PSScriptRoot\indexer\indexing_session.ps1"
 . "$PSScriptRoot\search\search_query.ps1"

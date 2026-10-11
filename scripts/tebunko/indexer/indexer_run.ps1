@@ -445,7 +445,8 @@ function invokeIndexerBody {
     $status = $ledger.ReadStatus()
     $planner = [IngestPlanner]::new(@{
         Unchecked = ${planKindUnchecked}; Missing = ${planKindMissing}; Dropped = ${planKindDropped}; StateFailed = ${stateFailed}
-    }, ${settingsFile})
+    })
+    $catalog = [IndexCatalog]::new($workspace, ${settingsFile}, $ledger)
     $planner.AssignNames($targetFolders, $status)
     $folders = $planner.Folders
     $previous = $planner.Previous
@@ -463,7 +464,7 @@ function invokeIndexerBody {
     }
 
     # 新しく割り当てたインデックス名を設定に保存する
-    $planner.SaveNames($targetFolders)
+    $planner.SaveNames($targetFolders, { param($assigned) $catalog.StoreAssignedNames($assigned) }.GetNewClosure())
     $folders = $planner.Folders
 
     writeIndexerLog "出力先フォルダ: $($workspace.IndexDir)"

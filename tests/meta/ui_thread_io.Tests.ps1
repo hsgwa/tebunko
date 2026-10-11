@@ -86,17 +86,15 @@ BeforeAll {
         @{ File = "settings.ps1"; Function = "getFolderEntrySample"; Call = "[System.IO.Directory]"; Reason = "選んだ直後のフォルダ（［変更…］・［既定に戻す］で選んだ場所）の中身を数える" }
         @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = "Test-Path"; Count = 2; Reason = "選んだ直後のフォルダ（［変更…］・［既定に戻す］で選んだ場所）" }
         @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = "[System.IO.Directory]"; Reason = "選んだ直後のフォルダ（［変更…］・［既定に戻す］で選んだ場所）の下に作る" }
-        @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = "getWorkspaceEntries"; Reason = "選んだ直後のフォルダ（［変更…］・［既定に戻す］で選んだ場所）の中身" }
+        @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = ".ListEntries()"; Reason = "選んだ直後のフォルダ（［変更…］・［既定に戻す］で選んだ場所）の中身" }
         @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = "testWritableFolder"; Count = 2; Reason = "選んだ直後のフォルダ（［変更…］・［既定に戻す］で選んだ場所）に書き込めるか" }
-        @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = "useWorkspaceTargets"; Reason = "選んだ直後のフォルダ（［変更…］・［既定に戻す］で選んだ場所）にあるインデックスの一覧を読む" }
-        @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = "removeWorkspaceEntries"; Reason = "選んだ直後のフォルダ（［変更…］・［既定に戻す］で選んだ場所）のインデックスを消して最初からやり直す（利用者が選んだときだけ）" }
-        @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = "moveWorkspace"; Reason = "前のワークスペースの中身を移す（移す量だけかかる。裏に移すのは別の改善。利用者が変えたときだけ）" }
+        @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = ".ChangeWorkspace()"; Reason = "選んだ直後のフォルダ（［変更…］・［既定に戻す］で選んだ場所）にあるインデックスの一覧を読む・消して最初からやり直す（利用者が選んだときだけ）・前のワークスペースの中身を移す（移す量だけかかる。裏に移すのは別の改善。利用者が変えたときだけ）" }
 
         # ---- tebunko/ui/index/ ----
         @{ File = "index_detail.ps1"; Function = "openFailedFileFolder"; Call = "getPathState"; Count = 2; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
         @{ File = "index_detail.ps1"; Function = "applyFailedFileState"; Call = "Start-Process"; Count = 2; Reason = "エクスプローラーで開く（プロセスの起動は待たない）" }
         @{ File = "index_list.ps1"; Function = "openIndexSourceFolder"; Call = "getPathState"; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
-        @{ File = "index_list.ps1"; Function = "loadTargets"; Call = "readStatusFile"; Reason = "ワークスペースの場所がローカルのときに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で名前を決める）" }
+        @{ File = "index_list.ps1"; Function = "loadTargets"; Call = ".AssignAndSaveNames()"; Reason = "ワークスペースの場所がローカルのときに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で名前を決める）" }
         @{ File = "index_tree.ps1"; Function = "loadIndexTree"; Call = "getIndexTreeData"; Reason = "ワークスペースの場所がローカルのときに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で集める）" }
         @{ File = "index_tree.ps1"; Function = "expandIndexNode"; Call = "getIndexFolderChildren"; Reason = "ワークスペースの場所がローカルのときに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で読む）" }
         @{ File = "index_list.ps1"; Function = "applyIndexSourceFolderState"; Call = "Start-Process"; Reason = "エクスプローラーで開く（プロセスの起動は待たない）" }
@@ -540,8 +538,8 @@ Describe "画面のスレッドのファイル・フォルダ操作" -Tag Meta {
         @{ Name = "getSearchIndexes"; Kind = "Functions" }
         @{ Name = "getSourceFolderMap"; Kind = "Functions" }
         @{ Name = "getSourceLocation"; Kind = "Functions" }
-        @{ Name = "renameIndex"; Kind = "Functions" }
-        @{ Name = "removeIndex"; Kind = "Functions" }
+        @{ Name = "RenameIndex"; Kind = "Methods" }
+        @{ Name = "RemoveIndex"; Kind = "Methods" }
         @{ Name = "readStatusFile"; Kind = "Functions" }
         @{ Name = "getIndexingState"; Kind = "Functions" }
         @{ Name = "getLegacyIndexState"; Kind = "Functions" }
@@ -570,7 +568,7 @@ Describe "画面のスレッドのファイル・フォルダ操作" -Tag Meta {
             $sample = @'
 function sample {
     renameIndex "a" "b"
-    $catalog.Rename("a")
+    $catalog.RenameIndex("a")
     $list.Add(1)
     [System.IO.File]::Exists($p)
     New-Object System.IO.StreamWriter($p)
@@ -580,11 +578,11 @@ function sample {
 '@
             $ast = [System.Management.Automation.Language.Parser]::ParseInput($sample, [ref]$null, [ref]$null)
             $functions = newNameSet @("renameIndex")
-            $methods = newNameSet @("Rename")
+            $methods = newNameSet @("RenameIndex")
 
             $found = @(findIoNodes $ast (getStartJobExcludedRanges $ast) $functions $methods | ForEach-Object { $_.Call })
 
-            $found | Should -Be @("renameIndex", "New-Object", "Test-Path", ".Rename()", "[System.IO.File]")
+            $found | Should -Be @("renameIndex", "New-Object", "Test-Path", ".RenameIndex()", "[System.IO.File]")
         }
 
         It "System.IO の型（コンストラクター・短い名前・圧縮・ドライブ）と、取り出した関数も見つけ、ファイルに触らない型は見つけない" {

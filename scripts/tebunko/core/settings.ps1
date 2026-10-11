@@ -399,68 +399,6 @@ function setIndexSourceFolder {
     }
 }
 
-function readSearchExcludes {
-    # 画面の検索対象ツリーでチェックを外したフォルダを @{ Path; Subfolders } の配列で返す（設定が無ければ空 = すべて検索する）。
-    #   Subfolders: $true はフォルダ以下すべて、$false はフォルダ直下のファイルだけを外す
-    param (
-        [string]$path = ${settingsFile}
-    )
-
-    $result = New-Object System.Collections.Generic.List[object]
-    foreach ($item in @((readSettings $path).searchExcludes)) {
-        $folder = ([string]$item.path).Trim().TrimEnd("\")
-        if ($folder -eq "") {
-            continue
-        }
-        $subfolders = if ($null -eq $item.subfolders) { $true } else { toSettingBool $item.subfolders $true }
-        $result.Add([pscustomobject]@{ Path = $folder; Subfolders = $subfolders })
-    }
-    return $result.ToArray()
-}
-
-function writeSearchExcludes {
-    # 検索対象ツリーでチェックを外したフォルダ（@{ Path; Subfolders } の配列）を保存する
-    param (
-        [object[]]$excludes,
-        [string]$path = ${settingsFile}
-    )
-
-    updateSettings "searchExcludes" ([object[]]@($excludes | Where-Object { $_ -and $_.Path } | ForEach-Object {
-        [ordered]@{ path = [string]$_.Path; subfolders = [bool]$_.Subfolders }
-    })) $path
-}
-
-
-function removeSearchExcludesUnder {
-    # 検索対象ツリーでチェックを外した記録のうち、folder（インデックスのフォルダ）とその下のものを消す。
-    # 大文字・小文字は区別せず、folder と "<folder>\" で始まるものだけを対象にする（Sales を消しても Sales2 は残す）。
-    # 記録は利便性のための一時的な情報のため、消せなくても例外にしない（インデックスの改名・削除は止めない）。
-    # 消す記録が無ければ設定ファイルは書き換えない
-    param (
-        [string]$folder,
-        [string]$path = ${settingsFile}
-    )
-
-    $folder = ([string]$folder).Trim().TrimEnd("\")
-    if ($folder -eq "") {
-        return
-    }
-
-    try {
-        invokeSettingsLocked -path $path -action {
-            $excludes = @(readSearchExcludes $path)
-            $kept = @($excludes | Where-Object {
-                -not ($_.Path -ieq $folder -or $_.Path.StartsWith($folder + "\", [System.StringComparison]::OrdinalIgnoreCase))
-            })
-            if ($kept.Count -lt $excludes.Count) {
-                writeSearchExcludes $kept $path
-            }
-        } | Out-Null
-    } catch {
-    }
-}
-
-
 ${searchOptionKeys} = [ordered]@{
     UseRegex = "useRegex"; CaseSensitive = "caseSensitive"
     IncludeShapes = "includeShapes"; IncludeComments = "includeComments"
