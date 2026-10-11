@@ -124,8 +124,9 @@ class IndexingSession {
         foreach ($id in @($this.Channel.OfficePids.Keys)) {
             try {
                 $process = [System.Diagnostics.Process]::GetProcessById($id)
-                # 終了済みで ID が別のプロセスに使われている場合に備え、記録したプロセス名と同じか確かめる
-                if ($process.ProcessName -eq $this.Channel.OfficePids[$id]) {
+                # 終了済みで ID が別のプロセスに使われている場合に備え、記録したプロセス名と起動時刻が同じか確かめる
+                $entry = $this.Channel.OfficePids[$id]
+                if (isSameOfficeProcess $process $entry.ProcessName $entry.StartTicks) {
                     $process.Kill()
                     $count++
                 }

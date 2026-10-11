@@ -65,10 +65,13 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
             return $script:processSequence.Dequeue()
         } -ParameterFilter { $Name }
 
-        # 終了待ち（5 秒）で終わらなかったプロセス
+        # 終了待ち（5 秒）で終わらなかったプロセス。起動時刻は $script:startNow（$null なら読めない）
         Mock Get-Process {
             $names = @{ 200 = "EXCEL"; 300 = "WINWORD"; 400 = "POWERPNT" }
-            $process = [pscustomobject]@{ Id = $Id[0]; ProcessName = $names[[int]$Id[0]] }
+            $process = [pscustomobject]@{ Id = $Id[0]; ProcessName = $names[[int]$Id[0]]; StartTime = $script:startNow; Handle = [IntPtr]1 }
+            if ($null -eq $script:startNow) {
+                $process | Add-Member -MemberType ScriptProperty -Name StartTime -Value { throw "アクセスが拒否されました" } -Force
+            }
             $process | Add-Member -MemberType ScriptMethod -Name WaitForExit -Value { [void]$log.Add("WaitForExit:$($args[0])"); return $false }
             $process | Add-Member -MemberType ScriptMethod -Name Kill -Value { [void]$log.Add("Kill:$($this.Id)") }
             return $process
@@ -77,6 +80,7 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
 
     BeforeEach {
         # 前のテストで起動したことになっているアプリを片付ける
+        $script:startNow = [datetime]"2030-01-01T00:00:00Z"
         foreach ($name in @("Excel", "Word", "PowerPoint")) { stopApp $name }
         $log.Clear()
     }
@@ -110,10 +114,11 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
         $fake = newFakeApp -appName "Word"
         Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Word.Application" }
         setProcesses @(100) @(100, 300)
-        $script:officePidSink = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'
+        $script:officePidSink = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'
         try {
             [void](getApp "Word")
-            $script:officePidSink[300] | Should -Be "WINWORD"
+            $script:officePidSink[300].ProcessName | Should -Be "WINWORD"
+            $script:officePidSink[300].StartTicks | Should -Be ([datetime]"2030-01-01T00:00:00Z").ToUniversalTime().Ticks
             stopApp "Word"
             $script:officePidSink.Count | Should -Be 0
         } finally {
@@ -122,20 +127,71 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
     }
 
     It "自分で起動したアプリは、制限時間を過ぎたら強制終了してよいプロセスに入れる" -TestCases @(
-        @{ Name = "Word"; Prog = "Word.Application"; SingleInstance = $false }
-        @{ Name = "PowerPoint"; Prog = "PowerPoint.Application"; SingleInstance = $true }
+        @{ Name = "Word"; Prog = "Word.Application"; SingleInstance = $false; Id = 300 }
+        @{ Name = "PowerPoint"; Prog = "PowerPoint.Application"; SingleInstance = $true; Id = 400 }
     ) {
-        param ($Name, $Prog, $SingleInstance)
+        param ($Name, $Prog, $SingleInstance, $Id)
         $fake = newFakeApp -appName $Name
         Mock New-Object { $fake } -ParameterFilter { $ComObject -eq $Prog }
         if ($SingleInstance) {
-            setSingleInstanceProcesses @() @(300)
+            setSingleInstanceProcesses @() @($Id)
         } else {
-            setProcesses @(100) @(100, 300)
+            setProcesses @(100) @(100, $Id)
         }
 
         [void](getApp $Name)
-        $script:officeWatchdog.State.Pids | Should -Be @(300)
+        $entries = @($script:officeWatchdog.State.Pids)
+        $entries.Count | Should -Be 1
+        $entries[0].Id | Should -Be $Id
+        $entries[0].ProcessName | Should -Be $appInfo[$Name].Process
+        $entries[0].StartTicks | Should -Be ([datetime]"2030-01-01T00:00:00Z").ToUniversalTime().Ticks
+        $script:apps[$Name].StartTicks | Should -Be $entries[0].StartTicks
+    }
+
+    It "起動時刻が読めなければ、StartTicks は `$null（入れ物と見張りには入るが、照合で止めない対象になる）" {
+        $fake = newFakeApp -appName "Word"
+        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Word.Application" }
+        setProcesses @(100) @(100, 300)
+        $script:startNow = $null
+        $script:officePidSink = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'
+        try {
+            [void](getApp "Word")
+            $script:officePidSink[300].StartTicks | Should -BeNullOrEmpty
+            @($script:officeWatchdog.State.Pids)[0].StartTicks | Should -BeNullOrEmpty
+        } finally {
+            $script:officePidSink = $null
+        }
+    }
+
+    It "stopApp: 起動時刻が違う（控えたプロセスはもう無く、PID が別のプロセスに使われた）なら、待たず・止めず、見張りと入れ物から外す" {
+        $fake = newFakeApp
+        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Excel.Application" }
+        setProcesses @(100) @(100, 200)
+        $script:officePidSink = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'
+        try {
+            [void](getApp "Excel")
+            $script:startNow = [datetime]"2031-01-01T00:00:00Z"
+
+            stopApp "Excel"
+
+            $log -join "|" | Should -Be "Quit"
+            @($script:officeWatchdog.State.Pids).Count | Should -Be 0
+            $script:officePidSink.ContainsKey(200) | Should -Be $false
+        } finally {
+            $script:officePidSink = $null
+        }
+    }
+
+    It "stopApp: 起動時刻が読めなければ、待たず・止めない" {
+        $fake = newFakeApp
+        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Excel.Application" }
+        setProcesses @(100) @(100, 200)
+        [void](getApp "Excel")
+        $script:startNow = $null
+
+        stopApp "Excel"
+
+        $log -join "|" | Should -Be "Quit"
     }
 
     It "PowerPoint はウィンドウを隠さず（Visible を変えない）、警告なし・マクロ無効で起動する" {
@@ -226,7 +282,7 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
 
         $script:apps["Word"].Pid | Should -Be 0
         $script:apps["Word"].Shared | Should -Be $true
-        @($script:officeWatchdog.State.Pids) | Should -Not -Contain 999
+        @($script:officeWatchdog.State.Pids | ForEach-Object { $_.Id }) | Should -Not -Contain 999
     }
 
     It "PowerPoint は自分のセッションに既に起動していれば、New-Object を呼ばずに例外を投げる（利用者が開いている・強制終了で終わらずに残った場合を含む）" {
@@ -328,36 +384,23 @@ Describe "OfficeWatchdog（実際のプロセスを止める）" -Tag Io {
         }
     }
 
-    It "制限時間を過ぎたら TimedOut を立て、制限時刻を戻す。名前が合わないプロセスは終了させない" {
+    It "制限時間を過ぎたら TimedOut を立て、制限時刻を戻す。<title>" -TestCases @(
+        @{ title = "見張る名前に合わないプロセスは終了させない"; names = "NoSuchOfficeApp"; shift = 0; killed = $false }
+        @{ title = "控えた起動時刻と違うプロセス（PID が使い回された）は終了させない"; names = ""; shift = -10000000; killed = $false }
+        @{ title = "見張る名前に合い、起動時刻も合うプロセスだけ終了させる"; names = ""; shift = 0; killed = $true }
+    ) {
+        param ($title, $names, $shift, $killed)
         $child = startHarmlessChild
         $watchdog = $null
         try {
-            $watchdog = [OfficeWatchdog]::new([string[]]@("NoSuchOfficeApp"))
-            $watchdog.State.Pids = @($child.Id)
+            $watchdog = [OfficeWatchdog]::new([string[]]@($(if ($names) { $names } else { $child.ProcessName })))
+            $watchdog.State.Pids = @(@{ Id = $child.Id; ProcessName = $child.ProcessName; StartTicks = ((getOfficeStartTicks $child) + $shift) })
             $watchdog.Start()
             $watchdog.State.Deadline = [datetime]::Now.AddSeconds(-1)
             waitTimedOut $watchdog
             $watchdog.State.TimedOut | Should -Be $true
             $watchdog.State.Deadline | Should -Be ([datetime]::MaxValue)
-            # 見張りが動いた後、少し待っても終わらない
-            $child.WaitForExit(1500) | Should -Be $false
-        } finally {
-            if ($watchdog) { $watchdog.Stop() }
-            if (-not $child.HasExited) { $child.Kill() }
-        }
-    }
-
-    It "制限時間を過ぎたら、見張る名前に合うプロセスだけ終了させる" {
-        $child = startHarmlessChild
-        $watchdog = $null
-        try {
-            $watchdog = [OfficeWatchdog]::new([string[]]@($child.ProcessName))
-            $watchdog.State.Pids = @($child.Id)
-            $watchdog.Start()
-            $watchdog.State.Deadline = [datetime]::Now.AddSeconds(-1)
-            waitTimedOut $watchdog
-            $watchdog.State.TimedOut | Should -Be $true
-            $child.WaitForExit(10000) | Should -Be $true
+            $child.WaitForExit($(if ($killed) { 10000 } else { 1500 })) | Should -Be $killed
         } finally {
             if ($watchdog) { $watchdog.Stop() }
             if (-not $child.HasExited) { $child.Kill() }
@@ -413,7 +456,7 @@ Describe "起動した Office の PID の記録（getApp・stopApp）" -Tag Io {
         Mock Get-Process { $script:byId[[int]$Id[0]] } -ParameterFilter { $Id }
 
         function newRecordProcess([int]$id, [string]$name, $start) {
-            $p = [pscustomobject]@{ Id = $id; ProcessName = $name; StartTime = $start }
+            $p = [pscustomobject]@{ Id = $id; ProcessName = $name; StartTime = $start; Handle = [IntPtr]1 }
             $p | Add-Member -MemberType ScriptMethod -Name WaitForExit -Value { return $script:waitResult }
             $p | Add-Member -MemberType ScriptMethod -Name Kill -Value {}
             return $p
@@ -489,6 +532,34 @@ Describe "起動した Office の PID の記録（getApp・stopApp）" -Tag Io {
         $script:waitResult = $false
 
         stopApp "Excel"
+        Test-Path "$dir\200.txt" | Should -Be $true
+    }
+
+    It "起動時刻が違うプロセスなら（控えたものは終わっている）、待たず・止めずに記録を消す" {
+        $fake = newFakeApp
+        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Excel.Application" }
+        $script:byId[200] = newRecordProcess 200 "EXCEL" ([datetime]"2030-01-01T00:00:00Z")
+        setProcesses @(100) @(100, 200)
+        [void](getApp "Excel")
+        $script:byId[200] = newRecordProcess 200 "EXCEL" ([datetime]"2031-01-01T00:00:00Z")
+        $script:byId[200] | Add-Member -MemberType ScriptMethod -Name Kill -Value { [void]$log.Add("Kill") } -Force
+
+        stopApp "Excel"
+        @($log) | Should -Be @("Quit")
+        Test-Path "$dir\200.txt" | Should -Be $false
+    }
+
+    It "起動時刻が読めなければ、止めずに記録を残す" {
+        $fake = newFakeApp
+        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Excel.Application" }
+        $script:byId[200] = newRecordProcess 200 "EXCEL" ([datetime]"2030-01-01T00:00:00Z")
+        setProcesses @(100) @(100, 200)
+        [void](getApp "Excel")
+        $script:byId[200] | Add-Member -MemberType ScriptProperty -Name StartTime -Value { throw "アクセスが拒否されました" } -Force
+        $script:byId[200] | Add-Member -MemberType ScriptMethod -Name Kill -Value { [void]$log.Add("Kill") } -Force
+
+        stopApp "Excel"
+        @($log) | Should -Be @("Quit")
         Test-Path "$dir\200.txt" | Should -Be $true
     }
 
@@ -731,9 +802,9 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         $com = newHandOverApp @((newBook "C:\docs\x\山田.xlsx"))
         $script:apps["Excel"] = @{ Com = $com; Pid = 4242; Shared = $false }
         $script:officeWatchdog.UpdateWatchedPids($script:apps)
-        $script:officeWatchdog.State.Pids | Should -Contain 4242
-        $script:officePidSink = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'
-        $script:officePidSink[4242] = "EXCEL"
+        @($script:officeWatchdog.State.Pids | ForEach-Object { $_.Id }) | Should -Contain 4242
+        $script:officePidSink = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'
+        $script:officePidSink[4242] = @{ ProcessName = "EXCEL"; StartTicks = 1 }
         $script:officeRecordDir = Join-Path $TestDrive "hand_over_records"
         [System.IO.Directory]::CreateDirectory($script:officeRecordDir) | Out-Null
         [System.IO.File]::WriteAllText("$($script:officeRecordDir)\4242.txt", "EXCEL`t1`t1")
@@ -742,7 +813,7 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         handOverApp "Excel"
 
         $script:apps.ContainsKey("Excel") | Should -Be $false
-        @($script:officeWatchdog.State.Pids) | Should -Not -Contain 4242
+        @($script:officeWatchdog.State.Pids | ForEach-Object { $_.Id }) | Should -Not -Contain 4242
         $script:officePidSink.ContainsKey(4242) | Should -Be $false
         Test-Path "$($script:officeRecordDir)\4242.txt" | Should -Be $false
         $com.Visible | Should -Be $true
@@ -791,7 +862,7 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
 
         @($log) | Should -Be @("通知:Excel:False")
         $script:apps.ContainsKey("Excel") | Should -Be $false
-        @($script:officeWatchdog.State.Pids) | Should -Not -Contain 4242
+        @($script:officeWatchdog.State.Pids | ForEach-Object { $_.Id }) | Should -Not -Contain 4242
         @($script:officeKeptApps).Count | Should -Be 1
         [object]::ReferenceEquals($script:officeKeptApps[0].Com, $com) | Should -Be $true
         Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $com) } -Times 0 -Exactly -Scope It
@@ -821,14 +892,14 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
             $com | Add-Member -MemberType ScriptProperty -Name $property -Value { 0 } -SecondValue { throw "設定できません" }
         }
         $script:apps["Excel"] = @{ Com = $com; Pid = 4242; Shared = $false }
-        $script:officePidSink = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'
-        $script:officePidSink[4242] = "EXCEL"
+        $script:officePidSink = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'
+        $script:officePidSink[4242] = @{ ProcessName = "EXCEL"; StartTicks = 1 }
         $script:officeWatchdog.UpdateWatchedPids($script:apps)
 
         { handOverApp "Excel" } | Should -Not -Throw
 
         $script:apps.ContainsKey("Excel") | Should -Be $false
-        @($script:officeWatchdog.State.Pids) | Should -Not -Contain 4242
+        @($script:officeWatchdog.State.Pids | ForEach-Object { $_.Id }) | Should -Not -Contain 4242
         $script:officePidSink.ContainsKey(4242) | Should -Be $false
     }
 
@@ -897,19 +968,28 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         @{ title = "Word の待ち時間は 5 秒"; app = "Word"; processName = "WINWORD"; waits = @($false, $true); expectedLog = @("Quit", "Wait:5000", "Kill:4242", "Wait:5000"); expected = $true }
         @{ title = "待ち時間のうちに終われば強制終了しない"; app = "Excel"; processName = "EXCEL"; waits = @($true); expectedLog = @("Quit", "Wait:1000"); expected = $true }
         @{ title = "PID が別の名前のプロセスに再利用されていれば、待たず強制終了もしない"; app = "Excel"; processName = "notepad"; waits = @(); expectedLog = @("Quit"); expected = $true }
+        @{ title = "起動時刻が違えば（控えたプロセスはもう無い）、待たず強制終了もしない（終わったものとして `$true）"; app = "Excel"; processName = "EXCEL"; start = "other"; waits = @(); expectedLog = @("Quit"); expected = $true }
+        @{ title = "今の起動時刻が読めなければ、待たず強制終了もしない（`$false）"; app = "Excel"; processName = "EXCEL"; start = "unreadable"; waits = @(); expectedLog = @("Quit"); expected = $false }
+        @{ title = "控えた起動時刻が無ければ、待たず強制終了もしない（`$false）"; app = "Excel"; processName = "EXCEL"; start = "noticks"; waits = @(); expectedLog = @("Quit"); expected = $false }
+        @{ title = "照合が合わなくても、Quit の直後に自分で終わっていれば `$true（待たず強制終了もしない）"; app = "Excel"; processName = "EXCEL"; start = "unreadable"; exited = $true; waits = @(); expectedLog = @("Quit"); expected = $true }
     ) {
-        param ($title, $app, $processName, $waits, $expectedLog, $expected)
+        param ($title, $app, $processName, $waits, $expectedLog, $expected, $start = "same", $exited = $false)
         # 偽のプロセスだけを使う（本物のプロセスは止めない）
         $script:waitResults = New-Object System.Collections.Queue
         foreach ($result in $waits) { $script:waitResults.Enqueue($result) }
-        $process = [pscustomobject]@{ Id = 4242; ProcessName = $processName }
+        $began = [datetime]"2030-01-01T00:00:00Z"
+        $process = [pscustomobject]@{ Id = 4242; ProcessName = $processName; Handle = [IntPtr]1; HasExited = $exited; StartTime = $(if ($start -eq "other") { $began.AddSeconds(1) } else { $began }) }
+        if ($start -eq "unreadable") {
+            $process | Add-Member -MemberType ScriptProperty -Name StartTime -Value { throw "アクセスが拒否されました" } -Force
+        }
         $process | Add-Member -MemberType ScriptMethod -Name WaitForExit -Value { [void]$log.Add("Wait:$($args[0])"); return $script:waitResults.Dequeue() }
         $process | Add-Member -MemberType ScriptMethod -Name Kill -Value { [void]$log.Add("Kill:$($this.Id)") }
         Mock Get-Process { $process } -ParameterFilter { $Id -eq 4242 }
         Mock releaseComObject {}
         $com = newHandOverApp @() $app
 
-        (quitApp $app $com 4242) | Should -Be $expected
+        $ticks = $(if ($start -eq "noticks") { $null } else { $began.ToUniversalTime().Ticks })
+        (quitApp $app $com 4242 $ticks) | Should -Be $expected
 
         @($log) | Should -Be $expectedLog
     }
@@ -944,7 +1024,7 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         # 自分のファイルだけを保存せずに閉じる。Quit も強制終了もしない
         @($log) | Should -Be @($closed)
         $script:apps.ContainsKey($app) | Should -Be $false
-        @($script:officeWatchdog.State.Pids) | Should -Not -Contain 4242
+        @($script:officeWatchdog.State.Pids | ForEach-Object { $_.Id }) | Should -Not -Contain 4242
         Should -Invoke Stop-Process -Times 0 -Exactly -Scope It
         # 警告の設定と窓（PowerPoint の窓は触らない）とマクロの設定が、表どおりに戻る
         $com.DisplayAlerts | Should -Be $alerts

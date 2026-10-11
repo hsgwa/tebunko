@@ -94,19 +94,24 @@ $Channel.ExitCode = 2
         $session.Wait(0) | Should -Be $true
     }
 
-    It "KillOffice は、記録した PID のうちプロセス名が同じものだけを止める" {
+    It "KillOffice は、記録した PID のうちプロセス名と起動時刻が同じものだけを止め、数える" {
         $session = newFakeIndexingSession '$Channel.ExitCode = 0' (newIndexerChannel)
         # Office の代わりに、このテストが起動したプロセスを使う
         $target = Start-Process -FilePath "ping.exe" -ArgumentList "-n 30 127.0.0.1" -WindowStyle Hidden -PassThru
         $other = Start-Process -FilePath "ping.exe" -ArgumentList "-n 30 127.0.0.1" -WindowStyle Hidden -PassThru
+        $reused = Start-Process -FilePath "ping.exe" -ArgumentList "-n 30 127.0.0.1" -WindowStyle Hidden -PassThru
         try {
-            $session.Channel.OfficePids[$target.Id] = $target.ProcessName
-            $session.Channel.OfficePids[$other.Id] = "EXCEL"   # 名前が違う（ID が別のプロセスに使われた）ものは止めない
+            $session.Channel.OfficePids[$target.Id] = @{ ProcessName = $target.ProcessName; StartTicks = (getOfficeStartTicks $target) }
+            # 名前が違う（ID が別のプロセスに使われた）ものは止めない
+            $session.Channel.OfficePids[$other.Id] = @{ ProcessName = "EXCEL"; StartTicks = (getOfficeStartTicks $other) }
+            # 名前が同じでも、起動時刻が違う（控えたプロセスはもう無い）ものは止めない
+            $session.Channel.OfficePids[$reused.Id] = @{ ProcessName = $reused.ProcessName; StartTicks = ((getOfficeStartTicks $reused) - 10000000) }
             $session.KillOffice() | Should -Be 1
             $target.WaitForExit(10000) | Should -Be $true
             $other.HasExited | Should -Be $false
+            $reused.HasExited | Should -Be $false
         } finally {
-            foreach ($process in @($target, $other)) {
+            foreach ($process in @($target, $other, $reused)) {
                 if (!$process.HasExited) { $process.Kill() }
             }
             $session.Close()
