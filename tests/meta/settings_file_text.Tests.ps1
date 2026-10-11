@@ -19,6 +19,12 @@ Describe "設定ファイルの場所の欄" -Tag Meta {
         $script:style | Should -Not -BeNullOrEmpty
     }
 
+    It "欄そのものには、高さと枠の太さを書かない（書くと専用の Style の指定を上書きする）" {
+        $script:box.HasAttribute("Height") | Should -BeFalse
+        $script:box.HasAttribute("BorderThickness") | Should -BeFalse
+        $script:box.SelectNodes("*[contains(local-name(), 'TextBox.')]") | Where-Object { $_.LocalName -in @("TextBox.Height", "TextBox.BorderThickness") } | Should -BeNullOrEmpty
+    }
+
     It "その Style は、枠の太さが 0 で、高さを決めず、見た目の中に枠（Border）を持たない" {
         $setter = { param ($name) $script:style.SelectSingleNode("*[local-name()='Setter'][@Property='$name']") }
         (& $setter "BorderThickness").GetAttribute("Value") | Should -Be "0"

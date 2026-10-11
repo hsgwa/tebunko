@@ -628,11 +628,13 @@ Describe "finishResults" -Tag Unit {
         [void](addHit "議事録.docx" "ページ001" "見積 佐藤" 1)
         flushResults
         [void](addHit "見積.xlsx" "4月" "`t見積 佐藤" 2)
+        $script:paneHeightCalls = @()
 
         finishResults
 
         $script:needsRebuild | Should -Be $false
         (getItemNames) -join "," | Should -Be "#見積.xlsx,#議事録.docx"
+        $script:paneHeightCalls | Should -Be @(2) -Because "作り直したあとに、1 回だけ決め直す"
     }
 
     It "どちらでもなければ表はそのまま" {

@@ -44,6 +44,7 @@ function selectCommitTests([string[]]$files, [string]$root) {
         if ($file -match '(?i)^scripts/.+\.xaml$') {
             & $add "tests/meta/structure.Tests.ps1"
             & $add "tests/meta/table_border.Tests.ps1"
+            & $add "tests/meta/settings_file_text.Tests.ps1"
             continue
         }
         if ($file -match '(?i)^scripts/(.+)\.ps1$') {
