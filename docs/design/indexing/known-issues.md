@@ -72,4 +72,4 @@ flowchart LR
 |---|---|---|
 | 1 | 旧形式（`.ppt`）の取り込みには PowerPoint が必要（インストールされていない場合は取り込み一覧に「失敗」と記録される）。パスワード付き（新形式）は、[暗号化されたファイルの判定](office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1)でPowerPointを起動せずに判定するため、PowerPoint が無くても同じ文言で失敗と記録される | ○ |
 | 2 | スライドマスター・レイアウトのテキスト、グラフの項目名（データは埋め込みのブックにあり、セルとしては取り込まないため検索できない）・数値は検索対象にならない。コメント・SmartArt・グラフのタイトル・軸ラベル・系列名は `[コメント]` `[図形]` の場所で検索できる | ○ |
-| 3 | PowerPoint を利用者が使用中の場合、旧形式（`.ppt`）・パスワード付きのファイルは接続せず、取り込まずに後回し（未取り込みのまま次回のインデックス作成で取り込む）にする（利用者の PowerPoint には触らない。[Office アプリ（Excel・Word・PowerPoint）の管理](office-apps.md#office-アプリexcelwordpowerpointの管理)「PowerPoint」） | ◎ |
+| 3 | PowerPoint を利用者が使用中の場合、旧形式（`.ppt`）・パスワード付きのファイルは接続せず、取り込まず、理由付きの失敗として見せる（一覧の状態は未取り込みのままなので、次回のインデックス作成で、失敗分の再取り込みを選ばなくても取り込む）（利用者の PowerPoint には触らない。[Office アプリ（Excel・Word・PowerPoint）の管理](office-apps.md#office-アプリexcelwordpowerpointの管理)「PowerPoint」） | ◎ |
