@@ -19,7 +19,7 @@ function getDotSourceTargets {
     $dir = Split-Path $path -Parent
     $text = [System.IO.File]::ReadAllText($path)
     $result = @()
-    foreach ($match in [regex]::Matches($text, '(?m)^\s*\.\s+"\$(PSScriptRoot|TebunkoDir)\\([^"]+)"')) {
+    foreach ($match in [regex]::Matches($text, '(?m)^\s*\.\s+(?:\(\[WildcardPattern\]::Escape\()?"\$(PSScriptRoot|TebunkoDir)\\([^"]+)"')) {
         $base = if ($match.Groups[1].Value -eq "TebunkoDir") { $tebunkoDir } else { $dir }
         if (-not $base) { continue }
         $result += [System.IO.Path]::GetFullPath((Join-Path $base $match.Groups[2].Value))

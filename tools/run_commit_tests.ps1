@@ -25,7 +25,7 @@ param (
 
 $ErrorActionPreference = "Stop"
 
-$rootDir = (Resolve-Path "$PSScriptRoot\..").Path
+$rootDir = [System.IO.Path]::GetFullPath("$PSScriptRoot\..")
 
 # 変更したファイルから流すテストを選ぶ。All が $true なら速いテストを全部流す。Paths は tests/ からの相対パス
 function selectCommitTests([string[]]$files, [string]$root) {

@@ -22,7 +22,7 @@ param (
 
 $ErrorActionPreference = "Stop"
 
-. (Join-Path $PSScriptRoot "commit_message_rules.ps1")
+. ([WildcardPattern]::Escape((Join-Path $PSScriptRoot "commit_message_rules.ps1").Replace('`', '``')))
 
 ${compatRoot} = "tests/testdata/compat/"
 

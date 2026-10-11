@@ -77,7 +77,7 @@ Describe "new_single_script.ps1 の道具の検査" -Tag Io {
     }
 
     It "読み込み口の dot-source 行（`$PSScriptRoot・`$TebunkoDir）が残っていない" {
-        ($text -match '(?m)^[ \t]*\.\s+"\$(PSScriptRoot|TebunkoDir)\\[^"]+"[ \t]*$') | Should -Be $false
+        ($text -match '(?m)^[ \t]*\.\s+(?:\(\[WildcardPattern\]::Escape\()?"\$(PSScriptRoot|TebunkoDir)\\[^"]+"(?:\.Replace\([^)]*\)\)\))?[ \t]*$') | Should -Be $false
     }
 
     It "起動口（gui.ps1・indexer.ps1）の param の名前が、結合した頭の param にすべてある" {

@@ -1,6 +1,11 @@
 ﻿# 画面の土台（shared\ui\app_host.ps1）の XAML 読み込みと、theme.xaml への参照の差し替えのテスト。
 # 設計は docs/design/structure/single-script.md。単一 .ps1 版（${bundledXaml}）では、
 # 参照先のファイルが実在しなくても働くことを確かめる（Resolve-Path ではなく GetFullPath で正規化するため）。
+BeforeDiscovery {
+    . "$PSScriptRoot\..\..\helpers\path_chars.ps1"
+    $pathCharCases = getPathCharCases
+}
+
 BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
     Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
@@ -144,5 +149,22 @@ Describe "loadAppIcon（画面のアイコン）" -Tag Unit {
         $text = [System.IO.File]::ReadAllText("${scriptsDir}\tebunko\xaml\app_icon.xaml", (New-Object System.Text.UTF8Encoding($true)))
         $bundledXaml = @{ ([System.IO.Path]::GetFullPath($missing)) = $text }
         loadAppIcon | Should -BeOfType ([System.Windows.Media.DrawingImage])
+    }
+}
+
+Describe "writeErrorLog（記録先のフォルダ名に特別な文字が入っていても書ける）" -Tag Io {
+    It "フォルダ名に <label> を含む記録先に、フォルダを作って記録する" -ForEach $pathCharCases {
+        $base = Join-Path ([System.IO.Path]::GetTempPath()) ("errlog_" + [guid]::NewGuid().ToString("N"))
+        $logFile = Join-Path $base "work_a${ch}b\画面エラー.txt"
+        try {
+            function getGuiErrorLogFile { return $logFile }
+            try { throw "テスト用の例外" } catch { $record = $_ }
+            writeErrorLog "確かめ" $record
+            [System.IO.File]::Exists($logFile) | Should -Be $true
+            [System.IO.File]::ReadAllText($logFile) | Should -Match "テスト用の例外"
+        } finally {
+            # Pester の TestDrive でなく TEMP に作ったので、ワイルドカードを解釈しない .NET で消す
+            if ([System.IO.Directory]::Exists($base)) { [System.IO.Directory]::Delete($base, $true) }
+        }
     }
 }

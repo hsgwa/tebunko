@@ -55,18 +55,18 @@
 ```mermaid
 flowchart TD
     B(["tebunko.bat を起動"]) --> U["scripts 配下の Mark-of-the-Web を Unblock-File で消す<br>（-Command の中身は実行ポリシーの対象外）"]
-    U --> G["& '...\gui.ps1' を RemoteSigned で起動<br>（conhost.exe 経由・-WindowStyle Hidden）"]
+    U --> G["& $gui（環境変数 TEBUNKO_ROOT のフォルダの gui.ps1）を RemoteSigned で起動<br>（conhost.exe 経由・-WindowStyle Hidden）"]
     G --> G2["gui.ps1 も起動時に自フォルダの印を消す<br>（ショートカット起動・差し替え後のため）"]
 ```
 
 起動は、zip 版は `tebunko.bat`、インストーラー版は起動口の `tebunko.exe`（`installer/tebunko.cs`）から行う。どちらも Windows の PowerShell 5.1 を、そのプロセスだけの実行ポリシー `RemoteSigned` で起動する。`Bypass` を使わない理由、実行ポリシーの設定を変えないこと、Mark-of-the-Web を解除する範囲は、安全性の [Mark-of-the-Web の解除](../../safety/disclosure.md#mark-of-the-web-の解除tebunkobat) にまとめている。ここには実装の決まりだけを書く。
 
 - **なぜ Mark-of-the-Web（MOTW）が問題か**：zip をブラウザ・メールでダウンロードして展開すると、展開後の各ファイルに「外部由来」の印（`Zone.Identifier` という代替データストリーム）が付く。`RemoteSigned` は、この印の付いた未署名 `.ps1` の実行をブロックする（`.xaml`・`.ico` は実行ポリシーの対象外なので影響しない）。
-- **対策**：`tebunko.bat` が起動する PowerShell の `-Command` の中で、まず自フォルダの `scripts` 配下の印を `Get-ChildItem -Recurse -File \| Unblock-File` で消し（`work` には数万件の TSV があり、起動のたびに全件へかけると TSV 1 万件あたり約 3 秒遅くなるため、実行するスクリプトのある `scripts` に限る）、続けて `& '...\gui.ps1'` で画面を開く。インラインの `-Command` の中身は実行ポリシーの対象外なので、印が付いていても `Unblock-File` は動く。`&` で呼ぶ `gui.ps1` は `RemoteSigned` で調べられるため、印を消す前に呼ぶとブロックされる（順番に意味がある）。以前は印を消すためだけに PowerShell を別に起動していたが、PowerShell の起動 1 回分（1〜2 秒）画面が出るのが遅れるため、1 つのプロセスにまとめた。念のため `tebunko/gui.ps1` も起動時に自フォルダの印を消す（利用者が自作したショートカットから起動したときや、あとでファイルを差し替えたときのため）。
+- **対策**：`tebunko.bat` が起動する PowerShell の `-Command` の中で、まず自フォルダの `scripts` 配下の印を `Get-ChildItem -Recurse -File \| Unblock-File` で消し（`work` には数万件の TSV があり、起動のたびに全件へかけると TSV 1 万件あたり約 3 秒遅くなるため、実行するスクリプトのある `scripts` に限る）、続けて `& $gui` で画面を開く。ツールのフォルダは `set "TEBUNKO_ROOT=%~dp0"` の環境変数で渡し、`-Command` の中では `$env:TEBUNKO_ROOT` で読む（パスを `-Command` の文字列に埋め込むと、`'` などで PowerShell の構文エラーになり、何も知らせずに終わるため。先頭の `setlocal EnableExtensions DisableDelayedExpansion` で、パスの `!` も消えない）。インラインの `-Command` の中身は実行ポリシーの対象外なので、印が付いていても `Unblock-File` は動く。`&` で呼ぶ `gui.ps1` は `RemoteSigned` で調べられるため、印を消す前に呼ぶとブロックされる（順番に意味がある）。以前は印を消すためだけに PowerShell を別に起動していたが、PowerShell の起動 1 回分（1〜2 秒）画面が出るのが遅れるため、1 つのプロセスにまとめた。念のため `tebunko/gui.ps1` も起動時に自フォルダの印を消す（利用者が自作したショートカットから起動したときや、あとでファイルを差し替えたときのため）。
 - **セキュリティの警告**：zip を解除せずに展開すると `tebunko.bat` 自体にも印が付くため、ダブルクリックで Windows の「開いているファイル - セキュリティの警告」（発行元を確認できません）が起動のたびに出る。［実行］を押すと bat が動き、［このファイルを開く前に常に確認する］のチェックを外して［実行］すると以降は出なくなる。展開する前に zip のプロパティで解除しておけば、この警告は出ない（README・手引きの書き方と同じ）。これは Windows の正規の確認であり、隠す対象ではない。
 - **`Bypass` を使わない代わりの実測挙動**（この PC・`RemoteSigned` で確認）：印あり＝ブロック（「デジタル署名されていません。実行できません」）／`tebunko.bat` の `Unblock-File` で印を消す＝0 件／消した後は `RemoteSigned` で起動成功。
 - **コンソールの窓を残さない**：`tebunko.bat` は `start "" conhost.exe powershell ... -WindowStyle Hidden -Command "..."` で起動する。Windows 11 で既定のターミナルが Windows Terminal のとき（「Windows に任せる」の場合も含む）、コンソールの窓は Windows Terminal に渡され、Windows Terminal は `-WindowStyle Hidden` を無視する。そのため `conhost.exe` を通さないと、画面を閉じるまで PowerShell の窓（Windows Terminal のタブ）が開いたままになる。`conhost.exe` を通すと従来のコンソールで動き、`-WindowStyle Hidden` で窓が隠れる（起動の瞬間に一度だけ窓が見えることがある）。インデクサは画面のプロセスの中のスレッドで動くため（[プロセスとスレッド](../structure/threads.md)）、別の窓は開かない。
-- **インストーラー版**：`tebunko.exe` は `powershell.exe -NoProfile -STA -ExecutionPolicy RemoteSigned -File <gui.ps1>` を、窓を作らずに（`CreateNoWindow`）起動する。インストーラーで入れたファイルには Mark-of-the-Web が付かないため、`tebunko.bat` の `Unblock-File` にあたる処理は要らない（`gui.ps1` も起動時に同じ解除を行う）。
+- **インストーラー版**：`tebunko.exe` は `powershell.exe -NoProfile -STA -ExecutionPolicy RemoteSigned -Command` で `gui.ps1` を、窓を作らずに（`CreateNoWindow`）起動する。`gui.ps1` のパスは環境変数で渡し、`WildcardPattern.Escape` を通して呼ぶ（`-File` はパスをワイルドカードとして読み、`[` `]` を含むフォルダで起動できないため）。インストーラーで入れたファイルには Mark-of-the-Web が付かないため、`tebunko.bat` の `Unblock-File` にあたる処理は要らない（`gui.ps1` も起動時に同じ解除を行う）。
 - **バッチの書式**：`tebunko.bat` は ASCII・CRLF で書く。cmd はコードページ（日本語環境は CP932）と改行に敏感で、UTF-8 の日本語コメントや LF 改行だと行が結合して起動の行がコメントに飲み込まれる不具合が出るため。説明コメントは英語にし、日本語の説明はこのページに置く。
 - **起動の失敗の知らせ方**：`gui.ps1` の画面が出る前に起動が失敗したとき（制限言語モード・実行ポリシー・ファイル不足など）、`tebunko.bat` は `& $gui` を `try`/`catch` で包んで理由を分け、Notepad で示す（WPF・WinForms のメッセージボックスが出せない場面があるため）。詳しくは安全性の[起動に失敗したときの知らせ](../../safety/disclosure.md#起動に失敗したときの知らせtebunkobat)を参照。
 
