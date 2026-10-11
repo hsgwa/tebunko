@@ -43,10 +43,13 @@ Describe "待つ間のダイアログ" -Tag Gui {
         $handle.WaitButton.Content | Should -Be "閉じない"
         $handle.WaitButton.IsEnabled | Should -BeFalse
         $script:scrim.Visibility | Should -Be "Visible"
+        $handle.Dialog.Owner | Should -Be $script:owner
+        $script:dialogDepth | Should -Be 1
 
         closeWaitDialog $handle
         $handle.Dialog.IsVisible | Should -BeFalse
         $script:scrim.Visibility | Should -Be "Collapsed"
+        $script:dialogDepth | Should -Be 0
         { closeWaitDialog $handle } | Should -Not -Throw  # 2 回目は何もしない
     }
 
@@ -81,6 +84,42 @@ Describe "待つ間のダイアログ" -Tag Gui {
         closeWaitDialog $second
         $script:scrim.Visibility | Should -Be "Visible"
         closeWaitDialog $first
+        $script:scrim.Visibility | Should -Be "Collapsed"
+    }
+
+    It "showConfirm を重ねても、確認を閉じたあと待つ間のダイアログを閉じるまで暗幕が残る" {
+        $handle = showWaitDialog -heading "待っています" -owner $script:owner
+        $script:handles += $handle
+        $real = (Get-Command showOwnedDialog -CommandType Function).ScriptBlock
+        $script:seen = @{ Depth = -1; Scrim = ""; Owner = $null }
+        $seen = $script:seen
+        # 確認が開いたら、そのときの暗幕の数と親を控えて閉じる（本物の showOwnedDialog は、そのまま呼ぶ）
+        function showOwnedDialog {
+            param ($dialog)
+            $seen = $script:seen
+            $scrim = $script:scrim
+            $getDepth = { $script:dialogDepth }
+            $timer = New-Object System.Windows.Threading.DispatcherTimer
+            $timer.Interval = [TimeSpan]::FromMilliseconds(200)
+            $timer.Add_Tick({
+                $timer.Stop()
+                $seen.Depth = & $getDepth
+                $seen.Scrim = [string]$scrim.Visibility
+                $seen.Owner = $dialog.Owner
+                $dialog.Close()
+            }.GetNewClosure())
+            $timer.Start()
+            return (& $real $dialog)
+        }
+        $answer = showConfirm -heading "確認" -choices @(@{ Text = "実行する"; Value = "go" }) -owner $script:owner
+        $answer | Should -BeNullOrEmpty
+        $seen.Depth | Should -Be 2
+        $seen.Scrim | Should -Be "Visible"
+        $seen.Owner | Should -Be $script:owner
+        $script:dialogDepth | Should -Be 1
+        $script:scrim.Visibility | Should -Be "Visible"
+        closeWaitDialog $handle
+        $script:dialogDepth | Should -Be 0
         $script:scrim.Visibility | Should -Be "Collapsed"
     }
 
