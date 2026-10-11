@@ -440,3 +440,132 @@ Describe "IngestPlanner" -Tag Io {
         $byName["営業".ToUpper()] | Should -Be "C:\共有\営業部"
     }
 }
+
+Describe "createTargetList（クラウドにだけあるファイル）" -Tag Io {
+    BeforeAll {
+        $source = Join-Path $TestDrive "cloud_src"
+        [System.IO.Directory]::CreateDirectory($source) | Out-Null
+        $file = Join-Path $source "c.xlsx"
+        [System.IO.File]::WriteAllText($file, "dummy-cloud")
+        # クラウドにだけあるファイルは、OFFLINE 属性で代わりに作る（ダウンロードは起きない）
+        [System.IO.File]::SetAttributes($file, [System.IO.FileAttributes]::Offline)
+        $info = Get-Item -LiteralPath $file
+        $updated = formatFileTime $info.LastWriteTime
+        $size = [string]$info.Length
+        $folder = @{ Path = $source; Name = "雲" }
+        ${indexDir} = Join-Path $TestDrive "cloud_index"
+        $workspace = newTestWorkspace @{ IndexDir = ${indexDir} }
+        $bookDir = Join-Path ${indexDir} "雲\c.xlsx"
+    }
+
+    AfterAll {
+        [System.IO.File]::SetAttributes($file, [System.IO.FileAttributes]::Normal)
+    }
+
+    It "新規でクラウドにだけあれば、取り込み対象にも一覧にも入れず、クラウドの一覧に入れる" {
+        $result = createTargetList $folder (newPrevious) $null
+        $result.Targets.Count | Should -Be 0
+        $result.Failed.Count | Should -Be 0
+        $result.Rows.Count | Should -Be 0
+        $result.Cloud.Count | Should -Be 1
+        $result.Cloud[0].RelPath | Should -Be "雲\c.xlsx"
+        $result.Cloud[0].Failed | Should -Be $false
+        $result.Cloud[0].Row.状態 | Should -Be ${stateNew}
+        $result.Plan.取り込み対象 | Should -Be 0
+        $result.Plan.新規 | Should -Be 0
+        $result.Plan.クラウド | Should -Be 1
+        $result.Plan.クラウド失敗 | Should -Be 0
+        $result.Plan.クラウド容量 | Should -Be ([long]$size)
+    }
+
+    It "取り込み済みで更新が無ければ、あとでクラウドにだけになっても「済」のままにする（クラウドの数に入れない）" {
+        $previous = newPrevious @((newStatusRow "雲\c.xlsx" $updated $size ${stateDone} 1 $updated "" "99"))
+        $result = createTargetList $folder $previous $null
+        $result.Cloud.Count | Should -Be 0
+        $result.Rows.Count | Should -Be 1
+        $result.Rows[0].状態 | Should -Be ${stateDone}
+        $result.Plan.クラウド | Should -Be 0
+    }
+
+    It "更新されていてクラウドにだけあれば、前回の行をそのまま残し、取り込み対象にしない" {
+        $oldRow = newStatusRow "雲\c.xlsx" "2000/01/01 00:00:00" "5" ${stateDone} 1 "2000/01/01 00:00:00" "" "99"
+        $result = createTargetList $folder (newPrevious @($oldRow)) $null
+        $result.Targets.Count | Should -Be 0
+        $result.Rows.Count | Should -Be 1
+        $result.Rows[0].更新日時 | Should -Be "2000/01/01 00:00:00"
+        $result.Cloud.Count | Should -Be 1
+        $result.Cloud[0].PendingOld | Should -Be $false
+    }
+
+    It "前回失敗し、更新が無く、クラウドにだけあれば、失敗には入れず、クラウドの失敗として数える" {
+        $failedRow = newStatusRow "雲\c.xlsx" $updated $size ${stateFailed} 0 $updated "読めない" "99"
+        $result = createTargetList $folder (newPrevious @($failedRow)) $null
+        $result.Failed.Count | Should -Be 0
+        $result.Targets.Count | Should -Be 0
+        $result.Cloud.Count | Should -Be 1
+        $result.Cloud[0].Failed | Should -Be $true
+        $result.Cloud[0].Row.状態 | Should -Be ${stateFailed}
+        $result.Rows.Count | Should -Be 1
+        $result.Plan.前回失敗 | Should -Be 0
+        $result.Plan.クラウド | Should -Be 0
+        $result.Plan.クラウド失敗 | Should -Be 1
+        $result.Plan.クラウド失敗容量 | Should -Be ([long]$size)
+    }
+
+    It "前回未完了でクラウドにだけあれば、一覧に行を作らない（前回の取り込み途中のインデックスは、取り込みを決める側が消す）" {
+        $pendingRow = newStatusRow "雲\c.xlsx" $updated $size ${stateNew}
+        [System.IO.Directory]::CreateDirectory($bookDir) | Out-Null
+        $result = createTargetList $folder (newPrevious @($pendingRow)) $null
+        # ここでは消さない（消すのは取り込みを決める側。取りやめたときは残す）
+        [System.IO.Directory]::Exists($bookDir) | Should -Be $true
+        $result.Rows.Count | Should -Be 0
+        $result.Targets.Count | Should -Be 0
+        $result.Cloud.Count | Should -Be 1
+        $result.Cloud[0].PendingOld | Should -Be $true
+    }
+}
+
+Describe "IngestPlanner（クラウドにだけあるファイル）" -Tag Io {
+    BeforeAll {
+        $kinds = @{ Unchecked = ${planKindUnchecked}; Missing = ${planKindMissing}; Dropped = ${planKindDropped}; StateFailed = ${stateFailed} }
+        $source = Join-Path $TestDrive "planner_cloud_src"
+        [System.IO.Directory]::CreateDirectory($source) | Out-Null
+        $file = Join-Path $source "c.xlsx"
+        [System.IO.File]::WriteAllText($file, "dummy-cloud")
+        # クラウドにだけあるファイルは、OFFLINE 属性で代わりに作る（ダウンロードは起きない）
+        [System.IO.File]::SetAttributes($file, [System.IO.FileAttributes]::Offline)
+        $info = Get-Item -LiteralPath $file
+        $updated = formatFileTime $info.LastWriteTime
+        $size = [string]$info.Length
+        ${indexDir} = Join-Path $TestDrive "planner_cloud_index"
+        $workspace = newTestWorkspace @{ IndexDir = ${indexDir} }
+
+        function newCloudPlanner {
+            param ($previousRows)
+            $planner = [IngestPlanner]::new($kinds, (Join-Path $TestDrive "planner_cloud.config"))
+            $planner.AssignNames(@([pscustomobject]@{ Path = $source; Name = "雲"; Enabled = $true }), @{ Folders = @(); Rows = (newPrevious $previousRows) })
+            $planner.Crawl($null, $null)
+            return $planner
+        }
+    }
+
+    AfterAll {
+        [System.IO.File]::SetAttributes($file, [System.IO.FileAttributes]::Normal)
+    }
+
+    It "Crawl が、クラウドにだけあるファイルを Cloud に集め、取り込み対象には入れない" {
+        $planner = newCloudPlanner @()
+        $planner.Cloud.Count | Should -Be 1
+        $planner.Cloud[0].RelPath | Should -Be "雲\c.xlsx"
+        $planner.Targets.Count | Should -Be 0
+    }
+
+    It "取りやめるとき、クラウドにだけあって前回未完了のファイルは、前回の行を残す" {
+        $pendingRow = newStatusRow "雲\c.xlsx" $updated $size ${stateNew}
+        $planner = newCloudPlanner @($pendingRow)
+        $planner.Cloud[0].PendingOld | Should -Be $true
+        $keep = @($planner.KeepForCancel())
+        $keep.Count | Should -Be 1
+        [object]::ReferenceEquals($keep[0], $pendingRow) | Should -Be $true
+    }
+}

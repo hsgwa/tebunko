@@ -24,6 +24,7 @@ stateDiagram-v2
     state "index-tab/edit" as edit
     state "index-tab/delete-confirm" as del
     state "index-tab/start-confirm" as start
+    state "index-tab/cloud-confirm" as cloud
     state "index-tab/running" as running
     state "index-tab/stop-confirm" as stop
     state "index-tab/interrupted" as interrupted
@@ -37,6 +38,8 @@ stateDiagram-v2
     del --> normal: ［削除する］
     normal --> start: 開始（17）
     start --> running: ［更新を開始］
+    normal --> cloud: 開始（クラウドにだけあるファイルがある。17）
+    cloud --> running: ［更新を開始］
     running --> stop: ［中止］（19）
     stop --> running: ［キャンセル］
     stop --> interrupted: ［中止する］
@@ -102,6 +105,12 @@ stateDiagram-v2
 ### index-tab/start-confirm（更新の確認ダイアログ。遷移 17）
 
 ![更新の確認ダイアログ](../../../images/screens/index-tab/start-confirm.png)
+
+### index-tab/cloud-confirm（更新の確認ダイアログ・クラウドにだけあるファイルの欄。遷移 17）
+
+![更新の確認ダイアログ・クラウドにだけあるファイルの欄](../../../images/screens/index-tab/cloud-confirm.png)
+
+写真のクラウドにだけあるファイルは、Offline 属性を付けた見本で代わりにしている。
 
 ### index-tab/running（更新中。遷移 17・20）
 

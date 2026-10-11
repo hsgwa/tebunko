@@ -398,10 +398,11 @@ function invokeIndexerBody {
     $reporter.Progress(${indexingPhaseCrawl}, 0, 0, 0, "インデックス作成の準備をしています…")
 
     $restartInterval = 100  # Officeアプリを再起動する間隔（取り込みのスレッドごとのファイル数）。メモリ肥大化対策（再起動 1 回で約 2 秒かかるため、間隔を詰めすぎない）
-    $fileTimeoutMinutes = 10  # 1ファイルの取り込みの制限時間（分）。超えたらOfficeアプリを強制終了し、そのファイルは失敗とする
+    $fileTimeoutMinutes = ${ingestFileTimeoutMinutes}  # 1ファイルの取り込みの制限時間（分）。超えたらOfficeアプリを強制終了し、そのファイルは失敗とする
     $approvalTimeoutMinutes = 60  # 画面の返事を待つ制限時間（分）。画面が返事をしない場合に待ち続けないよう打ち切る
     $interruptLimit = 2       # 取り込み中に続けて強制終了した回数がこれに達したファイルは、失敗として以降スキップする
     $failureListLimit = 50    # 終了時に失敗したファイルと原因を表示する最大件数（残りは取り込み一覧で確認する）
+    $cloudListLimit = 50      # クラウドにだけあるため残したファイルを、ログに 1 件ずつ書く最大件数（残りは「ほか N 件」にする）
 
     $targetFolders = @(getTargetFolders)
     if ($targetFolders.Count -eq 0) {
@@ -494,12 +495,15 @@ function invokeIndexerBody {
     $targets = $planner.Targets
     $failed = $planner.Failed
     $plan = $planner.Plan
+    # クラウドにだけあるファイル（取り込むかは確認の後に決める）
+    $cloudAll = $planner.Cloud
     # 消さなかったインデックス（取りやめ・画面なしの実行）は、取り込み一覧に前回のまま残す（次の回にまた見つけて確認に出すため）
     $keptDropped = $dropped
 
     # 画面から始めた場合は、数えた件数を画面に出して、取り込むかどうかの返事を待つ。
     # 「更新不要」かどうかも、この件数を見て画面が知らせる（取り込み対象が 0 件でも、前回失敗の再取り込みを選べる）
     $retryTargets = [bool]$channel.RetryFailed
+    $includeCloud = [bool]$channel.IncludeCloud
     if ($channel.ConfirmTargets) {
         $answer = $reporter.WaitForApproval(${indexingPhaseConfirm}, $plan.ToArray(), $targets.Count, $failed.Count, $approvalTimeoutMinutes)
         if ($null -eq $answer) {
@@ -515,11 +519,62 @@ function invokeIndexerBody {
             return 2
         }
         $retryTargets = $answer.RetryFailed
+        $includeCloud = [bool]$answer.IncludeCloud
         removeDroppedFolders $dropped
         $keptDropped = @()
     } else {
         foreach ($item in $dropped) {
             writeIndexerLog "設定に無いインデックス（$($item.Name): $($item.Path)）は削除せずに残しました。画面の［すべて更新］で確認して削除できます。" "Yellow"
+        }
+    }
+
+    # クラウドにだけあるファイル: ダウンロードして取り込むと選ばれたものだけ取り込み、あとは前回のまま残す
+    # （取り込み一覧の行は createTargetList が前回の行にしてある。次のインデックス作成で、また確かめる）
+    $cloudSplit = splitCloudItems $cloudAll $retryTargets $includeCloud
+    if ($cloudSplit.Included.Count -gt 0) {
+        $includedPaths = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+        foreach ($item in $cloudSplit.Included) {
+            [void]$includedPaths.Add($item.RelPath)
+        }
+        $rebuilt = New-Object System.Collections.Generic.List[object]
+        foreach ($row in $rows) {
+            if (!$includedPaths.Contains($row.相対パス)) {
+                $rebuilt.Add($row)
+            }
+        }
+        $rows = $rebuilt
+        writeIndexerLog ""
+        writeIndexerLog "クラウドにだけあるファイル $($cloudSplit.Included.Count) 件は、ダウンロードして取り込みます。"
+        foreach ($item in $cloudSplit.Included) {
+            $rows.Add($item.Row)
+            $targets.Add($item.Row)
+        }
+    }
+    # 前回失敗したファイルを再取り込みしない（チェックなし）なら、クラウドにあるかどうかに関係なく残すため、クラウドのせいで残した件数には数えない
+    $cloudSkippedItems = @($cloudSplit.Skipped | Where-Object { $retryTargets -or -not $_.Failed })
+    $cloudSkipped = $cloudSkippedItems.Count
+    $channel.CloudSkipped = $cloudSkipped
+    if ($cloudSkipped -gt 0) {
+        writeIndexerLog ""
+        writeIndexerLog "クラウドにだけあるファイル $cloudSkipped 件は、ダウンロードせずに残します。（次のインデックス作成でも確かめます）" "Yellow"
+        foreach ($group in ($cloudSkippedItems | Group-Object { ([string]$_.RelPath).Split("\")[0] })) {
+            writeIndexerLog "  [$($group.Name)] $($group.Count) 件"
+        }
+        $listed = 0
+        foreach ($item in $cloudSkippedItems) {
+            # 大きいフォルダでは毎回この件数ぶん出るため、先頭の $cloudListLimit 件だけ書き、残りは件数にする
+            if ($listed -lt $cloudListLimit) {
+                writeIndexerLog "    $($item.RelPath)"
+                $listed++
+            }
+            if ($item.PendingOld) {
+                # 前回未完了のまま残っている取り込み途中のインデックスは、使えないため消す（一覧にも行を残さない）
+                removeBookDir (getBookDir $item.RelPath)
+                $pending.Add($item.RelPath, $true)
+            }
+        }
+        if ($cloudSkipped -gt $listed) {
+            writeIndexerLog "    ほか $($cloudSkipped - $listed) 件"
         }
     }
 
@@ -539,7 +594,11 @@ function invokeIndexerBody {
 
     if ($targets.Count -eq 0) {
         writeIndexerLog ""
-        writeIndexerLog "取り込みが必要なファイルはありません。（一覧: $(Split-Path $workspace.StatusFile -Leaf)）" "Green"
+        if ($cloudSkipped -eq 0) {
+            writeIndexerLog "取り込みが必要なファイルはありません。（一覧: $(Split-Path $workspace.StatusFile -Leaf)）" "Green"
+        } else {
+            writeIndexerLog "取り込めるファイルはありません。（一覧: $(Split-Path $workspace.StatusFile -Leaf)）" "Green"
+        }
         # 元のファイルが無くなったフォルダは、本文インデックスのファイルから外す
         flushPending -All
         # 取り込むファイルが無くても、システムインデックスがまだ無いフォルダ（この版に上げた直後など）は作る
@@ -549,7 +608,7 @@ function invokeIndexerBody {
         } catch {
             writeIndexerLog "システムインデックスを作れませんでした（次のインデックス作成で作り直します）: $($_.Exception.Message)" "Yellow"
         }
-        $reporter.Progress(${indexingPhaseFinish}, 0, 0, 0, "更新が必要なファイルはありませんでした")
+        $reporter.Progress(${indexingPhaseFinish}, 0, 0, 0, $(if ($cloudSkipped -eq 0) { "更新が必要なファイルはありませんでした" } else { "クラウドにだけあるファイルは、ダウンロードせずに残しました" }))
         removeTmpDir
         return 0
     }

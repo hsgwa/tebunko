@@ -104,7 +104,7 @@ stateDiagram-v2
 
 ## 画面とインデクサの受け渡し
 
-画面とインデクサは、同じプロセスのメモリ上の受け渡しの口（`newIndexerChannel`。`[hashtable]::Synchronized`）でやり取りする。ファイルでの受け渡しは行わない。画面は進み具合を 1 秒ごとに口から読む。画面が書く欄は `RetryFailed`・`ConfirmTargets`・`Workers`・`Stop`・`Answer`・`OnlyNames`（更新するインデックス名の配列。空なら、チェックの付いたものすべて）で、インデクサが書く欄は `Progress`・`Plan`・`Error`・`ExitCode`・`Notice`・`Postponed`・`OnlySkipped`（`OnlyNames` のうち更新できなかった名前と理由）・`OfficePids` である。
+画面とインデクサは、同じプロセスのメモリ上の受け渡しの口（`newIndexerChannel`。`[hashtable]::Synchronized`）でやり取りする。ファイルでの受け渡しは行わない。画面は進み具合を 1 秒ごとに口から読む。画面が書く欄は `RetryFailed`・`IncludeCloud`・`ConfirmTargets`・`Workers`・`Stop`・`Answer`・`OnlyNames`（更新するインデックス名の配列。空なら、チェックの付いたものすべて）で、インデクサが書く欄は `Progress`・`Plan`・`Error`・`ExitCode`・`Notice`・`Postponed`・`CloudSkipped`・`OnlySkipped`（`OnlyNames` のうち更新できなかった名前と理由）・`OfficePids` である。
 
 ```mermaid
 sequenceDiagram
@@ -136,6 +136,8 @@ sequenceDiagram
 | Plan・Answer・Answered | インデクサ → 画面（`answerIndexingPlan`） → インデクサ | 両方 | 取り込み予定と、利用者の返事。インデクサは `Answered`（`ManualResetEvent`）で待つ（`IndexingReporter.WaitForApproval`。60 分で取りやめる） |
 | Error・ExitCode | インデクサ | 画面 | 続けられないエラーの内容と、終了コード（0 完了・1 エラー・2 中止）。`ExitCode` は最後に入れる |
 | Notice・Postponed | インデクサ | 画面（`IndexingSession.GetNotice` / `GetPostponed`） | 終わりの案内（利用者の PowerPoint が起動していて後回しにしたファイルがあるときの一言。無ければ空）と、後回しにした件数（未取り込みのまま残した件数。無ければ 0） |
+| IncludeCloud | 画面（確認の返事。ヘッドレスでは設定 `cloudFiles` が `download` のとき） | インデクサ | クラウドにだけあるファイルもダウンロードして取り込むか（既定は取り込まない） |
+| CloudSkipped | インデクサ | 画面（`IndexingSession.GetCloudSkipped`） | クラウドにだけあるため、ダウンロードせずに残した件数（無ければ 0） |
 | OfficePids | 取り込みスレッド | 画面 | インデックス作成が起動した Office の PID とプロセス名（`ConcurrentDictionary`）。閉じるときに止まらなければ、これだけを止める |
 
 画面のスレッドがファイル・フォルダに触る呼び出しは、`tests/meta/ui_thread_io.Tests.ps1` が機械的に見つける。組み込みのコマンドと `System.IO` の静的メソッドに加え、状態層の関数・クラスのメソッドのうち、中でファイル・フォルダに触るもの（それを呼ぶものも、呼び出しをたどって）を自動で求める。`startJob` の仕事のスクリプトブロックの外にある呼び出しは、理由を付けて一覧に載せたものだけを許す。一覧のものが使われていない・理由が空・先送りの書き方のときも落ちる。
