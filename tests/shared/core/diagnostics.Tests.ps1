@@ -70,10 +70,9 @@ Describe "rotateLogFile" -Tag Io {
         }
         [System.IO.File]::ReadAllText($script:prev) | Should -Be "古い"
         [System.IO.File]::ReadAllText($script:log) | Should -Be "新しい"
-        [System.IO.File]::Exists($script:prev + ".tmp") | Should -Be $false
     }
 
-    It "今のログが開いたまま（共有 <share>）で置き換えられないとき、前回の分は変わらず元も残り、一時ファイルを残さない" -ForEach @(
+    It "今のログが開いたまま（共有 <share>）で置き換えられないとき、前回の分は変わらず元も残る" -ForEach @(
         @{ share = "None" }
         @{ share = "ReadWrite" }
     ) {
@@ -87,7 +86,6 @@ Describe "rotateLogFile" -Tag Io {
         }
         [System.IO.File]::ReadAllText($script:prev) | Should -Be "古い"
         [System.IO.File]::ReadAllText($script:log) | Should -Be "新しい"
-        [System.IO.File]::Exists($script:prev + ".tmp") | Should -Be $false
     }
 }
 

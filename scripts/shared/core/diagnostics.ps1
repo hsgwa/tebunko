@@ -101,8 +101,8 @@ function rotateLogFile {
         }
         $previous = getPreviousLogPath $path
         if ([System.IO.File]::Exists($previous)) {
-            # 置き換えは、移せない（前回の分が読み取り専用・元が開いたまま・置き場所が対応しない）とき、
-            # どちらにも触らずに失敗する。複写や削除の逃げ道は作らない
+            # 移せない（前回の分が読み取り専用・元が開いたまま・置き場所が対応しない）ときは失敗し、今のログは失わない。
+            # 複写で逃げないのは、移せないあいだ書くたびに全量を複写することになるため
             [System.IO.File]::Replace($path, $previous, [NullString]::Value)
         } else {
             [System.IO.File]::Move($path, $previous)

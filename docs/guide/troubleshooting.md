@@ -107,7 +107,7 @@ OneDrive・SharePoint の「ファイル オンデマンド」で、中身がこ
 |---|---|
 | `indexing_log.txt` | インデックス作成の経過と、更新に失敗したファイルの原因。先頭に tebunko の版と環境の見出しがあります。インデックス作成を始めるたびに、前回の分を `indexing_log_previous.txt` に移して新しく書きます |
 | `indexing_log_previous.txt` | 前回のインデックス作成の記録。移すたびに上書きされます |
-| `gui_error_log.txt` | 画面で発生した予期しないエラーの記録。追記されます。画面を開いて最初の記録の前に、版と環境の見出しを書きます。1 MB 以上になると、前の分を `gui_error_log_previous.txt` に移して新しく書きます |
+| `gui_error_log.txt` | 画面で発生した予期しないエラーの記録。追記されます。画面を開いて最初の記録の前に、版と環境の見出しを書きます。1 MB 以上になると、前の分を `gui_error_log_previous.txt` に移して新しく書きます。前の分が読み取り専用・ほかのアプリで開いているあいだは移せず、1 MB を超えることがあります。閉じる・前の分を消すと、次の記録のときに移ります |
 | `gui_error_log_previous.txt` | `gui_error_log.txt` の前の分。移すたびに上書きされます |
 | `startup_error.txt`（tebunko のフォルダの直下） | 画面が表示される前に起動が失敗したときの記録。起動に失敗するたびに書き直されるか追記され、追記で 1 MB 以上になると前の分を `startup_error_previous.txt` に移します。ワークスペースの外にあります。tebunko のフォルダに書き込めない場合（`C:\Program Files` など）は作られず、理由だけがメモ帳で示されます |
 

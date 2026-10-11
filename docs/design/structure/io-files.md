@@ -165,7 +165,7 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 tebunko が作るファイルとフォルダが、何年使っても溜まり続けないことを、置き場ごとの表で確かめる。新しくファイルを足すときは、増え方と上限、誰がいつ消すかを決めてから、この表に行を足す。期間（何日より古いか）で消す処理は持たない。大きさと世代で止める。
 
 - 掃除の時機: 起動時・終了時のまとめての掃除はしない。ログは書く直前に大きさを見て回す（書かなければ増えないため。起動を遅くせず、届かない共有フォルダで起動が待たされない）。作業のフォルダは、終了時に消し、残りは次のインデックス作成の始めに消す。
-- 移せないとき: `rotateLogFile` は `File.Replace` で前回の分を置き換える。今のログが開いたまま・前回の分が読み取り専用・置き場所が `File.Replace` に対応しないときは、どちらにも触らず、元のログに追記を続ける（そのあいだログは増える。次に移せる時機に回る）。起動失敗の記録（`startup_error.txt`）は、元を `startup_error_moving.txt` へ移してから前回の分に重ねる。重ねられず、元の名前に戻す移動も失敗したときだけ、`startup_error_moving.txt` が残る。
+- 移せないとき: `rotateLogFile` は `File.Replace` で前回の分を置き換える。今のログが開いたまま・前回の分が読み取り専用・置き場所が `File.Replace` に対応しないときは、今のログは失わず、元のログに追記を続ける。開いたまま・読み取り専用は、閉じる・前回の分を消すなどで解けたあとの次の記録のときに移る。`File.Replace` に対応しない置き場所では、1 回目だけ移り、2 回目からは移せないままで上限なしに増える（本文インデックスの書き込み `writeContentIndexFile` も同じ `File.Replace` に頼るので、そういう置き場所はもともとワークスペースとして使えない）。起動失敗の記録（`startup_error.txt`）は、元を `startup_error_moving.txt` へ移してから前回の分に重ねる。重ねられず、元の名前に戻す移動も失敗したときだけ、`startup_error_moving.txt` が残る。
 - 画面のスレッドとの関係: ログを回す移動は、書く直前に 1 回だけ行う（今の追記と同じ種類の I/O。`docs/design/gui/responsiveness.md` の考えを超えない）。
 - ワークスペースの表の 1 列目は `Workspace.Entries()` の名前（`GetFileName`）と完全一致で `tests/meta/workspace_files.Tests.ps1` が比べる。ワークスペースの外の置き場の表は、テストの対象外。
 
@@ -183,7 +183,7 @@ tebunko が作るファイルとフォルダが、何年使っても溜まり続
 | `indexing_log.txt` | 実行ごとに上書き | 1 回分。始めるとき（二重起動の鍵を取った後）に今の分を `indexing_log_previous.txt` へ移す |
 | `indexing_log_previous.txt` | 実行ごとに上書き | 1 回分。合わせて 2 回分で止まる |
 | `gui_error_log.txt` | 追記（同じ例外は 60 秒に 1 回） | 1 MB 以上なら、次の記録を書く前に `gui_error_log_previous.txt` へ移す |
-| `gui_error_log_previous.txt` | 移すたびに上書き | 1 つ。合わせておよそ 2 MB で止まる |
+| `gui_error_log_previous.txt` | 移すたびに上書き | 1 つ。合わせておよそ 2 MB で止まる（移せない場面を除く。「移せないとき」を参照） |
 | `publish` | 実行ごとに `<PID>` を作る | 終了時・インポートの後に消す。残りは次のインデックス作成の始めに消す |
 | `tmp` | 実行ごとに `<PC の鍵>\<PID>` を作る | 終了時に消す。強制終了の残りは次のインデックス作成の始めに、この PC の終わったプロセスの分を消す。共有のワークスペースでは、ほかの PC の残りは消えない（別に直す） |
 | `office_pids` | Office を起動するたびに `<PC の鍵>\<PID>.txt` | Office を閉じたら消す。残りは画面の起動時の確かめで消す |
@@ -193,7 +193,7 @@ tebunko が作るファイルとフォルダが、何年使っても溜まり続
 | 名前 | 増え方 | 上限・片付け |
 |---|---|---|
 | `startup_error.txt` | `tebunko.bat` は上書き、`gui.ps1`（`writeStartupErrorFile`）は追記 | 追記の側は 1 MB 以上なら、次の記録を書く前に `startup_error_previous.txt` へ移す。`.bat` の側は 1 回分 |
-| `startup_error_previous.txt` | 移すたびに上書き | 1 つ。合わせておよそ 2 MB で止まる |
+| `startup_error_previous.txt` | 移すたびに上書き | 1 つ。合わせておよそ 2 MB で止まる（移せない場面を除く） |
 | `startup_error_moving.txt` | 移すときだけ | 重ねられず、元の名前へ戻す移動も失敗したときだけ残る。次に移すとき同じ名前で上書きされ、1 つまで |
 | `setting.config.tmp` | 保存のたび | 同じ名前で上書きされ 1 つまで |
 | `.tebunko_write_test_<GUID>.tmp` | 調べるたび | 閉じると消える（`DeleteOnClose`） |
