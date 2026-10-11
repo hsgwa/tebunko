@@ -4506,7 +4506,7 @@
 <td><code>newIndexingSession</code> / <code>IndexingSession</code></td>
 <td>indexerPath, channel</td>
 <td><code>IndexingSession</code></td>
-<td>インデックス作成 1 回分のスレッド（MTA・BelowNormal）を作り、<code>indexer.ps1 -Channel &lt;channel&gt;</code> を実行する。<code>IsRunning</code>・<code>Stop</code>・<code>Wait</code>・<code>GetExitCode</code>（終了コードが無ければ 1）・<code>GetError</code>・<code>GetNotice</code>（終わりの案内。無ければ空）・<code>GetPostponed</code>（後回しにした件数。無ければ 0）・<code>GetCloudSkipped</code>（クラウドにだけあるため残した件数。無ければ 0）・<code>KillOffice</code>（<code>OfficePids</code> に記録した Office だけを、プロセス名を確かめて止める）・<code>Close</code></td>
+<td>インデックス作成 1 回分のスレッド（MTA・BelowNormal）を作り、<code>indexer.ps1 -Channel &lt;channel&gt;</code> を実行する。<code>IsRunning</code>・<code>Stop</code>・<code>Wait</code>・<code>GetExitCode</code>（終了コードが無ければ 1）・<code>GetError</code>・<code>GetNotice</code>（終わりの案内。無ければ空）・<code>GetPostponed</code>（後回しにした件数。無ければ 0）・<code>GetCloudSkipped</code>（クラウドにだけあるため残した件数。無ければ 0）・<code>KillOffice</code>（<code>OfficePids</code> に記録した Office だけを、プロセス名と起動時刻を確かめて止める）・<code>Close</code></td>
 <td>画面</td>
 </tr>
 </tbody>
@@ -4643,6 +4643,22 @@
 <td>止める直前に PID が記録と同じプロセスか照らし直し、同じものだけ <code>Stop-Process -Force</code> で終了する。<code>Status</code> は Stopped／Changed／Gone／Failed</td>
 <td>同上</td>
 <td>画面</td>
+</tr>
+<tr>
+<td><code>compareOfficeProcess</code></td>
+<td>process, processName, startTicks</td>
+<td><code>Same</code>／<code>Different</code>／<code>Unknown</code></td>
+<td>控えた名前・起動時刻との比べ方。ハンドルを先に開く。開けない・控えが無い・起動時刻が読めないときは <code>Unknown</code>、名前か起動時刻が違えば <code>Different</code></td>
+<td>同上</td>
+<td><code>isSameOfficeProcess</code>・<code>quitApp</code></td>
+</tr>
+<tr>
+<td><code>isSameOfficeProcess</code></td>
+<td>process, processName, startTicks</td>
+<td>bool</td>
+<td>止める前の照合。ハンドルを先に開き、名前と起動時刻（UTC の Ticks）が控えたものと同じときだけ <code>$true</code>。開けない・読めない・控えが無いときは <code>$false</code></td>
+<td>同上</td>
+<td><code>quitApp</code>・<code>OfficeWatchdog</code>・<code>KillOffice</code>・<code>stopOfficeProcesses</code></td>
 </tr>
 </tbody>
 </table>

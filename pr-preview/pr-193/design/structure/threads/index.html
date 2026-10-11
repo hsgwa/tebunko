@@ -4477,7 +4477,7 @@
 <td>OfficePids</td>
 <td>取り込みスレッド</td>
 <td>画面</td>
-<td>インデックス作成が起動した Office の PID とプロセス名（<code>ConcurrentDictionary</code>）。閉じるときに止まらなければ、これだけを止める</td>
+<td>インデックス作成が起動した Office の PID → <code>@{ ProcessName; StartTicks }</code>（<code>ConcurrentDictionary</code>）。閉じるときに止まらなければ、名前と起動時刻が合うものだけを止める</td>
 </tr>
 </tbody>
 </table>

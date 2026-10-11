@@ -4127,7 +4127,7 @@
 </tr>
 <tr>
 <td><code>IndexingSession</code>（<code>indexing_session</code>）</td>
-<td>インデクサを別のスレッド（MTA・優先度を下げる）で動かし終了コードを返す、中止を求めると受け渡しの口の <code>Stop</code> を立てて返事を待つのをやめさせる、終了コードを入れずに止まったら 1 と止まった理由、インデクサが入れたエラーの内容、<code>Close</code> は動いていれば中止を求めて待つ（何度呼んでもよい）、<code>KillOffice</code> は記録した PID のうちプロセス名が同じものだけを止める、<code>GetNotice</code>／<code>GetPostponed</code> は受け渡しの口の値を返す（無ければ空・0）</td>
+<td>インデクサを別のスレッド（MTA・優先度を下げる）で動かし終了コードを返す、中止を求めると受け渡しの口の <code>Stop</code> を立てて返事を待つのをやめさせる、終了コードを入れずに止まったら 1 と止まった理由、インデクサが入れたエラーの内容、<code>Close</code> は動いていれば中止を求めて待つ（何度呼んでもよい）、<code>KillOffice</code> は記録した PID のうちプロセス名と起動時刻が同じものだけを止める、<code>GetNotice</code>／<code>GetPostponed</code> は受け渡しの口の値を返す（無ければ空・0）</td>
 </tr>
 </tbody>
 </table>
