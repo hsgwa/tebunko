@@ -41,6 +41,8 @@ BeforeAll {
     $previewScroll | Add-Member ScriptMethod UpdateLayout { }
     $previewScroll | Add-Member ScriptMethod Focus { $true }
     $previewScroll | Add-Member ScriptMethod ScrollToHorizontalOffset { param ($offset) $fake.Scrolls += $offset }
+    $previewSplitter = newFakePart "PreviewSplitter" @{} @("DragCompleted")
+    $resultListHost = newFakePart "ResultListHost" @{ ActualHeight = 0.0; ActualWidth = 0.0 } @("SizeChanged")
     $headerScroll = newFakePart "PreviewHeaderScroll" @{ Visibility = "Collapsed" }
     $headerScroll | Add-Member ScriptMethod ScrollToHorizontalOffset { param ($offset) $fake.HeaderScrolls += $offset }
     $previewHeader = newFakePart "PreviewHeader" @{ ItemsSource = $null }
@@ -51,6 +53,8 @@ BeforeAll {
         PreviewHeader       = $previewHeader
         PreviewRows         = newFakePart "PreviewRows" @{ ItemsSource = $null } @("PreviewMouseLeftButtonDown", "MouseMove", "PreviewMouseRightButtonDown")
         PreviewScroll       = $previewScroll
+        PreviewSplitter     = $previewSplitter
+        ResultListHost      = $resultListHost
         PreviewHeaderScroll = $headerScroll
         PreviewNote         = newFakePart "PreviewNote" @{ Text = ""; ToolTip = $null; Visibility = "Collapsed" }
         PreviewPlaceholder  = newFakePart "PreviewPlaceholder" @{ Visibility = "Visible" }

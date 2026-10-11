@@ -155,7 +155,8 @@ class FileGroup : NotifyBase {
     [string]$RelDir
     [string]$FullPath
     [string]$AppKind        # Excel / Word / PowerPoint（アイコンの色と文字を決める。どれでもなければ空）
-    [string]$LocationText   # 見出しの右端（「[シート]4月 ほか 2 か所」）
+    [string]$LocationText   # ヒットした場所の要約（「[シート]4月 ほか 2 か所」。読み上げに使う）
+    [string]$LocationPrefix # 見出しの右端の件数の前に付ける場所（「[シート]4月 ほか 2 か所 ・ 」）。場所が 1 か所だけのときは空（行の「場所」列と重なるため）
     [bool]$IsExpanded       # 見出しの下にヒットした行を並べるか（検索した直後は閉じている）
     [int]$ShownCount        # 見出しに出す件数（絞り込みに合うヒットの数）
     # 検索のヒット（searchContentIndex の結果そのまま。見つかった順）
@@ -189,6 +190,12 @@ class FileGroup : NotifyBase {
     [void] SetLocationText([string]$text) {
         $this.LocationText = $text
         $this.Raise("LocationText")
+    }
+
+    [void] SetLocationText([string]$text, [string]$prefix) {
+        $this.LocationPrefix = $prefix
+        $this.Raise("LocationPrefix")
+        $this.SetLocationText($text)
     }
 
     [void] SetExpanded([bool]$value) {

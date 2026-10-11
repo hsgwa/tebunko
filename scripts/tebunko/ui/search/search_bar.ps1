@@ -58,6 +58,8 @@ function updateFastSearchView {
     $ui.FastSearchText.Text = $view.Text
     $ui.FastBadge.Tag = if ($view.Usable) { "ok" } else { "off" }
     $ui.FastBadge.ToolTip = $view.Tip
+    $script:fastGoToIndex = [bool]$view.GoToIndex
+    $ui.FastBadge.Cursor = if ($script:fastGoToIndex) { [System.Windows.Input.Cursors]::Hand } else { [System.Windows.Input.Cursors]::Arrow }
 }
 
 function placeSearchBalloon {
@@ -218,6 +220,11 @@ function updateConditionFlow {
 
 # ---- イベント ----
 $ui.ConditionsPanel.Add_SizeChanged({ safe { updateConditionFlow } })
+# 高速検索が使用不可の印（Windows Search が使えないとき）を押すと、確かめるインデックス管理へ移る（移るかは getFastSearchView の GoToIndex）
+$script:fastGoToIndex = $false
+$ui.FastBadge.Add_MouseLeftButtonUp({
+    if ($script:fastGoToIndex) { safe { selectScreen "IndexTab" } }
+})
 
 
 $ui.WordBox.Add_TextChanged({ safe { updateWordNotice } })

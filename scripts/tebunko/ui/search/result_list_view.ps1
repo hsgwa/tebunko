@@ -97,6 +97,45 @@ function describeFileLocations {
     return "$first ほか $($count - 1) か所"
 }
 
+function getFileHeaderLocationPrefix {
+    # 見出しの右端（「<場所> ・ N 件」）で、件数の前に付ける場所。場所が 1 か所だけなら、行の「場所」列と同じなので付けない（件数だけにする）。
+    # 2 か所以上なら describeFileLocations の文字列に「 ・ 」を付ける
+    param (
+        [string[]]$labels
+    )
+
+    $count = 0
+    foreach ($label in $labels) {
+        if ($label) { $count++ }
+    }
+    if ($count -le 1) {
+        return ""
+    }
+    return "$(describeFileLocations $labels) ・ "
+}
+
+function getPreviewRowHeight {
+    # 結果の表とプレビューの境目。結果が少ないとき（表が内容の高さで足りるとき）は、表を内容の高さまで縮めて、プレビューを広げる。
+    #   available: 表とプレビューを合わせた高さ
+    #   content  : 表（件数・絞り込みなどの行を含む）が内容に要る高さ。多くて測らないときは $null
+    # 表が内容より低くなる（スクロールが要る）ときは、今までどおりの高さ（defaultHeight）にする。表は minResultHeight より低くしない
+    param (
+        [double]$available,
+        $content,
+        [double]$defaultHeight = 180,
+        [double]$minResultHeight = 60
+    )
+
+    if ($null -eq $content) {
+        return $defaultHeight
+    }
+    $height = $available - [double]$content
+    if ($height -le $defaultHeight) {
+        return $defaultHeight
+    }
+    return [Math]::Min($height, [Math]::Max($available - $minResultHeight, $defaultHeight))
+}
+
 function selectShownRows {
     # 行のうち、絞り込み（空ならすべて）に合うものを、元の順のまま返す
     param (

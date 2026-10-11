@@ -87,7 +87,7 @@ function addFileGroupLocation {
     )
 
     if ($group.AddLabel((getPlace $book $location).Place)) {
-        $group.SetLocationText((describeFileLocations $group.GetLocations()))
+        $group.SetLocationText((describeFileLocations $group.GetLocations()), (getFileHeaderLocationPrefix $group.GetLocations()))
     }
 }
 
@@ -219,6 +219,7 @@ function rebuildResults {
         }
     }
     setResultItems (getResultItems $script:groupList)
+    updateResultPaneHeight
 }
 
 function toggleFileGroup {
@@ -322,6 +323,8 @@ function finishResults {
         applySort $column.SortMemberPath ($column.SortDirection -eq [System.ComponentModel.ListSortDirection]::Descending)
     } elseif ($script:needsRebuild) {
         rebuildResults
+    } else {
+        updateResultPaneHeight
     }
 }
 

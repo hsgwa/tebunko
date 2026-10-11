@@ -201,6 +201,8 @@ function getFastSearchView {
     # 検索ワードの下に出す、高速検索（Windows Search で先に絞る）の使用可否。
     #   available: Windows Search が使えるか（testWindowsSearch）。$null はまだ確かめていない（使えるものとして扱う）
     # Tip は、印にマウスを置いたときのツールチップ。使えるときは印の意味、使えないときは理由と直し方（どの場合も空にしない）。
+    # GoToIndex は、印を押すとインデックス管理へ移るか。Windows Search が使えないとき（Tip の［インデックス管理で確認］）だけ。
+    # 正規表現・語の長さが理由のときは、検索条件で直せるので移らない
     # 使えない理由は、上から順に最初に当てはまるもの
     param (
         $available,
@@ -219,7 +221,7 @@ function getFastSearchView {
             $tip = "空白で区切った語のどれかが 2 文字以上のときに使えます"
         }
     }
-    return @{ Usable = $usable; Text = if ($usable) { "高速検索：使用可" } else { "高速検索：使用不可" }; Tip = $tip }
+    return @{ Usable = $usable; Text = if ($usable) { "高速検索：使用可" } else { "高速検索：使用不可" }; Tip = $tip; GoToIndex = (!$usable -and $available -eq $false) }
 }
 
 function newSearchButtonState {

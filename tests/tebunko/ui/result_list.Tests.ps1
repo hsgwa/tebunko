@@ -43,6 +43,9 @@ BeforeAll {
         & $block
     }
 
+    # 結果の表とプレビューの境目を決める処理（preview.ps1）の代わり。ここでは使わない
+    function updateResultPaneHeight { }
+
     . "${scriptsDir}\tebunko\ui\result_list.ps1"
 
     # ---- テストの準備 ----
@@ -159,9 +162,11 @@ Describe "getPlace・addFileGroupLocation" -Tag Unit {
         $group = newFileGroup "C:\共有\見積.xlsx" "" "見積.xlsx"
         addFileGroupLocation $group "見積.xlsx" "4月"
         $group.LocationText | Should -Be "[シート]4月"
+        $group.LocationPrefix | Should -Be ""
         addFileGroupLocation $group "見積.xlsx" "5月"
         addFileGroupLocation $group "見積.xlsx" "6月"
         $group.LocationText | Should -Be "[シート]4月 ほか 2 か所"
+        $group.LocationPrefix | Should -Be "[シート]4月 ほか 2 か所 ・ "
     }
 
     It "図形の場所は元のシートと同じ表記なので増やさない" {

@@ -48,7 +48,7 @@
       <DataGrid Grid.Row="1" x:Name="ResultGrid">
         <DataGrid.Resources>
           <ControlTemplate x:Key="FileHeaderRow" TargetType="DataGridRow">
-            <!-- クリック（・Enter）で閉じる・開く。右端はヒットした場所と件数（件数は絞り込み後の行の数） -->
+            <!-- クリック（・Enter）で閉じる・開く。右端はヒットした場所（2 か所以上のときだけ）と件数（件数は絞り込み後の行の数） -->
             <Border x:Name="HeaderBg" Background="{StaticResource Bg.Window}" BorderBrush="{StaticResource Border.Soft}"
                     BorderThickness="0,0,0,1" MinHeight="36" Cursor="Hand" ToolTip="{Binding FullPath}">
               <Grid>
@@ -58,8 +58,8 @@
                   <TextBlock x:Name="Place" DockPanel.Dock="Right" Style="{StaticResource Meta}" FontSize="11" VerticalAlignment="Center"
                              TextTrimming="CharacterEllipsis" MaxWidth="360" Margin="12,0,0,0">
                     <TextBlock.Text>
-                      <MultiBinding StringFormat="{}{0} ・ {1:N0} 件">
-                        <Binding Path="LocationText" />
+                      <MultiBinding StringFormat="{}{0}{1:N0} 件">
+                        <Binding Path="LocationPrefix" />
                         <Binding Path="ShownCount" />
                       </MultiBinding>
                     </TextBlock.Text>

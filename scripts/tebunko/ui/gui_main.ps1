@@ -91,7 +91,7 @@ function startGui {
             "IndexDetailRows", "IndexDetailFastPanel", "IndexDetailFastText", "IndexDetailFastBar",
             "FailedPanel", "FailedHeading", "FailedGrid") }
         @{ File = "search\search.xaml"; Slot = "ContentHost"; Screen = "SearchTab"; Names = @(
-            "SearchBarHost", "ResultListHost", "PreviewHost", "DetailRow", "ResultEmptyState", "GoIndexTabButton") }
+            "SearchBarHost", "ResultListHost", "PreviewHost", "DetailRow", "PreviewSplitter", "ResultEmptyState", "GoIndexTabButton") }
         @{ File = "search\search_bar.xaml"; Slot = "SearchBarHost"; Names = @(
             "WordBox", "SearchButton", "RegexCheck", "CaseCheck", "ShapeCheck", "CommentCheck", "ScopeButton",
             "ConditionsPanel", "ConditionsSpacer", "FastSearchSlot", "KindChipExcel", "KindChipWord", "KindChipPowerPoint", "KindChipText",

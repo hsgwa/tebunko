@@ -67,6 +67,20 @@ Describe "種類のチップ" -Tag Unit {
     }
 }
 
+Describe "getFastSearchView の GoToIndex（印を押してインデックス管理へ移るか）" -Tag Unit {
+    It "available: <available>・正規表現: <regex>・ワード: <word> のとき <expected>" -TestCases @(
+        @{ available = $false; regex = $false; word = "見積"; expected = $true }
+        @{ available = $false; regex = $true; word = "見積"; expected = $true }
+        @{ available = $true; regex = $true; word = "見積"; expected = $false }
+        @{ available = $true; regex = $false; word = "見"; expected = $false }
+        @{ available = $true; regex = $false; word = "見積"; expected = $false }
+        @{ available = $null; regex = $false; word = "見積"; expected = $false }
+    ) {
+        param ($available, $regex, $word, $expected)
+        (getFastSearchView $available $regex $word).GoToIndex | Should -Be $expected
+    }
+}
+
 Describe "getFastSearchView" -Tag Unit {
     It "Windows Search が使え（またはまだ確かめていない）、正規表現がオフで、2 文字以上の部分があれば使用可" {
         (getFastSearchView $true $false "見積").Text | Should -Be "高速検索：使用可"
