@@ -259,7 +259,7 @@ function newIndexerChannel {
     #                     Notice（終わりの一言。無ければ空）・Postponed（利用者のPowerPointが起動していて後回しにした件数）・
     #                     CloudSkipped（クラウドにだけあるため、ダウンロードせずに残した件数）・
     #                     OnlySkipped（OnlyNames のうち、更新できなかった名前の @{ Name; Reason } の配列）
-    #   OfficePids: インデックス作成が起動した Office の PID → プロセス名（閉じるときに止まらなければ、この PID だけを止める）
+    #   OfficePids: インデックス作成が起動した Office の PID → @{ ProcessName; StartTicks }（閉じるときに止まらなければ、名前と起動時刻が合う PID だけを止める）
     param (
         [bool]$retryFailed = $false,
         [bool]$confirmTargets = $false,
@@ -274,7 +274,7 @@ function newIndexerChannel {
         Progress = $null; Stop = $false
         Plan = $null; Answer = $null; Answered = New-Object System.Threading.ManualResetEvent($false)
         Error = ""; ExitCode = $null; Notice = ""; Postponed = 0; CloudSkipped = 0
-        OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'
+        OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'
     })
 }
 
