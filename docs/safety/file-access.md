@@ -43,6 +43,7 @@ scan 'NotContentIndexed'
 |---|---|---|
 | 原本のコピー（Excel・Word・PowerPoint が開く対象） | `work\tmp\<PC の鍵>\<PID>\w<番号>\<元のファイル名>` | `extract_office.ps1` の `copyFileShared` 呼び出し |
 | テキストファイルのコピー（読み終えたら消す） | 同上の下の `source.copy` | `extract_text.ps1` の `extractTextFile` |
+| PDF ファイルのコピー（読み終えたら消す） | 同上の下の `source.copy` | `extract_pdf.ps1` の `extractPdfFile` |
 | Excel のシートごとの一時保存（`sheet<番号>.tmp`） | 同上の下 | `extract_office.ps1` の `extractWorkbook` |
 | 旧形式・不明な形式から変換した一時ファイル（`converted.docx`・`converted.pptx`、リネームした `source.doc`・`source.ppt`） | 同上の下 | `extract_office.ps1` の `extractDocument` |
 | 公開前の中間 TSV（本文・シート・図形などの TSV。テキストファイルの `doc_body.tsv` を含む） | 同上の下 | `index_migrate.ps1` の `publishTsv`、`extract_text.ps1` の `extractTextFile` |
@@ -89,6 +90,8 @@ flowchart LR
 Office の `SaveAs` は 3 か所あるが、保存先は常に作業フォルダ内のパス（`$tmpPath` / `$destPath`）である（`extract_office.ps1:156`・`210`・`234`）。原本のパスを `SaveAs` に渡す経路は無い。
 
 テキストファイル（`.txt` 等）も、Office と同じく作業フォルダの `source.copy` へコピーし（`copyFileShared`）、そのコピーを読み（`shared/core/text_file.ps1` の `readTextFile`）、読み終えたら消す。原本は直接読まず、書き込みの API には渡さない。
+
+PDF ファイルもテキストファイルと同じく、作業フォルダの `source.copy` へコピーし（`copyFileShared`）、そのコピーを読み（`shared/core/pdf_file.ps1` の `readPdfFile`）、TSV を書く前に消す（`extractPdfFile`）。
 
 `tests/meta/safety.Tests.ps1` の「取り込み対象のファイルを書き換えないこと」が、原本のパスを書き込み・削除の API に渡さないこと、原本を読むのは `copyFileShared` の読み取りだけであること、`SaveAs` の保存先が作業フォルダだけであること、Word・PowerPoint を読み取り専用で開くことを確かめる（Excel を読み取り専用で開くことは「Office ファイルを安全に開くこと」が確かめる）。
 

@@ -9,7 +9,7 @@ hide:
 
 # tebunko
 
-tebunko は、Excel・Word・PowerPoint のファイルとテキストファイルを内容の文字列で横断検索する Windows 用の全文検索ツールです。該当するファイル・シート（ページ・スライド）・行を特定し、元のファイルを直接開けます。
+tebunko は、Excel・Word・PowerPoint のファイルとテキストファイル、PDF ファイルを内容の文字列で横断検索する Windows 用の全文検索ツールです。該当するファイル・シート（ページ・スライド）・行を特定し、元のファイルを直接開けます。
 
 ![tebunko の検索画面。「単価」で検索し、一致した Word と Excel のファイルが見出しごとに並んでいる](images/screens/search-tab/results.png)
 
