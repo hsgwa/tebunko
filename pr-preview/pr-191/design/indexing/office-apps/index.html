@@ -4500,11 +4500,11 @@
 </tr>
 <tr>
 <td>PID の取得</td>
-<td>COM 生成の前後でプロセス一覧（<code>EXCEL</code> / <code>WINWORD</code> / <code>POWERPNT</code>）を比べ、新しく増えた 1 つを自分が起動したプロセスとする。比較は自分のセッションのプロセスだけで行う（別の利用者・別の作業フォルダの tebunko など、ほかのセッションのプロセスを自分のものと取り違えない）。同じ種類の Office を起動するのはそのレーンのスレッド 1 つだけのため、ほかのスレッドの起動と取り違えない</td>
+<td>COM 生成の前後でプロセス一覧（<code>EXCEL</code> / <code>WINWORD</code> / <code>POWERPNT</code>）を比べ、新しく増えた 1 つを自分が起動したプロセスとする。比較は自分のセッションのプロセスだけで行う（別の利用者・別の作業フォルダの tebunko など、ほかのセッションのプロセスを自分のものと取り違えない）。同じ種類の Office を起動するのはそのレーンのスレッド 1 つだけのため、ほかのスレッドの起動と取り違えない。増えた 1 つの起動時刻（UTC の Ticks）も、止める前の照合に使うために一度だけ読んで控える（<code>getOfficeStartTicks</code>）。読めなければ控えず、記録も書かない（下の「起動時刻が読めないとき」）</td>
 </tr>
 <tr>
 <td>優先度</td>
-<td>自分が起動した Office のプロセスも <code>PriorityClass</code> を変えない（Normal のまま）。利用者がダブルクリックしたファイルがインデックス作成の Excel・Word で開くことがあり、利用者とプロセスを共有しないと確実には言えない（<a href="../../structure/threads/#スレッドの一覧">スレッドの一覧</a>）。PID とプロセス名を受け渡しの口の <code>OfficePids</code> に記録する（画面を閉じるときに止まらなければ、これだけを止める。<a href="../../structure/closing/">閉じるときの順番</a>）</td>
+<td>自分が起動した Office のプロセスも <code>PriorityClass</code> を変えない（Normal のまま）。利用者がダブルクリックしたファイルがインデックス作成の Excel・Word で開くことがあり、利用者とプロセスを共有しないと確実には言えない（<a href="../../structure/threads/#スレッドの一覧">スレッドの一覧</a>）。PID・プロセス名・起動時刻を受け渡しの口の <code>OfficePids</code> に記録する（画面を閉じるときに止まらなければ、名前と起動時刻が合うものだけを止める。<a href="../../structure/closing/">閉じるときの順番</a>）</td>
 </tr>
 <tr>
 <td>利用者のアプリとの共用（Excel・Word）</td>
@@ -4516,7 +4516,7 @@
 </tr>
 <tr>
 <td>終了</td>
-<td><code>Quit()</code> と <code>ReleaseComObject</code> の後、待ち時間（Excel は 1 秒、Word・PowerPoint は 5 秒）以内にプロセスが終了しなければ PID で強制終了する。Excel の待ち時間が短いのは、抽出で取り出した COM オブジェクトが解放されきらず、インデクサが動いている間は Quit しても終わらない（長く待っても無駄になる）ため。<code>GC.Collect()</code> で解放を促して自分で終わらせる方法は、インデクサの終了が COM の解放待ちで約 60 秒止まることがある（実測 25 回中 1〜2 回）ため採らない。<code>GC.WaitForPendingFinalizers()</code> も同じ理由で使わない</td>
+<td><code>Quit()</code> と <code>ReleaseComObject</code> の後、待ち時間（Excel は 1 秒、Word・PowerPoint は 5 秒）以内にプロセスが終了しなければ PID で強制終了する。待つ前と強制終了の前に、控えた名前・起動時刻と同じプロセスか照らす（<code>isSameOfficeProcess</code>）。起動時刻が違えば控えたプロセスはもう終わっているので、待たず止めずに終わったものとして扱う。Quit の直後に自分で終わっていれば、終わったものとして扱う。起動時刻が読めないときは、待たず止めない（下の「起動時刻が読めないとき」）。Excel の待ち時間が短いのは、抽出で取り出した COM オブジェクトが解放されきらず、インデクサが動いている間は Quit しても終わらない（長く待っても無駄になる）ため。<code>GC.Collect()</code> で解放を促して自分で終わらせる方法は、インデクサの終了が COM の解放待ちで約 60 秒止まることがある（実測 25 回中 1〜2 回）ため採らない。<code>GC.WaitForPendingFinalizers()</code> も同じ理由で使わない</td>
 </tr>
 <tr>
 <td>終了の失敗</td>
@@ -4524,7 +4524,11 @@
 </tr>
 <tr>
 <td>制限時間の監視</td>
-<td>監視のスレッドは Excel・Word・PowerPoint のレーンのスレッドごとに 1 つ（<code>OfficeWatchdog</code> の <code>Start</code>。読み取りのスレッドは持たない）。<code>getApp</code> / <code>stopApp</code> のたびに、そのスレッドが自分で起動したアプリの PID を監視スレッドに渡す（<code>OfficeWatchdog</code> の <code>UpdateWatchedPids</code>）。1 ファイルの制限時間を過ぎたら、監視スレッドがそれらを強制終了する（<a href="../ingest-list/#強制終了時間切れからの再開">取り込み一覧</a>）。ほかのレーンのアプリは止めない。PID が別のプロセスに再利用されている場合に備え、プロセス名が <code>EXCEL</code> / <code>WINWORD</code> / <code>POWERPNT</code> のときだけ終了させる</td>
+<td>監視のスレッドは Excel・Word・PowerPoint のレーンのスレッドごとに 1 つ（<code>OfficeWatchdog</code> の <code>Start</code>。読み取りのスレッドは持たない）。<code>getApp</code> / <code>stopApp</code> のたびに、そのスレッドが自分で起動したアプリの PID を監視スレッドに渡す（<code>OfficeWatchdog</code> の <code>UpdateWatchedPids</code>）。1 ファイルの制限時間を過ぎたら、監視スレッドがそれらを強制終了する（<a href="../ingest-list/#強制終了時間切れからの再開">取り込み一覧</a>）。ほかのレーンのアプリは止めない。PID が別のプロセスに再利用されている場合に備え、プロセス名が <code>EXCEL</code> / <code>WINWORD</code> / <code>POWERPNT</code> で、かつ控えた名前・起動時刻と同じ（<code>isSameOfficeProcess</code>）ときだけ終了させる。起動時刻が読めないときは止めない（<code>quitApp</code>・画面を閉じるときの <code>KillOffice</code> も同じ。下の「起動時刻が読めないとき」）</td>
+</tr>
+<tr>
+<td>起動時刻が読めないとき</td>
+<td>起動時刻を読めなかった Office（アクセスが拒否されたなど）は、控えず、止める対象にしない。制限時間を過ぎても監視は止めず、COM の呼び出しが戻らなければ取り込みが進まない。画面を閉じるときの <code>KillOffice</code> でも止まらず、利用者がタスクマネージャーで止めることになる。起きるのはまれで、別のプロセスを止めてしまうより安全なため、この動きにしている</td>
 </tr>
 <tr>
 <td>PowerPoint</td>
