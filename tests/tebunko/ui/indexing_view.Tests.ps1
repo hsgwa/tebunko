@@ -159,6 +159,7 @@ Describe "getIndexingDroppedCount・削除予定のある確認の文言" -Tag U
         $decision = getIndexingResumeBannerDecision $pending $indexing $visible $kind $was
         $decision.Action | Should -Be $action
         $decision.Dismissed | Should -Be $dismissed
+        $decision.CanResume | Should -Be (($pending -gt 0) -and !$indexing)
     }
 
     It "終わりの帯は、残りの有無で秒数が変わったときだけ時計を決め直す: 残り <pending>・いま <current> 秒は <action>" -TestCases @(

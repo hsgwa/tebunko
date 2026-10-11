@@ -858,6 +858,25 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         }
     }
 
+    It "フォルダの状態の文の色: <name> は <brush>" -TestCases @(
+        @{ name = "ある"; missing = $false; checked = $true; brush = "Ok" }
+        @{ name = "無い"; missing = $true; checked = $true; brush = "Danger.Text" }
+        @{ name = "確認中"; missing = $false; checked = $false; brush = "Ink.Muted" }
+        @{ name = "更新中でも無ければ赤"; missing = $true; checked = $true; brush = "Danger.Text"; level = "Run" }
+    ) {
+        param ($missing, $checked, $brush, $level = "Ok")
+        $item = newDetailItem
+        $item.FolderMissing = $missing
+        $item.FolderChecked = $checked
+        $item.IndexLevel = $level
+        (getIndexDetailView @($item) $null).FolderBrush | Should -Be $brush
+    }
+
+    It "何も選んでいないときのフォルダの状態の色は灰、調べ終えたかを省くと調べ終えたものとして扱う" {
+        (getIndexDetailView @() $null).FolderBrush | Should -Be "Ink.Muted"
+        (getIndexDetailView @(newDetailItem) $null).FolderBrush | Should -Be "Ok"
+    }
+
     It "2 件以上を選んでいる（multiCount）と、題に件数を出し、詳細の代わりに案内を出す" {
         $view = getIndexDetailView @() $null 2
         $view.Title | Should -Be "2 件を選択中"

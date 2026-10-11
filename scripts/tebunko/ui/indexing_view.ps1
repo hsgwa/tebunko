@@ -125,9 +125,10 @@ function getIndexingBannerBehavior {
 }
 
 function getIndexingResumeBannerDecision {
-    # 更新の集計を読み直したときの、帯の扱い。@{ Action; Dismissed }
+    # 更新の集計を読み直したときの、帯の扱い。@{ Action; Dismissed; CanResume }
     #   Action: Show（中断の帯を出す）/ Text（出ている中断の帯の文だけ直す）/ Retime（終わりの帯の自動で消える時計を決め直す）/
     #           Hide（出ている中断の帯を消す）/ None（何もしない）
+    #   CanResume: 残りがあり、いま更新していない（［続きから再開］を出せる）か
     #   Dismissed: 次に持ち越す「利用者が閉じた」印。残りが無くなる・更新を始めると戻す（閉じたあとの読み直しでは出し直さない）
     param (
         [int]$pending,             # 取り込みの残りの件数
@@ -142,17 +143,20 @@ function getIndexingResumeBannerDecision {
     $dismissed = [bool]$dismissed
     $canResume = ($pending -gt 0) -and !$indexing
     if (!$canResume) { $dismissed = $false }
-    if ($canResume -and !$panelVisible -and !$dismissed) { return @{ Action = "Show"; Dismissed = $dismissed } }
-    if ($canResume -and $kind -eq "interrupted") { return @{ Action = "Text"; Dismissed = $dismissed } }
-    if ($kind -eq "done" -and $panelVisible) {
+    $action = "None"
+    if ($canResume -and !$panelVisible -and !$dismissed) {
+        $action = "Show"
+    } elseif ($canResume -and $kind -eq "interrupted") {
+        $action = "Text"
+    } elseif ($kind -eq "done" -and $panelVisible) {
         # 終わりの帯（完了・中止）は、出した時点の古い集計で時計を決めている。残りの有無が変わって秒数が違うときだけ決め直す
         $pendingNow = if ($canResume) { $pending } else { 0 }
         $seconds = [int](getIndexingBannerBehavior $level $pendingNow).AutoCloseSeconds
-        if ($seconds -ne $currentAutoClose) { return @{ Action = "Retime"; Dismissed = $dismissed } }
-        return @{ Action = "None"; Dismissed = $dismissed }
+        if ($seconds -ne $currentAutoClose) { $action = "Retime" }
+    } elseif (!$canResume -and $kind -eq "interrupted") {
+        $action = "Hide"
     }
-    if (!$canResume -and $kind -eq "interrupted") { return @{ Action = "Hide"; Dismissed = $dismissed } }
-    return @{ Action = "None"; Dismissed = $dismissed }
+    return @{ Action = $action; Dismissed = $dismissed; CanResume = $canResume }
 }
 
 function getIndexingEndText {

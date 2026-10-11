@@ -76,17 +76,23 @@ function closeIndexingBanner {
     $ui.IndexingProgressPanel.Visibility = "Collapsed"
     $script:indexingBannerKind = ""
     $script:indexingBannerDismissed = $true
-    $ui.IndexingResumeButton.Visibility = "Collapsed"
+}
+
+function resetIndexingBanner {
+    # 帯を初期に戻す（ワークスペースを切り替えたとき）。自動で消える時計も止め、前のワークスペースで閉じた印を持ち越さない
+    $script:indexingBannerTimer.Stop()
+    $ui.IndexingProgressPanel.Visibility = "Collapsed"
+    $script:indexingBannerKind = ""
+    $script:indexingBannerDismissed = $false
 }
 
 function updateIndexingResume {
     # 中断した更新（残りがあり、いま更新していない）の帯。［続きから再開］を出す。
     # 判断は getIndexingResumeBannerDecision（判断層）。ここは結果を画面に当てるだけ
     $pending = if ($script:indexingState) { [int]$script:indexingState.Pending } else { 0 }
-    $canResume = ($pending -gt 0) -and !(isIndexing)
-    $ui.IndexingResumeButton.Visibility = if ($canResume) { "Visible" } else { "Collapsed" }
     $decision = getIndexingResumeBannerDecision $pending (isIndexing) ($ui.IndexingProgressPanel.Visibility -eq "Visible") $script:indexingBannerKind $script:indexingBannerDismissed $script:indexingBannerLevel $script:indexingBannerAutoClose
     $script:indexingBannerDismissed = $decision.Dismissed
+    $ui.IndexingResumeButton.Visibility = if ($decision.CanResume) { "Visible" } else { "Collapsed" }
     switch ($decision.Action) {
         "Show" {
             setIndexingBanner "warn" "interrupted"
@@ -380,7 +386,7 @@ function updateIndexDetailPanel {
         $checkedText = if ($null -ne $script:fastSearchCheckedAt) { "最終確認 $($script:fastSearchCheckedAt.ToString('HH:mm'))" } else { "" }
         $selected = @(@{
             Name = $item.Name; Path = $item.Path; Enabled = $item.Enabled; FolderStatus = $item.StatusText
-            FolderMissing = ($item.StatusChecked -and !$item.FolderExists)
+            FolderMissing = ($item.StatusChecked -and !$item.FolderExists); FolderChecked = [bool]$item.StatusChecked
             IndexText = $item.IndexText; IndexLevel = $item.IndexLevel; IndexSub = $item.IndexSub; FileCountText = $item.FileCountText
             LastIngestedText = $item.LastIngestedText; FastText = $item.FastText; FastLevel = $item.FastLevel
             FastToolTip = $item.FastToolTip; FastCheckedText = $checkedText
@@ -414,7 +420,7 @@ function updateIndexDetailPanel {
         $ui.IndexDetailPath.Text = $view.Path
     }
     $ui.IndexDetailFolderStatus.Text = $view.FolderStatus
-    $ui.IndexDetailFolderStatus.Tag = if ($view.FolderMissing) { "Missing" } else { "" }   # 無いときだけ赤（既定は緑）
+    $ui.IndexDetailFolderStatus.Foreground = themeBrush $view.FolderBrush
     setIndexBadge $ui.IndexDetailBadge $ui.IndexDetailBadgeText $view.Badge.Text $view.Badge.Level
     $ui.IndexDetailBadgeSub.Text = if ($view.Selected) { [string]$view.Badge.Sub } else { "" }
     $ui.IndexErrorText.Text = $view.Error

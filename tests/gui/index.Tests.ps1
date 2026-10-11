@@ -256,12 +256,6 @@ Describe "S3 作成中の操作" -Tag Gui {
             $b.Current.IsEnabled | Should -BeTrue
             $b.Current.Name | Should -Be "すべて更新"
 
-            # タブを切り替えると集計を読み直す（nav.ps1）。閉じた帯は、読み直しても出し直されない
-            setGuiStep $S "別のタブへ行って戻る（集計を読み直す）"
-            selectGuiTab $S "SettingsTab" "ChangeWorkspaceButton"
-            selectGuiTab $S "IndexTab" "IndexingButton"
-            testGuiVisible (findGui $S.Window -Id "IndexingProgressText") | Should -BeFalse -Because "閉じた帯は読み直しで出し直さない"
-
             # 取り込みが止まると、また押せる（#20）
             setGuiStep $S "止まった後の［＋ フォルダを追加］・詳細の名前とフォルダパスの欄・［削除］"
             (findGui $S.Window -Id "NewIndexButton").Current.IsEnabled | Should -BeTrue

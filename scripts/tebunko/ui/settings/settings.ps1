@@ -165,9 +165,7 @@ function switchWorkspace {
     $script:workspaceBlock = getWorkspaceBlockMessage
     $script:indexingState = $null
     $script:indexSummary = $null
-    $ui.IndexingProgressPanel.Visibility = "Collapsed"
-    $script:indexingBannerKind = ""
-    $script:indexingBannerDismissed = $false   # 前のワークスペースで閉じた印を持ち越さない
+    resetIndexingBanner
     updateSettingsView
     loadWorkspaceViews
     # 前の版のインデックスの知らせ。ネットワークの場所は裏で調べるため、分かったときにステータスへ出す

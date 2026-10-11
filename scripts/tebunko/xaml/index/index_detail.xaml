@@ -144,17 +144,8 @@
               </Grid>
               <!-- 名前・フォルダパスを確定できなかったときの理由（commitIndexDetailEdit） -->
               <TextBlock x:Name="IndexDetailEditError" Style="{StaticResource ErrorText}" Margin="98,4,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
-              <TextBlock x:Name="IndexDetailFolderStatus" Margin="98,4,0,0" FontSize="11" Foreground="{StaticResource Ok}">
-                <TextBlock.Style>
-                  <Style TargetType="TextBlock">
-                    <Style.Triggers>
-                      <Trigger Property="Tag" Value="Missing">
-                        <Setter Property="Foreground" Value="{StaticResource Danger.Text}" />
-                      </Trigger>
-                    </Style.Triggers>
-                  </Style>
-                </TextBlock.Style>
-              </TextBlock>
+              <!-- 文字の色は updateIndexDetailPanel が getIndexDetailView の FolderBrush で当てる -->
+              <TextBlock x:Name="IndexDetailFolderStatus" Margin="98,4,0,0" FontSize="11" />
               <Border Style="{StaticResource InfoCard}" Margin="0,10,0,0">
                 <StackPanel>
                   <StackPanel Orientation="Horizontal">
