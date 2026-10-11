@@ -115,6 +115,7 @@ Describe "startIndexing" -Tag Unit {
             $script:indexingPreparing | Should -Be $false
             $script:continued.Count | Should -Be 1
             $script:continued[0].OnlyNames | Should -Be @("営業")
+            $script:statuses[$script:statuses.Count - 1] | Should -Be ""
         }
 
         It "届かなかったら、接続できないことを出して、始めない" {

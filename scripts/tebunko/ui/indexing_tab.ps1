@@ -226,6 +226,8 @@ function finishWorkspaceCheck {
         setStatus (getWorkspaceUnreachableStatus ([string]$workspace.Dir))
         return
     }
+    # 確かめ中の文を消す（以後の確認を断っても、続きを始めても、残さない）
+    setStatus ""
     continueStartIndexing $result.LegacyState $onlyNames
 }
 
@@ -382,7 +384,7 @@ function finishIndexing {
     $script:indexingView = $null
     $taskbar.ProgressState = "None"
     # インデックス作成完了の通知。以前はタスクバーのボタンを光らせていたが（FlashWindowEx）、P/Invoke は
-    # 実行時コンパイル（csc.exe）を無くすため廃止した。完了は帯とタスクバーの進み具合で分かる。
+    # 実行時コンパイル（csc.exe）を無くすため廃止した。完了は帯で分かる。
     $session = $script:indexingSession
     $progress = $null
     try {
