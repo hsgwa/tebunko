@@ -62,8 +62,8 @@ ${officeAppInUseMessage} = " が起動しているため、更新に使用でき
 # 起動した Office のプロセスの優先度は下げない（Normal のまま）。利用者がダブルクリックしたファイルがインデックス作成の Excel・Word で開くことがあり、
 # PowerPoint は 1 つのプロセスしか持てないため、利用者とプロセスを共有しないと確実には言えない。利用者の操作を遅くしないよう、
 # 優先度を下げるのは、利用者と共有しないインデックス作成のスレッドだけにする（docs/design/structure/threads.md「スレッドの一覧」）
-# 起動したアプリの PID を入れる入れ物（ConcurrentDictionary[int,string]。$null なら入れない）。
-# 画面が閉じるときに、インデックス作成が起動した Office を PID で止めるために使う
+# 起動したアプリの PID を入れる入れ物（ConcurrentDictionary[int,object]。値は @{ ProcessName; StartTicks }。$null なら入れない）。
+# 画面が閉じるときに、インデックス作成が起動した Office を、プロセス名と起動時刻を照らしてから止めるために使う
 $script:officePidSink = $null
 # 起動した Office の PID の記録を置くフォルダ（<ワークスペース>\office_pids\<PC の鍵>。$null なら書かない）。
 # shared はツールを知らないため、使う側（インデックス作成）が場所を決めて入れる（office_process.ps1 の addOfficeRecord・removeOfficeRecord）。
@@ -233,16 +233,20 @@ function getApp {
             try { releaseComObject $com } catch {}
             throw (New-Object System.InvalidOperationException "${name}${officeAppInUseMessage}")
         }
-        if ($newIds.Count -eq 1 -and $script:officePidSink) {
-            $script:officePidSink[[int]$newIds[0]] = $info.Process
-        }
-        if ($newIds.Count -eq 1 -and $script:officeRecordDir) {
-            # 起動時刻が読めたときだけ記録する（読めなければ、残っても止める対象にならない）
+        # 起動時刻を控える。止める前に、控えたときと同じプロセスか照らすために使う（isSameOfficeProcess）。読めなければ $null（止める対象にならない）
+        $startTicks = $null
+        if ($newIds.Count -eq 1) {
             $started = Get-Process -Id ([int]$newIds[0]) -ErrorAction SilentlyContinue
-            $startTicks = $(if ($started -and $started.ProcessName -eq $info.Process) { getOfficeStartTicks $started } else { $null })
-            if ($null -ne $startTicks) {
-                [void](addOfficeRecord $script:officeRecordDir ([int]$newIds[0]) $info.Process $startTicks)
+            if ($started -and $started.ProcessName -eq $info.Process) {
+                $startTicks = getOfficeStartTicks $started
             }
+        }
+        if ($newIds.Count -eq 1 -and $script:officePidSink) {
+            $script:officePidSink[[int]$newIds[0]] = @{ ProcessName = $info.Process; StartTicks = $startTicks }
+        }
+        if ($newIds.Count -eq 1 -and $script:officeRecordDir -and $null -ne $startTicks) {
+            # 起動時刻が読めたときだけ記録する（読めなければ、残っても止める対象にならない）
+            [void](addOfficeRecord $script:officeRecordDir ([int]$newIds[0]) $info.Process $startTicks)
         }
 
         switch ($name) {
@@ -267,9 +271,11 @@ function getApp {
         # Excel・Word は起動中のアプリに接続することがある（新しいプロセスができない場合。PowerPoint は上で防いでいるため
         # ここには来ない）。その場合は利用者のものなので終了させない
         $script:apps[$name] = @{
-            Com    = $com
-            Pid    = $(if ($newIds.Count -eq 1) { $newIds[0] } else { 0 })
-            Shared = ($newIds.Count -eq 0)
+            Com         = $com
+            Pid         = $(if ($newIds.Count -eq 1) { $newIds[0] } else { 0 })
+            ProcessName = $info.Process
+            StartTicks  = $startTicks
+            Shared      = ($newIds.Count -eq 0)
         }
         $script:officeWatchdog.UpdateWatchedPids($script:apps)
     }
@@ -358,7 +364,7 @@ function keepUndecidedApp {
 
     $app = $script:apps[$name]
     untrackApp $name $app
-    $script:officeKeptApps += , @{ Name = $name; Com = $app.Com; Pid = [int]$app.Pid; BooksClosed = $false; Books = $null; Done = @{}; Undecided = $true }
+    $script:officeKeptApps += , @{ Name = $name; Com = $app.Com; Pid = [int]$app.Pid; StartTicks = $app.StartTicks; BooksClosed = $false; Books = $null; Done = @{}; Undecided = $true }
     if ($script:onOfficeHandOver) {
         # 渡したかどうかがまだ決まっていない（$null）ことを知らせる
         try { & $script:onOfficeHandOver $name $null } catch {}
@@ -368,8 +374,10 @@ function keepUndecidedApp {
 function quitApp {
     # アプリを終了させる。Quit し、COM の参照を放し、控えた PID のプロセス（名前も合うもの）が終わるのを待つ。
     # GC::WaitForPendingFinalizers() は COM の解放待ちで長時間（約 60 秒）止まることがあるため使わず、
-    # 待ち時間（ExitWait）を過ぎても終わらなければ PID を指定して強制終了する（名前では止めない）。終わったと確かめられたら $true
-    param ([string]$name, $com, [int]$processId)
+    # 待ち時間（ExitWait）を過ぎても終わらなければ PID を指定して強制終了する（名前では止めない）。終わったと確かめられたら $true。
+    # 待つ前・止める前に、控えたプロセスと同じか（名前・起動時刻）を照らす（isSameOfficeProcess）。起動時刻が違えば、控えたプロセスはもう終わっているので $true
+    # （別のプロセスを待たず、止めない）。起動時刻が読めない・控えていないときは、止めず待たずに $false（記録を残し、次の起動の確認に任せる）
+    param ([string]$name, $com, [int]$processId, $startTicks = $null)
 
     try { $com.Quit() } catch {}
     try { releaseComObject $com } catch {}
@@ -379,6 +387,11 @@ function quitApp {
     $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
     if ($null -eq $process -or $process.ProcessName -ne $appInfo[$name].Process) {
         return $true
+    }
+    if (-not (isSameOfficeProcess $process $appInfo[$name].Process $startTicks)) {
+        # Quit の直後に自分で終わったものは、終わったとして返す。起動時刻が違えば控えたプロセスは終わっている。分からないときは $false
+        try { if ($process.HasExited) { return $true } } catch {}
+        return ((compareOfficeProcess $process $appInfo[$name].Process $startTicks) -eq "Different")
     }
     $wait = $appInfo[$name].ExitWait
     if ($process.WaitForExit($wait)) {
@@ -395,7 +408,7 @@ function quitKeptApp {
     # 自分のファイルだけだと分かった、持ち続けたアプリを終了させる（quitApp）
     param ($state)
 
-    [void](quitApp $state.Name $state.Com $state.Pid)
+    [void](quitApp $state.Name $state.Com $state.Pid $state.StartTicks)
 }
 
 function handOverApp {
@@ -411,7 +424,7 @@ function handOverApp {
     untrackApp $name $app
 
     # 自分のファイルを閉じる・設定を戻す・窓を出す、を全部通して初めて「渡した」。通らなければ、持ち続けて後で設定し直す
-    $state = @{ Name = $name; Com = $app.Com; Pid = [int]$app.Pid; BooksClosed = $false; Books = $null; Done = @{} }
+    $state = @{ Name = $name; Com = $app.Com; Pid = [int]$app.Pid; StartTicks = $app.StartTicks; BooksClosed = $false; Books = $null; Done = @{} }
     $ok = restoreHandedOverApp $state 3
     if ($ok) {
         releaseHandedOverApp $state
@@ -529,7 +542,7 @@ function stopApp {
         try { releaseComObject $app.Com } catch {}
         $exited = $true
     } else {
-        $exited = quitApp $name $app.Com $app.Pid
+        $exited = quitApp $name $app.Com $app.Pid $app.StartTicks
     }
     # 記録は、プロセスが終わったと確かめてから消す。終わらなければ残す（次の起動の確認に任せる）
     if ($app.Pid -and $script:officeRecordDir -and $exited) {
@@ -584,7 +597,7 @@ function releaseComObject($object) {
 class OfficeWatchdog {
     # 見張りのスレッドと共有する値。
     #   Deadline: 取り込み中のファイルの制限時刻（取り込み中でなければ MaxValue）
-    #   Pids    : 強制終了してよいプロセスID（自分で起動したOfficeアプリ）
+    #   Pids    : 強制終了してよいプロセス（自分で起動したOfficeアプリ）。@{ Id; ProcessName; StartTicks } の配列。止める前に起動時刻を照らす
     #   TimedOut: 制限時間を過ぎて強制終了した
     #   Stop    : 見張りのスレッドに終わりを伝える
     [hashtable]$State
@@ -600,11 +613,20 @@ class OfficeWatchdog {
 
     [void] UpdateWatchedPids([hashtable]$apps) {
         # 強制終了してよいプロセスIDを、起動中のアプリのうち自分で起動したものにする（利用者のアプリは終了させない）
-        $this.State.Pids = @($apps.Values | Where-Object { -not $_.Shared -and $_.Pid } | ForEach-Object { $_.Pid })
+        $this.State.Pids = @($apps.Values | Where-Object { -not $_.Shared -and $_.Pid } |
+            ForEach-Object { @{ Id = [int]$_.Pid; ProcessName = $_.ProcessName; StartTicks = $_.StartTicks } })
     }
 
     [void] Start() {
+        # 見張りは別のランスペースで動くので、照合の関数の定義を渡す（式を書き写さない。worker_pool.ps1 と同じ InitialSessionState の形）
+        $sessionState = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault2()
+        foreach ($name in @('isSameOfficeProcess', 'compareOfficeProcess', 'getOfficeStartTicks')) {
+            $sessionState.Commands.Add([System.Management.Automation.Runspaces.SessionStateFunctionEntry]::new($name, (Get-Command $name -CommandType Function).Definition))
+        }
+        $runspace = [System.Management.Automation.Runspaces.RunspaceFactory]::CreateRunspace($sessionState)
+        $runspace.Open()
         $ps = [PowerShell]::Create()
+        $ps.Runspace = $runspace
         [void]$ps.AddScript({
             param($watch, [string[]]$processNames)
             while (-not $watch.Stop) {
@@ -614,18 +636,18 @@ class OfficeWatchdog {
                 }
                 $watch.Deadline = [datetime]::MaxValue
                 $watch.TimedOut = $true
-                foreach ($id in @($watch.Pids)) {
+                foreach ($entry in @($watch.Pids)) {
                     try {
-                        # 終了済みでIDが別のプロセスに再利用されている場合に備え、Officeアプリであることを確かめる
-                        $process = [System.Diagnostics.Process]::GetProcessById($id)
-                        if ($processNames -contains $process.ProcessName) {
+                        # 終了済みでIDが別のプロセスに再利用されている場合に備え、Officeアプリであること、控えたときと同じプロセスであること（名前・起動時刻）を確かめる
+                        $process = [System.Diagnostics.Process]::GetProcessById([int]$entry.Id)
+                        if ((isSameOfficeProcess $process $entry.ProcessName $entry.StartTicks) -and $processNames -contains $process.ProcessName) {
                             $process.Kill()
                         }
                     } catch {}
                 }
             }
         }).AddArgument($this.State).AddArgument($this.ProcessNames)
-        $this.Thread = @{ PowerShell = $ps; Handle = $ps.BeginInvoke() }
+        $this.Thread = @{ PowerShell = $ps; Runspace = $runspace; Handle = $ps.BeginInvoke() }
     }
 
     [void] Stop() {
@@ -635,6 +657,7 @@ class OfficeWatchdog {
         $this.State.Stop = $true
         try { [void]$this.Thread.PowerShell.EndInvoke($this.Thread.Handle) } catch {}
         $this.Thread.PowerShell.Dispose()
+        $this.Thread.Runspace.Dispose()
         $this.Thread = $null
     }
 

@@ -1015,7 +1015,7 @@ Describe "取り込みのスレッドのスクリプト（ingestWorkerScript）"
             Lib = getPartLoad indexerLib
             WorkDir = $root; TmpDir = "$root\tmp"; PublishDir = "$root\publish"
             FileTimeoutMinutes = 10; RestartInterval = 1
-            OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'
+            OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'
             Lane = ${laneReader}
         }
         $priority = [System.Threading.Thread]::CurrentThread.Priority
@@ -1053,7 +1053,7 @@ Describe "取り込みのスレッドのスクリプト（ingestWorkerScript）"
             Lib = getPartLoad indexerLib
             WorkDir = $root; TmpDir = "$root\tmp"; PublishDir = "$root\publish"
             FileTimeoutMinutes = 10; RestartInterval = 1
-            OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'
+            OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'
             Lane = ${laneExcel}; Channel = $global:waitChannel
         }
         # 見張りは本物のまま動かす（Pids が空なので何も止めない。ingestWorkerScript が Start と Stop を呼ぶ）
