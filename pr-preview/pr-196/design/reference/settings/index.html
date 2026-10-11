@@ -4414,7 +4414,7 @@
 <td>dir</td>
 <td><code>@{HasLegacyIndex; ContentEmpty; HasLegacySystemIndex}</code></td>
 <td>前の版のワークスペースの状態。<code>index\</code> の直下のフォルダに元のフォルダ.txt があれば前の版のしるし（<code>HasLegacyIndex</code>）。<code>content_index\</code> が空か（<code>ContentEmpty</code>）。空のときだけ、<code>system_index\</code> に前の名前の txt があるかも調べる</td>
-<td>gui_main.ps1, indexing_tab.ps1, settings_tab.ps1, index_archive.ps1, indexer_run.ps1, paths.ps1</td>
+<td>gui_main.ps1, indexing_tab.ps1, ui/settings/settings.ps1, index_archive.ps1, indexer_run.ps1, paths.ps1</td>
 </tr>
 <tr>
 <td><code>testLegacyCleanupNeeded</code></td>
@@ -4428,7 +4428,7 @@
 <td>dir, hasLegacyIndex</td>
 <td>string</td>
 <td>前の版のインデックスが見つかったときの知らせ。しるしが無ければ空</td>
-<td>gui_main.ps1, settings_tab.ps1, indexer_run.ps1</td>
+<td>gui_main.ps1, ui/settings/settings.ps1, indexer_run.ps1</td>
 </tr>
 <tr>
 <td><code>clearLegacySystemIndex</code></td>
@@ -4520,7 +4520,7 @@
 <td><code>testFolderOrUnder</code></td>
 <td>path, folder</td>
 <td>bool</td>
-<td>path が folder そのもの、または folder の下かを返す。フォルダとその下の比べ方はここだけ。大文字・小文字を区別しない序数の比べ（<code>OrdinalIgnoreCase</code>）で、folder の末尾の <code>\</code> は外し、<code>&lt;folder&gt;\</code> で始まるものだけを「下」にする（<code>Sales</code> の下に <code>Sales2</code> は入らない）。folder が空ならどれも含まない。既知の制限: <code>\\?\</code> 付きと無し、<code>/</code> 区切り、<code>..</code>、8.3 形式の短い名前は同じ場所として扱わない（書き方は呼び出す側がそろえる）</td>
+<td>path が folder そのもの、または folder の下かを返す。<code>searchExcludes</code> の削除・付け替え・保存でのフォルダとその下の比べ方はここだけ。大文字・小文字を区別しない序数の比べ（<code>OrdinalIgnoreCase</code>）で、folder の末尾の <code>\</code> は外し、<code>&lt;folder&gt;\</code> で始まるものだけを「下」にする（<code>Sales</code> の下に <code>Sales2</code> は入らない）。folder が空ならどれも含まない。既知の制限: <code>\\?\</code> 付きと無し、<code>/</code> 区切り、<code>..</code>、8.3 形式の短い名前は同じ場所として扱わない（書き方は呼び出す側がそろえる）</td>
 <td><code>removeSearchExcludesUnder</code>, <code>moveSearchExcludes</code>, 検索対象のツリー（<code>saveSearchExcludes</code>）</td>
 </tr>
 <tr>
