@@ -4434,6 +4434,7 @@
 <li>幅に収まらず <code>…</code> で切れたときだけ、全文をツールチップで見せる（<code>addTrimmedToolTip</code>）。切れていないときは出さない。</li>
 <li>この画面では、窓の下の右に <code>登録済み: N フォルダ</code> と <code>合計: N ファイル</code> も出す（<a href="../index-tab/">インデックス一覧の管理</a>）。</li>
 <li>帯とステータスバーに同じ知らせを重ねて出さない。更新の結果は帯に、利用者が起こした操作の結果はステータスバーに出す。</li>
+<li>更新の途中にいつもの文へ出す文（<code>更新を開始しました</code>・<code>更新を取りやめました</code>・<code>更新するファイルを調べています…</code>・<code>更新の中止を要求しました</code>。<code>getIndexingRunStatus</code>）は、更新が終わったときに消す（<code>testIndexingRunStatus</code>・<code>finishIndexing</code>）。終わったあとも残ると、帯の「更新が終わりました」と食い違うため。ほかの操作の結果の文は消さない。</li>
 </ul>
 <h2 id="更新し直しの確かめ">更新し直しの確かめ<a class="headerlink" href="#更新し直しの確かめ" title="Permanent link">&para;</a></h2>
 <p>前の版のインデックス（<code>index\</code>。しるしあり）が見つかり、<code>content_index\</code> が空のまま［すべて更新］を押すと、更新の対象を数える前に確かめのダイアログを出す（<code>getReingestConfirm</code>。<code>tebunko/ui/indexing_view.ps1</code>）。</p>
