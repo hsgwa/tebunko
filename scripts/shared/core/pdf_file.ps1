@@ -45,6 +45,11 @@ ${pdfStringStops} = [char[]]@('(', ')', '\')
 # 区切りは ${pdfDelimiters} と同じ。コメント・16 進の文字列・入れ子やエスケープのある文字列・単独の < > ) は取らない（1 文字ずつ進める道に任せる）
 # ページの内容で、文字の位置や文字列に効く命令。これ以外の命令（図形・色など）は、数と文字列を捨てて読み飛ばす
 ${pdfTextOps} = [System.Collections.Generic.HashSet[string]]::new([string[]]@("Tj", "TJ", "'", '"', "Tf", "BT", "Td", "TD", "TL", "T*", "Tm", "BI"), [System.StringComparer]::Ordinal)
+# ページの内容の読み取り用。字句の取り方は pdfTokenRegex と同じで、先頭に「読み飛ばす並び」を足してある（グループ 1。語は 2、それ以外は 3）。
+# 読み飛ばす並び = 数・名前・単純な文字列などの引数が並び、文字に効かない命令（英字で始まる語で、pdfTextOps に無いもの）で終わる。
+# 命令を読むと数・名前・文字列は捨てられるので、飛ばしても結果は変わらない。文字に効く命令の前の引数は要るので、並びの終わりが文字に効かない命令のときだけ飛ばす。
+# 配列・辞書・コメント・入れ子の文字列を含むところは、ここに合わず 1 字句ずつ読む。
+${pdfPageRegex} = [regex]::new(('\G(?:((?>(?>[\x00-\x20]*)(?:[^\x00-\x20()<>\[\]{}/%A-Za-z''"][^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*|/[^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*|\([^()\\]*\)))*(?>[\x00-\x20]*)(?!(?:Tj|TJ|Tf|BT|Td|TD|TL|T\*|Tm|BI)(?![^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]))[A-Za-z][^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*)|(?>[\x00-\x20]*)(?:([^\x00-\x20()<>\[\]{}/%][^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*)|(/[^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*|\([^()\\]*\)|<<|>>|[\[\]{}])))'), [System.Text.RegularExpressions.RegexOptions]::Compiled)
 ${pdfTokenRegex} =[regex]::new('\G(?>[\x00-\x20]*)(?:([^\x00-\x20()<>\[\]{}/%][^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*)|(/[^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*|\([^()\\]*\)|<<|>>|[\[\]{}]))', [System.Text.RegularExpressions.RegexOptions]::Compiled)
 
 function testPdfExtension {
@@ -1119,7 +1124,8 @@ function readPdfPageText {
     $st = newPdfLexer $content 0
     $pos = 0
     $len = $content.Length
-    $re = ${pdfTokenRegex}
+    $re = ${pdfPageRegex}
+    $reTok = ${pdfTokenRegex}
     $emptyMatch = [System.Text.RegularExpressions.Match]::Empty
     $nums = [System.Collections.Generic.List[double]]::new()
     $lastStr = $null
@@ -1133,6 +1139,16 @@ function readPdfPageText {
         if ($m.Success) {
             $g = $m.Groups[1]
             if ($g.Success) {
+                # 文字に効かない命令までの並びを、まとめて飛ばす
+                $pos = $g.Index + $g.Length
+                $nums.Clear()
+                $lastStr = $null
+                $lastName = $null
+                $lastArray = $null
+                continue
+            }
+            $g = $m.Groups[2]
+            if ($g.Success) {
                 $t = $g.Value
                 $pos = $g.Index + $g.Length
                 $kind = "kw"
@@ -1145,7 +1161,7 @@ function readPdfPageText {
                     }
                 }
             } else {
-                $g = $m.Groups[2]
+                $g = $m.Groups[3]
                 $t = $g.Value
                 $pos = $g.Index + $g.Length
                 $c = $t[0]
@@ -1181,7 +1197,7 @@ function readPdfPageText {
         if ($kind -eq "[") {
             $items = [System.Collections.Generic.List[object]]::new()
             while ($true) {
-                $m = if ($pos -lt $len) { $re.Match($content, $pos) } else { $emptyMatch }
+                $m = if ($pos -lt $len) { $reTok.Match($content, $pos) } else { $emptyMatch }
                 if ($m.Success) {
                     $g = $m.Groups[1]
                     if ($g.Success) {
