@@ -85,22 +85,35 @@ function testWorkspaceChoice {
 
 function getWorkspaceInputDecision {
     # 設定のワークスペースの欄に入力したパスを確定するときの判断。@{ Action; Message; Path }
-    #   Action: None（変わっていない・空にして出た。欄を今の場所に戻す）/ Invalid（直してほしい。Message に理由）/ Apply（Path で、［変更…］で選んだときと同じ確かめ・切り替えに進む）
-    # 相対パスは受けない（ツールのフォルダからの位置と取り違えないため）。フォルダの有無・書き込めるかは、［変更…］で選んだときと同じ testWorkspaceChoice（applyWorkspace）が調べる
+    #   Action: None（変わっていない。欄を今の場所に戻す）/ Invalid（直してほしい。Message に理由）/ Apply（Path で、［変更…］で選んだときと同じ確かめ・切り替えに進む）
+    # 相対パスは受けない（ツールのフォルダからの位置と取り違えないため）。環境変数（%USERPROFILE% など）は展開した結果で判定する（定義の無いもの・相対パスになるものは断る）。
+    # ネットワークの場所は受けない（画面のスレッドでネットワークに触らないため。［変更…］で選んでもらう）。
+    # フォルダの有無・書き込めるかは、［変更…］で選んだときと同じ testWorkspaceChoice（applyWorkspace）が調べる
     param (
         [string]$text,       # 入力された文字
         [string]$current,    # 今のワークスペース
-        $drives = $null      # ドライブ文字 → 割り当て先（テストで差し替える）
+        $drives = $null,     # ドライブ文字 → 割り当て先（テストで差し替える）
+        [scriptblock]$driveType = $null   # ドライブの種類を引く関数（テストで差し替える。null なら実際のドライブ）
     )
 
     $trimmed = $text.Trim().Trim([char]34).Trim()
     if ($trimmed -eq "") {
         return @{ Action = "Invalid"; Message = "ワークスペースにするフォルダのパスを入力してください。"; Path = $current }
     }
-    if ($trimmed -notmatch '^([A-Za-z]:[\\/]|\\\\|//|%)') {
-        return @{ Action = "Invalid"; Message = "ドライブ文字から始まるパス（例 D:\tebunko_ws）か、ネットワークのパス（\サーバー\共有）で入力してください。"; Path = $current }
+    $startMessage = "ドライブ文字から始まるパス（例 D:\tebunko_ws）で入力してください。"
+    $startsWithVariable = $trimmed.StartsWith("%")
+    if (-not $startsWithVariable -and $trimmed -notmatch '^([A-Za-z]:[\\/]|\\\\|//)') {
+        return @{ Action = "Invalid"; Message = $startMessage; Path = $current }
     }
+    # 環境変数の展開は normalizeFolderPath が行う。定義の無い変数は % が残る（ツールのフォルダからの相対パスにされるため、断る）
     $folder = normalizeFolderPath $trimmed
+    if ($startsWithVariable -and ($folder.Contains("%") -or $folder -notmatch '^([A-Za-z]:\\|\\\\)')) {
+        return @{ Action = "Invalid"; Message = $startMessage; Path = $current }
+    }
+    $isNetwork = if ($null -ne $driveType) { testNetworkPath $folder $driveType } else { testNetworkPath $folder }
+    if ($isNetwork) {
+        return @{ Action = "Invalid"; Message = "ネットワークの場所（\\サーバー\共有 など）や、つながっていないドライブは、入力では指定できません。［変更…］でフォルダを選んでください。"; Path = $current }
+    }
     if (testSameFolder $folder $current $drives) {
         return @{ Action = "None"; Message = ""; Path = $current }
     }

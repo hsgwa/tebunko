@@ -111,6 +111,23 @@ Describe "S5 ワークスペースの変更" -Tag Gui {
             setGuiStep $S "欄に入力: 相対パス → 欄の下に理由が出る"
             & $typeWorkspace "相対\パス"
             waitGui $S "理由が出る（相対）" ${guiDefaultTimeout} { (& $inputError) -like "*ドライブ文字*" } | Out-Null
+            & $workspaceText | Should -Be $script:sharedDir
+            (readGuiConfig $script:tool).workspaceFolder | Should -Be $script:sharedDir
+            setGuiStep $S "欄に入力: ネットワークのパス → 入力では受けず、［変更…］へ案内する（共有には触れない）"
+            & $typeWorkspace "\\server\share\ws"
+            waitGui $S "理由が出る（ネットワーク）" ${guiDefaultTimeout} { (& $inputError) -like "*［変更…］*" } | Out-Null
+            & $workspaceText | Should -Be $script:sharedDir
+            setGuiStep $S "欄に入力して Enter: 不備のとき、欄の文字は残り、理由が出る"
+            $box = findGui $S.Window -Id "WorkspaceBox"
+            $box.SetFocus()
+            setGuiText $S $box "相対\パス"
+            pressGuiKey $S.Window 13
+            waitGui $S "理由が出る（Enter）" ${guiDefaultTimeout} { (& $inputError) -like "*ドライブ文字*" } | Out-Null
+            & $workspaceText | Should -Be "相対\パス"
+            setGuiStep $S "Esc: 欄が今の場所に戻り、理由が消える"
+            pressGuiKey $S.Window 0x1B
+            waitGui $S "欄が戻り、理由が消える（Esc）" ${guiDefaultTimeout} { (& $workspaceText) -eq $script:sharedDir -and (& $inputError) -eq "" } | Out-Null
+            (readGuiConfig $script:tool).workspaceFolder | Should -Be $script:sharedDir
             setGuiStep $S "欄に入力: 今のインデックスの中 → 警告が出て変わらない"
             & $typeWorkspace "$($script:sharedDir)\content_index\共有"
             closeGuiMessage $S "インデックスのフォルダの中です" "使えないフォルダの警告" | Out-Null

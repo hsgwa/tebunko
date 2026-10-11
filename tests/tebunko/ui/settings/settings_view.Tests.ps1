@@ -24,19 +24,37 @@ Describe "getWorkspaceInputDecision" -Tag Unit {
     BeforeAll { $script:drives = @{ "C" = "\Device\HarddiskVolume3"; "D" = "\Device\HarddiskVolume4" } }
 
     It "<name>" -TestCases @(
-        @{ name = "空にすると入力を促す"; text = "  "; action = "Invalid"; like = "*入力してください*" }
-        @{ name = "相対パスは受けない"; text = "ws\新"; action = "Invalid"; like = "*ドライブ文字*" }
-        @{ name = "ドライブ文字のない絶対パス風（\ 始まり）も受けない"; text = "\ws\新"; action = "Invalid"; like = "*ドライブ文字*" }
-        @{ name = "今と同じなら何もしない（大文字小文字・末尾の \ の違い）"; text = "c:\TOOL\work\"; action = "None"; like = "" }
-        @{ name = "あるフォルダは確かめに進む"; text = "D:\新しい"; action = "Apply"; like = "" }
-        @{ name = "引用符と空白を取って進む"; text = " ""D:\新しい"" "; action = "Apply"; like = "" }
-        @{ name = "ネットワークのパスも受ける"; text = "\\server\share\ws"; action = "Apply"; like = "" }
+        @{ name = "空にすると入力を促す"; text = "  "; action = "Invalid"; like = "*入力してください*"; path = "C:\tool\work" }
+        @{ name = "相対パスは受けない"; text = "ws\新"; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
+        @{ name = "ドライブ文字のない絶対パス風（\ 始まり）も受けない"; text = "\ws\新"; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
+        @{ name = "ドライブ文字だけ（\ 無し）は受けない"; text = "C:"; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
+        @{ name = "ドライブ文字の相対（C:相対）は受けない"; text = "C:相対"; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
+        @{ name = "定義の無い環境変数は相対パスとして断る"; text = "%TEBUNKO_NO_SUCH_VARIABLE%\ws"; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
+        @{ name = "% で始まるだけの文字は断る"; text = "%data"; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
+        @{ name = "今と同じなら何もしない（大文字小文字・末尾の \ の違い）"; text = "c:\TOOL\work\"; action = "None"; like = ""; path = "C:\tool\work" }
+        @{ name = "あるフォルダは確かめに進む"; text = "D:\新しい"; action = "Apply"; like = ""; path = "D:\新しい" }
+        @{ name = "引用符と空白を取って進む"; text = " ""D:\新しい"" "; action = "Apply"; like = ""; path = "D:\新しい" }
+        @{ name = "/ 区切りは \ にそろえて進む"; text = "D:/新しい"; action = "Apply"; like = ""; path = "D:\新しい" }
+        @{ name = "末尾の \ と空白は取って進む"; text = "D:\新しい\ "; action = "Apply"; like = ""; path = "D:\新しい" }
+        @{ name = "環境変数は展開してから判定する（<SystemDrive> の下）"; text = "%SystemDrive%\新しい"; action = "Apply"; like = ""; path = "$($env:SystemDrive)\新しい" }
+        @{ name = "ネットワークのパスは受けず、［変更…］へ案内する"; text = "\\server\share\ws"; action = "Invalid"; like = '*\\サーバー\共有*［変更…］*'; path = "C:\tool\work" }
+        @{ name = "/ 区切りのネットワークのパスも受けない"; text = "//server/share"; action = "Invalid"; like = "*［変更…］*"; path = "C:\tool\work" }
     ) {
-        $d = getWorkspaceInputDecision $text "C:\tool\work" $script:drives
+        $d = getWorkspaceInputDecision $text "C:\tool\work" $script:drives { param ($drive) [System.IO.DriveType]::Fixed }
         $d.Action | Should -Be $action
         if ($like) { $d.Message | Should -BeLike $like }
-        if ($action -eq "Apply") { $d.Path | Should -Not -Be "" }
-        if ($action -eq "None") { $d.Path | Should -Be "C:\tool\work" }
+        $d.Path | Should -Be $path
+    }
+
+    It "割り当てたネットワークのドライブ・つながっていないドライブも受けない" -TestCases @(
+        @{ type = [System.IO.DriveType]::Network }
+        @{ type = [System.IO.DriveType]::NoRootDirectory }
+    ) {
+        param ($type)
+        $driveType = { param ($drive) $type }.GetNewClosure()
+        $d = getWorkspaceInputDecision "Z:\ws" "C:\tool\work" $script:drives $driveType
+        $d.Action | Should -Be "Invalid"
+        $d.Message | Should -BeLike "*［変更…］*"
     }
 }
 
