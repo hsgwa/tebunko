@@ -4798,6 +4798,16 @@
 <td>［フォルダを開く］・フォルダの選択</td>
 </tr>
 <tr>
+<td><code>%SystemRoot%\System32\ntoskrnl.exe</code></td>
+<td>読む（ファイルの版だけ）</td>
+<td>ログの見出しの OS の版（<code>getEnvironmentInfo</code>）</td>
+</tr>
+<tr>
+<td>Windows のあるドライブの <code>Program Files</code>・<code>Program Files (x86)</code> の <code>Microsoft Office\root\Office16</code>・<code>Microsoft Office\Office16</code>・<code>Microsoft Office\Office15</code> の <code>EXCEL.EXE</code>・<code>WINWORD.EXE</code>・<code>POWERPNT.EXE</code></td>
+<td>読む（有無とファイルの版だけ。起動しない）</td>
+<td>ログの見出しの Office の版・形態・ビット数（<code>findOfficeApps</code>）。ほかのドライブや別の版の Office は <code>見つからない</code> と出る</td>
+</tr>
+<tr>
 <td>Windows Search（<code>Search.CollatorDSO</code>）</td>
 <td>読む（SELECT だけ）</td>
 <td>高速検索。システムインデックスを索引させ、問い合わせる</td>
@@ -4977,7 +4987,7 @@
 <tr>
 <td><code>gui_error_log.txt</code></td>
 <td>追記（同じ例外は 60 秒に 1 回）</td>
-<td>1 MB 以上になる前の記録で <code>gui_error_log_previous.txt</code> へ移す</td>
+<td>1 MB 以上なら、次の記録を書く前に <code>gui_error_log_previous.txt</code> へ移す</td>
 </tr>
 <tr>
 <td><code>gui_error_log_previous.txt</code></td>
@@ -5014,7 +5024,7 @@
 <tr>
 <td><code>startup_error.txt</code></td>
 <td><code>tebunko.bat</code> は上書き、<code>gui.ps1</code>（<code>writeStartupErrorFile</code>）は追記</td>
-<td>追記の側は 1 MB 以上になる前の記録で <code>startup_error_previous.txt</code> へ移す。<code>.bat</code> の側は 1 回分</td>
+<td>追記の側は 1 MB 以上なら、次の記録を書く前に <code>startup_error_previous.txt</code> へ移す。<code>.bat</code> の側は 1 回分</td>
 </tr>
 <tr>
 <td><code>startup_error_previous.txt</code></td>
