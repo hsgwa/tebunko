@@ -39,6 +39,7 @@ BeforeDiscovery {
         @{ name = "途中で Tf を挟むと、新しい大きさで比べる"; pages = @("BT /F1 16 Tf (a) Tj /F1 4 Tf 5 0 Td (b) Tj ET"); expected = @("a b") }
         @{ name = "Tm で拡大した後の TD の縦の動きは拡大を掛ける"; pages = @("BT 12 0 0 12 72 700 Tm /F1 1 Tf (a) Tj 0 -1 TD (b) Tj ET"); expected = @("a`nb") }
         @{ name = "縦のずれが小さい Td は同じ行（上付き文字など）"; pages = @("BT /F1 12 Tf (a) Tj 20 0.5 Td (b) Tj ET"); expected = @("a b") }
+        @{ name = "回した Tm（d が 0）の後でも、Td の縦の動きで行が分かれる"; pages = @("BT 0 1 -1 0 72 700 Tm /F1 12 Tf (a) Tj 0 -14 Td (b) Tj ET"); expected = @("a`nb") }
         @{ name = "BT で縦位置が 0 に戻る"; pages = @("BT /F1 12 Tf 0 -14 Td (a) Tj ET BT /F1 12 Tf 0 -14 Td (b) Tj ET"); expected = @("ab") }
         @{ name = "16 進の空白と奇数桁"; pages = @("BT /F1 12 Tf <41 42 4> Tj ET"); expected = @("AB@") }
     )
@@ -51,6 +52,7 @@ BeforeDiscovery {
         @{ name = "TJ の詰めで前後が全角なら空白なし"; content = "BT /F1 12 Tf [<0001> -300 <0001>] TJ ET"; expected = "ああ" }
         @{ name = "TJ の詰めで片方が全角なら空白なし"; content = "BT /F1 12 Tf [<0020> -300 <0001>] TJ ET"; expected = "Aあ" }
         @{ name = "配列の bfrange"; content = "BT /F1 12 Tf <0030> Tj <0031> Tj ET"; expected = "XY" }
+        @{ name = "1 コードが 2 文字になる合字は 1 字形と数え、小さい Td でも語をつなぐ"; content = "BT /F1 12 Tf <0040> Tj 3 0 Td <0021> Tj ET"; expected = "fiB" }
     )
 
     # 読めない PDF。kind は BeforeAll の newBrokenPdf が組み立てる
@@ -83,6 +85,8 @@ BeforeDiscovery {
         @{ kind = "dictTooMany"; message = "*辞書の項目の数*" }
         @{ kind = "xrefRowsRepeat"; message = "*オブジェクトの数が上限*" }
         @{ kind = "compressedOver"; message = "*解凍後*" }
+        @{ kind = "searchOver"; message = "*終わりを探す量*" }
+        @{ kind = "objStreamHeader"; message = "*見出しが読めない*" }
     )
 }
 
@@ -98,7 +102,7 @@ BeforeAll {
 /CIDInit /ProcSet findresource begin 12 dict begin begincmap
 /CMapName /Adobe-Identity-UCS def /CMapType 2 def
 1 begincodespacerange <0000> <FFFF> endcodespacerange
-2 beginbfchar <0001> <3042> <0002> <D840DC0B> endbfchar
+3 beginbfchar <0001> <3042> <0002> <D840DC0B> <0040> <00660069> endbfchar
 2 beginbfrange <0010> <0012> <3044> <0020> <0021> <0041> endbfrange
 1 beginbfrange <0030> <0031> [<0058> <0059>] endbfrange
 endcmap end end
@@ -312,6 +316,22 @@ endcmap end end
                 $objs[5] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'
                 return , (newPdfFromObjects $objs)
             }
+            "searchOver" {
+                # /Length が合わないストリームを /Kids に並べる（ページにならないので、取り出す合計には入らない。終わりを探す量だけで止める）
+                $objs = @{}
+                $objs[1] = '<< /Type /Catalog /Pages 2 0 R >>'
+                $objs[2] = '<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R 6 0 R] /Count 4 >>'
+                foreach ($i in 3..6) {
+                    $objs[$i] = @{ Dict = '<< /Length 1 >>'; Stream = (toPdfBytes ("x" * 200)) }
+                }
+                return , (newPdfFromObjects $objs)
+            }
+            "objStreamHeader" {
+                $p = @{}
+                $p[1] = '<< /Type /Catalog /Pages 2 0 R >>'
+                $p[2] = '<< /Type /Pages /Kids [] /Count 0 >>'
+                return , (newPdfWithXrefStream -normal @{} -packed $p -badHeader)
+            }
             "tooManyObjects" { return , (newSimplePdf -pages @($simple, $simple, $simple, $simple)) }
             "tooManyPages" { return , (newSimplePdf -pages @($simple, $simple, $simple)) }
         }
@@ -335,6 +355,7 @@ endcmap end end
             "dictTooMany" { return (newPdfLimits -maxObjects 5) }
             "xrefRowsRepeat" { return (newPdfLimits -maxObjects 8) }
             "compressedOver" { return (newPdfLimits -maxInflated 110) }
+            "searchOver" { return (newPdfLimits -maxSearchRatio 0.5) }
         }
         return $null
     }

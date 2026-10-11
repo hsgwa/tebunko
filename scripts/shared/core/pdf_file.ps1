@@ -28,6 +28,8 @@ ${pdfGapThreshold} = -250
 ${pdfMapMaxEntries} = 1000000
 # たどる相互参照（Prev・XRefStm）の数の上限
 ${pdfXrefMaxCount} = 1000
+# ストリームの終わりを探して読み進める文字数の合計の上限（ファイルの大きさの何倍まで）
+${pdfSearchMaxRatio} = 4
 # 同じ行とみなす縦位置の差（ポイント）の上限
 ${pdfLineTolerance} = 1.0
 
@@ -54,12 +56,13 @@ function newPdfLimits {
         [int]$maxDepth = ${pdfNestMaxDepth},
         [int]$maxPages = ${pdfPageMaxCount},
         [int]$maxMapEntries = ${pdfMapMaxEntries},
-        [int]$maxXref = ${pdfXrefMaxCount}
+        [int]$maxXref = ${pdfXrefMaxCount},
+        [double]$maxSearchRatio = ${pdfSearchMaxRatio}
     )
 
     return @{
         MaxInflated = $maxInflated; MaxObjects = $maxObjects; MaxDepth = $maxDepth; MaxPages = $maxPages
-        MaxMapEntries = $maxMapEntries; MaxXref = $maxXref
+        MaxMapEntries = $maxMapEntries; MaxXref = $maxXref; MaxSearchRatio = $maxSearchRatio
     }
 }
 
@@ -395,6 +398,7 @@ function readPdfIndirectAt {
         } elseif ($start -lt $found.From -and $found.At -ge $found.From) {
             $span = [Math]::Min($found.From - $start + 8, $text.Length - $start)
             $end = $text.IndexOf("endstream", $start, $span, [StringComparison]::Ordinal)
+            $doc.Searched += $span
             if ($end -lt 0 -or $end -ge $found.From) { $end = $found.At }
             $found.From = $start
             $found.At = $end
@@ -403,8 +407,12 @@ function readPdfIndirectAt {
             if ($end -lt 0) {
                 throw "PDFのストリームの終わりが無いため読めません。"
             }
+            $doc.Searched += $end - $start
             $found.From = $start
             $found.At = $end
+        }
+        if ($doc.Searched -gt $doc.Limits.MaxSearchRatio * $text.Length) {
+            throw "PDFのストリームの終わりを探す量が上限を超えるため読めません。"
         }
         $length = $end - $start
         if ($length -gt 0 -and $text[$start + $length - 1] -eq "`n") { $length-- }
@@ -567,10 +575,12 @@ function readPdfFromObjectStream {
         $numbers = New-Object int[] $count
         $offsets = New-Object int[] $count
         for ($i = 0; $i -lt $count; $i++) {
-            $numbers[$i] = [int](readPdfToken $st)
+            $token = readPdfToken $st
             if ($st.K -ne "num") { throw "PDFのオブジェクトのストリームの見出しが読めないため読めません。" }
-            $offsets[$i] = [int](readPdfToken $st)
+            $numbers[$i] = [int]$token
+            $token = readPdfToken $st
             if ($st.K -ne "num") { throw "PDFのオブジェクトのストリームの見出しが読めないため読めません。" }
+            $offsets[$i] = [int]$token
         }
         $doc.ObjStreams[$streamNum] = @{ Text = $text; First = $first; Numbers = $numbers; Offsets = $offsets }
     }
@@ -953,11 +963,23 @@ function testPdfHalfWidth {
     return ([int]$c -le 0x24F)
 }
 
+function getPdfGlyphCount {
+    # 文字列が表す字形（フォントの 1 コード）の数。1 コードが 2 文字になる対応（合字）でも 1 と数える
+    param (
+        $font,
+        [string]$s
+    )
+
+    if ($null -eq $font -or $null -eq $font.Map -or $font.Width -ne 2) { return $s.Length }
+    return [int][Math]::Ceiling($s.Length / 2)
+}
+
 function addPdfText {
     # ページの文字に文字列を足す。詰め（Gap）が付いていて、前後の文字がどちらも半角のときだけ空白を入れる
     param (
         [hashtable]$ts,
-        [string]$text
+        [string]$text,
+        [int]$glyphs = 1
     )
 
     if ($text.Length -eq 0) { return }
@@ -967,7 +989,7 @@ function addPdfText {
     }
     $ts.HasOut = $true
     $ts.OutY = $ts.Y
-    $ts.Run += $text.Length
+    $ts.Run += $glyphs
     $sb = $ts.Sb
     if ($ts.Gap -and $sb.Length -gt 0) {
         $last = $sb[$sb.Length - 1]
@@ -1041,12 +1063,12 @@ function readPdfPageText {
         if ($kind -ne "kw") { continue }
 
         if ($t -ceq "Tj") {
-            if ($null -ne $lastStr) { addPdfText $ts (convertPdfStringToText $font $lastStr) }
+            if ($null -ne $lastStr) { addPdfText $ts (convertPdfStringToText $font $lastStr) (getPdfGlyphCount $font $lastStr) }
         } elseif ($t -ceq "TJ") {
             if ($null -ne $lastArray) {
                 foreach ($item in $lastArray) {
                     if ($item -is [string]) {
-                        addPdfText $ts (convertPdfStringToText $font $item)
+                        addPdfText $ts (convertPdfStringToText $font $item) (getPdfGlyphCount $font $item)
                     } elseif ($item -le ${pdfGapThreshold}) {
                         $ts.Gap = $true
                     }
@@ -1056,7 +1078,7 @@ function readPdfPageText {
             $ts.Y -= $ts.Leading * $ts.Scale
             $ts.Run = 0
             breakPdfLine $ts
-            if ($null -ne $lastStr) { addPdfText $ts (convertPdfStringToText $font $lastStr) }
+            if ($null -ne $lastStr) { addPdfText $ts (convertPdfStringToText $font $lastStr) (getPdfGlyphCount $font $lastStr) }
         } elseif ($t -ceq "Tf") {
             $fontSize = if ($nums.Count -ge 1) { [Math]::Abs($nums[$nums.Count - 1]) } else { 0.0 }
             $font = $null
@@ -1089,7 +1111,7 @@ function readPdfPageText {
         } elseif ($t -ceq "Tm") {
             if ($nums.Count -ge 6) {
                 $ts.Y = $nums[5]
-                $ts.Scale = $nums[3]
+                $ts.Scale = [Math]::Sqrt($nums[2] * $nums[2] + $nums[3] * $nums[3])
                 $ts.Run = 0
                 $ts.Gap = $true
             }
@@ -1205,7 +1227,7 @@ function readPdfPagesCore {
     $doc = @{
         Bytes = $bytes; Text = $text; Limits = $limits
         Xref = @{}; Cache = @{}; Loading = @{}; ObjStreams = @{}; Fonts = @{}; Visited = @{}; SeenNodes = @{}
-        Inflated = [long]0; XrefRows = [long]0; Root = $null; EndSearch = @{ From = 1; At = 0 }; Hybrid = $false; CMaps = @{}; MapEntries = [long]0
+        Inflated = [long]0; XrefRows = [long]0; Searched = [long]0; Root = $null; EndSearch = @{ From = 1; At = 0 }; Hybrid = $false; CMaps = @{}; MapEntries = [long]0
     }
     $start = $text.LastIndexOf("startxref", [StringComparison]::Ordinal)
     if ($start -lt 0) {

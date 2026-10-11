@@ -118,7 +118,8 @@ function newPdfWithXrefStream {
         [string]$trailerExtra = '/Root 1 0 R',
         [int[]]$widths = @(1, 4, 2),
         [int]$pngType = 2,
-        [switch]$useIndex
+        [switch]$useIndex,
+        [switch]$badHeader
     )
 
     $objs = @{}
@@ -134,7 +135,9 @@ function newPdfWithXrefStream {
             [void]$head.Append("$id $($body.Length) ")
             [void]$body.Append($packed[$id] + "`n")
         }
-        $data = toPdfBytes ($head.ToString() + $body.ToString())
+        $headText = $head.ToString()
+        if ($badHeader) { $headText = "x" + $headText.Substring(1) }
+        $data = toPdfBytes ($headText + $body.ToString())
         $objs[$objStmId] = newPdfStreamObject "/Type /ObjStm /N $($packedIds.Count) /First $($head.Length) /Filter /FlateDecode" (compressPdfBytes $data)
     }
 
