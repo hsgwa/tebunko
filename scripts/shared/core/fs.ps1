@@ -16,6 +16,27 @@ ${pathStateOther}       = "Other"
 # ERROR_NETWORK_UNREACHABLE(1231)・ERROR_HOST_UNREACHABLE(1232)・ERROR_NO_NET_OR_BAD_PATH(1222)
 ${unreachableWin32Codes} = @(53, 67, 64, 121, 1231, 1232, 1222)
 
+# ---- クラウドにだけあるファイル（OneDrive・SharePoint などのオンデマンド） ----
+#
+# 一覧（Get-ChildItem）が返す属性だけで見分ける。ファイルを開かないので、ダウンロードは起きない。
+#   RECALL_ON_DATA_ACCESS(0x400000)・RECALL_ON_OPEN(0x40000)・OFFLINE(0x1000) のどれかが付いていれば、
+#   中身は手元に無い（開くとダウンロードされる）。
+#   PINNED(0x80000)・UNPINNED(0x100000)・ReparsePoint だけでは、クラウドにだけあるとは言えない。
+
+${attributeRecallOnDataAccess} = 0x400000
+${attributeRecallOnOpen}       = 0x40000
+${attributeOffline}            = 0x1000
+
+function testCloudOnlyAttributes {
+    # ファイルの属性（数値）が、中身が手元に無い（クラウドにだけある）ことを表すとき $true
+    param (
+        [int]$attributes
+    )
+
+    $mask = ${attributeRecallOnDataAccess} -bor ${attributeRecallOnOpen} -bor ${attributeOffline}
+    return (($attributes -band $mask) -ne 0)
+}
+
 function readListFile {
     # 1行1件のファイルを読み込む（空行を除く）。ファイルが無ければ空配列。
     # 読めない（ほかが書き込み中など）ときは例外にする。呼び出し側の $ErrorActionPreference が既定の Continue でも

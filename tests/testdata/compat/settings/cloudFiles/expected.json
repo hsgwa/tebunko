@@ -1,0 +1,45 @@
+{
+    "targetFolders": [
+        { "name": "資料", "path": "C:\\tebunko_golden\\source\\資料", "enabled": true },
+        { "name": "(株)山田商事", "path": "C:\\tebunko_golden\\source\\(株)山田商事", "enabled": false }
+    ],
+    "indexSources": [
+        { "name": "共有資料", "path": "\\\\golden-server\\共有資料" }
+    ],
+    "searchExcludes": [
+        { "path": "C:\\tebunko_golden\\source\\資料\\除外A", "subfolders": true },
+        { "path": "C:\\tebunko_golden\\source\\資料\\除外B", "subfolders": false }
+    ],
+    "fileKinds": ["excel", "text"],
+    "useRegex": true,
+    "caseSensitive": true,
+    "includeShapes": false,
+    "includeComments": false,
+    "openMode": "readOnly",
+    "cloudFiles": "download",
+    "workspaceFolder": "C:\\tebunko_golden\\ws",
+    "ingestThreads": 2,
+    "functions": {
+        "getTargetFolders": [
+            { "Name": "資料", "Path": "C:\\tebunko_golden\\source\\資料", "Enabled": true },
+            { "Name": "(株)山田商事", "Path": "C:\\tebunko_golden\\source\\(株)山田商事", "Enabled": false }
+        ],
+        "readIndexSources": [
+            { "Name": "共有資料", "Path": "\\\\golden-server\\共有資料" }
+        ],
+        "readSearchExcludes": [
+            { "Path": "C:\\tebunko_golden\\source\\資料\\除外A", "Subfolders": true },
+            { "Path": "C:\\tebunko_golden\\source\\資料\\除外B", "Subfolders": false }
+        ],
+        "readFileKinds": ["excel", "text"],
+        "readSearchOption": {
+            "UseRegex": true,
+            "CaseSensitive": true,
+            "IncludeShapes": false,
+            "IncludeComments": false
+        },
+        "readOpenMode": "readOnly",
+        "readCloudFiles": "download",
+        "getWorkDir": "C:\\tebunko_golden\\ws"
+    }
+}

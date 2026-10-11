@@ -153,6 +153,10 @@ function findTargetFiles {
 function createTargetList {
     # クロール対象フォルダを1つ検索して取り込み一覧の行を作り直し、次を返す。
     #   Rows   : 全ファイルの行 / Targets: 取り込む行 / Failed: 前回失敗し、更新の無い行
+    #   Cloud  : 取り込む（または前回失敗した）ファイルのうち、クラウドにだけあるもの（OneDrive 等のオンデマンド）。
+    #            開くとダウンロードされるため Targets・Failed には入れず、呼び出し元が取り込むかを決める。
+    #            各要素は @{ RelPath; Row（取り込むときの行）; Old; Failed; Length; PendingOld }。
+    #            Rows には前回の行をそのまま入れる（前回の行が無い・前回未完了のときは入れない）
     #   Plan   : 画面の確認に出す件数（newIngestPlanRow。取り込み予定.tsv の1行）
     #   Removed: 元のファイルが無くなったファイルの相対パス（呼び出し元が本文インデックスのファイルから外す）
     # 行の相対パスは "インデックス名\フォルダからの相対パス"（= work\index からの相対パス）とする。
@@ -170,6 +174,12 @@ function createTargetList {
     $rows = New-Object System.Collections.Generic.List[object]
     $targets = New-Object System.Collections.Generic.List[object]
     $failed = New-Object System.Collections.Generic.List[object]
+    $cloud = New-Object System.Collections.Generic.List[object]
+    # 取り込み予定に出す、クラウドにだけあるファイルの件数と容量（取り込みの対象と、前回失敗を分けて、下のループで足す）
+    $cloudCount = 0
+    $cloudFailedCount = 0
+    [long]$cloudBytes = 0
+    [long]$cloudFailedBytes = 0
     $found = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
     $count = @{ Done = 0; New = 0; Updated = 0; Pending = 0; Lost = 0 }
 
@@ -201,6 +211,33 @@ function createTargetList {
             $indexComplete = [bool](testIndexComplete $old $relPath $counts)
         }
         $decision = getIngestDecision $old $updated $size $indexComplete
+
+        # 読む必要があるファイル（取り込む・前回失敗）だけ、クラウドにだけあるかを調べる。
+        # 属性は一覧が返したものを見るだけで、ファイルは開かない（ダウンロードは起きない）
+        if (($decision.Ingest -or $decision.Reason -eq "failed") -and (testCloudOnlyAttributes ([int]$file.Attributes))) {
+            $isFailed = (-not $decision.Ingest)
+            $pendingOld = [bool]($old -and $old.状態 -eq ${stateNew})
+            if ($isFailed) {
+                $cloudFailedCount++
+                $cloudFailedBytes += [long]$file.Length
+            } else {
+                $cloudCount++
+                $cloudBytes += [long]$file.Length
+            }
+            $cloud.Add(@{
+                RelPath    = $relPath
+                Row        = $(if ($isFailed) { $old } else { newStatusRow $relPath $updated $size ${stateNew} })
+                Old        = $old
+                Failed     = $isFailed
+                Length     = [long]$file.Length
+                PendingOld = $pendingOld
+            })
+            # 取り込まないときは前回の行を残す（前回の行が無い・前回未完了なら、行を作らない）
+            if ($old -and -not $pendingOld) {
+                $rows.Add($old)
+            }
+            continue
+        }
 
         if (-not $decision.Ingest) {
             # 更新なし。失敗したファイルを再取り込みするかは呼び出し元で決める
@@ -242,6 +279,9 @@ function createTargetList {
         # インデックスを直接削除された場合など。ふだんは 0 件のため、あるときだけ表示する
         $detail += " / インデックスが無い・壊れている $($count.Lost) 件"
     }
+    if ($cloud.Count -gt 0) {
+        $detail += " / クラウドにだけある $($cloud.Count) 件"
+    }
     writeIndexerLog ("  [{0}] 対象ファイル {1} 件（{2}）" -f $folder.Name, $scan.Files.Count, $detail)
     if ($count.Lost -gt 0) {
         writeIndexerLog "    インデックス（TSV）が無くなった・壊れている $($count.Lost) 件は取り込み直します。（インデックスを直接削除した・0 バイトのTSVが残っている）" "Yellow"
@@ -254,6 +294,7 @@ function createTargetList {
     }
 
     $plan = newIngestPlanRow $folder.Name $folder.Path ${planKindIngest} $scan.Files.Count $targets.Count `
-        $count.New $count.Updated $count.Pending $count.Lost $failed.Count
-    return @{ Rows = $rows; Targets = $targets; Failed = $failed; Plan = $plan; Removed = $removed.ToArray() }
+        $count.New $count.Updated $count.Pending $count.Lost $failed.Count `
+        $cloudCount $cloudFailedCount $cloudBytes $cloudFailedBytes
+    return @{ Rows = $rows; Targets = $targets; Failed = $failed; Cloud = $cloud; Plan = $plan; Removed = $removed.ToArray() }
 }

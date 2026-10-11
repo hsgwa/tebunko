@@ -37,6 +37,10 @@ function writeGoldenSettings {
     }
 
     writeOpenMode "readOnly" $path
+    # クラウドにだけあるファイルの扱い（この版より前の版には無いので、関数があるときだけ書く）
+    if (Get-Command writeCloudFiles -ErrorAction SilentlyContinue) {
+        writeCloudFiles "download" $path
+    }
     writeWorkspaceFolder "C:\tebunko_golden\ws" $path
     updateSettings "ingestThreads" 2 $path
 }

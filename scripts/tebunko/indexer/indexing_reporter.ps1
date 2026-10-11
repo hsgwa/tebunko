@@ -20,7 +20,7 @@ class IndexingReporter {
 
     [object] WaitForApproval([string]$phase, $plan, [int]$targetCount, [int]$failedCount, [int]$timeoutMinutes) {
         # 取り込み対象の件数を画面に渡し、［更新を開始］か［キャンセル］の返事を待つ。
-        #   取り込む → @{ RetryFailed } / 取りやめ（中止を求められた場合を含む） → $null
+        #   取り込む → @{ RetryFailed; IncludeCloud } / 取りやめ（中止を求められた場合を含む） → $null
         # 画面が返事をしないまま待ち続けないよう、timeoutMinutes で打ち切って取りやめる。
         # ローカル変数はプロパティ名 Channel と大文字・小文字だけの違いにしない（$ch にする。PowerShell のクラスは
         # 同名（大文字・小文字を区別しない）のローカル変数への代入をプロパティへの代入と見なし、$this. を要求してエラーになる）
