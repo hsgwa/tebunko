@@ -466,7 +466,7 @@ function applyIndexStats {
             }
             $item.SetStats(("{0:#,0}" -f $stat.Total), ("更新済み {0:#,0} 件 ・ 未更新 {1:#,0} 件 ・ 失敗 {2:#,0} 件" -f $stat.Done, $stat.Pending, $stat.Failed), $lastText)
         }
-        $row = getIndexRowView $stat $indexing $item.Enabled (getIndexingRatio) (testIndexInRound $item)
+        $row = getIndexRowView $stat $indexing $item.Enabled (getIndexingRatio) (testIndexInRound $item) (testIndexExporting $item)
         $item.SetIndexState($row.Text, $row.ToolTip, $row.Level, $row.Sub, [double]$row.Percent)
         setIndexRowActions $item
     }
@@ -491,12 +491,31 @@ function testIndexInRound {
     return (@($script:indexingOnlyNames).Count -eq 0 -or @($script:indexingOnlyNames) -contains $item.Name)
 }
 
+$script:exportingNames = @()  # エクスポートで書き出している最中のインデックスの名前（行のバッジを「エクスポート中」にする）
+
+function testIndexExporting {
+    # 行がエクスポートで書き出している最中か
+    param ($item)
+
+    return (@($script:exportingNames) -contains [string]$item.Name)
+}
+
+function setExportingRows {
+    # エクスポートで書き出している最中の名前を置き（空なら終わり）、一覧の行のバッジを置き直す
+    param ([string[]]$names)
+
+    $script:exportingNames = @($names | Where-Object { $_ })
+    if ($null -ne $script:indexingState) {
+        applyIndexStats $script:indexingState.IndexStats (isIndexing)
+    }
+}
+
 function setIndexRowActions {
     # 行の右端のボタン（［更新］［中止］・何も出さない）を、行の状態（IndexLevel）と動いている処理に合わせる。判断は getIndexRowActions
     param ($item)
 
     $blocker = getCurrentIndexJobBlocker
-    $actions = getIndexRowActions $item.IndexLevel $blocker
+    $actions = getIndexRowActions $item.IndexLevel $blocker (testIndexExporting $item)
     $item.SetRowActions($actions.Action, $actions.UpdateEnabled)
 }
 

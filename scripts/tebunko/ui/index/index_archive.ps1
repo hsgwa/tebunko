@@ -22,6 +22,9 @@ function startIndexArchiveJob {
     startJob $scriptBlock $arguments {
         param ($output, $errorText)
         $script:archiveBusy = $false
+        if (@($script:exportingNames).Count -gt 0) {
+            setExportingRows @()
+        }
         if ($errorText) {
             setStatus "$($script:archiveJobOperation)に失敗しました：${errorText}"
             updateIndexingButton
@@ -145,6 +148,7 @@ function continueExport {
     }
     if ($items.Count -eq 1) {
         $name = $items[0].Name
+        setExportingRows @($name)
         # 保存先フォルダの中身を数えるのも別スレッドで行う（届かないネットワークのフォルダで画面が止まらないように）
         startIndexArchiveJob "エクスポート" {
             param ($name, $folder, $dir, $statusPath, $settingsPath)
@@ -157,6 +161,7 @@ function continueExport {
         return
     }
     $names = @($items | ForEach-Object { $_.Name })
+    setExportingRows $names
     startIndexArchiveJob "エクスポート" {
         param ($names, $folder, $dir, $settingsPath)
         $ws = [Workspace]::new($dir)

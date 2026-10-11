@@ -328,6 +328,12 @@ Describe "getIndexRowActions（行の右端のボタン）" -Tag Unit {
         $result.Action | Should -Be $action
         $result.UpdateEnabled | Should -Be $enabled
     }
+
+    It "エクスポート中の行は、止められないので［中止］も［更新］も出さない" {
+        $result = getIndexRowActions "Run" "" $true
+        $result.Action | Should -Be "None"
+        $result.UpdateEnabled | Should -BeFalse
+    }
 }
 
 Describe "getIndexDeleteConfirmMessage" -Tag Unit {
@@ -643,6 +649,18 @@ Describe "getIndexRowView" -Tag Unit {
     It "enabled が偽なら、更新中以外のツールヒントに［すべて更新］の対象外の案内を足す" {
         (getIndexRowView @{ Total = 10; Done = 10; Pending = 0; Failed = 0 } $false $false).ToolTip | Should -Match "対象から外れています"
         (getIndexRowView @{ Total = 10; Done = 10; Pending = 0; Failed = 0 } $true $true).ToolTip | Should -Not -Match "対象から外れています"
+    }
+
+    It "エクスポート中の行は、状態によらず「エクスポート中」を更新中と同じ Run の色で出し、棒と補足は出さない" {
+        foreach ($stat in @($null, @{ Total = 10; Done = 10; Pending = 0; Failed = 0 }, @{ Total = 10; Done = 3; Pending = 7; Failed = 0 })) {
+            $view = getIndexRowView $stat $false $true -1.0 $true $true
+            $view.Text | Should -Be "エクスポート中"
+            $view.Level | Should -Be "Run"
+            $view.Sub | Should -Be ""
+            $view.Percent | Should -Be 0
+            $view.ToolTip | Should -Match "書き出しています"
+        }
+        (getIndexRowView @{ Total = 10; Done = 10; Pending = 0; Failed = 0 } $false $true -1.0 $true $false).Text | Should -Be "最新"
     }
 
     It "ツールヒントに前の版・内部の言葉を含めない" {

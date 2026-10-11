@@ -390,9 +390,13 @@ function getIndexRowActions {
     # ［更新］は、動いている処理があれば（blocker は getIndexJobBlocker の結果）使えない（更新中はほかの行も押せない）
     param (
         [string]$level,           # getIndexRowView の Level
-        [string]$blocker
+        [string]$blocker,
+        [bool]$exporting = $false # エクスポート中の行か（止められないので、［中止］も［更新］も出さない）
     )
 
+    if ($exporting) {
+        return @{ Action = "None"; UpdateEnabled = $false }
+    }
     $action = switch ($level) { "Run" { "Stop" } "Ng" { "None" } default { "Update" } }
     return @{ Action = $action; UpdateEnabled = ($blocker -eq "") }
 }
@@ -706,15 +710,20 @@ function getIndexRowView {
     #   enabled  : 設定の enabled（［すべて更新］で更新する対象か。画面にチェックは出さない）
     #   ratio    : 更新全体の進み（0〜1。分からないときは負の値）。更新中の補足に「45%」と出し、棒の長さにする
     #   inRound  : 今の回で更新するインデックスか（選んだものだけの回では、選ばなかった行は $false）
+    #   exporting: エクスポートで書き出している最中の行か（バッジは「エクスポート中」。更新中と同じ Run の色。棒は出さない）
     # 返す値の Percent は棒の長さ（0〜100）。更新中でなければ 0
     param (
         $stat,
         [bool]$indexing = $false,
         [bool]$enabled = $true,
         [double]$ratio = -1.0,
-        [bool]$inRound = $true
+        [bool]$inRound = $true,
+        [bool]$exporting = $false
     )
 
+    if ($exporting) {
+        return @{ Text = "エクスポート中"; Sub = ""; Level = "Run"; Percent = 0; ToolTip = "インデックスを zip に書き出しています。終わるまで、ほかの操作はできません。" }
+    }
     $notice = if (!$enabled) { "設定で［すべて更新］の対象から外れています（インデックスは残っています。行の［更新］で更新できます）。" } else { "" }
     if ($indexing -and $enabled -and $inRound) {
         $percent = if ($ratio -ge 0) { [int][Math]::Floor([Math]::Min($ratio, 1.0) * 100) } else { 0 }
