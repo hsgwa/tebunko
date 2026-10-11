@@ -118,14 +118,61 @@ Describe "getIndexingDroppedCount・削除予定のある確認の文言" -Tag U
     }
 
     It "確認の説明文: 削除予定 <dropped> 件のとき <expected>" -TestCases @(
-        @{ dropped = 0; expected = "［更新を開始］を押すと、更新するファイルだけを更新します。" }
-        @{ dropped = 1; expected = "［更新を開始］を押すと、更新するファイルを更新し、設定に無いインデックスを削除します。" }
-        @{ dropped = 3; expected = "［更新を開始］を押すと、更新するファイルを更新し、設定に無いインデックスを削除します。" }
+        @{ dropped = 0; expected = "" }
+        @{ dropped = 1; expected = "［更新を開始］を押すと、設定に無いインデックスも削除します。" }
+        @{ dropped = 3; expected = "［更新を開始］を押すと、設定に無いインデックスも削除します。" }
     ) {
         param ($dropped, $expected)
-        $text = getIndexingConfirmIntro $dropped
-        $text | Should -BeLike "元のファイルの更新日時とサイズを、前回更新したときの記録と比べました。*"
-        $text | Should -BeLike "*$expected"
+        getIndexingConfirmIntro $dropped | Should -Be $expected
+    }
+
+    It "帯の消え方: <level> のとき 閉じるボタン <closable>・自動で消えるまで <seconds> 秒" -TestCases @(
+        @{ level = "run"; closable = $true; seconds = 0 }
+        @{ level = "resume"; closable = $true; seconds = 0 }
+        @{ level = "ok"; closable = $true; seconds = 8 }
+        @{ level = "info"; closable = $true; seconds = 0 }
+        @{ level = "warn"; closable = $true; seconds = 0 }
+        @{ level = "ng"; closable = $true; seconds = 0 }
+        @{ level = ""; closable = $true; seconds = 0 }
+        @{ level = "ok"; pending = 3; closable = $true; seconds = 0 }
+        @{ level = "warn"; pending = 1; closable = $true; seconds = 0 }
+        @{ level = "ng"; pending = 2; closable = $true; seconds = 0 }
+        @{ level = "run"; pending = 5; closable = $true; seconds = 0 }
+        @{ level = "ok"; pending = 0; closable = $true; seconds = 8 }
+    ) {
+        param ($level, $closable, $seconds, $pending = 0)
+        $behavior = getIndexingBannerBehavior $level $pending
+        $behavior.Closable | Should -Be $closable
+        $behavior.AutoCloseSeconds | Should -Be $seconds
+    }
+
+    It "集計を読み直したときの帯: <name> は <action>・閉じた印 <dismissed>" -TestCases @(
+        @{ name = "残りがあり帯が無い"; pending = 3; indexing = $false; visible = $false; kind = ""; was = $false; action = "Show"; dismissed = $false }
+        @{ name = "閉じたあとの読み直しでは出し直さない"; pending = 3; indexing = $false; visible = $false; kind = ""; was = $true; action = "None"; dismissed = $true }
+        @{ name = "更新を始めると印が戻る"; pending = 3; indexing = $true; visible = $false; kind = ""; was = $true; action = "None"; dismissed = $false }
+        @{ name = "残りが 0 になると印が戻る"; pending = 0; indexing = $false; visible = $false; kind = ""; was = $true; action = "None"; dismissed = $false }
+        @{ name = "印が戻ったあとは出る"; pending = 2; indexing = $false; visible = $false; kind = ""; was = $false; action = "Show"; dismissed = $false }
+        @{ name = "出ている中断の帯は文だけ直す"; pending = 2; indexing = $false; visible = $true; kind = "interrupted"; was = $false; action = "Text"; dismissed = $false }
+        @{ name = "残りが無くなった中断の帯は消す"; pending = 0; indexing = $false; visible = $true; kind = "interrupted"; was = $false; action = "Hide"; dismissed = $false }
+        @{ name = "更新中に残っている中断の帯は消す"; pending = 2; indexing = $true; visible = $true; kind = "interrupted"; was = $false; action = "Hide"; dismissed = $false }
+        @{ name = "更新中の帯には何もしない"; pending = 2; indexing = $true; visible = $true; kind = "running"; was = $false; action = "None"; dismissed = $false }
+    ) {
+        param ($pending, $indexing, $visible, $kind, $was, $action, $dismissed)
+        $decision = getIndexingResumeBannerDecision $pending $indexing $visible $kind $was
+        $decision.Action | Should -Be $action
+        $decision.Dismissed | Should -Be $dismissed
+        $decision.CanResume | Should -Be (($pending -gt 0) -and !$indexing)
+    }
+
+    It "終わりの帯は、残りの有無で秒数が変わったときだけ時計を決め直す: 残り <pending>・いま <current> 秒は <action>" -TestCases @(
+        @{ pending = 0; current = 8; action = "None" }
+        @{ pending = 0; current = 0; action = "Retime" }
+        @{ pending = 3; current = 8; action = "Retime" }
+        @{ pending = 3; current = 0; action = "None" }
+    ) {
+        param ($pending, $current, $action)
+        $decision = getIndexingResumeBannerDecision $pending $false $true "done" $false "ok" $current
+        $decision.Action | Should -Be $action
     }
 }
 

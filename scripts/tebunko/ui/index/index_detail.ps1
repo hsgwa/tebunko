@@ -2,16 +2,14 @@
 
 # 詳細の左右の部品。名前の一覧（gui_main.ps1）に足さず、読み込んだ中身から取る
 foreach ($detailName in @(
-        "IndexDetailBody", "IndexDetailName", "IndexDetailPath", "IndexDetailPathButton", "IndexDetailFolderStatus",
+        "IndexDetailBody", "IndexDetailName", "IndexDetailPath", "IndexDetailPathButton", "IndexDetailEditError", "IndexDetailFolderStatus",
         "IndexDetailBadge", "IndexDetailBadgeText", "IndexDetailBadgeSub", "IndexErrorText", "IndexErrorHintText", "IndexDetailUpdated", "IndexDetailCount",
         "IndexDetailFastBadge", "IndexDetailFastBadgeText", "IndexDetailFastReason", "IndexDetailFastChecked", "IndexDetailFastNote",
         "IndexingDetailPanel", "IndexingProgressBar", "IndexingCountText", "IndexingFileText", "MultiSelectHintText")) {
     $ui[$detailName] = $ui.IndexDetailHost.Content.FindName($detailName)
 }
-# 詳細の名前・フォルダパス・更新中のファイルは、「…」で切れているときだけ全文をツールチップで見せる
-foreach ($trimmedName in @("IndexDetailName", "IndexDetailPath", "IndexingFileText")) {
-    addTrimmedToolTip $ui[$trimmedName]
-}
+# 更新中のファイルは、「…」で切れているときだけ全文をツールチップで見せる（名前とフォルダパスは入力欄で、欄の中で読める）
+addTrimmedToolTip $ui.IndexingFileText
 
 function setIndexBadge {
     # 詳細の状態のバッジの文言と色（一覧の LevelBadge と同じ組み合わせ。level は Ok / Wait / Ng / Run / None）
@@ -51,29 +49,67 @@ function setIndexingBanner {
         $button.BorderBrush = $line
         $button.Foreground = $line
     }
+    $ui.IndexingBannerClose.Foreground = $text
     $script:indexingBannerKind = $kind
+    $script:indexingBannerDismissed = $false
+    $script:indexingBannerLevel = if ($kind -eq "running") { "run" } else { $level }
+    setIndexingBannerBehavior
+}
+
+function setIndexingBannerBehavior {
+    # 閉じるボタンと自動で消える時機（getIndexingBannerBehavior）。残りがあって更新していないときは、閉じられるが自動では消えない
+    $pending = if ($script:indexingState -and !(isIndexing)) { [int]$script:indexingState.Pending } else { 0 }
+    $behavior = getIndexingBannerBehavior $script:indexingBannerLevel $pending
+    $ui.IndexingBannerClose.Visibility = if ($behavior.Closable) { "Visible" } else { "Collapsed" }
+    $script:indexingBannerAutoClose = [int]$behavior.AutoCloseSeconds
+    $script:indexingBannerTimer.Stop()
+    if ($behavior.AutoCloseSeconds -gt 0) {
+        $script:indexingBannerTimer.Interval = [TimeSpan]::FromSeconds($behavior.AutoCloseSeconds)
+        $script:indexingBannerTimer.Start()
+    }
+}
+
+function closeIndexingBanner {
+    # 帯を閉じる（×と、自動で消える時機）。残りがあるときは、閉じたあとも［続きから再開］の入口（［すべて更新］・行の［更新］・ナビの印）が残る。
+    # 帯は、更新を始める・終わる・起動し直すまで出し直さない
+    $script:indexingBannerTimer.Stop()
+    $ui.IndexingProgressPanel.Visibility = "Collapsed"
+    $script:indexingBannerKind = ""
+    $script:indexingBannerDismissed = $true
+}
+
+function resetIndexingBanner {
+    # 帯を初期に戻す（ワークスペースを切り替えたとき）。自動で消える時計も止め、前のワークスペースで閉じた印を持ち越さない
+    $script:indexingBannerTimer.Stop()
+    $ui.IndexingProgressPanel.Visibility = "Collapsed"
+    $script:indexingBannerKind = ""
+    $script:indexingBannerDismissed = $false
 }
 
 function updateIndexingResume {
     # 中断した更新（残りがあり、いま更新していない）の帯。［続きから再開］を出す。
-    # 中断の帯は、残りが無くなったら消す（更新が終わった・中止した直後の帯は消さない）
+    # 判断は getIndexingResumeBannerDecision（判断層）。ここは結果を画面に当てるだけ
     $pending = if ($script:indexingState) { [int]$script:indexingState.Pending } else { 0 }
-    $canResume = ($pending -gt 0) -and !(isIndexing)
-    $ui.IndexingResumeButton.Visibility = if ($canResume) { "Visible" } else { "Collapsed" }
-    if ($canResume -and $ui.IndexingProgressPanel.Visibility -ne "Visible") {
-        setIndexingBanner "warn" "interrupted"
-        $ui.IndexingProgressText.Text = getIndexingStateText $pending $false
-        $ui.IndexingProgressEta.Text = ""
-        $ui.IndexingProgressDetail.Text = ""
-        $ui.IndexingProgress.Visibility = "Collapsed"
-        $ui.IndexingStopButton.Visibility = "Collapsed"
-        $ui.IndexingSearchButton.Visibility = "Collapsed"
-        $ui.IndexingProgressPanel.Visibility = "Visible"
-    } elseif ($canResume -and $script:indexingBannerKind -eq "interrupted") {
-        $ui.IndexingProgressText.Text = getIndexingStateText $pending $false
-    } elseif (!$canResume -and $script:indexingBannerKind -eq "interrupted") {
-        $ui.IndexingProgressPanel.Visibility = "Collapsed"
-        $script:indexingBannerKind = ""
+    $decision = getIndexingResumeBannerDecision $pending (isIndexing) ($ui.IndexingProgressPanel.Visibility -eq "Visible") $script:indexingBannerKind $script:indexingBannerDismissed $script:indexingBannerLevel $script:indexingBannerAutoClose
+    $script:indexingBannerDismissed = $decision.Dismissed
+    $ui.IndexingResumeButton.Visibility = if ($decision.CanResume) { "Visible" } else { "Collapsed" }
+    switch ($decision.Action) {
+        "Show" {
+            setIndexingBanner "warn" "interrupted"
+            $ui.IndexingProgressText.Text = getIndexingStateText $pending $false
+            $ui.IndexingProgressEta.Text = ""
+            $ui.IndexingProgressDetail.Text = ""
+            $ui.IndexingProgress.Visibility = "Collapsed"
+            $ui.IndexingStopButton.Visibility = "Collapsed"
+            $ui.IndexingSearchButton.Visibility = "Collapsed"
+            $ui.IndexingProgressPanel.Visibility = "Visible"
+        }
+        "Text" { $ui.IndexingProgressText.Text = getIndexingStateText $pending $false }
+        "Retime" { setIndexingBannerBehavior }
+        "Hide" {
+            $ui.IndexingProgressPanel.Visibility = "Collapsed"
+            $script:indexingBannerKind = ""
+        }
     }
 }
 
@@ -122,16 +158,17 @@ function updateIndexingButton {
     $buttons = getIndexTabButtonsEnabled $blocker $selected
     $ui.NewIndexButton.IsEnabled = $buttons.New
     $ui.IndexDetailPathButton.IsEnabled = $buttons.ChangeFolder
+    # 名前とフォルダパスの欄は、動いている処理が無く、1 件選んでいるときだけ直せる
+    $ui.IndexDetailName.IsEnabled = $buttons.Edit
+    $ui.IndexDetailPath.IsEnabled = $buttons.Edit
     # 行の右クリックのメニュー（対象は押した行。可否は getIndexRowMenuEnabled）
     $pressed = $ui.IndexGrid.SelectedItem
     $menu = getIndexRowMenuEnabled $blocker ($null -ne $pressed) $(if ($pressed) { $pressed.IndexLevel } else { "None" }) ($null -ne $pressed -and [bool]$pressed.Path)
     $ui.RowMenuUpdate.IsEnabled = $menu.Update
-    $ui.EditIndexButton.IsEnabled = $menu.Edit
     $ui.RowMenuOpenFolder.IsEnabled = $menu.OpenFolder
     $ui.ExportIndexButton.IsEnabled = $menu.Export
     $ui.RemoveIndexButton.IsEnabled = $menu.Delete
-    $actions = getIndexActionsEnabled $blocker @(getIndexCheckedItems @($script:targetItems)).Count ($null -ne $ui.IndexGrid.SelectedItem)
-    $ui.ActionEdit.IsEnabled = $actions.Edit
+    $actions = getIndexActionsEnabled $blocker @(getIndexCheckedItems @($script:targetItems)).Count
     $ui.ActionsButton.IsEnabled = $true
     $ui.ActionUpdate.IsEnabled = $actions.Update
     $ui.ActionExport.IsEnabled = $actions.Export
@@ -334,7 +371,7 @@ $script:detailRowsKey = $null
 $script:indexingView = $null  # 詳細の「インデックス」の箱に出す、全体の進み具合（updateIndexingProgress が置く。更新中でなければ $null）
 
 function getIndexTargetItem {
-    # 詳細に出している行（右クリック・二重クリックの［編集…］と［...］、右クリックの［削除］［エクスポート…］の対象・可否もこの行。判定は getIndexDetailItem。［アクション ▾］は別で、可否・対象は getIndexActionsEnabled と、チェックの行（［編集…］は押した行も）が決める）
+    # 詳細に出している行（名前・フォルダパスの欄と［...］、右クリックの［削除］［エクスポート…］の対象・可否もこの行。判定は getIndexDetailItem。［アクション ▾］は別で、可否・対象は getIndexActionsEnabled と、チェックの行が決める）
     return getIndexDetailItem $ui.IndexGrid.SelectedItem @(getIndexCheckedItems @($script:targetItems))
 }
 
@@ -349,7 +386,7 @@ function updateIndexDetailPanel {
         $checkedText = if ($null -ne $script:fastSearchCheckedAt) { "最終確認 $($script:fastSearchCheckedAt.ToString('HH:mm'))" } else { "" }
         $selected = @(@{
             Name = $item.Name; Path = $item.Path; Enabled = $item.Enabled; FolderStatus = $item.StatusText
-            FolderMissing = ($item.StatusChecked -and !$item.FolderExists)
+            FolderMissing = ($item.StatusChecked -and !$item.FolderExists); FolderChecked = [bool]$item.StatusChecked
             IndexText = $item.IndexText; IndexLevel = $item.IndexLevel; IndexSub = $item.IndexSub; FileCountText = $item.FileCountText
             LastIngestedText = $item.LastIngestedText; FastText = $item.FastText; FastLevel = $item.FastLevel
             FastToolTip = $item.FastToolTip; FastCheckedText = $checkedText
@@ -371,9 +408,19 @@ function updateIndexDetailPanel {
     $ui.IndexingProgressBar.Value = $view.Run.Value
     $ui.IndexingCountText.Text = $view.Run.CountText
     $ui.IndexingFileText.Text = $view.Run.FileText
-    $ui.IndexDetailName.Text = $view.Name
-    $ui.IndexDetailPath.Text = $view.Path
+    # 名前・フォルダパスの欄は、直している最中（同じ行で、欄に入力の途中）なら、定期の更新で入力を消さない
+    $editing = ($null -ne $item -and [object]::ReferenceEquals($item, $script:detailEditItem) -and
+        ($ui.IndexDetailName.IsFocused -or $ui.IndexDetailPath.IsFocused))
+    if (!$editing) {
+        if (![object]::ReferenceEquals($item, $script:detailEditItem)) {
+            setIndexDetailEditError ""
+        }
+        $script:detailEditItem = $item
+        $ui.IndexDetailName.Text = $view.Name
+        $ui.IndexDetailPath.Text = $view.Path
+    }
     $ui.IndexDetailFolderStatus.Text = $view.FolderStatus
+    $ui.IndexDetailFolderStatus.Foreground = themeBrush $view.FolderBrush
     setIndexBadge $ui.IndexDetailBadge $ui.IndexDetailBadgeText $view.Badge.Text $view.Badge.Level
     $ui.IndexDetailBadgeSub.Text = if ($view.Selected) { [string]$view.Badge.Sub } else { "" }
     $ui.IndexErrorText.Text = $view.Error

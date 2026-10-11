@@ -74,9 +74,6 @@ stateDiagram-v2
 | `index-tab/empty` | インデックスが無い | 3 |
 | `index-tab/normal` | インデックスがあり、更新済み | 7 |
 | `index-tab/interrupted` | 前回の作成が中断している（起動時） | 4 |
-| `index-tab/add` | 追加のダイアログ | 11 |
-| `index-tab/add-error` | 追加のダイアログの注意（入力が足りない） | 12 |
-| `index-tab/edit` | 編集のダイアログ | 14 |
 | `index-tab/delete-confirm` | 削除の確認 | 15 |
 | `index-tab/checked` | 行のチェックを付けた（［アクション ▾］の対象） | 16 |
 | `index-tab/start-confirm` | 更新の確認ダイアログ（件数・失敗分の更新し直し） | 17 |

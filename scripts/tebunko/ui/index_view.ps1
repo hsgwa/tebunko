@@ -257,8 +257,8 @@ function getIndexJobBlockedMessage {
 
 function getIndexTabButtonsEnabled {
     # 排他（getIndexJobBlocker の結果）と、一覧で選んでいる行の有無から、［インデックス管理］の各ボタンの可否を返す。
-    #   New/Edit/Remove/ChangeFolder: ［＋ フォルダを追加］［編集…］［削除］・詳細のフォルダパスの［...］（［編集…］と同じ）/ Export/Import: ［エクスポート…］［インポート…］
-    # ［編集…］［削除］［エクスポート…］は、1 件選んでいるときだけ有効
+    #   New/Edit/Remove/ChangeFolder: ［＋ フォルダを追加］・詳細の名前とフォルダパスの欄（Edit。欄で直接直す）・［削除］・フォルダパスの［...］（Edit と同じ）/ Export/Import: ［エクスポート…］［インポート…］
+    # 名前とフォルダパスの欄・［削除］［エクスポート…］は、1 件選んでいるときだけ有効
     # （［すべて更新］は updateIndexingButton が、［設定］の［変更…］は押したときに testWorkspaceChangeable が、
     # 同じ getIndexJobBlocker の結果で止める）
     param (
@@ -272,15 +272,6 @@ function getIndexTabButtonsEnabled {
         ChangeFolder = ($free -and $hasSelection)
         Export = ($free -and $hasSelection); Import = $free
     }
-}
-
-function getIndexScreenInfoText {
-    # 頭の ⓘ に出す、この画面の説明（3 行。画面は改行でつないでツールヒントにする）
-    return @(
-        "検索したいフォルダを登録する画面です。"
-        "登録したフォルダは、［すべて更新］を押すと検索できるようになります。"
-        "インデックスは、フォルダの中身を読み取って作る検索用のデータです。"
-    )
 }
 
 function getIndexStatusHelpText {
@@ -319,21 +310,17 @@ function getIndexSelectionView {
 }
 
 function getIndexActionsEnabled {
-    # ［アクション ▾］のメニューの項目の可否。@{ Update; Edit; Export; Import; Delete }
+    # ［アクション ▾］のメニューの項目の可否。@{ Update; Export; Import; Delete }
     # ［インポート…］は選ばなくても使える。［更新］［エクスポート…］［削除…］は 1 件以上チェックしていると使える（2 件以上はまとめて行う）。
-    # ［編集…］は 1 件にしか効かないので、チェックが 1 件ならその行、チェックが無ければ押した行（hasPressedRow）があるときだけ使える。
-    # チェックが 2 件以上のときは使えない（詳細も「N 件を選択中」になり、どの行か決まらないため）。
     # 動いている処理があれば（blocker は getIndexJobBlocker の結果）、すべて使えない
     param (
         [string]$blocker,
-        [int]$checked,
-        [bool]$hasPressedRow = $false   # 一覧で押した行があるか
+        [int]$checked
     )
 
     $free = ($blocker -eq "")
     return @{
         Update = ($free -and $checked -ge 1)
-        Edit = ($free -and ($checked -eq 1 -or ($checked -eq 0 -and $hasPressedRow)))
         Export = ($free -and $checked -ge 1)
         Import = $free
         Delete = ($free -and $checked -ge 1)
@@ -341,8 +328,7 @@ function getIndexActionsEnabled {
 }
 
 function getIndexRowMenuEnabled {
-    # 行の右クリックのメニューの項目の可否。@{ Update; Edit; OpenFolder; Export; Delete }。対象は押した行（右クリックした行を選んでから開く）
-    #   Edit: ［アクション ▾］の［編集…］と同じ判断（getIndexActionsEnabled。チェックが無く押した行がある場合）
+    # 行の右クリックのメニューの項目の可否。@{ Update; OpenFolder; Export; Delete }。対象は押した行（右クリックした行を選んでから開く）
     #   Update: 行の右端の［更新］と同じ判断（getIndexRowActions）。更新中の行・エラーの行・動いている処理があるときは使えない
     #   Export/Delete: 1 件に効く判断（getIndexTabButtonsEnabled）。OpenFolder: 動いている処理があっても使える（元のフォルダの場所があれば）
     # 行が無いとき（hasRow が false）は、すべて使えない
@@ -354,11 +340,9 @@ function getIndexRowMenuEnabled {
     )
 
     $rowAction = getIndexRowActions $level $blocker
-    $actions = getIndexActionsEnabled $blocker 0 $hasRow
     $buttons = getIndexTabButtonsEnabled $blocker $hasRow
     return @{
         Update = ($hasRow -and $rowAction.Action -eq "Update" -and $rowAction.UpdateEnabled)
-        Edit = $actions.Edit
         OpenFolder = ($hasRow -and $hasPath)
         Export = $buttons.Export
         Delete = $buttons.Remove
@@ -414,7 +398,7 @@ function getIndexRowActions {
 }
 
 function getIndexDetailItem {
-    # 詳細欄に出す行（右クリック・二重クリックの［編集…］と［...］、右クリックの［削除］［エクスポート…］の対象も同じ行。［アクション ▾］は別で、［更新］［エクスポート…］［削除…］はチェックの行、［編集…］はチェックが 1 件ならその行・無ければ押した行が対象で、［インポート…］はチェックが要らない。可否は getIndexActionsEnabled が決める）。押した行があればそれ、
+    # 詳細欄に出す行（詳細の名前・フォルダパスの欄と［...］、右クリックの［削除］［エクスポート…］の対象も同じ行。［アクション ▾］は別で、［更新］［エクスポート…］［削除…］はチェックの行、［インポート…］はチェックが要らない。可否は getIndexActionsEnabled が決める）。押した行があればそれ、
     # 無くてチェックが 1 件だけならその行、それ以外は $null。詳細を出す所と可否・対象を決める所で、この 1 つを使う
     param (
         [object]$selectedItem,   # 一覧で押した行（無ければ $null）
@@ -627,7 +611,7 @@ function getImportNameNoticeText {
 function testIndexImportInput {
     # インポートのダイアログの入力を調べ、直してほしい内容を返す（問題なければ空文字列）。
     # 名前が既にあるインデックスと重なることは断らない（上書き・別名・取りやめの確認に回す。getImportIndexName）。
-    # 元のフォルダは、追加・編集と同じ決まり（getIndexFolderConflict）で調べる。同じ名前の行は上書きで置き換わる
+    # 元のフォルダは、追加と詳細欄の編集と同じ決まり（getIndexFolderConflict）で調べる。同じ名前の行は上書きで置き換わる
     # （別名なら残る）ため、ここでは比べる相手から外す（別名で入れて重なったときは、インポートの側で止める）
     param (
         [string]$folder,   # 入力された元のフォルダ
@@ -856,7 +840,7 @@ function addFastSearchCheckedAt {
 }
 
 function testIndexEditInput {
-    # 追加・編集の入力を調べ、直してほしい内容を返す（問題なければ空文字列）
+    # 追加と詳細欄の編集の入力を調べ、直してほしい内容を返す（問題なければ空文字列）
     param (
         [string]$path,   # 入力された元のフォルダ
         [string]$name,   # 入力されたインデックス名
@@ -877,15 +861,38 @@ function testIndexEditInput {
     return (testIndexName $name.Trim() @($usedNames))
 }
 
+function getIndexDetailEditDecision {
+    # 詳細の「基本設定」の名前・フォルダパスの欄を確定するときの判断。@{ Action; Message; Name; Path }
+    #   Action: None（変わっていない）/ Invalid（直してほしい。Message に理由）/ Apply（Name・Path で反映する）
+    # 名前は前後の空白を除き、フォルダパスは normalizeFolderPath で整えてから比べる（大文字・小文字だけの違いは名前の変更として扱う）
+    param (
+        [string]$name,
+        [string]$path,
+        $item,            # 直している行（Name・Path を持つ）
+        $items            # 今の一覧
+    )
+
+    $newName = $name.Trim()
+    $newPath = normalizeFolderPath $path
+    if ($newName -ceq $item.Name -and $newPath -eq $item.Path) {
+        return @{ Action = "None"; Message = ""; Name = $item.Name; Path = $item.Path }
+    }
+    $message = testIndexEditInput $path $newName $items $item
+    if ($message -ne "") {
+        return @{ Action = "Invalid"; Message = $message; Name = $item.Name; Path = $item.Path }
+    }
+    return @{ Action = "Apply"; Message = ""; Name = $newName; Path = $newPath }
+}
+
 function getIndexDetailView {
     # インデックスの詳細のパネルに出す内容を返す。1 つ選んでいるときだけ中身を出す
     # （何も選んでいない・複数のときは見出しだけ。一覧の下の合計は別の部品）。
-    #   items         : 選んでいる行。@{ Name; Path; Enabled; FolderStatus; FolderMissing（元のフォルダが無いと分かったか）; IndexText; IndexLevel; IndexSub; FileCountText;
+    #   items         : 選んでいる行。@{ Name; Path; Enabled; FolderStatus; FolderMissing（元のフォルダが無いと分かったか）; FolderChecked（有無を調べ終えたか。$false のときだけ「確認中」。省くと調べ終えたものとする）; IndexText; IndexLevel; IndexSub; FileCountText;
     #                   LastIngestedText; FastText; FastLevel; FastToolTip; FastCheckedText }
     #   fastEntry     : getSystemIndexProgress の ByIndex のそのインデックスの値（@{ Folders; Waiting }）。無ければ $null
     #   multiCount    : 2 以上なら、詳細は出さず「N 件を選択中」と案内だけにする（getIndexDetailMultiCount）
     #   running       : 更新の進み具合（@{ Ratio; Processed; Total; Failed; Eta; Current }）。更新中の行の「インデックス」の箱に出す。無ければ $null
-    # 戻り値: @{ Title; Selected; Name; Path; FolderStatus; Badge（@{ Text; Level }）; Updated; Count;
+    # 戻り値: @{ Title; Selected; Name; Path; FolderStatus; FolderBrush（フォルダの状態の文の色のキー。ある = Ok／無い = Danger.Text／確認中・何も出さない = Ink.Muted）; Badge（@{ Text; Level }）; Updated; Count;
     #            Rows（右の「インデックス情報」の @{ Label; Value } の配列）; RowsKey;
     #            Fast（@{ Shown（反映の進みの棒を出すか）; Value（0〜1）; Text; State; Level; Reason; Checked; Note }）;
     #            Multi（複数を選んでいるか）; Hint（Multi のときの案内）;
@@ -902,7 +909,7 @@ function getIndexDetailView {
     $noRun = @{ Shown = $false; Value = 0.0; CountText = ""; FileText = "" }
     $emptyFast = @{ Shown = $false; Value = 0.0; Text = ""; State = ""; Level = "None"; Reason = ""; Checked = ""; Note = "" }
     $none = @{
-        Title = "インデックスの状態"; Selected = $false; Name = ""; Path = ""; FolderStatus = ""
+        Title = "インデックスの状態"; Selected = $false; Name = ""; Path = ""; FolderStatus = ""; FolderMissing = $false; FolderBrush = "Ink.Muted"
         Badge = @{ Text = ""; Level = "None" }; Updated = ""; Count = ""; Rows = @(); RowsKey = ""; Fast = $emptyFast
         Multi = $false; Hint = ""; Run = $noRun; Error = ""; ErrorHint = ""
     }
@@ -969,14 +976,15 @@ function getIndexDetailView {
         $errorText = "フォルダが見つかりません。"
         $errorHint = "フォルダが移動・削除されたか、ネットワークにつながっていない可能性があります。`nフォルダパスの［...］でフォルダを選び直してください。"
     }
+    $folderBrush = if ($item.FolderMissing) { "Danger.Text" } elseif ($item.FolderChecked -eq $false) { "Ink.Muted" } else { "Ok" }
     $fixed = @(
-        $item.Name, $item.Path, $item.FolderStatus, $badge.Text, $badge.Level, $badge.Sub, $updated, $count
+        $item.Name, $item.Path, $item.FolderStatus, $folderBrush, $badge.Text, $badge.Level, $badge.Sub, $updated, $count
         $fast.State, $fast.Level, $fast.Reason, $fast.Checked
     ) -join "`t"
     $rowsKey = $fixed + "`n" + (@($rows | ForEach-Object { "$($_.Label)`t$($_.Value)" }) -join "`n")
     return @{
         Title = "$($item.Name) - 詳細"; Selected = $true; Name = [string]$item.Name; Path = [string]$item.Path
-        FolderStatus = [string]$item.FolderStatus
+        FolderStatus = [string]$item.FolderStatus; FolderMissing = [bool]$item.FolderMissing; FolderBrush = $folderBrush
         Badge = $badge
         Updated = $updated; Count = $count; Rows = $rows.ToArray(); RowsKey = $rowsKey; Fast = $fast
         Multi = $false; Hint = ""; Run = $run; Error = $errorText; ErrorHint = $errorHint
