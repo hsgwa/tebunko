@@ -4364,7 +4364,7 @@
 <td>司令のスレッド</td>
 <td>状態層</td>
 <td><code>tebunko/indexer/indexer_plan.ps1</code>（<code>indexer_lib.ps1</code>）</td>
-<td>実装ずみ。<code>AssignNames</code>・<code>SaveNames</code>（インデックス名の割り当てと保存）・<code>SelectOnly</code>・<code>Crawl</code>・<code>KeepForCancel</code>・<code>ApplyFailed</code>・<code>ApplyInterrupted</code>・<code>FolderByName</code>。計画の種類・状態の値（<code>${planKind*}</code>・<code>${stateFailed}</code>）はクラスの本体で読まず、コンストラクタの <code>kinds</code> で受け取る。進み具合は、司令が渡すスクリプトブロック（<code>Crawl</code> の <code>onFolder</code>）で出す（<code>IndexingReporter</code> を直接呼ばない）</td>
+<td>実装ずみ。<code>AssignNames</code>・<code>SaveNames</code>（インデックス名の割り当てと保存）・<code>SelectOnly</code>・<code>Crawl</code>・<code>KeepForCancel</code>・<code>ApplyFailed</code>・<code>ApplyInterrupted</code>・<code>FolderByName</code>。計画の種類・状態の値（<code>${planKind*}</code>・<code>${stateFailed}</code>）はクラスの本体で読まず、コンストラクタの <code>kinds</code>（4 つのキーが無ければ例外）で受け取る。名前を保存する設定ファイルの場所もコンストラクタ（<code>settingsFile</code>）で受け取る。メソッドは <code>AssignNames</code> → <code>SaveNames</code> → <code>SelectOnly</code> → <code>Crawl</code> → <code>KeepForCancel</code> か <code>ApplyFailed</code> → <code>ApplyInterrupted</code> → <code>FolderByName</code> の順に呼ぶ。進み具合は、司令が渡すスクリプトブロック（<code>Crawl</code> の <code>onFolder</code>）で出す（<code>IndexingReporter</code> を直接呼ばない）</td>
 <td><code>indexer_decide.ps1</code>（判断層）、クロールの部品。前回の失敗・強制終了の回数は、司令が <code>StatusLedger</code> から取り出したデータで受け取る</td>
 </tr>
 <tr>
