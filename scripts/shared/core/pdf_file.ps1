@@ -248,6 +248,9 @@ function readPdfValue {
         while ($true) {
             $item = readPdfValue $doc $st ($depth + 1) $allowRef
             if ($st.K -eq "]" -or $st.K -eq "eof" -or $st.K -eq ">>") { break }
+            if ($list.Count -ge $doc.Limits.MaxObjects) {
+                throw "PDFの配列の要素の数が上限を超えるため読めません。"
+            }
             $list.Add($item)
         }
         $st.K = "val"
@@ -262,6 +265,9 @@ function readPdfValue {
             $item = readPdfValue $doc $st ($depth + 1) $allowRef
             if ($st.K -eq ">>" -or $st.K -eq "eof") { break }
             $dict[$key] = $item
+            if ($dict.Count -gt $doc.Limits.MaxObjects) {
+                throw "PDFの辞書の項目の数が上限を超えるため読めません。"
+            }
         }
         $st.K = "val"
         return , $dict
@@ -382,9 +388,16 @@ function readPdfIndirectAt {
     }
     if ($length -lt 0) {
         # 長さが合わないストリームが多くても、同じ範囲を何度も探さないよう、直前に見つけた位置を使い回す
+        # [From, At) には "endstream" の始まりが無い。前より手前から探すときは、手前の分だけ探して無ければ At を使う
         $found = $doc.EndSearch
         if ($start -ge $found.From -and $start -le $found.At) {
             $end = $found.At
+        } elseif ($start -lt $found.From -and $found.At -ge $found.From) {
+            $span = [Math]::Min($found.From - $start + 8, $text.Length - $start)
+            $end = $text.IndexOf("endstream", $start, $span, [StringComparison]::Ordinal)
+            if ($end -lt 0 -or $end -ge $found.From) { $end = $found.At }
+            $found.From = $start
+            $found.At = $end
         } else {
             $end = $text.IndexOf("endstream", $start, [StringComparison]::Ordinal)
             if ($end -lt 0) {
@@ -500,12 +513,10 @@ function getPdfStreamBytes {
 
     $dict = $stream.Dict
     $filters = resolvePdf $doc $dict["Filter"]
-    if ($null -eq $filters) {
-        # 圧縮なしも、取り出した合計を上限に数える（同じ大きなストリームを何度も参照されても増え続けないように）
-        $doc.Inflated += $stream.Length
-        if ($doc.Inflated -gt $doc.Limits.MaxInflated) {
-            throw "PDFの解凍後の大きさが上限を超えるため読めません。"
-        }
+    # 取り出す前の大きさも、圧縮の有無にかかわらず合計に数える（同じストリームを何度も参照されても増え続けないように）
+    $doc.Inflated += $stream.Length
+    if ($doc.Inflated -gt $doc.Limits.MaxInflated) {
+        throw "PDFの解凍後の大きさが上限を超えるため読めません。"
     }
     $data = New-Object byte[] $stream.Length
     [Array]::Copy($doc.Bytes, $stream.Start, $data, 0, $stream.Length)
@@ -548,12 +559,18 @@ function readPdfFromObjectStream {
         if ($count -lt 0 -or $count -gt $doc.Limits.MaxObjects) {
             throw "PDFのオブジェクトの数が上限を超えるため読めません。"
         }
+        # 見出しは 1 件に 4 文字（"1 0 "）以上要る。中身より多い件数は、確保する前に断る
+        if ($count -gt [Math]::Floor($text.Length / 4)) {
+            throw "PDFのオブジェクトのストリームの件数が中身と合わないため読めません。"
+        }
         $st = newPdfLexer $text 0
         $numbers = New-Object int[] $count
         $offsets = New-Object int[] $count
         for ($i = 0; $i -lt $count; $i++) {
             $numbers[$i] = [int](readPdfToken $st)
+            if ($st.K -ne "num") { throw "PDFのオブジェクトのストリームの見出しが読めないため読めません。" }
             $offsets[$i] = [int](readPdfToken $st)
+            if ($st.K -ne "num") { throw "PDFのオブジェクトのストリームの見出しが読めないため読めません。" }
         }
         $doc.ObjStreams[$streamNum] = @{ Text = $text; First = $first; Numbers = $numbers; Offsets = $offsets }
     }
@@ -576,6 +593,11 @@ function addPdfXrefEntry {
         [hashtable]$entry
     )
 
+    # 同じ番号を繰り返しても増えないので、読んだ行の総数も数える
+    $doc.XrefRows += 1
+    if ($doc.XrefRows -gt $doc.Limits.MaxObjects) {
+        throw "PDFのオブジェクトの数が上限を超えるため読めません。"
+    }
     if ($num -lt 0 -or $num -gt 2147483647) { return }
     if (-not $doc.Xref.ContainsKey([int]$num)) {
         $doc.Xref[[int]$num] = $entry
@@ -945,6 +967,7 @@ function addPdfText {
     }
     $ts.HasOut = $true
     $ts.OutY = $ts.Y
+    $ts.Run += $text.Length
     $sb = $ts.Sb
     if ($ts.Gap -and $sb.Length -gt 0) {
         $last = $sb[$sb.Length - 1]
@@ -978,7 +1001,7 @@ function readPdfPageText {
     )
 
     # Y は今の文字の縦位置（行の行列の y）、OutY は最後に出した文字の縦位置、Leading は行送り（TL）
-    $ts = @{ Sb = [System.Text.StringBuilder]::new(); Gap = $false; Y = 0.0; OutY = 0.0; HasOut = $false; Leading = 0.0 }
+    $ts = @{ Sb = [System.Text.StringBuilder]::new(); Gap = $false; Y = 0.0; OutY = 0.0; HasOut = $false; Leading = 0.0; Scale = 1.0; Run = 0 }
     $st = newPdfLexer $content 0
     $nums = [System.Collections.Generic.List[double]]::new()
     $lastStr = $null
@@ -1030,7 +1053,8 @@ function readPdfPageText {
                 }
             }
         } elseif ($t -ceq "'" -or $t -ceq '"') {
-            $ts.Y -= $ts.Leading
+            $ts.Y -= $ts.Leading * $ts.Scale
+            $ts.Run = 0
             breakPdfLine $ts
             if ($null -ne $lastStr) { addPdfText $ts (convertPdfStringToText $font $lastStr) }
         } elseif ($t -ceq "Tf") {
@@ -1042,22 +1066,31 @@ function readPdfPageText {
         } elseif ($t -ceq "BT") {
             # テキストの行列は BT で初期化される（縦位置は 0 から）
             $ts.Y = 0.0
+            $ts.Scale = 1.0
+            $ts.Run = 0
         } elseif ($t -ceq "Td" -or $t -ceq "TD") {
             if ($nums.Count -ge 2) {
-                $ts.Y += $nums[1]
+                # 縦の動きは、Tm の拡大（d）を掛けた値にする（`12 0 0 12 x y Tm` のあとの `0 -1 TD` は 12 ポイント動く）
+                $ts.Y += $nums[1] * $ts.Scale
                 if ($t -ceq "TD") { $ts.Leading = - $nums[1] }
                 # 横にだけ動いたときは詰め。縦に動いたときは、次の文字を出すときに行を分ける。
-                # 1 文字ずつ Td で並べる PDF（Chromium など）の文字を離さないよう、前向きに 1 em より小さい動きは詰めにしない（空白は文字として入っている）
-                if ($nums[0] -ne 0 -and ($fontSize -le 0 -or $nums[0] -lt 0 -or $nums[0] -ge $fontSize)) { $ts.Gap = $true }
+                # 1 文字ずつ Td で並べる PDF（Chromium など）の文字を離さないよう、直前の Td 以降に出した文字が 1 文字以下で、
+                # 前向きに 1 em より小さい動きは詰めにしない（空白は文字として入っている）。2 文字以上の語の後ろは空白でつなぐ
+                $joined = ($fontSize -gt 0 -and $nums[0] -gt 0 -and $nums[0] -lt $fontSize -and $ts.Run -le 1)
+                if ($nums[0] -ne 0 -and -not $joined) { $ts.Gap = $true }
+                $ts.Run = 0
             }
         } elseif ($t -ceq "TL") {
             if ($nums.Count -ge 1) { $ts.Leading = $nums[0] }
         } elseif ($t -ceq "T*") {
-            $ts.Y -= $ts.Leading
+            $ts.Y -= $ts.Leading * $ts.Scale
+            $ts.Run = 0
             breakPdfLine $ts
         } elseif ($t -ceq "Tm") {
             if ($nums.Count -ge 6) {
                 $ts.Y = $nums[5]
+                $ts.Scale = $nums[3]
+                $ts.Run = 0
                 $ts.Gap = $true
             }
         } elseif ($t -ceq "BI") {
@@ -1172,7 +1205,7 @@ function readPdfPagesCore {
     $doc = @{
         Bytes = $bytes; Text = $text; Limits = $limits
         Xref = @{}; Cache = @{}; Loading = @{}; ObjStreams = @{}; Fonts = @{}; Visited = @{}; SeenNodes = @{}
-        Inflated = [long]0; Root = $null; EndSearch = @{ From = 1; At = 0 }; Hybrid = $false; CMaps = @{}; MapEntries = [long]0
+        Inflated = [long]0; XrefRows = [long]0; Root = $null; EndSearch = @{ From = 1; At = 0 }; Hybrid = $false; CMaps = @{}; MapEntries = [long]0
     }
     $start = $text.LastIndexOf("startxref", [StringComparison]::Ordinal)
     if ($start -lt 0) {

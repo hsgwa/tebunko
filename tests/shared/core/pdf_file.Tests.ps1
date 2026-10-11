@@ -32,6 +32,12 @@ BeforeDiscovery {
         @{ name = "1 em より小さい Td は詰めにしない（1 文字ずつ並べる PDF）"; pages = @("BT /F1 16 Tf 8 94 Td (E) Tj 9 0 Td (d) Tj 9.9 0 Td (g) Tj ET"); expected = @("Edg") }
         @{ name = "1 em 以上の Td は空白でつなぐ"; pages = @("BT /F1 16 Tf (a) Tj 16 0 Td (b) Tj ET"); expected = @("a b") }
         @{ name = "後ろ向きの Td は空白でつなぐ"; pages = @("BT /F1 16 Tf (a) Tj -3 0 Td (b) Tj ET"); expected = @("a b") }
+        @{ name = "Tf の大きさが 0 のときは Td を空白でつなぐ"; pages = @("BT /F1 0 Tf (a) Tj 5 0 Td (b) Tj ET"); expected = @("a b") }
+        @{ name = "2 文字以上の語の後ろは、1 em より小さい Td でも空白でつなぐ"; pages = @("BT /F1 16 Tf (ab) Tj 5 0 Td (cd) Tj ET"); expected = @("ab cd") }
+        @{ name = "Tm で拡大した中でも、Td は Tf の大きさと比べる（小さい）"; pages = @("BT 12 0 0 12 0 0 Tm /F1 1 Tf (a) Tj 0.5 0 Td (b) Tj ET"); expected = @("ab") }
+        @{ name = "Tm で拡大した中でも、Td は Tf の大きさと比べる（1 em 以上）"; pages = @("BT 12 0 0 12 0 0 Tm /F1 1 Tf (a) Tj 1.5 0 Td (b) Tj ET"); expected = @("a b") }
+        @{ name = "途中で Tf を挟むと、新しい大きさで比べる"; pages = @("BT /F1 16 Tf (a) Tj /F1 4 Tf 5 0 Td (b) Tj ET"); expected = @("a b") }
+        @{ name = "Tm で拡大した後の TD の縦の動きは拡大を掛ける"; pages = @("BT 12 0 0 12 72 700 Tm /F1 1 Tf (a) Tj 0 -1 TD (b) Tj ET"); expected = @("a`nb") }
         @{ name = "縦のずれが小さい Td は同じ行（上付き文字など）"; pages = @("BT /F1 12 Tf (a) Tj 20 0.5 Td (b) Tj ET"); expected = @("a b") }
         @{ name = "BT で縦位置が 0 に戻る"; pages = @("BT /F1 12 Tf 0 -14 Td (a) Tj ET BT /F1 12 Tf 0 -14 Td (b) Tj ET"); expected = @("ab") }
         @{ name = "16 進の空白と奇数桁"; pages = @("BT /F1 12 Tf <41 42 4> Tj ET"); expected = @("AB@") }
@@ -72,6 +78,11 @@ BeforeDiscovery {
         @{ kind = "lengthChain"; message = "*参照が深すぎる*" }
         @{ kind = "prevCycle"; message = "*相互参照が循環*" }
         @{ kind = "prevTooMany"; message = "*相互参照の数が上限*" }
+        @{ kind = "objStreamCount"; message = "*件数が中身と合わない*" }
+        @{ kind = "arrayTooMany"; message = "*配列の要素の数*" }
+        @{ kind = "dictTooMany"; message = "*辞書の項目の数*" }
+        @{ kind = "xrefRowsRepeat"; message = "*オブジェクトの数が上限*" }
+        @{ kind = "compressedOver"; message = "*解凍後*" }
     )
 }
 
@@ -258,6 +269,49 @@ endcmap end end
                 return , (toPdfBytes ($s -replace '/Root 1 0 R >>', "/Root 1 0 R /Prev $pos >>"))
             }
             "prevTooMany" { return , (addXrefUpdates (newSimplePdf -pages @($simple)) 4) }
+            "objStreamCount" {
+                # オブジェクトのストリームの /N だけを、中身に見合わない大きな値（同じ桁数）に書き換える
+                $p = @{}
+                $p[1] = '<< /Type /Catalog /Pages 2 0 R >>'
+                $p[2] = '<< /Type /Pages /Kids [] /Count 0 >>'
+                foreach ($i in 3..10) { $p[$i] = '1' }
+                $s = newPdfString (newPdfWithXrefStream -normal @{} -packed $p)
+                if (-not $s.Contains("/N 10 ")) { throw "test setup: /N not found" }
+                return , (toPdfBytes ($s.Replace("/N 10 ", "/N 99 ")))
+            }
+            "arrayTooMany" {
+                $objs = @{}
+                $objs[1] = '<< /Type /Catalog /Pages 2 0 R /X [1 2 3 4 5 6 7 8] >>'
+                $objs[2] = '<< /Type /Pages /Kids [] /Count 0 >>'
+                return , (newPdfFromObjects $objs)
+            }
+            "dictTooMany" {
+                $objs = @{}
+                $objs[1] = '<< /Type /Catalog /Pages 2 0 R /A 1 /B 2 /C 3 /D 4 /E 5 /F 6 >>'
+                $objs[2] = '<< /Type /Pages /Kids [] /Count 0 >>'
+                return , (newPdfFromObjects $objs)
+            }
+            "xrefRowsRepeat" {
+                # 同じ番号の行を繰り返す相互参照の表（番号の数は増えないが、行の総数は数える）
+                $objs = @{}
+                $objs[1] = '<< /Type /Catalog /Pages 2 0 R >>'
+                $objs[2] = '<< /Type /Pages /Kids [] /Count 0 >>'
+                $s = newPdfString (newPdfFromObjects $objs)
+                $m = [regex]::Match($s, "xref\n(0 3\n(?:\d{10} \d{5} [nf] \n){3})")
+                if (-not $m.Success) { throw "test setup: xref not found" }
+                $section = $m.Groups[1].Value
+                return , (toPdfBytes ($s.Replace($section, $section * 3)))
+            }
+            "compressedOver" {
+                # 解凍するとごく小さい圧縮のストリームも、取り出す前の大きさを数える（解凍後だけなら 66、圧縮の分を足すと上限を超える）
+                $objs = @{}
+                $objs[1] = '<< /Type /Catalog /Pages 2 0 R >>'
+                $objs[2] = '<< /Type /Pages /Kids [3 0 R] /Count 1 >>'
+                $objs[3] = '<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 5 0 R >> >> /Contents [4 0 R 4 0 R 4 0 R] >>'
+                $objs[4] = newPdfStreamObject '/Filter /FlateDecode' (compressPdfBytes (toPdfBytes "BT /F1 12 Tf (a) Tj ET"))
+                $objs[5] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'
+                return , (newPdfFromObjects $objs)
+            }
             "tooManyObjects" { return , (newSimplePdf -pages @($simple, $simple, $simple, $simple)) }
             "tooManyPages" { return , (newSimplePdf -pages @($simple, $simple, $simple)) }
         }
@@ -277,6 +331,10 @@ endcmap end end
             "mapOverTotal" { return (newPdfLimits -maxMapEntries 1000) }
             "lengthChain" { return (newPdfLimits -maxDepth 4) }
             "prevTooMany" { return (newPdfLimits -maxXref 3) }
+            "arrayTooMany" { return (newPdfLimits -maxObjects 5) }
+            "dictTooMany" { return (newPdfLimits -maxObjects 5) }
+            "xrefRowsRepeat" { return (newPdfLimits -maxObjects 8) }
+            "compressedOver" { return (newPdfLimits -maxInflated 110) }
         }
         return $null
     }
@@ -379,6 +437,20 @@ Describe "readPdfPages" -Tag Unit {
         $objs[5] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'
         $objs[20] = "$($body.Length)"
         (readPdfPages (newPdfFromObjects $objs))[0] | Should -BeExactly "indirect"
+    }
+
+    It "/Length が合わないストリームを、ページの並び（Kids）が番号の降順でも読む" {
+        $objs = @{}
+        $objs[1] = '<< /Type /Catalog /Pages 2 0 R >>'
+        $objs[2] = '<< /Type /Pages /Kids [20 0 R 18 0 R 16 0 R 14 0 R 12 0 R] /Count 5 >>'
+        $objs[3] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'
+        foreach ($i in 1..5) {
+            $page = 10 + $i * 2
+            $objs[$page] = "<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 3 0 R >> >> /Contents $($page + 1) 0 R >>"
+            $objs[$page + 1] = @{ Dict = '<< /Length 3 >>'; Stream = (toPdfBytes "BT /F1 12 Tf (p$i) Tj ET") }
+        }
+        $r = readPdfPages (newPdfFromObjects $objs)
+        ($r -join ",") | Should -BeExactly "p5,p4,p3,p2,p1"
     }
 
     It "内容の /Length が合わなくても endstream までを読む（<declared>）" -TestCases @(

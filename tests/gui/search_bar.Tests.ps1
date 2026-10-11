@@ -78,6 +78,8 @@ Describe "検索条件の行の折り返し" -Tag Gui {
         $script:narrowBalloon.Text.Right | Should -BeLessOrEqual $script:narrowBalloon.Window.Right -Because "最小の幅でも、吹き出しが窓の右端からはみ出さない"
         # ファイル内の対象・検索条件は 1 行目に残る
         $script:narrow.Regex.Top | Should -BeLessThan ($script:narrow.Scope.Bottom)
+        # 1 行目に収まる余裕: ［正規表現］の右端と窓の右端の間に、余白と枠のぶん（数 px 以上）が残る。種類のチップを足して余裕が無くなったら気付けるようにする
+        ($script:narrowBalloon.Window.Right - $script:narrow.Regex.Right) | Should -BeGreaterThan 4 -Because "最小の幅の 1 行目に、数 px 以上の余裕がある"
         # 高速検索の印は 2 行目の左端。印の字は欄（幅 170）の左に寄り、1 行目の左端の「種類」から 40 以内にある
         # （左寄せは 25 前後。右寄せのままなら、字は欄の右の端に寄って 46〜62 になる。しきい 40 は、その間（左寄せに 15、右寄せに 6 の余裕）に置いた）
         $diff = $script:narrow.Fast.Left - $script:narrow.Label.Left
