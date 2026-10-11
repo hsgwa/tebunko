@@ -309,7 +309,7 @@ function createTargetList {
 # 進み具合・画面の確認・取り込み一覧の読み書きは持たない（IndexingReporter・StatusLedger を司令がつなぐ）。
 # クラスの本体では $script: 変数を読まない決まり（docs/design/structure/classes.md。テストと本番で読める範囲が違うため）なので、
 # 計画の種類・状態の値は kinds（Unchecked・Missing・Dropped・StateFailed の 4 つ。足りなければ例外）、
-# 名前を保存する設定ファイルの場所は settingsFile で、コンストラクタから受け取る。
+# 名前の保存は、司令が渡す save（割り当てた名前を設定に保存し、保存した一覧を返すスクリプトブロック。IndexCatalog.StoreAssignedNames）に任せる。
 # メソッドは次の順に呼ぶ: AssignNames → SaveNames → SelectOnly（選んだときだけ）→ Crawl →
 #   KeepForCancel（取りやめるとき）か ApplyFailed → ApplyInterrupted → FolderByName。Crawl は AssignNames より前なら例外にする。
 # メソッドの中のローカル変数は、プロパティと大文字・小文字だけの違いにしない
@@ -334,17 +334,14 @@ class IngestPlanner {
     # 前回、取り込み中に強制終了して最後に回したファイル（相対パス → 回数）
     $Carried
     hidden $Kinds
-    # 割り当てた名前を保存する設定ファイル
-    hidden [string]$SettingsFile
 
-    IngestPlanner([hashtable]$kinds, [string]$settingsFile) {
+    IngestPlanner([hashtable]$kinds) {
         foreach ($key in @("Unchecked", "Missing", "Dropped", "StateFailed")) {
             if (-not $kinds.ContainsKey($key) -or $null -eq $kinds[$key]) {
                 throw "IngestPlanner: kinds に $key がありません"
             }
         }
         $this.Kinds = $kinds
-        $this.SettingsFile = $settingsFile
         $this.Rows = New-Object System.Collections.Generic.List[object]
         $this.Targets = New-Object System.Collections.Generic.List[object]
         $this.Failed = New-Object System.Collections.Generic.List[object]
@@ -363,14 +360,14 @@ class IngestPlanner {
         $this.Dropped = @(findDroppedIndexes $this.Folders $status.Folders)
     }
 
-    [void] SaveNames($targetFolders) {
+    [void] SaveNames($targetFolders, [scriptblock]$save) {
         # 新しく割り当てたインデックス名を設定に保存する（インデックスの「名前」と「置き場所」を設定で分けて持つため。
         # 名前が設定にあれば、フォルダを移してパスを書き換えても同じインデックスとして扱える）
         if (@($targetFolders | Where-Object { -not $_.Name }).Count -eq 0) {
             return
         }
         # 保存した一覧（読み直して名前だけを足したもの）の名前で続ける。この間に画面で外した・名前を付けられなかったフォルダは、今回は取り込まない
-        $saved = @(saveAssignedIndexNames $this.Folders $this.SettingsFile)
+        $saved = @(& $save $this.Folders)
         $this.Folders = @($saved | Where-Object {
             $savedPath = $_.Path
             $_.Name -and @($targetFolders | Where-Object { $_.Path -eq $savedPath }).Count -gt 0

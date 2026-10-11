@@ -226,23 +226,18 @@ function startIndexStoreJob {
     # 裏のスレッドは lib.ps1 を読み込んだときのワークスペースを覚えているため、場所は渡す。
     # 届かない共有フォルダで他の仕事を巻き込んで待たせないよう、ワークスペースの場所で裏の列を選ぶ
     startJob {
-        param ($kind, $name, $newName, $folders, $dir, $statusPath, $settingsPath)
+        param ($kind, $name, $newName, $folders, $workspaceDir, $settingsPath)
+        # インスタンスは裏のスレッドへ渡せないため、場所から作り直す。
         # 届かない場所では、何もせずに成功にしない（設定だけが変わってしまう）。失敗として返す
-        assertWorkspaceReachable $dir
+        $catalog = newIndexCatalog $workspaceDir $settingsPath
+        $catalog.AssertReachable()
         if ($kind -eq "rename") {
-            renameIndex $name $newName $dir $statusPath $settingsPath
-            # 元のフォルダの記録の書き直しに失敗しても、改名は済んでいる。改名の失敗にはせず、書けなかった理由を別に返す
-            $sourceFolderError = ""
-            try {
-                writeSourceFolderFile $folders $dir
-            } catch {
-                $sourceFolderError = $_.Exception.Message
-            }
-            @{ SourceFolderError = $sourceFolderError }
+            # 元のフォルダの記録の書き直しに失敗しても改名は成功で、理由は SourceFolderError で返る
+            $catalog.RenameIndexWithSource($name, $newName, $folders)
         } else {
-            removeIndex $name $dir $statusPath $settingsPath
+            $catalog.RemoveIndex($name)
         }
-    } (@($kind, $name, $newName) + @(,@($folders)) + @($workspace.IndexDir, $workspace.StatusFile, ${settingsFile})) {
+    } (@($kind, $name, $newName) + @(,@($folders)) + @($workspace.Dir, ${settingsFile})) {
         param ($output, $errorText)
         $script:indexBusy = $false
         updateIndexingButton
@@ -321,12 +316,14 @@ function deleteIndexes {
     updateIndexingButton
     setStatus "$($names.Count) 件のインデックスを削除しています…（件数によっては少し時間がかかります）"
     startJob {
-        param ($names, $dir, $statusPath, $settingsPath)
+        param ($names, $workspaceDir, $settingsPath)
+        # インスタンスは裏のスレッドへ渡せないため、場所から作り直す。
         # 届かない場所では、何もせずに成功にしない（設定だけが変わってしまう）。失敗として返す
-        assertWorkspaceReachable $dir
-        $results = removeIndexes -names $names -dir $dir -statusPath $statusPath -settingsPath $settingsPath
+        $catalog = newIndexCatalog $workspaceDir $settingsPath
+        $catalog.AssertReachable()
+        $results = $catalog.RemoveIndexes($names)
         , $results
-    } @(,$names + @($workspace.IndexDir, $workspace.StatusFile, ${settingsFile})) {
+    } @(,$names + @($workspace.Dir, ${settingsFile})) {
         param ($output, $errorText)
         $script:indexBusy = $false
         updateIndexingButton

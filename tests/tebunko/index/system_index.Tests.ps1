@@ -291,16 +291,19 @@ Describe "updateSystemIndexes" -Tag Io {
     }
 }
 
-Describe "removeIndex / renameIndex の システムインデックス" -Tag Io {
+Describe "IndexCatalog.RemoveIndex / RenameIndex のシステムインデックス" -Tag Io {
     It "インデックスを削除・名前変更すると、同じワークスペースの system_index の分を消す" {
-        $index = newIndexTree "$TestDrive\ix"
+        [void](newIndexTree "$TestDrive\ix")
+        Move-Item -LiteralPath "$TestDrive\ix\index" -Destination "$TestDrive\ix\content_index"
+        $index = "$TestDrive\ix\content_index"
+        $catalog = newIndexCatalog "$TestDrive\ix" "$TestDrive\ix\setting.config"
         [void](updateSystemIndexes $index "$TestDrive\ix\system_index" "$TestDrive\ix\system_index_state.tsv" { $false })
-        renameIndex "営業" "営業2" $index "$TestDrive\ix\ingest_status.tsv" "$TestDrive\ix\setting.config"
+        $catalog.RenameIndex("営業", "営業2")
         [System.IO.Directory]::Exists("$TestDrive\ix\system_index\営業") | Should -Be $false
         (readSystemIndexState "$TestDrive\ix\system_index_state.tsv").Covered.Count | Should -Be 0
         [void](updateSystemIndexes $index "$TestDrive\ix\system_index" "$TestDrive\ix\system_index_state.tsv" { $false })
         [System.IO.Directory]::Exists("$TestDrive\ix\system_index\営業2") | Should -Be $true
-        removeIndex "営業2" $index "$TestDrive\ix\ingest_status.tsv" "$TestDrive\ix\setting.config"
+        $catalog.RemoveIndex("営業2")
         [System.IO.Directory]::Exists("$TestDrive\ix\system_index\営業2") | Should -Be $false
     }
 }
