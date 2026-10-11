@@ -632,21 +632,21 @@ Describe "readPdfPages" -Tag Unit {
         { readPdfPages $bytes } | Should -Throw "PDFにパスワードが必要なため読めません。"
     }
 
-    It "AES-256 以外の暗号化（<method>）は、パスワードの有無にかかわらず「方式に対応していない」でそのファイルだけ失敗する" -TestCases @(
-        @{ method = "rc40"; password = "" }
-        @{ method = "rc128"; password = "" }
-        @{ method = "aes128"; password = "" }
-        @{ method = "rc40"; password = "pass" }
-        @{ method = "aes128"; password = "pass" }
+    It "AES-256 以外の暗号化（<method>）は、「方式に対応していない」でそのファイルだけ失敗する（パスワードが要るかは判断しない）" -TestCases @(
+        @{ method = "rc40" }
+        @{ method = "rc128" }
+        @{ method = "aes128" }
     ) {
-        param ($method, $password)
-        $bytes = newEncryptedPdf -pages @("BT /F1 12 Tf (abc) Tj ET") -method $method -userPassword $password
+        param ($method)
+        $bytes = newEncryptedPdf -pages @("BT /F1 12 Tf (abc) Tj ET") -method $method
         { readPdfPages $bytes } | Should -Throw "PDFの暗号化の方式に対応していないため読めません。"
     }
 
     It "暗号化の辞書が対応しない・壊れているもの（<name>）は、そのファイルだけ失敗する" -TestCases @(
         @{ name = "独自のフィルター"; dict = "/Filter /Adobe.PubSec /V 5 /R 6"; message = "PDFの暗号化の方式に対応していないため読めません。" }
         @{ name = "未知の V"; dict = "/Filter /Standard /V 3 /R 3"; message = "PDFの暗号化の方式に対応していないため読めません。" }
+        @{ name = "V が 5 でない小数（4.6）"; dict = "/Filter /Standard /V 4.6 /R 6"; message = "PDFの暗号化の方式に対応していないため読めません。" }
+        @{ name = "V が 5 でない小数（5.4）"; dict = "/Filter /Standard /V 5.4 /R 6"; message = "PDFの暗号化の方式に対応していないため読めません。" }
         @{ name = "V と R の組み合わせが違う"; dict = "/Filter /Standard /V 5 /R 4"; message = "PDFの暗号化の方式に対応していないため読めません。" }
         @{ name = "V が数でない"; dict = "/Filter /Standard /V /x /R 6"; message = "PDFの暗号化の方式に対応していないため読めません。" }
         @{ name = "未知の暗号方式"; dict = "/Filter /Standard /V 5 /R 6 /CF << /StdCF << /CFM /Other >> >> /StmF /StdCF /U <00> /UE <00>"; message = "PDFの暗号化の方式に対応していないため読めません。" }

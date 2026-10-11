@@ -1,7 +1,7 @@
 ﻿# PDF の暗号化（標準のセキュリティハンドラー）を、空の利用者パスワードで復号する部品。PowerShell だけで書く（外の部品・Office を使わない）。
 # 画面にもファイルにも触らない。pdf_file.ps1 の readPdfPages が、ストリームを取り出すときに使う。
 #   読む    : AES-256（V5・R5・R6）。開くのに利用者パスワードが要らない（空のパスワードで鍵が作れて、/U の検証用のハッシュと合う）PDF だけ。
-#   読まない: パスワードが要る PDF、AES-256 以外（RC4 40・128 ビット、AES-128 など。鍵の計算に旧式のハッシュが要り、FIPS 準拠を強制した機械で使えないため、
+#   読まない: パスワードが要る PDF、AES-256 以外（RC4 40・128 ビット、AES-128 など。鍵の計算に MD5 が要り、FIPS 準拠を強制した機械で使えないため、
 #             自前でも書かない。パスワードが要るかどうかも判定せず、必ず「方式に対応していない」にする）。例外にする（そのファイルだけ失敗）。
 # 復号するのはストリームだけ（内容・フォントの対応表・オブジェクトのストリーム）。文字列は、読む内容がストリームの中にあるため復号しない。
 # 使うのは SHA-2 と AES だけで、FIPS でも使える *CryptoServiceProvider の型を使う（SHA256Managed・AesManaged は FIPS で例外になる）。
@@ -185,7 +185,7 @@ function newPdfCrypt {
     $v = resolvePdf $doc $enc["V"]
     $r = resolvePdf $doc $enc["R"]
     if ($v -isnot [double] -or $r -isnot [double]) { throw ${pdfCryptUnsupported} }
-    if ([int]$v -ne 5 -or ([int]$r -ne 5 -and [int]$r -ne 6)) { throw ${pdfCryptUnsupported} }
+    if ($v -ne 5.0 -or ($r -ne 5.0 -and $r -ne 6.0)) { throw ${pdfCryptUnsupported} }
     $r = [int]$r
 
     # 復号の方式（ストリーム）

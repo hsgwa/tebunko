@@ -57,12 +57,12 @@ Describe "unprotectPdfData" -Tag "Unit" {
     }
 
     It "AES で中身が 0 バイトの（空の）ストリームは、空のまま返す" {
-        $crypt = @{ Key = [byte[]](1..16) }
+        $crypt = @{ Key = [byte[]](1..32) }
         (unprotectPdfData $crypt "AESV3" (New-Object byte[] 0)).Length | Should -Be 0
     }
 
     It "AES で中身が IV の 16 バイトだけだと、そのファイルだけ例外" {
-        $crypt = @{ Key = [byte[]](1..16) }
+        $crypt = @{ Key = [byte[]](1..32) }
         { unprotectPdfData $crypt "AESV3" ([byte[]](1..16)) } | Should -Throw "PDFの暗号化されたデータが壊れているため読めません。"
     }
 
@@ -126,5 +126,28 @@ Describe "getPdfKeyR56" -Tag "Unit" {
         toHexText (getPdfKeyR56 $revision $u $ue) | Should -Be (toHexText $key)
         $u[0] = $u[0] -bxor 1
         { getPdfKeyR56 $revision $u $ue } | Should -Throw "PDFにパスワードが必要なため読めません。"
+    }
+}
+
+Describe "newPdfCrypt" -Tag "Unit" {
+    It "StmF が無い V5 は、鍵は確かめるが、ストリームは復号しない（None）" {
+        $empty = New-Object byte[] 0
+        $key = [byte[]](1..32 | ForEach-Object { ($_ * 11) % 256 })
+        $vsalt = [byte[]](21..28)
+        $ksalt = [byte[]](31..38)
+        $u = joinPdfBytes @((getTestHashR56 6 $empty $vsalt), $vsalt, $ksalt)
+        $ue = invokeTestAes (getTestHashR56 6 $empty $ksalt) (New-Object byte[] 16) $key $false
+        $latin1 = [System.Text.Encoding]::GetEncoding(28591)
+        $enc = @{
+            Filter = "/Standard"; V = 5.0; R = 6.0
+            U = @{ PdfType = "str"; V = $latin1.GetString($u) }
+            UE = @{ PdfType = "str"; V = $latin1.GetString($ue) }
+        }
+        $crypt = newPdfCrypt @{ Cache = @{} } $enc
+        $crypt.StmMethod | Should -Be "None"
+        toHexText $crypt.Key | Should -Be (toHexText $key)
+        $u[0] = $u[0] -bxor 1
+        $enc.U = @{ PdfType = "str"; V = $latin1.GetString($u) }
+        { newPdfCrypt @{ Cache = @{} } $enc } | Should -Throw "PDFにパスワードが必要なため読めません。"
     }
 }

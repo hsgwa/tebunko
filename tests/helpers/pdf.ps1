@@ -141,8 +141,8 @@ function newPdfWithXrefStream {
         if ($badHeader) { $headText = "x" + $headText.Substring(1) }
         $data = toPdfBytes ($headText + $body.ToString())
         $objStmData = compressPdfBytes $data
-        # protectObjStm: オブジェクトのストリーム自身の番号で暗号化する（中のオブジェクトは暗号化しない）
-        if ($null -ne $protectObjStm) { $objStmData = & $protectObjStm $objStmId $objStmData }
+        # protectObjStm: オブジェクトのストリーム自身を暗号化する（中のオブジェクトは暗号化しない）
+        if ($null -ne $protectObjStm) { $objStmData = & $protectObjStm $objStmData }
         $objs[$objStmId] = newPdfStreamObject "/Type /ObjStm /N $($packedIds.Count) /First $($head.Length) /Filter /FlateDecode" $objStmData
     }
 
@@ -272,8 +272,8 @@ function getTestHashR56([int]$revision, [byte[]]$password, [byte[]]$salt) {
 
 function newEncryptedPdf {
     # method: aes256r5・aes256r6（空の利用者パスワードで開ける。userPassword が空でなければ、空のパスワードでは開けない）・
-    # rc40（V1 R2）・rc128（V2 R3）・aes128（V4 R4）（対応しない方式の辞書だけ）。
-    # objectStream なら、カタログ・ページの木・ページをオブジェクトのストリームに入れ、そのストリームを自分の番号の鍵で暗号化する（xrefStream も兼ねる）。
+    # rc40（V1 R2）・rc128（V2 R3）・aes128（V4 R4）（対応しない方式の辞書だけ。userPassword は効かず、/U は決まった値）。
+    # objectStream なら、カタログ・ページの木・ページをオブジェクトのストリームに入れ、そのストリームをファイルの鍵で暗号化する（xrefStream も兼ねる）。
     # encryptDict を渡すと、Encrypt の辞書をそれに替える（鍵と暗号は method のまま）。xrefStream なら相互参照をストリームにする
     param (
         [string[]]$pages,
@@ -312,7 +312,7 @@ function newEncryptedPdf {
     }
 
     $protect = {
-        param([int]$num, [byte[]]$data)
+        param([byte[]]$data)
         if ($null -eq $key) { return , $data }
         return , (joinPdfBytes @($iv, (invokeTestAes $key $iv $data $true)))
     }
@@ -330,7 +330,7 @@ function newEncryptedPdf {
         $data = toPdfBytes $pages[$i]
         $flate = ''
         if ($compress) { $data = compressPdfBytes $data; $flate = '/Filter /FlateDecode' }
-        $objs[$contentId] = newPdfStreamObject $flate (& $protect $contentId $data)
+        $objs[$contentId] = newPdfStreamObject $flate (& $protect $data)
     }
     if ($objectStream) {
         $packed = @{}
