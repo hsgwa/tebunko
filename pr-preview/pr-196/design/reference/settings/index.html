@@ -4520,7 +4520,7 @@
 <td><code>testFolderOrUnder</code></td>
 <td>path, folder</td>
 <td>bool</td>
-<td>path が folder そのもの、または folder の下かを返す。フォルダとその下の比べ方はここだけ。大文字・小文字を区別しない序数の比べ（<code>OrdinalIgnoreCase</code>）で、folder の末尾の <code>\</code> は外し、<code>&lt;folder&gt;\</code> で始まるものだけを「下」にする（<code>Sales</code> の下に <code>Sales2</code> は入らない）。folder が空ならどれも含まない</td>
+<td>path が folder そのもの、または folder の下かを返す。フォルダとその下の比べ方はここだけ。大文字・小文字を区別しない序数の比べ（<code>OrdinalIgnoreCase</code>）で、folder の末尾の <code>\</code> は外し、<code>&lt;folder&gt;\</code> で始まるものだけを「下」にする（<code>Sales</code> の下に <code>Sales2</code> は入らない）。folder が空ならどれも含まない。既知の制限: <code>\\?\</code> 付きと無し、<code>/</code> 区切り、<code>..</code>、8.3 形式の短い名前は同じ場所として扱わない（書き方は呼び出す側がそろえる）</td>
 <td><code>removeSearchExcludesUnder</code>, <code>moveSearchExcludes</code>, 検索対象のツリー（<code>saveSearchExcludes</code>）</td>
 </tr>
 <tr>
