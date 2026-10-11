@@ -4562,7 +4562,7 @@
 <li><code>tebunko.ico</code> は埋め込まない。画面のアイコンは XAML（<code>app_icon.xaml</code>）なので、ほかの画面定義と同じく埋め込まれる。<code>.ico</code> が要るのはインストーラー・ショートカットだけで、単一 .ps1 版は使わない。</li>
 <li><code>tebunko.bat</code> が持つ、起動の失敗のフォールバック（言語モードなどの記録）は持たない。</li>
 <li><code>lib.ps1</code> の読み込みの失敗は、起動の失敗の知らせ（<code>reportStartupFailure</code>）に届かず、PowerShell の窓に出る。</li>
-<li>出力は BOM 付き UTF-8・CRLF のまま（Shift_JIS にしない）。Windows PowerShell 5.1 は BOM が無い UTF-8 を既定のコードページ（日本語環境では CP932）で読むため、利用者の手で BOM が落ちると日本語が化けて構文エラーになる。Shift_JIS にすると、CP932 に無い文字（XAML の <code>⋯</code>・<code>▸</code> など）が <code>?</code> に落ちる。PowerShell 7 は BOM の無いファイルを UTF-8 として読む仕様のため、Shift_JIS では化ける見込みがある（未確認）。作ったままのファイルを別の Windows PowerShell 5.1 で <code>-File</code> 起動して日本語が正しく出ること（BOM を外すと化けること）は <code>tests/tools/new_single_script.Tests.ps1</code> が確かめる。利用者への案内は<a href="../../../guide/limitations/#単一-ps1-版試験版">制限事項</a>。</li>
+<li>出力は BOM 付き UTF-8・CRLF のまま（Shift_JIS にしない）。Windows PowerShell 5.1 は BOM が無い UTF-8 を既定のコードページ（日本語環境では CP932）で読むため、BOM が落ちたファイルは日本語が化けて構文エラーになる（確かめた）。利用者の手元でどう落ちるかは分かっていない。Shift_JIS にすると、CP932 に無い文字（XAML の <code>⋯</code>・<code>▸</code> など）が <code>?</code> に落ちる。PowerShell 7 は BOM の無いファイルを UTF-8 として読む仕様のため、Shift_JIS では化ける見込みがある（未確認）。作ったままのファイルを別の Windows PowerShell 5.1 で <code>-File</code> 起動して日本語が正しく出ること（BOM を外すと化けること）は <code>tests/tools/new_single_script.Tests.ps1</code> が確かめる。利用者への案内は<a href="../../../guide/limitations/#単一-ps1-版試験版">制限事項</a>。</li>
 <li><code>tebunko.cat</code>（カタログ）の対象にならない。</li>
 </ul>
 
