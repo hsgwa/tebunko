@@ -17,6 +17,8 @@ Describe "testFolderOrUnder（フォルダとその下の比較。ここだけ�
         @{ name = "folder の末尾の \ があっても A と AB は別"; path = "D:\index\AB"; folder = "D:\index\A\"; expected = $false }
         @{ name = "\\?\ 付きと無しは別の書き方として比べる（付いているものどうしなら下に入る）"; path = "\\?\D:\index\A\見積"; folder = "\\?\D:\index\A"; expected = $true }
         @{ name = "\\?\ 付きの path は、付いていない folder の下に入らない"; path = "\\?\D:\index\A\見積"; folder = "D:\index\A"; expected = $false }
+        @{ name = "既知の制限: / 区切りは同じ場所として扱わない"; path = "D:/index/A/見積"; folder = "D:\index\A"; expected = $false }
+        @{ name = "既知の制限: .. を含むパスは正規化しない"; path = "D:\index\B\..\A"; folder = "D:\index\A"; expected = $false }
         @{ name = "folder が空ならどれも含まない"; path = "D:\index\A"; folder = ""; expected = $false }
         @{ name = "folder が \ だけでも、どれも含まない"; path = "D:\index\A"; folder = "\"; expected = $false }
         @{ name = "ß と ss は別のフォルダ（序数の比較。文化による同一視をしない）"; path = "D:\index\Straße"; folder = "D:\index\Strasse"; expected = $false }

@@ -118,7 +118,7 @@ classDiagram
 - スレッドをまたいでクラスのインスタンスを渡さない（上の「クラスと関数の使い分け」の決まり）。
 - **計測の口を変えない。** 変えるなら先に計測を直し、main で測り直す。口の一覧は [性能とリソースの計測のしかた](../testing/perf.md) の「計測の口」の表を正とする（`StatusLedger` の列と状態、`IndexingReporter` の段階の値は、この口に含まれる。名前と値は変えない）。
 - 設定ファイルの読む → 変える → 書くは、`core/settings.ps1` の `invokeSettingsLocked` の中で行う。`IndexCatalog`・`WorkspaceMover` の書き込みもそうする（名前の割り当ての保存は `saveAssignedIndexNames` を使う）。
-- **フォルダの下かどうかの比べ方は 1 か所（`core/search_excludes.ps1` の `testFolderOrUnder`）だけにする。** 大文字・小文字を区別しない序数の比べ（`OrdinalIgnoreCase`）で、末尾の `\` と `\\?\` を外してから、同じか、`<フォルダ>\` で始まるかを見る。`searchExcludes` の付け替え・削除と、検索対象のツリーが使う。
+- **フォルダの下かどうかの比べ方は 1 か所（`core/search_excludes.ps1` の `testFolderOrUnder`）だけにする。** 大文字・小文字を区別しない序数の比べ（`OrdinalIgnoreCase`）で、folder の末尾の `\` を外してから、同じか、`<フォルダ>\` で始まるかを見る。既知の制限: `\\?\` 付きと無し、`/` 区切り、`..`、8.3 形式の短い名前は同じ場所として扱わない（書き方をそろえるのは呼び出す側。このツールが書いたパスどうしを比べる）。`searchExcludes` の付け替え・削除と、検索対象のツリーが使う。
 - クラスのメソッド名は、組み込みの型やコレクションと同じ名前（`Remove`・`Rename`・`Move`・`Change`・`Entries` など）にしない。画面のスレッドの検査（`tests/meta/ui_thread_io.Tests.ps1`）が名前でメソッドの呼び出しを見つけるため、同じ名前の別のメソッド（`List.Remove` など）まで「ファイルに触る」と見なして誤って落ちる。
 - 性能は、同じ PC・同じデータ・同じ引数で、同じ日に main → refactor のブランチ → main と続けて測った数字どうしで比べる。
 - 取り込みの 1 ファイルごとの経路で、関数の呼び出しの段を増やさない。

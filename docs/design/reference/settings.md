@@ -64,7 +64,7 @@
 
 | 関数 | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
-| `testFolderOrUnder` | path, folder | bool | path が folder そのもの、または folder の下かを返す。フォルダとその下の比べ方はここだけ。大文字・小文字を区別しない序数の比べ（`OrdinalIgnoreCase`）で、folder の末尾の `\` は外し、`<folder>\` で始まるものだけを「下」にする（`Sales` の下に `Sales2` は入らない）。folder が空ならどれも含まない | `removeSearchExcludesUnder`, `moveSearchExcludes`, 検索対象のツリー（`saveSearchExcludes`） |
+| `testFolderOrUnder` | path, folder | bool | path が folder そのもの、または folder の下かを返す。フォルダとその下の比べ方はここだけ。大文字・小文字を区別しない序数の比べ（`OrdinalIgnoreCase`）で、folder の末尾の `\` は外し、`<folder>\` で始まるものだけを「下」にする（`Sales` の下に `Sales2` は入らない）。folder が空ならどれも含まない。既知の制限: `\\?\` 付きと無し、`/` 区切り、`..`、8.3 形式の短い名前は同じ場所として扱わない（書き方は呼び出す側がそろえる） | `removeSearchExcludesUnder`, `moveSearchExcludes`, 検索対象のツリー（`saveSearchExcludes`） |
 | `readSearchExcludes` / `writeSearchExcludes` | path（既定 `$settingsFile`） / excludes, path | `@{Path; Subfolders}` の配列 / – | 画面の検索対象のツリーでチェックを外したフォルダ（`searchExcludes`）を読み書きする。無ければ空（すべて検索） | 画面（検索対象のツリー） |
 | `removeSearchExcludesUnder` | folder, path（既定 `$settingsFile`） | – | フォルダとその下の `searchExcludes` を消す（`Sales` を消しても `Sales2` は消さない）。設定の書き込みは `invokeSettingsLocked` の中で行い、消せなくても例外にしない（インデックスの改名・削除を止めない） | `IndexCatalog.RenameIndex` / `RemoveIndex` |
 | `moveSearchExcludes` | from, to, path（既定 `$settingsFile`） | int | 検索対象ツリーでチェックを外したフォルダ（`searchExcludes`）のうち、from の `content_index` の下のものを to の下に付け替えて保存し、付け替えた数を返す | `WorkspaceMover.ChangeWorkspace` |
