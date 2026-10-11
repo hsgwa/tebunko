@@ -48,6 +48,43 @@ BeforeAll {
         return (@($lines | Where-Object { $_.Text -match $pattern } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ")
     }
 
+    function getKillViolations {
+        # スクリプトの文字列から、プロセスを止める呼び出しを探し、"関数（メソッド）名" の一覧と、
+        # その関数の中で、止める呼び出しより前に isSameOfficeProcess を呼んでいないものの一覧を返す。
+        # kind が Kill ならメンバー名 Kill の呼び出し（.Kill()）、StopProcess なら Stop-Process コマンド。
+        # コードを文字列で渡せるので、通ってはいけない形で落ちることをテストで確かめられる
+        param (
+            [string]$code,
+            [ValidateSet("Kill", "StopProcess")][string]$kind = "Kill"
+        )
+
+        $ast = [System.Management.Automation.Language.Parser]::ParseInput($code, [ref]$null, [ref]$null)
+        $kills = $ast.FindAll({
+            param ($node)
+            if ($kind -eq "Kill") {
+                $node -is [System.Management.Automation.Language.InvokeMemberExpressionAst] -and
+                $node.Member -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $node.Member.Value -eq "Kill"
+            } else {
+                $node -is [System.Management.Automation.Language.CommandAst] -and $node.GetCommandName() -eq "Stop-Process"
+            }
+        }, $true)
+        $places = New-Object System.Collections.Generic.List[string]
+        $unchecked = New-Object System.Collections.Generic.List[string]
+        foreach ($kill in $kills) {
+            $owner = $kill.Parent
+            while ($owner -and $owner -isnot [System.Management.Automation.Language.FunctionDefinitionAst] -and $owner -isnot [System.Management.Automation.Language.FunctionMemberAst]) {
+                $owner = $owner.Parent
+            }
+            $name = $(if ($owner) { $owner.Name } else { "(関数の外)" })
+            $places.Add($name)
+            $calls = $(if ($owner) {
+                @($owner.FindAll({ param ($node) $node -is [System.Management.Automation.Language.CommandAst] -and $node.GetCommandName() -eq "isSameOfficeProcess" -and $node.Extent.StartOffset -lt $kill.Extent.StartOffset }, $true))
+            } else { @() })
+            if ($calls.Count -eq 0) { $unchecked.Add($name) }
+        }
+        return @{ Places = $places.ToArray(); Unchecked = $unchecked.ToArray() }
+    }
+
     function getSourcePathViolations {
         # 取り込みの入口の関数の中で、元のパス（変数 sourcePath）の渡し先が許した処理だけかを調べる。
         # 返す: Found = 見つけた入口の名前、Violations = 許さない渡し先の行（"関数名:行"）。コードを文字列で渡せるので、通ってはいけない形で落ちることをテストで確かめられる。
@@ -286,6 +323,54 @@ Describe "危険な処理を使っていないこと（docs/safety/checks.md「�
         $stops = @($code | Where-Object { $_.Text -match 'Stop-Process' })
         $stops.Count | Should -Be 1
         $stops[0].File | Should -Be "office_process.ps1"
+    }
+
+    It "Stop-Process は、office_process.ps1 の stopOfficeProcesses の中の 1 か所で、止める前に isSameOfficeProcess で名前と起動時刻を照らす" {
+        $result = getKillViolations ([System.IO.File]::ReadAllText("$scriptsDir\shared\office\office_process.ps1")) "StopProcess"
+        (@($result.Places) -join ",") | Should -Be "stopOfficeProcesses"
+        (@($result.Unchecked) -join ",") | Should -Be ""
+    }
+
+    It "getKillViolations（Stop-Process）: <name>" -TestCases @(
+        @{ name = "照合のあとの Stop-Process"; code = 'function a { if (isSameOfficeProcess $p "X" 1) { Stop-Process -Id 1 -Force } }'; places = "a"; unchecked = "" }
+        @{ name = "照合の前の Stop-Process"; code = 'function a { Stop-Process -Id 1 -Force; isSameOfficeProcess $p "X" 1 }'; places = "a"; unchecked = "a" }
+        @{ name = "照合なしの Stop-Process"; code = 'function a { Stop-Process -Id 1 -Force }'; places = "a"; unchecked = "a" }
+    ) {
+        param ($name, $code, $places, $unchecked)
+        $result = getKillViolations $code "StopProcess"
+        ($result.Places -join ",") | Should -Be $places
+        ($result.Unchecked -join ",") | Should -Be $unchecked
+    }
+
+    It "別の止め方（taskkill・CloseMainWindow・WMI の Terminate・spps・kill コマンド）は使わない（0 件）" {
+        findPattern $code '\btaskkill\b|\bCloseMainWindow\b|\bTerminate\b|\bspps\b|(^|[;|&({\s])kill\s+-?\w' | Should -Be ""
+    }
+
+    It "プロセスを止める .Kill() は、決まった 3 か所（quitApp・OfficeWatchdog の Start・IndexingSession の KillOffice）だけで、どれも同じ関数の中で isSameOfficeProcess を呼ぶ" {
+        $found = New-Object System.Collections.Generic.List[string]
+        $unchecked = New-Object System.Collections.Generic.List[string]
+        foreach ($file in $scriptFiles) {
+            $result = getKillViolations ([System.IO.File]::ReadAllText($file))
+            $fileName = [System.IO.Path]::GetFileName($file)
+            foreach ($place in $result.Places) { $found.Add("${fileName}:$place") }
+            foreach ($place in $result.Unchecked) { $unchecked.Add("${fileName}:$place") }
+        }
+        (@($found | Sort-Object) -join ", ") | Should -Be "indexing_session.ps1:KillOffice, office_app.ps1:quitApp, office_app.ps1:Start"
+        (@($unchecked) -join ", ") | Should -Be ""
+    }
+
+    It "getKillViolations: <name>" -TestCases @(
+        @{ name = "照合のある .Kill()"; code = 'function a { $p = Get-Process; if (isSameOfficeProcess $p "X" 1) { $p.Kill() } }'; places = "a"; unchecked = "" }
+        @{ name = ".Kill() のあとにある照合は数えない"; code = 'function a { $p = Get-Process; $p.Kill(); isSameOfficeProcess $p "X" 1 }'; places = "a"; unchecked = "a" }
+        @{ name = "照合の無い .Kill()"; code = 'function a { $p = Get-Process; $p.Kill() }'; places = "a"; unchecked = "a" }
+        @{ name = "クラスのメソッドの中の .Kill()"; code = 'class C { [void] M($p) { $p.Kill() } }'; places = "M"; unchecked = "M" }
+        @{ name = "別の関数にある照合は数えない"; code = 'function a { isSameOfficeProcess 1 2 3 } function b { $p.Kill() }'; places = "b"; unchecked = "b" }
+        @{ name = "関数の外の .Kill()"; code = '$p.Kill()'; places = "(関数の外)"; unchecked = "(関数の外)" }
+    ) {
+        param ($name, $code, $places, $unchecked)
+        $result = getKillViolations $code
+        ($result.Places -join ",") | Should -Be $places
+        ($result.Unchecked -join ",") | Should -Be $unchecked
     }
 }
 
