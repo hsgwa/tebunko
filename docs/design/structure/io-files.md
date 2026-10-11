@@ -75,7 +75,7 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 | `work/office_pids/<PC の鍵>/<PID>.tmp`→`<PID>.txt` | 読む・書く | このツールが起動した Office の記録（`office_process.ps1`。`.tmp` に書いてから `.txt` に改名）。起動時の確認で読む |
 | `work/indexing_log.txt` | 書く | インデクサの表示内容（実行ごとに上書き。`writeIndexerLog`）。先頭に版と環境の見出しを書く。［ログを開く］で Notepad が開く |
 | `work/indexing_log_previous.txt` | 書く | 前回のインデックス作成の記録。インデックス作成が二重起動の鍵を取った後、今の `indexing_log.txt` をここへ移す（あれば上書き） |
-| `work/gui_error_log.txt` | 書く | 画面の予期しないエラー（追記。`writeErrorLog`）。プロセスごとの最初の記録の前に版と環境の見出しを書く。1 MB 以上なら次の記録の前に `gui_error_log_previous.txt` へ移す。起動に失敗したときも、ここに書けるならここに書く |
+| `work/gui_error_log.txt` | 書く | 画面の予期しないエラー（追記。`writeErrorLog`）。見出しを最後に書いた記録先と今の記録先が違うとき（プロセスの最初の記録・ワークスペースの切り替えの後）と、ファイルが無いとき（1 MB で移した直後を含む）に、記録の前に版と環境の見出しを書く。切り替えで記録が移るため、1 つのファイルに見出しが 2 つ入ることがある。1 MB 以上なら次の記録の前に `gui_error_log_previous.txt` へ移す。起動に失敗したときも、ここに書けるならここに書く |
 | `work/gui_error_log_previous.txt` | 書く | `gui_error_log.txt` の前回の分（移すたびに上書き） |
 | `work/search_results.txt` | 書く | 検索結果の出力 |
 | `work/index/`（過去の版が置いた本文インデックス）・`work/system_index/` の古い名前の txt | 読む・消す | 残っているかの調べ・知らせ・［設定］の「移す」「消して最初から」のときだけ。ここには書かない |
