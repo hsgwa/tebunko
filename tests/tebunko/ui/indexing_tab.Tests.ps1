@@ -17,6 +17,8 @@ BeforeAll {
     function updateIndexingButton { $script:buttonUpdates++ }
     function showMessage { param($text, $button, $kind) $script:statuses.Add("message:$text") }
     function selectScreen { param($name) }
+    function showIndexingConfirmDialog { param ($plan) $script:dialogAnswer }
+    function answerIndexingPlan { param ($channel, $answer) }
     function continueStartIndexing {
         # 続きの中身（前の版のインデックスの確かめとインデクサの開始）は画面を使うため、受け取った引数だけを記録する
         param ($legacyState, [string[]]$onlyNames)
@@ -28,7 +30,7 @@ BeforeAll {
     # 画面の型を使うファイルは読み込まず、必要な関数だけを取り出す
     # （dot-source は、この場の scope で行う）
     foreach ($source in @(
-            @{ File = "${scriptsDir}\tebunko\ui\indexing_tab.ps1"; Names = @("startIndexing", "finishWorkspaceCheck") }
+            @{ File = "${scriptsDir}\tebunko\ui\indexing_tab.ps1"; Names = @("startIndexing", "finishWorkspaceCheck", "confirmIndexingTargets") }
             @{ File = "${scriptsDir}\tebunko\ui\index\index_list.ps1"; Names = @("isIndexing", "isIndexingOrPreparing") }
         )) {
         $ast = [System.Management.Automation.Language.Parser]::ParseFile($source.File, [ref]$null, [ref]$null)
@@ -162,6 +164,40 @@ Describe "startIndexing" -Tag Unit {
         $script:jobs.Count | Should -Be 0
         $script:continued.Count | Should -Be 0
         $script:indexingPreparing | Should -Be $false
+    }
+}
+
+Describe "confirmIndexingTargets" -Tag Unit {
+    BeforeEach {
+        $script:statuses.Clear()
+        $script:indexingConfirmed = $false
+        $script:indexingCanceledAtConfirm = $false
+        $script:indexingRate = 1
+        $script:indexingSession = @{ Channel = @{ Plan = @{} } }
+        $script:ui = @{
+            IndexingProgress     = [pscustomobject]@{ IsIndeterminate = $false }
+            IndexingProgressText = [pscustomobject]@{ Text = "" }
+            IndexingProgressDetail = [pscustomobject]@{ Text = "" }
+            IndexingStopButton   = [pscustomobject]@{ IsEnabled = $true }
+        }
+    }
+
+    It "更新を始める返事のときは、前の操作の結果の文を消す" {
+        $script:dialogAnswer = @{ RetryFailed = $false; IncludeCloud = $false }
+
+        confirmIndexingTargets
+
+        $script:statuses.Count | Should -Be 1
+        $script:statuses[0] | Should -Be ""
+    }
+
+    It "取りやめたときは、ステータスバーの文に触れない" {
+        $script:dialogAnswer = $null
+
+        confirmIndexingTargets
+
+        $script:indexingCanceledAtConfirm | Should -Be $true
+        $script:statuses.Count | Should -Be 0
     }
 }
 

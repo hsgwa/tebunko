@@ -182,6 +182,8 @@ function confirmIndexingTargets {
         return
     }
     answerIndexingPlan $channel $answer
+    # 更新を始めることは新しい操作なので、前の操作の結果の文は消す（取りやめたときは消さない）
+    setStatus ""
     $script:indexingRate = $null  # 残り時間の目安は、確認を待っていた時間を含めずに計る
     $ui.IndexingProgressText.Text = "更新を始めています…"
 }
