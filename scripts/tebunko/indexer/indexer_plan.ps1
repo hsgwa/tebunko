@@ -266,8 +266,11 @@ function createTargetList {
 # 取り込む順番（Targets）・画面に出す件数（Plan）・取り込み一覧に書く行（Rows）を組み立てる。
 # 取り込み直すかの判断は indexer_decide.ps1（判断層）の関数を、createTargetList 経由でそのまま呼ぶ。
 # 進み具合・画面の確認・取り込み一覧の読み書きは持たない（IndexingReporter・StatusLedger を司令がつなぐ）。
-# クラスの本体では $script: 変数を読まない（docs/design/structure/classes.md）ため、
-# 計画の種類・状態の値は kinds（Unchecked・Missing・Dropped・StateFailed）でコンストラクタから受け取る。
+# クラスの本体では $script: 変数を読まない決まり（docs/design/structure/classes.md。テストと本番で読める範囲が違うため）なので、
+# 計画の種類・状態の値は kinds（Unchecked・Missing・Dropped・StateFailed の 4 つ。足りなければ例外）、
+# 名前を保存する設定ファイルの場所は settingsFile で、コンストラクタから受け取る。
+# メソッドは次の順に呼ぶ: AssignNames → SaveNames → SelectOnly（選んだときだけ）→ Crawl →
+#   KeepForCancel（取りやめるとき）か ApplyFailed → ApplyInterrupted → FolderByName。Crawl は AssignNames より前なら例外にする。
 # メソッドの中のローカル変数は、プロパティと大文字・小文字だけの違いにしない
 class IngestPlanner {
     # 名前を割り当てたクロール対象フォルダ（@{ Path; Name; Enabled } の並び）
@@ -288,9 +291,17 @@ class IngestPlanner {
     # 前回、取り込み中に強制終了して最後に回したファイル（相対パス → 回数）
     $Carried
     hidden $Kinds
+    # 割り当てた名前を保存する設定ファイル
+    hidden [string]$SettingsFile
 
-    IngestPlanner([hashtable]$kinds) {
+    IngestPlanner([hashtable]$kinds, [string]$settingsFile) {
+        foreach ($key in @("Unchecked", "Missing", "Dropped", "StateFailed")) {
+            if (-not $kinds.ContainsKey($key) -or $null -eq $kinds[$key]) {
+                throw "IngestPlanner: kinds に $key がありません"
+            }
+        }
         $this.Kinds = $kinds
+        $this.SettingsFile = $settingsFile
         $this.Rows = New-Object System.Collections.Generic.List[object]
         $this.Targets = New-Object System.Collections.Generic.List[object]
         $this.Failed = New-Object System.Collections.Generic.List[object]
@@ -315,7 +326,7 @@ class IngestPlanner {
             return
         }
         # 保存した一覧（読み直して名前だけを足したもの）の名前で続ける。この間に画面で外した・名前を付けられなかったフォルダは、今回は取り込まない
-        $saved = @(saveAssignedIndexNames $this.Folders)
+        $saved = @(saveAssignedIndexNames $this.Folders $this.SettingsFile)
         $this.Folders = @($saved | Where-Object {
             $savedPath = $_.Path
             $_.Name -and @($targetFolders | Where-Object { $_.Path -eq $savedPath }).Count -gt 0
@@ -337,6 +348,9 @@ class IngestPlanner {
     [void] Crawl($indexCounts, [scriptblock]$onFolder) {
         # クロール対象フォルダを順に検索して、Rows・Targets・Failed・Plan・RemovedPaths を組み立てる。
         # onFolder: フォルダを検索する直前に呼ぶ（司令が進み具合を画面に出す。$null なら何もしない）
+        if ($null -eq $this.Folders) {
+            throw "IngestPlanner: Crawl の前に AssignNames を呼んでください"
+        }
         foreach ($folder in $this.Folders) {
             if ($null -ne $this.Only -and !$this.Only.Selected.Contains([string]$folder.Name)) {
                 # 選ばなかったインデックス（下で前回の結果をそのまま残す）
@@ -349,7 +363,7 @@ class IngestPlanner {
             } else {
                 writeIndexerLog "  [$($folder.Name)] $($folder.Path)"
                 if ($null -ne $onFolder) {
-                    [void]$onFolder.Invoke($folder)
+                    $null = & $onFolder $folder
                 }
                 $list = createTargetList $folder $this.Previous $indexCounts
                 $this.Rows.AddRange($list.Rows)

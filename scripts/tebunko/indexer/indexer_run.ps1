@@ -444,7 +444,7 @@ function invokeIndexerBody {
     $status = $ledger.ReadStatus()
     $planner = [IngestPlanner]::new(@{
         Unchecked = ${planKindUnchecked}; Missing = ${planKindMissing}; Dropped = ${planKindDropped}; StateFailed = ${stateFailed}
-    })
+    }, ${settingsFile})
     $planner.AssignNames($targetFolders, $status)
     $folders = $planner.Folders
     $previous = $planner.Previous

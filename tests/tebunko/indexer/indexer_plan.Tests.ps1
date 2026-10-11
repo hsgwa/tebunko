@@ -1,4 +1,4 @@
-﻿# クロール（tebunko\indexer\indexer_plan.ps1 の createTargetList）のテスト。
+﻿# 取り込む順番を決める処理（tebunko\indexer\indexer_plan.ps1 の createTargetList・selectOnlyNames・IngestPlanner）のテスト。
 BeforeDiscovery {
     # -TestCases の表が使う一覧の状態（$stateDone など）
     . "$PSScriptRoot\..\..\helpers\load.ps1"
@@ -249,8 +249,9 @@ Describe "selectOnlyNames" -Tag Unit {
 
 Describe "IngestPlanner" -Tag Io {
     BeforeAll {
-        # 設定ファイルに触らないよう、名前が付いているフォルダだけを渡す（名前の保存は SaveNames の「保存しない」場合だけ確かめる）
         $kinds = @{ Unchecked = ${planKindUnchecked}; Missing = ${planKindMissing}; Dropped = ${planKindDropped}; StateFailed = ${stateFailed} }
+        # 名前を保存する設定ファイル（$TestDrive の下。実機の設定には書かない）
+        $settingsFile = Join-Path $TestDrive "planner-setting.config"
         ${indexDir} = Join-Path $TestDrive "planner-index"
         $workspace = newTestWorkspace @{ IndexDir = ${indexDir} } (Join-Path $TestDrive "planner-ws")
 
@@ -262,8 +263,8 @@ Describe "IngestPlanner" -Tag Io {
         $size = [string]$info.Length
 
         function newPlanner {
-            param ($folders, $previousRows = @(), $previousFolders = @())
-            $planner = [IngestPlanner]::new($kinds)
+            param ($folders, $previousRows = @(), $previousFolders = @(), $file = $settingsFile)
+            $planner = [IngestPlanner]::new($kinds, $file)
             $status = @{ Folders = $previousFolders; Rows = (newPrevious $previousRows) }
             $planner.AssignNames($folders, $status)
             return $planner
@@ -278,11 +279,80 @@ Describe "IngestPlanner" -Tag Io {
         @($planner.Dropped | ForEach-Object { $_.Name }) | Should -Be @("古い")
     }
 
-    It "全部に名前があれば、名前を設定に保存しない" {
+    It "全部に名前があれば、設定ファイルを書かない" {
         $named = @([pscustomobject]@{ Path = $source; Name = "売上"; Enabled = $true })
-        $planner = newPlanner $named
+        $file = Join-Path $TestDrive "保存なし\setting.config"
+        $planner = newPlanner $named @() @() $file
         $planner.SaveNames($named)
+        Test-Path -LiteralPath $file | Should -Be $false
         @($planner.Folders | ForEach-Object { $_.Name }) | Should -Be @("売上")
+    }
+
+    Context "名前の無いフォルダがあるとき、割り当てた名前を設定ファイルに保存する" {
+        BeforeEach {
+            $file = Join-Path $TestDrive "保存\$([guid]::NewGuid())\setting.config"
+            writeTargetFolders @(
+                [pscustomobject]@{ Name = ""; Path = "C:\営業"; Enabled = $true }
+                [pscustomobject]@{ Name = ""; Path = "C:\経理"; Enabled = $true }
+            ) $file
+            $read = @(getTargetFolders $file)
+            $planner = newPlanner $read @() @() $file
+        }
+
+        It "保存した名前を設定ファイルに書き、Folders をその一覧にする" {
+            $planner.SaveNames($read)
+            $saved = @(getTargetFolders $file)
+            @($saved | ForEach-Object { $_.Name }) | Should -Not -Contain ""
+            @($planner.Folders | ForEach-Object { $_.Name }) | Should -Be @($saved | ForEach-Object { $_.Name })
+            @($planner.Folders | ForEach-Object { $_.Path }) | Should -Be @("C:\営業", "C:\経理")
+        }
+
+        It "割り当てから保存までの間に設定から外したフォルダは、Folders から落とす" {
+            writeTargetFolders @([pscustomobject]@{ Name = ""; Path = "C:\営業"; Enabled = $true }) $file
+            $planner.SaveNames($read)
+            @($planner.Folders | ForEach-Object { $_.Path }) | Should -Be @("C:\営業")
+        }
+
+        It "名前を付けられなかったフォルダ（同じ名前を、ほかが先に使った）は、Folders から落とす" {
+            $taken = $planner.Folders[0].Name
+            writeTargetFolders @(
+                [pscustomobject]@{ Name = ""; Path = "C:\営業"; Enabled = $true }
+                [pscustomobject]@{ Name = $taken; Path = "C:\総務"; Enabled = $true }
+            ) $file
+            $planner.SaveNames($read)
+            @($planner.Folders | ForEach-Object { $_.Path }) | Should -Not -Contain "C:\営業"
+        }
+    }
+
+    It "kinds に足りない値があれば、作るときに例外にする" -TestCases @(
+        @{ missing = "Unchecked" }
+        @{ missing = "Missing" }
+        @{ missing = "Dropped" }
+        @{ missing = "StateFailed" }
+    ) {
+        param ($missing)
+        $partial = @{} + $kinds
+        $partial.Remove($missing)
+        { [IngestPlanner]::new($partial, $settingsFile) } | Should -Throw "*$missing*"
+    }
+
+    It "AssignNames の前に Crawl を呼ぶと例外にする" {
+        $planner = [IngestPlanner]::new($kinds, $settingsFile)
+        { $planner.Crawl($null, $null) } | Should -Throw "*AssignNames*"
+    }
+
+    It "進み具合を出す処理の例外は、包まずにそのまま伝える" {
+        $folders = @([pscustomobject]@{ Path = $source; Name = "売上"; Enabled = $true })
+        $planner = newPlanner $folders
+        { $planner.Crawl((newCounts), { param ($target) throw "進み具合の失敗" }) } | Should -Throw "進み具合の失敗"
+    }
+
+    It "元のファイルが無くなったファイルは、RemovedPaths に積む" {
+        $folders = @([pscustomobject]@{ Path = $source; Name = "売上"; Enabled = $true })
+        $gone = newStatusRow "売上\消えた.xlsx" "2000/01/01 00:00:00" "1" ${stateDone}
+        $planner = newPlanner $folders @($gone)
+        $planner.Crawl((newCounts @{ "売上\消えた.xlsx" = 1 }), $null)
+        @($planner.RemovedPaths) | Should -Be @("売上\消えた.xlsx")
     }
 
     It "クロールで、取り込み対象・チェックなし・フォルダなし・外れたインデックスを画面に出す件数に分ける" {
@@ -349,7 +419,7 @@ Describe "IngestPlanner" -Tag Io {
     }
 
     It "強制終了した回数が上限に達していなければ最後に回し、達していれば失敗にして外す" {
-        $planner = [IngestPlanner]::new($kinds)
+        $planner = [IngestPlanner]::new($kinds, $settingsFile)
         $first = newStatusRow "売上\1.xlsx"
         $second = newStatusRow "売上\2.xlsx"
         $third = newStatusRow "売上\3.xlsx"
