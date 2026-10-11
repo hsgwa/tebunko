@@ -50,7 +50,7 @@ ${pdfTextOps} = [System.Collections.Generic.HashSet[string]]::new([string[]]@("T
 # 命令を読むと数・名前・文字列は捨てられるので、飛ばしても結果は変わらない。文字に効く命令の前の引数は要るので、並びの終わりが文字に効かない命令のときだけ飛ばす。
 # 配列・辞書・コメント・入れ子の文字列を含むところは、ここに合わず 1 字句ずつ読む。
 ${pdfPageRegex} = [regex]::new(('\G(?:((?>(?>[\x00-\x20]*)(?:[^\x00-\x20()<>\[\]{}/%A-Za-z''"][^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*|/[^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*|\([^()\\]*\)))*(?>[\x00-\x20]*)(?!(?:Tj|TJ|Tf|BT|Td|TD|TL|T\*|Tm|BI)(?![^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]))[A-Za-z][^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*)|(?>[\x00-\x20]*)(?:([^\x00-\x20()<>\[\]{}/%][^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*)|(/[^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*|\([^()\\]*\)|<<|>>|[\[\]{}])))'), [System.Text.RegularExpressions.RegexOptions]::Compiled)
-${pdfTokenRegex} =[regex]::new('\G(?>[\x00-\x20]*)(?:([^\x00-\x20()<>\[\]{}/%][^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*)|(/[^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*|\([^()\\]*\)|<<|>>|[\[\]{}]))', [System.Text.RegularExpressions.RegexOptions]::Compiled)
+${pdfTokenRegex} =[regex]::new('\G(?>[\x00-\x20]*)(?:([^\x00-\x20()<>\[\]{}/%][^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*)|(/[^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*|\([^()\\]*\)|<<|>>|[\[\]{}])|<([0-9A-Fa-f]*)>)', [System.Text.RegularExpressions.RegexOptions]::Compiled)
 
 function testPdfExtension {
     # ファイル名（またはパス）の拡張子が、取り込み対象の PDF の拡張子か（大文字・小文字を区別しない）
@@ -119,6 +119,17 @@ function readPdfToken {
             }
             $st.K = "kw"
             return $token
+        }
+        $g = $m.Groups[3]
+        if ($g.Success) {
+            # 16 進の数字だけの 16 進の文字列（空白や 16 進でない字を含むものは、下の 1 文字ずつ進める道に任せる）。
+            # 2 桁ずつバイトにして、1 バイト 1 文字（Latin-1）の文字列にする
+            $hex = $g.Value
+            $st.P = $g.Index + $g.Length + 1
+            $st.K = "str"
+            if ($hex.Length -eq 0) { return "" }
+            if ($hex.Length % 2 -eq 1) { $hex += "0" }
+            return ${pdfLatin1}.GetString([System.Runtime.Remoting.Metadata.W3cXsd2001.SoapHexBinary]::Parse($hex).Value)
         }
         $g = $m.Groups[2]
         $token = $g.Value
@@ -1210,11 +1221,24 @@ function readPdfPageText {
                             }
                         }
                     } else {
-                        $g = $m.Groups[2]
-                        $pos = $g.Index + $g.Length
-                        $c = $g.Value[0]
-                        if ($c -eq '(') { $items.Add($g.Value.Substring(1, $g.Value.Length - 2)) }
-                        elseif ($c -eq ']') { break }
+                        $g = $m.Groups[3]
+                        if ($g.Success) {
+                            # 16 進の文字列（readPdfToken と同じ変換）
+                            $pos = $g.Index + $g.Length + 1
+                            $hex = $g.Value
+                            if ($hex.Length -eq 0) {
+                                $items.Add("")
+                            } else {
+                                if ($hex.Length % 2 -eq 1) { $hex += "0" }
+                                $items.Add(${pdfLatin1}.GetString([System.Runtime.Remoting.Metadata.W3cXsd2001.SoapHexBinary]::Parse($hex).Value))
+                            }
+                        } else {
+                            $g = $m.Groups[2]
+                            $pos = $g.Index + $g.Length
+                            $c = $g.Value[0]
+                            if ($c -eq '(') { $items.Add($g.Value.Substring(1, $g.Value.Length - 2)) }
+                            elseif ($c -eq ']') { break }
+                        }
                     }
                 } else {
                     $st.P = $pos

@@ -819,6 +819,8 @@ Describe "readPdfPageText（命令の読み方）" -Tag Unit {
         @{ name = "読み飛ばす並びの文字列・名前は残らない"; content = '(skip) /N 1 2 re (a) Tj'; expected = "a" }
         @{ name = "BT の外の Td と色"; content = '5 7 Td 1 0 0 rg (a) Tj'; expected = "a" }
         @{ name = "TL のあとの線幅の命令"; content = 'BT 14 TL (a) Tj 9 w T* (b) Tj ET'; expected = "a`nb" }
+        @{ name = "TJ の中の 16 進の文字列（奇数桁・空・大文字小文字）"; content = 'BT [<0041> -400 <4> <> <4a4B>] TJ ET'; expected = " A @JK" }
+        @{ name = "16 進の文字列（空・空白を含む）"; content = 'BT <41> Tj <> Tj <4142 43> Tj ET'; expected = "AABC" }
     ) {
         readPdfPageText @{ Fonts = @{}; CMaps = @{} } $content $null | Should -BeExactly $expected
     }
