@@ -388,9 +388,14 @@ function fillTargetItems {
 }
 
 function saveTargets {
+    # 一覧を設定に書く。保存した旨のステータスは出す。-Quiet のときは出さない（更新を始めるときの保存は、更新を始めるか確認で決まるため、文を出さない）
+    param ([switch]$Quiet)
+
     writeTargetFolders @($script:targetItems | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Path = $_.Path; Enabled = $_.Enabled } })
     $script:savedTargets = getTargetsKey @(getTargetFolders)
-    setStatus "インデックス一覧を保存しました（$(Get-Date -Format 'H:mm')）"
+    if (!$Quiet) {
+        setStatus "インデックス一覧を保存しました（$(Get-Date -Format 'H:mm')）"
+    }
 }
 
 function updateIndexSourceFile {

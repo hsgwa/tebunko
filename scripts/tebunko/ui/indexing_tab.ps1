@@ -273,7 +273,7 @@ function continueStartIndexing {
             $item.SetEnabled($true)
         }
     }
-    saveTargets
+    saveTargets -Quiet   # 文は出さない（確認で取りやめたとき、前の操作の結果の代わりに残らないように）
     updateIndexDetailPanel
     # 何件取り込むかは、元のファイルの更新日時とサイズを見ないと分からない。
     # ConfirmTargets にすると、インデクサは数え終えたところで止まって確認の返事（answerIndexingPlan）を待つ。
