@@ -212,6 +212,11 @@ Describe "updateResultPaneHeight" -Tag Unit {
         $ui.DetailRow.Height.Value | Should -Be 180
     }
 
+    It "行が 40 ちょうどまでは内容を測る" {
+        updateResultPaneHeight 40
+        $ui.ResultListHost.Content.Measures | Should -Be 1
+    }
+
     It "行が多いときは、内容を測らずに元の高さにする" {
         updateResultPaneHeight 41
         $ui.ResultListHost.Content.Measures | Should -Be 0

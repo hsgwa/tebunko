@@ -139,8 +139,16 @@ function updateGroupCount {
 }
 
 function flushResults {
-    # 検索中に増えたヒットを表に反映する（pumpSearch が 1 回ごとに呼ぶ）。
+    param (
+        [switch]$SkipPaneHeight
+    )
+
+    # 検索中に増えたヒットを表に反映する（pumpSearch が 1 回ごとに呼ぶ）。増えたヒットが無い回は何もしない。
+    #   SkipPaneHeight: 表とプレビューの境目を決め直さない（呼んだ側が、あとで 1 回決め直すとき）
     # 新しいファイルは見出しを末尾に足し、開いているファイルは行を作って見出しの下に足す
+    if ($script:dirtyGroups.Count -eq 0) {
+        return
+    }
     foreach ($group in $script:dirtyGroups) {
         if ($script:filterText -ne "" -or $group.IsExpanded) {
             ensureRows $group
@@ -165,7 +173,9 @@ function flushResults {
         }
     }
     $script:dirtyGroups.Clear()
-    updateResultPaneHeight $script:resultItems.Count
+    if (!$SkipPaneHeight) {
+        updateResultPaneHeight $script:resultItems.Count
+    }
 }
 
 function insertGroupRows {
@@ -320,7 +330,7 @@ function applySort {
 function finishResults {
     # 検索の終わりに、表の順を整える。検索中に並べ替えていたら、あとから来た行も含めて並べ直す。
     # 絞り込みで隠れていたファイルに、あとから合う行が来ていたら作り直す
-    flushResults
+    flushResults -SkipPaneHeight
     $column = $ui.ResultGrid.Columns | Where-Object { $null -ne $_.SortDirection } | Select-Object -First 1
     if ($column) {
         applySort $column.SortMemberPath ($column.SortDirection -eq [System.ComponentModel.ListSortDirection]::Descending)
