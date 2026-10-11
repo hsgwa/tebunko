@@ -30,6 +30,9 @@ Describe "getAboutLinks・testAboutLinkUrl" -Tag Unit {
         @{ name = "後ろに足したものは開かない"; url = "https://github.com/hsgwa/tebunko/../x"; expected = $false }
         @{ name = "ファイルのパスや実行ファイルは開かない"; url = "C:\Windows\System32\cmd.exe"; expected = $false }
         @{ name = "空は開かない"; url = ""; expected = $false }
+        @{ name = "末尾に / を足したものは開かない"; url = "https://github.com/hsgwa/tebunko/"; expected = $false }
+        @{ name = "前後に空白があるものは開かない"; url = " https://github.com/hsgwa/tebunko "; expected = $false }
+        @{ name = "クエリを付けたものは開かない"; url = "https://github.com/hsgwa/tebunko?x=1"; expected = $false }
     ) {
         testAboutLinkUrl $url | Should -Be $expected
     }
