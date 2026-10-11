@@ -40,6 +40,7 @@ BeforeDiscovery {
         @{ name = "Tm で拡大した後の TD の縦の動きは拡大を掛ける"; pages = @("BT 12 0 0 12 72 700 Tm /F1 1 Tf (a) Tj 0 -1 TD (b) Tj ET"); expected = @("a`nb") }
         @{ name = "縦のずれが小さい Td は同じ行（上付き文字など）"; pages = @("BT /F1 12 Tf (a) Tj 20 0.5 Td (b) Tj ET"); expected = @("a b") }
         @{ name = "回した Tm（d が 0）の後でも、Td の縦の動きで行が分かれる"; pages = @("BT 0 1 -1 0 72 700 Tm /F1 12 Tf (a) Tj 0 -14 Td (b) Tj ET"); expected = @("a`nb") }
+        @{ name = "上下を反転した Tm（d が負）の後の Td は、縦の動きも反転する"; pages = @("BT 1 0 0 -1 0 700 Tm /F1 12 Tf (a) Tj 0 -14 Td (b) Tj 1 0 0 1 0 714 Tm (c) Tj ET"); expected = @("a`nb c") }
         @{ name = "BT で縦位置が 0 に戻る"; pages = @("BT /F1 12 Tf 0 -14 Td (a) Tj ET BT /F1 12 Tf 0 -14 Td (b) Tj ET"); expected = @("ab") }
         @{ name = "16 進の空白と奇数桁"; pages = @("BT /F1 12 Tf <41 42 4> Tj ET"); expected = @("AB@") }
     )
@@ -472,6 +473,29 @@ Describe "readPdfPages" -Tag Unit {
         }
         $r = readPdfPages (newPdfFromObjects $objs)
         ($r -join ",") | Should -BeExactly "p5,p4,p3,p2,p1"
+    }
+
+    It "終わりを探す量は、/Length が合わないストリームが降順に並んでも、実際に探した分だけ数える（上限の内で読める）" {
+        $objs = @{}
+        $objs[1] = '<< /Type /Catalog /Pages 2 0 R >>'
+        $objs[2] = '<< /Type /Pages /Kids [10 0 R 9 0 R 8 0 R 7 0 R 6 0 R 5 0 R 4 0 R 3 0 R] /Count 8 >>'
+        foreach ($i in 3..10) {
+            $objs[$i] = @{ Dict = '<< /Length 1 >>'; Stream = (toPdfBytes ("x" * 200)) }
+        }
+        $bytes = newPdfFromObjects $objs
+        { readPdfPages $bytes (newPdfLimits -maxSearchRatio 0.75) } | Should -Not -Throw
+    }
+
+    It "相互参照の示す位置が合わないオブジェクトのストリームでも、番号から探して読む" {
+        $n = @{}
+        $n[1] = '<< /Type /Catalog /Pages 2 0 R >>'
+        $n[2] = '<< /Type /Pages /Kids [10 0 R] /Count 1 >>'
+        $n[11] = newPdfStreamObject '/Filter /FlateDecode' (compressPdfBytes (toPdfBytes "BT /F1 12 Tf (Packed Text) Tj ET"))
+        $p = @{}
+        $p[3] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'
+        $p[10] = '<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 3 0 R >> >> /Contents 11 0 R >>'
+        $r = readPdfPages (newPdfWithXrefStream -normal $n -packed $p -reverseIndex)
+        ($r -join ",") | Should -BeExactly "Packed Text"
     }
 
     It "内容の /Length が合わなくても endstream までを読む（<declared>）" -TestCases @(

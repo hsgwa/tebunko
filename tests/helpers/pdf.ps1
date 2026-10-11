@@ -119,7 +119,8 @@ function newPdfWithXrefStream {
         [int[]]$widths = @(1, 4, 2),
         [int]$pngType = 2,
         [switch]$useIndex,
-        [switch]$badHeader
+        [switch]$badHeader,
+        [switch]$reverseIndex
     )
 
     $objs = @{}
@@ -161,7 +162,11 @@ function newPdfWithXrefStream {
     $rows = New-Object System.Collections.ArrayList
     foreach ($i in $ids) {
         $idx = [array]::IndexOf($packedIds, $i)
-        if ($idx -ge 0) { $fields = @(2, $objStmId, $idx) }
+        if ($idx -ge 0) {
+            # reverseIndex: 相互参照の示す位置を逆順にして、番号と合わなくする
+            if ($reverseIndex) { $idx = $packedIds.Count - 1 - $idx }
+            $fields = @(2, $objStmId, $idx)
+        }
         elseif ($offsets.ContainsKey($i)) { $fields = @(1, $offsets[$i], 0) }
         else { $fields = @(0, 0, 0) }
         $row = New-Object byte[] $rowLength

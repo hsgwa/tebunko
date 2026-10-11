@@ -28,7 +28,8 @@ ${pdfGapThreshold} = -250
 ${pdfMapMaxEntries} = 1000000
 # たどる相互参照（Prev・XRefStm）の数の上限
 ${pdfXrefMaxCount} = 1000
-# ストリームの終わりを探して読み進める文字数の合計の上限（ファイルの大きさの何倍まで）
+# ストリームの終わりを探して読み進める文字数の合計の上限（ファイルの大きさの何倍まで）。
+# /Length の合わないストリームが順や逆順に並ぶだけなら、探す量は約 1 倍に収まる。その余裕を見て 4 倍にする
 ${pdfSearchMaxRatio} = 4
 # 同じ行とみなす縦位置の差（ポイント）の上限
 ${pdfLineTolerance} = 1.0
@@ -398,8 +399,12 @@ function readPdfIndirectAt {
         } elseif ($start -lt $found.From -and $found.At -ge $found.From) {
             $span = [Math]::Min($found.From - $start + 8, $text.Length - $start)
             $end = $text.IndexOf("endstream", $start, $span, [StringComparison]::Ordinal)
-            $doc.Searched += $span
-            if ($end -lt 0 -or $end -ge $found.From) { $end = $found.At }
+            if ($end -lt 0 -or $end -ge $found.From) {
+                $doc.Searched += $span
+                $end = $found.At
+            } else {
+                $doc.Searched += $end - $start
+            }
             $found.From = $start
             $found.At = $end
         } else {
@@ -589,7 +594,15 @@ function readPdfFromObjectStream {
     if ($index -ge 0 -and $index -lt $info.Numbers.Length -and $info.Numbers[$index] -eq $num) {
         $position = $index
     } else {
-        $position = [Array]::IndexOf($info.Numbers, $num)
+        # 位置は細工できるため、番号から位置への辞書を 1 度だけ作って引く（毎回先頭から探すと、件数の 2 乗の比較になる）
+        if (-not $info.ContainsKey("Positions")) {
+            $positions = @{}
+            for ($i = 0; $i -lt $info.Numbers.Length; $i++) {
+                if (-not $positions.ContainsKey($info.Numbers[$i])) { $positions[$info.Numbers[$i]] = $i }
+            }
+            $info.Positions = $positions
+        }
+        $position = if ($info.Positions.ContainsKey([int]$num)) { $info.Positions[[int]$num] } else { -1 }
     }
     if ($position -lt 0) { return $null }
     $st = newPdfLexer $info.Text ($info.First + $info.Offsets[$position])
@@ -1111,7 +1124,9 @@ function readPdfPageText {
         } elseif ($t -ceq "Tm") {
             if ($nums.Count -ge 6) {
                 $ts.Y = $nums[5]
+                # 上下を反転した行列（d が負）は、縦の動きの向きも反転するので、d の符号を残す
                 $ts.Scale = [Math]::Sqrt($nums[2] * $nums[2] + $nums[3] * $nums[3])
+                if ($nums[3] -lt 0) { $ts.Scale = -$ts.Scale }
                 $ts.Run = 0
                 $ts.Gap = $true
             }
