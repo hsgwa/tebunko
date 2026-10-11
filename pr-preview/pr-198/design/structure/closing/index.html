@@ -1872,6 +1872,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#ワークスペースの移動の途中で閉じるとき" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ワークスペースの移動の途中で閉じるとき
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#gc-とメモリ" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4103,6 +4114,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#ワークスペースの移動の途中で閉じるとき" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ワークスペースの移動の途中で閉じるとき
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#gc-とメモリ" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4176,6 +4198,13 @@
 <li>［待たずに閉じる］で閉じたときは、仕事は途中で止まる。次の起動で見えるのは次のとおり。</li>
 <li>名前の変更: フォルダだけが新しい名前に変わり、設定は古い名前のまま、になり得る。一覧には設定の古い名前が出て、そのインデックスは無いものとして扱われる。もう一度同じ名前の変更をすると、旧名のフォルダが無いのでフォルダは移さず、設定と記録だけが新しい名前になる（<code>IndexCatalog.RenameIndex</code>）。</li>
 <li>削除: インデックスのフォルダが一部だけ消え、設定には残り得る。もう一度削除すれば、残りを消して設定からも外れる。</li>
+</ol>
+<h2 id="ワークスペースの移動の途中で閉じるとき">ワークスペースの移動の途中で閉じるとき<a class="headerlink" href="#ワークスペースの移動の途中で閉じるとき" title="Permanent link">&para;</a></h2>
+<p>ワークスペースの中身の移動は裏の列で動く（<code>startWorkspaceMove</code>。待つ間のダイアログ <code>ワークスペースを移しています…</code> を出している）。途中で閉じると、中身が移動元と移動先に分かれるため、止めずに待つ。</p>
+<ol>
+<li>閉じる操作は閉じずに、「ワークスペースを移し終わってから閉じます…」をステータスに出し、待つ間のダイアログの説明を <code>移し終わると、画面を閉じます。</code> に変える。確認は出さず、待つのをやめる道は無い（移動が終わるまで）。</li>
+<li>移し終わると、設定は新しいワークスペースになっており、画面は切り替えずに閉じる。次の起動で、移した先のワークスペースが開く。</li>
+<li>移動が失敗したときは閉じない。警告を出し、今のワークスペースのまま使える（失敗したら <code>WorkspaceMover</code> が設定を変えずに戻す）。</li>
 </ol>
 <h2 id="gc-とメモリ">GC とメモリ<a class="headerlink" href="#gc-とメモリ" title="Permanent link">&para;</a></h2>
 <p>スレッドは同じプロセスのヒープを使うため、インデクサや検索が大量にメモリを使うと、GC で画面のスレッドも止まる。</p>
