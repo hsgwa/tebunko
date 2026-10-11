@@ -595,17 +595,39 @@ function getImportSourceCheckText {
     return @{ Text = ""; Kind = "None" }
 }
 
-function getImportNameNoticeText {
-    # インポートの名前の欄に、今の一覧にある名前を入れたときの案内（無ければ空）。確認は［インポート］を押したあと（getIndexImportOverwriteConfirmMessage）
+function getImportCollisionChoiceView {
+    # インポートのダイアログの頭に出す、同じ名前のときの選び方（［別の名前にする］／［置き換える］）の表示。
+    #   name     : 名前の欄の今の値
+    #   zipName  : zip の中のインデックスの名前
+    #   usedNames: getUsedIndexNames の結果
+    #   mode     : 選んでいる方（Rename か Overwrite。既定は Rename）
+    # 出すのは、名前の欄が今の一覧にある名前のとき、または zip の名前が一覧にあって名前の欄が別の名前の候補のまま（初めの状態）のとき。
+    # 名前の欄を手で一覧に無い名前にしたら隠す。Mode は、出ていないときは Rename（重ならないので別の名前の扱いと同じ）。
+    # Danger は［インポート］を危険の型（赤）にするか（置き換えるを選んでいるとき）。
+    # Candidate は［別の名前にする］を選んだときに名前の欄へ入れる候補、OverwriteName は［置き換える］を選んだときに戻す名前（zip の名前）
     param (
         [string]$name,
-        $usedNames = $null
+        [string]$zipName,
+        $usedNames = $null,
+        [string]$mode = ${importCollisionRename}
     )
 
-    if ($name.Trim() -ne "" -and (testImportNameCollision $name.Trim() $usedNames)) {
-        return "同じ名前のインデックスがあります。［インポート］を押すと、上書きするか別の名前にするかを選べます。"
+    $trimmed = $name.Trim()
+    $candidate = getImportSuggestedName $zipName $usedNames
+    $nameCollides = $trimmed -ne "" -and (testImportNameCollision $trimmed $usedNames)
+    $zipCollides = testImportNameCollision $zipName $usedNames
+    $visible = $nameCollides -or ($zipCollides -and $trimmed -ieq $candidate)
+    $effective = if ($visible -and $mode -eq ${importCollisionOverwrite}) { ${importCollisionOverwrite} } else { ${importCollisionRename} }
+    return @{
+        Visible       = $visible
+        Mode          = $effective
+        Danger        = ($effective -eq ${importCollisionOverwrite})
+        Heading       = "同じ名前のインデックスがあります"
+        RenameText    = "別の名前にする"
+        OverwriteText = "置き換える"
+        Candidate     = $candidate
+        OverwriteName = $zipName
     }
-    return ""
 }
 
 function testIndexImportInput {
@@ -664,16 +686,7 @@ function testImportNameCollision {
 function getIndexImportNotice {
     # インポートのダイアログの説明
     # 中身（名前・日時・ファイル数・大きさ・版）は getIndexImportHeader の枠に出す
-    return "名前と、元のフォルダの場所を変えられます。同じ名前のインデックスが既にあるときは、後で上書き・別名・取りやめを選べます。"
-}
-
-function getIndexImportOverwriteConfirmMessage {
-    # 名前が既にあるインデックスと重なったときの確認（choices は showConfirm に渡す。上書き・別名・取りやめ）
-    param (
-        [string]$name
-    )
-
-    return "インデックス「${name}」は既にあります。上書きしますか？（前のインデックスは置き換わります。別名で入れることもできます）"
+    return "名前と、元のフォルダの場所を変えられます。"
 }
 
 function getIndexRowView {

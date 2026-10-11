@@ -465,7 +465,7 @@ Describe "testIndexImportInput" -Tag Unit {
 }
 
 Describe "getIndexImportNotice" -Tag Unit {
-    It "名前と元のフォルダを変えられることと、同じ名前のときの扱いを伝える" {
+    It "名前と元のフォルダを変えられることを伝える" {
         getIndexImportNotice | Should -Match "名前と、元のフォルダの場所を変えられます"
     }
 }
@@ -510,21 +510,29 @@ Describe "getImportSourceCheckText（元のフォルダの下の 1 行）" -Tag 
     }
 }
 
-Describe "getImportNameNoticeText" -Tag Unit {
+Describe "getImportCollisionChoiceView" -Tag Unit {
+    # 今の一覧は 営業・総務。zip の名前は、重なる「営業」か、重ならない「経理」
     It "<label>" -TestCases @(
-        @{ label = "今の一覧にある名前（大文字・小文字は区別しない）"; name = " 営業 "; notice = $true }
-        @{ label = "ない名前"; name = "経理"; notice = $false }
-        @{ label = "空"; name = " "; notice = $false }
+        @{ label = "初めの状態（zip の名前が重なり、名前の欄は別の名前の候補）は出す"; name = "営業(2)"; zip = "営業"; mode = "Rename"; visible = $true; effective = "Rename"; danger = $false }
+        @{ label = "名前の欄を重なる名前に戻したら出す（大文字・小文字は区別しない）"; name = " 営業 "; zip = "営業"; mode = "Overwrite"; visible = $true; effective = "Overwrite"; danger = $true }
+        @{ label = "重なる名前を手で入れたら、zip の名前が重ならなくても出す"; name = "総務"; zip = "経理"; mode = "Rename"; visible = $true; effective = "Rename"; danger = $false }
+        @{ label = "名前の欄を手で一覧に無い名前にしたら隠す"; name = "営業の別件"; zip = "営業"; mode = "Overwrite"; visible = $false; effective = "Rename"; danger = $false }
+        @{ label = "zip の名前が重ならず、名前の欄がそのままなら出さない"; name = "経理"; zip = "経理"; mode = "Rename"; visible = $false; effective = "Rename"; danger = $false }
+        @{ label = "名前の欄が空なら出さない"; name = " "; zip = "経理"; mode = "Rename"; visible = $false; effective = "Rename"; danger = $false }
     ) {
-        param ($label, $name, $notice)
-        $text = getImportNameNoticeText $name @("営業", "総務")
-        if ($notice) { $text | Should -Match "^同じ名前のインデックスがあります" } else { $text | Should -Be "" }
+        param ($label, $name, $zip, $mode, $visible, $effective, $danger)
+        $view = getImportCollisionChoiceView $name $zip @("営業", "総務") $mode
+        $view.Visible | Should -Be $visible
+        $view.Mode | Should -Be $effective
+        $view.Danger | Should -Be $danger
     }
-}
 
-Describe "getIndexImportOverwriteConfirmMessage" -Tag Unit {
-    It "名前を含める" {
-        getIndexImportOverwriteConfirmMessage "営業" | Should -Match "「営業」"
+    It "選んだときに名前の欄へ入れる名前は、別の名前にするなら候補、置き換えるなら zip の名前" {
+        $view = getImportCollisionChoiceView "営業(2)" "営業" @("営業", "総務")
+        $view.Candidate | Should -Be "営業(2)"
+        $view.OverwriteName | Should -Be "営業"
+        $view.RenameText | Should -Be "別の名前にする"
+        $view.OverwriteText | Should -Be "置き換える"
     }
 }
 

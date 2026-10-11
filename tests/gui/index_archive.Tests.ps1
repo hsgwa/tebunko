@@ -72,6 +72,22 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             (getGuiRowTexts $row) | Should -Contain "営業"
             Test-Path -LiteralPath "$($script:tool.Work)\content_index\営業" | Should -BeTrue
 
+            setGuiStep $S "同じ名前のインポート（別の名前にする → 置き換える）"
+            clickGuiAction $S "ActionImport" "［インポート…］"
+            useGuiFileOpenPicker $S $zip[0].FullName
+            $dialog = waitGuiWindow $S "インポートのダイアログ" -Id "NameBox"
+            getGuiText (findGui $dialog -Id "CollisionHeading") | Should -Be "同じ名前のインデックスがあります"
+            getGuiValue (findGui $dialog -Id "NameBox") | Should -Be "営業(2)" -Because "初めの選択は別の名前にする"
+            isGuiSelected (findGui $dialog -Id "RenameRadio") | Should -BeTrue
+            selectGui (findGui $dialog -Id "OverwriteRadio")
+            getGuiValue (findGui $dialog -Id "NameBox") | Should -Be "営業" -Because "置き換えるときは zip の名前に戻す"
+            clickGui $S $dialog "ImportButton" "［インポート］"
+            waitGuiWindowClosed $S $dialog "インポートのダイアログ"
+            waitGui $S "置き換えの完了" ${guiDefaultTimeout} {
+                (getGuiText (findGui $S.Window -Id "StatusText")) -like "*インポートしました*"
+            } | Out-Null
+            @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count | Should -Be 1 -Because "置き換えたので増えない"
+
             closeGui $S
         }
     }
