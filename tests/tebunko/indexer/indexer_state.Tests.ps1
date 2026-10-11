@@ -227,6 +227,25 @@ Describe "getIndexingState" -Tag Io {
         $state.FailedRows[1].相対パス | Should -Be "data\古い失敗.xlsx"
     }
 
+    It "「未取り込み」でエラー（理由）が書いてある行（利用者のPowerPointのために取り込めなかったファイル）は、待ちではなく失敗に数え、FailedRows に理由付きで返す。エラーが空の「未取り込み」は待ちのまま" {
+        $path = "$TestDrive\status_state_postponed.tsv"
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(
+            (newStatusRow "data\済.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/19 10:00:00"),
+            (newStatusRow "data\PowerPoint.ppt" "2025/01/10 12:34:56" "1" $stateNew "" "" ${postponedReasonRunning}),
+            (newStatusRow "data\未取り込み.pptx" "2025/01/10 12:34:56" "1" $stateNew)
+        ) $path
+
+        $state = getIndexingState -path $path
+        $state.Done | Should -Be 1
+        $state.Pending | Should -Be 1
+        $state.Failed | Should -Be 1
+        $state.FailedRows.Count | Should -Be 1
+        $state.FailedRows[0].相対パス | Should -Be "data\PowerPoint.ppt"
+        $state.FailedRows[0].エラー | Should -Be ${postponedReasonRunning}
+        $state.IndexStats["data"].Failed | Should -Be 1
+        $state.IndexStats["data"].Pending | Should -Be 1
+    }
+
     It "取り込み一覧が無ければ FailedRows は空" {
         $state = getIndexingState -path "$TestDrive\none.tsv"
         $state.Exists | Should -Be $false
@@ -243,9 +262,8 @@ Describe "newIndexerChannel / writeIndexingProgress / readIndexingProgress" -Tag
         $channel.IsSynchronized | Should -Be $true
         $channel.Stop | Should -Be $false
         $channel.ExitCode | Should -BeNullOrEmpty
-        $channel.Notice | Should -Be ""
-        $channel.Postponed | Should -Be 0
         $channel.OfficePids.Count | Should -Be 0
+        $channel.UserOfficePids.Count | Should -Be 0
     }
 
     It "クラウドにだけあるファイルをダウンロードして取り込むか（IncludeCloud）は既定で取り込まない。残した件数（CloudSkipped）は 0" {

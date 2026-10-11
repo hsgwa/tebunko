@@ -206,6 +206,32 @@ Describe "getOfficeProcesses" -Tag Io {
     }
 }
 
+Describe "testOfficeProcessHasWindow" -Tag Unit {
+    BeforeAll {
+        # Refresh を持つ偽のプロセス。refresh が 'throw' なら Refresh が例外を投げる、handle が 'throw' なら MainWindowHandle を読むと例外
+        function newWindowProcess($handle, $refresh) {
+            $p = [pscustomobject]@{}
+            if ($handle -eq 'throw') {
+                $p | Add-Member -MemberType ScriptProperty -Name MainWindowHandle -Value { throw "終了しています" }
+            } else {
+                $p | Add-Member -NotePropertyName MainWindowHandle -NotePropertyValue $handle
+            }
+            $p | Add-Member -MemberType ScriptMethod -Name Refresh -Value $(if ($refresh -eq 'throw') { { throw "更新できません" } } else { { $this | Add-Member -NotePropertyName Refreshed -NotePropertyValue $true -Force } }) -Force
+            return $p
+        }
+    }
+
+    It "<title>" -TestCases @(
+        @{ title = "窓があれば真"; handle = [IntPtr]100; refresh = ''; expected = $true }
+        @{ title = "窓が無ければ偽"; handle = [IntPtr]::Zero; refresh = ''; expected = $false }
+        @{ title = "Refresh が失敗しても、窓の有無で答える"; handle = [IntPtr]100; refresh = 'throw'; expected = $true }
+        @{ title = "窓の有無を読めなければ偽（見えなかったとする）"; handle = 'throw'; refresh = ''; expected = $false }
+    ) {
+        param ($title, $handle, $refresh, $expected)
+        testOfficeProcessHasWindow (newWindowProcess $handle $refresh) | Should -Be $expected
+    }
+}
+
 Describe "stopOfficeProcesses" -Tag Io {
     BeforeAll {
         $script:t0 = ([datetime]"2030-01-01T00:00:00Z").ToUniversalTime().Ticks

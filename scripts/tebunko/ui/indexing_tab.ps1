@@ -457,7 +457,7 @@ function finishIndexing {
         $success = if ($progress) { $progress.Processed - $progress.Failed } else { 0 }
         $failed = if ($progress) { $progress.Failed } else { 0 }
         setIndexingBanner (getIndexingBannerLevel $exitCode $failed) "done"
-        $endText = getIndexingEndText $success $failed $session.GetPostponed() $session.GetNotice() $session.GetCloudSkipped()
+        $endText = getIndexingEndText $success $failed $session.GetCloudSkipped()
         $ui.IndexingProgressText.Text = $endText.Text
         $ui.IndexingProgressDetail.Text = $endText.Detail
     }

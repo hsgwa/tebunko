@@ -99,7 +99,8 @@
 | `testSourceNameRecordable` | name | bool | 元のフォルダを設定に記録できる名前か（空・前後に空白があれば偽。`setIndexSourceFolder` の入口と、確認ダイアログの文言で使う） | [元のファイルを開く](../gui/open-file.md) | 判断 |
 | `testIndexName` | name, usedNames | string（使えれば空） | インデックス名として使えるか調べ、使えない理由を返す（空・前後の空白・255 文字超・使えない文字・末尾の `.`・Windows の予約語・ほかと重複） | [名前とフォルダパスの編集](../gui/index-tab.md#名前とフォルダパスの編集) | 画面 |
 | `getIndexNameMap` | path（既定 `$workspace.StatusFile`） | Dictionary（インデックス名 → フォルダパス） | 取り込み一覧のインデックス名からクロール対象フォルダを引く表。クロール対象フォルダの行は先頭にあるため、見出し行まで読んで打ち切る | 同上 | resolveSourcePath, 画面 |
-| `getIndexStats` | rows（readStatusFile の Rows） | 名前 → `@{Total; Done; Pending; Failed; LastIngested}` | 取り込み一覧の行をインデックス名ごとに集計する（一覧の「ファイル」「最終取り込み」） | [一覧の列](../gui/index-tab.md#一覧の列) | 画面（getIndexingState 経由） |
+| `testStatusRowFailed` | row | bool | 取り込み一覧の行を失敗に数えるか。状態が `失敗` の行と、`未取り込み` でエラーの列に理由がある行（利用者の PowerPoint のために取り込めなかったファイル。次の更新で取り込むため状態は `未取り込み` のまま） | [取り込み一覧](../indexing/ingest-list.md) | `getIndexStats`・`getIndexingState` |
+| `getIndexStats` | rows（readStatusFile の Rows） | 名前 → `@{Total; Done; Pending; Failed; LastIngested}` | 取り込み一覧の行をインデックス名ごとに集計する（一覧の「ファイル」「最終取り込み」。`未取り込み` でエラーがある行は `Failed` に数え、`Pending` に数えない） | [一覧の列](../gui/index-tab.md#一覧の列) | 画面（getIndexingState 経由） |
 | `getSearchIndexes` | dir（既定 `$workspace.IndexDir`）, statusPath, settingsPath | `@{Name; Path; SourcePath}` の配列 | インデックスの一覧（`work\content_index` 直下のフォルダ 1 つがインデックス 1 つ）。並びは［インデックス管理］の一覧と同じで、一覧に無いもの（コピーしたインデックスなど）は名前順で後ろ。`SourcePath` は元のフォルダ（分からなければ空） | [インデックスの一覧](../search/index.md#インデックスの一覧getsearchindexes) | 画面（検索対象のツリー） |
 | `getIndexTreeData` | dir, paths（展開・チェックを外したフォルダ） | `@{State; Message; Root; Sources; ...}` | 検索対象ツリーの材料（ワークスペースの状態・インデックスの一覧・展開したフォルダの子）を 1 回で集める。ワークスペースがネットワークにあるときの裏の仕事で呼ぶ（届かなければ State と Message で知らせる） | [検索対象のツリー](../gui/search-tree.md) | 画面（検索対象のツリー） |
 | `getIndexFolderChildren` | dir | `@{HasFiles; Folders; Error}` | インデックスのフォルダの子（本のフォルダを除いた名前順）。読めなければ Error に文面を入れる | 同上 | 画面（ツリーの展開） |

@@ -71,22 +71,6 @@ class IndexingSession {
         return $this.Failure
     }
 
-    [string] GetNotice() {
-        # 終わりの一言（利用者のPowerPointが起動していて後回しにしたファイルがあるとき）。無ければ空
-        if ($this.Channel.Notice) {
-            return [string]$this.Channel.Notice
-        }
-        return ""
-    }
-
-    [int] GetPostponed() {
-        # 利用者のPowerPointが起動していて後回しにした（未取り込みのまま残した）件数。無ければ 0
-        if ($null -ne $this.Channel.Postponed) {
-            return [int]$this.Channel.Postponed
-        }
-        return 0
-    }
-
     [int] GetCloudSkipped() {
         # クラウドにだけあるため、ダウンロードせずに残した件数。無ければ 0
         if ($null -ne $this.Channel.CloudSkipped) {
@@ -127,6 +111,15 @@ class IndexingSession {
                 # 終了済みで ID が別のプロセスに使われている場合に備え、記録したプロセス名と起動時刻が同じか確かめる
                 $entry = $this.Channel.OfficePids[$id]
                 if (isSameOfficeProcess $process $entry.ProcessName $entry.StartTicks) {
+                    # 利用者が使っている（取り込み中に見える窓があった）PowerPoint は止めない
+                    $mark = $null
+                    if ($this.Channel.UserOfficePids.TryGetValue($id, [ref]$mark) -and $mark.StartTicks -eq $entry.StartTicks) {
+                        continue
+                    }
+                    # 今、見える窓があるプロセスも止めない（アプリを問わない。取り込みのプロセスは窓を出さない）
+                    if (testOfficeProcessHasWindow $process) {
+                        continue
+                    }
                     $process.Kill()
                     $count++
                 }
