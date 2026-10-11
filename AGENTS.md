@@ -41,9 +41,15 @@
   | `revert` | 前の変更の取り消し |
 
   機械的に確かめる: コミットは `commit-msg` フック、PR のタイトルは CI（`.github/workflows/title.yml` の `pr-title`。失敗するとマージできない）、Issue のタイトルは同じワークフローが形の違うものに直し方をコメントする。判定は `tools/check_commit_message.ps1` にまとめてある。git が自動で作るメッセージ（`Merge ...` `Revert "..."` `fixup! ...`）は調べない。
-- **コミットには `git commit -s` で `Signed-off-by: <名前> <メールアドレス>` を付ける。** [DCO](https://developercertificate.org/)（その変更を出す権利があること）に同意したことを表す。メールアドレスはコミットの作者のもの（下の「個人情報を書かない」の noreply）と同じにする。
+- **コミットには `git commit -s` で `Signed-off-by: <名前> <メールアドレス>` を付ける。** [DCO](https://developercertificate.org/)（その変更を出す権利があること）に同意したことを表す。メールアドレスはコミットの作者のもの（下の「個人情報を書かない」の noreply）と同じにし、作者と違うアドレスの `Signed-off-by` の行は入れない（squash マージで、PR のコミットの行がそのまま main のコミットに入るため）。
 
-  機械的に確かめる: コミットは `commit-msg` フック、PR のコミットは CI（`test.yml` の `test`。失敗するとマージできない）。判定は `tools/check_signoff.ps1`。マージコミットと bot（Dependabot など）のコミットは調べない。決まりを作る前（#53 より前）のコミットには付いていないが、書き換えない。付け忘れたまま PR のブランチに push したときに限り、`git rebase --signoff origin/main` で付け直して `git push --force-with-lease` してよい。
+  機械的に確かめる: コミットは `commit-msg` フック、PR のコミットは CI（`test.yml` の `test`。失敗するとマージできない）。判定は `tools/check_signoff.ps1`。マージコミットと bot（Dependabot など）のコミットは調べない。決まりを作る前（#53 より前）のコミットには付いていないが、書き換えない。付け忘れたまま PR のブランチに push したときに限り、`git rebase --signoff origin/main` で付け直して `git push --force-with-lease` してよい。作者と違うアドレスの `Signed-off-by` の行を push したときも、PR のブランチに限り force push してよい。`git rebase --signoff` は行を足すだけで消さないので使わず、対話なし（`git rebase -i` は使わない）の次の手順で、`Signed-off-by` を全部消してから作者（`user.email` を直した後）の 1 行だけを付け直す。`-x` の式は git が持つ sh で動くので、PowerShell でも同じに書ける（PowerShell の中に `grep` は無い）。まだ push していないコミットだけなら、`git push` は要らない。
+
+  ```
+  git fetch origin
+  git rebase origin/main -x "git log -1 --format=%B | grep -v '^Signed-off-by:' | git commit --amend -s -F -"
+  git push --force-with-lease
+  ```
 
 ## 除外設定（読ませない・検索させない）
 

@@ -14,7 +14,7 @@ flowchart LR
 | 対象 | 主な確認内容 |
 |---|---|
 | `check_commit_message.ps1` | 形が合うタイトルを通し、違うものを止める、git が自動で作るメッセージは調べない、コメント行と空行を飛ばして最初の行を調べる、CRLF のファイル、空のメッセージは通す |
-| `check_signoff.ps1` | 作者の `Signed-off-by` があれば通す、無い・作者と違うメールアドレスなら止める、コメント行と `git commit -v` の差分の中は数えない、マージコミット・bot は調べない |
+| `check_signoff.ps1` | 作者の `Signed-off-by` があり作者と違うメールアドレスの行が無ければ通す、無い・作者と違う行が 1 つでもあれば止める（出力に違う行のメールアドレスは出さない）、コメント行と `git commit -v` の差分の中は数えない、マージコミット・bot は調べない |
 | `check_release_tag.ps1` | 形が合うタグを通し、形が違うもの（`v1.0`・`V1.0.0`・`v01.0.0`・全角の数字・接尾辞・末尾の改行など）を止める。指すコミットが main にあれば通し、無いときと、参照を解決できないときは、別の理由の文言で止める |
 | `check_markdown_links.ps1` | あるファイル・フォルダ・見出しへのリンクを通し、切れたリンクを止める、コードの中のリンクは調べない、1 行に複数あるリンクをそれぞれ調べる |
 | `pr_checks_comment.ps1` | 結果（`success`・`failure`・`cancelled`・`skipped` など）から表示文字への読み替え、複数のジョブの結果（カンマ区切り）から悪いほうを選ぶ（`combineJobResults`）、実行へのリンクが自分のリポジトリの形のときだけ通る、書き換える対象のコメントを作者（`github-actions[bot]`）と 1 行目のワークフローごとの目印（`<!-- pr-check:<id> -->`）で選ぶ（ほかのワークフローの目印のコメントは選ばない）。書き込みで例外が出ても投げずに警告として返すこと（`tryInvokePrCheckComment`）、コメントに head のコミットを添えること。各ワークフローの `pr-comment` ジョブが複合アクション（`.github/actions/pr-comment`）を `workflow-key` 付きで呼び、`pull-requests: write` をそのジョブだけに付け、呼ぶ前に既定のブランチを checkout していること、`release.yml` の許可、perf-check の、両方スキップのときに書かない条件は `Meta` で確かめる |
