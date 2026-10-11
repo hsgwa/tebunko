@@ -4815,10 +4815,18 @@
 <td>resolveSourcePath, 画面</td>
 </tr>
 <tr>
+<td><code>testStatusRowFailed</code></td>
+<td>row</td>
+<td>bool</td>
+<td>取り込み一覧の行を失敗に数えるか。状態が <code>失敗</code> の行と、<code>未取り込み</code> でエラーの列に理由がある行（利用者の PowerPoint のために取り込めなかったファイル。次の更新で取り込むため状態は <code>未取り込み</code> のまま）</td>
+<td><a href="../../indexing/ingest-list/">取り込み一覧</a></td>
+<td><code>getIndexStats</code>・<code>getIndexingState</code></td>
+</tr>
+<tr>
 <td><code>getIndexStats</code></td>
 <td>rows（readStatusFile の Rows）</td>
 <td>名前 → <code>@{Total; Done; Pending; Failed; LastIngested}</code></td>
-<td>取り込み一覧の行をインデックス名ごとに集計する（一覧の「ファイル」「最終取り込み」）</td>
+<td>取り込み一覧の行をインデックス名ごとに集計する（一覧の「ファイル」「最終取り込み」。<code>未取り込み</code> でエラーがある行は <code>Failed</code> に数え、<code>Pending</code> に数えない）</td>
 <td><a href="../../gui/index-tab/#一覧の列">一覧の列</a></td>
 <td>画面（getIndexingState 経由）</td>
 </tr>

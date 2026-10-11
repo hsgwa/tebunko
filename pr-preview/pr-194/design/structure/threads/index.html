@@ -4343,7 +4343,7 @@
 <td>インデックス作成 1 回</td>
 <td>MTA</td>
 <td>Normal</td>
-<td>自分の取り込みスレッドの制限時間を見て、過ぎたらそのスレッドが起動した Office だけを PID で止める</td>
+<td>自分の取り込みスレッドの制限時間を見て、過ぎたらそのスレッドが起動した Office だけを PID で止める。ただし、取り込み中に窓が見えた（利用者が使っている）PowerPoint は止めず、そのレーンを諦めたと司令に伝える（レーンの状態 <code>Abandoned</code>）</td>
 </tr>
 <tr>
 <td>システムインデックスのプール</td>
@@ -4425,7 +4425,7 @@
 <li>検索 1 回が終わるたびに、検索の司令が読んだ内容のキャッシュを整理する（<code>trimTsvTextCache</code>。<a href="../closing/#gc-とメモリ">GC とメモリ</a>）。</li>
 </ul>
 <h2 id="画面とインデクサの受け渡し">画面とインデクサの受け渡し<a class="headerlink" href="#画面とインデクサの受け渡し" title="Permanent link">&para;</a></h2>
-<p>画面とインデクサは、同じプロセスのメモリ上の受け渡しの口（<code>newIndexerChannel</code>。<code>[hashtable]::Synchronized</code>）でやり取りする。ファイルでの受け渡しは行わない。画面は進み具合を 1 秒ごとに口から読む。画面が書く欄は <code>RetryFailed</code>・<code>IncludeCloud</code>・<code>ConfirmTargets</code>・<code>Workers</code>・<code>Stop</code>・<code>Answer</code>・<code>OnlyNames</code>（更新するインデックス名の配列。空なら、チェックの付いたものすべて）で、インデクサが書く欄は <code>Progress</code>・<code>Plan</code>・<code>Error</code>・<code>ExitCode</code>・<code>Notice</code>・<code>Postponed</code>・<code>CloudSkipped</code>・<code>OnlySkipped</code>（<code>OnlyNames</code> のうち更新できなかった名前と理由）・<code>OfficePids</code> である。</p>
+<p>画面とインデクサは、同じプロセスのメモリ上の受け渡しの口（<code>newIndexerChannel</code>。<code>[hashtable]::Synchronized</code>）でやり取りする。ファイルでの受け渡しは行わない。画面は進み具合を 1 秒ごとに口から読む。画面が書く欄は <code>RetryFailed</code>・<code>IncludeCloud</code>・<code>ConfirmTargets</code>・<code>Workers</code>・<code>Stop</code>・<code>Answer</code>・<code>OnlyNames</code>（更新するインデックス名の配列。空なら、チェックの付いたものすべて）で、インデクサが書く欄は <code>Progress</code>・<code>Plan</code>・<code>Error</code>・<code>ExitCode</code>・<code>CloudSkipped</code>・<code>OnlySkipped</code>（<code>OnlyNames</code> のうち更新できなかった名前と理由）・<code>OfficePids</code> である。</p>
 <pre class="mermaid"><code>sequenceDiagram
     participant G as 画面
     participant C as 受け渡しの口
@@ -4486,12 +4486,6 @@
 <td>続けられないエラーの内容と、終了コード（0 完了・1 エラー・2 中止）。<code>ExitCode</code> は最後に入れる</td>
 </tr>
 <tr>
-<td>Notice・Postponed</td>
-<td>インデクサ</td>
-<td>画面（<code>IndexingSession.GetNotice</code> / <code>GetPostponed</code>）</td>
-<td>終わりの案内（利用者の PowerPoint が起動していて後回しにしたファイルがあるときの一言。無ければ空）と、後回しにした件数（未取り込みのまま残した件数。無ければ 0）</td>
-</tr>
-<tr>
 <td>IncludeCloud</td>
 <td>画面（確認の返事。ヘッドレスでは設定 <code>cloudFiles</code> が <code>download</code> のとき）</td>
 <td>インデクサ</td>
@@ -4508,6 +4502,12 @@
 <td>取り込みスレッド</td>
 <td>画面</td>
 <td>インデックス作成が起動した Office の PID → <code>@{ ProcessName; StartTicks }</code>（<code>ConcurrentDictionary</code>）。閉じるときに止まらなければ、名前と起動時刻が合うものだけを止める</td>
+</tr>
+<tr>
+<td>UserOfficePids</td>
+<td>取り込みスレッドの監視</td>
+<td>取り込みスレッドの監視・画面（<code>KillOffice</code>）</td>
+<td>取り込み中に見える窓があった（利用者が使った）PowerPoint の PID → <code>@{ ProcessName; StartTicks }</code>（<code>ConcurrentDictionary</code>）。印のある PID は、制限時間を過ぎても、閉じるときにも止めない</td>
 </tr>
 </tbody>
 </table>
