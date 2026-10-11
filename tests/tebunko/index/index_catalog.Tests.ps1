@@ -17,7 +17,7 @@ BeforeAll {
     }
 }
 
-Describe "IndexCatalog.RenameIndex（旧 renameIndex）" -Tag Io {
+Describe "IndexCatalog.RenameIndex" -Tag Io {
     It "インデックスのフォルダと取り込み一覧の記録の名前を変え、中身はそのまま残す" {
         $ws = newCatalogWorkspace "$TestDrive\rename"
         $dir = $ws.Index
@@ -105,7 +105,7 @@ Describe "IndexCatalog.RenameIndex（旧 renameIndex）" -Tag Io {
     }
 }
 
-Describe "IndexCatalog.RemoveIndex（旧 removeIndex）" -Tag Io {
+Describe "IndexCatalog.RemoveIndex" -Tag Io {
     It "インデックスのフォルダと取り込み一覧の記録を削除し、ほかのインデックスは残す" {
         $ws = newCatalogWorkspace "$TestDrive\remove"
         $dir = $ws.Index
@@ -168,7 +168,7 @@ Describe "IndexCatalog.RemoveIndex（旧 removeIndex）" -Tag Io {
     }
 }
 
-Describe "IndexCatalog.RemoveIndexes（旧 removeIndexes）" -Tag Io {
+Describe "IndexCatalog.RemoveIndexes" -Tag Io {
     It "選んだインデックスをまとめて削除し、1 つ失敗しても残りを続けて、名前ごとの結果を返す" {
         $ws = newCatalogWorkspace "$TestDrive\removes"
         $dir = $ws.Index
@@ -359,5 +359,40 @@ Describe "IndexCatalog の名前の割り当てと保存" -Tag Io {
 
         (getTargetFolders $ws.Settings)[0].Path | Should -Be "C:\data\営業"
         (getSearchIndexes $ws.Index $ws.Status $ws.Settings)[0].SourcePath | Should -Be "C:\data\営業"
+    }
+}
+
+Describe "IndexCatalog.RenameIndexWithSource" -Tag Io {
+    It "改名したあと、元のフォルダの記録（source_folder.txt）を一覧に合わせて書き直し、理由は空で返す" {
+        $ws = newCatalogWorkspace "$TestDrive\rws1"
+        New-Item -ItemType Directory -Path "$($ws.Index)\営業" -Force | Out-Null
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @() $ws.Status
+
+        $result = $ws.Catalog.RenameIndexWithSource("営業", "営業部", @([pscustomobject]@{ Name = "営業部"; Path = "C:\data" }))
+
+        $result.SourceFolderError | Should -Be ""
+        Test-Path "$($ws.Index)\営業" | Should -Be $false
+        (Get-Content -LiteralPath "$($ws.Index)\営業部\${sourceFolderFileName}") -join "|" | Should -BeLike "*営業部*C:\data*"
+    }
+
+    It "記録を書けなくても改名は成功にし、書けなかった理由（書けなかったファイルの名前を含む元のメッセージ）を返す" {
+        $ws = newCatalogWorkspace "$TestDrive\rws2"
+        New-Item -ItemType Directory -Path "$($ws.Index)\営業" -Force | Out-Null
+        # 記録のファイル名の場所にフォルダがあると、書けない
+        New-Item -ItemType Directory -Path "$($ws.Index)\営業\${sourceFolderFileName}" -Force | Out-Null
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @() $ws.Status
+
+        $result = $ws.Catalog.RenameIndexWithSource("営業", "営業部", @([pscustomobject]@{ Name = "営業部"; Path = "C:\data" }))
+
+        Test-Path "$($ws.Index)\営業部" | Should -Be $true
+        $result.SourceFolderError | Should -Not -BeNullOrEmpty
+        $result.SourceFolderError | Should -BeLike "*${sourceFolderFileName}*"
+    }
+
+    It "改名に失敗したら、例外をそのまま出す（同じ名前のフォルダが既にある）" {
+        $ws = newCatalogWorkspace "$TestDrive\rws3"
+        New-Item -ItemType Directory -Path "$($ws.Index)\営業", "$($ws.Index)\営業部" -Force | Out-Null
+
+        { $ws.Catalog.RenameIndexWithSource("営業", "営業部", @()) } | Should -Throw
     }
 }

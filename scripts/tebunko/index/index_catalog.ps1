@@ -1,7 +1,7 @@
 ﻿# インデックスの改名・削除・名前の割り当て・一覧と元のフォルダの記録の保存。
 # インデックス 1 つの情報は複数の保存先に分かれて置かれている: 設定の targetFolders、取り込み一覧、インデックスのフォルダ（content_index\<名前>）と
 # 元のフォルダの記録（source_folder.txt）、設定の searchExcludes、システムインデックス（system_index）。
-# このクラスは、それらを漏れなく書き換える手順と順番、途中で失敗したときの扱い（止める・残す）だけを持つ。保存先の形式は知らず、
+# このクラスは、改名・削除でそれらを書き換える手順と順番、途中で失敗したときの扱い（止める・残す）だけを持つ。一覧（targetFolders）と元のフォルダの記録の書き直しは、画面が SaveTargets・WriteSourceFile（改名では RenameIndexWithSource）で呼ぶ。保存先の形式は知らず、
 # 保存先ごとの読み書きは既存の関数（searchExcludes は core\search_excludes.ps1）と、作る側から渡された StatusLedger に任せる。
 # 画面は呼んで結果を出すだけにする（画面の手順をここに引き寄せる）。
 #
@@ -61,6 +61,19 @@ class IndexCatalog {
         removeSearchExcludesUnder $to $this.SettingsPath
     }
 
+    [hashtable] RenameIndexWithSource([string]$oldName, [string]$newName, $folders) {
+        # 名前を変え（RenameIndex）、続けて元のフォルダの記録（source_folder.txt）を書き直す。
+        # 書き直しに失敗しても、改名は済んでいるので改名の失敗にはしない。書けなかった理由を SourceFolderError で返す（成功なら空）。
+        # 改名の失敗は、RenameIndex の例外のまま呼び出し元へ出る
+        $this.RenameIndex($oldName, $newName)
+        $sourceError = ""
+        try {
+            $this.WriteSourceFile($folders)
+        } catch {
+            $sourceError = $_.Exception.Message
+        }
+        return @{ SourceFolderError = $sourceError }
+    }
     [void] RemoveIndex([string]$name) {
         # インデックスを削除する（画面の［削除］）。インデックスのフォルダ（content_index\<名前>）と、取り込み一覧の記録を削除する。
         # インデックス作成中は呼ばない（画面はインデックス作成中この操作を無効にする）。

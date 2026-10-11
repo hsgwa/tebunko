@@ -291,7 +291,7 @@ Describe "updateSystemIndexes" -Tag Io {
     }
 }
 
-Describe "IndexCatalog.Remove / Rename の システムインデックス" -Tag Io {
+Describe "IndexCatalog.RemoveIndex / RenameIndex のシステムインデックス" -Tag Io {
     It "インデックスを削除・名前変更すると、同じワークスペースの system_index の分を消す" {
         [void](newIndexTree "$TestDrive\ix")
         Move-Item -LiteralPath "$TestDrive\ix\index" -Destination "$TestDrive\ix\content_index"

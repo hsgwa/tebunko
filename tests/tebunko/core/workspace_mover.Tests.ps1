@@ -14,7 +14,7 @@ BeforeAll {
     }
 }
 
-Describe "WorkspaceMover.Move（旧 moveWorkspace）" -Tag Io {
+Describe "WorkspaceMover.MoveEntries" -Tag Io {
     BeforeAll {
         $script:mover = [WorkspaceMover]::new("$TestDrive\setting.config")
     }
@@ -109,7 +109,7 @@ Describe "WorkspaceMover の別のドライブへ移すときの写し（CopyTre
     }
 }
 
-Describe "WorkspaceMover.RemoveEntries（旧 removeWorkspaceEntries）" -Tag Io {
+Describe "WorkspaceMover.RemoveEntries" -Tag Io {
     It "tebunko のファイル・フォルダだけを削除し、削除した数を返す（content_index・前の版の index も含めて消し、利用者のファイルは残す）" {
         newTsv "$TestDrive\remove_ws\content_index\営業\見積\content_index.xlsx.001.tsv" @("a")
         newTsv "$TestDrive\remove_ws\index\営業\見積\content.xlsx.001.tsv" @("a-前の版")
@@ -126,7 +126,7 @@ Describe "WorkspaceMover.RemoveEntries（旧 removeWorkspaceEntries）" -Tag Io 
     }
 }
 
-Describe "WorkspaceMover.UseTargets（旧 useWorkspaceTargets）" -Tag Io {
+Describe "WorkspaceMover.UseTargets" -Tag Io {
     It "ワークスペースの取り込み一覧にあるクロール対象フォルダを、インデックスの一覧にする" {
         $settings = "$TestDrive\use\setting.config"
         writeTargetFolders @([pscustomobject]@{ Name = "自分"; Path = "C:\自分のフォルダ"; Enabled = $true }) $settings
@@ -151,7 +151,7 @@ Describe "WorkspaceMover.UseTargets（旧 useWorkspaceTargets）" -Tag Io {
     }
 }
 
-Describe "WorkspaceMover.Change（画面が呼ぶ入口）" -Tag Io {
+Describe "WorkspaceMover.ChangeWorkspace（画面が呼ぶ入口）" -Tag Io {
     BeforeEach {
         $script:settings = "$TestDrive\change\setting.config"
         Remove-Item -LiteralPath "$TestDrive\change" -Recurse -Force -ErrorAction SilentlyContinue

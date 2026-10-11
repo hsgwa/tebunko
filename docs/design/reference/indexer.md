@@ -111,8 +111,10 @@
 | メソッド | 入力 | 出力 | 概要 | 詳細 | 使用元 |
 |---|---|---|---|---|---|
 | `RenameIndex` | oldName, newName | – | インデックス名を変える（旧 `renameIndex`）。`work\content_index\<旧名>` を改名し、取り込み一覧の記録（`StatusLedger.RenameIndexName`）も書き換えるため、**インデックスは作り直さない**。大文字・小文字だけの変更は一時名を経由する。移動先が既にあれば例外。`system_index` の古い名前の分と、旧名・新名の下の `searchExcludes`（`removeSearchExcludesUnder`。付け替えず、外したフォルダは検索対象に戻る）も消す。この 2 つの整理は、失敗しても止めない | [名前とフォルダパスの編集](../gui/index-tab.md#名前とフォルダパスの編集) | 画面（詳細の名前の欄） |
+| `RenameIndexWithSource` | oldName, newName, folders（`@{Name; Path}` の配列） | `@{SourceFolderError}` | `RenameIndex` のあと、元のフォルダの記録（`source_folder.txt`。`WriteSourceFile`）を書き直す。記録だけが失敗しても改名は成功にし、書けなかった理由を `SourceFolderError` で返す（成功なら空）。改名の失敗は例外のまま出す | 同上 | 画面（詳細の名前の欄。裏の仕事） |
 | `RemoveIndex` | name | – | インデックスを削除する（旧 `removeIndex`）。`work\content_index\<名前>` を中身ごと削除し（消せなければ例外にして、取り込み一覧の記録は残す）、取り込み一覧からもその記録を取り除く（`StatusLedger.RemoveIndexName`）。`system_index` とそのインデックスの下の `searchExcludes` も消す | 同上 | 画面（［削除］） |
 | `RemoveIndexes` | names | `@{Name; Ok; Reason}` の配列（名前ごと） | 選んだインデックスをまとめて削除する（旧 `removeIndexes`）。`RemoveIndex` を 1 つずつ呼び、1 つ失敗しても残りを続ける（`Reason` は失敗の理由。空の名前は失敗にする）。画面は別スレッドの仕事の中で呼ぶ | 同上 | 画面（［削除］） |
+| `newIndexCatalog` | workspaceDir, settingsPath（既定 `$settingsFile`） | `IndexCatalog` | ワークスペースの場所（文字列）から `IndexCatalog` を作る。取り込み一覧を書く `StatusLedger` も作って渡す。別のスレッドへはインスタンスを渡さず、場所を渡してこれで作り直す | – | 画面・裏の仕事 |
 | `AssertReachable` | – | – | ワークスペースに届かないときは例外にする（`assertWorkspaceReachable`）。削除・改名の裏の仕事の先頭で呼び、届かないのに設定だけ変えてしまうことを防ぐ | [ネットワーク上のワークスペース](../gui/network.md) | 画面（裏の仕事） |
 | `AssignAndSaveNames` | folders | 保存した一覧 | 名前の決まっていないインデックスに名前を割り当てて設定に保存し、保存した一覧を返す。取り込み一覧の読み込みは排他の外で済ませる | 同上 | 画面（`loadTargets`） |
 | `StoreAssignedNames` | assigned（`assignIndexNames` の結果） | 保存した一覧 | 割り当てた名前を設定に保存する（`saveAssignedIndexNames`） | – | インデクサ（司令。`IngestPlanner.SaveNames` に渡す） |

@@ -30,6 +30,13 @@ BeforeAll {
         $fake = [pscustomobject]@{ Dir = $workspaceDir }
         $fake | Add-Member ScriptMethod AssertReachable { assertWorkspaceReachable "$($this.Dir)\content_index" }
         $fake | Add-Member ScriptMethod RenameIndex { param($oldName, $newName) catalogRename $oldName $newName $this.Dir }
+        $fake | Add-Member ScriptMethod RenameIndexWithSource {
+            param($oldName, $newName, $folders)
+            catalogRename $oldName $newName $this.Dir
+            $reason = ""
+            try { catalogWriteSourceFile $folders $this.Dir } catch { $reason = $_.Exception.Message }
+            @{ SourceFolderError = $reason }
+        }
         $fake | Add-Member ScriptMethod RemoveIndex { param($name) catalogRemove $name $this.Dir }
         $fake | Add-Member ScriptMethod RemoveIndexes { param($names) catalogRemoveMany $names $this.Dir }
         $fake | Add-Member ScriptMethod WriteSourceFile { param($folders) catalogWriteSourceFile $folders $this.Dir }
@@ -127,14 +134,14 @@ Describe "applyIndexEdit" -Tag Unit {
 
     It "裏の仕事は、改名のあと、新しい名前と場所で元のフォルダの記録を書き直す" {
         Mock assertWorkspaceReachable { }
-        Mock catalogRename { $script:calls.Add("renameIndex") }
+        Mock catalogRename { $script:calls.Add("catalogRename") }
         Mock catalogWriteSourceFile { $script:calls.Add("writeSourceFolderFile:" + (($folders | ForEach-Object { "$($_.Name)=$($_.Path)" }) -join ",")) }
 
         applyIndexEdit $item @{ Path = "\\fileserver\共有\新営業"; Name = "営業部" }
         $script:calls.Clear()
         runJob $script:jobs[0]
 
-        $script:calls[0] | Should -Be "renameIndex"
+        $script:calls[0] | Should -Be "catalogRename"
         $script:calls[1] | Should -Be "writeSourceFolderFile:営業部=\\fileserver\共有\新営業,技術=\\fileserver\共有\技術"
         Should -Invoke catalogRename -Times 1 -Exactly -ParameterFilter { $oldName -eq "営業" -and $newName -eq "営業部" -and $dir -eq "\\fileserver\共有\ws\work" }
     }
@@ -162,7 +169,7 @@ Describe "applyIndexEdit" -Tag Unit {
 
         Should -Invoke catalogRename -Times 1 -Exactly
         # 偽物のオブジェクトのメソッドは例外を包むため、理由を含むかで確かめる（本物のクラスは理由そのものを返す）
-        $result[0].SourceFolderError | Should -BeLike "*届きません*"
+        $result[0].SourceFolderError | Should -Be "届きません"
     }
 
     It "届かないワークスペースでは、裏の仕事は何もせず失敗にし、結果が届いても設定を変えない（名前の変更）" {

@@ -539,6 +539,7 @@ Describe "画面のスレッドのファイル・フォルダ操作" -Tag Meta {
         @{ Name = "getSourceFolderMap"; Kind = "Functions" }
         @{ Name = "getSourceLocation"; Kind = "Functions" }
         @{ Name = "RenameIndex"; Kind = "Methods" }
+        @{ Name = "RenameIndexWithSource"; Kind = "Methods" }
         @{ Name = "RemoveIndex"; Kind = "Methods" }
         @{ Name = "readStatusFile"; Kind = "Functions" }
         @{ Name = "getIndexingState"; Kind = "Functions" }

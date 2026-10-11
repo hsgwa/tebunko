@@ -232,15 +232,8 @@ function startIndexStoreJob {
         $catalog = newIndexCatalog $workspaceDir $settingsPath
         $catalog.AssertReachable()
         if ($kind -eq "rename") {
-            $catalog.RenameIndex($name, $newName)
-            # 元のフォルダの記録の書き直しに失敗しても、改名は済んでいる。改名の失敗にはせず、書けなかった理由を別に返す
-            $sourceFolderError = ""
-            try {
-                $catalog.WriteSourceFile($folders)
-            } catch {
-                $sourceFolderError = $_.Exception.Message
-            }
-            @{ SourceFolderError = $sourceFolderError }
+            # 元のフォルダの記録の書き直しに失敗しても改名は成功で、理由は SourceFolderError で返る
+            $catalog.RenameIndexWithSource($name, $newName, $folders)
         } else {
             $catalog.RemoveIndex($name)
         }

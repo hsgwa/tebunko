@@ -49,7 +49,7 @@ class Workspace {
 
     # ワークスペースを移すときに移すもの（tebunko が作るファイル・フォルダ）。利用者のほかのファイルは含めない。
     # 取り込みの出力（publish）はプロセスごとのフォルダ（PublishDir）の親を移す。
-    # LegacyIndexDir は、あれば前の版のワークスペースとして tebunko のものと扱う（あるものだけが getWorkspaceEntries で拾われる）
+    # LegacyIndexDir は、あれば前の版のワークスペースとして tebunko のものと扱う（あるものだけが WorkspaceMover.ListEntries で拾われる）
     [string[]] Entries() {
         return @($this.IndexDir, $this.LegacyIndexDir, $this.SystemIndexDir, $this.SystemIndexStateFile, $this.StatusFile, $this.IngestingFile,
             $this.ResultFile, $this.IndexingLogFile, $this.GuiErrorLogFile, [System.IO.Path]::GetDirectoryName($this.PublishDir), $this.TmpRoot, $this.OfficePidRoot)
