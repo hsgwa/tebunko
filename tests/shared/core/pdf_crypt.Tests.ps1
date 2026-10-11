@@ -103,3 +103,33 @@ Describe "unprotectPdfData" -Tag "Unit" {
         toHexText (unprotectPdfData @{ Key = [byte[]](1..5) } "None" 1 0 $data) | Should -Be (toHexText $data)
     }
 }
+
+Describe "getPdfStreamCryptMethod" -Tag "Unit" {
+    BeforeAll {
+        $script:cryptDoc = @{
+            Cache = @{}
+            Crypt = @{
+                StmMethod = "AESV2"; Version = 4; EncryptMetadata = $false
+                Cf = @{ StdCF = @{ CFM = "/AESV2" }; NoneCF = @{ CFM = "/None" }; RcCF = @{ CFM = "/V2" } }
+            }
+        }
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "ふつうのストリームは既定の方式"; dict = @{}; expected = "AESV2" }
+        @{ name = "相互参照のストリームは復号しない"; dict = @{ Type = "/XRef" }; expected = "None" }
+        @{ name = "EncryptMetadata が false のメタデータは復号しない"; dict = @{ Type = "/Metadata" }; expected = "None" }
+        @{ name = "/Crypt の /Identity は復号しない"; dict = @{ Filter = @("/Crypt", "/FlateDecode"); DecodeParms = @(@{ Name = "/Identity" }, $null) }; expected = "None" }
+        @{ name = "/Crypt に名前が無ければ復号しない"; dict = @{ Filter = "/Crypt" }; expected = "None" }
+        @{ name = "/Crypt の名前の方式にする（RC4）"; dict = @{ Filter = @("/Crypt"); DecodeParms = @(@{ Name = "/RcCF" }) }; expected = "RC4" }
+        @{ name = "/Crypt の名前が /None の方式なら復号しない"; dict = @{ Filter = @("/Crypt"); DecodeParms = @(@{ Name = "/NoneCF" }) }; expected = "None" }
+    ) {
+        param ($name, $dict, $expected)
+        getPdfStreamCryptMethod $script:cryptDoc @{ Dict = $dict } | Should -Be $expected
+    }
+
+    It "/Crypt が知らない名前を指すと、方式が未対応の例外" {
+        $stream = @{ Dict = @{ Filter = @("/Crypt"); DecodeParms = @(@{ Name = "/Unknown" }) } }
+        { getPdfStreamCryptMethod $script:cryptDoc $stream } | Should -Throw "PDFの暗号化の方式に対応していないため読めません。"
+    }
+}

@@ -61,7 +61,7 @@ BeforeDiscovery {
         @{ kind = "empty"; message = "PDFではないか、壊れているため読めません。" }
         @{ kind = "notPdf"; message = "PDFではないか、壊れているため読めません。" }
         @{ kind = "truncated"; message = "PDFの相互参照が見つからないため読めません。" }
-        @{ kind = "encrypted"; message = "*暗号化*" }
+        @{ kind = "encrypted"; message = "PDFの暗号化の情報が壊れているため読めません。" }
         @{ kind = "startxrefOutside"; message = "*ファイルの外*" }
         @{ kind = "entryOutside"; message = "PDFの相互参照がファイルの外を指しているため読めません。" }
         @{ kind = "kidsCycle"; message = "*循環*" }
@@ -590,6 +590,59 @@ Describe "readPdfPages" -Tag Unit {
         $thrown | Should -Not -BeNullOrEmpty
         $thrown | Should -BeLike "PDF*"
         $thrown | Should -BeLike $message
+    }
+
+    It "暗号化された PDF（<method>）を、空の利用者パスワードで復号して読む（圧縮なし・Flate）" -TestCases @(
+        @{ method = "rc40" }
+        @{ method = "rc128" }
+        @{ method = "aes128" }
+        @{ method = "aes256r5" }
+        @{ method = "aes256r6" }
+    ) {
+        param ($method)
+        $pages = @("BT /F1 12 Tf 72 700 Td (secret abc) Tj ET", "BT /F1 12 Tf (page two) Tj ET")
+        foreach ($compress in $false, $true) {
+            $r = readPdfPages (newEncryptedPdf -pages $pages -method $method -compress:$compress)
+            $r.Count | Should -Be 2
+            $r[0] | Should -BeExactly "secret abc"
+            $r[1] | Should -BeExactly "page two"
+        }
+    }
+
+    It "暗号化された PDF（<method>）でも、相互参照がストリームなら読む（相互参照は暗号化されない）" -TestCases @(
+        @{ method = "rc128" }
+        @{ method = "aes128" }
+        @{ method = "aes256r6" }
+    ) {
+        param ($method)
+        $r = readPdfPages (newEncryptedPdf -pages @("BT /F1 12 Tf (abc) Tj ET") -method $method -compress -xrefStream)
+        $r[0] | Should -BeExactly "abc"
+    }
+
+    It "開くのにパスワードが要る PDF（<method>）は、そのファイルだけ「パスワードが必要」で失敗する" -TestCases @(
+        @{ method = "rc40" }
+        @{ method = "rc128" }
+        @{ method = "aes128" }
+        @{ method = "aes256r5" }
+        @{ method = "aes256r6" }
+    ) {
+        param ($method)
+        $bytes = newEncryptedPdf -pages @("BT /F1 12 Tf (abc) Tj ET") -method $method -userPassword "pass"
+        { readPdfPages $bytes } | Should -Throw "PDFにパスワードが必要なため読めません。"
+    }
+
+    It "暗号化の辞書が対応しない・壊れているもの（<name>）は、そのファイルだけ失敗する" -TestCases @(
+        @{ name = "独自のフィルター"; dict = "/Filter /Adobe.PubSec /V 4 /R 4"; message = "PDFの暗号化の方式に対応していないため読めません。" }
+        @{ name = "未知の V"; dict = "/Filter /Standard /V 3 /R 3"; message = "PDFの暗号化の方式に対応していないため読めません。" }
+        @{ name = "V と R の組み合わせが違う"; dict = "/Filter /Standard /V 2 /R 6"; message = "PDFの暗号化の方式に対応していないため読めません。" }
+        @{ name = "未知の暗号方式"; dict = "/Filter /Standard /V 4 /R 4 /CF << /StdCF << /CFM /Other >> >> /StmF /StdCF /O <00> /U <00> /P -4"; message = "PDFの暗号化の方式に対応していないため読めません。" }
+        @{ name = "巨大な鍵の長さ"; dict = "/Filter /Standard /V 2 /R 3 /Length 99999999 /O <00> /U <00> /P -4"; message = "PDFの暗号化の方式に対応していないため読めません。" }
+        @{ name = "短い O と U（R3）"; dict = "/Filter /Standard /V 2 /R 3 /O <00> /U <00> /P -4"; message = "PDFの暗号化の情報が壊れているため読めません。" }
+        @{ name = "短い U と UE（R6）"; dict = "/Filter /Standard /V 5 /R 6 /CF << /StdCF << /CFM /AESV3 >> >> /StmF /StdCF /O <00> /U <00> /UE <00>"; message = "PDFの暗号化の情報が壊れているため読めません。" }
+    ) {
+        param ($name, $dict, $message)
+        $bytes = newEncryptedPdf -pages @("BT /F1 12 Tf (abc) Tj ET") -method rc128 -encryptDict $dict
+        { readPdfPages $bytes } | Should -Throw $message
     }
 
     It "組み立てた PDF に作成者・絶対パスが入っていない" {

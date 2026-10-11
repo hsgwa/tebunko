@@ -5,7 +5,8 @@
 #   読む    : 相互参照の表・相互参照のストリーム（オブジェクトのストリーム）、圧縮なし・FlateDecode、
 #             文字の命令 Tj・TJ・'・"、行送り Td・TD・T*・Tm・TL（縦の位置が変わったときに行を分ける。ET では分けない）、
 #             フォントの ToUnicode、ToUnicode の無い単純フォント（WinAnsi 相当）
-#   読まない: 暗号化、FlateDecode 以外の圧縮、ToUnicode の無い複合フォント（CID）、壊れた相互参照（修復しない）。例外にする。
+#   暗号化   : 空の利用者パスワードで開ける PDF は復号して読む（pdf_crypt.ps1）。パスワードが要るもの・未対応の方式は例外にする。
+#   読まない: FlateDecode 以外の圧縮、ToUnicode の無い複合フォント（CID）、壊れた相互参照（修復しない）。例外にする。
 #             Form XObject（Do）・注釈・フォーム・しおりの文字は例外にせず、読み飛ばす
 # 例外の文言は「PDF」で始める（readPdfPages は、それ以外の例外を「壊れている」に言い換える）。
 
@@ -365,7 +366,7 @@ function readPdfIndirectAt {
     $st = newPdfLexer $text ([int]$offset)
     $a = readPdfToken $st
     $aKind = $st.K
-    [void](readPdfToken $st)
+    $gen = readPdfToken $st
     $c = readPdfToken $st
     if ($aKind -ne "num" -or $st.K -ne "kw" -or $c -cne "obj") {
         throw "PDFのオブジェクトが見つからないため読めません。"
@@ -423,7 +424,7 @@ function readPdfIndirectAt {
         if ($length -gt 0 -and $text[$start + $length - 1] -eq "`n") { $length-- }
         if ($length -gt 0 -and $text[$start + $length - 1] -eq "`r") { $length-- }
     }
-    return @{ PdfType = "stream"; Dict = $value; Start = $start; Length = $length }
+    return @{ PdfType = "stream"; Dict = $value; Start = $start; Length = $length; Num = [int]$a; Gen = [int]$gen }
 }
 
 function expandPdfFlate {
@@ -533,13 +534,20 @@ function getPdfStreamBytes {
     }
     $data = New-Object byte[] $stream.Length
     [Array]::Copy($doc.Bytes, $stream.Start, $data, 0, $stream.Length)
+    if ($null -ne $doc.Crypt -and $stream.ContainsKey("Num")) {
+        # 暗号化された PDF は、圧縮を戻す前に復号する
+        $method = getPdfStreamCryptMethod $doc $stream
+        $data = unprotectPdfData $doc.Crypt $method $stream.Num $stream.Gen $data
+    }
     if ($null -eq $filters) { return , $data }
     $filterList = @($filters)
     $paramsValue = resolvePdf $doc $dict["DecodeParms"]
     $paramsList = @($paramsValue)
     for ($i = 0; $i -lt $filterList.Count; $i++) {
         $name = resolvePdf $doc $filterList[$i]
-        if ($name -ceq "/FlateDecode" -or $name -ceq "/Fl") {
+        if ($name -ceq "/Crypt") {
+            continue
+        } elseif ($name -ceq "/FlateDecode" -or $name -ceq "/Fl") {
             $data = expandPdfFlate $doc $data
             $params = $null
             if ($i -lt $paramsList.Count) { $params = resolvePdf $doc $paramsList[$i] }
@@ -634,7 +642,7 @@ function addPdfXrefEntry {
 
 function readPdfXref {
     # オフセットにある相互参照（表または相互参照のストリーム）を読み、前の相互参照（Prev・XRefStm）も順にたどる。
-    # 新しいものが先に入る。暗号化（Encrypt）は例外。ファイルの外を指す・循環・数が上限を超えるのは例外。
+    # 新しいものが先に入る。暗号化（Encrypt）の辞書の場所と ID は doc に覚える。ファイルの外を指す・循環・数が上限を超えるのは例外。
     # 入れ子の呼び出しにせず、待ちの積み上げで読む（Prev が長く続いても呼び出しが深くならない）
     param (
         [hashtable]$doc,
@@ -779,8 +787,15 @@ function readPdfXrefSection {
     if (-not (testPdfDict $trailer)) {
         throw "PDFの相互参照のあとの情報が読めないため読めません。"
     }
-    if ($trailer.ContainsKey("Encrypt")) {
-        throw "PDFが暗号化されているため読めません。"
+    if ($trailer.ContainsKey("Encrypt") -and $null -eq $doc.EncryptEntry) {
+        # 新しい方のトレーラーを使う。辞書は、相互参照がそろってから読む（initPdfCrypt）
+        $doc.EncryptEntry = $trailer["Encrypt"]
+        $doc.TrailerId = ""
+        if ($trailer.ContainsKey("ID")) {
+            $idList = @($trailer["ID"])
+            $idBytes = if ($idList.Count -gt 0) { getPdfStringBytes $idList[0] } else { $null }
+            if ($null -ne $idBytes) { $doc.TrailerId = ${pdfLatin1}.GetString($idBytes) }
+        }
     }
     if ($null -eq $doc.Root -and $trailer.ContainsKey("Root")) {
         $doc.Root = $trailer["Root"]
@@ -1211,7 +1226,7 @@ function walkPdfPages {
 
 function readPdfPages {
     # PDF のバイト列から、ページごとの文字列（行は改行で区切る。文字の無いページは空）の配列を返す。
-    # 読めない PDF（暗号化・壊れている・上限を超える・読まない圧縮・文字の対応表が無い）は、「PDF」で始まる日本語の例外にする
+    # 読めない PDF（パスワードが要る・暗号化の方式が未対応・壊れている・上限を超える・読まない圧縮・文字の対応表が無い）は、「PDF」で始まる日本語の例外にする
     param (
         [byte[]]$bytes,
         [hashtable]$limits = $null
@@ -1243,6 +1258,7 @@ function readPdfPagesCore {
         Bytes = $bytes; Text = $text; Limits = $limits
         Xref = @{}; Cache = @{}; Loading = @{}; ObjStreams = @{}; Fonts = @{}; Visited = @{}; SeenNodes = @{}
         Inflated = [long]0; XrefRows = [long]0; Searched = [long]0; Root = $null; EndSearch = @{ From = 1; At = 0 }; Hybrid = $false; CMaps = @{}; MapEntries = [long]0
+        Crypt = $null; EncryptEntry = $null; TrailerId = ""
     }
     $start = $text.LastIndexOf("startxref", [StringComparison]::Ordinal)
     if ($start -lt 0) {
@@ -1254,6 +1270,13 @@ function readPdfPagesCore {
         throw "PDFの相互参照の位置が読めないため読めません。"
     }
     readPdfXref $doc ([long]$offset)
+    if ($null -ne $doc.EncryptEntry) {
+        $enc = resolvePdf $doc $doc.EncryptEntry
+        if (-not (testPdfDict $enc)) {
+            throw "PDFの暗号化の情報が壊れているため読めません。"
+        }
+        $doc.Crypt = newPdfCrypt $doc $enc $doc.TrailerId
+    }
 
     $root = resolvePdf $doc $doc.Root
     if (-not (testPdfDict $root)) {
