@@ -24,10 +24,9 @@
                   HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
 
   <!-- 結果の一覧とプレビューの境目。上下にドラッグするとプレビューの高さが変わる -->
-  <GridSplitter Grid.Row="2" Height="11" Margin="0,3,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Center"
-                ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" Style="{StaticResource Splitter.Rows}" Cursor="SizeNS"
-                ToolTip="上下にドラッグすると、プレビューの高さを変えられます">
-  </GridSplitter>
+  <GridSplitter Grid.Row="2" Margin="0,3,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" Style="{StaticResource Splitter.Rows}"
+                ToolTip="上下にドラッグすると、プレビューの高さを変えられます" />
 
   <ContentControl x:Name="PreviewHost" Grid.Row="3" Focusable="False" IsTabStop="False"
                   HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />

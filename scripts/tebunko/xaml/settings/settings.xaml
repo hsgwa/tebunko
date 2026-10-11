@@ -1,6 +1,6 @@
 ﻿<!-- 設定の画面（ワークスペース・設定ファイルの場所）。tebunko.xaml の ContentHost に入れる（gui_main.ps1）。
      節は枠つきのカード（Section.Card）で、上に見出しの帯（Section.Header）、その下に行（Section.Row。左に名前と説明、右に値と操作）を縦に並べる。
-     中身の幅は最大 880 で左に寄せ、カードの間は 16。縦にスクロールできる。 -->
+     中身の幅は最大 880 で左に寄せ、カードの間は 16（2 つ目からのカードに Margin="0,16,0,0" を付ける）。縦にスクロールできる。 -->
 <ScrollViewer xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
               xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
               VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -12,9 +12,9 @@
     </ResourceDictionary>
   </ScrollViewer.Resources>
   <Grid Margin="0,16,0,24">
+    <!-- 幅は最大 880 で左に寄せる（StackPanel を左寄せにすると中身の幅に縮むため、列の最大幅で抑える） -->
     <Grid.ColumnDefinitions>
       <ColumnDefinition Width="*" MaxWidth="880" />
-      <ColumnDefinition Width="Auto" />
     </Grid.ColumnDefinitions>
     <StackPanel>
       <!-- インデックス設定（ワークスペース。インデックス・取り込み一覧・ログを置くフォルダ。既定は work）。ツールのフォルダの外にも置ける -->

@@ -223,9 +223,11 @@ Describe "画面定義（XAML）" -Tag Meta {
         $keys | Should -Not -Contain "Bg.Section"
 
         $settingsText = Get-Content "$scripts\tebunko\xaml\settings\settings.xaml" -Raw -Encoding UTF8
-        $settingsText | Should -Not -Match "Bg\.Section"
+        $left = @(Get-ChildItem $scripts -Recurse -Include *.xaml, *.ps1 | Where-Object { (Get-Content $_.FullName -Raw -Encoding UTF8) -match "Bg\.Section" } | ForEach-Object Name)
+        $left | Should -BeNullOrEmpty -Because "使われなくなった Bg.Section を scripts の下に残さない"
         $settingsText | Should -Match 'Style="\{StaticResource Section\.Card\}"'
         $settingsText | Should -Match 'Style="\{StaticResource Section\.Header\}"'
+        $settingsText | Should -Match 'Style="\{StaticResource Section\.Row\}"'
     }
 }
 

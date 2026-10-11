@@ -1258,8 +1258,10 @@
   </Style>
 
   <!-- 行を分ける仕切り（検索の結果とプレビューの間・インデックス管理の一覧と詳細の間）。
-       当たり判定は 11px、見た目は細い線と真ん中のつまみ（32x2）。乗せると濃くなる -->
+       高さ（当たり判定）は 11px、カーソルは上下、見た目は細い線と真ん中のつまみ（32x2）。乗せると濃くなる -->
   <Style x:Key="Splitter.Rows" TargetType="GridSplitter" BasedOn="{StaticResource {x:Type GridSplitter}}">
+    <Setter Property="Height" Value="11" />
+    <Setter Property="Cursor" Value="SizeNS" />
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="GridSplitter">
@@ -1280,7 +1282,7 @@
     </Setter>
   </Style>
 
-  <!-- 節（カード）。枠つきの面に、見出しの帯（Section.Header）と行（Section.Row）を縦に並べる。カードの間は 16 -->
+  <!-- 節（カード）。枠つきの面に、見出しの帯（Section.Header）と行（Section.Row）を縦に並べる。カードの間は 16（2 つ目からのカードに Margin="0,16,0,0" を付けて作る） -->
   <Style x:Key="Section.Card" TargetType="Border">
     <Setter Property="Background" Value="{StaticResource Bg.Surface}" />
     <Setter Property="BorderBrush" Value="{StaticResource Border.Soft}" />
@@ -1293,7 +1295,7 @@
     <Setter Property="Background" Value="{StaticResource Bg.Window}" />
     <Setter Property="BorderBrush" Value="{StaticResource Border.Soft}" />
     <Setter Property="BorderThickness" Value="0,0,0,1" />
-    <Setter Property="CornerRadius" Value="5,5,0,0" />
+    <Setter Property="CornerRadius" Value="5,5,0,0" /> <!-- Radius.Control（6）から枠の 1 を引いた値 -->
   </Style>
   <Style x:Key="Section.Row" TargetType="Border">
     <Setter Property="Padding" Value="16,12" />
