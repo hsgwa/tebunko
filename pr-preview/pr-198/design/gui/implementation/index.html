@@ -4219,8 +4219,8 @@
 <td>画面の枠（ウィンドウ）。左の欄（<code>NavHost</code>。幅を変えられる）・中身（<code>ContentHost</code>）・下端のステータスバー（<code>StatusBarHost</code>）の 3 つの口だけを持つ。口に入れる中身は別ファイルにし、<code>ui/gui_main.ps1</code> が読み込んで入れる</td>
 </tr>
 <tr>
-<td><code>scripts/tebunko/xaml/shell/nav.xaml</code><br><code>shell/status_bar.xaml</code></td>
-<td>窓の枠の部品。<code>nav.xaml</code> は左の欄（画面の一覧の <code>NavList</code>・注意の印 <code>IndexTabBadge</code>・下の［バージョン情報］<code>AboutLink</code>）、<code>status_bar.xaml</code> は下端のステータスバー（いつもの文の <code>StatusText</code>・更新中の 1 行の <code>IndexingStatusText</code>）。<code>xaml/</code> の下のフォルダの XAML も、単一 .ps1 の作成（<code>tools/new_single_script.ps1</code>）が埋め込む</td>
+<td><code>scripts/tebunko/xaml/shell/nav.xaml</code><br><code>shell/status_bar.xaml</code><br><code>shell/notice_banner.xaml</code></td>
+<td>窓の枠の部品。<code>nav.xaml</code> は左の欄（画面の一覧の <code>NavList</code>・注意の印 <code>IndexTabBadge</code>・下の［バージョン情報］<code>AboutLink</code>）、<code>status_bar.xaml</code> は下端のステータスバー（いつもの文の <code>StatusText</code>・更新中の 1 行の <code>IndexingStatusText</code>）、<code>notice_banner.xaml</code> は画面の上の知らせの帯 1 つ分（検索・インデックス管理・窓の上の 3 か所に差す）。<code>xaml/</code> の下のフォルダの XAML も、単一 .ps1 の作成（<code>tools/new_single_script.ps1</code>）が埋め込む</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/splash.xaml</code></td>
