@@ -413,6 +413,34 @@ Describe "indexer.ps1（後回しの司令の流れ。実際のPowerPointは使�
         (Get-Content -LiteralPath "$root\work\indexing_log.txt" -Raw) | Should -Match "PowerPoint を使っている方がいるため"
     }
 
+    It "回し直し先のレーンを諦めていたら、渡さずに未取り込みのまま後回しにし、0 で終わる" {
+        $dir = Join-Path $TestDrive "回し直し先を諦め"
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        Copy-Item -LiteralPath $docxSource -Destination "$dir\議事録.docx"
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "回し直し先を諦め"; path = $dir; enabled = $true })
+        # 読み取りのスレッドが「Office が要る」と返したことにし、回し直し先（Word のレーン）を諦めたことにする
+        $global:testRerouteDone = $false
+        $hook = @{ Script = $runPath; Pattern = '^\s+if \(\$result\.Reroute\) \{'; Action = {
+                if (-not $global:testRerouteDone) {
+                    $global:testRerouteDone = $true
+                    $result.Reroute = $true
+                    $pool.LaneStates[(getOfficeLane $result.RelPath)].Abandoned = $true
+                }
+            }
+        }
+        try {
+            runIndexer $root @{ Workers = 2 } @($hook) | Should -Be 0
+        } finally {
+            Remove-Variable -Name testRerouteDone -Scope Global -ErrorAction SilentlyContinue
+        }
+
+        (readTestStatus $root).Rows["回し直し先を諦め\議事録.docx"].状態 | Should -Be ${stateNew}
+        $script:lastChannel.Postponed | Should -Be 1
+        $script:lastChannel.Notice | Should -Match "1 件を更新せずに残しました"
+        Test-Path -LiteralPath "$root\work\ingesting.txt" | Should -Be $false
+    }
+
     It "司令のスレッドで取り込む形では、終わりの待ちに、中止の合図（Channel.Stop）を見る判定を渡す（立てる前は偽・立てたあとは真）" {
         $dir = Join-Path $TestDrive "待ち配線"
         [System.IO.Directory]::CreateDirectory($dir) | Out-Null
@@ -1110,6 +1138,51 @@ Describe "取り込みのスレッドのスクリプト（ingestWorkerScript）"
     }
 }
 
+Describe "取り込みのスレッドのスクリプト（諦めたレーンの配線）" -Tag Io {
+    BeforeAll {
+        . "${scriptsDir}\tebunko\indexer\indexer_lib.ps1"
+    }
+
+    It "レーンの状態と利用者が使った印の入れ物を、見張りに渡す。諦めていなければ Office を片づける。諦めていれば片づけない（<title>）" -TestCases @(
+        @{ title = "諦めていない"; abandoned = $false; expectedStops = 1 }
+        @{ title = "諦めた"; abandoned = $true; expectedStops = 0 }
+    ) {
+        param ($title, $abandoned, $expectedStops)
+        $root = Join-Path $TestDrive "worker_wiring_$abandoned"
+        foreach ($dir in "content_index", "tmp", "publish") {
+            [System.IO.Directory]::CreateDirectory("$root\$dir") | Out-Null
+        }
+        $tasks = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
+        $results = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
+        $tasks.CompleteAdding()
+        $laneState = [hashtable]::Synchronized(@{ Abandoned = $abandoned; Handled = $false })
+        $users = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'
+        $settings = @{
+            Lib = getPartLoad indexerLib
+            WorkDir = $root; TmpDir = "$root\tmp"; PublishDir = "$root\publish"
+            FileTimeoutMinutes = 10; RestartInterval = 1
+            OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'
+            Lane = ${lanePowerPoint}; Channel = [pscustomobject]@{ Stop = $false }
+            LaneState = $laneState; UserOfficePids = $users
+        }
+        Mock stopAllApps {}
+        Mock waitKeptApps {}
+        $priority = [System.Threading.Thread]::CurrentThread.Priority
+        try {
+            & ${ingestWorkerScript} $settings $tasks $results 9
+            # 見張りの State が、司令と同じ入れ物を持つ（別の入れ物にすると、印も諦めた合図も司令に届かない）
+            [object]::ReferenceEquals($script:officeWatchdog.State.Abandon, $laneState) | Should -Be $true
+            [object]::ReferenceEquals($script:officeWatchdog.State.Users, $users) | Should -Be $true
+        } finally {
+            [System.Threading.Thread]::CurrentThread.Priority = $priority
+            # 後のテストに諦めたレーンの状態を残さない
+            $script:laneState = $null
+        }
+        Should -Invoke stopAllApps -Times $expectedStops -Exactly -Scope It
+        Should -Invoke waitKeptApps -Times $expectedStops -Exactly -Scope It
+    }
+}
+
 Describe "runIngestWorker・invokeIngestTask（レーン）" -Tag Io {
     BeforeAll {
         . "${scriptsDir}\shared\office\office_app.ps1"
@@ -1537,6 +1610,48 @@ Describe "諦めたレーン（制限時間を過ぎても利用者が使って�
         (receiveIngestResult $pool).RelPath | Should -Be "a.docx"
         receiveIngestResult $pool | Should -BeNullOrEmpty
         stopIngestWorkers $pool
+    }
+
+    It "receiveIngestResult は、諦めたレーンのスレッドが正常に終わっていても失敗にしない。諦めていないレーンのスレッドが終わっていれば失敗にする" {
+        $runspaces = New-Object System.Collections.Generic.List[object]
+        try {
+            foreach ($abandoned in $true, $false) {
+                $pool = newIngestPool 1 @{}
+                $pool.Started[${lanePowerPoint}] = $true
+                $pool.LaneStates[${lanePowerPoint}].Abandoned = $abandoned
+                $pool.LaneStates[${lanePowerPoint}].Handled = $true
+                $runspace = [runspacefactory]::CreateRunspace()
+                $runspace.Open()
+                $ps = [powershell]::Create()
+                $ps.Runspace = $runspace
+                $runspaces.Add(@{ PowerShell = $ps; Runspace = $runspace })
+                # すぐ終わるスレッド
+                [void]$ps.AddScript({ 1 })
+                $handle = $ps.BeginInvoke()
+                [void]$handle.AsyncWaitHandle.WaitOne(10000)
+                $worker = @{ PowerShell = $ps; Runspace = $runspace; Handle = $handle; Ended = $false; Lane = ${lanePowerPoint} }
+                $pool.Workers.Add($worker)
+                if ($abandoned) {
+                    # 失敗にしないで待ち続けるので、別のスレッドが少しあとに結果を入れる
+                    $feeder = [powershell]::Create()
+                    $feederRunspace = [runspacefactory]::CreateRunspace()
+                    $feederRunspace.Open()
+                    $feeder.Runspace = $feederRunspace
+                    $runspaces.Add(@{ PowerShell = $feeder; Runspace = $feederRunspace })
+                    [void]$feeder.AddScript({ param ($results) Start-Sleep -Milliseconds 1200; $results.Add(@{ RelPath = "後から届いた" }) }).AddArgument($pool.Results)
+                    [void]$feeder.BeginInvoke()
+                    (receiveIngestResult $pool).RelPath | Should -Be "後から届いた"
+                    $worker.Ended | Should -Be $false
+                } else {
+                    { receiveIngestResult $pool } | Should -Throw "*取り込みのスレッドが止まりました*"
+                }
+            }
+        } finally {
+            foreach ($item in $runspaces) {
+                try { $item.PowerShell.Dispose() } catch {}
+                try { $item.Runspace.Dispose() } catch {}
+            }
+        }
     }
 
     It "stopIngestWorkers は、諦めたレーンの固まったスレッドが終わるのを待たずに戻る（止める依頼だけを出す）" {

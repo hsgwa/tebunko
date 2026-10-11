@@ -508,6 +508,12 @@ function handOverForeignApp {
     }
     $count = getForeignWorkbookCount $app.Com $name
     if ($count -eq 0) {
+        # 利用者のファイルが今は無い（開いて閉じた）なら、利用者が使った印を消す。印が残ると、
+        # 次のファイルで固まっても止められず、窓の無い固まったアプリが残るため（また窓が見えれば、見張りが印を付け直す）
+        if ($app.Pid -and $script:officeWatchdog.State.Users) {
+            $removed = $null
+            [void]$script:officeWatchdog.State.Users.TryRemove([int]$app.Pid, [ref]$removed)
+        }
         return $false
     }
     # ファイルの一覧を読めない（COM が呼び出しを拒んだ。利用者が操作中のことがある）ときは、
@@ -594,6 +600,26 @@ function releaseComObject($object) {
 # 1ファイルの制限時間の監視
 # ----------------------------------------------------------------------------
 
+function getWatchdogVerdict {
+    # 見張りが、控えたプロセス 1 つをどうするかを決める。'Skip'（何もしない）／'Spare'（期限を過ぎたが、利用者が使ったので止めない）／'Kill'（期限を過ぎたので止める）
+    # entry: @{ Id; StartTicks; GuardWindow }、hasWindow: 今、窓が見えるか、users: 「利用者が使った」印（PID → @{ StartTicks }。窓が見えたらここに入れる）、due: 制限時間を過ぎたか
+    # 印は、起動時刻が同じものだけを有効とする（PID が使い回されたプロセスを守らない）
+    param ($entry, [bool]$hasWindow, $users, [bool]$due)
+
+    if ($entry.GuardWindow) {
+        if ($hasWindow) {
+            $users[[int]$entry.Id] = @{ ProcessName = $entry.ProcessName; StartTicks = $entry.StartTicks }
+        }
+        $mark = $null
+        if ($users.TryGetValue([int]$entry.Id, [ref]$mark) -and $mark.StartTicks -eq $entry.StartTicks) {
+            if ($due) { return 'Spare' }
+            return 'Skip'
+        }
+    }
+    if ($due) { return 'Kill' }
+    return 'Skip'
+}
+
 # 取り込み中のCOM呼び出しは応答が無いと戻らず、Ctrl+C も効かないため、別スレッドで制限時間を監視する。
 # 制限時間を過ぎたら、自分で起動したOfficeアプリを強制終了する（COM呼び出しが例外で戻り、そのファイルは失敗になる）。
 # スレッド（ランスペース）ごとに 1 つ持つ（下の $script:officeWatchdog）。見張りのスレッド（[PowerShell]::Create() の別のランスペース）へは、
@@ -650,7 +676,7 @@ class OfficeWatchdog {
     [void] Start() {
         # 見張りは別のランスペースで動くので、照合の関数の定義を渡す（式を書き写さない。worker_pool.ps1 と同じ InitialSessionState の形）
         $sessionState = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault2()
-        $functionNames = @('isSameOfficeProcess', 'compareOfficeProcess', 'getOfficeStartTicks', 'testOfficeProcessHasWindow')
+        $functionNames = @('isSameOfficeProcess', 'compareOfficeProcess', 'getOfficeStartTicks', 'testOfficeProcessHasWindow', 'getWatchdogVerdict')
         if ($this.State.WindowProbe -and $functionNames -notcontains [string]$this.State.WindowProbe) {
             $functionNames += [string]$this.State.WindowProbe
         }
@@ -676,26 +702,34 @@ class OfficeWatchdog {
                 $spared = $false
                 $targets = New-Object System.Collections.Generic.List[object]
                 foreach ($entry in @($watch.Pids)) {
+                    # 期限の前に見るのは、窓を見張るアプリ（PowerPoint）だけ（ほかは期限を過ぎてから見る）
+                    if (-not $due -and -not $entry.GuardWindow) {
+                        continue
+                    }
+                    $process = $null
+                    $keep = $false
                     try {
                         # 終了済みでIDが別のプロセスに再利用されている場合に備え、Officeアプリであること、控えたときと同じプロセスであること（名前・起動時刻）を確かめる
                         $process = [System.Diagnostics.Process]::GetProcessById([int]$entry.Id)
-                        if (-not ((isSameOfficeProcess $process $entry.ProcessName $entry.StartTicks) -and $processNames -contains $process.ProcessName)) {
-                            continue
-                        }
-                        if ($entry.GuardWindow) {
-                            if (& $watch.WindowProbe $process) {
-                                $watch.Users[[int]$entry.Id] = @{ ProcessName = $entry.ProcessName; StartTicks = $entry.StartTicks }
+                        if ((isSameOfficeProcess $process $entry.ProcessName $entry.StartTicks) -and $processNames -contains $process.ProcessName) {
+                            $hasWindow = $false
+                            if ($entry.GuardWindow) {
+                                $hasWindow = [bool](& $watch.WindowProbe $process)
                             }
-                            $mark = $null
-                            if ($watch.Users.TryGetValue([int]$entry.Id, [ref]$mark) -and $mark.StartTicks -eq $entry.StartTicks) {
-                                if ($due) { $spared = $true }
-                                continue
+                            $verdict = getWatchdogVerdict $entry $hasWindow $watch.Users $due
+                            if ($verdict -eq 'Spare') {
+                                $spared = $true
+                            } elseif ($verdict -eq 'Kill') {
+                                $targets.Add(@{ Entry = $entry; Process = $process })
+                                $keep = $true
                             }
                         }
-                        if ($due) {
-                            $targets.Add(@{ Entry = $entry; Process = $process })
+                    } catch {
+                    } finally {
+                        if ($null -ne $process -and -not $keep) {
+                            try { $process.Dispose() } catch {}
                         }
-                    } catch {}
+                    }
                 }
                 if (-not $due) {
                     continue
@@ -712,7 +746,10 @@ class OfficeWatchdog {
                         if (isSameOfficeProcess $target.Process $target.Entry.ProcessName $target.Entry.StartTicks) {
                             $target.Process.Kill()
                         }
-                    } catch {}
+                    } catch {
+                    } finally {
+                        try { $target.Process.Dispose() } catch {}
+                    }
                 }
             }
         }).AddArgument($this.State).AddArgument($this.ProcessNames)

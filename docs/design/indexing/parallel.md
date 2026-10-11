@@ -46,6 +46,9 @@ sequenceDiagram
     else 制限時間超過
         Note over W: 監視が Office を強制終了
         W-->>C: 結果（失敗）
+    else 制限時間超過・利用者が使っている PowerPoint
+        Note over W: 監視は止めずにレーンを諦める
+        C->>C: そのレーンのファイルを取り込まずに後回し
     end
     C->>C: PendingPublish で取り込み中・まだ渡していない数を更新<br>0 になったら本文インデックスを書き出す
 ```
@@ -57,7 +60,7 @@ sequenceDiagram
 - **Office が要ると分かったファイルは、Office のレーンに回し直す。** 新形式の拡張子でも、中身が ZIP でない（パスワード付き・中身が旧形式）ことがある。読み取りのスレッドでは、`extractDocument` が `${officeRequiredMessage}`（`このファイルの取り込みには Word・PowerPoint が要ります。`）の例外を投げ、`invokeIngestTask` が `Reroute` を返す。司令は同じファイルを Word または PowerPoint のレーン（`getOfficeLane`）に渡し直す。回し直す間も取り込み中のまま扱う。ZIP でも旧形式でもない PowerPoint のファイル（壊れている）は、回し直さずに失敗にする。パスワード付き（新形式）・IRM・秘密度ラベルの暗号化（[暗号化されたファイルの判定](office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1)）も、回し直さずにその場で失敗にする（Officeが要らないため）。「形式の分からないバイナリ」は、アプリごとの予備が有効なときだけ今の旧形式と同じく回し直す。
 - **判定でOfficeにまだ触れていない失敗は、`stopApp` を呼ばない。** パスワード付き・IRM・「形式の分からないバイナリ」（予備が無効）の失敗は、例外の `Data` に印（`throwProtectionFailure`）を付け、`invokeIngestTask` がそれを見て、そのレーンのOfficeを終了し直さずに次のファイルへ進む。IRM・パスワード付きのファイルが並んでも、そのたびにOfficeを起動し直して遅くならないため。
 - **並びの先を見て、空いているレーンに渡す。** 司令は、まだ渡していない最初のファイルから `${ingestLookAhead}`（200 件）先までを見て、レーンに空きがあるファイルを渡す。レーンに渡しておける数（`getIngestLaneCapacity`）は、Office のレーンが 2（取り込み中の 1 件と次の 1 件）、読み取りのレーンが読み取りのスレッドの数 × 2 である。Excel のファイルが続いても、読み取りのスレッドを遊ばせない。取り込む順は取り込み一覧の順と変わることがあるが、結果（取り込み一覧・本文インデックス）は同じになる。
-- **監視は Office のスレッドごとに持つ。** Office のレーンのスレッドは、始めるときに自分の監視のスレッドを作る（`OfficeWatchdog` の `Start`）。監視は、そのスレッドの制限時間だけを見て、そのスレッドが起動した Office だけを PID で止める。
+- **監視は Office のスレッドごとに持つ。** Office のレーンのスレッドは、始めるときに自分の監視のスレッドを作る（`OfficeWatchdog` の `Start`）。監視は、そのスレッドの制限時間だけを見て、そのスレッドが起動した Office だけを PID で止める。ただし、取り込み中に利用者が窓を開いた PowerPoint は、制限時間を過ぎても止めない（窓を一度でも見た印がある間。[Office アプリの管理](office-apps.md#office-アプリexcelwordpowerpointの管理)）。止めない代わりにそのレーンを諦め、レーンのファイルは取り込まずに後回しにする。
 - **Office の起動し直しと制限時間は、Office のスレッドごとに数える。** スレッドごとに 100 ファイルで起動し直す。1 ファイルの制限時間は 10 分。
 - **一時フォルダはスレッドごとに分ける。** 作業領域の `<PID>\w<番号>`（`newWorkerTmpDir`）と、`publish` の `w<番号>` を使う。
 - **本文インデックスはフォルダが揃ってから書く。** 司令は、はじめにフォルダごとのファイルの数を `PendingPublish.AddPending` で数えておき、ファイルを渡すたびに `Dispatch`、結果を受け取るたびに `Complete`（または渡さずに済ませるとき `Skip`）を呼ぶ。結果を受け取るたびに、取り込み中の数・まだ渡していない数がどちらも 0 になったフォルダの本文インデックスとシステムインデックスを書き出す（`indexer_run.ps1` の `flushPending` が `PendingPublish.TakeFlushable` を呼ぶ）。

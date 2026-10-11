@@ -130,10 +130,32 @@ $Channel.ExitCode = 2
             $session.Channel.UserOfficePids[$marked.Id] = @{ ProcessName = $marked.ProcessName; StartTicks = $markedTicks }
             $session.Channel.UserOfficePids[$staleMark.Id] = @{ ProcessName = $staleMark.ProcessName; StartTicks = ($staleTicks - 10000000) }
             $session.KillOffice() | Should -Be 1
+            # KillOffice は同じ呼び出しで両方を見終えて戻るので、戻ったあとの状態をそのまま確かめる
             $staleMark.WaitForExit(10000) | Should -Be $true
-            $marked.WaitForExit(1500) | Should -Be $false
+            $marked.HasExited | Should -Be $false
         } finally {
             foreach ($process in @($marked, $staleMark)) {
+                if (!$process.HasExited) { $process.Kill() }
+            }
+            $session.Close()
+        }
+    }
+
+    It "KillOffice は、印が無くても、今見える窓があるプロセスは止めず、数えない。窓が無ければ止める" {
+        $session = newFakeIndexingSession '$Channel.ExitCode = 0' (newIndexerChannel)
+        $withWindow = Start-Process -FilePath "ping.exe" -ArgumentList "-n 30 127.0.0.1" -WindowStyle Hidden -PassThru
+        $noWindow = Start-Process -FilePath "ping.exe" -ArgumentList "-n 30 127.0.0.1" -WindowStyle Hidden -PassThru
+        try {
+            $session.Channel.OfficePids[$withWindow.Id] = @{ ProcessName = $withWindow.ProcessName; StartTicks = (getOfficeStartTicks $withWindow) }
+            $session.Channel.OfficePids[$noWindow.Id] = @{ ProcessName = $noWindow.ProcessName; StartTicks = (getOfficeStartTicks $noWindow) }
+            # ping.exe は窓を出さないので、窓の有無の判定だけを差し替える
+            $script:windowIds = @($withWindow.Id)
+            Mock testOfficeProcessHasWindow { return ($script:windowIds -contains $process.Id) }
+            $session.KillOffice() | Should -Be 1
+            $noWindow.WaitForExit(10000) | Should -Be $true
+            $withWindow.HasExited | Should -Be $false
+        } finally {
+            foreach ($process in @($withWindow, $noWindow)) {
                 if (!$process.HasExited) { $process.Kill() }
             }
             $session.Close()

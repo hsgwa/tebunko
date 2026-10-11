@@ -132,7 +132,8 @@ class IndexingSession {
                     if ($this.Channel.UserOfficePids.TryGetValue($id, [ref]$mark) -and $mark.StartTicks -eq $entry.StartTicks) {
                         continue
                     }
-                    if ($entry.ProcessName -eq 'POWERPNT' -and (testOfficeProcessHasWindow $process)) {
+                    # 今、見える窓があるプロセスも止めない（アプリを問わない。取り込みのプロセスは窓を出さない）
+                    if (testOfficeProcessHasWindow $process) {
                         continue
                     }
                     $process.Kill()
