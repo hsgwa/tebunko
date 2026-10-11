@@ -99,14 +99,12 @@ Describe "S8 単一 .ps1 版: 起動・検索・閉じる" -Tag Gui {
     }
 }
 
-Describe "S1 同梱のフォント" -Tag Gui {
-    It "配布する形（scripts\ の写し）に同梱のフォントがあり、Font.Body がそこから作られる" -Skip:($env:TEBUNKO_GUI_SINGLE -eq "1") {
+Describe "S1 画面のフォント" -Tag Gui {
+    It "配布する形（scripts\ の写し）でも、Font.Body は Windows 標準のフォント（Segoe UI・Yu Gothic UI・Meiryo UI）で、フォントのファイルが無い" -Skip:($env:TEBUNKO_GUI_SINGLE -eq "1") {
         $tool = newGuiTool $TestDrive
-        $fonts = "$($tool.Dir)\scripts\shared\fonts"
         Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
         . "$($tool.Dir)\scripts\shared\ui\app_host.ps1"
-        $family = newAppFontFamily $fonts
-        $family.BaseUri.LocalPath | Should -Be "$fonts\"
-        @([System.Windows.Media.Fonts]::GetFontFamilies($family.BaseUri) | ForEach-Object { $_.FamilyNames.Values }) | Should -Contain "Rethink Sans"
+        (newAppFontFamily).Source | Should -Be "Segoe UI, Yu Gothic UI, Meiryo UI"
+        @(Get-ChildItem "$($tool.Dir)\scripts\shared" -Recurse -File | Where-Object { $_.Extension -in ".ttf", ".otf", ".ttc" }).Count | Should -Be 0
     }
 }

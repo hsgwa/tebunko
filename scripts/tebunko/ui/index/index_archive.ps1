@@ -42,7 +42,7 @@ function showIndexExportDialog {
         [long]$bytes = -1  # 数え終えた zip に入る大きさ（getIndexExportSize）。負なら大きさは出さない
     )
 
-    $dialog = loadWindow "${xamlDir}\dialog_export.xaml" ${fontsDir}
+    $dialog = loadWindow "${xamlDir}\dialog_export.xaml"
     $dialog.Owner = $window
     $ctrl = @{}
     foreach ($name in @("ExportButton", "BrowseButton", "ExportPathBox", "IntroText", "ErrorText", "ExportTitleText", "ExportSizeText", "ExportFileText", "CautionText")) {
@@ -209,7 +209,7 @@ function showIndexImportDialog {
         $info   # readIndexArchiveInfo の結果
     )
 
-    $dialog = loadWindow "${xamlDir}\dialog_import.xaml" ${fontsDir}
+    $dialog = loadWindow "${xamlDir}\dialog_import.xaml"
     $dialog.Owner = $window
     $dialog.Title = "インデックスのインポート"
     $ctrl = @{}

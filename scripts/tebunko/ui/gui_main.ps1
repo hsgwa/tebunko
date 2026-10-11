@@ -22,7 +22,6 @@ function startGui {
     # 画面定義（XAML）とアイコンの置き場所
     ${xamlDir}       = "$TebunkoDir\xaml"
     ${sharedXamlDir} = "$TebunkoDir\..\shared\xaml"
-    ${fontsDir}      = "$TebunkoDir\..\shared\fonts"  # 同梱のフォント（Rethink Sans）。無ければ Yu Gothic UI・Meiryo UI
     ${iconXamlFile}  = "${xamlDir}\app_icon.xaml"  # 窓・バージョン情報に出すアイコン（ベクターの絵）
     # アイコンは Window.Icon（loadWindow）でタイトルバー・タスクバーに出る。.ico（tebunko.ico）は画面では使わず、
     # インストーラー・ショートカットなど Windows が .ico しか受け付けない所だけで使う。
@@ -67,7 +66,7 @@ function startGui {
 
     # ---- ウィンドウと、画面の部品の対応 ----
 
-    $window = loadWindow "${xamlDir}\tebunko.xaml" ${fontsDir}
+    $window = loadWindow "${xamlDir}\tebunko.xaml"
     stepSplash 55
 
     # 窓の中身は領域ごとのファイルに分けてある（xaml\<画面>\<領域>.xaml）。読み込んで差す口に入れ、x:Name の対応表（$ui）を作る。
@@ -125,7 +124,7 @@ $regions = @(
     }
     $script:screenContents = @{}
     foreach ($region in $regions) {
-        $content = loadXaml "${xamlDir}\$($region.File)" ${fontsDir}
+        $content = loadXaml "${xamlDir}\$($region.File)"
         if ($region.Slot -eq "ContentHost") {
             $script:screenContents[$region.Screen] = $content
         } else {

@@ -165,7 +165,7 @@
     <Setter Property="TextWrapping" Value="Wrap" />
   </Style>
 
-  <!-- Figma の Text styles（フォントはすべて Rethink Sans。太さも Figma の指定どおり。Rethink Sans は可変フォントで、Medium・SemiBold・Bold の実体がそのまま出る）。
+  <!-- Figma の Text styles（フォントは Windows 標準の Segoe UI・Yu Gothic UI。太さは Figma の指定のうち、フォントにある太さ（Regular・SemiBold・Bold）で出る。Medium は Regular に寄る）。
        色は使う所で決める。下の既定は、その文字が一番よく使われる色。行の高さは書いてあるものだけ指定する
        （Brand の字間 0.2 は TextBlock に無いので付けない） -->
   <Style x:Key="ColumnHeader" TargetType="TextBlock">

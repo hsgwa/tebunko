@@ -89,7 +89,7 @@ function showIndexingConfirmDialog {
         $plan  # readIngestPlan の結果
     )
 
-    $dialog = loadWindow "${xamlDir}\dialog_indexing_confirm.xaml" ${fontsDir}
+    $dialog = loadWindow "${xamlDir}\dialog_indexing_confirm.xaml"
     $dialog.Owner = $window
     $ctrl = @{}
     foreach ($name in @("StartButton", "CancelButton", "RetryCheck", "CloudWarnText", "CloudCheck", "CloudRememberCheck", "TotalText", "NoteText", "IntroText", "PlanGrid")) {

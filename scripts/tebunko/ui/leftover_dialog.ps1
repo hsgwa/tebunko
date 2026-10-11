@@ -77,7 +77,7 @@ function showLeftoverDialog {
         $prompt
     )
 
-    $dialog = loadWindow "${xamlDir}\dialog_leftover.xaml" ${fontsDir}
+    $dialog = loadWindow "${xamlDir}\dialog_leftover.xaml"
     $dialog.Owner = $window
     $dialog.Title = $prompt.Title
     $ctrl = @{}

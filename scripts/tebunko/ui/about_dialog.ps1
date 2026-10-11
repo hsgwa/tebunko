@@ -9,7 +9,7 @@ $ui.AboutLink.Add_Click({
 
 function showAboutDialog {
     # 「バージョン情報」ダイアログを開く
-    $dialog = loadWindow "${xamlDir}\dialog_about.xaml" ${fontsDir}
+    $dialog = loadWindow "${xamlDir}\dialog_about.xaml"
     $dialog.Owner = $window
     $ctrl = @{}
     foreach ($name in @("AppIcon", "VersionText", "CommitText")) {

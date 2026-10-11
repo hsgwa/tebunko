@@ -75,7 +75,6 @@ BeforeAll {
 
         # ---- tebunko/ui/about_dialog.ps1・shared/ui/app_host.ps1（アイコン・XAML。ツールのフォルダの中） ----
         @{ File = "app_host.ps1"; Function = "getXamlText"; Call = "[System.IO.File]"; Reason = "画面定義（XAML）の読み込み（ツールのフォルダの中）" }
-        @{ File = "app_host.ps1"; Function = "newAppFontFamily"; Call = "Test-Path"; Reason = "同梱のフォント（ツールのフォルダの中）" }
         @{ File = "app_host.ps1"; Function = "writeErrorLog"; Call = "Test-Path"; Reason = "画面のエラーの記録（まれ。プロセスが落ちる前に確実に残すため、画面のスレッドで書く）" }
         @{ File = "app_host.ps1"; Function = "writeErrorLog"; Call = "[System.IO.Directory]"; Reason = "画面のエラーの記録（まれ。プロセスが落ちる前に確実に残すため、画面のスレッドで書く）" }
         @{ File = "app_host.ps1"; Function = "writeErrorLog"; Call = "[System.IO.File]"; Reason = "画面のエラーの記録（まれ。プロセスが落ちる前に確実に残すため、画面のスレッドで書く）" }

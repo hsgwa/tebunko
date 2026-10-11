@@ -71,33 +71,21 @@ Describe "loadXaml（theme.xaml への参照の差し替え）" -Tag Unit {
 }
 
 Describe "newAppFontFamily（画面の既定のフォント）" -Tag Unit {
-    BeforeAll {
-        $bundledFonts = "${scriptsDir}\shared\fonts"
+    It "欧文は Segoe UI、足りない文字（日本語）は Yu Gothic UI・Meiryo UI で表す（Windows 標準のフォントだけ。同梱のフォルダを指さない）" {
+        $family = newAppFontFamily
+        $family.Source | Should -Be "Segoe UI, Yu Gothic UI, Meiryo UI"
+        $family.BaseUri | Should -BeNullOrEmpty
     }
 
-    It "フォルダがあれば、そこを指し、Rethink Sans を先に Yu Gothic UI・Meiryo UI を足りない文字の代わりにする" {
-        $family = newAppFontFamily $bundledFonts
-        $family.BaseUri.LocalPath | Should -Be ("$bundledFonts\")
-        $family.Source | Should -Be "./#Rethink Sans, Yu Gothic UI, Meiryo UI"
-        # 同梱のフォルダから Rethink Sans が見つかる
-        @([System.Windows.Media.Fonts]::GetFontFamilies($family.BaseUri) | ForEach-Object { $_.FamilyNames.Values }) | Should -Contain "Rethink Sans"
+    It "引数を取らない（展開した版でも単一 .ps1 版でも、同じフォントになる）" {
+        (Get-Command newAppFontFamily).Parameters.Keys | Where-Object { $_ -notin [System.Management.Automation.PSCmdlet]::CommonParameters } | Should -BeNullOrEmpty
     }
 
-    It "<name> は、Yu Gothic UI・Meiryo UI だけにする（単一 .ps1 版など、フォントを同梱しない形）" -ForEach @(
-        @{ name = "フォルダが無い"; folder = "$TestDrive\no_such_fonts" }
-        @{ name = "指定が空" ; folder = "" }
-    ) {
-        $family = newAppFontFamily $folder
-        $family.Source | Should -Be "Yu Gothic UI, Meiryo UI"
-    }
-
-    It "同梱のフォントのファイルとライセンスの文面がある" {
-        foreach ($name in "RethinkSans-wght.ttf", "RethinkSans-Italic-wght.ttf", "OFL.txt", "LICENSE-Lucide.txt") {
-            Test-Path -LiteralPath "$bundledFonts\$name" | Should -Be $true
-        }
+    It "同梱するのはアイコンの形のライセンスの文面だけで、フォントのファイルは無い" {
+        Test-Path -LiteralPath "${scriptsDir}\shared\fonts\LICENSE-Lucide.txt" | Should -Be $true
+        @(Get-ChildItem -LiteralPath "${scriptsDir}\shared\fonts" -File | Where-Object { $_.Extension -in ".ttf", ".otf", ".ttc" -or $_.Name -eq "OFL.txt" }).Count | Should -Be 0
     }
 }
-
 Describe "loadXaml（Font.Body）" -Tag Unit {
     It "FrameworkElement には Font.Body を入れ、ルートの DynamicResource で使える" {
         $path = "$TestDrive\win.xaml"
@@ -107,24 +95,19 @@ Describe "loadXaml（Font.Body）" -Tag Unit {
         $result.Resources["Font.Body"] | Should -BeOfType [System.Windows.Media.FontFamily]
     }
 
-    It "渡したフォントのフォルダから Font.Body を作る（呼び出し側の変数を暗黙に読まない）" {
+    It "どの呼び出し元の変数にも頼らず、同じ Font.Body を入れる" {
         $path = "$TestDrive\win2.xaml"
         [System.IO.File]::WriteAllText($path, '<Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" />', (New-Object System.Text.UTF8Encoding($true)))
-        $fonts = "${scriptsDir}\shared\fonts"
-        # 同じ名前の変数が呼び出し側にあっても、引数のほうを使う
+        # 古い呼び出し元の変数があっても、使わない
         $fontsDir = "$TestDrive\no_such_fonts"
-        $result = loadXaml $path $fonts
-        $result.Resources["Font.Body"].BaseUri.LocalPath | Should -Be "$fonts\"
-        # 引数が無いときは、変数があっても Yu Gothic UI・Meiryo UI だけ
-        (loadXaml $path).Resources["Font.Body"].Source | Should -Be "Yu Gothic UI, Meiryo UI"
+        (loadXaml $path).Resources["Font.Body"].Source | Should -Be "Segoe UI, Yu Gothic UI, Meiryo UI"
     }
 
-    It "loadWindow は、フォントのフォルダを loadXaml に渡す" {
+    It "loadWindow は、loadXaml にパスだけを渡す" {
         $text = Get-Content -LiteralPath "${scriptsDir}\shared\ui\app_host.ps1" -Raw -Encoding UTF8
-        $text | Should -Match 'function loadWindow \{[\s\S]*?\$loaded = loadXaml \$path \$fontsFolder'
+        $text | Should -Match 'function loadWindow \{[\s\S]*?\$loaded = loadXaml \$path\r?\n'
     }
 }
-
 Describe "loadAppIcon（画面のアイコン）" -Tag Unit {
     BeforeEach {
         ${script:appIcon} = $null

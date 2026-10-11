@@ -67,7 +67,7 @@ function showMessageDialog {
         [System.Windows.Window]$owner
     )
 
-    $dialog = loadWindow "${sharedXamlDir}\dialog_confirm.xaml" ${fontsDir}
+    $dialog = loadWindow "${sharedXamlDir}\dialog_confirm.xaml"
     $dialog.Title = ${appTitle}
     $dialog.Width = getConfirmWidth "normal"
     if ($null -ne $owner) {
@@ -213,7 +213,7 @@ function showConfirm {
     )
 
     $form = getConfirmForm $choices $form
-    $dialog = loadWindow "${sharedXamlDir}\dialog_confirm.xaml" ${fontsDir}
+    $dialog = loadWindow "${sharedXamlDir}\dialog_confirm.xaml"
     $dialog.Title = if ($title -ne "") { $title } else { ${appTitle} }
     $dialog.Width = getConfirmWidth $form
     $dialog.Owner = $owner
@@ -288,7 +288,7 @@ function showErrorDialog {
         [System.Windows.Window]$owner = $window
     )
 
-    $dialog = loadWindow "${sharedXamlDir}\dialog_confirm.xaml" ${fontsDir}
+    $dialog = loadWindow "${sharedXamlDir}\dialog_confirm.xaml"
     $dialog.Title = "エラー"
     $dialog.Width = getConfirmWidth "error"
     if ($null -ne $owner) {
