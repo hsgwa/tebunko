@@ -4841,6 +4841,14 @@
 <td>画面（詳細の名前の欄）</td>
 </tr>
 <tr>
+<td><code>RenameIndexWithSource</code></td>
+<td>oldName, newName, folders（<code>@{Name; Path}</code> の配列）</td>
+<td><code>@{SourceFolderError}</code></td>
+<td><code>RenameIndex</code> のあと、元のフォルダの記録（<code>source_folder.txt</code>。<code>WriteSourceFile</code>）を書き直す。記録だけが失敗しても改名は成功にし、書けなかった理由を <code>SourceFolderError</code> で返す（成功なら空）。改名の失敗は例外のまま出す</td>
+<td>同上</td>
+<td>画面（詳細の名前の欄。裏の仕事）</td>
+</tr>
+<tr>
 <td><code>RemoveIndex</code></td>
 <td>name</td>
 <td>–</td>
@@ -4855,6 +4863,14 @@
 <td>選んだインデックスをまとめて削除する（旧 <code>removeIndexes</code>）。<code>RemoveIndex</code> を 1 つずつ呼び、1 つ失敗しても残りを続ける（<code>Reason</code> は失敗の理由。空の名前は失敗にする）。画面は別スレッドの仕事の中で呼ぶ</td>
 <td>同上</td>
 <td>画面（［削除］）</td>
+</tr>
+<tr>
+<td><code>newIndexCatalog</code></td>
+<td>workspaceDir, settingsPath（既定 <code>$settingsFile</code>）</td>
+<td><code>IndexCatalog</code></td>
+<td>ワークスペースの場所（文字列）から <code>IndexCatalog</code> を作る。取り込み一覧を書く <code>StatusLedger</code> も作って渡す。別のスレッドへはインスタンスを渡さず、場所を渡してこれで作り直す</td>
+<td>–</td>
+<td>画面・裏の仕事</td>
 </tr>
 <tr>
 <td><code>AssertReachable</code></td>
