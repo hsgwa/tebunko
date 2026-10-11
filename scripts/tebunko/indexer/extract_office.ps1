@@ -531,13 +531,16 @@ function extractDocument {
 
 function ingestFile {
     # 1ファイルを取り込み、作成したTSVの数を返す。
-    # テキストの拡張子（textExtensions）は Office を使わず読み取りのレーンで取り込む（extract_text.ps1）
+    # テキストの拡張子（textExtensions）・PDF の拡張子（pdfExtensions）は Office を使わず読み取りのレーンで取り込む（extract_text.ps1・extract_pdf.ps1）
     param (
         [string]$sourcePath
     )
 
     if (testTextExtension $sourcePath) {
         return (extractTextFile $sourcePath $tmpDir)
+    }
+    if (testPdfExtension $sourcePath) {
+        return (extractPdfFile $sourcePath $tmpDir)
     }
     if ((getAppName $sourcePath) -eq "Excel") {
         return (extractWorkbook $sourcePath)

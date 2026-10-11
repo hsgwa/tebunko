@@ -39,8 +39,8 @@ Describe "convertPlaceToContentIndexMeta / convertContentIndexMetaToPlace" -Tag 
     }
 
     It "種類の分からないファイルは、部分に場所の名前を持つ" {
-        getContentIndexFileKind "メモ.pdf" | Should -Be ""
-        $meta = convertPlaceToContentIndexMeta "メモ.pdf" "本文[図形]"
+        getContentIndexFileKind "メモ.zip" | Should -Be ""
+        $meta = convertPlaceToContentIndexMeta "メモ.zip" "本文[図形]"
         (($meta.Keys | ForEach-Object { "$_=$($meta[$_])" }) -join "|") | Should -Be "部分=本文|対象=図形"
         convertContentIndexMetaToPlace $meta | Should -BeExactly "本文[図形]"
     }
@@ -56,6 +56,13 @@ Describe "convertPlaceToContentIndexMeta / convertContentIndexMetaToPlace" -Tag 
         $meta = convertPlaceToContentIndexMeta "議事メモ.txt" "本文"
         (($meta.Keys | ForEach-Object { "$_=$($meta[$_])" }) -join "|") | Should -Be "部分=本文|対象=本文"
         convertContentIndexMetaToPlace $meta | Should -BeExactly "本文"
+    }
+
+    It "PDF は「PDF」、場所は「ページN」で、そのまま元の名前に戻る" {
+        getContentIndexFileKind "仕様書.pdf" | Should -Be "PDF"
+        getContentIndexFileKind "仕様書.PDF" | Should -Be "PDF"
+        $meta = convertPlaceToContentIndexMeta "仕様書.pdf" "ページ003"
+        convertContentIndexMetaToPlace $meta | Should -BeExactly "ページ003"
     }
 }
 

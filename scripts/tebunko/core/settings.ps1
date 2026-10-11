@@ -67,7 +67,7 @@ ${cloudFilesDownload} = "download"  # 確認なしでダウンロードして取
 ${cloudFilesModes}    = @(${cloudFilesAsk}, ${cloudFilesDownload})
 
 # 検索の対象にするファイルの種類（検索バーのチップ。設定ファイルの fileKinds の値）
-${fileKindNames} = @("excel", "word", "powerpoint", "text")
+${fileKindNames} = @("excel", "word", "powerpoint", "text", "pdf")
 
 function newSettings {
     # 設定の既定値。設定ファイル（JSON）のキーと同じ

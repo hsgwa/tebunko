@@ -704,6 +704,16 @@ Describe "openSource" -Tag Unit {
         lastStatus | Should -Be "開きました：C:\data\議事メモ.txt"
     }
 
+    It "PDF も開き方の動詞を試さず、そのまま開いて「開きました」と出す（読み取り専用・新規を選んでいても）" {
+        Mock getCurrentHitRow { newRow "仕様書.pdf" $false $true }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\仕様書.pdf" }
+        Mock openWithShell { $false }
+
+        openSource ${openModeReadOnly}
+        Should -Invoke openWithShell -Times 1 -Exactly -ParameterFilter { $path -eq "C:\data\仕様書.pdf" -and $mode -eq ${openModeNormal} }
+        lastStatus | Should -Be "開きました：C:\data\仕様書.pdf"
+    }
+
     It "開くと実行・登録になる拡張子（.bat など）のテキストは、既定のアプリではなくメモ帳で開く" {
         Mock getCurrentHitRow { newRow "起動.bat" $false $true }
         Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\起動.bat" }

@@ -1,7 +1,7 @@
 ﻿# クロール（どのファイルを取り込むかを数え、画面の返事を待つ）。
 
-# 取り込み対象の拡張子（Office は shared\office\office_files.ps1、テキストは shared\core\text_file.ps1）
-$targetExtensions = @(${officeExtensions}) + @(${textExtensions})
+# 取り込み対象の拡張子（Office は shared\office\office_files.ps1、テキストは shared\core\text_file.ps1、PDF は shared\core\pdf_file.ps1）
+$targetExtensions = @(${officeExtensions}) + @(${textExtensions}) + @(${pdfExtensions})
 
 # tebunko が作ったファイルを、名前だけで見分けるパターン（テキストの拡張子のものだけに当たる。どこにあっても外す）。
 #   ・今の版の本文インデックス（content_index.xlsx.001.tsv 等。contentIndexFileNamePattern と同じ組み立て）

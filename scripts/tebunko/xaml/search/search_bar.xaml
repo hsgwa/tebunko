@@ -160,6 +160,7 @@
       <ToggleButton x:Name="KindChipWord" Style="{StaticResource KindChip}" Tag="word" Content="Word" VerticalAlignment="Center" />
       <ToggleButton x:Name="KindChipPowerPoint" Style="{StaticResource KindChip}" Tag="powerpoint" Content="PowerPoint" VerticalAlignment="Center" />
       <ToggleButton x:Name="KindChipText" Style="{StaticResource KindChip}" Tag="text" Content="テキスト" VerticalAlignment="Center" />
+      <ToggleButton x:Name="KindChipPdf" Style="{StaticResource KindChip}" Tag="pdf" Content="PDF" VerticalAlignment="Center" />
       <Button x:Name="ScopeButton" Style="{StaticResource ScopeButton}" Content="ファイル内の対象" Margin="0,0,8,8" VerticalAlignment="Center"
               ToolTip="ファイルの中で検索する範囲を選びます" AutomationProperties.Name="ファイル内の対象">
         <Button.ContextMenu>
