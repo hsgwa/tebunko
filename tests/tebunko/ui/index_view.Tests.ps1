@@ -533,6 +533,16 @@ Describe "getImportSourceCheckText（元のフォルダの下の 1 行）" -Tag 
     }
 }
 
+Describe "getIndexArchiveCancelledStatus" -Tag Unit {
+    It "<operation> を取りやめた文" -TestCases @(
+        @{ operation = "エクスポート"; expected = "エクスポートを取りやめました" }
+        @{ operation = "インポート"; expected = "インポートを取りやめました" }
+    ) {
+        param ($operation, $expected)
+        getIndexArchiveCancelledStatus $operation | Should -Be $expected
+    }
+}
+
 Describe "getImportCollisionChoiceView" -Tag Unit {
     # 今の一覧は 営業・総務。zip の名前は、重なる「営業」か、重ならない「経理」
     It "<label>" -TestCases @(

@@ -120,6 +120,15 @@ function getIndexStoreJobFailedStatus {
     return "インデックス [${name}] の${operation}に失敗しました：${errorText}"
 }
 
+function getIndexArchiveCancelledStatus {
+    # エクスポート・インポートのダイアログを取りやめたときのステータス
+    param (
+        [string]$operation   # "エクスポート" / "インポート"
+    )
+
+    return "${operation}を取りやめました"
+}
+
 function getBulkDeleteFailedStatus {
     # 複数削除で、閉じるのを待っていて結果のダイアログを出さないときに、失敗があったことをステータスに残す文
     param (

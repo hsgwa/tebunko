@@ -22,9 +22,7 @@ function startIndexArchiveJob {
     startJob $scriptBlock $arguments {
         param ($output, $errorText)
         $script:archiveBusy = $false
-        if (@($script:exportingNames).Count -gt 0) {
-            setExportingRows @()
-        }
+        setExportingRows @()
         if ($errorText) {
             setStatus "$($script:archiveJobOperation)に失敗しました：${errorText}"
             updateIndexingButton
@@ -137,6 +135,8 @@ function continueExport {
         $size   # getIndexExportSize の結果
     )
 
+    # 大きさを数えている間の文は、ここから先で要らない（ダイアログを開いている間も残さない）
+    setStatus ""
     if (@($size.Missing).Count -gt 0) {
         setStatus (getIndexExportMissingText)
         return
@@ -144,6 +144,7 @@ function continueExport {
     $items = @($script:exportPlan.Items)
     $folder = showIndexExportDialog $items $size.Bytes
     if ($null -eq $folder) {
+        setStatus (getIndexArchiveCancelledStatus "エクスポート")
         return
     }
     if ($items.Count -eq 1) {
@@ -172,6 +173,7 @@ function continueExport {
         showBulkIndexResult "エクスポート" $results
     } @($folder)
 }
+
 function showBulkIndexResult {
     # まとめてのエクスポート・削除の終わりに、ステータスバーの 1 行を出し、失敗があれば名前と理由を出す
     param (
@@ -199,6 +201,7 @@ function newBulkExportIndexes {
     }
     startExportSizeCount @($script:targetItems | Where-Object { $names -contains $_.Name })
 }
+
 function showIndexImportDialog {
     # インポートのダイアログ。決めた内容 @{ Path; Name; CollisionMode } を返す（キャンセルは $null）
     param (
@@ -360,7 +363,7 @@ function continueImportIndex {
     $suggestedName = getImportSuggestedName $info.IndexName $usedNames
     $result = showIndexImportDialog $suggestedName $info
     if ($null -eq $result) {
-        setStatus "インポートを取りやめました"
+        setStatus (getIndexArchiveCancelledStatus "インポート")
         return
     }
 
