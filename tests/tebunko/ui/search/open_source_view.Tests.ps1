@@ -179,3 +179,13 @@ Describe "getSourceOpenMode / getSourceReadOnlyFailedStatus" -Tag Unit {
         getSourceReadOnlyFailedStatus "C:\x\a.docm" | Should -BeLike "*C:\x\a.docm"
     }
 }
+
+Describe "getResultSaveFailedText" -Tag Unit {
+    It "<kind> の文" -TestCases @(
+        @{ kind = "Locked"; expected = "search_results.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。" }
+        @{ kind = "Denied"; expected = "search_results.txt に書き込む権限がありません（読み取り専用など）。C:\w\search_results.txt を確かめてから、もう一度出力してください。" }
+    ) {
+        param ($kind, $expected)
+        getResultSaveFailedText $kind "C:\w\search_results.txt" | Should -Be $expected
+    }
+}
