@@ -4360,9 +4360,9 @@
 </tr>
 <tr>
 <td><code>newIndexerChannel</code></td>
-<td>retryFailed, confirmTargets, workers（既定 -1）, onlyNames（既定は空）</td>
+<td>retryFailed, confirmTargets, workers（既定 -1）, onlyNames（既定は空）, includeCloud（既定 <code>$false</code>）</td>
 <td>受け渡しの口（<code>[hashtable]::Synchronized</code>）</td>
-<td>画面とインデクサの受け渡しの口を作る（<code>RetryFailed</code>・<code>ConfirmTargets</code>・<code>Workers</code>・<code>OnlyNames</code>（更新するインデックス名。空ならチェックの付いたものすべて）・<code>OnlySkipped</code>（<code>OnlyNames</code> のうち更新できなかった名前と理由）・<code>Progress</code>・<code>Stop</code>・<code>Plan</code>・<code>Answer</code>・<code>Answered</code>・<code>Error</code>・<code>ExitCode</code>・<code>Notice</code>・<code>Postponed</code>・<code>OfficePids</code>）。<code>Workers</code> は -1 で設定・コア数から決める、0 で司令のスレッドで取り込む（テスト）</td>
+<td>画面とインデクサの受け渡しの口を作る（<code>RetryFailed</code>・<code>ConfirmTargets</code>・<code>Workers</code>・<code>OnlyNames</code>（更新するインデックス名。空ならチェックの付いたものすべて）・<code>OnlySkipped</code>（<code>OnlyNames</code> のうち更新できなかった名前と理由）・<code>Progress</code>・<code>Stop</code>・<code>Plan</code>・<code>Answer</code>・<code>Answered</code>・<code>Error</code>・<code>ExitCode</code>・<code>Notice</code>・<code>Postponed</code>・<code>IncludeCloud</code>（クラウドにだけあるファイルもダウンロードして取り込むか）・<code>CloudSkipped</code>（ダウンロードせずに残した件数）・<code>OfficePids</code>）。<code>Workers</code> は -1 で設定・コア数から決める、0 で司令のスレッドで取り込む（テスト）</td>
 <td><a href="../../structure/threads/#画面とインデクサの受け渡し">画面とインデクサの受け渡し</a></td>
 <td>画面・indexer.ps1</td>
 </tr>
@@ -4392,7 +4392,7 @@
 </tr>
 <tr>
 <td><code>answerIndexingPlan</code></td>
-<td>channel, answer（<code>@{RetryFailed}</code> / <code>$null</code>）</td>
+<td>channel, answer（<code>@{RetryFailed; IncludeCloud}</code> / <code>$null</code>）</td>
 <td>–</td>
 <td>確認のダイアログの返事をインデクサに伝える。<code>$null</code> は取りやめ（<code>Stop</code> も立てる）</td>
 <td><a href="../../gui/indexing-run/#インデックス更新の確認ダイアログ">インデックス作成の実行</a></td>
@@ -4424,7 +4424,7 @@
 </tr>
 <tr>
 <td><code>newIngestPlanRow</code></td>
-<td>name, path, kind, total, targets, new, updated, pending, lost, failed</td>
+<td>name, path, kind, total, targets, new, updated, pending, lost, failed, cloud, cloudFailed, cloudBytes, cloudFailedBytes</td>
 <td>取り込み予定の 1 行（<code>[pscustomobject]</code>）</td>
 <td>インデックス 1 件分の取り込み対象の件数を作る（<code>$ingestPlanColumns</code> と同じ列）</td>
 <td><a href="../../indexing/target-decision/#取り込み予定画面の確認に出す件数">取り込み対象の決定</a></td>
@@ -4573,7 +4573,7 @@
 </tbody>
 </table>
 <h3 id="ingestplannertebunkoindexerindexer_planps1司令のスレッドで作る">IngestPlanner（<code>tebunko/indexer/indexer_plan.ps1</code>。司令のスレッドで作る）<a class="headerlink" href="#ingestplannertebunkoindexerindexer_planps1司令のスレッドで作る" title="Permanent link">&para;</a></h3>
-<p>クロール対象フォルダへの名前の割り当てと、クロールの結果から取り込む順番を決める。取り込み直すかの判断は <code>indexer_decide.ps1</code> の関数を <code>createTargetList</code> 経由で呼ぶ。計画の種類・状態の値はコンストラクタの <code>kinds</code>（<code>Unchecked</code>・<code>Missing</code>・<code>Dropped</code>・<code>StateFailed</code>。足りなければ例外）で、名前を保存する設定ファイルの場所は <code>settingsFile</code> で受け取る。メソッドは次の順に呼ぶ: <code>AssignNames</code> → <code>SaveNames</code> → <code>SelectOnly</code>（選んだときだけ）→ <code>Crawl</code> → <code>KeepForCancel</code>（取りやめるとき）か <code>ApplyFailed</code> → <code>ApplyInterrupted</code> → <code>FolderByName</code>。<code>AssignNames</code> の前に <code>Crawl</code> を呼ぶと例外にする。結果は <code>Folders</code>・<code>Previous</code>・<code>Dropped</code>・<code>Only</code>・<code>Rows</code>・<code>Targets</code>・<code>Failed</code>・<code>Plan</code>・<code>RemovedPaths</code>・<code>Carried</code> で読む。</p>
+<p>クロール対象フォルダへの名前の割り当てと、クロールの結果から取り込む順番を決める。取り込み直すかの判断は <code>indexer_decide.ps1</code> の関数を <code>createTargetList</code> 経由で呼ぶ。計画の種類・状態の値はコンストラクタの <code>kinds</code>（<code>Unchecked</code>・<code>Missing</code>・<code>Dropped</code>・<code>StateFailed</code>。足りなければ例外）で、名前を保存する設定ファイルの場所は <code>settingsFile</code> で受け取る。メソッドは次の順に呼ぶ: <code>AssignNames</code> → <code>SaveNames</code> → <code>SelectOnly</code>（選んだときだけ）→ <code>Crawl</code> → <code>KeepForCancel</code>（取りやめるとき）か <code>ApplyFailed</code> → <code>ApplyInterrupted</code> → <code>FolderByName</code>。<code>AssignNames</code> の前に <code>Crawl</code> を呼ぶと例外にする。結果は <code>Folders</code>・<code>Previous</code>・<code>Dropped</code>・<code>Only</code>・<code>Rows</code>・<code>Targets</code>・<code>Failed</code>・<code>Cloud</code>（クラウドにだけあるファイル）・<code>Plan</code>・<code>RemovedPaths</code>・<code>Carried</code> で読む。</p>
 <table>
 <thead>
 <tr>
@@ -4612,7 +4612,7 @@
 <td><code>KeepForCancel</code></td>
 <td>–</td>
 <td>取り込み一覧に書く行</td>
-<td>取りやめるとき、取り込み対象の行を前回の記録のままにする</td>
+<td>取りやめるとき、取り込み対象の行（とクラウドにだけあって前回未完了の行）を前回の記録のままにする</td>
 </tr>
 <tr>
 <td><code>ApplyFailed</code></td>
