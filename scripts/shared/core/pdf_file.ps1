@@ -37,6 +37,8 @@ ${pdfLineTolerance} = 1.0
 
 ${pdfLatin1} = [System.Text.Encoding]::GetEncoding(28591)
 ${pdfWinAnsi} = [System.Text.Encoding]::GetEncoding(1252)
+# 1 バイト（0〜255）ごとの Windows-1252 の文字（対応表の無いコードを 1 つずつ変換しないための表）
+${pdfWinAnsiChars} = [string[]]@(0..255 | ForEach-Object { ${pdfWinAnsi}.GetString([byte[]]@($_)) })
 ${pdfDelimiters} = [char[]]@(0, 9, 10, 12, 13, 32, '(', ')', '<', '>', '[', ']', '{', '}', '/', '%')
 ${pdfStringStops} = [char[]]@('(', ')', '\')
 # readPdfToken の速い道。空白（コード 32 以下）を飛ばして、(1) 数値・キーワード、または (2) 名前・入れ子もエスケープも無い文字列・<< >> [ ] { } を 1 つ取る。
@@ -1036,7 +1038,7 @@ function convertPdfStringToText {
         if ($map.ContainsKey($code)) {
             [void]$sb.Append($map[$code])
         } elseif ($width -eq 1) {
-            [void]$sb.Append(${pdfWinAnsi}.GetString([byte[]]@($code)))
+            if ($code -lt 256) { [void]$sb.Append(${pdfWinAnsiChars}[$code]) } else { [void]$sb.Append(${pdfWinAnsi}.GetString([byte[]]@($code))) }
         }
     }
     return $sb.ToString()

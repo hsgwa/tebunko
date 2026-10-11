@@ -783,3 +783,17 @@ Describe "undoPdfPredictor" -Tag Unit {
         { undoPdfPredictor ([byte[]]@(9, 1, 2, 3)) @{ Predictor = 15; Columns = 3 } } | Should -Throw
     }
 }
+
+Describe "convertPdfStringToText" -Tag Unit {
+    It "対応表の無い 1 バイトのコードは、Windows-1252 の文字にする" {
+        $font = @{ Width = 1; Map = @{ 65 = "X" }; NoMap = $false }
+        $s = "A" + [string][char]0x80 + "B" + [string][char]0xE9
+        convertPdfStringToText $font $s | Should -BeExactly ("X" + [string][char]0x20AC + "B" + [string][char]0xE9)
+    }
+
+    It "2 バイトのフォントは、対応表に無いコードを捨てる" {
+        $font = @{ Width = 2; Map = @{ 0x0041 = "Z" }; NoMap = $false }
+        $s = [string][char]0 + [string][char]0x41 + [string][char]0 + [string][char]0x42
+        convertPdfStringToText $font $s | Should -BeExactly "Z"
+    }
+}
