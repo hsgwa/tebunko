@@ -79,7 +79,7 @@ function newWorkspaceConfirm {
     # ワークスペースを変える前の確認ダイアログの中身:
     #   @{ Title; Heading; Facts（@{ Kind = "next" / "kept" / "warn"; Title; Detail } の配列）; Hint; Choices（@{ Text; Value; Danger; Careful } の配列。最後が主なボタン） }
     # ワークスペースには空のフォルダを選んでもらう。空でなければ警告し、中にワークスペースのフォルダを作るか、そのまま使うかを選ばせる。
-    # 今のワークスペースの中身（インデックス・取り込み一覧・ログ）は、いつも新しいワークスペースへ移す（moveWorkspace）。
+    # 今のワークスペースの中身（インデックス・取り込み一覧・ログ）は、いつも新しいワークスペースへ移す（WorkspaceMover.ChangeWorkspace）。
     # 選んだフォルダに tebunko のファイル（インデックスなど。ほかの人が共有したワークスペースなど）があれば、それを使うか、消して最初からやるかを選ばせる。
     #   Value: "change"（選んだフォルダにする）/ "sub"（中に workspace を作ってそこにする）/ "asis"（空でないまま使う）/
     #          "use"（中のインデックスを使う。今のワークスペースの中身は移さない）/ "reset"（中のインデックスを消し、今のワークスペースの中身を移す）
@@ -89,7 +89,7 @@ function newWorkspaceConfirm {
         [int]$entryCount,      # 選んだフォルダの中のファイル・フォルダの数（数えた上限で止めてよい）
         [string[]]$sampleNames = @(),  # 中身の例（先頭の数件の名前）
         [bool]$countCapped = $false,   # entryCount が数えた上限（それ以上あるかもしれない）
-        [string[]]$workspaceNames = @(), # 中にある tebunko のファイル・フォルダの名前（getWorkspaceEntries）。あれば、使うか消すかを選ばせる
+        [string[]]$workspaceNames = @(), # 中にある tebunko のファイル・フォルダの名前（WorkspaceMover.ListEntries）。あれば、使うか消すかを選ばせる
         [bool]$canMakeSub = $true,     # 中に workspace を作れる（無いか、あっても空）
         [bool]$toDefault = $false      # ［既定に戻す］から（空のときだけ、題と文言が変わる）
     )

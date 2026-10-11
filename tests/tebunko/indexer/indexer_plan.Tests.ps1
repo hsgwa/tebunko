@@ -262,9 +262,16 @@ Describe "IngestPlanner" -Tag Io {
         $updated = formatFileTime $info.LastWriteTime
         $size = [string]$info.Length
 
+        function newSaver {
+            # 割り当てた名前を設定ファイルに保存する処理（本物は indexer_run.ps1 が IndexCatalog を通して渡す）
+            param ($file)
+            $catalog = [IndexCatalog]::new($workspace, $file, [StatusLedger]::new($workspace))
+            return { param($assigned) $catalog.StoreAssignedNames($assigned) }.GetNewClosure()
+        }
+
         function newPlanner {
             param ($folders, $previousRows = @(), $previousFolders = @(), $file = $settingsFile)
-            $planner = [IngestPlanner]::new($kinds, $file)
+            $planner = [IngestPlanner]::new($kinds)
             $status = @{ Folders = $previousFolders; Rows = (newPrevious $previousRows) }
             $planner.AssignNames($folders, $status)
             return $planner
@@ -283,7 +290,7 @@ Describe "IngestPlanner" -Tag Io {
         $named = @([pscustomobject]@{ Path = $source; Name = "売上"; Enabled = $true })
         $file = Join-Path $TestDrive "保存なし\setting.config"
         $planner = newPlanner $named @() @() $file
-        $planner.SaveNames($named)
+        $planner.SaveNames($named, (newSaver $file))
         Test-Path -LiteralPath $file | Should -Be $false
         @($planner.Folders | ForEach-Object { $_.Name }) | Should -Be @("売上")
     }
@@ -300,7 +307,7 @@ Describe "IngestPlanner" -Tag Io {
         }
 
         It "保存した名前を設定ファイルに書き、Folders をその一覧にする" {
-            $planner.SaveNames($read)
+            $planner.SaveNames($read, (newSaver $file))
             $saved = @(getTargetFolders $file)
             @($saved | ForEach-Object { $_.Name }) | Should -Not -Contain ""
             @($planner.Folders | ForEach-Object { $_.Name }) | Should -Be @($saved | ForEach-Object { $_.Name })
@@ -309,7 +316,7 @@ Describe "IngestPlanner" -Tag Io {
 
         It "割り当てから保存までの間に設定から外したフォルダは、Folders から落とす" {
             writeTargetFolders @([pscustomobject]@{ Name = ""; Path = "C:\営業"; Enabled = $true }) $file
-            $planner.SaveNames($read)
+            $planner.SaveNames($read, (newSaver $file))
             @($planner.Folders | ForEach-Object { $_.Path }) | Should -Be @("C:\営業")
         }
 
@@ -319,7 +326,7 @@ Describe "IngestPlanner" -Tag Io {
                 [pscustomobject]@{ Name = ""; Path = "C:\営業"; Enabled = $true }
                 [pscustomobject]@{ Name = $taken; Path = "C:\総務"; Enabled = $true }
             ) $file
-            $planner.SaveNames($read)
+            $planner.SaveNames($read, (newSaver $file))
             @($planner.Folders | ForEach-Object { $_.Path }) | Should -Not -Contain "C:\営業"
         }
     }
@@ -333,11 +340,11 @@ Describe "IngestPlanner" -Tag Io {
         param ($missing)
         $partial = @{} + $kinds
         $partial.Remove($missing)
-        { [IngestPlanner]::new($partial, $settingsFile) } | Should -Throw "*$missing*"
+        { [IngestPlanner]::new($partial) } | Should -Throw "*$missing*"
     }
 
     It "AssignNames の前に Crawl を呼ぶと例外にする" {
-        $planner = [IngestPlanner]::new($kinds, $settingsFile)
+        $planner = [IngestPlanner]::new($kinds)
         { $planner.Crawl($null, $null) } | Should -Throw "*AssignNames*"
     }
 
@@ -419,7 +426,7 @@ Describe "IngestPlanner" -Tag Io {
     }
 
     It "強制終了した回数が上限に達していなければ最後に回し、達していれば失敗にして外す" {
-        $planner = [IngestPlanner]::new($kinds, $settingsFile)
+        $planner = [IngestPlanner]::new($kinds)
         $first = newStatusRow "売上\1.xlsx"
         $second = newStatusRow "売上\2.xlsx"
         $third = newStatusRow "売上\3.xlsx"
@@ -542,7 +549,7 @@ Describe "IngestPlanner（クラウドにだけあるファイル）" -Tag Io {
 
         function newCloudPlanner {
             param ($previousRows)
-            $planner = [IngestPlanner]::new($kinds, (Join-Path $TestDrive "planner_cloud.config"))
+            $planner = [IngestPlanner]::new($kinds)
             $planner.AssignNames(@([pscustomobject]@{ Path = $source; Name = "雲"; Enabled = $true }), @{ Folders = @(); Rows = (newPrevious $previousRows) })
             $planner.Crawl($null, $null)
             return $planner

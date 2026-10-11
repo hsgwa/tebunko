@@ -324,10 +324,10 @@ function loadTargets {
                 $requestId = $requestBox.Value
                 $finish = ${function:finishTargetsNaming}   # 終わったときの処理は、関数を変数に取って呼ぶ（クロージャからは関数の名前を引けないため）
                 startJob {
-                    param ($folders, $statusPath)
-                    # 取り込み一覧の読み込みは排他の外で済ませ、設定の読み直しと書き込みだけを saveAssignedIndexNames が排他の中で行う
-                    [void](saveAssignedIndexNames @(assignIndexNames $folders (readStatusFile $statusPath).Folders))
-                } @(,$folders + @($workspace.StatusFile)) {
+                    param ($folders, $workspaceDir)
+                    # インスタンスは裏のスレッドへ渡せないため、場所から作り直す
+                    [void]((newIndexCatalog $workspaceDir).AssignAndSaveNames($folders))
+                } @(,$folders + @($workspace.Dir)) {
                     param ($output, $errorText)
                     if ($requestId -ne $requestBox.Value) {
                         # 待っている間にもう一度読み込んだ・ワークスペースを切り替えた。この結果は捨てる
@@ -342,7 +342,7 @@ function loadTargets {
             }
             return
         }
-        saveAssignedIndexNames @(assignIndexNames $folders (readStatusFile).Folders)
+        [void]((newIndexCatalog $workspace.Dir).AssignAndSaveNames($folders))
         $folders = @(getTargetFolders)
     }
     fillTargetItems $folders $checkedNames
@@ -391,7 +391,7 @@ function saveTargets {
     # 一覧を設定に書く。保存した旨のステータスは出す。-Quiet のときは出さない（更新を始めるときの保存は、更新を始めるか確認で決まるため、文を出さない）
     param ([switch]$Quiet)
 
-    writeTargetFolders @($script:targetItems | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Path = $_.Path; Enabled = $_.Enabled } })
+    (newIndexCatalog $workspace.Dir).SaveTargets(@($script:targetItems | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Path = $_.Path; Enabled = $_.Enabled } }))
     $script:savedTargets = getTargetsKey @(getTargetFolders)
     if (!$Quiet) {
         setStatus "インデックス一覧を保存しました（$(Get-Date -Format 'H:mm')）"
@@ -406,9 +406,9 @@ function updateIndexSourceFile {
     $folders = @($script:targetItems | Where-Object { $_.Name } | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Path = $_.Path } })
     $dir = [string]$workspace.IndexDir
     startJob {
-        param ($folders, $dir)
-        writeSourceFolderFile $folders $dir
-    } @(,$folders + @($dir)) {
+        param ($folders, $workspaceDir)
+        (newIndexCatalog $workspaceDir).WriteSourceFile($folders)
+    } @(,$folders + @([string]$workspace.Dir)) {
         param ($output, $errorText)
         if ($errorText) {
             setStatus (getSourceFolderFileFailedStatus $errorText)

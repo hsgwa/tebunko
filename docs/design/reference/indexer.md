@@ -13,7 +13,7 @@
 | `writeStatusFile` | folders（`@{Path; Name}` の配列）, rows, path（既定 `$workspace.StatusFile`） | – | 取り込み一覧を書き出す（先頭にクロール対象フォルダの行、1 ファイル 1 行。一時ファイルに書いてから置き換える） | 同上 | インデックス作成 |
 | `addStatusRow` | row, path（既定 `$workspace.StatusFile`） | – | 取り込み一覧の末尾に 1 行追記する | 同上 | インデックス作成 |
 | `readStatusLines` | path（既定 `$workspace.StatusFile`） | 行の配列 | 取り込み一覧を共有を許して 1 行ずつ読む | – | renameStatusIndexName, removeStatusIndexName |
-| `renameStatusIndexName` / `removeStatusIndexName` | oldName, newName, path / name, path | – | 取り込み一覧のインデックス名を書き換える / その記録を取り除く。行の順序と内容はそのまま保つ（`readStatusLines` で読み、`writeTextLinesAtomic` で置き換える） | [名前とフォルダパスの編集](../gui/index-tab.md#名前とフォルダパスの編集) | renameIndex, removeIndex |
+| `renameStatusIndexName` / `removeStatusIndexName` | oldName, newName, path / name, path | – | 取り込み一覧のインデックス名を書き換える / その記録を取り除く。行の順序と内容はそのまま保つ（`readStatusLines` で読み、`writeTextLinesAtomic` で置き換える） | [名前とフォルダパスの編集](../gui/index-tab.md#名前とフォルダパスの編集) | IndexCatalog.RenameIndex, RemoveIndex |
 | `readIngestingFiles` | path（既定 `$workspace.IngestingFile`） | `@{RelPath; Count}` の配列 | 取り込み中のファイルの記録（1 行に 1 ファイル。相対パスと、続けて取り込みを始めて終わらなかった回数）を読む。無ければ空。壊れた行は読み飛ばす | [取り込み一覧](../indexing/ingest-list.md#強制終了時間切れからの再開) | インデックス作成 |
 | `writeIngestingFiles` | entries（`@{RelPath; Count}` の配列）, path（既定 `$workspace.IngestingFile`） | – | 取り込み中のファイルを 1 行に 1 つ `<回数><TAB><相対パス>` で記録する。無ければ記録を消す | 同上 | インデックス作成 |
 | `removeIngestingFile` | path（既定 `$workspace.IngestingFile`） | – | 取り込み中のファイルの記録を削除する（無くてもエラーにしない） | 同上 | インデックス作成 |
@@ -66,12 +66,12 @@
 
 ### IngestPlanner（`tebunko/indexer/indexer_plan.ps1`。司令のスレッドで作る）
 
-クロール対象フォルダへの名前の割り当てと、クロールの結果から取り込む順番を決める。取り込み直すかの判断は `indexer_decide.ps1` の関数を `createTargetList` 経由で呼ぶ。計画の種類・状態の値はコンストラクタの `kinds`（`Unchecked`・`Missing`・`Dropped`・`StateFailed`。足りなければ例外）で、名前を保存する設定ファイルの場所は `settingsFile` で受け取る。メソッドは次の順に呼ぶ: `AssignNames` → `SaveNames` → `SelectOnly`（選んだときだけ）→ `Crawl` → `KeepForCancel`（取りやめるとき）か `ApplyFailed` → `ApplyInterrupted` → `FolderByName`。`AssignNames` の前に `Crawl` を呼ぶと例外にする。結果は `Folders`・`Previous`・`Dropped`・`Only`・`Rows`・`Targets`・`Failed`・`Cloud`（クラウドにだけあるファイル）・`Plan`・`RemovedPaths`・`Carried` で読む。
+クロール対象フォルダへの名前の割り当てと、クロールの結果から取り込む順番を決める。取り込み直すかの判断は `indexer_decide.ps1` の関数を `createTargetList` 経由で呼ぶ。計画の種類・状態の値はコンストラクタの `kinds`（`Unchecked`・`Missing`・`Dropped`・`StateFailed`。足りなければ例外）で、名前の保存は、`SaveNames` に司令が渡すスクリプトブロック（中身は `IndexCatalog.StoreAssignedNames`）で行う。メソッドは次の順に呼ぶ: `AssignNames` → `SaveNames` → `SelectOnly`（選んだときだけ）→ `Crawl` → `KeepForCancel`（取りやめるとき）か `ApplyFailed` → `ApplyInterrupted` → `FolderByName`。`AssignNames` の前に `Crawl` を呼ぶと例外にする。結果は `Folders`・`Previous`・`Dropped`・`Only`・`Rows`・`Targets`・`Failed`・`Cloud`（クラウドにだけあるファイル）・`Plan`・`RemovedPaths`・`Carried` で読む。
 
 | メソッド | 入力 | 出力 | 概要 |
 |---|---|---|---|
 | `AssignNames` | targetFolders, status（`@{Folders; Rows}`） | – | インデックス名を割り当て、前回の一覧と外れたインデックスを覚える |
-| `SaveNames` | targetFolders | – | 名前の無いフォルダがあったときだけ、割り当てた名前を設定（`settingsFile`）に保存し、`Folders` を保存した一覧にする（保存の間に設定から外れた・名前を付けられなかったフォルダは落とす。`saveAssignedIndexNames`） |
+| `SaveNames` | targetFolders, save（割り当てた名前を受け取って保存し、保存した一覧を返すスクリプトブロック） | – | 名前の無いフォルダがあったときだけ `save` を呼び、`Folders` を保存した一覧にする（保存の間に設定から外れた・名前を付けられなかったフォルダは落とす。司令は `IndexCatalog.StoreAssignedNames` を呼ぶ `save` を渡す） |
 | `SelectOnly` | onlyNames | 更新できない名前（`@{Name; Reason}` の並び） | 選んだインデックスだけを更新する場合の当てはめ |
 | `Crawl` | indexCounts, onFolder | – | フォルダごとに取り込み対象・チェックなし・フォルダなしに分け、`Rows`・`Targets`・`Failed`・`Plan` を組み立てる。`onFolder` は検索の直前に呼ぶ（進み具合を出す。例外は包まずにそのまま伝える） |
 | `KeepForCancel` | – | 取り込み一覧に書く行 | 取りやめるとき、取り込み対象の行（とクラウドにだけあって前回未完了の行）を前回の記録のままにする |
@@ -101,12 +101,26 @@
 | `getIndexNameMap` | path（既定 `$workspace.StatusFile`） | Dictionary（インデックス名 → フォルダパス） | 取り込み一覧のインデックス名からクロール対象フォルダを引く表。クロール対象フォルダの行は先頭にあるため、見出し行まで読んで打ち切る | 同上 | resolveSourcePath, 画面 |
 | `testStatusRowFailed` | row | bool | 取り込み一覧の行を失敗に数えるか。状態が `失敗` の行と、`未取り込み` でエラーの列に理由がある行（利用者の PowerPoint のために取り込めなかったファイル。次の更新で取り込むため状態は `未取り込み` のまま） | [取り込み一覧](../indexing/ingest-list.md) | `getIndexStats`・`getIndexingState` |
 | `getIndexStats` | rows（readStatusFile の Rows） | 名前 → `@{Total; Done; Pending; Failed; LastIngested}` | 取り込み一覧の行をインデックス名ごとに集計する（一覧の「ファイル」「最終取り込み」。`未取り込み` でエラーがある行は `Failed` に数え、`Pending` に数えない） | [一覧の列](../gui/index-tab.md#一覧の列) | 画面（getIndexingState 経由） |
-| `renameIndex` | oldName, newName, dir（既定 `$workspace.IndexDir`）, statusPath, settingsPath（既定 `$settingsFile`） | – | インデックス名を変える。`work\content_index\<旧名>` を改名し、取り込み一覧の記録（`renameStatusIndexName`）も書き換えるため、**インデックスは作り直さない**。移動先が既にあれば例外。旧名・新名の下の `searchExcludes` も消す（`removeSearchExcludesUnder`。付け替えず、外したフォルダは検索対象に戻る） | 同上 | 画面（詳細の名前の欄） |
-| `removeIndex` | name, dir（既定 `$workspace.IndexDir`）, statusPath, settingsPath（既定 `$settingsFile`） | – | インデックスを削除する。`work\content_index\<名前>` を中身ごと削除し、取り込み一覧からもその記録を取り除く（`removeStatusIndexName`）。そのインデックスの下の `searchExcludes` も消す（`removeSearchExcludesUnder`） | 同上 | 画面（［削除］） |
-| `removeIndexes` | names, dir, statusPath, settingsPath（`removeIndex` と同じ） | `@{Name; Ok; Reason}` の配列（名前ごと） | 選んだインデックスをまとめて削除する。`removeIndex` を 1 つずつ呼び、1 つ失敗しても残りを続ける（`Reason` は失敗の理由。空の名前は失敗にする）。画面は別スレッドの仕事の中で呼ぶ | 同上 | 画面（［削除］） |
 | `getSearchIndexes` | dir（既定 `$workspace.IndexDir`）, statusPath, settingsPath | `@{Name; Path; SourcePath}` の配列 | インデックスの一覧（`work\content_index` 直下のフォルダ 1 つがインデックス 1 つ）。並びは［インデックス管理］の一覧と同じで、一覧に無いもの（コピーしたインデックスなど）は名前順で後ろ。`SourcePath` は元のフォルダ（分からなければ空） | [インデックスの一覧](../search/index.md#インデックスの一覧getsearchindexes) | 画面（検索対象のツリー） |
 | `getIndexTreeData` | dir, paths（展開・チェックを外したフォルダ） | `@{State; Message; Root; Sources; ...}` | 検索対象ツリーの材料（ワークスペースの状態・インデックスの一覧・展開したフォルダの子）を 1 回で集める。ワークスペースがネットワークにあるときの裏の仕事で呼ぶ（届かなければ State と Message で知らせる） | [検索対象のツリー](../gui/search-tree.md) | 画面（検索対象のツリー） |
 | `getIndexFolderChildren` | dir | `@{HasFiles; Folders; Error}` | インデックスのフォルダの子（本のフォルダを除いた名前順）。読めなければ Error に文面を入れる | 同上 | 画面（ツリーの展開） |
+
+### IndexCatalog（`tebunko/index/index_catalog.ps1`。画面のスレッドで作る。別のスレッドの仕事の中では `newIndexCatalog` で作り直す）
+
+インデックスの改名・削除・名前の割り当て・一覧と元のフォルダの記録の保存。インデックス 1 つの情報が置かれている保存先（設定の `targetFolders`・取り込み一覧・インデックスのフォルダと `source_folder.txt`・設定の `searchExcludes`・`system_index`）のうち、改名・削除が書き換えるものの手順と順番、途中で失敗したときの扱いだけを持つ（一覧 `targetFolders` と元のフォルダの記録の書き直しは、画面が `SaveTargets`・`WriteSourceFile` で呼ぶ。改名のあとの記録は `RenameIndexWithSource` が書く）。保存先ごとの読み書きは既存の関数と、作る側が渡す `StatusLedger`（取り込み一覧）に任せる。場所はコンストラクタで受け取る `Workspace` と設定ファイルの場所で決める。作り方は `newIndexCatalog`（ワークスペースの場所の文字列から、`StatusLedger` も作って渡す）。以前の `index_store.ps1` の `renameIndex`・`removeIndex`・`removeIndexes` の手順をそのまま移したもの。
+
+| メソッド | 入力 | 出力 | 概要 | 詳細 | 使用元 |
+|---|---|---|---|---|---|
+| `RenameIndex` | oldName, newName | – | インデックス名を変える（旧 `renameIndex`）。`work\content_index\<旧名>` を改名し、取り込み一覧の記録（`StatusLedger.RenameIndexName`）も書き換えるため、**インデックスは作り直さない**。大文字・小文字だけの変更は一時名を経由する。移動先が既にあれば例外。`system_index` の古い名前の分と、旧名・新名の下の `searchExcludes`（`removeSearchExcludesUnder`。付け替えず、外したフォルダは検索対象に戻る）も消す。この 2 つの整理は、失敗しても止めない | [名前とフォルダパスの編集](../gui/index-tab.md#名前とフォルダパスの編集) | 画面（詳細の名前の欄） |
+| `RenameIndexWithSource` | oldName, newName, folders（`@{Name; Path}` の配列） | `@{SourceFolderError}` | `RenameIndex` のあと、元のフォルダの記録（`source_folder.txt`。`WriteSourceFile`）を書き直す。記録だけが失敗しても改名は成功にし、書けなかった理由を `SourceFolderError` で返す（成功なら空）。改名の失敗は例外のまま出す | 同上 | 画面（詳細の名前の欄。裏の仕事） |
+| `RemoveIndex` | name | – | インデックスを削除する（旧 `removeIndex`）。`work\content_index\<名前>` を中身ごと削除し（消せなければ例外にして、取り込み一覧の記録は残す）、取り込み一覧からもその記録を取り除く（`StatusLedger.RemoveIndexName`）。`system_index` とそのインデックスの下の `searchExcludes` も消す | 同上 | 画面（［削除］） |
+| `RemoveIndexes` | names | `@{Name; Ok; Reason}` の配列（名前ごと） | 選んだインデックスをまとめて削除する（旧 `removeIndexes`）。`RemoveIndex` を 1 つずつ呼び、1 つ失敗しても残りを続ける（`Reason` は失敗の理由。空の名前は失敗にする）。画面は別スレッドの仕事の中で呼ぶ | 同上 | 画面（［削除］） |
+| `newIndexCatalog` | workspaceDir, settingsPath（既定 `$settingsFile`） | `IndexCatalog` | ワークスペースの場所（文字列）から `IndexCatalog` を作る。取り込み一覧を書く `StatusLedger` も作って渡す。別のスレッドへはインスタンスを渡さず、場所を渡してこれで作り直す | – | 画面・裏の仕事 |
+| `AssertReachable` | – | – | ワークスペースに届かないときは例外にする（`assertWorkspaceReachable`）。削除・改名の裏の仕事の先頭で呼び、届かないのに設定だけ変えてしまうことを防ぐ | [ネットワーク上のワークスペース](../gui/network.md) | 画面（裏の仕事） |
+| `AssignAndSaveNames` | folders | 保存した一覧 | 名前の決まっていないインデックスに名前を割り当てて設定に保存し、保存した一覧を返す。取り込み一覧の読み込みは排他の外で済ませる | 同上 | 画面（`loadTargets`） |
+| `StoreAssignedNames` | assigned（`assignIndexNames` の結果） | 保存した一覧 | 割り当てた名前を設定に保存する（`saveAssignedIndexNames`） | – | インデクサ（司令。`IngestPlanner.SaveNames` に渡す） |
+| `SaveTargets` | folders（`@{Name; Path; Enabled}` の配列） | – | インデックスの一覧を設定の `targetFolders` に書く（`writeTargetFolders`） | – | 画面（`saveTargets`） |
+| `WriteSourceFile` | folders（`@{Name; Path}` の配列） | – | インデックスのフォルダの `source_folder.txt` を一覧に合わせて書き直す（`writeSourceFolderFile`。インデックスが無いフォルダには書かない） | – | 画面（`applyIndexEdit`） |
 
 ## インデックスのエクスポート・インポート（`tebunko/index/index_archive_rules.ps1`・`index_archive.ps1`）
 
