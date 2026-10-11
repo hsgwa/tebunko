@@ -41,6 +41,45 @@ BeforeAll {
         return @{ Runspace = $runspace; Prelude = $load.Prelude }
     }
 
+    # 単一 .ps1 の中身（byte[]）を別プロセスの Windows PowerShell 5.1 で `-File` 起動する（`-Part indexer`。画面も取り込みも始めない）。
+    # 壊れた setting.config を置くので、日本語の記録（indexing_log.txt）が正しく出るのは、ファイルを正しい文字コードで読めたときだけ。
+    # 書き先（ワークスペース・USERPROFILE・LOCALAPPDATA・APPDATA）は、すべて testRoot の下に向ける
+    function invokeEncodingProbe {
+        param ([string]$testRoot, [string]$name, [byte[]]$content)
+        $caseDir = Join-Path $testRoot $name
+        New-Item -ItemType Directory -Force -Path "$caseDir\profile\Local", "$caseDir\profile\Roaming" | Out-Null
+        $script = Join-Path $caseDir "tebunko.ps1"
+        [System.IO.File]::WriteAllBytes($script, $content)
+        [System.IO.File]::WriteAllText("$caseDir\setting.config", '{ "targetFolders": [', ${utf8Bom})
+        $workspace = Join-Path $caseDir "ws"
+
+        $psi = New-Object System.Diagnostics.ProcessStartInfo (Join-Path $PSHOME "powershell.exe")
+        $psi.Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$script`" -Part indexer"
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        $psi.EnvironmentVariables["TEBUNKO_DEFAULT_WORKSPACE"] = $workspace
+        $psi.EnvironmentVariables["USERPROFILE"] = "$caseDir\profile"
+        $psi.EnvironmentVariables["LOCALAPPDATA"] = "$caseDir\profile\Local"
+        $psi.EnvironmentVariables["APPDATA"] = "$caseDir\profile\Roaming"
+        $process = [System.Diagnostics.Process]::Start($psi)
+        try {
+            $stdout = $process.StandardOutput.ReadToEndAsync()
+            $stderr = $process.StandardError.ReadToEndAsync()
+            if (-not $process.WaitForExit(120000)) { throw "${name}: 起動したプロセスが 120 秒で終わりませんでした" }
+            $errorText = $stderr.Result
+            $null = $stdout.Result
+            $exitCode = $process.ExitCode
+        } finally {
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+        }
+        $logPath = Join-Path $workspace "indexing_log.txt"
+        $log = if (Test-Path -LiteralPath $logPath) { [System.IO.File]::ReadAllText($logPath) } else { "" }
+        $broken = @(Get-ChildItem -LiteralPath $caseDir -Filter "setting.config.broken-*").Count
+        return @{ ExitCode = $exitCode; Log = $log; ErrorText = $errorText; Broken = $broken }
+    }
+
     function findLine {
         param ([string]$path, [string]$pattern)
         $lines = [System.IO.File]::ReadAllLines($path)
@@ -119,6 +158,29 @@ Describe "new_single_script.ps1 の道具の検査" -Tag Io {
     It "版の文字列が引数（タグ・今のコミットの SHA）と同じ" {
         $text.Contains("Tag = 'v9.9.9'; Sha = '$headSha'") | Should -Be $true
     }
+    It "別プロセスの Windows PowerShell 5.1 で `-File` 起動する（<name>）" -TestCases @(
+        @{ name = "BOM 付きの作ったままのファイルは、構文エラーも文字化けも無く本体が動き、日本語の記録が正しく出る"; withBom = $true }
+        @{ name = "BOM が落ちたファイル（メモ帳などの保存し直しと同じ）は、日本語が化けて正しい記録が出ない（化けを見つけられることの確認）"; withBom = $false }
+    ) {
+        param ($name, $withBom)
+        $expectedLog = "設定ファイルが壊れていたため、既定の設定で起動しました"
+        if ($withBom) {
+            $result = invokeEncodingProbe $TestDrive "with-bom" $bytes
+            $result.ErrorText | Should -Not -Match "ParserError"
+            $result.ExitCode | Should -Be 1
+            $result.Broken | Should -Be 1
+            $result.Log | Should -Match $expectedLog
+        } else {
+            if ([System.Text.Encoding]::Default.CodePage -eq 65001) {
+                Set-ItResult -Skipped -Because "システムの既定が UTF-8 の機械では、BOM が無くても正しく読めるため"
+                return
+            }
+            $noBom = New-Object byte[] ($bytes.Length - 3)
+            [System.Array]::Copy($bytes, 3, $noBom, 0, $noBom.Length)
+            $result = invokeEncodingProbe $TestDrive "without-bom" $noBom
+            $result.Log | Should -Not -Match $expectedLog
+        }
+    }
 }
 
 Describe "script_rules.ps1 の関数（new_single_script.ps1 の道具の検査が使う判定）" -Tag Unit {
@@ -166,6 +228,7 @@ $x = 1 # Invoke-WebRequest も行内コメントなら見ない
         $hits | Should -Match "Network"
         (@([regex]::Matches($hits, "Network")).Count) | Should -Be 1
     }
+
 }
 
 Describe "新しい runspace での部品（lib）の読み込み（結合した単一 .ps1。getPartLoad の経路）" -Tag Slow {
@@ -215,57 +278,6 @@ Describe "新しい runspace での部品（lib）の読み込み（結合した
             $ps.Dispose()
             $runspace.Dispose()
         }
-    }
-}
-
-Describe "別プロセスの Windows PowerShell 5.1 で `-File` 起動したときの文字コード（結合した単一 .ps1）" -Tag Io {
-    BeforeAll {
-        $dir = Join-Path $TestDrive "encoding"
-        New-Item -ItemType Directory -Force -Path $dir | Out-Null
-        $built = Join-Path $dir "tebunko-v9.9.9-encoding.ps1"
-        & $tool -Version "v9.9.9" -OutFile $built | Out-Null
-        $builtBytes = [System.IO.File]::ReadAllBytes($built)
-
-        # 画面も取り込みも始めない軽い口として、壊れた setting.config を置いた `-Part indexer` を使う。
-        # 日本語の記録（indexing_log.txt）が正しく出るのは、ファイルを正しい文字コードで読めたときだけ。
-        function invokeEncodingProbe {
-            param ([string]$name, [byte[]]$content)
-            $caseDir = Join-Path $dir $name
-            New-Item -ItemType Directory -Force -Path $caseDir | Out-Null
-            $script = Join-Path $caseDir "tebunko.ps1"
-            [System.IO.File]::WriteAllBytes($script, $content)
-            [System.IO.File]::WriteAllText("$caseDir\setting.config", '{ "targetFolders": [', ${utf8Bom})
-            $workspace = Join-Path $caseDir "ws"
-            $previousWorkspace = $env:TEBUNKO_DEFAULT_WORKSPACE
-            $env:TEBUNKO_DEFAULT_WORKSPACE = $workspace
-            # 構文エラーの文が標準エラーに出ても、テストを中断させない
-            $previousPreference = $ErrorActionPreference
-            $ErrorActionPreference = "Continue"
-            try {
-                & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $script -Part indexer *> $null
-                $exitCode = $LASTEXITCODE
-            } finally {
-                $ErrorActionPreference = $previousPreference
-                $env:TEBUNKO_DEFAULT_WORKSPACE = $previousWorkspace
-            }
-            $logPath = Join-Path $workspace "indexing_log.txt"
-            $log = if (Test-Path -LiteralPath $logPath) { [System.IO.File]::ReadAllText($logPath) } else { "" }
-            return @{ ExitCode = $exitCode; Log = $log }
-        }
-    }
-
-    It "BOM 付きで作ったままのファイルは、文字化けも構文エラーも無く起動し、日本語の記録が正しく出る" {
-        $result = invokeEncodingProbe "with-bom" $builtBytes
-
-        $result.ExitCode | Should -Be 1
-        $result.Log | Should -Match "設定ファイルが壊れていたため、既定の設定で起動しました"
-    }
-
-    It "BOM が落ちたファイル（メモ帳などの保存し直しと同じ）は、日本語が化けて正しい記録が出ない（このテストが化けを見つけられることの確認）" {
-        $withoutBom = $builtBytes[3..($builtBytes.Length - 1)]
-        $result = invokeEncodingProbe "without-bom" $withoutBom
-
-        $result.Log | Should -Not -Match "設定ファイルが壊れていたため、既定の設定で起動しました"
     }
 }
 
