@@ -218,6 +218,57 @@ Describe "新しい runspace での部品（lib）の読み込み（結合した
     }
 }
 
+Describe "別プロセスの Windows PowerShell 5.1 で `-File` 起動したときの文字コード（結合した単一 .ps1）" -Tag Io {
+    BeforeAll {
+        $dir = Join-Path $TestDrive "encoding"
+        New-Item -ItemType Directory -Force -Path $dir | Out-Null
+        $built = Join-Path $dir "tebunko-v9.9.9-encoding.ps1"
+        & $tool -Version "v9.9.9" -OutFile $built | Out-Null
+        $builtBytes = [System.IO.File]::ReadAllBytes($built)
+
+        # 画面も取り込みも始めない軽い口として、壊れた setting.config を置いた `-Part indexer` を使う。
+        # 日本語の記録（indexing_log.txt）が正しく出るのは、ファイルを正しい文字コードで読めたときだけ。
+        function invokeEncodingProbe {
+            param ([string]$name, [byte[]]$content)
+            $caseDir = Join-Path $dir $name
+            New-Item -ItemType Directory -Force -Path $caseDir | Out-Null
+            $script = Join-Path $caseDir "tebunko.ps1"
+            [System.IO.File]::WriteAllBytes($script, $content)
+            [System.IO.File]::WriteAllText("$caseDir\setting.config", '{ "targetFolders": [', ${utf8Bom})
+            $workspace = Join-Path $caseDir "ws"
+            $previousWorkspace = $env:TEBUNKO_DEFAULT_WORKSPACE
+            $env:TEBUNKO_DEFAULT_WORKSPACE = $workspace
+            # 構文エラーの文が標準エラーに出ても、テストを中断させない
+            $previousPreference = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"
+            try {
+                & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $script -Part indexer *> $null
+                $exitCode = $LASTEXITCODE
+            } finally {
+                $ErrorActionPreference = $previousPreference
+                $env:TEBUNKO_DEFAULT_WORKSPACE = $previousWorkspace
+            }
+            $logPath = Join-Path $workspace "indexing_log.txt"
+            $log = if (Test-Path -LiteralPath $logPath) { [System.IO.File]::ReadAllText($logPath) } else { "" }
+            return @{ ExitCode = $exitCode; Log = $log }
+        }
+    }
+
+    It "BOM 付きで作ったままのファイルは、文字化けも構文エラーも無く起動し、日本語の記録が正しく出る" {
+        $result = invokeEncodingProbe "with-bom" $builtBytes
+
+        $result.ExitCode | Should -Be 1
+        $result.Log | Should -Match "設定ファイルが壊れていたため、既定の設定で起動しました"
+    }
+
+    It "BOM が落ちたファイル（メモ帳などの保存し直しと同じ）は、日本語が化けて正しい記録が出ない（このテストが化けを見つけられることの確認）" {
+        $withoutBom = $builtBytes[3..($builtBytes.Length - 1)]
+        $result = invokeEncodingProbe "without-bom" $withoutBom
+
+        $result.Log | Should -Not -Match "設定ファイルが壊れていたため、既定の設定で起動しました"
+    }
+}
+
 Describe "`-Part indexer`（結合した単一 .ps1）" -Tag Slow {
     It "壊れた setting.config を置いて起動すると、設定を退避し、クロール対象フォルダが無い状態まで正常に進んで終わる（応答なしにならない）" {
         $dir = Join-Path $TestDrive "broken"
