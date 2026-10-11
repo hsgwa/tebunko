@@ -111,5 +111,5 @@
 | `getEnvironmentInfo` | – | hashtable | OS・PowerShell・Office・表示言語を調べる。項目ごとに調べ、失敗した項目は空にする（Office を調べている途中で失敗したら `$null`。見出しでは `不明`）。レジストリ・WMI・COM は使わず、Office は起動しない | `getToolDiagnosticHeader` |
 | `findOfficeApps` | programFiles64, programFilesX86（省略すると Windows のあるドライブの決まった名前）, os64 | `@{Name; Version; Kind; Bits}` の配列 | `Program Files` の決まった場所の EXCEL・WINWORD・POWERPNT を探し、ファイルの版を読む。32 ビットの Windows では `Program Files` の Office を 32 ビットとする。例外は投げたまま（呼び出し側が `不明` にする） | `getEnvironmentInfo` |
 | `getPreviousLogPath` | path | string | `<名前>_previous<拡張子>`（同じフォルダ） | `rotateLogFile` |
-| `rotateLogFile` | path, maxBytes | bool | ファイルが maxBytes 以上なら `_previous` へ移す（あれば `File.Replace` で置き換える。今のログが移せないときも前回の分は消えない）。maxBytes が 0 なら、あれば必ず移す。移したら `$true`、ファイルが無い・小さい・移せないときは `$false`（例外にしない） | `invokeIndexer`, `writeErrorLog` |
+| `rotateLogFile` | path, maxBytes | bool | ファイルが maxBytes 以上なら `_previous` へ移す（あれば `File.Replace` で置き換える。今のログが移せないときは、どちらにも触らない）。maxBytes が 0 なら、あれば必ず移す。移したら `$true`、ファイルが無い・小さい・移せないときは `$false`（例外にしない） | `invokeIndexer`, `writeErrorLog` |
 | `getToolDiagnosticHeader` | – | string[] | このツールの版（`VERSION.txt`）と環境の見出し | `invokeIndexer`, `getGuiErrorLogHeader` |

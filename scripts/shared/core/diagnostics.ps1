@@ -101,29 +101,9 @@ function rotateLogFile {
         }
         $previous = getPreviousLogPath $path
         if ([System.IO.File]::Exists($previous)) {
-            # 置き換えは、移せないとき前回の分を残す（先に消さない）
-            try {
-                [System.IO.File]::Replace($path, $previous, [NullString]::Value)
-            } catch {
-                # Replace を使えない置き場所（共有フォルダなど）では、一時の名前へ複写し、元を消せたときだけ前回の分に重ねる。
-                # 複写できない・元を消せない（ほかが読み取りの共有だけで開いている）ときは、一時を消して前回の分に触らない
-                $temp = $previous + ".tmp"
-                try {
-                    [System.IO.File]::Copy($path, $temp, $true)
-                    [System.IO.File]::Delete($path)
-                } catch {
-                    try { [System.IO.File]::Delete($temp) } catch {}
-                    throw
-                }
-                try {
-                    [System.IO.File]::Delete($previous)
-                    [System.IO.File]::Move($temp, $previous)
-                } catch {
-                    # 前回の分に重ねられなかった。元は消えているので、一時を元の名前に戻す
-                    try { [System.IO.File]::Move($temp, $path) } catch {}
-                    throw
-                }
-            }
+            # 置き換えは、移せない（前回の分が読み取り専用・元が開いたまま・置き場所が対応しない）とき、
+            # どちらにも触らずに失敗する。複写や削除の逃げ道は作らない
+            [System.IO.File]::Replace($path, $previous, [NullString]::Value)
         } else {
             [System.IO.File]::Move($path, $previous)
         }

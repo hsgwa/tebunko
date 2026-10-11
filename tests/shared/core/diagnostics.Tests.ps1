@@ -69,12 +69,17 @@ Describe "rotateLogFile" -Tag Io {
             [System.IO.File]::SetAttributes($script:prev, [System.IO.FileAttributes]::Normal)
         }
         [System.IO.File]::ReadAllText($script:prev) | Should -Be "古い"
+        [System.IO.File]::ReadAllText($script:log) | Should -Be "新しい"
+        [System.IO.File]::Exists($script:prev + ".tmp") | Should -Be $false
     }
 
-    It "今のログがほかに読み取りの共有だけで開かれていて消せないとき、前回の分は変わらず元も残り、一時ファイルを残さない" {
+    It "今のログが開いたまま（共有 <share>）で置き換えられないとき、前回の分は変わらず元も残り、一時ファイルを残さない" -ForEach @(
+        @{ share = "None" }
+        @{ share = "ReadWrite" }
+    ) {
         [System.IO.File]::WriteAllText($script:prev, "古い")
         [System.IO.File]::WriteAllText($script:log, "新しい")
-        $stream = [System.IO.File]::Open($script:log, "Open", "Read", "ReadWrite")
+        $stream = [System.IO.File]::Open($script:log, "Open", "Read", $share)
         try {
             rotateLogFile $script:log 0 | Should -Be $false
         } finally {
@@ -83,19 +88,6 @@ Describe "rotateLogFile" -Tag Io {
         [System.IO.File]::ReadAllText($script:prev) | Should -Be "古い"
         [System.IO.File]::ReadAllText($script:log) | Should -Be "新しい"
         [System.IO.File]::Exists($script:prev + ".tmp") | Should -Be $false
-    }
-
-    It "今のログが開いたままで移せないとき、前回の分は消えずに残る" {
-        [System.IO.File]::WriteAllText($script:prev, "古い")
-        [System.IO.File]::WriteAllText($script:log, "新しい")
-        $stream = [System.IO.File]::Open($script:log, "Open", "Read", "None")
-        try {
-            rotateLogFile $script:log 0 | Should -Be $false
-        } finally {
-            $stream.Dispose()
-        }
-        [System.IO.File]::ReadAllText($script:prev) | Should -Be "古い"
-        [System.IO.File]::ReadAllText($script:log) | Should -Be "新しい"
     }
 }
 
