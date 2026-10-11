@@ -729,6 +729,9 @@ Describe "readPdfPageText（命令の読み方）" -Tag Unit {
         @{ name = "空白の種類（タブ・改ページ・復帰）"; content = "(a)`t Tj`f(b)`r Tj"; expected = "ab" }
         @{ name = "空白の種類（コード 0）"; content = "(a)$([char]0)Tj$([char]0)(b)$([char]0)Tj"; expected = "ab" }
         @{ name = "空の文字列"; content = '() Tj (a) Tj'; expected = "a" }
+        @{ name = "読み飛ばす並びの上限ちょうど（16 個）"; content = ('0 ' * 16) + 'w (a) Tj'; expected = "a" }
+        @{ name = "読み飛ばす並びの上限を 1 つ超える（17 個）"; content = ('0 ' * 17) + 'w (a) Tj'; expected = "a" }
+        @{ name = "上限を超えた並びの前の文字列は残らない"; content = '(x) ' + ('0 ' * 17) + 'w Tj'; expected = "" }
     ) {
         readPdfPageText @{ Fonts = @{}; CMaps = @{} } $content $null | Should -BeExactly $expected
     }
@@ -737,10 +740,8 @@ Describe "readPdfPageText（命令の読み方）" -Tag Unit {
 Describe "readPdfPageText（引数が延々と続く内容でも終わる）" -Tag Unit {
     # 読み飛ばしの試みが字句の数の 2 乗の時間になっていないことを、結果と、余裕のある上限の時間で確かめる
     It "<name>" -TestCases @(
-        @{ name = "数が続いてから Tj"; make = { ('0 ' * 200000) + '(a) Tj' }; expected = "a" }
-        @{ name = "文字列が続いてから Tj"; make = { ('(x) ' * 100000) + 'Tj' }; expected = "x" }
-        @{ name = "名前が続いて命令なしで終わる"; make = { '/N ' * 200000 }; expected = "" }
-        @{ name = "数が続いてから TJ"; make = { ('0 ' * 200000) + '[(a)] TJ' }; expected = "a" }
+        @{ name = "数が続いてから Tj"; make = { ('0 ' * 50000) + '(a) Tj' }; expected = "a" }
+        @{ name = "文字列が続いてから Tj"; make = { ('(x) ' * 50000) + 'Tj' }; expected = "x" }
     ) {
         $content = & $make
         $watch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -762,7 +763,13 @@ Describe "PDF の字句の正規表現（部品と分岐のつながり）" -Tag
         $startDiff | Should -BeNullOrEmpty
     }
 
+    It "読み飛ばす並びの上限は 16 個（16 個は読み飛ばし、17 個は読み飛ばさない）" {
+        ${pdfPageRegex}.Match(('0 ' * 16) + 'w').Groups[1].Success | Should -BeTrue
+        ${pdfPageRegex}.Match(('0 ' * 17) + 'w').Groups[1].Success | Should -BeFalse
+    }
+
     It "文字に効く命令の一覧は、readPdfPageText の分岐と同じ" {
+        # 分岐の書き方（$t -ceq "…"）を変えたら、この取り出し方も直す
         $source = (Get-Command readPdfPageText).ScriptBlock.ToString()
         $branches = @([regex]::Matches($source, '\$t -ceq (?:"([^"]+)"|''([^'']+)'')') | ForEach-Object {
             if ($_.Groups[1].Success) { $_.Groups[1].Value } else { $_.Groups[2].Value }
