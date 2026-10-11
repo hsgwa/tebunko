@@ -2927,10 +2927,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#名前を変えたときの処理renameindex" class="md-nav__link">
+  <a href="#名前を変えたときの処理" class="md-nav__link">
     <span class="md-ellipsis">
       
-        名前を変えたときの処理（renameIndex）
+        名前を変えたときの処理
       
     </span>
   </a>
@@ -2938,10 +2938,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#削除したときの処理removeindex" class="md-nav__link">
+  <a href="#削除したときの処理" class="md-nav__link">
     <span class="md-ellipsis">
       
-        削除したときの処理（removeIndex）
+        削除したときの処理
       
     </span>
   </a>
@@ -4166,10 +4166,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#名前を変えたときの処理renameindex" class="md-nav__link">
+  <a href="#名前を変えたときの処理" class="md-nav__link">
     <span class="md-ellipsis">
       
-        名前を変えたときの処理（renameIndex）
+        名前を変えたときの処理
       
     </span>
   </a>
@@ -4177,10 +4177,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#削除したときの処理removeindex" class="md-nav__link">
+  <a href="#削除したときの処理" class="md-nav__link">
     <span class="md-ellipsis">
       
-        削除したときの処理（removeIndex）
+        削除したときの処理
       
     </span>
   </a>
@@ -4258,7 +4258,7 @@
 <tr>
 <td>4</td>
 <td>［削除…］</td>
-<td>［アクション ▾］のメニューの項目（行の右クリックのメニューの［削除］・Delete キーでも同じ）。チェックを付けた行に対して動く（1 件は下の確認、2 件以上は 1 回の確認でまとめて削除する）。確認ダイアログ（<a href="../common/#確認ダイアログshowconfirm">確認ダイアログ</a>）で確認する。見出しは 1 件なら <code>「&lt;名前&gt;」のインデックスを削除しますか？</code>、2 件以上なら <code>選んだ N 件のインデックスを削除しますか？</code>。本文は 2 件以上なら <code>「A」「B」を削除します。元のファイルは削除されません。</code>（名前は 3 件まで。4 件以上は <code>「A」「B」「C」ほか N 件を削除します。…</code> と、残りの件数を添える。1 件は <code>元のファイルは削除されません。</code> だけ。<code>getIndexDeleteConfirmMessage</code>）、ボタンは赤い［削除する］（既定は［キャンセル］）。［削除する］で、削除が終わってから一覧から外して設定を保存する（ワークスペースに届かないときは、一覧も設定も変えずに、失敗をステータスに出す）。<code>work\content_index\&lt;名前&gt;</code> と取り込み一覧の記録の削除（<code>removeIndex</code>）は<strong>別スレッド</strong>で行う（数万フォルダでは数十秒かかることがあり、画面のスレッドで行うと「応答なし」になるため）。削除の間はステータスに <code>インデックス [&lt;名前&gt;] を削除しています…（件数によっては少し時間がかかります）</code> と出し、インデックスの操作・インデックス作成の開始はできないようにする。終わったらステータスに <code>インデックス [&lt;名前&gt;] を削除しました</code> と表示する</td>
+<td>［アクション ▾］のメニューの項目（行の右クリックのメニューの［削除］・Delete キーでも同じ）。チェックを付けた行に対して動く（1 件は下の確認、2 件以上は 1 回の確認でまとめて削除する）。確認ダイアログ（<a href="../common/#確認ダイアログshowconfirm">確認ダイアログ</a>）で確認する。見出しは 1 件なら <code>「&lt;名前&gt;」のインデックスを削除しますか？</code>、2 件以上なら <code>選んだ N 件のインデックスを削除しますか？</code>。本文は 2 件以上なら <code>「A」「B」を削除します。元のファイルは削除されません。</code>（名前は 3 件まで。4 件以上は <code>「A」「B」「C」ほか N 件を削除します。…</code> と、残りの件数を添える。1 件は <code>元のファイルは削除されません。</code> だけ。<code>getIndexDeleteConfirmMessage</code>）、ボタンは赤い［削除する］（既定は［キャンセル］）。［削除する］で、削除が終わってから一覧から外して設定を保存する（ワークスペースに届かないときは、一覧も設定も変えずに、失敗をステータスに出す）。<code>work\content_index\&lt;名前&gt;</code> と取り込み一覧の記録の削除（<code>IndexCatalog.RemoveIndex</code>）は<strong>別スレッド</strong>で行う（数万フォルダでは数十秒かかることがあり、画面のスレッドで行うと「応答なし」になるため）。削除の間はステータスに <code>インデックス [&lt;名前&gt;] を削除しています…（件数によっては少し時間がかかります）</code> と出し、インデックスの操作・インデックス作成の開始はできないようにする。終わったらステータスに <code>インデックス [&lt;名前&gt;] を削除しました</code> と表示する</td>
 </tr>
 <tr>
 <td>5</td>
@@ -4454,7 +4454,7 @@
 </tbody>
 </table>
 <p>フォルダが見つからない場合も追加・変更できる（一覧の「フォルダの状態」に <code>✗ フォルダが見つかりません</code> と出す）。ネットワークドライブが一時的に切れている場合に登録できなくなるのを避けるため。</p>
-<h3 id="名前を変えたときの処理renameindex">名前を変えたときの処理（<code>renameIndex</code>）<a class="headerlink" href="#名前を変えたときの処理renameindex" title="Permanent link">&para;</a></h3>
+<h3 id="名前を変えたときの処理">名前を変えたときの処理<a class="headerlink" href="#名前を変えたときの処理" title="Permanent link">&para;</a></h3>
 <pre class="mermaid"><code>flowchart TD
     A["work\content_index\旧名→新名 に改名&lt;br&gt;（\\?\ 付き）"] --&gt; B["取り込み一覧の名前・相対パスを書き換え&lt;br&gt;（renameStatusIndexName）"]
     B --&gt; C["targetFolders[].name を保存・source_folder.txt を書き直す&lt;br&gt;（updateIndexSourceFile）"]
@@ -4466,7 +4466,7 @@
 <li><code>setting.config</code> の <code>targetFolders[].name</code> を保存し、各インデックスの元のフォルダの記録（<code>source_folder.txt</code>）を書き直す（<code>updateIndexSourceFile</code>。裏で書く）</li>
 <li>検索対象のツリーでチェックを外していたフォルダの記録（<code>searchExcludes</code>）のうち、旧名・新名の下のものを消す（<code>removeSearchExcludesUnder</code>）。付け替えないため、外していたフォルダは検索対象に戻る。消せなくても改名は止めず、画面にエラーも出さない</li>
 </ol>
-<h3 id="削除したときの処理removeindex">削除したときの処理（<code>removeIndex</code>）<a class="headerlink" href="#削除したときの処理removeindex" title="Permanent link">&para;</a></h3>
+<h3 id="削除したときの処理">削除したときの処理<a class="headerlink" href="#削除したときの処理" title="Permanent link">&para;</a></h3>
 <pre class="mermaid"><code>flowchart TD
     A["work\content_index\名前 を中身ごと削除&lt;br&gt;（別スレッド）"] --&gt; B["取り込み一覧から行を除く&lt;br&gt;（removeStatusIndexName）"]
     B --&gt; C["setting.config から外して保存&lt;br&gt;元のフォルダの記録を書き直す"]

@@ -4022,6 +4022,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="インデックス名とインデックスの管理（tebunko/index/index_name.ps1・index_store.ps1）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#indexcatalogtebunkoindexindex_catalogps1画面のスレッドで作る別のスレッドの仕事の中では-newindexcatalog-で作り直す" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        IndexCatalog（tebunko/index/index_catalog.ps1。画面のスレッドで作る。別のスレッドの仕事の中では newIndexCatalog で作り直す）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4222,6 +4239,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="インデックス名とインデックスの管理（tebunko/index/index_name.ps1・index_store.ps1）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#indexcatalogtebunkoindexindex_catalogps1画面のスレッドで作る別のスレッドの仕事の中では-newindexcatalog-で作り直す" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        IndexCatalog（tebunko/index/index_catalog.ps1。画面のスレッドで作る。別のスレッドの仕事の中では newIndexCatalog で作り直す）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4332,7 +4366,7 @@
 <td>–</td>
 <td>取り込み一覧のインデックス名を書き換える / その記録を取り除く。行の順序と内容はそのまま保つ（<code>readStatusLines</code> で読み、<code>writeTextLinesAtomic</code> で置き換える）</td>
 <td><a href="../../gui/index-tab/#名前とフォルダパスの編集">名前とフォルダパスの編集</a></td>
-<td>renameIndex, removeIndex</td>
+<td>IndexCatalog.RenameIndex, RemoveIndex</td>
 </tr>
 <tr>
 <td><code>readIngestingFiles</code></td>
@@ -4573,7 +4607,7 @@
 </tbody>
 </table>
 <h3 id="ingestplannertebunkoindexerindexer_planps1司令のスレッドで作る">IngestPlanner（<code>tebunko/indexer/indexer_plan.ps1</code>。司令のスレッドで作る）<a class="headerlink" href="#ingestplannertebunkoindexerindexer_planps1司令のスレッドで作る" title="Permanent link">&para;</a></h3>
-<p>クロール対象フォルダへの名前の割り当てと、クロールの結果から取り込む順番を決める。取り込み直すかの判断は <code>indexer_decide.ps1</code> の関数を <code>createTargetList</code> 経由で呼ぶ。計画の種類・状態の値はコンストラクタの <code>kinds</code>（<code>Unchecked</code>・<code>Missing</code>・<code>Dropped</code>・<code>StateFailed</code>。足りなければ例外）で、名前を保存する設定ファイルの場所は <code>settingsFile</code> で受け取る。メソッドは次の順に呼ぶ: <code>AssignNames</code> → <code>SaveNames</code> → <code>SelectOnly</code>（選んだときだけ）→ <code>Crawl</code> → <code>KeepForCancel</code>（取りやめるとき）か <code>ApplyFailed</code> → <code>ApplyInterrupted</code> → <code>FolderByName</code>。<code>AssignNames</code> の前に <code>Crawl</code> を呼ぶと例外にする。結果は <code>Folders</code>・<code>Previous</code>・<code>Dropped</code>・<code>Only</code>・<code>Rows</code>・<code>Targets</code>・<code>Failed</code>・<code>Cloud</code>（クラウドにだけあるファイル）・<code>Plan</code>・<code>RemovedPaths</code>・<code>Carried</code> で読む。</p>
+<p>クロール対象フォルダへの名前の割り当てと、クロールの結果から取り込む順番を決める。取り込み直すかの判断は <code>indexer_decide.ps1</code> の関数を <code>createTargetList</code> 経由で呼ぶ。計画の種類・状態の値はコンストラクタの <code>kinds</code>（<code>Unchecked</code>・<code>Missing</code>・<code>Dropped</code>・<code>StateFailed</code>。足りなければ例外）で、名前の保存は、<code>SaveNames</code> に司令が渡すスクリプトブロック（中身は <code>IndexCatalog.StoreAssignedNames</code>）で行う。メソッドは次の順に呼ぶ: <code>AssignNames</code> → <code>SaveNames</code> → <code>SelectOnly</code>（選んだときだけ）→ <code>Crawl</code> → <code>KeepForCancel</code>（取りやめるとき）か <code>ApplyFailed</code> → <code>ApplyInterrupted</code> → <code>FolderByName</code>。<code>AssignNames</code> の前に <code>Crawl</code> を呼ぶと例外にする。結果は <code>Folders</code>・<code>Previous</code>・<code>Dropped</code>・<code>Only</code>・<code>Rows</code>・<code>Targets</code>・<code>Failed</code>・<code>Cloud</code>（クラウドにだけあるファイル）・<code>Plan</code>・<code>RemovedPaths</code>・<code>Carried</code> で読む。</p>
 <table>
 <thead>
 <tr>
@@ -4592,9 +4626,9 @@
 </tr>
 <tr>
 <td><code>SaveNames</code></td>
-<td>targetFolders</td>
+<td>targetFolders, save（割り当てた名前を受け取って保存し、保存した一覧を返すスクリプトブロック）</td>
 <td>–</td>
-<td>名前の無いフォルダがあったときだけ、割り当てた名前を設定（<code>settingsFile</code>）に保存し、<code>Folders</code> を保存した一覧にする（保存の間に設定から外れた・名前を付けられなかったフォルダは落とす。<code>saveAssignedIndexNames</code>）</td>
+<td>名前の無いフォルダがあったときだけ <code>save</code> を呼び、<code>Folders</code> を保存した一覧にする（保存の間に設定から外れた・名前を付けられなかったフォルダは落とす。司令は <code>IndexCatalog.StoreAssignedNames</code> を呼ぶ <code>save</code> を渡す）</td>
 </tr>
 <tr>
 <td><code>SelectOnly</code></td>
@@ -4767,30 +4801,6 @@
 <td>画面（getIndexingState 経由）</td>
 </tr>
 <tr>
-<td><code>renameIndex</code></td>
-<td>oldName, newName, dir（既定 <code>$workspace.IndexDir</code>）, statusPath, settingsPath（既定 <code>$settingsFile</code>）</td>
-<td>–</td>
-<td>インデックス名を変える。<code>work\content_index\&lt;旧名&gt;</code> を改名し、取り込み一覧の記録（<code>renameStatusIndexName</code>）も書き換えるため、<strong>インデックスは作り直さない</strong>。移動先が既にあれば例外。旧名・新名の下の <code>searchExcludes</code> も消す（<code>removeSearchExcludesUnder</code>。付け替えず、外したフォルダは検索対象に戻る）</td>
-<td>同上</td>
-<td>画面（詳細の名前の欄）</td>
-</tr>
-<tr>
-<td><code>removeIndex</code></td>
-<td>name, dir（既定 <code>$workspace.IndexDir</code>）, statusPath, settingsPath（既定 <code>$settingsFile</code>）</td>
-<td>–</td>
-<td>インデックスを削除する。<code>work\content_index\&lt;名前&gt;</code> を中身ごと削除し、取り込み一覧からもその記録を取り除く（<code>removeStatusIndexName</code>）。そのインデックスの下の <code>searchExcludes</code> も消す（<code>removeSearchExcludesUnder</code>）</td>
-<td>同上</td>
-<td>画面（［削除］）</td>
-</tr>
-<tr>
-<td><code>removeIndexes</code></td>
-<td>names, dir, statusPath, settingsPath（<code>removeIndex</code> と同じ）</td>
-<td><code>@{Name; Ok; Reason}</code> の配列（名前ごと）</td>
-<td>選んだインデックスをまとめて削除する。<code>removeIndex</code> を 1 つずつ呼び、1 つ失敗しても残りを続ける（<code>Reason</code> は失敗の理由。空の名前は失敗にする）。画面は別スレッドの仕事の中で呼ぶ</td>
-<td>同上</td>
-<td>画面（［削除］）</td>
-</tr>
-<tr>
 <td><code>getSearchIndexes</code></td>
 <td>dir（既定 <code>$workspace.IndexDir</code>）, statusPath, settingsPath</td>
 <td><code>@{Name; Path; SourcePath}</code> の配列</td>
@@ -4813,6 +4823,102 @@
 <td>インデックスのフォルダの子（本のフォルダを除いた名前順）。読めなければ Error に文面を入れる</td>
 <td>同上</td>
 <td>画面（ツリーの展開）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="indexcatalogtebunkoindexindex_catalogps1画面のスレッドで作る別のスレッドの仕事の中では-newindexcatalog-で作り直す">IndexCatalog（<code>tebunko/index/index_catalog.ps1</code>。画面のスレッドで作る。別のスレッドの仕事の中では <code>newIndexCatalog</code> で作り直す）<a class="headerlink" href="#indexcatalogtebunkoindexindex_catalogps1画面のスレッドで作る別のスレッドの仕事の中では-newindexcatalog-で作り直す" title="Permanent link">&para;</a></h3>
+<p>インデックスの改名・削除・名前の割り当て・一覧と元のフォルダの記録の保存。インデックス 1 つの情報が置かれている保存先（設定の <code>targetFolders</code>・取り込み一覧・インデックスのフォルダと <code>source_folder.txt</code>・設定の <code>searchExcludes</code>・<code>system_index</code>）のうち、改名・削除が書き換えるものの手順と順番、途中で失敗したときの扱いだけを持つ（一覧 <code>targetFolders</code> と元のフォルダの記録の書き直しは、画面が <code>SaveTargets</code>・<code>WriteSourceFile</code> で呼ぶ。改名のあとの記録は <code>RenameIndexWithSource</code> が書く）。保存先ごとの読み書きは既存の関数と、作る側が渡す <code>StatusLedger</code>（取り込み一覧）に任せる。場所はコンストラクタで受け取る <code>Workspace</code> と設定ファイルの場所で決める。作り方は <code>newIndexCatalog</code>（ワークスペースの場所の文字列から、<code>StatusLedger</code> も作って渡す）。以前の <code>index_store.ps1</code> の <code>renameIndex</code>・<code>removeIndex</code>・<code>removeIndexes</code> の手順をそのまま移したもの。</p>
+<table>
+<thead>
+<tr>
+<th>メソッド</th>
+<th>入力</th>
+<th>出力</th>
+<th>概要</th>
+<th>詳細</th>
+<th>使用元</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>RenameIndex</code></td>
+<td>oldName, newName</td>
+<td>–</td>
+<td>インデックス名を変える（旧 <code>renameIndex</code>）。<code>work\content_index\&lt;旧名&gt;</code> を改名し、取り込み一覧の記録（<code>StatusLedger.RenameIndexName</code>）も書き換えるため、<strong>インデックスは作り直さない</strong>。大文字・小文字だけの変更は一時名を経由する。移動先が既にあれば例外。<code>system_index</code> の古い名前の分と、旧名・新名の下の <code>searchExcludes</code>（<code>removeSearchExcludesUnder</code>。付け替えず、外したフォルダは検索対象に戻る）も消す。この 2 つの整理は、失敗しても止めない</td>
+<td><a href="../../gui/index-tab/#名前とフォルダパスの編集">名前とフォルダパスの編集</a></td>
+<td>画面（詳細の名前の欄）</td>
+</tr>
+<tr>
+<td><code>RenameIndexWithSource</code></td>
+<td>oldName, newName, folders（<code>@{Name; Path}</code> の配列）</td>
+<td><code>@{SourceFolderError}</code></td>
+<td><code>RenameIndex</code> のあと、元のフォルダの記録（<code>source_folder.txt</code>。<code>WriteSourceFile</code>）を書き直す。記録だけが失敗しても改名は成功にし、書けなかった理由を <code>SourceFolderError</code> で返す（成功なら空）。改名の失敗は例外のまま出す</td>
+<td>同上</td>
+<td>画面（詳細の名前の欄。裏の仕事）</td>
+</tr>
+<tr>
+<td><code>RemoveIndex</code></td>
+<td>name</td>
+<td>–</td>
+<td>インデックスを削除する（旧 <code>removeIndex</code>）。<code>work\content_index\&lt;名前&gt;</code> を中身ごと削除し（消せなければ例外にして、取り込み一覧の記録は残す）、取り込み一覧からもその記録を取り除く（<code>StatusLedger.RemoveIndexName</code>）。<code>system_index</code> とそのインデックスの下の <code>searchExcludes</code> も消す</td>
+<td>同上</td>
+<td>画面（［削除］）</td>
+</tr>
+<tr>
+<td><code>RemoveIndexes</code></td>
+<td>names</td>
+<td><code>@{Name; Ok; Reason}</code> の配列（名前ごと）</td>
+<td>選んだインデックスをまとめて削除する（旧 <code>removeIndexes</code>）。<code>RemoveIndex</code> を 1 つずつ呼び、1 つ失敗しても残りを続ける（<code>Reason</code> は失敗の理由。空の名前は失敗にする）。画面は別スレッドの仕事の中で呼ぶ</td>
+<td>同上</td>
+<td>画面（［削除］）</td>
+</tr>
+<tr>
+<td><code>newIndexCatalog</code></td>
+<td>workspaceDir, settingsPath（既定 <code>$settingsFile</code>）</td>
+<td><code>IndexCatalog</code></td>
+<td>ワークスペースの場所（文字列）から <code>IndexCatalog</code> を作る。取り込み一覧を書く <code>StatusLedger</code> も作って渡す。別のスレッドへはインスタンスを渡さず、場所を渡してこれで作り直す</td>
+<td>–</td>
+<td>画面・裏の仕事</td>
+</tr>
+<tr>
+<td><code>AssertReachable</code></td>
+<td>–</td>
+<td>–</td>
+<td>ワークスペースに届かないときは例外にする（<code>assertWorkspaceReachable</code>）。削除・改名の裏の仕事の先頭で呼び、届かないのに設定だけ変えてしまうことを防ぐ</td>
+<td><a href="../../gui/network/">ネットワーク上のワークスペース</a></td>
+<td>画面（裏の仕事）</td>
+</tr>
+<tr>
+<td><code>AssignAndSaveNames</code></td>
+<td>folders</td>
+<td>保存した一覧</td>
+<td>名前の決まっていないインデックスに名前を割り当てて設定に保存し、保存した一覧を返す。取り込み一覧の読み込みは排他の外で済ませる</td>
+<td>同上</td>
+<td>画面（<code>loadTargets</code>）</td>
+</tr>
+<tr>
+<td><code>StoreAssignedNames</code></td>
+<td>assigned（<code>assignIndexNames</code> の結果）</td>
+<td>保存した一覧</td>
+<td>割り当てた名前を設定に保存する（<code>saveAssignedIndexNames</code>）</td>
+<td>–</td>
+<td>インデクサ（司令。<code>IngestPlanner.SaveNames</code> に渡す）</td>
+</tr>
+<tr>
+<td><code>SaveTargets</code></td>
+<td>folders（<code>@{Name; Path; Enabled}</code> の配列）</td>
+<td>–</td>
+<td>インデックスの一覧を設定の <code>targetFolders</code> に書く（<code>writeTargetFolders</code>）</td>
+<td>–</td>
+<td>画面（<code>saveTargets</code>）</td>
+</tr>
+<tr>
+<td><code>WriteSourceFile</code></td>
+<td>folders（<code>@{Name; Path}</code> の配列）</td>
+<td>–</td>
+<td>インデックスのフォルダの <code>source_folder.txt</code> を一覧に合わせて書き直す（<code>writeSourceFolderFile</code>。インデックスが無いフォルダには書かない）</td>
+<td>–</td>
+<td>画面（<code>applyIndexEdit</code>）</td>
 </tr>
 </tbody>
 </table>
