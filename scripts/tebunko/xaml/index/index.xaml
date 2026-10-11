@@ -61,25 +61,8 @@
 
   <!-- 一覧と詳細の境目。上下にドラッグすると詳細の高さが変わる -->
   <GridSplitter x:Name="IndexSplitter" Grid.Row="1" Height="11" Margin="0,6,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Center"
-                ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" Background="Transparent" Cursor="SizeNS"
+                ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" Style="{StaticResource Splitter.Rows}" Cursor="SizeNS"
                 ToolTip="上下にドラッグすると、詳細の高さを変えられます">
-    <GridSplitter.Template>
-      <ControlTemplate TargetType="GridSplitter">
-        <!-- 当たり判定は 11px 分とり、見た目は境目の細い線と、つまめることが分かる真ん中のグリップにする -->
-        <Border Background="Transparent">
-          <Grid>
-            <Border Height="1" Background="{StaticResource Border.Soft}" VerticalAlignment="Center" />
-            <Border x:Name="Grip" Width="32" Height="3" CornerRadius="2" Background="{StaticResource Ink.Muted}"
-                    HorizontalAlignment="Center" VerticalAlignment="Center" />
-          </Grid>
-        </Border>
-        <ControlTemplate.Triggers>
-          <Trigger Property="IsMouseOver" Value="True">
-            <Setter TargetName="Grip" Property="Background" Value="{StaticResource Ink.Body}" />
-          </Trigger>
-        </ControlTemplate.Triggers>
-      </ControlTemplate>
-    </GridSplitter.Template>
   </GridSplitter>
 
   <ContentControl x:Name="IndexDetailHost" Grid.Row="2" Focusable="False" IsTabStop="False"

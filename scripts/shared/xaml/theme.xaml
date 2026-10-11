@@ -27,7 +27,6 @@
   <SolidColorBrush x:Key="Bg.Tag"         Color="#F1F3F4" />
   <SolidColorBrush x:Key="Bg.Button"      Color="#F2F2F5" />
   <SolidColorBrush x:Key="Bg.Summary"     Color="#F7FAFC" />
-  <SolidColorBrush x:Key="Bg.Section"     Color="#E8EBF0" />
   <SolidColorBrush x:Key="Bg.TitleBar"    Color="#F0F0F0" />
 
   <!-- 枠・線 -->
@@ -1256,6 +1255,59 @@
 
   <Style TargetType="GridSplitter">
     <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <!-- 行を分ける仕切り（検索の結果とプレビューの間・インデックス管理の一覧と詳細の間）。
+       当たり判定は 11px、見た目は細い線と真ん中のつまみ（32x2）。乗せると濃くなる -->
+  <Style x:Key="Splitter.Rows" TargetType="GridSplitter" BasedOn="{StaticResource {x:Type GridSplitter}}">
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="GridSplitter">
+          <Border Background="Transparent">
+            <Grid>
+              <Border Height="1" Background="{StaticResource Border.Soft}" VerticalAlignment="Center" />
+              <Border x:Name="Grip" Width="32" Height="2" CornerRadius="1" Background="{StaticResource Ink.Body}"
+                      HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Grid>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Grip" Property="Background" Value="{StaticResource Ink.Strong}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- 節（カード）。枠つきの面に、見出しの帯（Section.Header）と行（Section.Row）を縦に並べる。カードの間は 16 -->
+  <Style x:Key="Section.Card" TargetType="Border">
+    <Setter Property="Background" Value="{StaticResource Bg.Surface}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Border.Soft}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{StaticResource Radius.Control}" />
+  </Style>
+  <Style x:Key="Section.Header" TargetType="Border">
+    <Setter Property="Height" Value="32" />
+    <Setter Property="Padding" Value="16,6" />
+    <Setter Property="Background" Value="{StaticResource Bg.Window}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Border.Soft}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+    <Setter Property="CornerRadius" Value="5,5,0,0" />
+  </Style>
+  <Style x:Key="Section.Row" TargetType="Border">
+    <Setter Property="Padding" Value="16,12" />
+    <Setter Property="BorderBrush" Value="{StaticResource Border.Row}" />
+    <Setter Property="BorderThickness" Value="0,1,0,0" />
+  </Style>
+  <!-- 値を見せるだけの欄（読み取り専用）。中の TextBlock が長い値を省略する -->
+  <Style x:Key="Field.ReadOnly" TargetType="Border">
+    <Setter Property="Height" Value="30" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="Background" Value="{StaticResource Bg.Subtle}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Border.Soft}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{StaticResource Radius.Control}" />
   </Style>
 
   <Style TargetType="ToolTip">

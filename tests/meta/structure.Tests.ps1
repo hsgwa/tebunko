@@ -194,6 +194,39 @@ Describe "画面定義（XAML）" -Tag Meta {
     It "<name> が XML として読める" -ForEach $xamlFiles {
         { [xml](Get-Content $FullName -Raw -Encoding UTF8) } | Should -Not -Throw
     }
+
+    It "行を分ける仕切りは、共通の Style（Splitter.Rows）を使い、自分のテンプレートを持たない" {
+        $scripts = (Resolve-Path "$PSScriptRoot\..\..\scripts").Path
+        $theme = [xml](Get-Content "$scripts\shared\xaml\theme.xaml" -Raw -Encoding UTF8)
+        $x = "http://schemas.microsoft.com/winfx/2006/xaml"
+        $keys = @($theme.DocumentElement.ChildNodes | Where-Object { $_ -is [System.Xml.XmlElement] } | ForEach-Object { $_.GetAttribute("Key", $x) })
+        $keys | Should -Contain "Splitter.Rows"
+
+        $splitters = @()
+        foreach ($f in Get-ChildItem "$scripts\tebunko\xaml" -Recurse -Filter "*.xaml") {
+            $xml = [xml](Get-Content $f.FullName -Raw -Encoding UTF8)
+            $splitters += @($xml.SelectNodes("//*[local-name()='GridSplitter'][@ResizeDirection='Rows']"))
+        }
+        $splitters.Count | Should -BeGreaterThan 0
+        foreach ($s in $splitters) {
+            $s.GetAttribute("Style") | Should -Be "{StaticResource Splitter.Rows}"
+            $s.SelectNodes("*[local-name()='GridSplitter.Template']").Count | Should -Be 0
+        }
+    }
+
+    It "設定の節は、カードの Style（Section.Card・Section.Header・Section.Row）で作る" {
+        $scripts = (Resolve-Path "$PSScriptRoot\..\..\scripts").Path
+        $theme = [xml](Get-Content "$scripts\shared\xaml\theme.xaml" -Raw -Encoding UTF8)
+        $x = "http://schemas.microsoft.com/winfx/2006/xaml"
+        $keys = @($theme.DocumentElement.ChildNodes | Where-Object { $_ -is [System.Xml.XmlElement] } | ForEach-Object { $_.GetAttribute("Key", $x) })
+        foreach ($k in "Section.Card", "Section.Header", "Section.Row", "Field.ReadOnly") { $keys | Should -Contain $k }
+        $keys | Should -Not -Contain "Bg.Section"
+
+        $settingsText = Get-Content "$scripts\tebunko\xaml\settings\settings.xaml" -Raw -Encoding UTF8
+        $settingsText | Should -Not -Match "Bg\.Section"
+        $settingsText | Should -Match 'Style="\{StaticResource Section\.Card\}"'
+        $settingsText | Should -Match 'Style="\{StaticResource Section\.Header\}"'
+    }
 }
 
 Describe "theme のキー（色の値は Figma の設計どおり）" -Tag Meta {
@@ -209,7 +242,6 @@ Describe "theme のキー（色の値は Figma の設計どおり）" -Tag Meta 
         @{ Key = "Bg.Tag"; Color = "#F1F3F4"; Opacity = 1 }
         @{ Key = "Bg.Button"; Color = "#F2F2F5"; Opacity = 1 }
         @{ Key = "Bg.Summary"; Color = "#F7FAFC"; Opacity = 1 }
-        @{ Key = "Bg.Section"; Color = "#E8EBF0"; Opacity = 1 }
         @{ Key = "Bg.TitleBar"; Color = "#F0F0F0"; Opacity = 1 }
         @{ Key = "Border.Soft"; Color = "#E0E2E5"; Opacity = 1 }
         @{ Key = "Border.Normal"; Color = "#D9DEE3"; Opacity = 1 }
