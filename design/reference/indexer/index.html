@@ -3986,6 +3986,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#ingestplannertebunkoindexerindexer_planps1司令のスレッドで作る" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        IngestPlanner（tebunko/indexer/indexer_plan.ps1。司令のスレッドで作る）
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4169,6 +4180,17 @@
     <span class="md-ellipsis">
       
         IndexingReporter（新規 tebunko/indexer/indexing_reporter.ps1。司令のスレッドで作る）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ingestplannertebunkoindexerindexer_planps1司令のスレッドで作る" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        IngestPlanner（tebunko/indexer/indexer_plan.ps1。司令のスレッドで作る）
       
     </span>
   </a>
@@ -4547,6 +4569,68 @@
 <td>phase, plan, targetCount, failedCount, timeoutMinutes</td>
 <td><code>@{RetryFailed}</code> / <code>$null</code></td>
 <td>取り込む内容を画面に渡し、開始の返事を待つ（旧 <code>indexer_plan.ps1</code> の <code>waitForIndexingApproval</code>）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="ingestplannertebunkoindexerindexer_planps1司令のスレッドで作る">IngestPlanner（<code>tebunko/indexer/indexer_plan.ps1</code>。司令のスレッドで作る）<a class="headerlink" href="#ingestplannertebunkoindexerindexer_planps1司令のスレッドで作る" title="Permanent link">&para;</a></h3>
+<p>クロール対象フォルダへの名前の割り当てと、クロールの結果から取り込む順番を決める。取り込み直すかの判断は <code>indexer_decide.ps1</code> の関数を <code>createTargetList</code> 経由で呼ぶ。計画の種類・状態の値はコンストラクタの <code>kinds</code>（<code>Unchecked</code>・<code>Missing</code>・<code>Dropped</code>・<code>StateFailed</code>。足りなければ例外）で、名前を保存する設定ファイルの場所は <code>settingsFile</code> で受け取る。メソッドは次の順に呼ぶ: <code>AssignNames</code> → <code>SaveNames</code> → <code>SelectOnly</code>（選んだときだけ）→ <code>Crawl</code> → <code>KeepForCancel</code>（取りやめるとき）か <code>ApplyFailed</code> → <code>ApplyInterrupted</code> → <code>FolderByName</code>。<code>AssignNames</code> の前に <code>Crawl</code> を呼ぶと例外にする。結果は <code>Folders</code>・<code>Previous</code>・<code>Dropped</code>・<code>Only</code>・<code>Rows</code>・<code>Targets</code>・<code>Failed</code>・<code>Cloud</code>（クラウドにだけあるファイル）・<code>Plan</code>・<code>RemovedPaths</code>・<code>Carried</code> で読む。</p>
+<table>
+<thead>
+<tr>
+<th>メソッド</th>
+<th>入力</th>
+<th>出力</th>
+<th>概要</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AssignNames</code></td>
+<td>targetFolders, status（<code>@{Folders; Rows}</code>）</td>
+<td>–</td>
+<td>インデックス名を割り当て、前回の一覧と外れたインデックスを覚える</td>
+</tr>
+<tr>
+<td><code>SaveNames</code></td>
+<td>targetFolders</td>
+<td>–</td>
+<td>名前の無いフォルダがあったときだけ、割り当てた名前を設定（<code>settingsFile</code>）に保存し、<code>Folders</code> を保存した一覧にする（保存の間に設定から外れた・名前を付けられなかったフォルダは落とす。<code>saveAssignedIndexNames</code>）</td>
+</tr>
+<tr>
+<td><code>SelectOnly</code></td>
+<td>onlyNames</td>
+<td>更新できない名前（<code>@{Name; Reason}</code> の並び）</td>
+<td>選んだインデックスだけを更新する場合の当てはめ</td>
+</tr>
+<tr>
+<td><code>Crawl</code></td>
+<td>indexCounts, onFolder</td>
+<td>–</td>
+<td>フォルダごとに取り込み対象・チェックなし・フォルダなしに分け、<code>Rows</code>・<code>Targets</code>・<code>Failed</code>・<code>Plan</code> を組み立てる。<code>onFolder</code> は検索の直前に呼ぶ（進み具合を出す。例外は包まずにそのまま伝える）</td>
+</tr>
+<tr>
+<td><code>KeepForCancel</code></td>
+<td>–</td>
+<td>取り込み一覧に書く行</td>
+<td>取りやめるとき、取り込み対象の行（とクラウドにだけあって前回未完了の行）を前回の記録のままにする</td>
+</tr>
+<tr>
+<td><code>ApplyFailed</code></td>
+<td>retry</td>
+<td>–</td>
+<td>前回失敗した行を、再取り込みする（<code>Targets</code> に足す）かスキップするか</td>
+</tr>
+<tr>
+<td><code>ApplyInterrupted</code></td>
+<td>entries, interruptLimit</td>
+<td>–</td>
+<td>前回強制終了したファイルを最後に回し（<code>Carried</code>）、上限に達したものは失敗にする</td>
+</tr>
+<tr>
+<td><code>FolderByName</code></td>
+<td>–</td>
+<td>インデックス名 → フォルダ</td>
+<td>取り込みのレーンへ渡すための対応</td>
 </tr>
 </tbody>
 </table>
