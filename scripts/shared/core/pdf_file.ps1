@@ -1114,7 +1114,13 @@ function readPdfPageText {
 
     # Y は今の文字の縦位置（行の行列の y）、OutY は最後に出した文字の縦位置、Leading は行送り（TL）
     $ts = @{ Sb = [System.Text.StringBuilder]::new(); Gap = $false; Y = 0.0; OutY = 0.0; HasOut = $false; Leading = 0.0; Scale = 1.0; Run = 0 }
+    # 字句は、関数を呼ばずに、位置指定の正規表現（readPdfToken の速い道と同じ）でその場で切り出す。
+    # 取れないもの（入れ子やエスケープのある文字列・16 進の文字列・コメントなど）だけ readPdfToken に任せる（$st.P で位置を渡す）
     $st = newPdfLexer $content 0
+    $pos = 0
+    $len = $content.Length
+    $re = ${pdfTokenRegex}
+    $emptyMatch = [System.Text.RegularExpressions.Match]::Empty
     $nums = [System.Collections.Generic.List[double]]::new()
     $lastStr = $null
     $lastName = $null
@@ -1123,8 +1129,47 @@ function readPdfPageText {
     $halfGlyph = $false
     $fontSize = 0.0
     while ($true) {
-        $t = readPdfToken $st
-        $kind = $st.K
+        $m = if ($pos -lt $len) { $re.Match($content, $pos) } else { $emptyMatch }
+        if ($m.Success) {
+            $g = $m.Groups[1]
+            if ($g.Success) {
+                $t = $g.Value
+                $pos = $g.Index + $g.Length
+                $kind = "kw"
+                $c = $t[0]
+                if (($c -ge '0' -and $c -le '9') -or $c -eq '-' -or $c -eq '+' -or $c -eq '.') {
+                    $d = 0.0
+                    if ([double]::TryParse($t, [System.Globalization.NumberStyles]::Float, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$d) -and -not [double]::IsInfinity($d) -and -not [double]::IsNaN($d)) {
+                        $t = $d
+                        $kind = "num"
+                    }
+                }
+            } else {
+                $g = $m.Groups[2]
+                $t = $g.Value
+                $pos = $g.Index + $g.Length
+                $c = $t[0]
+                if ($c -eq '/') {
+                    $kind = "name"
+                    $t = $t.Substring(1)
+                    if ($t.Contains("#")) {
+                        $t = [regex]::Replace($t, '#([0-9A-Fa-f]{2})', { param($m) [string][char][Convert]::ToInt32($m.Groups[1].Value, 16) })
+                    }
+                } elseif ($c -eq '(') {
+                    $kind = "str"
+                    $t = $t.Substring(1, $t.Length - 2)
+                } elseif ($c -eq '[') { $kind = "["
+                } elseif ($c -eq ']') { $kind = "]"
+                } elseif ($c -eq '<') { $kind = "<<"
+                } elseif ($c -eq '>') { $kind = ">>"
+                } else { $kind = "kw" }
+            }
+        } else {
+            $st.P = $pos
+            $t = readPdfToken $st
+            $kind = $st.K
+            $pos = $st.P
+        }
         if ($kind -eq "eof") { break }
         if ($kind -eq "num") {
             if ($nums.Count -ge 64) { $nums.Clear() }
@@ -1136,19 +1181,44 @@ function readPdfPageText {
         if ($kind -eq "[") {
             $items = [System.Collections.Generic.List[object]]::new()
             while ($true) {
-                $item = readPdfToken $st
-                if ($st.K -eq "]" -or $st.K -eq "eof") { break }
-                if ($st.K -eq "num" -or $st.K -eq "str") { $items.Add($item) }
+                $m = if ($pos -lt $len) { $re.Match($content, $pos) } else { $emptyMatch }
+                if ($m.Success) {
+                    $g = $m.Groups[1]
+                    if ($g.Success) {
+                        $pos = $g.Index + $g.Length
+                        $c = $g.Value[0]
+                        if (($c -ge '0' -and $c -le '9') -or $c -eq '-' -or $c -eq '+' -or $c -eq '.') {
+                            $d = 0.0
+                            if ([double]::TryParse($g.Value, [System.Globalization.NumberStyles]::Float, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$d) -and -not [double]::IsInfinity($d) -and -not [double]::IsNaN($d)) {
+                                $items.Add($d)
+                            }
+                        }
+                    } else {
+                        $g = $m.Groups[2]
+                        $pos = $g.Index + $g.Length
+                        $c = $g.Value[0]
+                        if ($c -eq '(') { $items.Add($g.Value.Substring(1, $g.Value.Length - 2)) }
+                        elseif ($c -eq ']') { break }
+                    }
+                } else {
+                    $st.P = $pos
+                    $item = readPdfToken $st
+                    $pos = $st.P
+                    if ($st.K -eq "]" -or $st.K -eq "eof") { break }
+                    if ($st.K -eq "num" -or $st.K -eq "str") { $items.Add($item) }
+                }
             }
             $lastArray = $items
             continue
         }
         if ($kind -eq "<<") {
             $nest = 1
+            $st.P = $pos
             while ($nest -gt 0) {
                 [void](readPdfToken $st)
                 if ($st.K -eq "<<") { $nest++ } elseif ($st.K -eq ">>") { $nest-- } elseif ($st.K -eq "eof") { break }
             }
+            $pos = $st.P
             continue
         }
         if ($kind -ne "kw") { continue }
@@ -1219,7 +1289,7 @@ function readPdfPageText {
             }
         } elseif ($t -ceq "BI") {
             # 画像の中身（バイナリ）は読まない。ID から EI までを飛ばす
-            $idPos = $content.IndexOf("ID", $st.P, [StringComparison]::Ordinal)
+            $idPos = $content.IndexOf("ID", $pos, [StringComparison]::Ordinal)
             if ($idPos -lt 0) { break }
             $scan = $idPos + 2
             $endPos = -1
@@ -1232,7 +1302,7 @@ function readPdfPageText {
                 $scan = $found + 2
             }
             if ($endPos -lt 0) { break }
-            $st.P = $endPos
+            $pos = $endPos
         }
         $nums.Clear()
         $lastStr = $null

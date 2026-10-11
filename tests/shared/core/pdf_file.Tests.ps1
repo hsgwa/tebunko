@@ -797,3 +797,25 @@ Describe "convertPdfStringToText" -Tag Unit {
         convertPdfStringToText $font $s | Should -BeExactly "Z"
     }
 }
+
+Describe "readPdfPageText（命令の読み方）" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "文字列の中の BT ET は命令にしない"; content = 'BT (BT ET) Tj ET'; expected = "BT ET" }
+        @{ name = "入れ子の括弧とエスケープ"; content = 'BT (a(b)c\)d) Tj ET'; expected = "a(b)c)d" }
+        @{ name = "TJ の字間で空白を入れる"; content = 'BT [(A) -300 (B) 20 (C)] TJ ET'; expected = "A BC" }
+        @{ name = "区切りのない TJ"; content = 'BT [(A)-300(B)] TJ ET'; expected = "A B" }
+        @{ name = "コメントの中の命令は読まない"; content = "BT % (x) Tj`n(y) Tj ET"; expected = "y" }
+        @{ name = "図形・色の命令は読み飛ばす"; content = 'q 1 0 0 RG 0 0 m 5 5 l S Q BT (z) Tj ET'; expected = "z" }
+        @{ name = "Tm と Td で行を分ける"; content = 'BT /F1 12 Tf 1 0 0 1 10 700 Tm (a) Tj 0 -14 Td (b) Tj ET'; expected = "a`nb" }
+        @{ name = "インライン画像の中は読まない"; content = 'BI /W 1 /H 1 ID (x) Tj EI BT (p) Tj ET'; expected = "p" }
+        @{ name = "インライン画像の中の偽の EI は終わりにしない"; content = 'BI /W 1 /H 1 ID xEI BT (q) EI BT (p) Tj ET'; expected = "p" }
+        @{ name = "辞書の中の命令は読まない"; content = '/Span << /MCID 0 /A Tj >> BDC BT (m) Tj ET EMC'; expected = "m" }
+        @{ name = "16 進と 8 進の文字列"; content = 'BT <41 42> Tj (\101\102) Tj ET'; expected = "ABAB" }
+        @{ name = "TL・T*・引用符で行を分ける"; content = "BT 12 TL (a) Tj T* (b) Tj (c) ' ET"; expected = "a`nb`nc" }
+        @{ name = "BT の外の文字列も出す"; content = '0 g (n) Tj BT (m) Tj ET'; expected = "nm" }
+        @{ name = "TJ の中の指数の数は字間"; content = 'BT [(a) 1e3 (b)] TJ ET'; expected = "ab" }
+        @{ name = "波括弧のあとも読む"; content = '{ (a) Tj } BT (b) Tj ET'; expected = "ab" }
+    ) {
+        readPdfPageText @{ Fonts = @{}; CMaps = @{} } $content $null | Should -BeExactly $expected
+    }
+}
