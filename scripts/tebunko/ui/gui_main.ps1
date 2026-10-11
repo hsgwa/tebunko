@@ -83,7 +83,7 @@ function startGui {
             "IndexListHost", "IndexDetailHost", "IndexDetailRow", "IndexSplitter",
             "IndexingProgressPanel", "IndexingBannerIcon", "IndexingProgressText", "IndexingProgressEta", "IndexingProgress",
             "IndexingProgressDetail", "IndexingStopButton", "IndexingResumeButton", "IndexingSearchButton", "IndexingBannerClose",
-            "IndexNoticePanel", "IndexNoticeIcon", "IndexNoticeText", "IndexNoticeButton", "IndexNoticeClose") }
+            "IndexNoticeHost") }
         @{ File = "index\index_list.xaml"; Slot = "IndexListHost"; Names = @(
             "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "ActionsButton", "ActionsMenu", "ActionUpdate", "ActionExport", "ActionImport", "ActionDelete", "SelectionCountText", "SelectAllCheckBox", "IndexingButton", "IndexingHint", "StatusColumnHeader",
             "IndexRowMenu", "RowMenuUpdate", "RowMenuOpenFolder", "RemoveIndexButton", "ExportIndexButton") }
@@ -93,7 +93,13 @@ function startGui {
             "FailedPanel", "FailedHeading", "FailedGrid") }
         @{ File = "search\search.xaml"; Slot = "ContentHost"; Screen = "SearchTab"; Names = @(
             "SearchBarHost", "ResultListHost", "PreviewHost", "DetailRow", "PreviewSplitter", "ResultEmptyState", "GoIndexTabButton",
-            "SearchNoticePanel", "SearchNoticeIcon", "SearchNoticeText", "SearchNoticeButton", "SearchNoticeClose") }
+            "SearchNoticeHost") }
+        @{ File = "shell\notice_banner.xaml"; Slot = "SearchNoticeHost"; Prefix = "Search"; Margin = @(-16, -12, -16, 8); Names = @(
+            "NoticePanel", "NoticeIcon", "NoticeText", "NoticeButton", "NoticeClose") }
+        @{ File = "shell\notice_banner.xaml"; Slot = "IndexNoticeHost"; Prefix = "Index"; Names = @(
+            "NoticePanel", "NoticeIcon", "NoticeText", "NoticeButton", "NoticeClose") }
+        @{ File = "shell\notice_banner.xaml"; Slot = "WorkspaceNoticeHost"; Prefix = "Workspace"; Names = @(
+            "NoticePanel", "NoticeIcon", "NoticeText", "NoticeButton", "NoticeClose") }
         @{ File = "search\search_bar.xaml"; Slot = "SearchBarHost"; Names = @(
             "WordBox", "SearchButton", "RegexCheck", "CaseCheck", "ShapeCheck", "CommentCheck", "ScopeButton",
             "ConditionsPanel", "ConditionsSpacer", "FastSearchSlot", "KindChipExcel", "KindChipWord", "KindChipPowerPoint", "KindChipText",
@@ -115,7 +121,7 @@ function startGui {
 
     $ui = @{}
     foreach ($name in @("NavHost", "ContentHost", "StatusBarHost", "ScrimOverlay",
-            "WorkspaceNoticePanel", "WorkspaceNoticeIcon", "WorkspaceNoticeText", "WorkspaceNoticeButton", "WorkspaceNoticeClose")) {
+            "WorkspaceNoticeHost")) {
         $ui[$name] = $window.FindName($name)
     }
     $script:screenContents = @{}
@@ -127,7 +133,15 @@ function startGui {
             $ui[$region.Slot].Content = $content
         }
         foreach ($name in $region.Names) {
-            $ui[$name] = $content.FindName($name)
+            # 同じ部品（知らせの帯）を何か所かに差すものは、Prefix を付けた名前で持つ
+            $key = "$($region.Prefix)$name"
+            $ui[$key] = $content.FindName($name)
+            if ($region.Prefix) {
+                [System.Windows.Automation.AutomationProperties]::SetAutomationId($ui[$key], $key)
+            }
+        }
+        if ($region.Margin) {
+            $content.Margin = [System.Windows.Thickness]::new($region.Margin[0], $region.Margin[1], $region.Margin[2], $region.Margin[3])
         }
         stepSplash 70
     }

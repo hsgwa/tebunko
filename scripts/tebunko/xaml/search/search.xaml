@@ -20,22 +20,9 @@
     <RowDefinition x:Name="DetailRow" Height="180" MinHeight="120" />
   </Grid.RowDefinitions>
 
-  <!-- 画面の上の知らせの帯（検索の結果を保存できなかったとき。notice_banner.ps1）。窓の右の領域の余白をはみ出して、上端・左右いっぱいに置く -->
-  <Border x:Name="SearchNoticePanel" Visibility="Collapsed" Style="{StaticResource Banner}" Margin="-16,-12,-16,8"
-          Background="{StaticResource Warn.Soft}" BorderBrush="{StaticResource Warn}">
-    <DockPanel>
-      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
-        <Button x:Name="SearchNoticeButton" Style="{StaticResource Banner.Button}" Margin="10,0,0,0" Visibility="Collapsed" />
-        <Button x:Name="SearchNoticeClose" Style="{StaticResource Banner.Close}" Margin="10,0,0,0" ToolTip="閉じる"
-                AutomationProperties.Name="帯を閉じる" />
-      </StackPanel>
-      <Path x:Name="SearchNoticeIcon" DockPanel.Dock="Left" Data="{StaticResource Icon.CircleAlert}" Width="16" Height="16" Stretch="Uniform"
-            Stroke="{StaticResource Warn}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-            Fill="Transparent" VerticalAlignment="Center" Margin="0,0,10,0" />
-      <TextBlock x:Name="SearchNoticeText" Style="{StaticResource Focal}" FontSize="12" FontWeight="Medium" Foreground="{StaticResource Banner.Warn.Text}"
-                 VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
-    </DockPanel>
-  </Border>
+  <!-- 画面の上の知らせの帯（検索の結果を保存できなかったとき。shell/notice_banner.xaml。notice_banner.ps1）。窓の右の領域の余白をはみ出して、上端・左右いっぱいに置く（gui_main.ps1 の領域の表の Margin） -->
+  <ContentControl x:Name="SearchNoticeHost" Focusable="False" IsTabStop="False"
+                    HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
 
   <!-- 検索バーは結果の一覧より前に出す（エラーの吹き出しが、検索バーの下へはみ出して結果の一覧に重なるため） -->
   <ContentControl x:Name="SearchBarHost" Grid.Row="1" Panel.ZIndex="1" Focusable="False" IsTabStop="False" HorizontalContentAlignment="Stretch" />

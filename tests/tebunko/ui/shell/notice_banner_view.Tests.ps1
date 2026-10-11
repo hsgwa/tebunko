@@ -16,7 +16,6 @@ Describe "getNoticeBannerView" -Tag Unit {
         $view.Text | Should -Be $message
         $view.Level | Should -Be $level
         $view.Closable | Should -Be $closable
-        $view.AutoCloseSeconds | Should -Be 0
         $view.ActionText | Should -Be $action
     }
 

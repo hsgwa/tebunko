@@ -106,7 +106,7 @@ stateDiagram-v2
 - この画面では、窓の下の右に `登録済み: N フォルダ` と `合計: N ファイル` も出す（[インデックス一覧の管理](index-tab.md)）。
 - 帯とステータスバーに同じ知らせを重ねて出さない。更新の結果は帯に、利用者が起こした操作の結果はステータスバーに出す。
 
-**更新以外の帯**（判断層の getNoticeBannerView。xaml の <名前>Panel・<名前>Text・<名前>Close・<名前>Button）:
+**更新以外の帯**（判断層の getNoticeBannerView。1 つの部品 `xaml/shell/notice_banner.xaml` を 3 か所の口に差し、口ごとに <接頭辞>NoticePanel・Icon・Text・Close・Button の名前で持つ）:
 
 | 場面 | 出す場所 | 見た目 | 閉じる | 消えるとき |
 |---|---|---|---|---|
