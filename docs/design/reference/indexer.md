@@ -64,6 +64,21 @@
 | `Progress` | phase, processed, remaining, failed, detail | – | `writeIndexingProgress` を呼ぶ |
 | `WaitForApproval` | phase, plan, targetCount, failedCount, timeoutMinutes | `@{RetryFailed}` / `$null` | 取り込む内容を画面に渡し、開始の返事を待つ（旧 `indexer_plan.ps1` の `waitForIndexingApproval`） |
 
+### IngestPlanner（`tebunko/indexer/indexer_plan.ps1`。司令のスレッドで作る）
+
+クロール対象フォルダへの名前の割り当てと、クロールの結果から取り込む順番を決める。取り込み直すかの判断は `indexer_decide.ps1` の関数を `createTargetList` 経由で呼ぶ。計画の種類・状態の値はコンストラクタの `kinds`（`Unchecked`・`Missing`・`Dropped`・`StateFailed`）で受け取る。結果は `Folders`・`Previous`・`Dropped`・`Only`・`Rows`・`Targets`・`Failed`・`Plan`・`RemovedPaths`・`Carried` で読む。
+
+| メソッド | 入力 | 出力 | 概要 |
+|---|---|---|---|
+| `AssignNames` | targetFolders, status（`@{Folders; Rows}`） | – | インデックス名を割り当て、前回の一覧と外れたインデックスを覚える |
+| `SaveNames` | targetFolders | – | 名前の無いフォルダがあったときだけ、割り当てた名前を設定に保存する（`saveAssignedIndexNames`） |
+| `SelectOnly` | onlyNames | 更新できない名前（`@{Name; Reason}` の並び） | 選んだインデックスだけを更新する場合の当てはめ |
+| `Crawl` | indexCounts, onFolder | – | フォルダごとに取り込み対象・チェックなし・フォルダなしに分け、`Rows`・`Targets`・`Failed`・`Plan` を組み立てる。`onFolder` は検索の直前に呼ぶ（進み具合を出す） |
+| `KeepForCancel` | – | 取り込み一覧に書く行 | 取りやめるとき、取り込み対象の行を前回の記録のままにする |
+| `ApplyFailed` | retry | – | 前回失敗した行を、再取り込みする（`Targets` に足す）かスキップするか |
+| `ApplyInterrupted` | entries, interruptLimit | – | 前回強制終了したファイルを最後に回し（`Carried`）、上限に達したものは失敗にする |
+| `FolderByName` | – | インデックス名 → フォルダ | 取り込みのレーンへ渡すための対応 |
+
 ## 取り込み直すかの判断（`tebunko/indexer/indexer_decide.ps1`）
 
 | 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |
