@@ -40,6 +40,14 @@ gh workflow run perf.yml -f ref=<測る ref> -f scale=0.1 -f ingest=200
 - ランナー（4 コア）は手元の PC と条件が違う。Defender のリアルタイム保護の状態は、結果の「環境」に出力する。比べるときは、同じワークフローで測った数字どうしで比べる。同じ条件でも、本文インデックスの作成の時間は 5 割ほどぶれることがある
 - 手元でも同じ計測スクリプトで測れる（`.\tools\measure_perf.ps1 -Index <TSV のフォルダ> -Work <作業フォルダ> -Words <words.tsv> -Typing <入力の回数>`）。渡した TSV は本文インデックスに変換され、元の TSV は削除される
 
+## PDF の読み取りの計測（perf.yml の pdf）
+
+`gh workflow run perf.yml --ref <ref> -f ref=<ref> -f pdf=1` で、上の計測の代わりに PDF の読み取り（`readPdfFile`）の速さだけを測る。`pdf_base`（基準の版。既定 `origin/worktree-pdf`）の次から ref までのコミットのうち `pdf_file.ps1` を変えたものを古い順に全部、同じ機械・同じ PDF で測り、基準との比と直前との比を表にする。
+
+- PDF は `tools/perf/new_pdf_data.ps1` が、テストの組み立て（`tests/helpers/pdf.ps1`）で作る。文字の多いページ・図形の演算子の多いページ・大きな ToUnicode の表を持つ Type0 フォントのページ・相互参照のストリーム（Predictor 付き）とオブジェクトのストリームを含む。量は `pdf_scale`
+- 版ごとに、そのコミットの `scripts/shared/core` を取り出し、別のプロセス（`tools/perf/measure_pdf_version.ps1`）で `pdf_file.ps1` を読み込んで `pdf_repeat` 回測る。読み取った文字の SHA-256 が基準と違う版には印が付く（結果が変わっている）
+- 基準と最後の版は、関数ごとの時間も 1 回測る。関数を包んで数えるので、全体より遅い。順位をつけるための値として読む
+- 手元では、道具が動くことの確かめだけにする（`.\tools\perf\measure_pdf.ps1 -Work <作業フォルダ> -Scale 0.03 -Repeat 1`）
 ## 入力しながらの検索の計測（手元の Windows。高速検索を使う 16 万件規模）
 
 `-Scale 1`（16 万件規模）の「最初のヒットまで 0.5 秒以内」の条件は、高速検索（Windows Search）を使わないと確かめられないため、Windows Search のある手元の PC で測る（ランナーには無いので `perf.yml` では測れない）。

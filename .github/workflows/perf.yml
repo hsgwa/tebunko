@@ -41,6 +41,20 @@ on:
         type: choice
         options: ["3", "1"]
         default: "3"
+      pdf:
+        description: PDF の読み取りの速さを、版（コミット）を並べて測る（1 のときは上の計測をせず、これだけを測る）
+        type: choice
+        options: ["0", "1"]
+        default: "0"
+      pdf_base:
+        description: PDF の計測の基準にする版（pdf が 1 のとき。ref の履歴にある名前）
+        default: origin/worktree-pdf
+      pdf_scale:
+        description: PDF の計測で測る PDF の量（1 で数 MB）
+        default: "1"
+      pdf_repeat:
+        description: PDF の計測で、版ごとに読む回数
+        default: "3"
 
 permissions:
   contents: read
@@ -55,7 +69,51 @@ env:
   PERFDATA_SHA: 2d6c7a60ed9ae9949cc76f8ff00762d45707ee3a
 
 jobs:
+  pdf:
+    # PDF の読み取りの速さ。基準の版と、ref までの各コミットを、同じ機械で並べて測る（tools/perf/measure_pdf.ps1）
+    if: ${{ inputs.pdf == '1' }}
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - name: 測る ref をチェックアウトする（基準の版を取り出すため、履歴を全部取る）
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          path: target
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: 計測する
+        shell: powershell
+        env:
+          PDF_BASE: ${{ inputs.pdf_base }}
+          PDF_SCALE: ${{ inputs.pdf_scale }}
+          PDF_REPEAT: ${{ inputs.pdf_repeat }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $work = Join-Path $env:RUNNER_TEMP "perfpdf"
+          & .\target\tools\perf\measure_pdf.ps1 -Repo target -Work $work -Base $env:PDF_BASE -Scale ([double]::Parse($env:PDF_SCALE, [System.Globalization.CultureInfo]::InvariantCulture)) -Repeat ([int]$env:PDF_REPEAT)
+
+      - name: 結果を Summary に書き出す
+        if: always()
+        shell: powershell
+        run: |
+          $summary = Join-Path $env:RUNNER_TEMP "perfpdf\result\summary.md"
+          if (Test-Path -LiteralPath $summary) {
+            [System.IO.File]::AppendAllText($env:GITHUB_STEP_SUMMARY, [System.IO.File]::ReadAllText($summary, [System.Text.Encoding]::UTF8), (New-Object System.Text.UTF8Encoding($false)))
+          }
+
+      - name: 結果を artifact にアップロードする
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: perf-pdf-${{ github.run_id }}
+          path: ${{ runner.temp }}/perfpdf/result
+          retention-days: 30
+          if-no-files-found: ignore
+
   perf:
+    if: ${{ inputs.pdf != '1' }}
     runs-on: windows-latest
     timeout-minutes: 120
     steps:
