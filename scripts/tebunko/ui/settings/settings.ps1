@@ -165,7 +165,7 @@ function switchWorkspace {
     $script:workspaceBlock = getWorkspaceBlockMessage
     $script:indexingState = $null
     $script:indexSummary = $null
-    $ui.IndexingProgressPanel.Visibility = "Collapsed"
+    resetIndexingBanner
     updateSettingsView
     loadWorkspaceViews
     # 前の版のインデックスの知らせ。ネットワークの場所は裏で調べるため、分かったときにステータスへ出す

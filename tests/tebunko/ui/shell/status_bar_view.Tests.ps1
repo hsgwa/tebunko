@@ -20,3 +20,17 @@ Describe "getIndexingStatusLine" -Tag Unit {
         (getIndexingStatusLine $name $processed $total $failed $eta) | Should -Be $expected
     }
 }
+
+Describe "getStatusBarView" -Tag Unit {
+    It "<case>" -TestCases @(
+        @{ case = "更新中は更新中の行が、いつもの文に代わる"; indexing = $true; line = "更新中: 営業部　1 / 2 件"; status = "名前を変えました"; source = "Indexing"; text = "更新中: 営業部　1 / 2 件" }
+        @{ case = "更新中で、いつもの文が無くても更新中の行"; indexing = $true; line = "更新中　準備しています"; status = ""; source = "Indexing"; text = "更新中　準備しています" }
+        @{ case = "更新中でなければ、直前の操作の結果"; indexing = $false; line = "更新中: 営業部　1 / 2 件"; status = "名前を変えました"; source = "Status"; text = "名前を変えました" }
+        @{ case = "出すものが無ければ空"; indexing = $false; line = ""; status = ""; source = "Empty"; text = "" }
+    ) {
+        param ($case, $indexing, $line, $status, $source, $text)
+        $view = getStatusBarView $indexing $line $status
+        $view.Source | Should -Be $source
+        $view.Text | Should -Be $text
+    }
+}
