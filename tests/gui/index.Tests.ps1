@@ -339,9 +339,8 @@ Describe "S3 作成中の操作" -Tag Gui {
             closeGuiWindowAsync $S $S.Window
             $confirm = waitGuiWindow $S "閉じる確認" -Id "HeadingText" -Text "中止して閉じますか" -Guard $tooFastGuard
             clickGuiByName $S $confirm "中止して閉じる"
-            # 止まるのを待つ間は、待つ間のダイアログ（秒読み・押せない［閉じない］）が出る。止まったら自動で消え、画面が終了する
-            $wait = waitGuiWindow $S "閉じるときの待ち" -Id "CountdownText" -Text "強制終了します"
-            (findGui $wait -Id "WaitButton").Current.IsEnabled | Should -BeFalse
+            # 止まるのを待つ間の待つ間のダイアログ（秒読み・押せない［閉じない］）は、止まるのが速い機械では見える前に消えるため、
+            # ここでは確かめない（実機で見る。文言は wait_view.Tests.ps1）。止まったら画面が終了することを確かめる
             waitGui $S "取り込みを止めて画面が終了する" ${guiIndexTimeout} -AllowExited { $S.Process.HasExited } | Out-Null
             $S.Process.ExitCode | Should -Be 0
         }

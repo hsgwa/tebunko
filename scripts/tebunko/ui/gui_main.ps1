@@ -336,7 +336,8 @@ function startGui {
                 # （終わりの処理 finishWorkspaceMove が閉じる）。待つ間のダイアログの文だけ「終わったら閉じます」に変える
                 $script:closeAfterWorkspaceMove = $true
                 $e.Cancel = $true
-                setStatus (getWorkspaceMoveClosingStatus)
+                # 表示の失敗で、閉じるのを止めたことを取り消さない（catch が Cancel を戻すため、ここで握る）
+                try { setStatus (getWorkspaceMoveClosingStatus) } catch { }
                 try { updateWaitDialog $script:indexingWait @{ Description = (getWaitDialogView "MovingClose").Description } } catch { }
                 return
             }

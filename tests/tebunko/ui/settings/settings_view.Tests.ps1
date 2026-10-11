@@ -260,8 +260,16 @@ Describe "getWorkspaceMoveOutcome" -Tag Unit {
         $outcome.Status | Should -Be $expected
     }
 
-    It "移している間に閉じようとしていたら、成功でも失敗でも Close を返す" {
+    It "移せたあとに例外の文が付いても、成功として扱う（設定を書き換え済みのため）" {
+        $outcome = getWorkspaceMoveOutcome @{ Ok = $true; Targets = 0; Count = 4 } "あとの例外" $false "move" "D:\新" "C:\旧"
+        $outcome.Ok | Should -Be $true
+        $outcome.Warning | Should -Be ""
+    }
+
+    It "移している間に閉じようとしていたら、成功のときだけ Close を返す（失敗は閉じずに警告を出す）" {
         (getWorkspaceMoveOutcome @{ Ok = $true; Count = 1 } "" $true "move" "D:\新" "C:\旧").Close | Should -Be $true
-        (getWorkspaceMoveOutcome $null "失敗" $true "move" "D:\新" "C:\旧").Close | Should -Be $true
+        $failed = getWorkspaceMoveOutcome $null "失敗" $true "move" "D:\新" "C:\旧"
+        $failed.Close | Should -Be $false
+        $failed.Warning | Should -Not -BeNullOrEmpty
     }
 }

@@ -275,7 +275,7 @@ function finishWorkspaceMove {
     $closeRequested = [bool]$script:closeAfterWorkspaceMove
     $script:workspaceMoving = $false
     $script:closeAfterWorkspaceMove = $false
-    $outcome = @{ Ok = $false; Warning = "ワークスペースを移した結果を確かめられませんでした。"; Status = ""; Close = $closeRequested }
+    $outcome = @{ Ok = $false; Warning = "ワークスペースを移した結果を確かめられませんでした。"; Status = ""; Close = $false }
     try {
         $outcome = getWorkspaceMoveOutcome (getWorkspaceMoveChange $output) $errorText $closeRequested $mode $folder $previous
         try { closeIndexingWait } catch { }
@@ -290,12 +290,8 @@ function finishWorkspaceMove {
         }
         $ui.WorkspaceBox.Text = $workspace.Dir
         updateIndexingButton
-        if ($outcome.Close) {
-            # 閉じるのを待っていたときは、確認の画面を出さずに、理由をステータスに残して閉じる
-            setStatus $outcome.Warning
-        } else {
-            showMessage $outcome.Warning "OK" "Warning" | Out-Null
-        }
+        # 失敗のときは閉じない（閉じるのを待っていても、失敗を知らせるために画面を残す）
+        showMessage $outcome.Warning "OK" "Warning" | Out-Null
     } finally {
         try { closeIndexingWait } catch { }
         if ($outcome.Close) {

@@ -230,7 +230,7 @@ function getWorkspaceMoveOutcome {
     # ワークスペースを移す裏の仕事が終わったときに、画面のスレッドで行うことを決める。画面に触らない。
     #   change: getWorkspaceMoveChange の結果（無い・例外のときは $null）
     #   errorText: 裏のスレッドの例外の文（無ければ空）
-    #   closeRequested: 移している間に窓を閉じようとして、終わるのを待っていた
+    #   closeRequested: 移している間に窓を閉じようとして、終わるのを待っていた（成功のときだけ、終わったら閉じる。失敗のときは閉じずに警告を出す）
     # 戻り値: @{ Ok（移せた）; Warning（失敗のとき、利用者に出す文。成功なら空）; Status（成功のとき switchWorkspace のあとに出すステータス。空なら出さない）; Close（終わったら閉じる） }
     # 成功のときだけ画面を切り替える（Ok）。失敗のときは設定も画面も変えない（WorkspaceMover は失敗したら設定を変えずに戻している）
     param (
@@ -242,8 +242,11 @@ function getWorkspaceMoveOutcome {
         [string]$previous
     )
 
-    $failed = @{ Ok = $false; Warning = ""; Status = ""; Close = $closeRequested }
-    if ($errorText) {
+    # 失敗のときは閉じない（閉じるのを待っていても、失敗を利用者に伝えるため、画面を残して警告を出す）
+    $failed = @{ Ok = $false; Warning = ""; Status = ""; Close = $false }
+    # 移せた（設定は書き換え済み）なら、あとの例外の文があっても成功として扱う（設定と画面を食い違わせない）
+    $moved = $null -ne $change -and $change.Ok
+    if ($errorText -and !$moved) {
         $failed.Warning = "ワークスペースを「${folder}」へ移せませんでした（${errorText}）。今のワークスペースのまま使えます。"
         return $failed
     }
