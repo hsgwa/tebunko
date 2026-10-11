@@ -4100,7 +4100,7 @@
 <td>ワークスペースの中身の移動（<code>WorkspaceMover.ChangeWorkspace</code>）</td>
 <td>中身の量・ドライブによる（別のドライブへは写してから消す）</td>
 <td>–</td>
-<td>別スレッドで行い（<code>startWorkspaceMove</code>）、待つ間のダイアログで本体の操作を止める。移している間は、ワークスペースの再変更・インデックスの作成と更新・追加・削除・エクスポート・インポートを受け付けず（<code>getIndexJobBlocker</code> の <code>ワークスペースの移動中</code>）、窓を閉じるのは移し終わるまで待つ</td>
+<td>別スレッドで行い（<code>startWorkspaceMove</code>）、待つ間のダイアログで本体の操作を止める。移している間は、ワークスペースの再変更・インデックスの作成と更新・追加・削除・エクスポート・インポートを受け付けず（<code>getIndexJobBlocker</code> の <code>ワークスペースの移動中</code>）、窓を閉じるのは移し終わるまで待つ。待つ間のダイアログの裏でも Enter・F5 は本体に届くため、検索の開始・［更新］のキー（F5）・窓を前に出したときの読み直しは、判断層の <code>testIndexReadAllowed</code> が否のあいだ何もしない</td>
 </tr>
 </tbody>
 </table>

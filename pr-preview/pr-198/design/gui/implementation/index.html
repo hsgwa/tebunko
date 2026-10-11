@@ -4316,7 +4316,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/about_dialog.ps1</code></td>
-<td>左の欄の下の［バージョン情報］（<code>shell/nav.xaml</code> の <code>AboutLink</code>）と「バージョン情報」ダイアログ（<code>dialog_about.xaml</code>）。<code>AboutLink</code> の <code>Click</code> でダイアログを開く。版・コミットの文字列（<code>about_view.ps1</code> の <code>getAboutView</code>）は <code>gui.ps1</code> が起動時に 1 回だけ組み立て、ダイアログを開くたびには読み直さない</td>
+<td>左の欄の下の［バージョン情報］（<code>shell/nav.xaml</code> の <code>AboutLink</code>）と「バージョン情報」ダイアログ（<code>dialog_about.xaml</code>）。<code>AboutLink</code> の <code>Click</code> でダイアログを開く。版・コミットの文字列（<code>about_view.ps1</code> の <code>getAboutView</code>）は <code>gui.ps1</code> が起動時に 1 回だけ組み立て、ダイアログを開くたびには読み直さない。ダイアログには GitHub とリリースのリンク（<code>getAboutLinks</code>）とライセンスの文（<code>getAboutLicenses</code>）を出し、リンクは <code>explorer.exe</code> に渡して既定のブラウザで開く。開くのは <code>getAboutLinks</code> の 2 つのアドレスと一字一句同じもの（<code>testAboutLinkUrl</code>）だけ</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/shell/nav.ps1</code></td>

@@ -4395,6 +4395,11 @@
 <td>一覧・検索結果から元のファイルの場所を開く（利用者の操作時のみ）</td>
 </tr>
 <tr>
+<td><code>tebunko/ui/about_dialog.ps1</code>（<code>openAboutLink</code>）</td>
+<td><code>explorer.exe</code>（アドレスを 1 つ渡す。既定のブラウザで開く）</td>
+<td>「バージョン情報」の GitHub・リリースのリンク。開くのは <code>getAboutLinks</code> に載せた 2 つのアドレス（<code>https://github.com/hsgwa/tebunko</code> と、その <code>/releases</code>）と一字一句同じものだけ（<code>testAboutLinkUrl</code>）。利用者がリンクを押したときのみ</td>
+</tr>
+<tr>
 <td><code>tebunko/ui/open_source.ps1:250</code>（<code>openWithNotepad</code>）</td>
 <td><code>notepad.exe</code>（固定のパス <code>%SystemRoot%\System32\notepad.exe</code>）</td>
 <td>検索結果から、既定のアプリで開くと実行・登録になる拡張子（<code>$textNotepadExtensions</code>）のテキストファイルを開く（利用者の操作時のみ）</td>
