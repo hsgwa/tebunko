@@ -59,6 +59,62 @@ Describe "起動口 tebunko.exe（installer\tebunko.cs）" -Tag Meta {
     }
 }
 
+Describe "起動口 tebunko.exe が渡す引数（フォルダ名の文字）" -Tag Meta {
+    # tebunko.exe は gui.ps1 のパスを -File "<パス>" で渡す。パスは PowerShell の構文として読まれないので、
+    # ' などを含むフォルダでも起動できるはず。ビルドした exe の BuildArguments の返す引数で、実際に確かめる
+    BeforeAll {
+        $csc = Join-Path ([System.Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory()) "csc.exe"
+        $out = Join-Path $TestDrive "tebunko_args.exe"
+        & $csc -nologo -codepage:65001 -target:winexe "-out:$out" $launcherSource | Out-Null
+        # ファイルを掴まないよう、バイト列から読み込む
+        $assembly = [System.Reflection.Assembly]::Load([System.IO.File]::ReadAllBytes($out))
+        $buildArguments = $assembly.GetType("Program").GetMethod("BuildArguments", [System.Reflection.BindingFlags]"NonPublic,Public,Static")
+        $powershell = Join-Path ([Environment]::GetFolderPath("System")) "WindowsPowerShell\v1.0\powershell.exe"
+        $script:caseCount = 0
+    }
+
+    It "フォルダ名に <label> を含んでも、tebunko.exe の引数で gui.ps1 が起動する" -TestCases @(
+        @{ label = "一重引用符 '"; ch = "'" }
+        @{ label = "右の一重引用符 U+2019"; ch = [string][char]0x2019 }
+        @{ label = "空白"; ch = " " }
+        @{ label = "丸括弧"; ch = "(1)" }
+        @{ label = "&"; ch = "&" }
+        @{ label = "^"; ch = "^" }
+        @{ label = ";"; ch = ";" }
+        @{ label = ","; ch = "," }
+        @{ label = "="; ch = "=" }
+        @{ label = "単独の %"; ch = "50%" }
+        @{ label = "!"; ch = "!" }
+        @{ label = "$"; ch = '$' }
+        @{ label = "バッククォート"; ch = '`' }
+        @{ label = "#"; ch = "#" }
+        @{ label = "@"; ch = "@" }
+        @{ label = "日本語"; ch = "営業部" }
+        @{ label = "角括弧"; ch = "[1]" }
+    ) {
+        param ($label, $ch)
+        $script:caseCount++
+        $guiDir = Join-Path $TestDrive "exe$($script:caseCount)_a${ch}b\scripts\tebunko"
+        [System.IO.Directory]::CreateDirectory($guiDir) | Out-Null
+        $gui = "$guiDir\gui.ps1"
+        [System.IO.File]::WriteAllText($gui, "Set-Content -LiteralPath (Join-Path `$PSScriptRoot 'marker.txt') -Value `$PSScriptRoot -Encoding UTF8`r`nexit 0`r`n", (New-Object System.Text.UTF8Encoding($true)))
+
+        $psi = New-Object System.Diagnostics.ProcessStartInfo($powershell, $buildArguments.Invoke($null, @($gui)))
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $process = [System.Diagnostics.Process]::Start($psi)
+        try {
+            $process.WaitForExit(20000) | Out-Null
+        } finally {
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+        }
+
+        $marker = "$guiDir\marker.txt"
+        [System.IO.File]::Exists($marker) | Should -Be $true -Because "gui.ps1 が起動しなかった"
+        (Get-Content -LiteralPath $marker -Encoding UTF8) | Should -BeExactly $guiDir
+    }
+}
+
 Describe "インストーラー（installer\tebunko.iss）" -Tag Meta {
     It "既定は管理者権限なしで入れる" {
         @(getIssSection "Setup") -contains "PrivilegesRequired=lowest" | Should -Be $true

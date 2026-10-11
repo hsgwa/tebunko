@@ -1,4 +1,5 @@
 @echo off
+setlocal EnableExtensions DisableDelayedExpansion
 rem tebunko launcher.
 rem Start PowerShell once. In that process:
 rem 1) Clear Mark-of-the-Web (added when a downloaded zip is extracted) so that
@@ -18,8 +19,12 @@ rem    saved in the tool folder (the workspace is not known before startup).
 rem    Written only with cmdlets, so it still works in Constrained Language Mode.
 rem    The -Command text is built below in PSCMD, piece by piece (one set per
 rem    step), so no single line is too long to read. No %% in any piece other
-rem    than %%~dp0 (expanded once, here, into the PSCMD value below). No delayed
-rem    expansion; each set line expands %%PSCMD%% to its value so far, in order.
+rem    than %%PSCMD%% (each set line expands it to its value so far, in order).
+rem    The tool's folder is NOT written into the -Command text: a quote or other
+rem    special character in the path would break the PowerShell syntax before the
+rem    try/catch runs, and nothing would be shown. It is passed in the environment
+rem    variable TEBUNKO_ROOT and read with $env:TEBUNKO_ROOT (never parsed as code).
+rem    setlocal above keeps delayed expansion off, so "!" in the path survives.
 rem Run PowerShell through conhost.exe. When Windows Terminal is the default
 rem terminal app, it receives the console window and ignores -WindowStyle Hidden,
 rem so the window stays open while the GUI runs. conhost.exe keeps the classic
@@ -32,9 +37,11 @@ if not exist "%PS1%" (
     start "" notepad.exe "%~dp0scripts\tebunko\startup\no_powershell.txt"
     exit /b 1
 )
+rem The tool's folder (ends with a backslash), passed to PowerShell by environment.
+set "TEBUNKO_ROOT=%~dp0"
 rem Step 1: the notepad opener (kept as a single assignment so a test can
 rem replace it) and the tool's folder paths, used by every later step.
-set "PSCMD=$opener='notepad.exe';$root='%~dp0';$startup=Join-Path $root 'scripts\tebunko\startup';$gui=Join-Path $root 'scripts\tebunko\gui.ps1';"
+set "PSCMD=$opener='notepad.exe';$root=$env:TEBUNKO_ROOT;$startup=Join-Path $root 'scripts\tebunko\startup';$gui=Join-Path $root 'scripts\tebunko\gui.ps1';"
 rem Step 2: clear Mark-of-the-Web from the scripts folder (see the comment above).
 set "PSCMD=%PSCMD%Get-ChildItem -LiteralPath (Join-Path $root 'scripts') -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue; "
 rem Step 3: run the GUI script, catching a failure from before its own window opens.
