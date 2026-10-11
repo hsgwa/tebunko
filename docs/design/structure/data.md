@@ -77,7 +77,7 @@ flowchart TD
 | `${legacyTmpParent}` | 前の版（`%TEMP%\tebunko\<PID>` に一時ファイルを置いていた版）が残した作業フォルダの片付け専用。今の版はここに書き込まない | 同上 |
 | `$sourceFolderFileName` | 各インデックスのフォルダに置く元のフォルダの記録のファイル名（`source_folder.txt`） | 同上 |
 | `$indexingPhaseCrawl` / `$indexingPhaseConfirm` / `$indexingPhaseIngest` / `$indexingPhaseFinish` | インデックス作成の進み具合の段階（`クロール` / `確認` / `取り込み` / `仕上げ`） | 同上 |
-| `$ingestPlanColumns` | 取り込み予定の列名（`インデックス名` `元のフォルダ` `区分` `ファイル数` `取り込み対象` `新規` `更新あり` `前回未完了` `インデックスなし` `前回失敗`） | 同上 |
+| `$ingestPlanColumns` | 取り込み予定の列名（`インデックス名` `元のフォルダ` `区分` `ファイル数` `取り込み対象` `新規` `更新あり` `前回未完了` `インデックスなし` `前回失敗` `クラウド` `クラウド失敗` `クラウド容量` `クラウド失敗容量`） | 同上 |
 | `$planKindIngest` / `$planKindUnchecked` / `$planKindMissing` / `$planKindDropped` | 取り込み予定の区分（`取り込み` / `チェックなし` / `フォルダなし` / `削除予定`。`削除予定` は設定から外れたインデックスで、確認のあとにだけ消す） | 同上 |
 | `$statusColumns` | 取り込み一覧の列名（`相対パス` `更新日時` `サイズ` `状態` `TSV数` `取り込み日時` `エラー` `抽出版`） | 同上 |
 | `$statusFolderKey` | 取り込み一覧の先頭のクロール対象フォルダの行の見出し（`クロール対象フォルダ`） | 同上 |

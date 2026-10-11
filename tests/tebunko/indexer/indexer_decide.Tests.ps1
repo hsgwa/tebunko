@@ -102,3 +102,34 @@ Describe "getIngestLane・getOfficeLane" -Tag Unit {
         getOfficeLane "a.docm" | Should -Be ${laneWord}
     }
 }
+
+Describe "splitCloudItems" -Tag Unit {
+    # items: 取り込み対象（Failed が $false）と、前回失敗（Failed が $true）が 1 件ずつ
+    It "<name>" -TestCases @(
+        @{ name = "ダウンロードしないなら、すべて残す"; retry = $false; include = $false; included = @(); skipped = @("新規.xlsx", "失敗.xlsx") }
+        @{ name = "ダウンロードしないなら、失敗分を再取り込みにしても残す"; retry = $true; include = $false; included = @(); skipped = @("新規.xlsx", "失敗.xlsx") }
+        @{ name = "ダウンロードするなら、取り込み対象だけ取り込む（失敗分は再取り込みを選んでいなければ残す）"; retry = $false; include = $true; included = @("新規.xlsx"); skipped = @("失敗.xlsx") }
+        @{ name = "ダウンロードして、失敗分も再取り込みするなら、すべて取り込む"; retry = $true; include = $true; included = @("新規.xlsx", "失敗.xlsx"); skipped = @() }
+    ) {
+        param ($name, $retry, $include, $included, $skipped)
+        $items = @(
+            @{ RelPath = "新規.xlsx"; Failed = $false }
+            @{ RelPath = "失敗.xlsx"; Failed = $true }
+        )
+        $result = splitCloudItems $items $retry $include
+        @($result.Included | ForEach-Object { $_.RelPath }) | Should -Be $included
+        @($result.Skipped | ForEach-Object { $_.RelPath }) | Should -Be $skipped
+    }
+
+    It "空の一覧と `$null でも、空の結果を返す" {
+        (splitCloudItems @() $true $true).Included.Count | Should -Be 0
+        (splitCloudItems $null $true $true).Skipped.Count | Should -Be 0
+    }
+
+    It "要素の無い List[object]（createTargetList が返す形）でも、空の結果を返す" {
+        $list = New-Object System.Collections.Generic.List[object]
+        $result = splitCloudItems $list $true $true
+        $result.Included.Count | Should -Be 0
+        $result.Skipped.Count | Should -Be 0
+    }
+}

@@ -62,7 +62,7 @@ $script:lastChannel = $null
 
 function runIndexer {
     # テスト用の置き場所（root）で indexer.ps1 を動かし、終了コードを返す。
-    #   options: @{ RetryFailed; ConfirmTargets; Workers（既定 0 = 取り込みのスレッドを使わない） }
+    #   options: @{ RetryFailed; IncludeCloud; ConfirmTargets; Workers（既定 0 = 取り込みのスレッドを使わない） }
     #   breaks : 途中で動かす処理 @{ Script; Pattern; Action }（Pattern に一致する行に来るたびに Action を動かす）
     param (
         [string]$root,
@@ -75,6 +75,9 @@ function runIndexer {
     $channel = newIndexerChannel ([bool]$options.RetryFailed) ([bool]$options.ConfirmTargets) $workers
     if ($options.ContainsKey("OnlyNames")) {
         $channel.OnlyNames = @($options.OnlyNames)
+    }
+    if ($options.ContainsKey("IncludeCloud")) {
+        $channel.IncludeCloud = [bool]$options.IncludeCloud
     }
     $script:lastChannel = $channel
     $global:indexerTestRoot = $root

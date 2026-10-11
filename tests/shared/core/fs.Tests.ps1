@@ -696,3 +696,38 @@ Describe "invokeWithNamedMutex" -Tag Io {
         invokeWithNamedMutex $name 2000 { "続けた" } | Should -Be "続けた"
     }
 }
+
+Describe "testCloudOnlyAttributes" -Tag Unit {
+    # 属性は数値で比べる。0x400000 = RECALL_ON_DATA_ACCESS・0x40000 = RECALL_ON_OPEN・0x1000 = OFFLINE
+    # （ピン留め 0x80000・ピン留めの解除 0x100000・再解析ポイントだけでは、クラウドにだけあるとは言えない）
+    It "<name>" -TestCases @(
+        @{ name = "通常のファイルは違う"; attributes = 0x80; expected = $false }
+        @{ name = "Archive は違う"; attributes = 0x20; expected = $false }
+        @{ name = "ReadOnly は違う"; attributes = 0x1; expected = $false }
+        @{ name = "ReparsePoint だけでは違う"; attributes = 0x400; expected = $false }
+        @{ name = "ピン留め（0x80000）は違う"; attributes = (0x80000 -bor 0x20); expected = $false }
+        @{ name = "ピン留めの解除（0x100000）は違う"; attributes = (0x100000 -bor 0x20); expected = $false }
+        @{ name = "RECALL_ON_DATA_ACCESS（0x400000）はクラウドにだけある"; attributes = 0x400000; expected = $true }
+        @{ name = "RECALL_ON_OPEN（0x40000）はクラウドにだけある"; attributes = 0x40000; expected = $true }
+        @{ name = "OFFLINE（0x1000）はクラウドにだけある"; attributes = 0x1000; expected = $true }
+        @{ name = "RECALL_ON_DATA_ACCESS に Archive と ReparsePoint が付いていても"; attributes = (0x400000 -bor 0x20 -bor 0x400); expected = $true }
+        @{ name = "RECALL_ON_OPEN に Archive と ReparsePoint が付いていても"; attributes = (0x40000 -bor 0x20 -bor 0x400); expected = $true }
+        @{ name = "OFFLINE に Archive と ReparsePoint が付いていても"; attributes = (0x1000 -bor 0x20 -bor 0x400); expected = $true }
+        @{ name = "ピン留めとクラウドにだけある印が両方付いていればクラウドにだけある"; attributes = (0x80000 -bor 0x400000); expected = $true }
+    ) {
+        param ($name, $attributes, $expected)
+        testCloudOnlyAttributes $attributes | Should -Be $expected
+    }
+
+    It "ファイル情報の Attributes（列挙型）をそのまま渡せる" {
+        $path = Join-Path $TestDrive "cloud_attr.txt"
+        [System.IO.File]::WriteAllText($path, "x")
+        testCloudOnlyAttributes ([int](Get-Item -LiteralPath $path).Attributes) | Should -Be $false
+        [System.IO.File]::SetAttributes($path, [System.IO.FileAttributes]::Offline)
+        try {
+            testCloudOnlyAttributes ([int](Get-Item -LiteralPath $path).Attributes) | Should -Be $true
+        } finally {
+            [System.IO.File]::SetAttributes($path, [System.IO.FileAttributes]::Normal)
+        }
+    }
+}

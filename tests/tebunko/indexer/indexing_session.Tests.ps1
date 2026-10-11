@@ -172,3 +172,23 @@ Describe "インデクサの司令のスクリプト（indexingSessionScript）"
         Should -Invoke invokeIndexerMain -Times 1 -Exactly
     }
 }
+
+Describe "IndexingSession（GetCloudSkipped）" -Tag Io {
+    It "クラウドにだけあるため残した件数を返す。入っていなければ 0" {
+        $session = newFakeIndexingSession '$Channel.CloudSkipped = 4; $Channel.ExitCode = 0' (newIndexerChannel)
+        try {
+            [void]$session.Wait(30000)
+            $session.GetCloudSkipped() | Should -Be 4
+        } finally {
+            $session.Close()
+        }
+
+        $emptySession = newFakeIndexingSession '$Channel.ExitCode = 0' (newIndexerChannel)
+        try {
+            [void]$emptySession.Wait(30000)
+            $emptySession.GetCloudSkipped() | Should -Be 0
+        } finally {
+            $emptySession.Close()
+        }
+    }
+}

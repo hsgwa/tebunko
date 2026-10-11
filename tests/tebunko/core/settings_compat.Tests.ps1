@@ -82,6 +82,7 @@ BeforeAll {
         readFileKinds      = $true
         readSearchOption   = $false
         readOpenMode       = $false
+        readCloudFiles     = $false
         getWorkDir         = $false
     }
 }
