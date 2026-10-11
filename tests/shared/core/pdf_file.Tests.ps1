@@ -729,6 +729,7 @@ Describe "readPdfPageText（命令の読み方）" -Tag Unit {
         @{ name = "空白の種類（タブ・改ページ・復帰）"; content = "(a)`t Tj`f(b)`r Tj"; expected = "ab" }
         @{ name = "空白の種類（コード 0）"; content = "(a)$([char]0)Tj$([char]0)(b)$([char]0)Tj"; expected = "ab" }
         @{ name = "空の文字列"; content = '() Tj (a) Tj'; expected = "a" }
+        @{ name = "引数だけが並んで命令なしで終わる"; content = '(a) Tj /N 1 (s)'; expected = "a" }
         @{ name = "読み飛ばす並びの上限ちょうど（16 個）"; content = ('0 ' * 16) + 'w (a) Tj'; expected = "a" }
         @{ name = "読み飛ばす並びの上限を 1 つ超える（17 個）"; content = ('0 ' * 17) + 'w (a) Tj'; expected = "a" }
         @{ name = "上限を超えた並びの前の文字列は残らない"; content = '(x) ' + ('0 ' * 17) + 'w Tj'; expected = "" }
@@ -748,7 +749,7 @@ Describe "readPdfPageText（引数が延々と続く内容でも終わる）" -T
         $text = readPdfPageText @{ Fonts = @{}; CMaps = @{} } $content $null
         $watch.Stop()
         $text | Should -BeExactly $expected
-        $watch.Elapsed.TotalSeconds | Should -BeLessThan 120
+        $watch.Elapsed.TotalSeconds | Should -BeLessThan 30
     }
 }
 
