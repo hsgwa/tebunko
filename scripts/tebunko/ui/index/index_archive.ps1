@@ -184,7 +184,7 @@ function showBulkIndexResult {
     $view = getIndexBulkResultView $operation $results
     setStatus $view.Status
     if ($view.HasFailure) {
-        showNoticeBanner "IndexNotice" "BulkFailed" "$($view.FailureHeading)`n$($view.FailureDetail)"
+        showNoticeBanner "IndexNotice" "IndexOpFailed" "$($view.FailureHeading)`n$($view.FailureDetail)"
     } else {
         hideNoticeBanner "IndexNotice"
     }

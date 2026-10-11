@@ -129,6 +129,15 @@ function getIndexArchiveCancelledStatus {
     return "${operation}を取りやめました"
 }
 
+function getBulkDeleteErrorStatus {
+    # 複数削除が、裏の仕事ごと失敗した（ワークスペースに届かないなど）ときのステータスと帯の文
+    param (
+        [string]$errorText
+    )
+
+    return "削除に失敗しました：${errorText}"
+}
+
 function getBulkDeleteFailedStatus {
     # 複数削除で、閉じるのを待っていて結果のダイアログを出さないときに、失敗があったことをステータスに残す文
     param (

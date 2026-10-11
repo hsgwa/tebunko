@@ -533,6 +533,12 @@ Describe "getImportSourceCheckText（元のフォルダの下の 1 行）" -Tag 
     }
 }
 
+Describe "getBulkDeleteErrorStatus" -Tag Unit {
+    It "理由を添える" {
+        getBulkDeleteErrorStatus "届きません" | Should -Be "削除に失敗しました：届きません"
+    }
+}
+
 Describe "getIndexArchiveCancelledStatus" -Tag Unit {
     It "<operation> を取りやめた文" -TestCases @(
         @{ operation = "エクスポート"; expected = "エクスポートを取りやめました" }

@@ -249,7 +249,12 @@ function startIndexStoreJob {
                     loadTargets
                 }
                 # 読み直しの結果（届かないときの「接続できません」）で、失敗の知らせが消えないようにする
-                refreshIndexViewsKeepingStatus (getIndexStoreJobFailedStatus $script:indexJobKind $name $errorText)
+                $failedText = getIndexStoreJobFailedStatus $script:indexJobKind $name $errorText
+                refreshIndexViewsKeepingStatus $failedText
+                if ($script:indexJobKind -ne "rename") {
+                    # 削除の失敗は、まとめての削除と同じ帯でも知らせる（ステータスと同じ文）
+                    showNoticeBanner "IndexNotice" "IndexOpFailed" $failedText
+                }
             } finally {
                 finishIndexJobClose
             }
@@ -260,8 +265,9 @@ function startIndexStoreJob {
                 & $script:indexJobOnDone
             }
             if ($script:indexJobKind -ne "rename") {
-                # 削除: 一覧からの除去と保存は onDone で済ませてから、画面を読み直す
+                # 削除: 一覧からの除去と保存は onDone で済ませてから、画面を読み直す。前の削除の失敗の帯は、成功したので消す
                 refreshIndexViews
+                hideNoticeBanner "IndexNotice"
             }
             if ($script:indexJobKind -eq "rename") {
                 # 改名は済んでいるので、行への反映（上の onDone）は行い、元のフォルダの記録だけ書けなかったことを知らせる
@@ -330,8 +336,9 @@ function deleteIndexes {
         try {
             if ($errorText) {
                 loadTargets
-                refreshIndexViewsKeepingStatus "削除に失敗しました：${errorText}"
-                showNoticeBanner "IndexNotice" "BulkFailed" "削除に失敗しました：${errorText}"
+                $failedText = getBulkDeleteErrorStatus $errorText
+                refreshIndexViewsKeepingStatus $failedText
+                showNoticeBanner "IndexNotice" "IndexOpFailed" $failedText
                 return
             }
             # 消せたものを一覧から外す（失敗したものは残す）
