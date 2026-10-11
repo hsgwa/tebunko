@@ -4669,6 +4669,14 @@
 <td><code>getOfficeProcesses</code>・<code>OfficeWatchdog</code>・<code>KillOffice</code></td>
 </tr>
 <tr>
+<td><code>getWatchdogVerdict</code></td>
+<td>entry, hasWindow, users, due</td>
+<td>string</td>
+<td>見張りが、控えたプロセスを止めるか決める。<code>Skip</code>（何もしない）・<code>Spare</code>（期限を過ぎたが、利用者が使った印があるので止めない）・<code>Kill</code>（期限を過ぎたので止める）。窓を見張るプロセスで窓が見えたら印を入れる。印は起動時刻が同じものだけを有効とする</td>
+<td><a href="../../indexing/office-apps/#office-アプリexcelwordpowerpointの管理">Office アプリの管理</a></td>
+<td><code>OfficeWatchdog</code></td>
+</tr>
+<tr>
 <td><code>testLaneAbandoned</code> / <code>getUnhandledAbandonedLanes</code></td>
 <td>– / pool</td>
 <td>bool / レーンの配列</td>
