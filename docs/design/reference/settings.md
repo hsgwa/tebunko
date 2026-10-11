@@ -39,9 +39,9 @@
 | `getWorkspaceTmpDir` | workspace | string | 取り込みの作業フォルダの候補 `<TmpRoot>\<PC の鍵>\<PID>`。副作用は無い | selectTmpDir, index_migrate.ps1 |
 | `selectTmpDir` | workspace | `@{Dir; Reason}` | 作業フォルダの置き場所を決める。候補のパスに `[` `]` があれば（Excel が保存できない）`Dir` を空にして `Reason = Brackets`、候補の長さに取り込みのスレッドが下に作る名前の分を足して `$excelMaxPath` 以上なら `Reason = TooLong`。どちらでもなければ候補のまま（`Reason` は空）。`%TEMP%` には逃がさない | paths.ps1, indexer_run.ps1, extract_office.ps1, index_migrate.ps1 |
 | `getTmpDirUnavailableMessage` | reason | string | 作業フォルダを置けない理由（`Brackets`・`TooLong`・その他）を、利用者向けの 1 文にする | indexer_run.ps1, index_migrate.ps1 |
-| `getLegacyIndexState` | dir | `@{HasLegacyIndex; ContentEmpty; HasLegacySystemIndex}` | 前の版のワークスペースの状態。`index\` の直下のフォルダに元のフォルダ.txt があれば前の版のしるし（`HasLegacyIndex`）。`content_index\` が空か（`ContentEmpty`）。空のときだけ、`system_index\` に前の名前の txt があるかも調べる | gui_main.ps1, indexing_tab.ps1, settings_tab.ps1, index_archive.ps1, indexer_run.ps1, paths.ps1 |
+| `getLegacyIndexState` | dir | `@{HasLegacyIndex; ContentEmpty; HasLegacySystemIndex}` | 前の版のワークスペースの状態。`index\` の直下のフォルダに元のフォルダ.txt があれば前の版のしるし（`HasLegacyIndex`）。`content_index\` が空か（`ContentEmpty`）。空のときだけ、`system_index\` に前の名前の txt があるかも調べる | gui_main.ps1, indexing_tab.ps1, ui/settings/settings.ps1, index_archive.ps1, indexer_run.ps1, paths.ps1 |
 | `testLegacyCleanupNeeded` | state | bool | 取り込み直しを始めるときに、前の版のシステムインデックスを片付けるか。`content_index\` が空で、前の版のしるしか前の名前の txt があるとき | index_archive.ps1, indexer_run.ps1 |
-| `getLegacyIndexMessage` | dir, hasLegacyIndex | string | 前の版のインデックスが見つかったときの知らせ。しるしが無ければ空 | gui_main.ps1, settings_tab.ps1, indexer_run.ps1 |
+| `getLegacyIndexMessage` | dir, hasLegacyIndex | string | 前の版のインデックスが見つかったときの知らせ。しるしが無ければ空 | gui_main.ps1, ui/settings/settings.ps1, indexer_run.ps1 |
 | `clearLegacySystemIndex` | dir | `@{Ok; Reason}` | 前の版のシステムインデックスを片付ける。状態ファイルの中身を排他の中で空にしてから、`system_index\` を消す。どちらかに失敗したら `Ok = $false`（次に呼べば続きから） | indexer_run.ps1, index_archive.ps1 |
 | `newWorkspace` | dir | `Workspace` | `Workspace` のインスタンスを作る（クラスの本体では型の名前を書けないため、`WorkspaceMover`・`IndexCatalog` がこの関数を通して作る） | workspace_mover.ps1 |
 
@@ -64,7 +64,7 @@
 
 | 関数 | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
-| `testFolderOrUnder` | path, folder | bool | path が folder そのもの、または folder の下かを返す。フォルダとその下の比べ方はここだけ。大文字・小文字を区別しない序数の比べ（`OrdinalIgnoreCase`）で、folder の末尾の `\` は外し、`<folder>\` で始まるものだけを「下」にする（`Sales` の下に `Sales2` は入らない）。folder が空ならどれも含まない。既知の制限: `\\?\` 付きと無し、`/` 区切り、`..`、8.3 形式の短い名前は同じ場所として扱わない（書き方は呼び出す側がそろえる） | `removeSearchExcludesUnder`, `moveSearchExcludes`, 検索対象のツリー（`saveSearchExcludes`） |
+| `testFolderOrUnder` | path, folder | bool | path が folder そのもの、または folder の下かを返す。`searchExcludes` の削除・付け替え・保存でのフォルダとその下の比べ方はここだけ。大文字・小文字を区別しない序数の比べ（`OrdinalIgnoreCase`）で、folder の末尾の `\` は外し、`<folder>\` で始まるものだけを「下」にする（`Sales` の下に `Sales2` は入らない）。folder が空ならどれも含まない。既知の制限: `\\?\` 付きと無し、`/` 区切り、`..`、8.3 形式の短い名前は同じ場所として扱わない（書き方は呼び出す側がそろえる） | `removeSearchExcludesUnder`, `moveSearchExcludes`, 検索対象のツリー（`saveSearchExcludes`） |
 | `readSearchExcludes` / `writeSearchExcludes` | path（既定 `$settingsFile`） / excludes, path | `@{Path; Subfolders}` の配列 / – | 画面の検索対象のツリーでチェックを外したフォルダ（`searchExcludes`）を読み書きする。無ければ空（すべて検索） | 画面（検索対象のツリー） |
 | `removeSearchExcludesUnder` | folder, path（既定 `$settingsFile`） | – | フォルダとその下の `searchExcludes` を消す（`Sales` を消しても `Sales2` は消さない）。設定の書き込みは `invokeSettingsLocked` の中で行い、消せなくても例外にしない（インデックスの改名・削除を止めない） | `IndexCatalog.RenameIndex` / `RemoveIndex` |
 | `moveSearchExcludes` | from, to, path（既定 `$settingsFile`） | int | 検索対象ツリーでチェックを外したフォルダ（`searchExcludes`）のうち、from の `content_index` の下のものを to の下に付け替えて保存し、付け替えた数を返す | `WorkspaceMover.ChangeWorkspace` |
