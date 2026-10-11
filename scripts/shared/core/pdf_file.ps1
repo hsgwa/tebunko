@@ -39,6 +39,9 @@ ${pdfLatin1} = [System.Text.Encoding]::GetEncoding(28591)
 ${pdfWinAnsi} = [System.Text.Encoding]::GetEncoding(1252)
 ${pdfDelimiters} = [char[]]@(0, 9, 10, 12, 13, 32, '(', ')', '<', '>', '[', ']', '{', '}', '/', '%')
 ${pdfStringStops} = [char[]]@('(', ')', '\')
+# readPdfToken の速い道。空白（コード 32 以下）を飛ばして、(1) 数値・キーワード、または (2) 名前・入れ子もエスケープも無い文字列・<< >> [ ] { } を 1 つ取る。
+# 区切りは ${pdfDelimiters} と同じ。コメント・16 進の文字列・入れ子やエスケープのある文字列・単独の < > ) は取らない（1 文字ずつ進める道に任せる）
+${pdfTokenRegex} = [regex]::new('\G(?>[\x00-\x20]*)(?:([^\x00-\x20()<>\[\]{}/%][^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*)|(/[^\x00\x09\x0A\x0C\x0D\x20()<>\[\]{}/%]*|\([^()\\]*\)|<<|>>|[\[\]{}]))', [System.Text.RegularExpressions.RegexOptions]::Compiled)
 
 function testPdfExtension {
     # ファイル名（またはパス）の拡張子が、取り込み対象の PDF の拡張子か（大文字・小文字を区別しない）
@@ -89,6 +92,45 @@ function readPdfToken {
     $s = $st.S
     $n = $s.Length
     $p = $st.P
+    # 速い道: 空白のあとに、数値・キーワード・名前・入れ子もエスケープも無い文字列・<< >> [ ] { } のどれかが続くときは、
+    # 位置指定（\G）の正規表現 1 回で切り出す（後戻りしない形。取れなければ、下の 1 文字ずつ進める道に任せる）
+    $m = if ($p -lt $n) { ${pdfTokenRegex}.Match($s, $p) } else { [System.Text.RegularExpressions.Match]::Empty }
+    if ($m.Success) {
+        $g = $m.Groups[1]
+        if ($g.Success) {
+            $token = $g.Value
+            $st.P = $g.Index + $g.Length
+            $c = $token[0]
+            if (($c -ge '0' -and $c -le '9') -or $c -eq '-' -or $c -eq '+' -or $c -eq '.') {
+                $d = 0.0
+                if ([double]::TryParse($token, [System.Globalization.NumberStyles]::Float, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$d) -and -not [double]::IsInfinity($d) -and -not [double]::IsNaN($d)) {
+                    $st.K = "num"
+                    return $d
+                }
+            }
+            $st.K = "kw"
+            return $token
+        }
+        $g = $m.Groups[2]
+        $token = $g.Value
+        $st.P = $g.Index + $g.Length
+        $c = $token[0]
+        if ($c -eq '/') {
+            $name = $token.Substring(1)
+            if ($name.Contains("#")) {
+                $name = [regex]::Replace($name, '#([0-9A-Fa-f]{2})', { param($m) [string][char][Convert]::ToInt32($m.Groups[1].Value, 16) })
+            }
+            $st.K = "name"
+            return $name
+        }
+        if ($c -eq '(') { $st.K = "str"; return $token.Substring(1, $token.Length - 2) }
+        if ($c -eq '[') { $st.K = "["; return $null }
+        if ($c -eq ']') { $st.K = "]"; return $null }
+        if ($c -eq '<') { $st.K = "<<"; return $null }
+        if ($c -eq '>') { $st.K = ">>"; return $null }
+        $st.K = "kw"
+        return $token
+    }
     while ($true) {
         while ($p -lt $n -and [int]$s[$p] -le 32) { $p++ }
         if ($p -ge $n) {

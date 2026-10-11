@@ -680,3 +680,42 @@ Describe "readPdfFile" -Tag Io {
         { readPdfFile $path 10 } | Should -Throw "*ファイルサイズが大きすぎる*"
     }
 }
+
+Describe "readPdfToken" -Tag Unit {
+    BeforeAll {
+        function readAllPdfTokens([string]$text) {
+            $st = newPdfLexer $text 0
+            $out = New-Object System.Collections.Generic.List[string]
+            while ($true) {
+                $v = readPdfToken $st
+                if ($st.K -eq "eof") { break }
+                if ($null -eq $v) { $out.Add($st.K + ":") } else { $out.Add($st.K + ":" + [string]::Format([System.Globalization.CultureInfo]::InvariantCulture, "{0}", $v)) }
+            }
+            return ($out -join " ")
+        }
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "数値とキーワード"; text = "12 -3.5 +4 .5 abc"; expected = "num:12 num:-3.5 num:4 num:0.5 kw:abc" }
+        @{ name = "数値にならない語・無限大はキーワード"; text = "1.2.3 - + -Infinity 1e3"; expected = "kw:1.2.3 kw:- kw:+ kw:-Infinity num:1000" }
+        @{ name = "名前（# の 16 進・空の名前）"; text = "/Name /A#42C /"; expected = "name:Name name:ABC name:" }
+        @{ name = "文字列（入れ子・エスケープ・8 進）"; text = "(abc) (a(b)c) (a\)b) (a\101)"; expected = "str:abc str:a(b)c str:a)b str:aA" }
+        @{ name = "16 進の文字列と << >>"; text = "<41 42> << >>"; expected = "str:AB <<: >>:" }
+        @{ name = "配列と波括弧"; text = "[1 2] { }"; expected = "[: num:1 num:2 ]: kw:{ kw:}" }
+        @{ name = "コメントは読み飛ばす"; text = "% comment`n12 a%c`nb"; expected = "num:12 kw:a kw:b" }
+        @{ name = "単独の > と ) は読み飛ばす"; text = "a) b > c"; expected = "kw:a kw:b kw:c" }
+        @{ name = "区切りのない並び"; text = "Tj(x)[1]/N<<>>"; expected = "kw:Tj str:x [: num:1 ]: name:N <<: >>:" }
+        @{ name = "先頭の制御文字は空白"; text = "`0`t`r`n 12"; expected = "num:12" }
+        @{ name = "閉じていない文字列は最後まで"; text = "(unterminated"; expected = "str:unterminated" }
+        @{ name = "名前の途中の制御文字は名前に含む"; text = "/a$([char]1)b c"; expected = "name:a$([char]1)b kw:c" }
+        @{ name = "空"; text = ""; expected = "" }
+    ) {
+        readAllPdfTokens $text | Should -BeExactly $expected
+    }
+
+    It "読み始めの位置が末尾なら eof" {
+        $st = newPdfLexer "ab" 2
+        [void](readPdfToken $st)
+        $st.K | Should -Be "eof"
+    }
+}
