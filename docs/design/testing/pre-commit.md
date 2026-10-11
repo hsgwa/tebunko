@@ -32,7 +32,7 @@ clone したら 1 回だけ次を実行する。`core.hooksPath` を `tools/hook
 | 変更したファイル | 流すテスト |
 |---|---|
 | `scripts/<パス>.ps1` | `tests/<パス>.Tests.ps1` と `meta/structure`・`meta/layers`（`scripts/tebunko/indexer.ps1` は `tests/tebunko/indexer/indexer.Tests.ps1`） |
-| `scripts/` の `.xaml` | `meta/structure` |
+| `scripts/` の `.xaml` | `meta/structure`・`meta/table_border`（表に外枠を付けない） |
 | `tests/` の `*.Tests.ps1` | そのテスト |
 | `tools/<名前>.ps1` | `tests/tools/<名前>.Tests.ps1`（無ければ流さない）。`check_markdown_links.ps1` は `meta/links` も |
 | `tests/testdata/scrub_personal.ps1` | `tests/testdata/scrub_personal.Tests.ps1` |
