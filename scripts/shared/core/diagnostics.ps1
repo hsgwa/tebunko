@@ -39,7 +39,7 @@ function findOfficeApps {
     if (-not $programFiles64 -and -not $programFilesX86) {
         $systemDrive = [System.IO.Path]::GetPathRoot($env:SystemRoot)
         if (-not $systemDrive) {
-            return @()
+            throw "Windows のあるドライブを取れない"   # 調べ損ね（見つからないとは別）
         }
         $programFiles64 = Join-Path $systemDrive "Program Files"
         $programFilesX86 = Join-Path $systemDrive "Program Files (x86)"
@@ -102,7 +102,13 @@ function rotateLogFile {
         $previous = getPreviousLogPath $path
         if ([System.IO.File]::Exists($previous)) {
             # 置き換えは、移せないとき前回の分を残す（先に消さない）
-            [System.IO.File]::Replace($path, $previous, [NullString]::Value)
+            try {
+                [System.IO.File]::Replace($path, $previous, [NullString]::Value)
+            } catch {
+                # Replace を使えない置き場所（共有フォルダなど）では、複写して元を消す。元を読めなければ前回の分に触らない
+                [System.IO.File]::Copy($path, $previous, $true)
+                [System.IO.File]::Delete($path)
+            }
         } else {
             [System.IO.File]::Move($path, $previous)
         }

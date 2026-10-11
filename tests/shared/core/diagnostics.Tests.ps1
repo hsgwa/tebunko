@@ -59,7 +59,7 @@ Describe "rotateLogFile" -Tag Io {
         [System.IO.File]::Exists($script:log) | Should -Be $true
     }
 
-    It "前回の分が読み取り専用で消せないときは例外を出さずに `$false" {
+    It "前回の分が読み取り専用で置き換えられないときは例外を出さずに `$false" {
         [System.IO.File]::WriteAllText($script:prev, "古い")
         [System.IO.File]::SetAttributes($script:prev, [System.IO.FileAttributes]::ReadOnly)
         [System.IO.File]::WriteAllText($script:log, "新しい")
@@ -127,6 +127,20 @@ Describe "findOfficeApps" -Tag Io {
         $apps = @(findOfficeApps -programFiles64 $script:pf64 -programFilesX86 $script:pf86 -os64 $false)
         $apps.Count | Should -Be 1
         $apps[0].Bits | Should -Be 32
+    }
+}
+
+Describe "getEnvironmentInfo（Office を調べ損ねたとき）" -Tag Io {
+    It "findOfficeApps が例外なら Office は `$null（見つからない `@() とは区別する）" {
+        Mock findOfficeApps { throw "調べ損ね" }
+        (getEnvironmentInfo).Office | Should -Be $null
+    }
+
+    It "findOfficeApps が空を返すなら Office は空の配列" {
+        Mock findOfficeApps { return @() }
+        $info = getEnvironmentInfo
+        ($null -eq $info.Office) | Should -Be $false
+        @($info.Office).Count | Should -Be 0
     }
 }
 

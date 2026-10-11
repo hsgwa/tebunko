@@ -113,4 +113,4 @@ OneDrive・SharePoint の「ファイル オンデマンド」で、中身がこ
 
 ## サポート
 
-[サポート](https://github.com/hsgwa/tebunko/blob/main/.github/SUPPORT.ja.md) を参照のうえ、GitHub の Issue でお問い合わせください。報告の際は、tebunko・Windows・Office のバージョンと、ログの該当部分を添えてください。tebunko のバージョンは、画面左下の［バージョン情報］で確認できます。ログの先頭の見出しには、tebunko の版と Windows・PowerShell・Office の版が書かれているので、そのまま添えられます（利用者名・コンピューター名・パスは入りません）。ログやファイル名に機密情報が含まれていないことを、事前に確認してください。**`startup_error.txt` にはツールを置いた場所（利用者名を含むパス）が入るため、公開の Issue に貼る前に書き換えるか確認してください。**
+[サポート](https://github.com/hsgwa/tebunko/blob/main/.github/SUPPORT.ja.md) を参照のうえ、GitHub の Issue でお問い合わせください。報告の際は、tebunko・Windows・Office のバージョンと、ログの該当部分を添えてください。tebunko のバージョンは、画面左下の［バージョン情報］で確認できます。ログの先頭の見出しには、tebunko の版と Windows・PowerShell・Office の版が書かれているので、そのまま添えられます（この見出しに利用者名・コンピューター名・パスは入りませんが、ログの本体にはフォルダのパスやファイル名が入るので、貼る前に伏せてください）。ログやファイル名に機密情報が含まれていないことを、事前に確認してください。**`startup_error.txt` にはツールを置いた場所（利用者名を含むパス）が入るため、公開の Issue に貼る前に書き換えるか確認してください。**

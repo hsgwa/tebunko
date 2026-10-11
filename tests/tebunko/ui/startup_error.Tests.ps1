@@ -103,6 +103,23 @@ Describe "writeStartupErrorFile" -Tag Io {
         }
     }
 
+    It "1 MB 以上で元のファイルが開いたままで移せないとき、前回の分は消えない" {
+        $tool = Join-Path $TestDrive ("tool-held-" + [guid]::NewGuid().ToString("N"))
+        [System.IO.Directory]::CreateDirectory($tool) | Out-Null
+        $file = Join-Path $tool "startup_error.txt"
+        $previous = Join-Path $tool "startup_error_previous.txt"
+        [System.IO.File]::WriteAllText($file, ("x" * (1MB + 1)))
+        [System.IO.File]::WriteAllText($previous, "古い")
+        $held = [System.IO.File]::Open($file, "Open", "Read", "None")
+        try {
+            writeStartupErrorFile "新しい記録" $tool | Out-Null
+        } finally {
+            $held.Dispose()
+        }
+        [System.IO.File]::ReadAllText($previous) | Should -Be "古い"
+        Test-Path -LiteralPath (Join-Path $tool "startup_error_moving.txt") | Should -Be $false
+    }
+
     It "ツールのフォルダに書けなければ、記録を残さず `$null を返す（LOCALAPPDATA・TEMP には書かない）" {
         # startup_error.txt の名前でフォルダを置いて、ファイルを作れなくする（ACL に頼らない）
         $tool = Join-Path $TestDrive "tool-blocked"

@@ -48,7 +48,14 @@ function writeStartupErrorFile {
         try {
             # 1 MB 以上なら前回の分に回す（溜まり続けないように）。移せなくても記録は書く
             if ((Get-Item -LiteralPath $candidate -ErrorAction Stop).Length -ge 1MB) {
-                Move-Item -LiteralPath $candidate -Destination (Join-Path $toolDir "startup_error_previous.txt") -Force -ErrorAction Stop
+                # 元を先に別の名前へ移す（元を移せないとき、-Force が前回の分を先に消すため）。移せたら前回の分に重ねる。重ねられなければ元の名前に戻す
+                $moving = Join-Path $toolDir "startup_error_moving.txt"
+                Move-Item -LiteralPath $candidate -Destination $moving -Force -ErrorAction Stop
+                try {
+                    Move-Item -LiteralPath $moving -Destination (Join-Path $toolDir "startup_error_previous.txt") -Force -ErrorAction Stop
+                } catch {
+                    Move-Item -LiteralPath $moving -Destination $candidate -ErrorAction SilentlyContinue
+                }
             }
         } catch {
         }
