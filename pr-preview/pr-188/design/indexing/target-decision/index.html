@@ -2103,6 +2103,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#クラウドにだけあるファイル" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        クラウドにだけあるファイル
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#取り込み予定画面の確認に出す件数" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4081,6 +4092,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#クラウドにだけあるファイル" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        クラウドにだけあるファイル
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#取り込み予定画面の確認に出す件数" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4147,12 +4169,22 @@
 <li>フォルダごとに <code>[&lt;インデックス名&gt;] &lt;パス&gt;</code> と、クロール後に <code>[&lt;インデックス名&gt;] 対象ファイル N 件（取り込み済み A 件 / 新規 B 件 / 更新あり C 件 / 前回未完了 D 件 / 前回失敗 E 件）</code> を表示する。インデックスが無くなった・壊れているファイルがあるときだけ <code>/ インデックスが無い・壊れている F 件</code> を付け、続けて <code>インデックス（TSV）が無くなった・壊れている F 件は取り込み直します。（インデックスを直接削除した・0 バイトのTSVが残っている）</code> を表示する。チェックなしのフォルダは <code>… チェックなしのため取り込みません（インデックスはそのまま残します）</code> と表示する。</li>
 <li>インデックス作成中は <code>[i/N] &lt;インデックス名&gt;\&lt;相対パス&gt;</code> を表示する。元ファイルのパスは、相対パスの先頭のインデックス名からクロール対象フォルダを引いて求める。</li>
 </ul>
+<h2 id="クラウドにだけあるファイル">クラウドにだけあるファイル<a class="headerlink" href="#クラウドにだけあるファイル" title="Permanent link">&para;</a></h2>
+<p>OneDrive・SharePoint の「ファイル オンデマンド」で、中身がこの PC に無く、開くとダウンロードが始まるファイルは、既定では読み込まずに残す。</p>
+<ul>
+<li><strong>見分け方</strong>: クロールが返すファイルの属性（フォルダの一覧と同時に分かる）だけで見分け、ファイルは開かない（<code>testCloudOnlyAttributes</code>）。<code>RECALL_ON_DATA_ACCESS</code>（0x400000）・<code>RECALL_ON_OPEN</code>（0x40000）・<code>OFFLINE</code>（0x1000）のどれかが付いていればクラウドにだけある。「常にこのデバイスに保持」（0x80000）・「空き容量を増やす」の印だけ（0x100000）・再解析ポイントだけの場合は、クラウドにだけあるとはみなさない。</li>
+<li><strong>調べる範囲</strong>: 読み込む必要のあるファイル（新規・更新あり・前回未完了・インデックスなし）と、前回失敗したファイルだけ。最新のファイルは属性を見ない。</li>
+<li><strong>既定は残す</strong>: 実行のたびに決め直す（記録は持たない）。残したファイルに前回の行があればその行をそのまま残し、無ければ一覧に行を作らない。前回の行が「前回未完了」のときは、確認の返事のあと、前回の行を残さず（一覧に行を作らず）、取り込み途中のインデックスのフォルダを消し、本文インデックスからも外す（入れ直しの印。取りやめなら前回の行と取り込み済みの中身を残す。フォルダは起動時に本文インデックスのファイルへまとめる）。</li>
+<li><strong>取り込む</strong>: 受け渡しの口の <code>IncludeCloud</code>（画面の確認でチェックを付けた、またはヘッドレスで設定 <code>cloudFiles</code> が <code>download</code>）のとき、<code>splitCloudItems</code> が取り込み対象に加える。前回失敗したものは <code>RetryFailed</code> のときだけ加える。</li>
+<li><strong>件数</strong>: 取り込み予定の <code>クラウド</code>（新規などの取り込み対象のうちクラウドにだけあるもの）・<code>クラウド失敗</code>（前回失敗のうち、同じくクラウドにだけあるもの）と、それぞれの合計サイズ（<code>クラウド容量</code>・<code>クラウド失敗容量</code>）。取り込み対象の件数には含めない。再取り込みしない前回失敗は「残したファイル」に数えない。</li>
+<li>インデックス作成ログに、インデックスごとの件数と相対パスを書く。</li>
+</ul>
 <h2 id="取り込み予定画面の確認に出す件数">取り込み予定（画面の確認に出す件数）<a class="headerlink" href="#取り込み予定画面の確認に出す件数" title="Permanent link">&para;</a></h2>
 <p>受け渡しの口の <code>ConfirmTargets</code>（画面から実行したとき）なら、取り込み対象を決めた後、インデックスごとの件数を 1 行にし（<code>newIngestPlanRow</code>）、受け渡しの口の <code>Plan</code> に入れる（<code>IndexingReporter.WaitForApproval</code>）。
 画面はこれを読んで確認のダイアログを出す（<a href="../../gui/indexing-run/#インデックス更新の確認ダイアログ">インデックス作成の確認ダイアログ</a>）。返事を受け取ったら <code>Plan</code> を外す。次の例は、1 行を列の順にタブで区切って並べたものである。</p>
-<div class="highlight"><pre><span></span><code>インデックス名 元のフォルダ  区分  ファイル数   取り込み対象  新規  更新あり    前回未完了   インデックスなし    前回失敗
-営業  C:\data\営業  取り込み    1234    12  5   7   0   0   3
-2019年度  D:\old\2019年度   チェックなし  0   0   0   0   0   0   0
+<div class="highlight"><pre><span></span><code>インデックス名 元のフォルダ  区分  ファイル数   取り込み対象  新規  更新あり    前回未完了   インデックスなし    前回失敗    クラウド    クラウド失敗  クラウド容量  クラウド失敗容量
+営業  C:\data\営業  取り込み    1234    12  5   7   0   0   3   2   0   10485760    0
+2019年度  D:\old\2019年度   チェックなし  0   0   0   0   0   0   0   0   0   0   0
 </code></pre></div>
 <ul>
 <li><strong>区分</strong>: <code>取り込み</code>（チェックが付いていて元のフォルダもある。数えた結果を書く）/ <code>チェックなし</code> / <code>フォルダなし</code>。後の 2 つは数えないため、件数はすべて 0。</li>
