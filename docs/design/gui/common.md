@@ -72,7 +72,7 @@ flowchart TD
 
 ## 確認ダイアログ（`showConfirm`）
 
-本体の窓を親にして出すダイアログは、必ず `showOwnedDialog`（`shell.ps1`）で出す。開いている間は本体の窓の最上層の暗幕（`ScrimOverlay`。`gui_main.ps1` が `setDialogScrim` で渡す）を見せ、閉じたら（例外のときも）隠す。`.ShowDialog(` を直接呼ぶのは `showOwnedDialog` だけで、`tests/meta/structure.Tests.ps1` が確かめる。
+本体の窓を親にして出すダイアログは、必ず `showOwnedDialog`（`shell.ps1`）で出す（待つ間のダイアログは例外で、`showWaitDialog` が同じ暗幕の数え方で出す）。開いている間は本体の窓の最上層の暗幕（`ScrimOverlay`。`gui_main.ps1` が `setDialogScrim` で渡す）を見せ、閉じたら（例外のときも）隠す。`.ShowDialog(` を直接呼ぶのは `showOwnedDialog` だけで、`tests/meta/structure.Tests.ps1` が確かめる。
 
 `showConfirm` は `-title`（OS の題の帯）と `-form`（`normal` / `danger` / `choice`。省略すると、選択肢が 2 つ以上なら `choice`、1 つで危険なら `danger`、それ以外は `normal`）を取る。幅は `choice` が 620、ほかは 520。`danger` は見出しに赤い「!」の丸を付け、実行のボタンを赤にする。
 
@@ -136,6 +136,7 @@ sequenceDiagram
 - **モーダルにしない**: `Show` で出すので、呼び出し側の処理は止まらない。本体の窓を親にして、`showOwnedDialog` と同じく暗幕を掛ける（開いている数を `enterDialogScrim` / `leaveDialogScrim` で数える。ほかのダイアログと重なっても、全部閉じるまで暗幕は残る）。
 - **利用者は閉じられない**: Alt+F4 も効かない。呼び出し側が `closeWaitDialog` で閉じる。本体の窓を閉じるときは、待つ間のダイアログ、暗幕、本体の窓の順に閉じる。
 - **書き換え**: `updateWaitDialog` で見出し・説明・秒読み・ボタンの文字・棒を書き換える。説明・秒読み・ボタンは、空の文字にすると隠す。棒は件数が分からないとき流れる棒、分かるときは 0 から 1 の割合で出す。
+- **中止の途中**: 暗幕で本体の操作を止める。検索は止まってから行う。
 - **文言と値**: 場面ごとの見出し・説明、秒読み（「あと N 秒で強制終了します」。端数は切り上げ、0 秒より小さいときは 0）、棒の値は判断層（`tebunko/ui/wait_view.ps1`）で決める。
 - **窓を閉じるときの待ち**: 秒数は `closeTimer` の期限（60 秒。Office を止めたあとは 15 秒）までの残りで、500 ミリ秒ごとに書き換える。［閉じない］は押せない形で置き、押しても何も起きないことを見せる。
 

@@ -123,7 +123,7 @@ Describe "待つ間のダイアログ" -Tag Gui {
         $script:scrim.Visibility | Should -Be "Collapsed"
     }
 
-    It "閉じたあとの updateWaitDialog・$null の入れ物は何もしない" {
+    It '閉じたあとの updateWaitDialog・$null の入れ物は何もしない' {
         $handle = showWaitDialog -heading "待っています" -owner $script:owner
         closeWaitDialog $handle
         { updateWaitDialog $handle @{ Heading = "x" } } | Should -Not -Throw

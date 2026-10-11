@@ -265,14 +265,15 @@ function startGui {
     $script:closeTimer = newTimer 500 {
         safe {
             $now = Get-Date
-            if (isIndexing) {
+            $indexing = isIndexing
+            if ($indexing) {
                 # 待つ間のダイアログの棒と、強制終了までの秒読みを書き換える
                 try { updateIndexingWait (getIndexingProgress) ($script:closeDeadline - $now).TotalSeconds } catch { }
             }
-            if (!(isIndexing)) {
+            if (!$indexing) {
                 $script:closeTimer.Stop()
                 $script:closeReady = $true
-                closeIndexingWait   # 待つ間のダイアログ → 暗幕 → 本体の窓の順に閉じる
+                try { closeIndexingWait } catch { }   # 待つ間のダイアログ → 暗幕 → 本体の窓の順に閉じる（失敗しても本体は閉じる）
                 $window.Close()
             } elseif (!$script:closeKilled -and $now -gt $script:closeDeadline) {
                 # 取り込み中の Office が応答しない。インデックス作成が起動した Office だけを PID で止める（COM の呼び出しが戻る）
@@ -283,7 +284,7 @@ function startGui {
                 # それでも止まらない。スレッドは finally で止める
                 $script:closeTimer.Stop()
                 $script:closeReady = $true
-                closeIndexingWait
+                try { closeIndexingWait } catch { }
                 $window.Close()
             }
         }

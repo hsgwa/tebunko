@@ -125,7 +125,7 @@ function getWorkspaceInputDecision {
     $folder = normalizeFolderPath $typed
     # 予約デバイス名（con・nul など）は、整形でドライブ文字の形でなくなることがある。進めない
     if ($folder -notmatch '^[A-Za-z]:\\') {
-        return @{ Action = "Invalid"; Message = $startMessage; Path = $current }
+        return @{ Action = "Invalid"; Message = "con・nul など、Windows が機器の名前として使う名前は、フォルダの名前にできません。別の名前で入力してください。"; Path = $current }
     }
     if (testSameFolder $folder $current $drives) {
         return @{ Action = "None"; Message = ""; Path = $current }

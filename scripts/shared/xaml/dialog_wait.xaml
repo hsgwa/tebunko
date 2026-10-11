@@ -1,5 +1,5 @@
 ﻿<!-- 待つ間のダイアログ。閉じるときの待ち・中止の途中など、終わるまで待つ場面で出す。shell.ps1 の showWaitDialog が読み込む。
-     利用者は閉じられない（呼び出し側が閉じる）。文言・秒読み・棒の値は判断層（wait_view.ps1）が決め、ここは並べるだけ。
+     利用者は閉じられない（呼び出し側が閉じる）。文言・秒読み・棒の値は呼び出し側の判断層が決め、ここは並べるだけ。
      色・文字・コントロールの形は scripts/shared/xaml/theme.xaml にまとめてある。 -->
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"

@@ -63,14 +63,25 @@ Describe "getWorkspaceInputDecision" -Tag Unit {
     It "予約デバイス名（<text>）は、進めるならドライブ文字の形の Path、そうでなければ Invalid" -TestCases @(
         @{ text = "D:\con" }
         @{ text = "D:\ws\nul" }
+        @{ text = "D:\con.txt" }
+        @{ text = "D:\COM1" }
+        @{ text = "D:\con." }
     ) {
         $d = getWorkspaceInputDecision $text "C:\tool\work" $script:drives { param ($drive) [System.IO.DriveType]::Fixed }
         if ($d.Action -eq "Apply") {
             $d.Path | Should -Match '^[A-Za-z]:\\'
         } else {
             $d.Action | Should -Be "Invalid"
-            $d.Message | Should -BeLike "*ドライブ文字*"
+            $d.Message | Should -BeLike "*機器の名前*"
         }
+    }
+
+    It "整形の結果がドライブ文字の形でなくなる（予約デバイス名）なら、必ず Invalid にして今の場所を返す" {
+        Mock normalizeFolderPath { '\\.\con' }
+        $d = getWorkspaceInputDecision "D:\con" "C:\tool\work" $script:drives { param ($drive) [System.IO.DriveType]::Fixed }
+        $d.Action | Should -Be "Invalid"
+        $d.Message | Should -BeLike "*機器の名前*"
+        $d.Path | Should -Be "C:\tool\work"
     }
 }
 
