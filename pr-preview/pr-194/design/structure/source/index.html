@@ -4271,7 +4271,7 @@
     LIB["tebunko/lib.ps1"] --&gt; SH["shared/shared.ps1"]
     LIB --&gt; TG["tebunko の core/・index/・search/&lt;br&gt;indexer/indexer_state.ps1・indexer_decide.ps1・indexing_session.ps1"]
     SH --&gt; SC["shared/core/*・office/office_files.ps1・office_process.ps1&lt;br&gt;office_protection_view.ps1・office_protection.ps1"]</code></pre>
-<p>読み込み口は次の 2 つ。ファイルを足したら、読み込み口か起動口のどれかから読み込む（読み込み漏れは <code>tests/meta/layers.Tests.ps1</code> が起動口からたどって検出する）。読み込みは、起動口と読み込み口（<code>lib.ps1</code> など）では <code>. "$PSScriptRoot\..."</code> の形、画面の部品（<code>tebunko/ui/</code> の <code>gui_main.ps1</code> など）では <code>. "$TebunkoDir\..."</code> の形で書く（検査はこの 2 つの形の行をたどる）。</p>
+<p>読み込み口は次の 2 つ。ファイルを足したら、読み込み口か起動口のどれかから読み込む（読み込み漏れは <code>tests/meta/layers.Tests.ps1</code> が起動口からたどって検出する）。読み込みは、起動口と読み込み口（<code>lib.ps1</code> など）では <code>. ([WildcardPattern]::Escape("$PSScriptRoot\...".Replace('</code>', '<code>')))` の形、画面の部品（`tebunko/ui/` の `gui_main.ps1` など）では `. ([WildcardPattern]::Escape("$TebunkoDir\...".Replace('`', '</code>')))<code>の形で書く（検査はこの 2 つの形の行をたどる）。フォルダ名に</code>[<code></code>]<code>が入っていても読めるよう、相手のパスは必ず</code>Escape<code>を通す（</code>Escape<code>は 5.1 ではバッククォートをエスケープしないので、先に二重にする。対象は PowerShell 5.1 だけで、7 以降では二重になる）（通さない</code>. "$PSScriptRoot..."<code>は、</code>tests/meta/structure.Tests.ps1` が落とす）。</p>
 <table>
 <thead>
 <tr>

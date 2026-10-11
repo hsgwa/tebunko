@@ -4374,10 +4374,10 @@
 </table>
 <ul>
 <li>空のパスワードから鍵を作り、<code>/U</code> と照らす。合わなければ（開くのにパスワードが要る）<code>PDFにパスワードが必要なため読めません。</code>。パスワードを探す・試す処理は無い。</li>
-<li>独自のフィルター・知らない <code>/V</code> <code>/R</code>・知らない暗号方式（<code>/CFM</code>）は <code>PDFの暗号化の方式に対応していないため読めません。</code>。<code>/O</code> <code>/U</code> <code>/UE</code> が短いなどの壊れた辞書は <code>PDFの暗号化の情報が壊れているため読めません。</code>。どれもそのファイルだけの失敗。</li>
+<li>独自のフィルター・知らない <code>/V</code> <code>/R</code>・知らない暗号方式（<code>/CFM</code>）は <code>PDFの暗号化の方式に対応していないため読めません。</code>。<code>/O</code> <code>/U</code> <code>/UE</code> が短いなどの壊れた辞書は <code>PDFの暗号化の情報が壊れているため読めません。</code>。暗号化されたストリームの長さや詰め物が壊れているときは <code>PDFの暗号化されたデータが壊れているため読めません。</code>。どれもそのファイルだけの失敗（暗号化まわりの文言は 4 つ）。</li>
 <li>復号するのはストリームだけ（文字列は読む内容がストリームの中にあるため、復号しない）。相互参照のストリームは暗号化されないので復号しない。<code>/EncryptMetadata false</code> のメタデータ・<code>/StmF /Identity</code>・<code>/CFM /None</code>・ストリームごとの <code>/Crypt</code> フィルターの <code>/Identity</code> も復号しない。</li>
 <li>辞書の <code>/Length</code> は 40〜128 の 8 の倍数だけ受ける。R6 の鍵の計算の繰り返しは上限（300 回。仕様どおりなら最大 288 回で終わる）で止める。鍵・途中の値は、例外の文にも記録にも出さない。</li>
-<li>旧式の 128 ビットのハッシュ（RFC 1321）と RC4 は自前で書く（.NET の型は FIPS 準拠を強制した機械では使えず、4 方式とも読めなくなるため）。SHA-2 と AES は FIPS でも使える <code>*CryptoServiceProvider</code> を使う。</li>
+<li>MD5 と RC4 は PDF の仕様が求めるため自前で書く（.NET の型は FIPS 準拠を強制した機械では使えず、4 方式とも読めなくなるため）。SHA-2 と AES は FIPS でも使える <code>*CryptoServiceProvider</code> を使う。</li>
 </ul>
 <h2 id="読み取りの上限">読み取りの上限<a class="headerlink" href="#読み取りの上限" title="Permanent link">&para;</a></h2>
 <p>細工した PDF で固まったり、メモリを使い切ったりしないよう、すべて上限を設ける。超えたら失敗にする（<code>PDF</code> で始まるメッセージの例外）。</p>
@@ -4459,7 +4459,7 @@
 <h2 id="テスト">テスト<a class="headerlink" href="#テスト" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>tests/shared/core/pdf_file.Tests.ps1</code> … 読み取り（自作した PDF のバイト列。圧縮・相互参照のストリーム・フォント・上限・壊れた入力・4 方式の暗号化 PDF・パスワードが要る PDF・未対応や壊れた暗号化の辞書）。</li>
-<li><code>tests/shared/core/pdf_crypt.Tests.ps1</code> … 暗号の部品（旧式のハッシュ・RC4・SHA の公開されている正解の値、R5・R6 の鍵の計算を別に書いた計算と照らす、ストリームごとの復号の方式の選び方）。暗号化 PDF を組み立てる道具（<code>tests/helpers/pdf.ps1</code> の <code>newEncryptedPdf</code>）は、読む側の旧式のハッシュ・RC4 を使わず、.NET の型で別に書く。</li>
+<li><code>tests/shared/core/pdf_crypt.Tests.ps1</code> … 暗号の部品（MD5・RC4・SHA の公開されている正解の値、R2〜R6 の鍵の導出と R5・R6 のハッシュを別に書いた計算と照らす、オブジェクトのストリームごと暗号化した PDF・/EncryptMetadata false を読む、ストリームごとの復号の方式の選び方）。暗号化 PDF を組み立てる道具（<code>tests/helpers/pdf.ps1</code> の <code>newEncryptedPdf</code>）は、読む側の MD5・RC4 を使わず、.NET の型で別に書く。</li>
 <li><code>tests/tebunko/indexer/extract_pdf.Tests.ps1</code> … コピーの扱い・TSV の書き出し・失敗の扱い。</li>
 <li><code>tests/testdata/compat/index/v0.4.0+pdf/</code> … 前の版の見本（取り込み済みのインデックスを読み、検索できること）。</li>
 <li>テストに使う PDF は、テストの中で自作する（作成者などのメタデータを入れない）。</li>

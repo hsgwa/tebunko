@@ -4716,6 +4716,16 @@
 <td>画面のテスト用。残った Office の確認の行に偽の行を差し込むファイルの場所（利用者は使わない）</td>
 </tr>
 <tr>
+<td><code>TEBUNKO_GUI</code>（環境変数）</td>
+<td>作る・読む</td>
+<td>作るのは <code>tebunko.exe</code>（インストーラー版の起動口。起動する PowerShell のプロセスの中だけ）。<code>gui.ps1</code> のパスを <code>-Command</code> に渡す。読むのは <code>-Command</code> の <code>WildcardPattern.Escape</code> の引数だけ</td>
+</tr>
+<tr>
+<td><code>TEBUNKO_ROOT</code>（環境変数）</td>
+<td>作る・読む</td>
+<td>作るのは <code>tebunko.bat</code>（その起動のプロセスの中だけ）。ツールのフォルダのパス（末尾は <code>\</code>）を <code>-Command</code> に渡す。読むのは <code>-Command</code> の Step 1 だけ</td>
+</tr>
+<tr>
 <td><code>TEBUNKO_DEFAULT_WORKSPACE</code>（環境変数）</td>
 <td>読む</td>
 <td>開発・確かめ用。既定のワークスペースの場所を差し替える（絶対パスだけ。利用者は使わない）</td>
