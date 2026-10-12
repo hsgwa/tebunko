@@ -38,6 +38,47 @@ function readContentIndexText {
 }
 
 
+function readContentIndexRange {
+    # 本文インデックスのファイル（UTF-16LE・BOM 付き）の、文字の位置 start（含む）から end（含まない）までのうち、先頭から lines 個目の改行までを文字列で返す。
+    # BOM が無い（UTF-16LE でない）ときは $null（呼び出し側が全体を読む）
+    param (
+        [string]$path,
+        [int]$start,
+        [int]$end,
+        [int]$lines
+    )
+
+    $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
+    $stream = [System.IO.FileStream]::new((toLongPath $path), [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
+    try {
+        $bom = New-Object byte[] 2
+        if ($stream.Read($bom, 0, 2) -ne 2 -or $bom[0] -ne 0xFF -or $bom[1] -ne 0xFE) { return $null }
+        [void]$stream.Seek(2L + 2L * $start, [System.IO.SeekOrigin]::Begin)
+        $reader = [System.IO.StreamReader]::new($stream, [System.Text.UnicodeEncoding]::new($false, $false), $false)
+        $builder = New-Object System.Text.StringBuilder
+        $buffer = New-Object char[] 65536
+        $remaining = $end - $start
+        $newlines = 0
+        while ($remaining -gt 0 -and $newlines -lt $lines) {
+            $got = $reader.Read($buffer, 0, [Math]::Min($buffer.Length, $remaining))
+            if ($got -le 0) { break }
+            $from = 0
+            while ($from -lt $got) {
+                $found = [Array]::IndexOf($buffer, [char]10, $from, $got - $from)
+                if ($found -lt 0) { break }
+                $newlines++
+                $from = $found + 1
+            }
+            [void]$builder.Append($buffer, 0, $got)
+            $remaining -= $got
+        }
+        return $builder.ToString()
+    } finally {
+        $stream.Dispose()
+    }
+}
+
+
 function testIndexBookDir {
     # インデックスの中のフォルダが、元のファイルごとのフォルダ（<ファイル名.xlsx>\<場所>.tsv。本文インデックスのファイルに入れる前の TSV の置き場所）か。
     # 名前だけでは、名前が .xlsx などで終わる本物のフォルダ（元のフォルダの名前をそのまま使う）と区別できないため、中身も見る:
@@ -327,10 +368,28 @@ function readContentIndexContext {
             $places = $entry[3]
         }
     }
+    $offset = 0
     try {
         if ($null -eq $text) {
-            $text = readContentIndexText $path
-            $places = readContentIndexPlaces $text
+            # キャッシュに無いときは、ファイルの全体を文字列にしない。場所の一覧は 1 つ前に読んだファイルのものを使い回し、
+            # 目当ての場所の先頭から必要な行までだけを読む（↑↓で同じファイルの行を移るたびに、全体を読み直さない）
+            $info = [System.IO.FileInfo]::new($longPath)
+            if (!$info.Exists) { return @() }
+            $memo = $script:contentIndexPlacesMemo
+            if ($null -ne $memo -and $memo.Path -eq $longPath -and $memo.Ticks -eq $info.LastWriteTimeUtc.Ticks -and $memo.Size -eq $info.Length) {
+                $places = $memo.Places
+                foreach ($place in $places) {
+                    if ($place.Book -ne $book -or $place.Location -ne $location) { continue }
+                    $text = readContentIndexRange $path $place.Start $place.End $last
+                    if ($null -ne $text) { $offset = $place.Start }
+                    break
+                }
+            }
+            if ($null -eq $text) {
+                $text = readContentIndexText $path
+                $places = readContentIndexPlaces $text
+                $script:contentIndexPlacesMemo = @{ Path = $longPath; Ticks = $info.LastWriteTimeUtc.Ticks; Size = $info.Length; Places = $places }
+            }
         }
     } catch [System.IO.IOException] {
         return @()
@@ -341,10 +400,11 @@ function readContentIndexContext {
     foreach ($place in $places) {
         if ($place.Book -ne $book -or $place.Location -ne $location) { continue }
         $number = 0
-        $pos = $place.Start
-        while ($pos -lt $place.End) {
-            $n = $text.IndexOf([char]10, $pos, $place.End - $pos)
-            if ($n -lt 0) { $n = $place.End }
+        $placeEnd = [Math]::Min($place.End - $offset, $text.Length)
+        $pos = $place.Start - $offset
+        while ($pos -lt $placeEnd) {
+            $n = $text.IndexOf([char]10, $pos, $placeEnd - $pos)
+            if ($n -lt 0) { $n = $placeEnd }
             $number++
             if ($number -gt $last) { break }
             if ($number -ge $first) {

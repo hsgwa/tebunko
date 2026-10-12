@@ -770,6 +770,39 @@ Describe "readContentIndexContext" -Tag Io {
         formatContext (readContentIndexContext $path "A.xlsx" "T" 1 0 0 $cache) | Should -Be "1:c1"
     }
 
+    It "キャッシュに無くても、キャッシュに在るときと同じ行を返す（1 回目はファイルの全体、2 回目からは場所の一覧を使い回して範囲だけを読む）" {
+        $bigPath = "$folder\content_index.docx.001.tsv"
+        $bigText = (1..30000 | ForEach-Object { "行$_" }) -join "`r`n"
+        writeContentIndexFile $bigPath (convertToContentIndexText @(
+                @{ Name = "前.docx"; Places = @(@{ Place = "P1"; Text = "a1`r`na2`r`n" }) },
+                @{ Name = "長い.docx"; Places = @(@{ Place = "P1"; Text = "x1`r`nx2`r`n" }, @{ Place = "P2"; Text = "$bigText`r`n" }, @{ Place = "P3"; Text = "z1`r`nz2`r`n" }) }))
+        $files = findContentIndexFiles $folder
+        $cache = newTsvTextCache
+        [void](searchContentIndex "行" $files $true -cache $cache)
+        $cases = @(
+            @("長い.docx", "P2", 1, 3, 3), @("長い.docx", "P2", 15000, 3, 3), @("長い.docx", "P2", 30000, 3, 5),
+            @("長い.docx", "P1", 2, 3, 3), @("長い.docx", "P3", 2, 1, 9), @("前.docx", "P1", 1, 0, 0), @("無い.docx", "P1", 1, 3, 3)
+        )
+        foreach ($round in 1..2) {
+            foreach ($case in $cases) {
+                $expected = formatContext (readContentIndexContext $bigPath $case[0] $case[1] $case[2] $case[3] $case[4] $cache)
+                $actual = formatContext (readContentIndexContext $bigPath $case[0] $case[1] $case[2] $case[3] $case[4])
+                $actual | Should -Be $expected -Because "$($case -join ',')（$round 回目）"
+            }
+        }
+        formatContext (readContentIndexContext $bigPath "長い.docx" "P2" 29999 1 5) | Should -Be "29998:行29998,29999:行29999,30000:行30000"
+    }
+
+    It "ファイルが書き換わったら、使い回した場所の一覧を使わない" {
+        $changedPath = "$folder\content_index.csv.001.tsv"
+        writeContentIndexFile $changedPath (convertToContentIndexText @(@{ Name = "C.csv"; Places = @(@{ Place = "本文"; Text = "1`r`n2`r`n3`r`n" }) }))
+        formatContext (readContentIndexContext $changedPath "C.csv" "本文" 2 0 0) | Should -Be "2:2"
+        formatContext (readContentIndexContext $changedPath "C.csv" "本文" 2 0 0) | Should -Be "2:2"
+        writeContentIndexFile $changedPath (convertToContentIndexText @(@{ Name = "D.csv"; Places = @(@{ Place = "別"; Text = "d1`r`nd2`r`nd3`r`nd4`r`n" }) }))
+        @(readContentIndexContext $changedPath "C.csv" "本文" 2 0 0).Count | Should -Be 0
+        formatContext (readContentIndexContext $changedPath "D.csv" "別" 4 1 0) | Should -Be "3:d3,4:d4"
+    }
+
     It "テキストの前後の行は、一致の位置が分からないため先頭から1,000文字に切る（Excel は切らない）" {
         $textPath = "$folder\content_index.log.001.tsv"
         $longLine = "x" * 2000
