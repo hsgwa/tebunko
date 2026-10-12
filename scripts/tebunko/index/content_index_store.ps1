@@ -363,7 +363,7 @@ function readContentIndexLines {
     # marks は、繰り返し読むときに先頭から読み飛ばさないための控え（@{ Path; Ticks; Size; Places; Checkpoints }。
     # ファイルのパス・更新日時・大きさが同じ間だけ使う）。呼び出し側が引数で渡し、戻り値の Marks で受け取る
     # （読み足しは別の runspace で動くため、$script: には置かない。渡された控えは書き換えず、新しいものを返す）。
-    # Places は場所の一覧、Checkpoints は 200 行ごとの行の先頭の位置（行の番号 → 文字の位置）
+    # Places は場所の一覧、Checkpoints は場所ごと（Book と Location をタブでつないだ名前）の、200 行ごとの行の先頭の位置（行の番号 → 文字の位置）
     param (
         [string]$path,
         [string]$book,
@@ -392,6 +392,8 @@ function readContentIndexLines {
     $isRange = $false
     $newMarks = $marks
     $checkpoints = $null
+    $allCheckpoints = $null
+    $placeKey = "$book`t$location"
     try {
         if ($null -eq $text) {
             # キャッシュに無いときは、ファイルの全体を文字列にしない。控えがあれば、その場所の目当ての行の手前の位置から必要な行までだけを読む
@@ -400,11 +402,14 @@ function readContentIndexLines {
             if (!$info.Exists) { return $nothing }
             if ($null -ne $marks -and $marks.Path -eq $longPath -and $marks.Ticks -eq $info.LastWriteTimeUtc.Ticks -and $marks.Size -eq $info.Length) {
                 $places = $marks.Places
-                $checkpoints = $(if ($null -ne $marks.Checkpoints) { $marks.Checkpoints.Clone() } else { @{} })
+                $allCheckpoints = $(if ($null -ne $marks.Checkpoints) { $marks.Checkpoints.Clone() } else { @{} })
                 $found = $false
                 foreach ($place in $places) {
                     if ($place.Book -ne $book -or $place.Location -ne $location) { continue }
                     $found = $true
+                    # 位置は場所ごとに控える（行の番号が同じでも、別の場所の位置は使わない）
+                    $checkpoints = $(if ($allCheckpoints.ContainsKey($placeKey)) { $allCheckpoints[$placeKey].Clone() } else { @{} })
+                    $allCheckpoints[$placeKey] = $checkpoints
                     $base = 1
                     $startPosition = $place.Start
                     foreach ($key in $checkpoints.Keys) {
@@ -425,8 +430,9 @@ function readContentIndexLines {
                 $text = readContentIndexText $path
                 $places = readContentIndexPlaces $text
                 $checkpoints = @{}
+                $allCheckpoints = @{ $placeKey = $checkpoints }
             }
-            $newMarks = @{ Path = $longPath; Ticks = $info.LastWriteTimeUtc.Ticks; Size = $info.Length; Places = $places; Checkpoints = $checkpoints }
+            $newMarks = @{ Path = $longPath; Ticks = $info.LastWriteTimeUtc.Ticks; Size = $info.Length; Places = $places; Checkpoints = $allCheckpoints }
         }
     } catch [System.IO.IOException] {
         return $nothing

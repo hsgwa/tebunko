@@ -928,20 +928,34 @@ Describe "readContentIndexLines（続きから読む。控えを引数で渡し�
 
     It "渡した控えは書き換えない。200 行ごとの位置を控え、遠い行はその手前から読む" {
         $first = readContentIndexLines $path "長い.docx" "P1" 1 1000
-        $keys = @($first.Marks.Checkpoints.Keys | Sort-Object)
+        $key = "長い.docx`tP1"
+        $keys = @($first.Marks.Checkpoints[$key].Keys | Sort-Object)
         ($keys -join ",") | Should -Be "201,401,601,801"
-        $before = $first.Marks.Checkpoints.Count
+        $before = $first.Marks.Checkpoints[$key].Count
         $result = readContentIndexLines $path "長い.docx" "P1" 650 2 $null $first.Marks
         formatLines $result | Should -Be "650:行650,651:行651"
-        $first.Marks.Checkpoints.Count | Should -Be $before
+        $first.Marks.Checkpoints[$key].Count | Should -Be $before
         # 範囲を読むと、通った 200 行ごとの位置が増える（読み進めた分だけ）
         $fresh = readContentIndexLines $path "長い.docx" "P1" 1 1000
-        $fresh.Marks.Checkpoints.Remove(801)
-        $fresh.Marks.Checkpoints.Remove(601)
-        $fresh.Marks.Checkpoints.Remove(401)
+        $fresh.Marks.Checkpoints[$key].Remove(801)
+        $fresh.Marks.Checkpoints[$key].Remove(601)
+        $fresh.Marks.Checkpoints[$key].Remove(401)
         $more = readContentIndexLines $path "長い.docx" "P1" 790 20 $null $fresh.Marks
         formatLines $more | Should -Be ((790..809 | ForEach-Object { "${_}:行$_" }) -join ",")
-        $more.Marks.Checkpoints.ContainsKey(801) | Should -Be $true
+        $more.Marks.Checkpoints[$key].ContainsKey(801) | Should -Be $true
+    }
+
+    It "同じ控えを別の場所の読みに使っても、別の場所の位置から読まない" {
+        # 同じファイルの P1（1000 行）で 200 行ごとの位置を控えたあと、P2（2 行）を同じ控えで読む
+        $first = readContentIndexLines $path "長い.docx" "P1" 1 1000
+        $other = readContentIndexLines $path "長い.docx" "P2" 1 5 $null $first.Marks
+        formatLines $other | Should -Be "1:z1,2:z2"
+        $other.End | Should -Be $true
+        # P1 の位置は P2 の読みで壊れず、P1 に戻っても同じ行を返す
+        formatLines (readContentIndexLines $path "長い.docx" "P1" 650 2 $null $other.Marks) | Should -Be "650:行650,651:行651"
+        # 控えが無い別の場所から先に読んでも、あとの場所の読みが先の場所の位置を使わない
+        $p2 = readContentIndexLines $path "長い.docx" "P2" 1 2
+        formatLines (readContentIndexLines $path "長い.docx" "P1" 401 2 $null $p2.Marks) | Should -Be "401:行401,402:行402"
     }
 
     It "場所の外・見つからない・読めないときは空で End。頼んだ数が 0 なら空で End にしない" {
