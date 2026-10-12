@@ -49,7 +49,7 @@ function scan { param([string[]]$Pattern)
 
 - **理由**: Windows PowerShell 5.1 は、BOM の無い UTF-8 のファイルを CP932 で読み、日本語の文字の最後のバイトが次の記号を飲み込んで構文が壊れる。日本語の本体をヒアストリング（データ）に入れ、ScriptBlock にして実行することで、BOM が落ちても動かす（[単一 .ps1 の包み](../design/structure/single-script.md)）。
 - **範囲**: 作った単一 .ps1 の最後の文の 1 行だけ。本体は、包む前に禁止の語の検査（`tools/script_rules.ps1`）を通っている。
-- **検査**: 包んだ結果の全体を、構文木で確かめる。ScriptBlock の Create・`Invoke-Expression`・`iex` の呼び出しが、この 1 行のそれ 1 件だけで、一字一句同じで、ファイルの最後の文であること。その行を除いた全体（本体の文字列を含む）に、禁止の語が無いこと。1 つでも外れると、包む道具が何も書き出さずに止まる（`tests/tools/single_script_guard.Tests.ps1` が、足した Create・`iex`・引数の違い・2 行目・本体の中の語を止めることを表で確かめる）。
+- **検査**: 包んだ結果の全体を、構文木で確かめる。ScriptBlock の Create・`Invoke-Expression`・`iex` の呼び出しが 1 件だけで、ファイルの最後の文であり、その文の全文が決めた 1 行と一字一句同じであること（同じ文に別の式を足したら止まる）。その文を除いた全体（頭・尾・本体の文字列）に、禁止の語（`tools/script_rules.ps1` の一覧の全分類）が無いこと。1 つでも外れると、包む道具が何も書き出さずに止まる（`tests/tools/single_script_guard.Tests.ps1` が、足した Create・`iex`・引数の違い・2 行目・本体の中の語を止めることを表で確かめる）。
 - **実機で確かめること**: ウイルス対策ソフト（EDR）がこの形を疑うかどうかは、実機でしか確かめられない。検知されたら、方式を決め直す。
 
 ## Office ファイルを開くときの設定

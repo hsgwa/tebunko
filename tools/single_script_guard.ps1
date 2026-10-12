@@ -129,7 +129,8 @@ function convertToGuardedScript {
         '    }',
         '    ${tebunkoRaw} = [System.IO.File]::ReadAllText(${tebunkoPath}, (New-Object System.Text.UTF8Encoding($false)))',
         '    ${tebunkoMatch} = [regex]::Match(${tebunkoRaw}, ''(?s)\$\{tebunkoBody\} = @''''\r?\n(.*?)\r?\n''''@'')',
-        '    if (!${tebunkoMatch}.Success -or !${tebunkoRaw}.Contains([string][char]0x30A2)) {',
+        '    ${tebunkoProbeMatch} = [regex]::Match(${tebunkoRaw}, ''(?s)\$\{tebunkoProbe\} = @''''\r?\n(.*?)\r?\n''''@'')',
+        '    if (!${tebunkoMatch}.Success -or !${tebunkoProbeMatch}.Success -or ${tebunkoProbeMatch}.Groups[1].Value.Trim() -ne [string][char]0x30A2) {',
         '        throw ''tebunko: cannot read this script as UTF-8. Save it as UTF-8 (with BOM) and run it again.''',
         '    }',
         '    ${tebunkoSource} = ${tebunkoMatch}.Groups[1].Value',
@@ -153,8 +154,10 @@ function convertToGuardedScript {
 # 包んだ .ps1 の全体で、ScriptBlock の Create・Invoke-Expression の呼び出しが、末尾の 1 行（頭が本体を実行する行）だけであることを確かめる。
 # 本体は禁止の語の検査（tools\script_rules.ps1）を包む前に通っているが、包んだ後の全体でも、この 1 行のほかには許さない。
 # 構文木で、呼び出しの文字列が一字一句同じ 1 件だけで、それがファイルの最後の文であることを見る。
-# さらに、その行を除いた全体（本体の文字列を含む）の、コメントでない行に、禁止の語（大文字小文字を区別しない）が無いことを見る。
+# 最後の文は、決めた 1 行と全文が同じであること（同じ文に別の式を足したら止まる）。
+# さらに、その文を除いた全体（頭・尾・本体の文字列）に、禁止の語を全分類で掛ける（tools\script_rules.ps1 の findBannedCode。先に読み込んでおく）。
 $script:guardAllowedCreate = '[scriptblock]::Create(${tebunkoSource})'
+$script:guardAllowedLastStatement = '. ([scriptblock]::Create(${tebunkoSource})) @PSBoundParameters'
 function assertOnlyGuardCreate {
     param (
         [string]$text,
@@ -178,13 +181,14 @@ function assertOnlyGuardCreate {
     if ($lastStatement.Extent.StartOffset -gt $calls[0].Extent.StartOffset -or $lastStatement.Extent.EndOffset -lt $calls[0].Extent.EndOffset) {
         throw "$label の、ScriptBlock の Create が、ファイルの最後の文ではありません。"
     }
+    if ($lastStatement.Extent.Text -ne $script:guardAllowedLastStatement) {
+        throw "$label の最後の文が、決めた 1 行と違います（$($lastStatement.Extent.Text)）。"
+    }
 
     $rest = $text.Remove($lastStatement.Extent.StartOffset, $lastStatement.Extent.EndOffset - $lastStatement.Extent.StartOffset)
-    foreach ($line in ($rest -split "\r?\n")) {
-        if ($line.TrimStart().StartsWith('#')) { continue }
-        if ($line -imatch 'Invoke-Expression|[^-\w]iex[ (]|ScriptBlock\]::Create') {
-            throw "$label に、禁止の語があります: $($line.Trim())"
-        }
+    $banned = findBannedCode $rest
+    if ($banned) {
+        throw "$label に、禁止の語があります: $($banned.Trim() -replace "`r?`n", ' / ')"
     }
 }
 

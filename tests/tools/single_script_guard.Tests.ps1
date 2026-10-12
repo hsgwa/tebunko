@@ -2,6 +2,7 @@
 # 設計は docs/design/structure/single-script.md の「文字コード」
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
+    . "${scriptsDir}\..\tools\script_rules.ps1"
     . "${scriptsDir}\..\tools\single_script_guard.ps1"
 
     # 包んだ結果から、本体の文字列（退避した行は戻す）を取り出す
@@ -14,13 +15,17 @@ BeforeAll {
 
     # 包んだ .ps1 を別プロセスで `-File` 起動する。本体が書く出力ファイルの中身・終了コード・標準エラーを返す
     function invokeGuarded {
-        param ([string]$dir, [byte[]]$content, [string]$exe = (Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"), [switch]$constrained)
+        param ([string]$dir, [byte[]]$content, [string]$exe = (Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"), [switch]$constrained, [switch]$pasted)
         New-Item -ItemType Directory -Force -Path $dir | Out-Null
         $script = Join-Path $dir "guarded.ps1"
         $outPath = Join-Path $dir "out.txt"
         [System.IO.File]::WriteAllBytes($script, $content)
         $psi = New-Object System.Diagnostics.ProcessStartInfo $exe
         $psi.Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$script`" -Part guard"
+        if ($pasted) {
+            # ファイルのパスが無い形（貼り付けて実行）。BOM の無いファイルを CP932 で読んだ文字列を、ScriptBlock にして動かす
+            $psi.Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command `"& ([scriptblock]::Create([System.IO.File]::ReadAllText('$script', [System.Text.Encoding]::GetEncoding(932))))`""
+        }
         if ($constrained) {
             # 子のプロセスの中で、LanguageMode を ConstrainedLanguage に落としてから起動する（システム・レジストリは変えない）
             $psi.Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command `"`$ExecutionContext.SessionState.LanguageMode = 'ConstrainedLanguage'; & '$script' -Part guard; exit `$LASTEXITCODE`""
@@ -144,6 +149,7 @@ Describe "assertGuardedScript（包んだ結果の確かめ）" -Tag Unit {
         @{ name = "最後の行の引数が違う"; mutate = { param ($t) $t.Replace('[scriptblock]::Create(${tebunkoSource})', '[scriptblock]::Create($other)') }; message = "のほかの" }
         @{ name = "最後の行の後に、別の Create の行を足した"; mutate = { param ($t) $t + "[scriptblock]::Create('1')`r`n" }; message = "のほかの" }
         @{ name = "最後の行が 2 つある"; mutate = { param ($t) $t + '. ([scriptblock]::Create(${tebunkoSource})) @PSBoundParameters' + "`r`n" }; message = "のほかの" }
+        @{ name = "最後の文に、別の式（パイプ）を足した"; mutate = { param ($t) $t.Replace('@PSBoundParameters', '@PSBoundParameters | Out-Null') }; message = "最後の文" }
         @{ name = "本体の文字列に Invoke-Expression がある"; mutate = { param ($t) $t.Replace("日本語。", "日本語 Invoke-Expression。") }; message = "禁止の語" }
     ) {
         param ($name, $mutate, $message)
@@ -202,6 +208,24 @@ Describe "包んだ .ps1 を別プロセスで起動する" -Tag Io {
         $result.ErrorText | Should -Match "boom-marker"
         # 英語は `At line:19 char:1`、日本語の Windows は `発生場所 行:19 文字:1`（標準エラーは文字化けするため行の番号だけで見る）
         $result.ErrorText | Should -Match ":$fileLine\s"
+    }
+
+    It "BOM が落ちて、自分のファイルを UTF-8 で読み直せないときは、<name>: 英語の案内を出して終了コード 1 で止まる（5.1）" -TestCases @(
+        @{ name = "ファイルのパスが無い（貼り付けて実行）"; pasted = $true; probe = $false; message = "no file path" }
+        @{ name = "判定用の文字が、ファイルの頭に無い（読み直しても UTF-8 の日本語として読めない）"; pasted = $false; probe = $true; message = "cannot read this script as UTF-8. Save it" }
+    ) {
+        param ($name, $pasted, $probe, $message)
+        $text = $wrapped
+        if ($probe) {
+            # 頭の判定用の 1 文字だけを別の文字に替える（本体の日本語はそのまま）
+            $text = [regex]::Replace($text, '(?s)(\$\{tebunkoProbe\} = @''\r?\n)(.*?)(\r?\n''@)', '${1}x${3}')
+        }
+        $dir = Join-Path $TestDrive "reread-$pasted-$probe"
+        $result = invokeGuarded $dir (toBytes $text $false) -pasted:$pasted
+
+        $result.ExitCode | Should -Be 1
+        $result.ErrorText | Should -Match ([regex]::Escape($message))
+        $result.Out | Should -BeNullOrEmpty
     }
 
     It "LanguageMode が FullLanguage でないとき（ConstrainedLanguage）、英語 1 行を出して終了コード 1 で止まり、本体は動かない（5.1）" {

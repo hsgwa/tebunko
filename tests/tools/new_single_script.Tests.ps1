@@ -2,6 +2,7 @@
 # 作った単一 .ps1 そのものはコミットしない（tests/meta/structure.Tests.ps1 の M5）。設計は docs/design/structure/single-script.md
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
+    . "$PSScriptRoot\..\helpers\cp932.ps1"
 
     $tool = "${scriptsDir}\..\tools\new_single_script.ps1"
     . "${scriptsDir}\..\tools\script_rules.ps1"
@@ -132,22 +133,11 @@ Describe "new_single_script.ps1 の道具の検査" -Tag Io {
         [regex]::IsMatch($outside, '[^\x00-\x7F]') | Should -Be $false
     }
 
-    It "作った単一 .ps1 が CP932 で表せる文字だけ（scripts\ の検査（tests\meta\encoding.Tests.ps1）が見ない、tools\ が足す頭・つなぎの行も含めて、BOM が落ちても字が落ちない）" {
-    $strict = [Text.Encoding]::GetEncoding(932, [Text.EncoderExceptionFallback]::new(), [Text.DecoderExceptionFallback]::new())
-    $bad = @()
-    $lineNumber = 0
-    foreach ($line in ($text -split "`r`n")) {
-        $lineNumber++
-        foreach ($char in $line.ToCharArray()) {
-            if ([int]$char -lt 0x80) { continue }
-            try { [void]$strict.GetBytes([string]$char) }
-            catch { $bad += ("{0}: {1} (U+{2:X4})" -f $lineNumber, $char, [int]$char) }
-        }
+    It "作った単一 .ps1 が CP932 で表せる文字だけ（tools\ が足す頭・つなぎの行も含めて、Shift_JIS で保存し直しても字が落ちない。scripts\ は tests\meta\encoding.Tests.ps1 が見る）" {
+        (findNonCp932Chars ($text -split "`r`n")) -join "`n" | Should -Be ""
     }
-    ($bad -join "`n") | Should -Be ""
-}
 
-It "BOM が落ちて CP932 で読み違えても、構文エラーが 0 個で、本体の文字列が壊れない（行の先頭が '@ の行は 2 本だけ）" {
+    It "BOM が落ちて CP932 で読み違えても、構文エラーが 0 個で、本体の文字列が壊れない（行の先頭が '@ の行は 2 本だけ）" {
         $noBom = New-Object System.Text.UTF8Encoding($false)
         $misread = [System.Text.Encoding]::GetEncoding(932).GetString($noBom.GetBytes($text))
         $tokens = $null
