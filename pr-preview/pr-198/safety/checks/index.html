@@ -1057,10 +1057,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#外部プロセスの起動4-か所" class="md-nav__link">
+  <a href="#外部プロセスの起動" class="md-nav__link">
     <span class="md-ellipsis">
       
-        外部プロセスの起動（4 か所）
+        外部プロセスの起動
       
     </span>
   </a>
@@ -4149,10 +4149,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#外部プロセスの起動4-か所" class="md-nav__link">
+  <a href="#外部プロセスの起動" class="md-nav__link">
     <span class="md-ellipsis">
       
-        外部プロセスの起動（4 か所）
+        外部プロセスの起動
       
     </span>
   </a>
@@ -4260,7 +4260,7 @@
 <tr>
 <td>11</td>
 <td>外部プロセスの起動</td>
-<td>4 か所のみ（<a href="#外部プロセスの起動4-か所">外部プロセスの起動（4 か所）</a>）</td>
+<td>決まった起動だけ（<a href="#外部プロセスの起動">外部プロセスの起動</a>）</td>
 <td><code>scan 'Start-Process'</code></td>
 </tr>
 <tr>
@@ -4378,7 +4378,7 @@
 <p>危険な種類のファイル（実行される・既定のアプリがスクリプトを実行する <code>.exe</code> <code>.com</code> <code>.scr</code> <code>.hta</code> <code>.wsf</code> <code>.wsh</code> <code>.jse</code> <code>.vbe</code> <code>.lnk</code> <code>.url</code> <code>.msi</code> <code>.cpl</code> <code>.inf</code> 等）を、実行される種類を並べて弾く形にすると、一覧から漏れて対象に紛れ込む恐れがある。そのため <code>tests/meta/safety.Tests.ps1</code> は「対象の拡張子が固定であること」として、<code>$textExtensions</code> がちょうど 75 個（内 <code>$textNotepadExtensions</code> が 7 個）であること、<code>$officeExtensions</code> と <code>$textExtensions</code> を合わせた一覧がこの 85 個ちょうどであること、上に挙げた危険な種類の拡張子がどちらの一覧にも含まれないことを確かめる。対象の拡張子を足す変更は必ずこのテストを落とし、この一覧の見直しを促す。</p>
 <p><code>$textNotepadExtensions</code>（<code>.bat</code> <code>.cmd</code> <code>.ps1</code> <code>.vbs</code> <code>.js</code> <code>.reg</code> <code>.sh</code>）は、既定のアプリで開くと実行・登録になるため取り込みの対象ではあるが、検索結果から開くときは既定のアプリではなくメモ帳で開く（下の「外部プロセスの起動」）。</p>
 <p><code>.xml</code> は、既定のアプリ（Windows の「XML エディター」）が先頭の <code>&lt;?mso-application progid=…?&gt;</code> を見て Excel・Word で開くことがあるが、マクロは既定で無効（上の「Office ファイルを開くときの設定」）であるため、開くこと自体の害は小さい。</p>
-<h2 id="外部プロセスの起動4-か所">外部プロセスの起動（4 か所）<a class="headerlink" href="#外部プロセスの起動4-か所" title="Permanent link">&para;</a></h2>
+<h2 id="外部プロセスの起動">外部プロセスの起動<a class="headerlink" href="#外部プロセスの起動" title="Permanent link">&para;</a></h2>
 <p><code>tests/meta/safety.Tests.ps1</code> の「外部プロセスの起動は explorer.exe・notepad.exe だけ」が確かめる。</p>
 <table>
 <thead>
