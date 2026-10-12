@@ -4499,7 +4499,7 @@
 <ul>
 <li>文面は、ビルドのときに <code>LICENSE-*.txt</code> を読み、書き換えずに入れる（空行は <code>#</code> だけ、それ以外の行は行頭に <code>#</code> を足すだけ）。ファイルごとに「ここから」「ここまで」の行で挟む。足したライセンス文は、ビルドの変更なしで入る。</li>
 <li>行ごとのコメントにしたのは、ブロックコメント（<code>&lt;# #&gt;</code>）やヒアストリングだと、文面の中の文字で途中で閉じてしまうことがあるため。コメントなので、動きは変わらない。</li>
-<li><code>LICENSE-*.txt</code> が 1 つも無ければ、ビルドは止まる。包んだあとの結果に、文面が元のまま入っていることも確かめる（下の「包んだあとの確かめ」）。</li>
+<li>フォルダが無い・<code>LICENSE-*.txt</code> が 1 つも無い・空（空白だけ）のファイルがある、のどれでもビルドは止まる。ファイルは名前の文字コード順（言語・地域に依らない）に入れる。包んだあとの結果から <code>#</code> を外して取り出し、元のファイルの文字列（改行は CRLF にそろえる）と同じであることも確かめる（下の「包んだあとの確かめ」）。この処理は <code>tools/single_script_license.ps1</code> にあり、ビルドとテストが同じ関数を使う。</li>
 </ul>
 <h3 id="本体の読み込みの順と--part-の分かれ方">本体の読み込みの順と <code>-Part</code> の分かれ方<a class="headerlink" href="#本体の読み込みの順と--part-の分かれ方" title="Permanent link">&para;</a></h3>
 <p>先頭と本体の境には、目印の行（<code># ---- BODY-START (above: parts embedded for other threads) ----</code>）を置く。テストは、包んだ本体からこの行までを切り出して部品を取り出し、<code>getPartLoad</code> を通して読む。本体は次の順に並べる。</p>
@@ -4589,12 +4589,13 @@
 <li>頭と尾が ASCII だけで、行頭が <code>'@</code> の行が 2 本（判定と本体の終わり）だけである。</li>
 <li>ScriptBlock の Create・<code>Invoke-Expression</code>・<code>iex</code> の呼び出しが、末尾の最後の 1 行（文の全文が一字一句同じ）だけで、その文を除いた全体（本体の文字列を含む）に禁止の語（<code>tools/script_rules.ps1</code> の全分類）が無い。</li>
 <li>版の文字列が残っている。</li>
-<li><code>scripts/shared/licenses/LICENSE-*.txt</code> の文面が、元のまま入っている（上の「同梱する第三者の部品のライセンス文」）。</li>
+<li><code>scripts/shared/licenses/LICENSE-*.txt</code> の文面が、包んだ結果から <code>#</code> を外して取り出すと、元のファイルと同じ中身（改行は CRLF にそろえて比べる）で入っている（上の「同梱する第三者の部品のライセンス文」）。</li>
 </ul>
 <p>テストは次のとおり。</p>
 <ul>
 <li><code>tests/tools/single_script_guard.Tests.ps1</code> … 包む規則（変数の書き換え・退避と復元・止める場合・行番号・Create の例外が 1 行だけであること）と、包んだ <code>.ps1</code> を別プロセスで起動した結果（BOM 付き・BOM なし・Windows PowerShell 5.1・PowerShell 7）と、言語モードが ConstrainedLanguage のときの止まり方と、読み直せないときの止まり方（ファイルのパスが無い・頭の判定用の文字が無い）。日本語の文字列・<code>$PSScriptRoot</code>・<code>$PSCommandPath</code>・引数・終了コード・エラーの行番号を見る。</li>
-<li><code>tests/tools/new_single_script.Tests.ps1</code> … ビルドと検査そのもの（まとめる順・部品・新しい別スレッドでの読み込み・<code>-Part indexer</code>）と、出力が BOM 付き UTF-8 であること、頭と尾が ASCII だけであること、本体の行番号がファイルの行番号と同じであること、BOM の有無にかかわらず別プロセスで起動して日本語の記録が正しく出ること（Windows PowerShell 5.1・PowerShell 7）。ライセンス文が元のファイルと同じ中身で入っていること（欠けると、取り出した中身が元と違うことも確かめる）。</li>
+<li><code>tests/tools/new_single_script.Tests.ps1</code> … ビルドと検査そのもの（まとめる順・部品・新しい別スレッドでの読み込み・<code>-Part indexer</code>）と、出力が BOM 付き UTF-8 であること、頭と尾が ASCII だけであること、本体の行番号がファイルの行番号と同じであること、BOM の有無にかかわらず別プロセスで起動して日本語の記録が正しく出ること（Windows PowerShell 5.1・PowerShell 7）。本物の <code>LICENSE-*.txt</code> が、元のファイルと同じ中身で入っていること。</li>
+<li><code>tests/tools/single_script_license.Tests.ps1</code> … ライセンス文のコメントへの変換と元への復元（LF・CRLF・最後の改行なし・空白だけの行・タブ・行末の空白など）、欠けた・書き換わった結果が元と一致しないこと、ファイルの一覧（文字コード順・0 件・フォルダなし・空のファイルで止まること）。<code>$TestDrive</code> の中だけで動く。</li>
 <li><code>tests/meta/structure.Tests.ps1</code> … ソースを 1 本にしても壊れない決まり（別スレッドがパスで部品を読まない・<code>${bundledScriptPath}</code> を dot-source や呼び出しに使わない・トップレベルの <code>trap</code>／<code>exit</code> の形・作った 1 本をコミットしない）。</li>
 <li><code>tests/meta/layers.Tests.ps1</code>・<code>tests/meta/safety.Tests.ps1</code> … 層の決まりと禁止の語を、まとめる元のソースに対して確かめる。</li>
 <li>画面の自動テスト（<code>Gui</code> タグ）… 環境変数 <code>TEBUNKO_GUI_SINGLE=1</code> で、zip 版の代わりに単一 .ps1 版を組み立てて同じ場面を流す。CI の <code>gui-smoke</code> は、S8 で単一 .ps1 版の起動・検索・閉じるを流す。</li>

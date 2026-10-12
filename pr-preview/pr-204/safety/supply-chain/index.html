@@ -4074,7 +4074,7 @@
 </tr>
 <tr>
 <td>第三者ライセンス</td>
-<td>第三者の<strong>コードは含まない</strong>。含むのはアイコンの形 Lucide（ISC ライセンス。Feather 由来の一部は MIT。どちらの文面も <code>LICENSE-Lucide.txt</code>）だけで、ライセンス文は配布物の <code>scripts/shared/licenses/</code> に同梱する（<code>check_release_package.ps1</code> が入っていることを確かめる）。単一 .ps1 版には、同じ文面を先頭のコメントとして入れる（<code>new_single_script.ps1</code> が元のファイルのまま入っていることを確かめ、入っていなければ作らない）。<code>theme.xaml</code> の <code>Icon.*</code> に図形のデータとして写している。実行されるコードではなく、依存スキャナの対象にならない。フォントは Windows 標準のものを使い、同梱しない</td>
+<td>第三者の<strong>コードは含まない</strong>。含むのはアイコンの形 Lucide（ISC ライセンス。Feather 由来の一部は MIT。どちらの文面も <code>LICENSE-Lucide.txt</code>）だけで、ライセンス文は配布物の <code>scripts/shared/licenses/</code> に同梱する（<code>check_release_package.ps1</code> が入っていることを確かめる）。単一 .ps1 版には、同じ文面を先頭のコメントとして入れる（<code>new_single_script.ps1</code> が、作った結果から <code>#</code> を外して取り出し、元のファイルと同じ中身（改行は CRLF にそろえて比べる）であることを確かめ、違えば作らない）。<code>theme.xaml</code> の <code>Icon.*</code> に図形のデータとして写している。実行されるコードではなく、依存スキャナの対象にならない。フォントは Windows 標準のものを使い、同梱しない</td>
 </tr>
 <tr>
 <td>改ざん検知</td>
