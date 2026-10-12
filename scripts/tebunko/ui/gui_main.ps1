@@ -241,9 +241,14 @@ function startGui {
 
     $window.Add_Activated({ onWindowActivated })
 
-    $window.Add_PreviewKeyDown({
-        param ($sender, $e)
-        $modifiers = [System.Windows.Input.Keyboard]::Modifiers
+    function onWindowPreviewKeyDown {
+        # 窓のキー（Ctrl+Tab・F5・Ctrl+F など）の入口。modifiers は押されている修飾キー（テストでは差し替える）
+        param (
+            $sender,
+            $e,
+            $modifiers = [System.Windows.Input.Keyboard]::Modifiers
+        )
+
         $ctrl = ($modifiers -band [System.Windows.Input.ModifierKeys]::Control) -ne 0
         $shift = ($modifiers -band [System.Windows.Input.ModifierKeys]::Shift) -ne 0
         # Alt などが混ざったキーは、これまでどおり扱わない
@@ -258,6 +263,11 @@ function startGui {
         if (invokeShortcutAction $action) {
             $e.Handled = $true
         }
+    }
+
+    $window.Add_PreviewKeyDown({
+        param ($sender, $e)
+        onWindowPreviewKeyDown $sender $e
     })
 
     # 閉じるときの順番（docs/design/structure/closing.md「閉じるときの順番」）。インデックス作成は画面のプロセスのスレッドで動くため、
