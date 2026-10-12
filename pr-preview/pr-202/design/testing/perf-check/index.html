@@ -4299,7 +4299,7 @@
 </tr>
 <tr>
 <td><code>tests/tools/perf_preview.Tests.ps1</code>（選択行のプレビュー）</td>
-<td>検索と同じ <code>new_index.ps1 -Scale 0.1</code> に、テストの作業用の場所（<code>$TestDrive</code>）に作る大きな本文インデックスのファイル（約 10 MB・10 万行。架空の文で、ヒットは先頭の近くと終わりの近くに 10 行ずつ）を足したもの。語はそのファイルに当たる 1 語を <code>words.tsv</code> に足す</td>
+<td>検索と同じ <code>new_index.ps1 -Scale 0.1</code> に、テストの作業用の場所（<code>$TestDrive</code>）に作る大きな本文インデックスのファイル（約 10 MB・約 1 万行。架空の文で、ヒットは先頭の近くと終わりの近くに 10 行ずつ）を足したもの。語はそのファイルに当たる 1 語を <code>words.tsv</code> に足す</td>
 <td><code>measure_perf.ps1 -Index ... -Words ... -Count 1 -Preview 20 -PreviewFullRead</code>（語ごとに、ヒットの先頭から 20 件を、検索のキャッシュ無し・ありで 1 件ずつプレビューする。<code>tools/perf/measure_preview.ps1</code> が別のプロセスで測る。<code>-PreviewFullRead</code> は、前の読み方（毎回ファイルの全体を読む）でも同じ選択を測って並べる）</td>
 <td>語ごとの、キャッシュ無しの読み込みの中央値（<code>Preview.Words[].ReadUncachedMs.Median</code>）・プレビューのあと、GC のあとにマネージドヒープに残る増えの合計（<code>RetainedManagedMB</code>）。前の読み方の値（<code>FullRead</code>）と、キャッシュ無しの選択で全体を読んだ回数（<code>ReadTextCallsUncached</code>）は出すだけで、上限とは比べない</td>
 </tr>
