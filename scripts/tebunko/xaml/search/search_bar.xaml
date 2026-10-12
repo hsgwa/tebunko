@@ -72,7 +72,7 @@
           </Setter.Value>
         </Setter>
       </Style>
-      <!-- ［ファイル内の対象 ▾］。幅 176 で固定し（「・2 件変更」が付いても変わらない）、文字は左・▾ は右端。白地に灰色の線。触れたとき・既定から変えているとき（Tag = changed）は線を青にする -->
+      <!-- ［ファイル内の対象 ▼］。幅 176 で固定し（「・2 件変更」が付いても変わらない）、文字は左・▼ は右端。白地に灰色の線。触れたとき・既定から変えているとき（Tag = changed）は線を青にする -->
       <Style x:Key="ScopeButton" TargetType="Button">
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FontSize" Value="11" />
@@ -105,7 +105,7 @@
         </Setter>
       </Style>
       <!-- 高速検索の状態（Tag = ok の緑・off の灰色）。中の文字・アイコンの色も Tag で切り替える。
-           印は幅 170 で固定し、使用可／不可でも変わらない（並びは左から ⚡・文字・右端の ⓘ。ⓘ は常に出す） -->
+           印は幅 170 で固定し、使用可／不可でも変わらない（並びは左から 稲妻の印（zap）・文字・右端の 情報の印（info）。情報の印（info）は常に出す） -->
       <Style x:Key="FastBadgeText" TargetType="TextBlock">
         <Setter Property="Foreground" Value="{StaticResource Badge.None.Text}" />
         <Style.Triggers>

@@ -54,7 +54,7 @@ function getReachableFiles {
 # （「1 か所だけ許す」といった個別の例外付きの検査は、tests/meta/safety.Tests.ps1 にそのまま残す）。
 # キーは説明用の名前、値は検査する正規表現
 $script:bannedCodePatterns = [ordered]@{
-    InvokeExpression     = 'Invoke-Expression|[^-\w]iex[ (]|ScriptBlock\]::Create'
+    InvokeExpression     = 'Invoke-Expression|(^|[^-\w])iex(?![-\w])|ScriptBlock\]\s*::\s*Create|NewScriptBlock|InvokeScript|\$\{?[\w:]+\}?\s*::\s*Create'
     EncodedCommand       = 'FromBase64String|EncodedCommand'
     Network              = 'Invoke-WebRequest|Invoke-RestMethod|WebClient|HttpClient|Net\.Sockets|Start-BitsTransfer|DownloadFile|DownloadString|System\.Net\.'
     PInvoke              = 'DllImport|GetDelegateForFunctionPointer'
@@ -71,6 +71,27 @@ $script:bannedCodePatterns = [ordered]@{
 # （「以前は csc.exe で…」のような説明のコメントを禁止の語の検査に含めないため。
 # tests/meta/safety.Tests.ps1 の getCodeLines も、この関数を使う）
 function stripLineComment {
+    param (
+        [string]$line
+    )
+
+    # ブロックコメントの終わり（#>）の後ろは、同じ行でもコードとして残す（行頭が #> でも、後ろのコードを飛ばさない）。
+    # ブロックコメントの中の行は、今までどおりコードとして検査する（禁止を強める向きに倒す）
+    if ($line.Contains("#>")) {
+        # 行全体を見た結果（#> が文字列の中にあっても残る）に、2 つ目以降の部分（#> の後ろ。何本あっても順に）をつなぐ
+        $parts = @($line -split [regex]::Escape("#>"))
+        $kept = New-Object System.Collections.Generic.List[string]
+        $kept.Add((stripLineCommentCore $line))
+        for ($i = 1; $i -lt $parts.Count; $i++) {
+            $kept.Add((stripLineCommentCore $parts[$i]))
+        }
+        return (($kept -join " ").Trim())
+    }
+    return (stripLineCommentCore $line)
+}
+
+# 1 行からコメントを取り除く本体（#> の扱いは stripLineComment が先に見る）
+function stripLineCommentCore {
     param (
         [string]$line
     )
@@ -104,7 +125,7 @@ function findBannedCode {
         $code = stripLineComment $line
         if (!$code) { continue }
         foreach ($name in $script:bannedCodePatterns.Keys) {
-            foreach ($match in [regex]::Matches($code, $script:bannedCodePatterns[$name])) {
+            foreach ($match in [regex]::Matches($code, $script:bannedCodePatterns[$name], [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)) {
                 $hits.Add("${name}: $($match.Value)")
             }
         }

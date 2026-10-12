@@ -1035,6 +1035,27 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         (getIndexDetailView @($item) $null).FolderBrush | Should -Be $brush
     }
 
+    It "フォルダの状態のアイコン（FolderIcon）: <name> は <icon>" -TestCases @(
+        @{ name = "ある"; missing = $false; checked = $true; status = "フォルダがあります"; icon = "Check" }
+        @{ name = "無い"; missing = $true; checked = $true; status = "フォルダが見つかりません"; icon = "Close" }
+        @{ name = "確認中"; missing = $false; checked = $false; status = "… フォルダを確認しています"; icon = "" }
+        @{ name = "文が空（出す文が無い）"; missing = $false; checked = $true; status = ""; icon = "" }
+        @{ name = "更新中でも無ければ Close"; missing = $true; checked = $true; status = "フォルダが見つかりません"; icon = "Close"; level = "Run" }
+    ) {
+        param ($missing, $checked, $status, $icon, $level = "Ok")
+        $item = newDetailItem -folderStatus $status
+        $item.FolderMissing = $missing
+        $item.FolderChecked = $checked
+        $item.IndexLevel = $level
+        (getIndexDetailView @($item) $null).FolderIcon | Should -Be $icon
+    }
+
+    It "何も選んでいないとき・複数を選んでいるときは、フォルダの状態のアイコンを出さない。調べ終えたかを省くと調べ終えたものとして Check にする" {
+        (getIndexDetailView @() $null).FolderIcon | Should -Be ""
+        (getIndexDetailView @() $null 2).FolderIcon | Should -Be ""
+        (getIndexDetailView @(newDetailItem) $null).FolderIcon | Should -Be "Check"
+    }
+
     It "何も選んでいないときのフォルダの状態の色は灰、調べ終えたかを省くと調べ終えたものとして扱う" {
         (getIndexDetailView @() $null).FolderBrush | Should -Be "Ink.Muted"
         (getIndexDetailView @(newDetailItem) $null).FolderBrush | Should -Be "Ok"

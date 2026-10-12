@@ -238,6 +238,41 @@ Describe "危険な処理を使っていないこと（docs/safety/checks.md「�
         (findPattern $code $script:bannedCodePatterns.InvokeExpression) | Should -Be ""
     }
 
+    It "規則が、文字列を式として実行する形を止める: <name>" -TestCases @(
+        @{ name = "行頭の iex"; text = "iex `$text" }
+        @{ name = "iex の直後が変数"; text = "`$x | iex`$y" }
+        @{ name = "NewScriptBlock"; text = "`$ExecutionContext.InvokeCommand.NewScriptBlock(`$s)" }
+        @{ name = "InvokeScript"; text = "`$ExecutionContext.InvokeCommand.InvokeScript(`$s)" }
+        @{ name = "型を変数に入れた Create"; text = "`$t = [scriptblock]`r`n`$t::Create(`$s)" }
+        @{ name = "波括弧の変数に入れた Create"; text = "`${t}::Create(`$s)" }
+        @{ name = "ScriptBlock と :: の間に空白"; text = "[ScriptBlock] :: Create(`$s)" }
+        @{ name = "ブロックコメントの終わりの後ろ（行頭）"; text = "<#`r`n説明`r`n#> iex `$s" }
+        @{ name = "ブロックコメントの終わりの後ろ（同じ行）"; text = "<# 説明 #> Invoke-Expression `$s" }
+        @{ name = "文字列の中の #> の直後に # があり、同じ行の後ろに iex"; text = "`$a = `"#>#`"; iex `$s" }
+        @{ name = "文字列の中の #> と # の間に文字があり、同じ行の後ろに iex"; text = "`$a = `"#>x#`"; iex `$s" }
+        @{ name = "文字列の中の #> の後ろに空白と # があり、同じ行の後ろに iex"; text = "`$a = `"#> # `"; iex `$s" }
+        @{ name = "同じ行に #> が 2 つあるとき、間のコード"; text = "<# a #> iex `$s <# b #>" }
+        @{ name = "スコープ付きの変数に入れた Create"; text = "`$script:t::Create(`$s)" }
+        @{ name = "大文字の IEX"; text = "IEX `$s" }
+        @{ name = "小文字の invoke-expression"; text = "invoke-expression `$s" }
+        @{ name = "小文字の create"; text = "[scriptblock]::create(`$s)" }
+    ) {
+        param ($name, $text)
+        (findBannedCode $text) | Should -BeLike "InvokeExpression: *"
+    }
+
+    It "規則が、説明の言及と別の語は止めない: <name>" -TestCases @(
+        @{ name = "コメントの中の iex"; text = "# iex は使わない" }
+        @{ name = "行末のコメントの中の iex"; text = "`$a = 1 # iex は使わない" }
+        @{ name = "名前の一部（-iex・diex・iexp）"; text = "Get-Item -iex`r`n`$diex = 1`r`n`$iexp = 2" }
+        @{ name = "型名が直書きの Create"; text = "`$f = [System.IO.File]::Create(`$p)" }
+        @{ name = "ブロックコメントの終わりだけの行"; text = "<#`r`n説明`r`n#>" }
+        @{ name = "1 行で閉じるブロックコメントの中の iex"; text = "<# iex は使わない #>" }
+    ) {
+        param ($name, $text)
+        (findBannedCode $text) | Should -Be ""
+    }
+
     It "難読化したコマンドを実行しない（Base64・EncodedCommand）" {
         (findPattern $code $script:bannedCodePatterns.EncodedCommand) | Should -Be ""
     }

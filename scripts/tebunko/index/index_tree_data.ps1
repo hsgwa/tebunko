@@ -3,7 +3,7 @@
 # 画面（ui\index_tree.ps1・ui\types.ps1 の IndexNode）は、この結果を受け取って組み立てるだけにする。
 
 function testIndexBookName {
-    # 元のファイルごとのフォルダと分かる拡張子か。Office は拡張子の形（.xls・.doc・.ppt で始まり 4〜5 文字）で見分け、
+    # 元のファイルごとのフォルダと分かる拡張子か。Office は拡張子の形（.xls・.doc・.ppt で始まり 4～5 文字）で見分け、
     # テキストは対象の拡張子の一覧（shared\core\text_file.ps1 の testTextExtension。一覧はそこにだけある）で見分ける
     param (
         [string]$name

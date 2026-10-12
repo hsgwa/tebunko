@@ -20,10 +20,10 @@
           <DockPanel>
             <Button x:Name="OpenFolderButton" DockPanel.Dock="Right" Style="{StaticResource Link}" Content="フォルダを開く" Margin="14,0,0,0" IsEnabled="False"
                     VerticalAlignment="Center" />
-            <!-- ［開く ▾］。［開く］は選んである開き方で開き、▾ から開き方を選ぶ（選んだ開き方は次からも使う。ダブルクリック・Enter も同じ） -->
+            <!-- ［開く ▼］。［開く］は選んである開き方で開き、▼ から開き方を選ぶ（選んだ開き方は次からも使う。ダブルクリック・Enter も同じ） -->
             <Border DockPanel.Dock="Right" CornerRadius="6" BorderThickness="1"
                     Background="{StaticResource Bg.Surface}" VerticalAlignment="Center" Height="26">
-              <!-- 使えないときは、枠・仕切り・文字・▾ をそろえて Ink.Disabled にする（枠だけ Accent のまま残さない） -->
+              <!-- 使えないときは、枠・仕切り・文字・▼ をそろえて Ink.Disabled にする（枠だけ Accent のまま残さない） -->
               <Border.Style>
                 <Style TargetType="Border">
                   <Setter Property="BorderBrush" Value="{StaticResource Accent}" />

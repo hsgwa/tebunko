@@ -286,7 +286,7 @@ function getResultMenuItems {
     $separator = @{ Id = "separator"; Header = ""; Bold = $false }
 
     # 先頭は既定の開き方（見出しは読み取り専用。読み取り専用で開けないファイルは通常）。下には、ほかの開き方を
-    # ［開く ▾］と同じ順（開く・新規で開く・読み取り専用で開く）で並べる
+    # ［開く ▼］と同じ順（開く・新規で開く・読み取り専用で開く）で並べる
     $wanted = if ($target -eq "group") { ${openModeReadOnly} } else { $openMode }
     $default = if ($labels.Contains($wanted)) { $wanted } else { ${openModeNormal} }
     $items = @(@{ Id = $labels[$default].Id; Header = $labels[$default].Header; Bold = $true })

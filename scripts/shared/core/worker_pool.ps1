@@ -52,7 +52,7 @@ function joinWorkerScript {
 }
 
 function getWorkerCount {
-    # プールのスレッドの数の既定（画面のために 1 コアを残す。1〜max）
+    # プールのスレッドの数の既定（画面のために 1 コアを残す。1～max）
     param (
         [int]$max = 4,
         [int]$processors = [Environment]::ProcessorCount

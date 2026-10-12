@@ -840,7 +840,8 @@ Describe "単一 .ps1 化の決まり（AST。docs/design/structure/single-scrip
         }
         $hits = New-Object System.Collections.Generic.List[string]
         foreach ($relFile in ($files | Where-Object { $_ -like "*.ps1" })) {
-            if ($relFile -eq "tools/new_single_script.ps1" -or $relFile -like "tests/tools/new_single_script*" -or $relFile -eq "tests/meta/structure.Tests.ps1") { continue }
+            # 結合の道具・そのテスト（new_single_script*・single_script_guard*）は、検査する文字列を、テストの見本として持つ
+            if ($relFile -eq "tools/new_single_script.ps1" -or $relFile -like "tests/tools/new_single_script*" -or $relFile -like "tests/tools/single_script_guard*" -or $relFile -eq "tests/meta/structure.Tests.ps1") { continue }
             $full = Join-Path $rootDir $relFile
             try {
                 $text = [System.IO.File]::ReadAllText($full)
