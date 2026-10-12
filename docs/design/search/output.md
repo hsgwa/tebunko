@@ -87,7 +87,7 @@ flowchart TD
 ```
 
 - 場所の一覧は、全文で一致したとき（と、読んだ内容を使い回すために残すとき）だけ作る。一致しない本文インデックスのファイルでは作らない（[検索を速くする仕組み](speed.md)）。
-- 画面の選択行のプレビュー（`readContentIndexContext`）も同じ一覧で、Book・Location が一致する場所の中から前後の行を取り出す（[検索タブ](../gui/search-tab.md) [選択行のプレビュー](../gui/preview.md)）。
+- 画面の選択行のプレビュー（`readContentIndexLines`）も同じ一覧で、Book・Location が一致する場所の中から前後の行を取り出す（[検索タブ](../gui/search-tab.md) [選択行のプレビュー](../gui/preview.md)）。
 - 検索では TSV の相対パスを分解しない。TSV の名前（フォルダ名 = 元のファイル名、ファイル名 = 場所）は、本文インデックスに入れるとき（`getIndexFolderBooks`）だけに使う。
 
 場所の付け方は [インデックス作成](../indexing/index.md) の [インデックスのファイルの形](../index-data/format.md#配置命名規則)・[場所の符号化](../index-data/format.md#場所の符号化encodeindexplace--decodeindexplace) を参照。
@@ -97,6 +97,6 @@ flowchart TD
 テキストファイル（`.txt` 等）は、1 行に数 MB の内容が入ることがある（`.json` `.xml` `.log` など）。取り込み・検索の一致そのものは行を切らずに行う（行番号と検索の一致がずれないため）が、結果の表・プレビュー・この検索結果ファイル・画面の［コピー］に出す行は、`search_query.ps1` の `truncateHitLine` で `${hitLineMaxChars}`（1,000 文字）に切る。
 
 - 一致した行（結果の表・検索結果ファイル）は、一致の位置の `${hitLineBeforeMatchChars}`（200）文字前から 1,000 文字を取る（一致の位置が分からない図形・コメント等では先頭から）。
-- 選択行のプレビューの前後の行（`readContentIndexContext`）は、一致していないため常に先頭から 1,000 文字を取る。
+- 選択行のプレビューの前後の行（`readContentIndexLines`）は、一致していないため常に先頭から 1,000 文字を取る。
 - 切った側に `…` を付ける（先頭・末尾のどちらか、または両方）。
 - Excel・Word・PowerPoint の行は切らない（Excel は列の位置がずれるため。詳細は [テキストファイルの読み取り](../indexing/text.md)）。`content_index_search.ps1` の `searchContentIndexFiles` は、元のファイル名の拡張子（`getContentIndexFileKind`）がテキストのときだけ切る。

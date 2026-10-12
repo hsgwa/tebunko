@@ -103,7 +103,7 @@ flowchart LR
         CS["getIndexingState"] --> RSF2["readStatusFile"]
         SUM["getIndexSummary / testIndexExists"]
         SI2["searchContentIndex / toSearchResultLines / writeSearchResult"]
-        RPC["readContentIndexContext（選択行のプレビュー）"]
+        RPC["readContentIndexLines（選択行のプレビュー）"]
         RSP["resolveSourcePath"] --> SL["getSourceLocation"] --> SFM["getSourceFolderMap"] --> INM["getIndexNameMap"] --> RSF2
         SFM --> RSFF["readSourceFolderFile"]
         SFM --> TGT["getTargetFolders / readIndexSources"]
