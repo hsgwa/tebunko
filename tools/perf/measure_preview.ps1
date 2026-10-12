@@ -187,7 +187,8 @@ try {
             $columns = $table.Columns.Count   # 前の版は Columns が表示した列だけ。今の版は全部の列
             $cells = $table.Rows.Count * $columns
             $created = countMadeCells $table
-            # 表を持ち続けるのは -Render のときだけ（GC のあとに残る増えに、このスクリプトが持つ表が入らないようにする）
+            # 表を持ち続けるのは -Render のときだけ。持っている表 1 枚（全部の列の文字を持つ）は、GC のあとに残る増えの値に入る
+            # （-Render を付けない測り・-FullRead の測りでは入らないので、-Render の有無が違う値は同じ条件の比べではない）
             if ($mode -eq "無し" -and ($null -eq $wide -or $cells -gt $wide.Cells)) { $wide = @{ Cells = $cells; Table = $(if ($Render) { $table } else { $null }); Hit = $hit } }
             $item = [ordered]@{
                 N = $n; Cache = $mode; LineNumber = [int]$hit.LineNumber; FileMB = [Math]::Round((Get-Item -LiteralPath (toLongPath $path)).Length / 1MB, 2)
@@ -205,7 +206,8 @@ try {
         if ($fullReadProblems.Count -gt 0) { throw ("-FullRead で全部読む経路を通っていません: " + ($fullReadProblems -join " / ")) }
     }
 
-    # このスクリプトが持つものを捨ててから、GC のあとのワーキングセットを見る（残った増えは、画面が持ち続けたものとみなす。戻らなければリークの疑い）
+    # 作業用の変数を捨ててから、GC のあとのワーキングセットを見る。-Render のときは $wide の表 1 枚が残るので、その分が残った増えに入る
+    # （-Render を付けないときの残った増えは、画面が持ち続けたものとみなす。戻らなければリークの疑い）
     $table = $null; $row = $null; $context = $null; $numbers = $null; $lines = $null; $item = $null; $snap = $null
     collectAll
     $afterGc = getMemory
