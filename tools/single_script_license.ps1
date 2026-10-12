@@ -53,7 +53,7 @@ function convertToLicenseComment {
     return ($block -join "`r`n")
 }
 
-# コメントにしたライセンス文を、# を外して元の形（CRLF・末尾は改行）の文字列に戻す。印が見つからなければ $null
+# コメントにしたライセンス文を、# を外して元の形（CRLF・末尾は改行）の文字列に戻す。印が見つからないとき、印の間にコメントでない行（# だけでも # と空白で始まる行でもない行）が混ざるときは $null
 function restoreLicenseFromComment {
     param (
         [string]$scriptText,
@@ -68,7 +68,7 @@ function restoreLicenseFromComment {
     }
     $restored = New-Object System.Collections.Generic.List[string]
     for ($i = $from + 1; $i -lt $to; $i++) {
-        if ($lines[$i] -eq "#") {
+        if ([string]::Equals($lines[$i], "#", [System.StringComparison]::Ordinal)) {
             [void]$restored.Add("")
         } elseif ($lines[$i].StartsWith("# ", [System.StringComparison]::Ordinal)) {
             [void]$restored.Add($lines[$i].Substring(2))

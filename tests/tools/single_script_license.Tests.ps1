@@ -76,7 +76,14 @@ Describe "single_script_license.ps1 のコメントへの変換と、元への�
         { convertToLicenseComment "LICENSE-X.txt" $text } | Should -Throw $message
     }
 
-    It "<name>: 印が無い・欠けている・中身が違う・コメントでない行があるときは、元の文字列と一致しない（道具の検査が止まる形になる）" -TestCases @(
+    It "元に空行がある文面で、U+00AD と # だけの行が混ざっても、空行として戻さず `$null を返す" {
+        $comment = convertToLicenseComment "LICENSE-X.txt" "ISC License`n`nline 3`n"
+        $broken = $comment.Replace("`r`n#`r`n", "`r`n$([char]0x00AD)#`r`n")
+        [string]::Equals($broken, $comment, [System.StringComparison]::Ordinal) | Should -Be $false
+        (restoreLicenseFromComment $broken "LICENSE-X.txt") | Should -BeNullOrEmpty
+    }
+
+    It "<name>: 印が無い・終わりの印が無い・コメントでない行があるときは、`$null を返す（道具の検査が止まる形になる）" -TestCases @(
         @{ name = "# が外れた行"; edit = { param ($c) $c.Replace("# line 2", "line 2") } }
         @{ name = "印の間の空行"; edit = { param ($c) $c.Replace("# line 2", "") } }
         @{ name = "# だけでなく 1 文字の行"; edit = { param ($c) $c.Replace("# line 2", "x") } }

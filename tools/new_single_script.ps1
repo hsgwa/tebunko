@@ -310,7 +310,7 @@ if ($combined -notmatch [regex]::Escape("Tag = '$Version'; Sha = '$sha'")) {
 #    リリースでは、この道具が通らなければ公開しない。zip の中身の検査は tools\check_release_package.ps1）
 foreach ($licenseFile in $licenseFiles) {
     $restoredLicense = restoreLicenseFromComment $combined $licenseFile.Name
-    if ($null -eq $restoredLicense -or $restoredLicense -cne (normalizeLicenseText ([System.IO.File]::ReadAllText($licenseFile.FullName)))) {
+    if ($null -eq $restoredLicense -or ![string]::Equals($restoredLicense, (normalizeLicenseText ([System.IO.File]::ReadAllText($licenseFile.FullName))), [System.StringComparison]::Ordinal)) {
         throw "包んだあとの単一 .ps1 に、ライセンス文が元のまま入っていません: $($licenseFile.Name)"
     }
 }
