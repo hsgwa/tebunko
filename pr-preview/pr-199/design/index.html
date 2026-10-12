@@ -1910,6 +1910,8 @@
       
         
       
+        
+      
     
     
     
@@ -2234,6 +2236,34 @@
     
   
     テキストファイルの読み取り
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="indexing/pdf/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PDF ファイルの読み取り
   
 
     
@@ -4106,7 +4136,7 @@
 <li><strong>安全性</strong>：導入を審査する方向けの説明（何をして何をしないか、その根拠と確かめ方）は、「使い方」の <a href="../safety/">安全性の要約</a> にある</li>
 </ul>
 <h2 id="目的">目的<a class="headerlink" href="#目的" title="Permanent link">&para;</a></h2>
-<p>フォルダ配下に大量に存在する Office ファイル・テキストファイルに対し、<strong>ファイルを開かずに全文検索</strong>できるようにする。</p>
+<p>フォルダ配下に大量に存在する Office ファイル・テキストファイル・PDF ファイルに対し、<strong>ファイルを開かずに全文検索</strong>できるようにする。</p>
 <table>
 <thead>
 <tr>
@@ -4131,13 +4161,17 @@
 <td>テキスト</td>
 <td><a href="indexing/text/#対象の拡張子">対象の拡張子</a></td>
 </tr>
+<tr>
+<td>PDF</td>
+<td><code>.pdf</code>（<a href="indexing/pdf/">PDF ファイルの読み取り</a>）</td>
+</tr>
 </tbody>
 </table>
 <h2 id="方式">方式<a class="headerlink" href="#方式" title="Permanent link">&para;</a></h2>
-<p>2 段階方式を採る。Office ファイル・テキストファイルから抽出した文字列を索引データ（<strong>インデックス</strong>）として事前に保存し、検索時はインデックスのみを照合する。これにより、検索のたびにファイルを開く処理を省く。インデックスの中身の具体例は <a href="indexing/#インデックスとははじめて読む方へ">インデックスとは（はじめて読む方へ）</a> にある。</p>
+<p>2 段階方式を採る。Office ファイル・テキストファイル・PDF ファイルから抽出した文字列を索引データ（<strong>インデックス</strong>）として事前に保存し、検索時はインデックスのみを照合する。これにより、検索のたびにファイルを開く処理を省く。インデックスの中身の具体例は <a href="indexing/#インデックスとははじめて読む方へ">インデックスとは（はじめて読む方へ）</a> にある。</p>
 <ol>
 <li><strong>インデックス作成</strong>（<a href="indexing/">インデックス作成</a>）
-   各ファイルを取り込み、「場所」（Excel のシート、Word のページ、PowerPoint のスライド、テキストは「本文」の 1 つ）ごとの TSV（UTF-8）に書き出し、フォルダの取り込みが終わるとフォルダ・拡張子ごとの本文インデックスにまとめて <code>work/content_index/</code> に蓄積する。Excel のセルは COM で操作してテキストを抽出し、Excel の図形・コメントと Word・PowerPoint はファイル（ZIP 内の XML）を直接読む（Word・PowerPoint の旧形式は Word・PowerPoint で新形式に変換してから読む）。テキストファイルは文字コードを判定してから行に分けて読む（<a href="indexing/text/">テキストファイルの読み取り</a>）。2 回目以降は、取り込み済みで更新の無いファイルをスキップする（差分取り込み）。</li>
+   各ファイルを取り込み、「場所」（Excel のシート、Word のページ、PowerPoint のスライド、PDF のページ、テキストは「本文」の 1 つ）ごとの TSV（UTF-8）に書き出し、フォルダの取り込みが終わるとフォルダ・拡張子ごとの本文インデックスにまとめて <code>work/content_index/</code> に蓄積する。Excel のセルは COM で操作してテキストを抽出し、Excel の図形・コメントと Word・PowerPoint はファイル（ZIP 内の XML）を直接読む（Word・PowerPoint の旧形式は Word・PowerPoint で新形式に変換してから読む）。テキストファイルは文字コードを判定してから行に分けて読む（<a href="indexing/text/">テキストファイルの読み取り</a>）。PDF は PowerShell だけでページごとの文字を読む（<a href="indexing/pdf/">PDF ファイルの読み取り</a>）。2 回目以降は、取り込み済みで更新の無いファイルをスキップする（差分取り込み）。</li>
 <li><strong>検索</strong>（<a href="search/">検索</a>）
    本文インデックスを検索し（大文字と小文字の区別・正規表現・ファイルの種類の条件はサクラエディタの Grep にならう）、ヒットした「ファイル名（相対フォルダ付き）・場所・該当行」を、元のファイルごとの見出しにまとめて画面の表に表示する。必要なときは <code>work/search_results.txt</code> に出力する。</li>
 </ol>
@@ -4258,7 +4292,7 @@
     end
 
     tmp[("work/tmp/#lt;PC の鍵#gt;/#lt;PID#gt;&lt;br&gt;取り込みの作業領域&lt;br&gt;（置けないときはスキップ）")]
-    src[("クロール対象フォルダ&lt;br&gt;Excel・Word・PowerPoint・テキストのファイル群")]
+    src[("クロール対象フォルダ&lt;br&gt;Excel・Word・PowerPoint・テキスト・PDF のファイル群")]
     excel["Microsoft Excel&lt;br&gt;（COM）"]
     office["Microsoft Word / PowerPoint&lt;br&gt;（COM。旧形式の変換のみ）"]
 

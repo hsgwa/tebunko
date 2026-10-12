@@ -1912,6 +1912,8 @@
       
         
       
+        
+      
     
     
     
@@ -2236,6 +2238,34 @@
     
   
     テキストファイルの読み取り
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pdf/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PDF ファイルの読み取り
   
 
     
@@ -4325,6 +4355,11 @@
 <tr>
 <td>2</td>
 <td>旧形式（<code>.doc</code>）の取り込みには Word が必要（インストールされていない場合は取り込み一覧に「失敗」と記録される）。パスワード付き（新形式）は、<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>でWordを起動せずに判定するため、Word が無くても同じ文言で失敗と記録される</td>
+<td>○</td>
+</tr>
+<tr>
+<td>2a</td>
+<td>PDF は文字の命令だけを読む。画像だけの PDF（OCR しない）・開くのにパスワードが要る PDF・AES-256 以外の暗号化の PDF（RC4・AES-128）・<code>FlateDecode</code> 以外の圧縮・対応表（<code>ToUnicode</code>）の無い複合フォントの文字は検索できない。段組みや表は、位置でなくファイルに書かれた順に並ぶ。検索結果から開いても該当ページへは移動しない（<a href="../pdf/">PDF ファイルの読み取り</a>）</td>
 <td>○</td>
 </tr>
 <tr>
