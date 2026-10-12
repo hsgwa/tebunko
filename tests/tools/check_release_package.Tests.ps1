@@ -12,8 +12,8 @@ BeforeAll {
     $goodZip = Join-Path $outDir "tebunko-$version.zip"
 
     # 検査を実行して、終了コードと出力（通らなかった項目）を返す
-    function invokeCheck([string]$zip, [string]$dir = $outDir, [string]$ver = $version) {
-        $output = & $check -ZipPath $zip -OutDir $dir -Version $ver 6>&1 | ForEach-Object { "$_" }
+    function invokeCheck([string]$zip, [string]$dir = $outDir, [string]$ver = $version, [string]$script = $check) {
+        $output = & $script -ZipPath $zip -OutDir $dir -Version $ver 6>&1 | ForEach-Object { "$_" }
         [pscustomobject]@{ Code = $LASTEXITCODE; Text = ($output -join "`n") }
     }
 
@@ -145,6 +145,22 @@ Describe "new_release_files.ps1 のカタログ" -Tag Io {
         & "$cloneDir\tools\new_release_package.ps1" -Version $version -OutDir $dir 3>$null | Out-Null
         $result = invokeCheck (Join-Path $dir "tebunko-$version.zip") $dir
         $result.Code | Should -Be 0
+    }
+}
+
+Describe "同梱のライセンスの文面の置き場" -Tag Io {
+    It "リポジトリに scripts\shared\licenses の LICENSE-*.txt が 1 つも無いと、通らない" {
+        # 本物の作業ツリーを汚さないよう、clone した先で置き場を無くす（clone は $TestDrive の下にできる）
+        $cloneDir = newIsolatedClone "clone-no-licenses"
+        Write-Host "clone: $cloneDir"
+        $cloneDir.StartsWith($TestDrive) | Should -BeTrue
+        $licenseDir = Join-Path $cloneDir "scripts\shared\licenses"
+        $licenseDir.StartsWith($TestDrive) | Should -BeTrue
+        Test-Path -LiteralPath $licenseDir | Should -BeTrue
+        Remove-Item -LiteralPath $licenseDir -Recurse -Force
+        $result = invokeCheck $goodZip $outDir $version "$cloneDir\tools\check_release_package.ps1"
+        $result.Code | Should -Be 1
+        $result.Text | Should -BeLike "*同梱のライセンスの文面がリポジトリに無い: scripts/shared/licenses/LICENSE-*.txt*"
     }
 }
 

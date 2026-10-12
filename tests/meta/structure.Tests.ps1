@@ -119,6 +119,9 @@ Describe "画面の既定のフォント（起動した窓の Font.Body）" -Tag
         $problems -join ", " | Should -Be ""
     }
 
+}
+
+Describe "同梱する第三者の部品" -Tag Meta {
     It "同梱するのはアイコンの形のライセンスの文面だけで、フォントのファイルは無い" {
         Test-Path -LiteralPath "$here\..\scripts\shared\licenses\LICENSE-Lucide.txt" | Should -Be $true
         @(Get-ChildItem "$here\..\scripts" -Recurse -File | Where-Object { $_.Extension -in ".ttf", ".otf", ".ttc" -or $_.Name -eq "OFL.txt" }).Count | Should -Be 0
@@ -149,13 +152,17 @@ Describe "画面の既定のフォント（起動した窓の Font.Body）" -Tag
         }
         # 拾えた数が 0 なら、読み方が壊れている（見逃さない）
         $names.Count | Should -BeGreaterThan 0
+        # name が文字列の定数でない要素があると、黙って飛ばさずに落とす（要素の数と同じだけ拾えている）
+        $names.Count | Should -Be @($items).Count
 
         $files = @(Get-ChildItem -LiteralPath "$here\..\scripts\shared\licenses" -File)
         @($files | Where-Object { $_.Name -cnotmatch '^LICENSE-.+\.txt$' }).Count | Should -Be 0
         $fileNames = @($files | ForEach-Object { $_.Name -creplace '^LICENSE-(.+)\.txt$', '$1' } | Sort-Object)
         $fileNames -join "," | Should -BeExactly (@($names | Sort-Object) -join ",")
     }
+}
 
+Describe "画面の既定のフォント（起動画面）" -Tag Meta {
     It "起動画面（splash.xaml）が直に書くフォントの並びは、newAppFontFamily（Font.Body）と同じ" {
         $splash = [System.IO.File]::ReadAllText("$here\..\scripts\tebunko\xaml\splash.xaml")
         $host_ = [System.IO.File]::ReadAllText("$here\..\scripts\shared\ui\app_host.ps1")
