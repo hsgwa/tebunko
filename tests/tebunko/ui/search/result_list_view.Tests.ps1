@@ -71,8 +71,13 @@ Describe "getAppKind" -Tag Unit {
         getAppKind "議事メモ.txt" | Should -Be "テキスト"
     }
 
-    It "Office・テキストのファイルでなければ空" {
-        getAppKind "資料.pdf" | Should -Be ""
+    It "PDF は PDF" {
+        getAppKind "資料.pdf" | Should -Be "PDF"
+        getAppKind "資料.PDF" | Should -Be "PDF"
+    }
+
+    It "Office・テキスト・PDF のファイルでなければ空" {
+        getAppKind "資料.zip" | Should -Be ""
         getAppKind "" | Should -Be ""
     }
 }

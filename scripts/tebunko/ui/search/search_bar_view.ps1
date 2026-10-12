@@ -26,7 +26,7 @@ function describeSearchOption {
 }
 
 function getFileKindLabel {
-    # 種類（excel・word・powerpoint・text）のチップに出す名前。知らない種類は空
+    # 種類（excel・word・powerpoint・text・pdf）のチップに出す名前。知らない種類は空
     param (
         [string]$kind
     )
@@ -36,6 +36,7 @@ function getFileKindLabel {
         "word" { return "Word" }
         "powerpoint" { return "PowerPoint" }
         "text" { return "テキスト" }
+        "pdf" { return "PDF" }
     }
     return ""
 }

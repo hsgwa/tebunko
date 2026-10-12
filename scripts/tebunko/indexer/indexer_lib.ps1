@@ -9,5 +9,6 @@
 . ([WildcardPattern]::Escape("$PSScriptRoot\indexer_plan.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\extract_office.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\extract_text.ps1".Replace('`', '``')))
+. ([WildcardPattern]::Escape("$PSScriptRoot\extract_pdf.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\index_migrate.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\indexer_run.ps1".Replace('`', '``')))

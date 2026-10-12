@@ -52,7 +52,7 @@ function getFilteredSummaryText {
 }
 
 function getAppKind {
-    # 元のファイル名の拡張子から、アプリの種類（Excel / Word / PowerPoint / テキスト。どれでもなければ空）を返す
+    # 元のファイル名の拡張子から、アプリの種類（Excel / Word / PowerPoint / テキスト / PDF。どれでもなければ空）を返す
     param (
         [string]$book
     )
@@ -69,6 +69,9 @@ function getAppKind {
     }
     if (testTextExtension $book) {
         return "テキスト"
+    }
+    if (testPdfExtension $book) {
+        return "PDF"
     }
     return ""
 }

@@ -3,7 +3,7 @@
 
 # 種類のチップ（${fileKindNames} の値 → ToggleButton）
 $script:kindChips = [ordered]@{
-    excel = $ui.KindChipExcel; word = $ui.KindChipWord; powerpoint = $ui.KindChipPowerPoint; text = $ui.KindChipText
+    excel = $ui.KindChipExcel; word = $ui.KindChipWord; powerpoint = $ui.KindChipPowerPoint; text = $ui.KindChipText; pdf = $ui.KindChipPdf
 }
 
 # 検索ワード（前後の空白を除く）
