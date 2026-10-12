@@ -16,7 +16,7 @@
 #   - エラーの表示にファイル名が出ない（行番号は、頭の分の空行を足して、ファイルの行番号に合わせる）。
 #   - LanguageMode が FullLanguage でなければ、頭が英語 1 行を出して終了コード 1 で止まる。
 #
-# 範囲の外: Shift_JIS で保存し直した単一 .ps1（5.1 では日本語以外の文字が ? になり、7 では ASCII の案内を出して止まる）。
+# 範囲の外: Shift_JIS で保存し直した単一 .ps1（機械の ANSI が 932 の 5.1 では日本語以外の文字が ? になって動き、それ以外の機械と 7 では ASCII の案内を出して止まる）。
 
 $script:guardProbeChar = [string][char]0x30A2
 $script:guardBodyStart = '${tebunkoBody} = @'''

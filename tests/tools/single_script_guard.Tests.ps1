@@ -237,12 +237,21 @@ Describe "包んだ .ps1 を別プロセスで起動する" -Tag Io {
         $result.Out | Should -BeNullOrEmpty
     }
 
-    It "Shift_JIS で保存し直したものは範囲の外: 5.1 では本体の日本語以外が ? になるだけで動き、7 では英語の案内を出して止まる（5.1 のみ確かめる）" {
+    It "Shift_JIS で保存し直したものは範囲の外: 機械の ANSI が 932 のときは動き、それ以外では英語の案内を出して止まる（5.1 のみ確かめる）" {
         $dir = Join-Path $TestDrive "sjis"
         $sjis = [System.Text.Encoding]::GetEncoding(932).GetBytes($wrapped)
         $result = invokeGuarded $dir $sjis
 
-        $result.ExitCode | Should -Be 7
-        $result.Out | Should -BeLike "終わり。*"
+        # 5.1 は Shift_JIS のファイルを、機械の ANSI コードページで読む。932（日本語の機械）なら読めて動き、それ以外（CI の英語の機械など）なら
+        # 判定用の文字が合わず、UTF-8 で保存し直す案内を出して止まる（どちらも決めた動き）。ACP を読めなければ、どちらにも倒さず失敗にする
+        $acp = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Nls\CodePage" -ErrorAction Stop).ACP
+        if (!$acp) { throw "ANSI コードページ（ACP）を読めませんでした" }
+        if ([int]$acp -eq 932) {
+            $result.ExitCode | Should -Be 7
+            $result.Out | Should -BeLike "終わり。*"
+        } else {
+            $result.ExitCode | Should -Be 1
+            ($result.StdOut + $result.ErrorText) | Should -BeLike "*cannot read this script as UTF-8*"
+        }
     }
 }
