@@ -1054,6 +1054,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="取り込み対象の拡張子">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pdf-ファイルを読むときの上限" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PDF ファイルを読むときの上限
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2028,6 +2045,8 @@
       
         
       
+        
+      
     
     
     
@@ -2349,6 +2368,34 @@
     
   
     テキストファイルの読み取り
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/indexing/pdf/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PDF ファイルの読み取り
   
 
     
@@ -4146,6 +4193,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="取り込み対象の拡張子">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pdf-ファイルを読むときの上限" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PDF ファイルを読むときの上限
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4374,9 +4438,58 @@
 </ul>
 <p>いずれも、見つからなかった部品があるときと同じ扱い（ファイル全体を失敗にするか、1 つの図形・グラフ・SmartArt だけを空にして続けるか）は、読んだ関数の呼び出し元の決まりに従う（<a href="../../design/indexing/office-apps/#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1">Word・PowerPoint のテキスト読み取り</a>・<a href="../../design/indexing/excel/#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a>）。</p>
 <h2 id="取り込み対象の拡張子">取り込み対象の拡張子<a class="headerlink" href="#取り込み対象の拡張子" title="Permanent link">&para;</a></h2>
-<p>Office に加えてテキストファイルも取り込むが、対象の拡張子は <code>shared/office/office_files.ps1</code> の <code>$officeExtensions</code>（10 個）と <code>shared/core/text_file.ps1</code> の <code>$textExtensions</code>（75 個。既定のアプリで開く <code>$textOpenExtensions</code> 68 個 + メモ帳で開く <code>$textNotepadExtensions</code> 7 個）を合わせた、<strong>固定の 85 個の一覧</strong>である（<a href="../../design/indexing/text/">テキストファイルの読み取り</a>）。設定ファイルで拡張子を足す仕組みは無い。</p>
-<p>危険な種類のファイル（実行される・既定のアプリがスクリプトを実行する <code>.exe</code> <code>.com</code> <code>.scr</code> <code>.hta</code> <code>.wsf</code> <code>.wsh</code> <code>.jse</code> <code>.vbe</code> <code>.lnk</code> <code>.url</code> <code>.msi</code> <code>.cpl</code> <code>.inf</code> 等）を、実行される種類を並べて弾く形にすると、一覧から漏れて対象に紛れ込む恐れがある。そのため <code>tests/meta/safety.Tests.ps1</code> は「対象の拡張子が固定であること」として、<code>$textExtensions</code> がちょうど 75 個（内 <code>$textNotepadExtensions</code> が 7 個）であること、<code>$officeExtensions</code> と <code>$textExtensions</code> を合わせた一覧がこの 85 個ちょうどであること、上に挙げた危険な種類の拡張子がどちらの一覧にも含まれないことを確かめる。対象の拡張子を足す変更は必ずこのテストを落とし、この一覧の見直しを促す。</p>
+<p>Office に加えてテキストファイルと PDF ファイルも取り込むが、対象の拡張子は <code>shared/office/office_files.ps1</code> の <code>$officeExtensions</code>（10 個）と <code>shared/core/text_file.ps1</code> の <code>$textExtensions</code>（75 個。既定のアプリで開く <code>$textOpenExtensions</code> 68 個 + メモ帳で開く <code>$textNotepadExtensions</code> 7 個）と <code>shared/core/pdf_file.ps1</code> の <code>$pdfExtensions</code>（<code>.pdf</code> の 1 個）を合わせた、<strong>固定の 86 個の一覧</strong>である（<a href="../../design/indexing/text/">テキストファイルの読み取り</a>・<a href="../../design/indexing/pdf/">PDF ファイルの読み取り</a>）。設定ファイルで拡張子を足す仕組みは無い。</p>
+<p>危険な種類のファイル（実行される・既定のアプリがスクリプトを実行する <code>.exe</code> <code>.com</code> <code>.scr</code> <code>.hta</code> <code>.wsf</code> <code>.wsh</code> <code>.jse</code> <code>.vbe</code> <code>.lnk</code> <code>.url</code> <code>.msi</code> <code>.cpl</code> <code>.inf</code> 等）を、実行される種類を並べて弾く形にすると、一覧から漏れて対象に紛れ込む恐れがある。そのため <code>tests/meta/safety.Tests.ps1</code> は「対象の拡張子が固定であること」として、<code>$textExtensions</code> がちょうど 75 個（内 <code>$textNotepadExtensions</code> が 7 個）であること、<code>$pdfExtensions</code> が <code>.pdf</code> だけであること、<code>$officeExtensions</code> と <code>$textExtensions</code> と <code>$pdfExtensions</code> を合わせた一覧がこの 86 個ちょうどであること、上に挙げた危険な種類の拡張子がどちらの一覧にも含まれないことを確かめる。対象の拡張子を足す変更は必ずこのテストを落とし、この一覧の見直しを促す。</p>
 <p><code>$textNotepadExtensions</code>（<code>.bat</code> <code>.cmd</code> <code>.ps1</code> <code>.vbs</code> <code>.js</code> <code>.reg</code> <code>.sh</code>）は、既定のアプリで開くと実行・登録になるため取り込みの対象ではあるが、検索結果から開くときは既定のアプリではなくメモ帳で開く（下の「外部プロセスの起動」）。</p>
+<h3 id="pdf-ファイルを読むときの上限">PDF ファイルを読むときの上限<a class="headerlink" href="#pdf-ファイルを読むときの上限" title="Permanent link">&para;</a></h3>
+<p>PDF は PowerShell だけで読み、外の部品・Office・外部プロセスを使わない。細工した PDF で固まる・メモリを使い切ることを防ぐため、<code>shared/core/pdf_file.ps1</code> は次の上限を持ち、超えたら取り込みの失敗にする（<code>tests/shared/core/pdf_file.Tests.ps1</code> が、上限を小さく差し替えて確かめる）。</p>
+<table>
+<thead>
+<tr>
+<th>上限</th>
+<th>値</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>元のファイルの大きさ（コピーの前に、メタデータで確かめる）</td>
+<td>100MB</td>
+</tr>
+<tr>
+<td>取り出したストリームの大きさの合計（取り出す前の大きさと、圧縮を解いた後の大きさ。圧縮の有無にかかわらず、同じストリームを何度参照されても、そのたびに数える。圧縮爆弾の対策）</td>
+<td>100MB</td>
+</tr>
+<tr>
+<td>オブジェクトの数</td>
+<td>1,000,000</td>
+</tr>
+<tr>
+<td>入れ子の深さ（配列・辞書・ページツリー、読み込み中の間接参照の重なり）</td>
+<td>64</td>
+</tr>
+<tr>
+<td>文字の対応表（<code>ToUnicode</code>）の項目の合計（同じ表を使うフォントは 1 度だけ数える）</td>
+<td>1,000,000</td>
+</tr>
+<tr>
+<td>たどる相互参照（<code>Prev</code>・<code>XRefStm</code>）の数</td>
+<td>1,000</td>
+</tr>
+<tr>
+<td>配列の要素・辞書の項目の数（1 つあたり）、読んだ相互参照の行の総数</td>
+<td>1,000,000（オブジェクトの数と同じ）</td>
+</tr>
+<tr>
+<td>ストリームの終わりを探して読み進めた文字数の合計（<code>/Length</code> が合わないストリームの細工への対策）</td>
+<td>ファイルの大きさの 4 倍</td>
+</tr>
+<tr>
+<td>ページ数</td>
+<td>10,000</td>
+</tr>
+</tbody>
+</table>
+<p>参照の循環（<code>Prev</code> のつながりを含む）とファイルの外を指す位置は例外にする。<code>Prev</code> は呼び出しの入れ子にせず、順に読む。暗号化された PDF は、空の利用者パスワードで開ける AES-256（V5 の R5・R6）だけ復号して読む。パスワードが要るもの・未対応の方式（RC4 40・128、AES-128 など）は、そのファイルだけ失敗にする（パスワードを探さない）。壊れた暗号化の辞書（短い <code>/U</code> <code>/UE</code>）は決まった長さの確かめで断り、AES-256 R6 の鍵の計算の繰り返しは 300 回で止める。鍵・途中の値は例外の文にも記録にも出さない。PDF の中のスクリプト・リンク・添付ファイル・外部の参照は、実行も取得もしない（文字の命令だけを読む）。</p>
 <p><code>.xml</code> は、既定のアプリ（Windows の「XML エディター」）が先頭の <code>&lt;?mso-application progid=…?&gt;</code> を見て Excel・Word で開くことがあるが、マクロは既定で無効（上の「Office ファイルを開くときの設定」）であるため、開くこと自体の害は小さい。</p>
 <h2 id="外部プロセスの起動">外部プロセスの起動<a class="headerlink" href="#外部プロセスの起動" title="Permanent link">&para;</a></h2>
 <p><code>tests/meta/safety.Tests.ps1</code> の「外部プロセスの起動は explorer.exe・notepad.exe だけ」が確かめる。</p>
@@ -4408,7 +4521,7 @@
 </table>
 <p>インデックス作成は画面のプロセスの中のスレッドで動かすため、インデックス作成のために <code>powershell.exe</code> を起動することはない（<a href="../../design/structure/threads/#プロセス">プロセス</a>）。</p>
 <p>元のファイルを既定のアプリで開く操作（<code>tebunko/ui/open_source.ps1</code> の <code>openWithShell</code>）では、<code>Start-Process</code> ではなく <code>ProcessStartInfo</code> を使う（<code>Start-Process</code> は <code>[</code> <code>]</code> を含むパスをワイルドカードとして解釈するため）。起動対象は、利用者が選んだ行のファイルと、それに関連付けられたアプリケーションである。<code>ProcessStartInfo</code>・<code>[System.Diagnostics.Process]::Start</code> を使うのはこの 1 か所だけであることを <code>tests/meta/safety.Tests.ps1</code> が確かめる。</p>
-<p><code>tebunko.bat</code> は、上の 3 か所とは別に、<strong>起動そのものに失敗したとき（画面が開く前）だけ</strong> <code>notepad.exe</code> を開く（<a href="../disclosure/#起動に失敗したときの知らせtebunkobat">起動に失敗したときの知らせ</a>）。制限言語モード・実行ポリシーでスクリプトの読み込みが止まる場面では WPF・WinForms のメッセージボックスを出せないため、失敗の理由と記録のファイルの名前をメモ帳で示す。<code>tests/meta/safety.Tests.ps1</code> の「tebunko.bat が起動する外部のプログラムは conhost.exe・powershell.exe・notepad.exe だけ」が、<code>tebunko.bat</code> が起動する外部のプログラムをこの 3 つに限る。</p>
+<p><code>tebunko.bat</code> は、上の起動とは別に、<strong>起動そのものに失敗したとき（画面が開く前）だけ</strong> <code>notepad.exe</code> を開く（<a href="../disclosure/#起動に失敗したときの知らせtebunkobat">起動に失敗したときの知らせ</a>）。制限言語モード・実行ポリシーでスクリプトの読み込みが止まる場面では WPF・WinForms のメッセージボックスを出せないため、失敗の理由と記録のファイルの名前をメモ帳で示す。<code>tests/meta/safety.Tests.ps1</code> の「tebunko.bat が起動する外部のプログラムは conhost.exe・powershell.exe・notepad.exe だけ」が、<code>tebunko.bat</code> が起動する外部のプログラムをこの 3 つに限る。</p>
 
 
 
