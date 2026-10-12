@@ -269,6 +269,6 @@ tebunko は積極的に開発しています。機能や画面は、これから
 
 [MIT](LICENSE)
 
-同梱する第三者の部品は、アイコンの形（[Lucide](https://lucide.dev)）の 1 件だけです。ISC ライセンスで、Feather 由来の一部は MIT ライセンスです。ライセンスの文面は、zip・インストーラーの `scripts/shared/licenses/LICENSE-Lucide.txt` にあります。ライセンスの名前は、画面の［バージョン情報］にも出ます。
+同梱する第三者の部品は、アイコンの形（[Lucide](https://lucide.dev)）の 1 件だけです。ISC ライセンスで、Feather 由来の一部は MIT ライセンスです。ライセンスの文面は、zip・インストーラーの `scripts/shared/licenses/LICENSE-Lucide.txt` にあります（単一 .ps1 版は、ファイルの先頭近くに同じ文面がコメントとして入っています）。ライセンスの名前は、画面の［バージョン情報］にも出ます。
 
 Microsoft、Excel、Word、PowerPoint、Windows、PowerShell は、米国 Microsoft Corporation の米国およびその他の国における登録商標または商標です。tebunko は Microsoft Corporation とは関係のない個人のプロジェクトであり、Microsoft Corporation が承認・支援したものではありません。

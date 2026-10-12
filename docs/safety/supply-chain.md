@@ -9,7 +9,7 @@
 | 前提ソフトウェア | Windows PowerShell 5.1（OS 同梱）、Microsoft Excel（必須）、Word・PowerPoint（旧形式の取り込み時のみ）、.NET Framework 標準アセンブリ。いずれも**同梱せず**、導入先の既存環境を使う |
 | 前提ソフトウェアの脆弱性 | 本ツールの管理外であり、導入先の更新管理に従う |
 | 本ツールのライセンス | **MIT ライセンス**（[LICENSE](../../LICENSE)）。改変・社内利用・再配布・商用利用ができ、条件は著作権表示とライセンス文の保持のみ。コピーレフト（派生物の公開義務）は無い。無保証（`AS IS`）であることを明記している |
-| 第三者ライセンス | 第三者の**コードは含まない**。含むのはアイコンの形 Lucide（ISC ライセンス。Feather 由来の一部は MIT。どちらの文面も `LICENSE-Lucide.txt`）だけで、ライセンス文は配布物の `scripts/shared/licenses/` に同梱する（`check_release_package.ps1` が入っていることを確かめる）。`theme.xaml` の `Icon.*` に図形のデータとして写している。実行されるコードではなく、依存スキャナの対象にならない。フォントは Windows 標準のものを使い、同梱しない |
+| 第三者ライセンス | 第三者の**コードは含まない**。含むのはアイコンの形 Lucide（ISC ライセンス。Feather 由来の一部は MIT。どちらの文面も `LICENSE-Lucide.txt`）だけで、ライセンス文は配布物の `scripts/shared/licenses/` に同梱する（`check_release_package.ps1` が入っていることを確かめる）。単一 .ps1 版には、同じ文面を先頭のコメントとして入れる（`new_single_script.ps1` が元のファイルのまま入っていることを確かめ、入っていなければ作らない）。`theme.xaml` の `Icon.*` に図形のデータとして写している。実行されるコードではなく、依存スキャナの対象にならない。フォントは Windows 標準のものを使い、同梱しない |
 | 改ざん検知 | [配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）](scans.md#配布物の完全性カタログハッシュ一覧来歴の署名) のカタログ・ハッシュ一覧・来歴の署名で、配布時点からの変化を受け取り側が検証できる |
 | 脆弱性の連絡 | [SECURITY.md](../../.github/SECURITY.ja.md)。公開の Issue ではなく GitHub の非公開の報告窓口（Private vulnerability reporting）で受け付け、7 日以内に受領を返す。修正は最新のマイナー版にパッチ版として出す |
 
