@@ -27,6 +27,7 @@ if ($Version -notmatch '^[A-Za-z0-9._-]+$') {
 $rootDir = Split-Path $PSScriptRoot -Parent
 . ([WildcardPattern]::Escape("$PSScriptRoot\script_rules.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\single_script_guard.ps1".Replace('`', '``')))
+. ([WildcardPattern]::Escape("$PSScriptRoot\single_script_license.ps1".Replace('`', '``')))
 
 if (!$OutFile) {
     $OutFile = Join-Path $rootDir "work\release\tebunko-$Version.ps1"
@@ -137,29 +138,11 @@ function addHereString {
 [void]$parts.Add('# 元のソースは scripts\ 配下（zip 版と共通）。設計は docs/design/structure/single-script.md')
 
 # ---- 同梱する第三者の部品のライセンス文を、元のファイルのまま、行ごとの # のコメントとして入れる ----
-# 文面は scripts\shared\licenses\LICENSE-*.txt から読み、書き換えない（空行は # だけ、それ以外は # と 1 つの空白を行の頭に足すだけ）。
-# 1 件も無ければ止める（配布物の検査 tools\check_release_package.ps1 と同じく、置き場が空のまま作らないため）
-$licenseFiles = @(Get-ChildItem -LiteralPath (Join-Path $scriptsDir "shared\licenses") -Filter "LICENSE-*.txt" -File | Sort-Object Name)
-if ($licenseFiles.Count -eq 0) {
-    throw "同梱するライセンス文がありません: scripts\shared\licenses\LICENSE-*.txt"
-}
-function getLicenseCommentBlock {
-    param ([System.IO.FileInfo]$file)
-
-    $block = New-Object System.Collections.Generic.List[string]
-    [void]$block.Add("# ---- 第三者の部品のライセンス文: $($file.Name)（ここから）----")
-    $licenseLines = [System.IO.File]::ReadAllText($file.FullName) -split "\r?\n"
-    if ($licenseLines[-1] -eq "") {
-        $licenseLines = $licenseLines[0..($licenseLines.Count - 2)]
-    }
-    foreach ($licenseLine in $licenseLines) {
-        [void]$block.Add($(if ($licenseLine -eq "") { "#" } else { "# $licenseLine" }))
-    }
-    [void]$block.Add("# ---- 第三者の部品のライセンス文: $($file.Name)（ここまで）----")
-    return ($block -join "`r`n")
-}
+# 文面は scripts\shared\licenses\LICENSE-*.txt から読み、書き換えない（tools\single_script_license.ps1）。
+# フォルダが無い・1 件も無い・空のファイルがあるときは止める（置き場が空のまま作らないため）
+$licenseFiles = @(getLicenseFiles (Join-Path $scriptsDir "shared\licenses"))
 foreach ($licenseFile in $licenseFiles) {
-    [void]$parts.Add((getLicenseCommentBlock $licenseFile))
+    [void]$parts.Add((convertToLicenseComment $licenseFile.Name ([System.IO.File]::ReadAllText($licenseFile.FullName))))
 }
 [void]$parts.Add('param (')
 [void]$parts.Add('    [string]$Part = "gui",')
@@ -323,9 +306,11 @@ if ($combined -notmatch [regex]::Escape("Tag = '$Version'; Sha = '$sha'")) {
 }
 
 # 8) 同梱するライセンス文（scripts\shared\licenses\LICENSE-*.txt）が、包んだあとの結果に、元のファイルのまま入っている
-#    （リリースでは、この道具が通らなければ公開しない。zip の中身の検査は tools\check_release_package.ps1）
+#    （結果から # を外して取り出し、元のファイルの文字列（改行は CRLF にそろえる）と比べる。
+#    リリースでは、この道具が通らなければ公開しない。zip の中身の検査は tools\check_release_package.ps1）
 foreach ($licenseFile in $licenseFiles) {
-    if (!$combined.Contains((getLicenseCommentBlock $licenseFile))) {
+    $restoredLicense = restoreLicenseFromComment $combined $licenseFile.Name
+    if ($null -eq $restoredLicense -or $restoredLicense -cne (normalizeLicenseText ([System.IO.File]::ReadAllText($licenseFile.FullName)))) {
         throw "包んだあとの単一 .ps1 に、ライセンス文が元のまま入っていません: $($licenseFile.Name)"
     }
 }
