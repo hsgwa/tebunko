@@ -41,10 +41,14 @@ Describe "getPreviewColumnWindow" -Tag Unit {
         @{ name = "見える幅より広い列が 1 つ"; widths = @(100.0, 1000.0, 100.0); offset = 144; viewport = 300; margin = 0; first = 1; last = 1; left = 100; right = 100 }
         @{ name = "列が 0 のときは空の範囲"; widths = @(); offset = 0; viewport = 300; margin = 3; first = 0; last = -1; left = 0; right = 0 }
         @{ name = "全部の列が見える幅に収まるときは、全部の列"; widths = @(100.0, 100.0); offset = 0; viewport = 900; margin = 3; first = 0; last = 1; left = 0; right = 0 }
+        @{ name = "スクロールの位置が全部の列の幅より右でも、最後の列"; widths = @(1..10 | ForEach-Object { 100.0 }); offset = 5000; viewport = 300; margin = 1; first = 8; last = 9; left = 800; right = 0 }
+        @{ name = "幅が違う列でも、境目の列を選ぶ（幅 10・500・10・500・10 の 2 列目の途中）"; widths = @(10.0, 500.0, 10.0, 500.0, 10.0); offset = 344; viewport = 200; margin = 0; first = 1; last = 1; left = 10; right = 520 }
         @{ name = "見える幅がまだ分からないとき（0）も、先頭の列から"; widths = @(1..10 | ForEach-Object { 100.0 }); offset = 0; viewport = 0; margin = 1; first = 0; last = 1; left = 0; right = 800 }
     ) {
         param ($name, $widths, $offset, $viewport, $margin, $first, $last, $left, $right)
-        $window = getPreviewColumnWindow ([double[]]$widths) $offset $viewport 44 $margin
+        $prefix = New-Object 'double[]' ($widths.Count + 1)
+        for ($i = 0; $i -lt $widths.Count; $i++) { $prefix[$i + 1] = $prefix[$i] + $widths[$i] }
+        $window = getPreviewColumnWindow $prefix $offset $viewport 44 $margin
         $window.First | Should -Be $first
         $window.Last | Should -Be $last
         $window.Left | Should -Be $left

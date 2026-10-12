@@ -18,6 +18,7 @@ class Segment {
 # セルは Width に OneWay バインド。幅の変更は SetWidth（見出しのドラッグから呼ぶ）で行う
 class PreviewColumn : NotifyBase {
     static [double] $MinWidth = 24   # ドラッグで狭くできる下限
+    static [int] $WidthStamp = 0     # どれかの列の幅が SetWidth で変わるたびに増える（PreviewTable.Prefix の作り直しの判断）
     [string]$Label
     [double]$Width
     PreviewColumn() {}   # 既定のコンストラクタを明示する（理由は shared\ui\types.ps1 の NotifyBase）
@@ -25,6 +26,7 @@ class PreviewColumn : NotifyBase {
         $newWidth = [Math]::Max([PreviewColumn]::MinWidth, $value)
         if ($this.Width -eq $newWidth) { return }
         $this.Width = $newWidth
+        [PreviewColumn]::WidthStamp++
         $this.Raise("Width")
     }
 }
@@ -92,9 +94,11 @@ class PreviewTable {
     [double]$HitWidth
     [PreviewWindow]$Window = [PreviewWindow]::new()
     [int]$WindowVersion       # 見えている列の範囲が変わるたびに増える（行のセルを作り直すかの判断）
-    [int]$CreatedCells        # 作った PreviewCell の数（計測用）
     [HitRow]$Owner            # 行のセルを作る（一致の印に、検索の語を使うため）
-    hidden [System.Collections.Generic.List[PreviewRow]]$built = [System.Collections.Generic.List[PreviewRow]]::new()   # セルを作ってある行
+    hidden [double[]]$widthSums              # Prefix() が作った累積
+    hidden [int]$prefixCount = -1            # 累積を作ったときの列の数
+    hidden [int]$prefixStamp = -1            # 累積を作ったときの PreviewColumn.WidthStamp
+    hidden [System.Collections.Generic.List[PreviewRow]]$built =[System.Collections.Generic.List[PreviewRow]]::new()   # セルを作ってある行
     [bool]$IsExcel   # Excel の表か（Excel 以外は列が 1 つで、幅を枠いっぱいにする。preview.ps1 の fitPreviewWidth）
     # 読み足し（preview.ps1）の状態。TopDone・BottomDone はその向きにもう行が無い（または読めなかった）こと。
     # Marks は readContentIndexLines の控え（続きを、先頭から読み飛ばさず読むため）
@@ -234,11 +238,21 @@ class PreviewTable {
         }
     }
 
-    # 列の幅の並び（見えている列の範囲を決める getPreviewColumnWindow に渡す）
-    [double[]] Widths() {
-        $widths = New-Object 'double[]' $this.Columns.Count
-        for ($i = 0; $i -lt $widths.Length; $i++) { $widths[$i] = $this.Columns[$i].Width }
-        return $widths
+    # 列の幅の累積（getPreviewColumnWindow に渡す。prefix[i] は先頭から i 列分の幅の合計で、長さは列の数 + 1）。
+    # 列が増える・SetWidth で幅が変わるまでは、前に作ったものを使い回す
+    [double[]] Prefix() {
+        $count = $this.Columns.Count
+        if ($this.prefixCount -eq $count -and $this.prefixStamp -eq [PreviewColumn]::WidthStamp) { return $this.widthSums }
+        $sums = New-Object 'double[]' ($count + 1)
+        $total = 0.0
+        for ($i = 0; $i -lt $count; $i++) {
+            $total += $this.Columns[$i].Width
+            $sums[$i + 1] = $total
+        }
+        $this.widthSums = $sums
+        $this.prefixCount = $count
+        $this.prefixStamp = [PreviewColumn]::WidthStamp
+        return $sums
     }
 
     # 見えている列の範囲（first～last）と、その左右の空きの幅を決める。範囲が変わったら、作ってあるセルは古い範囲のものなので捨てる
@@ -720,7 +734,6 @@ class HitRow : NotifyBase {
             $pc.IsSelected = $table.IsInSelection($row.LineNumber, $c)
             $cells.Add($pc)
         }
-        $table.CreatedCells += $cells.Count
         $row.SetCells($cells, $table.WindowVersion)
     }
 

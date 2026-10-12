@@ -146,7 +146,7 @@ function updatePreviewWindow {
         return
     }
     if ($null -eq $offset) { $offset = $ui.PreviewScroll.HorizontalOffset }
-    $window = getPreviewColumnWindow $table.Widths() $offset $ui.PreviewScroll.ViewportWidth ([HitRow]::NumberWidth) ${previewColumnMargin}
+    $window = getPreviewColumnWindow $table.Prefix() $offset $ui.PreviewScroll.ViewportWidth ([HitRow]::NumberWidth) ${previewColumnMargin}
     if ($table.SetWindow($window.First, $window.Last, $window.Left, $window.Right)) {
         $ui.PreviewHeader.ItemsSource = $table.WindowColumns()
     }
@@ -262,7 +262,8 @@ function applyReadMore {
         if ($joins) {
             $table.InsertRows("up", $rows)
             $scroll.UpdateLayout()
-            $scroll.ScrollToVerticalOffset([Math]::Max(0, $oldOffset - $lead) + $rows.Count)
+            # 見ていた先頭が「読み込み中…」の行のとき（oldOffset < lead）も、その下の行が同じ所に見えるようにする
+            $scroll.ScrollToVerticalOffset([Math]::Max(0, $oldOffset - $lead + $rows.Count))
         } else {
             $scroll.ScrollToVerticalOffset([Math]::Max(0, $oldOffset - $lead))
         }

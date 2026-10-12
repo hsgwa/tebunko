@@ -381,7 +381,7 @@ Describe "showDetail" -Tag Io {
         $table.Columns.Count | Should -Be 251
         @($ui.PreviewHeader.ItemsSource).Count | Should -BeLessThan 251
         $ui.PreviewHeaderPanel.DataContext | Should -Be $table.Window
-        $table.CreatedCells | Should -BeLessThan 251
+        @($table.Rows | ForEach-Object { $_.Cells.Count } | Measure-Object -Sum).Sum | Should -BeLessThan 251
     }
 
     It "一致したセルが見えないときは、その少し左まで横にスクロールする" {
@@ -744,6 +744,18 @@ Describe "プレビューの読み足し（スクロールに合わせて、上�
         $script:tableA.FirstLine() | Should -Be 650
         $script:tableA.TopDone | Should -Be $false
         $fake.VerticalScrolls[-1] | Should -Be 2700
+    }
+
+    It "上に足したあとも、見ていた行が同じ所に見える（読み込み中の行を見ていた先頭でも。見ていた位置 <offset>）" -ForEach @(
+        @{ offset = 0; expected = 99 }
+        @{ offset = 5; expected = 104 }
+    ) {
+        $script:tableA.ShowMessage("up", "読み込み中…")
+        $ui.PreviewScroll.VerticalOffset = [double]$offset
+        applyReadMore @(newMoreResult $script:tableA "up" 350 449) $null
+        $script:tableA.FirstLine() | Should -Be 350
+        $script:tableA.LeadCount() | Should -Be 0
+        $fake.VerticalScrolls[-1] | Should -Be $expected -Because "足す前に 450 行目（または見ていた行）が見えていた所に、足したあとも同じ行が見える"
     }
 
     It "読み足しが失敗したら、その向きを終わりにして「読めませんでした」を出す" {

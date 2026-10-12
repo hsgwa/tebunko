@@ -207,7 +207,7 @@ Describe "PreviewTable（行を前後に足す・捨てる・メッセージの�
         $table.LeadCount() | Should -Be 1
         $table.DataCount() | Should -Be 3
         $above = $made.Row.BuildPreviewRows($table, @(2, 3), @("A2`tB2", "A3`tB3"))
-        $widthsBefore = $table.Widths()
+        $prefixBefore = $table.Prefix()
         $below = $made.Row.BuildPreviewRows($table, @(7), @("A7`tB7`tC7"))
         $table.InsertRows("up", $above)
         $table.InsertRows("down", $below)
@@ -217,8 +217,11 @@ Describe "PreviewTable（行を前後に足す・捨てる・メッセージの�
         # 表の列（2 列）より多い列がある行を足すと、列を右に足す。前からある列の幅は変えない
         $table.Columns.Count | Should -Be 3
         $table.Columns[2].Label | Should -Be "C"
-        $table.Widths()[0] | Should -Be $widthsBefore[0]
-        $table.Widths()[1] | Should -Be $widthsBefore[1]
+        $prefixAfter = $table.Prefix()
+        $prefixAfter.Length | Should -Be 4 -Because "列が増えたので、累積も作り直す"
+        $prefixAfter[1] | Should -Be $prefixBefore[1]
+        $prefixAfter[2] | Should -Be $prefixBefore[2]
+        $prefixAfter[3] | Should -Be ($prefixAfter[2] + $table.Columns[2].Width)
         # セルは行の番号と列の番号を持つ（足した行のセルは、見えている範囲を決め直したときに作る）
         $table.Rows[6].Cells.Count | Should -Be 0
         [void]$table.SetWindow(0, 2, 0, 0)
@@ -718,17 +721,29 @@ Describe "HitRow.BuildPreview" -Tag Unit {
             $table.HitOffset | Should -Be $expected
             $table.HitWidth | Should -Be $table.Columns[1499].Width
             # 範囲を決めるまでは、行の右の空きに全部の列の幅を入れて、横にスクロールできる広さにする
-            $total = 0.0
-            foreach ($width in $table.Widths()) { $total += $width }
-            $table.Window.RightSpace | Should -Be $total
+            $table.Window.RightSpace | Should -Be $table.Prefix()[$table.Columns.Count]
+        }
+
+        It "列の幅の累積は、幅が変わるまで使い回し、SetWidth で変わったら作り直す" {
+            $table = newWideTable
+            $first = $table.Prefix()
+            $first.Length | Should -Be ($table.Columns.Count + 1)
+            $first[0] | Should -Be 0
+            $first[2] | Should -Be ($table.Columns[0].Width + $table.Columns[1].Width)
+            [object]::ReferenceEquals($table.Prefix(), $first) | Should -Be $true
+            $table.Columns[0].SetWidth($table.Columns[0].Width + 50)
+            $second = $table.Prefix()
+            [object]::ReferenceEquals($second, $first) | Should -Be $false
+            $second[1] | Should -Be $table.Columns[0].Width
+            $second[$table.Columns.Count] | Should -Be ($first[$table.Columns.Count] + 50)
         }
 
         It "セルは、見えている行の、見えている列の範囲の分だけ作る" {
             $table = newWideTable
-            $table.CreatedCells | Should -Be 0
+            @($table.Rows | ForEach-Object { $_.Cells.Count } | Measure-Object -Sum).Sum | Should -Be 0
             [void]$table.SetWindow(1495, 1499, 100, 200)
             $table.EnsureCells(1, 1)
-            $table.CreatedCells | Should -Be 5
+            @($table.Rows | ForEach-Object { $_.Cells.Count } | Measure-Object -Sum).Sum | Should -Be 5
             @($table.Rows[1].Cells | ForEach-Object { $_.ColumnIndex }) | Should -Be @(1495, 1496, 1497, 1498, 1499)
             $table.Rows[1].Cells[4].Text | Should -Be "見積"
             $table.Rows[1].Cells[4].IsHit | Should -Be $true
@@ -743,14 +758,16 @@ Describe "HitRow.BuildPreview" -Tag Unit {
             $table = newWideTable
             [void]$table.SetWindow(0, 3, 0, 0)
             $table.EnsureCells(0, 2)
-            $table.CreatedCells | Should -Be 12
+            $first = $table.Rows[0].Cells[0]
+            @($table.Rows | ForEach-Object { $_.Cells.Count } | Measure-Object -Sum).Sum | Should -Be 12
             $table.SetWindow(0, 3, 10, 20) | Should -Be $false
             $table.EnsureCells(0, 2)
-            $table.CreatedCells | Should -Be 12
+            [object]::ReferenceEquals($table.Rows[0].Cells[0], $first) | Should -Be $true -Because "範囲が同じなら、作ってあるセルをそのまま使う"
             $table.SetWindow(4, 7, 10, 20) | Should -Be $true
             $table.Rows[0].Cells.Count | Should -Be 0
             $table.EnsureCells(0, 2)
-            $table.CreatedCells | Should -Be 24
+            [object]::ReferenceEquals($table.Rows[0].Cells[0], $first) | Should -Be $false
+            @($table.Rows | ForEach-Object { $_.Cells.Count } | Measure-Object -Sum).Sum | Should -Be 12
             $table.Rows[2].Cells[0].ColumnIndex | Should -Be 4
         }
 
