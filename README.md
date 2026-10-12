@@ -269,4 +269,6 @@ tebunko は積極的に開発しています。機能や画面は、これから
 
 [MIT](LICENSE)
 
+第三者の部品: アイコンの形（Lucide。ISC・一部 MIT。ライセンス文は同梱）
+
 Microsoft、Excel、Word、PowerPoint、Windows、PowerShell は、米国 Microsoft Corporation の米国およびその他の国における登録商標または商標です。tebunko は Microsoft Corporation とは関係のない個人のプロジェクトであり、Microsoft Corporation が承認・支援したものではありません。

@@ -8,7 +8,7 @@
 #
 # 確かめること:
 #   1. zip のエントリーが、git ls-files scripts と固定のファイル（tebunko.bat・README.md・LICENSE・VERSION.txt）に過不足なく一致する
-#      （アイコンの形のライセンスの文面 scripts/shared/fonts/LICENSE-Lucide.txt が入っていることも確かめる）
+#      （アイコンの形のライセンスの文面 scripts/shared/licenses/ の LICENSE-*.txt が入っていることも確かめる）
 #   2. 読み込み口（scripts\tebunko\gui.ps1・indexer.ps1）から dot-source でたどれる先がすべて存在する
 #   3. .ps1 が構文エラーなく解析でき、.xaml が XML として読める
 #   4. Test-FileCatalog -Path .\scripts, .\tebunko.bat が Valid になる
@@ -74,8 +74,12 @@ try {
         if ($expected -cnotcontains $name) { $failures.Add("zip に余分なファイル: $name") }
     }
     # アイコンの形のライセンスの文面（ISC は再配布に文面を添えることが条件）は、git の追跡から外れていても必ず入っている
-    foreach ($name in @("LICENSE-Lucide.txt")) {
-        if ($actual -cnotcontains "tebunko/scripts/shared/fonts/$name") { $failures.Add("同梱のライセンスの文面が zip に無い: scripts/shared/fonts/$name") }
+    # 入っているべき文面は、リポジトリの scripts/shared/licenses/ の LICENSE-*.txt から作る（足せば、そのまま検査に入る）
+    $licenseDir = Join-Path $rootDir "scripts\shared\licenses"
+    $licenseNames = @(Get-ChildItem -LiteralPath $licenseDir -Filter "LICENSE-*.txt" -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })
+    if ($licenseNames.Count -eq 0) { $failures.Add("同梱のライセンスの文面がリポジトリに無い: scripts/shared/licenses/LICENSE-*.txt") }
+    foreach ($name in $licenseNames) {
+        if ($actual -cnotcontains "tebunko/scripts/shared/licenses/$name") { $failures.Add("同梱のライセンスの文面が zip に無い: scripts/shared/licenses/$name") }
     }
 
     [System.IO.Compression.ZipFile]::ExtractToDirectory((Resolve-Path -LiteralPath $ZipPath).Path, $extractDir)
@@ -172,7 +176,7 @@ try {
         $failures.Add("sbom.cdx.json がありません")
     } else {
         $sbom = [System.IO.File]::ReadAllText($sbomPath, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
-        # 第三者の部品（フォント・アイコンの形。type が data）は、ファイルではないので、ファイルの突き合わせから外す
+        # 第三者の部品（アイコンの形。type が data）は、ファイルではないので、ファイルの突き合わせから外す
         $components = @($sbom.components | Where-Object { $_.type -eq "file" })
         foreach ($component in $components) {
             $file = Join-Path $pkgDir $component.name.Replace("/", "\")
