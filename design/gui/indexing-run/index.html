@@ -4345,13 +4345,13 @@
 <ul>
 <li>インデックス作成は、画面のプロセスの中のスレッドで実行する（<code>newIndexingSession</code>。インデクサの司令のスレッドが <code>scripts\tebunko\indexer.ps1 -Channel &lt;受け渡しの口&gt;</code> を実行する）。受け渡しの口（<code>newIndexerChannel -confirmTargets $true</code>）の <code>ConfirmTargets</code> で、更新の対象を数えたところでいったん止まって画面の確認（<a href="#インデックス更新の確認ダイアログ">インデックス更新の確認ダイアログ</a>）を待つ。別の <code>powershell.exe</code> は起動しない（<a href="../../structure/threads/">プロセスとスレッド</a>）。</li>
 <li>行の［更新］・メニューの［更新］は、名前の配列を渡して同じ流れで始める（<code>startIndexing</code>）。ワークスペースがネットワークにあるときは、始める前に、届くかと前の版のインデックスの有無を裏の列で確かめる（確かめている間は他の操作を止める。届かなければ <code>ワークスペースに接続できません：&lt;パス&gt;</code> を出して始めない。<a href="../network/#ワークスペースがネットワークにあるとき">ワークスペースがネットワークにあるとき</a>）。対象の <code>enabled</code> を <code>true</code> にして保存してから起動し（確認で取りやめても戻さない）、受け渡しの口の <code>OnlyNames</code> に名前を入れる。更新の確認にも、その回のインデックスだけを出す。インデクサが更新できなかった名前（<code>OnlySkipped</code>）は、終わりにメッセージで知らせる。</li>
-<li>更新中の名前・件数・残り時間は <code>$script:indexingView</code>（<code>Name</code>・<code>Processed</code>・<code>Total</code>・<code>Failed</code>・<code>Eta</code>・<code>Ratio</code>・<code>Current</code>）に値で持ち、更新の帯・詳細の「インデックス」の箱が読む。<code>Name</code> は更新中のファイル（<code>&lt;名前&gt;\&lt;相対パス&gt;</code>）のインデックス名。件数は回全体（インデックスごとの件数は無い）。</li>
+<li>更新中の名前・件数・残り時間は <code>$script:indexingView</code>（<code>Name</code>・<code>Processed</code>・<code>Total</code>・<code>Failed</code>・<code>Eta</code>・<code>Ratio</code>・<code>Current</code>）に値で持ち、更新の帯・詳細の「インデックス」の箱が読む。<code>Name</code> は読み取り中のファイル（<code>&lt;名前&gt;\&lt;相対パス&gt;</code>）のインデックス名。件数は回全体（インデックスごとの件数は無い）。</li>
 <li>「インデックス作成中」は、この画面で始めたインデックス作成のスレッドが終わるまでとする（<code>isIndexing</code>）。インデックス作成の二重起動を防ぐ。</li>
 <li>画面を使わずに起動した <code>indexer.ps1</code> と重なった場合は、インデクサがミューテックスで止め、<code>ほかのインデックス作成が実行中です。…</code> のエラーで終わる（<a href="#中止終了ログ">中止・終了・ログ</a>）。</li>
 </ul>
 <h2 id="更新の帯">更新の帯<a class="headerlink" href="#更新の帯" title="Permanent link">&para;</a></h2>
 <p>画面の上（一覧の上。<code>xaml/index/index.xaml</code> の <code>IndexingProgressPanel</code>）に、更新の状態を 1 枚の帯で出す。帯は更新を始めたとき・中断が残っているときに出て、種類で色を変える（<code>setIndexingBanner</code>。<code>ui/index/index_detail.ps1</code>）。</p>
-<p>形は、右の領域の上端いっぱいに置いた高さ 40 の 1 行（角丸・外枠・外側の余白は無い。<code>Banner</code>）。左端に状態の色の太い線を引き、その右に状態のアイコン（更新中は円に <code>i</code>、中断・失敗は円に <code>!</code>、終わったは円にチェック）と 1 行の文言を置き、右に帯のボタン（<code>Banner.Button</code>）を置く。帯のボタンは高さ 24・余白 左右 10・角丸 4・白地・枠 1 と文字 11 の半太字を帯の線と同じ色にし（色は <code>setIndexingBanner</code> が状態で付ける）、幅は文字に合わせる（［続きから再開］は 88、［中止］は 72 を下限にする）。文言は 12 の中太字。帯の下の一覧・詳細の余白は帯が無いときと同じ（<code>index.xaml</code> の内側の <code>Grid</code>）。更新中だけ、文言の右に細い進みの棒と更新中のファイルを同じ 1 行に並べる。</p>
+<p>形は、右の領域の上端いっぱいに置いた高さ 40 の 1 行（角丸・外枠・外側の余白は無い。<code>Banner</code>）。左端に状態の色の太い線を引き、その右に状態のアイコン（更新中は円に <code>i</code>、中断・失敗は円に <code>!</code>、終わったは円にチェック）と 1 行の文言を置き、右に帯のボタン（<code>Banner.Button</code>）を置く。帯のボタンは高さ 24・余白 左右 10・角丸 4・白地・枠 1 と文字 11 の半太字を帯の線と同じ色にし（色は <code>setIndexingBanner</code> が状態で付ける）、幅は文字に合わせる（［続きから再開］は 88、［中止］は 72 を下限にする）。文言は 12 の中太字。帯の下の一覧・詳細の余白は帯が無いときと同じ（<code>index.xaml</code> の内側の <code>Grid</code>）。更新中だけ、文言の右に細い進みの棒と読み取り中のファイルを同じ 1 行に並べる。</p>
 <table>
 <thead>
 <tr>
@@ -4365,7 +4365,7 @@
 <tr>
 <td>更新中</td>
 <td>青</td>
-<td><code>インデックスを更新しています（N / M 件）</code>（失敗があれば <code>・失敗 K 件</code>）。文言の右にバーと、更新中のファイル</td>
+<td><code>インデックスを更新しています（N / M 件）</code>（失敗があれば <code>・失敗 K 件</code>）。文言の右にバーと、読み取り中のファイル</td>
 <td><code>残り約 N 分</code>・［中止］</td>
 </tr>
 <tr>
@@ -4598,12 +4598,12 @@
 <tr>
 <td>更新の開始前</td>
 <td><code>取り込み</code> で処理済みが 0</td>
-<td>動き続けるバー。<code>N 件のファイルを更新します</code>、<code>更新中のファイル：&lt;相対パス&gt;</code></td>
+<td>動き続けるバー。<code>N 件のファイルを更新します</code>、<code>読み取り中のファイル：&lt;相対パス&gt;</code></td>
 </tr>
 <tr>
 <td>更新中</td>
 <td><code>取り込み</code> で処理済みが 1 件以上</td>
-<td>バー（処理済み ÷（処理済み＋残り））、<code>インデックスを更新しています（14 / 31 件・失敗 1 件）</code>、<code>残り約 N 分</code>（1 分未満は <code>残り 1 分未満</code>。最初の 1 件が終わってからの速さで計算）、<code>更新中のファイル：&lt;相対パス&gt;</code></td>
+<td>バー（処理済み ÷（処理済み＋残り））、<code>インデックスを更新しています（14 / 31 件・失敗 1 件）</code>、<code>残り約 N 分</code>（1 分未満は <code>残り 1 分未満</code>。最初の 1 件が終わってからの速さで計算）、<code>読み取り中のファイル：&lt;相対パス&gt;</code></td>
 </tr>
 <tr>
 <td>後片付け中</td>
@@ -4618,7 +4618,7 @@
 </tbody>
 </table>
 <ul>
-<li>更新中の行を選んでいるときは、詳細の「インデックス」の箱にも同じ全体の進みを出す（<code>IndexingProgressBar</code> の棒・<code>IndexingCountText</code> の <code>N / M 件・残り約 N 分</code>・<code>IndexingFileText</code> の更新中のファイル名 1 行）。画面は進み具合を読むたびに、割合・件数・失敗・残り時間・今のファイルを画面側の変数（<code>indexingView</code>）に置いて詳細を書き直す（文言は判断層の <code>getIndexDetailView</code>）。インデックスごとの件数は無い。行の右端は［中止］になり、［すべて更新］の［中止］と同じく今の更新全体を止める。</li>
+<li>更新中の行を選んでいるときは、詳細の「インデックス」の箱にも同じ全体の進みを出す（<code>IndexingProgressBar</code> の棒・<code>IndexingCountText</code> の <code>N / M 件・残り約 N 分</code>・<code>IndexingFileText</code> の読み取り中のファイル名 1 行）。画面は進み具合を読むたびに、割合・件数・失敗・残り時間・今のファイルを画面側の変数（<code>indexingView</code>）に置いて詳細を書き直す（文言は判断層の <code>getIndexDetailView</code>）。インデックスごとの件数は無い。行の右端は［中止］になり、［すべて更新］の［中止］と同じく今の更新全体を止める。</li>
 <li>タスクバーのアイコンにも進み具合を表示する（失敗があれば黄色）。<strong>インデックス作成が終わったときは、帯で知らせる</strong>。前面には割り込まず、タスクバーのボタンも光らせない（光らせるには P/Invoke（<code>FlashWindowEx</code>）が要るため。<a href="../implementation/#実行時コンパイルcscexeを使わない">実行時コンパイル（csc.exe）を使わない</a>）。</li>
 <li><strong>取り込み一覧（<code>work/ingest_status.tsv</code>）は毎秒読まない</strong>。数万行になると 1 回の読み直しに数秒かかり（5 万行で約 5.8 秒）、1 秒ごとに読むと画面が固まる（「応答なし」になる）。進み具合はインデクサが数えて受け渡しの口に入れる（<a href="../../indexing/flow/">インデックス作成のメインフロー</a>）。</li>
 <li>「処理済み」はインデクサが数えた件数（今回の実行で更新したファイルと、更新に失敗したファイル）。前回失敗したファイルを更新し直す場合（確認のダイアログでチェックを付けた場合）も、その分は最初から件数に入る。</li>
@@ -4626,7 +4626,7 @@
 <h2 id="中止終了ログ">中止・終了・ログ<a class="headerlink" href="#中止終了ログ" title="Permanent link">&para;</a></h2>
 <ul>
 <li>確認のダイアログを出している間の取りやめは、ダイアログの［キャンセル］で行う（<a href="#インデックス更新の確認ダイアログ">インデックス更新の確認ダイアログ</a>）。</li>
-<li>インデックス作成中は、更新の帯の右に［中止］を表示する。押すと確認ダイアログ（<a href="../common/#確認ダイアログshowconfirm">確認ダイアログ</a>）を出す。見出しは <code>インデックスの更新を中止しますか？</code>、補足は <code>更新したところまでは残ります。あとで続きから再開できます。</code>、ボタンは［中止する］（既定は［キャンセル］）。［中止する］で受け渡しの口の <code>Stop</code> を立てる（<code>requestIndexingStop</code>）。インデクサは更新中のファイルが終わったところで止まり、終了コード 2 で終わる。終わるまでは <code>中止しています…（更新中のファイルが終わるまでお待ちください）</code> と表示し、待つ間のダイアログ（<a href="../common/#待つ間のダイアログshowwaitdialog">待つ間のダイアログ</a>）を出す。</li>
+<li>インデックス作成中は、更新の帯の右に［中止］を表示する。押すと確認ダイアログ（<a href="../common/#確認ダイアログshowconfirm">確認ダイアログ</a>）を出す。見出しは <code>インデックスの更新を中止しますか？</code>、補足は <code>更新したところまでは残ります。あとで続きから再開できます。</code>、ボタンは［中止する］（既定は［キャンセル］）。［中止する］で受け渡しの口の <code>Stop</code> を立てる（<code>requestIndexingStop</code>）。インデクサは読み取り中のファイルが終わったところで止まり、終了コード 2 で終わる。終わるまでは <code>中止しています…（読み取り中のファイルが終わるまでお待ちください）</code> と表示し、待つ間のダイアログ（<a href="../common/#待つ間のダイアログshowwaitdialog">待つ間のダイアログ</a>）を出す。</li>
 <li>インデックス作成のスレッドが終わったら、終了コード（受け渡しの口の <code>ExitCode</code>。<code>IndexingSession.GetExitCode</code>）に応じて次のように表示する。</li>
 </ul>
 <table>
