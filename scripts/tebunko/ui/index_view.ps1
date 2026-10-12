@@ -25,7 +25,7 @@ function getIndexNavBadge {
     # Kind は色の種類（Run = 更新中 / Warn = 注意）
     param (
         [bool]$indexing,
-        [double]$ratio,     # 更新の進み（0〜1。分からないときは負の値）
+        [double]$ratio,     # 更新の進み（0～1。分からないときは負の値）
         [int]$pending,      # まだ更新していないファイルの数
         [int]$failed        # 更新に失敗したファイルの数
     )
@@ -342,7 +342,7 @@ function getIndexStatusHelpText {
 }
 
 function getIndexCheckedItems {
-    # 一覧でチェックを付けている行（［アクション ▾］の対象・「N 件を選択中」の数・全選択の状態の元）。
+    # 一覧でチェックを付けている行（［アクション ▼］の対象・「N 件を選択中」の数・全選択の状態の元）。
     # チェックは一時の選択で、保存しない（初めは全部外れ。設定の enabled とは別のもの）
     param (
         [object[]]$items
@@ -365,7 +365,7 @@ function getIndexSelectionView {
 }
 
 function getIndexActionsEnabled {
-    # ［アクション ▾］のメニューの項目の可否。@{ Update; Export; Import; Delete }
+    # ［アクション ▼］のメニューの項目の可否。@{ Update; Export; Import; Delete }
     # ［インポート…］は選ばなくても使える。［更新］［エクスポート…］［削除…］は 1 件以上チェックしていると使える（2 件以上はまとめて行う）。
     # 動いている処理があれば（blocker は getIndexJobBlocker の結果）、すべて使えない
     param (
@@ -457,7 +457,7 @@ function getIndexRowActions {
 }
 
 function getIndexDetailItem {
-    # 詳細欄に出す行（詳細の名前・フォルダパスの欄と［変更…］、右クリックの［削除］［エクスポート…］の対象も同じ行。［アクション ▾］は別で、［更新］［エクスポート…］［削除…］はチェックの行、［インポート…］はチェックが要らない。可否は getIndexActionsEnabled が決める）。押した行があればそれ、
+    # 詳細欄に出す行（詳細の名前・フォルダパスの欄と［変更…］、右クリックの［削除］［エクスポート…］の対象も同じ行。［アクション ▼］は別で、［更新］［エクスポート…］［削除…］はチェックの行、［インポート…］はチェックが要らない。可否は getIndexActionsEnabled が決める）。押した行があればそれ、
     # 無くてチェックが 1 件だけならその行、それ以外は $null。詳細を出す所と可否・対象を決める所で、この 1 つを使う
     param (
         [object]$selectedItem,   # 一覧で押した行（無ければ $null）
@@ -769,10 +769,10 @@ function getIndexRowView {
     #   stat     : getIndexStats のそのインデックスの値（Total; Done; Pending; Failed）。無ければ $null
     #   indexing : インデックス作成中か
     #   enabled  : 設定の enabled（［すべて更新］で更新する対象か。画面にチェックは出さない）
-    #   ratio    : 更新全体の進み（0〜1。分からないときは負の値）。更新中の補足に「45%」と出し、棒の長さにする
+    #   ratio    : 更新全体の進み（0～1。分からないときは負の値）。更新中の補足に「45%」と出し、棒の長さにする
     #   inRound  : 今の回で更新するインデックスか（選んだものだけの回では、選ばなかった行は $false）
     #   exporting: エクスポートで書き出している最中の行か（バッジは「エクスポート中」。更新中と同じ Run の色。棒は出さない）
-    # 返す値の Percent は棒の長さ（0〜100）。更新中でなければ 0
+    # 返す値の Percent は棒の長さ（0～100）。更新中でなければ 0
     param (
         $stat,
         [bool]$indexing = $false,
@@ -991,11 +991,12 @@ function getIndexDetailView {
     #   fastEntry     : getSystemIndexProgress の ByIndex のそのインデックスの値（@{ Folders; Waiting }）。無ければ $null
     #   multiCount    : 2 以上なら、詳細は出さず「N 件を選択中」と案内だけにする（getIndexDetailMultiCount）
     #   running       : 更新の進み具合（@{ Ratio; Processed; Total; Failed; Eta; Current }）。更新中の行の「インデックス」の箱に出す。無ければ $null
-    # 戻り値: @{ Title; Selected; Name; Path; FolderStatus; FolderBrush（フォルダの状態の文の色のキー。ある = Ok／無い = Danger.Text／確認中・何も出さない = Ink.Muted）; Badge（@{ Text; Level }）; Updated; Count;
+    # 戻り値: @{ Title; Selected; Name; Path; FolderStatus; FolderBrush（フォルダの状態の文の色のキー。ある = Ok／無い = Danger.Text／確認中・何も出さない = Ink.Muted）;
+    #            FolderIcon（文の左に出すアイコン。ある = Check／無い = Close／確認中・何も出さない = 空。theme.xaml の Icon.<名前>）; Badge（@{ Text; Level }）; Updated; Count;
     #            Rows（右の「インデックス情報」の @{ Label; Value } の配列）; RowsKey;
-    #            Fast（@{ Shown（反映の進みの棒を出すか）; Value（0〜1）; Text; State; Level; Reason; Steps（対処の手順の箇条）; Checked; Note }）;
+    #            Fast（@{ Shown（反映の進みの棒を出すか）; Value（0～1）; Text; State; Level; Reason; Steps（対処の手順の箇条）; Checked; Note }）;
     #            Multi（複数を選んでいるか）; Hint（Multi のときの案内）;
-    #            Run（@{ Shown（更新中の棒・件数・ファイル名を出すか）; Value（0〜1）; CountText; FileText }）;
+    #            Run（@{ Shown（更新中の棒・件数・ファイル名を出すか）; Value（0～1）; CountText; FileText }）;
     #            Error・ErrorHint（元のフォルダが無いときの理由と直し方。無ければ空。バッジは「エラー」の Ng になる） }
     #   RowsKey は左右の表の中身から作る文字列。同じなら画面は行を置き直さない（高速検索の進みだけが変わったとき）
     param (
@@ -1008,7 +1009,7 @@ function getIndexDetailView {
     $noRun = @{ Shown = $false; Value = 0.0; CountText = ""; FileText = "" }
     $emptyFast = @{ Shown = $false; Value = 0.0; Text = ""; State = ""; Level = "None"; Reason = ""; Steps = @(); Checked = ""; Note = "" }
     $none = @{
-        Title = "インデックスの状態"; Selected = $false; Name = ""; Path = ""; FolderStatus = ""; FolderMissing = $false; FolderBrush = "Ink.Muted"
+        Title = "インデックスの状態"; Selected = $false; Name = ""; Path = ""; FolderStatus = ""; FolderMissing = $false; FolderBrush = "Ink.Muted"; FolderIcon = ""
         Badge = @{ Text = ""; Level = "None" }; Updated = ""; Count = ""; Rows = @(); RowsKey = ""; Fast = $emptyFast
         Multi = $false; Hint = ""; Run = $noRun; Error = ""; ErrorHint = ""
     }
@@ -1077,14 +1078,15 @@ function getIndexDetailView {
         $errorHint = "フォルダが移動・削除されたか、ネットワークにつながっていない可能性があります。`nフォルダパスの［変更…］でフォルダを選び直してください。"
     }
     $folderBrush = if ($item.FolderMissing) { "Danger.Text" } elseif ($item.FolderChecked -eq $false) { "Ink.Muted" } else { "Ok" }
+    $folderIcon = if ($item.FolderMissing) { "Close" } elseif ($item.FolderChecked -eq $false -or !$item.FolderStatus) { "" } else { "Check" }
     $fixed = @(
-        $item.Name, $item.Path, $item.FolderStatus, $folderBrush, $badge.Text, $badge.Level, $badge.Sub, $updated, $count
+        $item.Name, $item.Path, $item.FolderStatus, $folderBrush, $folderIcon, $badge.Text, $badge.Level, $badge.Sub, $updated, $count
         $fast.State, $fast.Level, $fast.Reason, (@($fast.Steps) -join "|"), $fast.Checked
     ) -join "`t"
     $rowsKey = $fixed + "`n" + (@($rows | ForEach-Object { "$($_.Label)`t$($_.Value)" }) -join "`n")
     return @{
         Title = "$($item.Name) - 詳細"; Selected = $true; Name = [string]$item.Name; Path = [string]$item.Path
-        FolderStatus = [string]$item.FolderStatus; FolderMissing = [bool]$item.FolderMissing; FolderBrush = $folderBrush
+        FolderStatus = [string]$item.FolderStatus; FolderMissing = [bool]$item.FolderMissing; FolderBrush = $folderBrush; FolderIcon = $folderIcon
         Badge = $badge
         Updated = $updated; Count = $count; Rows = $rows.ToArray(); RowsKey = $rowsKey; Fast = $fast
         Multi = $false; Hint = ""; Run = $run; Error = $errorText; ErrorHint = $errorHint

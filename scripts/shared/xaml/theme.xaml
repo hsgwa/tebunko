@@ -1013,7 +1013,7 @@
     </Setter>
   </Style>
 
-  <!-- ============ ツリー（▷ をシェブロンに） ============ -->
+  <!-- ============ ツリー（既定の三角をシェブロンに） ============ -->
   <Style x:Key="TreeChevron" TargetType="ToggleButton">
     <Setter Property="Focusable" Value="False" />
     <Setter Property="Width" Value="18" />

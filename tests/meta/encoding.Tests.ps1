@@ -101,6 +101,33 @@ Describe "文字コードと改行" -Tag Meta {
         ($bad -join ", ") | Should -Be ""
     }
 
+    # 単一 .ps1 は BOM が落ちると、Windows PowerShell 5.1 が CP932 として読む。CP932 に無い文字（記号の文字など）は
+    # 落ちるか別の字に化ける。画面の印は Lucide のアイコン（theme.xaml の Icon.*）で描き、scripts\ には CP932 で
+    # 表せる文字だけを書く。best-fit（近い字への置き換え）を使わないので、`〜`（U+301C）のように化ける字も止まる。
+    # 対象は scripts\ の .ps1・.xaml・.txt。tools\ の先頭・つなぎの行は tests\tools\new_single_script.Tests.ps1 が見る
+    It "scripts/ の .ps1・.xaml・.txt は CP932 で表せる文字だけ" {
+        $strict = [Text.Encoding]::GetEncoding(932, [Text.EncoderExceptionFallback]::new(), [Text.DecoderExceptionFallback]::new())
+        $targets = @(Get-ChildItem "$here\..\scripts" -Recurse -Include *.ps1, *.xaml, *.txt)
+        $targets.Count -gt 20 | Should -Be $true
+
+        $root = (Resolve-Path "$here\..").Path
+        $bad = [System.Collections.Generic.List[string]]::new()
+        foreach ($file in $targets) {
+            $relative = $file.FullName.Substring($root.Length + 1)
+            # UTF-8 として 1 行ずつ読む（BOM は文字として入らない）
+            $lines = [System.IO.File]::ReadAllLines($file.FullName, [Text.Encoding]::UTF8)
+            for ($i = 0; $i -lt $lines.Count; $i++) {
+                if ($lines[$i] -notmatch '[^\x00-\x7F]') { continue }
+                foreach ($char in $lines[$i].ToCharArray()) {
+                    if ([int]$char -lt 0x80) { continue }
+                    try { [void]$strict.GetBytes([string]$char) }
+                    catch { $bad.Add(("{0}:{1}: {2} (U+{3:X4})" -f $relative, ($i + 1), $char, [int]$char)) }
+                }
+            }
+        }
+        ($bad -join "`n") | Should -Be ""
+    }
+
     # Windows で動く Codecov の CLI は codecov.yml を cp1252 として読み、日本語があると止まる（UnicodeDecodeError）。
     # そのため codecov.yml には ASCII の文字だけを書き、説明は .github\workflows\test.yml と docs\design\testing\ci.md に置く
     It "codecov.yml は ASCII の文字だけ" {

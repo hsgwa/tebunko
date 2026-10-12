@@ -81,7 +81,7 @@ function getStrictUtf8Encoding {
 
 function testTextPlausible {
     # 読んだ結果の文字列が、テキストとして自然か。制御文字（TAB・LF・FF・CR 以外）・私用領域・置き換え文字（U+FFFD）を含めば偽。
-    # バイナリを Shift_JIS・EUC-JP などとして読んでしまったものを見分ける（Shift_JIS の外字（F040〜F9FC）は私用領域に読まれるため偽になる）
+    # バイナリを Shift_JIS・EUC-JP などとして読んでしまったものを見分ける（Shift_JIS の外字（F040～F9FC）は私用領域に読まれるため偽になる）
     param (
         [string]$text
     )
@@ -159,7 +159,7 @@ function getIso2022JpVerdict {
 
 function testHalfWidthKanaNatural {
     # 半角カナを多く含む文字列が、半角カナの並びとして自然か。濁点（ﾞ）・半濁点（ﾟ）は、付けられるカナ
-    # （ｦ ｳ ｶ〜ﾄ ﾊ〜ﾎ ﾜ。半濁点は ﾊ〜ﾎ）の直後にしか来ない。GBK・Big5 などを Shift_JIS として読むと崩れる
+    # （ｦ ｳ ｶ～ﾄ ﾊ～ﾎ ﾜ。半濁点は ﾊ～ﾎ）の直後にしか来ない。GBK・Big5 などを Shift_JIS として読むと崩れる
     param (
         [string]$text
     )

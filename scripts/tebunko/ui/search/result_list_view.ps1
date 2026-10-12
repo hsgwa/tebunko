@@ -286,7 +286,7 @@ function getResultMenuItems {
         )
     }
 
-    # 先頭は既定の開き方。下には、ほかの開き方を［開く ▾］と同じ順（開く・新規で開く・読み取り専用で開く）で並べる
+    # 先頭は既定の開き方。下には、ほかの開き方を［開く ▼］と同じ順（開く・新規で開く・読み取り専用で開く）で並べる
     $default = if ($labels.Contains($openMode)) { $openMode } else { ${openModeNormal} }
     $items = @(@{ Id = $labels[$default].Id; Header = $labels[$default].Header; Bold = $true })
     foreach ($mode in $labels.Keys) {

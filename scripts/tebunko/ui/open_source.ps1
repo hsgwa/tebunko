@@ -829,7 +829,7 @@ $ui.MenuOpenReadOnly.Add_Click({ safe { openSource ${openModeReadOnly} } })
 $ui.MenuOpenNew.Add_Click({ safe { openSource ${openModeNew} } })
 $ui.MenuOpenFolder.Add_Click({ safe { openSourceFolder } })
 $ui.OpenButton.Add_Click({ safe { openSource } })
-# ［開く ▾］のメニュー。選んだ開き方は次からの既定（ダブルクリック・Enter・［開く］）にもなり、そのまま開く
+# ［開く ▼］のメニュー。選んだ開き方は次からの既定（ダブルクリック・Enter・［開く］）にもなり、そのまま開く
 function selectOpenMode {
     param (
         [string]$mode
