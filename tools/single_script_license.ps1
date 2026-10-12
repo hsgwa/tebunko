@@ -2,7 +2,7 @@
 # tools\new_single_script.ps1 が読み込んで使う。テストは tests\tools\single_script_license.Tests.ps1。設計は docs/design/structure/single-script.md。
 #
 # 文面は元のファイルから読み、書き換えない。行ごとに、空行は # だけ、それ以外は # と 1 つの空白を行の頭に足すだけにする。
-# 元に戻す関数（restoreLicenseFromComment）は、その逆（# だけの行は空行、それ以外は頭の 2 文字を外す）で、
+# 元に戻す関数（restoreLicenseFromComment）は、その逆（# だけの行は空行、# と空白で始まる行は頭の 2 文字を外す。どちらでもない行があれば $null）で、
 # 道具の検査とテストが、同じ関数で「元のファイルと同じ中身か」を確かめる。
 
 # 改行を CRLF にそろえ、末尾が改行で終わるようにする（取り出した文字列と比べるときの、元のファイルの形）
@@ -10,7 +10,7 @@ function normalizeLicenseText {
     param ([string]$text)
 
     $normalized = $text -replace "\r?\n", "`r`n"
-    if (!$normalized.EndsWith("`r`n")) {
+    if (!$normalized.EndsWith("`r`n", [System.StringComparison]::Ordinal)) {
         $normalized += "`r`n"
     }
     return $normalized
@@ -70,7 +70,7 @@ function restoreLicenseFromComment {
     for ($i = $from + 1; $i -lt $to; $i++) {
         if ($lines[$i] -eq "#") {
             [void]$restored.Add("")
-        } elseif ($lines[$i].StartsWith("# ")) {
+        } elseif ($lines[$i].StartsWith("# ", [System.StringComparison]::Ordinal)) {
             [void]$restored.Add($lines[$i].Substring(2))
         } else {
             # コメントでない行（印の間の空行など）が混ざっている。元の形には戻せない

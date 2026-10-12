@@ -139,7 +139,7 @@ function addHereString {
 
 # ---- 同梱する第三者の部品のライセンス文を、元のファイルのまま、行ごとの # のコメントとして入れる ----
 # 文面は scripts\shared\licenses\LICENSE-*.txt から読み、書き換えない（tools\single_script_license.ps1）。
-# フォルダが無い・1 件も無い・空のファイルがあるときは止める（置き場が空のまま作らないため）
+# フォルダが無い・1 件も無い・空（空白だけ）のファイルがある・改行を伴わない CR だけの行区切りがあるときは止める（置き場が空のまま作らないため）
 $licenseFiles = @(getLicenseFiles (Join-Path $scriptsDir "shared\licenses"))
 foreach ($licenseFile in $licenseFiles) {
     [void]$parts.Add((convertToLicenseComment $licenseFile.Name ([System.IO.File]::ReadAllText($licenseFile.FullName))))

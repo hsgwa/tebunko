@@ -80,16 +80,25 @@ Describe "single_script_license.ps1 のコメントへの変換と、元への�
         @{ name = "# が外れた行"; edit = { param ($c) $c.Replace("# line 2", "line 2") } }
         @{ name = "印の間の空行"; edit = { param ($c) $c.Replace("# line 2", "") } }
         @{ name = "# だけでなく 1 文字の行"; edit = { param ($c) $c.Replace("# line 2", "x") } }
+        @{ name = "頭の 2 文字が # でないが、外すと元と同じになる行"; edit = { param ($c) $c.Replace("# line 2", "xxline 2") } }
+        @{ name = "見えない文字（U+00AD）で始まる行"; edit = { param ($c) $c.Replace("# line 2", "$([char]0x00AD)# line 2") } }
         @{ name = "印が無い"; edit = { param ($c) "ISC License" } }
         @{ name = "終わりの印が無い"; edit = { param ($c) ($c -split "\r?\n" | Select-Object -SkipLast 1) -join "`r`n" } }
+    ) {
+        param ($name, $edit)
+        $original = "ISC License`nline 2`nline 3`n"
+        $broken = & $edit (convertToLicenseComment "LICENSE-X.txt" $original)
+        (restoreLicenseFromComment $broken "LICENSE-X.txt") | Should -BeNullOrEmpty
+    }
+
+    It "<name>: 行が欠けた・書き換わったときは、取り出した中身が元の文字列と違う" -TestCases @(
         @{ name = "1 行欠けた"; edit = { param ($c) ($c -split "\r?\n" | Where-Object { $_ -ne "# line 2" }) -join "`r`n" } }
         @{ name = "1 行が書き換わった"; edit = { param ($c) $c.Replace("# line 2", "# line 2 changed") } }
     ) {
         param ($name, $edit)
         $original = "ISC License`nline 2`nline 3`n"
         $broken = & $edit (convertToLicenseComment "LICENSE-X.txt" $original)
-        $restored = restoreLicenseFromComment $broken "LICENSE-X.txt"
-        $restored | Should -Not -BeExactly (normalizeLicenseText $original)
+        (restoreLicenseFromComment $broken "LICENSE-X.txt") | Should -Not -BeExactly (normalizeLicenseText $original)
     }
 }
 
