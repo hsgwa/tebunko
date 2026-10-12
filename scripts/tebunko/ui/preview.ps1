@@ -8,12 +8,15 @@ $script:detailTimer = newTimer 120 {
 # 読み込みを頼んだプレビューの番号と行（別の行を選んだ後に届いた古い結果を捨てるため）
 $script:previewRequest = 0
 $script:previewRow = $null
+# 列見出しをドラッグしている間 $true（見えている列の範囲を決め直さない。updatePreviewWindow）
+$script:previewDragging = $false
 
 # 表示中の行（getViewRows）・選んでいる行（getSelectedRows）・選んでいる行 1 つ（getCurrentHitRow）は result_list.ps1
 
 function clearDetail {
     # 行を選んでいないときのプレビュー。枠（と高さ）はそのままにし、中身を空にして案内を出す
     $script:previewRequest++   # 読んでいる途中の読み足しの結果は捨てる
+    $script:previewDragging = $false
     $ui.PreviewHeader.ItemsSource = $null
     $ui.PreviewHeaderPanel.DataContext = $null
     $ui.PreviewRows.ItemsSource = $null
@@ -87,6 +90,7 @@ function applyDetail {
     $ui.DetailTitle.ToolTip = $title
 
     $table.Marks = $marks
+    $table.Request = $script:previewRequest
     $table.BottomDone = $end -or $noMore
     if ($noMore) { $table.TopDone = $true }
     $script:previewTable = $table
@@ -130,6 +134,12 @@ function updatePreviewWindow {
 
     $table = $script:previewTable
     if ($null -eq $table -or $table.Columns.Count -eq 0) { return }
+    # 列見出しをドラッグしている間は、範囲を決め直さない（見出しを入れ替えると、ドラッグしている見出しの部品が作り直されて途切れる）。
+    # 縦にスクロールして見えた行のセルだけ作り、ドラッグが終わったら決め直す
+    if ($script:previewDragging) {
+        updatePreviewCells
+        return
+    }
     if ($null -eq $offset) { $offset = $ui.PreviewScroll.HorizontalOffset }
     $window = getPreviewColumnWindow $table.Widths() $offset $ui.PreviewScroll.ViewportWidth ([HitRow]::NumberWidth) ${previewColumnMargin}
     if ($table.SetWindow($window.First, $window.Last, $window.Left, $window.Right)) {
@@ -178,8 +188,9 @@ function startReadMore {
         $request
     )
 
-    $row = $script:previewRow
+    # 読む行・番号は、読み足す表のもの（行を切り替えている間も、古い表に別の行の番号を混ぜない）
     $table = $script:previewTable
+    $row = $table.Owner
     $table.ShowMessage($request.Side, "読み込み中…")
     startJob {
         param ($id, $side, $path, $book, $location, $first, $count, $cache, $marks)
@@ -189,7 +200,7 @@ function startReadMore {
         } catch {
             @{ Id = $id; Side = $side; Failed = $true }
         }
-    } @($script:previewRequest, $request.Side, [System.IO.Path]::Combine($row.Root, $row.RelPath), $row.Book, $row.Location, $request.FirstLine, $request.Count, $script:tsvCache, $table.Marks) {
+    } @($table.Request, $request.Side, [System.IO.Path]::Combine($row.Root, $row.RelPath), $row.Book, $row.Location, $request.FirstLine, $request.Count, $script:tsvCache, $table.Marks) {
         param ($output, $errorText)
         applyReadMore $output $errorText
     }
@@ -224,8 +235,8 @@ function applyReadMore {
         }
         return
     }
-    # 別の行を選んだあとに届いた古い結果は捨てる
-    if ($result.Id -ne $script:previewRequest) { return }
+    # 別の行を選んで表が替わったあとに届いた古い結果は捨てる（表が持つ番号で見分ける）
+    if ($result.Id -ne $table.Request) { return }
     $side = $result.Side
     if ($result.Failed) {
         stopReadMore $table $side
@@ -236,7 +247,7 @@ function applyReadMore {
     $lead = $table.LeadCount()
     $numbers = [int[]]@($result.Rows | ForEach-Object { $_.LineNumber })
     $lines = [string[]]@($result.Rows | ForEach-Object { $_.Line })
-    $rows = $script:previewRow.BuildPreviewRows($table, $numbers, $lines)
+    $rows = $table.Owner.BuildPreviewRows($table, $numbers, $lines)
     $table.Marks = $result.Marks
     # 今ある行とつながらない結果（読んでいる間に反対側を捨てたなど）は足さず、また近づいたときに読み直す
     $joins = $rows.Count -gt 0 -and $(if ($side -eq "up") { $rows[$rows.Count - 1].LineNumber -eq $table.FirstLine() - 1 } else { $rows[0].LineNumber -eq $table.LastLine() + 1 })
@@ -249,10 +260,12 @@ function applyReadMore {
         } else {
             $scroll.ScrollToVerticalOffset([Math]::Max(0, $oldOffset - $lead))
         }
-        if ($result.End -or $rows.Count -eq 0 -or ($joins -and $table.FirstLine() -le 1)) { $table.TopDone = $true }
+        $scroll.UpdateLayout()
+        # 行が加わらなかった結果では、終わりとは言えない（空で返ったときだけ、その向きにもう行が無い）
+        if ($rows.Count -eq 0 -or ($joins -and ($result.End -or $table.FirstLine() -le 1))) { $table.TopDone = $true }
     } else {
         if ($joins) { $table.InsertRows("down", $rows) }
-        if ($result.End -or $rows.Count -eq 0) { $table.BottomDone = $true }
+        if ($rows.Count -eq 0 -or ($joins -and $result.End)) { $table.BottomDone = $true }
     }
     # 持つ行が上限を超えたら、遠い側を捨てる
     $visible = getPreviewVisibleRows
@@ -264,6 +277,7 @@ function applyReadMore {
             $table.TopDone = $false
             $scroll.UpdateLayout()
             $scroll.ScrollToVerticalOffset([Math]::Max(0, $offset - $trim.Count))
+            $scroll.UpdateLayout()
         } else {
             $table.BottomDone = $false
         }
@@ -458,6 +472,21 @@ $ui.MenuPreviewCopyRow.Add_Click({
 })
 # プレビューの列見出しの右端をドラッグすると、その列（PreviewColumn）の幅が変わる（各行のセルも同じ列を参照しているため一緒に変わる）
 $ui.PreviewHeader.AddHandler(
+    [System.Windows.Controls.Primitives.Thumb]::DragStartedEvent,
+    [System.Windows.Controls.Primitives.DragStartedEventHandler] {
+        param ($sender, $e)
+        $script:previewDragging = $true
+    })
+$ui.PreviewHeader.AddHandler(
+    [System.Windows.Controls.Primitives.Thumb]::DragCompletedEvent,
+    [System.Windows.Controls.Primitives.DragCompletedEventHandler] {
+        param ($sender, $e)
+        safe {
+            $script:previewDragging = $false
+            updatePreviewWindow   # ドラッグ中に変わった幅で、見えている列の範囲と左右の空きを決め直す
+        }
+    })
+$ui.PreviewHeader.AddHandler(
     [System.Windows.Controls.Primitives.Thumb]::DragDeltaEvent,
     [System.Windows.Controls.Primitives.DragDeltaEventHandler] {
         param ($sender, $e)
@@ -465,7 +494,7 @@ $ui.PreviewHeader.AddHandler(
             $column = $e.OriginalSource.DataContext
             if ($column -is [PreviewColumn]) {
                 $column.SetWidth($column.Width + $e.HorizontalChange)
-                updatePreviewWindow   # 見えていない列の幅の合計（左右の空き）と、見えている列の範囲が変わる
+                updatePreviewWindow   # ドラッグ中は範囲を決め直さない（終わったときに決め直す）
             }
         }
     })

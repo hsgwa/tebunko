@@ -101,6 +101,7 @@ class PreviewTable {
     [bool]$TopDone
     [bool]$BottomDone
     $Marks
+    [int]$Request             # この表を作った読み込みの番号（読み足しの結果が、この表のものかを見分ける）
     [PreviewRow]$UpMessage
     [PreviewRow]$DownMessage
 

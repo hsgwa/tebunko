@@ -50,7 +50,7 @@ BeforeAll {
     $headerScroll = newFakePart "PreviewHeaderScroll" @{ Visibility = "Collapsed" }
     $headerScroll | Add-Member ScriptMethod ScrollToHorizontalOffset { param ($offset) $fake.HeaderScrolls += $offset }
     $previewHeader = newFakePart "PreviewHeader" @{ ItemsSource = $null }
-    $previewHeader | Add-Member ScriptMethod AddHandler { param ($event, $handler) $handlers["PreviewHeader.DragDelta"] = $handler }
+    $previewHeader | Add-Member ScriptMethod AddHandler { param ($event, $handler) $handlers["PreviewHeader.$($event.Name)"] = $handler }
 
     $ui = [pscustomobject]@{
         ResultGrid          = newFakePart "ResultGrid" @{ SelectedItem = $null } @("SelectionChanged")
@@ -575,63 +575,142 @@ Describe "イベント" -Tag Unit {
 
         $column.Width | Should -Be 130
     }
+
+    It "列が多い表で見出しをドラッグしている間は、見えている列の範囲も見出しも替えず、終わったら範囲を決め直す" {
+        $cells = @(1..60 | ForEach-Object { "列$_" }) -join "`t"
+        $fake.Current = newHitRow "見積.xlsx" "4月" 1 @("`t$cells")
+        showDetail
+        $table = $script:previewTable
+        $table.Columns.Count | Should -BeGreaterThan 20
+        $lastBefore = $table.Window.Last
+        $headerBefore = $ui.PreviewHeader.ItemsSource
+        $versionBefore = $table.WindowVersion
+
+        $handlers["PreviewHeader.DragStarted"].Invoke($ui.PreviewHeader, (New-Object System.Windows.Controls.Primitives.DragStartedEventArgs 0.0, 0.0))
+        $e = New-Object System.Windows.Controls.Primitives.DragDeltaEventArgs 2000.0, 0.0
+        $e.RoutedEvent = [System.Windows.Controls.Primitives.Thumb]::DragDeltaEvent
+        $e.Source = [pscustomobject]@{ DataContext = $table.Columns[0] }
+        $handlers["PreviewHeader.DragDelta"].Invoke($ui.PreviewHeader, $e)
+
+        $table.Columns[0].Width | Should -BeGreaterThan 2000
+        $table.Window.Last | Should -Be $lastBefore
+        $table.WindowVersion | Should -Be $versionBefore
+        [object]::ReferenceEquals($ui.PreviewHeader.ItemsSource, $headerBefore) | Should -Be $true
+
+        $handlers["PreviewHeader.DragCompleted"].Invoke($ui.PreviewHeader, (New-Object System.Windows.Controls.Primitives.DragCompletedEventArgs 0.0, 0.0, $false))
+
+        $table.Window.Last | Should -BeLessThan $lastBefore
+        $table.WindowVersion | Should -BeGreaterThan $versionBefore
+        [object]::ReferenceEquals($ui.PreviewHeader.ItemsSource, $headerBefore) | Should -Be $false
+    }
 }
 
 Describe "プレビューの読み足し（スクロールに合わせて、上と下に行を足す）" -Tag Io {
     BeforeEach {
         resetPreview
-        $script:longLines = @(1..1000 | ForEach-Object { "行$_`t値$_" })
+        $fake.BeforeDone = $null
+        # 1,000 行のファイルの 500 行目を選んだ表（450〜550 行の 101 行）
+        $script:linesA = @(1..1000 | ForEach-Object { "`t行$_" })
+        $script:rowA = newHitRow "見積.xlsx" "4月" 500 $script:linesA
+        $script:linesB = @(1..1000 | ForEach-Object { "`t別$_" })
+        $script:rowB = newHitRow "別.xlsx" "5月" 500 $script:linesB "経理部"
+        $fake.Current = $script:rowA
+        showDetail
+        $script:tableA = $script:previewTable
     }
+    AfterEach { $fake.BeforeDone = $null }
 
     BeforeAll {
-
+        function newMoreResult {
+            # 読み足しの結果（startReadMore の仕事が返す形）。first から last までの行
+            param ($table, [string]$side, [int]$first, [int]$last, [bool]$end = $false, [string]$prefix = "行")
+            return @{ Id = $table.Request; Side = $side; Failed = $false; First = $first; Rows = @($first..$last | ForEach-Object { [pscustomobject]@{ LineNumber = $_; Line = "`t$prefix$_" } }); End = $end; Marks = $null }
+        }
     }
 
-    It "最初は選択行の前後 50 行ずつ（101 行）を読み、選択行が上から 3 行目に来るよう縦にスクロールする" {
-        $lines = @(1..200 | ForEach-Object { "`t行$_" })
-        $lines[119] = "`t見積"
-        $fake.Current = newHitRow "見積.xlsx" "4月" 120 $lines
-
-        showDetail
-
-        $rows = $script:previewTable.Rows
-        $rows.Count | Should -Be 101
-        $rows[0].Number | Should -Be "70"
-        $rows[100].Number | Should -Be "170"
-        $rows[50].IsHitRow | Should -Be $true
-        $fake.VerticalScrolls[-1] | Should -Be 48
+    It "最初は選択行の前後 50 行ずつ（101 行）を読み、表に読み込みの番号を持たせる" {
+        $script:tableA.Rows.Count | Should -Be 101
+        $script:tableA.FirstLine() | Should -Be 450
+        $script:tableA.LastLine() | Should -Be 550
+        $script:tableA.Request | Should -Be $script:previewRequest
     }
 
-    It "先頭に近い行は、前の行が無い分だけ読み、先頭から縦に出す" {
-        $fake.Current = newHitRow "見積.xlsx" "4月" 2 @("`t前", "`t見積", "`t後")
+    It "下に足した行が今の行につながるなら足す。終わりまで読んだときだけ、下は終わりにする" {
+        applyReadMore @(newMoreResult $script:tableA "down" 551 560) $null
+        $script:tableA.LastLine() | Should -Be 560
+        $script:tableA.BottomDone | Should -Be $false
 
-        showDetail
-
-        $script:previewTable.Rows.Count | Should -Be 3
-        $fake.VerticalScrolls[-1] | Should -Be 0
+        applyReadMore @(newMoreResult $script:tableA "down" 561 570 $true) $null
+        $script:tableA.LastLine() | Should -Be 570
+        $script:tableA.BottomDone | Should -Be $true
     }
 
-    It "検索のあとにインデックスが短くなり、選んだ行が無くなっていても落ちない" {
-        $row = newHitRow "見積.xlsx" "4月" 5 @("`ta", "`tb", "`tc", "`td", "`t見積")
-        writeHitContentIndex ([System.IO.Path]::Combine($row.Root, $row.RelPath)) $row.Book $row.Location @("`ta", "`tb")
-        $fake.Current = $row
+    It "今の行につながらない結果は足さず、終わりにもしない（また近づいたときに読み直す）" {
+        applyReadMore @(newMoreResult $script:tableA "down" 700 710 $true) $null
+        $script:tableA.LastLine() | Should -Be 550
+        $script:tableA.BottomDone | Should -Be $false
 
-        showDetail
-
-        @($script:previewTable.Rows | Where-Object { $_.IsHitRow }).Count | Should -Be 0
-        $script:previewTable.Rows.Count | Should -Be 2
-        $fake.Scrolls[-1] | Should -Be 0
-        $fake.VerticalScrolls[-1] | Should -Be 0
+        applyReadMore @(newMoreResult $script:tableA "up" 300 310 $true) $null
+        $script:tableA.FirstLine() | Should -Be 450
+        $script:tableA.TopDone | Should -Be $false
     }
 
-    It "インデックスの本文インデックスのファイルが読めなければ、選んだ行だけを出す" {
-        $row = newHitRow "見積.xlsx" "4月" 2 @("`t前", "`t見積", "`t後")
-        Remove-Item -LiteralPath ([System.IO.Path]::Combine($row.Root, $row.RelPath))
-        $fake.Current = $row
+    It "行が 1 つも無い結果は、その向きにもう行が無いことにする" {
+        applyReadMore @(newMoreResult $script:tableA "down" 551 550 $true) $null
+        $script:tableA.BottomDone | Should -Be $true
+    }
 
-        showDetail
+    It "読み足している間に別の行を選んで表が替わったら、古い結果は新しい表に入れず、終わりの印も付けない" {
+        $fake.BeforeDone = {
+            $fake.BeforeDone = $null
+            $fake.Current = $script:rowB
+            showDetail
+        }
+        startReadMore @{ Side = "down"; FirstLine = 551; Count = 200 }
 
-        $script:previewTable.Rows.Count | Should -Be 1
-        $script:previewTable.Rows[0].Number | Should -Be "2"
+        $tableB = $script:previewTable
+        [object]::ReferenceEquals($tableB, $script:tableA) | Should -Be $false
+        $tableB.Rows.Count | Should -Be 101
+        $tableB.LastLine() | Should -Be 550
+        $tableB.BottomDone | Should -Be $false
+        @($tableB.Rows | Where-Object { ($_.Texts -join "") -like "*行*" }).Count | Should -Be 0
+        # 古い表にも足されない（表を替えたあとに届いた結果は捨てる）
+        $script:tableA.LastLine() | Should -Be 550
+    }
+
+    It "表が替わる前（選び直したあと、読み終わる前）に読み足すときは、古い表の行と番号で読み、古い表に足す" {
+        # showDetail が番号と行を替えたあと、applyDetail で表を替えるまでの間
+        $script:previewRequest++
+        $script:previewRow = $script:rowB
+
+        updatePreviewReadMore
+        startReadMore @{ Side = "down"; FirstLine = 551; Count = 5 }
+
+        $script:tableA.LastLine() | Should -Be 555
+        $script:tableA.Rows[$script:tableA.Rows.Count - 1].Texts -join "" | Should -BeLike "*行555*"
+    }
+
+    It "上限を超えて下を捨てるとき、下の終わりの印を戻す（また下に近づいたら読む）" {
+        applyReadMore @(newMoreResult $script:tableA "down" 551 3600 $true) $null
+        $script:tableA.DataCount() | Should -Be 2951
+        $script:tableA.FirstLine() | Should -Be 450
+        $script:tableA.LastLine() | Should -Be 3400
+        $script:tableA.BottomDone | Should -Be $false
+    }
+
+    It "上限を超えて上を捨てるとき、上の終わりの印を戻し、見ていた行が同じ所に見えるよう縦の位置を直す" {
+        $script:tableA.TopDone = $true
+        $ui.PreviewScroll.VerticalOffset = 2900.0
+        applyReadMore @(newMoreResult $script:tableA "down" 551 3600) $null
+        $script:tableA.FirstLine() | Should -Be 650
+        $script:tableA.TopDone | Should -Be $false
+        $fake.VerticalScrolls[-1] | Should -Be 2700
+    }
+
+    It "読み足しが失敗したら、その向きを終わりにして「読めませんでした」を出す" {
+        $script:tableA.ShowMessage("down", "読み込み中…")
+        applyReadMore @(@{ Id = $script:tableA.Request; Side = "down"; Failed = $true }) $null
+        $script:tableA.BottomDone | Should -Be $true
+        $script:tableA.DownMessage.Message | Should -Be "読めませんでした"
     }
 }
