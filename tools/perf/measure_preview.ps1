@@ -22,6 +22,11 @@ param (
     [switch]$FullRead
 )
 
+# 子が途中で黙って終わったときに、どの段階までいったかが親のログに残るよう、段階の切り替えで名前だけを 1 行出す（計る区間の外でだけ呼ぶ）。
+# 読み込み中に終わったのか、起こせなかったのかを分けるため、最初の 1 行は読み込みの前に出す
+function writeStageLine([string]$name) { Write-Host "段階: $name" }
+writeStageLine "読み込み"
+
 $ErrorActionPreference = "Stop"
 . ([WildcardPattern]::Escape("$PSScriptRoot\perf_common.ps1".Replace('`', '``')))
 $lib = resolveTebunkoLib $Tool
@@ -128,9 +133,6 @@ function countVisuals($element) {
 function collectAll {
     [GC]::Collect(); [GC]::WaitForPendingFinalizers(); [GC]::Collect()
 }
-
-# 子が途中で黙って終わったときに、どの段階までいったかが親のログに残るよう、段階の切り替えで名前だけを 1 行出す（計る区間の外でだけ呼ぶ）
-function writeStageLine([string]$name) { Write-Host "段階: $name" }
 
 writeStageLine "開始"
 $monitor = startResourceMonitor $SampleMs

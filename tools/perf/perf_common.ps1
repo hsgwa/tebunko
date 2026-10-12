@@ -32,17 +32,23 @@ function getChildCrashEvents {
         [int]$maxLength = 400
     )
 
-    try {
-        $filter = @{ LogName = "Application"; ProviderName = @("Application Error", ".NET Runtime", "Windows Error Reporting"); StartTime = $from.AddSeconds(-1); EndTime = $to.AddSeconds(5) }
-        $found = @(Get-WinEvent -FilterHashtable $filter -MaxEvents 50 -ErrorAction Stop | Where-Object { $_.Message -match "powershell\.exe" })
-        return @($found | Select-Object -First $maxCount | ForEach-Object {
-            $oneLine = ($_.Message -replace "\s+", " ").Trim()
-            if ($oneLine.Length -gt $maxLength) { $oneLine = $oneLine.Substring(0, $maxLength) + "…" }
-            "$($_.TimeCreated.ToString('HH:mm:ss')) $($_.ProviderName) (ID $($_.Id)): $oneLine"
-        })
-    } catch {
-        return @()
+    # 提供元は 1 つずつ読む（機械に登録が無い提供元があると、まとめて読む呼び出し全体が失敗するため。失敗した提供元は飛ばして、残りを取る）
+    $found = New-Object System.Collections.Generic.List[object]
+    foreach ($provider in @("Application Error", ".NET Runtime", "Windows Error Reporting")) {
+        try {
+            $filter = @{ LogName = "Application"; ProviderName = $provider; StartTime = $from.AddSeconds(-1); EndTime = $to.AddSeconds(5) }
+            foreach ($entry in @(Get-WinEvent -FilterHashtable $filter -MaxEvents 50 -ErrorAction Stop)) {
+                if ($entry.Message -match "powershell\.exe") { $found.Add($entry) }
+            }
+        } catch {
+            continue
+        }
     }
+    return @($found | Sort-Object TimeCreated | Select-Object -First $maxCount | ForEach-Object {
+        $oneLine = ($_.Message -replace "\s+", " ").Trim()
+        if ($oneLine.Length -gt $maxLength) { $oneLine = $oneLine.Substring(0, $maxLength) + "…" }
+        "$($_.TimeCreated.ToString('HH:mm:ss')) $($_.ProviderName) (ID $($_.Id)): $oneLine"
+    })
 }
 
 function invokeChildScript {

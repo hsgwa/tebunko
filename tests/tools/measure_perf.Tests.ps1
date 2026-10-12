@@ -17,6 +17,8 @@ Describe "perf_common.ps1 の子のスクリプトの実行" -Tag Unit {
             invokeChildScript $path @() $tailLines
         }
     }
+    # CI で流しても本物の Application ログを読まないよう、既定では空を返す（読む It は自分で差し替える）
+    BeforeEach { Mock getChildCrashEvents { @() } }
 
     It "0 以外で終わると、<name>" -TestCases @(
         @{ name = "出した文（標準出力・標準エラー）と終了コードが例外に入る"; body = "Write-Output 'out-line'; [Console]::Error.WriteLine('err-line'); exit 5"; contains = @("out-line", "err-line", "終了コード 5・0x00000005") }
@@ -62,6 +64,50 @@ Describe "perf_common.ps1 の子のスクリプトの実行" -Tag Unit {
     It "成功したときは、子の出力をそのまま流し、例外にしない" {
         $out = @(runChild "Write-Output 'ok-line'; exit 0")
         $out | Should -Contain "ok-line"
+    }
+}
+
+Describe "perf_common.ps1 の子の異常終了のイベント" -Tag Unit {
+    # 提供元ごとの記録（id・m = 本文・s = 秒）を差し替える（本物のログは読まない）。"fail" の提供元は、読むと失敗する
+    It "<name>" -TestCases @(
+        @{ name = "powershell.exe に関するものだけを取る"; max = 5; len = 400
+            by = @{ "Application Error" = @(@{ id = 1000; m = "faulting powershell.exe code c0000005"; s = 1 }, @{ id = 1000; m = "faulting other.exe"; s = 2 }) }
+            expect = @("Application Error (ID 1000): faulting powershell.exe code c0000005"); absent = @("other.exe") }
+        @{ name = "件数は上限までで、時刻の早い順"; max = 2; len = 400
+            by = @{ "Application Error" = @(@{ id = 1000; m = "powershell.exe a"; s = 3 }, @{ id = 1000; m = "powershell.exe b"; s = 1 }); ".NET Runtime" = @(@{ id = 1026; m = "powershell.exe c"; s = 2 }) }
+            expect = @("powershell.exe b", "powershell.exe c"); absent = @("powershell.exe a") }
+        @{ name = "1 件の長さは上限で切る"; max = 5; len = 20
+            by = @{ "Application Error" = @(@{ id = 1000; m = ("powershell.exe " + ("x" * 100)); s = 0 }) }
+            expect = @("powershell.exe xxxxx…"); absent = @("xxxxxxxxxxxxxxxxxxxxxxxx") }
+        @{ name = "改行や連続した空白は 1 行にまとめる"; max = 5; len = 400
+            by = @{ "Application Error" = @(@{ id = 1000; m = "powershell.exe`r`n  Faulting   module`r`n code"; s = 0 }) }
+            expect = @("powershell.exe Faulting module code"); absent = @() }
+        @{ name = "1 つの提供元が読めなくても、残りの提供元のものを取る"; max = 5; len = 400
+            by = @{ "Application Error" = "fail"; ".NET Runtime" = @(@{ id = 1026; m = "powershell.exe survived"; s = 0 }); "Windows Error Reporting" = "fail" }
+            expect = @(".NET Runtime (ID 1026): powershell.exe survived"); absent = @() }
+        @{ name = "どれも読めなければ空を返す"; max = 5; len = 400
+            by = @{ "Application Error" = "fail"; ".NET Runtime" = "fail"; "Windows Error Reporting" = "fail" }
+            expect = @(); absent = @() }
+    ) {
+        param ($by, $max, $len, $expect, $absent)
+        $script:fakeEvents = @{}
+        foreach ($provider in $by.Keys) {
+            $spec = $by[$provider]
+            $script:fakeEvents[$provider] = $(if ($spec -is [string]) { $spec } else { @($spec | ForEach-Object {
+                [pscustomobject]@{ TimeCreated = [datetime]::new(2026, 1, 1, 10, 0, [int]$_.s); ProviderName = $provider; Id = [int]$_.id; Message = [string]$_.m }
+            }) })
+        }
+        Mock Get-WinEvent {
+            $value = $script:fakeEvents[$FilterHashtable.ProviderName]
+            if ($null -eq $value -or $value -is [string]) { throw "読めません" }
+            return $value
+        }
+        $got = @(getChildCrashEvents ([datetime]::new(2026, 1, 1, 10, 0, 0)) ([datetime]::new(2026, 1, 1, 10, 0, 10)) $max $len)
+        $text = $got -join "`n"
+        $got.Count | Should -Be @($expect).Count
+        foreach ($part in $expect) { $text | Should -BeLike "*$part*" }
+        foreach ($part in $absent) { $text | Should -Not -BeLike "*$part*" }
+        $got | ForEach-Object { $_ | Should -Not -BeLike "*`n*" }
     }
 }
 
