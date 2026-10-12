@@ -4,17 +4,16 @@ BeforeAll {
     . "${scriptsDir}\tebunko\ui\preview_view.ps1"
 }
 
-Describe "getPreviewRowCounts" -Tag Unit {
+Describe "getPreviewTopRow" -Tag Unit {
     It "<name>" -TestCases @(
-        @{ name = "高さに入る行数を前後に割り振る（余りは後ろ）"; height = 220; before = 4; after = 5 }
-        @{ name = "前後同数になる高さでは同じ数にする"; height = 242; before = 5; after = 5 }
-        @{ name = "高さが足りなくても選択行の 1 行は出す"; height = 0; before = 0; after = 0 }
-        @{ name = "上限を超えて読まない"; height = 100000; before = 50; after = 50 }
+        @{ name = "選択行が上から 3 行目に来る"; hit = 50; expected = 48 }
+        @{ name = "選択行の前が 2 行ちょうどなら、先頭の行が一番上"; hit = 2; expected = 0 }
+        @{ name = "選択行の前が 2 行に満たなければ、先頭から"; hit = 1; expected = 0 }
+        @{ name = "選択行が先頭なら、先頭から"; hit = 0; expected = 0 }
+        @{ name = "選択行が表に無いときは、先頭から"; hit = -1; expected = 0 }
     ) {
-        param ($name, $height, $before, $after)
-        $counts = getPreviewRowCounts $height 22 101
-        $counts[0] | Should -Be $before
-        $counts[1] | Should -Be $after
+        param ($name, $hit, $expected)
+        getPreviewTopRow $hit | Should -Be $expected
     }
 }
 

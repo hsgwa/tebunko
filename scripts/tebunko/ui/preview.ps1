@@ -1,13 +1,10 @@
 ﻿# ［検索］タブの、選択した行の前後を表で見せるプレビュー。
 
 # 選択行のプレビューは、↑↓で続けて選択が変わったときは最後の1回だけ読む（巨大なTSVでも操作が重くならないようにする）。
-# プレビューの高さを変えたときも、入る行数に合わせて読み直すためにこのタイマーを使う
 $script:detailTimer = newTimer 120 {
     $script:detailTimer.Stop()
     safe { showDetail }
 }
-# 高さを変えただけのときは、横スクロールの位置をそのままにする（ドラッグのたびに左へ戻らないように）
-$script:detailKeepScroll = $false
 # 読み込みを頼んだプレビューの番号と行（別の行を選んだ後に届いた古い結果を捨てるため）
 $script:previewRequest = 0
 $script:previewRow = $null
@@ -29,15 +26,6 @@ function clearDetail {
     $ui.OpenFolderButton.IsEnabled = $false
 }
 
-function getPreviewContextLines {
-    # プレビューの高さを測り、選択行の前後に読む行数を決める（決め方は preview_view.ps1）
-    $height = $ui.PreviewScroll.ViewportHeight
-    if ($height -le 0) {
-        $height = $ui.PreviewScroll.ActualHeight - ${previewScrollBarSize}
-    }
-    return (getPreviewRowCounts $height ${previewRowHeight} ${maxPreviewRows})
-}
-
 function showDetail {
     $row = getCurrentHitRow
     if ($null -eq $row) {
@@ -53,16 +41,16 @@ function showDetail {
     # セル番地（MatchCell）・「場所」の列の表記（PlaceDisplay）が空のままになる。ここで作っておく（作り済みなら何もしない）
     prepareHitRow $row
 
-    # 前後の行を本文インデックスのファイルから読む。行数はプレビューの高さに合わせる。検索で読んだ内容があれば使う。
+    # 前後の行を本文インデックスのファイルから読む。最初は選択行の前後に ${previewFirstLines} 行ずつ（高さを変えても読み直さない。
+    # 表は行を仮想化して出すので、高さに入る分より多く読んでも重くならず、縦にスクロールして見られる）。検索で読んだ内容があれば使う。
     # 読み込みは画面のスレッドでは行わない（キャッシュに無いと本文インデックスのファイル全体を読むため）。読み終わったら applyDetail で表にする。
     # 読んでいる間に別の行を選んだら、古い結果は捨てる（番号で見分ける）
-    $lines = getPreviewContextLines
     $script:previewRequest++
     $script:previewRow = $row
     startJob {
         param ($id, $path, $book, $location, $lineNumber, $before, $after, $cache)
         @{ Id = $id; Context = @(readContentIndexContext $path $book $location $lineNumber $before $after $cache) }
-    } @($script:previewRequest, [System.IO.Path]::Combine($row.Root, $row.RelPath), $row.Book, $row.Location, $row.LineNumber, $lines[0], $lines[1], $script:tsvCache) {
+    } @($script:previewRequest, [System.IO.Path]::Combine($row.Root, $row.RelPath), $row.Book, $row.Location, $row.LineNumber, ${previewFirstLines}, ${previewFirstLines}, $script:tsvCache) {
         param ($output, $errorText)
         if ($output -and $output.Count -gt 0 -and $output[0].Id -eq $script:previewRequest) {
             applyDetail $script:previewRow $output[0].Context
@@ -106,19 +94,23 @@ function applyDetail {
     $ui.PreviewRows.ItemsSource = $table.Rows
 
     # 一致したセルが見えるよう横にスクロールする（左端から見えていればそのまま）。
-    # 高さを変えただけのときは、見ていた横の位置をそのままにする。
     # 列の幅は、行を入れて縦のバーが出るかどうかが決まってから（見える幅が定まってから）合わせる
     $ui.PreviewScroll.UpdateLayout()
     fitPreviewWidth
-    if ($script:detailKeepScroll) {
-        $script:detailKeepScroll = $false
-        return
-    }
     $offset = 0
     if ($table.HitOffset + $table.HitWidth -gt $ui.PreviewScroll.ViewportWidth) {
         $offset = [math]::Max(0, $table.HitOffset - 120)
     }
     $ui.PreviewScroll.ScrollToHorizontalOffset($offset)
+    # 選択行が上から 3 行目に来るよう縦にスクロールする（縦の単位は行。位置は getPreviewTopRow）
+    $hitIndex = -1
+    for ($i = 0; $i -lt $table.Rows.Count; $i++) {
+        if ($table.Rows[$i].IsHitRow) {
+            $hitIndex = $i
+            break
+        }
+    }
+    $ui.PreviewScroll.ScrollToVerticalOffset((getPreviewTopRow $hitIndex))
 }
 
 function fitPreviewWidth {
@@ -174,7 +166,6 @@ function copyPreviewSelection {
 
 $ui.ResultGrid.Add_SelectionChanged({
     # 別の行を選んだときは、一致したセルが見える位置まで横にスクロールし直す
-    $script:detailKeepScroll = $false
     $script:detailTimer.Stop()
     $script:detailTimer.Start()
 })
@@ -185,16 +176,6 @@ $ui.PreviewScroll.Add_ScrollChanged({
     $ui.PreviewHeaderScroll.ScrollToHorizontalOffset($ui.PreviewScroll.HorizontalOffset)
     if ($e.ViewportWidthChange -ne 0) {
         fitPreviewWidth
-    }
-})
-# プレビューの高さを変えたら（GridSplitter のドラッグ）、入る行数に合わせて前後の行を読み直す。
-# ドラッグ中は何度も起きるので、ほかと同じタイマーでまとめて 1 回だけ読む
-$ui.PreviewScroll.Add_SizeChanged({
-    param ($sender, $e)
-    if ($e.HeightChanged -and $ui.ResultGrid.SelectedItem) {
-        $script:detailKeepScroll = $true
-        $script:detailTimer.Stop()
-        $script:detailTimer.Start()
     }
 })
 # 結果の表とプレビューの境目。結果が少ないときは表を内容の高さまで縮めてプレビューを広げる（判断は getPreviewRowHeight）。
@@ -281,7 +262,7 @@ $ui.PreviewScroll.Add_PreviewKeyDown({
     }
 })
 # プレビューが無いとき（結果を選んでいない・読めなかったとき）はメニューを出さない
-$ui.PreviewScroll.Add_ContextMenuOpening({
+$ui.PreviewRows.Add_ContextMenuOpening({
     param ($sender, $e)
     safe {
         if ($null -eq $script:previewTable) {

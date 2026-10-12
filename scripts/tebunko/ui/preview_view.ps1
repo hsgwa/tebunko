@@ -1,19 +1,14 @@
-﻿# ［検索］タブのプレビューの判断（高さから読む行数を決める・短い文字列にする）。
+﻿# ［検索］タブのプレビューの判断（選択行を出す位置・列の幅・短い文字列にする）。
 # 画面に触らないため、そのままテストできる（tests\tebunko\ui\preview_view.Tests.ps1）。
 
-function getPreviewRowCounts {
-    # プレビューの高さに収まる行数から、選択行の前後に読む行数を決める（前後同数。余りの 1 行は後ろに付ける）。
-    # 低くすれば選択行だけ、高くすればその分だけ前後の行が見える
+function getPreviewTopRow {
+    # 選択行をプレビューの上から 3 行目に出すために、一番上に出す行（表の行の番号。0 から）を決める。
+    # 選択行の前が 2 行に満たなければ先頭から。選択行が表に無い（-1）ときも先頭から
     param (
-        [double]$height,    # プレビューに使える高さ
-        [double]$rowHeight, # 1 行の高さの目安
-        [int]$maxRows       # 出す行数の上限
+        [int]$hitIndex  # 表の中の選択行の番号（無ければ -1）
     )
 
-    $rows = [math]::Floor($height / $rowHeight)
-    $rows = [math]::Min([math]::Max($rows, 1), $maxRows)
-    $before = [math]::Floor(($rows - 1) / 2)
-    return , @([int]$before, [int]($rows - 1 - $before))
+    return [math]::Max(0, $hitIndex - 2)
 }
 
 function getPreviewFillWidth {

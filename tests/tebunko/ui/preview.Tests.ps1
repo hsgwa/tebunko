@@ -12,14 +12,12 @@ BeforeAll {
     . "${scriptsDir}\tebunko\ui\search\open_source_view.ps1"
 
     # gui.ps1 で決める値
-    ${previewRowHeight}     = 22
-    ${previewScrollBarSize} = 18
-    ${maxPreviewRows}       = 101
+    ${previewFirstLines}    = 50
 
     # ---- 画面の偽物 ----
     # 読み込み時に登録されるイベントの処理は $handlers に、呼ばれた操作は $fake に取っておく
     $handlers = @{}
-    $fake = @{ Status = ""; Current = $null; TimerStarts = 0; TimerStops = 0; Scrolls = @(); HeaderScrolls = @() }
+    $fake = @{ Status = ""; Current = $null; TimerStarts = 0; TimerStops = 0; Scrolls = @(); VerticalScrolls = @(); HeaderScrolls = @() }
 
     function newFakePart {
         # 画面の部品の偽物。events に書いた Add_<イベント> を呼ぶと、処理を $handlers["<名前>.<イベント>"] に取っておく
@@ -37,10 +35,11 @@ BeforeAll {
         return $part
     }
 
-    $previewScroll = newFakePart "PreviewScroll" @{ ViewportHeight = 220.0; ActualHeight = 0.0; ViewportWidth = 400.0; HorizontalOffset = 0.0 } @("ScrollChanged", "SizeChanged", "PreviewKeyDown", "ContextMenuOpening")
+    $previewScroll = newFakePart "PreviewScroll" @{ ViewportWidth = 400.0; HorizontalOffset = 0.0 } @("ScrollChanged", "PreviewKeyDown")
     $previewScroll | Add-Member ScriptMethod UpdateLayout { }
     $previewScroll | Add-Member ScriptMethod Focus { $true }
     $previewScroll | Add-Member ScriptMethod ScrollToHorizontalOffset { param ($offset) $fake.Scrolls += $offset }
+    $previewScroll | Add-Member ScriptMethod ScrollToVerticalOffset { param ($offset) $fake.VerticalScrolls += $offset }
     $previewSplitter = newFakePart "PreviewSplitter" @{} @("DragCompleted")
     $resultListHost = newFakePart "ResultListHost" @{ ActualHeight = 0.0; ActualWidth = 0.0 } @("SizeChanged")
     $headerScroll = newFakePart "PreviewHeaderScroll" @{ Visibility = "Collapsed" }
@@ -51,7 +50,7 @@ BeforeAll {
     $ui = [pscustomobject]@{
         ResultGrid          = newFakePart "ResultGrid" @{ SelectedItem = $null } @("SelectionChanged")
         PreviewHeader       = $previewHeader
-        PreviewRows         = newFakePart "PreviewRows" @{ ItemsSource = $null } @("PreviewMouseLeftButtonDown", "MouseMove", "PreviewMouseRightButtonDown")
+        PreviewRows         = newFakePart "PreviewRows" @{ ItemsSource = $null } @("PreviewMouseLeftButtonDown", "MouseMove", "PreviewMouseRightButtonDown", "ContextMenuOpening")
         PreviewScroll       = $previewScroll
         PreviewSplitter     = $previewSplitter
         ResultListHost      = $resultListHost
@@ -122,12 +121,10 @@ BeforeAll {
         $fake.TimerStarts = 0
         $fake.TimerStops = 0
         $fake.Scrolls = @()
+        $fake.VerticalScrolls = @()
         $fake.HeaderScrolls = @()
-        $ui.PreviewScroll.ViewportHeight = 220.0
-        $ui.PreviewScroll.ActualHeight = 0.0
         $ui.PreviewScroll.ViewportWidth = 400.0
         $ui.ResultGrid.SelectedItem = $null
-        $script:detailKeepScroll = $false
         clearDetail
     }
 
@@ -238,32 +235,6 @@ Describe "updateResultPaneHeight" -Tag Unit {
         $ui.ResultListHost.ActualWidth = 0.0
         updateResultPaneHeight 2
         $ui.DetailRow.Height.Value | Should -Be 180
-    }
-}
-
-Describe "getPreviewContextLines" -Tag Unit {
-    BeforeEach { resetPreview }
-
-    It "見えている高さから、前後に読む行数を決める" {
-        $ui.PreviewScroll.ViewportHeight = 220.0
-        $counts = getPreviewContextLines
-        $counts[0] | Should -Be 4
-        $counts[1] | Should -Be 5
-    }
-
-    It "見えている高さが取れないときは、全体の高さから横スクロールバーの分を引く" {
-        $ui.PreviewScroll.ViewportHeight = 0.0
-        $ui.PreviewScroll.ActualHeight = 260.0
-        $counts = getPreviewContextLines
-        ($counts[0] + $counts[1] + 1) | Should -Be 11
-    }
-
-    It "高さがまったく取れないときは、選んだ行だけを読む" {
-        $ui.PreviewScroll.ViewportHeight = 0.0
-        $ui.PreviewScroll.ActualHeight = 0.0
-        $counts = getPreviewContextLines
-        $counts[0] | Should -Be 0
-        $counts[1] | Should -Be 0
     }
 }
 
@@ -387,14 +358,28 @@ Describe "showDetail" -Tag Io {
         $fake.Scrolls[-1] | Should -BeGreaterThan 0
     }
 
-    It "高さを変えただけのときは、横の位置をそのままにする" {
-        $fake.Current = newHitRow "見積.xlsx" "4月" 1 @("`t見積")
-        $script:detailKeepScroll = $true
+    It "最初は選択行の前後 50 行ずつ（101 行）を読み、選択行が上から 3 行目に来るよう縦にスクロールする" {
+        $lines = @(1..200 | ForEach-Object { "`t行$_" })
+        $lines[119] = "`t見積"
+        $fake.Current = newHitRow "見積.xlsx" "4月" 120 $lines
 
         showDetail
 
-        $fake.Scrolls.Count | Should -Be 0
-        $script:detailKeepScroll | Should -Be $false
+        $rows = $script:previewTable.Rows
+        $rows.Count | Should -Be 101
+        $rows[0].Number | Should -Be "70"
+        $rows[100].Number | Should -Be "170"
+        $rows[50].IsHitRow | Should -Be $true
+        $fake.VerticalScrolls[-1] | Should -Be 48
+    }
+
+    It "先頭に近い行は、前の行が無い分だけ読み、先頭から縦に出す" {
+        $fake.Current = newHitRow "見積.xlsx" "4月" 2 @("`t前", "`t見積", "`t後")
+
+        showDetail
+
+        $script:previewTable.Rows.Count | Should -Be 3
+        $fake.VerticalScrolls[-1] | Should -Be 0
     }
 
     It "検索のあとにインデックスが短くなり、選んだ行が無くなっていても落ちない" {
@@ -407,6 +392,7 @@ Describe "showDetail" -Tag Io {
         @($script:previewTable.Rows | Where-Object { $_.IsHitRow }).Count | Should -Be 0
         $script:previewTable.Rows.Count | Should -Be 2
         $fake.Scrolls[-1] | Should -Be 0
+        $fake.VerticalScrolls[-1] | Should -Be 0
     }
 
     It "インデックスの本文インデックスのファイルが読めなければ、選んだ行だけを出す" {
@@ -432,7 +418,7 @@ Describe "プレビューの右クリックメニュー" -Tag Unit {
         $script:previewTable = $null
         $e = [pscustomobject]@{ Handled = $false }
 
-        & $handlers["PreviewScroll.ContextMenuOpening"] $null $e
+        & $handlers["PreviewRows.ContextMenuOpening"] $null $e
 
         $e.Handled | Should -Be $true
         $fake.MenuItems | Should -BeNullOrEmpty
@@ -442,7 +428,7 @@ Describe "プレビューの右クリックメニュー" -Tag Unit {
         $script:previewTable = [PreviewTable]::new()
         $e = [pscustomobject]@{ Handled = $false }
 
-        & $handlers["PreviewScroll.ContextMenuOpening"] $null $e
+        & $handlers["PreviewRows.ContextMenuOpening"] $null $e
 
         $e.Handled | Should -Be $false
         ($fake.MenuItems | ForEach-Object { $_.Id }) -join "/" | Should -Be "openHere/separator/copyCell/copyRow"
@@ -482,12 +468,9 @@ Describe "copyPreviewSelection" -Tag Unit {
 Describe "イベント" -Tag Unit {
     BeforeEach { resetPreview }
 
-    It "別の行を選ぶと、タイマーをかけ直し、一致したセルまでスクロールし直す" {
-        $script:detailKeepScroll = $true
-
+    It "別の行を選ぶと、タイマーをかけ直す" {
         & $handlers["ResultGrid.SelectionChanged"]
 
-        $script:detailKeepScroll | Should -Be $false
         $fake.TimerStops | Should -Be 1
         $fake.TimerStarts | Should -Be 1
     }
@@ -500,25 +483,6 @@ Describe "イベント" -Tag Unit {
 
         $fake.TimerStops | Should -Be 1
         $ui.DetailTitle.Text | Should -Be ""
-    }
-
-    It "行を選んでいるときに高さが変わったら、横の位置をそのままにして読み直す" {
-        $ui.ResultGrid.SelectedItem = "行"
-
-        & $handlers["PreviewScroll.SizeChanged"] $ui.PreviewScroll ([pscustomobject]@{ HeightChanged = $true })
-
-        $script:detailKeepScroll | Should -Be $true
-        $fake.TimerStarts | Should -Be 1
-    }
-
-    It "幅だけが変わったとき・行を選んでいないときは読み直さない" {
-        $ui.ResultGrid.SelectedItem = "行"
-        & $handlers["PreviewScroll.SizeChanged"] $ui.PreviewScroll ([pscustomobject]@{ HeightChanged = $false })
-        $ui.ResultGrid.SelectedItem = $null
-        & $handlers["PreviewScroll.SizeChanged"] $ui.PreviewScroll ([pscustomobject]@{ HeightChanged = $true })
-
-        $script:detailKeepScroll | Should -Be $false
-        $fake.TimerStarts | Should -Be 0
     }
 
     It "<name>" -TestCases @(

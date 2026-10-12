@@ -136,20 +136,33 @@
                 </StackPanel>
               </ScrollViewer>
 
-              <!-- 枠の高さはドラッグで変わるため、行が入りきらないときは縦にもスクロールできるようにする -->
-              <ScrollViewer x:Name="PreviewScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
-                            Focusable="True">
-                <ScrollViewer.ContextMenu>
-                  <!-- 項目の並び・文言・太字は、メニューを開くたびに判断層（getPreviewMenuItems）の結果で組み直す -->
-                  <ContextMenu x:Name="PreviewMenu">
-                    <MenuItem x:Name="MenuPreviewOpen" Header="元のファイルのこの場所を開く" />
-                    <MenuItem x:Name="MenuPreviewCopy" Header="選んだセルをコピー" />
-                    <MenuItem x:Name="MenuPreviewCopyRow" Header="この行をコピー" />
-                  </ContextMenu>
-                </ScrollViewer.ContextMenu>
-                <StackPanel TextElement.FontSize="12">
-
-                  <ItemsControl x:Name="PreviewRows">
+              <!-- 行は仮想化して、見えている行（と前後の余白）だけ要素を作る（VirtualizingStackPanel・行の単位のスクロール）。
+                   仮想化は、ItemsControl のテンプレートの中にスクロール（PreviewScroll）を置かないと効かない。
+                   縦にも横にもスクロールでき、読み込んだ行は縦にスクロールして見られる。名前は gui_main.ps1 でテンプレートから取る -->
+                  <ItemsControl x:Name="PreviewRows" TextElement.FontSize="12" Focusable="False"
+                                VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                                VirtualizingPanel.ScrollUnit="Item" ScrollViewer.CanContentScroll="True">
+                    <ItemsControl.ContextMenu>
+                      <!-- 項目の並び・文言・太字は、メニューを開くたびに判断層（getPreviewMenuItems）の結果で組み直す -->
+                      <ContextMenu x:Name="PreviewMenu">
+                        <MenuItem x:Name="MenuPreviewOpen" Header="元のファイルのこの場所を開く" />
+                        <MenuItem x:Name="MenuPreviewCopy" Header="選んだセルをコピー" />
+                        <MenuItem x:Name="MenuPreviewCopyRow" Header="この行をコピー" />
+                      </ContextMenu>
+                    </ItemsControl.ContextMenu>
+                    <ItemsControl.Template>
+                      <ControlTemplate TargetType="ItemsControl">
+                        <ScrollViewer x:Name="PreviewScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                                      CanContentScroll="True" Focusable="True">
+                          <ItemsPresenter />
+                        </ScrollViewer>
+                      </ControlTemplate>
+                    </ItemsControl.Template>
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <VirtualizingStackPanel />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                       <DataTemplate>
                         <StackPanel x:Name="RowPanel" Orientation="Horizontal">
@@ -207,8 +220,6 @@
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
-                </StackPanel>
-              </ScrollViewer>
             </DockPanel>
             <!-- 行を選んでいないときの案内（プレビューの枠は出したままにする） -->
             <TextBlock x:Name="PreviewPlaceholder" Style="{StaticResource Placeholder}" Margin="12,10"
