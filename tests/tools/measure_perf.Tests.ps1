@@ -30,6 +30,27 @@ Describe "perf_common.ps1 の子のスクリプトの実行" -Tag Unit {
         foreach ($text in $contains) { $thrown | Should -BeLike "*$text*" }
     }
 
+    # 本物のイベントログは読まず、getChildCrashEvents を差し替える
+    It "0 以外で終わったとき、<name>" -TestCases @(
+        @{ name = "CI のときは、取れたイベントが元の文のあとに入る"; ci = "true"; reader = { "10:00:00 Application Error (ID 1000): crash-detail" }; contains = @("終了コード 5", "crash-detail"); calls = 1 }
+        @{ name = "CI でないときは、イベントログを読まない"; ci = ""; reader = { "10:00:00 Application Error (ID 1000): crash-detail" }; contains = @("終了コード 5"); calls = 0 }
+        @{ name = "読むのに失敗しても、元の文（終了コードと出力）が出る"; ci = "true"; reader = { throw "読めません" }; contains = @("終了コード 5", "child-out"); calls = 1 }
+    ) {
+        param ($ci, $reader, $contains, $calls)
+        $saved = $env:GITHUB_ACTIONS
+        $env:GITHUB_ACTIONS = $ci
+        try {
+            Mock getChildCrashEvents $reader
+            $thrown = $null
+            try { runChild "Write-Output 'child-out'; exit 5" | Out-Null } catch { $thrown = $_.Exception.Message }
+            foreach ($text in $contains) { $thrown | Should -BeLike "*$text*" }
+            if ($calls -eq 0) { $thrown | Should -Not -BeLike "*crash-detail*" }
+            Should -Invoke getChildCrashEvents -Times $calls -Exactly
+        } finally {
+            $env:GITHUB_ACTIONS = $saved
+        }
+    }
+
     It "例外に入れるのは、出力の終わりの指定行数だけ" {
         $thrown = $null
         try { runChild "1..10 | ForEach-Object { Write-Output ('line' + `$_) }; exit 3" 3 | Out-Null } catch { $thrown = $_.Exception.Message }

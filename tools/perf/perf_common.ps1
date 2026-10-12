@@ -22,9 +22,33 @@ function resolveTebunkoLib {
     throw "測る tebunko に scripts\tebunko\lib.ps1 がありません。-Tool に tebunko のフォルダを指定してください。"
 }
 
+function getChildCrashEvents {
+    # from から to までの間に Application ログへ載った、powershell.exe の異常終了に関するイベント（Application Error・.NET Runtime・Windows Error Reporting）を、
+    # 1 件 1 行の文字列で返す。件数は maxCount 件、1 件は maxLength 文字まで。読めなければ空を返す
+    param (
+        [datetime]$from,
+        [datetime]$to,
+        [int]$maxCount = 5,
+        [int]$maxLength = 400
+    )
+
+    try {
+        $filter = @{ LogName = "Application"; ProviderName = @("Application Error", ".NET Runtime", "Windows Error Reporting"); StartTime = $from.AddSeconds(-1); EndTime = $to.AddSeconds(5) }
+        $found = @(Get-WinEvent -FilterHashtable $filter -MaxEvents 50 -ErrorAction Stop | Where-Object { $_.Message -match "powershell\.exe" })
+        return @($found | Select-Object -First $maxCount | ForEach-Object {
+            $oneLine = ($_.Message -replace "\s+", " ").Trim()
+            if ($oneLine.Length -gt $maxLength) { $oneLine = $oneLine.Substring(0, $maxLength) + "…" }
+            "$($_.TimeCreated.ToString('HH:mm:ss')) $($_.ProviderName) (ID $($_.Id)): $oneLine"
+        })
+    } catch {
+        return @()
+    }
+}
+
 function invokeChildScript {
     # 計測の子のスクリプトを別の powershell.exe で動かす。子の出力はそのまま流す（標準エラーも標準出力と同じ流れに入れる）。
     # 0 以外で終わったら、終了コード（10 進と 16 進。落ちたときの NTSTATUS が読める）と、子の出力の終わりの tailLines 行を、例外の文に入れて止める。
+    # CI（GITHUB_ACTIONS が true）のときだけ、子が動いていた間の Application ログ（getChildCrashEvents）も入れる。手元の機械のログは読まない。
     # 出力は CI のログと例外の文にだけ出し、ファイルには残さない
     param (
         [string]$scriptPath,
@@ -35,6 +59,7 @@ function invokeChildScript {
     $lines = New-Object System.Collections.Generic.List[string]
     $saved = $ErrorActionPreference
     $ErrorActionPreference = "Continue"   # 子の標準エラーを、例外にせず文字として受ける
+    $startedAt = Get-Date
     try {
         & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $scriptPath @arguments 2>&1 | ForEach-Object {
             $text = [string]$_
@@ -45,6 +70,7 @@ function invokeChildScript {
         $ErrorActionPreference = $saved
     }
     $code = [int]$LASTEXITCODE
+    $endedAt = Get-Date
     if ($code) {
         $name = [System.IO.Path]::GetFileName($scriptPath)
         $message = "$name が失敗しました（終了コード $code・0x$('{0:X8}' -f $code)）。"
@@ -53,6 +79,11 @@ function invokeChildScript {
             $message += "`n子は何も出力しませんでした。"
         } else {
             $message += "`n子の出力の終わり（最後の $($shown.Count) 行）:`n" + ($shown -join "`n")
+        }
+        if ($env:GITHUB_ACTIONS -eq "true") {
+            $events = @()
+            try { $events = @(getChildCrashEvents $startedAt $endedAt) } catch { $events = @() }
+            if ($events.Count -gt 0) { $message += "`n子が動いていた間の Application ログ（powershell.exe に関するもの）:`n" + ($events -join "`n") }
         }
         throw $message
     }

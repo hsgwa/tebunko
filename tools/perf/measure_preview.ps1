@@ -129,11 +129,16 @@ function collectAll {
     [GC]::Collect(); [GC]::WaitForPendingFinalizers(); [GC]::Collect()
 }
 
+# 子が途中で黙って終わったときに、どの段階までいったかが親のログに残るよう、段階の切り替えで名前だけを 1 行出す（計る区間の外でだけ呼ぶ）
+function writeStageLine([string]$name) { Write-Host "段階: $name" }
+
+writeStageLine "開始"
 $monitor = startResourceMonitor $SampleMs
 $previews = New-Object System.Collections.Generic.List[object]
 $renderResult = $null
 $readMoreRuns = New-Object System.Collections.Generic.List[object]
 try {
+    writeStageLine "検索"
     setMonitorPhase $monitor "検索"
     $found = & $getFiles @($Index)
     $filesName = @("ContentIndexFiles", "Packs") | Where-Object { $found.ContainsKey($_) } | Select-Object -First 1
@@ -149,6 +154,7 @@ try {
     # プレビューの前に GC して、あとで残った分（プレビューが持ち続けたもの）を比べる基準にする
     collectAll
     $beforePreview = getMemory
+    writeStageLine "プレビュー（最初の読み）"
     setMonitorPhase $monitor "プレビュー"
     $wide = $null
     $n = 0
@@ -208,6 +214,7 @@ try {
 
     # -ReadMore も、残った増えを取ったあとに行う。セルの数が最大だった行の表を作り直し、下に 200 行ずつ 5 回読み足す
     if ($ReadMore) {
+        writeStageLine "読み足し"
         setMonitorPhase $monitor "読み足し"
         $hit = $wide.Hit
         $path = [System.IO.Path]::Combine($hit.Root, $hit.RelPath)
@@ -250,6 +257,7 @@ try {
 
     # -Render は、残った増え（GC のあとの値）を取ったあとに行う（描画で増えた分を、プレビューが持ち続けるものに入れない）。描画に使う表（$wide）だけは、それまで持っておく
     if ($Render) {
+        writeStageLine "描画"
         setMonitorPhase $monitor "描画"
         if ([System.Threading.Thread]::CurrentThread.GetApartmentState() -ne [System.Threading.ApartmentState]::STA) { throw "-Render は STA のプロセスで動かしてください。" }
         Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
@@ -317,6 +325,7 @@ try {
         $content = $null; $headerControl = $null; $headerPanel = $null; $rowsControl = $null; $scroll = $null; $table = $null
     }
 } finally {
+    writeStageLine "記録の終わり"
     $samples = stopResourceMonitor $monitor
 }
 $resultData = [ordered]@{
