@@ -7,7 +7,7 @@
 #   .\tests\run.ps1 -Tag Slow -ExcludeTag Manual -Path tests\tools\perf_preview.Tests.ps1
 #
 # 上限は、ランナー（GitHub の windows-latest。4 コア）で perf-check.yml と同じ構成で 5 回測った値の最大に余裕を掛けて決める。
-# 読み込みは 1.5 倍を 10 ms 単位、1 回あたりに残るメモリは 2 倍を 0.1 MB 単位で切り上げる。決め方と変え方は docs\design\testing\ci.md。
+# 読み込みは 1.5 倍を 10 ms 単位、1 回あたりに残るメモリは 2 倍を 0.1 MB 単位で切り上げる。決め方と変え方は docs\design\testing\perf-check.md。
 #   語ごとの上限（キャッシュ無しの読み込みの中央値。ms）は scale 0.1・種 1 のときの値
 #   1 回あたりに残るメモリの上限（GC のあとにマネージドヒープに残る増え。MB）
 BeforeAll {
@@ -67,7 +67,7 @@ Describe "選択行のプレビューの速さとメモリ" -Tag Slow {
             $searched = @($result.Search | Where-Object { $_.Name -eq $name }) | Select-Object -First 1
             if ($null -eq $entry -or $null -eq $searched) { $problems.Add("プレビュー ${name}: 結果がありません"); continue }
             $expectedCount = [Math]::Min($previewCount, [int]$searched.Hits)
-            foreach ($problem in @(getPreviewPerfProblems $entry $readLimitsMs[$name] $retainedPerPreviewLimitMB $expectedCount)) { $problems.Add("プレビュー ${name}: $problem") }
+            foreach ($message in @(getPreviewPerfMessages $name $entry $readLimitsMs[$name] $retainedPerPreviewLimitMB $expectedCount)) { $problems.Add($message) }
         }
         ($problems -join "`n") | Should -BeNullOrEmpty
     }

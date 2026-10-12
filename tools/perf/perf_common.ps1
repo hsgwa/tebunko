@@ -491,6 +491,21 @@ function getPreviewPerfProblems {
     return , $problems.ToArray()
 }
 
+function getPreviewPerfMessages {
+    # getPreviewPerfProblems の結果に語の名前を付け、1 件ずつの文字列にして返す（回帰テストの失敗メッセージ用）。
+    # getPreviewPerfProblems は空の配列を 1 つの値として返すので、いったん変数で受けて展開する。合格なら何も返さない（呼ぶ側は @() で受ける）。
+    param (
+        [string]$name,
+        $preview,
+        [double]$readLimitMs,
+        [double]$retainedPerPreviewLimitMB,
+        [int]$expectedCount
+    )
+
+    $problems = getPreviewPerfProblems $preview $readLimitMs $retainedPerPreviewLimitMB $expectedCount
+    foreach ($problem in $problems) { "プレビュー ${name}: $problem" }
+}
+
 function getTypingSteps {
     # 入力しながらの検索で送る語の並びを作る（画面の入力しながらの検索と同じ、3 文字目から 1 文字ずつ伸ばす）。
     # tools\perf\measure_typing.ps1 が使う。

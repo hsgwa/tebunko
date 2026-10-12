@@ -206,6 +206,17 @@ Describe "perf_common.ps1 のプレビューの部品" -Tag Unit {
         $problems.Count | Should -Be $expect.Count
         for ($i = 0; $i -lt $expect.Count; $i++) { $problems[$i] | Should -BeLike $expect[$i] }
     }
+
+    # perf_preview.Tests.ps1（Slow）が失敗メッセージを作るのと同じ関数。合格のときに空の 1 件が入らないことを確かめる
+    It "<name>" -TestCases @(
+        @{ name = "合格なら、メッセージは 0 件"; preview = { newPreviewResult (newPreviewRaw @(10, 12, 11) @(1, 1, 1)) }; expect = @() }
+        @{ name = "超えたら、語の名前を付けた文が 1 件ずつ入り、空の文は入らない"; preview = { newPreviewResult (newPreviewRaw @(60, 70, 80) @(1, 1, 1) 10 70) }; expect = @("プレビュー まれ: プレビューの読み込み*", "プレビュー まれ: プレビュー 1 回あたり*") }
+    ) {
+        param ($preview, $expect)
+        $messages = @(getPreviewPerfMessages "まれ" (& $preview) 50 1 3)
+        $messages.Count | Should -Be $expect.Count
+        for ($i = 0; $i -lt $expect.Count; $i++) { $messages[$i] | Should -BeLike $expect[$i] }
+    }
 }
 
 Describe "measure_perf.ps1" -Tag Io {
