@@ -14,7 +14,7 @@ function scan { param([string[]]$Pattern)
 
 | # | 危険とされる処理 | 結果 | 確認コマンド |
 |---|---|---|---|
-| 1 | 文字列を式として実行（`Invoke-Expression` / `iex` / `[ScriptBlock]::Create`） | 該当 0 件（配布する単一 .ps1 の末尾 1 行だけが例外。[下記](#文字列を式として実行1の例外)） | `scan 'Invoke-Expression','[^-\w]iex[ (]','ScriptBlock\]::Create'` |
+| 1 | 文字列を式として実行（`Invoke-Expression` / 行頭を含む `iex` / `[ScriptBlock]::Create` / `NewScriptBlock` / `InvokeScript` / 型を変数に入れた `::Create`。ブロックコメントの終わり `#>` の後ろのコードも見る） | 該当 0 件（配布する単一 .ps1 の末尾 1 行だけが例外。[下記](#文字列を式として実行1の例外)） | `scan 'Invoke-Expression','(^|[^-\w])iex(?![-\w])','ScriptBlock\]\s*::\s*Create','NewScriptBlock','InvokeScript','\$\{?\w+\}?\s*::\s*Create'` |
 | 2 | 難読化されたコマンド（Base64・`-EncodedCommand`） | 該当 0 件 | `scan 'FromBase64String','EncodedCommand'` |
 | 3 | ネットワーク通信 | 該当 0 件 | `scan 'Invoke-WebRequest','Invoke-RestMethod','WebClient','HttpClient','Net\.Sockets','Start-BitsTransfer','DownloadFile','DownloadString','System\.Net\.'` |
 | 4 | Windows API の直接呼び出し（P/Invoke） | 該当 0 件 | `scan 'DllImport','GetDelegateForFunctionPointer'` |

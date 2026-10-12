@@ -150,6 +150,9 @@ Describe "assertGuardedScript（包んだ結果の確かめ）" -Tag Unit {
         @{ name = "最後の行の後に、別の Create の行を足した"; mutate = { param ($t) $t + "[scriptblock]::Create('1')`r`n" }; message = "のほかの" }
         @{ name = "最後の行が 2 つある"; mutate = { param ($t) $t + '. ([scriptblock]::Create(${tebunkoSource})) @PSBoundParameters' + "`r`n" }; message = "のほかの" }
         @{ name = "最後の文に、別の式（パイプ）を足した"; mutate = { param ($t) $t.Replace('@PSBoundParameters', '@PSBoundParameters | Out-Null') }; message = "最後の文" }
+        @{ name = "頭の ブロックコメントの終わりの後ろに iex がある"; mutate = { param ($t) $t.Replace('${tebunkoRoot} = $PSScriptRoot', "<#`r`n#> iex 'Get-Date'`r`n" + '${tebunkoRoot} = $PSScriptRoot') }; message = "のほかの" }
+        @{ name = "頭に、型を変数に入れた Create がある"; mutate = { param ($t) $t.Replace('${tebunkoRoot} = $PSScriptRoot', '$tt = [scriptblock]' + "`r`n" + '$tt::Create(''1'')' + "`r`n" + '${tebunkoRoot} = $PSScriptRoot') }; message = "禁止の語" }
+        @{ name = "頭に NewScriptBlock がある"; mutate = { param ($t) $t.Replace('${tebunkoRoot} = $PSScriptRoot', '$ExecutionContext.InvokeCommand.NewScriptBlock(''1'')' + "`r`n" + '${tebunkoRoot} = $PSScriptRoot') }; message = "禁止の語" }
         @{ name = "本体の文字列に Invoke-Expression がある"; mutate = { param ($t) $t.Replace("日本語。", "日本語 Invoke-Expression。") }; message = "禁止の語" }
     ) {
         param ($name, $mutate, $message)
