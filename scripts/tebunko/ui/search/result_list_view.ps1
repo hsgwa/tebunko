@@ -25,8 +25,13 @@ function getSearchSummaryText {
     return "$text・$($seconds.ToString('0.0')) 秒"
 }
 
+function getNoHitText {
+    # 検索が 0 件で終わったときの、結果欄の要約と結果の表の空いた所の文（インデックス未作成・種類に合うファイルが無いときは別の文）
+    return "一致する結果はありません"
+}
+
 function getSearchStatusText {
-    # 検索が終わったときのステータスバーの文（0 件もこの形。結果欄には 0 件の文を出さない）。
+    # 検索が終わったときのステータスバーの文（0 件もこの形。結果欄の要約には getNoHitText を出す）。
     # 条件（describeSearchOption の結果。無ければ空）があれば、後ろに付ける
     param (
         [string]$word,
@@ -261,33 +266,29 @@ function getResultMenuItems {
     #   target: "row"（ヒットした行）・"group"（ファイルの見出し）
     #   openMode: 設定の既定の開き方（行のメニューの先頭に太字で出す）
     #   expanded: 見出しの下の行を開いているか（見出しのメニューの開閉の項目の文言を決める）
+    #   readOnlySupported: 読み取り専用で開けるファイルか（testReadOnlySupported。Office の形式だけ。偽なら［読み取り専用で開く］を出さない）
     # 返すもの: @{ Id; Header; Bold } の並び。区切りは Id が "separator"。
     # 画面層は、この結果をそのままメニューに並べる（可否や並びを画面層で決めない）
     param (
         [string]$target,
         [string]$openMode = ${openModeNormal},
-        [bool]$expanded = $false
+        [bool]$expanded = $false,
+        [bool]$readOnlySupported = $true
     )
 
     $labels = [ordered]@{
         ${openModeNormal}   = @{ Id = "openNormal";   Header = "開く" }
         ${openModeNew}      = @{ Id = "openNew";      Header = "新規で開く" }
-        ${openModeReadOnly} = @{ Id = "openReadOnly"; Header = "読み取り専用で開く" }
+    }
+    if ($readOnlySupported) {
+        $labels[${openModeReadOnly}] = @{ Id = "openReadOnly"; Header = "読み取り専用で開く" }
     }
     $separator = @{ Id = "separator"; Header = ""; Bold = $false }
 
-    if ($target -eq "group") {
-        return @(
-            @{ Id = "openReadOnly"; Header = $labels[${openModeReadOnly}].Header; Bold = $true }
-            @{ Id = "openFolder"; Header = "フォルダを開く"; Bold = $false }
-            $separator
-            @{ Id = "copyPath"; Header = "ファイルのパスをコピー"; Bold = $false }
-            @{ Id = "toggleGroup"; Header = $(if ($expanded) { "この結果を折りたたむ" } else { "この結果を開く" }); Bold = $false }
-        )
-    }
-
-    # 先頭は既定の開き方。下には、ほかの開き方を［開く ▾］と同じ順（開く・新規で開く・読み取り専用で開く）で並べる
-    $default = if ($labels.Contains($openMode)) { $openMode } else { ${openModeNormal} }
+    # 先頭は既定の開き方（見出しは読み取り専用。読み取り専用で開けないファイルは通常）。下には、ほかの開き方を
+    # ［開く ▾］と同じ順（開く・新規で開く・読み取り専用で開く）で並べる
+    $wanted = if ($target -eq "group") { ${openModeReadOnly} } else { $openMode }
+    $default = if ($labels.Contains($wanted)) { $wanted } else { ${openModeNormal} }
     $items = @(@{ Id = $labels[$default].Id; Header = $labels[$default].Header; Bold = $true })
     foreach ($mode in $labels.Keys) {
         if ($mode -ne $default) {
@@ -296,6 +297,12 @@ function getResultMenuItems {
     }
     $items += @{ Id = "openFolder"; Header = "フォルダを開く"; Bold = $false }
     $items += $separator
+
+    if ($target -eq "group") {
+        $items += @{ Id = "copyPath"; Header = "ファイルのパスをコピー"; Bold = $false }
+        $items += @{ Id = "toggleGroup"; Header = $(if ($expanded) { "この結果を折りたたむ" } else { "この結果を開く" }); Bold = $false }
+        return $items
+    }
     $items += @{ Id = "copyRows"; Header = "選んだ行をコピー"; Bold = $false }
     $items += @{ Id = "copyPath"; Header = "ファイルのパスをコピー"; Bold = $false }
     return $items

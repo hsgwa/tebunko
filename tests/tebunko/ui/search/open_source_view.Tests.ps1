@@ -189,3 +189,43 @@ Describe "getResultSaveFailedText" -Tag Unit {
         getResultSaveFailedText $kind "C:\w\search_results.txt" | Should -Be $expected
     }
 }
+
+Describe "testReadOnlySupported" -Tag Unit {
+    It "<book> は <expected>（Office の形式だけ読み取り専用で開ける）" -TestCases @(
+        @{ book = "見積.xlsx"; expected = $true }
+        @{ book = "見積.XLSM"; expected = $true }
+        @{ book = "報告.doc"; expected = $true }
+        @{ book = "発表.pptx"; expected = $true }
+        @{ book = "evil.xlsm. "; expected = $true }
+        @{ book = "議事メモ.txt"; expected = $false }
+        @{ book = "仕様書.pdf"; expected = $false }
+        @{ book = "起動.bat"; expected = $false }
+        @{ book = "拡張子なし"; expected = $false }
+        @{ book = ""; expected = $false }
+    ) {
+        param ($book, $expected)
+        testReadOnlySupported $book | Should -Be $expected
+    }
+}
+
+Describe "getOpenNewMethod" -Tag Unit {
+    It "<book>（Excel: <isExcel>）は <expected>" -TestCases @(
+        @{ book = "見積.xlsx"; isExcel = $true; expected = "Excel" }
+        @{ book = "報告.docx"; isExcel = $false; expected = "Verb" }
+        @{ book = "報告.DOC"; isExcel = $false; expected = "Verb" }
+        @{ book = "発表.pptx"; isExcel = $false; expected = "Verb" }
+        @{ book = "議事メモ.txt"; isExcel = $false; expected = "Copy" }
+        @{ book = "仕様書.pdf"; isExcel = $false; expected = "Copy" }
+        @{ book = "起動.bat"; isExcel = $false; expected = "Copy" }
+        @{ book = ""; isExcel = $false; expected = "Copy" }
+    ) {
+        param ($book, $isExcel, $expected)
+        getOpenNewMethod $book $isExcel | Should -Be $expected
+    }
+}
+
+Describe "getOpenCopyFailedStatus" -Tag Unit {
+    It "パスを入れ、［開く］を使うよう伝える" {
+        getOpenCopyFailedStatus "C:\data\仕様書.pdf" | Should -Be "新規で開くためのコピーを作れませんでした。元のファイルを開くには［開く］を使ってください：C:\data\仕様書.pdf"
+    }
+}

@@ -75,3 +75,30 @@ Describe "formatDiagnosticHeader" -Tag Unit {
         $text | Should -Match "表示言語: 不明"
     }
 }
+
+Describe "getVersionLabel（開発版にタグ・コミットを添える）" -Tag Unit {
+    It "<name>" -ForEach @(
+        @{ name = "HEAD にタグがある"; dev = @{ Tag = "v0.5.0"; AtHead = $true; Sha = ("d79f898" + "0" * 33) }; expected = "開発版（v0.5.0・d79f898）" }
+        @{ name = "タグが前にある"; dev = @{ Tag = "v0.5.0"; AtHead = $false; Sha = ("d79f898" + "0" * 33) }; expected = "開発版（v0.5.0 より後・d79f898）" }
+        @{ name = "コミットだけ分かる"; dev = @{ Tag = ""; AtHead = $false; Sha = ("d79f898" + "0" * 33) }; expected = "開発版（d79f898）" }
+        @{ name = "タグだけ分かる"; dev = @{ Tag = "v0.5.0"; AtHead = $false; Sha = "" }; expected = "開発版（v0.5.0 より後）" }
+        @{ name = "何も分からない"; dev = @{ Tag = ""; AtHead = $false; Sha = "" }; expected = "開発版" }
+        @{ name = "情報が無い"; dev = $null; expected = "開発版" }
+    ) {
+        $label = getVersionLabel $null $dev
+        $label.Version | Should -Be $expected
+        $label.Commit | Should -Be ""
+    }
+
+    It "配布物の版があれば、開発版の情報は使わない" {
+        $label = getVersionLabel @{ Tag = "v0.5.0"; Sha = ("a" * 40) } @{ Tag = "v9.9.9"; AtHead = $true; Sha = ("b" * 40) }
+        $label.Version | Should -Be "v0.5.0"
+        $label.Commit | Should -Be "aaaaaaa"
+    }
+
+    It "ログの見出しの版にも添える" {
+        $envInfo = @{ OsVersion = "10.0"; OsFileVersion = "1"; Os64 = $true; PsVersion = "5.1"; Ps64 = $true; LanguageMode = "FullLanguage"; Office = @(); UICulture = "ja-JP" }
+        $lines = formatDiagnosticHeader "tebunko" $null $envInfo ([System.DateTimeOffset]::Now) @{ Tag = "v0.5.0"; AtHead = $false; Sha = ("d79f898" + "0" * 33) }
+        $lines | Should -Contain "tebunko の版: 開発版（v0.5.0 より後・d79f898）"
+    }
+}

@@ -3,7 +3,7 @@
 
 function getWaitDialogView {
     # 場面ごとの見出し・説明・押せないボタンの文字を返す。@{ Heading; Description; ButtonText }
-    #   Stopping:  ［中止］を押したあと、更新中のファイルが終わるまで
+    #   Stopping:  ［中止］を押したあと、読み取り中のファイルが終わるまで
     #   CloseWait: 窓を閉じるときに、インデックス作成が止まるまで（強制終了の秒読みつき）
     #   Moving:    ワークスペースの中身を移す間
     #   MovingClose: ワークスペースを移す間に窓を閉じようとしたとき（移し終わってから閉じる。秒読みは出さない）
@@ -13,10 +13,10 @@ function getWaitDialogView {
 
     switch ($kind) {
         "Stopping" {
-            return @{ Heading = "中止しています…"; Description = "更新中のファイルが終わるまでお待ちください。"; ButtonText = "" }
+            return @{ Heading = "中止しています…"; Description = "読み取り中のファイルが終わるまでお待ちください。"; ButtonText = "" }
         }
         "CloseWait" {
-            return @{ Heading = "中止しています…"; Description = "更新中のファイルが終わると、画面を閉じます。"; ButtonText = "閉じない" }
+            return @{ Heading = "中止しています…"; Description = "読み取り中のファイルが終わると、画面を閉じます。"; ButtonText = "閉じない" }
         }
         "Moving" {
             return @{ Heading = "ワークスペースを移しています…"; Description = "中身の量によっては時間がかかります。終わるまでお待ちください。"; ButtonText = "" }

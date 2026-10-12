@@ -583,7 +583,8 @@ function showResultMenu {
         openNormal = $ui.MenuOpen; openNew = $ui.MenuOpenNew; openReadOnly = $ui.MenuOpenReadOnly; openFolder = $ui.MenuOpenFolder
         copyRows = $ui.MenuCopy; copyPath = $ui.MenuCopyPath; toggleGroup = $ui.MenuToggleGroup
     }
-    setContextMenuItems $ui.ResultMenu (getResultMenuItems $context.Target (getOpenMode) $context.Expanded) $parts
+    # 読み取り専用で開けるのは Office の形式だけ（それ以外のファイルでは［読み取り専用で開く］を出さない）
+    setContextMenuItems $ui.ResultMenu (getResultMenuItems $context.Target (getOpenMode) $context.Expanded (testReadOnlySupported $item.Book)) $parts
     return $true
 }
 
@@ -604,6 +605,32 @@ function openSource {
         param ($path, $name)
         & $openFound $path $row $mode $name
     }.GetNewClosure()
+}
+
+function finishOpenCopy {
+    # 裏の仕事で作った、新規で開くためのコピーを開く（openFoundSource の続き。画面のスレッドで動く）
+    #   copyPath: コピーのパス（作れなかったときは空）
+    param (
+        [string]$path,
+        [bool]$isText,
+        [string]$copyPath
+    )
+
+    $window.Cursor = $null
+    if (!$copyPath) {
+        setStatus (getOpenCopyFailedStatus $path)
+        return
+    }
+    if ($isText -and (testTextOpenWithNotepad $copyPath)) {
+        if (openWithNotepad $copyPath) {
+            setStatus "コピーをメモ帳で新規で開きました：${path}"
+        } else {
+            setStatus "メモ帳で開けませんでした：${path}"
+        }
+    } else {
+        [void](openWithShell $copyPath ${openModeNormal})
+        setStatus "コピーを新規で開きました：${path}"
+    }
 }
 
 function openFoundSource {
@@ -632,7 +659,24 @@ function openFoundSource {
         default             { "新規で開けなかったため、元のファイルを開きました" }
     }
 
-    if ($row.IsExcel) {
+    if ($mode -eq ${openModeNew} -and (getOpenNewMethod $row.Book $row.IsExcel) -eq "Copy") {
+        # 「新規」の開き方が無い種類（テキスト・PDF・そのほか）は、元のファイルのコピーを作って開く（元のファイルを占有しない）。
+        # コピーは、テキストはメモ帳の判断、そのほかは既定のアプリで開く（マクロを持てる形式は Office のため、ここには来ない）
+        # コピーはファイルに触るため、裏の仕事で作り、できたら画面のスレッドで開く（元のファイルがネットワークにあっても画面を止めない）
+        $copyDir = [string](getOpenCopyDir $workspace)
+        $isText = [bool]$row.IsText
+        $window.Cursor = [System.Windows.Input.Cursors]::AppStarting
+        setStatus "コピーを作っています：${path}"
+        # 呼ぶ関数は変数で捕まえてから閉じ込める（遠く離れたスレッド・タイマーから呼ばれても見つかるように）
+        $finish = ${function:finishOpenCopy}
+        startJob {
+            param ($sourcePath, $book, $copyDir)
+            copySourceForOpen $sourcePath $book $copyDir
+        } @($path, $row.Book, $copyDir) {
+            param ($output, $errorText)
+            & $finish $path $isText $(if ($errorText) { "" } else { [string]$output[0] })
+        }.GetNewClosure() (getWorkspaceJobQueue (Split-Path -Path $path -Parent))
+    } elseif ($row.IsExcel) {
         setStatus "Excel で開いています：${path}"
         $window.Cursor = [System.Windows.Input.Cursors]::Wait
         try {

@@ -750,6 +750,77 @@ Describe "openSource" -Tag Unit {
         Should -Invoke openWithNotepad -Times 0 -Exactly
         lastStatus | Should -Be "開きました：C:\data\解析.py"
     }
+
+    Context "新規で開く（「新規」の動詞が無い種類はコピーを開く）" {
+        BeforeEach {
+            Mock getOpenCopyDir { "C:\work\tmp\key\open_copy" }
+            Mock openWithNotepad { $true }
+            Mock openWithShell { $true }
+            Mock openInExcel { }
+            Mock getWorkspaceJobQueue { "default" }
+            # 裏の仕事をその場で動かし、終わりの処理も続けて呼ぶ（コピーは裏の仕事で作る）
+            Mock startJob {
+                $out = @(& $scriptBlock @arguments)
+                & $onDone $out ""
+            }
+        }
+
+        It "PDF は、コピーを作って既定のアプリで開く（元のファイルは開かない）" {
+            Mock getCurrentHitRow { newRow "仕様書.pdf" $false $true }
+            Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\仕様書.pdf" }
+            Mock copySourceForOpen { "C:\work\tmp\key\open_copy\abc\仕様書.pdf" }
+
+            openSource ${openModeNew}
+            Should -Invoke copySourceForOpen -Times 1 -Exactly -ParameterFilter { $sourcePath -eq "C:\data\仕様書.pdf" -and $book -eq "仕様書.pdf" -and $copyDir -eq "C:\work\tmp\key\open_copy" }
+            Should -Invoke openWithShell -Times 1 -Exactly -ParameterFilter { $path -eq "C:\work\tmp\key\open_copy\abc\仕様書.pdf" -and $mode -eq ${openModeNormal} }
+            lastStatus | Should -Be "コピーを新規で開きました：C:\data\仕様書.pdf"
+        }
+
+        It "メモ帳で開くテキスト（.bat など）は、コピーをメモ帳で開く（既定のアプリでは開かない）" {
+            Mock getCurrentHitRow { newRow "起動.bat" $false $true }
+            Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\起動.bat" }
+            Mock copySourceForOpen { "C:\work\tmp\key\open_copy\abc\起動.bat" }
+
+            openSource ${openModeNew}
+            Should -Invoke openWithNotepad -Times 1 -Exactly -ParameterFilter { $path -eq "C:\work\tmp\key\open_copy\abc\起動.bat" }
+            Should -Invoke openWithShell -Times 0 -Exactly
+            lastStatus | Should -Be "コピーをメモ帳で新規で開きました：C:\data\起動.bat"
+        }
+
+        It "コピーを作れなければ、何も開かず、［開く］を使うよう伝える" {
+            Mock getCurrentHitRow { newRow "仕様書.pdf" $false $true }
+            Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\仕様書.pdf" }
+            Mock copySourceForOpen { "" }
+
+            openSource ${openModeNew}
+            Should -Invoke openWithShell -Times 0 -Exactly
+            Should -Invoke openWithNotepad -Times 0 -Exactly
+            lastStatus | Should -Be (getOpenCopyFailedStatus "C:\data\仕様書.pdf")
+        }
+
+        It "Word・PowerPoint・Excel は、コピーを作らない（動詞・Workbooks.Add のまま）" -TestCases @(
+            @{ book = "報告.docx"; isExcel = $false }
+            @{ book = "発表.pptx"; isExcel = $false }
+            @{ book = "見積.xlsx"; isExcel = $true }
+        ) {
+            param ($book, $isExcel)
+            Mock getCurrentHitRow { newRow $book $isExcel } -ParameterFilter { $true }
+            Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\$($row.Book)" }
+            Mock copySourceForOpen { "" }
+
+            openSource ${openModeNew}
+            Should -Invoke copySourceForOpen -Times 0 -Exactly
+        }
+
+        It "新規以外の開き方では、コピーを作らない" {
+            Mock getCurrentHitRow { newRow "仕様書.pdf" $false $true }
+            Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\仕様書.pdf" }
+            Mock copySourceForOpen { "" }
+
+            openSource ${openModeNormal}
+            Should -Invoke copySourceForOpen -Times 0 -Exactly
+        }
+    }
 }
 
 Describe "findSourceFile（もらったインデックスの元のフォルダの確認）" -Tag Io {
@@ -1302,10 +1373,26 @@ Describe "右クリックのメニュー" -Tag Unit {
         ) {
             $group = [FileGroup]::new()
             $group.IsExpanded = $expanded
+            $group.Book = "見積.xlsx"
             $ui.ResultGrid.SelectedItem = $group
             showResultMenu $null -1 | Should -Be $true
-            $expectedJson = getResultMenuItems "group" (getOpenMode) $expanded | ConvertTo-Json -Compress
+            $expectedJson = getResultMenuItems "group" (getOpenMode) $expanded $true | ConvertTo-Json -Compress
             Should -Invoke setContextMenuItems -Times 1 -Exactly -ParameterFilter { ($items | ConvertTo-Json -Compress) -eq $expectedJson }
+        }
+
+        It "読み取り専用で開けないファイル（テキストなど）では、［読み取り専用で開く］を出さない（<name>）" -TestCases @(
+            @{ name = "行"; book = "議事メモ.txt"; target = "row" }
+            @{ name = "見出し"; book = "仕様書.pdf"; target = "group" }
+        ) {
+            if ($target -eq "group") {
+                $item = [FileGroup]::new()
+                $item.Book = $book
+            } else {
+                $item = newRow $book $false $true
+            }
+            $ui.ResultGrid.SelectedItem = $item
+            showResultMenu $null -1 | Should -Be $true
+            Should -Invoke setContextMenuItems -Times 1 -Exactly -ParameterFilter { @($items | Where-Object { $_.Id -eq "openReadOnly" }).Count -eq 0 -and @($items | Where-Object { $_.Id -eq "openNew" }).Count -eq 1 }
         }
     }
 

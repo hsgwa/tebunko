@@ -202,6 +202,46 @@ function getSourceOpenMode {
     return @{ Mode = ${openModeReadOnly}; Notice = $notice; Strict = $true }
 }
 
+function testReadOnlySupported {
+    # 読み取り専用で開けるファイルか。Office の形式（${officeExtensions}）だけ。
+    # テキスト・PDF などは既定のアプリに読み取り専用の開き方が無く、通常と同じ開き方になるため、メニューに出さない
+    param (
+        [string]$book
+    )
+
+    $extension = [System.IO.Path]::GetExtension(([string]$book).TrimEnd('.', ' ')).ToLowerInvariant()
+    return (testNameInList $extension @(${officeExtensions}))
+}
+
+function getOpenNewMethod {
+    # ［新規で開く］のやり方を決める。
+    #   Excel      … 元のファイルを基にした新しいブック（Workbooks.Add。今までどおり）
+    #   Verb       … エクスプローラーの New の動詞（Word・PowerPoint）
+    #   Copy       … ほかの種類（テキスト・PDF・そのほか）は、元のファイルのコピーを開く（元のファイルを占有しない）
+    param (
+        [string]$book,
+        [bool]$isExcel
+    )
+
+    if ($isExcel) {
+        return "Excel"
+    }
+    $extension = [System.IO.Path]::GetExtension(([string]$book).TrimEnd('.', ' ')).ToLowerInvariant()
+    if ($extension -match '^\.(doc|ppt)') {
+        return "Verb"
+    }
+    return "Copy"
+}
+
+function getOpenCopyFailedStatus {
+    # 開くためのコピーを作れなかったときのステータス
+    param (
+        [string]$path
+    )
+
+    return "新規で開くためのコピーを作れませんでした。元のファイルを開くには［開く］を使ってください：${path}"
+}
+
 function getSourceReadOnlyFailedStatus {
     # 読み取り専用で開けなかったとき（通常で開くとマクロが動くことがあるため、開かない）のステータス
     param (
