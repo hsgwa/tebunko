@@ -261,13 +261,15 @@ Describe "perf_common.ps1 のプレビューの部品" -Tag Unit {
 
     It "読み足しの記録は、回ごとの時間を統計にし、行・列・セルの数は最後の回のものにする" {
         $runs = @(
-            [pscustomobject]@{ ReadMs = 10.0; BuildMs = 4.0; CellsMs = 2.0; TableRows = 250; Columns = 2000; CreatedCells = 60000 }
-            [pscustomobject]@{ ReadMs = 30.0; BuildMs = 6.0; CellsMs = 4.0; TableRows = 450; Columns = 2000; CreatedCells = 64000 }
+            [pscustomobject]@{ ReadMs = 10.0; BuildMs = 4.0; CellsMs = 2.0; Rows = 200; TableRows = 250; Columns = 2000; CreatedCells = 60000 }
+            [pscustomobject]@{ ReadMs = 30.0; BuildMs = 6.0; CellsMs = 4.0; Rows = 200; TableRows = 450; Columns = 2000; CreatedCells = 64000 }
         )
         $r = newReadMoreResult $runs
         $r.Runs | Should -Be 2
         $r.Complete | Should -Be $false -Because "5 回に届かなければ、少ない回数の値だと分かるようにする"
         (newReadMoreResult @(1..5 | ForEach-Object { $runs[0] })).Complete | Should -Be $true
+        $short = [pscustomobject]@{ ReadMs = 1.0; BuildMs = 1.0; CellsMs = 1.0; Rows = 0; TableRows = 250; Columns = 2000; CreatedCells = 60000 }
+        (newReadMoreResult @($runs[0], $runs[0], $runs[0], $runs[0], $short)).Complete | Should -Be $false -Because "5 回目が空・短いときは、5 回分とは言えない"
         $r.ReadMs.Max | Should -Be 30
         $r.BuildMs.Median | Should -Be 5
         $r.CellsMs.Count | Should -Be 2
@@ -279,7 +281,7 @@ Describe "perf_common.ps1 のプレビューの部品" -Tag Unit {
         (newPreviewResult $raw).CreatedCells | Should -BeNullOrEmpty
         (newPreviewResult $raw).ReadMore | Should -BeNullOrEmpty
         foreach ($row in $raw.Previews) { $row | Add-Member -NotePropertyName CreatedCells -NotePropertyValue 500 }
-        $raw | Add-Member -NotePropertyName ReadMore -NotePropertyValue @([pscustomobject]@{ ReadMs = 1.0; BuildMs = 1.0; CellsMs = 1.0; TableRows = 250; Columns = 6; CreatedCells = 90 })
+        $raw | Add-Member -NotePropertyName ReadMore -NotePropertyValue @([pscustomobject]@{ ReadMs = 1.0; BuildMs = 1.0; CellsMs = 1.0; Rows = 200; TableRows = 250; Columns = 6; CreatedCells = 90 })
         $r = newPreviewResult $raw
         $r.CreatedCells.Max | Should -Be 500
         $r.ReadMore.Runs | Should -Be 1

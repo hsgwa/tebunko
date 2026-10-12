@@ -98,7 +98,7 @@ class PreviewTable {
     hidden [double[]]$widthSums              # Prefix() が作った累積
     hidden [int]$prefixCount = -1            # 累積を作ったときの列の数
     hidden [int]$prefixStamp = -1            # 累積を作ったときの PreviewColumn.WidthStamp
-    hidden [System.Collections.Generic.List[PreviewRow]]$built =[System.Collections.Generic.List[PreviewRow]]::new()   # セルを作ってある行
+    hidden [System.Collections.Generic.List[PreviewRow]]$built = [System.Collections.Generic.List[PreviewRow]]::new()   # セルを作ってある行
     [bool]$IsExcel   # Excel の表か（Excel 以外は列が 1 つで、幅を枠いっぱいにする。preview.ps1 の fitPreviewWidth）
     # 読み足し（preview.ps1）の状態。TopDone・BottomDone はその向きにもう行が無い（または読めなかった）こと。
     # Marks は readContentIndexLines の控え（続きを、先頭から読み飛ばさず読むため）

@@ -456,7 +456,8 @@ function newReadMoreResult {
     $last = $items[$items.Count - 1]
     return [ordered]@{
         Runs = $items.Count
-        Complete = ($items.Count -ge 5)   # 場所の終わりで止まり、5 回に届かなかったときは $false（少ない回数の値を、5 回分と見間違えないため）
+        # 場所の終わりで止まり、5 回に届かなかったとき・どれかの回が 200 行に満たなかった（短い・空の回があった）ときは $false（少ない行の値を、5 回分と見間違えないため）
+        Complete = ($items.Count -ge 5 -and @($items | Where-Object { [int]$_.Rows -ne 200 }).Count -eq 0)
         ReadMs = (getStats ([double[]]@($items | ForEach-Object { $_.ReadMs })))
         BuildMs = (getStats ([double[]]@($items | ForEach-Object { $_.BuildMs })))
         CellsMs = (getStats ([double[]]@($items | ForEach-Object { $_.CellsMs })))

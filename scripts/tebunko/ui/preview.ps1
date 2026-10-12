@@ -99,6 +99,8 @@ function applyDetail {
     $table.BottomDone = $end -or $noMore
     if ($noMore) { $table.TopDone = $true }
     $script:previewTable = $table
+    # 見出しをドラッグしている途中で表が替わると、ドラッグ中の部品が木から外れて DragCompleted が届かない。旗を戻して、新しい表の範囲を決める
+    $script:previewDragging = $false
     $script:previewBaseWidth = if ($table.Columns.Count -eq 1) { $table.Columns[0].Width } else { 0 }
     $script:previewFitWidth = $script:previewBaseWidth
     # 列は全部の列を持ち、横にスクロールしたとき見えている列の範囲のセルだけを作る（updatePreviewWindow）
@@ -268,11 +270,12 @@ function applyReadMore {
             $scroll.ScrollToVerticalOffset([Math]::Max(0, $oldOffset - $lead))
         }
         $scroll.UpdateLayout()
-        # 行が加わらなかった結果では、終わりとは言えない（空で返ったときだけ、その向きにもう行が無い）
-        if ($rows.Count -eq 0 -or ($joins -and ($result.End -or $table.FirstLine() -le 1))) { $table.TopDone = $true }
+        # つながらなかった結果は、場所の終わりまで読んだ（End）なら、その向きを終わりにする（終わりにしないと、同じ範囲を頼み直し続ける）。
+        # 終わりまで読んでいなければ終わりとは言えない（空で返ったときだけ、その向きにもう行が無い）
+        if ($rows.Count -eq 0 -or $result.End -or ($joins -and $table.FirstLine() -le 1)) { $table.TopDone = $true }
     } else {
         if ($joins) { $table.InsertRows("down", $rows) }
-        if ($rows.Count -eq 0 -or ($joins -and $result.End)) { $table.BottomDone = $true }
+        if ($rows.Count -eq 0 -or $result.End) { $table.BottomDone = $true }
     }
     # 持つ行が上限を超えたら、遠い側を捨てる
     $visible = getPreviewVisibleRows

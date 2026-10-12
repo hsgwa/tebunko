@@ -634,6 +634,22 @@ Describe "イベント" -Tag Unit {
         $table.WindowVersion | Should -BeGreaterThan $versionBefore
         [object]::ReferenceEquals($ui.PreviewHeader.ItemsSource, $headerBefore) | Should -Be $false
     }
+
+    It "見出しをドラッグしている間に別の行の表に替わっても、新しい表の見出しとセルの範囲が決まる" {
+        $cells = @(1..60 | ForEach-Object { "列$_" }) -join "`t"
+        $fake.Current = newHitRow "見積.xlsx" "4月" 1 @("`t$cells")
+        showDetail
+        $handlers["PreviewHeader.DragStarted"].Invoke($ui.PreviewHeader, (New-Object System.Windows.Controls.Primitives.DragStartedEventArgs 0.0, 0.0))
+
+        # ドラッグの終わりが届かないまま、別の行を選んで表が替わる
+        $fake.Current = newHitRow "別.xlsx" "5月" 1 @("`t$cells") "経理部"
+        showDetail
+
+        $table = $script:previewTable
+        $table.Window.Last | Should -BeGreaterThan 0
+        @($ui.PreviewHeader.ItemsSource).Count | Should -BeGreaterThan 0
+        $table.Rows[0].Cells.Count | Should -BeGreaterThan 0
+    }
 }
 
 Describe "プレビューの読み足し（スクロールに合わせて、上と下に行を足す）" -Tag Io {
@@ -684,14 +700,40 @@ Describe "プレビューの読み足し（スクロールに合わせて、上�
         $script:tableA.BottomDone | Should -Be $true
     }
 
-    It "今の行につながらない結果は足さず、終わりにもしない（また近づいたときに読み直す）" {
-        applyReadMore @(newMoreResult $script:tableA "down" 700 710 $true) $null
+    It "今の行につながらない結果は足さない。終わりまで読んでいなければ終わりにせず、また近づいたときに読み直す" {
+        applyReadMore @(newMoreResult $script:tableA "down" 700 710) $null
         $script:tableA.LastLine() | Should -Be 550
         $script:tableA.BottomDone | Should -Be $false
 
-        applyReadMore @(newMoreResult $script:tableA "up" 300 310 $true) $null
+        applyReadMore @(newMoreResult $script:tableA "up" 300 310) $null
         $script:tableA.FirstLine() | Should -Be 450
         $script:tableA.TopDone | Should -Be $false
+    }
+
+    It "今の行につながらず、終わりまで読んだ結果は、その向きを終わりにする（同じ範囲を頼み直し続けない）" {
+        applyReadMore @(newMoreResult $script:tableA "down" 700 710 $true) $null
+        $script:tableA.LastLine() | Should -Be 550
+        $script:tableA.BottomDone | Should -Be $true
+
+        applyReadMore @(newMoreResult $script:tableA "up" 300 310 $true) $null
+        $script:tableA.FirstLine() | Should -Be 450
+        $script:tableA.TopDone | Should -Be $true
+    }
+
+    It "つながらず終わりまで読んだ向きは、続けてスクロールしても頼み直さない" {
+        $script:asked = 0
+        $fake.BeforeDone = { $script:asked++ }
+        $ui.PreviewScroll.VerticalOffset = 0.0   # 上の端にいる
+        applyReadMore @(newMoreResult $script:tableA "up" 300 310 $true) $null
+        $script:asked = 0
+        updatePreviewReadMore
+        updatePreviewReadMore
+        $script:asked | Should -Be 0
+
+        # 対照: 終わりにしていなければ、同じ位置で頼む
+        $script:tableA.TopDone = $false
+        updatePreviewReadMore
+        $script:asked | Should -BeGreaterThan 0
     }
 
     It "行が 1 つも無い結果は、その向きにもう行が無いことにする" {

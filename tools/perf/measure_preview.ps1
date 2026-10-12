@@ -159,6 +159,7 @@ try {
             $n++
             $path = [System.IO.Path]::Combine($hit.Root, $hit.RelPath)
             # -FullRead: 控えを捨て、毎回ファイルの全体を読む経路に入れる（初めて開くファイルの最初の読みに当たる）
+            # （contentIndexPlacesMemo は、前の版が場所の一覧を覚えていた変数。今の版には無いが、前の版を測るときに捨てるため残す）
             if ($FullRead) { $script:readFirstMarks = $null; $script:contentIndexPlacesMemo = $null }
             $callsBefore = $script:readTextCalls
             $watch = [System.Diagnostics.Stopwatch]::StartNew()
