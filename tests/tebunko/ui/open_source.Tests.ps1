@@ -768,7 +768,7 @@ Describe "openSource" -Tag Unit {
         It "PDF は、コピーを作って既定のアプリで開く（元のファイルは開かない）" {
             Mock getCurrentHitRow { newRow "仕様書.pdf" $false $true }
             Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\仕様書.pdf" }
-            Mock copySourceForOpen { "C:\work\tmp\key\open_copy\abc\仕様書.pdf" }
+            Mock copySourceForOpen { @{ Path = "C:\work\tmp\key\open_copy\abc\仕様書.pdf"; Reason = "" } }
 
             openSource ${openModeNew}
             Should -Invoke copySourceForOpen -Times 1 -Exactly -ParameterFilter { $sourcePath -eq "C:\data\仕様書.pdf" -and $book -eq "仕様書.pdf" -and $copyDir -eq "C:\work\tmp\key\open_copy" }
@@ -781,7 +781,7 @@ Describe "openSource" -Tag Unit {
         It "メモ帳で開くテキスト（.bat など）は、コピーをメモ帳で開く（既定のアプリでは開かない）" {
             Mock getCurrentHitRow { newRow "起動.bat" $false $true }
             Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\起動.bat" }
-            Mock copySourceForOpen { "C:\work\tmp\key\open_copy\abc\起動.bat" }
+            Mock copySourceForOpen { @{ Path = "C:\work\tmp\key\open_copy\abc\起動.bat"; Reason = "" } }
 
             openSource ${openModeNew}
             Should -Invoke openWithNotepad -Times 1 -Exactly -ParameterFilter { $path -eq "C:\work\tmp\key\open_copy\abc\起動.bat" }
@@ -789,28 +789,53 @@ Describe "openSource" -Tag Unit {
             lastStatus | Should -Be (getOpenCopyOpenedStatus "C:\data\起動.bat" "C:\work\tmp\key\open_copy\abc\起動.bat" "メモ帳")
         }
 
-        It "コピーを作れなければ、何も開かず、［開く］を使うよう伝える" {
+        It "コピーを作れなければ、何も開かず、理由（<reason>）に合わせて［開く］を使うよう伝える" -TestCases @(
+            @{ reason = "Place" }
+            @{ reason = "Failed" }
+        ) {
+            param ($reason)
             Mock getCurrentHitRow { newRow "仕様書.pdf" $false $true }
             Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\仕様書.pdf" }
-            Mock copySourceForOpen { "" }
+            Mock copySourceForOpen { @{ Path = ""; Reason = $reason } }
 
             openSource ${openModeNew}
             Should -Invoke openWithShell -Times 0 -Exactly
             Should -Invoke openWithNotepad -Times 0 -Exactly
-            lastStatus | Should -Be (getOpenCopyFailedStatus "C:\data\仕様書.pdf")
+            lastStatus | Should -Be (getOpenCopyFailedStatus "C:\data\仕様書.pdf" $reason)
         }
 
-        It "名前に [ ] を含むファイルは、コピーの仕事を始めず、理由をステータスで伝える" {
+        It "仕事そのものが失敗したときは、作るのに失敗した扱いにする" {
+            Mock getCurrentHitRow { newRow "仕様書.pdf" $false $true }
+            Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\仕様書.pdf" }
+            Mock copySourceForOpen { @{ Path = "x"; Reason = "" } }
+            Mock startJob { & $onDone @() "失敗" }
+
+            openSource ${openModeNew}
+            Should -Invoke openWithShell -Times 0 -Exactly
+            lastStatus | Should -Be (getOpenCopyFailedStatus "C:\data\仕様書.pdf" "Failed")
+        }
+
+        It "名前に [ ] を含むファイルも、そのままのパスでコピーを作って開く（断らない）" {
             Mock getCurrentHitRow { newRow "報告[1].pdf" $false $true }
             Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\報告[1].pdf" }
-            Mock copySourceForOpen { "x" }
+            Mock copySourceForOpen { @{ Path = "C:\work\tmp\key\open_copy\abc\報告[1]（コピー 20261012-1530）.pdf"; Reason = "" } }
+
+            openSource ${openModeNew}
+            Should -Invoke copySourceForOpen -Times 1 -Exactly -ParameterFilter { $sourcePath -eq "C:\data\報告[1].pdf" -and $book -eq "報告[1].pdf" }
+            Should -Invoke openWithShell -Times 1 -Exactly -ParameterFilter { $path -eq "C:\work\tmp\key\open_copy\abc\報告[1]（コピー 20261012-1530）.pdf" }
+        }
+
+        It "名前が長すぎるファイルは、コピーの仕事を始めず、理由をステータスで伝える" {
+            $long = ("あ" * 250) + ".pdf"
+            Mock getCurrentHitRow { newRow $long $false $true }
+            Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\$($row.Book)" }
+            Mock copySourceForOpen { @{ Path = "x"; Reason = "" } }
 
             openSource ${openModeNew}
             Should -Invoke copySourceForOpen -Times 0 -Exactly
             Should -Invoke startJob -Times 0 -Exactly
             Should -Invoke openWithShell -Times 0 -Exactly
-            lastStatus | Should -Be (getOpenCopyFailedStatus "C:\data\報告[1].pdf" "Bracket")
-            lastStatus | Should -BeLike "*[[] []]*"
+            lastStatus | Should -Be (getOpenCopyFailedStatus "C:\data\$long" "TooLong")
         }
 
         It "Word・PowerPoint・Excel は、コピーを作らない（動詞・Workbooks.Add のまま）" -TestCases @(

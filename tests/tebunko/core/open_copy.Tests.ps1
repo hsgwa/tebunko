@@ -24,12 +24,17 @@ BeforeAll {
     }
 
     function script:newJunction([string]$link, [string]$target) {
-        # ジャンクションを作る（指す先は、呼ぶ側が $TestDrive の下にする）。作れない環境では $false
+        # ジャンクションを作る（指す先は、呼ぶ側が $TestDrive の下にする）。
+        # 作れないとき、CI（GITHUB_ACTIONS がある）では例外の文を添えて失敗させる。手元では $false を返し、理由を $script:junctionError に残す（呼ぶ側が飛ばす）
         [System.IO.Directory]::CreateDirectory($target) | Out-Null
         try {
             New-Item -ItemType Junction -Path $link -Target $target -ErrorAction Stop | Out-Null
             return $true
         } catch {
+            $script:junctionError = $_.Exception.Message
+            if ($env:GITHUB_ACTIONS) {
+                throw "ジャンクションを作れませんでした（CI では飛ばさず失敗にする）：$($script:junctionError)"
+            }
             return $false
         }
     }
@@ -99,7 +104,7 @@ Describe "testOpenCopyDir（リンク）" -Tag Io {
             }
         }
         if (!$made) {
-            Set-ItResult -Skipped -Because "この環境ではジャンクションを作れない"
+            Set-ItResult -Skipped -Because "この環境ではジャンクションを作れない：$($script:junctionError)"
             return
         }
 
@@ -134,8 +139,8 @@ Describe "getOpenCopyBlocker" -Tag Unit {
     It "<name> は <expected>" -TestCases @(
         @{ name = "ふつうの名前"; book = "仕様書.pdf"; expected = "" }
         @{ name = "名前が空"; book = ""; expected = "NoName" }
-        @{ name = "[ を含む"; book = "報告[1].txt"; expected = "Bracket" }
-        @{ name = "] だけを含む"; book = "報告].txt"; expected = "Bracket" }
+        @{ name = "[ ] を含む（断らない）"; book = "報告[1].txt"; expected = "" }
+        @{ name = "] だけを含む（断らない）"; book = "報告].txt"; expected = "" }
         @{ name = "長すぎる"; book = ("あ" * 250 + ".txt"); expected = "TooLong" }
     ) {
         param ($name, $book, $expected)
@@ -155,8 +160,10 @@ Describe "copySourceForOpen" -Tag Io {
         $writeTime = $before.LastWriteTimeUtc
         $attributes = $before.Attributes
 
-        $path = copySourceForOpen "$TestDrive\copy1\議事メモ.txt" "議事メモ.txt" $copyDir (getTmpRoot "copy1") $script:when
+        $result = copySourceForOpen "$TestDrive\copy1\議事メモ.txt" "議事メモ.txt" $copyDir (getTmpRoot "copy1") $script:when
+        $path = $result.Path
 
+        $result.Reason | Should -Be ""
         $path | Should -BeLike "$copyDir\*\議事メモ（コピー 20261012-1530）.txt"
         [System.IO.File]::ReadAllText($path) | Should -Be "本文あり"
         $after = Get-Item -LiteralPath "$TestDrive\copy1\議事メモ.txt"
@@ -170,7 +177,7 @@ Describe "copySourceForOpen" -Tag Io {
         [System.IO.File]::WriteAllText("$TestDrive\copy1b\a.txt", "使用中")
         $stream = [System.IO.File]::Open("$TestDrive\copy1b\a.txt", [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::ReadWrite)
         try {
-            $path = copySourceForOpen "$TestDrive\copy1b\a.txt" "a.txt" $copyDir (getTmpRoot "copy1b")
+            $path = (copySourceForOpen "$TestDrive\copy1b\a.txt" "a.txt" $copyDir (getTmpRoot "copy1b")).Path
         } finally {
             $stream.Dispose()
         }
@@ -184,7 +191,7 @@ Describe "copySourceForOpen" -Tag Io {
         [System.IO.File]::WriteAllText("$TestDrive\copy2\a.txt", "x")
         [System.IO.File]::SetAttributes("$TestDrive\copy2\a.txt", [System.IO.FileAttributes]::ReadOnly)
 
-        $path = copySourceForOpen "$TestDrive\copy2\a.txt" "a.txt" $copyDir (getTmpRoot "copy2")
+        $path = (copySourceForOpen "$TestDrive\copy2\a.txt" "a.txt" $copyDir (getTmpRoot "copy2")).Path
 
         ([System.IO.File]::GetAttributes($path) -band [System.IO.FileAttributes]::ReadOnly) | Should -Be 0
         [System.IO.File]::SetAttributes("$TestDrive\copy2\a.txt", [System.IO.FileAttributes]::Normal)
@@ -194,20 +201,33 @@ Describe "copySourceForOpen" -Tag Io {
         $copyDir = newCopyDir "copy3"
         [System.IO.File]::WriteAllText("$TestDrive\copy3\a.txt", "x")
 
-        $first = copySourceForOpen "$TestDrive\copy3\a.txt" "a.txt" $copyDir (getTmpRoot "copy3")
-        $second = copySourceForOpen "$TestDrive\copy3\a.txt" "a.txt" $copyDir (getTmpRoot "copy3")
+        $first = (copySourceForOpen "$TestDrive\copy3\a.txt" "a.txt" $copyDir (getTmpRoot "copy3")).Path
+        $second = (copySourceForOpen "$TestDrive\copy3\a.txt" "a.txt" $copyDir (getTmpRoot "copy3")).Path
 
         $first | Should -Not -Be $second
         Test-Path -LiteralPath $first | Should -Be $true
         Test-Path -LiteralPath $second | Should -Be $true
     }
 
-    It "元のファイルが無ければ空文字を返す" {
+    It "元のファイルが無ければ、Path は空で Reason は Failed" {
         $copyDir = newCopyDir "copy4"
-        copySourceForOpen "$TestDrive\copy4\無い.txt" "無い.txt" $copyDir (getTmpRoot "copy4") | Should -Be ""
+        $result = copySourceForOpen "$TestDrive\copy4\無い.txt" "無い.txt" $copyDir (getTmpRoot "copy4")
+        $result.Path | Should -Be ""
+        $result.Reason | Should -Be "Failed"
     }
 
-    It "置き場所が open_copy でない・空・相対パスのときは、何も作らず空文字を返す（<name>）" -TestCases @(
+    It "名前に [ ] を含むファイルも、そのままの名前でコピーでき、中身が同じ" {
+        $copyDir = newCopyDir "copy4b"
+        [System.IO.File]::WriteAllText("$TestDrive\copy4b\報告[1].txt", "括弧あり")
+
+        $result = copySourceForOpen "$TestDrive\copy4b\報告[1].txt" "報告[1].txt" $copyDir (getTmpRoot "copy4b") $script:when
+
+        $result.Reason | Should -Be ""
+        $result.Path | Should -BeLike "$copyDir\*\報告[[]1[]]（コピー 20261012-1530）.txt"
+        [System.IO.File]::ReadAllText($result.Path) | Should -Be "括弧あり"
+    }
+
+    It "置き場所が open_copy でない・空のときは、何も作らず Reason Place を返す（<name>）" -TestCases @(
         @{ name = "別の名前"; sub = "copy5\other" }
         @{ name = "空"; sub = "" }
     ) {
@@ -216,16 +236,21 @@ Describe "copySourceForOpen" -Tag Io {
         [System.IO.File]::WriteAllText("$TestDrive\copy5\a.txt", "x")
         $dir = if ($sub) { "$TestDrive\$sub" } else { "" }
 
-        copySourceForOpen "$TestDrive\copy5\a.txt" "a.txt" $dir (getTmpRoot "copy5") | Should -Be ""
+        $result = copySourceForOpen "$TestDrive\copy5\a.txt" "a.txt" $dir (getTmpRoot "copy5")
+        $result.Path | Should -Be ""
+        $result.Reason | Should -Be "Place"
         Test-Path -LiteralPath "$TestDrive\copy5\other" | Should -Be $false
     }
 
-    It "名前が空・[ ] を含む・パスが長すぎるときは、コピーを作らず空文字を返す" {
+    It "名前が空・パスが長すぎるときは、コピーを作らず、理由（NoName・TooLong）を返す" {
         $copyDir = newCopyDir "copy6"
         [System.IO.File]::WriteAllText("$TestDrive\copy6\a.txt", "x")
-        copySourceForOpen "$TestDrive\copy6\a.txt" "" $copyDir (getTmpRoot "copy6") | Should -Be ""
-        copySourceForOpen "$TestDrive\copy6\a.txt" "報告[1].txt" $copyDir (getTmpRoot "copy6") | Should -Be ""
-        copySourceForOpen "$TestDrive\copy6\a.txt" ("あ" * 250 + ".txt") $copyDir (getTmpRoot "copy6") | Should -Be ""
+        $empty = copySourceForOpen "$TestDrive\copy6\a.txt" "" $copyDir (getTmpRoot "copy6")
+        $long = copySourceForOpen "$TestDrive\copy6\a.txt" ("あ" * 250 + ".txt") $copyDir (getTmpRoot "copy6")
+        $empty.Path | Should -Be ""
+        $empty.Reason | Should -Be "NoName"
+        $long.Path | Should -Be ""
+        $long.Reason | Should -Be "TooLong"
         @(Get-ChildItem -LiteralPath $copyDir -Force).Count | Should -Be 0
     }
 }
@@ -287,6 +312,20 @@ Describe "clearOldOpenCopies" -Tag Io {
 
         Test-Path -LiteralPath "$old\a.txt" | Should -Be $true
         Test-Path -LiteralPath $other | Should -Be $false
+    }
+
+    It "消す直前に置き場所の確かめが偽になったら、何も消さずに止める" {
+        $copyDir = newCopyDir "clear3b"
+        $old = newOldCopy $copyDir "old1" "a.txt" $script:now.AddDays(-2)
+        $other = newOldCopy $copyDir "old2" "b.txt" $script:now.AddDays(-2)
+        $script:placeChecks = 0
+        Mock testOpenCopyDir { $script:placeChecks++; return ($script:placeChecks -le 1) }
+
+        clearOldOpenCopies $copyDir (getTmpRoot "clear3b") $script:now | Should -Be 0
+
+        $script:placeChecks | Should -Be 2
+        Test-Path -LiteralPath "$old\a.txt" | Should -Be $true
+        Test-Path -LiteralPath "$other\b.txt" | Should -Be $true
     }
 
     It "フォルダが無ければ何もしない" {
@@ -371,7 +410,7 @@ Describe "clearOldOpenCopies" -Tag Io {
             }
         }
         if (!$made) {
-            Set-ItResult -Skipped -Because "この環境ではジャンクションを作れない"
+            Set-ItResult -Skipped -Because "この環境ではジャンクションを作れない：$($script:junctionError)"
             return
         }
 

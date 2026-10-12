@@ -232,9 +232,10 @@ Describe "getOpenCopyFailedStatus" -Tag Unit {
         getOpenCopyFailedStatus "C:\data\仕様書.pdf" | Should -Be "新規で開くためのコピーを作れませんでした。元のファイルを開くには［開く］を使ってください：C:\data\仕様書.pdf"
     }
 
-    It "断りの理由（<blocker>）があれば、理由を添える" -TestCases @(
-        @{ blocker = "Bracket"; reason = "ファイル名に [ ] を含むためです。" }
+    It "理由（<blocker>）があれば、理由を添える" -TestCases @(
         @{ blocker = "TooLong"; reason = "ファイル名かフォルダが長すぎるためです。" }
+        @{ blocker = "Place"; reason = "コピーの置き場所を確かめられなかったためです。" }
+        @{ blocker = "Failed"; reason = "コピーを書き込めなかったためです。" }
     ) {
         param ($blocker, $reason)
         getOpenCopyFailedStatus "C:\data\a.pdf" $blocker | Should -Be "新規で開くためのコピーを作れませんでした。${reason}元のファイルを開くには［開く］を使ってください：C:\data\a.pdf"

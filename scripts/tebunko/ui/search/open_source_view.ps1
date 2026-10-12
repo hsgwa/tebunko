@@ -252,15 +252,16 @@ function getOpenNewMethod {
 }
 
 function getOpenCopyFailedStatus {
-    # 開くためのコピーを作れなかったときのステータス。blocker は getOpenCopyBlocker の結果（空なら、書き込めないなど）
+    # 開くためのコピーを作れなかったときのステータス。blocker は copySourceForOpen の Reason（空なら、理由を添えない）
     param (
         [string]$path,
         [string]$blocker = ""
     )
 
     $reason = switch ($blocker) {
-        "Bracket" { "ファイル名に [ ] を含むためです。" }
         "TooLong" { "ファイル名かフォルダが長すぎるためです。" }
+        "Place"   { "コピーの置き場所を確かめられなかったためです。" }
+        "Failed"  { "コピーを書き込めなかったためです。" }
         default   { "" }
     }
     return "新規で開くためのコピーを作れませんでした。${reason}元のファイルを開くには［開く］を使ってください：${path}"

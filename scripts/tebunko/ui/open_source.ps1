@@ -610,15 +610,17 @@ function openSource {
 function finishOpenCopy {
     # 裏の仕事で作った、新規で開くためのコピーを開く（openFoundSource の続き。画面のスレッドで動く）
     #   copyPath: コピーのパス（作れなかったときは空）
+    #   reason: 作れなかった理由（copySourceForOpen の Reason）
     param (
         [string]$path,
         [bool]$isText,
-        [string]$copyPath
+        [string]$copyPath,
+        [string]$reason = ""
     )
 
     $window.Cursor = $null
     if (!$copyPath) {
-        setStatus (getOpenCopyFailedStatus $path)
+        setStatus (getOpenCopyFailedStatus $path $reason)
         return
     }
     if ($isText -and (testTextOpenWithNotepad $copyPath)) {
@@ -666,7 +668,7 @@ function openFoundSource {
         $copyDir = [string](getOpenCopyDir $workspace)
         $tmpRoot = [string]$workspace.TmpRoot
         $isText = [bool]$row.IsText
-        # 名前だけで分かる断りは、コピーの仕事を始める前にステータスで知らせる（[ ] を含む・長すぎる）
+        # 名前だけで分かる断りは、コピーの仕事を始める前にステータスで知らせる（長すぎる）
         $blocker = getOpenCopyBlocker $row.Book $copyDir
         if ($blocker) {
             setStatus (getOpenCopyFailedStatus $path $blocker)
@@ -681,8 +683,9 @@ function openFoundSource {
             copySourceForOpen $sourcePath $book $copyDir $tmpRoot
         } @($path, $row.Book, $copyDir, $tmpRoot) {
             param ($output, $errorText)
-            & $finish $path $isText $(if ($errorText) { "" } else { [string]$output[0] })
-        }.GetNewClosure() (getWorkspaceJobQueue @((Split-Path -Path $path -Parent), $copyDir))
+            $copied = if ($errorText) { @{ Path = ""; Reason = "Failed" } } else { $output[0] }
+            & $finish $path $isText ([string]$copied.Path) ([string]$copied.Reason)
+        }.GetNewClosure() (getWorkspaceJobQueue @([System.IO.Path]::GetDirectoryName($path), $copyDir))
     } elseif ($row.IsExcel) {
         setStatus "Excel で開いています：${path}"
         $window.Cursor = [System.Windows.Input.Cursors]::Wait

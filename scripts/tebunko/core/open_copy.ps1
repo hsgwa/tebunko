@@ -95,8 +95,8 @@ function getOpenCopyName {
 function getOpenCopyBlocker {
     # コピーを作らずに断る理由（ファイルには触らない）。作れるなら空文字。
     #   NoName  … 名前が空
-    #   Bracket … 名前に [ ] を含む（ワイルドカードとして扱われ、開く先を取り違えることがあるため）
     #   TooLong … コピーのパスが長すぎる（260 文字の制限）
+    # 名前に [ ] を含んでも断らない（コピーも開くのも、パスをそのまま（リテラルで）扱う）
     param (
         [string]$book,
         [string]$copyDir,
@@ -107,9 +107,6 @@ function getOpenCopyBlocker {
     if (!$name) {
         return "NoName"
     }
-    if ($name.IndexOfAny([char[]]@([char]91, [char]93)) -ge 0) {
-        return "Bracket"
-    }
     # <copyDir>\<12 桁>\<名前>
     if ($copyDir.TrimEnd([char]92).Length + 1 + 12 + 1 + $name.Length -ge 259) {
         return "TooLong"
@@ -118,7 +115,9 @@ function getOpenCopyBlocker {
 }
 
 function copySourceForOpen {
-    # 元のファイルのコピーを copyDir の下に作り、そのパスを返す。作れなければ空文字を返す（元のファイルは変えない）。
+    # 元のファイルのコピーを copyDir の下に作る（元のファイルは変えない）。@{ Path; Reason } を返す。
+    #   作れたとき: Path = コピーのパス、Reason = ""
+    #   作れなかったとき: Path = ""、Reason = Place（置き場所の確かめで断った）・NoName／TooLong（getOpenCopyBlocker の結果）・Failed（作る・書くのに失敗した）
     # 同じ名前のコピーが重ならないよう、1 回ごとに別のフォルダ（copyDir\<12 桁の文字>）に置く。名前は getOpenCopyName。
     param (
         [string]$sourcePath,
@@ -129,10 +128,11 @@ function copySourceForOpen {
     )
 
     if (!(testOpenCopyDir $copyDir $tmpRoot)) {
-        return ""
+        return @{ Path = ""; Reason = "Place" }
     }
-    if (getOpenCopyBlocker $book $copyDir $now) {
-        return ""
+    $blocker = getOpenCopyBlocker $book $copyDir $now
+    if ($blocker) {
+        return @{ Path = ""; Reason = $blocker }
     }
     $name = getOpenCopyName $book $now
     $dir = Join-Path $copyDir ([guid]::NewGuid().ToString("N").Substring(0, 12))
@@ -141,9 +141,9 @@ function copySourceForOpen {
         [System.IO.Directory]::CreateDirectory((toLongPath $dir)) | Out-Null
         copyFileShared $sourcePath $destPath
     } catch {
-        return ""
+        return @{ Path = ""; Reason = "Failed" }
     }
-    return $destPath
+    return @{ Path = $destPath; Reason = "" }
 }
 
 function getOpenCopyLatestTime {
@@ -168,7 +168,7 @@ function getOpenCopyLatestTime {
 function clearOldOpenCopies {
     # copyDir の下の、最後に使ってから keepDays 日より古いコピー（1 つ下のフォルダごと）を消し、消したフォルダの数を返す。
     # 最後に使った日時は getOpenCopyLatestTime。現在より先の日時（時計のずれ）は新しい扱いになり、消さずに残る（消さない側に倒す）。
-    # 消すのは open_copy の 1 つ下のフォルダの中のファイルだけ（testOpenCopyDir が偽なら何もしない）。
+    # 消すのは open_copy の 1 つ下のフォルダの中のファイルだけ（testOpenCopyDir が偽なら何もしない。フォルダごとに消す直前にも確かめ、偽になっていればそこで止める）。
     # リンク（ジャンクション・シンボリックリンク）は辿らず、使用中で消せないコピーは残す。再帰の削除は使わない
     param (
         [string]$copyDir,
@@ -189,6 +189,10 @@ function clearOldOpenCopies {
         }
         if (!$old.FullName.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase) -or (getOpenCopyLatestTime $old) -ge $limit) {
             continue
+        }
+        # 確かめてから消すまでの間に置き場所がリンクに替わっていないか、フォルダごとに消す直前にもう一度確かめる
+        if (!(testOpenCopyDir $copyDir $tmpRoot)) {
+            break
         }
         foreach ($copy in @(Get-ChildItem -LiteralPath $old.FullName -File -Force)) {
             if ($copy.Attributes -band [System.IO.FileAttributes]::ReparsePoint) {
