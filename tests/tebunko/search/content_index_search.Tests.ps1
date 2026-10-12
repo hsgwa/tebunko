@@ -779,6 +779,10 @@ Describe "readContentIndexContext" -Tag Io {
         $files = findContentIndexFiles $folder
         $cache = newTsvTextCache
         [void](searchContentIndex "行" $files $true -cache $cache)
+        # 期待値は、検索のキャッシュを通る経路（ファイルを読まない）で作る
+        $cache.Texts.ContainsKey((toLongPath $bigPath)) | Should -Be $true
+        $originalReadText = Get-Command readContentIndexText -CommandType Function
+        Mock readContentIndexText { & $originalReadText @args }
         $cases = @(
             @("長い.docx", "P2", 1, 3, 3), @("長い.docx", "P2", 15000, 3, 3), @("長い.docx", "P2", 30000, 3, 5),
             @("長い.docx", "P1", 2, 3, 3), @("長い.docx", "P3", 2, 1, 9), @("前.docx", "P1", 1, 0, 0), @("無い.docx", "P1", 1, 3, 3)
@@ -791,6 +795,79 @@ Describe "readContentIndexContext" -Tag Io {
             }
         }
         formatContext (readContentIndexContext $bigPath "長い.docx" "P2" 29999 1 5) | Should -Be "29998:行29998,29999:行29999,30000:行30000"
+        # ファイルの全体を読むのは、場所の一覧が無い 1 回目だけ（2 回目以降と、無い場所の問い合わせでは読まない）
+        Should -Invoke readContentIndexText -Times 1 -Exactly -Scope It
+    }
+
+    Context "範囲だけを読む経路（場所の一覧を覚えたあと）" {
+        BeforeAll {
+            # 1 つの It ごとに別のファイルを作り、場所の一覧を覚えさせる（本の名前は E.csv）
+            function newContextFile {
+                param ([string]$tag)
+                $dir = "$folder\range_$tag"
+                [void][System.IO.Directory]::CreateDirectory($dir)
+                $file = "$dir\content_index.csv.001.tsv"
+                writeContentIndexFile $file (convertToContentIndexText @(@{ Name = "E.csv"; Places = @(@{ Place = "本文"; Text = "1`r`n2`r`n3`r`n4`r`n5`r`n6`r`n" }) }))
+                [void](readContentIndexContext $file "E.csv" "本文" 3 1 1)
+                return $file
+            }
+        }
+
+        It "<Name>" -ForEach @(
+            @{ Name = "BOM が無く範囲を読めないときは、全体を読んで同じ行を返す"; Expected = "2:2,3:3,4:4"; Scenario = "nobom" }
+            @{ Name = "開けない（IOException）ときは空"; Expected = ""; Scenario = "io" }
+            @{ Name = "アクセスできない（UnauthorizedAccessException）ときは空"; Expected = ""; Scenario = "denied" }
+            @{ Name = "覚えたあとにファイルが無くなったら空"; Expected = ""; Scenario = "moved" }
+            @{ Name = "読んでいる間にファイルが置き換わったら、古い位置の行を返さずに新しい内容を読み直す"; Expected = "2:n2,3:n3,4:n4"; Scenario = "replaced" }
+        ) {
+            $file = newContextFile $Scenario
+            $book = "E.csv"
+            $originalRange = Get-Command readContentIndexRange -CommandType Function
+            switch ($Scenario) {
+                "nobom" { Mock readContentIndexRange { $null } }
+                "io" { Mock readContentIndexRange { throw [System.IO.IOException]::new("使用中") } }
+                "denied" { Mock readContentIndexRange { throw [System.UnauthorizedAccessException]::new("拒否") } }
+                "moved" { [System.IO.File]::Move($file, "$file.moved") }
+                "replaced" {
+                    $replacedFile = $file
+                    Mock readContentIndexRange {
+                        writeContentIndexFile $replacedFile (convertToContentIndexText @(@{ Name = $book; Places = @(@{ Place = "本文"; Text = "n1`r`nn2`r`nn3`r`nn4`r`nn5`r`n" }) }))
+                        [System.IO.File]::SetLastWriteTimeUtc($replacedFile, [DateTime]::UtcNow.AddDays(1))
+                        & $originalRange @args
+                    }
+                }
+            }
+            formatContext @(readContentIndexContext $file $book "本文" 3 1 1) | Should -Be $Expected
+        }
+
+        It "BOM の無いファイルは readContentIndexRange が `$null を返す" {
+            $noBom = "$TestDrive\nobom.tsv"
+            [System.IO.File]::WriteAllBytes($noBom, [System.Text.Encoding]::Unicode.GetBytes("1`r`n2`r`n"))
+            readContentIndexRange $noBom 0 4 1 2 | Should -BeNullOrEmpty
+        }
+
+        It "範囲だけ読んでも、読み飛ばした行の数え方がずれない（1 行目・途中・最後・場所の外）" -ForEach @(
+            @{ First = 1; Last = 2; Expected = "1:1,2:2" }
+            @{ First = 3; Last = 5; Expected = "3:3,4:4,5:5" }
+            @{ First = 6; Last = 9; Expected = "6:6" }
+            @{ First = 7; Last = 9; Expected = "" }
+        ) {
+            $file = newContextFile "n$First$Last"
+            $rows = readContentIndexContext $file "E.csv" "本文" $First 0 ($Last - $First)
+            formatContext @($rows) | Should -Be $Expected
+        }
+
+        It "テキストの前後の行は、範囲だけ読んだときも先頭から 1,000 文字に切る" {
+            $textPath = "$folder\content_index.log.002.tsv"
+            $longLine = "y" * 2000
+            writeContentIndexFile $textPath (convertToContentIndexText @(@{ Name = "長い2.log"; Places = @(@{ Place = "本文"; Text = "短い`r`n${longLine}`r`n短い2`r`n" }) }))
+            [void](readContentIndexContext $textPath "長い2.log" "本文" 1 0 0)
+            $rows = readContentIndexContext $textPath "長い2.log" "本文" 2 1 1
+            $rows[0].Line | Should -Be "短い"
+            $rows[1].Line.Length | Should -Be 1001
+            $rows[1].Line.EndsWith("…") | Should -Be $true
+            $rows[2].Line | Should -Be "短い2"
+        }
     }
 
     It "ファイルが書き換わったら、使い回した場所の一覧を使わない" {

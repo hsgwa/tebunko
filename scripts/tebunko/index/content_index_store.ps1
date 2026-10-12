@@ -39,12 +39,14 @@ function readContentIndexText {
 
 
 function readContentIndexRange {
-    # 本文インデックスのファイル（UTF-16LE・BOM 付き）の、文字の位置 start（含む）から end（含まない）までのうち、先頭から lines 個目の改行までを文字列で返す。
+    # 本文インデックスのファイル（UTF-16LE・BOM 付き）の、文字の位置 start（含む）から end（含まない）までを start から数えて、
+    # firstLine 行目の先頭（firstLine が 1 以下なら start）から lines 個目の改行までを文字列で返す（それより前の行は持たない）。
     # BOM が無い（UTF-16LE でない）ときは $null（呼び出し側が全体を読む）
     param (
         [string]$path,
         [int]$start,
         [int]$end,
+        [int]$firstLine,
         [int]$lines
     )
 
@@ -59,17 +61,22 @@ function readContentIndexRange {
         $buffer = New-Object char[] 65536
         $remaining = $end - $start
         $newlines = 0
+        $skip = [Math]::Max(0, $firstLine - 1)
+        $started = ($skip -eq 0)
         while ($remaining -gt 0 -and $newlines -lt $lines) {
             $got = $reader.Read($buffer, 0, [Math]::Min($buffer.Length, $remaining))
             if ($got -le 0) { break }
+            $keepFrom = if ($started) { 0 } else { -1 }
             $from = 0
             while ($from -lt $got) {
                 $found = [Array]::IndexOf($buffer, [char]10, $from, $got - $from)
                 if ($found -lt 0) { break }
                 $newlines++
                 $from = $found + 1
+                if (!$started -and $newlines -eq $skip) { $started = $true; $keepFrom = $from }
             }
-            [void]$builder.Append($buffer, 0, $got)
+            # 読み飛ばす行のチャンクは捨てる（行数だけ数える）
+            if ($keepFrom -ge 0 -and $keepFrom -lt $got) { [void]$builder.Append($buffer, $keepFrom, $got - $keepFrom) }
             $remaining -= $got
         }
         return $builder.ToString()
@@ -368,21 +375,29 @@ function readContentIndexContext {
             $places = $entry[3]
         }
     }
-    $offset = 0
+    $isRange = $false
     try {
         if ($null -eq $text) {
             # キャッシュに無いときは、ファイルの全体を文字列にしない。場所の一覧は 1 つ前に読んだファイルのものを使い回し、
-            # 目当ての場所の先頭から必要な行までだけを読む（↑↓で同じファイルの行を移るたびに、全体を読み直さない）
+            # 目当ての場所の $first 行目から必要な行までだけを読む（↑↓で同じファイルの行を移るたびに、全体を読み直さない）
             $info = [System.IO.FileInfo]::new($longPath)
             if (!$info.Exists) { return @() }
             $memo = $script:contentIndexPlacesMemo
             if ($null -ne $memo -and $memo.Path -eq $longPath -and $memo.Ticks -eq $info.LastWriteTimeUtc.Ticks -and $memo.Size -eq $info.Length) {
                 $places = $memo.Places
+                $found = $false
                 foreach ($place in $places) {
                     if ($place.Book -ne $book -or $place.Location -ne $location) { continue }
-                    $text = readContentIndexRange $path $place.Start $place.End $last
-                    if ($null -ne $text) { $offset = $place.Start }
+                    $found = $true
+                    $text = readContentIndexRange $path $place.Start $place.End $first $last
                     break
+                }
+                # 一覧が今のファイルのものなら、無い場所はファイルを読まずに空
+                if (!$found) { return @() }
+                if ($null -ne $text) {
+                    # 読んでいる間にファイルが置き換わっていたら、古い位置で読んだ行は使わず、全体を読み直す
+                    $again = [System.IO.FileInfo]::new($longPath)
+                    if ($again.Exists -and $again.LastWriteTimeUtc.Ticks -eq $info.LastWriteTimeUtc.Ticks -and $again.Length -eq $info.Length) { $isRange = $true } else { $text = $null }
                 }
             }
             if ($null -eq $text) {
@@ -399,9 +414,10 @@ function readContentIndexContext {
     $isTextBook = (getContentIndexFileKind $book) -eq "テキスト"
     foreach ($place in $places) {
         if ($place.Book -ne $book -or $place.Location -ne $location) { continue }
-        $number = 0
-        $placeEnd = [Math]::Min($place.End - $offset, $text.Length)
-        $pos = $place.Start - $offset
+        # 範囲だけ読んだときは、text の先頭が $first 行目の先頭
+        $number = if ($isRange) { $first - 1 } else { 0 }
+        $placeEnd = if ($isRange) { $text.Length } else { [Math]::Min($place.End, $text.Length) }
+        $pos = if ($isRange) { 0 } else { $place.Start }
         while ($pos -lt $placeEnd) {
             $n = $text.IndexOf([char]10, $pos, $placeEnd - $pos)
             if ($n -lt 0) { $n = $placeEnd }
