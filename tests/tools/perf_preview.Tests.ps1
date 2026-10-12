@@ -6,16 +6,16 @@
 #
 #   .\tests\run.ps1 -Tag Slow -ExcludeTag Manual -Path tests\tools\perf_preview.Tests.ps1
 #
-# 上限は、ランナー（GitHub の windows-latest。4 コア）で perf-check.yml と同じ構成で 5 回測った値の最大に余裕を掛けて決める。
-# 決め方と変え方は docs\design\testing\perf-check.md。いまの上限は暫定（Actions で測った値で決め直す）。
+# 上限は、ランナー（GitHub の windows-latest。4 コア）で perf-check.yml と同じ構成で 2 回測った値の最大に余裕を掛けて決める。
+# 決め方と変え方は docs\design\testing\perf-check.md。
 #   語ごとの上限（キャッシュ無しの読み込みの中央値。ms）は scale 0.1・種 1 のときの値
 #   残るメモリの上限（プレビューのあと、GC のあとにマネージドヒープに残る増えの合計。MB）
 BeforeAll {
     . "$PSScriptRoot\..\..\tools\perf\perf_common.ps1"
 
     $script:previewCount = 20
-    $script:readLimitsMs = @{ "まれ" = 500; "大量" = 500; "正規表現" = 500; "大きい本文" = 500 }
-    $script:retainedLimitMB = 10.0
+    $script:readLimitsMs = @{ "まれ" = 70; "大量" = 10; "正規表現" = 10; "大きい本文" = 10 }
+    $script:retainedLimitMB = 12.4
 }
 
 Describe "選択行のプレビューの速さとメモリ" -Tag Slow {
