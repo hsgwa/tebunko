@@ -7,15 +7,15 @@
 #   .\tests\run.ps1 -Tag Slow -ExcludeTag Manual -Path tests\tools\perf_preview.Tests.ps1
 #
 # 上限は、ランナー（GitHub の windows-latest。4 コア）で perf-check.yml と同じ構成で 5 回測った値の最大に余裕を掛けて決める。
-# 読み込みは 1.5 倍を 10 ms 単位、1 回あたりに残るメモリは 2 倍を 0.1 MB 単位で切り上げる。決め方と変え方は docs\design\testing\perf-check.md。
+# 決め方と変え方は docs\design\testing\perf-check.md。いまの上限は暫定（Actions で測った値で決め直す）。
 #   語ごとの上限（キャッシュ無しの読み込みの中央値。ms）は scale 0.1・種 1 のときの値
-#   1 回あたりに残るメモリの上限（GC のあとにマネージドヒープに残る増え。MB）
+#   残るメモリの上限（プレビューのあと、GC のあとにマネージドヒープに残る増えの合計。MB）
 BeforeAll {
     . "$PSScriptRoot\..\..\tools\perf\perf_common.ps1"
 
     $script:previewCount = 20
-    $script:readLimitsMs = @{ "まれ" = 500; "大量" = 500; "正規表現" = 500 }
-    $script:retainedPerPreviewLimitMB = 5.0
+    $script:readLimitsMs = @{ "まれ" = 500; "大量" = 500; "正規表現" = 500; "大きい本文" = 500 }
+    $script:retainedLimitMB = 10.0
 }
 
 Describe "選択行のプレビューの速さとメモリ" -Tag Slow {
@@ -50,11 +50,32 @@ Describe "選択行のプレビューの速さとメモリ" -Tag Slow {
         $work = Join-Path $TestDrive "work"
         # 結果は毎回、同じ名前のファイルを上書きして書く
         $out = Join-Path $repo "work\test\perf-preview"
-        $words = Join-Path $perfdata "words.tsv"
 
         & (Join-Path $perfdata "tools\new_index.ps1") -Dest $index -Scale 0.1 | Out-Host
         if ($LASTEXITCODE) { throw "テスト用のデータを作れませんでした（終了コード $LASTEXITCODE）。" }
-        & (Join-Path $repo "tools\measure_perf.ps1") -Index $index -Work $work -Words $words -Count 1 -Preview $previewCount -Label "tebunko-perfdata $commit" -Out $out | Out-Host
+
+        # 大きな本文インデックスのファイルを 1 つ足す（perfdata の語は大きなファイルに当たらないので、プレビューが大きなファイルを読む場面を作る）。
+        # 架空の文で作り、ヒットは先頭の近くと終わりの近くに 10 行ずつ置く。置き場所はこのテストの作業用の場所（$TestDrive）だけ。
+        $bigWord = "大きな本文語"
+        $bigLines = 100000
+        $bigBuilder = New-Object System.Text.StringBuilder
+        for ($lineNo = 1; $lineNo -le $bigLines; $lineNo++) {
+            $isHit = ($lineNo -ge 10 -and $lineNo -le 100 -and $lineNo % 10 -eq 0) -or ($lineNo -ge 99910 -and $lineNo -le 99999 -and $lineNo % 10 -eq 0)
+            $note = if ($isHit) { $bigWord } else { "架空説明" }
+            # perfdata の語（見積書・「の」・5 桁の数字で始まる列）に当たらない文にする
+            [void]$bigBuilder.Append("$lineNo`t行$lineNo`t$note 下書き 確認 覚え書き 日程 調整 備品 発注 会議室 予約 資料 保管場所`r`n")
+        }
+        $bigPath = Join-Path $index "プレビュー用\大きい本文.xlsx\シート1.tsv"
+        [void][System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($bigPath))
+        [System.IO.File]::WriteAllText($bigPath, $bigBuilder.ToString(), (New-Object System.Text.UTF8Encoding($true)))
+        $bigBuilder = $null
+
+        # 語の表は perfdata のものに、大きなファイルに当たる語を足す
+        $words = Join-Path $TestDrive "words.tsv"
+        $wordLines = [System.IO.File]::ReadAllLines((Join-Path $perfdata "words.tsv"), [System.Text.Encoding]::UTF8) + "大きい本文`t$bigWord`tfalse`t20"
+        [System.IO.File]::WriteAllText($words, (($wordLines -join "`r`n") + "`r`n"), (New-Object System.Text.UTF8Encoding($true)))
+
+        & (Join-Path $repo "tools\measure_perf.ps1") -Index $index -Work $work -Words $words -Count 1 -Preview $previewCount -PreviewFullRead -Label "tebunko-perfdata $commit" -Out $out | Out-Host
         if ($LASTEXITCODE) { throw "measure_perf.ps1 が失敗しました（終了コード $LASTEXITCODE）。" }
 
         $result = [System.IO.File]::ReadAllText((Join-Path $out "result.json"), [System.Text.Encoding]::UTF8) | ConvertFrom-Json
@@ -67,9 +88,23 @@ Describe "選択行のプレビューの速さとメモリ" -Tag Slow {
             $searched = @($result.Search | Where-Object { $_.Name -eq $name }) | Select-Object -First 1
             if ($null -eq $entry -or $null -eq $searched) { $problems.Add("プレビュー ${name}: 結果がありません"); continue }
             $expectedCount = [Math]::Min($previewCount, [int]$searched.Hits)
-            foreach ($message in @(getPreviewPerfMessages $name $entry $readLimitsMs[$name] $retainedPerPreviewLimitMB $expectedCount)) { $problems.Add($message) }
+            foreach ($message in @(getPreviewPerfMessages $name $entry $readLimitsMs[$name] $retainedLimitMB $expectedCount)) { $problems.Add($message) }
         }
         ($problems -join "`n") | Should -BeNullOrEmpty
+    }
+
+    It "前の読み方（毎回全部読む）の測定が、語ごとに入っている（値は出すだけで、上限と比べない）" {
+        foreach ($name in @($readLimitsMs.Keys | Sort-Object)) {
+            $entry = @($result.Preview.Words | Where-Object { $_.Name -eq $name }) | Select-Object -First 1
+            $entry.FullRead | Should -Not -BeNullOrEmpty -Because "語 $name の FullRead"
+            $entry.FullRead.ReadTextCallsUncached | Should -BeGreaterOrEqual ([Math]::Min($previewCount, [int]$entry.Count)) -Because "語 $name は全部読む経路を通ったはず"
+        }
+    }
+
+    It "大きな本文インデックスのファイルが、プレビューの対象に入っている" {
+        $entry = @($result.Preview.Words | Where-Object { $_.Name -eq "大きい本文" }) | Select-Object -First 1
+        [double]$entry.FileMBMax | Should -BeGreaterThan 5
+        [int]$entry.Count | Should -Be 20
     }
 
     It "ヒットの無い語は、プレビューを測らずに飛ばす" {

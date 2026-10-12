@@ -428,6 +428,8 @@ function newPreviewResult {
     #   RetainedManagedMB … プレビューの前後で、GC のあとに残ったマネージドヒープの増え（プレビューが何かを持ち続けていないかを見る）
     #   RetainedPerPreviewMB … 上をプレビューの回数で割った 1 回あたり
     #   CacheDropMB … 検索のキャッシュを捨てて GC したあとの、ワーキングセットの減り（キャッシュの常駐の大きさ）
+    #   ReadTextCallsUncached … キャッシュ無しのプレビューで readContentIndexText が呼ばれた回数の合計（ファイルの全体を読んだ回数）
+    #   FullRead … 前の読み方（毎回ファイルの全体を読む）で測った同じ形の結果。測っていなければ $null（呼ぶ側が入れる）
     param (
         $raw
     )
@@ -444,6 +446,8 @@ function newPreviewResult {
         BuildMs = (getStats ([double[]]@($rows | ForEach-Object { $_.BuildMs })))
         Cells = (getStats ([double[]]@($rows | ForEach-Object { $_.Cells })))
         FileMBMax = $(if ($rows.Count) { ($rows | Measure-Object FileMB -Maximum).Maximum } else { $null })
+        ReadTextCallsUncached = [int](($uncached | Measure-Object -Property ReadTextCalls -Sum).Sum)
+        FullRead = $null
         RetainedManagedMB = $retained
         RetainedPerPreviewMB = $(if ($rows.Count) { [Math]::Round($retained / $rows.Count, 3) } else { $null })
         WorkingSetAfterSearchMB = $mem.AfterSearchWorkingSetMB; WorkingSetAfterPreviewMB = $mem.AfterPreviewWorkingSetMB
@@ -456,16 +460,28 @@ function newPreviewResult {
     return $entry
 }
 
+function getFullReadPathProblems {
+    # -FullRead で測ったプレビューの記録（measure_preview.ps1 の Previews）が、本当に全部読む経路を通ったかを確かめる。
+    # キャッシュ無しの選択で readContentIndexText が 1 回も呼ばれていないものがあれば、その番号を文字列で返す（無ければ何も返さない。呼ぶ側は @() で受ける）。
+    param (
+        $rows
+    )
+
+    foreach ($row in @($rows | Where-Object { $_.Cache -eq "無し" })) {
+        if ([int]$row.ReadTextCalls -lt 1) { "N=$($row.N) で readContentIndexText が呼ばれていません" }
+    }
+}
+
 function getPreviewPerfProblems {
     # プレビューの回帰テストの判定。合わないものの一覧（文字列の配列）を返す。空なら合格。
     #   preview      : result.json の Preview の 1 語分（newPreviewResult の結果。無ければ $null）
     #   readLimitMs  : キャッシュ無しの読み込みの中央値の上限（ms）
-    #   retainedPerPreviewLimitMB : プレビュー 1 回あたりに GC のあとも残るマネージドヒープの増えの上限（MB）
+    #   retainedLimitMB : プレビューのあと、GC のあとも残るマネージドヒープの増えの合計の上限（MB。1 回あたりではなく合計で持つ）
     #   expectedCount: 測ったプレビューの数（キャッシュの有無ごと）
     param (
         $preview,
         [double]$readLimitMs,
-        [double]$retainedPerPreviewLimitMB,
+        [double]$retainedLimitMB,
         [int]$expectedCount
     )
 
@@ -483,10 +499,10 @@ function getPreviewPerfProblems {
     if ($null -eq $preview.Cells -or [double]$preview.Cells.Min -le 0) {
         $problems.Add("セルを作らなかったプレビューがあります")
     }
-    if ($null -eq $preview.RetainedPerPreviewMB) {
+    if ($null -eq $preview.RetainedManagedMB) {
         $problems.Add("残ったメモリの増えがありません")
-    } elseif ([double]$preview.RetainedPerPreviewMB -gt $retainedPerPreviewLimitMB) {
-        $problems.Add([string]::Format([CultureInfo]::InvariantCulture, "プレビュー 1 回あたりに残るメモリ: {0:N3} MB（上限 {1:N3} MB）", [double]$preview.RetainedPerPreviewMB, $retainedPerPreviewLimitMB))
+    } elseif ([double]$preview.RetainedManagedMB -gt $retainedLimitMB) {
+        $problems.Add([string]::Format([CultureInfo]::InvariantCulture, "プレビューのあとに残るメモリ（合計）: {0:N1} MB（上限 {1:N1} MB）", [double]$preview.RetainedManagedMB, $retainedLimitMB))
     }
     return , $problems.ToArray()
 }
@@ -498,11 +514,11 @@ function getPreviewPerfMessages {
         [string]$name,
         $preview,
         [double]$readLimitMs,
-        [double]$retainedPerPreviewLimitMB,
+        [double]$retainedLimitMB,
         [int]$expectedCount
     )
 
-    $problems = getPreviewPerfProblems $preview $readLimitMs $retainedPerPreviewLimitMB $expectedCount
+    $problems = getPreviewPerfProblems $preview $readLimitMs $retainedLimitMB $expectedCount
     foreach ($problem in $problems) { "プレビュー ${name}: $problem" }
 }
 

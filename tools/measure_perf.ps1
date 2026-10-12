@@ -19,6 +19,7 @@
 #   -TypingFast … 入力しながらの検索で高速検索（Windows Search）を使う。-Index を <Work>\content_index にしておくこと
 #   -Preview  … 選択行のプレビューを測る、語ごとのプレビューの数（既定 0 は測らない）。検索のヒットの先頭から順に、キャッシュ無しとキャッシュありで 1 回ずつ読む
 #   -Render   … -Preview のとき、プレビューの表を画面の部品に入れて Measure・Arrange する時間も測る（画面は出さない）
+#   -PreviewFullRead … -Preview のとき、前の読み方（場所の一覧の控えを捨て、毎回ファイルの全体を読む）でも別のプロセスで測り、Preview.Words[].FullRead に並べる
 #   -SampleMs … リソースを記録する間隔（ミリ秒）
 #   -Label   … 結果の見出しに出す名前
 #   -RunId・-Ref・-Sha・-Scale・-DataSeconds … 実行の情報（result.json と metrics.csv に書く。-DataSeconds はデータの生成にかかった秒数）
@@ -55,6 +56,7 @@ param (
     [switch]$TypingFast,
     [int]$Preview = 0,
     [switch]$Render,
+    [switch]$PreviewFullRead,
     [int]$SampleMs = 200,
     [string]$Label = "",
     [string]$RunId = "",
@@ -72,6 +74,7 @@ if (!$Index -and !$Office) { throw "-Index と -Office の少なくとも一方�
 if ($Typing -eq 1) { throw "-Typing は 0 か 2 以上にしてください。" }
 if ($Preview -lt 0) { throw "-Preview は 0 以上にしてください。" }
 if ($Render -and $Preview -le 0) { throw "-Render は -Preview と一緒に指定してください。" }
+if ($PreviewFullRead -and $Preview -le 0) { throw "-PreviewFullRead は -Preview と一緒に指定してください。" }
 $Tool = (Resolve-Path -LiteralPath $Tool).ProviderPath
 [void](resolveTebunkoLib $Tool)
 if ($Index) { $Index = (Resolve-Path -LiteralPath $Index).ProviderPath.TrimEnd("\") }
@@ -229,13 +232,22 @@ if ($Index -and $Preview -gt 0) {
         invokeChild "measure_preview.ps1" $previewArgs
         $r = readJson $previewJson
         $previewRaw.Add($r)
-        $previewWords.Add((newPreviewResult $r))
+        $entry = newPreviewResult $r
+        if ($PreviewFullRead) {
+            # 前の読み方（毎回ファイルの全体を読む）でも、同じ選択を別のプロセスで測る
+            Write-Host "プレビューを前の読み方（全部読む）でも測ります（$($spec.Name)）。"
+            $fullJson = Join-Path $raw "preview-full-$w.json"
+            $fullArgs = @("-Tool", $Tool, "-Index", $Index, "-WordFile", $wordFile, "-Count", $Preview, "-Out", $fullJson, "-SampleMs", $SampleMs, "-FullRead")
+            invokeChild "measure_preview.ps1" $fullArgs
+            $entry["FullRead"] = newPreviewResult (readJson $fullJson)
+        }
+        $previewWords.Add($entry)
     }
 }
 
-# result.json（形式の版 2。版 2 で Preview を足した）
+# result.json（形式の版 3。版 2 で Preview を足し、版 3 で Preview.Words[].FullRead・ReadTextCallsUncached を足した）
 $run.SearchMode = (@($search | ForEach-Object { $_.Mode } | Select-Object -Unique) -join ",")
-$result = [ordered]@{ Schema = 2; Run = $run; Index = $indexResult; Search = $(if ($Index) { $search.ToArray() } else { $null }); Ingest = $ingestResult
+$result = [ordered]@{ Schema = 3; Run = $run; Index = $indexResult; Search = $(if ($Index) { $search.ToArray() } else { $null }); Ingest = $ingestResult
     Preview = $(if ($Index -and $Preview -gt 0) { [ordered]@{ Count = $Preview; Render = [bool]$Render; Words = $previewWords.ToArray(); Skipped = $previewSkipped.ToArray() } } else { $null })
     Typing = $(if ($Index -and $Typing -gt 0) { [ordered]@{
         Mode = [string]$typingRaw[0].Mode; Count = $Typing; IntervalMs = $TypingIntervalMs; MinLength = $TypingMinLength; Fast = [bool]$TypingFast
@@ -307,6 +319,12 @@ foreach ($p in $previewWords) {
     addMetric "preview_retained_per_preview_mb" $p.Name "value" $p.RetainedPerPreviewMB "MB"
     addMetric "preview_working_set_after_gc_mb" $p.Name "value" $p.WorkingSetAfterGcMB "MB"
     addMetric "preview_cache_drop_mb" $p.Name "value" $p.CacheDropMB "MB"
+    addMetric "preview_retained_mb" $p.Name "value" $p.RetainedManagedMB "MB"
+    if ($null -ne $p.FullRead) {
+        foreach ($stat in @("Min", "Median", "Mean", "Max")) { addMetric "preview_full_read_uncached_ms" $p.Name $stat.ToLower() $p.FullRead.ReadUncachedMs[$stat] "ms" }
+        addMetric "preview_full_read_retained_mb" $p.Name "value" $p.FullRead.RetainedManagedMB "MB"
+        addMetric "preview_full_read_working_set_after_preview_mb" $p.Name "value" $p.FullRead.WorkingSetAfterPreviewMB "MB"
+    }
     if ($null -ne $p.Render) {
         addMetric "preview_render_ms" $p.Name "median" (getStats ([double[]]@($p.Render.RenderMs))).Median "ms"
         addMetric "preview_render_cells" $p.Name "value" $p.Render.Cells "count"
@@ -559,6 +577,21 @@ add "|---|---|---|---|---|"
 foreach ($p in $previewWords) {
     add ("| {0} | {1:N0}／{2:N0}／{3:N0}／{4:N0} MB | {5:N1} MB／{6:N3} MB | {7:N0} MB | {8:N0} |" -f $p.Name, $p.WorkingSetAfterSearchMB, $p.WorkingSetAfterPreviewMB, $p.WorkingSetAfterGcMB,
         $p.WorkingSetAfterCacheDropMB, $p.RetainedManagedMB, $p.RetainedPerPreviewMB, $p.CacheDropMB, $p.CacheChars)
+}
+$fullReadWords = @($previewWords | Where-Object { $null -ne $_.FullRead })
+if ($fullReadWords.Count -gt 0) {
+    add
+    add "### 前の読み方（毎回ファイルの全体を読む）との比べ"
+    add
+    add "同じ選択を、場所の一覧の控えを捨てて毎回ファイルの全体を読む経路でも、別のプロセスで測った。「全体を読んだ回数」は、キャッシュ無しの選択で readContentIndexText が呼ばれた回数の合計（全部読む経路を通ったことの確かめ）。"
+    add
+    add "| 語 | 読み込み・キャッシュ無し 中央値（今／全部読む） | 最大（今／全部読む） | 残った増え 合計（今／全部読む） | プレビューのあとのワーキングセット（今／全部読む） | 全体を読んだ回数（今／全部読む） |"
+    add "|---|---|---|---|---|---|"
+    foreach ($p in $fullReadWords) {
+        add ("| {0} | {1}／{2} ms | {3}／{4} ms | {5:N1}／{6:N1} MB | {7:N0}／{8:N0} MB | {9}／{10} |" -f $p.Name,
+            (msDecimal $p.ReadUncachedMs "Median"), (msDecimal $p.FullRead.ReadUncachedMs "Median"), (msDecimal $p.ReadUncachedMs "Max"), (msDecimal $p.FullRead.ReadUncachedMs "Max"),
+            $p.RetainedManagedMB, $p.FullRead.RetainedManagedMB, $p.WorkingSetAfterPreviewMB, $p.FullRead.WorkingSetAfterPreviewMB, $p.ReadTextCallsUncached, $p.FullRead.ReadTextCallsUncached)
+    }
 }
 $renderWords = @($previewWords | Where-Object { $null -ne $_.Render })
 if ($renderWords.Count -gt 0) {

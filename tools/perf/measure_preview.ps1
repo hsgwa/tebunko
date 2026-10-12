@@ -13,7 +13,8 @@ param (
     [int]$Count = 20,
     [Parameter(Mandatory = $true)][string]$Out,
     [int]$SampleMs = 200,
-    [switch]$Render
+    [switch]$Render,
+    [switch]$FullRead
 )
 
 $ErrorActionPreference = "Stop"
@@ -25,7 +26,11 @@ foreach ($typesFile in @("scripts\shared\ui\types.ps1", "scripts\tebunko\ui\type
     if (!(Test-Path -LiteralPath $typesPath)) { throw "測る tebunko に $typesFile がありません。" }
     . ([WildcardPattern]::Escape($typesPath.Replace('`', '``')))
 }
-assertTebunkoFunctions @("newTsvTextCache", "readContentIndexContext")
+assertTebunkoFunctions @("newTsvTextCache", "readContentIndexContext", "readContentIndexText")
+# readContentIndexText が何回呼ばれたかを数える（-FullRead で全部読む経路を本当に通ったかを確かめるため）。製品の関数は呼び出しをそのまま渡す
+$script:readTextCalls = 0
+$originalReadText = (Get-Command readContentIndexText -CommandType Function).ScriptBlock
+function readContentIndexText { $script:readTextCalls++; & $originalReadText @args }
 $getFiles = resolveTebunkoFunction @("getContentIndexFiles", "getIndexPackFiles")
 $searchIndex = resolveTebunkoFunction @("searchContentIndex", "searchPackIndex")
 $spec = [System.IO.File]::ReadAllText($WordFile, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
@@ -77,9 +82,13 @@ try {
         foreach ($hit in $hits) {
             $n++
             $path = [System.IO.Path]::Combine($hit.Root, $hit.RelPath)
+            # -FullRead: 場所の一覧の控えを捨て、毎回ファイルの全体を読む経路に入れる（範囲読みを入れる前の読み方に当たる）
+            if ($FullRead) { $script:contentIndexPlacesMemo = $null }
+            $callsBefore = $script:readTextCalls
             $watch = [System.Diagnostics.Stopwatch]::StartNew()
             $context = @(readContentIndexContext $path $hit.Book $hit.Location ([int]$hit.LineNumber) $beforeLines $afterLines $cacheArg)
             $readMs = $watch.Elapsed.TotalMilliseconds
+            $textCalls = $script:readTextCalls - $callsBefore
             $relDir = [string]$hit.RelDir
             $cut = $relDir.IndexOf("\")
             $indexName = if ($cut -lt 0) { $relDir } else { $relDir.Substring(0, $cut) }
@@ -95,7 +104,7 @@ try {
             if ($mode -eq "無し" -and ($null -eq $wide -or $cells -gt $wide.Cells)) { $wide = @{ Cells = $cells; Table = $(if ($Render) { $table } else { $null }) } }
             $item = [ordered]@{
                 N = $n; Cache = $mode; LineNumber = [int]$hit.LineNumber; FileMB = [Math]::Round((Get-Item -LiteralPath (toLongPath $path)).Length / 1MB, 2)
-                ReadMs = (roundMs $readMs); BuildMs = (roundMs $buildMs); ContextRows = $context.Count; Rows = $table.Rows.Count; Columns = $columns; Cells = $cells
+                ReadMs = (roundMs $readMs); ReadTextCalls = $textCalls; BuildMs = (roundMs $buildMs); ContextRows = $context.Count; Rows = $table.Rows.Count; Columns = $columns; Cells = $cells
             }
             $snap = getMemory
             foreach ($key in $snap.Keys) { $item[$key] = $snap[$key] }
@@ -103,6 +112,11 @@ try {
         }
     }
     $afterPreview = getMemory
+    if ($FullRead) {
+        # 切り替えが効かず、範囲読みのまま測ったときは、前後が同じ値で黙って並ぶので、失敗にする（時間の大小では判定しない）
+        $fullReadProblems = @(getFullReadPathProblems $previews.ToArray())
+        if ($fullReadProblems.Count -gt 0) { throw ("-FullRead で全部読む経路を通っていません: " + ($fullReadProblems -join " / ")) }
+    }
 
     # -Render は、GC のあとの値を取る前に済ませる（表は描画に使うので、それまで捨てない。描画した分も GC のあとの値に入る）
     if ($Render) {
@@ -146,7 +160,7 @@ try {
     $samples = stopResourceMonitor $monitor
 }
 $resultData = [ordered]@{
-    Name = $Name; Word = $Word; Regex = $Regex; Count = $hits.Count; Previews = $previews.ToArray()
+    Name = $Name; Word = $Word; Regex = $Regex; FullRead = [bool]$FullRead; Count = $hits.Count; Previews = $previews.ToArray()
     Memory = [ordered]@{
         AfterSearchWorkingSetMB = $afterSearch.WorkingSetMB; BeforePreviewManagedMB = $beforePreview.ManagedMB; AfterPreviewWorkingSetMB = $afterPreview.WorkingSetMB
         AfterGcWorkingSetMB = $afterGc.WorkingSetMB; AfterCacheDropWorkingSetMB = $afterCacheDrop.WorkingSetMB
