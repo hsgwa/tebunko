@@ -66,7 +66,7 @@ function newAsciiExpandableText {
             $piece = $raw.Substring($i, $inSpan.End - $i)
             if ($null -ne $inSpan.Replacement) { $piece = $inSpan.Replacement }
             if (hasNonAscii $piece) {
-                throw "$where に、書き換えられない場所（文字列の中の変数名など）に日本語があります。元のソースで、日本語を式の外に出してください。"
+                throw "$where に、書き換えられない場所（文字列の中の変数名など）に日本語があります。元のソースで、日本語を式の外に出してください: $piece"
             }
             [void]$newSpans.Add(@{ Start = $sb.Length; Length = $piece.Length })
             [void]$sb.Append($piece)
@@ -243,7 +243,7 @@ function newAsciiScriptEdits {
         if ($tok -is [System.Management.Automation.Language.StringToken]) {
             foreach ($range in $attributeRanges) {
                 if ($start -ge $range.Start -and $start -lt $range.End) {
-                    throw "$where の日本語は、属性の引数（定数でなければ動かない場所）にあるため、書き換えられません。"
+                    throw "$where の日本語は、属性の引数（定数でなければ動かない場所）にあるため、書き換えられません。元のソースで、日本語を使わない形にしてください: $raw"
                 }
             }
         }
