@@ -4630,14 +4630,14 @@
 <td><code>getOpenCopyBlocker</code></td>
 <td>book, copyDir, now</td>
 <td>string</td>
-<td>コピーを作らずに断る理由。<code>NoName</code>（名前が空）・<code>Bracket</code>（名前に <code>[</code> <code>]</code>）・<code>TooLong</code>（パスが長すぎる）・作れるなら空</td>
+<td>コピーを作らずに断る理由。<code>NoName</code>（名前が空）・<code>TooLong</code>（パスが長すぎる）・作れるなら空（名前に <code>[</code> <code>]</code> があっても断らない）</td>
 <td><code>copySourceForOpen</code>, <code>openFoundSource</code></td>
 </tr>
 <tr>
 <td><code>copySourceForOpen</code></td>
 <td>sourcePath, book, copyDir, tmpRoot, now</td>
-<td>string</td>
-<td><code>copyDir\&lt;12 桁の英数字&gt;\&lt;getOpenCopyName&gt;</code> に、元のファイルを共有で読んでコピーし、そのパスを返す。置き場所が不正・断る理由がある・作れないときは空</td>
+<td><code>@{Path; Reason}</code></td>
+<td><code>copyDir\&lt;12 桁の英数字&gt;\&lt;getOpenCopyName&gt;</code> に、元のファイルを共有で読んでコピーし、<code>Path</code> にそのパスを入れる（<code>Reason</code> は空）。作れないときは <code>Path</code> を空にし、<code>Reason</code> に理由を入れる（<code>Place</code>＝置き場所が不正・<code>NoName</code>／<code>TooLong</code>＝<code>getOpenCopyBlocker</code> の結果・<code>Failed</code>＝作る・書くのに失敗）</td>
 <td><code>openFoundSource</code>（裏の仕事）</td>
 </tr>
 <tr>
