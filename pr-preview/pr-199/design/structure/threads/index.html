@@ -4224,7 +4224,7 @@
 <li><strong>画面を閉じたら何も残さない。</strong> インデックス作成中に閉じるときは、作成を中止してから閉じる（<a href="../closing/">閉じるときの順番</a>）。作成を続けたまま画面だけを閉じることはできない。</li>
 <li>画面は、インデックス作成 1 回ごとに <code>IndexingSession</code>（<code>newIndexingSession</code>）を作る。<code>IndexingSession</code> はインデクサの司令のスレッドを作り、そこで <code>indexer.ps1 -Channel &lt;受け渡しの口&gt;</code> を実行する。</li>
 <li><code>indexer.ps1</code> は、画面を使わずにインデックスを作る入口としても使える（<code>-RetryFailed</code>）。<code>-Channel</code> を付けなければ自分で受け渡しの口を作り、ログをコンソールにも出す。中身は画面から使うものと同じ関数（<code>invokeIndexer</code>）で、コンソールのプロセスの中で同じスレッドの構成で動く。</li>
-<li>ツールが起動する外のプロセスは、エクスプローラー（<code>explorer.exe</code>）だけである。ワークスペースを変えても、画面は起動し直さない（その場で切り替える）。インデックス作成のために <code>powershell.exe</code> を起動することはない。</li>
+<li>ツールが起動する外のプロセスは、エクスプローラー（<code>explorer.exe</code>）だけである（フォルダ・ファイルの場所を開くほか、「バージョン情報」のリンクを既定のブラウザで開くときにも使う）。ワークスペースを変えても、画面は起動し直さない（その場で切り替える）。インデックス作成のために <code>powershell.exe</code> を起動することはない。</li>
 </ul>
 <p>分けない理由は、閉じるときに後始末を確実にするためと、受け渡しをファイルで行わずに済ませるためである。スレッドにすると GC で画面が止まるおそれがあるが、実測では画面の止まりが増えなかった（<a href="../closing/#gc-とメモリ">GC とメモリ</a>）。</p>
 <pre class="mermaid"><code>flowchart TB
