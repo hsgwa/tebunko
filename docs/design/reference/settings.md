@@ -67,8 +67,8 @@
 | `getOpenCopyDir` | workspace | string | コピーを置くフォルダ（`work\tmp\<PC の鍵>\open_copy`）。強制終了の片付けは数字の名前のフォルダだけを消すので、ここは消えない | `openFoundSource`, 起動時の片付け |
 | `testOpenCopyDir` | copyDir, tmpRoot | bool | 作る・消してよい置き場所か。絶対パスで、`tmpRoot\<PC の鍵>\open_copy`（大文字・小文字は区別しない）と一致し、`open_copy`・`<PC の鍵>`・`tmpRoot` がリンク（ReparsePoint）でないときだけ真。空・相対パス・ドライブの根・別の場所・リンクは偽 | `copySourceForOpen`, `clearOldOpenCopies` |
 | `getOpenCopyName` | book, now | string | コピーのファイル名 `<元の名前>（コピー yyyyMMdd-HHmm）.<拡張子>`（元のファイル名の末尾の `.`・空白を除く）。名前が空なら空 | `copySourceForOpen`, `getOpenCopyBlocker` |
-| `getOpenCopyBlocker` | book, copyDir, now | string | コピーを作らずに断る理由。`NoName`（名前が空）・`Bracket`（名前に `[` `]`）・`TooLong`（パスが長すぎる）・作れるなら空 | `copySourceForOpen`, `openFoundSource` |
-| `copySourceForOpen` | sourcePath, book, copyDir, tmpRoot, now | string | `copyDir\<12 桁の英数字>\<getOpenCopyName>` に、元のファイルを共有で読んでコピーし、そのパスを返す。置き場所が不正・断る理由がある・作れないときは空 | `openFoundSource`（裏の仕事） |
+| `getOpenCopyBlocker` | book, copyDir, now | string | コピーを作らずに断る理由。`NoName`（名前が空）・`TooLong`（パスが長すぎる）・作れるなら空（名前に `[` `]` があっても断らない） | `copySourceForOpen`, `openFoundSource` |
+| `copySourceForOpen` | sourcePath, book, copyDir, tmpRoot, now | `@{Path; Reason}` | `copyDir\<12 桁の英数字>\<getOpenCopyName>` に、元のファイルを共有で読んでコピーし、`Path` にそのパスを入れる（`Reason` は空）。作れないときは `Path` を空にし、`Reason` に理由を入れる（`Place`＝置き場所が不正・`NoName`／`TooLong`＝`getOpenCopyBlocker` の結果・`Failed`＝作る・書くのに失敗） | `openFoundSource`（裏の仕事） |
 | `clearOldOpenCopies` | copyDir, tmpRoot, now, keepDays | int | `open_copy` の直下のフォルダのうち、最後に使ってから（`getOpenCopyLatestTime`）keepDays（既定 1 日）より古いものだけを、ファイルを 1 つずつ消してから空のフォルダとして消す。リンクは辿らず、開かれていて消せないものは残す。消したフォルダの数を返す | 起動時の裏の仕事 |
 
 ## 検索対象でチェックを外したフォルダ（`tebunko/core/search_excludes.ps1`）
