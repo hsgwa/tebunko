@@ -4172,7 +4172,7 @@
 <td>結果が TSV を 1 行ずつ照合したときと同じこと（改行の種類・照合のしかたごと）、文字どおり・正規表現・不正な正規表現、大文字・小文字、対象ファイル・図形とコメントの除外、上限での打ち切り、正規表現の照合の時間切れ（全文への照合は 1 行ずつに切り替える）、並列検索と読んだ内容の使い回し、中止・進捗の通知</td>
 </tr>
 <tr>
-<td><code>getContentIndexFiles</code> / <code>readContentIndexContext</code></td>
+<td><code>getContentIndexFiles</code> / <code>readContentIndexLines</code></td>
 <td>同上</td>
 <td>本文インデックスのファイルの列挙（フォルダの一部・直下だけ・無いフォルダ）、前後の行と行番号</td>
 </tr>
@@ -4256,7 +4256,7 @@
 <tr>
 <td>選択行のプレビュー</td>
 <td><code>tests/tebunko/ui/preview.Tests.ps1</code></td>
-<td>表示・消去、最初に読む行数と縦の位置、セルを選んでいないときのコピーの案内、イベント、読み込み（<code>startJob</code>）の結果の扱い（読んでいる間に別の行を選んだら古い結果を出さない・後から頼んだ読み込みがあれば先の分は捨てる・読めないときは選んだ行だけを出す）、全部の列を持つこと（見出しとセルは見えている列だけ）。表と列の範囲は <code>types.Tests.ps1</code>・<code>preview_view.Tests.ps1</code>（<code>getPreviewColumnWindow</code>）</td>
+<td>表示・消去、最初に読む行数と縦の位置、セルを選んでいないときのコピーの案内、イベント、読み込み（<code>startJob</code>）の結果の扱い（読んでいる間に別の行を選んだら古い結果を出さない・後から頼んだ読み込みがあれば先の分は捨てる・読めないときは選んだ行だけを出す）、読み足し（表ごとに結果を合わせる・つながるときだけ足す・端まで読んだら止める・上限を超えたら遠い側を捨てる・別の行に替わったあとの結果は捨てる）、最後に読んだファイルの控えを次の読みに渡すこと、列見出しのドラッグ中は見えている列の範囲を固定すること、全部の列を持つこと（見出しとセルは見えている列だけ）。表と列の範囲は <code>types.Tests.ps1</code>・<code>preview_view.Tests.ps1</code>（<code>getPreviewColumnWindow</code>）</td>
 </tr>
 <tr>
 <td>元のファイルを開く</td>

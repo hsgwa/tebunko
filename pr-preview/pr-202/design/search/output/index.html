@@ -4333,7 +4333,7 @@ sub dir\old.xls [シート]Sheet1 セル  3   古い形式 りんご
     D --&gt; E["一致の位置を含む場所を探し、&lt;br&gt;場所の先頭から改行を数えて行番号にする"]</code></pre>
 <ul>
 <li>場所の一覧は、全文で一致したとき（と、読んだ内容を使い回すために残すとき）だけ作る。一致しない本文インデックスのファイルでは作らない（<a href="../speed/">検索を速くする仕組み</a>）。</li>
-<li>画面の選択行のプレビュー（<code>readContentIndexContext</code>）も同じ一覧で、Book・Location が一致する場所の中から前後の行を取り出す（<a href="../../gui/search-tab/">検索タブ</a> <a href="../../gui/preview/">選択行のプレビュー</a>）。</li>
+<li>画面の選択行のプレビュー（<code>readContentIndexLines</code>）も同じ一覧で、Book・Location が一致する場所の中から前後の行を取り出す（<a href="../../gui/search-tab/">検索タブ</a> <a href="../../gui/preview/">選択行のプレビュー</a>）。</li>
 <li>検索では TSV の相対パスを分解しない。TSV の名前（フォルダ名 = 元のファイル名、ファイル名 = 場所）は、本文インデックスに入れるとき（<code>getIndexFolderBooks</code>）だけに使う。</li>
 </ul>
 <p>場所の付け方は <a href="../../indexing/">インデックス作成</a> の <a href="../../index-data/format/#配置命名規則">インデックスのファイルの形</a>・<a href="../../index-data/format/#場所の符号化encodeindexplace--decodeindexplace">場所の符号化</a> を参照。</p>
@@ -4341,7 +4341,7 @@ sub dir\old.xls [シート]Sheet1 セル  3   古い形式 りんご
 <p>テキストファイル（<code>.txt</code> 等）は、1 行に数 MB の内容が入ることがある（<code>.json</code> <code>.xml</code> <code>.log</code> など）。取り込み・検索の一致そのものは行を切らずに行う（行番号と検索の一致がずれないため）が、結果の表・プレビュー・この検索結果ファイル・画面の［コピー］に出す行は、<code>search_query.ps1</code> の <code>truncateHitLine</code> で <code>${hitLineMaxChars}</code>（1,000 文字）に切る。</p>
 <ul>
 <li>一致した行（結果の表・検索結果ファイル）は、一致の位置の <code>${hitLineBeforeMatchChars}</code>（200）文字前から 1,000 文字を取る（一致の位置が分からない図形・コメント等では先頭から）。</li>
-<li>選択行のプレビューの前後の行（<code>readContentIndexContext</code>）は、一致していないため常に先頭から 1,000 文字を取る。</li>
+<li>選択行のプレビューの前後の行（<code>readContentIndexLines</code>）は、一致していないため常に先頭から 1,000 文字を取る。</li>
 <li>切った側に <code>…</code> を付ける（先頭・末尾のどちらか、または両方）。</li>
 <li>Excel・Word・PowerPoint の行は切らない（Excel は列の位置がずれるため。詳細は <a href="../../indexing/text/">テキストファイルの読み取り</a>）。<code>content_index_search.ps1</code> の <code>searchContentIndexFiles</code> は、元のファイル名の拡張子（<code>getContentIndexFileKind</code>）がテキストのときだけ切る。</li>
 </ul>
