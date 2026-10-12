@@ -4646,6 +4646,7 @@
 <li><code>tebunko.bat</code> が持つ、起動の失敗のフォールバック（言語モードなどの記録）は持たない。</li>
 <li><code>lib.ps1</code> の読み込みの失敗は、起動の失敗の知らせ（<code>reportStartupFailure</code>）に届かず、PowerShell の窓に出る。</li>
 <li>出力は日本語のまま・BOM 付き UTF-8・CRLF である。BOM が落ちても動くよう、本体を文字列として持つ形に包む（<a href="#文字コードbom-が落ちても動く形">文字コード</a>）。そのかわり、本体の中では <code>$PSScriptRoot</code>・<code>$PSCommandPath</code> が使えず（書き換える）、エラーの表示にファイル名が出ず、<code>FullLanguage</code> でない環境では動かない。出力を読んで直すことはしない（元は <code>scripts/</code>）。</li>
+<li>同梱する第三者の部品（アイコンの形 Lucide）のライセンス文（<code>scripts/shared/licenses/LICENSE-Lucide.txt</code>）は埋め込まない。埋め込むのは <code>.xaml</code> と <code>.ps1</code> だけで、<code>theme.xaml</code> の注記（名前・ISC ライセンス・一部 MIT・文面の置き場所）がそのまま入る。文面は zip・インストーラーにある。</li>
 <li><code>tebunko.cat</code>（カタログ）の対象にならない。</li>
 </ul>
 
