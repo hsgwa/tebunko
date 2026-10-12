@@ -1984,6 +1984,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#同梱する第三者の部品のライセンス文" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        同梱する第三者の部品のライセンス文
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#本体の読み込みの順と--part-の分かれ方" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4305,6 +4316,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#同梱する第三者の部品のライセンス文" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        同梱する第三者の部品のライセンス文
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#本体の読み込みの順と--part-の分かれ方" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4472,6 +4494,13 @@
 </tbody>
 </table>
 <p>XAML と部品は、単一引用符のヒアストリングとして埋め込む。中に行頭が <code>'@</code> の行があると途中で閉じるため、ビルドが見つけたら止める。</p>
+<h3 id="同梱する第三者の部品のライセンス文">同梱する第三者の部品のライセンス文<a class="headerlink" href="#同梱する第三者の部品のライセンス文" title="Permanent link">&para;</a></h3>
+<p>zip・インストーラーは、第三者の部品（アイコンの形 Lucide）のライセンス文を <code>scripts/shared/licenses/LICENSE-*.txt</code> として持つ。単一 .ps1 は 1 本のファイルで配るので、同じ文面を本体の先頭（<code>param</code> の前）に、行ごとの <code>#</code> のコメントとして入れる。</p>
+<ul>
+<li>文面は、ビルドのときに <code>LICENSE-*.txt</code> を読み、書き換えずに入れる（空行は <code>#</code> だけ、それ以外の行は行頭に <code>#</code> を足すだけ）。ファイルごとに「ここから」「ここまで」の行で挟む。足したライセンス文は、ビルドの変更なしで入る。</li>
+<li>行ごとのコメントにしたのは、ブロックコメント（<code>&lt;# #&gt;</code>）やヒアストリングだと、文面の中の文字で途中で閉じてしまうことがあるため。コメントなので、動きは変わらない。</li>
+<li><code>LICENSE-*.txt</code> が 1 つも無ければ、ビルドは止まる。包んだあとの結果に、文面が元のまま入っていることも確かめる（下の「包んだあとの確かめ」）。</li>
+</ul>
 <h3 id="本体の読み込みの順と--part-の分かれ方">本体の読み込みの順と <code>-Part</code> の分かれ方<a class="headerlink" href="#本体の読み込みの順と--part-の分かれ方" title="Permanent link">&para;</a></h3>
 <p>先頭と本体の境には、目印の行（<code># ---- BODY-START (above: parts embedded for other threads) ----</code>）を置く。テストは、包んだ本体からこの行までを切り出して部品を取り出し、<code>getPartLoad</code> を通して読む。本体は次の順に並べる。</p>
 <ol>
@@ -4560,11 +4589,12 @@
 <li>頭と尾が ASCII だけで、行頭が <code>'@</code> の行が 2 本（判定と本体の終わり）だけである。</li>
 <li>ScriptBlock の Create・<code>Invoke-Expression</code>・<code>iex</code> の呼び出しが、末尾の最後の 1 行（文の全文が一字一句同じ）だけで、その文を除いた全体（本体の文字列を含む）に禁止の語（<code>tools/script_rules.ps1</code> の全分類）が無い。</li>
 <li>版の文字列が残っている。</li>
+<li><code>scripts/shared/licenses/LICENSE-*.txt</code> の文面が、元のまま入っている（上の「同梱する第三者の部品のライセンス文」）。</li>
 </ul>
 <p>テストは次のとおり。</p>
 <ul>
 <li><code>tests/tools/single_script_guard.Tests.ps1</code> … 包む規則（変数の書き換え・退避と復元・止める場合・行番号・Create の例外が 1 行だけであること）と、包んだ <code>.ps1</code> を別プロセスで起動した結果（BOM 付き・BOM なし・Windows PowerShell 5.1・PowerShell 7）と、言語モードが ConstrainedLanguage のときの止まり方と、読み直せないときの止まり方（ファイルのパスが無い・頭の判定用の文字が無い）。日本語の文字列・<code>$PSScriptRoot</code>・<code>$PSCommandPath</code>・引数・終了コード・エラーの行番号を見る。</li>
-<li><code>tests/tools/new_single_script.Tests.ps1</code> … ビルドと検査そのもの（まとめる順・部品・新しい別スレッドでの読み込み・<code>-Part indexer</code>）と、出力が BOM 付き UTF-8 であること、頭と尾が ASCII だけであること、本体の行番号がファイルの行番号と同じであること、BOM の有無にかかわらず別プロセスで起動して日本語の記録が正しく出ること（Windows PowerShell 5.1・PowerShell 7）。</li>
+<li><code>tests/tools/new_single_script.Tests.ps1</code> … ビルドと検査そのもの（まとめる順・部品・新しい別スレッドでの読み込み・<code>-Part indexer</code>）と、出力が BOM 付き UTF-8 であること、頭と尾が ASCII だけであること、本体の行番号がファイルの行番号と同じであること、BOM の有無にかかわらず別プロセスで起動して日本語の記録が正しく出ること（Windows PowerShell 5.1・PowerShell 7）。ライセンス文が元のファイルと同じ中身で入っていること（欠けると、取り出した中身が元と違うことも確かめる）。</li>
 <li><code>tests/meta/structure.Tests.ps1</code> … ソースを 1 本にしても壊れない決まり（別スレッドがパスで部品を読まない・<code>${bundledScriptPath}</code> を dot-source や呼び出しに使わない・トップレベルの <code>trap</code>／<code>exit</code> の形・作った 1 本をコミットしない）。</li>
 <li><code>tests/meta/layers.Tests.ps1</code>・<code>tests/meta/safety.Tests.ps1</code> … 層の決まりと禁止の語を、まとめる元のソースに対して確かめる。</li>
 <li>画面の自動テスト（<code>Gui</code> タグ）… 環境変数 <code>TEBUNKO_GUI_SINGLE=1</code> で、zip 版の代わりに単一 .ps1 版を組み立てて同じ場面を流す。CI の <code>gui-smoke</code> は、S8 で単一 .ps1 版の起動・検索・閉じるを流す。</li>
@@ -4646,7 +4676,7 @@
 <li><code>tebunko.bat</code> が持つ、起動の失敗のフォールバック（言語モードなどの記録）は持たない。</li>
 <li><code>lib.ps1</code> の読み込みの失敗は、起動の失敗の知らせ（<code>reportStartupFailure</code>）に届かず、PowerShell の窓に出る。</li>
 <li>出力は日本語のまま・BOM 付き UTF-8・CRLF である。BOM が落ちても動くよう、本体を文字列として持つ形に包む（<a href="#文字コードbom-が落ちても動く形">文字コード</a>）。そのかわり、本体の中では <code>$PSScriptRoot</code>・<code>$PSCommandPath</code> が使えず（書き換える）、エラーの表示にファイル名が出ず、<code>FullLanguage</code> でない環境では動かない。出力を読んで直すことはしない（元は <code>scripts/</code>）。</li>
-<li>同梱する第三者の部品（アイコンの形 Lucide）のライセンス文（<code>scripts/shared/licenses/LICENSE-Lucide.txt</code>）は埋め込まない。埋め込むのは <code>.xaml</code> と <code>.ps1</code> だけで、<code>theme.xaml</code> の注記（名前・ISC ライセンス・一部 MIT・文面の置き場所）がそのまま入る。文面は zip・インストーラーにある。</li>
+<li>同梱する第三者の部品（アイコンの形 Lucide）のライセンス文は、ファイルとしては持たず、本体の先頭のコメントとして入る（上の「同梱する第三者の部品のライセンス文」）。<code>theme.xaml</code> の注記にある <code>scripts/shared/licenses/</code> は、zip・インストーラーでの置き場所を指す。</li>
 <li><code>tebunko.cat</code>（カタログ）の対象にならない。</li>
 </ul>
 
