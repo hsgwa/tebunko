@@ -1,6 +1,7 @@
 ﻿# ファイルの文字コードと改行のテスト。
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
+    . "$PSScriptRoot\..\helpers\cp932.ps1"
 
     # run: の値を、YAML のインデントに基づいて取り出す（ブロックスカラー | 対応）。
     # 次のステップの手前にある YAML のコメント（run より浅いインデント）は含めない。
@@ -99,6 +100,25 @@ Describe "文字コードと改行" -Tag Meta {
             [regex]::Matches($text, "(?<!`r)`n").Count -gt 0
         } | ForEach-Object { $_.Name })
         ($bad -join ", ") | Should -Be ""
+    }
+
+    # scripts\ には CP932（Shift_JIS）で表せる文字だけを書く。単一 .ps1 を Shift_JIS で保存し直しても、
+    # 記号の文字が落ちたり別の字に化けたりしないため（画面の印は Lucide のアイコン、theme.xaml の Icon.* で描く）。
+    # best-fit（近い字への置き換え）を使わないので、`〜`（U+301C）のように化ける字も止まる（tests\helpers\cp932.ps1）。
+    # 対象は scripts\ の .ps1・.xaml・.txt。tools\ の先頭・つなぎの行は tests\tools\new_single_script.Tests.ps1 が見る
+    It "scripts/ の .ps1・.xaml・.txt は CP932 で表せる文字だけ" {
+        $targets = @(Get-ChildItem "$here\..\scripts" -Recurse -Include *.ps1, *.xaml, *.txt)
+        $targets.Count -gt 20 | Should -Be $true
+
+        $root = (Resolve-Path "$here\..").Path
+        $bad = [System.Collections.Generic.List[string]]::new()
+        foreach ($file in $targets) {
+            $relative = $file.FullName.Substring($root.Length + 1)
+            # UTF-8 として 1 行ずつ読む（BOM は文字として入らない）
+            $lines = [System.IO.File]::ReadAllLines($file.FullName, [Text.Encoding]::UTF8)
+            foreach ($hit in (findNonCp932Chars $lines)) { $bad.Add("${relative}:$hit") }
+        }
+        ($bad -join "`n") | Should -Be ""
     }
 
     # Windows で動く Codecov の CLI は codecov.yml を cp1252 として読み、日本語があると止まる（UnicodeDecodeError）。

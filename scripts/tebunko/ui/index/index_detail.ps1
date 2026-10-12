@@ -2,7 +2,7 @@
 
 # 詳細の左右の部品。名前の一覧（gui_main.ps1）に足さず、読み込んだ中身から取る
 foreach ($detailName in @(
-        "IndexDetailBody", "IndexDetailName", "IndexDetailPath", "IndexDetailPathButton", "IndexDetailEditError", "IndexDetailFolderStatus",
+        "IndexDetailBody", "IndexDetailName", "IndexDetailPath", "IndexDetailPathButton", "IndexDetailEditError", "IndexDetailFolderStatus", "IndexDetailFolderIcon",
         "IndexDetailBadge", "IndexDetailBadgeText", "IndexDetailBadgeSub", "IndexErrorText", "IndexErrorHintText", "IndexDetailUpdated", "IndexDetailCount",
         "IndexDetailFastBadge", "IndexDetailFastBadgeText", "IndexDetailFastReason", "IndexDetailFastSteps", "IndexDetailFastChecked", "IndexDetailFastNote",
         "IndexingDetailPanel", "IndexingProgressBar", "IndexingCountText", "IndexingFileText", "MultiSelectHintText")) {
@@ -181,7 +181,7 @@ function updateIndexingButton {
 }
 
 function refreshIndexingState {
-    # 取り込み一覧の集計は、ファイルが数万行になると数秒〜十数秒かかる。
+    # 取り込み一覧の集計は、ファイルが数万行になると数秒～十数秒かかる。
     # 画面のスレッドで行うと、起動時・タブの切り替え時に画面が固まる（応答なしになる）ため別スレッドで数える
     if ($script:stateRunning) {
         $script:stateAgain = $true
@@ -210,7 +210,7 @@ function refreshIndexingState {
 }
 
 function getIndexingRatio {
-    # 更新全体の進み（0〜1）。更新中でない・割合がまだ分からないときは負の値
+    # 更新全体の進み（0～1）。更新中でない・割合がまだ分からないときは負の値
     if ((isIndexing) -and !$ui.IndexingProgress.IsIndeterminate) {
         return [double]$ui.IndexingProgress.Value
     }
@@ -371,7 +371,7 @@ $script:detailRowsKey = $null
 $script:indexingView = $null  # 詳細の「インデックス」の箱に出す、全体の進み具合（updateIndexingProgress が置く。更新中でなければ $null）
 
 function getIndexTargetItem {
-    # 詳細に出している行（名前・フォルダパスの欄と［変更…］、右クリックの［削除］［エクスポート…］の対象・可否もこの行。判定は getIndexDetailItem。［アクション ▾］は別で、可否・対象は getIndexActionsEnabled と、チェックの行が決める）
+    # 詳細に出している行（名前・フォルダパスの欄と［変更…］、右クリックの［削除］［エクスポート…］の対象・可否もこの行。判定は getIndexDetailItem。［アクション ▼］は別で、可否・対象は getIndexActionsEnabled と、チェックの行が決める）
     return getIndexDetailItem $ui.IndexGrid.SelectedItem @(getIndexCheckedItems @($script:targetItems))
 }
 
@@ -421,6 +421,14 @@ function updateIndexDetailPanel {
     }
     $ui.IndexDetailFolderStatus.Text = $view.FolderStatus
     $ui.IndexDetailFolderStatus.Foreground = themeBrush $view.FolderBrush
+    # 文の左のアイコン（Lucide の check・x）。空なら隠す
+    if ($view.FolderIcon) {
+        $ui.IndexDetailFolderIcon.Data = (loadTheme)["Icon.$($view.FolderIcon)"]
+        $ui.IndexDetailFolderIcon.Stroke = themeBrush $view.FolderBrush
+        $ui.IndexDetailFolderIcon.Visibility = "Visible"
+    } else {
+        $ui.IndexDetailFolderIcon.Visibility = "Collapsed"
+    }
     setIndexBadge $ui.IndexDetailBadge $ui.IndexDetailBadgeText $view.Badge.Text $view.Badge.Level
     $ui.IndexDetailBadgeSub.Text = if ($view.Selected) { [string]$view.Badge.Sub } else { "" }
     $ui.IndexErrorText.Text = $view.Error

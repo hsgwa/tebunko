@@ -114,11 +114,11 @@ function showMessageDialog {
 }
 
 # 確認ダイアログに並べる「実行するとこうなります」の 1 行を作る
-function factKept { param ([string]$title, [string]$detail = "") [ConfirmFact]@{ Mark = "✓"; MarkBrush = ${okBrush};   Title = $title; Detail = $detail } }
+function factKept { param ([string]$title, [string]$detail = "") [ConfirmFact]@{ Mark = "Kept"; MarkBrush = ${okBrush};   Title = $title; Detail = $detail } }
 
-function factGone { param ([string]$title, [string]$detail = "") [ConfirmFact]@{ Mark = "✗"; MarkBrush = ${ngBrush};   Title = $title; Detail = $detail } }
+function factGone { param ([string]$title, [string]$detail = "") [ConfirmFact]@{ Mark = "Gone"; MarkBrush = ${ngBrush};   Title = $title; Detail = $detail } }
 
-function factNext { param ([string]$title, [string]$detail = "") [ConfirmFact]@{ Mark = "→"; MarkBrush = ${infoBrush}; Title = $title; Detail = $detail } }
+function factNext { param ([string]$title, [string]$detail = "") [ConfirmFact]@{ Mark = "Next"; MarkBrush = ${infoBrush}; Title = $title; Detail = $detail } }
 
 function factWarn { param ([string]$title, [string]$detail = "") [ConfirmFact]@{ Mark = "!"; MarkBrush = ${warnBrush}; Title = $title; Detail = $detail } }
 

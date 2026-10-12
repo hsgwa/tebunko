@@ -26,6 +26,7 @@ if ($Version -notmatch '^[A-Za-z0-9._-]+$') {
 
 $rootDir = Split-Path $PSScriptRoot -Parent
 . ([WildcardPattern]::Escape("$PSScriptRoot\script_rules.ps1".Replace('`', '``')))
+. ([WildcardPattern]::Escape("$PSScriptRoot\single_script_guard.ps1".Replace('`', '``')))
 
 if (!$OutFile) {
     $OutFile = Join-Path $rootDir "work\release\tebunko-$Version.ps1"
@@ -197,7 +198,7 @@ foreach ($partEntry in $bundledPartEntries) {
 $script:visited = New-Object 'System.Collections.Generic.HashSet[string]'
 
 # 部品の埋め込みの終わり（ここから下が、実行するプロセスの本体）の目印。テストが、ここまでを切り出して部品を取り出す
-$bodyMarker = '# ---- 本体（ここより上は、別スレッドが読む部品の埋め込み） ----'
+$bodyMarker = '# ---- BODY-START (above: parts embedded for other threads) ----'
 
 # ---- 読み込み口の並び（driver の手順。設計どおり）。 ----
 # 別スレッドは、この下の本体ではなく、上で埋め込んだ部品（${bundledParts}）を読む。ここから下は、実行するプロセスの本体だけ。
@@ -285,14 +286,23 @@ foreach ($partEntry in $bundledPartEntries) {
     }
 }
 
+# ---- BOM が落ちても動く形に包む（日本語はそのまま。tools\single_script_guard.ps1） ----
+# 頭（ASCII）＋日本語の本体（ヒアストリング）＋尾（ASCII）にする。$PSScriptRoot・$PSCommandPath は、本体の中では空になるため
+# 頭が決める名前に書き換える。包んだあとの確かめ: 構文エラー 0・CP932 で読み違えても構文エラー 0・頭と尾は ASCII だけ・版の文字列が残っている
+# （禁止の語は、包む前の 5) で調べ済み）
+$combined = convertToGuardedScript $combined
+assertGuardedScript $combined "結合した .ps1"
+if ($combined -notmatch [regex]::Escape("Tag = '$Version'; Sha = '$sha'")) {
+    throw "包んだあとで、版の文字列が失われました。"
+}
+
 # ---- 書き出し（BOM 付き UTF-8・CRLF。work\release\ は .gitignore でコミットしない） ----
 
 $outDir = Split-Path $OutFile -Parent
 if (!(Test-Path -LiteralPath $outDir)) {
     [void][System.IO.Directory]::CreateDirectory($outDir)
 }
-$utf8Bom = New-Object System.Text.UTF8Encoding($true)
-[System.IO.File]::WriteAllText($OutFile, $combined, $utf8Bom)
+[System.IO.File]::WriteAllText($OutFile, $combined, (New-Object System.Text.UTF8Encoding($true)))
 
 Write-Host "作成しました: $OutFile"
 return $OutFile

@@ -41,7 +41,7 @@ $ui.RowMenuOpenFolder.Add_Click({ safe { openIndexSourceFolder } })
 $ui.IndexDetailPathButton.Add_Click({ safe { changeIndexFolder } })
 $ui.RemoveIndexButton.Add_Click({ safe { deleteIndex } })
 $ui.ExportIndexButton.Add_Click({ safe { newExportIndex } })
-# ［アクション ▾］: 押したら、ボタンの下にメニューを開く（項目の可否は updateIndexingButton が決める）
+# ［アクション ▼］: 押したら、ボタンの下にメニューを開く（項目の可否は updateIndexingButton が決める）
 $ui.ActionsButton.Add_Click({
     safe {
         $ui.ActionsMenu.PlacementTarget = $ui.ActionsButton
