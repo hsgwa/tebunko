@@ -13,6 +13,10 @@ $script:searchService = newSearchService $script:tsvCache
 $script:fastAvailable = $null
 
 function startSearch {
+    if (!(testIndexReadAllowed ([bool]$script:workspaceMoving))) {
+        # ワークスペースの中身を移している間は始めない（待つ間のダイアログの裏でも、Enter・F5 は本体に届く）
+        return
+    }
     if ($script:search) {
         cancelSearch
         return

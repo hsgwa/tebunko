@@ -10,17 +10,19 @@ function startIndexArchiveJob {
         [scriptblock]$scriptBlock,
         [object[]]$arguments,
         [scriptblock]$onSuccess,     # 成功したときに画面のスレッドで行うこと { param($output) }
-        [string[]]$paths = @()       # 仕事が触る、ワークスペースのほかの場所（書き出し先・取り込む zip）。ワークスペースと合わせて、裏の列を選ぶ
+        [string[]]$paths = @(),      # 仕事が触る、ワークスペースのほかの場所（書き出し先・取り込む zip）。ワークスペースと合わせて、裏の列を選ぶ
+        [string]$busyText = ""       # 動いている間のステータス。空なら「<operation>しています…」
     )
 
     $script:archiveBusy = $true
     $script:archiveJobOperation = $operation
     $script:archiveJobOnSuccess = $onSuccess
     updateIndexingButton
-    setStatus "${operation}しています…"
+    setStatus $(if ($busyText) { $busyText } else { "${operation}しています…" })
     startJob $scriptBlock $arguments {
         param ($output, $errorText)
         $script:archiveBusy = $false
+        setExportingRows @()
         if ($errorText) {
             setStatus "$($script:archiveJobOperation)に失敗しました：${errorText}"
             updateIndexingButton
@@ -36,16 +38,17 @@ function startIndexArchiveJob {
 function showIndexExportDialog {
     # エクスポートのダイアログ。書き出し先のフォルダを返す（キャンセルは $null）
     param (
-        [object[]]$items   # 書き出すインデックス（Name・FileCountText を持つ行）
+        [object[]]$items,  # 書き出すインデックス（Name・FileCountText を持つ行）
+        [long]$bytes = -1  # 数え終えた zip に入る大きさ（getIndexExportSize）。負なら大きさは出さない
     )
 
-    $dialog = loadWindow "${xamlDir}\dialog_export.xaml" ${fontsDir}
+    $dialog = loadWindow "${xamlDir}\dialog_export.xaml"
     $dialog.Owner = $window
     $ctrl = @{}
     foreach ($name in @("ExportButton", "BrowseButton", "ExportPathBox", "IntroText", "ErrorText", "ExportTitleText", "ExportSizeText", "ExportFileText", "CautionText")) {
         $ctrl[$name] = $dialog.FindName($name)
     }
-    $header = getIndexExportHeader $items
+    $header = getIndexExportHeader $items (Get-Date) $bytes
     $ctrl.ExportTitleText.Text = $header.Title
     $ctrl.ExportSizeText.Text = $header.Size
     $ctrl.ExportSizeText.Visibility = if ($header.Size) { "Visible" } else { "Collapsed" }
@@ -104,21 +107,71 @@ function newExportIndex {
     if ($null -eq $item -or !(testIndexOperable "エクスポート")) {
         return
     }
-    $folder = showIndexExportDialog @($item)
-    if ($null -eq $folder) {
+    startExportSizeCount @($item)
+}
+
+function startExportSizeCount {
+    # エクスポートのダイアログを開く前に、zip に入れる大きさを別スレッドで数える（数える間は archiveBusy で他の操作を止める）。
+    # 数え終えたら continueExport がダイアログを開く。対象は script スコープの入れ物に置いて渡す
+    # （GetNewClosure() したスクリプトブロックから名前で関数を呼べない環境があるため、閉じ込めない）
+    param (
+        [object[]]$items   # 書き出すインデックス（Name・FileCountText を持つ行）
+    )
+
+    $script:exportPlan = @{ Items = @($items) }
+    startIndexArchiveJob "エクスポート" {
+        param ($names, $dir)
+        $ws = [Workspace]::new($dir)
+        getIndexExportSize $names $ws
+    } @(,@($items | ForEach-Object { $_.Name }) + @($workspace.Dir)) {
+        param ($size)
+        continueExport $size
+    } @() "エクスポートの大きさを数えています…"
+}
+
+function continueExport {
+    # startExportSizeCount の続き（大きさを数え終えたところから）。ダイアログで書き出し先を決め、書き出す
+    param (
+        $size   # getIndexExportSize の結果
+    )
+
+    # 大きさを数えている間の文は、ここから先で要らない（ダイアログを開いている間も残さない）
+    setStatus ""
+    if (@($size.Missing).Count -gt 0) {
+        setStatus (getIndexExportMissingText)
         return
     }
-    $name = $item.Name
-
-    # 保存先フォルダの中身を数えるのも別スレッドで行う（届かないネットワークのフォルダで画面が止まらないように）
-    startIndexArchiveJob "エクスポート" {
-        param ($name, $folder, $dir, $statusPath, $settingsPath)
-        $ws = [Workspace]::new($dir)
-        exportIndexToFolder $name $folder $ws $settingsPath
-    } @($name, $folder, $workspace.Dir, $workspace.StatusFile, ${settingsFile}) {
-        param ($result)
-        setStatus "インデックス [$($result.Name)] を「$($result.Path)」に書き出しました（$($result.Files) ファイル）"
+    $items = @($script:exportPlan.Items)
+    $folder = showIndexExportDialog $items $size.Bytes
+    if ($null -eq $folder) {
+        setStatus (getIndexArchiveCancelledStatus "エクスポート")
+        return
     }
+    if ($items.Count -eq 1) {
+        $name = $items[0].Name
+        setExportingRows @($name)
+        # 保存先フォルダの中身を数えるのも別スレッドで行う（届かないネットワークのフォルダで画面が止まらないように）
+        startIndexArchiveJob "エクスポート" {
+            param ($name, $folder, $dir, $statusPath, $settingsPath)
+            $ws = [Workspace]::new($dir)
+            exportIndexToFolder $name $folder $ws $settingsPath
+        } @($name, $folder, $workspace.Dir, $workspace.StatusFile, ${settingsFile}) {
+            param ($result)
+            setStatus "インデックス [$($result.Name)] を「$($result.Path)」に書き出しました（$($result.Files) ファイル）"
+        }
+        return
+    }
+    $names = @($items | ForEach-Object { $_.Name })
+    setExportingRows $names
+    startIndexArchiveJob "エクスポート" {
+        param ($names, $folder, $dir, $settingsPath)
+        $ws = [Workspace]::new($dir)
+        $results = exportIndexes -names $names -destination $folder -ws $ws -settingsPath $settingsPath
+        , $results
+    } @(,$names + @($folder, $workspace.Dir, ${settingsFile})) {
+        param ($results)
+        showBulkIndexResult "エクスポート" $results
+    } @($folder)
 }
 
 function showBulkIndexResult {
@@ -131,7 +184,9 @@ function showBulkIndexResult {
     $view = getIndexBulkResultView $operation $results
     setStatus $view.Status
     if ($view.HasFailure) {
-        showMessage "$($view.FailureHeading)`n`n$($view.FailureDetail)" "OK" "Warning" | Out-Null
+        showNoticeBanner "IndexNotice" "IndexOpFailed" "$($view.FailureHeading)`n$($view.FailureDetail)"
+    } else {
+        hideNoticeBanner "IndexNotice"
     }
 }
 
@@ -144,33 +199,21 @@ function newBulkExportIndexes {
     if (!(testIndexOperable "エクスポート")) {
         return
     }
-    $folder = showIndexExportDialog @($script:targetItems | Where-Object { $names -contains $_.Name })
-    if ($null -eq $folder) {
-        return
-    }
-    startIndexArchiveJob "エクスポート" {
-        param ($names, $folder, $dir, $settingsPath)
-        $ws = [Workspace]::new($dir)
-        $results = exportIndexes -names $names -destination $folder -ws $ws -settingsPath $settingsPath
-        , $results
-    } @(,$names + @($folder, $workspace.Dir, ${settingsFile})) {
-        param ($results)
-        showBulkIndexResult "エクスポート" $results
-    } @($folder)
+    startExportSizeCount @($script:targetItems | Where-Object { $names -contains $_.Name })
 }
 
 function showIndexImportDialog {
-    # インポートのダイアログ。決めた内容 @{ Path; Name } を返す（キャンセルは $null）
+    # インポートのダイアログ。決めた内容 @{ Path; Name; CollisionMode } を返す（キャンセルは $null）
     param (
         [string]$suggestedName,
         $info   # readIndexArchiveInfo の結果
     )
 
-    $dialog = loadWindow "${xamlDir}\dialog_import.xaml" ${fontsDir}
+    $dialog = loadWindow "${xamlDir}\dialog_import.xaml"
     $dialog.Owner = $window
     $dialog.Title = "インデックスのインポート"
     $ctrl = @{}
-    foreach ($name in @("ImportButton", "BrowseButton", "FolderBox", "NameBox", "IntroText", "NoticeText", "ErrorText",
+    foreach ($name in @("ImportButton", "BrowseButton", "FolderBox", "NameBox", "IntroText", "ErrorText", "CollisionPanel", "CollisionHeading", "CollisionNotice", "RenameRadio", "OverwriteRadio",
             "ImportTitleText", "ImportExportedText", "ImportSizeText", "SourceCheckText")) {
         $ctrl[$name] = $dialog.FindName($name)
     }
@@ -182,7 +225,6 @@ function showIndexImportDialog {
     $ctrl.IntroText.Text = getIndexImportNotice
     $ctrl.FolderBox.Text = $info.SourceFolder
     $ctrl.NameBox.Text = $suggestedName
-    $ctrl.NoticeText.Visibility = "Collapsed"
 
     # ほかのダイアログと同じく、ボタンの Click からは
     # script スコープの入れ物を参照する。GetNewClosure() でこの関数のローカル変数（$ctrl・$dialog）を
@@ -196,10 +238,13 @@ function showIndexImportDialog {
     if ($null -ne $info.SourceExists) {
         $exists[(normalizeFolderPath $info.SourceFolder).ToLowerInvariant()] = [bool]$info.SourceExists
     }
-    $script:importDialog = @{ Window = $dialog; Ctrl = $ctrl; Exists = $exists }
+    # ZipName は zip の中の名前、Mode は同じ名前のときの選び方の今の値（getImportCollisionChoiceView の Mode）
+    $script:importDialog = @{ Window = $dialog; Ctrl = $ctrl; Exists = $exists; ZipName = [string]$info.IndexName; Mode = ${importCollisionRename} }
 
     $ctrl.FolderBox.Add_TextChanged({ safe { updateImportDialogChecks } })
     $ctrl.NameBox.Add_TextChanged({ safe { updateImportDialogChecks } })
+    $ctrl.RenameRadio.Add_Checked({ safe { selectImportCollisionMode ${importCollisionRename} } })
+    $ctrl.OverwriteRadio.Add_Checked({ safe { selectImportCollisionMode ${importCollisionOverwrite} } })
     $ctrl.BrowseButton.Add_Click({
         safe {
             $d = $script:importDialog
@@ -228,14 +273,15 @@ function showIndexImportDialog {
 
     $result = $null
     if ((showOwnedDialog $dialog)) {
-        $result = @{ Path = (normalizeFolderPath $ctrl.FolderBox.Text); Name = $ctrl.NameBox.Text.Trim() }
+        $choice = getImportCollisionChoiceView $ctrl.NameBox.Text $script:importDialog.ZipName (getUsedIndexNames $script:targetItems) $script:importDialog.Mode
+        $result = @{ Path = (normalizeFolderPath $ctrl.FolderBox.Text); Name = $ctrl.NameBox.Text.Trim(); CollisionMode = $choice.Mode }
     }
     return $result
 }
 
 function updateImportDialogChecks {
     # インポートのダイアログの、元のフォルダの下の 1 行（見つかったか・ほかのインデックスと重なるか）と、名前が重なるときの案内を、
-    # 今の入力で出し直す。文言と色の区分は getImportSourceCheckText・getImportNameNoticeText
+    # 今の入力で出し直す。文言と色の区分は getImportSourceCheckText・getImportCollisionChoiceView
     $d = $script:importDialog
     $ctrl = $d.Ctrl
     $name = $ctrl.NameBox.Text.Trim()
@@ -246,10 +292,36 @@ function updateImportDialogChecks {
     $ctrl.SourceCheckText.Text = $check.Text
     $ctrl.SourceCheckText.Foreground = themeBrush $brush
     $ctrl.SourceCheckText.Visibility = if ($check.Text) { "Visible" } else { "Collapsed" }
-    $usedNames = getUsedIndexNames $script:targetItems
-    $notice = getImportNameNoticeText $ctrl.NameBox.Text $usedNames
-    $ctrl.NoticeText.Text = $notice
-    $ctrl.NoticeText.Visibility = if ($notice) { "Visible" } else { "Collapsed" }
+    $choice = getImportCollisionChoiceView $ctrl.NameBox.Text $d.ZipName (getUsedIndexNames $script:targetItems) $d.Mode
+    $ctrl.CollisionHeading.Text = $choice.Heading
+    $ctrl.CollisionNotice.Text = $choice.Notice
+    $ctrl.CollisionNotice.Visibility = if ($choice.Notice) { "Visible" } else { "Collapsed" }
+    $ctrl.RenameRadio.Content = $choice.RenameText
+    $ctrl.OverwriteRadio.Content = $choice.OverwriteText
+    $ctrl.CollisionPanel.Visibility = if ($choice.Visible) { "Visible" } else { "Collapsed" }
+    # 名前の欄を手で替えて置き換えられなくなったときは、選び方も別の名前にするに戻す
+    # （Mode を先に揃えるので、下の選び直しで selectImportCollisionMode は何もしない）
+    $d.Mode = $choice.Mode
+    $ctrl.RenameRadio.IsChecked = ($choice.Mode -eq ${importCollisionRename})
+    $ctrl.OverwriteRadio.IsChecked = ($choice.Mode -eq ${importCollisionOverwrite})
+    $ctrl.ImportButton.Style = $d.Window.FindResource($(if ($choice.Visible -and $choice.Danger) { "Danger.Filled" } else { "Primary" }))
+}
+
+function selectImportCollisionMode {
+    # 同じ名前のときの選び方を利用者が選んだとき。名前の欄を、別の名前にするなら候補、置き換えるなら置き換える相手の名前にする
+    # （updateImportDialogChecks が選び方を揃えたときは、Mode が同じなので何もしない）
+    param (
+        [string]$mode
+    )
+
+    $d = $script:importDialog
+    if ($d.Mode -eq $mode) {
+        return
+    }
+    $d.Mode = $mode
+    $choice = getImportCollisionChoiceView $d.Ctrl.NameBox.Text $d.ZipName (getUsedIndexNames $script:targetItems) $mode
+    $d.Ctrl.NameBox.Text = if ($mode -eq ${importCollisionOverwrite}) { $choice.OverwriteName } else { $choice.Candidate }
+    updateImportDialogChecks
 }
 
 function newImportIndex {
@@ -291,24 +363,11 @@ function continueImportIndex {
     $suggestedName = getImportSuggestedName $info.IndexName $usedNames
     $result = showIndexImportDialog $suggestedName $info
     if ($null -eq $result) {
-        setStatus "インポートを取りやめました"
+        setStatus (getIndexArchiveCancelledStatus "インポート")
         return
     }
 
-    $collisionMode = ${importCollisionRename}
-    if (testImportNameCollision $result.Name $usedNames) {
-        $answer = showConfirm `
-            -heading (getIndexImportOverwriteConfirmMessage $result.Name) `
-            -choices @(
-                @{ Text = "上書きする"; Value = "overwrite"; Danger = $true },
-                @{ Text = "別名で入れる"; Value = "rename" }
-            )
-        if ($null -eq $answer) {
-            setStatus "インポートを取りやめました"
-            return
-        }
-        $collisionMode = if ($answer -eq "overwrite") { ${importCollisionOverwrite} } else { ${importCollisionRename} }
-    }
+    $collisionMode = $result.CollisionMode
 
     startIndexArchiveJob "インポート" {
         param ($zipPath, $collisionMode, $name, $sourceFolder, $dir, $settingsPath)

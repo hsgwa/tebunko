@@ -24,7 +24,7 @@ function scan { param([string[]]$Pattern)
 | 8 | 実行ポリシーの恒久変更・`Bypass` | 該当 0 件 | `scan 'Set-ExecutionPolicy','ExecutionPolicy\s+Bypass'` と `Select-String -Path .\tebunko.bat -Pattern 'Bypass','Set-ExecutionPolicy'` |
 | 9 | 資格情報の入力要求・保存 | 該当 0 件 | `scan 'Get-Credential','ConvertTo-SecureString','PSCredential'` |
 | 10 | リモート実行 | 該当 0 件 | `scan 'Invoke-Command','New-PSSession','Enter-PSSession','WinRM'` |
-| 11 | 外部プロセスの起動 | 4 か所のみ（[外部プロセスの起動（4 か所）](#外部プロセスの起動4-か所)） | `scan 'Start-Process'` |
+| 11 | 外部プロセスの起動 | 決まった起動だけ（[外部プロセスの起動](#外部プロセスの起動)） | `scan 'Start-Process'` |
 | 12 | プロセスの強制終了 | 1 か所のみ（[前回残った Office の終了（起動時の確認）](disclosure.md#前回残った-office-の終了起動時の確認)）。止める前に `isSameOfficeProcess` を呼ぶ。`taskkill`・`CloseMainWindow`・WMI の `Terminate` などの別の止め方は 0 件 | `scan 'Stop-Process'`、`scan 'taskkill','CloseMainWindow','Terminate','spps'` |
 | 13 | 壊れたハッシュ（MD5・SHA-1）、FIPS 準拠でないハッシュの実装 | 該当 0 件 | `scan 'MD5','SHA1','RIPEMD','SHA256Managed','SHA384Managed','SHA512Managed','HashAlgorithm\]::Create'` |
 | 14 | 内部の型（`NonPublic`）のリフレクションでの呼び出し | 1 か所のみ（下） | `scan 'NonPublic','Reflection\.BindingFlags'` |
@@ -101,17 +101,18 @@ PDF は PowerShell だけで読み、外の部品・Office・外部プロセス�
 
 `.xml` は、既定のアプリ（Windows の「XML エディター」）が先頭の `<?mso-application progid=…?>` を見て Excel・Word で開くことがあるが、マクロは既定で無効（上の「Office ファイルを開くときの設定」）であるため、開くこと自体の害は小さい。
 
-## 外部プロセスの起動（4 か所）
+## 外部プロセスの起動
 
 `tests/meta/safety.Tests.ps1` の「外部プロセスの起動は explorer.exe・notepad.exe だけ」が確かめる。
 
 | 場所 | 起動するもの | 用途 |
 |---|---|---|
 | `tebunko/ui/index/index_detail.ps1:195`・`205`、`tebunko/ui/open_source.ps1:460` | `explorer.exe` | 一覧・検索結果から元のファイルの場所を開く（利用者の操作時のみ） |
+| `tebunko/ui/about_dialog.ps1`（`openAboutLink`） | `explorer.exe`（アドレスを 1 つ渡す。既定のブラウザで開く） | 「バージョン情報」の GitHub・リリースのリンク。開くのは `getAboutLinks` に載せた 2 つのアドレス（`https://github.com/hsgwa/tebunko` と、その `/releases`）と一字一句同じものだけ（`testAboutLinkUrl`）。利用者がリンクを押したときのみ |
 | `tebunko/ui/open_source.ps1:250`（`openWithNotepad`） | `notepad.exe`（固定のパス `%SystemRoot%\System32\notepad.exe`） | 検索結果から、既定のアプリで開くと実行・登録になる拡張子（`$textNotepadExtensions`）のテキストファイルを開く（利用者の操作時のみ） |
 
 インデックス作成は画面のプロセスの中のスレッドで動かすため、インデックス作成のために `powershell.exe` を起動することはない（[プロセス](../design/structure/threads.md#プロセス)）。
 
 元のファイルを既定のアプリで開く操作（`tebunko/ui/open_source.ps1` の `openWithShell`）では、`Start-Process` ではなく `ProcessStartInfo` を使う（`Start-Process` は `[` `]` を含むパスをワイルドカードとして解釈するため）。起動対象は、利用者が選んだ行のファイルと、それに関連付けられたアプリケーションである。`ProcessStartInfo`・`[System.Diagnostics.Process]::Start` を使うのはこの 1 か所だけであることを `tests/meta/safety.Tests.ps1` が確かめる。
 
-`tebunko.bat` は、上の 3 か所とは別に、**起動そのものに失敗したとき（画面が開く前）だけ** `notepad.exe` を開く（[起動に失敗したときの知らせ](disclosure.md#起動に失敗したときの知らせtebunkobat)）。制限言語モード・実行ポリシーでスクリプトの読み込みが止まる場面では WPF・WinForms のメッセージボックスを出せないため、失敗の理由と記録のファイルの名前をメモ帳で示す。`tests/meta/safety.Tests.ps1` の「tebunko.bat が起動する外部のプログラムは conhost.exe・powershell.exe・notepad.exe だけ」が、`tebunko.bat` が起動する外部のプログラムをこの 3 つに限る。
+`tebunko.bat` は、上の起動とは別に、**起動そのものに失敗したとき（画面が開く前）だけ** `notepad.exe` を開く（[起動に失敗したときの知らせ](disclosure.md#起動に失敗したときの知らせtebunkobat)）。制限言語モード・実行ポリシーでスクリプトの読み込みが止まる場面では WPF・WinForms のメッセージボックスを出せないため、失敗の理由と記録のファイルの名前をメモ帳で示す。`tests/meta/safety.Tests.ps1` の「tebunko.bat が起動する外部のプログラムは conhost.exe・powershell.exe・notepad.exe だけ」が、`tebunko.bat` が起動する外部のプログラムをこの 3 つに限る。

@@ -155,7 +155,8 @@ class FileGroup : NotifyBase {
     [string]$RelDir
     [string]$FullPath
     [string]$AppKind        # Excel / Word / PowerPoint（アイコンの色と文字を決める。どれでもなければ空）
-    [string]$LocationText   # 見出しの右端（「[シート]4月 ほか 2 か所」）
+    [string]$LocationText   # ヒットした場所の要約（「[シート]4月 ほか 2 か所」。読み上げに使う）
+    [string]$LocationPrefix # 見出しの右端の件数の前に付ける場所（「[シート]4月 ほか 2 か所 ・ 」）。場所が 1 か所だけのときは空（行の「場所」列と重なるため）
     [bool]$IsExpanded       # 見出しの下にヒットした行を並べるか（検索した直後は閉じている）
     [int]$ShownCount        # 見出しに出す件数（絞り込みに合うヒットの数）
     # 検索のヒット（searchContentIndex の結果そのまま。見つかった順）
@@ -189,6 +190,12 @@ class FileGroup : NotifyBase {
     [void] SetLocationText([string]$text) {
         $this.LocationText = $text
         $this.Raise("LocationText")
+    }
+
+    [void] SetLocationText([string]$text, [string]$prefix) {
+        $this.LocationPrefix = $prefix
+        $this.Raise("LocationPrefix")
+        $this.SetLocationText($text)
     }
 
     [void] SetExpanded([bool]$value) {
@@ -589,7 +596,8 @@ class FolderItem : NotifyBase {
     # 一覧の「高速検索」列（システムインデックスの反映の状態。getFastSearchRowView）
     [string]$FastText = "確認中…"
     [string]$FastToolTip
-    [string]$FastLevel = "None"
+    [string]$FastLevel = "None"   # Ok / Wait / Warn（使えない。注意の色）/ None
+    [string[]]$FastSteps = @()    # 使えないときの対処の手順（詳細に箇条で出す）
     # 一覧の行の右端のボタン（getIndexRowActions）。RowAction は Update / Stop / None
     [string]$RowAction = "Update"
     [bool]$RowUpdateEnabled = $false
@@ -614,8 +622,12 @@ class FolderItem : NotifyBase {
         $this.Raise("RowAction"); $this.Raise("RowUpdateEnabled")
     }
     [void] SetFast([string]$text, [string]$toolTip, [string]$level) {
-        $this.FastText = $text; $this.FastToolTip = $toolTip; $this.FastLevel = $level
-        $this.Raise("FastText"); $this.Raise("FastToolTip"); $this.Raise("FastLevel")
+        $this.FastText = $text; $this.FastToolTip = $toolTip; $this.FastLevel = $level; $this.FastSteps = @()
+        $this.Raise("FastText"); $this.Raise("FastToolTip"); $this.Raise("FastLevel"); $this.Raise("FastSteps")
+    }
+    [void] SetFast([string]$text, [string]$toolTip, [string]$level, [string[]]$steps) {
+        $this.FastText = $text; $this.FastToolTip = $toolTip; $this.FastLevel = $level; $this.FastSteps = $steps
+        $this.Raise("FastText"); $this.Raise("FastToolTip"); $this.Raise("FastLevel"); $this.Raise("FastSteps")
     }
 }
 

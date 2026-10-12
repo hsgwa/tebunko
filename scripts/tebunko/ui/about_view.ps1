@@ -14,3 +14,28 @@ function getAboutView {
     }
     return @{ Version = $versionInfo.Tag; Commit = $versionInfo.Sha.Substring(0, 7) }
 }
+
+${aboutRepositoryUrl} = "https://github.com/hsgwa/tebunko"  # 公開のリポジトリ
+
+function getAboutLinks {
+    # ダイアログに出すリンク: @{ Id（ボタンの名前）; Text; Url } の配列。ブラウザで開けるのは、ここに載せた 2 つだけ
+    return @(
+        @{ Id = "GitHubLink"; Text = "GitHub"; Url = ${aboutRepositoryUrl} }
+        @{ Id = "ReleasesLink"; Text = "リリース"; Url = "${aboutRepositoryUrl}/releases" })
+}
+
+function testAboutLinkUrl {
+    # 開いてよいアドレスか（getAboutLinks に載せたものと、一字一句同じ）
+    param (
+        [string]$url
+    )
+
+    return @(getAboutLinks | Where-Object { $_.Url -ceq $url }).Count -gt 0
+}
+
+function getAboutLicenses {
+    # ダイアログに出すライセンス: 1 行ずつの文字の配列（tebunko 自身と、同梱するアイコンの形）
+    return @(
+        "tebunko：MIT ライセンス"
+        "アイコンの形（Lucide）：ISC ライセンス")
+}

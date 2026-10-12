@@ -660,7 +660,16 @@ Describe "FolderItem" -Tag Unit {
         $item.FastText | Should -Be "可"
         $item.FastToolTip | Should -Be "すぐ検索できます"
         $item.FastLevel | Should -Be "Ok"
-        @($names) | Should -Be @("IndexText", "IndexToolTip", "IndexLevel", "IndexSub", "IndexPercent", "FastText", "FastToolTip", "FastLevel")
+        @($names) | Should -Be @("IndexText", "IndexToolTip", "IndexLevel", "IndexSub", "IndexPercent", "FastText", "FastToolTip", "FastLevel", "FastSteps")
+    }
+
+    It "高速検索の対処の手順を渡すと FastSteps に入る" {
+        $item = [FolderItem]::new()
+        $item.SetFast("不可", "対象外", "Warn", [string[]]@("手順 1", "手順 2"))
+        $item.FastLevel | Should -Be "Warn"
+        @($item.FastSteps) | Should -Be @("手順 1", "手順 2")
+        $item.SetFast("可", "", "Ok")
+        @($item.FastSteps).Count | Should -Be 0
     }
 }
 

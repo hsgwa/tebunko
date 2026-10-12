@@ -22,7 +22,6 @@ function startGui {
     # 画面定義（XAML）とアイコンの置き場所
     ${xamlDir}       = "$TebunkoDir\xaml"
     ${sharedXamlDir} = "$TebunkoDir\..\shared\xaml"
-    ${fontsDir}      = "$TebunkoDir\..\shared\fonts"  # 同梱のフォント（Rethink Sans）。無ければ Yu Gothic UI・Meiryo UI
     ${iconXamlFile}  = "${xamlDir}\app_icon.xaml"  # 窓・バージョン情報に出すアイコン（ベクターの絵）
     # アイコンは Window.Icon（loadWindow）でタイトルバー・タスクバーに出る。.ico（tebunko.ico）は画面では使わず、
     # インストーラー・ショートカットなど Windows が .ico しか受け付けない所だけで使う。
@@ -67,7 +66,7 @@ function startGui {
 
     # ---- ウィンドウと、画面の部品の対応 ----
 
-    $window = loadWindow "${xamlDir}\tebunko.xaml" ${fontsDir}
+    $window = loadWindow "${xamlDir}\tebunko.xaml"
     stepSplash 55
 
     # 窓の中身は領域ごとのファイルに分けてある（xaml\<画面>\<領域>.xaml）。読み込んで差す口に入れ、x:Name の対応表（$ui）を作る。
@@ -75,6 +74,8 @@ function startGui {
     # 領域ごとに FindName する（名前の一覧も領域ごとに分けておく）。
     # 領域の表: File = xaml\ からの相対パス、Slot = 差す口（窓の x:Name）、Screen = 画面の名前（Slot が ContentHost のものだけ。
     # 画面の中身は $script:screenContents に持ち、selectScreen が選んだものを ContentHost に差す）、Names = 使う x:Name
+    # 知らせの帯の部品（shell\notice_banner.xaml）の名前。3 か所に差す（下の表で Prefix を付けて持つ）
+    $noticeBannerNames = @("NoticePanel", "NoticeIcon", "NoticeText", "NoticeButton", "NoticeClose")
     $regions = @(
         @{ File = "shell\nav.xaml"; Slot = "NavHost"; Names = @(
             "NavList", "SearchTab", "IndexTab", "SettingsTab", "IndexTabBadge", "NavPaneHost", "AboutLink") }
@@ -82,7 +83,8 @@ function startGui {
         @{ File = "index\index.xaml"; Slot = "ContentHost"; Screen = "IndexTab"; Names = @(
             "IndexListHost", "IndexDetailHost", "IndexDetailRow", "IndexSplitter",
             "IndexingProgressPanel", "IndexingBannerIcon", "IndexingProgressText", "IndexingProgressEta", "IndexingProgress",
-            "IndexingProgressDetail", "IndexingStopButton", "IndexingResumeButton", "IndexingSearchButton", "IndexingBannerClose") }
+            "IndexingProgressDetail", "IndexingStopButton", "IndexingResumeButton", "IndexingSearchButton", "IndexingBannerClose",
+            "IndexNoticeHost") }
         @{ File = "index\index_list.xaml"; Slot = "IndexListHost"; Names = @(
             "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "ActionsButton", "ActionsMenu", "ActionUpdate", "ActionExport", "ActionImport", "ActionDelete", "SelectionCountText", "SelectAllCheckBox", "IndexingButton", "IndexingHint", "StatusColumnHeader",
             "IndexRowMenu", "RowMenuUpdate", "RowMenuOpenFolder", "RemoveIndexButton", "ExportIndexButton") }
@@ -91,7 +93,11 @@ function startGui {
             "IndexDetailRows", "IndexDetailFastPanel", "IndexDetailFastText", "IndexDetailFastBar",
             "FailedPanel", "FailedHeading", "FailedGrid") }
         @{ File = "search\search.xaml"; Slot = "ContentHost"; Screen = "SearchTab"; Names = @(
-            "SearchBarHost", "ResultListHost", "PreviewHost", "DetailRow", "ResultEmptyState", "GoIndexTabButton") }
+            "SearchBarHost", "ResultListHost", "PreviewHost", "DetailRow", "PreviewSplitter", "ResultEmptyState", "GoIndexTabButton",
+            "SearchNoticeHost") }
+        @{ File = "shell\notice_banner.xaml"; Slot = "SearchNoticeHost"; Prefix = "Search"; Margin = @(-16, -12, -16, 8); Names = $noticeBannerNames }
+        @{ File = "shell\notice_banner.xaml"; Slot = "IndexNoticeHost"; Prefix = "Index"; Names = $noticeBannerNames }
+        @{ File = "shell\notice_banner.xaml"; Slot = "WorkspaceNoticeHost"; Prefix = "Workspace"; Names = $noticeBannerNames }
         @{ File = "search\search_bar.xaml"; Slot = "SearchBarHost"; Names = @(
             "WordBox", "SearchButton", "RegexCheck", "CaseCheck", "ShapeCheck", "CommentCheck", "ScopeButton",
             "ConditionsPanel", "ConditionsSpacer", "FastSearchSlot", "KindChipExcel", "KindChipWord", "KindChipPowerPoint", "KindChipText", "KindChipPdf",
@@ -108,23 +114,32 @@ function startGui {
             "PreviewScroll", "PreviewHeaderScroll", "PreviewHeader", "PreviewRows", "PreviewNote",
             "PreviewPlaceholder", "PreviewMenu", "MenuPreviewOpen", "MenuPreviewCopy", "MenuPreviewCopyRow") }
         @{ File = "settings\settings.xaml"; Slot = "ContentHost"; Screen = "SettingsTab"; Names = @(
-            "WorkspaceText", "WorkspaceNote", "ChangeWorkspaceButton", "ResetWorkspaceButton", "SettingsFileText", "SettingsFileNote") }
+            "WorkspaceBox", "WorkspaceInputError", "WorkspaceNote", "WorkspaceCaution", "WorkspaceHowTo", "ChangeWorkspaceButton", "ResetWorkspaceButton", "SettingsFileText", "SettingsFileNote") }
     )
 
     $ui = @{}
-    foreach ($name in @("NavHost", "ContentHost", "StatusBarHost", "ScrimOverlay")) {
+    foreach ($name in @("NavHost", "ContentHost", "StatusBarHost", "ScrimOverlay",
+            "WorkspaceNoticeHost")) {
         $ui[$name] = $window.FindName($name)
     }
     $script:screenContents = @{}
     foreach ($region in $regions) {
-        $content = loadXaml "${xamlDir}\$($region.File)" ${fontsDir}
+        $content = loadXaml "${xamlDir}\$($region.File)"
         if ($region.Slot -eq "ContentHost") {
             $script:screenContents[$region.Screen] = $content
         } else {
             $ui[$region.Slot].Content = $content
         }
         foreach ($name in $region.Names) {
-            $ui[$name] = $content.FindName($name)
+            # 同じ部品（知らせの帯）を何か所かに差すものは、Prefix を付けた名前で持つ
+            $key = "$($region.Prefix)$name"
+            $ui[$key] = $content.FindName($name)
+            if ($region.Prefix) {
+                [System.Windows.Automation.AutomationProperties]::SetAutomationId($ui[$key], $key)
+            }
+        }
+        if ($region.Margin) {
+            $content.Margin = [System.Windows.Thickness]::new($region.Margin[0], $region.Margin[1], $region.Margin[2], $region.Margin[3])
         }
         stepSplash 70
     }
@@ -156,6 +171,7 @@ function startGui {
     . ([WildcardPattern]::Escape("$TebunkoDir\..\shared\ui\folder_dialog.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\index_view.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\indexing_view.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\wait_view.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\search\search_bar_view.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\search\result_list_view.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\search\open_source_view.ps1".Replace('`', '``')))
@@ -165,6 +181,7 @@ function startGui {
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\about_view.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\shell\nav_view.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\shell\status_bar_view.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\shell\notice_banner_view.ps1".Replace('`', '``')))
     stepSplash 80
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\index\index_list.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\index\index_store.ps1".Replace('`', '``')))
@@ -195,9 +212,13 @@ function startGui {
     # ナビと画面の切り替え（selectScreen・getCurrentScreen）。$script:startupLoaded を決めた後に読み込む
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\shell\nav.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\shell\status_bar.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\shell\notice_banner.ps1".Replace('`', '``')))
 
-    $window.Add_Activated({
+    function onWindowActivated {
         if (!$script:startupLoaded) {
+            return
+        }
+        if (!(testIndexReadAllowed ([bool]$script:workspaceMoving))) {
             return
         }
         safe {
@@ -216,20 +237,37 @@ function startGui {
             }
             updateSearchTarget
         }
-    })
+    }
 
-    $window.Add_PreviewKeyDown({
-        param ($sender, $e)
-        $modifiers = [System.Windows.Input.Keyboard]::Modifiers
+    $window.Add_Activated({ onWindowActivated })
+
+    function onWindowPreviewKeyDown {
+        # 窓のキー（Ctrl+Tab・F5・Ctrl+F など）の入口。modifiers は押されている修飾キー（テストでは差し替える）
+        param (
+            $sender,
+            $e,
+            $modifiers = [System.Windows.Input.Keyboard]::Modifiers
+        )
+
         $ctrl = ($modifiers -band [System.Windows.Input.ModifierKeys]::Control) -ne 0
         $shift = ($modifiers -band [System.Windows.Input.ModifierKeys]::Shift) -ne 0
         # Alt などが混ざったキーは、これまでどおり扱わない
         $others = $modifiers -band (-bnot ([System.Windows.Input.ModifierKeys]::Control -bor [System.Windows.Input.ModifierKeys]::Shift))
         if ($others -ne 0) { return }
+        if (!(testMainContentOperable ([bool]$script:workspaceMoving))) {
+            # ワークスペースの中身を移している間は、窓のキー（Ctrl+Tab・F5・Ctrl+F など）を受けない
+            $e.Handled = $true
+            return
+        }
         $action = getShortcutAction ([string]$e.Key) $ctrl $shift (getCurrentScreen)
         if (invokeShortcutAction $action) {
             $e.Handled = $true
         }
+    }
+
+    $window.Add_PreviewKeyDown({
+        param ($sender, $e)
+        onWindowPreviewKeyDown $sender $e
     })
 
     # 閉じるときの順番（docs/design/structure/closing.md「閉じるときの順番」）。インデックス作成は画面のプロセスのスレッドで動くため、
@@ -247,9 +285,15 @@ function startGui {
     $script:closeTimer = newTimer 500 {
         safe {
             $now = Get-Date
-            if (!(isIndexing)) {
+            $indexing = isIndexing
+            if ($indexing) {
+                # 待つ間のダイアログの棒と、強制終了までの秒読みを書き換える
+                try { updateIndexingWait (getIndexingProgress) ($script:closeDeadline - $now).TotalSeconds } catch { }
+            }
+            if (!$indexing) {
                 $script:closeTimer.Stop()
                 $script:closeReady = $true
+                try { closeIndexingWait } catch { }   # 待つ間のダイアログ → 暗幕 → 本体の窓の順に閉じる（失敗しても本体は閉じる）
                 $window.Close()
             } elseif (!$script:closeKilled -and $now -gt $script:closeDeadline) {
                 # 取り込み中の Office が応答しない。インデックス作成が起動した Office だけを PID で止める（COM の呼び出しが戻る）
@@ -260,6 +304,7 @@ function startGui {
                 # それでも止まらない。スレッドは finally で止める
                 $script:closeTimer.Stop()
                 $script:closeReady = $true
+                try { closeIndexingWait } catch { }
                 $window.Close()
             }
         }
@@ -286,6 +331,11 @@ function startGui {
                 $script:closeTimer.Start()
             }
         } catch { }
+        # 待つ間のダイアログは、失敗しても止める流れの邪魔にしない
+        try {
+            showIndexingWait "CloseWait"
+            updateIndexingWait (getIndexingProgress) ($script:closeDeadline - (Get-Date)).TotalSeconds
+        } catch { }
     }
 
     $window.Add_Closing({
@@ -300,7 +350,17 @@ function startGui {
         }
         try {
             # インデックスの削除・名前の変更の途中で閉じると、設定とインデックスのフォルダの名前が食い違う。終わるまで待って閉じる
-            $indexJobClose = getIndexJobCloseAction ([bool]$script:indexBusy) ([bool]$script:closeAskedDuringIndexJob)
+            $indexJobClose = getIndexJobCloseAction ([bool]$script:indexBusy) ([bool]$script:closeAskedDuringIndexJob) ([bool]$script:workspaceMoving)
+            if ($indexJobClose -eq "waitMove") {
+                # ワークスペースを移している途中で閉じると、中身が移動元と移動先に分かれる。止めずに、移し終わってから閉じる
+                # （終わりの処理 finishWorkspaceMove が閉じる）。待つ間のダイアログの文だけ「終わったら閉じます」に変える
+                $script:closeAfterWorkspaceMove = $true
+                $e.Cancel = $true
+                # 表示の失敗で、閉じるのを止めたことを取り消さない（catch が Cancel を戻すため、ここで握る）
+                try { setStatus (getWorkspaceMoveClosingStatus) } catch { }
+                try { updateWaitDialog $script:indexingWait @{ Description = (getWaitDialogView "MovingClose").Description } } catch { }
+                return
+            }
             if ($indexJobClose -eq "wait") {
                 $script:closeAskedDuringIndexJob = $true
                 $script:closeAfterIndexJob = $true
@@ -473,6 +533,7 @@ function startGui {
     selectScreen $(if ($openIndexTab) { "IndexTab" } else { "SearchTab" })
     # 既定のワークスペースにほかのファイルが置いてあれば、［設定］を開いて別のフォルダを選んでもらう（画面を出した後に知らせる）
     $script:workspaceBlock = getWorkspaceBlockMessage
+    updateWorkspaceBanner
     if ($script:workspaceBlock) {
         selectScreen "SettingsTab"
     }
@@ -507,6 +568,7 @@ function startGui {
         # Test-Path など、OS の呼び出しで戻らないもの）を待たずに戻る Abandon（前は Close）を使う
         $script:closeTimer.Stop()
         $script:indexingTimer.Stop()
+        try { closeIndexingWait } catch { }
         if ($script:indexingSession) {
             $script:indexingSession.Close()
         }

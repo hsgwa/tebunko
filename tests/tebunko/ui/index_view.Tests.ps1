@@ -77,6 +77,42 @@ Describe "getIndexJobBlocker" -Tag Unit {
         param ($isIndexing, $indexBusy, $archiveBusy, $expected)
         getIndexJobBlocker $isIndexing $indexBusy $archiveBusy $true | Should -Be $expected
     }
+
+    It "ワークスペースを移している間（workspaceMoving）は、ほかの何が動いていても最優先で止める" -TestCases @(
+        @{ isIndexing = $false; indexBusy = $false; archiveBusy = $false; naming = $false }
+        @{ isIndexing = $true;  indexBusy = $true;  archiveBusy = $true;  naming = $true }
+    ) {
+        param ($isIndexing, $indexBusy, $archiveBusy, $naming)
+        getIndexJobBlocker $isIndexing $indexBusy $archiveBusy $naming $true | Should -Be "ワークスペースの移動中"
+    }
+}
+
+Describe "testIndexReadAllowed" -Tag Unit {
+    It "ワークスペースを移している間だけ、インデックスを読む操作を止める" -TestCases @(
+        @{ moving = $false; expected = $true }
+        @{ moving = $true; expected = $false }
+    ) {
+        param ($moving, $expected)
+        testIndexReadAllowed $moving | Should -Be $expected
+    }
+
+    It "引数が無ければ読んでよい" {
+        testIndexReadAllowed | Should -BeTrue
+    }
+}
+
+Describe "testMainContentOperable" -Tag Unit {
+    It "ワークスペースを移している間だけ、ナビと中身の操作を受けない" -TestCases @(
+        @{ moving = $false; expected = $true }
+        @{ moving = $true; expected = $false }
+    ) {
+        param ($moving, $expected)
+        testMainContentOperable $moving | Should -Be $expected
+    }
+
+    It "引数が無ければ操作を受ける" {
+        testMainContentOperable | Should -BeTrue
+    }
 }
 
 Describe "getIndexStoreSourceFolderError" -Tag Unit {
@@ -100,6 +136,19 @@ Describe "getIndexJobCloseAction" -Tag Unit {
     ) {
         param ($label, $busy, $asked, $expected)
         getIndexJobCloseAction $busy $asked | Should -Be $expected
+    }
+
+    It "ワークスペースを移している間は、ほかの状態に関わらず移し終わるまで待つ" -TestCases @(
+        @{ busy = $false; asked = $false }
+        @{ busy = $true; asked = $false }
+        @{ busy = $true; asked = $true }
+    ) {
+        param ($busy, $asked)
+        getIndexJobCloseAction $busy $asked $true | Should -Be "waitMove"
+    }
+
+    It "移し終わるまで閉じない旨の表示を返す" {
+        getWorkspaceMoveClosingStatus | Should -Be "ワークスペースを移し終わってから閉じます…"
     }
 
     It "確認の文言を返す" {
@@ -148,6 +197,8 @@ Describe "getIndexJobBlockedMessage" -Tag Unit {
         @{ blocker = "エクスポート・インポート中"; operation = "ワークスペースの変更"; expected = "エクスポート・インポートが終わるまでお待ちください。" }
         @{ blocker = "インデックス名の決定中"; operation = "ワークスペースの変更"; expected = "インデックスの一覧を読み込んでいます。終わるまでお待ちください。" }
         @{ blocker = "インデックス名の決定中"; operation = "削除"; expected = "インデックス名の決定中は削除できません。終わるまでお待ちください。" }
+        @{ blocker = "ワークスペースの移動中"; operation = "ワークスペースの変更"; expected = "ワークスペースを移している間は、もう一度変えられません。終わるまでお待ちください。" }
+        @{ blocker = "ワークスペースの移動中"; operation = "削除"; expected = "ワークスペースの移動中は削除できません。終わるまでお待ちください。" }
     ) {
         param ($blocker, $operation, $expected)
         getIndexJobBlockedMessage $blocker $operation | Should -Be $expected
@@ -176,7 +227,7 @@ Describe "getIndexTabButtonsEnabled" -Tag Unit {
         $result = getIndexTabButtonsEnabled $blocker $hasSelection
         $result.New | Should -Be $new
         $result.Edit | Should -Be $edit
-        # 詳細のフォルダパスの［...］は、詳細の名前・フォルダパスの欄と同じ決まり
+        # 詳細のフォルダパスの［変更…］は、詳細の名前・フォルダパスの欄と同じ決まり
         $result.ChangeFolder | Should -Be $edit
         $result.Remove | Should -Be $remove
         $result.Export | Should -Be $export
@@ -328,6 +379,12 @@ Describe "getIndexRowActions（行の右端のボタン）" -Tag Unit {
         $result.Action | Should -Be $action
         $result.UpdateEnabled | Should -Be $enabled
     }
+
+    It "エクスポート中の行は、止められないので［中止］も［更新］も出さない" {
+        $result = getIndexRowActions "Run" "" $true
+        $result.Action | Should -Be "None"
+        $result.UpdateEnabled | Should -BeFalse
+    }
 }
 
 Describe "getIndexDeleteConfirmMessage" -Tag Unit {
@@ -444,6 +501,23 @@ Describe "getIndexExportHeader（エクスポートのダイアログの枠）" 
     }
 }
 
+Describe "getIndexExportHeader（大きさを数え終えたあと）" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "1 件: ファイル数のあとに大きさ"; items = @(@{ Name = "営業部"; FileCountText = "2,530" }); bytes = 98566144; size = "2,530 ファイル・94.0 MB" }
+        @{ label = "2 件: 合計のファイル数と合計の大きさ"; items = @(@{ Name = "営業"; FileCountText = "1,000" }, @{ Name = "総務"; FileCountText = "20" }); bytes = 52428800; size = "1,020 ファイル・50.0 MB" }
+        @{ label = "0 バイトでも 0.1 MB と出す"; items = @(@{ Name = "営業"; FileCountText = "1" }); bytes = 0; size = "1 ファイル・0.1 MB" }
+        @{ label = "ファイル数が分からないときは大きさも出さない"; items = @(@{ Name = "営業"; FileCountText = "－" }); bytes = 1048576; size = "" }
+        @{ label = "大きさを渡さなければ今までどおり"; items = @(@{ Name = "営業"; FileCountText = "5" }); bytes = -1; size = "5 ファイル" }
+    ) {
+        param ($label, $items, $bytes, $size)
+        (getIndexExportHeader $items ([datetime]"2026-09-27 10:00:00") $bytes).Size | Should -Be $size
+    }
+
+    It "数えている間に対象が無くなったときの文言" {
+        getIndexExportMissingText | Should -Be "対象のインデックスが見つかりません"
+    }
+}
+
 Describe "getIndexExportNotice" -Tag Unit {
     It "別の PC・ワークスペースで使えることを伝える" {
         getIndexExportNotice | Should -Match "インポートして使えます"
@@ -465,7 +539,7 @@ Describe "testIndexImportInput" -Tag Unit {
 }
 
 Describe "getIndexImportNotice" -Tag Unit {
-    It "名前と元のフォルダを変えられることと、同じ名前のときの扱いを伝える" {
+    It "名前と元のフォルダを変えられることを伝える" {
         getIndexImportNotice | Should -Match "名前と、元のフォルダの場所を変えられます"
     }
 }
@@ -510,21 +584,60 @@ Describe "getImportSourceCheckText（元のフォルダの下の 1 行）" -Tag 
     }
 }
 
-Describe "getImportNameNoticeText" -Tag Unit {
-    It "<label>" -TestCases @(
-        @{ label = "今の一覧にある名前（大文字・小文字は区別しない）"; name = " 営業 "; notice = $true }
-        @{ label = "ない名前"; name = "経理"; notice = $false }
-        @{ label = "空"; name = " "; notice = $false }
-    ) {
-        param ($label, $name, $notice)
-        $text = getImportNameNoticeText $name @("営業", "総務")
-        if ($notice) { $text | Should -Match "^同じ名前のインデックスがあります" } else { $text | Should -Be "" }
+Describe "getBulkDeleteErrorStatus" -Tag Unit {
+    It "理由を添える" {
+        getBulkDeleteErrorStatus "届きません" | Should -Be "削除に失敗しました：届きません"
     }
 }
 
-Describe "getIndexImportOverwriteConfirmMessage" -Tag Unit {
-    It "名前を含める" {
-        getIndexImportOverwriteConfirmMessage "営業" | Should -Match "「営業」"
+Describe "getIndexArchiveCancelledStatus" -Tag Unit {
+    It "<operation> を取りやめた文" -TestCases @(
+        @{ operation = "エクスポート"; expected = "エクスポートを取りやめました" }
+        @{ operation = "インポート"; expected = "インポートを取りやめました" }
+    ) {
+        param ($operation, $expected)
+        getIndexArchiveCancelledStatus $operation | Should -Be $expected
+    }
+}
+
+Describe "getImportCollisionChoiceView" -Tag Unit {
+    # 今の一覧は 営業・総務。zip の名前は、重なる「営業」か、重ならない「経理」
+    It "<label>" -TestCases @(
+        @{ label = "初めの状態（zip の名前が重なり、名前の欄は別の名前の候補）は出す"; name = "営業(2)"; zip = "営業"; mode = "Rename"; visible = $true; effective = "Rename"; danger = $false }
+        @{ label = "名前の欄を重なる名前に戻したら出す（大文字・小文字は区別しない）"; name = " 営業 "; zip = "営業"; mode = "Overwrite"; visible = $true; effective = "Overwrite"; danger = $true }
+        @{ label = "重なる名前を手で入れたら、zip の名前が重ならなくても出す"; name = "総務"; zip = "経理"; mode = "Rename"; visible = $true; effective = "Rename"; danger = $false }
+        @{ label = "名前の欄を手で一覧に無い名前にしたら隠す"; name = "営業の別件"; zip = "営業"; mode = "Overwrite"; visible = $false; effective = "Rename"; danger = $false }
+        @{ label = "zip の名前が重ならず、名前の欄がそのままなら出さない"; name = "経理"; zip = "経理"; mode = "Rename"; visible = $false; effective = "Rename"; danger = $false }
+        @{ label = "名前の欄が空なら出さない"; name = " "; zip = "経理"; mode = "Rename"; visible = $false; effective = "Rename"; danger = $false }
+        @{ label = "zip が一覧にあり、名前の欄が別の一覧の名前のとき、置き換える相手は名前の欄の名前"; name = "総務"; zip = "営業"; mode = "Overwrite"; visible = $true; effective = "Overwrite"; danger = $true; target = "総務"; overwriteName = "総務" }
+        @{ label = "zip が一覧に無く、名前の欄が一覧の名前のとき、置き換える相手は名前の欄の名前"; name = "総務"; zip = "経理"; mode = "Overwrite"; visible = $true; effective = "Overwrite"; danger = $true; target = "総務"; overwriteName = "総務" }
+        @{ label = "置き換えるを選んだあと、名前の欄を候補に戻したら、置き換えにならず赤くもしない"; name = "営業(2)"; zip = "営業"; mode = "Overwrite"; visible = $true; effective = "Rename"; danger = $false; target = "営業" }
+        @{ label = "置き換えるを選んだあと、名前の欄を一覧に無い名前にしたら、置き換えにならず赤くもしない"; name = "営業の別件"; zip = "営業"; mode = "Overwrite"; visible = $false; effective = "Rename"; danger = $false; target = "営業" }
+    ) {
+        param ($label, $name, $zip, $mode, $visible, $effective, $danger, $target, $overwriteName)
+        $view = getImportCollisionChoiceView $name $zip @("営業", "総務") $mode
+        $view.Visible | Should -Be $visible
+        $view.Mode | Should -Be $effective
+        $view.Danger | Should -Be $danger
+        if ($target) { $view.TargetName | Should -Be $target }
+        if ($overwriteName) { $view.OverwriteName | Should -Be $overwriteName }
+    }
+
+    It "選んだときに名前の欄へ入れる名前は、別の名前にするなら候補、置き換えるなら置き換える相手の名前" {
+        $view = getImportCollisionChoiceView "営業(2)" "営業" @("営業", "総務")
+        $view.Candidate | Should -Be "営業(2)"
+        $view.OverwriteName | Should -Be "営業"
+        $view.RenameText | Should -Be "別の名前にする"
+        $view.OverwriteText | Should -Be "置き換える"
+    }
+
+    It "見出しに重なっている名前を、置き換えるときは今のインデックスが置き換わることを添える" {
+        (getImportCollisionChoiceView "営業(2)" "営業" @("営業", "総務")).Heading | Should -Be "同じ名前のインデックス [営業] があります"
+        (getImportCollisionChoiceView "営業(2)" "営業" @("営業", "総務")).Notice | Should -Be ""
+        $overwrite = getImportCollisionChoiceView "総務" "営業" @("営業", "総務") "Overwrite"
+        $overwrite.Heading | Should -Be "同じ名前のインデックス [総務] があります"
+        $overwrite.Notice | Should -Be "今のインデックス [総務] は、インポートするもので置き換わります。"
+        (getImportCollisionChoiceView "新規" "新規" @("営業")).Heading | Should -Be ""
     }
 }
 
@@ -620,6 +733,18 @@ Describe "getIndexRowView" -Tag Unit {
         (getIndexRowView @{ Total = 10; Done = 10; Pending = 0; Failed = 0 } $true $true).ToolTip | Should -Not -Match "対象から外れています"
     }
 
+    It "エクスポート中の行は、状態によらず「エクスポート中」を更新中と同じ Run の色で出し、棒と補足は出さない" {
+        foreach ($stat in @($null, @{ Total = 10; Done = 10; Pending = 0; Failed = 0 }, @{ Total = 10; Done = 3; Pending = 7; Failed = 0 })) {
+            $view = getIndexRowView $stat $false $true -1.0 $true $true
+            $view.Text | Should -Be "エクスポート中"
+            $view.Level | Should -Be "Run"
+            $view.Sub | Should -Be ""
+            $view.Percent | Should -Be 0
+            $view.ToolTip | Should -Match "書き出しています"
+        }
+        (getIndexRowView @{ Total = 10; Done = 10; Pending = 0; Failed = 0 } $false $true -1.0 $true $false).Text | Should -Be "最新"
+    }
+
     It "ツールヒントに前の版・内部の言葉を含めない" {
         $views = @(
             (getIndexRowView $null $false $true)
@@ -672,22 +797,22 @@ Describe "getFastSearchRowView" -Tag Unit {
            text = "－"; level = "None" }
         @{ label = "NoFolder だが本文がある（インポートなど）: 不可"
            reason = "NoFolder"; byIndex = $null; name = "営業"; hasContent = $true
-           text = "不可"; level = "Ng" }
+           text = "不可"; level = "Warn" }
         @{ label = "NoFolder だが本文がある・インデックス作成中: 不可にせず－（作成中は前の結果のままにしない）"
            reason = "NoFolder"; byIndex = $null; name = "営業"; hasContent = $true; indexing = $true
            text = "－"; level = "None" }
         @{ label = "NoConnection: 不可"
            reason = "NoConnection"; byIndex = $null; name = "営業"; hasContent = $false
-           text = "不可"; level = "Ng" }
+           text = "不可"; level = "Warn" }
         @{ label = "NotInScope: 不可"
            reason = "NotInScope"; byIndex = $null; name = "営業"; hasContent = $false
-           text = "不可"; level = "Ng" }
+           text = "不可"; level = "Warn" }
         @{ label = "Ok で進み具合を確かめられない: －"
            reason = "Ok"; byIndex = $null; name = "営業"; hasContent = $true
            text = "－"; level = "None" }
         @{ label = "Ok で ByIndex に無く本文がある（インポートなど）: 不可"
            reason = "Ok"; byIndex = @{}; name = "営業"; hasContent = $true
-           text = "不可"; level = "Ng" }
+           text = "不可"; level = "Warn" }
         @{ label = "Ok で ByIndex に無く本文がある・インデックス作成中: 不可にせず－"
            reason = "Ok"; byIndex = @{}; name = "営業"; hasContent = $true; indexing = $true
            text = "－"; level = "None" }
@@ -712,6 +837,14 @@ Describe "getFastSearchRowView" -Tag Unit {
         $view = getFastSearchRowView $reason $progress $name $hasContent $null $indexing
         $view.Text | Should -Be $text
         $view.Level | Should -Be $level
+    }
+
+    It "NotInScope は対処の手順を持ち、使えない状態は注意の色（Warn）で、手順はツールヒントにも入る" {
+        $v = getFastSearchRowView "NotInScope" $null "営業" $false $null
+        $v.Level | Should -Be "Warn"
+        @($v.Steps).Count | Should -BeGreaterThan 1
+        $v.ToolTip | Should -Match "インデックスのオプション"
+        (getFastSearchRowView "Ok" (newFastProgress @{ "営業" = @{ Folders = 4; Waiting = 0 } }) "営業" $true $null).Steps.Count | Should -Be 0
     }
 
     It "Text は 可・反映中 N%・反映待ち・不可・－・確認中… のどれかだけ" {
@@ -852,7 +985,7 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         $view.Badge.Level | Should -Be $badgeLevel
         $view.Error | Should -Be $error
         if ($error) {
-            $view.ErrorHint | Should -Be "フォルダが移動・削除されたか、ネットワークにつながっていない可能性があります。`nフォルダパスの［...］でフォルダを選び直してください。"
+            $view.ErrorHint | Should -Be "フォルダが移動・削除されたか、ネットワークにつながっていない可能性があります。`nフォルダパスの［変更…］でフォルダを選び直してください。"
         } else {
             $view.ErrorHint | Should -Be ""
         }
@@ -963,8 +1096,18 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         ($view.Fast.Note -ne "") | Should -Be $note
     }
 
+    It "高速検索が不可（Warn）のときも、理由と手順を出す" {
+        $item = newDetailItem -fastLevel "Warn" -fastTip "対象外です。"
+        $item.FastSteps = @("手順 1", "手順 2")
+        $view = getIndexDetailView @($item) $null
+        $view.Fast.Reason | Should -Be "対象外です。"
+        @($view.Fast.Steps) | Should -Be @("手順 1", "手順 2")
+        $item.FastSteps = @("手順 1")
+        (getIndexDetailView @($item) $null).RowsKey | Should -Not -Be $view.RowsKey
+    }
+
     It "高速検索が不可のときは、理由（ツールヒントの 1 行目）を出す" {
-        $view = getIndexDetailView @(newDetailItem -fastLevel "Ng" -fastTip "Windows Search に接続できない。`n最終確認 10:05") $null
+        $view = getIndexDetailView @(newDetailItem -fastLevel "Warn" -fastTip "Windows Search に接続できない。`n最終確認 10:05") $null
         $view.Fast.Reason | Should -Be "Windows Search に接続できない。"
         (getIndexDetailView @(newDetailItem) $null).Fast.Reason | Should -Be ""
     }

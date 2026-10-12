@@ -20,6 +20,71 @@ Describe "getWorkspaceView" -Tag Unit {
     }
 }
 
+Describe "getWorkspaceInputDecision" -Tag Unit {
+    BeforeAll { $script:drives = @{ "C" = "\Device\HarddiskVolume3"; "D" = "\Device\HarddiskVolume4" } }
+
+    # blocked: 今は変えられない理由（空なら変えられる）。type: ドライブの種類（Fixed なら、ふつうのローカルのドライブ）
+    It "<name>" -TestCases @(
+        @{ name = "空にすると入力を促す"; text = "  "; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*入力してください*"; path = "C:\tool\work" }
+        @{ name = "相対パスは受けない"; text = "ws\新"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
+        @{ name = "ドライブ文字のない絶対パス風（\ 始まり）も受けない"; text = "\ws\新"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
+        @{ name = "ドライブ文字だけ（\ 無し）は受けない"; text = "C:"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
+        @{ name = "ドライブ文字の相対（C:相対）は受けない"; text = "C:相対"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
+        @{ name = "環境変数で始まるパスは受けない（定義の有無を問わず）"; text = "%TEBUNKO_NO_SUCH_VARIABLE%\ws"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*% を含むパス*［変更…］*"; path = "C:\tool\work" }
+        @{ name = "環境変数は展開せず断る（<SystemDrive>）"; text = "%SystemDrive%\新しい"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*% を含むパス*［変更…］*"; path = "C:\tool\work" }
+        @{ name = "% で始まるだけの文字は断る"; text = "%data"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*% を含むパス*［変更…］*"; path = "C:\tool\work" }
+        @{ name = "ドライブ文字の後ろに % があるパスも断る"; text = "D:\%data%"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*% を含むパス*［変更…］*"; path = "C:\tool\work" }
+        @{ name = "今と同じなら何もしない（大文字小文字・末尾の \ の違い）"; text = "c:\TOOL\work\"; type = "Fixed"; blocked = ""; action = "None"; like = ""; path = "C:\tool\work" }
+        @{ name = "あるフォルダは確かめに進む"; text = "D:\新しい"; type = "Fixed"; blocked = ""; action = "Apply"; like = ""; path = "D:\新しい" }
+        @{ name = "取り外せるドライブも進む"; text = "D:\新しい"; type = "Removable"; blocked = ""; action = "Apply"; like = ""; path = "D:\新しい" }
+        @{ name = "引用符と空白を取って進む"; text = " ""D:\新しい"" "; type = "Fixed"; blocked = ""; action = "Apply"; like = ""; path = "D:\新しい" }
+        @{ name = "/ 区切りは \ にそろえて進む"; text = "D:/新しい"; type = "Fixed"; blocked = ""; action = "Apply"; like = ""; path = "D:\新しい" }
+        @{ name = "末尾の \ と空白は取って進む"; text = "D:\新しい\ "; type = "Fixed"; blocked = ""; action = "Apply"; like = ""; path = "D:\新しい" }
+        @{ name = "ネットワークのパスは受けず、［変更…］へ案内する"; text = "\\server\share\ws"; type = "Fixed"; blocked = ""; action = "Invalid"; like = '*\\サーバー\共有*［変更…］*'; path = "C:\tool\work" }
+        @{ name = "/ 区切りのネットワークのパスも受けない"; text = "//server/share"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*［変更…］*"; path = "C:\tool\work" }
+        @{ name = "デバイス名の形のネットワークのパス（\\.\UNC\）は受けない"; text = "\\.\UNC\server\share\ws"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
+        @{ name = "長いパスの形のネットワークのパス（\\?\UNC\）は受けない"; text = "\\?\UNC\server\share\ws"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
+        @{ name = "デバイス名の形のドライブ（\\.\C:\）は受けない"; text = "\\.\C:\ws"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
+        @{ name = "長いパスの形のドライブ（\\?\C:\）は受けない"; text = "\\?\C:\ws"; type = "Fixed"; blocked = ""; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
+        @{ name = "割り当てたネットワークのドライブは受けない"; text = "Z:\ws"; type = "Network"; blocked = ""; action = "Invalid"; like = "*［変更…］*"; path = "C:\tool\work" }
+        @{ name = "つながっていないドライブは受けない"; text = "Z:\ws"; type = "NoRootDirectory"; blocked = ""; action = "Invalid"; like = "*［変更…］*"; path = "C:\tool\work" }
+        @{ name = "更新中などは、進める場所でも Blocked で理由を返す"; text = "D:\新しい"; type = "Fixed"; blocked = "更新中は変えられません。"; action = "Blocked"; like = "更新中は変えられません。"; path = "C:\tool\work" }
+        @{ name = "更新中でも、今と同じなら何もしない"; text = "C:\tool\work"; type = "Fixed"; blocked = "更新中は変えられません。"; action = "None"; like = ""; path = "C:\tool\work" }
+        @{ name = "更新中でも、直してほしい入力は Invalid"; text = "ws\新"; type = "Fixed"; blocked = "更新中は変えられません。"; action = "Invalid"; like = "*ドライブ文字*"; path = "C:\tool\work" }
+    ) {
+        $driveType = { param ($drive) [System.IO.DriveType]$type }.GetNewClosure()
+        $d = getWorkspaceInputDecision $text "C:\tool\work" $script:drives $driveType $blocked
+        $d.Action | Should -Be $action
+        if ($like) { $d.Message | Should -BeLike $like }
+        $d.Path | Should -Be $path
+    }
+
+    # 予約デバイス名は、整形の結果が版で違うことがある。文字列だけを見る（フォルダは作らない）。進めるときは、必ずドライブ文字の形
+    It "予約デバイス名（<text>）は、進めるならドライブ文字の形の Path、そうでなければ Invalid" -TestCases @(
+        @{ text = "D:\con" }
+        @{ text = "D:\ws\nul" }
+        @{ text = "D:\con.txt" }
+        @{ text = "D:\COM1" }
+        @{ text = "D:\con." }
+    ) {
+        $d = getWorkspaceInputDecision $text "C:\tool\work" $script:drives { param ($drive) [System.IO.DriveType]::Fixed }
+        if ($d.Action -eq "Apply") {
+            $d.Path | Should -Match '^[A-Za-z]:\\'
+        } else {
+            $d.Action | Should -Be "Invalid"
+            $d.Message | Should -BeLike "*機器の名前*"
+        }
+    }
+
+    It "整形の結果がドライブ文字の形でなくなる（予約デバイス名）なら、必ず Invalid にして今の場所を返す" {
+        Mock normalizeFolderPath { '\\.\con' }
+        $d = getWorkspaceInputDecision "D:\con" "C:\tool\work" $script:drives { param ($drive) [System.IO.DriveType]::Fixed }
+        $d.Action | Should -Be "Invalid"
+        $d.Message | Should -BeLike "*機器の名前*"
+        $d.Path | Should -Be "C:\tool\work"
+    }
+}
+
 Describe "getSettingsFileView" -Tag Unit {
     It "ツールのフォルダにあれば、そう伝える" {
         $view = getSettingsFileView "C:\tool\setting.config" "C:\Tool\"
@@ -59,6 +124,15 @@ Describe "getCountedEntryPaths（既定のワークスペースの設定ファ�
         $counted = @(getCountedEntryPaths @("C:\other\setting.config") $false)
         $confirm = newWorkspaceConfirm "C:\other" "C:\old" $counted.Count @("setting.config") $false @() $true $false
         @($confirm.Facts | Where-Object { $_.Kind -eq "warn" }).Count | Should -Be 1
+    }
+}
+
+Describe "getWorkspaceCautionTexts" -Tag Unit {
+    It "注意（文字がそのまま入る・更新中は変えられない）を先の段落に、変え方をあとの段落に出す" {
+        $texts = getWorkspaceCautionTexts
+        $texts.Caution | Should -BeLike "インデックスには文書の文字がそのまま入ります。*更新中は変えられません。"
+        $texts.HowTo | Should -BeLike "空のフォルダを選んでください。*"
+        $texts.HowTo | Should -Not -BeLike "*更新中*"
     }
 }
 
@@ -143,5 +217,59 @@ Describe "newWorkspaceConfirm" -Tag Unit {
         @($confirm.Choices | ForEach-Object { $_.Text }) -join "," | Should -Be "今のインデックスを移動する,そのフォルダのインデックスを使う"
         $confirm.Choices[0].Danger | Should -Be $true
         $confirm.Choices[0].Careful | Should -Be $true
+    }
+}
+
+Describe "getWorkspaceMoveChange" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "戻り値が空なら null"; output = @(); ok = $null }
+        @{ label = "Ok を持つ表だけ拾う"; output = @("x", @{ Other = 1 }, @{ Ok = $true; Count = 2 }); ok = $true }
+        @{ label = "複数あれば最後のを拾う"; output = @(@{ Ok = $true }, @{ Ok = $false }); ok = $false }
+        @{ label = "Ok の無い表だけなら null"; output = @(@{ Other = 1 }); ok = $null }
+    ) {
+        param ($label, $output, $ok)
+        $change = getWorkspaceMoveChange $output
+        if ($null -eq $ok) { $change | Should -BeNullOrEmpty } else { $change.Ok | Should -Be $ok }
+    }
+}
+
+Describe "getWorkspaceMoveOutcome" -Tag Unit {
+    It "<label>は失敗で、画面を切り替えず、今のワークスペースのまま使えると伝える" -TestCases @(
+        @{ label = "裏の例外"; change = $null; err = "届きません"; expected = "ワークスペースを「D:\新」へ移せませんでした（届きません）。今のワークスペースのまま使えます。" }
+        @{ label = "戻り値なし"; change = $null; err = ""; expected = "ワークスペースを「D:\新」へ移せませんでした。今のワークスペースのまま使えます。" }
+        @{ label = "移せなかった結果"; change = @{ Ok = $false; Stage = "move"; Message = "足りません" }; err = ""; expected = "足りません" }
+        @{ label = "削除できなかった結果"; change = @{ Ok = $false; Stage = "remove"; Message = "使用中" }; err = ""; expected = "「D:\新」のインデックスを削除できませんでした（使用中）。ファイルを開いているアプリを閉じてから、もう一度変えてください。" }
+    ) {
+        param ($label, $change, $err, $expected)
+        $outcome = getWorkspaceMoveOutcome $change $err $false "move" "D:\新" "C:\旧"
+        $outcome.Ok | Should -Be $false
+        $outcome.Warning | Should -Be $expected
+        $outcome.Status | Should -Be ""
+        $outcome.Close | Should -Be $false
+    }
+
+    It "成功したら <label>" -TestCases @(
+        @{ label = "use は使うインデックスの件数と残した場所を出す"; mode = "use"; change = @{ Ok = $true; Targets = 3; Count = 0 }; expected = "ワークスペースを「D:\新」に変え、そこにあるインデックスを使います（インデックス 3 件。前のワークスペースの中身は「C:\旧」に残しています）" }
+        @{ label = "move は移した中身があれば元の場所を出す"; mode = "move"; change = @{ Ok = $true; Targets = 0; Count = 4 }; expected = "ワークスペースを「D:\新」に変え、中身を移しました（移す前の場所：C:\旧）" }
+        @{ label = "move でも中身が無ければ出さない"; mode = "move"; change = @{ Ok = $true; Targets = 0; Count = 0 }; expected = "" }
+    ) {
+        param ($label, $mode, $change, $expected)
+        $outcome = getWorkspaceMoveOutcome $change "" $false $mode "D:\新" "C:\旧"
+        $outcome.Ok | Should -Be $true
+        $outcome.Warning | Should -Be ""
+        $outcome.Status | Should -Be $expected
+    }
+
+    It "移せたあとに例外の文が付いても、成功として扱う（設定を書き換え済みのため）" {
+        $outcome = getWorkspaceMoveOutcome @{ Ok = $true; Targets = 0; Count = 4 } "あとの例外" $false "move" "D:\新" "C:\旧"
+        $outcome.Ok | Should -Be $true
+        $outcome.Warning | Should -Be ""
+    }
+
+    It "移している間に閉じようとしていたら、成功のときだけ Close を返す（失敗は閉じずに警告を出す）" {
+        (getWorkspaceMoveOutcome @{ Ok = $true; Count = 1 } "" $true "move" "D:\新" "C:\旧").Close | Should -Be $true
+        $failed = getWorkspaceMoveOutcome $null "失敗" $true "move" "D:\新" "C:\旧"
+        $failed.Close | Should -Be $false
+        $failed.Warning | Should -Not -BeNullOrEmpty
     }
 }

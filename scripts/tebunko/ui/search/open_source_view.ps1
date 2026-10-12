@@ -210,3 +210,16 @@ function getSourceReadOnlyFailedStatus {
 
     return "もらったインデックスのファイルは読み取り専用で開けなかったため、開きませんでした。［ファイルのパスをコピー］で場所を調べ、確かめてから開いてください：${path}"
 }
+function getResultSaveFailedText {
+    # 検索結果を search_results.txt に書けなかったときの文（ステータスと検索画面の上の帯に同じ文を出す）
+    #   kind: Locked（ほかのアプリが開いている）/ Denied（読み取り専用・書き込み権限が無い。アプリを閉じても直らない）
+    param (
+        [string]$kind,
+        [string]$resultFile
+    )
+
+    if ($kind -eq "Denied") {
+        return "search_results.txt に書き込む権限がありません（読み取り専用など）。${resultFile} を確かめてから、もう一度出力してください。"
+    }
+    return "search_results.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。"
+}
