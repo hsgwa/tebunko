@@ -4388,14 +4388,14 @@
 <tr>
 <td>プレビュー 読み込み（キャッシュ無し。語ごと）</td>
 <td>中央値</td>
-<td>ランナーで 5 回測って決める（それまでは仮の値）</td>
+<td>ランナーで 2 回測った値の最大（この行だけ 2 回）</td>
 <td>1.5 倍（10 ms 単位）</td>
 <td><code>perf_preview.Tests.ps1</code> の <code>readLimitsMs</code></td>
 </tr>
 <tr>
 <td>プレビューのあとに残るメモリ（合計）</td>
 <td>GC のあとのマネージドヒープの増え（1 回あたりではなく、語ごとの合計）</td>
-<td>ランナーで 5 回測って決める（それまでは仮の値）</td>
+<td>ランナーで 2 回測った値の最大（この行だけ 2 回。語のうち一番大きい値）</td>
 <td>2 倍（0.1 MB 単位）</td>
 <td><code>perf_preview.Tests.ps1</code> の <code>retainedLimitMB</code></td>
 </tr>
