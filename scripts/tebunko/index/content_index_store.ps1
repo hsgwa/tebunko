@@ -470,36 +470,3 @@ function readContentIndexLines {
     return @{ Rows = $rows.ToArray(); End = ($rows.Count -lt $count); Marks = $newMarks }
 }
 
-
-function readContentIndexContext {
-    # 本文インデックスのファイルの中の、元のファイル book・場所 location の lineNumber 行目と、その前後 before 行・after 行を
-    # @{ LineNumber; Line } の配列で返す（行の数え方は検索と同じ。読み方は readContentIndexLines）。
-    # cache（検索のキャッシュ）に同じ本文インデックスのファイルの内容があれば、ファイルを読み直さない。読めない・見つからなければ空。
-    # 場所の一覧は 1 つ前に読んだファイルのものを $script:contentIndexPlacesMemo に覚えて使い回す
-    # （同じ呼び出し元から続けて呼ぶ測定の道具・テスト用。画面は readContentIndexLines に控えを渡して使う）
-    param (
-        [string]$path,
-        [string]$book,
-        [string]$location,
-        [int]$lineNumber,
-        [int]$before = 3,
-        [int]$after = 3,
-        $cache = $null
-    )
-
-    $first = [Math]::Max(1, $lineNumber - $before)
-    $last = $lineNumber + $after
-    if ($last -lt $first) { return @() }
-    $marks = $null
-    $memo = $script:contentIndexPlacesMemo
-    if ($null -ne $memo) {
-        $marks = @{ Path = $memo.Path; Ticks = $memo.Ticks; Size = $memo.Size; Places = $memo.Places; Checkpoints = @{} }
-    }
-    $result = readContentIndexLines $path $book $location $first ($last - $first + 1) $cache $marks
-    $used = $result.Marks
-    if ($null -ne $used -and $null -ne $used.Places) {
-        $script:contentIndexPlacesMemo = @{ Path = $used.Path; Ticks = $used.Ticks; Size = $used.Size; Places = $used.Places }
-    }
-    # 呼び出し側で @() にして使う
-    return $result.Rows
-}

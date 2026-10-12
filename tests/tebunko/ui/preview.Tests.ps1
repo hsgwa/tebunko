@@ -327,6 +327,37 @@ Describe "showDetail" -Tag Io {
         $script:previewTable | Should -BeNullOrEmpty
     }
 
+    It "最後に読んだ 1 つのファイルの控えを次の読みに渡す。別のファイルに移れば控えは入れ替わり、選び直したら捨てる" {
+        $seen = [System.Collections.Generic.List[object]]::new()
+        $originalLines = Get-Command readContentIndexLines -CommandType Function
+        Mock readContentIndexLines { $seen.Add($marks); & $originalLines $path $book $location $firstLine $count $cache $marks }
+        $lines = @("`t一", "`t二", "`t三", "`t四", "`t五")
+        $first = newHitRow "見積.xlsx" "4月" 2 $lines
+        $second = [HitRow]::Create("営業部", $first.Root, $first.RelPath, $first.RelDir, $first.Book, $first.Book, $first.Location, 4, $lines[3], "見積", [regex]"見積")
+        $other = newHitRow "請求.xlsx" "5月" 2 $lines "経理部"
+
+        $fake.Current = $first
+        showDetail
+        $seen[0] | Should -BeNullOrEmpty
+        $script:previewMarks.Path | Should -Be (toLongPath ([System.IO.Path]::Combine($first.Root, $first.RelPath)))
+
+        $fake.Current = $second
+        showDetail
+        $seen[1].Path | Should -Be $script:previewMarks.Path
+
+        $fake.Current = $other
+        showDetail
+        $seen[2].Path | Should -Not -Be (toLongPath ([System.IO.Path]::Combine($other.Root, $other.RelPath)))
+        $script:previewMarks.Path | Should -Be (toLongPath ([System.IO.Path]::Combine($other.Root, $other.RelPath)))
+
+        $fake.Current = $null
+        showDetail
+        $script:previewMarks | Should -BeNullOrEmpty
+        $fake.Current = $second
+        showDetail
+        $seen[3] | Should -BeNullOrEmpty
+    }
+
     Context "前後の行を読めないとき" {
         It "選んだ行だけを出す" {
             Mock readContentIndexLines { throw "読めません" }
@@ -633,6 +664,14 @@ Describe "プレビューの読み足し（スクロールに合わせて、上�
         $script:tableA.FirstLine() | Should -Be 450
         $script:tableA.LastLine() | Should -Be 550
         $script:tableA.Request | Should -Be $script:previewRequest
+    }
+
+    It "読み足しの結果の控えを、表と次の読みに使う控えに入れる" {
+        $result = newMoreResult $script:tableA "down" 551 560
+        $result.Marks = @{ Path = "控え" }
+        applyReadMore @($result) $null
+        $script:tableA.Marks.Path | Should -Be "控え"
+        $script:previewMarks.Path | Should -Be "控え"
     }
 
     It "下に足した行が今の行につながるなら足す。終わりまで読んだときだけ、下は終わりにする" {

@@ -8,6 +8,9 @@ $script:detailTimer = newTimer 120 {
 # 読み込みを頼んだプレビューの番号と行（別の行を選んだ後に届いた古い結果を捨てるため）
 $script:previewRequest = 0
 $script:previewRow = $null
+# 最後に読んだ 1 つのファイルの控え（readContentIndexLines の Marks）。次に読むときに渡し、同じファイルなら先頭から読み直さない。
+# ファイルのパス・更新日時・大きさが変わったら readContentIndexLines が使わずに作り直す（初めて開くファイルの最初の読みは、ファイル全体を読む）
+$script:previewMarks = $null
 # 列見出しをドラッグしている間 $true（見えている列の範囲を決め直さない。updatePreviewWindow）
 $script:previewDragging = $false
 
@@ -17,6 +20,7 @@ function clearDetail {
     # 行を選んでいないときのプレビュー。枠（と高さ）はそのままにし、中身を空にして案内を出す
     $script:previewRequest++   # 読んでいる途中の読み足しの結果は捨てる
     $script:previewDragging = $false
+    $script:previewMarks = $null
     $ui.PreviewHeader.ItemsSource = $null
     $ui.PreviewHeaderPanel.DataContext = $null
     $ui.PreviewRows.ItemsSource = $null
@@ -54,12 +58,13 @@ function showDetail {
     $first = [Math]::Max(1, $row.LineNumber - ${previewFirstLines})
     $count = $row.LineNumber - $first + 1 + ${previewFirstLines}
     startJob {
-        param ($id, $path, $book, $location, $first, $count, $cache)
-        $result = readContentIndexLines $path $book $location $first $count $cache $null
+        param ($id, $path, $book, $location, $first, $count, $cache, $marks)
+        $result = readContentIndexLines $path $book $location $first $count $cache $marks
         @{ Id = $id; Context = @($result.Rows); End = $result.End; Marks = $result.Marks }
-    } @($script:previewRequest, [System.IO.Path]::Combine($row.Root, $row.RelPath), $row.Book, $row.Location, $first, $count, $script:tsvCache) {
+    } @($script:previewRequest, [System.IO.Path]::Combine($row.Root, $row.RelPath), $row.Book, $row.Location, $first, $count, $script:tsvCache, $script:previewMarks) {
         param ($output, $errorText)
         if ($output -and $output.Count -gt 0 -and $output[0].Id -eq $script:previewRequest) {
+            $script:previewMarks = $output[0].Marks
             applyDetail $script:previewRow $output[0].Context $output[0].Marks $output[0].End
         } elseif ($errorText -and $null -ne $script:previewRow) {
             # 読めなければ選択行だけを出す（読み足しもしない）
@@ -249,6 +254,7 @@ function applyReadMore {
     $lines = [string[]]@($result.Rows | ForEach-Object { $_.Line })
     $rows = $table.Owner.BuildPreviewRows($table, $numbers, $lines)
     $table.Marks = $result.Marks
+    $script:previewMarks = $result.Marks
     # 今ある行とつながらない結果（読んでいる間に反対側を捨てたなど）は足さず、また近づいたときに読み直す
     $joins = $rows.Count -gt 0 -and $(if ($side -eq "up") { $rows[$rows.Count - 1].LineNumber -eq $table.FirstLine() - 1 } else { $rows[0].LineNumber -eq $table.LastLine() + 1 })
     $table.HideMessage($side)
