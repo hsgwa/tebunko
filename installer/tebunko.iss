@@ -13,7 +13,7 @@
 ;     だけ。レジストリに書くのは、Windows のインストーラーが
 ;     必ず書くアンインストールの情報だけ（[Registry] は使わない）。サービス・自動起動・PATH・ファイルの関連付けは触らない
 ;   ・更新は、新しい版のインストーラーを実行するだけにする。古い版で消したスクリプトが残らないよう、scripts\ を消してから入れる
-;   ・アンインストールでは、入れたファイルと setting.config・startup_error.txt を消す。インデックス（ワークスペース）は利用者が選んだ場所にあり得るため
+;   ・アンインストールでは、入れたファイルと setting.config・startup_error.txt・startup_error_previous.txt・startup_error_moving.txt を消す。インデックス（ワークスペース）は利用者が選んだ場所にあり得るため
 ;     消さずに、残っている場所を知らせる
 
 #ifndef AppVersion
@@ -93,6 +93,8 @@ Filename: "{app}\tebunko.exe"; Description: "tebunko を起動する"; Flags: no
 ; 利用者ごとの設定（ツールのフォルダに書き込めるときはここに作る。scripts\shared\core\data_dir.ps1）と、起動に失敗したときの記録
 Type: files; Name: "{app}\setting.config"
 Type: files; Name: "{app}\startup_error.txt"
+Type: files; Name: "{app}\startup_error_previous.txt"
+Type: files; Name: "{app}\startup_error_moving.txt"
 
 [Code]
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);

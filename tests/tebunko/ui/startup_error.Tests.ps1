@@ -71,6 +71,58 @@ Describe "writeStartupErrorFile" -Tag Io {
         $content | Should -Match "2 回目"
     }
 
+    It "<name>" -ForEach @(
+        @{ name = "1 MB 未満なら追記だけで、前回の分は作らない"; size = 100; hasPrevious = $false; blockPrevious = $false; expectPrevious = $false }
+        @{ name = "1 MB 以上なら startup_error_previous.txt に移して新しいファイルに書く"; size = (1MB + 1); hasPrevious = $false; blockPrevious = $false; expectPrevious = $true }
+        @{ name = "1 MB 以上で前回の分があれば上書きする"; size = (1MB + 1); hasPrevious = $true; blockPrevious = $false; expectPrevious = $true }
+        @{ name = "1 MB 以上で移せなくても（前回の分が開いたまま）元のファイルに追記してパスを返す"; size = (1MB + 1); hasPrevious = $true; blockPrevious = $true; expectPrevious = $true }
+    ) {
+        $tool = Join-Path $TestDrive ("tool-rot-" + [guid]::NewGuid().ToString("N"))
+        [System.IO.Directory]::CreateDirectory($tool) | Out-Null
+        $file = Join-Path $tool "startup_error.txt"
+        $previous = Join-Path $tool "startup_error_previous.txt"
+        [System.IO.File]::WriteAllText($file, ("x" * $size), (New-Object System.Text.UTF8Encoding($true)))
+        if ($hasPrevious) { [System.IO.File]::WriteAllText($previous, "古い") }
+        # 前回の分を開いたままにして、上書きの移動を確実に失敗させる（読み取り専用では -Force が上書きできることがある）
+        $held = $null
+        if ($blockPrevious) { $held = [System.IO.File]::Open($previous, "Open", "Read", "None") }
+        try {
+            writeStartupErrorFile "新しい記録" $tool | Should -Be $file
+        } finally {
+            if ($held) { $held.Dispose() }
+        }
+        Test-Path -LiteralPath $previous | Should -Be $expectPrevious
+        (Get-Content -LiteralPath $file -Raw) | Should -Match "新しい記録"
+        if ($blockPrevious) {
+            # 移せなかったので、元のファイルは大きいまま新しい記録が追記され、前回の分は変わらない
+            (Get-Content -LiteralPath $file -Raw) | Should -Match "x{1000}"
+            [System.IO.File]::ReadAllText($previous) | Should -Be "古い"
+        } elseif ($size -gt 1MB) {
+            (Get-Content -LiteralPath $file -Raw) | Should -Not -Match "x{1000}"
+            (Get-Content -LiteralPath $previous -Raw) | Should -Match "x{1000}"
+        }
+    }
+
+    It "1 MB 以上で元のファイルが開いたままで移せないとき、前回の分は消えない" {
+        $tool = Join-Path $TestDrive ("tool-held-" + [guid]::NewGuid().ToString("N"))
+        [System.IO.Directory]::CreateDirectory($tool) | Out-Null
+        $file = Join-Path $tool "startup_error.txt"
+        $previous = Join-Path $tool "startup_error_previous.txt"
+        [System.IO.File]::WriteAllText($file, ("x" * (1MB + 1)))
+        [System.IO.File]::WriteAllText($previous, "古い")
+        $held = [System.IO.File]::Open($file, "Open", "Read", "None")
+        try {
+            # 元を開いたままでは追記もできないので、記録は残らず $null が返る
+            writeStartupErrorFile "新しい記録" $tool | Should -Be $null
+        } finally {
+            $held.Dispose()
+        }
+        (Get-Content -LiteralPath $file -Raw) | Should -Match "x{1000}"
+        (Get-Content -LiteralPath $file -Raw) | Should -Not -Match "新しい記録"
+        [System.IO.File]::ReadAllText($previous) | Should -Be "古い"
+        Test-Path -LiteralPath (Join-Path $tool "startup_error_moving.txt") | Should -Be $false
+    }
+
     It "ツールのフォルダに書けなければ、記録を残さず `$null を返す（LOCALAPPDATA・TEMP には書かない）" {
         # startup_error.txt の名前でフォルダを置いて、ファイルを作れなくする（ACL に頼らない）
         $tool = Join-Path $TestDrive "tool-blocked"

@@ -393,9 +393,17 @@ function invokeIndexer {
                 throw "ほかのインデックス作成が実行中です。インデックス作成が終わってから実行してください。"
             }
             [System.IO.Directory]::CreateDirectory($workspace.Dir) | Out-Null
+            # 鍵を取れた後にだけ、前回の記録を残す（取れなかったときはほかのインデックス作成の記録に触らない）
+            [void](rotateLogFile $workspace.IndexingLogFile 0)
             $writer = New-Object System.IO.StreamWriter($workspace.IndexingLogFile, $false, ${utf8Bom})
             $writer.AutoFlush = $true
             $script:indexerLog = $writer
+            try {
+                # 先頭に版と環境を書く（画面なしで動かしたときにコンソールへ出さないよう writeIndexerLog は使わない）。書けなくても続ける
+                foreach ($headerLine in @(getToolDiagnosticHeader)) {
+                    $writer.WriteLine($headerLine)
+                }
+            } catch {}
             if ($script:settingsRecovery) {
                 # 画面なしで起動したとき、起動口が壊れた設定ファイルを退避している。ログの先頭に知らせる
                 writeIndexerLog (getSettingsRecoveryMessage $script:settingsRecovery) "Yellow"
