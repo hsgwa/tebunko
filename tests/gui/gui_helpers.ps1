@@ -320,6 +320,41 @@ function findAllGui {
     }
 }
 
+function getGuiPreviewTexts {
+    # プレビューの表のセルの Text（Id CellText）。結果の表など、プレビューの外の Text は含めない。
+    # プレビューの行は ItemsControl のテンプレートの中のスクロール（PreviewScroll）に入り、窓から子孫として探しても
+    # PreviewScroll 自体は見つからない（ItemsControl の UI オートメーションの部品は、子にアイテムしか出さないため）。
+    # そのため、セルの Text を窓から探し、親をたどって Id が PreviewScroll の部品に着くものだけをプレビューのセルとする
+    param ($Window)
+    $walker = [Windows.Automation.TreeWalker]::RawViewWalker
+    $result = New-Object System.Collections.ArrayList
+    foreach ($text in @(findAllGui $Window -Id "CellText" -Type Text)) {
+        try {
+            $parent = $walker.GetParent($text)
+            while ($parent -and $parent.Current.AutomationId -ne "PreviewScroll" -and $parent.Current.ControlType -ne [Windows.Automation.ControlType]::Window) {
+                $parent = $walker.GetParent($parent)
+            }
+            if ($parent -and $parent.Current.AutomationId -eq "PreviewScroll") {
+                [void]$result.Add([pscustomobject]@{ Text = $text; Scroll = $parent })
+            }
+        } catch {
+            # 親をたどる間に部品が消えたものは数えない
+        }
+    }
+    return @($result)
+}
+
+function waitGuiPreviewScroll {
+    # プレビューのスクロール（Id PreviewScroll）の部品が出るまで待って返す。プレビューのセルが 1 つも出ない・親をたどって
+    # 着かないときは、その理由の文で落とす
+    param ($S)
+    $found = waitGui $S "プレビューのセル（親をたどると PreviewScroll に着く CellText）" ${guiDefaultTimeout} {
+        $cells = @(getGuiPreviewTexts $S.Window)
+        if ($cells.Count -gt 0) { , $cells }
+    }
+    return $found[0].Scroll
+}
+
 function getGuiTopWindows {
     # 画面のプロセスの、いちばん上の窓（本体・ダイアログ・メッセージボックス・メニュー・OS のフォルダ選択）。
     # ツールヒント（結果の見出し行などの ToolTip="{Binding ...}"）は、マウスを動かさなくても、UI オートメーションで
