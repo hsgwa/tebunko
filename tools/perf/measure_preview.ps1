@@ -332,6 +332,8 @@ try {
     writeStageLine "記録の終わり"
     $samples = stopResourceMonitor $monitor
 }
+writeStageLine "記録の停止の終わり"
+writeStageLine "結果の書き出し"
 $resultData = [ordered]@{
     Name = $Name; Word = $Word; Regex = $Regex; FullRead = [bool]$FullRead; Count = $hits.Count; Previews = $previews.ToArray(); ReadMore = $(if ($ReadMore) { $readMoreRuns.ToArray() } else { $null })
     Memory = [ordered]@{
@@ -343,3 +345,8 @@ $resultData = [ordered]@{
     PeakWorkingSetMB = [Math]::Round([System.Diagnostics.Process]::GetCurrentProcess().PeakWorkingSet64 / 1MB, 1)
 }
 [System.IO.File]::WriteAllText($Out, ($resultData | ConvertTo-Json -Depth 6), (New-Object System.Text.UTF8Encoding($false)))
+writeStageLine "書き出しの終わり"
+[Console]::Out.Flush()
+# 結果は書き終えているので、描画に使った物がプロセスの終わりで片付くときの失敗を通らずに、ここで終わる。
+# 途中で例外が出たときはここに届かず、0 以外で終わる
+[Environment]::Exit(0)
