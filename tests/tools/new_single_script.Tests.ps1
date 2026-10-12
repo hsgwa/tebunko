@@ -111,9 +111,8 @@ Describe "new_single_script.ps1 の道具の検査" -Tag Io {
         ([System.Text.Encoding]::GetEncoding(932).GetString($bytes) -ceq $text) | Should -Be $true
     }
 
-    It "日本語の文字列は [regex]::Unescape で組み立てた形で残る" {
-        $text.Contains("([regex]::Unescape('") | Should -Be $true
-        $text.Contains('$([regex]::Unescape(') | Should -Be $true
+    It "書き出した結果にも、禁止の語が無い" {
+        (findBannedCode $text) | Should -Be ""
     }
 
     It "構文として読める（0 個のエラー）" {
