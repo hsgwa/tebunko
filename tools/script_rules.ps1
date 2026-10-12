@@ -78,9 +78,14 @@ function stripLineComment {
     # ブロックコメントの終わり（#>）の後ろは、同じ行でもコードとして残す（行頭が #> でも、後ろのコードを飛ばさない）。
     # ブロックコメントの中の行は、今までどおりコードとして検査する（禁止を強める向きに倒す）
     if ($line.Contains("#>")) {
-        # #> が何本あっても、すべての #> の後ろ（と先頭の部分）を順に見る
-        $parts = @($line -split [regex]::Escape("#>") | ForEach-Object { stripLineCommentCore $_ })
-        return (($parts -join " ").Trim())
+        # 行全体を見た結果（#> が文字列の中にあっても残る）に、2 つ目以降の部分（#> の後ろ。何本あっても順に）をつなぐ
+        $parts = @($line -split [regex]::Escape("#>"))
+        $kept = New-Object System.Collections.Generic.List[string]
+        $kept.Add((stripLineCommentCore $line))
+        for ($i = 1; $i -lt $parts.Count; $i++) {
+            $kept.Add((stripLineCommentCore $parts[$i]))
+        }
+        return (($kept -join " ").Trim())
     }
     return (stripLineCommentCore $line)
 }
