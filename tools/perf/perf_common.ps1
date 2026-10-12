@@ -422,6 +422,75 @@ function getIngestPerfProblems {
     return , $problems.ToArray()
 }
 
+function newPreviewResult {
+    # measure_preview.ps1 の結果（ConvertFrom-Json したもの）から、result.json の Preview の 1 語分を作る。
+    #   読み込みの時間はキャッシュの有無ごと、表を作る時間とセルの数は全部まとめて集計する。
+    #   RetainedManagedMB … プレビューの前後で、GC のあとに残ったマネージドヒープの増え（プレビューが何かを持ち続けていないかを見る）
+    #   RetainedPerPreviewMB … 上をプレビューの回数で割った 1 回あたり
+    #   CacheDropMB … 検索のキャッシュを捨てて GC したあとの、ワーキングセットの減り（キャッシュの常駐の大きさ）
+    param (
+        $raw
+    )
+
+    $rows = @($raw.Previews)
+    $uncached = @($rows | Where-Object { $_.Cache -eq "無し" })
+    $cached = @($rows | Where-Object { $_.Cache -eq "あり" })
+    $mem = $raw.Memory
+    $retained = [Math]::Round([double]$mem.AfterGcManagedMB - [double]$mem.BeforePreviewManagedMB, 1)
+    $entry = [ordered]@{
+        Name = $raw.Name; Regex = [bool]$raw.Regex; Count = [int]$raw.Count; Previews = $rows.Count
+        ReadUncachedMs = (getStats ([double[]]@($uncached | ForEach-Object { $_.ReadMs })))
+        ReadCachedMs = (getStats ([double[]]@($cached | ForEach-Object { $_.ReadMs })))
+        BuildMs = (getStats ([double[]]@($rows | ForEach-Object { $_.BuildMs })))
+        Cells = (getStats ([double[]]@($rows | ForEach-Object { $_.Cells })))
+        FileMBMax = $(if ($rows.Count) { ($rows | Measure-Object FileMB -Maximum).Maximum } else { $null })
+        RetainedManagedMB = $retained
+        RetainedPerPreviewMB = $(if ($rows.Count) { [Math]::Round($retained / $rows.Count, 3) } else { $null })
+        WorkingSetAfterSearchMB = $mem.AfterSearchWorkingSetMB; WorkingSetAfterPreviewMB = $mem.AfterPreviewWorkingSetMB
+        WorkingSetAfterGcMB = $mem.AfterGcWorkingSetMB; WorkingSetAfterCacheDropMB = $mem.AfterCacheDropWorkingSetMB
+        CacheDropMB = [Math]::Round([double]$mem.AfterGcWorkingSetMB - [double]$mem.AfterCacheDropWorkingSetMB, 1)
+        CacheChars = [long]$mem.CacheChars
+        Render = $raw.Render
+        PeakWorkingSetMB = $raw.PeakWorkingSetMB
+    }
+    return $entry
+}
+
+function getPreviewPerfProblems {
+    # プレビューの回帰テストの判定。合わないものの一覧（文字列の配列）を返す。空なら合格。
+    #   preview      : result.json の Preview の 1 語分（newPreviewResult の結果。無ければ $null）
+    #   readLimitMs  : キャッシュ無しの読み込みの中央値の上限（ms）
+    #   retainedPerPreviewLimitMB : プレビュー 1 回あたりに GC のあとも残るマネージドヒープの増えの上限（MB）
+    #   expectedCount: 測ったプレビューの数（キャッシュの有無ごと）
+    param (
+        $preview,
+        [double]$readLimitMs,
+        [double]$retainedPerPreviewLimitMB,
+        [int]$expectedCount
+    )
+
+    $problems = New-Object System.Collections.Generic.List[string]
+    if ($null -eq $preview) {
+        $problems.Add("プレビューの結果がありません")
+        return , $problems.ToArray()
+    }
+    if ([int]$preview.Previews -ne $expectedCount * 2) { $problems.Add("測ったプレビューが $($preview.Previews) 回（期待 $($expectedCount * 2) 回）") }
+    if ($null -eq $preview.ReadUncachedMs) {
+        $problems.Add("キャッシュ無しの読み込みの時間がありません")
+    } elseif ([double]$preview.ReadUncachedMs.Median -gt $readLimitMs) {
+        $problems.Add([string]::Format([CultureInfo]::InvariantCulture, "プレビューの読み込み（キャッシュ無し）: 中央値 {0:N1} ms（上限 {1:N1} ms）", [double]$preview.ReadUncachedMs.Median, $readLimitMs))
+    }
+    if ($null -eq $preview.Cells -or [double]$preview.Cells.Min -le 0) {
+        $problems.Add("セルを作らなかったプレビューがあります")
+    }
+    if ($null -eq $preview.RetainedPerPreviewMB) {
+        $problems.Add("残ったメモリの増えがありません")
+    } elseif ([double]$preview.RetainedPerPreviewMB -gt $retainedPerPreviewLimitMB) {
+        $problems.Add([string]::Format([CultureInfo]::InvariantCulture, "プレビュー 1 回あたりに残るメモリ: {0:N3} MB（上限 {1:N3} MB）", [double]$preview.RetainedPerPreviewMB, $retainedPerPreviewLimitMB))
+    }
+    return , $problems.ToArray()
+}
+
 function getTypingSteps {
     # 入力しながらの検索で送る語の並びを作る（画面の入力しながらの検索と同じ、3 文字目から 1 文字ずつ伸ばす）。
     # tools\perf\measure_typing.ps1 が使う。

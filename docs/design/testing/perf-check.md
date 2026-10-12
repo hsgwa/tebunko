@@ -22,6 +22,8 @@ flowchart TD
 |---|---|---|
 | 検索（4 語） | 固定の上限と比べる（`search`） | `.\tests\run.ps1 -Tag Slow -ExcludeTag Manual -Path tests\tools\perf_search.Tests.ps1` |
 | 本文インデックスの作成（段階 `pack の作成`） | 固定の上限と比べる（`search`） | 同上 |
+| 選択行のプレビュー（読み込みと、残るメモリ） | 固定の上限と比べる（`search`。検索の測りのあとに別のプロセスで流す） | `.\tests\run.ps1 -Tag Slow -ExcludeTag Manual -Path tests\tools\perf_preview.Tests.ps1` |
+| プレビューの表の描画（`-Render`） | 測らない（画面の部品を使うので `Gui` タグ。上限は置かない） | `.\tests\run.ps1 -Tag Gui -Path tests\tools\perf_preview.Tests.ps1` |
 | 取り込み（.docx・.pptx。読み取りのスレッド） | 固定の上限と比べる（`ingest`） | `.\tests\run.ps1 -Tag Slow -ExcludeTag Manual -Path tests\tools\perf_ingest.Tests.ps1` |
 | 取り込み（.xlsx・.doc・.ppt。Excel・Word・PowerPoint） | 測らない（ランナーに Office が無い） | main と PR のブランチを同じ日に続けて測り、比で判断する（下の「Office を使う形式の比べ方」） |
 
@@ -30,10 +32,10 @@ flowchart TD
   - main への push のうち、速さに効くファイル（`scripts/**`・`tools/measure_perf.ps1`・`tools/perf/**`・`tests/tools/perf_*.Tests.ps1`・`tests/testdata/office/**`・`.github/workflows/perf-check.yml`）が変わったとき。ラベルを付け忘れた回帰も、マージの後には見つかる
   - 手動（`workflow_dispatch`）。main への push と手動は、ラベルを見ずに流す
 - ラベル `perf-check` は、リポジトリに作ってある。付けるのはメンテナ。リリースノートの分類（`.github/release.yml`）には入れない（ほかの分類のラベルと一緒に付くので、その分類に入る）
-- ジョブは `search`（検索と本文インデックスの作成）と `ingest`（取り込み）の 2 つを、別のランナーで並べて流す。取り込みの後に同じジョブで検索すると遅く出る回があるため、分ける。どちらも `windows-latest`（4 コア）、`timeout-minutes: 30`。ランナーでかかる時間は `search` が 3〜4 分、`ingest` が 4〜5 分
+- ジョブは `search`（検索・本文インデックスの作成・選択行のプレビュー。プレビューは検索の測りのあとに別のプロセス・別のデータで流し、どちらかが落ちても、もう一方の結果は残す）と `ingest`（取り込み）の 2 つを、別のランナーで並べて流す。取り込みの後に同じジョブで検索すると遅く出る回があるため、分ける。どちらも `windows-latest`（4 コア）、`timeout-minutes: 30`。ランナーでかかる時間は `search` が 3〜4 分、`ingest` が 4〜5 分
 - 各ジョブの `if` は、`github.event_name != 'pull_request'`（main への push・手動）、または `labeled` でラベル名が `perf-check`（付けたとき）、または `labeled` 以外（`synchronize`・`reopened`）で PR に `perf-check` が付いているとき。ほかのラベルを付けたときは流し直さない
 - 流れている実行の取り消し（`concurrency`）は、同じ PR に push を足したときと、`perf-check` を付け直したときだけ。グループは `perf-check-<PR の番号（無ければ ref）>` で、`perf-check` 以外のラベルを付けて起動した実行（ジョブはスキップになる）は、末尾に `run_id` を付けた別のグループに入れる。自分の PR に必ず付ける分類のラベル（`enhancement` など）を付けても、流れている `search`・`ingest` は取り消されない
-- 結果は PR の Checks の `search`・`ingest` の合否と、ジョブの Summary（`summary.md` の表）、artifact（`perf-check-search-<実行の番号>-<試行の番号>`・`perf-check-ingest-...`。保存期間は 90 日）で見る。このワークフロー自身の `pr-comment` ジョブ（[CI](ci.md) の「結果を PR のコメントに書く（`pr-comment` ジョブ）」）が、`search`・`ingest` のうち悪いほうの結果と実行へのリンクを PR のコメントに出すが、数字（Summary の表）はそこには書き写さない
+- 結果は PR の Checks の `search`・`ingest` の合否と、ジョブの Summary（`summary.md` の表）、artifact（`perf-check-search-<実行の番号>-<試行の番号>`・`perf-check-preview-...`・`perf-check-ingest-...`。保存期間は 90 日）で見る。このワークフロー自身の `pr-comment` ジョブ（[CI](ci.md) の「結果を PR のコメントに書く（`pr-comment` ジョブ）」）が、`search`・`ingest` のうち悪いほうの結果と実行へのリンクを PR のコメントに出すが、数字（Summary の表）はそこには書き写さない
 - フォークからの PR でも `pull_request` のまま動かす（`pull_request_target` は使わない）。読み取りだけのトークンで動き、秘密の値は使わない（tebunko-perfdata は公開）。フォークの作者はラベルを付けられないので、流すかどうかはメンテナの側が決める。初めての貢献者の PR は、GitHub の設定どおり実行の承認が要る
 - アクションはハッシュで固定する。`PERFDATA_SHA`（tebunko-perfdata のコミット）は `perf.yml` と同じ値にする（`PESTER_VERSION` と同じく、2 か所を手で同じにする）。`run` の中は ASCII だけで書く
 
@@ -43,13 +45,15 @@ flowchart TD
 |---|---|---|---|
 | `tests/tools/perf_search.Tests.ps1`（検索と本文インデックスの作成） | tebunko-perfdata の `new_index.ps1 -Scale 0.1`（種は既定の 1。ブック 5,361・TSV 16,078 → 本文インデックスのファイル 521・118MB）。語は同じリポジトリの `words.tsv` | `measure_perf.ps1 -Index ... -Words ... -Count 20`（`perf.yml` の既定と同じ手順・同じ条件） | 語ごとの検索の中央値（`Search[].TotalMs.Median`）・本文インデックスの作成の秒（`Index.Pack.Seconds`。1 回の値） |
 | `tests/tools/perf_ingest.Tests.ps1`（取り込み） | `new_ingest_data.ps1 -Docx 50 -Pptx 50`（テストデータの複製。計 100 ファイル） | `measure_perf.ps1 -Office ... -Threads 2 -Repeat 3`（1 回ごとに新しいプロセス・空のワークスペース） | 1 ファイルあたりの ms の中央値（`Ingest.PerFileMs.Median`）・全体の秒の中央値（`Ingest.Seconds.Median`） |
+| `tests/tools/perf_preview.Tests.ps1`（選択行のプレビュー） | 検索と同じ `new_index.ps1 -Scale 0.1` | `measure_perf.ps1 -Index ... -Words ... -Count 1 -Preview 20`（語ごとに、ヒットの先頭から 20 件を、検索のキャッシュ無し・ありで 1 件ずつプレビューする。`tools/perf/measure_preview.ps1` が別のプロセスで測る） | 語ごとの、キャッシュ無しの読み込みの中央値（`Preview.Words[].ReadUncachedMs.Median`）・プレビュー 1 回あたりにマネージドヒープに残るメモリ（`RetainedPerPreviewMB`。GC のあと） |
 
-比べる処理は `tools/perf/perf_common.ps1` の `getSearchPerfProblems`・`getIngestPerfProblems` で、合わないものの一覧を返す（空なら合格）。失敗のメッセージには、対象の名前・値・上限の数字だけを書く。上限との境目・欠けた語・件数などは、各テストファイルの `Unit` で確かめる。
+比べる処理は `tools/perf/perf_common.ps1` の `getSearchPerfProblems`・`getIngestPerfProblems`・`getPreviewPerfProblems` で、合わないものの一覧を返す（空なら合格）。失敗のメッセージには、対象の名前・値・上限の数字だけを書く。上限との境目・欠けた語・件数などは、各テストファイルの `Unit` で確かめる。
 
 - 「速く終わっても、何もしていない」誤りを通さないため、時間のほかに次も確かめる
+  - プレビュー: 測った回数が、ヒットの数と 20 の小さいほうの 2 倍（キャッシュ無し・あり）であること、作った表のセルが 0 より多いこと
   - 検索: `searches.csv` の 20 回すべてで、件数が `words.tsv` の「件数」と合うこと（数ならその件数、`10000+` なら 1 万件で打ち切り）、照合した本文インデックスのファイルの数（`Packs`）が本文インデックスの作成の数（521）と同じで 0 より大きいこと。件数は scale 0.1・種 1 のときの値。検索の流れ（`Run.SearchMode`）が `service` であること（`newSearchService` が無いと、`measure_search.ps1` は黙って `runspace` で測るため）
   - 取り込み: `Total`・`Done` が 100、`Failed` が 0。最後の回のワークスペースに本文インデックスがあり、合計の大きさが 0 より大きいこと（取り込み一覧の状態だけが `済` になり、中身を書かずに終わる誤りを通さないため。この形に頼ることは、下の「計測の口」の表にある）
-- 結果（`summary.md`・`result.json` など。数字だけでパスは入らない）は `work\test\perf-search\`・`work\test\perf-ingest\`（git 管理外）に残る。`summary.md` の見出しに、tebunko-perfdata のコミットが入る（取れなければ「不明」）
+- 結果（`summary.md`・`result.json` など。数字だけでパスは入らない）は `work\test\perf-search\`・`work\test\perf-preview\`・`work\test\perf-ingest\`（git 管理外）に残る。`summary.md` の見出しに、tebunko-perfdata のコミットが入る（取れなければ「不明」）
 - tebunko-perfdata の場所は、環境変数 `TEBUNKO_PERFDATA`。無ければリポジトリと並んだ `tebunko-perfdata`（git worktree のときは、本体のチェックアウトと並んだもの）。どちらにも無いときは、`git clone` の取り方を示して失敗にする。手元の clone は、`PERFDATA_SHA` と `new_index.ps1`・`words.tsv` が同じであること（違うとデータが変わり、ランナーの数字と比べられない）
 - `-All` は `Slow` も流すので、tebunko-perfdata が要る
 
@@ -64,6 +68,8 @@ flowchart TD
 | 検索 大量 | 中央値 | 1,290〜1,634 ms | 1.5 倍（50 ms 単位） | 2,500 ms |
 | 検索 正規表現 | 中央値 | 1,458〜1,517 ms | 1.5 倍（50 ms 単位） | 2,300 ms |
 | 本文インデックスの作成（段階 `pack の作成`） | 1 回の秒 | 39.8〜51.6 秒 | 2 倍（5 秒単位） | 105 秒 |
+| プレビュー 読み込み（キャッシュ無し。語ごと） | 中央値 | ランナーで 5 回測って決める（それまでは仮の値） | 1.5 倍（10 ms 単位） | `perf_preview.Tests.ps1` の `readLimitsMs` |
+| プレビュー 1 回あたりに残るメモリ | GC のあとのマネージドヒープの増え ÷ 回数 | ランナーで 5 回測って決める（それまでは仮の値） | 2 倍（0.1 MB 単位） | `perf_preview.Tests.ps1` の `retainedPerPreviewLimitMB` |
 | 取り込み 1 ファイルあたり | 中央値 | 723〜793 ms | 1.5 倍（50 ms 単位） | 1,200 ms |
 | 取り込み 全体 | 中央値 | 73.2〜80.5 秒 | 1.5 倍（10 秒単位） | 130 秒 |
 

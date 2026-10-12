@@ -1,4 +1,4 @@
-# 検索・pack の作成・取り込み（.docx・.pptx）の速さの回帰テスト（tests\tools\perf_search.Tests.ps1・perf_ingest.Tests.ps1）。
+# 検索・pack の作成・選択行のプレビュー・取り込み（.docx・.pptx）の速さの回帰テスト（tests\tools\perf_search.Tests.ps1・perf_preview.Tests.ps1・perf_ingest.Tests.ps1）。
 #
 # 動く時:
 #   ・PR にラベル perf-check を付けたとき（付けたあとの push・reopen でも流し直す。ラベルが無い PR ではジョブがスキップになり、失敗にはならない）
@@ -77,13 +77,22 @@ jobs:
           TEBUNKO_PERFDATA: ${{ github.workspace }}\perfdata
         run: .\tests\run.ps1 -Tag Slow -ExcludeTag Manual -Path tests\tools\perf_search.Tests.ps1
 
+      # 検索の計測と別のプロセス・別のデータで流す（検索の計測のあとも流す。どちらかが落ちても、もう一方の結果は残す）
+      - name: 選択行のプレビューの速さとメモリを確かめる
+        if: ${{ !cancelled() }}
+        shell: powershell
+        env:
+          TEBUNKO_PERFDATA: ${{ github.workspace }}\perfdata
+        run: .\tests\run.ps1 -Tag Slow -ExcludeTag Manual -Path tests\tools\perf_preview.Tests.ps1
+
       - name: 結果を Summary に書き出す
         if: always()
         shell: powershell
         run: |
-          $summary = "work\test\perf-search\summary.md"
-          if (Test-Path -LiteralPath $summary) {
-            [System.IO.File]::AppendAllText($env:GITHUB_STEP_SUMMARY, [System.IO.File]::ReadAllText((Resolve-Path $summary).Path, [System.Text.Encoding]::UTF8), (New-Object System.Text.UTF8Encoding($false)))
+          foreach ($summary in @("work\test\perf-search\summary.md", "work\test\perf-preview\summary.md")) {
+            if (Test-Path -LiteralPath $summary) {
+              [System.IO.File]::AppendAllText($env:GITHUB_STEP_SUMMARY, [System.IO.File]::ReadAllText((Resolve-Path $summary).Path, [System.Text.Encoding]::UTF8), (New-Object System.Text.UTF8Encoding($false)))
+            }
           }
 
       - name: 結果を artifact にアップロードする
@@ -92,6 +101,15 @@ jobs:
         with:
           name: perf-check-search-${{ github.run_id }}-${{ github.run_attempt }}
           path: work/test/perf-search
+          retention-days: 90
+          if-no-files-found: ignore
+
+      - name: プレビューの結果を artifact にアップロードする
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: perf-check-preview-${{ github.run_id }}-${{ github.run_attempt }}
+          path: work/test/perf-preview
           retention-days: 90
           if-no-files-found: ignore
 

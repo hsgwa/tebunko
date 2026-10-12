@@ -163,6 +163,51 @@ Describe "perf_common.ps1 の入力しながらの検索の部品" -Tag Unit {
     }
 }
 
+Describe "perf_common.ps1 のプレビューの部品" -Tag Unit {
+    BeforeAll {
+        function newPreviewRaw([double[]]$uncachedMs, [double[]]$cachedMs, [double]$beforeManaged = 10.0, [double]$afterManaged = 10.4) {
+            $rows = @()
+            foreach ($v in $uncachedMs) { $rows += [pscustomobject]@{ Cache = "無し"; ReadMs = $v; BuildMs = 2.0; Cells = 400; FileMB = 1.5 } }
+            foreach ($v in $cachedMs) { $rows += [pscustomobject]@{ Cache = "あり"; ReadMs = $v; BuildMs = 3.0; Cells = 800; FileMB = 1.5 } }
+            return [pscustomobject]@{
+                Name = "語"; Regex = $false; Count = $uncachedMs.Count; Previews = $rows
+                Memory = [pscustomobject]@{ AfterSearchWorkingSetMB = 200.0; BeforePreviewManagedMB = $beforeManaged; AfterPreviewWorkingSetMB = 230.0
+                    AfterGcWorkingSetMB = 210.0; AfterCacheDropWorkingSetMB = 150.0; AfterGcManagedMB = $afterManaged; CacheChars = 5000000 }
+                Render = $null; PeakWorkingSetMB = 300.0
+            }
+        }
+    }
+
+    It "1 回ごとの記録から、キャッシュの有無ごとの読み込みの統計と、残ったメモリ・キャッシュの減りを作る" {
+        $r = newPreviewResult (newPreviewRaw @(10, 30, 20) @(1, 3, 2))
+        $r.Previews | Should -Be 6
+        $r.ReadUncachedMs.Median | Should -Be 20
+        $r.ReadUncachedMs.Max | Should -Be 30
+        $r.ReadCachedMs.Median | Should -Be 2
+        $r.BuildMs.Count | Should -Be 6
+        $r.Cells.Max | Should -Be 800
+        $r.FileMBMax | Should -Be 1.5
+        $r.RetainedManagedMB | Should -Be 0.4
+        $r.RetainedPerPreviewMB | Should -Be 0.067
+        $r.CacheDropMB | Should -Be 60
+        $r.CacheChars | Should -Be 5000000
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "上限の内なら合格"; preview = { newPreviewResult (newPreviewRaw @(10, 12, 11) @(1, 1, 1)) }; read = 50; retained = 1; count = 3; expect = @() }
+        @{ name = "読み込みの中央値が上限を超えたら、その数字を挙げる"; preview = { newPreviewResult (newPreviewRaw @(60, 70, 80) @(1, 1, 1)) }; read = 50; retained = 1; count = 3; expect = @("*中央値 70.0 ms（上限 50.0 ms）*") }
+        @{ name = "1 回あたりに残るメモリが上限を超えたら、その数字を挙げる"; preview = { newPreviewResult (newPreviewRaw @(10, 12, 11) @(1, 1, 1) 10 70) }; read = 50; retained = 1; count = 3; expect = @("*10.000 MB（上限 1.000 MB）*") }
+        @{ name = "測ったプレビューの数が期待と違えば挙げる"; preview = { newPreviewResult (newPreviewRaw @(10, 12) @(1, 1)) }; read = 50; retained = 1; count = 3; expect = @("*4 回（期待 6 回）*") }
+        @{ name = "結果が無ければ、結果が無いと挙げる"; preview = { $null }; read = 50; retained = 1; count = 3; expect = @("*結果がありません*") }
+    ) {
+        param ($preview, $read, $retained, $count, $expect)
+        # 空の配列は 1 つの値として返るので、@() で包まずに受けて展開する
+        $problems = getPreviewPerfProblems (& $preview) $read $retained $count
+        $problems.Count | Should -Be $expect.Count
+        for ($i = 0; $i -lt $expect.Count; $i++) { $problems[$i] | Should -BeLike $expect[$i] }
+    }
+}
+
 Describe "measure_perf.ps1" -Tag Io {
     # 取り込みの一時置き場の形（<フォルダ>\<ファイル名.xlsx>\<場所>.tsv）の小さなインデックスと、検索する語の表
     BeforeAll {
@@ -180,7 +225,7 @@ Describe "measure_perf.ps1" -Tag Io {
     }
 
     It "形式の版と実行の情報を書く" {
-        $result.Schema | Should -Be 1
+        $result.Schema | Should -Be 2
         $result.Run.RunId | Should -Be "1"
         $result.Run.Ref | Should -Be "main"
         $result.Run.Count | Should -Be 3
@@ -269,9 +314,48 @@ Describe "measure_perf.ps1" -Tag Io {
         # -Typing を渡さなかったときも、Typing のキーは残して null にする
         @($second.PSObject.Properties | ForEach-Object { $_.Name }) | Should -Contain "Typing"
         $second.Typing | Should -BeNullOrEmpty
+        # -Preview を渡さなかったときも、Preview のキーは残して null にし、プレビューの表・ファイルは出さない
+        @($second.PSObject.Properties | ForEach-Object { $_.Name }) | Should -Contain "Preview"
+        $second.Preview | Should -BeNullOrEmpty
+        [System.IO.File]::Exists("$again\result\preview.csv") | Should -Be $false
+        [System.IO.File]::ReadAllText("$again\result\summary.md") | Should -Not -Match "## プレビュー"
+        @(Import-Csv "$again\result\metrics.csv" | Where-Object { $_.metric -like "preview_*" }).Count | Should -Be 0
+    }
+
+    It "-Preview を付けると、ヒットのある語ごとにキャッシュの有無でプレビューを測り、ヒットの無い語は飛ばす" {
+        $w = Join-Path $TestDrive "preview"
+        & $measure -Index $index -Work $w -Words $words -Count 1 -Preview 3 -SampleMs 50 6>$null | Out-Null
+        $r = [System.IO.File]::ReadAllText("$w\result\result.json") | ConvertFrom-Json
+        $r.Preview.Count | Should -Be 3
+        $r.Preview.Render | Should -Be $false
+        @($r.Preview.Skipped) | Should -Be @("無い")
+        $byName = @{}
+        foreach ($p in $r.Preview.Words) { $byName[$p.Name] = $p }
+        @($r.Preview.Words).Count | Should -Be 2
+        # ヒットが 1 件・2 件の語は、その件数をキャッシュ無し・ありの 2 回ずつ測る
+        $byName["まれ"].Previews | Should -Be 2
+        $byName["数字"].Previews | Should -Be 4
+        foreach ($p in $r.Preview.Words) {
+            $p.ReadUncachedMs.Count | Should -Be ($p.Previews / 2)
+            $p.ReadCachedMs.Count | Should -Be ($p.Previews / 2)
+            $p.Cells.Min | Should -BeGreaterThan 0
+            $p.CacheChars | Should -BeGreaterThan 0
+            $p.RetainedPerPreviewMB | Should -Not -BeNullOrEmpty
+            $p.Render | Should -BeNullOrEmpty
+        }
+        @(Import-Csv "$w\result\preview.csv").Count | Should -Be 6
+        $metrics = @(Import-Csv "$w\result\metrics.csv")
+        @($metrics | Where-Object { $_.metric -eq "preview_read_uncached_ms" -and $_.word -eq "まれ" -and $_.stat -eq "median" }).Count | Should -Be 1
+        $md = [System.IO.File]::ReadAllText("$w\result\summary.md")
+        $md | Should -Match "## プレビュー"
+        $md | Should -Match "### プレビューのメモリ"
+        $md | Should -Not -Match "### プレビューの描画"
+        $md.Contains($TestDrive) | Should -Be $false
     }
 
     It "<name>は失敗にする" -TestCases @(
+        @{ name = "-Preview -1"; extraArgs = @{ Preview = -1 }; expectedMessage = "*-Preview は 0 以上*" }
+        @{ name = "-Render だけ（-Preview が無い）"; extraArgs = @{ Render = $true }; expectedMessage = "*-Render は -Preview*" }
         @{ name = "-Typing 1"; extraArgs = @{ Typing = 1 }; expectedMessage = "*-Typing は 0 か 2 以上*" }
         @{ name = "-TypingFast で -Index が <Work>\content_index でないとき"; extraArgs = @{ Typing = 2; TypingFast = $true }; expectedMessage = "*content_index*" }
     ) {
@@ -490,7 +574,7 @@ Describe "measure_perf.ps1 -Office" -Tag Io {
     }
 
     It "取り込みを測り、ファイル数・成功・失敗・スレッドの数・時間を書く" {
-        $result.Schema | Should -Be 1
+        $result.Schema | Should -Be 2
         $result.Ingest.Total | Should -Be 4
         $result.Ingest.Done | Should -Be 4
         $result.Ingest.Failed | Should -Be 0
