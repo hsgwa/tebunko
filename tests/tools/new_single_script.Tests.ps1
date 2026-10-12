@@ -19,7 +19,7 @@ BeforeAll {
     function newBundledPartRunspace {
         param ([string]$builtPath, [string]$name)
         $text = [System.IO.File]::ReadAllText($builtPath)
-        $end = $text.IndexOf("# ---- 本体（ここより上は、別スレッドが読む部品の埋め込み） ----")
+        $end = $text.IndexOf("# ---- BODY-START (above: parts embedded for other threads) ----")
         if ($end -lt 0) { throw "${builtPath} に、部品の埋め込みの終わりの目印がありません" }
         $headPath = Join-Path (Split-Path $builtPath -Parent) "head-only.ps1"
         [System.IO.File]::WriteAllText($headPath, $text.Substring(0, $end), (New-Object System.Text.UTF8Encoding($true)))
@@ -45,7 +45,7 @@ BeforeAll {
     # 壊れた setting.config を置くので、日本語の記録（indexing_log.txt）が正しく出るのは、ファイルを正しい文字コードで読めたときだけ。
     # 書き先（ワークスペース・USERPROFILE・LOCALAPPDATA・APPDATA）は、すべて testRoot の下に向ける
     function invokeEncodingProbe {
-        param ([string]$testRoot, [string]$name, [byte[]]$content)
+        param ([string]$testRoot, [string]$name, [byte[]]$content, [string]$exe = (Join-Path $PSHOME "powershell.exe"))
         $caseDir = Join-Path $testRoot $name
         New-Item -ItemType Directory -Force -Path "$caseDir\profile\Local", "$caseDir\profile\Roaming" | Out-Null
         $script = Join-Path $caseDir "tebunko.ps1"
@@ -53,7 +53,7 @@ BeforeAll {
         [System.IO.File]::WriteAllText("$caseDir\setting.config", '{ "targetFolders": [', ${utf8Bom})
         $workspace = Join-Path $caseDir "ws"
 
-        $psi = New-Object System.Diagnostics.ProcessStartInfo (Join-Path $PSHOME "powershell.exe")
+        $psi = New-Object System.Diagnostics.ProcessStartInfo $exe
         $psi.Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$script`" -Part indexer"
         $psi.UseShellExecute = $false
         $psi.CreateNoWindow = $true
@@ -96,16 +96,24 @@ Describe "new_single_script.ps1 の道具の検査" -Tag Io {
         $outFile = Join-Path $TestDrive "release\tebunko-v9.9.9-test.ps1"
         & $tool -Version "v9.9.9" -OutFile $outFile | Out-Null
         $bytes = [System.IO.File]::ReadAllBytes($outFile)
-        $text = [System.Text.Encoding]::UTF8.GetString($bytes, 3, $bytes.Length - 3)
+        $text = [System.Text.Encoding]::UTF8.GetString($bytes)
     }
 
     It "作れる（構文エラー・ファイルの漏れや重複・読み込み行の残り・起動口の param の不足・禁止の語・版の文字列の不一致のどれも起こさない）" {
         Test-Path -LiteralPath $outFile | Should -Be $true
     }
 
-    It "BOM 付き UTF-8・CRLF で書き出す" {
-        ($bytes[0], $bytes[1], $bytes[2]) | Should -Be @(0xEF, 0xBB, 0xBF)
+    It "ASCII だけで書き出す（BOM なし・CRLF・どの文字コードで読み直しても同じ）" {
+        [regex]::IsMatch($text, '[^\x00-\x7F]') | Should -Be $false
+        ($bytes[0], $bytes[1], $bytes[2]) | Should -Not -Be @(0xEF, 0xBB, 0xBF)
         ([regex]::IsMatch($text, "(?<!`r)`n")) | Should -Be $false
+        # 日本語の Windows の既定（Shift_JIS）で読んでも、UTF-8 で読んだ文字列と同じ
+        ([System.Text.Encoding]::GetEncoding(932).GetString($bytes) -ceq $text) | Should -Be $true
+    }
+
+    It "日本語の文字列は [regex]::Unescape で組み立てた形で残る" {
+        $text.Contains("([regex]::Unescape('") | Should -Be $true
+        $text.Contains('$([regex]::Unescape(') | Should -Be $true
     }
 
     It "構文として読める（0 個のエラー）" {
@@ -131,15 +139,11 @@ Describe "new_single_script.ps1 の道具の検査" -Tag Io {
     }
 
     It "本体は、起動の失敗の文言（startup_error_view）、知らせ方（startup_error）、lib の順に並ぶ（gui.ps1 の先頭と同じ順）" {
-        $body = $text.Substring($text.IndexOf('# ---- 本体（ここより上は'))
+        $body = $text.Substring($text.IndexOf('# ---- BODY-START'))
         $view = $body.IndexOf('function getStartupErrorMessage')
         $report = $body.IndexOf('function reportStartupFailure')
         $view | Should -BeGreaterThan -1
         $report | Should -BeGreaterThan $view
-    }
-
-    It "禁止の語が無い" {
-        (findBannedCode $text) | Should -Be ""
     }
 
     It "scripts\ の XAML が、行頭の `'@ を含まない（単一 .ps1 のヒアストリングを閉じてしまわないか）" {
@@ -160,34 +164,35 @@ Describe "new_single_script.ps1 の道具の検査" -Tag Io {
         $text.Contains("Tag = 'v9.9.9'; Sha = '$headSha'") | Should -Be $true
     }
 
-    It "別プロセスの Windows PowerShell 5.1 で `-File` 起動する（<name>）" -TestCases @(
-        @{ name = "BOM 付きの作ったままのファイルは、構文エラーも文字化けも無く本体が動き、日本語の記録が正しく出る"; withBom = $true }
-        @{ name = "BOM が落ちたファイル（BOM なし UTF-8 のバイト列）は、日本語が化けて正しい記録が出ない（化けを見つけられることの確認）"; withBom = $false }
+    It "別プロセスで `-File` 起動すると、BOM の有無にかかわらず、構文エラーも文字化けも無く本体が動き、日本語の記録が正しく出る（<name>）" -TestCases @(
+        @{ name = "Windows PowerShell 5.1・作ったまま（BOM なし）"; shell = "powershell"; withBom = $false }
+        @{ name = "Windows PowerShell 5.1・BOM を付けたもの"; shell = "powershell"; withBom = $true }
+        @{ name = "PowerShell 7・作ったまま（BOM なし）"; shell = "pwsh"; withBom = $false }
+        @{ name = "PowerShell 7・BOM を付けたもの"; shell = "pwsh"; withBom = $true }
     ) {
-        param ($name, $withBom)
-        $expectedLog = "設定ファイルが壊れていたため、既定の設定で起動しました"
-        if ($withBom) {
-            $result = invokeEncodingProbe $TestDrive "with-bom" $bytes
-            $result.ErrorText | Should -Not -Match "ParserError"
-            $result.ExitCode | Should -Be 1
-            $result.Broken | Should -Be 1
-            $result.Log | Should -Match $expectedLog
-            $result.Log | Should -Match "クロール対象フォルダがありません"
-        } else {
-            if ([System.Text.Encoding]::Default.CodePage -eq 65001) {
-                Set-ItResult -Skipped -Because "システムの既定が UTF-8 の機械では、BOM が無くても正しく読めるため"
+        param ($name, $shell, $withBom)
+        $exe = if ($shell -eq "pwsh") {
+            $cmd = Get-Command pwsh.exe -ErrorAction SilentlyContinue
+            if (-not $cmd) {
+                Set-ItResult -Skipped -Because "この機械に PowerShell 7 が無いため"
                 return
             }
-            $noBom = New-Object byte[] ($bytes.Length - 3)
-            [System.Array]::Copy($bytes, 3, $noBom, 0, $noBom.Length)
-            $result = invokeEncodingProbe $TestDrive "without-bom" $noBom
-            $result.ExitCode | Should -Not -Be 0
-            $result.Log | Should -Not -Match $expectedLog
-            # 構文エラーになるのは日本語のコードページ（932）で読んだとき。ほかのコードページでは、必ず構文エラーになるとは限らない
-            if ([System.Text.Encoding]::Default.CodePage -eq 932) {
-                $result.ErrorText | Should -Match "ParserError"
-            }
+            $cmd.Source
+        } else {
+            Join-Path $PSHOME "powershell.exe"
         }
+        $content = $bytes
+        if ($withBom) {
+            $content = New-Object byte[] ($bytes.Length + 3)
+            [System.Array]::Copy([byte[]](0xEF, 0xBB, 0xBF), 0, $content, 0, 3)
+            [System.Array]::Copy($bytes, 0, $content, 3, $bytes.Length)
+        }
+        $result = invokeEncodingProbe $TestDrive "$shell-$withBom" $content $exe
+        $result.ErrorText | Should -Not -Match "ParserError"
+        $result.ExitCode | Should -Be 1
+        $result.Broken | Should -Be 1
+        $result.Log | Should -Match "設定ファイルが壊れていたため、既定の設定で起動しました"
+        $result.Log | Should -Match "クロール対象フォルダがありません"
     }
 }
 
