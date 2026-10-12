@@ -4792,15 +4792,15 @@
 <td><code>readContentIndexContext</code></td>
 <td>path, book, location, lineNumber, before（既定 3）, after（既定 3）, cache</td>
 <td><code>@{LineNumber; Line}</code> の配列</td>
-<td>本文インデックスのファイルの中の元のファイル book・場所 location の lineNumber 行目と前後の行を返す（行の数え方は検索と同じ）。cache（<code>newTsvTextCache</code>）に同じ本文インデックスのファイルの内容があれば読み直さない。無ければ、場所の一覧は 1 つ前に読んだファイルのもの（更新日時・サイズが同じ間）を使い回し、<code>readContentIndexRange</code> で目当ての場所の先頭から必要な行までだけを読む（一覧が無いときはファイルの全体を読む）。読めない・見つからなければ空</td>
+<td>本文インデックスのファイルの中の元のファイル book・場所 location の lineNumber 行目と前後の行を返す（行の数え方は検索と同じ）。cache（<code>newTsvTextCache</code>）に同じ本文インデックスのファイルの内容があれば読み直さない。無ければ、場所の一覧は 1 つ前に読んだファイルのもの（更新日時・サイズが同じ間）を使い回し、<code>readContentIndexRange</code> で目当ての行から必要な行までだけを読む（一覧が無いとき、範囲を読めないとき、読んでいる間にファイルが置き換わったときは、ファイルの全体を読む）。読めない・見つからなければ空</td>
 <td><a href="../../gui/search-tab/">［検索］タブ</a> <a href="../../gui/preview/">選択行のプレビュー</a></td>
 <td>画面</td>
 </tr>
 <tr>
 <td><code>readContentIndexRange</code></td>
-<td>path, start, end, lines</td>
+<td>path, start, end, firstLine, lines</td>
 <td>string / null</td>
-<td>本文インデックスのファイル（UTF-16LE・BOM 付き）の、文字の位置 <code>start</code>（含む）から <code>end</code>（含まない）までのうち、先頭から <code>lines</code> 個目の改行までを文字列で返す（返す文字列の先頭が <code>start</code> の位置）。BOM が無ければ <code>$null</code>（呼び出し側がファイルの全体を読む）。置き換え・削除を妨げない共有モードで開く</td>
+<td>本文インデックスのファイル（UTF-16LE・BOM 付き）の、文字の位置 <code>start</code>（含む）から <code>end</code>（含まない）までを <code>start</code> から数え、<code>firstLine</code> 行目の先頭から <code>lines</code> 個目の改行までを文字列で返す（それより前の行は持たない）。BOM が無ければ <code>$null</code>（呼び出し側がファイルの全体を読む）。置き換え・削除を妨げない共有モードで開く</td>
 <td>同上</td>
 <td>readContentIndexContext</td>
 </tr>
