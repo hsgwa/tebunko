@@ -3,6 +3,7 @@
 . ([WildcardPattern]::Escape("$PSScriptRoot\..\shared\shared.ps1".Replace('`', '``')))
 # 設定を先に読み込む（ワークスペースは設定の workspaceFolder で決まる。paths.ps1 の initWorkspace を
 # 起動口（startGui・invokeIndexerMain）が壊れた設定ファイルの退避の後に呼んで決める）
+. ([WildcardPattern]::Escape("$PSScriptRoot\core\diagnostics.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\settings.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\search_excludes.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\workspace.ps1".Replace('`', '``')))
