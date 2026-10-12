@@ -4260,7 +4260,7 @@
 </tr>
 <tr>
 <td><code>work/tmp/&lt;PC の鍵&gt;/open_copy/&lt;12 桁の英数字&gt;/&lt;ファイル名&gt;</code>（<code>&lt;PID&gt;</code> の下ではない。強制終了の片付けは数字の名前のフォルダだけを消すので残る）</td>
-<td>［新規で開く］のコピー（Office 以外の元のファイルを共有で読んで写したもの。開いたアプリが使う間は消さない）。起動のたびに 1 回、作られて 1 日より古いものだけを消す</td>
+<td>［新規で開く］のコピー（Office 以外の元のファイルを共有で読んで写したもの。開いたアプリが使う間は消さない）。起動のたびに 1 回、最後に使ってから 1 日より古いものだけを消す</td>
 <td><code>tebunko/core/open_copy.ps1</code> の <code>copySourceForOpen</code>・<code>clearOldOpenCopies</code></td>
 </tr>
 <tr>
@@ -4286,7 +4286,7 @@
 </tbody>
 </table>
 <p>単一 .ps1 版（試験版）は、<code>tebunko.bat</code> の代わりに <code>.ps1</code> ファイル自身を実行する形のため、上の表の「ツールを置いたフォルダ」は <code>.ps1</code> ファイル自身がある場所を指す。<code>setting.config</code> は <code>.ps1</code> のある場所に置き、書き込めないときは既定のワークスペースの直下に置く（<code>getSettingsFilePath</code>。zip 版と同じ決め方）。ワークスペースの既定の置き場所（<code>%USERPROFILE%\Documents\tebunko_ws</code>）は、別のフォルダに置いた zip 版と同じ場所になる（<a href="../../design/structure/single-script/">単一 PowerShell のビルド</a>「実行時の違い」）。</p>
-<p>削除（<code>Remove-Item</code>・<code>[System.IO.File]::Delete</code> など）の対象はすべてワークスペース配下（取り込みの作業領域 <code>work/tmp/</code> を含む）、すなわち<strong>本ツールが自分で作ったファイル</strong>である（前の版（<code>%TEMP%\tebunko\&lt;PID&gt;</code> に一時ファイルを置いていた版）が残した作業フォルダの片付けだけ例外。<code>removeStaleTmpDirs</code>）。［新規で開く］のコピーは、<code>open_copy</code> の中（<code>testOpenCopyDir</code> で確かめる。<code>open_copy</code> 以外・空・ドライブの根は消さない）で、作られて 1 日より古いものだけを消す（<code>clearOldOpenCopies</code>）。クロール対象フォルダ内のファイルを削除する処理は無い。</p>
+<p>削除（<code>Remove-Item</code>・<code>[System.IO.File]::Delete</code> など）の対象はすべてワークスペース配下（取り込みの作業領域 <code>work/tmp/</code> を含む）、すなわち<strong>本ツールが自分で作ったファイル</strong>である（前の版（<code>%TEMP%\tebunko\&lt;PID&gt;</code> に一時ファイルを置いていた版）が残した作業フォルダの片付けだけ例外。<code>removeStaleTmpDirs</code>）。［新規で開く］のコピーは、<code>open_copy</code> の中（<code>testOpenCopyDir</code> で、置き場所がワークスペースの <code>tmp/&lt;PC の鍵&gt;/open_copy</code> そのものであり、リンクでないことを確かめる）で、最後に使ってから 1 日より古いものだけを消す（<code>clearOldOpenCopies</code>）。リンク（ジャンクション・シンボリックリンク）は辿らず、中のリンクも消さない。クロール対象フォルダ内のファイルを削除する処理は無い。</p>
 <p>［設定］でワークスペースを変えるときは、前のワークスペースの中の本ツールが作ったファイル・フォルダ（<code>Workspace.Entries</code>：<code>content_index</code>・前の版の <code>index</code>・<code>system_index</code>・取り込み一覧・状態・ログ・<code>publish</code>）だけを新しいワークスペースへ移す（<code>WorkspaceMover.ChangeWorkspace</code>）。別のドライブへは写してから元を削除する。選んだフォルダにすでにインデックスなどがあり、利用者が［消して、最初からやり直す］を選んだときは、そのフォルダの本ツールのファイル・フォルダ（同じ <code>Workspace.Entries</code>）だけを削除する（<code>WorkspaceMover.RemoveEntries</code>）。利用者がワークスペースに置いたほかのファイルは移さず、削除しない。</p>
 <p>前の版のワークスペース（<code>index\</code>。しるしあり）が見つかり、<code>content_index\</code> が空のまま取り込み直しを始めるときは、インデクサが <code>system_index\</code>（本ツールが自分で作ったフォルダ）を削除し、<code>system_index_state.tsv</code>（本ツールが自分で作ったファイル）の中身を空にする（<code>clearLegacySystemIndex</code>）。前の版の <code>index\</code> そのものは読まず、削除しない（利用者が消す）。</p>
 <p>インデックスのインポート（<code>importIndex</code>）の書き込みは、ワークスペースの中（<code>publish\&lt;PID&gt;\import\</code>・<code>content_index\&lt;名前&gt;\</code>・取り込み一覧・<code>setting.config</code>）だけである。zip から展開したファイルは、確かめた目録のパスからだけファイル名を組み立てる（zip のエントリー名は使わない）。インポートを始めるときは、エクスポートと同じくインデックス作成のロック（<code>newAppMutex "indexer"</code>）を取り、ほかの操作と同時に走らせない。</p>

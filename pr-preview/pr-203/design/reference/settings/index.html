@@ -4614,30 +4614,37 @@
 </tr>
 <tr>
 <td><code>testOpenCopyDir</code></td>
-<td>dir</td>
+<td>copyDir, tmpRoot</td>
 <td>bool</td>
-<td>消してよいフォルダか。名前が <code>open_copy</code>（大文字・小文字を区別）のときだけ真。空・空白・ドライブの根・ほかの名前は偽</td>
+<td>作る・消してよい置き場所か。絶対パスで、<code>tmpRoot\&lt;PC の鍵&gt;\open_copy</code>（大文字・小文字は区別しない）と一致し、<code>open_copy</code>・<code>&lt;PC の鍵&gt;</code>・<code>tmpRoot</code> がリンク（ReparsePoint）でないときだけ真。空・相対パス・ドライブの根・別の場所・リンクは偽</td>
 <td><code>copySourceForOpen</code>, <code>clearOldOpenCopies</code></td>
 </tr>
 <tr>
 <td><code>getOpenCopyName</code></td>
-<td>path</td>
+<td>book, now</td>
 <td>string</td>
-<td>コピーのファイル名（元のファイル名の末尾の <code>.</code>・空白を除く）</td>
-<td><code>copySourceForOpen</code></td>
+<td>コピーのファイル名 <code>&lt;元の名前&gt;（コピー yyyyMMdd-HHmm）.&lt;拡張子&gt;</code>（元のファイル名の末尾の <code>.</code>・空白を除く）。名前が空なら空</td>
+<td><code>copySourceForOpen</code>, <code>getOpenCopyBlocker</code></td>
+</tr>
+<tr>
+<td><code>getOpenCopyBlocker</code></td>
+<td>book, copyDir, now</td>
+<td>string</td>
+<td>コピーを作らずに断る理由。<code>NoName</code>（名前が空）・<code>Bracket</code>（名前に <code>[</code> <code>]</code>）・<code>TooLong</code>（パスが長すぎる）・作れるなら空</td>
+<td><code>copySourceForOpen</code>, <code>openFoundSource</code></td>
 </tr>
 <tr>
 <td><code>copySourceForOpen</code></td>
-<td>sourcePath, book, copyDir</td>
+<td>sourcePath, book, copyDir, tmpRoot, now</td>
 <td>string</td>
-<td><code>copyDir\&lt;12 桁の英数字&gt;\&lt;元のファイル名&gt;</code> に、元のファイルを共有で読んでコピーし、そのパスを返す。作れなければ空</td>
+<td><code>copyDir\&lt;12 桁の英数字&gt;\&lt;getOpenCopyName&gt;</code> に、元のファイルを共有で読んでコピーし、そのパスを返す。置き場所が不正・断る理由がある・作れないときは空</td>
 <td><code>openFoundSource</code>（裏の仕事）</td>
 </tr>
 <tr>
 <td><code>clearOldOpenCopies</code></td>
-<td>copyDir, now, keepDays</td>
+<td>copyDir, tmpRoot, now, keepDays</td>
 <td>int</td>
-<td><code>open_copy</code> の直下のフォルダのうち、作られて keepDays（既定 1 日）より古いものだけを、ファイルを 1 つずつ消してから空のフォルダとして消す。開かれていて消せないものは残す。消したフォルダの数を返す</td>
+<td><code>open_copy</code> の直下のフォルダのうち、最後に使ってから（<code>getOpenCopyLatestTime</code>）keepDays（既定 1 日）より古いものだけを、ファイルを 1 つずつ消してから空のフォルダとして消す。リンクは辿らず、開かれていて消せないものは残す。消したフォルダの数を返す</td>
 <td>起動時の裏の仕事</td>
 </tr>
 </tbody>

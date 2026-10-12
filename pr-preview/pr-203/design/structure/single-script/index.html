@@ -2011,6 +2011,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#文字コードbom-が落ちても動く形" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        文字コード（BOM が落ちても動く形）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#実行時の違い" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4321,6 +4332,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#文字コードbom-が落ちても動く形" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        文字コード（BOM が落ちても動く形）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#実行時の違い" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4387,12 +4409,14 @@
 <pre class="mermaid"><code>flowchart LR
     S["scripts/（元のソース）"] --&gt; B["ビルド&lt;br&gt;（1 本にまとめる）"]
     B --&gt; C{"検査 7 項目"}
-    C --&gt;|全部通る| W["work/release/tebunko-#lt;タグ#gt;.ps1 を書き出す"]
+    C --&gt;|全部通る| A["BOM が落ちても動く形に包む・確かめ"]
+    A --&gt; W["work/release/tebunko-#lt;タグ#gt;.ps1 を書き出す"]
     C --&gt;|1 つでも失敗| X["書き出さずに止まる"]
+    A --&gt;|包めない・確かめに失敗| X
     W --&gt; R["GitHub Release&lt;br&gt;（zip・インストーラーと並べる）"]</code></pre>
 <ul>
 <li><code>release.yml</code> が、zip の検査のあとに <code>-Version &lt;タグ&gt;</code> を付けて呼ぶ。止まったら、リリースの工程もそこで止まる。</li>
-<li>出力は <code>work/release/</code> に書く（BOM 付き UTF-8・CRLF）。作ったファイルはリポジトリにコミットしない（<code>tests/meta/structure.Tests.ps1</code> の M5 が確かめる）。</li>
+<li>出力は <code>work/release/</code> に書く（日本語のまま・BOM 付き UTF-8・CRLF）。作ったファイルはリポジトリにコミットしない（<code>tests/meta/structure.Tests.ps1</code> の M5 が確かめる）。</li>
 <li>ファイルのたどり方と禁止の語の一覧は <code>tools/script_rules.ps1</code> に集め、<code>tests/meta/layers.Tests.ps1</code>・<code>tests/meta/safety.Tests.ps1</code>・<code>tools/check_release_package.ps1</code> と共有する。</li>
 </ul>
 <h2 id="ビルドのロジック">ビルドのロジック<a class="headerlink" href="#ビルドのロジック" title="Permanent link">&para;</a></h2>
@@ -4427,7 +4451,7 @@
 <tbody>
 <tr>
 <td><code>${bundledScriptPath}</code></td>
-<td>実行中の <code>.ps1</code> 自身のパス（<code>$PSCommandPath</code>）</td>
+<td>実行中の <code>.ps1</code> 自身のパス（頭の <code>${tebunkoPath}</code>。<code>$PSCommandPath</code> の値）</td>
 <td><code>shared/core/paths.ps1</code>（根フォルダ）、<code>tebunko/gui.ps1</code>（単一 .ps1 かどうかの見分け）</td>
 </tr>
 <tr>
@@ -4449,7 +4473,7 @@
 </table>
 <p>XAML と部品は、単一引用符のヒアストリングとして埋め込む。中に行頭が <code>'@</code> の行があると途中で閉じるため、ビルドが見つけたら止める。</p>
 <h3 id="本体の読み込みの順と--part-の分かれ方">本体の読み込みの順と <code>-Part</code> の分かれ方<a class="headerlink" href="#本体の読み込みの順と--part-の分かれ方" title="Permanent link">&para;</a></h3>
-<p>先頭と本体の境には、目印の行（<code># ---- 本体（ここより上は、別スレッドが読む部品の埋め込み） ----</code>）を置く。テストはこの行までを切り出して部品を取り出し、<code>getPartLoad</code> を通して読む。本体は次の順に並べる。</p>
+<p>先頭と本体の境には、目印の行（<code># ---- BODY-START (above: parts embedded for other threads) ----</code>）を置く。テストは、包んだ本体からこの行までを切り出して部品を取り出し、<code>getPartLoad</code> を通して読む。本体は次の順に並べる。</p>
 <ol>
 <li><code>ui/startup_error_view.ps1</code>（起動の失敗の文言）、<code>ui/startup_error.ps1</code>（知らせ方）、<code>lib.ps1</code> の順に読む（<code>gui.ps1</code> の先頭と同じ順）。</li>
 <li><code>indexer/indexer_lib.ps1</code> と <code>indexer/indexer_main.ps1</code> を読む。</li>
@@ -4509,9 +4533,38 @@
 <li>同じファイルが二重に入ることは、検査ではなくビルドの規則（上の「読み込み行の差し替え」）が防ぐ。</li>
 <li>検査 7 が見るのはパスだけで、ファイルの中身は見ない。パスに <code>\ui\</code> を含む（<code>ui\</code> フォルダの下にある）ファイルは、<code>*_view.ps1</code> でも部品に入れると止まる。</li>
 </ul>
+<h2 id="文字コードbom-が落ちても動く形">文字コード（BOM が落ちても動く形）<a class="headerlink" href="#文字コードbom-が落ちても動く形" title="Permanent link">&para;</a></h2>
+<p>Windows PowerShell 5.1 は、BOM の無い UTF-8 のファイルを既定のコードページ（日本語環境では CP932）で読む。別の道具で保存し直す・中身を貼り付けて保存するなどで BOM は落ちうる。CP932 は 2 バイトで 1 文字のため、日本語の文字の最後のバイトが、次の ASCII の文字（バッククォート・<code>{</code>・<code>}</code>・英字・引用符）を飲み込む。5.1 は実行の前にファイル全体を構文として読むので、構文エラーになり、先頭のコードも動かない。実測では、日本語のまま BOM を落とした単一 .ps1 は、5.1 の構文の読み取りで 685 件のエラーになった。</p>
+<p>そこで、検査に通ったあと、書き出す前に、日本語を含む本体全体を、単一引用符のヒアストリング（データ）に入れて包む（<code>tools/single_script_guard.ps1</code>）。ヒアストリングの中は、どう読み違えても構文にならない（改行・<code>'</code>・<code>#</code>・<code>@</code> は飲み込まれない）。日本語はそのまま残るので、ASCII に書き換えない。</p>
+<pre class="mermaid"><code>flowchart TB
+    F["単一 .ps1（頭 + 本体の文字列 + 尾）"] --&gt; H["頭（ASCII）が判定の文字 1 文字を読む"]
+    H --&gt;|正しく読めている| D["本体の文字列を ScriptBlock にして dot-source"]
+    H --&gt;|読み違えている&lt;br&gt;（BOM が落ちた）| R["自分のファイルを UTF-8 で読み直し、本体を取り出す"]
+    R --&gt; D
+    R --&gt;|UTF-8 として読めない| E["ASCII の案内を出して止まる"]</code></pre>
+<ul>
+<li><strong>頭と尾は ASCII だけ</strong>で書く（頭の判定用の 1 文字だけが例外）。頭は、<code>param</code>（本体と同じ）、言語モードの確認、<code>${tebunkoRoot}</code>・<code>${tebunkoPath}</code>、判定用の文字、本体の文字列の始まり。尾は、判定・読み直し・dot-source。</li>
+<li><strong>判定</strong>: 頭のヒアストリングに、<code>ア</code>（U+30A2）だけを入れておく。読み違えていれば、この 1 文字が別の文字列になる。そのときだけ、頭が <code>$PSCommandPath</code> のファイルを UTF-8 で読み直し、本体の文字列を取り出す。BOM があってもなくても、本体は同じ経路（文字列を <code>[scriptblock]::Create</code> して dot-source）で動くので、確かめる経路は 1 つになる。</li>
+<li><strong>退避</strong>: 本体の中に、行頭が <code>'@</code> の行（本体の中の XAML・部品のヒアストリングの終わり）があるので、外側のヒアストリングを閉じてしまう。包むときに <code>@@'@</code> に置き換え、動かす前に戻す。本体にもともと <code>@@'@</code> の行があれば、包む道具が止まる。</li>
+<li><strong><code>$PSScriptRoot</code>・<code>$PSCommandPath</code></strong>: ScriptBlock の中では空になる（その中で定義した関数の中も）。本体の中の使い方（文字列の中のものも含む）は、構文木で <code>${tebunkoRoot}</code>・<code>${tebunkoPath}</code>（頭が決める）に書き換える。書き換えたあとに元の名前が残っていないことを確かめる。別のランスペースで読む部品は、もともと動的に決めるので同じ。</li>
+<li><strong>行番号</strong>: 本体の前に、頭の行数と同じ数の空行を足して作るので、エラーの <code>At line:N</code> の <code>N</code> は、単一 .ps1 のファイルの行番号と同じになる。ただし、ファイル名は出ない。</li>
+<li><strong>子プロセス</strong>: <code>-Part indexer</code> で起こす子も、同じ頭を通るので、BOM が落ちていても動く。</li>
+<li><strong>言語モード</strong>: <code>FullLanguage</code> でなければ、頭が英語の 1 行を出して終了コード 1 で止まる（ScriptBlock を作れないため）。</li>
+<li><strong>禁止の語</strong>: 検査 5 は、包む前の本体に対して行う（上の表）。頭の <code>[scriptblock]::Create</code> は、この包みのために足した、禁止の語の唯一の例外である（理由・範囲は <a href="../../../safety/checks/#文字列を式として実行1の例外">安全性の確認</a>）。包んだあとの全体を、構文木で、尾の最後の 1 行のほかに Create・<code>Invoke-Expression</code>・<code>iex</code> が無いこと（最後の文の全文が決めた 1 行と同じこと）と、その文を除いた全体に禁止の語（一覧の全分類）が無いことを確かめる（下の「包んだあとの確かめ」）。構文木が見るのは頭と尾で、本体は文字列（データ）なので、包む前の検査（5）と、包んだあとの行の検査が見る。別スレッドの部品の読み込み（<code>importTebunkoPart</code>）も、文字列から関数を登録して実行する形だが、EDR の見え方は実機でしか確かめられない。</li>
+</ul>
+<p>範囲の外: Shift_JIS で保存し直した単一 .ps1。機械の ANSI コードページが 932（日本語の機械）のときは 5.1 で動く（日本語以外の文字は <code>?</code> になる）。それ以外の機械と 7 では、UTF-8 として読み直せず、ASCII の案内を出して止まる（テストは、932 の側を日本語の機械で、それ以外の側を CI で確かめる）。貼り付けて実行する形（ファイルのパスが無い）も対象にしない（<code>${bundledScriptPath}</code> が要るため、もともと動かない）。展開した版（zip）は変えない。</p>
+<p>包んだあとの確かめ（1 つでも失敗したら何も書き出さずに止まる）:</p>
+<ul>
+<li>構文エラーが 0 件である。</li>
+<li>UTF-8 のバイトを CP932 で読み違えた文字列でも、構文エラーが 0 件である。</li>
+<li>頭と尾が ASCII だけで、行頭が <code>'@</code> の行が 2 本（判定と本体の終わり）だけである。</li>
+<li>ScriptBlock の Create・<code>Invoke-Expression</code>・<code>iex</code> の呼び出しが、末尾の最後の 1 行（文の全文が一字一句同じ）だけで、その文を除いた全体（本体の文字列を含む）に禁止の語（<code>tools/script_rules.ps1</code> の全分類）が無い。</li>
+<li>版の文字列が残っている。</li>
+</ul>
 <p>テストは次のとおり。</p>
 <ul>
-<li><code>tests/tools/new_single_script.Tests.ps1</code> … ビルドと検査そのもの（まとめる順・部品・新しい別スレッドでの読み込み・<code>-Part indexer</code>）。</li>
+<li><code>tests/tools/single_script_guard.Tests.ps1</code> … 包む規則（変数の書き換え・退避と復元・止める場合・行番号・Create の例外が 1 行だけであること）と、包んだ <code>.ps1</code> を別プロセスで起動した結果（BOM 付き・BOM なし・Windows PowerShell 5.1・PowerShell 7）と、言語モードが ConstrainedLanguage のときの止まり方と、読み直せないときの止まり方（ファイルのパスが無い・頭の判定用の文字が無い）。日本語の文字列・<code>$PSScriptRoot</code>・<code>$PSCommandPath</code>・引数・終了コード・エラーの行番号を見る。</li>
+<li><code>tests/tools/new_single_script.Tests.ps1</code> … ビルドと検査そのもの（まとめる順・部品・新しい別スレッドでの読み込み・<code>-Part indexer</code>）と、出力が BOM 付き UTF-8 であること、頭と尾が ASCII だけであること、本体の行番号がファイルの行番号と同じであること、BOM の有無にかかわらず別プロセスで起動して日本語の記録が正しく出ること（Windows PowerShell 5.1・PowerShell 7）。</li>
 <li><code>tests/meta/structure.Tests.ps1</code> … ソースを 1 本にしても壊れない決まり（別スレッドがパスで部品を読まない・<code>${bundledScriptPath}</code> を dot-source や呼び出しに使わない・トップレベルの <code>trap</code>／<code>exit</code> の形・作った 1 本をコミットしない）。</li>
 <li><code>tests/meta/layers.Tests.ps1</code>・<code>tests/meta/safety.Tests.ps1</code> … 層の決まりと禁止の語を、まとめる元のソースに対して確かめる。</li>
 <li>画面の自動テスト（<code>Gui</code> タグ）… 環境変数 <code>TEBUNKO_GUI_SINGLE=1</code> で、zip 版の代わりに単一 .ps1 版を組み立てて同じ場面を流す。CI の <code>gui-smoke</code> は、S8 で単一 .ps1 版の起動・検索・閉じるを流す。</li>
@@ -4592,6 +4645,7 @@
 <li><code>tebunko.ico</code> は埋め込まない。画面のアイコンは XAML（<code>app_icon.xaml</code>）なので、ほかの画面定義と同じく埋め込まれる。<code>.ico</code> が要るのはインストーラー・ショートカットだけで、単一 .ps1 版は使わない。</li>
 <li><code>tebunko.bat</code> が持つ、起動の失敗のフォールバック（言語モードなどの記録）は持たない。</li>
 <li><code>lib.ps1</code> の読み込みの失敗は、起動の失敗の知らせ（<code>reportStartupFailure</code>）に届かず、PowerShell の窓に出る。</li>
+<li>出力は日本語のまま・BOM 付き UTF-8・CRLF である。BOM が落ちても動くよう、本体を文字列として持つ形に包む（<a href="#文字コードbom-が落ちても動く形">文字コード</a>）。そのかわり、本体の中では <code>$PSScriptRoot</code>・<code>$PSCommandPath</code> が使えず（書き換える）、エラーの表示にファイル名が出ず、<code>FullLanguage</code> でない環境では動かない。出力を読んで直すことはしない（元は <code>scripts/</code>）。</li>
 <li><code>tebunko.cat</code>（カタログ）の対象にならない。</li>
 </ul>
 
