@@ -7,7 +7,7 @@ param (
 )
 
 ${bundledScriptPath} = $PSCommandPath
-${bundledVersion} = @{ Tag = 'main-5086e76'; Sha = '5086e76c6e40bdee5caa43ee7093c34a2875812b' }
+${bundledVersion} = @{ Tag = 'main-d79f898'; Sha = '9989e4c83abbbe7462d6ffb34e844fbf175bc01e' }
 ${bundledXaml} = @{}
 ${bundledXaml}[[System.IO.Path]::GetFullPath("$PSScriptRoot\xaml\app_icon.xaml")] = @'
 <!-- 画面のアイコン（窓・スプラッシュ・バージョン情報で使うベクターの絵）。
@@ -6884,6 +6884,214 @@ function readVersionFile {
     return @{ Tag = $lines[0]; Sha = $lines[1] }
 }
 
+# 診断情報（ログの先頭の見出し）の組み立て（判断層）。
+# ファイル・レジストリ・画面に触らない。調べる側は diagnostics.ps1 の getEnvironmentInfo。
+# 利用者名・コンピューター名・ドメイン・パス・ネットワークの情報は、見出しに書かない。
+
+function getVersionLabel {
+    # readVersionFile の結果から、版・コミットの表示を決める: @{ Version; Commit（出さないときは空） }
+    #   versionInfo: readVersionFile の戻り値（$null なら開発中に git から直接起動したときの表示にする）
+    param (
+        $versionInfo
+    )
+
+    if ($null -eq $versionInfo) {
+        return @{ Version = "開発版"; Commit = "" }
+    }
+    return @{ Version = $versionInfo.Tag; Commit = $versionInfo.Sha.Substring(0, 7) }
+}
+
+function getOfficeKind {
+    # 見つかった Office の実行ファイルのパスから、形態とビット数を決める: @{ Kind = "Click-to-Run" / "MSI"; Bits = 64 / 32 }
+    #   programFiles64: 64 ビット側の Program Files / programFilesX86: x86 側の Program Files
+    param (
+        [string]$exePath,
+        [string]$programFiles64,
+        [string]$programFilesX86
+    )
+
+    $kind = "MSI"
+    if ($exePath -match '(?i)\\root\\Office\d+\\') {
+        $kind = "Click-to-Run"
+    }
+    $bits = 64
+    if ($programFilesX86 -and $exePath.StartsWith($programFilesX86.TrimEnd("\") + "\", [System.StringComparison]::OrdinalIgnoreCase)) {
+        $bits = 32
+    }
+    return @{ Kind = $kind; Bits = $bits }
+}
+
+function hideUserProfile {
+    # 文字列の中の利用者のプロファイルのフォルダ（C:\Users\<利用者名>）を %USERPROFILE% に置き換える（大文字小文字は区別しない）。
+    # 名前の前方だけが同じ別のフォルダ（末尾に文字が続く名前）は置き換えない
+    param (
+        [string]$text,
+        [string]$profileDir
+    )
+
+    if (-not $text -or -not $profileDir) {
+        return $text
+    }
+    $pattern = [regex]::Escape($profileDir.TrimEnd("\")) + '(?![\w.\-])'
+    return [regex]::Replace($text, $pattern, '%USERPROFILE%', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+}
+
+function formatDiagnosticHeader {
+    # ログの先頭に書く見出しの行（配列）を返す
+    #   toolName: ツールの名前 / versionInfo: readVersionFile の結果 / envInfo: getEnvironmentInfo の結果 / now: 日時（DateTimeOffset）
+    param (
+        [string]$toolName,
+        $versionInfo,
+        $envInfo,
+        [System.DateTimeOffset]$now
+    )
+
+    $unknown = "不明"
+    $orUnknown = { param($value) if ($value) { [string]$value } else { $unknown } }
+    $label = getVersionLabel $versionInfo
+    $versionText = $label.Version
+    if ($label.Commit) {
+        $versionText = "$($label.Version) ($($label.Commit))"
+    }
+    $bitsText = { param($is64) if ($null -eq $is64) { $unknown } elseif ($is64) { "64 ビット" } else { "32 ビット" } }
+
+    $officeText = "見つからない"
+    $officeItems = @($envInfo.Office)
+    if ($null -eq $envInfo.Office) {
+        $officeText = $unknown
+    } elseif ($officeItems.Count -gt 0) {
+        $officeText = (@($officeItems | ForEach-Object {
+            "$($_.Name) $(& $orUnknown $_.Version) $($_.Kind) $($_.Bits) ビット"
+        })) -join " / "
+    }
+
+    return @(
+        "==== $toolName の診断情報 ===="
+        "日時: $($now.ToString('yyyy-MM-dd HH:mm:ss zzz'))"
+        "$toolName の版: $versionText"
+        "OS: Windows $(& $orUnknown $envInfo.OsVersion)（ntoskrnl $(& $orUnknown $envInfo.OsFileVersion)・$(& $bitsText $envInfo.Os64)）"
+        "PowerShell: $(& $orUnknown $envInfo.PsVersion)（$(& $bitsText $envInfo.Ps64)・$(& $orUnknown $envInfo.LanguageMode)）"
+        "Office: $officeText"
+        "表示言語: $(& $orUnknown $envInfo.UICulture)"
+        "===="
+    )
+}
+
+# 診断情報の収集と、ログの世代の入れ替え（状態層）。
+# レジストリ・WMI・COM は使わず、Office も起動しない。ファイルの版情報と .NET・PowerShell の値だけを読む。
+# 見出しの文面は diagnostics_view.ps1。
+
+function getEnvironmentInfo {
+    # OS・PowerShell・Office の情報を返す。調べられない項目は $null
+    $info = @{ OsVersion = $null; OsFileVersion = $null; Os64 = $null; PsVersion = $null; Ps64 = $null; LanguageMode = $null; UICulture = $null; Office = @() }
+    try { $info.OsVersion = [Environment]::OSVersion.Version.ToString() } catch {}
+    try { $info.Os64 = [Environment]::Is64BitOperatingSystem } catch {}
+    try { $info.Ps64 = [Environment]::Is64BitProcess } catch {}
+    try { $info.PsVersion = $PSVersionTable.PSVersion.ToString() } catch {}
+    try { $info.LanguageMode = [string]$ExecutionContext.SessionState.LanguageMode } catch {}
+    try { $info.UICulture = [System.Globalization.CultureInfo]::CurrentUICulture.Name } catch {}
+    try {
+        $kernel = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("$env:SystemRoot\System32\ntoskrnl.exe")
+        $info.OsFileVersion = "$($kernel.FileMajorPart).$($kernel.FileMinorPart).$($kernel.FileBuildPart).$($kernel.FilePrivatePart)"
+    } catch {}
+    try {
+        $info.Office = @(findOfficeApps -os64 ($info.Os64 -ne $false))
+    } catch {
+        $info.Office = $null   # 調べられなかった（見出しでは「不明」。「見つからない」とは区別する）
+    }
+    return $info
+}
+
+function findOfficeApps {
+    # 決まった場所にある Office の実行ファイル（EXCEL.EXE・WINWORD.EXE・POWERPNT.EXE）を探し、@{ Name; Version; Kind; Bits } の配列を返す。
+    # Program Files は、Windows のあるドライブ（$env:SystemRoot のドライブ）の決まった名前のフォルダとする
+    # （環境変数 ProgramFiles は 32 ビットの PowerShell で x86 側を指し、安全性の検査も SystemRoot 以外の環境変数を許さないため）
+    #   programFiles64 / programFilesX86: 探す 2 つの場所（省略すると Windows のあるドライブの決まった名前。テストでは別の場所を渡す）
+    #   os64: 64 ビットの Windows か。32 ビットなら programFiles64 の場所を 32 ビット版の置き場として扱う
+    # 調べている途中で例外になったら、そのまま投げる（呼び出し側が「不明」にする）
+    param (
+        [string]$programFiles64,
+        [string]$programFilesX86,
+        [bool]$os64 = $true
+    )
+
+    if (-not $programFiles64 -and -not $programFilesX86) {
+        $systemDrive = [System.IO.Path]::GetPathRoot($env:SystemRoot)
+        if (-not $systemDrive) {
+            throw "Windows のあるドライブを取れない"   # 調べ損ね（見つからないとは別）
+        }
+        $programFiles64 = Join-Path $systemDrive "Program Files"
+        $programFilesX86 = Join-Path $systemDrive "Program Files (x86)"
+    }
+    $x86Root = $programFilesX86
+    if (-not $os64) {
+        $x86Root = $programFiles64
+    }
+    $subDirs = @("Microsoft Office\root\Office16", "Microsoft Office\Office16", "Microsoft Office\Office15")
+    $apps = @(@("Excel", "EXCEL.EXE"), @("Word", "WINWORD.EXE"), @("PowerPoint", "POWERPNT.EXE"))
+    $found = New-Object System.Collections.Generic.List[object]
+    foreach ($app in $apps) {
+        $hit = $null
+        foreach ($base in @($programFiles64, $programFilesX86)) {
+            if (-not $base -or $hit) { continue }
+            foreach ($sub in $subDirs) {
+                $candidate = Join-Path (Join-Path $base $sub) $app[1]
+                if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+                    $hit = $candidate
+                    break
+                }
+            }
+        }
+        if ($hit) {
+            $kind = getOfficeKind $hit $programFiles64 $x86Root
+            $version = $null
+            try { $version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($hit).FileVersion } catch {}
+            $found.Add(@{ Name = $app[0]; Version = $version; Kind = $kind.Kind; Bits = $kind.Bits })
+        }
+    }
+    return $found.ToArray()
+}
+
+function getPreviousLogPath {
+    # ログの前回の分の名前（<名前>_previous<拡張子>）。同じフォルダに置く
+    param (
+        [string]$path
+    )
+
+    $dir = [System.IO.Path]::GetDirectoryName($path)
+    $name = [System.IO.Path]::GetFileNameWithoutExtension($path) + "_previous" + [System.IO.Path]::GetExtension($path)
+    return (Join-Path $dir $name)
+}
+
+function rotateLogFile {
+    # path が maxBytes 以上なら、前回の分（getPreviousLogPath。あれば上書き）に移す。0 はいつも移す。
+    # 移したら $true。元が無い・上限未満・移せない（読み取り専用・開いたまま）は $false（例外は出さない）
+    param (
+        [string]$path,
+        [long]$maxBytes
+    )
+
+    try {
+        if (-not [System.IO.File]::Exists($path)) {
+            return $false
+        }
+        if ($maxBytes -gt 0 -and (New-Object System.IO.FileInfo($path)).Length -lt $maxBytes) {
+            return $false
+        }
+        $previous = getPreviousLogPath $path
+        if ([System.IO.File]::Exists($previous)) {
+            # 移せない（前回の分が読み取り専用・元が開いたまま・置き場所が対応しない）ときは失敗し、今のログは失わない。
+            # 複写で逃げないのは、移せないあいだ書くたびに全量を複写することになるため
+            [System.IO.File]::Replace($path, $previous, [NullString]::Value)
+        } else {
+            [System.IO.File]::Move($path, $previous)
+        }
+        return $true
+    } catch {
+        return $false
+    }
+}
+
 # 取り込み対象にする Office ファイルの拡張子。
 
 # 取り込み対象にする Office ファイルの拡張子（小文字）。
@@ -7631,6 +7839,13 @@ function getOfficeFileProtection {
 
 # 設定を先に読み込む（ワークスペースは設定の workspaceFolder で決まる。paths.ps1 の initWorkspace を
 # 起動口（startGui・invokeIndexerMain）が壊れた設定ファイルの退避の後に呼んで決める）
+# tebunko のログの先頭に書く見出し（状態層）。shared/ がツールの名前を知らないよう、名前はここで渡す。
+
+function getToolDiagnosticHeader {
+    # 見出しの行（配列）。版は配布物の VERSION.txt（無ければ開発版）
+    return formatDiagnosticHeader "tebunko" (readVersionFile "${rootDir}\VERSION.txt") (getEnvironmentInfo) ([System.DateTimeOffset]::Now)
+}
+
 # setting.config の読み書き（tebunko の設定）。
 
 # ツールの ID（多重起動の防止・ミューテックスの名前に使う）。
@@ -8362,7 +8577,9 @@ class Workspace {
     [string]$ResultFile
     # インデックス作成の記録。画面とインデクサの受け渡しはメモリ上で行う（indexer_state.ps1 の newIndexerChannel）
     [string]$IndexingLogFile  # インデクサの表示内容の記録（実行ごとに上書き）
-    [string]$GuiErrorLogFile  # 画面で起きた予期しないエラーの記録（追記。原因を後から追えるようにする）
+    [string]$GuiErrorLogFile  # 画面で起きた予期しないエラーの記録（追記。原因を後から追えるようにする。1 MB で下の前回の分に回す）
+    [string]$IndexingLogPreviousFile  # 前回のインデックス作成の記録（インデックス作成を始めるとき、今の記録をここへ移す）
+    [string]$GuiErrorLogPreviousFile  # 画面エラーの記録の前回の分（1 MB を超えたとき、今の記録をここへ移す）
     # 取り込みの作業フォルダの置き場所（下は <PC の鍵>\<PID>\w<番号> と分かれる。selectTmpDir・getWorkspaceTmpDir）。
     # 前の版までの %TEMP%\tebunko\<PID> の代わりに、ワークスペースの中に置く（共有フォルダでも 1 か所にまとまる）
     [string]$TmpRoot
@@ -8382,6 +8599,8 @@ class Workspace {
         $this.ResultFile = "$dir\search_results.txt"
         $this.IndexingLogFile = "$dir\indexing_log.txt"
         $this.GuiErrorLogFile = "$dir\gui_error_log.txt"
+        $this.IndexingLogPreviousFile = "$dir\indexing_log_previous.txt"
+        $this.GuiErrorLogPreviousFile = "$dir\gui_error_log_previous.txt"
         $this.TmpRoot = "$dir\tmp"
         $this.OfficePidRoot = "$dir\office_pids"
     }
@@ -8391,7 +8610,8 @@ class Workspace {
     # LegacyIndexDir は、あれば前の版のワークスペースとして tebunko のものと扱う（あるものだけが WorkspaceMover.ListEntries で拾われる）
     [string[]] Entries() {
         return @($this.IndexDir, $this.LegacyIndexDir, $this.SystemIndexDir, $this.SystemIndexStateFile, $this.StatusFile, $this.IngestingFile,
-            $this.ResultFile, $this.IndexingLogFile, $this.GuiErrorLogFile, [System.IO.Path]::GetDirectoryName($this.PublishDir), $this.TmpRoot, $this.OfficePidRoot)
+            $this.ResultFile, $this.IndexingLogFile, $this.GuiErrorLogFile,
+            $this.IndexingLogPreviousFile, $this.GuiErrorLogPreviousFile, [System.IO.Path]::GetDirectoryName($this.PublishDir), $this.TmpRoot, $this.OfficePidRoot)
     }
 }
 
@@ -18624,6 +18844,214 @@ function readVersionFile {
     return @{ Tag = $lines[0]; Sha = $lines[1] }
 }
 
+# 診断情報（ログの先頭の見出し）の組み立て（判断層）。
+# ファイル・レジストリ・画面に触らない。調べる側は diagnostics.ps1 の getEnvironmentInfo。
+# 利用者名・コンピューター名・ドメイン・パス・ネットワークの情報は、見出しに書かない。
+
+function getVersionLabel {
+    # readVersionFile の結果から、版・コミットの表示を決める: @{ Version; Commit（出さないときは空） }
+    #   versionInfo: readVersionFile の戻り値（$null なら開発中に git から直接起動したときの表示にする）
+    param (
+        $versionInfo
+    )
+
+    if ($null -eq $versionInfo) {
+        return @{ Version = "開発版"; Commit = "" }
+    }
+    return @{ Version = $versionInfo.Tag; Commit = $versionInfo.Sha.Substring(0, 7) }
+}
+
+function getOfficeKind {
+    # 見つかった Office の実行ファイルのパスから、形態とビット数を決める: @{ Kind = "Click-to-Run" / "MSI"; Bits = 64 / 32 }
+    #   programFiles64: 64 ビット側の Program Files / programFilesX86: x86 側の Program Files
+    param (
+        [string]$exePath,
+        [string]$programFiles64,
+        [string]$programFilesX86
+    )
+
+    $kind = "MSI"
+    if ($exePath -match '(?i)\\root\\Office\d+\\') {
+        $kind = "Click-to-Run"
+    }
+    $bits = 64
+    if ($programFilesX86 -and $exePath.StartsWith($programFilesX86.TrimEnd("\") + "\", [System.StringComparison]::OrdinalIgnoreCase)) {
+        $bits = 32
+    }
+    return @{ Kind = $kind; Bits = $bits }
+}
+
+function hideUserProfile {
+    # 文字列の中の利用者のプロファイルのフォルダ（C:\Users\<利用者名>）を %USERPROFILE% に置き換える（大文字小文字は区別しない）。
+    # 名前の前方だけが同じ別のフォルダ（末尾に文字が続く名前）は置き換えない
+    param (
+        [string]$text,
+        [string]$profileDir
+    )
+
+    if (-not $text -or -not $profileDir) {
+        return $text
+    }
+    $pattern = [regex]::Escape($profileDir.TrimEnd("\")) + '(?![\w.\-])'
+    return [regex]::Replace($text, $pattern, '%USERPROFILE%', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+}
+
+function formatDiagnosticHeader {
+    # ログの先頭に書く見出しの行（配列）を返す
+    #   toolName: ツールの名前 / versionInfo: readVersionFile の結果 / envInfo: getEnvironmentInfo の結果 / now: 日時（DateTimeOffset）
+    param (
+        [string]$toolName,
+        $versionInfo,
+        $envInfo,
+        [System.DateTimeOffset]$now
+    )
+
+    $unknown = "不明"
+    $orUnknown = { param($value) if ($value) { [string]$value } else { $unknown } }
+    $label = getVersionLabel $versionInfo
+    $versionText = $label.Version
+    if ($label.Commit) {
+        $versionText = "$($label.Version) ($($label.Commit))"
+    }
+    $bitsText = { param($is64) if ($null -eq $is64) { $unknown } elseif ($is64) { "64 ビット" } else { "32 ビット" } }
+
+    $officeText = "見つからない"
+    $officeItems = @($envInfo.Office)
+    if ($null -eq $envInfo.Office) {
+        $officeText = $unknown
+    } elseif ($officeItems.Count -gt 0) {
+        $officeText = (@($officeItems | ForEach-Object {
+            "$($_.Name) $(& $orUnknown $_.Version) $($_.Kind) $($_.Bits) ビット"
+        })) -join " / "
+    }
+
+    return @(
+        "==== $toolName の診断情報 ===="
+        "日時: $($now.ToString('yyyy-MM-dd HH:mm:ss zzz'))"
+        "$toolName の版: $versionText"
+        "OS: Windows $(& $orUnknown $envInfo.OsVersion)（ntoskrnl $(& $orUnknown $envInfo.OsFileVersion)・$(& $bitsText $envInfo.Os64)）"
+        "PowerShell: $(& $orUnknown $envInfo.PsVersion)（$(& $bitsText $envInfo.Ps64)・$(& $orUnknown $envInfo.LanguageMode)）"
+        "Office: $officeText"
+        "表示言語: $(& $orUnknown $envInfo.UICulture)"
+        "===="
+    )
+}
+
+# 診断情報の収集と、ログの世代の入れ替え（状態層）。
+# レジストリ・WMI・COM は使わず、Office も起動しない。ファイルの版情報と .NET・PowerShell の値だけを読む。
+# 見出しの文面は diagnostics_view.ps1。
+
+function getEnvironmentInfo {
+    # OS・PowerShell・Office の情報を返す。調べられない項目は $null
+    $info = @{ OsVersion = $null; OsFileVersion = $null; Os64 = $null; PsVersion = $null; Ps64 = $null; LanguageMode = $null; UICulture = $null; Office = @() }
+    try { $info.OsVersion = [Environment]::OSVersion.Version.ToString() } catch {}
+    try { $info.Os64 = [Environment]::Is64BitOperatingSystem } catch {}
+    try { $info.Ps64 = [Environment]::Is64BitProcess } catch {}
+    try { $info.PsVersion = $PSVersionTable.PSVersion.ToString() } catch {}
+    try { $info.LanguageMode = [string]$ExecutionContext.SessionState.LanguageMode } catch {}
+    try { $info.UICulture = [System.Globalization.CultureInfo]::CurrentUICulture.Name } catch {}
+    try {
+        $kernel = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("$env:SystemRoot\System32\ntoskrnl.exe")
+        $info.OsFileVersion = "$($kernel.FileMajorPart).$($kernel.FileMinorPart).$($kernel.FileBuildPart).$($kernel.FilePrivatePart)"
+    } catch {}
+    try {
+        $info.Office = @(findOfficeApps -os64 ($info.Os64 -ne $false))
+    } catch {
+        $info.Office = $null   # 調べられなかった（見出しでは「不明」。「見つからない」とは区別する）
+    }
+    return $info
+}
+
+function findOfficeApps {
+    # 決まった場所にある Office の実行ファイル（EXCEL.EXE・WINWORD.EXE・POWERPNT.EXE）を探し、@{ Name; Version; Kind; Bits } の配列を返す。
+    # Program Files は、Windows のあるドライブ（$env:SystemRoot のドライブ）の決まった名前のフォルダとする
+    # （環境変数 ProgramFiles は 32 ビットの PowerShell で x86 側を指し、安全性の検査も SystemRoot 以外の環境変数を許さないため）
+    #   programFiles64 / programFilesX86: 探す 2 つの場所（省略すると Windows のあるドライブの決まった名前。テストでは別の場所を渡す）
+    #   os64: 64 ビットの Windows か。32 ビットなら programFiles64 の場所を 32 ビット版の置き場として扱う
+    # 調べている途中で例外になったら、そのまま投げる（呼び出し側が「不明」にする）
+    param (
+        [string]$programFiles64,
+        [string]$programFilesX86,
+        [bool]$os64 = $true
+    )
+
+    if (-not $programFiles64 -and -not $programFilesX86) {
+        $systemDrive = [System.IO.Path]::GetPathRoot($env:SystemRoot)
+        if (-not $systemDrive) {
+            throw "Windows のあるドライブを取れない"   # 調べ損ね（見つからないとは別）
+        }
+        $programFiles64 = Join-Path $systemDrive "Program Files"
+        $programFilesX86 = Join-Path $systemDrive "Program Files (x86)"
+    }
+    $x86Root = $programFilesX86
+    if (-not $os64) {
+        $x86Root = $programFiles64
+    }
+    $subDirs = @("Microsoft Office\root\Office16", "Microsoft Office\Office16", "Microsoft Office\Office15")
+    $apps = @(@("Excel", "EXCEL.EXE"), @("Word", "WINWORD.EXE"), @("PowerPoint", "POWERPNT.EXE"))
+    $found = New-Object System.Collections.Generic.List[object]
+    foreach ($app in $apps) {
+        $hit = $null
+        foreach ($base in @($programFiles64, $programFilesX86)) {
+            if (-not $base -or $hit) { continue }
+            foreach ($sub in $subDirs) {
+                $candidate = Join-Path (Join-Path $base $sub) $app[1]
+                if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+                    $hit = $candidate
+                    break
+                }
+            }
+        }
+        if ($hit) {
+            $kind = getOfficeKind $hit $programFiles64 $x86Root
+            $version = $null
+            try { $version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($hit).FileVersion } catch {}
+            $found.Add(@{ Name = $app[0]; Version = $version; Kind = $kind.Kind; Bits = $kind.Bits })
+        }
+    }
+    return $found.ToArray()
+}
+
+function getPreviousLogPath {
+    # ログの前回の分の名前（<名前>_previous<拡張子>）。同じフォルダに置く
+    param (
+        [string]$path
+    )
+
+    $dir = [System.IO.Path]::GetDirectoryName($path)
+    $name = [System.IO.Path]::GetFileNameWithoutExtension($path) + "_previous" + [System.IO.Path]::GetExtension($path)
+    return (Join-Path $dir $name)
+}
+
+function rotateLogFile {
+    # path が maxBytes 以上なら、前回の分（getPreviousLogPath。あれば上書き）に移す。0 はいつも移す。
+    # 移したら $true。元が無い・上限未満・移せない（読み取り専用・開いたまま）は $false（例外は出さない）
+    param (
+        [string]$path,
+        [long]$maxBytes
+    )
+
+    try {
+        if (-not [System.IO.File]::Exists($path)) {
+            return $false
+        }
+        if ($maxBytes -gt 0 -and (New-Object System.IO.FileInfo($path)).Length -lt $maxBytes) {
+            return $false
+        }
+        $previous = getPreviousLogPath $path
+        if ([System.IO.File]::Exists($previous)) {
+            # 移せない（前回の分が読み取り専用・元が開いたまま・置き場所が対応しない）ときは失敗し、今のログは失わない。
+            # 複写で逃げないのは、移せないあいだ書くたびに全量を複写することになるため
+            [System.IO.File]::Replace($path, $previous, [NullString]::Value)
+        } else {
+            [System.IO.File]::Move($path, $previous)
+        }
+        return $true
+    } catch {
+        return $false
+    }
+}
+
 # 取り込み対象にする Office ファイルの拡張子。
 
 # 取り込み対象にする Office ファイルの拡張子（小文字）。
@@ -19371,6 +19799,13 @@ function getOfficeFileProtection {
 
 # 設定を先に読み込む（ワークスペースは設定の workspaceFolder で決まる。paths.ps1 の initWorkspace を
 # 起動口（startGui・invokeIndexerMain）が壊れた設定ファイルの退避の後に呼んで決める）
+# tebunko のログの先頭に書く見出し（状態層）。shared/ がツールの名前を知らないよう、名前はここで渡す。
+
+function getToolDiagnosticHeader {
+    # 見出しの行（配列）。版は配布物の VERSION.txt（無ければ開発版）
+    return formatDiagnosticHeader "tebunko" (readVersionFile "${rootDir}\VERSION.txt") (getEnvironmentInfo) ([System.DateTimeOffset]::Now)
+}
+
 # setting.config の読み書き（tebunko の設定）。
 
 # ツールの ID（多重起動の防止・ミューテックスの名前に使う）。
@@ -20102,7 +20537,9 @@ class Workspace {
     [string]$ResultFile
     # インデックス作成の記録。画面とインデクサの受け渡しはメモリ上で行う（indexer_state.ps1 の newIndexerChannel）
     [string]$IndexingLogFile  # インデクサの表示内容の記録（実行ごとに上書き）
-    [string]$GuiErrorLogFile  # 画面で起きた予期しないエラーの記録（追記。原因を後から追えるようにする）
+    [string]$GuiErrorLogFile  # 画面で起きた予期しないエラーの記録（追記。原因を後から追えるようにする。1 MB で下の前回の分に回す）
+    [string]$IndexingLogPreviousFile  # 前回のインデックス作成の記録（インデックス作成を始めるとき、今の記録をここへ移す）
+    [string]$GuiErrorLogPreviousFile  # 画面エラーの記録の前回の分（1 MB を超えたとき、今の記録をここへ移す）
     # 取り込みの作業フォルダの置き場所（下は <PC の鍵>\<PID>\w<番号> と分かれる。selectTmpDir・getWorkspaceTmpDir）。
     # 前の版までの %TEMP%\tebunko\<PID> の代わりに、ワークスペースの中に置く（共有フォルダでも 1 か所にまとまる）
     [string]$TmpRoot
@@ -20122,6 +20559,8 @@ class Workspace {
         $this.ResultFile = "$dir\search_results.txt"
         $this.IndexingLogFile = "$dir\indexing_log.txt"
         $this.GuiErrorLogFile = "$dir\gui_error_log.txt"
+        $this.IndexingLogPreviousFile = "$dir\indexing_log_previous.txt"
+        $this.GuiErrorLogPreviousFile = "$dir\gui_error_log_previous.txt"
         $this.TmpRoot = "$dir\tmp"
         $this.OfficePidRoot = "$dir\office_pids"
     }
@@ -20131,7 +20570,8 @@ class Workspace {
     # LegacyIndexDir は、あれば前の版のワークスペースとして tebunko のものと扱う（あるものだけが WorkspaceMover.ListEntries で拾われる）
     [string[]] Entries() {
         return @($this.IndexDir, $this.LegacyIndexDir, $this.SystemIndexDir, $this.SystemIndexStateFile, $this.StatusFile, $this.IngestingFile,
-            $this.ResultFile, $this.IndexingLogFile, $this.GuiErrorLogFile, [System.IO.Path]::GetDirectoryName($this.PublishDir), $this.TmpRoot, $this.OfficePidRoot)
+            $this.ResultFile, $this.IndexingLogFile, $this.GuiErrorLogFile,
+            $this.IndexingLogPreviousFile, $this.GuiErrorLogPreviousFile, [System.IO.Path]::GetDirectoryName($this.PublishDir), $this.TmpRoot, $this.OfficePidRoot)
     }
 }
 
@@ -31525,9 +31965,17 @@ function invokeIndexer {
                 throw "ほかのインデックス作成が実行中です。インデックス作成が終わってから実行してください。"
             }
             [System.IO.Directory]::CreateDirectory($workspace.Dir) | Out-Null
+            # 鍵を取れた後にだけ、前回の記録を残す（取れなかったときはほかのインデックス作成の記録に触らない）
+            [void](rotateLogFile $workspace.IndexingLogFile 0)
             $writer = New-Object System.IO.StreamWriter($workspace.IndexingLogFile, $false, ${utf8Bom})
             $writer.AutoFlush = $true
             $script:indexerLog = $writer
+            try {
+                # 先頭に版と環境を書く（画面なしで動かしたときにコンソールへ出さないよう writeIndexerLog は使わない）。書けなくても続ける
+                foreach ($headerLine in @(getToolDiagnosticHeader)) {
+                    $writer.WriteLine($headerLine)
+                }
+            } catch {}
             if ($script:settingsRecovery) {
                 # 画面なしで起動したとき、起動口が壊れた設定ファイルを退避している。ログの先頭に知らせる
                 writeIndexerLog (getSettingsRecoveryMessage $script:settingsRecovery) "Yellow"
@@ -32275,6 +32723,11 @@ function getGuiErrorLogFile {
     return $script:workspace.GuiErrorLogFile
 }
 
+# gui_error_log.txt の先頭（プロセスごとの最初の記録の前）に書く版と環境の見出し（行の配列）。app_host.ps1 の writeErrorLog が使う
+function getGuiErrorLogHeader {
+    return getToolDiagnosticHeader
+}
+
 # 実際に書けた記録のファイルだけを返す（writeErrorLog は書けなくても例外を出さないため）
 function getExistingRecordFile {
     param (
@@ -32301,6 +32754,20 @@ function writeStartupErrorFile {
     $candidate = $null
     try {
         $candidate = Join-Path $toolDir "startup_error.txt"
+        try {
+            # 1 MB 以上なら前回の分に回す（溜まり続けないように）。移せなくても記録は書く
+            if ((Get-Item -LiteralPath $candidate -ErrorAction Stop).Length -ge 1MB) {
+                # 元を先に別の名前へ移す（元を移せないとき、-Force が前回の分を先に消すため）。移せたら前回の分に重ねる。重ねられなければ元の名前に戻す
+                $moving = Join-Path $toolDir "startup_error_moving.txt"
+                Move-Item -LiteralPath $candidate -Destination $moving -Force -ErrorAction Stop
+                try {
+                    Move-Item -LiteralPath $moving -Destination (Join-Path $toolDir "startup_error_previous.txt") -Force -ErrorAction Stop
+                } catch {
+                    Move-Item -LiteralPath $moving -Destination $candidate -ErrorAction SilentlyContinue
+                }
+            }
+        } catch {
+        }
         Add-Content -LiteralPath $candidate -Value $text -Encoding UTF8 -ErrorAction Stop
         return $candidate
     } catch {
@@ -35665,6 +36132,214 @@ function readVersionFile {
     return @{ Tag = $lines[0]; Sha = $lines[1] }
 }
 
+# 診断情報（ログの先頭の見出し）の組み立て（判断層）。
+# ファイル・レジストリ・画面に触らない。調べる側は diagnostics.ps1 の getEnvironmentInfo。
+# 利用者名・コンピューター名・ドメイン・パス・ネットワークの情報は、見出しに書かない。
+
+function getVersionLabel {
+    # readVersionFile の結果から、版・コミットの表示を決める: @{ Version; Commit（出さないときは空） }
+    #   versionInfo: readVersionFile の戻り値（$null なら開発中に git から直接起動したときの表示にする）
+    param (
+        $versionInfo
+    )
+
+    if ($null -eq $versionInfo) {
+        return @{ Version = "開発版"; Commit = "" }
+    }
+    return @{ Version = $versionInfo.Tag; Commit = $versionInfo.Sha.Substring(0, 7) }
+}
+
+function getOfficeKind {
+    # 見つかった Office の実行ファイルのパスから、形態とビット数を決める: @{ Kind = "Click-to-Run" / "MSI"; Bits = 64 / 32 }
+    #   programFiles64: 64 ビット側の Program Files / programFilesX86: x86 側の Program Files
+    param (
+        [string]$exePath,
+        [string]$programFiles64,
+        [string]$programFilesX86
+    )
+
+    $kind = "MSI"
+    if ($exePath -match '(?i)\\root\\Office\d+\\') {
+        $kind = "Click-to-Run"
+    }
+    $bits = 64
+    if ($programFilesX86 -and $exePath.StartsWith($programFilesX86.TrimEnd("\") + "\", [System.StringComparison]::OrdinalIgnoreCase)) {
+        $bits = 32
+    }
+    return @{ Kind = $kind; Bits = $bits }
+}
+
+function hideUserProfile {
+    # 文字列の中の利用者のプロファイルのフォルダ（C:\Users\<利用者名>）を %USERPROFILE% に置き換える（大文字小文字は区別しない）。
+    # 名前の前方だけが同じ別のフォルダ（末尾に文字が続く名前）は置き換えない
+    param (
+        [string]$text,
+        [string]$profileDir
+    )
+
+    if (-not $text -or -not $profileDir) {
+        return $text
+    }
+    $pattern = [regex]::Escape($profileDir.TrimEnd("\")) + '(?![\w.\-])'
+    return [regex]::Replace($text, $pattern, '%USERPROFILE%', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+}
+
+function formatDiagnosticHeader {
+    # ログの先頭に書く見出しの行（配列）を返す
+    #   toolName: ツールの名前 / versionInfo: readVersionFile の結果 / envInfo: getEnvironmentInfo の結果 / now: 日時（DateTimeOffset）
+    param (
+        [string]$toolName,
+        $versionInfo,
+        $envInfo,
+        [System.DateTimeOffset]$now
+    )
+
+    $unknown = "不明"
+    $orUnknown = { param($value) if ($value) { [string]$value } else { $unknown } }
+    $label = getVersionLabel $versionInfo
+    $versionText = $label.Version
+    if ($label.Commit) {
+        $versionText = "$($label.Version) ($($label.Commit))"
+    }
+    $bitsText = { param($is64) if ($null -eq $is64) { $unknown } elseif ($is64) { "64 ビット" } else { "32 ビット" } }
+
+    $officeText = "見つからない"
+    $officeItems = @($envInfo.Office)
+    if ($null -eq $envInfo.Office) {
+        $officeText = $unknown
+    } elseif ($officeItems.Count -gt 0) {
+        $officeText = (@($officeItems | ForEach-Object {
+            "$($_.Name) $(& $orUnknown $_.Version) $($_.Kind) $($_.Bits) ビット"
+        })) -join " / "
+    }
+
+    return @(
+        "==== $toolName の診断情報 ===="
+        "日時: $($now.ToString('yyyy-MM-dd HH:mm:ss zzz'))"
+        "$toolName の版: $versionText"
+        "OS: Windows $(& $orUnknown $envInfo.OsVersion)（ntoskrnl $(& $orUnknown $envInfo.OsFileVersion)・$(& $bitsText $envInfo.Os64)）"
+        "PowerShell: $(& $orUnknown $envInfo.PsVersion)（$(& $bitsText $envInfo.Ps64)・$(& $orUnknown $envInfo.LanguageMode)）"
+        "Office: $officeText"
+        "表示言語: $(& $orUnknown $envInfo.UICulture)"
+        "===="
+    )
+}
+
+# 診断情報の収集と、ログの世代の入れ替え（状態層）。
+# レジストリ・WMI・COM は使わず、Office も起動しない。ファイルの版情報と .NET・PowerShell の値だけを読む。
+# 見出しの文面は diagnostics_view.ps1。
+
+function getEnvironmentInfo {
+    # OS・PowerShell・Office の情報を返す。調べられない項目は $null
+    $info = @{ OsVersion = $null; OsFileVersion = $null; Os64 = $null; PsVersion = $null; Ps64 = $null; LanguageMode = $null; UICulture = $null; Office = @() }
+    try { $info.OsVersion = [Environment]::OSVersion.Version.ToString() } catch {}
+    try { $info.Os64 = [Environment]::Is64BitOperatingSystem } catch {}
+    try { $info.Ps64 = [Environment]::Is64BitProcess } catch {}
+    try { $info.PsVersion = $PSVersionTable.PSVersion.ToString() } catch {}
+    try { $info.LanguageMode = [string]$ExecutionContext.SessionState.LanguageMode } catch {}
+    try { $info.UICulture = [System.Globalization.CultureInfo]::CurrentUICulture.Name } catch {}
+    try {
+        $kernel = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("$env:SystemRoot\System32\ntoskrnl.exe")
+        $info.OsFileVersion = "$($kernel.FileMajorPart).$($kernel.FileMinorPart).$($kernel.FileBuildPart).$($kernel.FilePrivatePart)"
+    } catch {}
+    try {
+        $info.Office = @(findOfficeApps -os64 ($info.Os64 -ne $false))
+    } catch {
+        $info.Office = $null   # 調べられなかった（見出しでは「不明」。「見つからない」とは区別する）
+    }
+    return $info
+}
+
+function findOfficeApps {
+    # 決まった場所にある Office の実行ファイル（EXCEL.EXE・WINWORD.EXE・POWERPNT.EXE）を探し、@{ Name; Version; Kind; Bits } の配列を返す。
+    # Program Files は、Windows のあるドライブ（$env:SystemRoot のドライブ）の決まった名前のフォルダとする
+    # （環境変数 ProgramFiles は 32 ビットの PowerShell で x86 側を指し、安全性の検査も SystemRoot 以外の環境変数を許さないため）
+    #   programFiles64 / programFilesX86: 探す 2 つの場所（省略すると Windows のあるドライブの決まった名前。テストでは別の場所を渡す）
+    #   os64: 64 ビットの Windows か。32 ビットなら programFiles64 の場所を 32 ビット版の置き場として扱う
+    # 調べている途中で例外になったら、そのまま投げる（呼び出し側が「不明」にする）
+    param (
+        [string]$programFiles64,
+        [string]$programFilesX86,
+        [bool]$os64 = $true
+    )
+
+    if (-not $programFiles64 -and -not $programFilesX86) {
+        $systemDrive = [System.IO.Path]::GetPathRoot($env:SystemRoot)
+        if (-not $systemDrive) {
+            throw "Windows のあるドライブを取れない"   # 調べ損ね（見つからないとは別）
+        }
+        $programFiles64 = Join-Path $systemDrive "Program Files"
+        $programFilesX86 = Join-Path $systemDrive "Program Files (x86)"
+    }
+    $x86Root = $programFilesX86
+    if (-not $os64) {
+        $x86Root = $programFiles64
+    }
+    $subDirs = @("Microsoft Office\root\Office16", "Microsoft Office\Office16", "Microsoft Office\Office15")
+    $apps = @(@("Excel", "EXCEL.EXE"), @("Word", "WINWORD.EXE"), @("PowerPoint", "POWERPNT.EXE"))
+    $found = New-Object System.Collections.Generic.List[object]
+    foreach ($app in $apps) {
+        $hit = $null
+        foreach ($base in @($programFiles64, $programFilesX86)) {
+            if (-not $base -or $hit) { continue }
+            foreach ($sub in $subDirs) {
+                $candidate = Join-Path (Join-Path $base $sub) $app[1]
+                if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+                    $hit = $candidate
+                    break
+                }
+            }
+        }
+        if ($hit) {
+            $kind = getOfficeKind $hit $programFiles64 $x86Root
+            $version = $null
+            try { $version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($hit).FileVersion } catch {}
+            $found.Add(@{ Name = $app[0]; Version = $version; Kind = $kind.Kind; Bits = $kind.Bits })
+        }
+    }
+    return $found.ToArray()
+}
+
+function getPreviousLogPath {
+    # ログの前回の分の名前（<名前>_previous<拡張子>）。同じフォルダに置く
+    param (
+        [string]$path
+    )
+
+    $dir = [System.IO.Path]::GetDirectoryName($path)
+    $name = [System.IO.Path]::GetFileNameWithoutExtension($path) + "_previous" + [System.IO.Path]::GetExtension($path)
+    return (Join-Path $dir $name)
+}
+
+function rotateLogFile {
+    # path が maxBytes 以上なら、前回の分（getPreviousLogPath。あれば上書き）に移す。0 はいつも移す。
+    # 移したら $true。元が無い・上限未満・移せない（読み取り専用・開いたまま）は $false（例外は出さない）
+    param (
+        [string]$path,
+        [long]$maxBytes
+    )
+
+    try {
+        if (-not [System.IO.File]::Exists($path)) {
+            return $false
+        }
+        if ($maxBytes -gt 0 -and (New-Object System.IO.FileInfo($path)).Length -lt $maxBytes) {
+            return $false
+        }
+        $previous = getPreviousLogPath $path
+        if ([System.IO.File]::Exists($previous)) {
+            # 移せない（前回の分が読み取り専用・元が開いたまま・置き場所が対応しない）ときは失敗し、今のログは失わない。
+            # 複写で逃げないのは、移せないあいだ書くたびに全量を複写することになるため
+            [System.IO.File]::Replace($path, $previous, [NullString]::Value)
+        } else {
+            [System.IO.File]::Move($path, $previous)
+        }
+        return $true
+    } catch {
+        return $false
+    }
+}
+
 # 取り込み対象にする Office ファイルの拡張子。
 
 # 取り込み対象にする Office ファイルの拡張子（小文字）。
@@ -36412,6 +37087,13 @@ function getOfficeFileProtection {
 
 # 設定を先に読み込む（ワークスペースは設定の workspaceFolder で決まる。paths.ps1 の initWorkspace を
 # 起動口（startGui・invokeIndexerMain）が壊れた設定ファイルの退避の後に呼んで決める）
+# tebunko のログの先頭に書く見出し（状態層）。shared/ がツールの名前を知らないよう、名前はここで渡す。
+
+function getToolDiagnosticHeader {
+    # 見出しの行（配列）。版は配布物の VERSION.txt（無ければ開発版）
+    return formatDiagnosticHeader "tebunko" (readVersionFile "${rootDir}\VERSION.txt") (getEnvironmentInfo) ([System.DateTimeOffset]::Now)
+}
+
 # setting.config の読み書き（tebunko の設定）。
 
 # ツールの ID（多重起動の防止・ミューテックスの名前に使う）。
@@ -37143,7 +37825,9 @@ class Workspace {
     [string]$ResultFile
     # インデックス作成の記録。画面とインデクサの受け渡しはメモリ上で行う（indexer_state.ps1 の newIndexerChannel）
     [string]$IndexingLogFile  # インデクサの表示内容の記録（実行ごとに上書き）
-    [string]$GuiErrorLogFile  # 画面で起きた予期しないエラーの記録（追記。原因を後から追えるようにする）
+    [string]$GuiErrorLogFile  # 画面で起きた予期しないエラーの記録（追記。原因を後から追えるようにする。1 MB で下の前回の分に回す）
+    [string]$IndexingLogPreviousFile  # 前回のインデックス作成の記録（インデックス作成を始めるとき、今の記録をここへ移す）
+    [string]$GuiErrorLogPreviousFile  # 画面エラーの記録の前回の分（1 MB を超えたとき、今の記録をここへ移す）
     # 取り込みの作業フォルダの置き場所（下は <PC の鍵>\<PID>\w<番号> と分かれる。selectTmpDir・getWorkspaceTmpDir）。
     # 前の版までの %TEMP%\tebunko\<PID> の代わりに、ワークスペースの中に置く（共有フォルダでも 1 か所にまとまる）
     [string]$TmpRoot
@@ -37163,6 +37847,8 @@ class Workspace {
         $this.ResultFile = "$dir\search_results.txt"
         $this.IndexingLogFile = "$dir\indexing_log.txt"
         $this.GuiErrorLogFile = "$dir\gui_error_log.txt"
+        $this.IndexingLogPreviousFile = "$dir\indexing_log_previous.txt"
+        $this.GuiErrorLogPreviousFile = "$dir\gui_error_log_previous.txt"
         $this.TmpRoot = "$dir\tmp"
         $this.OfficePidRoot = "$dir\office_pids"
     }
@@ -37172,7 +37858,8 @@ class Workspace {
     # LegacyIndexDir は、あれば前の版のワークスペースとして tebunko のものと扱う（あるものだけが WorkspaceMover.ListEntries で拾われる）
     [string[]] Entries() {
         return @($this.IndexDir, $this.LegacyIndexDir, $this.SystemIndexDir, $this.SystemIndexStateFile, $this.StatusFile, $this.IngestingFile,
-            $this.ResultFile, $this.IndexingLogFile, $this.GuiErrorLogFile, [System.IO.Path]::GetDirectoryName($this.PublishDir), $this.TmpRoot, $this.OfficePidRoot)
+            $this.ResultFile, $this.IndexingLogFile, $this.GuiErrorLogFile,
+            $this.IndexingLogPreviousFile, $this.GuiErrorLogPreviousFile, [System.IO.Path]::GetDirectoryName($this.PublishDir), $this.TmpRoot, $this.OfficePidRoot)
     }
 }
 
@@ -48569,9 +49256,17 @@ function invokeIndexer {
                 throw "ほかのインデックス作成が実行中です。インデックス作成が終わってから実行してください。"
             }
             [System.IO.Directory]::CreateDirectory($workspace.Dir) | Out-Null
+            # 鍵を取れた後にだけ、前回の記録を残す（取れなかったときはほかのインデックス作成の記録に触らない）
+            [void](rotateLogFile $workspace.IndexingLogFile 0)
             $writer = New-Object System.IO.StreamWriter($workspace.IndexingLogFile, $false, ${utf8Bom})
             $writer.AutoFlush = $true
             $script:indexerLog = $writer
+            try {
+                # 先頭に版と環境を書く（画面なしで動かしたときにコンソールへ出さないよう writeIndexerLog は使わない）。書けなくても続ける
+                foreach ($headerLine in @(getToolDiagnosticHeader)) {
+                    $writer.WriteLine($headerLine)
+                }
+            } catch {}
             if ($script:settingsRecovery) {
                 # 画面なしで起動したとき、起動口が壊れた設定ファイルを退避している。ログの先頭に知らせる
                 writeIndexerLog (getSettingsRecoveryMessage $script:settingsRecovery) "Yellow"
@@ -50264,7 +50959,8 @@ class IndexNode : NotifyBase {
 }
 
 # 画面の土台（XAML の読み込み・見た目の共通定義・エラーの記録）。
-# 使う側が themeFile・iconXamlFile と、エラーの記録先を返す関数 getGuiErrorLogFile を定義しておくこと。
+# 使う側が themeFile・iconXamlFile と、エラーの記録先を返す関数 getGuiErrorLogFile、
+# 記録の先頭に書く見出しの行を返す関数 getGuiErrorLogHeader を定義しておくこと（見出しが無くても記録は書く）。
 
 # 見た目の共通定義を読み込む（画面自体は XAML の MergedDictionaries で読み込む）
 function loadTheme {
@@ -50399,6 +51095,11 @@ function themeBrush {
     return (loadTheme)[$key]
 }
 
+# 画面エラーの記録の上限（これ以上になったら前回の分に回す）
+${guiErrorLogMaxBytes} = 1MB
+# 見出しを最後に書いた記録先（writeErrorLog が、最初の記録・記録先の変更で見出しを書くために覚える）
+${script:errorLogHeaderPath} = $null
+
 # 予期しないエラーを getGuiErrorLogFile のファイルに残す。画面に出したメッセージだけでは、
 # どこで起きたのかが後から分からないため（利用者に見せるのは従来どおりメッセージだけ）
 function writeErrorLog {
@@ -50413,7 +51114,20 @@ function writeErrorLog {
         if (-not (Test-Path -LiteralPath $dir)) {
             [void][System.IO.Directory]::CreateDirectory($dir)
         }
-        $text = @(
+        # 1 MB 以上なら前回の分（gui_error_log_previous.txt）に回す。合わせておよそ 2 MB で止まる
+        try { [void](rotateLogFile $path ${guiErrorLogMaxBytes}) } catch {}
+        # 見出し（版と環境）は、このプロセスで最初の記録・記録先が変わった（ワークスペースの切り替え）・ファイルが無かった（回した直後）ときに書く。
+        # 見出しを作れなくても記録は書く（起動中は getGuiErrorLogHeader がまだ読み込まれていないことがある）
+        $headerText = ""
+        if (${script:errorLogHeaderPath} -ne $path -or -not [System.IO.File]::Exists($path)) {
+            try {
+                $headerText = (@(getGuiErrorLogHeader) -join "`r`n") + "`r`n`r`n"
+                ${script:errorLogHeaderPath} = $path
+            } catch {
+                $headerText = ""
+            }
+        }
+        $body = @(
             "==== $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ${context} ===="
             "$($record.Exception.GetType().FullName): $($record.Exception.Message)"
             "$($record.InvocationInfo.PositionMessage)"
@@ -50421,6 +51135,7 @@ function writeErrorLog {
             if ($record.Exception.InnerException) { "内側: $($record.Exception.InnerException)" }
             ""
         ) -join "`r`n"
+        $text = $headerText + $body
         [System.IO.File]::AppendAllText($path, $text, (New-Object System.Text.UTF8Encoding($true)))
     } catch {
         # 記録できなくても、画面の動作は止めない
@@ -54692,10 +55407,7 @@ function getAboutView {
         $versionInfo
     )
 
-    if ($null -eq $versionInfo) {
-        return @{ Version = "開発版"; Commit = "" }
-    }
-    return @{ Version = $versionInfo.Tag; Commit = $versionInfo.Sha.Substring(0, 7) }
+    return getVersionLabel $versionInfo
 }
 
 ${aboutRepositoryUrl} = "https://github.com/hsgwa/tebunko"  # 公開のリポジトリ
