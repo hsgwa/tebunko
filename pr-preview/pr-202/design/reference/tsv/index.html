@@ -4797,6 +4797,14 @@
 <td>画面</td>
 </tr>
 <tr>
+<td><code>readContentIndexLines</code></td>
+<td>path, book, location, firstLine, count, cache, marks</td>
+<td><code>@{Rows; End; Marks}</code></td>
+<td>場所 location の firstLine 行目から count 行を返す（<code>Rows</code> は <code>@{LineNumber; Line}</code> の並び。<code>End</code> は count 行に満たなかった＝その先にもう行が無い）。<code>marks</code> は前に読んだときの行の位置の控え（ファイルの更新日時・サイズ・200 行ごとの文字の位置）で、同じファイルなら控えのうち目当てに一番近い所から読む。更新した控えを <code>Marks</code> で返す（引数で渡し戻り値で受ける。複数のスレッドで動くため <code>$script:</code> に持たない）。読めない・見つからなければ空</td>
+<td><a href="../../gui/preview/">選択行のプレビュー</a></td>
+<td>画面</td>
+</tr>
+<tr>
 <td><code>readContentIndexRange</code></td>
 <td>path, start, end, firstLine, lines</td>
 <td>string / null</td>

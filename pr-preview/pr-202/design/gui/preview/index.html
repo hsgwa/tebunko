@@ -4150,9 +4150,11 @@
     participant B as 画面の裏の仕事（startJob）
 
     U-&gt;&gt;G: 行を選ぶ
-    G-&gt;&gt;B: readContentIndexContext を頼む
+    G-&gt;&gt;B: readContentIndexLines を頼む（最初は前後 50 行ずつ）
     B--&gt;&gt;G: 前後の行（キャッシュがあれば使い回す）
-    G-&gt;&gt;U: シートのような表で表示</code></pre>
+    G-&gt;&gt;U: シートのような表で表示
+    U-&gt;&gt;G: 縦にスクロールして端に近づく
+    G-&gt;&gt;B: 上または下の続きを読み足す（readContentIndexLines）</code></pre>
 <p>結果の表で行を選ぶと、表の下に<strong>選択行とその前後の行</strong>を表示する。元のファイルを開かなくても、一致した場所の周り（見出しの行・隣のセルなど）が分かる。</p>
 <table>
 <thead>
@@ -4176,11 +4178,15 @@
 </tr>
 <tr>
 <td>表示する行</td>
-<td><strong>最初は選択行の前後 50 行ずつ（最大 101 行。<code>previewFirstLines</code>）</strong>を読んで出す。高さに入る行数より多く読み、縦にスクロールして見られる。高さを変えても読み直さない。選択行は、プレビューの上から 3 行目に来るよう縦にスクロールする（位置は判断層の <code>getPreviewTopRow</code>。選択行の前が 2 行に満たなければ先頭から）<br>行は<strong>仮想化</strong>して、見えている行（と前後の余白）だけ画面の要素を作る（<code>PreviewRows</code> のテンプレートの中のスクロール <code>PreviewScroll</code> に <code>VirtualizingStackPanel</code>。<code>Recycling</code>・縦のスクロールは行の単位）。行の数が増えても要素の数は増えない<br>本文インデックスのファイルから、ヒットの元のファイル・場所（<code>Book</code>・<code>Location</code>）の中の該当の行だけを取り出す（<code>readContentIndexContext</code>、<a href="../implementation/#実装構成">実装構成</a>）。Excel は場所の N 行目がシートの N 行目なので、元のシートの前後の行になる。場所の先頭・末尾では、ある行だけを表示する</td>
+<td><strong>最初は選択行の前後 50 行ずつ（最大 101 行。<code>previewFirstLines</code>）</strong>を読んで出す。高さに入る行数より多く読み、縦にスクロールして見られる。高さを変えても読み直さない。選択行は、プレビューの上から 3 行目に来るよう縦にスクロールする（位置は判断層の <code>getPreviewTopRow</code>。選択行の前が 2 行に満たなければ先頭から）<br>行は<strong>仮想化</strong>して、見えている行（と前後の余白）だけ画面の要素を作る（<code>PreviewRows</code> のテンプレートの中のスクロール <code>PreviewScroll</code> に <code>VirtualizingStackPanel</code>。<code>Recycling</code>・縦のスクロールは行の単位）。行の数が増えても要素の数は増えない<br>本文インデックスのファイルから、ヒットの元のファイル・場所（<code>Book</code>・<code>Location</code>）の中の該当の行だけを取り出す（<code>readContentIndexLines</code>、<a href="../implementation/#実装構成">実装構成</a>）。Excel は場所の N 行目がシートの N 行目なので、元のシートの前後の行になる。場所の先頭・末尾では、ある行だけを表示する</td>
 </tr>
 <tr>
 <td>読み込みの速さ</td>
-<td>大きな本文インデックスのファイルでも画面が固まらないよう、次の 3 つを行う。<br>・読み込み（<code>readContentIndexContext</code>）は画面のスレッドでは行わず、画面の裏の仕事のスレッド（<code>startJob</code>。<code>BackgroundQueue</code>）で行う。読み終わったら表を作る。読んでいる間に別の行を選んだら、古い行の結果（頼んだ番号が古いもの・今選んでいない行のもの）は捨てる<br>・検索で読んだ本文インデックスのファイルの内容と場所の一覧（<code>newTsvTextCache</code>。<a href="../../search/speed/">検索を速くする仕組み</a>）があれば、ファイルを読み直さずに使う。本文インデックスのファイルが書き換わったら（大きさ・更新日時が変わったら）読み直す。キャッシュに無い（上限を超えた等）ときは、同じファイルの行を続けて選ぶ間は場所の一覧を使い回し、目当ての場所の先頭から必要な行までだけをファイルから読む（<code>readContentIndexRange</code>）。別のファイルに移ったときは、そのファイルの全体を 1 回読む<br>・↑↓で続けて選択が変わったときは、最後の選択の 120 ms 後に 1 回だけ読む</td>
+<td>大きな本文インデックスのファイルでも画面が固まらないよう、次の 3 つを行う。<br>・読み込み（<code>readContentIndexLines</code>）は画面のスレッドでは行わず、画面の裏の仕事のスレッド（<code>startJob</code>。<code>BackgroundQueue</code>）で行う。読み終わったら表を作る。読んでいる間に別の行を選んだら、古い行の結果（頼んだ番号が古いもの・今選んでいない行のもの）は捨てる<br>・検索で読んだ本文インデックスのファイルの内容と場所の一覧（<code>newTsvTextCache</code>。<a href="../../search/speed/">検索を速くする仕組み</a>）があれば、ファイルを読み直さずに使う。本文インデックスのファイルが書き換わったら（大きさ・更新日時が変わったら）読み直す。キャッシュに無い（上限を超えた等）ときは、同じファイルの行を続けて選ぶ間は場所の一覧を使い回し、目当ての場所の先頭から必要な行までだけをファイルから読む（<code>readContentIndexRange</code>）。別のファイルに移ったときは、そのファイルの全体を 1 回読む<br>・↑↓で続けて選択が変わったときは、最後の選択の 120 ms 後に 1 回だけ読む</td>
+</tr>
+<tr>
+<td>読み足し</td>
+<td>縦にスクロールして、見えている行が読んである範囲の端から 20 行以内（<code>previewReadAheadLines</code>）に近づいたら、その向きに <strong>200 行（<code>previewChunkLines</code>）を読み足す</strong>（上は 1 行目まで）。読んでいる間は、その端に <code>読み込み中…</code> の行を出す。読めなかったときは <code>読めませんでした</code> と出し、その向きはもう頼まない。ファイルの端まで読んだ向きも頼まない<br>・同じ向きの読み足しは 1 つずつ。別の行を選んだら、古い結果は捨てる<br>・上に足したときは、見ていた行が同じ所に見えたままになるよう縦の位置を直す。選んだセルの範囲は行の番号で持つので、足してもずれない<br>・持つ行が上限（3,000 行。<code>previewMaxRows</code>）を超えたら、見ている所から遠い側を 200 行ずつ捨てる。捨てた側は、また近づいたら読み直す<br>・読み足しの判断は判断層の <code>getPreviewReadMore</code>・<code>getPreviewTrim</code>。続きの読み込みは、前に読んだ行の位置の控え（200 行ごと）から読み始めるので、ファイルの先頭から読み直さない（<code>readContentIndexLines</code>）</td>
 </tr>
 <tr>
 <td>表示する列</td>
