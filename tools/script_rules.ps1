@@ -54,7 +54,7 @@ function getReachableFiles {
 # （「1 か所だけ許す」といった個別の例外付きの検査は、tests/meta/safety.Tests.ps1 にそのまま残す）。
 # キーは説明用の名前、値は検査する正規表現
 $script:bannedCodePatterns = [ordered]@{
-    InvokeExpression     = 'Invoke-Expression|(^|[^-\w])iex(?![-\w])|ScriptBlock\]\s*::\s*Create|NewScriptBlock|InvokeScript|\$\{?\w+\}?\s*::\s*Create'
+    InvokeExpression     = 'Invoke-Expression|(^|[^-\w])iex(?![-\w])|ScriptBlock\]\s*::\s*Create|NewScriptBlock|InvokeScript|\$\{?[\w:]+\}?\s*::\s*Create'
     EncodedCommand       = 'FromBase64String|EncodedCommand'
     Network              = 'Invoke-WebRequest|Invoke-RestMethod|WebClient|HttpClient|Net\.Sockets|Start-BitsTransfer|DownloadFile|DownloadString|System\.Net\.'
     PInvoke              = 'DllImport|GetDelegateForFunctionPointer'
@@ -77,11 +77,10 @@ function stripLineComment {
 
     # ブロックコメントの終わり（#>）の後ろは、同じ行でもコードとして残す（行頭が #> でも、後ろのコードを飛ばさない）。
     # ブロックコメントの中の行は、今までどおりコードとして検査する（禁止を強める向きに倒す）
-    $close = $line.LastIndexOf("#>")
-    if ($close -ge 0) {
-        $head = stripLineCommentCore $line
-        $tail = stripLineCommentCore $line.Substring($close + 2)
-        return ($head + " " + $tail).Trim()
+    if ($line.Contains("#>")) {
+        # #> が何本あっても、すべての #> の後ろ（と先頭の部分）を順に見る
+        $parts = @($line -split [regex]::Escape("#>") | ForEach-Object { stripLineCommentCore $_ })
+        return (($parts -join " ").Trim())
     }
     return (stripLineCommentCore $line)
 }
@@ -121,7 +120,7 @@ function findBannedCode {
         $code = stripLineComment $line
         if (!$code) { continue }
         foreach ($name in $script:bannedCodePatterns.Keys) {
-            foreach ($match in [regex]::Matches($code, $script:bannedCodePatterns[$name])) {
+            foreach ($match in [regex]::Matches($code, $script:bannedCodePatterns[$name], [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)) {
                 $hits.Add("${name}: $($match.Value)")
             }
         }

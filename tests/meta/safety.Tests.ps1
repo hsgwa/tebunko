@@ -248,6 +248,11 @@ Describe "危険な処理を使っていないこと（docs/safety/checks.md「�
         @{ name = "ScriptBlock と :: の間に空白"; text = "[ScriptBlock] :: Create(`$s)" }
         @{ name = "ブロックコメントの終わりの後ろ（行頭）"; text = "<#`r`n説明`r`n#> iex `$s" }
         @{ name = "ブロックコメントの終わりの後ろ（同じ行）"; text = "<# 説明 #> Invoke-Expression `$s" }
+        @{ name = "同じ行に #> が 2 つあるとき、間のコード"; text = "<# a #> iex `$s <# b #>" }
+        @{ name = "スコープ付きの変数に入れた Create"; text = "`$script:t::Create(`$s)" }
+        @{ name = "大文字の IEX"; text = "IEX `$s" }
+        @{ name = "小文字の invoke-expression"; text = "invoke-expression `$s" }
+        @{ name = "小文字の create"; text = "[scriptblock]::create(`$s)" }
     ) {
         param ($name, $text)
         (findBannedCode $text) | Should -BeLike "InvokeExpression: *"

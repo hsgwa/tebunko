@@ -154,6 +154,9 @@ Describe "assertGuardedScript（包んだ結果の確かめ）" -Tag Unit {
         @{ name = "頭に、型を変数に入れた Create がある"; mutate = { param ($t) $t.Replace('${tebunkoRoot} = $PSScriptRoot', '$tt = [scriptblock]' + "`r`n" + '$tt::Create(''1'')' + "`r`n" + '${tebunkoRoot} = $PSScriptRoot') }; message = "禁止の語" }
         @{ name = "頭に NewScriptBlock がある"; mutate = { param ($t) $t.Replace('${tebunkoRoot} = $PSScriptRoot', '$ExecutionContext.InvokeCommand.NewScriptBlock(''1'')' + "`r`n" + '${tebunkoRoot} = $PSScriptRoot') }; message = "禁止の語" }
         @{ name = "本体の文字列に Invoke-Expression がある"; mutate = { param ($t) $t.Replace("日本語。", "日本語 Invoke-Expression。") }; message = "禁止の語" }
+        @{ name = "本体の文字列に小文字の invoke-expression がある"; mutate = { param ($t) $t.Replace("日本語。", "日本語 invoke-expression `$x。") }; message = "禁止の語" }
+        @{ name = "本体の文字列に大文字の IEX がある"; mutate = { param ($t) $t.Replace("日本語。", "日本語 IEX `$x。") }; message = "禁止の語" }
+        @{ name = "本体の文字列に小文字の create がある"; mutate = { param ($t) $t.Replace("日本語。", "日本語 [scriptblock]::create(`$s)。") }; message = "禁止の語" }
     ) {
         param ($name, $mutate, $message)
         { assertGuardedScript (& $mutate $wrapped) "テスト" } | Should -Throw "*$message*"
