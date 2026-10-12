@@ -18,13 +18,14 @@ zip は展開が要り、インストーラーは実行ファイル（.exe）を
 flowchart LR
     S["scripts/（元のソース）"] --> B["ビルド<br>（1 本にまとめる）"]
     B --> C{"検査 7 項目"}
-    C -->|全部通る| W["work/release/tebunko-#lt;タグ#gt;.ps1 を書き出す"]
+    C -->|全部通る| A["ASCII への書き換えと確かめ"]
+    A --> W["work/release/tebunko-#lt;タグ#gt;.ps1 を書き出す"]
     C -->|1 つでも失敗| X["書き出さずに止まる"]
     W --> R["GitHub Release<br>（zip・インストーラーと並べる）"]
 ```
 
 - `release.yml` が、zip の検査のあとに `-Version <タグ>` を付けて呼ぶ。止まったら、リリースの工程もそこで止まる。
-- 出力は `work/release/` に書く（BOM 付き UTF-8・CRLF）。作ったファイルはリポジトリにコミットしない（`tests/meta/structure.Tests.ps1` の M5 が確かめる）。
+- 出力は `work/release/` に書く（ASCII だけ・BOM なし・CRLF）。作ったファイルはリポジトリにコミットしない（`tests/meta/structure.Tests.ps1` の M5 が確かめる）。
 - ファイルのたどり方と禁止の語の一覧は `tools/script_rules.ps1` に集め、`tests/meta/layers.Tests.ps1`・`tests/meta/safety.Tests.ps1`・`tools/check_release_package.ps1` と共有する。
 
 ## ビルドのロジック
@@ -70,7 +71,7 @@ XAML と部品は、単一引用符のヒアストリングとして埋め込む
 
 ### 本体の読み込みの順と `-Part` の分かれ方
 
-先頭と本体の境には、目印の行（`# ---- 本体（ここより上は、別スレッドが読む部品の埋め込み） ----`）を置く。テストはこの行までを切り出して部品を取り出し、`getPartLoad` を通して読む。本体は次の順に並べる。
+先頭と本体の境には、目印の行（`# ---- BODY-START (above: parts embedded for other threads) ----`。ASCII のコメントなので書き換えで消えない）を置く。テストはこの行までを切り出して部品を取り出し、`getPartLoad` を通して読む。本体は次の順に並べる。
 
 1. `ui/startup_error_view.ps1`（起動の失敗の文言）、`ui/startup_error.ps1`（知らせ方）、`lib.ps1` の順に読む（`gui.ps1` の先頭と同じ順）。
 2. `indexer/indexer_lib.ps1` と `indexer/indexer_main.ps1` を読む。
@@ -96,9 +97,31 @@ XAML と部品は、単一引用符のヒアストリングとして埋め込む
 - 同じファイルが二重に入ることは、検査ではなくビルドの規則（上の「読み込み行の差し替え」）が防ぐ。
 - 検査 7 が見るのはパスだけで、ファイルの中身は見ない。パスに `\ui\` を含む（`ui\` フォルダの下にある）ファイルは、`*_view.ps1` でも部品に入れると止まる。
 
+## ASCII への書き換え
+
+Windows PowerShell 5.1 は、BOM の無い UTF-8 のファイルを既定のコードページ（日本語環境では Shift_JIS）で読むため、日本語が化けて構文エラーになる。別の道具で保存し直す・中身を貼り付けて保存するなどで BOM は落ちうる。そこで、検査に通ったあと、書き出す前に、全体を ASCII だけの文字に書き換える（`tools/single_script_ascii.ps1`）。ASCII だけなら、どの文字コードで読まれても同じに読める。
+
+書き換えは正規表現ではなく、PowerShell 自身の字句・構文木（`Parser`）で行う。
+
+| 対象 | 書き換え |
+|---|---|
+| 日本語を含むコメント | 消す（ブロックコメントは行数が変わらないよう改行だけ残す） |
+| 単一引用符の文字列・ヒアストリング | 値が同じ `([regex]::Unescape('..あ..'))` にする（ASCII の `\` は `\\`） |
+| 二重引用符の文字列・ヒアストリング | `$var` や `$(...)` はそのまま残し、外側の日本語を `$([regex]::Unescape('あ'))` にする。`$(...)` の中は同じ決まりで書き換える |
+| `$obj.日本語`・`@{ 日本語 = 1 }` | 名前を式で与える `$obj.([regex]::Unescape('..'))`・`@{ ([regex]::Unescape('..')) = 1 }` にする |
+| XAML | 日本語を `&#x....;`（文字参照）にし、コメントは消す |
+
+別スレッドが読む部品（`lib`・`indexerLib`）も、埋め込む前に同じ決まりで書き換える。書き換えのあとに、次を確かめる。1 つでも失敗したら止まる。
+
+- 単一引用符の文字列は、作り直した式を評価して、元の値と同じになる。二重引用符の文字列は、書き換えた文字列の値の `$([regex]::Unescape('..'))` を戻すと、元の値と同じになる。XAML は、前後を XML として読み、コメントを除いた内容が同じになる。
+- 結果が ASCII だけで、構文エラーが 0 件である。版の文字列が残っている。
+
+書き換えられない場所（日本語の変数名・属性の引数・`using`・引用符の無い日本語の引数）は、ファイル名と行番号を示して止まる。元のソースで、引用符で囲んだ文字列に直す。
+
 テストは次のとおり。
 
-- `tests/tools/new_single_script.Tests.ps1` … ビルドと検査そのもの（まとめる順・部品・新しい別スレッドでの読み込み・`-Part indexer`）。
+- `tests/tools/single_script_ascii.Tests.ps1` … 書き換えの規則（書き換え前後で実行結果が同じになること。全角の引用符・サロゲートペア・`\`・ヒアストリング・式の中・止める場合）。
+- `tests/tools/new_single_script.Tests.ps1` … ビルドと検査そのもの（まとめる順・部品・新しい別スレッドでの読み込み・`-Part indexer`）と、出力が ASCII だけであること、BOM の有無にかかわらず別プロセスで起動して日本語の記録が正しく出ること（Windows PowerShell 5.1・PowerShell 7）。
 - `tests/meta/structure.Tests.ps1` … ソースを 1 本にしても壊れない決まり（別スレッドがパスで部品を読まない・`${bundledScriptPath}` を dot-source や呼び出しに使わない・トップレベルの `trap`／`exit` の形・作った 1 本をコミットしない）。
 - `tests/meta/layers.Tests.ps1`・`tests/meta/safety.Tests.ps1` … 層の決まりと禁止の語を、まとめる元のソースに対して確かめる。
 - 画面の自動テスト（`Gui` タグ）… 環境変数 `TEBUNKO_GUI_SINGLE=1` で、zip 版の代わりに単一 .ps1 版を組み立てて同じ場面を流す。CI の `gui-smoke` は、S8 で単一 .ps1 版の起動・検索・閉じるを流す。
@@ -142,5 +165,5 @@ zip・インストーラーの中身は変えない。検査の詳細は[第三�
 - `tebunko.ico` は埋め込まない。画面のアイコンは XAML（`app_icon.xaml`）なので、ほかの画面定義と同じく埋め込まれる。`.ico` が要るのはインストーラー・ショートカットだけで、単一 .ps1 版は使わない。
 - `tebunko.bat` が持つ、起動の失敗のフォールバック（言語モードなどの記録）は持たない。
 - `lib.ps1` の読み込みの失敗は、起動の失敗の知らせ（`reportStartupFailure`）に届かず、PowerShell の窓に出る。
-- 出力は BOM 付き UTF-8・CRLF のまま（Shift_JIS にしない）。Windows PowerShell 5.1 は BOM が無い UTF-8 を既定のコードページ（日本語環境では CP932）で読むため、BOM が落ちたファイルは日本語が化けて構文エラーになる（確かめた）。利用者の手元でどう落ちるかは分かっていない。Shift_JIS にすると、CP932 に無い文字（XAML の `⋯`・`▸` など）が `?` に落ちる。PowerShell 7 は BOM の無いファイルを UTF-8 として読む仕様のため、Shift_JIS では化ける見込みがある（未確認）。作ったままのファイルを別の Windows PowerShell 5.1 で `-File` 起動して日本語が正しく出ること（BOM を外すと化けること）は `tests/tools/new_single_script.Tests.ps1` が確かめる。利用者への案内は[制限事項](../../guide/limitations.md#単一-ps1-版試験版)。
+- 出力は ASCII だけ・BOM なし・CRLF である（[ASCII への書き換え](#ascii-への書き換え)）。日本語は `[regex]::Unescape('\u....')` などで組み立てる形に直すので、どの文字コードで読まれても同じに動く。そのかわり、出力の中のコメントは英語（ASCII）のものしか残らず、日本語の文字列は元のソースの見た目ではなくなる。出力を読んで直すことはしない（元は `scripts/`）。
 - `tebunko.cat`（カタログ）の対象にならない。
