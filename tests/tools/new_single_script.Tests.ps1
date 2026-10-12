@@ -23,6 +23,17 @@ BeforeAll {
         return [regex]::Replace($match.Groups[1].Value, '(?m)^@@''@', '''@')
     }
 
+    # 本体に入っているライセンス文（ファイル名ごとの「ここから」〜「ここまで」の # のコメント）を、# を外して元の形の文字列に戻す。無ければ $null
+    function getEmbeddedLicense {
+        param ([string]$body, [string]$fileName)
+        $lines = $body -split "\r?\n"
+        $from = [array]::IndexOf($lines, "# ---- 第三者の部品のライセンス文: ${fileName}（ここから）----")
+        $to = [array]::IndexOf($lines, "# ---- 第三者の部品のライセンス文: ${fileName}（ここまで）----")
+        if ($from -lt 0 -or $to -le $from) { return $null }
+        $restored = $lines[($from + 1)..($to - 1)] | ForEach-Object { if ($_ -eq "#") { "" } else { $_.Substring(2) } }
+        return (($restored -join "`r`n") + "`r`n")
+    }
+
     # 結合した単一 .ps1 の部品（lib・indexerLib）を、製品と同じ経路（getPartLoad）で読んだ新しい runspace を返す。
     # 部品の埋め込み（目印の行より上）だけを実行して ${bundledParts} などを取り出し、getPartLoad に渡す。
     # 戻り値の Prelude を実行した runspace の中で、部品の関数が使える
@@ -122,6 +133,26 @@ Describe "new_single_script.ps1 の道具の検査" -Tag Io {
         ($bytes[0], $bytes[1], $bytes[2]) | Should -Be @(0xEF, 0xBB, 0xBF)
         ([regex]::IsMatch($text, "(?<!`r)`n")) | Should -Be $false
         $body.Contains("設定ファイルが壊れていたため、既定の設定で起動しました") | Should -Be $true
+    }
+
+    It "同梱する第三者の部品のライセンス文（scripts\shared\licenses\LICENSE-*.txt）が、元のファイルと同じ中身で本体に入っている" {
+        $licenseDir = Join-Path "${scriptsDir}" "shared\licenses"
+        $files = @(Get-ChildItem -LiteralPath $licenseDir -Filter "LICENSE-*.txt" -File)
+        $files.Count | Should -BeGreaterThan 0
+        foreach ($file in $files) {
+            $original = [System.IO.File]::ReadAllText($file.FullName)
+            $original.Contains("Permission") | Should -Be $true
+            (getEmbeddedLicense $body $file.Name) | Should -BeExactly $original
+        }
+    }
+
+    It "ライセンス文が入っていない・1 行でも欠けると、取り出した中身が元のファイルと違う（上の確かめが落ちる）" {
+        $original = [System.IO.File]::ReadAllText((Join-Path "${scriptsDir}" "shared\licenses\LICENSE-Lucide.txt"))
+        (getEmbeddedLicense ($body -replace '(?m)^# ---- 第三者の部品のライセンス文: LICENSE-Lucide\.txt（ここまで）----\r?$', '') "LICENSE-Lucide.txt") | Should -BeNullOrEmpty
+        $lines = $body -split "\r?\n"
+        $at = [array]::IndexOf($lines, "# ---- 第三者の部品のライセンス文: LICENSE-Lucide.txt（ここから）----")
+        $cut = @($lines[0..$at]) + @($lines[($at + 2)..($lines.Count - 1)])
+        (getEmbeddedLicense ($cut -join "`r`n") "LICENSE-Lucide.txt") | Should -Not -BeExactly $original
     }
 
     It "頭と尾は ASCII だけ（頭の判定用の 1 文字だけが例外）で、本体の外に日本語が出ない" {
