@@ -1,4 +1,4 @@
-﻿# 部品ごとの関数（設定・ファイル）
+# 部品ごとの関数（設定・ファイル）
 
 扱うこと: 設定ファイル（`tebunko/core/settings.ps1`）、検索対象でチェックを外したフォルダ（`search_excludes.ps1`）、ワークスペース（`workspace.ps1`）とその切り替え（`workspace_mover.ps1`）、ファイル・フォルダ操作（`shared/core/fs.ps1`・`folder.ps1`・`office_files.ps1`）の関数一覧（入力・出力・概要・使用元）。扱わないこと: 取り込み一覧・インデックスの管理（[部品ごとの関数（インデックス作成）](indexer.md)）。先に読むページ: [部品から関数一覧を引く](index.md)。
 
@@ -65,10 +65,11 @@
 | 関数 | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
 | `getOpenCopyDir` | workspace | string | コピーを置くフォルダ（`work\tmp\<PC の鍵>\open_copy`）。強制終了の片付けは数字の名前のフォルダだけを消すので、ここは消えない | `openFoundSource`, 起動時の片付け |
-| `testOpenCopyDir` | dir | bool | 消してよいフォルダか。名前が `open_copy`（大文字・小文字を区別）のときだけ真。空・空白・ドライブの根・ほかの名前は偽 | `copySourceForOpen`, `clearOldOpenCopies` |
-| `getOpenCopyName` | path | string | コピーのファイル名（元のファイル名の末尾の `.`・空白を除く） | `copySourceForOpen` |
-| `copySourceForOpen` | sourcePath, book, copyDir | string | `copyDir\<12 桁の英数字>\<元のファイル名>` に、元のファイルを共有で読んでコピーし、そのパスを返す。作れなければ空 | `openFoundSource`（裏の仕事） |
-| `clearOldOpenCopies` | copyDir, now, keepDays | int | `open_copy` の直下のフォルダのうち、作られて keepDays（既定 1 日）より古いものだけを、ファイルを 1 つずつ消してから空のフォルダとして消す。開かれていて消せないものは残す。消したフォルダの数を返す | 起動時の裏の仕事 |
+| `testOpenCopyDir` | copyDir, tmpRoot | bool | 作る・消してよい置き場所か。絶対パスで、`tmpRoot\<PC の鍵>\open_copy`（大文字・小文字は区別しない）と一致し、`open_copy`・`<PC の鍵>`・`tmpRoot` がリンク（ReparsePoint）でないときだけ真。空・相対パス・ドライブの根・別の場所・リンクは偽 | `copySourceForOpen`, `clearOldOpenCopies` |
+| `getOpenCopyName` | book, now | string | コピーのファイル名 `<元の名前>（コピー yyyyMMdd-HHmm）.<拡張子>`（元のファイル名の末尾の `.`・空白を除く）。名前が空なら空 | `copySourceForOpen`, `getOpenCopyBlocker` |
+| `getOpenCopyBlocker` | book, copyDir, now | string | コピーを作らずに断る理由。`NoName`（名前が空）・`Bracket`（名前に `[` `]`）・`TooLong`（パスが長すぎる）・作れるなら空 | `copySourceForOpen`, `openFoundSource` |
+| `copySourceForOpen` | sourcePath, book, copyDir, tmpRoot, now | string | `copyDir\<12 桁の英数字>\<getOpenCopyName>` に、元のファイルを共有で読んでコピーし、そのパスを返す。置き場所が不正・断る理由がある・作れないときは空 | `openFoundSource`（裏の仕事） |
+| `clearOldOpenCopies` | copyDir, tmpRoot, now, keepDays | int | `open_copy` の直下のフォルダのうち、最後に使ってから（`getOpenCopyLatestTime`）keepDays（既定 1 日）より古いものだけを、ファイルを 1 つずつ消してから空のフォルダとして消す。リンクは辿らず、開かれていて消せないものは残す。消したフォルダの数を返す | 起動時の裏の仕事 |
 
 ## 検索対象でチェックを外したフォルダ（`tebunko/core/search_excludes.ps1`）
 

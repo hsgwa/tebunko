@@ -107,9 +107,9 @@ PDF は PowerShell だけで読み、外の部品・Office・外部プロセス�
 
 | 場所 | 起動するもの | 用途 |
 |---|---|---|
-| `tebunko/ui/index/index_detail.ps1:195`・`205`、`tebunko/ui/open_source.ps1:460` | `explorer.exe` | 一覧・検索結果から元のファイルの場所を開く（利用者の操作時のみ） |
+| `tebunko/ui/index/index_detail.ps1:195`・`205`、`tebunko/ui/open_source.ps1:740` | `explorer.exe` | 一覧・検索結果から元のファイルの場所を開く（利用者の操作時のみ） |
 | `tebunko/ui/about_dialog.ps1`（`openAboutLink`） | `explorer.exe`（アドレスを 1 つ渡す。既定のブラウザで開く） | 「バージョン情報」の GitHub・リリースのリンク。開くのは `getAboutLinks` に載せた 2 つのアドレス（`https://github.com/hsgwa/tebunko` と、その `/releases`）と一字一句同じものだけ（`testAboutLinkUrl`）。利用者がリンクを押したときのみ |
-| `tebunko/ui/open_source.ps1:250`（`openWithNotepad`） | `notepad.exe`（固定のパス `%SystemRoot%\System32\notepad.exe`） | 検索結果から、既定のアプリで開くと実行・登録になる拡張子（`$textNotepadExtensions`）のテキストファイルを開く（利用者の操作時のみ） |
+| `tebunko/ui/open_source.ps1:385`（`openWithNotepad`） | `notepad.exe`（固定のパス `%SystemRoot%\System32\notepad.exe`） | 検索結果から、既定のアプリで開くと実行・登録になる拡張子（`$textNotepadExtensions`）のテキストファイルを開く（利用者の操作時のみ） |
 
 インデックス作成は画面のプロセスの中のスレッドで動かすため、インデックス作成のために `powershell.exe` を起動することはない（[プロセス](../design/structure/threads.md#プロセス)）。
 
