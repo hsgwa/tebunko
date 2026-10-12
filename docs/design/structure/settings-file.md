@@ -35,7 +35,7 @@
 | `searchExcludes` | `{path, subfolders}` の配列 | 空 | 画面の検索対象のツリーでチェックを外したフォルダ（フルパス）。`subfolders` が `false` はフォルダ直下のファイルだけを外す。利便性のための一時的な記録で、インデックスの名前を変えたり削除したりするとそのインデックスの下の記録は消える（外したフォルダは検索対象に戻る）。空ならすべてを検索する（[検索](../search/index.md#インデックスの一覧getsearchindexes)） | `readSearchExcludes` / `writeSearchExcludes` / `removeSearchExcludesUnder` |
 | `useRegex` | true / false | false | ［正規表現を使う］の状態 | `readSearchOption` / `writeSearchOption` |
 | `caseSensitive` | true / false | false | ［大文字と小文字を区別］の状態（[検索](../search/index.md#検索条件サクラエディタの-grep-にならう)） | `readSearchOption` / `writeSearchOption` |
-| `fileKinds` | 文字列の配列 | 空 | 検索する種類のチップ（`excel` `word` `powerpoint` `text`）。空・無い・知らない値だけならすべて。前の版の `fileFilter`（対象ファイルの指定）は読まず、書き直しのときに消える | `readFileKinds` / `writeFileKinds` |
+| `fileKinds` | 文字列の配列 | 空 | 検索する種類のチップ（`excel` `word` `powerpoint` `text` `pdf`）。空・無い・知らない値だけならすべて。PDF を足す前の版の設定のうち、キーが無い・空のものは PDF も含むすべてになり、一部の種類だけを保存していた場合は PDF が選ばれていない状態から始まる（形は変えない）。前の版の `fileFilter`（対象ファイルの指定）は読まず、書き直しのときに消える | `readFileKinds` / `writeFileKinds` |
 | `includeShapes` | true / false | true | ［図形も検索］の状態。オフなら図形の場所（`<元の場所>[図形]`）と埋め込みの場所（`<元の場所>[埋め込みN]`）を検索しない（同上） | `readSearchOption` / `writeSearchOption` |
 | `includeComments` | true / false | true | ［コメントも検索］の状態。オフならコメントの場所（`<元の場所>[コメント]`）を検索しない（同上） | `readSearchOption` / `writeSearchOption` |
 | `openMode` | `normal` / `readOnly` / `new` | `normal` | ［開き方］の状態。検索結果の元のファイルを、通常（編集する）・読み取り専用・新規（元のファイルを基にした無題の文書。占有しない）のどれで開くか（[元のファイルを開く](../gui/open-file.md)）。知らない値は `normal` とする | `readOpenMode` / `writeOpenMode` |

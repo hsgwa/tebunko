@@ -14,7 +14,7 @@ function testIndexBookName {
         ($ext.StartsWith(".xls") -or $ext.StartsWith(".doc") -or $ext.StartsWith(".ppt"))) {
         return $true
     }
-    return (testTextExtension $name)
+    return ((testTextExtension $name) -or (testPdfExtension $name))
 }
 
 function testIndexBookDirPath {

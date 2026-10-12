@@ -95,7 +95,7 @@ BeforeAll {
             [string[]]$entries
         )
 
-        $allowedCommands = @("copyFileShared", "getAppName", "testTextExtension", "extractTextFile", "extractWorkbook", "extractDocument")
+        $allowedCommands = @("copyFileShared", "getAppName", "testTextExtension", "testPdfExtension", "extractTextFile", "extractPdfFile", "extractWorkbook", "extractDocument")
         $tree = [System.Management.Automation.Language.Parser]::ParseInput($code, [ref]$null, [ref]$null)
         $functions = @($tree.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Where-Object { $entries -contains $_.Name })
         $violations = New-Object System.Collections.Generic.List[string]
@@ -558,12 +558,12 @@ Describe "取り込み対象のファイルを書き換えないこと（docs/sa
         (findPattern $fs '\[System\.IO\.FileAccess\]::Read') | Should -Not -Be ""
     }
 
-    It "取り込みの入口（ingestFile・extractTextFile・extractWorkbook・extractDocument）が元のパス（sourcePath 変数）を渡してよいのは、許した処理だけ" {
+    It "取り込みの入口（ingestFile・extractTextFile・extractPdfFile・extractWorkbook・extractDocument）が元のパス（sourcePath 変数）を渡してよいのは、許した処理だけ" {
         # 元を直接読む処理に sourcePath を渡すと落ちる。読むのは、作業領域のコピー（copyFileShared の先）だけ。許す処理は getSourcePathViolations のコメントにある
-        $entries = @("ingestFile", "extractTextFile", "extractWorkbook", "extractDocument")
+        $entries = @("ingestFile", "extractTextFile", "extractPdfFile", "extractWorkbook", "extractDocument")
         $found = New-Object System.Collections.Generic.List[string]
         $bad = New-Object System.Collections.Generic.List[string]
-        foreach ($file in @("extract_text.ps1", "extract_office.ps1")) {
+        foreach ($file in @("extract_text.ps1", "extract_pdf.ps1", "extract_office.ps1")) {
             $result = getSourcePathViolations ([System.IO.File]::ReadAllText("$scriptsDir\tebunko\indexer\$file")) $entries
             foreach ($name in $result.Found) { $found.Add($name) }
             foreach ($violation in $result.Violations) { $bad.Add("${file}:$violation") }
@@ -618,7 +618,9 @@ Describe "取り込み対象の拡張子が固定であること（docs/safety/c
         (@(${textNotepadExtensions}) | Where-Object { ${textExtensions} -notcontains $_ }) | Should -BeNullOrEmpty
         (@(${textNotepadExtensions}) | Where-Object { ${textOpenExtensions} -contains $_ }) | Should -BeNullOrEmpty
 
-        @(${officeExtensions} + ${textExtensions}).Count | Should -Be 85
+        # PDF の拡張子は .pdf だけで、Office・テキストと合わせて 86 ちょうどである
+        (@(${pdfExtensions}) -join ",") | Should -Be ".pdf"
+        @(${officeExtensions} + ${textExtensions} + ${pdfExtensions}).Count | Should -Be 86
 
         # 開くと実行・登録になる、または安全性の理由で対象外にした拡張子は、どちらの一覧にも含まれない
         $forbidden = @(
@@ -628,6 +630,7 @@ Describe "取り込み対象の拡張子が固定であること（docs/safety/c
         foreach ($ext in $forbidden) {
             (${officeExtensions} -contains $ext) | Should -Be $false
             (${textExtensions} -contains $ext) | Should -Be $false
+            (${pdfExtensions} -contains $ext) | Should -Be $false
         }
     }
 

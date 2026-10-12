@@ -101,6 +101,11 @@ Describe "describePlace" -Tag Unit {
         described "報告.docx" "ページ003[コメント]" | Should -Be "3 ページ（目安）|コメント"
     }
 
+    It "PDF のページは番号にする（Word と違い目安ではない）" {
+        described "仕様書.pdf" "ページ003" | Should -Be "3 ページ|本文"
+        described "仕様書.PDF" "ページ120" | Should -Be "120 ページ|本文"
+    }
+
     It "PowerPoint はスライド番号にし、非表示はそのまま付け、ノートは種別で分ける" {
         described "提案.pptx" "スライド001" | Should -Be "スライド 1|本文"
         described "提案.pptx" "スライド002（非表示）" | Should -Be "スライド 2（非表示）|本文"

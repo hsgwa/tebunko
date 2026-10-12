@@ -97,7 +97,9 @@ Describe "getIngestLane・getOfficeLane" -Tag Unit {
             @("a.ppt", ${lanePowerPoint}), @("B.PPT", ${lanePowerPoint}),
             @("a.docx", ${laneReader}), @("a.docm", ${laneReader}), @("a.pptx", ${laneReader}), @("a.pptm", ${laneReader}), @("大文字.DOCX", ${laneReader}),
             # テキストの拡張子は、どの分岐にも当たらないため既定の読み取りのレーンになる
-            @("a.txt", ${laneReader}), @("a.log", ${laneReader})
+            @("a.txt", ${laneReader}), @("a.log", ${laneReader}),
+            # PDF も Office を使わずに読むため、読み取りのレーン
+            @("a.pdf", ${laneReader}), @("営業\B.PDF", ${laneReader})
         )
         foreach ($case in $expected) {
             getIngestLane $case[0] | Should -Be $case[1]

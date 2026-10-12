@@ -152,16 +152,16 @@ Describe "findTargetFiles" -Tag Io {
         $workspace = newTestWorkspace @{} (Join-Path $TestDrive "ws-out-of-tree")
     }
 
-    It "サブフォルダも含めて Office・テキストの拡張子のファイルだけを返す（.py・.cpp も対象、.exe・.ts は対象外、大文字の拡張子も含め、~$ で始まるロックファイルは除く）" {
+    It "サブフォルダも含めて Office・テキスト・PDF の拡張子のファイルだけを返す（.py・.cpp・.pdf も対象、.exe・.ts は対象外、大文字の拡張子も含め、~$ で始まるロックファイルは除く）" {
         $scan = findTargetFiles $source
-        @($scan.Files | ForEach-Object { $_.Name } | Sort-Object) -join "," | Should -Be "a.xlsx,b.DOCX,c.pptm,d.txt,f.xls,g.ppt,h.py,i.cpp"
+        @($scan.Files | ForEach-Object { $_.Name } | Sort-Object) -join "," | Should -Be "a.xlsx,b.DOCX,c.pptm,d.txt,e.pdf,f.xls,g.ppt,h.py,i.cpp"
         $scan.HasError | Should -Be $false
     }
 
     It "末尾に \ を付けたフォルダでも同じフォルダを列挙する" {
         $scan = findTargetFiles "$source\"
         $scan.Root.TrimEnd("\") | Should -Be $source
-        $scan.Files.Count | Should -Be 8
+        $scan.Files.Count | Should -Be 9
     }
 }
 
