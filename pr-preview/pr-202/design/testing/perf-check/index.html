@@ -4299,16 +4299,16 @@
 </tr>
 <tr>
 <td><code>tests/tools/perf_preview.Tests.ps1</code>（選択行のプレビュー）</td>
-<td>検索と同じ <code>new_index.ps1 -Scale 0.1</code></td>
-<td><code>measure_perf.ps1 -Index ... -Words ... -Count 1 -Preview 20</code>（語ごとに、ヒットの先頭から 20 件を、検索のキャッシュ無し・ありで 1 件ずつプレビューする。<code>tools/perf/measure_preview.ps1</code> が別のプロセスで測る）</td>
-<td>語ごとの、キャッシュ無しの読み込みの中央値（<code>Preview.Words[].ReadUncachedMs.Median</code>）・プレビュー 1 回あたりにマネージドヒープに残るメモリ（<code>RetainedPerPreviewMB</code>。GC のあと）</td>
+<td>検索と同じ <code>new_index.ps1 -Scale 0.1</code> に、テストの作業用の場所（<code>$TestDrive</code>）に作る大きな本文インデックスのファイル（約 10 MB・10 万行。架空の文で、ヒットは先頭の近くと終わりの近くに 10 行ずつ）を足したもの。語はそのファイルに当たる 1 語を <code>words.tsv</code> に足す</td>
+<td><code>measure_perf.ps1 -Index ... -Words ... -Count 1 -Preview 20 -PreviewFullRead</code>（語ごとに、ヒットの先頭から 20 件を、検索のキャッシュ無し・ありで 1 件ずつプレビューする。<code>tools/perf/measure_preview.ps1</code> が別のプロセスで測る。<code>-PreviewFullRead</code> は、前の読み方（毎回ファイルの全体を読む）でも同じ選択を測って並べる）</td>
+<td>語ごとの、キャッシュ無しの読み込みの中央値（<code>Preview.Words[].ReadUncachedMs.Median</code>）・プレビューのあと、GC のあとにマネージドヒープに残る増えの合計（<code>RetainedManagedMB</code>）。前の読み方の値（<code>FullRead</code>）と、キャッシュ無しの選択で全体を読んだ回数（<code>ReadTextCallsUncached</code>）は出すだけで、上限とは比べない</td>
 </tr>
 </tbody>
 </table>
 <p>比べる処理は <code>tools/perf/perf_common.ps1</code> の <code>getSearchPerfProblems</code>・<code>getIngestPerfProblems</code>・<code>getPreviewPerfProblems</code> で、合わないものの一覧を返す（空なら合格）。失敗のメッセージには、対象の名前・値・上限の数字だけを書く。上限との境目・欠けた語・件数などは、各テストファイルの <code>Unit</code> で確かめる。</p>
 <ul>
 <li>「速く終わっても、何もしていない」誤りを通さないため、時間のほかに次も確かめる</li>
-<li>プレビュー: 測った回数が、ヒットの数と 20 の小さいほうの 2 倍（キャッシュ無し・あり）であること、作った表のセルが 0 より多いこと</li>
+<li>プレビュー: 測った回数が、ヒットの数と 20 の小さいほうの 2 倍（キャッシュ無し・あり）であること、作った表のセルが 0 より多いこと。前の読み方の測定は、全部読む関数（<code>readContentIndexText</code>）がキャッシュ無しの選択のたびに呼ばれたことを数えて確かめ（時間の大小では決めない）、呼ばれていなければ失敗にする</li>
 <li>検索: <code>searches.csv</code> の 20 回すべてで、件数が <code>words.tsv</code> の「件数」と合うこと（数ならその件数、<code>10000+</code> なら 1 万件で打ち切り）、照合した本文インデックスのファイルの数（<code>Packs</code>）が本文インデックスの作成の数（521）と同じで 0 より大きいこと。件数は scale 0.1・種 1 のときの値。検索の流れ（<code>Run.SearchMode</code>）が <code>service</code> であること（<code>newSearchService</code> が無いと、<code>measure_search.ps1</code> は黙って <code>runspace</code> で測るため）</li>
 <li>取り込み: <code>Total</code>・<code>Done</code> が 100、<code>Failed</code> が 0。最後の回のワークスペースに本文インデックスがあり、合計の大きさが 0 より大きいこと（取り込み一覧の状態だけが <code>済</code> になり、中身を書かずに終わる誤りを通さないため。この形に頼ることは、下の「計測の口」の表にある）</li>
 <li>結果（<code>summary.md</code>・<code>result.json</code> など。数字だけでパスは入らない）は <code>work\test\perf-search\</code>・<code>work\test\perf-preview\</code>・<code>work\test\perf-ingest\</code>（git 管理外）に残る。<code>summary.md</code> の見出しに、tebunko-perfdata のコミットが入る（取れなければ「不明」）</li>
@@ -4371,11 +4371,11 @@
 <td><code>perf_preview.Tests.ps1</code> の <code>readLimitsMs</code></td>
 </tr>
 <tr>
-<td>プレビュー 1 回あたりに残るメモリ</td>
-<td>GC のあとのマネージドヒープの増え ÷ 回数</td>
+<td>プレビューのあとに残るメモリ（合計）</td>
+<td>GC のあとのマネージドヒープの増え（1 回あたりではなく、語ごとの合計）</td>
 <td>ランナーで 5 回測って決める（それまでは仮の値）</td>
 <td>2 倍（0.1 MB 単位）</td>
-<td><code>perf_preview.Tests.ps1</code> の <code>retainedPerPreviewLimitMB</code></td>
+<td><code>perf_preview.Tests.ps1</code> の <code>retainedLimitMB</code></td>
 </tr>
 <tr>
 <td>取り込み 1 ファイルあたり</td>
