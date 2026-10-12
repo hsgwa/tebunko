@@ -45,12 +45,12 @@ flowchart TD
 |---|---|---|---|
 | `tests/tools/perf_search.Tests.ps1`（検索と本文インデックスの作成） | tebunko-perfdata の `new_index.ps1 -Scale 0.1`（種は既定の 1。ブック 5,361・TSV 16,078 → 本文インデックスのファイル 521・118MB）。語は同じリポジトリの `words.tsv` | `measure_perf.ps1 -Index ... -Words ... -Count 20`（`perf.yml` の既定と同じ手順・同じ条件） | 語ごとの検索の中央値（`Search[].TotalMs.Median`）・本文インデックスの作成の秒（`Index.Pack.Seconds`。1 回の値） |
 | `tests/tools/perf_ingest.Tests.ps1`（取り込み） | `new_ingest_data.ps1 -Docx 50 -Pptx 50`（テストデータの複製。計 100 ファイル） | `measure_perf.ps1 -Office ... -Threads 2 -Repeat 3`（1 回ごとに新しいプロセス・空のワークスペース） | 1 ファイルあたりの ms の中央値（`Ingest.PerFileMs.Median`）・全体の秒の中央値（`Ingest.Seconds.Median`） |
-| `tests/tools/perf_preview.Tests.ps1`（選択行のプレビュー） | 検索と同じ `new_index.ps1 -Scale 0.1` | `measure_perf.ps1 -Index ... -Words ... -Count 1 -Preview 20`（語ごとに、ヒットの先頭から 20 件を、検索のキャッシュ無し・ありで 1 件ずつプレビューする。`tools/perf/measure_preview.ps1` が別のプロセスで測る） | 語ごとの、キャッシュ無しの読み込みの中央値（`Preview.Words[].ReadUncachedMs.Median`）・プレビュー 1 回あたりにマネージドヒープに残るメモリ（`RetainedPerPreviewMB`。GC のあと） |
+| `tests/tools/perf_preview.Tests.ps1`（選択行のプレビュー） | 検索と同じ `new_index.ps1 -Scale 0.1` に、テストの作業用の場所（`$TestDrive`）に作る大きな本文インデックスのファイル（約 10 MB・10 万行。架空の文で、ヒットは先頭の近くと終わりの近くに 10 行ずつ）を足したもの。語はそのファイルに当たる 1 語を `words.tsv` に足す | `measure_perf.ps1 -Index ... -Words ... -Count 1 -Preview 20 -PreviewFullRead`（語ごとに、ヒットの先頭から 20 件を、検索のキャッシュ無し・ありで 1 件ずつプレビューする。`tools/perf/measure_preview.ps1` が別のプロセスで測る。`-PreviewFullRead` は、前の読み方（毎回ファイルの全体を読む）でも同じ選択を測って並べる） | 語ごとの、キャッシュ無しの読み込みの中央値（`Preview.Words[].ReadUncachedMs.Median`）・プレビューのあと、GC のあとにマネージドヒープに残る増えの合計（`RetainedManagedMB`）。前の読み方の値（`FullRead`）と、キャッシュ無しの選択で全体を読んだ回数（`ReadTextCallsUncached`）は出すだけで、上限とは比べない |
 
 比べる処理は `tools/perf/perf_common.ps1` の `getSearchPerfProblems`・`getIngestPerfProblems`・`getPreviewPerfProblems` で、合わないものの一覧を返す（空なら合格）。失敗のメッセージには、対象の名前・値・上限の数字だけを書く。上限との境目・欠けた語・件数などは、各テストファイルの `Unit` で確かめる。
 
 - 「速く終わっても、何もしていない」誤りを通さないため、時間のほかに次も確かめる
-  - プレビュー: 測った回数が、ヒットの数と 20 の小さいほうの 2 倍（キャッシュ無し・あり）であること、作った表のセルが 0 より多いこと
+  - プレビュー: 測った回数が、ヒットの数と 20 の小さいほうの 2 倍（キャッシュ無し・あり）であること、作った表のセルが 0 より多いこと。前の読み方の測定は、全部読む関数（`readContentIndexText`）がキャッシュ無しの選択のたびに呼ばれたことを数えて確かめ（時間の大小では決めない）、呼ばれていなければ失敗にする
   - 検索: `searches.csv` の 20 回すべてで、件数が `words.tsv` の「件数」と合うこと（数ならその件数、`10000+` なら 1 万件で打ち切り）、照合した本文インデックスのファイルの数（`Packs`）が本文インデックスの作成の数（521）と同じで 0 より大きいこと。件数は scale 0.1・種 1 のときの値。検索の流れ（`Run.SearchMode`）が `service` であること（`newSearchService` が無いと、`measure_search.ps1` は黙って `runspace` で測るため）
   - 取り込み: `Total`・`Done` が 100、`Failed` が 0。最後の回のワークスペースに本文インデックスがあり、合計の大きさが 0 より大きいこと（取り込み一覧の状態だけが `済` になり、中身を書かずに終わる誤りを通さないため。この形に頼ることは、下の「計測の口」の表にある）
 - 結果（`summary.md`・`result.json` など。数字だけでパスは入らない）は `work\test\perf-search\`・`work\test\perf-preview\`・`work\test\perf-ingest\`（git 管理外）に残る。`summary.md` の見出しに、tebunko-perfdata のコミットが入る（取れなければ「不明」）
@@ -69,7 +69,7 @@ flowchart TD
 | 検索 正規表現 | 中央値 | 1,458〜1,517 ms | 1.5 倍（50 ms 単位） | 2,300 ms |
 | 本文インデックスの作成（段階 `pack の作成`） | 1 回の秒 | 39.8〜51.6 秒 | 2 倍（5 秒単位） | 105 秒 |
 | プレビュー 読み込み（キャッシュ無し。語ごと） | 中央値 | ランナーで 5 回測って決める（それまでは仮の値） | 1.5 倍（10 ms 単位） | `perf_preview.Tests.ps1` の `readLimitsMs` |
-| プレビュー 1 回あたりに残るメモリ | GC のあとのマネージドヒープの増え ÷ 回数 | ランナーで 5 回測って決める（それまでは仮の値） | 2 倍（0.1 MB 単位） | `perf_preview.Tests.ps1` の `retainedPerPreviewLimitMB` |
+| プレビューのあとに残るメモリ（合計） | GC のあとのマネージドヒープの増え（1 回あたりではなく、語ごとの合計） | ランナーで 5 回測って決める（それまでは仮の値） | 2 倍（0.1 MB 単位） | `perf_preview.Tests.ps1` の `retainedLimitMB` |
 | 取り込み 1 ファイルあたり | 中央値 | 723〜793 ms | 1.5 倍（50 ms 単位） | 1,200 ms |
 | 取り込み 全体 | 中央値 | 73.2〜80.5 秒 | 1.5 倍（10 秒単位） | 130 秒 |
 
