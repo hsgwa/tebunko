@@ -4237,11 +4237,11 @@
 <tbody>
 <tr>
 <td>見出し</td>
-<td>元のファイル 1 つに 1 行。左から、開閉の印（閉じている <code>▸</code> / 開いている <code>▾</code>）、アプリのアイコン（Excel は緑の <code>X</code>、Word は青の <code>W</code>、PowerPoint は赤の <code>P</code>）、ファイル名（太字）、フォルダ（インデックスフォルダからの相対パス。閉じていても開いていても出す。ルート直下のファイルは出さない）。右端に、ヒットした場所と件数（<code>[シート]4月 ほか 2 か所</code> ・ <code>3 件</code>）。ツールチップは元のファイルのフルパス</td>
+<td>元のファイル 1 つに 1 行。左から、開閉の印（閉じている <code>▸</code> / 開いている <code>▾</code>）、アプリのアイコン（Excel は緑の <code>X</code>、Word は青の <code>W</code>、PowerPoint は赤の <code>P</code>）、ファイル名（太字）、フォルダ（インデックスフォルダからの相対パス。閉じていても開いていても出す。ルート直下のファイルは出さない）。右端に、ヒットした場所が 2 か所以上のときは場所と件数（<code>[シート]4月 ほか 2 か所</code> ・ <code>3 件</code>）、1 か所だけのときは件数だけ（<code>3 件</code>。場所は行の「場所」列に出るため重ねない）。ツールチップは元のファイルのフルパス</td>
 </tr>
 <tr>
 <td>場所の表記</td>
-<td>場所ごとの表記（<code>describePlace</code>。<code>[シート]4月</code>・<code>3 ページ（目安）</code>・<code>スライド 7</code> など。結果の表の「場所」列はこれにセル番地を足したもの）。2 か所以上なら、見つかった順の先頭と残りの数を <code>[シート]4月 ほか 2 か所</code> のように出す（<code>describeFileLocations</code>）。絞り込み中もすべてのヒットから作る</td>
+<td>場所ごとの表記（<code>describePlace</code>。<code>[シート]4月</code>・<code>3 ページ（目安）</code>・<code>スライド 7</code> など。結果の表の「場所」列はこれにセル番地を足したもの）。2 か所以上なら、見つかった順の先頭と残りの数を <code>[シート]4月 ほか 2 か所</code> のように出す（<code>describeFileLocations</code>。見出しの右端に付ける場所は <code>getFileHeaderLocationPrefix</code> が決め、1 か所だけなら付けない）。絞り込み中もすべてのヒットから作る</td>
 </tr>
 <tr>
 <td>件数</td>

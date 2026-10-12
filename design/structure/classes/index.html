@@ -4355,10 +4355,10 @@
 <tr>
 <td><code>WorkspaceMover</code></td>
 <td>ワークスペースの切り替え（移す・<code>searchExcludes</code> の付け替え・保存・失敗したら戻す）</td>
-<td>画面のスレッド</td>
+<td>確かめは画面のスレッド、<code>ChangeWorkspace</code> は裏のスレッド</td>
 <td>状態層</td>
 <td><code>tebunko/core/workspace_mover.ps1</code>（<code>lib.ps1</code>）</td>
-<td>実装ずみ。<code>ListEntries</code>（tebunko のファイル・フォルダ）・<code>Conflicts</code>（移し先にある同じ名前）・<code>ChangeWorkspace</code>（<code>"use"</code>・<code>"move"</code>・<code>"reset"</code> のどれかで切り替え、<code>@{ Ok; Stage; Message; Targets; Count }</code> を返す）・<code>MoveEntries</code>・<code>RemoveEntries</code>・<code>UseTargets</code>。呼ぶ側は <code>ui/settings/settings.ps1</code> の <code>applyWorkspace</code>。<code>core/workspace.ps1</code> の <code>getWorkspaceEntries</code>・<code>getWorkspaceMoveConflicts</code>・<code>moveWorkspace</code>・<code>moveWorkspaceEntry</code>・<code>copyDirectoryTree</code>・<code>removeWorkspaceEntries</code>・<code>useWorkspaceTargets</code> だったもの</td>
+<td>実装ずみ。<code>ListEntries</code>（tebunko のファイル・フォルダ）・<code>Conflicts</code>（移し先にある同じ名前）・<code>ChangeWorkspace</code>（<code>"use"</code>・<code>"move"</code>・<code>"reset"</code> のどれかで切り替え、<code>@{ Ok; Stage; Message; Targets; Count }</code> を返す）・<code>MoveEntries</code>・<code>RemoveEntries</code>・<code>UseTargets</code>。呼ぶ側は <code>ui/settings/settings.ps1</code> の <code>startWorkspaceMove</code>（<code>applyWorkspace</code> が確かめたあとに呼ぶ）。<code>core/workspace.ps1</code> の <code>getWorkspaceEntries</code>・<code>getWorkspaceMoveConflicts</code>・<code>moveWorkspace</code>・<code>moveWorkspaceEntry</code>・<code>copyDirectoryTree</code>・<code>removeWorkspaceEntries</code>・<code>useWorkspaceTargets</code> だったもの</td>
 <td>設定の読み書きの部品（<code>invokeSettingsLocked</code>）、<code>searchExcludes</code> の読み書きの部品（<code>core/search_excludes.ps1</code> の <code>moveSearchExcludes</code>。<code>IndexCatalog</code> と同じ <code>searchExcludes</code> の部品を通す）、ファイルの移動の部品（<code>fs.ps1</code>）、<code>Workspace</code></td>
 </tr>
 <tr>

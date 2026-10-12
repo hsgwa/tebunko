@@ -2927,6 +2927,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#待つ間のダイアログshowwaitdialog" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        待つ間のダイアログ（showWaitDialog）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#フォルダ選択ダイアログ参照" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4221,6 +4232,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#待つ間のダイアログshowwaitdialog" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        待つ間のダイアログ（showWaitDialog）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#フォルダ選択ダイアログ参照" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4311,7 +4333,7 @@
 <p>インデックス作成と強制終了は影響が大きいため、ショートカットキーを設けない。フォルダ選択ダイアログ（<a href="./#フォルダ選択ダイアログ参照">フォルダ選択ダイアログ（［参照…］）</a>）は Windows 標準のため、キー操作もエクスプローラーと同じになる。</p>
 <h2 id="表示アクセシビリティ">表示・アクセシビリティ<a class="headerlink" href="#表示アクセシビリティ" title="Permanent link">&para;</a></h2>
 <ul>
-<li>フォントは同梱の Rethink Sans を先に使い、日本語など足りない文字は Yu Gothic UI（無ければ Meiryo UI）で表す。13 px とする（<code>scripts/shared/ui/app_host.ps1</code> の <code>newAppFontFamily</code> が作り、<code>loadXaml</code> が各画面の <code>Font.Body</code> に入れる。フォントの置き場所は <code>scripts/shared/fonts/</code>。単一 .ps1 版はフォントを同梱せず Yu Gothic UI・Meiryo UI だけにする）。結果の表は 12 px とする。</li>
+<li>フォントは Windows 標準の Segoe UI を先に使い、日本語など足りない文字は Yu Gothic UI（無ければ Meiryo UI）で表す。13 px とする（<code>scripts/shared/ui/app_host.ps1</code> の <code>newAppFontFamily</code> が作り、<code>loadXaml</code> が各画面の <code>Font.Body</code> に入れる。フォントは同梱しないので、展開した版も単一 .ps1 版も同じ見た目になる）。結果の表は 12 px とする。</li>
 <li>WPF は高 DPI に自動で対応するため、表示倍率 125 %・150 % でもぼやけない。</li>
 <li>状態は<strong>色だけで表さない</strong>。<code>✓</code> <code>✗</code> <code>⚠</code> <code>⏸</code> の記号と文言を併記する。一致箇所の強調は背景色に加えて太字にする。</li>
 <li>文言は「Excel」ではなく「Office ファイル」とする（対象は Excel・Word・PowerPoint）。</li>
@@ -4354,7 +4376,7 @@
 <li><strong>起動の失敗の知らせ方</strong>：<code>gui.ps1</code> の画面が出る前に起動が失敗したとき（制限言語モード・実行ポリシー・ファイル不足など）、<code>tebunko.bat</code> は <code>&amp; $gui</code> を <code>try</code>/<code>catch</code> で包んで理由を分け、Notepad で示す（WPF・WinForms のメッセージボックスが出せない場面があるため）。詳しくは安全性の<a href="../../../safety/disclosure/#起動に失敗したときの知らせtebunkobat">起動に失敗したときの知らせ</a>を参照。</li>
 </ul>
 <h2 id="確認ダイアログshowconfirm">確認ダイアログ（<code>showConfirm</code>）<a class="headerlink" href="#確認ダイアログshowconfirm" title="Permanent link">&para;</a></h2>
-<p>本体の窓を親にして出すダイアログは、必ず <code>showOwnedDialog</code>（<code>shell.ps1</code>）で出す。開いている間は本体の窓の最上層の暗幕（<code>ScrimOverlay</code>。<code>gui_main.ps1</code> が <code>setDialogScrim</code> で渡す）を見せ、閉じたら（例外のときも）隠す。<code>.ShowDialog(</code> を直接呼ぶのは <code>showOwnedDialog</code> だけで、<code>tests/meta/structure.Tests.ps1</code> が確かめる。</p>
+<p>本体の窓を親にして出すダイアログは、必ず <code>showOwnedDialog</code>（<code>shell.ps1</code>）で出す（待つ間のダイアログは例外で、<code>showWaitDialog</code> が同じ暗幕の数え方で出す）。開いている間は本体の窓の最上層の暗幕（<code>ScrimOverlay</code>。<code>gui_main.ps1</code> が <code>setDialogScrim</code> で渡す）を見せ、閉じたら（例外のときも）隠す。<code>.ShowDialog(</code> を直接呼ぶのは <code>showOwnedDialog</code> だけで、<code>tests/meta/structure.Tests.ps1</code> が確かめる。</p>
 <p><code>showConfirm</code> は <code>-title</code>（OS の題の帯）と <code>-form</code>（<code>normal</code> / <code>danger</code> / <code>choice</code>。省略すると、選択肢が 2 つ以上なら <code>choice</code>、1 つで危険なら <code>danger</code>、それ以外は <code>normal</code>）を取る。幅は <code>choice</code> が 620、ほかは 520。<code>danger</code> は見出しに赤い「!」の丸を付け、実行のボタンを赤にする。</p>
 <p><code>showErrorDialog</code> は予期しないエラーの知らせで、赤い「!」・見出し・詳細の枠（選べる文字）・［内容をコピー］［ログを開く］［閉じる］を出す。</p>
 <p>取り消せない操作・時間のかかる操作の確認は、<code>MessageBox</code> ではなく <code>scripts/shared/xaml/dialog_confirm.xaml</code> の自前のダイアログで行う（<code>showConfirm</code>）。<strong>説明を読まなくても、押す前に何が起きるか分かる</strong>ようにするため。</p>
@@ -4456,9 +4478,20 @@
 <li><strong>自前の画面を出せないとき</strong>（別のスレッドから呼ばれた・画面の定義が読めないなど）は、エラーログに残して OS 標準の <code>MessageBox</code> で出す。知らせること自体は止めない（<code>shell.ps1</code> の <code>showMessage</code> だけに置く）。</li>
 <li><strong>テスト</strong>: 種類ごとのアイコン・ボタン・既定・戻り値は <code>tests/gui/message.Tests.ps1</code>（本物の WPF の窓）で確かめる。</li>
 </ul>
+<h2 id="待つ間のダイアログshowwaitdialog">待つ間のダイアログ（<code>showWaitDialog</code>）<a class="headerlink" href="#待つ間のダイアログshowwaitdialog" title="Permanent link">&para;</a></h2>
+<p>終わるまで待つ場面（中止の途中・窓を閉じるときの待ち）で、<code>shell.ps1</code> の <code>showWaitDialog</code> が出す（<code>shared/xaml/dialog_wait.xaml</code>）。見出し・説明・進み具合の棒・秒読みの 1 行・押せないボタンを持つ。</p>
+<ul>
+<li><strong>モーダルにしない</strong>: <code>Show</code> で出すので、呼び出し側の処理は止まらない。本体の窓を親にして、<code>showOwnedDialog</code> と同じく暗幕を掛ける（開いている数を <code>enterDialogScrim</code> / <code>leaveDialogScrim</code> で数える。ほかのダイアログと重なっても、全部閉じるまで暗幕は残る）。</li>
+<li><strong>利用者は閉じられない</strong>: Alt+F4 も効かない。呼び出し側が <code>closeWaitDialog</code> で閉じる。本体の窓を閉じるときは、待つ間のダイアログ、暗幕、本体の窓の順に閉じる。</li>
+<li><strong>書き換え</strong>: <code>updateWaitDialog</code> で見出し・説明・秒読み・ボタンの文字・棒を書き換える。説明・秒読み・ボタンは、空の文字にすると隠す。棒は件数が分からないとき流れる棒、分かるときは 0 から 1 の割合で出す。</li>
+<li><strong>中止の途中</strong>: 暗幕で本体の操作を止める。検索は止まってから行う。</li>
+<li><strong>ワークスペースを移している間</strong>: 見出し <code>ワークスペースを移しています…</code>、説明 <code>中身の量によっては時間がかかります。終わるまでお待ちください。</code>（種類 <code>Moving</code>）を出し、棒は流れる棒にする。ボタンは無い。移している間に窓を閉じようとしたら、閉じるのを保留して説明を <code>移し終わると、画面を閉じます。</code>（<code>MovingClose</code>）に替え、移し終わってから閉じる。移しの途中で止めることはしない。</li>
+<li><strong>文言と値</strong>: 場面ごとの見出し・説明、秒読み（「あと N 秒で強制終了します」。端数は切り上げ、0 秒より小さいときは 0）、棒の値は判断層（<code>tebunko/ui/wait_view.ps1</code>）で決める。</li>
+<li><strong>窓を閉じるときの待ち</strong>: 秒数は <code>closeTimer</code> の期限（60 秒。Office を止めたあとは 15 秒）までの残りで、500 ミリ秒ごとに書き換える。［閉じない］は押せない形で置き、押しても何も起きないことを見せる。</li>
+</ul>
 <h2 id="フォルダ選択ダイアログ参照">フォルダ選択ダイアログ（［参照…］）<a class="headerlink" href="#フォルダ選択ダイアログ参照" title="Permanent link">&para;</a></h2>
 <p><strong>Windows 標準のエクスプローラー形式のダイアログ</strong>（COM の <code>IFileOpenDialog</code> を、フォルダを選ぶ設定 <code>FOS_PICKFOLDERS</code> で開いたもの）を使う（<code>shared/ui/folder_dialog.ps1</code> の <code>selectFolder</code>）。利用者が見慣れた画面のため、クイックアクセス・OneDrive・ネットワーク・検索・［新しいフォルダー］がそのまま使える。</p>
-<p>［＋ フォルダを追加］・詳細のフォルダパスの［...］（<a href="../index-tab/#名前とフォルダパスの編集">名前とフォルダパスの編集</a>）、元のファイルのフォルダを選んでもらう場面（<a href="../open-file/#元のファイルが見つからないとき元のフォルダを設定する">元のファイルが見つからないとき（元のフォルダを設定する）</a>）、ワークスペースの［変更…］（<a href="../settings-tab/">［設定］タブ</a>）で共通に使う。</p>
+<p>［＋ フォルダを追加］・詳細のフォルダパスの［変更…］（<a href="../index-tab/#名前とフォルダパスの編集">名前とフォルダパスの編集</a>）、元のファイルのフォルダを選んでもらう場面（<a href="../open-file/#元のファイルが見つからないとき元のフォルダを設定する">元のファイルが見つからないとき（元のフォルダを設定する）</a>）、ワークスペースの［変更…］（<a href="../settings-tab/">［設定］タブ</a>）で共通に使う。</p>
 <table>
 <thead>
 <tr>
