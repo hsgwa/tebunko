@@ -4531,9 +4531,9 @@
 </thead>
 <tbody>
 <tr>
-<td><code>scripts/</code>（<code>gui.ps1</code>・<code>shared/</code>・<code>tebunko/</code> の下の <code>.ps1</code>・<code>.xaml</code>・<code>shared/fonts/</code> のフォント・<code>tebunko.ico</code>）</td>
+<td><code>scripts/</code>（<code>gui.ps1</code>・<code>shared/</code>・<code>tebunko/</code> の下の <code>.ps1</code>・<code>.xaml</code>・<code>tebunko.ico</code>）</td>
 <td>読む</td>
-<td>起動のたびに読み込む。画面の XAML とフォント（Rethink Sans）・アイコンもここから読む（単一 <code>.ps1</code> 版は XAML を埋め込み、フォントは持たない）</td>
+<td>起動のたびに読み込む。画面の XAML・アイコンもここから読む（単一 <code>.ps1</code> 版は XAML を埋め込む。フォントは Windows 標準のものを使い、同梱しない）</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/startup/*.txt</code></td>
@@ -4825,7 +4825,7 @@
 <tr>
 <td><code>explorer.exe</code></td>
 <td>起動する</td>
-<td>［フォルダを開く］・フォルダの選択</td>
+<td>［フォルダを開く］・フォルダの選択・「バージョン情報」のリンク（決まった 2 つのアドレスを既定のブラウザで開く）</td>
 </tr>
 <tr>
 <td><code>%SystemRoot%\System32\ntoskrnl.exe</code></td>

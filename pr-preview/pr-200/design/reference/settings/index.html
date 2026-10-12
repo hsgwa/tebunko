@@ -4499,7 +4499,7 @@
 </tbody>
 </table>
 <h2 id="ワークスペースの切り替えtebunkocoreworkspace_moverps1workspacemover">ワークスペースの切り替え（<code>tebunko/core/workspace_mover.ps1</code>。<code>WorkspaceMover</code>）<a class="headerlink" href="#ワークスペースの切り替えtebunkocoreworkspace_moverps1workspacemover" title="Permanent link">&para;</a></h2>
-<p>画面のスレッドで使う。作るのは <code>[WorkspaceMover]::new(設定ファイルの場所)</code>。画面（<code>applyWorkspace</code>）は、選んだ直後のフォルダを確かめて利用者に選ばせたあと <code>ChangeWorkspace</code> を呼び、結果を出して画面を切り替える。クラスの考え方は <a href="../../structure/classes/">クラスと関数の使い分け</a>。</p>
+<p>作るのは <code>[WorkspaceMover]::new(設定ファイルの場所)</code>。<code>ListEntries</code> などの確かめは画面のスレッドで使う。画面（<code>applyWorkspace</code>）は、選んだ直後のフォルダを確かめて利用者に選ばせたあと、<code>ChangeWorkspace</code> を画面の裏の仕事（<code>startWorkspaceMove</code>）で呼ぶ。終わったら、画面のスレッドで結果を出して画面を切り替える（結果の判断は <code>getWorkspaceMoveOutcome</code>）。<code>ChangeWorkspace</code> は成功したときだけ設定を書き、失敗したら戻すので、裏で失敗しても設定は変わらない。クラスの考え方は <a href="../../structure/classes/">クラスと関数の使い分け</a>。</p>
 <table>
 <thead>
 <tr>

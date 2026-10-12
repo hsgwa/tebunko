@@ -4126,6 +4126,12 @@
 <td>–</td>
 <td>別スレッドで行う（名前の変更も同じ。削除・名前の変更中は操作を止めてステータスに出す）</td>
 </tr>
+<tr>
+<td>ワークスペースの中身の移動（<code>WorkspaceMover.ChangeWorkspace</code>）</td>
+<td>中身の量・ドライブによる（別のドライブへは写してから消す）</td>
+<td>–</td>
+<td>別スレッドで行い（<code>startWorkspaceMove</code>）、待つ間のダイアログで本体の操作を止める。移している間は、ワークスペースの再変更・インデックスの作成と更新・追加・削除・エクスポート・インポートを受け付けず（<code>getIndexJobBlocker</code> の <code>ワークスペースの移動中</code>）、窓を閉じるのは移し終わるまで待つ。待つ間のダイアログは本体の窓を無効にしないため、入口は 1 か所で止める。移している間は、ナビ（<code>NavHost</code>）と中身（<code>ContentHost</code>）を無効にし（<code>updateMainContentOperable</code>。マウスも Tab・Space も届かない。始められなかったとき・終わったときに必ず戻す）、窓のキー（Ctrl+Tab・F5・Ctrl+F など）は窓の <code>PreviewKeyDown</code> で受けない（Alt を使うキーは通すので、窓は閉じられる）。可否は判断層の <code>testMainContentOperable</code>。検索の開始・窓を前に出したときの読み直しは、そのうえで <code>testIndexReadAllowed</code> も確かめる</td>
+</tr>
 </tbody>
 </table>
 <blockquote>

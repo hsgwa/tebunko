@@ -1074,10 +1074,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#外部プロセスの起動4-か所" class="md-nav__link">
+  <a href="#外部プロセスの起動" class="md-nav__link">
     <span class="md-ellipsis">
       
-        外部プロセスの起動（4 か所）
+        外部プロセスの起動
       
     </span>
   </a>
@@ -4213,10 +4213,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#外部プロセスの起動4-か所" class="md-nav__link">
+  <a href="#外部プロセスの起動" class="md-nav__link">
     <span class="md-ellipsis">
       
-        外部プロセスの起動（4 か所）
+        外部プロセスの起動
       
     </span>
   </a>
@@ -4324,7 +4324,7 @@
 <tr>
 <td>11</td>
 <td>外部プロセスの起動</td>
-<td>4 か所のみ（<a href="#外部プロセスの起動4-か所">外部プロセスの起動（4 か所）</a>）</td>
+<td>決まった起動だけ（<a href="#外部プロセスの起動">外部プロセスの起動</a>）</td>
 <td><code>scan 'Start-Process'</code></td>
 </tr>
 <tr>
@@ -4491,7 +4491,7 @@
 </table>
 <p>参照の循環（<code>Prev</code> のつながりを含む）とファイルの外を指す位置は例外にする。<code>Prev</code> は呼び出しの入れ子にせず、順に読む。暗号化された PDF は、空の利用者パスワードで開ける AES-256（V5 の R5・R6）だけ復号して読む。パスワードが要るもの・未対応の方式（RC4 40・128、AES-128 など）は、そのファイルだけ失敗にする（パスワードを探さない）。壊れた暗号化の辞書（短い <code>/U</code> <code>/UE</code>）は決まった長さの確かめで断り、AES-256 R6 の鍵の計算の繰り返しは 300 回で止める。鍵・途中の値は例外の文にも記録にも出さない。PDF の中のスクリプト・リンク・添付ファイル・外部の参照は、実行も取得もしない（文字の命令だけを読む）。</p>
 <p><code>.xml</code> は、既定のアプリ（Windows の「XML エディター」）が先頭の <code>&lt;?mso-application progid=…?&gt;</code> を見て Excel・Word で開くことがあるが、マクロは既定で無効（上の「Office ファイルを開くときの設定」）であるため、開くこと自体の害は小さい。</p>
-<h2 id="外部プロセスの起動4-か所">外部プロセスの起動（4 か所）<a class="headerlink" href="#外部プロセスの起動4-か所" title="Permanent link">&para;</a></h2>
+<h2 id="外部プロセスの起動">外部プロセスの起動<a class="headerlink" href="#外部プロセスの起動" title="Permanent link">&para;</a></h2>
 <p><code>tests/meta/safety.Tests.ps1</code> の「外部プロセスの起動は explorer.exe・notepad.exe だけ」が確かめる。</p>
 <table>
 <thead>
@@ -4508,6 +4508,11 @@
 <td>一覧・検索結果から元のファイルの場所を開く（利用者の操作時のみ）</td>
 </tr>
 <tr>
+<td><code>tebunko/ui/about_dialog.ps1</code>（<code>openAboutLink</code>）</td>
+<td><code>explorer.exe</code>（アドレスを 1 つ渡す。既定のブラウザで開く）</td>
+<td>「バージョン情報」の GitHub・リリースのリンク。開くのは <code>getAboutLinks</code> に載せた 2 つのアドレス（<code>https://github.com/hsgwa/tebunko</code> と、その <code>/releases</code>）と一字一句同じものだけ（<code>testAboutLinkUrl</code>）。利用者がリンクを押したときのみ</td>
+</tr>
+<tr>
 <td><code>tebunko/ui/open_source.ps1:250</code>（<code>openWithNotepad</code>）</td>
 <td><code>notepad.exe</code>（固定のパス <code>%SystemRoot%\System32\notepad.exe</code>）</td>
 <td>検索結果から、既定のアプリで開くと実行・登録になる拡張子（<code>$textNotepadExtensions</code>）のテキストファイルを開く（利用者の操作時のみ）</td>
@@ -4516,7 +4521,7 @@
 </table>
 <p>インデックス作成は画面のプロセスの中のスレッドで動かすため、インデックス作成のために <code>powershell.exe</code> を起動することはない（<a href="../../design/structure/threads/#プロセス">プロセス</a>）。</p>
 <p>元のファイルを既定のアプリで開く操作（<code>tebunko/ui/open_source.ps1</code> の <code>openWithShell</code>）では、<code>Start-Process</code> ではなく <code>ProcessStartInfo</code> を使う（<code>Start-Process</code> は <code>[</code> <code>]</code> を含むパスをワイルドカードとして解釈するため）。起動対象は、利用者が選んだ行のファイルと、それに関連付けられたアプリケーションである。<code>ProcessStartInfo</code>・<code>[System.Diagnostics.Process]::Start</code> を使うのはこの 1 か所だけであることを <code>tests/meta/safety.Tests.ps1</code> が確かめる。</p>
-<p><code>tebunko.bat</code> は、上の 3 か所とは別に、<strong>起動そのものに失敗したとき（画面が開く前）だけ</strong> <code>notepad.exe</code> を開く（<a href="../disclosure/#起動に失敗したときの知らせtebunkobat">起動に失敗したときの知らせ</a>）。制限言語モード・実行ポリシーでスクリプトの読み込みが止まる場面では WPF・WinForms のメッセージボックスを出せないため、失敗の理由と記録のファイルの名前をメモ帳で示す。<code>tests/meta/safety.Tests.ps1</code> の「tebunko.bat が起動する外部のプログラムは conhost.exe・powershell.exe・notepad.exe だけ」が、<code>tebunko.bat</code> が起動する外部のプログラムをこの 3 つに限る。</p>
+<p><code>tebunko.bat</code> は、上の起動とは別に、<strong>起動そのものに失敗したとき（画面が開く前）だけ</strong> <code>notepad.exe</code> を開く（<a href="../disclosure/#起動に失敗したときの知らせtebunkobat">起動に失敗したときの知らせ</a>）。制限言語モード・実行ポリシーでスクリプトの読み込みが止まる場面では WPF・WinForms のメッセージボックスを出せないため、失敗の理由と記録のファイルの名前をメモ帳で示す。<code>tests/meta/safety.Tests.ps1</code> の「tebunko.bat が起動する外部のプログラムは conhost.exe・powershell.exe・notepad.exe だけ」が、<code>tebunko.bat</code> が起動する外部のプログラムをこの 3 つに限る。</p>
 
 
 

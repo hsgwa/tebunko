@@ -4043,7 +4043,7 @@
 
 
 <h1 id="供給網サプライチェーンとライセンス">供給網（サプライチェーン）とライセンス<a class="headerlink" href="#供給網サプライチェーンとライセンス" title="Permanent link">&para;</a></h1>
-<p>第三者のコードを使わず、画面のフォント（Rethink Sans）とアイコンの形（Lucide）だけを、ライセンス文を添えて同梱する。実行時の供給網に関する論点は次のように閉じる。部品表の雛形は <a href="https://github.com/hsgwa/tebunko/blob/main/sbom.cdx.json">sbom.cdx.json</a>（CycloneDX 1.6 形式）にある。ファイルごとの一覧とハッシュを入れた部品表は、配布物を作るたびに zip の中身から作り、リリースに <code>sbom.cdx.json</code> として載せる。</p>
+<p>第三者のコードを使わず、アイコンの形（Lucide）だけを、ライセンス文を添えて同梱する。画面のフォントは Windows 標準のもの（Segoe UI・Yu Gothic UI・Meiryo UI）で、同梱しない。実行時の供給網に関する論点は次のように閉じる。部品表の雛形は <a href="https://github.com/hsgwa/tebunko/blob/main/sbom.cdx.json">sbom.cdx.json</a>（CycloneDX 1.6 形式）にある。ファイルごとの一覧とハッシュを入れた部品表は、配布物を作るたびに zip の中身から作り、リリースに <code>sbom.cdx.json</code> として載せる。</p>
 <table>
 <thead>
 <tr>
@@ -4058,7 +4058,7 @@
 </tr>
 <tr>
 <td>部品表（SBOM）</td>
-<td>CycloneDX 1.6 形式で、配布 zip と並べてリリースに載せる。構成物は本ツール自身のファイルと、同梱する第三者の部品 2 件（Rethink Sans・Lucide。<code>tools/new_sbom.ps1</code> が足す）だけで、<code>purl</code>（パッケージ識別子）を持つ部品は 1 件も無い（<code>new_sbom.Tests.ps1</code> が確かめる）。同じコミット・同じ版から作ると同じ中身になる（<a href="../scans/#配布物の完全性カタログハッシュ一覧来歴の署名">再現の条件</a>）</td>
+<td>CycloneDX 1.6 形式で、配布 zip と並べてリリースに載せる。構成物は本ツール自身のファイルと、同梱する第三者の部品 1 件（Lucide。<code>tools/new_sbom.ps1</code> が足す）だけで、<code>purl</code>（パッケージ識別子）を持つ部品は 1 件も無い（<code>new_sbom.Tests.ps1</code> が確かめる）。同じコミット・同じ版から作ると同じ中身になる（<a href="../scans/#配布物の完全性カタログハッシュ一覧来歴の署名">再現の条件</a>）</td>
 </tr>
 <tr>
 <td>前提ソフトウェア</td>
@@ -4074,7 +4074,7 @@
 </tr>
 <tr>
 <td>第三者ライセンス</td>
-<td>第三者の<strong>コードは含まない</strong>。含むのは次の 2 つで、ライセンス文は配布物の <code>scripts/shared/fonts/</code> に同梱する（<code>check_release_package.ps1</code> が入っていることを確かめる）。<br>・フォント Rethink Sans（SIL Open Font License 1.1。<code>OFL.txt</code>）。ファイルを単体で売らず、著作権表示とライセンス文を添えれば再配布できる<br>・アイコンの形 Lucide（ISC ライセンス。Feather 由来の一部は MIT。どちらの文面も <code>LICENSE-Lucide.txt</code>）。<code>theme.xaml</code> の <code>Icon.*</code> に図形のデータとして写している<br>どちらも実行されるコードではなく、依存スキャナの対象にならない</td>
+<td>第三者の<strong>コードは含まない</strong>。含むのはアイコンの形 Lucide（ISC ライセンス。Feather 由来の一部は MIT。どちらの文面も <code>LICENSE-Lucide.txt</code>）だけで、ライセンス文は配布物の <code>scripts/shared/fonts/</code> に同梱する（<code>check_release_package.ps1</code> が入っていることを確かめる）。<code>theme.xaml</code> の <code>Icon.*</code> に図形のデータとして写している。実行されるコードではなく、依存スキャナの対象にならない。フォントは Windows 標準のものを使い、同梱しない</td>
 </tr>
 <tr>
 <td>改ざん検知</td>
