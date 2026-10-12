@@ -623,13 +623,13 @@ function finishOpenCopy {
     }
     if ($isText -and (testTextOpenWithNotepad $copyPath)) {
         if (openWithNotepad $copyPath) {
-            setStatus "コピーをメモ帳で新規で開きました：${path}"
+            setStatus (getOpenCopyOpenedStatus $path $copyPath "メモ帳")
         } else {
             setStatus "メモ帳で開けませんでした：${path}"
         }
     } else {
         [void](openWithShell $copyPath ${openModeNormal})
-        setStatus "コピーを新規で開きました：${path}"
+        setStatus (getOpenCopyOpenedStatus $path $copyPath)
     }
 }
 
@@ -659,23 +659,30 @@ function openFoundSource {
         default             { "新規で開けなかったため、元のファイルを開きました" }
     }
 
-    if ($mode -eq ${openModeNew} -and (getOpenNewMethod $row.Book $row.IsExcel) -eq "Copy") {
+    if ($mode -eq ${openModeNew} -and (getOpenNewMethod $row.Book) -eq "Copy") {
         # 「新規」の開き方が無い種類（テキスト・PDF・そのほか）は、元のファイルのコピーを作って開く（元のファイルを占有しない）。
         # コピーは、テキストはメモ帳の判断、そのほかは既定のアプリで開く（マクロを持てる形式は Office のため、ここには来ない）
         # コピーはファイルに触るため、裏の仕事で作り、できたら画面のスレッドで開く（元のファイルがネットワークにあっても画面を止めない）
         $copyDir = [string](getOpenCopyDir $workspace)
+        $tmpRoot = [string]$workspace.TmpRoot
         $isText = [bool]$row.IsText
+        # 名前だけで分かる断りは、コピーの仕事を始める前にステータスで知らせる（[ ] を含む・長すぎる）
+        $blocker = getOpenCopyBlocker $row.Book $copyDir
+        if ($blocker) {
+            setStatus (getOpenCopyFailedStatus $path $blocker)
+            return
+        }
         $window.Cursor = [System.Windows.Input.Cursors]::AppStarting
         setStatus "コピーを作っています：${path}"
         # 呼ぶ関数は変数で捕まえてから閉じ込める（遠く離れたスレッド・タイマーから呼ばれても見つかるように）
         $finish = ${function:finishOpenCopy}
         startJob {
-            param ($sourcePath, $book, $copyDir)
-            copySourceForOpen $sourcePath $book $copyDir
-        } @($path, $row.Book, $copyDir) {
+            param ($sourcePath, $book, $copyDir, $tmpRoot)
+            copySourceForOpen $sourcePath $book $copyDir $tmpRoot
+        } @($path, $row.Book, $copyDir, $tmpRoot) {
             param ($output, $errorText)
             & $finish $path $isText $(if ($errorText) { "" } else { [string]$output[0] })
-        }.GetNewClosure() (getWorkspaceJobQueue (Split-Path -Path $path -Parent))
+        }.GetNewClosure() (getWorkspaceJobQueue @((Split-Path -Path $path -Parent), $copyDir))
     } elseif ($row.IsExcel) {
         setStatus "Excel で開いています：${path}"
         $window.Cursor = [System.Windows.Input.Cursors]::Wait

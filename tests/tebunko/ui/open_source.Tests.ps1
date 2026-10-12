@@ -773,7 +773,9 @@ Describe "openSource" -Tag Unit {
             openSource ${openModeNew}
             Should -Invoke copySourceForOpen -Times 1 -Exactly -ParameterFilter { $sourcePath -eq "C:\data\仕様書.pdf" -and $book -eq "仕様書.pdf" -and $copyDir -eq "C:\work\tmp\key\open_copy" }
             Should -Invoke openWithShell -Times 1 -Exactly -ParameterFilter { $path -eq "C:\work\tmp\key\open_copy\abc\仕様書.pdf" -and $mode -eq ${openModeNormal} }
-            lastStatus | Should -Be "コピーを新規で開きました：C:\data\仕様書.pdf"
+            Should -Invoke getWorkspaceJobQueue -Times 1 -Exactly -ParameterFilter { $paths.Count -eq 2 -and $paths[0] -eq "C:\data" -and $paths[1] -eq "C:\work\tmp\key\open_copy" }
+            lastStatus | Should -Be (getOpenCopyOpenedStatus "C:\data\仕様書.pdf" "C:\work\tmp\key\open_copy\abc\仕様書.pdf")
+            lastStatus | Should -BeLike "*コピー：C:\work\tmp\key\open_copy\abc\仕様書.pdf*"
         }
 
         It "メモ帳で開くテキスト（.bat など）は、コピーをメモ帳で開く（既定のアプリでは開かない）" {
@@ -784,7 +786,7 @@ Describe "openSource" -Tag Unit {
             openSource ${openModeNew}
             Should -Invoke openWithNotepad -Times 1 -Exactly -ParameterFilter { $path -eq "C:\work\tmp\key\open_copy\abc\起動.bat" }
             Should -Invoke openWithShell -Times 0 -Exactly
-            lastStatus | Should -Be "コピーをメモ帳で新規で開きました：C:\data\起動.bat"
+            lastStatus | Should -Be (getOpenCopyOpenedStatus "C:\data\起動.bat" "C:\work\tmp\key\open_copy\abc\起動.bat" "メモ帳")
         }
 
         It "コピーを作れなければ、何も開かず、［開く］を使うよう伝える" {
@@ -796,6 +798,19 @@ Describe "openSource" -Tag Unit {
             Should -Invoke openWithShell -Times 0 -Exactly
             Should -Invoke openWithNotepad -Times 0 -Exactly
             lastStatus | Should -Be (getOpenCopyFailedStatus "C:\data\仕様書.pdf")
+        }
+
+        It "名前に [ ] を含むファイルは、コピーの仕事を始めず、理由をステータスで伝える" {
+            Mock getCurrentHitRow { newRow "報告[1].pdf" $false $true }
+            Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\報告[1].pdf" }
+            Mock copySourceForOpen { "x" }
+
+            openSource ${openModeNew}
+            Should -Invoke copySourceForOpen -Times 0 -Exactly
+            Should -Invoke startJob -Times 0 -Exactly
+            Should -Invoke openWithShell -Times 0 -Exactly
+            lastStatus | Should -Be (getOpenCopyFailedStatus "C:\data\報告[1].pdf" "Bracket")
+            lastStatus | Should -BeLike "*[[] []]*"
         }
 
         It "Word・PowerPoint・Excel は、コピーを作らない（動詞・Workbooks.Add のまま）" -TestCases @(

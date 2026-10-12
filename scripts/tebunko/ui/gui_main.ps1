@@ -514,11 +514,11 @@ function startGui {
         startLeftoverCheck
         # ［新規で開く］のために作ったコピー（open_copy）のうち、1 日より古いものを裏で片付ける（起動時の 1 回だけ。開いているコピーは残る）
         startJob {
-            param ($copyDir)
-            [void](clearOldOpenCopies $copyDir)
-        } @((getOpenCopyDir $workspace)) {
+            param ($copyDir, $tmpRoot)
+            [void](clearOldOpenCopies $copyDir $tmpRoot)
+        } @((getOpenCopyDir $workspace), $workspace.TmpRoot) {
             param ($output, $errorText)
-        } (getWorkspaceJobQueue $workspace.Dir)
+        } (getWorkspaceJobQueue @($workspace.Dir, (getOpenCopyDir $workspace)))
     }
 
     # ---- 起動 ----
