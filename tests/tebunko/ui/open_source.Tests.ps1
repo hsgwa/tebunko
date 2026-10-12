@@ -60,8 +60,8 @@ BeforeAll {
     function toggleFileGroup { param($group) }
     function showConfirm { param([string]$title, [string]$heading, [string]$hint, [object[]]$facts, [object[]]$choices) }
     function selectFolder { param([string]$description, [string]$initial, $owner, [bool]$knownExisting) }
-    function factGone { param([string]$title, [string]$detail) "✗ ${title}" }
-    function factNext { param([string]$title, [string]$detail) "→ ${title}" }
+    function factGone { param([string]$title, [string]$detail) "Gone ${title}" }
+    function factNext { param([string]$title, [string]$detail) "Next ${title}" }
     function factWarn { param([string]$title, [string]$detail) "! ${title}" }
     function testNetworkPath { param([string]$path) $false }  # 既定はローカル。テストごとに Mock で切り替える
     function normalizeFolderPath { param([string]$path) $path.Trim() }  # 前後の空白を取るだけの代わり（本物は shared\core\folder.ps1）
@@ -301,7 +301,7 @@ Describe "findSourceFile" -Tag Io {
 
         findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
         lastStatus | Should -Be "元のファイルを確かめられませんでした：アクセスが拒否されました。"
-        Should -Invoke showConfirm -Times 1 -Exactly -ParameterFilter { $facts -and $facts[0] -eq "✗ 元のファイルを確かめられませんでした" }
+        Should -Invoke showConfirm -Times 1 -Exactly -ParameterFilter { $facts -and $facts[0] -eq "Gone 元のファイルを確かめられませんでした" }
     }
 
     It "裏の仕事が予期せず失敗したときも、その他として知らせる" {
@@ -386,7 +386,7 @@ Describe "findSourceFile" -Tag Io {
         findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
         $script:foundPaths.Count | Should -Be 0
         Should -Invoke showConfirm -Times 2 -Exactly
-        Should -Invoke showConfirm -Times 1 -Exactly -ParameterFilter { $facts -and $facts[0] -eq "✗ 選んだフォルダの中にありませんでした" }
+        Should -Invoke showConfirm -Times 1 -Exactly -ParameterFilter { $facts -and $facts[0] -eq "Gone 選んだフォルダの中にありませんでした" }
     }
 }
 
