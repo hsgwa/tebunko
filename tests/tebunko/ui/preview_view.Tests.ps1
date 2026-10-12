@@ -55,3 +55,46 @@ Describe "getPreviewMenuItems" -Tag Unit {
         }
     }
 }
+
+Describe "getPreviewReadMore" -Tag Unit {
+    It "<Name>" -TestCases @(
+        @{ Name = "端から遠ければ頼まない"; Case = @{ First = 100; Last = 120; Count = 300; FirstLine = 50; LastLine = 349 }; Expected = "" }
+        @{ Name = "上の端に近ければ、上を 200 行"; Case = @{ First = 20; Last = 40; Count = 300; FirstLine = 500; LastLine = 799 }; Expected = "up:300:200" }
+        @{ Name = "上の端から 21 行なら、まだ頼まない"; Case = @{ First = 21; Last = 41; Count = 300; FirstLine = 500; LastLine = 799 }; Expected = "" }
+        @{ Name = "下の端に近ければ、下を 200 行（最後の行の次から）"; Case = @{ First = 260; Last = 279; Count = 300; FirstLine = 500; LastLine = 799 }; Expected = "down:800:200" }
+        @{ Name = "下の端から 21 行なら、まだ頼まない"; Case = @{ First = 200; Last = 278; Count = 300; FirstLine = 500; LastLine = 799 }; Expected = "" }
+        @{ Name = "上も下も近ければ、両方"; Case = @{ First = 5; Last = 20; Count = 30; FirstLine = 500; LastLine = 529 }; Expected = "up:300:200,down:530:200" }
+        @{ Name = "1 行目まで 50 行しかなければ、50 行だけ（頼むのは 1 行目から）"; Case = @{ First = 0; Last = 20; Count = 300; FirstLine = 51; LastLine = 350 }; Expected = "up:1:50" }
+        @{ Name = "1 行目に届いていれば、上は頼まない"; Case = @{ First = 0; Last = 20; Count = 300; FirstLine = 1; LastLine = 300 }; Expected = "" }
+        @{ Name = "上にもう行が無い（done）なら、上は頼まない"; Case = @{ First = 0; Last = 20; Count = 300; FirstLine = 500; LastLine = 799; TopDone = $true }; Expected = "" }
+        @{ Name = "下にもう行が無い（終わりまで読んだ）なら、下は頼まない"; Case = @{ First = 280; Last = 299; Count = 300; FirstLine = 500; LastLine = 799; BottomDone = $true }; Expected = "" }
+        @{ Name = "上を読んでいる途中なら、上は頼まない（下は頼める）"; Case = @{ First = 5; Last = 295; Count = 300; FirstLine = 500; LastLine = 799; UpLoading = $true }; Expected = "down:800:200" }
+        @{ Name = "下を読んでいる途中なら、下は頼まない（上は頼める）"; Case = @{ First = 5; Last = 295; Count = 300; FirstLine = 500; LastLine = 799; DownLoading = $true }; Expected = "up:300:200" }
+        @{ Name = "行が無ければ何も頼まない"; Case = @{ First = 0; Last = 0; Count = 0; FirstLine = 0; LastLine = 0 }; Expected = "" }
+    ) {
+        param ($Name, $Case, $Expected)
+        $result = @(getPreviewReadMore $Case.First $Case.Last $Case.Count $Case.FirstLine $Case.LastLine ([bool]$Case.TopDone) ([bool]$Case.BottomDone) ([bool]$Case.UpLoading) ([bool]$Case.DownLoading))
+        (@($result | ForEach-Object { "$($_.Side):$($_.FirstLine):$($_.Count)" }) -join ",") | Should -Be $Expected
+    }
+
+    It "近づく行数と 1 回の行数は引数で変えられる" {
+        $result = @(getPreviewReadMore 3 10 100 1000 1099 $false $false $false $false 5 50)
+        (@($result | ForEach-Object { "$($_.Side):$($_.FirstLine):$($_.Count)" }) -join ",") | Should -Be "up:950:50"
+    }
+}
+
+Describe "getPreviewTrim" -Tag Unit {
+    It "<Name>" -TestCases @(
+        @{ Name = "上限以下なら捨てない"; First = 1000; Last = 1020; Count = 3000; Side = "none"; Dropped = 0 }
+        @{ Name = "上限を超え、上から遠ければ上を 200 行捨てる"; First = 2500; Last = 2520; Count = 3200; Side = "top"; Dropped = 200 }
+        @{ Name = "上限を超え、下から遠ければ下を 200 行捨てる"; First = 100; Last = 120; Count = 3200; Side = "bottom"; Dropped = 200 }
+        @{ Name = "上と下が同じ遠さなら下を捨てる"; First = 1000; Last = 2000; Count = 3001; Side = "bottom"; Dropped = 200 }
+        @{ Name = "遠い側が 200 行より少なければ、見えている行は捨てずにある分だけ"; First = 150; Last = 3199; Count = 3200; Side = "top"; Dropped = 150 }
+        @{ Name = "捨てる行が無ければ捨てない"; First = 0; Last = 3199; Count = 3200; Side = "none"; Dropped = 0 }
+    ) {
+        param ($Name, $First, $Last, $Count, $Side, $Dropped)
+        $result = getPreviewTrim $First $Last $Count
+        $result.Side | Should -Be $Side
+        $result.Count | Should -Be $Dropped
+    }
+}

@@ -13,6 +13,7 @@ $script:previewRow = $null
 
 function clearDetail {
     # 行を選んでいないときのプレビュー。枠（と高さ）はそのままにし、中身を空にして案内を出す
+    $script:previewRequest++   # 読んでいる途中の読み足しの結果は捨てる
     $ui.PreviewHeader.ItemsSource = $null
     $ui.PreviewRows.ItemsSource = $null
     $script:previewTable = $null
@@ -42,30 +43,37 @@ function showDetail {
     prepareHitRow $row
 
     # 前後の行を本文インデックスのファイルから読む。最初は選択行の前後に ${previewFirstLines} 行ずつ（高さを変えても読み直さない。
-    # 表は行を仮想化して出すので、高さに入る分より多く読んでも重くならず、縦にスクロールして見られる）。検索で読んだ内容があれば使う。
-    # 読み込みは画面のスレッドでは行わない（キャッシュに無いと本文インデックスのファイル全体を読むため）。読み終わったら applyDetail で表にする。
-    # 読んでいる間に別の行を選んだら、古い結果は捨てる（番号で見分ける）
+    # 表は行を仮想化して出すので、高さに入る分より多く読んでも重くならず、縦にスクロールして見られる。端に近づいたら読み足す。updatePreviewReadMore）。
+    # 検索で読んだ内容があれば使う。読み込みは画面のスレッドでは行わない（キャッシュに無いと本文インデックスのファイル全体を読むため）。
+    # 読み終わったら applyDetail で表にする。読んでいる間に別の行を選んだら、古い結果は捨てる（番号で見分ける）
     $script:previewRequest++
     $script:previewRow = $row
+    $first = [Math]::Max(1, $row.LineNumber - ${previewFirstLines})
+    $count = $row.LineNumber - $first + 1 + ${previewFirstLines}
     startJob {
-        param ($id, $path, $book, $location, $lineNumber, $before, $after, $cache)
-        @{ Id = $id; Context = @(readContentIndexContext $path $book $location $lineNumber $before $after $cache) }
-    } @($script:previewRequest, [System.IO.Path]::Combine($row.Root, $row.RelPath), $row.Book, $row.Location, $row.LineNumber, ${previewFirstLines}, ${previewFirstLines}, $script:tsvCache) {
+        param ($id, $path, $book, $location, $first, $count, $cache)
+        $result = readContentIndexLines $path $book $location $first $count $cache $null
+        @{ Id = $id; Context = @($result.Rows); End = $result.End; Marks = $result.Marks }
+    } @($script:previewRequest, [System.IO.Path]::Combine($row.Root, $row.RelPath), $row.Book, $row.Location, $first, $count, $script:tsvCache) {
         param ($output, $errorText)
         if ($output -and $output.Count -gt 0 -and $output[0].Id -eq $script:previewRequest) {
-            applyDetail $script:previewRow $output[0].Context
+            applyDetail $script:previewRow $output[0].Context $output[0].Marks $output[0].End
         } elseif ($errorText -and $null -ne $script:previewRow) {
-            # 読めなければ選択行だけを出す
-            applyDetail $script:previewRow @([pscustomobject]@{ LineNumber = $script:previewRow.LineNumber; Line = $script:previewRow.Line })
+            # 読めなければ選択行だけを出す（読み足しもしない）
+            applyDetail $script:previewRow @([pscustomobject]@{ LineNumber = $script:previewRow.LineNumber; Line = $script:previewRow.Line }) $null $true -noMore
         }
     }
 }
 
 function applyDetail {
-    # 読んだ前後の行（readContentIndexContext の結果）でプレビューの表を作る
+    # 読んだ前後の行（readContentIndexLines の結果）でプレビューの表を作る。marks は読み足しに使う控え、
+    # end は下にもう行が無いか（読んだ数が頼んだ数より少なかった）。noMore なら、読み足しをしない
     param (
         $row,
-        [object[]]$context
+        [object[]]$context,
+        $marks = $null,
+        [bool]$end = $false,
+        [switch]$noMore
     )
 
     if (!$row.Equals((getCurrentHitRow))) {
@@ -87,6 +95,9 @@ function applyDetail {
     } else {
         $ui.PreviewNote.Visibility = "Collapsed"
     }
+    $table.Marks = $marks
+    $table.BottomDone = $end -or $noMore
+    if ($noMore) { $table.TopDone = $true }
     $script:previewTable = $table
     $script:previewBaseWidth = if ($table.Columns.Count -eq 1) { $table.Columns[0].Width } else { 0 }
     $script:previewFitWidth = $script:previewBaseWidth
@@ -111,6 +122,131 @@ function applyDetail {
         }
     }
     $ui.PreviewScroll.ScrollToVerticalOffset((getPreviewTopRow $hitIndex))
+    updatePreviewReadMore
+}
+
+function getPreviewVisibleRows {
+    # 今見えている本物の行（メッセージの行を除く）の範囲。@{ First; Last }（表の本物の行の中の位置。0 から）
+    $table = $script:previewTable
+    $scroll = $ui.PreviewScroll
+    $lead = $table.LeadCount()
+    $last = $table.DataCount() - 1
+    $first = [Math]::Max(0, [int][Math]::Floor($scroll.VerticalOffset) - $lead)
+    $bottom = [Math]::Min($last, [int][Math]::Ceiling($scroll.VerticalOffset + $scroll.ViewportHeight) - 1 - $lead)
+    return @{ First = $first; Last = [Math]::Max($first, $bottom) }
+}
+
+function updatePreviewReadMore {
+    # スクロールの位置が読んである範囲の端に近づいていたら、その向きに読み足す（判断は getPreviewReadMore）
+    $table = $script:previewTable
+    if ($null -eq $table -or $null -eq $script:previewRow -or $table.DataCount() -le 0) { return }
+    $visible = getPreviewVisibleRows
+    # メッセージの行が出ている間は、その向きを読んでいる途中（読めなかったときは、その向きは done）
+    $requests = @(getPreviewReadMore $visible.First $visible.Last $table.DataCount() $table.FirstLine() $table.LastLine() `
+            $table.TopDone $table.BottomDone ($null -ne $table.UpMessage -and !$table.TopDone) ($null -ne $table.DownMessage -and !$table.BottomDone) `
+            ${previewReadAheadLines} ${previewChunkLines})
+    foreach ($request in $requests) {
+        startReadMore $request
+    }
+}
+
+function startReadMore {
+    # 上または下に行を読み足す。読んでいる間は、その端に「読み込み中…」の行を出す
+    param (
+        $request
+    )
+
+    $row = $script:previewRow
+    $table = $script:previewTable
+    $table.ShowMessage($request.Side, "読み込み中…")
+    startJob {
+        param ($id, $side, $path, $book, $location, $first, $count, $cache, $marks)
+        try {
+            $result = readContentIndexLines $path $book $location $first $count $cache $marks
+            @{ Id = $id; Side = $side; Failed = $false; First = $first; Rows = @($result.Rows); End = $result.End; Marks = $result.Marks }
+        } catch {
+            @{ Id = $id; Side = $side; Failed = $true }
+        }
+    } @($script:previewRequest, $request.Side, [System.IO.Path]::Combine($row.Root, $row.RelPath), $row.Book, $row.Location, $request.FirstLine, $request.Count, $script:tsvCache, $table.Marks) {
+        param ($output, $errorText)
+        applyReadMore $output $errorText
+    }
+}
+
+function stopReadMore {
+    # 読み足しを読めなかったとき、その向きのメッセージを「読めませんでした」にして、その向きの読み足しをやめる
+    param (
+        $table,
+        [string]$side
+    )
+
+    if ($side -eq "up") { $table.TopDone = $true } else { $table.BottomDone = $true }
+    $table.ShowMessage($side, "読めませんでした")
+}
+
+function applyReadMore {
+    # 読み足した行を表に足す（上に足したときは、見ていた行が同じ所に見えたままになるよう縦の位置を直す）。
+    # 持つ行が上限を超えたら、見ている所から遠い側を捨てる（判断は getPreviewTrim）
+    param (
+        $output,
+        $errorText
+    )
+
+    $table = $script:previewTable
+    if ($null -eq $table) { return }
+    $result = $(if ($output -and $output.Count -gt 0) { $output[0] } else { $null })
+    if ($null -eq $result) {
+        # 読み足しの仕事そのものが失敗した（どの向きか分からないので、読んでいる向きすべて）
+        foreach ($side in @("up", "down")) {
+            if ($null -ne $(if ($side -eq "up") { $table.UpMessage } else { $table.DownMessage })) { stopReadMore $table $side }
+        }
+        return
+    }
+    # 別の行を選んだあとに届いた古い結果は捨てる
+    if ($result.Id -ne $script:previewRequest) { return }
+    $side = $result.Side
+    if ($result.Failed) {
+        stopReadMore $table $side
+        return
+    }
+    $scroll = $ui.PreviewScroll
+    $oldOffset = [int][Math]::Floor($scroll.VerticalOffset)
+    $lead = $table.LeadCount()
+    $numbers = [int[]]@($result.Rows | ForEach-Object { $_.LineNumber })
+    $lines = [string[]]@($result.Rows | ForEach-Object { $_.Line })
+    $rows = $script:previewRow.BuildPreviewRows($table, $numbers, $lines)
+    $table.Marks = $result.Marks
+    # 今ある行とつながらない結果（読んでいる間に反対側を捨てたなど）は足さず、また近づいたときに読み直す
+    $joins = $rows.Count -gt 0 -and $(if ($side -eq "up") { $rows[$rows.Count - 1].LineNumber -eq $table.FirstLine() - 1 } else { $rows[0].LineNumber -eq $table.LastLine() + 1 })
+    $table.HideMessage($side)
+    if ($side -eq "up") {
+        if ($joins) {
+            $table.InsertRows("up", $rows)
+            $scroll.UpdateLayout()
+            $scroll.ScrollToVerticalOffset([Math]::Max(0, $oldOffset - $lead) + $rows.Count)
+        } else {
+            $scroll.ScrollToVerticalOffset([Math]::Max(0, $oldOffset - $lead))
+        }
+        if ($result.End -or $rows.Count -eq 0 -or ($joins -and $table.FirstLine() -le 1)) { $table.TopDone = $true }
+    } else {
+        if ($joins) { $table.InsertRows("down", $rows) }
+        if ($result.End -or $rows.Count -eq 0) { $table.BottomDone = $true }
+    }
+    # 持つ行が上限を超えたら、遠い側を捨てる
+    $visible = getPreviewVisibleRows
+    $trim = getPreviewTrim $visible.First $visible.Last $table.DataCount() ${previewMaxRows} ${previewChunkLines}
+    if ($trim.Side -ne "none") {
+        $offset = [int][Math]::Floor($scroll.VerticalOffset)
+        $table.TrimRows($trim.Side, $trim.Count)
+        if ($trim.Side -eq "top") {
+            $table.TopDone = $false
+            $scroll.UpdateLayout()
+            $scroll.ScrollToVerticalOffset([Math]::Max(0, $offset - $trim.Count))
+        } else {
+            $table.BottomDone = $false
+        }
+    }
+    updatePreviewReadMore
 }
 
 function fitPreviewWidth {
@@ -176,6 +312,10 @@ $ui.PreviewScroll.Add_ScrollChanged({
     $ui.PreviewHeaderScroll.ScrollToHorizontalOffset($ui.PreviewScroll.HorizontalOffset)
     if ($e.ViewportWidthChange -ne 0) {
         fitPreviewWidth
+    }
+    # 縦に動いた・行が増減した・見える高さが変わったときは、端に近づいていれば読み足す
+    if ($e.VerticalChange -ne 0 -or $e.ExtentHeightChange -ne 0 -or $e.ViewportHeightChange -ne 0) {
+        safe { updatePreviewReadMore }
     }
 })
 # 結果の表とプレビューの境目。結果が少ないときは表を内容の高さまで縮めてプレビューを広げる（判断は getPreviewRowHeight）。

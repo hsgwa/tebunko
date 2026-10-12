@@ -41,13 +41,17 @@ function readContentIndexText {
 function readContentIndexRange {
     # 本文インデックスのファイル（UTF-16LE・BOM 付き）の、文字の位置 start（含む）から end（含まない）までを start から数えて、
     # firstLine 行目の先頭（firstLine が 1 以下なら start）から lines 個目の改行までを文字列で返す（それより前の行は持たない）。
-    # BOM が無い（UTF-16LE でない）ときは $null（呼び出し側が全体を読む）
+    # BOM が無い（UTF-16LE でない）ときは $null（呼び出し側が全体を読む）。
+    # checkpoints（ハッシュテーブル）を渡すと、通った 200 行ごとの行の先頭（行の番号 → 文字の位置）を足す
+    # （start の行の番号が baseLine。次に読むとき、目当ての行の手前の位置から読めるようにする）
     param (
         [string]$path,
         [int]$start,
         [int]$end,
         [int]$firstLine,
-        [int]$lines
+        [int]$lines,
+        [int]$baseLine = 1,
+        $checkpoints = $null
     )
 
     $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
@@ -64,6 +68,7 @@ function readContentIndexRange {
         $skip = [Math]::Max(0, $firstLine - 1)
         $started = ($skip -eq 0)
         while ($remaining -gt 0 -and $newlines -lt $lines) {
+            $consumed = ($end - $start) - $remaining
             $got = $reader.Read($buffer, 0, [Math]::Min($buffer.Length, $remaining))
             if ($got -le 0) { break }
             $keepFrom = if ($started) { 0 } else { -1 }
@@ -73,6 +78,10 @@ function readContentIndexRange {
                 if ($found -lt 0) { break }
                 $newlines++
                 $from = $found + 1
+                if ($null -ne $checkpoints) {
+                    $nextLine = $baseLine + $newlines
+                    if (($nextLine - 1) % 200 -eq 0) { $checkpoints[$nextLine] = $start + $consumed + $from }
+                }
                 if (!$started -and $newlines -eq $skip) { $started = $true; $keepFrom = $from }
             }
             # 読み飛ばす行のチャンクは捨てる（行数だけ数える）
@@ -346,24 +355,29 @@ function publishIndexFolders {
 }
 
 
-function readContentIndexContext {
-    # 本文インデックスのファイルの中の、元のファイル book・場所 location の lineNumber 行目と、その前後 before 行・after 行を
-    # @{ LineNumber; Line } の配列で返す（画面の選択行のプレビュー。行の数え方は検索と同じ）。
-    # cache（検索のキャッシュ）に同じ本文インデックスのファイルの内容があれば、ファイルを読み直さない。読めない・見つからなければ空
+function readContentIndexLines {
+    # 本文インデックスのファイルの中の、元のファイル book・場所 location の firstLine 行目から count 行を返す（画面の選択行のプレビュー。
+    # 行の数え方は検索と同じ）。戻り値は @{ Rows = @{ LineNumber; Line } の配列; End = 頼んだ数より少なく返ったか（場所の終わりまで読んだ）; Marks = 更新した控え }。
+    # cache（検索のキャッシュ）に同じ本文インデックスのファイルの内容があれば、ファイルを読み直さない。読めない・見つからなければ Rows は空・End は $true。
+    #
+    # marks は、繰り返し読むときに先頭から読み飛ばさないための控え（@{ Path; Ticks; Size; Places; Checkpoints }。
+    # ファイルのパス・更新日時・大きさが同じ間だけ使う）。呼び出し側が引数で渡し、戻り値の Marks で受け取る
+    # （読み足しは別の runspace で動くため、$script: には置かない。渡された控えは書き換えず、新しいものを返す）。
+    # Places は場所の一覧、Checkpoints は 200 行ごとの行の先頭の位置（行の番号 → 文字の位置）
     param (
         [string]$path,
         [string]$book,
         [string]$location,
-        [int]$lineNumber,
-        [int]$before = 3,
-        [int]$after = 3,
-        $cache = $null
+        [int]$firstLine,
+        [int]$count,
+        $cache = $null,
+        $marks = $null
     )
 
-    $rows = New-Object System.Collections.Generic.List[psobject]
-    $first = [Math]::Max(1, $lineNumber - $before)
-    $last = $lineNumber + $after
-    if ($last -lt $first) { return @() }
+    $first = [Math]::Max(1, $firstLine)
+    $last = $first + $count - 1
+    if ($count -le 0) { return @{ Rows = @(); End = $false; Marks = $marks } }
+    $nothing = @{ Rows = @(); End = $true; Marks = $marks }
     $text = $null
     $places = $null
     $longPath = toLongPath $path
@@ -376,24 +390,31 @@ function readContentIndexContext {
         }
     }
     $isRange = $false
+    $newMarks = $marks
+    $checkpoints = $null
     try {
         if ($null -eq $text) {
-            # キャッシュに無いときは、ファイルの全体を文字列にしない。場所の一覧は 1 つ前に読んだファイルのものを使い回し、
-            # 目当ての場所の $first 行目から必要な行までだけを読む（↑↓で同じファイルの行を移るたびに、全体を読み直さない）
+            # キャッシュに無いときは、ファイルの全体を文字列にしない。控えがあれば、その場所の目当ての行の手前の位置から必要な行までだけを読む
+            # （続けて読むたびに、全体を読み直さず、場所の先頭からも読み飛ばさない）
             $info = [System.IO.FileInfo]::new($longPath)
-            if (!$info.Exists) { return @() }
-            $memo = $script:contentIndexPlacesMemo
-            if ($null -ne $memo -and $memo.Path -eq $longPath -and $memo.Ticks -eq $info.LastWriteTimeUtc.Ticks -and $memo.Size -eq $info.Length) {
-                $places = $memo.Places
+            if (!$info.Exists) { return $nothing }
+            if ($null -ne $marks -and $marks.Path -eq $longPath -and $marks.Ticks -eq $info.LastWriteTimeUtc.Ticks -and $marks.Size -eq $info.Length) {
+                $places = $marks.Places
+                $checkpoints = $(if ($null -ne $marks.Checkpoints) { $marks.Checkpoints.Clone() } else { @{} })
                 $found = $false
                 foreach ($place in $places) {
                     if ($place.Book -ne $book -or $place.Location -ne $location) { continue }
                     $found = $true
-                    $text = readContentIndexRange $path $place.Start $place.End $first $last
+                    $base = 1
+                    $startPosition = $place.Start
+                    foreach ($key in $checkpoints.Keys) {
+                        if ($key -le $first -and $key -gt $base) { $base = $key; $startPosition = $checkpoints[$key] }
+                    }
+                    $text = readContentIndexRange $path $startPosition $place.End ($first - $base + 1) ($last - $base + 1) $base $checkpoints
                     break
                 }
-                # 一覧が今のファイルのものなら、無い場所はファイルを読まずに空
-                if (!$found) { return @() }
+                # 控えが今のファイルのものなら、無い場所はファイルを読まずに空
+                if (!$found) { return $nothing }
                 if ($null -ne $text) {
                     # 読んでいる間にファイルが置き換わっていたら、古い位置で読んだ行は使わず、全体を読み直す
                     $again = [System.IO.FileInfo]::new($longPath)
@@ -403,14 +424,16 @@ function readContentIndexContext {
             if ($null -eq $text) {
                 $text = readContentIndexText $path
                 $places = readContentIndexPlaces $text
-                $script:contentIndexPlacesMemo = @{ Path = $longPath; Ticks = $info.LastWriteTimeUtc.Ticks; Size = $info.Length; Places = $places }
+                $checkpoints = @{}
             }
+            $newMarks = @{ Path = $longPath; Ticks = $info.LastWriteTimeUtc.Ticks; Size = $info.Length; Places = $places; Checkpoints = $checkpoints }
         }
     } catch [System.IO.IOException] {
-        return @()
+        return $nothing
     } catch [System.UnauthorizedAccessException] {
-        return @()
+        return $nothing
     }
+    $rows = New-Object System.Collections.Generic.List[psobject]
     $isTextBook = (getContentIndexFileKind $book) -eq "テキスト"
     foreach ($place in $places) {
         if ($place.Book -ne $book -or $place.Location -ne $location) { continue }
@@ -418,10 +441,13 @@ function readContentIndexContext {
         $number = if ($isRange) { $first - 1 } else { 0 }
         $placeEnd = if ($isRange) { $text.Length } else { [Math]::Min($place.End, $text.Length) }
         $pos = if ($isRange) { 0 } else { $place.Start }
+        # ファイルの全体を読んだときは、通った 200 行ごとの行の先頭を控える（範囲を読んだときは readContentIndexRange が控える）
+        $record = !$isRange -and $null -ne $checkpoints
         while ($pos -lt $placeEnd) {
             $n = $text.IndexOf([char]10, $pos, $placeEnd - $pos)
             if ($n -lt 0) { $n = $placeEnd }
             $number++
+            if ($record -and $number -gt 1 -and ($number - 1) % 200 -eq 0) { $checkpoints[$number] = $pos }
             if ($number -gt $last) { break }
             if ($number -ge $first) {
                 $line = $text.Substring($pos, $n - $pos)
@@ -435,6 +461,39 @@ function readContentIndexContext {
         }
         break
     }
+    return @{ Rows = $rows.ToArray(); End = ($rows.Count -lt $count); Marks = $newMarks }
+}
+
+
+function readContentIndexContext {
+    # 本文インデックスのファイルの中の、元のファイル book・場所 location の lineNumber 行目と、その前後 before 行・after 行を
+    # @{ LineNumber; Line } の配列で返す（行の数え方は検索と同じ。読み方は readContentIndexLines）。
+    # cache（検索のキャッシュ）に同じ本文インデックスのファイルの内容があれば、ファイルを読み直さない。読めない・見つからなければ空。
+    # 場所の一覧は 1 つ前に読んだファイルのものを $script:contentIndexPlacesMemo に覚えて使い回す
+    # （同じ呼び出し元から続けて呼ぶ測定の道具・テスト用。画面は readContentIndexLines に控えを渡して使う）
+    param (
+        [string]$path,
+        [string]$book,
+        [string]$location,
+        [int]$lineNumber,
+        [int]$before = 3,
+        [int]$after = 3,
+        $cache = $null
+    )
+
+    $first = [Math]::Max(1, $lineNumber - $before)
+    $last = $lineNumber + $after
+    if ($last -lt $first) { return @() }
+    $marks = $null
+    $memo = $script:contentIndexPlacesMemo
+    if ($null -ne $memo) {
+        $marks = @{ Path = $memo.Path; Ticks = $memo.Ticks; Size = $memo.Size; Places = $memo.Places; Checkpoints = @{} }
+    }
+    $result = readContentIndexLines $path $book $location $first ($last - $first + 1) $cache $marks
+    $used = $result.Marks
+    if ($null -ne $used -and $null -ne $used.Places) {
+        $script:contentIndexPlacesMemo = @{ Path = $used.Path; Ticks = $used.Ticks; Size = $used.Size; Places = $used.Places }
+    }
     # 呼び出し側で @() にして使う
-    return $rows.ToArray()
+    return $result.Rows
 }

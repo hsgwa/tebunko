@@ -893,6 +893,89 @@ Describe "readContentIndexContext" -Tag Io {
     }
 }
 
+Describe "readContentIndexLines（続きから読む。控えを引数で渡し、戻り値で受ける）" -Tag Io {
+    BeforeAll {
+        $folder = Join-Path $TestDrive "lines"
+        [void][System.IO.Directory]::CreateDirectory($folder)
+        $path = "$folder\content_index.docx.001.tsv"
+        $bigText = (1..1000 | ForEach-Object { "行$_" }) -join "`r`n"
+        writeContentIndexFile $path (convertToContentIndexText @(
+                @{ Name = "前.docx"; Places = @(@{ Place = "P1"; Text = "a1`r`na2`r`n" }) },
+                @{ Name = "長い.docx"; Places = @(@{ Place = "P1"; Text = "$bigText`r`n" }, @{ Place = "P2"; Text = "z1`r`nz2`r`n" }) }))
+
+        function formatLines {
+            param ($result)
+            return (@($result.Rows | ForEach-Object { "$($_.LineNumber):$($_.Line)" }) -join ",")
+        }
+    }
+
+    It "1 回目はファイルの全体、続きは控えを使って範囲だけを読む。どちらも同じ行を返し、終わりを知らせる" {
+        $originalReadText = Get-Command readContentIndexText -CommandType Function
+        Mock readContentIndexText { & $originalReadText @args }
+        $first = readContentIndexLines $path "長い.docx" "P1" 1 3
+        formatLines $first | Should -Be "1:行1,2:行2,3:行3"
+        $first.End | Should -Be $false
+        $next = readContentIndexLines $path "長い.docx" "P1" 4 3 $null $first.Marks
+        formatLines $next | Should -Be "4:行4,5:行5,6:行6"
+        $far = readContentIndexLines $path "長い.docx" "P1" 998 5 $null $next.Marks
+        formatLines $far | Should -Be "998:行998,999:行999,1000:行1000"
+        $far.End | Should -Be $true
+        $up = readContentIndexLines $path "長い.docx" "P1" 1 2 $null $far.Marks
+        formatLines $up | Should -Be "1:行1,2:行2"
+        # ファイルの全体を読むのは 1 回目だけ
+        Should -Invoke readContentIndexText -Times 1 -Exactly -Scope It
+    }
+
+    It "渡した控えは書き換えない。200 行ごとの位置を控え、遠い行はその手前から読む" {
+        $first = readContentIndexLines $path "長い.docx" "P1" 1 1000
+        $keys = @($first.Marks.Checkpoints.Keys | Sort-Object)
+        ($keys -join ",") | Should -Be "201,401,601,801"
+        $before = $first.Marks.Checkpoints.Count
+        $result = readContentIndexLines $path "長い.docx" "P1" 650 2 $null $first.Marks
+        formatLines $result | Should -Be "650:行650,651:行651"
+        $first.Marks.Checkpoints.Count | Should -Be $before
+        # 範囲を読むと、通った 200 行ごとの位置が増える（読み進めた分だけ）
+        $fresh = readContentIndexLines $path "長い.docx" "P1" 1 1000
+        $fresh.Marks.Checkpoints.Remove(801)
+        $fresh.Marks.Checkpoints.Remove(601)
+        $fresh.Marks.Checkpoints.Remove(401)
+        $more = readContentIndexLines $path "長い.docx" "P1" 790 20 $null $fresh.Marks
+        formatLines $more | Should -Be ((790..809 | ForEach-Object { "${_}:行$_" }) -join ",")
+        $more.Marks.Checkpoints.ContainsKey(801) | Should -Be $true
+    }
+
+    It "場所の外・見つからない・読めないときは空で End。頼んだ数が 0 なら空で End にしない" {
+        (readContentIndexLines $path "長い.docx" "P2" 3 5).End | Should -Be $true
+        @((readContentIndexLines $path "長い.docx" "P2" 3 5).Rows).Count | Should -Be 0
+        @((readContentIndexLines $path "無い.docx" "P1" 1 5).Rows).Count | Should -Be 0
+        $missing = readContentIndexLines "$folder\無い.tsv" "長い.docx" "P1" 1 5
+        @($missing.Rows).Count | Should -Be 0
+        $missing.End | Should -Be $true
+        $none = readContentIndexLines $path "長い.docx" "P1" 1 0
+        $none.End | Should -Be $false
+        @($none.Rows).Count | Should -Be 0
+    }
+
+    It "ファイルが書き換わったら、古い控えを使わない" {
+        $file = "$folder\content_index.csv.001.tsv"
+        writeContentIndexFile $file (convertToContentIndexText @(@{ Name = "C.csv"; Places = @(@{ Place = "本文"; Text = "1`r`n2`r`n3`r`n" }) }))
+        $old = readContentIndexLines $file "C.csv" "本文" 1 2
+        formatLines $old | Should -Be "1:1,2:2"
+        writeContentIndexFile $file (convertToContentIndexText @(@{ Name = "C.csv"; Places = @(@{ Place = "本文"; Text = "n1`r`nn2`r`nn3`r`nn4`r`n" }) }))
+        [System.IO.File]::SetLastWriteTimeUtc($file, [DateTime]::UtcNow.AddDays(1))
+        formatLines (readContentIndexLines $file "C.csv" "本文" 2 3 $null $old.Marks) | Should -Be "2:n2,3:n3,4:n4"
+    }
+
+    It "キャッシュに同じ内容があれば、ファイルを読まずにキャッシュから返す" {
+        $files = findContentIndexFiles $folder
+        $cache = newTsvTextCache
+        [void](searchContentIndex "行" $files $true -cache $cache)
+        $entry = $cache.Texts[(toLongPath $path)]
+        $entry[2] = $entry[2].Replace("行5`n", "改5`n")
+        formatLines (readContentIndexLines $path "長い.docx" "P1" 4 3 $cache) | Should -Be "4:行4,5:改5,6:行6"
+    }
+}
+
 Describe "testCellPrefixedHit（セル番地 + 区切りのタブ + 文字の行で、最初のタブより後の一致だけを数える）" -Tag Unit {
     It "<Name>" -ForEach @(
         @{ Name = "タブが無い行は一致なし"; Pattern = "C2"; Line = "C2 納期"; Expected = $false }

@@ -140,16 +140,16 @@ Describe "PreviewTable（範囲の選択とコピー）" -Tag Unit {
     It "列の無い表では行を選べない" {
         $table = [PreviewTable]::new()
         $table.Columns = [System.Collections.Generic.List[PreviewColumn]]::new()
-        $table.Rows = [System.Collections.Generic.List[PreviewRow]]::new()
-        $table.SelectRow([PreviewCell]@{ RowIndex = 0; ColumnIndex = 0 })
+        $table.Rows = [System.Collections.ObjectModel.ObservableCollection[PreviewRow]]::new()
+        $table.SelectRow([PreviewCell]@{ LineNumber = 1; ColumnIndex = 0 })
         $table.HasSelection() | Should -Be $false
     }
 
     It "表に無いセルは空として扱う" {
         $table = newTable
-        $table.Select([PreviewCell]@{ RowIndex = 5; ColumnIndex = 0 }, $false)
+        $table.Select([PreviewCell]@{ LineNumber = 5; ColumnIndex = 0 }, $false)
         $table.GetSelectionText() | Should -Be ""
-        $table.Select([PreviewCell]@{ RowIndex = 0; ColumnIndex = 9 }, $false)
+        $table.Select([PreviewCell]@{ LineNumber = 1; ColumnIndex = 9 }, $false)
         $table.GetSelectionText() | Should -Be ""
     }
 
@@ -161,6 +161,116 @@ Describe "PreviewTable（範囲の選択とコピー）" -Tag Unit {
         $table.Select($table.Rows[0].Cells[0], $false)
         $table.Select($table.Rows[0].Cells[2], $true)
         $table.GetSelectionText() | Should -Be "`"1行目`n2行目`"`t`"B`"`"`"`tC"
+    }
+}
+
+Describe "PreviewTable（行を前後に足す・捨てる・メッセージの行）" -Tag Unit {
+    BeforeAll {
+        # 行の番号 4〜6（選択行は 5）の 2 列の表
+        function newReadTable {
+            $row = newHitRow -lineNumber 5 -line "A5`tB5" -word "B5"
+            $table = $row.BuildPreview(@(4, 5, 6), @("A4`tB4", "A5`tB5", "A6`tB6"))
+            return @{ Row = $row; Table = $table }
+        }
+        function lineNumbers {
+            param ($table)
+            return (@($table.Rows | ForEach-Object { if ($_.IsMessage) { "[$($_.Message)]" } else { $_.LineNumber } }) -join ",")
+        }
+    }
+
+    It "最初の行の番号・最後の行の番号・本物の行の数を返す。行の番号が 1 からなら、上にはもう読む行が無い" {
+        $made = newReadTable
+        $made.Table.FirstLine() | Should -Be 4
+        $made.Table.LastLine() | Should -Be 6
+        $made.Table.DataCount() | Should -Be 3
+        $made.Table.TopDone | Should -Be $false
+        ($made.Row.BuildPreview(@(1, 2), @("a", "b"))).TopDone | Should -Be $true
+        $empty = [PreviewTable]::new()
+        $empty.Rows = [System.Collections.ObjectModel.ObservableCollection[PreviewRow]]::new()
+        $empty.FirstLine() | Should -Be 0
+        $empty.LastLine() | Should -Be 0
+    }
+
+    It "読み足した行を、上と下に足す（メッセージの行の内側）。セルは表の列に合わせ、行の番号を持つ" {
+        $made = newReadTable
+        $table = $made.Table
+        $table.ShowMessage("up", "読み込み中…")
+        $table.ShowMessage("down", "読み込み中…")
+        lineNumbers $table | Should -Be "[読み込み中…],4,5,6,[読み込み中…]"
+        $table.LeadCount() | Should -Be 1
+        $table.DataCount() | Should -Be 3
+        $above = $made.Row.BuildPreviewRows($table, @(2, 3), @("A2`tB2", "A3`tB3"))
+        $below = $made.Row.BuildPreviewRows($table, @(7), @("A7`tB7`tC7"))
+        $table.InsertRows("up", $above)
+        $table.InsertRows("down", $below)
+        lineNumbers $table | Should -Be "[読み込み中…],2,3,4,5,6,7,[読み込み中…]"
+        $table.FirstLine() | Should -Be 2
+        $table.LastLine() | Should -Be 7
+        # 表の列（2 列）より多い列は持たない。セルは行の番号と列の番号を持つ
+        $table.Rows[6].Cells.Count | Should -Be 2
+        $table.Rows[6].Cells[1].LineNumber | Should -Be 7
+        $table.Rows[6].Cells[1].Column | Should -Be $table.Columns[1]
+        $table.Rows[1].Number | Should -Be "2"
+        $table.Rows[1].IsHitRow | Should -Be $false
+        $table.Rows[4].IsHitRow | Should -Be $true
+        $table.HideMessage("up")
+        $table.HideMessage("down")
+        lineNumbers $table | Should -Be "2,3,4,5,6,7"
+        $table.HideMessage("up")
+        $table.LeadCount() | Should -Be 0
+    }
+
+    It "メッセージの行は、選択にもコピーにも入らない。メッセージを出し直すと置き換える" {
+        $made = newReadTable
+        $table = $made.Table
+        $table.ShowMessage("down", "読み込み中…")
+        $table.ShowMessage("down", "読めませんでした")
+        lineNumbers $table | Should -Be "4,5,6,[読めませんでした]"
+        $table.Select($table.Rows[0].Cells[0], $false)
+        $table.Select($table.Rows[2].Cells[1], $true)
+        $table.GetSelectionText() | Should -Be "A4`tB4`r`nA5`tB5`r`nA6`tB6"
+        @($table.Rows[3].Cells).Count | Should -Be 0
+        $table.SelectedCount() | Should -Be 6
+    }
+
+    It "上や下を足しても、選んだ範囲は行の番号のままで、同じセルを指す" {
+        $made = newReadTable
+        $table = $made.Table
+        $table.Select($table.Rows[1].Cells[0], $false)
+        $table.Select($table.Rows[2].Cells[1], $true)
+        $table.InsertRows("up", $made.Row.BuildPreviewRows($table, @(2, 3), @("A2`tB2", "A3`tB3")))
+        $table.GetSelectionText() | Should -Be "A5`tB5`r`nA6`tB6"
+        $table.Rows[2].Cells[0].IsSelected | Should -Be $false
+        $table.Rows[3].Cells[0].IsSelected | Should -Be $true
+    }
+
+    It "<Name>" -TestCases @(
+        @{ Name = "上から 2 行捨てる"; Side = "top"; Count = 2; Expected = "6" }
+        @{ Name = "下から 2 行捨てる"; Side = "bottom"; Count = 2; Expected = "4" }
+        @{ Name = "行の数より多く頼んでも、ある分だけ捨てる"; Side = "top"; Count = 9; Expected = "" }
+        @{ Name = "0 行なら何もしない"; Side = "top"; Count = 0; Expected = "4,5,6" }
+    ) {
+        param ($Name, $Side, $Count, $Expected)
+        $made = newReadTable
+        $made.Table.TrimRows($Side, $Count)
+        lineNumbers $made.Table | Should -Be $Expected
+    }
+
+    It "捨てた行を含む範囲を選んでいたら選択を外し、含まなければ残す。メッセージの行は捨てない" {
+        $made = newReadTable
+        $table = $made.Table
+        $table.ShowMessage("up", "読み込み中…")
+        $table.Select($table.Rows[2].Cells[0], $false)
+        $table.Select($table.Rows[3].Cells[1], $true)
+        $table.TrimRows("bottom", 1)
+        lineNumbers $table | Should -Be "[読み込み中…],4,5"
+        $table.HasSelection() | Should -Be $false
+        $table.Rows[2].Cells[0].IsSelected | Should -Be $false
+        $kept = newReadTable
+        $kept.Table.Select($kept.Table.Rows[0].Cells[0], $false)
+        $kept.Table.TrimRows("bottom", 2)
+        $kept.Table.HasSelection() | Should -Be $true
+        $kept.Table.GetSelectionText() | Should -Be "A4"
     }
 }
 

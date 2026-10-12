@@ -152,7 +152,7 @@
                     </ItemsControl.ContextMenu>
                     <ItemsControl.Template>
                       <ControlTemplate TargetType="ItemsControl">
-                        <ScrollViewer x:Name="PreviewScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                        <ScrollViewer x:Name="PreviewScroll" AutomationProperties.AutomationId="PreviewScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
                                       CanContentScroll="True" Focusable="True">
                           <ItemsPresenter />
                         </ScrollViewer>
@@ -208,6 +208,19 @@
                               </DataTemplate>
                             </ItemsControl.ItemTemplate>
                           </ItemsControl>
+                          <!-- 読み足しの「読み込み中…」「読めませんでした」の行（セルは持たない） -->
+                          <TextBlock Text="{Binding Message}" Padding="10,3" FontSize="11" Foreground="{StaticResource Ink.Faint}" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                              <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                  <DataTrigger Binding="{Binding IsMessage}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                  </DataTrigger>
+                                </Style.Triggers>
+                              </Style>
+                            </TextBlock.Style>
+                          </TextBlock>
                         </StackPanel>
                         <DataTemplate.Triggers>
                           <!-- 選択行は行全体を薄い青にし、行番号を目立たせる -->

@@ -1,4 +1,4 @@
-﻿# ［検索］タブのプレビューの判断（選択行を出す位置・列の幅・短い文字列にする）。
+﻿# ［検索］タブのプレビューの判断（選択行を出す位置・読み足し・持つ行の上限・列の幅・短い文字列にする）。
 # 画面に触らないため、そのままテストできる（tests\tebunko\ui\preview_view.Tests.ps1）。
 
 function getPreviewTopRow {
@@ -9,6 +9,58 @@ function getPreviewTopRow {
     )
 
     return [math]::Max(0, $hitIndex - 2)
+}
+
+function getPreviewReadMore {
+    # スクロールの位置から、どの向きにどの行を読み足すかを決める。読み足す向きごとに @{ Side; FirstLine; Count } を返す（要らなければ何も返さない。
+    # Side は "up"（上。FirstLine から Count 行で、今ある最初の行の直前まで）・"down"（下。今ある最後の行の次から Count 行））。
+    # 見えている行が、読んである範囲の端から ahead 行以内に近づいたら、その向きに chunk 行を読み足す。
+    # その向きにもう行が無い（done）・その向きを読んでいる途中（loading）ときは頼まない（同じ向きは 1 つずつ）。
+    # 上は、1 行目に届くところまでで止める（chunk より少なくなる）
+    param (
+        [int]$firstVisible,     # 見えている先頭の行の番号（読んである行の中の位置。0 から）
+        [int]$lastVisible,      # 見えている最後の行の位置
+        [int]$rowCount,         # 読んである行の数
+        [int]$firstLine,        # 読んである最初の行の、元のファイルの場所の中の番号（1 から）
+        [int]$lastLine,         # 読んである最後の行の番号
+        [bool]$topDone,         # 上にもう行が無い（または読めなかった）
+        [bool]$bottomDone,
+        [bool]$upLoading,       # 上を読んでいる途中
+        [bool]$downLoading,
+        [int]$ahead = 20,
+        [int]$chunk = 200
+    )
+
+    if ($rowCount -le 0) { return }
+    if (!$topDone -and !$upLoading -and $firstLine -gt 1 -and $firstVisible -le $ahead) {
+        $count = [Math]::Min($chunk, $firstLine - 1)
+        @{ Side = "up"; FirstLine = $firstLine - $count; Count = $count }
+    }
+    if (!$bottomDone -and !$downLoading -and ($rowCount - 1 - $lastVisible) -le $ahead) {
+        @{ Side = "down"; FirstLine = $lastLine + 1; Count = $chunk }
+    }
+}
+
+function getPreviewTrim {
+    # 持つ行が上限（maxRows）を超えたとき、見ている所から遠い側の端から、どれだけ捨てるかを決める。@{ Side; Count } を返す。
+    # Side は "top"（上から捨てる）・"bottom"（下から捨てる）・"none"（捨てない）。1 回に chunk 行ずつ、見えている行は捨てない
+    param (
+        [int]$firstVisible,     # 見えている先頭の行の位置（読んである行の中。0 から）
+        [int]$lastVisible,
+        [int]$rowCount,
+        [int]$maxRows = 3000,
+        [int]$chunk = 200
+    )
+
+    if ($rowCount -le $maxRows) { return @{ Side = "none"; Count = 0 } }
+    $above = [Math]::Max(0, $firstVisible)
+    $below = [Math]::Max(0, $rowCount - 1 - $lastVisible)
+    if ($above -gt $below) {
+        return @{ Side = "top"; Count = [Math]::Min($chunk, $above) }
+    }
+    $count = [Math]::Min($chunk, $below)
+    if ($count -le 0) { return @{ Side = "none"; Count = 0 } }
+    return @{ Side = "bottom"; Count = $count }
 }
 
 function getPreviewFillWidth {

@@ -13,6 +13,9 @@ BeforeAll {
 
     # gui.ps1 で決める値
     ${previewFirstLines}    = 50
+    ${previewReadAheadLines} = 20
+    ${previewChunkLines}    = 200
+    ${previewMaxRows}       = 3000
 
     # ---- 画面の偽物 ----
     # 読み込み時に登録されるイベントの処理は $handlers に、呼ばれた操作は $fake に取っておく
@@ -35,11 +38,11 @@ BeforeAll {
         return $part
     }
 
-    $previewScroll = newFakePart "PreviewScroll" @{ ViewportWidth = 400.0; HorizontalOffset = 0.0 } @("ScrollChanged", "PreviewKeyDown")
+    $previewScroll = newFakePart "PreviewScroll" @{ ViewportWidth = 400.0; HorizontalOffset = 0.0; VerticalOffset = 0.0; ViewportHeight = 20.0 } @("ScrollChanged", "PreviewKeyDown")
     $previewScroll | Add-Member ScriptMethod UpdateLayout { }
     $previewScroll | Add-Member ScriptMethod Focus { $true }
     $previewScroll | Add-Member ScriptMethod ScrollToHorizontalOffset { param ($offset) $fake.Scrolls += $offset }
-    $previewScroll | Add-Member ScriptMethod ScrollToVerticalOffset { param ($offset) $fake.VerticalScrolls += $offset }
+    $previewScroll | Add-Member ScriptMethod ScrollToVerticalOffset { param ($offset) $fake.VerticalScrolls += $offset; $this.VerticalOffset = [double]$offset }
     $previewSplitter = newFakePart "PreviewSplitter" @{} @("DragCompleted")
     $resultListHost = newFakePart "ResultListHost" @{ ActualHeight = 0.0; ActualWidth = 0.0 } @("SizeChanged")
     $headerScroll = newFakePart "PreviewHeaderScroll" @{ Visibility = "Collapsed" }
@@ -124,6 +127,7 @@ BeforeAll {
         $fake.VerticalScrolls = @()
         $fake.HeaderScrolls = @()
         $ui.PreviewScroll.ViewportWidth = 400.0
+        $ui.PreviewScroll.VerticalOffset = 0.0
         $ui.ResultGrid.SelectedItem = $null
         clearDetail
     }
@@ -324,7 +328,7 @@ Describe "showDetail" -Tag Io {
 
     Context "前後の行を読めないとき" {
         It "選んだ行だけを出す" {
-            Mock readContentIndexContext { throw "読めません" }
+            Mock readContentIndexLines { throw "読めません" }
             $fake.Current = newHitRow "議事録.docx" "ページ001" 2 @("はじめに", "見積の件", "おわりに") ""
 
             showDetail
@@ -567,5 +571,64 @@ Describe "イベント" -Tag Unit {
         $handlers["PreviewHeader.DragDelta"].Invoke($ui.PreviewHeader, $e)
 
         $column.Width | Should -Be 130
+    }
+}
+
+Describe "プレビューの読み足し（スクロールに合わせて、上と下に行を足す）" -Tag Io {
+    BeforeEach {
+        resetPreview
+        $script:longLines = @(1..1000 | ForEach-Object { "行$_`t値$_" })
+    }
+
+    BeforeAll {
+
+    }
+
+    It "最初は選択行の前後 50 行ずつ（101 行）を読み、選択行が上から 3 行目に来るよう縦にスクロールする" {
+        $lines = @(1..200 | ForEach-Object { "`t行$_" })
+        $lines[119] = "`t見積"
+        $fake.Current = newHitRow "見積.xlsx" "4月" 120 $lines
+
+        showDetail
+
+        $rows = $script:previewTable.Rows
+        $rows.Count | Should -Be 101
+        $rows[0].Number | Should -Be "70"
+        $rows[100].Number | Should -Be "170"
+        $rows[50].IsHitRow | Should -Be $true
+        $fake.VerticalScrolls[-1] | Should -Be 48
+    }
+
+    It "先頭に近い行は、前の行が無い分だけ読み、先頭から縦に出す" {
+        $fake.Current = newHitRow "見積.xlsx" "4月" 2 @("`t前", "`t見積", "`t後")
+
+        showDetail
+
+        $script:previewTable.Rows.Count | Should -Be 3
+        $fake.VerticalScrolls[-1] | Should -Be 0
+    }
+
+    It "検索のあとにインデックスが短くなり、選んだ行が無くなっていても落ちない" {
+        $row = newHitRow "見積.xlsx" "4月" 5 @("`ta", "`tb", "`tc", "`td", "`t見積")
+        writeHitContentIndex ([System.IO.Path]::Combine($row.Root, $row.RelPath)) $row.Book $row.Location @("`ta", "`tb")
+        $fake.Current = $row
+
+        showDetail
+
+        @($script:previewTable.Rows | Where-Object { $_.IsHitRow }).Count | Should -Be 0
+        $script:previewTable.Rows.Count | Should -Be 2
+        $fake.Scrolls[-1] | Should -Be 0
+        $fake.VerticalScrolls[-1] | Should -Be 0
+    }
+
+    It "インデックスの本文インデックスのファイルが読めなければ、選んだ行だけを出す" {
+        $row = newHitRow "見積.xlsx" "4月" 2 @("`t前", "`t見積", "`t後")
+        Remove-Item -LiteralPath ([System.IO.Path]::Combine($row.Root, $row.RelPath))
+        $fake.Current = $row
+
+        showDetail
+
+        $script:previewTable.Rows.Count | Should -Be 1
+        $script:previewTable.Rows[0].Number | Should -Be "2"
     }
 }

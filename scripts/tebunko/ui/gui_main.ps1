@@ -14,6 +14,9 @@ function startGui {
 
     ${searchLimit} = 10000
     ${previewFirstLines}    = 50   # 行を選んだときに、プレビューへ最初に出す選択行の前後の行数（それぞれ）
+    ${previewReadAheadLines} = 20  # 見えている行が、読んである範囲の端からこの行数以内に近づいたら、その向きに読み足す
+    ${previewChunkLines}    = 200  # 1 回に読み足す行数（持つ行が上限を超えたとき、遠い側から捨てる行数も同じ）
+    ${previewMaxRows}       = 3000 # プレビューに持つ行の上限（超えたら、見ている所から遠い側を捨てる）
     ${backgroundWorkers} = 2  # startJob のスレッドの数
 
     # 画面定義（XAML）とアイコンの置き場所
