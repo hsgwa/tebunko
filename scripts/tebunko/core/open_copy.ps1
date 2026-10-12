@@ -194,6 +194,10 @@ function clearOldOpenCopies {
         if (!(testOpenCopyDir $copyDir $tmpRoot)) {
             break
         }
+        # 消すフォルダ自身も、列挙してから消すまでの間にリンクに替わっていないかを確かめる（リンクなら辿らない）
+        if (testOpenCopyReparsePoint $old.FullName) {
+            continue
+        }
         foreach ($copy in @(Get-ChildItem -LiteralPath $old.FullName -File -Force)) {
             if ($copy.Attributes -band [System.IO.FileAttributes]::ReparsePoint) {
                 continue

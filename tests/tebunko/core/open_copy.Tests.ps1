@@ -314,18 +314,35 @@ Describe "clearOldOpenCopies" -Tag Io {
         Test-Path -LiteralPath $other | Should -Be $false
     }
 
-    It "消す直前に置き場所の確かめが偽になったら、何も消さずに止める" {
+    It "フォルダごとの消す直前に置き場所の確かめが偽になったら、そこで止める（<name>）" -TestCases @(
+        @{ name = "最初のフォルダの前で偽（真・偽）"; trueCount = 1; cleared = 0; calls = 2; firstStays = $true; secondStays = $true }
+        @{ name = "2 つ目のフォルダの前で偽（真・真・偽）"; trueCount = 2; cleared = 1; calls = 3; firstStays = $false; secondStays = $true }
+    ) {
+        param ($name, $trueCount, $cleared, $calls, $firstStays, $secondStays)
         $copyDir = newCopyDir "clear3b"
         $old = newOldCopy $copyDir "old1" "a.txt" $script:now.AddDays(-2)
         $other = newOldCopy $copyDir "old2" "b.txt" $script:now.AddDays(-2)
         $script:placeChecks = 0
-        Mock testOpenCopyDir { $script:placeChecks++; return ($script:placeChecks -le 1) }
+        $script:placeTrueCount = $trueCount
+        Mock testOpenCopyDir { $script:placeChecks++; return ($script:placeChecks -le $script:placeTrueCount) }
 
-        clearOldOpenCopies $copyDir (getTmpRoot "clear3b") $script:now | Should -Be 0
+        clearOldOpenCopies $copyDir (getTmpRoot "clear3b") $script:now | Should -Be $cleared
 
-        $script:placeChecks | Should -Be 2
+        $script:placeChecks | Should -Be $calls
+        Test-Path -LiteralPath "$old\a.txt" | Should -Be $firstStays
+        Test-Path -LiteralPath "$other\b.txt" | Should -Be $secondStays
+    }
+
+    It "消すフォルダ自身が、列挙のあとにリンクに替わっていたら、辿らずに残す" {
+        $copyDir = newCopyDir "clear3c"
+        $old = newOldCopy $copyDir "old1" "a.txt" $script:now.AddDays(-2)
+        $other = newOldCopy $copyDir "old2" "b.txt" $script:now.AddDays(-2)
+        Mock testOpenCopyReparsePoint { param ([string]$path) return $path.EndsWith("\old1") }
+
+        clearOldOpenCopies $copyDir (getTmpRoot "clear3c") $script:now | Should -Be 1
+
         Test-Path -LiteralPath "$old\a.txt" | Should -Be $true
-        Test-Path -LiteralPath "$other\b.txt" | Should -Be $true
+        Test-Path -LiteralPath $other | Should -Be $false
     }
 
     It "フォルダが無ければ何もしない" {

@@ -846,7 +846,7 @@ Describe "openSource" -Tag Unit {
             param ($book, $isExcel)
             Mock getCurrentHitRow { newRow $book $isExcel } -ParameterFilter { $true }
             Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\$($row.Book)" }
-            Mock copySourceForOpen { "" }
+            Mock copySourceForOpen { @{ Path = ""; Reason = "" } }
 
             openSource ${openModeNew}
             Should -Invoke copySourceForOpen -Times 0 -Exactly
@@ -855,7 +855,7 @@ Describe "openSource" -Tag Unit {
         It "新規以外の開き方では、コピーを作らない" {
             Mock getCurrentHitRow { newRow "仕様書.pdf" $false $true }
             Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\仕様書.pdf" }
-            Mock copySourceForOpen { "" }
+            Mock copySourceForOpen { @{ Path = ""; Reason = "" } }
 
             openSource ${openModeNormal}
             Should -Invoke copySourceForOpen -Times 0 -Exactly
