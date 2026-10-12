@@ -4256,7 +4256,7 @@
 <tr>
 <td>選択行のプレビュー</td>
 <td><code>tests/tebunko/ui/preview.Tests.ps1</code></td>
-<td>表示・消去、最初に読む行数と縦の位置、セルを選んでいないときのコピーの案内、イベント、読み込み（<code>startJob</code>）の結果の扱い（読んでいる間に別の行を選んだら古い結果を出さない・後から頼んだ読み込みがあれば先の分は捨てる・読めないときは選んだ行だけを出す）</td>
+<td>表示・消去、最初に読む行数と縦の位置、セルを選んでいないときのコピーの案内、イベント、読み込み（<code>startJob</code>）の結果の扱い（読んでいる間に別の行を選んだら古い結果を出さない・後から頼んだ読み込みがあれば先の分は捨てる・読めないときは選んだ行だけを出す）、全部の列を持つこと（見出しとセルは見えている列だけ）。表と列の範囲は <code>types.Tests.ps1</code>・<code>preview_view.Tests.ps1</code>（<code>getPreviewColumnWindow</code>）</td>
 </tr>
 <tr>
 <td>元のファイルを開く</td>

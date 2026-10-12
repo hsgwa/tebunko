@@ -4245,7 +4245,7 @@
 <td><code>.\tests\run.ps1 -Tag Slow -ExcludeTag Manual -Path tests\tools\perf_preview.Tests.ps1</code></td>
 </tr>
 <tr>
-<td>プレビューの表の描画（<code>-Render</code>）と、表を作る時間の 1 回目・2 回目以降</td>
+<td>プレビューの表の描画（<code>-Render</code>。部品の数・スクロールの時間・残るメモリを含む）、読み足し（<code>-ReadMore</code>）、作ったセルの数、表を作る時間の 1 回目・2 回目以降</td>
 <td>値を出すだけで、上限は置かない（選択行のプレビューと同じテストで測る。<code>powershell.exe</code> の子プロセスは既定で STA なので、画面を出さずに Measure・Arrange できる）</td>
 <td>上と同じ。小さなインデックスでの動作確認は <code>.\tests\run.ps1 -Tag Gui -Path tests\tools\perf_preview.Tests.ps1</code></td>
 </tr>
