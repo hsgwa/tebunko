@@ -128,7 +128,10 @@ Describe "new_single_script.ps1 の道具の検査" -Tag Io {
     It "同梱する第三者の部品のライセンス文（scripts\shared\licenses\LICENSE-*.txt）が、元のファイルと同じ中身で本体に入っている" {
         $licenseDir = Join-Path "${scriptsDir}" "shared\licenses"
         $files = @(getLicenseFiles $licenseDir)
+        # 件数が、フォルダの LICENSE-*.txt の数と同じ（入れ子の配列で 1 件に数えていない）
+        $files.Count | Should -Be @(Get-ChildItem -LiteralPath $licenseDir -Filter "LICENSE-*.txt" -File).Count
         $files.Count | Should -BeGreaterThan 0
+        $files[0] | Should -BeOfType ([System.IO.FileInfo])
         foreach ($file in $files) {
             # 元のファイルの改行は、チェックアウトの設定（autocrlf）で LF にも CRLF にもなるため、CRLF にそろえて比べる
             $original = normalizeLicenseText ([System.IO.File]::ReadAllText($file.FullName))

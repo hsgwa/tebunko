@@ -16,8 +16,9 @@ function normalizeLicenseText {
     return $normalized
 }
 
-# ライセンス文の文字列を、「ここから」〜「ここまで」の印を付けた # のコメントにする。空（空白だけ）なら止める
-function convertToLicenseComment {
+# コメントにできる文面か確かめる。空（空白だけ）・改行を伴わない CR だけの行区切りがあるときは止める
+# （PowerShell は CR だけでも改行と読むため、その後ろがコメントの外に出てしまう）
+function assertLicenseText {
     param (
         [string]$fileName,
         [string]$text
@@ -26,6 +27,19 @@ function convertToLicenseComment {
     if (($text -replace "\s", "").Length -eq 0) {
         throw "ライセンス文が空です: $fileName"
     }
+    if ($text -match "\r(?!\n)") {
+        throw "ライセンス文に、改行（CRLF・LF）を伴わない CR だけの行区切りがあります: $fileName"
+    }
+}
+
+# ライセンス文の文字列を、「ここから」〜「ここまで」の印を付けた # のコメントにする。空・CR だけの行区切りがあれば止める
+function convertToLicenseComment {
+    param (
+        [string]$fileName,
+        [string]$text
+    )
+
+    assertLicenseText $fileName $text
     $block = New-Object System.Collections.Generic.List[string]
     [void]$block.Add("# ---- 第三者の部品のライセンス文: $fileName（ここから）----")
     $lines = @($text -split "\r?\n")
@@ -54,13 +68,20 @@ function restoreLicenseFromComment {
     }
     $restored = New-Object System.Collections.Generic.List[string]
     for ($i = $from + 1; $i -lt $to; $i++) {
-        [void]$restored.Add($(if ($lines[$i] -eq "#") { "" } else { $lines[$i].Substring(2) }))
+        if ($lines[$i] -eq "#") {
+            [void]$restored.Add("")
+        } elseif ($lines[$i].StartsWith("# ")) {
+            [void]$restored.Add($lines[$i].Substring(2))
+        } else {
+            # コメントでない行（印の間の空行など）が混ざっている。元の形には戻せない
+            return $null
+        }
     }
     return (($restored -join "`r`n") + "`r`n")
 }
 
 # フォルダの LICENSE-*.txt を、名前の順（言語・地域に依らない文字コード順）で返す。
-# フォルダが無い・1 件も無い・空（空白だけ）のファイルがあるときは止める（配布物の検査 tools\check_release_package.ps1 と同じく、空のまま作らないため）
+# フォルダが無い・1 件も無い・空（空白だけ）のファイル・CR だけの行区切りがあるファイルがあるときは止める（配布物の検査 tools\check_release_package.ps1 と同じく、空のまま作らないため）
 function getLicenseFiles {
     param ([string]$dir)
 
@@ -76,9 +97,7 @@ function getLicenseFiles {
     }
     $list.Sort([Comparison[System.IO.FileInfo]] { param ($a, $b) [string]::CompareOrdinal($a.Name, $b.Name) })
     foreach ($file in $list) {
-        if (([System.IO.File]::ReadAllText($file.FullName) -replace "\s", "").Length -eq 0) {
-            throw "ライセンス文のファイルが空です: $($file.Name)"
-        }
+        assertLicenseText $file.Name ([System.IO.File]::ReadAllText($file.FullName))
     }
-    return , $list.ToArray()
+    return $list.ToArray()
 }
