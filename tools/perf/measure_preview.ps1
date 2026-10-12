@@ -118,7 +118,16 @@ try {
         if ($fullReadProblems.Count -gt 0) { throw ("-FullRead で全部読む経路を通っていません: " + ($fullReadProblems -join " / ")) }
     }
 
-    # -Render は、GC のあとの値を取る前に済ませる（表は描画に使うので、それまで捨てない。描画した分も GC のあとの値に入る）
+    # このスクリプトが持つものを捨ててから、GC のあとのワーキングセットを見る（残った増えは、画面が持ち続けたものとみなす。戻らなければリークの疑い）
+    $table = $null; $row = $null; $context = $null; $numbers = $null; $lines = $null; $item = $null; $snap = $null
+    collectAll
+    $afterGc = getMemory
+    # 検索のキャッシュを捨てた分（キャッシュの常駐の大きさ）
+    $cache.Texts.Clear(); $cache.Chars[0] = 0
+    collectAll
+    $afterCacheDrop = getMemory
+
+    # -Render は、残った増え（GC のあとの値）を取ったあとに行う（描画で増えた分を、プレビューが持ち続けるものに入れない）。描画に使う表（$wide）だけは、それまで持っておく
     if ($Render) {
         setMonitorPhase $monitor "描画"
         if ([System.Threading.Thread]::CurrentThread.GetApartmentState() -ne [System.Threading.ApartmentState]::STA) { throw "-Render は STA のプロセスで動かしてください。" }
@@ -148,15 +157,6 @@ try {
         $headerControl.ItemsSource = $null; $rowsControl.ItemsSource = $null
         $content = $null; $headerControl = $null; $rowsControl = $null
     }
-
-    # このスクリプトが持つものを捨ててから、GC のあとのワーキングセットを見る（残った増えは、画面が持ち続けたものとみなす。戻らなければリークの疑い）
-    $table = $null; $row = $null; $context = $null; $numbers = $null; $lines = $null; $item = $null; $snap = $null; $wide = $null
-    collectAll
-    $afterGc = getMemory
-    # 検索のキャッシュを捨てた分（キャッシュの常駐の大きさ）
-    $cache.Texts.Clear(); $cache.Chars[0] = 0
-    collectAll
-    $afterCacheDrop = getMemory
 } finally {
     $samples = stopResourceMonitor $monitor
 }
