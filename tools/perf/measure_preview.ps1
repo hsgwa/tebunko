@@ -91,7 +91,8 @@ try {
             $buildMs = $watch.Elapsed.TotalMilliseconds
             $columns = $table.ShownColumns
             $cells = $table.Rows.Count * $columns
-            if ($mode -eq "無し" -and ($null -eq $wide -or $cells -gt $wide.Cells)) { $wide = @{ Cells = $cells; Table = $table } }
+            # 表を持ち続けるのは -Render のときだけ（GC のあとに残る増えに、このスクリプトが持つ表が入らないようにする）
+            if ($mode -eq "無し" -and ($null -eq $wide -or $cells -gt $wide.Cells)) { $wide = @{ Cells = $cells; Table = $(if ($Render) { $table } else { $null }) } }
             $item = [ordered]@{
                 N = $n; Cache = $mode; LineNumber = [int]$hit.LineNumber; FileMB = [Math]::Round((Get-Item -LiteralPath (toLongPath $path)).Length / 1MB, 2)
                 ReadMs = (roundMs $readMs); BuildMs = (roundMs $buildMs); ContextRows = $context.Count; Rows = $table.Rows.Count; Columns = $columns; Cells = $cells
@@ -103,15 +104,7 @@ try {
     }
     $afterPreview = getMemory
 
-    # 画面が表を持ち続けないものとして、GC のあとのワーキングセットを見る（戻らなければリークの疑い）
-    $table = $null; $row = $null; $context = $null
-    collectAll
-    $afterGc = getMemory
-    # 検索のキャッシュを捨てた分（キャッシュの常駐の大きさ）
-    $cache.Texts.Clear(); $cache.Chars[0] = 0
-    collectAll
-    $afterCacheDrop = getMemory
-
+    # -Render は、GC のあとの値を取る前に済ませる（表は描画に使うので、それまで捨てない。描画した分も GC のあとの値に入る）
     if ($Render) {
         setMonitorPhase $monitor "描画"
         if ([System.Threading.Thread]::CurrentThread.GetApartmentState() -ne [System.Threading.ApartmentState]::STA) { throw "-Render は STA のプロセスで動かしてください。" }
@@ -137,7 +130,18 @@ try {
             Cells = $wide.Cells; Rows = $wide.Table.Rows.Count; Columns = $wide.Table.ShownColumns
             RenderMs = @($times | ForEach-Object { roundMs $_ }); WorkingSetBeforeMB = $before.WorkingSetMB; WorkingSetAfterMB = $afterRender.WorkingSetMB
         }
+        $headerControl.ItemsSource = $null; $rowsControl.ItemsSource = $null
+        $content = $null; $headerControl = $null; $rowsControl = $null
     }
+
+    # このスクリプトが持つものを捨ててから、GC のあとのワーキングセットを見る（残った増えは、画面が持ち続けたものとみなす。戻らなければリークの疑い）
+    $table = $null; $row = $null; $context = $null; $numbers = $null; $lines = $null; $item = $null; $snap = $null; $wide = $null
+    collectAll
+    $afterGc = getMemory
+    # 検索のキャッシュを捨てた分（キャッシュの常駐の大きさ）
+    $cache.Texts.Clear(); $cache.Chars[0] = 0
+    collectAll
+    $afterCacheDrop = getMemory
 } finally {
     $samples = stopResourceMonitor $monitor
 }
