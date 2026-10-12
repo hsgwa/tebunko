@@ -343,8 +343,8 @@ function assertAsciiScriptResult {
         }
     }
 
-    # 確かめ 2: 二重引用符の文字列は、(a) 展開される式（$var・$(...)）の数と中身が前後で同じ（書き換えで足した
-    # $([regex]::Unescape('..')) を除く）、(b) 書き換えた文字列の値の $([regex]::Unescape('..')) を戻すと、元の値と同じになる
+    # 確かめ 2: 二重引用符の文字列は、(a) 残した式（$var・$(...)）の数が前後で同じで、書き換えで足した
+    # $([regex]::Unescape('..')) のほかに、展開される式が増えていない（残した式の中身そのものは比べない）、(b) 書き換えた文字列の値の $([regex]::Unescape('..')) を戻すと、元の値と同じになる
     foreach ($c in $checkDouble) {
         $oldValue = getParsedStringValue $c.Old
         $newValue = getParsedStringValue $c.New
