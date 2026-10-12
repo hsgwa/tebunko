@@ -4550,7 +4550,7 @@
 <li><strong>行番号</strong>: 本体の前に、頭の行数と同じ数の空行を足して作るので、エラーの <code>At line:N</code> の <code>N</code> は、単一 .ps1 のファイルの行番号と同じになる。ただし、ファイル名は出ない。</li>
 <li><strong>子プロセス</strong>: <code>-Part indexer</code> で起こす子も、同じ頭を通るので、BOM が落ちていても動く。</li>
 <li><strong>言語モード</strong>: <code>FullLanguage</code> でなければ、頭が英語の 1 行を出して終了コード 1 で止まる（ScriptBlock を作れないため）。</li>
-<li><strong>禁止の語</strong>: 検査 5 は、包む前の本体に対して行う（上の表）。頭の <code>[scriptblock]::Create</code> は、この包みのために足したもので、検査の対象ではない（<code>[ScriptBlock]::Create</code> は禁止の語の一覧にあるが、頭は包んだあとに足すため）。別スレッドの部品の読み込み（<code>importTebunkoPart</code>）も、文字列から関数を登録して実行する形だが、EDR の見え方は実機でしか確かめられない。</li>
+<li><strong>禁止の語</strong>: 検査 5 は、包む前の本体に対して行う（上の表）。頭の <code>[scriptblock]::Create</code> は、この包みのために足した、禁止の語の唯一の例外である（理由・範囲は <a href="../../../safety/checks/#文字列を式として実行1の例外">安全性の確認</a>）。包んだあとの全体を、構文木で、尾の最後の 1 行のほかに Create・<code>Invoke-Expression</code>・<code>iex</code> が無いことと、その行を除いた全体に禁止の語が無いことを確かめる（下の「包んだあとの確かめ」）。別スレッドの部品の読み込み（<code>importTebunkoPart</code>）も、文字列から関数を登録して実行する形だが、EDR の見え方は実機でしか確かめられない。</li>
 </ul>
 <p>範囲の外: Shift_JIS で保存し直した単一 .ps1。5.1 では動く（日本語以外の文字は <code>?</code> になる）が、7 では UTF-8 として読み直せず、ASCII の案内を出して止まる。貼り付けて実行する形（ファイルのパスが無い）も対象にしない（<code>${bundledScriptPath}</code> が要るため、もともと動かない）。展開した版（zip）は変えない。</p>
 <p>包んだあとの確かめ（1 つでも失敗したら何も書き出さずに止まる）:</p>
@@ -4558,11 +4558,12 @@
 <li>構文エラーが 0 件である。</li>
 <li>UTF-8 のバイトを CP932 で読み違えた文字列でも、構文エラーが 0 件である。</li>
 <li>頭と尾が ASCII だけで、行頭が <code>'@</code> の行が 2 本（判定と本体の終わり）だけである。</li>
+<li>ScriptBlock の Create・<code>Invoke-Expression</code>・<code>iex</code> の呼び出しが、末尾の最後の 1 行（一字一句同じ）だけで、その行を除いた全体（本体の文字列を含む）に禁止の語が無い。</li>
 <li>版の文字列が残っている。</li>
 </ul>
 <p>テストは次のとおり。</p>
 <ul>
-<li><code>tests/tools/single_script_guard.Tests.ps1</code> … 包む規則（変数の書き換え・退避と復元・止める場合・行番号）と、包んだ <code>.ps1</code> を別プロセスで起動した結果（BOM 付き・BOM なし・Windows PowerShell 5.1・PowerShell 7）。日本語の文字列・<code>$PSScriptRoot</code>・<code>$PSCommandPath</code>・引数・終了コード・エラーの行番号を見る。</li>
+<li><code>tests/tools/single_script_guard.Tests.ps1</code> … 包む規則（変数の書き換え・退避と復元・止める場合・行番号・Create の例外が 1 行だけであること）と、包んだ <code>.ps1</code> を別プロセスで起動した結果（BOM 付き・BOM なし・Windows PowerShell 5.1・PowerShell 7）と、言語モードが ConstrainedLanguage のときの止まり方。日本語の文字列・<code>$PSScriptRoot</code>・<code>$PSCommandPath</code>・引数・終了コード・エラーの行番号を見る。</li>
 <li><code>tests/tools/new_single_script.Tests.ps1</code> … ビルドと検査そのもの（まとめる順・部品・新しい別スレッドでの読み込み・<code>-Part indexer</code>）と、出力が BOM 付き UTF-8 であること、頭と尾が ASCII だけであること、本体の行番号がファイルの行番号と同じであること、BOM の有無にかかわらず別プロセスで起動して日本語の記録が正しく出ること（Windows PowerShell 5.1・PowerShell 7）。</li>
 <li><code>tests/meta/structure.Tests.ps1</code> … ソースを 1 本にしても壊れない決まり（別スレッドがパスで部品を読まない・<code>${bundledScriptPath}</code> を dot-source や呼び出しに使わない・トップレベルの <code>trap</code>／<code>exit</code> の形・作った 1 本をコミットしない）。</li>
 <li><code>tests/meta/layers.Tests.ps1</code>・<code>tests/meta/safety.Tests.ps1</code> … 層の決まりと禁止の語を、まとめる元のソースに対して確かめる。</li>
