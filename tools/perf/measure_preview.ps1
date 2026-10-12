@@ -1,8 +1,8 @@
 ﻿# 選択行のプレビューの時間とメモリを測る。tools\measure_perf.ps1 が別のプロセスで起動する。
 # 検索してヒットを得たあと、ヒットの行を先頭から順に -Count 件、結果の表を↓キーで移るのと同じ順にプレビューする（前後 50 行ずつ。画面の上限と同じ 101 行）。
-#   ・キャッシュ無し … readContentIndexContext にキャッシュを渡さない（検索に入らなかったファイル・キャッシュを捨てたあとの選択に当たる）。先に測る
+#   ・キャッシュ無し … 読みにキャッシュを渡さない（検索に入らなかったファイル・キャッシュを捨てたあとの選択に当たる）。先に測る
 #   ・キャッシュあり … 検索のキャッシュ（newTsvTextCache）を渡す（検索の直後の選択に当たる）
-# 1 回ごとに ReadMs（readContentIndexContext）・BuildMs（HitRow.BuildPreview）・CellsMs（画面が最初に出す範囲のセルを作る時間）と、
+# 1 回ごとに ReadMs（画面の最初の読みと同じ呼び方）・BuildMs（HitRow.BuildPreview）・CellsMs（画面が最初に出す範囲のセルを作る時間）と、
 # 表の全部のセルの数（Cells。行 × 全部の列）・実際に作ったセルの数（CreatedCells）、プロセスのメモリを記録する。
 # 前の版（全部のセルを BuildPreview が作る版）を測るときは、CreatedCells は Cells と同じ。
 # 検索の直後・プレビューのあと・GC のあと・検索のキャッシュを捨てたあとのワーキングセットも記録する（画面のメモリが戻るか・キャッシュの常駐の大きさを見る）。
@@ -31,7 +31,9 @@ foreach ($typesFile in @("scripts\shared\ui\types.ps1", "scripts\tebunko\ui\type
     if (!(Test-Path -LiteralPath $typesPath)) { throw "測る tebunko に $typesFile がありません。" }
     . ([WildcardPattern]::Escape($typesPath.Replace('`', '``')))
 }
-assertTebunkoFunctions @("newTsvTextCache", "readContentIndexContext", "readContentIndexText")
+assertTebunkoFunctions @("newTsvTextCache", "readContentIndexText")
+# 前後を読む関数: 今の版は readContentIndexLines、前の版は readContentIndexContext
+[void](resolveTebunkoFunction @("readContentIndexLines", "readContentIndexContext"))
 # 見えている列の範囲を決める判断（列の仮想化がある版だけ）。無い版（前の版）は全部のセルを BuildPreview が作る
 $previewViewPath = Join-Path $Tool "scripts\tebunko\ui\preview_view.ps1"
 if (Test-Path -LiteralPath $previewViewPath) { . ([WildcardPattern]::Escape($previewViewPath.Replace('`', '``'))) }
@@ -53,6 +55,21 @@ $beforeLines = 50
 $afterLines = 50
 
 function roundMs($value) { return [Math]::Round([double]$value, 2) }
+
+# 画面の最初の読み（showDetail）と同じ呼び方で、ヒットの前後を読む。画面と同じく、最後に読んだファイルの控えを次の読みに渡す。
+# 読み足しの関数（readContentIndexLines）が無い前の版は、前後を読む関数（readContentIndexContext）で読む
+$script:readFirstMarks = $null
+$canReadLines = $null -ne (Get-Command readContentIndexLines -CommandType Function -ErrorAction SilentlyContinue)
+function readPreviewFirst($hit, [string]$path, $cacheArg) {
+    $lineNumber = [int]$hit.LineNumber
+    if (-not $canReadLines) {
+        return @(readContentIndexContext $path $hit.Book $hit.Location $lineNumber $beforeLines $afterLines $cacheArg)
+    }
+    $first = [Math]::Max(1, $lineNumber - $beforeLines)
+    $result = readContentIndexLines $path $hit.Book $hit.Location $first ($lineNumber - $first + 1 + $afterLines) $cacheArg $script:readFirstMarks
+    $script:readFirstMarks = $result.Marks
+    return @($result.Rows)
+}
 
 # 画面を想定した大きさ（描画の計測の枠と同じ）。見える行の数は 1 行 22 px ほどとして 30 行
 $viewWidth = 1400.0
@@ -131,11 +148,11 @@ try {
         foreach ($hit in $hits) {
             $n++
             $path = [System.IO.Path]::Combine($hit.Root, $hit.RelPath)
-            # -FullRead: 場所の一覧の控えを捨て、毎回ファイルの全体を読む経路に入れる（範囲読みを入れる前の読み方に当たる）
-            if ($FullRead) { $script:contentIndexPlacesMemo = $null }
+            # -FullRead: 控えを捨て、毎回ファイルの全体を読む経路に入れる（初めて開くファイルの最初の読みに当たる）
+            if ($FullRead) { $script:readFirstMarks = $null; $script:contentIndexPlacesMemo = $null }
             $callsBefore = $script:readTextCalls
             $watch = [System.Diagnostics.Stopwatch]::StartNew()
-            $context = @(readContentIndexContext $path $hit.Book $hit.Location ([int]$hit.LineNumber) $beforeLines $afterLines $cacheArg)
+            $context = @(readPreviewFirst $hit $path $cacheArg)
             $readMs = $watch.Elapsed.TotalMilliseconds
             $textCalls = $script:readTextCalls - $callsBefore
             $relDir = [string]$hit.RelDir
@@ -189,10 +206,12 @@ try {
         $cut = $relDir.IndexOf("\")
         $indexName = if ($cut -lt 0) { $relDir } else { $relDir.Substring(0, $cut) }
         $moreRow = [HitRow]::Create($indexName, $hit.Root, $hit.RelPath, $relDir, $hit.FileName, $hit.Book, $hit.Location, [int]$hit.LineNumber, $hit.Line, $Word, $pattern)
-        $context = @(readContentIndexContext $path $hit.Book $hit.Location ([int]$hit.LineNumber) $beforeLines $afterLines $null)
+        # 初めて開くファイルとして最初の読みをし、その控えで読み足す（画面と同じ）
+        $script:readFirstMarks = $null
+        $context = @(readPreviewFirst $hit $path $null)
         $moreTable = $moreRow.BuildPreview([int[]]@($context | ForEach-Object { $_.LineNumber }), [string[]]@($context | ForEach-Object { $_.Line }))
         showInitialCells $moreTable
-        $marks = $null
+        $marks = $script:readFirstMarks
         $nextLine = $moreTable.LastLine() + 1
         for ($i = 0; $i -lt 5; $i++) {
             $watch = [System.Diagnostics.Stopwatch]::StartNew()
