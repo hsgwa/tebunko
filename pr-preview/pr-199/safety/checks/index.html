@@ -4285,9 +4285,9 @@
 <tbody>
 <tr>
 <td>1</td>
-<td>文字列を式として実行（<code>Invoke-Expression</code> / 行頭を含む <code>iex</code> / <code>[ScriptBlock]::Create</code> / <code>NewScriptBlock</code> / <code>InvokeScript</code> / 型を変数に入れた <code>::Create</code>。ブロックコメントの終わり <code>#&gt;</code> の後ろのコードも見る）</td>
+<td>文字列を式として実行（<code>Invoke-Expression</code> / 行頭を含む <code>iex</code> / <code>[ScriptBlock]::Create</code> / <code>NewScriptBlock</code> / <code>InvokeScript</code> / 型を変数に入れた <code>::Create</code>。<code>scan</code> は大文字小文字を区別せず、行頭が <code>#</code> の行だけを除く。ブロックコメントの終わり <code>#&gt;</code> の後ろのコード・同じ行の <code>#&gt;</code> が複数のときの間のコードは、<code>findBannedCode</code>（テストと道具）が見る）</td>
 <td>該当 0 件（配布する単一 .ps1 の末尾 1 行だけが例外。<a href="#文字列を式として実行1の例外">下記</a>）</td>
-<td><code>scan 'Invoke-Expression','(^|[^-\w])iex(?![-\w])','ScriptBlock\]\s*::\s*Create','NewScriptBlock','InvokeScript','\$\{?\w+\}?\s*::\s*Create'</code></td>
+<td><code>scan 'Invoke-Expression','^iex(?![-\w])','[^-\w]iex(?![-\w])','ScriptBlock\]\s*::\s*Create','NewScriptBlock','InvokeScript','\$\{?[\w:]+\}?\s*::\s*Create'</code></td>
 </tr>
 <tr>
 <td>2</td>
