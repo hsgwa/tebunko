@@ -1113,6 +1113,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#ログに書く版と環境の情報" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ログに書く版と環境の情報
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#インデックスが元文書の本文を保持する情報の集約" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4245,6 +4256,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#ログに書く版と環境の情報" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ログに書く版と環境の情報
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#インデックスが元文書の本文を保持する情報の集約" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4426,6 +4448,57 @@
 </tr>
 </tbody>
 </table>
+<h2 id="ログに書く版と環境の情報">ログに書く版と環境の情報<a class="headerlink" href="#ログに書く版と環境の情報" title="Permanent link">&para;</a></h2>
+<p>インデックス作成のログ（<code>indexing_log.txt</code>）の先頭と、画面のエラーの記録（<code>gui_error_log.txt</code>）の、画面を開いて最初の記録の前・ワークスペースを切り替えた後の最初の記録の前・記録を前の分に移した後の最初の記録の前に、不具合の切り分けに使う見出しを書く（<code>getToolDiagnosticHeader</code>）。</p>
+<table>
+<thead>
+<tr>
+<th>項目</th>
+<th>内容</th>
+<th>調べ方</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>日時</td>
+<td>UTC との差を含む</td>
+<td><code>DateTimeOffset.Now</code></td>
+</tr>
+<tr>
+<td>tebunko の版</td>
+<td><code>VERSION.txt</code> のタグと、コミットの先頭 7 桁。無ければ <code>開発版</code></td>
+<td>ツールのフォルダの <code>VERSION.txt</code></td>
+</tr>
+<tr>
+<td>OS</td>
+<td><code>OSVersion.Version</code>・<code>ntoskrnl.exe</code> のファイルバージョン・64 ビットか</td>
+<td>.NET の <code>Environment</code>・<code>FileVersionInfo</code></td>
+</tr>
+<tr>
+<td>PowerShell</td>
+<td>版・64 ビットか・言語モード</td>
+<td><code>$PSVersionTable</code>・<code>$ExecutionContext</code></td>
+</tr>
+<tr>
+<td>Office</td>
+<td>Excel・Word・PowerPoint の実行ファイルの版・Click-to-Run か MSI か・ビット数。無ければ <code>見つからない</code></td>
+<td><code>Program Files</code> の決まった場所のファイルを <code>FileVersionInfo</code> で読む</td>
+</tr>
+<tr>
+<td>表示言語</td>
+<td>画面の言語</td>
+<td><code>CurrentUICulture</code></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>調べられない項目は <code>不明</code> と書く。1 項目が調べられなくても、ほかの項目と記録の本体は書く。</li>
+<li><strong>見出しには、利用者名・コンピューター名・ドメイン名・パス・ネットワークの情報・Office のアカウントを書かない。</strong></li>
+<li>Office は、Windows のあるドライブの <code>Program Files</code>・<code>Program Files (x86)</code> の決まった場所だけを探す。ほかのドライブに入れた Office や、ほかの版（Office 2010 以前など）は <code>見つからない</code> と出る。</li>
+<li><strong>ログの本体（見出しの後ろ）には、クロール対象フォルダ・ワークスペースのパス（絶対パス）、ファイルの相対パス、エラーの内容がそのまま入る。</strong> 利用者名を含むパスが入ることがある。文書の本文は書かない。ログはワークスペースのアクセス権で守られる。外へ渡す（Issue に貼る・メールで送る）ときは、利用者が該当部分を伏せる。</li>
+<li>レジストリ・WMI・COM は使わない。Office は起動せず、ファイルの版を読むだけである。</li>
+<li>ログのファイルは、増え続けないよう世代を決めている（前の分を置き換えられない場面を除く。インデックス作成のログは前回の分を <code>indexing_log_previous.txt</code> へ、画面のエラーの記録は 1 MB 以上で <code>gui_error_log_previous.txt</code> へ、起動の失敗の記録は 1 MB 以上で <code>startup_error_previous.txt</code> へ移す）。年月での自動削除はしない。仕様は<a href="../../design/structure/io-files/#増え方と片付け">ファイルの読み書き</a>。</li>
+</ul>
 <h2 id="インデックスが元文書の本文を保持する情報の集約">インデックスが元文書の本文を保持する（情報の集約）<a class="headerlink" href="#インデックスが元文書の本文を保持する情報の集約" title="Permanent link">&para;</a></h2>
 <p>本ツールは全文検索のために、<strong>元の文書の本文を平文の TSV として本文インデックス（インデックスのうち <code>work\content_index\</code> の TSV）に保持する</strong>。これはツールの目的そのものであり、避けられない。審査では次の点が論点になる。</p>
 <table>
@@ -4528,7 +4601,7 @@
 <li><strong>起動口 <code>tebunko.exe</code></strong>: 本リポジトリの <code>installer/tebunko.cs</code>（約 100 行）を、リリースのときに Windows 標準の <code>csc.exe</code>（.NET Framework）でビルドする。していることは <code>tebunko.bat</code> と同じで、Windows の PowerShell 5.1 で <code>gui.ps1</code> を <code>-ExecutionPolicy RemoteSigned</code> で起動するだけである（<a href="#mark-of-the-web-の解除tebunkobat">Mark-of-the-Web の解除</a> の「<code>RemoteSigned</code> で起動する理由」）。インストーラーが書いたファイルには Mark-of-the-Web が付かないため、<code>Unblock-File</code> はしない。窓のアプリとしてビルドし、PowerShell も窓を作らずに起動する（<code>conhost.exe</code> は要らない）。PowerShell が 0 以外で終わりエラー出力があれば、その内容をメッセージで出す（実行ポリシーや制限言語モードで <code>gui.ps1</code> を読み込めないときに、何も出ずに終わらないようにするため）。エラー出力を受け取るため、画面を閉じるまで <code>tebunko.exe</code> のプロセスも残る（窓は無い）。</li>
 <li><strong>更新</strong>: 新しい版のインストーラーを実行する。前の版の <code>scripts\</code> を消してから入れるため、前の版にだけあったスクリプトは残らない。<code>setting.config</code> は残る。</li>
 <li><strong>起動中の更新・削除</strong>: <code>tebunko.exe</code> が起動中はミューテックス <code>tebunko-installed-app</code> を持ち、インストーラーとアンインストーラーはこれを見て、tebunko を閉じるよう求める（Inno Setup の <code>AppMutex</code>）。</li>
-<li><strong>アンインストール</strong>: 「設定」→「アプリ」から行う。入れたファイル・ショートカット・アンインストールの情報と、ツールのフォルダの <code>setting.config</code>・<code>startup_error.txt</code> を消す。<strong>インデックス（ワークスペース）は消さない。</strong> ワークスペースは利用者が選んだフォルダのこともあり、中身を確かめずに消すのは危ないためである。インデックスには文書の文字がそのまま入っているため（<a href="#インデックスが元文書の本文を保持する情報の集約">インデックスが元文書の本文を保持する（情報の集約）</a>）、アンインストールの最後に、残っている場所（既定は <code>%USERPROFILE%\Documents\tebunko_ws</code>）を知らせる。</li>
+<li><strong>アンインストール</strong>: 「設定」→「アプリ」から行う。入れたファイル・ショートカット・アンインストールの情報と、ツールのフォルダの <code>setting.config</code>・<code>startup_error.txt</code>・<code>startup_error_previous.txt</code>・<code>startup_error_moving.txt</code>（あれば）を消す。<strong>インデックス（ワークスペース）は消さない。</strong> ワークスペースは利用者が選んだフォルダのこともあり、中身を確かめずに消すのは危ないためである。インデックスには文書の文字がそのまま入っているため（<a href="#インデックスが元文書の本文を保持する情報の集約">インデックスが元文書の本文を保持する（情報の集約）</a>）、アンインストールの最後に、残っている場所（既定は <code>%USERPROFILE%\Documents\tebunko_ws</code>）を知らせる。</li>
 <li><strong>無人のインストール</strong>: <code>/VERYSILENT /CURRENTUSER</code>（アンインストールは <code>uninstall\unins000.exe /VERYSILENT</code>）で、画面を出さずに入れる・消すことができる。</li>
 <li><strong>署名</strong>: インストーラーと <code>tebunko.exe</code> にはまだコード署名が無い。そのため、ダウンロードしたインストーラーを実行すると SmartScreen の「Windows によって PC が保護されました」が出る（［詳細情報］→［実行］で進める）。改ざんの確認には、ビルドの来歴の署名と SHA256 を使う（<a href="../scans/#配布物の完全性カタログハッシュ一覧来歴の署名">配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）</a>）。</li>
 <li><strong>再現性</strong>: <code>csc.exe</code>（.NET Framework）と Inno Setup はビルドの日時を埋め込むため、同じソースからビルドしてもハッシュは一致しない。zip の中身と同じスクリプトが入っていることは、インストールしたフォルダでカタログ（<a href="../scans/#配布物の完全性カタログハッシュ一覧来歴の署名">配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）</a>）と比べれば分かる。カタログにある <code>tebunko.bat</code> はインストーラー版に無いため、<code>Status</code> は <code>ValidationFailed</code> になる。<code>tebunko.bat</code> を除いて違うファイルが無い（次の結果が空になる）ことを確かめる。</li>

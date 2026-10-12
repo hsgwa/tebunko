@@ -3998,6 +3998,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#診断情報とログの世代sharedcorediagnostics_viewps1diagnosticsps1tebunkocorediagnosticsps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        診断情報とログの世代（shared/core/diagnostics_view.ps1・diagnostics.ps1・tebunko/core/diagnostics.ps1）
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -4181,6 +4192,17 @@
     <span class="md-ellipsis">
       
         ファイルとフォルダ（shared/core/fs.ps1・folder.ps1・shared/office/office_files.ps1）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#診断情報とログの世代sharedcorediagnostics_viewps1diagnosticsps1tebunkocorediagnosticsps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        診断情報とログの世代（shared/core/diagnostics_view.ps1・diagnostics.ps1・tebunko/core/diagnostics.ps1）
       
     </span>
   </a>
@@ -4780,6 +4802,84 @@
 <td>folder が今もあればそのまま、無ければその上の今もあるフォルダ。どこにも無ければ空</td>
 <td><a href="../../gui/common/#フォルダ選択ダイアログ参照">フォルダ選択ダイアログ（［参照…］）</a></td>
 <td>画面（フォルダ選択）</td>
+</tr>
+</tbody>
+</table>
+<h2 id="診断情報とログの世代sharedcorediagnostics_viewps1diagnosticsps1tebunkocorediagnosticsps1">診断情報とログの世代（<code>shared/core/diagnostics_view.ps1</code>・<code>diagnostics.ps1</code>・<code>tebunko/core/diagnostics.ps1</code>）<a class="headerlink" href="#診断情報とログの世代sharedcorediagnostics_viewps1diagnosticsps1tebunkocorediagnosticsps1" title="Permanent link">&para;</a></h2>
+<p>ログの先頭に書く版と環境の見出しと、ログの入れ替え。仕様は<a href="../../../safety/disclosure/#ログに書く版と環境の情報">ログに書く版と環境の情報</a>と<a href="../../structure/io-files/#増え方と片付け">増え方と片付け</a>。</p>
+<table>
+<thead>
+<tr>
+<th>関数</th>
+<th>入力</th>
+<th>出力</th>
+<th>概要</th>
+<th>使用元</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>getVersionLabel</code></td>
+<td>versionInfo（<code>readVersionFile</code> の結果）</td>
+<td><code>@{Version; Commit}</code></td>
+<td>版の表示。タグとコミットの先頭 7 桁。<code>$null</code> なら <code>開発版</code>（Commit は空）。判断層</td>
+<td><code>getAboutView</code>, <code>formatDiagnosticHeader</code></td>
+</tr>
+<tr>
+<td><code>getOfficeKind</code></td>
+<td>exePath, programFiles64, programFilesX86</td>
+<td><code>@{Kind; Bits}</code></td>
+<td>Office の実行ファイルのパスから、Click-to-Run か MSI か、32・64 ビットかを決める。判断層</td>
+<td><code>findOfficeApps</code></td>
+</tr>
+<tr>
+<td><code>hideUserProfile</code></td>
+<td>text, profileDir</td>
+<td>string</td>
+<td>文字列の中のプロファイルのフォルダを <code>%USERPROFILE%</code> に置き換える（大文字小文字は区別しない。前方だけ一致する別のフォルダは置き換えない）。判断層。今は呼び出し元が無い（見出しにプロファイルのパスを入れないため）</td>
+<td>–</td>
+</tr>
+<tr>
+<td><code>formatDiagnosticHeader</code></td>
+<td>toolName, versionInfo, envInfo, now</td>
+<td>string[]（見出しの行）</td>
+<td>日時・版・OS・PowerShell・Office・表示言語の見出しを組み立てる。調べられない項目は <code>不明</code>。判断層</td>
+<td><code>getToolDiagnosticHeader</code></td>
+</tr>
+<tr>
+<td><code>getEnvironmentInfo</code></td>
+<td>–</td>
+<td>hashtable</td>
+<td>OS・PowerShell・Office・表示言語を調べる。項目ごとに調べ、失敗した項目は空にする（Office を調べている途中で失敗したら <code>$null</code>。見出しでは <code>不明</code>）。レジストリ・WMI・COM は使わず、Office は起動しない</td>
+<td><code>getToolDiagnosticHeader</code></td>
+</tr>
+<tr>
+<td><code>findOfficeApps</code></td>
+<td>programFiles64, programFilesX86（省略すると Windows のあるドライブの決まった名前）, os64</td>
+<td><code>@{Name; Version; Kind; Bits}</code> の配列</td>
+<td><code>Program Files</code> の決まった場所の EXCEL・WINWORD・POWERPNT を探し、ファイルの版を読む。32 ビットの Windows では <code>Program Files</code> の Office を 32 ビットとする。例外は投げたまま（呼び出し側が <code>不明</code> にする）</td>
+<td><code>getEnvironmentInfo</code></td>
+</tr>
+<tr>
+<td><code>getPreviousLogPath</code></td>
+<td>path</td>
+<td>string</td>
+<td><code>&lt;名前&gt;_previous&lt;拡張子&gt;</code>（同じフォルダ）</td>
+<td><code>rotateLogFile</code></td>
+</tr>
+<tr>
+<td><code>rotateLogFile</code></td>
+<td>path, maxBytes</td>
+<td>bool</td>
+<td>ファイルが maxBytes 以上なら <code>_previous</code> へ移す（あれば <code>File.Replace</code> で置き換える。今のログが移せないときも、今のログは失わない）。maxBytes が 0 なら、あれば必ず移す。移したら <code>$true</code>、ファイルが無い・小さい・移せないときは <code>$false</code>（例外にしない）</td>
+<td><code>invokeIndexer</code>, <code>writeErrorLog</code></td>
+</tr>
+<tr>
+<td><code>getToolDiagnosticHeader</code></td>
+<td>–</td>
+<td>string[]</td>
+<td>このツールの版（<code>VERSION.txt</code>）と環境の見出し</td>
+<td><code>invokeIndexer</code>, <code>getGuiErrorLogHeader</code></td>
 </tr>
 </tbody>
 </table>

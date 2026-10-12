@@ -1893,6 +1893,67 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#増え方と片付け" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        増え方と片付け
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="増え方と片付け">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ワークスペースworkspaceentries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ワークスペース（Workspace.Entries()）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ツールのフォルダ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ツールのフォルダ
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#既定のワークスペースの直下_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        既定のワークスペースの直下
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#利用者が選んだ場所_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        利用者が選んだ場所
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#処理ごとのファイルの表" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4343,6 +4404,67 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#増え方と片付け" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        増え方と片付け
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="増え方と片付け">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ワークスペースworkspaceentries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ワークスペース（Workspace.Entries()）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ツールのフォルダ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ツールのフォルダ
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#既定のワークスペースの直下_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        既定のワークスペースの直下
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#利用者が選んだ場所_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        利用者が選んだ場所
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#処理ごとのファイルの表" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4446,7 +4568,12 @@
 <tr>
 <td><code>startup_error.txt</code></td>
 <td>書く</td>
-<td>起動そのものに失敗したときの記録。<code>tebunko.bat</code> は上書き、<code>gui.ps1</code> は追記（<code>writeStartupErrorFile</code>）。ツールのフォルダの直下にだけ書き、書けなければ残さない。インストーラー版のアンインストールで消える</td>
+<td>起動そのものに失敗したときの記録。<code>tebunko.bat</code> は上書き、<code>gui.ps1</code> は追記（<code>writeStartupErrorFile</code>）。ツールのフォルダの直下にだけ書き、書けなければ残さない。インストーラー版のアンインストールで消える。<code>gui.ps1</code> が追記する前に 1 MB 以上なら <code>startup_error_previous.txt</code> へ移す（<a href="#増え方と片付け">増え方と片付け</a>）</td>
+</tr>
+<tr>
+<td><code>startup_error_previous.txt</code></td>
+<td>書く</td>
+<td><code>startup_error.txt</code> の前回の分（1 MB を超えたとき、あれば上書きして移す）。<code>startup_error.txt</code> と同じく、ワークスペースと一緒には動かない</td>
 </tr>
 <tr>
 <td><code>.tebunko_write_test_&lt;GUID&gt;.tmp</code></td>
@@ -4547,12 +4674,22 @@
 <tr>
 <td><code>work/indexing_log.txt</code></td>
 <td>書く</td>
-<td>インデクサの表示内容（実行ごとに上書き。<code>writeIndexerLog</code>）。［ログを開く］で Notepad が開く</td>
+<td>インデクサの表示内容（実行ごとに上書き。<code>writeIndexerLog</code>）。先頭に版と環境の見出しを書く。［ログを開く］で Notepad が開く</td>
+</tr>
+<tr>
+<td><code>work/indexing_log_previous.txt</code></td>
+<td>書く</td>
+<td>前回のインデックス作成の記録。インデックス作成が二重起動の鍵を取った後、今の <code>indexing_log.txt</code> をここへ移す（あれば上書き）</td>
 </tr>
 <tr>
 <td><code>work/gui_error_log.txt</code></td>
 <td>書く</td>
-<td>画面の予期しないエラー（追記。<code>writeErrorLog</code>）。起動に失敗したときも、ここに書けるならここに書く</td>
+<td>画面の予期しないエラー（追記。<code>writeErrorLog</code>）。見出しを最後に書いた記録先と今の記録先が違うとき（プロセスの最初の記録・ワークスペースの切り替えの後）と、ファイルが無いとき（1 MB で移した直後を含む）に、記録の前に版と環境の見出しを書く。切り替えで記録が移るため、1 つのファイルに見出しが 2 つ入ることがある。1 MB 以上なら次の記録の前に <code>gui_error_log_previous.txt</code> へ移す。起動に失敗したときも、ここに書けるならここに書く</td>
+</tr>
+<tr>
+<td><code>work/gui_error_log_previous.txt</code></td>
+<td>書く</td>
+<td><code>gui_error_log.txt</code> の前回の分（移すたびに上書き）</td>
 </tr>
 <tr>
 <td><code>work/search_results.txt</code></td>
@@ -4656,7 +4793,7 @@
 </tr>
 <tr>
 <td>アンインストールで消すもの</td>
-<td>入れたファイルと <code>{app}\setting.config</code>・<code>{app}\startup_error.txt</code>。<strong>ワークスペース（インデックス）は消さず</strong>、残っている場所を知らせる</td>
+<td>入れたファイルと <code>{app}\setting.config</code>・<code>{app}\startup_error.txt</code>・<code>{app}\startup_error_previous.txt</code>・<code>{app}\startup_error_moving.txt</code>。<strong>ワークスペース（インデックス）は消さず</strong>、残っている場所を知らせる</td>
 </tr>
 </tbody>
 </table>
@@ -4689,6 +4826,16 @@
 <td><code>explorer.exe</code></td>
 <td>起動する</td>
 <td>［フォルダを開く］・フォルダの選択・「バージョン情報」のリンク（決まった 2 つのアドレスを既定のブラウザで開く）</td>
+</tr>
+<tr>
+<td><code>%SystemRoot%\System32\ntoskrnl.exe</code></td>
+<td>読む（ファイルの版だけ）</td>
+<td>ログの見出しの OS の版（<code>getEnvironmentInfo</code>）</td>
+</tr>
+<tr>
+<td>Windows のあるドライブの <code>Program Files</code>・<code>Program Files (x86)</code> の <code>Microsoft Office\root\Office16</code>・<code>Microsoft Office\Office16</code>・<code>Microsoft Office\Office15</code> の <code>EXCEL.EXE</code>・<code>WINWORD.EXE</code>・<code>POWERPNT.EXE</code></td>
+<td>読む（有無とファイルの版だけ。起動しない）</td>
+<td>ログの見出しの Office の版・形態・ビット数（<code>findOfficeApps</code>）。ほかのドライブや別の版の Office は <code>見つからない</code> と出る</td>
 </tr>
 <tr>
 <td>Windows Search（<code>Search.CollatorDSO</code>）</td>
@@ -4805,6 +4952,167 @@
 <li>レジストリ: インストーラーが書くアンインストールの情報を除き、読みも書きもしない。</li>
 <li>クロール対象フォルダ・元のファイル: 書かない（読むだけ）。</li>
 </ul>
+<h2 id="増え方と片付け">増え方と片付け<a class="headerlink" href="#増え方と片付け" title="Permanent link">&para;</a></h2>
+<p>tebunko が作るファイルとフォルダが、何年使っても溜まり続けないことを、置き場ごとの表で確かめる。新しくファイルを足すときは、増え方と上限、誰がいつ消すかを決めてから、この表に行を足す。期間（何日より古いか）で消す処理は持たない。大きさと世代で止める。</p>
+<ul>
+<li>掃除の時機: 起動時・終了時のまとめての掃除はしない。ログは書く直前に大きさを見て回す（書かなければ増えないため。起動を遅くせず、届かない共有フォルダで起動が待たされない）。作業のフォルダは、終了時に消し、残りは次のインデックス作成の始めに消す。</li>
+<li>移せないとき: <code>rotateLogFile</code> は <code>File.Replace</code> で前回の分を置き換える。今のログが開いたまま・前回の分が読み取り専用・置き場所が <code>File.Replace</code> に対応しないときは、今のログは失わず、元のログに追記を続ける。開いたまま・読み取り専用は、閉じる・前回の分を消すなどで解けたあとの次の記録のときに移る。<code>File.Replace</code> に対応しない置き場所では、1 回目だけ移り、2 回目からは移せないままで上限なしに増える（本文インデックスの書き込み <code>writeContentIndexFile</code> も同じ <code>File.Replace</code> に頼るので、そういう置き場所はもともとワークスペースとして使えない）。起動失敗の記録（<code>startup_error.txt</code>）は、元を <code>startup_error_moving.txt</code> へ移してから前回の分に重ねる。重ねられず、元の名前に戻す移動も失敗したときだけ、<code>startup_error_moving.txt</code> が残る。</li>
+<li>画面のスレッドとの関係: ログを回す移動は、書く直前に 1 回だけ行う（今の追記と同じ種類の I/O。<code>docs/design/gui/responsiveness.md</code> の考えを超えない）。</li>
+<li>ワークスペースの表の 1 列目は <code>Workspace.Entries()</code> の名前（<code>GetFileName</code>）と完全一致で <code>tests/meta/workspace_files.Tests.ps1</code> が比べる。ワークスペースの外の置き場の表は、テストの対象外。</li>
+</ul>
+<h3 id="ワークスペースworkspaceentries">ワークスペース（<code>Workspace.Entries()</code>）<a class="headerlink" href="#ワークスペースworkspaceentries" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>名前</th>
+<th>増え方</th>
+<th>上限・片付け</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>content_index</code></td>
+<td>元のファイルの数に比例</td>
+<td>元のファイルが無くなれば消す。外したフォルダの分は利用者が確認ダイアログで消す（利用者のデータ。自動で期間では消さない）</td>
+</tr>
+<tr>
+<td><code>index</code></td>
+<td>増えない（過去の版が置いたもの）</td>
+<td>［設定］の「移す」「消して最初から」・インデックス作成の始めに片付ける</td>
+</tr>
+<tr>
+<td><code>system_index</code></td>
+<td>元のファイルの数に比例</td>
+<td><code>content_index</code> と同じ</td>
+</tr>
+<tr>
+<td><code>system_index_state.tsv</code></td>
+<td>上書き</td>
+<td>1 つ</td>
+</tr>
+<tr>
+<td><code>ingest_status.tsv</code></td>
+<td>上書き（<code>.tmp</code> を経由。<code>.tmp</code> は同じ名前で上書きされ 1 つまで）</td>
+<td>1 つ</td>
+</tr>
+<tr>
+<td><code>ingesting.txt</code></td>
+<td>上書き</td>
+<td>1 つ。インデックス作成が終われば消す</td>
+</tr>
+<tr>
+<td><code>search_results.txt</code></td>
+<td>上書き</td>
+<td>1 つ</td>
+</tr>
+<tr>
+<td><code>indexing_log.txt</code></td>
+<td>実行ごとに上書き</td>
+<td>1 回分。始めるとき（二重起動の鍵を取った後）に今の分を <code>indexing_log_previous.txt</code> へ移す</td>
+</tr>
+<tr>
+<td><code>indexing_log_previous.txt</code></td>
+<td>実行ごとに上書き</td>
+<td>1 回分。合わせて 2 回分で止まる</td>
+</tr>
+<tr>
+<td><code>gui_error_log.txt</code></td>
+<td>追記（同じ例外は 60 秒に 1 回）</td>
+<td>1 MB 以上なら、次の記録を書く前に <code>gui_error_log_previous.txt</code> へ移す</td>
+</tr>
+<tr>
+<td><code>gui_error_log_previous.txt</code></td>
+<td>移すたびに上書き</td>
+<td>1 つ。合わせておよそ 2 MB で止まる（移せない場面を除く。「移せないとき」を参照）</td>
+</tr>
+<tr>
+<td><code>publish</code></td>
+<td>実行ごとに <code>&lt;PID&gt;</code> を作る</td>
+<td>終了時・インポートの後に消す。残りは次のインデックス作成の始めに消す</td>
+</tr>
+<tr>
+<td><code>tmp</code></td>
+<td>実行ごとに <code>&lt;PC の鍵&gt;\&lt;PID&gt;</code> を作る</td>
+<td>終了時に消す。強制終了の残りは次のインデックス作成の始めに、この PC の終わったプロセスの分を消す。共有のワークスペースでは、ほかの PC の残りは消えない（別に直す）</td>
+</tr>
+<tr>
+<td><code>office_pids</code></td>
+<td>Office を起動するたびに <code>&lt;PC の鍵&gt;\&lt;PID&gt;.txt</code></td>
+<td>Office を閉じたら消す。残りは画面の起動時の確かめで消す</td>
+</tr>
+</tbody>
+</table>
+<h3 id="ツールのフォルダ">ツールのフォルダ<a class="headerlink" href="#ツールのフォルダ" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>名前</th>
+<th>増え方</th>
+<th>上限・片付け</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>startup_error.txt</code></td>
+<td><code>tebunko.bat</code> は上書き、<code>gui.ps1</code>（<code>writeStartupErrorFile</code>）は追記</td>
+<td>追記の側は 1 MB 以上なら、次の記録を書く前に <code>startup_error_previous.txt</code> へ移す。<code>.bat</code> の側は 1 回分</td>
+</tr>
+<tr>
+<td><code>startup_error_previous.txt</code></td>
+<td>移すたびに上書き</td>
+<td>1 つ。合わせておよそ 2 MB で止まる（移せない場面を除く）</td>
+</tr>
+<tr>
+<td><code>startup_error_moving.txt</code></td>
+<td>移すときだけ</td>
+<td>重ねられず、元の名前へ戻す移動も失敗したときだけ残る。次に移すとき同じ名前で上書きされ、1 つまで</td>
+</tr>
+<tr>
+<td><code>setting.config.tmp</code></td>
+<td>保存のたび</td>
+<td>同じ名前で上書きされ 1 つまで</td>
+</tr>
+<tr>
+<td><code>.tebunko_write_test_&lt;GUID&gt;.tmp</code></td>
+<td>調べるたび</td>
+<td>閉じると消える（<code>DeleteOnClose</code>）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="既定のワークスペースの直下_1">既定のワークスペースの直下<a class="headerlink" href="#既定のワークスペースの直下_1" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>名前</th>
+<th>増え方</th>
+<th>上限・片付け</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>setting.config.broken-&lt;日時&gt;</code></td>
+<td>設定が壊れるたびに 1 つ</td>
+<td>自動では消さない（壊れたときだけできる。設定を戻す手がかりそのもの）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="利用者が選んだ場所_1">利用者が選んだ場所<a class="headerlink" href="#利用者が選んだ場所_1" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>名前</th>
+<th>増え方</th>
+<th>上限・片付け</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;名前&gt;.zip.tmp</code>（エクスポート）</td>
+<td>エクスポートのたび</td>
+<td>書き終えたら置き換える。強制終了の残りは同じ名前の次のエクスポートで消え、1 つまで</td>
+</tr>
+</tbody>
+</table>
 <h2 id="処理ごとのファイルの表">処理ごとのファイルの表<a class="headerlink" href="#処理ごとのファイルの表" title="Permanent link">&para;</a></h2>
 <p>画面（<code>gui.ps1</code>）とインデクサ（<code>indexer.ps1</code>）は同じプロセスの別のスレッドで動き、進み具合・取り込み予定・確認の返事・中止・エラーはメモリ上の受け渡しの口（<code>newIndexerChannel</code>）で受け渡す（<a href="../threads/#画面とインデクサの受け渡し">画面とインデクサの受け渡し</a>）。この節の表は、上の一覧のうち画面とインデクサが使うファイルに絞って、作成・使用・文字コード・内容を足した表である。</p>
 <pre class="mermaid"><code>flowchart LR
@@ -4879,7 +5187,7 @@
 <td>インデックス作成</td>
 <td>利用者</td>
 <td>UTF-8（BOM 付き）</td>
-<td>インデクサの表示内容（<code>writeIndexerLog</code>。実行ごとに上書き）</td>
+<td>インデクサの表示内容（<code>writeIndexerLog</code>。実行ごとに上書き。先頭に版と環境の見出し）。前回の分は <code>indexing_log_previous.txt</code></td>
 </tr>
 <tr>
 <td><code>work/gui_error_log.txt</code></td>
@@ -4887,7 +5195,7 @@
 <td>画面</td>
 <td>利用者</td>
 <td>UTF-8（BOM 付き）</td>
-<td>画面で起きた予期しないエラーの内容（<code>writeErrorLog</code>。追記）</td>
+<td>画面で起きた予期しないエラーの内容（<code>writeErrorLog</code>。追記。1 MB で <code>gui_error_log_previous.txt</code> へ移す）</td>
 </tr>
 <tr>
 <td><code>work/content_index/</code></td>

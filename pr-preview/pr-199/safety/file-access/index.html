@@ -4245,7 +4245,7 @@
 <tbody>
 <tr>
 <td><code>work/</code> 配下（既定は <code>%USERPROFILE%\Documents\tebunko_ws</code>。テスト・実機の確かめでは環境変数 <code>TEBUNKO_DEFAULT_WORKSPACE</code> の場所に差し替わる。利用者が画面で選んだフォルダ（ワークスペース）にも置ける）</td>
-<td>本文インデックス（<code>work/content_index/</code>）、取り込み一覧・インデックス作成ログ・制御用ファイル、検索結果</td>
+<td>本文インデックス（<code>work/content_index/</code>）、取り込み一覧・制御用ファイル、検索結果、ログ（<code>indexing_log.txt</code>・<code>gui_error_log.txt</code> と、それぞれ前回の分 <code>*_previous.txt</code>。インデックス作成を始めるとき・1 MB 以上のとき、前回の分へ移す。移すときは前の <code>*_previous.txt</code> を上書きする。先頭には版と環境の見出しを書く: <a href="../disclosure/#ログに書く版と環境の情報">ログに書く版と環境の情報</a>）</td>
 <td><code>tebunko/core/paths.ps1</code>（<code>$workspace</code>）、<code>tebunko/core/workspace.ps1</code>（<code>Workspace</code>）</td>
 </tr>
 <tr>
@@ -4265,7 +4265,7 @@
 </tr>
 <tr>
 <td><code>startup_error.txt</code>（ツールを置いたフォルダの直下。書き込めなければ作らない）</td>
-<td>起動そのものに失敗したとき（画面が開く前）の記録。起動の前はワークスペースが決まらないため、ツールのフォルダに置く（<a href="../disclosure/#起動に失敗したときの知らせtebunkobat">起動に失敗したときの知らせ</a>）</td>
+<td>起動そのものに失敗したとき（画面が開く前）の記録（<code>gui.ps1</code> の追記は、1 MB 以上なら次の記録を書く前に <code>startup_error_previous.txt</code> へ移す）。起動の前はワークスペースが決まらないため、ツールのフォルダに置く（<a href="../disclosure/#起動に失敗したときの知らせtebunkobat">起動に失敗したときの知らせ</a>）</td>
 <td><code>tebunko.bat</code>、<code>tebunko/ui/startup_error.ps1</code> の <code>writeStartupErrorFile</code></td>
 </tr>
 <tr>
