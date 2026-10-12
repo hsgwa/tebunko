@@ -287,7 +287,7 @@ foreach ($partEntry in $bundledPartEntries) {
 }
 
 # ---- ASCII だけの文字に書き換える（BOM が落ちても、どの文字コードで読まれても同じに動くように） ----
-# 日本語のコメントは消し、文字列の日本語は [char]0x.... で組み立てる形にする（tools\single_script_ascii.ps1）。
+# 日本語のコメントは消し、文字列の日本語は [regex]::Unescape('\uXXXX') で組み立てる形にする（tools\single_script_ascii.ps1）。
 # 書き換えのあとの確かめ: ASCII だけ・構文エラー 0・版の文字列が残っている（禁止の語は、書き換えの前の 5) で調べ済み）
 $combined = convertToAsciiScript $combined "結合した .ps1"
 if (hasNonAscii $combined) {
