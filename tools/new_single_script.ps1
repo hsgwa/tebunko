@@ -26,6 +26,7 @@ if ($Version -notmatch '^[A-Za-z0-9._-]+$') {
 
 $rootDir = Split-Path $PSScriptRoot -Parent
 . ([WildcardPattern]::Escape("$PSScriptRoot\script_rules.ps1".Replace('`', '``')))
+. ([WildcardPattern]::Escape("$PSScriptRoot\single_script_ascii.ps1".Replace('`', '``')))
 
 if (!$OutFile) {
     $OutFile = Join-Path $rootDir "work\release\tebunko-$Version.ps1"
@@ -156,7 +157,7 @@ function addXamlEntries {
     foreach ($file in (Get-ChildItem -LiteralPath $dir -Filter *.xaml -Recurse | Sort-Object FullName)) {
         $relative = $file.FullName.Substring($root.Length + 1)
         $keyExpr = '[System.IO.Path]::GetFullPath("$PSScriptRoot\' + $keyPrefix + $relative + '")'
-        addHereString "`${bundledXaml}[$keyExpr]" ([System.IO.File]::ReadAllText($file.FullName)) $file.FullName
+        addHereString "`${bundledXaml}[$keyExpr]" (convertToAsciiXaml ([System.IO.File]::ReadAllText($file.FullName)) $file.FullName) $file.FullName
     }
 }
 
@@ -187,7 +188,7 @@ $bundledPartEntries = @(
 
 [void]$parts.Add('${bundledParts} = @{}')
 foreach ($partEntry in $bundledPartEntries) {
-    $partText = inlinePart $partEntry.Paths
+    $partText = convertToAsciiScript (inlinePart $partEntry.Paths) "部品（$($partEntry.Name)）"
     $script:partVisited[$partEntry.Name] = [System.Collections.Generic.HashSet[string]]$script:visited
     addHereString "`${bundledParts}['$($partEntry.Name)']" $partText "部品（$($partEntry.Name)）"
 }
@@ -197,7 +198,7 @@ foreach ($partEntry in $bundledPartEntries) {
 $script:visited = New-Object 'System.Collections.Generic.HashSet[string]'
 
 # 部品の埋め込みの終わり（ここから下が、実行するプロセスの本体）の目印。テストが、ここまでを切り出して部品を取り出す
-$bodyMarker = '# ---- 本体（ここより上は、別スレッドが読む部品の埋め込み） ----'
+$bodyMarker = '# ---- BODY-START (above: parts embedded for other threads) ----'
 
 # ---- 読み込み口の並び（driver の手順。設計どおり）。 ----
 # 別スレッドは、この下の本体ではなく、上で埋め込んだ部品（${bundledParts}）を読む。ここから下は、実行するプロセスの本体だけ。
@@ -285,14 +286,25 @@ foreach ($partEntry in $bundledPartEntries) {
     }
 }
 
-# ---- 書き出し（BOM 付き UTF-8・CRLF。work\release\ は .gitignore でコミットしない） ----
+# ---- ASCII だけの文字に書き換える（BOM が落ちても、どの文字コードで読まれても同じに動くように） ----
+# 日本語のコメントは消し、文字列の日本語は [char]0x.... で組み立てる形にする（tools\single_script_ascii.ps1）。
+# 書き換えのあとの確かめ: ASCII だけ・構文エラー 0・版の文字列が残っている（禁止の語は、書き換えの前の 5) で調べ済み）
+$combined = convertToAsciiScript $combined "結合した .ps1"
+if (hasNonAscii $combined) {
+    throw "結合した .ps1 に、ASCII 以外の文字が残っています。"
+}
+if ($combined -notmatch [regex]::Escape("Tag = '$Version'; Sha = '$sha'")) {
+    throw "ASCII に書き換えたあとで、版の文字列が失われました。"
+}
+
+# ---- 書き出し（ASCII だけ・BOM なし・CRLF。work\release\ は .gitignore でコミットしない） ----
 
 $outDir = Split-Path $OutFile -Parent
 if (!(Test-Path -LiteralPath $outDir)) {
     [void][System.IO.Directory]::CreateDirectory($outDir)
 }
-$utf8Bom = New-Object System.Text.UTF8Encoding($true)
-[System.IO.File]::WriteAllText($OutFile, $combined, $utf8Bom)
+$asciiBytes = [System.Text.Encoding]::ASCII.GetBytes($combined)
+[System.IO.File]::WriteAllBytes($OutFile, $asciiBytes)
 
 Write-Host "作成しました: $OutFile"
 return $OutFile
