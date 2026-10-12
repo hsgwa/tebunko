@@ -7,7 +7,7 @@
 #   serialNumber        版とコミットの SHA から決まる UUID（同じコミット・同じ版なら同じ値。CycloneDX 1.6 の形に合わせる）
 #   metadata.timestamp  コミットの時刻（UTC）
 #   metadata.component.version  版
-#   components          zip に入る全ファイル（zip 内のパス・SHA-256）と、同梱する第三者の部品（フォント・アイコンの形。下の $thirdParty）
+#   components          zip に入る全ファイル（zip 内のパス・SHA-256）と、同梱する第三者の部品（アイコンの形。下の $thirdParty）
 #   dependencies        本体 → 全ファイル・第三者の部品
 # -Entries は zip 内のパス（tebunko\ を除き / 区切り）→ zip に入れるバイト列（順序付き）。並びはそのまま components の順になる。
 # 返すのは BOM 無し UTF-8 の JSON。字下げ・エスケープは Windows PowerShell 5.1 の ConvertTo-Json のもので、
@@ -26,7 +26,7 @@ param (
 $ErrorActionPreference = "Stop"
 
 # 同梱する第三者の部品（実行されるコードではなく、purl（パッケージ識別子）は持たない）。
-# 版・ライセンスを変えたら、ここと scripts/shared/fonts/LICENSE-Lucide.txt のライセンス文・docs/safety/supply-chain.md をそろえる
+# 版・ライセンスを変えたら、ここと scripts/shared/licenses/LICENSE-Lucide.txt のライセンス文・docs/safety/supply-chain.md をそろえる
 $thirdParty = @(
     [ordered]@{
         "type"        = "data"
@@ -36,7 +36,7 @@ $thirdParty = @(
         "version"     = "1.50.0"
         "description" = "アイコンの形（scripts/shared/xaml/theme.xaml の Icon.* に図形のデータとして写している）"
         "scope"       = "required"
-        "licenses"    = @([ordered]@{ "license" = [ordered]@{ "id" = "ISC" } })
+        "licenses"    = @([ordered]@{ "license" = [ordered]@{ "id" = "ISC" } }, [ordered]@{ "license" = [ordered]@{ "id" = "MIT" } })
         "externalReferences" = @([ordered]@{ "type" = "website"; "url" = "https://github.com/lucide-icons/lucide" })
     }
 )

@@ -36,5 +36,5 @@ function getAboutLicenses {
     # ダイアログに出すライセンス: 1 行ずつの文字の配列（tebunko 自身と、同梱するアイコンの形）
     return @(
         "tebunko：MIT ライセンス"
-        "アイコンの形（Lucide）：ISC ライセンス")
+        "アイコンの形（Lucide）：ISC ライセンス（一部 MIT）")
 }
