@@ -244,13 +244,13 @@ Describe "getIndexCheckedItems（チェックを付けている行）" -Tag Unit
 }
 
 Describe "getIndexStatusHelpText（見出しの説明）" -Tag Unit {
-    It "ステータス列の説明は、行のバッジと同じ 5 つの状態を です・ます で書く" {
+    It "ステータス列の説明は、行のバッジと同じ 6 つの状態を です・ます で書く" {
         $lines = @(getIndexStatusHelpText)
-        $lines.Count | Should -Be 6
+        $lines.Count | Should -Be 7
         $lines[0] | Should -Be "検索の準備の状態です。"
-        (($lines | Select-Object -Skip 1) -join "`n") | Should -Match "(?s)最新.*要更新.*更新中.*エラー.*未作成"
+        (($lines | Select-Object -Skip 1) -join "`n") | Should -Match "(?s)最新.*要更新.*更新中.*警告.*エラー.*未作成"
         # 行のバッジの名前（getIndexRowView の Text）と同じ言葉だけを使う
-        foreach ($name in "最新", "要更新", "更新中", "エラー", "未作成") {
+        foreach ($name in "最新", "要更新", "更新中", "警告", "エラー", "未作成") {
             @($lines | Where-Object { $_ -like "・${name}:*" }).Count | Should -Be 1
         }
     }
@@ -322,6 +322,7 @@ Describe "getIndexRowMenuEnabled（行の右クリックのメニューの可否
         @{ label = "ふだんの行: すべて使える"; blocker = ""; hasRow = $true; level = "Ok"; hasPath = $true; update = $true; open = $true; export = $true; delete = $true }
         @{ label = "まだ取り込んでいない行（待ち）: すべて使える"; blocker = ""; hasRow = $true; level = "Wait"; hasPath = $true; update = $true; open = $true; export = $true; delete = $true }
         @{ label = "エラーの行: 更新だけ使えない（行の右端に［更新］が出ない行と同じ）"; blocker = ""; hasRow = $true; level = "Ng"; hasPath = $true; update = $false; open = $true; export = $true; delete = $true }
+        @{ label = "警告の行（失敗のあるファイルだけ）: 更新も使える"; blocker = ""; hasRow = $true; level = "Warn"; hasPath = $true; update = $true; open = $true; export = $true; delete = $true }
         @{ label = "元のフォルダの記録が無い行: 元のフォルダを開くだけ使えない"; blocker = ""; hasRow = $true; level = "Ok"; hasPath = $false; update = $true; open = $false; export = $true; delete = $true }
         @{ label = "更新中の行: 元のフォルダを開く以外は使えない"; blocker = "インデックス作成中"; hasRow = $true; level = "Run"; hasPath = $true; update = $false; open = $true; export = $false; delete = $false }
         @{ label = "ほかの行の更新中: 元のフォルダを開く以外は使えない"; blocker = "インデックス作成中"; hasRow = $true; level = "Ok"; hasPath = $true; update = $false; open = $true; export = $false; delete = $false }
@@ -364,6 +365,33 @@ Describe "getIndexSourceFolderKind" -Tag Unit {
     }
 }
 
+Describe "selectFailedRowsForIndex（失敗の一覧をインデックスごとに）" -Tag Unit {
+    BeforeAll {
+        $rows = @(
+            [pscustomobject]@{ 相対パス = "営業\a.xlsx" }
+            [pscustomobject]@{ 相対パス = "営業部\b.xlsx" }
+            [pscustomobject]@{ 相対パス = "Sales\sub\c.xlsx" }
+            [pscustomobject]@{ 相対パス = "経理\d.xlsx" }
+        )
+    }
+
+    It "<label>" -TestCases @(
+        @{ label = "選んだ名前だけ"; name = "経理"; expected = @("経理\d.xlsx") }
+        @{ label = "別の名前の前方一致を拾わない"; name = "営業"; expected = @("営業\a.xlsx") }
+        @{ label = "大文字小文字の違いは同じ名前"; name = "sales"; expected = @("Sales\sub\c.xlsx") }
+        @{ label = "選んでいない（空）と全部"; name = ""; expected = @("営業\a.xlsx", "営業部\b.xlsx", "Sales\sub\c.xlsx", "経理\d.xlsx") }
+        @{ label = "失敗の無いインデックスは 0 件"; name = "人事"; expected = @() }
+    ) {
+        param ($label, $name, $expected)
+        @(selectFailedRowsForIndex $rows $name | ForEach-Object { $_.相対パス }) | Should -Be $expected
+    }
+
+    It "行が無くても空を返す" {
+        @(selectFailedRowsForIndex @() "営業").Count | Should -Be 0
+        @(selectFailedRowsForIndex $null "").Count | Should -Be 0
+    }
+}
+
 Describe "getIndexRowActions（行の右端のボタン）" -Tag Unit {
     It "<level>・blocker=<blocker>: <action>" -TestCases @(
         @{ level = "Ok"; blocker = ""; action = "Update"; enabled = $true }
@@ -372,6 +400,8 @@ Describe "getIndexRowActions（行の右端のボタン）" -Tag Unit {
         @{ level = "Ok"; blocker = "インデックス作成中"; action = "Update"; enabled = $false }
         @{ level = "None"; blocker = "削除・名前の変更中"; action = "Update"; enabled = $false }
         @{ level = "Run"; blocker = "インデックス作成中"; action = "Stop"; enabled = $false }
+        @{ level = "Warn"; blocker = ""; action = "Update"; enabled = $true }
+        @{ level = "Warn"; blocker = "インデックス作成中"; action = "Update"; enabled = $false }
         @{ level = "Ng"; blocker = ""; action = "None"; enabled = $true }
     ) {
         param ($level, $blocker, $action, $enabled)
@@ -689,9 +719,9 @@ Describe "getIndexRowView" -Tag Unit {
         @{ label = "Pending・Failed とも 1 以上: 要更新（Pending が優先。残りの件数を添える）"
            stat = @{ Total = 10; Done = 5; Pending = 2; Failed = 3 }; indexing = $false; enabled = $true
            text = "要更新"; sub = "残り 2 件"; level = "Wait" }
-        @{ label = "Failed のみ 1 以上: エラー"
+        @{ label = "Failed のみ 1 以上: 警告（エラーではない）"
            stat = @{ Total = 10; Done = 9; Pending = 0; Failed = 1 }; indexing = $false; enabled = $true
-           text = "エラー"; sub = ""; level = "Ng" }
+           text = "警告"; sub = ""; level = "Warn" }
         @{ label = "それ以外: 最新"
            stat = @{ Total = 10; Done = 10; Pending = 0; Failed = 0 }; indexing = $false; enabled = $true
            text = "最新"; sub = ""; level = "Ok" }
@@ -1041,7 +1071,7 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         (getIndexDetailView @(newDetailItem) $null 0).Hint | Should -Be ""
     }
 
-    It "更新中の行は、棒の長さ・件数と残り時間・更新中のファイルを返す" {
+    It "更新中の行は、棒の長さ・件数と残り時間・読み取り中のファイルを返す" {
         $item = newDetailItem
         $item.IndexLevel = "Run"; $item.IndexText = "更新中"
         $running = @{ Ratio = 0.45; Processed = 205; Total = 455; Failed = 1; Eta = "残り約 3 分"; Current = "見積もり\A社\A社_見積書_改訂.xlsx" }
@@ -1049,12 +1079,12 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         $view.Run.Shown | Should -BeTrue
         $view.Run.Value | Should -Be 0.45
         $view.Run.CountText | Should -Be "205 / 455 件（失敗 1 件）・残り約 3 分"
-        $view.Run.FileText | Should -Be "更新中のファイル：見積もり\A社\A社_見積書_改訂.xlsx"
+        $view.Run.FileText | Should -Be "読み取り中のファイル：見積もり\A社\A社_見積書_改訂.xlsx"
     }
 
     It "更新中の行の件数は、無いものを出さない（失敗 0 件・残り時間なし・まだ件数が分からない）" -TestCases @(
         @{ running = @{ Ratio = 0.5; Processed = 10; Total = 20; Failed = 0; Eta = ""; Current = "" }; count = "10 / 20 件"; file = "" }
-        @{ running = @{ Ratio = 1.5; Processed = 0; Total = 0; Failed = 0; Eta = "残り 1 分未満"; Current = "a.xlsx" }; count = "残り 1 分未満"; file = "更新中のファイル：a.xlsx" }
+        @{ running = @{ Ratio = 1.5; Processed = 0; Total = 0; Failed = 0; Eta = "残り 1 分未満"; Current = "a.xlsx" }; count = "残り 1 分未満"; file = "読み取り中のファイル：a.xlsx" }
         @{ running = $null; count = ""; file = "" }
     ) {
         param ($running, $count, $file)

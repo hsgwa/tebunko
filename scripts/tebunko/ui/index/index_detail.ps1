@@ -8,7 +8,7 @@ foreach ($detailName in @(
         "IndexingDetailPanel", "IndexingProgressBar", "IndexingCountText", "IndexingFileText", "MultiSelectHintText")) {
     $ui[$detailName] = $ui.IndexDetailHost.Content.FindName($detailName)
 }
-# 更新中のファイルは、「…」で切れているときだけ全文をツールチップで見せる（名前とフォルダパスは入力欄で、欄の中で読める）
+# 読み取り中のファイルは、「…」で切れているときだけ全文をツールチップで見せる（名前とフォルダパスは入力欄で、欄の中で読める）
 addTrimmedToolTip $ui.IndexingFileText
 
 function setIndexBadge {
@@ -249,10 +249,14 @@ function applyIndexingState {
 
 function updateFailedList {
     # 取り込みに失敗したファイルと原因（取り込み一覧のエラー列）を一覧に表示する
+    # 詳細に出している行（getIndexTargetItem）があれば、その行のインデックスの失敗だけを出す（無ければ全部）
     param (
         $state  # getIndexingState の結果
     )
 
+    $detailItem = getIndexTargetItem
+    $filterName = if ($null -ne $detailItem) { [string]$detailItem.Name } else { "" }
+    $script:failedFilterName = $filterName
     $folderPaths = @{}  # インデックス名 → クロール対象フォルダ（大文字・小文字を区別しない）
     foreach ($folder in $state.Folders) {
         if ($folder.Name) {
@@ -261,7 +265,7 @@ function updateFailedList {
     }
 
     $rows = New-Object System.Collections.ArrayList
-    foreach ($status in $state.FailedRows) {
+    foreach ($status in (selectFailedRowsForIndex $state.FailedRows $filterName)) {
         $row = New-Object FailRow
         $row.RelPath = $status.相対パス
         $row.Reason = if ($status.エラー) { $status.エラー } else { "（原因は記録されていません）" }
@@ -368,6 +372,7 @@ function applyFailedFileState {
 
 # 詳細の値の行を最後に置いたときの getIndexDetailView の RowsKey（同じ中身なら行を置き直さない）
 $script:detailRowsKey = $null
+$script:failedFilterName = ""  # 失敗の一覧を絞っているインデックスの名前（空は全部。updateFailedList が置く）
 $script:indexingView = $null  # 詳細の「インデックス」の箱に出す、全体の進み具合（updateIndexingProgress が置く。更新中でなければ $null）
 
 function getIndexTargetItem {
@@ -395,6 +400,11 @@ function updateIndexDetailPanel {
         if ($progress -and $progress.ByIndex -and $progress.ByIndex.ContainsKey($item.Name)) {
             $entry = $progress.ByIndex[$item.Name]
         }
+    }
+    # 選んだインデックスが変わったら、失敗の一覧もそのインデックスの分に書き直す（変わらないときは置き直さない）
+    $failedName = if ($null -ne $item) { [string]$item.Name } else { "" }
+    if ($null -ne $script:indexingState -and $failedName -ne [string]$script:failedFilterName) {
+        updateFailedList $script:indexingState
     }
     $multiCount = getIndexDetailMultiCount $checkedItems.Count
     $view = getIndexDetailView $selected $entry $multiCount $script:indexingView

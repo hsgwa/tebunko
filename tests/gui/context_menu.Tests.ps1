@@ -15,7 +15,7 @@ Describe "検索結果の右クリックメニュー" -Tag Gui {
         writeGuiConfig $script:tool.Dir $config
     }
 
-    It "行のメニューは先頭に既定の開き方を出し、見出しのメニューは読み取り専用で開くから始まる" {
+    It "行のメニューは先頭に既定の開き方を出し、見出しのメニューも同じ開き方の項目を並べる" {
         $S = startGui $script:tool "ContextMenu1"
         $script:rowMenu = $null
         $script:groupMenu = $null
@@ -55,7 +55,7 @@ Describe "検索結果の右クリックメニュー" -Tag Gui {
             closeGui $S
         }
         ($script:rowMenu -join "/") | Should -Be "読み取り専用で開く/開く/新規で開く/フォルダを開く/選んだ行をコピー/ファイルのパスをコピー"
-        ($script:groupMenu -join "/") | Should -Be "読み取り専用で開く/フォルダを開く/ファイルのパスをコピー/この結果を折りたたむ"
+        ($script:groupMenu -join "/") | Should -Be "読み取り専用で開く/開く/新規で開く/フォルダを開く/ファイルのパスをコピー/この結果を折りたたむ"
         ($script:previewMenu -join "/") | Should -Be "元のファイルのこの場所を開く/選んだセルをコピー/この行をコピー"
     }
 

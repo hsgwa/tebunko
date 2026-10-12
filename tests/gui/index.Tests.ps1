@@ -175,6 +175,14 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             $S.Timing["取り込み"] = [Math]::Round($sw.Elapsed.TotalSeconds, 1)
             @(getGuiGridRows (findGui $S.Window -Id "FailedGrid")).Count | Should -Be 1
             (getGuiRowTexts @(getGuiGridRows (findGui $S.Window -Id "FailedGrid"))[0]) -join " " | Should -BeLike "*壊れた文書.docx*"
+            # 失敗のあるだけの行は、エラーでなく警告の表示で、行の［更新］が使える
+            $failRow = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
+            $failRowTexts = (getGuiRowTexts $failRow) -join " "
+            $failRowTexts | Should -BeLike "*警告*"
+            $failRowTexts | Should -Not -BeLike "*エラー*"
+            $rowUpdate = findGui $failRow -Id "IndexRowUpdateButton"
+            testGuiVisible $rowUpdate | Should -BeTrue
+            $rowUpdate.Current.IsEnabled | Should -BeTrue
             Test-Path -LiteralPath "$($script:tool.Work)\content_index\資料" | Should -BeTrue
 
             # 更新が終わった帯には［検索する］が出る。押すと検索の画面に切り替わる
