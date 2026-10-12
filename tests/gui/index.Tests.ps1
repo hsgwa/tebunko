@@ -37,6 +37,31 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             useGuiFolderPicker $S
             @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count | Should -Be 0
 
+            # 一覧の表は右の領域の横いっぱいに広がる（仕切りと同じ左右の端）。
+            # 窓を最小の幅（1024）にしても、頭の 3 つのボタンと説明は右で切れない。説明が出るのは、まだフォルダが無い今だけ（追加すると説明は消える）なので、ここで測る（ナビを最大に広げた幅は、ドラッグでしか作れないので、単体では見られない）
+            setGuiStep $S "一覧の横幅と頭のボタン（最小の幅）"
+            resizeGuiWindow $S 1024 600
+            [math]::Round($S.Window.Current.BoundingRectangle.Width) | Should -BeGreaterThan 1000
+            [math]::Round($S.Window.Current.BoundingRectangle.Width) | Should -BeLessThan 1100
+            $edge = {
+                param ($id)
+                return (findGui $S.Window -Id $id).Current.BoundingRectangle
+            }
+            # 表の右端は窓の右端まで届く（窓の枠・影の分だけ内側。以前は右に 16 の余白があり、枠の分と合わせて 20 を超えていた）
+            $win = $S.Window.Current.BoundingRectangle
+            $gridRect = & $edge "IndexGrid"
+            ($win.Right - $gridRect.Right) | Should -BeLessOrEqual 12 -Because "表が右の領域の端まで広がる"
+            $area = $gridRect
+            $buttons = New-Object System.Collections.Generic.List[object]
+            foreach ($id in @("IndexingButton", "ActionsButton", "NewIndexButton")) { $buttons.Add((& $edge $id)) }
+            foreach ($b in $buttons) { $b.Right | Should -BeLessOrEqual $area.Right -Because "頭のボタンが右で切れない" }
+            $buttons[1].Left | Should -BeGreaterThan $buttons[0].Right -Because "頭のボタンが重ならない"
+            $buttons[2].Left | Should -BeGreaterThan $buttons[1].Right -Because "頭のボタンが重ならない"
+            $hintRect = & $edge "IndexingHint"
+            $hintRect.Width | Should -BeGreaterThan 0 -Because "説明が出ている状態で測る（空だと矩形が空になり、比べても何も確かめられない）"
+            $hintRect.Right | Should -BeLessOrEqual $area.Right -Because "説明が右で切れない"
+            resizeGuiWindow $S 1280 800
+
             # 追加: フォルダを選ぶと、フォルダ名のインデックスが一覧に加わる（追加のダイアログは無い）
             setGuiStep $S "［＋ フォルダを追加］→ OS のフォルダ選択（フォルダを選ぶ）"
             clickGui $S $S.Window "NewIndexButton" "［＋ フォルダを追加］"
@@ -49,6 +74,20 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             setGuiStep $S "行を選ぶ"
             selectGui $row
             waitGui $S "詳細の見出し（営業）" ${guiDefaultTimeout} { (& $detailTitle) -eq "営業 - 詳細" } | Out-Null
+
+            # 窓を低くしても、詳細を縦にスクロールして、一番下の「すべてのインデックスの合計」まで届く（使えない理由と手順の出し分けは、判断層の単体テストで確かめる）
+            setGuiStep $S "詳細のスクロール"
+            resizeGuiWindow $S 1024 600
+            [math]::Round($S.Window.Current.BoundingRectangle.Width) | Should -BeGreaterThan 1000
+            [math]::Round($S.Window.Current.BoundingRectangle.Width) | Should -BeLessThan 1100
+            $summaryText = waitGuiById $S $S.Window "IndexSummaryText"
+            $scrollItem = $null
+            if ($summaryText.TryGetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern, [ref]$scrollItem)) { $scrollItem.ScrollIntoView() }
+            waitGui $S "合計までスクロールで届く" ${guiDefaultTimeout} {
+                $rect = (findGui $S.Window -Id "IndexSummaryText").Current.BoundingRectangle
+                $rect.Bottom -le $S.Window.Current.BoundingRectangle.Bottom
+            } | Out-Null
+            resizeGuiWindow $S 1280 800
 
             # 詳細の名前の欄で直接直す。使えない名前は欄の下に理由が出て名前は変わらず、正しい名前は確定で一覧に反映される（Enter か欄から出る）
             setGuiStep $S "詳細の名前の欄で名前を直す"
@@ -68,25 +107,26 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             $row = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
             selectGui $row
 
-            # 詳細のフォルダパスの［...］: キャンセルすると変わらず、別のフォルダを選ぶとその場で変わる（欄に入力して確定したときと同じ道）
-            setGuiStep $S "詳細のフォルダパスの［...］→ OS のフォルダ選択（キャンセル）"
+            # 詳細のフォルダパスの［変更…］: キャンセルすると変わらず、別のフォルダを選ぶとその場で変わる（欄に入力して確定したときと同じ道）
+            setGuiStep $S "詳細のフォルダパスの［変更…］→ OS のフォルダ選択（キャンセル）"
             $pathText = { getGuiValue (findGui $S.Window -Id "IndexDetailPath") }
             (findGui $S.Window -Id "IndexDetailPathButton").Current.IsEnabled | Should -BeTrue
             & $pathText | Should -Be $script:source
-            clickGui $S $S.Window "IndexDetailPathButton" "詳細の［...］"
+            clickGui $S $S.Window "IndexDetailPathButton" "詳細の［変更…］"
             useGuiFolderPicker $S
             & $pathText | Should -Be $script:source
-            setGuiStep $S "詳細のフォルダパスの［...］→ OS のフォルダ選択（別のフォルダ）"
+            setGuiStep $S "詳細のフォルダパスの［変更…］→ OS のフォルダ選択（別のフォルダ）"
             $moved = Join-Path (Split-Path -Parent $script:source) "移動先"
             New-Item -ItemType Directory -Path $moved -Force | Out-Null
-            clickGui $S $S.Window "IndexDetailPathButton" "詳細の［...］"
+            clickGui $S $S.Window "IndexDetailPathButton" "詳細の［変更…］"
             useGuiFolderPicker $S $moved
             waitGui $S "フォルダパスが変わる" ${guiDefaultTimeout} { (& $pathText) -eq $moved } | Out-Null
-            setGuiStep $S "詳細のフォルダパスの［...］→ 元のフォルダへ戻す"
-            clickGui $S $S.Window "IndexDetailPathButton" "詳細の［...］"
+            setGuiStep $S "詳細のフォルダパスの［変更…］→ 元のフォルダへ戻す"
+            clickGui $S $S.Window "IndexDetailPathButton" "詳細の［変更…］"
             useGuiFolderPicker $S $script:source
             waitGui $S "フォルダパスが元に戻る" ${guiDefaultTimeout} { (& $pathText) -eq $script:source } | Out-Null
 
+            (findGui $S.Window -Id "IndexDetailPathButton").Current.Name | Should -Be "フォルダの場所を変える"
             # チェックは、保存しないその場の選び。初めは付いておらず、付けても設定は書き換わず、［すべて更新］の可否も変わらない（#16）
             setGuiStep $S "行のチェックの切り替え"
             $check = findGui $row -Type CheckBox
@@ -94,6 +134,11 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             $configWriteTime = (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc
             toggleGui $check
             waitGui $S "チェックが付く" ${guiDefaultTimeout} { (getGuiToggleState (findGui $row -Type CheckBox)) -eq "On" } | Out-Null
+            # チェックの左端は、頭の「N / M 件を選択中」の左端にそろう（表の左端から 16。セルの内側の余白の分は、チェックの左の余白で引いてある）
+            waitGui $S "件数の文が出る" ${guiDefaultTimeout} { (findGui $S.Window -Id "SelectionCountText").Current.BoundingRectangle.Width -gt 0 } | Out-Null
+            $countLeft = (findGui $S.Window -Id "SelectionCountText").Current.BoundingRectangle.Left
+            $checkLeft = (findGui $row -Type CheckBox).Current.BoundingRectangle.Left
+            [Math]::Abs($checkLeft - $countLeft) | Should -BeLessOrEqual 2 -Because "チェックの左端と件数の文の左端がそろう"
             waitGui $S "［アクション ▾］が押せる" ${guiDefaultTimeout} { (findGui $S.Window -Id "ActionsButton").Current.IsEnabled } | Out-Null
             (findGui $S.Window -Id "IndexingButton").Current.IsEnabled | Should -BeTrue
             (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc | Should -Be $configWriteTime -Because "チェックは保存しない"
@@ -294,6 +339,8 @@ Describe "S3 作成中の操作" -Tag Gui {
             closeGuiWindowAsync $S $S.Window
             $confirm = waitGuiWindow $S "閉じる確認" -Id "HeadingText" -Text "中止して閉じますか" -Guard $tooFastGuard
             clickGuiByName $S $confirm "中止して閉じる"
+            # 止まるのを待つ間の待つ間のダイアログ（秒読み・押せない［閉じない］）は、止まるのが速い機械では見える前に消えるため、
+            # ここでは確かめない（実機で見る。文言は wait_view.Tests.ps1）。止まったら画面が終了することを確かめる
             waitGui $S "取り込みを止めて画面が終了する" ${guiIndexTimeout} -AllowExited { $S.Process.HasExited } | Out-Null
             $S.Process.ExitCode | Should -Be 0
         }

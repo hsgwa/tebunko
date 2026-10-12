@@ -197,6 +197,45 @@ $ui.PreviewScroll.Add_SizeChanged({
         $script:detailTimer.Start()
     }
 })
+# 結果の表とプレビューの境目。結果が少ないときは表を内容の高さまで縮めてプレビューを広げる（判断は getPreviewRowHeight）。
+# 利用者が境目をドラッグしたら、その高さを優先して、それ以後は自動で変えない
+$script:previewHeightDragged = $false
+$ui.PreviewSplitter.Add_DragCompleted({
+    $script:previewHeightDragged = $true
+})
+
+function updateResultPaneHeight {
+    # 結果の表の中身が変わった・窓の大きさが変わったあとに、プレビューの高さを決め直す。
+    #   itemCount: 表の行の数（多いときは内容を測らない）
+    param (
+        [int]$itemCount = 0
+    )
+
+    if ($script:previewHeightDragged) { return }
+    $available = $ui.ResultListHost.ActualHeight + $ui.DetailRow.ActualHeight
+    $width = $ui.ResultListHost.ActualWidth
+    if ($available -le 0 -or $width -le 0) { return }   # まだ画面に出ていない
+    $content = $null
+    # 件数が多いと全部の行を測ることになるので、少ないときだけ測る（多いときは表がいっぱいになるので測る必要が無い）
+    if ($itemCount -le 40) {
+        # 行を足し引きした直後は、表の中身がまだ測り直されていない。先に配置を終えてから測る
+        $ui.ResultListHost.UpdateLayout()
+        $root = $ui.ResultListHost.Content
+        $root.Measure([System.Windows.Size]::new($width, [double]::PositiveInfinity))
+        $content = $root.DesiredSize.Height
+        $root.InvalidateMeasure()
+    }
+    $height = getPreviewRowHeight $available $content -itemCount $itemCount
+    if ([Math]::Abs($ui.DetailRow.Height.Value - $height) -ge 1) {
+        $ui.DetailRow.Height = [System.Windows.GridLength]::new($height)
+    }
+}
+
+# 窓の大きさが変わったら決め直す（高さが同じなら何もしないので、自分で変えた高さで繰り返さない）
+$ui.ResultListHost.Add_SizeChanged({
+    safe { updateResultPaneHeight $script:resultItems.Count }
+})
+
 # プレビューのセルをクリックすると、その値をコピーできるように選ぶ（Shift＋クリック・ドラッグで範囲、Ctrl+C でコピー）
 $script:previewTable = $null
 $script:previewBaseWidth = 0

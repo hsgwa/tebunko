@@ -136,6 +136,31 @@ function exportIndexes {
     return , $results.ToArray()
 }
 
+function getIndexExportSize {
+    # エクスポートする前に、選んだインデックスが zip に入れる本文インデックスのファイル（*.tsv）の大きさの合計を数える。
+    # 戻り値: @{ Bytes（合計のバイト数）; Missing（インデックスのフォルダが無かった名前の配列）}。
+    # 数えるのは zip に入る元のファイルの大きさで、zip にした後の大きさではない。
+    # 画面のスレッドでは呼ばず、別スレッドの仕事の中で呼ぶ
+    param (
+        [string[]]$names,
+        $ws = $workspace
+    )
+
+    $bytes = [long]0
+    $missing = New-Object System.Collections.Generic.List[string]
+    foreach ($name in @($names)) {
+        $indexDir = Join-Path $ws.IndexDir $name
+        if (!(Test-Path -LiteralPath (toLongPath $indexDir) -PathType Container)) {
+            $missing.Add($name)
+            continue
+        }
+        foreach ($file in [System.IO.Directory]::GetFiles((toLongPath $indexDir), "*.tsv", [System.IO.SearchOption]::AllDirectories)) {
+            $bytes += ([System.IO.FileInfo]::new($file)).Length
+        }
+    }
+    return @{ Bytes = $bytes; Missing = $missing.ToArray() }
+}
+
 function exportIndexCore {
     param (
         [string]$name,

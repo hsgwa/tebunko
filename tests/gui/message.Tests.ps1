@@ -8,7 +8,6 @@ BeforeAll {
     . "${scriptsDir}\shared\ui\shell.ps1"
 
     ${sharedXamlDir} = "${scriptsDir}\shared\xaml"
-    ${fontsDir}      = "${scriptsDir}\shared\fonts"
     ${iconFile}      = "${scriptsDir}\tebunko\tebunko.ico"
     ${themeFile}     = "${sharedXamlDir}\theme.xaml"
     ${appTitle}      = "tebunko"

@@ -4,7 +4,7 @@
 foreach ($detailName in @(
         "IndexDetailBody", "IndexDetailName", "IndexDetailPath", "IndexDetailPathButton", "IndexDetailEditError", "IndexDetailFolderStatus",
         "IndexDetailBadge", "IndexDetailBadgeText", "IndexDetailBadgeSub", "IndexErrorText", "IndexErrorHintText", "IndexDetailUpdated", "IndexDetailCount",
-        "IndexDetailFastBadge", "IndexDetailFastBadgeText", "IndexDetailFastReason", "IndexDetailFastChecked", "IndexDetailFastNote",
+        "IndexDetailFastBadge", "IndexDetailFastBadgeText", "IndexDetailFastReason", "IndexDetailFastSteps", "IndexDetailFastChecked", "IndexDetailFastNote",
         "IndexingDetailPanel", "IndexingProgressBar", "IndexingCountText", "IndexingFileText", "MultiSelectHintText")) {
     $ui[$detailName] = $ui.IndexDetailHost.Content.FindName($detailName)
 }
@@ -12,10 +12,10 @@ foreach ($detailName in @(
 addTrimmedToolTip $ui.IndexingFileText
 
 function setIndexBadge {
-    # 詳細の状態のバッジの文言と色（一覧の LevelBadge と同じ組み合わせ。level は Ok / Wait / Ng / Run / None）
+    # 詳細の状態のバッジの文言と色（一覧の LevelBadge と同じ組み合わせ。level は Ok / Wait / Warn / Ng / Run / None）
     param ($border, $textBlock, [string]$text, [string]$level)
 
-    $kind = if ($level -in @("Ok", "Wait", "Ng", "Run")) { $level } else { "None" }
+    $kind = if ($level -in @("Ok", "Wait", "Warn", "Ng", "Run")) { $level } else { "None" }
     $border.Background = themeBrush "Badge.${kind}.Bg"
     $border.BorderBrush = themeBrush "Badge.${kind}.Bg"
     $textBlock.Foreground = themeBrush "Badge.${kind}.Text"
@@ -124,7 +124,7 @@ function updateIndexingButton {
     }
 
     $state = $script:indexingState
-    if ($script:indexBusy -or $script:archiveBusy -or $script:indexingPreparing -or $script:targetsNaming) {
+    if ($script:indexBusy -or $script:archiveBusy -or $script:indexingPreparing -or $script:targetsNaming -or $script:workspaceMoving) {
         # インデックスの削除・名前の変更中・エクスポート・インポート中（別スレッド）・ワークスペースを確かめている間は、インデックス作成もインデックスの操作も始めない
         $ready = $false
     }
@@ -371,7 +371,7 @@ $script:detailRowsKey = $null
 $script:indexingView = $null  # 詳細の「インデックス」の箱に出す、全体の進み具合（updateIndexingProgress が置く。更新中でなければ $null）
 
 function getIndexTargetItem {
-    # 詳細に出している行（名前・フォルダパスの欄と［...］、右クリックの［削除］［エクスポート…］の対象・可否もこの行。判定は getIndexDetailItem。［アクション ▾］は別で、可否・対象は getIndexActionsEnabled と、チェックの行が決める）
+    # 詳細に出している行（名前・フォルダパスの欄と［変更…］、右クリックの［削除］［エクスポート…］の対象・可否もこの行。判定は getIndexDetailItem。［アクション ▾］は別で、可否・対象は getIndexActionsEnabled と、チェックの行が決める）
     return getIndexDetailItem $ui.IndexGrid.SelectedItem @(getIndexCheckedItems @($script:targetItems))
 }
 
@@ -389,7 +389,7 @@ function updateIndexDetailPanel {
             FolderMissing = ($item.StatusChecked -and !$item.FolderExists); FolderChecked = [bool]$item.StatusChecked
             IndexText = $item.IndexText; IndexLevel = $item.IndexLevel; IndexSub = $item.IndexSub; FileCountText = $item.FileCountText
             LastIngestedText = $item.LastIngestedText; FastText = $item.FastText; FastLevel = $item.FastLevel
-            FastToolTip = $item.FastToolTip; FastCheckedText = $checkedText
+            FastToolTip = $item.FastToolTip; FastSteps = $item.FastSteps; FastCheckedText = $checkedText
         })
         $progress = $script:fastSearchProgress
         if ($progress -and $progress.ByIndex -and $progress.ByIndex.ContainsKey($item.Name)) {
@@ -445,6 +445,8 @@ function updateIndexDetailPanel {
     setIndexBadge $ui.IndexDetailFastBadge $ui.IndexDetailFastBadgeText $view.Fast.State $view.Fast.Level
     $ui.IndexDetailFastReason.Text = $view.Fast.Reason
     $ui.IndexDetailFastReason.Visibility = if ($view.Fast.Reason) { "Visible" } else { "Collapsed" }
+    $ui.IndexDetailFastSteps.Text = (@($view.Fast.Steps | ForEach-Object { "・$_" }) -join "`n")
+    $ui.IndexDetailFastSteps.Visibility = if (@($view.Fast.Steps).Count -gt 0) { "Visible" } else { "Collapsed" }
     $ui.IndexDetailFastPanel.Visibility = if ($view.Fast.Shown) { "Visible" } else { "Collapsed" }
     $ui.IndexDetailFastText.Text = $view.Fast.Text
     $ui.IndexDetailFastBar.Value = $view.Fast.Value

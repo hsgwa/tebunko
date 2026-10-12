@@ -120,6 +120,24 @@ function getIndexStoreJobFailedStatus {
     return "インデックス [${name}] の${operation}に失敗しました：${errorText}"
 }
 
+function getIndexArchiveCancelledStatus {
+    # エクスポート・インポートのダイアログを取りやめたときのステータス
+    param (
+        [string]$operation   # "エクスポート" / "インポート"
+    )
+
+    return "${operation}を取りやめました"
+}
+
+function getBulkDeleteErrorStatus {
+    # 削除が失敗した（1 件の削除の失敗と、複数削除が裏の仕事ごと失敗した場合。ワークスペースに届かないなど）ときのステータスと帯の文
+    param (
+        [string]$errorText
+    )
+
+    return "削除に失敗しました：${errorText}"
+}
+
 function getBulkDeleteFailedStatus {
     # 複数削除で、閉じるのを待っていて結果のダイアログを出さないときに、失敗があったことをステータスに残す文
     param (
@@ -148,11 +166,16 @@ function getIndexJobCloseAction {
     #   "wait"    … 閉じずに、終わるまで待って閉じる（1 回目。閉じると設定への反映が抜けて、設定とインデックスのフォルダの名前が食い違うため）
     #   "confirm" … 待っている間にもう一度閉じようとした。待たずに閉じてよいかを確かめる
     #   "proceed" … 仕事が無い。ふつうの閉じ方に進む
+    #   "waitMove" … ワークスペースを移している途中。閉じずに、移し終わるまで待って閉じる（途中で止めると移動元と移動先に分かれるため、確認は出さない）
     param (
         [bool]$indexBusy,
-        [bool]$alreadyAsked
+        [bool]$alreadyAsked,
+        [bool]$workspaceMoving = $false
     )
 
+    if ($workspaceMoving) {
+        return "waitMove"
+    }
     if (!$indexBusy) {
         return "proceed"
     }
@@ -193,6 +216,11 @@ function getIndexJobClosingStatus {
     return "インデックスの変更が終わってから閉じます…（待たずに閉じるには、もう一度閉じる操作をします）"
 }
 
+function getWorkspaceMoveClosingStatus {
+    # ワークスペースを移している途中で閉じようとして、待っているときのステータス
+    return "ワークスペースを移し終わってから閉じます…"
+}
+
 function getSourceFolderFileFailedStatus {
     # 元のフォルダの記録（source_folder.txt）を書き直せなかったときのステータス
     param (
@@ -209,9 +237,13 @@ function getIndexJobBlocker {
         [bool]$isIndexing,   # インデックス作成中
         [bool]$indexBusy,    # 前のインデックスの削除・名前の変更中
         [bool]$archiveBusy,  # エクスポート・インポート中
-        [bool]$namingBusy = $false   # ネットワークのワークスペースで、インデックスの名前を裏で決めている間（一覧はまだ空。この間に保存すると、ほかのインデックスが設定から消える）
+        [bool]$namingBusy = $false,  # ネットワークのワークスペースで、インデックスの名前を裏で決めている間（一覧はまだ空。この間に保存すると、ほかのインデックスが設定から消える）
+        [bool]$workspaceMoving = $false   # ワークスペースの中身を移している間（別スレッド。移動元と移動先の両方を使っている）
     )
 
+    if ($workspaceMoving) {
+        return "ワークスペースの移動中"
+    }
     if ($isIndexing) {
         return "インデックス作成中"
     }
@@ -227,6 +259,26 @@ function getIndexJobBlocker {
     return ""
 }
 
+function testIndexReadAllowed {
+    # インデックス・設定を読む操作（検索を始める・F5 で読み直す・窓を前に出したときの読み直し）をしてよいか。
+    # ワークスペースの中身を移している間は、移動元と移動先の両方を移す側が使っているため、キー操作でも始めない
+    param (
+        [bool]$workspaceMoving = $false
+    )
+
+    return -not $workspaceMoving
+}
+
+function testMainContentOperable {
+    # ナビと中身（画面）の操作を受け付けてよいか。ワークスペースの中身を移している間は受け付けない
+    # （マウスもキーも、設定・インデックス・検索の入口のどれからも書き込み・読み込みを始めさせない。待つ間のダイアログ自身は別の窓なので影響しない）
+    param (
+        [bool]$workspaceMoving = $false
+    )
+
+    return -not $workspaceMoving
+}
+
 function getIndexJobBlockedMessage {
     # 排他で操作をできないときのメッセージ（blocker は getIndexJobBlocker の結果。空なら空文字列）
     param (
@@ -238,6 +290,9 @@ function getIndexJobBlockedMessage {
         return ""
     }
     if ($operation -eq "ワークスペースの変更") {
+        if ($blocker -eq "ワークスペースの移動中") {
+            return "ワークスペースを移している間は、もう一度変えられません。終わるまでお待ちください。"
+        }
         if ($blocker -eq "インデックス作成中") {
             return "更新中はワークスペースを変えられません。更新が終わるまでお待ちください（［中止］で止められます）。"
         }
@@ -257,7 +312,7 @@ function getIndexJobBlockedMessage {
 
 function getIndexTabButtonsEnabled {
     # 排他（getIndexJobBlocker の結果）と、一覧で選んでいる行の有無から、［インデックス管理］の各ボタンの可否を返す。
-    #   New/Edit/Remove/ChangeFolder: ［＋ フォルダを追加］・詳細の名前とフォルダパスの欄（Edit。欄で直接直す）・［削除］・フォルダパスの［...］（Edit と同じ）/ Export/Import: ［エクスポート…］［インポート…］
+    #   New/Edit/Remove/ChangeFolder: ［＋ フォルダを追加］・詳細の名前とフォルダパスの欄（Edit。欄で直接直す）・［削除］・フォルダパスの［変更…］（Edit と同じ）/ Export/Import: ［エクスポート…］［インポート…］
     # 名前とフォルダパスの欄・［削除］［エクスポート…］は、1 件選んでいるときだけ有効
     # （［すべて更新］は updateIndexingButton が、［設定］の［変更…］は押したときに testWorkspaceChangeable が、
     # 同じ getIndexJobBlocker の結果で止める）
@@ -390,15 +445,19 @@ function getIndexRowActions {
     # ［更新］は、動いている処理があれば（blocker は getIndexJobBlocker の結果）使えない（更新中はほかの行も押せない）
     param (
         [string]$level,           # getIndexRowView の Level
-        [string]$blocker
+        [string]$blocker,
+        [bool]$exporting = $false # エクスポート中の行か（止められないので、［中止］も［更新］も出さない）
     )
 
+    if ($exporting) {
+        return @{ Action = "None"; UpdateEnabled = $false }
+    }
     $action = switch ($level) { "Run" { "Stop" } "Ng" { "None" } default { "Update" } }
     return @{ Action = $action; UpdateEnabled = ($blocker -eq "") }
 }
 
 function getIndexDetailItem {
-    # 詳細欄に出す行（詳細の名前・フォルダパスの欄と［...］、右クリックの［削除］［エクスポート…］の対象も同じ行。［アクション ▾］は別で、［更新］［エクスポート…］［削除…］はチェックの行、［インポート…］はチェックが要らない。可否は getIndexActionsEnabled が決める）。押した行があればそれ、
+    # 詳細欄に出す行（詳細の名前・フォルダパスの欄と［変更…］、右クリックの［削除］［エクスポート…］の対象も同じ行。［アクション ▾］は別で、［更新］［エクスポート…］［削除…］はチェックの行、［インポート…］はチェックが要らない。可否は getIndexActionsEnabled が決める）。押した行があればそれ、
     # 無くてチェックが 1 件だけならその行、それ以外は $null。詳細を出す所と可否・対象を決める所で、この 1 つを使う
     param (
         [object]$selectedItem,   # 一覧で押した行（無ければ $null）
@@ -510,14 +569,20 @@ function formatArchiveSize {
     return ($mb.ToString("0.0", [System.Globalization.CultureInfo]::InvariantCulture) + " MB")
 }
 
+function getIndexExportMissingText {
+    # エクスポートする大きさを数えている間に、対象のインデックスが無くなっていたときのステータス
+    return "対象のインデックスが見つかりません"
+}
+
 function getIndexExportHeader {
     # エクスポートのダイアログの上の枠（対象・大きさ・zip の名前）と注意。
     #   items: 書き出すインデックス（Name と FileCountText（"2,530"。無ければ "－" か空）を持つ行）。1 件でも 2 件以上でもよい
-    # 戻り値: @{ Title（1 件は名前、2 件以上は「N 件のインデックス」）; Size（「2,530 ファイル」。数が分からなければ空。大きさは数えていないので出さない）;
+    # 戻り値: @{ Title（1 件は名前、2 件以上は「N 件のインデックス」）; Size（「2,530 ファイル」。大きさを数え終えていれば「2,530 ファイル・94.0 MB」。数が分からなければ空）;
     #            FileText（書き出し先の下の「<名前>_インデックス_<yyyyMMdd>.zip として保存します」）; Caution }
     param (
         [object[]]$items,
-        [datetime]$now = (Get-Date)
+        [datetime]$now = (Get-Date),
+        [long]$bytes = -1   # 数え終えた zip に入る大きさ。省略（負）なら大きさは出さない
     )
 
     $items = @($items | Where-Object { $null -ne $_ })
@@ -531,6 +596,9 @@ function getIndexExportHeader {
         }
     }
     $size = if ($known) { "{0:#,0} ファイル" -f $total } else { "" }
+    if ($known -and $bytes -ge 0) {
+        $size += "・" + (formatArchiveSize $bytes)
+    }
     if ($items.Count -eq 1) {
         $title = [string]$items[0].Name
         $fileText = "$(getExportFileName $title @() $now) として保存します"
@@ -595,22 +663,50 @@ function getImportSourceCheckText {
     return @{ Text = ""; Kind = "None" }
 }
 
-function getImportNameNoticeText {
-    # インポートの名前の欄に、今の一覧にある名前を入れたときの案内（無ければ空）。確認は［インポート］を押したあと（getIndexImportOverwriteConfirmMessage）
+function getImportCollisionChoiceView {
+    # インポートのダイアログの頭に出す、同じ名前のときの選び方（［別の名前にする］／［置き換える］）の表示。
+    #   name     : 名前の欄の今の値
+    #   zipName  : zip の中のインデックスの名前
+    #   usedNames: getUsedIndexNames の結果
+    #   mode     : 利用者が選んでいる方（Rename か Overwrite。既定は Rename）
+    # 出すのは、名前の欄が今の一覧にある名前のとき、または zip の名前が一覧にあって名前の欄が別の名前の候補のまま（初めの状態）のとき。
+    # 名前の欄を手で一覧に無い名前にしたら隠す。
+    # 置き換える相手（TargetName）は、名前の欄が一覧にある名前ならその名前、そうでなければ zip の名前。
+    # Mode は、置き換える相手が名前の欄で決まっている（名前の欄が一覧にある名前の）ときだけ Overwrite になれる。
+    # 名前の欄が一覧に無い名前なら、選んでいても Rename（重ならないので別の名前の扱いと同じ）。
+    # Danger は［インポート］を危険の型（赤）にするか（Mode が Overwrite のとき）。Notice は置き換えるときに添える一文。
+    # Candidate は［別の名前にする］を選んだときに名前の欄へ入れる候補、OverwriteName は［置き換える］を選んだときの名前の欄の値
     param (
         [string]$name,
-        $usedNames = $null
+        [string]$zipName,
+        $usedNames = $null,
+        [string]$mode = ${importCollisionRename}
     )
 
-    if ($name.Trim() -ne "" -and (testImportNameCollision $name.Trim() $usedNames)) {
-        return "同じ名前のインデックスがあります。［インポート］を押すと、上書きするか別の名前にするかを選べます。"
+    $trimmed = $name.Trim()
+    $candidate = getImportSuggestedName $zipName $usedNames
+    $nameCollides = $trimmed -ne "" -and (testImportNameCollision $trimmed $usedNames)
+    $zipCollides = testImportNameCollision $zipName $usedNames
+    $visible = $nameCollides -or ($zipCollides -and $trimmed -ieq $candidate)
+    $effective = if ($nameCollides -and $mode -eq ${importCollisionOverwrite}) { ${importCollisionOverwrite} } else { ${importCollisionRename} }
+    $target = if ($nameCollides) { $trimmed } else { $zipName }
+    return @{
+        Visible       = $visible
+        Mode          = $effective
+        Danger        = ($effective -eq ${importCollisionOverwrite})
+        Heading       = if ($visible) { "同じ名前のインデックス [${target}] があります" } else { "" }
+        RenameText    = "別の名前にする"
+        OverwriteText = "置き換える"
+        Notice        = if ($visible -and $effective -eq ${importCollisionOverwrite}) { "今のインデックス [${target}] は、インポートするもので置き換わります。" } else { "" }
+        TargetName    = $target
+        Candidate     = $candidate
+        OverwriteName = $target
     }
-    return ""
 }
 
 function testIndexImportInput {
     # インポートのダイアログの入力を調べ、直してほしい内容を返す（問題なければ空文字列）。
-    # 名前が既にあるインデックスと重なることは断らない（上書き・別名・取りやめの確認に回す。getImportIndexName）。
+    # 名前が既にあるインデックスと重なることは断らない（別の名前にするか置き換えるかの選びに回す。getImportCollisionChoiceView）。
     # 元のフォルダは、追加と詳細欄の編集と同じ決まり（getIndexFolderConflict）で調べる。同じ名前の行は上書きで置き換わる
     # （別名なら残る）ため、ここでは比べる相手から外す（別名で入れて重なったときは、インポートの側で止める）
     param (
@@ -645,7 +741,7 @@ function getImportSuggestedName {
 }
 
 function testImportNameCollision {
-    # 入力された名前が今の一覧にあり、上書き・別名・取りやめの確認が要るか（大文字・小文字は区別しない）
+    # 入力された名前が今の一覧にあり、別の名前にするか置き換えるかの選びが要るか（大文字・小文字は区別しない）
     param (
         [string]$name,
         $usedNames = $null   # getUsedIndexNames の結果（集合・配列・文字列・$null。入れ子の集合でもよい）
@@ -664,16 +760,7 @@ function testImportNameCollision {
 function getIndexImportNotice {
     # インポートのダイアログの説明
     # 中身（名前・日時・ファイル数・大きさ・版）は getIndexImportHeader の枠に出す
-    return "名前と、元のフォルダの場所を変えられます。同じ名前のインデックスが既にあるときは、後で上書き・別名・取りやめを選べます。"
-}
-
-function getIndexImportOverwriteConfirmMessage {
-    # 名前が既にあるインデックスと重なったときの確認（choices は showConfirm に渡す。上書き・別名・取りやめ）
-    param (
-        [string]$name
-    )
-
-    return "インデックス「${name}」は既にあります。上書きしますか？（前のインデックスは置き換わります。別名で入れることもできます）"
+    return "名前と、元のフォルダの場所を変えられます。"
 }
 
 function getIndexRowView {
@@ -684,15 +771,20 @@ function getIndexRowView {
     #   enabled  : 設定の enabled（［すべて更新］で更新する対象か。画面にチェックは出さない）
     #   ratio    : 更新全体の進み（0〜1。分からないときは負の値）。更新中の補足に「45%」と出し、棒の長さにする
     #   inRound  : 今の回で更新するインデックスか（選んだものだけの回では、選ばなかった行は $false）
+    #   exporting: エクスポートで書き出している最中の行か（バッジは「エクスポート中」。更新中と同じ Run の色。棒は出さない）
     # 返す値の Percent は棒の長さ（0〜100）。更新中でなければ 0
     param (
         $stat,
         [bool]$indexing = $false,
         [bool]$enabled = $true,
         [double]$ratio = -1.0,
-        [bool]$inRound = $true
+        [bool]$inRound = $true,
+        [bool]$exporting = $false
     )
 
+    if ($exporting) {
+        return @{ Text = "エクスポート中"; Sub = ""; Level = "Run"; Percent = 0; ToolTip = "インデックスを zip に書き出しています。終わるまで、ほかの操作はできません。" }
+    }
     $notice = if (!$enabled) { "設定で［すべて更新］の対象から外れています（インデックスは残っています。行の［更新］で更新できます）。" } else { "" }
     if ($indexing -and $enabled -and $inRound) {
         $percent = if ($ratio -ge 0) { [int][Math]::Floor([Math]::Min($ratio, 1.0) * 100) } else { 0 }
@@ -750,7 +842,8 @@ function addIndexRowNotice {
 
 function getFastSearchRowView {
     # 一覧の「高速検索」列（システムインデックスが Windows Search にどこまで反映されたか）の
-    # 文言・ツールヒント・色の区分を返す。@{ Text; ToolTip; Level }
+    # 文言・ツールヒント・色の区分・対処の手順を返す。@{ Text; ToolTip; Level; Steps }
+    # 使えないとき（不可）の Level は Warn（失敗の赤でなく注意の色）。Steps は詳細に出す対処の手順の短い箇条（無ければ空）
     #   reason     : getWindowsSearchState の値（NoFolder; NoConnection; NotInScope; NotYet; Ok）。$null ならまだ確かめていない
     #   progress   : getSystemIndexProgress の値（$null なら読めなかった・問い合わせに失敗した）
     #   name       : インデックス名（progress.ByIndex を引く）
@@ -774,10 +867,14 @@ function getFastSearchRowView {
         return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "まだ作っていません。更新が終わると状態を表示します。" $checkedAt) }
     }
     if ($reason -eq "NoConnection") {
-        return newFastSearchRowResult "不可" "Ng" @("Windows Search に接続できません。Windows Search のサービスが動いているかを確かめてください。") $true $checkedAt $progress
+        return newFastSearchRowResult "不可" "Warn" @("Windows Search に接続できません。") $true $checkedAt $progress @(
+            "Windows Search のサービスが動いているかを確かめてください。")
     }
     if ($reason -eq "NotInScope") {
-        return newFastSearchRowResult "不可" "Ng" @("ワークスペースが Windows Search の索引の対象外です。［インデックスのオプション］でワークスペースの system_index を対象に加えてください（管理者の権限が要る PC では、PC の管理者に頼んでください）。") $true $checkedAt $progress
+        return newFastSearchRowResult "不可" "Warn" @("ワークスペースが Windows Search の索引の対象外です。") $true $checkedAt $progress @(
+            "スタートで「インデックスのオプション」と入力して開きます。",
+            "ワークスペースの system_index を対象に加えます。",
+            "管理者の権限が要る PC では、PC の管理者に頼みます。")
     }
     if (($reason -eq "Ok" -or $reason -eq "NotYet") -and $null -eq $progress) {
         return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "反映の進み具合を確かめられませんでした。画面を前に出し直すと、もう一度確かめます。" $checkedAt) }
@@ -791,7 +888,7 @@ function getFastSearchRowView {
             return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "更新中です。終わると状態を表示します。" $checkedAt) }
         }
         if ($hasContent) {
-            return newFastSearchRowResult "不可" "Ng" @("このインデックスには高速検索用のデータがありません。") $false $checkedAt $null
+            return newFastSearchRowResult "不可" "Warn" @("このインデックスには高速検索用のデータがありません。") $false $checkedAt $null
         }
         return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "まだ作っていません。更新が終わると状態を表示します。" $checkedAt) }
     }
@@ -815,10 +912,12 @@ function getFastSearchRowView {
 
 function newFastSearchRowResult {
     # getFastSearchRowView の共通の組み立て: 理由の行＋（使っても結果は同じという注記）＋ ContentIndexed の案内＋最終確認
-    param ([string]$text, [string]$level, [string[]]$lines, [bool]$withUsageNotice, $checkedAt, $progress)
+    # steps は対処の手順（ツールヒントでは理由の次の行に並べ、詳細では理由と別の箇条にする）
+    param ([string]$text, [string]$level, [string[]]$lines, [bool]$withUsageNotice, $checkedAt, $progress, [string[]]$steps = @())
 
     $all = New-Object 'System.Collections.Generic.List[string]'
     foreach ($line in $lines) { [void]$all.Add($line) }
+    foreach ($step in $steps) { [void]$all.Add($step) }
     if ($withUsageNotice) {
         [void]$all.Add("使えなくても検索の結果は同じで、時間だけが違います。")
         if ($progress -and $progress.ContentIndexed) {
@@ -826,7 +925,7 @@ function newFastSearchRowResult {
         }
     }
     $tooltip = addFastSearchCheckedAt ($all -join "`n") $checkedAt
-    return @{ Text = $text; Level = $level; ToolTip = $tooltip }
+    return @{ Text = $text; Level = $level; ToolTip = $tooltip; Steps = @($steps) }
 }
 
 function addFastSearchCheckedAt {
@@ -888,13 +987,13 @@ function getIndexDetailView {
     # インデックスの詳細のパネルに出す内容を返す。1 つ選んでいるときだけ中身を出す
     # （何も選んでいない・複数のときは見出しだけ。一覧の下の合計は別の部品）。
     #   items         : 選んでいる行。@{ Name; Path; Enabled; FolderStatus; FolderMissing（元のフォルダが無いと分かったか）; FolderChecked（有無を調べ終えたか。$false のときだけ「確認中」。省くと調べ終えたものとする）; IndexText; IndexLevel; IndexSub; FileCountText;
-    #                   LastIngestedText; FastText; FastLevel; FastToolTip; FastCheckedText }
+    #                   LastIngestedText; FastText; FastLevel; FastToolTip; FastSteps; FastCheckedText }
     #   fastEntry     : getSystemIndexProgress の ByIndex のそのインデックスの値（@{ Folders; Waiting }）。無ければ $null
     #   multiCount    : 2 以上なら、詳細は出さず「N 件を選択中」と案内だけにする（getIndexDetailMultiCount）
     #   running       : 更新の進み具合（@{ Ratio; Processed; Total; Failed; Eta; Current }）。更新中の行の「インデックス」の箱に出す。無ければ $null
     # 戻り値: @{ Title; Selected; Name; Path; FolderStatus; FolderBrush（フォルダの状態の文の色のキー。ある = Ok／無い = Danger.Text／確認中・何も出さない = Ink.Muted）; Badge（@{ Text; Level }）; Updated; Count;
     #            Rows（右の「インデックス情報」の @{ Label; Value } の配列）; RowsKey;
-    #            Fast（@{ Shown（反映の進みの棒を出すか）; Value（0〜1）; Text; State; Level; Reason; Checked; Note }）;
+    #            Fast（@{ Shown（反映の進みの棒を出すか）; Value（0〜1）; Text; State; Level; Reason; Steps（対処の手順の箇条）; Checked; Note }）;
     #            Multi（複数を選んでいるか）; Hint（Multi のときの案内）;
     #            Run（@{ Shown（更新中の棒・件数・ファイル名を出すか）; Value（0〜1）; CountText; FileText }）;
     #            Error・ErrorHint（元のフォルダが無いときの理由と直し方。無ければ空。バッジは「エラー」の Ng になる） }
@@ -907,7 +1006,7 @@ function getIndexDetailView {
     )
 
     $noRun = @{ Shown = $false; Value = 0.0; CountText = ""; FileText = "" }
-    $emptyFast = @{ Shown = $false; Value = 0.0; Text = ""; State = ""; Level = "None"; Reason = ""; Checked = ""; Note = "" }
+    $emptyFast = @{ Shown = $false; Value = 0.0; Text = ""; State = ""; Level = "None"; Reason = ""; Steps = @(); Checked = ""; Note = "" }
     $none = @{
         Title = "インデックスの状態"; Selected = $false; Name = ""; Path = ""; FolderStatus = ""; FolderMissing = $false; FolderBrush = "Ink.Muted"
         Badge = @{ Text = ""; Level = "None" }; Updated = ""; Count = ""; Rows = @(); RowsKey = ""; Fast = $emptyFast
@@ -934,9 +1033,10 @@ function getIndexDetailView {
     [void]$rows.Add(@{ Label = "対象ファイル数"; Value = $(if ($hasCount) { "$($item.FileCountText) ファイル" } else { "－" }) })
     [void]$rows.Add(@{ Label = "最終更新"; Value = $(if ($item.LastIngestedText) { [string]$item.LastIngestedText } else { "－" }) })
 
-    $fast = @{ Shown = $false; Value = 0.0; Text = ""; State = [string]$item.FastText; Level = [string]$item.FastLevel; Reason = ""; Checked = [string]$item.FastCheckedText; Note = "" }
-    if ($item.FastLevel -eq "Ng" -and $item.FastToolTip) {
+    $fast = @{ Shown = $false; Value = 0.0; Text = ""; State = [string]$item.FastText; Level = [string]$item.FastLevel; Reason = ""; Steps = @(); Checked = [string]$item.FastCheckedText; Note = "" }
+    if ($item.FastLevel -eq "Warn" -and $item.FastToolTip) {
         $fast.Reason = ([string]$item.FastToolTip -split "`n")[0]
+        $fast.Steps = @($item.FastSteps)
     }
     if ($null -ne $fastEntry -and $fastEntry.Folders -gt 0) {
         $done = [Math]::Max(0, [Math]::Min([int]$fastEntry.Folders, [int]$fastEntry.Folders - [int]$fastEntry.Waiting))
@@ -974,12 +1074,12 @@ function getIndexDetailView {
     if ($item.FolderMissing -and $item.IndexLevel -ne "Run") {
         $badge = @{ Text = "エラー"; Level = "Ng"; Sub = "" }
         $errorText = "フォルダが見つかりません。"
-        $errorHint = "フォルダが移動・削除されたか、ネットワークにつながっていない可能性があります。`nフォルダパスの［...］でフォルダを選び直してください。"
+        $errorHint = "フォルダが移動・削除されたか、ネットワークにつながっていない可能性があります。`nフォルダパスの［変更…］でフォルダを選び直してください。"
     }
     $folderBrush = if ($item.FolderMissing) { "Danger.Text" } elseif ($item.FolderChecked -eq $false) { "Ink.Muted" } else { "Ok" }
     $fixed = @(
         $item.Name, $item.Path, $item.FolderStatus, $folderBrush, $badge.Text, $badge.Level, $badge.Sub, $updated, $count
-        $fast.State, $fast.Level, $fast.Reason, $fast.Checked
+        $fast.State, $fast.Level, $fast.Reason, (@($fast.Steps) -join "|"), $fast.Checked
     ) -join "`t"
     $rowsKey = $fixed + "`n" + (@($rows | ForEach-Object { "$($_.Label)`t$($_.Value)" }) -join "`n")
     return @{

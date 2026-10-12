@@ -34,6 +34,7 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             clickGuiAction $S "ActionExport" "［エクスポート…］"
             $dialog = waitGuiWindow $S "エクスポートのダイアログ" -Id "ExportPathBox"
             getGuiText (findGui $dialog -Id "ExportTitleText") | Should -Be "営業" -Because "見出しの代わりに対象の名前を枠に出す"
+            getGuiText (findGui $dialog -Id "ExportSizeText") | Should -Match "^\d+ ファイル・\d+\.\d MB$" -Because "ダイアログを開く前に別スレッドで数えた大きさが出る"
             getGuiText (findGui $dialog -Id "ExportFileText") | Should -BeLike "営業_インデックス_*.zip として保存します"
             getGuiText (findGui $dialog -Id "CautionText") | Should -BeLike "このファイルには、元のファイルの本文と元のフォルダの場所が含まれます。*"
             setGuiText $S (findGui $dialog -Id "ExportPathBox") $script:exportDest
@@ -72,6 +73,23 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             (getGuiRowTexts $row) | Should -Contain "営業"
             Test-Path -LiteralPath "$($script:tool.Work)\content_index\営業" | Should -BeTrue
 
+            setGuiStep $S "同じ名前のインポート（別の名前にする → 置き換える）"
+            clickGuiAction $S "ActionImport" "［インポート…］"
+            useGuiFileOpenPicker $S $zip[0].FullName
+            $dialog = waitGuiWindow $S "インポートのダイアログ" -Id "NameBox"
+            getGuiText (findGui $dialog -Id "CollisionHeading") | Should -Be "同じ名前のインデックス [営業] があります"
+            getGuiValue (findGui $dialog -Id "NameBox") | Should -Be "営業(2)" -Because "初めの選択は別の名前にする"
+            isGuiSelected (findGui $dialog -Id "RenameRadio") | Should -BeTrue
+            selectGui (findGui $dialog -Id "OverwriteRadio")
+            getGuiValue (findGui $dialog -Id "NameBox") | Should -Be "営業" -Because "置き換えるときは zip の名前に戻す"
+            getGuiText (findGui $dialog -Id "CollisionNotice") | Should -Be "今のインデックス [営業] は、インポートするもので置き換わります。"
+            clickGui $S $dialog "ImportButton" "［インポート］"
+            waitGuiWindowClosed $S $dialog "インポートのダイアログ"
+            waitGui $S "置き換えの完了" ${guiDefaultTimeout} {
+                (getGuiText (findGui $S.Window -Id "StatusText")) -like "*インポートしました*"
+            } | Out-Null
+            @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count | Should -Be 1 -Because "置き換えたので増えない"
+
             closeGui $S
         }
     }
@@ -100,8 +118,41 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
 
             setGuiStep $S "2 件にチェックを付けてまとめて［エクスポート…］"
             foreach ($row in @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))) { checkGuiRow $S $row }
+
+            setGuiStep $S "エクスポートのダイアログを［キャンセル］で閉じる"
+            clickGuiAction $S "ActionExport" "［エクスポート…］"
+            $cancelDialog = waitGuiWindow $S "エクスポートのダイアログ" -Id "ExportPathBox"
+            clickGui $S $cancelDialog "CancelButton" "［キャンセル］"
+            waitGuiWindowClosed $S $cancelDialog "エクスポートのダイアログ"
+            (getGuiText (findGui $S.Window -Id "StatusText")) | Should -Be "エクスポートを取りやめました"
+
+            setGuiStep $S "書き出し先が無いと、画面の上の帯に理由が出る"
+            clickGuiAction $S "ActionExport" "［エクスポート…］"
+            $failDialog = waitGuiWindow $S "エクスポートのダイアログ" -Id "ExportPathBox"
+            setGuiText $S (findGui $failDialog -Id "ExportPathBox") (Join-Path $TestDrive "無い書き出し先")
+            clickGui $S $failDialog "ExportButton" "［エクスポート］"
+            waitGuiWindowClosed $S $failDialog "エクスポートのダイアログ"
+            waitGui $S "帯に理由が出る" ${guiDefaultTimeout} {
+                (getGuiText (findGui $S.Window -Id "IndexNoticeText")) -like "*見つかりません*"
+            } | Out-Null
+            $noticeRect = (findGui $S.Window -Id "IndexNoticeText").Current.BoundingRectangle
+            ($S.Window.Current.BoundingRectangle.Right - $noticeRect.Right) | Should -BeLessThan 80
+            clickGui $S $S.Window "IndexNoticeClose" "帯の［閉じる］"
+            waitGui $S "帯が消える" ${guiDefaultTimeout} { (findGui $S.Window -Id "IndexNoticeText").Current.IsOffscreen } | Out-Null
+
+            setGuiStep $S "もう一度失敗させて帯を出し、続けて成功させると帯が自分で消える（閉じるボタンで消えたあとでは確かめにならないので、出したままにする）"
+            clickGuiAction $S "ActionExport" "［エクスポート…］"
+            $failDialog2 = waitGuiWindow $S "エクスポートのダイアログ" -Id "ExportPathBox"
+            setGuiText $S (findGui $failDialog2 -Id "ExportPathBox") (Join-Path $TestDrive "無い書き出し先")
+            clickGui $S $failDialog2 "ExportButton" "［エクスポート］"
+            waitGuiWindowClosed $S $failDialog2 "エクスポートのダイアログ"
+            waitGui $S "帯が出る" ${guiDefaultTimeout} { -not (findGui $S.Window -Id "IndexNoticeText").Current.IsOffscreen } | Out-Null
+
+            setGuiStep $S "2 件にチェックを付けてまとめて［エクスポート…］"
             clickGuiAction $S "ActionExport" "［エクスポート…］"
             $dialog = waitGuiWindow $S "エクスポートのダイアログ" -Id "ExportPathBox"
+            getGuiText (findGui $dialog -Id "ExportTitleText") | Should -Be "2 件のインデックス"
+            getGuiText (findGui $dialog -Id "ExportSizeText") | Should -Match "^\d+ ファイル・\d+\.\d MB$"
             setGuiText $S (findGui $dialog -Id "ExportPathBox") $dest
             clickGui $S $dialog "ExportButton" "［エクスポート］"
             waitGuiWindowClosed $S $dialog "エクスポートのダイアログ"
@@ -109,6 +160,7 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
                 (getGuiText (findGui $S.Window -Id "StatusText")) -like "*2 件のインデックスをエクスポートしました*"
             } | Out-Null
             @(Get-ChildItem -LiteralPath $dest -Filter "*.zip").Count | Should -Be 2
+            waitGui $S "成功で帯が消える" ${guiDefaultTimeout} { (findGui $S.Window -Id "IndexNoticeText").Current.IsOffscreen } | Out-Null
 
             setGuiStep $S "まとめて［削除…］"
             clickGuiAction $S "ActionDelete" "［削除…］"
@@ -132,7 +184,7 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             clickGui $S $S.Window "ChangeWorkspaceButton" "［変更…］"
             useGuiFolderPicker $S $workspaceB
             answerGuiConfirm $S "ワークスペースを変える確認" "へ移動します" "移動する"
-            waitGui $S "ワークスペースが切り替わる" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "WorkspaceText")) -eq $workspaceB } | Out-Null
+            waitGui $S "ワークスペースが切り替わる" ${guiDefaultTimeout} { (getGuiValue (findGui $S.Window -Id "WorkspaceBox")) -eq $workspaceB } | Out-Null
 
             setGuiStep $S "［インポート…］"
             selectGuiTab $S "IndexTab" "ActionsButton"

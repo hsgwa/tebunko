@@ -1,6 +1,6 @@
 ﻿# ワークスペースの切り替え（中身を移す・消して最初からやり直す・選んだ先のインデックスを使う・searchExcludes の付け替え・保存・失敗したら戻す）。
-# 画面（ui\settings\settings.ps1 の applyWorkspace）は、確かめて利用者に選ばせたあと ChangeWorkspace を呼び、結果を出して画面を切り替えるだけにする。
-# 画面のスレッドで使う。切り替えの前に、画面は本文インデックスのファイルを読んでいる検索を止める（移せないため）。
+# 画面（ui\settings\settings.ps1 の applyWorkspace・startWorkspaceMove）は、確かめて利用者に選ばせたあと ChangeWorkspace を呼び、結果を出して画面を切り替えるだけにする。
+# ListEntries などの確かめは画面のスレッドで、ChangeWorkspace は裏のスレッド（startWorkspaceMove の startJob）で使う。切り替えの前に、画面は本文インデックスのファイルを読んでいる検索を止める（移せないため）。
 #
 # クラスの本体では $script: 変数・ほかのクラスの型・呼び出し元の変数を使わない（docs/design/structure/classes.md）。
 # 設定ファイルの場所はコンストラクタで受け取る。ワークスペースの中の場所は Workspace（workspace.ps1）から組み立てる。

@@ -19,6 +19,16 @@ Describe "S1 起動・検索・閉じる" -Tag Gui {
             setGuiStep $S "起動時のタブ"
             getGuiSelectedTab $S | Should -Be "SearchTab"
 
+            # 起動直後は、結果の側（検索バーの下から、境目まで）がプレビューの側（境目から、ステータスバーまで）より大きい
+            setGuiStep $S "起動直後の結果とプレビューの高さ"
+            $rects = @{}
+            foreach ($rectId in @("WordBox", "PreviewSplitter", "StatusText")) {
+                $rects[$rectId] = (findGui $S.Window -Id $rectId).Current.BoundingRectangle
+            }
+            $resultHeight = $rects.PreviewSplitter.Top - $rects.WordBox.Bottom
+            $previewHeight = $rects.StatusText.Top - $rects.PreviewSplitter.Top
+            $resultHeight | Should -BeGreaterThan $previewHeight
+
             # 3 つの画面を選ぶ。選んだ画面の中の部品が UI オートメーションに出る（ContentHost の中身）（#7）
             foreach ($tab in @(
                 @{ Id = "IndexTab"; Content = "IndexGrid" }, @{ Id = "SettingsTab"; Content = "ChangeWorkspaceButton" },
@@ -49,6 +59,13 @@ Describe "S1 起動・検索・閉じる" -Tag Gui {
             clickGui $S $S.Window "AboutLink" "バージョン情報"
             $about = waitGuiWindow $S "「バージョン情報」のダイアログ" -Id "VersionText"
             (getGuiText (findGui $about -Id "VersionText")) | Should -BeLike "バージョン *"
+            # GitHub とリリースへのリンクが出ていて押せる（押すとブラウザが開くので、ここでは押さない）。ライセンスの文も出ている
+            foreach ($linkId in @("GitHubLink", "ReleasesLink")) {
+                $link = findGui $about -Id $linkId
+                $link.Current.IsEnabled | Should -BeTrue
+                $link.Current.IsOffscreen | Should -BeFalse
+            }
+            (getGuiText (findGui $about -Id "LicenseText")) | Should -BeLike "*MIT*ISC*"
             clickGui $S $about "CloseButton" "［OK］"
             waitGuiWindowClosed $S $about "「バージョン情報」"
 
@@ -99,14 +116,11 @@ Describe "S8 単一 .ps1 版: 起動・検索・閉じる" -Tag Gui {
     }
 }
 
-Describe "S1 同梱のフォント" -Tag Gui {
-    It "配布する形（scripts\ の写し）に同梱のフォントがあり、Font.Body がそこから作られる" -Skip:($env:TEBUNKO_GUI_SINGLE -eq "1") {
+Describe "S1 画面のフォント" -Tag Gui {
+    It "配布する形（scripts\ の写し）でも、Font.Body は Windows 標準のフォント（Segoe UI・Yu Gothic UI・Meiryo UI）" -Skip:($env:TEBUNKO_GUI_SINGLE -eq "1") {
         $tool = newGuiTool $TestDrive
-        $fonts = "$($tool.Dir)\scripts\shared\fonts"
         Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
         . "$($tool.Dir)\scripts\shared\ui\app_host.ps1"
-        $family = newAppFontFamily $fonts
-        $family.BaseUri.LocalPath | Should -Be "$fonts\"
-        @([System.Windows.Media.Fonts]::GetFontFamilies($family.BaseUri) | ForEach-Object { $_.FamilyNames.Values }) | Should -Contain "Rethink Sans"
+        (newAppFontFamily).Source | Should -Be "Segoe UI, Yu Gothic UI, Meiryo UI"
     }
 }
