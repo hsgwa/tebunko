@@ -63,12 +63,19 @@ Describe "選択行のプレビューの速さとメモリ" -Tag Slow {
         [void][System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($bigPath))
         [System.IO.File]::WriteAllText($bigPath, (newLargeContentTsvText 9999 $bigWord $bigHitLines 10), (New-Object System.Text.UTF8Encoding($true)))
 
+        # 横に広い Excel（2000 列）の本文インデックスのファイルも足す。語は右寄りの 1500 列目にだけ置き、一致したセルが最初に見える範囲の外にある表を作る
+        $wideWord = "横に広い語"
+        $wideHitLines = @(10, 50, 100, 150, 200, 250)
+        $widePath = Join-Path $index "プレビュー用\横に広い.xlsx\シート1.tsv"
+        [void][System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($widePath))
+        [System.IO.File]::WriteAllText($widePath, (newWideContentTsvText 300 2000 $wideWord $wideHitLines 1500), (New-Object System.Text.UTF8Encoding($true)))
+
         # 語の表は perfdata のものに、大きなファイルに当たる語を足す
         $words = Join-Path $TestDrive "words.tsv"
-        $wordLines = [System.IO.File]::ReadAllLines((Join-Path $perfdata "words.tsv"), [System.Text.Encoding]::UTF8) + "大きい本文`t$bigWord`tfalse`t$($bigHitLines.Count)"
+        $wordLines = [System.IO.File]::ReadAllLines((Join-Path $perfdata "words.tsv"), [System.Text.Encoding]::UTF8) + "大きい本文`t$bigWord`tfalse`t$($bigHitLines.Count)", "横に広い`t$wideWord`tfalse`t$($wideHitLines.Count)"
         [System.IO.File]::WriteAllText($words, (($wordLines -join "`r`n") + "`r`n"), (New-Object System.Text.UTF8Encoding($true)))
 
-        & (Join-Path $repo "tools\measure_perf.ps1") -Index $index -Work $work -Words $words -Count 1 -Preview $previewCount -PreviewFullRead -Render -Label "tebunko-perfdata $commit" -Out $out | Out-Host
+        & (Join-Path $repo "tools\measure_perf.ps1") -Index $index -Work $work -Words $words -Count 1 -Preview $previewCount -PreviewFullRead -Render -ReadMore -Label "tebunko-perfdata $commit" -Out $out | Out-Host
         if ($LASTEXITCODE) { throw "measure_perf.ps1 が失敗しました（終了コード $LASTEXITCODE）。" }
 
         $result = [System.IO.File]::ReadAllText((Join-Path $out "result.json"), [System.Text.Encoding]::UTF8) | ConvertFrom-Json
@@ -104,6 +111,19 @@ Describe "選択行のプレビューの速さとメモリ" -Tag Slow {
             $entry.Render.RestMs.Count | Should -BeGreaterThan 0 -Because "語 $name"
             $entry.BuildFirstMs | Should -BeGreaterThan 0 -Because "語 $name"
         }
+    }
+
+    It "横に広い表は、全部の列を持ち、見えている範囲のセルだけを作り、読み足しと描画の値が入っている（値は出すだけで、上限と比べない）" {
+        $entry = @($result.Preview.Words | Where-Object { $_.Name -eq "横に広い" }) | Select-Object -First 1
+        $entry | Should -Not -BeNullOrEmpty
+        [int]$entry.Count | Should -Be $wideHitLines.Count
+        $entry.Render.Columns | Should -BeGreaterOrEqual 2000
+        $entry.CreatedCells.Max | Should -BeLessThan ($entry.Render.Rows * $entry.Render.Columns)
+        $entry.Render.Elements | Should -BeGreaterThan 0
+        $entry.Render.ScrollMs | Should -BeGreaterThan 0
+        $entry.ReadMore | Should -Not -BeNullOrEmpty
+        $entry.ReadMore.Runs | Should -Be 5
+        $entry.ReadMore.Columns | Should -BeGreaterOrEqual 2000
     }
 
     It "大きな本文インデックスのファイルが、プレビューの対象に入っている" {
@@ -142,6 +162,8 @@ Describe "プレビューの描画の計測（-Render）" -Tag Gui {
         @($entry.Render.RenderMs).Count | Should -Be 5
         $entry.Render.FirstMs | Should -BeGreaterThan 0
         $entry.Render.RestMs.Count | Should -Be 4
+        $entry.Render.Elements | Should -BeGreaterThan 0
+        $entry.Render.ScrollMs | Should -BeGreaterThan 0
         $md = [System.IO.File]::ReadAllText("$out\summary.md")
         $md | Should -Match "### プレビューの描画"
         @(Import-Csv "$out\metrics.csv" | Where-Object { $_.metric -eq "preview_render_first_ms" }).Count | Should -Be 1

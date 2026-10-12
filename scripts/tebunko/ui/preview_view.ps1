@@ -63,6 +63,47 @@ function getPreviewTrim {
     return @{ Side = "bottom"; Count = $count }
 }
 
+function getPreviewColumnWindow {
+    # 横にスクロールしたとき、画面に見えている列の範囲を決める（見えている列だけセルを作るため）。
+    # 戻り値は @{ First; Last; Left; Right }。First・Last は作る最初と最後の列（見えている列の左右に margin 列ずつ足す。0 から。
+    # 列が 0 のときは First = 0・Last = -1）、Left・Right は、作らない左の列・右の列の幅の合計
+    param (
+        [double[]]$widths,        # 列の幅の並び（行番号の列を除く）
+        [double]$offset,          # 横にスクロールした位置（行番号の列を含む行の左端から）
+        [double]$viewportWidth,   # スクロールの見える幅
+        [double]$numberWidth,     # 行番号の列の幅
+        [int]$margin = 3          # 見えている列の左右に足して作る列の数
+    )
+
+    $count = $widths.Length
+    if ($count -eq 0) { return @{ First = 0; Last = -1; Left = 0.0; Right = 0.0 } }
+    $start = [Math]::Max(0, $offset - $numberWidth)
+    $end = $start + [Math]::Max(0, $viewportWidth)
+    $first = $count - 1
+    $last = 0
+    $left = 0.0
+    $found = $false
+    for ($i = 0; $i -lt $count; $i++) {
+        $right = $left + $widths[$i]
+        if (-not $found -and $right -gt $start) { $first = $i; $found = $true }
+        if ($found) {
+            $last = $i
+            if ($right -ge $end) { break }
+        }
+        $left = $right
+    }
+    if (-not $found) { $last = $count - 1 }
+    $first = [Math]::Max(0, $first - $margin)
+    $last = [Math]::Min($count - 1, $last + $margin)
+    $leftSpace = 0.0
+    for ($i = 0; $i -lt $first; $i++) { $leftSpace += $widths[$i] }
+    $middle = 0.0
+    for ($i = $first; $i -le $last; $i++) { $middle += $widths[$i] }
+    $total = 0.0
+    foreach ($w in $widths) { $total += $w }
+    return @{ First = $first; Last = $last; Left = $leftSpace; Right = [Math]::Max(0.0, $total - $leftSpace - $middle) }
+}
+
 function getPreviewFillWidth {
     # Excel 以外（Word・PowerPoint・テキスト）のプレビューは列が 1 つ。その幅を、枠の幅いっぱいにする
     # （行番号の列を除いた残り。中身から決めた初めの幅より狭くはしない。枠が狭まれば初めの幅まで戻る）。

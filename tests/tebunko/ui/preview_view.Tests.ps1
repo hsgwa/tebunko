@@ -32,6 +32,26 @@ Describe "getPreviewFillWidth" -Tag Unit {
     }
 }
 
+Describe "getPreviewColumnWindow" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "左端: 見えている列と右に 1 列"; widths = @(1..10 | ForEach-Object { 100.0 }); offset = 0; viewport = 250; margin = 1; first = 0; last = 3; left = 0; right = 600 }
+        @{ name = "左端: 行番号の列の中までのスクロールは、左端と同じ"; widths = @(1..10 | ForEach-Object { 100.0 }); offset = 20; viewport = 250; margin = 1; first = 0; last = 3; left = 0; right = 600 }
+        @{ name = "途中: 見えている列の左右に 1 列ずつ"; widths = @(1..10 | ForEach-Object { 100.0 }); offset = 444; viewport = 250; margin = 1; first = 3; last = 7; left = 300; right = 200 }
+        @{ name = "右端: 右の空きは 0"; widths = @(1..10 | ForEach-Object { 100.0 }); offset = 944; viewport = 500; margin = 1; first = 8; last = 9; left = 800; right = 0 }
+        @{ name = "見える幅より広い列が 1 つ"; widths = @(100.0, 1000.0, 100.0); offset = 144; viewport = 300; margin = 0; first = 1; last = 1; left = 100; right = 100 }
+        @{ name = "列が 0 のときは空の範囲"; widths = @(); offset = 0; viewport = 300; margin = 3; first = 0; last = -1; left = 0; right = 0 }
+        @{ name = "全部の列が見える幅に収まるときは、全部の列"; widths = @(100.0, 100.0); offset = 0; viewport = 900; margin = 3; first = 0; last = 1; left = 0; right = 0 }
+        @{ name = "見える幅がまだ分からないとき（0）も、先頭の列から"; widths = @(1..10 | ForEach-Object { 100.0 }); offset = 0; viewport = 0; margin = 1; first = 0; last = 1; left = 0; right = 800 }
+    ) {
+        param ($name, $widths, $offset, $viewport, $margin, $first, $last, $left, $right)
+        $window = getPreviewColumnWindow ([double[]]$widths) $offset $viewport 44 $margin
+        $window.First | Should -Be $first
+        $window.Last | Should -Be $last
+        $window.Left | Should -Be $left
+        $window.Right | Should -Be $right
+    }
+}
+
 Describe "toStatusText" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "短い文字列はそのまま"; text = "見積書"; expected = "見積書" }

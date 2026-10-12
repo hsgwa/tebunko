@@ -25,6 +25,13 @@ BeforeAll {
         [HitRow]::Create("営業", "C:\index\営業", "$relDir\$book", $relDir, "$book.tsv", $book, $location, $lineNumber, $line, $word, $pattern)
     }
 
+    # 表の全部の列・全部の行のセルを作る（画面は見えている範囲だけ作る。テストでは全部を見えている範囲にして確かめる）
+    function showAll($table) {
+        [void]$table.SetWindow(0, $table.Columns.Count - 1, 0, 0)
+        $table.EnsureCells(0, $table.Rows.Count - 1)
+        return $table
+    }
+
     # セグメントを「文字」と「強調の有無」の組にして比べやすくする
     function describeSegments($segments) {
         @($segments | ForEach-Object { if ($_.IsHit) { "[$($_.Text)]" } else { $_.Text } }) -join ""
@@ -71,7 +78,7 @@ Describe "PreviewTable（範囲の選択とコピー）" -Tag Unit {
         # 3 行 × 3 列の表（A1〜C3 の値を持つ）
         function newTable {
             $row = newHitRow -lineNumber 2 -line "A2`tB2`tC2" -word "B2"
-            $row.BuildPreview(@(1, 2, 3), @("A1`tB1`tC1", "A2`tB2`tC2", "A3`tB3`tC3"))
+            showAll ($row.BuildPreview(@(1, 2, 3), @("A1`tB1`tC1", "A2`tB2`tC2", "A3`tB3`tC3")))
         }
     }
 
@@ -155,9 +162,9 @@ Describe "PreviewTable（範囲の選択とコピー）" -Tag Unit {
 
     It "複数のセルをコピーするとき、改行・タブ・引用符を含むセルは Excel の形で囲む" {
         $row = newHitRow -lineNumber 1 -line "x" -word "x"
-        $table = $row.BuildPreview(@(1), @("A`t`"B`"`"`"`tC"))
+        $table = showAll ($row.BuildPreview(@(1), @("A`t`"B`"`"`"`tC")))
         # 1 列目は改行を含むセルにする
-        $table.Rows[0].Cells[0].Text = "1行目`n2行目"
+        $table.Rows[0].Texts[0] = "1行目`n2行目"
         $table.Select($table.Rows[0].Cells[0], $false)
         $table.Select($table.Rows[0].Cells[2], $true)
         $table.GetSelectionText() | Should -Be "`"1行目`n2行目`"`t`"B`"`"`"`tC"
@@ -169,7 +176,7 @@ Describe "PreviewTable（行を前後に足す・捨てる・メッセージの�
         # 行の番号 4〜6（選択行は 5）の 2 列の表
         function newReadTable {
             $row = newHitRow -lineNumber 5 -line "A5`tB5" -word "B5"
-            $table = $row.BuildPreview(@(4, 5, 6), @("A4`tB4", "A5`tB5", "A6`tB6"))
+            $table = showAll ($row.BuildPreview(@(4, 5, 6), @("A4`tB4", "A5`tB5", "A6`tB6")))
             return @{ Row = $row; Table = $table }
         }
         function lineNumbers {
@@ -200,14 +207,23 @@ Describe "PreviewTable（行を前後に足す・捨てる・メッセージの�
         $table.LeadCount() | Should -Be 1
         $table.DataCount() | Should -Be 3
         $above = $made.Row.BuildPreviewRows($table, @(2, 3), @("A2`tB2", "A3`tB3"))
+        $widthsBefore = $table.Widths()
         $below = $made.Row.BuildPreviewRows($table, @(7), @("A7`tB7`tC7"))
         $table.InsertRows("up", $above)
         $table.InsertRows("down", $below)
         lineNumbers $table | Should -Be "[読み込み中…],2,3,4,5,6,7,[読み込み中…]"
         $table.FirstLine() | Should -Be 2
         $table.LastLine() | Should -Be 7
-        # 表の列（2 列）より多い列は持たない。セルは行の番号と列の番号を持つ
-        $table.Rows[6].Cells.Count | Should -Be 2
+        # 表の列（2 列）より多い列がある行を足すと、列を右に足す。前からある列の幅は変えない
+        $table.Columns.Count | Should -Be 3
+        $table.Columns[2].Label | Should -Be "C"
+        $table.Widths()[0] | Should -Be $widthsBefore[0]
+        $table.Widths()[1] | Should -Be $widthsBefore[1]
+        # セルは行の番号と列の番号を持つ（足した行のセルは、見えている範囲を決め直したときに作る）
+        $table.Rows[6].Cells.Count | Should -Be 0
+        [void]$table.SetWindow(0, 2, 0, 0)
+        $table.EnsureCells(0, $table.Rows.Count - 1)
+        $table.Rows[6].Cells.Count | Should -Be 3
         $table.Rows[6].Cells[1].LineNumber | Should -Be 7
         $table.Rows[6].Cells[1].Column | Should -Be $table.Columns[1]
         $table.Rows[1].Number | Should -Be "2"
@@ -612,11 +628,8 @@ Describe "HitRow の静的な関数" -Tag Unit {
 Describe "HitRow.BuildPreview" -Tag Unit {
     It "Excel は列名を見出しにし、選択行で一致したセルの位置を覚える" {
         $row = newHitRow -lineNumber 5 -line "品名`t見積" -word "見積"
-        $table = $row.BuildPreview(@(4, 5, 6), @("品名`t単価", "品名`t見積", "a"))
+        $table = showAll ($row.BuildPreview(@(4, 5, 6), @("品名`t単価", "品名`t見積", "a")))
         @($table.Columns | ForEach-Object { $_.Label }) | Should -Be @("A", "B")
-        $table.TotalColumns | Should -Be 2
-        $table.ShownColumns | Should -Be 2
-        $table.RangeLabel | Should -Be "A～B"
         $table.Rows.Count | Should -Be 3
         @($table.Rows | ForEach-Object { $_.Number }) | Should -Be @("4", "5", "6")
         @($table.Rows | ForEach-Object { $_.IsHitRow }) | Should -Be @($false, $true, $false)
@@ -631,9 +644,8 @@ Describe "HitRow.BuildPreview" -Tag Unit {
 
     It "Excel のヘッダー・フッターは、1 行が文字だけの 1 列なので、見出しを「文字」にする" {
         $row = newHitRow -location "[シート]4月[ヘッダー・フッター]" -lineNumber 2 -line "社外秘" -word "社外秘"
-        $table = $row.BuildPreview(@(1, 2), @("月次報告", "社外秘"))
+        $table = showAll ($row.BuildPreview(@(1, 2), @("月次報告", "社外秘")))
         @($table.Columns | ForEach-Object { $_.Label }) | Should -Be @("文字")
-        $table.RangeLabel | Should -Be "文字～文字"
         $table.Rows[1].Cells[0].IsHit | Should -Be $true
     }
 
@@ -648,7 +660,6 @@ Describe "HitRow.BuildPreview" -Tag Unit {
         $row = newHitRow -book "議事録.docx" -location "[本文]" -lineNumber 1 -line ("あ" * 80) -word "あ"
         $table = $row.BuildPreview(@(1), @("あ" * 80))
         $table.Columns[0].Label | Should -Be "1"
-        $table.RangeLabel | Should -Be "1～1"
         $table.Columns[0].Width | Should -BeGreaterThan ([HitRow]::MaxCellWidth)
     }
 
@@ -656,7 +667,6 @@ Describe "HitRow.BuildPreview" -Tag Unit {
         $row = newHitRow -location "[シート] 4月[図形]" -lineNumber 1 -line "B3`t納期`tx" -word "納期"
         $table = $row.BuildPreview(@(1), @("B3`t納期`tx"))
         @($table.Columns | ForEach-Object { $_.Label }) | Should -Be @("セル", "文字", "3")
-        $table.RangeLabel | Should -Be "セル～3"
     }
 
     It "前後の行が無い・数が合わないときは、その行だけで作る" {
@@ -679,7 +689,7 @@ Describe "HitRow.BuildPreview" -Tag Unit {
     It "セル内改行は改行にし、長いセルは表示と説明を切り詰める" {
         $long = "え" * ([HitRow]::MaxToolTipChars + 5)
         $row = newHitRow -lineNumber 1 -line "a$([char]0x2028)b`t$long" -word "a"
-        $table = $row.BuildPreview(@(1), @("a$([char]0x2028)b`t$long"))
+        $table = showAll ($row.BuildPreview(@(1), @("a$([char]0x2028)b`t$long")))
         $table.Rows[0].Cells[0].Text | Should -Be "a`nb"
         $table.Rows[0].Cells[0].ToolTip | Should -Be "a`nb"
         $table.Rows[0].Cells[1].Display.Length | Should -Be ([HitRow]::MaxCellChars + 1)
@@ -687,48 +697,126 @@ Describe "HitRow.BuildPreview" -Tag Unit {
         $table.Rows[0].Cells[1].Column | Should -Be $table.Columns[1]
     }
 
-    It "列が多すぎるときは、一致した列を中心に上限の数だけ出す" {
-        $max = [HitRow]::MaxPreviewColumns
-        $cells = @(1..($max + 300) | ForEach-Object { "c$_" })
-        $cells[249] = "見積"
-        $line = $cells -join "`t"
-        $row = newHitRow -lineNumber 1 -line $line -word "見積"
-        $table = $row.BuildPreview(@(1), @($line))
-        $table.TotalColumns | Should -Be ($max + 300)
-        $table.ShownColumns | Should -Be $max
-        $table.Columns.Count | Should -Be $max
-        # 250 列目が中央に来るよう 150 列目から出す
-        $table.Rows[0].Cells[0].Text | Should -Be "c150"
-        $table.Rows[0].Cells[$max - 1].Text | Should -Be "c$(149 + $max)"
-        $table.Rows[0].Cells[100].Text | Should -Be "見積"
-        $table.Rows[0].Cells[100].IsHit | Should -Be $true
-    }
+    Context "列が多いとき" {
+        BeforeAll {
+            # 2000 列の行（1500 列目が「見積」）を、前後の行つきで作る
+            function newWideTable {
+                $cells = @(1..2000 | ForEach-Object { "c$_" })
+                $cells[1499] = "見積"
+                $line = $cells -join "`t"
+                $row = newHitRow -lineNumber 2 -line $line -word "見積"
+                return $row.BuildPreview(@(1, 2, 3), @($line, $line, $line))
+            }
+        }
 
-    It "列が多すぎて一致した列が右端に近いときは、右端までを出す" {
-        $max = [HitRow]::MaxPreviewColumns
-        $cells = @(1..($max + 10) | ForEach-Object { "c$_" })
-        $cells[$max + 9] = "見積"
-        $line = $cells -join "`t"
-        $row = newHitRow -lineNumber 1 -line $line -word "見積"
-        $table = $row.BuildPreview(@(1), @($line))
-        $table.Rows[0].Cells[0].Text | Should -Be "c11"
-        $table.Rows[0].Cells[$max - 1].Text | Should -Be "見積"
-    }
+        It "全部の列を持つ（列を減らさない）。一致したセルの位置は、全部の列の中での位置" {
+            $table = newWideTable
+            $table.Columns.Count | Should -Be 2000
+            $table.Columns[1999].Label | Should -Be "BXX"
+            $expected = [HitRow]::NumberWidth
+            for ($c = 0; $c -lt 1499; $c++) { $expected += $table.Columns[$c].Width }
+            $table.HitOffset | Should -Be $expected
+            $table.HitWidth | Should -Be $table.Columns[1499].Width
+            # 範囲を決めるまでは、行の右の空きに全部の列の幅を入れて、横にスクロールできる広さにする
+            $total = 0.0
+            foreach ($width in $table.Widths()) { $total += $width }
+            $table.Window.RightSpace | Should -Be $total
+        }
 
-    It "列が多すぎて一致した列が無いときは、左端から出す" {
-        $max = [HitRow]::MaxPreviewColumns
-        $line = @(1..($max + 10) | ForEach-Object { "c$_" }) -join "`t"
-        $row = newHitRow -lineNumber 1 -line $line -word "見積"
-        $table = $row.BuildPreview(@(1), @($line))
-        $table.Columns[0].Label | Should -Be "A"
-        $table.Rows[0].Cells[0].Text | Should -Be "c1"
+        It "セルは、見えている行の、見えている列の範囲の分だけ作る" {
+            $table = newWideTable
+            $table.CreatedCells | Should -Be 0
+            [void]$table.SetWindow(1495, 1499, 100, 200)
+            $table.EnsureCells(1, 1)
+            $table.CreatedCells | Should -Be 5
+            @($table.Rows[1].Cells | ForEach-Object { $_.ColumnIndex }) | Should -Be @(1495, 1496, 1497, 1498, 1499)
+            $table.Rows[1].Cells[4].Text | Should -Be "見積"
+            $table.Rows[1].Cells[4].IsHit | Should -Be $true
+            $table.Rows[1].Cells[4].Column | Should -Be $table.Columns[1499]
+            $table.Rows[0].Cells.Count | Should -Be 0
+            $table.Window.LeftSpace | Should -Be 100
+            $table.Window.RightSpace | Should -Be 200
+            @($table.WindowColumns() | ForEach-Object { $_.Label }).Count | Should -Be 5
+        }
+
+        It "範囲が同じなら作り直さない。範囲が変わったら、作ってあるセルを捨てて作り直す" {
+            $table = newWideTable
+            [void]$table.SetWindow(0, 3, 0, 0)
+            $table.EnsureCells(0, 2)
+            $table.CreatedCells | Should -Be 12
+            $table.SetWindow(0, 3, 10, 20) | Should -Be $false
+            $table.EnsureCells(0, 2)
+            $table.CreatedCells | Should -Be 12
+            $table.SetWindow(4, 7, 10, 20) | Should -Be $true
+            $table.Rows[0].Cells.Count | Should -Be 0
+            $table.EnsureCells(0, 2)
+            $table.CreatedCells | Should -Be 24
+            $table.Rows[2].Cells[0].ColumnIndex | Should -Be 4
+        }
+
+        It "見えなくなった行のセルは捨てる（作ってある数が、見えている範囲の分に収まる）" {
+            $table = newWideTable
+            [void]$table.SetWindow(0, 1, 0, 0)
+            $table.EnsureCells(0, 0)
+            $table.EnsureCells(2, 2)
+            $table.Rows[0].Cells.Count | Should -Be 0
+            $table.Rows[1].Cells.Count | Should -Be 0
+            $table.Rows[2].Cells.Count | Should -Be 2
+        }
+
+        It "メッセージの行にはセルを作らない。範囲が列の数を超えていても、ある列までにする" {
+            $table = newWideTable
+            $table.ShowMessage("up", "読み込み中…")
+            [void]$table.SetWindow(1998, 2005, 0, 0)
+            $table.EnsureCells(0, $table.Rows.Count - 1)
+            $table.Rows[0].Cells.Count | Should -Be 0
+            $table.Rows[1].Cells.Count | Should -Be 2
+            $table.Rows[1].Cells[1].ColumnIndex | Should -Be 1999
+        }
+
+        It "見えていない列にまたがる範囲を選んでコピーすると、全部のセルをタブでつなぐ" {
+            $table = newWideTable
+            [void]$table.SetWindow(0, 4, 0, 0)
+            $table.EnsureCells(0, 2)
+            $table.Select($table.Rows[1].Cells[0], $false)
+            $table.Select([PreviewCell]@{ LineNumber = 2; ColumnIndex = 1999 }, $true)
+            $copied = $table.GetSelectionText() -split "`t"
+            $copied.Count | Should -Be 2000
+            $copied[0] | Should -Be "c1"
+            $copied[1499] | Should -Be "見積"
+            $copied[1999] | Should -Be "c2000"
+            $table.SelectedCount() | Should -Be 2000
+            # 見えている列のセルには、選択の印が付く
+            $table.Rows[1].Cells[4].IsSelected | Should -Be $true
+            $table.Rows[0].Cells[4].IsSelected | Should -Be $false
+        }
+
+        It "選択は行の番号と列の番号で持つので、あとから作ったセルにも選択の印が付く" {
+            $table = newWideTable
+            [void]$table.SetWindow(0, 2, 0, 0)
+            $table.EnsureCells(0, 2)
+            $table.Select($table.Rows[0].Cells[0], $false)
+            $table.Select($table.Rows[1].Cells[1], $true)
+            [void]$table.SetWindow(1, 3, 0, 0)
+            $table.EnsureCells(0, 2)
+            @($table.Rows | ForEach-Object { @($_.Cells | Where-Object { $_.IsSelected }).Count }) | Should -Be @(1, 1, 0)
+            $table.Rows[0].Cells[0].ColumnIndex | Should -Be 1
+        }
+
+        It "セルを作るとき、行の値が短くても列の数だけ空のセルを作る" {
+            $table = newWideTable
+            $row = $table.Owner.BuildPreviewRows($table, @(4), @("a"))
+            $table.InsertRows("down", $row)
+            [void]$table.SetWindow(0, 2, 0, 0)
+            $table.EnsureCells(3, 3)
+            @($table.Rows[3].Cells | ForEach-Object { $_.Text }) | Should -Be @("a", "", "")
+        }
     }
 
     It "空の行も 1 列として出す" {
         $row = newHitRow -book "議事録.docx" -location "[本文]" -lineNumber 1 -line "" -word "x"
-        $table = $row.BuildPreview(@(1), [string[]]@($null))
-        $table.ShownColumns | Should -Be 1
-        $table.RangeLabel | Should -Be "1～1"
+        $table = showAll ($row.BuildPreview(@(1), [string[]]@($null)))
+        $table.Columns.Count | Should -Be 1
         $table.Rows[0].Cells[0].Text | Should -Be ""
     }
 }
@@ -1132,7 +1220,7 @@ Describe "HitRow（境界値）" -Tag Unit {
 
     It "選択行が前後の行に無ければ、強調する行を作らず左端を表示位置にする" {
         $row = newHitRow -lineNumber 9 -line "見積" -word "見積"
-        $table = $row.BuildPreview(@(1, 2), @("見積", "x"))
+        $table = showAll ($row.BuildPreview(@(1, 2), @("見積", "x")))
         @($table.Rows | Where-Object { $_.IsHitRow }).Count | Should -Be 0
         $table.HitOffset | Should -Be 0
         # 一致したセルの印は付ける

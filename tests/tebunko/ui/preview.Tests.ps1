@@ -16,6 +16,8 @@ BeforeAll {
     ${previewReadAheadLines} = 20
     ${previewChunkLines}    = 200
     ${previewMaxRows}       = 3000
+    ${previewColumnMargin}  = 3
+    ${previewCellRowMargin} = 10
 
     # ---- 画面の偽物 ----
     # 読み込み時に登録されるイベントの処理は $handlers に、呼ばれた操作は $fake に取っておく
@@ -58,7 +60,7 @@ BeforeAll {
         PreviewSplitter     = $previewSplitter
         ResultListHost      = $resultListHost
         PreviewHeaderScroll = $headerScroll
-        PreviewNote         = newFakePart "PreviewNote" @{ Text = ""; ToolTip = $null; Visibility = "Collapsed" }
+        PreviewHeaderPanel  = newFakePart "PreviewHeaderPanel" @{ DataContext = $null }
         PreviewPlaceholder  = newFakePart "PreviewPlaceholder" @{ Visibility = "Visible" }
         DetailTitle         = newFakePart "DetailTitle" @{ Text = ""; ToolTip = $null }
         OpenButton          = newFakePart "OpenButton" @{ IsEnabled = $false; Content = "" }
@@ -267,7 +269,6 @@ Describe "showDetail" -Tag Io {
         $ui.OpenFolderButton.IsEnabled | Should -Be $true
         $ui.DetailTitle.Text | Should -Be "営業部\見積.xlsx ・ [シート]4月!B3 ・ セル"
         $ui.DetailTitle.ToolTip | Should -Be $ui.DetailTitle.Text
-        $ui.PreviewNote.Visibility | Should -Be "Collapsed"
         @($ui.PreviewRows.ItemsSource).Count | Should -Be 4
         @($ui.PreviewHeader.ItemsSource).Count | Should -Be 3
         $script:previewTable.Rows.Count | Should -Be 4
@@ -338,16 +339,18 @@ Describe "showDetail" -Tag Io {
         }
     }
 
-    It "列が多すぎるときは、表示した列の範囲を知らせる" {
+    It "列が多くても全部の列を持ち、見えている列の見出しとセルだけを作る" {
         $cells = @(1..250 | ForEach-Object { "値$_" })
         $cells[229] = "見積"
         $fake.Current = newHitRow "見積.xlsx" "4月" 1 @("`t" + ($cells -join "`t"))
 
         showDetail
 
-        $ui.PreviewNote.Visibility | Should -Be "Visible"
-        $ui.PreviewNote.Text | Should -Be "表示は $($script:previewTable.RangeLabel) の 200 列（全 251 列）"
-        $ui.PreviewNote.ToolTip | Should -Match "一致したセルを中心に表示しています"
+        $table = $script:previewTable
+        $table.Columns.Count | Should -Be 251
+        @($ui.PreviewHeader.ItemsSource).Count | Should -BeLessThan 251
+        $ui.PreviewHeaderPanel.DataContext | Should -Be $table.Window
+        $table.CreatedCells | Should -BeLessThan 251
     }
 
     It "一致したセルが見えないときは、その少し左まで横にスクロールする" {

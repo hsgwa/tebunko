@@ -15,11 +15,11 @@ function clearDetail {
     # 行を選んでいないときのプレビュー。枠（と高さ）はそのままにし、中身を空にして案内を出す
     $script:previewRequest++   # 読んでいる途中の読み足しの結果は捨てる
     $ui.PreviewHeader.ItemsSource = $null
+    $ui.PreviewHeaderPanel.DataContext = $null
     $ui.PreviewRows.ItemsSource = $null
     $script:previewTable = $null
     $ui.DetailTitle.Text = ""
     $ui.DetailTitle.ToolTip = $null
-    $ui.PreviewNote.Visibility = "Collapsed"
     $ui.PreviewHeaderScroll.Visibility = "Collapsed"
     $ui.PreviewPlaceholder.Visibility = "Visible"
     $ui.OpenButton.IsEnabled = $false
@@ -86,22 +86,15 @@ function applyDetail {
     $ui.DetailTitle.Text = $title
     $ui.DetailTitle.ToolTip = $title
 
-    # 横に長い行は一部の列だけを表示するため、その範囲を知らせる
-    if ($table.TotalColumns -gt $table.ShownColumns) {
-        $note = "表示は $($table.RangeLabel) の $($table.ShownColumns.ToString('N0')) 列（全 $($table.TotalColumns.ToString('N0')) 列）"
-        $ui.PreviewNote.Text = $note
-        $ui.PreviewNote.ToolTip = "$note　一致したセルを中心に表示しています。ほかの列は元のファイルで確認してください。"
-        $ui.PreviewNote.Visibility = "Visible"
-    } else {
-        $ui.PreviewNote.Visibility = "Collapsed"
-    }
     $table.Marks = $marks
     $table.BottomDone = $end -or $noMore
     if ($noMore) { $table.TopDone = $true }
     $script:previewTable = $table
     $script:previewBaseWidth = if ($table.Columns.Count -eq 1) { $table.Columns[0].Width } else { 0 }
     $script:previewFitWidth = $script:previewBaseWidth
-    $ui.PreviewHeader.ItemsSource = $table.Columns
+    # 列は全部の列を持ち、横にスクロールしたとき見えている列の範囲のセルだけを作る（updatePreviewWindow）
+    $ui.PreviewHeader.ItemsSource = $null
+    $ui.PreviewHeaderPanel.DataContext = $table.Window
     $ui.PreviewRows.ItemsSource = $table.Rows
 
     # 一致したセルが見えるよう横にスクロールする（左端から見えていればそのまま）。
@@ -122,7 +115,36 @@ function applyDetail {
         }
     }
     $ui.PreviewScroll.ScrollToVerticalOffset((getPreviewTopRow $hitIndex))
+    $ui.PreviewScroll.UpdateLayout()
+    updatePreviewWindow $offset
     updatePreviewReadMore
+}
+
+function updatePreviewWindow {
+    # 横の位置・見える幅・列の幅から、見えている列の範囲を決め直す（判断は getPreviewColumnWindow）。
+    # 範囲が変わったら、列見出しを入れ替え、見えている行のセルを今の範囲で作り直す。
+    # offset は、スクロールした直後でまだ配置が終わっていないときに、行き先の位置を渡す
+    param (
+        $offset = $null
+    )
+
+    $table = $script:previewTable
+    if ($null -eq $table -or $table.Columns.Count -eq 0) { return }
+    if ($null -eq $offset) { $offset = $ui.PreviewScroll.HorizontalOffset }
+    $window = getPreviewColumnWindow $table.Widths() $offset $ui.PreviewScroll.ViewportWidth ([HitRow]::NumberWidth) ${previewColumnMargin}
+    if ($table.SetWindow($window.First, $window.Last, $window.Left, $window.Right)) {
+        $ui.PreviewHeader.ItemsSource = $table.WindowColumns()
+    }
+    updatePreviewCells
+}
+
+function updatePreviewCells {
+    # 見えている行（と上下の余白の行）に、今の列の範囲のセルが無ければ作る。縦にスクロールして新しく見えた行・読み足した行のため
+    $table = $script:previewTable
+    if ($null -eq $table -or $table.DataCount() -le 0) { return }
+    $visible = getPreviewVisibleRows
+    $lead = $table.LeadCount()
+    $table.EnsureCells($lead + $visible.First - ${previewCellRowMargin}, $lead + $visible.Last + ${previewCellRowMargin})
 }
 
 function getPreviewVisibleRows {
@@ -246,6 +268,8 @@ function applyReadMore {
             $table.BottomDone = $false
         }
     }
+    # 読み足した行に列が増えていれば、列の範囲を決め直す（右の空きの幅が変わる）。見えている行のセルも作る
+    updatePreviewWindow
     updatePreviewReadMore
 }
 
@@ -261,6 +285,7 @@ function fitPreviewWidth {
     if ($width -ne $column.Width) {
         $column.SetWidth($width)
         $script:previewFitWidth = $column.Width
+        updatePreviewWindow
     }
 }
 
@@ -309,13 +334,17 @@ $ui.ResultGrid.Add_SelectionChanged({
 # 列見出しは行とは別のスクロールに置いている（縦に隠れないようにするため）ので、横位置を行に合わせる
 $ui.PreviewScroll.Add_ScrollChanged({
     param ($sender, $e)
+    # 横に動いた・見える幅が変わったときは、見えている列の範囲を決め直す（セルは見えている列の分だけ作る）
+    if ($e.HorizontalChange -ne 0 -or $e.ViewportWidthChange -ne 0 -or $e.ExtentWidthChange -ne 0) {
+        safe { updatePreviewWindow }
+    }
     $ui.PreviewHeaderScroll.ScrollToHorizontalOffset($ui.PreviewScroll.HorizontalOffset)
     if ($e.ViewportWidthChange -ne 0) {
         fitPreviewWidth
     }
-    # 縦に動いた・行が増減した・見える高さが変わったときは、端に近づいていれば読み足す
+    # 縦に動いた・行が増減した・見える高さが変わったときは、新しく見えた行のセルを作り、端に近づいていれば読み足す
     if ($e.VerticalChange -ne 0 -or $e.ExtentHeightChange -ne 0 -or $e.ViewportHeightChange -ne 0) {
-        safe { updatePreviewReadMore }
+        safe { updatePreviewCells; updatePreviewReadMore }
     }
 })
 # 結果の表とプレビューの境目。結果が少ないときは表を内容の高さまで縮めてプレビューを広げる（判断は getPreviewRowHeight）。
@@ -419,15 +448,9 @@ $ui.MenuPreviewCopyRow.Add_Click({
     safe {
         if ($script:previewTable -and $script:previewTable.HasSelection()) {
             # 選んでいるセルのある行をすべて選んでからコピーする
-            $selected = $null
-            foreach ($row in $script:previewTable.Rows) {
-                $selected = @($row.Cells | Where-Object { $_.IsSelected })[0]
-                if ($selected) {
-                    break
-                }
-            }
-            if ($selected) {
-                $script:previewTable.SelectRow($selected)
+            $line = $script:previewTable.SelectedFirstLine()
+            if ($line -gt 0) {
+                $script:previewTable.SelectLine($line)
             }
         }
         copyPreviewSelection
@@ -442,6 +465,7 @@ $ui.PreviewHeader.AddHandler(
             $column = $e.OriginalSource.DataContext
             if ($column -is [PreviewColumn]) {
                 $column.SetWidth($column.Width + $e.HorizontalChange)
+                updatePreviewWindow   # 見えていない列の幅の合計（左右の空き）と、見えている列の範囲が変わる
             }
         }
     })

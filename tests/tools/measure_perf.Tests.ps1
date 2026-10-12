@@ -237,6 +237,58 @@ Describe "perf_common.ps1 のプレビューの部品" -Tag Unit {
         { newLargeContentTsvText 10000 "語" @(1) } | Should -Throw "*1〜9999*"
     }
 
+    It "横に広い本文の TSV は、指定した行の指定した列にだけ語が入り、1 行のセルの数は指定どおりになる" {
+        $text = newWideContentTsvText 5 40 "架空語" @(2, 4) 30
+        $rows = @($text -split "`r`n" | Where-Object { $_ -ne "" })
+        $rows.Count | Should -Be 5
+        foreach ($row in $rows) { @($row -split "`t").Count | Should -Be 41 }   # 行番号 + 40 セル
+        $hitRows = @($rows | Where-Object { $_.Contains("架空語") })
+        @($hitRows | ForEach-Object { ($_ -split "`t")[0] }) | Should -Be @("2", "4")
+        foreach ($row in $hitRows) { ($row -split "`t")[30] | Should -Be "架空語" }
+        $rows[0] | Should -Match '^1\t行1列1\t行1列2\t'
+        $text.EndsWith("`r`n") | Should -Be $true
+        ([regex]::Matches($text, "(?<!`r)`n")).Count | Should -Be 0
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "横に広い本文の TSV は、行が 0 なら失敗にする"; call = { newWideContentTsvText 0 10 "語" @(1) }; message = "*1〜9999*" }
+        @{ name = "横に広い本文の TSV は、列が 0 なら失敗にする"; call = { newWideContentTsvText 5 0 "語" @(1) 1 }; message = "*columns*" }
+        @{ name = "横に広い本文の TSV は、語の列が列の数を超えれば失敗にする"; call = { newWideContentTsvText 5 10 "語" @(1) 11 }; message = "*hitColumn*" }
+    ) {
+        param ($call, $message)
+        $call | Should -Throw $message
+    }
+
+    It "読み足しの記録は、回ごとの時間を統計にし、行・列・セルの数は最後の回のものにする" {
+        $runs = @(
+            [pscustomobject]@{ ReadMs = 10.0; BuildMs = 4.0; CellsMs = 2.0; TableRows = 250; Columns = 2000; CreatedCells = 60000 }
+            [pscustomobject]@{ ReadMs = 30.0; BuildMs = 6.0; CellsMs = 4.0; TableRows = 450; Columns = 2000; CreatedCells = 64000 }
+        )
+        $r = newReadMoreResult $runs
+        $r.Runs | Should -Be 2
+        $r.ReadMs.Max | Should -Be 30
+        $r.BuildMs.Median | Should -Be 5
+        $r.CellsMs.Count | Should -Be 2
+        ($r.TableRows, $r.Columns, $r.CreatedCells) | Should -Be @(450, 2000, 64000)
+    }
+
+    It "プレビューの結果は、作ったセルの数と読み足しを引き継ぎ、記録が無ければ null にする" {
+        $raw = newPreviewRaw @(10) @(1)
+        (newPreviewResult $raw).CreatedCells | Should -BeNullOrEmpty
+        (newPreviewResult $raw).ReadMore | Should -BeNullOrEmpty
+        foreach ($row in $raw.Previews) { $row | Add-Member -NotePropertyName CreatedCells -NotePropertyValue 500 }
+        $raw | Add-Member -NotePropertyName ReadMore -NotePropertyValue @([pscustomobject]@{ ReadMs = 1.0; BuildMs = 1.0; CellsMs = 1.0; TableRows = 250; Columns = 6; CreatedCells = 90 })
+        $r = newPreviewResult $raw
+        $r.CreatedCells.Max | Should -Be 500
+        $r.ReadMore.Runs | Should -Be 1
+        $r.ReadMore.CreatedCells | Should -Be 90
+    }
+
+    It "描画の結果は、部品の数・スクロールの時間・残るメモリを引き継ぐ" {
+        $r = newRenderResult ([pscustomobject]@{ Cells = 1; Rows = 1; Columns = 1; Elements = 321; ScrollMs = 12.5; RenderRetainedMB = 3.2; RenderMs = @(5.0); WorkingSetBeforeMB = 1.0; WorkingSetAfterMB = 1.0 })
+        ($r.Elements, $r.ScrollMs, $r.RenderRetainedMB) | Should -Be @(321, 12.5, 3.2)
+    }
+
     It "<name>" -TestCases @(
         @{ name = "全部読む経路の記録で、キャッシュ無しの全部が全体を読んでいれば、問題は 0 件"; rows = @([pscustomobject]@{ N = 1; Cache = "無し"; ReadTextCalls = 1 }, [pscustomobject]@{ N = 2; Cache = "あり"; ReadTextCalls = 0 }); expect = @() }
         @{ name = "キャッシュ無しで全体を読んでいない回があれば、その番号を挙げる"; rows = @([pscustomobject]@{ N = 1; Cache = "無し"; ReadTextCalls = 1 }, [pscustomobject]@{ N = 2; Cache = "無し"; ReadTextCalls = 0 }); expect = @("N=2 で readContentIndexText が呼ばれていません") }
@@ -291,7 +343,7 @@ Describe "measure_perf.ps1" -Tag Io {
     }
 
     It "形式の版と実行の情報を書く" {
-        $result.Schema | Should -Be 4
+        $result.Schema | Should -Be 5
         $result.Run.RunId | Should -Be "1"
         $result.Run.Ref | Should -Be "main"
         $result.Run.Count | Should -Be 3
@@ -426,11 +478,25 @@ Describe "measure_perf.ps1" -Tag Io {
         $md.Contains($TestDrive) | Should -Be $false
     }
 
+    It "-ReadMore を付けると、ヒットのある語ごとに読み足しの記録（回数・行・列・セルの数）と、その表の行・指標が出る" {
+        $w = Join-Path $TestDrive "preview-more"
+        & $measure -Index $index -Work $w -Words $words -Count 1 -Preview 3 -ReadMore -SampleMs 50 6>$null | Out-Null
+        $r = [System.IO.File]::ReadAllText("$w\result\result.json") | ConvertFrom-Json
+        foreach ($p in $r.Preview.Words) {
+            $p.ReadMore | Should -Not -BeNullOrEmpty
+            $p.ReadMore.Runs | Should -BeGreaterThan 0   # 読み足す行が尽きたら 5 回に満たず止まる
+            $p.ReadMore.Columns | Should -BeGreaterThan 0
+            $p.CreatedCells.Count | Should -Be $p.Previews
+        }
+        @(Import-Csv "$w\result\metrics.csv" | Where-Object { $_.metric -eq "preview_read_more_ms" -and $_.stat -eq "median" }).Count | Should -Be 2
+        [System.IO.File]::ReadAllText("$w\result\summary.md") | Should -Match "読み足し"
+    }
+
     It "-PreviewFullRead を付けると、前の読み方（毎回全部読む）でも測り、全体を読んだ回数と並べて出す" {
         $w = Join-Path $TestDrive "preview-full"
         & $measure -Index $index -Work $w -Words $words -Count 1 -Preview 3 -PreviewFullRead -SampleMs 50 6>$null | Out-Null
         $r = [System.IO.File]::ReadAllText("$w\result\result.json") | ConvertFrom-Json
-        $r.Schema | Should -Be 4
+        $r.Schema | Should -Be 5
         foreach ($p in $r.Preview.Words) {
             $p.FullRead | Should -Not -BeNullOrEmpty
             $p.FullRead.Name | Should -Be $p.Name
@@ -450,6 +516,7 @@ Describe "measure_perf.ps1" -Tag Io {
         @{ name = "-Preview -1"; extraArgs = @{ Preview = -1 }; expectedMessage = "*-Preview は 0 以上*" }
         @{ name = "-Render だけ（-Preview が無い）"; extraArgs = @{ Render = $true }; expectedMessage = "*-Render は -Preview*" }
         @{ name = "-PreviewFullRead だけ（-Preview が無い）"; extraArgs = @{ PreviewFullRead = $true }; expectedMessage = "*-PreviewFullRead は -Preview*" }
+        @{ name = "-ReadMore だけ（-Preview が無い）"; extraArgs = @{ ReadMore = $true }; expectedMessage = "*-ReadMore は -Preview*" }
         @{ name = "-Typing 1"; extraArgs = @{ Typing = 1 }; expectedMessage = "*-Typing は 0 か 2 以上*" }
         @{ name = "-TypingFast で -Index が <Work>\content_index でないとき"; extraArgs = @{ Typing = 2; TypingFast = $true }; expectedMessage = "*content_index*" }
     ) {
@@ -668,7 +735,7 @@ Describe "measure_perf.ps1 -Office" -Tag Io {
     }
 
     It "取り込みを測り、ファイル数・成功・失敗・スレッドの数・時間を書く" {
-        $result.Schema | Should -Be 4
+        $result.Schema | Should -Be 5
         $result.Ingest.Total | Should -Be 4
         $result.Ingest.Done | Should -Be 4
         $result.Ingest.Failed | Should -Be 0

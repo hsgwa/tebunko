@@ -19,6 +19,7 @@
 #   -TypingFast … 入力しながらの検索で高速検索（Windows Search）を使う。-Index を <Work>\content_index にしておくこと
 #   -Preview  … 選択行のプレビューを測る、語ごとのプレビューの数（既定 0 は測らない）。検索のヒットの先頭から順に、キャッシュ無しとキャッシュありで 1 回ずつ読む
 #   -Render   … -Preview のとき、プレビューの表を画面の部品に入れて Measure・Arrange する時間も測る（画面は出さない）
+#   -ReadMore … -Preview のとき、セルの数が最大だった行の表に、下へ 200 行ずつ 5 回読み足す時間も測る（Preview.Words[].ReadMore）
 #   -PreviewFullRead … -Preview のとき、前の読み方（場所の一覧の控えを捨て、毎回ファイルの全体を読む）でも別のプロセスで測り、Preview.Words[].FullRead に並べる
 #   -SampleMs … リソースを記録する間隔（ミリ秒）
 #   -Label   … 結果の見出しに出す名前
@@ -56,6 +57,7 @@ param (
     [switch]$TypingFast,
     [int]$Preview = 0,
     [switch]$Render,
+    [switch]$ReadMore,
     [switch]$PreviewFullRead,
     [int]$SampleMs = 200,
     [string]$Label = "",
@@ -74,6 +76,7 @@ if (!$Index -and !$Office) { throw "-Index と -Office の少なくとも一方�
 if ($Typing -eq 1) { throw "-Typing は 0 か 2 以上にしてください。" }
 if ($Preview -lt 0) { throw "-Preview は 0 以上にしてください。" }
 if ($Render -and $Preview -le 0) { throw "-Render は -Preview と一緒に指定してください。" }
+if ($ReadMore -and $Preview -le 0) { throw "-ReadMore は -Preview と一緒に指定してください。" }
 if ($PreviewFullRead -and $Preview -le 0) { throw "-PreviewFullRead は -Preview と一緒に指定してください。" }
 $Tool = (Resolve-Path -LiteralPath $Tool).ProviderPath
 [void](resolveTebunkoLib $Tool)
@@ -229,6 +232,7 @@ if ($Index -and $Preview -gt 0) {
         $previewJson = Join-Path $raw "preview-$w.json"
         $previewArgs = @("-Tool", $Tool, "-Index", $Index, "-WordFile", $wordFile, "-Count", $Preview, "-Out", $previewJson, "-SampleMs", $SampleMs)
         if ($Render) { $previewArgs += "-Render" }
+        if ($ReadMore) { $previewArgs += "-ReadMore" }
         invokeChild "measure_preview.ps1" $previewArgs
         $r = readJson $previewJson
         $previewRaw.Add($r)
@@ -245,9 +249,9 @@ if ($Index -and $Preview -gt 0) {
     }
 }
 
-# result.json（形式の版 4。版 2 で Preview を足し、版 3 で Preview.Words[].FullRead・ReadTextCallsUncached を足し、版 4 で Preview.Words[].BuildFirstMs・BuildRestMs と Render.FirstMs・RestMs を足した）
+# result.json（形式の版 5。版 2 で Preview を足し、版 3 で Preview.Words[].FullRead・ReadTextCallsUncached を足し、版 4 で Preview.Words[].BuildFirstMs・BuildRestMs と Render.FirstMs・RestMs を足し、版 5 で Preview.Words[].CreatedCells・ReadMore と Render.Elements・ScrollMs・RenderRetainedMB を足した）
 $run.SearchMode = (@($search | ForEach-Object { $_.Mode } | Select-Object -Unique) -join ",")
-$result = [ordered]@{ Schema = 4; Run = $run; Index = $indexResult; Search = $(if ($Index) { $search.ToArray() } else { $null }); Ingest = $ingestResult
+$result = [ordered]@{ Schema = 5; Run = $run; Index = $indexResult; Search = $(if ($Index) { $search.ToArray() } else { $null }); Ingest = $ingestResult
     Preview = $(if ($Index -and $Preview -gt 0) { [ordered]@{ Count = $Preview; Render = [bool]$Render; Words = $previewWords.ToArray(); Skipped = $previewSkipped.ToArray() } } else { $null })
     Typing = $(if ($Index -and $Typing -gt 0) { [ordered]@{
         Mode = [string]$typingRaw[0].Mode; Count = $Typing; IntervalMs = $TypingIntervalMs; MinLength = $TypingMinLength; Fast = [bool]$TypingFast
@@ -317,6 +321,11 @@ foreach ($p in $previewWords) {
     addMetric "preview_build_first_ms" $p.Name "value" $p.BuildFirstMs "ms"
     if ($null -ne $p.BuildRestMs) { foreach ($stat in @("Median", "Max")) { addMetric "preview_build_rest_ms" $p.Name $stat.ToLower() $p.BuildRestMs[$stat] "ms" } }
     if ($null -ne $p.Cells) { addMetric "preview_cells" $p.Name "max" $p.Cells["Max"] "count" }
+    if ($null -ne $p.CreatedCells) { addMetric "preview_created_cells" $p.Name "max" $p.CreatedCells["Max"] "count" }
+    if ($null -ne $p.ReadMore) {
+        foreach ($stat in @("Median", "Max")) { addMetric "preview_read_more_ms" $p.Name $stat.ToLower() $p.ReadMore.ReadMs[$stat] "ms" }
+        foreach ($stat in @("Median", "Max")) { addMetric "preview_read_more_cells_ms" $p.Name $stat.ToLower() $p.ReadMore.CellsMs[$stat] "ms" }
+    }
     addMetric "preview_file_mb" $p.Name "max" $p.FileMBMax "MB"
     addMetric "preview_retained_per_preview_mb" $p.Name "value" $p.RetainedPerPreviewMB "MB"
     addMetric "preview_working_set_after_gc_mb" $p.Name "value" $p.WorkingSetAfterGcMB "MB"
@@ -332,6 +341,9 @@ foreach ($p in $previewWords) {
         if ($null -ne $p.Render.RestMs) { foreach ($stat in @("Median", "Max")) { addMetric "preview_render_rest_ms" $p.Name $stat.ToLower() $p.Render.RestMs[$stat] "ms" } }
         addMetric "preview_render_cells" $p.Name "value" $p.Render.Cells "count"
         addMetric "preview_render_rows" $p.Name "value" $p.Render.Rows "count"
+        addMetric "preview_render_elements" $p.Name "value" $p.Render.Elements "count"
+        addMetric "preview_render_scroll_ms" $p.Name "value" $p.Render.ScrollMs "ms"
+        addMetric "preview_render_retained_mb" $p.Name "value" $p.Render.RenderRetainedMB "MB"
     }
 }
 [System.IO.File]::WriteAllLines((Join-Path $Out "metrics.csv"), [string[]]@($metrics | ConvertTo-Csv -NoTypeInformation), $utf8Bom)
@@ -564,16 +576,16 @@ if ($previewSkipped.Count -gt 0) {
     add "測っていない語（ヒットが無い）: $($previewSkipped -join "、")"
 }
 add
-add "| 語 | プレビューの数 | 読み込み・キャッシュ無し（中央値／最大） | 読み込み・キャッシュあり（中央値／最大） | 表を作る（中央値／最大） | 表を作る 1 回目 | 表を作る 2 回目以降（中央値／最大） | セルの数（中央値／最大） | 本文インデックスの最大 |"
-add "|---|---|---|---|---|---|---|---|---|"
+add "| 語 | プレビューの数 | 読み込み・キャッシュ無し（中央値／最大） | 読み込み・キャッシュあり（中央値／最大） | 表を作る（中央値／最大） | 表を作る 1 回目 | 表を作る 2 回目以降（中央値／最大） | セルの数（中央値／最大） | 本文インデックスの最大 | 作ったセルの数（最大） |"
+add "|---|---|---|---|---|---|---|---|---|---|"
 foreach ($p in $previewWords) {
-    add ("| {0} | {1} | {2}／{3} ms | {4}／{5} ms | {6}／{7} ms | {8} ms | {9}／{10} ms | {11}／{12} | {13:N1} MB |" -f $p.Name, $p.Previews,
+    add ("| {0} | {1} | {2}／{3} ms | {4}／{5} ms | {6}／{7} ms | {8} ms | {9}／{10} ms | {11}／{12} | {13:N1} MB | {14} |" -f $p.Name, $p.Previews,
         (msDecimal $p.ReadUncachedMs "Median"), (msDecimal $p.ReadUncachedMs "Max"), (msDecimal $p.ReadCachedMs "Median"), (msDecimal $p.ReadCachedMs "Max"),
         (msDecimal $p.BuildMs "Median"), (msDecimal $p.BuildMs "Max"), ("{0:N1}" -f $p.BuildFirstMs), (msDecimal $p.BuildRestMs "Median"), (msDecimal $p.BuildRestMs "Max"),
-        (ms $p.Cells "Median"), (ms $p.Cells "Max"), $p.FileMBMax)
+        (ms $p.Cells "Median"), (ms $p.Cells "Max"), $p.FileMBMax, $(if ($null -ne $p.CreatedCells) { ms $p.CreatedCells "Max" } else { "-" }))
 }
 add
-add "「表を作る 1 回目」は、その語を測るプロセスで最初に作った表の時間（初期化が入る）。「2 回目以降」はそれ以外の表。"
+add "「表を作る 1 回目」は、その語を測るプロセスで最初に作った表の時間（初期化が入る）。「2 回目以降」はそれ以外の表。「セルの数」は表の全部のセル（行 × 全部の列）、「作ったセルの数」は、画面が最初に出す範囲について実際に作った数。"
 add
 add "### プレビューのメモリ"
 add
@@ -600,18 +612,36 @@ if ($fullReadWords.Count -gt 0) {
             $p.RetainedManagedMB, $p.FullRead.RetainedManagedMB, $p.WorkingSetAfterPreviewMB, $p.FullRead.WorkingSetAfterPreviewMB, $p.ReadTextCallsUncached, $p.FullRead.ReadTextCallsUncached)
     }
 }
+$readMoreWords = @($previewWords | Where-Object { $null -ne $_.ReadMore })
+if ($readMoreWords.Count -gt 0) {
+    add
+    add "### 読み足し"
+    add
+    add "セルの数が最大だった行の表へ、下に 200 行ずつ $($readMoreWords[0].ReadMore.Runs) 回まで読み足した時間。「読む」は readContentIndexLines、「行を作る」は行を作って足すまで、「セルを作る」は見える範囲のセルを作る時間。値は出すだけで、上限と比べない。"
+    add
+    add "| 語 | 回数 | 読む（中央値／最大） | 行を作る（中央値／最大） | セルを作る（中央値／最大） | 最後の行数 | 列 | 作ったセルの数 |"
+    add "|---|---|---|---|---|---|---|---|"
+    foreach ($p in $readMoreWords) {
+        add ("| {0} | {1} | {2}／{3} ms | {4}／{5} ms | {6}／{7} ms | {8} | {9} | {10:N0} |" -f $p.Name, $p.ReadMore.Runs,
+            (msDecimal $p.ReadMore.ReadMs "Median"), (msDecimal $p.ReadMore.ReadMs "Max"), (msDecimal $p.ReadMore.BuildMs "Median"), (msDecimal $p.ReadMore.BuildMs "Max"),
+            (msDecimal $p.ReadMore.CellsMs "Median"), (msDecimal $p.ReadMore.CellsMs "Max"), $p.ReadMore.TableRows, $p.ReadMore.Columns, $p.ReadMore.CreatedCells)
+    }
+}
 $renderWords = @($previewWords | Where-Object { $null -ne $_.Render })
 if ($renderWords.Count -gt 0) {
     add
     add "### プレビューの描画"
     add
-    add "セルの数が最大だったプレビューの表を、画面を出さずに preview.xaml の部品へ入れ、Measure・Arrange・UpdateLayout までにかかった時間（$(@($renderWords[0].Render.RenderMs).Count) 回。値は出すだけで、上限と比べない）。表の行は仮想化されておらず、セルごとに部品ができる。1 回目は部品の初期化が入るので、2 回目以降と分けて出す。"
+    add "セルの数が最大だったプレビューの表を、画面を出さずに preview.xaml の部品へ入れ、Measure・Arrange・UpdateLayout までにかかった時間（$(@($renderWords[0].Render.RenderMs).Count) 回。値は出すだけで、上限と比べない）。表の行と列は、見えている範囲だけ部品ができる。1 回目は部品の初期化が入るので、2 回目以降と分けて出す。「部品の数」は部品の木にある部品の数、「スクロール」は下と右の端へ 4 段階で動かして見える範囲を作り直した合計、「残った増え」は描画のあと GC して残ったマネージドヒープの増え。"
     add
-    add "| 語 | 行 | 列 | セルの数 | 描画 1 回目 | 描画 2 回目以降（中央値／最大） | ワーキングセット（前／後） |"
-    add "|---|---|---|---|---|---|---|"
+    add "| 語 | 行 | 列 | セルの数 | 描画 1 回目 | 描画 2 回目以降（中央値／最大） | ワーキングセット（前／後） | 部品の数 | スクロール | 残った増え |"
+    add "|---|---|---|---|---|---|---|---|---|---|"
     foreach ($p in $renderWords) {
-        add ("| {0} | {1} | {2} | {3:N0} | {4:N1} ms | {5}／{6} ms | {7:N0}／{8:N0} MB |" -f $p.Name, $p.Render.Rows, $p.Render.Columns, $p.Render.Cells, $p.Render.FirstMs,
-            (msDecimal $p.Render.RestMs "Median"), (msDecimal $p.Render.RestMs "Max"), $p.Render.WorkingSetBeforeMB, $p.Render.WorkingSetAfterMB)
+        add ("| {0} | {1} | {2} | {3:N0} | {4:N1} ms | {5}／{6} ms | {7:N0}／{8:N0} MB | {9} | {10} | {11} |" -f $p.Name, $p.Render.Rows, $p.Render.Columns, $p.Render.Cells, $p.Render.FirstMs,
+            (msDecimal $p.Render.RestMs "Median"), (msDecimal $p.Render.RestMs "Max"), $p.Render.WorkingSetBeforeMB, $p.Render.WorkingSetAfterMB,
+            $(if ($null -ne $p.Render.Elements) { "{0:N0}" -f $p.Render.Elements } else { "-" }),
+            $(if ($null -ne $p.Render.ScrollMs) { "{0:N1} ms" -f $p.Render.ScrollMs } else { "-" }),
+            $(if ($null -ne $p.Render.RenderRetainedMB) { "{0:N1} MB" -f $p.Render.RenderRetainedMB } else { "-" }))
     }
 }
 }

@@ -425,6 +425,8 @@ function getIngestPerfProblems {
 function newRenderResult {
     # measure_preview.ps1 の Render（-Render の結果）から、result.json の Render を作る。
     #   RenderMs … 描画（Measure・Arrange・UpdateLayout）の時間を測った順に並べたもの
+    #   Elements … できた部品の数。ScrollMs … 下と右へスクロールして見える範囲を作り直す時間。RenderRetainedMB … 描画のあとに残るマネージドヒープの増え
+    #   （この 3 つは、測った版が記録していなければ $null）
     #   FirstMs … 1 回目（部品の初期化が入る）。RestMs … 2 回目以降の統計（1 回だけのときは $null）
     param (
         $render
@@ -435,10 +437,29 @@ function newRenderResult {
     if ($times.Count -gt 1) { $rest = getStats ([double[]]@($times[1..($times.Count - 1)])) }
     return [ordered]@{
         Cells = $render.Cells; Rows = $render.Rows; Columns = $render.Columns
+        Elements = $render.Elements; ScrollMs = $render.ScrollMs; RenderRetainedMB = $render.RenderRetainedMB
         RenderMs = $times
         FirstMs = $(if ($times.Count) { $times[0] } else { $null })
         RestMs = $rest
         WorkingSetBeforeMB = $render.WorkingSetBeforeMB; WorkingSetAfterMB = $render.WorkingSetAfterMB
+    }
+}
+
+function newReadMoreResult {
+    # measure_preview.ps1 の ReadMore（-ReadMore の結果。下に 200 行ずつ読み足した回ごとの記録）から、result.json の ReadMore を作る。
+    #   ReadMs・BuildMs・CellsMs … 読む・行を作る・見える範囲のセルを作る時間の統計。CreatedCells … 最後に作ってあったセルの数の合計
+    param (
+        $runs
+    )
+
+    $items = @($runs)
+    $last = $items[$items.Count - 1]
+    return [ordered]@{
+        Runs = $items.Count
+        ReadMs = (getStats ([double[]]@($items | ForEach-Object { $_.ReadMs })))
+        BuildMs = (getStats ([double[]]@($items | ForEach-Object { $_.BuildMs })))
+        CellsMs = (getStats ([double[]]@($items | ForEach-Object { $_.CellsMs })))
+        TableRows = [int]$last.TableRows; Columns = [int]$last.Columns; CreatedCells = [int]$last.CreatedCells
     }
 }
 
@@ -467,6 +488,8 @@ function newPreviewResult {
         BuildFirstMs = $(if ($rows.Count) { [double]$rows[0].BuildMs } else { $null })
         BuildRestMs = $(if ($rows.Count -gt 1) { getStats ([double[]]@($rows[1..($rows.Count - 1)] | ForEach-Object { $_.BuildMs })) } else { $null })
         Cells = (getStats ([double[]]@($rows | ForEach-Object { $_.Cells })))
+        CreatedCells = $(if (@($rows | Where-Object { $null -ne $_.CreatedCells }).Count -gt 0) { getStats ([double[]]@($rows | ForEach-Object { $_.CreatedCells })) } else { $null })
+        ReadMore = $(if ($null -ne $raw.ReadMore -and @($raw.ReadMore).Count -gt 0) { newReadMoreResult $raw.ReadMore } else { $null })
         FileMBMax = $(if ($rows.Count) { ($rows | Measure-Object FileMB -Maximum).Maximum } else { $null })
         ReadTextCallsUncached = [int](($uncached | Measure-Object -Property ReadTextCalls -Sum).Sum)
         FullRead = $null
@@ -505,6 +528,39 @@ function newLargeContentTsvText {
     for ($lineNo = 1; $lineNo -le $lines; $lineNo++) {
         $note = if ($hits.Contains($lineNo)) { $hitWord } else { "架空説明" }
         [void]$builder.Append("$lineNo`t行$lineNo`t$note $filler`r`n")
+    }
+    return $builder.ToString()
+}
+
+function newWideContentTsvText {
+    # プレビューの計測用に、横に広い Excel の本文インデックスのファイル（TSV）の中身を作る。架空の値だけで、人名・社名・パスは入れない。
+    #   lines     : 行の数（行番号は 1 から lines まで。9999 まで）
+    #   columns   : 行ごとのセルの数（2000 など）
+    #   hitWord   : 検索する語。hitLines の行の hitColumn 列目（1 から）にだけ入れる
+    #   hitLines  : 語を入れる行番号
+    #   hitColumn : 語を入れる列（1 から）。既定は右寄りの 1500 列目（一致したセルが、最初に見える範囲の外にある表を作る）
+    # 形は「行番号 TAB セル 1 TAB セル 2 …」を CRLF でつないだもの（BOM は呼ぶ側で付ける）。セルは「行 N 列 M」の短い文字
+    param (
+        [int]$lines,
+        [int]$columns,
+        [string]$hitWord,
+        [int[]]$hitLines,
+        [int]$hitColumn = 1500
+    )
+
+    if ($lines -lt 1 -or $lines -gt 9999) { throw "lines は 1〜9999 にしてください。" }
+    if ($columns -lt 1) { throw "columns は 1 以上にしてください。" }
+    if ($hitColumn -lt 1 -or $hitColumn -gt $columns) { throw "hitColumn は 1〜columns にしてください。" }
+    $hits = New-Object System.Collections.Generic.HashSet[int]
+    foreach ($hitLine in $hitLines) { [void]$hits.Add($hitLine) }
+    $builder = New-Object System.Text.StringBuilder
+    for ($lineNo = 1; $lineNo -le $lines; $lineNo++) {
+        [void]$builder.Append($lineNo)
+        for ($col = 1; $col -le $columns; $col++) {
+            [void]$builder.Append("`t")
+            if ($col -eq $hitColumn -and $hits.Contains($lineNo)) { [void]$builder.Append($hitWord) } else { [void]$builder.Append("行${lineNo}列$col") }
+        }
+        [void]$builder.Append("`r`n")
     }
     return $builder.ToString()
 }
