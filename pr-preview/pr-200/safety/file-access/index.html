@@ -2039,6 +2039,8 @@
       
         
       
+        
+      
     
     
     
@@ -2360,6 +2362,34 @@
     
   
     テキストファイルの読み取り
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/indexing/pdf/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PDF ファイルの読み取り
   
 
     
@@ -4284,6 +4314,11 @@
 <td><code>extract_text.ps1</code> の <code>extractTextFile</code></td>
 </tr>
 <tr>
+<td>PDF ファイルのコピー（読み終えたら消す）</td>
+<td>同上の下の <code>source.copy</code></td>
+<td><code>extract_pdf.ps1</code> の <code>extractPdfFile</code></td>
+</tr>
+<tr>
 <td>Excel のシートごとの一時保存（<code>sheet&lt;番号&gt;.tmp</code>）</td>
 <td>同上の下</td>
 <td><code>extract_office.ps1</code> の <code>extractWorkbook</code></td>
@@ -4376,6 +4411,7 @@
     tsv --&gt; idx</code></pre>
 <p>Office の <code>SaveAs</code> は 3 か所あるが、保存先は常に作業フォルダ内のパス（<code>$tmpPath</code> / <code>$destPath</code>）である（<code>extract_office.ps1:156</code>・<code>210</code>・<code>234</code>）。原本のパスを <code>SaveAs</code> に渡す経路は無い。</p>
 <p>テキストファイル（<code>.txt</code> 等）も、Office と同じく作業フォルダの <code>source.copy</code> へコピーし（<code>copyFileShared</code>）、そのコピーを読み（<code>shared/core/text_file.ps1</code> の <code>readTextFile</code>）、読み終えたら消す。原本は直接読まず、書き込みの API には渡さない。</p>
+<p>PDF ファイルもテキストファイルと同じく、作業フォルダの <code>source.copy</code> へコピーし（<code>copyFileShared</code>）、そのコピーを読み（<code>shared/core/pdf_file.ps1</code> の <code>readPdfFile</code>）、TSV を書く前に消す（<code>extractPdfFile</code>）。</p>
 <p><code>tests/meta/safety.Tests.ps1</code> の「取り込み対象のファイルを書き換えないこと」が、原本のパスを書き込み・削除の API に渡さないこと、原本を読むのは <code>copyFileShared</code> の読み取りだけであること、<code>SaveAs</code> の保存先が作業フォルダだけであること、Word・PowerPoint を読み取り専用で開くことを確かめる（Excel を読み取り専用で開くことは「Office ファイルを安全に開くこと」が確かめる）。</p>
 <h2 id="クラウドにだけあるファイル">クラウドにだけあるファイル<a class="headerlink" href="#クラウドにだけあるファイル" title="Permanent link">&para;</a></h2>
 <p>OneDrive・SharePoint のオンデマンドで、中身がこの PC に無いファイルは、フォルダの一覧と同時に分かる属性だけで見分け、既定ではファイルを開かない。開けばダウンロードが始まり、ネットワークの帯域・ディスクの空きを使い、ファイルがこの PC に残るため。利用者が確認のダイアログで選んだとき（または設定 <code>cloudFiles</code> が <code>download</code> のとき）だけ、ほかのファイルと同じようにコピーして読む。見分けのための属性の読み取りは、ファイルを書き換えない。</p>

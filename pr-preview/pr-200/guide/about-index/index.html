@@ -2064,6 +2064,8 @@
       
         
       
+        
+      
     
     
     
@@ -2385,6 +2387,34 @@
     
   
     テキストファイルの読み取り
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/indexing/pdf/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PDF ファイルの読み取り
   
 
     
@@ -4256,7 +4286,7 @@
 <h1 id="インデックスの仕組み">インデックスの仕組み<a class="headerlink" href="#インデックスの仕組み" title="Permanent link">&para;</a></h1>
 <p>tebunko の検索は、<strong>インデックス</strong>と呼ぶ索引データを使って行います。本ページでは、インデックスの役割、作成と更新の考え方、取り扱い上の注意を説明します。</p>
 <h2 id="概要">概要<a class="headerlink" href="#概要" title="Permanent link">&para;</a></h2>
-<p>インデックスは、Excel・Word・PowerPoint のファイルとテキストファイルから文字を抽出し、検索用に保存した索引データです。tebunko は検索時に元のファイルを開かず、インデックスのみを照合します。</p>
+<p>インデックスは、Excel・Word・PowerPoint のファイルとテキストファイル、PDF ファイルから文字を抽出し、検索用に保存した索引データです。tebunko は検索時に元のファイルを開かず、インデックスのみを照合します。</p>
 <p>書籍の巻末索引が本文を読まずに該当ページを示すのと同様に、インデックスを参照することで、ファイルを 1 件ずつ開く処理を省きます。</p>
 <table>
 <thead>
@@ -4287,7 +4317,7 @@
 <p>索引データは事前に作成しておく必要があります。作成は［インデックス管理］の［すべて更新］で行います。</p>
 <h2 id="処理の流れ">処理の流れ<a class="headerlink" href="#処理の流れ" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart LR
-    F["元のファイル&lt;br&gt;（Excel・Word・PowerPoint・テキスト）"] -- "① インデックス作成&lt;br&gt;（文字の抽出）" --&gt; I[("インデックス")]
+    F["元のファイル&lt;br&gt;（Excel・Word・PowerPoint・テキスト・PDF）"] -- "① インデックス作成&lt;br&gt;（文字の抽出）" --&gt; I[("インデックス")]
     I -- "② 検索&lt;br&gt;（索引データの照合）" --&gt; R["検索結果&lt;br&gt;ファイル・場所・行"]
     R -- "③ 表示&lt;br&gt;（ダブルクリック）" --&gt; F</code></pre>
 <ol>

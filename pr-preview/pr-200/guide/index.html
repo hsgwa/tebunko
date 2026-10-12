@@ -1916,6 +1916,8 @@
       
         
       
+        
+      
     
     
     
@@ -2237,6 +2239,34 @@
     
   
     テキストファイルの読み取り
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/indexing/pdf/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PDF ファイルの読み取り
   
 
     
@@ -4162,7 +4192,7 @@
 
 
 <h1 id="はじめに">はじめに<a class="headerlink" href="#はじめに" title="Permanent link">&para;</a></h1>
-<p>tebunko は、Excel・Word・PowerPoint のファイルとテキストファイルを内容の文字列で検索する Windows 用の全文検索ツールです。ファイルから抽出した文字を索引データ（<strong>インデックス</strong>）として保存しておき、検索時はインデックスのみを照合するため、ファイルを開かずに検索できます（<a href="about-index/">インデックスの仕組み</a>）。検索結果には、該当するファイル・シート（ページ・スライド）・行を表示し、元のファイルを直接開けます。</p>
+<p>tebunko は、Excel・Word・PowerPoint のファイルとテキストファイル、PDF ファイルを内容の文字列で検索する Windows 用の全文検索ツールです。ファイルから抽出した文字を索引データ（<strong>インデックス</strong>）として保存しておき、検索時はインデックスのみを照合するため、ファイルを開かずに検索できます（<a href="about-index/">インデックスの仕組み</a>）。検索結果には、該当するファイル・シート（ページ・スライド）・行を表示し、元のファイルを直接開けます。</p>
 <p>本ページでは、動作環境とインストール手順を説明します。インストール後は <a href="quickstart/">クイックスタート</a> を参照してください。</p>
 <h2 id="動作環境">動作環境<a class="headerlink" href="#動作環境" title="Permanent link">&para;</a></h2>
 <h3 id="必要なもの">必要なもの<a class="headerlink" href="#必要なもの" title="Permanent link">&para;</a></h3>
@@ -4209,7 +4239,7 @@
 <li>Mac・Linux</li>
 <li>PowerShell 7 だけで動かすこと（Windows PowerShell 5.1 で動かします）</li>
 <li>PowerShell の実行そのものが禁止されている PC</li>
-<li>対応していないファイル形式（PDF・OpenDocument など。パスワード付きのファイルは <a href="limitations/">制限事項</a> を参照）</li>
+<li>対応していないファイル形式（OpenDocument など。パスワード付きのファイルは <a href="limitations/">制限事項</a> を参照）</li>
 </ul>
 <h3 id="制限された環境での動作">制限された環境での動作<a class="headerlink" href="#制限された環境での動作" title="Permanent link">&para;</a></h3>
 <ul>
@@ -4258,6 +4288,11 @@
 <td>テキスト</td>
 <td>.txt / .csv / .md / .py / .java / .html 等、75 種類の拡張子（<a href="limitations/#対応するテキストの拡張子">対応するテキストの拡張子</a>）</td>
 <td>行番号</td>
+</tr>
+<tr>
+<td>PDF</td>
+<td>.pdf（文字を持つもの。<a href="limitations/#pdf-ファイル">PDF ファイル</a>）</td>
+<td>ページ</td>
 </tr>
 </tbody>
 </table>

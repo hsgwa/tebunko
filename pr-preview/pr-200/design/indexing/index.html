@@ -1912,6 +1912,8 @@
       
         
       
+        
+      
     
     
     
@@ -2236,6 +2238,34 @@
     
   
     テキストファイルの読み取り
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="pdf/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PDF ファイルの読み取り
   
 
     
@@ -4074,7 +4104,7 @@
     T -- "② フォルダの取り込みが&lt;br&gt;終わったら本文インデックスに入れる" --&gt; P[("本文インデックス&lt;br&gt;content_index/営業部/見積/&lt;br&gt;content_index.xlsx.001.tsv")]
     P -- "③ 検索は&lt;br&gt;本文インデックスだけを読む" --&gt; R["結果: (株)山田商事_見積書.xlsx&lt;br&gt;見積・2 行目「りんご…」"]</code></pre>
 <ol>
-<li><strong>取り込み</strong>：元のファイルを読み（Office ファイルもテキストファイルも、作業領域にコピーしたコピーを開く・読む）、シート・ページ・スライドなどの<strong>場所</strong>ごとに、文字を TSV（タブ区切りのテキスト）に書き出す。1 行が Excel の 1 行（Word・PowerPoint では段落 1 つ）にあたるので、検索結果に「何行目か」を出せる。</li>
+<li><strong>取り込み</strong>：元のファイルを読み（Office ファイルもテキストファイルも PDF ファイルも、作業領域にコピーしたコピーを開く・読む）、シート・ページ・スライドなどの<strong>場所</strong>ごとに、文字を TSV（タブ区切りのテキスト）に書き出す。1 行が Excel の 1 行（Word・PowerPoint では段落 1 つ）にあたるので、検索結果に「何行目か」を出せる。</li>
 <li>
 <p><strong>本文インデックスに入れる</strong>：フォルダの取り込みが終わると、そのフォルダの TSV を、フォルダ・拡張子ごとの<strong>本文インデックス</strong>にまとめる。本文インデックスには、どのファイルのどの場所かを示す行（メタ情報の行）と、TSV の中身が並ぶ。</p>
 <div class="highlight"><pre><span></span><code>␞ ファイル名=(株)山田商事_見積書.xlsx
@@ -4209,6 +4239,12 @@
 <td>コピーを読む。Office は使わない</td>
 <td>行のまとまり（<a href="text/">テキストファイル</a>）</td>
 </tr>
+<tr>
+<td>PDF</td>
+<td><code>.pdf</code></td>
+<td>コピーを PowerShell だけで読む。Office は使わない</td>
+<td>ページ（<a href="pdf/">PDF ファイル</a>）</td>
+</tr>
 </tbody>
 </table>
 <p>インデックスを作る全てのファイル（Office ファイルもテキストファイルも）は、元のファイルを直接開かず、作業領域（既定は <code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code>。<a href="../structure/data/">データの置き場所とパスの決め方</a>）にコピーしてからコピーを開く・読む（<code>copyFileShared</code>）。メンテナの方針「元のファイルに絶対に影響を出さない」のため。コピーは元を読み取りだけ・共有モード（<code>ReadWrite | Delete</code>）で開いて行うので、効果として、インデックス作成中にほかの利用者が元のファイルを開いて編集・上書き保存でき、元のファイルを占有しない。書きかけの中身がコピーされうることは、直接読む場合と同じ。排他で開かれたファイルはコピーできず、取り込みの失敗になる。</p>
@@ -4241,8 +4277,8 @@
 </tr>
 <tr>
 <td>入力</td>
-<td>クロール対象フォルダ配下の Office ファイル・テキストファイル</td>
-<td>Office: <code>.xlsx</code> <code>.xlsm</code> <code>.xls</code> <code>.xlsb</code> <code>.docx</code> <code>.docm</code> <code>.doc</code> <code>.pptx</code> <code>.pptm</code> <code>.ppt</code>。テキスト: <a href="text/#対象の拡張子">対象の拡張子</a></td>
+<td>クロール対象フォルダ配下の Office ファイル・テキストファイル・PDF ファイル</td>
+<td>Office: <code>.xlsx</code> <code>.xlsm</code> <code>.xls</code> <code>.xlsb</code> <code>.docx</code> <code>.docm</code> <code>.doc</code> <code>.pptx</code> <code>.pptm</code> <code>.ppt</code>。テキスト: <a href="text/#対象の拡張子">対象の拡張子</a>。PDF: <code>.pdf</code>（<a href="pdf/">PDF ファイル</a>）</td>
 </tr>
 <tr>
 <td>入出力</td>
