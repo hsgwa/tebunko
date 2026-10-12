@@ -6,6 +6,8 @@
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\data_dir.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\text.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\text_file.ps1".Replace('`', '``')))
+. ([WildcardPattern]::Escape("$PSScriptRoot\core\pdf_crypt.ps1".Replace('`', '``')))
+. ([WildcardPattern]::Escape("$PSScriptRoot\core\pdf_file.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\tsv_file.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\folder.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\version.ps1".Replace('`', '``')))

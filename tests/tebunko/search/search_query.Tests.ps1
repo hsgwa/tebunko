@@ -68,9 +68,11 @@ Describe "newPlaceExclude" -Tag Unit {
 Describe "newFileKindFilter" -Tag Unit {
     # kinds: 選んだ種類、matches / misses: 作った条件に当たる・当たらない名前
     It "<name>" -TestCases @(
-        @{ name = "すべての種類なら絞り込まない"; kinds = @("excel", "word", "powerpoint", "text"); matches = @(); misses = @(); empty = $true }
+        @{ name = "すべての種類なら絞り込まない"; kinds = @("excel", "word", "powerpoint", "text", "pdf"); matches = @(); misses = @(); empty = $true }
         @{ name = "空なら絞り込まない"; kinds = @(); matches = @(); misses = @(); empty = $true }
-        @{ name = "知らない種類だけなら絞り込まない"; kinds = @("pdf"); matches = @(); misses = @(); empty = $true }
+        @{ name = "知らない種類だけなら絞り込まない"; kinds = @("zip"); matches = @(); misses = @(); empty = $true }
+        @{ name = "pdf は .pdf だけ"; kinds = @("pdf"); empty = $false
+           matches = @("a.pdf", "a.PDF"); misses = @("a.xlsx", "a.docx", "a.txt", "a.pdf.bak") }
         @{ name = "excel は Excel の拡張子だけ"; kinds = @("excel"); empty = $false
            matches = @("a.xlsx", "a.XLSM", "a.xls", "a.xlsb"); misses = @("a.docx", "a.pptx", "a.txt", "a.xlsx.bak") }
         @{ name = "word は Word の拡張子だけ"; kinds = @("word"); empty = $false

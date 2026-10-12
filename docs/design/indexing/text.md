@@ -4,7 +4,7 @@
 
 ## 対象の拡張子
 
-`${textExtensions}`（`shared/core/text_file.ps1`）に固定する 75 個。大文字・小文字は区別しない。ソースコード・設定ファイルなど、文字コードを適切に選べれば読めるものを広く含む。`setting.config` で拡張子を足す仕組みは無い（`tests/meta/safety.Tests.ps1` が、Office の拡張子と合わせて 85 個の固定の一覧ちょうどであることを確かめる）。PDF・RTF（表示用の解釈が要る形式）など読み方が別に要る形式、`.exe` `.com` `.scr` `.hta` `.wsf` `.wsh` `.jse` `.vbe` `.lnk` `.url` `.msi` `.cpl` `.inf`（実行・登録に使われるファイル）・`.ts` は対象外。`.html` `.htm` は対象（下の `${textOpenExtensions}`。表示用の解釈が要る形式だが、タグを含めたテキストとして検索できるほうが有用なため対象に含めた）。
+`${textExtensions}`（`shared/core/text_file.ps1`）に固定する 75 個。大文字・小文字は区別しない。ソースコード・設定ファイルなど、文字コードを適切に選べれば読めるものを広く含む。`setting.config` で拡張子を足す仕組みは無い（`tests/meta/safety.Tests.ps1` が、Office の拡張子・PDF の拡張子（[PDF ファイルの読み取り](pdf.md)）と合わせて 86 個の固定の一覧ちょうどであることを確かめる）。RTF（表示用の解釈が要る形式）など読み方が別に要る形式、`.exe` `.com` `.scr` `.hta` `.wsf` `.wsh` `.jse` `.vbe` `.lnk` `.url` `.msi` `.cpl` `.inf`（実行・登録に使われるファイル）・`.ts` は対象外。`.html` `.htm` は対象（下の `${textOpenExtensions}`。表示用の解釈が要る形式だが、タグを含めたテキストとして検索できるほうが有用なため対象に含めた）。
 
 `${textExtensions}` は次の 2 つを合わせたもの。
 

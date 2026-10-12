@@ -168,7 +168,7 @@ function truncateHitLine {
 }
 
 function getFileKindExtensions {
-    # 検索バーのチップの種類（excel・word・powerpoint・text）ごとの拡張子（小文字）を返す。知らない種類は空
+    # 検索バーのチップの種類（excel・word・powerpoint・text・pdf）ごとの拡張子（小文字）を返す。知らない種類は空
     param (
         [string]$kind
     )
@@ -178,6 +178,7 @@ function getFileKindExtensions {
         "word" { return @(${officeExtensions} | Where-Object { $_ -like ".do*" }) }
         "powerpoint" { return @(${officeExtensions} | Where-Object { $_ -like ".pp*" }) }
         "text" { return @(${textExtensions}) }
+        "pdf" { return @(${pdfExtensions}) }
     }
     return @()
 }
