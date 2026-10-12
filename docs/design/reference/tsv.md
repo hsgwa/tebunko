@@ -73,7 +73,7 @@
 
 | 関数 | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
-| `getContentIndexFileKind` | book | string | 元のファイル名から種類（`Excel` / `Word` / `PowerPoint` / `テキスト` / `PDF`。分からなければ空） | convertToContentIndexText, convertPlaceToContentIndexMeta, describePlace, getAppKind, searchContentIndexFiles（長い行を切るかの判定）, readContentIndexContext |
+| `getContentIndexFileKind` | book | string | 元のファイル名から種類（`Excel` / `Word` / `PowerPoint` / `テキスト` / `PDF`。分からなければ空） | convertToContentIndexText, convertPlaceToContentIndexMeta, describePlace, getAppKind, searchContentIndexFiles（長い行を切るかの判定）, readContentIndexLines |
 | `getContentIndexExtension` / `getContentIndexFileName` / `readContentIndexFileName` | book / extension, part / name | string / `@{Extension; Part}` | 本文インデックスを分ける拡張子（小文字・`.` なし） / 本文インデックスのファイルの名前（`content_index.<拡張子>.<番号>.tsv`） / 名前から拡張子と番号を取り出す | convertFolderToContentIndex, getIndexTsvCounts |
 | `splitContentIndexBooksByExtension` | books | [ordered] 拡張子 → 並び | 元のファイルの並びを拡張子ごとに分ける（各並びの中の順は変えない） | convertFolderToContentIndex |
 | `encodeContentIndexValue` / `decodeContentIndexValue` | value | string | メタ情報の値の制御文字（タブを除く）と `%` を `%XX` にする / 戻す | convertToContentIndexText, readContentIndexPlaces |
@@ -81,7 +81,7 @@
 | `convertContentIndexMetaToPlace` | meta | string | 場所のメタ情報から場所の名前を組み立てる（画面の表示・図形とコメントの除外・元のファイルを開く処理が使う形） | readContentIndexPlaces |
 | `convertToContentIndexBody` | text | string | TSV の中身を本文インデックスに入れる形にする（改行を LF に、末尾に LF、U+001C〜U+001F を除く） | convertToContentIndexText |
 | `convertToContentIndexText` | books | string | 元のファイルの並び（TSV から新しく作るもの、または前の本文インデックスから写すまとまり）から、本文インデックスの文字列を作る | convertFolderToContentIndex |
-| `readContentIndexPlaces` | text | `@{Book; Location; CellPrefixed; Start; End}` の並び | 本文インデックスの文字列から、場所ごとの元のファイル名・場所の名前・行の先頭がセル番地か（`CellPrefixed`。Excel の図形・コメントが `$true`。`testContentIndexCellPrefixed`）・中身の範囲を先頭から順に返す。版が違えば例外 | 検索（searchContentIndexFiles）、readContentIndexContext |
+| `readContentIndexPlaces` | text | `@{Book; Location; CellPrefixed; Start; End}` の並び | 本文インデックスの文字列から、場所ごとの元のファイル名・場所の名前・行の先頭がセル番地か（`CellPrefixed`。Excel の図形・コメントが `$true`。`testContentIndexCellPrefixed`）・中身の範囲を先頭から順に返す。版が違えば例外 | 検索（searchContentIndexFiles）、readContentIndexLines |
 | `testContentIndexCellPrefixed` | book, meta | bool | 場所の行が「セル番地 + タブ + 文字」の形か（元のファイルが Excel で、対象が図形・コメント） | readContentIndexPlaces |
 | `splitContentIndexTextByBook` | text | `@{Name; Block}` の並び | 本文インデックスの文字列を元のファイルごとのまとまりに分ける（入れ替えない元のファイルをそのまま写すため）。版が違えば例外 | convertFolderToContentIndex |
 | `getContentIndexBodyText` | text | string | メタ情報の行を除いた中身（システムインデックスの語を作るため） | writeSystemIndexFolder |
@@ -90,7 +90,7 @@
 
 | 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |
 |---|---|---|---|---|---|
-| `writeContentIndexFile` / `readContentIndexText` | path, text / path | – / string | 本文インデックスのファイルを UTF-16LE（BOM 付き）で書く（`<名前>.tmp` に書いてから `File.Replace` で置き換える） / 読む（置き換え・削除を妨げない共有モード） | [インデックスのファイルの形](../index-data/format.md#配置命名規則) | convertFolderToContentIndex, readContentIndexContext |
+| `writeContentIndexFile` / `readContentIndexText` | path, text / path | – / string | 本文インデックスのファイルを UTF-16LE（BOM 付き）で書く（`<名前>.tmp` に書いてから `File.Replace` で置き換える） / 読む（置き換え・削除を妨げない共有モード） | [インデックスのファイルの形](../index-data/format.md#配置命名規則) | convertFolderToContentIndex, readContentIndexLines |
 | `getIndexFolderBooks` | folder | `@{Name; Places}` の並び | フォルダ直下の元のファイルごとのフォルダ（`<ファイル名.xlsx>\<場所>.tsv`）から、本文インデックスに入れる元のファイルと場所の並びを作る（ファイル名は `convertIndexFileNameToPlace` で場所に戻す。並びは前の版と同じになるよう、戻した場所を符号化し直したキーで並べ替える） | 同上 | convertFolderToContentIndex |
 | `convertFolderToContentIndex` | folder, destFolder, removeBooks, removeTsv | `@{Books; Tsv; Chars; Files; Texts}` | フォルダ 1 つの TSV から拡張子ごとの本文インデックスのファイルを書く。前の本文インデックスのファイルとまぜ（TSV のある元のファイルは入れ替え、removeBooks は外し、ほかは写す）、元のファイルが無くなった拡張子の本文インデックスのファイルは消す。removeTsv なら書き終えた後に TSV のフォルダを消す。Texts は書いた中身 | 同上 | updateFolderContentIndex |
 | `updateFolderContentIndex` | folder, removeBooks | 同上 | `convertFolderToContentIndex` を同じフォルダに書き、TSV を消す形で呼ぶ | 同上 | publishIndexFolders |

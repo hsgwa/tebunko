@@ -40,6 +40,17 @@ Describe "プレビューの全部の列と読み足し" -Tag Gui {
                 $pattern.SetScrollPercent($horizontal, $vertical)
             }
             $horizontalPercent = { (waitGuiPreviewScroll $S).GetCurrentPattern([Windows.Automation.ScrollPattern]::Pattern).Current.HorizontalScrollPercent }
+            $cellCount = {
+                # 作ってあるセルの数と、見えている範囲から決まる上限。上限は（見えている列 + 左右に 3 列ずつ）×（見えている行 + 上下に 10 行ずつ）
+                # （前の 3 と 10 は、作る範囲に足す余白の列・行の数）。見えているセルは、スクロールの枠と重なるもの
+                $scrollRect = (waitGuiPreviewScroll $S).Current.BoundingRectangle
+                $texts = @(getGuiPreviewTexts $S.Window)
+                $visible = @($texts | ForEach-Object { $_.Text.Current.BoundingRectangle } | Where-Object {
+                        $_.Right -gt $scrollRect.Left -and $_.Left -lt $scrollRect.Right -and $_.Bottom -gt $scrollRect.Top -and $_.Top -lt $scrollRect.Bottom })
+                $visibleColumns = @($visible | ForEach-Object { [Math]::Round($_.Left) } | Sort-Object -Unique).Count
+                $visibleRows = @($visible | ForEach-Object { [Math]::Round($_.Top) } | Sort-Object -Unique).Count
+                @{ Count = $texts.Count; Limit = ($visibleColumns + 6) * ($visibleRows + 20); Columns = $visibleColumns; Rows = $visibleRows }
+            }
             $search = {
                 param ($word)
                 setGuiText $S (findGui $S.Window -Id "WordBox") $word
@@ -54,7 +65,9 @@ Describe "プレビューの全部の列と読み足し" -Tag Gui {
             setGuiStep $S "2,000 列の行を選ぶ"
             & $search "横の語"
             $hit = waitGui $S "一致したセルが出る" ${guiDefaultTimeout} { @(getGuiPreviewTexts $S.Window | Where-Object { $_.Text.Current.Name -eq "横の語" }) | Select-Object -First 1 }
-            @(& $cellNames).Count | Should -BeLessThan ($script:columns * 3) -Because "見えている列のセルだけを作る（全部で $($script:columns * $script:rows) セル）"
+            $made = & $cellCount
+            $made.Count | Should -BeGreaterThan 0
+            $made.Count | Should -BeLessOrEqual $made.Limit -Because "見えている範囲（$($made.Columns) 列 × $($made.Rows) 行）と余白の分だけを作る（全部で $($script:columns * $script:rows) セル）"
 
             setGuiStep $S "一致したセルが見える範囲にあり、その列の見出しも見える"
             $scrollRect = (waitGuiPreviewScroll $S).Current.BoundingRectangle
@@ -70,7 +83,8 @@ Describe "プレビューの全部の列と読み足し" -Tag Gui {
             & $scrollTo 100 -1
             waitGui $S "右端の列（2000 列目）のセルが出る" ${guiDefaultTimeout} { & $hasCell 'c2000$' } | Out-Null
             (& $hasCell '^r\d+c1$') | Should -Be $false -Because "左端の列は作り直されて消える"
-            @(& $cellNames).Count | Should -BeLessThan ($script:columns * 3)
+            $made = & $cellCount
+            $made.Count | Should -BeLessOrEqual $made.Limit -Because "右端へ動かしても、見えている範囲と余白の分だけを作る"
 
             setGuiStep $S "右端のまま下へスクロールして、最後の行まで読み足す"
             & $scrollTo -1 100

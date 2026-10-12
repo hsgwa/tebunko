@@ -3,7 +3,7 @@
 #   ・キャッシュ無し … 読みにキャッシュを渡さない（検索に入らなかったファイル・キャッシュを捨てたあとの選択に当たる）。先に測る
 #   ・キャッシュあり … 検索のキャッシュ（newTsvTextCache）を渡す（検索の直後の選択に当たる）
 # 1 回ごとに ReadMs（画面の最初の読みと同じ呼び方）・BuildMs（HitRow.BuildPreview）・CellsMs（画面が最初に出す範囲のセルを作る時間）と、
-# 表の全部のセルの数（Cells。行 × 全部の列）・実際に作ったセルの数（CreatedCells）、プロセスのメモリを記録する。
+# 表の全部のセルの数（Cells。行 × 全部の列）・表の行がそのとき持っているセルの数（CreatedCells。見える範囲の分）、プロセスのメモリを記録する。
 # 前の版（全部のセルを BuildPreview が作る版）を測るときは、CreatedCells は Cells と同じ。
 # 検索の直後・プレビューのあと・GC のあと・検索のキャッシュを捨てたあとのワーキングセットも記録する（画面のメモリが戻るか・キャッシュの常駐の大きさを見る）。
 # -ReadMore: 上の測りのあとに、ヒットが多い行（セルの数が最大のもの）の表へ、下に 200 行ずつ 5 回読み足す時間（読む・行を作る・セルを作る）を測る。
@@ -79,10 +79,20 @@ $cellRowMargin = 10
 
 function hasMember($target, [string]$name) { return $null -ne ($target | Get-Member -Name $name) }
 
+function countMadeCells($table) {
+    # 表の行が、いま持っているセルの数（見える範囲の分）。セルを後から作る版でない前の版は、全部のセルを作るので 行 × 列
+    if (-not (hasMember $table "EnsureCells")) { return $table.Rows.Count * $table.Columns.Count }
+    $sum = 0
+    foreach ($row in $table.Rows) { $sum += $row.Cells.Count }
+    return $sum
+}
+
 function setWindowFor($table, [double]$offset, [double]$width) {
     # 横の位置 offset・見える幅 width の、見えている列の範囲に決め直す。範囲が変わったら $true（前の版・範囲を決める判断が無い版は $false）
     if (-not $canWindow -or -not (hasMember $table "EnsureCells")) { return $false }
-    $w = getPreviewColumnWindow $table.Widths() $offset $width ([HitRow]::NumberWidth) $columnMargin
+    # 画面と同じく、列の幅の累積を渡す。累積を持たない前の版は、列の幅の並びを渡す版の関数なので Widths()
+    $columnArg = $(if (hasMember $table "Prefix") { $table.Prefix() } else { $table.Widths() })
+    $w = getPreviewColumnWindow $columnArg $offset $width ([HitRow]::NumberWidth) $columnMargin
     return $table.SetWindow($w.First, $w.Last, $w.Left, $w.Right)
 }
 
@@ -169,7 +179,7 @@ try {
             $cellsMs = $watch.Elapsed.TotalMilliseconds
             $columns = $table.Columns.Count   # 前の版は Columns が表示した列だけ。今の版は全部の列
             $cells = $table.Rows.Count * $columns
-            $created = $(if (hasMember $table "CreatedCells") { $table.CreatedCells } else { $cells })
+            $created = countMadeCells $table
             # 表を持ち続けるのは -Render のときだけ（GC のあとに残る増えに、このスクリプトが持つ表が入らないようにする）
             if ($mode -eq "無し" -and ($null -eq $wide -or $cells -gt $wide.Cells)) { $wide = @{ Cells = $cells; Table = $(if ($Render) { $table } else { $null }); Hit = $hit } }
             $item = [ordered]@{
@@ -231,7 +241,7 @@ try {
             $readMoreRuns.Add([ordered]@{
                 N = $i + 1; ReadMs = (roundMs $moreReadMs); BuildMs = (roundMs $moreBuildMs); CellsMs = (roundMs $moreCellsMs)
                 Rows = $numbers.Count; TableRows = $moreTable.Rows.Count; Columns = $moreTable.Columns.Count
-                CreatedCells = $(if (hasMember $moreTable "CreatedCells") { $moreTable.CreatedCells } else { $moreTable.Rows.Count * $moreTable.Columns.Count })
+                CreatedCells = (countMadeCells $moreTable)
             })
             if ($numbers.Count -eq 0 -or $more.End) { break }
             $nextLine = $numbers[-1] + 1
