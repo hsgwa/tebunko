@@ -30,7 +30,7 @@ ${contentIndexPlaceKeys} = @("シート", "ページ", "スライド", "部分")
 
 
 function getContentIndexFileKind {
-    # 元のファイル名から種類（Excel・Word・PowerPoint・テキスト）を返す。分からなければ空
+    # 元のファイル名から種類（Excel・Word・PowerPoint・テキスト・PDF）を返す。分からなければ空
     param (
         [string]$book
     )
@@ -39,6 +39,7 @@ function getContentIndexFileKind {
     if ($book -match '\.doc[a-z]?$') { return "Word" }
     if ($book -match '\.ppt[a-z]?$') { return "PowerPoint" }
     if (testTextExtension $book) { return "テキスト" }
+    if (testPdfExtension $book) { return "PDF" }
     return ""
 }
 

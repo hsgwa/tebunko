@@ -94,7 +94,7 @@ function startGui {
             "SearchBarHost", "ResultListHost", "PreviewHost", "DetailRow", "ResultEmptyState", "GoIndexTabButton") }
         @{ File = "search\search_bar.xaml"; Slot = "SearchBarHost"; Names = @(
             "WordBox", "SearchButton", "RegexCheck", "CaseCheck", "ShapeCheck", "CommentCheck", "ScopeButton",
-            "ConditionsPanel", "ConditionsSpacer", "FastSearchSlot", "KindChipExcel", "KindChipWord", "KindChipPowerPoint", "KindChipText",
+            "ConditionsPanel", "ConditionsSpacer", "FastSearchSlot", "KindChipExcel", "KindChipWord", "KindChipPowerPoint", "KindChipText", "KindChipPdf",
             "WordPlaceholder", "WordErrorRing", "FastBadge", "FastBadgeIcon", "FastBadgeInfo", "FastSearchText",
             "BalloonLayer", "SearchKindBalloon", "SearchKindBalloonText", "RegexBalloon", "RegexBalloonText") }
         @{ File = "search\target_tree.xaml"; Slot = "NavPaneHost"; Names = @(

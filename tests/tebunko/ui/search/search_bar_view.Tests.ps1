@@ -9,7 +9,8 @@ Describe "describeSearchOption" -Tag Unit {
         @{ name = "既定のままなら空"; option = @{ CaseSensitive = $false; FileKinds = @() }; expected = "" }
         @{ name = "大文字・小文字の区別を出す"; option = @{ CaseSensitive = $true; FileKinds = @() }; expected = "大文字・小文字を区別" }
         @{ name = "種類を絞っていれば出す"; option = @{ CaseSensitive = $false; FileKinds = @("excel", "text") }; expected = "種類：Excel・テキスト" }
-        @{ name = "すべての種類なら出さない"; option = @{ CaseSensitive = $false; FileKinds = @("excel", "word", "powerpoint", "text") }; expected = "" }
+        @{ name = "すべての種類なら出さない"; option = @{ CaseSensitive = $false; FileKinds = @("excel", "word", "powerpoint", "text", "pdf") }; expected = "" }
+        @{ name = "PDF だけ外した種類は出す"; option = @{ CaseSensitive = $false; FileKinds = @("excel", "word", "powerpoint", "text") }; expected = "種類：Excel・Word・PowerPoint・テキスト" }
         @{ name = "両方あれば中黒でつなぐ"; option = @{ CaseSensitive = $true; FileKinds = @("word") }; expected = "大文字・小文字を区別・種類：Word" }
         @{ name = "図形・コメントを含めるなら出さない"; option = @{ CaseSensitive = $false; IncludeShapes = $true; IncludeComments = $true }; expected = "" }
         @{ name = "図形・コメントを外したら出す"; option = @{ CaseSensitive = $false; IncludeShapes = $false; IncludeComments = $false }; expected = "図形を除く・コメントを除く" }
@@ -26,18 +27,20 @@ Describe "種類のチップ" -Tag Unit {
         @{ kind = "word"; expected = "Word" }
         @{ kind = "powerpoint"; expected = "PowerPoint" }
         @{ kind = "text"; expected = "テキスト" }
-        @{ kind = "pdf"; expected = "" }
+        @{ kind = "pdf"; expected = "PDF" }
+        @{ kind = "zip"; expected = "" }
     ) {
         param ($kind, $expected)
         getFileKindLabel $kind | Should -Be $expected
     }
 
     It "toggleFileKind: <name>" -TestCases @(
-        @{ name = "外す"; kinds = @("excel", "word", "powerpoint", "text"); kind = "word"; expected = "excel,powerpoint,text" }
+        @{ name = "外す"; kinds = @("excel", "word", "powerpoint", "text", "pdf"); kind = "word"; expected = "excel,powerpoint,text,pdf" }
+        @{ name = "pdf を足す（最後に並ぶ）"; kinds = @("text", "excel"); kind = "pdf"; expected = "excel,text,pdf" }
         @{ name = "足す（決まった順に並ぶ）"; kinds = @("text", "excel"); kind = "word"; expected = "excel,word,text" }
         @{ name = "最後の 1 つも外せる（1 つも選ばない）"; kinds = @("excel"); kind = "excel"; expected = "" }
         @{ name = "空（1 つも選んでいない）から 1 つ選べる"; kinds = @(); kind = "text"; expected = "text" }
-        @{ name = "知らない種類は変えない"; kinds = @("excel", "text"); kind = "pdf"; expected = "excel,text" }
+        @{ name = "知らない種類は変えない"; kinds = @("excel", "text"); kind = "zip"; expected = "excel,text" }
     ) {
         param ($name, $kinds, $kind, $expected)
         (toggleFileKind $kinds $kind) -join "," | Should -Be $expected
@@ -45,9 +48,9 @@ Describe "種類のチップ" -Tag Unit {
 
     It "getSearchKindBalloonText: <name>" -TestCases @(
         @{ name = "1 つも選んでいなければ吹き出しを出す"; kinds = @(); show = $true }
-        @{ name = "知らない種類だけでも 1 つも選んでいない"; kinds = @("pdf"); show = $true }
+        @{ name = "知らない種類だけでも 1 つも選んでいない"; kinds = @("zip"); show = $true }
         @{ name = "1 つ選んでいれば出さない"; kinds = @("word"); show = $false }
-        @{ name = "すべて選んでいれば出さない"; kinds = @("excel", "word", "powerpoint", "text"); show = $false }
+        @{ name = "すべて選んでいれば出さない"; kinds = @("excel", "word", "powerpoint", "text", "pdf"); show = $false }
     ) {
         param ($name, $kinds, $show)
         $balloon = getSearchKindBalloonText $kinds

@@ -665,6 +665,11 @@ function openFoundSource {
             [void](openWithShell $path ${openModeNormal})
             setStatus "開きました：${path}"
         }
+    } elseif (testPdfExtension $path) {
+        # PDF は既定のアプリに開き方（読み取り専用・新規）の動詞が無いことが多く、毎回「開けなかったため…」と出るのを避けるため、
+        # 動詞を試さずにそのまま開く。ページへの移動はしない
+        [void](openWithShell $path ${openModeNormal})
+        setStatus "開きました：${path}"
     } elseif (openWithShell $path $mode -noFallback:$strict) {
         setStatus "${how}：${path}${notice}"
     } elseif ($strict) {

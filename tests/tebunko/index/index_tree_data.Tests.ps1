@@ -17,7 +17,9 @@ Describe "testIndexBookName" -Tag Unit {
         @{ name = "app.py"; expected = $true }
         @{ name = "a.xlsxx"; expected = $false }
         @{ name = "a.xl"; expected = $false }
-        @{ name = "a.pdf"; expected = $false }
+        @{ name = "a.pdf"; expected = $true }
+        @{ name = "a.PDF"; expected = $true }
+        @{ name = "a.pdfx"; expected = $false }
         @{ name = "a.exe"; expected = $false }
     ) {
         param ($name, $expected)

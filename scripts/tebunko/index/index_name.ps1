@@ -332,6 +332,9 @@ function describePlace {
         return @{ Place = ""; Kind = $(if ($kind) { $kind } else { "本文" }) }
     }
     if ($base -match '^ページ(\d+)$') {
+        if (testPdfExtension $book) {
+            return @{ Place = "$([int]$Matches[1]) ページ"; Kind = $(if ($kind) { $kind } else { "本文" }) }
+        }
         return @{ Place = "$([int]$Matches[1]) ページ（目安）"; Kind = $(if ($kind) { $kind } else { "本文" }) }
     }
     if ($base -match '^スライド(\d+)_ノート$') {
@@ -374,5 +377,5 @@ function describeHitPlace {
 }
 
 
-# インデックスの「元のファイル名のフォルダ」と分かる名前（Office・テキストの拡張子で終わる）
-${indexBookDirPattern} = "\.(?:xls|doc|ppt)[a-z]?$|(?:$((${textExtensions} | ForEach-Object { [regex]::Escape($_) }) -join '|'))$"
+# インデックスの「元のファイル名のフォルダ」と分かる名前（Office・テキスト・PDF の拡張子で終わる）
+${indexBookDirPattern} = "\.(?:xls|doc|ppt)[a-z]?$|(?:$(((${textExtensions} + ${pdfExtensions}) | ForEach-Object { [regex]::Escape($_) }) -join '|'))$"
