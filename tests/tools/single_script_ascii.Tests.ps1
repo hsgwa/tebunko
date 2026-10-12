@@ -53,6 +53,10 @@ Describe "convertToAsciiScript（書き換えても、実行した結果が変�
         @{ name = "文字としての `$ の直後の日本語"; code = '"a$、"' }
         @{ name = "文字としての `$ の直後の日本語（ヒアストリング）"; code = '$s = @"' + "`r`n" + 'a$、' + "`r`n" + '"@; $s' }
         @{ name = "文字としての `$ が文字列の最後と日本語の間にある"; code = '"$、a$、、"' }
+        @{ name = "`$`$（直前の結果の変数）の直後の日本語は、`$ を足さない"; code = '"a$$、"' }
+        @{ name = "バッククォート 2 つ（偶数）のあとの文字としての `$ と日本語"; code = '"a``$、"' }
+        @{ name = "バッククォートで逃がした `$ のあとの日本語"; code = '"a`$、"' }
+        @{ name = "文字としての `$ のあと、バッククォートで逃がした日本語"; code = '"a$`、"' }
         @{ name = "メソッド呼び出しの日本語の名前"; code = '$o = [pscustomobject]@{}; Add-Member -InputObject $o -MemberType ScriptMethod -Name ''日本語'' -Value { ''ok'' }; $o.日本語()' }
         @{ name = "式の中にさらに日本語の二重引用符"; code = '$a = ''x''; "あ$("い$($a)う")え"' }
         @{ name = "式を含む二重引用符のヒアストリング"; code = '$a = ''x''; $s = @"' + "`r`n" + 'あ$($a + ''い'')う' + "`r`n" + '"@; $s' }
@@ -91,6 +95,20 @@ Describe "convertToAsciiScript（書き換えても、実行した結果が変�
     ) {
         param ($name, $code, $line)
         { convertToAsciiScript $code "元.ps1" } | Should -Throw "*元.ps1 の $line 行目*"
+    }
+
+    It "<name>で止めるときの文言に、元のソースを検索できるよう、その文字列を入れる" -TestCases @(
+        @{ name = "属性の引数（ValidateSet）"; code = "function f { param([ValidateSet('あ')]`$x) `$x }"; tail = "*日本語を使わない形にしてください: 'あ'" }
+        @{ name = "属性の引数（HelpMessage）"; code = "function f { param([Parameter(HelpMessage = 'いう')]`$x) `$x }"; tail = "*日本語を使わない形にしてください: 'いう'" }
+        @{ name = "文字列の中の日本語の変数名"; code = "`"a`$変数`""; tail = '*日本語を式の外に出してください: $変数' }
+        @{ name = "引用符の無い日本語の引数"; code = "Write-Output 日本語"; tail = "*引用符で囲んだ文字列にしてください: 日本語" }
+    ) {
+        param ($name, $code, $tail)
+        { convertToAsciiScript $code "元.ps1" } | Should -Throw $tail
+    }
+
+    It "値を持つ enum の要素は、書き換えられずに構文エラーで止まる" {
+        { convertToAsciiScript "enum E { あ = 1 }" "元.ps1" } | Should -Throw "*元.ps1*構文エラー*"
     }
 
     It "構文エラーのあるスクリプトは止める" {
