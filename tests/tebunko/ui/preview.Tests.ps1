@@ -671,7 +671,7 @@ Describe "プレビューの読み足し（スクロールに合わせて、上�
         function newMoreResult {
             # 読み足しの結果（startReadMore の仕事が返す形）。first から last までの行
             param ($table, [string]$side, [int]$first, [int]$last, [bool]$end = $false, [string]$prefix = "行")
-            return @{ Id = $table.Request; Side = $side; Failed = $false; First = $first; Rows = @($first..$last | ForEach-Object { [pscustomobject]@{ LineNumber = $_; Line = "`t$prefix$_" } }); End = $end; Marks = $null }
+            return @{ Id = $table.Request; Side = $side; Failed = $false; First = $first; Rows = $(if ($last -lt $first) { @() } else { @($first..$last | ForEach-Object { [pscustomobject]@{ LineNumber = $_; Line = "`t$prefix$_" } }) }); End = $end; Marks = $null }
         }
     }
 
@@ -719,6 +719,7 @@ Describe "プレビューの読み足し（スクロールに合わせて、上�
     It "頼んだあとに下の端が動いた古い結果は、End でも空でも下を終わりにしない（捨てて戻した終わりの印を立て直さない）" -ForEach @(
         @{ name = "End"; first = 700; last = 710; end = $true }
         @{ name = "空"; first = 700; last = 699; end = $true }
+        @{ name = "空（End なし）"; first = 700; last = 699; end = $false }
     ) {
         applyReadMore @(newMoreResult $script:tableA "down" $first $last $end) $null
         $script:tableA.LastLine() | Should -Be 550
@@ -741,8 +742,14 @@ Describe "プレビューの読み足し（スクロールに合わせて、上�
         $script:asked | Should -BeGreaterThan 0
     }
 
-    It "行が 1 つも無い結果は、その向きにもう行が無いことにする" {
-        applyReadMore @(newMoreResult $script:tableA "down" 551 550 $true) $null
+    It "頼んだときのままで行が 1 つも無い結果は、End の有無にかかわらず、その向きにもう行が無いことにする" -ForEach @(
+        @{ end = $true }
+        @{ end = $false }
+    ) {
+        $empty = newMoreResult $script:tableA "down" 551 550 $end
+        $empty.Rows.Count | Should -Be 0
+        applyReadMore @($empty) $null
+        $script:tableA.LastLine() | Should -Be 550
         $script:tableA.BottomDone | Should -Be $true
     }
 
