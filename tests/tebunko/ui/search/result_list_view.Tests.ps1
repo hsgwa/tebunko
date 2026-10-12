@@ -220,12 +220,22 @@ Describe "getResultMenuItems" -Tag Unit {
     }
 
     It "見出しのメニューは、読み取り専用で開くを太字で先頭に出し、開閉の項目は開き具合で文言を変える（expanded: <expanded>）" -TestCases @(
-        @{ expanded = $true;  expected = "*読み取り専用で開く/フォルダを開く/-/ファイルのパスをコピー/この結果を折りたたむ" }
-        @{ expanded = $false; expected = "*読み取り専用で開く/フォルダを開く/-/ファイルのパスをコピー/この結果を開く" }
+        @{ expanded = $true;  expected = "*読み取り専用で開く/開く/新規で開く/フォルダを開く/-/ファイルのパスをコピー/この結果を折りたたむ" }
+        @{ expanded = $false; expected = "*読み取り専用で開く/開く/新規で開く/フォルダを開く/-/ファイルのパスをコピー/この結果を開く" }
     ) {
         param ($expanded, $expected)
         # 既定の開き方が別でも、見出しのメニューは変わらない
         menuText (getResultMenuItems "group" "new" $expanded) | Should -Be $expected
+    }
+
+    It "読み取り専用で開けないファイルは、［読み取り専用で開く］を出さず、太字は［開く］にする（<target>・既定: <mode>）" -TestCases @(
+        @{ target = "row";   mode = "normal";   expected = "*開く/新規で開く/フォルダを開く/-/選んだ行をコピー/ファイルのパスをコピー" }
+        @{ target = "row";   mode = "readOnly"; expected = "*開く/新規で開く/フォルダを開く/-/選んだ行をコピー/ファイルのパスをコピー" }
+        @{ target = "row";   mode = "new";      expected = "*新規で開く/開く/フォルダを開く/-/選んだ行をコピー/ファイルのパスをコピー" }
+        @{ target = "group"; mode = "readOnly"; expected = "*開く/新規で開く/フォルダを開く/-/ファイルのパスをコピー/この結果を開く" }
+    ) {
+        param ($target, $mode, $expected)
+        menuText (getResultMenuItems $target $mode $false $false) | Should -Be $expected
     }
 
     It "太字は 1 つだけで、Id は項目ごとに決まり、「…」・キー操作・（既定）は付けない" {
@@ -267,5 +277,11 @@ Describe "getResultMenuContext" -Tag Unit {
         $context = getResultMenuContext $item
         $context.Target | Should -Be $target
         $context.Expanded | Should -Be $expect
+    }
+}
+
+Describe "getNoHitText" -Tag Unit {
+    It "0 件のときの文を返す" {
+        getNoHitText | Should -Be "一致する結果はありません"
     }
 }

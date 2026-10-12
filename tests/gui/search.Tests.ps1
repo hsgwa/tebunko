@@ -139,6 +139,15 @@ Describe "S4 検索の遷移" -Tag Gui {
             foreach ($chipId in @("KindChipWord", "KindChipPowerPoint", "KindChipText", "KindChipPdf")) { toggleGui (findGui $S.Window -Id $chipId) }
             & $search "単価"
             waitGui $S "該当 2 件に戻る" ${guiDefaultTimeout} { (& $summary) -like "一致 2 件（*" } | Out-Null
+            (findGui $S.Window -Id "NoHitText").Current.IsOffscreen | Should -BeTrue -Because "結果があるときは「一致する結果はありません」を出さない"
+            setGuiStep $S "0 件の検索"
+            & $search "存在しない語zzzqqq"
+            waitGui $S "0 件の文が出る" ${guiDefaultTimeout} {
+                $noHit = findGui $S.Window -Id "NoHitText"
+                !$noHit.Current.IsOffscreen -and (getGuiText $noHit) -eq "一致する結果はありません"
+            } | Out-Null
+            & $search "単価"
+            waitGui $S "0 件の文が消え、該当 2 件に戻る" ${guiDefaultTimeout} { (& $summary) -like "一致 2 件（*" -and (findGui $S.Window -Id "NoHitText").Current.IsOffscreen } | Out-Null
             clickGui $S $S.Window "ExpandAllButton" "［すべて開く］"
             waitGui $S "結果の行が 2 件出る" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 2 } | Out-Null
 

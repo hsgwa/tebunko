@@ -52,7 +52,7 @@ function setSearchOptionToUi {
 
 function updateFastSearchView {
     # 高速検索の使用可否（ワード・［正規表現］を変えたらすぐ、Windows Search が使えるかは確かめたときに変わる）。
-    # 使えるときは緑、使えないときは灰色。ⓘ は常に出し、ツールチップで印の意味（使えないときは理由と直し方）を知らせる。
+    # 使えるときは緑、使えないときは灰色。情報の印（info）は常に出し、ツールチップで印の意味（使えないときは理由と直し方）を知らせる。
     # 印の幅は XAML で固定してあり、ここでは変えない
     $view = getFastSearchView $script:fastAvailable ([bool]$ui.RegexCheck.IsChecked) (getWordText)
     $ui.FastSearchText.Text = $view.Text
@@ -250,7 +250,7 @@ $ui.CaseCheck.Add_Click({ safe { writeSearchOption @{ CaseSensitive = [bool]$ui.
 $ui.ShapeCheck.Add_Click({ safe { writeSearchOption @{ IncludeShapes = [bool]$ui.ShapeCheck.IsChecked }; updateScopeButton } })
 $ui.CommentCheck.Add_Click({ safe { writeSearchOption @{ IncludeComments = [bool]$ui.CommentCheck.IsChecked }; updateScopeButton } })
 
-# ［ファイル内の対象 ▾］は、押したらボタンの下にメニューを開く
+# ［ファイル内の対象 ▼］は、押したらボタンの下にメニューを開く
 $ui.ScopeButton.Add_Click({
     $menu = $ui.ScopeButton.ContextMenu
     $menu.PlacementTarget = $ui.ScopeButton

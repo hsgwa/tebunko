@@ -8,6 +8,7 @@
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\search_excludes.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\workspace.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\workspace_mover.ps1".Replace('`', '``')))
+. ([WildcardPattern]::Escape("$PSScriptRoot\core\open_copy.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\parts.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\paths.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\index\index_name.ps1".Replace('`', '``')))

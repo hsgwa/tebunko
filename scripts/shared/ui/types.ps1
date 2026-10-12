@@ -19,7 +19,7 @@ class NotifyBase : System.ComponentModel.INotifyPropertyChanged {
 
 # 確認ダイアログ（showConfirm）に並べる「実行するとこうなります」の 1 行
 class ConfirmFact {
-    [string]$Mark          # ✓ 残る・✗ 消える・→ 続けて起きること
+    [string]$Mark          # Kept 残る・Gone 消える・Next 続けて起きること・! 注意（画面では Lucide のアイコンにする）
     [object]$MarkBrush
     [string]$Title         # 何がどうなるか（利用者から見える言葉で書く）
     [string]$Detail = ""   # 具体的な場所・件数など（空なら行ごと出さない）

@@ -460,7 +460,7 @@ class HitRow : NotifyBase {
         $table.TotalColumns = $columnCount
         $table.ShownColumns = $shownColumns
         $table.IsExcel = $this.IsExcel
-        $table.RangeLabel = $(if ($shownColumns -gt 0) { $this.ColumnLabel($firstColumn + 1) + "〜" + $this.ColumnLabel($firstColumn + $shownColumns) } else { "" })
+        $table.RangeLabel = $(if ($shownColumns -gt 0) { $this.ColumnLabel($firstColumn + 1) + "～" + $this.ColumnLabel($firstColumn + $shownColumns) } else { "" })
         for ($i = 0; $i -lt $shownColumns; $i++) {
             $c = $firstColumn + $i
             $width = [HitRow]::TextWidth($this.ColumnLabel($c + 1))
@@ -579,7 +579,7 @@ class FolderItem : NotifyBase {
     [string]$Name          # インデックス名（work\index 直下のフォルダ名）
     [string]$Path
     [bool]$Enabled         # 設定の enabled（［すべて更新］で更新する対象か。画面にチェックは出さない）
-    [bool]$Checked         # 一覧のチェック（一時の選択。保存しない。［アクション ▾］・行の操作の対象）
+    [bool]$Checked         # 一覧のチェック（一時の選択。保存しない。［アクション ▼］・行の操作の対象）
     [string]$StatusText
     [object]$StatusBrush
     [string]$FileCountText
@@ -591,7 +591,7 @@ class FolderItem : NotifyBase {
     [string]$IndexText = "－"
     [string]$IndexToolTip
     [string]$IndexLevel = "None"
-    [double]$IndexPercent = 0   # 更新中のバッジの下の棒の長さ（0〜100）
+    [double]$IndexPercent = 0   # 更新中のバッジの下の棒の長さ（0～100）
     [string]$IndexSub = ""   # ステータスのバッジの下の補足（途中で止まったときの「残り N 件」。無ければ空）
     # 一覧の「高速検索」列（システムインデックスの反映の状態。getFastSearchRowView）
     [string]$FastText = "確認中…"

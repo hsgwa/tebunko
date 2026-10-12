@@ -220,6 +220,20 @@ Describe "removeStaleTmpDirs" -Tag Io {
         Test-Path -LiteralPath "$TestDrive\stale_both\legacy\$deadPid" | Should -Be $false
     }
 
+    It "新規で開くためのコピー（open_copy）は、強制終了の片付けで消さない" {
+        $workspace = newTestWorkspace @{ PublishDir = "$TestDrive\stale_open_copy\出力\$PID"; TmpRoot = "$TestDrive\stale_open_copy\tmp" }
+        ${legacyTmpParent} = "$TestDrive\stale_open_copy\legacy"
+        $copyDir = getOpenCopyDir $workspace
+        [System.IO.Directory]::CreateDirectory("$copyDir\abc123") | Out-Null
+        [System.IO.File]::WriteAllText("$copyDir\abc123\a.txt", "x")
+        [System.IO.Directory]::CreateDirectory("$($workspace.TmpRoot)\$(getMachineKey)\$deadPid") | Out-Null
+
+        removeStaleTmpDirs
+
+        Test-Path -LiteralPath "$copyDir\abc123\a.txt" | Should -Be $true
+        Test-Path -LiteralPath "$($workspace.TmpRoot)\$(getMachineKey)\$deadPid" | Should -Be $false
+    }
+
     It "`$tmpDir が空（決める前）でも例外にならない" {
         $tmpDir = ""
         $workspace = newTestWorkspace @{ PublishDir = "$TestDrive\stale_untouched\出力\$PID"; TmpRoot = "$TestDrive\stale_untouched\tmp" }

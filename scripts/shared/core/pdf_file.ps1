@@ -485,7 +485,7 @@ function expandPdfFlate {
 }
 
 function undoPdfPredictor {
-    # FlateDecode の Predictor（PNG の 10〜15）を戻す。TIFF（2）は読まない
+    # FlateDecode の Predictor（PNG の 10～15）を戻す。TIFF（2）は読まない
     param (
         [byte[]]$data,
         $params
@@ -1030,7 +1030,7 @@ function addPdfText {
     )
 
     if ($text.Length -eq 0) { return }
-    # 縦位置が前に出した文字と違うときだけ行を分ける（BT〜ET で分かれていても、同じ縦位置なら同じ行）
+    # 縦位置が前に出した文字と違うときだけ行を分ける（BT～ET で分かれていても、同じ縦位置なら同じ行）
     if ($ts.HasOut -and [Math]::Abs($ts.Y - $ts.OutY) -gt ${pdfLineTolerance}) {
         breakPdfLine $ts
     }

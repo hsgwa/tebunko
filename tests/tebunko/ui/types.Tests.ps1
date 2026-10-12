@@ -506,7 +506,7 @@ Describe "HitRow.BuildPreview" -Tag Unit {
         @($table.Columns | ForEach-Object { $_.Label }) | Should -Be @("A", "B")
         $table.TotalColumns | Should -Be 2
         $table.ShownColumns | Should -Be 2
-        $table.RangeLabel | Should -Be "A〜B"
+        $table.RangeLabel | Should -Be "A～B"
         $table.Rows.Count | Should -Be 3
         @($table.Rows | ForEach-Object { $_.Number }) | Should -Be @("4", "5", "6")
         @($table.Rows | ForEach-Object { $_.IsHitRow }) | Should -Be @($false, $true, $false)
@@ -523,7 +523,7 @@ Describe "HitRow.BuildPreview" -Tag Unit {
         $row = newHitRow -location "[シート]4月[ヘッダー・フッター]" -lineNumber 2 -line "社外秘" -word "社外秘"
         $table = $row.BuildPreview(@(1, 2), @("月次報告", "社外秘"))
         @($table.Columns | ForEach-Object { $_.Label }) | Should -Be @("文字")
-        $table.RangeLabel | Should -Be "文字〜文字"
+        $table.RangeLabel | Should -Be "文字～文字"
         $table.Rows[1].Cells[0].IsHit | Should -Be $true
     }
 
@@ -538,7 +538,7 @@ Describe "HitRow.BuildPreview" -Tag Unit {
         $row = newHitRow -book "議事録.docx" -location "[本文]" -lineNumber 1 -line ("あ" * 80) -word "あ"
         $table = $row.BuildPreview(@(1), @("あ" * 80))
         $table.Columns[0].Label | Should -Be "1"
-        $table.RangeLabel | Should -Be "1〜1"
+        $table.RangeLabel | Should -Be "1～1"
         $table.Columns[0].Width | Should -BeGreaterThan ([HitRow]::MaxCellWidth)
     }
 
@@ -546,7 +546,7 @@ Describe "HitRow.BuildPreview" -Tag Unit {
         $row = newHitRow -location "[シート] 4月[図形]" -lineNumber 1 -line "B3`t納期`tx" -word "納期"
         $table = $row.BuildPreview(@(1), @("B3`t納期`tx"))
         @($table.Columns | ForEach-Object { $_.Label }) | Should -Be @("セル", "文字", "3")
-        $table.RangeLabel | Should -Be "セル〜3"
+        $table.RangeLabel | Should -Be "セル～3"
     }
 
     It "前後の行が無い・数が合わないときは、その行だけで作る" {
@@ -618,7 +618,7 @@ Describe "HitRow.BuildPreview" -Tag Unit {
         $row = newHitRow -book "議事録.docx" -location "[本文]" -lineNumber 1 -line "" -word "x"
         $table = $row.BuildPreview(@(1), [string[]]@($null))
         $table.ShownColumns | Should -Be 1
-        $table.RangeLabel | Should -Be "1〜1"
+        $table.RangeLabel | Should -Be "1～1"
         $table.Rows[0].Cells[0].Text | Should -Be ""
     }
 }

@@ -1,4 +1,4 @@
-﻿# 部品ごとの関数（設定・ファイル）
+# 部品ごとの関数（設定・ファイル）
 
 扱うこと: 設定ファイル（`tebunko/core/settings.ps1`）、検索対象でチェックを外したフォルダ（`search_excludes.ps1`）、ワークスペース（`workspace.ps1`）とその切り替え（`workspace_mover.ps1`）、ファイル・フォルダ操作（`shared/core/fs.ps1`・`folder.ps1`・`office_files.ps1`）の関数一覧（入力・出力・概要・使用元）。扱わないこと: 取り込み一覧・インデックスの管理（[部品ごとの関数（インデックス作成）](indexer.md)）。先に読むページ: [部品から関数一覧を引く](index.md)。
 
@@ -20,6 +20,8 @@
 | `readIndexSources` / `writeIndexSources` | path（既定 `$settingsFile`） / sources, path | `@{Name; Path}` の配列 / – | インデックス作成の対象にしないインデックスの元のフォルダ（`indexSources`）を読み書きする | [設定ファイル（setting.config）](../structure/settings-file.md) | getSourceFolderMap, 画面 |
 | `setIndexSourceFolder` | name, folder, path（既定 `$settingsFile`） | – | インデックス名に対する元のフォルダを記録する。クロール対象フォルダにある名前ならそのフォルダの Path を書き換え、無ければ `indexSources` に記録する | [元のファイルが見つからないとき（元のフォルダを設定する）](../gui/open-file.md#元のファイルが見つからないとき元のフォルダを設定する) | 画面 |
 | `readVersionFile` | path（配布物の `VERSION.txt` のパス） | `@{Tag; Sha}` / `$null` | 版とコミットの記録を読む。無い・読めない・2行でない・形が違えば `$null`（画面は「開発版」と表示する。`about_view.ps1` の `getAboutView`） | [画面](../gui/index.md) | 画面 |
+| `resolveGitRef` | ref, dirs | string | リポジトリのリファレンス（`refs/heads/main` など。形が違えば空）が指すコミットの SHA を、`refs\` の下のファイル → `packed-refs` の順に読む（外部のコマンドは起動しない） | [画面](../gui/screens/window.md) | readDevVersion |
+| `readDevVersion` | rootDir | `@{Tag; AtHead; Sha}` / `$null` | 配布物でない（`VERSION.txt` が無い）ときの版の手がかりを、作業ツリーの `.git` のファイルだけから読む（worktree の `gitdir:`・`commondir` も読む）。HEAD に付いたリリースのタグ（`v<数>.<数>.<数>`）があればそれ、無ければ版の並びで最も新しいタグ。どちらも分からなければ SHA だけ、SHA も無ければ `$null` | [画面](../gui/screens/window.md) | getToolDiagnosticHeader, 画面の起動（裏の仕事） |
 | `readSearchOption` / `writeSearchOption` | path / option, path | `@{UseRegex; CaseSensitive; IncludeShapes; IncludeComments}` / – | 画面の検索条件（種類は `readFileKinds` / `writeFileKinds`）。[元のファイルの特定・画面](search.md#元のファイルの特定画面) を参照 | [続き](search.md#元のファイルの特定画面) | 画面 |
 | `readCloudFiles` / `writeCloudFiles` | path（既定 `$settingsFile`） / mode, path | string / – | クラウドにだけあるファイルの扱い（`cloudFiles`。`ask` / `download`）を読み書きする。無い・知らない値なら `ask` | [取り込み対象の決定](../indexing/target-decision.md#クラウドにだけあるファイル) | 画面・インデクサ |
 | `readOpenMode` / `writeOpenMode` | path（既定 `$settingsFile`） / mode, path | string / – | 元のファイルの開き方（`openMode`）を読み書きする。無い・知らない値なら `normal` | [元のファイルを開く](../gui/open-file.md) | 画面 |
@@ -57,6 +59,17 @@
 | `MoveEntries` | from, to | int | from の中身を to へ移し、移した数を返す。to に同じ名前があれば何も移さずに例外にする。途中で移せなければ、移した分を from へ戻してから例外にする（旧 `moveWorkspace`。1 つずつ移す `MoveEntry` と、別のドライブへ写す `CopyTree` は内部） | `ChangeWorkspace` |
 | `RemoveEntries` | dir | int | tebunko のファイル・フォルダを削除し、削除した数を返す。「消して、最初からやり直す」で使う（旧 `removeWorkspaceEntries`） | `ChangeWorkspace` |
 | `UseTargets` | dir | int | dir の取り込み一覧にあるクロール対象フォルダを、インデックスの一覧（`targetFolders`）にし、その数を返す。取り込み一覧が無ければ一覧は変えない（旧 `useWorkspaceTargets`） | `ChangeWorkspace` |
+
+## ［新規で開く］のコピー（`tebunko/core/open_copy.ps1`）
+
+| 関数 | 入力 | 出力 | 概要 | 使用元 |
+|---|---|---|---|---|
+| `getOpenCopyDir` | workspace | string | コピーを置くフォルダ（`work\tmp\<PC の鍵>\open_copy`）。強制終了の片付けは数字の名前のフォルダだけを消すので、ここは消えない | `openFoundSource`, 起動時の片付け |
+| `testOpenCopyDir` | copyDir, tmpRoot | bool | 作る・消してよい置き場所か。絶対パスで、`tmpRoot\<PC の鍵>\open_copy`（大文字・小文字は区別しない）と一致し、`open_copy`・`<PC の鍵>`・`tmpRoot` がリンク（ReparsePoint）でないときだけ真。空・相対パス・ドライブの根・別の場所・リンクは偽 | `copySourceForOpen`, `clearOldOpenCopies` |
+| `getOpenCopyName` | book, now | string | コピーのファイル名 `<元の名前>（コピー yyyyMMdd-HHmm）.<拡張子>`（元のファイル名の末尾の `.`・空白を除く）。名前が空なら空 | `copySourceForOpen`, `getOpenCopyBlocker` |
+| `getOpenCopyBlocker` | book, copyDir, now | string | コピーを作らずに断る理由。`NoName`（名前が空）・`TooLong`（パスが長すぎる）・作れるなら空（名前に `[` `]` があっても断らない） | `copySourceForOpen`, `openFoundSource` |
+| `copySourceForOpen` | sourcePath, book, copyDir, tmpRoot, now | `@{Path; Reason}` | `copyDir\<12 桁の英数字>\<getOpenCopyName>` に、元のファイルを共有で読んでコピーし、`Path` にそのパスを入れる（`Reason` は空）。作れないときは `Path` を空にし、`Reason` に理由を入れる（`Place`＝置き場所が不正・`NoName`／`TooLong`＝`getOpenCopyBlocker` の結果・`Failed`＝作る・書くのに失敗） | `openFoundSource`（裏の仕事） |
+| `clearOldOpenCopies` | copyDir, tmpRoot, now, keepDays | int | `open_copy` の直下のフォルダのうち、最後に使ってから（`getOpenCopyLatestTime`）keepDays（既定 1 日）より古いものだけを、ファイルを 1 つずつ消してから空のフォルダとして消す。リンクは辿らず、開かれていて消せないものは残す。消したフォルダの数を返す | 起動時の裏の仕事 |
 
 ## 検索対象でチェックを外したフォルダ（`tebunko/core/search_excludes.ps1`）
 
@@ -104,7 +117,7 @@
 
 | 関数 | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
-| `getVersionLabel` | versionInfo（`readVersionFile` の結果） | `@{Version; Commit}` | 版の表示。タグとコミットの先頭 7 桁。`$null` なら `開発版`（Commit は空）。判断層 | `getAboutView`, `formatDiagnosticHeader` |
+| `getVersionLabel` | versionInfo（`readVersionFile` の結果） | `@{Version; Commit}` | 版の表示。タグとコミットの先頭 7 桁。`$null` なら `開発版`（Commit は空）。`readDevVersion` の結果（devInfo）があれば `開発版（v0.5.0・d79f898）` / `開発版（v0.5.0 より後・d79f898）` / `開発版（d79f898）`。判断層 | `getAboutView`, `formatDiagnosticHeader` |
 | `getOfficeKind` | exePath, programFiles64, programFilesX86 | `@{Kind; Bits}` | Office の実行ファイルのパスから、Click-to-Run か MSI か、32・64 ビットかを決める。判断層 | `findOfficeApps` |
 | `hideUserProfile` | text, profileDir | string | 文字列の中のプロファイルのフォルダを `%USERPROFILE%` に置き換える（大文字小文字は区別しない。前方だけ一致する別のフォルダは置き換えない）。判断層。今は呼び出し元が無い（見出しにプロファイルのパスを入れないため） | – |
 | `formatDiagnosticHeader` | toolName, versionInfo, envInfo, now | string[]（見出しの行） | 日時・版・OS・PowerShell・Office・表示言語の見出しを組み立てる。調べられない項目は `不明`。判断層 | `getToolDiagnosticHeader` |
@@ -112,4 +125,4 @@
 | `findOfficeApps` | programFiles64, programFilesX86（省略すると Windows のあるドライブの決まった名前）, os64 | `@{Name; Version; Kind; Bits}` の配列 | `Program Files` の決まった場所の EXCEL・WINWORD・POWERPNT を探し、ファイルの版を読む。32 ビットの Windows では `Program Files` の Office を 32 ビットとする。例外は投げたまま（呼び出し側が `不明` にする） | `getEnvironmentInfo` |
 | `getPreviousLogPath` | path | string | `<名前>_previous<拡張子>`（同じフォルダ） | `rotateLogFile` |
 | `rotateLogFile` | path, maxBytes | bool | ファイルが maxBytes 以上なら `_previous` へ移す（あれば `File.Replace` で置き換える。今のログが移せないときも、今のログは失わない）。maxBytes が 0 なら、あれば必ず移す。移したら `$true`、ファイルが無い・小さい・移せないときは `$false`（例外にしない） | `invokeIndexer`, `writeErrorLog` |
-| `getToolDiagnosticHeader` | – | string[] | このツールの版（`VERSION.txt`）と環境の見出し | `invokeIndexer`, `getGuiErrorLogHeader` |
+| `getToolDiagnosticHeader` | – | string[] | このツールの版（`VERSION.txt`。無ければ `readDevVersion` のタグ・コミットを添えた開発版）と環境の見出し | `invokeIndexer`, `getGuiErrorLogHeader` |
