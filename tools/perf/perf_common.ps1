@@ -456,6 +456,7 @@ function newReadMoreResult {
     $last = $items[$items.Count - 1]
     return [ordered]@{
         Runs = $items.Count
+        Complete = ($items.Count -ge 5)   # 場所の終わりで止まり、5 回に届かなかったときは $false（少ない回数の値を、5 回分と見間違えないため）
         ReadMs = (getStats ([double[]]@($items | ForEach-Object { $_.ReadMs })))
         BuildMs = (getStats ([double[]]@($items | ForEach-Object { $_.BuildMs })))
         CellsMs = (getStats ([double[]]@($items | ForEach-Object { $_.CellsMs })))

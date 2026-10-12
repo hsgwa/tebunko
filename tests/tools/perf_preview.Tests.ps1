@@ -65,10 +65,11 @@ Describe "選択行のプレビューの速さとメモリ" -Tag Slow {
 
         # 横に広い Excel（2000 列）の本文インデックスのファイルも足す。語は右寄りの 1500 列目にだけ置き、一致したセルが最初に見える範囲の外にある表を作る
         $wideWord = "横に広い語"
+        # 行は、一致の行（250 行まで）の後ろに 200 行ずつ 5 回読み足せる長さ（1,300 行）にする
         $wideHitLines = @(10, 50, 100, 150, 200, 250)
         $widePath = Join-Path $index "プレビュー用\横に広い.xlsx\シート1.tsv"
         [void][System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($widePath))
-        [System.IO.File]::WriteAllText($widePath, (newWideContentTsvText 300 2000 $wideWord $wideHitLines 1500), (New-Object System.Text.UTF8Encoding($true)))
+        [System.IO.File]::WriteAllText($widePath, (newWideContentTsvText 1300 2000 $wideWord $wideHitLines 1500), (New-Object System.Text.UTF8Encoding($true)))
 
         # 語の表は perfdata のものに、大きなファイルに当たる語を足す
         $words = Join-Path $TestDrive "words.tsv"
@@ -123,6 +124,7 @@ Describe "選択行のプレビューの速さとメモリ" -Tag Slow {
         $entry.Render.ScrollMs | Should -BeGreaterThan 0
         $entry.ReadMore | Should -Not -BeNullOrEmpty
         $entry.ReadMore.Runs | Should -Be 5
+        $entry.ReadMore.Complete | Should -Be $true
         $entry.ReadMore.Columns | Should -BeGreaterOrEqual 2000
     }
 

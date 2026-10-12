@@ -626,6 +626,10 @@ if ($readMoreWords.Count -gt 0) {
             (msDecimal $p.ReadMore.ReadMs "Median"), (msDecimal $p.ReadMore.ReadMs "Max"), (msDecimal $p.ReadMore.BuildMs "Median"), (msDecimal $p.ReadMore.BuildMs "Max"),
             (msDecimal $p.ReadMore.CellsMs "Median"), (msDecimal $p.ReadMore.CellsMs "Max"), $p.ReadMore.TableRows, $p.ReadMore.Columns, $p.ReadMore.CreatedCells)
     }
+    foreach ($p in @($readMoreWords | Where-Object { $_.ReadMore.Complete -eq $false })) {
+        add
+        add "注意: $($p.Name) は場所の終わりで止まり、読み足しが 5 回に届かなかった（$($p.ReadMore.Runs) 回分の値）。"
+    }
 }
 $renderWords = @($previewWords | Where-Object { $null -ne $_.Render })
 if ($renderWords.Count -gt 0) {

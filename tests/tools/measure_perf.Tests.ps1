@@ -266,6 +266,8 @@ Describe "perf_common.ps1 のプレビューの部品" -Tag Unit {
         )
         $r = newReadMoreResult $runs
         $r.Runs | Should -Be 2
+        $r.Complete | Should -Be $false -Because "5 回に届かなければ、少ない回数の値だと分かるようにする"
+        (newReadMoreResult @(1..5 | ForEach-Object { $runs[0] })).Complete | Should -Be $true
         $r.ReadMs.Max | Should -Be 30
         $r.BuildMs.Median | Should -Be 5
         $r.CellsMs.Count | Should -Be 2
