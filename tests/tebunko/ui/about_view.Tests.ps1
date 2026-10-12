@@ -46,3 +46,11 @@ Describe "getAboutLicenses" -Tag Unit {
         $lines[1] | Should -BeLike "*Lucide*ISC*一部 MIT*"
     }
 }
+
+Describe "getAboutView（開発版）" -Tag Unit {
+    It "VERSION.txt が無いときは、渡された開発版の情報（タグ・コミット）を添える" {
+        $view = getAboutView $null @{ Tag = "v0.5.0"; AtHead = $true; Sha = ("d79f898" + "0" * 33) }
+        $view.Version | Should -Be "開発版（v0.5.0・d79f898）"
+        $view.Commit | Should -Be ""
+    }
+}

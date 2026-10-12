@@ -202,6 +202,84 @@ function getSourceOpenMode {
     return @{ Mode = ${openModeReadOnly}; Notice = $notice; Strict = $true }
 }
 
+# 開き方を決めるための、Office の拡張子ごとの種類。取り込みの対象の拡張子（${officeExtensions}）と同じ並び（テストで照らす）。
+#   Excel  … COM で開く（新規は Workbooks.Add）
+#   Office … Word・PowerPoint。エクスプローラーの動詞（読み取り専用は OpenAsReadOnly、新規は New）で開く
+${officeOpenKinds} = @{
+    ".xlsx" = "Excel"; ".xlsm" = "Excel"; ".xls" = "Excel"; ".xlsb" = "Excel"
+    ".docx" = "Office"; ".docm" = "Office"; ".doc" = "Office"
+    ".pptx" = "Office"; ".pptm" = "Office"; ".ppt" = "Office"
+}
+
+function getOfficeOpenKind {
+    # ファイルの Office の種類（Excel / Office）。Office の形式でなければ空文字。
+    # 読み取り専用で開けるか（testReadOnlySupported）・新規で開くやり方（getOpenNewMethod）は、ここで決める
+    param (
+        [string]$book
+    )
+
+    $extension = [System.IO.Path]::GetExtension(([string]$book).TrimEnd('.', ' ')).ToLowerInvariant()
+    if ($extension -and ${officeOpenKinds}.ContainsKey($extension)) {
+        return ${officeOpenKinds}[$extension]
+    }
+    return ""
+}
+
+function testReadOnlySupported {
+    # 読み取り専用で開けるファイルか。Office の形式だけ。
+    # テキスト・PDF などは既定のアプリに読み取り専用の開き方が無く、通常と同じ開き方になるため、メニューに出さない
+    param (
+        [string]$book
+    )
+
+    return ((getOfficeOpenKind $book) -ne "")
+}
+
+function getOpenNewMethod {
+    # ［新規で開く］のやり方を決める。
+    #   Excel      … 元のファイルを基にした新しいブック（Workbooks.Add。今までどおり）
+    #   Verb       … エクスプローラーの New の動詞（Word・PowerPoint）
+    #   Copy       … ほかの種類（テキスト・PDF・そのほか）は、元のファイルのコピーを開く（元のファイルを占有しない）
+    param (
+        [string]$book
+    )
+
+    switch (getOfficeOpenKind $book) {
+        "Excel" { return "Excel" }
+        "Office" { return "Verb" }
+    }
+    return "Copy"
+}
+
+function getOpenCopyFailedStatus {
+    # 開くためのコピーを作れなかったときのステータス。blocker は copySourceForOpen の Reason（空なら、理由を添えない）
+    param (
+        [string]$path,
+        [string]$blocker = ""
+    )
+
+    $reason = switch ($blocker) {
+        "TooLong" { "ファイル名かフォルダが長すぎるためです。" }
+        "Place"   { "コピーの置き場所を確かめられなかったためです。" }
+        "Failed"  { "コピーを書き込めなかったためです。" }
+        default   { "" }
+    }
+    return "新規で開くためのコピーを作れませんでした。${reason}元のファイルを開くには［開く］を使ってください：${path}"
+}
+
+function getOpenCopyOpenedStatus {
+    # コピーを開いたときのステータス。コピーだと分かるよう、コピーのパスと、元のファイルは変わらないことを出す
+    #   app: 開いたアプリ（"メモ帳" か空）
+    param (
+        [string]$path,
+        [string]$copyPath,
+        [string]$app = ""
+    )
+
+    $by = if ($app) { "${app}で" } else { "" }
+    return "コピーを${by}新規で開きました（コピー：${copyPath}。保存してもこのコピーに書かれ、元のファイルは変わりません）：${path}"
+}
+
 function getSourceReadOnlyFailedStatus {
     # 読み取り専用で開けなかったとき（通常で開くとマクロが動くことがあるため、開かない）のステータス
     param (

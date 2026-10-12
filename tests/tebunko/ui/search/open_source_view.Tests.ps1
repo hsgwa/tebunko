@@ -189,3 +189,66 @@ Describe "getResultSaveFailedText" -Tag Unit {
         getResultSaveFailedText $kind "C:\w\search_results.txt" | Should -Be $expected
     }
 }
+
+Describe "Office の種類の表（officeOpenKinds）" -Tag Unit {
+    It "取り込みの対象の拡張子（officeExtensions）と同じ並びである" {
+        @(${officeOpenKinds}.Keys | Sort-Object) | Should -Be @(${officeExtensions} | Sort-Object)
+    }
+}
+
+Describe "getOfficeOpenKind・testReadOnlySupported・getOpenNewMethod" -Tag Unit {
+    # 拡張子ごとの結果（Office の形式だけ読み取り専用で開け、新規は Excel = COM・Word/PowerPoint = 動詞・それ以外 = コピー）
+    It "<book> は 種類 <kind>・読み取り専用 <readOnly>・新規 <method>" -TestCases @(
+        @{ book = "見積.xlsx"; kind = "Excel"; readOnly = $true; method = "Excel" }
+        @{ book = "見積.XLSM"; kind = "Excel"; readOnly = $true; method = "Excel" }
+        @{ book = "見積.xls"; kind = "Excel"; readOnly = $true; method = "Excel" }
+        @{ book = "見積.xlsb"; kind = "Excel"; readOnly = $true; method = "Excel" }
+        @{ book = "報告.docx"; kind = "Office"; readOnly = $true; method = "Verb" }
+        @{ book = "報告.DOC"; kind = "Office"; readOnly = $true; method = "Verb" }
+        @{ book = "報告.docm"; kind = "Office"; readOnly = $true; method = "Verb" }
+        @{ book = "発表.pptx"; kind = "Office"; readOnly = $true; method = "Verb" }
+        @{ book = "発表.pptm"; kind = "Office"; readOnly = $true; method = "Verb" }
+        @{ book = "発表.ppt"; kind = "Office"; readOnly = $true; method = "Verb" }
+        @{ book = "evil.xlsm. "; kind = "Excel"; readOnly = $true; method = "Excel" }
+        @{ book = "ひな形.dot"; kind = ""; readOnly = $false; method = "Copy" }
+        @{ book = "ひな形.dotx"; kind = ""; readOnly = $false; method = "Copy" }
+        @{ book = "ひな形.xltx"; kind = ""; readOnly = $false; method = "Copy" }
+        @{ book = "docs.txt"; kind = ""; readOnly = $false; method = "Copy" }
+        @{ book = "議事メモ.txt"; kind = ""; readOnly = $false; method = "Copy" }
+        @{ book = "仕様書.pdf"; kind = ""; readOnly = $false; method = "Copy" }
+        @{ book = "起動.bat"; kind = ""; readOnly = $false; method = "Copy" }
+        @{ book = "拡張子なし"; kind = ""; readOnly = $false; method = "Copy" }
+        @{ book = ""; kind = ""; readOnly = $false; method = "Copy" }
+    ) {
+        param ($book, $kind, $readOnly, $method)
+        getOfficeOpenKind $book | Should -Be $kind
+        testReadOnlySupported $book | Should -Be $readOnly
+        getOpenNewMethod $book | Should -Be $method
+    }
+}
+
+Describe "getOpenCopyFailedStatus" -Tag Unit {
+    It "パスを入れ、［開く］を使うよう伝える" {
+        getOpenCopyFailedStatus "C:\data\仕様書.pdf" | Should -Be "新規で開くためのコピーを作れませんでした。元のファイルを開くには［開く］を使ってください：C:\data\仕様書.pdf"
+    }
+
+    It "理由（<blocker>）があれば、理由を添える" -TestCases @(
+        @{ blocker = "TooLong"; reason = "ファイル名かフォルダが長すぎるためです。" }
+        @{ blocker = "Place"; reason = "コピーの置き場所を確かめられなかったためです。" }
+        @{ blocker = "Failed"; reason = "コピーを書き込めなかったためです。" }
+    ) {
+        param ($blocker, $reason)
+        getOpenCopyFailedStatus "C:\data\a.pdf" $blocker | Should -Be "新規で開くためのコピーを作れませんでした。${reason}元のファイルを開くには［開く］を使ってください：C:\data\a.pdf"
+    }
+}
+
+Describe "getOpenCopyOpenedStatus" -Tag Unit {
+    It "コピーのパスと、元のファイルが変わらないことを出す（<app>）" -TestCases @(
+        @{ app = ""; expected = "コピーを新規で開きました（コピー：C:\work\tmp\key\open_copy\abc\a（コピー 20261012-1530）.pdf。保存してもこのコピーに書かれ、元のファイルは変わりません）：C:\data\a.pdf" }
+        @{ app = "メモ帳"; expected = "コピーをメモ帳で新規で開きました（コピー：C:\work\tmp\key\open_copy\abc\a（コピー 20261012-1530）.pdf。保存してもこのコピーに書かれ、元のファイルは変わりません）：C:\data\a.pdf" }
+    ) {
+        param ($app, $expected)
+        getOpenCopyOpenedStatus "C:\data\a.pdf" "C:\work\tmp\key\open_copy\abc\a（コピー 20261012-1530）.pdf" $app | Should -Be $expected
+    }
+}
+

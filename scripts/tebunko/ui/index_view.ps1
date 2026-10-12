@@ -336,7 +336,8 @@ function getIndexStatusHelpText {
         "・最新: 検索できます"
         "・要更新: 前回の更新のあとにファイルが変わっています"
         "・更新中: 更新しています"
-        "・エラー: フォルダが見つからないか、読み込めないファイルがあります"
+        "・警告: 読み取れないファイルがあります（それ以外のファイルは検索できます）"
+        "・エラー: フォルダが見つかりません"
         "・未作成: まだ更新していません"
     )
 }
@@ -384,7 +385,7 @@ function getIndexActionsEnabled {
 
 function getIndexRowMenuEnabled {
     # 行の右クリックのメニューの項目の可否。@{ Update; OpenFolder; Export; Delete }。対象は押した行（右クリックした行を選んでから開く）
-    #   Update: 行の右端の［更新］と同じ判断（getIndexRowActions）。更新中の行・エラーの行・動いている処理があるときは使えない
+    #   Update: 行の右端の［更新］と同じ判断（getIndexRowActions）。更新中の行・動いている処理があるときは使えない（失敗のある警告の行は使える）
     #   Export/Delete: 1 件に効く判断（getIndexTabButtonsEnabled）。OpenFolder: 動いている処理があっても使える（元のフォルダの場所があれば）
     # 行が無いとき（hasRow が false）は、すべて使えない
     param (
@@ -441,7 +442,7 @@ function getIndexSourceFolderKind {
 
 function getIndexRowActions {
     # 一覧の行の右端のボタン。@{ Action（Update / Stop / None）; UpdateEnabled }
-    # 更新中の行には［中止］（回ごと止める）、エラーの行には何も出さず（場所は空けておく）、ほかの行には［更新］を出す。
+    # 更新中の行には［中止］（回ごと止める）、エラー（Ng）の行には何も出さず（場所は空けておく）、ほかの行（失敗のある警告の行を含む）には［更新］を出す。
     # ［更新］は、動いている処理があれば（blocker は getIndexJobBlocker の結果）使えない（更新中はほかの行も押せない）
     param (
         [string]$level,           # getIndexRowView の Level
@@ -454,6 +455,22 @@ function getIndexRowActions {
     }
     $action = switch ($level) { "Run" { "Stop" } "Ng" { "None" } default { "Update" } }
     return @{ Action = $action; UpdateEnabled = ($blocker -eq "") }
+}
+
+function selectFailedRowsForIndex {
+    # 「更新に失敗したファイル」に出す行を、詳細に出しているインデックスの分だけにする。
+    # indexName が空（行を選んでいない・2 件以上にチェックしている）ときは、全部をそのまま返す。
+    # 失敗の行の相対パス（work\index からの相対）の先頭の名前が、indexName と同じ（大文字・小文字は区別しない）ものだけを残す。
+    # 前方一致では絞らない（「営業」で「営業部」の行を拾わない）
+    param (
+        [object[]]$failedRows,  # getIndexingState の FailedRows（相対パスを持つ行）
+        [string]$indexName
+    )
+
+    $rows = @($failedRows | Where-Object { $null -ne $_ })
+    if (!$indexName) { return $rows }
+    $prefix = $indexName + "\"
+    return @($rows | Where-Object { ([string]$_.相対パス).StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase) })
 }
 
 function getIndexDetailItem {
@@ -798,7 +815,7 @@ function getIndexRowView {
         return @{ Text = "要更新"; Sub = "残り $($stat.Pending) 件"; Level = "Wait"; ToolTip = addIndexRowNotice "未更新 $($stat.Pending) 件です。次の更新で続きから更新します。" $notice }
     }
     if ($stat.Failed -ge 1) {
-        return @{ Text = "エラー"; Sub = ""; Level = "Ng"; ToolTip = addIndexRowNotice "失敗 $($stat.Failed) 件です。原因は下の「更新に失敗したファイル」で見られます。失敗したファイル以外は検索できます。" $notice }
+        return @{ Text = "警告"; Sub = ""; Level = "Warn"; ToolTip = addIndexRowNotice "失敗 $($stat.Failed) 件です。原因は下の「更新に失敗したファイル」で見られます。失敗したファイル以外は検索できます。" $notice }
     }
     return @{ Text = "最新"; Sub = ""; Level = "Ok"; ToolTip = addIndexRowNotice "更新済み $($stat.Total) 件です。" $notice }
 }
@@ -1065,7 +1082,7 @@ function getIndexDetailView {
             }
             $run.Value = [Math]::Max(0.0, [Math]::Min(1.0, [double]$running.Ratio))
             $run.CountText = $parts -join "・"
-            $run.FileText = if ($running.Current) { "更新中のファイル：$($running.Current)" } else { "" }
+            $run.FileText = if ($running.Current) { "読み取り中のファイル：$($running.Current)" } else { "" }
         }
     }
     # 元のフォルダが見つからないとき（更新中は更新の表示を優先する）は、バッジを「エラー」にして、理由と直し方を出す

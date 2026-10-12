@@ -186,4 +186,7 @@
           </ContextMenu>
         </DataGrid.ContextMenu>
       </DataGrid>
+      <!-- 検索が 0 件で終わったとき、結果の表の空いた所に出す文（search_session.ps1 が出し入れする） -->
+      <TextBlock x:Name="NoHitText" Grid.Row="1" Style="{StaticResource Meta}" HorizontalAlignment="Center" VerticalAlignment="Top"
+                 Margin="0,48,0,0" IsHitTestVisible="False" Visibility="Collapsed" />
 </Grid>
