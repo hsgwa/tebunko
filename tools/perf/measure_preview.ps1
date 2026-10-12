@@ -90,9 +90,8 @@ function countMadeCells($table) {
 function setWindowFor($table, [double]$offset, [double]$width) {
     # 横の位置 offset・見える幅 width の、見えている列の範囲に決め直す。範囲が変わったら $true（前の版・範囲を決める判断が無い版は $false）
     if (-not $canWindow -or -not (hasMember $table "EnsureCells")) { return $false }
-    # 画面と同じく、列の幅の累積を渡す。累積を持たない前の版は、列の幅の並びを渡す版の関数なので Widths()
-    $columnArg = $(if (hasMember $table "Prefix") { $table.Prefix() } else { $table.Widths() })
-    $w = getPreviewColumnWindow $columnArg $offset $width ([HitRow]::NumberWidth) $columnMargin
+    # 画面と同じく、列の幅の累積を渡す
+    $w = getPreviewColumnWindow $table.Prefix() $offset $width ([HitRow]::NumberWidth) $columnMargin
     return $table.SetWindow($w.First, $w.Last, $w.Left, $w.Right)
 }
 
@@ -159,8 +158,7 @@ try {
             $n++
             $path = [System.IO.Path]::Combine($hit.Root, $hit.RelPath)
             # -FullRead: 控えを捨て、毎回ファイルの全体を読む経路に入れる（初めて開くファイルの最初の読みに当たる）
-            # （contentIndexPlacesMemo は、前の版が場所の一覧を覚えていた変数。今の版には無いが、前の版を測るときに捨てるため残す）
-            if ($FullRead) { $script:readFirstMarks = $null; $script:contentIndexPlacesMemo = $null }
+            if ($FullRead) { $script:readFirstMarks = $null }
             $callsBefore = $script:readTextCalls
             $watch = [System.Diagnostics.Stopwatch]::StartNew()
             $context = @(readPreviewFirst $hit $path $cacheArg)
@@ -226,7 +224,7 @@ try {
         $nextLine = $moreTable.LastLine() + 1
         for ($i = 0; $i -lt 5; $i++) {
             $watch = [System.Diagnostics.Stopwatch]::StartNew()
-            $more = readContentIndexLines $path $hit.Book $hit.Location $nextLine 200 $null $marks
+            $more = readContentIndexLines $path $hit.Book $hit.Location $nextLine $readMoreChunkLines $null $marks
             $moreReadMs = $watch.Elapsed.TotalMilliseconds
             $marks = $more.Marks
             $watch.Restart()

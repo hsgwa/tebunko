@@ -5,6 +5,8 @@
 #   ・Mermaid のグラフの行を作る
 
 $perfInvariant = [System.Globalization.CultureInfo]::InvariantCulture
+# プレビューの読み足しの計測で、1 回に読む行数（measure_preview.ps1 が頼む数。newReadMoreResult は、この数だけ読めた回を完全な 1 回と数える）
+$readMoreChunkLines = 200
 
 function resolveTebunkoLib {
     # 測る tebunko の読み込み口（lib.ps1）のパスを返す。
@@ -457,7 +459,7 @@ function newReadMoreResult {
     return [ordered]@{
         Runs = $items.Count
         # 場所の終わりで止まり、5 回に届かなかったとき・どれかの回が 200 行に満たなかった（短い・空の回があった）ときは $false（少ない行の値を、5 回分と見間違えないため）
-        Complete = ($items.Count -ge 5 -and @($items | Where-Object { [int]$_.Rows -ne 200 }).Count -eq 0)
+        Complete = ($items.Count -ge 5 -and @($items | Where-Object { [int]$_.Rows -ne $readMoreChunkLines }).Count -eq 0)
         ReadMs = (getStats ([double[]]@($items | ForEach-Object { $_.ReadMs })))
         BuildMs = (getStats ([double[]]@($items | ForEach-Object { $_.BuildMs })))
         CellsMs = (getStats ([double[]]@($items | ForEach-Object { $_.CellsMs })))

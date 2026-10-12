@@ -710,14 +710,19 @@ Describe "プレビューの読み足し（スクロールに合わせて、上�
         $script:tableA.TopDone | Should -Be $false
     }
 
-    It "今の行につながらず、終わりまで読んだ結果は、その向きを終わりにする（同じ範囲を頼み直し続けない）" {
-        applyReadMore @(newMoreResult $script:tableA "down" 700 710 $true) $null
-        $script:tableA.LastLine() | Should -Be 550
-        $script:tableA.BottomDone | Should -Be $true
-
+    It "上につながらず、終わりまで読んだ結果は、上を終わりにする（同じ範囲を頼み直し続けない）" {
         applyReadMore @(newMoreResult $script:tableA "up" 300 310 $true) $null
         $script:tableA.FirstLine() | Should -Be 450
         $script:tableA.TopDone | Should -Be $true
+    }
+
+    It "頼んだあとに下の端が動いた古い結果は、End でも空でも下を終わりにしない（捨てて戻した終わりの印を立て直さない）" -ForEach @(
+        @{ name = "End"; first = 700; last = 710; end = $true }
+        @{ name = "空"; first = 700; last = 699; end = $true }
+    ) {
+        applyReadMore @(newMoreResult $script:tableA "down" $first $last $end) $null
+        $script:tableA.LastLine() | Should -Be 550
+        $script:tableA.BottomDone | Should -Be $false
     }
 
     It "つながらず終わりまで読んだ向きは、続けてスクロールしても頼み直さない" {

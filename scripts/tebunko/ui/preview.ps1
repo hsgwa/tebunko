@@ -274,8 +274,11 @@ function applyReadMore {
         # 終わりまで読んでいなければ終わりとは言えない（空で返ったときだけ、その向きにもう行が無い）
         if ($rows.Count -eq 0 -or $result.End -or ($joins -and $table.FirstLine() -le 1)) { $table.TopDone = $true }
     } else {
+        # 終わりと見るのは、頼んだ先頭の行が（足す前の）下の端の次のままの結果だけ。頼んだあとに下の端が動いた（下を捨てた）古い結果の End・空は、
+        # 今の端の下のことではないので信じない（信じると、捨てて戻した終わりの印を立て直し、その先が読めなくなる）
+        $fresh = $result.First -eq $table.LastLine() + 1
         if ($joins) { $table.InsertRows("down", $rows) }
-        if ($rows.Count -eq 0 -or $result.End) { $table.BottomDone = $true }
+        if ($fresh -and ($rows.Count -eq 0 -or $result.End)) { $table.BottomDone = $true }
     }
     # 持つ行が上限を超えたら、遠い側を捨てる
     $visible = getPreviewVisibleRows
