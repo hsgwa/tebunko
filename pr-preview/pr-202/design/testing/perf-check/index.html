@@ -4232,11 +4232,11 @@
 <h1 id="速さの回帰テストと上限の決め方">速さの回帰テストと上限の決め方<a class="headerlink" href="#速さの回帰テストと上限の決め方" title="Permanent link">&para;</a></h1>
 <p>扱うこと: perf-check.yml による速さの回帰テスト、回帰テストの中身、上限の決め方、誤って落ちたときの扱い、Office を使う形式の比べ方。扱わないこと: 手動の性能計測そのもの（<a href="../perf/">性能とリソースの計測のしかた</a>）。先に読むページ: <a href="../ci/">CI</a>。</p>
 <h2 id="perf-checkyml速さの回帰テスト">perf-check.yml（速さの回帰テスト）<a class="headerlink" href="#perf-checkyml速さの回帰テスト" title="Permanent link">&para;</a></h2>
-<p>検索・本文インデックスの作成・取り込みの速さが落ちたことを、PR の段階で見つける。<code>measure_perf.ps1</code> で測り、上限と比べて合否を出す（<code>perf.yml</code> は数字を見るだけで、合否は出さない）。必須のチェックにはしないが、流した PR で <code>search</code>・<code>ingest</code> が落ちていればマージしない。</p>
+<p>検索・本文インデックスの作成・選択行のプレビュー・取り込みの速さが落ちたことを、PR の段階で見つける。<code>measure_perf.ps1</code> で測り、上限と比べて合否を出す（<code>perf.yml</code> は数字を見るだけで、合否は出さない）。必須のチェックにはしないが、流した PR で <code>search</code>・<code>ingest</code> が落ちていればマージしない。</p>
 <pre class="mermaid"><code>flowchart TD
-    T["PR にラベル perf-check／main への push／手動"] --&gt; S["search ジョブ&lt;br&gt;検索・本文インデックスの作成"]
+    T["PR にラベル perf-check／main への push／手動"] --&gt; S["search ジョブ&lt;br&gt;検索・本文インデックスの作成・選択行のプレビュー"]
     T --&gt; I["ingest ジョブ&lt;br&gt;取り込み（.docx・.pptx）"]
-    S --&gt; CMP1{"上限と比べる&lt;br&gt;getSearchPerfProblems"}
+    S --&gt; CMP1{"上限と比べる&lt;br&gt;getSearchPerfProblems&lt;br&gt;getPreviewPerfProblems"}
     I --&gt; CMP2{"上限と比べる&lt;br&gt;getIngestPerfProblems"}
     CMP1 -- 超えた --&gt; NG1["Checks を失敗にする&lt;br&gt;（必須ではないがマージしない）"]
     CMP2 -- 超えた --&gt; NG2["Checks を失敗にする"]
@@ -4321,9 +4321,9 @@
 </tr>
 <tr>
 <td><code>tests/tools/perf_preview.Tests.ps1</code>（選択行のプレビュー）</td>
-<td>検索と同じ <code>new_index.ps1 -Scale 0.1</code> に、テストの作業用の場所（<code>$TestDrive</code>）に作る大きな本文インデックスのファイル（約 10 MB・約 1 万行。架空の文で、ヒットは先頭の近くと終わりの近くに 10 行ずつ）を足したもの。語はそのファイルに当たる 1 語を <code>words.tsv</code> に足す</td>
-<td><code>measure_perf.ps1 -Index ... -Words ... -Count 1 -Preview 20 -PreviewFullRead</code>（語ごとに、ヒットの先頭から 20 件を、検索のキャッシュ無し・ありで 1 件ずつプレビューする。<code>tools/perf/measure_preview.ps1</code> が別のプロセスで測る。<code>-PreviewFullRead</code> は、前の読み方（毎回ファイルの全体を読む）でも同じ選択を測って並べる）</td>
-<td>語ごとの、キャッシュ無しの読み込みの中央値（<code>Preview.Words[].ReadUncachedMs.Median</code>）・プレビューのあと、GC のあとにマネージドヒープに残る増えの合計（<code>RetainedManagedMB</code>）。前の読み方の値（<code>FullRead</code>）と、キャッシュ無しの選択で全体を読んだ回数（<code>ReadTextCallsUncached</code>）は出すだけで、上限とは比べない</td>
+<td>検索と同じ <code>new_index.ps1 -Scale 0.1</code> に、テストの作業用の場所（<code>$TestDrive</code>）に作る本文インデックスのファイルを 2 つ足したもの。1 つは大きなファイル（約 10 MB・約 1 万行。架空の文で、ヒットは先頭の近くと終わりの近くに 10 行ずつ）、もう 1 つは横に広いファイル（2,000 列・1,300 行。語は 1,500 列目にだけ置く）。語はそれぞれのファイルに当たる 1 語（大きい本文・横に広い）を <code>words.tsv</code> に足す</td>
+<td><code>measure_perf.ps1 -Index ... -Words ... -Count 1 -Preview 20 -PreviewFullRead -Render -ReadMore</code>（語ごとに、ヒットの先頭から 20 件を、検索のキャッシュ無し・ありで 1 件ずつプレビューする。<code>tools/perf/measure_preview.ps1</code> が別のプロセスで測る。<code>-PreviewFullRead</code> は、前の読み方（毎回ファイルの全体を読む）でも同じ選択を測って並べる。<code>-Render</code> は表を画面を出さずに描画して部品の数・時間を測り、<code>-ReadMore</code> は下に 200 行ずつ読み足す時間を測る）</td>
+<td>語ごとの、キャッシュ無しの読み込みの中央値（<code>Preview.Words[].ReadUncachedMs.Median</code>）・プレビューのあと、GC のあとにマネージドヒープに残る増えの合計（<code>RetainedManagedMB</code>）。上限と比べるのは、perfdata の語と大きい本文の 4 語（<code>readLimitsMs</code> の語）で、横に広い語は値を出すだけで上限と比べない。前の読み方の値（<code>FullRead</code>）と、キャッシュ無しの選択で全体を読んだ回数（<code>ReadTextCallsUncached</code>）も出すだけ。<code>-Render</code> を付けた測りでは、計測が描画のために持つ表 1 枚（全部の列の文字を持つ）が残るメモリの値に入り、前の読み方（<code>-Render</code> を付けない）の値には入らない。同じ条件の比べではないので、横に広い語の差はそのまま読まない</td>
 </tr>
 </tbody>
 </table>
@@ -4338,7 +4338,7 @@
 <li><code>-All</code> は <code>Slow</code> も流すので、tebunko-perfdata が要る</li>
 </ul>
 <h2 id="上限">上限<a class="headerlink" href="#上限" title="Permanent link">&para;</a></h2>
-<p>上限は、ランナー（<code>windows-latest</code>）で、<code>perf-check.yml</code> と同じ構成（同じジョブ）で 5 回測った比べる値の最大に余裕を掛け、切り上げて決める。各テストファイルの先頭の表（<code>searchLimitsMs</code>・<code>packLimitSeconds</code>・<code>perFileLimitMs</code>・<code>secondsLimit</code>）に置く。</p>
+<p>上限は、ランナー（<code>windows-latest</code>）で、<code>perf-check.yml</code> と同じ構成（同じジョブ）で 5 回測った比べる値の最大に余裕を掛け、切り上げて決める。各テストファイルの先頭の表（<code>searchLimitsMs</code>・<code>packLimitSeconds</code>・<code>readLimitsMs</code>・<code>retainedLimitMB</code>・<code>perFileLimitMs</code>・<code>secondsLimit</code>）に置く。</p>
 <table>
 <thead>
 <tr>
@@ -4416,7 +4416,7 @@
 </tbody>
 </table>
 <ul>
-<li>余裕: 検索の同じ条件の 2 回の差は 7% ほど、取り込みの 3 回の差は 2% ほど。ランナーの機械の違いを見込んで 1.5 倍を取りつつ、流れが崩れたときに出る数倍の遅れは確実に止める。本文インデックスの作成は 1 回の値で、5 割ほどぶれることがあるため 2 倍にする</li>
+<li>余裕: 検索の同じ条件の 2 回の差は 7% ほど、取り込みの 3 回の差は 2% ほど。ランナーの機械の違いを見込んで 1.5 倍を取りつつ、流れが崩れたときに出る数倍の遅れは確実に止める。本文インデックスの作成は 1 回の値で、5 割ほどぶれることがあるため 2 倍にする。プレビューの残るメモリも 2 倍にする（GC のあとの増えは、GC の時機で負の値になることもあるほどぶれるため）</li>
 <li><code>perf.yml</code> の数字は、構成が違う（取り込みの後に同じジョブで検索すると遅く出た回がある）ので、上限の元にしない。インクリメンタルサーチの目標（7,000 件規模で 0.1 秒前後）も上限にしない。今の main はこのデータで 0.3 秒ほどなので、上限にすると今の main で落ちる</li>
 <li>変え方: 速くした PR では、同じ決め方で下げてよい。上げるのは、ランナーが遅くなったなど、速さを落としていない理由があるときだけにする。理由と数字を PR 本文に書き、メンテナの了承を得る</li>
 <li>上限はランナー（4 コア）に合わせたもの。手元の PC で超えたときは、同じ PC で main を測って比べ、回帰かどうかを見る</li>
