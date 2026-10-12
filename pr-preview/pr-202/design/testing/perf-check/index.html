@@ -4434,6 +4434,7 @@
 <li>子の標準出力・標準エラーの終わりの 20 行（出力が無ければ「何も出力しませんでした」）。プレビューの子は、段階の切り替えで <code>段階: &lt;名前&gt;</code>（読み込み・開始・検索・プレビュー（最初の読み）・読み足し・描画・記録の終わり・記録の停止の終わり・結果の書き出し・書き出しの終わり）を 1 行ずつ出すので、どこまで進んだかが分かる。名前だけで、値は出さない</li>
 <li>CI（<code>GITHUB_ACTIONS</code> が <code>true</code>）のときだけ、子が動いていた間の Application ログのうち、<code>powershell.exe</code> に関する Application Error・.NET Runtime・Windows Error Reporting（5 件まで、1 件 400 文字まで）。手元の機械のログは読まない。ログを読めなくても、上の 2 つは出る</li>
 </ul>
+<p>プレビューの計測の子だけは、結果を書き終えたあとに、自分で終了コード 0 で終わる（<code>[Environment]::Exit(0)</code>）。途中で例外が出たときはそこに届かず、これまでどおり 0 以外で終わる。結果を書いたあとの終了時に失敗した回があり、ホストの終了の処理を待たないようにしたものだが、これは見立てで、落ちる場所は確定していない。</p>
 <h2 id="office-を使う形式の比べ方手元の-windowsexcelwordpowerpoint-が入った機械で">Office を使う形式の比べ方（手元の Windows。Excel・Word・PowerPoint が入った機械で）<a class="headerlink" href="#office-を使う形式の比べ方手元の-windowsexcelwordpowerpoint-が入った機械で" title="Permanent link">&para;</a></h2>
 <ul>
 <li>対象は .xlsx（Excel）・.doc（Word）・.ppt（PowerPoint）の取り込み。ランナーに Office が無く、Office の版・機械・Defender で大きく揺れるので、固定の上限は置かない</li>
