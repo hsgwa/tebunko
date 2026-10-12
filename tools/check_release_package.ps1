@@ -73,7 +73,7 @@ try {
     foreach ($name in $actual) {
         if ($expected -cnotcontains $name) { $failures.Add("zip に余分なファイル: $name") }
     }
-    # アイコンの形のライセンスの文面（ISC は再配布に文面を添えることが条件）は、git の追跡から外れていても必ず入っている
+    # アイコンの形のライセンスの文面（ISC・MIT とも、再配布するときにライセンスの文面を添える）は、git の追跡から外れていても必ず入っている
     # 入っているべき文面は、リポジトリの scripts/shared/licenses/ の LICENSE-*.txt から作る（足せば、そのまま検査に入る）
     $licenseDir = Join-Path $rootDir "scripts\shared\licenses"
     $licenseNames = @(Get-ChildItem -LiteralPath $licenseDir -Filter "LICENSE-*.txt" -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })

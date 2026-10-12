@@ -118,7 +118,6 @@ Describe "画面の既定のフォント（起動した窓の Font.Body）" -Tag
         $calls | Should -BeGreaterThan 5
         $problems -join ", " | Should -Be ""
     }
-
 }
 
 Describe "同梱する第三者の部品" -Tag Meta {
