@@ -3650,6 +3650,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#計測の子が失敗したとき" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        計測の子が失敗したとき
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#office-を使う形式の比べ方手元の-windowsexcelwordpowerpoint-が入った機械で" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4177,6 +4188,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#計測の子が失敗したとき" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        計測の子が失敗したとき
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#office-を使う形式の比べ方手元の-windowsexcelwordpowerpoint-が入った機械で" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4404,6 +4426,13 @@
 <li>ジョブを 1 回だけ再実行する。続けて落ちたら、<code>perf-check.yml</code> を main で <code>workflow_dispatch</code> で流して比べる</li>
 <li>main も同じくらい遅ければ、ランナーの問題として扱う。上限を上げるかは、メンテナが決める</li>
 <li>main が通って PR だけが落ちれば、回帰として直す</li>
+</ul>
+<h2 id="計測の子が失敗したとき">計測の子が失敗したとき<a class="headerlink" href="#計測の子が失敗したとき" title="Permanent link">&para;</a></h2>
+<p><code>tools/measure_perf.ps1</code> は、計測ごとに子のプロセス（<code>tools/perf/measure_*.ps1</code>）を起こす。子が 0 以外で終わると、例外の文に次を入れる（出すのは CI のログと例外の文だけで、ファイルや artifact には残さない）。</p>
+<ul>
+<li>終了コード（10 進と 16 進。異常終了のときの NTSTATUS が読める）</li>
+<li>子の標準出力・標準エラーの終わりの 20 行（出力が無ければ「何も出力しませんでした」）。プレビューの子は、段階の切り替えで <code>段階: &lt;名前&gt;</code>（読み込み・開始・検索・プレビュー・読み足し・描画・記録の終わり）を 1 行ずつ出すので、どこまで進んだかが分かる。名前だけで、値は出さない</li>
+<li>CI（<code>GITHUB_ACTIONS</code> が <code>true</code>）のときだけ、子が動いていた間の Application ログのうち、<code>powershell.exe</code> に関する Application Error・.NET Runtime・Windows Error Reporting（5 件まで、1 件 400 文字まで）。手元の機械のログは読まない。ログを読めなくても、上の 2 つは出る</li>
 </ul>
 <h2 id="office-を使う形式の比べ方手元の-windowsexcelwordpowerpoint-が入った機械で">Office を使う形式の比べ方（手元の Windows。Excel・Word・PowerPoint が入った機械で）<a class="headerlink" href="#office-を使う形式の比べ方手元の-windowsexcelwordpowerpoint-が入った機械で" title="Permanent link">&para;</a></h2>
 <ul>
