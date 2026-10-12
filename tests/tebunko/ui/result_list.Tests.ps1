@@ -43,11 +43,19 @@ BeforeAll {
         & $block
     }
 
+    # 結果の表とプレビューの境目を決める処理（preview.ps1）の代わり。呼ばれたときの行数を控える
+    $script:paneHeightCalls = @()
+    function updateResultPaneHeight {
+        param ([int]$itemCount = 0)
+        $script:paneHeightCalls += $itemCount
+    }
+
     . "${scriptsDir}\tebunko\ui\result_list.ps1"
 
     # ---- テストの準備 ----
 
     function resetResults {
+        $script:paneHeightCalls = @()
         $script:filterText = ""
         $ui.ResultGrid.SelectedItem = $null
         $ui.ResultGrid.SelectedItems = @()
@@ -159,9 +167,11 @@ Describe "getPlace・addFileGroupLocation" -Tag Unit {
         $group = newFileGroup "C:\共有\見積.xlsx" "" "見積.xlsx"
         addFileGroupLocation $group "見積.xlsx" "4月"
         $group.LocationText | Should -Be "[シート]4月"
+        $group.LocationPrefix | Should -Be ""
         addFileGroupLocation $group "見積.xlsx" "5月"
         addFileGroupLocation $group "見積.xlsx" "6月"
         $group.LocationText | Should -Be "[シート]4月 ほか 2 か所"
+        $group.LocationPrefix | Should -Be "[シート]4月 ほか 2 か所 ・ "
     }
 
     It "図形の場所は元のシートと同じ表記なので増やさない" {
@@ -277,6 +287,16 @@ Describe "flushResults" -Tag Unit {
         $script:lastInViewOrder | Should -Be 1
     }
 
+    It "増えたヒットがある回だけ、そのときの行数で、表とプレビューの境目を決め直す" {
+        [void](addHit "見積.xlsx" "4月" "`t見積" 1)
+        [void](addHit "議事録.docx" "ページ001" "見積の件" 1)
+        flushResults
+        $script:paneHeightCalls | Should -Be @(2)
+
+        flushResults
+        $script:paneHeightCalls | Should -Be @(2) -Because "増えたヒットが無い回は決め直さない"
+    }
+
     It "開いているファイルは、あとから来た行も見出しの下に足す" {
         $script:expandNew = $true
         [void](addHit "見積.xlsx" "4月" "`t見積" 1)
@@ -365,14 +385,17 @@ Describe "toggleFileGroup" -Tag Unit {
         [void](addHit "議事録.docx" "ページ001" "見積の件" 1)
         flushResults
 
+        $script:paneHeightCalls = @()
         toggleFileGroup $mitsumori
         $mitsumori.IsExpanded | Should -Be $true
         (getItemNames) -join "," | Should -Be "#見積.xlsx,見積.xlsx:1,見積.xlsx:2,#議事録.docx"
+        $script:paneHeightCalls | Should -Be @(4) -Because "開いたあとの行数で、表とプレビューの境目を決め直す"
 
         toggleFileGroup $mitsumori
         $mitsumori.IsExpanded | Should -Be $false
         $mitsumori.DisplayedCount | Should -Be 0
         (getItemNames) -join "," | Should -Be "#見積.xlsx,#議事録.docx"
+        $script:paneHeightCalls | Should -Be @(4, 2) -Because "閉じたあとの行数で、決め直す"
     }
 
     It "行が多いときは、1 件ずつ入れずに表を作り直す" {
@@ -590,17 +613,28 @@ Describe "finishResults" -Tag Unit {
         (getItemNames) -join "," | Should -Be "#a.docx,#b.docx"
     }
 
+    It "終わりに、表とプレビューの境目を 1 回だけ決め直す" {
+        [void](addHit "a.docx" "ページ001" "見積" 1)
+        [void](addHit "b.docx" "ページ001" "見積" 1)
+
+        finishResults
+
+        $script:paneHeightCalls | Should -Be @(2)
+    }
+
     It "隠れていたファイルに合う行が来ていたら作り直す" {
         $script:filterText = "佐藤"
         [void](addHit "見積.xlsx" "4月" "`t見積 山田" 1)
         [void](addHit "議事録.docx" "ページ001" "見積 佐藤" 1)
         flushResults
         [void](addHit "見積.xlsx" "4月" "`t見積 佐藤" 2)
+        $script:paneHeightCalls = @()
 
         finishResults
 
         $script:needsRebuild | Should -Be $false
         (getItemNames) -join "," | Should -Be "#見積.xlsx,#議事録.docx"
+        $script:paneHeightCalls | Should -Be @(2) -Because "作り直したあとに、1 回だけ決め直す"
     }
 
     It "どちらでもなければ表はそのまま" {

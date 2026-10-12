@@ -49,9 +49,11 @@ Describe "カバレッジの計測の対象（画面層だけを分母から外�
         @{ file = "tebunko\ui\startup_error.ps1" }
         @{ file = "shared\ui\types.ps1" }
         @{ file = "tebunko\ui\index_view.ps1" }
+        @{ file = "tebunko\ui\wait_view.ps1" }
         @{ file = "tebunko\ui\shell\nav_view.ps1" }
         @{ file = "tebunko\ui\shell\nav.ps1" }
         @{ file = "tebunko\ui\shell\status_bar_view.ps1" }
+        @{ file = "tebunko\ui\shell\notice_banner_view.ps1" }
         @{ file = "tebunko\ui\search\search_bar_view.ps1" }
         @{ file = "tebunko\ui\search\result_list_view.ps1" }
         @{ file = "tebunko\ui\search\open_source_view.ps1" }
@@ -84,6 +86,7 @@ Describe "カバレッジの計測の対象（画面層だけを分母から外�
         @{ file = "shared\ui\app_host.ps1" }
         @{ file = "shared\ui\trimmed_tooltip.ps1" }
         @{ file = "tebunko\ui\splash.ps1" }
+        @{ file = "tebunko\ui\shell\notice_banner.ps1" }
         @{ file = "shared\ui\folder_dialog.ps1" }
         @{ file = "tebunko\ui\search\search_bar.ps1" }
         @{ file = "tebunko\ui\search\search_session.ps1" }
@@ -99,9 +102,8 @@ Describe "カバレッジの計測の対象（画面層だけを分母から外�
 }
 
 Describe "画面の既定のフォント（起動した窓の Font.Body）" -Tag Meta {
-    # Font.Body は loadXaml / loadWindow の引数で渡したフォルダから作る。呼び出しが ${fontsDir} を渡していないと、
-    # 起動した窓は同梱のフォント（Rethink Sans）を使わず、Yu Gothic UI・Meiryo UI になる（気づきにくいので、呼び出しで確かめる）
-    It "画面を読み込む呼び出しは、すべて `${fontsDir} を渡している" {
+    # フォントは Windows 標準のものだけを使う（Segoe UI・Yu Gothic UI・Meiryo UI）。同梱しないので、読み込みの呼び出しはパスだけを渡す
+    It "画面を読み込む呼び出しは、パスだけを渡す（フォントの置き場所を渡さない）" {
         $problems = New-Object System.Collections.Generic.List[string]
         $calls = 0
         foreach ($file in (Get-ChildItem "$here\..\scripts" -Recurse -Filter "*.ps1")) {
@@ -110,21 +112,25 @@ Describe "画面の既定のフォント（起動した窓の Font.Body）" -Tag
             $found = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.CommandAst] -and $n.GetCommandName() -in @("loadWindow", "loadXaml") }, $true)
             foreach ($call in $found) {
                 $calls++
-                $third = if ($call.CommandElements.Count -ge 3) { $call.CommandElements[2].Extent.Text } else { "" }
-                if ($third -ne '${fontsDir}') { $problems.Add("$($file.Name):$($call.Extent.StartLineNumber)") }
+                if ($call.CommandElements.Count -gt 2) { $problems.Add("$($file.Name):$($call.Extent.StartLineNumber)") }
             }
         }
         $calls | Should -BeGreaterThan 5
         $problems -join ", " | Should -Be ""
     }
 
-    It "起動口が決める fontsDir は、Rethink Sans を持つ同梱のフォルダを指している" {
-        $main = Get-Content -LiteralPath "$here\..\scripts\tebunko\ui\gui_main.ps1" -Raw -Encoding UTF8
-        $main -match '\$\{fontsDir\}\s*=\s*"\$TebunkoDir\\([^"]+)"' | Should -Be $true
-        $folder = [System.IO.Path]::GetFullPath("$here\..\scripts\tebunko\" + $Matches[1])
-        foreach ($name in "RethinkSans-wght.ttf", "RethinkSans-Italic-wght.ttf") {
-            Test-Path -LiteralPath "$folder\$name" | Should -Be $true
-        }
+    It "同梱するのはアイコンの形のライセンスの文面だけで、フォントのファイルは無い" {
+        Test-Path -LiteralPath "$here\..\scripts\shared\fonts\LICENSE-Lucide.txt" | Should -Be $true
+        @(Get-ChildItem "$here\..\scripts" -Recurse -File | Where-Object { $_.Extension -in ".ttf", ".otf", ".ttc" -or $_.Name -eq "OFL.txt" }).Count | Should -Be 0
+    }
+
+    It "起動画面（splash.xaml）が直に書くフォントの並びは、newAppFontFamily（Font.Body）と同じ" {
+        $splash = [System.IO.File]::ReadAllText("$here\..\scripts\tebunko\xaml\splash.xaml")
+        $host_ = [System.IO.File]::ReadAllText("$here\..\scripts\shared\ui\app_host.ps1")
+        $splash -match '<Window[^>]*?\sFontFamily="([^"]+)"' | Should -BeTrue
+        $splashFont = $Matches[1]
+        $host_ -match '(?s)function newAppFontFamily \{.*?-ArgumentList "([^"]+)"' | Should -BeTrue
+        $splashFont | Should -Be $Matches[1]
     }
 }
 
@@ -878,14 +884,23 @@ Describe "画面の部品の名前" -Tag Meta {
 
     It "gui_main.ps1 の領域の表の各ファイルに、使う名前がすべてある" {
         # $regions の `File = "..."; ... Names = @(...)` を全部取り出して、XAML と突き合わせる
-        $entries = @([regex]::Matches($gui, 'File\s*=\s*"([^"]+)".*?Names\s*=\s*@\(([^)]*)\)'))
+        $entries = @([regex]::Matches($gui, 'File\s*=\s*"([^"]+)".*?Names\s*=\s*(?:@\(([^)]*)\)|\$(\w+))'))
         $entries.Count -gt 0 | Should -Be $true
+        # 表の行の数と、読めた行の数が合う（形が崩れて読み落とした行が、確かめの外に出ない）
+        $fileCount = @([regex]::Matches($gui, '@\{\s*File\s*=\s*"')).Count
+        $entries.Count | Should -Be $fileCount
         $problems = New-Object System.Collections.Generic.List[string]
         foreach ($entry in $entries) {
             $file = $entry.Groups[1].Value
-            $wanted = @([regex]::Matches($entry.Groups[2].Value, '"([A-Za-z]+)"') | ForEach-Object { $_.Groups[1].Value })
+            $list = $entry.Groups[2].Value
+            if ($entry.Groups[3].Success) {
+                # Names = $変数名 のときは、変数の `@(...)` を読む
+                $list = [regex]::Match($gui, '\$' + $entry.Groups[3].Value + '\s*=\s*@\(([^)]*)\)').Groups[1].Value
+            }
+            $wanted = @([regex]::Matches($list, '"([A-Za-z]+)"') | ForEach-Object { $_.Groups[1].Value })
             $path = "$here\..\scripts\tebunko\xaml\$file"
             if (-not (Test-Path -LiteralPath $path)) { $problems.Add("$file が無い"); continue }
+            if ($wanted.Count -eq 0) { $problems.Add("$file の Names が読めない（空）") }
             $names = getXamlNames $path
             foreach ($w in $wanted) {
                 if ($names -notcontains $w) { $problems.Add("$file に $w が無い") }

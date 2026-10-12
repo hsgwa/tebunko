@@ -26,19 +26,8 @@ param (
 $ErrorActionPreference = "Stop"
 
 # 同梱する第三者の部品（実行されるコードではなく、purl（パッケージ識別子）は持たない）。
-# 版・ライセンスを変えたら、ここと scripts/shared/fonts/ のライセンス文・docs/safety/supply-chain.md をそろえる
+# 版・ライセンスを変えたら、ここと scripts/shared/fonts/LICENSE-Lucide.txt のライセンス文・docs/safety/supply-chain.md をそろえる
 $thirdParty = @(
-    [ordered]@{
-        "type"        = "data"
-        "bom-ref"     = "third-party/rethink-sans"
-        "group"       = "Rethink Sans Project"
-        "name"        = "Rethink Sans"
-        "version"     = "20d5980cd14ce827e82d7fc58d758f7cc5086c91"   # 上流にタグが無いため、同梱の版と 1 バイトも違わない上流のコミット（2023-10-11）
-        "description" = "画面のフォント（scripts/shared/fonts/RethinkSans-wght.ttf・RethinkSans-Italic-wght.ttf）"
-        "scope"       = "required"
-        "licenses"    = @([ordered]@{ "license" = [ordered]@{ "id" = "OFL-1.1" } })
-        "externalReferences" = @([ordered]@{ "type" = "website"; "url" = "https://github.com/hans-thiessen/Rethink-Sans" })
-    }
     [ordered]@{
         "type"        = "data"
         "bom-ref"     = "third-party/lucide"

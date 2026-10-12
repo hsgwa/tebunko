@@ -218,4 +218,13 @@ Describe "確認ダイアログの既定のボタン（dialog_leftover.xaml）" 
         $stop.GetAttribute("IsDefault") | Should -Not -Be "True"
         $stop.GetAttribute("IsCancel") | Should -Not -Be "True"
     }
+
+    It "補足（HintText）は、ボタンの真上に置く（下に寄せる親の直下で、ボタンの行の次）" {
+        $ns = "http://schemas.microsoft.com/winfx/2006/xaml"
+        $panel = $script:leftoverXaml.SelectSingleNode("//*[local-name()='DockPanel']")
+        $kids = @($panel.ChildNodes | Where-Object { $_.NodeType -eq "Element" })
+        $names = @($kids | ForEach-Object { $_.GetAttribute("Name", $ns) })
+        $names.IndexOf("HintText") | Should -Be ($names.IndexOf("ButtonPanel") + 1)
+        $kids[$names.IndexOf("HintText")].GetAttribute("DockPanel.Dock") | Should -Be "Bottom"
+    }
 }

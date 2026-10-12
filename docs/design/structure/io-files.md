@@ -36,7 +36,7 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 
 | パス | 読む／書く | 内容 |
 |---|---|---|
-| `scripts/`（`gui.ps1`・`shared/`・`tebunko/` の下の `.ps1`・`.xaml`・`shared/fonts/` のフォント・`tebunko.ico`） | 読む | 起動のたびに読み込む。画面の XAML とフォント（Rethink Sans）・アイコンもここから読む（単一 `.ps1` 版は XAML を埋め込み、フォントは持たない） |
+| `scripts/`（`gui.ps1`・`shared/`・`tebunko/` の下の `.ps1`・`.xaml`・`tebunko.ico`） | 読む | 起動のたびに読み込む。画面の XAML・アイコンもここから読む（単一 `.ps1` 版は XAML を埋め込む。フォントは Windows 標準のものを使い、同梱しない） |
 | `scripts/tebunko/startup/*.txt` | 読む | 起動に失敗したときに示す理由の文章（`tebunko.bat`。Notepad で開く） |
 | `scripts/` の下のすべてのファイル | 書く（Mark-of-the-Web の解除） | `tebunko.bat`（zip 版）と `gui.ps1`（単一 `.ps1` 版以外）が `Unblock-File` で、ダウンロードの印（Zone.Identifier）を外す（[Mark-of-the-Web の解除](../../safety/disclosure.md#mark-of-the-web-の解除tebunkobat)）。印が無ければ何も変わらない |
 | `VERSION.txt` | 読む | 版とコミット（画面の［バージョン情報］・エクスポートの目録）。配布物にだけある。単一 `.ps1` 版は埋め込み、開発中は無く「開発版」になる |
@@ -121,7 +121,7 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 | `%USERPROFILE%`（`GetFolderPath("UserProfile")`） | 読む（パスを組み立てる） | 既定のワークスペースの場所（`getDefaultWorkDir`） |
 | `%SystemRoot%\System32\notepad.exe` | 起動する | ログ・拡張子が危ないファイルを開く（`openWithNotepad`・［ログを開く］） |
 | `%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe` | 起動する | 起動口（`tebunko.bat`・`tebunko.exe`）。PATH からは探さない |
-| `explorer.exe` | 起動する | ［フォルダを開く］・フォルダの選択 |
+| `explorer.exe` | 起動する | ［フォルダを開く］・フォルダの選択・「バージョン情報」のリンク（決まった 2 つのアドレスを既定のブラウザで開く） |
 | `%SystemRoot%\System32\ntoskrnl.exe` | 読む（ファイルの版だけ） | ログの見出しの OS の版（`getEnvironmentInfo`） |
 | Windows のあるドライブの `Program Files`・`Program Files (x86)` の `Microsoft Office\root\Office16`・`Microsoft Office\Office16`・`Microsoft Office\Office15` の `EXCEL.EXE`・`WINWORD.EXE`・`POWERPNT.EXE` | 読む（有無とファイルの版だけ。起動しない） | ログの見出しの Office の版・形態・ビット数（`findOfficeApps`）。ほかのドライブや別の版の Office は `見つからない` と出る |
 | Windows Search（`Search.CollatorDSO`） | 読む（SELECT だけ） | 高速検索。システムインデックスを索引させ、問い合わせる |

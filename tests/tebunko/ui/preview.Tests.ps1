@@ -41,6 +41,8 @@ BeforeAll {
     $previewScroll | Add-Member ScriptMethod UpdateLayout { }
     $previewScroll | Add-Member ScriptMethod Focus { $true }
     $previewScroll | Add-Member ScriptMethod ScrollToHorizontalOffset { param ($offset) $fake.Scrolls += $offset }
+    $previewSplitter = newFakePart "PreviewSplitter" @{} @("DragCompleted")
+    $resultListHost = newFakePart "ResultListHost" @{ ActualHeight = 0.0; ActualWidth = 0.0 } @("SizeChanged")
     $headerScroll = newFakePart "PreviewHeaderScroll" @{ Visibility = "Collapsed" }
     $headerScroll | Add-Member ScriptMethod ScrollToHorizontalOffset { param ($offset) $fake.HeaderScrolls += $offset }
     $previewHeader = newFakePart "PreviewHeader" @{ ItemsSource = $null }
@@ -51,6 +53,8 @@ BeforeAll {
         PreviewHeader       = $previewHeader
         PreviewRows         = newFakePart "PreviewRows" @{ ItemsSource = $null } @("PreviewMouseLeftButtonDown", "MouseMove", "PreviewMouseRightButtonDown")
         PreviewScroll       = $previewScroll
+        PreviewSplitter     = $previewSplitter
+        ResultListHost      = $resultListHost
         PreviewHeaderScroll = $headerScroll
         PreviewNote         = newFakePart "PreviewNote" @{ Text = ""; ToolTip = $null; Visibility = "Collapsed" }
         PreviewPlaceholder  = newFakePart "PreviewPlaceholder" @{ Visibility = "Visible" }
@@ -174,6 +178,66 @@ Describe "clearDetail" -Tag Unit {
         $ui.OpenButton.IsEnabled | Should -Be $false
         $ui.OpenMenuButton.IsEnabled | Should -Be $false
         $ui.OpenFolderButton.IsEnabled | Should -Be $false
+    }
+}
+
+Describe "updateResultPaneHeight" -Tag Unit {
+    BeforeEach {
+        resetPreview
+        $script:previewHeightDragged = $false
+        $content = [pscustomobject]@{ Needs = 150.0; DesiredSize = [pscustomobject]@{ Height = 0.0 }; Measures = 0 }
+        $content | Add-Member ScriptMethod Measure { param ($size) $this.Measures++; $this.DesiredSize.Height = $this.Needs }
+        $content | Add-Member ScriptMethod InvalidateMeasure { }
+        $ui.ResultListHost | Add-Member NoteProperty Content $content -Force
+        $ui.ResultListHost | Add-Member ScriptMethod UpdateLayout { } -Force
+        $ui.ResultListHost.ActualHeight = 300.0
+        $ui.ResultListHost.ActualWidth = 500.0
+        $detailRow = [pscustomobject]@{ ActualHeight = 180.0; Height = [System.Windows.GridLength]::new(180) }
+        $ui | Add-Member NoteProperty DetailRow $detailRow -Force
+    }
+    AfterEach {
+        $ui.ResultListHost.ActualHeight = 0.0
+        $ui.ResultListHost.ActualWidth = 0.0
+    }
+
+    It "表の内容が低いとき、表を内容の高さまで縮めて、プレビューを広げる" {
+        updateResultPaneHeight 2
+        $ui.DetailRow.Height.Value | Should -Be 330
+    }
+
+    It "表に行がまだ無いとき（起動直後）は、広げずに元の高さのまま" {
+        updateResultPaneHeight 0
+        $ui.DetailRow.Height.Value | Should -Be 180
+    }
+
+    It "表の内容が増えて、表が足りなくなったら、プレビューを元の高さに戻す" {
+        updateResultPaneHeight 2
+        $ui.ResultListHost.Content.Needs = 400.0
+        updateResultPaneHeight 20
+        $ui.DetailRow.Height.Value | Should -Be 180
+    }
+
+    It "行が 40 ちょうどまでは内容を測る" {
+        updateResultPaneHeight 40
+        $ui.ResultListHost.Content.Measures | Should -Be 1
+    }
+
+    It "行が多いときは、内容を測らずに元の高さにする" {
+        updateResultPaneHeight 41
+        $ui.ResultListHost.Content.Measures | Should -Be 0
+        $ui.DetailRow.Height.Value | Should -Be 180
+    }
+
+    It "利用者が境目を動かしたあとは、高さを変えない" {
+        $script:previewHeightDragged = $true
+        updateResultPaneHeight 2
+        $ui.DetailRow.Height.Value | Should -Be 180
+    }
+
+    It "大きさがまだ取れないときは、何もしない" {
+        $ui.ResultListHost.ActualWidth = 0.0
+        updateResultPaneHeight 2
+        $ui.DetailRow.Height.Value | Should -Be 180
     }
 }
 

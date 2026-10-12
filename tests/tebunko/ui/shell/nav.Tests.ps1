@@ -4,6 +4,7 @@
 BeforeAll {
     . "$PSScriptRoot\..\..\..\helpers\load.ps1"
     . "${scriptsDir}\tebunko\ui\shell\nav_view.ps1"
+    . "${scriptsDir}\tebunko\ui\index_view.ps1"
 
     function newFakeBox {
         param ([string]$name)
@@ -147,6 +148,16 @@ Describe "invokeShortcutAction" -Tag Unit {
     ) {
         (invokeShortcutAction @{ Action = "Refresh"; Screen = $screen }) | Should -Be $true
         @($global:navLog) | Should -Be $expected
+    }
+
+    It "Refresh は、ワークスペースを移している間は何も読み直さずキーを受ける" {
+        $script:workspaceMoving = $true
+        try {
+            (invokeShortcutAction @{ Action = "Refresh"; Screen = "IndexTab" }) | Should -Be $true
+            $global:navLog.Count | Should -Be 0
+        } finally {
+            $script:workspaceMoving = $false
+        }
     }
 
     It "CancelSearch は、検索中だけ止めてキーを受ける。検索中でなければ何もせずキーを渡す" {

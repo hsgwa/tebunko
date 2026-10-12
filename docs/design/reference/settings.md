@@ -47,7 +47,7 @@
 
 ## ワークスペースの切り替え（`tebunko/core/workspace_mover.ps1`。`WorkspaceMover`）
 
-画面のスレッドで使う。作るのは `[WorkspaceMover]::new(設定ファイルの場所)`。画面（`applyWorkspace`）は、選んだ直後のフォルダを確かめて利用者に選ばせたあと `ChangeWorkspace` を呼び、結果を出して画面を切り替える。クラスの考え方は [クラスと関数の使い分け](../structure/classes.md)。
+作るのは `[WorkspaceMover]::new(設定ファイルの場所)`。`ListEntries` などの確かめは画面のスレッドで使う。画面（`applyWorkspace`）は、選んだ直後のフォルダを確かめて利用者に選ばせたあと、`ChangeWorkspace` を画面の裏の仕事（`startWorkspaceMove`）で呼ぶ。終わったら、画面のスレッドで結果を出して画面を切り替える（結果の判断は `getWorkspaceMoveOutcome`）。`ChangeWorkspace` は成功したときだけ設定を書き、失敗したら戻すので、裏で失敗しても設定は変わらない。クラスの考え方は [クラスと関数の使い分け](../structure/classes.md)。
 
 | メソッド | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|

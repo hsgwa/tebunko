@@ -44,9 +44,14 @@
 
       <!-- 頭は高さ 48 の操作の行（上下 8・ボタン 32）。左に「N / M 件を選択中」、右に［すべて更新］・［アクション ▾］・［＋ フォルダを追加］ -->
       <StackPanel Grid.Row="0">
-        <Grid Height="48">
-          <TextBlock x:Name="SelectionCountText" Style="{StaticResource Meta}" VerticalAlignment="Center" HorizontalAlignment="Left" />
-          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+        <Grid Height="48" Margin="16,0">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <TextBlock x:Name="SelectionCountText" Style="{StaticResource Meta}" VerticalAlignment="Center" HorizontalAlignment="Left"
+                     TextTrimming="CharacterEllipsis" Margin="0,0,12,0" />
+          <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
             <Button x:Name="IndexingButton" Content="すべて更新" ContentTemplate="{StaticResource ButtonIcon.Refresh}" MinWidth="104" Height="32" Margin="0,0,8,0" />
             <!-- ［アクション ▾］: 押すと下にメニューを開く（index_events.ps1）。メニューの項目の可否は updateIndexingButton が決める -->
             <Button x:Name="ActionsButton" Height="32" Margin="0,0,8,0">
@@ -70,10 +75,12 @@
             <Button x:Name="NewIndexButton" Style="{StaticResource Primary}" Height="32" Content="フォルダを追加" ContentTemplate="{StaticResource ButtonIcon.Plus}" AutomationProperties.Name="＋ フォルダを追加" />
           </StackPanel>
         </Grid>
-        <TextBlock x:Name="IndexingHint" Style="{StaticResource Meta}" Margin="0,0,0,0" TextWrapping="Wrap" TextAlignment="Right" />
+        <TextBlock x:Name="IndexingHint" Style="{StaticResource Meta}" Margin="16,0,16,0" TextWrapping="Wrap" TextAlignment="Right" />
       </StackPanel>
 
-      <Grid Grid.Row="1" Margin="0,4,0,0">
+      <!-- 表は左右いっぱい。上辺だけ細い線を引く（左右と下の外枠は付けない。DataGrid 自身の枠は 0 のまま） -->
+      <Border Grid.Row="1" Margin="0,4,0,0" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,1,0,0">
+        <Grid>
         <DataGrid x:Name="IndexGrid" RowStyle="{StaticResource IndexRow}" SelectionMode="Single" CanUserSortColumns="False" AllowDrop="True" MinHeight="90">
           <DataGrid.ContextMenu>
             <ContextMenu x:Name="IndexRowMenu">
@@ -85,15 +92,15 @@
             </ContextMenu>
           </DataGrid.ContextMenu>
           <DataGrid.Columns>
-            <DataGridTemplateColumn Width="44">
+            <DataGridTemplateColumn Width="52">
               <!-- 見出しの全選択（一部だけ選んでいるときは横棒）。押したときの動きは index_events.ps1 -->
               <DataGridTemplateColumn.Header>
-                <CheckBox x:Name="SelectAllCheckBox" IsThreeState="True" HorizontalAlignment="Center"
+                <CheckBox x:Name="SelectAllCheckBox" IsThreeState="True" HorizontalAlignment="Left" Margin="6,0,0,0"
                           AutomationProperties.Name="すべて選ぶ" />
               </DataGridTemplateColumn.Header>
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
-                  <CheckBox IsChecked="{Binding Checked, Mode=TwoWay}" HorizontalAlignment="Center" />
+                  <CheckBox IsChecked="{Binding Checked, Mode=TwoWay}" HorizontalAlignment="Left" Margin="6,0,0,0" />
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
@@ -251,7 +258,8 @@
           <Button x:Name="IndexEmptyAddButton" Style="{StaticResource Primary}" Content="フォルダを追加" ContentTemplate="{StaticResource ButtonIcon.Plus}" AutomationProperties.Name="＋ フォルダを追加" Margin="0,14,0,0" HorizontalAlignment="Center" MinWidth="130" Height="32"
                   IsEnabled="{Binding IsEnabled, ElementName=NewIndexButton}" />
         </StackPanel>
-      </Grid>
+        </Grid>
+      </Border>
     </Grid>
   </Border>
 </Grid>

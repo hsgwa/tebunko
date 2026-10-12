@@ -202,6 +202,8 @@ function getFastSearchView {
     # 検索ワードの下に出す、高速検索（Windows Search で先に絞る）の使用可否。
     #   available: Windows Search が使えるか（testWindowsSearch）。$null はまだ確かめていない（使えるものとして扱う）
     # Tip は、印にマウスを置いたときのツールチップ。使えるときは印の意味、使えないときは理由と直し方（どの場合も空にしない）。
+    # GoToIndex は、印を押すとインデックス管理へ移るか。Windows Search が使えないとき（Tip の［インデックス管理で確認］）だけ。
+    # 正規表現・語の長さが理由のときは、検索条件で直せるので移らない
     # 使えない理由は、上から順に最初に当てはまるもの
     param (
         $available,
@@ -220,7 +222,7 @@ function getFastSearchView {
             $tip = "空白で区切った語のどれかが 2 文字以上のときに使えます"
         }
     }
-    return @{ Usable = $usable; Text = if ($usable) { "高速検索：使用可" } else { "高速検索：使用不可" }; Tip = $tip }
+    return @{ Usable = $usable; Text = if ($usable) { "高速検索：使用可" } else { "高速検索：使用不可" }; Tip = $tip; GoToIndex = (!$usable -and $available -eq $false) }
 }
 
 function newSearchButtonState {
@@ -260,8 +262,7 @@ function getConditionFlow {
     # 項目は左から順に並べ、入りきらなくなったら次の行の左端へ落ちる（後ろの項目から落ちる）。
     # 「伸びる空き」は spacerIndex 番の項目の前に置き、その行の余りを全部取る（右の組を右端に寄せる）。
     # widths は各項目の幅（右の間を含む。出していない項目は 0）。available は並べられる幅（右の間を含む）。
-    # 返すもの: Lines（行ごとの項目の番号）・SpacerWidth（空きの幅）・LineStarts（各項目が行の先頭か）・
-    # OnSpacerLine（各項目が、空きのある行にあるか）
+    # 返すもの: Lines（行ごとの項目の番号）・SpacerWidth（空きの幅）・LineStarts（各項目が行の先頭か）
     param (
         [double[]]$widths,
         [int]$spacerIndex,
@@ -300,9 +301,5 @@ function getConditionFlow {
     if ($null -ne $spacerLine) {
         $spacer = [Math]::Max(0.0, $available - $sums[$spacerLine] - 0.5)
     }
-    $onSpacerLine = New-Object bool[] $widths.Count
-    if ($null -ne $spacerLine) {
-        foreach ($member in $lines[$spacerLine]) { $onSpacerLine[$member] = $true }
-    }
-    return @{ Lines = @($lines.ToArray()); SpacerWidth = $spacer; LineStarts = $starts; OnSpacerLine = $onSpacerLine }
+    return @{ Lines = @($lines.ToArray()); SpacerWidth = $spacer; LineStarts = $starts }
 }

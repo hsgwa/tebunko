@@ -42,12 +42,16 @@
     <!-- 主な領域：中身（画面）とステータスバー。ステータスバーは左の欄の下には付かない -->
     <Grid Grid.Column="2">
       <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
         <RowDefinition Height="*" />
         <RowDefinition Height="24" />
       </Grid.RowDefinitions>
-      <ContentControl x:Name="ContentHost" Grid.Row="0" Margin="16,12,16,12" Focusable="False" IsTabStop="False"
+      <!-- 窓の上の知らせの帯（ワークスペースが使えないとき。shell/notice_banner.xaml。notice_banner.ps1）。画面を切り替えても残る -->
+      <ContentControl x:Name="WorkspaceNoticeHost" Grid.Row="0" Focusable="False" IsTabStop="False"
                       HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
-      <ContentControl x:Name="StatusBarHost" Grid.Row="1" Focusable="False" IsTabStop="False"
+      <ContentControl x:Name="ContentHost" Grid.Row="1" Margin="16,12,16,12" Focusable="False" IsTabStop="False"
+                      HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
+      <ContentControl x:Name="StatusBarHost" Grid.Row="2" Focusable="False" IsTabStop="False"
                       HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
     </Grid>
 

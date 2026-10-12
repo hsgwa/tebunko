@@ -6,8 +6,11 @@ BeforeAll {
     $script:calls = New-Object System.Collections.Generic.List[string]
     $script:statuses = New-Object System.Collections.Generic.List[string]
     $script:jobs = New-Object System.Collections.Generic.List[object]
+    $script:banners = New-Object System.Collections.Generic.List[string]
 
     function setStatus { param([string]$text) $script:statuses.Add($text) }
+    function showNoticeBanner { param($prefix, $kind, $message) $script:banners.Add("$prefix/$kind/$message") }
+    function hideNoticeBanner { param($prefix) $script:banners.Add("$prefix/hidden") }
     function startJob {
         # 裏の列には出さず、依頼を取っておく（テストが onDone を呼んで、終わったことにする）
         param ([scriptblock]$scriptBlock, [object[]]$arguments, [scriptblock]$onDone, [string]$queue = "default")
@@ -342,6 +345,29 @@ Describe "startIndexStoreJob（削除）" -Tag Unit {
         $script:calls | Should -Not -Contain "loadTargets"
     }
 
+    It "失敗したら、同じ文をインデックス管理の上の帯にも出し、次の削除が成功したら帯を消す" {
+        $script:banners.Clear()
+        startIndexStoreJob "delete" "営業" "" @() { setStatus "済み" }
+        & $script:jobs[0].OnDone @() "届きません"
+
+        $message = "インデックス [営業] の削除に失敗しました：届きません"
+        $script:statuses[$script:statuses.Count - 1] | Should -Be $message
+        $script:banners[$script:banners.Count - 1] | Should -Be "IndexNotice/IndexOpFailed/${message}"
+
+        $script:jobs.Clear()
+        startIndexStoreJob "delete" "技術" "" @() { }
+        & $script:jobs[0].OnDone @() ""
+        $script:banners[$script:banners.Count - 1] | Should -Be "IndexNotice/hidden"
+    }
+
+    It "名前の変更の失敗は、帯に出さない" {
+        $script:banners.Clear()
+        startIndexStoreJob "rename" "営業" "営業部" @() { }
+        & $script:jobs[0].OnDone @() "届きません"
+
+        @($script:banners | Where-Object { $_ -like "*IndexOpFailed*" }).Count | Should -Be 0
+    }
+
     It "裏の仕事は IndexCatalog.RemoveIndex を呼ぶ" {
         Mock assertWorkspaceReachable { }
         Mock catalogRemove { }
@@ -517,6 +543,20 @@ Describe "deleteIndexes（複数削除）" -Tag Unit {
         applyIndexTreeData @{ State = $script:unreachableState; Message = "届きません" } @()
 
         $script:statuses[$script:statuses.Count - 1] | Should -BeLike "削除に失敗しました*"
+        ($script:banners -join "`n") | Should -Match "IndexNotice/IndexOpFailed/削除に失敗しました"
+    }
+
+    It "まとめての削除が失敗して帯が出ても、次に 1 件ずつ削除して成功すれば帯が消える" {
+        $script:workspace = newTestWorkspace @{} "\fileserver\共有\ws\work"
+        $script:banners.Clear()
+        deleteIndexes @("営業", "技術")
+        & $script:jobs[0].OnDone @() "届きません"
+        $script:banners[$script:banners.Count - 1] | Should -Be "IndexNotice/IndexOpFailed/削除に失敗しました：届きません"
+
+        $script:jobs.Clear()
+        startIndexStoreJob "delete" "営業" "" @() { }
+        & $script:jobs[0].OnDone @() ""
+        $script:banners[$script:banners.Count - 1] | Should -Be "IndexNotice/hidden"
     }
 
     It "待っていなければ、結果のダイアログを出す" {

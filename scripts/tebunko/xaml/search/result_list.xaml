@@ -15,40 +15,42 @@
   </Grid.RowDefinitions>
 
   <!-- 件数・すべて開く／閉じる・進捗・絞り込み・保存 -->
-  <DockPanel Grid.Row="0" Margin="0" Background="{StaticResource Bg.Subtle}">
-    <Button x:Name="ExportButton" DockPanel.Dock="Right" Margin="10,0,0,0" Padding="10,0" MinWidth="0" Height="26" FontSize="11"
-            ToolTip="結果をファイルに出力します">
-      <StackPanel Orientation="Horizontal">
-        <Path Data="{StaticResource Icon.Save}" Width="13" Height="13" Stretch="Uniform" Stroke="{StaticResource Ink.Body}"
-              StrokeThickness="1.08" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,6,0" />
-        <TextBlock Text="保存" VerticalAlignment="Center" />
+  <Border Grid.Row="0" Background="{StaticResource Bg.Subtle}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,0,1">
+    <DockPanel Margin="0">
+      <Button x:Name="ExportButton" DockPanel.Dock="Right" Margin="10,0,0,0" Padding="10,0" MinWidth="0" Height="26" FontSize="11"
+              ToolTip="結果をファイルに出力します">
+        <StackPanel Orientation="Horizontal">
+          <Path Data="{StaticResource Icon.Save}" Width="13" Height="13" Stretch="Uniform" Stroke="{StaticResource Ink.Body}"
+                StrokeThickness="1.08" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,6,0" />
+          <TextBlock Text="保存" VerticalAlignment="Center" />
+        </StackPanel>
+      </Button>
+      <Grid DockPanel.Dock="Right" Width="220">
+        <TextBox x:Name="FilterBox" FontSize="11" Height="26" />
+        <TextBlock x:Name="FilterPlaceholder" Style="{StaticResource Placeholder}" FontSize="11" Text="ファイル名・場所・中身で絞り込む" />
+      </Grid>
+      <TextBlock DockPanel.Dock="Right" Text="結果を絞り込み" Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="0,0,10,0" />
+      <ProgressBar x:Name="SearchProgress" DockPanel.Dock="Right" Width="60" Margin="0,0,12,0" Maximum="1" Visibility="Collapsed" VerticalAlignment="Center" />
+      <!-- 検索結果の件数は、この画面の主役 -->
+      <TextBlock x:Name="SummaryText" DockPanel.Dock="Left" Style="{StaticResource Meta.Strong}"
+                 Foreground="{StaticResource Ink.Strong}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="16,0,24,0" />
+      <!-- 検索した直後は、ファイルごとの見出しだけを出す（ヒットした行は閉じておく）。ここで全部を開く・閉じる -->
+      <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+        <Button x:Name="ExpandAllButton" Style="{StaticResource Link}" Content="すべて開く" FontSize="11" VerticalAlignment="Center"
+                ToolTip="すべてのファイルを開いて、ヒットした行を表示します（ヒットが多いと時間がかかります）" />
+        <Rectangle Width="1" Height="11" Fill="{StaticResource Border.Soft}" Margin="10,0" />
+        <Button x:Name="CollapseAllButton" Style="{StaticResource Link}" Content="すべて折りたたむ" FontSize="11" VerticalAlignment="Center"
+                ToolTip="すべてのファイルを閉じて、ファイルの見出しだけを表示します" />
       </StackPanel>
-    </Button>
-    <Grid DockPanel.Dock="Right" Width="220">
-      <TextBox x:Name="FilterBox" FontSize="11" Height="26" />
-      <TextBlock x:Name="FilterPlaceholder" Style="{StaticResource Placeholder}" FontSize="11" Text="ファイル名・場所・中身で絞り込む" />
-    </Grid>
-    <TextBlock DockPanel.Dock="Right" Text="結果を絞り込み" Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="0,0,10,0" />
-    <ProgressBar x:Name="SearchProgress" DockPanel.Dock="Right" Width="60" Margin="0,0,12,0" Maximum="1" Visibility="Collapsed" VerticalAlignment="Center" />
-    <!-- 検索結果の件数は、この画面の主役 -->
-    <TextBlock x:Name="SummaryText" DockPanel.Dock="Left" Style="{StaticResource Meta.Strong}"
-               Foreground="{StaticResource Ink.Strong}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="16,0,24,0" />
-    <!-- 検索した直後は、ファイルごとの見出しだけを出す（ヒットした行は閉じておく）。ここで全部を開く・閉じる -->
-    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-      <Button x:Name="ExpandAllButton" Style="{StaticResource Link}" Content="すべて開く" FontSize="11" VerticalAlignment="Center"
-              ToolTip="すべてのファイルを開いて、ヒットした行を表示します（ヒットが多いと時間がかかります）" />
-      <Rectangle Width="1" Height="11" Fill="{StaticResource Border.Soft}" Margin="10,0" />
-      <Button x:Name="CollapseAllButton" Style="{StaticResource Link}" Content="すべて折りたたむ" FontSize="11" VerticalAlignment="Center"
-              ToolTip="すべてのファイルを閉じて、ファイルの見出しだけを表示します" />
-    </StackPanel>
-  </DockPanel>
+    </DockPanel>
+  </Border>
 
       <!-- 結果の表。ファイルごとの見出しの行（FileGroup）と、開いているファイルの行（HitRow）を並べる（result_list.ps1）。
            見出しの行は、行の形（Template）を FileHeaderRow に替えて、列をまたいだ 1 行にする -->
       <DataGrid Grid.Row="1" x:Name="ResultGrid">
         <DataGrid.Resources>
           <ControlTemplate x:Key="FileHeaderRow" TargetType="DataGridRow">
-            <!-- クリック（・Enter）で閉じる・開く。右端はヒットした場所と件数（件数は絞り込み後の行の数） -->
+            <!-- クリック（・Enter）で閉じる・開く。右端はヒットした場所（2 か所以上のときだけ）と件数（件数は絞り込み後の行の数） -->
             <Border x:Name="HeaderBg" Background="{StaticResource Bg.Window}" BorderBrush="{StaticResource Border.Soft}"
                     BorderThickness="0,0,0,1" MinHeight="36" Cursor="Hand" ToolTip="{Binding FullPath}">
               <Grid>
@@ -58,8 +60,8 @@
                   <TextBlock x:Name="Place" DockPanel.Dock="Right" Style="{StaticResource Meta}" FontSize="11" VerticalAlignment="Center"
                              TextTrimming="CharacterEllipsis" MaxWidth="360" Margin="12,0,0,0">
                     <TextBlock.Text>
-                      <MultiBinding StringFormat="{}{0} ・ {1:N0} 件">
-                        <Binding Path="LocationText" />
+                      <MultiBinding StringFormat="{}{0}{1:N0} 件">
+                        <Binding Path="LocationPrefix" />
                         <Binding Path="ShownCount" />
                       </MultiBinding>
                     </TextBlock.Text>

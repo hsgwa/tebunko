@@ -51,6 +51,8 @@ BeforeAll {
 
     # 画面のほかのファイル（shell.ps1・result_list.ps1・folder_dialog.ps1）にある関数の代わり。テストごとに Mock する
     function setStatus { param([string]$text) $script:statuses.Add($text) }
+    function showNoticeBanner { param([string]$prefix, [string]$kind, [string]$message) $script:banners.Add("${prefix}|${kind}|${message}") }
+    function hideNoticeBanner { param([string]$prefix) $script:banners.Add("${prefix}|hidden") }
     function safe { param([scriptblock]$block) & $block }
     function getCurrentHitRow { }
     function getSelectedRows { }
@@ -1048,6 +1050,7 @@ Describe "exportResults" -Tag Io {
 
     BeforeEach {
         $script:statuses = New-Object System.Collections.Generic.List[string]
+        $script:banners = New-Object System.Collections.Generic.List[string]
     }
 
     It "検索する前は出力しない" {
@@ -1124,7 +1127,9 @@ Describe "exportResults" -Tag Io {
         } finally {
             $lock.Dispose()
         }
-        lastStatus | Should -Be "search_results.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。"
+        $message = "search_results.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。"
+        lastStatus | Should -Be $message
+        $script:banners[$script:banners.Count - 1] | Should -Be "SearchNotice|ResultSaveFailed|${message}"
         Should -Invoke Invoke-Item -Times 0 -Exactly
     }
 
@@ -1144,7 +1149,9 @@ Describe "exportResults" -Tag Io {
         } finally {
             [System.IO.File]::SetAttributes($resultFile, "Normal")
         }
-        lastStatus | Should -Be "search_results.txt に書き込む権限がありません（読み取り専用など）。$resultFile を確かめてから、もう一度出力してください。"
+        $message = "search_results.txt に書き込む権限がありません（読み取り専用など）。$resultFile を確かめてから、もう一度出力してください。"
+        lastStatus | Should -Be $message
+        $script:banners[$script:banners.Count - 1] | Should -Be "SearchNotice|ResultSaveFailed|${message}"
         [System.IO.File]::ReadAllText($resultFile) | Should -Be "前回の結果"
         Should -Invoke Invoke-Item -Times 0 -Exactly
     }

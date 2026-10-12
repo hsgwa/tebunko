@@ -51,6 +51,8 @@ $script:indexingState = $null
 $script:indexSummary = $null
 $script:targetsNaming = $false  # ネットワークのワークスペースで、一覧のインデックス名を裏で決めている間（loadTargets）。この間は一覧が空で、追加・削除・インデックス作成の開始・ワークスペースの変更をしない
 $script:archiveBusy = $false  # エクスポート・インポート中（別スレッド）。settings\settings.ps1 の testWorkspaceChangeable も見る
+$script:workspaceMoving = $false  # ワークスペースの中身を移している間（別スレッド。settings\settings.ps1 の startWorkspaceMove）。indexBusy とは分ける。閉じるのは移し終わるまで待つ
+$script:closeAfterWorkspaceMove = $false  # 移している間に窓を閉じようとした（移し終わったら閉じる）
 $script:archiveJobOperation = ""
 $script:archiveJobOnSuccess = $null
 
@@ -87,7 +89,7 @@ function getCurrentIndexJobBlocker {
         [bool]$extraIndexing = $false
     )
 
-    return (getIndexJobBlocker ((isIndexingOrPreparing) -or $extraIndexing) ([bool]$script:indexBusy) ([bool]$script:archiveBusy) ([bool]$script:targetsNaming))
+    return (getIndexJobBlocker ((isIndexingOrPreparing) -or $extraIndexing) ([bool]$script:indexBusy) ([bool]$script:archiveBusy) ([bool]$script:targetsNaming) ([bool]$script:workspaceMoving))
 }
 
 function shouldRefreshFastSearchStatus {
@@ -265,7 +267,7 @@ function updateFastSearchRows {
             $hasContent = ($stats[$item.Name].Done -ge 1)
         }
         $row = getFastSearchRowView $script:fastSearchReason $script:fastSearchProgress $item.Name $hasContent $script:fastSearchCheckedAt (isIndexing)
-        $item.SetFast($row.Text, $row.ToolTip, $row.Level)
+        $item.SetFast($row.Text, $row.ToolTip, $row.Level, [string[]]@($row.Steps))
         if ($row.Level -eq "Wait") {
             $waiting = $true
         }
@@ -466,7 +468,7 @@ function applyIndexStats {
             }
             $item.SetStats(("{0:#,0}" -f $stat.Total), ("更新済み {0:#,0} 件 ・ 未更新 {1:#,0} 件 ・ 失敗 {2:#,0} 件" -f $stat.Done, $stat.Pending, $stat.Failed), $lastText)
         }
-        $row = getIndexRowView $stat $indexing $item.Enabled (getIndexingRatio) (testIndexInRound $item)
+        $row = getIndexRowView $stat $indexing $item.Enabled (getIndexingRatio) (testIndexInRound $item) (testIndexExporting $item)
         $item.SetIndexState($row.Text, $row.ToolTip, $row.Level, $row.Sub, [double]$row.Percent)
         setIndexRowActions $item
     }
@@ -491,12 +493,31 @@ function testIndexInRound {
     return (@($script:indexingOnlyNames).Count -eq 0 -or @($script:indexingOnlyNames) -contains $item.Name)
 }
 
+$script:exportingNames = @()  # エクスポートで書き出している最中のインデックスの名前（行のバッジを「エクスポート中」にする）
+
+function testIndexExporting {
+    # 行がエクスポートで書き出している最中か
+    param ($item)
+
+    return (@($script:exportingNames) -contains [string]$item.Name)
+}
+
+function setExportingRows {
+    # エクスポートで書き出している最中の名前を置き（空なら終わり）、一覧の行のバッジを置き直す
+    param ([string[]]$names)
+
+    $script:exportingNames = @($names | Where-Object { $_ })
+    if ($null -ne $script:indexingState) {
+        applyIndexStats $script:indexingState.IndexStats (isIndexing)
+    }
+}
+
 function setIndexRowActions {
     # 行の右端のボタン（［更新］［中止］・何も出さない）を、行の状態（IndexLevel）と動いている処理に合わせる。判断は getIndexRowActions
     param ($item)
 
     $blocker = getCurrentIndexJobBlocker
-    $actions = getIndexRowActions $item.IndexLevel $blocker
+    $actions = getIndexRowActions $item.IndexLevel $blocker (testIndexExporting $item)
     $item.SetRowActions($actions.Action, $actions.UpdateEnabled)
 }
 

@@ -63,8 +63,7 @@ function inlineMergedDictionaries {
 # XAML を読み込む（Window・タブ・ダイアログの中身）。theme.xaml への参照は、読み込む前にテキストで差し替える
 function loadXaml {
     param (
-        [string]$path,
-        [string]$fontsFolder = ""   # 同梱のフォントのフォルダ（呼び出す側が ${fontsDir} を渡す）。空なら Yu Gothic UI・Meiryo UI だけ
+        [string]$path
     )
 
     $xml = New-Object System.Xml.XmlDocument
@@ -81,37 +80,26 @@ function loadXaml {
     }
 
     # 画面の既定のフォント（Font.Body）。XAML のルートが FontFamily="{DynamicResource Font.Body}" で使う。
-    # XamlReader.Load は XAML 内の相対パスを解決できないため、同梱のフォントを指す FontFamily はここで作って入れる
+    # フォントはコードで 1 か所（newAppFontFamily）から入れる。展開した版でも単一 .ps1 版でも同じ値になる
     if ($loaded -is [System.Windows.FrameworkElement]) {
         # 型を明示する（PowerShell のラッパーのまま入れると、DynamicResource が文字列として解決して失敗する）
-        $loaded.Resources["Font.Body"] = [System.Windows.Media.FontFamily](newAppFontFamily $fontsFolder)
+        $loaded.Resources["Font.Body"] = [System.Windows.Media.FontFamily](newAppFontFamily)
     }
     return $loaded
 }
 
-# 画面の既定のフォント。同梱のフォント（引数のフォルダ。呼び出す側の ${fontsDir}）の Rethink Sans を先に、足りない文字（日本語）は Yu Gothic UI・Meiryo UI で表す。
-# フォルダが無いとき（単一 .ps1 版など）は Yu Gothic UI・Meiryo UI だけにする
+# 画面の既定のフォント。欧文は Segoe UI、日本語など足りない文字は Yu Gothic UI（無ければ Meiryo UI）で表す。
+# どれも Windows に入っているので、展開した版も単一 .ps1 版も同じになる（フォントは同梱しない）
 function newAppFontFamily {
-    param (
-        [string]$fontsFolder
-    )
-
-    $fallback = "Yu Gothic UI, Meiryo UI"
-    if ($fontsFolder -and (Test-Path -LiteralPath $fontsFolder -PathType Container)) {
-        # 末尾が \ のフォルダを指す URI にする（そうしないと、./# の探し先がフォルダの 1 つ上になる）
-        $baseUri = New-Object System.Uri (([System.IO.Path]::GetFullPath($fontsFolder).TrimEnd("\") + "\"))
-        return New-Object System.Windows.Media.FontFamily -ArgumentList $baseUri, "./#Rethink Sans, $fallback"
-    }
-    return New-Object System.Windows.Media.FontFamily -ArgumentList $fallback
+    return New-Object System.Windows.Media.FontFamily -ArgumentList "Segoe UI, Yu Gothic UI, Meiryo UI"
 }
 
 function loadWindow {
     param (
-        [string]$path,
-        [string]$fontsFolder = ""
+        [string]$path
     )
 
-    $loaded = loadXaml $path $fontsFolder
+    $loaded = loadXaml $path
 
     # 窓のアイコン（タイトルバー・タスクバー）は、ベクターの絵（loadAppIcon）を渡す。
     # WPF が窓のアイコンの大きさ（倍率に応じた大きさ）に描き直す。アイコンが読めなくても画面は開けるようにする。
