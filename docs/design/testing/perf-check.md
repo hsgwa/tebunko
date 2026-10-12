@@ -84,6 +84,14 @@ flowchart TD
 - main も同じくらい遅ければ、ランナーの問題として扱う。上限を上げるかは、メンテナが決める
 - main が通って PR だけが落ちれば、回帰として直す
 
+## 計測の子が失敗したとき
+
+`tools/measure_perf.ps1` は、計測ごとに子のプロセス（`tools/perf/measure_*.ps1`）を起こす。子が 0 以外で終わると、例外の文に次を入れる（出すのは CI のログと例外の文だけで、ファイルや artifact には残さない）。
+
+- 終了コード（10 進と 16 進。異常終了のときの NTSTATUS が読める）
+- 子の標準出力・標準エラーの終わりの 20 行（出力が無ければ「何も出力しませんでした」）。プレビューの子は、段階の切り替えで `段階: <名前>`（読み込み・開始・検索・プレビュー・読み足し・描画・記録の終わり）を 1 行ずつ出すので、どこまで進んだかが分かる。名前だけで、値は出さない
+- CI（`GITHUB_ACTIONS` が `true`）のときだけ、子が動いていた間の Application ログのうち、`powershell.exe` に関する Application Error・.NET Runtime・Windows Error Reporting（5 件まで、1 件 400 文字まで）。手元の機械のログは読まない。ログを読めなくても、上の 2 つは出る
+
 ## Office を使う形式の比べ方（手元の Windows。Excel・Word・PowerPoint が入った機械で）
 
 - 対象は .xlsx（Excel）・.doc（Word）・.ppt（PowerPoint）の取り込み。ランナーに Office が無く、Office の版・機械・Defender で大きく揺れるので、固定の上限は置かない
