@@ -4168,7 +4168,7 @@
 </tr>
 <tr>
 <td>高さの変更</td>
-<td>結果の表とプレビューの間の線を<strong>上下にドラッグして高さを変えられる</strong>（<code>GridSplitter</code>。見た目は検索とインデックス管理で共通の Style <code>Splitter.Rows</code>）。結果の表は 60px、プレビューは 100px（列見出し＋1 行が見える高さ）を下限とする。初めの高さは 200px。高さは画面を開いている間だけ保つ（設定には保存しない）。<strong>高さを変えると、出す行数もそれに合わせて変わる</strong>（下の「表示する行」）</td>
+<td>結果の表とプレビューの間の線を<strong>上下にドラッグして高さを変えられる</strong>（<code>GridSplitter</code>。見た目は検索とインデックス管理で共通の Style <code>Splitter.Rows</code>）。結果の表は 60px、プレビューは 100px（列見出し＋1 行が見える高さ）を下限とする。初めの高さは 200px。高さは画面を開いている間だけ保つ（設定には保存しない）。高さを変えても、読み直さない（表示する行数は高さで決めない。下の「表示する行」）</td>
 </tr>
 <tr>
 <td>見出し</td>
@@ -4176,7 +4176,7 @@
 </tr>
 <tr>
 <td>表示する行</td>
-<td><strong>プレビューの高さに収まるだけ</strong>（<code>getPreviewContextLines</code>）。表示できる行数を「行の表示領域の高さ ÷ 1 行の高さの目安 22px（<code>previewRowHeight</code>）」で求め、選択行の前後に同数ずつ割り当てる（余りの 1 行は後ろに付ける）。下限の高さでは<strong>選択行の 1 行だけ</strong>、高くするとその分だけ前後の行が見える。上限は 101 行（<code>maxPreviewRows</code>）。<br>高さを変えると（<code>PreviewScroll</code> の <code>SizeChanged</code>）読み直すが、ドラッグ中は何度も起きるため、選択の変更と同じ 120 ms のタイマーでまとめて 1 回だけ読む。このとき横スクロールの位置は変えない（ドラッグのたびに左へ戻らないようにするため）<br>本文インデックスのファイルから、ヒットの元のファイル・場所（<code>Book</code>・<code>Location</code>）の中の該当の行だけを取り出す（<code>readContentIndexContext</code>、<a href="../implementation/#実装構成">実装構成</a>）。Excel は場所の N 行目がシートの N 行目なので、元のシートの前後の行になる。場所の先頭・末尾では、ある行だけを表示する</td>
+<td><strong>最初は選択行の前後 50 行ずつ（最大 101 行。<code>previewFirstLines</code>）</strong>を読んで出す。高さに入る行数より多く読み、縦にスクロールして見られる。高さを変えても読み直さない。選択行は、プレビューの上から 3 行目に来るよう縦にスクロールする（位置は判断層の <code>getPreviewTopRow</code>。選択行の前が 2 行に満たなければ先頭から）<br>行は<strong>仮想化</strong>して、見えている行（と前後の余白）だけ画面の要素を作る（<code>PreviewRows</code> のテンプレートの中のスクロール <code>PreviewScroll</code> に <code>VirtualizingStackPanel</code>。<code>Recycling</code>・縦のスクロールは行の単位）。行の数が増えても要素の数は増えない<br>本文インデックスのファイルから、ヒットの元のファイル・場所（<code>Book</code>・<code>Location</code>）の中の該当の行だけを取り出す（<code>readContentIndexContext</code>、<a href="../implementation/#実装構成">実装構成</a>）。Excel は場所の N 行目がシートの N 行目なので、元のシートの前後の行になる。場所の先頭・末尾では、ある行だけを表示する</td>
 </tr>
 <tr>
 <td>読み込みの速さ</td>
@@ -4208,7 +4208,7 @@
 </tr>
 <tr>
 <td>縦スクロール</td>
-<td>出す行数は高さに合わせるが、セル内改行のある行は 1 行の目安（22px）より高いため入りきらないことがある。そのときは縦にスクロールする。<strong>列見出しは行とは別のスクロールに置いて固定</strong>し、縦スクロールで隠れないようにする（横位置は行に合わせる）</td>
+<td>読んだ行が高さに入りきらないときは縦にスクロールする（行の単位。セル内改行で高さが違う行があっても、行の単位なので飛ばない）。<strong>列見出しは行とは別のスクロールに置いて固定</strong>し、縦スクロールで隠れないようにする（横位置は行に合わせる）</td>
 </tr>
 <tr>
 <td>横スクロール</td>

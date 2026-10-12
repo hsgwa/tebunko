@@ -4242,11 +4242,11 @@
 <tbody>
 <tr>
 <td>ヒットした行</td>
-<td>先頭に既定の開き方（設定の「ファイルの開き方」。太字。ダブルクリックと同じ処理）。その下に、ほかの開き方を［開く ▾］と同じ順（開く・新規で開く・読み取り専用で開く）で。続けて［フォルダを開く］、区切り、［選んだ行をコピー］［ファイルのパスをコピー］</td>
+<td>先頭に既定の開き方（設定の「ファイルの開き方」。太字。ダブルクリックと同じ処理）。その下に、ほかの開き方を［開く ▾］と同じ順（開く・新規で開く・読み取り専用で開く）で。［読み取り専用で開く］は Office の形式（<code>testReadOnlySupported</code>）だけに出す（それ以外は読み取り専用の開き方が無いため、既定が「読み取り専用」でも［開く］を太字にする）。続けて［フォルダを開く］、区切り、［選んだ行をコピー］［ファイルのパスをコピー］</td>
 </tr>
 <tr>
 <td>ファイルの見出し</td>
-<td>［読み取り専用で開く］（太字）［フォルダを開く］、区切り、［ファイルのパスをコピー］［この結果を折りたたむ］（折りたたまれているときは［この結果を開く］）</td>
+<td>［読み取り専用で開く］（太字。Office の形式だけ。それ以外は［開く］が太字）、ほかの開き方（ヒットした行と同じ並び）、［フォルダを開く］、区切り、［ファイルのパスをコピー］［この結果を折りたたむ］（折りたたまれているときは［この結果を開く］）</td>
 </tr>
 </tbody>
 </table>
@@ -4317,6 +4317,8 @@
 </tbody>
 </table>
 <ul>
+<li><strong>新規で開く（Office 以外）</strong>: 「新規」の開き方が無い種類（テキスト・PDF・そのほか）は、元のファイルのコピーを作って開く。<code>getOpenNewMethod</code> が、Excel（<code>Workbooks.Add</code>）・動詞（<code>.doc*</code>・<code>.ppt*</code> の <code>New</code>）・コピーを決める。コピーは裏の仕事で、<code>work\tmp\&lt;PC の鍵&gt;\open_copy\&lt;12 桁の英数字&gt;\&lt;元の名前&gt;（コピー yyyyMMdd-HHmm）.&lt;拡張子&gt;</code> に作る（<code>getOpenCopyName</code>）（<code>copySourceForOpen</code>。元のファイルは共有で読むだけ）。テキストはメモ帳で開く判断（<code>testTextOpenWithNotepad</code>）をコピーのパスで行い、そのほかは既定のアプリで開く（ステータス <code>コピーを新規で開きました（コピー：&lt;コピーのパス&gt;。保存してもこのコピーに書かれ、元のファイルは変わりません）：&lt;パス&gt;</code>。メモ帳のときは <code>コピーをメモ帳で新規で開きました（…）：&lt;パス&gt;</code>。<code>getOpenCopyOpenedStatus</code>）。コピーも開くのもパスをそのまま（リテラルで）渡すため、名前に <code>[</code> <code>]</code> を含んでも断らない。パスが長すぎるときは、コピーを作る前に断る（<code>getOpenCopyBlocker</code>）。作れなければ何も開かず <code>新規で開くためのコピーを作れませんでした。&lt;理由&gt;元のファイルを開くには［開く］を使ってください：&lt;パス&gt;</code> と出す。理由は <code>copySourceForOpen</code> が返す <code>Reason</code>（<code>TooLong</code> は長すぎる、<code>Place</code> はコピーの置き場所を確かめられなかった、<code>Failed</code> はコピーを書き込めなかった。<code>getOpenCopyFailedStatus</code>）で書き分ける。</li>
+<li><strong>コピーの片付け</strong>: 閉じるときには消さない（開いたアプリが使っている間は消せないため）。起動のたびに 1 回、裏の仕事で <code>open_copy</code> の直下のフォルダのうち、最後に使ってから（フォルダの作成・更新と、中のファイルの更新のうち新しい方。<code>getOpenCopyLatestTime</code>。現在より先の日時は時計のずれとみなして消さない）1 日より古いものだけを、ファイルを 1 つずつ消してから空のフォルダを消す（<code>clearOldOpenCopies</code>。開かれていて消せないものは残す）。作る前・消す前に、置き場所がワークスペースの <code>tmp\&lt;PC の鍵&gt;\open_copy</code> そのものであり、<code>open_copy</code>・<code>&lt;PC の鍵&gt;</code>・<code>tmp</code> がリンク（ジャンクション・シンボリックリンク）でないことを確かめる（<code>testOpenCopyDir</code>。相対パス・別の場所・リンクのときは作らず、消さない）。中のリンクは辿らず、消さない。強制終了の片付け（<code>removeStaleTmpDirs</code>）は数字の名前のフォルダだけを消すので、<code>open_copy</code> は消えない。</li>
 <li>Word・PowerPoint はシェルの動詞で開く。その動詞が登録されていない種類のファイルは、元のファイルをそのまま開き、ステータスに <code>読み取り専用で開けなかったため、元のファイルを開きました：&lt;パス&gt;</code> / <code>新規で開けなかったため、元のファイルを開きました：&lt;パス&gt;</code> と表示する。<code>ProcessStartInfo.Verbs</code> は <code>New</code> を一覧に含めないため、事前に確かめず実行して例外（<code>Win32Exception</code>）で判断する（<code>openWithShell</code>）。</li>
 <li><code>Start-Process</code> はパスの <code>[</code> <code>]</code> をワイルドカードとして扱うため、<code>ProcessStartInfo</code> で開く。メモ帳を開く <code>openWithNotepad</code> は、開くパス（固定）とは別に引数（元のファイルのパス）を <code>-ArgumentList</code> で渡すため、この問題は起きない（<code>[</code> <code>]</code> を含むパスでも開ける）。</li>
 <li>開き方の既定は、起動時に設定から読み込むときは保存しない（設定していない利用者の <code>setting.config</code> を作らないため。<a href="../../structure/settings-file/#画面での読み書き">画面での読み書き</a>）。</li>

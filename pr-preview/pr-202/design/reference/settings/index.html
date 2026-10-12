@@ -3977,6 +3977,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#新規で開くのコピーtebunkocoreopen_copyps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ［新規で開く］のコピー（tebunko/core/open_copy.ps1）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#検索対象でチェックを外したフォルダtebunkocoresearch_excludesps1" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4177,6 +4188,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#新規で開くのコピーtebunkocoreopen_copyps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ［新規で開く］のコピー（tebunko/core/open_copy.ps1）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#検索対象でチェックを外したフォルダtebunkocoresearch_excludesps1" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4355,6 +4377,22 @@
 <td>版とコミットの記録を読む。無い・読めない・2行でない・形が違えば <code>$null</code>（画面は「開発版」と表示する。<code>about_view.ps1</code> の <code>getAboutView</code>）</td>
 <td><a href="../../gui/">画面</a></td>
 <td>画面</td>
+</tr>
+<tr>
+<td><code>resolveGitRef</code></td>
+<td>ref, dirs</td>
+<td>string</td>
+<td>リポジトリのリファレンス（<code>refs/heads/main</code> など。形が違えば空）が指すコミットの SHA を、<code>refs\</code> の下のファイル → <code>packed-refs</code> の順に読む（外部のコマンドは起動しない）</td>
+<td><a href="../../gui/screens/window/">画面</a></td>
+<td>readDevVersion</td>
+</tr>
+<tr>
+<td><code>readDevVersion</code></td>
+<td>rootDir</td>
+<td><code>@{Tag; AtHead; Sha}</code> / <code>$null</code></td>
+<td>配布物でない（<code>VERSION.txt</code> が無い）ときの版の手がかりを、作業ツリーの <code>.git</code> のファイルだけから読む（worktree の <code>gitdir:</code>・<code>commondir</code> も読む）。HEAD に付いたリリースのタグ（<code>v&lt;数&gt;.&lt;数&gt;.&lt;数&gt;</code>）があればそれ、無ければ版の並びで最も新しいタグ。どちらも分からなければ SHA だけ、SHA も無ければ <code>$null</code></td>
+<td><a href="../../gui/screens/window/">画面</a></td>
+<td>getToolDiagnosticHeader, 画面の起動（裏の仕事）</td>
 </tr>
 <tr>
 <td><code>readSearchOption</code> / <code>writeSearchOption</code></td>
@@ -4552,6 +4590,62 @@
 <td>int</td>
 <td>dir の取り込み一覧にあるクロール対象フォルダを、インデックスの一覧（<code>targetFolders</code>）にし、その数を返す。取り込み一覧が無ければ一覧は変えない（旧 <code>useWorkspaceTargets</code>）</td>
 <td><code>ChangeWorkspace</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="新規で開くのコピーtebunkocoreopen_copyps1">［新規で開く］のコピー（<code>tebunko/core/open_copy.ps1</code>）<a class="headerlink" href="#新規で開くのコピーtebunkocoreopen_copyps1" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>関数</th>
+<th>入力</th>
+<th>出力</th>
+<th>概要</th>
+<th>使用元</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>getOpenCopyDir</code></td>
+<td>workspace</td>
+<td>string</td>
+<td>コピーを置くフォルダ（<code>work\tmp\&lt;PC の鍵&gt;\open_copy</code>）。強制終了の片付けは数字の名前のフォルダだけを消すので、ここは消えない</td>
+<td><code>openFoundSource</code>, 起動時の片付け</td>
+</tr>
+<tr>
+<td><code>testOpenCopyDir</code></td>
+<td>copyDir, tmpRoot</td>
+<td>bool</td>
+<td>作る・消してよい置き場所か。絶対パスで、<code>tmpRoot\&lt;PC の鍵&gt;\open_copy</code>（大文字・小文字は区別しない）と一致し、<code>open_copy</code>・<code>&lt;PC の鍵&gt;</code>・<code>tmpRoot</code> がリンク（ReparsePoint）でないときだけ真。空・相対パス・ドライブの根・別の場所・リンクは偽</td>
+<td><code>copySourceForOpen</code>, <code>clearOldOpenCopies</code></td>
+</tr>
+<tr>
+<td><code>getOpenCopyName</code></td>
+<td>book, now</td>
+<td>string</td>
+<td>コピーのファイル名 <code>&lt;元の名前&gt;（コピー yyyyMMdd-HHmm）.&lt;拡張子&gt;</code>（元のファイル名の末尾の <code>.</code>・空白を除く）。名前が空なら空</td>
+<td><code>copySourceForOpen</code>, <code>getOpenCopyBlocker</code></td>
+</tr>
+<tr>
+<td><code>getOpenCopyBlocker</code></td>
+<td>book, copyDir, now</td>
+<td>string</td>
+<td>コピーを作らずに断る理由。<code>NoName</code>（名前が空）・<code>TooLong</code>（パスが長すぎる）・作れるなら空（名前に <code>[</code> <code>]</code> があっても断らない）</td>
+<td><code>copySourceForOpen</code>, <code>openFoundSource</code></td>
+</tr>
+<tr>
+<td><code>copySourceForOpen</code></td>
+<td>sourcePath, book, copyDir, tmpRoot, now</td>
+<td><code>@{Path; Reason}</code></td>
+<td><code>copyDir\&lt;12 桁の英数字&gt;\&lt;getOpenCopyName&gt;</code> に、元のファイルを共有で読んでコピーし、<code>Path</code> にそのパスを入れる（<code>Reason</code> は空）。作れないときは <code>Path</code> を空にし、<code>Reason</code> に理由を入れる（<code>Place</code>＝置き場所が不正・<code>NoName</code>／<code>TooLong</code>＝<code>getOpenCopyBlocker</code> の結果・<code>Failed</code>＝作る・書くのに失敗）</td>
+<td><code>openFoundSource</code>（裏の仕事）</td>
+</tr>
+<tr>
+<td><code>clearOldOpenCopies</code></td>
+<td>copyDir, tmpRoot, now, keepDays</td>
+<td>int</td>
+<td><code>open_copy</code> の直下のフォルダのうち、最後に使ってから（<code>getOpenCopyLatestTime</code>）keepDays（既定 1 日）より古いものだけを、ファイルを 1 つずつ消してから空のフォルダとして消す。リンクは辿らず、開かれていて消せないものは残す。消したフォルダの数を返す</td>
+<td>起動時の裏の仕事</td>
 </tr>
 </tbody>
 </table>
@@ -4822,7 +4916,7 @@
 <td><code>getVersionLabel</code></td>
 <td>versionInfo（<code>readVersionFile</code> の結果）</td>
 <td><code>@{Version; Commit}</code></td>
-<td>版の表示。タグとコミットの先頭 7 桁。<code>$null</code> なら <code>開発版</code>（Commit は空）。判断層</td>
+<td>版の表示。タグとコミットの先頭 7 桁。<code>$null</code> なら <code>開発版</code>（Commit は空）。<code>readDevVersion</code> の結果（devInfo）があれば <code>開発版（v0.5.0・d79f898）</code> / <code>開発版（v0.5.0 より後・d79f898）</code> / <code>開発版（d79f898）</code>。判断層</td>
 <td><code>getAboutView</code>, <code>formatDiagnosticHeader</code></td>
 </tr>
 <tr>
@@ -4878,7 +4972,7 @@
 <td><code>getToolDiagnosticHeader</code></td>
 <td>–</td>
 <td>string[]</td>
-<td>このツールの版（<code>VERSION.txt</code>）と環境の見出し</td>
+<td>このツールの版（<code>VERSION.txt</code>。無ければ <code>readDevVersion</code> のタグ・コミットを添えた開発版）と環境の見出し</td>
 <td><code>invokeIndexer</code>, <code>getGuiErrorLogHeader</code></td>
 </tr>
 </tbody>
