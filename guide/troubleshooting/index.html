@@ -4593,20 +4593,28 @@
 <tbody>
 <tr>
 <td><code>indexing_log.txt</code></td>
-<td>インデックス作成の経過と、更新に失敗したファイルの原因。インデックス作成ごとに上書きされます</td>
+<td>インデックス作成の経過と、更新に失敗したファイルの原因。先頭に tebunko の版と環境の見出しがあります。インデックス作成を始めるたびに、前回の分を <code>indexing_log_previous.txt</code> に移して新しく書きます</td>
+</tr>
+<tr>
+<td><code>indexing_log_previous.txt</code></td>
+<td>前回のインデックス作成の記録。移すたびに上書きされます</td>
 </tr>
 <tr>
 <td><code>gui_error_log.txt</code></td>
-<td>画面で発生した予期しないエラーの記録。追記されます</td>
+<td>画面で発生した予期しないエラーの記録。追記されます。画面を開いて最初の記録の前と、ワークスペースを切り替えた後の最初の記録の前に、版と環境の見出しを書きます（切り替えで記録が移るため、見出しが 2 つ入ることがあります）。1 MB 以上になると、前の分を <code>gui_error_log_previous.txt</code> に移して新しく書きます。前の分が読み取り専用・ほかのアプリで開いているあいだは移せず、1 MB を超えることがあります。閉じる・前の分を消すと、次の記録のときに移ります</td>
+</tr>
+<tr>
+<td><code>gui_error_log_previous.txt</code></td>
+<td><code>gui_error_log.txt</code> の前の分。移すたびに上書きされます</td>
 </tr>
 <tr>
 <td><code>startup_error.txt</code>（tebunko のフォルダの直下）</td>
-<td>画面が表示される前に起動が失敗したときの記録。起動に失敗するたびに書き直されます。ワークスペースの外にあります。tebunko のフォルダに書き込めない場合（<code>C:\Program Files</code> など）は作られず、理由だけがメモ帳で示されます</td>
+<td>画面が表示される前に起動が失敗したときの記録。起動に失敗するたびに書き直されるか追記され、追記で 1 MB 以上になると前の分を <code>startup_error_previous.txt</code> に移します。ワークスペースの外にあります。tebunko のフォルダに書き込めない場合（<code>C:\Program Files</code> など）は作られず、理由だけがメモ帳で示されます</td>
 </tr>
 </tbody>
 </table>
 <h2 id="サポート">サポート<a class="headerlink" href="#サポート" title="Permanent link">&para;</a></h2>
-<p><a href="https://github.com/hsgwa/tebunko/blob/main/.github/SUPPORT.ja.md">サポート</a> を参照のうえ、GitHub の Issue でお問い合わせください。報告の際は、tebunko・Windows・Office のバージョンと、ログの該当部分を添えてください。tebunko のバージョンは、画面左下の［バージョン情報］で確認できます。ログやファイル名に機密情報が含まれていないことを、事前に確認してください。<strong><code>startup_error.txt</code> にはツールを置いた場所（利用者名を含むパス）が入るため、公開の Issue に貼る前に書き換えるか確認してください。</strong></p>
+<p><a href="https://github.com/hsgwa/tebunko/blob/main/.github/SUPPORT.ja.md">サポート</a> を参照のうえ、GitHub の Issue でお問い合わせください。報告の際は、tebunko・Windows・Office のバージョンと、ログの該当部分を添えてください。tebunko のバージョンは、画面左下の［バージョン情報］で確認できます。ログの先頭の見出しには、tebunko の版と Windows・PowerShell・Office の版が書かれているので、そのまま添えられます（この見出しに利用者名・コンピューター名・パスは入りませんが、ログの本体にはフォルダのパスやファイル名が入るので、貼る前に伏せてください）。ログやファイル名に機密情報が含まれていないことを、事前に確認してください。<strong><code>startup_error.txt</code> にはツールを置いた場所（利用者名を含むパス）が入るため、公開の Issue に貼る前に書き換えるか確認してください。</strong></p>
 
 
 

@@ -4239,11 +4239,11 @@
 </tr>
 <tr>
 <td><code>work/indexing_log.txt</code></td>
-<td>インデクサの表示内容の記録（実行ごとに上書き）</td>
+<td>インデクサの表示内容の記録（実行ごとに新しく書く。先頭に版と環境の見出し）。前回の分は <code>work/indexing_log_previous.txt</code></td>
 </tr>
 <tr>
 <td><code>work/gui_error_log.txt</code></td>
-<td>画面で起きた予期しないエラーの記録（追記）</td>
+<td>画面で起きた予期しないエラーの記録（追記。1 MB 以上で <code>work/gui_error_log_previous.txt</code> へ移す）</td>
 </tr>
 <tr>
 <td><code>work/search_results.txt</code></td>
@@ -4433,7 +4433,9 @@
     W --&gt; OP["OfficePidRoot&lt;br&gt;Dir\office_pids"]
     W --&gt; RS["ResultFile&lt;br&gt;Dir\search_results.txt"]
     W --&gt; IL["IndexingLogFile&lt;br&gt;Dir\indexing_log.txt"]
-    W --&gt; GE["GuiErrorLogFile&lt;br&gt;Dir\gui_error_log.txt"]</code></pre>
+    W --&gt; GE["GuiErrorLogFile&lt;br&gt;Dir\gui_error_log.txt"]
+    W --&gt; ILP["IndexingLogPreviousFile&lt;br&gt;Dir\indexing_log_previous.txt"]
+    W --&gt; GEP["GuiErrorLogPreviousFile&lt;br&gt;Dir\gui_error_log_previous.txt"]</code></pre>
 <ul>
 <li>関数は、ワークスペースの中の場所を既定値で <code>$workspace</code> から取る（例 <code>[string]$path = $workspace.StatusFile</code>）。既定値は呼んだときに決まるため、<code>$workspace</code> を差し替えれば、読み込み直さずに別のワークスペースを使う。</li>
 <li>別のスレッド（画面の裏の仕事・検索の司令・取り込み）は <code>lib.ps1</code> を読み込んだときの <code>$workspace</code> を持つ。そのため画面は、場所を引数で渡すか、<code>Dir</code>（文字列）を渡してそのスレッドで <code>Workspace</code> を作り直す。オブジェクトはスレッドをまたいで渡さない。</li>
@@ -4487,11 +4489,19 @@
 </tr>
 <tr>
 <td><code>IndexingLogFile</code></td>
-<td><code>&lt;Dir&gt;\indexing_log.txt</code>（インデクサの表示内容の記録。実行ごとに上書き）</td>
+<td><code>&lt;Dir&gt;\indexing_log.txt</code>（インデクサの表示内容の記録。実行ごとに新しく書き、前回の分は <code>IndexingLogPreviousFile</code> へ移す）</td>
+</tr>
+<tr>
+<td><code>IndexingLogPreviousFile</code></td>
+<td><code>&lt;Dir&gt;\indexing_log_previous.txt</code>（前回のインデックス作成の記録）</td>
 </tr>
 <tr>
 <td><code>GuiErrorLogFile</code></td>
 <td><code>&lt;Dir&gt;\gui_error_log.txt</code>（画面で起きた予期しないエラーの記録。追記。共通基盤の <code>writeErrorLog</code> は、画面が定義する <code>getGuiErrorLogFile</code> からこの場所を得る）</td>
+</tr>
+<tr>
+<td><code>GuiErrorLogPreviousFile</code></td>
+<td><code>&lt;Dir&gt;\gui_error_log_previous.txt</code>（<code>gui_error_log.txt</code> が 1 MB 以上になったときに移した前の分）</td>
 </tr>
 </tbody>
 </table>
