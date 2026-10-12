@@ -14,7 +14,7 @@ BeforeAll {
 
     # 包んだ .ps1 を別プロセスで `-File` 起動する。本体が書く出力ファイルの中身・終了コード・標準エラーを返す
     function invokeGuarded {
-        param ([string]$dir, [byte[]]$content, [string]$exe = (Join-Path $PSHOME "powershell.exe"))
+        param ([string]$dir, [byte[]]$content, [string]$exe = (Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"))
         New-Item -ItemType Directory -Force -Path $dir | Out-Null
         $script = Join-Path $dir "guarded.ps1"
         $outPath = Join-Path $dir "out.txt"
@@ -154,7 +154,7 @@ Describe "包んだ .ps1 を別プロセスで起動する" -Tag Io {
             }
             $cmd.Source
         } else {
-            Join-Path $PSHOME "powershell.exe"
+            Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
         }
         $dir = Join-Path $TestDrive "run-$shell-$bom"
         $result = invokeGuarded $dir (toBytes $wrapped $bom) $exe

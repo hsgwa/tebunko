@@ -57,7 +57,7 @@ BeforeAll {
     # 壊れた setting.config を置くので、日本語の記録（indexing_log.txt）が正しく出るのは、ファイルを正しい文字コードで読めたときだけ。
     # 書き先（ワークスペース・USERPROFILE・LOCALAPPDATA・APPDATA）は、すべて testRoot の下に向ける
     function invokeEncodingProbe {
-        param ([string]$testRoot, [string]$name, [byte[]]$content, [string]$exe = (Join-Path $PSHOME "powershell.exe"))
+        param ([string]$testRoot, [string]$name, [byte[]]$content, [string]$exe = (Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"))
         $caseDir = Join-Path $testRoot $name
         New-Item -ItemType Directory -Force -Path "$caseDir\profile\Local", "$caseDir\profile\Roaming" | Out-Null
         $script = Join-Path $caseDir "tebunko.ps1"
@@ -234,7 +234,7 @@ Describe "new_single_script.ps1 の道具の検査" -Tag Io {
             }
             $cmd.Source
         } else {
-            Join-Path $PSHOME "powershell.exe"
+            Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
         }
         # 作ったものは BOM 付き。BOM なしは、その先頭の 3 バイトを落としたもの（BOM が落ちた場合）
         $content = $bytes
