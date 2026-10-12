@@ -671,7 +671,9 @@ Describe "プレビューの読み足し（スクロールに合わせて、上�
         function newMoreResult {
             # 読み足しの結果（startReadMore の仕事が返す形）。first から last までの行
             param ($table, [string]$side, [int]$first, [int]$last, [bool]$end = $false, [string]$prefix = "行")
-            return @{ Id = $table.Request; Side = $side; Failed = $false; First = $first; Rows = $(if ($last -lt $first) { @() } else { @($first..$last | ForEach-Object { [pscustomobject]@{ LineNumber = $_; Line = "`t$prefix$_" } }) }); End = $end; Marks = $null }
+            $rows = @()
+            if ($first -le $last) { $rows = @($first..$last | ForEach-Object { [pscustomobject]@{ LineNumber = $_; Line = "`t$prefix$_" } }) }
+            return @{ Id = $table.Request; Side = $side; Failed = $false; First = $first; Rows = $rows; End = $end; Marks = $null }
         }
     }
 

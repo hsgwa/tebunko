@@ -1,4 +1,4 @@
-﻿# 性能の計測（tools\measure_perf.ps1）で使う共通の部品。計測の入口と、子のプロセス（measure_index.ps1・measure_search.ps1）が読み込む。
+﻿# 性能の計測（tools\measure_perf.ps1）で使う共通の部品。計測の入口と、子のプロセス（measure_index.ps1・measure_search.ps1・measure_preview.ps1 など）が読み込む。
 #   ・測る tebunko の読み込み口を探す
 #   ・リソース（メモリ・CPU・スレッド・ハンドル・GC）を別のスレッドで記録する
 #   ・統計値（最小・中央値・平均・最大）と増え方（最小二乗の傾き）を求める
