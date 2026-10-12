@@ -198,6 +198,8 @@ Describe "インストーラー（installer\tebunko.iss）" -Tag Meta {
         $lines = @(getIssSection "UninstallDelete")
         $lines -contains 'Type: files; Name: "{app}\setting.config"' | Should -Be $true
         $lines -contains 'Type: files; Name: "{app}\startup_error.txt"' | Should -Be $true
+        $lines -contains 'Type: files; Name: "{app}\startup_error_previous.txt"' | Should -Be $true
+        $lines -contains 'Type: files; Name: "{app}\startup_error_moving.txt"' | Should -Be $true
     }
 
     It "起動するのは、入れた tebunko.exe だけ" {

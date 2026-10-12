@@ -137,3 +137,79 @@ Describe "writeErrorLog（記録先のフォルダ名に特別な文字が入っ
         }
     }
 }
+
+Describe "writeErrorLog（版と環境の見出しと、大きさでの入れ替え）" -Tag Io {
+    BeforeAll {
+        function global:useTestHeader { function global:getGuiErrorLogHeader { return @("==== テストの診断情報 ====", "====") } }
+        function writeOneError {
+            try { throw "テスト用の例外" } catch { writeErrorLog "確かめ" $_ }
+        }
+        function countHeaders {
+            param ([string]$path)
+            return ([regex]::Matches([System.IO.File]::ReadAllText($path), "==== テストの診断情報 ====")).Count
+        }
+    }
+
+    BeforeEach {
+        $script:errorLogHeaderPath = $null
+        $global:testErrorLog = Join-Path $TestDrive ("err_" + [guid]::NewGuid().ToString("N") + "\gui_error_log.txt")
+        function global:getGuiErrorLogFile { return $global:testErrorLog }
+        # 前の It が定義した見出しの関数を残さない（「無い」場合を本当に無い状態で確かめるため）
+        Remove-Item function:global:getGuiErrorLogHeader -ErrorAction SilentlyContinue
+    }
+
+    AfterAll {
+        Remove-Item function:global:getGuiErrorLogFile, function:global:getGuiErrorLogHeader, function:global:useTestHeader -ErrorAction SilentlyContinue
+        Remove-Variable -Name testErrorLog -Scope Global -ErrorAction SilentlyContinue
+    }
+
+    It "1 回目の記録の前に見出しがあり、同じファイルへの 2 回目には無い" {
+        useTestHeader
+        writeOneError
+        writeOneError
+        $text = [System.IO.File]::ReadAllText($global:testErrorLog)
+        $text | Should -Match "^﻿?==== テストの診断情報 ===="
+        (countHeaders $global:testErrorLog) | Should -Be 1
+        ([regex]::Matches($text, "==== [\d\- :]+ 確かめ ====")).Count | Should -Be 2
+    }
+
+    It "1 MB 以上なら _previous に移し、新しいファイルの先頭に見出しを書いてから記録する" {
+        useTestHeader
+        writeOneError
+        [System.IO.File]::AppendAllText($global:testErrorLog, ("x" * (1MB + 1)))
+        writeOneError
+        $previous = getPreviousLogPath $global:testErrorLog
+        [System.IO.File]::Exists($previous) | Should -Be $true
+        [System.IO.File]::ReadAllText($previous) | Should -Match "x{1000}"
+        $text = [System.IO.File]::ReadAllText($global:testErrorLog)
+        $text | Should -Match "^﻿?==== テストの診断情報 ===="
+        $text | Should -Not -Match "x{1000}"
+        $text | Should -Match "テスト用の例外"
+    }
+
+    It "記録先のパスが変わったら、新しいファイルにも見出しを書く" {
+        useTestHeader
+        writeOneError
+        $first = $global:testErrorLog
+        $global:testErrorLog = Join-Path $TestDrive ("err2_" + [guid]::NewGuid().ToString("N") + "\gui_error_log.txt")
+        writeOneError
+        (countHeaders $first) | Should -Be 1
+        (countHeaders $global:testErrorLog) | Should -Be 1
+    }
+
+    It "見出しの関数が <label> でも、記録そのものは書かれる" -ForEach @(
+        @{ label = "例外を投げる"; define = { function global:getGuiErrorLogHeader { throw "見出しを作れない" } } }
+        @{ label = "無い"; define = { } }
+    ) {
+        & $define
+        if ($label -eq "無い") {
+            # 読み込んだ本物の定義も外して、本当に無い状態にする（このあとも外れたまま。このファイルの最後の It）
+            Remove-Item function:getGuiErrorLogHeader -ErrorAction SilentlyContinue
+            Get-Command getGuiErrorLogHeader -ErrorAction SilentlyContinue | Should -BeNullOrEmpty
+        }
+        writeOneError
+        $text = [System.IO.File]::ReadAllText($global:testErrorLog)
+        $text | Should -Match "テスト用の例外"
+        $text | Should -Not -Match "テストの診断情報"
+    }
+}
