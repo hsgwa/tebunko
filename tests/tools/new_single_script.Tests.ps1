@@ -13,21 +13,33 @@ BeforeAll {
     # 結合した単一 .ps1 の中で、pattern に一致する最後の行の番号を返す（indexer.Tests.ps1 の findLine と同じ考え方）。
     # 結合した .ps1 は元のソースをそのまま埋め込むため、元のファイルと同じ行の文字列で探せる。
     # ${bundledParts} の中身（lib・indexerLib の文字列）にも同じ行の文字列が入るため、最後の行（実際に動く本体側）を探す
+    # 包んだ単一 .ps1 から、日本語の本体（ヒアストリングの中。退避した行は戻す）を取り出す
+    function getGuardedBody {
+        param ([string]$path)
+        $raw = [System.IO.File]::ReadAllText($path)
+        $match = [regex]::Match($raw, '(?s)\$\{tebunkoBody\} = @''\r?\n(.*?)\r?\n''@')
+        if (!$match.Success) { throw "${path} に、本体の文字列がありません" }
+        return [regex]::Replace($match.Groups[1].Value, '(?m)^@@''@', '''@')
+    }
+
     # 結合した単一 .ps1 の部品（lib・indexerLib）を、製品と同じ経路（getPartLoad）で読んだ新しい runspace を返す。
     # 部品の埋め込み（目印の行より上）だけを実行して ${bundledParts} などを取り出し、getPartLoad に渡す。
     # 戻り値の Prelude を実行した runspace の中で、部品の関数が使える
     function newBundledPartRunspace {
         param ([string]$builtPath, [string]$name)
-        $text = [System.IO.File]::ReadAllText($builtPath)
+        $text = getGuardedBody $builtPath
         $end = $text.IndexOf("# ---- BODY-START (above: parts embedded for other threads) ----")
         if ($end -lt 0) { throw "${builtPath} に、部品の埋め込みの終わりの目印がありません" }
         $headPath = Join-Path (Split-Path $builtPath -Parent) "head-only.ps1"
         [System.IO.File]::WriteAllText($headPath, $text.Substring(0, $end), (New-Object System.Text.UTF8Encoding($true)))
         $bundled = & {
-            param ($path)
+            param ($path, $builtPath)
+            # 頭（ASCII）が決める名前。本体の中の $PSScriptRoot・$PSCommandPath はこの名前に書き換えてある
+            ${tebunkoRoot} = Split-Path $builtPath -Parent
+            ${tebunkoPath} = $builtPath
             . $path
             @{ Parts = ${bundledParts}; ScriptPath = ${bundledScriptPath}; Version = ${bundledVersion} }
-        } $headPath
+        } $headPath $builtPath
         $global:bundledParts = $bundled.Parts
         $global:bundledScriptPath = $bundled.ScriptPath
         $global:bundledVersion = $bundled.Version
@@ -96,35 +108,78 @@ Describe "new_single_script.ps1 の道具の検査" -Tag Io {
         $outFile = Join-Path $TestDrive "release\tebunko-v9.9.9-test.ps1"
         & $tool -Version "v9.9.9" -OutFile $outFile | Out-Null
         $bytes = [System.IO.File]::ReadAllBytes($outFile)
-        $text = [System.Text.Encoding]::UTF8.GetString($bytes)
+        # BOM を除いた全文と、日本語の本体（ヒアストリングの中）
+        $text = [System.Text.Encoding]::UTF8.GetString($bytes).TrimStart([char]0xFEFF)
+        $body = getGuardedBody $outFile
     }
 
     It "作れる（構文エラー・ファイルの漏れや重複・読み込み行の残り・起動口の param の不足・禁止の語・版の文字列の不一致のどれも起こさない）" {
         Test-Path -LiteralPath $outFile | Should -Be $true
     }
 
-    It "ASCII だけで書き出す（BOM なし・CRLF・どの文字コードで読み直しても同じ）" {
-        [regex]::IsMatch($text, '[^\x00-\x7F]') | Should -Be $false
-        ($bytes[0], $bytes[1], $bytes[2]) | Should -Not -Be @(0xEF, 0xBB, 0xBF)
+    It "BOM 付き UTF-8・CRLF で書き出し、日本語は本体にそのまま入っている（ASCII に書き換えない）" {
+        ($bytes[0], $bytes[1], $bytes[2]) | Should -Be @(0xEF, 0xBB, 0xBF)
         ([regex]::IsMatch($text, "(?<!`r)`n")) | Should -Be $false
-        # 日本語の Windows の既定（Shift_JIS）で読んでも、UTF-8 で読んだ文字列と同じ
-        ([System.Text.Encoding]::GetEncoding(932).GetString($bytes) -ceq $text) | Should -Be $true
+        $body.Contains("設定ファイルが壊れていたため、既定の設定で起動しました") | Should -Be $true
     }
 
-    It "書き出した結果にも、禁止の語が無い" {
-        (findBannedCode $text) | Should -Be ""
+    It "頭と尾は ASCII だけ（頭の判定用の 1 文字だけが例外）で、本体の外に日本語が出ない" {
+        $bodyStart = $text.IndexOf('${tebunkoBody} = @''' + "`r`n")
+        $bodyEnd = $text.LastIndexOf("`r`n'@`r`n")
+        $bodyStart | Should -BeGreaterThan 0
+        $bodyEnd | Should -BeGreaterThan $bodyStart
+        $outside = $text.Substring(0, $bodyStart).Replace([string][char]0x30A2, "") + $text.Substring($bodyEnd)
+        [regex]::IsMatch($outside, '[^\x00-\x7F]') | Should -Be $false
     }
 
-    It "構文として読める（0 個のエラー）" {
+    It "BOM が落ちて CP932 で読み違えても、構文エラーが 0 個で、本体の文字列が壊れない（行の先頭が '@ の行は 2 本だけ）" {
+        $noBom = New-Object System.Text.UTF8Encoding($false)
+        $misread = [System.Text.Encoding]::GetEncoding(932).GetString($noBom.GetBytes($text))
+        $tokens = $null
+        $errors = $null
+        [void][System.Management.Automation.Language.Parser]::ParseInput($misread, [ref]$tokens, [ref]$errors)
+        $errors.Count | Should -Be 0
+        @([regex]::Matches($misread, "(?m)^'@\r?$")).Count | Should -Be 2
+    }
+
+    It "書き出した本体にも、禁止の語が無い" {
+        (findBannedCode $body) | Should -Be ""
+    }
+
+    It "構文として読める（0 個のエラー）。本体も構文として読め、`$PSScriptRoot・`$PSCommandPath の変数が残っていない" {
         $tokens = $null
         $errors = $null
         $ast = [System.Management.Automation.Language.Parser]::ParseInput($text, [ref]$tokens, [ref]$errors)
         $errors.Count | Should -Be 0
         $ast | Should -Not -BeNullOrEmpty
+
+        $bodyAst = [System.Management.Automation.Language.Parser]::ParseInput($body, [ref]$tokens, [ref]$errors)
+        $errors.Count | Should -Be 0
+        $left = @($bodyAst.FindAll({
+                    param ($node)
+                    $node -is [System.Management.Automation.Language.VariableExpressionAst] -and
+                    $node.VariablePath.UserPath -in @("PSScriptRoot", "PSCommandPath")
+                }, $true))
+        $left.Count | Should -Be 0
+    }
+
+    It "本体の行番号は、ファイルの行番号と同じ（エラーの `At line:N` で、ファイルの該当の行が分かる）" {
+        # 本体の最後の行（gui.ps1 の末尾の呼び出し）が、ファイルの何行目か。頭の分の空行を足した本体の行番号と一致する
+        $fileLines = [System.IO.File]::ReadAllLines($outFile)
+        $bodyLines = $body -split "\r?\n"
+        $bodyStartLine = ([array]::IndexOf($fileLines, '${tebunkoBody} = @''')) + 2
+        $bodyStartLine | Should -BeGreaterThan 1
+        $padLine = [regex]::Match($text, '\("`r`n" \* (\d+)\)').Groups[1].Value
+        [int]$padLine + 1 | Should -Be $bodyStartLine
+        for ($i = 0; $i -lt $bodyLines.Count; $i += 997) {
+            # 退避した行（@@'@）以外は、同じ位置に同じ行がある
+            if ($bodyLines[$i] -eq "'@") { continue }
+            $fileLines[$bodyStartLine - 1 + $i] | Should -Be $bodyLines[$i]
+        }
     }
 
     It "読み込み口の dot-source 行（`$PSScriptRoot・`$TebunkoDir）が残っていない" {
-        ($text -match '(?m)^[ \t]*\.\s+(?:\(\[WildcardPattern\]::Escape\()?"\$(PSScriptRoot|TebunkoDir)\\[^"]+"(?:\.Replace\([^)]*\)\)\))?[ \t]*$') | Should -Be $false
+        ($body -match '(?m)^[ \t]*\.\s+(?:\(\[WildcardPattern\]::Escape\()?"\$(PSScriptRoot|TebunkoDir)\\[^"]+"(?:\.Replace\([^)]*\)\)\))?[ \t]*$') | Should -Be $false
     }
 
     It "起動口（gui.ps1・indexer.ps1）の param の名前が、結合した頭の param にすべてある" {
@@ -138,9 +193,9 @@ Describe "new_single_script.ps1 の道具の検査" -Tag Io {
     }
 
     It "本体は、起動の失敗の文言（startup_error_view）、知らせ方（startup_error）、lib の順に並ぶ（gui.ps1 の先頭と同じ順）" {
-        $body = $text.Substring($text.IndexOf('# ---- BODY-START'))
-        $view = $body.IndexOf('function getStartupErrorMessage')
-        $report = $body.IndexOf('function reportStartupFailure')
+        $main = $body.Substring($body.IndexOf('# ---- BODY-START'))
+        $view = $main.IndexOf('function getStartupErrorMessage')
+        $report = $main.IndexOf('function reportStartupFailure')
         $view | Should -BeGreaterThan -1
         $report | Should -BeGreaterThan $view
     }
@@ -156,7 +211,8 @@ Describe "new_single_script.ps1 の道具の検査" -Tag Io {
     }
 
     It "xaml\ の下のフォルダの XAML（shell\nav.xaml）も埋め込む" {
-        $text.Contains('${bundledXaml}[[System.IO.Path]::GetFullPath("$PSScriptRoot\xaml\shell\nav.xaml")]') | Should -Be $true
+        # $PSScriptRoot は、本体の中では空になるため ${tebunkoRoot} に書き換えてある
+        $body.Contains('${bundledXaml}[[System.IO.Path]::GetFullPath("${tebunkoRoot}\xaml\shell\nav.xaml")]') | Should -Be $true
     }
 
     It "版の文字列が引数（タグ・今のコミットの SHA）と同じ" {
@@ -164,10 +220,10 @@ Describe "new_single_script.ps1 の道具の検査" -Tag Io {
     }
 
     It "別プロセスで `-File` 起動すると、BOM の有無にかかわらず、構文エラーも文字化けも無く本体が動き、日本語の記録が正しく出る（<name>）" -TestCases @(
-        @{ name = "Windows PowerShell 5.1・作ったまま（BOM なし）"; shell = "powershell"; withBom = $false }
-        @{ name = "Windows PowerShell 5.1・BOM を付けたもの"; shell = "powershell"; withBom = $true }
-        @{ name = "PowerShell 7・作ったまま（BOM なし）"; shell = "pwsh"; withBom = $false }
-        @{ name = "PowerShell 7・BOM を付けたもの"; shell = "pwsh"; withBom = $true }
+        @{ name = "Windows PowerShell 5.1・BOM なし（BOM が落ちたもの）"; shell = "powershell"; withBom = $false }
+        @{ name = "Windows PowerShell 5.1・BOM 付き（作ったまま）"; shell = "powershell"; withBom = $true }
+        @{ name = "PowerShell 7・BOM なし（BOM が落ちたもの）"; shell = "pwsh"; withBom = $false }
+        @{ name = "PowerShell 7・BOM 付き（作ったまま）"; shell = "pwsh"; withBom = $true }
     ) {
         param ($name, $shell, $withBom)
         $exe = if ($shell -eq "pwsh") {
@@ -180,11 +236,11 @@ Describe "new_single_script.ps1 の道具の検査" -Tag Io {
         } else {
             Join-Path $PSHOME "powershell.exe"
         }
+        # 作ったものは BOM 付き。BOM なしは、その先頭の 3 バイトを落としたもの（BOM が落ちた場合）
         $content = $bytes
-        if ($withBom) {
-            $content = New-Object byte[] ($bytes.Length + 3)
-            [System.Array]::Copy([byte[]](0xEF, 0xBB, 0xBF), 0, $content, 0, 3)
-            [System.Array]::Copy($bytes, 0, $content, 3, $bytes.Length)
+        if (-not $withBom) {
+            $content = New-Object byte[] ($bytes.Length - 3)
+            [System.Array]::Copy($bytes, 3, $content, 0, $content.Length)
         }
         $result = invokeEncodingProbe $TestDrive "$shell-$withBom" $content $exe
         $result.ErrorText | Should -Not -Match "ParserError"
