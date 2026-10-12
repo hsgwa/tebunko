@@ -120,8 +120,40 @@ Describe "画面の既定のフォント（起動した窓の Font.Body）" -Tag
     }
 
     It "同梱するのはアイコンの形のライセンスの文面だけで、フォントのファイルは無い" {
-        Test-Path -LiteralPath "$here\..\scripts\shared\fonts\LICENSE-Lucide.txt" | Should -Be $true
+        Test-Path -LiteralPath "$here\..\scripts\shared\licenses\LICENSE-Lucide.txt" | Should -Be $true
         @(Get-ChildItem "$here\..\scripts" -Recurse -File | Where-Object { $_.Extension -in ".ttf", ".otf", ".ttc" -or $_.Name -eq "OFL.txt" }).Count | Should -Be 0
+    }
+
+    It "ライセンス文の置き場（scripts/shared/licenses/）は、new_sbom.ps1 の第三者の部品（`$thirdParty の name）と 1 対 1 になっている" {
+        # new_sbom.ps1 はドットソースすると本体が動くので、構文木で読む。
+        # 左辺が $thirdParty の代入の右辺の配列の、直下の要素（[ordered] を外したハッシュテーブル）の "name" だけを拾う
+        $parsed = [System.Management.Automation.Language.Parser]::ParseFile("$here\..\tools\new_sbom.ps1", [ref]$null, [ref]$null)
+        $assign = @($parsed.FindAll({ param($n)
+                    $n -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+                    $n.Left -is [System.Management.Automation.Language.VariableExpressionAst] -and
+                    $n.Left.VariablePath.UserPath -ceq "thirdParty" }, $true))[0]
+        $assign | Should -Not -BeNullOrEmpty
+        $array = $assign.Right.Find({ param($n) $n -is [System.Management.Automation.Language.ArrayExpressionAst] }, $false)
+        $names = New-Object System.Collections.Generic.List[string]
+        $body = $array.SubExpression.Statements[0].PipelineElements[0].Expression
+        $items = if ($body -is [System.Management.Automation.Language.ArrayLiteralAst]) { $body.Elements } else { @($body) }
+        foreach ($item in $items) {
+            $table = if ($item -is [System.Management.Automation.Language.ConvertExpressionAst]) { $item.Child } else { $item }
+            $table | Should -BeOfType [System.Management.Automation.Language.HashtableAst]
+            foreach ($pair in $table.KeyValuePairs) {
+                if ($pair.Item1 -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $pair.Item1.Value -ceq "name" -and
+                    $pair.Item2.PipelineElements[0].Expression -is [System.Management.Automation.Language.StringConstantExpressionAst]) {
+                    $names.Add($pair.Item2.PipelineElements[0].Expression.Value)
+                }
+            }
+        }
+        # 拾えた数が 0 なら、読み方が壊れている（見逃さない）
+        $names.Count | Should -BeGreaterThan 0
+
+        $files = @(Get-ChildItem -LiteralPath "$here\..\scripts\shared\licenses" -File)
+        @($files | Where-Object { $_.Name -cnotmatch '^LICENSE-.+\.txt$' }).Count | Should -Be 0
+        $fileNames = @($files | ForEach-Object { $_.Name -creplace '^LICENSE-(.+)\.txt$', '$1' } | Sort-Object)
+        $fileNames -join "," | Should -BeExactly (@($names | Sort-Object) -join ",")
     }
 
     It "起動画面（splash.xaml）が直に書くフォントの並びは、newAppFontFamily（Font.Body）と同じ" {
