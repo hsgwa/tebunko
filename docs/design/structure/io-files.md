@@ -145,10 +145,10 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 
 | 配布形 | ツールのフォルダ | ツールのフォルダに書けるか | 設定（`setting.config`）の置き場 | 起動口が読むもの |
 |---|---|---|---|---|
-| zip を展開した版 | 展開したフォルダ | 展開先による。自分のフォルダなら書ける。読み取り専用の共有・Program Files に置くと書けない | 書ければツールのフォルダ。書けなければ既定のワークスペースの直下 | `tebunko.bat` → `scripts/tebunko/startup/*.txt`（失敗時）・`gui.ps1`・`scripts/` 全体・`VERSION.txt`・XAML・フォント・アイコン。起動のたびに `scripts/` の Mark-of-the-Web を外す（`tebunko.bat` と `gui.ps1`） |
+| zip を展開した版 | 展開したフォルダ | 展開先による。自分のフォルダなら書ける。読み取り専用の共有・Program Files に置くと書けない | 書ければツールのフォルダ。書けなければ既定のワークスペースの直下 | `tebunko.bat` → `scripts/tebunko/startup/*.txt`（失敗時）・`gui.ps1`・`scripts/` 全体・`VERSION.txt`・XAML・アイコン。起動のたびに `scripts/` の Mark-of-the-Web を外す（`tebunko.bat` と `gui.ps1`） |
 | インストーラー（利用者ごと） | `%LOCALAPPDATA%\Programs\tebunko` | 書ける | ツールのフォルダ（`{app}\setting.config`） | `tebunko.exe` → `scripts/tebunko/gui.ps1` 以下・`VERSION.txt`。`gui.ps1` が `scripts/` の Mark-of-the-Web を外す（インストーラーが書いたファイルには付かないので、何も変わらない） |
 | インストーラー（Program Files・管理者が選ぶ） | `C:\Program Files\tebunko` | 普通の利用者は書けない | 既定のワークスペースの直下（`%USERPROFILE%\Documents\tebunko_ws\setting.config`）。アンインストールでは消えないため、不要なら手で消す | 利用者ごとの版と同じ |
-| 単一 `.ps1` | その `.ps1` を置いたフォルダ | 置き場による | 書ければその `.ps1` と同じフォルダ。書けなければ既定のワークスペースの直下 | その `.ps1` 自身だけ。`scripts/`・`VERSION.txt`・フォント・XAML のファイルは読まない（埋め込み）。Mark-of-the-Web は外さない（動き始めた後に外しても効かないため） |
+| 単一 `.ps1` | その `.ps1` を置いたフォルダ | 置き場による | 書ければその `.ps1` と同じフォルダ。書けなければ既定のワークスペースの直下 | その `.ps1` 自身だけ。`scripts/`・`VERSION.txt`・XAML のファイルは読まない（埋め込み）。Mark-of-the-Web は外さない（動き始めた後に外しても効かないため） |
 
 どの配布形も、インデックス・取り込み一覧・ログ（ワークスペース）は、既定または［設定］で選んだ場所に置く。設定の置き場は `$rootDir` に書けるかを起動のたびに調べて決まる（[データの置き場所とパスの決め方](data.md)）。`startup_error.txt` は、どの配布形でもツールのフォルダの直下にだけ書く。
 

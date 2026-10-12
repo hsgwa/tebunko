@@ -39,11 +39,11 @@ Describe "getAboutLinks・testAboutLinkUrl" -Tag Unit {
 }
 
 Describe "getAboutLicenses" -Tag Unit {
-    It "tebunko の MIT と、同梱するアイコンの形（Lucide）の ISC を出す" {
+    It "tebunko の MIT と、同梱するアイコンの形（Lucide）の ISC（一部 MIT）を出す" {
         $lines = @(getAboutLicenses)
         $lines.Count | Should -Be 2
         $lines[0] | Should -BeLike "tebunko*MIT*"
-        $lines[1] | Should -BeLike "*Lucide*ISC*"
+        $lines[1] | Should -BeLike "*Lucide*ISC*一部 MIT*"
     }
 }
 

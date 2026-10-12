@@ -183,7 +183,7 @@ Windows のクライアント版（Windows 10 / 11）は、実行ポリシーの
 $r = Test-FileCatalog -Path .\scripts -CatalogFilePath <ダウンロードした tebunko.cat> -Detailed
 @($r.CatalogItems.Keys + $r.PathItems.Keys | Sort-Object -Unique | Where-Object { $_ -ne 'tebunko.bat' -and $r.CatalogItems[$_] -ne $r.PathItems[$_] })
 ```
-- **第三者の部品**: インストーラーとアンインストーラーの本体は Inno Setup のものである（[Inno Setup License](https://jrsoftware.org/files/is/license.txt)）。インストールとアンインストールのときだけ動き、tebunko の実行中には使わない。ツール本体の第三者の部品は 0 のまま（[供給網（サプライチェーン）とライセンス](supply-chain.md)）。
+- **第三者の部品**: インストーラーとアンインストーラーの本体は Inno Setup のものである（[Inno Setup License](https://jrsoftware.org/files/is/license.txt)）。インストールとアンインストールのときだけ動き、tebunko の実行中には使わない。ツール本体が同梱する第三者の部品は、アイコンの形（Lucide。ISC ライセンス、一部 MIT）の 1 件だけで、実行されるコードではない（[供給網（サプライチェーン）とライセンス](supply-chain.md)）。
 
 ## 単一 .ps1 版（試験版）
 

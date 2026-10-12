@@ -6,6 +6,7 @@ BeforeAll {
 
     $tool = "${scriptsDir}\..\tools\new_single_script.ps1"
     . "${scriptsDir}\..\tools\script_rules.ps1"
+    . "${scriptsDir}\..\tools\single_script_license.ps1"
 
     $headSha = (& git -C "${scriptsDir}\.." rev-parse HEAD).Trim()
     $docxSource = "${testDataDir}\office\Word\形式\大文字拡張子.DOCX"
@@ -122,6 +123,20 @@ Describe "new_single_script.ps1 の道具の検査" -Tag Io {
         ($bytes[0], $bytes[1], $bytes[2]) | Should -Be @(0xEF, 0xBB, 0xBF)
         ([regex]::IsMatch($text, "(?<!`r)`n")) | Should -Be $false
         $body.Contains("設定ファイルが壊れていたため、既定の設定で起動しました") | Should -Be $true
+    }
+
+    It "同梱する第三者の部品のライセンス文（scripts\shared\licenses\LICENSE-*.txt）が、元のファイルと同じ中身で本体に入っている" {
+        $licenseDir = Join-Path "${scriptsDir}" "shared\licenses"
+        $files = @(getLicenseFiles $licenseDir)
+        # 件数が、フォルダの LICENSE-*.txt の数と同じ（入れ子の配列で 1 件に数えていない）
+        $files.Count | Should -Be @(Get-ChildItem -LiteralPath $licenseDir -Filter "LICENSE-*.txt" -File).Count
+        $files.Count | Should -BeGreaterThan 0
+        $files[0] | Should -BeOfType ([System.IO.FileInfo])
+        foreach ($file in $files) {
+            # 元のファイルの改行は、チェックアウトの設定（autocrlf）で LF にも CRLF にもなるため、CRLF にそろえて比べる
+            $original = normalizeLicenseText ([System.IO.File]::ReadAllText($file.FullName))
+            (restoreLicenseFromComment $body $file.Name) | Should -BeExactly $original
+        }
     }
 
     It "頭と尾は ASCII だけ（頭の判定用の 1 文字だけが例外）で、本体の外に日本語が出ない" {

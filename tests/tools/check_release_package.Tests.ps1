@@ -12,8 +12,8 @@ BeforeAll {
     $goodZip = Join-Path $outDir "tebunko-$version.zip"
 
     # 検査を実行して、終了コードと出力（通らなかった項目）を返す
-    function invokeCheck([string]$zip, [string]$dir = $outDir, [string]$ver = $version) {
-        $output = & $check -ZipPath $zip -OutDir $dir -Version $ver 6>&1 | ForEach-Object { "$_" }
+    function invokeCheck([string]$zip, [string]$dir = $outDir, [string]$ver = $version, [string]$checkScript = $check) {
+        $output = & $checkScript -ZipPath $zip -OutDir $dir -Version $ver 6>&1 | ForEach-Object { "$_" }
         [pscustomobject]@{ Code = $LASTEXITCODE; Text = ($output -join "`n") }
     }
 
@@ -76,7 +76,7 @@ Describe "check_release_package.ps1" -Tag Io {
 
     It "<Name> のとき、通らず、<Expected> を列挙する" -TestCases @(
         @{ Name = "ファイルが 1 つ無い"; Entry = "tebunko/scripts/tebunko/lib.ps1"; Mutate = { $null }; Expected = "zip に無いファイル: tebunko/scripts/tebunko/lib.ps1" }
-        @{ Name = "アイコンの形のライセンスの文面（Lucide）が無い"; Entry = "tebunko/scripts/shared/fonts/LICENSE-Lucide.txt"; Mutate = { $null }; Expected = "同梱のライセンスの文面が zip に無い: scripts/shared/fonts/LICENSE-Lucide.txt" }
+        @{ Name = "アイコンの形のライセンスの文面（Lucide）が無い"; Entry = "tebunko/scripts/shared/licenses/LICENSE-Lucide.txt"; Mutate = { $null }; Expected = "同梱のライセンスの文面が zip に無い: scripts/shared/licenses/LICENSE-Lucide.txt" }
         @{ Name = "余分なファイルがある"; Entry = "tebunko/scripts/extra.ps1"; Mutate = { [byte[]][char[]]"# extra" }; Expected = "zip に余分なファイル: tebunko/scripts/extra.ps1" }
         @{ Name = "1 バイト書き換わっている"; Entry = "tebunko/tebunko.bat"; Mutate = { param($b) $c = [byte[]]$b.Clone(); $c[$c.Length - 1] = $c[$c.Length - 1] -bxor 1; $c }; Expected = "SHA256SUMS.txt のハッシュと一致しません: tebunko.bat" }
         @{ Name = "1 バイト書き換わっていて、カタログとも合わない"; Entry = "tebunko/scripts/tebunko/lib.ps1"; Mutate = { param($b) $c = [byte[]]$b.Clone(); $c[$c.Length - 1] = $c[$c.Length - 1] -bxor 1; $c }; Expected = "カタログの検証に失敗しました" }
@@ -145,6 +145,21 @@ Describe "new_release_files.ps1 のカタログ" -Tag Io {
         & "$cloneDir\tools\new_release_package.ps1" -Version $version -OutDir $dir 3>$null | Out-Null
         $result = invokeCheck (Join-Path $dir "tebunko-$version.zip") $dir
         $result.Code | Should -Be 0
+    }
+}
+
+Describe "同梱のライセンスの文面の置き場" -Tag Io {
+    It "リポジトリに scripts\shared\licenses の LICENSE-*.txt が 1 つも無いと、通らない" {
+        # 本物の作業ツリーを汚さないよう、clone した先で置き場を無くす（clone は $TestDrive の下にできる）
+        $cloneDir = newIsolatedClone "clone-no-licenses"
+        $cloneDir.StartsWith($TestDrive) | Should -BeTrue
+        $licenseDir = Join-Path $cloneDir "scripts\shared\licenses"
+        $licenseDir.StartsWith($TestDrive) | Should -BeTrue
+        Test-Path -LiteralPath $licenseDir | Should -BeTrue
+        Remove-Item -LiteralPath $licenseDir -Recurse -Force
+        $result = invokeCheck $goodZip $outDir $version "$cloneDir\tools\check_release_package.ps1"
+        $result.Code | Should -Be 1
+        $result.Text | Should -BeLike "*同梱のライセンスの文面がリポジトリに無い: scripts/shared/licenses/LICENSE-*.txt*"
     }
 }
 
