@@ -4325,6 +4325,8 @@
 <li>窓とバージョン情報のアイコンは、既定のアイコンになります。</li>
 <li><code>tebunko.bat</code> が行う起動の失敗の記録（言語モードなどの記録）はありません。</li>
 <li>起動の途中の失敗は、zip 版と同じくメッセージボックスで知らせることがあります。ファイルそのものが壊れていて読み込めないとき（ダウンロードが途中で切れたときなど）は、PowerShell の窓がすぐに閉じ、理由を読めません。そのときは <code>SHA256SUMS.txt</code> でハッシュを確かめ、ダウンロードし直してください。</li>
+<li>単一 .ps1 は日本語のまま BOM 付き UTF-8 で配ります。保存し直すなどで BOM が落ちても、日本語が化けずに動きます。Shift_JIS で保存し直したものは対象外です（日本語の Windows の Windows PowerShell 5.1 では日本語以外の文字が <code>?</code> になることがあり、それ以外の環境と PowerShell 7 では英語の案内を出して止まります）。UTF-8（BOM 付き）で保存し直してください。</li>
+<li>PowerShell の言語モードが <code>FullLanguage</code> でない環境では、英語の 1 行を出して終了します。エラーの表示にファイル名は出ません（行番号はファイルの行と同じです）。</li>
 <li>配布物の改ざんの確認は、zip 版の <code>tebunko.cat</code> ではなく、<code>SHA256SUMS.txt</code> で行います。</li>
 </ul>
 <h2 id="検索対象外の内容">検索対象外の内容<a class="headerlink" href="#検索対象外の内容" title="Permanent link">&para;</a></h2>
