@@ -4190,7 +4190,7 @@
 </tr>
 <tr>
 <td>表示する列</td>
-<td><strong>全部の列を表に持ち、横にスクロールして見る</strong>（列の数で切らない。以前の「一度に 200 列まで」は無くした）。ただし、画面の要素は見えている列（と左右に 3 列ずつ。<code>previewColumnMargin</code>）の分だけ作る（<strong>列の仮想化</strong>）。列見出しも、見えている列の分だけを作る。見えていない列の幅は、見出しの帯と各行の左右の空き（<code>PreviewWindow</code> の <code>LeftSpace</code>・<code>RightSpace</code>）で埋め、横スクロールの幅は全部の列を並べたときと同じにする<br>・見える列の範囲は判断層の <code>getPreviewColumnWindow</code>（列の幅・横の位置・見える幅から、先頭と末尾の列と左右の空きを返す）。範囲が変わったときだけ、見えている行（と前後 10 行。<code>previewCellRowMargin</code>）のセルを作り直す（<code>PreviewTable</code> の <code>SetWindow</code>・<code>EnsureCells</code>）。範囲の外に出たセルは捨てる<br>・選んだセルの範囲は行番号と列の番号で持つので、見えていない列を含む範囲でもコピーできる（見えていない列のセルの値も、表が持つ元の値から取る）<br>・列見出しの幅を変えたときは、その列から右の左右の空きを計算し直し、範囲を決め直す<br>・列の幅は、先頭の行（最大 10 行。<code>WidthSampleRows</code>）のセルから決める。一致したセルを含む行は、必ずその中に入れる</td>
+<td><strong>全部の列を表に持ち、横にスクロールして見る</strong>（列の数で切らない。以前の「一度に 200 列まで」は無くした）。ただし、画面の要素は見えている列（と左右に 3 列ずつ。<code>previewColumnMargin</code>）の分だけ作る（<strong>列の仮想化</strong>）。列見出しも、見えている列の分だけを作る。見えていない列の幅は、見出しの帯と各行の左右の空き（<code>PreviewWindow</code> の <code>LeftSpace</code>・<code>RightSpace</code>）で埋め、横スクロールの幅は全部の列を並べたときと同じにする<br>・見える列の範囲は判断層の <code>getPreviewColumnWindow</code>（列の幅の累積・横の位置・見える幅から、先頭と末尾の列と左右の空きを返す。累積は <code>PreviewTable</code> の <code>Prefix</code> が、列が増える・幅が変わるまで使い回し、境目は二分探索で探すので、列が非常に多くても横にスクロールするたびに全部の列を数え直さない）。範囲が変わったときだけ、見えている行（と前後 10 行。<code>previewCellRowMargin</code>）のセルを作り直す（<code>PreviewTable</code> の <code>SetWindow</code>・<code>EnsureCells</code>）。範囲の外に出たセルは捨てる<br>・選んだセルの範囲は行番号と列の番号で持つので、見えていない列を含む範囲でもコピーできる（見えていない列のセルの値も、表が持つ元の値から取る）<br>・列見出しの幅を変えたときは、その列から右の左右の空きを計算し直し、範囲を決め直す<br>・列の幅は、先頭の行（最大 10 行。<code>WidthSampleRows</code>）のセルから決める。一致したセルを含む行は、必ずその中に入れる</td>
 </tr>
 <tr>
 <td>表の形</td>
