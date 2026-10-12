@@ -195,6 +195,27 @@ Describe "perf_common.ps1 のプレビューの部品" -Tag Unit {
         $r.FullRead | Should -BeNullOrEmpty   # 前の読み方は、呼ぶ側が測ったときだけ入れる
     }
 
+    It "大きな本文の TSV は、指定した行だけに語が入り、行番号は 4 桁までで、1 行ずつ CRLF で終わる" {
+        $text = newLargeContentTsvText 200 "架空語" @(10, 150, 200) 2
+        $rows = @($text -split "`r`n" | Where-Object { $_ -ne "" })
+        $rows.Count | Should -Be 200
+        $hitRows = @($rows | Where-Object { $_.Contains("架空語") })
+        $hitRows.Count | Should -Be 3
+        @($hitRows | ForEach-Object { ($_ -split "`t")[0] }) | Should -Be @("10", "150", "200")
+        $rows[0] | Should -Match '^1\t行1\t架空説明 '
+        ($rows | Where-Object { $_ -match '^\d{5}\t' }).Count | Should -Be 0
+        ($rows | Where-Object { $_ -match '見積書|の' }).Count | Should -Be 0   # perfdata の語に当たらない
+        $text.EndsWith("`r`n") | Should -Be $true
+        $text.Contains("`n") | Should -Be $true
+        ([regex]::Matches($text, "(?<!`r)`n")).Count | Should -Be 0
+    }
+
+    It "大きな本文の TSV は、繰り返しで長くなり、行の数が 1〜9999 の外なら失敗にする" {
+        (newLargeContentTsvText 5 "語" @(1) 10).Length | Should -BeGreaterThan (newLargeContentTsvText 5 "語" @(1) 1).Length
+        { newLargeContentTsvText 0 "語" @(1) } | Should -Throw "*1〜9999*"
+        { newLargeContentTsvText 10000 "語" @(1) } | Should -Throw "*1〜9999*"
+    }
+
     It "<name>" -TestCases @(
         @{ name = "全部読む経路の記録で、キャッシュ無しの全部が全体を読んでいれば、問題は 0 件"; rows = @([pscustomobject]@{ N = 1; Cache = "無し"; ReadTextCalls = 1 }, [pscustomobject]@{ N = 2; Cache = "あり"; ReadTextCalls = 0 }); expect = @() }
         @{ name = "キャッシュ無しで全体を読んでいない回があれば、その番号を挙げる"; rows = @([pscustomobject]@{ N = 1; Cache = "無し"; ReadTextCalls = 1 }, [pscustomobject]@{ N = 2; Cache = "無し"; ReadTextCalls = 0 }); expect = @("N=2 で readContentIndexText が呼ばれていません") }

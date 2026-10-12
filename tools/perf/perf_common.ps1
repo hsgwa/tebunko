@@ -460,6 +460,33 @@ function newPreviewResult {
     return $entry
 }
 
+function newLargeContentTsvText {
+    # プレビューの計測用に、大きな本文インデックスのファイル（TSV）の中身を作る。架空の文だけで、人名・社名・パスは入れない。
+    #   lines    : 行の数（行番号は 1 から lines まで）
+    #   hitWord  : 検索する語。hitLines の行にだけ入れる
+    #   hitLines : 語を入れる行番号
+    #   repeat   : 1 行の長さを決める、埋め草の文の繰り返し（約 95 バイト × repeat）
+    # 行番号は 4 桁までにしておく（正規表現の語 ^\d{5}\t が、5 桁の行番号の行に当たらないように。lines は 9999 まで）。
+    # 形は「行番号 TAB 行N TAB 語または架空説明 + 埋め草」を CRLF でつないだもの（BOM は呼ぶ側で付ける）。
+    param (
+        [int]$lines,
+        [string]$hitWord,
+        [int[]]$hitLines,
+        [int]$repeat = 10
+    )
+
+    if ($lines -lt 1 -or $lines -gt 9999) { throw "lines は 1〜9999 にしてください。" }
+    $filler = (@("下書き 確認 覚え書き 日程 調整 備品 発注 会議室 予約 資料 保管場所") * $repeat) -join " "
+    $hits = New-Object System.Collections.Generic.HashSet[int]
+    foreach ($hitLine in $hitLines) { [void]$hits.Add($hitLine) }
+    $builder = New-Object System.Text.StringBuilder
+    for ($lineNo = 1; $lineNo -le $lines; $lineNo++) {
+        $note = if ($hits.Contains($lineNo)) { $hitWord } else { "架空説明" }
+        [void]$builder.Append("$lineNo`t行$lineNo`t$note $filler`r`n")
+    }
+    return $builder.ToString()
+}
+
 function getFullReadPathProblems {
     # -FullRead で測ったプレビューの記録（measure_preview.ps1 の Previews）が、本当に全部読む経路を通ったかを確かめる。
     # キャッシュ無しの選択で readContentIndexText が 1 回も呼ばれていないものがあれば、その番号を文字列で返す（無ければ何も返さない。呼ぶ側は @() で受ける）。

@@ -57,22 +57,15 @@ Describe "選択行のプレビューの速さとメモリ" -Tag Slow {
         # 大きな本文インデックスのファイルを 1 つ足す（perfdata の語は大きなファイルに当たらないので、プレビューが大きなファイルを読む場面を作る）。
         # 架空の文で作り、ヒットは先頭の近くと終わりの近くに 10 行ずつ置く。置き場所はこのテストの作業用の場所（$TestDrive）だけ。
         $bigWord = "大きな本文語"
-        $bigLines = 100000
-        $bigBuilder = New-Object System.Text.StringBuilder
-        for ($lineNo = 1; $lineNo -le $bigLines; $lineNo++) {
-            $isHit = ($lineNo -ge 10 -and $lineNo -le 100 -and $lineNo % 10 -eq 0) -or ($lineNo -ge 99910 -and $lineNo -le 99999 -and $lineNo % 10 -eq 0)
-            $note = if ($isHit) { $bigWord } else { "架空説明" }
-            # perfdata の語（見積書・「の」・5 桁の数字で始まる列）に当たらない文にする
-            [void]$bigBuilder.Append("$lineNo`t行$lineNo`t$note 下書き 確認 覚え書き 日程 調整 備品 発注 会議室 予約 資料 保管場所`r`n")
-        }
+        # ヒットは先頭の近くと終わりの近くに 10 行ずつ（作り方と決まりは newLargeContentTsvText）
+        $bigHitLines = @(1..10 | ForEach-Object { $_ * 10 }) + @(990..999 | ForEach-Object { $_ * 10 })
         $bigPath = Join-Path $index "プレビュー用\大きい本文.xlsx\シート1.tsv"
         [void][System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($bigPath))
-        [System.IO.File]::WriteAllText($bigPath, $bigBuilder.ToString(), (New-Object System.Text.UTF8Encoding($true)))
-        $bigBuilder = $null
+        [System.IO.File]::WriteAllText($bigPath, (newLargeContentTsvText 9999 $bigWord $bigHitLines 10), (New-Object System.Text.UTF8Encoding($true)))
 
         # 語の表は perfdata のものに、大きなファイルに当たる語を足す
         $words = Join-Path $TestDrive "words.tsv"
-        $wordLines = [System.IO.File]::ReadAllLines((Join-Path $perfdata "words.tsv"), [System.Text.Encoding]::UTF8) + "大きい本文`t$bigWord`tfalse`t20"
+        $wordLines = [System.IO.File]::ReadAllLines((Join-Path $perfdata "words.tsv"), [System.Text.Encoding]::UTF8) + "大きい本文`t$bigWord`tfalse`t$($bigHitLines.Count)"
         [System.IO.File]::WriteAllText($words, (($wordLines -join "`r`n") + "`r`n"), (New-Object System.Text.UTF8Encoding($true)))
 
         & (Join-Path $repo "tools\measure_perf.ps1") -Index $index -Work $work -Words $words -Count 1 -Preview $previewCount -PreviewFullRead -Label "tebunko-perfdata $commit" -Out $out | Out-Host
@@ -104,7 +97,7 @@ Describe "選択行のプレビューの速さとメモリ" -Tag Slow {
     It "大きな本文インデックスのファイルが、プレビューの対象に入っている" {
         $entry = @($result.Preview.Words | Where-Object { $_.Name -eq "大きい本文" }) | Select-Object -First 1
         [double]$entry.FileMBMax | Should -BeGreaterThan 5
-        [int]$entry.Count | Should -Be 20
+        [int]$entry.Count | Should -Be $bigHitLines.Count
     }
 
     It "ヒットの無い語は、プレビューを測らずに飛ばす" {
