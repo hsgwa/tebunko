@@ -95,12 +95,10 @@ function getPreviewColumnWindow {
     if (-not $found) { $last = $count - 1 }
     $first = [Math]::Max(0, $first - $margin)
     $last = [Math]::Min($count - 1, $last + $margin)
-    $leftSpace = 0.0
-    for ($i = 0; $i -lt $first; $i++) { $leftSpace += $widths[$i] }
-    $middle = 0.0
-    for ($i = $first; $i -le $last; $i++) { $middle += $widths[$i] }
-    $total = 0.0
-    foreach ($w in $widths) { $total += $w }
+    # 列が非常に多くても（1 万を超えても）スクロールのたびに重くならないよう、合計は .NET の Sum（ネイティブの繰り返し）で出す
+    $leftSpace = [System.Linq.Enumerable]::Sum([System.Linq.Enumerable]::Take($widths, $first))
+    $middle = [System.Linq.Enumerable]::Sum([System.Linq.Enumerable]::Take([System.Linq.Enumerable]::Skip($widths, $first), $last - $first + 1))
+    $total = [System.Linq.Enumerable]::Sum($widths)
     return @{ First = $first; Last = $last; Left = $leftSpace; Right = [Math]::Max(0.0, $total - $leftSpace - $middle) }
 }
 
