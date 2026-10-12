@@ -45,6 +45,18 @@ Describe "convertToAsciiScript（書き換えても、実行した結果が変�
         @{ name = "ブロックコメント"; code = "<# 日本語`r`n複数行 #>`r`n'a'" }
         @{ name = "関数の引数に渡す文字列"; code = "function f { param (`$x) `$x.Length }; f '日本語'; f -x ('語' + 'a')" }
         @{ name = "-split・-replace に渡す文字列"; code = "'あ、い、う' -split '、'; 'あいう' -replace 'い', 'イ'" }
+        @{ name = "switch の条件"; code = 'switch (''あ'') { ''あ'' { ''hit'' } default { ''miss'' } }' }
+        @{ name = "param の既定値"; code = 'function f { param ($x = ''あ'') $x }; f; f ''い''' }
+        @{ name = "-f の書式"; code = '''{0}あ{1}'' -f 1, ''い''' }
+        @{ name = "バッククォートの n と `$"; code = '"あ`n`$い"' }
+        @{ name = "二重引用符を 2 つ重ねた文字"; code = '"あ""い"' }
+        @{ name = "文字としての `$ の直後の日本語"; code = '"a$、"' }
+        @{ name = "文字としての `$ の直後の日本語（ヒアストリング）"; code = '$s = @"' + "`r`n" + 'a$、' + "`r`n" + '"@; $s' }
+        @{ name = "文字としての `$ が文字列の最後と日本語の間にある"; code = '"$、a$、、"' }
+        @{ name = "メソッド呼び出しの日本語の名前"; code = '$o = [pscustomobject]@{}; Add-Member -InputObject $o -MemberType ScriptMethod -Name ''日本語'' -Value { ''ok'' }; $o.日本語()' }
+        @{ name = "式の中にさらに日本語の二重引用符"; code = '$a = ''x''; "あ$("い$($a)う")え"' }
+        @{ name = "式を含む二重引用符のヒアストリング"; code = '$a = ''x''; $s = @"' + "`r`n" + 'あ$($a + ''い'')う' + "`r`n" + '"@; $s' }
+        @{ name = "行の途中のブロックコメント（前後のトークンがつながらない）"; code = '1 +<# あ #>2' }
     ) {
         param ($name, $code)
         $null = assertAsciiAndSame $code
@@ -66,16 +78,49 @@ Describe "convertToAsciiScript（書き換えても、実行した結果が変�
     }
 
     It "<name>は、書き換えられないので、ファイル名と行番号を示して止める" -TestCases @(
-        @{ name = "日本語の変数名"; code = "`$a = 1`r`n`$変数 = 2" }
-        @{ name = "引用符の無い日本語の引数"; code = "Write-Output 日本語" }
-        @{ name = "文字列の中の日本語の変数名"; code = "`$変数 = 1; `"`$変数`"" }
+        @{ name = "日本語の変数名"; code = "`$a = 1`r`n`$変数 = 2"; line = 2 }
+        @{ name = "引用符の無い日本語の引数"; code = "`$a = 1`r`nWrite-Output 日本語"; line = 2 }
+        @{ name = "文字列の中の日本語の変数名"; code = "`$変数 = 1; `"`$変数`"" ; line = 1 }
+        @{ name = "属性の引数（ValidateSet）"; code = "`$a = 1`r`nfunction f { param([ValidateSet('あ')]`$x) `$x }"; line = 2 }
+        @{ name = "属性の引数（HelpMessage）"; code = "function f { param([Parameter(HelpMessage = 'あ')]`$x) `$x }"; line = 1 }
+        @{ name = "enum の要素"; code = "`$a = 1`r`nenum E { あ; い }"; line = 2 }
+        @{ name = "関数名"; code = "function 日本 { 1 }"; line = 1 }
+        @{ name = "引数名"; code = "Get-Item -日本語 1"; line = 1 }
+        @{ name = "静的メンバー名"; code = "[Math]::日本語"; line = 1 }
+        @{ name = "全角の空白"; code = "1 +" + [char]0x3000 + "1"; line = 1 }
     ) {
-        param ($name, $code)
-        { convertToAsciiScript $code "元.ps1" } | Should -Throw "*元.ps1*"
+        param ($name, $code, $line)
+        { convertToAsciiScript $code "元.ps1" } | Should -Throw "*元.ps1 の $line 行目*"
     }
 
     It "構文エラーのあるスクリプトは止める" {
         { convertToAsciiScript "'あ" "元.ps1" } | Should -Throw "*元.ps1*"
+    }
+}
+
+Describe "assertAsciiScriptResult（書き換えた結果の確かめ。書き換えを作る処理とは別に、確かめだけを試す）" -Tag Unit {
+    BeforeAll {
+        $script:oneSingle = @(@{ Expr = "([regex]::Unescape('あ'))"; Expected = "あ"; Where = "元.ps1 の 1 行目" })
+        $script:noDouble = @()
+    }
+
+    It "正しい書き換えは通る" {
+        { assertAsciiScriptResult "'a'" $script:oneSingle $script:noDouble "元.ps1" } | Should -Not -Throw
+    }
+
+    It "<name>は、止める" -TestCases @(
+        @{ name = "日本語が残っている"; result = "'あ'"; single = @(); double = @(); message = "*元.ps1 の 1 行目*" }
+        @{ name = "構文エラー"; result = "'a"; single = @(); double = @(); message = "*構文エラー*" }
+        @{ name = "単一引用符の値が違う"; result = "'a'"; single = @(@{ Expr = "'x'"; Expected = "あ"; Where = "元.ps1 の 3 行目" }); double = @(); message = "*元.ps1 の 3 行目*" }
+        @{ name = "文字としての `$ が、変数 `$`$ に読まれるようになった"; result = "'a'"; single = @()
+            double = @(@{ Old = '"a$、"'; New = '"a$$([regex]::Unescape(''、''))"'; Inserted = 1; Where = "元.ps1 の 4 行目" }); message = "*元.ps1 の 4 行目*" }
+        @{ name = "展開される式の中身が変わった"; result = "'a'"; single = @()
+            double = @(@{ Old = '"a$(0)"'; New = '"a$($x)"'; Inserted = 0; Where = "元.ps1 の 5 行目" }); message = "*元.ps1 の 5 行目*" }
+        @{ name = "足したはずの式の数が合わない"; result = "'a'"; single = @()
+            double = @(@{ Old = '"a"'; New = '"a$([regex]::Unescape(''、''))"'; Inserted = 2; Where = "元.ps1 の 6 行目" }); message = "*元.ps1 の 6 行目*" }
+    ) {
+        param ($name, $result, $single, $double, $message)
+        { assertAsciiScriptResult $result $single $double "元.ps1" } | Should -Throw $message
     }
 }
 
