@@ -193,6 +193,27 @@ Describe "perf_common.ps1 のプレビューの部品" -Tag Unit {
         $r.CacheChars | Should -Be 5000000
         $r.ReadTextCallsUncached | Should -Be 3   # キャッシュ無しの 3 回で 1 回ずつ。キャッシュありの分は数えない
         $r.FullRead | Should -BeNullOrEmpty   # 前の読み方は、呼ぶ側が測ったときだけ入れる
+        $r.Render | Should -BeNullOrEmpty
+        # 表を作る時間は、最初の 1 回（キャッシュ無しの 1 件目）と、2 回目以降（残り 5 回）に分ける
+        $r.BuildFirstMs | Should -Be 2
+        $r.BuildRestMs.Count | Should -Be 5
+        $r.BuildRestMs.Max | Should -Be 3
+    }
+
+    It "描画の結果は、1 回目と 2 回目以降の統計に分け、1 回だけのときは 2 回目以降が null になる" {
+        $raw = newPreviewRaw @(10) @(1)
+        $raw.Render = [pscustomobject]@{ Cells = 900; Rows = 30; Columns = 6; RenderMs = @(200.0, 40.0, 20.0, 30.0, 25.0); WorkingSetBeforeMB = 250.0; WorkingSetAfterMB = 270.0 }
+        $r = newPreviewResult $raw
+        $r.Render.FirstMs | Should -Be 200
+        $r.Render.RestMs.Count | Should -Be 4
+        $r.Render.RestMs.Median | Should -Be 27.5
+        $r.Render.RestMs.Max | Should -Be 40
+        @($r.Render.RenderMs).Count | Should -Be 5
+        ($r.Render.Cells, $r.Render.Rows, $r.Render.Columns) | Should -Be @(900, 30, 6)
+        $r.Render.WorkingSetAfterMB | Should -Be 270
+        $single = newRenderResult ([pscustomobject]@{ Cells = 1; Rows = 1; Columns = 1; RenderMs = @(5.0); WorkingSetBeforeMB = 1.0; WorkingSetAfterMB = 1.0 })
+        $single.FirstMs | Should -Be 5
+        $single.RestMs | Should -BeNullOrEmpty
     }
 
     It "大きな本文の TSV は、指定した行だけに語が入り、行番号は 4 桁までで、1 行ずつ CRLF で終わる" {
@@ -270,7 +291,7 @@ Describe "measure_perf.ps1" -Tag Io {
     }
 
     It "形式の版と実行の情報を書く" {
-        $result.Schema | Should -Be 3
+        $result.Schema | Should -Be 4
         $result.Run.RunId | Should -Be "1"
         $result.Run.Ref | Should -Be "main"
         $result.Run.Count | Should -Be 3
@@ -388,8 +409,13 @@ Describe "measure_perf.ps1" -Tag Io {
             $p.RetainedPerPreviewMB | Should -Not -BeNullOrEmpty
             $p.Render | Should -BeNullOrEmpty
             $p.FullRead | Should -BeNullOrEmpty   # -PreviewFullRead を付けていない
+            $p.BuildFirstMs | Should -BeGreaterThan 0   # 最初に作った表の時間
+            $p.BuildRestMs.Count | Should -Be ($p.Previews - 1)   # 残りは 2 回目以降
         }
         @(Import-Csv "$w\result\preview.csv").Count | Should -Be 6
+        @(Import-Csv "$w\result\metrics.csv" | Where-Object { $_.metric -eq "preview_build_first_ms" }).Count | Should -Be 2
+        @(Import-Csv "$w\result\metrics.csv" | Where-Object { $_.metric -eq "preview_build_rest_ms" -and $_.stat -eq "median" }).Count | Should -Be 2
+        [System.IO.File]::ReadAllText("$w\result\summary.md") | Should -Match "表を作る 1 回目"
         $metrics = @(Import-Csv "$w\result\metrics.csv")
         @($metrics | Where-Object { $_.metric -eq "preview_read_uncached_ms" -and $_.word -eq "まれ" -and $_.stat -eq "median" }).Count | Should -Be 1
         $md = [System.IO.File]::ReadAllText("$w\result\summary.md")
@@ -404,7 +430,7 @@ Describe "measure_perf.ps1" -Tag Io {
         $w = Join-Path $TestDrive "preview-full"
         & $measure -Index $index -Work $w -Words $words -Count 1 -Preview 3 -PreviewFullRead -SampleMs 50 6>$null | Out-Null
         $r = [System.IO.File]::ReadAllText("$w\result\result.json") | ConvertFrom-Json
-        $r.Schema | Should -Be 3
+        $r.Schema | Should -Be 4
         foreach ($p in $r.Preview.Words) {
             $p.FullRead | Should -Not -BeNullOrEmpty
             $p.FullRead.Name | Should -Be $p.Name
@@ -642,7 +668,7 @@ Describe "measure_perf.ps1 -Office" -Tag Io {
     }
 
     It "取り込みを測り、ファイル数・成功・失敗・スレッドの数・時間を書く" {
-        $result.Schema | Should -Be 3
+        $result.Schema | Should -Be 4
         $result.Ingest.Total | Should -Be 4
         $result.Ingest.Done | Should -Be 4
         $result.Ingest.Failed | Should -Be 0

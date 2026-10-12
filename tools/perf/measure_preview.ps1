@@ -130,7 +130,8 @@ try {
         $size = [System.Windows.Size]::new(1400, 700)
         $times = New-Object System.Collections.Generic.List[double]
         $before = getMemory
-        for ($i = 0; $i -lt 3; $i++) {
+        # 1 回目は部品の初期化（テンプレートの読み込みなど）が入るので、2 回目以降と分けて見られるよう 5 回測る
+        for ($i = 0; $i -lt 5; $i++) {
             $headerControl.ItemsSource = $null; $rowsControl.ItemsSource = $null
             $content.Measure($size); $content.Arrange([System.Windows.Rect]::new(0, 0, 1400, 700)); $content.UpdateLayout()
             $watch = [System.Diagnostics.Stopwatch]::StartNew()

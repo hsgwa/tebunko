@@ -23,7 +23,7 @@ flowchart TD
 | 検索（4 語） | 固定の上限と比べる（`search`） | `.\tests\run.ps1 -Tag Slow -ExcludeTag Manual -Path tests\tools\perf_search.Tests.ps1` |
 | 本文インデックスの作成（段階 `pack の作成`） | 固定の上限と比べる（`search`） | 同上 |
 | 選択行のプレビュー（読み込みと、残るメモリ） | 固定の上限と比べる（`search`。検索の測りのあとに別のプロセスで流す） | `.\tests\run.ps1 -Tag Slow -ExcludeTag Manual -Path tests\tools\perf_preview.Tests.ps1` |
-| プレビューの表の描画（`-Render`） | 測らない（画面の部品を使うので `Gui` タグ。上限は置かない） | `.\tests\run.ps1 -Tag Gui -Path tests\tools\perf_preview.Tests.ps1` |
+| プレビューの表の描画（`-Render`）と、表を作る時間の 1 回目・2 回目以降 | 値を出すだけで、上限は置かない（選択行のプレビューと同じテストで測る。`powershell.exe` の子プロセスは既定で STA なので、画面を出さずに Measure・Arrange できる） | 上と同じ。小さなインデックスでの動作確認は `.\tests\run.ps1 -Tag Gui -Path tests\tools\perf_preview.Tests.ps1` |
 | 取り込み（.docx・.pptx。読み取りのスレッド） | 固定の上限と比べる（`ingest`） | `.\tests\run.ps1 -Tag Slow -ExcludeTag Manual -Path tests\tools\perf_ingest.Tests.ps1` |
 | 取り込み（.xlsx・.doc・.ppt。Excel・Word・PowerPoint） | 測らない（ランナーに Office が無い） | main と PR のブランチを同じ日に続けて測り、比で判断する（下の「Office を使う形式の比べ方」） |
 

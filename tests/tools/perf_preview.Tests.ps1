@@ -68,7 +68,7 @@ Describe "選択行のプレビューの速さとメモリ" -Tag Slow {
         $wordLines = [System.IO.File]::ReadAllLines((Join-Path $perfdata "words.tsv"), [System.Text.Encoding]::UTF8) + "大きい本文`t$bigWord`tfalse`t$($bigHitLines.Count)"
         [System.IO.File]::WriteAllText($words, (($wordLines -join "`r`n") + "`r`n"), (New-Object System.Text.UTF8Encoding($true)))
 
-        & (Join-Path $repo "tools\measure_perf.ps1") -Index $index -Work $work -Words $words -Count 1 -Preview $previewCount -PreviewFullRead -Label "tebunko-perfdata $commit" -Out $out | Out-Host
+        & (Join-Path $repo "tools\measure_perf.ps1") -Index $index -Work $work -Words $words -Count 1 -Preview $previewCount -PreviewFullRead -Render -Label "tebunko-perfdata $commit" -Out $out | Out-Host
         if ($LASTEXITCODE) { throw "measure_perf.ps1 が失敗しました（終了コード $LASTEXITCODE）。" }
 
         $result = [System.IO.File]::ReadAllText((Join-Path $out "result.json"), [System.Text.Encoding]::UTF8) | ConvertFrom-Json
@@ -91,6 +91,18 @@ Describe "選択行のプレビューの速さとメモリ" -Tag Slow {
             $entry = @($result.Preview.Words | Where-Object { $_.Name -eq $name }) | Select-Object -First 1
             $entry.FullRead | Should -Not -BeNullOrEmpty -Because "語 $name の FullRead"
             $entry.FullRead.ReadTextCallsUncached | Should -BeGreaterOrEqual ([Math]::Min($previewCount, [int]$entry.Count)) -Because "語 $name は全部読む経路を通ったはず"
+        }
+    }
+
+    It "描画（-Render）の値が、語ごとに入っている（値は出すだけで、上限と比べない）" {
+        # powershell.exe（5.1）の子プロセスは既定で STA なので、画面を出さずに Measure・Arrange できる
+        foreach ($name in @($readLimitsMs.Keys | Sort-Object)) {
+            $entry = @($result.Preview.Words | Where-Object { $_.Name -eq $name }) | Select-Object -First 1
+            $entry.Render | Should -Not -BeNullOrEmpty -Because "語 $name の Render"
+            $entry.Render.Cells | Should -BeGreaterThan 0 -Because "語 $name"
+            $entry.Render.FirstMs | Should -BeGreaterThan 0 -Because "語 $name"
+            $entry.Render.RestMs.Count | Should -BeGreaterThan 0 -Because "語 $name"
+            $entry.BuildFirstMs | Should -BeGreaterThan 0 -Because "語 $name"
         }
     }
 
@@ -121,15 +133,18 @@ Describe "プレビューの描画の計測（-Render）" -Tag Gui {
         $result = [System.IO.File]::ReadAllText("$out\result.json") | ConvertFrom-Json
     }
 
-    It "描画の時間を 3 回分と、セルの数・行・列を書く" {
+    It "描画の時間を 5 回分と、1 回目・2 回目以降の値、セルの数・行・列を書く" {
         $result.Preview.Render | Should -Be $true
         $entry = @($result.Preview.Words)[0]
         $entry.Render.Cells | Should -BeGreaterThan 0
         $entry.Render.Rows | Should -BeGreaterThan 0
         $entry.Render.Columns | Should -BeGreaterThan 0
-        @($entry.Render.RenderMs).Count | Should -Be 3
+        @($entry.Render.RenderMs).Count | Should -Be 5
+        $entry.Render.FirstMs | Should -BeGreaterThan 0
+        $entry.Render.RestMs.Count | Should -Be 4
         $md = [System.IO.File]::ReadAllText("$out\summary.md")
         $md | Should -Match "### プレビューの描画"
-        @(Import-Csv "$out\metrics.csv" | Where-Object { $_.metric -eq "preview_render_ms" }).Count | Should -Be 1
+        @(Import-Csv "$out\metrics.csv" | Where-Object { $_.metric -eq "preview_render_first_ms" }).Count | Should -Be 1
+        @(Import-Csv "$out\metrics.csv" | Where-Object { $_.metric -eq "preview_render_rest_ms" -and $_.stat -eq "median" }).Count | Should -Be 1
     }
 }

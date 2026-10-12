@@ -422,6 +422,26 @@ function getIngestPerfProblems {
     return , $problems.ToArray()
 }
 
+function newRenderResult {
+    # measure_preview.ps1 の Render（-Render の結果）から、result.json の Render を作る。
+    #   RenderMs … 描画（Measure・Arrange・UpdateLayout）の時間を測った順に並べたもの
+    #   FirstMs … 1 回目（部品の初期化が入る）。RestMs … 2 回目以降の統計（1 回だけのときは $null）
+    param (
+        $render
+    )
+
+    $times = [double[]]@($render.RenderMs)
+    $rest = $null
+    if ($times.Count -gt 1) { $rest = getStats ([double[]]@($times[1..($times.Count - 1)])) }
+    return [ordered]@{
+        Cells = $render.Cells; Rows = $render.Rows; Columns = $render.Columns
+        RenderMs = $times
+        FirstMs = $(if ($times.Count) { $times[0] } else { $null })
+        RestMs = $rest
+        WorkingSetBeforeMB = $render.WorkingSetBeforeMB; WorkingSetAfterMB = $render.WorkingSetAfterMB
+    }
+}
+
 function newPreviewResult {
     # measure_preview.ps1 の結果（ConvertFrom-Json したもの）から、result.json の Preview の 1 語分を作る。
     #   読み込みの時間はキャッシュの有無ごと、表を作る時間とセルの数は全部まとめて集計する。
@@ -444,6 +464,8 @@ function newPreviewResult {
         ReadUncachedMs = (getStats ([double[]]@($uncached | ForEach-Object { $_.ReadMs })))
         ReadCachedMs = (getStats ([double[]]@($cached | ForEach-Object { $_.ReadMs })))
         BuildMs = (getStats ([double[]]@($rows | ForEach-Object { $_.BuildMs })))
+        BuildFirstMs = $(if ($rows.Count) { [double]$rows[0].BuildMs } else { $null })
+        BuildRestMs = $(if ($rows.Count -gt 1) { getStats ([double[]]@($rows[1..($rows.Count - 1)] | ForEach-Object { $_.BuildMs })) } else { $null })
         Cells = (getStats ([double[]]@($rows | ForEach-Object { $_.Cells })))
         FileMBMax = $(if ($rows.Count) { ($rows | Measure-Object FileMB -Maximum).Maximum } else { $null })
         ReadTextCallsUncached = [int](($uncached | Measure-Object -Property ReadTextCalls -Sum).Sum)
@@ -454,7 +476,7 @@ function newPreviewResult {
         WorkingSetAfterGcMB = $mem.AfterGcWorkingSetMB; WorkingSetAfterCacheDropMB = $mem.AfterCacheDropWorkingSetMB
         CacheDropMB = [Math]::Round([double]$mem.AfterGcWorkingSetMB - [double]$mem.AfterCacheDropWorkingSetMB, 1)
         CacheChars = [long]$mem.CacheChars
-        Render = $raw.Render
+        Render = $(if ($null -eq $raw.Render) { $null } else { newRenderResult $raw.Render })
         PeakWorkingSetMB = $raw.PeakWorkingSetMB
     }
     return $entry
