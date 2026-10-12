@@ -120,7 +120,7 @@ flowchart TB
 - **行番号**: 本体の前に、頭の行数と同じ数の空行を足して作るので、エラーの `At line:N` の `N` は、単一 .ps1 のファイルの行番号と同じになる。ただし、ファイル名は出ない。
 - **子プロセス**: `-Part indexer` で起こす子も、同じ頭を通るので、BOM が落ちていても動く。
 - **言語モード**: `FullLanguage` でなければ、頭が英語の 1 行を出して終了コード 1 で止まる（ScriptBlock を作れないため）。
-- **禁止の語**: 検査 5 は、包む前の本体に対して行う（上の表）。頭の `[scriptblock]::Create` は、この包みのために足したもので、検査の対象ではない（`[ScriptBlock]::Create` は禁止の語の一覧にあるが、頭は包んだあとに足すため）。別スレッドの部品の読み込み（`importTebunkoPart`）も、文字列から関数を登録して実行する形だが、EDR の見え方は実機でしか確かめられない。
+- **禁止の語**: 検査 5 は、包む前の本体に対して行う（上の表）。頭の `[scriptblock]::Create` は、この包みのために足した、禁止の語の唯一の例外である（理由・範囲は [安全性の確認](../../safety/checks.md#文字列を式として実行1の例外)）。包んだあとの全体を、構文木で、尾の最後の 1 行のほかに Create・`Invoke-Expression`・`iex` が無いことと、その行を除いた全体に禁止の語が無いことを確かめる（下の「包んだあとの確かめ」）。別スレッドの部品の読み込み（`importTebunkoPart`）も、文字列から関数を登録して実行する形だが、EDR の見え方は実機でしか確かめられない。
 
 範囲の外: Shift_JIS で保存し直した単一 .ps1。5.1 では動く（日本語以外の文字は `?` になる）が、7 では UTF-8 として読み直せず、ASCII の案内を出して止まる。貼り付けて実行する形（ファイルのパスが無い）も対象にしない（`${bundledScriptPath}` が要るため、もともと動かない）。展開した版（zip）は変えない。
 
@@ -129,11 +129,12 @@ flowchart TB
 - 構文エラーが 0 件である。
 - UTF-8 のバイトを CP932 で読み違えた文字列でも、構文エラーが 0 件である。
 - 頭と尾が ASCII だけで、行頭が `'@` の行が 2 本（判定と本体の終わり）だけである。
+- ScriptBlock の Create・`Invoke-Expression`・`iex` の呼び出しが、末尾の最後の 1 行（一字一句同じ）だけで、その行を除いた全体（本体の文字列を含む）に禁止の語が無い。
 - 版の文字列が残っている。
 
 テストは次のとおり。
 
-- `tests/tools/single_script_guard.Tests.ps1` … 包む規則（変数の書き換え・退避と復元・止める場合・行番号）と、包んだ `.ps1` を別プロセスで起動した結果（BOM 付き・BOM なし・Windows PowerShell 5.1・PowerShell 7）。日本語の文字列・`$PSScriptRoot`・`$PSCommandPath`・引数・終了コード・エラーの行番号を見る。
+- `tests/tools/single_script_guard.Tests.ps1` … 包む規則（変数の書き換え・退避と復元・止める場合・行番号・Create の例外が 1 行だけであること）と、包んだ `.ps1` を別プロセスで起動した結果（BOM 付き・BOM なし・Windows PowerShell 5.1・PowerShell 7）と、言語モードが ConstrainedLanguage のときの止まり方。日本語の文字列・`$PSScriptRoot`・`$PSCommandPath`・引数・終了コード・エラーの行番号を見る。
 - `tests/tools/new_single_script.Tests.ps1` … ビルドと検査そのもの（まとめる順・部品・新しい別スレッドでの読み込み・`-Part indexer`）と、出力が BOM 付き UTF-8 であること、頭と尾が ASCII だけであること、本体の行番号がファイルの行番号と同じであること、BOM の有無にかかわらず別プロセスで起動して日本語の記録が正しく出ること（Windows PowerShell 5.1・PowerShell 7）。
 - `tests/meta/structure.Tests.ps1` … ソースを 1 本にしても壊れない決まり（別スレッドがパスで部品を読まない・`${bundledScriptPath}` を dot-source や呼び出しに使わない・トップレベルの `trap`／`exit` の形・作った 1 本をコミットしない）。
 - `tests/meta/layers.Tests.ps1`・`tests/meta/safety.Tests.ps1` … 層の決まりと禁止の語を、まとめる元のソースに対して確かめる。

@@ -14,7 +14,7 @@ function scan { param([string[]]$Pattern)
 
 | # | 危険とされる処理 | 結果 | 確認コマンド |
 |---|---|---|---|
-| 1 | 文字列を式として実行（`Invoke-Expression` / `iex` / `[ScriptBlock]::Create`） | 該当 0 件 | `scan 'Invoke-Expression','[^-\w]iex[ (]','ScriptBlock\]::Create'` |
+| 1 | 文字列を式として実行（`Invoke-Expression` / `iex` / `[ScriptBlock]::Create`） | 該当 0 件（配布する単一 .ps1 の末尾 1 行だけが例外。[下記](#文字列を式として実行1の例外)） | `scan 'Invoke-Expression','[^-\w]iex[ (]','ScriptBlock\]::Create'` |
 | 2 | 難読化されたコマンド（Base64・`-EncodedCommand`） | 該当 0 件 | `scan 'FromBase64String','EncodedCommand'` |
 | 3 | ネットワーク通信 | 該当 0 件 | `scan 'Invoke-WebRequest','Invoke-RestMethod','WebClient','HttpClient','Net\.Sockets','Start-BitsTransfer','DownloadFile','DownloadString','System\.Net\.'` |
 | 4 | Windows API の直接呼び出し（P/Invoke） | 該当 0 件 | `scan 'DllImport','GetDelegateForFunctionPointer'` |
@@ -42,6 +42,15 @@ function scan { param([string[]]$Pattern)
 実行時コンパイル（`csc.exe` の起動）を使わないのは設計方針である。検索処理・画面の型定義などは C# を使わず PowerShell と .NET の直接呼び出しで書いている（[画面の実装](../design/gui/implementation.md#実行時コンパイルcscexeを使わない)）。実行時に一時フォルダへコンパイル結果を書き出す動作が無いため、EDR やアプリケーション制御（AppLocker・WDAC）との衝突も避けられる。`tests/meta/safety.Tests.ps1` の「実行時にコードをコンパイルしない」が、`Add-Type` は標準アセンブリの読み込み（`-AssemblyName`）だけであることを確かめる。
 
 **内部の型のリフレクション（14）**：フォルダ選択（`shared/ui/folder_dialog.ps1` の `showFolderPicker`）だけが、WinForms が内部に持つ `IFileOpenDialog` の定義（`FileDialogNative+IFileDialog`）をリフレクション（`BindingFlags` の `NonPublic`）で呼ぶ。Windows 標準のエクスプローラー形式のダイアログを、実行時コンパイルなしで開くためである（[フォルダ選択ダイアログ（［参照…］）](../design/gui/common.md#フォルダ選択ダイアログ参照)）。呼ぶのは .NET Framework に署名付きで入っている WinForms のダイアログの処理だけで、メモリの書き換えや AMSI などの検査の仕組みには触れない。開いている間に `csc.exe` などの子プロセスと一時フォルダへの DLL の書き出しが無いことを実機で確かめた。なお、Windows PowerShell 5.1 は `Add-Type`・`BindingFlags`・`NonPublic`・`GetMethod`・`IntPtr`・`InteropServices` などの語を含むスクリプトを、ログの設定に関わらずイベントログ（Microsoft-Windows-PowerShell/Operational の 4104、警告）に自動で記録する。本ツールはこの変更の前から `Add-Type` などで記録の対象である。`tests/meta/safety.Tests.ps1` が、`NonPublic` を使うのがこの 1 か所だけであることを確かめる。
+
+## 文字列を式として実行（1）の例外
+
+`scripts/` の中は上の確認コマンドのとおり 0 件である。配布する単一 .ps1（`tools/new_single_script.ps1` が作る 1 本）だけは、末尾の 1 行に `. ([scriptblock]::Create(${tebunkoSource})) @PSBoundParameters` がある。
+
+- **理由**: Windows PowerShell 5.1 は、BOM の無い UTF-8 のファイルを CP932 で読み、日本語の文字の最後のバイトが次の記号を飲み込んで構文が壊れる。日本語の本体をヒアストリング（データ）に入れ、ScriptBlock にして実行することで、BOM が落ちても動かす（[単一 .ps1 の包み](../design/structure/single-script.md)）。
+- **範囲**: 作った単一 .ps1 の最後の文の 1 行だけ。本体は、包む前に禁止の語の検査（`tools/script_rules.ps1`）を通っている。
+- **検査**: 包んだ結果の全体を、構文木で確かめる。ScriptBlock の Create・`Invoke-Expression`・`iex` の呼び出しが、この 1 行のそれ 1 件だけで、一字一句同じで、ファイルの最後の文であること。その行を除いた全体（本体の文字列を含む）に、禁止の語が無いこと。1 つでも外れると、包む道具が何も書き出さずに止まる（`tests/tools/single_script_guard.Tests.ps1` が、足した Create・`iex`・引数の違い・2 行目・本体の中の語を止めることを表で確かめる）。
+- **実機で確かめること**: ウイルス対策ソフト（EDR）がこの形を疑うかどうかは、実機でしか確かめられない。検知されたら、方式を決め直す。
 
 ## Office ファイルを開くときの設定
 

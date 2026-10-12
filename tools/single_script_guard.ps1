@@ -150,6 +150,44 @@ function convertToGuardedScript {
 #   2) UTF-8 のバイトを CP932 で読み違えても、構文エラー 0（BOM が落ちた 5.1 の読み方）
 #   3) 頭と尾は ASCII だけ（頭の中の判定用の 1 文字だけが例外）
 #   4) 行の先頭が '@ の行は、頭の判定・本体の 2 本の終わりだけ
+# 包んだ .ps1 の全体で、ScriptBlock の Create・Invoke-Expression の呼び出しが、末尾の 1 行（頭が本体を実行する行）だけであることを確かめる。
+# 本体は禁止の語の検査（tools\script_rules.ps1）を包む前に通っているが、包んだ後の全体でも、この 1 行のほかには許さない。
+# 構文木で、呼び出しの文字列が一字一句同じ 1 件だけで、それがファイルの最後の文であることを見る。
+# さらに、その行を除いた全体（本体の文字列を含む）の、コメントでない行に、禁止の語（大文字小文字を区別しない）が無いことを見る。
+$script:guardAllowedCreate = '[scriptblock]::Create(${tebunkoSource})'
+function assertOnlyGuardCreate {
+    param (
+        [string]$text,
+        [string]$label
+    )
+
+    $ast = readGuardAst $text "$label（禁止の語の検査）"
+    $calls = @($ast.FindAll({
+                param ($node)
+                ($node -is [System.Management.Automation.Language.InvokeMemberExpressionAst] -and
+                $node.Member.Extent.Text -ieq 'Create' -and
+                $node.Expression.Extent.Text -imatch 'scriptblock') -or
+                ($node -is [System.Management.Automation.Language.CommandAst] -and
+                $node.GetCommandName() -imatch '^(Invoke-Expression|iex)$')
+            }, $true))
+    if ($calls.Count -ne 1 -or $calls[0].Extent.Text -ne $script:guardAllowedCreate) {
+        $found = ($calls | ForEach-Object { $_.Extent.Text }) -join ' / '
+        throw "$label に、末尾の 1 行のほかの ScriptBlock の Create・Invoke-Expression があります（$found）。"
+    }
+    $lastStatement = $ast.EndBlock.Statements[$ast.EndBlock.Statements.Count - 1]
+    if ($lastStatement.Extent.StartOffset -gt $calls[0].Extent.StartOffset -or $lastStatement.Extent.EndOffset -lt $calls[0].Extent.EndOffset) {
+        throw "$label の、ScriptBlock の Create が、ファイルの最後の文ではありません。"
+    }
+
+    $rest = $text.Remove($lastStatement.Extent.StartOffset, $lastStatement.Extent.EndOffset - $lastStatement.Extent.StartOffset)
+    foreach ($line in ($rest -split "\r?\n")) {
+        if ($line.TrimStart().StartsWith('#')) { continue }
+        if ($line -imatch 'Invoke-Expression|[^-\w]iex[ (]|ScriptBlock\]::Create') {
+            throw "$label に、禁止の語があります: $($line.Trim())"
+        }
+    }
+}
+
 function assertGuardedScript {
     param (
         [string]$text,
@@ -185,6 +223,7 @@ function assertGuardedScript {
     if ($text.IndexOf($script:guardProbeChar) -lt 0) {
         throw "$label に、判定用の文字がありません。"
     }
+    assertOnlyGuardCreate $text $label
     $closers = @([regex]::Matches($text, "(?m)^'@\r?$")).Count
     if ($closers -ne 2) {
         throw "$label の、行の先頭が '@ の行が 2 本ではありません（$closers 本）。"

@@ -14,13 +14,17 @@ BeforeAll {
 
     # 包んだ .ps1 を別プロセスで `-File` 起動する。本体が書く出力ファイルの中身・終了コード・標準エラーを返す
     function invokeGuarded {
-        param ([string]$dir, [byte[]]$content, [string]$exe = (Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"))
+        param ([string]$dir, [byte[]]$content, [string]$exe = (Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"), [switch]$constrained)
         New-Item -ItemType Directory -Force -Path $dir | Out-Null
         $script = Join-Path $dir "guarded.ps1"
         $outPath = Join-Path $dir "out.txt"
         [System.IO.File]::WriteAllBytes($script, $content)
         $psi = New-Object System.Diagnostics.ProcessStartInfo $exe
         $psi.Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$script`" -Part guard"
+        if ($constrained) {
+            # 子のプロセスの中で、LanguageMode を ConstrainedLanguage に落としてから起動する（システム・レジストリは変えない）
+            $psi.Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command `"`$ExecutionContext.SessionState.LanguageMode = 'ConstrainedLanguage'; & '$script' -Part guard; exit `$LASTEXITCODE`""
+        }
         $psi.UseShellExecute = $false
         $psi.CreateNoWindow = $true
         $psi.RedirectStandardOutput = $true
@@ -31,7 +35,7 @@ BeforeAll {
             $stdout = $process.StandardOutput.ReadToEndAsync()
             $stderr = $process.StandardError.ReadToEndAsync()
             if (-not $process.WaitForExit(60000)) { throw "起動したプロセスが 60 秒で終わりませんでした" }
-            $null = $stdout.Result
+            $stdoutText = $stdout.Result
             $errorText = $stderr.Result
             $exitCode = $process.ExitCode
         } finally {
@@ -39,7 +43,7 @@ BeforeAll {
             $process.Dispose()
         }
         $out = if (Test-Path -LiteralPath $outPath) { [System.IO.File]::ReadAllText($outPath) } else { "" }
-        return @{ Script = $script; Out = $out; ExitCode = $exitCode; ErrorText = $errorText }
+        return @{ Script = $script; Out = $out; ExitCode = $exitCode; ErrorText = $errorText; StdOut = $stdoutText }
     }
 
     # BOM を付けた / 落とした UTF-8 のバイト列にする
@@ -132,6 +136,24 @@ Describe "assertGuardedScript（包んだ結果の確かめ）" -Tag Unit {
         param ($name, $mutate, $message)
         { assertGuardedScript (& $mutate $wrapped) "テスト" } | Should -Throw "*$message*"
     }
+
+    It "末尾の頭が本体を実行する 1 行のほかの、ScriptBlock の Create・Invoke-Expression は、<name> のとき止める" -TestCases @(
+        @{ name = "尾の前に別の Create を足した"; mutate = { param ($t) $t.Replace('${tebunkoSource} = ${tebunkoBody}', '$x = [ScriptBlock]::Create(''1'')' + "`r`n" + '${tebunkoSource} = ${tebunkoBody}') }; message = "のほかの" }
+        @{ name = "頭に iex を足した"; mutate = { param ($t) $t.Replace('${tebunkoRoot} = $PSScriptRoot', "iex 'Get-Date'`r`n" + '${tebunkoRoot} = $PSScriptRoot') }; message = "のほかの" }
+        @{ name = "頭に Invoke-Expression を足した"; mutate = { param ($t) $t.Replace('${tebunkoRoot} = $PSScriptRoot', "Invoke-Expression 'Get-Date'`r`n" + '${tebunkoRoot} = $PSScriptRoot') }; message = "のほかの" }
+        @{ name = "最後の行の引数が違う"; mutate = { param ($t) $t.Replace('[scriptblock]::Create(${tebunkoSource})', '[scriptblock]::Create($other)') }; message = "のほかの" }
+        @{ name = "最後の行の後に、別の Create の行を足した"; mutate = { param ($t) $t + "[scriptblock]::Create('1')`r`n" }; message = "のほかの" }
+        @{ name = "最後の行が 2 つある"; mutate = { param ($t) $t + '. ([scriptblock]::Create(${tebunkoSource})) @PSBoundParameters' + "`r`n" }; message = "のほかの" }
+        @{ name = "本体の文字列に Invoke-Expression がある"; mutate = { param ($t) $t.Replace("日本語。", "日本語 Invoke-Expression。") }; message = "禁止の語" }
+    ) {
+        param ($name, $mutate, $message)
+        { assertGuardedScript (& $mutate $wrapped) "テスト" } | Should -Throw "*$message*"
+    }
+
+    It "本体のコメントの行の中の、禁止の語の言及は止めない" {
+        $commented = convertToGuardedScript "param (`$a = 1)`r`n# Invoke-Expression は使わない`r`n`$b = `"日本語。`"`r`n"
+        { assertGuardedScript $commented "テスト" } | Should -Not -Throw
+    }
 }
 
 Describe "包んだ .ps1 を別プロセスで起動する" -Tag Io {
@@ -180,6 +202,15 @@ Describe "包んだ .ps1 を別プロセスで起動する" -Tag Io {
         $result.ErrorText | Should -Match "boom-marker"
         # 英語は `At line:19 char:1`、日本語の Windows は `発生場所 行:19 文字:1`（標準エラーは文字化けするため行の番号だけで見る）
         $result.ErrorText | Should -Match ":$fileLine\s"
+    }
+
+    It "LanguageMode が FullLanguage でないとき（ConstrainedLanguage）、英語 1 行を出して終了コード 1 で止まり、本体は動かない（5.1）" {
+        $dir = Join-Path $TestDrive "constrained"
+        $result = invokeGuarded $dir (toBytes $wrapped $true) -constrained
+
+        $result.ExitCode | Should -Be 1
+        $result.StdOut | Should -Match "needs PowerShell FullLanguage mode"
+        $result.Out | Should -BeNullOrEmpty
     }
 
     It "Shift_JIS で保存し直したものは範囲の外: 5.1 では本体の日本語以外が ? になるだけで動き、7 では英語の案内を出して止まる（5.1 のみ確かめる）" {
