@@ -347,6 +347,7 @@ $resultData = [ordered]@{
 [System.IO.File]::WriteAllText($Out, ($resultData | ConvertTo-Json -Depth 6), (New-Object System.Text.UTF8Encoding($false)))
 writeStageLine "書き出しの終わり"
 [Console]::Out.Flush()
-# 結果は書き終えているので、描画に使った物がプロセスの終わりで片付くときの失敗を通らずに、ここで終わる。
+# 結果は書き終えているので、ホストの終了の処理を待たずに、終了コード 0 でここで終わる。
+# 終わるときの失敗がどこで起きるかは分かっていない。終わり方の候補の 1 つを外すためで、終了時の処理がすべて省かれるとは限らない。
 # 途中で例外が出たときはここに届かず、0 以外で終わる
 [Environment]::Exit(0)
