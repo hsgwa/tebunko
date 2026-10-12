@@ -115,8 +115,7 @@ if (!$Index) {
 
 # 子のプロセスを起動する（失敗したら止める）
 function invokeChild([string]$script, [string[]]$arguments) {
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path "$PSScriptRoot\perf" $script) @arguments
-    if ($LASTEXITCODE) { throw "$script が失敗しました（終了コード $LASTEXITCODE）。" }
+    invokeChildScript (Join-Path "$PSScriptRoot\perf" $script) $arguments
 }
 function readJson([string]$path) { [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8) | ConvertFrom-Json }
 

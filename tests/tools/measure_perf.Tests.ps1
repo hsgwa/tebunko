@@ -9,6 +9,41 @@ BeforeAll {
     }
 }
 
+Describe "perf_common.ps1 の子のスクリプトの実行" -Tag Unit {
+    BeforeAll {
+        function runChild([string]$body, [int]$tailLines = 20) {
+            $path = Join-Path $TestDrive "child_$([guid]::NewGuid().ToString('N')).ps1"
+            [System.IO.File]::WriteAllText($path, $body, (New-Object System.Text.UTF8Encoding($true)))
+            invokeChildScript $path @() $tailLines
+        }
+    }
+
+    It "0 以外で終わると、<name>" -TestCases @(
+        @{ name = "出した文（標準出力・標準エラー）と終了コードが例外に入る"; body = "Write-Output 'out-line'; [Console]::Error.WriteLine('err-line'); exit 5"; contains = @("out-line", "err-line", "終了コード 5・0x00000005") }
+        @{ name = "何も出さなくても終了コードが入り、出力が無かったと分かる"; body = "exit 5"; contains = @("終了コード 5・0x00000005", "何も出力しませんでした") }
+        @{ name = "大きな終了コードは 16 進でも読める"; body = "exit -1073741819"; contains = @("終了コード -1073741819・0xC0000005") }
+    ) {
+        param ($body, $contains)
+        $thrown = $null
+        try { runChild $body | Out-Null } catch { $thrown = $_.Exception.Message }
+        $thrown | Should -Not -BeNullOrEmpty
+        foreach ($text in $contains) { $thrown | Should -BeLike "*$text*" }
+    }
+
+    It "例外に入れるのは、出力の終わりの指定行数だけ" {
+        $thrown = $null
+        try { runChild "1..10 | ForEach-Object { Write-Output ('line' + `$_) }; exit 3" 3 | Out-Null } catch { $thrown = $_.Exception.Message }
+        $thrown | Should -BeLike "*line10*"
+        $thrown | Should -BeLike "*line8*"
+        $thrown | Should -Not -BeLike "*line7*"
+    }
+
+    It "成功したときは、子の出力をそのまま流し、例外にしない" {
+        $out = @(runChild "Write-Output 'ok-line'; exit 0")
+        $out | Should -Contain "ok-line"
+    }
+}
+
 Describe "perf_common.ps1 の統計値" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "件数が奇数のときの最小・中央値・平均・最大"; values = @(5, 1, 3); min = 1; median = 3; mean = 3; max = 5; count = 3 }

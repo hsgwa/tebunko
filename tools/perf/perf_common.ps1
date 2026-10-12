@@ -22,6 +22,42 @@ function resolveTebunkoLib {
     throw "測る tebunko に scripts\tebunko\lib.ps1 がありません。-Tool に tebunko のフォルダを指定してください。"
 }
 
+function invokeChildScript {
+    # 計測の子のスクリプトを別の powershell.exe で動かす。子の出力はそのまま流す（標準エラーも標準出力と同じ流れに入れる）。
+    # 0 以外で終わったら、終了コード（10 進と 16 進。落ちたときの NTSTATUS が読める）と、子の出力の終わりの tailLines 行を、例外の文に入れて止める。
+    # 出力は CI のログと例外の文にだけ出し、ファイルには残さない
+    param (
+        [string]$scriptPath,
+        [string[]]$arguments = @(),
+        [int]$tailLines = 20
+    )
+
+    $lines = New-Object System.Collections.Generic.List[string]
+    $saved = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"   # 子の標準エラーを、例外にせず文字として受ける
+    try {
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $scriptPath @arguments 2>&1 | ForEach-Object {
+            $text = [string]$_
+            $lines.Add($text)
+            $text
+        }
+    } finally {
+        $ErrorActionPreference = $saved
+    }
+    $code = [int]$LASTEXITCODE
+    if ($code) {
+        $name = [System.IO.Path]::GetFileName($scriptPath)
+        $message = "$name が失敗しました（終了コード $code・0x$('{0:X8}' -f $code)）。"
+        $shown = @($lines | Where-Object { $_.Trim() -ne "" } | Select-Object -Last $tailLines | ForEach-Object { if ($_.Length -gt 300) { $_.Substring(0, 300) + "…" } else { $_ } })
+        if ($shown.Count -eq 0) {
+            $message += "`n子は何も出力しませんでした。"
+        } else {
+            $message += "`n子の出力の終わり（最後の $($shown.Count) 行）:`n" + ($shown -join "`n")
+        }
+        throw $message
+    }
+}
+
 function assertTebunkoFunctions {
     # 計測で呼ぶ関数が、読み込んだ tebunko にあるかを確かめる
     param (
