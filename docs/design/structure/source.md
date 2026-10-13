@@ -51,6 +51,45 @@
 
 今の呼び出しの多い向きに合わせた（`indexer` → `index` と `search` → `index` と `index` → `core` が順向きで多く、読み込み口の順 `core` → `index` → `search`・`indexer` とも合う）。
 
+状態層のフォルダの向きは、次の図のとおり（矢印は「依存してよい向き」）。
+
+```mermaid
+flowchart TD
+    indexer["tebunko/indexer/"]
+    search["tebunko/search/"]
+    index["tebunko/index/"]
+    core["tebunko/core/"]
+    office["shared/office/"]
+    sharedcore["shared/core/"]
+    indexer --> index
+    search --> index
+    index --> core
+    core --> office
+    core --> sharedcore
+    office --> sharedcore
+```
+
+`tebunko/core/` には、上のフォルダ（`index/`・`indexer/`）も `core/` 自身も呼ぶ関数を置く。取り込み一覧（`ingest_status.tsv`）の読み書き、インデックス作成のログ、情報源の名前の判定、インデックス名の一覧がそれに当たる。`core/` の関数は `index/`・`indexer/` の関数を呼ばず、上のフォルダは `core/` を下向きに呼ぶ。
+
+```mermaid
+flowchart LR
+    indexer["tebunko/indexer/"]
+    index["tebunko/index/"]
+    subgraph core["tebunko/core/"]
+        status_file["status_file.ps1<br>newStatusRow・toStatusLine<br>readStatusFile・writeStatusFile<br>getIndexNameMap"]
+        diagnostics["diagnostics.ps1<br>writeIndexerLog"]
+        source_name["source_name.ps1<br>testSourceNameRecordable"]
+        settings["settings.ps1"]
+        workspace_mover["workspace_mover.ps1"]
+    end
+    indexer --> status_file
+    indexer --> diagnostics
+    index --> status_file
+    index --> diagnostics
+    settings --> source_name
+    workspace_mover --> status_file
+```
+
 向きの検査は、文字列ではなく構文木（AST）で行う（`tools/script_arch.ps1`。部品自身のテストは `tests/tools/script_arch.Tests.ps1`）。全部のファイルが同じスコープに読み込まれ、下の層が上の層の関数・変数を名前で使っても動いてしまうため、ファイルごとに構文木を作り、次を見る。
 
 - 関数の呼び出しが、別のパスのファイルで定義した関数を指していること
@@ -66,6 +105,32 @@
 - 状態層の中で、下のフォルダが上のフォルダの関数・変数を使う依存。`tebunko/core/workspace.ps1` から `tebunko/index/system_index.ps1`、`tebunko/index/` から `tebunko/search/`（gram の関数・情報源フォルダのファイルの読み書き・ヒット行の切り詰め）、`tebunko/indexer/` から `tebunko/search/` への依存が残る。どれも、下のフォルダへ関数を移すと消える。
 - `shared/` が `tebunko/` の関数・変数を使う依存。決めた形ではない今ある依存。
 - 判断層（`search_bar_view.ps1`）が、共有の画面層の `formatTime` を呼ぶ依存。
+
+例外の一覧に残っている依存を、フォルダ単位で並べると次のとおり（点線の矢印が、決めた向きに反する今の依存。括弧は一覧の行の数）。
+
+```mermaid
+flowchart TD
+    subgraph tool["tebunko/"]
+        indexer["indexer/"]
+        search["search/"]
+        index["index/"]
+        core["core/"]
+        toolui["ui/"]
+    end
+    subgraph shared["shared/"]
+        sharedui["ui/"]
+        office["office/"]
+        sharedcore["core/"]
+    end
+    core -.->|"updateSystemIndexState（1）"| index
+    index -.->|"gram・情報源フォルダ・truncateHitLine（5）"| search
+    indexer -.->|"systemIndexFileName・writeSourceFolderFile（2）"| search
+    sharedcore -.->|"joinSourcePath（1）"| search
+    sharedcore -.->|"appId（1）"| core
+    office -.->|"toIndexFileName（1）"| index
+    sharedui -.->|"appTitle（1）"| toolui
+    toolui -.->|"formatTime（1）。判断層 search_bar_view.ps1 から"| sharedui
+```
 
 共通の値を作る場所は、読む側より下の層に置く。`$workspace` は状態層の `tebunko/core/paths.ps1`（`initWorkspace`・`setCallerWorkspace`）だけが作り、画面層（`switchWorkspace`）は `initWorkspace` を呼んで作り直す。`shared/` が使うツール側の値は、ツール側が登録する（エラーの記録先と見出しは `setGuiErrorLogSource`、仕事の列は `setBackgroundQueue`・`setNetworkQueueFactory`）。
 
