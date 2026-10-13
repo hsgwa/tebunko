@@ -322,7 +322,11 @@ Describe "removeTreeNoFollow" -Tag Io {
             Set-ItResult -Skipped -Because $script:linkError
             return
         }
-        [void](newTestSymlink "$dir\ファイル" "$outside\ファイル.txt" -File)
+        if (!(newTestSymlink "$dir\ファイル" "$outside\ファイル.txt" -File)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        testPathIsLink "$dir\ファイル" | Should -Be $true
         removeTreeNoFollow $dir
         Test-Path -LiteralPath $dir | Should -Be $false
         readListFile "$outside\外.tsv" | Should -Be @("外")
@@ -338,6 +342,9 @@ Describe "testLinkItem" -Tag Unit {
         @{ name = "ジャンクション"; attributes = "Directory, ReparsePoint"; linkType = "Junction"; expected = $true }
         @{ name = "シンボリックリンク"; attributes = "Directory, ReparsePoint"; linkType = "SymbolicLink"; expected = $true }
         @{ name = "ReparsePoint が付かず LinkType だけがある（属性を信用する）"; attributes = "Directory"; linkType = "Junction"; expected = $false }
+        @{ name = "フォルダで ReparsePoint があり LinkType が空（種類が確かめられない）"; attributes = "Directory, ReparsePoint"; linkType = ""; expected = $true }
+        @{ name = "フォルダで ReparsePoint があり LinkType が `$null（種類が確かめられない）"; attributes = "Directory, ReparsePoint"; linkType = $null; expected = $true }
+        @{ name = "フォルダで ReparsePoint があり LinkType が知らない値"; attributes = "Directory, ReparsePoint"; linkType = "AppExecLink"; expected = $true }
     ) {
         param ($name, $attributes, $linkType, $expected)
         $item = [pscustomobject]@{ Attributes = [System.IO.FileAttributes]$attributes; LinkType = $linkType }
@@ -347,6 +354,38 @@ Describe "testLinkItem" -Tag Unit {
     It "属性が読めない（空）ときは、リンクとして扱う" {
         testLinkItem ([pscustomobject]@{ LinkType = $null }) | Should -Be $true
         testLinkItem $null | Should -Be $true
+    }
+}
+
+Describe "getLinkKind" -Tag Unit {
+    It "<name> は <expected>" -TestCases @(
+        @{ name = "普通のファイル"; attributes = "Archive"; linkType = $null; expected = "Plain" }
+        @{ name = "普通のフォルダ"; attributes = "Directory"; linkType = $null; expected = "Plain" }
+        @{ name = "ReparsePoint のファイル（LinkType が空）"; attributes = "Archive, ReparsePoint"; linkType = ""; expected = "Plain" }
+        @{ name = "ジャンクション"; attributes = "Directory, ReparsePoint"; linkType = "Junction"; expected = "Link" }
+        @{ name = "シンボリックリンク"; attributes = "Directory, ReparsePoint"; linkType = "SymbolicLink"; expected = "Link" }
+        @{ name = "ReparsePoint のフォルダで LinkType が空"; attributes = "Directory, ReparsePoint"; linkType = ""; expected = "Unknown" }
+        @{ name = "ReparsePoint のフォルダで LinkType が `$null"; attributes = "Directory, ReparsePoint"; linkType = $null; expected = "Unknown" }
+        @{ name = "ReparsePoint のフォルダで LinkType が知らない値"; attributes = "Directory, ReparsePoint"; linkType = "AppExecLink"; expected = "Unknown" }
+    ) {
+        param ($name, $attributes, $linkType, $expected)
+        $item = [pscustomobject]@{ Attributes = [System.IO.FileAttributes]$attributes; LinkType = $linkType }
+        getLinkKind $item | Should -Be $expected
+    }
+
+    It "属性が読めない（空）ときは Unknown" {
+        getLinkKind ([pscustomobject]@{ LinkType = $null }) | Should -Be "Unknown"
+    }
+}
+
+Describe "removeTreeNoFollow（種類が確かめられないフォルダ）" -Tag Io {
+    It "リンクかどうか確かめられないフォルダは、辿らず・消さずに、理由を付けて失敗する" {
+        writeListFile "$TestDrive\unknown_kind\中\a.tsv" @("a")
+        Mock getLinkKind { return "Unknown" } -ParameterFilter { $item.Name -eq "中" }
+
+        { removeTreeNoFollow "$TestDrive\unknown_kind" } | Should -Throw "*確かめられない*"
+
+        readListFile "$TestDrive\unknown_kind\中\a.tsv" | Should -Be @("a")
     }
 }
 

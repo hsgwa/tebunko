@@ -23,10 +23,15 @@ function clearTmpDir {
 
 function removeEmptyDir {
     # フォルダが空のときだけ、再帰しない削除で消す。中にほかのプロセスのフォルダなどが残っている・
-    # フォルダが既に無いときは、何もせずそのままにする
+    # フォルダが既に無いときは、何もせずそのままにする。
+    # リンク（ジャンクション・シンボリックリンク）は、リンク自体を外さないよう、先が空でも消さない
+    # （利用者が tmp や出力用のフォルダの親をリンクにした構成を、そのまま使えるようにするため）
     param (
         [string]$dir
     )
+    if (testPathIsLink $dir) {
+        return
+    }
     try {
         [System.IO.Directory]::Delete($dir, $false)
     } catch {
@@ -42,7 +47,7 @@ function removeTmpDir {
         try {
             removeDirectoryRetry $dir
         } catch {
-            writeIndexerLog "    作業フォルダを削除できませんでした: ${dir}" "Yellow"
+            writeIndexerLog "    作業フォルダを削除できませんでした: ${dir}（$($_.Exception.Message)）" "Yellow"
         }
     }
     # 空になった tmp\<PC の鍵>・tmp も消す（ワークスペースの tmp を使えたときだけ。
@@ -70,6 +75,22 @@ function removeStaleTmpDirs {
     removeEmptyDir $workspace.TmpRoot
 }
 
+function newDirectoryReplacingExisting {
+    # フォルダを作る。同じ名前（前の残り・先に置かれたリンク）が既にあれば、リンクは辿らずに消してから作り直す。
+    # 作ったものがリンクでなければ $true（置けた）、リンクのまま残った（消せなかった）ときは $false
+    param (
+        [string]$dir
+    )
+
+    try {
+        removeDirectoryRetry $dir
+    } catch {
+        # 消せなくても、下の確かめでリンクが残っていなければ、そのまま使う
+    }
+    [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+    return !(testPathIsLink $dir)
+}
+
 function initTmpDir {
     # インデックス作成の始めに、取り込みの作業フォルダの片付けと用意をまとめて行う: @{ Dir; Reason（置けなかったときだけ） }
     #   1. 強制終了などで残った、ほかの（終了済みの）プロセスの作業フォルダを片付ける（決めた場所を巻き込まないよう、場所を決める前に行う）
@@ -87,16 +108,11 @@ function initTmpDir {
     # 作業領域（tmp\<PC の鍵>\<PID>）の途中にリンク（ジャンクション・シンボリックリンク）があれば、先に書かないよう置けない扱いにする
     # （tmp そのものは見ない。利用者が tmp を別の場所へのリンクにした構成も、今までどおり使える）。
     # 同じ名前（前のプロセスの残り・先に置かれたもの）が既にあれば、リンクは辿らずに消してから作り直す
-    $parentLinked = testPathHasLink $workspace.TmpRoot (Split-Path $selected.Dir -Parent)
-    if (!$parentLinked) {
-        try {
-            removeDirectoryRetry $selected.Dir
-        } catch {
-            # 消せなくても、下の確かめでリンクが残っていなければ、そのまま使う
-        }
-        [System.IO.Directory]::CreateDirectory($selected.Dir) | Out-Null
+    $placed = $false
+    if (!(testPathHasLink $workspace.TmpRoot (Split-Path $selected.Dir -Parent))) {
+        $placed = newDirectoryReplacingExisting $selected.Dir
     }
-    if ($parentLinked -or (testPathHasLink $workspace.TmpRoot $selected.Dir)) {
+    if (!$placed) {
         $unavailable = @{ Dir = ""; Reason = "Link" }
         writeIndexerLog "$(getTmpDirUnavailableMessage $unavailable.Reason)取り込みをすべてスキップします。" "Yellow"
         return $unavailable
@@ -124,14 +140,7 @@ function newWorkerTmpDir {
         return ""
     }
     $dir = Join-Path $parentDir "w$number"
-    # 同じ名前（前の残り・先に置かれたリンク）が既にあれば、リンクは辿らずに消してから作り直す
-    try {
-        removeDirectoryRetry $dir
-    } catch {
-        # 消せなくても、下の確かめでリンクが残っていなければ、そのまま使う
-    }
-    [System.IO.Directory]::CreateDirectory($dir) | Out-Null
-    if (testPathIsLink $dir) {
+    if (!(newDirectoryReplacingExisting $dir)) {
         return ""
     }
     if (testNotContentIndexed $parentDir) {

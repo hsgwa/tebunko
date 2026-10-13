@@ -135,6 +135,44 @@ Describe "removeEmptyDir" -Tag Io {
         }
         Test-Path -LiteralPath $dir | Should -Be $true
     }
+
+    It "空のフォルダは消し、ジャンクションは（先が空でも）外さずに残す" {
+        [System.IO.Directory]::CreateDirectory("$TestDrive\emptydir_plain") | Out-Null
+        removeEmptyDir "$TestDrive\emptydir_plain"
+        Test-Path -LiteralPath "$TestDrive\emptydir_plain" | Should -Be $false
+
+        if (!(newTestJunction "$TestDrive\emptydir_link" "$TestDrive\emptydir_target")) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        removeEmptyDir "$TestDrive\emptydir_link"
+        testPathIsLink "$TestDrive\emptydir_link" | Should -Be $true
+    }
+
+    It "置き場（tmp・出力用のフォルダの親）がジャンクションでも、片付けと終了のあともジャンクションが残り、先は消えない" {
+        $base = "$TestDrive\rootlink"
+        [System.IO.Directory]::CreateDirectory($base) | Out-Null
+        foreach ($name in @("tmp", "publish")) {
+            if (!(newTestJunction "$base\$name" "$TestDrive\rootlink_target\$name")) {
+                Set-ItResult -Skipped -Because $script:linkError
+                return
+            }
+        }
+        $workspace = newTestWorkspace @{ PublishDir = "$base\publish\$PID"; TmpRoot = "$base\tmp" }
+        ${legacyTmpParent} = "$TestDrive\rootlink_legacy"
+
+        $result = initTmpDir
+        $tmpDir = $result.Dir
+        [System.IO.Directory]::CreateDirectory($workspace.PublishDir) | Out-Null
+        removeStaleTmpDirs
+        removeTmpDir
+
+        testPathIsLink "$base\tmp" | Should -Be $true
+        testPathIsLink "$base\publish" | Should -Be $true
+        Test-Path -LiteralPath "$TestDrive\rootlink_target\tmp" | Should -Be $true
+        Test-Path -LiteralPath "$TestDrive\rootlink_target\publish" | Should -Be $true
+        Test-Path -LiteralPath $result.Dir | Should -Be $false
+    }
 }
 
 Describe "removeTmpDir" -Tag Io {
@@ -463,6 +501,31 @@ Describe "initTmpDir" -Tag Io {
         $result.Dir | Should -Be (getWorkspaceTmpDir $workspace)
         $result.Reason | Should -Be ""
         Test-Path -LiteralPath $result.Dir -PathType Container | Should -Be $true
+    }
+}
+
+Describe "newDirectoryReplacingExisting" -Tag Io {
+    It "無ければ作り、あれば中身ごと作り直して `$true を返す" {
+        newDirectoryReplacingExisting "$TestDrive\replace_new\d" | Should -Be $true
+        Test-Path -LiteralPath "$TestDrive\replace_new\d" -PathType Container | Should -Be $true
+
+        writeListFile "$TestDrive\replace_old\d\古.tsv" @("古")
+        newDirectoryReplacingExisting "$TestDrive\replace_old\d" | Should -Be $true
+        @(Get-ChildItem -LiteralPath "$TestDrive\replace_old\d" -Force).Count | Should -Be 0
+    }
+
+    It "リンクがあれば、先は消さず、リンクを外して普通のフォルダを作る" {
+        writeListFile "$TestDrive\replace_link_target\外.tsv" @("外")
+        [System.IO.Directory]::CreateDirectory("$TestDrive\replace_link") | Out-Null
+        if (!(newTestJunction "$TestDrive\replace_link\d" "$TestDrive\replace_link_target")) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        newDirectoryReplacingExisting "$TestDrive\replace_link\d" | Should -Be $true
+
+        testPathIsLink "$TestDrive\replace_link\d" | Should -Be $false
+        readListFile "$TestDrive\replace_link_target\外.tsv" | Should -Be @("外")
     }
 }
 

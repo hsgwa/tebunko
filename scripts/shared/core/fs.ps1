@@ -326,33 +326,47 @@ function removeDirectoryRetry {
     }
 }
 
-function testLinkItem {
-    # item（Get-Item・Get-ChildItem・DirectoryInfo などが返す FileSystemInfo）が、ジャンクション・シンボリックリンクなら $true。
+function getLinkKind {
+    # item（Get-Item・Get-ChildItem・DirectoryInfo などが返す FileSystemInfo）の種類を返す。
+    #   Link    … ジャンクション・シンボリックリンク（属性に ReparsePoint が付き、LinkType がそのどちらか）
+    #   Unknown … 属性が読めない、またはフォルダなのに ReparsePoint が付き LinkType がジャンクション・シンボリックリンクと確かめられない
+    #             （OneDrive のオンデマンドの置き場のフォルダなど）。リンクかどうか分からないので、辿らず、消しもしない
+    #   Plain   … それ以外（ReparsePoint の付いたファイルは、辿るものが無いので Plain）
     # 先に属性の ReparsePoint を見て、付いているときだけ LinkType を読む（多くのファイルで余計な問い合わせをしない）。
-    # OneDrive のオンデマンドのファイル・フォルダは ReparsePoint だが LinkType が空なので、リンクとは見なさない。
-    # 属性・LinkType が読めなければ、リンクとして扱う（辿らない・消すときはリンクだけを外す側に倒す）
+    # 5.1 ではプロパティを読んだときの例外は $null になる（catch に届かない）ため、$null を読めなかったものとして扱う
     param (
         $item
     )
 
-    try {
-        $attributes = $item.Attributes
-        if ($null -eq $attributes) {
-            return $true
-        }
-        if (!($attributes -band [System.IO.FileAttributes]::ReparsePoint)) {
-            return $false
-        }
-        $linkType = [string]$item.LinkType
-        return ($linkType -eq "Junction" -or $linkType -eq "SymbolicLink")
-    } catch {
-        return $true
+    $attributes = $item.Attributes
+    if ($null -eq $attributes) {
+        return "Unknown"
     }
+    if (!($attributes -band [System.IO.FileAttributes]::ReparsePoint)) {
+        return "Plain"
+    }
+    $linkType = [string]$item.LinkType
+    if ($linkType -eq "Junction" -or $linkType -eq "SymbolicLink") {
+        return "Link"
+    }
+    if ($attributes -band [System.IO.FileAttributes]::Directory) {
+        return "Unknown"
+    }
+    return "Plain"
+}
+
+function testLinkItem {
+    # item が、辿ってはいけないもの（getLinkKind が Link か Unknown）なら $true
+    param (
+        $item
+    )
+
+    return ((getLinkKind $item) -ne "Plain")
 }
 
 function testPathIsLink {
     # path そのもの（途中の階層は見ない）がジャンクション・シンボリックリンクなら $true。
-    # 無い・空のパスは $false（まだ作っていない）。属性が読めないなど、確かめられないときは $true（辿らない側に倒す）
+    # 無い・空のパスは $false（まだ作っていない）。属性が読めない、リンクかどうか確かめられないフォルダ（getLinkKind が Unknown）のときは $true（辿らない側に倒す）
     param (
         [string]$path
     )
@@ -421,7 +435,7 @@ function removeEntryOnly {
     )
 
     $path = $item.FullName
-    if ([System.IO.File]::GetAttributes($path) -band [System.IO.FileAttributes]::ReadOnly) {
+    if ($item.Attributes -band [System.IO.FileAttributes]::ReadOnly) {
         [System.IO.File]::SetAttributes($path, [System.IO.FileAttributes]::Normal)
     }
     if ($item -is [System.IO.DirectoryInfo]) {
@@ -434,6 +448,7 @@ function removeEntryOnly {
 function removeTreeNoFollow {
     # フォルダを中身ごと削除する。ジャンクション・シンボリックリンクは辿らず、リンクそのものだけを外す（先は消さない）。
     # path そのものがリンクなら、そのリンクだけを外す。フォルダが無ければ何もしない。
+    # リンクかどうか確かめられないフォルダ（getLinkKind が Unknown）は、降りず、消しもせず、例外にする（先に消した分は戻らない）。
     # 上から下へ降りながら、ファイルとリンクを消し、フォルダは下から順に消す。降りる直前に、そのフォルダがリンクでないかを確かめ直す。
     # 読み取り専用の属性は外して消す（Remove-Item -Force と同じ働き）。消せなければ例外にする
     param (
@@ -449,7 +464,11 @@ function removeTreeNoFollow {
     $pending.Push($long)
     while ($pending.Count -gt 0) {
         $current = New-Object System.IO.DirectoryInfo ($pending.Pop())
-        if (testLinkItem $current) {
+        $currentKind = getLinkKind $current
+        if ($currentKind -eq "Unknown") {
+            throw "リンクかどうか確かめられないフォルダのため、消しませんでした: $(fromLongPath $current.FullName)"
+        }
+        if ($currentKind -eq "Link") {
             removeEntryOnly $current
             continue
         }
@@ -457,9 +476,12 @@ function removeTreeNoFollow {
         foreach ($entry in @($current.EnumerateFileSystemInfos("*", [System.IO.SearchOption]::TopDirectoryOnly))) {
             if ($entry -isnot [System.IO.DirectoryInfo]) {
                 removeEntryOnly $entry
-            } elseif (testLinkItem $entry) {
+                continue
+            }
+            if ((getLinkKind $entry) -eq "Link") {
                 removeEntryOnly $entry
             } else {
+                # 確かめられないもの（Unknown）も積む。降りる直前の確かめで例外にする（列挙の途中では投げない）
                 $pending.Push($entry.FullName)
             }
         }
