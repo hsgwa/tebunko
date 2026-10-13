@@ -287,8 +287,8 @@ ${objectPlacePattern} = "^(?<base>.*)\[(?:(?<kind>${objectPlaceKindAlternation})
 function newObjectPlaceKindPattern {
     # 場所の末尾の種類だけを当てる正規表現の文字列を、${placeKindFileNames} の表から組み立てる。
     # 検索から外す場所（search_query.ps1 の newPlaceExclude）と画面の判定（ui/search/result_types.ps1 の HitRow.ObjectPlaceRegex）が使う。
-    #   例（全部）: \[(?:図形|コメント|ヘッダー・フッター|埋め込み[1-9][0-9]{0,8})\]$
-    # kinds: 当てる種類の名前の並び（省略は全部）。番号の付く種類（埋め込み）は番号の形を付けて当てる
+    #   例（全部）: \[(?:図形|コメント|ヘッダー・フッター|埋め込み[1-9][0-9]{0,8})\]$（選択肢の並びは表の順による）
+    # kinds: 当てる種類の名前の並び（省略または空は全部）。番号の付く種類（埋め込み）は番号の形を付けて当てる
     param (
         [string[]]$kinds = @()
     )
