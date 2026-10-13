@@ -13,7 +13,8 @@ flowchart LR
 
 | 対象 | 主な確認内容 |
 |---|---|
-| `readStatusFile` / `writeStatusFile` / `addStatusRow`（`tests/tebunko/core/status_file`） | クロール対象フォルダと各列の往復（`[` `]`・先頭の空白を含むパス）、1 行目・見出し行の書式、追記した行の優先（大文字・小文字を区別しない）、エラーのタブ・改行をスペースに、列数の合わない行の無視、書き直し時の置き換え、ファイル無しは空、まとめて書き出した行と `toStatusLine`（1 件ずつの追記）の整形が同じ（速さのため別々に書いているため）、ほかから共有せずに開かれているときの読み込み |
+| `readStatusFile` / `writeStatusFile`（`tests/tebunko/core/status_file`） | クロール対象フォルダと各列の往復（`[` `]`・先頭の空白を含むパス）、1 行目・見出し行の書式、エラーのタブ・改行をスペースに、列数の合わない行の無視、書き直し時の置き換え、ファイル無しは空、まとめて書き出した行と `toStatusLine`（1 件ずつの追記）の整形が同じ（速さのため別々に書いているため）、ほかから共有せずに開かれているときの読み込み |
+| `addStatusRow` | 追記した行の優先（大文字・小文字を区別しない）、追記した行の抽出版 |
 | `readStatusLines` / `renameStatusIndexName` / `removeStatusIndexName` | 名前の変更（クロール対象フォルダの行と各行の相対パス）、インデックスの記録の削除 |
 | `readIngestingFiles` / `writeIngestingFiles` / `removeIngestingFile` | 取り込み中の複数のファイルの回数と相対パスの往復、取り込み中が無ければ記録を消す、壊れた行は読み飛ばす |
 | `describeIngestError` | 取り込みの例外から失敗の原因を作る（パスが長すぎる場合を含む） |
@@ -21,7 +22,7 @@ flowchart LR
 | `newIndexerChannel` / `writeIndexingProgress` / `readIndexingProgress` | 画面が決めた条件を入れスレッドをまたいで使える形にする、段階・件数・内容の往復（タブ・改行はスペース）、受け渡しの口が無ければ何もしない |
 | `requestIndexingStop` / `answerIndexingPlan` | 中止を求めると確認を待っていても待つのをやめる、取り込む返事は中止にしない、取りやめの返事（`$null`）は中止にする |
 | `testIndexerRunning` | インデックス作成の鍵をほかが持っていれば `$true`、調べた後は鍵を持たない |
-| `writeIndexerLog` | ログを開いていればログに書く、コンソールに出すときは色を付ける、ログに書けなくても止めない |
+| `writeIndexerLog`（`tests/tebunko/core/diagnostics`） | ログを開いていればログに書く、コンソールに出すときは色を付ける、ログに書けなくても止めない |
 | `getExtractVersion` / `getIngestDecision` | 形式ごとの抽出版、取り込むかどうかと理由（新規・更新あり・前回未完了（`未取り込み` でエラーがあっても同じ）・インデックスなし・前回失敗・前の抽出版） |
 | `getIngestLane` / `getOfficeLane` | Excel はすべて Excel のレーン、旧形式の Word・PowerPoint は Office のレーン、新形式は読み取りのレーン。読み取りのレーンから回し直すときは、PowerPoint のファイルは PowerPoint、それ以外は Word のレーン |
 | `createTargetList` / `findTargetFiles` | 新規・更新あり・前回未完了・インデックスなし・前の抽出版は取り込み対象、更新の無い取り込み済み・前回失敗は対象外、元のファイルが無くなったらインデックスと行を消す（本文インデックスから外すよう `Removed` で返す）、アクセスできないフォルダがあったときは行とインデックスを残す、tebunko が作ったファイル（ワークスペース・名前で分かるもの）は対象に含めない |
