@@ -5,17 +5,17 @@
 
 ${appTitle} = "tebunko"
 
-# 画面で起きた予期しないエラーの記録先（app_host.ps1 の writeErrorLog が使う）。今のワークスペースの中に置く。
+# 画面で起きた予期しないエラーの記録先（gui.ps1 が setGuiErrorLogSource で登録し、app_host.ps1 の writeErrorLog が使う）。今のワークスペースの中に置く。
 # startGui を抜けた後（gui.ps1 の外側の catch）でも使えるよう、スクリプト直下に置く。ワークスペースが決まる前は $null を返す
-function getGuiErrorLogFile {
+function getToolGuiErrorLogFile {
     if ($null -eq $script:workspace) {
         return $null
     }
     return $script:workspace.GuiErrorLogFile
 }
 
-# gui_error_log.txt の先頭（プロセスごとの最初の記録の前）に書く版と環境の見出し（行の配列）。app_host.ps1 の writeErrorLog が使う
-function getGuiErrorLogHeader {
+# gui_error_log.txt の先頭（プロセスごとの最初の記録の前）に書く版と環境の見出し（行の配列）。gui.ps1 が登録し、app_host.ps1 の writeErrorLog が使う
+function getToolGuiErrorLogHeader {
     return getToolDiagnosticHeader
 }
 

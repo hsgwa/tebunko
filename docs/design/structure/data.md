@@ -127,5 +127,5 @@ flowchart LR
 | `ResultFile` | `<Dir>\search_results.txt` |
 | `IndexingLogFile` | `<Dir>\indexing_log.txt`（インデクサの表示内容の記録。実行ごとに新しく書き、前回の分は `IndexingLogPreviousFile` へ移す） |
 | `IndexingLogPreviousFile` | `<Dir>\indexing_log_previous.txt`（前回のインデックス作成の記録） |
-| `GuiErrorLogFile` | `<Dir>\gui_error_log.txt`（画面で起きた予期しないエラーの記録。追記。共通基盤の `writeErrorLog` は、画面が定義する `getGuiErrorLogFile` からこの場所を得る） |
+| `GuiErrorLogFile` | `<Dir>\gui_error_log.txt`（画面で起きた予期しないエラーの記録。追記。共通基盤の `writeErrorLog` は、画面が `setGuiErrorLogSource` で登録する `getToolGuiErrorLogFile` からこの場所を得る） |
 | `GuiErrorLogPreviousFile` | `<Dir>\gui_error_log_previous.txt`（`gui_error_log.txt` が 1 MB 以上になったときに移した前の分） |

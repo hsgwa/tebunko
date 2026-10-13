@@ -68,6 +68,7 @@ function startGui {
     # ウィンドウと、領域ごとの部品の対応表（$ui）
     $window = loadWindow "${xamlDir}\tebunko.xaml"
     stepSplash 55
+    $ui = @{}
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\shell\regions.ps1".Replace('`', '``')))
 
     ${okBrush}   = themeBrush "Ok"

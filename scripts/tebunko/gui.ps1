@@ -45,6 +45,7 @@ try {
     . ([WildcardPattern]::Escape("$PSScriptRoot\ui\search\target_types.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$PSScriptRoot\ui\index\index_types.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$PSScriptRoot\..\shared\ui\app_host.ps1".Replace('`', '``')))
+    setGuiErrorLogSource { getToolGuiErrorLogFile } { getToolGuiErrorLogHeader }
     . ([WildcardPattern]::Escape("$PSScriptRoot\..\shared\ui\trimmed_tooltip.ps1".Replace('`', '``')))
     stepSplash 50
 

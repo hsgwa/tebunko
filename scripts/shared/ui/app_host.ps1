@@ -1,6 +1,6 @@
 ﻿# 画面の土台（XAML の読み込み・見た目の共通定義・エラーの記録）。
-# 使う側が themeFile・iconXamlFile と、エラーの記録先を返す関数 getGuiErrorLogFile、
-# 記録の先頭に書く見出しの行を返す関数 getGuiErrorLogHeader を定義しておくこと（見出しが無くても記録は書く）。
+# 使う側が themeFile・iconXamlFile を定義し、エラーの記録先を返す式と、記録の先頭に書く見出しの行を返す式を
+# setGuiErrorLogSource で登録しておくこと（見出しが無くても記録は書く）。
 
 # 見た目の共通定義を読み込む（画面自体は XAML の MergedDictionaries で読み込む）
 function loadTheme {
@@ -139,6 +139,36 @@ function themeBrush {
 ${guiErrorLogMaxBytes} = 1MB
 # 見出しを最後に書いた記録先（writeErrorLog が、最初の記録・記録先の変更で見出しを書くために覚える）
 ${script:errorLogHeaderPath} = $null
+# 使う側が登録する、記録先を返す式と見出しの行を返す式（setGuiErrorLogSource）
+${script:errorLogFileSource} = $null
+${script:errorLogHeaderSource} = $null
+
+function setGuiErrorLogSource {
+    # 記録先（file）と記録の先頭の見出し（header。行の配列）を返す式を登録する（gui.ps1 が app_host.ps1 を読み込んだ直後に呼ぶ）
+    param (
+        [scriptblock]$file,
+        [scriptblock]$header
+    )
+
+    ${script:errorLogFileSource} = $file
+    ${script:errorLogHeaderSource} = $header
+}
+
+# エラーの記録先。登録が無い（まだ決まっていない）ときは $null を返す
+function getGuiErrorLogFile {
+    if ($null -eq ${script:errorLogFileSource}) {
+        return $null
+    }
+    return (& ${script:errorLogFileSource})
+}
+
+# 記録の先頭に書く見出しの行。登録が無いときは例外を投げる（writeErrorLog は、見出しを作れなくても記録は書く）
+function getGuiErrorLogHeader {
+    if ($null -eq ${script:errorLogHeaderSource}) {
+        throw "getGuiErrorLogHeader: setGuiErrorLogSource で登録されていない"
+    }
+    return (& ${script:errorLogHeaderSource})
+}
 
 # 予期しないエラーを getGuiErrorLogFile のファイルに残す。画面に出したメッセージだけでは、
 # どこで起きたのかが後から分からないため（利用者に見せるのは従来どおりメッセージだけ）

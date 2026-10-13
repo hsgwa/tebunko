@@ -49,7 +49,6 @@
             "WorkspaceBox", "WorkspaceInputError", "WorkspaceNote", "WorkspaceCaution", "WorkspaceHowTo", "ChangeWorkspaceButton", "ResetWorkspaceButton", "SettingsFileText", "SettingsFileNote") }
     )
 
-    $ui = @{}
     foreach ($name in @("NavHost", "ContentHost", "StatusBarHost", "ScrimOverlay",
             "WorkspaceNoticeHost")) {
         $ui[$name] = $window.FindName($name)

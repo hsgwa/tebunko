@@ -121,17 +121,36 @@ Describe "loadAppIcon（画面のアイコン）" -Tag Unit {
     }
 }
 
+Describe "setGuiErrorLogSource（使う側が登録した式から、記録先と見出しを得る）" -Tag Unit {
+    AfterEach {
+        setGuiErrorLogSource $null $null
+    }
+
+    It "登録が無いときは、記録先は `$null・見出しは例外" {
+        setGuiErrorLogSource $null $null
+        getGuiErrorLogFile | Should -Be $null
+        { getGuiErrorLogHeader } | Should -Throw "*登録されていない*"
+    }
+
+    It "登録した式の戻り値を返す" {
+        setGuiErrorLogSource { "C:\work\gui_error_log.txt" } { @("見出し 1", "見出し 2") }
+        getGuiErrorLogFile | Should -Be "C:\work\gui_error_log.txt"
+        @(getGuiErrorLogHeader) | Should -Be @("見出し 1", "見出し 2")
+    }
+}
+
 Describe "writeErrorLog（記録先のフォルダ名に特別な文字が入っていても書ける）" -Tag Io {
     It "フォルダ名に <label> を含む記録先に、フォルダを作って記録する" -ForEach $pathCharCases {
         $base = Join-Path ([System.IO.Path]::GetTempPath()) ("errlog_" + [guid]::NewGuid().ToString("N"))
         $logFile = Join-Path $base "work_a${ch}b\画面エラー.txt"
         try {
-            function getGuiErrorLogFile { return $logFile }
+            setGuiErrorLogSource { $logFile }.GetNewClosure() $null
             try { throw "テスト用の例外" } catch { $record = $_ }
             writeErrorLog "確かめ" $record
             [System.IO.File]::Exists($logFile) | Should -Be $true
             [System.IO.File]::ReadAllText($logFile) | Should -Match "テスト用の例外"
         } finally {
+            setGuiErrorLogSource $null $null
             # Pester の TestDrive でなく TEMP に作ったので、ワイルドカードを解釈しない .NET で消す
             if ([System.IO.Directory]::Exists($base)) { [System.IO.Directory]::Delete($base, $true) }
         }
@@ -140,7 +159,7 @@ Describe "writeErrorLog（記録先のフォルダ名に特別な文字が入っ
 
 Describe "writeErrorLog（版と環境の見出しと、大きさでの入れ替え）" -Tag Io {
     BeforeAll {
-        function global:useTestHeader { function global:getGuiErrorLogHeader { return @("==== テストの診断情報 ====", "====") } }
+        function useTestHeader { setGuiErrorLogSource { $global:testErrorLog } { @("==== テストの診断情報 ====", "====") } }
         function writeOneError {
             try { throw "テスト用の例外" } catch { writeErrorLog "確かめ" $_ }
         }
@@ -153,13 +172,12 @@ Describe "writeErrorLog（版と環境の見出しと、大きさでの入れ替
     BeforeEach {
         $script:errorLogHeaderPath = $null
         $global:testErrorLog = Join-Path $TestDrive ("err_" + [guid]::NewGuid().ToString("N") + "\gui_error_log.txt")
-        function global:getGuiErrorLogFile { return $global:testErrorLog }
-        # 前の It が定義した見出しの関数を残さない（「無い」場合を本当に無い状態で確かめるため）
-        Remove-Item function:global:getGuiErrorLogHeader -ErrorAction SilentlyContinue
+        # 前の It が登録した見出しの式を残さない（「無い」場合を本当に無い状態で確かめるため）
+        setGuiErrorLogSource { $global:testErrorLog } $null
     }
 
     AfterAll {
-        Remove-Item function:global:getGuiErrorLogFile, function:global:getGuiErrorLogHeader, function:global:useTestHeader -ErrorAction SilentlyContinue
+        setGuiErrorLogSource $null $null
         Remove-Variable -Name testErrorLog -Scope Global -ErrorAction SilentlyContinue
     }
 
@@ -197,16 +215,11 @@ Describe "writeErrorLog（版と環境の見出しと、大きさでの入れ替
         (countHeaders $global:testErrorLog) | Should -Be 1
     }
 
-    It "見出しの関数が <label> でも、記録そのものは書かれる" -ForEach @(
-        @{ label = "例外を投げる"; define = { function global:getGuiErrorLogHeader { throw "見出しを作れない" } } }
+    It "見出しの式が <label> でも、記録そのものは書かれる" -ForEach @(
+        @{ label = "例外を投げる"; define = { setGuiErrorLogSource { $global:testErrorLog } { throw "見出しを作れない" } } }
         @{ label = "無い"; define = { } }
     ) {
         & $define
-        if ($label -eq "無い") {
-            # 読み込んだ本物の定義も外して、本当に無い状態にする（このあとも外れたまま。このファイルの最後の It）
-            Remove-Item function:getGuiErrorLogHeader -ErrorAction SilentlyContinue
-            Get-Command getGuiErrorLogHeader -ErrorAction SilentlyContinue | Should -BeNullOrEmpty
-        }
         writeOneError
         $text = [System.IO.File]::ReadAllText($global:testErrorLog)
         $text | Should -Match "テスト用の例外"
