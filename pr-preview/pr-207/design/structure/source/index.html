@@ -4290,6 +4290,37 @@
 </table>
 <p>共有の状態層（<code>shared/core/</code>・<code>shared/office/</code>）は、共有の画面層（<code>shared/ui/</code>）にも依存しない。</p>
 <p>今の呼び出しの多い向きに合わせた（<code>indexer</code> → <code>index</code> と <code>search</code> → <code>index</code> と <code>index</code> → <code>core</code> が順向きで多く、読み込み口の順 <code>core</code> → <code>index</code> → <code>search</code>・<code>indexer</code> とも合う）。</p>
+<p>状態層のフォルダの向きは、次の図のとおり（矢印は「依存してよい向き」）。</p>
+<pre class="mermaid"><code>flowchart TD
+    indexer["tebunko/indexer/"]
+    search["tebunko/search/"]
+    index["tebunko/index/"]
+    core["tebunko/core/"]
+    office["shared/office/"]
+    sharedcore["shared/core/"]
+    indexer --&gt; index
+    search --&gt; index
+    index --&gt; core
+    core --&gt; office
+    core --&gt; sharedcore
+    office --&gt; sharedcore</code></pre>
+<p><code>tebunko/core/</code> には、上のフォルダ（<code>index/</code>・<code>indexer/</code>）も <code>core/</code> 自身も呼ぶ関数を置く。取り込み一覧（<code>ingest_status.tsv</code>）の読み書き、インデックス作成のログ、情報源の名前の判定、インデックス名の一覧がそれに当たる。<code>core/</code> の関数は <code>index/</code>・<code>indexer/</code> の関数を呼ばず、上のフォルダは <code>core/</code> を下向きに呼ぶ。</p>
+<pre class="mermaid"><code>flowchart LR
+    indexer["tebunko/indexer/"]
+    index["tebunko/index/"]
+    subgraph core["tebunko/core/"]
+        status_file["status_file.ps1&lt;br&gt;newStatusRow・toStatusLine&lt;br&gt;readStatusFile・writeStatusFile&lt;br&gt;getIndexNameMap"]
+        diagnostics["diagnostics.ps1&lt;br&gt;writeIndexerLog"]
+        source_name["source_name.ps1&lt;br&gt;testSourceNameRecordable"]
+        settings["settings.ps1"]
+        workspace_mover["workspace_mover.ps1"]
+    end
+    indexer --&gt; status_file
+    indexer --&gt; diagnostics
+    index --&gt; status_file
+    index --&gt; diagnostics
+    settings --&gt; source_name
+    workspace_mover --&gt; status_file</code></pre>
 <p>向きの検査は、文字列ではなく構文木（AST）で行う（<code>tools/script_arch.ps1</code>。部品自身のテストは <code>tests/tools/script_arch.Tests.ps1</code>）。全部のファイルが同じスコープに読み込まれ、下の層が上の層の関数・変数を名前で使っても動いてしまうため、ファイルごとに構文木を作り、次を見る。</p>
 <ul>
 <li>関数の呼び出しが、別のパスのファイルで定義した関数を指していること</li>
@@ -4304,6 +4335,28 @@
 <li><code>shared/</code> が <code>tebunko/</code> の関数・変数を使う依存。決めた形ではない今ある依存。</li>
 <li>判断層（<code>search_bar_view.ps1</code>）が、共有の画面層の <code>formatTime</code> を呼ぶ依存。</li>
 </ul>
+<p>例外の一覧に残っている依存を、フォルダ単位で並べると次のとおり（点線の矢印が、決めた向きに反する今の依存。括弧は一覧の行の数）。</p>
+<pre class="mermaid"><code>flowchart TD
+    subgraph tool["tebunko/"]
+        indexer["indexer/"]
+        search["search/"]
+        index["index/"]
+        core["core/"]
+        toolui["ui/"]
+    end
+    subgraph shared["shared/"]
+        sharedui["ui/"]
+        office["office/"]
+        sharedcore["core/"]
+    end
+    core -.-&gt;|"updateSystemIndexState（1）"| index
+    index -.-&gt;|"gram・情報源フォルダ・truncateHitLine（5）"| search
+    indexer -.-&gt;|"systemIndexFileName・writeSourceFolderFile（2）"| search
+    sharedcore -.-&gt;|"joinSourcePath（1）"| search
+    sharedcore -.-&gt;|"appId（1）"| core
+    office -.-&gt;|"toIndexFileName（1）"| index
+    sharedui -.-&gt;|"appTitle（1）"| toolui
+    toolui -.-&gt;|"formatTime（1）。判断層 search_bar_view.ps1 から"| sharedui</code></pre>
 <p>共通の値を作る場所は、読む側より下の層に置く。<code>$workspace</code> は状態層の <code>tebunko/core/paths.ps1</code>（<code>initWorkspace</code>・<code>setCallerWorkspace</code>）だけが作り、画面層（<code>switchWorkspace</code>）は <code>initWorkspace</code> を呼んで作り直す。<code>shared/</code> が使うツール側の値は、ツール側が登録する（エラーの記録先と見出しは <code>setGuiErrorLogSource</code>、仕事の列は <code>setBackgroundQueue</code>・<code>setNetworkQueueFactory</code>）。</p>
 <p>見つからないもの（限界）: <code>&amp; $name</code> の呼び出し、コールバックで渡したスクリプトブロックの中から呼ぶ形、<code>$ui</code> を別の名前の引数で受け取る形、クラスのメソッドの呼び出し、<code>Set-Variable</code> での代入（<code>$workspace</code> は、代入を <code>setCallerWorkspace</code> に集めてある）。別のファイルのクラスを型として使う依存（<code>[型]::new()</code>・引数や戻り値の型）は、依存の向きの表では見つからない（決めた型 <code>System.Windows.*</code> だけは、画面の変数・型の検査が見る）。<code>New-Object</code> に文字列で渡す型と、<code>using namespace</code> で短く書いた型は、構文木では型として見えない（文字列の検査が見る）。同じ名前の関数・変数が、見る側のパスにもあるときは、そちらを使っているとみなす。</p>
 <h2 id="読み込み口">読み込み口<a class="headerlink" href="#読み込み口" title="Permanent link">&para;</a></h2>
