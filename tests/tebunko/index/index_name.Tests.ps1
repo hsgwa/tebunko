@@ -61,7 +61,7 @@ Describe "splitObjectPlace" -Tag Unit {
     It "種類の名前が、書き出す側（office_reader.ps1）と画面（HitRow）でも同じ" {
         # 画面のクラスはスクリプトの変数を使えず、shared はツールの変数を使えないため、同じ名前を別々に書いている
         $reader = [System.IO.File]::ReadAllText("${scriptsDir}\shared\office\office_reader.ps1")
-        $hitRow = [System.IO.File]::ReadAllText("${scriptsDir}\tebunko\ui\types.ps1")
+        $hitRow = [System.IO.File]::ReadAllText("${scriptsDir}\tebunko\ui\search\result_types.ps1")
         foreach ($kind in @(${placeKindShape}, ${placeKindComment}, ${placeKindHeaderFooter})) {
             $reader.Contains("[$kind]") | Should -Be $true
         }

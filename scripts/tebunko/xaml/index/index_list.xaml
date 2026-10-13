@@ -143,7 +143,7 @@
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
             <DataGridTemplateColumn Width="170">
-              <!-- 見出しの説明（StatusColumnHeader の ToolTip）は index_view.ps1 の getIndexStatusHelpText が決める -->
+              <!-- 見出しの説明（StatusColumnHeader の ToolTip）は ui/index/index_list_view.ps1 の getIndexStatusHelpText が決める -->
               <DataGridTemplateColumn.Header>
                 <TextBlock x:Name="StatusColumnHeader" Text="ステータス" />
               </DataGridTemplateColumn.Header>

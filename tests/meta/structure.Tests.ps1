@@ -45,10 +45,15 @@ Describe "カバレッジの計測の対象（画面層だけを分母から外�
         @{ file = "tebunko\ui\preview.ps1" }
         @{ file = "tebunko\ui\index_tree.ps1" }
         @{ file = "tebunko\ui\open_source.ps1" }
-        @{ file = "tebunko\ui\types.ps1" }
+        @{ file = "tebunko\ui\search\result_types.ps1" }
+        @{ file = "tebunko\ui\search\target_types.ps1" }
+        @{ file = "tebunko\ui\index\index_types.ps1" }
         @{ file = "tebunko\ui\startup_error.ps1" }
         @{ file = "shared\ui\types.ps1" }
-        @{ file = "tebunko\ui\index_view.ps1" }
+        @{ file = "tebunko\ui\index\index_list_view.ps1" }
+        @{ file = "tebunko\ui\index\index_edit_view.ps1" }
+        @{ file = "tebunko\ui\index\index_detail_view.ps1" }
+        @{ file = "tebunko\ui\index\index_archive_view.ps1" }
         @{ file = "tebunko\ui\wait_view.ps1" }
         @{ file = "tebunko\ui\shell\nav_view.ps1" }
         @{ file = "tebunko\ui\shell\nav.ps1" }
@@ -87,6 +92,14 @@ Describe "カバレッジの計測の対象（画面層だけを分母から外�
         @{ file = "shared\ui\trimmed_tooltip.ps1" }
         @{ file = "tebunko\ui\splash.ps1" }
         @{ file = "tebunko\ui\shell\notice_banner.ps1" }
+        @{ file = "tebunko\ui\shell\regions.ps1" }
+        @{ file = "tebunko\ui\shell\screens.ps1" }
+        @{ file = "tebunko\ui\shell\services.ps1" }
+        @{ file = "tebunko\ui\shell\settings_recovery.ps1" }
+        @{ file = "tebunko\ui\shell\window_events.ps1" }
+        @{ file = "tebunko\ui\shell\closing.ps1" }
+        @{ file = "tebunko\ui\shell\startup.ps1" }
+        @{ file = "tebunko\ui\shell\activate_watch.ps1" }
         @{ file = "shared\ui\folder_dialog.ps1" }
         @{ file = "tebunko\ui\search\search_bar.ps1" }
         @{ file = "tebunko\ui\search\search_session.ps1" }
@@ -478,7 +491,9 @@ Describe "型の読み込み" -Tag Meta {
         Set-Content -LiteralPath $probe -Encoding UTF8 -Value @(
             'Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase'
             ". `"$scripts\shared\ui\types.ps1`""
-            ". `"$scripts\tebunko\ui\types.ps1`""
+            ". `"$scripts\tebunko\ui\search\result_types.ps1`""
+            ". `"$scripts\tebunko\ui\search\target_types.ps1`""
+            ". `"$scripts\tebunko\ui\index\index_types.ps1`""
             '([HitRow], [IndexNode], [ConfirmFact], [PreviewTable]).Count'
         )
         $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $probe 2>&1
@@ -893,11 +908,11 @@ Describe "単一 .ps1 化の決まり（AST。docs/design/structure/single-scrip
 }
 
 Describe "画面の部品の名前" -Tag Meta {
-    # gui_main.ps1（startGui）が FindName で取る名前が、XAML に実在すること。
+    # startGui（gui_main.ps1。領域の表は shell\regions.ps1）が FindName で取る名前が、XAML に実在すること。
     # タブの中身を別ファイルに分けているため、名前を足したり動かしたりすると気づきにくい
     BeforeAll {
         $xamlNs = "http://schemas.microsoft.com/winfx/2006/xaml"
-        $gui = [System.IO.File]::ReadAllText("$here\..\scripts\tebunko\ui\gui_main.ps1")
+        $gui = [System.IO.File]::ReadAllText("$here\..\scripts\tebunko\ui\shell\regions.ps1")
 
         function getXamlNames {
             param ([string]$path)
@@ -921,7 +936,7 @@ Describe "画面の部品の名前" -Tag Meta {
         (getXamlNames "$here\..\scripts\tebunko\xaml\shell\status_bar.xaml") -contains "StatusText" | Should -Be $true
     }
 
-    It "gui_main.ps1 の領域の表の各ファイルに、使う名前がすべてある" {
+    It "shell\regions.ps1 の領域の表の各ファイルに、使う名前がすべてある" {
         # $regions の `File = "..."; ... Names = @(...)` を全部取り出して、XAML と突き合わせる
         $entries = @([regex]::Matches($gui, 'File\s*=\s*"([^"]+)".*?Names\s*=\s*(?:@\(([^)]*)\)|\$(\w+))'))
         $entries.Count -gt 0 | Should -Be $true
@@ -964,6 +979,16 @@ Describe "ダイアログは暗幕付きで出す" -Tag Meta {
         $here = (Resolve-Path "$PSScriptRoot\..").Path
         $text = [System.IO.File]::ReadAllText("$here\..\scripts\tebunko\ui\gui_main.ps1")
         $text | Should -Match '\$window\.ShowDialog\(\)\r?\n    \} finally \{[\s\S]*?\r?\n    \}\r?\n(\s*#[^\r\n]*\r?\n)*\s*\[System\.Windows\.Threading\.Dispatcher\]::CurrentDispatcher\.InvokeShutdown\(\)'
+    }
+
+    It "startGui（gui_main.ps1）は 150 行以下。中身は shell\ の下のファイルに分けて読み込む" {
+        $here = (Resolve-Path "$PSScriptRoot\..").Path
+        $parseErrors = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile("$here\..\scripts\tebunko\ui\gui_main.ps1", [ref]$null, [ref]$parseErrors)
+        $startGuiAst = @($ast.FindAll({ param ($a) $a -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $a.Name -eq "startGui" }, $true))
+        $startGuiAst.Count | Should -Be 1
+        $lineCount = $startGuiAst[0].Extent.EndLineNumber - $startGuiAst[0].Extent.StartLineNumber + 1
+        $lineCount | Should -BeLessOrEqual 150
     }
 }
 

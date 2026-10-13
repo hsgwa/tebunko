@@ -2,7 +2,7 @@
 
 扱うこと: 画面が使う関数・画面の型と判断層・画面の部品の単体テストが何を確かめるか、画面の確認（自動化できた範囲・手動で確かめる範囲）。扱わないこと: 画面以外の単体テスト（[単体テスト（インデックスと検索）](unit-index.md) など）、本物の画面を UI オートメーションで操作するスモークテストの仕組み・場面（[画面のスモークテスト](gui-smoke.md)）。先に読むページ: [テスト](index.md)。
 
-判断層（`*_view.ps1`）はそのままテストする。`result_list.ps1`・`open_source.ps1`・`preview.ps1`・`index_tree.ps1` は `$ui`・`$window` を偽物にし、Excel・エクスプローラーの起動は `Mock` して実際には開かない。クリップボードは利用者の PC のものを書き換えるため、「コピーしない場合」（`preview.ps1` の `copyPreviewSelection`）だけを確かめる。型（`shared/ui/types.ps1`・`tebunko/ui/types.ps1`）はプロパティの変更通知と各メソッドを確かめる。
+判断層（`*_view.ps1`）はそのままテストする。`result_list.ps1`・`open_source.ps1`・`preview.ps1`・`index_tree.ps1` は `$ui`・`$window` を偽物にし、Excel・エクスプローラーの起動は `Mock` して実際には開かない。クリップボードは利用者の PC のものを書き換えるため、「コピーしない場合」（`preview.ps1` の `copyPreviewSelection`）だけを確かめる。型（`shared/ui/types.ps1`・`tebunko/ui/` の `*_types.ps1`）はプロパティの変更通知と各メソッドを確かめる。
 
 ```mermaid
 flowchart TD
@@ -42,10 +42,10 @@ flowchart TD
 
 | 対象 | テスト | 主な確認内容 |
 |---|---|---|
-| 画面の型（[実行時コンパイル（csc.exe）を使わない](../gui/implementation.md#実行時コンパイルcscexeを使わない)） | `tests/shared/ui/types.Tests.ps1`<br>`tests/tebunko/ui/types.Tests.ps1` | `NotifyBase` の変更通知。`HitRow`（生成・`Prepare`・絞り込みの一致・セルの分割・`BuildPreview`・境界値）、`FileGroup`、`PreviewColumn`／`PreviewCell`／`PreviewTable`（範囲の選択とコピー、Excel に貼れる形への引用）、`IndexNode`（3 状態のチェック・フォルダの読み込み・境界値）、`FolderItem` |
-| 判断層 | `tests/tebunko/ui/index_view.Tests.ps1`<br>`indexing_view.Tests.ps1`<br>`search\search_bar_view.Tests.ps1`<br>`result_list_view.Tests.ps1`<br>`open_source_view.Tests.ps1`<br>`preview_view.Tests.ps1`<br>`settings\settings_view.Tests.ps1` | 画面に出す文言と可否の判定（ワークスペースの表示・選んだフォルダの可否・変える前の確認と空でないフォルダの警告の文言、インデックス名の入力チェック、インデックス作成の確認の文言と終わりの見出し・説明（成功・失敗の組み合わせ。利用者の PowerPoint のために取り込めなかったファイルは失敗に入る）、ボタンの上の一言（残りの件数とインデックス作成中か）、検索条件の説明・注意・検索ボタンの状態、ファイルごとの見出しの表記と並べ替え、プレビューの行数とステータス） |
+| 画面の型（[実行時コンパイル（csc.exe）を使わない](../gui/implementation.md#実行時コンパイルcscexeを使わない)） | `tests/shared/ui/types.Tests.ps1`<br>`tests/tebunko/ui/search/result_types.Tests.ps1`<br>`search\target_types.Tests.ps1`<br>`index\index_types.Tests.ps1` | `NotifyBase` の変更通知。`HitRow`（生成・`Prepare`・絞り込みの一致・セルの分割・`BuildPreview`・境界値）、`FileGroup`、`PreviewColumn`／`PreviewCell`／`PreviewTable`（範囲の選択とコピー、Excel に貼れる形への引用）、`IndexNode`（3 状態のチェック・フォルダの読み込み・境界値）、`FolderItem` |
+| 判断層 | `tests/tebunko/ui/index/index_list_view.Tests.ps1`<br>`index_edit_view.Tests.ps1`<br>`index_detail_view.Tests.ps1`<br>`index_archive_view.Tests.ps1`<br>`indexing_view.Tests.ps1`<br>`search\search_bar_view.Tests.ps1`<br>`result_list_view.Tests.ps1`<br>`open_source_view.Tests.ps1`<br>`preview_view.Tests.ps1`<br>`settings\settings_view.Tests.ps1` | 画面に出す文言と可否の判定（ワークスペースの表示・選んだフォルダの可否・変える前の確認と空でないフォルダの警告の文言、インデックス名の入力チェック、インデックス作成の確認の文言と終わりの見出し・説明（成功・失敗の組み合わせ。利用者の PowerPoint のために取り込めなかったファイルは失敗に入る）、ボタンの上の一言（残りの件数とインデックス作成中か）、検索条件の説明・注意・検索ボタンの状態、ファイルごとの見出しの表記と並べ替え、プレビューの行数とステータス） |
 | 結果の表 | `tests/tebunko/ui/result_list.Tests.ps1` | ファイルごとの見出しの作成と開閉（[ファイルごとにまとめた表示](../gui/preview.md#ファイルごとにまとめた表示)）、行の作成、絞り込み、並べ替え、検索の終了時の表示、選択行の取得、イベント |
-| 選択行のプレビュー | `tests/tebunko/ui/preview.Tests.ps1` | 表示・消去、最初に読む行数と縦の位置、セルを選んでいないときのコピーの案内、イベント、読み込み（`startJob`）の結果の扱い（読んでいる間に別の行を選んだら古い結果を出さない・後から頼んだ読み込みがあれば先の分は捨てる・読めないときは選んだ行だけを出す）、読み足し（表ごとに結果を合わせる・つながるときだけ足す・端まで読んだら止める・上限を超えたら遠い側を捨てる・別の行に替わったあとの結果は捨てる）、最後に読んだファイルの控えを次の読みに渡すこと、列見出しのドラッグ中は見えている列の範囲を固定すること、全部の列を持つこと（見出しとセルは見えている列だけ）。表と列の範囲は `types.Tests.ps1`・`preview_view.Tests.ps1`（`getPreviewColumnWindow`） |
+| 選択行のプレビュー | `tests/tebunko/ui/preview.Tests.ps1` | 表示・消去、最初に読む行数と縦の位置、セルを選んでいないときのコピーの案内、イベント、読み込み（`startJob`）の結果の扱い（読んでいる間に別の行を選んだら古い結果を出さない・後から頼んだ読み込みがあれば先の分は捨てる・読めないときは選んだ行だけを出す）、読み足し（表ごとに結果を合わせる・つながるときだけ足す・端まで読んだら止める・上限を超えたら遠い側を捨てる・別の行に替わったあとの結果は捨てる）、最後に読んだファイルの控えを次の読みに渡すこと、列見出しのドラッグ中は見えている列の範囲を固定すること、全部の列を持つこと（見出しとセルは見えている列だけ）。表と列の範囲は `search\result_types.Tests.ps1`・`preview_view.Tests.ps1`（`getPreviewColumnWindow`） |
 | 元のファイルを開く | `tests/tebunko/ui/open_source.Tests.ps1` | パスの特定・フォルダの選び直し、開き方の切り替え、既定のアプリで開く、フォルダを開く、ファイル出力、画面の操作 |
 | 検索対象のツリー | `tests/tebunko/ui/index_tree.Tests.ps1` | ツリーの読み込み、検索範囲の説明、除外の保存、すべてのチェック、イベント |
 | 画面定義（XAML） | `tests/meta/structure.Tests.ps1` | `scripts/**/*.xaml` が XML として読めること、各タブの画面に `gui.ps1` などが使う `x:Name` がすべてあること、shared と tebunko の型を順に読み込めること |

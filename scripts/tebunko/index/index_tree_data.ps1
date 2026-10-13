@@ -1,6 +1,6 @@
 ﻿# ［検索］の検索対象ツリーのデータ集め（状態層。画面に触らない）。
 # ワークスペースのフォルダを読むので、届かないネットワークのワークスペースでは、画面のスレッドでなく裏の列（network）から呼ぶ。
-# 画面（ui\index_tree.ps1・ui\types.ps1 の IndexNode）は、この結果を受け取って組み立てるだけにする。
+# 画面（ui\index_tree.ps1・ui\index\index_types.ps1 の IndexNode）は、この結果を受け取って組み立てるだけにする。
 
 function testIndexBookName {
     # 元のファイルごとのフォルダと分かる拡張子か。Office は拡張子の形（.xls・.doc・.ppt で始まり 4～5 文字）で見分け、

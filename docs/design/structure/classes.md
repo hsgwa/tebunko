@@ -48,7 +48,7 @@ flowchart TD
 
 refactor で作るクラス（`IndexCatalog` など）は下の「目的ごとのクラス」へ。
 
-画面層のクラス（`shared/ui/types.ps1` の `NotifyBase`・`ConfirmFact`、`tebunko/ui/types.ps1` の WPF に渡す型）は、上の表と決まりの外（画面のスレッドだけで使う）。
+画面層のクラス（`shared/ui/types.ps1` の `NotifyBase`・`ConfirmFact`、`tebunko/ui/` の `search/result_types.ps1`・`search/target_types.ps1`・`index/index_types.ps1` の WPF に渡す型）は、上の表と決まりの外（画面のスレッドだけで使う）。
 
 **速さ**（1 回あたりの時間。10 万回 × 3 回の中央値、空ループ 0.64μs を含む）
 
