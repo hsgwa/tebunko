@@ -8,8 +8,17 @@ function newIndexName {
         $usedNames = $null  # HashSet[string]・配列・1 個の文字列・$null のいずれでもよい
     )
 
-    $base = toSafeFileName (getFolderLeafName $folderPath)
-    if ($base -eq "") {
+    # 作る名前は、インデックス名の決まり（testIndexName）に必ず合わせる: 前後の空白（全角空白を含む）と最後の . を削り、
+    # 長すぎれば切り、削った結果が空・予約名（CON など）になれば「フォルダ」にする
+    $base = (toSafeFileName (getFolderLeafName $folderPath)).Trim()
+    if ($base.Length -gt ${maxFileNameLength}) {
+        $base = $base.Substring(0, ${maxFileNameLength})
+    }
+    do {
+        $before = $base
+        $base = $base.Trim().TrimEnd(".")
+    } while ($base.Length -ne $before.Length)
+    if ((getFolderNameProblemText $base) -ne "") {
         $base = "フォルダ"
     }
 
@@ -106,9 +115,7 @@ function splitIndexRelPath {
 }
 
 
-# Windows で使えないファイル名（インデックス名に使えるかの判定に使う）
-${reservedFileNames} = @("CON", "PRN", "AUX", "NUL") +
-    @(1..9 | ForEach-Object { "COM$_" }) + @(1..9 | ForEach-Object { "LPT$_" })
+# Windows で使えないファイル名の一覧（${reservedFileNames}）は shared/core/fs.ps1 にある
 
 
 function testIndexName {
@@ -119,25 +126,11 @@ function testIndexName {
         [object[]]$usedNames = @()
     )
 
+    $problem = getFolderNameProblemText ([string]$name)
+    if ($problem -ne "") {
+        return $problem
+    }
     $name = [string]$name
-    if ($name -eq "") {
-        return "名前を入力してください。"
-    }
-    if ($name -ne $name.Trim()) {
-        return "名前の前後に空白は使えません。"
-    }
-    if ($name.Length -gt ${maxFileNameLength}) {
-        return "名前が長すぎます（${maxFileNameLength} 文字まで）。"
-    }
-    if (@([System.IO.Path]::GetInvalidFileNameChars() | Where-Object { $name.IndexOf($_) -ge 0 }).Count -gt 0) {
-        return "名前に使えない文字が含まれています（\ / : * ? " + [char]34 + " < > | と制御文字）。"
-    }
-    if ($name.EndsWith(".")) {
-        return "名前の最後に . は使えません。"
-    }
-    if (${reservedFileNames} -contains $name.Split(".")[0].ToUpperInvariant()) {
-        return "「${name}」は Windows で使えない名前です。"
-    }
     foreach ($used in @($usedNames)) {
         if ([string]::Equals([string]$used, $name, [System.StringComparison]::OrdinalIgnoreCase)) {
             return "「${name}」は、ほかのインデックスが使っています。別の名前を付けてください。"

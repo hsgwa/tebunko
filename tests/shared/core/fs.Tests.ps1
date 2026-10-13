@@ -168,6 +168,29 @@ Describe "formatFileTime" -Tag Io {
     }
 }
 
+Describe "getFolderNameProblemText" -Tag Unit {
+    It "「<name>」が使えるか: <usable>" -TestCases @(
+        @{ name = "営業部 2025"; usable = $true }
+        @{ name = "CONSOLE"; usable = $true }
+        @{ name = ("あ" * 255); usable = $true }
+        @{ name = ""; usable = $false }
+        @{ name = " 営業"; usable = $false }
+        @{ name = "営業　"; usable = $false }
+        @{ name = ("あ" * 256); usable = $false }
+        @{ name = ".."; usable = $false }
+        @{ name = "営業."; usable = $false }
+        @{ name = "a\b"; usable = $false }
+        @{ name = "a/b"; usable = $false }
+        @{ name = "a:b"; usable = $false }
+        @{ name = "con"; usable = $false }
+        @{ name = "NUL.txt"; usable = $false }
+        @{ name = "LPT1"; usable = $false }
+    ) {
+        $problem = getFolderNameProblemText $name
+        ($problem -eq "") | Should -Be $usable
+    }
+}
+
 Describe "testPathUnder" -Tag Unit {
     It "<path> は <root> の下: <expected>" -TestCases @(
         @{ path = "C:\置き場\営業"; root = "C:\置き場"; expected = $true }
@@ -187,6 +210,35 @@ Describe "testPathUnder" -Tag Unit {
         @{ path = "C:\置き場\営業"; root = "\\?\C:\置き場"; expected = $true }
         @{ path = ""; root = "C:\置き場"; expected = $false }
         @{ path = "C:\置き場\営業"; root = ""; expected = $false }
+        # ネットワークのパス（架空の名前。ネットワークには触れない）
+        @{ path = "\\server\share\置き場\営業"; root = "\\server\share\置き場"; expected = $true }
+        @{ path = "\\server\share\置き場\..\外"; root = "\\server\share\置き場"; expected = $false }
+        @{ path = "\\server\share\置き場"; root = "\\server\share\置き場"; expected = $false }
+        @{ path = "\\server\share2\置き場\営業"; root = "\\server\share\置き場"; expected = $false }
+        @{ path = "\\?\UNC\server\share\置き場\営業"; root = "\\server\share\置き場"; expected = $true }
+        @{ path = "\\?\UNC\server\share\置き場\..\外"; root = "\\server\share\置き場"; expected = $false }
+        @{ path = "\\server\share\置き場\営業"; root = "\\?\UNC\server\share\置き場"; expected = $true }
+        # 区切りが混ざったパス
+        @{ path = "C:/置き場/営業"; root = "C:\置き場"; expected = $true }
+        @{ path = "C:\置き場/営業\中"; root = "C:/置き場"; expected = $true }
+        @{ path = "C:\置き場/..\外"; root = "C:\置き場"; expected = $false }
+        @{ path = "C:/置き場/../外/営業"; root = "C:\置き場"; expected = $false }
+        # 最後が . や空白だけの名前（Windows は . や空白を取って解くため、置き場そのもの・別のフォルダになりうる）
+        @{ path = "C:\置き場\."; root = "C:\置き場"; expected = $false }
+        @{ path = "C:\置き場\ "; root = "C:\置き場"; expected = $false }
+        @{ path = "C:\置き場\営業."; root = "C:\置き場"; expected = $true }
+        @{ path = "C:\置き場\営業 "; root = "C:\置き場"; expected = $true }
+        @{ path = "C:\置き場\.\.."; root = "C:\置き場"; expected = $false }
+        # : を含む名前は解けない（代替データストリームの書き方）ため、置き場の下とは認めない
+        @{ path = "C:\置き場\営業:ads"; root = "C:\置き場"; expected = $false }
+        @{ path = "C:\置き場\営業\a:b"; root = "C:\置き場"; expected = $false }
+        @{ path = "C:\置き場\営業\..\..\外:x"; root = "C:\置き場"; expected = $false }
+        # 置き場がドライブの直下
+        @{ path = "C:\営業"; root = "C:\"; expected = $true }
+        @{ path = "C:\営業\中"; root = "C:\"; expected = $true }
+        @{ path = "C:\"; root = "C:\"; expected = $false }
+        @{ path = "D:\営業"; root = "C:\"; expected = $false }
+        @{ path = "C:\..\..\営業"; root = "C:\"; expected = $true }
     ) {
         testPathUnder $path $root | Should -Be $expected
     }

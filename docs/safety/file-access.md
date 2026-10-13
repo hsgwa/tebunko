@@ -27,7 +27,7 @@
 
 `content_index\` の下のフォルダ・ファイルには、Windows Search の索引の対象から外すため「内容のインデックスを作成しない」属性（`NotContentIndexed`）を付ける（`setNotContentIndexed`。[入れ替えと書き出し](../design/index-data/publish.md#windows-search-の対象から外すnotcontentindexed)）。インデックス作成のとき（`content_index` を作った直後・入れた直後）と、インデックスをインポートした直後（入れたフォルダ全体）と、画面がインデックス一覧を保存したとき（`source_folder.txt` 1 件）に付ける。ほかの属性（読み取り専用など）は変えず、内容も書き換えない。
 
-**状態ファイルの値を信用しない。** ワークスペースは共有でき、`ingest_status.tsv`・`ingesting.txt`・`system_index_state.tsv` と設定の `targetFolders` は他の人が書き換えられる。そこから読んだインデックス名・相対パスは、読むときに `testIndexName`・`testIndexRelPath` で確かめ（`..`・予約名・使えない文字を含むものは読み飛ばす）、フォルダを消す前にも、消す先が置き場（`content_index`・`system_index`）の下であることを `testPathUnder` で確かめる（`removeDroppedFolders`・`removeBookDir`・`removeSystemIndexOf`・`IndexCatalog.RemoveIndex`）。外を指すものは消さず、黄色のログに出す（`RemoveIndex` は例外にして取り込み一覧の行を残す）。
+**状態ファイルの値を信用しない。** ワークスペースは共有でき、`ingest_status.tsv`・`ingesting.txt`・`system_index_state.tsv` と設定の `targetFolders` は他の人が書き換えられる。そこから読んだインデックス名・相対パスは、読むときに確かめ（取り込み一覧・状態ファイルは `testIndexName`・`testIndexRelPath`、設定の名前は `getTargetFolders` が `getFolderNameProblemText`。`..`・予約名・使えない文字を含むものは、行なら読み飛ばし、設定の名前なら空にして割り当て直す）、フォルダを消す・移す前にも、先が置き場（`content_index`・`system_index`）の下であることを `testPathUnder` で確かめる（`removeBookDir`・`removeSystemIndexOf`・`IndexCatalog.RemoveIndex`・`IndexCatalog.RenameIndex`）。外を指すものは消さず、黄色のログに出す（`RemoveIndex`・`RenameIndex` は例外にして、フォルダも取り込み一覧も動かさない）。`RenameIndex` は新しい名前を `testIndexName` で、元の名前を名前の部分の確かめ（`testPathSegments`。前の版の名前は通す）で確かめる。設定から外れたインデックスの削除（`removeDroppedFolders`）は、名前でパスを組まず、`content_index` 直下のフォルダを一覧して名前が同じものだけを消す。今の名前の決まりに合わない前の版の名前（最後が `.` など）は、取り込み一覧の読み込みで分けて、同じ確認で削除できる。
 
 確認コマンド（[検査項目と結果](checks.md#検査項目と結果) の `scan` を使う）:
 

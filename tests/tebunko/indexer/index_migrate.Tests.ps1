@@ -495,4 +495,23 @@ Describe "removeDroppedFolders" -Tag Io {
         Test-Path -LiteralPath "$indexDir\技術" | Should -Be $false
         Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*削除しませんでした*" -and $color -eq "Yellow" }
     }
+
+    It "前の版で作られた名前（最後の . ・前後の空白）のフォルダも、実在のフォルダを列挙して削除し、似た名前の別のインデックスは残す" -TestCases @(
+        @{ legacyName = "営業." }
+        @{ legacyName = "営業 " }
+        @{ legacyName = " 営業" }
+    ) {
+        param ($legacyName)
+        $indexDir = "$TestDrive\dropped6\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
+        newTsv (toLongPath "$indexDir\$legacyName\見積.xlsx\Sheet1.tsv") @("a")
+        newTsv "$indexDir\営業\見積.xlsx\Sheet1.tsv" @("b")   # 名前の最後の . や空白を取ると同じになる別のインデックス
+        newTsv "$TestDrive\dropped6\外\a.tsv" @("c")
+
+        removeDroppedFolders @([pscustomobject]@{ Path = "C:\data\旧営業"; Name = $legacyName })
+
+        [System.IO.Directory]::Exists((toLongPath "$indexDir\$legacyName")) | Should -Be $false
+        Test-Path -LiteralPath "$indexDir\営業\見積.xlsx\Sheet1.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$TestDrive\dropped6\外\a.tsv" | Should -Be $true
+    }
 }

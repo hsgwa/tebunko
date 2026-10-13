@@ -125,6 +125,39 @@ function toSafeFileName {
 
 ${maxFileNameLength} = 255  # Windows のファイル名（パスの区切りの間の1つ）の上限
 
+# Windows で使えないファイル名（フォルダ名として使えるかの判定に使う）
+${reservedFileNames} = @("CON", "PRN", "AUX", "NUL") +
+    @(1..9 | ForEach-Object { "COM$_" }) + @(1..9 | ForEach-Object { "LPT$_" })
+
+function getFolderNameProblemText {
+    # 作業フォルダの下に作る 1 つのフォルダ名として使えるかを調べ、使えない理由を返す（使えれば空文字列）。
+    # 空・前後の空白・長すぎる・使えない文字（\ / : など。.. のような外へ出る名前を含む）・最後の .・Windows の予約名を拒む。
+    # 設定ファイルや状態ファイルから読んだ名前を使う前の確かめ（ほかの名前との重複は調べない）
+    param (
+        [string]$name
+    )
+
+    if ($name -eq "") {
+        return "名前を入力してください。"
+    }
+    if ($name -ne $name.Trim()) {
+        return "名前の前後に空白は使えません。"
+    }
+    if ($name.Length -gt ${maxFileNameLength}) {
+        return "名前が長すぎます（${maxFileNameLength} 文字まで）。"
+    }
+    if (@([System.IO.Path]::GetInvalidFileNameChars() | Where-Object { $name.IndexOf($_) -ge 0 }).Count -gt 0) {
+        return "名前に使えない文字が含まれています（\ / : * ? " + [char]34 + " < > | と制御文字）。"
+    }
+    if ($name.EndsWith(".")) {
+        return "名前の最後に . は使えません。"
+    }
+    if (${reservedFileNames} -contains $name.Split(".")[0].ToUpperInvariant()) {
+        return "「${name}」は Windows で使えない名前です。"
+    }
+    return ""
+}
+
 
 function toLongPath {
     # パスの先頭に \\?\ を付け、260文字を超えるパスもファイル操作（System.IO・-LiteralPath）で扱えるようにする。

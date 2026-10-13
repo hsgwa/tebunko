@@ -293,6 +293,18 @@ Describe "updateSystemIndexes" -Tag Io {
         (readSystemIndexState $path).Covered.Contains("営業") | Should -Be $true
     }
 
+    It "置き場の外のため消さなかったと removeSystemIndexOf が返せば、黄色のログに出して続ける" {
+        Mock writeIndexerLog {}
+        Mock removeSystemIndexOf { @{ Saved = $true; Skipped = $true } }
+        $index = newIndexTree "$TestDrive\u7"
+        $system = "$TestDrive\u7\system_index"
+        [System.IO.Directory]::CreateDirectory("$system\消えた") | Out-Null   # index に無い名前
+
+        { updateSystemIndexes $index $system "$TestDrive\u7\state.tsv" { $false } } | Should -Not -Throw
+
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*削除しませんでした*消えた" -and $color -eq "Yellow" }
+    }
+
     It "中止を求められていれば（shouldStop）作らず、そのインデックスは対応済みにしない" {
         $index = newIndexTree "$TestDrive\u3"
         $result = updateSystemIndexes $index "$TestDrive\u3\system_index" "$TestDrive\u3\state.tsv" { $true }
@@ -350,7 +362,9 @@ Describe "removeSystemIndexOf" -Tag Io {
         $path = "$TestDrive\rm\state.tsv"
         $results = writeSystemIndexFolders @("$index\営業\2024") $index $system 1
         [void](updateSystemIndexState { param ($s) setSystemIndexResults $s $results; [void]$s.Covered.Add("営業") } $path)
-        removeSystemIndexOf "営業" $system $path | Should -Be $true
+        $result = removeSystemIndexOf "営業" $system $path
+        $result.Saved | Should -Be $true
+        $result.Skipped | Should -Be $false
         [System.IO.Directory]::Exists("$system\営業") | Should -Be $false
         $state = readSystemIndexState $path
         $state.Covered.Count | Should -Be 0
@@ -371,11 +385,13 @@ Describe "removeSystemIndexOf" -Tag Io {
         [System.IO.Directory]::CreateDirectory("$system\営業") | Out-Null
         [void](updateSystemIndexState { param ($s) [void]$s.Covered.Add("営業") } $path)
 
-        { removeSystemIndexOf $badRel $system $path } | Should -Not -Throw
+        $result = $null
+        { $script:result = removeSystemIndexOf $badRel $system $path } | Should -Not -Throw
 
+        $script:result.Skipped | Should -Be $true
+        $script:result.Saved | Should -Be $true
         Test-Path -LiteralPath "$TestDrive\rmx\外\a.txt" | Should -Be $true
         [System.IO.Directory]::Exists("$system\営業") | Should -Be $true
-        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*削除しませんでした*" -and $color -eq "Yellow" }
     }
 
     It "インデックスの中のフォルダだけを消すときは、インデックスの対応済みを残す" {

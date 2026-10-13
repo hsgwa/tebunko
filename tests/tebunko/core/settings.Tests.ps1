@@ -253,6 +253,24 @@ Describe "getTargetFolders / writeTargetFolders" -Tag Io {
             Should -Be "C:\a=見積,C:\b=,C:\c=Sales,C:\d=,C:\e=a／b"
     }
 
+    It "フォルダ名として使えない名前（.. ・予約名・最後が . ・長すぎる）は空にする（取り込み時に割り当て直す）" {
+        $path = "$TestDrive\targets_unsafe_names.json"
+        $long = "あ" * 256
+        [System.IO.File]::WriteAllText($path, @"
+{ "targetFolders": [
+    { "path": "C:\\a", "name": ".." },
+    { "path": "C:\\b", "name": "CON" },
+    { "path": "C:\\c", "name": "営業." },
+    { "path": "C:\\d", "name": "$long" },
+    { "path": "C:\\e", "name": "..\\..\\外" },
+    { "path": "C:\\f", "name": "経理" }
+] }
+"@, ${utf8Bom})
+        $folders = @(getTargetFolders $path)
+        ($folders | ForEach-Object { "$($_.Path)=$($_.Name)" }) -join "," |
+            Should -Be "C:\a=,C:\b=,C:\c=,C:\d=,C:\e=..￥..￥外,C:\f=経理"
+    }
+
     It "enabled に文字列の ""false"" が書かれていてもチェックなしにする" {
         $path = "$TestDrive\targets_enabled.json"
         [System.IO.File]::WriteAllText($path, '{ "targetFolders": [ { "path": "C:\\a", "enabled": "false" } ] }', ${utf8Bom})

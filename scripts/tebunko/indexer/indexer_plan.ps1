@@ -363,7 +363,11 @@ class IngestPlanner {
         # 設定から外れたインデックスは、ここでは消さない（確認ダイアログに「削除予定」として出す）
         $this.Folders = @(assignIndexNames $targetFolders $status.Folders)
         $this.Previous = $status.Rows
-        $this.Dropped = @(findDroppedIndexes $this.Folders $status.Folders)
+        # 名前が今の決まりに合わない前の版のインデックス（status.LegacyFolders）も、設定に無いので外れたインデックスとして出す
+        $previousFolders = New-Object System.Collections.Generic.List[object]
+        foreach ($folder in $status.Folders) { $previousFolders.Add($folder) }
+        foreach ($folder in $status.LegacyFolders) { if ($folder) { $previousFolders.Add($folder) } }
+        $this.Dropped = @(findDroppedIndexes $this.Folders $previousFolders.ToArray())
     }
 
     [void] SaveNames($targetFolders, [scriptblock]$save) {

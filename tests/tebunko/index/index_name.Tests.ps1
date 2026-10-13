@@ -486,6 +486,28 @@ Describe "testPathSegments" -Tag Unit {
     }
 }
 
+Describe "newIndexName が作る名前は testIndexName を通る" -Tag Unit {
+    It "<folder> の名前は <expected>" -TestCases @(
+        @{ folder = "C:\data\　営業　"; used = @(); expected = "営業" }
+        @{ folder = "C:\data\ 営業 "; used = @(); expected = "営業" }
+        @{ folder = "C:\data\営業."; used = @(); expected = "営業" }
+        @{ folder = "C:\data\営業 . "; used = @(); expected = "営業" }
+        @{ folder = "C:\data\　"; used = @(); expected = "フォルダ" }
+        @{ folder = "C:\data\..."; used = @(); expected = "フォルダ" }
+        @{ folder = "C:\data\CON"; used = @(); expected = "フォルダ" }
+        @{ folder = "C:\data\nul.txt"; used = @(); expected = "フォルダ" }
+        @{ folder = "C:\data\　営業　"; used = @("営業"); expected = "営業(2)" }
+        @{ folder = "C:\data\　"; used = @("フォルダ"); expected = "フォルダ(2)" }
+        @{ folder = ("C:\data\" + ("あ" * 300)); used = @(); expected = ("あ" * 255) }
+        @{ folder = ("C:\data\" + ("あ" * 300)); used = @(("あ" * 255)); expected = (("あ" * 252) + "(2)") }
+    ) {
+        param ($folder, $used, $expected)
+        $name = newIndexName $folder $used
+        $name | Should -Be $expected
+        testIndexName $name @() | Should -Be ""
+    }
+}
+
 Describe "newIndexName（入れ子の集合）" -Tag Unit {
     It "集合が 1 要素の配列に入って渡されても、使用済みの名前を見落とさない" {
         $set = New-Object 'System.Collections.Generic.HashSet[string]'

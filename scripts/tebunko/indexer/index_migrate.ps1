@@ -176,15 +176,26 @@ function removeDroppedFolders {
         $ws = $workspace             # 対象のワークスペース（テストが差し替える）
     )
 
+    # 取り込み一覧の名前は共有のワークスペースで書き換えられうる。名前でパスを組んで消さず、置き場（IndexDir）の直下に
+    # 実在するフォルダを列挙して、名前が同じものを消す（最後の . や空白のある名前は、パスにすると別のフォルダを指すため。
+    # 置き場の外を指す名前・予約名は、列挙したものに当たらず、何も消えない。例外にすると、書き換えられた 1 行で
+    # 毎回インデックス作成が止まるため、ログに出して続ける）
+    $existing = @()
+    if ([System.IO.Directory]::Exists((toLongPath $ws.IndexDir))) {
+        $existing = @([System.IO.Directory]::GetDirectories((toLongPath $ws.IndexDir)))
+    }
     foreach ($previous in @($dropped | Where-Object { $_ })) {
-        $dir = "$($ws.IndexDir.TrimEnd('\'))\$($previous.Name)"
-        # 取り込み一覧の名前は共有のワークスペースで書き換えられうる。置き場（IndexDir）の下でなければ消さない
-        # （例外にすると、書き換えられた 1 行で毎回インデックス作成が止まるため、ログに出して続ける）
-        if (!(testPathUnder $dir $ws.IndexDir)) {
-            writeIndexerLog "クロール対象から削除されたフォルダ（$($previous.Path)）のインデックス名が使えないため、削除しませんでした。" "Yellow"
+        $name = [string]$previous.Name
+        $found = @($existing | Where-Object { [string]::Equals([System.IO.Path]::GetFileName($_), $name, [System.StringComparison]::OrdinalIgnoreCase) })
+        if ($found.Count -eq 0) {
+            if ((testPathSegments @($name) $true) -ne "") {
+                writeIndexerLog "クロール対象から削除されたフォルダ（$($previous.Path)）のインデックス名が使えないため、削除しませんでした。" "Yellow"
+            } else {
+                writeIndexerLog "クロール対象から削除されたフォルダ（$($previous.Path)）のインデックスのフォルダは、既にありません。"
+            }
             continue
         }
-        if (Test-Path -LiteralPath $dir) {
+        foreach ($dir in $found) {
             # 中に長いパス（260文字超）のTSVがあっても削除できるよう \\?\ 付きで削除する
             Remove-Item -LiteralPath (toLongPath $dir) -Recurse -Force
         }

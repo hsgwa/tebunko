@@ -111,8 +111,10 @@ function describeIngestError {
 }
 
 function readStatusFile {
-    # 取り込み一覧を読み込み、@{ Folders; Rows; Rejected } を返す。ファイルが無ければ空。
+    # 取り込み一覧を読み込み、@{ Folders; Rows; Rejected; LegacyFolders } を返す。ファイルが無ければ空。
     #   Folders : クロール対象フォルダ @{ Path; Name（インデックス名） } の配列
+    #   LegacyFolders: 名前が今の決まり（testIndexName）に合わないが、フォルダ名として外へ出ない（前の版で作られた）クロール対象フォルダ。
+    #             Folders と同じ形。名前でパスを組んで使わない（最後の . や空白は、パスにすると別のフォルダを指す）
     #   Rows    : 相対パス（"インデックス名\フォルダからの相対パス"。大文字・小文字を区別しない）→ 行
     #   Rejected: 名前（testIndexName）・相対パス（testIndexRelPath）が使えないため読み飛ばした行の数
     #             （読み飛ばした行は、次に取り込み一覧を書き直すときに消える）
@@ -123,8 +125,9 @@ function readStatusFile {
 
     $rows = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
     $folders = New-Object System.Collections.Generic.List[object]
+    $legacyFolders = New-Object System.Collections.Generic.List[object]
     $rejected = 0
-    $result = @{ Folders = $folders; Rows = $rows; Rejected = 0 }
+    $result = @{ Folders = $folders; Rows = $rows; Rejected = 0; LegacyFolders = $legacyFolders }
     if (!(Test-Path -LiteralPath $path)) {
         return $result
     }
@@ -140,13 +143,20 @@ function readStatusFile {
     }
 
     $columnCount = ${statusColumns}.Count
-    # 共有のワークスペースでは他の人が書き換えられるため、名前・相対パスが使えない行（.. で外へ出るものなど）は読み飛ばす
+    # 共有のワークスペースでは他の人が書き換えられるため、名前・相対パスが使えない行（.. で外へ出るものなど）は読み飛ばす。
+    # 行の確かめは testIndexRelPath（名前だけの行は通さない）と同じ決めを、数万行を読むためその場で書く（下の行の組み立てと同じ理由）。
+    # 名前が今の決まり（testIndexName）に合わなくても、フォルダ名として外へ出ないもの（前の版で作られた名前）は、
+    # LegacyFolders に分けて返す（設定から外れたインデックスとして、確認のうえ削除できるように。名前でパスを組まずに消す: removeDroppedFolders）
     $checkedNames = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
     foreach ($line in $lines) {
         $fields = $line.Split("`t")
         if ($fields[0] -eq ${statusFolderKey} -and $fields.Count -eq 3) {
             if (!$checkedNames.Contains($fields[2]) -and (testIndexName $fields[2] @())) {
-                $rejected++
+                if ((testPathSegments @($fields[2]) $true) -eq "") {
+                    $legacyFolders.Add([pscustomobject]@{ Path = $fields[1]; Name = $fields[2] })
+                } else {
+                    $rejected++
+                }
                 continue
             }
             [void]$checkedNames.Add($fields[2])
@@ -156,7 +166,29 @@ function readStatusFile {
         if ($fields.Count -ne $columnCount -or $fields[0] -eq "" -or $fields[0] -eq ${statusColumns}[0]) {
             continue
         }
-        if (testIndexRelPath $fields[0] $true $checkedNames) {
+        $relPath = $fields[0]
+        $separator = $relPath.IndexOf("\")
+        $usable = $separator -gt 0
+        if ($usable) {
+            $rowName = $relPath.Substring(0, $separator)
+            if (!$checkedNames.Contains($rowName)) {
+                if (testIndexName $rowName @()) {
+                    $usable = $false
+                } else {
+                    [void]$checkedNames.Add($rowName)
+                }
+            }
+        }
+        if ($usable) {
+            foreach ($segment in $relPath.Substring($separator + 1).Split("\")) {
+                if ($segment -eq "" -or $segment -eq "." -or $segment -eq ".." -or $segment.Length -gt ${maxFileNameLength} -or
+                    $segment.IndexOfAny(${invalidFileNameChars}) -ge 0) {
+                    $usable = $false
+                    break
+                }
+            }
+        }
+        if (!$usable) {
             $rejected++
             continue
         }
@@ -233,7 +265,7 @@ function readIngestingFiles {
         if ($fields.Count -ne 2 -or -not [int]::TryParse($fields[0], [ref]$count) -or $count -lt 1 -or $fields[1] -eq "") {
             continue
         }
-        if (testIndexRelPath $fields[1] $true $checkedNames) {
+        if (testIndexRelPath $fields[1] $false $checkedNames) {
             continue
         }
         $result.Add(@{ RelPath = $fields[1]; Count = $count })
@@ -603,7 +635,7 @@ class StatusLedger {
     }
 
     [hashtable] ReadStatus() {
-        # 取り込み一覧を読み込む（readStatusFile と同じ形。@{ Folders; Rows }）
+        # 取り込み一覧を読み込む（readStatusFile と同じ形。@{ Folders; Rows; Rejected; LegacyFolders }）
         return readStatusFile $this.Workspace.StatusFile
     }
 

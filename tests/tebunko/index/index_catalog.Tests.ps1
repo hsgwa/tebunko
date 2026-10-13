@@ -105,6 +105,42 @@ Describe "IndexCatalog.RenameIndex" -Tag Io {
     }
 }
 
+Describe "IndexCatalog.RenameIndex（使えない名前）" -Tag Io {
+    It "移す元・先が置き場の外へ出る・使えない名前なら、何も動かさずに例外にする: <from> -> <to>" -TestCases @(
+        @{ from = "営業"; to = "..\外" }
+        @{ from = "営業"; to = "..\..\外\営業" }
+        @{ from = "営業"; to = ".." }
+        @{ from = "営業"; to = "経理\中" }
+        @{ from = "営業"; to = "営業." }
+        @{ from = "営業"; to = "CON" }
+        @{ from = "営業"; to = " 経理" }
+        @{ from = "..\外"; to = "経理" }
+        @{ from = "営業\..\経理"; to = "新" }
+        @{ from = ".."; to = "新" }
+    ) {
+        param ($from, $to)
+        $ws = newCatalogWorkspace "$TestDrive\rename_bad"
+        $dir = $ws.Index
+        writeListFile "$dir\営業\a.xlsx\Sheet1.tsv" @("営業の本文")
+        writeListFile "$dir\経理\b.xlsx\Sheet1.tsv" @("経理の本文")
+        writeListFile "$($ws.Dir)\外\c.tsv" @("外の本文")
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(
+            (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00")
+        ) $ws.Status
+
+        { $ws.Catalog.RenameIndex($from, $to) } | Should -Throw
+
+        Test-Path -LiteralPath "$dir\営業\a.xlsx\Sheet1.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$dir\経理\b.xlsx\Sheet1.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$($ws.Dir)\外\c.tsv" | Should -Be $true
+        @(Get-ChildItem -LiteralPath $dir -Directory | ForEach-Object { $_.Name } | Sort-Object) -join "," | Should -Be "営業,経理"
+        @(Get-ChildItem -LiteralPath $ws.Dir -Directory | ForEach-Object { $_.Name } | Sort-Object) -join "," | Should -Be "content_index,外"
+        $status = readStatusFile $ws.Status
+        $status.Folders[0].Name | Should -Be "営業"
+        $status.Rows.ContainsKey("営業\a.xlsx") | Should -Be $true
+    }
+}
+
 Describe "IndexCatalog.RemoveIndex" -Tag Io {
     It "インデックスのフォルダと取り込み一覧の記録を削除し、ほかのインデックスは残す" {
         $ws = newCatalogWorkspace "$TestDrive\remove"
@@ -147,10 +183,14 @@ Describe "IndexCatalog.RemoveIndex" -Tag Io {
         @{ badName = "..\外" }
         @{ badName = "営業\..\..\外" }
         @{ badName = ".." }
+        @{ badName = "営業\..\経理" }   # 置き場の中を指すが、別のインデックスのフォルダになる
+        @{ badName = "営業\中" }
+        @{ badName = "営業/中" }
     ) {
         param ($badName)
         $ws = newCatalogWorkspace "$TestDrive\remove4"
-        New-Item -ItemType Directory -Path "$($ws.Index)\営業" -Force | Out-Null
+        New-Item -ItemType Directory -Path "$($ws.Index)\営業\中" -Force | Out-Null
+        New-Item -ItemType Directory -Path "$($ws.Index)\経理" -Force | Out-Null
         writeListFile "$($ws.Dir)\外\a.tsv" @("本文")
         writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(
             (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateNew)
@@ -159,7 +199,8 @@ Describe "IndexCatalog.RemoveIndex" -Tag Io {
         { $ws.Catalog.RemoveIndex($badName) } | Should -Throw
 
         Test-Path -LiteralPath "$($ws.Dir)\外\a.tsv" | Should -Be $true
-        Test-Path -LiteralPath "$($ws.Index)\営業" | Should -Be $true
+        Test-Path -LiteralPath "$($ws.Index)\営業\中" | Should -Be $true
+        Test-Path -LiteralPath "$($ws.Index)\経理" | Should -Be $true
         Test-Path -LiteralPath $ws.Dir | Should -Be $true
         (readStatusFile $ws.Status).Rows.Count | Should -Be 1
     }

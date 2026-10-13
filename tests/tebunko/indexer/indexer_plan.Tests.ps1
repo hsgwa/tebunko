@@ -130,13 +130,13 @@ Describe "createTargetList（サブフォルダ・無くなったファイル）
     }
 
     It "置き場の外を指す相対パスの行は、外のフォルダを消さず、例外にもしない" -TestCases @(
-        @{ rel = "..\外\消えた.xlsx" }
-        @{ rel = "経理\..\..\外\消えた.xlsx" }
-        @{ rel = "..\.." }
+        @{ rel = "経理\..\..\外\消えた.xlsx"; outsideName = "外" }
+        @{ rel = "経理\..\..\index2外\消えた.xlsx"; outsideName = "index2外" }   # 置き場の名前で始まるだけの別のフォルダ
+        @{ rel = "経理\..\.."; outsideName = "外" }
     ) {
-        param ($rel)
+        param ($rel, $outsideName)
         Mock writeIndexerLog {}
-        $outside = Join-Path $TestDrive "外"
+        $outside = Join-Path $TestDrive $outsideName
         [System.IO.Directory]::CreateDirectory("$outside\消えた.xlsx") | Out-Null
         [System.IO.File]::WriteAllText("$outside\消えた.xlsx\Sheet1.tsv", "1`t見積")
         [System.IO.File]::WriteAllText("$TestDrive\残る.txt", "a")
@@ -144,6 +144,7 @@ Describe "createTargetList（サブフォルダ・無くなったファイル）
         { createTargetList $folder $previous $null } | Should -Not -Throw
         Test-Path -LiteralPath "$outside\消えた.xlsx\Sheet1.tsv" | Should -Be $true
         Test-Path -LiteralPath "$TestDrive\残る.txt" | Should -Be $true
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*削除しませんでした*" -and $color -eq "Yellow" }
     }
 
     It "removeBookDir は、置き場の外のフォルダを消さずにログに出し、中のフォルダは消す" {
@@ -320,6 +321,17 @@ Describe "IngestPlanner" -Tag Io {
         $planner.Folders[0].Name | Should -Not -BeNullOrEmpty
         $planner.Folders[0].Path | Should -Be $source
         @($planner.Dropped | ForEach-Object { $_.Name }) | Should -Be @("古い")
+    }
+
+    It "名前が今の決まりに合わない前の版のインデックス（LegacyFolders）も、外れたものとして見つける。LegacyFolders が無い状態でも動く" {
+        $planner = [IngestPlanner]::new($kinds)
+        $status = @{ Folders = @(@{ Path = "C:\古い"; Name = "古い" }); Rows = (newPrevious @()); LegacyFolders = @(@{ Path = "C:\営業"; Name = "営業." }) }
+        $planner.AssignNames(@([pscustomobject]@{ Path = $source; Name = "売上"; Enabled = $true }), $status)
+        @($planner.Dropped | ForEach-Object { $_.Name }) | Should -Be @("古い", "営業.")
+
+        $planner = [IngestPlanner]::new($kinds)
+        $planner.AssignNames(@([pscustomobject]@{ Path = $source; Name = "売上"; Enabled = $true }), @{ Folders = @(); Rows = (newPrevious @()) })
+        $planner.Dropped.Count | Should -Be 0
     }
 
     It "全部に名前があれば、設定ファイルを書かない" {

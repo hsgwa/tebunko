@@ -58,11 +58,11 @@ Describe "readStatusFile / writeStatusFile / addStatusRow" -Tag Io {
 
     It "抽出版を書き込んで読み込める" {
         $path = "$TestDrive\status_version.tsv"
-        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "2" "" "" "2") $path
-        addStatusRow (newStatusRow "b.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "" "" "2") $path
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "data\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "2" "" "" "2") $path
+        addStatusRow (newStatusRow "data\b.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "" "" "2") $path
         $status = readStatusFile $path
-        $status.Rows["a.xlsx"].抽出版 | Should -Be "2"
-        $status.Rows["b.xlsx"].抽出版 | Should -Be "2"
+        $status.Rows["data\a.xlsx"].抽出版 | Should -Be "2"
+        $status.Rows["data\b.xlsx"].抽出版 | Should -Be "2"
     }
 
     It "追記した行が前の行より優先される。相対パスの大文字・小文字は区別しない" {
@@ -78,17 +78,17 @@ Describe "readStatusFile / writeStatusFile / addStatusRow" -Tag Io {
 
     It "エラーメッセージのタブ・改行はスペースにして1行に収める" {
         $path = "$TestDrive\status_error.tsv"
-        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "a.xlsx" "" "" $stateFailed "" "" "1行目`r`n2行目`tタブ") $path
-        (readStatusFile $path).Rows["a.xlsx"].エラー | Should -Be "1行目 2行目 タブ"
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "data\a.xlsx" "" "" $stateFailed "" "" "1行目`r`n2行目`tタブ") $path
+        (readStatusFile $path).Rows["data\a.xlsx"].エラー | Should -Be "1行目 2行目 タブ"
     }
 
     It "列数の合わない行（書き込み途中で中断した行）は無視する" {
         $path = "$TestDrive\status_broken.tsv"
-        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1") $path
-        [System.IO.File]::AppendAllText($path, "a.xlsx`t2025/01/10", $utf8Bom)
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "data\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1") $path
+        [System.IO.File]::AppendAllText($path, "data\a.xlsx`t2025/01/10", $utf8Bom)
 
         $status = readStatusFile $path
-        $status.Rows["a.xlsx"].状態 | Should -Be $stateDone
+        $status.Rows["data\a.xlsx"].状態 | Should -Be $stateDone
     }
 
     It "書き直すと既存のファイルを置き換え、一時ファイルは残らない" {
@@ -108,7 +108,8 @@ Describe "readStatusFile / writeStatusFile / addStatusRow" -Tag Io {
             [pscustomobject]@{ Path = "C:\data"; Name = "営業" },
             [pscustomobject]@{ Path = "C:\bad1"; Name = ".." },
             [pscustomobject]@{ Path = "C:\bad2"; Name = "..\外" },
-            [pscustomobject]@{ Path = "C:\bad3"; Name = "CON" }
+            [pscustomobject]@{ Path = "C:\old1"; Name = "CON" },       # 今の決まりに合わないが、外へは出ない名前（前の版で作られた）
+            [pscustomobject]@{ Path = "C:\old2"; Name = "旧営業." }
         )
         $rows = @(
             (newStatusRow "営業\見積.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
@@ -124,8 +125,41 @@ Describe "readStatusFile / writeStatusFile / addStatusRow" -Tag Io {
 
         $status = readStatusFile $path
         @($status.Folders | ForEach-Object { $_.Name }) | Should -Be @("営業")
-        @($status.Rows.Keys | Sort-Object) | Should -Be @(@("a.xlsx", "営業\サブ\見積2.xlsx", "営業\見積.xlsx") | Sort-Object)
+        @($status.Rows.Keys | Sort-Object) | Should -Be @(@("営業\サブ\見積2.xlsx", "営業\見積.xlsx") | Sort-Object)
+        @($status.LegacyFolders | ForEach-Object { $_.Name }) | Should -Be @("CON", "旧営業.")
         $status.Rejected | Should -Be 8
+    }
+
+    It "行の確かめは testIndexRelPath（名前だけの行は通さない）と同じ結果になる" -TestCases @(
+        @{ rel = "営業\見積.xlsx" }
+        @{ rel = "営業\サブ\見積2.xlsx" }
+        @{ rel = "営業\a [1]\ b .xlsx" }
+        @{ rel = "営業\レポート.\a.xlsx" }
+        @{ rel = "営業\CON\a.xlsx" }
+        @{ rel = "a.xlsx" }
+        @{ rel = "営業" }
+        @{ rel = "\a.xlsx" }
+        @{ rel = "..\a.xlsx" }
+        @{ rel = ".\a.xlsx" }
+        @{ rel = "営業.\a.xlsx" }
+        @{ rel = " 営業\a.xlsx" }
+        @{ rel = "CON\a.xlsx" }
+        @{ rel = "営業\..\a.xlsx" }
+        @{ rel = "営業\.\a.xlsx" }
+        @{ rel = "営業\\a.xlsx" }
+        @{ rel = "営業\a.xlsx\" }
+        @{ rel = "営業/a.xlsx" }
+        @{ rel = "営業\a:b.xlsx" }
+        @{ rel = "営業\a*b.xlsx" }
+        @{ rel = "営業\" + ("あ" * 256) }
+        @{ rel = ("あ" * 256) + "\a.xlsx" }
+        @{ rel = "営業\" + ("あ" * 255) + "\a.xlsx" }
+    ) {
+        param ($rel)
+        $path = "$TestDrive\status_same_$([guid]::NewGuid().ToString('N')).tsv"
+        writeStatusFile @() @(newStatusRow $rel "2025/01/10 12:34:56" "1" $stateDone "1") $path
+        $accepted = @((readStatusFile $path).Rows.Keys).Count -eq 1
+        $accepted | Should -Be ((testIndexRelPath $rel $false) -eq "")
     }
 
     It "使えない行が無ければ Rejected は 0" {
@@ -145,18 +179,18 @@ Describe "readStatusFile / writeStatusFile / addStatusRow" -Tag Io {
 Describe "readIngestingFiles / writeIngestingFiles / removeIngestingFile" -Tag Io {
     It "取り込み中の複数のファイルの相対パスと回数をそのまま読み込める（[ ] や空白を含むパス）" {
         $path = "$TestDrive\ingesting[1].txt"
-        writeIngestingFiles @(@{ RelPath = "フォルダ1\a [確定]\見積.xlsx"; Count = 2 }, @{ RelPath = "b.docx"; Count = 1 }) $path
+        writeIngestingFiles @(@{ RelPath = "フォルダ1\a [確定]\見積.xlsx"; Count = 2 }, @{ RelPath = "フォルダ2\b.docx"; Count = 1 }) $path
 
         $ingesting = readIngestingFiles $path
         $ingesting.Count | Should -Be 2
         $ingesting[0].RelPath | Should -Be "フォルダ1\a [確定]\見積.xlsx"
         $ingesting[0].Count | Should -Be 2
-        $ingesting[1].RelPath | Should -Be "b.docx"
+        $ingesting[1].RelPath | Should -Be "フォルダ2\b.docx"
     }
 
     It "取り込み中が無ければ記録を消す" {
         $path = "$TestDrive\ingesting_empty.txt"
-        writeIngestingFiles @(@{ RelPath = "a.xlsx"; Count = 1 }) $path
+        writeIngestingFiles @(@{ RelPath = "営業\a.xlsx"; Count = 1 }) $path
         writeIngestingFiles @() $path
         Test-Path -LiteralPath $path | Should -Be $false
         (readIngestingFiles $path).Count | Should -Be 0
@@ -164,7 +198,7 @@ Describe "readIngestingFiles / writeIngestingFiles / removeIngestingFile" -Tag I
 
     It "削除すると記録なし（空）になる。ファイルが無くても削除でエラーにならない" {
         $path = "$TestDrive\ingesting_remove.txt"
-        writeIngestingFiles @(@{ RelPath = "a.xlsx"; Count = 1 }) $path
+        writeIngestingFiles @(@{ RelPath = "営業\a.xlsx"; Count = 1 }) $path
         removeIngestingFile $path
         Test-Path -LiteralPath $path | Should -Be $false
         (readIngestingFiles $path).Count | Should -Be 0
@@ -173,16 +207,16 @@ Describe "readIngestingFiles / writeIngestingFiles / removeIngestingFile" -Tag I
 
     It "壊れた行（回数が数値でない・相対パスが無い・空）は読み飛ばす" {
         $path = "$TestDrive\ingesting_broken.txt"
-        writeListFile $path @("x`ta.xlsx", "0`ta.xlsx", "1`t", "a.xlsx", "", "3`t残る.xlsx")
+        writeListFile $path @("x`t営業\a.xlsx", "0`t営業\a.xlsx", "1`t", "営業\a.xlsx", "", "3`t営業\残る.xlsx")
         $ingesting = readIngestingFiles $path
         $ingesting.Count | Should -Be 1
-        $ingesting[0].RelPath | Should -Be "残る.xlsx"
+        $ingesting[0].RelPath | Should -Be "営業\残る.xlsx"
         $ingesting[0].Count | Should -Be 3
     }
 
     It "相対パスが使えない行（.. を含む・名前が使えない）は読み飛ばす" {
         $path = "$TestDrive\ingesting_unsafe.txt"
-        writeListFile $path @("1`t..\外\a.xlsx", "1`t営業\..\..\外", "2`t..", "1`tCON\a.xlsx", "1`t営業\a.xlsx", "3`t営業\サブ\b.xlsx")
+        writeListFile $path @("1`t..\外\a.xlsx", "1`t営業\..\..\外", "2`t..", "1`tCON\a.xlsx", "1`t営業", "1`ta.xlsx", "1`t営業\a.xlsx", "3`t営業\サブ\b.xlsx")
         $ingesting = @(readIngestingFiles $path)
         @($ingesting | ForEach-Object { $_.RelPath }) | Should -Be @("営業\a.xlsx", "営業\サブ\b.xlsx")
     }
@@ -531,7 +565,7 @@ Describe "StatusLedger" -Tag Io {
     It "ReadIngestingFiles / WriteIngestingFiles / RemoveIngestingFile は、渡した保存先（IngestingFile）を読み書きする" {
         $ws = newTestWorkspace "$TestDrive\ledger2"
         $ledger = [StatusLedger]::new($ws)
-        $ledger.WriteIngestingFiles(@(@{ RelPath = "a.xlsx"; Count = 1 }))
+        $ledger.WriteIngestingFiles(@(@{ RelPath = "data\a.xlsx"; Count = 1 }))
         $ledger.ReadIngestingFiles().Count | Should -Be 1
         $ledger.RemoveIngestingFile()
         Test-Path -LiteralPath $ws.IngestingFile | Should -Be $false
