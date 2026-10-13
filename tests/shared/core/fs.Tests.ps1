@@ -290,6 +290,33 @@ Describe "removeTreeNoFollow" -Tag Io {
         readListFile "$outside\外.tsv" | Should -Be @("外")
     }
 
+    It "読み取り専用のジャンクションも、ジャンクションだけを外し、先は消さない" {
+        $dir = "$TestDrive\tree_junction_attr"
+        $outside = "$TestDrive\tree_junction_attr_outside"
+        writeListFile "$outside\外.tsv" @("外")
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        if (!(newTestJunction "$dir\リンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        [System.IO.File]::SetAttributes("$dir\リンク", [System.IO.File]::GetAttributes("$dir\リンク") -bor [System.IO.FileAttributes]::ReadOnly)
+        removeTreeNoFollow $dir
+        Test-Path -LiteralPath $dir | Should -Be $false
+        readListFile "$outside\外.tsv" | Should -Be @("外")
+    }
+
+    It "消すパスの末尾に \ が付いていても、ジャンクションだけを外し、先は消さない" {
+        $outside = "$TestDrive\tree_slash_outside"
+        writeListFile "$outside\外.tsv" @("外")
+        if (!(newTestJunction "$TestDrive\tree_slash_link" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        removeTreeNoFollow "$TestDrive\tree_slash_link\"
+        Test-Path -LiteralPath "$TestDrive\tree_slash_link" | Should -Be $false
+        readListFile "$outside\外.tsv" | Should -Be @("外")
+    }
+
     It "親を指すジャンクション（輪）があっても、時間内に終わり、全部消える" {
         $dir = "$TestDrive\tree_loop"
         writeListFile "$dir\a\a.tsv" @("a")
@@ -379,13 +406,42 @@ Describe "getLinkKind" -Tag Unit {
 }
 
 Describe "removeTreeNoFollow（種類が確かめられないフォルダ）" -Tag Io {
-    It "リンクかどうか確かめられないフォルダは、辿らず・消さずに、理由を付けて失敗する" {
+    It "リンクかどうか確かめられないフォルダがあれば、辿らず・消さずに、何も消さないまま理由を付けて失敗する" {
         writeListFile "$TestDrive\unknown_kind\中\a.tsv" @("a")
+        writeListFile "$TestDrive\unknown_kind\中\下\b.tsv" @("b")
+        writeListFile "$TestDrive\unknown_kind\あ.tsv" @("あ")
+        writeListFile "$TestDrive\unknown_kind\兄弟\c.tsv" @("c")
         Mock getLinkKind { return "Unknown" } -ParameterFilter { $item.Name -eq "中" }
 
         { removeTreeNoFollow "$TestDrive\unknown_kind" } | Should -Throw "*確かめられない*"
 
         readListFile "$TestDrive\unknown_kind\中\a.tsv" | Should -Be @("a")
+        readListFile "$TestDrive\unknown_kind\中\下\b.tsv" | Should -Be @("b")
+        readListFile "$TestDrive\unknown_kind\あ.tsv" | Should -Be @("あ")
+        readListFile "$TestDrive\unknown_kind\兄弟\c.tsv" | Should -Be @("c")
+    }
+
+    It "根が確かめられないフォルダなら、何も消さずに失敗する" {
+        writeListFile "$TestDrive\unknown_root\a.tsv" @("a")
+        Mock getLinkKind { return "Unknown" } -ParameterFilter { $item.Name -eq "unknown_root" }
+
+        { removeTreeNoFollow "$TestDrive\unknown_root" } | Should -Throw "*確かめられない*"
+
+        readListFile "$TestDrive\unknown_root\a.tsv" | Should -Be @("a")
+    }
+}
+
+Describe "testPathIsLink / testPathHasLink（末尾の区切り）" -Tag Io {
+    It "ジャンクションのパスの末尾に \ が付いていても、リンクと判定する" {
+        if (!(newTestJunction "$TestDrive\islink_slash" "$TestDrive\islink_slash_target")) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        testPathIsLink "$TestDrive\islink_slash\" | Should -Be $true
+    }
+
+    It "ドライブのルートは、末尾の \ を落とさずにリンクでないと判定する" {
+        testPathIsLink ([System.IO.Path]::GetPathRoot($TestDrive)) | Should -Be $false
     }
 }
 

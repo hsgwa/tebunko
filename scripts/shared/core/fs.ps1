@@ -186,6 +186,23 @@ function fromLongPath {
     return $path
 }
 
+function trimTrailingSeparator {
+    # パスの末尾の \ を落とす（末尾に \ が付くと、リンクの属性でなく先の属性が返ることがあるため、リンクの判定・削除の入口で使う）。
+    # ドライブのルート（C:\）・\\?\ だけのパスは、落とすと別の意味になるので、そのまま返す
+    param (
+        [string]$path
+    )
+
+    if (!$path) {
+        return $path
+    }
+    $trimmed = $path.Replace("/", "\").TrimEnd("\")
+    if (!$trimmed -or $trimmed.EndsWith(":") -or $trimmed -eq "\\?") {
+        return $path
+    }
+    return $trimmed
+}
+
 function setNotContentIndexed {
     # フォルダ（またはファイル）に「内容のインデックスを作成しない」属性（NotContentIndexed）を付ける。
     # 既に付いているものには付け直さない（Changed に数えない）ので、ほかの属性（読み取り専用など）は変えない。
@@ -374,7 +391,7 @@ function testPathIsLink {
     if (!$path) {
         return $false
     }
-    $long = toLongPath $path
+    $long = toLongPath (trimTrailingSeparator $path)
     try {
         $attributes = [System.IO.File]::GetAttributes($long)
     } catch [System.IO.FileNotFoundException] {
@@ -435,8 +452,10 @@ function removeEntryOnly {
     )
 
     $path = $item.FullName
-    if ($item.Attributes -band [System.IO.FileAttributes]::ReadOnly) {
-        [System.IO.File]::SetAttributes($path, [System.IO.FileAttributes]::Normal)
+    $attributes = $item.Attributes
+    if ($attributes -band [System.IO.FileAttributes]::ReadOnly) {
+        # 読み取り専用だけを外す（ほかの属性は変えない）
+        [System.IO.File]::SetAttributes($path, ($attributes -band (-bnot [System.IO.FileAttributes]::ReadOnly)))
     }
     if ($item -is [System.IO.DirectoryInfo]) {
         [System.IO.Directory]::Delete($path, $false)
@@ -448,17 +467,20 @@ function removeEntryOnly {
 function removeTreeNoFollow {
     # フォルダを中身ごと削除する。ジャンクション・シンボリックリンクは辿らず、リンクそのものだけを外す（先は消さない）。
     # path そのものがリンクなら、そのリンクだけを外す。フォルダが無ければ何もしない。
-    # リンクかどうか確かめられないフォルダ（getLinkKind が Unknown）は、降りず、消しもせず、例外にする（先に消した分は戻らない）。
-    # 上から下へ降りながら、ファイルとリンクを消し、フォルダは下から順に消す。降りる直前に、そのフォルダがリンクでないかを確かめ直す。
+    # 先に全体を数える（リンクは辿らない）。リンクかどうか確かめられないフォルダ（getLinkKind が Unknown）が 1 つでもあれば、
+    # 降りず、何も消さずに例外にする（中身が半分だけ消えた状態を残さない）。そのあとで、ファイル・リンク・フォルダ（下から順）を消す。
+    # 降りる直前に、そのフォルダがリンクでないかを確かめ直す。
     # 読み取り専用の属性は外して消す（Remove-Item -Force と同じ働き）。消せなければ例外にする
     param (
         [string]$path
     )
 
-    $long = toLongPath $path
+    $long = toLongPath (trimTrailingSeparator $path)
     if (![System.IO.Directory]::Exists($long)) {
         return
     }
+    $files = New-Object System.Collections.Generic.List[string]
+    $links = New-Object System.Collections.Generic.List[string]
     $directories = New-Object System.Collections.Generic.List[string]
     $pending = New-Object System.Collections.Generic.Stack[string]
     $pending.Push($long)
@@ -469,28 +491,29 @@ function removeTreeNoFollow {
             throw "リンクかどうか確かめられないフォルダのため、消しませんでした: $(fromLongPath $current.FullName)"
         }
         if ($currentKind -eq "Link") {
-            removeEntryOnly $current
+            $links.Add($current.FullName)
             continue
         }
         $directories.Add($current.FullName)
         foreach ($entry in @($current.EnumerateFileSystemInfos("*", [System.IO.SearchOption]::TopDirectoryOnly))) {
             if ($entry -isnot [System.IO.DirectoryInfo]) {
-                removeEntryOnly $entry
-                continue
-            }
-            if ((getLinkKind $entry) -eq "Link") {
-                removeEntryOnly $entry
+                $files.Add($entry.FullName)
+            } elseif ((getLinkKind $entry) -eq "Link") {
+                $links.Add($entry.FullName)
             } else {
                 # 確かめられないもの（Unknown）も積む。降りる直前の確かめで例外にする（列挙の途中では投げない）
                 $pending.Push($entry.FullName)
             }
         }
     }
+    foreach ($file in $files) {
+        removeEntryOnly (New-Object System.IO.FileInfo $file)
+    }
+    foreach ($link in $links) {
+        removeEntryOnly (New-Object System.IO.DirectoryInfo $link)
+    }
     for ($i = $directories.Count - 1; $i -ge 0; $i--) {
-        if ([System.IO.File]::GetAttributes($directories[$i]) -band [System.IO.FileAttributes]::ReadOnly) {
-            [System.IO.File]::SetAttributes($directories[$i], [System.IO.FileAttributes]::Normal)
-        }
-        [System.IO.Directory]::Delete($directories[$i], $false)
+        removeEntryOnly (New-Object System.IO.DirectoryInfo $directories[$i])
     }
 }
 

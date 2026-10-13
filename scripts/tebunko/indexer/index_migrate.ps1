@@ -166,7 +166,8 @@ function removeStaleProcessDirs {
             # 中に長いパスがあっても消え、中のリンクの先は消さない。使用中などで消せなければ 1 回だけ試して次回に回す
             removeDirectoryRetry $dir.FullName 1
         } catch {
-            # 使用中などで削除できなければ、次回に回す
+            # 使用中・リンクかどうか確かめられないフォルダがあるなどで削除できなければ、原因をログに出して次回に回す
+            writeIndexerLog "    終了したプロセスの作業フォルダを削除できませんでした: $($dir.FullName)（$($_.Exception.Message)）" "Yellow"
         }
     }
 }

@@ -162,6 +162,8 @@ Describe "removeEmptyDir" -Tag Io {
         ${legacyTmpParent} = "$TestDrive\rootlink_legacy"
 
         $result = initTmpDir
+        $result.Reason | Should -Be ""
+        $result.Dir | Should -Be (getWorkspaceTmpDir $workspace)
         $tmpDir = $result.Dir
         [System.IO.Directory]::CreateDirectory($workspace.PublishDir) | Out-Null
         removeStaleTmpDirs
@@ -263,9 +265,10 @@ Describe "removeStaleProcessDirs" -Tag Io {
         Test-Path -LiteralPath "$parent\1234567890" | Should -Be $true  # 10 桁はプロセスIDとみなさない
     }
 
-    It "削除できないフォルダは次回に回す" {
+    It "削除できないフォルダは、原因をログに出して次回に回す" {
         $parent = "$TestDrive\stale_locked"
         newTsv "$parent\$deadPid\a.tsv" @("a")
+        Mock writeIndexerLog {}
         $held = [System.IO.File]::Open("$parent\$deadPid\a.tsv", [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::None)
         try {
             { removeStaleProcessDirs $parent } | Should -Not -Throw
@@ -273,6 +276,21 @@ Describe "removeStaleProcessDirs" -Tag Io {
         } finally {
             $held.Dispose()
         }
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -ParameterFilter { $text -like "*終了したプロセスの作業フォルダを削除できませんでした: *$deadPid（*" }
+    }
+
+    It "中にリンクかどうか確かめられないフォルダがあれば、何も消さず、その理由をログに出す" {
+        $parent = "$TestDrive\stale_unknown"
+        newTsv "$parent\$deadPid\中\a.tsv" @("a")
+        newTsv "$parent\$deadPid\b.tsv" @("b")
+        Mock writeIndexerLog {}
+        Mock getLinkKind { return "Unknown" } -ParameterFilter { $item.Name -eq "中" }
+
+        { removeStaleProcessDirs $parent } | Should -Not -Throw
+
+        Test-Path -LiteralPath "$parent\$deadPid\中\a.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$parent\$deadPid\b.tsv" | Should -Be $true
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -ParameterFilter { $text -like "*確かめられないフォルダのため、消しませんでした*" }
     }
 
     It "終了したプロセスのフォルダの中にあるジャンクションは、先を消さずにジャンクションだけを外す" {
@@ -502,6 +520,19 @@ Describe "initTmpDir" -Tag Io {
         $result.Reason | Should -Be ""
         Test-Path -LiteralPath $result.Dir -PathType Container | Should -Be $true
     }
+
+    It "作業フォルダ（<PID>）を作ったあとリンクかどうか確かめられなければ、理由 Link で置けない扱いにし、ログに出す" {
+        $workspace = newTestWorkspace @{ PublishDir = "$TestDrive\init_unplaced\出力\$PID"; TmpRoot = "$TestDrive\init_unplaced\tmp" }
+        ${legacyTmpParent} = "$TestDrive\init_unplaced\legacy"
+        Mock writeIndexerLog {}
+        Mock testPathIsLink { return $true } -ParameterFilter { $path -like "*\$PID" }
+
+        $result = initTmpDir
+
+        $result.Dir | Should -Be ""
+        $result.Reason | Should -Be "Link"
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -ParameterFilter { $text -like "*取り込みをすべてスキップします。" }
+    }
 }
 
 Describe "newDirectoryReplacingExisting" -Tag Io {
@@ -526,6 +557,12 @@ Describe "newDirectoryReplacingExisting" -Tag Io {
 
         testPathIsLink "$TestDrive\replace_link\d" | Should -Be $false
         readListFile "$TestDrive\replace_link_target\外.tsv" | Should -Be @("外")
+    }
+
+    It "作り直したあともリンク（または確かめられないもの）が残っていれば、`$false を返す" {
+        Mock testPathIsLink { return $true } -ParameterFilter { $path -like "*\replace_unknown\d" }
+
+        newDirectoryReplacingExisting "$TestDrive\replace_unknown\d" | Should -Be $false
     }
 }
 
@@ -589,6 +626,14 @@ Describe "newWorkerTmpDir" -Tag Io {
 
         @(Get-ChildItem -LiteralPath $outside -Force).Count | Should -Be 0
         $log.ToString() | Should -Match "リンク"
+    }
+
+    It "作り直した w<番号> がリンク（または確かめられないもの）のままなら、空文字を返す" {
+        $parent = "$TestDrive\worker_unknown\1234"
+        [System.IO.Directory]::CreateDirectory($parent) | Out-Null
+        Mock testPathIsLink { return $true } -ParameterFilter { $path -like "*\w7" }
+
+        newWorkerTmpDir $parent 7 | Should -BeNullOrEmpty
     }
 }
 
