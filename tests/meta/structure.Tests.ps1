@@ -491,6 +491,8 @@ Describe "型の読み込み" -Tag Meta {
         $scripts = (Resolve-Path "$here\..\scripts").Path
         Set-Content -LiteralPath $probe -Encoding UTF8 -Value @(
             'Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase'
+            ". `"$scripts\shared\shared.ps1`""
+            ". `"$scripts\tebunko\lib.ps1`""
             ". `"$scripts\shared\ui\types.ps1`""
             ". `"$scripts\tebunko\ui\search\result_types.ps1`""
             ". `"$scripts\tebunko\ui\search\target_types.ps1`""

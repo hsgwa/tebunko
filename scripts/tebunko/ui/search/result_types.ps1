@@ -1,5 +1,5 @@
 ﻿# tebunko の画面で使う型: 検索結果とプレビュー。
-# shared\ui\types.ps1 を先に読み込んでおくこと（NotifyBase を継承する）。
+# shared\ui\types.ps1 を先に読み込んでおくこと（NotifyBase を継承する）。lib.ps1（index_name.ps1）も先に読み込んでおくこと（HitRow.ObjectPlaceRegex の値を作る）。
 # Preview* と HitRow は互いを参照するため、同じファイルに置く。
 
 class Segment {
@@ -414,9 +414,9 @@ class HitRow : NotifyBase {
     static [regex] $CellRegex  = [regex]::new("\t(?:`"(?:[^`"]|`"`")*`"[^\t]*|[^\t]*)")
     static [regex] $QuoteRegex = [regex]::new("^`"((?:[^`"]|`"`")*)`"(.*)`$", [System.Text.RegularExpressions.RegexOptions]::Singleline)
     static [regex] $ExcelRegex = [regex]::new("\.xls[a-z]?`$", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
-    # 図形・コメントの場所 "<元の場所>[<種類>]"（index_name.ps1 の objectPlacePattern と同じ形。クラスからはスクリプトの変数が見えないため、ここにも書く）。
+    # 図形・コメントの場所 "<元の場所>[<種類>]"。クラスからはスクリプトの関数が見えないため、値はクラスの定義の後で入れる（newObjectPlaceKindPattern）。
     # Excel の図形・コメントの 1 行は "<セル番地><TAB><文字>"。ヘッダー・フッターの 1 行は文字だけ（セル番地が無い）
-    static [regex] $ObjectPlaceRegex = [regex]::new("\[(?:図形|コメント|ヘッダー・フッター|埋め込み[1-9][0-9]{0,8})\]`$")
+    static [regex] $ObjectPlaceRegex
     static [regex] $CelllessPlaceRegex = [regex]::new("\[ヘッダー・フッター\]`$")
     static [char] $CellNewLine = [char]0x2028   # TSV のセル内改行（shared\core\text.ps1 の cellNewLine）
     static [int] $LeadLength = 40
@@ -781,3 +781,6 @@ class HitRow : NotifyBase {
         return $name
     }
 }
+
+# index_name.ps1 の newObjectPlaceKindPattern を使うため、lib.ps1 を先に読み込んでおくこと
+[HitRow]::ObjectPlaceRegex = [regex]::new((newObjectPlaceKindPattern))
