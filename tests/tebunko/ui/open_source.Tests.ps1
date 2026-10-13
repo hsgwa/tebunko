@@ -10,7 +10,7 @@ BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
     Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
     . "${scriptsDir}\shared\ui\types.ps1"
-    . "${scriptsDir}\tebunko\ui\types.ps1"
+    . "${scriptsDir}\tebunko\ui\search\result_types.ps1"
     . "${scriptsDir}\shared\ui\data_grid.ps1"
 
     function newFakeControl {

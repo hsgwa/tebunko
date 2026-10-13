@@ -3,7 +3,7 @@
 # 書き直さないと、一覧と詳細で値が食い違う（行のチェックを切り替えても詳細が古いままだった不具合）。
 # 画面を開かずに、呼び出しの有無を構文木で確かめる（実際に書き直るかは tests/gui/index.Tests.ps1）。
 # コメントや文字列には一致させない（コマンドの呼び出しだけを数える）。行の値を変える方法は、
-# ui/types.ps1 の FolderItem の Set* メソッドと、プロパティへの直接の代入から集める
+# ui/index/index_types.ps1 の FolderItem の Set* メソッドと、プロパティへの直接の代入から集める
 BeforeAll {
     $script:uiDir = (Resolve-Path "$PSScriptRoot\..\..\scripts\tebunko\ui").Path
     $script:refreshers = @("updateIndexDetailPanel", "updateIndexListView", "refreshIndexViews", "updateFastSearchRows", "applyIndexStats")
@@ -15,7 +15,7 @@ BeforeAll {
     }
 
     # FolderItem の Set* メソッド名とプロパティ名
-    $typesAst = getAst "$script:uiDir\types.ps1"
+    $typesAst = getAst "$script:uiDir\index\index_types.ps1"
     $folderItem = $typesAst.Find({ param ($a) $a -is [System.Management.Automation.Language.TypeDefinitionAst] -and $a.Name -eq "FolderItem" }, $true)
     $script:setters = @($folderItem.Members | Where-Object { $_ -is [System.Management.Automation.Language.FunctionMemberAst] -and $_.Name -like "Set*" -and !$_.IsHidden } | ForEach-Object { $_.Name })
     $script:properties = @($folderItem.Members | Where-Object { $_ -is [System.Management.Automation.Language.PropertyMemberAst] } | ForEach-Object { $_.Name })
@@ -24,7 +24,8 @@ BeforeAll {
     $script:units = @{}
     foreach ($file in Get-ChildItem $script:uiDir -Recurse -Filter "*.ps1") {
         $ast = getAst $file.FullName
-        $inIndexDir = $file.DirectoryName -like "*\ui\index"
+        # 型のファイル（*_types.ps1）は、行そのものの定義（Set* の中身）なので、直接の代入は調べない
+        $inIndexDir = $file.DirectoryName -like "*\ui\index" -and $file.Name -notlike "*_types.ps1"
         $nodes = @()
         foreach ($fn in $ast.FindAll({ param ($a) $a -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)) {
             $nodes += @{ Key = "$($file.Name):$($fn.Name)"; Ast = $fn.Body }

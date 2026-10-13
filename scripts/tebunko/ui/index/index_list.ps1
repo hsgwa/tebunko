@@ -11,7 +11,7 @@ function getTargetsKey {
 
 $script:targetItems = New-Object 'System.Collections.ObjectModel.ObservableCollection[object]'
 $ui.IndexGrid.ItemsSource = $script:targetItems
-# 1 件も無いときの［＋ フォルダを追加］。名前の一覧（gui_main.ps1）に足さず、読み込んだ中身から取る（件数の帯は窓の下のステータスバーにある）
+# 1 件も無いときの［＋ フォルダを追加］。名前の一覧（shell\regions.ps1）に足さず、読み込んだ中身から取る（件数の帯は窓の下のステータスバーにある）
 foreach ($footerName in @("IndexEmptyAddButton")) {
     $ui[$footerName] = $ui.IndexListHost.Content.FindName($footerName)
 }
