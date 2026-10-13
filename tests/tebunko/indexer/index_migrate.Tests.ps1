@@ -413,6 +413,35 @@ Describe "writeStatusKeepingDropped" -Tag Unit {
     }
 }
 
+Describe "writeStatusKeepingDropped（今の決まりに合わない前の版の名前）" -Tag Io {
+    It "取りやめた回に書き戻した <name> のフォルダの行は、読み直すと LegacyFolders に入り、各ファイルの行は残らない" -TestCases @(
+        @{ name = "営業." }
+        @{ name = "営業 " }
+        @{ name = "CON" }
+    ) {
+        param ($name)
+        $path = "$TestDrive\keep\ingest_status.tsv"
+        [System.IO.Directory]::CreateDirectory("$TestDrive\keep") | Out-Null
+        $ledger = [pscustomobject]@{ StatusPath = $path }
+        $ledger | Add-Member -MemberType ScriptMethod -Name WriteStatus -Value {
+            param ($folders, $rows)
+            writeStatusFile $folders $rows $this.StatusPath
+        }
+        # 前回の読み込みでは、前の版の名前のフォルダ行は LegacyFolders に入り、各ファイルの行は読み飛ばされて Rows に無い
+        $previous = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
+        $legacy = @([pscustomobject]@{ Path = "C:\data\古い"; Name = $name })
+        $folder = [pscustomobject]@{ Path = "C:\data\営業"; Name = "営業" }
+        $row = [pscustomobject]@{ 相対パス = "営業\c.docx"; 更新日時 = "2025/01/10 12:34:56"; サイズ = "1"; 状態 = $stateDone; 抽出版 = "1"; エラー = "" }
+
+        writeStatusKeepingDropped $ledger @($folder) @($row) $legacy $previous
+
+        $status = readStatusFile $path
+        @($status.Folders | ForEach-Object { $_.Name }) | Should -Be @("営業")
+        @($status.LegacyFolders | ForEach-Object { $_.Name }) | Should -Be @($name)
+        @($status.Rows.Keys) | Should -Be @("営業\c.docx")
+    }
+}
+
 Describe "removeDroppedFolders" -Tag Io {
     It "クロール対象から削除されたフォルダのインデックスだけを削除する" {
         $indexDir = "$TestDrive\dropped\index"
