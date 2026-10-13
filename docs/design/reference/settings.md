@@ -41,7 +41,7 @@
 | `getWorkspaceJobQueue` | 場所（複数可） | string | 裏の列を選ぶ。渡した場所のどれかがネットワークなら `network`、それ以外は `default`。届かない共有の仕事が、ほかの仕事を待たせないため | index_store.ps1, index_tree.ps1 ほか |
 | `getWorkspaceTmpDir` | workspace | string | 取り込みの作業フォルダの候補 `<TmpRoot>\<PC の鍵>\<PID>`。副作用は無い | selectTmpDir, index_migrate.ps1 |
 | `selectTmpDir` | workspace | `@{Dir; Reason}` | 作業フォルダの置き場所を決める。候補のパスに `[` `]` があれば（Excel が保存できない）`Dir` を空にして `Reason = Brackets`、候補の長さに取り込みのスレッドが下に作る名前の分を足して `$excelMaxPath` 以上なら `Reason = TooLong`。どちらでもなければ候補のまま（`Reason` は空）。`%TEMP%` には逃がさない | paths.ps1, indexer_run.ps1, extract_office.ps1, index_migrate.ps1 |
-| `getTmpDirUnavailableMessage` | reason | string | 作業フォルダを置けない理由（`Brackets`・`TooLong`・その他）を、利用者向けの 1 文にする | indexer_run.ps1, index_migrate.ps1 |
+| `getTmpDirUnavailableMessage` | reason | string | 作業フォルダを置けない理由（`Brackets`・`TooLong`・`Link`（作業領域の途中にリンクがある）・その他）を、利用者向けの 1 文にする | indexer_run.ps1, index_migrate.ps1 |
 | `getLegacyIndexState` | dir | `@{HasLegacyIndex; ContentEmpty; HasLegacySystemIndex}` | 前の版のワークスペースの状態。`index\` の直下のフォルダに元のフォルダ.txt があれば前の版のしるし（`HasLegacyIndex`）。`content_index\` が空か（`ContentEmpty`）。空のときだけ、`system_index\` に前の名前の txt があるかも調べる | indexing_tab.ps1, workspace_jobs.ps1, index_archive.ps1, indexer_run.ps1, paths.ps1 |
 | `testLegacyCleanupNeeded` | state | bool | 取り込み直しを始めるときに、前の版のシステムインデックスを片付けるか。`content_index\` が空で、前の版のしるしか前の名前の txt があるとき | index_archive.ps1, indexer_run.ps1 |
 | `getLegacyIndexMessage` | dir, hasLegacyIndex | string | 前の版のインデックスが見つかったときの知らせ。しるしが無ければ空 | workspace_jobs.ps1, indexer_run.ps1 |
