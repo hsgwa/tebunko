@@ -4451,7 +4451,7 @@
 <tr>
 <td>6</td>
 <td><code>TypeNotFound</code></td>
-<td><code>tebunko/ui/types.ps1</code> が、<code>shared/ui/types.ps1</code> の型（<code>NotifyBase</code>）を継承しているため。1 ファイルだけを解析すると継承元が見つからないという指摘で、実際の読み込み順では解決する（<code>tests/meta/structure.Tests.ps1</code> の「型の読み込み」で実際に読み込んで確認している）。どのルールを指定しても出る</td>
+<td><code>tebunko/ui/</code> の <code>*_types.ps1</code>（<code>search/result_types.ps1</code> など）が、<code>shared/ui/types.ps1</code> の型（<code>NotifyBase</code>）を継承しているため。1 ファイルだけを解析すると継承元が見つからないという指摘で、実際の読み込み順では解決する（<code>tests/meta/structure.Tests.ps1</code> の「型の読み込み」で実際に読み込んで確認している）。どのルールを指定しても出る</td>
 </tr>
 </tbody>
 </table>

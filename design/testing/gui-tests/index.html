@@ -4143,7 +4143,7 @@
 
 <h1 id="画面のテストと確認">画面のテストと確認<a class="headerlink" href="#画面のテストと確認" title="Permanent link">&para;</a></h1>
 <p>扱うこと: 画面が使う関数・画面の型と判断層・画面の部品の単体テストが何を確かめるか、画面の確認（自動化できた範囲・手動で確かめる範囲）。扱わないこと: 画面以外の単体テスト（<a href="../unit-index/">単体テスト（インデックスと検索）</a> など）、本物の画面を UI オートメーションで操作するスモークテストの仕組み・場面（<a href="../gui-smoke/">画面のスモークテスト</a>）。先に読むページ: <a href="../">テスト</a>。</p>
-<p>判断層（<code>*_view.ps1</code>）はそのままテストする。<code>result_list.ps1</code>・<code>open_source.ps1</code>・<code>preview.ps1</code>・<code>index_tree.ps1</code> は <code>$ui</code>・<code>$window</code> を偽物にし、Excel・エクスプローラーの起動は <code>Mock</code> して実際には開かない。クリップボードは利用者の PC のものを書き換えるため、「コピーしない場合」（<code>preview.ps1</code> の <code>copyPreviewSelection</code>）だけを確かめる。型（<code>shared/ui/types.ps1</code>・<code>tebunko/ui/types.ps1</code>）はプロパティの変更通知と各メソッドを確かめる。</p>
+<p>判断層（<code>*_view.ps1</code>）はそのままテストする。<code>result_list.ps1</code>・<code>open_source.ps1</code>・<code>preview.ps1</code>・<code>index_tree.ps1</code> は <code>$ui</code>・<code>$window</code> を偽物にし、Excel・エクスプローラーの起動は <code>Mock</code> して実際には開かない。クリップボードは利用者の PC のものを書き換えるため、「コピーしない場合」（<code>preview.ps1</code> の <code>copyPreviewSelection</code>）だけを確かめる。型（<code>shared/ui/types.ps1</code>・<code>tebunko/ui/</code> の <code>*_types.ps1</code>）はプロパティの変更通知と各メソッドを確かめる。</p>
 <pre class="mermaid"><code>flowchart TD
     subgraph judge["判断層（$ui に触らない）"]
         V["*_view.ps1"] --&gt; TV["そのままテスト"]
@@ -4240,12 +4240,12 @@
 <tbody>
 <tr>
 <td>画面の型（<a href="../../gui/implementation/#実行時コンパイルcscexeを使わない">実行時コンパイル（csc.exe）を使わない</a>）</td>
-<td><code>tests/shared/ui/types.Tests.ps1</code><br><code>tests/tebunko/ui/types.Tests.ps1</code></td>
+<td><code>tests/shared/ui/types.Tests.ps1</code><br><code>tests/tebunko/ui/search/result_types.Tests.ps1</code><br><code>search\target_types.Tests.ps1</code><br><code>index\index_types.Tests.ps1</code></td>
 <td><code>NotifyBase</code> の変更通知。<code>HitRow</code>（生成・<code>Prepare</code>・絞り込みの一致・セルの分割・<code>BuildPreview</code>・境界値）、<code>FileGroup</code>、<code>PreviewColumn</code>／<code>PreviewCell</code>／<code>PreviewTable</code>（範囲の選択とコピー、Excel に貼れる形への引用）、<code>IndexNode</code>（3 状態のチェック・フォルダの読み込み・境界値）、<code>FolderItem</code></td>
 </tr>
 <tr>
 <td>判断層</td>
-<td><code>tests/tebunko/ui/index_view.Tests.ps1</code><br><code>indexing_view.Tests.ps1</code><br><code>search\search_bar_view.Tests.ps1</code><br><code>result_list_view.Tests.ps1</code><br><code>open_source_view.Tests.ps1</code><br><code>preview_view.Tests.ps1</code><br><code>settings\settings_view.Tests.ps1</code></td>
+<td><code>tests/tebunko/ui/index/index_list_view.Tests.ps1</code><br><code>index_edit_view.Tests.ps1</code><br><code>index_detail_view.Tests.ps1</code><br><code>index_archive_view.Tests.ps1</code><br><code>indexing_view.Tests.ps1</code><br><code>search\search_bar_view.Tests.ps1</code><br><code>result_list_view.Tests.ps1</code><br><code>open_source_view.Tests.ps1</code><br><code>preview_view.Tests.ps1</code><br><code>settings\settings_view.Tests.ps1</code></td>
 <td>画面に出す文言と可否の判定（ワークスペースの表示・選んだフォルダの可否・変える前の確認と空でないフォルダの警告の文言、インデックス名の入力チェック、インデックス作成の確認の文言と終わりの見出し・説明（成功・失敗の組み合わせ。利用者の PowerPoint のために取り込めなかったファイルは失敗に入る）、ボタンの上の一言（残りの件数とインデックス作成中か）、検索条件の説明・注意・検索ボタンの状態、ファイルごとの見出しの表記と並べ替え、プレビューの行数とステータス）</td>
 </tr>
 <tr>
@@ -4256,7 +4256,7 @@
 <tr>
 <td>選択行のプレビュー</td>
 <td><code>tests/tebunko/ui/preview.Tests.ps1</code></td>
-<td>表示・消去、最初に読む行数と縦の位置、セルを選んでいないときのコピーの案内、イベント、読み込み（<code>startJob</code>）の結果の扱い（読んでいる間に別の行を選んだら古い結果を出さない・後から頼んだ読み込みがあれば先の分は捨てる・読めないときは選んだ行だけを出す）、読み足し（表ごとに結果を合わせる・つながるときだけ足す・端まで読んだら止める・上限を超えたら遠い側を捨てる・別の行に替わったあとの結果は捨てる）、最後に読んだファイルの控えを次の読みに渡すこと、列見出しのドラッグ中は見えている列の範囲を固定すること、全部の列を持つこと（見出しとセルは見えている列だけ）。表と列の範囲は <code>types.Tests.ps1</code>・<code>preview_view.Tests.ps1</code>（<code>getPreviewColumnWindow</code>）</td>
+<td>表示・消去、最初に読む行数と縦の位置、セルを選んでいないときのコピーの案内、イベント、読み込み（<code>startJob</code>）の結果の扱い（読んでいる間に別の行を選んだら古い結果を出さない・後から頼んだ読み込みがあれば先の分は捨てる・読めないときは選んだ行だけを出す）、読み足し（表ごとに結果を合わせる・つながるときだけ足す・端まで読んだら止める・上限を超えたら遠い側を捨てる・別の行に替わったあとの結果は捨てる）、最後に読んだファイルの控えを次の読みに渡すこと、列見出しのドラッグ中は見えている列の範囲を固定すること、全部の列を持つこと（見出しとセルは見えている列だけ）。表と列の範囲は <code>search\result_types.Tests.ps1</code>・<code>preview_view.Tests.ps1</code>（<code>getPreviewColumnWindow</code>）</td>
 </tr>
 <tr>
 <td>元のファイルを開く</td>

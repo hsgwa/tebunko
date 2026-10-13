@@ -4229,7 +4229,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/</code></td>
-<td>タブごとの画面（<code>*_tab.ps1</code> ほか）と、その判断層（<code>*_view.ps1</code>）。画面の枠（左の欄と画面の切り替え: <code>ui/shell/</code> の <code>nav.ps1</code>・判断層の <code>nav_view.ps1</code>）と、タブに属さないもの（左の欄の［バージョン情報］と「バージョン情報」ダイアログ：<code>about_dialog.ps1</code>・判断層の <code>about_view.ps1</code> の <code>getAboutView</code>）も置く</td>
+<td>タブごとの画面（<code>*_tab.ps1</code> ほか）と、その判断層（<code>*_view.ps1</code>）。画面の枠（<code>ui/shell/</code>。左の欄と画面の切り替えの <code>nav.ps1</code>・判断層の <code>nav_view.ps1</code>。<code>startGui</code>（<code>gui_main.ps1</code>）の中身は <code>settings_recovery</code>・<code>regions</code>・<code>services</code>・<code>screens</code>・<code>window_events</code>・<code>closing</code>・<code>startup</code>・<code>activate_watch</code> の各 <code>.ps1</code> に分け、<code>startGui</code> の中でこの順に dot-source する。<code>$ui</code>・<code>$window</code> と <code>startGui</code> のローカル変数を共有するため、順を入れ替えない。型は <code>search/result_types.ps1</code>・<code>search/target_types.ps1</code>・<code>index/index_types.ps1</code>、インデックスの画面の判断層は <code>index/index_{list,edit,detail,archive}_view.ps1</code> に置く）と、タブに属さないもの（左の欄の［バージョン情報］と「バージョン情報」ダイアログ：<code>about_dialog.ps1</code>・判断層の <code>about_view.ps1</code> の <code>getAboutView</code>）も置く</td>
 </tr>
 </tbody>
 </table>
