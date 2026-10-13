@@ -300,9 +300,13 @@ Describe "removeTreeNoFollow" -Tag Io {
             return
         }
         [System.IO.File]::SetAttributes("$dir\リンク", [System.IO.File]::GetAttributes("$dir\リンク") -bor [System.IO.FileAttributes]::ReadOnly)
+        # リンク自身に読み取り専用が付いていて、先には付いていない
+        ([System.IO.File]::GetAttributes("$dir\リンク") -band [System.IO.FileAttributes]::ReadOnly) | Should -Be ([int][System.IO.FileAttributes]::ReadOnly)
+        ([System.IO.File]::GetAttributes($outside) -band [System.IO.FileAttributes]::ReadOnly) | Should -Be 0
         removeTreeNoFollow $dir
         Test-Path -LiteralPath $dir | Should -Be $false
         readListFile "$outside\外.tsv" | Should -Be @("外")
+        ([System.IO.File]::GetAttributes($outside) -band [System.IO.FileAttributes]::ReadOnly) | Should -Be 0
     }
 
     It "消すパスの末尾に \ が付いていても、ジャンクションだけを外し、先は消さない" {
@@ -428,6 +432,48 @@ Describe "removeTreeNoFollow（種類が確かめられないフォルダ）" -T
         { removeTreeNoFollow "$TestDrive\unknown_root" } | Should -Throw "*確かめられない*"
 
         readListFile "$TestDrive\unknown_root\a.tsv" | Should -Be @("a")
+    }
+}
+
+Describe "removeTreeNoFollow（数えたあとでリンクに替わったフォルダ）" -Tag Io {
+    It "ファイルを消す直前の確かめでリンクだと分かったら、そのフォルダのファイルを消さずに失敗する" {
+        writeListFile "$TestDrive\swapped\中\a.tsv" @("a")
+        writeListFile "$TestDrive\swapped\中\下\b.tsv" @("b")
+        writeListFile "$TestDrive\swapped\あ.tsv" @("あ")
+        $script:swappedCalls = 0
+        # 数える段で 2 回（上のフォルダの列挙・降りる直前）は Plain、消す段の 3 回目から Link
+        Mock getLinkKind {
+            $script:swappedCalls++
+            if ($script:swappedCalls -ge 3) {
+                return "Link"
+            }
+            return "Plain"
+        } -ParameterFilter { $item.Name -eq "中" }
+
+        { removeTreeNoFollow "$TestDrive\swapped" } | Should -Throw "*リンクに替わった*"
+
+        readListFile "$TestDrive\swapped\中\a.tsv" | Should -Be @("a")
+        readListFile "$TestDrive\swapped\中\下\b.tsv" | Should -Be @("b")
+    }
+}
+
+Describe "trimTrailingSeparator" -Tag Unit {
+    It "末尾の区切りだけを落とす。根・区切りだけ・空のパスはそのまま返す: <path>" -TestCases @(
+        @{ path = "C:\a\"; expected = "C:\a" }
+        @{ path = "C:\a\\"; expected = "C:\a" }
+        @{ path = "C:\a/"; expected = "C:\a" }
+        @{ path = "C:\a/b/"; expected = "C:\a/b" }
+        @{ path = "C:\a"; expected = "C:\a" }
+        @{ path = "C:\"; expected = "C:\" }
+        @{ path = "C:"; expected = "C:" }
+        @{ path = "\\?\C:\"; expected = "\\?\C:\" }
+        @{ path = "\\?\"; expected = "\\?\" }
+        @{ path = "\"; expected = "\" }
+        @{ path = "/"; expected = "/" }
+        @{ path = ""; expected = "" }
+        @{ path = "\\?\C:\a\"; expected = "\\?\C:\a" }
+    ) {
+        trimTrailingSeparator $path | Should -Be $expected
     }
 }
 

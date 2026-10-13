@@ -187,8 +187,10 @@ function fromLongPath {
 }
 
 function trimTrailingSeparator {
-    # パスの末尾の \ を落とす（末尾に \ が付くと、リンクの属性でなく先の属性が返ることがあるため、リンクの判定・削除の入口で使う）。
-    # ドライブのルート（C:\）・\\?\ だけのパスは、落とすと別の意味になるので、そのまま返す
+    # パスの末尾の \ と / を落とす（リンクの判定・削除の入口で使う。念のため、末尾の区切りでリンクの先を見ることが無いようにする）。
+    # 途中の区切りは変えない（toLongPath が / を \ にそろえる）。
+    # ドライブのルート（C:\ ・ \\?\C:\）・\\?\ だけのパス・\ だけのパスは、落とすと別の意味になるので、そのまま返す
+    # （UNC の根・ボリュームの GUID の根は、落としても別の意味になる形ではないので、特別扱いしない）
     param (
         [string]$path
     )
@@ -196,7 +198,7 @@ function trimTrailingSeparator {
     if (!$path) {
         return $path
     }
-    $trimmed = $path.Replace("/", "\").TrimEnd("\")
+    $trimmed = $path.TrimEnd([char[]]@("\", "/"))
     if (!$trimmed -or $trimmed.EndsWith(":") -or $trimmed -eq "\\?") {
         return $path
     }
@@ -468,8 +470,10 @@ function removeTreeNoFollow {
     # フォルダを中身ごと削除する。ジャンクション・シンボリックリンクは辿らず、リンクそのものだけを外す（先は消さない）。
     # path そのものがリンクなら、そのリンクだけを外す。フォルダが無ければ何もしない。
     # 先に全体を数える（リンクは辿らない）。リンクかどうか確かめられないフォルダ（getLinkKind が Unknown）が 1 つでもあれば、
-    # 降りず、何も消さずに例外にする（中身が半分だけ消えた状態を残さない）。そのあとで、ファイル・リンク・フォルダ（下から順）を消す。
-    # 降りる直前に、そのフォルダがリンクでないかを確かめ直す。
+    # 降りず、何も消さずに例外にする。何も消さないと言えるのは、この数える段で見つけた Unknown のときだけ。
+    # そのあとで、ファイル・リンク・フォルダ（下から順）を消す。
+    # 降りる直前と、フォルダのファイルを消す直前に、そのフォルダがリンクでないかを確かめ直す。
+    # 数えたあとにフォルダがリンクに替わっていたら例外にする。それまでに消した分は戻らない。
     # 読み取り専用の属性は外して消す（Remove-Item -Force と同じ働き）。消せなければ例外にする
     param (
         [string]$path
@@ -479,7 +483,7 @@ function removeTreeNoFollow {
     if (![System.IO.Directory]::Exists($long)) {
         return
     }
-    $files = New-Object System.Collections.Generic.List[string]
+    $filesByDirectory = New-Object 'System.Collections.Generic.Dictionary[string,System.Collections.Generic.List[string]]'
     $links = New-Object System.Collections.Generic.List[string]
     $directories = New-Object System.Collections.Generic.List[string]
     $pending = New-Object System.Collections.Generic.Stack[string]
@@ -495,9 +499,10 @@ function removeTreeNoFollow {
             continue
         }
         $directories.Add($current.FullName)
+        $filesByDirectory[$current.FullName] = New-Object System.Collections.Generic.List[string]
         foreach ($entry in @($current.EnumerateFileSystemInfos("*", [System.IO.SearchOption]::TopDirectoryOnly))) {
             if ($entry -isnot [System.IO.DirectoryInfo]) {
-                $files.Add($entry.FullName)
+                $filesByDirectory[$current.FullName].Add($entry.FullName)
             } elseif ((getLinkKind $entry) -eq "Link") {
                 $links.Add($entry.FullName)
             } else {
@@ -506,8 +511,13 @@ function removeTreeNoFollow {
             }
         }
     }
-    foreach ($file in $files) {
-        removeEntryOnly (New-Object System.IO.FileInfo $file)
+    foreach ($directory in $directories) {
+        if ((getLinkKind (New-Object System.IO.DirectoryInfo $directory)) -ne "Plain") {
+            throw "数えたあとでリンクに替わったフォルダのため、中のファイルを消しませんでした: $(fromLongPath $directory)"
+        }
+        foreach ($file in $filesByDirectory[$directory]) {
+            removeEntryOnly (New-Object System.IO.FileInfo $file)
+        }
     }
     foreach ($link in $links) {
         removeEntryOnly (New-Object System.IO.DirectoryInfo $link)
