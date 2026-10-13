@@ -4261,6 +4261,51 @@
 </tbody>
 </table>
 <p>依存の向きは一方向にする。<strong><code>shared/</code> はツール（<code>tebunko/</code>）を知らない。</strong> ツール同士も互いを読み込まない。判断層と状態層（<code>core/</code>・<code>index/</code>・<code>indexer/</code>・<code>search/</code>・<code>shared/</code> の <code>core/</code>・<code>office/</code>）は <code>$ui</code>・<code>$window</code>・WPF の型に触らず、画面以外の読み込み口（<code>shared.ps1</code>・<code>lib.ps1</code>・<code>indexer.ps1</code>）は <code>ui/</code> のファイルを読み込まない。これらの決まりは <code>tests/meta/layers.Tests.ps1</code> で機械的に確かめる。</p>
+<p>状態層の中のフォルダも、依存の向きを決める。上のものは下のものに依存してよく、逆は依存しない。</p>
+<table>
+<thead>
+<tr>
+<th>上</th>
+<th>下</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tebunko/indexer/</code>・<code>tebunko/search/</code>（互いに依存しない）</td>
+<td><code>tebunko/index/</code></td>
+</tr>
+<tr>
+<td><code>tebunko/index/</code></td>
+<td><code>tebunko/core/</code></td>
+</tr>
+<tr>
+<td><code>tebunko/core/</code></td>
+<td><code>shared/office/</code>・<code>shared/core/</code></td>
+</tr>
+<tr>
+<td><code>shared/office/</code></td>
+<td><code>shared/core/</code></td>
+</tr>
+</tbody>
+</table>
+<p>共有の状態層（<code>shared/core/</code>・<code>shared/office/</code>）は、共有の画面層（<code>shared/ui/</code>）にも依存しない。</p>
+<p>今の呼び出しの多い向きに合わせた（<code>indexer</code> → <code>index</code> と <code>search</code> → <code>index</code> と <code>index</code> → <code>core</code> が順向きで多く、読み込み口の順 <code>core</code> → <code>index</code> → <code>search</code>・<code>indexer</code> とも合う）。</p>
+<p>向きの検査は、文字列ではなく構文木（AST）で行う（<code>tools/script_arch.ps1</code>。部品自身のテストは <code>tests/tools/script_arch.Tests.ps1</code>）。全部のファイルが同じスコープに読み込まれ、下の層が上の層の関数・変数を名前で使っても動いてしまうため、ファイルごとに構文木を作り、次を見る。</p>
+<ul>
+<li>関数の呼び出しが、別のパスのファイルで定義した関数を指していること</li>
+<li>別のパスのファイルが最上位（関数の外）・<code>$script:</code>・<code>$global:</code> で代入した変数を読んでいること</li>
+<li>決めた変数（<code>$ui</code>・<code>$window</code>）と型（<code>System.Windows.*</code>）に触っていること</li>
+</ul>
+<p><code>tests/meta/layers.Tests.ps1</code> の「依存の向き（ファイル単位）」が、「このパスのファイルは、あのパスのファイルに依存しない」の表で決まりを書く。失敗の文には、ファイルの組と、関数・変数の名前が出る。</p>
+<p>向きの検査は、依存があるかどうかだけを見る。境界での受け渡し（向こう側へ何を渡し、向こう側の答えをどう使うか）は、<code>tests/tebunko/ui/layer_boundary.Tests.ps1</code> が、向こう側をスタブに替えて確かめる。判断層の関数が呼ぶ状態層の関数をスタブにする組と、画面層の関数が呼ぶ判断層の関数をスタブにする組がある。境界を足したら、同じファイルに足す。</p>
+<p>今ある逆向きの依存は、同じファイルの例外の一覧（「from のファイル・to のファイル・名前」の組と、許している理由）に載せ、増やさない。直したら一覧から消す（どの行でも見つからなくなった例外は、テストが失敗にする）。例外は、次の種類に分かれる。</p>
+<ul>
+<li>状態層の中で、下のフォルダが上のフォルダの関数・変数を使う依存。<code>tebunko/index/system_index.ps1</code> から <code>tebunko/search/search_gram.ps1</code>（gram の関数）、<code>tebunko/index/</code> から <code>tebunko/search/source_map.ps1</code>（取り込み一覧・情報源フォルダのファイルの読み書き）、<code>tebunko/index/</code> から <code>tebunko/indexer/indexer_state.ps1</code>（状態ファイル・ログの読み書き）への依存が多い。どれも、下のフォルダへ関数を移すと消える。</li>
+<li><code>shared/</code> が <code>tebunko/</code> の関数・変数を使う依存。決めた形ではない今ある依存。</li>
+<li>判断層（<code>search_bar_view.ps1</code>）が、共有の画面層の <code>formatTime</code> を呼ぶ依存。</li>
+</ul>
+<p>共通の値を作る場所は、読む側より下の層に置く。<code>$workspace</code> は状態層の <code>tebunko/core/paths.ps1</code>（<code>initWorkspace</code>・<code>setCallerWorkspace</code>）だけが作り、画面層（<code>switchWorkspace</code>）は <code>initWorkspace</code> を呼んで作り直す。<code>shared/</code> が使うツール側の値は、ツール側が登録する（エラーの記録先と見出しは <code>setGuiErrorLogSource</code>、仕事の列は <code>setBackgroundQueue</code>・<code>setNetworkQueueFactory</code>）。</p>
+<p>見つからないもの（限界）: <code>&amp; $name</code> の呼び出し、コールバックで渡したスクリプトブロックの中から呼ぶ形、<code>$ui</code> を別の名前の引数で受け取る形、クラスのメソッドの呼び出し、<code>Set-Variable</code> での代入（<code>$workspace</code> は、代入を <code>setCallerWorkspace</code> に集めてある）。別のファイルのクラスを型として使う依存（<code>[型]::new()</code>・引数や戻り値の型）は、依存の向きの表では見つからない（決めた型 <code>System.Windows.*</code> だけは、画面の変数・型の検査が見る）。<code>New-Object</code> に文字列で渡す型と、<code>using namespace</code> で短く書いた型は、構文木では型として見えない（文字列の検査が見る）。同じ名前の関数・変数が、見る側のパスにもあるときは、そちらを使っているとみなす。</p>
 <h2 id="読み込み口">読み込み口<a class="headerlink" href="#読み込み口" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart TD
     GUI["tebunko/gui.ps1&lt;br&gt;（画面の起動口）"] --&gt; LIB

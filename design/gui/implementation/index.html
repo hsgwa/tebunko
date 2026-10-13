@@ -4294,7 +4294,7 @@
 </tr>
 <tr>
 <td><code>scripts/shared/ui/app_host.ps1</code></td>
-<td>画面の土台。XAML の読み込み（<code>loadXaml</code>。<code>ParserContext.BaseUri</code> にそのファイルの場所を渡し、<code>theme.xaml</code> への相対参照を解決する）、ウィンドウの読み込みとアイコン（<code>loadWindow</code>）、色の取得（<code>themeBrush</code>）、予期しないエラーの記録（<code>writeErrorLog</code>）</td>
+<td>画面の土台。XAML の読み込み（<code>loadXaml</code>。<code>ParserContext.BaseUri</code> にそのファイルの場所を渡し、<code>theme.xaml</code> への相対参照を解決する）、ウィンドウの読み込みとアイコン（<code>loadWindow</code>）、色の取得（<code>themeBrush</code>）、予期しないエラーの記録（<code>writeErrorLog</code>）。記録先と見出しは、ツール側が起動のときに <code>setGuiErrorLogSource</code> で登録する（<code>getGuiErrorLogFile</code>・<code>getGuiErrorLogHeader</code> が、登録された先を返す。登録が無いと記録先は <code>$null</code>）</td>
 </tr>
 <tr>
 <td><code>scripts/shared/ui/trimmed_tooltip.ps1</code></td>
