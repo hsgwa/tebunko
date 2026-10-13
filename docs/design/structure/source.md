@@ -65,9 +65,9 @@
 
 - 状態層の中で、下のフォルダが上のフォルダの関数・変数を使う依存。`tebunko/index/system_index.ps1` から `tebunko/search/search_gram.ps1`（gram の関数）、`tebunko/index/` から `tebunko/search/source_map.ps1`（取り込み一覧・情報源フォルダのファイルの読み書き）、`tebunko/index/` から `tebunko/indexer/indexer_state.ps1`（状態ファイル・ログの読み書き）への依存が多い。どれも、下のフォルダへ関数を移すと消える。
 - `shared/` が `tebunko/` の関数・変数を使う依存。決めた形ではない今ある依存。
+- 判断層（`search_bar_view.ps1`）が、共有の画面層の `formatTime` を呼ぶ依存。
 
 共通の値を作る場所は、読む側より下の層に置く。`$workspace` は状態層の `tebunko/core/paths.ps1`（`initWorkspace`・`setCallerWorkspace`）だけが作り、画面層（`switchWorkspace`）は `initWorkspace` を呼んで作り直す。`shared/` が使うツール側の値は、ツール側が登録する（エラーの記録先と見出しは `setGuiErrorLogSource`、仕事の列は `setBackgroundQueue`・`setNetworkQueueFactory`）。
-- 判断層（`search_bar_view.ps1`）が、共有の画面層の `formatTime` を呼ぶ依存。
 
 見つからないもの（限界）: `& $name` の呼び出し、コールバックで渡したスクリプトブロックの中から呼ぶ形、`$ui` を別の名前の引数で受け取る形、クラスのメソッドの呼び出し、`Set-Variable` での代入（`$workspace` は、代入を `setCallerWorkspace` に集めてある）。別のファイルのクラスを型として使う依存（`[型]::new()`・引数や戻り値の型）は、依存の向きの表では見つからない（決めた型 `System.Windows.*` だけは、画面の変数・型の検査が見る）。`New-Object` に文字列で渡す型と、`using namespace` で短く書いた型は、構文木では型として見えない（文字列の検査が見る）。同じ名前の関数・変数が、見る側のパスにもあるときは、そちらを使っているとみなす。
 

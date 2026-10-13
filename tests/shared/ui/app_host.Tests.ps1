@@ -144,12 +144,13 @@ Describe "writeErrorLog（記録先のフォルダ名に特別な文字が入っ
         $base = Join-Path ([System.IO.Path]::GetTempPath()) ("errlog_" + [guid]::NewGuid().ToString("N"))
         $logFile = Join-Path $base "work_a${ch}b\画面エラー.txt"
         try {
-            function getGuiErrorLogFile { return $logFile }
+            setGuiErrorLogSource { $logFile }.GetNewClosure() $null
             try { throw "テスト用の例外" } catch { $record = $_ }
             writeErrorLog "確かめ" $record
             [System.IO.File]::Exists($logFile) | Should -Be $true
             [System.IO.File]::ReadAllText($logFile) | Should -Match "テスト用の例外"
         } finally {
+            setGuiErrorLogSource $null $null
             # Pester の TestDrive でなく TEMP に作ったので、ワイルドカードを解釈しない .NET で消す
             if ([System.IO.Directory]::Exists($base)) { [System.IO.Directory]::Delete($base, $true) }
         }

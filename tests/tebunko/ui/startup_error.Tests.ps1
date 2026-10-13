@@ -197,7 +197,7 @@ Describe "reportStartupFailure（記録の経路の切り替え）" -Tag Gui {
         $logFile = Join-Path $TestDrive "guierr\gui_error_log.txt"
         $setup = @(
             ". '$scriptsDir\shared\ui\app_host.ps1'"
-            "function getGuiErrorLogFile { '$logFile' }"
+            "setGuiErrorLogSource { '$logFile' } `$null"
         )
         $script:scenarioProcess = startReportStartupFailureProcess $setup "読み込み後の失敗"
 
