@@ -4528,7 +4528,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>排他</strong>: インデックス作成のロックで防げるのはインデクサだけで、一覧の名前の変更・削除・［設定］のワークスペースの切り替えは、このロックを取らずに <code>content_index\</code>・取り込み一覧・設定を書き換える。そこでエクスポート・インポートを別スレッドで行っている間と、次のものが動いている間は、互いに操作できないようにする。可否と押せなかったときの文言は、判断層の <code>getIndexJobBlocker</code>（動いているもの）・<code>getIndexJobBlockedMessage</code>（文言）・<code>getIndexTabButtonsEnabled</code>（表のボタン）だけで決め、画面の側（<code>testIndexOperable</code>・<code>testWorkspaceChangeable</code>・<code>updateIndexingButton</code>）は結果を使うだけにする（<code>index_view.Tests.ps1</code> の表のテスト）。</p>
+<p><strong>排他</strong>: インデックス作成のロックで防げるのはインデクサだけで、一覧の名前の変更・削除・［設定］のワークスペースの切り替えは、このロックを取らずに <code>content_index\</code>・取り込み一覧・設定を書き換える。そこでエクスポート・インポートを別スレッドで行っている間と、次のものが動いている間は、互いに操作できないようにする。可否と押せなかったときの文言は、判断層の <code>getIndexJobBlocker</code>（動いているもの）・<code>getIndexJobBlockedMessage</code>（文言）・<code>getIndexTabButtonsEnabled</code>（表のボタン）だけで決め、画面の側（<code>testIndexOperable</code>・<code>testWorkspaceChangeable</code>・<code>updateIndexingButton</code>）は結果を使うだけにする（<code>index_edit_view.Tests.ps1</code>・<code>index_list_view.Tests.ps1</code> の表のテスト）。</p>
 <table>
 <thead>
 <tr>
