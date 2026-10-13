@@ -11,6 +11,8 @@
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\open_copy.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\parts.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\paths.ps1".Replace('`', '``')))
+. ([WildcardPattern]::Escape("$PSScriptRoot\core\status_file.ps1".Replace('`', '``')))
+. ([WildcardPattern]::Escape("$PSScriptRoot\core\source_name.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\index\index_name.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\index\index_store.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\index\content_index_format.ps1".Replace('`', '``')))
