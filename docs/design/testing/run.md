@@ -17,7 +17,7 @@ flowchart LR
 | `tests/shared/core/` | `fs`・`text`・`folder`・`worker_pool`・`data_dir` |
 | `tests/shared/office/` | `office_process`・`office_reader`・`office_embedded`・`office_app` |
 | `tests/shared/ui/` | 画面の型（`types`） |
-| `tests/tebunko/core/` | `settings`（`setting.config`）・`workspace` |
+| `tests/tebunko/core/` | `settings`（`setting.config`）・`workspace`・`status_file`・`source_name` |
 | `tests/tebunko/index/` | `index_name`・`index_store`・`content_index_format`・`system_index` |
 | `tests/tebunko/indexer/` | `indexer_state`・`indexer_decide`・`indexer_plan`・`extract_office`・`index_migrate`・`indexing_session`、起動口の通しのテスト（`indexer`） |
 | `tests/tebunko/search/` | `search_query`・`search_run`・`content_index_search`・`search_service`・`source_map`・高速検索（`search_gram`・`fast_search`・`windows_search`） |
@@ -60,7 +60,7 @@ Pester 5 はテストを「探す段階」と「流す段階」に分けて動�
 |---|---|
 | `structure` | `$rootDir` などのパス定義、全 `.ps1` の構文、`ui/` のスクリプトで `$PSScriptRoot` を使わない、`gui.ps1` が指すインデクサのファイルがある、XAML が XML として読める・`gui.ps1` が使う `x:Name` がある、型を読み込む順で継承が解決できる |
 | `encoding` | 全 `.ps1`・`.xaml` が BOM 付き UTF-8 で、改行が CRLF。`.github/codecov.yml` が ASCII の文字だけ |
-| `layers` | `shared/` にツールの名前が出てこない、ツール同士が互いを読み込まない、起動口からたどれない `.ps1` が無い、判断層（`text.ps1`・`index_name.ps1`・`search_query.ps1`・`indexer_decide.ps1`・`*_view.ps1`）に画面への依存が無い |
+| `layers` | `shared/` にツールの名前が出てこない、ツール同士が互いを読み込まない、起動口からたどれない `.ps1` が無い、判断層（`text.ps1`・`index_name.ps1`・`source_name.ps1`・`search_query.ps1`・`indexer_decide.ps1`・`*_view.ps1`）に画面への依存が無い |
 | `links` | git で管理している全 `.md` の相対リンク（画像・参照リンクの定義・HTML の `href`/`src` を含む）の先のファイルがあり（大文字・小文字も区別する）、`.md` のアンカーの見出しがある（`tools/check_markdown_links.ps1`。外部の URL は調べない） |
 | `runner` | `tests/run.ps1` が、実行したテストが 0 件なら失敗にすること、`powershell.exe -File` で渡したカンマ区切りのタグを分けて受け取ること、`Gui` を既定では流さず `-Tag Gui` と `-All` では流すこと |
 | `safety` | 危険な処理を使っていない、Office をマクロ無効・読み取り専用で開く、原本を書き換えない、書き込み先が `work` 配下だけ（`%TEMP%` は前の版が残した作業フォルダの片付けだけ。`%LOCALAPPDATA%\tebunko` には書かない）、PSScriptAnalyzer の指摘が 0 件、審査用の資料がそろっている（[単体テスト（検査と道具）](unit-checks.md)、[安全性の要約](../../safety/index.md)） |

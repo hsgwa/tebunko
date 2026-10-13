@@ -114,21 +114,6 @@ Describe "getSearchIndexes" -Tag Io {
     }
 }
 
-Describe "getIndexNameMap（見出し行まで読む）" -Tag Io {
-    It "クロール対象フォルダの行だけを読み、見出し行の後は読まない" {
-        $path = "$TestDrive\name_map.tsv"
-        writeListFile $path @(
-            "${statusFolderKey}`tC:\data\見積`t見積",
-            "${statusFolderKey}`tC:\old",
-            ($statusColumns -join "`t"),
-            "${statusFolderKey}`tC:\x`tx")
-        $map = getIndexNameMap $path
-        $map.Count | Should -Be 1
-        $map["見積"] | Should -Be "C:\data\見積"
-        (getIndexNameMap "$TestDrive\none_status.tsv").Count | Should -Be 0
-    }
-}
-
 Describe "getIndexTsvCounts / testIndexComplete" -Tag Io {
     BeforeAll {
         function newTestIndex {

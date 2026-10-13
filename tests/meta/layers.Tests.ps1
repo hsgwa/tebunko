@@ -64,6 +64,7 @@ Describe "判断層" -Tag Meta {
         $files = @(
             "${scriptsDir}\shared\core\text.ps1"
             "${scriptsDir}\tebunko\index\index_name.ps1"
+            "${scriptsDir}\tebunko\core\source_name.ps1"
             "${scriptsDir}\tebunko\index\content_index_format.ps1"
             "${scriptsDir}\tebunko\search\search_query.ps1"
             "${scriptsDir}\tebunko\search\search_gram.ps1"
@@ -81,6 +82,7 @@ Describe "判断層" -Tag Meta {
         $files = @(
             "shared/core/text.ps1"
             "tebunko/index/index_name.ps1"
+            "tebunko/core/source_name.ps1"
             "tebunko/index/content_index_format.ps1"
             "tebunko/search/search_query.ps1"
             "tebunko/search/search_gram.ps1"
@@ -191,13 +193,7 @@ Describe "依存の向き（ファイル単位）" -Tag Meta {
             # 判断層 → 画面層
             newAllowances "tebunko/ui/search/search_bar_view.ps1" "shared/ui/shell.ps1" @("formatTime") "判断層が、共有の画面層の関数を呼んでいる今ある依存"
             # core → index
-            newAllowances "tebunko/core/settings.ps1" "tebunko/index/index_name.ps1" @("testSourceNameRecordable") $upward
             newAllowances "tebunko/core/workspace.ps1" "tebunko/index/system_index.ps1" @("updateSystemIndexState") $upward
-            newAllowances "tebunko/core/workspace_mover.ps1" "tebunko/index/index_store.ps1" @("getIndexNameMap") $upward
-            # index → indexer（状態ファイル・ログの読み書きが indexer にある）
-            newAllowances "tebunko/index/content_index_store.ps1" "tebunko/indexer/indexer_state.ps1" @("writeIndexerLog") $upward
-            newAllowances "tebunko/index/system_index.ps1" "tebunko/indexer/indexer_state.ps1" @("writeIndexerLog") $upward
-            newAllowances "tebunko/index/index_archive.ps1" "tebunko/indexer/indexer_state.ps1" @("newStatusRow", "readStatusFile", "toStatusLine", "writeStatusFile") $upward
             # index → search（取り込み一覧・情報源フォルダのファイルの読み書きと、システムインデックスの gram の関数が search にある）
             newAllowances "tebunko/index/content_index_store.ps1" "tebunko/search/search_query.ps1" @("truncateHitLine") $upward
             newAllowances "tebunko/index/index_archive.ps1" "tebunko/search/source_map.ps1" @("getSourceFolderMap", "readSourceFolderFile") $upward
