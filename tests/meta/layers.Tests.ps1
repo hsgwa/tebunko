@@ -184,20 +184,20 @@ Describe "依存の向き（ファイル単位）" -Tag Meta {
             # shared → tebunko
             newAllowances "shared/core/folder.ps1" "tebunko/search/source_map.ps1" @("joinSourcePath") "joinSourcePath を共有の側（shared/core）へ移すか、呼ぶ側から受け取る形にすると消える"
             newAllowances "shared/core/fs.ps1" "tebunko/core/settings.ps1" @('$appId') "アプリの ID を、呼ぶ側から値として受け取る口を shared/core/fs.ps1 に作ると消える"
-            newAllowances "shared/office/office_reader.ps1" "tebunko/index/index_name.ps1" @("toIndexFileName") "toIndexFileName（インデックス名からファイル名への変換）を共有の側へ移すか、呼ぶ側から受け取る形にすると消える"
+            newAllowances "shared/office/office_reader.ps1" "tebunko/index/index_name.ps1" @("toIndexFileName") "toIndexFileName（インデックス名からファイル名への変換）は、インデックスの形式の関数を引き連れるため、呼ぶ側から受け取る形にすると消える"
             newAllowances "shared/ui/shell.ps1" "tebunko/ui/startup_error.ps1" @('$appTitle') "アプリの表示名を、呼ぶ側から値として受け取る口を shared/ui/shell.ps1 に作ると消える"
             # 判断層 → 画面層
             newAllowances "tebunko/ui/search/search_bar_view.ps1" "shared/ui/shell.ps1" @("formatTime") "formatTime を、画面に触らない共有の判断層のファイルへ移すと消える"
             # core → index
             newAllowances "tebunko/core/settings.ps1" "tebunko/index/index_name.ps1" @("testSourceNameRecordable") "名前だけを見る testSourceNameRecordable を core へ移すと消える（index も core を読むので向きは正しくなる）"
-            newAllowances "tebunko/core/workspace.ps1" "tebunko/index/system_index.ps1" @("updateSystemIndexState") "システムインデックスの状態を更新する updateSystemIndexState を core へ移す（状態の形は core に置く）と消える"
+            newAllowances "tebunko/core/workspace.ps1" "tebunko/index/system_index.ps1" @("updateSystemIndexState") "updateSystemIndexState は、index へ移す convertFromSystemIndexState・convertToSystemIndexState を呼ぶため core へは移せない。呼ぶ側の clearLegacySystemIndex（core/workspace.ps1）を index へ移すと消える"
             newAllowances "tebunko/core/workspace_mover.ps1" "tebunko/index/index_store.ps1" @("getIndexNameMap") "インデックス名の一覧を返す getIndexNameMap を core へ移すと消える"
             # index → indexer（状態ファイル・ログの読み書きが indexer にある）
-            newAllowances "tebunko/index/content_index_store.ps1" "tebunko/indexer/indexer_state.ps1" @("writeIndexerLog") "ログを書く writeIndexerLog を core へ移すと消える（indexer も core を読む）"
-            newAllowances "tebunko/index/system_index.ps1" "tebunko/indexer/indexer_state.ps1" @("writeIndexerLog") "ログを書く writeIndexerLog を core へ移すと消える（indexer も core を読む）"
+            newAllowances "tebunko/index/content_index_store.ps1" "tebunko/indexer/indexer_state.ps1" @("writeIndexerLog") "ログを書く writeIndexerLog を、ログの書き先の変数（script スコープの indexerLog・indexerEcho）ごと core へ移すと消える（indexer も core を読む）"
+            newAllowances "tebunko/index/system_index.ps1" "tebunko/indexer/indexer_state.ps1" @("writeIndexerLog") "ログを書く writeIndexerLog を、ログの書き先の変数（script スコープの indexerLog・indexerEcho）ごと core へ移すと消える（indexer も core を読む）"
             newAllowances "tebunko/index/index_archive.ps1" "tebunko/indexer/indexer_state.ps1" @("newStatusRow", "readStatusFile", "toStatusLine", "writeStatusFile") "状態ファイルを読み書きする関数（行を作る・読む・文字列にする・書く）を index へ移すと消える（indexer が index を読む向きになる）"
             # index → search（取り込み一覧・情報源フォルダのファイルの読み書きと、システムインデックスの gram の関数が search にある）
-            newAllowances "tebunko/index/content_index_store.ps1" "tebunko/search/search_query.ps1" @("truncateHitLine") "ヒットの行を切り詰める truncateHitLine を core へ移すと消える（文字列だけを扱う）"
+            newAllowances "tebunko/index/content_index_store.ps1" "tebunko/search/search_query.ps1" @("truncateHitLine") "ヒットの行を切り詰める truncateHitLine を、定数（hitLineMaxChars・hitLineBeforeMatchChars）と一緒に core へ移すと消える（文字列だけを扱う）"
             newAllowances "tebunko/index/index_archive.ps1" "tebunko/search/source_map.ps1" @("getSourceFolderMap", "readSourceFolderFile") "取り込み一覧・情報源フォルダのファイルを読む関数を index へ移すと消える（ファイルの持ち主は index）"
             newAllowances "tebunko/index/index_store.ps1" "tebunko/search/source_map.ps1" @("getSourceFolderMap", "readSourceFolderFile") "取り込み一覧・情報源フォルダのファイルを読む関数を index へ移すと消える（ファイルの持ち主は index）"
             newAllowances "tebunko/index/index_catalog.ps1" "tebunko/search/source_map.ps1" @("writeSourceFolderFile") "情報源フォルダのファイルを書く writeSourceFolderFile を index へ移すと消える（ファイルの持ち主は index）"

@@ -1,4 +1,4 @@
-﻿# startGui の一部: 窓の領域の表（$regions）と、x:Name の対応表（$ui）。startGui の中で読み込む（$window・${xamlDir} を使う）。
+﻿# startGui の一部: 窓の領域の表（$regions）と、x:Name の対応表（$ui）。startGui の中で読み込む（$window・${xamlDir} と、呼ぶ側が作る $ui を使う）。
 # 画面（領域）を足すときは、ここに行を足す。
 
     # 窓の中身は領域ごとのファイルに分けてある（xaml\<画面>\<領域>.xaml）。読み込んで差す口に入れ、x:Name の対応表（$ui）を作る。
