@@ -4097,8 +4097,8 @@
 <td>中身ごと削除（読み取り専用・260 文字超も）、フォルダが無ければ何もしない、中のジャンクション・シンボリックリンクの先は消さずリンクだけを外す、消すフォルダそのものがリンクならリンクだけを外す、親を指す輪のジャンクションがあっても時間内に終わる（別スレッドで上限を決めて待つ）</td>
 </tr>
 <tr>
-<td><code>testLinkItem</code></td>
-<td>普通のファイル・フォルダ、<code>ReparsePoint</code> だけで <code>LinkType</code> が空のもの（OneDrive）はリンクでない、ジャンクション・シンボリックリンクはリンク、属性が読めなければリンクとして扱う</td>
+<td><code>testLinkItem</code> / <code>getLinkKind</code></td>
+<td>普通のファイル・フォルダ、<code>ReparsePoint</code> のファイルで <code>LinkType</code> が空のもの（OneDrive）はリンクでない、ジャンクション・シンボリックリンクはリンク、フォルダで <code>ReparsePoint</code> があり <code>LinkType</code> が空・<code>$null</code>・知らない値のものと、属性が読めないものはリンクとして扱う（<code>getLinkKind</code> は <code>Unknown</code>。辿らず・消さずに失敗する）</td>
 </tr>
 <tr>
 <td><code>testPathIsLink</code> / <code>testPathHasLink</code></td>

@@ -4589,8 +4589,8 @@
 <td>Excel・Word・PowerPoint を終了できなかった。残ったものは、次に画面を起動したときの確認で終了する。<strong>注</strong>: 今の実装（<code>shared/office/office_app.ps1</code> の <code>Write-Host</code>）ではログに残らず、取り込みのスレッドからは表示もされない</td>
 </tr>
 <tr>
-<td><code>作業フォルダを削除できませんでした: &lt;パス&gt;</code></td>
-<td>終了時に作業領域（<code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code>）または <code>work/publish/&lt;PID&gt;</code> を削除できなかった。次回のインデックス作成時に削除する</td>
+<td><code>作業フォルダを削除できませんでした: &lt;パス&gt;（&lt;原因&gt;）</code></td>
+<td>終了時に作業領域（<code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code>）または <code>work/publish/&lt;PID&gt;</code> を削除できなかった（使用中・リンクかどうか確かめられないフォルダが中にある、など。原因はメッセージに出る）。次回のインデックス作成時に削除する</td>
 </tr>
 <tr>
 <td><code>ワークスペースのパスに [ ]（角かっこ）が含まれるため、取り込みの作業フォルダを置けません。取り込みをすべてスキップします。</code> / <code>ワークスペースのパスが長すぎるため、取り込みの作業フォルダを置けません。取り込みをすべてスキップします。</code> / <code>ワークスペースの作業領域の途中にリンク（ジャンクション・シンボリックリンク）があるため、更新の作業フォルダを置けません。取り込みをすべてスキップします。</code></td>

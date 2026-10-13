@@ -4133,7 +4133,7 @@
 </tr>
 <tr>
 <td><code>clearTmpDir</code> / <code>initTmpDir</code> / <code>newWorkerTmpDir</code> の作業領域のリンク</td>
-<td>作業フォルダ・<code>tmp\&lt;PC の鍵&gt;</code> がジャンクションなら先に書かず消さない（<code>initTmpDir</code> は理由 <code>Link</code> でスキップ、<code>clearTmpDir</code> と <code>newWorkerTmpDir</code> はログに出す）、先に置かれた <code>&lt;PID&gt;</code>・<code>w&lt;番号&gt;</code> のジャンクションは先を消さずに外して作り直す、<code>tmp</code> 自身がジャンクションでも使える、終了したプロセスのフォルダの中・名前そのもののジャンクションは先を消さない、削除できない（開いたまま）フォルダは次回に回す</td>
+<td>作業フォルダ・<code>tmp\&lt;PC の鍵&gt;</code> がジャンクションなら先に書かず消さない（<code>initTmpDir</code> は理由 <code>Link</code> でスキップ、<code>clearTmpDir</code> と <code>newWorkerTmpDir</code> はログに出す）、先に置かれた <code>&lt;PID&gt;</code>・<code>w&lt;番号&gt;</code> のジャンクションは先を消さずに外して作り直す、<code>tmp</code> 自身・出力用のフォルダの親がジャンクションでも使え、片付けと終了のあともジャンクションは外れず先は消えない（<code>removeEmptyDir</code> はリンクを消さない）、終了したプロセスのフォルダの中・名前そのもののジャンクションは先を消さない、削除できない（開いたまま）フォルダは次回に回す</td>
 </tr>
 <tr>
 <td><code>publishTsv</code> / <code>removeStaleTmpDirs</code> / <code>findDroppedIndexes</code> / <code>getDroppedStatusRows</code> / <code>writeStatusKeepingDropped</code> / <code>removeDroppedFolders</code></td>

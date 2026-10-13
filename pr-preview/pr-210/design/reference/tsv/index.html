@@ -4382,7 +4382,7 @@
 <td><code>removeTreeNoFollow</code></td>
 <td>path</td>
 <td>–</td>
-<td>フォルダを中身ごと削除する。ジャンクション・シンボリックリンクは辿らず、リンクだけを外す（先は消さない）。path 自身がリンクならリンクだけを外す。読み取り専用の属性は外してから消し、260 文字を超えるパスも扱う。フォルダが無ければ何もしない</td>
+<td>フォルダを中身ごと削除する。ジャンクション・シンボリックリンクは辿らず、リンクだけを外す（先は消さない）。path 自身がリンクならリンクだけを外す。リンクかどうか確かめられないフォルダ（<code>Unknown</code>）は、辿らず・消さずに例外を投げる。読み取り専用の属性は外してから消し、260 文字を超えるパスも扱う。フォルダが無ければ何もしない</td>
 <td>同上</td>
 <td><code>removeDirectoryRetry</code></td>
 </tr>
@@ -4395,10 +4395,18 @@
 <td><code>removeTreeNoFollow</code></td>
 </tr>
 <tr>
+<td><code>getLinkKind</code></td>
+<td>item（Get-Item・Get-ChildItem などが返すもの）</td>
+<td>string</td>
+<td><code>Link</code>（ジャンクション・シンボリックリンク）・<code>Unknown</code>（フォルダで <code>ReparsePoint</code> が付き種類が確かめられない、属性が読めない）・<code>Plain</code>（それ以外）のどれか</td>
+<td>同上</td>
+<td><code>testLinkItem</code>・<code>removeTreeNoFollow</code></td>
+</tr>
+<tr>
 <td><code>testLinkItem</code></td>
 <td>item（Get-Item・Get-ChildItem などが返すもの）</td>
 <td>bool</td>
-<td>ジャンクション・シンボリックリンクなら <code>$true</code>。属性の <code>ReparsePoint</code> が付き、<code>LinkType</code> が <code>Junction</code>・<code>SymbolicLink</code> のものだけ（OneDrive のオンデマンドのファイル・フォルダはリンクと見なさない）。属性が読めないときは <code>$true</code>（辿らない側に倒す）</td>
+<td>ジャンクション・シンボリックリンクなら <code>$true</code>。属性の <code>ReparsePoint</code> が付き、<code>LinkType</code> が <code>Junction</code>・<code>SymbolicLink</code> のもの（<code>getLinkKind</code> が <code>Link</code>）。フォルダで <code>ReparsePoint</code> が付いて種類が確かめられないもの（<code>Unknown</code>）、属性が読めないときも <code>$true</code>（辿らない側に倒す）。<code>ReparsePoint</code> のファイル（OneDrive のオンデマンドなど）は <code>$false</code></td>
 <td>同上</td>
 <td><code>testPathIsLink</code>・<code>removeTreeNoFollow</code></td>
 </tr>
@@ -4412,9 +4420,9 @@
 </tr>
 <tr>
 <td><code>testPathHasLink</code></td>
-<td>basePath, path</td>
+<td>base, path</td>
 <td>bool</td>
-<td>basePath の下から path までの各階層（basePath 自身は見ない）に、リンクがあれば <code>$true</code>。まだ無い階層から先は見ない。path が basePath の下になければ、確かめられないので <code>$true</code></td>
+<td>base の下から path までの各階層（base 自身は見ない）に、リンクがあれば <code>$true</code>。まだ無い階層から先は見ない。path が base の下になければ、確かめられないので <code>$true</code></td>
 <td>同上</td>
 <td><code>initTmpDir</code>・<code>removeStaleTmpDirs</code></td>
 </tr>
