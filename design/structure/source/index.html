@@ -4213,7 +4213,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/core/</code></td>
-<td>tebunko のパス定義（<code>paths.ps1</code>）・設定ファイル（<code>settings.ps1</code>）・検索対象でチェックを外したフォルダの読み書きとフォルダの比べ方（<code>search_excludes.ps1</code>）・ワークスペース（<code>workspace.ps1</code>）・ワークスペースの切り替え（<code>workspace_mover.ps1</code>。<code>WorkspaceMover</code>）・［新規で開く］のコピーの作成と片付け（<code>open_copy.ps1</code>）</td>
+<td>tebunko のパス定義（<code>paths.ps1</code>）・取り込み一覧の読み書き（<code>status_file.ps1</code>）・元のフォルダを記録できる名前の判断（判断層 <code>source_name.ps1</code>）・診断の見出しとインデックス作成のログ（<code>diagnostics.ps1</code>）・設定ファイル（<code>settings.ps1</code>）・検索対象でチェックを外したフォルダの読み書きとフォルダの比べ方（<code>search_excludes.ps1</code>）・ワークスペース（<code>workspace.ps1</code>）・ワークスペースの切り替え（<code>workspace_mover.ps1</code>。<code>WorkspaceMover</code>）・［新規で開く］のコピーの作成と片付け（<code>open_copy.ps1</code>）</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/index/</code></td>
@@ -4221,7 +4221,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/indexer/</code></td>
-<td>インデックス作成の状態ファイル（<code>indexer_state.ps1</code>）・取り込み直すかの判断（<code>indexer_decide.ps1</code>）・取り込み対象の決定（<code>indexer_plan.ps1</code>）・1 ファイルの取り込みと抽出（<code>extract_office.ps1</code>）・作業フォルダ・外したフォルダのインデックスの後始末（<code>index_migrate.ps1</code>）・インデックス作成の本体と取り込みのスレッド（<code>indexer_run.ps1</code>）・画面のインデックス作成 1 回分のスレッド（<code>indexing_session.ps1</code>。<code>IndexingSession</code>）・インデックス作成の部品の読み込み口（<code>indexer_lib.ps1</code>）</td>
+<td>取り込み中のファイル・画面との受け渡しの口（<code>indexer_state.ps1</code>）・取り込み直すかの判断（<code>indexer_decide.ps1</code>）・取り込み対象の決定（<code>indexer_plan.ps1</code>）・1 ファイルの取り込みと抽出（<code>extract_office.ps1</code>）・作業フォルダ・外したフォルダのインデックスの後始末（<code>index_migrate.ps1</code>）・インデックス作成の本体と取り込みのスレッド（<code>indexer_run.ps1</code>）・画面のインデックス作成 1 回分のスレッド（<code>indexing_session.ps1</code>。<code>IndexingSession</code>）・インデックス作成の部品の読み込み口（<code>indexer_lib.ps1</code>）</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/search/</code></td>
@@ -4245,12 +4245,12 @@
 <tbody>
 <tr>
 <td>判断層（入力は素の値、出力は素の値）</td>
-<td><code>text.ps1</code>・<code>index_name.ps1</code>・<code>content_index_format.ps1</code>・<code>search_query.ps1</code>・<code>search_gram.ps1</code>・<code>indexer_decide.ps1</code>・<code>*_view.ps1</code>（<code>tebunko/ui/</code> の画面の判断層のほか、<code>shared/office/office_protection_view.ps1</code> のように <code>ui/</code> の外にも置く。テスト（<code>layers.Tests.ps1</code>）とカバレッジは名前で拾うため、置き場所によらず判断層として扱われる）</td>
+<td><code>text.ps1</code>・<code>index_name.ps1</code>・<code>source_name.ps1</code>・<code>content_index_format.ps1</code>・<code>search_query.ps1</code>・<code>search_gram.ps1</code>・<code>indexer_decide.ps1</code>・<code>*_view.ps1</code>（<code>tebunko/ui/</code> の画面の判断層のほか、<code>shared/office/office_protection_view.ps1</code> のように <code>ui/</code> の外にも置く。テスト（<code>layers.Tests.ps1</code>）とカバレッジは名前で拾うため、置き場所によらず判断層として扱われる）</td>
 <td>する（主にタグ <code>Unit</code>）</td>
 </tr>
 <tr>
 <td>状態層（ファイル・COM を読み書きする）</td>
-<td><code>indexer_state.ps1</code>・<code>index_store.ps1</code>・<code>index_catalog.ps1</code>・<code>workspace_mover.ps1</code>・<code>search_excludes.ps1</code>・<code>content_index_store.ps1</code>・<code>content_index_search.ps1</code>・<code>search_run.ps1</code>・<code>system_index.ps1</code>・<code>fast_search.ps1</code>・<code>windows_search.ps1</code>・<code>version.ps1</code></td>
+<td><code>status_file.ps1</code>・<code>indexer_state.ps1</code>・<code>index_store.ps1</code>・<code>index_catalog.ps1</code>・<code>workspace_mover.ps1</code>・<code>search_excludes.ps1</code>・<code>content_index_store.ps1</code>・<code>content_index_search.ps1</code>・<code>search_run.ps1</code>・<code>system_index.ps1</code>・<code>fast_search.ps1</code>・<code>windows_search.ps1</code>・<code>version.ps1</code></td>
 <td>する（主にタグ <code>Io</code>。<code>$TestDrive</code> を使う）</td>
 </tr>
 <tr>
@@ -4290,6 +4290,37 @@
 </table>
 <p>共有の状態層（<code>shared/core/</code>・<code>shared/office/</code>）は、共有の画面層（<code>shared/ui/</code>）にも依存しない。</p>
 <p>今の呼び出しの多い向きに合わせた（<code>indexer</code> → <code>index</code> と <code>search</code> → <code>index</code> と <code>index</code> → <code>core</code> が順向きで多く、読み込み口の順 <code>core</code> → <code>index</code> → <code>search</code>・<code>indexer</code> とも合う）。</p>
+<p>状態層のフォルダの向きは、次の図のとおり（矢印は「依存してよい向き」）。</p>
+<pre class="mermaid"><code>flowchart TD
+    indexer["tebunko/indexer/"]
+    search["tebunko/search/"]
+    index["tebunko/index/"]
+    core["tebunko/core/"]
+    office["shared/office/"]
+    sharedcore["shared/core/"]
+    indexer --&gt; index
+    search --&gt; index
+    index --&gt; core
+    core --&gt; office
+    core --&gt; sharedcore
+    office --&gt; sharedcore</code></pre>
+<p><code>tebunko/core/</code> には、上のフォルダ（<code>index/</code>・<code>indexer/</code>）か <code>core/</code> 自身が呼ぶ関数を置く。取り込み一覧（<code>ingest_status.tsv</code>）の読み書き、インデックス作成のログ、情報源の名前の判定、インデックス名の一覧がそれに当たる。ここに置いた関数は <code>index/</code>・<code>indexer/</code> の関数を呼ばず、上のフォルダは <code>core/</code> を下向きに呼ぶ。</p>
+<pre class="mermaid"><code>flowchart LR
+    indexer["tebunko/indexer/"]
+    index["tebunko/index/"]
+    subgraph core["tebunko/core/"]
+        status_file["status_file.ps1&lt;br&gt;newStatusRow・toStatusLine&lt;br&gt;readStatusFile・writeStatusFile&lt;br&gt;getIndexNameMap"]
+        diagnostics["diagnostics.ps1&lt;br&gt;writeIndexerLog"]
+        source_name["source_name.ps1&lt;br&gt;testSourceNameRecordable"]
+        settings["settings.ps1"]
+        workspace_mover["workspace_mover.ps1"]
+    end
+    indexer --&gt; status_file
+    indexer --&gt; diagnostics
+    index --&gt; status_file
+    index --&gt; diagnostics
+    settings --&gt; source_name
+    workspace_mover --&gt; status_file</code></pre>
 <p>向きの検査は、文字列ではなく構文木（AST）で行う（<code>tools/script_arch.ps1</code>。部品自身のテストは <code>tests/tools/script_arch.Tests.ps1</code>）。全部のファイルが同じスコープに読み込まれ、下の層が上の層の関数・変数を名前で使っても動いてしまうため、ファイルごとに構文木を作り、次を見る。</p>
 <ul>
 <li>関数の呼び出しが、別のパスのファイルで定義した関数を指していること</li>
@@ -4300,10 +4331,32 @@
 <p>向きの検査は、依存があるかどうかだけを見る。境界での受け渡し（向こう側へ何を渡し、向こう側の答えをどう使うか）は、<code>tests/tebunko/ui/layer_boundary.Tests.ps1</code> が、向こう側をスタブに替えて確かめる。判断層の関数が呼ぶ状態層の関数をスタブにする組と、画面層の関数が呼ぶ判断層の関数をスタブにする組がある。境界を足したら、同じファイルに足す。</p>
 <p>今ある逆向きの依存は、同じファイルの例外の一覧（「from のファイル・to のファイル・名前」の組と、許している理由）に載せ、増やさない。直したら一覧から消す（どの行でも見つからなくなった例外は、テストが失敗にする）。例外は、次の種類に分かれる。</p>
 <ul>
-<li>状態層の中で、下のフォルダが上のフォルダの関数・変数を使う依存。<code>tebunko/index/system_index.ps1</code> から <code>tebunko/search/search_gram.ps1</code>（gram の関数）、<code>tebunko/index/</code> から <code>tebunko/search/source_map.ps1</code>（取り込み一覧・情報源フォルダのファイルの読み書き）、<code>tebunko/index/</code> から <code>tebunko/indexer/indexer_state.ps1</code>（状態ファイル・ログの読み書き）への依存が多い。どれも、下のフォルダへ関数を移すと消える。</li>
+<li>状態層の中で、下のフォルダが上のフォルダの関数・変数を使う依存。<code>tebunko/core/workspace.ps1</code> から <code>tebunko/index/system_index.ps1</code>、<code>tebunko/index/</code> から <code>tebunko/search/</code>（gram の関数・情報源フォルダのファイルの読み書き・ヒット行の切り詰め）、<code>tebunko/indexer/</code> から <code>tebunko/search/</code> への依存が残る。どれも、下のフォルダへ関数を移すと消える。</li>
 <li><code>shared/</code> が <code>tebunko/</code> の関数・変数を使う依存。決めた形ではない今ある依存。</li>
 <li>判断層（<code>search_bar_view.ps1</code>）が、共有の画面層の <code>formatTime</code> を呼ぶ依存。</li>
 </ul>
+<p>例外の一覧に残っている依存を、フォルダ単位で並べると次のとおり（点線の矢印が、決めた向きに反する今の依存。括弧は一覧の行の数）。</p>
+<pre class="mermaid"><code>flowchart TD
+    subgraph tool["tebunko/"]
+        indexer["indexer/"]
+        search["search/"]
+        index["index/"]
+        core["core/"]
+        toolui["ui/"]
+    end
+    subgraph shared["shared/"]
+        sharedui["ui/"]
+        office["office/"]
+        sharedcore["core/"]
+    end
+    core -.-&gt;|"updateSystemIndexState（1）"| index
+    index -.-&gt;|"gram・情報源フォルダ・truncateHitLine（5）"| search
+    indexer -.-&gt;|"systemIndexFileName・writeSourceFolderFile（2）"| search
+    sharedcore -.-&gt;|"joinSourcePath（1）"| search
+    sharedcore -.-&gt;|"appId（1）"| core
+    office -.-&gt;|"toIndexFileName（1）"| index
+    sharedui -.-&gt;|"appTitle（1）"| toolui
+    toolui -.-&gt;|"formatTime（1）。判断層 search_bar_view.ps1 から"| sharedui</code></pre>
 <p>共通の値を作る場所は、読む側より下の層に置く。<code>$workspace</code> は状態層の <code>tebunko/core/paths.ps1</code>（<code>initWorkspace</code>・<code>setCallerWorkspace</code>）だけが作り、画面層（<code>switchWorkspace</code>）は <code>initWorkspace</code> を呼んで作り直す。<code>shared/</code> が使うツール側の値は、ツール側が登録する（エラーの記録先と見出しは <code>setGuiErrorLogSource</code>、仕事の列は <code>setBackgroundQueue</code>・<code>setNetworkQueueFactory</code>）。</p>
 <p>見つからないもの（限界）: <code>&amp; $name</code> の呼び出し、コールバックで渡したスクリプトブロックの中から呼ぶ形、<code>$ui</code> を別の名前の引数で受け取る形、クラスのメソッドの呼び出し、<code>Set-Variable</code> での代入（<code>$workspace</code> は、代入を <code>setCallerWorkspace</code> に集めてある）。別のファイルのクラスを型として使う依存（<code>[型]::new()</code>・引数や戻り値の型）は、依存の向きの表では見つからない（決めた型 <code>System.Windows.*</code> だけは、画面の変数・型の検査が見る）。<code>New-Object</code> に文字列で渡す型と、<code>using namespace</code> で短く書いた型は、構文木では型として見えない（文字列の検査が見る）。同じ名前の関数・変数が、見る側のパスにもあるときは、そちらを使っているとみなす。</p>
 <h2 id="読み込み口">読み込み口<a class="headerlink" href="#読み込み口" title="Permanent link">&para;</a></h2>
