@@ -9,7 +9,7 @@
 | `newStatusRow` | 相対パス, 更新日時, サイズ, 状態, TSV数, 取り込み日時, エラー, 抽出版（2 番目以降は省略可） | 行オブジェクト | 取り込み一覧の 1 行を作る | [取り込み一覧](../indexing/ingest-list.md) | インデックス作成 |
 | `toStatusLine` | row | string | 取り込み一覧の 1 行を文字列にする（エラーのタブ・改行はスペース）。`writeStatusFile` は速さのため同じ整形をその場に展開しているため、変えるときは両方を直す（テストで同じ結果になることを確かめている） | 同上 | addStatusRow |
 | `describeIngestError` | exception | string | 取り込みの例外から、取り込み一覧のエラー列・画面に表示する失敗の原因を作る | [失敗の原因](../indexing/office-apps.md#失敗の原因describeingesterror) | インデックス作成 |
-| `readStatusFile` | path（既定 `$workspace.StatusFile`） | `@{Folders; Rows}` | 取り込み一覧を読む。Folders はクロール対象フォルダ `@{Path; Name}`（Name = インデックス名）、Rows は相対パス（`インデックス名\フォルダからの相対パス`。大文字・小文字を区別しない）→ 行。同じ相対パスは後の行を優先し、列数の合わない行は無視。インデックス作成中に読んでも書き込みを妨げない共有モードで開く。無ければ空 | [取り込み一覧](../indexing/ingest-list.md) | インデックス作成・画面 |
+| `readStatusFile` | path（既定 `$workspace.StatusFile`） | `@{Folders; Rows; Rejected}` | 取り込み一覧を読む。名前・相対パスが使えない行（`testIndexName`・`testIndexRelPath`）は読み飛ばし、数を Rejected で返す。Folders はクロール対象フォルダ `@{Path; Name}`（Name = インデックス名）、Rows は相対パス（`インデックス名\フォルダからの相対パス`。大文字・小文字を区別しない）→ 行。同じ相対パスは後の行を優先し、列数の合わない行は無視。インデックス作成中に読んでも書き込みを妨げない共有モードで開く。無ければ空 | [取り込み一覧](../indexing/ingest-list.md) | インデックス作成・画面 |
 | `writeStatusFile` | folders（`@{Path; Name}` の配列）, rows, path（既定 `$workspace.StatusFile`） | – | 取り込み一覧を書き出す（先頭にクロール対象フォルダの行、1 ファイル 1 行。一時ファイルに書いてから置き換える） | 同上 | インデックス作成 |
 | `addStatusRow` | row, path（既定 `$workspace.StatusFile`） | – | 取り込み一覧の末尾に 1 行追記する | 同上 | インデックス作成 |
 | `readStatusLines` | path（既定 `$workspace.StatusFile`） | 行の配列 | 取り込み一覧を共有を許して 1 行ずつ読む | – | renameStatusIndexName, removeStatusIndexName |
@@ -94,7 +94,7 @@
 | 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |
 |---|---|---|---|---|---|
 | `newIndexName` | folderPath, usedNames（HashSet・配列・文字列・`$null`） | string | インデックス名（フォルダ名・ドライブ名・共有名。重複すれば `名前(2)`…） | [取り込み一覧](../indexing/ingest-list.md) | assignIndexNames |
-| `assignIndexNames` | targetFolders, previousFolders（readStatusFile の Folders） | `@{Path; Enabled; Name}` の配列 | 設定の名前（getTargetFolders の Name）をそのまま使う。名前が無ければ、前回の取り込み一覧の同じフォルダの名前、それも無ければフォルダ名から重複しない名前を作る | 同上 | インデックス作成 |
+| `assignIndexNames` | targetFolders, previousFolders（readStatusFile の Folders） | `@{Path; Enabled; Name}` の配列 | 設定の名前（getTargetFolders の Name）をそのまま使う（`testIndexName` を通らない名前は無いものとする）。名前が無ければ、前回の取り込み一覧の同じフォルダの名前、それも無ければフォルダ名から重複しない名前を作る | 同上 | インデックス作成 |
 | `splitIndexRelPath` | relPath | `@{Name; Rest}` | `work\content_index` からの相対パスを、先頭のインデックス名と残りに分ける | 同上 | インデックス作成, resolveSourcePath |
 | `testSourceNameRecordable` | name | bool | 元のフォルダを設定に記録できる名前か（空・前後に空白があれば偽。`setIndexSourceFolder` の入口と、確認ダイアログの文言で使う） | [元のファイルを開く](../gui/open-file.md) | 判断 |
 | `testIndexName` | name, usedNames | string（使えれば空） | インデックス名として使えるか調べ、使えない理由を返す（空・前後の空白・255 文字超・使えない文字・末尾の `.`・Windows の予約語・ほかと重複） | [名前とフォルダパスの編集](../gui/index-tab.md#名前とフォルダパスの編集) | 画面 |

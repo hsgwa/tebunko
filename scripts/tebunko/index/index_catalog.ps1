@@ -84,7 +84,11 @@ class IndexCatalog {
             return
         }
         $target = Join-Path $dir $name
-        if (Test-Path -LiteralPath $target -PathType Container) {
+        if (!(testPathUnder $target $dir)) {
+            # 名前は取り込み一覧（共有のワークスペースで書き換えられうる）から来ることもある。置き場の外は消さず、
+            # 例外にして取り込み一覧の記録を残す（フォルダを消せなかったときと同じ）
+            throw "インデックス名が使えないため、削除できません: ${name}"
+        } elseif (Test-Path -LiteralPath $target -PathType Container) {
             # 中に長いパス（260文字超）のTSVがあっても削除できるよう \\?\ 付きで削除する。
             # 画面は別スレッド（$ErrorActionPreference が既定の Continue）で呼ぶため、消せなければ例外にして
             # 取り込み一覧の記録を残す（-ErrorAction Stop が無いと、フォルダが残ったまま記録だけ消える）

@@ -111,9 +111,11 @@ function describeIngestError {
 }
 
 function readStatusFile {
-    # 取り込み一覧を読み込み、@{ Folders; Rows } を返す。ファイルが無ければ空。
-    #   Folders: クロール対象フォルダ @{ Path; Name（インデックス名） } の配列
-    #   Rows   : 相対パス（"インデックス名\フォルダからの相対パス"。大文字・小文字を区別しない）→ 行
+    # 取り込み一覧を読み込み、@{ Folders; Rows; Rejected } を返す。ファイルが無ければ空。
+    #   Folders : クロール対象フォルダ @{ Path; Name（インデックス名） } の配列
+    #   Rows    : 相対パス（"インデックス名\フォルダからの相対パス"。大文字・小文字を区別しない）→ 行
+    #   Rejected: 名前（testIndexName）・相対パス（testIndexRelPath）が使えないため読み飛ばした行の数
+    #             （読み飛ばした行は、次に取り込み一覧を書き直すときに消える）
     # インデックス作成中は1件ごとに行を追記するため、同じ相対パスの行は後の行を優先する。列数の合わない行（書き込み途中で中断した行など）は無視する
     param (
         [string]$path = $workspace.StatusFile
@@ -121,7 +123,8 @@ function readStatusFile {
 
     $rows = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
     $folders = New-Object System.Collections.Generic.List[object]
-    $result = @{ Folders = $folders; Rows = $rows }
+    $rejected = 0
+    $result = @{ Folders = $folders; Rows = $rows; Rejected = 0 }
     if (!(Test-Path -LiteralPath $path)) {
         return $result
     }
@@ -137,13 +140,24 @@ function readStatusFile {
     }
 
     $columnCount = ${statusColumns}.Count
+    # 共有のワークスペースでは他の人が書き換えられるため、名前・相対パスが使えない行（.. で外へ出るものなど）は読み飛ばす
+    $checkedNames = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
     foreach ($line in $lines) {
         $fields = $line.Split("`t")
         if ($fields[0] -eq ${statusFolderKey} -and $fields.Count -eq 3) {
+            if (!$checkedNames.Contains($fields[2]) -and (testIndexName $fields[2] @())) {
+                $rejected++
+                continue
+            }
+            [void]$checkedNames.Add($fields[2])
             $folders.Add([pscustomobject]@{ Path = $fields[1]; Name = $fields[2] })
             continue
         }
         if ($fields.Count -ne $columnCount -or $fields[0] -eq "" -or $fields[0] -eq ${statusColumns}[0]) {
+            continue
+        }
+        if (testIndexRelPath $fields[0] $true $checkedNames) {
+            $rejected++
             continue
         }
         # 数万行を読むため、1行ごとの関数呼び出し（newStatusRow）は使わずにその場で作る（列は $statusColumns と同じ）
@@ -158,6 +172,7 @@ function readStatusFile {
             抽出版   = $fields[7]
         }
     }
+    $result.Rejected = $rejected
     return $result
 }
 
@@ -205,16 +220,20 @@ function addStatusRow {
 
 function readIngestingFiles {
     # 取り込み中のファイルの記録を読み、@{ RelPath = 相対パス; Count = 続けて取り込みを始めて終わらなかった回数 } の配列を返す。
-    # 取り込みを複数のスレッドで行うため、1 行に 1 ファイル。記録が無ければ空。壊れた行は読み飛ばす
+    # 取り込みを複数のスレッドで行うため、1 行に 1 ファイル。記録が無ければ空。壊れた行と、相対パスが使えない行（testIndexRelPath）は読み飛ばす
     param (
         [string]$path = $workspace.IngestingFile
     )
 
     $result = New-Object System.Collections.Generic.List[hashtable]
+    $checkedNames = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
     foreach ($line in @(readListFile $path)) {
         $fields = $line.Split("`t")
         $count = 0
         if ($fields.Count -ne 2 -or -not [int]::TryParse($fields[0], [ref]$count) -or $count -lt 1 -or $fields[1] -eq "") {
+            continue
+        }
+        if (testIndexRelPath $fields[1] $true $checkedNames) {
             continue
         }
         $result.Add(@{ RelPath = $fields[1]; Count = $count })

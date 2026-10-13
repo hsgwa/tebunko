@@ -71,10 +71,16 @@ function getBookDir {
 function removeBookDir {
     # そのファイルのインデックスのフォルダを削除する（元のファイルが無くなったとき・取り込み直すとき）。
     # ウイルス対策ソフト・エクスプローラーが一時的に掴んでいることがあるため、少し待って数回試す
+    # 相対パスは取り込み一覧（共有のワークスペースで書き換えられうる）から来るため、置き場（IndexDir）の下でなければ消さない
+    # （例外にすると、書き換えられた 1 行で毎回インデックス作成が止まるため、ログに出して続ける）
     param (
         [string]$bookDir
     )
 
+    if (!(testPathUnder $bookDir $workspace.IndexDir)) {
+        writeIndexerLog "インデックスの置き場の外を指すパスのため、削除しませんでした: ${bookDir}" "Yellow"
+        return
+    }
     removeDirectoryRetry $bookDir
 }
 

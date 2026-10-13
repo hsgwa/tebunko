@@ -143,6 +143,27 @@ Describe "IndexCatalog.RemoveIndex" -Tag Io {
         (readStatusFile $ws.Status).Rows.Count | Should -Be 1
     }
 
+    It "置き場の外を指す名前は、外のフォルダを消さずに例外にし、取り込み一覧の記録は残す" -TestCases @(
+        @{ badName = "..\外" }
+        @{ badName = "営業\..\..\外" }
+        @{ badName = ".." }
+    ) {
+        param ($badName)
+        $ws = newCatalogWorkspace "$TestDrive\remove4"
+        New-Item -ItemType Directory -Path "$($ws.Index)\営業" -Force | Out-Null
+        writeListFile "$($ws.Dir)\外\a.tsv" @("本文")
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(
+            (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateNew)
+        ) $ws.Status
+
+        { $ws.Catalog.RemoveIndex($badName) } | Should -Throw
+
+        Test-Path -LiteralPath "$($ws.Dir)\外\a.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$($ws.Index)\営業" | Should -Be $true
+        Test-Path -LiteralPath $ws.Dir | Should -Be $true
+        (readStatusFile $ws.Status).Rows.Count | Should -Be 1
+    }
+
     It "フォルダを消せなければ（TSV を開いている等）例外にし、取り込み一覧の記録は残す" {
         # 画面は別スレッド（$ErrorActionPreference が既定の Continue）で呼ぶため、消せなかったことを例外で知らせる必要がある
         $ws = newCatalogWorkspace "$TestDrive\remove3"

@@ -349,6 +349,20 @@ Describe "newIndexName / assignIndexNames" -Tag Unit {
         $folders[0].Name | Should -Be "見積(2)"
         $folders[1].Name | Should -Be "見積"
     }
+
+    It "パスにつなげない名前（.. ・予約名・末尾の .）は名前が無いものとして割り当て直す" {
+        $targets = @(
+            [pscustomobject]@{ Name = ".."; Path = "C:\data\見積"; Enabled = $true },
+            [pscustomobject]@{ Name = "CON"; Path = "C:\data\売上"; Enabled = $true },
+            [pscustomobject]@{ Name = "営業."; Path = "C:\data\営業"; Enabled = $true },
+            [pscustomobject]@{ Name = "経理"; Path = "C:\data\経理"; Enabled = $true }
+        )
+        $folders = @(assignIndexNames $targets @())
+        $folders[0].Name | Should -Be "見積"
+        $folders[1].Name | Should -Be "売上"
+        $folders[2].Name | Should -Be "営業"
+        $folders[3].Name | Should -Be "経理"
+    }
 }
 
 Describe "splitIndexRelPath" -Tag Unit {
@@ -403,6 +417,72 @@ Describe "testIndexName" -Tag Unit {
         $reason = testIndexName $value @()
         $reason | Should -Match "^名前"
         $reason | Should -Not -Match "インデックス名"
+    }
+}
+
+Describe "testIndexRelPath" -Tag Unit {
+    It "使える相対パスなら空文字列を返す: <path>" -TestCases @(
+        @{ path = "営業\a.xlsx" }
+        @{ path = "営業\2024\a.xlsx" }
+        @{ path = "営業\a b.xlsx" }
+        @{ path = "営業\末尾が点." }
+        @{ path = "営業\CON" }
+    ) {
+        param ($path)
+        testIndexRelPath $path | Should -Be ""
+    }
+
+    It "外へ出る・使えない相対パスは理由を返す: <path>" -TestCases @(
+        @{ path = "..\x" }
+        @{ path = "..\..\..\x" }
+        @{ path = "営業\..\..\x" }
+        @{ path = "営業\.\x" }
+        @{ path = "営業\\x" }
+        @{ path = "営業\" }
+        @{ path = "C:\x" }
+        @{ path = "\\srv\x" }
+        @{ path = "営業\a:b" }
+        @{ path = "営業/a" }
+        @{ path = "CON\x" }
+        @{ path = "営業" }
+        @{ path = "" }
+    ) {
+        param ($path)
+        testIndexRelPath $path | Should -Not -BeNullOrEmpty
+    }
+
+    It "allowNameOnly なら、残りの無い名前だけも通し、外へ出る名前は通さない" {
+        testIndexRelPath "営業" $true | Should -Be ""
+        testIndexRelPath ".." $true | Should -Not -BeNullOrEmpty
+        testIndexRelPath "営業\..\x" $true | Should -Not -BeNullOrEmpty
+    }
+
+    It "checkedNames に通った名前を足し、あるものは調べ直さない" {
+        $checked = New-Object 'System.Collections.Generic.HashSet[string]'
+        testIndexRelPath "営業\a.xlsx" $false $checked | Should -Be ""
+        $checked.Contains("営業") | Should -BeTrue
+        testIndexRelPath "..\a.xlsx" $false $checked | Should -Not -BeNullOrEmpty
+        $checked.Contains("..") | Should -BeFalse
+    }
+}
+
+Describe "testPathSegments" -Tag Unit {
+    It "厳しい確かめは、最後の . や空白・予約語も拒む: <segments>" -TestCases @(
+        @{ segments = @("a", "b.") }
+        @{ segments = @("a ", "b") }
+        @{ segments = @("a", "NUL.txt") }
+        @{ segments = @("a", "..") }
+        @{ segments = @("a", "") }
+    ) {
+        param ($segments)
+        testPathSegments $segments | Should -Not -BeNullOrEmpty
+    }
+
+    It "ゆるい確かめ（lenient）は、最後の . や空白・予約語は通し、外へ出る区切りは拒む" {
+        testPathSegments @("a", "b.", "c ", "NUL") $true | Should -Be ""
+        testPathSegments @("a", "..") $true | Should -Not -BeNullOrEmpty
+        testPathSegments @("a", "b:c") $true | Should -Not -BeNullOrEmpty
+        testPathSegments @("あ" * 256) $true | Should -Not -BeNullOrEmpty
     }
 }
 

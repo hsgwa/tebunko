@@ -168,6 +168,36 @@ Describe "formatFileTime" -Tag Io {
     }
 }
 
+Describe "testPathUnder" -Tag Unit {
+    It "<path> は <root> の下: <expected>" -TestCases @(
+        @{ path = "C:\置き場\営業"; root = "C:\置き場"; expected = $true }
+        @{ path = "C:\置き場\営業\中\a.tsv"; root = "C:\置き場"; expected = $true }
+        @{ path = "C:\置き場\営業"; root = "C:\置き場\"; expected = $true }
+        @{ path = "c:\置き場\営業"; root = "C:\置き場"; expected = $true }
+        @{ path = "C:\置き場"; root = "C:\置き場"; expected = $false }
+        @{ path = "C:\置き場\"; root = "C:\置き場"; expected = $false }
+        @{ path = "C:\置き場\..\外\営業"; root = "C:\置き場"; expected = $false }
+        @{ path = "C:\置き場\営業\..\..\外"; root = "C:\置き場"; expected = $false }
+        @{ path = "C:\置き場\営業\..\経理"; root = "C:\置き場"; expected = $true }
+        @{ path = "C:\置き場2\営業"; root = "C:\置き場"; expected = $false }
+        @{ path = "C:\外\営業"; root = "C:\置き場"; expected = $false }
+        @{ path = "D:\置き場\営業"; root = "C:\置き場"; expected = $false }
+        @{ path = "\\?\C:\置き場\営業"; root = "C:\置き場"; expected = $true }
+        @{ path = "\\?\C:\置き場\..\外"; root = "C:\置き場"; expected = $false }
+        @{ path = "C:\置き場\営業"; root = "\\?\C:\置き場"; expected = $true }
+        @{ path = ""; root = "C:\置き場"; expected = $false }
+        @{ path = "C:\置き場\営業"; root = ""; expected = $false }
+    ) {
+        testPathUnder $path $root | Should -Be $expected
+    }
+
+    It "260 文字を超えるパスでも判定できる" {
+        $long = "C:\置き場\" + ("あ" * 100) + "\" + ("い" * 100) + "\" + ("う" * 100) + "\a.tsv"
+        testPathUnder $long "C:\置き場" | Should -Be $true
+        testPathUnder ($long + "\..\..\..\..\..\外") "C:\置き場" | Should -Be $false
+    }
+}
+
 Describe "removeDirectoryRetry" -Tag Io {
     It "フォルダを中身ごと削除する" {
         $dir = "$TestDrive\消すフォルダ"

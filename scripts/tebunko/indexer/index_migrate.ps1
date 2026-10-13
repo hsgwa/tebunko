@@ -177,7 +177,13 @@ function removeDroppedFolders {
     )
 
     foreach ($previous in @($dropped | Where-Object { $_ })) {
-        $dir = Join-Path $ws.IndexDir $previous.Name
+        $dir = "$($ws.IndexDir.TrimEnd('\'))\$($previous.Name)"
+        # 取り込み一覧の名前は共有のワークスペースで書き換えられうる。置き場（IndexDir）の下でなければ消さない
+        # （例外にすると、書き換えられた 1 行で毎回インデックス作成が止まるため、ログに出して続ける）
+        if (!(testPathUnder $dir $ws.IndexDir)) {
+            writeIndexerLog "クロール対象から削除されたフォルダ（$($previous.Path)）のインデックス名が使えないため、削除しませんでした。" "Yellow"
+            continue
+        }
         if (Test-Path -LiteralPath $dir) {
             # 中に長いパス（260文字超）のTSVがあっても削除できるよう \\?\ 付きで削除する
             Remove-Item -LiteralPath (toLongPath $dir) -Recurse -Force

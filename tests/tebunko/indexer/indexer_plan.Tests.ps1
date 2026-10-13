@@ -129,6 +129,42 @@ Describe "createTargetList（サブフォルダ・無くなったファイル）
         Test-Path -LiteralPath $other | Should -Be $true
     }
 
+    It "置き場の外を指す相対パスの行は、外のフォルダを消さず、例外にもしない" -TestCases @(
+        @{ rel = "..\外\消えた.xlsx" }
+        @{ rel = "経理\..\..\外\消えた.xlsx" }
+        @{ rel = "..\.." }
+    ) {
+        param ($rel)
+        Mock writeIndexerLog {}
+        $outside = Join-Path $TestDrive "外"
+        [System.IO.Directory]::CreateDirectory("$outside\消えた.xlsx") | Out-Null
+        [System.IO.File]::WriteAllText("$outside\消えた.xlsx\Sheet1.tsv", "1`t見積")
+        [System.IO.File]::WriteAllText("$TestDrive\残る.txt", "a")
+        $previous = newPrevious @((newStatusRow $rel "2024/01/01 00:00:00" "10" ${stateDone} 1 "2024/01/01 00:00:00"))
+        { createTargetList $folder $previous $null } | Should -Not -Throw
+        Test-Path -LiteralPath "$outside\消えた.xlsx\Sheet1.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$TestDrive\残る.txt" | Should -Be $true
+    }
+
+    It "removeBookDir は、置き場の外のフォルダを消さずにログに出し、中のフォルダは消す" {
+        Mock writeIndexerLog {}
+        $outside = Join-Path $TestDrive "外2"
+        [System.IO.Directory]::CreateDirectory($outside) | Out-Null
+        [System.IO.File]::WriteAllText("$outside\a.tsv", "a")
+        $inside = Join-Path ${indexDir} "経理\中.xlsx"
+        [System.IO.Directory]::CreateDirectory($inside) | Out-Null
+
+        removeBookDir (Join-Path ${indexDir} "..\外2")
+        removeBookDir ${indexDir}
+
+        Test-Path -LiteralPath "$outside\a.tsv" | Should -Be $true
+        Test-Path -LiteralPath $inside | Should -Be $true
+        Should -Invoke writeIndexerLog -Times 2 -Exactly -Scope It -ParameterFilter { $text -like "*削除しませんでした*" -and $color -eq "Yellow" }
+
+        removeBookDir $inside
+        Test-Path -LiteralPath $inside | Should -Be $false
+    }
+
     It "アクセスできないフォルダがあったときは、見つからなかったファイルの行とインデックスを残す" {
         Mock findTargetFiles { @{ Root = $source; Files = @(Get-Item -LiteralPath $file); HasError = $true } }
         $gone = Join-Path ${indexDir} "経理\読めない\d.xlsx"

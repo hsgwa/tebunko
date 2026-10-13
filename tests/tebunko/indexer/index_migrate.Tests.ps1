@@ -467,4 +467,32 @@ Describe "removeDroppedFolders" -Tag Io {
 
         Test-Path -LiteralPath "$indexDir\Sales\見積.xlsx\Sheet1.tsv" | Should -Be $true
     }
+
+    It "置き場の外を指す名前は削除せず、例外にもしないで、次の名前を続ける" -TestCases @(
+        @{ badName = "..\外" }
+        @{ badName = "..\..\外" }
+        @{ badName = "営業\..\..\外" }
+        @{ badName = ".." }
+        @{ badName = "." }
+        @{ badName = "" }
+    ) {
+        $indexDir = "$TestDrive\dropped5\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
+        newTsv "$TestDrive\dropped5\外\a.tsv" @("a")
+        newTsv "$TestDrive\外\a.tsv" @("a")
+        newTsv "$indexDir\営業\見積.xlsx\Sheet1.tsv" @("b")
+        newTsv "$indexDir\技術\仕様.docx\ページ001.tsv" @("c")
+        Mock writeIndexerLog {}
+
+        { removeDroppedFolders @(
+            [pscustomobject]@{ Path = "C:\data\壊れた"; Name = $badName },
+            [pscustomobject]@{ Path = "C:\data\技術"; Name = "技術" }
+        ) } | Should -Not -Throw
+
+        Test-Path -LiteralPath "$TestDrive\dropped5\外\a.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$TestDrive\外\a.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$indexDir\営業\見積.xlsx\Sheet1.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$indexDir\技術" | Should -Be $false
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*削除しませんでした*" -and $color -eq "Yellow" }
+    }
 }

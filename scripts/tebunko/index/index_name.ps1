@@ -67,13 +67,17 @@ function assignIndexNames {
     foreach ($name in $previousNames.Values) {
         [void]$used.Add($name)
     }
-    foreach ($folder in @($targetFolders | Where-Object { $_ -and $_.Name })) {
+    # 設定は書き換えられうる。パスにつなぐ名前として使えない（.. ・予約名・末尾の . など）ものは名前が無いものとして割り当て直す
+    foreach ($folder in @($targetFolders | Where-Object { $_ -and $_.Name -and !(testIndexName ([string]$_.Name) @()) })) {
         [void]$used.Add($folder.Name)
     }
 
     $result = New-Object System.Collections.Generic.List[object]
     foreach ($folder in @($targetFolders | Where-Object { $_ })) {
         $name = [string]$folder.Name
+        if ($name -ne "" -and (testIndexName $name @())) {
+            $name = ""
+        }
         if ($name -eq "") {
             if ($previousNames.ContainsKey($folder.Path)) {
                 $name = $previousNames[$folder.Path]
@@ -140,6 +144,78 @@ function testIndexName {
         }
     }
     return ""
+}
+
+# ファイル名に使えない文字（testPathSegments が区切りごとに調べる。取り込み一覧を読むたびに作り直さない）
+${invalidFileNameChars} = [System.IO.Path]::GetInvalidFileNameChars()
+
+function testPathSegments {
+    # 区切り文字で分けたパスの各区切り（segments）が、ファイル名として安全に使えるかを調べ、
+    # 使えない理由を返す（使えれば空文字列）。zip のエントリー名（/ 区切り）・取り込み一覧の相対パス（\ 区切り）の
+    # どちらからも呼べる、区切り文字に依らない共通の確かめ。
+    #   lenient: $true なら、最後の . や空白・Windows の予約語は拒まない（\\?\ で作られた実在のファイル名を、
+    #            取り込み一覧から捨てないため。外へ出る区切り（空・.・..）・使えない文字・長すぎる区切りは拒む）
+    param (
+        [string[]]$segments,
+        [bool]$lenient = $false
+    )
+
+    foreach ($segment in $segments) {
+        if ($segment -eq "" -or $segment -eq "." -or $segment -eq "..") {
+            return "使えない区切り（空・.・..）が含まれています。"
+        }
+        if ($segment.Length -gt ${maxFileNameLength}) {
+            return "1 つの区切りが長すぎます（${maxFileNameLength} 文字まで）。"
+        }
+        if ($segment.IndexOfAny(${invalidFileNameChars}) -ge 0) {
+            return "使えない文字が含まれています。"
+        }
+        if ($lenient) {
+            continue
+        }
+        if ($segment.EndsWith(".") -or $segment.EndsWith(" ")) {
+            return "区切りの最後に . や空白は使えません。"
+        }
+        if (${reservedFileNames} -contains $segment.Split(".")[0].ToUpperInvariant()) {
+            return "Windows で使えない名前（$segment）が含まれています。"
+        }
+    }
+    return ""
+}
+
+function testIndexRelPath {
+    # 取り込み一覧・状態ファイルから読んだ相対パス（"インデックス名\フォルダからの相対パス"）が、
+    # work\content_index の下のパスとして使えるかを調べ、使えない理由を返す（使えれば空文字列）。
+    # 先頭はインデックス名（testIndexName）、残りは区切りごとに空・.・..・ファイル名に使えない文字（\ / : など）を拒む
+    # （残りには予約名・最後の . や空白の決まりを当てない。実在のファイル名を捨てないため）。
+    #   allowNameOnly: 残りが無く、名前だけのもの（"営業"）も通す（システムインデックスの状態のフォルダ）
+    #   checkedNames : testIndexName を通った名前の集合（HashSet[string]）。数万行を読むとき、同じ名前を何度も調べないために
+    #                  呼び出し側が渡す（通った名前をここに足す）
+    param (
+        [string]$relPath,
+        [bool]$allowNameOnly = $false,
+        $checkedNames = $null
+    )
+
+    $relPath = [string]$relPath
+    $i = $relPath.IndexOf("\")
+    $name = if ($i -lt 0) { $relPath } else { $relPath.Substring(0, $i) }
+    if ($null -eq $checkedNames -or -not $checkedNames.Contains($name)) {
+        $nameReason = testIndexName $name @()
+        if ($nameReason) {
+            return $nameReason
+        }
+        if ($null -ne $checkedNames) {
+            [void]$checkedNames.Add($name)
+        }
+    }
+    if ($i -lt 0) {
+        if ($allowNameOnly) {
+            return ""
+        }
+        return "インデックス名の後に、フォルダからの相対パスがありません。"
+    }
+    return (testPathSegments ($relPath.Substring($i + 1).Split("\")) $true)
 }
 
 function encodeIndexPlace {

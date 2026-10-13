@@ -24,7 +24,7 @@ Describe "readStatusFile / writeStatusFile / addStatusRow" -Tag Io {
         $path = "$TestDrive\status[1].tsv"
         $rows = @(
             (newStatusRow "a\[確定]見積.xlsx" "2025/01/10 12:34:56" "10420" $stateDone "3" "2026/09/19 10:00:00"),
-            (newStatusRow " b.xls" "2025/02/01 08:00:00" "0" $stateNew)
+            (newStatusRow "data [1]\ b.xls" "2025/02/01 08:00:00" "0" $stateNew)
         )
         $folders = @(
             [pscustomobject]@{ Path = "C:\data [1]"; Name = "data [1]" },
@@ -44,7 +44,7 @@ Describe "readStatusFile / writeStatusFile / addStatusRow" -Tag Io {
         $row.サイズ | Should -Be "10420"
         $row.状態 | Should -Be $stateDone
         $row.TSV数 | Should -Be "3"
-        $status.Rows[" b.xls"].状態 | Should -Be $stateNew
+        $status.Rows["data [1]\ b.xls"].状態 | Should -Be $stateNew
     }
 
     It "先頭にクロール対象フォルダ（パス・インデックス名）、次に見出しのTSVになる" {
@@ -102,6 +102,39 @@ Describe "readStatusFile / writeStatusFile / addStatusRow" -Tag Io {
         Test-Path -LiteralPath "${path}.tmp" | Should -Be $false
     }
 
+    It "インデックス名・相対パスが使えない行は読み飛ばし、読み飛ばした行数を Rejected で返す" {
+        $path = "$TestDrive\status_unsafe.tsv"
+        $folders = @(
+            [pscustomobject]@{ Path = "C:\data"; Name = "営業" },
+            [pscustomobject]@{ Path = "C:\bad1"; Name = ".." },
+            [pscustomobject]@{ Path = "C:\bad2"; Name = "..\外" },
+            [pscustomobject]@{ Path = "C:\bad3"; Name = "CON" }
+        )
+        $rows = @(
+            (newStatusRow "営業\見積.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
+            (newStatusRow "営業\サブ\見積2.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
+            (newStatusRow "..\外\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
+            (newStatusRow "営業\..\..\外\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
+            (newStatusRow "..\..\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
+            (newStatusRow "営業\.\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
+            (newStatusRow "営業\\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
+            (newStatusRow "a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1")
+        )
+        writeStatusFile $folders $rows $path
+
+        $status = readStatusFile $path
+        @($status.Folders | ForEach-Object { $_.Name }) | Should -Be @("営業")
+        @($status.Rows.Keys | Sort-Object) | Should -Be @(@("a.xlsx", "営業\サブ\見積2.xlsx", "営業\見積.xlsx") | Sort-Object)
+        $status.Rejected | Should -Be 8
+    }
+
+    It "使えない行が無ければ Rejected は 0" {
+        $path = "$TestDrive\status_safe.tsv"
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(newStatusRow "営業\見積.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1") $path
+        (readStatusFile $path).Rejected | Should -Be 0
+        (readStatusFile "$TestDrive\none_status2.tsv").Rejected | Should -Be 0
+    }
+
     It "ファイルが無ければ空の一覧を返す" {
         $status = readStatusFile "$TestDrive\none_status.tsv"
         $status.Folders.Count | Should -Be 0
@@ -145,6 +178,13 @@ Describe "readIngestingFiles / writeIngestingFiles / removeIngestingFile" -Tag I
         $ingesting.Count | Should -Be 1
         $ingesting[0].RelPath | Should -Be "残る.xlsx"
         $ingesting[0].Count | Should -Be 3
+    }
+
+    It "相対パスが使えない行（.. を含む・名前が使えない）は読み飛ばす" {
+        $path = "$TestDrive\ingesting_unsafe.txt"
+        writeListFile $path @("1`t..\外\a.xlsx", "1`t営業\..\..\外", "2`t..", "1`tCON\a.xlsx", "1`t営業\a.xlsx", "3`t営業\サブ\b.xlsx")
+        $ingesting = @(readIngestingFiles $path)
+        @($ingesting | ForEach-Object { $_.RelPath }) | Should -Be @("営業\a.xlsx", "営業\サブ\b.xlsx")
     }
 }
 

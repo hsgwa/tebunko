@@ -4,7 +4,7 @@
 #
 # 判定の単位は関数（クラスのメソッドを含む）。本体に IndexDir・content_index・ListEntries のどれかと、Remove-Item・removeDirectoryRetry・
 # Directory.Delete・.Delete( のどれかがある関数を対象にする（変数を経由した削除、$dir = Join-Path $ws.IndexDir ... のあとの削除も拾うため）。
-# 拾えないもの: 上の語を本体に書かずに、引数で渡されたパスを消す関数（WorkspaceMover の MoveEntry は引数のフォルダを移し終えたあとに消す。ワークスペースを移す MoveEntries の中だけで呼ばれる）。removeBookDir（indexer_plan.ps1）も removeDirectoryRetry を呼ぶだけで、本文に上の語が無く拾えない。そういう関数を足すときは、呼ぶ側の関数の名前をこの先頭の説明に書く。
+# 拾えないもの: 上の語を本体に書かずに、引数で渡されたパスを消す関数（WorkspaceMover の MoveEntry は引数のフォルダを移し終えたあとに消す。ワークスペースを移す MoveEntries の中だけで呼ばれる）。そういう関数を足すときは、呼ぶ側の関数の名前をこの先頭の説明に書く。
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
 
@@ -12,6 +12,7 @@ BeforeAll {
     ${indexDeleteAllowed} = @(
         @{ File = "index_catalog.ps1"; Function = "RemoveIndex"; Reason = "画面の［削除］の流れ。確認ダイアログで利用者が選んだインデックスだけを消す" }
         @{ File = "index_migrate.ps1"; Function = "removeDroppedFolders"; Reason = "設定から外れたインデックス。インデックス更新の確認ダイアログで利用者が［更新を開始］を押した回でだけ呼ぶ（findDroppedIndexes は見つけるだけ）" }
+        @{ File = "indexer_plan.ps1"; Function = "removeBookDir"; Reason = "元のファイルが無くなった・取り込み直す 1 ファイル分のフォルダだけを消す。置き場の下かを testPathUnder `$bookDir `$workspace.IndexDir で確かめてから消す" }
         @{ File = "index_archive.ps1"; Function = "exportIndexCore"; Reason = "書き出しの途中のファイル（一時ファイル）だけを消す。インデックスのフォルダは消さない" }
         @{ File = "index_archive.ps1"; Function = "expandImportArchive"; Reason = "インポートの作業フォルダ（workDir）だけを消す。インデックスのフォルダは消さない" }
         @{ File = "index_archive.ps1"; Function = "swapInImportedIndexDir"; Reason = "消さずに移すだけ（前のフォルダは退避する）。コメントに removeDirectoryRetry の語があって拾われる" }
@@ -62,6 +63,20 @@ Describe "インデックスのフォルダを消す関数" -Tag Meta {
                 @($current | Where-Object { $_.File -eq $item.File -and $_.Function -eq $item.Function }).Count -eq 0
             } | ForEach-Object { "$($_.File) › $($_.Function)" })
         $stale | Should -BeNullOrEmpty
+    }
+
+    It "removeBookDir は、置き場の下かを testPathUnder で確かめてから消す" {
+        $errors = $null
+        $tokens = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile("${scriptsDir}\tebunko\indexer\indexer_plan.ps1", [ref]$tokens, [ref]$errors)
+        $function = $ast.Find({ param ($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq "removeBookDir" }, $true)
+        $function | Should -Not -BeNullOrEmpty
+        $calls = @($function.FindAll({ param ($n) $n -is [System.Management.Automation.Language.CommandAst] }, $true))
+        $check = @($calls | Where-Object { $_.GetCommandName() -eq "testPathUnder" })
+        $remove = @($calls | Where-Object { $_.GetCommandName() -eq "removeDirectoryRetry" })
+        $check.Count | Should -BeGreaterThan 0
+        $remove.Count | Should -BeGreaterThan 0
+        $check[0].Extent.StartOffset | Should -BeLessThan $remove[0].Extent.StartOffset
     }
 
     It "removeDroppedFolders は、インデクサの中で確認のあとにだけ呼ばれる" {

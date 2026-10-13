@@ -186,6 +186,29 @@ function fromLongPath {
     return $path
 }
 
+function testPathUnder {
+    # path が root の「真下より下」（root そのものは含まない）かを返す。消す・書く直前に、
+    # 状態ファイルや設定から読んだ名前でつないだパスが、決めた置き場の外へ出ていないかを確かめるのに使う。
+    # \\?\ を外してから GetFullPath で正規化する（.. や . を解き、/ を \ にする）ため、\\?\ の有無・大文字小文字・末尾の \ に依らない。
+    # リンクは見ない（辿るかどうかは削除の部品が決める）。解けない（不正な）パスは $false
+    param (
+        [string]$path,
+        [string]$root
+    )
+
+    if (!$path -or !$root) {
+        return $false
+    }
+    try {
+        $fullPath = [System.IO.Path]::GetFullPath((fromLongPath $path))
+        $fullRoot = [System.IO.Path]::GetFullPath((fromLongPath $root)).TrimEnd("\")
+    } catch {
+        return $false
+    }
+    return $fullPath.StartsWith("$fullRoot\", [System.StringComparison]::OrdinalIgnoreCase) -and
+        $fullPath.TrimEnd("\").Length -gt $fullRoot.Length
+}
+
 function setNotContentIndexed {
     # フォルダ（またはファイル）に「内容のインデックスを作成しない」属性（NotContentIndexed）を付ける。
     # 既に付いているものには付け直さない（Changed に数えない）ので、ほかの属性（読み取り専用など）は変えない。
