@@ -4200,7 +4200,7 @@
 <li>クロールの後に全ファイルを書き出す（一時ファイル <code>ingest_status.tsv.tmp</code> に書いてから置き換える）。</li>
 <li>インデックス作成中は 1 件ごとに結果の行を<strong>末尾に追記</strong>する。読み込み時は同じ相対パスの後の行を優先するため、途中で中断しても取り込み済みの結果は失われない。列数の合わない行（書き込み途中で強制終了した行）は無視する。</li>
 <li>読み込み時、インデックス名（<code>クロール対象フォルダ</code> の行と、相対パスの先頭）が <code>testIndexName</code> を通らない行、相対パスの残りに空・<code>.</code>・<code>..</code>・ファイル名に使えない文字の区切りがある行は読み飛ばし、数を <code>Rejected</code> で返す（ワークスペースは共有でき、ファイルは書き換えられうるため。読み飛ばした行は、次に書き直すときに消える）。インデックス作成は、読み飛ばした行があればその数を黄色のログに出す。<code>ingesting.txt</code> の行も同じ確かめを通す。</li>
-<li><code>クロール対象フォルダ</code> の行の名前が <code>testIndexName</code> を通らなくても、パスにして外へ出ない（<code>testPathSegments</code> を lenient で通る。前の版が作った最後が <code>.</code> や空白の名前など）ときは、行は読み飛ばし、名前を <code>LegacyFolders</code> で返す。<code>LegacyFolders</code> は、設定から外れたインデックスの確認と削除（<code>removeDroppedFolders</code>）にだけ使い、検索・取り込み・改名・削除の対象にはしない（取り込みを取りやめた回は、フォルダの行は書き戻されて次の回もまた確認に出る。各ファイルの行は読み飛ばすため残らない）。</li>
+<li><code>クロール対象フォルダ</code> の行の名前が <code>testIndexName</code> を通らなくても、パスにして外へ出ない（<code>testPathSegments</code> を lenient で通る。前の版が作った最後が <code>.</code> や空白の名前など）ときは、行は読み飛ばし、名前を <code>LegacyFolders</code> で返す。<code>LegacyFolders</code> は、設定から外れたインデックスの確認と削除（<code>removeDroppedFolders</code>）にだけ使い、検索・取り込み・改名・削除の対象にはしない（確認で取りやめた回・確認の返事が無く打ち切った回・画面なしの実行では、フォルダの行は書き戻されて次の回もまた確認に出る。各ファイルの行は読み飛ばすため残らない）。</li>
 <li>終了時（<code>finally</code>）に 1 ファイル 1 行に書き直す。インデクサが強制終了された場合は追記した行が重複して残るが、次回のクロール時に書き直される。</li>
 </ul>
 <p>クラウドにだけあるファイル（<a href="../target-decision/#クラウドにだけあるファイル">取り込み対象の決定</a>）で、ダウンロードせずに残したものの行は次のとおり。</p>
