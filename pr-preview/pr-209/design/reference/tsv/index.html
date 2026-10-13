@@ -4331,6 +4331,14 @@
 <td>元のファイルを開く、convertPlaceToContentIndexMeta</td>
 </tr>
 <tr>
+<td><code>newObjectPlaceKindPattern</code></td>
+<td>kinds（省略は全部）</td>
+<td>string</td>
+<td>場所の末尾の種類（<code>[図形]</code> <code>[埋め込み&lt;N&gt;]</code> など）だけを当てる正規表現の文字列を、<code>placeKindFileNames</code> の表から組み立てる。検索から外す場所（<code>newPlaceExclude</code>）と画面の判定（<code>HitRow.ObjectPlaceRegex</code>）が使う</td>
+<td><a href="../../index-data/format/#配置命名規則">インデックスのファイルの形</a>「図形・コメントの場所」</td>
+<td>newPlaceExclude、画面（HitRow）</td>
+</tr>
+<tr>
 <td><code>describePlace</code></td>
 <td>book, place</td>
 <td><code>@{Place; Kind}</code></td>
