@@ -4304,7 +4304,7 @@
     core --&gt; office
     core --&gt; sharedcore
     office --&gt; sharedcore</code></pre>
-<p><code>tebunko/core/</code> には、上のフォルダ（<code>index/</code>・<code>indexer/</code>）も <code>core/</code> 自身も呼ぶ関数を置く。取り込み一覧（<code>ingest_status.tsv</code>）の読み書き、インデックス作成のログ、情報源の名前の判定、インデックス名の一覧がそれに当たる。<code>core/</code> の関数は <code>index/</code>・<code>indexer/</code> の関数を呼ばず、上のフォルダは <code>core/</code> を下向きに呼ぶ。</p>
+<p><code>tebunko/core/</code> には、上のフォルダ（<code>index/</code>・<code>indexer/</code>）か <code>core/</code> 自身が呼ぶ関数を置く。取り込み一覧（<code>ingest_status.tsv</code>）の読み書き、インデックス作成のログ、情報源の名前の判定、インデックス名の一覧がそれに当たる。ここに置いた関数は <code>index/</code>・<code>indexer/</code> の関数を呼ばず、上のフォルダは <code>core/</code> を下向きに呼ぶ。</p>
 <pre class="mermaid"><code>flowchart LR
     indexer["tebunko/indexer/"]
     index["tebunko/index/"]
