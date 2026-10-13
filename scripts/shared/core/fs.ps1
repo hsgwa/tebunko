@@ -129,6 +129,9 @@ ${maxFileNameLength} = 255  # Windows のファイル名（パスの区切りの
 ${reservedFileNames} = @("CON", "PRN", "AUX", "NUL") +
     @(1..9 | ForEach-Object { "COM$_" }) + @(1..9 | ForEach-Object { "LPT$_" })
 
+# ファイル名に使えない文字（getFolderNameProblemText とパスの区切りごとの確かめ（testPathSegments）が使う。呼ぶたびに作り直さない）
+${invalidFileNameChars} = [System.IO.Path]::GetInvalidFileNameChars()
+
 function getFolderNameProblemText {
     # 作業フォルダの下に作る 1 つのフォルダ名として使えるかを調べ、使えない理由を返す（使えれば空文字列）。
     # 空・前後の空白・長すぎる・使えない文字（\ / : など。.. のような外へ出る名前を含む）・最後の .・Windows の予約名を拒む。
@@ -146,7 +149,7 @@ function getFolderNameProblemText {
     if ($name.Length -gt ${maxFileNameLength}) {
         return "名前が長すぎます（${maxFileNameLength} 文字まで）。"
     }
-    if (@([System.IO.Path]::GetInvalidFileNameChars() | Where-Object { $name.IndexOf($_) -ge 0 }).Count -gt 0) {
+    if ($name.IndexOfAny(${invalidFileNameChars}) -ge 0) {
         return "名前に使えない文字が含まれています（\ / : * ? " + [char]34 + " < > | と制御文字）。"
     }
     if ($name.EndsWith(".")) {

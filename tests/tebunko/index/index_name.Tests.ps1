@@ -500,6 +500,15 @@ Describe "newIndexName が作る名前は testIndexName を通る" -Tag Unit {
         @{ folder = "C:\data\　"; used = @("フォルダ"); expected = "フォルダ(2)" }
         @{ folder = ("C:\data\" + ("あ" * 300)); used = @(); expected = ("あ" * 255) }
         @{ folder = ("C:\data\" + ("あ" * 300)); used = @(("あ" * 255)); expected = (("あ" * 252) + "(2)") }
+        # 255 文字に切ったあとの末尾が . や空白になる（削って 254 文字になる）
+        @{ folder = ("C:\data\" + ("あ" * 254) + ".いう"); used = @(); expected = ("あ" * 254) }
+        @{ folder = ("C:\data\" + ("あ" * 254) + " いう"); used = @(); expected = ("あ" * 254) }
+        @{ folder = ("C:\data\" + ("あ" * 254) + "　いう"); used = @(); expected = ("あ" * 254) }
+        @{ folder = ("C:\data\" + ("あ" * 253) + " .いう"); used = @(); expected = ("あ" * 253) }
+        # 切ったあとに (2) を付けて空きを作る（元の名前の途中が . や空白でも使える名前になる）
+        @{ folder = ("C:\data\" + ("あ" * 254) + ".いう"); used = @(("あ" * 254)); expected = (("あ" * 252) + "(2)") }
+        @{ folder = ("C:\data\" + ("あ" * 251) + ".いうえ"); used = @(("あ" * 251) + ".いうえ"); expected = (("あ" * 251) + ".(2)") }
+        @{ folder = ("C:\data\" + ("あ" * 251) + " いうえ"); used = @(("あ" * 251) + " いうえ"); expected = (("あ" * 251) + " (2)") }
     ) {
         param ($folder, $used, $expected)
         $name = newIndexName $folder $used

@@ -162,6 +162,24 @@ Describe "readStatusFile / writeStatusFile / addStatusRow" -Tag Io {
         $accepted | Should -Be ((testIndexRelPath $rel $false) -eq "")
     }
 
+    It "同じ名前の 2 行目以降も、1 行目と同じ結果になる（通る名前・通らない名前）" {
+        $path = "$TestDrive\status_second.tsv"
+        $rows = @(
+            (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
+            (newStatusRow "営業\b.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
+            (newStatusRow "CON\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
+            (newStatusRow "CON\b.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
+            (newStatusRow "営業.\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
+            (newStatusRow "営業.\b.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
+            (newStatusRow "営業\c.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1")
+        )
+        writeStatusFile @() $rows $path
+
+        $status = readStatusFile $path
+        @($status.Rows.Keys | Sort-Object) | Should -Be @(@("営業\a.xlsx", "営業\b.xlsx", "営業\c.xlsx") | Sort-Object)
+        $status.Rejected | Should -Be 4
+    }
+
     It "使えない行が無ければ Rejected は 0" {
         $path = "$TestDrive\status_safe.tsv"
         writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(newStatusRow "営業\見積.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1") $path

@@ -139,8 +139,7 @@ function testIndexName {
     return ""
 }
 
-# ファイル名に使えない文字（testPathSegments が区切りごとに調べる。取り込み一覧を読むたびに作り直さない）
-${invalidFileNameChars} = [System.IO.Path]::GetInvalidFileNameChars()
+# ファイル名に使えない文字の配列 ${invalidFileNameChars} は shared/core/fs.ps1 にある（getFolderNameProblemText と共通）
 
 function testPathSegments {
     # 区切り文字で分けたパスの各区切り（segments）が、ファイル名として安全に使えるかを調べ、

@@ -117,6 +117,9 @@ Describe "IndexCatalog.RenameIndex（使えない名前）" -Tag Io {
         @{ from = "..\外"; to = "経理" }
         @{ from = "営業\..\経理"; to = "新" }
         @{ from = ".."; to = "新" }
+        @{ from = "営業."; to = "新" }
+        @{ from = "営業 "; to = "新" }
+        @{ from = "CON"; to = "新" }
     ) {
         param ($from, $to)
         $ws = newCatalogWorkspace "$TestDrive\rename_bad"
@@ -186,6 +189,9 @@ Describe "IndexCatalog.RemoveIndex" -Tag Io {
         @{ badName = "営業\..\経理" }   # 置き場の中を指すが、別のインデックスのフォルダになる
         @{ badName = "営業\中" }
         @{ badName = "営業/中" }
+        @{ badName = "営業." }   # 最後の . は、有無の確かめでは「営業」を見るため、決まりに合わない名前は消さない
+        @{ badName = "営業 " }
+        @{ badName = "CON" }
     ) {
         param ($badName)
         $ws = newCatalogWorkspace "$TestDrive\remove4"

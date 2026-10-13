@@ -293,16 +293,20 @@ Describe "updateSystemIndexes" -Tag Io {
         (readSystemIndexState $path).Covered.Contains("営業") | Should -Be $true
     }
 
-    It "置き場の外のため消さなかったと removeSystemIndexOf が返せば、黄色のログに出して続ける" {
+    It "置き場の外を指す名前を実際の removeSystemIndexOf に渡すと、黄色のログに名前を出し、外のフォルダは消さずに続ける" {
+        # 状態ファイルから読むときに使えない名前は捨てられるため、読んだ結果だけ差し替える（removeSystemIndexOf と状態の書き込みは本物）
         Mock writeIndexerLog {}
-        Mock removeSystemIndexOf { @{ Saved = $true; Skipped = $true } }
+        Mock readSystemIndexState { $state = newSystemIndexState; [void]$state.Covered.Add("..\外"); return $state }
         $index = newIndexTree "$TestDrive\u7"
         $system = "$TestDrive\u7\system_index"
-        [System.IO.Directory]::CreateDirectory("$system\消えた") | Out-Null   # index に無い名前
+        $path = "$TestDrive\u7\state.tsv"
+        [System.IO.Directory]::CreateDirectory("$TestDrive\u7\外") | Out-Null
+        [System.IO.File]::WriteAllText("$TestDrive\u7\外\a.txt", "a")
 
-        { updateSystemIndexes $index $system "$TestDrive\u7\state.tsv" { $false } } | Should -Not -Throw
+        { updateSystemIndexes $index $system $path { $false } } | Should -Not -Throw
 
-        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*削除しませんでした*消えた" -and $color -eq "Yellow" }
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*削除しませんでした*..\外" -and $color -eq "Yellow" }
+        Test-Path -LiteralPath "$TestDrive\u7\外\a.txt" | Should -Be $true
     }
 
     It "中止を求められていれば（shouldStop）作らず、そのインデックスは対応済みにしない" {

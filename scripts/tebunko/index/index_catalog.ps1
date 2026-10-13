@@ -39,10 +39,12 @@ class IndexCatalog {
         }
 
         # 移す元・先の名前は、置き場（IndexDir）の外へ出ないものだけ使う。何も動かさずに例外にする。
-        # 元の名前は、前の版で作られた名前も改名できるよう、区切り・.. だけを拒む。先の名前は新しく付けるので、インデックス名の決まりに合わせる
+        # 新旧どちらの名前も、インデックス名の決まり（testIndexName）に合うものだけ使う。
+        # 決まりに合わない前の版の名前は、設定を読むときに空になって届かず、取り込み一覧の読み込み（LegacyFolders）と、
+        # 設定から外れたインデックスの削除の流れが受け持つ（最後が . のフォルダは、Test-Path とフォルダ操作で別のフォルダを見るため、ここでは扱わない）
         $from = Join-Path $dir $oldName
         $to   = Join-Path $dir $newName
-        if ((testPathSegments @($oldName) $true) -ne "" -or !(testPathUnder $from $dir)) {
+        if ((testIndexName $oldName @()) -ne "" -or !(testPathUnder $from $dir)) {
             throw "元のインデックス名が使えないため、名前を変えられません: ${oldName}"
         }
         if ((testIndexName $newName @()) -ne "" -or !(testPathUnder $to $dir)) {
@@ -92,7 +94,7 @@ class IndexCatalog {
             return
         }
         $target = Join-Path $dir $name
-        if ((testPathSegments @($name) $true) -ne "" -or !(testPathUnder $target $dir)) {
+        if ((testIndexName $name @()) -ne "" -or !(testPathUnder $target $dir)) {
             # 名前は取り込み一覧（共有のワークスペースで書き換えられうる）から来ることもある。置き場の外は消さず、
             # 例外にして取り込み一覧の記録を残す（フォルダを消せなかったときと同じ）
             throw "インデックス名が使えないため、削除できません: ${name}"

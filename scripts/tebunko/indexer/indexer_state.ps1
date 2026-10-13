@@ -148,6 +148,7 @@ function readStatusFile {
     # 名前が今の決まり（testIndexName）に合わなくても、フォルダ名として外へ出ないもの（前の版で作られた名前）は、
     # LegacyFolders に分けて返す（設定から外れたインデックスとして、確認のうえ削除できるように。名前でパスを組まずに消す: removeDroppedFolders）
     $checkedNames = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+    $rejectedNames = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
     foreach ($line in $lines) {
         $fields = $line.Split("`t")
         if ($fields[0] -eq ${statusFolderKey} -and $fields.Count -eq 3) {
@@ -172,7 +173,11 @@ function readStatusFile {
         if ($usable) {
             $rowName = $relPath.Substring(0, $separator)
             if (!$checkedNames.Contains($rowName)) {
-                if (testIndexName $rowName @()) {
+                if ($rejectedNames.Contains($rowName)) {
+                    $usable = $false
+                } elseif (testIndexName $rowName @()) {
+                    # 通らない名前も覚え、同じ名前の 2 行目からは調べ直さない
+                    [void]$rejectedNames.Add($rowName)
                     $usable = $false
                 } else {
                     [void]$checkedNames.Add($rowName)
