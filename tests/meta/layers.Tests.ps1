@@ -181,8 +181,6 @@ Describe "依存の向き（ファイル単位）" -Tag Meta {
         }
 
         $toolKnown = "共有の部品が、ツールの側で定義した関数・変数を使っている。決めた形ではない今ある依存"
-        $callerDefines = "使う側（ツール）が定義すると、共有の部品のコメントで決めてある"
-        $workspaceUndecided = "未決: ワークスペースの変数を画面層（ui/settings/settings.ps1）が作り、状態層が読んでいる。どの層に置くかを決めていない"
         $upward = "状態層の中で、下のフォルダが上のフォルダの関数・変数を使っている。関数を下のフォルダへ移すまでの今ある依存"
         $script:allowances = @(
             # shared → tebunko
@@ -190,23 +188,6 @@ Describe "依存の向き（ファイル単位）" -Tag Meta {
             newAllowances "shared/core/fs.ps1" "tebunko/core/settings.ps1" @('$appId') $toolKnown
             newAllowances "shared/office/office_reader.ps1" "tebunko/index/index_name.ps1" @("toIndexFileName") $toolKnown
             newAllowances "shared/ui/shell.ps1" "tebunko/ui/startup_error.ps1" @('$appTitle') $toolKnown
-            newAllowances "shared/ui/shell.ps1" "tebunko/ui/startup_error.ps1" @("getGuiErrorLogFile") $callerDefines
-            newAllowances "shared/ui/app_host.ps1" "tebunko/ui/startup_error.ps1" @("getGuiErrorLogFile", "getGuiErrorLogHeader") $callerDefines
-            newAllowances "shared/ui/shell.ps1" "tebunko/ui/gui_main.ps1" @('$backgroundQueue') "読み込み口が用意すると、共有の部品のコメントで決めてある"
-            # 状態層 → ワークスペースの変数
-            newAllowances "tebunko/index/content_index_store.ps1" "tebunko/ui/settings/settings.ps1" @('$workspace') $workspaceUndecided
-            newAllowances "tebunko/index/index_archive.ps1" "tebunko/ui/settings/settings.ps1" @('$workspace') $workspaceUndecided
-            newAllowances "tebunko/index/index_store.ps1" "tebunko/ui/settings/settings.ps1" @('$workspace') $workspaceUndecided
-            newAllowances "tebunko/index/system_index.ps1" "tebunko/ui/settings/settings.ps1" @('$workspace') $workspaceUndecided
-            newAllowances "tebunko/indexer/index_migrate.ps1" "tebunko/ui/settings/settings.ps1" @('$workspace') $workspaceUndecided
-            newAllowances "tebunko/indexer/indexer_plan.ps1" "tebunko/ui/settings/settings.ps1" @('$workspace') $workspaceUndecided
-            newAllowances "tebunko/indexer/indexer_run.ps1" "tebunko/ui/settings/settings.ps1" @('$workspace') $workspaceUndecided
-            newAllowances "tebunko/indexer/indexer_state.ps1" "tebunko/ui/settings/settings.ps1" @('$workspace') $workspaceUndecided
-            newAllowances "tebunko/search/content_index_search.ps1" "tebunko/ui/settings/settings.ps1" @('$workspace') $workspaceUndecided
-            newAllowances "tebunko/search/fast_search.ps1" "tebunko/ui/settings/settings.ps1" @('$workspace') $workspaceUndecided
-            newAllowances "tebunko/search/search_run.ps1" "tebunko/ui/settings/settings.ps1" @('$workspace') $workspaceUndecided
-            newAllowances "tebunko/search/source_map.ps1" "tebunko/ui/settings/settings.ps1" @('$workspace') $workspaceUndecided
-            newAllowances "tebunko/search/windows_search.ps1" "tebunko/ui/settings/settings.ps1" @('$workspace') $workspaceUndecided
             # 判断層 → 画面層
             newAllowances "tebunko/ui/search/search_bar_view.ps1" "shared/ui/shell.ps1" @("formatTime") "判断層が、共有の画面層の関数を呼んでいる今ある依存"
             # core → index

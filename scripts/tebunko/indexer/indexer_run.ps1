@@ -32,7 +32,7 @@ ${ingestWorkerScript} = {
     # 部品を読み込んだのと同じスコープ（取り込みのスレッドでは global）に置く
     $own = [Workspace]::new($settings.WorkDir)
     $own.PublishDir = Join-Path $settings.PublishDir "w$number"
-    Set-Variable -Name workspace -Value $own
+    setCallerWorkspace $own
     Set-Variable -Name tmpDir -Value (newWorkerTmpDir $settings.TmpDir $number)
     Set-Variable -Name tmpDirReason -Value $settings.TmpDirReason
     [System.IO.Directory]::CreateDirectory($workspace.PublishDir) | Out-Null

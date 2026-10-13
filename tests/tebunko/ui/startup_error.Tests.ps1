@@ -38,14 +38,14 @@ Describe "getExistingRecordFile" -Tag Unit {
     }
 }
 
-Describe "getGuiErrorLogFile" -Tag Unit {
+Describe "getToolGuiErrorLogFile" -Tag Unit {
     AfterEach {
         Remove-Variable -Name workspace -Scope Script -ErrorAction SilentlyContinue
     }
 
     It "ワークスペースが決まる前は `$null を返す" {
         Remove-Variable -Name workspace -Scope Script -ErrorAction SilentlyContinue
-        getGuiErrorLogFile | Should -Be $null
+        getToolGuiErrorLogFile | Should -Be $null
     }
 
     It "startGui のような関数の中でワークスペースを決めたあと、その関数を抜けた外側からも記録先を返す（外側の catch から writeErrorLog が使える）" {
@@ -54,7 +54,7 @@ Describe "getGuiErrorLogFile" -Tag Unit {
             throw "画面の組み立ての失敗"
         }
         try { startGuiLike } catch { }
-        getGuiErrorLogFile | Should -Be "gui_error_log.txt"
+        getToolGuiErrorLogFile | Should -Be "gui_error_log.txt"
     }
 }
 
