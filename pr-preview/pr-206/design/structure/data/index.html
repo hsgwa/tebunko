@@ -4497,7 +4497,7 @@
 </tr>
 <tr>
 <td><code>GuiErrorLogFile</code></td>
-<td><code>&lt;Dir&gt;\gui_error_log.txt</code>（画面で起きた予期しないエラーの記録。追記。共通基盤の <code>writeErrorLog</code> は、画面が定義する <code>getGuiErrorLogFile</code> からこの場所を得る）</td>
+<td><code>&lt;Dir&gt;\gui_error_log.txt</code>（画面で起きた予期しないエラーの記録。追記。共通基盤の <code>writeErrorLog</code> は、画面が <code>setGuiErrorLogSource</code> で登録する <code>getToolGuiErrorLogFile</code> からこの場所を得る）</td>
 </tr>
 <tr>
 <td><code>GuiErrorLogPreviousFile</code></td>
