@@ -50,7 +50,7 @@ flowchart LR
 | `encodeIndexPlace` / `decodeIndexPlace` | 禁止文字・`_`・`%`・制御文字の `%XX` 化と往復、`衝突"` と `衝突”` が別の名前になる、使用可能文字（全角記号・空白・`&'#()`）は不変、符号化で作らない `%XX`（`100%` 等）は戻さない |
 | `splitObjectPlace` / `describePlace` / `describeHitPlace` | 図形・コメント・ヘッダー・フッターの場所の分解、場所ごとの表記（見出しの要約・検索結果ファイル）と種別の文字、行ごとの表記（表の「場所」列。セル番地・ほかの数・行番号） |
 | `toIndexFileName` / `convertIndexFileNameToPlace` | 決まった種類の場所は英語の固定名（ページ・スライド・見出し等）との往復、図形・コメント・ヘッダー・フッターの `[shape]` `[comment]` `[header_footer]`、決まった種類でない場所（Excel の任意のシート名）は符号化との往復、固定名と符号化がぶつからないこと、255 文字の上限 |
-| `placeKindFileNames` | 図形・コメント・ヘッダー・フッターの種類と `objectPlacePattern` がそろっていること |
+| `placeKindFileNames` / `newObjectPlaceKindPattern` | 図形・コメント・ヘッダー・フッターの種類と `objectPlacePattern` がそろっていること、末尾の種類を当てる正規表現（全部・種類を絞ったとき・`[埋め込み]` `[埋め込み01]`・知らない種類） |
 | `newIndexName` / `assignIndexNames` | フォルダ名・ドライブ名・共有名、重複時の `(2)` `(3)`、設定の名前をそのまま使う（フォルダの場所が変わっても同じ名前）、名前が無ければ前回の取り込み一覧の名前・フォルダ名から作る、設定にある名前はほかのフォルダに使わない、名前にできない・長いフォルダ名 |
 | `splitIndexRelPath` | 先頭のインデックス名と残り（深い階層、数字を含む名前）、`\` が無い場合 |
 | `testIndexName` | 使える名前は空文字列、空・前後の空白・255 文字超・使えない文字・末尾の `.`・Windows の予約語（大文字小文字を区別しない）・ほかのインデックスと重複、それぞれの理由を返す |
