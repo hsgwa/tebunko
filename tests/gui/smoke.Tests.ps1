@@ -50,7 +50,8 @@ Describe "S1 起動・検索・閉じる" -Tag Gui {
             $row = waitGui $S "結果の行" ${guiDefaultTimeout} { getGuiHitRows (findGui $S.Window -Id "ResultGrid") | Select-Object -Last 1 }
             selectGui $row
             waitGui $S "プレビュー（りんご）" ${guiDefaultTimeout} {
-                @(findAllGui (findGui $S.Window -Id "PreviewScroll") -Type Text | Where-Object { $_.Current.Name -eq "りんご" }).Count -gt 0
+                # プレビューの中のセルだけを見る（結果の表の「りんご」では通らない）
+                @(getGuiPreviewTexts $S.Window | Where-Object { $_.Text.Current.Name -eq "りんご" }).Count -gt 0
             } | Out-Null
             (getGuiText (findGui $S.Window -Id "DetailTitle")) | Should -BeLike "*見積.xlsx*"
 

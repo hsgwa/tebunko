@@ -737,8 +737,21 @@ Describe "getContentIndexFiles" -Tag Io {
     }
 }
 
-Describe "readContentIndexContext" -Tag Io {
+Describe "readContentIndexLines（ヒットの前後の行を、前に読んだファイルの控えを続けて渡して読む）" -Tag Io {
     BeforeAll {
+        # 画面の読み方に合わせた、テスト用の呼び出し口。lineNumber の前 before 行・後 after 行を読み、
+        # 最後に読んだファイルの控えを次の読みに渡す（キャッシュから読んだときは控えを変えない）
+        $script:ctxMarks = $null
+        function readCtx {
+            param ([string]$path, [string]$book, [string]$location, [int]$lineNumber, [int]$before = 3, [int]$after = 3, $cache = $null)
+            $first = [Math]::Max(1, $lineNumber - $before)
+            $last = $lineNumber + $after
+            if ($last -lt $first) { return @() }
+            $result = readContentIndexLines $path $book $location $first ($last - $first + 1) $cache $script:ctxMarks
+            if ($null -ne $result.Marks -and $null -ne $result.Marks.Places) { $script:ctxMarks = $result.Marks }
+            return $result.Rows
+        }
+
         $folder = Join-Path $TestDrive "context"
         [void][System.IO.Directory]::CreateDirectory($folder)
         $path = "$folder\content_index.xlsx.001.tsv"
@@ -753,33 +766,285 @@ Describe "readContentIndexContext" -Tag Io {
     }
 
     It "元のファイル・場所の中で、その行と前後の行を返す（ほかの場所の行は入れない）" {
-        formatContext (readContentIndexContext $path "A.xlsx" "S" 3 1 2) | Should -Be "2:2,3:3,4:4,5:5"
-        formatContext (readContentIndexContext $path "A.xlsx" "S" 6 2 3) | Should -Be "4:4,5:5,6:6"
-        formatContext (readContentIndexContext $path "B.xlsx" "S" 1 3 3) | Should -Be "1:b1,2:b2"
+        formatContext (readCtx $path "A.xlsx" "S" 3 1 2) | Should -Be "2:2,3:3,4:4,5:5"
+        formatContext (readCtx $path "A.xlsx" "S" 6 2 3) | Should -Be "4:4,5:5,6:6"
+        formatContext (readCtx $path "B.xlsx" "S" 1 3 3) | Should -Be "1:b1,2:b2"
     }
 
     It "見つからない・読めないときは空。キャッシュに同じ内容があればそれを使う" {
-        @(readContentIndexContext $path "無い.xlsx" "S" 1).Count | Should -Be 0
-        @(readContentIndexContext "$folder\無い.tsv" "A.xlsx" "S" 1).Count | Should -Be 0
+        @(readCtx $path "無い.xlsx" "S" 1).Count | Should -Be 0
+        @(readCtx "$folder\無い.tsv" "A.xlsx" "S" 1).Count | Should -Be 0
         $contentIndexFiles = findContentIndexFiles $folder
         $cache = newTsvTextCache
         [void](searchContentIndex "t1" $contentIndexFiles $true -cache $cache)
         # キャッシュの内容を書き換えると、ファイルではなくキャッシュから読んだことが分かる
         $entry = $cache.Texts[$contentIndexFiles[0].Path]
         $entry[2] = $entry[2].Replace("t1", "c1")
-        formatContext (readContentIndexContext $path "A.xlsx" "T" 1 0 0 $cache) | Should -Be "1:c1"
+        formatContext (readCtx $path "A.xlsx" "T" 1 0 0 $cache) | Should -Be "1:c1"
+    }
+
+    It "キャッシュに無くても、キャッシュに在るときと同じ行を返す（1 回目はファイルの全体、2 回目からは場所の一覧を使い回して範囲だけを読む）" {
+        $bigPath = "$folder\content_index.docx.001.tsv"
+        $bigText = (1..30000 | ForEach-Object { "行$_" }) -join "`r`n"
+        writeContentIndexFile $bigPath (convertToContentIndexText @(
+                @{ Name = "前.docx"; Places = @(@{ Place = "P1"; Text = "a1`r`na2`r`n" }) },
+                @{ Name = "長い.docx"; Places = @(@{ Place = "P1"; Text = "x1`r`nx2`r`n" }, @{ Place = "P2"; Text = "$bigText`r`n" }, @{ Place = "P3"; Text = "z1`r`nz2`r`n" }) }))
+        $files = findContentIndexFiles $folder
+        $cache = newTsvTextCache
+        [void](searchContentIndex "行" $files $true -cache $cache)
+        # 期待値は、検索のキャッシュを通る経路（ファイルを読まない）で作る
+        $cache.Texts.ContainsKey((toLongPath $bigPath)) | Should -Be $true
+        $originalReadText = Get-Command readContentIndexText -CommandType Function
+        Mock readContentIndexText { & $originalReadText @args }
+        $cases = @(
+            @("長い.docx", "P2", 1, 3, 3), @("長い.docx", "P2", 15000, 3, 3), @("長い.docx", "P2", 30000, 3, 5),
+            @("長い.docx", "P1", 2, 3, 3), @("長い.docx", "P3", 2, 1, 9), @("前.docx", "P1", 1, 0, 0), @("無い.docx", "P1", 1, 3, 3)
+        )
+        foreach ($round in 1..2) {
+            foreach ($case in $cases) {
+                $expected = formatContext (readCtx $bigPath $case[0] $case[1] $case[2] $case[3] $case[4] $cache)
+                $actual = formatContext (readCtx $bigPath $case[0] $case[1] $case[2] $case[3] $case[4])
+                $actual | Should -Be $expected -Because "$($case -join ',')（$round 回目）"
+            }
+        }
+        formatContext (readCtx $bigPath "長い.docx" "P2" 29999 1 5) | Should -Be "29998:行29998,29999:行29999,30000:行30000"
+        # ファイルの全体を読むのは、場所の一覧が無い 1 回目だけ（2 回目以降と、無い場所の問い合わせでは読まない）
+        Should -Invoke readContentIndexText -Times 1 -Exactly -Scope It
+    }
+
+    Context "範囲だけを読む経路（場所の一覧を覚えたあと）" {
+        BeforeAll {
+            # 1 つの It ごとに別のファイルを作り、場所の一覧を覚えさせる（本の名前は E.csv）
+            function newContextFile {
+                param ([string]$tag)
+                $dir = "$folder\range_$tag"
+                [void][System.IO.Directory]::CreateDirectory($dir)
+                $file = "$dir\content_index.csv.001.tsv"
+                writeContentIndexFile $file (convertToContentIndexText @(@{ Name = "E.csv"; Places = @(@{ Place = "本文"; Text = "1`r`n2`r`n3`r`n4`r`n5`r`n6`r`n" }) }))
+                [void](readCtx $file "E.csv" "本文" 3 1 1)
+                return $file
+            }
+        }
+
+        It "<Name>" -ForEach @(
+            @{ Name = "BOM が無く範囲を読めないときは、全体を読んで同じ行を返す"; Expected = "2:2,3:3,4:4"; Scenario = "nobom" }
+            @{ Name = "開けない（IOException）ときは空"; Expected = ""; Scenario = "io" }
+            @{ Name = "アクセスできない（UnauthorizedAccessException）ときは空"; Expected = ""; Scenario = "denied" }
+            @{ Name = "覚えたあとにファイルが無くなったら空"; Expected = ""; Scenario = "moved" }
+            @{ Name = "読んでいる間にファイルが置き換わったら、古い位置の行を返さずに新しい内容を読み直す"; Expected = "2:n2,3:n3,4:n4"; Scenario = "replaced" }
+        ) {
+            $file = newContextFile $Scenario
+            $book = "E.csv"
+            $originalRange = Get-Command readContentIndexRange -CommandType Function
+            switch ($Scenario) {
+                "nobom" { Mock readContentIndexRange { $null } }
+                "io" { Mock readContentIndexRange { throw [System.IO.IOException]::new("使用中") } }
+                "denied" { Mock readContentIndexRange { throw [System.UnauthorizedAccessException]::new("拒否") } }
+                "moved" { [System.IO.File]::Move($file, "$file.moved") }
+                "replaced" {
+                    $replacedFile = $file
+                    Mock readContentIndexRange {
+                        writeContentIndexFile $replacedFile (convertToContentIndexText @(@{ Name = $book; Places = @(@{ Place = "本文"; Text = "n1`r`nn2`r`nn3`r`nn4`r`nn5`r`n" }) }))
+                        [System.IO.File]::SetLastWriteTimeUtc($replacedFile, [DateTime]::UtcNow.AddDays(1))
+                        & $originalRange @args
+                    }
+                }
+            }
+            formatContext @(readCtx $file $book "本文" 3 1 1) | Should -Be $Expected
+        }
+
+        It "BOM の無いファイルは readContentIndexRange が `$null を返す" {
+            $noBom = "$TestDrive\nobom.tsv"
+            [System.IO.File]::WriteAllBytes($noBom, [System.Text.Encoding]::Unicode.GetBytes("1`r`n2`r`n"))
+            readContentIndexRange $noBom 0 4 1 2 | Should -BeNullOrEmpty
+        }
+
+        It "範囲だけ読んでも、読み飛ばした行の数え方がずれない（1 行目・途中・最後・場所の外）" -ForEach @(
+            @{ First = 1; Last = 2; Expected = "1:1,2:2" }
+            @{ First = 3; Last = 5; Expected = "3:3,4:4,5:5" }
+            @{ First = 6; Last = 9; Expected = "6:6" }
+            @{ First = 7; Last = 9; Expected = "" }
+        ) {
+            $file = newContextFile "n$First$Last"
+            $rows = readCtx $file "E.csv" "本文" $First 0 ($Last - $First)
+            formatContext @($rows) | Should -Be $Expected
+        }
+
+        It "テキストの前後の行は、範囲だけ読んだときも先頭から 1,000 文字に切る" {
+            $textPath = "$folder\content_index.log.002.tsv"
+            $longLine = "y" * 2000
+            writeContentIndexFile $textPath (convertToContentIndexText @(@{ Name = "長い2.log"; Places = @(@{ Place = "本文"; Text = "短い`r`n${longLine}`r`n短い2`r`n" }) }))
+            [void](readCtx $textPath "長い2.log" "本文" 1 0 0)
+            $rows = readCtx $textPath "長い2.log" "本文" 2 1 1
+            $rows[0].Line | Should -Be "短い"
+            $rows[1].Line.Length | Should -Be 1001
+            $rows[1].Line.EndsWith("…") | Should -Be $true
+            $rows[2].Line | Should -Be "短い2"
+        }
+    }
+
+    It "ファイルが書き換わったら、使い回した場所の一覧を使わない" {
+        $changedPath = "$folder\content_index.csv.001.tsv"
+        writeContentIndexFile $changedPath (convertToContentIndexText @(@{ Name = "C.csv"; Places = @(@{ Place = "本文"; Text = "1`r`n2`r`n3`r`n" }) }))
+        formatContext (readCtx $changedPath "C.csv" "本文" 2 0 0) | Should -Be "2:2"
+        formatContext (readCtx $changedPath "C.csv" "本文" 2 0 0) | Should -Be "2:2"
+        writeContentIndexFile $changedPath (convertToContentIndexText @(@{ Name = "D.csv"; Places = @(@{ Place = "別"; Text = "d1`r`nd2`r`nd3`r`nd4`r`n" }) }))
+        @(readCtx $changedPath "C.csv" "本文" 2 0 0).Count | Should -Be 0
+        formatContext (readCtx $changedPath "D.csv" "別" 4 1 0) | Should -Be "3:d3,4:d4"
     }
 
     It "テキストの前後の行は、一致の位置が分からないため先頭から1,000文字に切る（Excel は切らない）" {
         $textPath = "$folder\content_index.log.001.tsv"
         $longLine = "x" * 2000
         writeContentIndexFile $textPath (convertToContentIndexText @(@{ Name = "長い.log"; Places = @(@{ Place = "本文"; Text = "短い`r`n${longLine}`r`n短い2`r`n" }) }))
-        $rows = readContentIndexContext $textPath "長い.log" "本文" 2 1 1
+        $rows = readCtx $textPath "長い.log" "本文" 2 1 1
         $rows[0].Line | Should -Be "短い"
         $rows[1].Line.Length | Should -Be 1001
         $rows[1].Line.Substring(0, 1000) | Should -Be $longLine.Substring(0, 1000)
         $rows[1].Line.EndsWith("…") | Should -Be $true
         $rows[2].Line | Should -Be "短い2"
+    }
+}
+
+Describe "readContentIndexLines（続きから読む。控えを引数で渡し、戻り値で受ける）" -Tag Io {
+    BeforeAll {
+        $folder = Join-Path $TestDrive "lines"
+        [void][System.IO.Directory]::CreateDirectory($folder)
+        $path = "$folder\content_index.docx.001.tsv"
+        $bigText = (1..1000 | ForEach-Object { "行$_" }) -join "`r`n"
+        writeContentIndexFile $path (convertToContentIndexText @(
+                @{ Name = "前.docx"; Places = @(@{ Place = "P1"; Text = "a1`r`na2`r`n" }) },
+                @{ Name = "長い.docx"; Places = @(@{ Place = "P1"; Text = "$bigText`r`n" }, @{ Place = "P2"; Text = "z1`r`nz2`r`n" }) }))
+
+        function formatLines {
+            param ($result)
+            return (@($result.Rows | ForEach-Object { "$($_.LineNumber):$($_.Line)" }) -join ",")
+        }
+    }
+
+    It "1 回目はファイルの全体、続きは控えを使って範囲だけを読む。どちらも同じ行を返し、終わりを知らせる" {
+        $originalReadText = Get-Command readContentIndexText -CommandType Function
+        Mock readContentIndexText { & $originalReadText @args }
+        $first = readContentIndexLines $path "長い.docx" "P1" 1 3
+        formatLines $first | Should -Be "1:行1,2:行2,3:行3"
+        $first.End | Should -Be $false
+        $next = readContentIndexLines $path "長い.docx" "P1" 4 3 $null $first.Marks
+        formatLines $next | Should -Be "4:行4,5:行5,6:行6"
+        $far = readContentIndexLines $path "長い.docx" "P1" 998 5 $null $next.Marks
+        formatLines $far | Should -Be "998:行998,999:行999,1000:行1000"
+        $far.End | Should -Be $true
+        $up = readContentIndexLines $path "長い.docx" "P1" 1 2 $null $far.Marks
+        formatLines $up | Should -Be "1:行1,2:行2"
+        # ファイルの全体を読むのは 1 回目だけ
+        Should -Invoke readContentIndexText -Times 1 -Exactly -Scope It
+    }
+
+    It "渡した控えは書き換えない。200 行ごとの位置を控え、遠い行はその手前から読む" {
+        $first = readContentIndexLines $path "長い.docx" "P1" 1 1000
+        $key = "長い.docx`tP1"
+        $keys = @($first.Marks.Checkpoints[$key].Keys | Sort-Object)
+        ($keys -join ",") | Should -Be "201,401,601,801"
+        $before = $first.Marks.Checkpoints[$key].Count
+        $result = readContentIndexLines $path "長い.docx" "P1" 650 2 $null $first.Marks
+        formatLines $result | Should -Be "650:行650,651:行651"
+        $first.Marks.Checkpoints[$key].Count | Should -Be $before
+        # 範囲を読むと、通った 200 行ごとの位置が増える（読み進めた分だけ）
+        $fresh = readContentIndexLines $path "長い.docx" "P1" 1 1000
+        $fresh.Marks.Checkpoints[$key].Remove(801)
+        $fresh.Marks.Checkpoints[$key].Remove(601)
+        $fresh.Marks.Checkpoints[$key].Remove(401)
+        $more = readContentIndexLines $path "長い.docx" "P1" 790 20 $null $fresh.Marks
+        formatLines $more | Should -Be ((790..809 | ForEach-Object { "${_}:行$_" }) -join ",")
+        $more.Marks.Checkpoints[$key].ContainsKey(801) | Should -Be $true
+    }
+
+    It "同じ控えを別の場所の読みに使っても、別の場所の位置から読まない" {
+        # 同じファイルの P1（1000 行）で 200 行ごとの位置を控えたあと、P2（2 行）を同じ控えで読む
+        $first = readContentIndexLines $path "長い.docx" "P1" 1 1000
+        $other = readContentIndexLines $path "長い.docx" "P2" 1 5 $null $first.Marks
+        formatLines $other | Should -Be "1:z1,2:z2"
+        $other.End | Should -Be $true
+        # P1 の位置は P2 の読みで壊れず、P1 に戻っても同じ行を返す
+        formatLines (readContentIndexLines $path "長い.docx" "P1" 650 2 $null $other.Marks) | Should -Be "650:行650,651:行651"
+        # 控えが無い別の場所から先に読んでも、あとの場所の読みが先の場所の位置を使わない
+        $p2 = readContentIndexLines $path "長い.docx" "P2" 1 2
+        formatLines (readContentIndexLines $path "長い.docx" "P1" 401 2 $null $p2.Marks) | Should -Be "401:行401,402:行402"
+    }
+
+    It "場所の外・見つからない・読めないときは空で End。頼んだ数が 0 なら空で End にしない" {
+        (readContentIndexLines $path "長い.docx" "P2" 3 5).End | Should -Be $true
+        @((readContentIndexLines $path "長い.docx" "P2" 3 5).Rows).Count | Should -Be 0
+        @((readContentIndexLines $path "無い.docx" "P1" 1 5).Rows).Count | Should -Be 0
+        $missing = readContentIndexLines "$folder\無い.tsv" "長い.docx" "P1" 1 5
+        @($missing.Rows).Count | Should -Be 0
+        $missing.End | Should -Be $true
+        $none = readContentIndexLines $path "長い.docx" "P1" 1 0
+        $none.End | Should -Be $false
+        @($none.Rows).Count | Should -Be 0
+    }
+
+    It "ファイルが書き換わったら、古い控えを使わない" {
+        $file = "$folder\content_index.csv.001.tsv"
+        writeContentIndexFile $file (convertToContentIndexText @(@{ Name = "C.csv"; Places = @(@{ Place = "本文"; Text = "1`r`n2`r`n3`r`n" }) }))
+        $old = readContentIndexLines $file "C.csv" "本文" 1 2
+        formatLines $old | Should -Be "1:1,2:2"
+        writeContentIndexFile $file (convertToContentIndexText @(@{ Name = "C.csv"; Places = @(@{ Place = "本文"; Text = "n1`r`nn2`r`nn3`r`nn4`r`n" }) }))
+        [System.IO.File]::SetLastWriteTimeUtc($file, [DateTime]::UtcNow.AddDays(1))
+        formatLines (readContentIndexLines $file "C.csv" "本文" 2 3 $null $old.Marks) | Should -Be "2:n2,3:n3,4:n4"
+    }
+
+    # 控えが古い（ファイルが変わった）ことは、パス・更新日時・大きさで見分ける。更新日時も大きさも同じまま中身だけが変わると見分けられない（この表には入れない）
+    It "<Name>、古い控えの行は返さず、今のファイルの行を返す" -ForEach @(
+        @{ Name = "大きさが変わり、更新日時は同じ"; Scenario = "size" }
+        @{ Name = "更新日時が変わり、大きさは同じ"; Scenario = "ticks" }
+        @{ Name = "インデックスを作り直して場所の並びが変わった"; Scenario = "rebuilt" }
+        @{ Name = "別のファイルの控え（本の名前・場所の名前が同じ）"; Scenario = "otherfile" }
+    ) {
+        $dir = "$folder\stale_$Scenario"
+        [void][System.IO.Directory]::CreateDirectory($dir)
+        $file = "$dir\content_index.csv.001.tsv"
+        $oldText = (1..300 | ForEach-Object { "旧$_" }) -join "`r`n"
+        writeContentIndexFile $file (convertToContentIndexText @(@{ Name = "C.csv"; Places = @(@{ Place = "本文"; Text = "$oldText`r`n" }) }))
+        $old = readContentIndexLines $file "C.csv" "本文" 1 250
+        $oldTicks = (Get-Item -LiteralPath $file).LastWriteTimeUtc.Ticks
+        $target = $file
+        switch ($Scenario) {
+            "size" {
+                $newText = (1..300 | ForEach-Object { "新$_" }) -join "`r`n"
+                writeContentIndexFile $file (convertToContentIndexText @(@{ Name = "C.csv"; Places = @(@{ Place = "本文"; Text = "$newText`r`n新301`r`n" }) }))
+                [System.IO.File]::SetLastWriteTimeUtc($file, [DateTime]::new($oldTicks, [DateTimeKind]::Utc))
+            }
+            "ticks" {
+                $newText = (1..300 | ForEach-Object { "新$_" }) -join "`r`n"
+                writeContentIndexFile $file (convertToContentIndexText @(@{ Name = "C.csv"; Places = @(@{ Place = "本文"; Text = "$newText`r`n" }) }))
+                [System.IO.File]::SetLastWriteTimeUtc($file, [DateTime]::UtcNow.AddDays(2))
+            }
+            "rebuilt" {
+                $newText = (1..300 | ForEach-Object { "新$_" }) -join "`r`n"
+                writeContentIndexFile $file (convertToContentIndexText @(@{ Name = "X.csv"; Places = @(@{ Place = "別"; Text = "x`r`n" }) }, @{ Name = "C.csv"; Places = @(@{ Place = "本文"; Text = "$newText`r`n" }) }))
+                [System.IO.File]::SetLastWriteTimeUtc($file, [DateTime]::UtcNow.AddDays(3))
+            }
+            "otherfile" {
+                $target = "$dir\content_index.csv.002.tsv"
+                $newText = (1..300 | ForEach-Object { "別$_" }) -join "`r`n"
+                writeContentIndexFile $target (convertToContentIndexText @(@{ Name = "C.csv"; Places = @(@{ Place = "本文"; Text = "$newText`r`n" }) }))
+            }
+        }
+        $prefix = if ($Scenario -eq "otherfile") { "別" } else { "新" }
+        $result = readContentIndexLines $target "C.csv" "本文" 250 3 $null $old.Marks
+        formatLines $result | Should -Be "250:${prefix}250,251:${prefix}251,252:${prefix}252"
+        # 返した控えは今のファイルのもの（次の読みでも、古い行は返らない）
+        $result.Marks.Path | Should -Be (toLongPath $target)
+        formatLines (readContentIndexLines $target "C.csv" "本文" 1 2 $null $result.Marks) | Should -Be "1:${prefix}1,2:${prefix}2"
+    }
+
+    It "キャッシュに同じ内容があれば、ファイルを読まずにキャッシュから返す" {
+        $files = findContentIndexFiles $folder
+        $cache = newTsvTextCache
+        [void](searchContentIndex "行" $files $true -cache $cache)
+        $entry = $cache.Texts[(toLongPath $path)]
+        $entry[2] = $entry[2].Replace("行5`n", "改5`n")
+        formatLines (readContentIndexLines $path "長い.docx" "P1" 4 3 $cache) | Should -Be "4:行4,5:改5,6:行6"
     }
 }
 

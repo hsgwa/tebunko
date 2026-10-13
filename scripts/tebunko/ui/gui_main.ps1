@@ -13,10 +13,12 @@ function startGui {
     [System.Runtime.GCSettings]::LatencyMode = [System.Runtime.GCLatencyMode]::SustainedLowLatency
 
     ${searchLimit} = 10000
-    # 選択行のプレビューに出す行数は、プレビューの高さ（ドラッグで変わる）に収まるだけ出す（getPreviewContextLines）
-    ${previewRowHeight}     = 22   # プレビューの 1 行の高さの目安。高さから出せる行数を求めるのに使う
-    ${previewScrollBarSize} = 18   # 横スクロールバーの高さの目安（ViewportHeight が取れないときに引く）
-    ${maxPreviewRows}       = 101  # プレビューに出す行数の上限（選択行＋前後 50 行）
+    ${previewFirstLines}    = 50   # 行を選んだときに、プレビューへ最初に出す選択行の前後の行数（それぞれ）
+    ${previewReadAheadLines} = 20  # 見えている行が、読んである範囲の端からこの行数以内に近づいたら、その向きに読み足す
+    ${previewChunkLines}    = 200  # 1 回に読み足す行数（持つ行が上限を超えたとき、遠い側から捨てる行数も同じ）
+    ${previewMaxRows}       = 3000 # プレビューに持つ行の上限（超えたら、見ている所から遠い側を捨てる）
+    ${previewColumnMargin}  = 3    # 見えている列の左右に、先に作っておく列の数（横にスクロールするたびにセルを作り直さないため）
+    ${previewCellRowMargin} = 10   # 見えている行の上下に、先にセルを作っておく行の数
     ${backgroundWorkers} = 2  # startJob のスレッドの数
 
     # 画面定義（XAML）とアイコンの置き場所
@@ -111,7 +113,7 @@ function startGui {
             "ResultMenu", "MenuOpen", "MenuOpenReadOnly", "MenuOpenNew", "MenuOpenFolder", "MenuCopy", "MenuCopyPath", "MenuToggleGroup") }
         @{ File = "search\preview.xaml"; Slot = "PreviewHost"; Names = @(
             "DetailPanel", "DetailTitle", "OpenButton", "OpenMenuButton", "MenuOpenModeNormal", "MenuOpenModeNew", "MenuOpenModeReadOnly", "OpenFolderButton",
-            "PreviewScroll", "PreviewHeaderScroll", "PreviewHeader", "PreviewRows", "PreviewNote",
+            "PreviewHeaderScroll", "PreviewHeaderPanel", "PreviewHeader", "PreviewRows",
             "PreviewPlaceholder", "PreviewMenu", "MenuPreviewOpen", "MenuPreviewCopy", "MenuPreviewCopyRow") }
         @{ File = "settings\settings.xaml"; Slot = "ContentHost"; Screen = "SettingsTab"; Names = @(
             "WorkspaceBox", "WorkspaceInputError", "WorkspaceNote", "WorkspaceCaution", "WorkspaceHowTo", "ChangeWorkspaceButton", "ResetWorkspaceButton", "SettingsFileText", "SettingsFileNote") }
@@ -143,6 +145,10 @@ function startGui {
         }
         stepSplash 70
     }
+    # プレビューの行の入れ物（PreviewRows）は、行の仮想化のために、自分のテンプレートの中にスクロール（PreviewScroll）を持つ。
+    # テンプレートの中の名前は上の FindName では取れないので、テンプレートを作ってから取る
+    [void]$ui.PreviewRows.ApplyTemplate()
+    $ui.PreviewScroll = $ui.PreviewRows.Template.FindName("PreviewScroll", $ui.PreviewRows)
     $taskbar = $window.TaskbarItemInfo
 
     ${okBrush}   = themeBrush "Ok"

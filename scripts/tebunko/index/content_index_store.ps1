@@ -38,6 +38,63 @@ function readContentIndexText {
 }
 
 
+function readContentIndexRange {
+    # 本文インデックスのファイル（UTF-16LE・BOM 付き）の、文字の位置 start（含む）から end（含まない）までを start から数えて、
+    # firstLine 行目の先頭（firstLine が 1 以下なら start）から lines 個目の改行までを文字列で返す（それより前の行は持たない）。
+    # BOM が無い（UTF-16LE でない）ときは $null（呼び出し側が全体を読む）。
+    # checkpoints（ハッシュテーブル）を渡すと、通った 200 行ごとの行の先頭（行の番号 → 文字の位置）を足す
+    # （start の行の番号が baseLine。次に読むとき、目当ての行の手前の位置から読めるようにする）
+    param (
+        [string]$path,
+        [int]$start,
+        [int]$end,
+        [int]$firstLine,
+        [int]$lines,
+        [int]$baseLine = 1,
+        $checkpoints = $null
+    )
+
+    $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
+    $stream = [System.IO.FileStream]::new((toLongPath $path), [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
+    try {
+        $bom = New-Object byte[] 2
+        if ($stream.Read($bom, 0, 2) -ne 2 -or $bom[0] -ne 0xFF -or $bom[1] -ne 0xFE) { return $null }
+        [void]$stream.Seek(2L + 2L * $start, [System.IO.SeekOrigin]::Begin)
+        $reader = [System.IO.StreamReader]::new($stream, [System.Text.UnicodeEncoding]::new($false, $false), $false)
+        $builder = New-Object System.Text.StringBuilder
+        $buffer = New-Object char[] 65536
+        $remaining = $end - $start
+        $newlines = 0
+        $skip = [Math]::Max(0, $firstLine - 1)
+        $started = ($skip -eq 0)
+        while ($remaining -gt 0 -and $newlines -lt $lines) {
+            $consumed = ($end - $start) - $remaining
+            $got = $reader.Read($buffer, 0, [Math]::Min($buffer.Length, $remaining))
+            if ($got -le 0) { break }
+            $keepFrom = if ($started) { 0 } else { -1 }
+            $from = 0
+            while ($from -lt $got) {
+                $found = [Array]::IndexOf($buffer, [char]10, $from, $got - $from)
+                if ($found -lt 0) { break }
+                $newlines++
+                $from = $found + 1
+                if ($null -ne $checkpoints) {
+                    $nextLine = $baseLine + $newlines
+                    if (($nextLine - 1) % 200 -eq 0) { $checkpoints[$nextLine] = $start + $consumed + $from }
+                }
+                if (!$started -and $newlines -eq $skip) { $started = $true; $keepFrom = $from }
+            }
+            # 読み飛ばす行のチャンクは捨てる（行数だけ数える）
+            if ($keepFrom -ge 0 -and $keepFrom -lt $got) { [void]$builder.Append($buffer, $keepFrom, $got - $keepFrom) }
+            $remaining -= $got
+        }
+        return $builder.ToString()
+    } finally {
+        $stream.Dispose()
+    }
+}
+
+
 function testIndexBookDir {
     # インデックスの中のフォルダが、元のファイルごとのフォルダ（<ファイル名.xlsx>\<場所>.tsv。本文インデックスのファイルに入れる前の TSV の置き場所）か。
     # 名前だけでは、名前が .xlsx などで終わる本物のフォルダ（元のフォルダの名前をそのまま使う）と区別できないため、中身も見る:
@@ -298,24 +355,29 @@ function publishIndexFolders {
 }
 
 
-function readContentIndexContext {
-    # 本文インデックスのファイルの中の、元のファイル book・場所 location の lineNumber 行目と、その前後 before 行・after 行を
-    # @{ LineNumber; Line } の配列で返す（画面の選択行のプレビュー。行の数え方は検索と同じ）。
-    # cache（検索のキャッシュ）に同じ本文インデックスのファイルの内容があれば、ファイルを読み直さない。読めない・見つからなければ空
+function readContentIndexLines {
+    # 本文インデックスのファイルの中の、元のファイル book・場所 location の firstLine 行目から count 行を返す（画面の選択行のプレビュー。
+    # 行の数え方は検索と同じ）。戻り値は @{ Rows = @{ LineNumber; Line } の配列; End = 頼んだ数より少なく返ったか（場所の終わりまで読んだ）; Marks = 更新した控え }。
+    # cache（検索のキャッシュ）に同じ本文インデックスのファイルの内容があれば、ファイルを読み直さない。読めない・見つからなければ Rows は空・End は $true。
+    #
+    # marks は、繰り返し読むときに先頭から読み飛ばさないための控え（@{ Path; Ticks; Size; Places; Checkpoints }。
+    # ファイルのパス・更新日時・大きさが同じ間だけ使う）。呼び出し側が引数で渡し、戻り値の Marks で受け取る
+    # （読み足しは別の runspace で動くため、$script: には置かない。渡された控えは書き換えず、新しいものを返す）。
+    # Places は場所の一覧、Checkpoints は場所ごと（Book と Location をタブでつないだ名前）の、200 行ごとの行の先頭の位置（行の番号 → 文字の位置）
     param (
         [string]$path,
         [string]$book,
         [string]$location,
-        [int]$lineNumber,
-        [int]$before = 3,
-        [int]$after = 3,
-        $cache = $null
+        [int]$firstLine,
+        [int]$count,
+        $cache = $null,
+        $marks = $null
     )
 
-    $rows = New-Object System.Collections.Generic.List[psobject]
-    $first = [Math]::Max(1, $lineNumber - $before)
-    $last = $lineNumber + $after
-    if ($last -lt $first) { return @() }
+    $first = [Math]::Max(1, $firstLine)
+    $last = $first + $count - 1
+    if ($count -le 0) { return @{ Rows = @(); End = $false; Marks = $marks } }
+    $nothing = @{ Rows = @(); End = $true; Marks = $marks }
     $text = $null
     $places = $null
     $longPath = toLongPath $path
@@ -327,25 +389,71 @@ function readContentIndexContext {
             $places = $entry[3]
         }
     }
+    $isRange = $false
+    $newMarks = $marks
+    $checkpoints = $null
+    $allCheckpoints = $null
+    $placeKey = "$book`t$location"
     try {
         if ($null -eq $text) {
-            $text = readContentIndexText $path
-            $places = readContentIndexPlaces $text
+            # キャッシュに無いときは、ファイルの全体を文字列にしない。控えがあれば、その場所の目当ての行の手前の位置から必要な行までだけを読む
+            # （続けて読むたびに、全体を読み直さず、場所の先頭からも読み飛ばさない）
+            $info = [System.IO.FileInfo]::new($longPath)
+            if (!$info.Exists) { return $nothing }
+            if ($null -ne $marks -and $marks.Path -eq $longPath -and $marks.Ticks -eq $info.LastWriteTimeUtc.Ticks -and $marks.Size -eq $info.Length) {
+                $places = $marks.Places
+                $allCheckpoints = $(if ($null -ne $marks.Checkpoints) { $marks.Checkpoints.Clone() } else { @{} })
+                $found = $false
+                foreach ($place in $places) {
+                    if ($place.Book -ne $book -or $place.Location -ne $location) { continue }
+                    $found = $true
+                    # 位置は場所ごとに控える（行の番号が同じでも、別の場所の位置は使わない）
+                    $checkpoints = $(if ($allCheckpoints.ContainsKey($placeKey)) { $allCheckpoints[$placeKey].Clone() } else { @{} })
+                    $allCheckpoints[$placeKey] = $checkpoints
+                    $base = 1
+                    $startPosition = $place.Start
+                    foreach ($key in $checkpoints.Keys) {
+                        if ($key -le $first -and $key -gt $base) { $base = $key; $startPosition = $checkpoints[$key] }
+                    }
+                    $text = readContentIndexRange $path $startPosition $place.End ($first - $base + 1) ($last - $base + 1) $base $checkpoints
+                    break
+                }
+                # 控えが今のファイルのものなら、無い場所はファイルを読まずに空
+                if (!$found) { return $nothing }
+                if ($null -ne $text) {
+                    # 読んでいる間にファイルが置き換わっていたら、古い位置で読んだ行は使わず、全体を読み直す
+                    $again = [System.IO.FileInfo]::new($longPath)
+                    if ($again.Exists -and $again.LastWriteTimeUtc.Ticks -eq $info.LastWriteTimeUtc.Ticks -and $again.Length -eq $info.Length) { $isRange = $true } else { $text = $null }
+                }
+            }
+            if ($null -eq $text) {
+                $text = readContentIndexText $path
+                $places = readContentIndexPlaces $text
+                $checkpoints = @{}
+                $allCheckpoints = @{ $placeKey = $checkpoints }
+            }
+            $newMarks = @{ Path = $longPath; Ticks = $info.LastWriteTimeUtc.Ticks; Size = $info.Length; Places = $places; Checkpoints = $allCheckpoints }
         }
     } catch [System.IO.IOException] {
-        return @()
+        return $nothing
     } catch [System.UnauthorizedAccessException] {
-        return @()
+        return $nothing
     }
+    $rows = New-Object System.Collections.Generic.List[psobject]
     $isTextBook = (getContentIndexFileKind $book) -eq "テキスト"
     foreach ($place in $places) {
         if ($place.Book -ne $book -or $place.Location -ne $location) { continue }
-        $number = 0
-        $pos = $place.Start
-        while ($pos -lt $place.End) {
-            $n = $text.IndexOf([char]10, $pos, $place.End - $pos)
-            if ($n -lt 0) { $n = $place.End }
+        # 範囲だけ読んだときは、text の先頭が $first 行目の先頭
+        $number = if ($isRange) { $first - 1 } else { 0 }
+        $placeEnd = if ($isRange) { $text.Length } else { [Math]::Min($place.End, $text.Length) }
+        $pos = if ($isRange) { 0 } else { $place.Start }
+        # ファイルの全体を読んだときは、通った 200 行ごとの行の先頭を控える（範囲を読んだときは readContentIndexRange が控える）
+        $record = !$isRange -and $null -ne $checkpoints
+        while ($pos -lt $placeEnd) {
+            $n = $text.IndexOf([char]10, $pos, $placeEnd - $pos)
+            if ($n -lt 0) { $n = $placeEnd }
             $number++
+            if ($record -and $number -gt 1 -and ($number - 1) % 200 -eq 0) { $checkpoints[$number] = $pos }
             if ($number -gt $last) { break }
             if ($number -ge $first) {
                 $line = $text.Substring($pos, $n - $pos)
@@ -359,6 +467,6 @@ function readContentIndexContext {
         }
         break
     }
-    # 呼び出し側で @() にして使う
-    return $rows.ToArray()
+    return @{ Rows = $rows.ToArray(); End = ($rows.Count -lt $count); Marks = $newMarks }
 }
+

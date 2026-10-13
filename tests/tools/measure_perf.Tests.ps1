@@ -9,6 +9,108 @@ BeforeAll {
     }
 }
 
+Describe "perf_common.ps1 の子のスクリプトの実行" -Tag Unit {
+    BeforeAll {
+        function runChild([string]$body, [int]$tailLines = 20) {
+            $path = Join-Path $TestDrive "child_$([guid]::NewGuid().ToString('N')).ps1"
+            [System.IO.File]::WriteAllText($path, $body, (New-Object System.Text.UTF8Encoding($true)))
+            invokeChildScript $path @() $tailLines
+        }
+    }
+    # CI で流しても本物の Application ログを読まないよう、既定では空を返す（読む It は自分で差し替える）
+    BeforeEach { Mock getChildCrashEvents { @() } }
+
+    It "0 以外で終わると、<name>" -TestCases @(
+        @{ name = "出した文（標準出力・標準エラー）と終了コードが例外に入る"; body = "Write-Output 'out-line'; [Console]::Error.WriteLine('err-line'); exit 5"; contains = @("out-line", "err-line", "終了コード 5・0x00000005") }
+        @{ name = "何も出さなくても終了コードが入り、出力が無かったと分かる"; body = "exit 5"; contains = @("終了コード 5・0x00000005", "何も出力しませんでした") }
+        @{ name = "大きな終了コードは 16 進でも読める"; body = "exit -1073741819"; contains = @("終了コード -1073741819・0xC0000005") }
+    ) {
+        param ($body, $contains)
+        $thrown = $null
+        try { runChild $body | Out-Null } catch { $thrown = $_.Exception.Message }
+        $thrown | Should -Not -BeNullOrEmpty
+        foreach ($text in $contains) { $thrown | Should -BeLike "*$text*" }
+    }
+
+    # 本物のイベントログは読まず、getChildCrashEvents を差し替える
+    It "0 以外で終わったとき、<name>" -TestCases @(
+        @{ name = "CI のときは、取れたイベントが元の文のあとに入る"; ci = "true"; reader = { "10:00:00 Application Error (ID 1000): crash-detail" }; contains = @("終了コード 5", "crash-detail"); calls = 1 }
+        @{ name = "CI でないときは、イベントログを読まない"; ci = ""; reader = { "10:00:00 Application Error (ID 1000): crash-detail" }; contains = @("終了コード 5"); calls = 0 }
+        @{ name = "読むのに失敗しても、元の文（終了コードと出力）が出る"; ci = "true"; reader = { throw "読めません" }; contains = @("終了コード 5", "child-out"); calls = 1 }
+    ) {
+        param ($ci, $reader, $contains, $calls)
+        $saved = $env:GITHUB_ACTIONS
+        $env:GITHUB_ACTIONS = $ci
+        try {
+            Mock getChildCrashEvents $reader
+            $thrown = $null
+            try { runChild "Write-Output 'child-out'; exit 5" | Out-Null } catch { $thrown = $_.Exception.Message }
+            foreach ($text in $contains) { $thrown | Should -BeLike "*$text*" }
+            if ($calls -eq 0) { $thrown | Should -Not -BeLike "*crash-detail*" }
+            Should -Invoke getChildCrashEvents -Times $calls -Exactly
+        } finally {
+            $env:GITHUB_ACTIONS = $saved
+        }
+    }
+
+    It "例外に入れるのは、出力の終わりの指定行数だけ" {
+        $thrown = $null
+        try { runChild "1..10 | ForEach-Object { Write-Output ('line' + `$_) }; exit 3" 3 | Out-Null } catch { $thrown = $_.Exception.Message }
+        $thrown | Should -BeLike "*line10*"
+        $thrown | Should -BeLike "*line8*"
+        $thrown | Should -Not -BeLike "*line7*"
+    }
+
+    It "成功したときは、子の出力をそのまま流し、例外にしない" {
+        $out = @(runChild "Write-Output 'ok-line'; exit 0")
+        $out | Should -Contain "ok-line"
+    }
+}
+
+Describe "perf_common.ps1 の子の異常終了のイベント" -Tag Unit {
+    # 提供元ごとの記録（id・m = 本文・s = 秒）を差し替える（本物のログは読まない）。"fail" の提供元は、読むと失敗する
+    It "<name>" -TestCases @(
+        @{ name = "powershell.exe に関するものだけを取る"; max = 5; len = 400
+            by = @{ "Application Error" = @(@{ id = 1000; m = "faulting powershell.exe code c0000005"; s = 1 }, @{ id = 1000; m = "faulting other.exe"; s = 2 }) }
+            expect = @("Application Error (ID 1000): faulting powershell.exe code c0000005"); absent = @("other.exe") }
+        @{ name = "件数は上限までで、時刻の早い順"; max = 2; len = 400
+            by = @{ "Application Error" = @(@{ id = 1000; m = "powershell.exe a"; s = 3 }, @{ id = 1000; m = "powershell.exe b"; s = 1 }); ".NET Runtime" = @(@{ id = 1026; m = "powershell.exe c"; s = 2 }) }
+            expect = @("powershell.exe b", "powershell.exe c"); absent = @("powershell.exe a") }
+        @{ name = "1 件の長さは上限で切る"; max = 5; len = 20
+            by = @{ "Application Error" = @(@{ id = 1000; m = ("powershell.exe " + ("x" * 100)); s = 0 }) }
+            expect = @("powershell.exe xxxxx…"); absent = @("xxxxxxxxxxxxxxxxxxxxxxxx") }
+        @{ name = "改行や連続した空白は 1 行にまとめる"; max = 5; len = 400
+            by = @{ "Application Error" = @(@{ id = 1000; m = "powershell.exe`r`n  Faulting   module`r`n code"; s = 0 }) }
+            expect = @("powershell.exe Faulting module code"); absent = @() }
+        @{ name = "1 つの提供元が読めなくても、残りの提供元のものを取る"; max = 5; len = 400
+            by = @{ "Application Error" = "fail"; ".NET Runtime" = @(@{ id = 1026; m = "powershell.exe survived"; s = 0 }); "Windows Error Reporting" = "fail" }
+            expect = @(".NET Runtime (ID 1026): powershell.exe survived"); absent = @() }
+        @{ name = "どれも読めなければ空を返す"; max = 5; len = 400
+            by = @{ "Application Error" = "fail"; ".NET Runtime" = "fail"; "Windows Error Reporting" = "fail" }
+            expect = @(); absent = @() }
+    ) {
+        param ($by, $max, $len, $expect, $absent)
+        $script:fakeEvents = @{}
+        foreach ($provider in $by.Keys) {
+            $spec = $by[$provider]
+            $script:fakeEvents[$provider] = $(if ($spec -is [string]) { $spec } else { @($spec | ForEach-Object {
+                [pscustomobject]@{ TimeCreated = [datetime]::new(2026, 1, 1, 10, 0, [int]$_.s); ProviderName = $provider; Id = [int]$_.id; Message = [string]$_.m }
+            }) })
+        }
+        Mock Get-WinEvent {
+            $value = $script:fakeEvents[$FilterHashtable.ProviderName]
+            if ($null -eq $value -or $value -is [string]) { throw "読めません" }
+            return $value
+        }
+        $got = @(getChildCrashEvents ([datetime]::new(2026, 1, 1, 10, 0, 0)) ([datetime]::new(2026, 1, 1, 10, 0, 10)) $max $len)
+        $text = $got -join "`n"
+        $got.Count | Should -Be @($expect).Count
+        foreach ($part in $expect) { $text | Should -BeLike "*$part*" }
+        foreach ($part in $absent) { $text | Should -Not -BeLike "*$part*" }
+        $got | ForEach-Object { $_ | Should -Not -BeLike "*`n*" }
+    }
+}
+
 Describe "perf_common.ps1 の統計値" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "件数が奇数のときの最小・中央値・平均・最大"; values = @(5, 1, 3); min = 1; median = 3; mean = 3; max = 5; count = 3 }
@@ -163,6 +265,173 @@ Describe "perf_common.ps1 の入力しながらの検索の部品" -Tag Unit {
     }
 }
 
+Describe "perf_common.ps1 のプレビューの部品" -Tag Unit {
+    BeforeAll {
+        function newPreviewRaw([double[]]$uncachedMs, [double[]]$cachedMs, [double]$beforeManaged = 10.0, [double]$afterManaged = 10.4) {
+            $rows = @()
+            foreach ($v in $uncachedMs) { $rows += [pscustomobject]@{ Cache = "無し"; ReadMs = $v; ReadTextCalls = 1; BuildMs = 2.0; Cells = 400; FileMB = 1.5 } }
+            foreach ($v in $cachedMs) { $rows += [pscustomobject]@{ Cache = "あり"; ReadMs = $v; ReadTextCalls = 0; BuildMs = 3.0; Cells = 800; FileMB = 1.5 } }
+            return [pscustomobject]@{
+                Name = "語"; Regex = $false; Count = $uncachedMs.Count; Previews = $rows
+                Memory = [pscustomobject]@{ AfterSearchWorkingSetMB = 200.0; BeforePreviewManagedMB = $beforeManaged; AfterPreviewWorkingSetMB = 230.0
+                    AfterGcWorkingSetMB = 210.0; AfterCacheDropWorkingSetMB = 150.0; AfterGcManagedMB = $afterManaged; CacheChars = 5000000 }
+                Render = $null; PeakWorkingSetMB = 300.0
+            }
+        }
+    }
+
+    It "1 回ごとの記録から、キャッシュの有無ごとの読み込みの統計と、残ったメモリ・キャッシュの減りを作る" {
+        $r = newPreviewResult (newPreviewRaw @(10, 30, 20) @(1, 3, 2))
+        $r.Previews | Should -Be 6
+        $r.ReadUncachedMs.Median | Should -Be 20
+        $r.ReadUncachedMs.Max | Should -Be 30
+        $r.ReadCachedMs.Median | Should -Be 2
+        $r.BuildMs.Count | Should -Be 6
+        $r.Cells.Max | Should -Be 800
+        $r.FileMBMax | Should -Be 1.5
+        $r.RetainedManagedMB | Should -Be 0.4
+        $r.RetainedPerPreviewMB | Should -Be 0.067
+        $r.CacheDropMB | Should -Be 60
+        $r.CacheChars | Should -Be 5000000
+        $r.ReadTextCallsUncached | Should -Be 3   # キャッシュ無しの 3 回で 1 回ずつ。キャッシュありの分は数えない
+        $r.FullRead | Should -BeNullOrEmpty   # 前の読み方は、呼ぶ側が測ったときだけ入れる
+        $r.Render | Should -BeNullOrEmpty
+        # 表を作る時間は、最初の 1 回（キャッシュ無しの 1 件目）と、2 回目以降（残り 5 回）に分ける
+        $r.BuildFirstMs | Should -Be 2
+        $r.BuildRestMs.Count | Should -Be 5
+        $r.BuildRestMs.Max | Should -Be 3
+    }
+
+    It "描画の結果は、1 回目と 2 回目以降の統計に分け、1 回だけのときは 2 回目以降が null になる" {
+        $raw = newPreviewRaw @(10) @(1)
+        $raw.Render = [pscustomobject]@{ Cells = 900; Rows = 30; Columns = 6; RenderMs = @(200.0, 40.0, 20.0, 30.0, 25.0); WorkingSetBeforeMB = 250.0; WorkingSetAfterMB = 270.0 }
+        $r = newPreviewResult $raw
+        $r.Render.FirstMs | Should -Be 200
+        $r.Render.RestMs.Count | Should -Be 4
+        $r.Render.RestMs.Median | Should -Be 27.5
+        $r.Render.RestMs.Max | Should -Be 40
+        @($r.Render.RenderMs).Count | Should -Be 5
+        ($r.Render.Cells, $r.Render.Rows, $r.Render.Columns) | Should -Be @(900, 30, 6)
+        $r.Render.WorkingSetAfterMB | Should -Be 270
+        $single = newRenderResult ([pscustomobject]@{ Cells = 1; Rows = 1; Columns = 1; RenderMs = @(5.0); WorkingSetBeforeMB = 1.0; WorkingSetAfterMB = 1.0 })
+        $single.FirstMs | Should -Be 5
+        $single.RestMs | Should -BeNullOrEmpty
+    }
+
+    It "大きな本文の TSV は、指定した行だけに語が入り、行番号は 4 桁までで、1 行ずつ CRLF で終わる" {
+        $text = newLargeContentTsvText 200 "架空語" @(10, 150, 200) 2
+        $rows = @($text -split "`r`n" | Where-Object { $_ -ne "" })
+        $rows.Count | Should -Be 200
+        $hitRows = @($rows | Where-Object { $_.Contains("架空語") })
+        $hitRows.Count | Should -Be 3
+        @($hitRows | ForEach-Object { ($_ -split "`t")[0] }) | Should -Be @("10", "150", "200")
+        $rows[0] | Should -Match '^1\t行1\t架空説明 '
+        ($rows | Where-Object { $_ -match '^\d{5}\t' }).Count | Should -Be 0
+        ($rows | Where-Object { $_ -match '見積書|の' }).Count | Should -Be 0   # perfdata の語に当たらない
+        $text.EndsWith("`r`n") | Should -Be $true
+        $text.Contains("`n") | Should -Be $true
+        ([regex]::Matches($text, "(?<!`r)`n")).Count | Should -Be 0
+    }
+
+    It "大きな本文の TSV は、繰り返しで長くなり、行の数が 1〜9999 の外なら失敗にする" {
+        (newLargeContentTsvText 5 "語" @(1) 10).Length | Should -BeGreaterThan (newLargeContentTsvText 5 "語" @(1) 1).Length
+        { newLargeContentTsvText 0 "語" @(1) } | Should -Throw "*1〜9999*"
+        { newLargeContentTsvText 10000 "語" @(1) } | Should -Throw "*1〜9999*"
+    }
+
+    It "横に広い本文の TSV は、指定した行の指定した列にだけ語が入り、1 行のセルの数は指定どおりになる" {
+        $text = newWideContentTsvText 5 40 "架空語" @(2, 4) 30
+        $rows = @($text -split "`r`n" | Where-Object { $_ -ne "" })
+        $rows.Count | Should -Be 5
+        foreach ($row in $rows) { @($row -split "`t").Count | Should -Be 41 }   # 行番号 + 40 セル
+        $hitRows = @($rows | Where-Object { $_.Contains("架空語") })
+        @($hitRows | ForEach-Object { ($_ -split "`t")[0] }) | Should -Be @("2", "4")
+        foreach ($row in $hitRows) { ($row -split "`t")[30] | Should -Be "架空語" }
+        $rows[0] | Should -Match '^1\t行1列1\t行1列2\t'
+        $text.EndsWith("`r`n") | Should -Be $true
+        ([regex]::Matches($text, "(?<!`r)`n")).Count | Should -Be 0
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "横に広い本文の TSV は、行が 0 なら失敗にする"; call = { newWideContentTsvText 0 10 "語" @(1) }; message = "*1〜9999*" }
+        @{ name = "横に広い本文の TSV は、列が 0 なら失敗にする"; call = { newWideContentTsvText 5 0 "語" @(1) 1 }; message = "*columns*" }
+        @{ name = "横に広い本文の TSV は、語の列が列の数を超えれば失敗にする"; call = { newWideContentTsvText 5 10 "語" @(1) 11 }; message = "*hitColumn*" }
+    ) {
+        param ($call, $message)
+        $call | Should -Throw $message
+    }
+
+    It "読み足しの記録は、回ごとの時間を統計にし、行・列・セルの数は最後の回のものにする" {
+        $runs = @(
+            [pscustomobject]@{ ReadMs = 10.0; BuildMs = 4.0; CellsMs = 2.0; Rows = 200; TableRows = 250; Columns = 2000; CreatedCells = 60000 }
+            [pscustomobject]@{ ReadMs = 30.0; BuildMs = 6.0; CellsMs = 4.0; Rows = 200; TableRows = 450; Columns = 2000; CreatedCells = 64000 }
+        )
+        $r = newReadMoreResult $runs
+        $r.Runs | Should -Be 2
+        $r.Complete | Should -Be $false -Because "5 回に届かなければ、少ない回数の値だと分かるようにする"
+        (newReadMoreResult @(1..5 | ForEach-Object { $runs[0] })).Complete | Should -Be $true
+        $short = [pscustomobject]@{ ReadMs = 1.0; BuildMs = 1.0; CellsMs = 1.0; Rows = 0; TableRows = 250; Columns = 2000; CreatedCells = 60000 }
+        (newReadMoreResult @($runs[0], $runs[0], $runs[0], $runs[0], $short)).Complete | Should -Be $false -Because "5 回目が空・短いときは、5 回分とは言えない"
+        $r.ReadMs.Max | Should -Be 30
+        $r.BuildMs.Median | Should -Be 5
+        $r.CellsMs.Count | Should -Be 2
+        ($r.TableRows, $r.Columns, $r.CreatedCells) | Should -Be @(450, 2000, 64000)
+    }
+
+    It "プレビューの結果は、作ったセルの数と読み足しを引き継ぎ、記録が無ければ null にする" {
+        $raw = newPreviewRaw @(10) @(1)
+        (newPreviewResult $raw).CreatedCells | Should -BeNullOrEmpty
+        (newPreviewResult $raw).ReadMore | Should -BeNullOrEmpty
+        foreach ($row in $raw.Previews) { $row | Add-Member -NotePropertyName CreatedCells -NotePropertyValue 500 }
+        $raw | Add-Member -NotePropertyName ReadMore -NotePropertyValue @([pscustomobject]@{ ReadMs = 1.0; BuildMs = 1.0; CellsMs = 1.0; Rows = 200; TableRows = 250; Columns = 6; CreatedCells = 90 })
+        $r = newPreviewResult $raw
+        $r.CreatedCells.Max | Should -Be 500
+        $r.ReadMore.Runs | Should -Be 1
+        $r.ReadMore.CreatedCells | Should -Be 90
+    }
+
+    It "描画の結果は、部品の数・スクロールの時間・残るメモリを引き継ぐ" {
+        $r = newRenderResult ([pscustomobject]@{ Cells = 1; Rows = 1; Columns = 1; Elements = 321; ScrollMs = 12.5; RenderRetainedMB = 3.2; RenderMs = @(5.0); WorkingSetBeforeMB = 1.0; WorkingSetAfterMB = 1.0 })
+        ($r.Elements, $r.ScrollMs, $r.RenderRetainedMB) | Should -Be @(321, 12.5, 3.2)
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "全部読む経路の記録で、キャッシュ無しの全部が全体を読んでいれば、問題は 0 件"; rows = @([pscustomobject]@{ N = 1; Cache = "無し"; ReadTextCalls = 1 }, [pscustomobject]@{ N = 2; Cache = "あり"; ReadTextCalls = 0 }); expect = @() }
+        @{ name = "キャッシュ無しで全体を読んでいない回があれば、その番号を挙げる"; rows = @([pscustomobject]@{ N = 1; Cache = "無し"; ReadTextCalls = 1 }, [pscustomobject]@{ N = 2; Cache = "無し"; ReadTextCalls = 0 }); expect = @("N=2 で readContentIndexText が呼ばれていません") }
+        @{ name = "記録が空なら、問題は 0 件"; rows = @(); expect = @() }
+    ) {
+        param ($rows, $expect)
+        $problems = @(getFullReadPathProblems $rows)
+        $problems.Count | Should -Be $expect.Count
+        for ($i = 0; $i -lt $expect.Count; $i++) { $problems[$i] | Should -Be $expect[$i] }
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "上限の内なら合格"; preview = { newPreviewResult (newPreviewRaw @(10, 12, 11) @(1, 1, 1)) }; read = 50; retained = 1; count = 3; expect = @() }
+        @{ name = "読み込みの中央値が上限を超えたら、その数字を挙げる"; preview = { newPreviewResult (newPreviewRaw @(60, 70, 80) @(1, 1, 1)) }; read = 50; retained = 1; count = 3; expect = @("*中央値 70.0 ms（上限 50.0 ms）*") }
+        @{ name = "残るメモリの合計が上限を超えたら、その数字を挙げる"; preview = { newPreviewResult (newPreviewRaw @(10, 12, 11) @(1, 1, 1) 10 70) }; read = 50; retained = 1; count = 3; expect = @("*60.0 MB（上限 1.0 MB）*") }
+        @{ name = "測ったプレビューの数が期待と違えば挙げる"; preview = { newPreviewResult (newPreviewRaw @(10, 12) @(1, 1)) }; read = 50; retained = 1; count = 3; expect = @("*4 回（期待 6 回）*") }
+        @{ name = "結果が無ければ、結果が無いと挙げる"; preview = { $null }; read = 50; retained = 1; count = 3; expect = @("*結果がありません*") }
+    ) {
+        param ($preview, $read, $retained, $count, $expect)
+        # 空の配列は 1 つの値として返るので、@() で包まずに受けて展開する
+        $problems = getPreviewPerfProblems (& $preview) $read $retained $count
+        $problems.Count | Should -Be $expect.Count
+        for ($i = 0; $i -lt $expect.Count; $i++) { $problems[$i] | Should -BeLike $expect[$i] }
+    }
+
+    # perf_preview.Tests.ps1（Slow）が失敗メッセージを作るのと同じ関数。合格のときに空の 1 件が入らないことを確かめる
+    It "<name>" -TestCases @(
+        @{ name = "合格なら、メッセージは 0 件"; preview = { newPreviewResult (newPreviewRaw @(10, 12, 11) @(1, 1, 1)) }; expect = @() }
+        @{ name = "超えたら、語の名前を付けた文が 1 件ずつ入り、空の文は入らない"; preview = { newPreviewResult (newPreviewRaw @(60, 70, 80) @(1, 1, 1) 10 70) }; expect = @("プレビュー まれ: プレビューの読み込み*", "プレビュー まれ: プレビューのあとに残るメモリ（合計）*") }
+    ) {
+        param ($preview, $expect)
+        $messages = @(getPreviewPerfMessages "まれ" (& $preview) 50 1 3)
+        $messages.Count | Should -Be $expect.Count
+        for ($i = 0; $i -lt $expect.Count; $i++) { $messages[$i] | Should -BeLike $expect[$i] }
+    }
+}
+
 Describe "measure_perf.ps1" -Tag Io {
     # 取り込みの一時置き場の形（<フォルダ>\<ファイル名.xlsx>\<場所>.tsv）の小さなインデックスと、検索する語の表
     BeforeAll {
@@ -180,7 +449,7 @@ Describe "measure_perf.ps1" -Tag Io {
     }
 
     It "形式の版と実行の情報を書く" {
-        $result.Schema | Should -Be 1
+        $result.Schema | Should -Be 5
         $result.Run.RunId | Should -Be "1"
         $result.Run.Ref | Should -Be "main"
         $result.Run.Count | Should -Be 3
@@ -269,9 +538,91 @@ Describe "measure_perf.ps1" -Tag Io {
         # -Typing を渡さなかったときも、Typing のキーは残して null にする
         @($second.PSObject.Properties | ForEach-Object { $_.Name }) | Should -Contain "Typing"
         $second.Typing | Should -BeNullOrEmpty
+        # -Preview を渡さなかったときも、Preview のキーは残して null にし、プレビューの表・ファイルは出さない
+        @($second.PSObject.Properties | ForEach-Object { $_.Name }) | Should -Contain "Preview"
+        $second.Preview | Should -BeNullOrEmpty
+        [System.IO.File]::Exists("$again\result\preview.csv") | Should -Be $false
+        [System.IO.File]::ReadAllText("$again\result\summary.md") | Should -Not -Match "## プレビュー"
+        @(Import-Csv "$again\result\metrics.csv" | Where-Object { $_.metric -like "preview_*" }).Count | Should -Be 0
+    }
+
+    It "-Preview を付けると、ヒットのある語ごとにキャッシュの有無でプレビューを測り、ヒットの無い語は飛ばす" {
+        $w = Join-Path $TestDrive "preview"
+        & $measure -Index $index -Work $w -Words $words -Count 1 -Preview 3 -SampleMs 50 6>$null | Out-Null
+        $r = [System.IO.File]::ReadAllText("$w\result\result.json") | ConvertFrom-Json
+        $r.Preview.Count | Should -Be 3
+        $r.Preview.Render | Should -Be $false
+        @($r.Preview.Skipped) | Should -Be @("無い")
+        $byName = @{}
+        foreach ($p in $r.Preview.Words) { $byName[$p.Name] = $p }
+        @($r.Preview.Words).Count | Should -Be 2
+        # ヒットが 1 件・2 件の語は、その件数をキャッシュ無し・ありの 2 回ずつ測る
+        $byName["まれ"].Previews | Should -Be 2
+        $byName["数字"].Previews | Should -Be 4
+        foreach ($p in $r.Preview.Words) {
+            $p.ReadUncachedMs.Count | Should -Be ($p.Previews / 2)
+            $p.ReadCachedMs.Count | Should -Be ($p.Previews / 2)
+            $p.Cells.Min | Should -BeGreaterThan 0
+            $p.CacheChars | Should -BeGreaterThan 0
+            $p.RetainedPerPreviewMB | Should -Not -BeNullOrEmpty
+            $p.Render | Should -BeNullOrEmpty
+            $p.FullRead | Should -BeNullOrEmpty   # -PreviewFullRead を付けていない
+            $p.BuildFirstMs | Should -BeGreaterThan 0   # 最初に作った表の時間
+            $p.BuildRestMs.Count | Should -Be ($p.Previews - 1)   # 残りは 2 回目以降
+        }
+        @(Import-Csv "$w\result\preview.csv").Count | Should -Be 6
+        @(Import-Csv "$w\result\metrics.csv" | Where-Object { $_.metric -eq "preview_build_first_ms" }).Count | Should -Be 2
+        @(Import-Csv "$w\result\metrics.csv" | Where-Object { $_.metric -eq "preview_build_rest_ms" -and $_.stat -eq "median" }).Count | Should -Be 2
+        [System.IO.File]::ReadAllText("$w\result\summary.md") | Should -Match "表を作る 1 回目"
+        $metrics = @(Import-Csv "$w\result\metrics.csv")
+        @($metrics | Where-Object { $_.metric -eq "preview_read_uncached_ms" -and $_.word -eq "まれ" -and $_.stat -eq "median" }).Count | Should -Be 1
+        $md = [System.IO.File]::ReadAllText("$w\result\summary.md")
+        $md | Should -Match "## プレビュー"
+        $md | Should -Match "### プレビューのメモリ"
+        $md | Should -Not -Match "### プレビューの描画"
+        $md | Should -Not -Match "### 前の読み方"
+        $md.Contains($TestDrive) | Should -Be $false
+    }
+
+    It "-ReadMore を付けると、ヒットのある語ごとに読み足しの記録（回数・行・列・セルの数）と、その表の行・指標が出る" {
+        $w = Join-Path $TestDrive "preview-more"
+        & $measure -Index $index -Work $w -Words $words -Count 1 -Preview 3 -ReadMore -SampleMs 50 6>$null | Out-Null
+        $r = [System.IO.File]::ReadAllText("$w\result\result.json") | ConvertFrom-Json
+        foreach ($p in $r.Preview.Words) {
+            $p.ReadMore | Should -Not -BeNullOrEmpty
+            $p.ReadMore.Runs | Should -BeGreaterThan 0   # 読み足す行が尽きたら 5 回に満たず止まる
+            $p.ReadMore.Columns | Should -BeGreaterThan 0
+            $p.CreatedCells.Count | Should -Be $p.Previews
+        }
+        @(Import-Csv "$w\result\metrics.csv" | Where-Object { $_.metric -eq "preview_read_more_ms" -and $_.stat -eq "median" }).Count | Should -Be 2
+        [System.IO.File]::ReadAllText("$w\result\summary.md") | Should -Match "読み足し"
+    }
+
+    It "-PreviewFullRead を付けると、前の読み方（毎回全部読む）でも測り、全体を読んだ回数と並べて出す" {
+        $w = Join-Path $TestDrive "preview-full"
+        & $measure -Index $index -Work $w -Words $words -Count 1 -Preview 3 -PreviewFullRead -SampleMs 50 6>$null | Out-Null
+        $r = [System.IO.File]::ReadAllText("$w\result\result.json") | ConvertFrom-Json
+        $r.Schema | Should -Be 5
+        foreach ($p in $r.Preview.Words) {
+            $p.FullRead | Should -Not -BeNullOrEmpty
+            $p.FullRead.Name | Should -Be $p.Name
+            # 全部読む経路は、キャッシュ無しの選択のたびに全体を読む
+            $p.FullRead.ReadTextCallsUncached | Should -Be ($p.Previews / 2)
+            $p.FullRead.ReadUncachedMs.Count | Should -Be ($p.Previews / 2)
+        }
+        $metrics = @(Import-Csv "$w\result\metrics.csv")
+        @($metrics | Where-Object { $_.metric -eq "preview_full_read_uncached_ms" -and $_.word -eq "まれ" -and $_.stat -eq "median" }).Count | Should -Be 1
+        @($metrics | Where-Object { $_.metric -eq "preview_retained_mb" -and $_.word -eq "まれ" }).Count | Should -Be 1
+        $md = [System.IO.File]::ReadAllText("$w\result\summary.md")
+        $md | Should -Match "### 前の読み方"
+        $md.Contains($TestDrive) | Should -Be $false
     }
 
     It "<name>は失敗にする" -TestCases @(
+        @{ name = "-Preview -1"; extraArgs = @{ Preview = -1 }; expectedMessage = "*-Preview は 0 以上*" }
+        @{ name = "-Render だけ（-Preview が無い）"; extraArgs = @{ Render = $true }; expectedMessage = "*-Render は -Preview*" }
+        @{ name = "-PreviewFullRead だけ（-Preview が無い）"; extraArgs = @{ PreviewFullRead = $true }; expectedMessage = "*-PreviewFullRead は -Preview*" }
+        @{ name = "-ReadMore だけ（-Preview が無い）"; extraArgs = @{ ReadMore = $true }; expectedMessage = "*-ReadMore は -Preview*" }
         @{ name = "-Typing 1"; extraArgs = @{ Typing = 1 }; expectedMessage = "*-Typing は 0 か 2 以上*" }
         @{ name = "-TypingFast で -Index が <Work>\content_index でないとき"; extraArgs = @{ Typing = 2; TypingFast = $true }; expectedMessage = "*content_index*" }
     ) {
@@ -490,7 +841,7 @@ Describe "measure_perf.ps1 -Office" -Tag Io {
     }
 
     It "取り込みを測り、ファイル数・成功・失敗・スレッドの数・時間を書く" {
-        $result.Schema | Should -Be 1
+        $result.Schema | Should -Be 5
         $result.Ingest.Total | Should -Be 4
         $result.Ingest.Done | Should -Be 4
         $result.Ingest.Failed | Should -Be 0

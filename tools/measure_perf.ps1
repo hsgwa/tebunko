@@ -17,8 +17,12 @@
 #   -TypingIntervalMs … 入力しながらの検索の、要求の間隔（ミリ秒。既定 150。画面の入力しながらの検索の待ち時間と同じ）
 #   -TypingMinLength  … 入力しながらの検索で最初に送る語の長さ（既定 3。画面と同じ。合否はこの既定で決める）
 #   -TypingFast … 入力しながらの検索で高速検索（Windows Search）を使う。-Index を <Work>\content_index にしておくこと
+#   -Preview  … 選択行のプレビューを測る、語ごとのプレビューの数（既定 0 は測らない）。検索のヒットの先頭から順に、キャッシュ無しとキャッシュありで 1 回ずつ読む
+#   -Render   … -Preview のとき、プレビューの表を画面の部品に入れて Measure・Arrange する時間も測る（画面は出さない）
+#   -ReadMore … -Preview のとき、セルの数が最大だった行の表に、下へ 200 行ずつ 5 回読み足す時間も測る（Preview.Words[].ReadMore）
+#   -PreviewFullRead … -Preview のとき、前の読み方（場所の一覧の控えを捨て、毎回ファイルの全体を読む）でも別のプロセスで測り、Preview.Words[].FullRead に並べる
 #   -SampleMs … リソースを記録する間隔（ミリ秒）
-#   -Label    … 結果の見出しに出す名前
+#   -Label   … 結果の見出しに出す名前
 #   -RunId・-Ref・-Sha・-Scale・-DataSeconds … 実行の情報（result.json と metrics.csv に書く。-DataSeconds はデータの生成にかかった秒数）
 #   -Out      … 結果を書くフォルダ。既定は <Work>\result
 #
@@ -27,6 +31,7 @@
 #   2. インデックス作成 … tools\perf\measure_index.ps1（インデクサと同じ publishIndexFolders。Office からの取り込みは含まない）
 #   3. 検索            … 語ごとに tools\perf\measure_search.ps1 を起動し、同じプロセスで -Count 回続けて検索する
 #   4. 入力しながらの検索 … -Typing が 0 でないときだけ。語ごとに tools\perf\measure_typing.ps1 を起動する
+#   5. プレビュー      … -Preview が 0 でないときだけ。語ごとに tools\perf\measure_preview.ps1 を起動する
 # OS のファイルキャッシュは空にしない（pack は作成の直後なので、OS のキャッシュに載っている）。
 #
 # 書くもの:
@@ -35,6 +40,7 @@
 #   metrics.csv         … 1 行 1 指標の縦長の形（run_id, date, ref, sha, scale, metric, word, stat, value, unit）。後で Grafana などに入れるため
 #   searches.csv        … 検索 1 回ごとの時間・ヒット件数・メモリ
 #   typing.csv          … 入力しながらの検索の、1 回の入力ごとの時間・ヒット件数・メモリ（-Typing のときだけ）
+#   preview.csv         … プレビュー 1 回ごとの読み込み・表を作る時間・セルの数・メモリ（-Preview のときだけ）
 #   resource-ingest.csv・resource-index.csv・resource-search.csv・resource-typing.csv … リソースの記録（-SampleMs ごと。取り込みは段階が変わるたびにも記録する）
 param (
     [string]$Index,
@@ -49,6 +55,10 @@ param (
     [int]$TypingIntervalMs = 150,
     [int]$TypingMinLength = 3,
     [switch]$TypingFast,
+    [int]$Preview = 0,
+    [switch]$Render,
+    [switch]$ReadMore,
+    [switch]$PreviewFullRead,
     [int]$SampleMs = 200,
     [string]$Label = "",
     [string]$RunId = "",
@@ -64,6 +74,10 @@ $ErrorActionPreference = "Stop"
 . ([WildcardPattern]::Escape("$PSScriptRoot\perf\ingest_common.ps1".Replace('`', '``')))
 if (!$Index -and !$Office) { throw "-Index と -Office の少なくとも一方を指定してください。" }
 if ($Typing -eq 1) { throw "-Typing は 0 か 2 以上にしてください。" }
+if ($Preview -lt 0) { throw "-Preview は 0 以上にしてください。" }
+if ($Render -and $Preview -le 0) { throw "-Render は -Preview と一緒に指定してください。" }
+if ($ReadMore -and $Preview -le 0) { throw "-ReadMore は -Preview と一緒に指定してください。" }
+if ($PreviewFullRead -and $Preview -le 0) { throw "-PreviewFullRead は -Preview と一緒に指定してください。" }
 $Tool = (Resolve-Path -LiteralPath $Tool).ProviderPath
 [void](resolveTebunkoLib $Tool)
 if ($Index) { $Index = (Resolve-Path -LiteralPath $Index).ProviderPath.TrimEnd("\") }
@@ -101,8 +115,7 @@ if (!$Index) {
 
 # 子のプロセスを起動する（失敗したら止める）
 function invokeChild([string]$script, [string[]]$arguments) {
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path "$PSScriptRoot\perf" $script) @arguments
-    if ($LASTEXITCODE) { throw "$script が失敗しました（終了コード $LASTEXITCODE）。" }
+    invokeChildScript (Join-Path "$PSScriptRoot\perf" $script) $arguments
 }
 function readJson([string]$path) { [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8) | ConvertFrom-Json }
 
@@ -204,9 +217,41 @@ if ($Index -and $Typing -gt 0) {
     }
 }
 
-# result.json（形式の版 1）
+# 5. プレビュー（語ごとに別のプロセス）。-Index が無い・-Preview が 0 のときは測らない。検索でヒットが無かった語は測れないので飛ばす
+$previewWords = New-Object System.Collections.Generic.List[object]
+$previewSkipped = New-Object System.Collections.Generic.List[string]
+$previewRaw = New-Object System.Collections.Generic.List[object]
+if ($Index -and $Preview -gt 0) {
+    for ($w = 0; $w -lt $wordList.Count; $w++) {
+        $spec = $wordList[$w]
+        if ([int]$search[$w].Hits -le 0) { $previewSkipped.Add([string]$spec.Name); continue }
+        Write-Host "プレビューを測ります（$($spec.Name)）。"
+        $wordFile = Join-Path $raw "preview-word-$w.json"
+        [System.IO.File]::WriteAllText($wordFile, ([pscustomobject]$spec | ConvertTo-Json), $utf8)
+        $previewJson = Join-Path $raw "preview-$w.json"
+        $previewArgs = @("-Tool", $Tool, "-Index", $Index, "-WordFile", $wordFile, "-Count", $Preview, "-Out", $previewJson, "-SampleMs", $SampleMs)
+        if ($Render) { $previewArgs += "-Render" }
+        if ($ReadMore) { $previewArgs += "-ReadMore" }
+        invokeChild "measure_preview.ps1" $previewArgs
+        $r = readJson $previewJson
+        $previewRaw.Add($r)
+        $entry = newPreviewResult $r
+        if ($PreviewFullRead) {
+            # 前の読み方（毎回ファイルの全体を読む）でも、同じ選択を別のプロセスで測る
+            Write-Host "プレビューを前の読み方（全部読む）でも測ります（$($spec.Name)）。"
+            $fullJson = Join-Path $raw "preview-full-$w.json"
+            $fullArgs = @("-Tool", $Tool, "-Index", $Index, "-WordFile", $wordFile, "-Count", $Preview, "-Out", $fullJson, "-SampleMs", $SampleMs, "-FullRead")
+            invokeChild "measure_preview.ps1" $fullArgs
+            $entry["FullRead"] = newPreviewResult (readJson $fullJson)
+        }
+        $previewWords.Add($entry)
+    }
+}
+
+# result.json（形式の版 5。版 2 で Preview を足し、版 3 で Preview.Words[].FullRead・ReadTextCallsUncached を足し、版 4 で Preview.Words[].BuildFirstMs・BuildRestMs と Render.FirstMs・RestMs を足し、版 5 で Preview.Words[].CreatedCells・ReadMore と Render.Elements・ScrollMs・RenderRetainedMB を足した）
 $run.SearchMode = (@($search | ForEach-Object { $_.Mode } | Select-Object -Unique) -join ",")
-$result = [ordered]@{ Schema = 1; Run = $run; Index = $indexResult; Search = $(if ($Index) { $search.ToArray() } else { $null }); Ingest = $ingestResult
+$result = [ordered]@{ Schema = 5; Run = $run; Index = $indexResult; Search = $(if ($Index) { $search.ToArray() } else { $null }); Ingest = $ingestResult
+    Preview = $(if ($Index -and $Preview -gt 0) { [ordered]@{ Count = $Preview; Render = [bool]$Render; Words = $previewWords.ToArray(); Skipped = $previewSkipped.ToArray() } } else { $null })
     Typing = $(if ($Index -and $Typing -gt 0) { [ordered]@{
         Mode = [string]$typingRaw[0].Mode; Count = $Typing; IntervalMs = $TypingIntervalMs; MinLength = $TypingMinLength; Fast = [bool]$TypingFast
         Words = $typingWords.ToArray()
@@ -267,6 +312,39 @@ foreach ($t in $typingWords) {
     }
     addMetric "typing_hits" $t.Name "value" $t.Hits "count"
 }
+foreach ($p in $previewWords) {
+    foreach ($part in @(@("preview_read_uncached_ms", $p.ReadUncachedMs), @("preview_read_cached_ms", $p.ReadCachedMs), @("preview_build_ms", $p.BuildMs))) {
+        if ($null -eq $part[1]) { continue }
+        foreach ($stat in @("Min", "Median", "Mean", "Max")) { addMetric $part[0] $p.Name $stat.ToLower() $part[1][$stat] "ms" }
+    }
+    addMetric "preview_build_first_ms" $p.Name "value" $p.BuildFirstMs "ms"
+    if ($null -ne $p.BuildRestMs) { foreach ($stat in @("Median", "Max")) { addMetric "preview_build_rest_ms" $p.Name $stat.ToLower() $p.BuildRestMs[$stat] "ms" } }
+    if ($null -ne $p.Cells) { addMetric "preview_cells" $p.Name "max" $p.Cells["Max"] "count" }
+    if ($null -ne $p.CreatedCells) { addMetric "preview_created_cells" $p.Name "max" $p.CreatedCells["Max"] "count" }
+    if ($null -ne $p.ReadMore) {
+        foreach ($stat in @("Median", "Max")) { addMetric "preview_read_more_ms" $p.Name $stat.ToLower() $p.ReadMore.ReadMs[$stat] "ms" }
+        foreach ($stat in @("Median", "Max")) { addMetric "preview_read_more_cells_ms" $p.Name $stat.ToLower() $p.ReadMore.CellsMs[$stat] "ms" }
+    }
+    addMetric "preview_file_mb" $p.Name "max" $p.FileMBMax "MB"
+    addMetric "preview_retained_per_preview_mb" $p.Name "value" $p.RetainedPerPreviewMB "MB"
+    addMetric "preview_working_set_after_gc_mb" $p.Name "value" $p.WorkingSetAfterGcMB "MB"
+    addMetric "preview_cache_drop_mb" $p.Name "value" $p.CacheDropMB "MB"
+    addMetric "preview_retained_mb" $p.Name "value" $p.RetainedManagedMB "MB"
+    if ($null -ne $p.FullRead) {
+        foreach ($stat in @("Min", "Median", "Mean", "Max")) { addMetric "preview_full_read_uncached_ms" $p.Name $stat.ToLower() $p.FullRead.ReadUncachedMs[$stat] "ms" }
+        addMetric "preview_full_read_retained_mb" $p.Name "value" $p.FullRead.RetainedManagedMB "MB"
+        addMetric "preview_full_read_working_set_after_preview_mb" $p.Name "value" $p.FullRead.WorkingSetAfterPreviewMB "MB"
+    }
+    if ($null -ne $p.Render) {
+        addMetric "preview_render_first_ms" $p.Name "value" $p.Render.FirstMs "ms"
+        if ($null -ne $p.Render.RestMs) { foreach ($stat in @("Median", "Max")) { addMetric "preview_render_rest_ms" $p.Name $stat.ToLower() $p.Render.RestMs[$stat] "ms" } }
+        addMetric "preview_render_cells" $p.Name "value" $p.Render.Cells "count"
+        addMetric "preview_render_rows" $p.Name "value" $p.Render.Rows "count"
+        addMetric "preview_render_elements" $p.Name "value" $p.Render.Elements "count"
+        addMetric "preview_render_scroll_ms" $p.Name "value" $p.Render.ScrollMs "ms"
+        addMetric "preview_render_retained_mb" $p.Name "value" $p.Render.RenderRetainedMB "MB"
+    }
+}
 [System.IO.File]::WriteAllLines((Join-Path $Out "metrics.csv"), [string[]]@($metrics | ConvertTo-Csv -NoTypeInformation), $utf8Bom)
 
 # searches.csv・resource-*.csv
@@ -297,6 +375,10 @@ if ($Index -and $Typing -gt 0) {
     $typingSamples = foreach ($r in $typingRaw) { foreach ($sm in @($r.Samples)) { $o = [ordered]@{ Word = $r.Name }; foreach ($p in $sm.PSObject.Properties) { $o[$p.Name] = $p.Value }; [pscustomobject]$o } }
     [System.IO.File]::WriteAllLines((Join-Path $Out "resource-typing.csv"), [string[]]@($typingSamples | ConvertTo-Csv -NoTypeInformation), $utf8Bom)
 }
+if ($Index -and $Preview -gt 0) {
+    $previewRows = foreach ($r in $previewRaw) { foreach ($row in @($r.Previews)) { $o = [ordered]@{ Word = $r.Name }; foreach ($prop in $row.PSObject.Properties) { $o[$prop.Name] = $prop.Value }; [pscustomobject]$o } }
+    [System.IO.File]::WriteAllLines((Join-Path $Out "preview.csv"), [string[]]@($previewRows | ConvertTo-Csv -NoTypeInformation), $utf8Bom)
+}
 
 # summary.md
 $palette = @("#e41a1c", "#377eb8", "#4daf4a", "#984ea3", "#ff7f00", "#a65628")
@@ -304,6 +386,7 @@ $colorNames = @("赤", "青", "緑", "紫", "橙", "茶")
 $md = New-Object System.Collections.Generic.List[string]
 function add([string]$text = "") { $md.Add($text) }
 function ms($stats, [string]$key) { if ($null -eq $stats) { return "–" }; return ("{0:N0}" -f $stats[$key]) }
+function msDecimal($stats, [string]$key) { if ($null -eq $stats) { return "–" }; return ("{0:N1}" -f $stats[$key]) }
 add "# tebunko の性能$(if ($Label) { "（$Label）" })"
 add
 add "計測日時: $($run.Date)。結果には数字だけを書き、パスやファイル名は書かない。"
@@ -479,6 +562,89 @@ if ($typingMode -ne "service") {
     if ($skippedWords.Count -gt 0) {
         add
         add "測っていない語（送る語が無い）: $((@($skippedWords | ForEach-Object { "$($_.Name)（$($_.Skipped)）" })) -join "、")"
+    }
+}
+}
+if ($Index -and $Preview -gt 0) {
+add
+add "## プレビュー"
+add
+add "検索のヒットの先頭から順に、語ごとに最大 $Preview 件を選んだものとして、前後 50 行ずつ（画面の上限と同じ）を読んで表にした。キャッシュ無しは、検索のキャッシュを渡さない選択（検索に入らなかったファイル・キャッシュを捨てたあと）、キャッシュありは検索の直後の選択に当たる。キャッシュ無しを先に、続けてキャッシュありを測る。「読み込み」は画面の最初の読みと同じ呼び方（前に読んだファイルの控えを次に渡す）、「表を作る」は HitRow.BuildPreview の時間。画面の部品に入れる時間は含まない（-Render のときは下に別に出す）。"
+if ($previewSkipped.Count -gt 0) {
+    add
+    add "測っていない語（ヒットが無い）: $($previewSkipped -join "、")"
+}
+add
+add "| 語 | プレビューの数 | 読み込み・キャッシュ無し（中央値／最大） | 読み込み・キャッシュあり（中央値／最大） | 表を作る（中央値／最大） | 表を作る 1 回目 | 表を作る 2 回目以降（中央値／最大） | セルの数（中央値／最大） | 本文インデックスの最大 | 作ったセルの数（最大） |"
+add "|---|---|---|---|---|---|---|---|---|---|"
+foreach ($p in $previewWords) {
+    add ("| {0} | {1} | {2}／{3} ms | {4}／{5} ms | {6}／{7} ms | {8} ms | {9}／{10} ms | {11}／{12} | {13:N1} MB | {14} |" -f $p.Name, $p.Previews,
+        (msDecimal $p.ReadUncachedMs "Median"), (msDecimal $p.ReadUncachedMs "Max"), (msDecimal $p.ReadCachedMs "Median"), (msDecimal $p.ReadCachedMs "Max"),
+        (msDecimal $p.BuildMs "Median"), (msDecimal $p.BuildMs "Max"), ("{0:N1}" -f $p.BuildFirstMs), (msDecimal $p.BuildRestMs "Median"), (msDecimal $p.BuildRestMs "Max"),
+        (ms $p.Cells "Median"), (ms $p.Cells "Max"), $p.FileMBMax, $(if ($null -ne $p.CreatedCells) { ms $p.CreatedCells "Max" } else { "-" }))
+}
+add
+add "「表を作る 1 回目」は、その語を測るプロセスで最初に作った表の時間（初期化が入る）。「2 回目以降」はそれ以外の表。「セルの数」は表の全部のセル（行 × 全部の列）、「作ったセルの数」は、画面が最初に出す範囲を作ったあと、表の行が持っているセルの数。"
+add
+add "### プレビューのメモリ"
+add
+add "ワーキングセットは、検索の直後・プレビューのあと・GC のあと・検索のキャッシュを捨てて GC したあとの値。「残った増え」は、プレビューの前後で GC のあとに残ったマネージドヒープの増え。「キャッシュの減り」は、キャッシュを捨てて GC したときのワーキングセットの減り。"
+add
+add "| 語 | ワーキングセット（検索の直後／プレビューのあと／GC のあと／キャッシュを捨てたあと） | 残った増え（合計／1 回あたり） | キャッシュの減り | キャッシュの文字数 |"
+add "|---|---|---|---|---|"
+foreach ($p in $previewWords) {
+    add ("| {0} | {1:N0}／{2:N0}／{3:N0}／{4:N0} MB | {5:N1} MB／{6:N3} MB | {7:N0} MB | {8:N0} |" -f $p.Name, $p.WorkingSetAfterSearchMB, $p.WorkingSetAfterPreviewMB, $p.WorkingSetAfterGcMB,
+        $p.WorkingSetAfterCacheDropMB, $p.RetainedManagedMB, $p.RetainedPerPreviewMB, $p.CacheDropMB, $p.CacheChars)
+}
+$fullReadWords = @($previewWords | Where-Object { $null -ne $_.FullRead })
+if ($fullReadWords.Count -gt 0) {
+    add
+    add "### 前の読み方（毎回ファイルの全体を読む）との比べ"
+    add
+    add "同じ選択を、場所の一覧の控えを捨てて毎回ファイルの全体を読む経路でも、別のプロセスで測った。「全体を読んだ回数」は、キャッシュ無しの選択で readContentIndexText が呼ばれた回数の合計（全部読む経路を通ったことの確かめ）。"
+    add
+    add "| 語 | 読み込み・キャッシュ無し 中央値（今／全部読む） | 最大（今／全部読む） | 残った増え 合計（今／全部読む） | プレビューのあとのワーキングセット（今／全部読む） | 全体を読んだ回数（今／全部読む） |"
+    add "|---|---|---|---|---|---|"
+    foreach ($p in $fullReadWords) {
+        add ("| {0} | {1}／{2} ms | {3}／{4} ms | {5:N1}／{6:N1} MB | {7:N0}／{8:N0} MB | {9}／{10} |" -f $p.Name,
+            (msDecimal $p.ReadUncachedMs "Median"), (msDecimal $p.FullRead.ReadUncachedMs "Median"), (msDecimal $p.ReadUncachedMs "Max"), (msDecimal $p.FullRead.ReadUncachedMs "Max"),
+            $p.RetainedManagedMB, $p.FullRead.RetainedManagedMB, $p.WorkingSetAfterPreviewMB, $p.FullRead.WorkingSetAfterPreviewMB, $p.ReadTextCallsUncached, $p.FullRead.ReadTextCallsUncached)
+    }
+}
+$readMoreWords = @($previewWords | Where-Object { $null -ne $_.ReadMore })
+if ($readMoreWords.Count -gt 0) {
+    add
+    add "### 読み足し"
+    add
+    add "セルの数が最大だった行の表へ、下に 200 行ずつ $($readMoreWords[0].ReadMore.Runs) 回まで読み足した時間。「読む」は readContentIndexLines、「行を作る」は行を作って足すまで、「セルを作る」は見える範囲のセルを作る時間。値は出すだけで、上限と比べない。"
+    add
+    add "| 語 | 回数 | 読む（中央値／最大） | 行を作る（中央値／最大） | セルを作る（中央値／最大） | 最後の行数 | 列 | 作ったセルの数 |"
+    add "|---|---|---|---|---|---|---|---|"
+    foreach ($p in $readMoreWords) {
+        add ("| {0} | {1} | {2}／{3} ms | {4}／{5} ms | {6}／{7} ms | {8} | {9} | {10:N0} |" -f $p.Name, $p.ReadMore.Runs,
+            (msDecimal $p.ReadMore.ReadMs "Median"), (msDecimal $p.ReadMore.ReadMs "Max"), (msDecimal $p.ReadMore.BuildMs "Median"), (msDecimal $p.ReadMore.BuildMs "Max"),
+            (msDecimal $p.ReadMore.CellsMs "Median"), (msDecimal $p.ReadMore.CellsMs "Max"), $p.ReadMore.TableRows, $p.ReadMore.Columns, $p.ReadMore.CreatedCells)
+    }
+    foreach ($p in @($readMoreWords | Where-Object { $_.ReadMore.Complete -eq $false })) {
+        add
+        add "注意: $($p.Name) は場所の終わりで止まり、読み足しが 5 回に届かなかった（$($p.ReadMore.Runs) 回分の値）。"
+    }
+}
+$renderWords = @($previewWords | Where-Object { $null -ne $_.Render })
+if ($renderWords.Count -gt 0) {
+    add
+    add "### プレビューの描画"
+    add
+    add "セルの数が最大だったプレビューの表を、画面を出さずに preview.xaml の部品へ入れ、Measure・Arrange・UpdateLayout までにかかった時間（$(@($renderWords[0].Render.RenderMs).Count) 回。値は出すだけで、上限と比べない）。表の行と列は、見えている範囲だけ部品ができる。1 回目は部品の初期化が入るので、2 回目以降と分けて出す。「部品の数」は部品の木にある部品の数、「スクロール」は下と右の端へ 4 段階で動かして見える範囲を作り直した合計、「残った増え」（RenderRetainedMB）は、表を持ったまま描画を繰り返し、GC をしたあとのマネージドヒープの、描画の前からの増え（表と部品を保持している間の値。手放したあとの値ではない）。"
+    add
+    add "| 語 | 行 | 列 | セルの数 | 描画 1 回目 | 描画 2 回目以降（中央値／最大） | ワーキングセット（前／後） | 部品の数 | スクロール | 残った増え |"
+    add "|---|---|---|---|---|---|---|---|---|---|"
+    foreach ($p in $renderWords) {
+        add ("| {0} | {1} | {2} | {3:N0} | {4:N1} ms | {5}／{6} ms | {7:N0}／{8:N0} MB | {9} | {10} | {11} |" -f $p.Name, $p.Render.Rows, $p.Render.Columns, $p.Render.Cells, $p.Render.FirstMs,
+            (msDecimal $p.Render.RestMs "Median"), (msDecimal $p.Render.RestMs "Max"), $p.Render.WorkingSetBeforeMB, $p.Render.WorkingSetAfterMB,
+            $(if ($null -ne $p.Render.Elements) { "{0:N0}" -f $p.Render.Elements } else { "-" }),
+            $(if ($null -ne $p.Render.ScrollMs) { "{0:N1} ms" -f $p.Render.ScrollMs } else { "-" }),
+            $(if ($null -ne $p.Render.RenderRetainedMB) { "{0:N1} MB" -f $p.Render.RenderRetainedMB } else { "-" }))
     }
 }
 }

@@ -526,7 +526,7 @@ function captureSearchScene {
         $row = waitGui $S "結果の行" ${guiDefaultTimeout} { @(& $hitRows) | Select-Object -Last 1 }
         selectGui $row
         waitGui $S "プレビューが出る" ${guiDefaultTimeout} {
-            @(findAllGui (findGui $S.Window -Id "PreviewScroll") -Type Text | Where-Object { $_.Current.Name -eq "りんご" }).Count -gt 0
+            @(getGuiPreviewTexts $S.Window | Where-Object { $_.Text.Current.Name -eq "りんご" }).Count -gt 0
         } | Out-Null
         # 行を選ぶと、部品を選ぶだけで出るツールヒント（元のファイルのパス）が重なって写ることがある。
         # フォーカスを移す・ツールヒントの窓が消えるまで待つ、の両方を試したが消えなかった（架空の subst ドライブの

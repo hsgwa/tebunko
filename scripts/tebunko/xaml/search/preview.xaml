@@ -9,9 +9,6 @@
     </ResourceDictionary>
   </Grid.Resources>
   <DockPanel>
-      <!-- 横に長い行で、表示した列の範囲を知らせる（ふだんは隠す） -->
-      <TextBlock x:Name="PreviewNote" DockPanel.Dock="Bottom" Style="{StaticResource WarnText}" Margin="16,4" HorizontalAlignment="Right"
-                 TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Visibility="Collapsed" />
       <!-- 選択行のプレビュー（前後の行をシートのように表示する。行番号の列の幅 44 は gui.ps1 の NumberWidth と合わせる）。
            行を選んでいなくても枠は出したままにする（高さが変わらず、次に選んだときもその場に出る） -->
       <DockPanel x:Name="DetailPanel" Margin="0">
@@ -102,10 +99,12 @@
                             Focusable="False" Visibility="Collapsed">
                 <StackPanel TextElement.FontSize="12">
 
-                  <!-- 列見出し（右端をドラッグすると、その列の幅が変わる。幅は PreviewColumn を各行のセルと共有する） -->
-                  <StackPanel Orientation="Horizontal">
+                  <!-- 列見出し（右端をドラッグすると、その列の幅が変わる。幅は PreviewColumn を各行のセルと共有する）。
+                       見えている列の見出しだけを作り、左右の空きは、見えていない列の幅の合計（DataContext は表の PreviewWindow） -->
+                  <StackPanel x:Name="PreviewHeaderPanel" Orientation="Horizontal">
                     <!-- 行番号の列の分（幅 44 は gui.ps1 の NumberWidth と合わせる） -->
                     <Border Width="44" Background="{StaticResource Bg.Hover}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,1,1" />
+                    <Border Width="{Binding LeftSpace, FallbackValue=0}" />
                     <ItemsControl x:Name="PreviewHeader">
                       <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
@@ -132,24 +131,38 @@
                         </DataTemplate>
                       </ItemsControl.ItemTemplate>
                     </ItemsControl>
+                    <Border Width="{Binding RightSpace, FallbackValue=0}" />
                   </StackPanel>
                 </StackPanel>
               </ScrollViewer>
 
-              <!-- 枠の高さはドラッグで変わるため、行が入りきらないときは縦にもスクロールできるようにする -->
-              <ScrollViewer x:Name="PreviewScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
-                            Focusable="True">
-                <ScrollViewer.ContextMenu>
-                  <!-- 項目の並び・文言・太字は、メニューを開くたびに判断層（getPreviewMenuItems）の結果で組み直す -->
-                  <ContextMenu x:Name="PreviewMenu">
-                    <MenuItem x:Name="MenuPreviewOpen" Header="元のファイルのこの場所を開く" />
-                    <MenuItem x:Name="MenuPreviewCopy" Header="選んだセルをコピー" />
-                    <MenuItem x:Name="MenuPreviewCopyRow" Header="この行をコピー" />
-                  </ContextMenu>
-                </ScrollViewer.ContextMenu>
-                <StackPanel TextElement.FontSize="12">
-
-                  <ItemsControl x:Name="PreviewRows">
+              <!-- 行は仮想化して、見えている行（と前後の余白）だけ要素を作る（VirtualizingStackPanel・行の単位のスクロール）。
+                   仮想化は、ItemsControl のテンプレートの中にスクロール（PreviewScroll）を置かないと効かない。
+                   縦にも横にもスクロールでき、読み込んだ行は縦にスクロールして見られる。名前は gui_main.ps1 でテンプレートから取る -->
+                  <ItemsControl x:Name="PreviewRows" TextElement.FontSize="12" Focusable="False"
+                                VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                                VirtualizingPanel.ScrollUnit="Item" ScrollViewer.CanContentScroll="True">
+                    <ItemsControl.ContextMenu>
+                      <!-- 項目の並び・文言・太字は、メニューを開くたびに判断層（getPreviewMenuItems）の結果で組み直す -->
+                      <ContextMenu x:Name="PreviewMenu">
+                        <MenuItem x:Name="MenuPreviewOpen" Header="元のファイルのこの場所を開く" />
+                        <MenuItem x:Name="MenuPreviewCopy" Header="選んだセルをコピー" />
+                        <MenuItem x:Name="MenuPreviewCopyRow" Header="この行をコピー" />
+                      </ContextMenu>
+                    </ItemsControl.ContextMenu>
+                    <ItemsControl.Template>
+                      <ControlTemplate TargetType="ItemsControl">
+                        <ScrollViewer x:Name="PreviewScroll" AutomationProperties.AutomationId="PreviewScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                                      CanContentScroll="True" Focusable="True">
+                          <ItemsPresenter />
+                        </ScrollViewer>
+                      </ControlTemplate>
+                    </ItemsControl.Template>
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <VirtualizingStackPanel />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                       <DataTemplate>
                         <StackPanel x:Name="RowPanel" Orientation="Horizontal">
@@ -157,6 +170,8 @@
                             <TextBlock x:Name="Num" Text="{Binding Number}" Padding="4,2,6,2" FontSize="11" TextAlignment="Right"
                                        Foreground="{StaticResource Ink.Faint}" />
                           </Border>
+                          <!-- 見えていない左の列の分の空き。セルは見えている列の範囲の分だけ作る（Window は表の全部の行で同じもの） -->
+                          <Border Width="{Binding Window.LeftSpace, FallbackValue=0}" />
                           <ItemsControl ItemsSource="{Binding Cells}">
                             <ItemsControl.ItemsPanel>
                               <ItemsPanelTemplate>
@@ -195,6 +210,20 @@
                               </DataTemplate>
                             </ItemsControl.ItemTemplate>
                           </ItemsControl>
+                          <Border Width="{Binding Window.RightSpace, FallbackValue=0}" />
+                          <!-- 読み足しの「読み込み中…」「読めませんでした」の行（セルは持たない） -->
+                          <TextBlock Text="{Binding Message}" Padding="10,3" FontSize="11" Foreground="{StaticResource Ink.Faint}" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                              <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                  <DataTrigger Binding="{Binding IsMessage}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                  </DataTrigger>
+                                </Style.Triggers>
+                              </Style>
+                            </TextBlock.Style>
+                          </TextBlock>
                         </StackPanel>
                         <DataTemplate.Triggers>
                           <!-- 選択行は行全体を薄い青にし、行番号を目立たせる -->
@@ -207,8 +236,6 @@
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
-                </StackPanel>
-              </ScrollViewer>
             </DockPanel>
             <!-- 行を選んでいないときの案内（プレビューの枠は出したままにする） -->
             <TextBlock x:Name="PreviewPlaceholder" Style="{StaticResource Placeholder}" Margin="12,10"

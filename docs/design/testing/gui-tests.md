@@ -26,7 +26,7 @@ flowchart TD
 | 対象 | テスト | 主な確認内容 |
 |---|---|---|
 | `searchContentIndex` | `tests/tebunko/search/content_index_search.Tests.ps1` | 結果が TSV を 1 行ずつ照合したときと同じこと（改行の種類・照合のしかたごと）、文字どおり・正規表現・不正な正規表現、大文字・小文字、対象ファイル・図形とコメントの除外、上限での打ち切り、正規表現の照合の時間切れ（全文への照合は 1 行ずつに切り替える）、並列検索と読んだ内容の使い回し、中止・進捗の通知 |
-| `getContentIndexFiles` / `readContentIndexContext` | 同上 | 本文インデックスのファイルの列挙（フォルダの一部・直下だけ・無いフォルダ）、前後の行と行番号 |
+| `getContentIndexFiles` / `readContentIndexLines` | 同上 | 本文インデックスのファイルの列挙（フォルダの一部・直下だけ・無いフォルダ）、前後の行と行番号 |
 | `testIndexExists` / `getIndexSummary` | `tests/tebunko/search/search_run.Tests.ps1` | 本文インデックスのファイルの有無・件数・最新の更新日時、存在しないフォルダ |
 | `toSearchResultLines` / `writeSearchResult` | 同上 | [検索](../search/index.md) の結果ファイルの形式になること |
 | `newSearchRegex` / `getRegexScanMode` / `newFileFilter` | `tests/tebunko/search/search_query.Tests.ps1` | 文字どおりの記号、不正な正規表現、大文字と小文字の区別。対象ファイルは `;` / `；` の区切り、`!` の除外、部分一致、`?`、ほかの記号は文字どおり、空なら条件なし |
@@ -45,7 +45,7 @@ flowchart TD
 | 画面の型（[実行時コンパイル（csc.exe）を使わない](../gui/implementation.md#実行時コンパイルcscexeを使わない)） | `tests/shared/ui/types.Tests.ps1`<br>`tests/tebunko/ui/types.Tests.ps1` | `NotifyBase` の変更通知。`HitRow`（生成・`Prepare`・絞り込みの一致・セルの分割・`BuildPreview`・境界値）、`FileGroup`、`PreviewColumn`／`PreviewCell`／`PreviewTable`（範囲の選択とコピー、Excel に貼れる形への引用）、`IndexNode`（3 状態のチェック・フォルダの読み込み・境界値）、`FolderItem` |
 | 判断層 | `tests/tebunko/ui/index_view.Tests.ps1`<br>`indexing_view.Tests.ps1`<br>`search\search_bar_view.Tests.ps1`<br>`result_list_view.Tests.ps1`<br>`open_source_view.Tests.ps1`<br>`preview_view.Tests.ps1`<br>`settings\settings_view.Tests.ps1` | 画面に出す文言と可否の判定（ワークスペースの表示・選んだフォルダの可否・変える前の確認と空でないフォルダの警告の文言、インデックス名の入力チェック、インデックス作成の確認の文言と終わりの見出し・説明（成功・失敗の組み合わせ。利用者の PowerPoint のために取り込めなかったファイルは失敗に入る）、ボタンの上の一言（残りの件数とインデックス作成中か）、検索条件の説明・注意・検索ボタンの状態、ファイルごとの見出しの表記と並べ替え、プレビューの行数とステータス） |
 | 結果の表 | `tests/tebunko/ui/result_list.Tests.ps1` | ファイルごとの見出しの作成と開閉（[ファイルごとにまとめた表示](../gui/preview.md#ファイルごとにまとめた表示)）、行の作成、絞り込み、並べ替え、検索の終了時の表示、選択行の取得、イベント |
-| 選択行のプレビュー | `tests/tebunko/ui/preview.Tests.ps1` | 表示・消去、高さに収まる行数、セルを選んでいないときのコピーの案内、イベント、読み込み（`startJob`）の結果の扱い（読んでいる間に別の行を選んだら古い結果を出さない・後から頼んだ読み込みがあれば先の分は捨てる・読めないときは選んだ行だけを出す） |
+| 選択行のプレビュー | `tests/tebunko/ui/preview.Tests.ps1` | 表示・消去、最初に読む行数と縦の位置、セルを選んでいないときのコピーの案内、イベント、読み込み（`startJob`）の結果の扱い（読んでいる間に別の行を選んだら古い結果を出さない・後から頼んだ読み込みがあれば先の分は捨てる・読めないときは選んだ行だけを出す）、読み足し（表ごとに結果を合わせる・つながるときだけ足す・端まで読んだら止める・上限を超えたら遠い側を捨てる・別の行に替わったあとの結果は捨てる）、最後に読んだファイルの控えを次の読みに渡すこと、列見出しのドラッグ中は見えている列の範囲を固定すること、全部の列を持つこと（見出しとセルは見えている列だけ）。表と列の範囲は `types.Tests.ps1`・`preview_view.Tests.ps1`（`getPreviewColumnWindow`） |
 | 元のファイルを開く | `tests/tebunko/ui/open_source.Tests.ps1` | パスの特定・フォルダの選び直し、開き方の切り替え、既定のアプリで開く、フォルダを開く、ファイル出力、画面の操作 |
 | 検索対象のツリー | `tests/tebunko/ui/index_tree.Tests.ps1` | ツリーの読み込み、検索範囲の説明、除外の保存、すべてのチェック、イベント |
 | 画面定義（XAML） | `tests/meta/structure.Tests.ps1` | `scripts/**/*.xaml` が XML として読めること、各タブの画面に `gui.ps1` などが使う `x:Name` がすべてあること、shared と tebunko の型を順に読み込めること |
