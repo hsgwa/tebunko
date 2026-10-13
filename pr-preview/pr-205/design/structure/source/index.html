@@ -4299,12 +4299,12 @@
 <p><code>tests/meta/layers.Tests.ps1</code> の「依存の向き（ファイル単位）」が、「このパスのファイルは、あのパスのファイルに依存しない」の表で決まりを書く。失敗の文には、ファイルの組と、関数・変数の名前が出る。</p>
 <p>今ある逆向きの依存は、同じファイルの例外の一覧（「from のファイル・to のファイル・名前」の組と、許している理由）に載せ、増やさない。直したら一覧から消す（どの行でも見つからなくなった例外は、テストが失敗にする）。例外は、次の種類に分かれる。</p>
 <ul>
-<li>状態層の中で、下のフォルダが上のフォルダの関数・変数を使う依存（向きごとの件数: <code>index/</code> から <code>search/</code> 16・<code>index/</code> から <code>indexer/</code> 6・<code>core/</code> から <code>index/</code> 3・<code>indexer/</code> から <code>search/</code> 2）。<code>tebunko/index/system_index.ps1</code> から <code>tebunko/search/search_gram.ps1</code>（gram の関数）、<code>tebunko/index/</code> から <code>tebunko/search/source_map.ps1</code>（取り込み一覧・情報源フォルダのファイルの読み書き）、<code>tebunko/index/</code> から <code>tebunko/indexer/indexer_state.ps1</code>（状態ファイル・ログの読み書き）への依存が多い。どれも、下のフォルダへ関数を移すと消える。</li>
-<li>状態層が、画面層の <code>tebunko/ui/settings/settings.ps1</code> が作る <code>$workspace</code> を読む依存（13 件）。どの層に置くかを決めていない。</li>
-<li><code>shared/</code> が <code>tebunko/</code> の関数・変数を使う依存（8 件）。共有の部品のコメントで「ツールの側が定義する」と決めてある形と、決めた形ではない今ある依存がある。</li>
-<li>判断層（<code>search_bar_view.ps1</code>）が、共有の画面層の <code>formatTime</code> を呼ぶ依存（1 件）。</li>
+<li>状態層の中で、下のフォルダが上のフォルダの関数・変数を使う依存。<code>tebunko/index/system_index.ps1</code> から <code>tebunko/search/search_gram.ps1</code>（gram の関数）、<code>tebunko/index/</code> から <code>tebunko/search/source_map.ps1</code>（取り込み一覧・情報源フォルダのファイルの読み書き）、<code>tebunko/index/</code> から <code>tebunko/indexer/indexer_state.ps1</code>（状態ファイル・ログの読み書き）への依存が多い。どれも、下のフォルダへ関数を移すと消える。</li>
+<li>状態層が、画面層の <code>tebunko/ui/settings/settings.ps1</code> が作る <code>$workspace</code> を読む依存。どの層に置くかを決めていない。</li>
+<li><code>shared/</code> が <code>tebunko/</code> の関数・変数を使う依存。共有の部品のコメントで「ツールの側が定義する」と決めてある形と、決めた形ではない今ある依存がある。</li>
+<li>判断層（<code>search_bar_view.ps1</code>）が、共有の画面層の <code>formatTime</code> を呼ぶ依存。</li>
 </ul>
-<p>見つからないもの（限界）: <code>&amp; $name</code> の呼び出し、コールバックで渡したスクリプトブロックの中から呼ぶ形、<code>$ui</code> を別の名前の引数で受け取る形、クラスのメソッドの呼び出し、<code>Set-Variable</code> での代入。<code>New-Object</code> に文字列で渡す型と、<code>using namespace</code> で短く書いた型は、構文木では型として見えない（文字列の検査が見る）。同じ名前の関数・変数が、見る側のパスにもあるときは、そちらを使っているとみなす。</p>
+<p>見つからないもの（限界）: <code>&amp; $name</code> の呼び出し、コールバックで渡したスクリプトブロックの中から呼ぶ形、<code>$ui</code> を別の名前の引数で受け取る形、クラスのメソッドの呼び出し、<code>Set-Variable</code> での代入。別のファイルのクラスを型として使う依存（<code>[型]::new()</code>・引数や戻り値の型）は、依存の向きの表では見つからない（決めた型 <code>System.Windows.*</code> だけは、画面の変数・型の検査が見る）。<code>New-Object</code> に文字列で渡す型と、<code>using namespace</code> で短く書いた型は、構文木では型として見えない（文字列の検査が見る）。同じ名前の関数・変数が、見る側のパスにもあるときは、そちらを使っているとみなす。</p>
 <h2 id="読み込み口">読み込み口<a class="headerlink" href="#読み込み口" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart TD
     GUI["tebunko/gui.ps1&lt;br&gt;（画面の起動口）"] --&gt; LIB
