@@ -20,7 +20,7 @@
     <RowDefinition x:Name="DetailRow" Height="180" MinHeight="120" />
   </Grid.RowDefinitions>
 
-  <!-- 画面の上の知らせの帯（検索の結果を保存できなかったとき。shell/notice_banner.xaml。notice_banner.ps1）。窓の右の領域の余白をはみ出して、上端・左右いっぱいに置く（gui_main.ps1 の領域の表の Margin） -->
+  <!-- 画面の上の知らせの帯（検索の結果を保存できなかったとき。shell/notice_banner.xaml。notice_banner.ps1）。窓の右の領域の余白をはみ出して、上端・左右いっぱいに置く（shell\regions.ps1 の領域の表の Margin） -->
   <ContentControl x:Name="SearchNoticeHost" Focusable="False" IsTabStop="False"
                     HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
 

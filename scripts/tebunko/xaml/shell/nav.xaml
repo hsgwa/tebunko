@@ -26,7 +26,7 @@
     </ListBoxItem>
     <ListBoxItem x:Name="IndexTab" Style="{StaticResource NavItem}">
       <DockPanel>
-        <!-- 更新中の割合・中断・失敗の印（文言と色は ui/index_view.ps1 の getIndexNavBadge） -->
+        <!-- 更新中の割合・中断・失敗の印（文言と色は ui/index/index_list_view.ps1 の getIndexNavBadge） -->
         <TextBlock x:Name="IndexTabBadge" DockPanel.Dock="Right" Style="{x:Null}" Text="" Visibility="Collapsed" FontSize="10" Margin="6,0,0,0"
                    Foreground="{StaticResource Warn.Strong}" VerticalAlignment="Center" ToolTip="更新に失敗したファイルがあります" />
         <TextBlock Style="{x:Null}" Text="インデックス管理" />

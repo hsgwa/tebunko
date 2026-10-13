@@ -2,7 +2,7 @@
 # 移している間のナビ・中身の操作を止める動きのテスト。関数だけをファイルから取り出し、画面の部品は偽物にする。
 BeforeAll {
     . "$PSScriptRoot\..\..\..\helpers\load.ps1"
-    . "${scriptsDir}\tebunko\ui\index_view.ps1"
+    . "${scriptsDir}\tebunko\ui\index\index_edit_view.ps1"
 
     $tokens = $null
     $errors = $null

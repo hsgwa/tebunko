@@ -182,30 +182,28 @@ Describe "依存の向き（ファイル単位）" -Tag Meta {
             }
         }
 
-        $toolKnown = "共有の部品が、ツールの側で定義した関数・変数を使っている。決めた形ではない今ある依存"
-        $upward = "状態層の中で、下のフォルダが上のフォルダの関数・変数を使っている。関数を下のフォルダへ移すまでの今ある依存"
         $script:allowances = @(
             # shared → tebunko
-            newAllowances "shared/core/folder.ps1" "tebunko/search/source_map.ps1" @("joinSourcePath") $toolKnown
-            newAllowances "shared/core/fs.ps1" "tebunko/core/settings.ps1" @('$appId') $toolKnown
-            newAllowances "shared/office/office_reader.ps1" "tebunko/index/index_name.ps1" @("toIndexFileName") $toolKnown
-            newAllowances "shared/ui/shell.ps1" "tebunko/ui/startup_error.ps1" @('$appTitle') $toolKnown
+            newAllowances "shared/core/folder.ps1" "tebunko/search/source_map.ps1" @("joinSourcePath") "joinSourcePath を共有の側（shared/core）へ移すか、呼ぶ側から受け取る形にすると消える"
+            newAllowances "shared/core/fs.ps1" "tebunko/core/settings.ps1" @('$appId') "アプリの ID を、呼ぶ側から値として受け取る口を shared/core/fs.ps1 に作ると消える"
+            newAllowances "shared/office/office_reader.ps1" "tebunko/index/index_name.ps1" @("toIndexFileName") "toIndexFileName（インデックス名からファイル名への変換）は、インデックスの形式の関数を引き連れるため、呼ぶ側から受け取る形にすると消える"
+            newAllowances "shared/ui/shell.ps1" "tebunko/ui/startup_error.ps1" @('$appTitle') "アプリの表示名を、呼ぶ側から値として受け取る口を shared/ui/shell.ps1 に作ると消える"
             # 判断層 → 画面層
-            newAllowances "tebunko/ui/search/search_bar_view.ps1" "shared/ui/shell.ps1" @("formatTime") "判断層が、共有の画面層の関数を呼んでいる今ある依存"
+            newAllowances "tebunko/ui/search/search_bar_view.ps1" "shared/ui/shell.ps1" @("formatTime") "formatTime を、画面に触らない共有の判断層のファイルへ移すと消える"
             # core → index
-            newAllowances "tebunko/core/workspace.ps1" "tebunko/index/system_index.ps1" @("updateSystemIndexState") $upward
+            newAllowances "tebunko/core/workspace.ps1" "tebunko/index/system_index.ps1" @("updateSystemIndexState") "updateSystemIndexState は、index へ移す convertFromSystemIndexState・convertToSystemIndexState を呼ぶため core へは移せない。呼ぶ側の clearLegacySystemIndex（core/workspace.ps1）を index へ移すと消える"
             # index → search（取り込み一覧・情報源フォルダのファイルの読み書きと、システムインデックスの gram の関数が search にある）
-            newAllowances "tebunko/index/content_index_store.ps1" "tebunko/search/search_query.ps1" @("truncateHitLine") $upward
-            newAllowances "tebunko/index/index_archive.ps1" "tebunko/search/source_map.ps1" @("getSourceFolderMap", "readSourceFolderFile") $upward
-            newAllowances "tebunko/index/index_store.ps1" "tebunko/search/source_map.ps1" @("getSourceFolderMap", "readSourceFolderFile") $upward
-            newAllowances "tebunko/index/index_catalog.ps1" "tebunko/search/source_map.ps1" @("writeSourceFolderFile") $upward
+            newAllowances "tebunko/index/content_index_store.ps1" "tebunko/search/search_query.ps1" @("truncateHitLine") "ヒットの行を切り詰める truncateHitLine を、定数（hitLineMaxChars・hitLineBeforeMatchChars）と一緒に core へ移すと消える（文字列だけを扱う）"
+            newAllowances "tebunko/index/index_archive.ps1" "tebunko/search/source_map.ps1" @("getSourceFolderMap", "readSourceFolderFile") "取り込み一覧・情報源フォルダのファイルを読む関数を index へ移すと消える（ファイルの持ち主は index）"
+            newAllowances "tebunko/index/index_store.ps1" "tebunko/search/source_map.ps1" @("getSourceFolderMap", "readSourceFolderFile") "取り込み一覧・情報源フォルダのファイルを読む関数を index へ移すと消える（ファイルの持ち主は index）"
+            newAllowances "tebunko/index/index_catalog.ps1" "tebunko/search/source_map.ps1" @("writeSourceFolderFile") "情報源フォルダのファイルを書く writeSourceFolderFile を index へ移すと消える（ファイルの持ち主は index）"
             newAllowances "tebunko/index/system_index.ps1" "tebunko/search/search_gram.ps1" @(
                 '$systemIndexFileName', "addTextGrams", "convertFromSystemIndexState", "convertToGramText", "convertToSystemIndexState",
                 "getGramPartCount", "getIndexNameOfRelPath", "getSystemIndexFileNames", "newSystemIndexState", "testSystemIndexPath"
-            ) $upward
+            ) "システムインデックスの形式と gram の関数（search_gram.ps1 の該当の関数・値）を index へ移すと消える（search が index を読む向きになる）"
             # indexer → search
-            newAllowances "tebunko/indexer/indexer_plan.ps1" "tebunko/search/search_gram.ps1" @('$systemIndexFileName') $upward
-            newAllowances "tebunko/indexer/indexer_run.ps1" "tebunko/search/source_map.ps1" @("writeSourceFolderFile") $upward
+            newAllowances "tebunko/indexer/indexer_plan.ps1" "tebunko/search/search_gram.ps1" @('$systemIndexFileName') "システムインデックスのファイル名の値を index へ移すと消える（search も index を読む）"
+            newAllowances "tebunko/indexer/indexer_run.ps1" "tebunko/search/source_map.ps1" @("writeSourceFolderFile") "情報源フォルダのファイルを書く writeSourceFolderFile を index へ移すと消える（ファイルの持ち主は index）"
         )
 
         # 行ごとの検出の結果。表の行ごとの It と、使われなくなった例外の It が、同じ解析を繰り返さないよう覚えておく

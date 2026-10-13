@@ -8,7 +8,7 @@ BeforeAll {
     Add-Type -AssemblyName PresentationCore, WindowsBase
     . "${scriptsDir}\tebunko\ui\search\search_bar_view.ps1"
     . "${scriptsDir}\tebunko\ui\settings\settings_view.ps1"
-    . "${scriptsDir}\tebunko\ui\index_view.ps1"
+    . "${scriptsDir}\tebunko\ui\index\index_archive_view.ps1"
 
     # 画面層のファイルは、読み込むと画面の部品を作るため、使う関数だけを取り出す
     $tokens = $null

@@ -1,6 +1,6 @@
 ﻿# インデックス管理の画面のイベントの登録（ボタン・一覧の操作・行のメニュー）。
 
-# ステータス列の見出しの説明（文言は index_view.ps1 が決める）
+# ステータス列の見出しの説明（文言は index_list_view.ps1 が決める）
 $ui.StatusColumnHeader.ToolTip = (getIndexStatusHelpText) -join "`n"
 # 帯の閉じるボタンと、帯が自動で消えるときの時計（時間は setIndexingBannerBehavior が決めて動かす）
 $script:indexingBannerTimer = newTimer 8000 { safe { closeIndexingBanner } }

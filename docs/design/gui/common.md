@@ -72,7 +72,7 @@ flowchart TD
 
 ## 確認ダイアログ（`showConfirm`）
 
-本体の窓を親にして出すダイアログは、必ず `showOwnedDialog`（`shell.ps1`）で出す（待つ間のダイアログは例外で、`showWaitDialog` が同じ暗幕の数え方で出す）。開いている間は本体の窓の最上層の暗幕（`ScrimOverlay`。`gui_main.ps1` が `setDialogScrim` で渡す）を見せ、閉じたら（例外のときも）隠す。`.ShowDialog(` を直接呼ぶのは `showOwnedDialog` だけで、`tests/meta/structure.Tests.ps1` が確かめる。
+本体の窓を親にして出すダイアログは、必ず `showOwnedDialog`（`shell.ps1`）で出す（待つ間のダイアログは例外で、`showWaitDialog` が同じ暗幕の数え方で出す）。開いている間は本体の窓の最上層の暗幕（`ScrimOverlay`。`ui/shell/services.ps1` が `setDialogScrim` で渡す）を見せ、閉じたら（例外のときも）隠す。`.ShowDialog(` を直接呼ぶのは `showOwnedDialog` だけで、`tests/meta/structure.Tests.ps1` が確かめる。
 
 `showConfirm` は `-title`（OS の題の帯）と `-form`（`normal` / `danger` / `choice`。省略すると、選択肢が 2 つ以上なら `choice`、1 つで危険なら `danger`、それ以外は `normal`）を取る。幅は `choice` が 620、ほかは 520。`danger` は見出しに赤い「!」の丸を付け、実行のボタンを赤にする。
 

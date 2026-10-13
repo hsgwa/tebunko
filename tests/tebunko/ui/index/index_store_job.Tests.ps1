@@ -46,7 +46,10 @@ BeforeAll {
         return $fake
     }
 
-    . "${scriptsDir}\tebunko\ui\index_view.ps1"
+    . "${scriptsDir}\tebunko\ui\index\index_list_view.ps1"
+    . "${scriptsDir}\tebunko\ui\index\index_detail_view.ps1"
+    . "${scriptsDir}\tebunko\ui\index\index_edit_view.ps1"
+    . "${scriptsDir}\tebunko\ui\index\index_archive_view.ps1"
     . "${scriptsDir}\tebunko\ui\index\index_store.ps1"
 
     # index_list.ps1・index_tree.ps1・search_bar_view.ps1 は画面の型を使うものを含むため、読み込まずに必要な関数だけを取り出す

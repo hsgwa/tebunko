@@ -3,7 +3,7 @@ BeforeAll {
     . "$PSScriptRoot\..\..\..\helpers\load.ps1"
     Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
     . "${scriptsDir}\shared\ui\types.ps1"
-    . "${scriptsDir}\tebunko\ui\types.ps1"
+    . "${scriptsDir}\tebunko\ui\search\result_types.ps1"
     . "${scriptsDir}\tebunko\ui\search\result_list_view.ps1"
 
     # 結果の表の項目のテストに使う、HitRow・FileGroup と同じ項目を持つもの

@@ -35,7 +35,10 @@ BeforeAll {
         return $fake
     }
 
-    . "${scriptsDir}\tebunko\ui\index_view.ps1"
+    . "${scriptsDir}\tebunko\ui\index\index_list_view.ps1"
+    . "${scriptsDir}\tebunko\ui\index\index_detail_view.ps1"
+    . "${scriptsDir}\tebunko\ui\index\index_edit_view.ps1"
+    . "${scriptsDir}\tebunko\ui\index\index_archive_view.ps1"
 
     # index_list.ps1 は画面の型を使うため、読み込まずに必要な関数だけを取り出す
     $ast = [System.Management.Automation.Language.Parser]::ParseFile("${scriptsDir}\tebunko\ui\index\index_list.ps1", [ref]$null, [ref]$null)

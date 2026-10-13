@@ -31,7 +31,12 @@ $ErrorActionPreference = "Stop"
 . ([WildcardPattern]::Escape("$PSScriptRoot\perf_common.ps1".Replace('`', '``')))
 $lib = resolveTebunkoLib $Tool
 . ([WildcardPattern]::Escape($lib.Replace('`', '``')))
-foreach ($typesFile in @("scripts\shared\ui\types.ps1", "scripts\tebunko\ui\types.ps1")) {
+# 型のファイル: 前の版は scripts\tebunko\ui\types.ps1 の 1 つ、今の版は検索・検索対象・インデックスの 3 つに分かれている
+$tebunkoTypes = @("scripts\tebunko\ui\types.ps1")
+if (!(Test-Path -LiteralPath (Join-Path $Tool $tebunkoTypes[0]))) {
+    $tebunkoTypes = @("scripts\tebunko\ui\search\result_types.ps1", "scripts\tebunko\ui\search\target_types.ps1", "scripts\tebunko\ui\index\index_types.ps1")
+}
+foreach ($typesFile in (@("scripts\shared\ui\types.ps1") + $tebunkoTypes)) {
     $typesPath = Join-Path $Tool $typesFile
     if (!(Test-Path -LiteralPath $typesPath)) { throw "測る tebunko に $typesFile がありません。" }
     . ([WildcardPattern]::Escape($typesPath.Replace('`', '``')))

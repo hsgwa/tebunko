@@ -103,7 +103,7 @@ CI（`test.yml` の `test`）は、版を 1.25.0 に固定した PSScriptAnalyze
 | 37 | `PSAvoidUsingPositionalParameters` | COM の呼び出し（`Workbooks.Open` 等）は引数の順序が API 側で決まっており、名前付きにできない |
 | 36 | `PSAvoidUsingEmptyCatchBlock` | 権限の無いプロセスの起動時刻が取れない場合など、失敗しても処理を続けるべき箇所。理由は各 `catch` にコメントで記載している |
 | 27 | `PSAvoidAssignmentToAutomaticVariable` | WPF のイベントハンドラーの引数名 `sender` に対する指摘。PowerShell の自動変数と同名だが、ハンドラー内の引数であり影響しない |
-| 6 | `TypeNotFound` | `tebunko/ui/types.ps1` が、`shared/ui/types.ps1` の型（`NotifyBase`）を継承しているため。1 ファイルだけを解析すると継承元が見つからないという指摘で、実際の読み込み順では解決する（`tests/meta/structure.Tests.ps1` の「型の読み込み」で実際に読み込んで確認している）。どのルールを指定しても出る |
+| 6 | `TypeNotFound` | `tebunko/ui/` の `*_types.ps1`（`search/result_types.ps1` など）が、`shared/ui/types.ps1` の型（`NotifyBase`）を継承しているため。1 ファイルだけを解析すると継承元が見つからないという指摘で、実際の読み込み順では解決する（`tests/meta/structure.Tests.ps1` の「型の読み込み」で実際に読み込んで確認している）。どのルールを指定しても出る |
 
 なお `tests/testdata/make_testdata.ps1` には `PSAvoidUsingPlainTextForPassword` の指摘が 7 件出る。パスワード付きの Office ファイルを**テストデータとして作る**スクリプトであり、パスワードは固定のテスト用文字列である。配布 zip には含まれない。
 

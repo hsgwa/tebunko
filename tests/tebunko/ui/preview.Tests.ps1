@@ -5,7 +5,7 @@ BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
     Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
     . "${scriptsDir}\shared\ui\types.ps1"
-    . "${scriptsDir}\tebunko\ui\types.ps1"
+    . "${scriptsDir}\tebunko\ui\search\result_types.ps1"
     . "${scriptsDir}\tebunko\ui\preview_view.ps1"
     . "${scriptsDir}\tebunko\ui\search\search_bar_view.ps1"
     . "${scriptsDir}\tebunko\ui\search\result_list_view.ps1"
