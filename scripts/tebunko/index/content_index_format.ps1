@@ -360,8 +360,18 @@ function testContentIndexCellPrefixed {
         $meta
     )
 
-    $target = [string]$meta["対象"]
-    return ((getContentIndexFileKind $book) -eq "Excel") -and ($target -eq ${placeKindShape} -or $target -eq ${placeKindComment})
+    return testCellPrefixedPlace $book ([string]$meta["対象"])
+}
+
+function testCellPrefixedPlace {
+    # 場所の行が「セル番地 + 区切りのタブ + 文字」の形か（元のファイルが Excel で、場所の種類が図形・コメント）を返す。
+    # 種類はふつうの場所なら空。この判定はここだけに置き、検索結果の行（HitRow.IsCellPrefixed）もこれで決める
+    param (
+        [string]$book,
+        [string]$kind
+    )
+
+    return ((getContentIndexFileKind $book) -eq "Excel") -and ($kind -eq ${placeKindShape} -or $kind -eq ${placeKindComment})
 }
 
 

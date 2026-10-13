@@ -37,7 +37,9 @@ BeforeDiscovery {
     @{ Kind = '関数'; Pattern = 'newPackIndex'; New = 'newContentIndexFiles'; Docs = $true }
     @{ Kind = '関数'; Pattern = 'writeHitPack'; New = 'writeHitContentIndex'; Docs = $true }
     @{ Kind = '関数'; Pattern = 'testPackCellPrefixed'; New = 'testContentIndexCellPrefixed'; Docs = $true }
-    @{ Kind = 'ファイル名'; Pattern = 'pack_format'; New = 'content_index_format'; Docs = $true }
+    @{ Kind = 'クラスのメンバー'; Pattern = 'IsCelllessPlace'; New = 'IsCellPrefixed'; Docs = $true }
+    @{ Kind = 'クラスのメンバー'; Pattern = 'CelllessPlaceRegex'; New = 'testCellPrefixedPlace'; Docs = $true }
+    @{ Kind = 'ファイル名'; Pattern = 'pack_format';New = 'content_index_format'; Docs = $true }
     @{ Kind = 'ファイル名'; Pattern = 'pack_store'; New = 'content_index_store'; Docs = $true }
     @{ Kind = 'ファイル名'; Pattern = 'pack_search'; New = 'content_index_search'; Docs = $true }
     @{ Kind = 'ファイル名'; Pattern = 'convert_to_pack'; New = 'convert_to_content_index'; Docs = $true }

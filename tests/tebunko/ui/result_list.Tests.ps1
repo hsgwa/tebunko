@@ -206,6 +206,10 @@ Describe "ensureRows" -Tag Unit {
         $group.Rows[2].Kind | Should -Be "ヘッダー・フッター"
         $group.Rows[2].Order | Should -Be 2
         $group.ShownRows.Count | Should -Be 3
+        # 行の先頭がセル番地か（Excel の図形・コメントだけ。ヘッダー・フッターとふつうのセルは違う）
+        $group.Rows[0].IsCellPrefixed | Should -Be $false
+        $group.Rows[1].IsCellPrefixed | Should -Be $true
+        $group.Rows[2].IsCellPrefixed | Should -Be $false
     }
 
     It "相対フォルダが空・無いときは、インデックス名も空にする" {

@@ -109,6 +109,7 @@ function ensureRows {
         $row.PlaceText = $described.Place
         $row.Kind = $described.Kind
         $row.IsText = testTextExtension $hit.Book
+        $row.IsCellPrefixed = testCellPrefixedPlace $hit.Book (splitObjectPlace $hit.Location).Kind
         $row.Order = $i
         $row.FileGroup = $group
         $group.Rows.Add($row)

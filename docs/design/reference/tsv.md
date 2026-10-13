@@ -82,7 +82,8 @@
 | `convertToContentIndexBody` | text | string | TSV の中身を本文インデックスに入れる形にする（改行を LF に、末尾に LF、U+001C〜U+001F を除く） | convertToContentIndexText |
 | `convertToContentIndexText` | books | string | 元のファイルの並び（TSV から新しく作るもの、または前の本文インデックスから写すまとまり）から、本文インデックスの文字列を作る | convertFolderToContentIndex |
 | `readContentIndexPlaces` | text | `@{Book; Location; CellPrefixed; Start; End}` の並び | 本文インデックスの文字列から、場所ごとの元のファイル名・場所の名前・行の先頭がセル番地か（`CellPrefixed`。Excel の図形・コメントが `$true`。`testContentIndexCellPrefixed`）・中身の範囲を先頭から順に返す。版が違えば例外 | 検索（searchContentIndexFiles）、readContentIndexLines |
-| `testContentIndexCellPrefixed` | book, meta | bool | 場所の行が「セル番地 + タブ + 文字」の形か（元のファイルが Excel で、対象が図形・コメント） | readContentIndexPlaces |
+| `testContentIndexCellPrefixed` | book, meta | bool | 場所の行が「セル番地 + タブ + 文字」の形か。メタ情報の `対象` を `testCellPrefixedPlace` に渡して返す | readContentIndexPlaces |
+| `testCellPrefixedPlace` | book, kind | bool | 場所の行が「セル番地 + タブ + 文字」の形か（元のファイルが Excel で、場所の種類が図形・コメント。ふつうの場所の種類は空）。この判定はここだけにあり、検索結果の行（`HitRow.IsCellPrefixed`）も行を作るときにこれで決める | testContentIndexCellPrefixed、検索結果の行を作る所（result_list.ps1） |
 | `splitContentIndexTextByBook` | text | `@{Name; Block}` の並び | 本文インデックスの文字列を元のファイルごとのまとまりに分ける（入れ替えない元のファイルをそのまま写すため）。版が違えば例外 | convertFolderToContentIndex |
 | `getContentIndexBodyText` | text | string | メタ情報の行を除いた中身（システムインデックスの語を作るため） | writeSystemIndexFolder |
 

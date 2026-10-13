@@ -67,8 +67,6 @@ Describe "splitObjectPlace" -Tag Unit {
         }
         $reader.Contains("[${placeKindEmbed}") | Should -Be $true
         $hitRow.Contains("\[(?:${placeKindShape}|${placeKindComment}|${placeKindHeaderFooter}|${placeKindEmbed}[1-9][0-9]{0,8})\]") | Should -Be $true
-        # セル番地が無い場所（ヘッダー・フッター）の判定（IsCelllessPlace）も、同じ種類の名前で書く
-        $hitRow.Contains("CelllessPlaceRegex = [regex]::new(`"\[${placeKindHeaderFooter}\]") | Should -Be $true
     }
 }
 

@@ -232,3 +232,23 @@ Describe "convertToContentIndexText / readContentIndexPlaces" -Tag Unit {
         $places[0].Location | Should -Be "S[ヘッダー・フッター]"
     }
 }
+
+Describe "testCellPrefixedPlace" -Tag Unit {
+    # 種類の名前は index_name.ps1 の変数から取る（表は収集時に作るため、変数の名前で持ち、実行時に引く）
+    It "<Book> の種類（<KindVar>）の場所は、行の先頭がセル番地か = <Expected>" -ForEach @(
+        @{ Book = "a.xlsx"; KindVar = "placeKindShape"; Expected = $true }
+        @{ Book = "a.xlsx"; KindVar = "placeKindComment"; Expected = $true }
+        @{ Book = "a.XLS"; KindVar = "placeKindShape"; Expected = $true }
+        @{ Book = "a.xlsm"; KindVar = "placeKindComment"; Expected = $true }
+        @{ Book = "a.xlsx"; KindVar = "placeKindHeaderFooter"; Expected = $false }
+        @{ Book = "a.xlsx"; KindVar = "placeKindEmbed"; Expected = $false }
+        @{ Book = "a.xlsx"; KindVar = ""; Expected = $false }
+        @{ Book = "a.docx"; KindVar = "placeKindShape"; Expected = $false }
+        @{ Book = "a.docx"; KindVar = "placeKindComment"; Expected = $false }
+        @{ Book = "a.pptx"; KindVar = "placeKindShape"; Expected = $false }
+        @{ Book = "a.pptx"; KindVar = "placeKindComment"; Expected = $false }
+    ) {
+        $kind = if ($KindVar) { Get-Variable -Name $KindVar -ValueOnly } else { "" }
+        testCellPrefixedPlace $Book $kind | Should -Be $Expected
+    }
+}
