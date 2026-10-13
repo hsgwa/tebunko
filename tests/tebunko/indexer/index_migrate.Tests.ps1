@@ -427,13 +427,17 @@ Describe "writeStatusKeepingDropped（今の決まりに合わない前の版の
             param ($folders, $rows)
             writeStatusFile $folders $rows $this.StatusPath
         }
-        # 前回の読み込みでは、前の版の名前のフォルダ行は LegacyFolders に入り、各ファイルの行は読み飛ばされて Rows に無い
-        $previous = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
-        $legacy = @([pscustomobject]@{ Path = "C:\data\古い"; Name = $name })
         $folder = [pscustomobject]@{ Path = "C:\data\営業"; Name = "営業" }
+        $oldFolder = [pscustomobject]@{ Path = "C:\data\古い"; Name = $name }
         $row = [pscustomobject]@{ 相対パス = "営業\c.docx"; 更新日時 = "2025/01/10 12:34:56"; サイズ = "1"; 状態 = $stateDone; 抽出版 = "1"; エラー = "" }
+        $oldRow = [pscustomobject]@{ 相対パス = "$name\a.docx"; 更新日時 = "2025/01/10 12:34:56"; サイズ = "1"; 状態 = $stateDone; 抽出版 = "1"; エラー = "" }
+        # 前の版が書いた取り込み一覧（前の版の名前のフォルダの行と、その各ファイルの行）を読む
+        writeStatusFile @($folder, $oldFolder) @($row, $oldRow) $path
+        $before = readStatusFile $path
+        @($before.LegacyFolders | ForEach-Object { $_.Name }) | Should -Be @($name)
+        $before.Rows.ContainsKey("$name\a.docx") | Should -Be $false
 
-        writeStatusKeepingDropped $ledger @($folder) @($row) $legacy $previous
+        writeStatusKeepingDropped $ledger @($folder) @($row) $before.LegacyFolders.ToArray() $before.Rows
 
         $status = readStatusFile $path
         @($status.Folders | ForEach-Object { $_.Name }) | Should -Be @("営業")

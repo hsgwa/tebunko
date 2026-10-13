@@ -20,7 +20,7 @@
 | `toLongPath` | path | string | ファイル操作に渡すパスの先頭に `\\?\`（ネットワークのパスは `\\?\UNC\`）を付け、260 文字を超えるパスも扱えるようにする。付いていればそのまま | [入れ替えと書き出し](../index-data/publish.md#長いパス260-文字超の扱い) | インデックス作成・検索 |
 | `fromLongPath` | path | string | `toLongPath` で付けた `\\?\` を外す（`Get-ChildItem` の `FullName` から相対パスを求めるため） | 同上 | インデックス作成・検索 |
 | `testPathUnder` | path, root | bool | path が root の下（root そのものは含まない）にあるか。`..`・`.`・最後の `.` や空白・`\\?\` を解決してから比べる。状態のファイルから読んだ名前でフォルダを消す前に使う | [ファイルへの触れ方](../../safety/file-access.md) | インデックス・作業フォルダの削除, `IndexCatalog` |
-| `getFolderNameProblemText` | name | string（問題の文。使えれば空） | フォルダ名として使えるか（空・前後の空白・長すぎる・使えない文字・最後の `.`・予約名）。どのツールからも使う | 同上 | testIndexName, getTargetFolders |
+| `getFolderNameProblemText` | name | string（問題の文。使えれば空） | フォルダ名として使えるか（空・前後の空白・長すぎる・使えない文字・最後の `.`・予約名）。どのツールからも使う | 同上 | testIndexName, newIndexName, getTargetFolders |
 | `removeDirectoryRetry` | path, tries（既定 3）, waitMilliseconds（既定 200） | – | フォルダを中身ごと削除する。ほかのアプリが一時的に掴んでいることがあるため、少し待って数回試す | – | インデックス作成（インデックス・作業フォルダの削除） |
 | `moveDirectoryRetry` | source, destination, tries（既定 5）, waitMilliseconds（既定 200。試すたびに倍にする） | – | フォルダを移動する。`removeDirectoryRetry` と同じ理由で、待つ時間を倍にしながら数回試す | [インポート](../index-data/format.md#インポートimportindex) | インデックスのインポート（`swapInImportedIndexDir`・`restoreSwappedIndexDir`） |
 | `testAnyEntry` | entries（`EnumerateFiles` などの列挙）, predicate（省略可） | 真偽値 | 条件に合うものが 1 つでもあるか。見つけたところで列挙をやめ、列挙子を必ず Dispose する（`foreach` を途中で抜けると下のフォルダを掴んだまま残り、そのフォルダを移動・削除できなくなるため） | – | 前の版のワークスペースの状態（`getLegacyIndexState`）・インデックスの有無（`testIndexExists`）・元のファイルごとのフォルダの判定（`testIndexBookDir`） |

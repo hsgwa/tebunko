@@ -95,7 +95,7 @@
 |---|---|---|---|---|---|
 | `newIndexName` | folderPath, usedNames（HashSet・配列・文字列・`$null`） | string | インデックス名（フォルダ名・ドライブ名・共有名。重複すれば `名前(2)`…） | [取り込み一覧](../indexing/ingest-list.md) | assignIndexNames |
 | `assignIndexNames` | targetFolders, previousFolders（readStatusFile の Folders） | `@{Path; Enabled; Name}` の配列 | 設定の名前（getTargetFolders の Name）をそのまま使う（`testIndexName` を通らない名前は無いものとする）。名前が無ければ、前回の取り込み一覧の同じフォルダの名前、それも無ければフォルダ名から重複しない名前を作る | 同上 | インデックス作成 |
-| `testPathSegments` | segments, lenient（既定 `$false`） | string（問題の文。使えれば空） | `\` で区切った各部分が、空・`.`・`..`・長すぎる・使えない文字でないか。lenient のときは、前の版の名前（最後の `.`・空白など）も通し、パスにすると外へ出るものだけ止める | 同上 | testIndexRelPath, readStatusFile（`LegacyFolders` の判定）, removeDroppedFolders |
+| `testPathSegments` | segments, lenient（既定 `$false`） | string（問題の文。使えれば空） | `\` で区切った各部分が、空・`.`・`..`・長すぎる・使えない文字でないか。lenient のときは、前の版の名前（最後の `.`・空白など）も通し、パスにすると外へ出るものだけ止める | 同上 | testIndexRelPath, readStatusFile（`LegacyFolders` の判定）, removeDroppedFolders, `index_archive_rules.ps1` の相対パスの確かめ |
 | `testIndexRelPath` | relPath, allowNameOnly（既定 `$false`）, checkedNames | string（問題の文。使えれば空） | `インデックス名\フォルダからの相対パス` が置き場の外へ出ないか。取り込み一覧・取り込み中の記録の行は名前だけを通さない（システムインデックスの状態だけ通す） | 同上 | readIngestingFiles, readSystemIndexState |
 | `splitIndexRelPath` | relPath | `@{Name; Rest}` | `work\content_index` からの相対パスを、先頭のインデックス名と残りに分ける | 同上 | インデックス作成, resolveSourcePath |
 | `testSourceNameRecordable` | name | bool | 元のフォルダを設定に記録できる名前か（空・前後に空白があれば偽。`setIndexSourceFolder` の入口と、確認ダイアログの文言で使う） | [元のファイルを開く](../gui/open-file.md) | 判断 |
