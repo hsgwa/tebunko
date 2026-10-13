@@ -154,6 +154,9 @@ function getTmpDirUnavailableMessage {
     if ($reason -eq "TooLong") {
         return "ワークスペースのパスが長すぎるため、更新の作業フォルダを置けません。"
     }
+    if ($reason -eq "Link") {
+        return "ワークスペースの作業領域の途中にリンク（ジャンクション・シンボリックリンク）があるため、更新の作業フォルダを置けません。"
+    }
     return "更新の作業フォルダを置けません。"
 }
 

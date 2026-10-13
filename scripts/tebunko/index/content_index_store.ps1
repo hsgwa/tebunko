@@ -246,7 +246,7 @@ function convertFolderToContentIndex {
     if ($removeTsv) {
         foreach ($book in $books) {
             $bookDir = [System.IO.Path]::GetDirectoryName($book.Places[0].Path)
-            [System.IO.Directory]::Delete($bookDir, $true)
+            removeDirectoryRetry $bookDir
         }
     }
     return @{ Books = $bookTotal; Tsv = $tsvCount; Chars = $chars; Files = $texts.Count; Written = $written; Texts = [string[]]$texts.ToArray() }

@@ -166,6 +166,43 @@ Describe "IndexCatalog.RemoveIndex" -Tag Io {
         $status.Folders.Count | Should -Be 1
         $status.Rows.ContainsKey("営業\a.xlsx") | Should -Be $true
     }
+
+    It "インデックスのフォルダの中にあるジャンクションの先は消さず、ジャンクションだけを外す" {
+        $ws = newCatalogWorkspace "$TestDrive\remove_junction"
+        $outside = "$TestDrive\remove_junction_outside"
+        writeListFile "$outside\外.tsv" @("外")
+        writeListFile "$($ws.Index)\営業\a.xlsx\Sheet1.tsv" @("本文")
+        if (!(newTestJunction "$($ws.Index)\営業\リンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(
+            (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00")
+        ) $ws.Status
+
+        $ws.Catalog.RemoveIndex("営業")
+
+        Test-Path -LiteralPath "$($ws.Index)\営業" | Should -Be $false
+        readListFile "$outside\外.tsv" | Should -Be @("外")
+        (readStatusFile $ws.Status).Rows.Count | Should -Be 0
+    }
+
+    It "インデックスのフォルダそのものがジャンクションなら、ジャンクションだけを外し、先は消さない" {
+        $ws = newCatalogWorkspace "$TestDrive\remove_rootlink"
+        $outside = "$TestDrive\remove_rootlink_outside"
+        writeListFile "$outside\外.tsv" @("外")
+        [System.IO.Directory]::CreateDirectory($ws.Index) | Out-Null
+        if (!(newTestJunction "$($ws.Index)\営業" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @() $ws.Status
+
+        $ws.Catalog.RemoveIndex("営業")
+
+        Test-Path -LiteralPath "$($ws.Index)\営業" | Should -Be $false
+        readListFile "$outside\外.tsv" | Should -Be @("外")
+    }
 }
 
 Describe "IndexCatalog.RemoveIndexes" -Tag Io {

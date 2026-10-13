@@ -186,6 +186,25 @@ function fromLongPath {
     return $path
 }
 
+function trimTrailingSeparator {
+    # パスの末尾の \ と / を落とす（リンクの判定・削除の入口で使う。念のため、末尾の区切りでリンクの先を見ることが無いようにする）。
+    # 途中の区切りは変えない（\\?\ で始まらないパスの / は、あとで toLongPath が \ にそろえる。\\?\ で始まるパスの / はそのまま）。
+    # 落とした結果が空か : で終わるパス（C:\ ・ \\?\C:\ ・ \ ・ / ）と、\\?\ だけのパスは、そのまま返す。
+    # それ以外は、UNC の根（\\server\share\）や \\?\Volume{...}\ も、末尾を落とす
+    param (
+        [string]$path
+    )
+
+    if (!$path) {
+        return $path
+    }
+    $trimmed = $path.TrimEnd([char[]]@("\", "/"))
+    if (!$trimmed -or $trimmed.EndsWith(":") -or $trimmed -eq "\\?") {
+        return $path
+    }
+    return $trimmed
+}
+
 function setNotContentIndexed {
     # フォルダ（またはファイル）に「内容のインデックスを作成しない」属性（NotContentIndexed）を付ける。
     # 既に付いているものには付け直さない（Changed に数えない）ので、ほかの属性（読み取り専用など）は変えない。
@@ -313,9 +332,9 @@ function removeDirectoryRetry {
             return
         }
         try {
-            # 呼び出し側の $ErrorActionPreference によらず、消せなければ catch に来るよう -ErrorAction Stop を付ける
-            # （付けないと既定の Continue では例外にならず、試し直しも失敗の報告もせずに戻ってしまう）
-            Remove-Item -LiteralPath $longPath -Recurse -Force -ErrorAction Stop
+            # リンク（ジャンクション・シンボリックリンク）は辿らず、リンクそのものだけを外す（removeTreeNoFollow）。
+            # 消せなければ例外になり、catch で試し直す
+            removeTreeNoFollow $longPath
             return
         } catch {
             if ($i -ge $tries) {
@@ -323,6 +342,189 @@ function removeDirectoryRetry {
             }
             Start-Sleep -Milliseconds $waitMilliseconds
         }
+    }
+}
+
+function getLinkKind {
+    # item（Get-Item・Get-ChildItem・DirectoryInfo などが返す FileSystemInfo）の種類を返す。
+    #   Link    … ジャンクション・シンボリックリンク（属性に ReparsePoint が付き、LinkType がそのどちらか）
+    #   Unknown … 属性が読めない、またはフォルダなのに ReparsePoint が付き LinkType がジャンクション・シンボリックリンクと確かめられない
+    #             （OneDrive のオンデマンドの置き場のフォルダなど）。リンクかどうか分からないので、辿らず、消しもしない
+    #   Plain   … それ以外（ReparsePoint の付いたファイルは、辿るものが無いので Plain）
+    # 先に属性の ReparsePoint を見て、付いているときだけ LinkType を読む（多くのファイルで余計な問い合わせをしない）。
+    # 5.1 ではプロパティを読んだときの例外は $null になる（catch に届かない）ため、$null を読めなかったものとして扱う
+    param (
+        $item
+    )
+
+    $attributes = $item.Attributes
+    if ($null -eq $attributes) {
+        return "Unknown"
+    }
+    if (!($attributes -band [System.IO.FileAttributes]::ReparsePoint)) {
+        return "Plain"
+    }
+    $linkType = [string]$item.LinkType
+    if ($linkType -eq "Junction" -or $linkType -eq "SymbolicLink") {
+        return "Link"
+    }
+    if ($attributes -band [System.IO.FileAttributes]::Directory) {
+        return "Unknown"
+    }
+    return "Plain"
+}
+
+function testLinkItem {
+    # item が、辿ってはいけないもの（getLinkKind が Link か Unknown）なら $true
+    param (
+        $item
+    )
+
+    return ((getLinkKind $item) -ne "Plain")
+}
+
+function testPathIsLink {
+    # path そのもの（途中の階層は見ない）がジャンクション・シンボリックリンクなら $true。
+    # 無い・空のパスは $false（まだ作っていない）。属性が読めない、リンクかどうか確かめられないフォルダ（getLinkKind が Unknown）のときは $true（辿らない側に倒す）
+    param (
+        [string]$path
+    )
+
+    if (!$path) {
+        return $false
+    }
+    $long = toLongPath (trimTrailingSeparator $path)
+    try {
+        $attributes = [System.IO.File]::GetAttributes($long)
+    } catch [System.IO.FileNotFoundException] {
+        return $false
+    } catch [System.IO.DirectoryNotFoundException] {
+        return $false
+    } catch {
+        return $true
+    }
+    if (!($attributes -band [System.IO.FileAttributes]::ReparsePoint)) {
+        return $false
+    }
+    if ($attributes -band [System.IO.FileAttributes]::Directory) {
+        return (testLinkItem (New-Object System.IO.DirectoryInfo $long))
+    }
+    return (testLinkItem (New-Object System.IO.FileInfo $long))
+}
+
+function testPathHasLink {
+    # base の下の path まで、途中の各階層（path を含み、base とそれより上は含まない）に、リンクがあれば $true。
+    # 利用者が選んだ置き場（base）そのものが別の場所へのリンクでも、構成を変えずに使えるよう、base は見ない。
+    # path が base と同じなら $false。base の下になければ、確かめられないので $true
+    param (
+        [string]$base,
+        [string]$path
+    )
+
+    try {
+        $baseFull = [System.IO.Path]::GetFullPath((fromLongPath $base)).TrimEnd("\")
+        $pathFull = [System.IO.Path]::GetFullPath((fromLongPath $path)).TrimEnd("\")
+    } catch {
+        return $true
+    }
+    if ($pathFull.Equals($baseFull, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $false
+    }
+    if (!$pathFull.StartsWith("$baseFull\", [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $true
+    }
+    $current = $baseFull
+    foreach ($name in $pathFull.Substring($baseFull.Length + 1).Split("\")) {
+        $current = "$current\$name"
+        if (testPathIsLink $current) {
+            return $true
+        }
+        if (!(Test-Path -LiteralPath (toLongPath $current))) {
+            return $false  # ここから先はまだ無い
+        }
+    }
+    return $false
+}
+
+function removeEntryOnly {
+    # ファイル 1 つ・リンク（ジャンクション・シンボリックリンク）1 つ・空のフォルダ 1 つ（item は FileSystemInfo）を、そのものだけ消す。
+    # リンクの先は消さない。読み取り専用の属性は外してから消す
+    param (
+        [System.IO.FileSystemInfo]$item
+    )
+
+    $path = $item.FullName
+    $attributes = $item.Attributes
+    if ($attributes -band [System.IO.FileAttributes]::ReadOnly) {
+        # 読み取り専用だけを外す（ほかの属性は変えない）
+        [System.IO.File]::SetAttributes($path, ($attributes -band (-bnot [System.IO.FileAttributes]::ReadOnly)))
+    }
+    if ($item -is [System.IO.DirectoryInfo]) {
+        [System.IO.Directory]::Delete($path, $false)
+    } else {
+        [System.IO.File]::Delete($path)
+    }
+}
+
+function removeTreeNoFollow {
+    # フォルダを中身ごと削除する。ジャンクション・シンボリックリンクは辿らず、リンクそのものだけを外す（先は消さない）。
+    # path そのものがリンクなら、そのリンクだけを外す。フォルダが無ければ何もしない。
+    # 先に全体を数える（リンクは辿らない）。リンクかどうか確かめられないフォルダ（getLinkKind が Unknown）が 1 つでもあれば、
+    # 降りず、何も消さずに例外にする。何も消さないと言えるのは、この数える段で見つけた Unknown のときだけ。
+    # そのあとで、ファイル・リンク・フォルダ（下から順）を消す。
+    # 降りる直前と、フォルダのファイルを消す直前に、そのフォルダがリンクでないかを確かめ直す。
+    # 数えたあとにフォルダがリンクに替わっていたら例外にする。それまでに消した分は戻らない。
+    # 消す直前に確かめ直すのは、そのフォルダ自身だけ。上の階層が途中で替わったときは見つけられない。
+    # 読み取り専用の属性は外して消す（Remove-Item -Force と同じ働き）。消せなければ例外にする
+    param (
+        [string]$path
+    )
+
+    $long = toLongPath (trimTrailingSeparator $path)
+    if (![System.IO.Directory]::Exists($long)) {
+        return
+    }
+    $filesByDirectory = New-Object 'System.Collections.Generic.Dictionary[string,System.Collections.Generic.List[string]]'
+    $links = New-Object System.Collections.Generic.List[string]
+    $directories = New-Object System.Collections.Generic.List[string]
+    $pending = New-Object System.Collections.Generic.Stack[string]
+    $pending.Push($long)
+    while ($pending.Count -gt 0) {
+        $current = New-Object System.IO.DirectoryInfo ($pending.Pop())
+        $currentKind = getLinkKind $current
+        if ($currentKind -eq "Unknown") {
+            throw "リンクかどうか確かめられないフォルダのため、消しませんでした: $(fromLongPath $current.FullName)"
+        }
+        if ($currentKind -eq "Link") {
+            $links.Add($current.FullName)
+            continue
+        }
+        $directories.Add($current.FullName)
+        $filesByDirectory[$current.FullName] = New-Object System.Collections.Generic.List[string]
+        foreach ($entry in @($current.EnumerateFileSystemInfos("*", [System.IO.SearchOption]::TopDirectoryOnly))) {
+            if ($entry -isnot [System.IO.DirectoryInfo]) {
+                $filesByDirectory[$current.FullName].Add($entry.FullName)
+            } elseif ((getLinkKind $entry) -eq "Link") {
+                $links.Add($entry.FullName)
+            } else {
+                # 確かめられないもの（Unknown）も積む。降りる直前の確かめで例外にする（列挙の途中では投げない）
+                $pending.Push($entry.FullName)
+            }
+        }
+    }
+    foreach ($directory in $directories) {
+        if ((getLinkKind (New-Object System.IO.DirectoryInfo $directory)) -ne "Plain") {
+            throw "数えたあとでリンクに替わったフォルダのため、中のファイルを消しませんでした: $(fromLongPath $directory)"
+        }
+        foreach ($file in $filesByDirectory[$directory]) {
+            removeEntryOnly (New-Object System.IO.FileInfo $file)
+        }
+    }
+    foreach ($link in $links) {
+        removeEntryOnly (New-Object System.IO.DirectoryInfo $link)
+    }
+    for ($i = $directories.Count - 1; $i -ge 0; $i--) {
+        removeEntryOnly (New-Object System.IO.DirectoryInfo $directories[$i])
     }
 }
 
