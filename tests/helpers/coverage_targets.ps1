@@ -17,7 +17,7 @@ function getCoverageTargets {
     $scriptsRoot = [System.IO.Path]::GetFullPath($scriptsRoot)
     $testsRoot = Join-Path (Split-Path -Parent $scriptsRoot) "tests"
     $screenFolders = @("tebunko\ui\search", "tebunko\ui\index", "tebunko\ui\settings")
-    # startGui から分けた入口の部品（tebunko\ui\shell\ の下）。画面層なので分母から外す。shell\ の下のほかのファイル（nav・status_bar など）は、条件を変えない
+    # startGui から分けた入口の部品（tebunko\ui\shell\ の下）。画面層なので分母から外す（window_events.ps1 は同名のテストがあっても外す。テストは関数を取り出して流すので、ファイルは分母に入れない）。shell\ の下のほかのファイル（nav・status_bar など）は、条件を変えない
     $entryParts = @("regions.ps1", "screens.ps1", "services.ps1", "settings_recovery.ps1", "window_events.ps1", "closing.ps1", "startup.ps1", "activate_watch.ps1")
     return @(Get-ChildItem -LiteralPath $scriptsRoot -Recurse -Filter "*.ps1" |
         Where-Object {
