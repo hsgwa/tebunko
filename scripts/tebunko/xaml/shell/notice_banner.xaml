@@ -1,4 +1,4 @@
-﻿<!-- 画面の上の知らせの帯 1 つ分。検索の画面・インデックス管理の画面・窓の上の 3 か所に差す（gui_main.ps1 の領域の表。差す所ごとに Prefix を付けた名前で持つ）。
+﻿<!-- 画面の上の知らせの帯 1 つ分。検索の画面・インデックス管理の画面・窓の上の 3 か所に差す（shell\regions.ps1 の領域の表。差す所ごとに Prefix を付けた名前で持つ）。
      文言・色・閉じられるか・ボタンは notice_banner.ps1 が、そのとき出す内容で決める -->
 <Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"

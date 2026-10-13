@@ -1,7 +1,7 @@
 ﻿# 窓の入口（tebunko\ui\shell\window_events.ps1 の onWindowActivated・onWindowPreviewKeyDown）の、移動中の守りのテスト。
 # 関数だけをファイルから取り出し、読み直しや画面の部品は呼ばれた順を残す偽物にする。
 BeforeAll {
-    . "$PSScriptRoot\..\..\helpers\load.ps1"
+    . "$PSScriptRoot\..\..\..\helpers\load.ps1"
     . "${scriptsDir}\tebunko\ui\index\index_edit_view.ps1"
     Add-Type -AssemblyName PresentationCore, WindowsBase
 
