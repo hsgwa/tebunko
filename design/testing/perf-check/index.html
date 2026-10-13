@@ -3650,6 +3650,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#計測の子が失敗したとき" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        計測の子が失敗したとき
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#office-を使う形式の比べ方手元の-windowsexcelwordpowerpoint-が入った機械で" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4177,6 +4188,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#計測の子が失敗したとき" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        計測の子が失敗したとき
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#office-を使う形式の比べ方手元の-windowsexcelwordpowerpoint-が入った機械で" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4210,11 +4232,11 @@
 <h1 id="速さの回帰テストと上限の決め方">速さの回帰テストと上限の決め方<a class="headerlink" href="#速さの回帰テストと上限の決め方" title="Permanent link">&para;</a></h1>
 <p>扱うこと: perf-check.yml による速さの回帰テスト、回帰テストの中身、上限の決め方、誤って落ちたときの扱い、Office を使う形式の比べ方。扱わないこと: 手動の性能計測そのもの（<a href="../perf/">性能とリソースの計測のしかた</a>）。先に読むページ: <a href="../ci/">CI</a>。</p>
 <h2 id="perf-checkyml速さの回帰テスト">perf-check.yml（速さの回帰テスト）<a class="headerlink" href="#perf-checkyml速さの回帰テスト" title="Permanent link">&para;</a></h2>
-<p>検索・本文インデックスの作成・取り込みの速さが落ちたことを、PR の段階で見つける。<code>measure_perf.ps1</code> で測り、上限と比べて合否を出す（<code>perf.yml</code> は数字を見るだけで、合否は出さない）。必須のチェックにはしないが、流した PR で <code>search</code>・<code>ingest</code> が落ちていればマージしない。</p>
+<p>検索・本文インデックスの作成・選択行のプレビュー・取り込みの速さが落ちたことを、PR の段階で見つける。<code>measure_perf.ps1</code> で測り、上限と比べて合否を出す（<code>perf.yml</code> は数字を見るだけで、合否は出さない）。必須のチェックにはしないが、流した PR で <code>search</code>・<code>ingest</code> が落ちていればマージしない。</p>
 <pre class="mermaid"><code>flowchart TD
-    T["PR にラベル perf-check／main への push／手動"] --&gt; S["search ジョブ&lt;br&gt;検索・本文インデックスの作成"]
+    T["PR にラベル perf-check／main への push／手動"] --&gt; S["search ジョブ&lt;br&gt;検索・本文インデックスの作成・選択行のプレビュー"]
     T --&gt; I["ingest ジョブ&lt;br&gt;取り込み（.docx・.pptx）"]
-    S --&gt; CMP1{"上限と比べる&lt;br&gt;getSearchPerfProblems"}
+    S --&gt; CMP1{"上限と比べる&lt;br&gt;getSearchPerfProblems&lt;br&gt;getPreviewPerfProblems"}
     I --&gt; CMP2{"上限と比べる&lt;br&gt;getIngestPerfProblems"}
     CMP1 -- 超えた --&gt; NG1["Checks を失敗にする&lt;br&gt;（必須ではないがマージしない）"]
     CMP2 -- 超えた --&gt; NG2["Checks を失敗にする"]
@@ -4240,6 +4262,16 @@
 <td>同上</td>
 </tr>
 <tr>
+<td>選択行のプレビュー（読み込みと、残るメモリ）</td>
+<td>固定の上限と比べる（<code>search</code>。検索の測りのあとに別のプロセスで流す）</td>
+<td><code>.\tests\run.ps1 -Tag Slow -ExcludeTag Manual -Path tests\tools\perf_preview.Tests.ps1</code></td>
+</tr>
+<tr>
+<td>プレビューの表の描画（<code>-Render</code>。部品の数・スクロールの時間・残るメモリを含む）、読み足し（<code>-ReadMore</code>）、作ったセルの数、表を作る時間の 1 回目・2 回目以降</td>
+<td>値を出すだけで、上限は置かない（選択行のプレビューと同じテストで測る。<code>powershell.exe</code> の子プロセスは既定で STA なので、画面を出さずに Measure・Arrange できる）</td>
+<td>上と同じ。小さなインデックスでの動作確認は <code>.\tests\run.ps1 -Tag Gui -Path tests\tools\perf_preview.Tests.ps1</code></td>
+</tr>
+<tr>
 <td>取り込み（.docx・.pptx。読み取りのスレッド）</td>
 <td>固定の上限と比べる（<code>ingest</code>）</td>
 <td><code>.\tests\run.ps1 -Tag Slow -ExcludeTag Manual -Path tests\tools\perf_ingest.Tests.ps1</code></td>
@@ -4257,10 +4289,10 @@
 <li>main への push のうち、速さに効くファイル（<code>scripts/**</code>・<code>tools/measure_perf.ps1</code>・<code>tools/perf/**</code>・<code>tests/tools/perf_*.Tests.ps1</code>・<code>tests/testdata/office/**</code>・<code>.github/workflows/perf-check.yml</code>）が変わったとき。ラベルを付け忘れた回帰も、マージの後には見つかる</li>
 <li>手動（<code>workflow_dispatch</code>）。main への push と手動は、ラベルを見ずに流す</li>
 <li>ラベル <code>perf-check</code> は、リポジトリに作ってある。付けるのはメンテナ。リリースノートの分類（<code>.github/release.yml</code>）には入れない（ほかの分類のラベルと一緒に付くので、その分類に入る）</li>
-<li>ジョブは <code>search</code>（検索と本文インデックスの作成）と <code>ingest</code>（取り込み）の 2 つを、別のランナーで並べて流す。取り込みの後に同じジョブで検索すると遅く出る回があるため、分ける。どちらも <code>windows-latest</code>（4 コア）、<code>timeout-minutes: 30</code>。ランナーでかかる時間は <code>search</code> が 3〜4 分、<code>ingest</code> が 4〜5 分</li>
+<li>ジョブは <code>search</code>（検索・本文インデックスの作成・選択行のプレビュー。プレビューは検索の測りのあとに別のプロセス・別のデータで流し、どちらかが落ちても、もう一方の結果は残す）と <code>ingest</code>（取り込み）の 2 つを、別のランナーで並べて流す。取り込みの後に同じジョブで検索すると遅く出る回があるため、分ける。どちらも <code>windows-latest</code>（4 コア）、<code>timeout-minutes: 30</code>。ランナーでかかる時間は <code>search</code> が 3〜4 分、<code>ingest</code> が 4〜5 分</li>
 <li>各ジョブの <code>if</code> は、<code>github.event_name != 'pull_request'</code>（main への push・手動）、または <code>labeled</code> でラベル名が <code>perf-check</code>（付けたとき）、または <code>labeled</code> 以外（<code>synchronize</code>・<code>reopened</code>）で PR に <code>perf-check</code> が付いているとき。ほかのラベルを付けたときは流し直さない</li>
 <li>流れている実行の取り消し（<code>concurrency</code>）は、同じ PR に push を足したときと、<code>perf-check</code> を付け直したときだけ。グループは <code>perf-check-&lt;PR の番号（無ければ ref）&gt;</code> で、<code>perf-check</code> 以外のラベルを付けて起動した実行（ジョブはスキップになる）は、末尾に <code>run_id</code> を付けた別のグループに入れる。自分の PR に必ず付ける分類のラベル（<code>enhancement</code> など）を付けても、流れている <code>search</code>・<code>ingest</code> は取り消されない</li>
-<li>結果は PR の Checks の <code>search</code>・<code>ingest</code> の合否と、ジョブの Summary（<code>summary.md</code> の表）、artifact（<code>perf-check-search-&lt;実行の番号&gt;-&lt;試行の番号&gt;</code>・<code>perf-check-ingest-...</code>。保存期間は 90 日）で見る。このワークフロー自身の <code>pr-comment</code> ジョブ（<a href="../ci/">CI</a> の「結果を PR のコメントに書く（<code>pr-comment</code> ジョブ）」）が、<code>search</code>・<code>ingest</code> のうち悪いほうの結果と実行へのリンクを PR のコメントに出すが、数字（Summary の表）はそこには書き写さない</li>
+<li>結果は PR の Checks の <code>search</code>・<code>ingest</code> の合否と、ジョブの Summary（<code>summary.md</code> の表）、artifact（<code>perf-check-search-&lt;実行の番号&gt;-&lt;試行の番号&gt;</code>・<code>perf-check-preview-...</code>・<code>perf-check-ingest-...</code>。保存期間は 90 日）で見る。このワークフロー自身の <code>pr-comment</code> ジョブ（<a href="../ci/">CI</a> の「結果を PR のコメントに書く（<code>pr-comment</code> ジョブ）」）が、<code>search</code>・<code>ingest</code> のうち悪いほうの結果と実行へのリンクを PR のコメントに出すが、数字（Summary の表）はそこには書き写さない</li>
 <li>フォークからの PR でも <code>pull_request</code> のまま動かす（<code>pull_request_target</code> は使わない）。読み取りだけのトークンで動き、秘密の値は使わない（tebunko-perfdata は公開）。フォークの作者はラベルを付けられないので、流すかどうかはメンテナの側が決める。初めての貢献者の PR は、GitHub の設定どおり実行の承認が要る</li>
 <li>アクションはハッシュで固定する。<code>PERFDATA_SHA</code>（tebunko-perfdata のコミット）は <code>perf.yml</code> と同じ値にする（<code>PESTER_VERSION</code> と同じく、2 か所を手で同じにする）。<code>run</code> の中は ASCII だけで書く</li>
 </ul>
@@ -4287,19 +4319,26 @@
 <td><code>measure_perf.ps1 -Office ... -Threads 2 -Repeat 3</code>（1 回ごとに新しいプロセス・空のワークスペース）</td>
 <td>1 ファイルあたりの ms の中央値（<code>Ingest.PerFileMs.Median</code>）・全体の秒の中央値（<code>Ingest.Seconds.Median</code>）</td>
 </tr>
+<tr>
+<td><code>tests/tools/perf_preview.Tests.ps1</code>（選択行のプレビュー）</td>
+<td>検索と同じ <code>new_index.ps1 -Scale 0.1</code> に、テストの作業用の場所（<code>$TestDrive</code>）に作る本文インデックスのファイルを 2 つ足したもの。1 つは大きなファイル（約 10 MB・約 1 万行。架空の文で、ヒットは先頭の近くと終わりの近くに 10 行ずつ）、もう 1 つは横に広いファイル（2,000 列・1,300 行。語は 1,500 列目にだけ置く）。語はそれぞれのファイルに当たる 1 語（大きい本文・横に広い）を <code>words.tsv</code> に足す</td>
+<td><code>measure_perf.ps1 -Index ... -Words ... -Count 1 -Preview 20 -PreviewFullRead -Render -ReadMore</code>（語ごとに、ヒットの先頭から 20 件を、検索のキャッシュ無し・ありで 1 件ずつプレビューする。<code>tools/perf/measure_preview.ps1</code> が別のプロセスで測る。<code>-PreviewFullRead</code> は、前の読み方（毎回ファイルの全体を読む）でも同じ選択を測って並べる。<code>-Render</code> は表を画面を出さずに描画して部品の数・時間を測り、<code>-ReadMore</code> は下に 200 行ずつ読み足す時間を測る）</td>
+<td>語ごとの、キャッシュ無しの読み込みの中央値（<code>Preview.Words[].ReadUncachedMs.Median</code>）・プレビューのあと、GC のあとにマネージドヒープに残る増えの合計（<code>RetainedManagedMB</code>）。上限と比べるのは、perfdata の語と大きい本文の 4 語（<code>readLimitsMs</code> の語）で、横に広い語は値を出すだけで上限と比べない。前の読み方の値（<code>FullRead</code>）と、キャッシュ無しの選択で全体を読んだ回数（<code>ReadTextCallsUncached</code>）も出すだけ。<code>-Render</code> を付けた測りでは、計測が描画のために持つ表 1 枚（全部の列の文字を持つ）が残るメモリの値に入り、前の読み方（<code>-Render</code> を付けない）の値には入らない。同じ条件の比べではないので、横に広い語の差はそのまま読まない</td>
+</tr>
 </tbody>
 </table>
-<p>比べる処理は <code>tools/perf/perf_common.ps1</code> の <code>getSearchPerfProblems</code>・<code>getIngestPerfProblems</code> で、合わないものの一覧を返す（空なら合格）。失敗のメッセージには、対象の名前・値・上限の数字だけを書く。上限との境目・欠けた語・件数などは、各テストファイルの <code>Unit</code> で確かめる。</p>
+<p>比べる処理は <code>tools/perf/perf_common.ps1</code> の <code>getSearchPerfProblems</code>・<code>getIngestPerfProblems</code>・<code>getPreviewPerfProblems</code> で、合わないものの一覧を返す（空なら合格）。失敗のメッセージには、対象の名前・値・上限の数字だけを書く。上限との境目・欠けた語・件数などは、各テストファイルの <code>Unit</code> で確かめる。</p>
 <ul>
 <li>「速く終わっても、何もしていない」誤りを通さないため、時間のほかに次も確かめる</li>
+<li>プレビュー: 測った回数が、ヒットの数と 20 の小さいほうの 2 倍（キャッシュ無し・あり）であること、作った表のセルが 0 より多いこと。前の読み方の測定は、全部読む関数（<code>readContentIndexText</code>）がキャッシュ無しの選択のたびに呼ばれたことを数えて確かめ（時間の大小では決めない）、呼ばれていなければ失敗にする</li>
 <li>検索: <code>searches.csv</code> の 20 回すべてで、件数が <code>words.tsv</code> の「件数」と合うこと（数ならその件数、<code>10000+</code> なら 1 万件で打ち切り）、照合した本文インデックスのファイルの数（<code>Packs</code>）が本文インデックスの作成の数（521）と同じで 0 より大きいこと。件数は scale 0.1・種 1 のときの値。検索の流れ（<code>Run.SearchMode</code>）が <code>service</code> であること（<code>newSearchService</code> が無いと、<code>measure_search.ps1</code> は黙って <code>runspace</code> で測るため）</li>
 <li>取り込み: <code>Total</code>・<code>Done</code> が 100、<code>Failed</code> が 0。最後の回のワークスペースに本文インデックスがあり、合計の大きさが 0 より大きいこと（取り込み一覧の状態だけが <code>済</code> になり、中身を書かずに終わる誤りを通さないため。この形に頼ることは、下の「計測の口」の表にある）</li>
-<li>結果（<code>summary.md</code>・<code>result.json</code> など。数字だけでパスは入らない）は <code>work\test\perf-search\</code>・<code>work\test\perf-ingest\</code>（git 管理外）に残る。<code>summary.md</code> の見出しに、tebunko-perfdata のコミットが入る（取れなければ「不明」）</li>
+<li>結果（<code>summary.md</code>・<code>result.json</code> など。数字だけでパスは入らない）は <code>work\test\perf-search\</code>・<code>work\test\perf-preview\</code>・<code>work\test\perf-ingest\</code>（git 管理外）に残る。<code>summary.md</code> の見出しに、tebunko-perfdata のコミットが入る（取れなければ「不明」）</li>
 <li>tebunko-perfdata の場所は、環境変数 <code>TEBUNKO_PERFDATA</code>。無ければリポジトリと並んだ <code>tebunko-perfdata</code>（git worktree のときは、本体のチェックアウトと並んだもの）。どちらにも無いときは、<code>git clone</code> の取り方を示して失敗にする。手元の clone は、<code>PERFDATA_SHA</code> と <code>new_index.ps1</code>・<code>words.tsv</code> が同じであること（違うとデータが変わり、ランナーの数字と比べられない）</li>
 <li><code>-All</code> は <code>Slow</code> も流すので、tebunko-perfdata が要る</li>
 </ul>
 <h2 id="上限">上限<a class="headerlink" href="#上限" title="Permanent link">&para;</a></h2>
-<p>上限は、ランナー（<code>windows-latest</code>）で、<code>perf-check.yml</code> と同じ構成（同じジョブ）で 5 回測った比べる値の最大に余裕を掛け、切り上げて決める。各テストファイルの先頭の表（<code>searchLimitsMs</code>・<code>packLimitSeconds</code>・<code>perFileLimitMs</code>・<code>secondsLimit</code>）に置く。</p>
+<p>上限は、ランナー（<code>windows-latest</code>）で、<code>perf-check.yml</code> と同じ構成（同じジョブ）で 5 回測った比べる値の最大に余裕を掛け、切り上げて決める。各テストファイルの先頭の表（<code>searchLimitsMs</code>・<code>packLimitSeconds</code>・<code>readLimitsMs</code>・<code>retainedLimitMB</code>・<code>perFileLimitMs</code>・<code>secondsLimit</code>）に置く。</p>
 <table>
 <thead>
 <tr>
@@ -4347,6 +4386,20 @@
 <td>105 秒</td>
 </tr>
 <tr>
+<td>プレビュー 読み込み（キャッシュ無し。語ごと）</td>
+<td>中央値</td>
+<td>ランナーで 2 回測った値の最大（この行だけ 2 回）</td>
+<td>1.5 倍（10 ms 単位）</td>
+<td><code>perf_preview.Tests.ps1</code> の <code>readLimitsMs</code></td>
+</tr>
+<tr>
+<td>プレビューのあとに残るメモリ（合計）</td>
+<td>GC のあとのマネージドヒープの増え（1 回あたりではなく、語ごとの合計）</td>
+<td>ランナーで 2 回測った値の最大（この行だけ 2 回。語のうち一番大きい値）</td>
+<td>2 倍（0.1 MB 単位）</td>
+<td><code>perf_preview.Tests.ps1</code> の <code>retainedLimitMB</code></td>
+</tr>
+<tr>
 <td>取り込み 1 ファイルあたり</td>
 <td>中央値</td>
 <td>723〜793 ms</td>
@@ -4363,7 +4416,7 @@
 </tbody>
 </table>
 <ul>
-<li>余裕: 検索の同じ条件の 2 回の差は 7% ほど、取り込みの 3 回の差は 2% ほど。ランナーの機械の違いを見込んで 1.5 倍を取りつつ、流れが崩れたときに出る数倍の遅れは確実に止める。本文インデックスの作成は 1 回の値で、5 割ほどぶれることがあるため 2 倍にする</li>
+<li>余裕: 検索の同じ条件の 2 回の差は 7% ほど、取り込みの 3 回の差は 2% ほど。ランナーの機械の違いを見込んで 1.5 倍を取りつつ、流れが崩れたときに出る数倍の遅れは確実に止める。本文インデックスの作成は 1 回の値で、5 割ほどぶれることがあるため 2 倍にする。プレビューの残るメモリも 2 倍にする（GC のあとの増えは、GC の時機で負の値になることもあるほどぶれるため）</li>
 <li><code>perf.yml</code> の数字は、構成が違う（取り込みの後に同じジョブで検索すると遅く出た回がある）ので、上限の元にしない。インクリメンタルサーチの目標（7,000 件規模で 0.1 秒前後）も上限にしない。今の main はこのデータで 0.3 秒ほどなので、上限にすると今の main で落ちる</li>
 <li>変え方: 速くした PR では、同じ決め方で下げてよい。上げるのは、ランナーが遅くなったなど、速さを落としていない理由があるときだけにする。理由と数字を PR 本文に書き、メンテナの了承を得る</li>
 <li>上限はランナー（4 コア）に合わせたもの。手元の PC で超えたときは、同じ PC で main を測って比べ、回帰かどうかを見る</li>
@@ -4374,6 +4427,14 @@
 <li>main も同じくらい遅ければ、ランナーの問題として扱う。上限を上げるかは、メンテナが決める</li>
 <li>main が通って PR だけが落ちれば、回帰として直す</li>
 </ul>
+<h2 id="計測の子が失敗したとき">計測の子が失敗したとき<a class="headerlink" href="#計測の子が失敗したとき" title="Permanent link">&para;</a></h2>
+<p><code>tools/measure_perf.ps1</code> は、計測ごとに子のプロセス（<code>tools/perf/measure_*.ps1</code>）を起こす。子が 0 以外で終わると、例外の文に次を入れる（出すのは CI のログと例外の文だけで、ファイルや artifact には残さない）。</p>
+<ul>
+<li>終了コード（10 進と 16 進。異常終了のときの NTSTATUS が読める）</li>
+<li>子の標準出力・標準エラーの終わりの 20 行（出力が無ければ「何も出力しませんでした」）。プレビューの子は、段階の切り替えで <code>段階: &lt;名前&gt;</code>（読み込み・開始・検索・プレビュー（最初の読み）・読み足し・描画・記録の終わり・記録の停止の終わり・結果の書き出し・書き出しの終わり）を 1 行ずつ出すので、どこまで進んだかが分かる。名前だけで、値は出さない</li>
+<li>CI（<code>GITHUB_ACTIONS</code> が <code>true</code>）のときだけ、子が動いていた間の Application ログのうち、<code>powershell.exe</code> に関する Application Error・.NET Runtime・Windows Error Reporting（5 件まで、1 件 400 文字まで）。手元の機械のログは読まない。ログを読めなくても、上の 2 つは出る</li>
+</ul>
+<p>プレビューの計測の子だけは、結果を書き終えたあとに、自分で終了コード 0 で終わる（<code>[Environment]::Exit(0)</code>）。途中で例外が出たときはそこに届かず、これまでどおり 0 以外で終わる。結果を書いたあとの終了時に失敗した回があり、ホストの終了の処理を待たないようにしたものだが、これは見立てで、落ちる場所は確定していない。</p>
 <h2 id="office-を使う形式の比べ方手元の-windowsexcelwordpowerpoint-が入った機械で">Office を使う形式の比べ方（手元の Windows。Excel・Word・PowerPoint が入った機械で）<a class="headerlink" href="#office-を使う形式の比べ方手元の-windowsexcelwordpowerpoint-が入った機械で" title="Permanent link">&para;</a></h2>
 <ul>
 <li>対象は .xlsx（Excel）・.doc（Word）・.ppt（PowerPoint）の取り込み。ランナーに Office が無く、Office の版・機械・Defender で大きく揺れるので、固定の上限は置かない</li>

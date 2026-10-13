@@ -4638,7 +4638,7 @@
 <td>book</td>
 <td>string</td>
 <td>元のファイル名から種類（<code>Excel</code> / <code>Word</code> / <code>PowerPoint</code> / <code>テキスト</code> / <code>PDF</code>。分からなければ空）</td>
-<td>convertToContentIndexText, convertPlaceToContentIndexMeta, describePlace, getAppKind, searchContentIndexFiles（長い行を切るかの判定）, readContentIndexContext</td>
+<td>convertToContentIndexText, convertPlaceToContentIndexMeta, describePlace, getAppKind, searchContentIndexFiles（長い行を切るかの判定）, readContentIndexLines</td>
 </tr>
 <tr>
 <td><code>getContentIndexExtension</code> / <code>getContentIndexFileName</code> / <code>readContentIndexFileName</code></td>
@@ -4694,7 +4694,7 @@
 <td>text</td>
 <td><code>@{Book; Location; CellPrefixed; Start; End}</code> の並び</td>
 <td>本文インデックスの文字列から、場所ごとの元のファイル名・場所の名前・行の先頭がセル番地か（<code>CellPrefixed</code>。Excel の図形・コメントが <code>$true</code>。<code>testContentIndexCellPrefixed</code>）・中身の範囲を先頭から順に返す。版が違えば例外</td>
-<td>検索（searchContentIndexFiles）、readContentIndexContext</td>
+<td>検索（searchContentIndexFiles）、readContentIndexLines</td>
 </tr>
 <tr>
 <td><code>testContentIndexCellPrefixed</code></td>
@@ -4738,7 +4738,7 @@
 <td>– / string</td>
 <td>本文インデックスのファイルを UTF-16LE（BOM 付き）で書く（<code>&lt;名前&gt;.tmp</code> に書いてから <code>File.Replace</code> で置き換える） / 読む（置き換え・削除を妨げない共有モード）</td>
 <td><a href="../../index-data/format/#配置命名規則">インデックスのファイルの形</a></td>
-<td>convertFolderToContentIndex, readContentIndexContext</td>
+<td>convertFolderToContentIndex, readContentIndexLines</td>
 </tr>
 <tr>
 <td><code>getIndexFolderBooks</code></td>
@@ -4789,12 +4789,20 @@
 <td>インデックス作成（indexer_run.ps1 の flushPending）</td>
 </tr>
 <tr>
-<td><code>readContentIndexContext</code></td>
-<td>path, book, location, lineNumber, before（既定 3）, after（既定 3）, cache</td>
-<td><code>@{LineNumber; Line}</code> の配列</td>
-<td>本文インデックスのファイルの中の元のファイル book・場所 location の lineNumber 行目と前後の行を返す（行の数え方は検索と同じ）。cache（<code>newTsvTextCache</code>）に同じ本文インデックスのファイルの内容があれば読み直さない。読めない・見つからなければ空</td>
-<td><a href="../../gui/search-tab/">［検索］タブ</a> <a href="../../gui/preview/">選択行のプレビュー</a></td>
+<td><code>readContentIndexLines</code></td>
+<td>path, book, location, firstLine, count, cache, marks</td>
+<td><code>@{Rows; End; Marks}</code></td>
+<td>本文インデックスのファイルの中の元のファイル book・場所 location の firstLine 行目から count 行を返す（行の数え方は検索と同じ。<code>Rows</code> は <code>@{LineNumber; Line}</code> の並び。<code>End</code> は count 行に満たなかった＝その先にもう行が無い）。cache（<code>newTsvTextCache</code>）に同じ本文インデックスのファイルの内容があれば読み直さない。無ければ、<code>marks</code>（前に読んだときの控え。ファイルのパス・更新日時・サイズ・場所の一覧・場所ごとの 200 行ごとの文字の位置）が今のファイルのものである間は、場所の一覧を使い回し、控えのうち目当てに一番近い所から必要な行までだけを読む（<code>readContentIndexRange</code>）。<code>marks</code> が無い・別のファイルのもの・更新日時かサイズが違うとき、範囲を読めないとき、読んでいる間にファイルが置き換わったときは、ファイルの全体を読む（初めて開くファイルの最初の読みはこれに当たる）。更新した控えを <code>Marks</code> で返す（引数で渡し戻り値で受ける。複数のスレッドで動くため <code>$script:</code> に持たない。渡された控えは書き換えない）。更新日時もサイズも同じまま中身だけが書き換わったファイルは、控えが古いことを見分けられない。読めない・見つからなければ空</td>
+<td><a href="../../gui/preview/">選択行のプレビュー</a></td>
 <td>画面</td>
+</tr>
+<tr>
+<td><code>readContentIndexRange</code></td>
+<td>path, start, end, firstLine, lines, baseLine（既定 1）, checkpoints</td>
+<td>string / null</td>
+<td>本文インデックスのファイル（UTF-16LE・BOM 付き）の、文字の位置 <code>start</code>（含む）から <code>end</code>（含まない）までを <code>start</code> から数え、<code>firstLine</code> 行目の先頭から <code>lines</code> 個目の改行までを文字列で返す（それより前の行は持たない）。<code>baseLine</code> は <code>start</code> の行の番号。<code>checkpoints</code>（ハッシュテーブル）を渡すと、通った 200 行ごとの行の先頭（行の番号 → 文字の位置）を足す。BOM が無ければ <code>$null</code>（呼び出し側がファイルの全体を読む）。置き換え・削除を妨げない共有モードで開く</td>
+<td>同上</td>
+<td>readContentIndexLines</td>
 </tr>
 </tbody>
 </table>

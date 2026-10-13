@@ -4119,7 +4119,7 @@
 </tr>
 <tr>
 <td>読んだ内容の使い回し</td>
-<td>画面は <code>newTsvTextCache</code> を 1 つ持ち、検索で読んだ本文インデックスのファイルの内容と場所の一覧を残す（上限 6,400 万文字＝約 128MB）。次の検索では、更新日時・サイズが列挙したときと同じ本文インデックスのファイルはファイルを開かない。書き直した本文インデックスのファイルは更新日時・サイズが変わるため読み直す。選択行のプレビュー（<code>readContentIndexContext</code>）も同じ内容を使う。検索 1 回が終わるたびに、上限の 9 割を超えていれば、その検索で使わなかった内容を古いものから追い出す（<code>trimTsvTextCache</code>。<a href="../../structure/closing/#gc-とメモリ">GC とメモリ</a>）</td>
+<td>画面は <code>newTsvTextCache</code> を 1 つ持ち、検索で読んだ本文インデックスのファイルの内容と場所の一覧を残す（上限 6,400 万文字＝約 128MB）。次の検索では、更新日時・サイズが列挙したときと同じ本文インデックスのファイルはファイルを開かない。書き直した本文インデックスのファイルは更新日時・サイズが変わるため読み直す。選択行のプレビュー（<code>readContentIndexLines</code>）も同じ内容を使う。キャッシュに無いときは、画面が最後に読んだ 1 つのファイルの控え（場所の一覧と、場所ごとの 200 行ごとの文字の位置。更新日時・サイズが同じ間だけ使う）から、目当ての行の手前の位置から必要な行までだけを読む（<code>readContentIndexRange</code>）。同じファイルの行を↑↓で移るたびに、ファイルの全体を読み直さない。ただし、初めて開くファイル（前に読んだのが別のファイル・控えが無い・更新日時かサイズが変わった）の最初の読みは、ファイルの全体を読む。検索 1 回が終わるたびに、上限の 9 割を超えていれば、その検索で使わなかった内容を古いものから追い出す（<code>trimTsvTextCache</code>。<a href="../../structure/closing/#gc-とメモリ">GC とメモリ</a>）</td>
 </tr>
 </tbody>
 </table>
@@ -4164,7 +4164,7 @@
 <ul>
 <li>1GB の 2 回目以降は、読んだ内容の使い回しの上限（約 128MB）を超え、物理メモリ 8GB では OS のファイルキャッシュにも収まりきらないため、ディスクの読み込みの速さで決まる。</li>
 <li>同じ形のデータを使った <code>pack の作成</code>・検索の速さとリソースの推移は、GitHub Actions の <code>perf.yml</code>（手動で起動）でも測れる。計測スクリプトは <code>tools/measure_perf.ps1</code>（<a href="../../testing/perf/">性能とリソースの計測のしかた</a>）。</li>
-<li>検索の速さが落ちていないことは、回帰テスト（<code>tests/tools/perf_search.Tests.ps1</code>）が語ごとの中央値を上限と比べて確かめる。PR にラベル <code>perf-check</code> を付けたときと main への push で <code>perf-check.yml</code> が流す（<a href="../../testing/perf-check/">速さの回帰テストと上限の決め方</a>）。</li>
+<li>検索の速さが落ちていないことは、回帰テスト（<code>tests/tools/perf_search.Tests.ps1</code>）が語ごとの中央値を上限と比べて確かめる。選択行のプレビューの読み込みと残るメモリは <code>tests/tools/perf_preview.Tests.ps1</code> が確かめる。PR にラベル <code>perf-check</code> を付けたときと main への push で <code>perf-check.yml</code> が流す（<a href="../../testing/perf-check/">速さの回帰テストと上限の決め方</a>）。</li>
 </ul>
 
 
