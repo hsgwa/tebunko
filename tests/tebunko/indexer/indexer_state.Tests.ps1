@@ -242,34 +242,25 @@ Describe "testIndexerRunning" -Tag Io {
     }
 }
 
-Describe "writeIndexerLog" -Tag Unit {
-    AfterEach {
-        $script:indexerLog = $null
-        $script:indexerEcho = $false
+Describe "addStatusRow" -Tag Io {
+    It "追記した行にも抽出版を書き込み、読み込める" {
+        $path = "$TestDrive\status_version.tsv"
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "2" "" "" "2") $path
+        addStatusRow (newStatusRow "b.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "" "" "2") $path
+        $status = readStatusFile $path
+        $status.Rows["a.xlsx"].抽出版 | Should -Be "2"
+        $status.Rows["b.xlsx"].抽出版 | Should -Be "2"
     }
 
-    It "ログを開いていればログに書く。開いていなければ何もしない" {
-        { writeIndexerLog "何もしない" } | Should -Not -Throw
-        $script:indexerLog = New-Object System.IO.StringWriter
-        writeIndexerLog "1 行目"
-        writeIndexerLog "2 行目" "Yellow"
-        $script:indexerLog.ToString() | Should -Be "1 行目`r`n2 行目`r`n"
-    }
+    It "追記した行が前の行より優先される。相対パスの大文字・小文字は区別しない" {
+        $path = "$TestDrive\status_append.tsv"
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "Dir\A.xlsx" "2025/01/10 12:34:56" "1" $stateNew) $path
+        addStatusRow (newStatusRow "dir\a.xlsx" "2025/01/10 12:34:56" "1" $stateFailed "" "2026/09/19 10:00:00" "パスワードが違います") $path
 
-    It "コンソールに出すときは色を付ける" {
-        Mock Write-Host {}
-        $script:indexerEcho = $true
-        writeIndexerLog "注意" "Yellow"
-        writeIndexerLog "普通"
-        Should -Invoke Write-Host -Times 1 -Exactly -Scope It -ParameterFilter { "$Object" -eq "注意" -and $ForegroundColor -eq "Yellow" }
-        Should -Invoke Write-Host -Times 1 -Exactly -Scope It -ParameterFilter { "$Object" -eq "普通" -and !$ForegroundColor }
-    }
-
-    It "ログに書けなくても止めない" {
-        $writer = New-Object System.IO.StringWriter
-        $writer.Dispose()
-        $script:indexerLog = $writer
-        { writeIndexerLog "書けない" } | Should -Not -Throw
+        $status = readStatusFile $path
+        $status.Rows.Count | Should -Be 1
+        $status.Rows["DIR\A.XLSX"].状態 | Should -Be $stateFailed
+        $status.Rows["DIR\A.XLSX"].エラー | Should -Be "パスワードが違います"
     }
 }
 

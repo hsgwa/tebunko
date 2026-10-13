@@ -3,7 +3,7 @@ BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
 }
 
-Describe "readStatusFile / writeStatusFile / addStatusRow" -Tag Io {
+Describe "readStatusFile / writeStatusFile" -Tag Io {
     It "まとめて書き出した行と、1件ずつ追記した行の整形が同じ（速さのために別々に書いているため）" {
         # writeStatusFile は数万行を速く書くため、toStatusLine と同じ整形をその場に展開している
         $row = newStatusRow "営業\見積.xlsx" "2025/01/10 12:34:56" "10420" $stateFailed "" "2026/09/20 10:00:00" "エラー`tの`r`n説明"
@@ -55,22 +55,10 @@ Describe "readStatusFile / writeStatusFile / addStatusRow" -Tag Io {
 
     It "抽出版を書き込んで読み込める" {
         $path = "$TestDrive\status_version.tsv"
-        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "2" "" "" "2") $path
-        addStatusRow (newStatusRow "b.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "" "" "2") $path
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @((newStatusRow "a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "2" "" "" "2"), (newStatusRow "b.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "" "" "3")) $path
         $status = readStatusFile $path
         $status.Rows["a.xlsx"].抽出版 | Should -Be "2"
-        $status.Rows["b.xlsx"].抽出版 | Should -Be "2"
-    }
-
-    It "追記した行が前の行より優先される。相対パスの大文字・小文字は区別しない" {
-        $path = "$TestDrive\status_append.tsv"
-        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "Dir\A.xlsx" "2025/01/10 12:34:56" "1" $stateNew) $path
-        addStatusRow (newStatusRow "dir\a.xlsx" "2025/01/10 12:34:56" "1" $stateFailed "" "2026/09/19 10:00:00" "パスワードが違います") $path
-
-        $status = readStatusFile $path
-        $status.Rows.Count | Should -Be 1
-        $status.Rows["DIR\A.XLSX"].状態 | Should -Be $stateFailed
-        $status.Rows["DIR\A.XLSX"].エラー | Should -Be "パスワードが違います"
+        $status.Rows["b.xlsx"].抽出版 | Should -Be "3"
     }
 
     It "エラーメッセージのタブ・改行はスペースにして1行に収める" {
