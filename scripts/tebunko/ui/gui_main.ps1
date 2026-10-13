@@ -172,7 +172,7 @@ function startGui {
     # 初めて使うときに作らせる（届かない共有が無い利用者には、スレッドも lib.ps1 の読み込みも増えない）
     $backgroundLoad = getPartLoad lib -then "initWorkspace"
     $newBackgroundQueue = { [BackgroundQueue]::new(${backgroundWorkers}, $backgroundLoad, $Host) }
-    $script:backgroundQueue = & $newBackgroundQueue
+    setBackgroundQueue (& $newBackgroundQueue)
     setNetworkQueueFactory $newBackgroundQueue
     . ([WildcardPattern]::Escape("$TebunkoDir\..\shared\ui\folder_dialog.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\index_view.ps1".Replace('`', '``')))

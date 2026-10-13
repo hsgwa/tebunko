@@ -318,3 +318,16 @@ Describe "getWorkspaceJobQueue" -Tag Unit {
         getWorkspaceJobQueue @() | Should -Be "default"
     }
 }
+
+Describe "setCallerWorkspace" -Tag Unit {
+    It "呼んだスクリプトのスコープに `$workspace を置き、呼び出しの外の `$workspace は変えない" {
+        $before = $script:workspace
+        $own = [Workspace]::new("C:\Users\test\Documents\tebunko_own")
+        $seen = & {
+            setCallerWorkspace $own
+            $workspace.Dir
+        }
+        $seen | Should -Be "C:\Users\test\Documents\tebunko_own"
+        [object]::ReferenceEquals($script:workspace, $before) | Should -Be $true
+    }
+}

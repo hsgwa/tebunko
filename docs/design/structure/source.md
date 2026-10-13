@@ -38,6 +38,39 @@
 
 依存の向きは一方向にする。**`shared/` はツール（`tebunko/`）を知らない。** ツール同士も互いを読み込まない。判断層と状態層（`core/`・`index/`・`indexer/`・`search/`・`shared/` の `core/`・`office/`）は `$ui`・`$window`・WPF の型に触らず、画面以外の読み込み口（`shared.ps1`・`lib.ps1`・`indexer.ps1`）は `ui/` のファイルを読み込まない。これらの決まりは `tests/meta/layers.Tests.ps1` で機械的に確かめる。
 
+状態層の中のフォルダも、依存の向きを決める。上のものは下のものに依存してよく、逆は依存しない。
+
+| 上 | 下 |
+|---|---|
+| `tebunko/indexer/`・`tebunko/search/`（互いに依存しない） | `tebunko/index/` |
+| `tebunko/index/` | `tebunko/core/` |
+| `tebunko/core/` | `shared/office/`・`shared/core/` |
+| `shared/office/` | `shared/core/` |
+
+共有の状態層（`shared/core/`・`shared/office/`）は、共有の画面層（`shared/ui/`）にも依存しない。
+
+今の呼び出しの多い向きに合わせた（`indexer` → `index` と `search` → `index` と `index` → `core` が順向きで多く、読み込み口の順 `core` → `index` → `search`・`indexer` とも合う）。
+
+向きの検査は、文字列ではなく構文木（AST）で行う（`tools/script_arch.ps1`。部品自身のテストは `tests/tools/script_arch.Tests.ps1`）。全部のファイルが同じスコープに読み込まれ、下の層が上の層の関数・変数を名前で使っても動いてしまうため、ファイルごとに構文木を作り、次を見る。
+
+- 関数の呼び出しが、別のパスのファイルで定義した関数を指していること
+- 別のパスのファイルが最上位（関数の外）・`$script:`・`$global:` で代入した変数を読んでいること
+- 決めた変数（`$ui`・`$window`）と型（`System.Windows.*`）に触っていること
+
+`tests/meta/layers.Tests.ps1` の「依存の向き（ファイル単位）」が、「このパスのファイルは、あのパスのファイルに依存しない」の表で決まりを書く。失敗の文には、ファイルの組と、関数・変数の名前が出る。
+
+向きの検査は、依存があるかどうかだけを見る。境界での受け渡し（向こう側へ何を渡し、向こう側の答えをどう使うか）は、`tests/tebunko/ui/layer_boundary.Tests.ps1` が、向こう側をスタブに替えて確かめる。判断層の関数が呼ぶ状態層の関数をスタブにする組と、画面層の関数が呼ぶ判断層の関数をスタブにする組がある。境界を足したら、同じファイルに足す。
+
+今ある逆向きの依存は、同じファイルの例外の一覧（「from のファイル・to のファイル・名前」の組と、許している理由）に載せ、増やさない。直したら一覧から消す（どの行でも見つからなくなった例外は、テストが失敗にする）。例外は、次の種類に分かれる。
+
+- 状態層の中で、下のフォルダが上のフォルダの関数・変数を使う依存。`tebunko/index/system_index.ps1` から `tebunko/search/search_gram.ps1`（gram の関数）、`tebunko/index/` から `tebunko/search/source_map.ps1`（取り込み一覧・情報源フォルダのファイルの読み書き）、`tebunko/index/` から `tebunko/indexer/indexer_state.ps1`（状態ファイル・ログの読み書き）への依存が多い。どれも、下のフォルダへ関数を移すと消える。
+- `shared/` が `tebunko/` の関数・変数を使う依存。決めた形ではない今ある依存。
+- 判断層（`search_bar_view.ps1`）が、共有の画面層の `formatTime` を呼ぶ依存。
+
+共通の値を作る場所は、読む側より下の層に置く。`$workspace` は状態層の `tebunko/core/paths.ps1`（`initWorkspace`・`setCallerWorkspace`）だけが作り、画面層（`switchWorkspace`）は `initWorkspace` を呼んで作り直す。`shared/` が使うツール側の値は、ツール側が登録する（エラーの記録先と見出しは `setGuiErrorLogSource`、仕事の列は `setBackgroundQueue`・`setNetworkQueueFactory`）。
+
+見つからないもの（限界）: `& $name` の呼び出し、コールバックで渡したスクリプトブロックの中から呼ぶ形、`$ui` を別の名前の引数で受け取る形、クラスのメソッドの呼び出し、`Set-Variable` での代入（`$workspace` は、代入を `setCallerWorkspace` に集めてある）。別のファイルのクラスを型として使う依存（`[型]::new()`・引数や戻り値の型）は、依存の向きの表では見つからない（決めた型 `System.Windows.*` だけは、画面の変数・型の検査が見る）。`New-Object` に文字列で渡す型と、`using namespace` で短く書いた型は、構文木では型として見えない（文字列の検査が見る）。同じ名前の関数・変数が、見る側のパスにもあるときは、そちらを使っているとみなす。
+
 ## 読み込み口
 
 ```mermaid

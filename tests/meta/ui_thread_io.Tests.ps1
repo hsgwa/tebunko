@@ -54,7 +54,7 @@ BeforeAll {
         @{ File = "startup_error.ps1"; Function = "writeStartupErrorFile"; Call = "Add-Content"; Reason = "起動そのものに失敗したときに、ツールのフォルダの startup_error.txt へ書く（窓が無い・応答なしにならない起動の失敗時だけ）" }
         @{ File = "startup_error.ps1"; Function = "writeStartupErrorFile"; Call = "Get-Item"; Reason = "起動そのものに失敗したときに、ツールのフォルダの startup_error.txt の大きさを見る（1 MB 以上なら前回の分へ移す。窓が無い・応答なしにならない起動の失敗時だけ）" }
         @{ File = "startup_error.ps1"; Function = "writeStartupErrorFile"; Call = "Move-Item"; Count = 3; Reason = "起動そのものに失敗したときに、大きくなった startup_error.txt を startup_error_previous.txt へ移す（別の名前へ移す・前回の分に重ねる・重ねられなければ戻す、の 3 回。ツールのフォルダの中。窓が無い・応答なしにならない起動の失敗時だけ）" }
-        @{ File = "startup_error.ps1"; Function = "getGuiErrorLogHeader"; Call = "getToolDiagnosticHeader"; Reason = "画面のエラーの記録の見出し（版と環境。ツールのフォルダの VERSION.txt と Program Files の Office の版を読むだけ。エラーの記録はまれで、プロセスごとに最初の 1 回だけ）" }
+        @{ File = "startup_error.ps1"; Function = "getToolGuiErrorLogHeader"; Call = "getToolDiagnosticHeader"; Reason = "画面のエラーの記録の見出し（版と環境。ツールのフォルダの VERSION.txt と Program Files の Office の版を読むだけ。エラーの記録はまれで、プロセスごとに最初の 1 回だけ）" }
         @{ File = "startup_error.ps1"; Function = "getExistingRecordFile"; Call = "Test-Path"; Reason = "起動そのものに失敗したときの reportStartupFailure が、記録が実際に書けたかを確かめる（窓が無い・応答なしにならない起動の失敗時だけ）" }
 
         # ---- tebunko/ui/workspace_jobs.ps1 ----

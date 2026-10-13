@@ -16,9 +16,8 @@ Describe "shell.ps1" -Tag Unit {
         # ---- 画面の偽物 ----
         $ui = @{ StatusText = [pscustomobject]@{ Text = ""; ToolTip = "" } }
 
-        function getGuiErrorLogFile {
-            Join-Path $TestDrive "gui_error_log.txt"
-        }
+        # 記録先は、製品が使う登録の口で、テスト用のフォルダにする
+        setGuiErrorLogSource { Join-Path $TestDrive "gui_error_log.txt" } $null
 
         # Dispatcher に積んだ action を実行させ、終わるまで待つ（保険の 5 秒で必ず抜ける。入れ子でも使う）。
         # 戻り値は「保険で抜けたのではなく、積んだ処理が最後まで終わったか」
