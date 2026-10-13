@@ -4371,6 +4371,22 @@
 <td>インデックス作成・検索</td>
 </tr>
 <tr>
+<td><code>testPathUnder</code></td>
+<td>path, root</td>
+<td>bool</td>
+<td>path が root の下（root そのものは含まない）にあるか。<code>..</code>・<code>.</code>・最後の <code>.</code> や空白・<code>\\?\</code> を解決してから比べる。状態のファイルから読んだ名前でフォルダを消す前に使う</td>
+<td><a href="../../../safety/file-access/">ファイルへの触れ方</a></td>
+<td>インデックス・作業フォルダの削除, <code>IndexCatalog</code></td>
+</tr>
+<tr>
+<td><code>getFolderNameProblemText</code></td>
+<td>name</td>
+<td>string（問題の文。使えれば空）</td>
+<td>フォルダ名として使えるか（空・前後の空白・長すぎる・使えない文字・最後の <code>.</code>・予約名）。どのツールからも使う</td>
+<td>同上</td>
+<td>testIndexName, getTargetFolders</td>
+</tr>
+<tr>
 <td><code>removeDirectoryRetry</code></td>
 <td>path, tries（既定 3）, waitMilliseconds（既定 200）</td>
 <td>–</td>
