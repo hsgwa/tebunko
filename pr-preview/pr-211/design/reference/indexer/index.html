@@ -4650,9 +4650,9 @@
 <tbody>
 <tr>
 <td><code>AssignNames</code></td>
-<td>targetFolders, status（<code>@{Folders; Rows}</code>）</td>
+<td>targetFolders, status（<code>@{Folders; Rows; Rejected; LegacyFolders}</code>）</td>
 <td>–</td>
-<td>インデックス名を割り当て、前回の一覧と外れたインデックスを覚える</td>
+<td>インデックス名を割り当て、前回の一覧と外れたインデックスを覚える（前回の名前に <code>LegacyFolders</code> も足して、外れたインデックスを調べる）</td>
 </tr>
 <tr>
 <td><code>SaveNames</code></td>
@@ -4784,11 +4784,11 @@
 </tr>
 <tr>
 <td><code>testPathSegments</code></td>
-<td>segments, allowNameOnly（既定 <code>$false</code>）</td>
+<td>segments, lenient（既定 <code>$false</code>）</td>
 <td>string（問題の文。使えれば空）</td>
-<td><code>\</code> で区切った各部分が、空・<code>.</code>・<code>..</code>・長すぎる・使えない文字でないか。インデックス名の部分は前の版の名前（最後の <code>.</code> など）も通し、パスにすると外へ出るものだけ止める</td>
+<td><code>\</code> で区切った各部分が、空・<code>.</code>・<code>..</code>・長すぎる・使えない文字でないか。lenient のときは、前の版の名前（最後の <code>.</code>・空白など）も通し、パスにすると外へ出るものだけ止める</td>
 <td>同上</td>
-<td>testIndexRelPath, <code>IndexCatalog.RenameIndex</code> / <code>RemoveIndex</code>, removeDroppedFolders</td>
+<td>testIndexRelPath, readStatusFile（<code>LegacyFolders</code> の判定）, removeDroppedFolders</td>
 </tr>
 <tr>
 <td><code>testIndexRelPath</code></td>
@@ -4818,7 +4818,7 @@
 <td><code>testIndexName</code></td>
 <td>name, usedNames</td>
 <td>string（使えれば空）</td>
-<td>インデックス名として使えるか調べ、使えない理由を返す（フォルダ名の決め <code>getFolderNameProblemText</code>（空・前後の空白・255 文字超・使えない文字・末尾の <code>.</code>・Windows の予約語）に、ほかと重複を足す）。<code>newIndexName</code> が作る名前は必ず通る。<code>IndexCatalog.RenameIndex</code> も、移す前に新旧の名前をこれで確かめる</td>
+<td>インデックス名として使えるか調べ、使えない理由を返す（フォルダ名の決め <code>getFolderNameProblemText</code>（空・前後の空白・255 文字超・使えない文字・末尾の <code>.</code>・Windows の予約語）に、ほかと重複を足す）。<code>newIndexName</code> が作る名前は必ず通る。<code>IndexCatalog.RenameIndex</code> は移す前に新旧の名前を、<code>RemoveIndex</code> は消す前に名前を、これで確かめる（通らない名前は何も動かさず例外にする）</td>
 <td><a href="../../gui/index-tab/#名前とフォルダパスの編集">名前とフォルダパスの編集</a></td>
 <td>画面</td>
 </tr>
