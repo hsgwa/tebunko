@@ -39,7 +39,8 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 | `scripts/`（`gui.ps1`・`shared/`・`tebunko/` の下の `.ps1`・`.xaml`・`tebunko.ico`） | 読む | 起動のたびに読み込む。画面の XAML・アイコンもここから読む（単一 `.ps1` 版は XAML を埋め込む。フォントは Windows 標準のものを使い、同梱しない） |
 | `scripts/tebunko/startup/*.txt` | 読む | 起動に失敗したときに示す理由の文章（`tebunko.bat`。Notepad で開く） |
 | `scripts/` の下のすべてのファイル | 書く（Mark-of-the-Web の解除） | `tebunko.bat`（zip 版）と `gui.ps1`（単一 `.ps1` 版以外）が `Unblock-File` で、ダウンロードの印（Zone.Identifier）を外す（[Mark-of-the-Web の解除](../../safety/disclosure.md#mark-of-the-web-の解除tebunkobat)）。印が無ければ何も変わらない |
-| `VERSION.txt` | 読む | 版とコミット（画面の［バージョン情報］・エクスポートの目録）。配布物にだけある。単一 `.ps1` 版は埋め込み、開発中は無く「開発版」になる |
+| `VERSION.txt` | 読む | 版とコミット（画面の［バージョン情報］・エクスポートの目録）。配布物にだけある。単一 `.ps1` 版は埋め込み、開発中は無く「開発版」になる（作業ツリーの `.git` の `HEAD`・`packed-refs`・`refs\tags` などを読むだけで、タグとコミットを添える。`readDevVersion`。外部のコマンドは起動しない） |
+| `work\tmp\<PC の鍵>\open_copy\` | 書く・消す | ［新規で開く］のコピー（Office 以外。`copySourceForOpen`）。起動時に、最後に使ってから 1 日より古いものだけを消す（`clearOldOpenCopies`）。閉じるときは消さない |
 | `setting.config` | 読む・書く | 設定（[設定ファイル（setting.config）](settings-file.md)）。ツールのフォルダに書けるときだけここに置く。書けないときは「既定のワークスペースの直下」 |
 | `setting.config.tmp` | 書く | 設定を保存する途中の一時ファイル。書き終えたら `setting.config` に置き換える（`writeTextLinesAtomic`） |
 | `setting.config.broken-<日時>[-<番号>]` | 書く | JSON として読めない設定の退避（`repairBrokenSettings`。起動のとき 1 回だけ） |
@@ -144,10 +145,10 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 
 | 配布形 | ツールのフォルダ | ツールのフォルダに書けるか | 設定（`setting.config`）の置き場 | 起動口が読むもの |
 |---|---|---|---|---|
-| zip を展開した版 | 展開したフォルダ | 展開先による。自分のフォルダなら書ける。読み取り専用の共有・Program Files に置くと書けない | 書ければツールのフォルダ。書けなければ既定のワークスペースの直下 | `tebunko.bat` → `scripts/tebunko/startup/*.txt`（失敗時）・`gui.ps1`・`scripts/` 全体・`VERSION.txt`・XAML・フォント・アイコン。起動のたびに `scripts/` の Mark-of-the-Web を外す（`tebunko.bat` と `gui.ps1`） |
+| zip を展開した版 | 展開したフォルダ | 展開先による。自分のフォルダなら書ける。読み取り専用の共有・Program Files に置くと書けない | 書ければツールのフォルダ。書けなければ既定のワークスペースの直下 | `tebunko.bat` → `scripts/tebunko/startup/*.txt`（失敗時）・`gui.ps1`・`scripts/` 全体・`VERSION.txt`・XAML・アイコン。起動のたびに `scripts/` の Mark-of-the-Web を外す（`tebunko.bat` と `gui.ps1`） |
 | インストーラー（利用者ごと） | `%LOCALAPPDATA%\Programs\tebunko` | 書ける | ツールのフォルダ（`{app}\setting.config`） | `tebunko.exe` → `scripts/tebunko/gui.ps1` 以下・`VERSION.txt`。`gui.ps1` が `scripts/` の Mark-of-the-Web を外す（インストーラーが書いたファイルには付かないので、何も変わらない） |
 | インストーラー（Program Files・管理者が選ぶ） | `C:\Program Files\tebunko` | 普通の利用者は書けない | 既定のワークスペースの直下（`%USERPROFILE%\Documents\tebunko_ws\setting.config`）。アンインストールでは消えないため、不要なら手で消す | 利用者ごとの版と同じ |
-| 単一 `.ps1` | その `.ps1` を置いたフォルダ | 置き場による | 書ければその `.ps1` と同じフォルダ。書けなければ既定のワークスペースの直下 | その `.ps1` 自身だけ。`scripts/`・`VERSION.txt`・フォント・XAML のファイルは読まない（埋め込み）。Mark-of-the-Web は外さない（動き始めた後に外しても効かないため） |
+| 単一 `.ps1` | その `.ps1` を置いたフォルダ | 置き場による | 書ければその `.ps1` と同じフォルダ。書けなければ既定のワークスペースの直下 | その `.ps1` 自身だけ。`scripts/`・`VERSION.txt`・XAML のファイルは読まない（埋め込み）。Mark-of-the-Web は外さない（動き始めた後に外しても効かないため） |
 
 どの配布形も、インデックス・取り込み一覧・ログ（ワークスペース）は、既定または［設定］で選んだ場所に置く。設定の置き場は `$rootDir` に書けるかを起動のたびに調べて決まる（[データの置き場所とパスの決め方](data.md)）。`startup_error.txt` は、どの配布形でもツールのフォルダの直下にだけ書く。
 

@@ -73,7 +73,7 @@
 
 | 関数 | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
-| `getContentIndexFileKind` | book | string | 元のファイル名から種類（`Excel` / `Word` / `PowerPoint` / `テキスト` / `PDF`。分からなければ空） | convertToContentIndexText, convertPlaceToContentIndexMeta, describePlace, getAppKind, searchContentIndexFiles（長い行を切るかの判定）, readContentIndexContext |
+| `getContentIndexFileKind` | book | string | 元のファイル名から種類（`Excel` / `Word` / `PowerPoint` / `テキスト` / `PDF`。分からなければ空） | convertToContentIndexText, convertPlaceToContentIndexMeta, describePlace, getAppKind, searchContentIndexFiles（長い行を切るかの判定）, readContentIndexLines |
 | `getContentIndexExtension` / `getContentIndexFileName` / `readContentIndexFileName` | book / extension, part / name | string / `@{Extension; Part}` | 本文インデックスを分ける拡張子（小文字・`.` なし） / 本文インデックスのファイルの名前（`content_index.<拡張子>.<番号>.tsv`） / 名前から拡張子と番号を取り出す | convertFolderToContentIndex, getIndexTsvCounts |
 | `splitContentIndexBooksByExtension` | books | [ordered] 拡張子 → 並び | 元のファイルの並びを拡張子ごとに分ける（各並びの中の順は変えない） | convertFolderToContentIndex |
 | `encodeContentIndexValue` / `decodeContentIndexValue` | value | string | メタ情報の値の制御文字（タブを除く）と `%` を `%XX` にする / 戻す | convertToContentIndexText, readContentIndexPlaces |
@@ -81,7 +81,7 @@
 | `convertContentIndexMetaToPlace` | meta | string | 場所のメタ情報から場所の名前を組み立てる（画面の表示・図形とコメントの除外・元のファイルを開く処理が使う形） | readContentIndexPlaces |
 | `convertToContentIndexBody` | text | string | TSV の中身を本文インデックスに入れる形にする（改行を LF に、末尾に LF、U+001C〜U+001F を除く） | convertToContentIndexText |
 | `convertToContentIndexText` | books | string | 元のファイルの並び（TSV から新しく作るもの、または前の本文インデックスから写すまとまり）から、本文インデックスの文字列を作る | convertFolderToContentIndex |
-| `readContentIndexPlaces` | text | `@{Book; Location; CellPrefixed; Start; End}` の並び | 本文インデックスの文字列から、場所ごとの元のファイル名・場所の名前・行の先頭がセル番地か（`CellPrefixed`。Excel の図形・コメントが `$true`。`testContentIndexCellPrefixed`）・中身の範囲を先頭から順に返す。版が違えば例外 | 検索（searchContentIndexFiles）、readContentIndexContext |
+| `readContentIndexPlaces` | text | `@{Book; Location; CellPrefixed; Start; End}` の並び | 本文インデックスの文字列から、場所ごとの元のファイル名・場所の名前・行の先頭がセル番地か（`CellPrefixed`。Excel の図形・コメントが `$true`。`testContentIndexCellPrefixed`）・中身の範囲を先頭から順に返す。版が違えば例外 | 検索（searchContentIndexFiles）、readContentIndexLines |
 | `testContentIndexCellPrefixed` | book, meta | bool | 場所の行が「セル番地 + タブ + 文字」の形か（元のファイルが Excel で、対象が図形・コメント） | readContentIndexPlaces |
 | `splitContentIndexTextByBook` | text | `@{Name; Block}` の並び | 本文インデックスの文字列を元のファイルごとのまとまりに分ける（入れ替えない元のファイルをそのまま写すため）。版が違えば例外 | convertFolderToContentIndex |
 | `getContentIndexBodyText` | text | string | メタ情報の行を除いた中身（システムインデックスの語を作るため） | writeSystemIndexFolder |
@@ -90,12 +90,13 @@
 
 | 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |
 |---|---|---|---|---|---|
-| `writeContentIndexFile` / `readContentIndexText` | path, text / path | – / string | 本文インデックスのファイルを UTF-16LE（BOM 付き）で書く（`<名前>.tmp` に書いてから `File.Replace` で置き換える） / 読む（置き換え・削除を妨げない共有モード） | [インデックスのファイルの形](../index-data/format.md#配置命名規則) | convertFolderToContentIndex, readContentIndexContext |
+| `writeContentIndexFile` / `readContentIndexText` | path, text / path | – / string | 本文インデックスのファイルを UTF-16LE（BOM 付き）で書く（`<名前>.tmp` に書いてから `File.Replace` で置き換える） / 読む（置き換え・削除を妨げない共有モード） | [インデックスのファイルの形](../index-data/format.md#配置命名規則) | convertFolderToContentIndex, readContentIndexLines |
 | `getIndexFolderBooks` | folder | `@{Name; Places}` の並び | フォルダ直下の元のファイルごとのフォルダ（`<ファイル名.xlsx>\<場所>.tsv`）から、本文インデックスに入れる元のファイルと場所の並びを作る（ファイル名は `convertIndexFileNameToPlace` で場所に戻す。並びは前の版と同じになるよう、戻した場所を符号化し直したキーで並べ替える） | 同上 | convertFolderToContentIndex |
 | `convertFolderToContentIndex` | folder, destFolder, removeBooks, removeTsv | `@{Books; Tsv; Chars; Files; Texts}` | フォルダ 1 つの TSV から拡張子ごとの本文インデックスのファイルを書く。前の本文インデックスのファイルとまぜ（TSV のある元のファイルは入れ替え、removeBooks は外し、ほかは写す）、元のファイルが無くなった拡張子の本文インデックスのファイルは消す。removeTsv なら書き終えた後に TSV のフォルダを消す。Texts は書いた中身 | 同上 | updateFolderContentIndex |
 | `updateFolderContentIndex` | folder, removeBooks | 同上 | `convertFolderToContentIndex` を同じフォルダに書き、TSV を消す形で呼ぶ | 同上 | publishIndexFolders |
 | `findContentIndexFiles` | root, relPath, recurse | `@{Path; Root; RelDir; RelPath; Ticks; Size}` の配列 | フォルダ以下の本文インデックスのファイルを列挙し、フォルダの順・フォルダの中は名前の順に並べる（Path は `\\?\` 付き。Ticks・Size は読んだ内容を使い回してよいかの判定に使う） | [検索を速くする仕組み](../search/speed.md) | getContentIndexFiles |
 | `findIndexFoldersWithBooks` | root | string[] | 元のファイルごとのフォルダ（本文インデックスに入れる前の TSV）が直下にあるフォルダを返す（インデックス作成が途中で止まったとき） | [インデックスのファイルの形](../index-data/format.md#配置命名規則) | インデックス作成（開始時） |
 | `publishIndexFolders` | pending（フォルダ → 無くなった元のファイル名）, indexRoot, systemRoot, statePath | 書き出したフォルダの数 | フォルダごとに、本文インデックスに書き（`updateFolderContentIndex`）、TSV を消し、書いた中身からシステムインデックスの txt を作る（`writeSystemIndexFolder`）。txt の「反映待ち」はまとめて状態ファイルに書く | 同上 | インデックス作成（indexer_run.ps1 の flushPending） |
-| `readContentIndexContext` | path, book, location, lineNumber, before（既定 3）, after（既定 3）, cache | `@{LineNumber; Line}` の配列 | 本文インデックスのファイルの中の元のファイル book・場所 location の lineNumber 行目と前後の行を返す（行の数え方は検索と同じ）。cache（`newTsvTextCache`）に同じ本文インデックスのファイルの内容があれば読み直さない。読めない・見つからなければ空 | [［検索］タブ](../gui/search-tab.md) [選択行のプレビュー](../gui/preview.md) | 画面 |
+| `readContentIndexLines` | path, book, location, firstLine, count, cache, marks | `@{Rows; End; Marks}` | 本文インデックスのファイルの中の元のファイル book・場所 location の firstLine 行目から count 行を返す（行の数え方は検索と同じ。`Rows` は `@{LineNumber; Line}` の並び。`End` は count 行に満たなかった＝その先にもう行が無い）。cache（`newTsvTextCache`）に同じ本文インデックスのファイルの内容があれば読み直さない。無ければ、`marks`（前に読んだときの控え。ファイルのパス・更新日時・サイズ・場所の一覧・場所ごとの 200 行ごとの文字の位置）が今のファイルのものである間は、場所の一覧を使い回し、控えのうち目当てに一番近い所から必要な行までだけを読む（`readContentIndexRange`）。`marks` が無い・別のファイルのもの・更新日時かサイズが違うとき、範囲を読めないとき、読んでいる間にファイルが置き換わったときは、ファイルの全体を読む（初めて開くファイルの最初の読みはこれに当たる）。更新した控えを `Marks` で返す（引数で渡し戻り値で受ける。複数のスレッドで動くため `$script:` に持たない。渡された控えは書き換えない）。更新日時もサイズも同じまま中身だけが書き換わったファイルは、控えが古いことを見分けられない。読めない・見つからなければ空 | [選択行のプレビュー](../gui/preview.md) | 画面 |
+| `readContentIndexRange` | path, start, end, firstLine, lines, baseLine（既定 1）, checkpoints | string / null | 本文インデックスのファイル（UTF-16LE・BOM 付き）の、文字の位置 `start`（含む）から `end`（含まない）までを `start` から数え、`firstLine` 行目の先頭から `lines` 個目の改行までを文字列で返す（それより前の行は持たない）。`baseLine` は `start` の行の番号。`checkpoints`（ハッシュテーブル）を渡すと、通った 200 行ごとの行の先頭（行の番号 → 文字の位置）を足す。BOM が無ければ `$null`（呼び出し側がファイルの全体を読む）。置き換え・削除を妨げない共有モードで開く | 同上 | readContentIndexLines |
 

@@ -1,10 +1,12 @@
-﻿# 性能の計測（tools\measure_perf.ps1）で使う共通の部品。計測の入口と、子のプロセス（measure_index.ps1・measure_search.ps1）が読み込む。
+﻿# 性能の計測（tools\measure_perf.ps1）で使う共通の部品。計測の入口と、子のプロセス（measure_index.ps1・measure_search.ps1・measure_preview.ps1 など）が読み込む。
 #   ・測る tebunko の読み込み口を探す
 #   ・リソース（メモリ・CPU・スレッド・ハンドル・GC）を別のスレッドで記録する
 #   ・統計値（最小・中央値・平均・最大）と増え方（最小二乗の傾き）を求める
 #   ・Mermaid のグラフの行を作る
 
 $perfInvariant = [System.Globalization.CultureInfo]::InvariantCulture
+# プレビューの読み足しの計測で、1 回に読む行数（measure_preview.ps1 が頼む数。newReadMoreResult は、この数だけ読めた回を完全な 1 回と数える）
+$readMoreChunkLines = 200
 
 function resolveTebunkoLib {
     # 測る tebunko の読み込み口（lib.ps1）のパスを返す。
@@ -18,6 +20,79 @@ function resolveTebunkoLib {
         if (Test-Path -LiteralPath $path) { return (Resolve-Path -LiteralPath $path).ProviderPath }
     }
     throw "測る tebunko に scripts\tebunko\lib.ps1 がありません。-Tool に tebunko のフォルダを指定してください。"
+}
+
+function getChildCrashEvents {
+    # from から to までの間に Application ログへ載った、powershell.exe の異常終了に関するイベント（Application Error・.NET Runtime・Windows Error Reporting）を、
+    # 1 件 1 行の文字列で返す。件数は maxCount 件、1 件は maxLength 文字まで。読めなければ空を返す
+    param (
+        [datetime]$from,
+        [datetime]$to,
+        [int]$maxCount = 5,
+        [int]$maxLength = 400
+    )
+
+    # 提供元は 1 つずつ読む（機械に登録が無い提供元があると、まとめて読む呼び出し全体が失敗するため。失敗した提供元は飛ばして、残りを取る）
+    $found = New-Object System.Collections.Generic.List[object]
+    foreach ($provider in @("Application Error", ".NET Runtime", "Windows Error Reporting")) {
+        try {
+            $filter = @{ LogName = "Application"; ProviderName = $provider; StartTime = $from.AddSeconds(-1); EndTime = $to.AddSeconds(5) }
+            foreach ($entry in @(Get-WinEvent -FilterHashtable $filter -MaxEvents 50 -ErrorAction Stop)) {
+                if ($entry.Message -match "powershell\.exe") { $found.Add($entry) }
+            }
+        } catch {
+            continue
+        }
+    }
+    return @($found | Sort-Object TimeCreated | Select-Object -First $maxCount | ForEach-Object {
+        $oneLine = ($_.Message -replace "\s+", " ").Trim()
+        if ($oneLine.Length -gt $maxLength) { $oneLine = $oneLine.Substring(0, $maxLength) + "…" }
+        "$($_.TimeCreated.ToString('HH:mm:ss')) $($_.ProviderName) (ID $($_.Id)): $oneLine"
+    })
+}
+
+function invokeChildScript {
+    # 計測の子のスクリプトを別の powershell.exe で動かす。子の出力はそのまま流す（標準エラーも標準出力と同じ流れに入れる）。
+    # 0 以外で終わったら、終了コード（10 進と 16 進。落ちたときの NTSTATUS が読める）と、子の出力の終わりの tailLines 行を、例外の文に入れて止める。
+    # CI（GITHUB_ACTIONS が true）のときだけ、子が動いていた間の Application ログ（getChildCrashEvents）も入れる。手元の機械のログは読まない。
+    # 出力は CI のログと例外の文にだけ出し、ファイルには残さない
+    param (
+        [string]$scriptPath,
+        [string[]]$arguments = @(),
+        [int]$tailLines = 20
+    )
+
+    $lines = New-Object System.Collections.Generic.List[string]
+    $saved = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"   # 子の標準エラーを、例外にせず文字として受ける
+    $startedAt = Get-Date
+    try {
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $scriptPath @arguments 2>&1 | ForEach-Object {
+            $text = [string]$_
+            $lines.Add($text)
+            $text
+        }
+    } finally {
+        $ErrorActionPreference = $saved
+    }
+    $code = [int]$LASTEXITCODE
+    $endedAt = Get-Date
+    if ($code) {
+        $name = [System.IO.Path]::GetFileName($scriptPath)
+        $message = "$name が失敗しました（終了コード $code・0x$('{0:X8}' -f $code)）。"
+        $shown = @($lines | Where-Object { $_.Trim() -ne "" } | Select-Object -Last $tailLines | ForEach-Object { if ($_.Length -gt 300) { $_.Substring(0, 300) + "…" } else { $_ } })
+        if ($shown.Count -eq 0) {
+            $message += "`n子は何も出力しませんでした。"
+        } else {
+            $message += "`n子の出力の終わり（最後の $($shown.Count) 行）:`n" + ($shown -join "`n")
+        }
+        if ($env:GITHUB_ACTIONS -eq "true") {
+            $events = @()
+            try { $events = @(getChildCrashEvents $startedAt $endedAt) } catch { $events = @() }
+            if ($events.Count -gt 0) { $message += "`n子が動いていた間の Application ログ（powershell.exe に関するもの）:`n" + ($events -join "`n") }
+        }
+        throw $message
+    }
 }
 
 function assertTebunkoFunctions {
@@ -420,6 +495,213 @@ function getIngestPerfProblems {
         $problems.Add("集約ファイルの合計の大きさが 0 です")
     }
     return , $problems.ToArray()
+}
+
+function newRenderResult {
+    # measure_preview.ps1 の Render（-Render の結果）から、result.json の Render を作る。
+    #   RenderMs … 描画（Measure・Arrange・UpdateLayout）の時間を測った順に並べたもの
+    #   Elements … できた部品の数。ScrollMs … 下と右へスクロールして見える範囲を作り直す時間。RenderRetainedMB … 描画のあとに残るマネージドヒープの増え
+    #   （この 3 つは、測った版が記録していなければ $null）
+    #   FirstMs … 1 回目（部品の初期化が入る）。RestMs … 2 回目以降の統計（1 回だけのときは $null）
+    param (
+        $render
+    )
+
+    $times = [double[]]@($render.RenderMs)
+    $rest = $null
+    if ($times.Count -gt 1) { $rest = getStats ([double[]]@($times[1..($times.Count - 1)])) }
+    return [ordered]@{
+        Cells = $render.Cells; Rows = $render.Rows; Columns = $render.Columns
+        Elements = $render.Elements; ScrollMs = $render.ScrollMs; RenderRetainedMB = $render.RenderRetainedMB
+        RenderMs = $times
+        FirstMs = $(if ($times.Count) { $times[0] } else { $null })
+        RestMs = $rest
+        WorkingSetBeforeMB = $render.WorkingSetBeforeMB; WorkingSetAfterMB = $render.WorkingSetAfterMB
+    }
+}
+
+function newReadMoreResult {
+    # measure_preview.ps1 の ReadMore（-ReadMore の結果。下に 200 行ずつ読み足した回ごとの記録）から、result.json の ReadMore を作る。
+    #   ReadMs・BuildMs・CellsMs … 読む・行を作る・見える範囲のセルを作る時間の統計。CreatedCells … 最後に作ってあったセルの数の合計
+    param (
+        $runs
+    )
+
+    $items = @($runs)
+    $last = $items[$items.Count - 1]
+    return [ordered]@{
+        Runs = $items.Count
+        # 場所の終わりで止まり、5 回に届かなかったとき・どれかの回が 200 行に満たなかった（短い・空の回があった）ときは $false（少ない行の値を、5 回分と見間違えないため）
+        Complete = ($items.Count -ge 5 -and @($items | Where-Object { [int]$_.Rows -ne $readMoreChunkLines }).Count -eq 0)
+        ReadMs = (getStats ([double[]]@($items | ForEach-Object { $_.ReadMs })))
+        BuildMs = (getStats ([double[]]@($items | ForEach-Object { $_.BuildMs })))
+        CellsMs = (getStats ([double[]]@($items | ForEach-Object { $_.CellsMs })))
+        TableRows = [int]$last.TableRows; Columns = [int]$last.Columns; CreatedCells = [int]$last.CreatedCells
+    }
+}
+
+function newPreviewResult {
+    # measure_preview.ps1 の結果（ConvertFrom-Json したもの）から、result.json の Preview の 1 語分を作る。
+    #   読み込みの時間はキャッシュの有無ごと、表を作る時間とセルの数は全部まとめて集計する。
+    #   RetainedManagedMB … プレビューの前後で、GC のあとに残ったマネージドヒープの増え（プレビューが何かを持ち続けていないかを見る）
+    #   RetainedPerPreviewMB … 上をプレビューの回数で割った 1 回あたり
+    #   CacheDropMB … 検索のキャッシュを捨てて GC したあとの、ワーキングセットの減り（キャッシュの常駐の大きさ）
+    #   ReadTextCallsUncached … キャッシュ無しのプレビューで readContentIndexText が呼ばれた回数の合計（ファイルの全体を読んだ回数）
+    #   FullRead … 前の読み方（毎回ファイルの全体を読む）で測った同じ形の結果。測っていなければ $null（呼ぶ側が入れる）
+    param (
+        $raw
+    )
+
+    $rows = @($raw.Previews)
+    $uncached = @($rows | Where-Object { $_.Cache -eq "無し" })
+    $cached = @($rows | Where-Object { $_.Cache -eq "あり" })
+    $mem = $raw.Memory
+    $retained = [Math]::Round([double]$mem.AfterGcManagedMB - [double]$mem.BeforePreviewManagedMB, 1)
+    $entry = [ordered]@{
+        Name = $raw.Name; Regex = [bool]$raw.Regex; Count = [int]$raw.Count; Previews = $rows.Count
+        ReadUncachedMs = (getStats ([double[]]@($uncached | ForEach-Object { $_.ReadMs })))
+        ReadCachedMs = (getStats ([double[]]@($cached | ForEach-Object { $_.ReadMs })))
+        BuildMs = (getStats ([double[]]@($rows | ForEach-Object { $_.BuildMs })))
+        BuildFirstMs = $(if ($rows.Count) { [double]$rows[0].BuildMs } else { $null })
+        BuildRestMs = $(if ($rows.Count -gt 1) { getStats ([double[]]@($rows[1..($rows.Count - 1)] | ForEach-Object { $_.BuildMs })) } else { $null })
+        Cells = (getStats ([double[]]@($rows | ForEach-Object { $_.Cells })))
+        CreatedCells = $(if (@($rows | Where-Object { $null -ne $_.CreatedCells }).Count -gt 0) { getStats ([double[]]@($rows | ForEach-Object { $_.CreatedCells })) } else { $null })
+        ReadMore = $(if ($null -ne $raw.ReadMore -and @($raw.ReadMore).Count -gt 0) { newReadMoreResult $raw.ReadMore } else { $null })
+        FileMBMax = $(if ($rows.Count) { ($rows | Measure-Object FileMB -Maximum).Maximum } else { $null })
+        ReadTextCallsUncached = [int](($uncached | Measure-Object -Property ReadTextCalls -Sum).Sum)
+        FullRead = $null
+        RetainedManagedMB = $retained
+        RetainedPerPreviewMB = $(if ($rows.Count) { [Math]::Round($retained / $rows.Count, 3) } else { $null })
+        WorkingSetAfterSearchMB = $mem.AfterSearchWorkingSetMB; WorkingSetAfterPreviewMB = $mem.AfterPreviewWorkingSetMB
+        WorkingSetAfterGcMB = $mem.AfterGcWorkingSetMB; WorkingSetAfterCacheDropMB = $mem.AfterCacheDropWorkingSetMB
+        CacheDropMB = [Math]::Round([double]$mem.AfterGcWorkingSetMB - [double]$mem.AfterCacheDropWorkingSetMB, 1)
+        CacheChars = [long]$mem.CacheChars
+        Render = $(if ($null -eq $raw.Render) { $null } else { newRenderResult $raw.Render })
+        PeakWorkingSetMB = $raw.PeakWorkingSetMB
+    }
+    return $entry
+}
+
+function newLargeContentTsvText {
+    # プレビューの計測用に、大きな本文インデックスのファイル（TSV）の中身を作る。架空の文だけで、人名・社名・パスは入れない。
+    #   lines    : 行の数（行番号は 1 から lines まで）
+    #   hitWord  : 検索する語。hitLines の行にだけ入れる
+    #   hitLines : 語を入れる行番号
+    #   repeat   : 1 行の長さを決める、埋め草の文の繰り返し（約 95 バイト × repeat）
+    # 行番号は 4 桁までにしておく（正規表現の語 ^\d{5}\t が、5 桁の行番号の行に当たらないように。lines は 9999 まで）。
+    # 形は「行番号 TAB 行N TAB 語または架空説明 + 埋め草」を CRLF でつないだもの（BOM は呼ぶ側で付ける）。
+    param (
+        [int]$lines,
+        [string]$hitWord,
+        [int[]]$hitLines,
+        [int]$repeat = 10
+    )
+
+    if ($lines -lt 1 -or $lines -gt 9999) { throw "lines は 1〜9999 にしてください。" }
+    $filler = (@("下書き 確認 覚え書き 日程 調整 備品 発注 会議室 予約 資料 保管場所") * $repeat) -join " "
+    $hits = New-Object System.Collections.Generic.HashSet[int]
+    foreach ($hitLine in $hitLines) { [void]$hits.Add($hitLine) }
+    $builder = New-Object System.Text.StringBuilder
+    for ($lineNo = 1; $lineNo -le $lines; $lineNo++) {
+        $note = if ($hits.Contains($lineNo)) { $hitWord } else { "架空説明" }
+        [void]$builder.Append("$lineNo`t行$lineNo`t$note $filler`r`n")
+    }
+    return $builder.ToString()
+}
+
+function newWideContentTsvText {
+    # プレビューの計測用に、横に広い Excel の本文インデックスのファイル（TSV）の中身を作る。架空の値だけで、人名・社名・パスは入れない。
+    #   lines     : 行の数（行番号は 1 から lines まで。9999 まで）
+    #   columns   : 行ごとのセルの数（2000 など）
+    #   hitWord   : 検索する語。hitLines の行の hitColumn 列目（1 から）にだけ入れる
+    #   hitLines  : 語を入れる行番号
+    #   hitColumn : 語を入れる列（1 から）。既定は右寄りの 1500 列目（一致したセルが、最初に見える範囲の外にある表を作る）
+    # 形は「行番号 TAB セル 1 TAB セル 2 …」を CRLF でつないだもの（BOM は呼ぶ側で付ける）。セルは「行 N 列 M」の短い文字
+    param (
+        [int]$lines,
+        [int]$columns,
+        [string]$hitWord,
+        [int[]]$hitLines,
+        [int]$hitColumn = 1500
+    )
+
+    if ($lines -lt 1 -or $lines -gt 9999) { throw "lines は 1〜9999 にしてください。" }
+    if ($columns -lt 1) { throw "columns は 1 以上にしてください。" }
+    if ($hitColumn -lt 1 -or $hitColumn -gt $columns) { throw "hitColumn は 1〜columns にしてください。" }
+    $hits = New-Object System.Collections.Generic.HashSet[int]
+    foreach ($hitLine in $hitLines) { [void]$hits.Add($hitLine) }
+    $builder = New-Object System.Text.StringBuilder
+    for ($lineNo = 1; $lineNo -le $lines; $lineNo++) {
+        [void]$builder.Append($lineNo)
+        for ($col = 1; $col -le $columns; $col++) {
+            [void]$builder.Append("`t")
+            if ($col -eq $hitColumn -and $hits.Contains($lineNo)) { [void]$builder.Append($hitWord) } else { [void]$builder.Append("行${lineNo}列$col") }
+        }
+        [void]$builder.Append("`r`n")
+    }
+    return $builder.ToString()
+}
+
+function getFullReadPathProblems {
+    # -FullRead で測ったプレビューの記録（measure_preview.ps1 の Previews）が、本当に全部読む経路を通ったかを確かめる。
+    # キャッシュ無しの選択で readContentIndexText が 1 回も呼ばれていないものがあれば、その番号を文字列で返す（無ければ何も返さない。呼ぶ側は @() で受ける）。
+    param (
+        $rows
+    )
+
+    foreach ($row in @($rows | Where-Object { $_.Cache -eq "無し" })) {
+        if ([int]$row.ReadTextCalls -lt 1) { "N=$($row.N) で readContentIndexText が呼ばれていません" }
+    }
+}
+
+function getPreviewPerfProblems {
+    # プレビューの回帰テストの判定。合わないものの一覧（文字列の配列）を返す。空なら合格。
+    #   preview      : result.json の Preview の 1 語分（newPreviewResult の結果。無ければ $null）
+    #   readLimitMs  : キャッシュ無しの読み込みの中央値の上限（ms）
+    #   retainedLimitMB : プレビューのあと、GC のあとも残るマネージドヒープの増えの合計の上限（MB。1 回あたりではなく合計で持つ）
+    #   expectedCount: 測ったプレビューの数（キャッシュの有無ごと）
+    param (
+        $preview,
+        [double]$readLimitMs,
+        [double]$retainedLimitMB,
+        [int]$expectedCount
+    )
+
+    $problems = New-Object System.Collections.Generic.List[string]
+    if ($null -eq $preview) {
+        $problems.Add("プレビューの結果がありません")
+        return , $problems.ToArray()
+    }
+    if ([int]$preview.Previews -ne $expectedCount * 2) { $problems.Add("測ったプレビューが $($preview.Previews) 回（期待 $($expectedCount * 2) 回）") }
+    if ($null -eq $preview.ReadUncachedMs) {
+        $problems.Add("キャッシュ無しの読み込みの時間がありません")
+    } elseif ([double]$preview.ReadUncachedMs.Median -gt $readLimitMs) {
+        $problems.Add([string]::Format([CultureInfo]::InvariantCulture, "プレビューの読み込み（キャッシュ無し）: 中央値 {0:N1} ms（上限 {1:N1} ms）", [double]$preview.ReadUncachedMs.Median, $readLimitMs))
+    }
+    if ($null -eq $preview.Cells -or [double]$preview.Cells.Min -le 0) {
+        $problems.Add("セルを作らなかったプレビューがあります")
+    }
+    if ($null -eq $preview.RetainedManagedMB) {
+        $problems.Add("残ったメモリの増えがありません")
+    } elseif ([double]$preview.RetainedManagedMB -gt $retainedLimitMB) {
+        $problems.Add([string]::Format([CultureInfo]::InvariantCulture, "プレビューのあとに残るメモリ（合計）: {0:N1} MB（上限 {1:N1} MB）", [double]$preview.RetainedManagedMB, $retainedLimitMB))
+    }
+    return , $problems.ToArray()
+}
+
+function getPreviewPerfMessages {
+    # getPreviewPerfProblems の結果に語の名前を付け、1 件ずつの文字列にして返す（回帰テストの失敗メッセージ用）。
+    # getPreviewPerfProblems は空の配列を 1 つの値として返すので、いったん変数で受けて展開する。合格なら何も返さない（呼ぶ側は @() で受ける）。
+    param (
+        [string]$name,
+        $preview,
+        [double]$readLimitMs,
+        [double]$retainedLimitMB,
+        [int]$expectedCount
+    )
+
+    $problems = getPreviewPerfProblems $preview $readLimitMs $retainedLimitMB $expectedCount
+    foreach ($problem in $problems) { "プレビュー ${name}: $problem" }
 }
 
 function getTypingSteps {

@@ -22,7 +22,7 @@ BeforeDiscovery {
     @{ Kind = '関数'; Pattern = 'getPackContentText'; New = 'getContentIndexBodyText'; Docs = $true }
     @{ Kind = '関数'; Pattern = 'writePackFile'; New = 'writeContentIndexFile'; Docs = $true }
     @{ Kind = '関数'; Pattern = 'readPackText'; New = 'readContentIndexText'; Docs = $true }
-    @{ Kind = '関数'; Pattern = 'readPackContext'; New = 'readContentIndexContext'; Docs = $true }
+    @{ Kind = '関数'; Pattern = 'readPackContext'; New = 'readContentIndexLines'; Docs = $true }
     @{ Kind = '関数'; Pattern = 'readPackLines'; New = 'readContentIndexLines'; Docs = $true }
     @{ Kind = '関数'; Pattern = 'convertIndexFolderToPack'; New = 'convertFolderToContentIndex'; Docs = $true }
     @{ Kind = '関数'; Pattern = 'updateIndexFolderPack'; New = 'updateFolderContentIndex'; Docs = $true }

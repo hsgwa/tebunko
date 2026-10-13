@@ -138,7 +138,7 @@ Windows のクライアント版（Windows 10 / 11）は、実行ポリシーの
 
 ## 検索結果から開くと Excel が前面に出る
 
-検索結果から元の Excel ファイルを開くときは、Excel を可視化して前面に出す（`tebunko/ui/open_source.ps1:162`・`213`）。利用者が開くよう操作したときの動作である。インデクサ側の Office は不可視で動作する。ただし、画面の無い Excel・Word・PowerPoint に利用者が開いたファイルが入ったときは、そのファイルを閉じないよう終了させずに窓を出して利用者に渡す（[Office ファイルを開くときの設定](checks.md#office-ファイルを開くときの設定)。`safety.Tests.ps1` が、`Visible = $true` は `open_source.ps1` と、渡す処理（`office_app.ps1` の `restoreHandedOverApp`。`handOverApp` と `retryKeptApps` が呼ぶ）にしか無いことを確かめる）。
+検索結果から元の Excel ファイルを開くときは、Excel を可視化して前面に出す（`tebunko/ui/open_source.ps1:437`・`509`）。利用者が開くよう操作したときの動作である。インデクサ側の Office は不可視で動作する。ただし、画面の無い Excel・Word・PowerPoint に利用者が開いたファイルが入ったときは、そのファイルを閉じないよう終了させずに窓を出して利用者に渡す（[Office ファイルを開くときの設定](checks.md#office-ファイルを開くときの設定)。`safety.Tests.ps1` が、`Visible = $true` は `open_source.ps1` と、渡す処理（`office_app.ps1` の `restoreHandedOverApp`。`handOverApp` と `retryKeptApps` が呼ぶ）にしか無いことを確かめる）。
 
 ## もらったインデックスの元のフォルダ
 
@@ -183,7 +183,7 @@ Windows のクライアント版（Windows 10 / 11）は、実行ポリシーの
 $r = Test-FileCatalog -Path .\scripts -CatalogFilePath <ダウンロードした tebunko.cat> -Detailed
 @($r.CatalogItems.Keys + $r.PathItems.Keys | Sort-Object -Unique | Where-Object { $_ -ne 'tebunko.bat' -and $r.CatalogItems[$_] -ne $r.PathItems[$_] })
 ```
-- **第三者の部品**: インストーラーとアンインストーラーの本体は Inno Setup のものである（[Inno Setup License](https://jrsoftware.org/files/is/license.txt)）。インストールとアンインストールのときだけ動き、tebunko の実行中には使わない。ツール本体の第三者の部品は 0 のまま（[供給網（サプライチェーン）とライセンス](supply-chain.md)）。
+- **第三者の部品**: インストーラーとアンインストーラーの本体は Inno Setup のものである（[Inno Setup License](https://jrsoftware.org/files/is/license.txt)）。インストールとアンインストールのときだけ動き、tebunko の実行中には使わない。ツール本体が同梱する第三者の部品は、アイコンの形（Lucide。ISC ライセンス、一部 MIT）の 1 件だけで、実行されるコードではない（[供給網（サプライチェーン）とライセンス](supply-chain.md)）。
 
 ## 単一 .ps1 版（試験版）
 

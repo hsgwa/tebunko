@@ -76,7 +76,7 @@ tebunko は、**Windows と Microsoft Excel（デスクトップ版）が入っ�
 - **管理者権限不要** … 一般のユーザーのまま使えます
 - **設定の変更不要** … PowerShell の実行ポリシーを変える必要はありません
 - **ネットワーク不要** … 通信をしないので、インターネットにつながらない PC でも使えます
-- **追加のライブラリなし** … 他者が作ったライブラリを含みません。zip 版は実行ファイル（.exe・.dll）も含みません
+- **追加のライブラリなし** … 他者が作ったライブラリ（コード）を含みません。含む第三者の部品は、アイコンの形（Lucide）だけです（下の「ライセンス」）。zip 版は実行ファイル（.exe・.dll）も含みません
 
 動かない環境は、Excel が使えない PC（Office が無い・Web 版だけ・COM が禁止）、Mac・Linux、PowerShell 7 だけの環境、PowerShell の実行が禁止されている PC です。組織が実行を制限している PC での動き方と、確かめていない環境（VDI・RDS・Windows Server・Arm 版の Windows など）は、[手引きの「動作環境」](https://hsgwa.github.io/tebunko/guide/#動作環境)にあります。
 
@@ -196,7 +196,7 @@ tebunko は、**Windows と Microsoft Excel（デスクトップ版）が入っ�
 
 会社の PC にも安心して入れられるよう、tebunko が何をして何をしないかを公開し、毎回テストで確かめています。
 
-- **中身は PowerShell のスクリプトと画面の定義だけです。** 他者が作ったライブラリは含みません（[部品表の雛形](sbom.cdx.json)。ファイルごとの一覧とハッシュを入れた部品表は、リリースに `sbom.cdx.json` として載せています）。zip 版は実行ファイルも含みません。インストーラー版は、起動用の小さな `tebunko.exe`（ソースは `installer/tebunko.cs`）と、Inno Setup のインストーラー・アンインストーラーが加わります。
+- **中身は PowerShell のスクリプトと画面の定義だけです。** 他者が作ったライブラリ（コード）は含みません。含む第三者の部品は、アイコンの形（Lucide）だけです（[部品表の雛形](sbom.cdx.json)。ファイルごとの一覧とハッシュを入れた部品表は、リリースに `sbom.cdx.json` として載せています）。zip 版は実行ファイルも含みません。インストーラー版は、起動用の小さな `tebunko.exe`（ソースは `installer/tebunko.cs`）と、Inno Setup のインストーラー・アンインストーラーが加わります。
 - **通信はしません。** 管理者権限の要求、レジストリの変更、常駐もしません（インストーラー版は、Windows の「アプリ」の一覧に出すためのアンインストールの情報だけを書きます）。
 - **テストで確かめています。** これらは `tests/meta/safety.Tests.ps1` と静的解析（PSScriptAnalyzer・CodeQL）が、変更のたびに CI で確かめます。
 
@@ -268,5 +268,7 @@ tebunko は積極的に開発しています。機能や画面は、これから
 ## ライセンス
 
 [MIT](LICENSE)
+
+同梱する第三者の部品は、アイコンの形（[Lucide](https://lucide.dev)）の 1 件だけです。ISC ライセンスで、Feather 由来の一部は MIT ライセンスです。ライセンスの文面は、zip・インストーラーの `scripts/shared/licenses/LICENSE-Lucide.txt` にあります（単一 .ps1 版は、ファイルの先頭近くに同じ文面がコメントとして入っています）。ライセンスの名前は、画面の［バージョン情報］にも出ます。
 
 Microsoft、Excel、Word、PowerPoint、Windows、PowerShell は、米国 Microsoft Corporation の米国およびその他の国における登録商標または商標です。tebunko は Microsoft Corporation とは関係のない個人のプロジェクトであり、Microsoft Corporation が承認・支援したものではありません。

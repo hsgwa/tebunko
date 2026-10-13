@@ -120,7 +120,7 @@ sequenceDiagram
     opt ［中止］
         U->>G: ［中止］→［中止する］
         G->>K: 中止（requestIndexingStop）
-        P->>W: 更新中のファイルが終わったら止まる
+        P->>W: 読み取り中のファイルが終わったら止まる
     end
     P-->>G: スレッドの終了（受け渡しの口の ExitCode 0 / 1 / 2・Error）
     G->>G: 終了コードに応じた表示、［検索する］

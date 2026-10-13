@@ -15,16 +15,17 @@ Describe "検索結果の右クリックメニュー" -Tag Gui {
         writeGuiConfig $script:tool.Dir $config
     }
 
-    It "行のメニューは先頭に既定の開き方を出し、見出しのメニューは読み取り専用で開くから始まる" {
+    It "行のメニューは先頭に既定の開き方を出し、見出しのメニューも同じ開き方の項目を並べる" {
         $S = startGui $script:tool "ContextMenu1"
         $script:rowMenu = $null
         $script:groupMenu = $null
         invokeGuiScene $S {
             $menuNames = {
                 # メニューキーで開いて、出ている項目の名前を取る
-                param ($item, [string]$focusId = "ResultGrid")
+                param ($item, $focusTarget = $null)
                 if ($item) { selectGui $item }
-                (findGui $S.Window -Id $focusId).SetFocus()
+                if ($null -eq $focusTarget) { $focusTarget = findGui $S.Window -Id "ResultGrid" }
+                $focusTarget.SetFocus()
                 pressGuiKey $S.Window 0x5D
                 $names = waitGui $S "メニューが開く" ${guiDefaultTimeout} {
                     $found = @(getGuiOtherWindows $S | ForEach-Object { findAllGui $_ -Type MenuItem } | ForEach-Object { $_.Current.Name })
@@ -51,11 +52,12 @@ Describe "検索結果の右クリックメニュー" -Tag Gui {
             $script:groupMenu = & $menuNames $header
             # 行を選び直すとプレビューが出る。プレビューの表の上でもメニューが開く
             selectGui (@(getGuiHitRows $grid))[0]
-            $script:previewMenu = & $menuNames $null "PreviewScroll"
+            # プレビューのスクロールは窓から Id で探せないので、セルの Text から親をたどって得る（waitGuiPreviewScroll）
+            $script:previewMenu = & $menuNames $null (waitGuiPreviewScroll $S)
             closeGui $S
         }
         ($script:rowMenu -join "/") | Should -Be "読み取り専用で開く/開く/新規で開く/フォルダを開く/選んだ行をコピー/ファイルのパスをコピー"
-        ($script:groupMenu -join "/") | Should -Be "読み取り専用で開く/フォルダを開く/ファイルのパスをコピー/この結果を折りたたむ"
+        ($script:groupMenu -join "/") | Should -Be "読み取り専用で開く/開く/新規で開く/フォルダを開く/ファイルのパスをコピー/この結果を折りたたむ"
         ($script:previewMenu -join "/") | Should -Be "元のファイルのこの場所を開く/選んだセルをコピー/この行をコピー"
     }
 

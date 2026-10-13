@@ -127,4 +127,4 @@ The maintainer makes the releases. The changes in each version are listed on [Gi
 
 ## License
 
-Changes you submit in a pull request (including code, documents and test data) are published under the same [MIT License](../LICENSE) as this repository. Submit only what you made yourself or what you have the right to publish under the MIT License. If you want to bring in third-party code, images or documents as is, discuss it in an issue first (the tool assumes that it contains no third-party components; see [sbom.cdx.json](../sbom.cdx.json)).
+Changes you submit in a pull request (including code, documents and test data) are published under the same [MIT License](../LICENSE) as this repository. Submit only what you made yourself or what you have the right to publish under the MIT License. If you want to bring in third-party code, images or documents as is, discuss it in an issue first (the only third-party component the tool ships is the icon shapes from Lucide, under the ISC License, partly MIT; see [sbom.cdx.json](../sbom.cdx.json)).

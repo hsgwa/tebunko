@@ -5,11 +5,13 @@
 function getAboutView {
     # 版・コミットの表示: @{ Version; Commit（出さないときは空） }
     #   versionInfo: readVersionFile の戻り値（$null なら開発中に git から直接起動したときの表示にする）
+    #   devInfo: readDevVersion の戻り値（versionInfo が $null のとき、「開発版」にタグ・コミットを添える。省くと「開発版」だけ）
     param (
-        $versionInfo
+        $versionInfo,
+        $devInfo = $null
     )
 
-    return getVersionLabel $versionInfo
+    return getVersionLabel $versionInfo $devInfo
 }
 
 ${aboutRepositoryUrl} = "https://github.com/hsgwa/tebunko"  # 公開のリポジトリ
@@ -34,5 +36,5 @@ function getAboutLicenses {
     # ダイアログに出すライセンス: 1 行ずつの文字の配列（tebunko 自身と、同梱するアイコンの形）
     return @(
         "tebunko：MIT ライセンス"
-        "アイコンの形（Lucide）：ISC ライセンス")
+        "アイコンの形（Lucide）：ISC ライセンス（一部 MIT）")
 }

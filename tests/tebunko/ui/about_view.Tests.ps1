@@ -39,10 +39,18 @@ Describe "getAboutLinks・testAboutLinkUrl" -Tag Unit {
 }
 
 Describe "getAboutLicenses" -Tag Unit {
-    It "tebunko の MIT と、同梱するアイコンの形（Lucide）の ISC を出す" {
+    It "tebunko の MIT と、同梱するアイコンの形（Lucide）の ISC（一部 MIT）を出す" {
         $lines = @(getAboutLicenses)
         $lines.Count | Should -Be 2
         $lines[0] | Should -BeLike "tebunko*MIT*"
-        $lines[1] | Should -BeLike "*Lucide*ISC*"
+        $lines[1] | Should -BeLike "*Lucide*ISC*一部 MIT*"
+    }
+}
+
+Describe "getAboutView（開発版）" -Tag Unit {
+    It "VERSION.txt が無いときは、渡された開発版の情報（タグ・コミット）を添える" {
+        $view = getAboutView $null @{ Tag = "v0.5.0"; AtHead = $true; Sha = ("d79f898" + "0" * 33) }
+        $view.Version | Should -Be "開発版（v0.5.0・d79f898）"
+        $view.Commit | Should -Be ""
     }
 }

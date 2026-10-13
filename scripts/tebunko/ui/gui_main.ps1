@@ -13,10 +13,12 @@ function startGui {
     [System.Runtime.GCSettings]::LatencyMode = [System.Runtime.GCLatencyMode]::SustainedLowLatency
 
     ${searchLimit} = 10000
-    # 選択行のプレビューに出す行数は、プレビューの高さ（ドラッグで変わる）に収まるだけ出す（getPreviewContextLines）
-    ${previewRowHeight}     = 22   # プレビューの 1 行の高さの目安。高さから出せる行数を求めるのに使う
-    ${previewScrollBarSize} = 18   # 横スクロールバーの高さの目安（ViewportHeight が取れないときに引く）
-    ${maxPreviewRows}       = 101  # プレビューに出す行数の上限（選択行＋前後 50 行）
+    ${previewFirstLines}    = 50   # 行を選んだときに、プレビューへ最初に出す選択行の前後の行数（それぞれ）
+    ${previewReadAheadLines} = 20  # 見えている行が、読んである範囲の端からこの行数以内に近づいたら、その向きに読み足す
+    ${previewChunkLines}    = 200  # 1 回に読み足す行数（持つ行が上限を超えたとき、遠い側から捨てる行数も同じ）
+    ${previewMaxRows}       = 3000 # プレビューに持つ行の上限（超えたら、見ている所から遠い側を捨てる）
+    ${previewColumnMargin}  = 3    # 見えている列の左右に、先に作っておく列の数（横にスクロールするたびにセルを作り直さないため）
+    ${previewCellRowMargin} = 10   # 見えている行の上下に、先にセルを作っておく行の数
     ${backgroundWorkers} = 2  # startJob のスレッドの数
 
     # 画面定義（XAML）とアイコンの置き場所
@@ -107,11 +109,11 @@ function startGui {
             "IndexTree", "CheckAllIndexButton", "UncheckAllIndexButton", "TargetCountText") }
         @{ File = "search\result_list.xaml"; Slot = "ResultListHost"; Names = @(
             "SummaryText", "SearchProgress", "FilterBox", "FilterPlaceholder", "ExpandAllButton", "CollapseAllButton", "ExportButton",
-            "ResultGrid",
+            "ResultGrid", "NoHitText",
             "ResultMenu", "MenuOpen", "MenuOpenReadOnly", "MenuOpenNew", "MenuOpenFolder", "MenuCopy", "MenuCopyPath", "MenuToggleGroup") }
         @{ File = "search\preview.xaml"; Slot = "PreviewHost"; Names = @(
             "DetailPanel", "DetailTitle", "OpenButton", "OpenMenuButton", "MenuOpenModeNormal", "MenuOpenModeNew", "MenuOpenModeReadOnly", "OpenFolderButton",
-            "PreviewScroll", "PreviewHeaderScroll", "PreviewHeader", "PreviewRows", "PreviewNote",
+            "PreviewHeaderScroll", "PreviewHeaderPanel", "PreviewHeader", "PreviewRows",
             "PreviewPlaceholder", "PreviewMenu", "MenuPreviewOpen", "MenuPreviewCopy", "MenuPreviewCopyRow") }
         @{ File = "settings\settings.xaml"; Slot = "ContentHost"; Screen = "SettingsTab"; Names = @(
             "WorkspaceBox", "WorkspaceInputError", "WorkspaceNote", "WorkspaceCaution", "WorkspaceHowTo", "ChangeWorkspaceButton", "ResetWorkspaceButton", "SettingsFileText", "SettingsFileNote") }
@@ -143,6 +145,10 @@ function startGui {
         }
         stepSplash 70
     }
+    # プレビューの行の入れ物（PreviewRows）は、行の仮想化のために、自分のテンプレートの中にスクロール（PreviewScroll）を持つ。
+    # テンプレートの中の名前は上の FindName では取れないので、テンプレートを作ってから取る
+    [void]$ui.PreviewRows.ApplyTemplate()
+    $ui.PreviewScroll = $ui.PreviewRows.Template.FindName("PreviewScroll", $ui.PreviewRows)
     $taskbar = $window.TaskbarItemInfo
 
     ${okBrush}   = themeBrush "Ok"
@@ -321,7 +327,7 @@ function startGui {
         try { $script:indexingSession.Stop() } catch { }
         try { $ui.IndexingStopButton.IsEnabled = $false } catch { }
         try { $ui.IndexingProgressText.Text = "更新を止めています…" } catch { }
-        try { $ui.IndexingProgressDetail.Text = "更新中のファイルが終わると、画面を閉じます。" } catch { }
+        try { $ui.IndexingProgressDetail.Text = "読み取り中のファイルが終わると、画面を閉じます。" } catch { }
         try { setStatus "更新を止めてから閉じます…" } catch { }
         try {
             if ($null -eq $script:closeDeadline) {
@@ -512,12 +518,32 @@ function startGui {
         setStatus $(if ($script:workspaceBlock) { $script:workspaceBlock } elseif ($script:legacyIndexMessage) { $script:legacyIndexMessage } else { "" })
         # 前回のインデックス作成が起動したまま残った Office があれば、終了するか確認する（記録の読み取りは裏で行う）
         startLeftoverCheck
+        # ［新規で開く］のために作ったコピー（open_copy）のうち、1 日より古いものを裏で片付ける（起動時の 1 回だけ。開いているコピーは残る）
+        startJob {
+            param ($copyDir, $tmpRoot)
+            [void](clearOldOpenCopies $copyDir $tmpRoot)
+        } @((getOpenCopyDir $workspace), $workspace.TmpRoot) {
+            param ($output, $errorText)
+        } (getWorkspaceJobQueue @($workspace.Dir, (getOpenCopyDir $workspace)))
     }
 
     # ---- 起動 ----
 
     # 版・コミットの表示は起動時に 1 回だけ組み立てる（VERSION.txt は配布物にだけあり、開発中は無いので「開発版」になる）
-    $script:aboutView = getAboutView (readVersionFile (Join-Path ${rootDir} "VERSION.txt"))
+    $versionInfo = readVersionFile (Join-Path ${rootDir} "VERSION.txt")
+    $script:aboutView = getAboutView $versionInfo
+    if ($null -eq $versionInfo) {
+        # 開発版は、.git のファイルから分かるタグ・コミットを添える。ファイルを読むので、裏で調べて、分かったら表示を差し替える
+        startJob {
+            param ($toolDir)
+            readDevVersion $toolDir
+        } @(${rootDir}) {
+            param ($output, $errorText)
+            if (!$errorText -and $null -ne $output -and @($output).Count -gt 0 -and $null -ne $output[0]) {
+                $script:aboutView = getAboutView $null $output[0]
+            }
+        }
+    }
 
     updateSettingsView
     setSearchOptionToUi (readSearchOption)

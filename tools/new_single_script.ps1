@@ -26,6 +26,8 @@ if ($Version -notmatch '^[A-Za-z0-9._-]+$') {
 
 $rootDir = Split-Path $PSScriptRoot -Parent
 . ([WildcardPattern]::Escape("$PSScriptRoot\script_rules.ps1".Replace('`', '``')))
+. ([WildcardPattern]::Escape("$PSScriptRoot\single_script_guard.ps1".Replace('`', '``')))
+. ([WildcardPattern]::Escape("$PSScriptRoot\single_script_license.ps1".Replace('`', '``')))
 
 if (!$OutFile) {
     $OutFile = Join-Path $rootDir "work\release\tebunko-$Version.ps1"
@@ -134,6 +136,14 @@ function addHereString {
 
 [void]$parts.Add('# 自動で作る単一 .ps1 版（試験版）。tools\new_single_script.ps1 が組み立てる。手で編集しない。')
 [void]$parts.Add('# 元のソースは scripts\ 配下（zip 版と共通）。設計は docs/design/structure/single-script.md')
+
+# ---- 同梱する第三者の部品のライセンス文を、元のファイルのまま、行ごとの # のコメントとして入れる ----
+# 文面は scripts\shared\licenses\LICENSE-*.txt から読み、書き換えない（tools\single_script_license.ps1）。
+# フォルダが無い・1 件も無い・空（空白だけ）のファイルがある・改行を伴わない CR だけの行区切りがあるときは止める（置き場が空のまま作らないため）
+$licenseFiles = @(getLicenseFiles (Join-Path $scriptsDir "shared\licenses"))
+foreach ($licenseFile in $licenseFiles) {
+    [void]$parts.Add((convertToLicenseComment $licenseFile.Name ([System.IO.File]::ReadAllText($licenseFile.FullName))))
+}
 [void]$parts.Add('param (')
 [void]$parts.Add('    [string]$Part = "gui",')
 [void]$parts.Add('    [switch]$RetryFailed,')
@@ -197,7 +207,7 @@ foreach ($partEntry in $bundledPartEntries) {
 $script:visited = New-Object 'System.Collections.Generic.HashSet[string]'
 
 # 部品の埋め込みの終わり（ここから下が、実行するプロセスの本体）の目印。テストが、ここまでを切り出して部品を取り出す
-$bodyMarker = '# ---- 本体（ここより上は、別スレッドが読む部品の埋め込み） ----'
+$bodyMarker = '# ---- BODY-START (above: parts embedded for other threads) ----'
 
 # ---- 読み込み口の並び（driver の手順。設計どおり）。 ----
 # 別スレッドは、この下の本体ではなく、上で埋め込んだ部品（${bundledParts}）を読む。ここから下は、実行するプロセスの本体だけ。
@@ -285,14 +295,33 @@ foreach ($partEntry in $bundledPartEntries) {
     }
 }
 
+# ---- BOM が落ちても動く形に包む（日本語はそのまま。tools\single_script_guard.ps1） ----
+# 頭（ASCII）＋日本語の本体（ヒアストリング）＋尾（ASCII）にする。$PSScriptRoot・$PSCommandPath は、本体の中では空になるため
+# 頭が決める名前に書き換える。包んだあとの確かめ: 構文エラー 0・CP932 で読み違えても構文エラー 0・頭と尾は ASCII だけ・版の文字列が残っている
+# （禁止の語は、包む前の 5) で調べ済み）
+$combined = convertToGuardedScript $combined
+assertGuardedScript $combined "結合した .ps1"
+if ($combined -notmatch [regex]::Escape("Tag = '$Version'; Sha = '$sha'")) {
+    throw "包んだあとで、版の文字列が失われました。"
+}
+
+# 8) 同梱するライセンス文（scripts\shared\licenses\LICENSE-*.txt）が、包んだあとの結果に、元のファイルのまま入っている
+#    （結果から # を外して取り出し、元のファイルの文字列（改行は CRLF にそろえる）と比べる。
+#    リリースでは、この道具が通らなければ公開しない。zip の中身の検査は tools\check_release_package.ps1）
+foreach ($licenseFile in $licenseFiles) {
+    $restoredLicense = restoreLicenseFromComment $combined $licenseFile.Name
+    if ($null -eq $restoredLicense -or ![string]::Equals($restoredLicense, (normalizeLicenseText ([System.IO.File]::ReadAllText($licenseFile.FullName))), [System.StringComparison]::Ordinal)) {
+        throw "包んだあとの単一 .ps1 に、ライセンス文が元のまま入っていません: $($licenseFile.Name)"
+    }
+}
+
 # ---- 書き出し（BOM 付き UTF-8・CRLF。work\release\ は .gitignore でコミットしない） ----
 
 $outDir = Split-Path $OutFile -Parent
 if (!(Test-Path -LiteralPath $outDir)) {
     [void][System.IO.Directory]::CreateDirectory($outDir)
 }
-$utf8Bom = New-Object System.Text.UTF8Encoding($true)
-[System.IO.File]::WriteAllText($OutFile, $combined, $utf8Bom)
+[System.IO.File]::WriteAllText($OutFile, $combined, (New-Object System.Text.UTF8Encoding($true)))
 
 Write-Host "作成しました: $OutFile"
 return $OutFile

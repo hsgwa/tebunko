@@ -306,7 +306,7 @@ function stopIndexing {
     }
     requestIndexingStop $script:indexingSession.Channel
     $ui.IndexingStopButton.IsEnabled = $false
-    $ui.IndexingProgressDetail.Text = "中止しています…（更新中のファイルが終わるまでお待ちください）"
+    $ui.IndexingProgressDetail.Text = "中止しています…（読み取り中のファイルが終わるまでお待ちください）"
     showIndexingWait "Stopping"
 }
 
@@ -402,7 +402,7 @@ function updateIndexingProgress {
         $ui.IndexingProgress.IsIndeterminate = $true
         $ui.IndexingProgressText.Text = if ($progress.Remaining -gt 0) { "$($progress.Remaining) 件のファイルを更新します" } else { "更新が必要なファイルを確認しています…" }
         if (!$stopping) {
-            $ui.IndexingProgressDetail.Text = if ($progress.Current) { "更新中のファイル：$($progress.Current)" } else { "" }
+            $ui.IndexingProgressDetail.Text = if ($progress.Current) { "読み取り中のファイル：$($progress.Current)" } else { "" }
         }
         $taskbar.ProgressState = "Indeterminate"
         return
@@ -436,7 +436,7 @@ function updateIndexingProgress {
     }
     $ui.IndexingProgressEta.Text = $script:indexingEta
     if (!$stopping) {
-        $ui.IndexingProgressDetail.Text = if ($progress.Current) { "更新中のファイル：$($progress.Current)" } else { "" }
+        $ui.IndexingProgressDetail.Text = if ($progress.Current) { "読み取り中のファイル：$($progress.Current)" } else { "" }
     }
     # 更新中の名前・件数・残り時間は、ここに値で 1 か所だけ持つ（帯・詳細の「インデックス」の箱・ステータスバーが読む）。
     # Name は取り込み中のファイル（<名前>\<相対パス>）のインデックス名。件数は回全体（インデックスごとの件数は無い）

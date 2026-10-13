@@ -18,6 +18,7 @@ class Segment {
 # セルは Width に OneWay バインド。幅の変更は SetWidth（見出しのドラッグから呼ぶ）で行う
 class PreviewColumn : NotifyBase {
     static [double] $MinWidth = 24   # ドラッグで狭くできる下限
+    static [int] $WidthStamp = 0     # どれかの列の幅が SetWidth で変わるたびに増える（PreviewTable.Prefix の作り直しの判断）
     [string]$Label
     [double]$Width
     PreviewColumn() {}   # 既定のコンストラクタを明示する（理由は shared\ui\types.ps1 の NotifyBase）
@@ -25,6 +26,7 @@ class PreviewColumn : NotifyBase {
         $newWidth = [Math]::Max([PreviewColumn]::MinWidth, $value)
         if ($this.Width -eq $newWidth) { return }
         $this.Width = $newWidth
+        [PreviewColumn]::WidthStamp++
         $this.Raise("Width")
     }
 }
@@ -36,7 +38,7 @@ class PreviewCell : NotifyBase {
     [string]$ToolTip
     [PreviewColumn]$Column
     [bool]$IsHit
-    [int]$RowIndex
+    [int]$LineNumber     # 元のファイルの場所の中の行の番号（行を前後に足し・捨てても、選んだ範囲がずれない）
     [int]$ColumnIndex
     [bool]$IsSelected
     PreviewCell() {}   # 既定のコンストラクタを明示する（理由は shared\ui\types.ps1 の NotifyBase）
@@ -47,23 +49,134 @@ class PreviewCell : NotifyBase {
     }
 }
 
-# 選択行のプレビューの1行
-class PreviewRow {
-    [string]$Number
-    [bool]$IsHitRow
-    [System.Collections.Generic.List[PreviewCell]]$Cells
+# 選択行のプレビューの、見えている列の範囲（表の全部の行が同じものを持つ）。First・Last は見えている最初と最後の列
+# （左右の余白の列を含む。0 から）、LeftSpace・RightSpace はその左右の、作らない列の幅の合計。
+# 行の左右の空きの幅がこれに束ねてあり、範囲が変わると、見えている行すべての空きが一度に変わる
+class PreviewWindow : NotifyBase {
+    [int]$First
+    [int]$Last = -1
+    [double]$LeftSpace
+    [double]$RightSpace
+    PreviewWindow() {}   # 既定のコンストラクタを明示する（理由は shared\ui\types.ps1 の NotifyBase）
+    [void] SetSpaces([double]$left, [double]$right) {
+        if ($this.LeftSpace -ne $left) { $this.LeftSpace = $left; $this.Raise("LeftSpace") }
+        if ($this.RightSpace -ne $right) { $this.RightSpace = $right; $this.Raise("RightSpace") }
+    }
 }
 
-# 選択行のプレビュー。HitOffset・HitWidth は選択行で最初に一致したセルの左端と幅（横スクロール用）
+# 選択行のプレビューの1行。「読み込み中…」などを出す行（IsMessage）は、行番号・セルを持たず、選択・コピーの対象にしない。
+# 行の全部のセルの値は Texts に持ち、画面に出すセル（Cells）は、見えている列の範囲（Window）の分だけを、見えている行について作る
+class PreviewRow : NotifyBase {
+    [string]$Number
+    [int]$LineNumber     # 元のファイルの場所の中の行の番号（メッセージの行は 0）
+    [bool]$IsHitRow
+    [bool]$IsMessage
+    [string]$Message
+    [System.Collections.Generic.List[string]]$Texts   # 行の全部のセルの値（TSV から切り出したまま）
+    [PreviewWindow]$Window
+    [int]$CellsVersion = -1   # Cells を作ったときの範囲の版（-1 は未作成）
+    [System.Collections.Generic.List[PreviewCell]]$Cells = [System.Collections.Generic.List[PreviewCell]]::new()
+    PreviewRow() {}   # 既定のコンストラクタを明示する（理由は shared\ui\types.ps1 の NotifyBase）
+    [void] SetCells([System.Collections.Generic.List[PreviewCell]]$cells, [int]$version) {
+        $this.Cells = $cells
+        $this.CellsVersion = $version
+        $this.Raise("Cells")
+    }
+}
+
+# 選択行のプレビュー。HitOffset・HitWidth は選択行で最初に一致したセルの左端と幅（横スクロール用）。
+# Rows は前後に足し・捨てられる集まり（行の仮想化で見えている所だけ要素を作る）。読んでいる所の端には、
+# 読み込み中・読めなかったことを出すメッセージの行（UpMessage・DownMessage）を置く
 class PreviewTable {
     [System.Collections.Generic.List[PreviewColumn]]$Columns
-    [System.Collections.Generic.List[PreviewRow]]$Rows
+    [System.Collections.ObjectModel.ObservableCollection[PreviewRow]]$Rows
     [double]$HitOffset
     [double]$HitWidth
-    [int]$TotalColumns
-    [int]$ShownColumns
-    [string]$RangeLabel
+    [PreviewWindow]$Window = [PreviewWindow]::new()
+    [int]$WindowVersion       # 見えている列の範囲が変わるたびに増える（行のセルを作り直すかの判断）
+    [HitRow]$Owner            # 行のセルを作る（一致の印に、検索の語を使うため）
+    hidden [double[]]$widthSums              # Prefix() が作った累積
+    hidden [int]$prefixCount = -1            # 累積を作ったときの列の数
+    hidden [int]$prefixStamp = -1            # 累積を作ったときの PreviewColumn.WidthStamp
+    hidden [System.Collections.Generic.List[PreviewRow]]$built = [System.Collections.Generic.List[PreviewRow]]::new()   # セルを作ってある行
     [bool]$IsExcel   # Excel の表か（Excel 以外は列が 1 つで、幅を枠いっぱいにする。preview.ps1 の fitPreviewWidth）
+    # 読み足し（preview.ps1）の状態。TopDone・BottomDone はその向きにもう行が無い（または読めなかった）こと。
+    # Marks は readContentIndexLines の控え（続きを、先頭から読み飛ばさず読むため）
+    [bool]$TopDone
+    [bool]$BottomDone
+    $Marks
+    [int]$Request             # この表を作った読み込みの番号（読み足しの結果が、この表のものかを見分ける）
+    [PreviewRow]$UpMessage
+    [PreviewRow]$DownMessage
+
+    # 行の集まりの中の、メッセージの行を除いた行（本物の行）の数・最初と最後の行の番号（無ければ 0）
+    [int] LeadCount() { return $(if ($null -ne $this.UpMessage) { 1 } else { 0 }) }
+    [int] DataCount() {
+        return $this.Rows.Count - $this.LeadCount() - $(if ($null -ne $this.DownMessage) { 1 } else { 0 })
+    }
+    [int] FirstLine() {
+        if ($this.DataCount() -le 0) { return 0 }
+        return $this.Rows[$this.LeadCount()].LineNumber
+    }
+    [int] LastLine() {
+        if ($this.DataCount() -le 0) { return 0 }
+        return $this.Rows[$this.LeadCount() + $this.DataCount() - 1].LineNumber
+    }
+
+    # side（"up"・"down"）の端にメッセージの行を出す（あれば置き換える）
+    [void] ShowMessage([string]$side, [string]$text) {
+        $this.HideMessage($side)
+        $message = [PreviewRow]::new()
+        $message.IsMessage = $true
+        $message.Message = $text
+        if ($side -eq "up") {
+            $this.Rows.Insert(0, $message)
+            $this.UpMessage = $message
+        } else {
+            $this.Rows.Add($message)
+            $this.DownMessage = $message
+        }
+    }
+
+    [void] HideMessage([string]$side) {
+        if ($side -eq "up" -and $null -ne $this.UpMessage) {
+            [void]$this.Rows.Remove($this.UpMessage)
+            $this.UpMessage = $null
+        } elseif ($side -eq "down" -and $null -ne $this.DownMessage) {
+            [void]$this.Rows.Remove($this.DownMessage)
+            $this.DownMessage = $null
+        }
+    }
+
+    # 読み足した行を、side（"up"・"down"）の端（メッセージの行の内側）に足す。rows は行の番号の順
+    [void] InsertRows([string]$side, [System.Collections.Generic.List[PreviewRow]]$rows) {
+        if ($side -eq "up") {
+            $at = $this.LeadCount()
+            foreach ($row in $rows) { $this.Rows.Insert($at++, $row) }
+        } else {
+            $at = $this.Rows.Count - $(if ($null -ne $this.DownMessage) { 1 } else { 0 })
+            foreach ($row in $rows) { $this.Rows.Insert($at++, $row) }
+        }
+    }
+
+    # 持つ行を減らすために、side（"top"・"bottom"）の端から本物の行を count 行捨てる。
+    # 捨てた行を含む範囲を選んでいたら、選択を外す
+    [void] TrimRows([string]$side, [int]$count) {
+        $count = [Math]::Min($count, $this.DataCount())
+        if ($count -le 0) { return }
+        $from = $(if ($side -eq "top") { $this.LeadCount() } else { $this.LeadCount() + $this.DataCount() - $count })
+        $low = $this.Rows[$from].LineNumber
+        $high = $this.Rows[$from + $count - 1].LineNumber
+        for ($i = 0; $i -lt $count; $i++) {
+            [void]$this.built.Remove($this.Rows[$from])
+            $this.Rows.RemoveAt($from)
+        }
+        if ($this.anchorRow -ge 0) {
+            $selectedFrom = [Math]::Min($this.anchorRow, $this.focusRow)
+            $selectedTo = [Math]::Max($this.anchorRow, $this.focusRow)
+            if ($selectedTo -ge $low -and $selectedFrom -le $high) { $this.ClearSelection() }
+        }
+    }
 
     hidden [int]$anchorRow = -1
     hidden [int]$anchorColumn = -1
@@ -75,21 +188,40 @@ class PreviewTable {
     [void] Select([PreviewCell]$cell, [bool]$extend) {
         if ($null -eq $cell) { return }
         if (-not $extend -or $this.anchorRow -lt 0) {
-            $this.anchorRow = $cell.RowIndex
+            $this.anchorRow = $cell.LineNumber
             $this.anchorColumn = $cell.ColumnIndex
         }
-        $this.focusRow = $cell.RowIndex
+        $this.focusRow = $cell.LineNumber
         $this.focusColumn = $cell.ColumnIndex
         $this.ApplySelection()
     }
 
     [void] SelectRow([PreviewCell]$cell) {
-        if ($null -eq $cell -or $this.Columns.Count -eq 0) { return }
-        $this.anchorRow = $cell.RowIndex
-        $this.focusRow = $cell.RowIndex
+        if ($null -eq $cell) { return }
+        $this.SelectLine($cell.LineNumber)
+    }
+
+    # 行番号が lineNumber の行を、全部の列を選ぶ
+    [void] SelectLine([int]$lineNumber) {
+        if ($this.Columns.Count -eq 0) { return }
+        $this.anchorRow = $lineNumber
+        $this.focusRow = $lineNumber
         $this.anchorColumn = 0
         $this.focusColumn = $this.Columns.Count - 1
         $this.ApplySelection()
+    }
+
+    # 選んでいる範囲の、一番上の行の番号（選んでいなければ 0）
+    [int] SelectedFirstLine() {
+        if ($this.anchorRow -lt 0) { return 0 }
+        return [Math]::Min($this.anchorRow, $this.focusRow)
+    }
+
+    # 行番号 lineNumber・列 columnIndex のセルが、選んでいる範囲の中か
+    [bool] IsInSelection([int]$lineNumber, [int]$columnIndex) {
+        return $this.anchorRow -ge 0 -and
+            $lineNumber -ge [Math]::Min($this.anchorRow, $this.focusRow) -and $lineNumber -le [Math]::Max($this.anchorRow, $this.focusRow) -and
+            $columnIndex -ge [Math]::Min($this.anchorColumn, $this.focusColumn) -and $columnIndex -le [Math]::Max($this.anchorColumn, $this.focusColumn)
     }
 
     [void] ClearSelection() {
@@ -97,15 +229,73 @@ class PreviewTable {
         $this.ApplySelection()
     }
 
+    # 作ってあるセル（見えている範囲）の選択の印を、選んでいる範囲に合わせる。見えていないセルは、作るときに合わせる
     hidden [void] ApplySelection() {
-        $rowFrom = [Math]::Min($this.anchorRow, $this.focusRow); $rowTo = [Math]::Max($this.anchorRow, $this.focusRow)
-        $columnFrom = [Math]::Min($this.anchorColumn, $this.focusColumn); $columnTo = [Math]::Max($this.anchorColumn, $this.focusColumn)
-        foreach ($row in $this.Rows) {
+        foreach ($row in $this.built) {
             foreach ($cell in $row.Cells) {
-                $cell.SetSelected($this.anchorRow -ge 0 -and
-                    $cell.RowIndex -ge $rowFrom -and $cell.RowIndex -le $rowTo -and
-                    $cell.ColumnIndex -ge $columnFrom -and $cell.ColumnIndex -le $columnTo)
+                $cell.SetSelected($this.IsInSelection($cell.LineNumber, $cell.ColumnIndex))
             }
+        }
+    }
+
+    # 列の幅の累積（getPreviewColumnWindow に渡す。prefix[i] は先頭から i 列分の幅の合計で、長さは列の数 + 1）。
+    # 列が増える・SetWidth で幅が変わるまでは、前に作ったものを使い回す
+    [double[]] Prefix() {
+        $count = $this.Columns.Count
+        if ($this.prefixCount -eq $count -and $this.prefixStamp -eq [PreviewColumn]::WidthStamp) { return $this.widthSums }
+        $sums = New-Object 'double[]' ($count + 1)
+        $total = 0.0
+        for ($i = 0; $i -lt $count; $i++) {
+            $total += $this.Columns[$i].Width
+            $sums[$i + 1] = $total
+        }
+        $this.widthSums = $sums
+        $this.prefixCount = $count
+        $this.prefixStamp = [PreviewColumn]::WidthStamp
+        return $sums
+    }
+
+    # 見えている列の範囲（first～last）と、その左右の空きの幅を決める。範囲が変わったら、作ってあるセルは古い範囲のものなので捨てる
+    # （EnsureCells が、見えている行について今の範囲で作り直す）。範囲が変わったら $true
+    [bool] SetWindow([int]$first, [int]$last, [double]$left, [double]$right) {
+        $this.Window.SetSpaces($left, $right)
+        if ($first -eq $this.Window.First -and $last -eq $this.Window.Last) { return $false }
+        $this.Window.First = $first
+        $this.Window.Last = $last
+        $this.WindowVersion++
+        foreach ($row in $this.built) { $row.SetCells([System.Collections.Generic.List[PreviewCell]]::new(), -1) }
+        $this.built.Clear()
+        return $true
+    }
+
+    # 見えている列の範囲の列（列見出しに出す）
+    [PreviewColumn[]] WindowColumns() {
+        $last = [Math]::Min($this.Window.Last, $this.Columns.Count - 1)
+        if ($last -lt $this.Window.First) { return @() }
+        return $this.Columns.GetRange($this.Window.First, $last - $this.Window.First + 1).ToArray()
+    }
+
+    # 行の集まりの中の firstIndex～lastIndex の行（メッセージの行を除く）に、今の範囲のセルが無ければ作る。
+    # 範囲の外の行のセルは捨てる（作ったセルの数が、見えている範囲の分に収まるように）
+    [void] EnsureCells([int]$firstIndex, [int]$lastIndex) {
+        $lead = $this.LeadCount()
+        $firstIndex = [Math]::Max($lead, $firstIndex)
+        $lastIndex = [Math]::Min($lead + $this.DataCount() - 1, $lastIndex)
+        if ($lastIndex -lt $firstIndex) { return }
+        $low = $this.Rows[$firstIndex].LineNumber
+        $high = $this.Rows[$lastIndex].LineNumber
+        for ($i = $this.built.Count - 1; $i -ge 0; $i--) {
+            $row = $this.built[$i]
+            if ($row.LineNumber -lt $low -or $row.LineNumber -gt $high) {
+                $row.SetCells([System.Collections.Generic.List[PreviewCell]]::new(), -1)
+                $this.built.RemoveAt($i)
+            }
+        }
+        for ($i = $firstIndex; $i -le $lastIndex; $i++) {
+            $row = $this.Rows[$i]
+            if ($row.CellsVersion -eq $this.WindowVersion) { continue }
+            $this.Owner.BuildCells($this, $row)
+            $this.built.Add($row)
         }
     }
 
@@ -117,11 +307,15 @@ class PreviewTable {
             return $this.CellText($rowFrom, $columnFrom)
         }
         $text = [System.Text.StringBuilder]::new()
-        for ($r = $rowFrom; $r -le $rowTo; $r++) {
-            if ($r -gt $rowFrom) { [void]$text.Append("`r`n") }
+        $first = $true
+        foreach ($row in $this.Rows) {
+            if ($row.IsMessage -or $row.LineNumber -lt $rowFrom -or $row.LineNumber -gt $rowTo) { continue }
+            if (!$first) { [void]$text.Append("`r`n") }
+            $first = $false
             for ($c = $columnFrom; $c -le $columnTo; $c++) {
                 if ($c -gt $columnFrom) { [void]$text.Append("`t") }
-                [void]$text.Append([PreviewTable]::QuoteForExcel($this.CellText($r, $c)))
+                $cellText = $(if ($c -lt $row.Texts.Count) { $row.Texts[$c].Replace([HitRow]::CellNewLine, "`n") } else { "" })
+                [void]$text.Append([PreviewTable]::QuoteForExcel($cellText))
             }
         }
         return $text.ToString()
@@ -132,10 +326,12 @@ class PreviewTable {
         return ([Math]::Abs($this.anchorRow - $this.focusRow) + 1) * ([Math]::Abs($this.anchorColumn - $this.focusColumn) + 1)
     }
 
-    hidden [string] CellText([int]$rowIndex, [int]$columnIndex) {
-        if ($rowIndex -lt 0 -or $rowIndex -ge $this.Rows.Count) { return "" }
-        $cells = $this.Rows[$rowIndex].Cells
-        if ($columnIndex -ge 0 -and $columnIndex -lt $cells.Count) { return $cells[$columnIndex].Text }
+    hidden [string] CellText([int]$lineNumber, [int]$columnIndex) {
+        foreach ($row in $this.Rows) {
+            if ($row.IsMessage -or $row.LineNumber -ne $lineNumber) { continue }
+            if ($columnIndex -ge 0 -and $columnIndex -lt $row.Texts.Count) { return $row.Texts[$columnIndex].Replace([HitRow]::CellNewLine, "`n") }
+            return ""
+        }
         return ""
     }
 
@@ -228,7 +424,7 @@ class HitRow : NotifyBase {
     static [double] $MinCellWidth = 48
     static [double] $MaxCellWidth = 260
     static [double] $MaxParagraphWidth = 640
-    static [int] $MaxPreviewColumns = 200
+    static [int] $WidthSampleRows = 10   # 列の幅を決めるために、選択行の前後何行のセルを測るか
     static [int] $MaxCellChars = 300
     static [int] $MaxToolTipChars = 1000
     static [int] $MaxWidthChars = 100
@@ -421,50 +617,82 @@ class HitRow : NotifyBase {
         return $cells
     }
 
-    # 選択行のプレビュー（前後の行をセルに分けた表）を作る。numbers・lines は readContentIndexContext の結果
+    # 選択行のプレビュー（前後の行をセルに分けた表）を作る。numbers・lines は readContentIndexLines の結果。
+    # 列は全部の列を持つ。画面に出すセルは作らない（見えている範囲を SetWindow で決め、EnsureCells で作る）。
+    # 列の幅は、列見出しの文字と、選択行の前後 WidthSampleRows 行のセルから決める（全部の行・列は測らない）
     [PreviewTable] BuildPreview([int[]]$numbers, [string[]]$lines) {
         if ($null -eq $numbers -or $null -eq $lines -or $numbers.Length -eq 0 -or $numbers.Length -ne $lines.Length) {
             $numbers = @($this.LineNumber)
             $lines = @($this.Line)
         }
-        $rowCells = [System.Collections.Generic.List[System.Collections.Generic.List[string]]]::new()
+        $rowTexts = [System.Collections.Generic.List[System.Collections.Generic.List[string]]]::new()
         $columnCount = 0
         foreach ($ln in $lines) {
             $cells = [HitRow]::SplitCells($ln, $this.IsExcel)
-            $rowCells.Add($cells)
+            $rowTexts.Add($cells)
             $columnCount = [Math]::Max($columnCount, $cells.Count)
         }
 
         $hitColumn = -1
-        for ($r = 0; $r -lt $rowCells.Count -and $hitColumn -lt 0; $r++) {
+        for ($r = 0; $r -lt $rowTexts.Count -and $hitColumn -lt 0; $r++) {
             if ($numbers[$r] -ne $this.LineNumber) { continue }
-            for ($c = 0; $c -lt $rowCells[$r].Count; $c++) {
-                if ([HitRow]::HasMatch($rowCells[$r][$c], $this.word, $this.pattern)) { $hitColumn = $c; break }
-            }
-        }
-        $firstColumn = 0
-        $shownColumns = $columnCount
-        if ($columnCount -gt [HitRow]::MaxPreviewColumns) {
-            $shownColumns = [HitRow]::MaxPreviewColumns
-            if ($hitColumn -ge 0) {
-                $firstColumn = [Math]::Max(0, [Math]::Min($hitColumn - [int]([HitRow]::MaxPreviewColumns / 2), $columnCount - [HitRow]::MaxPreviewColumns))
+            for ($c = 0; $c -lt $rowTexts[$r].Count; $c++) {
+                if ([HitRow]::HasMatch($rowTexts[$r][$c], $this.word, $this.pattern)) { $hitColumn = $c; break }
             }
         }
 
-        $maxWidth = $(if ($this.IsExcel) { [HitRow]::MaxCellWidth } else { [HitRow]::MaxParagraphWidth })
         $table = [PreviewTable]::new()
+        $table.Owner = $this
         $table.Columns = [System.Collections.Generic.List[PreviewColumn]]::new()
-        $table.Rows = [System.Collections.Generic.List[PreviewRow]]::new()
-        $table.HitOffset = -1
+        $table.Rows = [System.Collections.ObjectModel.ObservableCollection[PreviewRow]]::new()
+        $table.HitOffset = 0
         $table.HitWidth = 0
-        $table.TotalColumns = $columnCount
-        $table.ShownColumns = $shownColumns
         $table.IsExcel = $this.IsExcel
-        $table.RangeLabel = $(if ($shownColumns -gt 0) { $this.ColumnLabel($firstColumn + 1) + "〜" + $this.ColumnLabel($firstColumn + $shownColumns) } else { "" })
-        for ($i = 0; $i -lt $shownColumns; $i++) {
-            $c = $firstColumn + $i
+        $sample = [System.Collections.Generic.List[System.Collections.Generic.List[string]]]::new()
+        for ($r = 0; $r -lt $rowTexts.Count; $r++) {
+            if ([Math]::Abs($numbers[$r] - $this.LineNumber) -le [HitRow]::WidthSampleRows) { $sample.Add($rowTexts[$r]) }
+        }
+        $this.AddColumns($table, $columnCount, $sample)
+
+        foreach ($row in $this.MakeRows($table, $numbers, $rowTexts)) { $table.Rows.Add($row) }
+        if ($hitColumn -ge 0) {
+            $left = [HitRow]::NumberWidth
+            for ($c = 0; $c -lt $hitColumn; $c++) { $left += $table.Columns[$c].Width }
+            $table.HitOffset = $left
+            $table.HitWidth = $table.Columns[$hitColumn].Width
+        }
+        $table.TopDone = ($numbers.Length -gt 0 -and $numbers[0] -le 1)
+        # 見えている範囲が決まるまでは、行の右の空きに全部の列の幅を入れておく（横にスクロールできる広さにする）
+        $total = 0.0
+        foreach ($column in $table.Columns) { $total += $column.Width }
+        $table.Window.SetSpaces(0, $total)
+        return $table
+    }
+
+    # 読み足した行（numbers・lines は readContentIndexLines の結果）から、表の行を作る。
+    # それまでより多い列がある行は、列を右に足す（足した列の幅は、この行のセルから決める。前からある列の幅は変えない）
+    [System.Collections.Generic.List[PreviewRow]] BuildPreviewRows([PreviewTable]$table, [int[]]$numbers, [string[]]$lines) {
+        $rowTexts = [System.Collections.Generic.List[System.Collections.Generic.List[string]]]::new()
+        $columnCount = 0
+        foreach ($ln in $lines) {
+            $cells = [HitRow]::SplitCells($ln, $this.IsExcel)
+            $rowTexts.Add($cells)
+            $columnCount = [Math]::Max($columnCount, $cells.Count)
+        }
+        if ($columnCount -gt $table.Columns.Count) {
+            $sample = [System.Collections.Generic.List[System.Collections.Generic.List[string]]]::new()
+            for ($r = 0; $r -lt $rowTexts.Count -and $sample.Count -lt 2 * [HitRow]::WidthSampleRows; $r++) { $sample.Add($rowTexts[$r]) }
+            $this.AddColumns($table, $columnCount, $sample)
+        }
+        return $this.MakeRows($table, $numbers, $rowTexts)
+    }
+
+    # table の列を columnCount 列まで増やす。足す列の幅は、列見出しの文字と sample の行のセルから決める
+    hidden [void] AddColumns([PreviewTable]$table, [int]$columnCount, $sample) {
+        $maxWidth = $(if ($this.IsExcel) { [HitRow]::MaxCellWidth } else { [HitRow]::MaxParagraphWidth })
+        for ($c = $table.Columns.Count; $c -lt $columnCount; $c++) {
             $width = [HitRow]::TextWidth($this.ColumnLabel($c + 1))
-            foreach ($cells in $rowCells) {
+            foreach ($cells in $sample) {
                 if ($c -lt $cells.Count) { $width = [Math]::Max($width, [HitRow]::CellWidth($cells[$c])) }
             }
             $col = [PreviewColumn]::new()
@@ -472,41 +700,45 @@ class HitRow : NotifyBase {
             $col.Width = [Math]::Min($maxWidth, [Math]::Max([HitRow]::MinCellWidth, $width))
             $table.Columns.Add($col)
         }
+    }
 
-        for ($r = 0; $r -lt $rowCells.Count; $r++) {
-            $isHitRow = $numbers[$r] -eq $this.LineNumber
+    hidden [System.Collections.Generic.List[PreviewRow]] MakeRows([PreviewTable]$table, [int[]]$numbers, $rowTexts) {
+        $rows = [System.Collections.Generic.List[PreviewRow]]::new()
+        for ($r = 0; $r -lt $rowTexts.Count; $r++) {
             $row = [PreviewRow]::new()
             $row.Number = $numbers[$r].ToString()
-            $row.IsHitRow = $isHitRow
-            $row.Cells = [System.Collections.Generic.List[PreviewCell]]::new()
-            $left = [HitRow]::NumberWidth
-            for ($i = 0; $i -lt $shownColumns; $i++) {
-                $c = $firstColumn + $i
-                $cell = $(if ($c -lt $rowCells[$r].Count) { $rowCells[$r][$c] } else { "" })
-                $isHit = [HitRow]::HasMatch($cell, $this.word, $this.pattern)
-                $text = $cell.Replace([HitRow]::CellNewLine, "`n")
-                $pc = [PreviewCell]::new()
-                $pc.Text = $text
-                $pc.Display = [HitRow]::Shorten($text, [HitRow]::MaxCellChars)
-                $pc.ToolTip = $(if ($text.Length -gt 0) { [HitRow]::Shorten($text, [HitRow]::MaxToolTipChars) } else { $null })
-                $pc.Column = $table.Columns[$i]
-                $pc.IsHit = $isHit
-                $pc.RowIndex = $r
-                $pc.ColumnIndex = $i
-                $row.Cells.Add($pc)
-                if ($isHitRow -and $isHit -and $table.HitOffset -lt 0) {
-                    $table.HitOffset = $left
-                    $table.HitWidth = $table.Columns[$i].Width
-                }
-                $left += $table.Columns[$i].Width
-            }
-            $table.Rows.Add($row)
+            $row.LineNumber = $numbers[$r]
+            $row.IsHitRow = $numbers[$r] -eq $this.LineNumber
+            $row.Texts = $rowTexts[$r]
+            $row.Window = $table.Window
+            $rows.Add($row)
         }
-        if ($table.HitOffset -lt 0) { $table.HitOffset = 0 }
-        return $table
+        return $rows
+    }
+
+    # 行 row の、見えている列の範囲（table.Window）のセルを作って、行に入れる（PreviewTable.EnsureCells から呼ぶ）
+    [void] BuildCells([PreviewTable]$table, [PreviewRow]$row) {
+        $cells = [System.Collections.Generic.List[PreviewCell]]::new()
+        $last = [Math]::Min($table.Window.Last, $table.Columns.Count - 1)
+        for ($c = $table.Window.First; $c -le $last; $c++) {
+            $raw = $(if ($c -lt $row.Texts.Count) { $row.Texts[$c] } else { "" })
+            $text = $raw.Replace([HitRow]::CellNewLine, "`n")
+            $pc = [PreviewCell]::new()
+            $pc.Text = $text
+            $pc.Display = [HitRow]::Shorten($text, [HitRow]::MaxCellChars)
+            $pc.ToolTip = $(if ($text.Length -gt 0) { [HitRow]::Shorten($text, [HitRow]::MaxToolTipChars) } else { $null })
+            $pc.Column = $table.Columns[$c]
+            $pc.IsHit = [HitRow]::HasMatch($raw, $this.word, $this.pattern)
+            $pc.LineNumber = $row.LineNumber
+            $pc.ColumnIndex = $c
+            $pc.IsSelected = $table.IsInSelection($row.LineNumber, $c)
+            $cells.Add($pc)
+        }
+        $row.SetCells($cells, $table.WindowVersion)
     }
 
     static [double] CellWidth([string]$cell) {
+        if ([string]::IsNullOrEmpty($cell)) { return [HitRow]::TextWidth("") }
         $width = 0.0
         foreach ($line in $(if ($null -eq $cell) { "" } else { $cell }).Split(@([HitRow]::CellNewLine, "`n"))) {
             $seg = $(if ($line.Length -gt [HitRow]::MaxWidthChars) { $line.Substring(0, [HitRow]::MaxWidthChars) } else { $line })
@@ -579,7 +811,7 @@ class FolderItem : NotifyBase {
     [string]$Name          # インデックス名（work\index 直下のフォルダ名）
     [string]$Path
     [bool]$Enabled         # 設定の enabled（［すべて更新］で更新する対象か。画面にチェックは出さない）
-    [bool]$Checked         # 一覧のチェック（一時の選択。保存しない。［アクション ▾］・行の操作の対象）
+    [bool]$Checked         # 一覧のチェック（一時の選択。保存しない。［アクション ▼］・行の操作の対象）
     [string]$StatusText
     [object]$StatusBrush
     [string]$FileCountText
@@ -591,7 +823,7 @@ class FolderItem : NotifyBase {
     [string]$IndexText = "－"
     [string]$IndexToolTip
     [string]$IndexLevel = "None"
-    [double]$IndexPercent = 0   # 更新中のバッジの下の棒の長さ（0〜100）
+    [double]$IndexPercent = 0   # 更新中のバッジの下の棒の長さ（0～100）
     [string]$IndexSub = ""   # ステータスのバッジの下の補足（途中で止まったときの「残り N 件」。無ければ空）
     # 一覧の「高速検索」列（システムインデックスの反映の状態。getFastSearchRowView）
     [string]$FastText = "確認中…"

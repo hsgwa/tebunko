@@ -5,12 +5,28 @@
 function getVersionLabel {
     # readVersionFile の結果から、版・コミットの表示を決める: @{ Version; Commit（出さないときは空） }
     #   versionInfo: readVersionFile の戻り値（$null なら開発中に git から直接起動したときの表示にする）
+    #   devInfo: readDevVersion の戻り値（versionInfo が $null のときだけ使う。タグ・コミットを添える。省くと「開発版」だけ）
+    #     HEAD にタグがある: 開発版（v0.5.0・d79f898）/ 無い: 開発版（v0.5.0 より後・d79f898）/ コミットだけ: 開発版（d79f898）
     param (
-        $versionInfo
+        $versionInfo,
+        $devInfo = $null
     )
 
     if ($null -eq $versionInfo) {
-        return @{ Version = "開発版"; Commit = "" }
+        $parts = @()
+        if ($null -ne $devInfo) {
+            $sha = if ($devInfo.Sha) { ([string]$devInfo.Sha).Substring(0, [Math]::Min(7, ([string]$devInfo.Sha).Length)) } else { "" }
+            if ($devInfo.Tag) {
+                $parts += $(if ($devInfo.AtHead) { [string]$devInfo.Tag } else { "$($devInfo.Tag) より後" })
+            }
+            if ($sha) {
+                $parts += $sha
+            }
+        }
+        if ($parts.Count -eq 0) {
+            return @{ Version = "開発版"; Commit = "" }
+        }
+        return @{ Version = "開発版（$($parts -join '・')）"; Commit = "" }
     }
     return @{ Version = $versionInfo.Tag; Commit = $versionInfo.Sha.Substring(0, 7) }
 }
@@ -57,12 +73,13 @@ function formatDiagnosticHeader {
         [string]$toolName,
         $versionInfo,
         $envInfo,
-        [System.DateTimeOffset]$now
+        [System.DateTimeOffset]$now,
+        $devInfo = $null   # readDevVersion の結果（versionInfo が $null のとき、版にタグ・コミットを添える）
     )
 
     $unknown = "不明"
     $orUnknown = { param($value) if ($value) { [string]$value } else { $unknown } }
-    $label = getVersionLabel $versionInfo
+    $label = getVersionLabel $versionInfo $devInfo
     $versionText = $label.Version
     if ($label.Commit) {
         $versionText = "$($label.Version) ($($label.Commit))"

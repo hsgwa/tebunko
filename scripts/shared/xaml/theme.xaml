@@ -242,9 +242,9 @@
     <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
   </Style>
 
-  <!-- ============ アイコン（Lucide v1.50.0・ISC ライセンスの SVG を Geometry にしたもの。24x24 の座標のまま。
+  <!-- ============ アイコン（Lucide v1.50.0（ISC ライセンス。Feather 由来の一部は MIT）の SVG を Geometry にしたもの。24x24 の座標のまま。
        使う側で Stretch=Uniform・Stroke・StrokeThickness（表示の大きさ × 2/24）・丸い端を指定する。
-       Icon.Save は Lucide の download の形。ライセンスは scripts/shared/fonts/ にある ============ -->
+       Icon.Save は Lucide の download の形。ライセンス文は scripts/shared/licenses/ にある（単一 .ps1 では先頭のコメント） ============ -->
   <Geometry x:Key="Icon.Folder">M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z</Geometry>
   <Geometry x:Key="Icon.FolderClosed">M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z M2 10h20</Geometry>
   <Geometry x:Key="Icon.FolderOpen">m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2</Geometry>
@@ -1013,7 +1013,7 @@
     </Setter>
   </Style>
 
-  <!-- ============ ツリー（▷ をシェブロンに） ============ -->
+  <!-- ============ ツリー（既定の三角をシェブロンに） ============ -->
   <Style x:Key="TreeChevron" TargetType="ToggleButton">
     <Setter Property="Focusable" Value="False" />
     <Setter Property="Width" Value="18" />

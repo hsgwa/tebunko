@@ -2,9 +2,11 @@
 # 作った単一 .ps1 そのものはコミットしない（tests/meta/structure.Tests.ps1 の M5）。設計は docs/design/structure/single-script.md
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
+    . "$PSScriptRoot\..\helpers\cp932.ps1"
 
     $tool = "${scriptsDir}\..\tools\new_single_script.ps1"
     . "${scriptsDir}\..\tools\script_rules.ps1"
+    . "${scriptsDir}\..\tools\single_script_license.ps1"
 
     $headSha = (& git -C "${scriptsDir}\.." rev-parse HEAD).Trim()
     $docxSource = "${testDataDir}\office\Word\形式\大文字拡張子.DOCX"
@@ -13,21 +15,33 @@ BeforeAll {
     # 結合した単一 .ps1 の中で、pattern に一致する最後の行の番号を返す（indexer.Tests.ps1 の findLine と同じ考え方）。
     # 結合した .ps1 は元のソースをそのまま埋め込むため、元のファイルと同じ行の文字列で探せる。
     # ${bundledParts} の中身（lib・indexerLib の文字列）にも同じ行の文字列が入るため、最後の行（実際に動く本体側）を探す
+    # 包んだ単一 .ps1 から、日本語の本体（ヒアストリングの中。退避した行は戻す）を取り出す
+    function getGuardedBody {
+        param ([string]$path)
+        $raw = [System.IO.File]::ReadAllText($path)
+        $match = [regex]::Match($raw, '(?s)\$\{tebunkoBody\} = @''\r?\n(.*?)\r?\n''@')
+        if (!$match.Success) { throw "${path} に、本体の文字列がありません" }
+        return [regex]::Replace($match.Groups[1].Value, '(?m)^@@''@', '''@')
+    }
+
     # 結合した単一 .ps1 の部品（lib・indexerLib）を、製品と同じ経路（getPartLoad）で読んだ新しい runspace を返す。
     # 部品の埋め込み（目印の行より上）だけを実行して ${bundledParts} などを取り出し、getPartLoad に渡す。
     # 戻り値の Prelude を実行した runspace の中で、部品の関数が使える
     function newBundledPartRunspace {
         param ([string]$builtPath, [string]$name)
-        $text = [System.IO.File]::ReadAllText($builtPath)
-        $end = $text.IndexOf("# ---- 本体（ここより上は、別スレッドが読む部品の埋め込み） ----")
+        $text = getGuardedBody $builtPath
+        $end = $text.IndexOf("# ---- BODY-START (above: parts embedded for other threads) ----")
         if ($end -lt 0) { throw "${builtPath} に、部品の埋め込みの終わりの目印がありません" }
         $headPath = Join-Path (Split-Path $builtPath -Parent) "head-only.ps1"
         [System.IO.File]::WriteAllText($headPath, $text.Substring(0, $end), (New-Object System.Text.UTF8Encoding($true)))
         $bundled = & {
-            param ($path)
+            param ($path, $builtPath)
+            # 頭（ASCII）が決める名前。本体の中の $PSScriptRoot・$PSCommandPath はこの名前に書き換えてある
+            ${tebunkoRoot} = Split-Path $builtPath -Parent
+            ${tebunkoPath} = $builtPath
             . $path
             @{ Parts = ${bundledParts}; ScriptPath = ${bundledScriptPath}; Version = ${bundledVersion} }
-        } $headPath
+        } $headPath $builtPath
         $global:bundledParts = $bundled.Parts
         $global:bundledScriptPath = $bundled.ScriptPath
         $global:bundledVersion = $bundled.Version
@@ -39,6 +53,46 @@ BeforeAll {
         $runspace = [runspacefactory]::CreateRunspace($load.State)
         $runspace.Open()
         return @{ Runspace = $runspace; Prelude = $load.Prelude }
+    }
+
+    # 単一 .ps1 の中身（byte[]）を別プロセスの Windows PowerShell 5.1 で `-File` 起動する（`-Part indexer`。画面も取り込みも始めない）。
+    # 壊れた setting.config を置くので、日本語の記録（indexing_log.txt）が正しく出るのは、ファイルを正しい文字コードで読めたときだけ。
+    # 書き先（ワークスペース・USERPROFILE・LOCALAPPDATA・APPDATA）は、すべて testRoot の下に向ける
+    function invokeEncodingProbe {
+        param ([string]$testRoot, [string]$name, [byte[]]$content, [string]$exe = (Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"))
+        $caseDir = Join-Path $testRoot $name
+        New-Item -ItemType Directory -Force -Path "$caseDir\profile\Local", "$caseDir\profile\Roaming" | Out-Null
+        $script = Join-Path $caseDir "tebunko.ps1"
+        [System.IO.File]::WriteAllBytes($script, $content)
+        [System.IO.File]::WriteAllText("$caseDir\setting.config", '{ "targetFolders": [', ${utf8Bom})
+        $workspace = Join-Path $caseDir "ws"
+
+        $psi = New-Object System.Diagnostics.ProcessStartInfo $exe
+        $psi.Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$script`" -Part indexer"
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        $psi.EnvironmentVariables["TEBUNKO_DEFAULT_WORKSPACE"] = $workspace
+        $psi.EnvironmentVariables["USERPROFILE"] = "$caseDir\profile"
+        $psi.EnvironmentVariables["LOCALAPPDATA"] = "$caseDir\profile\Local"
+        $psi.EnvironmentVariables["APPDATA"] = "$caseDir\profile\Roaming"
+        $process = [System.Diagnostics.Process]::Start($psi)
+        try {
+            $stdout = $process.StandardOutput.ReadToEndAsync()
+            $stderr = $process.StandardError.ReadToEndAsync()
+            if (-not $process.WaitForExit(120000)) { throw "${name}: 起動したプロセスが 120 秒で終わりませんでした" }
+            $errorText = $stderr.Result
+            $null = $stdout.Result
+            $exitCode = $process.ExitCode
+        } finally {
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+            $process.Dispose()
+        }
+        $logPath = Join-Path $workspace "indexing_log.txt"
+        $log = if (Test-Path -LiteralPath $logPath) { [System.IO.File]::ReadAllText($logPath) } else { "" }
+        $broken = @(Get-ChildItem -LiteralPath $caseDir -Filter "setting.config.broken-*").Count
+        return @{ ExitCode = $exitCode; Log = $log; ErrorText = $errorText; Broken = $broken }
     }
 
     function findLine {
@@ -56,28 +110,96 @@ Describe "new_single_script.ps1 の道具の検査" -Tag Io {
         $outFile = Join-Path $TestDrive "release\tebunko-v9.9.9-test.ps1"
         & $tool -Version "v9.9.9" -OutFile $outFile | Out-Null
         $bytes = [System.IO.File]::ReadAllBytes($outFile)
-        $text = [System.Text.Encoding]::UTF8.GetString($bytes, 3, $bytes.Length - 3)
+        # BOM を除いた全文と、日本語の本体（ヒアストリングの中）
+        $text = [System.Text.Encoding]::UTF8.GetString($bytes).TrimStart([char]0xFEFF)
+        $body = getGuardedBody $outFile
     }
 
     It "作れる（構文エラー・ファイルの漏れや重複・読み込み行の残り・起動口の param の不足・禁止の語・版の文字列の不一致のどれも起こさない）" {
         Test-Path -LiteralPath $outFile | Should -Be $true
     }
 
-    It "BOM 付き UTF-8・CRLF で書き出す" {
+    It "BOM 付き UTF-8・CRLF で書き出し、日本語は本体にそのまま入っている（ASCII に書き換えない）" {
         ($bytes[0], $bytes[1], $bytes[2]) | Should -Be @(0xEF, 0xBB, 0xBF)
         ([regex]::IsMatch($text, "(?<!`r)`n")) | Should -Be $false
+        $body.Contains("設定ファイルが壊れていたため、既定の設定で起動しました") | Should -Be $true
     }
 
-    It "構文として読める（0 個のエラー）" {
+    It "同梱する第三者の部品のライセンス文（scripts\shared\licenses\LICENSE-*.txt）が、元のファイルと同じ中身で本体に入っている" {
+        $licenseDir = Join-Path "${scriptsDir}" "shared\licenses"
+        $files = @(getLicenseFiles $licenseDir)
+        # 件数が、フォルダの LICENSE-*.txt の数と同じ（入れ子の配列で 1 件に数えていない）
+        $files.Count | Should -Be @(Get-ChildItem -LiteralPath $licenseDir -Filter "LICENSE-*.txt" -File).Count
+        $files.Count | Should -BeGreaterThan 0
+        $files[0] | Should -BeOfType ([System.IO.FileInfo])
+        foreach ($file in $files) {
+            # 元のファイルの改行は、チェックアウトの設定（autocrlf）で LF にも CRLF にもなるため、CRLF にそろえて比べる
+            $original = normalizeLicenseText ([System.IO.File]::ReadAllText($file.FullName))
+            (restoreLicenseFromComment $body $file.Name) | Should -BeExactly $original
+        }
+    }
+
+    It "頭と尾は ASCII だけ（頭の判定用の 1 文字だけが例外）で、本体の外に日本語が出ない" {
+        $bodyStart = $text.IndexOf('${tebunkoBody} = @''' + "`r`n")
+        $bodyEnd = $text.LastIndexOf("`r`n'@`r`n")
+        $bodyStart | Should -BeGreaterThan 0
+        $bodyEnd | Should -BeGreaterThan $bodyStart
+        $outside = $text.Substring(0, $bodyStart).Replace([string][char]0x30A2, "") + $text.Substring($bodyEnd)
+        [regex]::IsMatch($outside, '[^\x00-\x7F]') | Should -Be $false
+    }
+
+    It "作った単一 .ps1 が CP932 で表せる文字だけ（tools\ が足す頭・つなぎの行も含めて、Shift_JIS で保存し直しても字が落ちない。scripts\ は tests\meta\encoding.Tests.ps1 が見る）" {
+        (findNonCp932Chars ($text -split "`r`n")) -join "`n" | Should -Be ""
+    }
+
+    It "BOM が落ちて CP932 で読み違えても、構文エラーが 0 個で、本体の文字列が壊れない（行の先頭が '@ の行は 2 本だけ）" {
+        $noBom = New-Object System.Text.UTF8Encoding($false)
+        $misread = [System.Text.Encoding]::GetEncoding(932).GetString($noBom.GetBytes($text))
+        $tokens = $null
+        $errors = $null
+        [void][System.Management.Automation.Language.Parser]::ParseInput($misread, [ref]$tokens, [ref]$errors)
+        $errors.Count | Should -Be 0
+        @([regex]::Matches($misread, "(?m)^'@\r?$")).Count | Should -Be 2
+    }
+
+    It "書き出した本体にも、禁止の語が無い" {
+        (findBannedCode $body) | Should -Be ""
+    }
+
+    It "構文として読める（0 個のエラー）。本体も構文として読め、`$PSScriptRoot・`$PSCommandPath の変数が残っていない" {
         $tokens = $null
         $errors = $null
         $ast = [System.Management.Automation.Language.Parser]::ParseInput($text, [ref]$tokens, [ref]$errors)
         $errors.Count | Should -Be 0
         $ast | Should -Not -BeNullOrEmpty
+
+        $bodyAst = [System.Management.Automation.Language.Parser]::ParseInput($body, [ref]$tokens, [ref]$errors)
+        $errors.Count | Should -Be 0
+        $left = @($bodyAst.FindAll({
+                    param ($node)
+                    $node -is [System.Management.Automation.Language.VariableExpressionAst] -and
+                    $node.VariablePath.UserPath -in @("PSScriptRoot", "PSCommandPath")
+                }, $true))
+        $left.Count | Should -Be 0
+    }
+
+    It "本体の行番号は、ファイルの行番号と同じ（エラーの `At line:N` で、ファイルの該当の行が分かる）" {
+        # 本体の最後の行（gui.ps1 の末尾の呼び出し）が、ファイルの何行目か。頭の分の空行を足した本体の行番号と一致する
+        $fileLines = [System.IO.File]::ReadAllLines($outFile)
+        $bodyLines = $body -split "\r?\n"
+        $bodyStartLine = ([array]::IndexOf($fileLines, '${tebunkoBody} = @''')) + 2
+        $bodyStartLine | Should -BeGreaterThan 1
+        $padLine = [regex]::Match($text, '\("`r`n" \* (\d+)\)').Groups[1].Value
+        [int]$padLine + 1 | Should -Be $bodyStartLine
+        for ($i = 0; $i -lt $bodyLines.Count; $i += 997) {
+            # 退避した行（@@'@）以外は、同じ位置に同じ行がある
+            if ($bodyLines[$i] -eq "'@") { continue }
+            $fileLines[$bodyStartLine - 1 + $i] | Should -Be $bodyLines[$i]
+        }
     }
 
     It "読み込み口の dot-source 行（`$PSScriptRoot・`$TebunkoDir）が残っていない" {
-        ($text -match '(?m)^[ \t]*\.\s+(?:\(\[WildcardPattern\]::Escape\()?"\$(PSScriptRoot|TebunkoDir)\\[^"]+"(?:\.Replace\([^)]*\)\)\))?[ \t]*$') | Should -Be $false
+        ($body -match '(?m)^[ \t]*\.\s+(?:\(\[WildcardPattern\]::Escape\()?"\$(PSScriptRoot|TebunkoDir)\\[^"]+"(?:\.Replace\([^)]*\)\)\))?[ \t]*$') | Should -Be $false
     }
 
     It "起動口（gui.ps1・indexer.ps1）の param の名前が、結合した頭の param にすべてある" {
@@ -91,15 +213,11 @@ Describe "new_single_script.ps1 の道具の検査" -Tag Io {
     }
 
     It "本体は、起動の失敗の文言（startup_error_view）、知らせ方（startup_error）、lib の順に並ぶ（gui.ps1 の先頭と同じ順）" {
-        $body = $text.Substring($text.IndexOf('# ---- 本体（ここより上は'))
-        $view = $body.IndexOf('function getStartupErrorMessage')
-        $report = $body.IndexOf('function reportStartupFailure')
+        $main = $body.Substring($body.IndexOf('# ---- BODY-START'))
+        $view = $main.IndexOf('function getStartupErrorMessage')
+        $report = $main.IndexOf('function reportStartupFailure')
         $view | Should -BeGreaterThan -1
         $report | Should -BeGreaterThan $view
-    }
-
-    It "禁止の語が無い" {
-        (findBannedCode $text) | Should -Be ""
     }
 
     It "scripts\ の XAML が、行頭の `'@ を含まない（単一 .ps1 のヒアストリングを閉じてしまわないか）" {
@@ -113,11 +231,43 @@ Describe "new_single_script.ps1 の道具の検査" -Tag Io {
     }
 
     It "xaml\ の下のフォルダの XAML（shell\nav.xaml）も埋め込む" {
-        $text.Contains('${bundledXaml}[[System.IO.Path]::GetFullPath("$PSScriptRoot\xaml\shell\nav.xaml")]') | Should -Be $true
+        # $PSScriptRoot は、本体の中では空になるため ${tebunkoRoot} に書き換えてある
+        $body.Contains('${bundledXaml}[[System.IO.Path]::GetFullPath("${tebunkoRoot}\xaml\shell\nav.xaml")]') | Should -Be $true
     }
 
     It "版の文字列が引数（タグ・今のコミットの SHA）と同じ" {
         $text.Contains("Tag = 'v9.9.9'; Sha = '$headSha'") | Should -Be $true
+    }
+
+    It "別プロセスで `-File` 起動すると、BOM の有無にかかわらず、構文エラーも文字化けも無く本体が動き、日本語の記録が正しく出る（<name>）" -TestCases @(
+        @{ name = "Windows PowerShell 5.1・BOM なし（BOM が落ちたもの）"; shell = "powershell"; withBom = $false }
+        @{ name = "Windows PowerShell 5.1・BOM 付き（作ったまま）"; shell = "powershell"; withBom = $true }
+        @{ name = "PowerShell 7・BOM なし（BOM が落ちたもの）"; shell = "pwsh"; withBom = $false }
+        @{ name = "PowerShell 7・BOM 付き（作ったまま）"; shell = "pwsh"; withBom = $true }
+    ) {
+        param ($name, $shell, $withBom)
+        $exe = if ($shell -eq "pwsh") {
+            $cmd = Get-Command pwsh.exe -ErrorAction SilentlyContinue
+            if (-not $cmd) {
+                Set-ItResult -Skipped -Because "この機械に PowerShell 7 が無いため"
+                return
+            }
+            $cmd.Source
+        } else {
+            Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
+        }
+        # 作ったものは BOM 付き。BOM なしは、その先頭の 3 バイトを落としたもの（BOM が落ちた場合）
+        $content = $bytes
+        if (-not $withBom) {
+            $content = New-Object byte[] ($bytes.Length - 3)
+            [System.Array]::Copy($bytes, 3, $content, 0, $content.Length)
+        }
+        $result = invokeEncodingProbe $TestDrive "$shell-$withBom" $content $exe
+        $result.ErrorText | Should -Not -Match "ParserError"
+        $result.ExitCode | Should -Be 1
+        $result.Broken | Should -Be 1
+        $result.Log | Should -Match "設定ファイルが壊れていたため、既定の設定で起動しました"
+        $result.Log | Should -Match "クロール対象フォルダがありません"
     }
 }
 
@@ -219,34 +369,6 @@ Describe "新しい runspace での部品（lib）の読み込み（結合した
 }
 
 Describe "`-Part indexer`（結合した単一 .ps1）" -Tag Slow {
-    It "壊れた setting.config を置いて起動すると、設定を退避し、クロール対象フォルダが無い状態まで正常に進んで終わる（応答なしにならない）" {
-        $dir = Join-Path $TestDrive "broken"
-        New-Item -ItemType Directory -Force -Path $dir | Out-Null
-        $script = Join-Path $dir "tebunko-v9.9.9-broken.ps1"
-        & $tool -Version "v9.9.9" -OutFile $script | Out-Null
-        [System.IO.File]::WriteAllText("$dir\setting.config", '{ "targetFolders": [', ${utf8Bom})
-        $fakeProfile = Join-Path $dir "profile"
-        New-Item -ItemType Directory -Force -Path $fakeProfile | Out-Null
-
-        # 既定のワークスペース（%USERPROFILE%\Documents\tebunko_ws）には利用者のインデックスがあるため、
-        # 環境変数 TEBUNKO_DEFAULT_WORKSPACE（getDefaultWorkDir の差し替えの口）で、テスト用の場所に差し替える
-        $previousWorkspace = $env:TEBUNKO_DEFAULT_WORKSPACE
-        $env:TEBUNKO_DEFAULT_WORKSPACE = "$fakeProfile\Documents\tebunko_ws"
-        try {
-            & $script -Part indexer *> $null
-            $exitCode = $LASTEXITCODE
-        } finally {
-            $env:TEBUNKO_DEFAULT_WORKSPACE = $previousWorkspace
-        }
-
-        $exitCode | Should -Be 1
-        $broken = @(Get-ChildItem -LiteralPath $dir -Filter "setting.config.broken-*")
-        $broken.Count | Should -Be 1
-        $log = [System.IO.File]::ReadAllText("$fakeProfile\Documents\tebunko_ws\indexing_log.txt")
-        $log | Should -Match "設定ファイルが壊れていたため、既定の設定で起動しました"
-        $log | Should -Match "クロール対象フォルダがありません"
-    }
-
     It "tests/testdata の一部を取り込むと、件数が入力のファイル数と同じで失敗が 0 になり、setting.config・work がその場にでき、索引を検索で見つけられる" {
         $dir = Join-Path $TestDrive "ingest"
         New-Item -ItemType Directory -Force -Path $dir | Out-Null

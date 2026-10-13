@@ -169,9 +169,9 @@ function applyFolderStatus {
         $item.StatusChecked = $true
         $item.FolderExists = [bool]$exists[[string]$item.Path]
         if ($item.FolderExists) {
-            $item.SetStatus("✓ フォルダがあります", ${okBrush})
+            $item.SetStatus("フォルダがあります", ${okBrush})
         } else {
-            $item.SetStatus("✗ フォルダが見つかりません", ${ngBrush})
+            $item.SetStatus("フォルダが見つかりません", ${ngBrush})
         }
     }
     updateIndexingButton
@@ -522,7 +522,7 @@ function setIndexRowActions {
 }
 
 function updateSelectedIndexes {
-    # 選んだインデックス（名前の配列）だけを更新する。行の［更新］と［アクション ▾］の［更新］の共通の入口。
+    # 選んだインデックス（名前の配列）だけを更新する。行の［更新］と［アクション ▼］の［更新］の共通の入口。
     # 選んだ名前の行を、設定の enabled を true にして取り込み、その回だけの更新を始める（startIndexing）。
     # 動いている処理があるときは始めない（ボタンも使えなくしてある）
     param (

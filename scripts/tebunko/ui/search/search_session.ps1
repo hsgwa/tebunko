@@ -68,6 +68,7 @@ function startSearch {
     $ui.SearchProgress.Visibility = "Visible"
     $ui.SearchProgress.IsIndeterminate = $true
     $ui.SummaryText.Text = "検索中…"
+    $ui.NoHitText.Visibility = "Collapsed"
     $taskbar.ProgressState = "Indeterminate"
     setStatus "検索しています：${word}"
     updateSearchButton
@@ -103,6 +104,7 @@ function clearSearchView {
     clearResults "" $null
     clearDetail
     $ui.SummaryText.Text = ""
+    $ui.NoHitText.Visibility = "Collapsed"
     updateSearchButton
 }
 
@@ -197,8 +199,10 @@ function finishSearch {
     } elseif (!$shared.FastUsed -and $shared.Total -eq 0) {
         $ui.SummaryText.Text = "インデックスが未作成です"
     } elseif ($count -eq 0) {
-        # 0 件は結果欄に文を出さず、ステータスバーの「検索しました：… 0 件」で伝える
-        $ui.SummaryText.Text = ""
+        # 0 件は、結果欄の要約と表の空いた所に「一致する結果はありません」を出す（ステータスバーの「検索しました：… 0 件」はそのまま）
+        $ui.SummaryText.Text = getNoHitText
+        $ui.NoHitText.Text = getNoHitText
+        $ui.NoHitText.Visibility = "Visible"
     } else {
         $ui.SummaryText.Text = getSearchSummaryText $count $files.Count $seconds
     }
