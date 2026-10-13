@@ -38,6 +38,32 @@
 
 依存の向きは一方向にする。**`shared/` はツール（`tebunko/`）を知らない。** ツール同士も互いを読み込まない。判断層と状態層（`core/`・`index/`・`indexer/`・`search/`・`shared/` の `core/`・`office/`）は `$ui`・`$window`・WPF の型に触らず、画面以外の読み込み口（`shared.ps1`・`lib.ps1`・`indexer.ps1`）は `ui/` のファイルを読み込まない。これらの決まりは `tests/meta/layers.Tests.ps1` で機械的に確かめる。
 
+状態層の中のフォルダも、依存の向きを決める。上のものは下のものに依存してよく、逆は依存しない。
+
+| 上 | 下 |
+|---|---|
+| `tebunko/indexer/`・`tebunko/search/`（互いに依存しない） | `tebunko/index/` |
+| `tebunko/index/` | `tebunko/core/` |
+| `tebunko/core/` | `shared/office/`・`shared/core/` |
+| `shared/office/` | `shared/core/` |
+
+今の呼び出しの多い向きに合わせた（`indexer` → `index` と `search` → `index` と `index` → `core` が順向きで多く、読み込み口の順 `core` → `index` → `search`・`indexer` とも合う）。
+
+向きの検査は、文字列ではなく構文木（AST）で行う（`tools/script_arch.ps1`。部品自身のテストは `tests/tools/script_arch.Tests.ps1`）。全部のファイルが同じスコープに読み込まれ、下の層が上の層の関数・変数を名前で使っても動いてしまうため、ファイルごとに構文木を作り、次を見る。
+
+- 関数の呼び出しが、別のパスのファイルで定義した関数を指していること
+- 別のパスのファイルが最上位（関数の外）・`$script:`・`$global:` で代入した変数を読んでいること
+- 決めた変数（`$ui`・`$window`）と型（`System.Windows.*`）に触っていること
+
+`tests/meta/layers.Tests.ps1` の「依存の向き（ファイル単位）」が、「このパスのファイルは、あのパスのファイルに依存しない」の表で決まりを書く。失敗の文には、ファイルの組と、関数・変数の名前が出る。
+
+今ある逆向きの依存は、同じファイルの例外の一覧（「from のファイル・to のファイル・名前」の組と、許している理由）に載せ、増やさない。直したら一覧から消す（どの行でも見つからなくなった例外は、テストが失敗にする）。例外の大半は 2 つの種類に分かれる。
+
+- `tebunko/index/system_index.ps1` から `tebunko/search/search_gram.ps1`（gram の関数）への依存と、`tebunko/index/` から `tebunko/search/source_map.ps1`（取り込み一覧・情報源フォルダのファイルの読み書き）への依存。どちらも、下のフォルダ（`index/`）へ関数を移すと消える。
+- 状態層が、画面層の `tebunko/ui/settings/settings.ps1` が作る `$workspace` を読む依存。どの層に置くかを決めていない。
+
+見つからないもの（限界）: `& $name` の呼び出し、コールバックで渡したスクリプトブロックの中から呼ぶ形、`$ui` を別の名前の引数で受け取る形、クラスのメソッドの呼び出し、`Set-Variable` での代入。同じ名前の関数・変数が、見る側のパスにもあるときは、そちらを使っているとみなす。
+
 ## 読み込み口
 
 ```mermaid

@@ -4,6 +4,12 @@ BeforeAll {
     # 読み込み口からのたどり方は tools\script_rules.ps1 と共有する（check_release_package.ps1・
     # new_single_script.ps1 も同じたどり方を使う）
     . "$PSScriptRoot\..\..\tools\script_rules.ps1"
+    # 関数の呼び出し・変数・型の使い方を AST で読む部品（解析は重いので、使うときに 1 回だけ行って使い回す）
+    . "$PSScriptRoot\..\..\tools\script_arch.ps1"
+    function getScriptArch {
+        if (-not $script:scriptArch) { $script:scriptArch = newScriptArch $scriptsDir }
+        return $script:scriptArch
+    }
 
     # getSourcedFiles は getDotSourceTargets（存在しない先も返す）の、このテスト向けの薄い別名。
     # ui\ 配下の "$TebunkoDir\..." の形は、起動口 gui.ps1 から渡される tebunko\ 直下を指す
@@ -69,6 +75,21 @@ Describe "判断層" -Tag Meta {
             "$(Split-Path $file -Leaf): $($hit.Count)" | Should -Be "$(Split-Path $file -Leaf): 0"
         }
     }
+
+    # 上の文字列の検査と同じファイルを、構文木で見る。コメント・文字列の中の名前は数えず、型の式・引数の型は数える
+    It "判断層のファイルが画面の変数・型に触らない（構文木）" {
+        $files = @(
+            "shared/core/text.ps1"
+            "tebunko/index/index_name.ps1"
+            "tebunko/index/content_index_format.ps1"
+            "tebunko/search/search_query.ps1"
+            "tebunko/search/search_gram.ps1"
+            "tebunko/indexer/indexer_decide.ps1"
+            "*_view.ps1"
+        )
+        $found = @(findTypeUses (getScriptArch) -In $files -Variable ui, window -TypeLike "System.Windows.*")
+        ($found -join ", ") | Should -Be ""
+    }
 }
 
 Describe "状態層と読み込み口" -Tag Meta {
@@ -88,6 +109,20 @@ Describe "状態層と読み込み口" -Tag Meta {
         ($found -join ", ") | Should -Be ""
     }
 
+    # 上の文字列の検査と同じフォルダを、構文木で見る（コメント・文字列の中の名前は数えず、型の式・引数の型は数える）
+    It "状態層のファイルが画面の変数・型に触らない（構文木）" {
+        $dirs = @(
+            "tebunko/core/*"
+            "tebunko/index/*"
+            "tebunko/indexer/*"
+            "tebunko/search/*"
+            "shared/core/*"
+            "shared/office/*"
+        )
+        $found = @(findTypeUses (getScriptArch) -In $dirs -Variable ui, window -TypeLike "System.Windows.*")
+        ($found -join ", ") | Should -Be ""
+    }
+
     # 画面以外の読み込み口から ui/ をたどれると、インデックス作成などの画面の無い起動口が画面を読み込んでしまう
     It "画面以外の読み込み口から ui/ のファイルをたどれない" {
         $entries = @(
@@ -99,5 +134,134 @@ Describe "状態層と読み込み口" -Tag Meta {
         $reached = getReachableFiles $entries "${scriptsDir}\tebunko"
         $ui = @($reached | Where-Object { $_ -like "*\ui\*" } | ForEach-Object { Split-Path $_ -Leaf })
         ($ui -join ", ") | Should -Be ""
+    }
+}
+
+# 依存の向きを、ファイルの組で見る（関数の呼び出しと、別のファイルが最上位で作る変数の読み。tools\script_arch.ps1）。
+# 全部のファイルが同じスコープに読み込まれるため、文字列を探す検査では、下の層が上の層の関数・変数を名前で使っても見つからない。
+# 表の 1 行は「from のパスのファイルは、to のパスのファイルの関数・変数に依存しない」。
+# 向きの決め方は docs/design/structure/source.md の「フォルダの分け方」にある
+Describe "依存の向き（ファイル単位）" -Tag Meta {
+    $rules = @(
+        # shared はツールを知らない
+        @{ from = "shared/*"; to = "tebunko/*"; except = "" }
+        # 判断層・状態層は画面層に依存しない
+        @{ from = "tebunko/core/*"; to = "*/ui/*"; except = "" }
+        @{ from = "tebunko/index/*"; to = "*/ui/*"; except = "" }
+        @{ from = "tebunko/indexer/*"; to = "*/ui/*"; except = "" }
+        @{ from = "tebunko/search/*"; to = "*/ui/*"; except = "" }
+        @{ from = "*_view.ps1"; to = "*/ui/*"; except = "*_view.ps1" }
+        @{ from = "*/index_name.ps1"; to = "*/ui/*"; except = "" }
+        @{ from = "*/search_query.ps1"; to = "*/ui/*"; except = "" }
+        @{ from = "*/text.ps1"; to = "*/ui/*"; except = "" }
+        # 状態層の中のフォルダは、下から上へ依存しない（indexer と search は同じ高さで、互いに依存しない。部品の -From・-To は一方向なので 2 行で書く）
+        @{ from = "tebunko/core/*"; to = "tebunko/index/*"; except = "" }
+        @{ from = "tebunko/core/*"; to = "tebunko/indexer/*"; except = "" }
+        @{ from = "tebunko/core/*"; to = "tebunko/search/*"; except = "" }
+        @{ from = "tebunko/index/*"; to = "tebunko/indexer/*"; except = "" }
+        @{ from = "tebunko/index/*"; to = "tebunko/search/*"; except = "" }
+        @{ from = "tebunko/indexer/*"; to = "tebunko/search/*"; except = "" }
+        @{ from = "tebunko/search/*"; to = "tebunko/indexer/*"; except = "" }
+        @{ from = "shared/core/*"; to = "shared/office/*"; except = "" }
+    )
+
+    BeforeAll {
+        # 今ある依存を、「from のファイル・to のファイル・名前」の 3 つで許す。ファイルの組だけで許すと、同じ組の別の依存も通ってしまうため。
+        # 名前は関数の名前か、$ を付けた変数の名前。Reason は、なぜ今は許しているか。直したら、この一覧から消す
+        # （どの行でも検出されなくなった例外は、下の It が失敗にする）。この一覧に足して通すことはしない
+        function newAllowances {
+            param ([string]$from, [string]$to, [string[]]$names, [string]$reason)
+
+            foreach ($name in $names) {
+                @{ From = $from; To = $to; Name = $name; Reason = $reason }
+            }
+        }
+
+        $toolKnown = "共有の部品が、ツールの側で定義した関数・変数を使っている。決めた形ではない今ある依存"
+        $callerDefines = "使う側（ツール）が定義すると、共有の部品のコメントで決めてある"
+        $workspaceUndecided = "未決: ワークスペースの変数を画面層（ui/settings/settings.ps1）が作り、状態層が読んでいる。どの層に置くかを決めていない"
+        $upward = "状態層の中で、下のフォルダが上のフォルダの関数・変数を使っている。関数を下のフォルダへ移すまでの今ある依存"
+        $script:allowances = @(
+            # shared → tebunko
+            newAllowances "shared/core/folder.ps1" "tebunko/search/source_map.ps1" @("joinSourcePath") $toolKnown
+            newAllowances "shared/core/fs.ps1" "tebunko/core/settings.ps1" @('$appId') $toolKnown
+            newAllowances "shared/office/office_reader.ps1" "tebunko/index/index_name.ps1" @("toIndexFileName") $toolKnown
+            newAllowances "shared/ui/shell.ps1" "tebunko/ui/startup_error.ps1" @('$appTitle') $toolKnown
+            newAllowances "shared/ui/shell.ps1" "tebunko/ui/startup_error.ps1" @("getGuiErrorLogFile") $callerDefines
+            newAllowances "shared/ui/app_host.ps1" "tebunko/ui/startup_error.ps1" @("getGuiErrorLogFile", "getGuiErrorLogHeader") $callerDefines
+            newAllowances "shared/ui/shell.ps1" "tebunko/ui/gui_main.ps1" @('$backgroundQueue') "読み込み口が用意すると、共有の部品のコメントで決めてある"
+            # 状態層 → ワークスペースの変数
+            newAllowances "tebunko/index/content_index_store.ps1" "tebunko/ui/settings/settings.ps1" @('$workspace') $workspaceUndecided
+            newAllowances "tebunko/index/index_archive.ps1" "tebunko/ui/settings/settings.ps1" @('$workspace') $workspaceUndecided
+            newAllowances "tebunko/index/index_store.ps1" "tebunko/ui/settings/settings.ps1" @('$workspace') $workspaceUndecided
+            newAllowances "tebunko/index/system_index.ps1" "tebunko/ui/settings/settings.ps1" @('$workspace') $workspaceUndecided
+            newAllowances "tebunko/indexer/index_migrate.ps1" "tebunko/ui/settings/settings.ps1" @('$workspace') $workspaceUndecided
+            newAllowances "tebunko/indexer/indexer_plan.ps1" "tebunko/ui/settings/settings.ps1" @('$workspace') $workspaceUndecided
+            newAllowances "tebunko/indexer/indexer_run.ps1" "tebunko/ui/settings/settings.ps1" @('$workspace') $workspaceUndecided
+            newAllowances "tebunko/indexer/indexer_state.ps1" "tebunko/ui/settings/settings.ps1" @('$workspace') $workspaceUndecided
+            newAllowances "tebunko/search/content_index_search.ps1" "tebunko/ui/settings/settings.ps1" @('$workspace') $workspaceUndecided
+            newAllowances "tebunko/search/fast_search.ps1" "tebunko/ui/settings/settings.ps1" @('$workspace') $workspaceUndecided
+            newAllowances "tebunko/search/search_run.ps1" "tebunko/ui/settings/settings.ps1" @('$workspace') $workspaceUndecided
+            newAllowances "tebunko/search/source_map.ps1" "tebunko/ui/settings/settings.ps1" @('$workspace') $workspaceUndecided
+            newAllowances "tebunko/search/windows_search.ps1" "tebunko/ui/settings/settings.ps1" @('$workspace') $workspaceUndecided
+            # 判断層 → 画面層
+            newAllowances "tebunko/ui/search/search_bar_view.ps1" "shared/ui/shell.ps1" @("formatTime") "判断層が、共有の画面層の関数を呼んでいる今ある依存"
+            # core → index
+            newAllowances "tebunko/core/settings.ps1" "tebunko/index/index_name.ps1" @("testSourceNameRecordable") $upward
+            newAllowances "tebunko/core/workspace.ps1" "tebunko/index/system_index.ps1" @("updateSystemIndexState") $upward
+            newAllowances "tebunko/core/workspace_mover.ps1" "tebunko/index/index_store.ps1" @("getIndexNameMap") $upward
+            # index → indexer（状態ファイル・ログの読み書きが indexer にある）
+            newAllowances "tebunko/index/content_index_store.ps1" "tebunko/indexer/indexer_state.ps1" @("writeIndexerLog") $upward
+            newAllowances "tebunko/index/system_index.ps1" "tebunko/indexer/indexer_state.ps1" @("writeIndexerLog") $upward
+            newAllowances "tebunko/index/index_archive.ps1" "tebunko/indexer/indexer_state.ps1" @("newStatusRow", "readStatusFile", "toStatusLine", "writeStatusFile") $upward
+            # index → search（取り込み一覧・情報源フォルダのファイルの読み書きと、システムインデックスの gram の関数が search にある）
+            newAllowances "tebunko/index/content_index_store.ps1" "tebunko/search/search_query.ps1" @("truncateHitLine") $upward
+            newAllowances "tebunko/index/index_archive.ps1" "tebunko/search/source_map.ps1" @("getSourceFolderMap", "readSourceFolderFile") $upward
+            newAllowances "tebunko/index/index_store.ps1" "tebunko/search/source_map.ps1" @("getSourceFolderMap", "readSourceFolderFile") $upward
+            newAllowances "tebunko/index/index_catalog.ps1" "tebunko/search/source_map.ps1" @("writeSourceFolderFile") $upward
+            newAllowances "tebunko/index/system_index.ps1" "tebunko/search/search_gram.ps1" @(
+                '$systemIndexFileName', "addTextGrams", "convertFromSystemIndexState", "convertToGramText", "convertToSystemIndexState",
+                "getGramPartCount", "getIndexNameOfRelPath", "getSystemIndexFileNames", "newSystemIndexState", "testSystemIndexPath"
+            ) $upward
+            # indexer → search
+            newAllowances "tebunko/indexer/indexer_plan.ps1" "tebunko/search/search_gram.ps1" @('$systemIndexFileName') $upward
+            newAllowances "tebunko/indexer/indexer_run.ps1" "tebunko/search/source_map.ps1" @("writeSourceFolderFile") $upward
+        )
+
+        # 行ごとの検出の結果。表の行ごとの It と、使われなくなった例外の It が、同じ解析を繰り返さないよう覚えておく
+        $script:foundByRule = @{}
+        function getFoundItems {
+            param ([string]$from, [string]$to, [string]$except)
+
+            $key = "$from|$to|$except"
+            if (-not $script:foundByRule.ContainsKey($key)) {
+                $script:foundByRule[$key] = @(findFileDependencyItems (getScriptArch) -From $from -To $to -ToExcept $except)
+            }
+            return , $script:foundByRule[$key]
+        }
+    }
+
+    # 失敗の文には、ファイルの組と関数・変数の名前が出る（例: shared/core/folder.ps1 -> tebunko/search/source_map.ps1（joinSourcePath））
+    It "<from> は <to> に依存しない" -TestCases $rules {
+        param ($from, $to, $except)
+
+        $left = @(removeAllowedDependencies (getFoundItems $from $to $except) $script:allowances)
+        (@(formatFileDependencies $left) -join ", ") | Should -Be ""
+    }
+
+    # 直した依存の例外が残ると、同じ依存を後から足しても通ってしまう。全部の行の結果の和と突き合わせる
+    # （1 行ずつ突き合わせると、別の行で出る依存の例外を、使われないとしてしまう）
+    It "使われなくなった例外が無い" -TestCases @(@{ rules = $rules }) {
+        param ($rules)
+
+        $all = @()
+        foreach ($rule in $rules) { $all += (getFoundItems $rule.from $rule.to $rule.except) }
+        $unused = @(findUnusedAllowances $script:allowances $all | ForEach-Object { "$($_.From) -> $($_.To)（$($_.Name)）" })
+        ($unused -join ", ") | Should -Be ""
+    }
+
+    It "例外のそれぞれに理由がある" {
+        $noReason = @($script:allowances | Where-Object { -not $_.Reason } | ForEach-Object { "$($_.From)（$($_.Name)）" })
+        ($noReason -join ", ") | Should -Be ""
     }
 }
