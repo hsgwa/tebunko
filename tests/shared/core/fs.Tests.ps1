@@ -194,6 +194,209 @@ Describe "removeDirectoryRetry" -Tag Io {
         Should -Invoke Start-Sleep -Times 2 -Exactly -Scope It
         Test-Path -LiteralPath "$dir\a.tsv" | Should -Be $true
     }
+
+    It "中にあるジャンクションの先は消さず、ジャンクションだけを外す" {
+        $dir = "$TestDrive\消すフォルダ_リンク"
+        $outside = "$TestDrive\外のフォルダ_リンク"
+        writeListFile "$outside\外.tsv" @("外")
+        writeListFile "$dir\中\a.tsv" @("a")
+        if (!(newTestJunction "$dir\中\リンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        removeDirectoryRetry $dir
+        Test-Path -LiteralPath $dir | Should -Be $false
+        readListFile "$outside\外.tsv" | Should -Be @("外")
+    }
+
+    It "消すフォルダそのものがジャンクションなら、ジャンクションだけを外し、先は消さない" {
+        $outside = "$TestDrive\外のフォルダ_根"
+        writeListFile "$outside\外.tsv" @("外")
+        if (!(newTestJunction "$TestDrive\根のリンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        removeDirectoryRetry "$TestDrive\根のリンク"
+        Test-Path -LiteralPath "$TestDrive\根のリンク" | Should -Be $false
+        readListFile "$outside\外.tsv" | Should -Be @("外")
+    }
+}
+
+Describe "removeTreeNoFollow" -Tag Io {
+    It "フォルダを中身ごと消す（読み取り専用のファイル・フォルダも）" {
+        $dir = "$TestDrive\tree_plain"
+        writeListFile "$dir\中\深い\a.tsv" @("a")
+        writeListFile "$dir\b.tsv" @("b")
+        [System.IO.File]::SetAttributes("$dir\b.tsv", [System.IO.FileAttributes]::ReadOnly)
+        [System.IO.File]::SetAttributes("$dir\中\深い", [System.IO.FileAttributes]::ReadOnly -bor [System.IO.FileAttributes]::Directory)
+        removeTreeNoFollow $dir
+        Test-Path -LiteralPath $dir | Should -Be $false
+    }
+
+    It "260 文字を超えるパスも消す" {
+        $dir = "$TestDrive\tree_long"
+        $deep = "$dir\" + ("深いフォルダ" * 20) + "\" + ("もっと深いフォルダ" * 15)
+        [System.IO.Directory]::CreateDirectory((toLongPath $deep)) | Out-Null
+        [System.IO.File]::WriteAllText((toLongPath "$deep\a.tsv"), "a")
+        $deep.Length | Should -BeGreaterThan 260
+        removeTreeNoFollow $dir
+        [System.IO.Directory]::Exists((toLongPath $dir)) | Should -Be $false
+    }
+
+    It "フォルダが無ければ何もしない" {
+        { removeTreeNoFollow "$TestDrive\tree_none" } | Should -Not -Throw
+    }
+
+    It "中の何階層も下にあるジャンクションの先を、ファイルごと消さない" {
+        $dir = "$TestDrive\tree_junction"
+        $outside = "$TestDrive\tree_junction_outside"
+        writeListFile "$outside\外.tsv" @("外")
+        writeListFile "$outside\下\外の下.tsv" @("外の下")
+        writeListFile "$dir\a\b\c.tsv" @("c")
+        if (!(newTestJunction "$dir\a\b\リンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        removeTreeNoFollow $dir
+        Test-Path -LiteralPath $dir | Should -Be $false
+        readListFile "$outside\外.tsv" | Should -Be @("外")
+        readListFile "$outside\下\外の下.tsv" | Should -Be @("外の下")
+    }
+
+    It "読み取り専用の先のファイルも、ジャンクションを通しては消さない" {
+        $dir = "$TestDrive\tree_junction_ro"
+        $outside = "$TestDrive\tree_junction_ro_outside"
+        writeListFile "$outside\外.tsv" @("外")
+        [System.IO.File]::SetAttributes("$outside\外.tsv", [System.IO.FileAttributes]::ReadOnly)
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        if (!(newTestJunction "$dir\リンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        removeTreeNoFollow $dir
+        Test-Path -LiteralPath $dir | Should -Be $false
+        [System.IO.File]::Exists("$outside\外.tsv") | Should -Be $true
+    }
+
+    It "消すフォルダそのものがジャンクションなら、ジャンクションだけを外し、先は消さない" {
+        $outside = "$TestDrive\tree_root_outside"
+        writeListFile "$outside\外.tsv" @("外")
+        if (!(newTestJunction "$TestDrive\tree_root_link" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        removeTreeNoFollow "$TestDrive\tree_root_link"
+        Test-Path -LiteralPath "$TestDrive\tree_root_link" | Should -Be $false
+        readListFile "$outside\外.tsv" | Should -Be @("外")
+    }
+
+    It "親を指すジャンクション（輪）があっても、時間内に終わり、全部消える" {
+        $dir = "$TestDrive\tree_loop"
+        writeListFile "$dir\a\a.tsv" @("a")
+        if (!(newTestJunction "$dir\a\輪" $dir)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        # 終わらない作りになったときに、テスト全体が止まらないよう、別のスレッドで上限の時間を決めて待つ
+        $worker = [powershell]::Create()
+        try {
+            [void]$worker.AddScript({ param ($fsScript, $path) . $fsScript; removeTreeNoFollow $path }).AddArgument("${scriptsDir}\shared\core\fs.ps1").AddArgument($dir)
+            $handle = $worker.BeginInvoke()
+            $finished = $handle.AsyncWaitHandle.WaitOne(30000)
+            if (!$finished) { $worker.Stop() }
+            $finished | Should -Be $true
+            $worker.HadErrors | Should -Be $false
+        } finally {
+            $worker.Dispose()
+        }
+        Test-Path -LiteralPath $dir | Should -Be $false
+    }
+
+    It "フォルダのシンボリックリンク・ファイルのシンボリックリンクは、リンクだけを消し、先は残す" {
+        $dir = "$TestDrive\tree_symlink"
+        $outside = "$TestDrive\tree_symlink_outside"
+        writeListFile "$outside\外.tsv" @("外")
+        writeListFile "$outside\ファイル.txt" @("ファイル")
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        if (!(newTestSymlink "$dir\フォルダ" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        [void](newTestSymlink "$dir\ファイル" "$outside\ファイル.txt" -File)
+        removeTreeNoFollow $dir
+        Test-Path -LiteralPath $dir | Should -Be $false
+        readListFile "$outside\外.tsv" | Should -Be @("外")
+        readListFile "$outside\ファイル.txt" | Should -Be @("ファイル")
+    }
+}
+
+Describe "testLinkItem" -Tag Unit {
+    It "<name> なら <expected>" -TestCases @(
+        @{ name = "普通のファイル（属性だけ）"; attributes = "Archive"; linkType = $null; expected = $false }
+        @{ name = "普通のフォルダ"; attributes = "Directory"; linkType = $null; expected = $false }
+        @{ name = "ReparsePoint だけで LinkType が空（OneDrive のオンデマンドのファイル）"; attributes = "Archive, ReparsePoint"; linkType = ""; expected = $false }
+        @{ name = "ジャンクション"; attributes = "Directory, ReparsePoint"; linkType = "Junction"; expected = $true }
+        @{ name = "シンボリックリンク"; attributes = "Directory, ReparsePoint"; linkType = "SymbolicLink"; expected = $true }
+        @{ name = "ReparsePoint が付かず LinkType だけがある（属性を信用する）"; attributes = "Directory"; linkType = "Junction"; expected = $false }
+    ) {
+        param ($name, $attributes, $linkType, $expected)
+        $item = [pscustomobject]@{ Attributes = [System.IO.FileAttributes]$attributes; LinkType = $linkType }
+        testLinkItem $item | Should -Be $expected
+    }
+
+    It "属性が読めない（空）ときは、リンクとして扱う" {
+        testLinkItem ([pscustomobject]@{ LinkType = $null }) | Should -Be $true
+        testLinkItem $null | Should -Be $true
+    }
+}
+
+Describe "testPathIsLink / testPathHasLink" -Tag Io {
+    It "普通のフォルダ・ファイル・無いパス・空のパスはリンクでない" {
+        writeListFile "$TestDrive\islink_plain\a.tsv" @("a")
+        testPathIsLink "$TestDrive\islink_plain" | Should -Be $false
+        testPathIsLink "$TestDrive\islink_plain\a.tsv" | Should -Be $false
+        testPathIsLink "$TestDrive\islink_plain\無い" | Should -Be $false
+        testPathIsLink "" | Should -Be $false
+    }
+
+    It "ジャンクションはリンク。ジャンクションの下の普通のフォルダはリンクでない" {
+        if (!(newTestJunction "$TestDrive\islink_junction" "$TestDrive\islink_target\下")) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        testPathIsLink "$TestDrive\islink_junction" | Should -Be $true
+        testPathIsLink "$TestDrive\islink_target\下" | Should -Be $false
+    }
+
+    It "testPathHasLink: base の下の途中（path を含む）にリンクがあれば真、無ければ偽" {
+        $base = "$TestDrive\haslink"
+        writeListFile "$base\a\b\c.tsv" @("c")
+        if (!(newTestJunction "$base\a\リンク" "$TestDrive\haslink_outside\下")) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        testPathHasLink $base "$base\a\b" | Should -Be $false
+        testPathHasLink $base "$base\a\リンク" | Should -Be $true
+        testPathHasLink $base "$base\a\リンク\下" | Should -Be $true
+        testPathHasLink $base "$base\a\リンク\まだ無い" | Should -Be $true
+        testPathHasLink $base "$base\a\b\まだ無い\下" | Should -Be $false
+        testPathHasLink $base $base | Should -Be $false
+        testPathHasLink "$base\a\" "$base\a\b" | Should -Be $false
+    }
+
+    It "testPathHasLink: base そのものがリンクでも、base は見ないので、その下に何も無ければ偽" {
+        if (!(newTestJunction "$TestDrive\haslink_base" "$TestDrive\haslink_base_target\置き場")) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        writeListFile "$TestDrive\haslink_base\x\y.tsv" @("y")
+        testPathHasLink "$TestDrive\haslink_base" "$TestDrive\haslink_base\x\y.tsv" | Should -Be $false
+    }
+
+    It "testPathHasLink: path が base の下になければ、確かめられないので真" {
+        testPathHasLink "$TestDrive\haslink_a" "$TestDrive\haslink_b\x" | Should -Be $true
+        testPathHasLink "$TestDrive\haslink_a" "$TestDrive\haslink_a2\x" | Should -Be $true
+    }
 }
 
 Describe "moveDirectoryRetry" -Tag Io {

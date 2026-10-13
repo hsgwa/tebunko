@@ -17,7 +17,9 @@
 
 単一 .ps1 版（試験版）は、`tebunko.bat` の代わりに `.ps1` ファイル自身を実行する形のため、上の表の「ツールを置いたフォルダ」は `.ps1` ファイル自身がある場所を指す。`setting.config` は `.ps1` のある場所に置き、書き込めないときは既定のワークスペースの直下に置く（`getSettingsFilePath`。zip 版と同じ決め方）。ワークスペースの既定の置き場所（`%USERPROFILE%\Documents\tebunko_ws`）は、別のフォルダに置いた zip 版と同じ場所になる（[単一 PowerShell のビルド](../design/structure/single-script.md)「実行時の違い」）。
 
-削除（`Remove-Item`・`[System.IO.File]::Delete` など）の対象はすべてワークスペース配下（取り込みの作業領域 `work/tmp/` を含む）、すなわち**本ツールが自分で作ったファイル**である（前の版（`%TEMP%\tebunko\<PID>` に一時ファイルを置いていた版）が残した作業フォルダの片付けだけ例外。`removeStaleTmpDirs`）。［新規で開く］のコピーは、`open_copy` の中（`testOpenCopyDir` で、置き場所がワークスペースの `tmp/<PC の鍵>/open_copy` そのものであり、リンクでないことを確かめる）で、最後に使ってから 1 日より古いものだけを消す（`clearOldOpenCopies`）。リンク（ジャンクション・シンボリックリンク）は辿らず、中のリンクも消さない。クロール対象フォルダ内のファイルを削除する処理は無い。
+削除（`Remove-Item`・`[System.IO.File]::Delete` など）の対象はすべてワークスペース配下（取り込みの作業領域 `work/tmp/` を含む）、すなわち**本ツールが自分で作ったファイル**である（前の版（`%TEMP%\tebunko\<PID>` に一時ファイルを置いていた版）が残した作業フォルダの片付けだけ例外。`removeStaleTmpDirs`）。［新規で開く］のコピーは、`open_copy` の中（`testOpenCopyDir` で、置き場所がワークスペースの `tmp/<PC の鍵>/open_copy` そのものであり、リンクでないことを確かめる）で、最後に使ってから 1 日より古いものだけを消す（`clearOldOpenCopies`）。フォルダの削除は `removeDirectoryRetry`（中で `removeTreeNoFollow`）にまとめてある。リンク（ジャンクション・シンボリックリンク）は辿らず、中にあるリンクはリンクだけを外して、先のファイル・フォルダは消さない。削除するフォルダそのものがリンクのときも、リンクだけを外す。リンクかどうかは `testLinkItem` で決める（属性の `ReparsePoint` が付き、種類がジャンクションかシンボリックリンクのもの。OneDrive のオンデマンドのファイル・フォルダはリンクと見なさない）。インデックスの削除（`RemoveIndex`・`removeDroppedFolders`・本文インデックスの書き出し後の TSV の削除）も、この関数を通る。クロール対象フォルダ内のファイルを削除する処理は無い。
+
+削除の対象になるフォルダの置き場（`content_index\`・`system_index\`・`tmp\`）そのものが、利用者によって別の場所へのリンク（ジャンクション）にされているときは、これまでどおり使える（置き場そのものは調べない）。この場合、リンクの先に新しいフォルダが作られることはあるが、先の既存のファイルを消す・上書きすることはない。削除の前に確かめてから消すまでの間に、別のプロセスがフォルダをリンクに差し替えることは想定していない（`removeTreeNoFollow` は、下りる直前にもう一度リンクかどうかを確かめて、この間を短くしている）。
 
 ［設定］でワークスペースを変えるときは、前のワークスペースの中の本ツールが作ったファイル・フォルダ（`Workspace.Entries`：`content_index`・前の版の `index`・`system_index`・取り込み一覧・状態・ログ・`publish`）だけを新しいワークスペースへ移す（`WorkspaceMover.ChangeWorkspace`）。別のドライブへは写してから元を削除する。選んだフォルダにすでにインデックスなどがあり、利用者が［消して、最初からやり直す］を選んだときは、そのフォルダの本ツールのファイル・フォルダ（同じ `Workspace.Entries`）だけを削除する（`WorkspaceMover.RemoveEntries`）。利用者がワークスペースに置いたほかのファイルは移さず、削除しない。
 
@@ -50,6 +52,8 @@ scan 'NotContentIndexed'
 | 公開前の中間 TSV（本文・シート・図形などの TSV。テキストファイルの `doc_body.tsv` を含む） | 同上の下 | `index_migrate.ps1` の `publishTsv`、`extract_text.ps1` の `extractTextFile` |
 
 ワークスペースのパスに `[` `]` を含む・長すぎて置けないときは、作業フォルダを作らず、取り込みをすべてスキップする（`selectTmpDir`・`initTmpDir`。[データの置き場所とパスの決め方](../design/structure/data.md)）。
+
+作業領域は、`tmp\<PC の鍵>` から下の各階層（`<PID>`・`w<番号>`）を、使う前にリンクかどうか確かめる（`testPathHasLink`）。途中にリンクがあれば置けない扱いにし（`initTmpDir` は理由 `Link` を返して取り込みをすべてスキップする。`newWorkerTmpDir` は空文字を返す）、リンクの先には書かない。`<PID>`・`w<番号>` と同じ名前が既にあれば、リンクを辿らずに消してから作り直す。`tmp` そのものは確かめない（上の削除の置き場と同じ）。作業フォルダそのものがリンクのときは、`clearTmpDir` は何も消さずにログに出す。強制終了で残った作業フォルダの片付け（`removeStaleTmpDirs`）も、`tmp\<PC の鍵>` の途中にリンクがあれば何も消さない。
 
 ### ワークスペースの外に、まだ書くもの
 

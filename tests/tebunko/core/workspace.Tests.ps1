@@ -154,9 +154,10 @@ Describe "selectTmpDir" -Tag Unit {
 }
 
 Describe "getTmpDirUnavailableMessage" -Tag Unit {
-    It "<reason> なら [ ]・長さに触れた文にする" -TestCases @(
+    It "<reason> なら [ ]・長さ・リンクのうち、その理由に触れた文にする" -TestCases @(
         @{ reason = "Brackets"; expected = "\[ \]" }
         @{ reason = "TooLong"; expected = "長すぎる" }
+        @{ reason = "Link"; expected = "リンク" }
     ) {
         param ($reason, $expected)
         getTmpDirUnavailableMessage $reason | Should -Match $expected

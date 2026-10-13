@@ -313,9 +313,9 @@ function removeDirectoryRetry {
             return
         }
         try {
-            # 呼び出し側の $ErrorActionPreference によらず、消せなければ catch に来るよう -ErrorAction Stop を付ける
-            # （付けないと既定の Continue では例外にならず、試し直しも失敗の報告もせずに戻ってしまう）
-            Remove-Item -LiteralPath $longPath -Recurse -Force -ErrorAction Stop
+            # リンク（ジャンクション・シンボリックリンク）は辿らず、リンクそのものだけを外す（removeTreeNoFollow）。
+            # 消せなければ例外になり、catch で試し直す
+            removeTreeNoFollow $longPath
             return
         } catch {
             if ($i -ge $tries) {
@@ -323,6 +323,152 @@ function removeDirectoryRetry {
             }
             Start-Sleep -Milliseconds $waitMilliseconds
         }
+    }
+}
+
+function testLinkItem {
+    # item（Get-Item・Get-ChildItem・DirectoryInfo などが返す FileSystemInfo）が、ジャンクション・シンボリックリンクなら $true。
+    # 先に属性の ReparsePoint を見て、付いているときだけ LinkType を読む（多くのファイルで余計な問い合わせをしない）。
+    # OneDrive のオンデマンドのファイル・フォルダは ReparsePoint だが LinkType が空なので、リンクとは見なさない。
+    # 属性・LinkType が読めなければ、リンクとして扱う（辿らない・消すときはリンクだけを外す側に倒す）
+    param (
+        $item
+    )
+
+    try {
+        $attributes = $item.Attributes
+        if ($null -eq $attributes) {
+            return $true
+        }
+        if (!($attributes -band [System.IO.FileAttributes]::ReparsePoint)) {
+            return $false
+        }
+        $linkType = [string]$item.LinkType
+        return ($linkType -eq "Junction" -or $linkType -eq "SymbolicLink")
+    } catch {
+        return $true
+    }
+}
+
+function testPathIsLink {
+    # path そのもの（途中の階層は見ない）がジャンクション・シンボリックリンクなら $true。
+    # 無い・空のパスは $false（まだ作っていない）。属性が読めないなど、確かめられないときは $true（辿らない側に倒す）
+    param (
+        [string]$path
+    )
+
+    if (!$path) {
+        return $false
+    }
+    $long = toLongPath $path
+    try {
+        $attributes = [System.IO.File]::GetAttributes($long)
+    } catch [System.IO.FileNotFoundException] {
+        return $false
+    } catch [System.IO.DirectoryNotFoundException] {
+        return $false
+    } catch {
+        return $true
+    }
+    if (!($attributes -band [System.IO.FileAttributes]::ReparsePoint)) {
+        return $false
+    }
+    if ($attributes -band [System.IO.FileAttributes]::Directory) {
+        return (testLinkItem (New-Object System.IO.DirectoryInfo $long))
+    }
+    return (testLinkItem (New-Object System.IO.FileInfo $long))
+}
+
+function testPathHasLink {
+    # base の下の path まで、途中の各階層（path を含み、base とそれより上は含まない）に、リンクがあれば $true。
+    # 利用者が選んだ置き場（base）そのものが別の場所へのリンクでも、構成を変えずに使えるよう、base は見ない。
+    # path が base と同じなら $false。base の下になければ、確かめられないので $true
+    param (
+        [string]$base,
+        [string]$path
+    )
+
+    try {
+        $baseFull = [System.IO.Path]::GetFullPath((fromLongPath $base)).TrimEnd("\")
+        $pathFull = [System.IO.Path]::GetFullPath((fromLongPath $path)).TrimEnd("\")
+    } catch {
+        return $true
+    }
+    if ($pathFull.Equals($baseFull, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $false
+    }
+    if (!$pathFull.StartsWith("$baseFull\", [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $true
+    }
+    $current = $baseFull
+    foreach ($name in $pathFull.Substring($baseFull.Length + 1).Split("\")) {
+        $current = "$current\$name"
+        if (testPathIsLink $current) {
+            return $true
+        }
+        if (!(Test-Path -LiteralPath (toLongPath $current))) {
+            return $false  # ここから先はまだ無い
+        }
+    }
+    return $false
+}
+
+function removeEntryOnly {
+    # ファイル 1 つ・リンク（ジャンクション・シンボリックリンク）1 つ・空のフォルダ 1 つ（item は FileSystemInfo）を、そのものだけ消す。
+    # リンクの先は消さない。読み取り専用の属性は外してから消す
+    param (
+        [System.IO.FileSystemInfo]$item
+    )
+
+    $path = $item.FullName
+    if ([System.IO.File]::GetAttributes($path) -band [System.IO.FileAttributes]::ReadOnly) {
+        [System.IO.File]::SetAttributes($path, [System.IO.FileAttributes]::Normal)
+    }
+    if ($item -is [System.IO.DirectoryInfo]) {
+        [System.IO.Directory]::Delete($path, $false)
+    } else {
+        [System.IO.File]::Delete($path)
+    }
+}
+
+function removeTreeNoFollow {
+    # フォルダを中身ごと削除する。ジャンクション・シンボリックリンクは辿らず、リンクそのものだけを外す（先は消さない）。
+    # path そのものがリンクなら、そのリンクだけを外す。フォルダが無ければ何もしない。
+    # 上から下へ降りながら、ファイルとリンクを消し、フォルダは下から順に消す。降りる直前に、そのフォルダがリンクでないかを確かめ直す。
+    # 読み取り専用の属性は外して消す（Remove-Item -Force と同じ働き）。消せなければ例外にする
+    param (
+        [string]$path
+    )
+
+    $long = toLongPath $path
+    if (![System.IO.Directory]::Exists($long)) {
+        return
+    }
+    $directories = New-Object System.Collections.Generic.List[string]
+    $pending = New-Object System.Collections.Generic.Stack[string]
+    $pending.Push($long)
+    while ($pending.Count -gt 0) {
+        $current = New-Object System.IO.DirectoryInfo ($pending.Pop())
+        if (testLinkItem $current) {
+            removeEntryOnly $current
+            continue
+        }
+        $directories.Add($current.FullName)
+        foreach ($entry in @($current.EnumerateFileSystemInfos("*", [System.IO.SearchOption]::TopDirectoryOnly))) {
+            if ($entry -isnot [System.IO.DirectoryInfo]) {
+                removeEntryOnly $entry
+            } elseif (testLinkItem $entry) {
+                removeEntryOnly $entry
+            } else {
+                $pending.Push($entry.FullName)
+            }
+        }
+    }
+    for ($i = $directories.Count - 1; $i -ge 0; $i--) {
+        if ([System.IO.File]::GetAttributes($directories[$i]) -band [System.IO.FileAttributes]::ReadOnly) {
+            [System.IO.File]::SetAttributes($directories[$i], [System.IO.FileAttributes]::Normal)
+        }
+        [System.IO.Directory]::Delete($directories[$i], $false)
     }
 }
 

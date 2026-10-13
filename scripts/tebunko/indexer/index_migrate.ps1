@@ -12,6 +12,12 @@ function publishTsv {
 }
 
 function clearTmpDir {
+    # 作業フォルダ直下のファイルを消す。作業フォルダそのものがリンク（ジャンクション・シンボリックリンク）のときは、
+    # 先のファイルを消さないよう、何も消さずにログに出す
+    if (testPathIsLink $tmpDir) {
+        writeIndexerLog "    作業フォルダがリンク（ジャンクション・シンボリックリンク）のため、中のファイルを消しませんでした: ${tmpDir}" "Yellow"
+        return
+    }
     Get-ChildItem -LiteralPath (toLongPath $tmpDir) -File | Remove-Item -Force
 }
 
@@ -51,7 +57,13 @@ function removeStaleTmpDirs {
     # 強制終了などで残った、ほかの（終了済みの）プロセスの作業フォルダ
     # （ワークスペースの tmp\<PC の鍵>\<PID>・work\publish\<PID>・前の版までの %TEMP%\tebunko\<PID>）を削除する。
     # 空になった親（tmp\<PC の鍵>・publish・${legacyTmpParent}。tmp\<PC の鍵> はさらに tmp 自体も）も消す
-    foreach ($parent in @((Split-Path (getWorkspaceTmpDir $workspace) -Parent), (Split-Path $workspace.PublishDir -Parent), ${legacyTmpParent})) {
+    # tmp\<PC の鍵> の途中にリンク（ジャンクション・シンボリックリンク）があるときは、先のフォルダを消さないよう、片付けない
+    $keyDir = Split-Path (getWorkspaceTmpDir $workspace) -Parent
+    foreach ($parent in @($keyDir, (Split-Path $workspace.PublishDir -Parent), ${legacyTmpParent})) {
+        if (($parent -eq $keyDir) -and (testPathHasLink $workspace.TmpRoot $keyDir)) {
+            writeIndexerLog "    作業領域の途中にリンク（ジャンクション・シンボリックリンク）があるため、残った作業フォルダを片付けませんでした: ${keyDir}" "Yellow"
+            continue
+        }
         removeStaleProcessDirs $parent
         removeEmptyDir $parent
     }
@@ -72,7 +84,23 @@ function initTmpDir {
         writeIndexerLog "$(getTmpDirUnavailableMessage $selected.Reason)取り込みをすべてスキップします。" "Yellow"
         return $selected
     }
-    [System.IO.Directory]::CreateDirectory($selected.Dir) | Out-Null
+    # 作業領域（tmp\<PC の鍵>\<PID>）の途中にリンク（ジャンクション・シンボリックリンク）があれば、先に書かないよう置けない扱いにする
+    # （tmp そのものは見ない。利用者が tmp を別の場所へのリンクにした構成も、今までどおり使える）。
+    # 同じ名前（前のプロセスの残り・先に置かれたもの）が既にあれば、リンクは辿らずに消してから作り直す
+    $parentLinked = testPathHasLink $workspace.TmpRoot (Split-Path $selected.Dir -Parent)
+    if (!$parentLinked) {
+        try {
+            removeDirectoryRetry $selected.Dir
+        } catch {
+            # 消せなくても、下の確かめでリンクが残っていなければ、そのまま使う
+        }
+        [System.IO.Directory]::CreateDirectory($selected.Dir) | Out-Null
+    }
+    if ($parentLinked -or (testPathHasLink $workspace.TmpRoot $selected.Dir)) {
+        $unavailable = @{ Dir = ""; Reason = "Link" }
+        writeIndexerLog "$(getTmpDirUnavailableMessage $unavailable.Reason)取り込みをすべてスキップします。" "Yellow"
+        return $unavailable
+    }
     foreach ($dir in @($workspace.TmpRoot, (Split-Path $selected.Dir -Parent), $selected.Dir)) {
         [void](setNotContentIndexed $dir)
     }
@@ -91,8 +119,21 @@ function newWorkerTmpDir {
     if (!$parentDir) {
         return ""
     }
+    if (testPathIsLink $parentDir) {
+        writeIndexerLog "    作業フォルダがリンク（ジャンクション・シンボリックリンク）のため、取り込みの作業フォルダを置けません: ${parentDir}" "Yellow"
+        return ""
+    }
     $dir = Join-Path $parentDir "w$number"
+    # 同じ名前（前の残り・先に置かれたリンク）が既にあれば、リンクは辿らずに消してから作り直す
+    try {
+        removeDirectoryRetry $dir
+    } catch {
+        # 消せなくても、下の確かめでリンクが残っていなければ、そのまま使う
+    }
     [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+    if (testPathIsLink $dir) {
+        return ""
+    }
     if (testNotContentIndexed $parentDir) {
         [void](setNotContentIndexed $dir)
     }
@@ -113,7 +154,8 @@ function removeStaleProcessDirs {
             continue  # 実行中のインデックス作成（またはPIDを再利用した別のプロセス）のものは残す
         }
         try {
-            Remove-Item -LiteralPath (toLongPath $dir.FullName) -Recurse -Force
+            # 中に長いパスがあっても消え、中のリンクの先は消さない。使用中などで消せなければ 1 回だけ試して次回に回す
+            removeDirectoryRetry $dir.FullName 1
         } catch {
             # 使用中などで削除できなければ、次回に回す
         }
@@ -179,8 +221,8 @@ function removeDroppedFolders {
     foreach ($previous in @($dropped | Where-Object { $_ })) {
         $dir = Join-Path $ws.IndexDir $previous.Name
         if (Test-Path -LiteralPath $dir) {
-            # 中に長いパス（260文字超）のTSVがあっても削除できるよう \\?\ 付きで削除する
-            Remove-Item -LiteralPath (toLongPath $dir) -Recurse -Force
+            # 中に長いパス（260文字超）のTSVがあっても削除でき、中のリンク（ジャンクション・シンボリックリンク）の先は消さない
+            removeDirectoryRetry $dir
         }
         writeIndexerLog "クロール対象から削除されたフォルダ（$($previous.Path)）のインデックスを削除しました。"
     }

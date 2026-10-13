@@ -82,6 +82,38 @@ Describe "clearTmpDir" -Tag Io {
         Test-Path -LiteralPath "$tmpDir\a.tsv" | Should -Be $false
         Test-Path -LiteralPath "$tmpDir\sub\b.tsv" | Should -Be $true
     }
+
+    It "作業フォルダそのものがジャンクションなら、先のファイルを消さず、ログに出す" {
+        $outside = "$TestDrive\clear_outside"
+        newTsv "$outside\外.tsv" @("外")
+        if (!(newTestJunction "$TestDrive\clear_link" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        $tmpDir = "$TestDrive\clear_link"
+        $log = New-Object System.IO.StringWriter
+        $script:indexerLog = $log
+
+        clearTmpDir
+
+        Test-Path -LiteralPath "$outside\外.tsv" | Should -Be $true
+        $log.ToString() | Should -Match "リンク"
+    }
+
+    It "作業フォルダ直下のファイルのシンボリックリンクは、リンクだけを消し、先は残す" {
+        $tmpDir = "$TestDrive\clear_symlink"
+        newTsv "$TestDrive\clear_symlink_outside\外.txt" @("外")
+        [System.IO.Directory]::CreateDirectory($tmpDir) | Out-Null
+        if (!(newTestSymlink "$tmpDir\リンク.txt" "$TestDrive\clear_symlink_outside\外.txt" -File)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        clearTmpDir
+
+        Test-Path -LiteralPath "$tmpDir\リンク.txt" | Should -Be $false
+        Test-Path -LiteralPath "$TestDrive\clear_symlink_outside\外.txt" | Should -Be $true
+    }
 }
 
 Describe "removeEmptyDir" -Tag Io {
@@ -195,11 +227,46 @@ Describe "removeStaleProcessDirs" -Tag Io {
 
     It "削除できないフォルダは次回に回す" {
         $parent = "$TestDrive\stale_locked"
-        [System.IO.Directory]::CreateDirectory("$parent\$deadPid") | Out-Null
-        Mock Remove-Item { throw "使用中" }
+        newTsv "$parent\$deadPid\a.tsv" @("a")
+        $held = [System.IO.File]::Open("$parent\$deadPid\a.tsv", [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::None)
+        try {
+            { removeStaleProcessDirs $parent } | Should -Not -Throw
+            Test-Path -LiteralPath "$parent\$deadPid" | Should -Be $true
+        } finally {
+            $held.Dispose()
+        }
+    }
 
-        { removeStaleProcessDirs $parent } | Should -Not -Throw
-        Test-Path -LiteralPath "$parent\$deadPid" | Should -Be $true
+    It "終了したプロセスのフォルダの中にあるジャンクションは、先を消さずにジャンクションだけを外す" {
+        $parent = "$TestDrive\stale_junction"
+        $outside = "$TestDrive\stale_junction_outside"
+        newTsv "$outside\外.tsv" @("外")
+        newTsv "$parent\$deadPid\a.tsv" @("a")
+        if (!(newTestJunction "$parent\$deadPid\リンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        removeStaleProcessDirs $parent
+
+        Test-Path -LiteralPath "$parent\$deadPid" | Should -Be $false
+        Test-Path -LiteralPath "$outside\外.tsv" | Should -Be $true
+    }
+
+    It "終了したプロセスの名前そのものがジャンクションなら、ジャンクションだけを外し、先は消さない" {
+        $parent = "$TestDrive\stale_junction_name"
+        $outside = "$TestDrive\stale_junction_name_outside"
+        newTsv "$outside\外.tsv" @("外")
+        [System.IO.Directory]::CreateDirectory($parent) | Out-Null
+        if (!(newTestJunction "$parent\$deadPid" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        removeStaleProcessDirs $parent
+
+        Test-Path -LiteralPath "$parent\$deadPid" | Should -Be $false
+        Test-Path -LiteralPath "$outside\外.tsv" | Should -Be $true
     }
 }
 
@@ -232,6 +299,25 @@ Describe "removeStaleTmpDirs" -Tag Io {
 
         Test-Path -LiteralPath "$copyDir\abc123\a.txt" | Should -Be $true
         Test-Path -LiteralPath "$($workspace.TmpRoot)\$(getMachineKey)\$deadPid" | Should -Be $false
+    }
+
+    It "tmp\PC の鍵 がジャンクションなら、先にある終了済みのプロセスのフォルダも消さず、ログに出す" {
+        $workspace = newTestWorkspace @{ PublishDir = "$TestDrive\stale_keylink\出力\$PID"; TmpRoot = "$TestDrive\stale_keylink\tmp" }
+        ${legacyTmpParent} = "$TestDrive\stale_keylink\legacy"
+        $outside = "$TestDrive\stale_keylink_outside"
+        [System.IO.Directory]::CreateDirectory("$outside\$deadPid") | Out-Null
+        [System.IO.Directory]::CreateDirectory("$TestDrive\stale_keylink\tmp") | Out-Null
+        if (!(newTestJunction "$TestDrive\stale_keylink\tmp\$(getMachineKey)" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        $log = New-Object System.IO.StringWriter
+        $script:indexerLog = $log
+
+        removeStaleTmpDirs
+
+        Test-Path -LiteralPath "$outside\$deadPid" | Should -Be $true
+        $log.ToString() | Should -Match "リンク"
     }
 
     It "`$tmpDir が空（決める前）でも例外にならない" {
@@ -316,6 +402,68 @@ Describe "initTmpDir" -Tag Io {
 
         Test-Path -LiteralPath "$TestDrive\init_stale\tmp\$key\$deadPid" | Should -Be $false
     }
+
+    It "tmp\PC の鍵 がジャンクションなら、作業フォルダを置けない扱い（Link）にし、先には何も作らず・消さない" {
+        $workspace = newTestWorkspace @{ PublishDir = "$TestDrive\init_keylink\出力\$PID"; TmpRoot = "$TestDrive\init_keylink\tmp" }
+        ${legacyTmpParent} = "$TestDrive\init_keylink\legacy"
+        $outside = "$TestDrive\init_keylink_outside"
+        newTsv "$outside\外.tsv" @("外")
+        [System.IO.Directory]::CreateDirectory("$outside\$deadPid") | Out-Null
+        [System.IO.Directory]::CreateDirectory("$TestDrive\init_keylink\tmp") | Out-Null
+        if (!(newTestJunction "$TestDrive\init_keylink\tmp\$(getMachineKey)" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        $log = New-Object System.IO.StringWriter
+        $script:indexerLog = $log
+
+        $result = initTmpDir
+
+        $result.Dir | Should -BeNullOrEmpty
+        $result.Reason | Should -Be "Link"
+        $log.ToString() | Should -Match "リンク"
+        $log.ToString() | Should -Match "スキップ"
+        Test-Path -LiteralPath "$outside\外.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$outside\$deadPid" | Should -Be $true
+        Test-Path -LiteralPath "$outside\$PID" | Should -Be $false
+    }
+
+    It "先に置かれた <PID> のジャンクションは、先を消さずにジャンクションだけを外し、普通のフォルダとして作り直す" {
+        $workspace = newTestWorkspace @{ PublishDir = "$TestDrive\init_pidlink\出力\$PID"; TmpRoot = "$TestDrive\init_pidlink\tmp" }
+        ${legacyTmpParent} = "$TestDrive\init_pidlink\legacy"
+        $outside = "$TestDrive\init_pidlink_outside"
+        newTsv "$outside\外.tsv" @("外")
+        $keyDir = "$TestDrive\init_pidlink\tmp\$(getMachineKey)"
+        [System.IO.Directory]::CreateDirectory($keyDir) | Out-Null
+        if (!(newTestJunction "$keyDir\$PID" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $result = initTmpDir
+
+        $result.Dir | Should -Be "$keyDir\$PID"
+        testPathIsLink $result.Dir | Should -Be $false
+        Test-Path -LiteralPath $result.Dir -PathType Container | Should -Be $true
+        Test-Path -LiteralPath "$outside\外.tsv" | Should -Be $true
+        @(Get-ChildItem -LiteralPath $outside -Force).Count | Should -Be 1
+    }
+
+    It "tmp そのものがジャンクションでも、これまでどおり作業フォルダを置ける" {
+        $workspace = newTestWorkspace @{ PublishDir = "$TestDrive\init_rootlink\出力\$PID"; TmpRoot = "$TestDrive\init_rootlink\tmp" }
+        ${legacyTmpParent} = "$TestDrive\init_rootlink\legacy"
+        [System.IO.Directory]::CreateDirectory("$TestDrive\init_rootlink") | Out-Null
+        if (!(newTestJunction "$TestDrive\init_rootlink\tmp" "$TestDrive\init_rootlink_target")) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $result = initTmpDir
+
+        $result.Dir | Should -Be (getWorkspaceTmpDir $workspace)
+        $result.Reason | Should -Be ""
+        Test-Path -LiteralPath $result.Dir -PathType Container | Should -Be $true
+    }
 }
 
 Describe "newWorkerTmpDir" -Tag Io {
@@ -344,6 +492,40 @@ Describe "newWorkerTmpDir" -Tag Io {
     It "親フォルダが空（置けなかった）なら、何も作らず空文字を返す" {
         { newWorkerTmpDir "" 1 } | Should -Not -Throw
         newWorkerTmpDir "" 1 | Should -BeNullOrEmpty
+    }
+
+    It "先に置かれた w<番号> のジャンクションは、先を消さずにジャンクションだけを外し、普通のフォルダとして作り直す" {
+        $parent = "$TestDrive\worker_link\1234"
+        $outside = "$TestDrive\worker_link_outside"
+        newTsv "$outside\外.tsv" @("外")
+        [System.IO.Directory]::CreateDirectory($parent) | Out-Null
+        if (!(newTestJunction "$parent\w1" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $dir = newWorkerTmpDir $parent 1
+
+        $dir | Should -Be "$parent\w1"
+        testPathIsLink $dir | Should -Be $false
+        Test-Path -LiteralPath "$outside\外.tsv" | Should -Be $true
+        @(Get-ChildItem -LiteralPath $outside -Force).Count | Should -Be 1
+    }
+
+    It "親フォルダがジャンクションなら、何も作らず空文字を返し、ログに出す" {
+        $outside = "$TestDrive\worker_parentlink_outside"
+        [System.IO.Directory]::CreateDirectory("$TestDrive\worker_parentlink") | Out-Null
+        if (!(newTestJunction "$TestDrive\worker_parentlink\1234" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        $log = New-Object System.IO.StringWriter
+        $script:indexerLog = $log
+
+        newWorkerTmpDir "$TestDrive\worker_parentlink\1234" 1 | Should -BeNullOrEmpty
+
+        @(Get-ChildItem -LiteralPath $outside -Force).Count | Should -Be 0
+        $log.ToString() | Should -Match "リンク"
     }
 }
 
@@ -446,6 +628,40 @@ Describe "removeDroppedFolders" -Tag Io {
 
         [System.IO.Directory]::Exists((toLongPath "$indexDir\[旧]営業")) | Should -Be $false
         Test-Path -LiteralPath "$indexDir\[旧]営業2\見積.xlsx\Sheet1.tsv" | Should -Be $true
+    }
+
+    It "インデックスの中にあるジャンクションの先は消さず、ジャンクションだけを外す" {
+        $indexDir = "$TestDrive\dropped_junction\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
+        $outside = "$TestDrive\dropped_junction_outside"
+        newTsv "$outside\外.tsv" @("外")
+        newTsv "$indexDir\技術\仕様.docx\ページ001.tsv" @("b")
+        if (!(newTestJunction "$indexDir\技術\リンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        removeDroppedFolders @(findDroppedIndexes @() @([pscustomobject]@{ Path = "C:\data\技術"; Name = "技術" }))
+
+        Test-Path -LiteralPath "$indexDir\技術" | Should -Be $false
+        Test-Path -LiteralPath "$outside\外.tsv" | Should -Be $true
+    }
+
+    It "インデックスのフォルダそのものがジャンクションなら、ジャンクションだけを外し、先は消さない" {
+        $indexDir = "$TestDrive\dropped_rootlink\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
+        $outside = "$TestDrive\dropped_rootlink_outside"
+        newTsv "$outside\外.tsv" @("外")
+        [System.IO.Directory]::CreateDirectory($indexDir) | Out-Null
+        if (!(newTestJunction "$indexDir\技術" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        removeDroppedFolders @(findDroppedIndexes @() @([pscustomobject]@{ Path = "C:\data\技術"; Name = "技術" }))
+
+        Test-Path -LiteralPath "$indexDir\技術" | Should -Be $false
+        Test-Path -LiteralPath "$outside\外.tsv" | Should -Be $true
     }
 
     It "前回のクロール対象フォルダが無ければ何も削除しない" {
