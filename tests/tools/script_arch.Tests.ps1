@@ -123,7 +123,7 @@ Describe "変数" -Tag Unit {
             expected = 'upper/a.ps1 -> lower/b.ps1（$config）'
         }
         @{ name = "`$env: のようなドライブの変数は返さない"
-            files = @{ "upper/a.ps1" = 'function callA { $env:config }'; "lower/b.ps1" = '$config = 1' }
+            files = @{ "upper/a.ps1" = 'function callA { $env:config }'; "lower/b.ps1" = '$env:config = 1' }
             expected = ""
         }
         @{ name = "関数の引数は返さない"

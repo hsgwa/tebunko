@@ -61,12 +61,12 @@
 
 今ある逆向きの依存は、同じファイルの例外の一覧（「from のファイル・to のファイル・名前」の組と、許している理由）に載せ、増やさない。直したら一覧から消す（どの行でも見つからなくなった例外は、テストが失敗にする）。例外は、次の種類に分かれる。
 
-- 状態層の中で、下のフォルダが上のフォルダの関数・変数を使う依存（向きごとの件数: `index/` から `search/` 16・`index/` から `indexer/` 6・`core/` から `index/` 3・`indexer/` から `search/` 2）。`tebunko/index/system_index.ps1` から `tebunko/search/search_gram.ps1`（gram の関数）、`tebunko/index/` から `tebunko/search/source_map.ps1`（取り込み一覧・情報源フォルダのファイルの読み書き）、`tebunko/index/` から `tebunko/indexer/indexer_state.ps1`（状態ファイル・ログの読み書き）への依存が多い。どれも、下のフォルダへ関数を移すと消える。
-- 状態層が、画面層の `tebunko/ui/settings/settings.ps1` が作る `$workspace` を読む依存（13 件）。どの層に置くかを決めていない。
-- `shared/` が `tebunko/` の関数・変数を使う依存（8 件）。共有の部品のコメントで「ツールの側が定義する」と決めてある形と、決めた形ではない今ある依存がある。
-- 判断層（`search_bar_view.ps1`）が、共有の画面層の `formatTime` を呼ぶ依存（1 件）。
+- 状態層の中で、下のフォルダが上のフォルダの関数・変数を使う依存。`tebunko/index/system_index.ps1` から `tebunko/search/search_gram.ps1`（gram の関数）、`tebunko/index/` から `tebunko/search/source_map.ps1`（取り込み一覧・情報源フォルダのファイルの読み書き）、`tebunko/index/` から `tebunko/indexer/indexer_state.ps1`（状態ファイル・ログの読み書き）への依存が多い。どれも、下のフォルダへ関数を移すと消える。
+- 状態層が、画面層の `tebunko/ui/settings/settings.ps1` が作る `$workspace` を読む依存。どの層に置くかを決めていない。
+- `shared/` が `tebunko/` の関数・変数を使う依存。共有の部品のコメントで「ツールの側が定義する」と決めてある形と、決めた形ではない今ある依存がある。
+- 判断層（`search_bar_view.ps1`）が、共有の画面層の `formatTime` を呼ぶ依存。
 
-見つからないもの（限界）: `& $name` の呼び出し、コールバックで渡したスクリプトブロックの中から呼ぶ形、`$ui` を別の名前の引数で受け取る形、クラスのメソッドの呼び出し、`Set-Variable` での代入。`New-Object` に文字列で渡す型と、`using namespace` で短く書いた型は、構文木では型として見えない（文字列の検査が見る）。同じ名前の関数・変数が、見る側のパスにもあるときは、そちらを使っているとみなす。
+見つからないもの（限界）: `& $name` の呼び出し、コールバックで渡したスクリプトブロックの中から呼ぶ形、`$ui` を別の名前の引数で受け取る形、クラスのメソッドの呼び出し、`Set-Variable` での代入。別のファイルのクラスを型として使う依存（`[型]::new()`・引数や戻り値の型）は、依存の向きの表では見つからない（決めた型 `System.Windows.*` だけは、画面の変数・型の検査が見る）。`New-Object` に文字列で渡す型と、`using namespace` で短く書いた型は、構文木では型として見えない（文字列の検査が見る）。同じ名前の関数・変数が、見る側のパスにもあるときは、そちらを使っているとみなす。
 
 ## 読み込み口
 
