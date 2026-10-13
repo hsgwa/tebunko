@@ -47,6 +47,8 @@
 | `tebunko/core/` | `shared/office/`・`shared/core/` |
 | `shared/office/` | `shared/core/` |
 
+共有の状態層（`shared/core/`・`shared/office/`）は、共有の画面層（`shared/ui/`）にも依存しない。
+
 今の呼び出しの多い向きに合わせた（`indexer` → `index` と `search` → `index` と `index` → `core` が順向きで多く、読み込み口の順 `core` → `index` → `search`・`indexer` とも合う）。
 
 向きの検査は、文字列ではなく構文木（AST）で行う（`tools/script_arch.ps1`。部品自身のテストは `tests/tools/script_arch.Tests.ps1`）。全部のファイルが同じスコープに読み込まれ、下の層が上の層の関数・変数を名前で使っても動いてしまうため、ファイルごとに構文木を作り、次を見る。
@@ -57,12 +59,14 @@
 
 `tests/meta/layers.Tests.ps1` の「依存の向き（ファイル単位）」が、「このパスのファイルは、あのパスのファイルに依存しない」の表で決まりを書く。失敗の文には、ファイルの組と、関数・変数の名前が出る。
 
-今ある逆向きの依存は、同じファイルの例外の一覧（「from のファイル・to のファイル・名前」の組と、許している理由）に載せ、増やさない。直したら一覧から消す（どの行でも見つからなくなった例外は、テストが失敗にする）。例外の大半は 2 つの種類に分かれる。
+今ある逆向きの依存は、同じファイルの例外の一覧（「from のファイル・to のファイル・名前」の組と、許している理由）に載せ、増やさない。直したら一覧から消す（どの行でも見つからなくなった例外は、テストが失敗にする）。例外は、次の種類に分かれる。
 
-- `tebunko/index/system_index.ps1` から `tebunko/search/search_gram.ps1`（gram の関数）への依存と、`tebunko/index/` から `tebunko/search/source_map.ps1`（取り込み一覧・情報源フォルダのファイルの読み書き）への依存。どちらも、下のフォルダ（`index/`）へ関数を移すと消える。
-- 状態層が、画面層の `tebunko/ui/settings/settings.ps1` が作る `$workspace` を読む依存。どの層に置くかを決めていない。
+- 状態層の中で、下のフォルダが上のフォルダの関数・変数を使う依存（向きごとの件数: `index/` から `search/` 16・`index/` から `indexer/` 6・`core/` から `index/` 3・`indexer/` から `search/` 2）。`tebunko/index/system_index.ps1` から `tebunko/search/search_gram.ps1`（gram の関数）、`tebunko/index/` から `tebunko/search/source_map.ps1`（取り込み一覧・情報源フォルダのファイルの読み書き）、`tebunko/index/` から `tebunko/indexer/indexer_state.ps1`（状態ファイル・ログの読み書き）への依存が多い。どれも、下のフォルダへ関数を移すと消える。
+- 状態層が、画面層の `tebunko/ui/settings/settings.ps1` が作る `$workspace` を読む依存（13 件）。どの層に置くかを決めていない。
+- `shared/` が `tebunko/` の関数・変数を使う依存（8 件）。共有の部品のコメントで「ツールの側が定義する」と決めてある形と、決めた形ではない今ある依存がある。
+- 判断層（`search_bar_view.ps1`）が、共有の画面層の `formatTime` を呼ぶ依存（1 件）。
 
-見つからないもの（限界）: `& $name` の呼び出し、コールバックで渡したスクリプトブロックの中から呼ぶ形、`$ui` を別の名前の引数で受け取る形、クラスのメソッドの呼び出し、`Set-Variable` での代入。同じ名前の関数・変数が、見る側のパスにもあるときは、そちらを使っているとみなす。
+見つからないもの（限界）: `& $name` の呼び出し、コールバックで渡したスクリプトブロックの中から呼ぶ形、`$ui` を別の名前の引数で受け取る形、クラスのメソッドの呼び出し、`Set-Variable` での代入。`New-Object` に文字列で渡す型と、`using namespace` で短く書いた型は、構文木では型として見えない（文字列の検査が見る）。同じ名前の関数・変数が、見る側のパスにもあるときは、そちらを使っているとみなす。
 
 ## 読み込み口
 

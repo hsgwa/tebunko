@@ -32,11 +32,11 @@ function testPathLike {
     return $false
 }
 
-# 代入の左辺にある変数のパス（VariablePath）を返す。$a = ・[int]$a = ・$a, $b = の形
+# 代入の左辺にある変数のパス（VariablePath）を返す。$a = ・[int]$a = ・[string][int]$a = ・$a, $b = の形
 function getAssignedVariablePaths {
     param ($left)
 
-    if ($left -is [System.Management.Automation.Language.ConvertExpressionAst]) { $left = $left.Child }
+    while ($left -is [System.Management.Automation.Language.ConvertExpressionAst]) { $left = $left.Child }
     if ($left -is [System.Management.Automation.Language.VariableExpressionAst]) { return @($left.VariablePath) }
     $result = @()
     if ($left -is [System.Management.Automation.Language.ArrayLiteralAst]) {
@@ -144,9 +144,11 @@ function newScriptArch {
 
     foreach ($file in (Get-ChildItem -LiteralPath $rootFull -Recurse -Filter "*.ps1" | Sort-Object FullName)) {
         $rel = $file.FullName.Substring($rootFull.Length + 1) -replace '\\', '/'
-        $tokens = $null
         $errors = $null
-        $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors)
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$errors)
+        # 別のファイルで定義した型を使うクラス（TypeNotFound）は、1 ファイルだけでは解決できないので、構文エラーに数えない
+        $syntaxErrors = @($errors | Where-Object { $_.ErrorId -ne 'TypeNotFound' })
+        if ($syntaxErrors.Count -gt 0) { throw "構文エラーがあり、依存を読めない: ${rel}:$($syntaxErrors[0].Extent.StartLineNumber) $($syntaxErrors[0].Message)" }
 
         $calls = New-Object System.Collections.Generic.List[object]
         $varUses = New-Object System.Collections.Generic.List[object]
@@ -154,12 +156,16 @@ function newScriptArch {
         $topVars = New-Object System.Collections.Generic.List[string]
         foreach ($node in $ast.FindAll($interesting, $true)) {
             if ($node -is [System.Management.Automation.Language.FunctionDefinitionAst]) {
+                # クラスのメソッドは、関数の呼び出しでは呼べないので、関数の定義に数えない
+                if ($node.Parent -is [System.Management.Automation.Language.FunctionMemberAst]) { continue }
                 if (-not $defs.ContainsKey($node.Name)) { $defs[$node.Name] = New-Object System.Collections.Generic.List[string] }
                 if (-not $defs[$node.Name].Contains($rel)) { $defs[$node.Name].Add($rel) }
             } elseif ($node -is [System.Management.Automation.Language.CommandAst]) {
                 $name = $node.GetCommandName()
                 if ($name) { $calls.Add([pscustomobject]@{ Name = $name; Line = $node.Extent.StartLineNumber }) }
             } elseif ($node -is [System.Management.Automation.Language.VariableExpressionAst]) {
+                # $env:Path のようなドライブの変数は、スクリプトの変数ではないので数えない
+                if ($node.VariablePath.IsDriveQualified) { continue }
                 $varUses.Add([pscustomobject]@{
                         Node     = $node
                         Name     = (getVariableBaseName $node.VariablePath)

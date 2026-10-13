@@ -71,6 +71,16 @@ Describe "関数の呼び出し" -Tag Unit {
             from = "upper/*"; to = "lower/*"
             expected = "upper/a.ps1 -> lower/b.ps1（lowerFn）"
         }
+        @{ name = "同じ名前の関数が依存先の 2 つのファイルにあれば、両方を返す"
+            files = @{ "upper/a.ps1" = 'function callA { betaFn }'; "lower/b.ps1" = 'function betaFn { 1 }'; "lower/c.ps1" = 'function betaFn { 2 }' }
+            from = "upper/*"; to = "lower/*"
+            expected = "upper/a.ps1 -> lower/b.ps1（betaFn）, upper/a.ps1 -> lower/c.ps1（betaFn）"
+        }
+        @{ name = "クラスのメソッドは、関数の定義に数えない"
+            files = @{ "upper/a.ps1" = 'function callA { Run }'; "lower/b.ps1" = 'class Worker { [void] Run() { 1 } }' }
+            from = "upper/*"; to = "lower/*"
+            expected = ""
+        }
     ) {
         param ($files, $from, $to, $expected)
 
@@ -91,6 +101,30 @@ Describe "変数" -Tag Unit {
         @{ name = "`$script: を付けた読みも返す"
             files = @{ "upper/a.ps1" = 'function callA { $script:config }'; "lower/b.ps1" = '$config = 1' }
             expected = 'upper/a.ps1 -> lower/b.ps1（$config）'
+        }
+        @{ name = "別のパスの関数の中の `$global: の代入を読むと返す"
+            files = @{ "upper/a.ps1" = 'function callA { $config }'; "lower/b.ps1" = 'function init { $global:config = 1 }' }
+            expected = 'upper/a.ps1 -> lower/b.ps1（$config）'
+        }
+        @{ name = "別のパスの `$a, `$b = の代入を読むと返す"
+            files = @{ "upper/a.ps1" = 'function callA { $second }'; "lower/b.ps1" = '$first, $second = 1, 2' }
+            expected = 'upper/a.ps1 -> lower/b.ps1（$second）'
+        }
+        @{ name = "別のパスの [int]`$a = の代入を読むと返す"
+            files = @{ "upper/a.ps1" = 'function callA { $config }'; "lower/b.ps1" = '[int]$config = 1' }
+            expected = 'upper/a.ps1 -> lower/b.ps1（$config）'
+        }
+        @{ name = "型変換が二重の [string][int]`$a = の代入も読む"
+            files = @{ "upper/a.ps1" = 'function callA { $config }'; "lower/b.ps1" = '[string][int]$config = 1' }
+            expected = 'upper/a.ps1 -> lower/b.ps1（$config）'
+        }
+        @{ name = "別のパスのクラスのメソッドの中の `$script: の代入を読むと返す"
+            files = @{ "upper/a.ps1" = 'function callA { $config }'; "lower/b.ps1" = 'class Worker { [void] Init() { $script:config = 1 } }' }
+            expected = 'upper/a.ps1 -> lower/b.ps1（$config）'
+        }
+        @{ name = "`$env: のようなドライブの変数は返さない"
+            files = @{ "upper/a.ps1" = 'function callA { $env:config }'; "lower/b.ps1" = '$config = 1' }
+            expected = ""
         }
         @{ name = "関数の引数は返さない"
             files = @{ "upper/a.ps1" = 'function callA { param ($config) $config }'; "lower/b.ps1" = '$config = 1' }
@@ -205,10 +239,22 @@ Describe "ファイル単位" -Tag Unit {
         (dependenciesOf $files "upper/c.ps1" "lower/*") | Should -Be "upper/c.ps1 -> lower/b.ps1（betaFn）"
     }
 
-    It "解析した結果（newScriptArch）を渡しても、root のパスを渡しても、同じになる" {
+    It "解析した結果（newScriptArch）を渡しても、root のパスを渡しても、期待した 1 行になる" {
         $root = newSampleRoot @{ "upper/a.ps1" = 'function callA { betaFn }'; "lower/b.ps1" = 'function betaFn { 1 }' }
         $arch = newScriptArch $root
-        (@(findFileDependencies $arch -From "upper/*" -To "lower/*") -join ", ") | Should -Be (@(findFileDependencies $root -From "upper/*" -To "lower/*") -join ", ")
+        $expected = "upper/a.ps1 -> lower/b.ps1（betaFn）"
+        (@(findFileDependencies $arch -From "upper/*" -To "lower/*") -join ", ") | Should -Be $expected
+        (@(findFileDependencies $root -From "upper/*" -To "lower/*") -join ", ") | Should -Be $expected
+    }
+
+    It "構文エラーのあるファイルがあれば、読めないとして失敗する" {
+        $root = newSampleRoot @{ "upper/a.ps1" = 'function callA {' }
+        { newScriptArch $root } | Should -Throw "*構文エラー*upper/a.ps1*"
+    }
+
+    It "別のファイルの型を使うクラスは、構文エラーに数えない" {
+        $root = newSampleRoot @{ "upper/a.ps1" = 'class Child : BaseInOtherFile { }' }
+        { newScriptArch $root } | Should -Not -Throw
     }
 }
 

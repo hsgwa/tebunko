@@ -154,6 +154,9 @@ Describe "依存の向き（ファイル単位）" -Tag Meta {
         @{ from = "*/index_name.ps1"; to = "*/ui/*"; except = "" }
         @{ from = "*/search_query.ps1"; to = "*/ui/*"; except = "" }
         @{ from = "*/text.ps1"; to = "*/ui/*"; except = "" }
+        # 共有の状態層も、共有の画面層に依存しない
+        @{ from = "shared/core/*"; to = "shared/ui/*"; except = "" }
+        @{ from = "shared/office/*"; to = "shared/ui/*"; except = "" }
         # 状態層の中のフォルダは、下から上へ依存しない（indexer と search は同じ高さで、互いに依存しない。部品の -From・-To は一方向なので 2 行で書く）
         @{ from = "tebunko/core/*"; to = "tebunko/index/*"; except = "" }
         @{ from = "tebunko/core/*"; to = "tebunko/indexer/*"; except = "" }
@@ -246,7 +249,16 @@ Describe "依存の向き（ファイル単位）" -Tag Meta {
         param ($from, $to, $except)
 
         $left = @(removeAllowedDependencies (getFoundItems $from $to $except) $script:allowances)
-        (@(formatFileDependencies $left) -join ", ") | Should -Be ""
+        (@(formatFileDependencies $left) -join ", ") | Should -Be "" -Because "新しい依存は入れない。今ある依存を許すなら、このファイルの例外の一覧に理由つきで足す。向きの決まりを変えるなら docs/design/structure/source.md の「フォルダの分け方」も直す"
+    }
+
+    # 表の from・to が、どのファイルにも当たらないと、上の It は何も見ずに通ってしまう（フォルダやファイルの名前を変えたとき）
+    It "<from> -> <to> の両方に、当たるファイルがある" -TestCases $rules {
+        param ($from, $to, $except)
+
+        $paths = @((getScriptArch).Files | ForEach-Object { $_.Path })
+        @($paths | Where-Object { testPathLike $_ @($from) }).Count | Should -BeGreaterThan 0 -Because "from に当たるファイルが無い。表のパスを、名前を変えたフォルダ・ファイルに合わせる"
+        @($paths | Where-Object { (testPathLike $_ @($to)) -and -not (testPathLike $_ @($except)) }).Count | Should -BeGreaterThan 0 -Because "to に当たるファイルが無い。表のパスを、名前を変えたフォルダ・ファイルに合わせる"
     }
 
     # 直した依存の例外が残ると、同じ依存を後から足しても通ってしまう。全部の行の結果の和と突き合わせる
@@ -257,7 +269,7 @@ Describe "依存の向き（ファイル単位）" -Tag Meta {
         $all = @()
         foreach ($rule in $rules) { $all += (getFoundItems $rule.from $rule.to $rule.except) }
         $unused = @(findUnusedAllowances $script:allowances $all | ForEach-Object { "$($_.From) -> $($_.To)（$($_.Name)）" })
-        ($unused -join ", ") | Should -Be ""
+        ($unused -join ", ") | Should -Be "" -Because "直した依存の例外は、このファイルの例外の一覧から消す"
     }
 
     It "例外のそれぞれに理由がある" {
