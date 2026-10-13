@@ -23,8 +23,8 @@ BeforeAll {
             [string]$relDir = "営業部"
         )
         $row = [HitRow]::Create("営業", "C:\index\営業", "$relDir\$book", $relDir, "$book.tsv", $book, $location, $lineNumber, $line, $word, $pattern)
-        # 行を作る側（result_list.ps1）が testCellPrefixedPlace で入れる値を、Excel の図形・コメントの場所で入れる
-        $row.IsCellPrefixed = $row.IsExcel -and ($location -match '\[(図形|コメント)\]$')
+        # 行を作る側（result_list.ps1）と同じ式で IsCellPrefixed を入れる
+        $row.IsCellPrefixed = testCellPrefixedPlace $book (splitObjectPlace $location).Kind
         $row
     }
 

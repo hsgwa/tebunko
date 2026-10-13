@@ -212,6 +212,20 @@ Describe "ensureRows" -Tag Unit {
         $group.Rows[2].IsCellPrefixed | Should -Be $false
     }
 
+    It "Excel の <Location> の行は、Prepare 後に一致したセルの番地 = 「<Cell>」、該当行 = 「<Shown>」になる" -ForEach @(
+        @{ Location = "4月[図形]"; Line = "B2`t見積の注記"; Cell = "B2"; Shown = "見積の注記" }
+        @{ Location = "4月[コメント]"; Line = "C3`t見積の確認"; Cell = "C3"; Shown = "見積の確認" }
+        @{ Location = "4月[ヘッダー・フッター]"; Line = "見積の件"; Cell = ""; Shown = "見積の件" }
+    ) {
+        $group = addHit "見積.xlsx" $Location $Line 1
+        ensureRows $group
+
+        $group.Rows[0].Prepare()
+
+        $group.Rows[0].MatchCell | Should -Be $Cell
+        $group.Rows[0].DisplayLine | Should -Be $Shown
+    }
+
     It "相対フォルダが空・無いときは、インデックス名も空にする" {
         $group = newFileGroup "C:\共有\見積.xlsx" "" "見積.xlsx"
         $group.Hits.Add([pscustomobject]@{ Root = "C:\tebunko\work\index"; RelPath = "見積.xlsx\4月.tsv"; RelDir = $null
