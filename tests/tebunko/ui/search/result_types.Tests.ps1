@@ -373,6 +373,10 @@ Describe "HitRow.Create" -Tag Unit {
         (newHitRow -book "議事録.docx" -location "ページ001[埋め込み]").IsObjectPlace | Should -Be $false
     }
 
+    It "図形の場所の判定の正規表現は、種類の表から組み立てたものと同じ" {
+        [HitRow]::ObjectPlaceRegex.ToString() | Should -Be (newObjectPlaceKindPattern)
+    }
+
     It "Excel のヘッダー・フッターの場所は、図形の場所の一種で、行の先頭がセル番地ではない（IsCellPrefixed は入れた値のまま。既定は偽）" {
         $row = newHitRow -location "[シート]4月[ヘッダー・フッター]"
         $row.IsObjectPlace | Should -Be $true

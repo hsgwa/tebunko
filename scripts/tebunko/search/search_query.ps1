@@ -134,12 +134,12 @@ function newPlaceExclude {
 
     $kinds = @()
     # 埋め込み（"[埋め込み<N>]"）は図形と一緒に切り替える（検索の選択肢を増やさない）
-    if (!$includeShapes) { $kinds += [regex]::Escape(${placeKindShape}); $kinds += "$([regex]::Escape(${placeKindEmbed}))[1-9][0-9]{0,8}" }
-    if (!$includeComments) { $kinds += [regex]::Escape(${placeKindComment}) }
+    if (!$includeShapes) { $kinds += ${placeKindShape}; $kinds += ${placeKindEmbed} }
+    if (!$includeComments) { $kinds += ${placeKindComment} }
     if ($kinds.Count -eq 0) {
         return $null
     }
-    return [regex]::new("\[(?:$($kinds -join '|'))\]$")
+    return [regex]::new((newObjectPlaceKindPattern -kinds $kinds))
 }
 
 # テキストのヒットの行・プレビューの前後の行を切る長さ（文字）と、一致の位置から遡る長さ（文字）。
