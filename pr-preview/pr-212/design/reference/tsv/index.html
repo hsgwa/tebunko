@@ -4382,7 +4382,7 @@
 <td><code>removeDirectoryRetry</code></td>
 <td>path, tries（既定 3）, waitMilliseconds（既定 200）</td>
 <td>–</td>
-<td>フォルダを中身ごと削除する（<code>removeTreeNoFollow</code>。中のリンクは辿らない）。ほかのアプリが一時的に掴んでいることがあるため、少し待って数回試す。消したあとに <code>[System.IO.Directory]::Exists</code> でフォルダが残っていれば、成功にせず例外にする（呼ぶ側は、消えたことが確かめられてから記録する）。最初に <code>Exists</code> が偽でも、<code>getPathState</code> で「無い」と確かめられたとき（またはフォルダでないものが同じ名前であるとき）だけ成功にし、届かない・読めないなど有無が分からないときは試し直して、なお分からなければ例外にする</td>
+<td>フォルダを中身ごと削除する（<code>removeTreeNoFollow</code>。中のリンクは辿らない）。ほかのアプリが一時的に掴んでいることがあるため、少し待って数回試す。消したあとに <code>[System.IO.Directory]::Exists</code> でフォルダが残っていれば、成功にせず例外にする（呼ぶ側は、消えたことが確かめられてから記録する）。試すたびに <code>Exists</code> が偽なら <code>getPathState</code> で見る。無いと確かめられたとき・フォルダでないものが同じ名前であるときは成功にする。届かない・読めないなど有無が分からないときは、試し直さずに OS の文面を添えて例外にする（権限が無いのに「削除しました」と記録しない）。フォルダとして在るのに開けないときだけ、決めた回数まで待って試し直し、使い切れば例外にする。空のパスは何もしない</td>
 <td><a href="../../../safety/file-access/">ファイルの読み書きの範囲</a></td>
 <td>インデックス作成・<code>RemoveIndex</code>・<code>removeDroppedFolders</code>（インデックス・作業フォルダの削除）</td>
 </tr>
