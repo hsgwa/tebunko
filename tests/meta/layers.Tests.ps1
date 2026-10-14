@@ -332,22 +332,26 @@ Describe "名前を文字列で渡す呼び出し" -Tag Meta {
     BeforeAll {
         $stringCall = "(名前の文字列)"
         $script:stringCallAllowances = @(
-            @{ From = "shared/core/worker_pool.ps1"; To = $stringCall; Name = "Get-Command"
+            @{ From = "shared/core/worker_pool.ps1"; To = $stringCall; Name = "Get-Command"; Count = 1
                 Reason = "別のスレッドへ、関数を名前で写す（呼ぶ関数が同じスレッドに読み込まれていることは、ワーカーのテストが確かめる）。名前を渡す側の文字列は、向きの検査に数えない" }
-            @{ From = "shared/office/office_app.ps1"; To = $stringCall; Name = "Get-Command"
+            @{ From = "shared/office/office_app.ps1"; To = $stringCall; Name = "Get-Command"; Count = 1
                 Reason = "別のスレッドへ、関数を名前で写す（呼ぶ関数が同じスレッドに読み込まれていることは、ワーカーのテストが確かめる）。名前を渡す側の文字列は、向きの検査に数えない" }
-            @{ From = "shared/core/worker_pool.ps1"; To = $stringCall; Name = ".AddScript"
+            @{ From = "shared/core/worker_pool.ps1"; To = $stringCall; Name = ".AddScript"; Count = 1
                 Reason = "別のスレッドで、ワーカーのスクリプト本文を実行する。本文は、呼び出し側が渡す値で、ここで関数の名前を決めない" }
-            @{ From = "shared/office/office_app.ps1"; To = $stringCall; Name = ".AddScript"
+            @{ From = "shared/office/office_app.ps1"; To = $stringCall; Name = ".AddScript"; Count = 1
                 Reason = "別のスレッドで、COM を扱うスクリプト本文を実行する。本文は、読み込み済みの関数を呼ぶだけで、ここで関数の名前を決めない" }
-            @{ From = "tebunko/indexer/indexer_run.ps1"; To = $stringCall; Name = ".AddScript"
+            @{ From = "tebunko/indexer/indexer_run.ps1"; To = $stringCall; Name = ".AddScript"; Count = 1
                 Reason = "取り込みのワーカーで、スクリプトブロックを実行する。ブロックの中の呼び出しは、構文木が数える" }
-            @{ From = "tebunko/indexer/indexing_session.ps1"; To = $stringCall; Name = ".AddScript"
+            @{ From = "tebunko/indexer/indexing_session.ps1"; To = $stringCall; Name = ".AddScript"; Count = 1
                 Reason = "取り込みの実行を別のスレッドで動かす。渡すのはスクリプトブロックで、中の呼び出しは構文木が数える" }
-            @{ From = "tebunko/search/search_service.ps1"; To = $stringCall; Name = ".AddScript"
+            @{ From = "tebunko/search/search_service.ps1"; To = $stringCall; Name = ".AddScript"; Count = 1
                 Reason = "検索の実行を別のスレッドで動かす。渡すのはスクリプトブロックで、中の呼び出しは構文木が数える" }
-            @{ From = "tebunko/ui/startup_error.ps1"; To = $stringCall; Name = "Get-Command"
+            @{ From = "tebunko/ui/startup_error.ps1"; To = $stringCall; Name = "Get-Command"; Count = 2
                 Reason = "起動の失敗を知らせる関数が読み込まれているかを、定数の名前で確かめるだけ（呼ぶ先は決まっている）" }
+            @{ From = "shared/core/worker_pool.ps1"; To = $stringCall; Name = "Get-Variable の名前が定数でない"; Count = 1
+                Reason = "別のスレッドへ写す変数の名前を、引数で受け取る。写す変数の一覧は、呼び出し側が渡す" }
+            @{ From = "tebunko/core/parts.ps1"; To = $stringCall; Name = "Get-Variable の名前が定数でない"; Count = 1
+                Reason = "別のスレッドへ渡す、配布版の変数（bundledParts・bundledScriptPath・bundledVersion）を、同じ関数の中で決まった 3 つの名前の繰り返しで引く" }
         )
     }
 
@@ -364,5 +368,17 @@ Describe "名前を文字列で渡す呼び出し" -Tag Meta {
     It "どの行にも理由がある" {
         $noReason = @($script:stringCallAllowances | Where-Object { -not $_.Reason } | ForEach-Object { "$($_.From)（$($_.Name)）" })
         ($noReason -join ", ") | Should -Be ""
+    }
+
+    # 載っているファイルに同じ形を足しても気づけるよう、ファイルと形ごとの数を行に持たせる
+    It "ファイルと形ごとの数が、一覧の行の数と同じ" {
+        $actual = @{}
+        foreach ($call in @(findStringNameCalls (getScriptArch))) {
+            $key = "$($call.From) $($call.Name)"
+            $actual[$key] = 1 + [int]$actual[$key]
+        }
+        $differ = @($script:stringCallAllowances | Where-Object { [int]$actual["$($_.From) $($_.Name)"] -ne $_.Count } |
+                ForEach-Object { "$($_.From)（$($_.Name)）: 一覧 $($_.Count)・実際 $([int]$actual["$($_.From) $($_.Name)"])" })
+        ($differ -join ", ") | Should -Be "" -Because "数が変わったら、その場所を確かめて、一覧の数と理由を直す"
     }
 }

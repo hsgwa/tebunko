@@ -264,10 +264,96 @@ Describe "Set-Variable・New-Variable" -Tag Unit {
         @{ name = "名前を変数で渡す形は、名前が決まらないので数えない"
             code = 'function init { param ($n) Set-Variable -Name $n -Value 1 -Scope Script }'; counted = $false
         }
+        @{ name = "別名 nv を数える"
+            code = 'nv config 1'; counted = $true
+        }
+        @{ name = "別名 set を数える"
+            code = 'set config 1'; counted = $true
+        }
+        @{ name = "-Scope を変数で渡す形は、スコープが決まらないので数えない"
+            code = 'function init { param ($s) Set-Variable -Name config -Value 1 -Scope $s }'; counted = $false
+        }
+        @{ name = "関数の中の local: 付きの名前は数えない"
+            code = 'function init { Set-Variable -Name "local:config" -Value 1 }'; counted = $false
+        }
+        @{ name = "値を取る共通の引数の値を、名前と読まない"
+            code = 'Set-Variable -ErrorAction SilentlyContinue config 1'; counted = $true
+        }
+        @{ name = "-OutVariable の値を、名前と読まない"
+            code = 'Set-Variable -OutVariable ov config 1'; counted = $true
+        }
+        @{ name = "モジュールの修飾つきの名前を数える"
+            code = 'Microsoft.PowerShell.Utility\Set-Variable config 1'; counted = $true
+        }
     ) {
         param ($code, $counted)
 
         $files = @{ "upper/a.ps1" = 'function callA { $config }'; "lower/b.ps1" = $code }
+        $expected = if ($counted) { 'upper/a.ps1 -> lower/b.ps1（$config）' } else { "" }
+        (dependenciesOf $files @("upper/*") @("lower/*")) | Should -Be $expected
+    }
+
+    It "Dynamic という名前の変数も、名前の決まらない印と混ざらず数える" {
+        $files = @{ "upper/a.ps1" = 'function callA { $Dynamic }'; "lower/b.ps1" = 'Set-Variable -Name Dynamic -Value 1' }
+        (dependenciesOf $files @("upper/*") @("lower/*")) | Should -Be 'upper/a.ps1 -> lower/b.ps1（$Dynamic）'
+    }
+}
+
+# 変数を名前で読む形（Get-Variable・variable: ドライブ）。名前が定数なら、その変数の読みとして数える
+Describe "名前で読む変数" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "Get-Variable -Name を数える"
+            code = 'function callA { Get-Variable -Name config -ValueOnly }'; counted = $true
+        }
+        @{ name = "Get-Variable の位置引数の名前を数える"
+            code = 'function callA { Get-Variable config -ValueOnly }'; counted = $true
+        }
+        @{ name = "-ValueOnly を先に書いた位置引数の名前を数える"
+            code = 'function callA { Get-Variable -ValueOnly config }'; counted = $true
+        }
+        @{ name = "-ErrorAction の値があっても名前を数える"
+            code = 'function callA { Get-Variable -ErrorAction SilentlyContinue config }'; counted = $true
+        }
+        @{ name = "別名 gv を数える"
+            code = 'function callA { gv config }'; counted = $true
+        }
+        @{ name = "モジュールの修飾つきの Get-Variable を数える"
+            code = 'function callA { Microsoft.PowerShell.Utility\Get-Variable config }'; counted = $true
+        }
+        @{ name = "script: 付きの名前を数える"
+            code = 'function callA { Get-Variable -Name "script:config" }'; counted = $true
+        }
+        @{ name = "名前を変数で渡す Get-Variable は、依存に数えない"
+            code = 'function callA { param ($n) Get-Variable -Name $n }'; counted = $false
+        }
+        @{ name = "ワイルドカードの名前は、依存に数えない"
+            code = 'function callA { Get-Variable -Name "conf*" }'; counted = $false
+        }
+        @{ name = '${variable:名前} を数える'
+            code = 'function callA { ${variable:config} }'; counted = $true
+        }
+        @{ name = '$variable:名前 を数える'
+            code = 'function callA { $variable:config }'; counted = $true
+        }
+        @{ name = "Get-Item variable:名前 を数える"
+            code = 'function callA { (Get-Item variable:config).Value }'; counted = $true
+        }
+        @{ name = "引用符つきの Get-Content variable:名前 を数える"
+            code = 'function callA { Get-Content "variable:config" }'; counted = $true
+        }
+        @{ name = "Test-Path variable:名前 を数える"
+            code = 'function callA { Test-Path variable:config }'; counted = $true
+        }
+        @{ name = "variable: の名前が変数のものは、依存に数えない"
+            code = 'function callA { param ($n) Get-Item "variable:$n" }'; counted = $false
+        }
+        @{ name = '$env: のようなほかのドライブは数えない'
+            code = 'function callA { $env:config; Get-Item env:config }'; counted = $false
+        }
+    ) {
+        param ($code, $counted)
+
+        $files = @{ "upper/a.ps1" = $code; "lower/b.ps1" = '$config = 1' }
         $expected = if ($counted) { 'upper/a.ps1 -> lower/b.ps1（$config）' } else { "" }
         (dependenciesOf $files @("upper/*") @("lower/*")) | Should -Be $expected
     }
@@ -313,11 +399,28 @@ Describe "クラスの型と function: ドライブ" -Tag Unit {
         @{ name = "`$function:名前 も返す"
             upper = 'function callA { & $function:betaFn }'; expected = "upper/a.ps1 -> lower/b.ps1（betaFn）"
         }
+        @{ name = "New-Object <クラス名> を返す"
+            upper = 'function callA { New-Object Worker }'; expected = "upper/a.ps1 -> lower/b.ps1（[Worker]）"
+        }
+        @{ name = "New-Object -TypeName <クラス名> を返す"
+            upper = 'function callA { New-Object -TypeName Worker }'; expected = "upper/a.ps1 -> lower/b.ps1（[Worker]）"
+        }
+        @{ name = "New-Object に変数で渡す型は返さない"
+            upper = 'function callA { param ($t) New-Object $t }'; expected = ""
+        }
+        @{ name = "New-Object の .NET の型は返さない"
+            upper = 'function callA { New-Object System.Text.StringBuilder; New-Object byte[] 4 }'; expected = ""
+        }
     ) {
         param ($upper, $expected)
 
         $files = @{ "upper/a.ps1" = $upper; "lower/b.ps1" = "class Worker { }`nfunction betaFn { 1 }" }
         (dependenciesOf $files @("upper/*") @("lower/*")) | Should -Be $expected
+    }
+
+    It "別のファイルで定義した enum は、クラスとして数えない" {
+        $files = @{ "upper/a.ps1" = 'function callA { [Mode]::A }'; "lower/b.ps1" = 'enum Mode { A; B }' }
+        (dependenciesOf $files @("upper/*") @("lower/*")) | Should -Be ""
     }
 
     It "見る側のパスにも同じ名前のクラスがあれば、そちらを使ったとみなして返さない" {
@@ -365,6 +468,54 @@ Describe "名前を文字列で渡す呼び出し" -Tag Unit {
         }
         @{ name = "名前が定数でない Set-Variable を返す"
             code = 'function callA { param ($n) Set-Variable -Name $n -Value 1 }'; expected = "upper/a.ps1 Set-Variable・New-Variable の -Name が定数でない"
+        }
+        @{ name = "モジュールの修飾つきの Get-Command を返す"
+            code = 'function callA { param ($n) Microsoft.PowerShell.Core\Get-Command $n }'; expected = "upper/a.ps1 Get-Command"
+        }
+        @{ name = "別名 iex を返す"
+            code = 'function callA { param ($t) iex $t }'; expected = "upper/a.ps1 Invoke-Expression"
+        }
+        @{ name = "モジュールの修飾つきの Invoke-Expression を返す"
+            code = 'function callA { param ($t) Microsoft.PowerShell.Utility\Invoke-Expression $t }'; expected = "upper/a.ps1 Invoke-Expression"
+        }
+        @{ name = "Set-Alias を返す"
+            code = 'Set-Alias run betaFn'; expected = "upper/a.ps1 Set-Alias・New-Alias"
+        }
+        @{ name = "New-Alias を返す"
+            code = 'New-Alias -Name run -Value betaFn'; expected = "upper/a.ps1 Set-Alias・New-Alias"
+        }
+        @{ name = "別名 sal を返す"
+            code = 'sal run betaFn'; expected = "upper/a.ps1 Set-Alias・New-Alias"
+        }
+        @{ name = "System.Management.Automation.ScriptBlock の Create を返す"
+            code = 'function callA { param ($t) [System.Management.Automation.ScriptBlock]::Create($t) }'; expected = "upper/a.ps1 [scriptblock]::Create"
+        }
+        @{ name = "Management.Automation.ScriptBlock の Create を返す"
+            code = 'function callA { param ($t) [Management.Automation.ScriptBlock]::Create($t) }'; expected = "upper/a.ps1 [scriptblock]::Create"
+        }
+        @{ name = "Test-Path の function: ドライブを返す"
+            code = 'function callA { param ($n) Test-Path "function:$n" }'; expected = "upper/a.ps1 function: ドライブ"
+        }
+        @{ name = "Get-ChildItem の function: ドライブを返す"
+            code = 'function callA { Get-ChildItem function:*Fn }'; expected = "upper/a.ps1 function: ドライブ"
+        }
+        @{ name = "名前が定数でない Get-Variable を返す"
+            code = 'function callA { param ($n) Get-Variable -Name $n -ValueOnly }'; expected = "upper/a.ps1 Get-Variable の名前が定数でない"
+        }
+        @{ name = "名前の無い Get-Variable を返す"
+            code = 'function callA { Get-Variable }'; expected = "upper/a.ps1 Get-Variable の名前が定数でない"
+        }
+        @{ name = "名前が定数の Get-Variable は返さない（変数の読みとして数える）"
+            code = 'function callA { Get-Variable -Name config }'; expected = ""
+        }
+        @{ name = "名前が定数でない variable: ドライブの読みを返す"
+            code = 'function callA { param ($n) Get-Item "variable:$n" }'; expected = "upper/a.ps1 variable: ドライブの名前が定数でない"
+        }
+        @{ name = "名前が定数の variable: ドライブの読みは返さない"
+            code = 'function callA { Get-Item variable:config }'; expected = ""
+        }
+        @{ name = "enum は返さない"
+            code = 'enum Mode { A; B }'; expected = ""
         }
         @{ name = "& `$変数（呼ぶ値を受け取る形）は返さない"
             code = 'function callA { param ($cb) & $cb 1; . $cb }'; expected = ""

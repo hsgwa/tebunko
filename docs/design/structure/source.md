@@ -110,7 +110,7 @@ flowchart LR
   - `移すと消える`: ファイル・COM に触らない値や関数（拡張子の一覧・状態の名前・フォルダ名の組み立てなど）が状態層のファイルにある。判断層のファイルへ移すと消える。
 - 画面の判断層（`result_list_view.ps1`）が、画面層のクラス（`FileGroup`・`HitRow`）を型として使う依存と、`tebunko/index/` が `tebunko/indexer/` のクラス（`StatusLedger`）を型として使う依存。
 
-例外の一覧に残っている依存を、フォルダ単位で並べると次のとおり（点線の矢印が、決めた向きに反する今の依存。括弧は一覧の行の数）。
+例外の一覧に残っている依存のうち、状態層のフォルダどうしと `shared/` の逆向きの依存を、フォルダ単位で並べると次のとおり（点線の矢印が、決めた向きに反する今の依存。括弧は一覧の行の数）。判断層からの依存（上の箇条書きの `境界`・`移すと消える`）と、クラスの型の依存は、フォルダ単位にまとまらないので、図には描かず箇条書きで示す。
 
 ```mermaid
 flowchart TD
@@ -142,17 +142,25 @@ flowchart TD
 
 - 関数の呼び出し（`${function:名前}` も含む）。
 - `=` の代入と、`Set-Variable -Name <定数>`・`New-Variable -Name <定数>`（最上位・`$script:`・`$global:` の代入と同じ条件で数える）。
-- 別のファイルで定義したクラスを、`[型名]`（`[型]::new()`・引数・戻り値・変数の型）で使う形。`findFileDependencyItems` が `[型名]` の名で返し、例外の一覧にも同じ名で書く。
+- 変数を名前で読む形で、名前が定数のもの: `Get-Variable`（`gv`）、`${variable:名前}`・`$variable:名前`、`Get-Item`・`Get-Content`・`Test-Path` などの `variable:名前`。
+- 別のファイルで定義したクラスを、`[型名]`（`[型]::new()`・引数・戻り値・変数の型）か `New-Object <クラス名>`（名前が定数のもの）で使う形。`findFileDependencyItems` が `[型名]` の名で返し、例外の一覧にも同じ名で書く。
+- コマンドの名前は、モジュール名の修飾（`Microsoft.PowerShell.Utility\Get-Command` など）を外して比べる。
 
-名前を文字列で渡す呼び出し（`Get-Command '名前'`・`.AddScript('…')` など）は、呼ぶ先が構文木から決まらないので、向きの表では数えない。代わりに、`tests/meta/layers.Tests.ps1` の「名前を文字列で渡す呼び出し」が、今ある所を理由つきの閉じた一覧にし、増えたら失敗にする。
+呼ぶ先や読む変数が構文木から決まらない書き方は、向きの表では数えない。代わりに、`tests/meta/layers.Tests.ps1` の「名前を文字列で渡す呼び出し」が、今ある所を理由つきの閉じた一覧にし、増えたら失敗にする。ファイルと形ごとの数も一覧の行に持たせ、載っているファイルに同じ形を足しても失敗にする。形は次のとおり。
+
+- `Get-Command`・`Invoke-Expression`（`iex`）・`Set-Alias`・`New-Alias`・`[scriptblock]::Create`・`$ExecutionContext.InvokeCommand`・`.AddCommand`・`.AddScript`
+- `& (式)`・`& "展開文字列"`（呼ぶ名前が式で決まる形）
+- `function:` ドライブを引く `Get-Item`・`Test-Path`・`Get-ChildItem` など
+- 名前が定数でない `Set-Variable`・`New-Variable`・`Get-Variable`
+- 名前が定数でない `variable:` ドライブの読み
 
 見つからないもの（限界）:
 
 - `& $name` の呼び出し、コールバックで渡したスクリプトブロックの中から呼ぶ形、`$ui` を別の名前の引数で受け取る形、クラスのメソッドの呼び出し。
-- 名前が定数でない `Set-Variable`・`New-Variable`（`-Name $変数`）。
-- `New-Object` に文字列で渡す型と、`using namespace` で短く書いた型（文字列の検査が見る）。
+- `New-Object` に変数で渡す型と、`using namespace` で短く書いた型（文字列の検査が見る）。
+- `variable:` ドライブへの書き込み（`Set-Item`・`New-Item` など）。
 
-同じ名前の関数・変数が、見る側のパスにもあるときは、そちらを使っているとみなす。
+同じ名前の関数・変数・クラスが、見る側のパスにもあるときは、そちらを使っているとみなす。
 
 ## 読み込み口
 
