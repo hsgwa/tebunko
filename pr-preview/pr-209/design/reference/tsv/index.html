@@ -4371,6 +4371,30 @@
 <td>インデックス作成・検索</td>
 </tr>
 <tr>
+<td><code>testPathUnder</code></td>
+<td>path, root</td>
+<td>bool</td>
+<td>path が root の下（root そのものは含まない）にあるか。<code>..</code>・<code>.</code>・最後の <code>.</code> や空白・<code>\\?\</code> を解決してから比べる。状態のファイルから読んだ名前でフォルダを消す前に使う</td>
+<td><a href="../../../safety/file-access/">ファイルの読み書きの範囲</a></td>
+<td>インデックス・作業フォルダの削除, <code>IndexCatalog</code></td>
+</tr>
+<tr>
+<td><code>getFolderNameProblemText</code></td>
+<td>name, allowReserved（既定 <code>$false</code>）</td>
+<td>string（問題の文。使えれば空）</td>
+<td>フォルダ名として使えるか（空・前後の空白・長すぎる・使えない文字・最後の <code>.</code>・予約名）。allowReserved が <code>$true</code> のときは予約名（<code>aux.backup</code> など）を拒まない（既にある実在のフォルダの名前を空にしないため。新しく付ける名前には使わない）。どのツールからも使う</td>
+<td>同上</td>
+<td>testIndexName, testStoredIndexName, newIndexName, getTargetFolders, readStatusFile</td>
+</tr>
+<tr>
+<td><code>testPlainFolderName</code></td>
+<td>name</td>
+<td>bool</td>
+<td>外へ出ず名前のとおりに作れるフォルダ名か（空・<code>.</code>・<code>..</code>・長すぎる・使えない文字だけを拒む。予約名・最後の <code>.</code> や空白は問わない）</td>
+<td>同上</td>
+<td>readStatusFile（<code>LegacyFolders</code> の判定）</td>
+</tr>
+<tr>
 <td><code>trimTrailingSeparator</code></td>
 <td>path</td>
 <td>string</td>
@@ -4564,7 +4588,7 @@
 <td>path</td>
 <td>bool</td>
 <td>拡張子が対象のテキストの拡張子（<code>$textExtensions</code>。大文字・小文字を区別しない）か</td>
-<td>ingestFile, getContentIndexFileKind, describePlace, getAppKind, findTargetFiles（<code>$targetExtensions</code>）</td>
+<td>ingestFile, getContentIndexFileKind, describePlace, findTargetFiles（<code>$targetExtensions</code>）</td>
 </tr>
 <tr>
 <td><code>testTextOpenWithNotepad</code></td>
@@ -4702,7 +4726,7 @@
 <td>book</td>
 <td>string</td>
 <td>元のファイル名から種類（<code>Excel</code> / <code>Word</code> / <code>PowerPoint</code> / <code>テキスト</code> / <code>PDF</code>。分からなければ空）</td>
-<td>convertToContentIndexText, convertPlaceToContentIndexMeta, describePlace, toResultLine, addFileGroupLocation・ensureRows（getPlace に渡す値・検索結果の行の <code>IsExcel</code>）, testCellPrefixedPlace, searchContentIndexFiles（長い行を切るかの判定）, readContentIndexLines</td>
+<td>convertBookToContentIndexBlock, convertPlaceToContentIndexMeta, describePlace, toResultLine, addFileGroupLocation・ensureRows（getPlace に渡す値・ファイルの見出しの <code>AppKind</code>・検索結果の行の <code>IsExcel</code>）, testCellPrefixedPlace, searchContentIndexFiles（長い行を切るかの判定）, readContentIndexLines</td>
 </tr>
 <tr>
 <td><code>getContentIndexExtension</code> / <code>getContentIndexFileName</code> / <code>readContentIndexFileName</code></td>

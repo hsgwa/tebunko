@@ -4212,11 +4212,15 @@
 </tr>
 <tr>
 <td><code>newIndexName</code> / <code>assignIndexNames</code></td>
-<td>フォルダ名・ドライブ名・共有名、重複時の <code>(2)</code> <code>(3)</code>、設定の名前をそのまま使う（フォルダの場所が変わっても同じ名前）、名前が無ければ前回の取り込み一覧の名前・フォルダ名から作る、設定にある名前はほかのフォルダに使わない、名前にできない・長いフォルダ名</td>
+<td>フォルダ名・ドライブ名・共有名、重複時の <code>(2)</code> <code>(3)</code>、設定の名前をそのまま使う（フォルダの場所が変わっても同じ名前）、名前が無ければ前回の取り込み一覧の名前・フォルダ名から作る、設定にある名前はほかのフォルダに使わない、名前にできない・長いフォルダ名（切って末尾が <code>.</code>・空白になる場合と <code>(2)</code> を付ける場合も含め、作る名前は必ず <code>testIndexName</code> を通る）</td>
 </tr>
 <tr>
 <td><code>splitIndexRelPath</code></td>
 <td>先頭のインデックス名と残り（深い階層、数字を含む名前）、<code>\</code> が無い場合</td>
+</tr>
+<tr>
+<td><code>testStoredIndexName</code></td>
+<td>予約名（<code>aux.backup</code>・<code>CON.txt</code>・<code>CON</code>）は通す。空・前後の空白・使えない文字・最後の <code>.</code>・<code>..</code> は <code>testIndexName</code> と同じく理由を返す</td>
 </tr>
 <tr>
 <td><code>testIndexName</code></td>
