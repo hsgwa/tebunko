@@ -4205,7 +4205,7 @@
 </tr>
 <tr>
 <td><code>scripts/shared/office/</code></td>
-<td>Office ファイルの判定（<code>office_files.ps1</code>）・プロセスの一覧と強制終了（<code>office_process.ps1</code>）・Office ファイルを ZIP として読む処理（<code>office_reader.ps1</code>）とその中の埋め込みファイルを読む処理（<code>office_embedded.ps1</code>）・Office アプリ（COM）の起動と終了（<code>office_app.ps1</code>）・暗号化されたファイルの種類の判定（判断層 <code>office_protection_view.ps1</code>）とその読み取り（<code>office_protection.ps1</code>）</td>
+<td>Office ファイルの拡張子と種類の表・種類の判定（判断層 <code>office_file_kind_view.ps1</code>）・プロセスの一覧と強制終了（<code>office_process.ps1</code>）・Office ファイルを ZIP として読む処理（<code>office_reader.ps1</code>）とその中の埋め込みファイルを読む処理（<code>office_embedded.ps1</code>）・Office アプリ（COM）の起動と終了（<code>office_app.ps1</code>）・暗号化されたファイルの種類の判定（判断層 <code>office_protection_view.ps1</code>）とその読み取り（<code>office_protection.ps1</code>）</td>
 </tr>
 <tr>
 <td><code>scripts/shared/ui/</code></td>
@@ -4245,7 +4245,7 @@
 <tbody>
 <tr>
 <td>判断層（入力は素の値、出力は素の値）</td>
-<td><code>text.ps1</code>・<code>index_name.ps1</code>・<code>source_name.ps1</code>・<code>content_index_format.ps1</code>・<code>search_query.ps1</code>・<code>search_gram.ps1</code>・<code>indexer_decide.ps1</code>・<code>*_view.ps1</code>（一覧は <code>tests/helpers/layer_paths.ps1</code>。<code>tebunko/ui/</code> の画面の判断層のほか、<code>shared/office/office_protection_view.ps1</code> のように <code>ui/</code> の外にも置く。テスト（<code>layers.Tests.ps1</code>）とカバレッジは名前で拾うため、置き場所によらず判断層として扱われる）</td>
+<td><code>text.ps1</code>・<code>index_name.ps1</code>・<code>source_name.ps1</code>・<code>content_index_format.ps1</code>・<code>search_query.ps1</code>・<code>search_gram.ps1</code>・<code>indexer_decide.ps1</code>・<code>*_view.ps1</code>（一覧は <code>tests/helpers/layer_paths.ps1</code>。<code>tebunko/ui/</code> の画面の判断層のほか、<code>shared/office/office_protection_view.ps1</code>・<code>shared/office/office_file_kind_view.ps1</code> のように <code>ui/</code> の外にも置く。テスト（<code>layers.Tests.ps1</code>）とカバレッジは名前で拾うため、置き場所によらず判断層として扱われる）</td>
 <td>する（主にタグ <code>Unit</code>）</td>
 </tr>
 <tr>
@@ -4396,7 +4396,7 @@
     IXL --&gt; LIB
     LIB["tebunko/lib.ps1"] --&gt; SH["shared/shared.ps1"]
     LIB --&gt; TG["tebunko の core/・index/・search/&lt;br&gt;indexer/indexer_state.ps1・indexer_decide.ps1・indexing_session.ps1"]
-    SH --&gt; SC["shared/core/*・office/office_files.ps1・office_process.ps1&lt;br&gt;office_protection_view.ps1・office_protection.ps1"]</code></pre>
+    SH --&gt; SC["shared/core/*・office/office_file_kind_view.ps1・office_process.ps1&lt;br&gt;office_protection_view.ps1・office_protection.ps1"]</code></pre>
 <p>読み込み口は次の 2 つ。ファイルを足したら、読み込み口か起動口のどれかから読み込む（読み込み漏れは <code>tests/meta/layers.Tests.ps1</code> が起動口からたどって検出する）。読み込みは、起動口と読み込み口（<code>lib.ps1</code> など）では <code>. ([WildcardPattern]::Escape("$PSScriptRoot\...".Replace('</code>', '<code>')))` の形、画面の部品（`tebunko/ui/` の `gui_main.ps1` など）では `. ([WildcardPattern]::Escape("$TebunkoDir\...".Replace('`', '</code>')))<code>の形で書く（検査はこの 2 つの形の行をたどる）。フォルダ名に</code>[<code></code>]<code>が入っていても読めるよう、相手のパスは必ず</code>Escape<code>を通す（</code>Escape<code>は 5.1 ではバッククォートをエスケープしないので、先に二重にする。対象は PowerShell 5.1 だけで、7 以降では二重になる）（通さない</code>. "$PSScriptRoot..."<code>は、</code>tests/meta/structure.Tests.ps1` が落とす）。</p>
 <table>
 <thead>
@@ -4409,7 +4409,7 @@
 <tbody>
 <tr>
 <td><code>scripts/shared/shared.ps1</code></td>
-<td>共通基盤（<code>core/</code> のすべてと、<code>office/</code> のうち <code>office_files.ps1</code>・<code>office_process.ps1</code>・<code>office_protection_view.ps1</code>・<code>office_protection.ps1</code>）</td>
+<td>共通基盤（<code>core/</code> のすべてと、<code>office/</code> のうち <code>office_file_kind_view.ps1</code>・<code>office_process.ps1</code>・<code>office_protection_view.ps1</code>・<code>office_protection.ps1</code>）</td>
 <td><code>tebunko/lib.ps1</code></td>
 </tr>
 <tr>

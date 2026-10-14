@@ -4334,9 +4334,14 @@
 <td><code>shared/core/fs.ps1</code></td>
 </tr>
 <tr>
+<td><code>$officeFileKinds</code></td>
+<td>取り込み対象の拡張子（<code>.xlsx</code> <code>.xlsm</code> <code>.xls</code> <code>.xlsb</code> <code>.docx</code> <code>.docm</code> <code>.doc</code> <code>.pptx</code> <code>.pptm</code> <code>.ppt</code>）と、その種類（Excel・Word・PowerPoint）の表。拡張子と種類の対応はここだけにある</td>
+<td><code>shared/office/office_file_kind_view.ps1</code></td>
+</tr>
+<tr>
 <td><code>$officeExtensions</code></td>
-<td>取り込み対象の拡張子（<code>.xlsx</code> <code>.xlsm</code> <code>.xls</code> <code>.xlsb</code> <code>.docx</code> <code>.docm</code> <code>.doc</code> <code>.pptx</code> <code>.pptm</code> <code>.ppt</code>）</td>
-<td><code>shared/office/office_files.ps1</code></td>
+<td>取り込み対象の拡張子（<code>$officeFileKinds</code> の拡張子）</td>
+<td><code>shared/office/office_file_kind_view.ps1</code></td>
 </tr>
 <tr>
 <td><code>$pdfExtensions</code></td>
