@@ -235,9 +235,16 @@ function removeDroppedFolders {
     # 実在するフォルダを列挙して、名前が同じものを消す（最後の . や空白のある名前は、パスにすると別のフォルダを指すため。
     # 置き場の外を指す名前は、列挙したものに当たらず、何も消えない（実在の aux.backup・CON も、名前が合えば消す）。例外にすると、書き換えられた 1 行で
     # 毎回インデックス作成が止まるため、ログに出して続ける）
+    # 置き場の有無は getPathState で見る（Directory.Exists は、届かない・読めないときも偽になり、どの名前も「既にありません」として記録が消えるため）。
+    # 無いと確かめられたときだけ空として続け、確かめられなければ例外にする
     $existing = @()
-    if ([System.IO.Directory]::Exists((toLongPath $ws.IndexDir))) {
-        $existing = @([System.IO.Directory]::GetDirectories((toLongPath $ws.IndexDir)))
+    $indexDirState = getPathState $ws.IndexDir
+    if ($indexDirState.State -eq ${pathStateFound}) {
+        if ($indexDirState.IsDirectory) {
+            $existing = @([System.IO.Directory]::GetDirectories((toLongPath $ws.IndexDir)))
+        }
+    } elseif ($indexDirState.State -ne ${pathStateMissing}) {
+        throw "インデックスの置き場があるかどうか確かめられません: $($ws.IndexDir)（$($indexDirState.Message)）"
     }
     foreach ($previous in @($dropped | Where-Object { $_ })) {
         $name = [string]$previous.Name
