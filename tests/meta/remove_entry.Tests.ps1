@@ -19,6 +19,8 @@ BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
 
     ${removeItemNames} = @("Remove-Item", "ri", "rm", "rmdir", "rd", "del", "erase")
+    ${forEachNames} = @("ForEach-Object", "foreach", "%")
+    ${otherDeleteMembers} = @("DeleteDirectory", "DeleteFolder")
 
     function parseCode {
         param (
@@ -49,6 +51,22 @@ BeforeAll {
         foreach ($node in $nodes) {
             if ($node -is [System.Management.Automation.Language.CommandAst]) {
                 $commandName = "$($node.GetCommandName())".Split("\")[-1]
+                if (${forEachNames} -contains $commandName) {
+                    # ForEach-Object Delete $true（メンバー名を文字列で渡す書き方）。Delete のあとに $false でない値があれば違反に数える
+                    $elements = @($node.CommandElements)
+                    for ($index = 0; $index -lt $elements.Count; $index++) {
+                        if ($elements[$index] -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $elements[$index].Value -eq "Delete") {
+                            if ($index + 1 -ge $elements.Count) {
+                                continue
+                            }
+                            $rest = @($elements[($index + 1)..($elements.Count - 1)] | Where-Object { $_ -is [System.Management.Automation.Language.ExpressionAst] -and !(testFalseLiteral $_) })
+                            if ($rest.Count -gt 0) {
+                                $found.Add("$commandName Delete（引数付き。再帰かもしれない）")
+                            }
+                        }
+                    }
+                    continue
+                }
                 if (${removeItemNames} -notcontains $commandName) {
                     continue
                 }
@@ -62,7 +80,14 @@ BeforeAll {
                 }
                 continue
             }
-            if ($node.Member.Extent.Text -ne "Delete") {
+            # メンバー名は、文字列の定数なら値で比べる（$info."Delete"(...)・$info.'Delete'(...) も同じ Delete）
+            $memberName = if ($node.Member -is [System.Management.Automation.Language.StringConstantExpressionAst]) { $node.Member.Value } else { "" }
+            if (${otherDeleteMembers} -contains $memberName) {
+                # フォルダを再帰で消す別の入口（VisualBasic の FileSystem.DeleteDirectory・COM の FileSystemObject.DeleteFolder）
+                $found.Add("$($node.Expression.Extent.Text).$memberName（別の消し方）")
+                continue
+            }
+            if ($memberName -ne "Delete") {
                 continue
             }
             $argumentCount = if ($null -eq $node.Arguments) { 0 } else { $node.Arguments.Count }
@@ -124,7 +149,17 @@ BeforeAll {
     }
 
     function getScriptFiles {
-        return @(Get-ChildItem -LiteralPath ${scriptsDir} -Filter "*.ps1" -Recurse)
+        $files = @(Get-ChildItem -LiteralPath ${scriptsDir} -Filter "*.ps1" -Recurse)
+        $files.Count | Should -BeGreaterThan 0 -Because "scripts の下の .ps1 が見つからないと、何も調べずに通ってしまう"
+        return $files
+    }
+
+    function getRelativeName {
+        # scripts からの相対パス（違反の表示用）
+        param (
+            $file
+        )
+        return $file.FullName.Substring(${scriptsDir}.Length).TrimStart("\")
     }
 }
 
@@ -136,7 +171,7 @@ Describe "フォルダを消す入口" -Tag Meta {
             $tokens = $null
             $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors)
             foreach ($hit in @(findRecursiveDeletes $ast)) {
-                $hits.Add("$($file.Name) › $hit")
+                $hits.Add("$(getRelativeName $file) › $hit")
             }
         }
         @($hits) | Should -BeNullOrEmpty -Because "フォルダは removeDirectoryRetry（shared/core/fs.ps1）で消す。別の消し方を足さない"
@@ -149,8 +184,10 @@ Describe "フォルダを消す入口" -Tag Meta {
             $tokens = $null
             $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors)
             foreach ($call in @(findCallsByOwner $ast)) {
-                if ($call.Command -eq "removeTreeNoFollow" -and $call.Owner -ne "removeDirectoryRetry") {
-                    $callers.Add("$($file.Name) › $($call.Owner)")
+                # 呼んでよいのは shared\core\fs.ps1 の removeDirectoryRetry だけ（同じ名前の関数を別のファイルに作っても通さない）
+                $isEntry = $call.Owner -eq "removeDirectoryRetry" -and (getRelativeName $file) -eq "shared\core\fs.ps1"
+                if ($call.Command -eq "removeTreeNoFollow" -and !$isEntry) {
+                    $callers.Add("$(getRelativeName $file) › $($call.Owner)")
                 }
             }
         }
@@ -166,7 +203,7 @@ Describe "フォルダを消す入口" -Tag Meta {
             $groups = groupCommandsByOwner @(findCallsByOwner $ast)
             foreach ($owner in $groups.Keys) {
                 if ($groups[$owner] -contains "removeDirectoryRetry" -and $groups[$owner] -contains "Test-Path") {
-                    $hits.Add("$($file.Name) › $owner")
+                    $hits.Add("$(getRelativeName $file) › $owner")
                 }
             }
         }
@@ -191,6 +228,14 @@ Describe "フォルダを消す書き方の見つけ方（自己テスト）" -T
         @{ code = '[IO.Directory]::Delete($x, $recursive)' }
         @{ code = '$info.Delete($true)' }
         @{ code = '([System.IO.DirectoryInfo]$x).Delete($flag)' }
+        @{ code = '$info."Delete"($true)' }
+        @{ code = '$info.''Delete''($true)' }
+        @{ code = '[Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory($x, "DeleteAllContents")' }
+        @{ code = '$fso.DeleteFolder($x, $true)' }
+        @{ code = '$dirs | ForEach-Object Delete $true' }
+        @{ code = '$dirs | foreach Delete $recursive' }
+        @{ code = '$dirs | % Delete $true' }
+        @{ code = '$dirs | ForEach-Object -MemberName Delete -ArgumentList $true' }
         @{ code = '$type::Delete($x, $true)' }
         @{ code = '$type::Delete($x, $recursive)' }
         @{ code = 'Microsoft.PowerShell.Management\Remove-Item $x -Recurse' }
@@ -206,6 +251,10 @@ Describe "フォルダを消す書き方の見つけ方（自己テスト）" -T
         @{ code = '[System.IO.Directory]::Delete($d)' }
         @{ code = '$temp.Delete()' }
         @{ code = '$info.Delete($false)' }
+        @{ code = '$info."Delete"($false)' }
+        @{ code = '$dirs | ForEach-Object Delete $false' }
+        @{ code = '$dirs | ForEach-Object { $_.Name }' }
+        @{ code = '$dirs | ForEach-Object Delete' }
         @{ code = '$type::Delete($f)' }
         @{ code = '$type::Delete($d, $false)' }
         @{ code = 'Get-ChildItem $d | Remove-Item -Force' }

@@ -83,6 +83,21 @@ Describe "clearTmpDir" -Tag Io {
         Test-Path -LiteralPath "$tmpDir\sub\b.tsv" | Should -Be $true
     }
 
+    It "<kind>のファイルも消える（作業フォルダ直下の 1 つだけ。中のフォルダは残る）" -TestCases @(
+        @{ kind = "隠し"; attribute = [System.IO.FileAttributes]::Hidden }
+        @{ kind = "読み取り専用"; attribute = [System.IO.FileAttributes]::ReadOnly }
+    ) {
+        $tmpDir = "$TestDrive\clear_attr_$kind"
+        newTsv "$tmpDir\a.tsv" @("a")
+        newTsv "$tmpDir\sub\b.tsv" @("b")
+        [System.IO.File]::SetAttributes("$tmpDir\a.tsv", $attribute)
+
+        clearTmpDir
+
+        [System.IO.File]::Exists("$tmpDir\a.tsv") | Should -Be $false
+        [System.IO.File]::Exists("$tmpDir\sub\b.tsv") | Should -Be $true
+    }
+
     It "作業フォルダそのものがジャンクションなら、先のファイルを消さず、ログに出す" {
         $outside = "$TestDrive\clear_outside"
         newTsv "$outside\外.tsv" @("外")

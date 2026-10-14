@@ -93,6 +93,21 @@ Describe "IndexCatalog.RenameIndex" -Tag Io {
         (readStatusFile $ws.Status).Rows.ContainsKey("営業\a.xlsx") | Should -Be $true
     }
 
+    It "新しい名前がファイルとして既にあっても例外にし、フォルダも取り込み一覧の記録も変えない" {
+        $ws = newCatalogWorkspace "$TestDrive\rename3file"
+        New-Item -ItemType Directory -Path "$($ws.Index)\営業" -Force | Out-Null
+        [System.IO.File]::WriteAllText("$($ws.Index)\技術", "x")
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(
+            (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateNew)
+        ) $ws.Status
+
+        { $ws.Catalog.RenameIndex("営業", "技術") } | Should -Throw "*既にあるため*"
+
+        [System.IO.Directory]::Exists("$($ws.Index)\営業") | Should -Be $true
+        [System.IO.File]::Exists("$($ws.Index)\技術") | Should -Be $true
+        (readStatusFile $ws.Status).Rows.ContainsKey("営業\a.xlsx") | Should -Be $true
+    }
+
     It "大文字・小文字だけを変えられる（フォルダ・記録とも新しい書き方になる）" {
         $ws = newCatalogWorkspace "$TestDrive\rename4"
         $dir = $ws.Index

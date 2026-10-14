@@ -221,6 +221,35 @@ Describe "removeDirectoryRetry" -Tag Io {
         [System.IO.Directory]::Exists($dir) | Should -Be $true
     }
 
+    It "無いと確かめられたフォルダは、何もせず成功にする" {
+        Mock removeTreeNoFollow {}
+        { removeDirectoryRetry "$TestDrive\無いフォルダ_確認" } | Should -Not -Throw
+        Should -Invoke removeTreeNoFollow -Times 0 -Exactly -Scope It
+    }
+
+    It "同じ名前でフォルダでないもの（ファイル）があるときは、消すフォルダが無いので成功にする" {
+        Mock removeTreeNoFollow {}
+        $file = "$TestDrive\ファイル_確認"
+        [System.IO.File]::WriteAllText($file, "x")
+        { removeDirectoryRetry $file } | Should -Not -Throw
+        Should -Invoke removeTreeNoFollow -Times 0 -Exactly -Scope It
+        [System.IO.File]::Exists($file) | Should -Be $true
+    }
+
+    It "有無が分からない（<state>）ときは、成功にせず、決めた回数だけ試してから例外にする" -TestCases @(
+        @{ state = "Unreachable"; isDirectory = $false }
+        @{ state = "Other"; isDirectory = $false }
+        @{ state = "Found"; isDirectory = $true }
+    ) {
+        Mock Start-Sleep {}
+        Mock removeTreeNoFollow {}
+        Mock getPathState { @{ State = $state; IsDirectory = $isDirectory; Message = "x" } }
+        { removeDirectoryRetry "$TestDrive\分からないフォルダ" 3 1 } | Should -Throw "*確かめられません*"
+        Should -Invoke getPathState -Times 3 -Exactly -Scope It
+        Should -Invoke removeTreeNoFollow -Times 0 -Exactly -Scope It
+        Should -Invoke Start-Sleep -Times 2 -Exactly -Scope It
+    }
+
     It "中にあるジャンクションの先は消さず、ジャンクションだけを外す" {
         $dir = "$TestDrive\消すフォルダ_リンク"
         $outside = "$TestDrive\外のフォルダ_リンク"

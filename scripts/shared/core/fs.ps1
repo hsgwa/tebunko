@@ -329,7 +329,17 @@ function removeDirectoryRetry {
     $longPath = toLongPath $path
     for ($i = 1; $true; $i++) {
         if (![System.IO.Directory]::Exists($longPath)) {
-            return
+            # Exists は、無いときだけでなく、届かない・読めないときも $false になる。「無い」と確かめられたときだけ成功にする
+            # （フォルダでないもの（ファイル）が同じ名前であるときも、消すフォルダは無いので成功にする）
+            $state = getPathState $path
+            if ($state.State -eq ${pathStateMissing} -or ($state.State -eq ${pathStateFound} -and !$state.IsDirectory)) {
+                return
+            }
+            if ($i -ge $tries) {
+                throw "フォルダの有無を確かめられません: $path（$($state.State)）"
+            }
+            Start-Sleep -Milliseconds $waitMilliseconds
+            continue
         }
         try {
             # リンク（ジャンクション・シンボリックリンク）は辿らず、リンクそのものだけを外す（removeTreeNoFollow）。
