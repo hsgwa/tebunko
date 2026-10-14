@@ -528,15 +528,26 @@ function publishTsv {
 }
 
 function clearTmpDir {
+    # 作業フォルダ直下のファイルを消す。作業フォルダそのものがリンク（ジャンクション・シンボリックリンク）のときは、
+    # 先のファイルを消さないよう、何も消さずにログに出す
+    if (testPathIsLink $tmpDir) {
+        writeIndexerLog "    作業フォルダがリンク（ジャンクション・シンボリックリンク）のため、中のファイルを消しませんでした: ${tmpDir}" "Yellow"
+        return
+    }
     Get-ChildItem -LiteralPath (toLongPath $tmpDir) -File | Remove-Item -Force
 }
 
 function removeEmptyDir {
     # フォルダが空のときだけ、再帰しない削除で消す。中にほかのプロセスのフォルダなどが残っている・
-    # フォルダが既に無いときは、何もせずそのままにする
+    # フォルダが既に無いときは、何もせずそのままにする。
+    # リンク（ジャンクション・シンボリックリンク）は、リンク自体を外さないよう、先が空でも消さない
+    # （利用者が tmp や出力用のフォルダの親をリンクにした構成を、そのまま使えるようにするため）
     param (
         [string]$dir
     )
+    if (testPathIsLink $dir) {
+        return
+    }
     try {
         [System.IO.Directory]::Delete($dir, $false)
     } catch {
@@ -552,7 +563,7 @@ function removeTmpDir {
         try {
             removeDirectoryRetry $dir
         } catch {
-            writeIndexerLog "    作業フォルダを削除できませんでした: ${dir}" "Yellow"
+            writeIndexerLog "    作業フォルダを削除できませんでした: ${dir}（$($_.Exception.Message)）" "Yellow"
         }
     }
     # 空になった tmp\<PC の鍵>・tmp も消す（ワークスペースの tmp を使えたときだけ。
@@ -567,11 +578,33 @@ function removeStaleTmpDirs {
     # 強制終了などで残った、ほかの（終了済みの）プロセスの作業フォルダ
     # （ワークスペースの tmp\<PC の鍵>\<PID>・work\publish\<PID>・前の版までの %TEMP%\tebunko\<PID>）を削除する。
     # 空になった親（tmp\<PC の鍵>・publish・${legacyTmpParent}。tmp\<PC の鍵> はさらに tmp 自体も）も消す
-    foreach ($parent in @((Split-Path (getWorkspaceTmpDir $workspace) -Parent), (Split-Path $workspace.PublishDir -Parent), ${legacyTmpParent})) {
+    # tmp\<PC の鍵> の途中にリンク（ジャンクション・シンボリックリンク）があるときは、先のフォルダを消さないよう、片付けない
+    $keyDir = Split-Path (getWorkspaceTmpDir $workspace) -Parent
+    foreach ($parent in @($keyDir, (Split-Path $workspace.PublishDir -Parent), ${legacyTmpParent})) {
+        if (($parent -eq $keyDir) -and (testPathHasLink $workspace.TmpRoot $keyDir)) {
+            writeIndexerLog "    作業領域の途中にリンク（ジャンクション・シンボリックリンク）があるため、残った作業フォルダを片付けませんでした: ${keyDir}" "Yellow"
+            continue
+        }
         removeStaleProcessDirs $parent
         removeEmptyDir $parent
     }
     removeEmptyDir $workspace.TmpRoot
+}
+
+function newDirectoryReplacingExisting {
+    # フォルダを作る。同じ名前（前の残り・先に置かれたリンク）が既にあれば、リンクは辿らずに消してから作り直す。
+    # 作ったものがリンクでなければ $true（置けた）、リンクのまま残った（消せなかった）ときは $false
+    param (
+        [string]$dir
+    )
+
+    try {
+        removeDirectoryRetry $dir
+    } catch {
+        # 消せなくても、下の確かめでリンクが残っていなければ、そのまま使う
+    }
+    [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+    return !(testPathIsLink $dir)
 }
 
 function initTmpDir {
@@ -588,7 +621,18 @@ function initTmpDir {
         writeIndexerLog "$(getTmpDirUnavailableMessage $selected.Reason)取り込みをすべてスキップします。" "Yellow"
         return $selected
     }
-    [System.IO.Directory]::CreateDirectory($selected.Dir) | Out-Null
+    # 作業領域（tmp\<PC の鍵>\<PID>）の途中にリンク（ジャンクション・シンボリックリンク）があれば、先に書かないよう置けない扱いにする
+    # （tmp そのものは見ない。利用者が tmp を別の場所へのリンクにした構成も、今までどおり使える）。
+    # 同じ名前（前のプロセスの残り・先に置かれたもの）が既にあれば、リンクは辿らずに消してから作り直す
+    $placed = $false
+    if (!(testPathHasLink $workspace.TmpRoot (Split-Path $selected.Dir -Parent))) {
+        $placed = newDirectoryReplacingExisting $selected.Dir
+    }
+    if (!$placed) {
+        $unavailable = @{ Dir = ""; Reason = "Link" }
+        writeIndexerLog "$(getTmpDirUnavailableMessage $unavailable.Reason)取り込みをすべてスキップします。" "Yellow"
+        return $unavailable
+    }
     foreach ($dir in @($workspace.TmpRoot, (Split-Path $selected.Dir -Parent), $selected.Dir)) {
         [void](setNotContentIndexed $dir)
     }
@@ -607,8 +651,14 @@ function newWorkerTmpDir {
     if (!$parentDir) {
         return ""
     }
+    if (testPathIsLink $parentDir) {
+        writeIndexerLog "    作業フォルダがリンク（ジャンクション・シンボリックリンク）のため、取り込みの作業フォルダを置けません: ${parentDir}" "Yellow"
+        return ""
+    }
     $dir = Join-Path $parentDir "w$number"
-    [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+    if (!(newDirectoryReplacingExisting $dir)) {
+        return ""
+    }
     if (testNotContentIndexed $parentDir) {
         [void](setNotContentIndexed $dir)
     }
@@ -629,9 +679,11 @@ function removeStaleProcessDirs {
             continue  # 実行中のインデックス作成（またはPIDを再利用した別のプロセス）のものは残す
         }
         try {
-            Remove-Item -LiteralPath (toLongPath $dir.FullName) -Recurse -Force
+            # 中に長いパスがあっても消え、中のリンクの先は消さない。使用中などで消せなければ 1 回だけ試して次回に回す
+            removeDirectoryRetry $dir.FullName 1
         } catch {
-            # 使用中などで削除できなければ、次回に回す
+            # 使用中・リンクかどうか確かめられないフォルダがあるなどで削除できなければ、原因をログに出して次回に回す
+            writeIndexerLog "    終了したプロセスの作業フォルダを削除できませんでした: $($dir.FullName)（$($_.Exception.Message)）" "Yellow"
         }
     }
 }
@@ -695,8 +747,8 @@ function removeDroppedFolders {
     foreach ($previous in @($dropped | Where-Object { $_ })) {
         $dir = Join-Path $ws.IndexDir $previous.Name
         if (Test-Path -LiteralPath $dir) {
-            # 中に長いパス（260文字超）のTSVがあっても削除できるよう \\?\ 付きで削除する
-            Remove-Item -LiteralPath (toLongPath $dir) -Recurse -Force
+            # 中に長いパス（260文字超）のTSVがあっても削除でき、中のリンク（ジャンクション・シンボリックリンク）の先は消さない
+            removeDirectoryRetry $dir
         }
         writeIndexerLog "クロール対象から削除されたフォルダ（$($previous.Path)）のインデックスを削除しました。"
     }
@@ -736,7 +788,7 @@ ${ingestWorkerScript} = {
     # 部品を読み込んだのと同じスコープ（取り込みのスレッドでは global）に置く
     $own = [Workspace]::new($settings.WorkDir)
     $own.PublishDir = Join-Path $settings.PublishDir "w$number"
-    Set-Variable -Name workspace -Value $own
+    setCallerWorkspace $own
     Set-Variable -Name tmpDir -Value (newWorkerTmpDir $settings.TmpDir $number)
     Set-Variable -Name tmpDirReason -Value $settings.TmpDirReason
     [System.IO.Directory]::CreateDirectory($workspace.PublishDir) | Out-Null
@@ -1846,17 +1898,17 @@ function getStartupErrorMessage {
 
 ${appTitle} = "tebunko"
 
-# 画面で起きた予期しないエラーの記録先（app_host.ps1 の writeErrorLog が使う）。今のワークスペースの中に置く。
+# 画面で起きた予期しないエラーの記録先（gui.ps1 が setGuiErrorLogSource で登録し、app_host.ps1 の writeErrorLog が使う）。今のワークスペースの中に置く。
 # startGui を抜けた後（gui.ps1 の外側の catch）でも使えるよう、スクリプト直下に置く。ワークスペースが決まる前は $null を返す
-function getGuiErrorLogFile {
+function getToolGuiErrorLogFile {
     if ($null -eq $script:workspace) {
         return $null
     }
     return $script:workspace.GuiErrorLogFile
 }
 
-# gui_error_log.txt の先頭（プロセスごとの最初の記録の前）に書く版と環境の見出し（行の配列）。app_host.ps1 の writeErrorLog が使う
-function getGuiErrorLogHeader {
+# gui_error_log.txt の先頭（プロセスごとの最初の記録の前）に書く版と環境の見出し（行の配列）。gui.ps1 が登録し、app_host.ps1 の writeErrorLog が使う
+function getToolGuiErrorLogHeader {
     return getToolDiagnosticHeader
 }
 
@@ -2144,6 +2196,25 @@ function fromLongPath {
     return $path
 }
 
+function trimTrailingSeparator {
+    # パスの末尾の \ と / を落とす（リンクの判定・削除の入口で使う。念のため、末尾の区切りでリンクの先を見ることが無いようにする）。
+    # 途中の区切りは変えない（\\?\ で始まらないパスの / は、あとで toLongPath が \ にそろえる。\\?\ で始まるパスの / はそのまま）。
+    # 落とした結果が空か : で終わるパス（C:\ ・ \\?\C:\ ・ \ ・ / ）と、\\?\ だけのパスは、そのまま返す。
+    # それ以外は、UNC の根（\\server\share\）や \\?\Volume{...}\ も、末尾を落とす
+    param (
+        [string]$path
+    )
+
+    if (!$path) {
+        return $path
+    }
+    $trimmed = $path.TrimEnd([char[]]@("\", "/"))
+    if (!$trimmed -or $trimmed.EndsWith(":") -or $trimmed -eq "\\?") {
+        return $path
+    }
+    return $trimmed
+}
+
 function setNotContentIndexed {
     # フォルダ（またはファイル）に「内容のインデックスを作成しない」属性（NotContentIndexed）を付ける。
     # 既に付いているものには付け直さない（Changed に数えない）ので、ほかの属性（読み取り専用など）は変えない。
@@ -2271,9 +2342,9 @@ function removeDirectoryRetry {
             return
         }
         try {
-            # 呼び出し側の $ErrorActionPreference によらず、消せなければ catch に来るよう -ErrorAction Stop を付ける
-            # （付けないと既定の Continue では例外にならず、試し直しも失敗の報告もせずに戻ってしまう）
-            Remove-Item -LiteralPath $longPath -Recurse -Force -ErrorAction Stop
+            # リンク（ジャンクション・シンボリックリンク）は辿らず、リンクそのものだけを外す（removeTreeNoFollow）。
+            # 消せなければ例外になり、catch で試し直す
+            removeTreeNoFollow $longPath
             return
         } catch {
             if ($i -ge $tries) {
@@ -2281,6 +2352,189 @@ function removeDirectoryRetry {
             }
             Start-Sleep -Milliseconds $waitMilliseconds
         }
+    }
+}
+
+function getLinkKind {
+    # item（Get-Item・Get-ChildItem・DirectoryInfo などが返す FileSystemInfo）の種類を返す。
+    #   Link    … ジャンクション・シンボリックリンク（属性に ReparsePoint が付き、LinkType がそのどちらか）
+    #   Unknown … 属性が読めない、またはフォルダなのに ReparsePoint が付き LinkType がジャンクション・シンボリックリンクと確かめられない
+    #             （OneDrive のオンデマンドの置き場のフォルダなど）。リンクかどうか分からないので、辿らず、消しもしない
+    #   Plain   … それ以外（ReparsePoint の付いたファイルは、辿るものが無いので Plain）
+    # 先に属性の ReparsePoint を見て、付いているときだけ LinkType を読む（多くのファイルで余計な問い合わせをしない）。
+    # 5.1 ではプロパティを読んだときの例外は $null になる（catch に届かない）ため、$null を読めなかったものとして扱う
+    param (
+        $item
+    )
+
+    $attributes = $item.Attributes
+    if ($null -eq $attributes) {
+        return "Unknown"
+    }
+    if (!($attributes -band [System.IO.FileAttributes]::ReparsePoint)) {
+        return "Plain"
+    }
+    $linkType = [string]$item.LinkType
+    if ($linkType -eq "Junction" -or $linkType -eq "SymbolicLink") {
+        return "Link"
+    }
+    if ($attributes -band [System.IO.FileAttributes]::Directory) {
+        return "Unknown"
+    }
+    return "Plain"
+}
+
+function testLinkItem {
+    # item が、辿ってはいけないもの（getLinkKind が Link か Unknown）なら $true
+    param (
+        $item
+    )
+
+    return ((getLinkKind $item) -ne "Plain")
+}
+
+function testPathIsLink {
+    # path そのもの（途中の階層は見ない）がジャンクション・シンボリックリンクなら $true。
+    # 無い・空のパスは $false（まだ作っていない）。属性が読めない、リンクかどうか確かめられないフォルダ（getLinkKind が Unknown）のときは $true（辿らない側に倒す）
+    param (
+        [string]$path
+    )
+
+    if (!$path) {
+        return $false
+    }
+    $long = toLongPath (trimTrailingSeparator $path)
+    try {
+        $attributes = [System.IO.File]::GetAttributes($long)
+    } catch [System.IO.FileNotFoundException] {
+        return $false
+    } catch [System.IO.DirectoryNotFoundException] {
+        return $false
+    } catch {
+        return $true
+    }
+    if (!($attributes -band [System.IO.FileAttributes]::ReparsePoint)) {
+        return $false
+    }
+    if ($attributes -band [System.IO.FileAttributes]::Directory) {
+        return (testLinkItem (New-Object System.IO.DirectoryInfo $long))
+    }
+    return (testLinkItem (New-Object System.IO.FileInfo $long))
+}
+
+function testPathHasLink {
+    # base の下の path まで、途中の各階層（path を含み、base とそれより上は含まない）に、リンクがあれば $true。
+    # 利用者が選んだ置き場（base）そのものが別の場所へのリンクでも、構成を変えずに使えるよう、base は見ない。
+    # path が base と同じなら $false。base の下になければ、確かめられないので $true
+    param (
+        [string]$base,
+        [string]$path
+    )
+
+    try {
+        $baseFull = [System.IO.Path]::GetFullPath((fromLongPath $base)).TrimEnd("\")
+        $pathFull = [System.IO.Path]::GetFullPath((fromLongPath $path)).TrimEnd("\")
+    } catch {
+        return $true
+    }
+    if ($pathFull.Equals($baseFull, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $false
+    }
+    if (!$pathFull.StartsWith("$baseFull\", [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $true
+    }
+    $current = $baseFull
+    foreach ($name in $pathFull.Substring($baseFull.Length + 1).Split("\")) {
+        $current = "$current\$name"
+        if (testPathIsLink $current) {
+            return $true
+        }
+        if (!(Test-Path -LiteralPath (toLongPath $current))) {
+            return $false  # ここから先はまだ無い
+        }
+    }
+    return $false
+}
+
+function removeEntryOnly {
+    # ファイル 1 つ・リンク（ジャンクション・シンボリックリンク）1 つ・空のフォルダ 1 つ（item は FileSystemInfo）を、そのものだけ消す。
+    # リンクの先は消さない。読み取り専用の属性は外してから消す
+    param (
+        [System.IO.FileSystemInfo]$item
+    )
+
+    $path = $item.FullName
+    $attributes = $item.Attributes
+    if ($attributes -band [System.IO.FileAttributes]::ReadOnly) {
+        # 読み取り専用だけを外す（ほかの属性は変えない）
+        [System.IO.File]::SetAttributes($path, ($attributes -band (-bnot [System.IO.FileAttributes]::ReadOnly)))
+    }
+    if ($item -is [System.IO.DirectoryInfo]) {
+        [System.IO.Directory]::Delete($path, $false)
+    } else {
+        [System.IO.File]::Delete($path)
+    }
+}
+
+function removeTreeNoFollow {
+    # フォルダを中身ごと削除する。ジャンクション・シンボリックリンクは辿らず、リンクそのものだけを外す（先は消さない）。
+    # path そのものがリンクなら、そのリンクだけを外す。フォルダが無ければ何もしない。
+    # 先に全体を数える（リンクは辿らない）。リンクかどうか確かめられないフォルダ（getLinkKind が Unknown）が 1 つでもあれば、
+    # 降りず、何も消さずに例外にする。何も消さないと言えるのは、この数える段で見つけた Unknown のときだけ。
+    # そのあとで、ファイル・リンク・フォルダ（下から順）を消す。
+    # 降りる直前と、フォルダのファイルを消す直前に、そのフォルダがリンクでないかを確かめ直す。
+    # 数えたあとにフォルダがリンクに替わっていたら例外にする。それまでに消した分は戻らない。
+    # 消す直前に確かめ直すのは、そのフォルダ自身だけ。上の階層が途中で替わったときは見つけられない。
+    # 読み取り専用の属性は外して消す（Remove-Item -Force と同じ働き）。消せなければ例外にする
+    param (
+        [string]$path
+    )
+
+    $long = toLongPath (trimTrailingSeparator $path)
+    if (![System.IO.Directory]::Exists($long)) {
+        return
+    }
+    $filesByDirectory = New-Object 'System.Collections.Generic.Dictionary[string,System.Collections.Generic.List[string]]'
+    $links = New-Object System.Collections.Generic.List[string]
+    $directories = New-Object System.Collections.Generic.List[string]
+    $pending = New-Object System.Collections.Generic.Stack[string]
+    $pending.Push($long)
+    while ($pending.Count -gt 0) {
+        $current = New-Object System.IO.DirectoryInfo ($pending.Pop())
+        $currentKind = getLinkKind $current
+        if ($currentKind -eq "Unknown") {
+            throw "リンクかどうか確かめられないフォルダのため、消しませんでした: $(fromLongPath $current.FullName)"
+        }
+        if ($currentKind -eq "Link") {
+            $links.Add($current.FullName)
+            continue
+        }
+        $directories.Add($current.FullName)
+        $filesByDirectory[$current.FullName] = New-Object System.Collections.Generic.List[string]
+        foreach ($entry in @($current.EnumerateFileSystemInfos("*", [System.IO.SearchOption]::TopDirectoryOnly))) {
+            if ($entry -isnot [System.IO.DirectoryInfo]) {
+                $filesByDirectory[$current.FullName].Add($entry.FullName)
+            } elseif ((getLinkKind $entry) -eq "Link") {
+                $links.Add($entry.FullName)
+            } else {
+                # 確かめられないもの（Unknown）も積む。降りる直前の確かめで例外にする（列挙の途中では投げない）
+                $pending.Push($entry.FullName)
+            }
+        }
+    }
+    foreach ($directory in $directories) {
+        if ((getLinkKind (New-Object System.IO.DirectoryInfo $directory)) -ne "Plain") {
+            throw "数えたあとでリンクに替わったフォルダのため、中のファイルを消しませんでした: $(fromLongPath $directory)"
+        }
+        foreach ($file in $filesByDirectory[$directory]) {
+            removeEntryOnly (New-Object System.IO.FileInfo $file)
+        }
+    }
+    foreach ($link in $links) {
+        removeEntryOnly (New-Object System.IO.DirectoryInfo $link)
+    }
+    for ($i = $directories.Count - 1; $i -ge 0; $i--) {
+        removeEntryOnly (New-Object System.IO.DirectoryInfo $directories[$i])
     }
 }
 
@@ -6379,13 +6633,41 @@ function getOfficeFileProtection {
 
 # 設定を先に読み込む（ワークスペースは設定の workspaceFolder で決まる。paths.ps1 の initWorkspace を
 # 起動口（startGui・invokeIndexerMain）が壊れた設定ファイルの退避の後に呼んで決める）
-# tebunko のログの先頭に書く見出し（状態層）。shared/ がツールの名前を知らないよう、名前はここで渡す。
+# tebunko のログの先頭に書く見出しと、インデックス作成のログの書き口（状態層）。shared/ がツールの名前を知らないよう、名前はここで渡す。
 
 function getToolDiagnosticHeader {
     # 見出しの行（配列）。版は配布物の VERSION.txt（無ければ開発版。.git のファイルから分かるタグとコミットを添える）
     $version = readVersionFile "${rootDir}\VERSION.txt"
     $devInfo = if ($null -eq $version) { readDevVersion ${rootDir} } else { $null }
     return formatDiagnosticHeader "tebunko" $version (getEnvironmentInfo) ([System.DateTimeOffset]::Now) $devInfo
+}
+
+# インデックス作成のログ（invokeIndexer が開く TextWriter。取り込みのスレッドでは 1 ファイル分を貯める StringWriter）
+$script:indexerLog = $null
+# ログをコンソールにも出すか（画面を使わずに indexer.ps1 を実行したとき）
+$script:indexerEcho = $false
+
+function writeIndexerLog {
+    # インデックス作成の表示内容をログ（indexing_log.txt）に書く。color はコンソールに出すときの色
+    param (
+        [string]$text = "",
+        [string]$color = ""
+    )
+
+    if ($null -ne $script:indexerLog) {
+        try {
+            $script:indexerLog.WriteLine($text)
+        } catch {
+            # ログのためだけの書き込みのため、書けなくてもインデックス作成は続ける
+        }
+    }
+    if ($script:indexerEcho) {
+        if ($color) {
+            Write-Host $text -ForegroundColor $color
+        } else {
+            Write-Host $text
+        }
+    }
 }
 
 # setting.config の読み書き（tebunko の設定）。
@@ -7250,6 +7532,9 @@ function getTmpDirUnavailableMessage {
     if ($reason -eq "TooLong") {
         return "ワークスペースのパスが長すぎるため、更新の作業フォルダを置けません。"
     }
+    if ($reason -eq "Link") {
+        return "ワークスペースの作業領域の途中にリンク（ジャンクション・シンボリックリンク）があるため、更新の作業フォルダを置けません。"
+    }
     return "更新の作業フォルダを置けません。"
 }
 
@@ -7828,6 +8113,17 @@ function initWorkspace {
     ${script:workspace} = [Workspace]::new((getWorkDir))
 }
 
+# 取り込みのスレッドが、司令のスレッドから受け取った場所（Workspace）を、呼んだスクリプトのスコープに置く。
+# $workspace を決めるのはこのファイルだけにするため、取り込みのスレッドのスクリプトからもここを呼ぶ
+# （取り込みのスレッドでは、呼んだスコープは global。部品を読み込んだのと同じスコープになる）
+function setCallerWorkspace {
+    param (
+        $value
+    )
+
+    Set-Variable -Name workspace -Value $value -Scope 1
+}
+
 # インデックスのフォルダに置く、インデックス名とクロール対象フォルダの対応（インデクサが作成する）。
 # インデックスのフォルダごと別の場所・PCへコピーしても、検索結果から元のファイルの場所が分かるようにする。
 # 拡張子を .tsv にすると検索対象になるため .txt にする
@@ -7856,6 +8152,184 @@ ${statusFolderKey} = "クロール対象フォルダ"
 ${stateNew}    = "未取り込み"
 ${stateDone}   = "済"
 ${stateFailed} = "失敗"
+
+# 取り込み一覧（status ファイル）の読み書き（状態層）。列と状態の定義は paths.ps1。
+
+function newStatusRow {
+    # 取り込み一覧の1行（1ファイル）を作る
+    param (
+        [string]$relPath,
+        [string]$updated = "",
+        [string]$size = "",
+        [string]$state = ${stateNew},
+        [string]$tsvCount = "",
+        [string]$ingested = "",
+        [string]$errorMessage = "",
+        [string]$extractVersion = ""
+    )
+
+    return [pscustomobject]@{
+        相対パス = $relPath
+        更新日時 = $updated
+        サイズ   = $size
+        状態     = $state
+        TSV数    = $tsvCount
+        取り込み日時 = $ingested
+        エラー   = $errorMessage
+        抽出版   = $extractVersion
+    }
+}
+
+# 1行1件を保つため、タブ・改行はスペースにする（この文字を含む値だけ置き換える）
+${statusLineBreaks} = [char[]]@("`t", "`r", "`n")
+
+
+function toStatusLine {
+    # 取り込み一覧の1行を文字列にする（1件ずつの追記用。addStatusRow）。
+    # エラーメッセージ等のタブ・改行は、1行1件を保つためスペースにする。
+    # 数万行をまとめて書き出す writeStatusFile では、同じ整形をその場に展開している（関数の呼び出しだけで
+    # 5万行あたり数秒かかるため）。整形を変えるときは両方を直す（テストで同じ結果になることを確かめている）
+    param (
+        $row
+    )
+
+    $errorText = [string]$row.エラー
+    if ($errorText.IndexOfAny(${statusLineBreaks}) -ge 0) {
+        $errorText = $errorText -replace "[\t\r\n]+", " "
+    }
+    return [string]::Join("`t", @(
+        [string]$row.相対パス, [string]$row.更新日時, [string]$row.サイズ, [string]$row.状態,
+        [string]$row.TSV数, [string]$row.取り込み日時, $errorText, [string]$row.抽出版))
+}
+
+function readStatusFile {
+    # 取り込み一覧を読み込み、@{ Folders; Rows } を返す。ファイルが無ければ空。
+    #   Folders: クロール対象フォルダ @{ Path; Name（インデックス名） } の配列
+    #   Rows   : 相対パス（"インデックス名\フォルダからの相対パス"。大文字・小文字を区別しない）→ 行
+    # インデックス作成中は1件ごとに行を追記するため、同じ相対パスの行は後の行を優先する。列数の合わない行（書き込み途中で中断した行など）は無視する
+    param (
+        [string]$path = $workspace.StatusFile
+    )
+
+    $rows = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $folders = New-Object System.Collections.Generic.List[object]
+    $result = @{ Folders = $folders; Rows = $rows }
+    if (!(Test-Path -LiteralPath $path)) {
+        return $result
+    }
+
+    # インデックス作成中に画面などから読んでも、インデクサの追記・置き換えを妨げないよう共有を許して開く
+    $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
+    $stream = New-Object System.IO.FileStream($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
+    $reader = New-Object System.IO.StreamReader($stream, ${utf8Bom})
+    try {
+        $lines = $reader.ReadToEnd() -split "\r?\n"
+    } finally {
+        $reader.Dispose()
+    }
+
+    $columnCount = ${statusColumns}.Count
+    foreach ($line in $lines) {
+        $fields = $line.Split("`t")
+        if ($fields[0] -eq ${statusFolderKey} -and $fields.Count -eq 3) {
+            $folders.Add([pscustomobject]@{ Path = $fields[1]; Name = $fields[2] })
+            continue
+        }
+        if ($fields.Count -ne $columnCount -or $fields[0] -eq "" -or $fields[0] -eq ${statusColumns}[0]) {
+            continue
+        }
+        # 数万行を読むため、1行ごとの関数呼び出し（newStatusRow）は使わずにその場で作る（列は $statusColumns と同じ）
+        $rows[$fields[0]] = [pscustomobject]@{
+            相対パス = $fields[0]
+            更新日時 = $fields[1]
+            サイズ   = $fields[2]
+            状態     = $fields[3]
+            TSV数    = $fields[4]
+            取り込み日時 = $fields[5]
+            エラー   = $fields[6]
+            抽出版   = $fields[7]
+        }
+    }
+    return $result
+}
+
+function writeStatusFile {
+    # 取り込み一覧を書き出す（1ファイル1行）。途中で中断しても壊れないよう、一時ファイルに書いてから置き換える
+    #   folders: クロール対象フォルダ @{ Path; Name } の配列。"クロール対象フォルダ<TAB>パス<TAB>インデックス名" の行にする
+    param (
+        [object[]]$folders,
+        [object[]]$rows,
+        [string]$path = $workspace.StatusFile
+    )
+
+    $lines = New-Object System.Collections.Generic.List[string]
+    foreach ($folder in @($folders | Where-Object { $_ })) {
+        $lines.Add("${statusFolderKey}`t$($folder.Path)`t$($folder.Name)")
+    }
+    $lines.Add((${statusColumns} -join "`t"))
+    # 数万行を書き出すため、1行ごとの関数呼び出し（toStatusLine）・パイプライン（Where-Object）は使わない
+    # （5万行で約 10 秒 → 約 0.2 秒。この間はインデックス作成の進み具合が止まって見えるため速くする）
+    foreach ($row in $rows) {
+        if ($null -eq $row) {
+            continue
+        }
+        $errorText = [string]$row.エラー
+        if ($errorText.IndexOfAny(${statusLineBreaks}) -ge 0) {
+            $errorText = $errorText -replace "[\t\r\n]+", " "
+        }
+        $lines.Add([string]::Join("`t", @(
+            [string]$row.相対パス, [string]$row.更新日時, [string]$row.サイズ, [string]$row.状態,
+            [string]$row.TSV数, [string]$row.取り込み日時, $errorText, [string]$row.抽出版)))
+    }
+
+    writeTextLinesAtomic $path $lines
+}
+
+function getIndexNameMap {
+    # 取り込み一覧に記録したインデックス名 → クロール対象フォルダのパス（大文字・小文字を区別しない）。
+    # クロール対象フォルダの行は先頭にあるため、見出し行まで読んで打ち切る（取り込み一覧が大きくても時間がかからないように）
+    param (
+        [string]$path = $workspace.StatusFile
+    )
+
+    $map = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    if (!(Test-Path -LiteralPath $path)) {
+        return , $map
+    }
+    $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
+    $stream = New-Object System.IO.FileStream($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
+    $reader = New-Object System.IO.StreamReader($stream, ${utf8Bom})
+    try {
+        $header = ${statusColumns} -join "`t"
+        while ($null -ne ($line = $reader.ReadLine())) {
+            if ($line -eq $header) {
+                break
+            }
+            $fields = $line.Split("`t")
+            if ($fields[0] -eq ${statusFolderKey} -and $fields.Count -eq 3 -and $fields[2]) {
+                $map[$fields[2]] = $fields[1]
+            }
+        }
+    } finally {
+        $reader.Dispose()
+    }
+    return , $map
+}
+
+# インデックス名に対する元のフォルダを記録できるかの判断（判断層。ファイルに触らない）。
+
+function testSourceNameRecordable {
+    # インデックス名に対する元のフォルダを設定に記録できる名前か。空の名前と、前後に空白（全角空白・NBSP・タブを含む）がある名前は、
+    # 設定を読み戻すとき前後の空白が削られて同じ名前にならない（確かめ済みにならない）ため記録しない。
+    # 状態層（setIndexSourceFolder）の入口の条件と、画面の文言（記録されないときは毎回確かめる）で同じ判断を使う。
+    # 文字数で比べる（-ne はカルチャに従う）
+    param (
+        [string]$name
+    )
+
+    $trimmed = $name.Trim()
+    return $trimmed.Length -gt 0 -and $trimmed.Length -eq $name.Length
+}
 
 # インデックス名と TSV のファイル名の決め方（判断層。ファイルに触らない）。
 
@@ -7890,19 +8364,6 @@ function newIndexName {
         $name = $base.Substring(0, [Math]::Min($base.Length, ${maxFileNameLength} - $suffix.Length)) + $suffix
     }
     return $name
-}
-
-function testSourceNameRecordable {
-    # インデックス名に対する元のフォルダを設定に記録できる名前か。空の名前と、前後に空白（全角空白・NBSP・タブを含む）がある名前は、
-    # 設定を読み戻すとき前後の空白が削られて同じ名前にならない（確かめ済みにならない）ため記録しない。
-    # 状態層（setIndexSourceFolder）の入口の条件と、画面の文言（記録されないときは毎回確かめる）で同じ判断を使う。
-    # 文字数で比べる（-ne はカルチャに従う）
-    param (
-        [string]$name
-    )
-
-    $trimmed = $name.Trim()
-    return $trimmed.Length -gt 0 -and $trimmed.Length -eq $name.Length
 }
 
 function assignIndexNames {
@@ -8097,7 +8558,7 @@ function convertIndexFileNameToPlace {
     $kind = ""
     $body = $fileNameWithoutExtension
     $fileKindAlternation = (${placeKindFileNames}.Values | ForEach-Object { [regex]::Escape($_) }) -join "|"
-    if ($fileNameWithoutExtension -match "^(?<base>.+)\[(?<kind>$fileKindAlternation)(?<number>[1-9][0-9]{0,8})?\]`$") {
+    if ($fileNameWithoutExtension -match "^(?<base>.+)\[(?<kind>$fileKindAlternation)(?<number>${objectPlaceNumberPattern})?\]`$") {
         $kindName = $Matches.kind
         $kind = (${placeKindFileNames}.GetEnumerator() | Where-Object { $_.Value -eq $kindName } | Select-Object -First 1).Key
         # 番号は埋め込みにだけ付く（ほかの種類に付いた名前は、この関数が作らない形のため戻さない）
@@ -8125,7 +8586,7 @@ function convertIndexFileNameToPlace {
 # Word はページ、PowerPoint はスライドを元の場所にする（例: "ページ003[コメント]" "スライド002[図形]"）。
 # Excel のシート名には [ ] を使えず、Word・PowerPoint の場所（ページNNN・スライドNNN 等）にも付かないため、ふつうの場所と重ならない。
 # 種類ごとに、検索に含めるかを画面で選べる（search_query.ps1 の newPlaceExclude）。
-# 種類を足すときは、ここ・書き出す側（office_reader.ps1）・画面（types.ps1 の HitRow.ObjectPlaceRegex）をそろえる
+# 種類を足すときは、ここ（placeKindFileNames にも足す）と書き出す側（office_reader.ps1）をそろえる。検索の除外・画面の判定の正規表現は newObjectPlaceKindPattern が表から組み立てる
 ${placeKindShape}   = "図形"      # 図形・テキストボックス・WordArt・SmartArt・グラフ（PowerPoint のテキストボックス・図形はスライドの本文）
 ${placeKindComment} = "コメント"  # コメント（メモ・スレッド形式のコメント）
 ${placeKindHeaderFooter} = "ヘッダー・フッター"  # Excel のヘッダー・フッター（Word・PowerPoint の "ヘッダー・フッター" は場所の名前で、種類ではない）。いつも検索する（除外の選択肢は無い）
@@ -8139,7 +8600,27 @@ ${placeKindFileNames} = @{ ${placeKindShape} = "shape"; ${placeKindComment} = "c
 # 番号の付く種類（埋め込み）は選択肢に入れず、番号（先頭が 0 でない数字）を付けた形だけを別に当てる
 # （"[埋め込み]"・"[埋め込み01]" はふつうの場所とする）
 ${objectPlaceKindAlternation} = (${placeKindFileNames}.Keys | Where-Object { $_ -ne ${placeKindEmbed} } | ForEach-Object { [regex]::Escape($_) }) -join "|"
-${objectPlacePattern} = "^(?<base>.*)\[(?:(?<kind>${objectPlaceKindAlternation})|(?<numberedKind>$([regex]::Escape(${placeKindEmbed})))(?<number>[1-9][0-9]{0,8}))\]$"
+${objectPlaceNumberPattern} = "[1-9][0-9]{0,8}"
+${objectPlacePattern} = "^(?<base>.*)\[(?:(?<kind>${objectPlaceKindAlternation})|(?<numberedKind>$([regex]::Escape(${placeKindEmbed})))(?<number>${objectPlaceNumberPattern}))\]$"
+
+
+function newObjectPlaceKindPattern {
+    # 場所の末尾の種類だけを当てる正規表現の文字列を、${placeKindFileNames} の表から組み立てる。
+    # 検索から外す場所（search_query.ps1 の newPlaceExclude）と画面の判定（ui/search/result_types.ps1 の HitRow.ObjectPlaceRegex）が使う。
+    #   例（全部）: \[(?:図形|コメント|ヘッダー・フッター|埋め込み[1-9][0-9]{0,8})\]$（選択肢の並びは表の順による）
+    # kinds: 当てる種類の名前の並び（省略または空は全部）。番号の付く種類（埋め込み）は番号の形を付けて当てる
+    param (
+        [string[]]$kinds = @()
+    )
+
+    if ($kinds.Count -eq 0) {
+        $kinds = @(${placeKindFileNames}.Keys)
+    }
+    $alternatives = foreach ($kind in $kinds) {
+        if ($kind -eq ${placeKindEmbed}) { "$([regex]::Escape($kind))${objectPlaceNumberPattern}" } else { [regex]::Escape($kind) }
+    }
+    return "\[(?:$(@($alternatives) -join '|'))\]`$"
+}
 
 
 function splitObjectPlace {
@@ -8240,37 +8721,6 @@ function describeHitPlace {
 ${indexBookDirPattern} = "\.(?:xls|doc|ppt)[a-z]?$|(?:$(((${textExtensions} + ${pdfExtensions}) | ForEach-Object { [regex]::Escape($_) }) -join '|'))$"
 
 # インデックス（work\index 配下）の作成・集計・改名・削除。
-
-function getIndexNameMap {
-    # 取り込み一覧に記録したインデックス名 → クロール対象フォルダのパス（大文字・小文字を区別しない）。
-    # クロール対象フォルダの行は先頭にあるため、見出し行まで読んで打ち切る（取り込み一覧が大きくても時間がかからないように）
-    param (
-        [string]$path = $workspace.StatusFile
-    )
-
-    $map = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([System.StringComparer]::OrdinalIgnoreCase)
-    if (!(Test-Path -LiteralPath $path)) {
-        return , $map
-    }
-    $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
-    $stream = New-Object System.IO.FileStream($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
-    $reader = New-Object System.IO.StreamReader($stream, ${utf8Bom})
-    try {
-        $header = ${statusColumns} -join "`t"
-        while ($null -ne ($line = $reader.ReadLine())) {
-            if ($line -eq $header) {
-                break
-            }
-            $fields = $line.Split("`t")
-            if ($fields[0] -eq ${statusFolderKey} -and $fields.Count -eq 3 -and $fields[2]) {
-                $map[$fields[2]] = $fields[1]
-            }
-        }
-    } finally {
-        $reader.Dispose()
-    }
-    return , $map
-}
 
 function testStatusRowFailed {
     # 取り込み一覧の行を「失敗」として数えるか。状態が「失敗」の行と、「未取り込み」で理由（エラー）が書いてある行
@@ -9027,7 +9477,7 @@ function getContentIndexBodyText {
 }
 # ［検索］の検索対象ツリーのデータ集め（状態層。画面に触らない）。
 # ワークスペースのフォルダを読むので、届かないネットワークのワークスペースでは、画面のスレッドでなく裏の列（network）から呼ぶ。
-# 画面（ui\index_tree.ps1・ui\types.ps1 の IndexNode）は、この結果を受け取って組み立てるだけにする。
+# 画面（ui\index_tree.ps1・ui\index\index_types.ps1 の IndexNode）は、この結果を受け取って組み立てるだけにする。
 
 function testIndexBookName {
     # 元のファイルごとのフォルダと分かる拡張子か。Office は拡張子の形（.xls・.doc・.ppt で始まり 4～5 文字）で見分け、
@@ -9438,7 +9888,7 @@ function convertFolderToContentIndex {
     if ($removeTsv) {
         foreach ($book in $books) {
             $bookDir = [System.IO.Path]::GetDirectoryName($book.Places[0].Path)
-            [System.IO.Directory]::Delete($bookDir, $true)
+            removeDirectoryRetry $bookDir
         }
     }
     return @{ Books = $bookTotal; Tsv = $tsvCount; Chars = $chars; Files = $texts.Count; Written = $written; Texts = [string[]]$texts.ToArray() }
@@ -10101,56 +10551,8 @@ function removeSystemIndexOf {
 
 # インデックス作成の状態（取り込み一覧・取り込み中のファイル）の読み書きと、画面とインデクサの受け渡しの口・ログ。
 
-function newStatusRow {
-    # 取り込み一覧の1行（1ファイル）を作る
-    param (
-        [string]$relPath,
-        [string]$updated = "",
-        [string]$size = "",
-        [string]$state = ${stateNew},
-        [string]$tsvCount = "",
-        [string]$ingested = "",
-        [string]$errorMessage = "",
-        [string]$extractVersion = ""
-    )
-
-    return [pscustomobject]@{
-        相対パス = $relPath
-        更新日時 = $updated
-        サイズ   = $size
-        状態     = $state
-        TSV数    = $tsvCount
-        取り込み日時 = $ingested
-        エラー   = $errorMessage
-        抽出版   = $extractVersion
-    }
-}
-
-
 # 1ファイルの取り込みの制限時間（分）。超えたらOfficeアプリを強制終了し、そのファイルは失敗とする（クラウドからのダウンロードも含む。確認の文言も同じ値を使う）
 ${ingestFileTimeoutMinutes} = 10
-
-# 1行1件を保つため、タブ・改行はスペースにする（この文字を含む値だけ置き換える）
-${statusLineBreaks} = [char[]]@("`t", "`r", "`n")
-
-
-function toStatusLine {
-    # 取り込み一覧の1行を文字列にする（1件ずつの追記用。addStatusRow）。
-    # エラーメッセージ等のタブ・改行は、1行1件を保つためスペースにする。
-    # 数万行をまとめて書き出す writeStatusFile では、同じ整形をその場に展開している（関数の呼び出しだけで
-    # 5万行あたり数秒かかるため）。整形を変えるときは両方を直す（テストで同じ結果になることを確かめている）
-    param (
-        $row
-    )
-
-    $errorText = [string]$row.エラー
-    if ($errorText.IndexOfAny(${statusLineBreaks}) -ge 0) {
-        $errorText = $errorText -replace "[\t\r\n]+", " "
-    }
-    return [string]::Join("`t", @(
-        [string]$row.相対パス, [string]$row.更新日時, [string]$row.サイズ, [string]$row.状態,
-        [string]$row.TSV数, [string]$row.取り込み日時, $errorText, [string]$row.抽出版))
-}
 
 function describeIngestError {
     # 取り込みで発生した例外から、取り込み一覧のエラー列・画面に表示する失敗の理由を返す。
@@ -10209,89 +10611,6 @@ function describeIngestError {
         return "${cause}（詳細: ${message}）"
     }
     return $message
-}
-
-function readStatusFile {
-    # 取り込み一覧を読み込み、@{ Folders; Rows } を返す。ファイルが無ければ空。
-    #   Folders: クロール対象フォルダ @{ Path; Name（インデックス名） } の配列
-    #   Rows   : 相対パス（"インデックス名\フォルダからの相対パス"。大文字・小文字を区別しない）→ 行
-    # インデックス作成中は1件ごとに行を追記するため、同じ相対パスの行は後の行を優先する。列数の合わない行（書き込み途中で中断した行など）は無視する
-    param (
-        [string]$path = $workspace.StatusFile
-    )
-
-    $rows = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
-    $folders = New-Object System.Collections.Generic.List[object]
-    $result = @{ Folders = $folders; Rows = $rows }
-    if (!(Test-Path -LiteralPath $path)) {
-        return $result
-    }
-
-    # インデックス作成中に画面などから読んでも、インデクサの追記・置き換えを妨げないよう共有を許して開く
-    $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
-    $stream = New-Object System.IO.FileStream($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
-    $reader = New-Object System.IO.StreamReader($stream, ${utf8Bom})
-    try {
-        $lines = $reader.ReadToEnd() -split "\r?\n"
-    } finally {
-        $reader.Dispose()
-    }
-
-    $columnCount = ${statusColumns}.Count
-    foreach ($line in $lines) {
-        $fields = $line.Split("`t")
-        if ($fields[0] -eq ${statusFolderKey} -and $fields.Count -eq 3) {
-            $folders.Add([pscustomobject]@{ Path = $fields[1]; Name = $fields[2] })
-            continue
-        }
-        if ($fields.Count -ne $columnCount -or $fields[0] -eq "" -or $fields[0] -eq ${statusColumns}[0]) {
-            continue
-        }
-        # 数万行を読むため、1行ごとの関数呼び出し（newStatusRow）は使わずにその場で作る（列は $statusColumns と同じ）
-        $rows[$fields[0]] = [pscustomobject]@{
-            相対パス = $fields[0]
-            更新日時 = $fields[1]
-            サイズ   = $fields[2]
-            状態     = $fields[3]
-            TSV数    = $fields[4]
-            取り込み日時 = $fields[5]
-            エラー   = $fields[6]
-            抽出版   = $fields[7]
-        }
-    }
-    return $result
-}
-
-function writeStatusFile {
-    # 取り込み一覧を書き出す（1ファイル1行）。途中で中断しても壊れないよう、一時ファイルに書いてから置き換える
-    #   folders: クロール対象フォルダ @{ Path; Name } の配列。"クロール対象フォルダ<TAB>パス<TAB>インデックス名" の行にする
-    param (
-        [object[]]$folders,
-        [object[]]$rows,
-        [string]$path = $workspace.StatusFile
-    )
-
-    $lines = New-Object System.Collections.Generic.List[string]
-    foreach ($folder in @($folders | Where-Object { $_ })) {
-        $lines.Add("${statusFolderKey}`t$($folder.Path)`t$($folder.Name)")
-    }
-    $lines.Add((${statusColumns} -join "`t"))
-    # 数万行を書き出すため、1行ごとの関数呼び出し（toStatusLine）・パイプライン（Where-Object）は使わない
-    # （5万行で約 10 秒 → 約 0.2 秒。この間はインデックス作成の進み具合が止まって見えるため速くする）
-    foreach ($row in $rows) {
-        if ($null -eq $row) {
-            continue
-        }
-        $errorText = [string]$row.エラー
-        if ($errorText.IndexOfAny(${statusLineBreaks}) -ge 0) {
-            $errorText = $errorText -replace "[\t\r\n]+", " "
-        }
-        $lines.Add([string]::Join("`t", @(
-            [string]$row.相対パス, [string]$row.更新日時, [string]$row.サイズ, [string]$row.状態,
-            [string]$row.TSV数, [string]$row.取り込み日時, $errorText, [string]$row.抽出版)))
-    }
-
-    writeTextLinesAtomic $path $lines
 }
 
 function addStatusRow {
@@ -10450,34 +10769,6 @@ function testIndexerRunning {
             $mutex.Mutex.ReleaseMutex()
         }
         $mutex.Mutex.Dispose()
-    }
-}
-
-# インデックス作成のログ（invokeIndexer が開く TextWriter。取り込みのスレッドでは 1 ファイル分を貯める StringWriter）
-$script:indexerLog = $null
-# ログをコンソールにも出すか（画面を使わずに indexer.ps1 を実行したとき）
-$script:indexerEcho = $false
-
-function writeIndexerLog {
-    # インデックス作成の表示内容をログ（indexing_log.txt）に書く。color はコンソールに出すときの色
-    param (
-        [string]$text = "",
-        [string]$color = ""
-    )
-
-    if ($null -ne $script:indexerLog) {
-        try {
-            $script:indexerLog.WriteLine($text)
-        } catch {
-            # ログのためだけの書き込みのため、書けなくてもインデックス作成は続ける
-        }
-    }
-    if ($script:indexerEcho) {
-        if ($color) {
-            Write-Host $text -ForegroundColor $color
-        } else {
-            Write-Host $text
-        }
     }
 }
 
@@ -10821,10 +11112,9 @@ class IndexCatalog {
         }
         $target = Join-Path $dir $name
         if (Test-Path -LiteralPath $target -PathType Container) {
-            # 中に長いパス（260文字超）のTSVがあっても削除できるよう \\?\ 付きで削除する。
-            # 画面は別スレッド（$ErrorActionPreference が既定の Continue）で呼ぶため、消せなければ例外にして
-            # 取り込み一覧の記録を残す（-ErrorAction Stop が無いと、フォルダが残ったまま記録だけ消える）
-            Remove-Item -LiteralPath (toLongPath $target) -Recurse -Force -ErrorAction Stop
+            # 中に長いパス（260文字超）のTSVがあっても削除でき、中のリンク（ジャンクション・シンボリックリンク）の先は消さない
+            # （removeDirectoryRetry）。消せなければ例外にして、取り込み一覧の記録を残す（フォルダが残ったまま記録だけ消えないように）
+            removeDirectoryRetry $target
         }
         $this.Ledger.RemoveIndexName($name)
         removeSystemIndexOfWorkspace $name $dir
@@ -11337,12 +11627,12 @@ function newPlaceExclude {
 
     $kinds = @()
     # 埋め込み（"[埋め込み<N>]"）は図形と一緒に切り替える（検索の選択肢を増やさない）
-    if (!$includeShapes) { $kinds += [regex]::Escape(${placeKindShape}); $kinds += "$([regex]::Escape(${placeKindEmbed}))[1-9][0-9]{0,8}" }
-    if (!$includeComments) { $kinds += [regex]::Escape(${placeKindComment}) }
+    if (!$includeShapes) { $kinds += ${placeKindShape}; $kinds += ${placeKindEmbed} }
+    if (!$includeComments) { $kinds += ${placeKindComment} }
     if ($kinds.Count -eq 0) {
         return $null
     }
-    return [regex]::new("\[(?:$($kinds -join '|'))\]$")
+    return [regex]::new((newObjectPlaceKindPattern -kinds $kinds))
 }
 
 # テキストのヒットの行・プレビューの前後の行を切る長さ（文字）と、一致の位置から遡る長さ（文字）。
@@ -11807,7 +12097,7 @@ function invokeWindowsSearch {
 }
 
 function getWindowsSearchState {
-    # 高速検索に使えるかと、使えない理由。次のどれかの文字列を返す（画面の文言は index_view.ps1 の getFastSearchRowView）。
+    # 高速検索に使えるかと、使えない理由。次のどれかの文字列を返す（画面の文言は ui/index/index_list_view.ps1 の getFastSearchRowView）。
     #   NoFolder     : system_index のフォルダが無い（インデックスを作っていない・ワークスペースが違う）
     #   NoConnection : Windows Search を開けない、または問い合わせに失敗した（時間切れを含む）
     #   NotInScope   : system_index が 0 件で、ワークスペースの中も 1 件も索引されていない（索引の対象外とみなす）
@@ -18311,15 +18601,26 @@ function publishTsv {
 }
 
 function clearTmpDir {
+    # 作業フォルダ直下のファイルを消す。作業フォルダそのものがリンク（ジャンクション・シンボリックリンク）のときは、
+    # 先のファイルを消さないよう、何も消さずにログに出す
+    if (testPathIsLink $tmpDir) {
+        writeIndexerLog "    作業フォルダがリンク（ジャンクション・シンボリックリンク）のため、中のファイルを消しませんでした: ${tmpDir}" "Yellow"
+        return
+    }
     Get-ChildItem -LiteralPath (toLongPath $tmpDir) -File | Remove-Item -Force
 }
 
 function removeEmptyDir {
     # フォルダが空のときだけ、再帰しない削除で消す。中にほかのプロセスのフォルダなどが残っている・
-    # フォルダが既に無いときは、何もせずそのままにする
+    # フォルダが既に無いときは、何もせずそのままにする。
+    # リンク（ジャンクション・シンボリックリンク）は、リンク自体を外さないよう、先が空でも消さない
+    # （利用者が tmp や出力用のフォルダの親をリンクにした構成を、そのまま使えるようにするため）
     param (
         [string]$dir
     )
+    if (testPathIsLink $dir) {
+        return
+    }
     try {
         [System.IO.Directory]::Delete($dir, $false)
     } catch {
@@ -18335,7 +18636,7 @@ function removeTmpDir {
         try {
             removeDirectoryRetry $dir
         } catch {
-            writeIndexerLog "    作業フォルダを削除できませんでした: ${dir}" "Yellow"
+            writeIndexerLog "    作業フォルダを削除できませんでした: ${dir}（$($_.Exception.Message)）" "Yellow"
         }
     }
     # 空になった tmp\<PC の鍵>・tmp も消す（ワークスペースの tmp を使えたときだけ。
@@ -18350,11 +18651,33 @@ function removeStaleTmpDirs {
     # 強制終了などで残った、ほかの（終了済みの）プロセスの作業フォルダ
     # （ワークスペースの tmp\<PC の鍵>\<PID>・work\publish\<PID>・前の版までの %TEMP%\tebunko\<PID>）を削除する。
     # 空になった親（tmp\<PC の鍵>・publish・${legacyTmpParent}。tmp\<PC の鍵> はさらに tmp 自体も）も消す
-    foreach ($parent in @((Split-Path (getWorkspaceTmpDir $workspace) -Parent), (Split-Path $workspace.PublishDir -Parent), ${legacyTmpParent})) {
+    # tmp\<PC の鍵> の途中にリンク（ジャンクション・シンボリックリンク）があるときは、先のフォルダを消さないよう、片付けない
+    $keyDir = Split-Path (getWorkspaceTmpDir $workspace) -Parent
+    foreach ($parent in @($keyDir, (Split-Path $workspace.PublishDir -Parent), ${legacyTmpParent})) {
+        if (($parent -eq $keyDir) -and (testPathHasLink $workspace.TmpRoot $keyDir)) {
+            writeIndexerLog "    作業領域の途中にリンク（ジャンクション・シンボリックリンク）があるため、残った作業フォルダを片付けませんでした: ${keyDir}" "Yellow"
+            continue
+        }
         removeStaleProcessDirs $parent
         removeEmptyDir $parent
     }
     removeEmptyDir $workspace.TmpRoot
+}
+
+function newDirectoryReplacingExisting {
+    # フォルダを作る。同じ名前（前の残り・先に置かれたリンク）が既にあれば、リンクは辿らずに消してから作り直す。
+    # 作ったものがリンクでなければ $true（置けた）、リンクのまま残った（消せなかった）ときは $false
+    param (
+        [string]$dir
+    )
+
+    try {
+        removeDirectoryRetry $dir
+    } catch {
+        # 消せなくても、下の確かめでリンクが残っていなければ、そのまま使う
+    }
+    [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+    return !(testPathIsLink $dir)
 }
 
 function initTmpDir {
@@ -18371,7 +18694,18 @@ function initTmpDir {
         writeIndexerLog "$(getTmpDirUnavailableMessage $selected.Reason)取り込みをすべてスキップします。" "Yellow"
         return $selected
     }
-    [System.IO.Directory]::CreateDirectory($selected.Dir) | Out-Null
+    # 作業領域（tmp\<PC の鍵>\<PID>）の途中にリンク（ジャンクション・シンボリックリンク）があれば、先に書かないよう置けない扱いにする
+    # （tmp そのものは見ない。利用者が tmp を別の場所へのリンクにした構成も、今までどおり使える）。
+    # 同じ名前（前のプロセスの残り・先に置かれたもの）が既にあれば、リンクは辿らずに消してから作り直す
+    $placed = $false
+    if (!(testPathHasLink $workspace.TmpRoot (Split-Path $selected.Dir -Parent))) {
+        $placed = newDirectoryReplacingExisting $selected.Dir
+    }
+    if (!$placed) {
+        $unavailable = @{ Dir = ""; Reason = "Link" }
+        writeIndexerLog "$(getTmpDirUnavailableMessage $unavailable.Reason)取り込みをすべてスキップします。" "Yellow"
+        return $unavailable
+    }
     foreach ($dir in @($workspace.TmpRoot, (Split-Path $selected.Dir -Parent), $selected.Dir)) {
         [void](setNotContentIndexed $dir)
     }
@@ -18390,8 +18724,14 @@ function newWorkerTmpDir {
     if (!$parentDir) {
         return ""
     }
+    if (testPathIsLink $parentDir) {
+        writeIndexerLog "    作業フォルダがリンク（ジャンクション・シンボリックリンク）のため、取り込みの作業フォルダを置けません: ${parentDir}" "Yellow"
+        return ""
+    }
     $dir = Join-Path $parentDir "w$number"
-    [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+    if (!(newDirectoryReplacingExisting $dir)) {
+        return ""
+    }
     if (testNotContentIndexed $parentDir) {
         [void](setNotContentIndexed $dir)
     }
@@ -18412,9 +18752,11 @@ function removeStaleProcessDirs {
             continue  # 実行中のインデックス作成（またはPIDを再利用した別のプロセス）のものは残す
         }
         try {
-            Remove-Item -LiteralPath (toLongPath $dir.FullName) -Recurse -Force
+            # 中に長いパスがあっても消え、中のリンクの先は消さない。使用中などで消せなければ 1 回だけ試して次回に回す
+            removeDirectoryRetry $dir.FullName 1
         } catch {
-            # 使用中などで削除できなければ、次回に回す
+            # 使用中・リンクかどうか確かめられないフォルダがあるなどで削除できなければ、原因をログに出して次回に回す
+            writeIndexerLog "    終了したプロセスの作業フォルダを削除できませんでした: $($dir.FullName)（$($_.Exception.Message)）" "Yellow"
         }
     }
 }
@@ -18478,8 +18820,8 @@ function removeDroppedFolders {
     foreach ($previous in @($dropped | Where-Object { $_ })) {
         $dir = Join-Path $ws.IndexDir $previous.Name
         if (Test-Path -LiteralPath $dir) {
-            # 中に長いパス（260文字超）のTSVがあっても削除できるよう \\?\ 付きで削除する
-            Remove-Item -LiteralPath (toLongPath $dir) -Recurse -Force
+            # 中に長いパス（260文字超）のTSVがあっても削除でき、中のリンク（ジャンクション・シンボリックリンク）の先は消さない
+            removeDirectoryRetry $dir
         }
         writeIndexerLog "クロール対象から削除されたフォルダ（$($previous.Path)）のインデックスを削除しました。"
     }
@@ -18519,7 +18861,7 @@ ${ingestWorkerScript} = {
     # 部品を読み込んだのと同じスコープ（取り込みのスレッドでは global）に置く
     $own = [Workspace]::new($settings.WorkDir)
     $own.PublishDir = Join-Path $settings.PublishDir "w$number"
-    Set-Variable -Name workspace -Value $own
+    setCallerWorkspace $own
     Set-Variable -Name tmpDir -Value (newWorkerTmpDir $settings.TmpDir $number)
     Set-Variable -Name tmpDirReason -Value $settings.TmpDirReason
     [System.IO.Directory]::CreateDirectory($workspace.PublishDir) | Out-Null
@@ -19764,8 +20106,9 @@ class ConfirmFact {
     [string]$Detail = ""   # 具体的な場所・件数など（空なら行ごと出さない）
 }
 
-# tebunko の画面で使う型（検索結果・プレビュー・インデックス一覧など）。
-# shared\ui\types.ps1 を先に読み込んでおくこと（NotifyBase を継承する）。
+# tebunko の画面で使う型: 検索結果とプレビュー。
+# shared\ui\types.ps1 を先に読み込んでおくこと（NotifyBase を継承する）。lib.ps1（index_name.ps1）も先に読み込んでおくこと（HitRow.ObjectPlaceRegex の値を作る）。
+# Preview* と HitRow は互いを参照するため、同じファイルに置く。
 
 class Segment {
     [string]$Text
@@ -20179,9 +20522,9 @@ class HitRow : NotifyBase {
     static [regex] $CellRegex  = [regex]::new("\t(?:`"(?:[^`"]|`"`")*`"[^\t]*|[^\t]*)")
     static [regex] $QuoteRegex = [regex]::new("^`"((?:[^`"]|`"`")*)`"(.*)`$", [System.Text.RegularExpressions.RegexOptions]::Singleline)
     static [regex] $ExcelRegex = [regex]::new("\.xls[a-z]?`$", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
-    # 図形・コメントの場所 "<元の場所>[<種類>]"（index_name.ps1 の objectPlacePattern と同じ形。クラスからはスクリプトの変数が見えないため、ここにも書く）。
+    # 図形・コメントの場所 "<元の場所>[<種類>]"。クラスからはスクリプトの関数が見えないため、値はクラスの定義の後で入れる（newObjectPlaceKindPattern）。
     # Excel の図形・コメントの 1 行は "<セル番地><TAB><文字>"。ヘッダー・フッターの 1 行は文字だけ（セル番地が無い）
-    static [regex] $ObjectPlaceRegex = [regex]::new("\[(?:図形|コメント|ヘッダー・フッター|埋め込み[1-9][0-9]{0,8})\]`$")
+    static [regex] $ObjectPlaceRegex
     static [regex] $CelllessPlaceRegex = [regex]::new("\[ヘッダー・フッター\]`$")
     static [char] $CellNewLine = [char]0x2028   # TSV のセル内改行（shared\core\text.ps1 の cellNewLine）
     static [int] $LeadLength = 40
@@ -20547,87 +20890,11 @@ class HitRow : NotifyBase {
     }
 }
 
-# ［インデックス管理］の取り込みに失敗したファイル1件
-class FailRow {
-    [string]$RelPath
-    [string]$Reason
-    [string]$IngestedText
-    [string]$SourcePath
-}
+# index_name.ps1 の newObjectPlaceKindPattern を使うため、lib.ps1 を先に読み込んでおくこと
+[HitRow]::ObjectPlaceRegex = [regex]::new((newObjectPlaceKindPattern))
 
-# インデックスの詳細のパネルの値の 1 行（getIndexDetailView）
-class DetailRow {
-    [string]$Label
-    [string]$Value
-}
-
-# インデックス更新の確認ダイアログに出すインデックス 1 件（取り込み予定.tsv の 1 行）
-class PlanRow {
-    [string]$Name
-    [string]$Path
-    [string]$TotalText    # 対象ファイル数（"1,243"。数えない行は "－"）
-    [string]$StatusText   # ステータスのバッジの文言（"要更新" / "最新" / "対象外" / "フォルダなし"）
-    [string]$Level        # バッジの色（Wait / Ok / None / Ng）
-    [string]$DetailText   # バッジの ToolTip（更新するファイルの内訳）
-}
-
-# ［インデックス管理］のインデックス一覧 1 件。プログラムから変えたときに画面へ反映するため通知する。
-# 行のチェックの TwoWay バインドは値の往復に使い、保存はチェックボックスの Click で行う（PS class はセッターにロジックを書けないため）
-class FolderItem : NotifyBase {
-    [string]$Name          # インデックス名（work\index 直下のフォルダ名）
-    [string]$Path
-    [bool]$Enabled         # 設定の enabled（［すべて更新］で更新する対象か。画面にチェックは出さない）
-    [bool]$Checked         # 一覧のチェック（一時の選択。保存しない。［アクション ▼］・行の操作の対象）
-    [string]$StatusText
-    [object]$StatusBrush
-    [string]$FileCountText
-    [string]$FileCountToolTip
-    [string]$LastIngestedText
-    [bool]$StatusChecked   # フォルダの有無を調べ終えたか（別スレッドで調べる。refreshFolderStatus）
-    [bool]$FolderExists    # 調べた結果、フォルダがあったか
-    # 一覧の「ステータス」列（本文の取り込みの状態。getIndexRowView）。色は XAML で Level から選ぶ（Ok/Wait/Ng/Run/None）
-    [string]$IndexText = "－"
-    [string]$IndexToolTip
-    [string]$IndexLevel = "None"
-    [double]$IndexPercent = 0   # 更新中のバッジの下の棒の長さ（0～100）
-    [string]$IndexSub = ""   # ステータスのバッジの下の補足（途中で止まったときの「残り N 件」。無ければ空）
-    # 一覧の「高速検索」列（システムインデックスの反映の状態。getFastSearchRowView）
-    [string]$FastText = "確認中…"
-    [string]$FastToolTip
-    [string]$FastLevel = "None"   # Ok / Wait / Warn（使えない。注意の色）/ None
-    [string[]]$FastSteps = @()    # 使えないときの対処の手順（詳細に箇条で出す）
-    # 一覧の行の右端のボタン（getIndexRowActions）。RowAction は Update / Stop / None
-    [string]$RowAction = "Update"
-    [bool]$RowUpdateEnabled = $false
-
-    FolderItem() {}   # 既定のコンストラクタを明示する（理由は shared\ui\types.ps1 の NotifyBase）
-
-    [void] SetEnabled([bool]$value) { if ($this.Enabled -ne $value) { $this.Enabled = $value; $this.Raise("Enabled") } }
-    [void] SetRowChecked([bool]$value) { if ($this.Checked -ne $value) { $this.Checked = $value; $this.Raise("Checked") } }
-    [void] SetName([string]$value) { if ($this.Name -ne $value) { $this.Name = $value; $this.Raise("Name") } }
-    [void] SetPath([string]$value) { if ($this.Path -ne $value) { $this.Path = $value; $this.Raise("Path") } }
-    [void] SetStatus([string]$text, [object]$brush) { $this.StatusText = $text; $this.StatusBrush = $brush; $this.Raise("StatusText"); $this.Raise("StatusBrush") }
-    [void] SetStats([string]$countText, [string]$toolTip, [string]$lastIngested) {
-        $this.FileCountText = $countText; $this.FileCountToolTip = $toolTip; $this.LastIngestedText = $lastIngested
-        $this.Raise("FileCountText"); $this.Raise("FileCountToolTip"); $this.Raise("LastIngestedText")
-    }
-    [void] SetIndexState([string]$text, [string]$toolTip, [string]$level, [string]$sub, [double]$percent) {
-        $this.IndexText = $text; $this.IndexToolTip = $toolTip; $this.IndexLevel = $level; $this.IndexSub = $sub; $this.IndexPercent = $percent
-        $this.Raise("IndexText"); $this.Raise("IndexToolTip"); $this.Raise("IndexLevel"); $this.Raise("IndexSub"); $this.Raise("IndexPercent")
-    }
-    [void] SetRowActions([string]$action, [bool]$updateEnabled) {
-        $this.RowAction = $action; $this.RowUpdateEnabled = $updateEnabled
-        $this.Raise("RowAction"); $this.Raise("RowUpdateEnabled")
-    }
-    [void] SetFast([string]$text, [string]$toolTip, [string]$level) {
-        $this.FastText = $text; $this.FastToolTip = $toolTip; $this.FastLevel = $level; $this.FastSteps = @()
-        $this.Raise("FastText"); $this.Raise("FastToolTip"); $this.Raise("FastLevel"); $this.Raise("FastSteps")
-    }
-    [void] SetFast([string]$text, [string]$toolTip, [string]$level, [string[]]$steps) {
-        $this.FastText = $text; $this.FastToolTip = $toolTip; $this.FastLevel = $level; $this.FastSteps = $steps
-        $this.Raise("FastText"); $this.Raise("FastToolTip"); $this.Raise("FastLevel"); $this.Raise("FastSteps")
-    }
-}
+# tebunko の画面で使う型: 検索対象とそのツリー。
+# shared\ui\types.ps1 を先に読み込んでおくこと（NotifyBase を継承する）。
 
 # 検索対象の1件（tebunko\search\content_index_search.ps1 の getContentIndexFiles に渡す）
 class SearchTarget {
@@ -20814,9 +21081,94 @@ class IndexNode : NotifyBase {
     }
 }
 
+# tebunko の画面で使う型: ［インデックス管理］の一覧・詳細・失敗した行。
+# shared\ui\types.ps1 を先に読み込んでおくこと（NotifyBase を継承する）。
+
+# ［インデックス管理］の取り込みに失敗したファイル1件
+class FailRow {
+    [string]$RelPath
+    [string]$Reason
+    [string]$IngestedText
+    [string]$SourcePath
+}
+
+# インデックスの詳細のパネルの値の 1 行（getIndexDetailView）
+class DetailRow {
+    [string]$Label
+    [string]$Value
+}
+
+# インデックス更新の確認ダイアログに出すインデックス 1 件（取り込み予定.tsv の 1 行）
+class PlanRow {
+    [string]$Name
+    [string]$Path
+    [string]$TotalText    # 対象ファイル数（"1,243"。数えない行は "－"）
+    [string]$StatusText   # ステータスのバッジの文言（"要更新" / "最新" / "対象外" / "フォルダなし"）
+    [string]$Level        # バッジの色（Wait / Ok / None / Ng）
+    [string]$DetailText   # バッジの ToolTip（更新するファイルの内訳）
+}
+
+# ［インデックス管理］のインデックス一覧 1 件。プログラムから変えたときに画面へ反映するため通知する。
+# 行のチェックの TwoWay バインドは値の往復に使い、保存はチェックボックスの Click で行う（PS class はセッターにロジックを書けないため）
+class FolderItem : NotifyBase {
+    [string]$Name          # インデックス名（work\index 直下のフォルダ名）
+    [string]$Path
+    [bool]$Enabled         # 設定の enabled（［すべて更新］で更新する対象か。画面にチェックは出さない）
+    [bool]$Checked         # 一覧のチェック（一時の選択。保存しない。［アクション ▼］・行の操作の対象）
+    [string]$StatusText
+    [object]$StatusBrush
+    [string]$FileCountText
+    [string]$FileCountToolTip
+    [string]$LastIngestedText
+    [bool]$StatusChecked   # フォルダの有無を調べ終えたか（別スレッドで調べる。refreshFolderStatus）
+    [bool]$FolderExists    # 調べた結果、フォルダがあったか
+    # 一覧の「ステータス」列（本文の取り込みの状態。getIndexRowView）。色は XAML で Level から選ぶ（Ok/Wait/Ng/Run/None）
+    [string]$IndexText = "－"
+    [string]$IndexToolTip
+    [string]$IndexLevel = "None"
+    [double]$IndexPercent = 0   # 更新中のバッジの下の棒の長さ（0～100）
+    [string]$IndexSub = ""   # ステータスのバッジの下の補足（途中で止まったときの「残り N 件」。無ければ空）
+    # 一覧の「高速検索」列（システムインデックスの反映の状態。getFastSearchRowView）
+    [string]$FastText = "確認中…"
+    [string]$FastToolTip
+    [string]$FastLevel = "None"   # Ok / Wait / Warn（使えない。注意の色）/ None
+    [string[]]$FastSteps = @()    # 使えないときの対処の手順（詳細に箇条で出す）
+    # 一覧の行の右端のボタン（getIndexRowActions）。RowAction は Update / Stop / None
+    [string]$RowAction = "Update"
+    [bool]$RowUpdateEnabled = $false
+
+    FolderItem() {}   # 既定のコンストラクタを明示する（理由は shared\ui\types.ps1 の NotifyBase）
+
+    [void] SetEnabled([bool]$value) { if ($this.Enabled -ne $value) { $this.Enabled = $value; $this.Raise("Enabled") } }
+    [void] SetRowChecked([bool]$value) { if ($this.Checked -ne $value) { $this.Checked = $value; $this.Raise("Checked") } }
+    [void] SetName([string]$value) { if ($this.Name -ne $value) { $this.Name = $value; $this.Raise("Name") } }
+    [void] SetPath([string]$value) { if ($this.Path -ne $value) { $this.Path = $value; $this.Raise("Path") } }
+    [void] SetStatus([string]$text, [object]$brush) { $this.StatusText = $text; $this.StatusBrush = $brush; $this.Raise("StatusText"); $this.Raise("StatusBrush") }
+    [void] SetStats([string]$countText, [string]$toolTip, [string]$lastIngested) {
+        $this.FileCountText = $countText; $this.FileCountToolTip = $toolTip; $this.LastIngestedText = $lastIngested
+        $this.Raise("FileCountText"); $this.Raise("FileCountToolTip"); $this.Raise("LastIngestedText")
+    }
+    [void] SetIndexState([string]$text, [string]$toolTip, [string]$level, [string]$sub, [double]$percent) {
+        $this.IndexText = $text; $this.IndexToolTip = $toolTip; $this.IndexLevel = $level; $this.IndexSub = $sub; $this.IndexPercent = $percent
+        $this.Raise("IndexText"); $this.Raise("IndexToolTip"); $this.Raise("IndexLevel"); $this.Raise("IndexSub"); $this.Raise("IndexPercent")
+    }
+    [void] SetRowActions([string]$action, [bool]$updateEnabled) {
+        $this.RowAction = $action; $this.RowUpdateEnabled = $updateEnabled
+        $this.Raise("RowAction"); $this.Raise("RowUpdateEnabled")
+    }
+    [void] SetFast([string]$text, [string]$toolTip, [string]$level) {
+        $this.FastText = $text; $this.FastToolTip = $toolTip; $this.FastLevel = $level; $this.FastSteps = @()
+        $this.Raise("FastText"); $this.Raise("FastToolTip"); $this.Raise("FastLevel"); $this.Raise("FastSteps")
+    }
+    [void] SetFast([string]$text, [string]$toolTip, [string]$level, [string[]]$steps) {
+        $this.FastText = $text; $this.FastToolTip = $toolTip; $this.FastLevel = $level; $this.FastSteps = $steps
+        $this.Raise("FastText"); $this.Raise("FastToolTip"); $this.Raise("FastLevel"); $this.Raise("FastSteps")
+    }
+}
+
 # 画面の土台（XAML の読み込み・見た目の共通定義・エラーの記録）。
-# 使う側が themeFile・iconXamlFile と、エラーの記録先を返す関数 getGuiErrorLogFile、
-# 記録の先頭に書く見出しの行を返す関数 getGuiErrorLogHeader を定義しておくこと（見出しが無くても記録は書く）。
+# 使う側が themeFile・iconXamlFile を定義し、エラーの記録先を返す式と、記録の先頭に書く見出しの行を返す式を
+# setGuiErrorLogSource で登録しておくこと（見出しが無くても記録は書く）。
 
 # 見た目の共通定義を読み込む（画面自体は XAML の MergedDictionaries で読み込む）
 function loadTheme {
@@ -20955,6 +21307,36 @@ function themeBrush {
 ${guiErrorLogMaxBytes} = 1MB
 # 見出しを最後に書いた記録先（writeErrorLog が、最初の記録・記録先の変更で見出しを書くために覚える）
 ${script:errorLogHeaderPath} = $null
+# 使う側が登録する、記録先を返す式と見出しの行を返す式（setGuiErrorLogSource）
+${script:errorLogFileSource} = $null
+${script:errorLogHeaderSource} = $null
+
+function setGuiErrorLogSource {
+    # 記録先（file）と記録の先頭の見出し（header。行の配列）を返す式を登録する（gui.ps1 が app_host.ps1 を読み込んだ直後に呼ぶ）
+    param (
+        [scriptblock]$file,
+        [scriptblock]$header
+    )
+
+    ${script:errorLogFileSource} = $file
+    ${script:errorLogHeaderSource} = $header
+}
+
+# エラーの記録先。登録が無い（まだ決まっていない）ときは $null を返す
+function getGuiErrorLogFile {
+    if ($null -eq ${script:errorLogFileSource}) {
+        return $null
+    }
+    return (& ${script:errorLogFileSource})
+}
+
+# 記録の先頭に書く見出しの行。登録が無いときは例外を投げる（writeErrorLog は、見出しを作れなくても記録は書く）
+function getGuiErrorLogHeader {
+    if ($null -eq ${script:errorLogHeaderSource}) {
+        throw "getGuiErrorLogHeader: setGuiErrorLogSource で登録されていない"
+    }
+    return (& ${script:errorLogHeaderSource})
+}
 
 # 予期しないエラーを getGuiErrorLogFile のファイルに残す。画面に出したメッセージだけでは、
 # どこで起きたのかが後から分からないため（利用者に見せるのは従来どおりメッセージだけ）
@@ -20998,6 +21380,7 @@ function writeErrorLog {
     }
 }
 
+    setGuiErrorLogSource { getToolGuiErrorLogFile } { getToolGuiErrorLogHeader }
 # 文字が省略（…）で切れているときだけ、全文をツールチップで見せる（画面層）。
 # 切れているかの判定は shared\core\text.ps1 の testTextTrimmed。ここは TextBlock の幅を測って渡すだけで、このツール固有の文言は持たない。
 # ToolTip には全文を入れておき、開く直前（ToolTipOpening）に測って、切れていなければ e.Handled = $true にして開かない。
@@ -21076,6 +21459,10 @@ function addTrimmedToolTipToRows {
 #
 # ui\ 配下のファイルは $PSScriptRoot を使わない（ここは tebunko\ui\ に置くため、$PSScriptRoot は ui\ を指してしまう）。
 # tebunko\ のパスが要るときは、呼び出し元（gui.ps1）から渡された $TebunkoDir を使う。
+#
+# startGui は順に呼ぶだけにする。中身は ui\shell\ の下のファイルに分け、startGui の中で読み込む
+# （$ui・$window・startGui のローカル変数・$script: の変数をそのまま見られるように、関数にせず dot-source する）。
+# 画面を足すときは、領域の表（shell\regions.ps1）と読み込みの表（shell\screens.ps1）に行を足す。
 
 function startGui {
     param (
@@ -21130,6 +21517,9 @@ function startGui {
     }
     $activateEvent = New-Object System.Threading.EventWaitHandle($false, [System.Threading.EventResetMode]::AutoReset, $activateName)
 
+    # 壊れた設定ファイルの退避と、ワークスペースの決定
+# startGui の一部: 壊れた設定ファイルの退避と、ワークスペースの決定。startGui の中で読み込む。
+
     # ---- 壊れた設定ファイルの退避 ----
     # setting.config が JSON として読めないときは、別の名前に退避して既定の設定で起動する（画面が出てから知らせる。$script:settingsRecovery）。
     # 退避するのは、ここ（多重起動でない最初の起動）だけ。ほかの読み込みは、壊れたファイルを動かさずに例外にする（readSettings）
@@ -21138,12 +21528,15 @@ function startGui {
     initWorkspace
     stepSplash 40
 
+
     $ErrorActionPreference = "Stop"
 
-    # ---- ウィンドウと、画面の部品の対応 ----
-
+    # ウィンドウと、領域ごとの部品の対応表（$ui）
     $window = loadWindow "${xamlDir}\tebunko.xaml"
     stepSplash 55
+    $ui = @{}
+# startGui の一部: 窓の領域の表（$regions）と、x:Name の対応表（$ui）。startGui の中で読み込む（$window・${xamlDir} と、呼ぶ側が作る $ui を使う）。
+# 画面（領域）を足すときは、ここに行を足す。
 
     # 窓の中身は領域ごとのファイルに分けてある（xaml\<画面>\<領域>.xaml）。読み込んで差す口に入れ、x:Name の対応表（$ui）を作る。
     # 別ファイルから読み込んだ中身は、そのファイルごとに名前を持つため、$window.FindName では見つからない。
@@ -21193,7 +21586,6 @@ function startGui {
             "WorkspaceBox", "WorkspaceInputError", "WorkspaceNote", "WorkspaceCaution", "WorkspaceHowTo", "ChangeWorkspaceButton", "ResetWorkspaceButton", "SettingsFileText", "SettingsFileNote") }
     )
 
-    $ui = @{}
     foreach ($name in @("NavHost", "ContentHost", "StatusBarHost", "ScrimOverlay",
             "WorkspaceNoticeHost")) {
         $ui[$name] = $window.FindName($name)
@@ -21225,13 +21617,21 @@ function startGui {
     $ui.PreviewScroll = $ui.PreviewRows.Template.FindName("PreviewScroll", $ui.PreviewRows)
     $taskbar = $window.TaskbarItemInfo
 
+
     ${okBrush}   = themeBrush "Ok"
     ${warnBrush} = themeBrush "Warn"
     ${ngBrush}   = themeBrush "Danger.Text"
     ${infoBrush} = themeBrush "Accent"
     ${grayBrush} = themeBrush "Ink.Muted"
 
-    # ---- 画面の中身（それぞれのファイルにイベントの登録まで入っている。$ui を作った後に読み込む） ----
+    # 起動時の読み込み（loadStartupData）が済んだか。済むまでは、画面の切り替え・ウィンドウの前面化で読み直さない
+    # （起動時の画面を選んだとき・ウィンドウを出したときにも呼ばれ、同じ読み込みが重なるため）。画面の読み込みの前に決める
+    $script:startupLoaded = $false
+
+    # 画面の中身（それぞれのファイルにイベントの登録まで入っている。$ui を作った後に読み込む）
+# startGui の一部: 共通の画面部品の読み込みと、画面の裏の仕事のスレッド。startGui の中で読み込む。
+# $ui を作った後に読み込む。screens.ps1 より前。
+
 # メッセージの画面（showMessage・確認・エラーの知らせ）の、種類・ボタン・文の分け方（判断層。画面に触らない）。
 # 画面に出す部分は shell.ps1。ここは「どの種類にどのアイコンと色を使うか」「どのボタンをどう並べるか」を決める。
 
@@ -21897,8 +22297,15 @@ function formatTime {
 
 # ---- 別スレッドの処理（インデックスの件数など） ----
 
-# 仕事を受けるスレッド（BackgroundQueue）は、読み込み口（gui.ps1）が $script:backgroundQueue に用意する。
+# 仕事を受けるスレッド（BackgroundQueue）は、読み込み口（gui_main.ps1）が setBackgroundQueue で渡す。
 # 仕事のスクリプトでは、そのツールの関数（lib.ps1）をそのまま使える（スレッドを始めたときに 1 回だけ読み込む）
+$script:backgroundQueue = $null
+
+function setBackgroundQueue {
+    # 既定の仕事の列を登録する（gui_main.ps1 が起動時に 1 回呼ぶ）
+    param ($queue)
+    $script:backgroundQueue = $queue
+}
 
 # ネットワークのパスだけを調べる専用の列。届かない共有で止まっても、プレビュー・状態の読み直し（$script:backgroundQueue）が
 # 待たされないようにする。初めて使うときにだけ作る（ネットワークのパスが無い利用者には、スレッドも lib.ps1 の読み込みも増えない）。
@@ -21988,8 +22395,12 @@ function getDataGridRowAt {
     # 初めて使うときに作らせる（届かない共有が無い利用者には、スレッドも lib.ps1 の読み込みも増えない）
     $backgroundLoad = getPartLoad lib -then "initWorkspace"
     $newBackgroundQueue = { [BackgroundQueue]::new(${backgroundWorkers}, $backgroundLoad, $Host) }
-    $script:backgroundQueue = & $newBackgroundQueue
+    setBackgroundQueue (& $newBackgroundQueue)
     setNetworkQueueFactory $newBackgroundQueue
+
+# startGui の一部: 画面の中身の読み込みの表。startGui の中で読み込む（読み込むファイルにイベントの登録まで入っている）。
+# 画面を足すときは、ここに読み込みの行を足す。services.ps1 の後に読み込む。
+
 # フォルダ選択（Windows 標準のダイアログ）と、フォルダのドラッグ＆ドロップ。
 
 ${folderPickOption} = [uint32]0x20                  # FOS_PICKFOLDERS（ファイルではなくフォルダを選ぶ）
@@ -22164,8 +22575,8 @@ function onFolderDragOver {
     $e.Handled = $true
 }
 
-# ［インデックス管理］タブの判断（入力の検査・名前の重複）。
-# 画面に触らないため、そのままテストできる（tests\tebunko\ui\index_view.Tests.ps1）。
+# ［インデックス管理］タブの判断: 一覧・選択・ボタンの可否・状態の文言・高速検索の列。
+# 画面に触らないため、そのままテストできる（tests\tebunko\ui\index\index_list_view.Tests.ps1）。
 
 function getUsedIndexNames {
     # 一覧のインデックス名の集合（大文字・小文字を区別しない）。except に渡した行の名前は含めない
@@ -22260,6 +22671,333 @@ function getIndexNamingFailedStatus {
     return "インデックス名を決められませんでした：${errorText}"
 }
 
+function getIndexTabButtonsEnabled {
+    # 排他（getIndexJobBlocker の結果）と、一覧で選んでいる行の有無から、［インデックス管理］の各ボタンの可否を返す。
+    #   New/Edit/Remove/ChangeFolder: ［＋ フォルダを追加］・詳細の名前とフォルダパスの欄（Edit。欄で直接直す）・［削除］・フォルダパスの［変更…］（Edit と同じ）/ Export/Import: ［エクスポート…］［インポート…］
+    # 名前とフォルダパスの欄・［削除］［エクスポート…］は、1 件選んでいるときだけ有効
+    # （［すべて更新］は updateIndexingButton が、［設定］の［変更…］は押したときに testWorkspaceChangeable が、
+    # 同じ getIndexJobBlocker の結果で止める）
+    param (
+        [string]$blocker,
+        [bool]$hasSelection
+    )
+
+    $free = ($blocker -eq "")
+    return @{
+        New = $free; Edit = ($free -and $hasSelection); Remove = ($free -and $hasSelection)
+        ChangeFolder = ($free -and $hasSelection)
+        Export = ($free -and $hasSelection); Import = $free
+    }
+}
+
+function getIndexStatusHelpText {
+    # 一覧の「ステータス」列の見出しのツールヒント（状態の名前と意味。行のバッジの名前と同じ言葉を使う）
+    return @(
+        "検索の準備の状態です。"
+        "・最新: 検索できます"
+        "・要更新: 前回の更新のあとにファイルが変わっています"
+        "・更新中: 更新しています"
+        "・警告: 読み取れないファイルがあります（それ以外のファイルは検索できます）"
+        "・エラー: フォルダが見つかりません"
+        "・未作成: まだ更新していません"
+    )
+}
+
+function getIndexCheckedItems {
+    # 一覧でチェックを付けている行（［アクション ▼］の対象・「N 件を選択中」の数・全選択の状態の元）。
+    # チェックは一時の選択で、保存しない（初めは全部外れ。設定の enabled とは別のもの）
+    param (
+        [object[]]$items
+    )
+
+    return @($items | Where-Object { $null -ne $_ -and $_.Checked })
+}
+
+function getIndexSelectionView {
+    # 一覧の見出しの全選択と、見出しの横の「N / M 件を選択中」。@{ CountText; AllChecked }
+    #   AllChecked: すべて選んでいれば $true、1 件も選んでいなければ $false、一部だけなら $null（横棒）
+    param (
+        [int]$total,    # 一覧の件数
+        [int]$checked   # チェックを付けている件数
+    )
+
+    $countText = if ($checked -ge 1) { "{0:#,0} / {1:#,0} 件を選択中" -f $checked, $total } else { "" }
+    $all = if ($total -eq 0 -or $checked -eq 0) { $false } elseif ($checked -ge $total) { $true } else { $null }
+    return @{ CountText = $countText; AllChecked = $all }
+}
+
+function getIndexActionsEnabled {
+    # ［アクション ▼］のメニューの項目の可否。@{ Update; Export; Import; Delete }
+    # ［インポート…］は選ばなくても使える。［更新］［エクスポート…］［削除…］は 1 件以上チェックしていると使える（2 件以上はまとめて行う）。
+    # 動いている処理があれば（blocker は getIndexJobBlocker の結果）、すべて使えない
+    param (
+        [string]$blocker,
+        [int]$checked
+    )
+
+    $free = ($blocker -eq "")
+    return @{
+        Update = ($free -and $checked -ge 1)
+        Export = ($free -and $checked -ge 1)
+        Import = $free
+        Delete = ($free -and $checked -ge 1)
+    }
+}
+
+function getIndexRowMenuEnabled {
+    # 行の右クリックのメニューの項目の可否。@{ Update; OpenFolder; Export; Delete }。対象は押した行（右クリックした行を選んでから開く）
+    #   Update: 行の右端の［更新］と同じ判断（getIndexRowActions）。更新中の行・動いている処理があるときは使えない（失敗のある警告の行は使える）
+    #   Export/Delete: 1 件に効く判断（getIndexTabButtonsEnabled）。OpenFolder: 動いている処理があっても使える（元のフォルダの場所があれば）
+    # 行が無いとき（hasRow が false）は、すべて使えない
+    param (
+        [string]$blocker,
+        [bool]$hasRow,
+        [string]$level,       # 押した行の getIndexRowView の Level
+        [bool]$hasPath        # 押した行の元のフォルダの場所があるか
+    )
+
+    $rowAction = getIndexRowActions $level $blocker
+    $buttons = getIndexTabButtonsEnabled $blocker $hasRow
+    return @{
+        Update = ($hasRow -and $rowAction.Action -eq "Update" -and $rowAction.UpdateEnabled)
+        OpenFolder = ($hasRow -and $hasPath)
+        Export = $buttons.Export
+        Delete = $buttons.Remove
+    }
+}
+
+function getIndexSourceFolderStatus {
+    # ［元のフォルダを開く］で、フォルダの場所を確かめた結果のステータス。kind は Empty（記録が無い）/ Checking / Missing / Unreachable / Other
+    param (
+        [string]$kind,
+        [string]$path,
+        [string]$message = ""
+    )
+
+    switch ($kind) {
+        "Empty" { return "元のフォルダの場所が分かりません（元のフォルダの記録がありません）" }
+        "Checking" { return "元のフォルダを確かめています…：${path}" }
+        "Missing" { return "元のフォルダが見つかりません（移動・削除された可能性があります）：${path}" }
+        "Unreachable" { return getFailedFileUnreachableStatus $path }
+        default { return "元のフォルダを確かめられませんでした：${message}" }
+    }
+}
+
+function getIndexSourceFolderKind {
+    # ［元のフォルダを開く］で getPathState が返した結果を、次にすることに分ける。
+    # Open（フォルダが見つかった。エクスプローラーで開く）/ Unreachable / Other / Missing（見つからない。ファイルだったときも）。
+    # Open 以外は、そのまま getIndexSourceFolderStatus の kind に渡す
+    param (
+        $state
+    )
+
+    if ($state.State -eq ${pathStateFound}) {
+        return $(if ($state.IsDirectory) { "Open" } else { "Missing" })
+    }
+    switch ($state.State) {
+        ${pathStateUnreachable} { return "Unreachable" }
+        ${pathStateOther} { return "Other" }
+        default { return "Missing" }
+    }
+}
+
+function getIndexRowActions {
+    # 一覧の行の右端のボタン。@{ Action（Update / Stop / None）; UpdateEnabled }
+    # 更新中の行には［中止］（回ごと止める）、エラー（Ng）の行には何も出さず（場所は空けておく）、ほかの行（失敗のある警告の行を含む）には［更新］を出す。
+    # ［更新］は、動いている処理があれば（blocker は getIndexJobBlocker の結果）使えない（更新中はほかの行も押せない）
+    param (
+        [string]$level,           # getIndexRowView の Level
+        [string]$blocker,
+        [bool]$exporting = $false # エクスポート中の行か（止められないので、［中止］も［更新］も出さない）
+    )
+
+    if ($exporting) {
+        return @{ Action = "None"; UpdateEnabled = $false }
+    }
+    $action = switch ($level) { "Run" { "Stop" } "Ng" { "None" } default { "Update" } }
+    return @{ Action = $action; UpdateEnabled = ($blocker -eq "") }
+}
+
+function selectFailedRowsForIndex {
+    # 「更新に失敗したファイル」に出す行を、詳細に出しているインデックスの分だけにする。
+    # indexName が空（行を選んでいない・2 件以上にチェックしている）ときは、全部をそのまま返す。
+    # 失敗の行の相対パス（work\index からの相対）の先頭の名前が、indexName と同じ（大文字・小文字は区別しない）ものだけを残す。
+    # 前方一致では絞らない（「営業」で「営業部」の行を拾わない）
+    param (
+        [object[]]$failedRows,  # getIndexingState の FailedRows（相対パスを持つ行）
+        [string]$indexName
+    )
+
+    $rows = @($failedRows | Where-Object { $null -ne $_ })
+    if (!$indexName) { return $rows }
+    $prefix = $indexName + "\"
+    return @($rows | Where-Object { ([string]$_.相対パス).StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase) })
+}
+
+function getIndexRowView {
+    # 一覧の「ステータス」列（本文の更新の状態）の文言・補足・ツールヒント・色の区分を返す。@{ Text; Sub; ToolTip; Level }
+    #   Text は状態の名前だけ（数字を含めない）。Sub は、バッジの右に小さく出す補足（更新中の「45%」、途中で止まったときの「残り N 件」。無ければ空文字列）
+    #   stat     : getIndexStats のそのインデックスの値（Total; Done; Pending; Failed）。無ければ $null
+    #   indexing : インデックス作成中か
+    #   enabled  : 設定の enabled（［すべて更新］で更新する対象か。画面にチェックは出さない）
+    #   ratio    : 更新全体の進み（0～1。分からないときは負の値）。更新中の補足に「45%」と出し、棒の長さにする
+    #   inRound  : 今の回で更新するインデックスか（選んだものだけの回では、選ばなかった行は $false）
+    #   exporting: エクスポートで書き出している最中の行か（バッジは「エクスポート中」。更新中と同じ Run の色。棒は出さない）
+    # 返す値の Percent は棒の長さ（0～100）。更新中でなければ 0
+    param (
+        $stat,
+        [bool]$indexing = $false,
+        [bool]$enabled = $true,
+        [double]$ratio = -1.0,
+        [bool]$inRound = $true,
+        [bool]$exporting = $false
+    )
+
+    if ($exporting) {
+        return @{ Text = "エクスポート中"; Sub = ""; Level = "Run"; Percent = 0; ToolTip = "インデックスを zip に書き出しています。終わるまで、ほかの操作はできません。" }
+    }
+    $notice = if (!$enabled) { "設定で［すべて更新］の対象から外れています（インデックスは残っています。行の［更新］で更新できます）。" } else { "" }
+    if ($indexing -and $enabled -and $inRound) {
+        $percent = if ($ratio -ge 0) { [int][Math]::Floor([Math]::Min($ratio, 1.0) * 100) } else { 0 }
+        $sub = if ($ratio -ge 0) { "${percent}%" } else { "" }
+        return @{ Text = "更新中"; Sub = $sub; Level = "Run"; Percent = $percent; ToolTip = "インデックスを更新しています。終わると状態を表示します。" }
+    }
+    if ($null -eq $stat -or $stat.Total -eq 0) {
+        return @{ Text = "未作成"; Sub = ""; Level = "None"; ToolTip = addIndexRowNotice "まだ更新していません。［すべて更新］か、行の［更新］で作ります。" $notice }
+    }
+    if ($stat.Pending -ge 1) {
+        return @{ Text = "要更新"; Sub = "残り $($stat.Pending) 件"; Level = "Wait"; ToolTip = addIndexRowNotice "未更新 $($stat.Pending) 件です。次の更新で続きから更新します。" $notice }
+    }
+    if ($stat.Failed -ge 1) {
+        return @{ Text = "警告"; Sub = ""; Level = "Warn"; ToolTip = addIndexRowNotice "失敗 $($stat.Failed) 件です。原因は下の「更新に失敗したファイル」で見られます。失敗したファイル以外は検索できます。" $notice }
+    }
+    return @{ Text = "最新"; Sub = ""; Level = "Ok"; ToolTip = addIndexRowNotice "更新済み $($stat.Total) 件です。" $notice }
+}
+
+function getIndexFooterView {
+    # 一覧の下の帯の文言。@{ Folders; Files }
+    param (
+        [int]$folderCount,
+        [int]$fileTotal
+    )
+
+    return @{
+        Folders = "登録済み: {0:#,0} フォルダ" -f $folderCount
+        Files = "合計: {0:#,0} ファイル" -f $fileTotal
+    }
+}
+
+function addIndexRowNotice {
+    # getIndexRowView のツールヒントに、［すべて更新］の対象から外れているときの案内を改行で足す（無ければそのまま）
+    param ([string]$text, [string]$notice)
+
+    if ($notice -eq "") {
+        return $text
+    }
+    return "${text}`n${notice}"
+}
+
+function getFastSearchRowView {
+    # 一覧の「高速検索」列（システムインデックスが Windows Search にどこまで反映されたか）の
+    # 文言・ツールヒント・色の区分・対処の手順を返す。@{ Text; ToolTip; Level; Steps }
+    # 使えないとき（不可）の Level は Warn（失敗の赤でなく注意の色）。Steps は詳細に出す対処の手順の短い箇条（無ければ空）
+    #   reason     : getWindowsSearchState の値（NoFolder; NoConnection; NotInScope; NotYet; Ok）。$null ならまだ確かめていない
+    #   progress   : getSystemIndexProgress の値（$null なら読めなかった・問い合わせに失敗した）
+    #   name       : インデックス名（progress.ByIndex を引く）
+    #   hasContent : そのインデックスの getIndexStats の Done が 1 以上か
+    #   checkedAt  : 最後に確かめ終えた時刻（DateTime。$null ならまだ）
+    #   indexing   : インデックス作成中か。作成中に hasContent が真へ変わっても（高速検索の確かめは
+    #                作成中は走らないため）、前の確かめの結果（NoFolder など）から「不可」にしない
+    param (
+        $reason,
+        $progress,
+        [string]$name,
+        [bool]$hasContent = $false,
+        $checkedAt = $null,
+        [bool]$indexing = $false
+    )
+
+    if ($null -eq $reason) {
+        return @{ Text = "確認中…"; Level = "None"; ToolTip = "Windows Search の状態を確かめています。" }
+    }
+    if ($reason -eq "NoFolder" -and !$hasContent) {
+        return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "まだ作っていません。更新が終わると状態を表示します。" $checkedAt) }
+    }
+    if ($reason -eq "NoConnection") {
+        return newFastSearchRowResult "不可" "Warn" @("Windows Search に接続できません。") $true $checkedAt $progress @(
+            "Windows Search のサービスが動いているかを確かめてください。")
+    }
+    if ($reason -eq "NotInScope") {
+        return newFastSearchRowResult "不可" "Warn" @("ワークスペースが Windows Search の索引の対象外です。") $true $checkedAt $progress @(
+            "スタートで「インデックスのオプション」と入力して開きます。",
+            "ワークスペースの system_index を対象に加えます。",
+            "管理者の権限が要る PC では、PC の管理者に頼みます。")
+    }
+    if (($reason -eq "Ok" -or $reason -eq "NotYet") -and $null -eq $progress) {
+        return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "反映の進み具合を確かめられませんでした。画面を前に出し直すと、もう一度確かめます。" $checkedAt) }
+    }
+    $entry = $null
+    if ($progress -and $progress.ByIndex -and $progress.ByIndex.ContainsKey($name)) {
+        $entry = $progress.ByIndex[$name]
+    }
+    if ($null -eq $entry -or $entry.Folders -eq 0) {
+        if ($hasContent -and $indexing) {
+            return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "更新中です。終わると状態を表示します。" $checkedAt) }
+        }
+        if ($hasContent) {
+            return newFastSearchRowResult "不可" "Warn" @("このインデックスには高速検索用のデータがありません。") $false $checkedAt $null
+        }
+        return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "まだ作っていません。更新が終わると状態を表示します。" $checkedAt) }
+    }
+    if ($reason -eq "NotYet") {
+        return newFastSearchRowResult "反映待ち" "Wait" @("Windows Search がまだ索引していません。対象に入っていれば、待つと使えるようになります（対象外のときは［インデックスのオプション］で加えてください）。") $true $checkedAt $progress
+    }
+    # ここから reason は Ok
+    if ($entry.Waiting -eq $entry.Folders) {
+        return newFastSearchRowResult "反映待ち" "Wait" @("反映済み 0 / $($entry.Folders) フォルダです。Windows Search が索引すると反映中 N% に進みます。") $true $checkedAt $progress
+    }
+    if ($entry.Waiting -ge 1) {
+        $percent = [Math]::Floor((($entry.Folders - $entry.Waiting) / [double]$entry.Folders) * 100)
+        if ($percent -eq 0) { $percent = 1 }
+        return newFastSearchRowResult "反映中 ${percent}%" "Wait" @("反映済み $($entry.Folders - $entry.Waiting) / $($entry.Folders) フォルダです（反映待ち $($entry.Waiting)）。反映済みのフォルダは高速検索で、反映待ちのフォルダはふつうの検索で調べます。") $true $checkedAt $progress
+    }
+    return @{
+        Text = "可"; Level = "Ok"
+        ToolTip = addFastSearchCheckedAt "反映済み $($entry.Folders) / $($entry.Folders) フォルダです。高速検索に使えます。" $checkedAt
+    }
+}
+
+function newFastSearchRowResult {
+    # getFastSearchRowView の共通の組み立て: 理由の行＋（使っても結果は同じという注記）＋ ContentIndexed の案内＋最終確認
+    # steps は対処の手順（ツールヒントでは理由の次の行に並べ、詳細では理由と別の箇条にする）
+    param ([string]$text, [string]$level, [string[]]$lines, [bool]$withUsageNotice, $checkedAt, $progress, [string[]]$steps = @())
+
+    $all = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($line in $lines) { [void]$all.Add($line) }
+    foreach ($step in $steps) { [void]$all.Add($step) }
+    if ($withUsageNotice) {
+        [void]$all.Add("使えなくても検索の結果は同じで、時間だけが違います。")
+        if ($progress -and $progress.ContentIndexed) {
+            [void]$all.Add("content_index が Windows Search の対象から自動で外れませんでした。対象から外すと反映が早くなります。")
+        }
+    }
+    $tooltip = addFastSearchCheckedAt ($all -join "`n") $checkedAt
+    return @{ Text = $text; Level = $level; ToolTip = $tooltip; Steps = @($steps) }
+}
+
+function addFastSearchCheckedAt {
+    # ツールヒントの最後に「最終確認 HH:mm」を足す（checkedAt が無ければそのまま）
+    param ([string]$text, $checkedAt)
+
+    if ($null -eq $checkedAt) {
+        return $text
+    }
+    return "${text}`n最終確認 $($checkedAt.ToString('HH:mm'))"
+}
+
+# ［インデックス管理］タブの判断: 追加・改名・削除と、その仕事の間の排他・閉じるときの判断。
+# 画面に触らないため、そのままテストできる（tests\tebunko\ui\index\index_edit_view.Tests.ps1）。
+
 function getIndexStoreJobStatus {
     # インデックスの削除・名前の変更を別スレッドで始めたときのステータス
     param (
@@ -22284,15 +23022,6 @@ function getIndexStoreJobFailedStatus {
 
     $operation = if ($kind -eq "rename") { "名前の変更" } else { "削除" }
     return "インデックス [${name}] の${operation}に失敗しました：${errorText}"
-}
-
-function getIndexArchiveCancelledStatus {
-    # エクスポート・インポートのダイアログを取りやめたときのステータス
-    param (
-        [string]$operation   # "エクスポート" / "インポート"
-    )
-
-    return "${operation}を取りやめました"
 }
 
 function getBulkDeleteErrorStatus {
@@ -22476,194 +23205,6 @@ function getIndexJobBlockedMessage {
     return "${blocker}は${operation}できません。終わるまでお待ちください。"
 }
 
-function getIndexTabButtonsEnabled {
-    # 排他（getIndexJobBlocker の結果）と、一覧で選んでいる行の有無から、［インデックス管理］の各ボタンの可否を返す。
-    #   New/Edit/Remove/ChangeFolder: ［＋ フォルダを追加］・詳細の名前とフォルダパスの欄（Edit。欄で直接直す）・［削除］・フォルダパスの［変更…］（Edit と同じ）/ Export/Import: ［エクスポート…］［インポート…］
-    # 名前とフォルダパスの欄・［削除］［エクスポート…］は、1 件選んでいるときだけ有効
-    # （［すべて更新］は updateIndexingButton が、［設定］の［変更…］は押したときに testWorkspaceChangeable が、
-    # 同じ getIndexJobBlocker の結果で止める）
-    param (
-        [string]$blocker,
-        [bool]$hasSelection
-    )
-
-    $free = ($blocker -eq "")
-    return @{
-        New = $free; Edit = ($free -and $hasSelection); Remove = ($free -and $hasSelection)
-        ChangeFolder = ($free -and $hasSelection)
-        Export = ($free -and $hasSelection); Import = $free
-    }
-}
-
-function getIndexStatusHelpText {
-    # 一覧の「ステータス」列の見出しのツールヒント（状態の名前と意味。行のバッジの名前と同じ言葉を使う）
-    return @(
-        "検索の準備の状態です。"
-        "・最新: 検索できます"
-        "・要更新: 前回の更新のあとにファイルが変わっています"
-        "・更新中: 更新しています"
-        "・警告: 読み取れないファイルがあります（それ以外のファイルは検索できます）"
-        "・エラー: フォルダが見つかりません"
-        "・未作成: まだ更新していません"
-    )
-}
-
-function getIndexCheckedItems {
-    # 一覧でチェックを付けている行（［アクション ▼］の対象・「N 件を選択中」の数・全選択の状態の元）。
-    # チェックは一時の選択で、保存しない（初めは全部外れ。設定の enabled とは別のもの）
-    param (
-        [object[]]$items
-    )
-
-    return @($items | Where-Object { $null -ne $_ -and $_.Checked })
-}
-
-function getIndexSelectionView {
-    # 一覧の見出しの全選択と、見出しの横の「N / M 件を選択中」。@{ CountText; AllChecked }
-    #   AllChecked: すべて選んでいれば $true、1 件も選んでいなければ $false、一部だけなら $null（横棒）
-    param (
-        [int]$total,    # 一覧の件数
-        [int]$checked   # チェックを付けている件数
-    )
-
-    $countText = if ($checked -ge 1) { "{0:#,0} / {1:#,0} 件を選択中" -f $checked, $total } else { "" }
-    $all = if ($total -eq 0 -or $checked -eq 0) { $false } elseif ($checked -ge $total) { $true } else { $null }
-    return @{ CountText = $countText; AllChecked = $all }
-}
-
-function getIndexActionsEnabled {
-    # ［アクション ▼］のメニューの項目の可否。@{ Update; Export; Import; Delete }
-    # ［インポート…］は選ばなくても使える。［更新］［エクスポート…］［削除…］は 1 件以上チェックしていると使える（2 件以上はまとめて行う）。
-    # 動いている処理があれば（blocker は getIndexJobBlocker の結果）、すべて使えない
-    param (
-        [string]$blocker,
-        [int]$checked
-    )
-
-    $free = ($blocker -eq "")
-    return @{
-        Update = ($free -and $checked -ge 1)
-        Export = ($free -and $checked -ge 1)
-        Import = $free
-        Delete = ($free -and $checked -ge 1)
-    }
-}
-
-function getIndexRowMenuEnabled {
-    # 行の右クリックのメニューの項目の可否。@{ Update; OpenFolder; Export; Delete }。対象は押した行（右クリックした行を選んでから開く）
-    #   Update: 行の右端の［更新］と同じ判断（getIndexRowActions）。更新中の行・動いている処理があるときは使えない（失敗のある警告の行は使える）
-    #   Export/Delete: 1 件に効く判断（getIndexTabButtonsEnabled）。OpenFolder: 動いている処理があっても使える（元のフォルダの場所があれば）
-    # 行が無いとき（hasRow が false）は、すべて使えない
-    param (
-        [string]$blocker,
-        [bool]$hasRow,
-        [string]$level,       # 押した行の getIndexRowView の Level
-        [bool]$hasPath        # 押した行の元のフォルダの場所があるか
-    )
-
-    $rowAction = getIndexRowActions $level $blocker
-    $buttons = getIndexTabButtonsEnabled $blocker $hasRow
-    return @{
-        Update = ($hasRow -and $rowAction.Action -eq "Update" -and $rowAction.UpdateEnabled)
-        OpenFolder = ($hasRow -and $hasPath)
-        Export = $buttons.Export
-        Delete = $buttons.Remove
-    }
-}
-
-function getIndexSourceFolderStatus {
-    # ［元のフォルダを開く］で、フォルダの場所を確かめた結果のステータス。kind は Empty（記録が無い）/ Checking / Missing / Unreachable / Other
-    param (
-        [string]$kind,
-        [string]$path,
-        [string]$message = ""
-    )
-
-    switch ($kind) {
-        "Empty" { return "元のフォルダの場所が分かりません（元のフォルダの記録がありません）" }
-        "Checking" { return "元のフォルダを確かめています…：${path}" }
-        "Missing" { return "元のフォルダが見つかりません（移動・削除された可能性があります）：${path}" }
-        "Unreachable" { return getFailedFileUnreachableStatus $path }
-        default { return "元のフォルダを確かめられませんでした：${message}" }
-    }
-}
-
-function getIndexSourceFolderKind {
-    # ［元のフォルダを開く］で getPathState が返した結果を、次にすることに分ける。
-    # Open（フォルダが見つかった。エクスプローラーで開く）/ Unreachable / Other / Missing（見つからない。ファイルだったときも）。
-    # Open 以外は、そのまま getIndexSourceFolderStatus の kind に渡す
-    param (
-        $state
-    )
-
-    if ($state.State -eq ${pathStateFound}) {
-        return $(if ($state.IsDirectory) { "Open" } else { "Missing" })
-    }
-    switch ($state.State) {
-        ${pathStateUnreachable} { return "Unreachable" }
-        ${pathStateOther} { return "Other" }
-        default { return "Missing" }
-    }
-}
-
-function getIndexRowActions {
-    # 一覧の行の右端のボタン。@{ Action（Update / Stop / None）; UpdateEnabled }
-    # 更新中の行には［中止］（回ごと止める）、エラー（Ng）の行には何も出さず（場所は空けておく）、ほかの行（失敗のある警告の行を含む）には［更新］を出す。
-    # ［更新］は、動いている処理があれば（blocker は getIndexJobBlocker の結果）使えない（更新中はほかの行も押せない）
-    param (
-        [string]$level,           # getIndexRowView の Level
-        [string]$blocker,
-        [bool]$exporting = $false # エクスポート中の行か（止められないので、［中止］も［更新］も出さない）
-    )
-
-    if ($exporting) {
-        return @{ Action = "None"; UpdateEnabled = $false }
-    }
-    $action = switch ($level) { "Run" { "Stop" } "Ng" { "None" } default { "Update" } }
-    return @{ Action = $action; UpdateEnabled = ($blocker -eq "") }
-}
-
-function selectFailedRowsForIndex {
-    # 「更新に失敗したファイル」に出す行を、詳細に出しているインデックスの分だけにする。
-    # indexName が空（行を選んでいない・2 件以上にチェックしている）ときは、全部をそのまま返す。
-    # 失敗の行の相対パス（work\index からの相対）の先頭の名前が、indexName と同じ（大文字・小文字は区別しない）ものだけを残す。
-    # 前方一致では絞らない（「営業」で「営業部」の行を拾わない）
-    param (
-        [object[]]$failedRows,  # getIndexingState の FailedRows（相対パスを持つ行）
-        [string]$indexName
-    )
-
-    $rows = @($failedRows | Where-Object { $null -ne $_ })
-    if (!$indexName) { return $rows }
-    $prefix = $indexName + "\"
-    return @($rows | Where-Object { ([string]$_.相対パス).StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase) })
-}
-
-function getIndexDetailItem {
-    # 詳細欄に出す行（詳細の名前・フォルダパスの欄と［変更…］、右クリックの［削除］［エクスポート…］の対象も同じ行。［アクション ▼］は別で、［更新］［エクスポート…］［削除…］はチェックの行、［インポート…］はチェックが要らない。可否は getIndexActionsEnabled が決める）。押した行があればそれ、
-    # 無くてチェックが 1 件だけならその行、それ以外は $null。詳細を出す所と可否・対象を決める所で、この 1 つを使う
-    param (
-        [object]$selectedItem,   # 一覧で押した行（無ければ $null）
-        [object[]]$checkedItems  # getIndexCheckedItems の結果
-    )
-
-    if ($null -ne $selectedItem) { return $selectedItem }
-    $checked = @($checkedItems | Where-Object { $null -ne $_ })
-    if ($checked.Count -eq 1) { return $checked[0] }
-    return $null
-}
-
-function getIndexDetailMultiCount {
-    # 詳細欄を「N 件を選択中」にするときの N（そうしないときは 0）。2 件以上チェックしているときだけ、その件数を返す。
-    # 0 件・1 件のときは 0（詳細欄は押した行のまま）
-    param (
-        [int]$checked
-    )
-
-    if ($checked -ge 2) { return $checked }
-    return 0
-}
-
 function getIndexDeleteConfirmMessage {
     # インデックスを削除する確認の文。@{ Heading; Body }（showConfirm の heading と hint に渡す）
     #   1 件: 「営業」のインデックスを削除しますか？
@@ -22709,6 +23250,215 @@ function getIndexBulkResultView {
         FailureHeading = "$($failed.Count) 件のインデックスを${operation}できませんでした（残りは終わっています）。"
         FailureDetail = ($failed | ForEach-Object { "「$($_.Name)」: $($_.Reason)" }) -join "`n"
     }
+}
+
+function testIndexEditInput {
+    # 追加と詳細欄の編集の入力を調べ、直してほしい内容を返す（問題なければ空文字列）
+    param (
+        [string]$path,   # 入力された元のフォルダ
+        [string]$name,   # 入力されたインデックス名
+        $items,          # 今の一覧（Name・Path を持つ行）
+        $current = $null # 編集中の行（重複の判定から外す）
+    )
+
+    $folder = normalizeFolderPath $path
+    if ($folder -eq "") {
+        return "元のフォルダを指定してください。"
+    }
+    $conflict = getIndexFolderConflict $folder @($items | Where-Object { $_ -ne $current })
+    if ($conflict -ne "") {
+        return $conflict
+    }
+    # @(getUsedIndexNames ...) と直接書くと集合が 1 要素の配列に入るだけなので、変数に受けてから配列にする
+    $usedNames = getUsedIndexNames $items $current
+    return (testIndexName $name.Trim() @($usedNames))
+}
+
+# ［インデックス管理］タブの判断: 詳細欄。
+# 画面に触らないため、そのままテストできる（tests\tebunko\ui\index\index_detail_view.Tests.ps1）。
+
+function getIndexDetailItem {
+    # 詳細欄に出す行（詳細の名前・フォルダパスの欄と［変更…］、右クリックの［削除］［エクスポート…］の対象も同じ行。［アクション ▼］は別で、［更新］［エクスポート…］［削除…］はチェックの行、［インポート…］はチェックが要らない。可否は getIndexActionsEnabled が決める）。押した行があればそれ、
+    # 無くてチェックが 1 件だけならその行、それ以外は $null。詳細を出す所と可否・対象を決める所で、この 1 つを使う
+    param (
+        [object]$selectedItem,   # 一覧で押した行（無ければ $null）
+        [object[]]$checkedItems  # getIndexCheckedItems の結果
+    )
+
+    if ($null -ne $selectedItem) { return $selectedItem }
+    $checked = @($checkedItems | Where-Object { $null -ne $_ })
+    if ($checked.Count -eq 1) { return $checked[0] }
+    return $null
+}
+
+function getIndexDetailMultiCount {
+    # 詳細欄を「N 件を選択中」にするときの N（そうしないときは 0）。2 件以上チェックしているときだけ、その件数を返す。
+    # 0 件・1 件のときは 0（詳細欄は押した行のまま）
+    param (
+        [int]$checked
+    )
+
+    if ($checked -ge 2) { return $checked }
+    return 0
+}
+
+function getIndexDetailRowPlan {
+    # 詳細の行の高さをどうするか。1 件も無いとき（empty）は詳細と境目を畳み（Hide）、1 件以上になったら戻す（Show）。
+    # 空かどうかが変わっていないとき（別の行を選んだだけ）は何もしない（Keep）。境目をドラッグして変えた高さを、選び直しで戻さないため。
+    # wasEmpty は前回の空かどうか（まだ一度も決めていなければ $null）。
+    param (
+        $wasEmpty,
+        [bool]$empty
+    )
+
+    if ($null -ne $wasEmpty -and [bool]$wasEmpty -eq $empty) { return "Keep" }
+    if ($empty) { return "Hide" }
+    return "Show"
+}
+
+function getIndexDetailEditDecision {
+    # 詳細の「基本設定」の名前・フォルダパスの欄を確定するときの判断。@{ Action; Message; Name; Path }
+    #   Action: None（変わっていない）/ Invalid（直してほしい。Message に理由）/ Apply（Name・Path で反映する）
+    # 名前は前後の空白を除き、フォルダパスは normalizeFolderPath で整えてから比べる（大文字・小文字だけの違いは名前の変更として扱う）
+    param (
+        [string]$name,
+        [string]$path,
+        $item,            # 直している行（Name・Path を持つ）
+        $items            # 今の一覧
+    )
+
+    $newName = $name.Trim()
+    $newPath = normalizeFolderPath $path
+    if ($newName -ceq $item.Name -and $newPath -eq $item.Path) {
+        return @{ Action = "None"; Message = ""; Name = $item.Name; Path = $item.Path }
+    }
+    $message = testIndexEditInput $path $newName $items $item
+    if ($message -ne "") {
+        return @{ Action = "Invalid"; Message = $message; Name = $item.Name; Path = $item.Path }
+    }
+    return @{ Action = "Apply"; Message = ""; Name = $newName; Path = $newPath }
+}
+
+function getIndexDetailView {
+    # インデックスの詳細のパネルに出す内容を返す。1 つ選んでいるときだけ中身を出す
+    # （何も選んでいない・複数のときは見出しだけ。一覧の下の合計は別の部品）。
+    #   items         : 選んでいる行。@{ Name; Path; Enabled; FolderStatus; FolderMissing（元のフォルダが無いと分かったか）; FolderChecked（有無を調べ終えたか。$false のときだけ「確認中」。省くと調べ終えたものとする）; IndexText; IndexLevel; IndexSub; FileCountText;
+    #                   LastIngestedText; FastText; FastLevel; FastToolTip; FastSteps; FastCheckedText }
+    #   fastEntry     : getSystemIndexProgress の ByIndex のそのインデックスの値（@{ Folders; Waiting }）。無ければ $null
+    #   multiCount    : 2 以上なら、詳細は出さず「N 件を選択中」と案内だけにする（getIndexDetailMultiCount）
+    #   running       : 更新の進み具合（@{ Ratio; Processed; Total; Failed; Eta; Current }）。更新中の行の「インデックス」の箱に出す。無ければ $null
+    # 戻り値: @{ Title; Selected; Name; Path; FolderStatus; FolderBrush（フォルダの状態の文の色のキー。ある = Ok／無い = Danger.Text／確認中・何も出さない = Ink.Muted）;
+    #            FolderIcon（文の左に出すアイコン。ある = Check／無い = Close／確認中・何も出さない = 空。theme.xaml の Icon.<名前>）; Badge（@{ Text; Level }）; Updated; Count;
+    #            Rows（右の「インデックス情報」の @{ Label; Value } の配列）; RowsKey;
+    #            Fast（@{ Shown（反映の進みの棒を出すか）; Value（0～1）; Text; State; Level; Reason; Steps（対処の手順の箇条）; Checked; Note }）;
+    #            Multi（複数を選んでいるか）; Hint（Multi のときの案内）;
+    #            Run（@{ Shown（更新中の棒・件数・ファイル名を出すか）; Value（0～1）; CountText; FileText }）;
+    #            Error・ErrorHint（元のフォルダが無いときの理由と直し方。無ければ空。バッジは「エラー」の Ng になる） }
+    #   RowsKey は左右の表の中身から作る文字列。同じなら画面は行を置き直さない（高速検索の進みだけが変わったとき）
+    param (
+        [object[]]$items,
+        $fastEntry = $null,
+        [int]$multiCount = 0,
+        $running = $null
+    )
+
+    $noRun = @{ Shown = $false; Value = 0.0; CountText = ""; FileText = "" }
+    $emptyFast = @{ Shown = $false; Value = 0.0; Text = ""; State = ""; Level = "None"; Reason = ""; Steps = @(); Checked = ""; Note = "" }
+    $none = @{
+        Title = "インデックスの状態"; Selected = $false; Name = ""; Path = ""; FolderStatus = ""; FolderMissing = $false; FolderBrush = "Ink.Muted"; FolderIcon = ""
+        Badge = @{ Text = ""; Level = "None" }; Updated = ""; Count = ""; Rows = @(); RowsKey = ""; Fast = $emptyFast
+        Multi = $false; Hint = ""; Run = $noRun; Error = ""; ErrorHint = ""
+    }
+    if ($multiCount -ge 2) {
+        $multi = $none.Clone()
+        $multi.Title = "{0:#,0} 件を選択中" -f $multiCount
+        $multi.Multi = $true
+        $multi.Hint = "1 件だけ選ぶと、ここに詳細を表示します。"
+        return $multi
+    }
+    $selected = @($items | Where-Object { $null -ne $_ })
+    if ($selected.Count -ne 1) {
+        return $none
+    }
+    $item = $selected[0]
+
+    $hasCount = $item.FileCountText -and $item.FileCountText -ne "－"
+    $count = if ($hasCount) { "$($item.FileCountText) ファイル" } else { "まだ更新していません" }
+    $updated = if ($item.LastIngestedText) { "最終更新 $($item.LastIngestedText)" } else { "" }
+
+    $rows = New-Object 'System.Collections.Generic.List[object]'
+    [void]$rows.Add(@{ Label = "対象ファイル数"; Value = $(if ($hasCount) { "$($item.FileCountText) ファイル" } else { "－" }) })
+    [void]$rows.Add(@{ Label = "最終更新"; Value = $(if ($item.LastIngestedText) { [string]$item.LastIngestedText } else { "－" }) })
+
+    $fast = @{ Shown = $false; Value = 0.0; Text = ""; State = [string]$item.FastText; Level = [string]$item.FastLevel; Reason = ""; Steps = @(); Checked = [string]$item.FastCheckedText; Note = "" }
+    if ($item.FastLevel -eq "Warn" -and $item.FastToolTip) {
+        $fast.Reason = ([string]$item.FastToolTip -split "`n")[0]
+        $fast.Steps = @($item.FastSteps)
+    }
+    if ($null -ne $fastEntry -and $fastEntry.Folders -gt 0) {
+        $done = [Math]::Max(0, [Math]::Min([int]$fastEntry.Folders, [int]$fastEntry.Folders - [int]$fastEntry.Waiting))
+        $fast.Shown = $true
+        $fast.Value = $done / [double]$fastEntry.Folders
+        $fast.Text = "反映済み $done / $($fastEntry.Folders) フォルダ"
+        if ($done -lt [int]$fastEntry.Folders) {
+            $fast.Note = "反映待ちのフォルダは通常の検索で調べます。検索結果は変わりませんが、時間がかかります。"
+        }
+    }
+    $run = $noRun
+    if ($item.IndexLevel -eq "Run") {
+        $run = @{ Shown = $true; Value = 0.0; CountText = ""; FileText = "" }
+        if ($null -ne $running) {
+            $parts = New-Object 'System.Collections.Generic.List[string]'
+            if ([int]$running.Total -gt 0) {
+                $counts = "{0:#,0} / {1:#,0} 件" -f [int]$running.Processed, [int]$running.Total
+                if ([int]$running.Failed -gt 0) {
+                    $counts += "（失敗 {0:#,0} 件）" -f [int]$running.Failed
+                }
+                [void]$parts.Add($counts)
+            }
+            if ($running.Eta) {
+                [void]$parts.Add([string]$running.Eta)
+            }
+            $run.Value = [Math]::Max(0.0, [Math]::Min(1.0, [double]$running.Ratio))
+            $run.CountText = $parts -join "・"
+            $run.FileText = if ($running.Current) { "読み取り中のファイル：$($running.Current)" } else { "" }
+        }
+    }
+    # 元のフォルダが見つからないとき（更新中は更新の表示を優先する）は、バッジを「エラー」にして、理由と直し方を出す
+    $badge = @{ Text = [string]$item.IndexText; Level = [string]$item.IndexLevel; Sub = [string]$item.IndexSub }
+    $errorText = ""
+    $errorHint = ""
+    if ($item.FolderMissing -and $item.IndexLevel -ne "Run") {
+        $badge = @{ Text = "エラー"; Level = "Ng"; Sub = "" }
+        $errorText = "フォルダが見つかりません。"
+        $errorHint = "フォルダが移動・削除されたか、ネットワークにつながっていない可能性があります。`nフォルダパスの［変更…］でフォルダを選び直してください。"
+    }
+    $folderBrush = if ($item.FolderMissing) { "Danger.Text" } elseif ($item.FolderChecked -eq $false) { "Ink.Muted" } else { "Ok" }
+    $folderIcon = if ($item.FolderMissing) { "Close" } elseif ($item.FolderChecked -eq $false -or !$item.FolderStatus) { "" } else { "Check" }
+    $fixed = @(
+        $item.Name, $item.Path, $item.FolderStatus, $folderBrush, $folderIcon, $badge.Text, $badge.Level, $badge.Sub, $updated, $count
+        $fast.State, $fast.Level, $fast.Reason, (@($fast.Steps) -join "|"), $fast.Checked
+    ) -join "`t"
+    $rowsKey = $fixed + "`n" + (@($rows | ForEach-Object { "$($_.Label)`t$($_.Value)" }) -join "`n")
+    return @{
+        Title = "$($item.Name) - 詳細"; Selected = $true; Name = [string]$item.Name; Path = [string]$item.Path
+        FolderStatus = [string]$item.FolderStatus; FolderMissing = [bool]$item.FolderMissing; FolderBrush = $folderBrush; FolderIcon = $folderIcon
+        Badge = $badge
+        Updated = $updated; Count = $count; Rows = $rows.ToArray(); RowsKey = $rowsKey; Fast = $fast
+        Multi = $false; Hint = ""; Run = $run; Error = $errorText; ErrorHint = $errorHint
+    }
+}
+
+# ［インデックス管理］タブの判断: エクスポート・インポート。
+# 画面に触らないため、そのままテストできる（tests\tebunko\ui\index\index_archive_view.Tests.ps1）。
+
+function getIndexArchiveCancelledStatus {
+    # エクスポート・インポートのダイアログを取りやめたときのステータス
+    param (
+        [string]$operation   # "エクスポート" / "インポート"
+    )
+
+    return "${operation}を取りやめました"
 }
 
 function getImportResultStatus {
@@ -22944,336 +23694,6 @@ function getIndexImportNotice {
     # インポートのダイアログの説明
     # 中身（名前・日時・ファイル数・大きさ・版）は getIndexImportHeader の枠に出す
     return "名前と、元のフォルダの場所を変えられます。"
-}
-
-function getIndexRowView {
-    # 一覧の「ステータス」列（本文の更新の状態）の文言・補足・ツールヒント・色の区分を返す。@{ Text; Sub; ToolTip; Level }
-    #   Text は状態の名前だけ（数字を含めない）。Sub は、バッジの右に小さく出す補足（更新中の「45%」、途中で止まったときの「残り N 件」。無ければ空文字列）
-    #   stat     : getIndexStats のそのインデックスの値（Total; Done; Pending; Failed）。無ければ $null
-    #   indexing : インデックス作成中か
-    #   enabled  : 設定の enabled（［すべて更新］で更新する対象か。画面にチェックは出さない）
-    #   ratio    : 更新全体の進み（0～1。分からないときは負の値）。更新中の補足に「45%」と出し、棒の長さにする
-    #   inRound  : 今の回で更新するインデックスか（選んだものだけの回では、選ばなかった行は $false）
-    #   exporting: エクスポートで書き出している最中の行か（バッジは「エクスポート中」。更新中と同じ Run の色。棒は出さない）
-    # 返す値の Percent は棒の長さ（0～100）。更新中でなければ 0
-    param (
-        $stat,
-        [bool]$indexing = $false,
-        [bool]$enabled = $true,
-        [double]$ratio = -1.0,
-        [bool]$inRound = $true,
-        [bool]$exporting = $false
-    )
-
-    if ($exporting) {
-        return @{ Text = "エクスポート中"; Sub = ""; Level = "Run"; Percent = 0; ToolTip = "インデックスを zip に書き出しています。終わるまで、ほかの操作はできません。" }
-    }
-    $notice = if (!$enabled) { "設定で［すべて更新］の対象から外れています（インデックスは残っています。行の［更新］で更新できます）。" } else { "" }
-    if ($indexing -and $enabled -and $inRound) {
-        $percent = if ($ratio -ge 0) { [int][Math]::Floor([Math]::Min($ratio, 1.0) * 100) } else { 0 }
-        $sub = if ($ratio -ge 0) { "${percent}%" } else { "" }
-        return @{ Text = "更新中"; Sub = $sub; Level = "Run"; Percent = $percent; ToolTip = "インデックスを更新しています。終わると状態を表示します。" }
-    }
-    if ($null -eq $stat -or $stat.Total -eq 0) {
-        return @{ Text = "未作成"; Sub = ""; Level = "None"; ToolTip = addIndexRowNotice "まだ更新していません。［すべて更新］か、行の［更新］で作ります。" $notice }
-    }
-    if ($stat.Pending -ge 1) {
-        return @{ Text = "要更新"; Sub = "残り $($stat.Pending) 件"; Level = "Wait"; ToolTip = addIndexRowNotice "未更新 $($stat.Pending) 件です。次の更新で続きから更新します。" $notice }
-    }
-    if ($stat.Failed -ge 1) {
-        return @{ Text = "警告"; Sub = ""; Level = "Warn"; ToolTip = addIndexRowNotice "失敗 $($stat.Failed) 件です。原因は下の「更新に失敗したファイル」で見られます。失敗したファイル以外は検索できます。" $notice }
-    }
-    return @{ Text = "最新"; Sub = ""; Level = "Ok"; ToolTip = addIndexRowNotice "更新済み $($stat.Total) 件です。" $notice }
-}
-
-function getIndexDetailRowPlan {
-    # 詳細の行の高さをどうするか。1 件も無いとき（empty）は詳細と境目を畳み（Hide）、1 件以上になったら戻す（Show）。
-    # 空かどうかが変わっていないとき（別の行を選んだだけ）は何もしない（Keep）。境目をドラッグして変えた高さを、選び直しで戻さないため。
-    # wasEmpty は前回の空かどうか（まだ一度も決めていなければ $null）。
-    param (
-        $wasEmpty,
-        [bool]$empty
-    )
-
-    if ($null -ne $wasEmpty -and [bool]$wasEmpty -eq $empty) { return "Keep" }
-    if ($empty) { return "Hide" }
-    return "Show"
-}
-
-function getIndexFooterView {
-    # 一覧の下の帯の文言。@{ Folders; Files }
-    param (
-        [int]$folderCount,
-        [int]$fileTotal
-    )
-
-    return @{
-        Folders = "登録済み: {0:#,0} フォルダ" -f $folderCount
-        Files = "合計: {0:#,0} ファイル" -f $fileTotal
-    }
-}
-
-function addIndexRowNotice {
-    # getIndexRowView のツールヒントに、［すべて更新］の対象から外れているときの案内を改行で足す（無ければそのまま）
-    param ([string]$text, [string]$notice)
-
-    if ($notice -eq "") {
-        return $text
-    }
-    return "${text}`n${notice}"
-}
-
-function getFastSearchRowView {
-    # 一覧の「高速検索」列（システムインデックスが Windows Search にどこまで反映されたか）の
-    # 文言・ツールヒント・色の区分・対処の手順を返す。@{ Text; ToolTip; Level; Steps }
-    # 使えないとき（不可）の Level は Warn（失敗の赤でなく注意の色）。Steps は詳細に出す対処の手順の短い箇条（無ければ空）
-    #   reason     : getWindowsSearchState の値（NoFolder; NoConnection; NotInScope; NotYet; Ok）。$null ならまだ確かめていない
-    #   progress   : getSystemIndexProgress の値（$null なら読めなかった・問い合わせに失敗した）
-    #   name       : インデックス名（progress.ByIndex を引く）
-    #   hasContent : そのインデックスの getIndexStats の Done が 1 以上か
-    #   checkedAt  : 最後に確かめ終えた時刻（DateTime。$null ならまだ）
-    #   indexing   : インデックス作成中か。作成中に hasContent が真へ変わっても（高速検索の確かめは
-    #                作成中は走らないため）、前の確かめの結果（NoFolder など）から「不可」にしない
-    param (
-        $reason,
-        $progress,
-        [string]$name,
-        [bool]$hasContent = $false,
-        $checkedAt = $null,
-        [bool]$indexing = $false
-    )
-
-    if ($null -eq $reason) {
-        return @{ Text = "確認中…"; Level = "None"; ToolTip = "Windows Search の状態を確かめています。" }
-    }
-    if ($reason -eq "NoFolder" -and !$hasContent) {
-        return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "まだ作っていません。更新が終わると状態を表示します。" $checkedAt) }
-    }
-    if ($reason -eq "NoConnection") {
-        return newFastSearchRowResult "不可" "Warn" @("Windows Search に接続できません。") $true $checkedAt $progress @(
-            "Windows Search のサービスが動いているかを確かめてください。")
-    }
-    if ($reason -eq "NotInScope") {
-        return newFastSearchRowResult "不可" "Warn" @("ワークスペースが Windows Search の索引の対象外です。") $true $checkedAt $progress @(
-            "スタートで「インデックスのオプション」と入力して開きます。",
-            "ワークスペースの system_index を対象に加えます。",
-            "管理者の権限が要る PC では、PC の管理者に頼みます。")
-    }
-    if (($reason -eq "Ok" -or $reason -eq "NotYet") -and $null -eq $progress) {
-        return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "反映の進み具合を確かめられませんでした。画面を前に出し直すと、もう一度確かめます。" $checkedAt) }
-    }
-    $entry = $null
-    if ($progress -and $progress.ByIndex -and $progress.ByIndex.ContainsKey($name)) {
-        $entry = $progress.ByIndex[$name]
-    }
-    if ($null -eq $entry -or $entry.Folders -eq 0) {
-        if ($hasContent -and $indexing) {
-            return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "更新中です。終わると状態を表示します。" $checkedAt) }
-        }
-        if ($hasContent) {
-            return newFastSearchRowResult "不可" "Warn" @("このインデックスには高速検索用のデータがありません。") $false $checkedAt $null
-        }
-        return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "まだ作っていません。更新が終わると状態を表示します。" $checkedAt) }
-    }
-    if ($reason -eq "NotYet") {
-        return newFastSearchRowResult "反映待ち" "Wait" @("Windows Search がまだ索引していません。対象に入っていれば、待つと使えるようになります（対象外のときは［インデックスのオプション］で加えてください）。") $true $checkedAt $progress
-    }
-    # ここから reason は Ok
-    if ($entry.Waiting -eq $entry.Folders) {
-        return newFastSearchRowResult "反映待ち" "Wait" @("反映済み 0 / $($entry.Folders) フォルダです。Windows Search が索引すると反映中 N% に進みます。") $true $checkedAt $progress
-    }
-    if ($entry.Waiting -ge 1) {
-        $percent = [Math]::Floor((($entry.Folders - $entry.Waiting) / [double]$entry.Folders) * 100)
-        if ($percent -eq 0) { $percent = 1 }
-        return newFastSearchRowResult "反映中 ${percent}%" "Wait" @("反映済み $($entry.Folders - $entry.Waiting) / $($entry.Folders) フォルダです（反映待ち $($entry.Waiting)）。反映済みのフォルダは高速検索で、反映待ちのフォルダはふつうの検索で調べます。") $true $checkedAt $progress
-    }
-    return @{
-        Text = "可"; Level = "Ok"
-        ToolTip = addFastSearchCheckedAt "反映済み $($entry.Folders) / $($entry.Folders) フォルダです。高速検索に使えます。" $checkedAt
-    }
-}
-
-function newFastSearchRowResult {
-    # getFastSearchRowView の共通の組み立て: 理由の行＋（使っても結果は同じという注記）＋ ContentIndexed の案内＋最終確認
-    # steps は対処の手順（ツールヒントでは理由の次の行に並べ、詳細では理由と別の箇条にする）
-    param ([string]$text, [string]$level, [string[]]$lines, [bool]$withUsageNotice, $checkedAt, $progress, [string[]]$steps = @())
-
-    $all = New-Object 'System.Collections.Generic.List[string]'
-    foreach ($line in $lines) { [void]$all.Add($line) }
-    foreach ($step in $steps) { [void]$all.Add($step) }
-    if ($withUsageNotice) {
-        [void]$all.Add("使えなくても検索の結果は同じで、時間だけが違います。")
-        if ($progress -and $progress.ContentIndexed) {
-            [void]$all.Add("content_index が Windows Search の対象から自動で外れませんでした。対象から外すと反映が早くなります。")
-        }
-    }
-    $tooltip = addFastSearchCheckedAt ($all -join "`n") $checkedAt
-    return @{ Text = $text; Level = $level; ToolTip = $tooltip; Steps = @($steps) }
-}
-
-function addFastSearchCheckedAt {
-    # ツールヒントの最後に「最終確認 HH:mm」を足す（checkedAt が無ければそのまま）
-    param ([string]$text, $checkedAt)
-
-    if ($null -eq $checkedAt) {
-        return $text
-    }
-    return "${text}`n最終確認 $($checkedAt.ToString('HH:mm'))"
-}
-
-function testIndexEditInput {
-    # 追加と詳細欄の編集の入力を調べ、直してほしい内容を返す（問題なければ空文字列）
-    param (
-        [string]$path,   # 入力された元のフォルダ
-        [string]$name,   # 入力されたインデックス名
-        $items,          # 今の一覧（Name・Path を持つ行）
-        $current = $null # 編集中の行（重複の判定から外す）
-    )
-
-    $folder = normalizeFolderPath $path
-    if ($folder -eq "") {
-        return "元のフォルダを指定してください。"
-    }
-    $conflict = getIndexFolderConflict $folder @($items | Where-Object { $_ -ne $current })
-    if ($conflict -ne "") {
-        return $conflict
-    }
-    # @(getUsedIndexNames ...) と直接書くと集合が 1 要素の配列に入るだけなので、変数に受けてから配列にする
-    $usedNames = getUsedIndexNames $items $current
-    return (testIndexName $name.Trim() @($usedNames))
-}
-
-function getIndexDetailEditDecision {
-    # 詳細の「基本設定」の名前・フォルダパスの欄を確定するときの判断。@{ Action; Message; Name; Path }
-    #   Action: None（変わっていない）/ Invalid（直してほしい。Message に理由）/ Apply（Name・Path で反映する）
-    # 名前は前後の空白を除き、フォルダパスは normalizeFolderPath で整えてから比べる（大文字・小文字だけの違いは名前の変更として扱う）
-    param (
-        [string]$name,
-        [string]$path,
-        $item,            # 直している行（Name・Path を持つ）
-        $items            # 今の一覧
-    )
-
-    $newName = $name.Trim()
-    $newPath = normalizeFolderPath $path
-    if ($newName -ceq $item.Name -and $newPath -eq $item.Path) {
-        return @{ Action = "None"; Message = ""; Name = $item.Name; Path = $item.Path }
-    }
-    $message = testIndexEditInput $path $newName $items $item
-    if ($message -ne "") {
-        return @{ Action = "Invalid"; Message = $message; Name = $item.Name; Path = $item.Path }
-    }
-    return @{ Action = "Apply"; Message = ""; Name = $newName; Path = $newPath }
-}
-
-function getIndexDetailView {
-    # インデックスの詳細のパネルに出す内容を返す。1 つ選んでいるときだけ中身を出す
-    # （何も選んでいない・複数のときは見出しだけ。一覧の下の合計は別の部品）。
-    #   items         : 選んでいる行。@{ Name; Path; Enabled; FolderStatus; FolderMissing（元のフォルダが無いと分かったか）; FolderChecked（有無を調べ終えたか。$false のときだけ「確認中」。省くと調べ終えたものとする）; IndexText; IndexLevel; IndexSub; FileCountText;
-    #                   LastIngestedText; FastText; FastLevel; FastToolTip; FastSteps; FastCheckedText }
-    #   fastEntry     : getSystemIndexProgress の ByIndex のそのインデックスの値（@{ Folders; Waiting }）。無ければ $null
-    #   multiCount    : 2 以上なら、詳細は出さず「N 件を選択中」と案内だけにする（getIndexDetailMultiCount）
-    #   running       : 更新の進み具合（@{ Ratio; Processed; Total; Failed; Eta; Current }）。更新中の行の「インデックス」の箱に出す。無ければ $null
-    # 戻り値: @{ Title; Selected; Name; Path; FolderStatus; FolderBrush（フォルダの状態の文の色のキー。ある = Ok／無い = Danger.Text／確認中・何も出さない = Ink.Muted）;
-    #            FolderIcon（文の左に出すアイコン。ある = Check／無い = Close／確認中・何も出さない = 空。theme.xaml の Icon.<名前>）; Badge（@{ Text; Level }）; Updated; Count;
-    #            Rows（右の「インデックス情報」の @{ Label; Value } の配列）; RowsKey;
-    #            Fast（@{ Shown（反映の進みの棒を出すか）; Value（0～1）; Text; State; Level; Reason; Steps（対処の手順の箇条）; Checked; Note }）;
-    #            Multi（複数を選んでいるか）; Hint（Multi のときの案内）;
-    #            Run（@{ Shown（更新中の棒・件数・ファイル名を出すか）; Value（0～1）; CountText; FileText }）;
-    #            Error・ErrorHint（元のフォルダが無いときの理由と直し方。無ければ空。バッジは「エラー」の Ng になる） }
-    #   RowsKey は左右の表の中身から作る文字列。同じなら画面は行を置き直さない（高速検索の進みだけが変わったとき）
-    param (
-        [object[]]$items,
-        $fastEntry = $null,
-        [int]$multiCount = 0,
-        $running = $null
-    )
-
-    $noRun = @{ Shown = $false; Value = 0.0; CountText = ""; FileText = "" }
-    $emptyFast = @{ Shown = $false; Value = 0.0; Text = ""; State = ""; Level = "None"; Reason = ""; Steps = @(); Checked = ""; Note = "" }
-    $none = @{
-        Title = "インデックスの状態"; Selected = $false; Name = ""; Path = ""; FolderStatus = ""; FolderMissing = $false; FolderBrush = "Ink.Muted"; FolderIcon = ""
-        Badge = @{ Text = ""; Level = "None" }; Updated = ""; Count = ""; Rows = @(); RowsKey = ""; Fast = $emptyFast
-        Multi = $false; Hint = ""; Run = $noRun; Error = ""; ErrorHint = ""
-    }
-    if ($multiCount -ge 2) {
-        $multi = $none.Clone()
-        $multi.Title = "{0:#,0} 件を選択中" -f $multiCount
-        $multi.Multi = $true
-        $multi.Hint = "1 件だけ選ぶと、ここに詳細を表示します。"
-        return $multi
-    }
-    $selected = @($items | Where-Object { $null -ne $_ })
-    if ($selected.Count -ne 1) {
-        return $none
-    }
-    $item = $selected[0]
-
-    $hasCount = $item.FileCountText -and $item.FileCountText -ne "－"
-    $count = if ($hasCount) { "$($item.FileCountText) ファイル" } else { "まだ更新していません" }
-    $updated = if ($item.LastIngestedText) { "最終更新 $($item.LastIngestedText)" } else { "" }
-
-    $rows = New-Object 'System.Collections.Generic.List[object]'
-    [void]$rows.Add(@{ Label = "対象ファイル数"; Value = $(if ($hasCount) { "$($item.FileCountText) ファイル" } else { "－" }) })
-    [void]$rows.Add(@{ Label = "最終更新"; Value = $(if ($item.LastIngestedText) { [string]$item.LastIngestedText } else { "－" }) })
-
-    $fast = @{ Shown = $false; Value = 0.0; Text = ""; State = [string]$item.FastText; Level = [string]$item.FastLevel; Reason = ""; Steps = @(); Checked = [string]$item.FastCheckedText; Note = "" }
-    if ($item.FastLevel -eq "Warn" -and $item.FastToolTip) {
-        $fast.Reason = ([string]$item.FastToolTip -split "`n")[0]
-        $fast.Steps = @($item.FastSteps)
-    }
-    if ($null -ne $fastEntry -and $fastEntry.Folders -gt 0) {
-        $done = [Math]::Max(0, [Math]::Min([int]$fastEntry.Folders, [int]$fastEntry.Folders - [int]$fastEntry.Waiting))
-        $fast.Shown = $true
-        $fast.Value = $done / [double]$fastEntry.Folders
-        $fast.Text = "反映済み $done / $($fastEntry.Folders) フォルダ"
-        if ($done -lt [int]$fastEntry.Folders) {
-            $fast.Note = "反映待ちのフォルダは通常の検索で調べます。検索結果は変わりませんが、時間がかかります。"
-        }
-    }
-    $run = $noRun
-    if ($item.IndexLevel -eq "Run") {
-        $run = @{ Shown = $true; Value = 0.0; CountText = ""; FileText = "" }
-        if ($null -ne $running) {
-            $parts = New-Object 'System.Collections.Generic.List[string]'
-            if ([int]$running.Total -gt 0) {
-                $counts = "{0:#,0} / {1:#,0} 件" -f [int]$running.Processed, [int]$running.Total
-                if ([int]$running.Failed -gt 0) {
-                    $counts += "（失敗 {0:#,0} 件）" -f [int]$running.Failed
-                }
-                [void]$parts.Add($counts)
-            }
-            if ($running.Eta) {
-                [void]$parts.Add([string]$running.Eta)
-            }
-            $run.Value = [Math]::Max(0.0, [Math]::Min(1.0, [double]$running.Ratio))
-            $run.CountText = $parts -join "・"
-            $run.FileText = if ($running.Current) { "読み取り中のファイル：$($running.Current)" } else { "" }
-        }
-    }
-    # 元のフォルダが見つからないとき（更新中は更新の表示を優先する）は、バッジを「エラー」にして、理由と直し方を出す
-    $badge = @{ Text = [string]$item.IndexText; Level = [string]$item.IndexLevel; Sub = [string]$item.IndexSub }
-    $errorText = ""
-    $errorHint = ""
-    if ($item.FolderMissing -and $item.IndexLevel -ne "Run") {
-        $badge = @{ Text = "エラー"; Level = "Ng"; Sub = "" }
-        $errorText = "フォルダが見つかりません。"
-        $errorHint = "フォルダが移動・削除されたか、ネットワークにつながっていない可能性があります。`nフォルダパスの［変更…］でフォルダを選び直してください。"
-    }
-    $folderBrush = if ($item.FolderMissing) { "Danger.Text" } elseif ($item.FolderChecked -eq $false) { "Ink.Muted" } else { "Ok" }
-    $folderIcon = if ($item.FolderMissing) { "Close" } elseif ($item.FolderChecked -eq $false -or !$item.FolderStatus) { "" } else { "Check" }
-    $fixed = @(
-        $item.Name, $item.Path, $item.FolderStatus, $folderBrush, $folderIcon, $badge.Text, $badge.Level, $badge.Sub, $updated, $count
-        $fast.State, $fast.Level, $fast.Reason, (@($fast.Steps) -join "|"), $fast.Checked
-    ) -join "`t"
-    $rowsKey = $fixed + "`n" + (@($rows | ForEach-Object { "$($_.Label)`t$($_.Value)" }) -join "`n")
-    return @{
-        Title = "$($item.Name) - 詳細"; Selected = $true; Name = [string]$item.Name; Path = [string]$item.Path
-        FolderStatus = [string]$item.FolderStatus; FolderMissing = [bool]$item.FolderMissing; FolderBrush = $folderBrush; FolderIcon = $folderIcon
-        Badge = $badge
-        Updated = $updated; Count = $count; Rows = $rows.ToArray(); RowsKey = $rowsKey; Fast = $fast
-        Multi = $false; Hint = ""; Run = $run; Error = $errorText; ErrorHint = $errorHint
-    }
 }
 
 # インデックス更新の確認ダイアログ・進み具合に出す文言の決定。
@@ -25662,7 +26082,7 @@ function getTargetsKey {
 
 $script:targetItems = New-Object 'System.Collections.ObjectModel.ObservableCollection[object]'
 $ui.IndexGrid.ItemsSource = $script:targetItems
-# 1 件も無いときの［＋ フォルダを追加］。名前の一覧（gui_main.ps1）に足さず、読み込んだ中身から取る（件数の帯は窓の下のステータスバーにある）
+# 1 件も無いときの［＋ フォルダを追加］。名前の一覧（shell\regions.ps1）に足さず、読み込んだ中身から取る（件数の帯は窓の下のステータスバーにある）
 foreach ($footerName in @("IndexEmptyAddButton")) {
     $ui[$footerName] = $ui.IndexListHost.Content.FindName($footerName)
 }
@@ -27107,7 +27527,7 @@ function continueImportIndex {
 
 # インデックス管理の画面の詳細（インデックス作成の開始ボタン・状態・失敗の一覧・状態の合計）。
 
-# 詳細の左右の部品。名前の一覧（gui_main.ps1）に足さず、読み込んだ中身から取る
+# 詳細の左右の部品。名前の一覧（shell\regions.ps1）に足さず、読み込んだ中身から取る
 foreach ($detailName in @(
         "IndexDetailBody", "IndexDetailName", "IndexDetailPath", "IndexDetailPathButton", "IndexDetailEditError", "IndexDetailFolderStatus", "IndexDetailFolderIcon",
         "IndexDetailBadge", "IndexDetailBadgeText", "IndexDetailBadgeSub", "IndexErrorText", "IndexErrorHintText", "IndexDetailUpdated", "IndexDetailCount",
@@ -27629,7 +28049,7 @@ function refreshIndexSummary {
 
 # インデックス管理の画面のイベントの登録（ボタン・一覧の操作・行のメニュー）。
 
-# ステータス列の見出しの説明（文言は index_view.ps1 が決める）
+# ステータス列の見出しの説明（文言は index_list_view.ps1 が決める）
 $ui.StatusColumnHeader.ToolTip = (getIndexStatusHelpText) -join "`n"
 # 帯の閉じるボタンと、帯が自動で消えるときの時計（時間は setIndexingBannerBehavior が決めて動かす）
 $script:indexingBannerTimer = newTimer 8000 { safe { closeIndexingBanner } }
@@ -31313,7 +31733,7 @@ function applyWorkspace {
 }
 
 function updateMainContentOperable {
-    # 移している間は、ナビと中身を操作できなくする（マウス・Tab・Space など、中身の入口をまとめて止める。窓のキーは gui_main.ps1 の PreviewKeyDown）。
+    # 移している間は、ナビと中身を操作できなくする（マウス・Tab・Space など、中身の入口をまとめて止める。窓のキーは shell\window_events.ps1 の PreviewKeyDown）。
     # 終わったら必ず戻す（始められなかったとき・失敗のときも）
     $operable = testMainContentOperable ([bool]$script:workspaceMoving)
     $ui.NavHost.IsEnabled = $operable
@@ -31323,7 +31743,7 @@ function updateMainContentOperable {
 function startWorkspaceMove {
     # 中身を移す・消す処理は、量によっては数十秒かかるため、裏のスレッドで行う（画面のスレッドで行うと「応答なし」になる）。
     # 動かしている間は待つ間のダイアログを出し、ほかの操作は止める（$script:workspaceMoving。getIndexJobBlocker が見る）。
-    # 終わりの処理は finishWorkspaceMove（画面のスレッド）。閉じるのは、移し終わるまで待つ（gui_main.ps1 の Closing）
+    # 終わりの処理は finishWorkspaceMove（画面のスレッド）。閉じるのは、移し終わるまで待つ（shell\closing.ps1 の Closing）
     param (
         [string]$mode,       # "use"・"reset"・"move"（WorkspaceMover.ChangeWorkspace の mode）
         [string]$previous,
@@ -31411,7 +31831,7 @@ function switchWorkspace {
     # 関数は既定値で $workspace の場所を使い、裏のスレッドには場所を渡しているため、$workspace を差し替えれば新しい場所を使う
     # （docs/design/structure/data.md「ワークスペースの中の場所（Workspace）」）。インデックス作成中・削除中は testWorkspaceChangeable が止めている
     clearSearchView
-    $script:workspace = [Workspace]::new((getWorkDir))
+    initWorkspace
     $script:workspaceBlock = getWorkspaceBlockMessage
     updateWorkspaceBanner
     hideNoticeBanner "SearchNotice"
@@ -31674,13 +32094,6 @@ function finishLeftoverStop {
 }
 
     stepSplash 90
-    # ============================================================================
-    # ウィンドウ全体
-    # ============================================================================
-
-    # 起動時の読み込み（loadStartupData）が済んだか。済むまでは、画面の切り替え・ウィンドウの前面化で読み直さない
-    # （起動時の画面を選んだとき・ウィンドウを出したときにも呼ばれ、同じ読み込みが重なるため）
-    $script:startupLoaded = $false
 
     # ナビと画面の切り替え（selectScreen・getCurrentScreen）。$script:startupLoaded を決めた後に読み込む
 # ナビ（左の欄）と画面の切り替え（画面層）。gui_main.ps1 が読み込む。
@@ -31877,6 +32290,10 @@ $ui.IndexNoticeClose.Add_Click({ safe { hideNoticeBanner "IndexNotice" } })
 $ui.WorkspaceNoticeButton.Add_Click({ safe { selectScreen "SettingsTab" } })
 
 
+
+    # ウィンドウ全体: イベント・閉じるときの処理・起動時の読み込みとタブ選び・前面化の見張り
+# startGui の一部: ウィンドウのイベント（Activated・PreviewKeyDown・Loaded・ContentRendered）。startGui の中で読み込む。
+
     function onWindowActivated {
         if (!$script:startupLoaded) {
             return
@@ -31932,6 +32349,40 @@ $ui.WorkspaceNoticeButton.Add_Click({ safe { selectScreen "SettingsTab" } })
         param ($sender, $e)
         onWindowPreviewKeyDown $sender $e
     })
+
+    $window.Add_Loaded({
+        safe {
+            if ((getCurrentScreen) -eq "SearchTab") {
+                $ui.WordBox.Focus() | Out-Null
+            }
+            # 起動時のお知らせを開いている間は、前回残った Office の確認を出さず、閉じたあとに出す（leftover_dialog.ps1）
+            $script:leftoverNoticesOpen = $true
+            try {
+                if ($script:settingsRecovery) {
+                    closeSplash
+                    showMessage (getSettingsRecoveryMessage $script:settingsRecovery) "OK" "Warning" | Out-Null
+                }
+                if ($script:workspaceBlock) {
+                    # 知らせを読む間、起動中の表示が裏に残らないように先に閉じる
+                    closeSplash
+                    showMessage $script:workspaceBlock "OK" "Warning" | Out-Null
+                }
+            } finally {
+                $script:leftoverNoticesOpen = $false
+            }
+            resumeLeftoverPrompt
+        }
+    })
+
+    # 画面を描き終わったら、起動中の表示を閉じ、一覧の読み込みと別スレッドでの集計を始める。
+    # ウィンドウを出す前に行うと、そのぶん画面が出るのが遅れるため（一覧は読み込むまで空で出る）
+    $window.Add_ContentRendered({
+        closeSplash
+        # 描いた画面が映ってから読み込むよう、描画より優先度の低い Background で行う
+        $window.Dispatcher.BeginInvoke([action]{ safe { loadStartupData } }, [System.Windows.Threading.DispatcherPriority]::Background) | Out-Null
+    })
+
+# startGui の一部: 閉じるときの処理（closeTimer・enterIndexingStopFlow・Closing）。startGui の中で読み込む。
 
     # 閉じるときの順番（docs/design/structure/closing.md「閉じるときの順番」）。インデックス作成は画面のプロセスのスレッドで動くため、
     # 止めてから閉じる。止め終わるまで閉じるのを保留し、closeTimer が終わりを待ってから閉じ直す
@@ -32100,37 +32551,7 @@ $ui.WorkspaceNoticeButton.Add_Click({ safe { selectScreen "SettingsTab" } })
         }
     })
 
-    $window.Add_Loaded({
-        safe {
-            if ((getCurrentScreen) -eq "SearchTab") {
-                $ui.WordBox.Focus() | Out-Null
-            }
-            # 起動時のお知らせを開いている間は、前回残った Office の確認を出さず、閉じたあとに出す（leftover_dialog.ps1）
-            $script:leftoverNoticesOpen = $true
-            try {
-                if ($script:settingsRecovery) {
-                    closeSplash
-                    showMessage (getSettingsRecoveryMessage $script:settingsRecovery) "OK" "Warning" | Out-Null
-                }
-                if ($script:workspaceBlock) {
-                    # 知らせを読む間、起動中の表示が裏に残らないように先に閉じる
-                    closeSplash
-                    showMessage $script:workspaceBlock "OK" "Warning" | Out-Null
-                }
-            } finally {
-                $script:leftoverNoticesOpen = $false
-            }
-            resumeLeftoverPrompt
-        }
-    })
-
-    # 画面を描き終わったら、起動中の表示を閉じ、一覧の読み込みと別スレッドでの集計を始める。
-    # ウィンドウを出す前に行うと、そのぶん画面が出るのが遅れるため（一覧は読み込むまで空で出る）
-    $window.Add_ContentRendered({
-        closeSplash
-        # 描いた画面が映ってから読み込むよう、描画より優先度の低い Background で行う
-        $window.Dispatcher.BeginInvoke([action]{ safe { loadStartupData } }, [System.Windows.Threading.DispatcherPriority]::Background) | Out-Null
-    })
+# startGui の一部: 起動時の読み込み（loadWorkspaceViews・loadStartupData）と、起動時のタブ選びなど。startGui の中で読み込む。
 
     function loadWorkspaceViews {
         # ワークスペースの中身（インデックスの一覧・取り込みの状態・検索対象のツリー・件数）を画面に読み込む。
@@ -32223,6 +32644,8 @@ $ui.WorkspaceNoticeButton.Add_Click({ safe { selectScreen "SettingsTab" } })
     setStatus "読み込んでいます…"
     stepSplash 95
 
+# startGui の一部: 多重起動した 2 つ目の合図で、この画面を前面に出す見張り（activateTimer）。startGui の中で読み込む。
+
     # 多重起動したとき（2つ目のプロセスが $activateEvent を合図）に、この画面を前面へ出す。
     # 画面のスレッドで一定間隔にイベントを確認する（P/Invoke を使わず、WPF の Activate で前面化する）。
     # ※以前は C# の SingleInstance（AttachThreadInput 等の P/Invoke）で行っていたが、
@@ -32241,6 +32664,7 @@ $ui.WorkspaceNoticeButton.Add_Click({ safe { selectScreen "SettingsTab" } })
         }
     })
     $activateTimer.Start()
+
 
     try {
         [void]$window.ShowDialog()
