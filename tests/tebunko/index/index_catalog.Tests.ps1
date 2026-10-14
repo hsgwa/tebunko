@@ -119,7 +119,6 @@ Describe "IndexCatalog.RenameIndex（使えない名前）" -Tag Io {
         @{ from = ".."; to = "新" }
         @{ from = "営業."; to = "新" }
         @{ from = "営業 "; to = "新" }
-        @{ from = "CON"; to = "新" }
     ) {
         param ($from, $to)
         $ws = newCatalogWorkspace "$TestDrive\rename_bad"
@@ -141,6 +140,64 @@ Describe "IndexCatalog.RenameIndex（使えない名前）" -Tag Io {
         $status = readStatusFile $ws.Status
         $status.Folders[0].Name | Should -Be "営業"
         $status.Rows.ContainsKey("営業\a.xlsx") | Should -Be $true
+    }
+}
+
+Describe "IndexCatalog（既にある予約名のインデックス）" -Tag Io {
+    # aux.backup のように、前の版で付いた予約名のフォルダ。Test-Path では無いように見えるため、\\?\ で作り、Directory.Exists で確かめる
+    It "RenameIndex は、予約名（<name>）の名前から新しい名前へ改名できる" -TestCases @(
+        @{ name = "aux.backup" }
+        @{ name = "CON.txt" }
+    ) {
+        param ($name)
+        $ws = newCatalogWorkspace "$TestDrive\reserved_rename_$($name.Substring(0, 3))"
+        $old = Join-Path $ws.Index $name
+        [System.IO.Directory]::CreateDirectory((toLongPath (Join-Path $old "a.xlsx"))) | Out-Null
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = $name }) @(
+            (newStatusRow "$name\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00")
+        ) $ws.Status
+
+        $ws.Catalog.RenameIndex($name, "新")
+
+        [System.IO.Directory]::Exists((toLongPath $old)) | Should -Be $false
+        Test-Path -LiteralPath "$($ws.Index)\新\a.xlsx" | Should -Be $true
+        $status = readStatusFile $ws.Status
+        $status.Folders[0].Name | Should -Be "新"
+        $status.Rows.ContainsKey("新\a.xlsx") | Should -Be $true
+    }
+
+    It "RemoveIndex は、予約名（<name>）のフォルダを消し、取り込み一覧の記録も消す" -TestCases @(
+        @{ name = "aux.backup" }
+        @{ name = "CON.txt" }
+    ) {
+        param ($name)
+        $ws = newCatalogWorkspace "$TestDrive\reserved_remove_$($name.Substring(0, 3))"
+        $target = Join-Path $ws.Index $name
+        [System.IO.Directory]::CreateDirectory((toLongPath (Join-Path $target "a.xlsx"))) | Out-Null
+        New-Item -ItemType Directory -Path "$($ws.Index)\技術" -Force | Out-Null
+        writeStatusFile @(
+            [pscustomobject]@{ Path = "C:\data"; Name = $name },
+            [pscustomobject]@{ Path = "D:\tech"; Name = "技術" }
+        ) @(
+            (newStatusRow "$name\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00"),
+            (newStatusRow "技術\d.pptx" "2025/01/10 12:34:56" "1" $stateNew)
+        ) $ws.Status
+
+        $ws.Catalog.RemoveIndex($name)
+
+        [System.IO.Directory]::Exists((toLongPath $target)) | Should -Be $false
+        Test-Path -LiteralPath "$($ws.Index)\技術" | Should -Be $true
+        $status = readStatusFile $ws.Status
+        $status.Folders.Count | Should -Be 1
+        $status.Folders[0].Name | Should -Be "技術"
+    }
+
+    It "新しい名前には予約名を使えない（RenameIndex は何も動かさずに例外にする）" {
+        $ws = newCatalogWorkspace "$TestDrive\reserved_new"
+        New-Item -ItemType Directory -Path "$($ws.Index)\営業" -Force | Out-Null
+        { $ws.Catalog.RenameIndex("営業", "aux.backup") } | Should -Throw
+        Test-Path -LiteralPath "$($ws.Index)\営業" | Should -Be $true
+        [System.IO.Directory]::Exists((toLongPath (Join-Path $ws.Index "aux.backup"))) | Should -Be $false
     }
 }
 
@@ -191,7 +248,6 @@ Describe "IndexCatalog.RemoveIndex" -Tag Io {
         @{ badName = "営業/中" }
         @{ badName = "営業." }   # 最後の . は、有無の確かめでは「営業」を見るため、決まりに合わない名前は消さない
         @{ badName = "営業 " }
-        @{ badName = "CON" }
     ) {
         param ($badName)
         $ws = newCatalogWorkspace "$TestDrive\remove4"
@@ -233,6 +289,43 @@ Describe "IndexCatalog.RemoveIndex" -Tag Io {
         $status = readStatusFile $ws.Status
         $status.Folders.Count | Should -Be 1
         $status.Rows.ContainsKey("営業\a.xlsx") | Should -Be $true
+    }
+
+    It "インデックスのフォルダの中にあるジャンクションの先は消さず、ジャンクションだけを外す" {
+        $ws = newCatalogWorkspace "$TestDrive\remove_junction"
+        $outside = "$TestDrive\remove_junction_outside"
+        writeListFile "$outside\外.tsv" @("外")
+        writeListFile "$($ws.Index)\営業\a.xlsx\Sheet1.tsv" @("本文")
+        if (!(newTestJunction "$($ws.Index)\営業\リンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(
+            (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00")
+        ) $ws.Status
+
+        $ws.Catalog.RemoveIndex("営業")
+
+        Test-Path -LiteralPath "$($ws.Index)\営業" | Should -Be $false
+        readListFile "$outside\外.tsv" | Should -Be @("外")
+        (readStatusFile $ws.Status).Rows.Count | Should -Be 0
+    }
+
+    It "インデックスのフォルダそのものがジャンクションなら、ジャンクションだけを外し、先は消さない" {
+        $ws = newCatalogWorkspace "$TestDrive\remove_rootlink"
+        $outside = "$TestDrive\remove_rootlink_outside"
+        writeListFile "$outside\外.tsv" @("外")
+        [System.IO.Directory]::CreateDirectory($ws.Index) | Out-Null
+        if (!(newTestJunction "$($ws.Index)\営業" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @() $ws.Status
+
+        $ws.Catalog.RemoveIndex("営業")
+
+        Test-Path -LiteralPath "$($ws.Index)\営業" | Should -Be $false
+        readListFile "$outside\外.tsv" | Should -Be @("外")
     }
 }
 

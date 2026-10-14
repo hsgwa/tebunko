@@ -250,7 +250,7 @@ function getTargetFolders {
     #   Path   : そのフォルダが今置かれている場所
     #   Enabled: false はチェックなし（登録のみで取り込まない）
     # 同じフォルダ・同じ名前は最初のものだけ使う（名前の重複は、2 つ目以降を空にして割り当て直す）。
-    # フォルダ名として使えない名前（.. ・CON・最後が . など）も空にして割り当て直す。
+    # フォルダ名として使えない名前（.. ・最後が . ・使えない文字など）も空にして割り当て直す（予約名の aux.backup・CON.txt は、既にある名前なのでそのまま使う）。
     # 書き方が違うだけで同じフォルダを指す場合（ネットワークドライブと UNC パスなど）も同じフォルダとみなす
     param (
         [string]$path = ${settingsFile}
@@ -268,7 +268,8 @@ function getTargetFolders {
             continue
         }
         $name = toSafeFileName ([string]$item.name).Trim()
-        if ($name -ne "" -and (getFolderNameProblemText $name) -ne "") {
+        # 既にある名前は、予約名（aux.backup など）でもそのまま使い続ける（空にして付け直すと、別の名前のフォルダになり取り込み直しになる）
+        if ($name -ne "" -and (getFolderNameProblemText $name $true) -ne "") {
             $name = ""
         }
         if ($name -ne "" -and -not $seenName.Add($name)) {

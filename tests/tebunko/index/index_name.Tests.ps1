@@ -3,25 +3,6 @@ BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
 }
 
-Describe "testSourceNameRecordable" -Tag Unit {
-    It "<label>" -TestCases @(
-        @{ label = "ふつうの名前は記録できる"; name = "営業"; expected = $true }
-        @{ label = "内側の空白は記録できる"; name = "営業 部"; expected = $true }
-        @{ label = "幅ゼロの文字は削られないので記録できる"; name = ("営" + [char]0x200B + "業"); expected = $true }
-        @{ label = "ソフトハイフン付きは削られないので記録できる"; name = ("営業" + [char]0x00AD); expected = $true }
-        @{ label = "空は記録できない"; name = ""; expected = $false }
-        @{ label = "空白だけは記録できない"; name = "  "; expected = $false }
-        @{ label = "前に全角空白"; name = ([string][char]0x3000 + "営業"); expected = $false }
-        @{ label = "後ろに全角空白"; name = ("営業" + [char]0x3000); expected = $false }
-        @{ label = "後ろに NBSP"; name = ("営業" + [char]0x00A0); expected = $false }
-        @{ label = "後ろにタブ"; name = ("営業" + [char]9); expected = $false }
-        @{ label = "後ろに半角空白"; name = "営業 "; expected = $false }
-    ) {
-        param ($name, $expected)
-        testSourceNameRecordable $name | Should -Be $expected
-    }
-}
-
 Describe "encodeIndexPlace / decodeIndexPlace" -Tag Unit {
     # PowerShell は ” を " と同じに扱うため、' で囲む
     It "<name>" -TestCases @(
@@ -350,18 +331,76 @@ Describe "newIndexName / assignIndexNames" -Tag Unit {
         $folders[1].Name | Should -Be "見積"
     }
 
-    It "パスにつなげない名前（.. ・予約名・末尾の .）は名前が無いものとして割り当て直す" {
+    It "パスにつなげない名前（.. ・末尾の .）は名前が無いものとして割り当て直す" {
         $targets = @(
             [pscustomobject]@{ Name = ".."; Path = "C:\data\見積"; Enabled = $true },
-            [pscustomobject]@{ Name = "CON"; Path = "C:\data\売上"; Enabled = $true },
             [pscustomobject]@{ Name = "営業."; Path = "C:\data\営業"; Enabled = $true },
+            [pscustomobject]@{ Name = "a\b"; Path = "C:\data\売上"; Enabled = $true },
             [pscustomobject]@{ Name = "経理"; Path = "C:\data\経理"; Enabled = $true }
         )
         $folders = @(assignIndexNames $targets @())
         $folders[0].Name | Should -Be "見積"
-        $folders[1].Name | Should -Be "売上"
-        $folders[2].Name | Should -Be "営業"
+        $folders[1].Name | Should -Be "営業"
+        $folders[2].Name | Should -Be "売上"
         $folders[3].Name | Should -Be "経理"
+    }
+
+    It "既にある予約名（<name>）は、そのまま使い続け、ほかのフォルダの名前には使わない" -TestCases @(
+        @{ name = "aux.backup" }
+        @{ name = "CON.txt" }
+        @{ name = "CON" }
+    ) {
+        param ($name)
+        $targets = @(
+            [pscustomobject]@{ Name = $name; Path = "C:\data\売上"; Enabled = $true },
+            [pscustomobject]@{ Name = ""; Path = "C:\data\$name"; Enabled = $true }
+        )
+        $folders = @(assignIndexNames $targets @())
+        $folders[0].Name | Should -Be $name
+        # 新しく付ける名前は予約名を避ける（newIndexName）ので、同じ名前にはならない
+        $folders[1].Name | Should -Not -Be $name
+        (testIndexName $folders[1].Name @()) | Should -Be ""
+    }
+}
+
+Describe "testStoredIndexName" -Tag Unit {
+    It "保存してある名前として使える: <name>" -TestCases @(
+        @{ name = "営業部 2025" }
+        @{ name = "aux.backup" }
+        @{ name = "CON.txt" }
+        @{ name = "CON" }
+        @{ name = "LPT1" }
+        @{ name = ("あ" * 255) }
+    ) {
+        param ($name)
+        testStoredIndexName $name | Should -Be ""
+    }
+
+    It "置き場の外へ出る・作れない名前は拒む: <name>" -TestCases @(
+        @{ name = "" }
+        @{ name = ".." }
+        @{ name = "." }
+        @{ name = "営業." }
+        @{ name = " 営業" }
+        @{ name = "a\b" }
+        @{ name = "C:\x" }
+        @{ name = "a/b" }
+        @{ name = ("あ" * 256) }
+    ) {
+        param ($name)
+        testStoredIndexName $name | Should -Not -BeNullOrEmpty
+    }
+
+    It "新しく付ける名前（testIndexName・newIndexName）は、予約名を拒み続ける: <name>" -TestCases @(
+        @{ name = "aux.backup" }
+        @{ name = "CON.txt" }
+        @{ name = "CON" }
+    ) {
+        param ($name)
+        testIndexName $name @() | Should -Not -BeNullOrEmpty
+        $made = newIndexName "C:\data\$name" @()
+        testIndexName $made @() | Should -Be ""
+        $made | Should -Not -Be $name
     }
 }
 
@@ -427,6 +466,8 @@ Describe "testIndexRelPath" -Tag Unit {
         @{ path = "営業\a b.xlsx" }
         @{ path = "営業\末尾が点." }
         @{ path = "営業\CON" }
+        @{ path = "CON\x" }
+        @{ path = "aux.backup\a.xlsx" }
     ) {
         param ($path)
         testIndexRelPath $path | Should -Be ""
@@ -443,7 +484,6 @@ Describe "testIndexRelPath" -Tag Unit {
         @{ path = "\\srv\x" }
         @{ path = "営業\a:b" }
         @{ path = "営業/a" }
-        @{ path = "CON\x" }
         @{ path = "営業" }
         @{ path = "" }
     ) {

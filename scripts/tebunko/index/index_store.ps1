@@ -1,36 +1,5 @@
 ﻿# インデックス（work\index 配下）の作成・集計・改名・削除。
 
-function getIndexNameMap {
-    # 取り込み一覧に記録したインデックス名 → クロール対象フォルダのパス（大文字・小文字を区別しない）。
-    # クロール対象フォルダの行は先頭にあるため、見出し行まで読んで打ち切る（取り込み一覧が大きくても時間がかからないように）
-    param (
-        [string]$path = $workspace.StatusFile
-    )
-
-    $map = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([System.StringComparer]::OrdinalIgnoreCase)
-    if (!(Test-Path -LiteralPath $path)) {
-        return , $map
-    }
-    $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
-    $stream = New-Object System.IO.FileStream($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
-    $reader = New-Object System.IO.StreamReader($stream, ${utf8Bom})
-    try {
-        $header = ${statusColumns} -join "`t"
-        while ($null -ne ($line = $reader.ReadLine())) {
-            if ($line -eq $header) {
-                break
-            }
-            $fields = $line.Split("`t")
-            if ($fields[0] -eq ${statusFolderKey} -and $fields.Count -eq 3 -and $fields[2]) {
-                $map[$fields[2]] = $fields[1]
-            }
-        }
-    } finally {
-        $reader.Dispose()
-    }
-    return , $map
-}
-
 function testStatusRowFailed {
     # 取り込み一覧の行を「失敗」として数えるか。状態が「失敗」の行と、「未取り込み」で理由（エラー）が書いてある行
     # （利用者の PowerPoint のために取り込めなかったファイル。次の更新で取り込むため状態は「未取り込み」のまま）

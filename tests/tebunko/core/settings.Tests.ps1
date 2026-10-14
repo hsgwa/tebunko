@@ -253,13 +253,27 @@ Describe "getTargetFolders / writeTargetFolders" -Tag Io {
             Should -Be "C:\a=見積,C:\b=,C:\c=Sales,C:\d=,C:\e=a／b"
     }
 
-    It "フォルダ名として使えない名前（.. ・予約名・最後が . ・長すぎる）は空にする（取り込み時に割り当て直す）" {
+    It "既にある予約名（aux.backup など）は、空にせずそのまま使い続ける" {
+        $path = "$TestDrive\targets_reserved_names.json"
+        [System.IO.File]::WriteAllText($path, @'
+{ "targetFolders": [
+    { "path": "C:\\a", "name": "aux.backup" },
+    { "path": "C:\\b", "name": "CON.txt" },
+    { "path": "C:\\c", "name": "CON" }
+] }
+'@, ${utf8Bom})
+        $folders = @(getTargetFolders $path)
+        ($folders | ForEach-Object { "$($_.Path)=$($_.Name)" }) -join "," |
+            Should -Be "C:\a=aux.backup,C:\b=CON.txt,C:\c=CON"
+    }
+
+    It "フォルダ名として使えない名前（.. ・最後が . ・長すぎる）は空にする（取り込み時に割り当て直す）" {
         $path = "$TestDrive\targets_unsafe_names.json"
         $long = "あ" * 256
         [System.IO.File]::WriteAllText($path, @"
 { "targetFolders": [
     { "path": "C:\\a", "name": ".." },
-    { "path": "C:\\b", "name": "CON" },
+    { "path": "C:\\b", "name": "経理." },
     { "path": "C:\\c", "name": "営業." },
     { "path": "C:\\d", "name": "$long" },
     { "path": "C:\\e", "name": "..\\..\\外" },

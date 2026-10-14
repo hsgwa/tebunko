@@ -168,7 +168,7 @@ function writeSystemIndexFolders {
 
 function limitSystemIndexStateNames {
     # 状態ファイルから読んだ状態（convertFromSystemIndexState の形）から、使えない名前・相対パスを捨てて返す。
-    # 状態ファイルは共有のワークスペースで他の人が書き換えられるため、Covered（インデックス名）は testIndexName、
+    # 状態ファイルは共有のワークスペースで他の人が書き換えられるため、Covered（インデックス名）は testStoredIndexName（予約名は通す）、
     # Pending・Excluded（system_index からの相対パス）は testIndexRelPath（名前だけも可）を通ったものだけ使う
     param (
         $state
@@ -176,7 +176,7 @@ function limitSystemIndexStateNames {
 
     $checkedNames = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
     foreach ($name in @($state.Covered)) {
-        if (testIndexName $name @()) {
+        if (testStoredIndexName $name) {
             [void]$state.Covered.Remove($name)
         }
     }

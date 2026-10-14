@@ -162,7 +162,7 @@ Describe "readSystemIndexState / updateSystemIndexState" -Tag Io {
     It "使えない名前・相対パスの行は読み飛ばし、書き直したときも残さない" {
         $path = "$TestDrive\state_unsafe.tsv"
         [System.IO.File]::WriteAllLines($path, @(
-                "対応済み`t営業`t", "対応済み`t..`t", "対応済み`t..\外`t", "対応済み`tCON`t",
+                "対応済み`t営業`t", "対応済み`t..`t", "対応済み`t..\外`t", "対応済み`t営業.`t",
                 "反映待ち`t営業\a\system_index.txt`t5", "反映待ち`t..\外\system_index.txt`t1", "反映待ち`t営業\..\..\外\x.txt`t1",
                 "対象外`t営業\b`t", "対象外`t営業\..`t", "対象外`t..\..\外`t"), ${utf8Bom})
 
@@ -291,6 +291,16 @@ Describe "updateSystemIndexes" -Tag Io {
         Test-Path -LiteralPath "$TestDrive\u6\外\a.txt" | Should -Be $true
         Test-Path -LiteralPath "$TestDrive\u6\index\営業" | Should -Be $true
         (readSystemIndexState $path).Covered.Contains("営業") | Should -Be $true
+    }
+
+    It "状態ファイルの対応済みに、既にある予約名（aux.backup など）があっても捨てず、置き場の外を指す名前だけ捨てる" {
+        $path = "$TestDrive\u8\state.tsv"
+        [System.IO.Directory]::CreateDirectory("$TestDrive\u8") | Out-Null
+        [System.IO.File]::WriteAllLines($path, @("対応済み`taux.backup`t", "対応済み`tCON.txt`t", "対応済み`t..\外`t", "対応済み`t営業`t"), ${utf8Bom})
+
+        $covered = @((readSystemIndexState $path).Covered | Sort-Object)
+
+        $covered -join "," | Should -Be "aux.backup,CON.txt,営業"
     }
 
     It "置き場の外を指す名前を実際の removeSystemIndexOf に渡すと、黄色のログに名前を出し、外のフォルダは消さずに続ける" {

@@ -42,19 +42,6 @@ function newIndexName {
     return $name
 }
 
-function testSourceNameRecordable {
-    # インデックス名に対する元のフォルダを設定に記録できる名前か。空の名前と、前後に空白（全角空白・NBSP・タブを含む）がある名前は、
-    # 設定を読み戻すとき前後の空白が削られて同じ名前にならない（確かめ済みにならない）ため記録しない。
-    # 状態層（setIndexSourceFolder）の入口の条件と、画面の文言（記録されないときは毎回確かめる）で同じ判断を使う。
-    # 文字数で比べる（-ne はカルチャに従う）
-    param (
-        [string]$name
-    )
-
-    $trimmed = $name.Trim()
-    return $trimmed.Length -gt 0 -and $trimmed.Length -eq $name.Length
-}
-
 function assignIndexNames {
     # クロール対象フォルダ（getTargetFolders）にインデックス名を割り当て、@{ Path; Enabled; Name } の配列を返す。
     # インデックス名は設定に持つ（getTargetFolders の Name）。フォルダの置き場所（Path）を書き換えても名前は変わらないため、
@@ -76,15 +63,16 @@ function assignIndexNames {
     foreach ($name in $previousNames.Values) {
         [void]$used.Add($name)
     }
-    # 設定は書き換えられうる。パスにつなぐ名前として使えない（.. ・予約名・末尾の . など）ものは名前が無いものとして割り当て直す
-    foreach ($folder in @($targetFolders | Where-Object { $_ -and $_.Name -and !(testIndexName ([string]$_.Name) @()) })) {
+    # 設定は書き換えられうる。パスにつなぐ名前として使えない（.. ・末尾の . など）ものは名前が無いものとして割り当て直す。
+    # 既にある名前は、予約名（aux.backup など）でも、そのまま使い続ける（testStoredIndexName）
+    foreach ($folder in @($targetFolders | Where-Object { $_ -and $_.Name -and !(testStoredIndexName ([string]$_.Name)) })) {
         [void]$used.Add($folder.Name)
     }
 
     $result = New-Object System.Collections.Generic.List[object]
     foreach ($folder in @($targetFolders | Where-Object { $_ })) {
         $name = [string]$folder.Name
-        if ($name -ne "" -and (testIndexName $name @())) {
+        if ($name -ne "" -and (testStoredIndexName $name)) {
             $name = ""
         }
         if ($name -eq "") {
@@ -139,6 +127,19 @@ function testIndexName {
     return ""
 }
 
+function testStoredIndexName {
+    # 保存してあるインデックス名（設定・取り込み一覧・状態のフォルダから読んだもの）が、パスにつなぐ名前として使えるかを調べ、
+    # 使えない理由を返す（使えれば空文字列）。testIndexName との違いは、Windows の予約名（aux.backup など）を拒まないこと。
+    # 前の版で付いた、既にある実在のフォルダの名前を空にせず使い続けるため。新しく付ける名前（newIndexName・画面の入力・取り込み）は
+    # 厳しいまま testIndexName で調べる。置き場の外へ出る名前・最後の . や前後の空白・使えない文字は、ここでも拒む。
+    # 消す・動かす所は、この確かめに頼らず、名前で組んだパスが置き場の下にあること（testPathUnder）を別に確かめる
+    param (
+        [string]$name
+    )
+
+    return (getFolderNameProblemText ([string]$name) $true)
+}
+
 # ファイル名に使えない文字の配列 ${invalidFileNameChars} は shared/core/fs.ps1 にある（getFolderNameProblemText と共通）
 
 function testPathSegments {
@@ -178,7 +179,7 @@ function testPathSegments {
 function testIndexRelPath {
     # 取り込み一覧・状態ファイルから読んだ相対パス（"インデックス名\フォルダからの相対パス"）が、
     # work\content_index の下のパスとして使えるかを調べ、使えない理由を返す（使えれば空文字列）。
-    # 先頭はインデックス名（testIndexName）、残りは区切りごとに空・.・..・ファイル名に使えない文字（\ / : など）を拒む
+    # 先頭は保存してあるインデックス名（testStoredIndexName。予約名は通す）、残りは区切りごとに空・.・..・ファイル名に使えない文字（\ / : など）を拒む
     # （残りには予約名・最後の . や空白の決まりを当てない。実在のファイル名を捨てないため）。
     #   allowNameOnly: 残りが無く、名前だけのもの（"営業"）も通す（システムインデックスの状態のフォルダ）
     #   checkedNames : testIndexName を通った名前の集合（HashSet[string]）。数万行を読むとき、同じ名前を何度も調べないために
@@ -193,7 +194,7 @@ function testIndexRelPath {
     $i = $relPath.IndexOf("\")
     $name = if ($i -lt 0) { $relPath } else { $relPath.Substring(0, $i) }
     if ($null -eq $checkedNames -or -not $checkedNames.Contains($name)) {
-        $nameReason = testIndexName $name @()
+        $nameReason = testStoredIndexName $name
         if ($nameReason) {
             return $nameReason
         }

@@ -6,194 +6,6 @@ BeforeAll {
     . "${scriptsDir}\shared\office\office_reader.ps1"
 }
 
-Describe "readStatusFile / writeStatusFile / addStatusRow" -Tag Io {
-    It "まとめて書き出した行と、1件ずつ追記した行の整形が同じ（速さのために別々に書いているため）" {
-        # writeStatusFile は数万行を速く書くため、toStatusLine と同じ整形をその場に展開している
-        $row = newStatusRow "営業\見積.xlsx" "2025/01/10 12:34:56" "10420" $stateFailed "" "2026/09/20 10:00:00" "エラー`tの`r`n説明"
-        $path = "$TestDrive\status_same.tsv"
-        writeStatusFile @() @($row) $path
-        $written = @(readStatusLines $path)[-1]
-        $written | Should -Be (toStatusLine $row)
-        $written | Should -Be "営業\見積.xlsx`t2025/01/10 12:34:56`t10420`t${stateFailed}`t`t2026/09/20 10:00:00`tエラー の 説明`t"
-        $done = newStatusRow "営業\見積.xlsx" "2025/01/10 12:34:56" "10420" $stateDone "3" "2026/09/20 10:00:00" "" "2"
-        writeStatusFile @() @($done) $path
-        @(readStatusLines $path)[-1] | Should -Be (toStatusLine $done)
-    }
-
-    It "書き込んだクロール対象フォルダと行をそのまま読み込める（[ ] や先頭の空白を含むパス）" {
-        $path = "$TestDrive\status[1].tsv"
-        $rows = @(
-            (newStatusRow "a\[確定]見積.xlsx" "2025/01/10 12:34:56" "10420" $stateDone "3" "2026/09/19 10:00:00"),
-            (newStatusRow "data [1]\ b.xls" "2025/02/01 08:00:00" "0" $stateNew)
-        )
-        $folders = @(
-            [pscustomobject]@{ Path = "C:\data [1]"; Name = "data [1]" },
-            [pscustomobject]@{ Path = "D:\"; Name = "D" }
-        )
-        writeStatusFile $folders $rows $path
-
-        $status = readStatusFile $path
-        $status.Folders.Count | Should -Be 2
-        $status.Folders[0].Path | Should -Be "C:\data [1]"
-        $status.Folders[0].Name | Should -Be "data [1]"
-        $status.Folders[1].Path | Should -Be "D:\"
-        $status.Folders[1].Name | Should -Be "D"
-        $status.Rows.Count | Should -Be 2
-        $row = $status.Rows["a\[確定]見積.xlsx"]
-        $row.更新日時 | Should -Be "2025/01/10 12:34:56"
-        $row.サイズ | Should -Be "10420"
-        $row.状態 | Should -Be $stateDone
-        $row.TSV数 | Should -Be "3"
-        $status.Rows["data [1]\ b.xls"].状態 | Should -Be $stateNew
-    }
-
-    It "先頭にクロール対象フォルダ（パス・インデックス名）、次に見出しのTSVになる" {
-        $path = "$TestDrive\status_lines.tsv"
-        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "a.xlsx" "2025/01/10 12:34:56" "1" $stateNew) $path
-        $lines = [System.IO.File]::ReadAllLines($path)
-        $lines[0] | Should -Be "クロール対象フォルダ`tC:\data`tdata"
-        $lines[1] | Should -Be "相対パス`t更新日時`tサイズ`t状態`tTSV数`t取り込み日時`tエラー`t抽出版"
-        $lines[2] | Should -Be "a.xlsx`t2025/01/10 12:34:56`t1`t未取り込み`t`t`t`t"
-    }
-
-    It "抽出版を書き込んで読み込める" {
-        $path = "$TestDrive\status_version.tsv"
-        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "data\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "2" "" "" "2") $path
-        addStatusRow (newStatusRow "data\b.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "" "" "2") $path
-        $status = readStatusFile $path
-        $status.Rows["data\a.xlsx"].抽出版 | Should -Be "2"
-        $status.Rows["data\b.xlsx"].抽出版 | Should -Be "2"
-    }
-
-    It "追記した行が前の行より優先される。相対パスの大文字・小文字は区別しない" {
-        $path = "$TestDrive\status_append.tsv"
-        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "Dir\A.xlsx" "2025/01/10 12:34:56" "1" $stateNew) $path
-        addStatusRow (newStatusRow "dir\a.xlsx" "2025/01/10 12:34:56" "1" $stateFailed "" "2026/09/19 10:00:00" "パスワードが違います") $path
-
-        $status = readStatusFile $path
-        $status.Rows.Count | Should -Be 1
-        $status.Rows["DIR\A.XLSX"].状態 | Should -Be $stateFailed
-        $status.Rows["DIR\A.XLSX"].エラー | Should -Be "パスワードが違います"
-    }
-
-    It "エラーメッセージのタブ・改行はスペースにして1行に収める" {
-        $path = "$TestDrive\status_error.tsv"
-        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "data\a.xlsx" "" "" $stateFailed "" "" "1行目`r`n2行目`tタブ") $path
-        (readStatusFile $path).Rows["data\a.xlsx"].エラー | Should -Be "1行目 2行目 タブ"
-    }
-
-    It "列数の合わない行（書き込み途中で中断した行）は無視する" {
-        $path = "$TestDrive\status_broken.tsv"
-        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "data\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1") $path
-        [System.IO.File]::AppendAllText($path, "data\a.xlsx`t2025/01/10", $utf8Bom)
-
-        $status = readStatusFile $path
-        $status.Rows["data\a.xlsx"].状態 | Should -Be $stateDone
-    }
-
-    It "書き直すと既存のファイルを置き換え、一時ファイルは残らない" {
-        $path = "$TestDrive\status_replace.tsv"
-        writeStatusFile @([pscustomobject]@{ Path = "C:\old"; Name = "old" }) @(newStatusRow "old\a.xlsx") $path
-        writeStatusFile @([pscustomobject]@{ Path = "C:\new"; Name = "new" }) @(newStatusRow "new\b.xlsx") $path
-
-        $status = readStatusFile $path
-        @($status.Folders | ForEach-Object { $_.Path }) | Should -Be @("C:\new")
-        @($status.Rows.Keys) | Should -Be @("new\b.xlsx")
-        Test-Path -LiteralPath "${path}.tmp" | Should -Be $false
-    }
-
-    It "インデックス名・相対パスが使えない行は読み飛ばし、読み飛ばした行数を Rejected で返す" {
-        $path = "$TestDrive\status_unsafe.tsv"
-        $folders = @(
-            [pscustomobject]@{ Path = "C:\data"; Name = "営業" },
-            [pscustomobject]@{ Path = "C:\bad1"; Name = ".." },
-            [pscustomobject]@{ Path = "C:\bad2"; Name = "..\外" },
-            [pscustomobject]@{ Path = "C:\old1"; Name = "CON" },       # 今の決まりに合わないが、外へは出ない名前（前の版で作られた）
-            [pscustomobject]@{ Path = "C:\old2"; Name = "旧営業." }
-        )
-        $rows = @(
-            (newStatusRow "営業\見積.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
-            (newStatusRow "営業\サブ\見積2.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
-            (newStatusRow "..\外\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
-            (newStatusRow "営業\..\..\外\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
-            (newStatusRow "..\..\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
-            (newStatusRow "営業\.\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
-            (newStatusRow "営業\\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
-            (newStatusRow "a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1")
-        )
-        writeStatusFile $folders $rows $path
-
-        $status = readStatusFile $path
-        @($status.Folders | ForEach-Object { $_.Name }) | Should -Be @("営業")
-        @($status.Rows.Keys | Sort-Object) | Should -Be @(@("営業\サブ\見積2.xlsx", "営業\見積.xlsx") | Sort-Object)
-        @($status.LegacyFolders | ForEach-Object { $_.Name }) | Should -Be @("CON", "旧営業.")
-        $status.Rejected | Should -Be 8
-    }
-
-    It "行の確かめは testIndexRelPath（名前だけの行は通さない）と同じ結果になる" -TestCases @(
-        @{ rel = "営業\見積.xlsx" }
-        @{ rel = "営業\サブ\見積2.xlsx" }
-        @{ rel = "営業\a [1]\ b .xlsx" }
-        @{ rel = "営業\レポート.\a.xlsx" }
-        @{ rel = "営業\CON\a.xlsx" }
-        @{ rel = "a.xlsx" }
-        @{ rel = "営業" }
-        @{ rel = "\a.xlsx" }
-        @{ rel = "..\a.xlsx" }
-        @{ rel = ".\a.xlsx" }
-        @{ rel = "営業.\a.xlsx" }
-        @{ rel = " 営業\a.xlsx" }
-        @{ rel = "CON\a.xlsx" }
-        @{ rel = "営業\..\a.xlsx" }
-        @{ rel = "営業\.\a.xlsx" }
-        @{ rel = "営業\\a.xlsx" }
-        @{ rel = "営業\a.xlsx\" }
-        @{ rel = "営業/a.xlsx" }
-        @{ rel = "営業\a:b.xlsx" }
-        @{ rel = "営業\a*b.xlsx" }
-        @{ rel = "営業\" + ("あ" * 256) }
-        @{ rel = ("あ" * 256) + "\a.xlsx" }
-        @{ rel = "営業\" + ("あ" * 255) + "\a.xlsx" }
-    ) {
-        param ($rel)
-        $path = "$TestDrive\status_same_$([guid]::NewGuid().ToString('N')).tsv"
-        writeStatusFile @() @(newStatusRow $rel "2025/01/10 12:34:56" "1" $stateDone "1") $path
-        $accepted = @((readStatusFile $path).Rows.Keys).Count -eq 1
-        $accepted | Should -Be ((testIndexRelPath $rel $false) -eq "")
-    }
-
-    It "同じ名前の 2 行目以降も、1 行目と同じ結果になる（通る名前・通らない名前）" {
-        $path = "$TestDrive\status_second.tsv"
-        $rows = @(
-            (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
-            (newStatusRow "営業\b.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
-            (newStatusRow "CON\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
-            (newStatusRow "CON\b.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
-            (newStatusRow "営業.\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
-            (newStatusRow "営業.\b.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
-            (newStatusRow "営業\c.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1")
-        )
-        writeStatusFile @() $rows $path
-
-        $status = readStatusFile $path
-        @($status.Rows.Keys | Sort-Object) | Should -Be @(@("営業\a.xlsx", "営業\b.xlsx", "営業\c.xlsx") | Sort-Object)
-        $status.Rejected | Should -Be 4
-    }
-
-    It "使えない行が無ければ Rejected は 0" {
-        $path = "$TestDrive\status_safe.tsv"
-        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(newStatusRow "営業\見積.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1") $path
-        (readStatusFile $path).Rejected | Should -Be 0
-        (readStatusFile "$TestDrive\none_status2.tsv").Rejected | Should -Be 0
-    }
-
-    It "ファイルが無ければ空の一覧を返す" {
-        $status = readStatusFile "$TestDrive\none_status.tsv"
-        $status.Folders.Count | Should -Be 0
-        $status.Rows.Count | Should -Be 0
-    }
-}
-
 Describe "readIngestingFiles / writeIngestingFiles / removeIngestingFile" -Tag Io {
     It "取り込み中の複数のファイルの相対パスと回数をそのまま読み込める（[ ] や空白を含むパス）" {
         $path = "$TestDrive\ingesting[1].txt"
@@ -232,11 +44,11 @@ Describe "readIngestingFiles / writeIngestingFiles / removeIngestingFile" -Tag I
         $ingesting[0].Count | Should -Be 3
     }
 
-    It "相対パスが使えない行（.. を含む・名前が使えない）は読み飛ばす" {
+    It "相対パスが使えない行（.. を含む・名前が使えない）は読み飛ばす。予約名のインデックスの行は、既にある名前なので読む" {
         $path = "$TestDrive\ingesting_unsafe.txt"
-        writeListFile $path @("1`t..\外\a.xlsx", "1`t営業\..\..\外", "2`t..", "1`tCON\a.xlsx", "1`t営業", "1`ta.xlsx", "1`t営業\a.xlsx", "3`t営業\サブ\b.xlsx")
+        writeListFile $path @("1`t..\外\a.xlsx", "1`t営業\..\..\外", "2`t..", "1`tCON\a.xlsx", "1`t営業.\a.xlsx", "1`t営業", "1`ta.xlsx", "1`t営業\a.xlsx", "3`t営業\サブ\b.xlsx", "1`taux.backup\c.xlsx")
         $ingesting = @(readIngestingFiles $path)
-        @($ingesting | ForEach-Object { $_.RelPath }) | Should -Be @("営業\a.xlsx", "営業\サブ\b.xlsx")
+        @($ingesting | ForEach-Object { $_.RelPath }) | Should -Be @("CON\a.xlsx", "営業\a.xlsx", "営業\サブ\b.xlsx", "aux.backup\c.xlsx")
     }
 }
 
@@ -437,34 +249,25 @@ Describe "testIndexerRunning" -Tag Io {
     }
 }
 
-Describe "writeIndexerLog" -Tag Unit {
-    AfterEach {
-        $script:indexerLog = $null
-        $script:indexerEcho = $false
+Describe "addStatusRow" -Tag Io {
+    It "追記した行にも抽出版を書き込み、読み込める" {
+        $path = "$TestDrive\status_version.tsv"
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "data\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "2" "" "" "2") $path
+        addStatusRow (newStatusRow "data\b.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "" "" "2") $path
+        $status = readStatusFile $path
+        $status.Rows["data\a.xlsx"].抽出版 | Should -Be "2"
+        $status.Rows["data\b.xlsx"].抽出版 | Should -Be "2"
     }
 
-    It "ログを開いていればログに書く。開いていなければ何もしない" {
-        { writeIndexerLog "何もしない" } | Should -Not -Throw
-        $script:indexerLog = New-Object System.IO.StringWriter
-        writeIndexerLog "1 行目"
-        writeIndexerLog "2 行目" "Yellow"
-        $script:indexerLog.ToString() | Should -Be "1 行目`r`n2 行目`r`n"
-    }
+    It "追記した行が前の行より優先される。相対パスの大文字・小文字は区別しない" {
+        $path = "$TestDrive\status_append.tsv"
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "data\Dir\A.xlsx" "2025/01/10 12:34:56" "1" $stateNew) $path
+        addStatusRow (newStatusRow "data\dir\a.xlsx" "2025/01/10 12:34:56" "1" $stateFailed "" "2026/09/19 10:00:00" "パスワードが違います") $path
 
-    It "コンソールに出すときは色を付ける" {
-        Mock Write-Host {}
-        $script:indexerEcho = $true
-        writeIndexerLog "注意" "Yellow"
-        writeIndexerLog "普通"
-        Should -Invoke Write-Host -Times 1 -Exactly -Scope It -ParameterFilter { "$Object" -eq "注意" -and $ForegroundColor -eq "Yellow" }
-        Should -Invoke Write-Host -Times 1 -Exactly -Scope It -ParameterFilter { "$Object" -eq "普通" -and !$ForegroundColor }
-    }
-
-    It "ログに書けなくても止めない" {
-        $writer = New-Object System.IO.StringWriter
-        $writer.Dispose()
-        $script:indexerLog = $writer
-        { writeIndexerLog "書けない" } | Should -Not -Throw
+        $status = readStatusFile $path
+        $status.Rows.Count | Should -Be 1
+        $status.Rows["DATA\DIR\A.XLSX"].状態 | Should -Be $stateFailed
+        $status.Rows["DATA\DIR\A.XLSX"].エラー | Should -Be "パスワードが違います"
     }
 }
 
