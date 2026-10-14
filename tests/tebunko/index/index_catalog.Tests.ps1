@@ -226,7 +226,7 @@ Describe "IndexCatalog.RemoveIndex" -Tag Io {
         ) $ws.Status
         Mock getPathState { @{ State = "Other"; IsDirectory = $false; Message = "アクセスが拒否されました" } }
 
-        { $ws.Catalog.RemoveIndex("営業") } | Should -Throw "*アクセスが拒否されました*"
+        { $ws.Catalog.RemoveIndex("営業") } | Should -Throw "*フォルダがあるかどうか確かめられません*"
 
         (readStatusFile $ws.Status).Rows.ContainsKey("営業\a.xlsx") | Should -Be $true
     }

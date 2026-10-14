@@ -550,6 +550,7 @@ Describe "importIndex" -Tag Io {
         Mock removeDirectoryRetry { throw "作業フォルダを消せませんでした" } -ParameterFilter { $path -like "*\import" -and [System.IO.Directory]::Exists($path) }
 
         { importIndex $dest ${importCollisionRename} "" "C:\共有\営業部" $wsB $settingsB } | Should -Throw "*設定を書けませんでした*"
+        Should -Invoke removeDirectoryRetry -Times 1 -Exactly -Scope It -ParameterFilter { $path -like "*\import" -and [System.IO.Directory]::Exists($path) }
     }
 
     It "同じ名前: <mode>" -TestCases @(

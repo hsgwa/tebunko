@@ -56,10 +56,18 @@ BeforeAll {
                     # ForEach-Object Delete $true・ForEach-Object -MemberName Delete -ArgumentList $true（メンバー名を文字列で渡す書き方）。
                     # Delete がある呼び出しで、Delete 以外に $false でない値（-ArgumentList:$true のようにパラメーターに付いた値も）があれば、前後を問わず違反に数える
                     $elements = @($node.CommandElements | Select-Object -Skip 1)
-                    $deleteElements = @($elements | Where-Object { $_ -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $_.Value -eq "Delete" })
+                    # -MemberName:Delete のように、パラメーターに付いた値が Delete のものも、メンバー名の指定として数える
+                    $isDeleteName = {
+                        param ($element)
+                        ($element -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $element.Value -eq "Delete") -or
+                        ($element -is [System.Management.Automation.Language.CommandParameterAst] -and $null -ne $element.Argument -and
+                            "MemberName".StartsWith($element.ParameterName, [System.StringComparison]::OrdinalIgnoreCase) -and
+                            $element.Argument -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $element.Argument.Value -eq "Delete")
+                    }
+                    $deleteElements = @($elements | Where-Object { & $isDeleteName $_ })
                     if ($deleteElements.Count -gt 0) {
                         $values = @($elements | Where-Object {
-                                if ($_ -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $_.Value -eq "Delete") {
+                                if (& $isDeleteName $_) {
                                     $false
                                 } elseif ($_ -is [System.Management.Automation.Language.CommandParameterAst]) {
                                     $null -ne $_.Argument -and !(testFalseLiteral $_.Argument)
@@ -253,6 +261,7 @@ Describe "フォルダを消す書き方の見つけ方（自己テスト）" -T
         @{ code = '$dirs | ForEach-Object -MemberName Delete -ArgumentList $true' }
         @{ code = '$dirs | ForEach-Object -MemberName Delete -ArgumentList:$true' }
         @{ code = '$dirs | ForEach-Object -ArgumentList $true -MemberName Delete' }
+        @{ code = '$dirs | ForEach-Object -MemberName:Delete -ArgumentList $true' }
         @{ code = '$dirs.ForEach("Delete", $true)' }
         @{ code = '$type::Delete($x, $true)' }
         @{ code = '$type::Delete($x, $recursive)' }
@@ -274,6 +283,7 @@ Describe "フォルダを消す書き方の見つけ方（自己テスト）" -T
         @{ code = '$dirs | ForEach-Object { $_.Name }' }
         @{ code = '$dirs | ForEach-Object Delete' }
         @{ code = '$dirs | ForEach-Object -MemberName Delete' }
+        @{ code = '$dirs | ForEach-Object -MemberName:Delete' }
         @{ code = '$dirs.ForEach("Delete", $false)' }
         @{ code = '$dirs.ForEach({ $_.Name })' }
         @{ code = '$type::Delete($f)' }
