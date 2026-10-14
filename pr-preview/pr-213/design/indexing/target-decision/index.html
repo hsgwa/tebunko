@@ -4241,7 +4241,7 @@
 <li>拡張子が <code>.xlsx</code> <code>.xlsm</code> <code>.xls</code> <code>.xlsb</code> <code>.docx</code> <code>.docm</code> <code>.doc</code> <code>.pptx</code> <code>.pptm</code> <code>.ppt</code>（Office、10 個）または <a href="../text/#対象の拡張子">対象の拡張子</a>（テキスト、75 個）（大文字・小文字を区別しない）。テンプレート（<code>.xltx</code> <code>.dotx</code> <code>.potx</code> 等）は対象外</li>
 <li>ファイル名が <code>~$</code> で始まるもの（Office のロックファイル）は除外</li>
 <li>アクセスできないサブフォルダは無視して続行（元ファイルが無くなったかどうかの確認は行わない）</li>
-<li>ジャンクション・シンボリックリンクは辿らず、取り込まない（<code>getFilesNoFollow</code>。リンクの先のフォルダへは降りず、ファイルのリンクも対象にしない）。飛ばしたリンクは 1 件 1 行でログに出す。クロール対象フォルダそのものがリンクのときは、先を読まず、専用のログを出し、アクセスできないフォルダがあったときと同じに扱う（前回の行とインデックスを残す）。OneDrive のオンデマンドのように、<code>ReparsePoint</code> が付いていてもリンクと確かめられないものは、これまでどおり取り込む</li>
+<li>ジャンクション・シンボリックリンクは辿らず、取り込まない（<code>getFilesNoFollow</code>。リンクの先のフォルダへは降りず、ファイルのリンクも対象にしない）。飛ばしたリンクは 1 件 1 行でログに出す。クロール対象フォルダそのものがリンクのときは、これまでどおりその先の中を読む（中のリンクだけを辿らない）。OneDrive のオンデマンドのように、<code>ReparsePoint</code> が付いていてもリンクと確かめられないものは、これまでどおり取り込む</li>
 <li>相対パスは、実際に列挙したフォルダ（<code>Resolve-Path</code> で解決した <code>Root</code>。<code>findTargetFiles</code> が返す）から求める。列挙したファイルのパスが <code>\\?\</code> 付きの <code>Root</code> で始まれば先頭を切り落とし（ファイルが多いときに速い）、そうでなければ <code>getPathUnderFolder</code> で求める。
   設定に書かれたパスとは書き方が違うことがあるため（末尾の <code>\</code>、<code>\\?\</code> 付き、<code>.</code> ・ <code>..</code> を含む、<code>/</code> 区切り）、設定のパスの文字数では切り出さない</li>
 <li>tebunko が作ったファイル（今のワークスペースの中身・<code>ingest_status.tsv</code> の印があるほかのワークスペースの中身・名前で分かる本文インデックスやシステムインデックス）は対象に含めない（テキストの拡張子（<code>.tsv</code> 等）でこれらを拾わないため。詳細は <a href="../text/#tebunko-が作ったファイルの除外">テキストファイルの読み取り</a>）</li>

@@ -4375,8 +4375,8 @@
 <tr>
 <td><code>readStatusFile</code></td>
 <td>path（既定 <code>$workspace.StatusFile</code>）</td>
-<td><code>@{Folders; Rows}</code></td>
-<td>取り込み一覧を読む。Folders はクロール対象フォルダ <code>@{Path; Name}</code>（Name = インデックス名）、Rows は相対パス（<code>インデックス名\フォルダからの相対パス</code>。大文字・小文字を区別しない）→ 行。同じ相対パスは後の行を優先し、列数の合わない行は無視。インデックス作成中に読んでも書き込みを妨げない共有モードで開く。無ければ空</td>
+<td><code>@{Folders; Rows; Rejected; LegacyFolders}</code></td>
+<td>取り込み一覧を読む。名前・相対パスが使えない行（<code>testStoredIndexName</code>・<code>testIndexRelPath</code> と同じ決め。予約名は通す。名前だけの行は使えない。数万行を読むため 1 行ごとの関数呼び出しはせず、その場で確かめる）は読み飛ばし、数を Rejected で返す。最後が <code>.</code> や空白の名前など、今の決まりに合わないが外へ出ない前の版のクロール対象フォルダは LegacyFolders に分ける（設定から外れたインデックスとして確認に出す）。Folders はクロール対象フォルダ <code>@{Path; Name}</code>（Name = インデックス名）、Rows は相対パス（<code>インデックス名\フォルダからの相対パス</code>。大文字・小文字を区別しない）→ 行。同じ相対パスは後の行を優先し、列数の合わない行は無視。インデックス作成中に読んでも書き込みを妨げない共有モードで開く。無ければ空</td>
 <td><a href="../../indexing/ingest-list/">取り込み一覧</a></td>
 <td>インデックス作成・画面</td>
 </tr>
@@ -4455,7 +4455,7 @@
 <td><code>readIngestingFiles</code></td>
 <td>path（既定 <code>$workspace.IngestingFile</code>）</td>
 <td><code>@{RelPath; Count}</code> の配列</td>
-<td>取り込み中のファイルの記録（1 行に 1 ファイル。相対パスと、続けて取り込みを始めて終わらなかった回数）を読む。無ければ空。壊れた行は読み飛ばす</td>
+<td>取り込み中のファイルの記録（1 行に 1 ファイル。相対パスと、続けて取り込みを始めて終わらなかった回数）を読む。無ければ空。壊れた行と、名前・相対パスが使えない行（<code>testIndexRelPath</code>）は読み飛ばす</td>
 <td><a href="../../indexing/ingest-list/#強制終了時間切れからの再開">取り込み一覧</a></td>
 <td>インデックス作成</td>
 </tr>
@@ -4695,9 +4695,9 @@
 <tbody>
 <tr>
 <td><code>AssignNames</code></td>
-<td>targetFolders, status（<code>@{Folders; Rows}</code>）</td>
+<td>targetFolders, status（<code>@{Folders; Rows; Rejected; LegacyFolders}</code>）</td>
 <td>–</td>
-<td>インデックス名を割り当て、前回の一覧と外れたインデックスを覚える</td>
+<td>インデックス名を割り当て、前回の一覧と外れたインデックスを覚える（前回の名前に <code>LegacyFolders</code> も足して、外れたインデックスを調べる）</td>
 </tr>
 <tr>
 <td><code>SaveNames</code></td>
@@ -4823,9 +4823,25 @@
 <td><code>assignIndexNames</code></td>
 <td>targetFolders, previousFolders（readStatusFile の Folders）</td>
 <td><code>@{Path; Enabled; Name}</code> の配列</td>
-<td>設定の名前（getTargetFolders の Name）をそのまま使う。名前が無ければ、前回の取り込み一覧の同じフォルダの名前、それも無ければフォルダ名から重複しない名前を作る</td>
+<td>設定の名前（getTargetFolders の Name）をそのまま使う（<code>testStoredIndexName</code> を通らない名前は無いものとする。予約名の <code>aux.backup</code> などは、既にある名前なのでそのまま使う）。名前が無ければ、前回の取り込み一覧の同じフォルダの名前、それも無ければフォルダ名から重複しない名前を作る</td>
 <td>同上</td>
 <td>インデックス作成</td>
+</tr>
+<tr>
+<td><code>testPathSegments</code></td>
+<td>segments, lenient（既定 <code>$false</code>）</td>
+<td>string（問題の文。使えれば空）</td>
+<td><code>\</code> で区切った各部分が、空・<code>.</code>・<code>..</code>・長すぎる・使えない文字でないか。lenient のときは、前の版の名前（最後の <code>.</code>・空白など）も通し、パスにすると外へ出るものだけ止める</td>
+<td>同上</td>
+<td>testIndexRelPath, removeDroppedFolders, <code>index_archive_rules.ps1</code> の相対パスの確かめ</td>
+</tr>
+<tr>
+<td><code>testIndexRelPath</code></td>
+<td>relPath, allowNameOnly（既定 <code>$false</code>）, checkedNames</td>
+<td>string（問題の文。使えれば空）</td>
+<td><code>インデックス名\フォルダからの相対パス</code> が置き場の外へ出ないか。先頭の名前は <code>testStoredIndexName</code>（予約名は通す）で確かめる。取り込み一覧・取り込み中の記録の行は名前だけを通さない（システムインデックスの状態だけ通す）</td>
+<td>同上</td>
+<td>readIngestingFiles, readSystemIndexState</td>
 </tr>
 <tr>
 <td><code>splitIndexRelPath</code></td>
@@ -4839,9 +4855,17 @@
 <td><code>testIndexName</code></td>
 <td>name, usedNames</td>
 <td>string（使えれば空）</td>
-<td>インデックス名として使えるか調べ、使えない理由を返す（空・前後の空白・255 文字超・使えない文字・末尾の <code>.</code>・Windows の予約語・ほかと重複）</td>
+<td>新しく付けるインデックス名として使えるか調べ、使えない理由を返す（フォルダ名の決め <code>getFolderNameProblemText</code>（空・前後の空白・255 文字超・使えない文字・末尾の <code>.</code>・Windows の予約語）に、ほかと重複を足す）。<code>newIndexName</code> が作る名前は必ず通る。<code>IndexCatalog.RenameIndex</code> は新しい名前を、これで確かめる</td>
 <td><a href="../../gui/index-tab/#名前とフォルダパスの編集">名前とフォルダパスの編集</a></td>
 <td>画面</td>
+</tr>
+<tr>
+<td><code>testStoredIndexName</code></td>
+<td>name</td>
+<td>string（使えれば空）</td>
+<td>保存してあるインデックス名（設定・取り込み一覧・状態のフォルダから読んだもの）として使えるか調べる。<code>testIndexName</code> との違いは、Windows の予約名（<code>aux.backup</code>・<code>CON.txt</code> など）を拒まないこと（既にある実在のフォルダの名前を空にせず使い続けるため）。置き場の外へ出る名前・最後の <code>.</code> や前後の空白・使えない文字は拒む。<code>IndexCatalog.RenameIndex</code> は元の名前を、<code>RemoveIndex</code> は消す前に名前を、これで確かめる（通らない名前は何も動かさず例外にする）</td>
+<td>同上</td>
+<td>testIndexRelPath, assignIndexNames, limitSystemIndexStateNames, <code>IndexCatalog</code></td>
 </tr>
 <tr>
 <td><code>testStatusRowFailed</code></td>
