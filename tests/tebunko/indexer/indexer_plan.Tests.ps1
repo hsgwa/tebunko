@@ -226,6 +226,109 @@ Describe "findTargetFiles（tebunko が作ったものの除外）" -Tag Io {
     }
 }
 
+Describe "findTargetFiles・createTargetList（リンク）" -Tag Io {
+    BeforeEach {
+        $base = Join-Path $TestDrive "link-$(New-Guid)"
+        $source = Join-Path $base "対象"
+        $outside = Join-Path $base "外"
+        [System.IO.Directory]::CreateDirectory($source) | Out-Null
+        [System.IO.Directory]::CreateDirectory($outside) | Out-Null
+        [System.IO.File]::WriteAllText("$source\a.txt", "dummy")
+        [System.IO.File]::WriteAllText("$outside\外.txt", "dummy")
+        $workspace = newTestWorkspace @{} (Join-Path $TestDrive "ws-out-of-tree-link-$(New-Guid)")
+        ${indexDir} = Join-Path $TestDrive "index-link-$(New-Guid)"
+        $workspace = newTestWorkspace @{ IndexDir = ${indexDir} }
+        $script:logged = New-Object System.Collections.Generic.List[string]
+        Mock writeIndexerLog { $script:logged.Add([string]$text) }
+    }
+
+    It "中のジャンクションの先のファイルは Files に入れず、Links に入れる" {
+        if (!(newTestJunction "$source\リンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $scan = findTargetFiles $source
+        @($scan.Files | ForEach-Object { $_.Name }) | Should -Be @("a.txt")
+        @($scan.Links) | Should -Be @("$source\リンク")
+        $scan.HasError | Should -Be $false
+    }
+
+    It "親を指すジャンクション（輪）があっても終わり、Files に同じファイルが重ならない" {
+        if (!(newTestJunction "$source\輪" $base)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $scan = findTargetFiles $source
+        @($scan.Files | ForEach-Object { $_.Name }) | Should -Be @("a.txt")
+        @($scan.Links) | Should -Be @("$source\輪")
+    }
+
+    It "ファイルのシンボリックリンクは Files に入れず、Links に入れる（作れなければ飛ばす）" {
+        if (!(newTestSymlink "$source\リンク.txt" "$outside\外.txt" -file)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $scan = findTargetFiles $source
+        @($scan.Files | ForEach-Object { $_.Name }) | Should -Be @("a.txt")
+        @($scan.Links) | Should -Be @("$source\リンク.txt")
+    }
+
+    It "リンクかどうか確かめられないフォルダ（クラウドのオンデマンドのフォルダなど）は、これまでどおり中も取り込む" {
+        if (!(newTestJunction "$source\不明" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        Mock getLinkKind { return "Unknown" }
+
+        $scan = findTargetFiles $source
+        @($scan.Files | ForEach-Object { $_.Name } | Sort-Object) | Should -Be @("a.txt", "外.txt")
+        @($scan.Links).Count | Should -Be 0
+    }
+
+    It "クロール対象フォルダそのものがジャンクションなら、先を読まず、Files を空・HasError を `$true・Links にそのフォルダを返す" {
+        if (!(newTestJunction "$base\根" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $scan = findTargetFiles "$base\根"
+        @($scan.Files).Count | Should -Be 0
+        $scan.HasError | Should -Be $true
+        @($scan.Links) | Should -Be @("$base\根")
+    }
+
+    It "createTargetList は、飛ばしたリンクを 1 件 1 行でログに出す" {
+        if (!(newTestJunction "$source\リンク1" $outside) -or !(newTestJunction "$source\リンク2" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $result = createTargetList @{ Path = $source; Name = "売上" } (newPrevious) $null
+        $result.Rows.Count | Should -Be 1
+        @($script:logged | Where-Object { $_ -like "*リンク*のため取り込みませんでした: *" }).Count | Should -Be 2
+        @($script:logged | Where-Object { $_ -like "*のため取り込みませんでした: $source\リンク1" }).Count | Should -Be 1
+        @($script:logged | Where-Object { $_ -like "*のため取り込みませんでした: $source\リンク2" }).Count | Should -Be 1
+    }
+
+    It "createTargetList は、クロール対象フォルダがリンクのとき、前回の行を消さず、専用のログを 1 行だけ出す" {
+        if (!(newTestJunction "$base\根" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        $previous = newPrevious @((newStatusRow "売上\a.txt" "2024/01/01 00:00:00" "10" ${stateDone} 1 "2024/01/01 00:00:00"))
+
+        $result = createTargetList @{ Path = "$base\根"; Name = "売上" } $previous $null
+        @($result.Rows | Where-Object { $_.相対パス -eq "売上\a.txt" }).Count | Should -Be 1
+        $result.Targets.Count | Should -Be 0
+        @($result.Removed).Count | Should -Be 0
+        @($script:logged | Where-Object { $_ -like "*クロール対象フォルダがリンク*のため取り込みませんでした: $base\根" }).Count | Should -Be 1
+        @($script:logged | Where-Object { $_ -like "*アクセスできないフォルダ*" }).Count | Should -Be 0
+    }
+}
+
 Describe "selectOnlyNames" -Tag Unit {
     BeforeAll {
         $folders = @(

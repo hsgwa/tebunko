@@ -209,7 +209,8 @@ function setNotContentIndexed {
     # フォルダ（またはファイル）に「内容のインデックスを作成しない」属性（NotContentIndexed）を付ける。
     # 既に付いているものには付け直さない（Changed に数えない）ので、ほかの属性（読み取り専用など）は変えない。
     #   Recurse 無し: path 自身と、フォルダなら直下のファイルに付ける（下のフォルダには付けない）
-    #   Recurse あり: path 自身と、下のすべてのフォルダ・ファイルに付ける
+    #   Recurse あり: path 自身と、下のすべてのフォルダ・ファイルに付ける。ただし下のリンク（ジャンクション・シンボリックリンク）は
+    #                 付けず、中へも降りない（getFilesNoFollow）。path 自身がリンクのときは、その先の中を下として扱う
     # Recurse でフォルダを渡したときは、根フォルダの属性を下より先に確かめる。既に付いていれば
     # （前回すべて付け終えて根に付けたということなので）下はたどらず、GetAttributes 1 回だけで終える。
     # 根の属性は、下をすべて付け終えて成功したときにだけ最後に付ける（列挙・付与の途中で失敗した回は
@@ -253,8 +254,17 @@ function setNotContentIndexed {
         if ($state.IsDirectory) {
             $dirInfo = New-Object System.IO.DirectoryInfo $long
             if ($Recurse) {
-                foreach ($entry in $dirInfo.EnumerateFileSystemInfos("*", [System.IO.SearchOption]::AllDirectories)) {
-                    $items.Add(@{ Path = (fromLongPath $entry.FullName); IsDirectory = ($entry -is [System.IO.DirectoryInfo]) })
+                # リンク（ジャンクション・シンボリックリンク）は、リンク自身にも属性を付けず、中へも降りない
+                # （先の、対象の外のファイルに属性が付かないようにするため）。リンクかどうか確かめられないフォルダも降りない
+                $tree = getFilesNoFollow $long -IncludeHidden -SkipUnknown
+                if ($tree.HasError) {
+                    return @{ Ok = $false; Changed = 0; Reason = $tree.Reason }
+                }
+                foreach ($entry in $tree.Directories) {
+                    $items.Add(@{ Path = (fromLongPath $entry.FullName); IsDirectory = $true })
+                }
+                foreach ($entry in $tree.Files) {
+                    $items.Add(@{ Path = (fromLongPath $entry.FullName); IsDirectory = $false })
                 }
             } else {
                 foreach ($file in $dirInfo.EnumerateFiles("*", [System.IO.SearchOption]::TopDirectoryOnly)) {
@@ -526,6 +536,70 @@ function removeTreeNoFollow {
     for ($i = $directories.Count - 1; $i -ge 0; $i--) {
         removeEntryOnly (New-Object System.IO.DirectoryInfo $directories[$i])
     }
+}
+
+function getFilesNoFollow {
+    # root の下のファイルとフォルダを、ジャンクション・シンボリックリンクは辿らずに列挙する。
+    # 再帰の列挙（Get-ChildItem -Recurse・AllDirectories）の代わりに使う（tests/meta/link_safety.Tests.ps1 が、それらを許した関数の外で書かせない）。
+    # root そのものがリンクかは見ない（呼ぶ側が決める）。root が作業フォルダの置き場のようにリンクでよい場所のときは、その先の中を列挙する。
+    # 戻り値: @{ Files; Directories; Links; HasError; Reason }
+    #   Files       … ファイル（FileInfo。FullName は \\?\ 付き）。リンクのファイルは入れない
+    #   Directories … フォルダ（DirectoryInfo。root は含まない）。リンクのフォルダは入れない
+    #   Links       … 飛ばしたリンク（ファイル・フォルダ）の、\\?\ の付かない通常のパス
+    #   HasError    … 読めなかったフォルダがあったか。読めたところまでは Files・Directories に入る（途中で例外にしない）
+    #   Reason      … 最初に読めなかった理由
+    # リンクかどうかの見分けは getLinkKind。リンクかどうか確かめられないフォルダ（ReparsePoint が付き、LinkType が取れない。
+    # OneDrive のオンデマンドのフォルダなど）は、SkipUnknown が無ければ降りる（読むだけのため）。属性を書くときは SkipUnknown を付け、降りずに Links に入れる。
+    # Hidden・System の付いたものは、IncludeHidden が無ければ入れない（Get-ChildItem の既定と同じ）
+    param (
+        [string]$root,
+        [switch]$IncludeHidden,
+        [switch]$SkipUnknown
+    )
+
+    $files = New-Object System.Collections.Generic.List[object]
+    $directories = New-Object System.Collections.Generic.List[object]
+    $links = New-Object System.Collections.Generic.List[string]
+    $hasError = $false
+    $reason = ""
+    $reparseFlag = [System.IO.FileAttributes]::ReparsePoint
+    $hiddenFlags = [System.IO.FileAttributes]::Hidden -bor [System.IO.FileAttributes]::System
+    $pending = New-Object System.Collections.Generic.Stack[string]
+    $pending.Push((toLongPath (trimTrailingSeparator $root)))
+    while ($pending.Count -gt 0) {
+        $directory = New-Object System.IO.DirectoryInfo ($pending.Pop())
+        try {
+            # 列挙の途中で読めなくなることがあるので、配列にして受ける（例外はこの try で受ける）
+            $entries = @($directory.EnumerateFileSystemInfos("*", [System.IO.SearchOption]::TopDirectoryOnly))
+        } catch {
+            $hasError = $true
+            if (!$reason) {
+                $reason = $_.Exception.Message
+            }
+            continue
+        }
+        foreach ($entry in $entries) {
+            $attributes = $entry.Attributes
+            if (!$IncludeHidden -and ($attributes -band $hiddenFlags)) {
+                continue
+            }
+            if ($attributes -band $reparseFlag) {
+                # 属性に ReparsePoint が付いているものだけ、リンクかを調べる（多くのファイルで余計な問い合わせをしない）
+                $kind = getLinkKind $entry
+                if ($kind -eq "Link" -or ($kind -eq "Unknown" -and $SkipUnknown)) {
+                    $links.Add((fromLongPath $entry.FullName))
+                    continue
+                }
+            }
+            if ($entry -is [System.IO.DirectoryInfo]) {
+                $directories.Add($entry)
+                $pending.Push($entry.FullName)
+            } else {
+                $files.Add($entry)
+            }
+        }
+    }
+    return @{ Files = $files.ToArray(); Directories = $directories.ToArray(); Links = $links.ToArray(); HasError = $hasError; Reason = $reason }
 }
 
 function moveDirectoryRetry {

@@ -892,6 +892,197 @@ Describe "setNotContentIndexed" -Tag Io {
     }
 }
 
+Describe "getFilesNoFollow" -Tag Io {
+    It "下のファイル・フォルダを集める（root は Directories に入れない）。Links は空、HasError は `$false" {
+        $dir = "$TestDrive\nofollow\普通"
+        writeListFile "$dir\a.tsv" @("a")
+        writeListFile "$dir\下\b.tsv" @("b")
+        writeListFile "$dir\下\さらに下\c.tsv" @("c")
+
+        $tree = getFilesNoFollow $dir
+        @($tree.Files | ForEach-Object { $_.Name } | Sort-Object) | Should -Be @("a.tsv", "b.tsv", "c.tsv")
+        @($tree.Directories | ForEach-Object { $_.Name } | Sort-Object) | Should -Be @("さらに下", "下")
+        @($tree.Links).Count | Should -Be 0
+        $tree.HasError | Should -Be $false
+    }
+
+    It "末尾に \ を付けた root でも同じ結果になる" {
+        $dir = "$TestDrive\nofollow\末尾"
+        writeListFile "$dir\a.tsv" @("a")
+
+        @((getFilesNoFollow "$dir\").Files).Count | Should -Be 1
+    }
+
+    It "Hidden のものは、既定では入れず、IncludeHidden を付けると入れる" {
+        $dir = "$TestDrive\nofollow\隠し"
+        writeListFile "$dir\a.tsv" @("a")
+        writeListFile "$dir\隠し.tsv" @("h")
+        writeListFile "$dir\隠しフォルダ\d.tsv" @("d")
+        [System.IO.File]::SetAttributes("$dir\隠し.tsv", [System.IO.FileAttributes]::Hidden)
+        [System.IO.File]::SetAttributes("$dir\隠しフォルダ", [System.IO.FileAttributes]::Directory -bor [System.IO.FileAttributes]::Hidden)
+
+        @((getFilesNoFollow $dir).Files | ForEach-Object { $_.Name }) | Should -Be @("a.tsv")
+        @((getFilesNoFollow $dir -IncludeHidden).Files | ForEach-Object { $_.Name } | Sort-Object) | Should -Be @("a.tsv", "d.tsv", "隠し.tsv")
+    }
+
+    It "ジャンクションの先へは降りず、Links に入れる（Files・Directories には入れない）" {
+        $dir = "$TestDrive\nofollow\リンク"
+        $outside = "$TestDrive\nofollow\外のリンク"
+        writeListFile "$outside\外.tsv" @("外")
+        writeListFile "$dir\a.tsv" @("a")
+        if (!(newTestJunction "$dir\リンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $tree = getFilesNoFollow $dir
+        @($tree.Files | ForEach-Object { $_.Name }) | Should -Be @("a.tsv")
+        @($tree.Directories).Count | Should -Be 0
+        @($tree.Links) | Should -Be @("$dir\リンク")
+        $tree.HasError | Should -Be $false
+    }
+
+    It "親を指すジャンクション（輪）があっても止まらず、Links に入れる" {
+        $dir = "$TestDrive\nofollow\輪"
+        writeListFile "$dir\a\a.tsv" @("a")
+        if (!(newTestJunction "$dir\a\輪" $dir)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $tree = getFilesNoFollow $dir
+        @($tree.Files | ForEach-Object { $_.Name }) | Should -Be @("a.tsv")
+        @($tree.Links) | Should -Be @("$dir\a\輪")
+        $tree.HasError | Should -Be $false
+    }
+
+    It "ファイルのシンボリックリンクは Files に入れず、Links に入れる（作れなければ飛ばす）" {
+        $dir = "$TestDrive\nofollow\ファイルのリンク"
+        writeListFile "$dir\a.tsv" @("a")
+        writeListFile "$TestDrive\nofollow\外のファイル\外.tsv" @("外")
+        if (!(newTestSymlink "$dir\リンク.tsv" "$TestDrive\nofollow\外のファイル\外.tsv" -file)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $tree = getFilesNoFollow $dir
+        @($tree.Files | ForEach-Object { $_.Name }) | Should -Be @("a.tsv")
+        @($tree.Links) | Should -Be @("$dir\リンク.tsv")
+    }
+
+    It "root そのものがジャンクションでも見ない（先の中を列挙する）" {
+        $outside = "$TestDrive\nofollow\外の根"
+        writeListFile "$outside\外.tsv" @("外")
+        if (!(newTestJunction "$TestDrive\nofollow\根のリンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $tree = getFilesNoFollow "$TestDrive\nofollow\根のリンク"
+        @($tree.Files | ForEach-Object { $_.Name }) | Should -Be @("外.tsv")
+        @($tree.Links).Count | Should -Be 0
+    }
+
+    It "リンクかどうか確かめられないフォルダは、既定では降り、SkipUnknown を付けると降りずに Links に入れる" {
+        $dir = "$TestDrive\nofollow\不明"
+        $outside = "$TestDrive\nofollow\不明の中"
+        writeListFile "$outside\中.tsv" @("中")
+        if (!(newTestJunction "$dir\不明" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        # ReparsePoint が付き LinkType が取れないフォルダ（OneDrive のオンデマンドのフォルダなど）の見本として、種類を Unknown にする
+        Mock getLinkKind { return "Unknown" }
+
+        @((getFilesNoFollow $dir).Files | ForEach-Object { $_.Name }) | Should -Be @("中.tsv")
+        $skipped = getFilesNoFollow $dir -SkipUnknown
+        @($skipped.Files).Count | Should -Be 0
+        @($skipped.Links) | Should -Be @("$dir\不明")
+    }
+
+    It "読めないフォルダがあっても例外にせず、HasError と Reason を返し、読めたところは返す" {
+        $dir = "$TestDrive\nofollow\読めない親"
+        writeListFile "$dir\a.tsv" @("a")
+        $locked = New-Object System.IO.DirectoryInfo "$dir\読めない"
+        $locked.Create()
+        $user = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+        $deny = New-Object System.Security.AccessControl.FileSystemAccessRule($user, "ListDirectory", "Deny")
+        $acl = $locked.GetAccessControl("Access")
+        $acl.AddAccessRule($deny)
+        $locked.SetAccessControl($acl)
+        try {
+            $tree = getFilesNoFollow $dir
+            $tree.HasError | Should -Be $true
+            $tree.Reason | Should -Not -BeNullOrEmpty
+            @($tree.Files | ForEach-Object { $_.Name }) | Should -Be @("a.tsv")
+        } finally {
+            $acl = $locked.GetAccessControl("Access")
+            [void]$acl.RemoveAccessRule($deny)
+            $locked.SetAccessControl($acl)
+        }
+    }
+}
+
+Describe "setNotContentIndexed（リンク）" -Tag Io {
+    BeforeAll {
+        function script:hasLinkAttr {
+            param ([string]$path)
+            $attrs = [System.IO.File]::GetAttributes((toLongPath $path))
+            return [bool]($attrs -band [System.IO.FileAttributes]::NotContentIndexed)
+        }
+    }
+
+    It "-Recurse で、中のジャンクションの先のフォルダ・ファイルにも、ジャンクション自身にも付けない" {
+        $dir = "$TestDrive\nci-link\付ける"
+        $outside = "$TestDrive\nci-link\外"
+        writeListFile "$outside\外.tsv" @("外")
+        writeListFile "$outside\下\外の下.tsv" @("外")
+        writeListFile "$dir\a.tsv" @("a")
+        if (!(newTestJunction "$dir\リンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $result = setNotContentIndexed $dir -Recurse
+        $result.Ok | Should -Be $true
+        $result.Changed | Should -Be 2   # dir・a.tsv だけ
+        (hasLinkAttr $dir) | Should -Be $true
+        (hasLinkAttr "$dir\a.tsv") | Should -Be $true
+        (hasLinkAttr "$dir\リンク") | Should -Be $false
+        (hasLinkAttr $outside) | Should -Be $false
+        (hasLinkAttr "$outside\外.tsv") | Should -Be $false
+        (hasLinkAttr "$outside\下") | Should -Be $false
+        (hasLinkAttr "$outside\下\外の下.tsv") | Should -Be $false
+    }
+
+    It "親を指すジャンクション（輪）があっても終わり、輪の先に属性が付き続けない" {
+        $dir = "$TestDrive\nci-link\輪"
+        writeListFile "$dir\a\a.tsv" @("a")
+        if (!(newTestJunction "$dir\a\輪" $dir)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $result = setNotContentIndexed $dir -Recurse
+        $result.Ok | Should -Be $true
+        $result.Changed | Should -Be 3   # dir・a・a.tsv
+        (hasLinkAttr "$dir\a\輪") | Should -Be $false
+    }
+
+    It "Hidden のファイル・フォルダには、これまでどおり付ける" {
+        $dir = "$TestDrive\nci-link\隠し"
+        writeListFile "$dir\隠し.tsv" @("h")
+        writeListFile "$dir\隠しフォルダ\d.tsv" @("d")
+        [System.IO.File]::SetAttributes("$dir\隠し.tsv", [System.IO.FileAttributes]::Hidden)
+        [System.IO.File]::SetAttributes("$dir\隠しフォルダ", [System.IO.FileAttributes]::Directory -bor [System.IO.FileAttributes]::Hidden)
+
+        (setNotContentIndexed $dir -Recurse).Ok | Should -Be $true
+        (hasLinkAttr "$dir\隠し.tsv") | Should -Be $true
+        (hasLinkAttr "$dir\隠しフォルダ") | Should -Be $true
+        (hasLinkAttr "$dir\隠しフォルダ\d.tsv") | Should -Be $true
+    }
+}
+
 Describe "testNotContentIndexed" -Tag Io {
     It "属性が付いていれば `$true" {
         $dir = "$TestDrive\nci-test\付いている"

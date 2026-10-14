@@ -46,6 +46,10 @@ PSScriptAnalyzer は Windows PowerShell 5.1 に標準では入っていないた
 
 `TypeNotFound`（継承元の型が別ファイルにあるための指摘）は、1 ファイルだけでは解決できないため除く。読み込む順で解決できることは `tests/meta/structure.Tests.ps1` で確かめる。あわせて同じファイルで、`scripts/` の関数・変数・ハッシュテーブルのキー・呼ぶ名前・`newWorkerState` に渡す名前に `pack` を使わないことを、AST から名前を拾って確かめる（本文インデックスのコードの名前は `contentIndex`。コメントや `package` は拾わない）。
 
+**リンクを辿る列挙の検査（`tests/meta/link_safety.Tests.ps1`）**
+
+タグ `Meta` で、`scripts/` の全体を AST で調べ、フォルダの再帰の列挙（`Get-ChildItem`・`gci`・`ls`・`dir` の `-Recurse`・`-Depth`（前方一致・スプラットを含む）、`SearchOption` の `TopDirectoryOnly` の直接の参照以外、`GetFiles`・`EnumerateFiles` などで探す範囲が `TopDirectoryOnly` でないもの、`EnumerationOptions`）が、許した関数の一覧（理由つき）の外に無いことを確かめる。一覧の関数が今も在ること、別名・省略形・スプラット・変数渡しといった回避の見本を見つけられることも確かめる。リンクを辿らずに集めるには `getFilesNoFollow` を使う。
+
 **インストーラーの検査（`tests/meta/installer.Tests.ps1`）**
 
 タグ `Meta` で、インストーラー（`installer/`）が [安全性の要約](../../safety/index.md) の [インストーラー版](../../safety/disclosure.md#インストーラー版) のとおりであることを確かめる。インストーラーそのもののビルド（Inno Setup）は `release.yml` だけで行い、ここではスクリプトを読んで確かめる。
