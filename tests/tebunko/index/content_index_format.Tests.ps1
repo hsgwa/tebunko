@@ -38,12 +38,20 @@ Describe "convertPlaceToContentIndexMeta / convertContentIndexMetaToPlace" -Tag 
         }
     }
 
-    It "Excel の拡張子（大文字小文字を区別しない）は「Excel」、Word・PowerPoint は別の種類" {
-        getContentIndexFileKind "見積.xlsx" | Should -Be "Excel"
-        getContentIndexFileKind "見積.XLS" | Should -Be "Excel"
-        getContentIndexFileKind "見積.xlsm" | Should -Be "Excel"
-        getContentIndexFileKind "議事録.docx" | Should -Be "Word"
-        getContentIndexFileKind "提案.pptx" | Should -Be "PowerPoint"
+    It "<Book> の種類は「<Kind>」（拡張子の大文字小文字は区別しない）" -ForEach @(
+        @{ Book = "見積.xlsx"; Kind = "Excel" }
+        @{ Book = "見積.xls"; Kind = "Excel" }
+        @{ Book = "見積.xlsm"; Kind = "Excel" }
+        @{ Book = "見積.xlsb"; Kind = "Excel" }
+        @{ Book = "見積.XLSX"; Kind = "Excel" }
+        @{ Book = "見積.XLS"; Kind = "Excel" }
+        @{ Book = "議事録.docx"; Kind = "Word" }
+        @{ Book = "提案.pptx"; Kind = "PowerPoint" }
+        @{ Book = "見積.xlsx.bak"; Kind = "" }
+        @{ Book = "xls"; Kind = "" }
+        @{ Book = ""; Kind = "" }
+    ) {
+        getContentIndexFileKind $Book | Should -BeExactly $Kind
     }
 
     It "種類の分からないファイルは、部分に場所の名前を持つ" {

@@ -182,7 +182,7 @@ try {
             $indexName = if ($cut -lt 0) { $relDir } else { $relDir.Substring(0, $cut) }
             $row = [HitRow]::Create($indexName, $hit.Root, $hit.RelPath, $relDir, $hit.FileName, $hit.Book, $hit.Location, [int]$hit.LineNumber, $hit.Line, $Word, $pattern)
             $row.IsExcel = ([string]$hit.Book -match '\.xls[a-z]?$')
-            $numbers =[int[]]@($context | ForEach-Object { $_.LineNumber })
+            $numbers = [int[]]@($context | ForEach-Object { $_.LineNumber })
             $lines = [string[]]@($context | ForEach-Object { $_.Line })
             $watch.Restart()
             $table = $row.BuildPreview($numbers, $lines)

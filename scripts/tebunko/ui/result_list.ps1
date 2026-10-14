@@ -66,10 +66,11 @@ function getPlace {
     # 場所の表示（describePlace の @{ Place; Kind }）。同じ種類のファイル・場所なら同じなので覚えておく
     param (
         [string]$book,
-        [string]$location
+        [string]$location,
+        [string]$fileKind    # getContentIndexFileKind $book（呼ぶ側が 1 回だけ求めた値）
     )
 
-    $key = "$([int]((getContentIndexFileKind $book) -eq "Excel"))|$location"
+    $key = "$([int]($fileKind -eq "Excel"))|$location"
     $described = $script:places[$key]
     if ($null -eq $described) {
         $described = describePlace $book $location
@@ -86,7 +87,7 @@ function addFileGroupLocation {
         [string]$location
     )
 
-    if ($group.AddLabel((getPlace $book $location).Place)) {
+    if ($group.AddLabel((getPlace $book $location (getContentIndexFileKind $book)).Place)) {
         $group.SetLocationText((describeFileLocations $group.GetLocations()), (getFileHeaderLocationPrefix $group.GetLocations()))
     }
 }
@@ -105,10 +106,11 @@ function ensureRows {
         $indexName = if ($cut -lt 0) { $relDir } else { $relDir.Substring(0, $cut) }
         $row = [HitRow]::Create($indexName, $hit.Root, $hit.RelPath, $relDir, $hit.FileName,
                 $hit.Book, $hit.Location, [int]$hit.LineNumber, $hit.Line, $script:rowWord, $script:rowPattern)
-        $described = getPlace $hit.Book $hit.Location
+        $fileKind = getContentIndexFileKind $hit.Book
+        $described = getPlace $hit.Book $hit.Location $fileKind
         $row.PlaceText = $described.Place
         $row.Kind = $described.Kind
-        $row.IsExcel = ((getContentIndexFileKind $hit.Book) -eq "Excel")
+        $row.IsExcel = ($fileKind -eq "Excel")
         $row.IsText = testTextExtension $hit.Book
         $row.IsCellPrefixed = testCellPrefixedPlace $hit.Book (splitObjectPlace $hit.Location).Kind
         $row.Order = $i
