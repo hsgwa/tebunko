@@ -258,8 +258,11 @@ Describe "Set-Variable・New-Variable" -Tag Unit {
         @{ name = "関数の中の -Scope Private は数えない"
             code = 'function init { Set-Variable -Name config -Value 1 -Scope Private }'; counted = $false
         }
-        @{ name = "関数の中の script: 付きの名前は数える"
-            code = 'function init { Set-Variable -Name "script:config" -Value 1 }'; counted = $true
+        @{ name = "関数の中の script: 付きの名前は、スコープにならず名前の一部なので数えない"
+            code = 'function init { Set-Variable -Name "script:config" -Value 1 }'; counted = $false
+        }
+        @{ name = "関数の外の script: 付きの名前は、名前そのもの（script:config）なので、config の読みには数えない"
+            code = 'Set-Variable -Name "script:config" -Value 1'; counted = $false
         }
         @{ name = "名前を変数で渡す形は、名前が決まらないので数えない"
             code = 'function init { param ($n) Set-Variable -Name $n -Value 1 -Scope Script }'; counted = $false
@@ -291,14 +294,14 @@ Describe "Set-Variable・New-Variable" -Tag Unit {
         @{ name = '関数の外の ${variable:名前} = … の代入を数える'
             code = '${variable:config} = 1'; counted = $true
         }
-        @{ name = '関数の外の $variable:script:名前 = … は、スコープの印を外した名前で数える'
-            code = '${variable:script:config} = 1'; counted = $true
+        @{ name = '関数の外の ${variable:script:名前} = … は、名前そのもの（script:config）なので、config の読みには数えない'
+            code = '${variable:script:config} = 1'; counted = $false
         }
         @{ name = '関数の中の $variable:名前 = … は数えない'
             code = 'function init { $variable:config = 1 }'; counted = $false
         }
-        @{ name = '関数の中の ${variable:script:名前} = … は数える'
-            code = 'function init { ${variable:script:config} = 1 }'; counted = $true
+        @{ name = '関数の中の ${variable:script:名前} = … は、スクリプトの変数を変えないので数えない'
+            code = 'function init { ${variable:script:config} = 1 }'; counted = $false
         }
         @{ name = '関数の外の $env:名前 = … は数えない'
             code = '$env:config = 1'; counted = $false
@@ -309,6 +312,16 @@ Describe "Set-Variable・New-Variable" -Tag Unit {
         $files = @{ "upper/a.ps1" = 'function callA { $config }'; "lower/b.ps1" = $code }
         $expected = if ($counted) { 'upper/a.ps1 -> lower/b.ps1（$config）' } else { "" }
         (dependenciesOf $files @("upper/*") @("lower/*")) | Should -Be $expected
+    }
+
+    It "script: 付きの名前は、同じ書き方（script:config）で読む側と組になる" {
+        $files = @{ "upper/a.ps1" = 'function callA { Get-Variable -Name "script:config" }'; "lower/b.ps1" = 'Set-Variable -Name "script:config" -Value 1' }
+        (dependenciesOf $files @("upper/*") @("lower/*")) | Should -Be 'upper/a.ps1 -> lower/b.ps1（$script:config）'
+    }
+
+    It '関数の中の $variable:名前 = … で作った変数を、その関数の中で読んでも、別のファイルの変数の読みに数えない' {
+        $files = @{ "upper/a.ps1" = 'function callA { $variable:config = 2; $config }'; "lower/b.ps1" = '$config = 1' }
+        (dependenciesOf $files @("upper/*") @("lower/*")) | Should -Be ""
     }
 
     It "Dynamic という名前の変数も、名前の決まらない印と混ざらず数える" {
@@ -338,8 +351,11 @@ Describe "名前で読む変数" -Tag Unit {
         @{ name = "モジュールの修飾つきの Get-Variable を数える"
             code = 'function callA { Microsoft.PowerShell.Utility\Get-Variable config }'; counted = $true
         }
-        @{ name = "script: 付きの名前を数える"
-            code = 'function callA { Get-Variable -Name "script:config" }'; counted = $true
+        @{ name = "script: 付きの名前は、名前そのもの（script:config）なので、config の読みには数えない"
+            code = 'function callA { Get-Variable -Name "script:config" }'; counted = $false
+        }
+        @{ name = 'variable:script:名前 の読みも、名前そのものなので、config の読みには数えない'
+            code = 'function callA { Get-Item variable:script:config; $variable:script:config }'; counted = $false
         }
         @{ name = "名前を変数で渡す Get-Variable は、依存に数えない"
             code = 'function callA { param ($n) Get-Variable -Name $n }'; counted = $false

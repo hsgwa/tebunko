@@ -24,7 +24,8 @@
 # & $name・. $name は、呼ぶ値（スクリプトブロック）を作った所の呼び出し・${function:名前} で数えるので、ここでは数えない。
 #
 # 見つからないもの（限界）: コールバックで渡したスクリプトブロックの中から呼ぶ形（値を作った所で数える）、
-# $ui を別の名前の引数で受け取る形、クラスのメソッドの呼び出し。
+# $ui を別の名前の引数で受け取る形、クラスのメソッドの呼び出し、using namespace で短く書いた型。
+# Set-Variable・Get-Variable・variable: ドライブの名前の前の script: などは、スコープにならず名前の一部として扱う（スコープは -Scope だけで決める）。
 # 同じ名前の関数・変数・クラスが、見る側のパスにもあるときは、そちらを使っているとみなして返さない。
 #
 # 使い方:
@@ -81,6 +82,9 @@ function testInsideFunction {
 function getVariableBaseName {
     param ($variablePath)
 
+    # $variable:名前 は、名前が variable: のドライブの名前（名前の前の script: などは名前の一部）。ほかは先頭のスコープの印を外す
+    $driveName = getDriveVariableName $variablePath.UserPath
+    if ($null -ne $driveName) { return $driveName }
     return (removeVariableScope $variablePath.UserPath)
 }
 
@@ -233,11 +237,7 @@ function getCommandTopVariable {
     if ($null -eq $info.Name -or ($info.ScopeGiven -and $null -eq $info.Scope)) { return [pscustomobject]@{ Kind = 'Unknown'; Name = $null } }
     $name = $info.Name
     $scope = $info.Scope
-    $split = splitVariableScope $name
-    if ($split.Scope) {
-        $scope = $split.Scope
-        $name = $split.Name
-    }
+    # 名前の前の script: などは、スコープにならず名前の一部になる。スコープは -Scope だけで決める
     if (-not (testInsideFunction $commandAst)) { return [pscustomobject]@{ Kind = 'Top'; Name = $name } }
     $number = 0
     $isTop = ($scope -in @('script', 'global')) -or ([int]::TryParse([string]$scope, [ref]$number) -and $number -ge 1)
@@ -337,7 +337,7 @@ function addGetVariableFacts {
     if ($null -eq $info.Name -or (testWildcardName $info.Name)) {
         $facts.StringCalls.Add([pscustomobject]@{ Form = 'Get-Variable の名前が定数でない'; Line = $line })
     } else {
-        $facts.VarUses.Add([pscustomobject]@{ Node = $node; Name = (removeVariableScope $info.Name); Explicit = $true; Line = $line })
+        $facts.VarUses.Add([pscustomobject]@{ Node = $node; Name = $info.Name; Explicit = $true; Line = $line })
     }
 }
 
@@ -409,7 +409,7 @@ function addProviderDriveFacts {
                 $facts.StringCalls.Add([pscustomobject]@{ Form = 'variable: ドライブへの書き込み'; Line = $line })
             } elseif ($text -match '^[''"]?variable:[\\/]?([^''"`$*?\[\]\s\\/]+)[''"]?$') {
                 # variable:\名前・variable:/名前 のように、ドライブの印のあとに区切りが付く書き方も、同じ名前として読む
-                $facts.VarUses.Add([pscustomobject]@{ Node = $node; Name = (removeVariableScope $Matches[1]); Explicit = $true; Line = $line })
+                $facts.VarUses.Add([pscustomobject]@{ Node = $node; Name = $Matches[1]; Explicit = $true; Line = $line })
             } else {
                 $facts.StringCalls.Add([pscustomobject]@{ Form = 'variable: ドライブの名前が定数でない'; Line = $line })
             }
@@ -460,8 +460,10 @@ function addNodeFacts {
             # $env:Path のようなほかのドライブの変数は、スクリプトの変数ではないので数えない
             if ($node.VariablePath.UserPath -match '^function:(.+)$') {
                 $facts.Calls.Add([pscustomobject]@{ Name = $Matches[1]; Line = $node.Extent.StartLineNumber })
-            } elseif ($null -ne (getDriveVariableName $node.VariablePath.UserPath)) {
-                $facts.VarUses.Add([pscustomobject]@{ Node = $node; Name = (removeVariableScope (getDriveVariableName $node.VariablePath.UserPath)); Explicit = $true; Line = $node.Extent.StartLineNumber })
+            } elseif ($null -ne (getDriveVariableName $node.VariablePath.UserPath) -and
+                -not ($node.Parent -is [System.Management.Automation.Language.AssignmentStatementAst] -and $node.Parent.Left -eq $node)) {
+                # 代入の左辺は、読みではなく代入として数える（下の AssignmentStatementAst の枝）
+                $facts.VarUses.Add([pscustomobject]@{ Node = $node; Name = (getDriveVariableName $node.VariablePath.UserPath); Explicit = $true; Line = $node.Extent.StartLineNumber })
             }
             return
         }
@@ -476,9 +478,9 @@ function addNodeFacts {
         foreach ($path in @(getAssignedVariablePaths $node.Left)) {
             $driveName = getDriveVariableName $path.UserPath
             if ($null -ne $driveName) {
-                # $variable:名前 = … は、その名前の変数への代入として数える（名前の先頭に script: などが付けば、そのスコープ）
-                $split = splitVariableScope $driveName
-                if (-not $inFunction -or $split.Scope -in @('script', 'global')) { $facts.TopVars.Add($split.Name) }
+                # $variable:名前 = … は、関数の外なら、その名前の変数への代入として数える。名前の前の script: などは、スコープにならず名前の一部。
+                # 関数の中は、その関数のスコープの変数なので数えない
+                if (-not $inFunction) { $facts.TopVars.Add($driveName) }
             } elseif (-not $inFunction -or $path.IsScript -or $path.IsGlobal) {
                 $facts.TopVars.Add((getVariableBaseName $path))
             }
