@@ -613,23 +613,32 @@ Describe "testPathIsLink / testPathHasLink" -Tag Io {
 }
 
 Describe "newDirectoryUnder" -Tag Io {
-    It "根の下に、途中の階層ごとフォルダを作って真を返し、すでにあっても真を返す" {
-        $root = "$TestDrive\newdir_root"
-        [System.IO.Directory]::CreateDirectory($root) | Out-Null
-        newDirectoryUnder "$root\a\b" $root | Should -Be $true
-        [System.IO.Directory]::Exists("$root\a\b") | Should -Be $true
-        newDirectoryUnder "$root\a\b" $root | Should -Be $true
+    It "根の下に、途中の階層ごとフォルダを作って真を返し、すでにあっても真を返す: <name>" -TestCases @(
+        @{ name = "根の下の階層"; sub = "a\b" }
+        @{ name = "根と同じパス（根を作る）"; sub = "" }
+    ) {
+        param ($name, $sub)
+        $root = "$TestDrive\newdir_root_$($sub.Length)"
+        $path = if ($sub) { "$root\$sub" } else { $root }
+        newDirectoryUnder $path $root | Should -Be $true
+        [System.IO.Directory]::Exists($path) | Should -Be $true
+        newDirectoryUnder $path $root | Should -Be $true
     }
 
-    It "途中がジャンクションなら、何も作らずに偽を返し、リンクの先に何も書かない" {
-        $root = "$TestDrive\newdir_junction_root"
+    It "途中や path そのものがジャンクションなら、何も作らずに偽を返し、リンクの先に何も書かない: <name>" -TestCases @(
+        @{ name = "途中がジャンクション"; sub = "リンク\新しい"; id = "mid" }
+        @{ name = "path そのものがジャンクション"; sub = "リンク"; id = "self" }
+    ) {
+        param ($name, $sub, $id)
+        $root = "$TestDrive\newdir_junction_root_$id"
         [System.IO.Directory]::CreateDirectory($root) | Out-Null
         if (!(newTestJunction "$root\リンク" "$root\外")) {
             Set-ItResult -Skipped -Because $script:linkError
             return
         }
-        newDirectoryUnder "$root\リンク\新しい" $root | Should -Be $false
+        newDirectoryUnder "$root\$sub" $root | Should -Be $false
         [System.IO.Directory]::Exists("$root\外\新しい") | Should -Be $false
+        [System.IO.Directory]::GetFileSystemEntries("$root\外").Count | Should -Be 0
     }
 
     It "根そのものがジャンクションでも、根の下には作れる" {

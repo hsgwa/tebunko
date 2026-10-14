@@ -474,6 +474,7 @@ function newDirectoryUnder {
     # root から path までの途中の階層（path を含む）にリンクがあるとき、path が root の下でないときは、何も作らずに $false を返す。
     # 作ったあとにもう一度確かめ、リンクに替わっていれば $false を返す（作ってしまった分は消さない。中には何も書かない）。
     # root そのもの（とそれより上）がリンクのときは、構成を変えずに使えるよう、リンクとは見ない（testPathHasLink）。
+    # path が root と同じときは、root を（無ければ）作って $true を返す。
     # 作れなかった理由（権限など）は例外で返る。ログは呼ぶ側が出す（shared/ はツールのログを知らない）
     param (
         [string]$path,

@@ -242,6 +242,19 @@ Describe "copySourceForOpen" -Tag Io {
         Test-Path -LiteralPath "$TestDrive\copy5\other" | Should -Be $false
     }
 
+    It "コピーのフォルダを作れなかったとき（偽）は、ファイルをコピーせず、Path は空で Reason は Failed" {
+        $copyDir = newCopyDir "copy5b"
+        [System.IO.File]::WriteAllText("$TestDrive\copy5b\a.txt", "x")
+        Mock newDirectoryUnder { $false }
+        Mock copyFileShared { }
+
+        $result = copySourceForOpen "$TestDrive\copy5b\a.txt" "a.txt" $copyDir (getTmpRoot "copy5b")
+
+        $result.Path | Should -Be ""
+        $result.Reason | Should -Be "Failed"
+        Should -Invoke copyFileShared -Times 0 -Exactly -Scope It
+    }
+
     It "名前が空・パスが長すぎるときは、コピーを作らず、理由（NoName・TooLong）を返す" {
         $copyDir = newCopyDir "copy6"
         [System.IO.File]::WriteAllText("$TestDrive\copy6\a.txt", "x")
