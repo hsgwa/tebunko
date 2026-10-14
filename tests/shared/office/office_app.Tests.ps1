@@ -629,11 +629,20 @@ Describe "getAppName" -Tag Unit {
         getAppName "a.xlsx" | Should -Be "Excel"
         getAppName "a.XLSB" | Should -Be "Excel"
         getAppName "a.xls" | Should -Be "Excel"
+        getAppName "a.xlsm" | Should -Be "Excel"
+        getAppName "a.docx" | Should -Be "Word"
+        getAppName "a.ppt" | Should -Be "PowerPoint"
         getAppName "a.docm" | Should -Be "Word"
         getAppName "a.DOC" | Should -Be "Word"
         getAppName "a.pptx" | Should -Be "PowerPoint"
         getAppName "a.pptm" | Should -Be "PowerPoint"
         getAppName "a.txt" | Should -Be $null
+    }
+
+    It "表（officeFileKinds）に無い拡張子は Office とみなさない" -ForEach @(
+        @{ path = "a.xlsxyz" }, @{ path = "a.xlsa" }, @{ path = "a.docz" }, @{ path = "a.pptz" }, @{ path = "a.xlsx.bak" }, @{ path = "" }
+    ) {
+        getAppName $path | Should -Be $null
     }
 }
 

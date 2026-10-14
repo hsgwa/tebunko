@@ -1,6 +1,6 @@
 # 部品ごとの関数（設定・ファイル）
 
-扱うこと: 設定ファイル（`tebunko/core/settings.ps1`）、検索対象でチェックを外したフォルダ（`search_excludes.ps1`）、ワークスペース（`workspace.ps1`）とその切り替え（`workspace_mover.ps1`）、ファイル・フォルダ操作（`shared/core/fs.ps1`・`folder.ps1`・`office_files.ps1`）の関数一覧（入力・出力・概要・使用元）。扱わないこと: 取り込み一覧・インデックスの管理（[部品ごとの関数（インデックス作成）](indexer.md)）。先に読むページ: [部品から関数一覧を引く](index.md)。
+扱うこと: 設定ファイル（`tebunko/core/settings.ps1`）、検索対象でチェックを外したフォルダ（`search_excludes.ps1`）、ワークスペース（`workspace.ps1`）とその切り替え（`workspace_mover.ps1`）、ファイル・フォルダ操作（`shared/core/fs.ps1`・`folder.ps1`・`office_file_kind_view.ps1`）の関数一覧（入力・出力・概要・使用元）。扱わないこと: 取り込み一覧・インデックスの管理（[部品ごとの関数（インデックス作成）](indexer.md)）。先に読むページ: [部品から関数一覧を引く](index.md)。
 
 ## 設定ファイル（`tebunko/core/settings.ps1`・`source_name.ps1`）
 
@@ -83,10 +83,12 @@
 | `removeSearchExcludesUnder` | folder, path（既定 `$settingsFile`） | – | フォルダとその下の `searchExcludes` を消す（`Sales` を消しても `Sales2` は消さない）。設定の書き込みは `invokeSettingsLocked` の中で行い、消せなくても例外にしない（インデックスの改名・削除を止めない） | `IndexCatalog.RenameIndex` / `RemoveIndex` |
 | `moveSearchExcludes` | from, to, path（既定 `$settingsFile`） | int | 検索対象ツリーでチェックを外したフォルダ（`searchExcludes`）のうち、from の `content_index` の下のものを to の下に付け替えて保存し、付け替えた数を返す | `WorkspaceMover.ChangeWorkspace` |
 
-## ファイルとフォルダ（`shared/core/fs.ps1`・`folder.ps1`・`shared/office/office_files.ps1`）
+## ファイルとフォルダ（`shared/core/fs.ps1`・`folder.ps1`・`shared/office/office_file_kind_view.ps1`）
 
 | 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |
 |---|---|---|---|---|---|
+| `getOfficeFileKind` | name | string（`Excel` / `Word` / `PowerPoint`。表に無ければ空） | ファイル名・パスの拡張子から Office の種類を返す。拡張子と種類の表（`$officeFileKinds`。`$officeExtensions` はこの表の拡張子）だけを見る（表に無い `.xlsxyz`・`.xlsa` などは空。大文字・小文字は区別しない）。どのツールからも使うため `shared/` に置く | – | getAppName, getContentIndexFileKind, getIngestLane, getOfficeLane, getOfficeOpenKind |
+| `getOfficeExtensionsOfKind` | kind | string[] | 種類（`Excel` / `Word` / `PowerPoint`）の拡張子を、表（`$officeFileKinds`）の並びで返す。表に無い種類は空 | – | getFileKindExtensions |
 | `readListFile` | path | string[] | 行ファイルの空行以外の行（Trim しない）。無ければ空配列。読めなければ例外（空の一覧と取り違えない） | – | 取り込み中のファイル・元のフォルダの記録 など |
 | `writeListFile` | path, lines | – | 行ファイルを UTF-8（BOM 付き）で保存 | – | 同上 |
 | `writeTextLinesAtomic` | path, lines, encoding（既定は BOM 付き UTF-8） | – | 一時ファイルに書いてから置き換える（置き換えられなければ少し待って 5 回まで試す） | – | writeStatusFile, renameStatusIndexName など |

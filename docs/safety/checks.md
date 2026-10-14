@@ -84,7 +84,7 @@ ZIP（`.xlsx` / `.docx` / `.pptx`）を直接読む処理は、細工したフ�
 
 ## 取り込み対象の拡張子
 
-Office に加えてテキストファイルと PDF ファイルも取り込むが、対象の拡張子は `shared/office/office_files.ps1` の `$officeExtensions`（10 個）と `shared/core/text_file.ps1` の `$textExtensions`（75 個。既定のアプリで開く `$textOpenExtensions` 68 個 + メモ帳で開く `$textNotepadExtensions` 7 個）と `shared/core/pdf_file.ps1` の `$pdfExtensions`（`.pdf` の 1 個）を合わせた、**固定の 86 個の一覧**である（[テキストファイルの読み取り](../design/indexing/text.md)・[PDF ファイルの読み取り](../design/indexing/pdf.md)）。設定ファイルで拡張子を足す仕組みは無い。
+Office に加えてテキストファイルと PDF ファイルも取り込むが、対象の拡張子は `shared/office/office_file_kind_view.ps1` の `$officeExtensions`（10 個）と `shared/core/text_file.ps1` の `$textExtensions`（75 個。既定のアプリで開く `$textOpenExtensions` 68 個 + メモ帳で開く `$textNotepadExtensions` 7 個）と `shared/core/pdf_file.ps1` の `$pdfExtensions`（`.pdf` の 1 個）を合わせた、**固定の 86 個の一覧**である（[テキストファイルの読み取り](../design/indexing/text.md)・[PDF ファイルの読み取り](../design/indexing/pdf.md)）。設定ファイルで拡張子を足す仕組みは無い。
 
 危険な種類のファイル（実行される・既定のアプリがスクリプトを実行する `.exe` `.com` `.scr` `.hta` `.wsf` `.wsh` `.jse` `.vbe` `.lnk` `.url` `.msi` `.cpl` `.inf` 等）を、実行される種類を並べて弾く形にすると、一覧から漏れて対象に紛れ込む恐れがある。そのため `tests/meta/safety.Tests.ps1` は「対象の拡張子が固定であること」として、`$textExtensions` がちょうど 75 個（内 `$textNotepadExtensions` が 7 個）であること、`$pdfExtensions` が `.pdf` だけであること、`$officeExtensions` と `$textExtensions` と `$pdfExtensions` を合わせた一覧がこの 86 個ちょうどであること、上に挙げた危険な種類の拡張子がどちらの一覧にも含まれないことを確かめる。対象の拡張子を足す変更は必ずこのテストを落とし、この一覧の見直しを促す。
 

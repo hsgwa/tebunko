@@ -202,26 +202,20 @@ function getSourceOpenMode {
     return @{ Mode = ${openModeReadOnly}; Notice = $notice; Strict = $true }
 }
 
-# 開き方を決めるための、Office の拡張子ごとの種類。取り込みの対象の拡張子（${officeExtensions}）と同じ並び（テストで照らす）。
-#   Excel  … COM で開く（新規は Workbooks.Add）
-#   Office … Word・PowerPoint。エクスプローラーの動詞（読み取り専用は OpenAsReadOnly、新規は New）で開く
-${officeOpenKinds} = @{
-    ".xlsx" = "Excel"; ".xlsm" = "Excel"; ".xls" = "Excel"; ".xlsb" = "Excel"
-    ".docx" = "Office"; ".docm" = "Office"; ".doc" = "Office"
-    ".pptx" = "Office"; ".pptm" = "Office"; ".ppt" = "Office"
-}
-
 function getOfficeOpenKind {
-    # ファイルの Office の種類（Excel / Office）。Office の形式でなければ空文字。
+    # ファイルの開き方の種類（Excel / Office）。Office の形式でなければ空文字。種類は getOfficeFileKind（取り込みの対象の拡張子の表）で決め、
+    # Word・PowerPoint はまとめて Office とする。
+    #   Excel  … COM で開く（新規は Workbooks.Add）
+    #   Office … Word・PowerPoint。エクスプローラーの動詞（読み取り専用は OpenAsReadOnly、新規は New）で開く
     # 読み取り専用で開けるか（testReadOnlySupported）・新規で開くやり方（getOpenNewMethod）は、ここで決める
     param (
         [string]$book
     )
 
-    $extension = [System.IO.Path]::GetExtension(([string]$book).TrimEnd('.', ' ')).ToLowerInvariant()
-    if ($extension -and ${officeOpenKinds}.ContainsKey($extension)) {
-        return ${officeOpenKinds}[$extension]
-    }
+    # Windows は名前の終わりの「.」と空白を落として開くため、同じように落としてから見る
+    $kind = getOfficeFileKind (([string]$book).TrimEnd('.', ' '))
+    if ($kind -eq "Excel") { return "Excel" }
+    if ($kind) { return "Office" }
     return ""
 }
 
