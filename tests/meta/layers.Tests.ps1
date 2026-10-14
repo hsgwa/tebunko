@@ -225,7 +225,7 @@ Describe "依存の向き（ファイル単位）" -Tag Meta {
             newAllowances "tebunko/index/content_index_format.ps1" "shared/core/pdf_file.ps1" @("testPdfExtension") $moved "移すと消える"
             newAllowances "tebunko/index/content_index_format.ps1" "shared/core/text_file.ps1" @("testTextExtension") $moved "移すと消える"
             newAllowances "tebunko/index/index_name.ps1" "shared/core/folder.ps1" @("getFolderLeafName") $moved "移すと消える"
-            newAllowances "tebunko/index/index_name.ps1" "shared/core/fs.ps1" @('$maxFileNameLength', "toSafeFileName") $moved "移すと消える"
+            newAllowances "tebunko/index/index_name.ps1" "shared/core/fs.ps1" @('$invalidFileNameChars', '$maxFileNameLength', '$reservedFileNames', "getFolderNameProblemText", "toSafeFileName") $moved "移すと消える"
             newAllowances "tebunko/index/index_name.ps1" "shared/core/pdf_file.ps1" @('$pdfExtensions', "testPdfExtension") $moved "移すと消える"
             newAllowances "tebunko/index/index_name.ps1" "shared/core/text_file.ps1" @('$textExtensions', "testTextExtension") $moved "移すと消える"
             newAllowances "tebunko/indexer/indexer_decide.ps1" "tebunko/core/paths.ps1" @('$stateDone', '$stateFailed', '$stateNew') $moved "移すと消える"
