@@ -136,6 +136,21 @@ function exportIndexes {
     return , $results.ToArray()
 }
 
+function getIndexTsvFilesNoFollow {
+    # インデックスのフォルダの下の *.tsv（FileInfo）を返す。下のリンク（ジャンクション・シンボリックリンク）は辿らない
+    # （先の、インデックスの外のファイルを zip に入れて持ち出さないため。親を指すリンクで輪になることも無い）。
+    # 読めなかったフォルダがあれば、一部だけをエクスポートしないよう例外にする
+    param (
+        [string]$indexDir
+    )
+
+    $tree = getFilesNoFollow $indexDir -IncludeHidden
+    if ($tree.HasError) {
+        throw "インデックスのフォルダを最後まで読めませんでした: $($tree.Reason)"
+    }
+    return @($tree.Files | Where-Object { [string]::Equals($_.Extension, ".tsv", [System.StringComparison]::OrdinalIgnoreCase) })
+}
+
 function getIndexExportSize {
     # エクスポートする前に、選んだインデックスが zip に入れる本文インデックスのファイル（*.tsv）の大きさの合計を数える。
     # 戻り値: @{ Bytes（合計のバイト数）; Missing（インデックスのフォルダが無かった名前の配列）}。
@@ -154,8 +169,8 @@ function getIndexExportSize {
             $missing.Add($name)
             continue
         }
-        foreach ($file in [System.IO.Directory]::GetFiles((toLongPath $indexDir), "*.tsv", [System.IO.SearchOption]::AllDirectories)) {
-            $bytes += ([System.IO.FileInfo]::new($file)).Length
+        foreach ($file in @(getIndexTsvFilesNoFollow $indexDir)) {
+            $bytes += $file.Length
         }
     }
     return @{ Bytes = $bytes; Missing = $missing.ToArray() }
@@ -179,12 +194,11 @@ function exportIndexCore {
     }
 
     # 入れる前の TSV（本文インデックスのファイル以外の *.tsv）が残っていれば、途中で止まったインデックスとして止める
-    $longIndexDir = toLongPath $indexDir
     $prefixLength = $indexDir.TrimEnd("\").Length + 1
     $contentIndexFiles = New-Object System.Collections.Generic.List[string]
-    # 途中で throw して抜けても下のフォルダを掴んだまま残らないよう、列挙子（EnumerateFiles）でなく配列（GetFiles）で受ける
-    foreach ($file in [System.IO.Directory]::GetFiles($longIndexDir, "*.tsv", [System.IO.SearchOption]::AllDirectories)) {
-        $rel = (fromLongPath $file).Substring($prefixLength)
+    # 途中で throw して抜けても下のフォルダを掴んだまま残らないよう、列挙子（EnumerateFiles）でなく配列で受ける
+    foreach ($tsvFile in @(getIndexTsvFilesNoFollow $indexDir)) {
+        $rel = (fromLongPath $tsvFile.FullName).Substring($prefixLength)
         $fileName = [System.IO.Path]::GetFileName($rel)
         if ($null -eq (readContentIndexFileName $fileName)) {
             throw "更新を最後まで行ってからエクスポートしてください（更新の途中のファイルが残っています: ${rel}）。"
