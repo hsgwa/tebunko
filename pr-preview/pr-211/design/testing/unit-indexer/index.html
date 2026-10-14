@@ -4068,8 +4068,12 @@
 </thead>
 <tbody>
 <tr>
-<td><code>readStatusFile</code> / <code>writeStatusFile</code> / <code>addStatusRow</code></td>
-<td>クロール対象フォルダと各列の往復（<code>[</code> <code>]</code>・先頭の空白を含むパス）、1 行目・見出し行の書式、追記した行の優先（大文字・小文字を区別しない）、エラーのタブ・改行をスペースに、列数の合わない行の無視、書き直し時の置き換え、ファイル無しは空、まとめて書き出した行と <code>toStatusLine</code>（1 件ずつの追記）の整形が同じ（速さのため別々に書いているため）、ほかから共有せずに開かれているときの読み込み、使えない名前・相対パスの行の読み飛ばしと <code>Rejected</code> の数（同じ名前の 2 行目以降も 1 行目と同じ結果）、前の版の名前のフォルダ行を <code>LegacyFolders</code> で返す</td>
+<td><code>readStatusFile</code> / <code>writeStatusFile</code>（<code>tests/tebunko/core/status_file</code>）</td>
+<td>クロール対象フォルダと各列の往復（<code>[</code> <code>]</code>・先頭の空白を含むパス）、1 行目・見出し行の書式、エラーのタブ・改行をスペースに、列数の合わない行の無視、書き直し時の置き換え、ファイル無しは空、まとめて書き出した行と <code>toStatusLine</code>（1 件ずつの追記）の整形が同じ（速さのため別々に書いているため）、ほかから共有せずに開かれているときの読み込み、使えない名前・相対パスの行の読み飛ばしと <code>Rejected</code> の数（同じ名前の 2 行目以降も 1 行目と同じ結果）、予約名（<code>aux.backup</code>・<code>CON.txt</code>・<code>CON</code>）のインデックスはそのまま読む、最後が <code>.</code> や空白の名前のフォルダ行は <code>LegacyFolders</code> で返す</td>
+</tr>
+<tr>
+<td><code>addStatusRow</code></td>
+<td>追記した行の優先（大文字・小文字を区別しない）、追記した行の抽出版</td>
 </tr>
 <tr>
 <td><code>readStatusLines</code> / <code>renameStatusIndexName</code> / <code>removeStatusIndexName</code></td>
@@ -4100,7 +4104,7 @@
 <td>インデックス作成の鍵をほかが持っていれば <code>$true</code>、調べた後は鍵を持たない</td>
 </tr>
 <tr>
-<td><code>writeIndexerLog</code></td>
+<td><code>writeIndexerLog</code>（<code>tests/tebunko/core/diagnostics</code>）</td>
 <td>ログを開いていればログに書く、コンソールに出すときは色を付ける、ログに書けなくても止めない</td>
 </tr>
 <tr>
@@ -4130,6 +4134,10 @@
 <tr>
 <td><code>IndexingReporter</code>（<code>indexing_reporter.Tests.ps1</code>）</td>
 <td>進み具合を受け渡しの口に書く、画面の返事を受け渡しの口で待つ（返事は別のスレッドから渡す。中止・前に残った返事・制限時間を含む）</td>
+</tr>
+<tr>
+<td><code>clearTmpDir</code> / <code>initTmpDir</code> / <code>newWorkerTmpDir</code> の作業領域のリンク</td>
+<td>作業フォルダ・<code>tmp\&lt;PC の鍵&gt;</code> がジャンクションなら先に書かず消さない（<code>initTmpDir</code> は理由 <code>Link</code> でスキップ、<code>clearTmpDir</code> と <code>newWorkerTmpDir</code> はログに出す）、先に置かれた <code>&lt;PID&gt;</code>・<code>w&lt;番号&gt;</code> のジャンクションは先を消さずに外して作り直す、<code>tmp</code> 自身・出力用のフォルダの親がジャンクションでも使え、片付けと終了のあともジャンクションは外れず先は消えない（<code>removeEmptyDir</code> はリンクを消さない）、終了したプロセスのフォルダの中・名前そのもののジャンクションは先を消さない、削除できない（開いたまま）フォルダ・確かめられないフォルダを含むものは、原因をログに出して次回に回す、作り直したあともリンクが残れば置けない扱い（<code>newDirectoryReplacingExisting</code> の偽、<code>initTmpDir</code> の理由 <code>Link</code>、<code>newWorkerTmpDir</code> の空）</td>
 </tr>
 <tr>
 <td><code>publishTsv</code> / <code>removeStaleTmpDirs</code> / <code>findDroppedIndexes</code> / <code>getDroppedStatusRows</code> / <code>writeStatusKeepingDropped</code> / <code>removeDroppedFolders</code></td>

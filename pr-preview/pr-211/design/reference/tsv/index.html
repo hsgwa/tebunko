@@ -4375,24 +4375,88 @@
 <td>path, root</td>
 <td>bool</td>
 <td>path が root の下（root そのものは含まない）にあるか。<code>..</code>・<code>.</code>・最後の <code>.</code> や空白・<code>\\?\</code> を解決してから比べる。状態のファイルから読んだ名前でフォルダを消す前に使う</td>
-<td><a href="../../../safety/file-access/">ファイルへの触れ方</a></td>
+<td><a href="../../../safety/file-access/">ファイルの読み書きの範囲</a></td>
 <td>インデックス・作業フォルダの削除, <code>IndexCatalog</code></td>
 </tr>
 <tr>
 <td><code>getFolderNameProblemText</code></td>
-<td>name</td>
+<td>name, allowReserved（既定 <code>$false</code>）</td>
 <td>string（問題の文。使えれば空）</td>
-<td>フォルダ名として使えるか（空・前後の空白・長すぎる・使えない文字・最後の <code>.</code>・予約名）。どのツールからも使う</td>
+<td>フォルダ名として使えるか（空・前後の空白・長すぎる・使えない文字・最後の <code>.</code>・予約名）。allowReserved が <code>$true</code> のときは予約名（<code>aux.backup</code> など）を拒まない（既にある実在のフォルダの名前を空にしないため。新しく付ける名前には使わない）。どのツールからも使う</td>
 <td>同上</td>
-<td>testIndexName, newIndexName, getTargetFolders</td>
+<td>testIndexName, testStoredIndexName, newIndexName, getTargetFolders, readStatusFile</td>
+</tr>
+<tr>
+<td><code>testPlainFolderName</code></td>
+<td>name</td>
+<td>bool</td>
+<td>外へ出ず名前のとおりに作れるフォルダ名か（空・<code>.</code>・<code>..</code>・長すぎる・使えない文字だけを拒む。予約名・最後の <code>.</code> や空白は問わない）</td>
+<td>同上</td>
+<td>readStatusFile（<code>LegacyFolders</code> の判定）</td>
+</tr>
+<tr>
+<td><code>trimTrailingSeparator</code></td>
+<td>path</td>
+<td>string</td>
+<td>パスの末尾の <code>\</code>・<code>/</code> を落とす（ドライブのルート・<code>\\?\</code> だけのパスは落とさない）。リンクの判定・削除の入口で使う</td>
+<td>同上</td>
+<td><code>testPathIsLink</code>・<code>removeTreeNoFollow</code></td>
 </tr>
 <tr>
 <td><code>removeDirectoryRetry</code></td>
 <td>path, tries（既定 3）, waitMilliseconds（既定 200）</td>
 <td>–</td>
-<td>フォルダを中身ごと削除する。ほかのアプリが一時的に掴んでいることがあるため、少し待って数回試す</td>
+<td>フォルダを中身ごと削除する（<code>removeTreeNoFollow</code>。中のリンクは辿らない）。ほかのアプリが一時的に掴んでいることがあるため、少し待って数回試す</td>
+<td><a href="../../../safety/file-access/">ファイルの読み書きの範囲</a></td>
+<td>インデックス作成・<code>RemoveIndex</code>・<code>removeDroppedFolders</code>（インデックス・作業フォルダの削除）</td>
+</tr>
+<tr>
+<td><code>removeTreeNoFollow</code></td>
+<td>path</td>
 <td>–</td>
-<td>インデックス作成（インデックス・作業フォルダの削除）</td>
+<td>フォルダを中身ごと削除する。ジャンクション・シンボリックリンクは辿らず、リンクだけを外す（先は消さない）。path 自身がリンクならリンクだけを外す。先に全体を数え、リンクかどうか確かめられないフォルダ（<code>Unknown</code>）が 1 つでもあれば、何も消さずに例外を投げる。消す前に、フォルダごとにリンクでないかを確かめ直し、数えたあとにリンクに替わっていれば例外を投げる（それまでに消した分は戻らない。何も消さないと言えるのは、数える段で <code>Unknown</code> を見つけたときだけ）。確かめ直すのは、そのフォルダ自身だけで、上の階層が途中で替わったときは見つけられない。末尾の <code>\</code>・<code>/</code> は落とす。読み取り専用の属性は外してから消し、260 文字を超えるパスも扱う。フォルダが無ければ何もしない</td>
+<td>同上</td>
+<td><code>removeDirectoryRetry</code></td>
+</tr>
+<tr>
+<td><code>removeEntryOnly</code></td>
+<td>item（FileSystemInfo）</td>
+<td>–</td>
+<td>1 つのファイル・フォルダ・リンクを、中を辿らずに消す（読み取り専用の属性は外してから）。フォルダは空のものだけ消す</td>
+<td>同上</td>
+<td><code>removeTreeNoFollow</code></td>
+</tr>
+<tr>
+<td><code>getLinkKind</code></td>
+<td>item（Get-Item・Get-ChildItem などが返すもの）</td>
+<td>string</td>
+<td><code>Link</code>（ジャンクション・シンボリックリンク）・<code>Unknown</code>（フォルダで <code>ReparsePoint</code> が付き種類が確かめられない、属性が読めない）・<code>Plain</code>（それ以外）のどれか</td>
+<td>同上</td>
+<td><code>testLinkItem</code>・<code>removeTreeNoFollow</code></td>
+</tr>
+<tr>
+<td><code>testLinkItem</code></td>
+<td>item（Get-Item・Get-ChildItem などが返すもの）</td>
+<td>bool</td>
+<td>ジャンクション・シンボリックリンクなら <code>$true</code>。属性の <code>ReparsePoint</code> が付き、<code>LinkType</code> が <code>Junction</code>・<code>SymbolicLink</code> のもの（<code>getLinkKind</code> が <code>Link</code>）。フォルダで <code>ReparsePoint</code> が付いて種類が確かめられないもの（<code>Unknown</code>）、属性が読めないときも <code>$true</code>（辿らない側に倒す）。<code>ReparsePoint</code> のファイル（OneDrive のオンデマンドなど）は <code>$false</code></td>
+<td>同上</td>
+<td><code>testPathIsLink</code>・<code>removeTreeNoFollow</code></td>
+</tr>
+<tr>
+<td><code>testPathIsLink</code></td>
+<td>path</td>
+<td>bool</td>
+<td>path そのもの（途中の階層は見ない）がリンクなら <code>$true</code>。無い・空のパスは <code>$false</code>。確かめられないときは <code>$true</code>。末尾の <code>\</code> は落として調べる</td>
+<td>同上</td>
+<td><code>testPathHasLink</code>・<code>clearTmpDir</code>・<code>newWorkerTmpDir</code>・<code>removeEmptyDir</code>・<code>newDirectoryReplacingExisting</code></td>
+</tr>
+<tr>
+<td><code>testPathHasLink</code></td>
+<td>base, path</td>
+<td>bool</td>
+<td>base の下から path までの各階層（base 自身は見ない）に、リンクがあれば <code>$true</code>。まだ無い階層から先は見ない。path が base の下になければ、確かめられないので <code>$true</code></td>
+<td>同上</td>
+<td><code>initTmpDir</code>・<code>removeStaleTmpDirs</code></td>
 </tr>
 <tr>
 <td><code>moveDirectoryRetry</code></td>
