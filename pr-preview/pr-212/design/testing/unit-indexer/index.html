@@ -4069,7 +4069,7 @@
 <tbody>
 <tr>
 <td><code>readStatusFile</code> / <code>writeStatusFile</code>（<code>tests/tebunko/core/status_file</code>）</td>
-<td>クロール対象フォルダと各列の往復（<code>[</code> <code>]</code>・先頭の空白を含むパス）、1 行目・見出し行の書式、エラーのタブ・改行をスペースに、列数の合わない行の無視、書き直し時の置き換え、ファイル無しは空、まとめて書き出した行と <code>toStatusLine</code>（1 件ずつの追記）の整形が同じ（速さのため別々に書いているため）、ほかから共有せずに開かれているときの読み込み</td>
+<td>クロール対象フォルダと各列の往復（<code>[</code> <code>]</code>・先頭の空白を含むパス）、1 行目・見出し行の書式、エラーのタブ・改行をスペースに、列数の合わない行の無視、書き直し時の置き換え、ファイル無しは空、まとめて書き出した行と <code>toStatusLine</code>（1 件ずつの追記）の整形が同じ（速さのため別々に書いているため）、ほかから共有せずに開かれているときの読み込み、使えない名前・相対パスの行の読み飛ばしと <code>Rejected</code> の数（同じ名前の 2 行目以降も 1 行目と同じ結果）、予約名（<code>aux.backup</code>・<code>CON.txt</code>・<code>CON</code>）のインデックスはそのまま読む、最後が <code>.</code> や空白の名前のフォルダ行は <code>LegacyFolders</code> で返す</td>
 </tr>
 <tr>
 <td><code>addStatusRow</code></td>
@@ -4141,7 +4141,7 @@
 </tr>
 <tr>
 <td><code>publishTsv</code> / <code>removeStaleTmpDirs</code> / <code>findDroppedIndexes</code> / <code>getDroppedStatusRows</code> / <code>writeStatusKeepingDropped</code> / <code>removeDroppedFolders</code></td>
-<td>作業フォルダの TSV をインデックスへ移す（<code>[</code> <code>]</code>・260 文字超のパス）、終了したプロセスの作業フォルダだけを削除する、設定から外れたインデックスだけを見つける（大文字・小文字だけ違う名前は返さない）、外れたインデックスの前回の行だけを返す（名前の先頭が同じだけの別のインデックスは返さない）、状態の記録に外れたインデックスのフォルダと前回の行を足して渡す（外れたものが無ければ足さない）、渡されたインデックスだけを削除する（確認で承認した回でだけ呼ぶ。<code>tests/meta/index_delete.Tests.ps1</code> が、インデックスのフォルダを消す関数を許した一覧に限る）</td>
+<td>作業フォルダの TSV をインデックスへ移す（<code>[</code> <code>]</code>・260 文字超のパス）、終了したプロセスの作業フォルダだけを削除する、設定から外れたインデックスだけを見つける（大文字・小文字だけ違う名前は返さない）、外れたインデックスの前回の行だけを返す（名前の先頭が同じだけの別のインデックスは返さない）、状態の記録に外れたインデックスのフォルダと前回の行を足して渡す（外れたものが無ければ足さない。今の決まりに合わない前の版の名前は、書き戻して読み直すと <code>LegacyFolders</code> に入り、各ファイルの行は残らない）、渡されたインデックスだけを削除する（確認で承認した回でだけ呼ぶ。<code>tests/meta/index_delete.Tests.ps1</code> が、インデックスのフォルダを消す関数を許した一覧に限る）</td>
 </tr>
 <tr>
 <td><code>indexer.ps1</code>（起動口）</td>
