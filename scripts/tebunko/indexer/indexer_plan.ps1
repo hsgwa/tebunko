@@ -125,9 +125,9 @@ function testUnderAnyDir {
 
 function findTargetFiles {
     # クロール対象フォルダ配下の、取り込み対象（Office・テキストの拡張子）のファイルを検索し、
-    # @{ Root; Files; Links; HasError（アクセスできないフォルダがあった。クロール対象フォルダそのものがリンクのときも $true）; RootIsLink（クロール対象フォルダそのものがリンク） } を返す。
-    # リンク（ジャンクション・シンボリックリンク）は辿らず、取り込まない。飛ばしたリンクは Links に入る
-    # （飛ばしたものは HasError にしない。クロール対象フォルダそのものがリンクのときは Files が空で、Links にそのフォルダが入る）。
+    # @{ Root; Files; Links; HasError（アクセスできないフォルダがあった） } を返す。
+    # クロール対象フォルダの中のリンク（ジャンクション・シンボリックリンク）は辿らず、取り込まない。飛ばしたリンクは Links に入る
+    # （飛ばしたものは HasError にしない）。クロール対象フォルダそのものがリンクのときは、これまでどおりその先の中を読む（中のリンクだけを辿らない）。
     # Root は実際に列挙したフォルダ（\\?\ の付かない通常のパス）。相対パスはこの Root から求める
     # （設定に書かれたパスは、末尾の \ ・ドライブ文字と UNC パスなど書き方が違うことがあるため、文字数で切り出さない）。
     # tebunko が作ったファイル（getTebunkoExcludeDirs のフォルダの下・名前で分かるファイル）は対象に含めない
@@ -138,12 +138,8 @@ function findTargetFiles {
     # \\?\ を付けないと、パスが約248文字を超えるフォルダの中を検索できない（アクセスできないフォルダ扱いになる）。
     # 見つかったファイルの FullName は \\?\ 付きになる（fromLongPath で戻す）
     $root = (Resolve-Path -LiteralPath $targetFolder).ProviderPath
-    # クロール対象フォルダそのものがリンクのときは、先を読まない（前回の行を「元のファイルが無くなった」として消さないよう HasError にする）
-    $rootKind = getLinkKind (New-Object System.IO.DirectoryInfo (toLongPath (trimTrailingSeparator $root)))
-    if ($rootKind -eq "Link") {
-        return @{ Root = $root; Files = @(); Links = @($root); HasError = $true; RootIsLink = $true }
-    }
-    # リンクは辿らず、飛ばしたものは Links に入れる（先の、対象の外のファイルを読まないため）
+    # 中のリンクは辿らず、飛ばしたものは Links に入れる（先の、対象の外のファイルを読まないため）。
+    # クロール対象フォルダそのものはリンクでもよい（利用者が選んだ場所のため、その先の中を読む）
     $tree = getFilesNoFollow $root
     $scanned = @($tree.Files | Where-Object { ($targetExtensions -contains $_.Extension.ToLower()) -and -not $_.Name.StartsWith('~$') })
 
@@ -160,7 +156,7 @@ function findTargetFiles {
         return $true
     })
 
-    return @{ Root = $root; Files = $files; Links = @($tree.Links); HasError = $tree.HasError; RootIsLink = $false }
+    return @{ Root = $root; Files = $files; Links = @($tree.Links); HasError = $tree.HasError }
 }
 
 function createTargetList {
@@ -184,14 +180,9 @@ function createTargetList {
 
     $prefix = "$($folder.Name)\"
     $scan = findTargetFiles $folder.Path
-    # 飛ばしたリンクは 1 件 1 行でログに出す（クロール対象フォルダそのものがリンクのときは、文言を分ける）
-    $rootIsLink = [bool]$scan.RootIsLink
+    # 飛ばしたリンクは 1 件 1 行でログに出す
     foreach ($link in @($scan.Links | Where-Object { $_ })) {
-        if ($rootIsLink -and $link.Equals($scan.Root, [System.StringComparison]::OrdinalIgnoreCase)) {
-            writeIndexerLog "    クロール対象フォルダがリンク（ジャンクション・シンボリックリンク）のため取り込みませんでした: $link" "Yellow"
-        } else {
-            writeIndexerLog "    リンク（ジャンクション・シンボリックリンク）のため取り込みませんでした: $link" "Yellow"
-        }
+        writeIndexerLog "    リンク（ジャンクション・シンボリックリンク）のため取り込みませんでした: $link" "Yellow"
     }
     $rows = New-Object System.Collections.Generic.List[object]
     $targets = New-Object System.Collections.Generic.List[object]
@@ -311,7 +302,7 @@ function createTargetList {
     if ($removed.Count -gt 0) {
         writeIndexerLog "    元ファイルが無くなった $($removed.Count) 件は、インデックスから除きます。"
     }
-    if ($scan.HasError -and !$rootIsLink) {
+    if ($scan.HasError) {
         writeIndexerLog "    アクセスできないフォルダがあったため、元ファイルが無くなったかどうかの確認は行いませんでした。" "Yellow"
     }
 

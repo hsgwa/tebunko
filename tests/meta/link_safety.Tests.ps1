@@ -8,7 +8,7 @@
 #   2. SearchOption の型の使い方のうち [SearchOption]::TopDirectoryOnly の直接の参照以外（AllDirectories・変数・キャスト・型指定）
 #   3. GetFiles・EnumerateFiles・GetDirectories などの呼び出しで、探す範囲の引数が [SearchOption]::TopDirectoryOnly でないもの
 #   4. EnumerationOptions の RecurseSubdirectories
-#   5. フォルダの下をまとめて扱う Copy-Item -Recurse・Compress-Archive・robocopy・xcopy・ZipFile.CreateFromDirectory（コマンド名・メソッド名で見る）
+#   5. フォルダの下をまとめて扱う Copy-Item -Recurse（別名 copy・cp・cpi とスプラットも見る）・Compress-Archive・robocopy・xcopy・ZipFile.CreateFromDirectory（コマンド名・メソッド名で見る）
 # 見つけないもの（人が見る）: 自前の再帰（関数が自分を呼ぶ・Stack で降りる）。これらは、フォルダの子を 1 段ずつ列挙するとき、
 # リンクを辿るかを自分で決める。列挙には fs.ps1 の getFilesNoFollow を使う。
 # 削除の検査は tests/meta/remove_entry.Tests.ps1 が受け持つため、ここでは調べない。
@@ -72,7 +72,7 @@ BeforeAll {
         foreach ($node in $nodes) {
             $kind = $null
             if ($node -is [System.Management.Automation.Language.CommandAst]) {
-                # モジュール付きの名前（Microsoft.PowerShell.Management\Get-ChildItem）は、\ の後ろだけで比べる
+                # モジュール付きの名前（Microsoft.PowerShell.Management\Get-ChildItem）は、最後の \ か / の後ろだけで比べる
                 $commandName = $node.GetCommandName()
                 if ($commandName) {
                     $commandName = $commandName.Substring($commandName.LastIndexOfAny([char[]]@("\", "/")) + 1)

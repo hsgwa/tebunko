@@ -289,7 +289,6 @@ Describe "findTargetFiles・createTargetList（リンク）" -Tag Io {
         @($scan.Files | ForEach-Object { $_.Name }) | Should -Be @("a.txt")
         @($scan.Links) | Should -Be @("$source\リンク")
         $scan.HasError | Should -Be $false
-        $scan.RootIsLink | Should -Be $false
     }
 
     It "親を指すジャンクション（輪）があっても終わり、Files に同じファイルが重ならない" {
@@ -326,17 +325,16 @@ Describe "findTargetFiles・createTargetList（リンク）" -Tag Io {
         @($scan.Links).Count | Should -Be 0
     }
 
-    It "クロール対象フォルダそのものがジャンクションなら、先を読まず、Files を空・HasError を `$true・Links にそのフォルダを返す" {
-        if (!(newTestJunction "$base\根" $outside)) {
+    It "クロール対象フォルダそのものがジャンクションなら、これまでどおり先の中を読み、中のジャンクションだけを Links に入れる" {
+        if (!(newTestJunction "$base\根" $outside) -or !(newTestJunction "$outside\内リンク" $source)) {
             Set-ItResult -Skipped -Because $script:linkError
             return
         }
 
         $scan = findTargetFiles "$base\根"
-        @($scan.Files).Count | Should -Be 0
-        $scan.HasError | Should -Be $true
-        $scan.RootIsLink | Should -Be $true
-        @($scan.Links) | Should -Be @("$base\根")
+        @($scan.Files | ForEach-Object { $_.Name }) | Should -Be @("外.txt")
+        $scan.HasError | Should -Be $false
+        @($scan.Links) | Should -Be @("$base\根\内リンク")
     }
 
     It "createTargetList は、中のリンクの先に前回の行があるとき、元のファイルが無くなったものとして Removed に入れる" {
@@ -366,18 +364,16 @@ Describe "findTargetFiles・createTargetList（リンク）" -Tag Io {
         @($script:logged | Where-Object { $_ -like "*のため取り込みませんでした: $source\リンク2" }).Count | Should -Be 1
     }
 
-    It "createTargetList は、クロール対象フォルダがリンクのとき、前回の行を消さず、専用のログを 1 行だけ出す" {
+    It "createTargetList は、クロール対象フォルダがリンクのとき、先の中のファイルを取り込み対象にし、リンクを理由にしたログを出さない" {
         if (!(newTestJunction "$base\根" $outside)) {
             Set-ItResult -Skipped -Because $script:linkError
             return
         }
-        $previous = newPrevious @((newStatusRow "売上\a.txt" "2024/01/01 00:00:00" "10" ${stateDone} 1 "2024/01/01 00:00:00"))
 
-        $result = createTargetList @{ Path = "$base\根"; Name = "売上" } $previous $null
-        @($result.Rows | Where-Object { $_.相対パス -eq "売上\a.txt" }).Count | Should -Be 1
-        $result.Targets.Count | Should -Be 0
+        $result = createTargetList @{ Path = "$base\根"; Name = "売上" } (newPrevious) $null
+        @($result.Targets | ForEach-Object { $_.相対パス }) | Should -Be @("売上\外.txt")
         @($result.Removed).Count | Should -Be 0
-        @($script:logged | Where-Object { $_ -like "*クロール対象フォルダがリンク*のため取り込みませんでした: $base\根" }).Count | Should -Be 1
+        @($script:logged | Where-Object { $_ -like "*リンク*のため取り込みませんでした*" }).Count | Should -Be 0
         @($script:logged | Where-Object { $_ -like "*アクセスできないフォルダ*" }).Count | Should -Be 0
     }
 }
