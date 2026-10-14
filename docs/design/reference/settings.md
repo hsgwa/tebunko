@@ -66,7 +66,7 @@
 | 関数 | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
 | `getOpenCopyDir` | workspace | string | コピーを置くフォルダ（`work\tmp\<PC の鍵>\open_copy`）。強制終了の片付けは数字の名前のフォルダだけを消すので、ここは消えない | `openFoundSource`, 起動時の片付け |
-| `testOpenCopyDir` | copyDir, tmpRoot | bool | 作る・消してよい置き場所か。絶対パスで、`tmpRoot\<PC の鍵>\open_copy`（大文字・小文字は区別しない）と一致し、`open_copy`・`<PC の鍵>`・`tmpRoot` がリンク（ReparsePoint）でないときだけ真。空・相対パス・ドライブの根・別の場所・リンクは偽 | `copySourceForOpen`, `clearOldOpenCopies` |
+| `testOpenCopyDir` | copyDir, tmpRoot | bool | 作る・消してよい置き場所か。絶対パスで、`tmpRoot\<PC の鍵>\open_copy`（大文字・小文字は区別しない）と一致し、`open_copy`・`<PC の鍵>`・`tmpRoot` がリンク（ジャンクション・シンボリックリンク。`testPathIsLink`）でないときだけ真。空・相対パス・ドライブの根・別の場所・リンクは偽 | `copySourceForOpen`, `clearOldOpenCopies` |
 | `getOpenCopyName` | book, now | string | コピーのファイル名 `<元の名前>（コピー yyyyMMdd-HHmm）.<拡張子>`（元のファイル名の末尾の `.`・空白を除く）。名前が空なら空 | `copySourceForOpen`, `getOpenCopyBlocker` |
 | `getOpenCopyBlocker` | book, copyDir, now | string | コピーを作らずに断る理由。`NoName`（名前が空）・`TooLong`（パスが長すぎる）・作れるなら空（名前に `[` `]` があっても断らない） | `copySourceForOpen`, `openFoundSource` |
 | `copySourceForOpen` | sourcePath, book, copyDir, tmpRoot, now | `@{Path; Reason}` | `copyDir\<12 桁の英数字>\<getOpenCopyName>` に、元のファイルを共有で読んでコピーし、`Path` にそのパスを入れる（`Reason` は空）。作れないときは `Path` を空にし、`Reason` に理由を入れる（`Place`＝置き場所が不正・`NoName`／`TooLong`＝`getOpenCopyBlocker` の結果・`Failed`＝作る・書くのに失敗） | `openFoundSource`（裏の仕事） |

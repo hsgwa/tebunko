@@ -337,7 +337,7 @@ Describe "clearOldOpenCopies" -Tag Io {
         $copyDir = newCopyDir "clear3c"
         $old = newOldCopy $copyDir "old1" "a.txt" $script:now.AddDays(-2)
         $other = newOldCopy $copyDir "old2" "b.txt" $script:now.AddDays(-2)
-        Mock testOpenCopyReparsePoint { param ([string]$path) return $path.EndsWith("\old1") }
+        Mock testPathIsLink { param ([string]$path) return $path.EndsWith("\old1") }
 
         clearOldOpenCopies $copyDir (getTmpRoot "clear3c") $script:now | Should -Be 1
 

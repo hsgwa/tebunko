@@ -469,6 +469,24 @@ function testPathHasLink {
     return $false
 }
 
+function newDirectoryUnder {
+    # root の下に path のフォルダ（途中の階層を含む）を作り、作れたら（すでにあるときも）$true を返す。
+    # root から path までの途中の階層（path を含む）にリンクがあるとき、path が root の下でないときは、何も作らずに $false を返す。
+    # 作ったあとにもう一度確かめ、リンクに替わっていれば $false を返す（作ってしまった分は消さない。中には何も書かない）。
+    # root そのもの（とそれより上）がリンクのときは、構成を変えずに使えるよう、リンクとは見ない（testPathHasLink）。
+    # 作れなかった理由（権限など）は例外で返る。ログは呼ぶ側が出す（shared/ はツールのログを知らない）
+    param (
+        [string]$path,
+        [string]$root
+    )
+
+    if (!$path -or !$root -or (testPathHasLink $root $path)) {
+        return $false
+    }
+    [System.IO.Directory]::CreateDirectory((toLongPath $path)) | Out-Null
+    return !(testPathHasLink $root $path)
+}
+
 function removeEntryOnly {
     # ファイル 1 つ・リンク（ジャンクション・シンボリックリンク）1 つ・空のフォルダ 1 つ（item は FileSystemInfo）を、そのものだけ消す。
     # リンクの先は消さない。読み取り専用の属性は外してから消す

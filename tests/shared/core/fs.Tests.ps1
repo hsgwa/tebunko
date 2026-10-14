@@ -612,6 +612,57 @@ Describe "testPathIsLink / testPathHasLink" -Tag Io {
     }
 }
 
+Describe "newDirectoryUnder" -Tag Io {
+    It "根の下に、途中の階層ごとフォルダを作って真を返し、すでにあっても真を返す" {
+        $root = "$TestDrive\newdir_root"
+        [System.IO.Directory]::CreateDirectory($root) | Out-Null
+        newDirectoryUnder "$root\a\b" $root | Should -Be $true
+        [System.IO.Directory]::Exists("$root\a\b") | Should -Be $true
+        newDirectoryUnder "$root\a\b" $root | Should -Be $true
+    }
+
+    It "途中がジャンクションなら、何も作らずに偽を返し、リンクの先に何も書かない" {
+        $root = "$TestDrive\newdir_junction_root"
+        [System.IO.Directory]::CreateDirectory($root) | Out-Null
+        if (!(newTestJunction "$root\リンク" "$root\外")) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        newDirectoryUnder "$root\リンク\新しい" $root | Should -Be $false
+        [System.IO.Directory]::Exists("$root\外\新しい") | Should -Be $false
+    }
+
+    It "根そのものがジャンクションでも、根の下には作れる" {
+        if (!(newTestJunction "$TestDrive\newdir_link_root" "$TestDrive\newdir_link_target\置き場")) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        newDirectoryUnder "$TestDrive\newdir_link_root\x" "$TestDrive\newdir_link_root" | Should -Be $true
+        [System.IO.Directory]::Exists("$TestDrive\newdir_link_target\置き場\x") | Should -Be $true
+    }
+
+    It "根の下でない・空のパスは、何も作らずに偽を返す: <name>" -TestCases @(
+        @{ name = "別のフォルダ"; path = "$TestDrive\newdir_other\x"; root = "$TestDrive\newdir_base" }
+        @{ name = "似た名前のフォルダ"; path = "$TestDrive\newdir_base2\x"; root = "$TestDrive\newdir_base" }
+        @{ name = "空のパス"; path = ""; root = "$TestDrive\newdir_base" }
+        @{ name = "空の根"; path = "$TestDrive\newdir_base\x"; root = "" }
+    ) {
+        param ($name, $path, $root)
+        newDirectoryUnder $path $root | Should -Be $false
+        if ($path) {
+            [System.IO.Directory]::Exists($path) | Should -Be $false
+        }
+    }
+
+    It "作ったあとに、途中がリンクに替わっていれば偽を返す" {
+        $root = "$TestDrive\newdir_after_root"
+        [System.IO.Directory]::CreateDirectory($root) | Out-Null
+        $script:newDirChecks = 0
+        Mock testPathHasLink { $script:newDirChecks++; return ($script:newDirChecks -ge 2) }
+        newDirectoryUnder "$root\x" $root | Should -Be $false
+    }
+}
+
 Describe "moveDirectoryRetry" -Tag Io {
     It "フォルダを中身ごと移動する" {
         $source = "$TestDrive\移動元フォルダ"
