@@ -215,7 +215,7 @@ Describe "ensureRows" -Tag Unit {
     }
 
     It "Excel 以外のファイルの行は、IsExcel も IsCellPrefixed も偽" {
-        $group = addHit "議事録.docx" "ページ003" "見積の件" 1
+        $group = addHit "議事録.docx" "ページ003[図形]" "見積の件" 1
         ensureRows $group
         $group.Rows[0].IsExcel | Should -Be $false
         $group.Rows[0].IsCellPrefixed | Should -Be $false
