@@ -119,7 +119,7 @@ function testUnderAnyDir {
 
 function findTargetFiles {
     # クロール対象フォルダ配下の、取り込み対象（Office・テキストの拡張子）のファイルを検索し、
-    # @{ Root; Files; Links; HasError（アクセスできないフォルダがあった。クロール対象フォルダそのものがリンクのときも $true） } を返す。
+    # @{ Root; Files; Links; HasError（アクセスできないフォルダがあった。クロール対象フォルダそのものがリンクのときも $true）; RootIsLink（クロール対象フォルダそのものがリンク） } を返す。
     # リンク（ジャンクション・シンボリックリンク）は辿らず、取り込まない。飛ばしたリンクは Links に入る
     # （飛ばしたものは HasError にしない。クロール対象フォルダそのものがリンクのときは Files が空で、Links にそのフォルダが入る）。
     # Root は実際に列挙したフォルダ（\\?\ の付かない通常のパス）。相対パスはこの Root から求める
@@ -135,7 +135,7 @@ function findTargetFiles {
     # クロール対象フォルダそのものがリンクのときは、先を読まない（前回の行を「元のファイルが無くなった」として消さないよう HasError にする）
     $rootKind = getLinkKind (New-Object System.IO.DirectoryInfo (toLongPath (trimTrailingSeparator $root)))
     if ($rootKind -eq "Link") {
-        return @{ Root = $root; Files = @(); Links = @($root); HasError = $true }
+        return @{ Root = $root; Files = @(); Links = @($root); HasError = $true; RootIsLink = $true }
     }
     # リンクは辿らず、飛ばしたものは Links に入れる（先の、対象の外のファイルを読まないため）
     $tree = getFilesNoFollow $root
@@ -154,7 +154,7 @@ function findTargetFiles {
         return $true
     })
 
-    return @{ Root = $root; Files = $files; Links = @($tree.Links); HasError = $tree.HasError }
+    return @{ Root = $root; Files = $files; Links = @($tree.Links); HasError = $tree.HasError; RootIsLink = $false }
 }
 
 function createTargetList {
@@ -179,16 +179,15 @@ function createTargetList {
     $prefix = "$($folder.Name)\"
     $scan = findTargetFiles $folder.Path
     # 飛ばしたリンクは 1 件 1 行でログに出す（クロール対象フォルダそのものがリンクのときは、文言を分ける）
-    $rootIsLink = $false
+    $rootIsLink = [bool]$scan.RootIsLink
     foreach ($link in @($scan.Links | Where-Object { $_ })) {
-        if ($link.Equals($scan.Root, [System.StringComparison]::OrdinalIgnoreCase)) {
-            $rootIsLink = $true
+        if ($rootIsLink -and $link.Equals($scan.Root, [System.StringComparison]::OrdinalIgnoreCase)) {
             writeIndexerLog "    クロール対象フォルダがリンク（ジャンクション・シンボリックリンク）のため取り込みませんでした: $link" "Yellow"
         } else {
             writeIndexerLog "    リンク（ジャンクション・シンボリックリンク）のため取り込みませんでした: $link" "Yellow"
         }
     }
-    $rows =New-Object System.Collections.Generic.List[object]
+    $rows = New-Object System.Collections.Generic.List[object]
     $targets = New-Object System.Collections.Generic.List[object]
     $failed = New-Object System.Collections.Generic.List[object]
     $cloud = New-Object System.Collections.Generic.List[object]

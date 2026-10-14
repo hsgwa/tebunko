@@ -252,6 +252,7 @@ Describe "findTargetFiles・createTargetList（リンク）" -Tag Io {
         @($scan.Files | ForEach-Object { $_.Name }) | Should -Be @("a.txt")
         @($scan.Links) | Should -Be @("$source\リンク")
         $scan.HasError | Should -Be $false
+        $scan.RootIsLink | Should -Be $false
     }
 
     It "親を指すジャンクション（輪）があっても終わり、Files に同じファイルが重ならない" {
@@ -297,7 +298,22 @@ Describe "findTargetFiles・createTargetList（リンク）" -Tag Io {
         $scan = findTargetFiles "$base\根"
         @($scan.Files).Count | Should -Be 0
         $scan.HasError | Should -Be $true
+        $scan.RootIsLink | Should -Be $true
         @($scan.Links) | Should -Be @("$base\根")
+    }
+
+    It "createTargetList は、中のリンクの先に前回の行があるとき、元のファイルが無くなったものとして Removed に入れる" {
+        if (!(newTestJunction "$source\リンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        $previous = newPrevious @(
+            (newStatusRow "売上\リンク\外.txt" "2024/01/01 00:00:00" "10" ${stateDone} 1 "2024/01/01 00:00:00")
+        )
+
+        $result = createTargetList @{ Path = $source; Name = "売上" } $previous $null
+        @($result.Removed) | Should -Be @("売上\リンク\外.txt")
+        @($result.Rows | Where-Object { $_.相対パス -eq "売上\リンク\外.txt" }).Count | Should -Be 0
     }
 
     It "createTargetList は、飛ばしたリンクを 1 件 1 行でログに出す" {

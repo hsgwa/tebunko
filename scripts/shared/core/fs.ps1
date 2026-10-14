@@ -550,7 +550,8 @@ function getFilesNoFollow {
     #   Reason      … 最初に読めなかった理由
     # リンクかどうかの見分けは getLinkKind。リンクかどうか確かめられないフォルダ（ReparsePoint が付き、LinkType が取れない。
     # OneDrive のオンデマンドのフォルダなど）は、SkipUnknown が無ければ降りる（読むだけのため）。属性を書くときは SkipUnknown を付け、降りずに Links に入れる。
-    # Hidden・System の付いたものは、IncludeHidden が無ければ入れない（Get-ChildItem の既定と同じ）
+    # Hidden の付いたものは、IncludeHidden が無ければ入れない（Get-ChildItem の既定と同じ。System だけのものは入れる）。
+    # 並びは Get-ChildItem -Recurse と同じ（フォルダごとに、その中身を並べてから、サブフォルダの下へ進む）
     param (
         [string]$root,
         [switch]$IncludeHidden,
@@ -563,7 +564,7 @@ function getFilesNoFollow {
     $hasError = $false
     $reason = ""
     $reparseFlag = [System.IO.FileAttributes]::ReparsePoint
-    $hiddenFlags = [System.IO.FileAttributes]::Hidden -bor [System.IO.FileAttributes]::System
+    $hiddenFlag = [System.IO.FileAttributes]::Hidden
     $pending = New-Object System.Collections.Generic.Stack[string]
     $pending.Push((toLongPath (trimTrailingSeparator $root)))
     while ($pending.Count -gt 0) {
@@ -578,9 +579,10 @@ function getFilesNoFollow {
             }
             continue
         }
+        $subDirectories = New-Object System.Collections.Generic.List[string]
         foreach ($entry in $entries) {
             $attributes = $entry.Attributes
-            if (!$IncludeHidden -and ($attributes -band $hiddenFlags)) {
+            if (!$IncludeHidden -and ($attributes -band $hiddenFlag)) {
                 continue
             }
             if ($attributes -band $reparseFlag) {
@@ -593,10 +595,14 @@ function getFilesNoFollow {
             }
             if ($entry -is [System.IO.DirectoryInfo]) {
                 $directories.Add($entry)
-                $pending.Push($entry.FullName)
+                $subDirectories.Add($entry.FullName)
             } else {
                 $files.Add($entry)
             }
+        }
+        # Get-ChildItem -Recurse と同じ順（そのフォルダの中身、次に先頭のサブフォルダの下すべて、…）にするため、逆から積む
+        for ($i = $subDirectories.Count - 1; $i -ge 0; $i--) {
+            $pending.Push($subDirectories[$i])
         }
     }
     return @{ Files = $files.ToArray(); Directories = $directories.ToArray(); Links = $links.ToArray(); HasError = $hasError; Reason = $reason }

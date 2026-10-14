@@ -173,6 +173,16 @@ Describe "exportIndex・getIndexExportSize（リンク）" -Tag Io {
         $result.Files | Should -Be 2
         (getIndexExportSize @("営業") $fixture.Workspace).Bytes | Should -BeGreaterThan 0
     }
+
+    It "置き場の中に読めないフォルダがあるときは、一部だけを書き出さず、zip を作らずに例外にする" {
+        $fixture = newIndexFixture "$TestDrive\export_unreadable" "営業" "C:\共有\営業部"
+        $dest = "$TestDrive\export_unreadable\out.zip"
+        Mock getFilesNoFollow { @{ Files = @(); Directories = @(); Links = @(); HasError = $true; Reason = "アクセスが拒否されました" } }
+
+        { exportIndex "営業" $dest $fixture.Workspace $fixture.SettingsPath } | Should -Throw "*最後まで読めませんでした*アクセスが拒否されました*"
+        { getIndexExportSize @("営業") $fixture.Workspace } | Should -Throw "*最後まで読めませんでした*"
+        Test-Path -LiteralPath $dest | Should -Be $false
+    }
 }
 
 Describe "exportIndexToFolder" -Tag Io {

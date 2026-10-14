@@ -925,6 +925,52 @@ Describe "getFilesNoFollow" -Tag Io {
         @((getFilesNoFollow $dir -IncludeHidden).Files | ForEach-Object { $_.Name } | Sort-Object) | Should -Be @("a.tsv", "d.tsv", "隠し.tsv")
     }
 
+    It "System だけのファイル・フォルダは、既定でも入れる（Get-ChildItem -Recurse が返す範囲と同じ）" {
+        $dir = "$TestDrive\nofollow\システム"
+        writeListFile "$dir\a.tsv" @("a")
+        writeListFile "$dir\sys.tsv" @("s")
+        writeListFile "$dir\sysフォルダ\d.tsv" @("d")
+        $system = [System.IO.FileAttributes]::System
+        [System.IO.File]::SetAttributes("$dir\sys.tsv", $system)
+        [System.IO.File]::SetAttributes("$dir\sysフォルダ", [System.IO.FileAttributes]::Directory -bor $system)
+
+        $expected = @(Get-ChildItem -LiteralPath $dir -Recurse -File | ForEach-Object { $_.Name } | Sort-Object)
+        $expected | Should -Be @("a.tsv", "d.tsv", "sys.tsv")
+        @((getFilesNoFollow $dir).Files | ForEach-Object { $_.Name } | Sort-Object) | Should -Be $expected
+    }
+
+    It "並びは Get-ChildItem -Recurse と同じ（そのフォルダの中身を並べてから、サブフォルダの下へ進む）" {
+        $dir = "$TestDrive\nofollow\並び"
+        writeListFile "$dir\z.tsv" @("z")
+        writeListFile "$dir\b\b2.tsv" @("b")
+        writeListFile "$dir\b\b1\深.tsv" @("b")
+        writeListFile "$dir\b\b1\b0\最深.tsv" @("b")
+        writeListFile "$dir\a\a1.tsv" @("a")
+        writeListFile "$dir\c.tsv" @("c")
+
+        $tree = getFilesNoFollow $dir
+        @($tree.Files | ForEach-Object { fromLongPath $_.FullName }) | Should -Be @(Get-ChildItem -LiteralPath $dir -Recurse -File | ForEach-Object { $_.FullName })
+        @($tree.Directories | ForEach-Object { fromLongPath $_.FullName }) | Should -Be @(Get-ChildItem -LiteralPath $dir -Recurse -Directory | ForEach-Object { $_.FullName })
+    }
+
+    It "260 文字を超える長いパスの下も列挙する" {
+        $dir = "$TestDrive\nofollowLong"
+        $deep = "$dir\" + ("a" * 100) + "\" + ("b" * 100)
+        [void][System.IO.Directory]::CreateDirectory((toLongPath $deep))
+        [System.IO.File]::WriteAllText((toLongPath "$deep\深い.tsv"), "x`r`n", $utf8Bom)
+        writeListFile "$dir\浅い.tsv" @("y")
+        try {
+            "$deep\深い.tsv".Length | Should -BeGreaterThan 260
+            $tree = getFilesNoFollow $dir
+            $tree.HasError | Should -Be $false
+            @($tree.Files).Count | Should -Be 2
+            @($tree.Files | ForEach-Object { $_.Name }) | Should -Contain "浅い.tsv"
+            @($tree.Files | ForEach-Object { $_.Name }) | Should -Contain "深い.tsv"
+        } finally {
+            removeTreeNoFollow $dir
+        }
+    }
+
     It "ジャンクションの先へは降りず、Links に入れる（Files・Directories には入れない）" {
         $dir = "$TestDrive\nofollow\リンク"
         $outside = "$TestDrive\nofollow\外のリンク"
@@ -1053,6 +1099,30 @@ Describe "setNotContentIndexed（リンク）" -Tag Io {
         (hasLinkAttr "$outside\外.tsv") | Should -Be $false
         (hasLinkAttr "$outside\下") | Should -Be $false
         (hasLinkAttr "$outside\下\外の下.tsv") | Should -Be $false
+    }
+
+    It "-Recurse で読めないフォルダがあると Ok=`$false にし、根にも属性を付けない" {
+        $dir = "$TestDrive\nci-link\読めない"
+        writeListFile "$dir\a.tsv" @("a")
+        $locked = New-Object System.IO.DirectoryInfo "$dir\読めない"
+        $locked.Create()
+        $user = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+        $deny = New-Object System.Security.AccessControl.FileSystemAccessRule($user, "ListDirectory", "Deny")
+        $acl = $locked.GetAccessControl("Access")
+        $acl.AddAccessRule($deny)
+        $locked.SetAccessControl($acl)
+        try {
+            $result = setNotContentIndexed $dir -Recurse
+            $result.Ok | Should -Be $false
+            $result.Changed | Should -Be 0
+            $result.Reason | Should -Not -BeNullOrEmpty
+            (hasLinkAttr $dir) | Should -Be $false
+            (hasLinkAttr "$dir\a.tsv") | Should -Be $false
+        } finally {
+            $acl = $locked.GetAccessControl("Access")
+            [void]$acl.RemoveAccessRule($deny)
+            $locked.SetAccessControl($acl)
+        }
     }
 
     It "親を指すジャンクション（輪）があっても終わり、輪の先に属性が付き続けない" {

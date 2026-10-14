@@ -8,21 +8,24 @@
 #   2. SearchOption の型の使い方のうち [SearchOption]::TopDirectoryOnly の直接の参照以外（AllDirectories・変数・キャスト・型指定）
 #   3. GetFiles・EnumerateFiles・GetDirectories などの呼び出しで、探す範囲の引数が [SearchOption]::TopDirectoryOnly でないもの
 #   4. EnumerationOptions の RecurseSubdirectories
+#   5. フォルダの下をまとめて扱う Copy-Item -Recurse・Compress-Archive・robocopy・xcopy・ZipFile.CreateFromDirectory（コマンド名・メソッド名で見る）
+# 見つけないもの（人が見る）: 自前の再帰（関数が自分を呼ぶ・Stack で降りる）。これらは、フォルダの子を 1 段ずつ列挙するとき、
+# リンクを辿るかを自分で決める。列挙には fs.ps1 の getFilesNoFollow を使う。
 # 削除の検査は tests/meta/remove_entry.Tests.ps1 が受け持つため、ここでは調べない。
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
 
-    # 許した関数: File（ファイル名）・Function（関数・メソッドの名前。関数の外は空）・Reason（リンクを辿っても安全な理由）
+    # 許した関数: File（scripts からの相対パス。/ 区切り）・Function（関数・メソッドの名前。関数の外は空）・Reason（リンクを辿っても安全な理由）
     ${linkSafetyAllowed} = @(
-        @{ File = "gui.ps1"; Function = ""; Reason = "起動時に配布物のファイルのブロックを外すだけ（読み取りと属性の変更。配布物のフォルダの中には、リンクを置かない）" }
-        @{ File = "workspace.ps1"; Function = "getLegacyIndexState"; Reason = "前の版のインデックスがあるかを調べる読み取りだけ。ファイルの有無しか見ない" }
-        @{ File = "content_index_store.ps1"; Function = "findContentIndexFiles"; Reason = "本文インデックスのファイルを探す読み取りだけ（インデックスの置き場の中を探し、取り込み対象のファイルは見ない）" }
-        @{ File = "content_index_store.ps1"; Function = "findIndexFoldersWithBooks"; Reason = "元のファイルごとの TSV のフォルダを探す読み取りだけ（インデックスの置き場の中）" }
-        @{ File = "index_store.ps1"; Function = "getIndexTsvCounts"; Reason = "TSV の数を数える読み取りだけ（インデックスの置き場の中）" }
-        @{ File = "system_index.ps1"; Function = "getSystemIndexStaleFolders"; Reason = "システムインデックスが古いフォルダを見つける読み取りだけ（インデックスの置き場の中）" }
-        @{ File = "fast_search.ps1"; Function = "getSystemIndexProgress"; Reason = "システムインデックスの進み具合を数える読み取りだけ" }
-        @{ File = "search_run.ps1"; Function = "testIndexExists"; Reason = "インデックスの有無を調べる読み取りだけ" }
-        @{ File = "search_run.ps1"; Function = "getIndexSummary"; Reason = "インデックスの件数を数える読み取りだけ" }
+        @{ File = "tebunko/gui.ps1"; Function = ""; Reason = "起動時に配布物のフォルダのファイルのブロックを外す（ファイルの属性の書き換え）。配布物のフォルダの中にリンクを置かない前提で、取り込み対象のファイルには届かない" }
+        @{ File = "tebunko/core/workspace.ps1"; Function = "getLegacyIndexState"; Reason = "前の版のインデックスがあるかを調べる読み取りだけ。ファイルの有無しか見ない" }
+        @{ File = "tebunko/index/content_index_store.ps1"; Function = "findContentIndexFiles"; Reason = "本文インデックスのファイルを探す読み取りだけ（インデックスの置き場の中を探し、取り込み対象のファイルは見ない）" }
+        @{ File = "tebunko/index/content_index_store.ps1"; Function = "findIndexFoldersWithBooks"; Reason = "インデックスの置き場の中で、元のファイルごとの TSV のフォルダを探す。結果は本文インデックスのファイルへのまとめ直し（書き込み）に渡るが、書くのは置き場の中のフォルダで、置き場にリンクを置かない前提" }
+        @{ File = "tebunko/index/index_store.ps1"; Function = "getIndexTsvCounts"; Reason = "TSV の数を数える読み取りだけ（インデックスの置き場の中）" }
+        @{ File = "tebunko/index/system_index.ps1"; Function = "getSystemIndexStaleFolders"; Reason = "システムインデックスが古いフォルダを見つける読み取りだけ（インデックスの置き場の中）" }
+        @{ File = "tebunko/search/fast_search.ps1"; Function = "getSystemIndexProgress"; Reason = "システムインデックスの進み具合を数える読み取りだけ" }
+        @{ File = "tebunko/search/search_run.ps1"; Function = "testIndexExists"; Reason = "インデックスの有無を調べる読み取りだけ" }
+        @{ File = "tebunko/search/search_run.ps1"; Function = "getIndexSummary"; Reason = "インデックスの件数を数える読み取りだけ" }
     )
 
     ${enumerationMethods} = @(
@@ -69,15 +72,28 @@ BeforeAll {
         foreach ($node in $nodes) {
             $kind = $null
             if ($node -is [System.Management.Automation.Language.CommandAst]) {
+                # モジュール付きの名前（Microsoft.PowerShell.Management\Get-ChildItem）は、\ の後ろだけで比べる
                 $commandName = $node.GetCommandName()
+                if ($commandName) {
+                    $commandName = $commandName.Substring($commandName.LastIndexOf("\") + 1)
+                }
                 if ($commandName -and $commandName -match "^(Get-ChildItem|gci|ls|dir)$") {
                     foreach ($element in $node.CommandElements) {
                         if ($element -is [System.Management.Automation.Language.CommandParameterAst]) {
-                            if ((testParameterPrefix $element.ParameterName "Recurse" 1) -or (testParameterPrefix $element.ParameterName "Depth" 2)) {
+                            # -s は Recurse の別名
+                            if ($element.ParameterName -ieq "s" -or (testParameterPrefix $element.ParameterName "Recurse" 1) -or (testParameterPrefix $element.ParameterName "Depth" 2)) {
                                 $kind = "Get-ChildItem -$($element.ParameterName)"
                             }
                         } elseif ($element -is [System.Management.Automation.Language.VariableExpressionAst] -and $element.Splatted) {
                             $kind = "Get-ChildItem @$($element.VariablePath.UserPath)（スプラット）"
+                        }
+                    }
+                } elseif ($commandName -and $commandName -match "^(Compress-Archive|robocopy(\.exe)?|xcopy(\.exe)?)$") {
+                    $kind = "$commandName（フォルダの下をまとめて扱う）"
+                } elseif ($commandName -and $commandName -match "^Copy-Item$") {
+                    foreach ($element in $node.CommandElements) {
+                        if ($element -is [System.Management.Automation.Language.CommandParameterAst] -and (testParameterPrefix $element.ParameterName "Recurse" 1)) {
+                            $kind = "Copy-Item -$($element.ParameterName)"
                         }
                     }
                 }
@@ -96,7 +112,9 @@ BeforeAll {
                     $kind = "RecurseSubdirectories"
                 }
             } elseif ($node -is [System.Management.Automation.Language.InvokeMemberExpressionAst]) {
-                if ($node.Member -is [System.Management.Automation.Language.StringConstantExpressionAst] -and ${enumerationMethods} -contains $node.Member.Value) {
+                if ($node.Member -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $node.Member.Value -eq "CreateFromDirectory") {
+                    $kind = "CreateFromDirectory（フォルダの下をまとめて zip に入れる）"
+                } elseif ($node.Member -is [System.Management.Automation.Language.StringConstantExpressionAst] -and ${enumerationMethods} -contains $node.Member.Value) {
                     $arguments = @($node.Arguments)
                     # 静的メソッド（Directory.GetFiles(path, pattern, option)）は 3 番目、インスタンス（DirectoryInfo.GetFiles(pattern, option)）は 2 番目が探す範囲
                     $optionIndex = if ($node.Static) { 2 } else { 1 }
@@ -120,7 +138,8 @@ BeforeAll {
             $tokens = $null
             $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors)
             foreach ($item in @(findLinkFollowingAsts $ast)) {
-                $found.Add(@{ File = $file.Name; Function = $item.Function; Line = $item.Line; Kind = $item.Kind })
+                $relative = $file.FullName.Substring(([System.IO.Path]::GetFullPath(${scriptsDir}).TrimEnd("\").Length + 1)).Replace("\", "/")
+                $found.Add(@{ File = $relative; Function = $item.Function; Line = $item.Line; Kind = $item.Kind })
             }
         }
         return $found.ToArray()
@@ -168,6 +187,13 @@ Describe "再帰の列挙の見つけ方（回避の見本）" -Tag Meta {
         @{ name = "省略形 -Rec"; text = 'Get-ChildItem $d -Rec' }
         @{ name = "省略形 -r"; text = 'Get-ChildItem $d -r' }
         @{ name = "大文字小文字違い"; text = 'GET-CHILDITEM $d -RECURSE' }
+        @{ name = "Recurse の別名 -s"; text = 'Get-ChildItem $d -s' }
+        @{ name = "モジュール付きの名前"; text = 'Microsoft.PowerShell.Management\Get-ChildItem $d -Recurse' }
+        @{ name = "Copy-Item -Recurse"; text = 'Copy-Item -LiteralPath $a -Destination $b -Recurse' }
+        @{ name = "Compress-Archive"; text = 'Compress-Archive -Path $d -DestinationPath $z' }
+        @{ name = "robocopy"; text = 'robocopy $a $b /E' }
+        @{ name = "xcopy"; text = 'xcopy $a $b /s' }
+        @{ name = "ZipFile.CreateFromDirectory"; text = '[System.IO.Compression.ZipFile]::CreateFromDirectory($d, $z)' }
         @{ name = "-Depth"; text = 'Get-ChildItem $d -Depth 3' }
         @{ name = "-Depth の省略形"; text = 'Get-ChildItem $d -Dep 3' }
         @{ name = "スプラット"; text = '$a = @{ Recurse = $true }; Get-ChildItem $d @a' }
@@ -188,6 +214,7 @@ Describe "再帰の列挙の見つけ方（回避の見本）" -Tag Meta {
 
     It "見つけない: <name>" -TestCases @(
         @{ name = "再帰でない Get-ChildItem"; text = 'Get-ChildItem -LiteralPath $d -File' }
+        @{ name = "再帰でない Copy-Item"; text = 'Copy-Item -LiteralPath $a -Destination $b -Force' }
         @{ name = "ConvertTo-Json の -Depth"; text = 'ConvertTo-Json -InputObject $x -Depth 5' }
         @{ name = "TopDirectoryOnly（静的メソッド）"; text = '[System.IO.Directory]::GetFiles($d, "*.tsv", [System.IO.SearchOption]::TopDirectoryOnly)' }
         @{ name = "TopDirectoryOnly（インスタンス）"; text = '$info.EnumerateFiles("*", [System.IO.SearchOption]::TopDirectoryOnly)' }
