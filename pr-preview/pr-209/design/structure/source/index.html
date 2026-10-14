@@ -4245,7 +4245,7 @@
 <tbody>
 <tr>
 <td>判断層（入力は素の値、出力は素の値）</td>
-<td><code>text.ps1</code>・<code>index_name.ps1</code>・<code>source_name.ps1</code>・<code>content_index_format.ps1</code>・<code>search_query.ps1</code>・<code>search_gram.ps1</code>・<code>indexer_decide.ps1</code>・<code>*_view.ps1</code>（<code>tebunko/ui/</code> の画面の判断層のほか、<code>shared/office/office_protection_view.ps1</code>・<code>shared/office/office_file_kind_view.ps1</code> のように <code>ui/</code> の外にも置く。テスト（<code>layers.Tests.ps1</code>）とカバレッジは名前で拾うため、置き場所によらず判断層として扱われる）</td>
+<td><code>text.ps1</code>・<code>index_name.ps1</code>・<code>source_name.ps1</code>・<code>content_index_format.ps1</code>・<code>search_query.ps1</code>・<code>search_gram.ps1</code>・<code>indexer_decide.ps1</code>・<code>*_view.ps1</code>（一覧は <code>tests/helpers/layer_paths.ps1</code>。<code>tebunko/ui/</code> の画面の判断層のほか、<code>shared/office/office_protection_view.ps1</code>・<code>shared/office/office_file_kind_view.ps1</code> のように <code>ui/</code> の外にも置く。テスト（<code>layers.Tests.ps1</code>）とカバレッジは名前で拾うため、置き場所によらず判断層として扱われる）</td>
 <td>する（主にタグ <code>Unit</code>）</td>
 </tr>
 <tr>
@@ -4334,8 +4334,12 @@
 <li>状態層の中で、下のフォルダが上のフォルダの関数・変数を使う依存。<code>tebunko/core/workspace.ps1</code> から <code>tebunko/index/system_index.ps1</code>、<code>tebunko/index/</code> から <code>tebunko/search/</code>（gram の関数・情報源フォルダのファイルの読み書き・ヒット行の切り詰め）、<code>tebunko/indexer/</code> から <code>tebunko/search/</code> への依存が残る。どれも、下のフォルダへ関数を移すと消える。</li>
 <li><code>shared/</code> が <code>tebunko/</code> の関数・変数を使う依存。決めた形ではない今ある依存。</li>
 <li>判断層（<code>search_bar_view.ps1</code>）が、共有の画面層の <code>formatTime</code> を呼ぶ依存。</li>
+<li>判断層のファイルが、判断層でない状態層（ファイル・COM を読み書きする層）の関数・変数・クラスを使う依存。例外の行に種類を付ける。</li>
+<li><code>境界</code>: 判断層が状態層の関数に判定を任せる形。<code>tests/tebunko/ui/layer_boundary.Tests.ps1</code> の <code>Mock</code> の対象に出る関数だけが、この種類にできる（出ていなければテストが失敗にする）。</li>
+<li><code>移すと消える</code>: ファイル・COM に触らない値や関数（拡張子の一覧・状態の名前・フォルダ名の組み立てなど）が状態層のファイルにある。判断層のファイルへ移すと消える。</li>
+<li>画面の判断層（<code>result_list_view.ps1</code>）が、画面層のクラス（<code>FileGroup</code>・<code>HitRow</code>）を型として使う依存と、<code>tebunko/index/</code> が <code>tebunko/indexer/</code> のクラス（<code>StatusLedger</code>）を型として使う依存。</li>
 </ul>
-<p>例外の一覧に残っている依存を、フォルダ単位で並べると次のとおり（点線の矢印が、決めた向きに反する今の依存。括弧は一覧の行の数）。</p>
+<p>例外の一覧に残っている依存のうち、状態層のフォルダどうしと <code>shared/</code> の逆向きの依存（と、判断層 <code>search_bar_view.ps1</code> から <code>shared/ui/</code> への <code>formatTime</code>）を、フォルダ単位で並べると次のとおり（点線の矢印が、決めた向きに反する今の依存。括弧は、ファイルの組ごとに 1 つと数えた一覧の行の数で、1 行に名前を複数書く行がある）。判断層から判断層でない状態層への依存（上の箇条書きの <code>境界</code>・<code>移すと消える</code>）と、クラスの型の依存は、フォルダ単位にまとまらないので、図には描かず箇条書きで示す。</p>
 <pre class="mermaid"><code>flowchart TD
     subgraph tool["tebunko/"]
         indexer["indexer/"]
@@ -4358,7 +4362,31 @@
     sharedui -.-&gt;|"appTitle（1）"| toolui
     toolui -.-&gt;|"formatTime（1）。判断層 search_bar_view.ps1 から"| sharedui</code></pre>
 <p>共通の値を作る場所は、読む側より下の層に置く。<code>$workspace</code> は状態層の <code>tebunko/core/paths.ps1</code>（<code>initWorkspace</code>・<code>setCallerWorkspace</code>）だけが作り、画面層（<code>switchWorkspace</code>）は <code>initWorkspace</code> を呼んで作り直す。<code>shared/</code> が使うツール側の値は、ツール側が登録する（エラーの記録先と見出しは <code>setGuiErrorLogSource</code>、仕事の列は <code>setBackgroundQueue</code>・<code>setNetworkQueueFactory</code>）。</p>
-<p>見つからないもの（限界）: <code>&amp; $name</code> の呼び出し、コールバックで渡したスクリプトブロックの中から呼ぶ形、<code>$ui</code> を別の名前の引数で受け取る形、クラスのメソッドの呼び出し、<code>Set-Variable</code> での代入（<code>$workspace</code> は、代入を <code>setCallerWorkspace</code> に集めてある）。別のファイルのクラスを型として使う依存（<code>[型]::new()</code>・引数や戻り値の型）は、依存の向きの表では見つからない（決めた型 <code>System.Windows.*</code> だけは、画面の変数・型の検査が見る）。<code>New-Object</code> に文字列で渡す型と、<code>using namespace</code> で短く書いた型は、構文木では型として見えない（文字列の検査が見る）。同じ名前の関数・変数が、見る側のパスにもあるときは、そちらを使っているとみなす。</p>
+<p>依存として数える書き方（見つかるもの）:</p>
+<ul>
+<li>関数の呼び出し（<code>${function:名前}</code> も含む）。</li>
+<li><code>=</code> の代入と、<code>Set-Variable -Name &lt;定数&gt;</code>・<code>New-Variable -Name &lt;定数&gt;</code>・<code>$variable:名前 = …</code>（最上位・<code>$script:</code>・<code>$global:</code> の代入と同じ条件で数える）。</li>
+<li>変数を名前で読む形で、名前が定数のもの: <code>Get-Variable</code>（<code>gv</code>）、<code>${variable:名前}</code>・<code>$variable:名前</code>、<code>Get-Item</code>・<code>Get-Content</code>・<code>Test-Path</code> などの <code>variable:名前</code>。</li>
+<li>別のファイルで定義したクラスを、<code>[型名]</code>（<code>[型]::new()</code>・引数・戻り値・変数の型）か <code>New-Object &lt;型&gt;</code>・<code>New-Object -TypeName &lt;型&gt;</code>（型が定数のもの。<code>'System.Collections.Generic.List[Workspace]'</code>・<code>'Workspace[]'</code> は <code>[</code> <code>]</code> <code>,</code> で区切った名前のそれぞれ）で使う形。<code>findFileDependencyItems</code> が <code>[型名]</code> の名で返し、例外の一覧にも同じ名で書く。</li>
+<li><code>Set-Variable</code> は、<code>-Scope</code> が無いとき、名前の前の <code>script:</code>・<code>global:</code> などをスコープとして読む（<code>Set-Variable -Name "script:x"</code> は、関数の中でも <code>x</code> の最上位の変数を作る）。<code>-Scope</code> があるときは、名前の前の印は名前の一部。<code>New-Variable</code>・<code>Get-Variable</code>・<code>variable:</code> ドライブは、名前の前の <code>script:</code> などを名前の一部として数える（<code>New-Variable -Name "script:x"</code> は、<code>x</code> ではなく名前 <code>script:x</code> の変数）。<code>$variable:名前 = …</code> の代入は、関数の外だけ数える。</li>
+<li>コマンドの名前は、モジュール名の修飾（<code>Microsoft.PowerShell.Utility\Get-Command</code> など）を外して比べる。</li>
+</ul>
+<p>呼ぶ先や読む変数が構文木から決まらない書き方は、向きの表では数えない。代わりに、<code>tests/meta/layers.Tests.ps1</code> の「名前を文字列で渡す呼び出し」が、今ある所を理由つきの閉じた一覧にし、増えたら失敗にする。ファイルと形ごとの数も一覧の行に持たせ、載っているファイルに同じ形を足しても失敗にする。形は次のとおり。</p>
+<ul>
+<li><code>Get-Command</code>・<code>Invoke-Expression</code>（<code>iex</code>）・<code>Set-Alias</code>・<code>New-Alias</code>・<code>[scriptblock]::Create</code>・<code>$ExecutionContext.InvokeCommand</code>・<code>.AddCommand</code>・<code>.AddScript</code></li>
+<li><code>&amp; (式)</code>・<code>&amp; "展開文字列"</code>（呼ぶ名前が式で決まる形）</li>
+<li><code>function:</code> ドライブを引く <code>Get-Item</code>・<code>Get-Content</code>・<code>Test-Path</code>・<code>Get-ChildItem</code>・<code>Set-Item</code>・<code>New-Item</code> など（読む・書くのどちらも）</li>
+<li>名前が定数でない <code>Set-Variable</code>・<code>New-Variable</code>・<code>Get-Variable</code></li>
+<li>名前が定数でない <code>variable:</code> ドライブの読み</li>
+<li><code>variable:</code> ドライブへの書き込み（<code>Set-Item</code>・<code>New-Item</code>・<code>Remove-Item</code>・<code>Copy-Item</code>）</li>
+<li>型が定数でない <code>New-Object</code>（<code>New-Object $型</code>）</li>
+</ul>
+<p>見つからないもの（限界）:</p>
+<ul>
+<li><code>&amp; $name</code> の呼び出し、コールバックで渡したスクリプトブロックの中から呼ぶ形、<code>$ui</code> を別の名前の引数で受け取る形、クラスのメソッドの呼び出し。</li>
+<li><code>using namespace</code> で短く書いた型。</li>
+</ul>
+<p>同じ名前の関数・変数・クラスが、見る側のパスにもあるときは、そちらを使っているとみなす。</p>
 <h2 id="読み込み口">読み込み口<a class="headerlink" href="#読み込み口" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart TD
     GUI["tebunko/gui.ps1&lt;br&gt;（画面の起動口）"] --&gt; LIB
