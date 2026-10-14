@@ -4439,7 +4439,7 @@
 <h2 id="検索開く">検索・開く<a class="headerlink" href="#検索開く" title="Permanent link">&para;</a></h2>
 <ul>
 <li>種類のチップ「PDF」（<code>setting.config</code> の <code>fileKinds</code> の値 <code>pdf</code>）で、PDF だけを絞れる。前の版の設定は、<code>fileKinds</code> のキーが無い・空ならそのまま PDF も含むすべてになり、一部の種類だけを保存していたときは PDF が選ばれていない状態から始まる（設定ファイルの形は変えない。前の版の見本 <code>settings/v0.3.1</code> の期待する値は、PDF を足したぶん変えた）。</li>
-<li>結果の見出しのアイコンは <code>PDF</code>（<code>getAppKind</code>）。場所は <code>ページN</code>。</li>
+<li>結果の見出しのアイコンは <code>PDF</code>（<code>getContentIndexFileKind</code>）。場所は <code>ページN</code>。</li>
 <li>検索結果から開くと、既定のアプリで開く（ページへは移動しない）。ステータスは <code>開きました：&lt;パス&gt;</code>（<a href="../../gui/open-file/">検索結果からファイルを開く</a>）。</li>
 </ul>
 <h2 id="テスト">テスト<a class="headerlink" href="#テスト" title="Permanent link">&para;</a></h2>

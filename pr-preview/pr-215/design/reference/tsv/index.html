@@ -4597,7 +4597,7 @@
 <td>path</td>
 <td>bool</td>
 <td>拡張子が対象のテキストの拡張子（<code>$textExtensions</code>。大文字・小文字を区別しない）か</td>
-<td>ingestFile, getContentIndexFileKind, describePlace, getAppKind, findTargetFiles（<code>$targetExtensions</code>）</td>
+<td>ingestFile, getContentIndexFileKind, describePlace, findTargetFiles（<code>$targetExtensions</code>）</td>
 </tr>
 <tr>
 <td><code>testTextOpenWithNotepad</code></td>
@@ -4735,7 +4735,7 @@
 <td>book</td>
 <td>string</td>
 <td>元のファイル名から種類（<code>Excel</code> / <code>Word</code> / <code>PowerPoint</code> / <code>テキスト</code> / <code>PDF</code>。分からなければ空）</td>
-<td>convertToContentIndexText, convertPlaceToContentIndexMeta, describePlace, getAppKind, searchContentIndexFiles（長い行を切るかの判定）, readContentIndexLines</td>
+<td>convertBookToContentIndexBlock, convertPlaceToContentIndexMeta, describePlace, toResultLine, addFileGroupLocation・ensureRows（getPlace に渡す値・ファイルの見出しの <code>AppKind</code>・検索結果の行の <code>IsExcel</code>）, testCellPrefixedPlace, searchContentIndexFiles（長い行を切るかの判定）, readContentIndexLines</td>
 </tr>
 <tr>
 <td><code>getContentIndexExtension</code> / <code>getContentIndexFileName</code> / <code>readContentIndexFileName</code></td>
@@ -4797,8 +4797,15 @@
 <td><code>testContentIndexCellPrefixed</code></td>
 <td>book, meta</td>
 <td>bool</td>
-<td>場所の行が「セル番地 + タブ + 文字」の形か（元のファイルが Excel で、対象が図形・コメント）</td>
+<td>場所の行が「セル番地 + タブ + 文字」の形か。メタ情報の <code>対象</code> を <code>testCellPrefixedPlace</code> に渡して返す</td>
 <td>readContentIndexPlaces</td>
+</tr>
+<tr>
+<td><code>testCellPrefixedPlace</code></td>
+<td>book, kind</td>
+<td>bool</td>
+<td>場所の行が「セル番地 + タブ + 文字」の形か（元のファイルが Excel で、場所の種類が図形・コメント。ふつうの場所の種類は空）。この判定はここだけにあり、検索結果の行（<code>HitRow.IsCellPrefixed</code>）も行を作るときにこれで決める</td>
+<td>testContentIndexCellPrefixed、検索結果の行を作る所（result_list.ps1）</td>
 </tr>
 <tr>
 <td><code>splitContentIndexTextByBook</code></td>
