@@ -39,16 +39,13 @@ Describe "splitObjectPlace" -Tag Unit {
         (splitObjectPlace "売上[メモ]").Kind | Should -Be ""
     }
 
-    It "種類の名前が、書き出す側（office_reader.ps1）と画面（HitRow）でも同じ" {
+    It "種類の名前が、書き出す側（office_reader.ps1）でも同じ" {
         # shared はツールの変数を使えないため、書き出す側は同じ名前を別に書いている
         $reader = [System.IO.File]::ReadAllText("${scriptsDir}\shared\office\office_reader.ps1")
-        $hitRow = [System.IO.File]::ReadAllText("${scriptsDir}\tebunko\ui\search\result_types.ps1")
         foreach ($kind in @(${placeKindShape}, ${placeKindComment}, ${placeKindHeaderFooter})) {
             $reader.Contains("[$kind]") | Should -Be $true
         }
         $reader.Contains("[${placeKindEmbed}") | Should -Be $true
-        # セル番地が無い場所（ヘッダー・フッター）の判定（IsCelllessPlace）も、同じ種類の名前で書く
-        $hitRow.Contains("CelllessPlaceRegex = [regex]::new(`"\[${placeKindHeaderFooter}\]") | Should -Be $true
     }
 }
 

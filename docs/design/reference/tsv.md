@@ -58,7 +58,7 @@
 
 | 関数 | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
-| `testTextExtension` | path | bool | 拡張子が対象のテキストの拡張子（`$textExtensions`。大文字・小文字を区別しない）か | ingestFile, getContentIndexFileKind, describePlace, getAppKind, findTargetFiles（`$targetExtensions`） |
+| `testTextExtension` | path | bool | 拡張子が対象のテキストの拡張子（`$textExtensions`。大文字・小文字を区別しない）か | ingestFile, getContentIndexFileKind, describePlace, findTargetFiles（`$targetExtensions`） |
 | `testTextOpenWithNotepad` | path | bool | 拡張子が、既定のアプリではなくメモ帳で開く拡張子（`$textNotepadExtensions`。開くと実行・登録になるもの。大文字・小文字を区別しない）か | openFoundSource（[元のファイルを開く](../gui/open-file.md)） |
 | `detectTextEncoding` | bytes | string / `$null` | バイト列だけから文字コード（`UTF8` / `UTF16LE` / `UTF16BE` / `ShiftJIS` / `EUCJP` / `ISO2022JP`）を判定する。判定できない・あいまいなものは `$null`（取り込まない） | readTextFile |
 | `detectJapaneseUtf16WithoutNul` | bytes | string / `$null` | NUL の無い BOM 無し UTF-16（日本語だけの文章）を、かなの割合と日本語の文章に出る文字の割合で判定する（`UTF16LE` / `UTF16BE`） | detectTextEncoding |
@@ -85,7 +85,7 @@
 
 | 関数 | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
-| `getContentIndexFileKind` | book | string | 元のファイル名から種類（`Excel` / `Word` / `PowerPoint` / `テキスト` / `PDF`。分からなければ空） | convertToContentIndexText, convertPlaceToContentIndexMeta, describePlace, getAppKind, searchContentIndexFiles（長い行を切るかの判定）, readContentIndexLines |
+| `getContentIndexFileKind` | book | string | 元のファイル名から種類（`Excel` / `Word` / `PowerPoint` / `テキスト` / `PDF`。分からなければ空） | convertBookToContentIndexBlock, convertPlaceToContentIndexMeta, describePlace, toResultLine, addFileGroupLocation・ensureRows（getPlace に渡す値・ファイルの見出しの `AppKind`・検索結果の行の `IsExcel`）, testCellPrefixedPlace, searchContentIndexFiles（長い行を切るかの判定）, readContentIndexLines |
 | `getContentIndexExtension` / `getContentIndexFileName` / `readContentIndexFileName` | book / extension, part / name | string / `@{Extension; Part}` | 本文インデックスを分ける拡張子（小文字・`.` なし） / 本文インデックスのファイルの名前（`content_index.<拡張子>.<番号>.tsv`） / 名前から拡張子と番号を取り出す | convertFolderToContentIndex, getIndexTsvCounts |
 | `splitContentIndexBooksByExtension` | books | [ordered] 拡張子 → 並び | 元のファイルの並びを拡張子ごとに分ける（各並びの中の順は変えない） | convertFolderToContentIndex |
 | `encodeContentIndexValue` / `decodeContentIndexValue` | value | string | メタ情報の値の制御文字（タブを除く）と `%` を `%XX` にする / 戻す | convertToContentIndexText, readContentIndexPlaces |
@@ -94,7 +94,8 @@
 | `convertToContentIndexBody` | text | string | TSV の中身を本文インデックスに入れる形にする（改行を LF に、末尾に LF、U+001C〜U+001F を除く） | convertToContentIndexText |
 | `convertToContentIndexText` | books | string | 元のファイルの並び（TSV から新しく作るもの、または前の本文インデックスから写すまとまり）から、本文インデックスの文字列を作る | convertFolderToContentIndex |
 | `readContentIndexPlaces` | text | `@{Book; Location; CellPrefixed; Start; End}` の並び | 本文インデックスの文字列から、場所ごとの元のファイル名・場所の名前・行の先頭がセル番地か（`CellPrefixed`。Excel の図形・コメントが `$true`。`testContentIndexCellPrefixed`）・中身の範囲を先頭から順に返す。版が違えば例外 | 検索（searchContentIndexFiles）、readContentIndexLines |
-| `testContentIndexCellPrefixed` | book, meta | bool | 場所の行が「セル番地 + タブ + 文字」の形か（元のファイルが Excel で、対象が図形・コメント） | readContentIndexPlaces |
+| `testContentIndexCellPrefixed` | book, meta | bool | 場所の行が「セル番地 + タブ + 文字」の形か。メタ情報の `対象` を `testCellPrefixedPlace` に渡して返す | readContentIndexPlaces |
+| `testCellPrefixedPlace` | book, kind | bool | 場所の行が「セル番地 + タブ + 文字」の形か（元のファイルが Excel で、場所の種類が図形・コメント。ふつうの場所の種類は空）。この判定はここだけにあり、検索結果の行（`HitRow.IsCellPrefixed`）も行を作るときにこれで決める | testContentIndexCellPrefixed、検索結果の行を作る所（result_list.ps1） |
 | `splitContentIndexTextByBook` | text | `@{Name; Block}` の並び | 本文インデックスの文字列を元のファイルごとのまとまりに分ける（入れ替えない元のファイルをそのまま写すため）。版が違えば例外 | convertFolderToContentIndex |
 | `getContentIndexBodyText` | text | string | メタ情報の行を除いた中身（システムインデックスの語を作るため） | writeSystemIndexFolder |
 

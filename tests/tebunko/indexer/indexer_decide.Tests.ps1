@@ -99,7 +99,9 @@ Describe "getIngestLane・getOfficeLane" -Tag Unit {
             # テキストの拡張子は、どの分岐にも当たらないため既定の読み取りのレーンになる
             @("a.txt", ${laneReader}), @("a.log", ${laneReader}),
             # PDF も Office を使わずに読むため、読み取りのレーン
-            @("a.pdf", ${laneReader}), @("営業\B.PDF", ${laneReader})
+            @("a.pdf", ${laneReader}), @("営業\B.PDF", ${laneReader}),
+            # 表（取り込みの対象の拡張子）に無い拡張子は Office とみなさず、読み取りのレーン
+            @("a.xlsxyz", ${laneReader}), @("a.xlsa", ${laneReader}), @("a.docz", ${laneReader}), @("a.pptz", ${laneReader}), @("a.xlsx.bak", ${laneReader}), @("", ${laneReader})
         )
         foreach ($case in $expected) {
             getIngestLane $case[0] | Should -Be $case[1]
@@ -109,6 +111,9 @@ Describe "getIngestLane・getOfficeLane" -Tag Unit {
     It "読み取りのレーンから回し直すときは、PowerPoint のファイルは PowerPoint、それ以外は Word のレーン" {
         getOfficeLane "a.pptx" | Should -Be ${lanePowerPoint}
         getOfficeLane "A.PPTM" | Should -Be ${lanePowerPoint}
+        getOfficeLane "a.ppt" | Should -Be ${lanePowerPoint}
+        # 表に無い拡張子は PowerPoint ではないため、Word のレーン
+        getOfficeLane "a.pptz" | Should -Be ${laneWord}
         getOfficeLane "a.docx" | Should -Be ${laneWord}
         getOfficeLane "a.docm" | Should -Be ${laneWord}
     }

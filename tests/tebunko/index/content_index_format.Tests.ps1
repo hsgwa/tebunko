@@ -38,6 +38,32 @@ Describe "convertPlaceToContentIndexMeta / convertContentIndexMetaToPlace" -Tag 
         }
     }
 
+    It "<Book> の種類は「<Kind>」（拡張子の大文字小文字は区別しない）" -ForEach @(
+        @{ Book = "見積.xlsx"; Kind = "Excel" }
+        @{ Book = "見積.xls"; Kind = "Excel" }
+        @{ Book = "見積.xlsm"; Kind = "Excel" }
+        @{ Book = "見積.xlsb"; Kind = "Excel" }
+        @{ Book = "見積.XLSX"; Kind = "Excel" }
+        @{ Book = "見積.XLS"; Kind = "Excel" }
+        @{ Book = "議事録.docx"; Kind = "Word" }
+        @{ Book = "報告書.doc"; Kind = "Word" }
+        @{ Book = "議事録.docm"; Kind = "Word" }
+        @{ Book = "提案.pptx"; Kind = "PowerPoint" }
+        @{ Book = "提案.pptm"; Kind = "PowerPoint" }
+        @{ Book = "提案.ppt"; Kind = "PowerPoint" }
+        @{ Book = "議事メモ.txt"; Kind = "テキスト" }
+        @{ Book = "資料.PDF"; Kind = "PDF" }
+        @{ Book = "資料.zip"; Kind = "" }
+        @{ Book = "見積.xlsxyz"; Kind = "" }
+        @{ Book = "見積.xlsa"; Kind = "" }
+        @{ Book = "報告書.docz"; Kind = "" }
+        @{ Book = "見積.xlsx.bak"; Kind = "" }
+        @{ Book = "xls"; Kind = "" }
+        @{ Book = ""; Kind = "" }
+    ) {
+        getContentIndexFileKind $Book | Should -BeExactly $Kind
+    }
+
     It "種類の分からないファイルは、部分に場所の名前を持つ" {
         getContentIndexFileKind "メモ.zip" | Should -Be ""
         $meta = convertPlaceToContentIndexMeta "メモ.zip" "本文[図形]"
@@ -230,5 +256,25 @@ Describe "convertToContentIndexText / readContentIndexPlaces" -Tag Unit {
         $places = readContentIndexPlaces "$mark 版=1`n$mark ファイル名=a.xlsx`n$mark シート=S`n$mark 対象=ヘッダー・フッター`n中央`n"
         $places.Count | Should -Be 1
         $places[0].Location | Should -Be "S[ヘッダー・フッター]"
+    }
+}
+
+Describe "testCellPrefixedPlace" -Tag Unit {
+    # 種類の名前は index_name.ps1 の変数から取る（表は収集時に作るため、変数の名前で持ち、実行時に引く）
+    It "<Book> の種類（<KindVar>）の場所は、行の先頭がセル番地か = <Expected>" -ForEach @(
+        @{ Book = "a.xlsx"; KindVar = "placeKindShape"; Expected = $true }
+        @{ Book = "a.xlsx"; KindVar = "placeKindComment"; Expected = $true }
+        @{ Book = "a.XLS"; KindVar = "placeKindShape"; Expected = $true }
+        @{ Book = "a.xlsm"; KindVar = "placeKindComment"; Expected = $true }
+        @{ Book = "a.xlsx"; KindVar = "placeKindHeaderFooter"; Expected = $false }
+        @{ Book = "a.xlsx"; KindVar = "placeKindEmbed"; Expected = $false }
+        @{ Book = "a.xlsx"; KindVar = ""; Expected = $false }
+        @{ Book = "a.docx"; KindVar = "placeKindShape"; Expected = $false }
+        @{ Book = "a.docx"; KindVar = "placeKindComment"; Expected = $false }
+        @{ Book = "a.pptx"; KindVar = "placeKindShape"; Expected = $false }
+        @{ Book = "a.pptx"; KindVar = "placeKindComment"; Expected = $false }
+    ) {
+        $kind = if ($KindVar) { Get-Variable -Name $KindVar -ValueOnly } else { "" }
+        testCellPrefixedPlace $Book $kind | Should -Be $Expected
     }
 }

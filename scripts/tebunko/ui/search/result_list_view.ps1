@@ -56,31 +56,6 @@ function getFilteredSummaryText {
     return "一致 $($hits.ToString('N0')) 件中 $($shown.ToString('N0')) 件を表示"
 }
 
-function getAppKind {
-    # 元のファイル名の拡張子から、アプリの種類（Excel / Word / PowerPoint / テキスト / PDF。どれでもなければ空）を返す
-    param (
-        [string]$book
-    )
-
-    $extension = [System.IO.Path]::GetExtension($book).ToLowerInvariant()
-    if ($extension -match '^\.xls') {
-        return "Excel"
-    }
-    if ($extension -match '^\.doc') {
-        return "Word"
-    }
-    if ($extension -match '^\.ppt') {
-        return "PowerPoint"
-    }
-    if (testTextExtension $book) {
-        return "テキスト"
-    }
-    if (testPdfExtension $book) {
-        return "PDF"
-    }
-    return ""
-}
-
 function describeFileLocations {
     # ファイルの中でヒットした場所（見つかった順・重複なし）を、見出しの右端に出す文字列にする。
     # 1 か所ならその場所、2 か所以上なら「[シート]4月 ほか 2 か所」（場所の表記は describePlace）

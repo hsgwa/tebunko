@@ -69,7 +69,8 @@ flowchart TD
 | `$utf8Bom` | BOM 付き UTF-8 の `System.Text.Encoding` | `shared/core/paths.ps1` |
 | `$cellNewLine` | インデックス TSV でセル内改行の代わりに使う文字（U+2028 LINE SEPARATOR） | `shared/core/text.ps1` |
 | `$maxFileNameLength` | ファイル名 1 つの長さの上限（255） | `shared/core/fs.ps1` |
-| `$officeExtensions` | 取り込み対象の拡張子（`.xlsx` `.xlsm` `.xls` `.xlsb` `.docx` `.docm` `.doc` `.pptx` `.pptm` `.ppt`） | `shared/office/office_files.ps1` |
+| `$officeFileKinds` | 取り込み対象の拡張子（`.xlsx` `.xlsm` `.xls` `.xlsb` `.docx` `.docm` `.doc` `.pptx` `.pptm` `.ppt`）と、その種類（Excel・Word・PowerPoint）の表。拡張子と種類の対応はここだけにある | `shared/office/office_file_kind_view.ps1` |
+| `$officeExtensions` | 取り込み対象の拡張子（`$officeFileKinds` の拡張子） | `shared/office/office_file_kind_view.ps1` |
 | `$pdfExtensions` | 取り込み対象の PDF の拡張子（`.pdf`） | `shared/core/pdf_file.ps1` |
 | `$officeProcessNames` | 強制終了の対象のプロセス名 → 表示名（`EXCEL` → `Excel`、`WINWORD` → `Word`、`POWERPNT` → `PowerPoint`） | `shared/office/office_process.ps1` |
 | `$workspace` | 今のワークスペース（`Workspace`。下の「ワークスペースの中の場所」）。設定 `workspaceFolder` から決める（`getWorkDir`） | `tebunko/core/paths.ps1` |

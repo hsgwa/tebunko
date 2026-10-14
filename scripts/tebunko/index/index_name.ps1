@@ -414,7 +414,7 @@ function describePlace {
     $kind = $split.Kind
     if ($split.Number -gt 0) { $kind = "$kind $($split.Number)" }
 
-    if ($book -match '\.xls[a-z]?$') {
+    if ((getContentIndexFileKind $book) -eq "Excel") {
         return @{ Place = "[シート]$base"; Kind = $(if ($kind) { $kind } else { "セル" }) }
     }
     if ($base -eq "") {
@@ -467,4 +467,5 @@ function describeHitPlace {
 
 
 # インデックスの「元のファイル名のフォルダ」と分かる名前（Office・テキスト・PDF の拡張子で終わる）
-${indexBookDirPattern} = "\.(?:xls|doc|ppt)[a-z]?$|(?:$(((${textExtensions} + ${pdfExtensions}) | ForEach-Object { [regex]::Escape($_) }) -join '|'))$"
+# （testIndexBookName もこの正規表現で判定する。Office の拡張子は officeExtensions の表から作る）
+${indexBookDirPattern} = "(?:$(((${officeExtensions} + ${textExtensions} + ${pdfExtensions}) | ForEach-Object { [regex]::Escape($_) }) -join '|'))$"
