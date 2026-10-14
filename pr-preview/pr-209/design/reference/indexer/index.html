@@ -5020,6 +5020,14 @@
 </thead>
 <tbody>
 <tr>
+<td><code>getIndexTsvFilesNoFollow</code></td>
+<td>indexDir</td>
+<td>FileInfo の配列</td>
+<td>インデックスのフォルダの下の <code>.tsv</code> を、リンクのフォルダへ降りずに集める（<code>getFilesNoFollow</code>）。置き場の中にリンクがあっても、先のファイルは zip に入れず、親を指すリンク（輪）でも止まらない。最後まで読めなかったときは <code>インデックスのフォルダを最後まで読めませんでした</code> の例外</td>
+<td>同上</td>
+<td><code>exportIndex</code>・<code>getIndexExportSize</code></td>
+</tr>
+<tr>
 <td><code>exportIndex</code></td>
 <td>name, destPath, ws（既定 <code>$workspace</code>）, settingsPath（既定 <code>$settingsFile</code>）</td>
 <td><code>@{Name; Path; Files; Bytes}</code></td>

@@ -4427,6 +4427,14 @@
 <td><code>removeTreeNoFollow</code></td>
 </tr>
 <tr>
+<td><code>getFilesNoFollow</code></td>
+<td>root, -IncludeHidden, -SkipUnknown</td>
+<td><code>@{ Files; Directories; Links; HasError; Reason }</code></td>
+<td>root の下のファイル・フォルダを、リンクのフォルダへ降りずに集める（<code>Get-ChildItem -Recurse</code>・<code>AllDirectories</code> の代わり）。ジャンクション・シンボリックリンクは <code>Links</code> に入れ、中へ降りない（リンクの先のファイルは <code>Files</code> に入らない）。root そのものはリンクかどうか見ず、先の中を集める。Hidden は、既定では除く（<code>-IncludeHidden</code> で含める。System だけのものは入れる）。並びは <code>Get-ChildItem -Recurse</code> と同じ（フォルダごとに、その中身を並べてから、サブフォルダの下へ進む）。<code>getLinkKind</code> が <code>Unknown</code> のフォルダ（OneDrive のオンデマンドのフォルダなど）は、既定では降り、<code>-SkipUnknown</code> を付けると降りずに <code>Links</code> に入れる。読めないフォルダがあっても例外にせず <code>HasError</code> を <code>$true</code>・<code>Reason</code> にして、読めたところを返す</td>
+<td><a href="../../../safety/file-access/">ファイルの読み書きの範囲</a></td>
+<td><code>findTargetFiles</code>・<code>setNotContentIndexed -Recurse</code>・<code>getIndexTsvFilesNoFollow</code></td>
+</tr>
+<tr>
 <td><code>getLinkKind</code></td>
 <td>item（Get-Item・Get-ChildItem などが返すもの）</td>
 <td>string</td>
