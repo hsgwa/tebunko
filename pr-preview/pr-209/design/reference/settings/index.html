@@ -3999,10 +3999,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#ファイルとフォルダsharedcorefsps1folderps1sharedofficeoffice_filesps1" class="md-nav__link">
+  <a href="#ファイルとフォルダsharedcorefsps1folderps1sharedofficeoffice_file_kind_viewps1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        ファイルとフォルダ（shared/core/fs.ps1・folder.ps1・shared/office/office_files.ps1）
+        ファイルとフォルダ（shared/core/fs.ps1・folder.ps1・shared/office/office_file_kind_view.ps1）
       
     </span>
   </a>
@@ -4210,10 +4210,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#ファイルとフォルダsharedcorefsps1folderps1sharedofficeoffice_filesps1" class="md-nav__link">
+  <a href="#ファイルとフォルダsharedcorefsps1folderps1sharedofficeoffice_file_kind_viewps1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        ファイルとフォルダ（shared/core/fs.ps1・folder.ps1・shared/office/office_files.ps1）
+        ファイルとフォルダ（shared/core/fs.ps1・folder.ps1・shared/office/office_file_kind_view.ps1）
       
     </span>
   </a>
@@ -4252,7 +4252,7 @@
 
 
 <h1 id="部品ごとの関数設定ファイル">部品ごとの関数（設定・ファイル）<a class="headerlink" href="#部品ごとの関数設定ファイル" title="Permanent link">&para;</a></h1>
-<p>扱うこと: 設定ファイル（<code>tebunko/core/settings.ps1</code>）、検索対象でチェックを外したフォルダ（<code>search_excludes.ps1</code>）、ワークスペース（<code>workspace.ps1</code>）とその切り替え（<code>workspace_mover.ps1</code>）、ファイル・フォルダ操作（<code>shared/core/fs.ps1</code>・<code>folder.ps1</code>・<code>office_files.ps1</code>）の関数一覧（入力・出力・概要・使用元）。扱わないこと: 取り込み一覧・インデックスの管理（<a href="../indexer/">部品ごとの関数（インデックス作成）</a>）。先に読むページ: <a href="../">部品から関数一覧を引く</a>。</p>
+<p>扱うこと: 設定ファイル（<code>tebunko/core/settings.ps1</code>）、検索対象でチェックを外したフォルダ（<code>search_excludes.ps1</code>）、ワークスペース（<code>workspace.ps1</code>）とその切り替え（<code>workspace_mover.ps1</code>）、ファイル・フォルダ操作（<code>shared/core/fs.ps1</code>・<code>folder.ps1</code>・<code>office_file_kind_view.ps1</code>）の関数一覧（入力・出力・概要・使用元）。扱わないこと: 取り込み一覧・インデックスの管理（<a href="../indexer/">部品ごとの関数（インデックス作成）</a>）。先に読むページ: <a href="../">部品から関数一覧を引く</a>。</p>
 <h2 id="設定ファイルtebunkocoresettingsps1source_nameps1">設定ファイル（<code>tebunko/core/settings.ps1</code>・<code>source_name.ps1</code>）<a class="headerlink" href="#設定ファイルtebunkocoresettingsps1source_nameps1" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4700,7 +4700,7 @@
 </tr>
 </tbody>
 </table>
-<h2 id="ファイルとフォルダsharedcorefsps1folderps1sharedofficeoffice_filesps1">ファイルとフォルダ（<code>shared/core/fs.ps1</code>・<code>folder.ps1</code>・<code>shared/office/office_files.ps1</code>）<a class="headerlink" href="#ファイルとフォルダsharedcorefsps1folderps1sharedofficeoffice_filesps1" title="Permanent link">&para;</a></h2>
+<h2 id="ファイルとフォルダsharedcorefsps1folderps1sharedofficeoffice_file_kind_viewps1">ファイルとフォルダ（<code>shared/core/fs.ps1</code>・<code>folder.ps1</code>・<code>shared/office/office_file_kind_view.ps1</code>）<a class="headerlink" href="#ファイルとフォルダsharedcorefsps1folderps1sharedofficeoffice_file_kind_viewps1" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
@@ -4719,7 +4719,15 @@
 <td>string（<code>Excel</code> / <code>Word</code> / <code>PowerPoint</code>。表に無ければ空）</td>
 <td>ファイル名・パスの拡張子から Office の種類を返す。拡張子と種類の表（<code>$officeFileKinds</code>。<code>$officeExtensions</code> はこの表の拡張子）だけを見る（表に無い <code>.xlsxyz</code>・<code>.xlsa</code> などは空。大文字・小文字は区別しない）。どのツールからも使うため <code>shared/</code> に置く</td>
 <td>–</td>
-<td>getAppName, getContentIndexFileKind, getIngestLane, getOfficeOpenKind, getFileKindExtensions</td>
+<td>getAppName, getContentIndexFileKind, getIngestLane, getOfficeLane, getOfficeOpenKind</td>
+</tr>
+<tr>
+<td><code>getOfficeExtensionsOfKind</code></td>
+<td>kind</td>
+<td>string[]</td>
+<td>種類（<code>Excel</code> / <code>Word</code> / <code>PowerPoint</code>）の拡張子を、表（<code>$officeFileKinds</code>）の並びで返す。表に無い種類は空</td>
+<td>–</td>
+<td>getFileKindExtensions</td>
 </tr>
 <tr>
 <td><code>readListFile</code></td>
