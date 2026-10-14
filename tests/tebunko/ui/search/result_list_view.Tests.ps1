@@ -60,28 +60,6 @@ Describe "getFilteredSummaryText" -Tag Unit {
     }
 }
 
-Describe "getAppKind" -Tag Unit {
-    It "拡張子からアプリの種類を返す（大文字・小文字は問わない）" {
-        getAppKind "見積.xlsx" | Should -Be "Excel"
-        getAppKind "古い見積.XLS" | Should -Be "Excel"
-        getAppKind "マクロ.xlsm" | Should -Be "Excel"
-        getAppKind "報告書.docx" | Should -Be "Word"
-        getAppKind "報告書.doc" | Should -Be "Word"
-        getAppKind "提案.pptx" | Should -Be "PowerPoint"
-        getAppKind "議事メモ.txt" | Should -Be "テキスト"
-    }
-
-    It "PDF は PDF" {
-        getAppKind "資料.pdf" | Should -Be "PDF"
-        getAppKind "資料.PDF" | Should -Be "PDF"
-    }
-
-    It "Office・テキスト・PDF のファイルでなければ空" {
-        getAppKind "資料.zip" | Should -Be ""
-        getAppKind "" | Should -Be ""
-    }
-}
-
 Describe "describeFileLocations" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "場所が無ければ空"; locations = @(); expected = "" }

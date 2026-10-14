@@ -3,18 +3,13 @@
 # 画面（ui\index_tree.ps1・ui\index\index_types.ps1 の IndexNode）は、この結果を受け取って組み立てるだけにする。
 
 function testIndexBookName {
-    # 元のファイルごとのフォルダと分かる拡張子か。Office は拡張子の形（.xls・.doc・.ppt で始まり 4～5 文字）で見分け、
-    # テキストは対象の拡張子の一覧（shared\core\text_file.ps1 の testTextExtension。一覧はそこにだけある）で見分ける
+    # 元のファイルごとのフォルダと分かる拡張子か。Office・テキスト・PDF の対象の拡張子の一覧で見分ける
+    # （一覧は indexBookDirPattern の 1 つ。Office は shared\office\office_files.ps1、テキストは shared\core\text_file.ps1 の表にだけある）
     param (
         [string]$name
     )
 
-    $ext = [System.IO.Path]::GetExtension($name).ToLowerInvariant()
-    if ($ext.Length -ge 4 -and $ext.Length -le 5 -and
-        ($ext.StartsWith(".xls") -or $ext.StartsWith(".doc") -or $ext.StartsWith(".ppt"))) {
-        return $true
-    }
-    return ((testTextExtension $name) -or (testPdfExtension $name))
+    return ($name -match ${indexBookDirPattern})
 }
 
 function testIndexBookDirPath {

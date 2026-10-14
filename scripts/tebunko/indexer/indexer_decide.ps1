@@ -103,11 +103,12 @@ function getIngestLane {
         [string]$relPath
     )
 
-    switch -Regex ([System.IO.Path]::GetExtension($relPath).ToLowerInvariant()) {
-        "^\.xls"   { return ${laneExcel} }
-        "^\.doc$"  { return ${laneWord} }
-        "^\.ppt$"  { return ${lanePowerPoint} }
-    }
+    # 種類は getOfficeFileKind（取り込みの対象の拡張子の表）で決め、旧形式かどうかだけをここで見る
+    $kind = getOfficeFileKind $relPath
+    if ($kind -eq "Excel") { return ${laneExcel} }
+    $extension = [System.IO.Path]::GetExtension($relPath).ToLowerInvariant()
+    if ($kind -eq "Word" -and $extension -eq ".doc") { return ${laneWord} }
+    if ($kind -eq "PowerPoint" -and $extension -eq ".ppt") { return ${lanePowerPoint} }
     return ${laneReader}
 }
 

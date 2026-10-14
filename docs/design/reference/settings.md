@@ -87,6 +87,7 @@
 
 | 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |
 |---|---|---|---|---|---|
+| `getOfficeFileKind` | name | string（`Excel` / `Word` / `PowerPoint`。表に無ければ空） | ファイル名・パスの拡張子から Office の種類を返す。拡張子と種類の表（`$officeFileKinds`。`$officeExtensions` はこの表の拡張子）だけを見る（表に無い `.xlsxyz`・`.xlsa` などは空。大文字・小文字は区別しない）。どのツールからも使うため `shared/` に置く | – | getAppName, getContentIndexFileKind, getIngestLane, getOfficeOpenKind, getFileKindExtensions |
 | `readListFile` | path | string[] | 行ファイルの空行以外の行（Trim しない）。無ければ空配列。読めなければ例外（空の一覧と取り違えない） | – | 取り込み中のファイル・元のフォルダの記録 など |
 | `writeListFile` | path, lines | – | 行ファイルを UTF-8（BOM 付き）で保存 | – | 同上 |
 | `writeTextLinesAtomic` | path, lines, encoding（既定は BOM 付き UTF-8） | – | 一時ファイルに書いてから置き換える（置き換えられなければ少し待って 5 回まで試す） | – | writeStatusFile, renameStatusIndexName など |

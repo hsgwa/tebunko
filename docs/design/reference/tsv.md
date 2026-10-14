@@ -57,7 +57,7 @@
 
 | 関数 | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
-| `testTextExtension` | path | bool | 拡張子が対象のテキストの拡張子（`$textExtensions`。大文字・小文字を区別しない）か | ingestFile, getContentIndexFileKind, describePlace, getAppKind, findTargetFiles（`$targetExtensions`） |
+| `testTextExtension` | path | bool | 拡張子が対象のテキストの拡張子（`$textExtensions`。大文字・小文字を区別しない）か | ingestFile, getContentIndexFileKind, describePlace, findTargetFiles（`$targetExtensions`） |
 | `testTextOpenWithNotepad` | path | bool | 拡張子が、既定のアプリではなくメモ帳で開く拡張子（`$textNotepadExtensions`。開くと実行・登録になるもの。大文字・小文字を区別しない）か | openFoundSource（[元のファイルを開く](../gui/open-file.md)） |
 | `detectTextEncoding` | bytes | string / `$null` | バイト列だけから文字コード（`UTF8` / `UTF16LE` / `UTF16BE` / `ShiftJIS` / `EUCJP` / `ISO2022JP`）を判定する。判定できない・あいまいなものは `$null`（取り込まない） | readTextFile |
 | `detectJapaneseUtf16WithoutNul` | bytes | string / `$null` | NUL の無い BOM 無し UTF-16（日本語だけの文章）を、かなの割合と日本語の文章に出る文字の割合で判定する（`UTF16LE` / `UTF16BE`） | detectTextEncoding |
@@ -84,7 +84,7 @@
 
 | 関数 | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
-| `getContentIndexFileKind` | book | string | 元のファイル名から種類（`Excel` / `Word` / `PowerPoint` / `テキスト` / `PDF`。分からなければ空） | convertToContentIndexText, convertPlaceToContentIndexMeta, describePlace, toResultLine, addFileGroupLocation・ensureRows（getPlace に渡す値・検索結果の行の `IsExcel`）, testCellPrefixedPlace, searchContentIndexFiles（長い行を切るかの判定）, readContentIndexLines |
+| `getContentIndexFileKind` | book | string | 元のファイル名から種類（`Excel` / `Word` / `PowerPoint` / `テキスト` / `PDF`。分からなければ空） | convertBookToContentIndexBlock, convertPlaceToContentIndexMeta, describePlace, toResultLine, addFileGroupLocation・ensureRows（getPlace に渡す値・ファイルの見出しの `AppKind`・検索結果の行の `IsExcel`）, testCellPrefixedPlace, searchContentIndexFiles（長い行を切るかの判定）, readContentIndexLines |
 | `getContentIndexExtension` / `getContentIndexFileName` / `readContentIndexFileName` | book / extension, part / name | string / `@{Extension; Part}` | 本文インデックスを分ける拡張子（小文字・`.` なし） / 本文インデックスのファイルの名前（`content_index.<拡張子>.<番号>.tsv`） / 名前から拡張子と番号を取り出す | convertFolderToContentIndex, getIndexTsvCounts |
 | `splitContentIndexBooksByExtension` | books | [ordered] 拡張子 → 並び | 元のファイルの並びを拡張子ごとに分ける（各並びの中の順は変えない） | convertFolderToContentIndex |
 | `encodeContentIndexValue` / `decodeContentIndexValue` | value | string | メタ情報の値の制御文字（タブを除く）と `%` を `%XX` にする / 戻す | convertToContentIndexText, readContentIndexPlaces |

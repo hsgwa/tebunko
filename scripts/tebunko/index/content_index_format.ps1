@@ -35,9 +35,8 @@ function getContentIndexFileKind {
         [string]$book
     )
 
-    if ($book -match '\.xls[a-z]?$') { return "Excel" }
-    if ($book -match '\.doc[a-z]?$') { return "Word" }
-    if ($book -match '\.ppt[a-z]?$') { return "PowerPoint" }
+    $officeKind = getOfficeFileKind $book
+    if ($officeKind) { return $officeKind }
     if (testTextExtension $book) { return "テキスト" }
     if (testPdfExtension $book) { return "PDF" }
     return ""

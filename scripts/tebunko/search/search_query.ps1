@@ -174,9 +174,9 @@ function getFileKindExtensions {
     )
 
     switch ($kind) {
-        "excel" { return @(${officeExtensions} | Where-Object { $_ -like ".xl*" }) }
-        "word" { return @(${officeExtensions} | Where-Object { $_ -like ".do*" }) }
-        "powerpoint" { return @(${officeExtensions} | Where-Object { $_ -like ".pp*" }) }
+        "excel" { return @(${officeExtensions} | Where-Object { (getOfficeFileKind $_) -eq "Excel" }) }
+        "word" { return @(${officeExtensions} | Where-Object { (getOfficeFileKind $_) -eq "Word" }) }
+        "powerpoint" { return @(${officeExtensions} | Where-Object { (getOfficeFileKind $_) -eq "PowerPoint" }) }
         "text" { return @(${textExtensions}) }
         "pdf" { return @(${pdfExtensions}) }
     }

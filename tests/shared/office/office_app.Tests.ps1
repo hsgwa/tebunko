@@ -635,6 +635,12 @@ Describe "getAppName" -Tag Unit {
         getAppName "a.pptm" | Should -Be "PowerPoint"
         getAppName "a.txt" | Should -Be $null
     }
+
+    It "表（officeFileKinds）に無い拡張子は Office とみなさない" -ForEach @(
+        @{ path = "a.xlsxyz" }, @{ path = "a.xlsa" }, @{ path = "a.docz" }, @{ path = "a.pptz" }, @{ path = "a.xlsx.bak" }, @{ path = "" }
+    ) {
+        getAppName $path | Should -Be $null
+    }
 }
 
 Describe "getApp（起動したプロセスの優先度）" -Tag Unit {

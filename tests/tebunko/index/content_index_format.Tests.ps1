@@ -46,7 +46,14 @@ Describe "convertPlaceToContentIndexMeta / convertContentIndexMetaToPlace" -Tag 
         @{ Book = "見積.XLSX"; Kind = "Excel" }
         @{ Book = "見積.XLS"; Kind = "Excel" }
         @{ Book = "議事録.docx"; Kind = "Word" }
+        @{ Book = "報告書.doc"; Kind = "Word" }
         @{ Book = "提案.pptx"; Kind = "PowerPoint" }
+        @{ Book = "議事メモ.txt"; Kind = "テキスト" }
+        @{ Book = "資料.PDF"; Kind = "PDF" }
+        @{ Book = "資料.zip"; Kind = "" }
+        @{ Book = "見積.xlsxyz"; Kind = "" }
+        @{ Book = "見積.xlsa"; Kind = "" }
+        @{ Book = "報告書.docz"; Kind = "" }
         @{ Book = "見積.xlsx.bak"; Kind = "" }
         @{ Book = "xls"; Kind = "" }
         @{ Book = ""; Kind = "" }

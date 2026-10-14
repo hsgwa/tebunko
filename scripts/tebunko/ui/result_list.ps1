@@ -55,7 +55,7 @@ function newFileGroup {
     $group.Book = $book
     $group.RelDir = $relDir
     $group.FullPath = $key
-    $group.AppKind = getAppKind $book
+    $group.AppKind = getContentIndexFileKind $book
     $group.IsExpanded = $script:expandNew
     $script:fileGroups[$key] = $group
     $script:groupList.Add($group)

@@ -17,6 +17,11 @@ Describe "testIndexBookName" -Tag Unit {
         @{ name = "app.py"; expected = $true }
         @{ name = "a.xlsxx"; expected = $false }
         @{ name = "a.xl"; expected = $false }
+        @{ name = "a.xlsa"; expected = $false }
+        @{ name = "a.docz"; expected = $false }
+        @{ name = "a.pptz"; expected = $false }
+        @{ name = "a.xlsx.bak"; expected = $false }
+        @{ name = ""; expected = $false }
         @{ name = "a.pdf"; expected = $true }
         @{ name = "a.PDF"; expected = $true }
         @{ name = "a.pdfx"; expected = $false }
