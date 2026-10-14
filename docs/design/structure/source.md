@@ -32,7 +32,7 @@
 
 | 層 | 例 | テスト |
 |---|---|---|
-| 判断層（入力は素の値、出力は素の値） | `text.ps1`・`index_name.ps1`・`source_name.ps1`・`content_index_format.ps1`・`search_query.ps1`・`search_gram.ps1`・`indexer_decide.ps1`・`*_view.ps1`（`tebunko/ui/` の画面の判断層のほか、`shared/office/office_protection_view.ps1` のように `ui/` の外にも置く。テスト（`layers.Tests.ps1`）とカバレッジは名前で拾うため、置き場所によらず判断層として扱われる） | する（主にタグ `Unit`） |
+| 判断層（入力は素の値、出力は素の値） | `text.ps1`・`index_name.ps1`・`source_name.ps1`・`content_index_format.ps1`・`search_query.ps1`・`search_gram.ps1`・`indexer_decide.ps1`・`*_view.ps1`（一覧は `tests/helpers/layer_paths.ps1`。`tebunko/ui/` の画面の判断層のほか、`shared/office/office_protection_view.ps1` のように `ui/` の外にも置く。テスト（`layers.Tests.ps1`）とカバレッジは名前で拾うため、置き場所によらず判断層として扱われる） | する（主にタグ `Unit`） |
 | 状態層（ファイル・COM を読み書きする） | `status_file.ps1`・`indexer_state.ps1`・`index_store.ps1`・`index_catalog.ps1`・`workspace_mover.ps1`・`search_excludes.ps1`・`content_index_store.ps1`・`content_index_search.ps1`・`search_run.ps1`・`system_index.ps1`・`fast_search.ps1`・`windows_search.ps1`・`version.ps1` | する（主にタグ `Io`。`$TestDrive` を使う） |
 | 画面層（`$ui` を触る） | `gui.ps1`・`*_tab.ps1`・`shell.ps1`・`app_host.ps1`・`folder_dialog.ps1`、`result_list.ps1`・`open_source.ps1`・`preview.ps1`・`index_tree.ps1` | `gui.ps1`・`*_tab.ps1`・`shell.ps1`・`app_host.ps1`・`*_dialog.ps1` は手で確かめる（カバレッジの対象外）。ほかは `$ui` を偽物にしてテストする |
 
@@ -105,6 +105,10 @@ flowchart LR
 - 状態層の中で、下のフォルダが上のフォルダの関数・変数を使う依存。`tebunko/core/workspace.ps1` から `tebunko/index/system_index.ps1`、`tebunko/index/` から `tebunko/search/`（gram の関数・情報源フォルダのファイルの読み書き・ヒット行の切り詰め）、`tebunko/indexer/` から `tebunko/search/` への依存が残る。どれも、下のフォルダへ関数を移すと消える。
 - `shared/` が `tebunko/` の関数・変数を使う依存。決めた形ではない今ある依存。
 - 判断層（`search_bar_view.ps1`）が、共有の画面層の `formatTime` を呼ぶ依存。
+- 判断層のファイルが、判断層でない状態層（ファイル・COM を読み書きする層）の関数・変数・クラスを使う依存。例外の行に種類を付ける。
+  - `境界`: 判断層が状態層の関数に判定を任せる形。`tests/tebunko/ui/layer_boundary.Tests.ps1` の `Mock` の対象に出る関数だけが、この種類にできる（出ていなければテストが失敗にする）。
+  - `移すと消える`: ファイル・COM に触らない値や関数（拡張子の一覧・状態の名前・フォルダ名の組み立てなど）が状態層のファイルにある。判断層のファイルへ移すと消える。
+- 画面の判断層（`result_list_view.ps1`）が、画面層のクラス（`FileGroup`・`HitRow`）を型として使う依存と、`tebunko/index/` が `tebunko/indexer/` のクラス（`StatusLedger`）を型として使う依存。
 
 例外の一覧に残っている依存を、フォルダ単位で並べると次のとおり（点線の矢印が、決めた向きに反する今の依存。括弧は一覧の行の数）。
 
@@ -134,7 +138,21 @@ flowchart TD
 
 共通の値を作る場所は、読む側より下の層に置く。`$workspace` は状態層の `tebunko/core/paths.ps1`（`initWorkspace`・`setCallerWorkspace`）だけが作り、画面層（`switchWorkspace`）は `initWorkspace` を呼んで作り直す。`shared/` が使うツール側の値は、ツール側が登録する（エラーの記録先と見出しは `setGuiErrorLogSource`、仕事の列は `setBackgroundQueue`・`setNetworkQueueFactory`）。
 
-見つからないもの（限界）: `& $name` の呼び出し、コールバックで渡したスクリプトブロックの中から呼ぶ形、`$ui` を別の名前の引数で受け取る形、クラスのメソッドの呼び出し、`Set-Variable` での代入（`$workspace` は、代入を `setCallerWorkspace` に集めてある）。別のファイルのクラスを型として使う依存（`[型]::new()`・引数や戻り値の型）は、依存の向きの表では見つからない（決めた型 `System.Windows.*` だけは、画面の変数・型の検査が見る）。`New-Object` に文字列で渡す型と、`using namespace` で短く書いた型は、構文木では型として見えない（文字列の検査が見る）。同じ名前の関数・変数が、見る側のパスにもあるときは、そちらを使っているとみなす。
+依存として数える書き方（見つかるもの）:
+
+- 関数の呼び出し（`${function:名前}` も含む）。
+- `=` の代入と、`Set-Variable -Name <定数>`・`New-Variable -Name <定数>`（最上位・`$script:`・`$global:` の代入と同じ条件で数える）。
+- 別のファイルで定義したクラスを、`[型名]`（`[型]::new()`・引数・戻り値・変数の型）で使う形。`findFileDependencyItems` が `[型名]` の名で返し、例外の一覧にも同じ名で書く。
+
+名前を文字列で渡す呼び出し（`Get-Command '名前'`・`.AddScript('…')` など）は、呼ぶ先が構文木から決まらないので、向きの表では数えない。代わりに、`tests/meta/layers.Tests.ps1` の「名前を文字列で渡す呼び出し」が、今ある所を理由つきの閉じた一覧にし、増えたら失敗にする。
+
+見つからないもの（限界）:
+
+- `& $name` の呼び出し、コールバックで渡したスクリプトブロックの中から呼ぶ形、`$ui` を別の名前の引数で受け取る形、クラスのメソッドの呼び出し。
+- 名前が定数でない `Set-Variable`・`New-Variable`（`-Name $変数`）。
+- `New-Object` に文字列で渡す型と、`using namespace` で短く書いた型（文字列の検査が見る）。
+
+同じ名前の関数・変数が、見る側のパスにもあるときは、そちらを使っているとみなす。
 
 ## 読み込み口
 

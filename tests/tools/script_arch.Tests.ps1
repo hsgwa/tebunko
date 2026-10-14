@@ -203,6 +203,204 @@ Describe "決めた変数と型" -Tag Unit {
     }
 }
 
+# Set-Variable・New-Variable は、= の代入と同じ条件でそのファイルの最上位の変数として数える
+# （関数の外なら数える。関数の中は -Scope が Script・Global・1 以上のときだけ）
+Describe "Set-Variable・New-Variable" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "関数の外の -Name 付きを数える"
+            code = 'Set-Variable -Name config -Value 1'; counted = $true
+        }
+        @{ name = "位置引数の名前を数える"
+            code = 'Set-Variable config 1'; counted = $true
+        }
+        @{ name = "別名 sv を数える"
+            code = 'sv config 1'; counted = $true
+        }
+        @{ name = "New-Variable を数える"
+            code = 'New-Variable -Name config -Value 1'; counted = $true
+        }
+        @{ name = "引用符で囲んだ名前を数える"
+            code = 'Set-Variable -Name "config" -Value 1'; counted = $true
+        }
+        @{ name = "-Value を先に書いた位置引数の名前を数える"
+            code = 'Set-Variable -Value 1 config'; counted = $true
+        }
+        @{ name = "-Name を省略した -N も数える"
+            code = 'Set-Variable -N config -Value 1'; counted = $true
+        }
+        @{ name = "-Value に同じ語があっても、-Name でなければ数えない"
+            code = 'Set-Variable -Value config -Name other'; counted = $false
+        }
+        @{ name = "スクリプトブロックの最上位は数える"
+            code = '$cb = { Set-Variable -Name config -Value 1 }'; counted = $true
+        }
+        @{ name = "関数の中の -Scope なしは数えない"
+            code = 'function init { Set-Variable -Name config -Value 1 }'; counted = $false
+        }
+        @{ name = "関数の中の -Scope Script は数える"
+            code = 'function init { Set-Variable -Name config -Value 1 -Scope Script }'; counted = $true
+        }
+        @{ name = "関数の中の -Scope Global は数える"
+            code = 'function init { Set-Variable -Name config -Value 1 -Scope Global }'; counted = $true
+        }
+        @{ name = "関数の中の -Scope 1 は数える"
+            code = 'function init { Set-Variable -Name config -Value 1 -Scope 1 }'; counted = $true
+        }
+        @{ name = "関数の中の -Scope 2 は数える"
+            code = 'function init { Set-Variable -Name config -Value 1 -Scope 2 }'; counted = $true
+        }
+        @{ name = "関数の中の -Scope Local は数えない"
+            code = 'function init { Set-Variable -Name config -Value 1 -Scope Local }'; counted = $false
+        }
+        @{ name = "関数の中の -Scope 0 は数えない"
+            code = 'function init { Set-Variable -Name config -Value 1 -Scope 0 }'; counted = $false
+        }
+        @{ name = "関数の中の -Scope Private は数えない"
+            code = 'function init { Set-Variable -Name config -Value 1 -Scope Private }'; counted = $false
+        }
+        @{ name = "関数の中の script: 付きの名前は数える"
+            code = 'function init { Set-Variable -Name "script:config" -Value 1 }'; counted = $true
+        }
+        @{ name = "名前を変数で渡す形は、名前が決まらないので数えない"
+            code = 'function init { param ($n) Set-Variable -Name $n -Value 1 -Scope Script }'; counted = $false
+        }
+    ) {
+        param ($code, $counted)
+
+        $files = @{ "upper/a.ps1" = 'function callA { $config }'; "lower/b.ps1" = $code }
+        $expected = if ($counted) { 'upper/a.ps1 -> lower/b.ps1（$config）' } else { "" }
+        (dependenciesOf $files @("upper/*") @("lower/*")) | Should -Be $expected
+    }
+}
+
+# 別のファイルで定義したクラスを型として使う依存（名前は [型名]）と、${function:名前} の呼び出し
+Describe "クラスの型と function: ドライブ" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "[型]::new() を返す"
+            upper = 'function callA { [Worker]::new() }'; expected = "upper/a.ps1 -> lower/b.ps1（[Worker]）"
+        }
+        @{ name = "引数の型を返す"
+            upper = 'function callA { param ([Worker]$w) $w }'; expected = "upper/a.ps1 -> lower/b.ps1（[Worker]）"
+        }
+        @{ name = "キャストを返す"
+            upper = 'function callA { param ($y) $x = [Worker]$y }'; expected = "upper/a.ps1 -> lower/b.ps1（[Worker]）"
+        }
+        @{ name = "クラスのメソッドの戻り値の型を返す"
+            upper = 'class Child { [Worker] Get() { return $null } }'; expected = "upper/a.ps1 -> lower/b.ps1（[Worker]）"
+        }
+        @{ name = "継承元の型を返す"
+            upper = 'class Child : Worker { }'; expected = "upper/a.ps1 -> lower/b.ps1（[Worker]）"
+        }
+        @{ name = "配列の型を返す"
+            upper = 'function callA { param ([Worker[]]$w) $w }'; expected = "upper/a.ps1 -> lower/b.ps1（[Worker]）"
+        }
+        @{ name = "ジェネリックの引数の型を返す"
+            upper = 'function callA { New-Object System.Collections.Generic.List[Worker] }; function callB { [System.Collections.Generic.List[Worker]]::new() }'
+            expected = "upper/a.ps1 -> lower/b.ps1（[Worker]）"
+        }
+        @{ name = ".NET の型（スクリプトに定義の無い名前）は返さない"
+            upper = 'function callA { [System.IO.Path]::GetTempPath(); [void]1 }'; expected = ""
+        }
+        @{ name = "自分のファイルで定義したクラスは返さない"
+            upper = 'class Worker { }; function callA { [Worker]::new() }'; expected = ""
+        }
+        @{ name = "コメントと文字列の中の型の名前は返さない"
+            upper = "# [Worker]`nfunction callA { Write-Output '[Worker]' }"; expected = ""
+        }
+        @{ name = "`${function:名前} を、その名前の関数の呼び出しとして返す"
+            upper = 'function callA { & ${function:betaFn} }'; expected = "upper/a.ps1 -> lower/b.ps1（betaFn）"
+        }
+        @{ name = "`$function:名前 も返す"
+            upper = 'function callA { & $function:betaFn }'; expected = "upper/a.ps1 -> lower/b.ps1（betaFn）"
+        }
+    ) {
+        param ($upper, $expected)
+
+        $files = @{ "upper/a.ps1" = $upper; "lower/b.ps1" = "class Worker { }`nfunction betaFn { 1 }" }
+        (dependenciesOf $files @("upper/*") @("lower/*")) | Should -Be $expected
+    }
+
+    It "見る側のパスにも同じ名前のクラスがあれば、そちらを使ったとみなして返さない" {
+        $files = @{
+            "upper/a.ps1" = 'function callA { [Worker]::new() }'
+            "upper/c.ps1" = 'class Worker { }'
+            "lower/b.ps1" = 'class Worker { }'
+        }
+        (dependenciesOf $files @("upper/*") @("lower/*")) | Should -Be ""
+    }
+}
+
+# 呼ぶ先が構文木から決まらない書き方を、形ごとに返す（呼び出し側が閉じた一覧に載せて確かめる）
+Describe "名前を文字列で渡す呼び出し" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "Get-Command を返す"
+            code = 'function callA { param ($n) (Get-Command $n -CommandType Function).Definition }'; expected = "upper/a.ps1 Get-Command"
+        }
+        @{ name = "別名 gcm を返す"
+            code = 'function callA { param ($n) gcm $n }'; expected = "upper/a.ps1 Get-Command"
+        }
+        @{ name = "Invoke-Expression を返す"
+            code = 'function callA { param ($t) Invoke-Expression $t }'; expected = "upper/a.ps1 Invoke-Expression"
+        }
+        @{ name = "& に括弧の式を渡す形を返す"
+            code = 'function callA { param ($b) & ("a" + $b) }'; expected = "upper/a.ps1 & (式・展開文字列)"
+        }
+        @{ name = "& に展開文字列を渡す形を返す"
+            code = 'function callA { param ($b) & "a$b" }'; expected = "upper/a.ps1 & (式・展開文字列)"
+        }
+        @{ name = "[scriptblock]::Create を返す"
+            code = 'function callA { param ($t) [scriptblock]::Create($t) }'; expected = "upper/a.ps1 [scriptblock]::Create"
+        }
+        @{ name = '$ExecutionContext.InvokeCommand を返す'
+            code = 'function callA { param ($t) $ExecutionContext.InvokeCommand.InvokeScript($t) }'; expected = 'upper/a.ps1 $ExecutionContext.InvokeCommand'
+        }
+        @{ name = ".AddCommand を返す"
+            code = 'function callA { param ($ps) [void]$ps.AddCommand("Get-Item") }'; expected = "upper/a.ps1 .AddCommand"
+        }
+        @{ name = ".AddScript を返す"
+            code = 'function callA { param ($ps) [void]$ps.AddScript("1") }'; expected = "upper/a.ps1 .AddScript"
+        }
+        @{ name = "function: ドライブの Get-Item を返す"
+            code = 'function callA { param ($n) Get-Item "function:$n" }'; expected = "upper/a.ps1 function: ドライブ"
+        }
+        @{ name = "名前が定数でない Set-Variable を返す"
+            code = 'function callA { param ($n) Set-Variable -Name $n -Value 1 }'; expected = "upper/a.ps1 Set-Variable・New-Variable の -Name が定数でない"
+        }
+        @{ name = "& `$変数（呼ぶ値を受け取る形）は返さない"
+            code = 'function callA { param ($cb) & $cb 1; . $cb }'; expected = ""
+        }
+        @{ name = "名前が定数の & は、普通の呼び出しなので返さない"
+            code = 'function callA { & "betaFn" }'; expected = ""
+        }
+        @{ name = "ファイルの読み込み（. `"パス`"）は返さない"
+            code = '. "$PSScriptRoot\x.ps1"'; expected = ""
+        }
+        @{ name = "ふつうの関数・コマンドの呼び出しは返さない"
+            code = 'function callA { Get-Item . | Out-Null; betaFn }'; expected = ""
+        }
+        @{ name = "function: 以外のパスの Get-Item は返さない"
+            code = 'function callA { param ($p) Get-Item $p }'; expected = ""
+        }
+        @{ name = "コメントと文字列の中は返さない"
+            code = "# Get-Command `$n`nfunction callA { Write-Output 'Invoke-Expression' }"; expected = ""
+        }
+    ) {
+        param ($code, $expected)
+
+        $arch = newScriptArch (newSampleRoot @{ "upper/a.ps1" = $code; "lower/b.ps1" = 'function betaFn { 1 }' })
+        (@(findStringNameCalls $arch -In "upper/*" | ForEach-Object { "$($_.From) $($_.Name)" }) -join ", ") | Should -Be $expected
+    }
+
+    It "例外の一覧（From・To・Name）で外せる" {
+        $arch = newScriptArch (newSampleRoot @{ "upper/a.ps1" = 'function callA { param ($n) gcm $n }' })
+        $items = @(findStringNameCalls $arch)
+        $items.Count | Should -Be 1
+        $allow = @{ From = "upper/a.ps1"; To = $items[0].To; Name = "Get-Command" }
+        @(removeAllowedDependencies $items @($allow)).Count | Should -Be 0
+        @(findUnusedAllowances @($allow) $items).Count | Should -Be 0
+    }
+}
+
 Describe "ファイル単位" -Tag Unit {
     It "関数と変数を、ファイルの組ごとの 1 つにまとめる" {
         $files = @{

@@ -7,11 +7,18 @@
 # - 関数の呼び出し（コマンドの名前）が、別のパスのファイルで定義した関数を指していること
 # - 別のパスのファイルが最上位（関数の外）・$script:・$global: で代入した変数を、読んでいること
 # - 決めた変数（$ui・$window など）と型（System.Windows.* など）に触っていること
+# - Set-Variable・New-Variable の -Name が定数のものは、代入として数えること（関数の外、または -Scope が Script・Global・1 以上）
+# - 別のファイルで定義したクラスを、型（[型]::new()・引数・戻り値・キャスト）として使っていること（名前は [型名]）
+# - ${function:名前} を、その名前の関数の呼び出しとして数えること
 #
-# 見つからないもの（限界）: & $name の呼び出し、コールバックで渡したスクリプトブロックの中から呼ぶ形、
-# $ui を別の名前の引数で受け取る形、クラスのメソッドの呼び出し、Set-Variable での代入、
-# 別のファイルのクラスを型として使う依存（[型]::new()・引数や戻り値の型。findTypeUses の決めた型の検査だけが見る）。
-# 同じ名前の関数・変数が、見る側のパスにもあるときは、そちらを使っているとみなして返さない。
+# 構文木から呼ぶ先が決まらない書き方は、findStringNameCalls が「形」ごとに返す（呼び出し側の閉じた一覧に載せて確かめる）。
+# 数える形: & (式)・& "展開文字列"、Get-Command、Invoke-Expression、[scriptblock]::Create、$ExecutionContext.InvokeCommand、
+# .AddCommand・.AddScript、function: ドライブの Get-Item など、名前が定数でない Set-Variable・New-Variable。
+# & $name・. $name は、呼ぶ値（スクリプトブロック）を作った所の呼び出し・${function:名前} で数えるので、ここでは数えない。
+#
+# 見つからないもの（限界）: コールバックで渡したスクリプトブロックの中から呼ぶ形（値を作った所で数える）、
+# $ui を別の名前の引数で受け取る形、クラスのメソッドの呼び出し、New-Object に文字列で渡す型。
+# 同じ名前の関数・変数・クラスが、見る側のパスにもあるときは、そちらを使っているとみなして返さない。
 #
 # 使い方:
 #   $arch = newScriptArch $scriptsDir                                   # 全ファイルの解析（1 回だけ作って使い回す）
@@ -122,9 +129,174 @@ function testLocalVariable {
     return $false
 }
 
+# 定数の文字列・数の式の値を文字列で返す。定数でなければ $null
+function getConstantText {
+    param ($ast)
+
+    if ($ast -is [System.Management.Automation.Language.ConstantExpressionAst]) { return [string]$ast.Value }
+    return $null
+}
+
+# Set-Variable・New-Variable の呼び出しの -Name（位置引数を含む）と -Scope の式を返す。
+# 引数の名前は、前の部分だけでも（-N など）一つに決まれば読む
+function getVariableCommandInfo {
+    param ($commandAst)
+
+    $valueParams = @('Name', 'Value', 'Include', 'Exclude', 'Description', 'Option', 'Visibility', 'Scope')
+    $switchParams = @('Force', 'PassThru', 'Confirm', 'WhatIf')
+    $all = $valueParams + $switchParams
+    $nameArg = $null
+    $scopeArg = $null
+    $positional = New-Object System.Collections.Generic.List[object]
+    $elements = $commandAst.CommandElements
+    for ($i = 1; $i -lt $elements.Count; $i++) {
+        $element = $elements[$i]
+        if ($element -isnot [System.Management.Automation.Language.CommandParameterAst]) {
+            $positional.Add($element)
+            continue
+        }
+        $given = $element.ParameterName
+        $match = @($all | Where-Object { $_ -eq $given })
+        if ($match.Count -eq 0) { $match = @($all | Where-Object { $_.StartsWith($given, [System.StringComparison]::OrdinalIgnoreCase) }) }
+        if ($match.Count -ne 1 -or $switchParams -contains $match[0]) { continue }
+        $arg = $element.Argument
+        if (-not $arg -and $i + 1 -lt $elements.Count) {
+            $i++
+            $arg = $elements[$i]
+        }
+        if ($match[0] -eq 'Name') { $nameArg = $arg } elseif ($match[0] -eq 'Scope') { $scopeArg = $arg }
+    }
+    if (-not $nameArg -and $positional.Count -gt 0) { $nameArg = $positional[0] }
+    return [pscustomobject]@{
+        Name       = (getConstantText $nameArg)
+        Scope      = (getConstantText $scopeArg)
+        ScopeGiven = [bool]$scopeArg
+    }
+}
+
+# Set-Variable・New-Variable が、そのファイルの最上位の変数を作るか。= の代入と同じ条件
+# （関数の外なら作る。関数の中なら、-Scope が Script・Global・1 以上のときだけ作る）。
+# 名前や -Scope が定数でなく決まらないときは 'Dynamic'。作らないときは $null、作るときは変数の名前を返す
+function getCommandTopVariable {
+    param ($commandAst)
+
+    $info = getVariableCommandInfo $commandAst
+    if ($null -eq $info.Name -or ($info.ScopeGiven -and $null -eq $info.Scope)) { return 'Dynamic' }
+    $name = $info.Name
+    $scope = $info.Scope
+    if ($name -match '^(script|global|local|private):(.+)$') {
+        $scope = $Matches[1]
+        $name = $Matches[2]
+    }
+    if (-not (testInsideFunction $commandAst)) { return $name }
+    $number = 0
+    $isTop = ($scope -in @('script', 'global')) -or ([int]::TryParse([string]$scope, [ref]$number) -and $number -ge 1)
+    if ($isTop) { return $name }
+    return $null
+}
+
+# 型の名前に出る名前（配列の要素・ジェネリックの引数を含む）を返す。名前空間付きの名前は、そのまま 1 つの名前
+function getTypeNameLeaves {
+    param ($typeName)
+
+    if ($typeName -is [System.Management.Automation.Language.ArrayTypeName]) { return @(getTypeNameLeaves $typeName.ElementType) }
+    if ($typeName -is [System.Management.Automation.Language.GenericTypeName]) {
+        $result = @(getTypeNameLeaves $typeName.TypeName)
+        foreach ($argument in $typeName.GenericArguments) { $result += @(getTypeNameLeaves $argument) }
+        return $result
+    }
+    return @($typeName.Name)
+}
+
+# 構文木から呼ぶ先が決まらない書き方の「形」を返す（findStringNameCalls が数える形）。当てはまらなければ $null
+function getStringCallForm {
+    param ($node)
+
+    if ($node -is [System.Management.Automation.Language.InvokeMemberExpressionAst]) {
+        $member = if ($node.Member -is [System.Management.Automation.Language.StringConstantExpressionAst]) { [string]$node.Member.Value } else { '' }
+        if ($node.Static -and $node.Expression -is [System.Management.Automation.Language.TypeExpressionAst] -and
+            $node.Expression.TypeName.Name -eq 'scriptblock' -and $member -eq 'Create') { return '[scriptblock]::Create' }
+        if ($node.Expression.Extent.Text -match '^\$ExecutionContext\.InvokeCommand$') { return '$ExecutionContext.InvokeCommand' }
+        if ($member -eq 'AddCommand') { return '.AddCommand' }
+        if ($member -eq 'AddScript') { return '.AddScript' }
+        return $null
+    }
+    $name = $node.GetCommandName()
+    if ($name) {
+        if ($name -match '^(Get-Command|gcm)$') { return 'Get-Command' }
+        if ($name -match '^(Invoke-Expression|iex)$') { return 'Invoke-Expression' }
+        if ($name -match '^(Get-Item|gi|Get-ChildItem|gci|ls|dir|Test-Path|Set-Item|New-Item|Remove-Item|Copy-Item)$') {
+            foreach ($element in $node.CommandElements) {
+                if ($element.Extent.Text -match '^[''"]?function:') { return 'function: ドライブ' }
+            }
+        }
+        return $null
+    }
+    if ($node.InvocationOperator -eq [System.Management.Automation.Language.TokenKind]::Ampersand) {
+        $first = $node.CommandElements[0]
+        if ($first -is [System.Management.Automation.Language.ExpandableStringExpressionAst] -or
+            $first -is [System.Management.Automation.Language.ParenExpressionAst]) { return '& (式・展開文字列)' }
+    }
+    return $null
+}
+
+# 1 つの構文木のノードから、依存の材料（関数の定義・呼び出し・変数・型・クラス・名前を渡す呼び出し）を $facts に足す
+function addNodeFacts {
+    param ($node, $facts, $defs, [string]$rel)
+
+    if ($node -is [System.Management.Automation.Language.FunctionDefinitionAst]) {
+        # クラスのメソッドは、関数の呼び出しでは呼べないので、関数の定義に数えない
+        if ($node.Parent -is [System.Management.Automation.Language.FunctionMemberAst]) { return }
+        if (-not $defs.ContainsKey($node.Name)) { $defs[$node.Name] = New-Object System.Collections.Generic.List[string] }
+        if (-not $defs[$node.Name].Contains($rel)) { $defs[$node.Name].Add($rel) }
+    } elseif ($node -is [System.Management.Automation.Language.CommandAst]) {
+        $name = $node.GetCommandName()
+        if ($name) { $facts.Calls.Add([pscustomobject]@{ Name = $name; Line = $node.Extent.StartLineNumber }) }
+        if ($name -match '^(Set-Variable|New-Variable|sv|nv|set)$') {
+            $top = getCommandTopVariable $node
+            if ($top -eq 'Dynamic') {
+                $facts.StringCalls.Add([pscustomobject]@{ Form = 'Set-Variable・New-Variable の -Name が定数でない'; Line = $node.Extent.StartLineNumber })
+            } elseif ($top) {
+                $facts.TopVars.Add($top)
+            }
+        }
+        $form = getStringCallForm $node
+        if ($form) { $facts.StringCalls.Add([pscustomobject]@{ Form = $form; Line = $node.Extent.StartLineNumber }) }
+    } elseif ($node -is [System.Management.Automation.Language.InvokeMemberExpressionAst]) {
+        $form = getStringCallForm $node
+        if ($form) { $facts.StringCalls.Add([pscustomobject]@{ Form = $form; Line = $node.Extent.StartLineNumber }) }
+    } elseif ($node -is [System.Management.Automation.Language.VariableExpressionAst]) {
+        if ($node.VariablePath.IsDriveQualified) {
+            # ${function:名前} は関数の呼び出しとして数える。$env:Path のようなほかのドライブの変数は、スクリプトの変数ではないので数えない
+            if ($node.VariablePath.UserPath -match '^function:(.+)$') { $facts.Calls.Add([pscustomobject]@{ Name = $Matches[1]; Line = $node.Extent.StartLineNumber }) }
+            return
+        }
+        $facts.VarUses.Add([pscustomobject]@{
+                Node     = $node
+                Name     = (getVariableBaseName $node.VariablePath)
+                Explicit = ($node.VariablePath.IsScript -or $node.VariablePath.IsGlobal)
+                Line     = $node.Extent.StartLineNumber
+            })
+    } elseif ($node -is [System.Management.Automation.Language.AssignmentStatementAst]) {
+        $inFunction = testInsideFunction $node
+        foreach ($path in @(getAssignedVariablePaths $node.Left)) {
+            if (-not $inFunction -or $path.IsScript -or $path.IsGlobal) { $facts.TopVars.Add((getVariableBaseName $path)) }
+        }
+    } elseif ($node -is [System.Management.Automation.Language.TypeDefinitionAst]) {
+        if ($node.IsClass) { $facts.Classes.Add($node.Name) }
+    } else {
+        $facts.Types.Add($node)
+        foreach ($leaf in @(getTypeNameLeaves $node.TypeName)) {
+            $facts.TypeRefs.Add([pscustomobject]@{ Name = $leaf; Line = $node.Extent.StartLineNumber })
+        }
+    }
+}
+
 # root の下の .ps1 を全部解析して、依存を調べるための材料を作る。解析は重いので、1 回だけ作って使い回す。
-# Files の各要素: Path（root からの相対。区切りは /）・Calls（コマンドの名前と行）・VarUses（変数の式）・
-# Types（型の式）・TopVars（最上位・$script:・$global: で代入した変数の名前）。Defs: 関数の名前 → 定義したファイルの Path
+# Files の各要素: Path（root からの相対。区切りは /）・Calls（コマンドの名前と行。${function:名前} を含む）・VarUses（変数の式）・
+# Types（型の式）・TypeRefs（型として使った名前と行）・Classes（定義したクラスの名前）・
+# StringCalls（呼ぶ先が決まらない書き方の形と行）・TopVars（最上位・$script:・$global: で代入した変数の名前。Set-Variable・New-Variable を含む）。
+# Defs: 関数の名前 → 定義したファイルの Path。ClassDefs: クラスの名前 → 定義したファイルの Path
 function newScriptArch {
     param (
         [string]$root
@@ -133,12 +305,15 @@ function newScriptArch {
     $rootFull = (Resolve-Path -LiteralPath $root).Path.TrimEnd('\', '/')
     $files = New-Object System.Collections.Generic.List[object]
     $defs = @{}
+    $classDefs = @{}
     $interesting = {
         param ($n)
         ($n -is [System.Management.Automation.Language.FunctionDefinitionAst]) -or
         ($n -is [System.Management.Automation.Language.CommandAst]) -or
         ($n -is [System.Management.Automation.Language.VariableExpressionAst]) -or
         ($n -is [System.Management.Automation.Language.AssignmentStatementAst]) -or
+        ($n -is [System.Management.Automation.Language.InvokeMemberExpressionAst]) -or
+        ($n -is [System.Management.Automation.Language.TypeDefinitionAst]) -or
         ($n -is [System.Management.Automation.Language.TypeExpressionAst]) -or
         ($n -is [System.Management.Automation.Language.TypeConstraintAst])
     }
@@ -151,51 +326,37 @@ function newScriptArch {
         $syntaxErrors = @($errors | Where-Object { $_.ErrorId -ne 'TypeNotFound' })
         if ($syntaxErrors.Count -gt 0) { throw "構文エラーがあり、依存を読めない: ${rel}:$($syntaxErrors[0].Extent.StartLineNumber) $($syntaxErrors[0].Message)" }
 
-        $calls = New-Object System.Collections.Generic.List[object]
-        $varUses = New-Object System.Collections.Generic.List[object]
-        $types = New-Object System.Collections.Generic.List[object]
-        $topVars = New-Object System.Collections.Generic.List[string]
-        foreach ($node in $ast.FindAll($interesting, $true)) {
-            if ($node -is [System.Management.Automation.Language.FunctionDefinitionAst]) {
-                # クラスのメソッドは、関数の呼び出しでは呼べないので、関数の定義に数えない
-                if ($node.Parent -is [System.Management.Automation.Language.FunctionMemberAst]) { continue }
-                if (-not $defs.ContainsKey($node.Name)) { $defs[$node.Name] = New-Object System.Collections.Generic.List[string] }
-                if (-not $defs[$node.Name].Contains($rel)) { $defs[$node.Name].Add($rel) }
-            } elseif ($node -is [System.Management.Automation.Language.CommandAst]) {
-                $name = $node.GetCommandName()
-                if ($name) { $calls.Add([pscustomobject]@{ Name = $name; Line = $node.Extent.StartLineNumber }) }
-            } elseif ($node -is [System.Management.Automation.Language.VariableExpressionAst]) {
-                # $env:Path のようなドライブの変数は、スクリプトの変数ではないので数えない
-                if ($node.VariablePath.IsDriveQualified) { continue }
-                $varUses.Add([pscustomobject]@{
-                        Node     = $node
-                        Name     = (getVariableBaseName $node.VariablePath)
-                        Explicit = ($node.VariablePath.IsScript -or $node.VariablePath.IsGlobal)
-                        Line     = $node.Extent.StartLineNumber
-                    })
-            } elseif ($node -is [System.Management.Automation.Language.AssignmentStatementAst]) {
-                $inFunction = testInsideFunction $node
-                foreach ($path in @(getAssignedVariablePaths $node.Left)) {
-                    if (-not $inFunction -or $path.IsScript -or $path.IsGlobal) { $topVars.Add((getVariableBaseName $path)) }
-                }
-            } else {
-                $types.Add($node)
-            }
+        $facts = [pscustomobject]@{
+            Calls       = New-Object System.Collections.Generic.List[object]
+            VarUses     = New-Object System.Collections.Generic.List[object]
+            Types       = New-Object System.Collections.Generic.List[object]
+            TypeRefs    = New-Object System.Collections.Generic.List[object]
+            Classes     = New-Object System.Collections.Generic.List[string]
+            StringCalls = New-Object System.Collections.Generic.List[object]
+            TopVars     = New-Object System.Collections.Generic.List[string]
+        }
+        foreach ($node in $ast.FindAll($interesting, $true)) { addNodeFacts $node $facts $defs $rel }
+        foreach ($class in $facts.Classes) {
+            if (-not $classDefs.ContainsKey($class)) { $classDefs[$class] = New-Object System.Collections.Generic.List[string] }
+            $classDefs[$class].Add($rel)
         }
         $files.Add([pscustomobject]@{
-                Path    = $rel
-                Calls   = $calls.ToArray()
-                VarUses = $varUses.ToArray()
-                Types   = $types.ToArray()
-                TopVars = @($topVars | Sort-Object -Unique)
+                Path        = $rel
+                Calls       = $facts.Calls.ToArray()
+                VarUses     = $facts.VarUses.ToArray()
+                Types       = $facts.Types.ToArray()
+                TypeRefs    = $facts.TypeRefs.ToArray()
+                Classes     = $facts.Classes.ToArray()
+                StringCalls = $facts.StringCalls.ToArray()
+                TopVars     = @($facts.TopVars | Sort-Object -Unique)
             })
     }
     # OwnedCache は、変数の判定（getOwnedVariableNames）が行をまたいで使い回す入れ物
-    return [pscustomobject]@{ Root = $rootFull; Files = $files.ToArray(); Defs = $defs; OwnedCache = @{} }
+    return [pscustomobject]@{ Root = $rootFull; Files = $files.ToArray(); Defs = $defs; ClassDefs = $classDefs; OwnedCache = @{} }
 }
 
 # -From のパスのファイルが、-To のパスのファイル（-ToExcept を除く）に依存している所を、
-# [pscustomobject]@{ From; To; Name; Line } の一覧で返す。Name は関数の名前か、$ を付けた変数の名前。
+# [pscustomobject]@{ From; To; Name; Line } の一覧で返す。Name は関数の名前か、$ を付けた変数の名前か、[ ] で囲んだクラスの名前。
 # $arch には newScriptArch の結果か、root のパスを渡す（パスなら、ここで解析する）
 function findFileDependencyItems {
     param (
@@ -249,6 +410,37 @@ function findFileDependencyItems {
                     $items.Add([pscustomobject]@{ From = $file.Path; To = $def; Name = '$' + $name; Line = $use.Line })
                 }
             }
+        }
+        # 別のファイルで定義したクラスを型として使う所（名前は [型名]）。関数と同じく、自分のファイル・見る側のパスにも同じ名前のクラスがあれば、そちらを使ったとみなす
+        foreach ($ref in $file.TypeRefs) {
+            if (-not $arch.ClassDefs.ContainsKey($ref.Name)) { continue }
+            $where = @($arch.ClassDefs[$ref.Name])
+            if ($where -contains $file.Path) { continue }
+            if (@($where | Where-Object { $fromSet.ContainsKey($_) -and -not $toSet.ContainsKey($_) }).Count -gt 0) { continue }
+            foreach ($def in $where) {
+                if ($toSet.ContainsKey($def)) {
+                    $items.Add([pscustomobject]@{ From = $file.Path; To = $def; Name = "[$($ref.Name)]"; Line = $ref.Line })
+                }
+            }
+        }
+    }
+    return $items.ToArray()
+}
+
+# 呼ぶ先が構文木から決まらない書き方（getStringCallForm の形）を、-In のパスのファイルから探し、
+# [pscustomobject]@{ From; To; Name; Line } の一覧で返す。To は決まった文字列、Name は形。
+# removeAllowedDependencies・findUnusedAllowances に、同じ形の例外の一覧を渡して使える
+function findStringNameCalls {
+    param (
+        $arch,
+        [string[]]$In = @('*')
+    )
+
+    if ($arch -is [string]) { $arch = newScriptArch $arch }
+    $items = New-Object System.Collections.Generic.List[object]
+    foreach ($file in ($arch.Files | Where-Object { testPathLike $_.Path $In })) {
+        foreach ($call in $file.StringCalls) {
+            $items.Add([pscustomobject]@{ From = $file.Path; To = '(名前の文字列)'; Name = $call.Form; Line = $call.Line })
         }
     }
     return $items.ToArray()
