@@ -10,7 +10,7 @@ function toResultLine {
         [string]$line
     )
 
-    if ($book -match "\.xls[a-z]?$") {
+    if ((getContentIndexFileKind $book) -eq "Excel") {
         # セル内改行を戻す（改行を含むセルは " で囲まれているため、貼り付けても1セルのまま）
         $line = $line.Replace(${cellNewLine}, "`n")
     } else {

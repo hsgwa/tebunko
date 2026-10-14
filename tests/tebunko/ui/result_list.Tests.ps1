@@ -158,8 +158,8 @@ Describe "getPlace・addFileGroupLocation" -Tag Unit {
     BeforeEach { resetResults }
 
     It "Excel とそれ以外は別の表記にする" {
-        (getPlace "見積.xlsx" "ページ003").Place | Should -Be "[シート]ページ003"
-        (getPlace "議事録.docx" "ページ003").Place | Should -Be "3 ページ（目安）"
+        (getPlace "見積.xlsx" "ページ003" "Excel").Place | Should -Be "[シート]ページ003"
+        (getPlace "議事録.docx" "ページ003" "Word").Place | Should -Be "3 ページ（目安）"
         $script:places.Count | Should -Be 2
     }
 
@@ -206,6 +206,33 @@ Describe "ensureRows" -Tag Unit {
         $group.Rows[2].Kind | Should -Be "ヘッダー・フッター"
         $group.Rows[2].Order | Should -Be 2
         $group.ShownRows.Count | Should -Be 3
+        # Excel のファイルの行か（行を作る側が決める）
+        $group.Rows[0].IsExcel | Should -Be $true
+        # 行の先頭がセル番地か（Excel の図形・コメントだけ。ヘッダー・フッターとふつうのセルは違う）
+        $group.Rows[0].IsCellPrefixed | Should -Be $false
+        $group.Rows[1].IsCellPrefixed | Should -Be $true
+        $group.Rows[2].IsCellPrefixed | Should -Be $false
+    }
+
+    It "Excel 以外のファイルの行は、IsExcel も IsCellPrefixed も偽" {
+        $group = addHit "議事録.docx" "ページ003[図形]" "見積の件" 1
+        ensureRows $group
+        $group.Rows[0].IsExcel | Should -Be $false
+        $group.Rows[0].IsCellPrefixed | Should -Be $false
+    }
+
+    It "Excel の <Location> の行は、Prepare 後に一致したセルの番地 = 「<Cell>」、該当行 = 「<Shown>」になる" -ForEach @(
+        @{ Location = "4月[図形]"; Line = "B2`t見積の注記"; Cell = "B2"; Shown = "見積の注記" }
+        @{ Location = "4月[コメント]"; Line = "C3`t見積の確認"; Cell = "C3"; Shown = "見積の確認" }
+        @{ Location = "4月[ヘッダー・フッター]"; Line = "見積の件"; Cell = ""; Shown = "見積の件" }
+    ) {
+        $group = addHit "見積.xlsx" $Location $Line 1
+        ensureRows $group
+
+        $group.Rows[0].Prepare()
+
+        $group.Rows[0].MatchCell | Should -Be $Cell
+        $group.Rows[0].DisplayLine | Should -Be $Shown
     }
 
     It "相対フォルダが空・無いときは、インデックス名も空にする" {

@@ -582,11 +582,8 @@ function getAppName {
         [string]$path
     )
 
-    switch -Regex ([System.IO.Path]::GetExtension($path).ToLower()) {
-        "^\.xls" { return "Excel" }
-        "^\.doc" { return "Word" }
-        "^\.ppt" { return "PowerPoint" }
-    }
+    $kind = getOfficeFileKind $path
+    if ($kind) { return $kind }
     return $null
 }
 

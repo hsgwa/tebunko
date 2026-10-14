@@ -22,7 +22,11 @@ BeforeAll {
             [regex]$pattern = $null,
             [string]$relDir = "営業部"
         )
-        [HitRow]::Create("営業", "C:\index\営業", "$relDir\$book", $relDir, "$book.tsv", $book, $location, $lineNumber, $line, $word, $pattern)
+        $row = [HitRow]::Create("営業", "C:\index\営業", "$relDir\$book", $relDir, "$book.tsv", $book, $location, $lineNumber, $line, $word, $pattern)
+        # 行を作る側（result_list.ps1）と同じ式で IsExcel・IsCellPrefixed を入れる
+        $row.IsExcel = ((getContentIndexFileKind $book) -eq "Excel")
+        $row.IsCellPrefixed = testCellPrefixedPlace $book (splitObjectPlace $location).Kind
+        $row
     }
 
     # 表の全部の列・全部の行のセルを作る（画面は見えている範囲だけ作る。テストでは全部を見えている範囲にして確かめる）
@@ -353,10 +357,9 @@ Describe "HitRow.Create" -Tag Unit {
         $row.IsFileHeader | Should -Be $false
     }
 
-    It "Excel の拡張子は大文字小文字を区別しない" {
-        (newHitRow -book "見積.XLS").IsExcel | Should -Be $true
-        (newHitRow -book "見積.xlsm").IsExcel | Should -Be $true
-        (newHitRow -book "議事録.docx").IsExcel | Should -Be $false
+    It "Excel かどうかは、行を作る側が入れる（Create は決めない）" {
+        $created = [HitRow]::Create("営業", "C:\index\営業", "見積.xlsx", "営業", "見積.xlsx.tsv", "見積.xlsx", "4月", 1, "A1`t見積", "見積", $null)
+        $created.IsExcel | Should -Be $false
     }
 
     It "コメントの場所も図形と同じく扱う" {
@@ -374,12 +377,15 @@ Describe "HitRow.Create" -Tag Unit {
         [HitRow]::ObjectPlaceRegex.ToString() | Should -Be (newObjectPlaceKindPattern)
     }
 
-    It "Excel のヘッダー・フッターの場所は、図形の場所の一種で、行にセル番地が無い場所として決める" {
+    It "Excel のヘッダー・フッターの場所は、図形の場所の一種で、行の先頭がセル番地ではない（IsCellPrefixed は入れた値のまま。既定は偽）" {
         $row = newHitRow -location "[シート]4月[ヘッダー・フッター]"
         $row.IsObjectPlace | Should -Be $true
-        $row.IsCelllessPlace | Should -Be $true
-        (newHitRow -location "[シート]4月[図形]").IsCelllessPlace | Should -Be $false
-        (newHitRow -location "[シート]4月").IsCelllessPlace | Should -Be $false
+        $row.IsCellPrefixed | Should -Be $false
+        (newHitRow -location "[シート]4月[図形]").IsCellPrefixed | Should -Be $true
+        (newHitRow -location "[シート]4月[コメント]").IsCellPrefixed | Should -Be $true
+        (newHitRow -location "[シート]4月").IsCellPrefixed | Should -Be $false
+        $created = [HitRow]::Create("営業", "C:\index\営業", "見積.xlsx", "営業", "見積.xlsx.tsv", "見積.xlsx", "[シート]4月[図形]", 1, "A1`t見積", "見積", $null)
+        $created.IsCellPrefixed | Should -Be $false
         # Word・PowerPoint の場所の名前 ヘッダー・フッター は、種類ではない
         (newHitRow -book "議事録.docx" -location "ヘッダー・フッター").IsObjectPlace | Should -Be $false
     }
@@ -388,7 +394,6 @@ Describe "HitRow.Create" -Tag Unit {
         $row = [HitRow]::Create("営業", "C:\index\営業", "見積.xlsx", $null, "見積.xlsx.tsv", $null, $null, 1, $null, "見積", $null)
         $row.RelDir | Should -Be ""
         $row.Line | Should -Be ""
-        $row.IsExcel | Should -Be $false
         $row.IsObjectPlace | Should -Be $false
     }
 }
