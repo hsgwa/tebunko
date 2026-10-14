@@ -116,20 +116,16 @@ Describe "testTextTrimmed" -Tag Unit {
 }
 
 Describe "formatTime" -Tag Unit {
-    # 当日かどうかで形が変わるため、入力は今日の日付（Get-Date）から作る
-    BeforeDiscovery {
-        $yesterday = (Get-Date).Date.AddDays(-1)
-        $cases = @(
-            @{ name = "空なら空"; time = $null; expected = "" }
-            @{ name = "当日は時刻だけ"; time = (Get-Date).Date.AddHours(9).AddMinutes(5); expected = "9:05" }
-            @{ name = "前の日は月日つき"; time = $yesterday.AddHours(9).AddMinutes(5); expected = "$($yesterday.ToString('M/d')) 9:05" }
-            @{ name = "ずっと前の日は月日つき"; time = [datetime]"2020-01-02 03:04"; expected = "1/2 3:04" }
-        )
-    }
+    # 当日かどうかで形が変わるため、入力は実行時の今日の日付（Get-Date）から It の中で作る
+    It "<name>" -TestCases @(
+        @{ name = "空なら空"; daysAgo = $null; expected = { "" } }
+        @{ name = "当日は時刻だけ"; daysAgo = 0; expected = { "9:05" } }
+        @{ name = "前の日は月日つき"; daysAgo = 1; expected = { "$((Get-Date).Date.AddDays(-1).ToString('M/d')) 9:05" } }
+        @{ name = "ずっと前の日は月日つき"; daysAgo = 3650; expected = { "$((Get-Date).Date.AddDays(-3650).ToString('M/d')) 9:05" } }
+    ) {
+        param ($name, $daysAgo, $expected)
 
-    It "<name>" -TestCases $cases {
-        param ($name, $time, $expected)
-
-        formatTime $time | Should -Be $expected
+        $time = if ($null -eq $daysAgo) { $null } else { (Get-Date).Date.AddDays(-$daysAgo).AddHours(9).AddMinutes(5) }
+        formatTime $time | Should -Be (& $expected)
     }
 }

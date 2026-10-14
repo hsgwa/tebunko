@@ -195,8 +195,6 @@ Describe "依存の向き（ファイル単位）" -Tag Meta {
         }
 
         $script:allowances = @(
-            # shared → tebunko
-            # 判断層 → 画面層
             # core → index
             newAllowances "tebunko/core/workspace.ps1" "tebunko/index/system_index.ps1" @("updateSystemIndexState") "updateSystemIndexState は、index へ移す convertFromSystemIndexState・convertToSystemIndexState を呼ぶため core へは移せない。呼ぶ側の clearLegacySystemIndex（core/workspace.ps1）を index へ移すと消える"
             # index → search（取り込み一覧・情報源フォルダのファイルの読み書きと、システムインデックスの gram の関数が search にある）
@@ -262,7 +260,7 @@ Describe "依存の向き（ファイル単位）" -Tag Meta {
         }
     }
 
-    # 失敗の文には、ファイルの組と関数・変数の名前が出る（例: shared/core/folder.ps1 -> tebunko/search/source_map.ps1（joinSourcePath））
+    # 失敗の文には、ファイルの組と関数・変数の名前が出る（例: tebunko/index/index_archive.ps1 -> tebunko/search/source_map.ps1（getSourceFolderMap））
     It "<from> は <to> に依存しない" -TestCases $rules {
         param ($from, $to, $except)
 
