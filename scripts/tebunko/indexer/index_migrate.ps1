@@ -236,7 +236,7 @@ function removeDroppedFolders {
     # 置き場の外を指す名前は、列挙したものに当たらず、何も消えない（実在の aux.backup・CON も、名前が合えば消す）。例外にすると、書き換えられた 1 行で
     # 毎回インデックス作成が止まるため、ログに出して続ける）
     # 置き場の有無は getPathState で見る（Directory.Exists は、届かない・読めないときも偽になり、どの名前も「既にありません」として記録が消えるため）。
-    # 無いと確かめられたときだけ空として続け、確かめられなければ例外にする
+    # 無い、またはフォルダでない（ファイルがある）と確かめられたときだけ空として続け、確かめられなければ例外にする
     $existing = @()
     $indexDirState = getPathState $ws.IndexDir
     if ($indexDirState.State -eq ${pathStateFound}) {

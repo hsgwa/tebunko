@@ -864,6 +864,24 @@ Describe "removeDroppedFolders" -Tag Io {
         Should -Invoke writeIndexerLog -Times 0 -Exactly -Scope It -ParameterFilter { $text -like "*既にありません*" -or $text -like "*削除しました*" }
     }
 
+    It "インデックスの置き場が無い・フォルダでない（<name>）と確かめられたときは、例外にせず、「既にありません」を記録する" -TestCases @(
+        @{ name = "置き場が無い"; asFile = $false }
+        @{ name = "置き場のパスにファイルがある"; asFile = $true }
+    ) {
+        param ($name, $asFile)
+        Mock writeIndexerLog {}
+        $indexDir = "$TestDrive\dropped_noplace_$asFile\index"
+        if ($asFile) {
+            [System.IO.Directory]::CreateDirectory("$TestDrive\dropped_noplace_$asFile") | Out-Null
+            [System.IO.File]::WriteAllText($indexDir, "a")
+        }
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
+
+        { removeDroppedFolders @(findDroppedIndexes @() @([pscustomobject]@{ Path = "C:\data\技術"; Name = "技術" })) } | Should -Not -Throw
+
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*既にありません*" }
+    }
+
     It "フォルダが消えなければ例外にし、「削除しました」を記録しない" {
         Mock Start-Sleep {}
         Mock writeIndexerLog {}
