@@ -214,7 +214,7 @@ function testIndexerRunning {
         [string]$dir = $workspace.Dir
     )
 
-    $mutex = newAppMutex "indexer" $dir
+    $mutex = newAppMutex "indexer" $dir ${appId}
     try {
         return !$mutex.Acquired
     } finally {

@@ -114,3 +114,18 @@ Describe "testTextTrimmed" -Tag Unit {
         testTextTrimmed 100 103 2 | Should -Be $true
     }
 }
+
+Describe "formatTime" -Tag Unit {
+    # 当日かどうかで形が変わるため、入力は実行時の今日の日付（Get-Date）から It の中で作る
+    It "<name>" -TestCases @(
+        @{ name = "空なら空"; daysAgo = $null; expected = { "" } }
+        @{ name = "当日は時刻だけ"; daysAgo = 0; expected = { "9:05" } }
+        @{ name = "前の日は月日つき"; daysAgo = 1; expected = { "$((Get-Date).Date.AddDays(-1).ToString('M/d')) 9:05" } }
+        @{ name = "ずっと前の日は月日つき"; daysAgo = 3650; expected = { "$((Get-Date).Date.AddDays(-3650).ToString('M/d')) 9:05" } }
+    ) {
+        param ($name, $daysAgo, $expected)
+
+        $time = if ($null -eq $daysAgo) { $null } else { (Get-Date).Date.AddDays(-$daysAgo).AddHours(9).AddMinutes(5) }
+        formatTime $time | Should -Be (& $expected)
+    }
+}

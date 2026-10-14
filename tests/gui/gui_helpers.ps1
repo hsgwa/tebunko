@@ -995,6 +995,8 @@ function closeGuiMessage {
     param ($S, [string]$Text, [string]$What, [string]$Kind = "警告")
     $window = waitGuiWindow $S $What -Text $Text
     $found = @(getGuiTexts $window) -join " "
+    # 窓の標題は、起動の経路（services.ps1 の setShellTitle）で渡されたツールの表示名
+    if ($window.Current.Name -ne "tebunko") { throw "${What}: 窓の標題が「tebunko」でない（$($window.Current.Name)）" }
     $mark = findGui $window -Id "HeadingIcon"
     if (!$mark -or $mark.Current.Name -ne $Kind) { throw "${What}: 見出しのアイコンが「$Kind」でない（$(if ($mark) { $mark.Current.Name } else { 'アイコンなし' })）" }
     $buttonNames = @(findAllGui $window -Type Button | ForEach-Object { $_.Current.Name })

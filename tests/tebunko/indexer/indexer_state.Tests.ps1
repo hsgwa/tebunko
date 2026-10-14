@@ -237,7 +237,7 @@ Describe "testIndexerRunning" -Tag Io {
         $work = Join-Path $TestDrive "running_work"
         testIndexerRunning $work | Should -Be $false
         testIndexerRunning $work | Should -Be $false
-        $other = newAppMutex "indexer" $work
+        $other = newAppMutex "indexer" $work "tebunko"
         try {
             # 同じスレッドが持つ鍵も「動いている」と数える（画面のインデクサのスレッドが持っているとき）
             testIndexerRunning $work | Should -Be $true

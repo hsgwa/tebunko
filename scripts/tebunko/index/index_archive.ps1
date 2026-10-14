@@ -80,7 +80,7 @@ function exportIndex {
         [string]$settingsPath = ${settingsFile}
     )
 
-    $lock = newAppMutex "indexer" $ws.Dir
+    $lock = newAppMutex "indexer" $ws.Dir ${appId}
     if (!$lock.Acquired) {
         $lock.Mutex.Dispose()
         throw "更新中はエクスポートできません。更新が終わってからやり直してください。"
@@ -492,7 +492,7 @@ function importIndex {
         [scriptblock]$getFreeSpace = { param ($root) getWorkspaceFreeSpace $root }
     )
 
-    $lock = newAppMutex "indexer" $ws.Dir
+    $lock = newAppMutex "indexer" $ws.Dir ${appId}
     if (!$lock.Acquired) {
         $lock.Mutex.Dispose()
         throw "更新中はインポートできません。更新が終わってからやり直してください。"

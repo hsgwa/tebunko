@@ -14,6 +14,7 @@ flowchart LR
 | 対象 | 主な確認内容 |
 |---|---|
 | `readStatusFile` / `writeStatusFile`（`tests/tebunko/core/status_file`） | クロール対象フォルダと各列の往復（`[` `]`・先頭の空白を含むパス）、1 行目・見出し行の書式、エラーのタブ・改行をスペースに、列数の合わない行の無視、書き直し時の置き換え、ファイル無しは空、まとめて書き出した行と `toStatusLine`（1 件ずつの追記）の整形が同じ（速さのため別々に書いているため）、ほかから共有せずに開かれているときの読み込み、使えない名前・相対パスの行の読み飛ばしと `Rejected` の数（同じ名前の 2 行目以降も 1 行目と同じ結果）、予約名（`aux.backup`・`CON.txt`・`CON`）のインデックスはそのまま読む、最後が `.` や空白の名前のフォルダ行は `LegacyFolders` で返す |
+| `writeUnits`（`tests/tebunko/indexer/extract_office`） | 場所ごとの TSV 出力、空の場所は出力しない、`[` `]` を含むパス |
 | `addStatusRow` | 追記した行の優先（大文字・小文字を区別しない）、追記した行の抽出版 |
 | `readStatusLines` / `renameStatusIndexName` / `removeStatusIndexName` | 名前の変更（クロール対象フォルダの行と各行の相対パス）、インデックスの記録の削除 |
 | `readIngestingFiles` / `writeIngestingFiles` / `removeIngestingFile` | 取り込み中の複数のファイルの回数と相対パスの往復、取り込み中が無ければ記録を消す、壊れた行は読み飛ばす |
@@ -56,5 +57,4 @@ flowchart LR
 |---|---|
 | `getIndexNameMap` / `resolveSourcePath` | インデックス名から元のフォルダを引いた元のファイルのパス、ドライブ直下、元のフォルダが分からない結果は `$null`、**設定（`targetFolders` / `indexSources`）を元のフォルダの記録・取り込み一覧より優先**、既定のインデックスは取り込み一覧を元のフォルダの記録より優先 |
 | `writeSourceFolderFile` / `readSourceFolderFile` / `getSourceLocation` | 各インデックスのフォルダへの書き出しと読み込み（説明の行は無視）、別の場所にコピーしたインデックス、インデックス名のフォルダを検索対象にした場合（そのフォルダの記録）、分からない場合は Known = `$false`・Folder は空でインデックス名を返す、キャッシュ |
-| `joinSourcePath` | ドライブ直下・相対フォルダが空の場合・共有フォルダ・空の名前 |
 | `findMovedSource` | 元のフォルダ・ファイルのあるフォルダ・途中のフォルダを選んだ場合も同じ `Root` を返す、相対フォルダが無い場合、見つからない場合 |

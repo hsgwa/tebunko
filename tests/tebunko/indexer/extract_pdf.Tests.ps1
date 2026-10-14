@@ -3,6 +3,7 @@ BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
     . "$PSScriptRoot\..\..\helpers\pdf.ps1"
     . "${scriptsDir}\shared\office\office_reader.ps1"
+    . "${scriptsDir}\tebunko\indexer\extract_office.ps1"
     . "${scriptsDir}\tebunko\indexer\extract_pdf.ps1"
 
     function newSourceFile([string]$name, [byte[]]$bytes) {

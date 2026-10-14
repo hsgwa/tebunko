@@ -86,6 +86,21 @@ function splitTsvCells {
     return , $cells.ToArray()
 }
 
+function formatTime {
+    # 当日なら HH:mm、それ以前は M/d HH:mm
+    param (
+        $time
+    )
+
+    if ($null -eq $time) {
+        return ""
+    }
+    if ($time.Date -eq (Get-Date).Date) {
+        return $time.ToString("H:mm")
+    }
+    return $time.ToString("M/d H:mm")
+}
+
 function testTextTrimmed {
     # 文字が枠に入りきらず、省略（…）で切れているか。実際の幅（枠の ActualWidth）より、要る幅（文字を 1 行で出すのに要る幅）が
     # 誤差より大きいときだけ $true。幅 0 以下（まだ配置されていない・隠れている）は切れていないものとして $false。
