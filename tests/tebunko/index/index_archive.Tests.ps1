@@ -132,6 +132,59 @@ Describe "exportIndex" -Tag Io {
     }
 }
 
+Describe "exportIndex・getIndexExportSize（リンク）" -Tag Io {
+    It "置き場の中のジャンクションの先のファイルは、zip に入れず、大きさにも数えない" {
+        $fixture = newIndexFixture "$TestDrive\export_link" "営業" "C:\共有\営業部"
+        $outside = "$TestDrive\export_link_outside"
+        [System.IO.Directory]::CreateDirectory($outside) | Out-Null
+        [System.IO.File]::WriteAllText("$outside\外.txt", "外のファイル")
+        $indexDir = Join-Path $fixture.Workspace.IndexDir "営業"
+        if (!(newTestJunction "$indexDir\リンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        $dest = "$TestDrive\export_link\out.zip"
+
+        $size = getIndexExportSize @("営業") $fixture.Workspace
+        $size.Bytes | Should -BeGreaterThan 0
+        $null = exportIndex "営業" $dest $fixture.Workspace $fixture.SettingsPath
+
+        $archive = [System.IO.Compression.ZipFile]::Open($dest, [System.IO.Compression.ZipArchiveMode]::Read, [System.Text.Encoding]::UTF8)
+        try {
+            @($archive.Entries | ForEach-Object { $_.FullName }) | Sort-Object | Should -Be @(
+                "content_index/見積/content_index.xlsx.001.tsv", "ingest_status.tsv", "tebunko-index.json"
+            )
+        } finally {
+            $archive.Dispose()
+        }
+        $size.Bytes | Should -Be ((getIndexExportSize @("営業") $fixture.Workspace).Bytes)
+    }
+
+    It "置き場の中に親を指すジャンクション（輪）があっても、止まらずに書き出せる" {
+        $fixture = newIndexFixture "$TestDrive\export_loop" "営業" "C:\共有\営業部"
+        $indexDir = Join-Path $fixture.Workspace.IndexDir "営業"
+        if (!(newTestJunction "$indexDir\見積\輪" $indexDir)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        $dest = "$TestDrive\export_loop\out.zip"
+
+        $result = exportIndex "営業" $dest $fixture.Workspace $fixture.SettingsPath
+        $result.Files | Should -Be 2
+        (getIndexExportSize @("営業") $fixture.Workspace).Bytes | Should -BeGreaterThan 0
+    }
+
+    It "置き場の中に読めないフォルダがあるときは、一部だけを書き出さず、zip を作らずに例外にする" {
+        $fixture = newIndexFixture "$TestDrive\export_unreadable" "営業" "C:\共有\営業部"
+        $dest = "$TestDrive\export_unreadable\out.zip"
+        Mock getFilesNoFollow { @{ Files = @(); Directories = @(); Links = @(); HasError = $true; Reason = "アクセスが拒否されました" } }
+
+        { exportIndex "営業" $dest $fixture.Workspace $fixture.SettingsPath } | Should -Throw "*最後まで読めませんでした*アクセスが拒否されました*"
+        { getIndexExportSize @("営業") $fixture.Workspace } | Should -Throw "*最後まで読めませんでした*"
+        Test-Path -LiteralPath $dest | Should -Be $false
+    }
+}
+
 Describe "exportIndexToFolder" -Tag Io {
     It "止める: 書き出し先のフォルダが無ければ、フォルダ名を添えて例外にする" {
         $fixture = newIndexFixture "$TestDrive\exportf_nofolder" "営業" "C:\共有\営業部"
