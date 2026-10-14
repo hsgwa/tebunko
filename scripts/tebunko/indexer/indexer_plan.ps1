@@ -125,7 +125,9 @@ function testUnderAnyDir {
 
 function findTargetFiles {
     # クロール対象フォルダ配下の、取り込み対象（Office・テキストの拡張子）のファイルを検索し、
-    # @{ Root; Files; HasError（アクセスできないフォルダがあった） } を返す。
+    # @{ Root; Files; Links; HasError（アクセスできないフォルダがあった） } を返す。
+    # クロール対象フォルダの中のリンク（ジャンクション・シンボリックリンク）は辿らず、取り込まない。飛ばしたリンクは Links に入る
+    # （飛ばしたものは HasError にしない）。クロール対象フォルダそのものがリンクのときは、これまでどおりその先の中を読む（中のリンクだけを辿らない）。
     # Root は実際に列挙したフォルダ（\\?\ の付かない通常のパス）。相対パスはこの Root から求める
     # （設定に書かれたパスは、末尾の \ ・ドライブ文字と UNC パスなど書き方が違うことがあるため、文字数で切り出さない）。
     # tebunko が作ったファイル（getTebunkoExcludeDirs のフォルダの下・名前で分かるファイル）は対象に含めない
@@ -135,10 +137,11 @@ function findTargetFiles {
 
     # \\?\ を付けないと、パスが約248文字を超えるフォルダの中を検索できない（アクセスできないフォルダ扱いになる）。
     # 見つかったファイルの FullName は \\?\ 付きになる（fromLongPath で戻す）
-    $scanErrors = $null
     $root = (Resolve-Path -LiteralPath $targetFolder).ProviderPath
-    $scanned = @(Get-ChildItem -LiteralPath (toLongPath $root) -Recurse -File -ErrorAction SilentlyContinue -ErrorVariable scanErrors |
-        Where-Object { ($targetExtensions -contains $_.Extension.ToLower()) -and -not $_.Name.StartsWith('~$') })
+    # 中のリンクは辿らず、飛ばしたものは Links に入れる（先の、対象の外のファイルを読まないため）。
+    # クロール対象フォルダそのものはリンクでもよい（利用者が選んだ場所のため、その先の中を読む）
+    $tree = getFilesNoFollow $root
+    $scanned = @($tree.Files | Where-Object { ($targetExtensions -contains $_.Extension.ToLower()) -and -not $_.Name.StartsWith('~$') })
 
     # 除外するフォルダの \\?\ 付きの前方一致の文字列を先に作る（ファイルごとにドライブの割り当てをたどる処理は呼ばない）。
     # このクロール対象フォルダの外にあるものは、どのファイルにも当たらないため先に落とす（比べる数を減らす）
@@ -153,7 +156,7 @@ function findTargetFiles {
         return $true
     })
 
-    return @{ Root = $root; Files = $files; HasError = (@($scanErrors).Count -gt 0) }
+    return @{ Root = $root; Files = $files; Links = @($tree.Links); HasError = $tree.HasError }
 }
 
 function createTargetList {
@@ -177,6 +180,10 @@ function createTargetList {
 
     $prefix = "$($folder.Name)\"
     $scan = findTargetFiles $folder.Path
+    # 飛ばしたリンクは 1 件 1 行でログに出す
+    foreach ($link in @($scan.Links | Where-Object { $_ })) {
+        writeIndexerLog "    リンク（ジャンクション・シンボリックリンク）のため取り込みませんでした: $link" "Yellow"
+    }
     $rows = New-Object System.Collections.Generic.List[object]
     $targets = New-Object System.Collections.Generic.List[object]
     $failed = New-Object System.Collections.Generic.List[object]
