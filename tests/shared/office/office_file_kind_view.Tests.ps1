@@ -1,4 +1,4 @@
-﻿# Office ファイルの拡張子と種類の表（shared\office\office_files.ps1）のテスト
+﻿# Office ファイルの拡張子と種類の表（shared\office\office_file_kind_view.ps1）のテスト
 BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
 }
@@ -53,5 +53,22 @@ Describe "getOfficeFileKind" -Tag Unit {
     It "名前に使えない文字があっても例外にしない" {
         { getOfficeFileKind "a<b>|c.xlsx" } | Should -Not -Throw
         getOfficeFileKind "a<b>|c.xlsx" | Should -BeExactly "Excel"
+    }
+}
+
+Describe "getOfficeExtensionsOfKind" -Tag Unit {
+    It "<kind> の拡張子を、表の並びで返す" -ForEach @(
+        @{ kind = "Excel"; expected = @(".xlsx", ".xlsm", ".xls", ".xlsb") }
+        @{ kind = "Word"; expected = @(".docx", ".docm", ".doc") }
+        @{ kind = "PowerPoint"; expected = @(".pptx", ".pptm", ".ppt") }
+        @{ kind = "Text"; expected = @() }
+        @{ kind = ""; expected = @() }
+    ) {
+        @(getOfficeExtensionsOfKind $kind) | Should -Be $expected
+    }
+
+    It "3 つの種類の拡張子を合わせると、取り込みの対象の拡張子すべてになる" {
+        $all = @(getOfficeExtensionsOfKind "Excel") + @(getOfficeExtensionsOfKind "Word") + @(getOfficeExtensionsOfKind "PowerPoint")
+        $all | Sort-Object | Should -Be (@(${officeExtensions}) | Sort-Object)
     }
 }

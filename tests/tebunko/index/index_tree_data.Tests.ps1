@@ -9,6 +9,12 @@ Describe "testIndexBookName" -Tag Unit {
         @{ name = "見積.XLS"; expected = $true }
         @{ name = "議事録.docx"; expected = $true }
         @{ name = "資料.pptm"; expected = $true }
+        @{ name = "見積.xlsm"; expected = $true }
+        @{ name = "見積.xlsb"; expected = $true }
+        @{ name = "報告書.doc"; expected = $true }
+        @{ name = "報告書.docm"; expected = $true }
+        @{ name = "提案.pptx"; expected = $true }
+        @{ name = "提案.ppt"; expected = $true }
         @{ name = "営業部"; expected = $false }
         @{ name = "memo.txt"; expected = $true }
         @{ name = "memo.MD"; expected = $true }

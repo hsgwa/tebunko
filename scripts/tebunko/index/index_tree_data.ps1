@@ -4,7 +4,7 @@
 
 function testIndexBookName {
     # 元のファイルごとのフォルダと分かる拡張子か。Office・テキスト・PDF の対象の拡張子の一覧で見分ける
-    # （一覧は indexBookDirPattern の 1 つ。Office は shared\office\office_files.ps1、テキストは shared\core\text_file.ps1 の表にだけある）
+    # （一覧は indexBookDirPattern の 1 つ。Office は shared\office\office_file_kind_view.ps1、テキストは shared\core\text_file.ps1 の表にだけある）
     param (
         [string]$name
     )

@@ -111,6 +111,9 @@ Describe "getIngestLane・getOfficeLane" -Tag Unit {
     It "読み取りのレーンから回し直すときは、PowerPoint のファイルは PowerPoint、それ以外は Word のレーン" {
         getOfficeLane "a.pptx" | Should -Be ${lanePowerPoint}
         getOfficeLane "A.PPTM" | Should -Be ${lanePowerPoint}
+        getOfficeLane "a.ppt" | Should -Be ${lanePowerPoint}
+        # 表に無い拡張子は PowerPoint ではないため、Word のレーン
+        getOfficeLane "a.pptz" | Should -Be ${laneWord}
         getOfficeLane "a.docx" | Should -Be ${laneWord}
         getOfficeLane "a.docm" | Should -Be ${laneWord}
     }

@@ -1,7 +1,7 @@
 ﻿# 取り込み対象にする Office ファイルの拡張子。
 
 # 取り込み対象にする Office ファイルの拡張子（小文字）と、その種類（Excel・Word・PowerPoint）の表。拡張子と種類の対応はここにだけある。
-# どのツールからも使うため shared/ に置く。種類の判定（getOfficeFileKind）は、tebunko/ と shared/ のどちらからもここを呼ぶ
+# 判断層（ファイル・COM・画面に触らない）。どのツールからも使うため shared/ に置く。種類の判定（getOfficeFileKind）は、tebunko/ と shared/ のどちらからもここを呼ぶ
 ${officeFileKinds} = [ordered]@{
     ".xlsx" = "Excel"; ".xlsm" = "Excel"; ".xls" = "Excel"; ".xlsb" = "Excel"
     ".docx" = "Word"; ".docm" = "Word"; ".doc" = "Word"
@@ -23,4 +23,13 @@ function getOfficeFileKind {
     $extension = $Matches[1].ToLowerInvariant()
     if (${officeFileKinds}.Contains($extension)) { return ${officeFileKinds}[$extension] }
     return ""
+}
+
+function getOfficeExtensionsOfKind {
+    # 種類（Excel / Word / PowerPoint）の拡張子の一覧を、表（officeFileKinds）の並びで返す。表に無い種類は空の配列
+    param (
+        [string]$kind
+    )
+
+    return @(${officeFileKinds}.Keys | Where-Object { ${officeFileKinds}[$_] -eq $kind })
 }

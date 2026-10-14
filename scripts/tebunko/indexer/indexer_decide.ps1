@@ -118,7 +118,7 @@ function getOfficeLane {
         [string]$relPath
     )
 
-    if ([System.IO.Path]::GetExtension($relPath).ToLowerInvariant().StartsWith(".ppt")) {
+    if ((getOfficeFileKind $relPath) -eq "PowerPoint") {
         return ${lanePowerPoint}
     }
     return ${laneWord}
