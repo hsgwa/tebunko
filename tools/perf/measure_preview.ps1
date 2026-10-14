@@ -181,7 +181,8 @@ try {
             $cut = $relDir.IndexOf("\")
             $indexName = if ($cut -lt 0) { $relDir } else { $relDir.Substring(0, $cut) }
             $row = [HitRow]::Create($indexName, $hit.Root, $hit.RelPath, $relDir, $hit.FileName, $hit.Book, $hit.Location, [int]$hit.LineNumber, $hit.Line, $Word, $pattern)
-            $numbers = [int[]]@($context | ForEach-Object { $_.LineNumber })
+            $row.IsExcel = ([string]$hit.Book -match '\.xls[a-z]?$')
+            $numbers =[int[]]@($context | ForEach-Object { $_.LineNumber })
             $lines = [string[]]@($context | ForEach-Object { $_.Line })
             $watch.Restart()
             $table = $row.BuildPreview($numbers, $lines)
@@ -231,6 +232,7 @@ try {
         $cut = $relDir.IndexOf("\")
         $indexName = if ($cut -lt 0) { $relDir } else { $relDir.Substring(0, $cut) }
         $moreRow = [HitRow]::Create($indexName, $hit.Root, $hit.RelPath, $relDir, $hit.FileName, $hit.Book, $hit.Location, [int]$hit.LineNumber, $hit.Line, $Word, $pattern)
+        $moreRow.IsExcel = ([string]$hit.Book -match '\.xls[a-z]?$')
         # 初めて開くファイルとして最初の読みをし、その控えで読み足す（画面と同じ）
         $script:readFirstMarks = $null
         $context = @(readPreviewFirst $hit $path $null)

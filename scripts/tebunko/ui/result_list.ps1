@@ -69,7 +69,7 @@ function getPlace {
         [string]$location
     )
 
-    $key = "$([int]($book -match '\.xls[a-z]?$'))|$location"
+    $key = "$([int]((getContentIndexFileKind $book) -eq "Excel"))|$location"
     $described = $script:places[$key]
     if ($null -eq $described) {
         $described = describePlace $book $location
@@ -108,6 +108,7 @@ function ensureRows {
         $described = getPlace $hit.Book $hit.Location
         $row.PlaceText = $described.Place
         $row.Kind = $described.Kind
+        $row.IsExcel = ((getContentIndexFileKind $hit.Book) -eq "Excel")
         $row.IsText = testTextExtension $hit.Book
         $row.IsCellPrefixed = testCellPrefixedPlace $hit.Book (splitObjectPlace $hit.Location).Kind
         $row.Order = $i

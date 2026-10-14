@@ -413,7 +413,6 @@ class FileGroup : NotifyBase {
 class HitRow : NotifyBase {
     static [regex] $CellRegex  = [regex]::new("\t(?:`"(?:[^`"]|`"`")*`"[^\t]*|[^\t]*)")
     static [regex] $QuoteRegex = [regex]::new("^`"((?:[^`"]|`"`")*)`"(.*)`$", [System.Text.RegularExpressions.RegexOptions]::Singleline)
-    static [regex] $ExcelRegex = [regex]::new("\.xls[a-z]?`$", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
     # 図形・コメントの場所 "<元の場所>[<種類>]"。クラスからはスクリプトの関数が見えないため、値はクラスの定義の後で入れる（newObjectPlaceKindPattern）。
     # Excel の図形・コメントの 1 行は "<セル番地><TAB><文字>"。ヘッダー・フッターの 1 行は文字だけ（セル番地が無い）
     static [regex] $ObjectPlaceRegex
@@ -441,7 +440,7 @@ class HitRow : NotifyBase {
     [string]$Kind         # 画面の「種別」（セル・図形・コメント・本文・ノート）
     [int]$LineNumber
     [string]$Line
-    [bool]$IsExcel
+    [bool]$IsExcel         # Excel のファイルの行か（行を作る側が getContentIndexFileKind で決めて入れる）
     [bool]$IsText          # テキストの拡張子（.txt 等）の行か（describeHitPlace・open_source.ps1 が使う。呼び出し側が入れる）
     [bool]$IsObjectPlace
     [bool]$IsCellPrefixed   # 行の先頭がセル番地 + タブの場所（Excel の図形・コメント）か（testCellPrefixedPlace。行を作る側が入れる。既定は $false = セル番地を出さない・選ばない）
@@ -474,7 +473,6 @@ class HitRow : NotifyBase {
         $row.Line = $(if ($null -eq $line) { "" } else { $line })
         $row.word = $word
         $row.pattern = $pattern
-        $row.IsExcel = [HitRow]::ExcelRegex.IsMatch($(if ($null -eq $book) { "" } else { $book }))
         $row.IsObjectPlace = [HitRow]::ObjectPlaceRegex.IsMatch($(if ($null -eq $location) { "" } else { $location }))
         return $row
     }

@@ -23,7 +23,8 @@ BeforeAll {
             [string]$relDir = "営業部"
         )
         $row = [HitRow]::Create("営業", "C:\index\営業", "$relDir\$book", $relDir, "$book.tsv", $book, $location, $lineNumber, $line, $word, $pattern)
-        # 行を作る側（result_list.ps1）と同じ式で IsCellPrefixed を入れる
+        # 行を作る側（result_list.ps1）と同じ式で IsExcel・IsCellPrefixed を入れる
+        $row.IsExcel = ((getContentIndexFileKind $book) -eq "Excel")
         $row.IsCellPrefixed = testCellPrefixedPlace $book (splitObjectPlace $location).Kind
         $row
     }
@@ -356,10 +357,9 @@ Describe "HitRow.Create" -Tag Unit {
         $row.IsFileHeader | Should -Be $false
     }
 
-    It "Excel の拡張子は大文字小文字を区別しない" {
-        (newHitRow -book "見積.XLS").IsExcel | Should -Be $true
-        (newHitRow -book "見積.xlsm").IsExcel | Should -Be $true
-        (newHitRow -book "議事録.docx").IsExcel | Should -Be $false
+    It "Excel かどうかは、行を作る側が入れる（Create は決めない）" {
+        $created = [HitRow]::Create("営業", "C:\index\営業", "見積.xlsx", "営業", "見積.xlsx.tsv", "見積.xlsx", "4月", 1, "A1`t見積", "見積", $null)
+        $created.IsExcel | Should -Be $false
     }
 
     It "コメントの場所も図形と同じく扱う" {
@@ -394,7 +394,6 @@ Describe "HitRow.Create" -Tag Unit {
         $row = [HitRow]::Create("営業", "C:\index\営業", "見積.xlsx", $null, "見積.xlsx.tsv", $null, $null, 1, $null, "見積", $null)
         $row.RelDir | Should -Be ""
         $row.Line | Should -Be ""
-        $row.IsExcel | Should -Be $false
         $row.IsObjectPlace | Should -Be $false
     }
 }

@@ -38,6 +38,14 @@ Describe "convertPlaceToContentIndexMeta / convertContentIndexMetaToPlace" -Tag 
         }
     }
 
+    It "Excel の拡張子（大文字小文字を区別しない）は「Excel」、Word・PowerPoint は別の種類" {
+        getContentIndexFileKind "見積.xlsx" | Should -Be "Excel"
+        getContentIndexFileKind "見積.XLS" | Should -Be "Excel"
+        getContentIndexFileKind "見積.xlsm" | Should -Be "Excel"
+        getContentIndexFileKind "議事録.docx" | Should -Be "Word"
+        getContentIndexFileKind "提案.pptx" | Should -Be "PowerPoint"
+    }
+
     It "種類の分からないファイルは、部分に場所の名前を持つ" {
         getContentIndexFileKind "メモ.zip" | Should -Be ""
         $meta = convertPlaceToContentIndexMeta "メモ.zip" "本文[図形]"

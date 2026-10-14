@@ -332,7 +332,7 @@ function describePlace {
     $kind = $split.Kind
     if ($split.Number -gt 0) { $kind = "$kind $($split.Number)" }
 
-    if ($book -match '\.xls[a-z]?$') {
+    if ((getContentIndexFileKind $book) -eq "Excel") {
         return @{ Place = "[シート]$base"; Kind = $(if ($kind) { $kind } else { "セル" }) }
     }
     if ($base -eq "") {
