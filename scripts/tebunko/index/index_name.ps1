@@ -182,7 +182,7 @@ function testIndexRelPath {
     # 先頭は保存してあるインデックス名（testStoredIndexName。予約名は通す）、残りは区切りごとに空・.・..・ファイル名に使えない文字（\ / : など）を拒む
     # （残りには予約名・最後の . や空白の決まりを当てない。実在のファイル名を捨てないため）。
     #   allowNameOnly: 残りが無く、名前だけのもの（"営業"）も通す（システムインデックスの状態のフォルダ）
-    #   checkedNames : testIndexName を通った名前の集合（HashSet[string]）。数万行を読むとき、同じ名前を何度も調べないために
+    #   checkedNames : testStoredIndexName を通った名前の集合（HashSet[string]）。数万行を読むとき、同じ名前を何度も調べないために
     #                  呼び出し側が渡す（通った名前をここに足す）
     param (
         [string]$relPath,

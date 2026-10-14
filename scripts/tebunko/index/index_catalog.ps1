@@ -51,7 +51,9 @@ class IndexCatalog {
         if ((testIndexName $newName @()) -ne "" -or !(testPathUnder $to $dir)) {
             throw "新しいインデックス名が使えないため、名前を変えられません: ${newName}"
         }
-        # 元のフォルダは Directory.Exists で見る（aux.backup のような予約名のフォルダは、Test-Path では無いことになるため）
+        # 元のフォルダは Directory.Exists で見る（aux.backup のような予約名のフォルダは、Test-Path では無いことになるため）。
+        # ただし testPathUnder は GetFullPath に頼るため、最後の区切りをデバイス名として解く古い版の Windows では、
+        # 上の確かめを通らず、何も動かさずに例外になる
         if ([System.IO.Directory]::Exists((toLongPath $from))) {
             if ([string]::Equals($oldName, $newName, [System.StringComparison]::OrdinalIgnoreCase)) {
                 # 大文字・小文字だけを変える場合は、そのままでは改名できないため一時名を経由する
@@ -102,7 +104,9 @@ class IndexCatalog {
             throw "インデックス名が使えないため、削除できません: ${name}"
         } else {
             # 中に長いパス（260文字超）のTSVがあっても削除でき、中のリンク（ジャンクション・シンボリックリンク）の先は消さない
-            # （removeDirectoryRetry。フォルダが無ければ何もしない。aux.backup のような予約名のフォルダも、Test-Path ではなくここで見つけて消す）。
+            # （removeDirectoryRetry。フォルダが無ければ何もしない。aux.backup のような予約名のフォルダも、Test-Path ではなくここで見つけて消す。
+            # ただし testPathUnder は GetFullPath に頼るため、最後の区切りをデバイス名として解く古い版の Windows では、
+            # 上の確かめを通らず、何も消さずに例外になる）。
             # 消せなければ例外にして、取り込み一覧の記録を残す（フォルダが残ったまま記録だけ消えないように）
             removeDirectoryRetry $target
         }
