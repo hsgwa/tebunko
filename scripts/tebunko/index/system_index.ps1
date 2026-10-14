@@ -425,10 +425,8 @@ function removeSystemIndexOf {
         [string]$path = $workspace.SystemIndexStateFile
     )
 
-    $dir = toLongPath "$($systemRoot.TrimEnd('\'))\$rel"
-    if ([System.IO.Directory]::Exists($dir)) {
-        removeDirectoryRetry "$($systemRoot.TrimEnd('\'))\$rel"
-    }
+    # 有無は removeDirectoryRetry が確かめる（無ければ何もしない。届かない・読めないときは例外になり、状態の行を残す）
+    removeDirectoryRetry "$($systemRoot.TrimEnd('\'))\$rel"
     $name = getIndexNameOfRelPath $rel
     $indexName = if ($name -eq $rel) { $name } else { "" }
     return updateSystemIndexState { param ($state) removeSystemIndexEntries $state $rel $indexName } $path

@@ -3,8 +3,9 @@
 # 別の消し方（Remove-Item -Recurse・Directory.Delete の再帰）を足すと、リンクの先まで消す・消えていないのに成功と記録する、のどちらかが起きうる。
 # 見張るもの:
 #   1. scripts の下に、フォルダを再帰で消す書き方（Remove-Item とその別名（モジュール名付きも）の -Recurse（省略形も）・スプラット、
-#      Directory.Delete の再帰、型が変数で読めない ::Delete(<path>, <$false でない値>)）が無い
-#   2. removeTreeNoFollow を呼ぶのは removeDirectoryRetry だけ（スクリプト直下の呼び出しも違反に数える）
+#      Directory.Delete の再帰（メンバー名を引用符で囲んだ書き方も）、型が変数で読めない ::Delete(<path>, <$false でない値>)、
+#      DeleteDirectory・DeleteFolder、ForEach-Object・foreach・% や .ForEach(...) にメンバー名 "Delete" を文字列で渡し、$false でない値を付ける書き方）が無い
+#   2. removeTreeNoFollow を呼ぶのは shared\core\fs.ps1 の removeDirectoryRetry だけ（スクリプト直下の呼び出しも、同じ名前の別のファイルの関数も違反に数える）
 #   3. removeDirectoryRetry を直接呼ぶ関数（スクリプト直下を含む）は、フォルダの有無を Test-Path で見ない（予約名に拡張子の付いた名前のフォルダは、
 #      Test-Path と .NET で答えが食い違い、消さずに「削除しました」と記録する不具合になった。有無は [System.IO.Directory]::Exists で見る）
 # 「消したあとに残っていれば例外にする」ことは fs.Tests.ps1 の removeDirectoryRetry のテストが守る。
@@ -52,17 +53,22 @@ BeforeAll {
             if ($node -is [System.Management.Automation.Language.CommandAst]) {
                 $commandName = "$($node.GetCommandName())".Split("\")[-1]
                 if (${forEachNames} -contains $commandName) {
-                    # ForEach-Object Delete $true（メンバー名を文字列で渡す書き方）。Delete のあとに $false でない値があれば違反に数える
-                    $elements = @($node.CommandElements)
-                    for ($index = 0; $index -lt $elements.Count; $index++) {
-                        if ($elements[$index] -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $elements[$index].Value -eq "Delete") {
-                            if ($index + 1 -ge $elements.Count) {
-                                continue
-                            }
-                            $rest = @($elements[($index + 1)..($elements.Count - 1)] | Where-Object { $_ -is [System.Management.Automation.Language.ExpressionAst] -and !(testFalseLiteral $_) })
-                            if ($rest.Count -gt 0) {
-                                $found.Add("$commandName Delete（引数付き。再帰かもしれない）")
-                            }
+                    # ForEach-Object Delete $true・ForEach-Object -MemberName Delete -ArgumentList $true（メンバー名を文字列で渡す書き方）。
+                    # Delete がある呼び出しで、Delete 以外に $false でない値（-ArgumentList:$true のようにパラメーターに付いた値も）があれば、前後を問わず違反に数える
+                    $elements = @($node.CommandElements | Select-Object -Skip 1)
+                    $deleteElements = @($elements | Where-Object { $_ -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $_.Value -eq "Delete" })
+                    if ($deleteElements.Count -gt 0) {
+                        $values = @($elements | Where-Object {
+                                if ($_ -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $_.Value -eq "Delete") {
+                                    $false
+                                } elseif ($_ -is [System.Management.Automation.Language.CommandParameterAst]) {
+                                    $null -ne $_.Argument -and !(testFalseLiteral $_.Argument)
+                                } else {
+                                    !(testFalseLiteral $_)
+                                }
+                            })
+                        if ($values.Count -gt 0) {
+                            $found.Add("$commandName Delete（引数付き。再帰かもしれない）")
                         }
                     }
                     continue
@@ -85,6 +91,15 @@ BeforeAll {
             if (${otherDeleteMembers} -contains $memberName) {
                 # フォルダを再帰で消す別の入口（VisualBasic の FileSystem.DeleteDirectory・COM の FileSystemObject.DeleteFolder）
                 $found.Add("$($node.Expression.Extent.Text).$memberName（別の消し方）")
+                continue
+            }
+            if ($memberName -eq "ForEach" -and $node.Arguments.Count -ge 1 -and
+                $node.Arguments[0] -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $node.Arguments[0].Value -eq "Delete") {
+                # $dirs.ForEach("Delete", $true)（メンバー名を文字列で渡す書き方）。Delete のあとに $false でない値があれば違反に数える
+                $restArguments = @($node.Arguments | Select-Object -Skip 1 | Where-Object { !(testFalseLiteral $_) })
+                if ($restArguments.Count -gt 0) {
+                    $found.Add("$($node.Expression.Extent.Text).ForEach(`"Delete`", ...)（メンバー名を文字列で渡す。再帰かもしれない）")
+                }
                 continue
             }
             if ($memberName -ne "Delete") {
@@ -236,6 +251,9 @@ Describe "フォルダを消す書き方の見つけ方（自己テスト）" -T
         @{ code = '$dirs | foreach Delete $recursive' }
         @{ code = '$dirs | % Delete $true' }
         @{ code = '$dirs | ForEach-Object -MemberName Delete -ArgumentList $true' }
+        @{ code = '$dirs | ForEach-Object -MemberName Delete -ArgumentList:$true' }
+        @{ code = '$dirs | ForEach-Object -ArgumentList $true -MemberName Delete' }
+        @{ code = '$dirs.ForEach("Delete", $true)' }
         @{ code = '$type::Delete($x, $true)' }
         @{ code = '$type::Delete($x, $recursive)' }
         @{ code = 'Microsoft.PowerShell.Management\Remove-Item $x -Recurse' }
@@ -255,6 +273,9 @@ Describe "フォルダを消す書き方の見つけ方（自己テスト）" -T
         @{ code = '$dirs | ForEach-Object Delete $false' }
         @{ code = '$dirs | ForEach-Object { $_.Name }' }
         @{ code = '$dirs | ForEach-Object Delete' }
+        @{ code = '$dirs | ForEach-Object -MemberName Delete' }
+        @{ code = '$dirs.ForEach("Delete", $false)' }
+        @{ code = '$dirs.ForEach({ $_.Name })' }
         @{ code = '$type::Delete($f)' }
         @{ code = '$type::Delete($d, $false)' }
         @{ code = 'Get-ChildItem $d | Remove-Item -Force' }

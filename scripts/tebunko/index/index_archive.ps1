@@ -570,8 +570,13 @@ function expandImportArchive {
         writeListFile (Join-Path $newDir ${sourceFolderFileName}) @($header, "${finalName}`t${folder}")
         return @{ NewDir = $newDir; Rows = $rows.ToArray() }
     } catch {
-        removeDirectoryRetry $workDir
-        throw
+        $original = $_
+        try {
+            removeDirectoryRetry $workDir
+        } catch {
+            # 片付けに失敗しても、元の失敗の理由を隠さない
+        }
+        throw $original
     }
 }
 
@@ -808,8 +813,13 @@ function importIndexCore {
                 throw
             }
         } catch {
-            removeDirectoryRetry $workDir
-            throw
+            $original = $_
+            try {
+                removeDirectoryRetry $workDir
+            } catch {
+                # 片付けに失敗しても、元の失敗の理由を隠さない
+            }
+            throw $original
         }
 
         # 11. 上書きなら、前のシステムインデックスを消す（消せなくても続ける。次のインデックス作成で整理される）

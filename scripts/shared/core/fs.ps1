@@ -325,6 +325,9 @@ function removeDirectoryRetry {
         [int]$waitMilliseconds = 200
     )
 
+    if (!$path) {
+        return  # 空のパスは消すものが無い
+    }
     # 中に長いパス（260文字超）のファイルがあっても削除できるよう \\?\ 付きで削除する
     $longPath = toLongPath $path
     for ($i = 1; $true; $i++) {
@@ -335,8 +338,13 @@ function removeDirectoryRetry {
             if ($state.State -eq ${pathStateMissing} -or ($state.State -eq ${pathStateFound} -and !$state.IsDirectory)) {
                 return
             }
+            if ($state.State -ne ${pathStateFound}) {
+                # 届かない・読めない（権限が無いなど）は、待っても変わらないので、試し直さずに例外にする。理由は OS の文面をそのまま添える
+                throw "フォルダがあるかどうか確かめられません: $path（$($state.Message)）"
+            }
+            # フォルダとして在るのに Exists が偽（開けない・消している途中など）。少し待って試し直す
             if ($i -ge $tries) {
-                throw "フォルダの有無を確かめられません: $path（$($state.State)）"
+                throw "フォルダがあるのに開けないため、消せません: $path"
             }
             Start-Sleep -Milliseconds $waitMilliseconds
             continue

@@ -233,12 +233,10 @@ function removeDroppedFolders {
 
     foreach ($previous in @($dropped | Where-Object { $_ })) {
         $dir = Join-Path $ws.IndexDir $previous.Name
-        # Test-Path でなく .NET で有無を見る（予約名に拡張子の付いた名前のフォルダは、Test-Path と .NET で有無の答えが食い違うことがある）
-        if ([System.IO.Directory]::Exists((toLongPath $dir))) {
-            # 中に長いパス（260文字超）のTSVがあっても削除でき、中のリンク（ジャンクション・シンボリックリンク）の先は消さない。
-            # 消えていなければ例外になる（下のログは、消えたことを確かめてから出る）
-            removeDirectoryRetry $dir
-        }
+        # 有無は removeDirectoryRetry が確かめる（無ければ何もしない。届かない・読めないときは例外になる）。
+        # 中に長いパス（260文字超）のTSVがあっても削除でき、中のリンク（ジャンクション・シンボリックリンク）の先は消さない。
+        # 消えていなければ例外になる（下のログは、消えたことを確かめてから出る）
+        removeDirectoryRetry $dir
         writeIndexerLog "クロール対象から削除されたフォルダ（$($previous.Path)）のインデックスを削除しました。"
     }
 }

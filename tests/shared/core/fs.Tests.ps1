@@ -236,15 +236,32 @@ Describe "removeDirectoryRetry" -Tag Io {
         [System.IO.File]::Exists($file) | Should -Be $true
     }
 
-    It "有無が分からない（<state>）ときは、成功にせず、決めた回数だけ試してから例外にする" -TestCases @(
-        @{ state = "Unreachable"; isDirectory = $false }
-        @{ state = "Other"; isDirectory = $false }
-        @{ state = "Found"; isDirectory = $true }
+    It "空のパスは、何もせず成功にする" {
+        Mock removeTreeNoFollow {}
+        Mock getPathState {}
+        { removeDirectoryRetry "" } | Should -Not -Throw
+        Should -Invoke getPathState -Times 0 -Exactly -Scope It
+        Should -Invoke removeTreeNoFollow -Times 0 -Exactly -Scope It
+    }
+
+    It "届かない・読めない（<state>）ときは、成功にも試し直しにもせず、OS の理由を添えて例外にする" -TestCases @(
+        @{ state = "Unreachable" }
+        @{ state = "Other" }
     ) {
         Mock Start-Sleep {}
         Mock removeTreeNoFollow {}
-        Mock getPathState { @{ State = $state; IsDirectory = $isDirectory; Message = "x" } }
-        { removeDirectoryRetry "$TestDrive\分からないフォルダ" 3 1 } | Should -Throw "*確かめられません*"
+        Mock getPathState { @{ State = $state; IsDirectory = $false; Message = "アクセスが拒否されました" } }
+        { removeDirectoryRetry "$TestDrive\分からないフォルダ" 3 1 } | Should -Throw "*フォルダがあるかどうか確かめられません*アクセスが拒否されました*"
+        Should -Invoke getPathState -Times 1 -Exactly -Scope It
+        Should -Invoke removeTreeNoFollow -Times 0 -Exactly -Scope It
+        Should -Invoke Start-Sleep -Times 0 -Exactly -Scope It
+    }
+
+    It "フォルダとして在るのに Exists が偽のときは、決めた回数だけ試してから、成功にせず例外にする" {
+        Mock Start-Sleep {}
+        Mock removeTreeNoFollow {}
+        Mock getPathState { @{ State = "Found"; IsDirectory = $true; Message = "" } }
+        { removeDirectoryRetry "$TestDrive\開けないフォルダ" 3 1 } | Should -Throw "*開けないため、消せません*"
         Should -Invoke getPathState -Times 3 -Exactly -Scope It
         Should -Invoke removeTreeNoFollow -Times 0 -Exactly -Scope It
         Should -Invoke Start-Sleep -Times 2 -Exactly -Scope It

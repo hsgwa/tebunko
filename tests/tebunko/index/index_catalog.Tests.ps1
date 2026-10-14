@@ -219,6 +219,18 @@ Describe "IndexCatalog.RemoveIndex" -Tag Io {
         $status.Rows.ContainsKey("営業\a.xlsx") | Should -Be $true
     }
 
+    It "フォルダがあるかどうか確かめられなければ（届かない・読めない）、例外にし、取り込み一覧の記録は残す" {
+        $ws = newCatalogWorkspace "$TestDrive\remove_unknown"
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(
+            (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00")
+        ) $ws.Status
+        Mock getPathState { @{ State = "Other"; IsDirectory = $false; Message = "アクセスが拒否されました" } }
+
+        { $ws.Catalog.RemoveIndex("営業") } | Should -Throw "*アクセスが拒否されました*"
+
+        (readStatusFile $ws.Status).Rows.ContainsKey("営業\a.xlsx") | Should -Be $true
+    }
+
     It "インデックスのフォルダの中にあるジャンクションの先は消さず、ジャンクションだけを外す" {
         $ws = newCatalogWorkspace "$TestDrive\remove_junction"
         $outside = "$TestDrive\remove_junction_outside"

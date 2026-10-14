@@ -540,6 +540,18 @@ Describe "importIndex" -Tag Io {
         @(getTargetFolders $settingsB).Count | Should -Be 0
     }
 
+    It "取り込みの途中で失敗し、作業フォルダの片付けも失敗しても、元の失敗の理由が出る" {
+        $fixtureA = newIndexFixture "$TestDrive\orig_a" "営業" "C:\共有\営業部"
+        $dest = "$TestDrive\orig.zip"
+        exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
+        $wsB = [Workspace]::new("$TestDrive\orig_b")
+        $settingsB = "$TestDrive\orig_b\setting.config"
+        Mock registerImportedIndexInSettings { throw "設定を書けませんでした" }
+        Mock removeDirectoryRetry { throw "作業フォルダを消せませんでした" } -ParameterFilter { $path -like "*\import" -and [System.IO.Directory]::Exists($path) }
+
+        { importIndex $dest ${importCollisionRename} "" "C:\共有\営業部" $wsB $settingsB } | Should -Throw "*設定を書けませんでした*"
+    }
+
     It "同じ名前: <mode>" -TestCases @(
         @{ mode = "Rename"; expectedName = "営業(2)" }
         @{ mode = "Overwrite"; expectedName = "営業" }

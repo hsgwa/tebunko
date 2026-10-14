@@ -134,8 +134,13 @@ class WorkspaceMover {
         try {
             $this.CopyTree($longSource, $longDest)
         } catch {
-            removeDirectoryRetry $dest
-            throw
+            $original = $_
+            try {
+                removeDirectoryRetry $dest
+            } catch {
+                # 片付けに失敗しても、元の失敗の理由を隠さない
+            }
+            throw $original
         }
         removeDirectoryRetry $source
     }

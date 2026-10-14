@@ -85,12 +85,10 @@ class IndexCatalog {
             return
         }
         $target = Join-Path $dir $name
-        # Test-Path でなく .NET で有無を見る（予約名に拡張子の付いた名前のフォルダは、Test-Path と .NET で有無の答えが食い違うことがある）
-        if ([System.IO.Directory]::Exists((toLongPath $target))) {
-            # 中に長いパス（260文字超）のTSVがあっても削除でき、中のリンク（ジャンクション・シンボリックリンク）の先は消さない
-            # （removeDirectoryRetry）。消せなければ例外にして、取り込み一覧の記録を残す（フォルダが残ったまま記録だけ消えないように）
-            removeDirectoryRetry $target
-        }
+        # 有無は removeDirectoryRetry が確かめる（無ければ何もしない。届かない・読めないときは例外になる）。
+        # 中に長いパス（260文字超）のTSVがあっても削除でき、中のリンク（ジャンクション・シンボリックリンク）の先は消さない。
+        # 消せなければ例外にして、取り込み一覧の記録を残す（フォルダが残ったまま記録だけ消えないように）
+        removeDirectoryRetry $target
         $this.Ledger.RemoveIndexName($name)
         removeSystemIndexOfWorkspace $name $dir
         # 外したフォルダの記録（searchExcludes）も消す

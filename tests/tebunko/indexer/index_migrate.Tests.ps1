@@ -804,6 +804,16 @@ Describe "removeDroppedFolders" -Tag Io {
         Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*削除しました*" }
     }
 
+    It "フォルダがあるかどうか確かめられなければ（届かない・読めない）、例外にし、「削除しました」を記録しない" {
+        Mock writeIndexerLog {}
+        Mock getPathState { @{ State = "Other"; IsDirectory = $false; Message = "アクセスが拒否されました" } }
+        $workspace = newTestWorkspace @{ IndexDir = "$TestDrive\dropped_unknown\index" }
+
+        { removeDroppedFolders @(findDroppedIndexes @() @([pscustomobject]@{ Path = "C:\data\技術"; Name = "技術" })) } | Should -Throw "*アクセスが拒否されました*"
+
+        Should -Invoke writeIndexerLog -Times 0 -Exactly -Scope It -ParameterFilter { $text -like "*削除しました*" }
+    }
+
     It "フォルダが消えなければ例外にし、「削除しました」を記録しない" {
         Mock Start-Sleep {}
         Mock writeIndexerLog {}

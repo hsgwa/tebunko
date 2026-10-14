@@ -353,6 +353,15 @@ Describe "removeSystemIndexOf" -Tag Io {
         (readSystemIndexState $path).Covered.Contains("営業") | Should -Be $true
     }
 
+    It "フォルダがあるかどうか確かめられなければ（届かない・読めない）、例外にし、状態の行を残す" {
+        Mock getPathState { @{ State = "Other"; IsDirectory = $false; Message = "アクセスが拒否されました" } }
+        $system = "$TestDrive\rm_unknown\system_index"
+        $path = "$TestDrive\rm_unknown\state.tsv"
+        [void](updateSystemIndexState { param ($s) [void]$s.Covered.Add("営業") } $path)
+        { removeSystemIndexOf "営業" $system $path } | Should -Throw "*アクセスが拒否されました*"
+        (readSystemIndexState $path).Covered.Contains("営業") | Should -Be $true
+    }
+
     It "インデックスの中のフォルダだけを消すときは、インデックスの対応済みを残す" {
         $index = newIndexTree "$TestDrive\rm2"
         $system = "$TestDrive\rm2\system_index"
