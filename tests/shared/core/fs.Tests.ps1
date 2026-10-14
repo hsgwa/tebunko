@@ -1042,10 +1042,10 @@ Describe "getFolderKey" -Tag Unit {
 
 Describe "newAppMutex" -Tag Io {
     It "同じ処理・同じフォルダでは2つ目を取得できない" {
-        $first = newAppMutex "test" "$TestDrive\tool"
+        $first = newAppMutex "test" "$TestDrive\tool" "tebunko"
         try {
             $first.Acquired | Should -Be $true
-            $second = newAppMutex "test" "$TestDrive\tool"
+            $second = newAppMutex "test" "$TestDrive\tool" "tebunko"
             try {
                 $second.Acquired | Should -Be $false
             } finally {
@@ -1058,9 +1058,9 @@ Describe "newAppMutex" -Tag Io {
     }
 
     It "処理の種類・フォルダが違えば同時に取得できる" {
-        $gui = newAppMutex "gui" "$TestDrive\tool"
-        $indexer = newAppMutex "indexer" "$TestDrive\tool"
-        $other = newAppMutex "indexer" "$TestDrive\tool2"
+        $gui = newAppMutex "gui" "$TestDrive\tool" "tebunko"
+        $indexer = newAppMutex "indexer" "$TestDrive\tool" "tebunko"
+        $other = newAppMutex "indexer" "$TestDrive\tool2" "tebunko"
         try {
             $gui.Acquired | Should -Be $true
             $indexer.Acquired | Should -Be $true
@@ -1071,6 +1071,39 @@ Describe "newAppMutex" -Tag Io {
                 $m.Mutex.Dispose()
             }
         }
+    }
+
+    It "ミューテックスの名前は Local\<app>_<name>_<key>（別の app の同じ名前・フォルダとは重ならず、同じ名前を直接開けば同じ鍵）" {
+        $lock = newAppMutex "test" "$TestDrive\tool" "appA"
+        try {
+            $lock.Acquired | Should -Be $true
+            $other = newAppMutex "test" "$TestDrive\tool" "appB"
+            try {
+                $other.Acquired | Should -Be $true
+            } finally {
+                $other.Mutex.ReleaseMutex()
+                $other.Mutex.Dispose()
+            }
+            $name = "Local\appA_test_$(getFolderKey "$TestDrive\tool")"
+            $opened = [System.Threading.Mutex]::OpenExisting($name)
+            $opened.Dispose()
+        } finally {
+            $lock.Mutex.ReleaseMutex()
+            $lock.Mutex.Dispose()
+        }
+    }
+
+    It "app が空なら例外にする（渡し忘れを黙って別の名前にしない）" -TestCases @(
+        @{ app = "" }
+        @{ app = $null }
+    ) {
+        param ($app)
+
+        { newAppMutex "test" "$TestDrive\tool" $app } | Should -Throw "*app*"
+    }
+
+    It "app を渡さなければ例外にする" {
+        { newAppMutex "test" "$TestDrive\tool" } | Should -Throw "*app*"
     }
 }
 

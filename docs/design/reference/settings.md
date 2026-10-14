@@ -101,7 +101,7 @@
 | `testSettingsFileName` | name | bool | 設定ファイル（`setting.config`・`.tmp`・`.broken-<日時>[-<番号>]`）の名前か。既定のワークスペースが空かの判断と、中身として数える対象から外すのに使う | [設定ファイル](../structure/settings-file.md) | `testDefaultWorkspace`, 画面（`getCountedEntryPaths`） |
 | `getSettingsFileView` | settingsFile, rootDir | `@{Path; Note}` | 設定タブに出す設定ファイルの場所と、ツールのフォルダに置いているか（書き込めなくて既定のワークスペースに置いているか）の注記。判断層（`settings_view.ps1`） | [設定タブ](../gui/settings-tab.md) | 画面（設定タブ） |
 | `getCountedEntryPaths` | entryPaths, isDefaultWorkspace | string[] | ワークスペースに選んだフォルダの中身のうち「空でない」の数に入れるもの。選んだフォルダが既定のワークスペースなら、設定ファイルとその付属ファイル（`testSettingsFileName`）を外す。判断層（`settings_view.ps1`。カバレッジの分母に入る） | [設定タブ](../gui/settings-tab.md) | 画面（設定タブ） |
-| `newAppMutex` | name（`gui` / `indexer`）, dir（既定 `$rootDir`） | `@{Mutex; Acquired}` | 同じツール（配置フォルダ）の処理を二重に動かさないための名前付きミューテックス（`Local\tebunko_<name>_<getFolderKey の鍵>`）。`Acquired` が `$false` なら、ほかで実行中。プロセスが終われば解放されるため、強制終了しても残らない | [インデックス作成のメインフロー](../indexing/flow.md) | インデックス作成（起動時。dir に `$workspace.Dir` を渡し、同じ `work` を使うものを 1 つにする）。画面は `getFolderKey` の鍵で同じ規則の名前を自前で作る（ウィンドウを前面に出すイベントの名前と共通の鍵を使うため） |
+| `newAppMutex` | name（`gui` / `indexer`）, dir（既定 `$rootDir`）, app（ツールの名前。呼ぶ側が渡す。空なら例外） | `@{Mutex; Acquired}` | 同じツール（配置フォルダ）の処理を二重に動かさないための名前付きミューテックス（`Local\<app>_<name>_<getFolderKey の鍵>`。tebunko では `Local\tebunko_<name>_<鍵>`）。`Acquired` が `$false` なら、ほかで実行中。プロセスが終われば解放されるため、強制終了しても残らない | [インデックス作成のメインフロー](../indexing/flow.md) | インデックス作成（起動時。dir に `$workspace.Dir` を渡し、同じ `work` を使うものを 1 つにする）。画面は `getFolderKey` の鍵で同じ規則の名前を自前で作る（ウィンドウを前面に出すイベントの名前と共通の鍵を使うため） |
 | `invokeWithNamedMutex` | mutexName, timeoutMilliseconds, action | action の出力 | 名前付きミューテックスを取って action を実行し、終わったら手放す。同じスレッドの入れ子は通す。時間を過ぎても取れなければ「排他の待ちが時間切れになりました」の例外。前の持ち主が手放さずに終わっていた（abandoned）ときは取れたものとして続ける | [プロセスとスレッド](../structure/threads.md) | invokeSettingsLocked |
 | `normalizeFolderPath` | path | string | フォルダパスを 1 つの書き方にそろえる（前後の空白・`"` の除去、環境変数の展開、`/` → `\`、`\\?\` の除去、重なった `\` ・ `.` ・ `..` の解決、相対パスは `$rootDir` から、末尾の `\` の除去。ドライブ直下は `D:\` のまま）。解釈できない場合は書かれたとおり | [クロール対象フォルダと取り込み対象](../indexing/crawl.md#クロール対象フォルダgettargetfolders) | getTargetFolders, 画面 |
 | `getPathUnderFolder` | path, folder | string / `$null` | path が folder 自身か下なら folder からの相対パス（folder 自身は空）、下でなければ `$null`（大文字・小文字と末尾の `\` を無視）。パスの文字数で切り出さないために使う | 同上 | インデックス作成・検索 |
@@ -110,6 +110,7 @@
 | `testSameFolder` | a, b, drives（既定 `getDriveTargets`） | bool | 2 つのパスが同じフォルダを指すか（書き方の違い・ドライブの割り当てをたどる） | 同上 | getTargetFolders, getSourceFolderMap, 画面 |
 | `testFolderUnder` | path, folder, drives（既定 `getDriveTargets`） | bool | path が folder 自身か folder の下のフォルダか（`testSameFolder` と同じく書き方の違いをたどる）。クロール対象フォルダが入れ子にならないかの確認に使う | 同上 | 画面（インデックスの追加・編集） |
 | `getFolderLeafName` | folderPath | string | フォルダ名（ドライブ直下はドライブ名、UNC は共有名） | [取り込み一覧](../indexing/ingest-list.md) | newIndexName |
+| `joinSourcePath` | folder, rest, name | string | フォルダ・相対フォルダ・ファイル名をつなぐ（ドライブ直下でも `\` を重ねない） | – | getFolderPathAliases, 元のファイルの特定（`source_map.ps1`）, 画面 |
 | `getExistingAncestorFolder` | folder | string | folder が今もあればそのまま、無ければその上の今もあるフォルダ。どこにも無ければ空 | [フォルダ選択ダイアログ（［参照…］）](../gui/common.md#フォルダ選択ダイアログ参照) | 画面（フォルダ選択） |
 
 ## 診断情報とログの世代（`shared/core/diagnostics_view.ps1`・`diagnostics.ps1`・`tebunko/core/diagnostics.ps1`）

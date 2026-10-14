@@ -1036,3 +1036,51 @@ Describe "extractWorkbook（暗号化されたファイル）" -Tag Io {
         { extractWorkbook $source } | Should -Throw -ExpectedMessage "*ファイルを暗号化する製品が一時ファイルを暗号化したため更新できません*"
     }
 }
+
+Describe "writeUnits" -Tag Io {
+    It "場所ごとにTSVを出力し、空の場所は出力しない" {
+        $outDir = "$TestDrive\out[1]"
+        [System.IO.Directory]::CreateDirectory($outDir) | Out-Null
+
+        $units = New-Object System.Collections.Specialized.OrderedDictionary
+        addUnitLines $units "ページ001" @("a`tb`t", "  ")
+        addUnitLines $units "ページ002" @("", " ")
+        addUnitLines $units "スライド001_ノート" @("メモ")
+
+        # ファイル名はフォルダ名（インデクサが作業フォルダから移す先）になるため、TSVの名前は場所だけ
+        writeUnits $units $outDir | Should -Be 2
+        [System.IO.File]::ReadAllText("$outDir\page_001.tsv") | Should -Be "a`tb`r`n"
+        Test-Path -LiteralPath "$outDir\page_002.tsv" | Should -Be $false
+        # 固定名に当てはまる場所は英語の固定名にする（toIndexFileName）
+        Test-Path -LiteralPath "$outDir\slide_001_notes.tsv" | Should -Be $true
+    }
+
+    It "testdata の docx・pptx すべてで、出力するファイル名がASCIIになる（再発防止。場所や種類を足して英語の名前を忘れると、ここで落ちる）" {
+        $root = [System.IO.Path]::GetFullPath("$PSScriptRoot\..\..\testdata\office")
+        $files = @(Get-ChildItem -Path $root -Recurse -File -Include "*.docx", "*.pptx")
+        $files.Count | Should -BeGreaterThan 0
+
+        $checked = 0
+        foreach ($file in $files) {
+            $units = $null
+            try {
+                $units = $(if ($file.Extension -ieq ".docx") { readDocxUnits $file.FullName } else { readPptxUnits $file.FullName })
+            } catch {
+                continue
+            }
+            if ($null -eq $units -or $units.Count -eq 0) {
+                continue
+            }
+
+            $sweepDir = "$TestDrive\ascii_sweep\$([Guid]::NewGuid().ToString('N'))"
+            [System.IO.Directory]::CreateDirectory($sweepDir) | Out-Null
+            writeUnits $units $sweepDir | Out-Null
+            foreach ($written in Get-ChildItem -Path $sweepDir -File) {
+                $written.Name | Should -Match "^[\x20-\x7E]+$"
+            }
+            $checked++
+        }
+
+        $checked | Should -BeGreaterThan 0
+    }
+}

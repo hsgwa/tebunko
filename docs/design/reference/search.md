@@ -76,7 +76,6 @@ flowchart LR
 | `getSourceLocation` | hit, maps（フォルダ → 対応 のキャッシュ） | `@{Name; Folder; Rest; Known}` | 検索結果のインデックス名・元のフォルダ・その下の相対フォルダ。検索対象フォルダの対応 → その下の `<インデックス名>` のフォルダのもの → 検索対象フォルダ自身・その親のもの（インデックス名のフォルダを直接指定した場合）の順に使う。分からなければ Known = `$false`・Folder = 空（Name は返すため、フォルダを選んでもらえば設定に記録できる） | 同上 | resolveSourcePath, 画面 |
 | `getConfirmedSourceNames` | settingsPath（既定 `$settingsFile`） | `@{Confirmed; Crawled}`（名前の配列） | 設定を読み直し、`Crawled`（`targetFolders` の名前）と `Confirmed`（`Crawled` に `indexSources` の名前を足したもの）を返す。`Confirmed` に無い名前は、もらったインデックスとして元のフォルダを確かめる | [もらったインデックスの元のフォルダを確かめる](../gui/open-file.md#もらったインデックスの元のフォルダを確かめる) | 画面（元のファイルを開く） |
 | `readSourceLocation` | hit, maps, statusPath, settingsPath, indexDir | `@{Location; Maps}` | `getSourceLocation` の、裏のスレッドから呼ぶ版。場所を引数で受け、maps を書き換えず複製に足して返す | [ワークスペースがネットワークにあるとき](../gui/network.md#ワークスペースがネットワークにあるとき) | 画面（元のファイルを開く） |
-| `joinSourcePath` | folder, rest, name | string | フォルダ・相対フォルダ・ファイル名をつなぐ（ドライブ直下でも `\` を重ねない） | – | 画面 |
 | `findMovedSource` | picked, rest, book | `@{Path; Root}` / `$null` | 選んだフォルダの中から元のファイルを探す。選んだフォルダを元のフォルダ、その下のフォルダ…の順に当てはめて試し、見つかったファイルと、元のフォルダに当たるフォルダ（Root）を返す | [元のファイルを開く](../gui/open-file.md#元のファイルが見つからないとき元のフォルダを設定する) | 画面 |
 | `resolveSourcePath` | hit, maps | string / `$null` | 検索結果の元のファイルのパス（ファイルがあるかは確かめない）。元のフォルダが分からなければ `$null` | [元のファイルを開く](../gui/open-file.md#元のフォルダの特定インデックスを別の-pc場所で使う場合) | 画面 |
 

@@ -699,14 +699,19 @@ function newAppMutex {
     # 同じツール（配置フォルダ）の処理を二重に動かさないための名前付きミューテックスを作り、@{ Mutex; Acquired } を返す。
     # Acquired が $false なら、ほかで実行中。プロセスが終われば解放されるため、強制終了されても残らない
     #   name: 処理の種類（"gui" = 画面、"indexer" = インデックス作成）
+    #   app: ツールの名前（ミューテックスの名前の先頭。呼ぶ側が渡す。空なら例外にする）
     param (
         [string]$name,
-        [string]$dir = ${rootDir}
+        [string]$dir = ${rootDir},
+        [string]$app = ""
     )
 
+    if ([string]::IsNullOrEmpty($app)) {
+        throw "newAppMutex: ツールの名前（app）が空です"
+    }
     $key = getFolderKey $dir
     $createdNew = $false
-    $mutex = New-Object System.Threading.Mutex($true, "Local\${appId}_${name}_${key}", [ref]$createdNew)
+    $mutex = New-Object System.Threading.Mutex($true, "Local\${app}_${name}_${key}", [ref]$createdNew)
     return @{ Mutex = $mutex; Acquired = $createdNew }
 }
 

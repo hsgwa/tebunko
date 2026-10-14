@@ -72,23 +72,6 @@ function getSourceFolderMap {
     return , $map
 }
 
-function joinSourcePath {
-    # フォルダ・相対フォルダ（空でも可）・ファイル名をつなぐ（ドライブ直下 "D:\" でも \ が重ならないようにする）
-    param (
-        [string]$folder,
-        [string]$rest,
-        [string]$name = ""
-    )
-
-    $path = $folder.TrimEnd("\")
-    foreach ($part in @($rest, $name)) {
-        if ($part) {
-            $path += "\$part"
-        }
-    }
-    return $path
-}
-
 function findSourceLocationInMaps {
     # 検索結果の元のファイルの場所を、キャッシュ（maps）だけで求める。ファイルは読まない。
     # 返すもの: @{ Resolved; Location; Pending }

@@ -45,6 +45,8 @@
 | `splitTsvCells` | line | string[] | TSV の 1 行をセルに分ける（`"` で囲まれたセルは 1 セルとし、囲みを外す。`countTsvFields` と同じ区切り方。画面のプレビューは同じ区切り方を型 `HitRow`（`ui/search/result_types.ps1`）の中に持つ） | – | テストだけ |
 | `testTextTrimmed` | actualWidth, requiredWidth, tolerance | bool | 文字が枠に入りきらず省略（…）で切れているか（要る幅が実際の幅より誤差を超えて大きいときだけ $true。幅 0 以下は $false） | 同上 | addTrimmedToolTip（`shared/ui/trimmed_tooltip.ps1`） |
 
+日時の文字列は `formatTime`（time → string。当日なら `H:mm`、それ以前は `M/d H:mm`。`$null` は空。判断層の `search_bar_view.ps1` と画面層が使う）も `text.ps1` にある。
+
 ## TSV のファイルの書き出し（`shared/core/tsv_file.ps1`）
 
 | 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |

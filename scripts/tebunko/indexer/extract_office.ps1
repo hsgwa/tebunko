@@ -96,6 +96,34 @@ function logProtectionKind {
 # 抽出
 # ----------------------------------------------------------------------------
 
+function writeUnits {
+    # ユニットごとに "<場所>.tsv" を出力し、出力したファイル数を返す（空のユニットは出力しない）。
+    # 元のファイル名は、出力先のフォルダ名（インデクサが作業フォルダから移すときのフォルダ）になる
+    param (
+        [System.Collections.Specialized.OrderedDictionary]$units,
+        [string]$outDir
+    )
+
+    $count = 0
+    foreach ($unitName in $units.Keys) {
+        $lines = New-Object System.Collections.Generic.List[string]
+        foreach ($line in $units[$unitName]) {
+            $line = $line.TrimEnd()
+            if ($line -ne "") {
+                $lines.Add($line)
+            }
+        }
+        if ($lines.Count -eq 0) {
+            continue
+        }
+
+        $path = Join-Path $outDir (toIndexFileName $unitName)
+        [System.IO.File]::WriteAllLines((toLongPath $path), $lines, ${utf8Bom})
+        $count++
+    }
+    return $count
+}
+
 function copyDataRangeToTempSheet {
     # 使用範囲（UsedRange）が実際のデータよりずっと広いシートのために、データのある範囲だけを
     # 同じブックの一時シートへ同じ位置でコピーし、その一時シートを返す。縮める必要が無い・できない場合は $null を返す。

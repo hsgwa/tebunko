@@ -101,7 +101,7 @@ Describe "indexer.ps1（続けられないエラー）" -Tag Io {
         foreach ($name in $files) {
             [System.IO.File]::WriteAllText("$root\work\$name", "実行中")
         }
-        $other = newAppMutex "indexer" "$root\work"
+        $other = newAppMutex "indexer" "$root\work" "tebunko"
         try {
             runIndexer $root | Should -Be 1
         } finally {

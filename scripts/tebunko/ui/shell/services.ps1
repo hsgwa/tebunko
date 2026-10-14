@@ -3,6 +3,8 @@
 
     . ([WildcardPattern]::Escape("$TebunkoDir\..\shared\ui\message_view.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\..\shared\ui\shell.ps1".Replace('`', '``')))
+    # 標題は startup_error.ps1 の ${appTitle}（gui.ps1 が先に読み込む）。メッセージ・確認ダイアログを出す前に渡す
+    setShellTitle ${appTitle}
     . ([WildcardPattern]::Escape("$TebunkoDir\..\shared\ui\data_grid.ps1".Replace('`', '``')))
     setDialogScrim $ui.ScrimOverlay
     # safe で包んでいない処理（PreviewKeyDown・Closing・活性化のタイマーなど）が
