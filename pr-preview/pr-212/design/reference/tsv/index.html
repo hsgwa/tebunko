@@ -4382,7 +4382,7 @@
 <td><code>removeDirectoryRetry</code></td>
 <td>path, tries（既定 3）, waitMilliseconds（既定 200）</td>
 <td>–</td>
-<td>フォルダを中身ごと削除する（<code>removeTreeNoFollow</code>。中のリンクは辿らない）。ほかのアプリが一時的に掴んでいることがあるため、少し待って数回試す。消したあとに <code>[System.IO.Directory]::Exists</code> でフォルダが残っていれば、成功にせず例外にする（呼ぶ側は、消えたことが確かめられてから記録する）</td>
+<td>フォルダを中身ごと削除する（<code>removeTreeNoFollow</code>。中のリンクは辿らない）。ほかのアプリが一時的に掴んでいることがあるため、少し待って数回試す。消したあとに <code>[System.IO.Directory]::Exists</code> でフォルダが残っていれば、成功にせず例外にする（呼ぶ側は、消えたことが確かめられてから記録する）。最初に <code>Exists</code> が偽でも、<code>getPathState</code> で「無い」と確かめられたとき（またはフォルダでないものが同じ名前であるとき）だけ成功にし、届かない・読めないなど有無が分からないときは試し直して、なお分からなければ例外にする</td>
 <td><a href="../../../safety/file-access/">ファイルの読み書きの範囲</a></td>
 <td>インデックス作成・<code>RemoveIndex</code>・<code>removeDroppedFolders</code>（インデックス・作業フォルダの削除）</td>
 </tr>
@@ -4400,7 +4400,7 @@
 <td>–</td>
 <td>1 つのファイル・フォルダ・リンクを、中を辿らずに消す（読み取り専用の属性は外してから）。フォルダは空のものだけ消す</td>
 <td>同上</td>
-<td><code>removeTreeNoFollow</code></td>
+<td><code>removeTreeNoFollow</code>・<code>clearTmpDir</code></td>
 </tr>
 <tr>
 <td><code>getLinkKind</code></td>
