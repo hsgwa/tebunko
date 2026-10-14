@@ -218,7 +218,7 @@ function applyWorkspace {
 }
 
 function updateMainContentOperable {
-    # 移している間は、ナビと中身を操作できなくする（マウス・Tab・Space など、中身の入口をまとめて止める。窓のキーは gui_main.ps1 の PreviewKeyDown）。
+    # 移している間は、ナビと中身を操作できなくする（マウス・Tab・Space など、中身の入口をまとめて止める。窓のキーは shell\window_events.ps1 の PreviewKeyDown）。
     # 終わったら必ず戻す（始められなかったとき・失敗のときも）
     $operable = testMainContentOperable ([bool]$script:workspaceMoving)
     $ui.NavHost.IsEnabled = $operable
@@ -228,7 +228,7 @@ function updateMainContentOperable {
 function startWorkspaceMove {
     # 中身を移す・消す処理は、量によっては数十秒かかるため、裏のスレッドで行う（画面のスレッドで行うと「応答なし」になる）。
     # 動かしている間は待つ間のダイアログを出し、ほかの操作は止める（$script:workspaceMoving。getIndexJobBlocker が見る）。
-    # 終わりの処理は finishWorkspaceMove（画面のスレッド）。閉じるのは、移し終わるまで待つ（gui_main.ps1 の Closing）
+    # 終わりの処理は finishWorkspaceMove（画面のスレッド）。閉じるのは、移し終わるまで待つ（shell\closing.ps1 の Closing）
     param (
         [string]$mode,       # "use"・"reset"・"move"（WorkspaceMover.ChangeWorkspace の mode）
         [string]$previous,
@@ -316,7 +316,7 @@ function switchWorkspace {
     # 関数は既定値で $workspace の場所を使い、裏のスレッドには場所を渡しているため、$workspace を差し替えれば新しい場所を使う
     # （docs/design/structure/data.md「ワークスペースの中の場所（Workspace）」）。インデックス作成中・削除中は testWorkspaceChangeable が止めている
     clearSearchView
-    $script:workspace = [Workspace]::new((getWorkDir))
+    initWorkspace
     $script:workspaceBlock = getWorkspaceBlockMessage
     updateWorkspaceBanner
     hideNoticeBanner "SearchNotice"

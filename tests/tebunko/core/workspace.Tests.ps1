@@ -154,9 +154,10 @@ Describe "selectTmpDir" -Tag Unit {
 }
 
 Describe "getTmpDirUnavailableMessage" -Tag Unit {
-    It "<reason> なら [ ]・長さに触れた文にする" -TestCases @(
+    It "<reason> なら [ ]・長さ・リンクのうち、その理由に触れた文にする" -TestCases @(
         @{ reason = "Brackets"; expected = "\[ \]" }
         @{ reason = "TooLong"; expected = "長すぎる" }
+        @{ reason = "Link"; expected = "リンク" }
     ) {
         param ($reason, $expected)
         getTmpDirUnavailableMessage $reason | Should -Match $expected
@@ -316,5 +317,18 @@ Describe "getWorkspaceJobQueue" -Tag Unit {
         getWorkspaceJobQueue @("C:\Users\test\a", "\\server\share\b") | Should -Be "network"
         getWorkspaceJobQueue @("C:\Users\test\a", "D:\b") | Should -Be "default"
         getWorkspaceJobQueue @() | Should -Be "default"
+    }
+}
+
+Describe "setCallerWorkspace" -Tag Unit {
+    It "呼んだスクリプトのスコープに `$workspace を置き、呼び出しの外の `$workspace は変えない" {
+        $before = $script:workspace
+        $own = [Workspace]::new("C:\Users\test\Documents\tebunko_own")
+        $seen = & {
+            setCallerWorkspace $own
+            $workspace.Dir
+        }
+        $seen | Should -Be "C:\Users\test\Documents\tebunko_own"
+        [object]::ReferenceEquals($script:workspace, $before) | Should -Be $true
     }
 }

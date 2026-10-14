@@ -581,8 +581,15 @@ function formatTime {
 
 # ---- 別スレッドの処理（インデックスの件数など） ----
 
-# 仕事を受けるスレッド（BackgroundQueue）は、読み込み口（gui.ps1）が $script:backgroundQueue に用意する。
+# 仕事を受けるスレッド（BackgroundQueue）は、読み込み口（gui_main.ps1）が setBackgroundQueue で渡す。
 # 仕事のスクリプトでは、そのツールの関数（lib.ps1）をそのまま使える（スレッドを始めたときに 1 回だけ読み込む）
+$script:backgroundQueue = $null
+
+function setBackgroundQueue {
+    # 既定の仕事の列を登録する（gui_main.ps1 が起動時に 1 回呼ぶ）
+    param ($queue)
+    $script:backgroundQueue = $queue
+}
 
 # ネットワークのパスだけを調べる専用の列。届かない共有で止まっても、プレビュー・状態の読み直し（$script:backgroundQueue）が
 # 待たされないようにする。初めて使うときにだけ作る（ネットワークのパスが無い利用者には、スレッドも lib.ps1 の読み込みも増えない）。

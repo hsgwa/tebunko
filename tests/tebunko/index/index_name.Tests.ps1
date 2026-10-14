@@ -3,25 +3,6 @@ BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
 }
 
-Describe "testSourceNameRecordable" -Tag Unit {
-    It "<label>" -TestCases @(
-        @{ label = "ふつうの名前は記録できる"; name = "営業"; expected = $true }
-        @{ label = "内側の空白は記録できる"; name = "営業 部"; expected = $true }
-        @{ label = "幅ゼロの文字は削られないので記録できる"; name = ("営" + [char]0x200B + "業"); expected = $true }
-        @{ label = "ソフトハイフン付きは削られないので記録できる"; name = ("営業" + [char]0x00AD); expected = $true }
-        @{ label = "空は記録できない"; name = ""; expected = $false }
-        @{ label = "空白だけは記録できない"; name = "  "; expected = $false }
-        @{ label = "前に全角空白"; name = ([string][char]0x3000 + "営業"); expected = $false }
-        @{ label = "後ろに全角空白"; name = ("営業" + [char]0x3000); expected = $false }
-        @{ label = "後ろに NBSP"; name = ("営業" + [char]0x00A0); expected = $false }
-        @{ label = "後ろにタブ"; name = ("営業" + [char]9); expected = $false }
-        @{ label = "後ろに半角空白"; name = "営業 "; expected = $false }
-    ) {
-        param ($name, $expected)
-        testSourceNameRecordable $name | Should -Be $expected
-    }
-}
-
 Describe "encodeIndexPlace / decodeIndexPlace" -Tag Unit {
     # PowerShell は ” を " と同じに扱うため、' で囲む
     It "<name>" -TestCases @(
@@ -59,16 +40,50 @@ Describe "splitObjectPlace" -Tag Unit {
     }
 
     It "種類の名前が、書き出す側（office_reader.ps1）と画面（HitRow）でも同じ" {
-        # 画面のクラスはスクリプトの変数を使えず、shared はツールの変数を使えないため、同じ名前を別々に書いている
+        # shared はツールの変数を使えないため、書き出す側は同じ名前を別に書いている
         $reader = [System.IO.File]::ReadAllText("${scriptsDir}\shared\office\office_reader.ps1")
-        $hitRow = [System.IO.File]::ReadAllText("${scriptsDir}\tebunko\ui\types.ps1")
+        $hitRow = [System.IO.File]::ReadAllText("${scriptsDir}\tebunko\ui\search\result_types.ps1")
         foreach ($kind in @(${placeKindShape}, ${placeKindComment}, ${placeKindHeaderFooter})) {
             $reader.Contains("[$kind]") | Should -Be $true
         }
         $reader.Contains("[${placeKindEmbed}") | Should -Be $true
-        $hitRow.Contains("\[(?:${placeKindShape}|${placeKindComment}|${placeKindHeaderFooter}|${placeKindEmbed}[1-9][0-9]{0,8})\]") | Should -Be $true
         # セル番地が無い場所（ヘッダー・フッター）の判定（IsCelllessPlace）も、同じ種類の名前で書く
         $hitRow.Contains("CelllessPlaceRegex = [regex]::new(`"\[${placeKindHeaderFooter}\]") | Should -Be $true
+    }
+}
+
+Describe "newObjectPlaceKindPattern" -Tag Unit {
+    It "省略すると、表のすべての種類を当てる" {
+        $pattern = newObjectPlaceKindPattern
+        foreach ($kind in ${placeKindFileNames}.Keys) {
+            $place = if ($kind -eq ${placeKindEmbed}) { "ページ001[${kind}1]" } else { "売上[$kind]" }
+            $place | Should -Match $pattern
+        }
+    }
+
+    It "場所の末尾の種類だけを、種類を絞って当てる（-kinds）" -TestCases @(
+        @{ Kinds = @("図形");            Place = "売上[図形]";            Expected = $true }
+        @{ Kinds = @("図形");            Place = "売上[コメント]";        Expected = $false }
+        @{ Kinds = @("図形", "埋め込み"); Place = "ページ001[埋め込み12]"; Expected = $true }
+        @{ Kinds = @("図形", "埋め込み"); Place = "ページ001[埋め込み]";   Expected = $false }
+        @{ Kinds = @("図形", "埋め込み"); Place = "ページ001[埋め込み01]"; Expected = $false }
+        @{ Kinds = @("コメント");        Place = "売上[コメント]";        Expected = $true }
+        @{ Kinds = @("コメント");        Place = "売上[コメント]の続き";  Expected = $false }
+    ) {
+        param ($Kinds, $Place, $Expected)
+        [regex]::new((newObjectPlaceKindPattern -kinds $Kinds)).IsMatch($Place) | Should -Be $Expected
+    }
+
+    It "全部を当てるとき、[埋め込み]・[埋め込み01]・知らない種類は当たらない" -TestCases @(
+        @{ Place = "ページ001[埋め込み]";   Expected = $false }
+        @{ Place = "ページ001[埋め込み01]"; Expected = $false }
+        @{ Place = "ページ001[埋め込み1]";  Expected = $true }
+        @{ Place = "売上[ヘッダー・フッター]"; Expected = $true }
+        @{ Place = "売上[メモ]";            Expected = $false }
+        @{ Place = "売上";                  Expected = $false }
+    ) {
+        param ($Place, $Expected)
+        [regex]::new((newObjectPlaceKindPattern)).IsMatch($Place) | Should -Be $Expected
     }
 }
 

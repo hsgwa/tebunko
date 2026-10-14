@@ -2,7 +2,7 @@
 
 扱うこと: 設定ファイル（`tebunko/core/settings.ps1`）、検索対象でチェックを外したフォルダ（`search_excludes.ps1`）、ワークスペース（`workspace.ps1`）とその切り替え（`workspace_mover.ps1`）、ファイル・フォルダ操作（`shared/core/fs.ps1`・`folder.ps1`・`office_files.ps1`）の関数一覧（入力・出力・概要・使用元）。扱わないこと: 取り込み一覧・インデックスの管理（[部品ごとの関数（インデックス作成）](indexer.md)）。先に読むページ: [部品から関数一覧を引く](index.md)。
 
-## 設定ファイル（`tebunko/core/settings.ps1`）
+## 設定ファイル（`tebunko/core/settings.ps1`・`source_name.ps1`）
 
 | 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |
 |---|---|---|---|---|---|
@@ -19,6 +19,7 @@
 | `mergeAssignedIndexNames` / `saveAssignedIndexNames` | current, assigned / assigned, path | 一覧 / 一覧 | 割り当てたインデックス名（assigned）を、読み直した今の一覧（current）の名前が空の項目にだけ、パスで突き合わせて足す（同じ名前をほかの項目が使っていれば付けない）/ 排他の中で読み直して足して保存し、保存した一覧を返す | [設定ファイル（setting.config）](../structure/settings-file.md) | インデクサ・画面（loadTargets） |
 | `readIndexSources` / `writeIndexSources` | path（既定 `$settingsFile`） / sources, path | `@{Name; Path}` の配列 / – | インデックス作成の対象にしないインデックスの元のフォルダ（`indexSources`）を読み書きする | [設定ファイル（setting.config）](../structure/settings-file.md) | getSourceFolderMap, 画面 |
 | `setIndexSourceFolder` | name, folder, path（既定 `$settingsFile`） | – | インデックス名に対する元のフォルダを記録する。クロール対象フォルダにある名前ならそのフォルダの Path を書き換え、無ければ `indexSources` に記録する | [元のファイルが見つからないとき（元のフォルダを設定する）](../gui/open-file.md#元のファイルが見つからないとき元のフォルダを設定する) | 画面 |
+| `testSourceNameRecordable` | name | bool | 元のフォルダを設定に記録できる名前か（空・前後に空白があれば偽。`setIndexSourceFolder` の入口と、確認ダイアログの文言で使う。`tebunko/core/source_name.ps1`。判断層） | [元のファイルを開く](../gui/open-file.md) | 判断 |
 | `readVersionFile` | path（配布物の `VERSION.txt` のパス） | `@{Tag; Sha}` / `$null` | 版とコミットの記録を読む。無い・読めない・2行でない・形が違えば `$null`（画面は「開発版」と表示する。`about_view.ps1` の `getAboutView`） | [画面](../gui/index.md) | 画面 |
 | `resolveGitRef` | ref, dirs | string | リポジトリのリファレンス（`refs/heads/main` など。形が違えば空）が指すコミットの SHA を、`refs\` の下のファイル → `packed-refs` の順に読む（外部のコマンドは起動しない） | [画面](../gui/screens/window.md) | readDevVersion |
 | `readDevVersion` | rootDir | `@{Tag; AtHead; Sha}` / `$null` | 配布物でない（`VERSION.txt` が無い）ときの版の手がかりを、作業ツリーの `.git` のファイルだけから読む（worktree の `gitdir:`・`commondir` も読む）。HEAD に付いたリリースのタグ（`v<数>.<数>.<数>`）があればそれ、無ければ版の並びで最も新しいタグ。どちらも分からなければ SHA だけ、SHA も無ければ `$null` | [画面](../gui/screens/window.md) | getToolDiagnosticHeader, 画面の起動（裏の仕事） |
@@ -40,10 +41,10 @@
 | `getWorkspaceJobQueue` | 場所（複数可） | string | 裏の列を選ぶ。渡した場所のどれかがネットワークなら `network`、それ以外は `default`。届かない共有の仕事が、ほかの仕事を待たせないため | index_store.ps1, index_tree.ps1 ほか |
 | `getWorkspaceTmpDir` | workspace | string | 取り込みの作業フォルダの候補 `<TmpRoot>\<PC の鍵>\<PID>`。副作用は無い | selectTmpDir, index_migrate.ps1 |
 | `selectTmpDir` | workspace | `@{Dir; Reason}` | 作業フォルダの置き場所を決める。候補のパスに `[` `]` があれば（Excel が保存できない）`Dir` を空にして `Reason = Brackets`、候補の長さに取り込みのスレッドが下に作る名前の分を足して `$excelMaxPath` 以上なら `Reason = TooLong`。どちらでもなければ候補のまま（`Reason` は空）。`%TEMP%` には逃がさない | paths.ps1, indexer_run.ps1, extract_office.ps1, index_migrate.ps1 |
-| `getTmpDirUnavailableMessage` | reason | string | 作業フォルダを置けない理由（`Brackets`・`TooLong`・その他）を、利用者向けの 1 文にする | indexer_run.ps1, index_migrate.ps1 |
-| `getLegacyIndexState` | dir | `@{HasLegacyIndex; ContentEmpty; HasLegacySystemIndex}` | 前の版のワークスペースの状態。`index\` の直下のフォルダに元のフォルダ.txt があれば前の版のしるし（`HasLegacyIndex`）。`content_index\` が空か（`ContentEmpty`）。空のときだけ、`system_index\` に前の名前の txt があるかも調べる | gui_main.ps1, indexing_tab.ps1, workspace_jobs.ps1, index_archive.ps1, indexer_run.ps1, paths.ps1 |
+| `getTmpDirUnavailableMessage` | reason | string | 作業フォルダを置けない理由（`Brackets`・`TooLong`・`Link`（作業領域の途中にリンクがある）・その他）を、利用者向けの 1 文にする | indexer_run.ps1, index_migrate.ps1 |
+| `getLegacyIndexState` | dir | `@{HasLegacyIndex; ContentEmpty; HasLegacySystemIndex}` | 前の版のワークスペースの状態。`index\` の直下のフォルダに元のフォルダ.txt があれば前の版のしるし（`HasLegacyIndex`）。`content_index\` が空か（`ContentEmpty`）。空のときだけ、`system_index\` に前の名前の txt があるかも調べる | indexing_tab.ps1, workspace_jobs.ps1, index_archive.ps1, indexer_run.ps1, paths.ps1 |
 | `testLegacyCleanupNeeded` | state | bool | 取り込み直しを始めるときに、前の版のシステムインデックスを片付けるか。`content_index\` が空で、前の版のしるしか前の名前の txt があるとき | index_archive.ps1, indexer_run.ps1 |
-| `getLegacyIndexMessage` | dir, hasLegacyIndex | string | 前の版のインデックスが見つかったときの知らせ。しるしが無ければ空 | gui_main.ps1, workspace_jobs.ps1, indexer_run.ps1 |
+| `getLegacyIndexMessage` | dir, hasLegacyIndex | string | 前の版のインデックスが見つかったときの知らせ。しるしが無ければ空 | workspace_jobs.ps1, indexer_run.ps1 |
 | `clearLegacySystemIndex` | dir | `@{Ok; Reason}` | 前の版のシステムインデックスを片付ける。状態ファイルの中身を排他の中で空にしてから、`system_index\` を消す。どちらかに失敗したら `Ok = $false`（次に呼べば続きから） | indexer_run.ps1, index_archive.ps1 |
 | `newWorkspace` | dir | `Workspace` | `Workspace` のインスタンスを作る（クラスの本体では型の名前を書けないため、`WorkspaceMover`・`IndexCatalog` がこの関数を通して作る） | workspace_mover.ps1 |
 
@@ -125,4 +126,4 @@
 | `findOfficeApps` | programFiles64, programFilesX86（省略すると Windows のあるドライブの決まった名前）, os64 | `@{Name; Version; Kind; Bits}` の配列 | `Program Files` の決まった場所の EXCEL・WINWORD・POWERPNT を探し、ファイルの版を読む。32 ビットの Windows では `Program Files` の Office を 32 ビットとする。例外は投げたまま（呼び出し側が `不明` にする） | `getEnvironmentInfo` |
 | `getPreviousLogPath` | path | string | `<名前>_previous<拡張子>`（同じフォルダ） | `rotateLogFile` |
 | `rotateLogFile` | path, maxBytes | bool | ファイルが maxBytes 以上なら `_previous` へ移す（あれば `File.Replace` で置き換える。今のログが移せないときも、今のログは失わない）。maxBytes が 0 なら、あれば必ず移す。移したら `$true`、ファイルが無い・小さい・移せないときは `$false`（例外にしない） | `invokeIndexer`, `writeErrorLog` |
-| `getToolDiagnosticHeader` | – | string[] | このツールの版（`VERSION.txt`。無ければ `readDevVersion` のタグ・コミットを添えた開発版）と環境の見出し | `invokeIndexer`, `getGuiErrorLogHeader` |
+| `getToolDiagnosticHeader` | – | string[] | このツールの版（`VERSION.txt`。無ければ `readDevVersion` のタグ・コミットを添えた開発版）と環境の見出し | `invokeIndexer`, `getToolGuiErrorLogHeader` |

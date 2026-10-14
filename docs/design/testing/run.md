@@ -17,11 +17,11 @@ flowchart LR
 | `tests/shared/core/` | `fs`・`text`・`folder`・`worker_pool`・`data_dir` |
 | `tests/shared/office/` | `office_process`・`office_reader`・`office_embedded`・`office_app` |
 | `tests/shared/ui/` | 画面の型（`types`） |
-| `tests/tebunko/core/` | `settings`（`setting.config`）・`workspace` |
+| `tests/tebunko/core/` | `settings`（`setting.config`）・`workspace`・`status_file`・`source_name` |
 | `tests/tebunko/index/` | `index_name`・`index_store`・`content_index_format`・`system_index` |
 | `tests/tebunko/indexer/` | `indexer_state`・`indexer_decide`・`indexer_plan`・`extract_office`・`index_migrate`・`indexing_session`、起動口の通しのテスト（`indexer`） |
 | `tests/tebunko/search/` | `search_query`・`search_run`・`content_index_search`・`search_service`・`source_map`・高速検索（`search_gram`・`fast_search`・`windows_search`） |
-| `tests/tebunko/ui/` | 画面の判断層（`index_view`・`indexing_view`・`search\*_view`・`preview_view`・`settings\settings_view`）と、`$ui` を偽物にした画面の部品（`result_list`・`open_source`・`preview`・`index_tree`）・型（`types`） |
+| `tests/tebunko/ui/` | 画面の判断層（`index\index_*_view`・`indexing_view`・`search\*_view`・`preview_view`・`settings\settings_view`）と、`$ui` を偽物にした画面の部品（`result_list`・`open_source`・`preview`・`index_tree`）・型（`search\result_types`・`search\target_types`・`index\index_types`） |
 | `tests/gui/` | 画面のスモークテスト（`gui_helpers`＝共通の関数、`smoke`・`index`・`search`・`settings`・`leftover`・`leftover_real`＝場面。タグ `Gui`。[画面のスモークテスト](gui-smoke.md)） |
 | `tests/tools/` | 開発用の道具（`run_isolated`・`check_commit_message`・`check_signoff`・`check_release_tag`・`check_markdown_links`・`measure_perf`・`run_commit_tests`・`pr_checks_comment`・`git_repo`） |
 | `tests/meta/` | 構成を守るテスト（`structure`・`encoding`・`layers`・`links`・`runner`・`classes`・`test_isolation`）と安全性の検査（`safety`・`installer`） |
@@ -46,7 +46,7 @@ flowchart LR
 
 守りの限界: 既定のワークスペースの場所との同じ・下かどうかは、パスの文字で比べる。8.3 形式の短い名前・ジャンクション・`subst` で既定のワークスペースを指す場所は、事前の確かめでは見つけられない（流したあとの前後の比べが、書かれたことを見つける）。前後の比べはフォルダの更新時刻を比べないので、比べの間に作られて消えたもの（跡が残らないもの）は見つけられない。また `tools/perf/` など `run.ps1` や `run_isolated.ps1` を通らない道具は、この守りの外にある。
 
-入力と期待値だけが違うテストは、`-TestCases` の 1 つの `It` にまとめる（例: `tests/tebunko/ui/types.Tests.ps1` の `HitRow.Contains`）。表は `It` の中にそのまま書き、計算で作らない。キーには `input`・`args`・`_`・`Matches` など PowerShell の自動変数の名前を使わない。各行に `name` を持たせ、`It "<name>"` で失敗した行が分かるようにする。表の中で変数（`$stateDone` など）を使うときは、`BeforeDiscovery` で用意する（表はテストを探す段階で作られ、`BeforeAll` より先に評価されるため）。
+入力と期待値だけが違うテストは、`-TestCases` の 1 つの `It` にまとめる（例: `tests/tebunko/ui/search/result_types.Tests.ps1` の `HitRow.Contains`）。表は `It` の中にそのまま書き、計算で作らない。キーには `input`・`args`・`_`・`Matches` など PowerShell の自動変数の名前を使わない。各行に `name` を持たせ、`It "<name>"` で失敗した行が分かるようにする。表の中で変数（`$stateDone` など）を使うときは、`BeforeDiscovery` で用意する（表はテストを探す段階で作られ、`BeforeAll` より先に評価されるため）。
 
 Pester 5 はテストを「探す段階」と「流す段階」に分けて動かす。探す段階では `Describe` の中身がそのまま実行され、`BeforeAll` の中身は流す段階まで実行されない。そのため次のように書く。
 
@@ -60,7 +60,7 @@ Pester 5 はテストを「探す段階」と「流す段階」に分けて動�
 |---|---|
 | `structure` | `$rootDir` などのパス定義、全 `.ps1` の構文、`ui/` のスクリプトで `$PSScriptRoot` を使わない、`gui.ps1` が指すインデクサのファイルがある、XAML が XML として読める・`gui.ps1` が使う `x:Name` がある、型を読み込む順で継承が解決できる |
 | `encoding` | 全 `.ps1`・`.xaml` が BOM 付き UTF-8 で、改行が CRLF。`.github/codecov.yml` が ASCII の文字だけ |
-| `layers` | `shared/` にツールの名前が出てこない、ツール同士が互いを読み込まない、起動口からたどれない `.ps1` が無い、判断層（`text.ps1`・`index_name.ps1`・`search_query.ps1`・`indexer_decide.ps1`・`*_view.ps1`）に画面への依存が無い |
+| `layers` | `shared/` にツールの名前が出てこない、ツール同士が互いを読み込まない、起動口からたどれない `.ps1` が無い、判断層（`text.ps1`・`index_name.ps1`・`source_name.ps1`・`search_query.ps1`・`indexer_decide.ps1`・`*_view.ps1`）に画面への依存が無い |
 | `links` | git で管理している全 `.md` の相対リンク（画像・参照リンクの定義・HTML の `href`/`src` を含む）の先のファイルがあり（大文字・小文字も区別する）、`.md` のアンカーの見出しがある（`tools/check_markdown_links.ps1`。外部の URL は調べない） |
 | `runner` | `tests/run.ps1` が、実行したテストが 0 件なら失敗にすること、`powershell.exe -File` で渡したカンマ区切りのタグを分けて受け取ること、`Gui` を既定では流さず `-Tag Gui` と `-All` では流すこと |
 | `safety` | 危険な処理を使っていない、Office をマクロ無効・読み取り専用で開く、原本を書き換えない、書き込み先が `work` 配下だけ（`%TEMP%` は前の版が残した作業フォルダの片付けだけ。`%LOCALAPPDATA%\tebunko` には書かない）、PSScriptAnalyzer の指摘が 0 件、審査用の資料がそろっている（[単体テスト（検査と道具）](unit-checks.md)、[安全性の要約](../../safety/index.md)） |
@@ -101,7 +101,7 @@ Pester 5 は除外（`ExcludeTag`）をタグ（`Tag`）より優先するため
 
 **カバレッジ**
 
-- 対象は `scripts/` の `.ps1` のうち、画面層の `gui.ps1`・`gui_main.ps1`・`shell.ps1`・`app_host.ps1`・`splash.ps1`・`*_tab.ps1`・`*_dialog.ps1`、画面ごとのフォルダ（`tebunko/ui/search/`・`tebunko/ui/index/`）の中で同じ名前のテスト（`tests/tebunko/ui/search/<名前>.Tests.ps1` など）が無い画面層のファイルを除いたもの。`ui/` の下でも、判断や状態をテストしているファイル（`result_list.ps1`・`preview.ps1`・`*_view.ps1`・`ui/shell/nav.ps1` など）は対象に残す（`tests/helpers/coverage_targets.ps1` の `getCoverageTargets`。`tests/run.ps1` が使う）。除いたものは自動テストの対象外で、手で確かめる。画面層のファイルを足したら、この条件から外れているか（分母に入っていないか）を確かめる。
+- 対象は `scripts/` の `.ps1` のうち、画面層の `gui.ps1`・`gui_main.ps1`・`shell.ps1`・`app_host.ps1`・`splash.ps1`・`*_tab.ps1`・`*_dialog.ps1`、画面ごとのフォルダ（`tebunko/ui/search/`・`tebunko/ui/index/`・`tebunko/ui/settings/`）の中で同じ名前のテスト（`tests/tebunko/ui/search/<名前>.Tests.ps1` など）が無い画面層のファイルと、`startGui` の入口の部品（`tebunko/ui/shell/` の `regions`・`screens`・`services`・`settings_recovery`・`window_events`・`closing`・`startup`・`activate_watch` の 8 ファイル。名前で除く）を除いたもの。`ui/` の下でも、判断や状態をテストしているファイル（`result_list.ps1`・`preview.ps1`・`*_view.ps1`・`ui/shell/nav.ps1` など）は対象に残す（`tests/helpers/coverage_targets.ps1` の `getCoverageTargets`。`tests/run.ps1` が使う）。除いたものは自動テストの対象外で、手で確かめる。画面層のファイルを足したら、この条件から外れているか（分母に入っていないか）を確かめる。
 - 値は Pester のコマンド単位（実行されたコマンドの数 ÷ 全コマンドの数。小数点以下 1 桁）。
 - **下限は `tests/coverage.baseline`（90.0）。** `-Ci` はこれを下回ると失敗し、CI の必須チェック `test` が通らない。下回ったらテストを足して戻し、下限は下げない。実測が上がっても下限は上げない（変えるのはメンテナだけ）。
 - 全体の目標値は決めない。判断層は 95% 以上を保ち、数字を上げるためだけのテスト（結果を確かめないもの）は書かない（AGENTS.md「テストカバレッジの方針」）。

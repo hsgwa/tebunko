@@ -33,19 +33,6 @@ function newIndexName {
     return $name
 }
 
-function testSourceNameRecordable {
-    # インデックス名に対する元のフォルダを設定に記録できる名前か。空の名前と、前後に空白（全角空白・NBSP・タブを含む）がある名前は、
-    # 設定を読み戻すとき前後の空白が削られて同じ名前にならない（確かめ済みにならない）ため記録しない。
-    # 状態層（setIndexSourceFolder）の入口の条件と、画面の文言（記録されないときは毎回確かめる）で同じ判断を使う。
-    # 文字数で比べる（-ne はカルチャに従う）
-    param (
-        [string]$name
-    )
-
-    $trimmed = $name.Trim()
-    return $trimmed.Length -gt 0 -and $trimmed.Length -eq $name.Length
-}
-
 function assignIndexNames {
     # クロール対象フォルダ（getTargetFolders）にインデックス名を割り当て、@{ Path; Enabled; Name } の配列を返す。
     # インデックス名は設定に持つ（getTargetFolders の Name）。フォルダの置き場所（Path）を書き換えても名前は変わらないため、
@@ -238,7 +225,7 @@ function convertIndexFileNameToPlace {
     $kind = ""
     $body = $fileNameWithoutExtension
     $fileKindAlternation = (${placeKindFileNames}.Values | ForEach-Object { [regex]::Escape($_) }) -join "|"
-    if ($fileNameWithoutExtension -match "^(?<base>.+)\[(?<kind>$fileKindAlternation)(?<number>[1-9][0-9]{0,8})?\]`$") {
+    if ($fileNameWithoutExtension -match "^(?<base>.+)\[(?<kind>$fileKindAlternation)(?<number>${objectPlaceNumberPattern})?\]`$") {
         $kindName = $Matches.kind
         $kind = (${placeKindFileNames}.GetEnumerator() | Where-Object { $_.Value -eq $kindName } | Select-Object -First 1).Key
         # 番号は埋め込みにだけ付く（ほかの種類に付いた名前は、この関数が作らない形のため戻さない）
@@ -266,7 +253,7 @@ function convertIndexFileNameToPlace {
 # Word はページ、PowerPoint はスライドを元の場所にする（例: "ページ003[コメント]" "スライド002[図形]"）。
 # Excel のシート名には [ ] を使えず、Word・PowerPoint の場所（ページNNN・スライドNNN 等）にも付かないため、ふつうの場所と重ならない。
 # 種類ごとに、検索に含めるかを画面で選べる（search_query.ps1 の newPlaceExclude）。
-# 種類を足すときは、ここ・書き出す側（office_reader.ps1）・画面（types.ps1 の HitRow.ObjectPlaceRegex）をそろえる
+# 種類を足すときは、ここ（placeKindFileNames にも足す）と書き出す側（office_reader.ps1）をそろえる。検索の除外・画面の判定の正規表現は newObjectPlaceKindPattern が表から組み立てる
 ${placeKindShape}   = "図形"      # 図形・テキストボックス・WordArt・SmartArt・グラフ（PowerPoint のテキストボックス・図形はスライドの本文）
 ${placeKindComment} = "コメント"  # コメント（メモ・スレッド形式のコメント）
 ${placeKindHeaderFooter} = "ヘッダー・フッター"  # Excel のヘッダー・フッター（Word・PowerPoint の "ヘッダー・フッター" は場所の名前で、種類ではない）。いつも検索する（除外の選択肢は無い）
@@ -280,7 +267,27 @@ ${placeKindFileNames} = @{ ${placeKindShape} = "shape"; ${placeKindComment} = "c
 # 番号の付く種類（埋め込み）は選択肢に入れず、番号（先頭が 0 でない数字）を付けた形だけを別に当てる
 # （"[埋め込み]"・"[埋め込み01]" はふつうの場所とする）
 ${objectPlaceKindAlternation} = (${placeKindFileNames}.Keys | Where-Object { $_ -ne ${placeKindEmbed} } | ForEach-Object { [regex]::Escape($_) }) -join "|"
-${objectPlacePattern} = "^(?<base>.*)\[(?:(?<kind>${objectPlaceKindAlternation})|(?<numberedKind>$([regex]::Escape(${placeKindEmbed})))(?<number>[1-9][0-9]{0,8}))\]$"
+${objectPlaceNumberPattern} = "[1-9][0-9]{0,8}"
+${objectPlacePattern} = "^(?<base>.*)\[(?:(?<kind>${objectPlaceKindAlternation})|(?<numberedKind>$([regex]::Escape(${placeKindEmbed})))(?<number>${objectPlaceNumberPattern}))\]$"
+
+
+function newObjectPlaceKindPattern {
+    # 場所の末尾の種類だけを当てる正規表現の文字列を、${placeKindFileNames} の表から組み立てる。
+    # 検索から外す場所（search_query.ps1 の newPlaceExclude）と画面の判定（ui/search/result_types.ps1 の HitRow.ObjectPlaceRegex）が使う。
+    #   例（全部）: \[(?:図形|コメント|ヘッダー・フッター|埋め込み[1-9][0-9]{0,8})\]$（選択肢の並びは表の順による）
+    # kinds: 当てる種類の名前の並び（省略または空は全部）。番号の付く種類（埋め込み）は番号の形を付けて当てる
+    param (
+        [string[]]$kinds = @()
+    )
+
+    if ($kinds.Count -eq 0) {
+        $kinds = @(${placeKindFileNames}.Keys)
+    }
+    $alternatives = foreach ($kind in $kinds) {
+        if ($kind -eq ${placeKindEmbed}) { "$([regex]::Escape($kind))${objectPlaceNumberPattern}" } else { [regex]::Escape($kind) }
+    }
+    return "\[(?:$(@($alternatives) -join '|'))\]`$"
+}
 
 
 function splitObjectPlace {

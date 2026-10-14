@@ -1,6 +1,6 @@
 ﻿# インデックス管理の画面の詳細（インデックス作成の開始ボタン・状態・失敗の一覧・状態の合計）。
 
-# 詳細の左右の部品。名前の一覧（gui_main.ps1）に足さず、読み込んだ中身から取る
+# 詳細の左右の部品。名前の一覧（shell\regions.ps1）に足さず、読み込んだ中身から取る
 foreach ($detailName in @(
         "IndexDetailBody", "IndexDetailName", "IndexDetailPath", "IndexDetailPathButton", "IndexDetailEditError", "IndexDetailFolderStatus", "IndexDetailFolderIcon",
         "IndexDetailBadge", "IndexDetailBadgeText", "IndexDetailBadgeSub", "IndexErrorText", "IndexErrorHintText", "IndexDetailUpdated", "IndexDetailCount",

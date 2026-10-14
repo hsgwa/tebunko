@@ -4,7 +4,8 @@
 BeforeAll {
     . "$PSScriptRoot\..\..\..\helpers\load.ps1"
     . "${scriptsDir}\tebunko\ui\shell\nav_view.ps1"
-    . "${scriptsDir}\tebunko\ui\index_view.ps1"
+    . "${scriptsDir}\tebunko\ui\index\index_list_view.ps1"
+    . "${scriptsDir}\tebunko\ui\index\index_edit_view.ps1"
 
     function newFakeBox {
         param ([string]$name)

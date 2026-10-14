@@ -11,8 +11,8 @@
 
 ```mermaid
 flowchart LR
-    settings["core/settings.ps1・workspace.ps1<br>core/fs.ps1・folder.ps1"] --> P1["settings.md"]
-    indexer["indexer/indexer_state.ps1<br>indexer_decide.ps1・index/index_name.ps1・index_store.ps1<br>index_archive_rules.ps1・index_archive.ps1"] --> P2["indexer.md"]
+    settings["core/settings.ps1・workspace.ps1・source_name.ps1<br>core/fs.ps1・folder.ps1"] --> P1["settings.md"]
+    indexer["core/status_file.ps1・diagnostics.ps1<br>indexer/indexer_state.ps1<br>indexer_decide.ps1・index/index_name.ps1・index_store.ps1<br>index_archive_rules.ps1・index_archive.ps1"] --> P2["indexer.md"]
     tsv["core/fs.ps1・text.ps1・text_file.ps1<br>index/index_name.ps1・index_store.ps1・content_index_format.ps1・content_index_store.ps1"] --> P3["tsv.md"]
     search["search/search_query.ps1・content_index_search.ps1<br>search_run.ps1・search_service.ps1・source_map.ps1"] --> P4["search.md"]
 ```
@@ -38,7 +38,7 @@ flowchart LR
 | `tebunko/indexer/extract_pdf.ps1` | `extractPdfFile` | [PDF ファイルの読み取り](../indexing/pdf.md#取り込みの流れ) |
 | `shared/core/pdf_crypt.ps1` | `newPdfCrypt` `getPdfKeyR56` `getPdfStreamCryptMethod` `unprotectPdfData` `getPdfSha` `invokePdfAesCbc` `getPdfCryptHashR56` | [PDF ファイルの読み取り](../indexing/pdf.md#暗号化された-pdf) |
 | `shared/core/pdf_file.ps1` | `readPdfPages` `readPdfFile` `testPdfExtension` `newPdfLimits` | [PDF ファイルの読み取り](../indexing/pdf.md) |
-| `tebunko/indexer/index_migrate.ps1` | `publishTsv` / `initTmpDir` / `newWorkerTmpDir` / `removeStaleTmpDirs` / `findDroppedIndexes` / `getDroppedStatusRows` / `writeStatusKeepingDropped` / `removeDroppedFolders` | [クロール対象フォルダと取り込み対象](../indexing/crawl.md)、[インデックスのファイルの形](../index-data/format.md#配置命名規則) |
+| `tebunko/indexer/index_migrate.ps1` | `publishTsv` / `initTmpDir` / `newDirectoryReplacingExisting` / `newWorkerTmpDir` / `removeStaleTmpDirs` / `removeEmptyDir` / `findDroppedIndexes` / `getDroppedStatusRows` / `writeStatusKeepingDropped` / `removeDroppedFolders` | [クロール対象フォルダと取り込み対象](../indexing/crawl.md)、[インデックスのファイルの形](../index-data/format.md#配置命名規則) |
 | `tebunko/indexer/pending_publish.ps1` | `PendingPublish`（`Add` / `MarkFolder` / `AddPending` / `Dispatch` / `Skip` / `Complete` / `TakeFlushable` / `TakeAll`） | [入れ替えと書き出し](../index-data/publish.md)「本文インデックスへの書き出し」、[取り込みの並列化](../indexing/parallel.md) |
 | `tebunko/indexer/indexer_plan.ps1`（`IngestPlanner`） | `IngestPlanner`（`AssignNames` / `SaveNames` / `SelectOnly` / `Crawl` / `KeepForCancel` / `ApplyFailed` / `ApplyInterrupted` / `FolderByName`） | [取り込み対象の決定](../indexing/target-decision.md)、[クラスと関数の使い分け](../structure/classes.md) |
 | `tebunko/indexer/indexing_reporter.ps1` | `IndexingReporter`（`Progress` / `WaitForApproval`） | [インデックス作成のメインフロー](../indexing/flow.md)、[取り込み対象の決定](../indexing/target-decision.md#取り込み予定画面の確認に出す件数) |

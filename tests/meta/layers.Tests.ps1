@@ -4,6 +4,12 @@ BeforeAll {
     # 読み込み口からのたどり方は tools\script_rules.ps1 と共有する（check_release_package.ps1・
     # new_single_script.ps1 も同じたどり方を使う）
     . "$PSScriptRoot\..\..\tools\script_rules.ps1"
+    # 関数の呼び出し・変数・型の使い方を AST で読む部品（解析は重いので、使うときに 1 回だけ行って使い回す）
+    . "$PSScriptRoot\..\..\tools\script_arch.ps1"
+    function getScriptArch {
+        if (-not $script:scriptArch) { $script:scriptArch = newScriptArch $scriptsDir }
+        return $script:scriptArch
+    }
 
     # getSourcedFiles は getDotSourceTargets（存在しない先も返す）の、このテスト向けの薄い別名。
     # ui\ 配下の "$TebunkoDir\..." の形は、起動口 gui.ps1 から渡される tebunko\ 直下を指す
@@ -58,6 +64,7 @@ Describe "判断層" -Tag Meta {
         $files = @(
             "${scriptsDir}\shared\core\text.ps1"
             "${scriptsDir}\tebunko\index\index_name.ps1"
+            "${scriptsDir}\tebunko\core\source_name.ps1"
             "${scriptsDir}\tebunko\index\content_index_format.ps1"
             "${scriptsDir}\tebunko\search\search_query.ps1"
             "${scriptsDir}\tebunko\search\search_gram.ps1"
@@ -68,6 +75,22 @@ Describe "判断層" -Tag Meta {
             $hit = [regex]::Matches($text, '\$ui\.|\$window|System\.Windows\.Media')
             "$(Split-Path $file -Leaf): $($hit.Count)" | Should -Be "$(Split-Path $file -Leaf): 0"
         }
+    }
+
+    # 上の文字列の検査と同じファイルを、構文木で見る。コメント・文字列の中の名前は数えず、型の式・引数の型は数える
+    It "判断層のファイルが画面の変数・型に触らない（構文木）" {
+        $files = @(
+            "shared/core/text.ps1"
+            "tebunko/index/index_name.ps1"
+            "tebunko/core/source_name.ps1"
+            "tebunko/index/content_index_format.ps1"
+            "tebunko/search/search_query.ps1"
+            "tebunko/search/search_gram.ps1"
+            "tebunko/indexer/indexer_decide.ps1"
+            "*_view.ps1"
+        )
+        $found = @(findTypeUses (getScriptArch) -In $files -Variable ui, window -TypeLike "System.Windows.*")
+        ($found -join ", ") | Should -Be ""
     }
 }
 
@@ -88,6 +111,20 @@ Describe "状態層と読み込み口" -Tag Meta {
         ($found -join ", ") | Should -Be ""
     }
 
+    # 上の文字列の検査と同じフォルダを、構文木で見る（コメント・文字列の中の名前は数えず、型の式・引数の型は数える）
+    It "状態層のファイルが画面の変数・型に触らない（構文木）" {
+        $dirs = @(
+            "tebunko/core/*"
+            "tebunko/index/*"
+            "tebunko/indexer/*"
+            "tebunko/search/*"
+            "shared/core/*"
+            "shared/office/*"
+        )
+        $found = @(findTypeUses (getScriptArch) -In $dirs -Variable ui, window -TypeLike "System.Windows.*")
+        ($found -join ", ") | Should -Be ""
+    }
+
     # 画面以外の読み込み口から ui/ をたどれると、インデックス作成などの画面の無い起動口が画面を読み込んでしまう
     It "画面以外の読み込み口から ui/ のファイルをたどれない" {
         $entries = @(
@@ -99,5 +136,119 @@ Describe "状態層と読み込み口" -Tag Meta {
         $reached = getReachableFiles $entries "${scriptsDir}\tebunko"
         $ui = @($reached | Where-Object { $_ -like "*\ui\*" } | ForEach-Object { Split-Path $_ -Leaf })
         ($ui -join ", ") | Should -Be ""
+    }
+}
+
+# 依存の向きを、ファイルの組で見る（関数の呼び出しと、別のファイルが最上位で作る変数の読み。tools\script_arch.ps1）。
+# 全部のファイルが同じスコープに読み込まれるため、文字列を探す検査では、下の層が上の層の関数・変数を名前で使っても見つからない。
+# 表の 1 行は「from のパスのファイルは、to のパスのファイルの関数・変数に依存しない」。
+# 向きの決め方は docs/design/structure/source.md の「フォルダの分け方」にある
+Describe "依存の向き（ファイル単位）" -Tag Meta {
+    $rules = @(
+        # shared はツールを知らない
+        @{ from = "shared/*"; to = "tebunko/*"; except = "" }
+        # 判断層・状態層は画面層に依存しない
+        @{ from = "tebunko/core/*"; to = "*/ui/*"; except = "" }
+        @{ from = "tebunko/index/*"; to = "*/ui/*"; except = "" }
+        @{ from = "tebunko/indexer/*"; to = "*/ui/*"; except = "" }
+        @{ from = "tebunko/search/*"; to = "*/ui/*"; except = "" }
+        @{ from = "*_view.ps1"; to = "*/ui/*"; except = "*_view.ps1" }
+        @{ from = "*/index_name.ps1"; to = "*/ui/*"; except = "" }
+        @{ from = "*/search_query.ps1"; to = "*/ui/*"; except = "" }
+        @{ from = "*/text.ps1"; to = "*/ui/*"; except = "" }
+        # 共有の状態層も、共有の画面層に依存しない
+        @{ from = "shared/core/*"; to = "shared/ui/*"; except = "" }
+        @{ from = "shared/office/*"; to = "shared/ui/*"; except = "" }
+        # 状態層の中のフォルダは、下から上へ依存しない（indexer と search は同じ高さで、互いに依存しない。部品の -From・-To は一方向なので 2 行で書く）
+        @{ from = "tebunko/core/*"; to = "tebunko/index/*"; except = "" }
+        @{ from = "tebunko/core/*"; to = "tebunko/indexer/*"; except = "" }
+        @{ from = "tebunko/core/*"; to = "tebunko/search/*"; except = "" }
+        @{ from = "tebunko/index/*"; to = "tebunko/indexer/*"; except = "" }
+        @{ from = "tebunko/index/*"; to = "tebunko/search/*"; except = "" }
+        @{ from = "tebunko/indexer/*"; to = "tebunko/search/*"; except = "" }
+        @{ from = "tebunko/search/*"; to = "tebunko/indexer/*"; except = "" }
+        @{ from = "shared/core/*"; to = "shared/office/*"; except = "" }
+    )
+
+    BeforeAll {
+        # 今ある依存を、「from のファイル・to のファイル・名前」の 3 つで許す。ファイルの組だけで許すと、同じ組の別の依存も通ってしまうため。
+        # 名前は関数の名前か、$ を付けた変数の名前。Reason は、なぜ今は許しているか。直したら、この一覧から消す
+        # （どの行でも検出されなくなった例外は、下の It が失敗にする）。この一覧に足して通すことはしない
+        function newAllowances {
+            param ([string]$from, [string]$to, [string[]]$names, [string]$reason)
+
+            foreach ($name in $names) {
+                @{ From = $from; To = $to; Name = $name; Reason = $reason }
+            }
+        }
+
+        $script:allowances = @(
+            # shared → tebunko
+            newAllowances "shared/core/folder.ps1" "tebunko/search/source_map.ps1" @("joinSourcePath") "joinSourcePath を共有の側（shared/core）へ移すか、呼ぶ側から受け取る形にすると消える"
+            newAllowances "shared/core/fs.ps1" "tebunko/core/settings.ps1" @('$appId') "アプリの ID を、呼ぶ側から値として受け取る口を shared/core/fs.ps1 に作ると消える"
+            newAllowances "shared/office/office_reader.ps1" "tebunko/index/index_name.ps1" @("toIndexFileName") "toIndexFileName（インデックス名からファイル名への変換）は、インデックスの形式の関数を引き連れるため、呼ぶ側から受け取る形にすると消える"
+            newAllowances "shared/ui/shell.ps1" "tebunko/ui/startup_error.ps1" @('$appTitle') "アプリの表示名を、呼ぶ側から値として受け取る口を shared/ui/shell.ps1 に作ると消える"
+            # 判断層 → 画面層
+            newAllowances "tebunko/ui/search/search_bar_view.ps1" "shared/ui/shell.ps1" @("formatTime") "formatTime を、画面に触らない共有の判断層のファイルへ移すと消える"
+            # core → index
+            newAllowances "tebunko/core/workspace.ps1" "tebunko/index/system_index.ps1" @("updateSystemIndexState") "updateSystemIndexState は、index へ移す convertFromSystemIndexState・convertToSystemIndexState を呼ぶため core へは移せない。呼ぶ側の clearLegacySystemIndex（core/workspace.ps1）を index へ移すと消える"
+            # index → search（取り込み一覧・情報源フォルダのファイルの読み書きと、システムインデックスの gram の関数が search にある）
+            newAllowances "tebunko/index/content_index_store.ps1" "tebunko/search/search_query.ps1" @("truncateHitLine") "ヒットの行を切り詰める truncateHitLine を、定数（hitLineMaxChars・hitLineBeforeMatchChars）と一緒に core へ移すと消える（文字列だけを扱う）"
+            newAllowances "tebunko/index/index_archive.ps1" "tebunko/search/source_map.ps1" @("getSourceFolderMap", "readSourceFolderFile") "取り込み一覧・情報源フォルダのファイルを読む関数を index へ移すと消える（ファイルの持ち主は index）"
+            newAllowances "tebunko/index/index_store.ps1" "tebunko/search/source_map.ps1" @("getSourceFolderMap", "readSourceFolderFile") "取り込み一覧・情報源フォルダのファイルを読む関数を index へ移すと消える（ファイルの持ち主は index）"
+            newAllowances "tebunko/index/index_catalog.ps1" "tebunko/search/source_map.ps1" @("writeSourceFolderFile") "情報源フォルダのファイルを書く writeSourceFolderFile を index へ移すと消える（ファイルの持ち主は index）"
+            newAllowances "tebunko/index/system_index.ps1" "tebunko/search/search_gram.ps1" @(
+                '$systemIndexFileName', "addTextGrams", "convertFromSystemIndexState", "convertToGramText", "convertToSystemIndexState",
+                "getGramPartCount", "getIndexNameOfRelPath", "getSystemIndexFileNames", "newSystemIndexState", "testSystemIndexPath"
+            ) "システムインデックスの形式と gram の関数（search_gram.ps1 の該当の関数・値）を index へ移すと消える（search が index を読む向きになる）"
+            # indexer → search
+            newAllowances "tebunko/indexer/indexer_plan.ps1" "tebunko/search/search_gram.ps1" @('$systemIndexFileName') "システムインデックスのファイル名の値を index へ移すと消える（search も index を読む）"
+            newAllowances "tebunko/indexer/indexer_run.ps1" "tebunko/search/source_map.ps1" @("writeSourceFolderFile") "情報源フォルダのファイルを書く writeSourceFolderFile を index へ移すと消える（ファイルの持ち主は index）"
+        )
+
+        # 行ごとの検出の結果。表の行ごとの It と、使われなくなった例外の It が、同じ解析を繰り返さないよう覚えておく
+        $script:foundByRule = @{}
+        function getFoundItems {
+            param ([string]$from, [string]$to, [string]$except)
+
+            $key = "$from|$to|$except"
+            if (-not $script:foundByRule.ContainsKey($key)) {
+                $script:foundByRule[$key] = @(findFileDependencyItems (getScriptArch) -From $from -To $to -ToExcept $except)
+            }
+            return , $script:foundByRule[$key]
+        }
+    }
+
+    # 失敗の文には、ファイルの組と関数・変数の名前が出る（例: shared/core/folder.ps1 -> tebunko/search/source_map.ps1（joinSourcePath））
+    It "<from> は <to> に依存しない" -TestCases $rules {
+        param ($from, $to, $except)
+
+        $left = @(removeAllowedDependencies (getFoundItems $from $to $except) $script:allowances)
+        (@(formatFileDependencies $left) -join ", ") | Should -Be "" -Because "新しい依存は入れない。今ある依存を許すなら、このファイルの例外の一覧に理由つきで足す。向きの決まりを変えるなら docs/design/structure/source.md の「フォルダの分け方」も直す"
+    }
+
+    # 表の from・to が、どのファイルにも当たらないと、上の It は何も見ずに通ってしまう（フォルダやファイルの名前を変えたとき）
+    It "<from> -> <to> の両方に、当たるファイルがある" -TestCases $rules {
+        param ($from, $to, $except)
+
+        $paths = @((getScriptArch).Files | ForEach-Object { $_.Path })
+        @($paths | Where-Object { testPathLike $_ @($from) }).Count | Should -BeGreaterThan 0 -Because "from に当たるファイルが無い。表のパスを、名前を変えたフォルダ・ファイルに合わせる"
+        @($paths | Where-Object { (testPathLike $_ @($to)) -and -not (testPathLike $_ @($except)) }).Count | Should -BeGreaterThan 0 -Because "to に当たるファイルが無い。表のパスを、名前を変えたフォルダ・ファイルに合わせる"
+    }
+
+    # 直した依存の例外が残ると、同じ依存を後から足しても通ってしまう。全部の行の結果の和と突き合わせる
+    # （1 行ずつ突き合わせると、別の行で出る依存の例外を、使われないとしてしまう）
+    It "使われなくなった例外が無い" -TestCases @(@{ rules = $rules }) {
+        param ($rules)
+
+        $all = @()
+        foreach ($rule in $rules) { $all += (getFoundItems $rule.from $rule.to $rule.except) }
+        $unused = @(findUnusedAllowances $script:allowances $all | ForEach-Object { "$($_.From) -> $($_.To)（$($_.Name)）" })
+        ($unused -join ", ") | Should -Be "" -Because "直した依存の例外は、このファイルの例外の一覧から消す"
+    }
+
+    It "例外のそれぞれに理由がある" {
+        $noReason = @($script:allowances | Where-Object { -not $_.Reason } | ForEach-Object { "$($_.From)（$($_.Name)）" })
+        ($noReason -join ", ") | Should -Be ""
     }
 }

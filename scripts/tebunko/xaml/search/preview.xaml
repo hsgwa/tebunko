@@ -138,7 +138,7 @@
 
               <!-- 行は仮想化して、見えている行（と前後の余白）だけ要素を作る（VirtualizingStackPanel・行の単位のスクロール）。
                    仮想化は、ItemsControl のテンプレートの中にスクロール（PreviewScroll）を置かないと効かない。
-                   縦にも横にもスクロールでき、読み込んだ行は縦にスクロールして見られる。名前は gui_main.ps1 でテンプレートから取る -->
+                   縦にも横にもスクロールでき、読み込んだ行は縦にスクロールして見られる。名前は shell\regions.ps1 でテンプレートから取る -->
                   <ItemsControl x:Name="PreviewRows" TextElement.FontSize="12" Focusable="False"
                                 VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
                                 VirtualizingPanel.ScrollUnit="Item" ScrollViewer.CanContentScroll="True">

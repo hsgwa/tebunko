@@ -2,7 +2,7 @@
 # 関数だけをファイルから取り出し、画面の部品は呼ばれた操作を残す偽物にする（ファイルは画面を作る処理を含むため、そのままは読み込まない）。
 BeforeAll {
     . "$PSScriptRoot\..\..\..\helpers\load.ps1"
-    . "${scriptsDir}\tebunko\ui\index_view.ps1"
+    . "${scriptsDir}\tebunko\ui\index\index_edit_view.ps1"
 
     $tokens = $null
     $errors = $null

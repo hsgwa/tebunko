@@ -1,13 +1,13 @@
-﻿# 窓の入口（tebunko\ui\gui_main.ps1 の onWindowActivated・onWindowPreviewKeyDown）の、移動中の守りのテスト。
+﻿# 窓の入口（tebunko\ui\shell\window_events.ps1 の onWindowActivated・onWindowPreviewKeyDown）の、移動中の守りのテスト。
 # 関数だけをファイルから取り出し、読み直しや画面の部品は呼ばれた順を残す偽物にする。
 BeforeAll {
-    . "$PSScriptRoot\..\..\helpers\load.ps1"
-    . "${scriptsDir}\tebunko\ui\index_view.ps1"
+    . "$PSScriptRoot\..\..\..\helpers\load.ps1"
+    . "${scriptsDir}\tebunko\ui\index\index_edit_view.ps1"
     Add-Type -AssemblyName PresentationCore, WindowsBase
 
     $tokens = $null
     $errors = $null
-    $ast = [System.Management.Automation.Language.Parser]::ParseFile("${scriptsDir}\tebunko\ui\gui_main.ps1", [ref]$tokens, [ref]$errors)
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile("${scriptsDir}\tebunko\ui\shell\window_events.ps1", [ref]$tokens, [ref]$errors)
     foreach ($name in "onWindowActivated", "onWindowPreviewKeyDown") {
         $definition = $ast.Find({ param ($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name }, $true)
         . ([scriptblock]::Create($definition.Extent.Text))

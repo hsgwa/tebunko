@@ -26,6 +26,17 @@ function initWorkspace {
     ${script:workspace} = [Workspace]::new((getWorkDir))
 }
 
+# 取り込みのスレッドが、司令のスレッドから受け取った場所（Workspace）を、呼んだスクリプトのスコープに置く。
+# $workspace を決めるのはこのファイルだけにするため、取り込みのスレッドのスクリプトからもここを呼ぶ
+# （取り込みのスレッドでは、呼んだスコープは global。部品を読み込んだのと同じスコープになる）
+function setCallerWorkspace {
+    param (
+        $value
+    )
+
+    Set-Variable -Name workspace -Value $value -Scope 1
+}
+
 # インデックスのフォルダに置く、インデックス名とクロール対象フォルダの対応（インデクサが作成する）。
 # インデックスのフォルダごと別の場所・PCへコピーしても、検索結果から元のファイルの場所が分かるようにする。
 # 拡張子を .tsv にすると検索対象になるため .txt にする
