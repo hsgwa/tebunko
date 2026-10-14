@@ -4367,8 +4367,8 @@
 <td>インデクサの司令のスレッド。画面が取り込み一覧を読むときは画面のスレッドで別に作る</td>
 <td>状態層</td>
 <td><code>tebunko/indexer/indexer_state.ps1</code>（<code>lib.ps1</code>）</td>
-<td>実装ずみ。<code>ReadStatus</code>・<code>WriteStatus</code>・<code>AddRow</code>・<code>ReadIngestingFiles</code>・<code>WriteIngestingFiles</code>・<code>RemoveIngestingFile</code>・<code>RenameIndexName</code>・<code>RemoveIndexName</code>・<code>Failures</code>（プロパティ）・<code>DroppedRows</code>（プロパティ）。<code>getIndexNameMap</code>・<code>getIndexStats</code>（<code>index_store.ps1</code>）は読むだけの部品として外に残す</td>
-<td>取り込み一覧・状態ファイルの読み書きの部品（<code>indexer_state.ps1</code> の関数）、コンストラクタで受け取った <code>Workspace</code>（場所を暗黙に使わない）</td>
+<td>実装ずみ。<code>ReadStatus</code>・<code>WriteStatus</code>・<code>AddRow</code>・<code>ReadIngestingFiles</code>・<code>WriteIngestingFiles</code>・<code>RemoveIngestingFile</code>・<code>RenameIndexName</code>・<code>RemoveIndexName</code>・<code>Failures</code>（プロパティ）・<code>DroppedRows</code>（プロパティ）。<code>getIndexNameMap</code>（<code>core/status_file.ps1</code>）・<code>getIndexStats</code>（<code>index_store.ps1</code>）は読むだけの部品として外に残す</td>
+<td>取り込み一覧・状態ファイルの読み書きの部品（<code>core/status_file.ps1</code> の関数と、<code>indexer_state.ps1</code> の <code>addStatusRow</code>）、コンストラクタで受け取った <code>Workspace</code>（場所を暗黙に使わない）</td>
 </tr>
 <tr>
 <td><code>PendingPublish</code></td>
