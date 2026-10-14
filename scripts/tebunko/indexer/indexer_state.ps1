@@ -74,16 +74,20 @@ function addStatusRow {
 
 function readIngestingFiles {
     # 取り込み中のファイルの記録を読み、@{ RelPath = 相対パス; Count = 続けて取り込みを始めて終わらなかった回数 } の配列を返す。
-    # 取り込みを複数のスレッドで行うため、1 行に 1 ファイル。記録が無ければ空。壊れた行は読み飛ばす
+    # 取り込みを複数のスレッドで行うため、1 行に 1 ファイル。記録が無ければ空。壊れた行と、相対パスが使えない行（testIndexRelPath）は読み飛ばす
     param (
         [string]$path = $workspace.IngestingFile
     )
 
     $result = New-Object System.Collections.Generic.List[hashtable]
+    $checkedNames = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
     foreach ($line in @(readListFile $path)) {
         $fields = $line.Split("`t")
         $count = 0
         if ($fields.Count -ne 2 -or -not [int]::TryParse($fields[0], [ref]$count) -or $count -lt 1 -or $fields[1] -eq "") {
+            continue
+        }
+        if (testIndexRelPath $fields[1] $false $checkedNames) {
             continue
         }
         $result.Add(@{ RelPath = $fields[1]; Count = $count })
@@ -425,7 +429,7 @@ class StatusLedger {
     }
 
     [hashtable] ReadStatus() {
-        # 取り込み一覧を読み込む（readStatusFile と同じ形。@{ Folders; Rows }）
+        # 取り込み一覧を読み込む（readStatusFile と同じ形。@{ Folders; Rows; Rejected; LegacyFolders }）
         return readStatusFile $this.Workspace.StatusFile
     }
 

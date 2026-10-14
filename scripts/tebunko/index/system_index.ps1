@@ -166,6 +166,33 @@ function writeSystemIndexFolders {
     return , $results.ToArray()
 }
 
+function limitSystemIndexStateNames {
+    # 状態ファイルから読んだ状態（convertFromSystemIndexState の形）から、使えない名前・相対パスを捨てて返す。
+    # 状態ファイルは共有のワークスペースで他の人が書き換えられるため、Covered（インデックス名）は testStoredIndexName（予約名は通す）、
+    # Pending・Excluded（system_index からの相対パス）は testIndexRelPath（名前だけも可）を通ったものだけ使う
+    param (
+        $state
+    )
+
+    $checkedNames = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+    foreach ($name in @($state.Covered)) {
+        if (testStoredIndexName $name) {
+            [void]$state.Covered.Remove($name)
+        }
+    }
+    foreach ($rel in @($state.Excluded)) {
+        if (testIndexRelPath $rel $true $checkedNames) {
+            [void]$state.Excluded.Remove($rel)
+        }
+    }
+    foreach ($rel in @($state.Pending.Keys)) {
+        if (testIndexRelPath $rel $true $checkedNames) {
+            [void]$state.Pending.Remove($rel)
+        }
+    }
+    return $state
+}
+
 function readSystemIndexState {
     # 状態ファイルを読む（convertFromSystemIndexState の形）。無ければ空。
     # 書き込み中などで読めなければ $null（高速検索を使わず、すべてを照合する）
@@ -181,7 +208,7 @@ function readSystemIndexState {
             $stream = [System.IO.FileStream]::new($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)
             try {
                 $reader = [System.IO.StreamReader]::new($stream, [System.Text.Encoding]::UTF8, $true)
-                return convertFromSystemIndexState ($reader.ReadToEnd() -split "\r?\n")
+                return limitSystemIndexStateNames (convertFromSystemIndexState ($reader.ReadToEnd() -split "\r?\n"))
             } finally {
                 $stream.Dispose()
             }
@@ -215,7 +242,7 @@ function updateSystemIndexState {
     }
     try {
         $reader = [System.IO.StreamReader]::new($stream, [System.Text.Encoding]::UTF8, $true, 4096, $true)
-        $state = convertFromSystemIndexState ($reader.ReadToEnd() -split "\r?\n")
+        $state = limitSystemIndexStateNames (convertFromSystemIndexState ($reader.ReadToEnd() -split "\r?\n"))
         $reader.Dispose()
         & $change $state
         $bytes = ${utf8Bom}.GetPreamble() + ${utf8Bom}.GetBytes(((convertToSystemIndexState $state) -join "`r`n") + "`r`n")
@@ -373,7 +400,10 @@ function updateSystemIndexes {
     $gone.AddRange([string[]]@($state.Covered))
     foreach ($name in ($gone | Sort-Object -Unique)) {
         if (!$names.Contains($name)) {
-            [void](removeSystemIndexOf $name $systemRoot $statePath)
+            $removed = removeSystemIndexOf $name $systemRoot $statePath
+            if ($removed.Skipped) {
+                writeIndexerLog "システムインデックスの置き場の外を指す名前のため、削除しませんでした: ${name}" "Yellow"
+            }
             [void]$state.Covered.Remove($name)
         }
     }
@@ -425,11 +455,17 @@ function removeSystemIndexOf {
         [string]$path = $workspace.SystemIndexStateFile
     )
 
-    $dir = toLongPath "$($systemRoot.TrimEnd('\'))\$rel"
-    if ([System.IO.Directory]::Exists($dir)) {
-        removeDirectoryRetry "$($systemRoot.TrimEnd('\'))\$rel"
+    # 名前は状態ファイル・フォルダ名から来る。置き場（systemRoot）の下でなければ消さない（状態の行だけ整理する）。
+    # 状態の書き込みの成否（Saved）と、置き場の外のため消さなかったか（Skipped）を @{ Saved; Skipped } で返す。ログは呼び出し側が出す
+    $target = "$($systemRoot.TrimEnd('\'))\$rel"
+    $skipped = $false
+    if (!(testPathUnder $target $systemRoot)) {
+        $skipped = $true
+    } elseif ([System.IO.Directory]::Exists((toLongPath $target))) {
+        removeDirectoryRetry $target
     }
     $name = getIndexNameOfRelPath $rel
     $indexName = if ($name -eq $rel) { $name } else { "" }
-    return updateSystemIndexState { param ($state) removeSystemIndexEntries $state $rel $indexName } $path
+    $saved = updateSystemIndexState { param ($state) removeSystemIndexEntries $state $rel $indexName } $path
+    return @{ Saved = $saved; Skipped = $skipped }
 }

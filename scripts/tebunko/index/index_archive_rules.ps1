@@ -15,33 +15,7 @@ ${importCollisionOverwrite} = "Overwrite"
 ${importCollisionCancel}    = "Cancel"
 
 
-function testPathSegments {
-    # 区切り文字で分けたパスの各区切り（segments）が、ファイル名として安全に使えるかを調べ、
-    # 使えない理由を返す（使えれば空文字列）。zip のエントリー名（/ 区切り）・取り込み一覧の相対パス（\ 区切り）の
-    # どちらからも呼べる、区切り文字に依らない共通の確かめ
-    param (
-        [string[]]$segments
-    )
-
-    foreach ($segment in $segments) {
-        if ($segment -eq "" -or $segment -eq "." -or $segment -eq "..") {
-            return "使えない区切り（空・.・..）が含まれています。"
-        }
-        if ($segment.Length -gt ${maxFileNameLength}) {
-            return "1 つの区切りが長すぎます（${maxFileNameLength} 文字まで）。"
-        }
-        if (@([System.IO.Path]::GetInvalidFileNameChars() | Where-Object { $segment.IndexOf($_) -ge 0 }).Count -gt 0) {
-            return "使えない文字が含まれています。"
-        }
-        if ($segment.EndsWith(".") -or $segment.EndsWith(" ")) {
-            return "区切りの最後に . や空白は使えません。"
-        }
-        if (${reservedFileNames} -contains $segment.Split(".")[0].ToUpperInvariant()) {
-            return "Windows で使えない名前（$segment）が含まれています。"
-        }
-    }
-    return ""
-}
+# testPathSegments（区切りごとの確かめ）は index_name.ps1 にある（取り込み一覧の相対パスの確かめ testIndexRelPath と共通）
 
 
 function testIndexArchiveEntryPath {
