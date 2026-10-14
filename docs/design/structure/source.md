@@ -144,7 +144,7 @@ flowchart TD
 - `=` の代入と、`Set-Variable -Name <定数>`・`New-Variable -Name <定数>`・`$variable:名前 = …`（最上位・`$script:`・`$global:` の代入と同じ条件で数える）。
 - 変数を名前で読む形で、名前が定数のもの: `Get-Variable`（`gv`）、`${variable:名前}`・`$variable:名前`、`Get-Item`・`Get-Content`・`Test-Path` などの `variable:名前`。
 - 別のファイルで定義したクラスを、`[型名]`（`[型]::new()`・引数・戻り値・変数の型）か `New-Object <型>`・`New-Object -TypeName <型>`（型が定数のもの。`'System.Collections.Generic.List[Workspace]'`・`'Workspace[]'` は `[` `]` `,` で区切った名前のそれぞれ）で使う形。`findFileDependencyItems` が `[型名]` の名で返し、例外の一覧にも同じ名で書く。
-- `Set-Variable` は、`-Scope` が無いとき、名前の前の `script:`・`global:` などをスコープとして読む（`Set-Variable -Name "script:x"` は、関数の中でも `x` の最上位の変数を作る）。`-Scope` があるときは、名前の前の印は名前の一部。`New-Variable`・`Get-Variable`・`variable:` ドライブは、名前の前の `script:` などを名前の一部として数える（`New-Variable -Name "script:x"` は、`x` ではなく名前 `script:x` の変数）。`$variable:名前 = …` の代入は、関数の外だけ数える。`$variable:名前 = …` の代入は、関数の外だけ数える。
+- `Set-Variable` は、`-Scope` が無いとき、名前の前の `script:`・`global:` などをスコープとして読む（`Set-Variable -Name "script:x"` は、関数の中でも `x` の最上位の変数を作る）。`-Scope` があるときは、名前の前の印は名前の一部。`New-Variable`・`Get-Variable`・`variable:` ドライブは、名前の前の `script:` などを名前の一部として数える（`New-Variable -Name "script:x"` は、`x` ではなく名前 `script:x` の変数）。`$variable:名前 = …` の代入は、関数の外だけ数える。
 - コマンドの名前は、モジュール名の修飾（`Microsoft.PowerShell.Utility\Get-Command` など）を外して比べる。
 
 呼ぶ先や読む変数が構文木から決まらない書き方は、向きの表では数えない。代わりに、`tests/meta/layers.Tests.ps1` の「名前を文字列で渡す呼び出し」が、今ある所を理由つきの閉じた一覧にし、増えたら失敗にする。ファイルと形ごとの数も一覧の行に持たせ、載っているファイルに同じ形を足しても失敗にする。形は次のとおり。

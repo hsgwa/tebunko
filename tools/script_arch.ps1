@@ -239,7 +239,7 @@ function getCommandTopVariable {
     $name = $info.Name
     $scope = $info.Scope
     # Set-Variable（sv・set）は、-Scope が無いとき、名前の前の script: などをスコープとして読む（Windows PowerShell 5.1 の動き）。
-    # -Scope があるとき、New-Variable（nv）は、名前の前の印を名前の一部として読む
+    # New-Variable（nv）と、-Scope があるときの Set-Variable は、名前の前の印を名前の一部として読む
     if (-not $info.ScopeGiven -and $commandName -match '^(Set-Variable|sv|set)$') {
         $split = splitVariableScope $name
         $name = $split.Name
