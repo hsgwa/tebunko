@@ -2,11 +2,19 @@
 # フォルダを中身ごと消すのは removeDirectoryRetry（shared/core/fs.ps1。中でリンクを辿らない removeTreeNoFollow を呼び、消えたことを .NET で確かめる）だけにする。
 # 別の消し方（Remove-Item -Recurse・Directory.Delete の再帰）を足すと、リンクの先まで消す・消えていないのに成功と記録する、のどちらかが起きうる。
 # 見張るもの:
-#   1. scripts の下に、フォルダを再帰で消す書き方（Remove-Item とその別名の -Recurse（省略形も）・スプラット、Directory.Delete の再帰）が無い
-#   2. removeTreeNoFollow を呼ぶのは removeDirectoryRetry だけ
-#   3. removeDirectoryRetry を呼ぶ関数は、フォルダの有無を Test-Path で見ない（予約名に拡張子の付いた名前のフォルダは、Test-Path と .NET で答えが食い違い、
-#      消さずに「削除しました」と記録する不具合になった。有無は [System.IO.Directory]::Exists で見る）
+#   1. scripts の下に、フォルダを再帰で消す書き方（Remove-Item とその別名（モジュール名付きも）の -Recurse（省略形も）・スプラット、
+#      Directory.Delete の再帰、型が変数で読めない ::Delete(<path>, <$false でない値>)）が無い
+#   2. removeTreeNoFollow を呼ぶのは removeDirectoryRetry だけ（スクリプト直下の呼び出しも違反に数える）
+#   3. removeDirectoryRetry を直接呼ぶ関数（スクリプト直下を含む）は、フォルダの有無を Test-Path で見ない（予約名に拡張子の付いた名前のフォルダは、
+#      Test-Path と .NET で答えが食い違い、消さずに「削除しました」と記録する不具合になった。有無は [System.IO.Directory]::Exists で見る）
+# 「消したあとに残っていれば例外にする」ことは fs.Tests.ps1 の removeDirectoryRetry のテストが守る。
 # 1 つのファイルを消す書き方（File.Delete・Remove-Item -Force）は対象にしない（リンクの先を消さないため）。
+# 守れない範囲（構文木で見つけられない書き方）:
+#   - removeDirectoryRetry を呼ぶ関数を、さらに呼ぶ側の関数の Test-Path（3 は直接呼ぶ関数だけ見る）
+#   - コマンド名を変数や文字列の組み立てで作る呼び出し（& $name ... や Invoke-Expression）
+#   - Get-ChildItem -Recurse | Remove-Item のように、再帰の列挙をつないで消す書き方
+#   - cmd /c rd /s・robocopy /mir など、外のプログラムで消す書き方
+#   これらは、この検査では見つけられない。書かない。
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
 
@@ -40,15 +48,16 @@ BeforeAll {
             }, $true)
         foreach ($node in $nodes) {
             if ($node -is [System.Management.Automation.Language.CommandAst]) {
-                if (${removeItemNames} -notcontains $node.GetCommandName()) {
+                $commandName = "$($node.GetCommandName())".Split("\")[-1]
+                if (${removeItemNames} -notcontains $commandName) {
                     continue
                 }
                 foreach ($element in $node.CommandElements) {
                     if ($element -is [System.Management.Automation.Language.CommandParameterAst] -and
                         "Recurse".StartsWith($element.ParameterName, [System.StringComparison]::OrdinalIgnoreCase)) {
-                        $found.Add("$($node.GetCommandName()) -$($element.ParameterName)")
+                        $found.Add("$commandName -$($element.ParameterName)")
                     } elseif ($element -is [System.Management.Automation.Language.VariableExpressionAst] -and $element.Splatted) {
-                        $found.Add("$($node.GetCommandName()) @$($element.VariablePath.UserPath)（スプラット。-Recurse が入るか分からない）")
+                        $found.Add("$commandName @$($element.VariablePath.UserPath)（スプラット。-Recurse が入るか分からない）")
                     }
                 }
                 continue
@@ -58,6 +67,13 @@ BeforeAll {
             }
             $argumentCount = if ($null -eq $node.Arguments) { 0 } else { $node.Arguments.Count }
             if ($node.Static) {
+                if ($node.Expression -isnot [System.Management.Automation.Language.TypeExpressionAst]) {
+                    # 型が変数などで読めない静的呼び出し。再帰の指定がありうる形（引数が 2 つ以上で 2 つ目が $false でない）は違反に倒す
+                    if ($argumentCount -ge 2 -and !(testFalseLiteral $node.Arguments[1])) {
+                        $found.Add("$($node.Expression.Extent.Text)::Delete（型が読めない。再帰かもしれない）")
+                    }
+                    continue
+                }
                 $typeName = $node.Expression.TypeName.Name
                 if ($typeName -match "(^|\.)Directory$" -and $argumentCount -ge 2 -and !(testFalseLiteral $node.Arguments[1])) {
                     $found.Add("[$typeName]::Delete（再帰）")
@@ -69,19 +85,42 @@ BeforeAll {
         return $found.ToArray()
     }
 
-    function findCallsInFunctions {
-        # ast の中の関数（クラスのメソッドを含む）ごとに、呼んでいるコマンドの名前を @{ Function; Commands } で返す
+    function findCallsByOwner {
+        # ast の中のコマンド呼び出しを全部拾い、呼び出しごとに、いちばん内側の関数（クラスのメソッドを含む）の名前を付けて @{ Owner; Command } で返す。
+        # 関数の外（スクリプト直下）の呼び出しは Owner を "(スクリプト直下)" にする。コマンド名は、モジュール名付き（Module\Name）でも後ろの名前で返す
         param (
             $ast
         )
-        $functions = $ast.FindAll({
-                param ($n)
-                $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -or $n -is [System.Management.Automation.Language.FunctionMemberAst]
-            }, $true)
-        foreach ($function in $functions) {
-            $names = @($function.FindAll({ param ($n) $n -is [System.Management.Automation.Language.CommandAst] }, $true) | ForEach-Object { $_.GetCommandName() } | Where-Object { $_ })
-            @{ Function = $function.Name; Commands = $names }
+        $commands = $ast.FindAll({ param ($n) $n -is [System.Management.Automation.Language.CommandAst] }, $true)
+        foreach ($command in $commands) {
+            $name = $command.GetCommandName()
+            if (!$name) {
+                continue
+            }
+            $owner = "(スクリプト直下)"
+            for ($parent = $command.Parent; $null -ne $parent; $parent = $parent.Parent) {
+                if ($parent -is [System.Management.Automation.Language.FunctionDefinitionAst] -or $parent -is [System.Management.Automation.Language.FunctionMemberAst]) {
+                    $owner = $parent.Name
+                    break
+                }
+            }
+            @{ Owner = $owner; Command = $name.Split("\")[-1] }
         }
+    }
+
+    function groupCommandsByOwner {
+        # findCallsByOwner の結果を、Owner ごとのコマンド名の配列にまとめる（Owner → 配列）
+        param (
+            $calls
+        )
+        $groups = @{}
+        foreach ($call in $calls) {
+            if (!$groups.ContainsKey($call.Owner)) {
+                $groups[$call.Owner] = New-Object System.Collections.Generic.List[string]
+            }
+            $groups[$call.Owner].Add($call.Command)
+        }
+        return $groups
     }
 
     function getScriptFiles {
@@ -109,9 +148,9 @@ Describe "フォルダを消す入口" -Tag Meta {
             $errors = $null
             $tokens = $null
             $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors)
-            foreach ($function in @(findCallsInFunctions $ast)) {
-                if ($function.Commands -contains "removeTreeNoFollow" -and $function.Function -ne "removeDirectoryRetry") {
-                    $callers.Add("$($file.Name) › $($function.Function)")
+            foreach ($call in @(findCallsByOwner $ast)) {
+                if ($call.Command -eq "removeTreeNoFollow" -and $call.Owner -ne "removeDirectoryRetry") {
+                    $callers.Add("$($file.Name) › $($call.Owner)")
                 }
             }
         }
@@ -124,24 +163,14 @@ Describe "フォルダを消す入口" -Tag Meta {
             $errors = $null
             $tokens = $null
             $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors)
-            foreach ($function in @(findCallsInFunctions $ast)) {
-                if ($function.Commands -contains "removeDirectoryRetry" -and $function.Commands -contains "Test-Path") {
-                    $hits.Add("$($file.Name) › $($function.Function)")
+            $groups = groupCommandsByOwner @(findCallsByOwner $ast)
+            foreach ($owner in $groups.Keys) {
+                if ($groups[$owner] -contains "removeDirectoryRetry" -and $groups[$owner] -contains "Test-Path") {
+                    $hits.Add("$($file.Name) › $owner")
                 }
             }
         }
         @($hits) | Should -BeNullOrEmpty -Because "予約名に拡張子の付いた名前のフォルダは、Test-Path が無いと答えて消さずに記録だけが進む"
-    }
-
-    It "removeDirectoryRetry は、消したあとにフォルダが残っていれば例外にする（Directory.Exists で確かめる）" {
-        $errors = $null
-        $tokens = $null
-        $ast = [System.Management.Automation.Language.Parser]::ParseFile("${scriptsDir}\shared\core\fs.ps1", [ref]$tokens, [ref]$errors)
-        $function = $ast.Find({ param ($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq "removeDirectoryRetry" }, $true)
-        $function | Should -Not -BeNullOrEmpty
-        $text = $function.Extent.Text
-        $text.IndexOf("removeTreeNoFollow") | Should -BeGreaterThan -1
-        $text.IndexOf("Directory]::Exists(`$longPath)", $text.IndexOf("removeTreeNoFollow")) | Should -BeGreaterThan $text.IndexOf("removeTreeNoFollow")
     }
 }
 
@@ -162,6 +191,10 @@ Describe "フォルダを消す書き方の見つけ方（自己テスト）" -T
         @{ code = '[IO.Directory]::Delete($x, $recursive)' }
         @{ code = '$info.Delete($true)' }
         @{ code = '([System.IO.DirectoryInfo]$x).Delete($flag)' }
+        @{ code = '$type::Delete($x, $true)' }
+        @{ code = '$type::Delete($x, $recursive)' }
+        @{ code = 'Microsoft.PowerShell.Management\Remove-Item $x -Recurse' }
+        @{ code = 'Microsoft.PowerShell.Management\rm -r $x' }
     ) {
         @(findRecursiveDeletes (parseCode $code)).Count | Should -BeGreaterThan 0
     }
@@ -173,16 +206,26 @@ Describe "フォルダを消す書き方の見つけ方（自己テスト）" -T
         @{ code = '[System.IO.Directory]::Delete($d)' }
         @{ code = '$temp.Delete()' }
         @{ code = '$info.Delete($false)' }
+        @{ code = '$type::Delete($f)' }
+        @{ code = '$type::Delete($d, $false)' }
         @{ code = 'Get-ChildItem $d | Remove-Item -Force' }
     ) {
         @(findRecursiveDeletes (parseCode $code)).Count | Should -Be 0
     }
 
-    It "関数ごとのコマンド呼び出しを数える（関数の外のコマンドは数えない）" {
-        $ast = parseCode 'function a { removeDirectoryRetry $x; Test-Path $x }; function b { Test-Path $y }; removeDirectoryRetry $z'
-        $result = @(findCallsInFunctions $ast)
-        $result.Count | Should -Be 2
-        ($result | Where-Object { $_.Function -eq "a" }).Commands | Should -Be @("removeDirectoryRetry", "Test-Path")
-        ($result | Where-Object { $_.Function -eq "b" }).Commands | Should -Be @("Test-Path")
+    It "コマンド呼び出しを、属する関数ごとに分ける（関数の外の呼び出しも拾い、スクリプト直下として数える）" {
+        $ast = parseCode 'function a { removeDirectoryRetry $x; Test-Path $x }; function b { Test-Path $y }; removeDirectoryRetry $z; Test-Path $w'
+        $groups = groupCommandsByOwner @(findCallsByOwner $ast)
+        $groups.Keys.Count | Should -Be 3
+        $groups["a"] | Should -Be @("removeDirectoryRetry", "Test-Path")
+        $groups["b"] | Should -Be @("Test-Path")
+        $groups["(スクリプト直下)"] | Should -Be @("removeDirectoryRetry", "Test-Path")
+    }
+
+    It "入れ子の関数の呼び出しは、いちばん内側の関数に数え、モジュール名付きのコマンドは後ろの名前で数える" {
+        $ast = parseCode 'function outer { function inner { Microsoft.PowerShell.Management\Test-Path $x }; removeTreeNoFollow $y }'
+        $groups = groupCommandsByOwner @(findCallsByOwner $ast)
+        $groups["inner"] | Should -Be @("Test-Path")
+        $groups["outer"] | Should -Be @("removeTreeNoFollow")
     }
 }

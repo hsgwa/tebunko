@@ -40,14 +40,15 @@ class IndexCatalog {
 
         $from = Join-Path $dir $oldName
         $to   = Join-Path $dir $newName
-        if (Test-Path -LiteralPath $from -PathType Container) {
+        # 有無は .NET で見る（予約名に拡張子の付いた名前のフォルダは、Test-Path が無いと答え、動かさずに名前の記録だけが進むため）
+        if ([System.IO.Directory]::Exists((toLongPath $from))) {
             if ([string]::Equals($oldName, $newName, [System.StringComparison]::OrdinalIgnoreCase)) {
                 # 大文字・小文字だけを変える場合は、そのままでは改名できないため一時名を経由する
                 $tmp = Join-Path $dir "${oldName}_rename_$([System.Diagnostics.Process]::GetCurrentProcess().Id)"
                 [System.IO.Directory]::Move((toLongPath $from), (toLongPath $tmp))
                 [System.IO.Directory]::Move((toLongPath $tmp), (toLongPath $to))
             } else {
-                if (Test-Path -LiteralPath $to) {
+                if ([System.IO.Directory]::Exists((toLongPath $to)) -or [System.IO.File]::Exists((toLongPath $to))) {
                     throw "「${newName}」のフォルダが既にあるため、名前を変えられません: ${to}"
                 }
                 [System.IO.Directory]::Move((toLongPath $from), (toLongPath $to))

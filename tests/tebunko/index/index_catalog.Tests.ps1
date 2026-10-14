@@ -60,6 +60,25 @@ Describe "IndexCatalog.RenameIndex" -Tag Io {
         (readStatusFile $ws.Status).Rows.ContainsKey("営業部\a.xlsx") | Should -Be $true
     }
 
+    It "予約名に拡張子の付いた名前（<name>）のインデックスも、フォルダを動かしてから取り込み一覧の記録を変える" -TestCases @(
+        @{ name = "aux.backup" }
+        @{ name = "CON.txt" }
+    ) {
+        $ws = newCatalogWorkspace "$TestDrive\rename_reserved_$name"
+        $long = toLongPath "$($ws.Index)\$name\a.xlsx"
+        [System.IO.Directory]::CreateDirectory($long) | Out-Null
+        [System.IO.File]::WriteAllText("$long\Sheet1.tsv", "本文")
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = $name }) @(
+            (newStatusRow "$name\a.xlsx" "2025/01/10 12:34:56" "1" $stateNew)
+        ) $ws.Status
+
+        $ws.Catalog.RenameIndex($name, "営業部")
+
+        [System.IO.Directory]::Exists((toLongPath "$($ws.Index)\$name")) | Should -Be $false
+        [System.IO.File]::ReadAllText((toLongPath "$($ws.Index)\営業部\a.xlsx\Sheet1.tsv")) | Should -Be "本文"
+        (readStatusFile $ws.Status).Rows.ContainsKey("営業部\a.xlsx") | Should -Be $true
+    }
+
     It "同じ名前のフォルダが既にあれば例外にし、取り込み一覧の記録は変えない" {
         $ws = newCatalogWorkspace "$TestDrive\rename3"
         New-Item -ItemType Directory -Path "$($ws.Index)\営業" -Force | Out-Null
