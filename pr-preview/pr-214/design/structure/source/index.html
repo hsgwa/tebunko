@@ -4339,7 +4339,7 @@
 <li><code>移すと消える</code>: ファイル・COM に触らない値や関数（拡張子の一覧・状態の名前・フォルダ名の組み立てなど）が状態層のファイルにある。判断層のファイルへ移すと消える。</li>
 <li>画面の判断層（<code>result_list_view.ps1</code>）が、画面層のクラス（<code>FileGroup</code>・<code>HitRow</code>）を型として使う依存と、<code>tebunko/index/</code> が <code>tebunko/indexer/</code> のクラス（<code>StatusLedger</code>）を型として使う依存。</li>
 </ul>
-<p>例外の一覧に残っている依存を、フォルダ単位で並べると次のとおり（点線の矢印が、決めた向きに反する今の依存。括弧は一覧の行の数）。</p>
+<p>例外の一覧に残っている依存のうち、状態層のフォルダどうしと <code>shared/</code> の逆向きの依存を、フォルダ単位で並べると次のとおり（点線の矢印が、決めた向きに反する今の依存。括弧は一覧の行の数）。判断層からの依存（上の箇条書きの <code>境界</code>・<code>移すと消える</code>）と、クラスの型の依存は、フォルダ単位にまとまらないので、図には描かず箇条書きで示す。</p>
 <pre class="mermaid"><code>flowchart TD
     subgraph tool["tebunko/"]
         indexer["indexer/"]
@@ -4366,16 +4366,25 @@
 <ul>
 <li>関数の呼び出し（<code>${function:名前}</code> も含む）。</li>
 <li><code>=</code> の代入と、<code>Set-Variable -Name &lt;定数&gt;</code>・<code>New-Variable -Name &lt;定数&gt;</code>（最上位・<code>$script:</code>・<code>$global:</code> の代入と同じ条件で数える）。</li>
-<li>別のファイルで定義したクラスを、<code>[型名]</code>（<code>[型]::new()</code>・引数・戻り値・変数の型）で使う形。<code>findFileDependencyItems</code> が <code>[型名]</code> の名で返し、例外の一覧にも同じ名で書く。</li>
+<li>変数を名前で読む形で、名前が定数のもの: <code>Get-Variable</code>（<code>gv</code>）、<code>${variable:名前}</code>・<code>$variable:名前</code>、<code>Get-Item</code>・<code>Get-Content</code>・<code>Test-Path</code> などの <code>variable:名前</code>。</li>
+<li>別のファイルで定義したクラスを、<code>[型名]</code>（<code>[型]::new()</code>・引数・戻り値・変数の型）か <code>New-Object &lt;クラス名&gt;</code>（名前が定数のもの）で使う形。<code>findFileDependencyItems</code> が <code>[型名]</code> の名で返し、例外の一覧にも同じ名で書く。</li>
+<li>コマンドの名前は、モジュール名の修飾（<code>Microsoft.PowerShell.Utility\Get-Command</code> など）を外して比べる。</li>
 </ul>
-<p>名前を文字列で渡す呼び出し（<code>Get-Command '名前'</code>・<code>.AddScript('…')</code> など）は、呼ぶ先が構文木から決まらないので、向きの表では数えない。代わりに、<code>tests/meta/layers.Tests.ps1</code> の「名前を文字列で渡す呼び出し」が、今ある所を理由つきの閉じた一覧にし、増えたら失敗にする。</p>
+<p>呼ぶ先や読む変数が構文木から決まらない書き方は、向きの表では数えない。代わりに、<code>tests/meta/layers.Tests.ps1</code> の「名前を文字列で渡す呼び出し」が、今ある所を理由つきの閉じた一覧にし、増えたら失敗にする。ファイルと形ごとの数も一覧の行に持たせ、載っているファイルに同じ形を足しても失敗にする。形は次のとおり。</p>
+<ul>
+<li><code>Get-Command</code>・<code>Invoke-Expression</code>（<code>iex</code>）・<code>Set-Alias</code>・<code>New-Alias</code>・<code>[scriptblock]::Create</code>・<code>$ExecutionContext.InvokeCommand</code>・<code>.AddCommand</code>・<code>.AddScript</code></li>
+<li><code>&amp; (式)</code>・<code>&amp; "展開文字列"</code>（呼ぶ名前が式で決まる形）</li>
+<li><code>function:</code> ドライブを引く <code>Get-Item</code>・<code>Test-Path</code>・<code>Get-ChildItem</code> など</li>
+<li>名前が定数でない <code>Set-Variable</code>・<code>New-Variable</code>・<code>Get-Variable</code></li>
+<li>名前が定数でない <code>variable:</code> ドライブの読み</li>
+</ul>
 <p>見つからないもの（限界）:</p>
 <ul>
 <li><code>&amp; $name</code> の呼び出し、コールバックで渡したスクリプトブロックの中から呼ぶ形、<code>$ui</code> を別の名前の引数で受け取る形、クラスのメソッドの呼び出し。</li>
-<li>名前が定数でない <code>Set-Variable</code>・<code>New-Variable</code>（<code>-Name $変数</code>）。</li>
-<li><code>New-Object</code> に文字列で渡す型と、<code>using namespace</code> で短く書いた型（文字列の検査が見る）。</li>
+<li><code>New-Object</code> に変数で渡す型と、<code>using namespace</code> で短く書いた型（文字列の検査が見る）。</li>
+<li><code>variable:</code> ドライブへの書き込み（<code>Set-Item</code>・<code>New-Item</code> など）。</li>
 </ul>
-<p>同じ名前の関数・変数が、見る側のパスにもあるときは、そちらを使っているとみなす。</p>
+<p>同じ名前の関数・変数・クラスが、見る側のパスにもあるときは、そちらを使っているとみなす。</p>
 <h2 id="読み込み口">読み込み口<a class="headerlink" href="#読み込み口" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart TD
     GUI["tebunko/gui.ps1&lt;br&gt;（画面の起動口）"] --&gt; LIB
