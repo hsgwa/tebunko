@@ -4435,6 +4435,14 @@
 <td><code>initTmpDir</code>・<code>removeStaleTmpDirs</code></td>
 </tr>
 <tr>
+<td><code>newDirectoryUnder</code></td>
+<td>path, root</td>
+<td>bool</td>
+<td>root の下に path のフォルダを（途中の階層ごと）作り、作れたら（すでにあるときも）<code>$true</code>。root から path までの途中（path を含む）にリンクがある・path が root の下でない・空のパスのときは、何も作らずに <code>$false</code>。作ったあとにもう一度確かめ、リンクに替わっていれば <code>$false</code>。root 自身は見ない。作れない理由（権限など）は例外</td>
+<td>同上</td>
+<td><code>copySourceForOpen</code></td>
+</tr>
+<tr>
 <td><code>moveDirectoryRetry</code></td>
 <td>source, destination, tries（既定 5）, waitMilliseconds（既定 200。試すたびに倍にする）</td>
 <td>–</td>
