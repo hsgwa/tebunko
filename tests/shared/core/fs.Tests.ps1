@@ -988,6 +988,25 @@ Describe "getFilesNoFollow" -Tag Io {
         $tree.HasError | Should -Be $false
     }
 
+    It "Hidden のジャンクションは、既定では Files・Links のどちらにも入れず、IncludeHidden を付けると Links に入れる（中へは降りない）" {
+        $dir = "$TestDrive\nofollow\隠しリンク"
+        $outside = "$TestDrive\nofollow\隠しリンクの外"
+        writeListFile "$outside\外.tsv" @("外")
+        writeListFile "$dir\a.tsv" @("a")
+        if (!(newTestJunction "$dir\リンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        [System.IO.File]::SetAttributes("$dir\リンク", [System.IO.File]::GetAttributes("$dir\リンク") -bor [System.IO.FileAttributes]::Hidden)
+
+        $default = getFilesNoFollow $dir
+        @($default.Files | ForEach-Object { $_.Name }) | Should -Be @("a.tsv")
+        @($default.Links).Count | Should -Be 0
+        $all = getFilesNoFollow $dir -IncludeHidden
+        @($all.Files | ForEach-Object { $_.Name }) | Should -Be @("a.tsv")
+        @($all.Links) | Should -Be @("$dir\リンク")
+    }
+
     It "親を指すジャンクション（輪）があっても止まらず、Links に入れる" {
         $dir = "$TestDrive\nofollow\輪"
         writeListFile "$dir\a\a.tsv" @("a")

@@ -48,7 +48,7 @@ PSScriptAnalyzer は Windows PowerShell 5.1 に標準では入っていないた
 
 **リンクを辿る列挙の検査（`tests/meta/link_safety.Tests.ps1`）**
 
-タグ `Meta` で、`scripts/` の全体を AST で調べ、フォルダの再帰の列挙（`Get-ChildItem`・`gci`・`ls`・`dir` の `-Recurse`・`-Depth`（前方一致・スプラットを含む）、`SearchOption` の `TopDirectoryOnly` の直接の参照以外、`GetFiles`・`EnumerateFiles` などで探す範囲が `TopDirectoryOnly` でないもの、`EnumerationOptions`）と、フォルダの下をまとめて扱うコマンド・メソッド（`Copy-Item -Recurse`・`Compress-Archive`・`robocopy`・`xcopy`・`ZipFile.CreateFromDirectory`）が、許した関数の一覧（理由つき。ファイルは `scripts/` からの相対パスで照らす）の外に無いことを確かめる。一覧の関数が今も在ること、別名（`-s` を含む）・省略形・モジュール付きの名前・スプラット・変数渡しといった回避の見本を見つけられることも確かめる。見つけられないものは、人が見る（自前の再帰、つまり関数が自分を呼ぶ・`Stack` で降りるもの）。リンクを辿らずに集めるには `getFilesNoFollow` を使う。
+タグ `Meta` で、`scripts/` の全体を AST で調べ、フォルダの再帰の列挙（`Get-ChildItem`・`gci`・`ls`・`dir` の `-Recurse`・`-Depth`（前方一致・スプラットを含む）、`SearchOption` の `TopDirectoryOnly` の直接の参照以外、`GetFiles`・`EnumerateFiles` などで探す範囲が `TopDirectoryOnly` でないもの、`EnumerationOptions`）と、フォルダの下をまとめて扱うコマンド・メソッド（`Copy-Item`（別名 `copy`・`cp`・`cpi`）の `-Recurse`・スプラット、`Compress-Archive`・`robocopy`・`xcopy`・`ZipFile.CreateFromDirectory`）が、許した関数の一覧（理由つき。ファイルは `scripts/` からの相対パスで照らす）の外に無いことを確かめる。一覧の関数が今も在ること、別名（`-s` を含む）・省略形・モジュール付きの名前・スプラット・変数渡しといった回避の見本を見つけられることも確かめる。見つけられないものは、人が見る（自前の再帰、つまり関数が自分を呼ぶ・`Stack` で降りるもの）。リンクを辿らずに集めるには `getFilesNoFollow` を使う。
 
 **インストーラーの検査（`tests/meta/installer.Tests.ps1`）**
 

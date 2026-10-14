@@ -75,7 +75,7 @@ BeforeAll {
                 # モジュール付きの名前（Microsoft.PowerShell.Management\Get-ChildItem）は、\ の後ろだけで比べる
                 $commandName = $node.GetCommandName()
                 if ($commandName) {
-                    $commandName = $commandName.Substring($commandName.LastIndexOf("\") + 1)
+                    $commandName = $commandName.Substring($commandName.LastIndexOfAny([char[]]@("\", "/")) + 1)
                 }
                 if ($commandName -and $commandName -match "^(Get-ChildItem|gci|ls|dir)$") {
                     foreach ($element in $node.CommandElements) {
@@ -90,10 +90,14 @@ BeforeAll {
                     }
                 } elseif ($commandName -and $commandName -match "^(Compress-Archive|robocopy(\.exe)?|xcopy(\.exe)?)$") {
                     $kind = "$commandName（フォルダの下をまとめて扱う）"
-                } elseif ($commandName -and $commandName -match "^Copy-Item$") {
+                } elseif ($commandName -and $commandName -match "^(Copy-Item|copy|cp|cpi)$") {
                     foreach ($element in $node.CommandElements) {
-                        if ($element -is [System.Management.Automation.Language.CommandParameterAst] -and (testParameterPrefix $element.ParameterName "Recurse" 1)) {
-                            $kind = "Copy-Item -$($element.ParameterName)"
+                        if ($element -is [System.Management.Automation.Language.CommandParameterAst]) {
+                            if (testParameterPrefix $element.ParameterName "Recurse" 1) {
+                                $kind = "Copy-Item -$($element.ParameterName)"
+                            }
+                        } elseif ($element -is [System.Management.Automation.Language.VariableExpressionAst] -and $element.Splatted) {
+                            $kind = "Copy-Item @$($element.VariablePath.UserPath)（スプラット）"
                         }
                     }
                 }
@@ -190,6 +194,11 @@ Describe "再帰の列挙の見つけ方（回避の見本）" -Tag Meta {
         @{ name = "Recurse の別名 -s"; text = 'Get-ChildItem $d -s' }
         @{ name = "モジュール付きの名前"; text = 'Microsoft.PowerShell.Management\Get-ChildItem $d -Recurse' }
         @{ name = "Copy-Item -Recurse"; text = 'Copy-Item -LiteralPath $a -Destination $b -Recurse' }
+        @{ name = "Copy-Item の別名 cp"; text = 'cp $a $b -Recurse' }
+        @{ name = "Copy-Item の別名 copy"; text = 'copy $a $b -r' }
+        @{ name = "Copy-Item の別名 cpi"; text = 'cpi $a $b -Recurse' }
+        @{ name = "Copy-Item のスプラット"; text = '$o = @{ Recurse = $true }; Copy-Item $a $b @o' }
+        @{ name = "/ 区切りのモジュール付きの名前"; text = 'Microsoft.PowerShell.Management/Get-ChildItem $d -Recurse' }
         @{ name = "Compress-Archive"; text = 'Compress-Archive -Path $d -DestinationPath $z' }
         @{ name = "robocopy"; text = 'robocopy $a $b /E' }
         @{ name = "xcopy"; text = 'xcopy $a $b /s' }
@@ -215,6 +224,7 @@ Describe "再帰の列挙の見つけ方（回避の見本）" -Tag Meta {
     It "見つけない: <name>" -TestCases @(
         @{ name = "再帰でない Get-ChildItem"; text = 'Get-ChildItem -LiteralPath $d -File' }
         @{ name = "再帰でない Copy-Item"; text = 'Copy-Item -LiteralPath $a -Destination $b -Force' }
+        @{ name = "再帰でない cp"; text = 'cp $a $b -Force' }
         @{ name = "ConvertTo-Json の -Depth"; text = 'ConvertTo-Json -InputObject $x -Depth 5' }
         @{ name = "TopDirectoryOnly（静的メソッド）"; text = '[System.IO.Directory]::GetFiles($d, "*.tsv", [System.IO.SearchOption]::TopDirectoryOnly)' }
         @{ name = "TopDirectoryOnly（インスタンス）"; text = '$info.EnumerateFiles("*", [System.IO.SearchOption]::TopDirectoryOnly)' }
