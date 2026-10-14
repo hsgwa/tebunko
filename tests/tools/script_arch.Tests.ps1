@@ -285,6 +285,24 @@ Describe "Set-Variable・New-Variable" -Tag Unit {
         @{ name = "モジュールの修飾つきの名前を数える"
             code = 'Microsoft.PowerShell.Utility\Set-Variable config 1'; counted = $true
         }
+        @{ name = '関数の外の $variable:名前 = … の代入を数える'
+            code = '$variable:config = 1'; counted = $true
+        }
+        @{ name = '関数の外の ${variable:名前} = … の代入を数える'
+            code = '${variable:config} = 1'; counted = $true
+        }
+        @{ name = '関数の外の $variable:script:名前 = … は、スコープの印を外した名前で数える'
+            code = '${variable:script:config} = 1'; counted = $true
+        }
+        @{ name = '関数の中の $variable:名前 = … は数えない'
+            code = 'function init { $variable:config = 1 }'; counted = $false
+        }
+        @{ name = '関数の中の ${variable:script:名前} = … は数える'
+            code = 'function init { ${variable:script:config} = 1 }'; counted = $true
+        }
+        @{ name = '関数の外の $env:名前 = … は数えない'
+            code = '$env:config = 1'; counted = $false
+        }
     ) {
         param ($code, $counted)
 
@@ -346,6 +364,27 @@ Describe "名前で読む変数" -Tag Unit {
         }
         @{ name = "variable: の名前が変数のものは、依存に数えない"
             code = 'function callA { param ($n) Get-Item "variable:$n" }'; counted = $false
+        }
+        @{ name = "variable:\名前 の区切りを、名前に含めず数える"
+            code = 'function callA { (Get-Item variable:\config).Value }'; counted = $true
+        }
+        @{ name = "variable:/名前 の区切りを、名前に含めず数える"
+            code = 'function callA { (Get-Item variable:/config).Value }'; counted = $true
+        }
+        @{ name = "-Path:variable:名前（: でつないだ引数）を数える"
+            code = 'function callA { Get-Item -Path:variable:config }'; counted = $true
+        }
+        @{ name = "-Path variable:名前（空白で分けた引数）を数える"
+            code = 'function callA { Get-Item -Path variable:config }'; counted = $true
+        }
+        @{ name = "-Path:variable:\名前 を数える"
+            code = 'function callA { Get-Item -Path:variable:\config }'; counted = $true
+        }
+        @{ name = "variable: 以外の -Path:ドライブは数えない"
+            code = 'function callA { Get-Item -Path:env:config }'; counted = $false
+        }
+        @{ name = "variable: ドライブへの書き込みは、読みに数えない"
+            code = 'function callA { Set-Item variable:config 1 }'; counted = $false
         }
         @{ name = '$env: のようなほかのドライブは数えない'
             code = 'function callA { $env:config; Get-Item env:config }'; counted = $false
@@ -410,6 +449,30 @@ Describe "クラスの型と function: ドライブ" -Tag Unit {
         }
         @{ name = "New-Object の .NET の型は返さない"
             upper = 'function callA { New-Object System.Text.StringBuilder; New-Object byte[] 4 }'; expected = ""
+        }
+        @{ name = "New-Object -TypeName:<クラス名>（: でつないだ引数）を返す"
+            upper = 'function callA { New-Object -TypeName:Worker }'; expected = "upper/a.ps1 -> lower/b.ps1（[Worker]）"
+        }
+        @{ name = "New-Object の -TypeName を、ほかの引数のあとに書いても返す"
+            upper = 'function callA { New-Object -ArgumentList 1 -TypeName Worker }'; expected = "upper/a.ps1 -> lower/b.ps1（[Worker]）"
+        }
+        @{ name = "New-Object の -ArgumentList の値は、型に数えない"
+            upper = 'function callA { New-Object -ArgumentList Worker Other }'; expected = ""
+        }
+        @{ name = "New-Object -ComObject の名前は、型に数えない"
+            upper = 'function callA { New-Object -ComObject Worker }'; expected = ""
+        }
+        @{ name = "New-Object のジェネリックの引数のクラスを返す"
+            upper = 'function callA { New-Object ''System.Collections.Generic.List[Worker]'' }'; expected = "upper/a.ps1 -> lower/b.ps1（[Worker]）"
+        }
+        @{ name = "New-Object の配列のクラスを返す"
+            upper = 'function callA { New-Object ''Worker[]'' 3 }'; expected = "upper/a.ps1 -> lower/b.ps1（[Worker]）"
+        }
+        @{ name = "New-Object のジェネリックの引数が複数でも、クラスを返す"
+            upper = 'function callA { New-Object ''System.Collections.Generic.Dictionary[string,Worker]'' }'; expected = "upper/a.ps1 -> lower/b.ps1（[Worker]）"
+        }
+        @{ name = 'Get-Content function:名前 を、関数の呼び出しとしては数えない'
+            upper = 'function callA { Get-Content function:betaFn }'; expected = ""
         }
     ) {
         param ($upper, $expected)
@@ -513,6 +576,57 @@ Describe "名前を文字列で渡す呼び出し" -Tag Unit {
         }
         @{ name = "名前が定数の variable: ドライブの読みは返さない"
             code = 'function callA { Get-Item variable:config }'; expected = ""
+        }
+        @{ name = "別名 nal を返す"
+            code = 'nal run betaFn'; expected = "upper/a.ps1 Set-Alias・New-Alias"
+        }
+        @{ name = "名前を並べた Get-Variable は、名前が決まらないので返す"
+            code = 'function callA { Get-Variable a, b }'; expected = "upper/a.ps1 Get-Variable の名前が定数でない"
+        }
+        @{ name = "パイプで名前を渡す Get-Variable は、名前が決まらないので返す"
+            code = 'function callA { "config" | Get-Variable }'; expected = "upper/a.ps1 Get-Variable の名前が定数でない"
+        }
+        @{ name = "Get-Content の function: ドライブを返す"
+            code = 'function callA { Get-Content function:betaFn }'; expected = "upper/a.ps1 function: ドライブ"
+        }
+        @{ name = "別名 gc・cat・type の function: ドライブを返す"
+            code = 'function callA { gc function:betaFn; cat function:betaFn }'; expected = "upper/a.ps1 function: ドライブ, upper/a.ps1 function: ドライブ"
+        }
+        @{ name = "-Path:function:名前（: でつないだ引数）を返す"
+            code = 'function callA { Get-Item -Path:function:betaFn }'; expected = "upper/a.ps1 function: ドライブ"
+        }
+        @{ name = "Set-Item の variable: ドライブへの書き込みを返す"
+            code = 'function callA { Set-Item variable:config 1 }'; expected = "upper/a.ps1 variable: ドライブへの書き込み"
+        }
+        @{ name = "New-Item の variable: ドライブへの書き込みを返す"
+            code = 'function callA { New-Item variable:config -Value 1 }'; expected = "upper/a.ps1 variable: ドライブへの書き込み"
+        }
+        @{ name = "Remove-Item の variable: ドライブへの書き込みを返す"
+            code = 'function callA { Remove-Item variable:config }'; expected = "upper/a.ps1 variable: ドライブへの書き込み"
+        }
+        @{ name = "Copy-Item の variable: ドライブへの書き込みを返す"
+            code = 'function callA { Copy-Item variable:config variable:other }'; expected = "upper/a.ps1 variable: ドライブへの書き込み, upper/a.ps1 variable: ドライブへの書き込み"
+        }
+        @{ name = "別名 si の variable: ドライブへの書き込みを返す"
+            code = 'function callA { si variable:config 1 }'; expected = "upper/a.ps1 variable: ドライブへの書き込み"
+        }
+        @{ name = "-Path:variable:名前 の書き込みを返す"
+            code = 'function callA { Set-Item -Path:variable:config 1 }'; expected = "upper/a.ps1 variable: ドライブへの書き込み"
+        }
+        @{ name = "variable: 以外のドライブへの書き込みは返さない"
+            code = 'function callA { Set-Item env:config 1; Set-Content "$env:TEMP\x" 1 }'; expected = ""
+        }
+        @{ name = "型を変数で渡す New-Object を返す"
+            code = 'function callA { param ($t) New-Object $t }'; expected = "upper/a.ps1 New-Object の型が定数でない"
+        }
+        @{ name = "型を変数で渡す New-Object -TypeName を返す"
+            code = 'function callA { param ($t) New-Object -TypeName $t }'; expected = "upper/a.ps1 New-Object の型が定数でない"
+        }
+        @{ name = "型が定数の New-Object は返さない"
+            code = 'function callA { New-Object System.Text.StringBuilder }'; expected = ""
+        }
+        @{ name = "New-Object -ComObject は返さない"
+            code = 'function callA { New-Object -ComObject Excel.Application }'; expected = ""
         }
         @{ name = "enum は返さない"
             code = 'enum Mode { A; B }'; expected = ""

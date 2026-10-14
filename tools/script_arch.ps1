@@ -11,18 +11,20 @@
 # - 別のファイルで定義したクラスを、型（[型]::new()・引数・戻り値・キャスト）として使っていること（名前は [型名]）
 # - ${function:名前} を、その名前の関数の呼び出しとして数えること
 # - Get-Variable（gv）の名前・${variable:名前}・$variable:名前・Get-Item などの variable:名前 が定数のものは、その変数の読みとして数えること
-# - New-Object <クラス名> の名前が定数のものは、クラスを型として使う依存として数えること（名前は [型名]）
+# - New-Object の型（-TypeName は位置によらない）の名前が定数のものは、[ ] , で区切った葉のクラスを型として使う依存として数えること（名前は [型名]）
+# - $variable:名前 = … の代入は、その名前の変数の代入として数えること
 # - モジュール名の修飾（Microsoft.PowerShell.Utility\Get-Command など）は外して、コマンドの名前を比べること
 #
 # 構文木から呼ぶ先が決まらない書き方は、findStringNameCalls が「形」ごとに返す（呼び出し側の閉じた一覧に載せて確かめる）。
 # 数える形: & (式)・& "展開文字列"、Get-Command、Invoke-Expression、[scriptblock]::Create、$ExecutionContext.InvokeCommand、
-# .AddCommand・.AddScript、Set-Alias・New-Alias、function: ドライブの Get-Item など、
-# 名前が定数でない Set-Variable・New-Variable・Get-Variable、名前が定数でない variable: ドライブの読み。
+# .AddCommand・.AddScript、Set-Alias・New-Alias、
+# function: ドライブを引く Get-Item・Get-Content・Test-Path・Set-Item・New-Item など（読む・書くのどちらも）、
+# 名前が定数でない Set-Variable・New-Variable・Get-Variable、名前が定数でない variable: ドライブの読み、
+# variable: ドライブへの書き込み（Set-Item・New-Item・Remove-Item・Copy-Item）、型が定数でない New-Object。
 # & $name・. $name は、呼ぶ値（スクリプトブロック）を作った所の呼び出し・${function:名前} で数えるので、ここでは数えない。
 #
 # 見つからないもの（限界）: コールバックで渡したスクリプトブロックの中から呼ぶ形（値を作った所で数える）、
-# $ui を別の名前の引数で受け取る形、クラスのメソッドの呼び出し、New-Object に変数で渡す型、
-# variable: ドライブへの書き込み（Set-Item・New-Item など）。
+# $ui を別の名前の引数で受け取る形、クラスのメソッドの呼び出し。
 # 同じ名前の関数・変数・クラスが、見る側のパスにもあるときは、そちらを使っているとみなして返さない。
 #
 # 使い方:
@@ -79,7 +81,24 @@ function testInsideFunction {
 function getVariableBaseName {
     param ($variablePath)
 
-    return ($variablePath.UserPath -replace '^(script|global|local|private):', '')
+    return (removeVariableScope $variablePath.UserPath)
+}
+
+# 名前の先頭のスコープの印（script: など）を、印と残りの名前に分ける。印が無ければ Scope は空
+function splitVariableScope {
+    param ([string]$name)
+
+    if ($name -match '^(script|global|local|private):(.*)$') {
+        return [pscustomobject]@{ Scope = $Matches[1]; Name = $Matches[2] }
+    }
+    return [pscustomobject]@{ Scope = ''; Name = $name }
+}
+
+# スコープの印（script: など）を外した名前
+function removeVariableScope {
+    param ([string]$name)
+
+    return (splitVariableScope $name).Name
 }
 
 # 関数・スクリプトブロックの中にある引数・代入・foreach の変数の名前（その中では自分のものとみなす名前）の集まりを返す。
@@ -214,9 +233,10 @@ function getCommandTopVariable {
     if ($null -eq $info.Name -or ($info.ScopeGiven -and $null -eq $info.Scope)) { return [pscustomobject]@{ Kind = 'Unknown'; Name = $null } }
     $name = $info.Name
     $scope = $info.Scope
-    if ($name -match '^(script|global|local|private):(.+)$') {
-        $scope = $Matches[1]
-        $name = $Matches[2]
+    $split = splitVariableScope $name
+    if ($split.Scope) {
+        $scope = $split.Scope
+        $name = $split.Name
     }
     if (-not (testInsideFunction $commandAst)) { return [pscustomobject]@{ Kind = 'Top'; Name = $name } }
     $number = 0
@@ -257,11 +277,6 @@ function getStringCallForm {
         if ($name -match '^(Get-Command|gcm)$') { return 'Get-Command' }
         if ($name -match '^(Invoke-Expression|iex)$') { return 'Invoke-Expression' }
         if ($name -match '^(Set-Alias|New-Alias|sal|nal)$') { return 'Set-Alias・New-Alias' }
-        if ($name -match '^(Get-Item|gi|Get-ChildItem|gci|ls|dir|Test-Path|Set-Item|New-Item|Remove-Item|Copy-Item)$') {
-            foreach ($element in $node.CommandElements) {
-                if ($element.Extent.Text -match '^[''"]?function:') { return 'function: ドライブ' }
-            }
-        }
         return $null
     }
     if ($node.InvocationOperator -eq [System.Management.Automation.Language.TokenKind]::Ampersand) {
@@ -270,6 +285,156 @@ function getStringCallForm {
             $first -is [System.Management.Automation.Language.ParenExpressionAst]) { return '& (式・展開文字列)' }
     }
     return $null
+}
+
+# $variable:名前・${variable:\名前} などの variable: ドライブの変数のパス（UserPath）から、名前（先頭の区切りは外す）を返す。
+# variable: でなければ $null
+function getDriveVariableName {
+    param ([string]$userPath)
+
+    if ($userPath -match '^variable:[\\/]?(.+)$') { return $Matches[1] }
+    return $null
+}
+
+# コマンドの 1 つの要素の、パスとして読む文字列を返す。-Path:variable:名前 のように : でつないだ引数は値の部分。
+# 値の無い引数の名前（次の要素が値）は $null
+function getPathElementText {
+    param ($element)
+
+    if ($element -is [System.Management.Automation.Language.CommandParameterAst]) {
+        if (-not $element.Argument) { return $null }
+        return $element.Argument.Extent.Text
+    }
+    return $element.Extent.Text
+}
+
+# ドライブ（function:・variable:）を引くコマンドの種類。読む（Read）・書く（Write）・どちらでもない（$null）
+function getProviderCommandKind {
+    param ([string]$name)
+
+    if ($name -match '^(Get-Item|gi|Get-Content|gc|cat|type|Test-Path|Get-ChildItem|gci|ls|dir)$') { return 'Read' }
+    if ($name -match '^(Set-Item|si|New-Item|ni|Remove-Item|ri|rm|del|erase|Copy-Item|cpi|cp|copy)$') { return 'Write' }
+    return $null
+}
+
+# Set-Variable・New-Variable の -Name が定数なら、最上位の変数の作成として数える。定数でなければ形として数える
+function addSetVariableFacts {
+    param ($node, $facts, [int]$line)
+
+    $top = getCommandTopVariable $node
+    if ($top.Kind -eq 'Unknown') {
+        $facts.StringCalls.Add([pscustomobject]@{ Form = 'Set-Variable・New-Variable の -Name が定数でない'; Line = $line })
+    } elseif ($top.Kind -eq 'Top') {
+        $facts.TopVars.Add($top.Name)
+    }
+}
+
+# Get-Variable の名前が定数なら、その変数の読みとして数える。定数でなければ形として数える
+function addGetVariableFacts {
+    param ($node, $facts, [int]$line)
+
+    $info = getVariableCommandInfo $node 'Get'
+    if ($null -eq $info.Name -or (testWildcardName $info.Name)) {
+        $facts.StringCalls.Add([pscustomobject]@{ Form = 'Get-Variable の名前が定数でない'; Line = $line })
+    } else {
+        $facts.VarUses.Add([pscustomobject]@{ Node = $node; Name = (removeVariableScope $info.Name); Explicit = $true; Line = $line })
+    }
+}
+
+# 型の文字列から、クラスの名前になりうる葉を取り出す。[ ] , で区切る（'System.Collections.Generic.List[Workspace]'・'Workspace[]'）
+function getTypeTextLeaves {
+    param ([string]$typeText)
+
+    return @(($typeText -split '[\[\],]') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+}
+
+# New-Object の型の引数（-TypeName は位置によらず、無ければ最初の位置引数）を返す。-ComObject など型でない呼び出しは $null
+function getNewObjectTypeArgument {
+    param ($commandAst)
+
+    $elements = $commandAst.CommandElements
+    $positional = $null
+    for ($i = 1; $i -lt $elements.Count; $i++) {
+        $element = $elements[$i]
+        if ($element -isnot [System.Management.Automation.Language.CommandParameterAst]) {
+            if (-not $positional) { $positional = $element }
+            continue
+        }
+        $given = $element.ParameterName
+        $arg = $element.Argument
+        if ($given -and 'TypeName'.StartsWith($given, [System.StringComparison]::OrdinalIgnoreCase)) {
+            if (-not $arg -and $i + 1 -lt $elements.Count) { $arg = $elements[$i + 1] }
+            return $arg
+        }
+        # 値を取る引数（-ArgumentList など）の値は、型の位置引数に数えない。-Strict などの値を取らない引数は、次の要素を読み飛ばさない
+        $isSwitch = $given -and (@('Strict', 'Verbose', 'Debug') | Where-Object { $_.StartsWith($given, [System.StringComparison]::OrdinalIgnoreCase) })
+        if (-not $arg -and -not $isSwitch) { $i++ }
+    }
+    return $positional
+}
+
+# New-Object の型が定数なら、葉（クラスの名前）を型として使う依存に数える（System.* などクラスの定義が無い名前は findFileDependencyItems が数えない）。
+# 型を変数・式で渡す形は、形として数える
+function addNewObjectFacts {
+    param ($node, $facts, [int]$line)
+
+    $typeArg = getNewObjectTypeArgument $node
+    if (-not $typeArg) { return }
+    $typeText = getConstantText $typeArg
+    if ($null -eq $typeText) {
+        $facts.StringCalls.Add([pscustomobject]@{ Form = 'New-Object の型が定数でない'; Line = $line })
+        return
+    }
+    foreach ($leaf in @(getTypeTextLeaves $typeText)) {
+        $facts.TypeRefs.Add([pscustomobject]@{ Name = $leaf; Line = $line })
+    }
+}
+
+# ドライブ（function:・variable:）を引くコマンドから、依存の材料を足す。
+# function: は、読む・書くのどちらも形として数える（1 回の呼び出しに 1 つ）。
+# variable: は、読むときは名前が定数ならその変数の読み、定数でなければ形。書くときは形として数える
+function addProviderDriveFacts {
+    param ($node, $facts, [string]$name, [int]$line)
+
+    $kind = getProviderCommandKind $name
+    if (-not $kind) { return }
+    $hasFunctionDrive = $false
+    foreach ($element in $node.CommandElements) {
+        $text = getPathElementText $element
+        if ($null -eq $text) { continue }
+        if ($text -match '^[''"]?function:') {
+            $hasFunctionDrive = $true
+        } elseif ($text -match '^[''"]?variable:') {
+            if ($kind -eq 'Write') {
+                $facts.StringCalls.Add([pscustomobject]@{ Form = 'variable: ドライブへの書き込み'; Line = $line })
+            } elseif ($text -match '^[''"]?variable:[\\/]?([^''"`$*?\[\]\s\\/]+)[''"]?$') {
+                # variable:\名前・variable:/名前 のように、ドライブの印のあとに区切りが付く書き方も、同じ名前として読む
+                $facts.VarUses.Add([pscustomobject]@{ Node = $node; Name = (removeVariableScope $Matches[1]); Explicit = $true; Line = $line })
+            } else {
+                $facts.StringCalls.Add([pscustomobject]@{ Form = 'variable: ドライブの名前が定数でない'; Line = $line })
+            }
+        }
+    }
+    if ($hasFunctionDrive) { $facts.StringCalls.Add([pscustomobject]@{ Form = 'function: ドライブ'; Line = $line }) }
+}
+
+# コマンドの呼び出し 1 つから、依存の材料（関数の呼び出し・変数・型・名前を渡す呼び出し）を $facts に足す
+function addCommandFacts {
+    param ($node, $facts)
+
+    $name = $node.GetCommandName()
+    if ($name) { $name = getBareCommandName $name }
+    $line = $node.Extent.StartLineNumber
+    if ($name) { $facts.Calls.Add([pscustomobject]@{ Name = $name; Line = $line }) }
+    if ($name -match '^(Set-Variable|New-Variable|sv|nv|set)$') {
+        addSetVariableFacts $node $facts $line
+    } elseif ($name -match '^(Get-Variable|gv)$') {
+        addGetVariableFacts $node $facts $line
+    } elseif ($name -match '^New-Object$') {
+        addNewObjectFacts $node $facts $line
+    } else {
+        addProviderDriveFacts $node $facts $name $line
+    }
 }
 
 # 1 つの構文木のノードから、依存の材料（関数の定義・呼び出し・変数・型・クラス・名前を渡す呼び出し）を $facts に足す
@@ -282,45 +447,7 @@ function addNodeFacts {
         if (-not $defs.ContainsKey($node.Name)) { $defs[$node.Name] = New-Object System.Collections.Generic.List[string] }
         if (-not $defs[$node.Name].Contains($rel)) { $defs[$node.Name].Add($rel) }
     } elseif ($node -is [System.Management.Automation.Language.CommandAst]) {
-        $name = $node.GetCommandName()
-        if ($name) { $name = getBareCommandName $name }
-        $line = $node.Extent.StartLineNumber
-        if ($name) { $facts.Calls.Add([pscustomobject]@{ Name = $name; Line = $line }) }
-        if ($name -match '^(Set-Variable|New-Variable|sv|nv|set)$') {
-            $top = getCommandTopVariable $node
-            if ($top.Kind -eq 'Unknown') {
-                $facts.StringCalls.Add([pscustomobject]@{ Form = 'Set-Variable・New-Variable の -Name が定数でない'; Line = $line })
-            } elseif ($top.Kind -eq 'Top') {
-                $facts.TopVars.Add($top.Name)
-            }
-        } elseif ($name -match '^(Get-Variable|gv)$') {
-            $info = getVariableCommandInfo $node 'Get'
-            if ($null -eq $info.Name -or (testWildcardName $info.Name)) {
-                $facts.StringCalls.Add([pscustomobject]@{ Form = 'Get-Variable の名前が定数でない'; Line = $line })
-            } else {
-                $facts.VarUses.Add([pscustomobject]@{ Node = $node; Name = ($info.Name -replace '^(script|global|local|private):', ''); Explicit = $true; Line = $line })
-            }
-        } elseif ($name -match '^(New-Object)$') {
-            # New-Object <クラス名>。クラスの名前が定数なら、型として使う依存に数える（System.* などクラスの定義が無い名前は findFileDependencyItems が数えない）
-            $typeArg = $null
-            if ($node.CommandElements.Count -gt 1) {
-                $second = $node.CommandElements[1]
-                if ($second -isnot [System.Management.Automation.Language.CommandParameterAst]) { $typeArg = $second }
-                elseif ($second.ParameterName -like 'T*') { $typeArg = if ($second.Argument) { $second.Argument } elseif ($node.CommandElements.Count -gt 2) { $node.CommandElements[2] } }
-            }
-            $typeText = getConstantText $typeArg
-            if ($typeText) { $facts.TypeRefs.Add([pscustomobject]@{ Name = $typeText; Line = $line }) }
-        } elseif ($name -match '^(Get-Item|gi|Get-Content|gc|cat|type|Test-Path|Get-ChildItem|gci|ls|dir)$') {
-            foreach ($element in $node.CommandElements) {
-                $text = $element.Extent.Text
-                if ($text -notmatch '^[''"]?variable:') { continue }
-                if ($text -match '^[''"]?variable:([^''"`$*?\[\]\s]+)[''"]?$') {
-                    $facts.VarUses.Add([pscustomobject]@{ Node = $node; Name = ($Matches[1] -replace '^(script|global|local|private):', ''); Explicit = $true; Line = $line })
-                } else {
-                    $facts.StringCalls.Add([pscustomobject]@{ Form = 'variable: ドライブの名前が定数でない'; Line = $line })
-                }
-            }
-        }
+        addCommandFacts $node $facts
         $form = getStringCallForm $node
         if ($form) { $facts.StringCalls.Add([pscustomobject]@{ Form = $form; Line = $node.Extent.StartLineNumber }) }
     } elseif ($node -is [System.Management.Automation.Language.InvokeMemberExpressionAst]) {
@@ -333,8 +460,8 @@ function addNodeFacts {
             # $env:Path のようなほかのドライブの変数は、スクリプトの変数ではないので数えない
             if ($node.VariablePath.UserPath -match '^function:(.+)$') {
                 $facts.Calls.Add([pscustomobject]@{ Name = $Matches[1]; Line = $node.Extent.StartLineNumber })
-            } elseif ($node.VariablePath.UserPath -match '^variable:(.+)$') {
-                $facts.VarUses.Add([pscustomobject]@{ Node = $node; Name = ($Matches[1] -replace '^(script|global|local|private):', ''); Explicit = $true; Line = $node.Extent.StartLineNumber })
+            } elseif ($null -ne (getDriveVariableName $node.VariablePath.UserPath)) {
+                $facts.VarUses.Add([pscustomobject]@{ Node = $node; Name = (removeVariableScope (getDriveVariableName $node.VariablePath.UserPath)); Explicit = $true; Line = $node.Extent.StartLineNumber })
             }
             return
         }
@@ -347,7 +474,14 @@ function addNodeFacts {
     } elseif ($node -is [System.Management.Automation.Language.AssignmentStatementAst]) {
         $inFunction = testInsideFunction $node
         foreach ($path in @(getAssignedVariablePaths $node.Left)) {
-            if (-not $inFunction -or $path.IsScript -or $path.IsGlobal) { $facts.TopVars.Add((getVariableBaseName $path)) }
+            $driveName = getDriveVariableName $path.UserPath
+            if ($null -ne $driveName) {
+                # $variable:名前 = … は、その名前の変数への代入として数える（名前の先頭に script: などが付けば、そのスコープ）
+                $split = splitVariableScope $driveName
+                if (-not $inFunction -or $split.Scope -in @('script', 'global')) { $facts.TopVars.Add($split.Name) }
+            } elseif (-not $inFunction -or $path.IsScript -or $path.IsGlobal) {
+                $facts.TopVars.Add((getVariableBaseName $path))
+            }
         }
     } elseif ($node -is [System.Management.Automation.Language.TypeDefinitionAst]) {
         if ($node.IsClass) { $facts.Classes.Add($node.Name) }
