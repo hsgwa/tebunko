@@ -335,6 +335,11 @@ function removeDirectoryRetry {
             # リンク（ジャンクション・シンボリックリンク）は辿らず、リンクそのものだけを外す（removeTreeNoFollow）。
             # 消せなければ例外になり、catch で試し直す
             removeTreeNoFollow $longPath
+            # 例外が出なくても消えていないことがある（予約名のフォルダを Remove-Item で消したときなど）。
+            # 消えたことを .NET で確かめてから成功にする（呼ぶ側は、成功を見て取り込み一覧・状態・ログに記録する）
+            if ([System.IO.Directory]::Exists($longPath)) {
+                throw "フォルダが消えていません: $(fromLongPath $longPath)"
+            }
             return
         } catch {
             if ($i -ge $tries) {

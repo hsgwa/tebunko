@@ -18,7 +18,10 @@ function clearTmpDir {
         writeIndexerLog "    作業フォルダがリンク（ジャンクション・シンボリックリンク）のため、中のファイルを消しませんでした: ${tmpDir}" "Yellow"
         return
     }
-    Get-ChildItem -LiteralPath (toLongPath $tmpDir) -File | Remove-Item -Force
+    # Remove-Item でなく .NET で消す（消す入口を .NET にそろえる。読み取り専用の属性は外して消す）
+    foreach ($file in @([System.IO.Directory]::EnumerateFiles((toLongPath $tmpDir)))) {
+        removeEntryOnly (New-Object System.IO.FileInfo $file)
+    }
 }
 
 function removeEmptyDir {
@@ -155,7 +158,7 @@ function removeStaleProcessDirs {
         [string]$parent
     )
 
-    if (!(Test-Path -LiteralPath $parent)) {
+    if (![System.IO.Directory]::Exists((toLongPath $parent))) {
         return
     }
     foreach ($dir in @(Get-ChildItem -LiteralPath $parent -Directory | Where-Object { $_.Name -match "^\d{1,9}$" -and [int]$_.Name -ne $PID })) {
@@ -230,8 +233,10 @@ function removeDroppedFolders {
 
     foreach ($previous in @($dropped | Where-Object { $_ })) {
         $dir = Join-Path $ws.IndexDir $previous.Name
-        if (Test-Path -LiteralPath $dir) {
-            # 中に長いパス（260文字超）のTSVがあっても削除でき、中のリンク（ジャンクション・シンボリックリンク）の先は消さない
+        # Test-Path でなく .NET で有無を見る（予約名に拡張子の付いた名前のフォルダは、Test-Path と .NET で有無の答えが食い違うことがある）
+        if ([System.IO.Directory]::Exists((toLongPath $dir))) {
+            # 中に長いパス（260文字超）のTSVがあっても削除でき、中のリンク（ジャンクション・シンボリックリンク）の先は消さない。
+            # 消えていなければ例外になる（下のログは、消えたことを確かめてから出る）
             removeDirectoryRetry $dir
         }
         writeIndexerLog "クロール対象から削除されたフォルダ（$($previous.Path)）のインデックスを削除しました。"

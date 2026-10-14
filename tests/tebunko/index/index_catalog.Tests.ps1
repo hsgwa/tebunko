@@ -132,6 +132,24 @@ Describe "IndexCatalog.RemoveIndex" -Tag Io {
         $status.Rows.ContainsKey("技術\d.pptx") | Should -Be $true
     }
 
+    It "予約名に拡張子の付いた名前（<name>）のインデックスも、フォルダと取り込み一覧の記録を削除する" -TestCases @(
+        @{ name = "aux.backup" }
+        @{ name = "CON.txt" }
+    ) {
+        $ws = newCatalogWorkspace "$TestDrive\remove_reserved_$name"
+        $long = toLongPath "$($ws.Index)\$name\a.xlsx"
+        [System.IO.Directory]::CreateDirectory($long) | Out-Null
+        [System.IO.File]::WriteAllText("$long\Sheet1.tsv", "本文")
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = $name }) @(
+            (newStatusRow "$name\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00")
+        ) $ws.Status
+
+        $ws.Catalog.RemoveIndex($name)
+
+        [System.IO.Directory]::Exists((toLongPath "$($ws.Index)\$name")) | Should -Be $false
+        (readStatusFile $ws.Status).Folders.Count | Should -Be 0
+    }
+
     It "名前が空なら何もしない" {
         $ws = newCatalogWorkspace "$TestDrive\remove2"
         writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(

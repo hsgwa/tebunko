@@ -772,6 +772,38 @@ Describe "removeDroppedFolders" -Tag Io {
         Test-Path -LiteralPath "$outside\外.tsv" | Should -Be $true
     }
 
+    It "予約名に拡張子の付いた名前（<name>）のインデックスも消し、消えてから「削除しました」を記録する" -TestCases @(
+        @{ name = "aux.backup" }
+        @{ name = "CON.txt" }
+    ) {
+        $indexDir = "$TestDrive\dropped_reserved_$name\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
+        $long = toLongPath "$indexDir\$name\見積.xlsx"
+        [System.IO.Directory]::CreateDirectory($long) | Out-Null
+        [System.IO.File]::WriteAllText("$long\Sheet1.tsv", "a")
+        Mock writeIndexerLog {}
+
+        removeDroppedFolders @(findDroppedIndexes @() @([pscustomobject]@{ Path = "C:\data\予約"; Name = $name }))
+
+        [System.IO.Directory]::Exists((toLongPath "$indexDir\$name")) | Should -Be $false
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*削除しました*" }
+    }
+
+    It "フォルダが消えなければ例外にし、「削除しました」を記録しない" {
+        Mock Start-Sleep {}
+        Mock writeIndexerLog {}
+        $indexDir = "$TestDrive\dropped_locked\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
+        newTsv "$indexDir\技術\仕様.docx\ページ001.tsv" @("b")
+        $stream = [System.IO.File]::Open("$indexDir\技術\仕様.docx\ページ001.tsv", "Open", "Read", "None")
+        try {
+            { removeDroppedFolders @(findDroppedIndexes @() @([pscustomobject]@{ Path = "C:\data\技術"; Name = "技術" })) } | Should -Throw
+        } finally {
+            $stream.Dispose()
+        }
+        Should -Invoke writeIndexerLog -Times 0 -Exactly -Scope It -ParameterFilter { $text -like "*削除しました*" }
+    }
+
     It "前回のクロール対象フォルダが無ければ何も削除しない" {
         $indexDir = "$TestDrive\dropped3\index"
         $workspace = newTestWorkspace @{ IndexDir = $indexDir }

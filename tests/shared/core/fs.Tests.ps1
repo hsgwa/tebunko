@@ -195,6 +195,32 @@ Describe "removeDirectoryRetry" -Tag Io {
         Test-Path -LiteralPath "$dir\a.tsv" | Should -Be $true
     }
 
+    It "予約名に拡張子の付いた名前（<name>）のフォルダも、中身ごと消える" -TestCases @(
+        @{ name = "aux.backup" }
+        @{ name = "CON.txt" }
+        @{ name = "nul.d" }
+    ) {
+        $dir = "$TestDrive\reserved_$name"
+        $long = toLongPath "$dir\$name"
+        [System.IO.Directory]::CreateDirectory("$long\中") | Out-Null
+        [System.IO.File]::WriteAllText("$long\中\a.tsv", "a")
+        [System.IO.Directory]::Exists($long) | Should -Be $true
+        removeDirectoryRetry "$dir\$name"
+        [System.IO.Directory]::Exists($long) | Should -Be $false
+        [System.IO.Directory]::Exists((toLongPath $dir)) | Should -Be $true
+    }
+
+    It "消したはずのフォルダが残っていれば、成功にせず、決めた回数だけ試してから例外にする" {
+        Mock Start-Sleep {}
+        Mock removeTreeNoFollow {}
+        $dir = "$TestDrive\消えないフォルダ"
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        { removeDirectoryRetry $dir 3 1 } | Should -Throw "*消えていません*"
+        Should -Invoke removeTreeNoFollow -Times 3 -Exactly -Scope It
+        Should -Invoke Start-Sleep -Times 2 -Exactly -Scope It
+        [System.IO.Directory]::Exists($dir) | Should -Be $true
+    }
+
     It "中にあるジャンクションの先は消さず、ジャンクションだけを外す" {
         $dir = "$TestDrive\消すフォルダ_リンク"
         $outside = "$TestDrive\外のフォルダ_リンク"

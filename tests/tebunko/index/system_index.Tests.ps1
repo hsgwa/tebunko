@@ -322,6 +322,37 @@ Describe "removeSystemIndexOf" -Tag Io {
         $state.Pending.Count | Should -Be 0
     }
 
+    It "予約名に拡張子の付いた名前（<name>）のフォルダも消し、状態の行も消す" -TestCases @(
+        @{ name = "aux.backup" }
+        @{ name = "CON.txt" }
+    ) {
+        $system = "$TestDrive\rm_reserved_$name\system_index"
+        $path = "$TestDrive\rm_reserved_$name\state.tsv"
+        $long = toLongPath "$system\$name"
+        [System.IO.Directory]::CreateDirectory($long) | Out-Null
+        [System.IO.File]::WriteAllText("$long\system_index.txt", "a")
+        [void](updateSystemIndexState { param ($s) [void]$s.Covered.Add($name) } $path)
+        removeSystemIndexOf $name $system $path | Should -Be $true
+        [System.IO.Directory]::Exists($long) | Should -Be $false
+        (readSystemIndexState $path).Covered.Count | Should -Be 0
+    }
+
+    It "フォルダが消えなければ例外にし、状態の行を残す（フォルダが残ったまま記録だけ消えないように）" {
+        Mock Start-Sleep {}
+        $system = "$TestDrive\rm_locked\system_index"
+        $path = "$TestDrive\rm_locked\state.tsv"
+        [System.IO.Directory]::CreateDirectory("$system\営業") | Out-Null
+        [System.IO.File]::WriteAllText("$system\営業\system_index.txt", "a")
+        [void](updateSystemIndexState { param ($s) [void]$s.Covered.Add("営業") } $path)
+        $stream = [System.IO.File]::Open("$system\営業\system_index.txt", "Open", "Read", "None")
+        try {
+            { removeSystemIndexOf "営業" $system $path } | Should -Throw
+        } finally {
+            $stream.Dispose()
+        }
+        (readSystemIndexState $path).Covered.Contains("営業") | Should -Be $true
+    }
+
     It "インデックスの中のフォルダだけを消すときは、インデックスの対応済みを残す" {
         $index = newIndexTree "$TestDrive\rm2"
         $system = "$TestDrive\rm2\system_index"
