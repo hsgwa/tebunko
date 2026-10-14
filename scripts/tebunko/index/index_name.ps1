@@ -8,8 +8,17 @@ function newIndexName {
         $usedNames = $null  # HashSet[string]・配列・1 個の文字列・$null のいずれでもよい
     )
 
-    $base = toSafeFileName (getFolderLeafName $folderPath)
-    if ($base -eq "") {
+    # 作る名前は、インデックス名の決まり（testIndexName）に必ず合わせる: 前後の空白（全角空白を含む）と最後の . を削り、
+    # 長すぎれば切り、削った結果が空・予約名（CON など）になれば「フォルダ」にする
+    $base = (toSafeFileName (getFolderLeafName $folderPath)).Trim()
+    if ($base.Length -gt ${maxFileNameLength}) {
+        $base = $base.Substring(0, ${maxFileNameLength})
+    }
+    do {
+        $before = $base
+        $base = $base.Trim().TrimEnd(".")
+    } while ($base.Length -ne $before.Length)
+    if ((getFolderNameProblemText $base) -ne "") {
         $base = "フォルダ"
     }
 
@@ -54,13 +63,18 @@ function assignIndexNames {
     foreach ($name in $previousNames.Values) {
         [void]$used.Add($name)
     }
-    foreach ($folder in @($targetFolders | Where-Object { $_ -and $_.Name })) {
+    # 設定は書き換えられうる。パスにつなぐ名前として使えない（.. ・末尾の . など）ものは名前が無いものとして割り当て直す。
+    # 既にある名前は、予約名（aux.backup など）でも、そのまま使い続ける（testStoredIndexName）
+    foreach ($folder in @($targetFolders | Where-Object { $_ -and $_.Name -and !(testStoredIndexName ([string]$_.Name)) })) {
         [void]$used.Add($folder.Name)
     }
 
     $result = New-Object System.Collections.Generic.List[object]
     foreach ($folder in @($targetFolders | Where-Object { $_ })) {
         $name = [string]$folder.Name
+        if ($name -ne "" -and (testStoredIndexName $name)) {
+            $name = ""
+        }
         if ($name -eq "") {
             if ($previousNames.ContainsKey($folder.Path)) {
                 $name = $previousNames[$folder.Path]
@@ -89,9 +103,7 @@ function splitIndexRelPath {
 }
 
 
-# Windows で使えないファイル名（インデックス名に使えるかの判定に使う）
-${reservedFileNames} = @("CON", "PRN", "AUX", "NUL") +
-    @(1..9 | ForEach-Object { "COM$_" }) + @(1..9 | ForEach-Object { "LPT$_" })
+# Windows で使えないファイル名の一覧（${reservedFileNames}）は shared/core/fs.ps1 にある
 
 
 function testIndexName {
@@ -102,31 +114,101 @@ function testIndexName {
         [object[]]$usedNames = @()
     )
 
+    $problem = getFolderNameProblemText ([string]$name)
+    if ($problem -ne "") {
+        return $problem
+    }
     $name = [string]$name
-    if ($name -eq "") {
-        return "名前を入力してください。"
-    }
-    if ($name -ne $name.Trim()) {
-        return "名前の前後に空白は使えません。"
-    }
-    if ($name.Length -gt ${maxFileNameLength}) {
-        return "名前が長すぎます（${maxFileNameLength} 文字まで）。"
-    }
-    if (@([System.IO.Path]::GetInvalidFileNameChars() | Where-Object { $name.IndexOf($_) -ge 0 }).Count -gt 0) {
-        return "名前に使えない文字が含まれています（\ / : * ? " + [char]34 + " < > | と制御文字）。"
-    }
-    if ($name.EndsWith(".")) {
-        return "名前の最後に . は使えません。"
-    }
-    if (${reservedFileNames} -contains $name.Split(".")[0].ToUpperInvariant()) {
-        return "「${name}」は Windows で使えない名前です。"
-    }
     foreach ($used in @($usedNames)) {
         if ([string]::Equals([string]$used, $name, [System.StringComparison]::OrdinalIgnoreCase)) {
             return "「${name}」は、ほかのインデックスが使っています。別の名前を付けてください。"
         }
     }
     return ""
+}
+
+function testStoredIndexName {
+    # 保存してあるインデックス名（設定・取り込み一覧・状態のフォルダから読んだもの）が、パスにつなぐ名前として使えるかを調べ、
+    # 使えない理由を返す（使えれば空文字列）。testIndexName との違いは、Windows の予約名（aux.backup など）を拒まないこと。
+    # 前の版で付いた、既にある実在のフォルダの名前を空にせず使い続けるため。新しく付ける名前（newIndexName・画面の入力・取り込み）は
+    # 厳しいまま testIndexName で調べる。置き場の外へ出る名前・最後の . や前後の空白・使えない文字は、ここでも拒む。
+    # 消す・動かす所は、この確かめに頼らず、名前で組んだパスが置き場の下にあること（testPathUnder）を別に確かめる
+    param (
+        [string]$name
+    )
+
+    return (getFolderNameProblemText ([string]$name) $true)
+}
+
+# ファイル名に使えない文字の配列 ${invalidFileNameChars} は shared/core/fs.ps1 にある（getFolderNameProblemText と共通）
+
+function testPathSegments {
+    # 区切り文字で分けたパスの各区切り（segments）が、ファイル名として安全に使えるかを調べ、
+    # 使えない理由を返す（使えれば空文字列）。zip のエントリー名（/ 区切り）・取り込み一覧の相対パス（\ 区切り）の
+    # どちらからも呼べる、区切り文字に依らない共通の確かめ。
+    #   lenient: $true なら、最後の . や空白・Windows の予約語は拒まない（\\?\ で作られた実在のファイル名を、
+    #            取り込み一覧から捨てないため。外へ出る区切り（空・.・..）・使えない文字・長すぎる区切りは拒む）
+    param (
+        [string[]]$segments,
+        [bool]$lenient = $false
+    )
+
+    foreach ($segment in $segments) {
+        if ($segment -eq "" -or $segment -eq "." -or $segment -eq "..") {
+            return "使えない区切り（空・.・..）が含まれています。"
+        }
+        if ($segment.Length -gt ${maxFileNameLength}) {
+            return "1 つの区切りが長すぎます（${maxFileNameLength} 文字まで）。"
+        }
+        if ($segment.IndexOfAny(${invalidFileNameChars}) -ge 0) {
+            return "使えない文字が含まれています。"
+        }
+        if ($lenient) {
+            continue
+        }
+        if ($segment.EndsWith(".") -or $segment.EndsWith(" ")) {
+            return "区切りの最後に . や空白は使えません。"
+        }
+        if (${reservedFileNames} -contains $segment.Split(".")[0].ToUpperInvariant()) {
+            return "Windows で使えない名前（$segment）が含まれています。"
+        }
+    }
+    return ""
+}
+
+function testIndexRelPath {
+    # 取り込み一覧・状態ファイルから読んだ相対パス（"インデックス名\フォルダからの相対パス"）が、
+    # work\content_index の下のパスとして使えるかを調べ、使えない理由を返す（使えれば空文字列）。
+    # 先頭は保存してあるインデックス名（testStoredIndexName。予約名は通す）、残りは区切りごとに空・.・..・ファイル名に使えない文字（\ / : など）を拒む
+    # （残りには予約名・最後の . や空白の決まりを当てない。実在のファイル名を捨てないため）。
+    #   allowNameOnly: 残りが無く、名前だけのもの（"営業"）も通す（システムインデックスの状態のフォルダ）
+    #   checkedNames : testStoredIndexName を通った名前の集合（HashSet[string]）。数万行を読むとき、同じ名前を何度も調べないために
+    #                  呼び出し側が渡す（通った名前をここに足す）
+    param (
+        [string]$relPath,
+        [bool]$allowNameOnly = $false,
+        $checkedNames = $null
+    )
+
+    $relPath = [string]$relPath
+    $i = $relPath.IndexOf("\")
+    $name = if ($i -lt 0) { $relPath } else { $relPath.Substring(0, $i) }
+    if ($null -eq $checkedNames -or -not $checkedNames.Contains($name)) {
+        $nameReason = testStoredIndexName $name
+        if ($nameReason) {
+            return $nameReason
+        }
+        if ($null -ne $checkedNames) {
+            [void]$checkedNames.Add($name)
+        }
+    }
+    if ($i -lt 0) {
+        if ($allowNameOnly) {
+            return ""
+        }
+        return "インデックス名の後に、フォルダからの相対パスがありません。"
+    }
+    return (testPathSegments ($relPath.Substring($i + 1).Split("\")) $true)
 }
 
 function encodeIndexPlace {
