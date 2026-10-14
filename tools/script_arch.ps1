@@ -25,7 +25,7 @@
 #
 # 見つからないもの（限界）: コールバックで渡したスクリプトブロックの中から呼ぶ形（値を作った所で数える）、
 # $ui を別の名前の引数で受け取る形、クラスのメソッドの呼び出し、using namespace で短く書いた型。
-# Set-Variable・Get-Variable・variable: ドライブの名前の前の script: などは、スコープにならず名前の一部として扱う（スコープは -Scope だけで決める）。
+# Set-Variable だけが、-Scope が無いとき名前の前の script: などをスコープとして読む。New-Variable・Get-Variable・variable: ドライブは、名前の前の script: などを名前の一部として扱う。
 # 同じ名前の関数・変数・クラスが、見る側のパスにもあるときは、そちらを使っているとみなして返さない。
 #
 # 使い方:
@@ -227,17 +227,24 @@ function getVariableCommandInfo {
 }
 
 # Set-Variable・New-Variable が、そのファイルの最上位の変数を作るか。= の代入と同じ条件
-# （関数の外なら作る。関数の中なら、-Scope が Script・Global・1 以上のときだけ作る）。
+# （関数の外なら作る。関数の中なら、-Scope が Script・Global・1 以上のときだけ作る。
+# Set-Variable は -Scope が無ければ、名前の前の script:・global: でも作る）。
 # 結果は [pscustomobject]@{ Kind; Name }。Kind は、名前や -Scope が定数でなく決まらないとき Unknown、
 # 最上位の変数を作らないとき None、作るとき Top（Name が変数の名前）
 function getCommandTopVariable {
-    param ($commandAst)
+    param ($commandAst, [string]$commandName = 'Set-Variable')
 
     $info = getVariableCommandInfo $commandAst 'Set'
     if ($null -eq $info.Name -or ($info.ScopeGiven -and $null -eq $info.Scope)) { return [pscustomobject]@{ Kind = 'Unknown'; Name = $null } }
     $name = $info.Name
     $scope = $info.Scope
-    # 名前の前の script: などは、スコープにならず名前の一部になる。スコープは -Scope だけで決める
+    # Set-Variable（sv・set）は、-Scope が無いとき、名前の前の script: などをスコープとして読む（Windows PowerShell 5.1 の動き）。
+    # -Scope があるとき、New-Variable（nv）は、名前の前の印を名前の一部として読む
+    if (-not $info.ScopeGiven -and $commandName -match '^(Set-Variable|sv|set)$') {
+        $split = splitVariableScope $name
+        $name = $split.Name
+        $scope = $split.Scope
+    }
     if (-not (testInsideFunction $commandAst)) { return [pscustomobject]@{ Kind = 'Top'; Name = $name } }
     $number = 0
     $isTop = ($scope -in @('script', 'global')) -or ([int]::TryParse([string]$scope, [ref]$number) -and $number -ge 1)
@@ -319,9 +326,9 @@ function getProviderCommandKind {
 
 # Set-Variable・New-Variable の -Name が定数なら、最上位の変数の作成として数える。定数でなければ形として数える
 function addSetVariableFacts {
-    param ($node, $facts, [int]$line)
+    param ($node, $facts, [int]$line, [string]$commandName)
 
-    $top = getCommandTopVariable $node
+    $top = getCommandTopVariable $node $commandName
     if ($top.Kind -eq 'Unknown') {
         $facts.StringCalls.Add([pscustomobject]@{ Form = 'Set-Variable・New-Variable の -Name が定数でない'; Line = $line })
     } elseif ($top.Kind -eq 'Top') {
@@ -427,7 +434,7 @@ function addCommandFacts {
     $line = $node.Extent.StartLineNumber
     if ($name) { $facts.Calls.Add([pscustomobject]@{ Name = $name; Line = $line }) }
     if ($name -match '^(Set-Variable|New-Variable|sv|nv|set)$') {
-        addSetVariableFacts $node $facts $line
+        addSetVariableFacts $node $facts $line $name
     } elseif ($name -match '^(Get-Variable|gv)$') {
         addGetVariableFacts $node $facts $line
     } elseif ($name -match '^New-Object$') {
@@ -435,6 +442,23 @@ function addCommandFacts {
     } else {
         addProviderDriveFacts $node $facts $name $line
     }
+}
+
+# 変数の式が、代入の左辺の代入先（$a = ・[int]$a = ・$a, $b = の形）か。右辺や、左辺の中のほかの式は含めない
+function testAssignmentTarget {
+    param ($node)
+
+    $ancestor = $node.Parent
+    while ($null -ne $ancestor) {
+        if ($ancestor -is [System.Management.Automation.Language.AssignmentStatementAst]) {
+            foreach ($path in @(getAssignedVariablePaths $ancestor.Left)) {
+                if ($path.UserPath -eq $node.VariablePath.UserPath -and $ancestor.Left.Extent.StartOffset -le $node.Extent.StartOffset -and $node.Extent.EndOffset -le $ancestor.Left.Extent.EndOffset) { return $true }
+            }
+            return $false
+        }
+        $ancestor = $ancestor.Parent
+    }
+    return $false
 }
 
 # 1 つの構文木のノードから、依存の材料（関数の定義・呼び出し・変数・型・クラス・名前を渡す呼び出し）を $facts に足す
@@ -460,8 +484,7 @@ function addNodeFacts {
             # $env:Path のようなほかのドライブの変数は、スクリプトの変数ではないので数えない
             if ($node.VariablePath.UserPath -match '^function:(.+)$') {
                 $facts.Calls.Add([pscustomobject]@{ Name = $Matches[1]; Line = $node.Extent.StartLineNumber })
-            } elseif ($null -ne (getDriveVariableName $node.VariablePath.UserPath) -and
-                -not ($node.Parent -is [System.Management.Automation.Language.AssignmentStatementAst] -and $node.Parent.Left -eq $node)) {
+            } elseif ($null -ne (getDriveVariableName $node.VariablePath.UserPath) -and -not (testAssignmentTarget $node)) {
                 # 代入の左辺は、読みではなく代入として数える（下の AssignmentStatementAst の枝）
                 $facts.VarUses.Add([pscustomobject]@{ Node = $node; Name = (getDriveVariableName $node.VariablePath.UserPath); Explicit = $true; Line = $node.Extent.StartLineNumber })
             }
