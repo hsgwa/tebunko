@@ -159,6 +159,25 @@ Describe "readSystemIndexState / updateSystemIndexState" -Tag Io {
         [System.IO.File]::ReadAllBytes($path)[0] | Should -Be 0xEF
     }
 
+    It "使えない名前・相対パスの行は読み飛ばし、書き直したときも残さない" {
+        $path = "$TestDrive\state_unsafe.tsv"
+        [System.IO.File]::WriteAllLines($path, @(
+                "対応済み`t営業`t", "対応済み`t..`t", "対応済み`t..\外`t", "対応済み`t営業.`t",
+                "反映待ち`t営業\a\system_index.txt`t5", "反映待ち`t..\外\system_index.txt`t1", "反映待ち`t営業\..\..\外\x.txt`t1",
+                "対象外`t営業\b`t", "対象外`t営業\..`t", "対象外`t..\..\外`t"), ${utf8Bom})
+
+        $state = readSystemIndexState $path
+        @($state.Covered) | Should -Be @("営業")
+        @($state.Pending.Keys) | Should -Be @("営業\a\system_index.txt")
+        @($state.Excluded) | Should -Be @("営業\b")
+
+        [void](updateSystemIndexState { param ($s) [void]$s.Covered.Add("経理") } $path)
+        $text = [System.IO.File]::ReadAllText($path)
+        $text | Should -Not -BeLike "*..*"
+        $text | Should -Not -BeLike "*CON*"
+        (readSystemIndexState $path).Covered.Count | Should -Be 2
+    }
+
     It "ほかが開いている間は、書き換えも読み込みもあきらめる" {
         $path = "$TestDrive\locked.tsv"
         [void](updateSystemIndexState { param ($s) [void]$s.Covered.Add("a") } $path)
@@ -258,6 +277,48 @@ Describe "updateSystemIndexes" -Tag Io {
         $state.Pending.Count | Should -Be 0
     }
 
+    It "状態ファイルの対応済みに置き場の外を指す名前があっても、外のフォルダを消さずに続ける" {
+        Mock writeIndexerLog {}
+        $index = newIndexTree "$TestDrive\u6"
+        $system = "$TestDrive\u6\system_index"
+        $path = "$TestDrive\u6\state.tsv"
+        [System.IO.Directory]::CreateDirectory("$TestDrive\u6\外") | Out-Null
+        [System.IO.File]::WriteAllText("$TestDrive\u6\外\a.txt", "a")
+        [System.IO.File]::WriteAllLines($path, @("対応済み`t..\外`t", "対応済み`t..`t"), ${utf8Bom})
+
+        { updateSystemIndexes $index $system $path { $false } } | Should -Not -Throw
+
+        Test-Path -LiteralPath "$TestDrive\u6\外\a.txt" | Should -Be $true
+        Test-Path -LiteralPath "$TestDrive\u6\index\営業" | Should -Be $true
+        (readSystemIndexState $path).Covered.Contains("営業") | Should -Be $true
+    }
+
+    It "状態ファイルの対応済みに、既にある予約名（aux.backup など）があっても捨てず、置き場の外を指す名前だけ捨てる" {
+        $path = "$TestDrive\u8\state.tsv"
+        [System.IO.Directory]::CreateDirectory("$TestDrive\u8") | Out-Null
+        [System.IO.File]::WriteAllLines($path, @("対応済み`taux.backup`t", "対応済み`tCON.txt`t", "対応済み`t..\外`t", "対応済み`t営業`t"), ${utf8Bom})
+
+        $covered = @((readSystemIndexState $path).Covered | Sort-Object)
+
+        $covered -join "," | Should -Be "aux.backup,CON.txt,営業"
+    }
+
+    It "置き場の外を指す名前を実際の removeSystemIndexOf に渡すと、黄色のログに名前を出し、外のフォルダは消さずに続ける" {
+        # 状態ファイルから読むときに使えない名前は捨てられるため、読んだ結果だけ差し替える（removeSystemIndexOf と状態の書き込みは本物）
+        Mock writeIndexerLog {}
+        Mock readSystemIndexState { $state = newSystemIndexState; [void]$state.Covered.Add("..\外"); return $state }
+        $index = newIndexTree "$TestDrive\u7"
+        $system = "$TestDrive\u7\system_index"
+        $path = "$TestDrive\u7\state.tsv"
+        [System.IO.Directory]::CreateDirectory("$TestDrive\u7\外") | Out-Null
+        [System.IO.File]::WriteAllText("$TestDrive\u7\外\a.txt", "a")
+
+        { updateSystemIndexes $index $system $path { $false } } | Should -Not -Throw
+
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*削除しませんでした*..\外" -and $color -eq "Yellow" }
+        Test-Path -LiteralPath "$TestDrive\u7\外\a.txt" | Should -Be $true
+    }
+
     It "中止を求められていれば（shouldStop）作らず、そのインデックスは対応済みにしない" {
         $index = newIndexTree "$TestDrive\u3"
         $result = updateSystemIndexes $index "$TestDrive\u3\system_index" "$TestDrive\u3\state.tsv" { $true }
@@ -315,11 +376,36 @@ Describe "removeSystemIndexOf" -Tag Io {
         $path = "$TestDrive\rm\state.tsv"
         $results = writeSystemIndexFolders @("$index\営業\2024") $index $system 1
         [void](updateSystemIndexState { param ($s) setSystemIndexResults $s $results; [void]$s.Covered.Add("営業") } $path)
-        removeSystemIndexOf "営業" $system $path | Should -Be $true
+        $result = removeSystemIndexOf "営業" $system $path
+        $result.Saved | Should -Be $true
+        $result.Skipped | Should -Be $false
         [System.IO.Directory]::Exists("$system\営業") | Should -Be $false
         $state = readSystemIndexState $path
         $state.Covered.Count | Should -Be 0
         $state.Pending.Count | Should -Be 0
+    }
+
+    It "置き場の外を指す名前は、外のフォルダを消さず、例外にもしない。状態の行は整理する" -TestCases @(
+        @{ badRel = "..\外" }
+        @{ badRel = "営業\..\..\外" }
+        @{ badRel = ".." }
+    ) {
+        param ($badRel)
+        Mock writeIndexerLog {}
+        $system = "$TestDrive\rmx\system_index"
+        $path = "$TestDrive\rmx\state.tsv"
+        [System.IO.Directory]::CreateDirectory("$TestDrive\rmx\外") | Out-Null
+        [System.IO.File]::WriteAllText("$TestDrive\rmx\外\a.txt", "a")
+        [System.IO.Directory]::CreateDirectory("$system\営業") | Out-Null
+        [void](updateSystemIndexState { param ($s) [void]$s.Covered.Add("営業") } $path)
+
+        $result = $null
+        { $script:result = removeSystemIndexOf $badRel $system $path } | Should -Not -Throw
+
+        $script:result.Skipped | Should -Be $true
+        $script:result.Saved | Should -Be $true
+        Test-Path -LiteralPath "$TestDrive\rmx\外\a.txt" | Should -Be $true
+        [System.IO.Directory]::Exists("$system\営業") | Should -Be $true
     }
 
     It "インデックスの中のフォルダだけを消すときは、インデックスの対応済みを残す" {
