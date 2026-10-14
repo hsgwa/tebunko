@@ -4097,6 +4097,14 @@
 <td>中身ごと削除（読み取り専用・260 文字超も）、フォルダが無ければ何もしない、中のジャンクション・シンボリックリンクの先は消さずリンクだけを外す、消すフォルダそのものがリンクならリンクだけを外す（読み取り専用のジャンクション・末尾に <code>\</code> が付いたパスも）、確かめられないフォルダが兄弟・根にあっても何も消さずに失敗する、数えたあとでフォルダがリンクに替わったらそのフォルダのファイルを消さずに失敗する、親を指す輪のジャンクションがあっても時間内に終わる（別スレッドで上限を決めて待つ）、予約名に拡張子の付いた名前（<code>aux.backup</code>・<code>CON.txt</code>）のフォルダも消える、消したあとにフォルダが残っていれば成功にせず決めた回数だけ試して例外にする、有無が分からないとき（届かない・読めない）は試し直さず例外にする、空のパスは何もしない（<code>removeDirectoryRetry</code>）。呼ぶ側（<code>removeDroppedFolders</code>・<code>RemoveIndex</code>・<code>removeSystemIndexOf</code>・<code>importIndex</code>）は、有無が分からない例外のとき「削除しました」を出さず記録を残す、片付けの失敗が元の失敗の理由を隠さない</td>
 </tr>
 <tr>
+<td><code>getFilesNoFollow</code> / <code>setNotContentIndexed</code>（リンク）</td>
+<td>下のファイル・フォルダを集める（末尾の <code>\</code>・Hidden の既定と <code>-IncludeHidden</code>）、ジャンクション・親を指す輪・ファイルのシンボリックリンクは降りず <code>Links</code> に入れる、root がジャンクションでも先の中を集める、リンクかどうか確かめられないフォルダは既定では降り <code>-SkipUnknown</code> では <code>Links</code> に入れる、読めないフォルダは <code>HasError</code> で返す。<code>-Recurse</code> の属性付けは、中のジャンクションの先にも、ジャンクション自身にも付けない</td>
+</tr>
+<tr>
+<td><code>getIndexExportSize</code> / <code>exportIndex</code>（リンク）</td>
+<td>置き場の中のジャンクションの先のファイルを zip に入れず大きさにも数えない、親を指す輪があっても止まらない</td>
+</tr>
+<tr>
 <td><code>testLinkItem</code> / <code>getLinkKind</code></td>
 <td>普通のファイル・フォルダ、<code>ReparsePoint</code> のファイルで <code>LinkType</code> が空のもの（OneDrive）はリンクでない、ジャンクション・シンボリックリンクはリンク、フォルダで <code>ReparsePoint</code> があり <code>LinkType</code> が空・<code>$null</code>・知らない値のものと、属性が読めないものはリンクとして扱う（<code>getLinkKind</code> は <code>Unknown</code>。辿らず・消さずに失敗する）</td>
 </tr>
