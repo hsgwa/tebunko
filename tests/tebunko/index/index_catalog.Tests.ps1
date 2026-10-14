@@ -105,6 +105,102 @@ Describe "IndexCatalog.RenameIndex" -Tag Io {
     }
 }
 
+Describe "IndexCatalog.RenameIndex（使えない名前）" -Tag Io {
+    It "移す元・先が置き場の外へ出る・使えない名前なら、何も動かさずに例外にする: <from> -> <to>" -TestCases @(
+        @{ from = "営業"; to = "..\外" }
+        @{ from = "営業"; to = "..\..\外\営業" }
+        @{ from = "営業"; to = ".." }
+        @{ from = "営業"; to = "経理\中" }
+        @{ from = "営業"; to = "営業." }
+        @{ from = "営業"; to = "CON" }
+        @{ from = "営業"; to = " 経理" }
+        @{ from = "..\外"; to = "経理" }
+        @{ from = "営業\..\経理"; to = "新" }
+        @{ from = ".."; to = "新" }
+        @{ from = "営業."; to = "新" }
+        @{ from = "営業 "; to = "新" }
+    ) {
+        param ($from, $to)
+        $ws = newCatalogWorkspace "$TestDrive\rename_bad"
+        $dir = $ws.Index
+        writeListFile "$dir\営業\a.xlsx\Sheet1.tsv" @("営業の本文")
+        writeListFile "$dir\経理\b.xlsx\Sheet1.tsv" @("経理の本文")
+        writeListFile "$($ws.Dir)\外\c.tsv" @("外の本文")
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(
+            (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00")
+        ) $ws.Status
+
+        { $ws.Catalog.RenameIndex($from, $to) } | Should -Throw
+
+        Test-Path -LiteralPath "$dir\営業\a.xlsx\Sheet1.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$dir\経理\b.xlsx\Sheet1.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$($ws.Dir)\外\c.tsv" | Should -Be $true
+        @(Get-ChildItem -LiteralPath $dir -Directory | ForEach-Object { $_.Name } | Sort-Object) -join "," | Should -Be "営業,経理"
+        @(Get-ChildItem -LiteralPath $ws.Dir -Directory | ForEach-Object { $_.Name } | Sort-Object) -join "," | Should -Be "content_index,外"
+        $status = readStatusFile $ws.Status
+        $status.Folders[0].Name | Should -Be "営業"
+        $status.Rows.ContainsKey("営業\a.xlsx") | Should -Be $true
+    }
+}
+
+Describe "IndexCatalog（既にある予約名のインデックス）" -Tag Io {
+    # aux.backup のように、前の版で付いた予約名のフォルダ。Test-Path では無いように見えるため、\\?\ で作り、Directory.Exists で確かめる
+    It "RenameIndex は、予約名（<name>）の名前から新しい名前へ改名できる" -TestCases @(
+        @{ name = "aux.backup" }
+        @{ name = "CON.txt" }
+    ) {
+        param ($name)
+        $ws = newCatalogWorkspace "$TestDrive\reserved_rename_$($name.Substring(0, 3))"
+        $old = Join-Path $ws.Index $name
+        [System.IO.Directory]::CreateDirectory((toLongPath (Join-Path $old "a.xlsx"))) | Out-Null
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = $name }) @(
+            (newStatusRow "$name\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00")
+        ) $ws.Status
+
+        $ws.Catalog.RenameIndex($name, "新")
+
+        [System.IO.Directory]::Exists((toLongPath $old)) | Should -Be $false
+        Test-Path -LiteralPath "$($ws.Index)\新\a.xlsx" | Should -Be $true
+        $status = readStatusFile $ws.Status
+        $status.Folders[0].Name | Should -Be "新"
+        $status.Rows.ContainsKey("新\a.xlsx") | Should -Be $true
+    }
+
+    It "RemoveIndex は、予約名（<name>）のフォルダを消し、取り込み一覧の記録も消す" -TestCases @(
+        @{ name = "aux.backup" }
+        @{ name = "CON.txt" }
+    ) {
+        param ($name)
+        $ws = newCatalogWorkspace "$TestDrive\reserved_remove_$($name.Substring(0, 3))"
+        $target = Join-Path $ws.Index $name
+        [System.IO.Directory]::CreateDirectory((toLongPath (Join-Path $target "a.xlsx"))) | Out-Null
+        New-Item -ItemType Directory -Path "$($ws.Index)\技術" -Force | Out-Null
+        writeStatusFile @(
+            [pscustomobject]@{ Path = "C:\data"; Name = $name },
+            [pscustomobject]@{ Path = "D:\tech"; Name = "技術" }
+        ) @(
+            (newStatusRow "$name\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00"),
+            (newStatusRow "技術\d.pptx" "2025/01/10 12:34:56" "1" $stateNew)
+        ) $ws.Status
+
+        $ws.Catalog.RemoveIndex($name)
+
+        [System.IO.Directory]::Exists((toLongPath $target)) | Should -Be $false
+        Test-Path -LiteralPath "$($ws.Index)\技術" | Should -Be $true
+        $status = readStatusFile $ws.Status
+        $status.Folders.Count | Should -Be 1
+        $status.Folders[0].Name | Should -Be "技術"
+    }
+
+    It "新しい名前には予約名を使えない（RenameIndex は何も動かさずに例外にする）" {
+        $ws = newCatalogWorkspace "$TestDrive\reserved_new"
+        New-Item -ItemType Directory -Path "$($ws.Index)\営業" -Force | Out-Null
+        { $ws.Catalog.RenameIndex("営業", "aux.backup") } | Should -Throw
+        Test-Path -LiteralPath "$($ws.Index)\営業" | Should -Be $true
+        [System.IO.Directory]::Exists((toLongPath (Join-Path $ws.Index "aux.backup"))) | Should -Be $false
+    }
+}
+
 Describe "IndexCatalog.RemoveIndex" -Tag Io {
     It "インデックスのフォルダと取り込み一覧の記録を削除し、ほかのインデックスは残す" {
         $ws = newCatalogWorkspace "$TestDrive\remove"
@@ -140,6 +236,34 @@ Describe "IndexCatalog.RemoveIndex" -Tag Io {
 
         $ws.Catalog.RemoveIndex("")
 
+        (readStatusFile $ws.Status).Rows.Count | Should -Be 1
+    }
+
+    It "置き場の外を指す名前は、外のフォルダを消さずに例外にし、取り込み一覧の記録は残す" -TestCases @(
+        @{ badName = "..\外" }
+        @{ badName = "営業\..\..\外" }
+        @{ badName = ".." }
+        @{ badName = "営業\..\経理" }   # 置き場の中を指すが、別のインデックスのフォルダになる
+        @{ badName = "営業\中" }
+        @{ badName = "営業/中" }
+        @{ badName = "営業." }   # 最後の . は、有無の確かめでは「営業」を見るため、決まりに合わない名前は消さない
+        @{ badName = "営業 " }
+    ) {
+        param ($badName)
+        $ws = newCatalogWorkspace "$TestDrive\remove4"
+        New-Item -ItemType Directory -Path "$($ws.Index)\営業\中" -Force | Out-Null
+        New-Item -ItemType Directory -Path "$($ws.Index)\経理" -Force | Out-Null
+        writeListFile "$($ws.Dir)\外\a.tsv" @("本文")
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(
+            (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateNew)
+        ) $ws.Status
+
+        { $ws.Catalog.RemoveIndex($badName) } | Should -Throw
+
+        Test-Path -LiteralPath "$($ws.Dir)\外\a.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$($ws.Index)\営業\中" | Should -Be $true
+        Test-Path -LiteralPath "$($ws.Index)\経理" | Should -Be $true
+        Test-Path -LiteralPath $ws.Dir | Should -Be $true
         (readStatusFile $ws.Status).Rows.Count | Should -Be 1
     }
 

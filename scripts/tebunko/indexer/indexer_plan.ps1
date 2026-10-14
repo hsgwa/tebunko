@@ -71,10 +71,16 @@ function getBookDir {
 function removeBookDir {
     # そのファイルのインデックスのフォルダを削除する（元のファイルが無くなったとき・取り込み直すとき）。
     # ウイルス対策ソフト・エクスプローラーが一時的に掴んでいることがあるため、少し待って数回試す
+    # 相対パスは取り込み一覧（共有のワークスペースで書き換えられうる）から来るため、置き場（IndexDir）の下でなければ消さない
+    # （例外にすると、書き換えられた 1 行で毎回インデックス作成が止まるため、ログに出して続ける）
     param (
         [string]$bookDir
     )
 
+    if (!(testPathUnder $bookDir $workspace.IndexDir)) {
+        writeIndexerLog "インデックスの置き場の外を指すパスのため、削除しませんでした: ${bookDir}" "Yellow"
+        return
+    }
     removeDirectoryRetry $bookDir
 }
 
@@ -373,7 +379,11 @@ class IngestPlanner {
         # 設定から外れたインデックスは、ここでは消さない（確認ダイアログに「削除予定」として出す）
         $this.Folders = @(assignIndexNames $targetFolders $status.Folders)
         $this.Previous = $status.Rows
-        $this.Dropped = @(findDroppedIndexes $this.Folders $status.Folders)
+        # 名前が今の決まりに合わない前の版のインデックス（status.LegacyFolders）も、設定に無いので外れたインデックスとして出す
+        $previousFolders = New-Object System.Collections.Generic.List[object]
+        foreach ($folder in $status.Folders) { $previousFolders.Add($folder) }
+        foreach ($folder in $status.LegacyFolders) { if ($folder) { $previousFolders.Add($folder) } }
+        $this.Dropped = @(findDroppedIndexes $this.Folders $previousFolders.ToArray())
     }
 
     [void] SaveNames($targetFolders, [scriptblock]$save) {

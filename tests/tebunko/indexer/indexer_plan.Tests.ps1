@@ -129,6 +129,43 @@ Describe "createTargetList（サブフォルダ・無くなったファイル）
         Test-Path -LiteralPath $other | Should -Be $true
     }
 
+    It "置き場の外を指す相対パスの行は、外のフォルダを消さず、例外にもしない" -TestCases @(
+        @{ rel = "経理\..\..\外\消えた.xlsx"; outsideName = "外" }
+        @{ rel = "経理\..\..\index2外\消えた.xlsx"; outsideName = "index2外" }   # 置き場の名前で始まるだけの別のフォルダ
+        @{ rel = "経理\..\.."; outsideName = "外" }
+    ) {
+        param ($rel, $outsideName)
+        Mock writeIndexerLog {}
+        $outside = Join-Path $TestDrive $outsideName
+        [System.IO.Directory]::CreateDirectory("$outside\消えた.xlsx") | Out-Null
+        [System.IO.File]::WriteAllText("$outside\消えた.xlsx\Sheet1.tsv", "1`t見積")
+        [System.IO.File]::WriteAllText("$TestDrive\残る.txt", "a")
+        $previous = newPrevious @((newStatusRow $rel "2024/01/01 00:00:00" "10" ${stateDone} 1 "2024/01/01 00:00:00"))
+        { createTargetList $folder $previous $null } | Should -Not -Throw
+        Test-Path -LiteralPath "$outside\消えた.xlsx\Sheet1.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$TestDrive\残る.txt" | Should -Be $true
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*削除しませんでした*" -and $color -eq "Yellow" }
+    }
+
+    It "removeBookDir は、置き場の外のフォルダを消さずにログに出し、中のフォルダは消す" {
+        Mock writeIndexerLog {}
+        $outside = Join-Path $TestDrive "外2"
+        [System.IO.Directory]::CreateDirectory($outside) | Out-Null
+        [System.IO.File]::WriteAllText("$outside\a.tsv", "a")
+        $inside = Join-Path ${indexDir} "経理\中.xlsx"
+        [System.IO.Directory]::CreateDirectory($inside) | Out-Null
+
+        removeBookDir (Join-Path ${indexDir} "..\外2")
+        removeBookDir ${indexDir}
+
+        Test-Path -LiteralPath "$outside\a.tsv" | Should -Be $true
+        Test-Path -LiteralPath $inside | Should -Be $true
+        Should -Invoke writeIndexerLog -Times 2 -Exactly -Scope It -ParameterFilter { $text -like "*削除しませんでした*" -and $color -eq "Yellow" }
+
+        removeBookDir $inside
+        Test-Path -LiteralPath $inside | Should -Be $false
+    }
+
     It "アクセスできないフォルダがあったときは、見つからなかったファイルの行とインデックスを残す" {
         Mock findTargetFiles { @{ Root = $source; Files = @(Get-Item -LiteralPath $file); HasError = $true } }
         $gone = Join-Path ${indexDir} "経理\読めない\d.xlsx"
@@ -403,6 +440,17 @@ Describe "IngestPlanner" -Tag Io {
         $planner.Folders[0].Name | Should -Not -BeNullOrEmpty
         $planner.Folders[0].Path | Should -Be $source
         @($planner.Dropped | ForEach-Object { $_.Name }) | Should -Be @("古い")
+    }
+
+    It "名前が今の決まりに合わない前の版のインデックス（LegacyFolders）も、外れたものとして見つける。LegacyFolders が無い状態でも動く" {
+        $planner = [IngestPlanner]::new($kinds)
+        $status = @{ Folders = @(@{ Path = "C:\古い"; Name = "古い" }); Rows = (newPrevious @()); LegacyFolders = @(@{ Path = "C:\営業"; Name = "営業." }) }
+        $planner.AssignNames(@([pscustomobject]@{ Path = $source; Name = "売上"; Enabled = $true }), $status)
+        @($planner.Dropped | ForEach-Object { $_.Name }) | Should -Be @("古い", "営業.")
+
+        $planner = [IngestPlanner]::new($kinds)
+        $planner.AssignNames(@([pscustomobject]@{ Path = $source; Name = "売上"; Enabled = $true }), @{ Folders = @(); Rows = (newPrevious @()) })
+        $planner.Dropped.Count | Should -Be 0
     }
 
     It "全部に名前があれば、設定ファイルを書かない" {
