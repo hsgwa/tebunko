@@ -545,6 +545,9 @@ function invokeIndexerBody {
 
     # クロール対象フォルダごとにインデックス名（work\content_index 直下のフォルダ名）を決める。前回と同じフォルダは同じ名前を使う
     $status = $ledger.ReadStatus()
+    if ($status.Rejected -gt 0) {
+        writeIndexerLog "取り込み一覧に読めない行が $($status.Rejected) 行ありました（無視しました）。" "Yellow"
+    }
     $planner = [IngestPlanner]::new(@{
         Unchecked = ${planKindUnchecked}; Missing = ${planKindMissing}; Dropped = ${planKindDropped}; StateFailed = ${stateFailed}
     })

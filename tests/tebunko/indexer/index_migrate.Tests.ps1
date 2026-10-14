@@ -718,6 +718,56 @@ Describe "writeStatusKeepingDropped" -Tag Unit {
     }
 }
 
+Describe "writeStatusKeepingDropped（今の決まりに合わない前の版の名前）" -Tag Io {
+    It "取りやめた回に書き戻した <name> のフォルダの行は、読み直すと LegacyFolders に入り、各ファイルの行は残らない" -TestCases @(
+        @{ name = "営業." }
+        @{ name = "営業 " }
+    ) {
+        param ($name)
+        $path = "$TestDrive\keep\ingest_status.tsv"
+        [System.IO.Directory]::CreateDirectory("$TestDrive\keep") | Out-Null
+        $ledger = [pscustomobject]@{ StatusPath = $path }
+        $ledger | Add-Member -MemberType ScriptMethod -Name WriteStatus -Value {
+            param ($folders, $rows)
+            writeStatusFile $folders $rows $this.StatusPath
+        }
+        $folder = [pscustomobject]@{ Path = "C:\data\営業"; Name = "営業" }
+        $oldFolder = [pscustomobject]@{ Path = "C:\data\古い"; Name = $name }
+        $row = [pscustomobject]@{ 相対パス = "営業\c.docx"; 更新日時 = "2025/01/10 12:34:56"; サイズ = "1"; 状態 = $stateDone; 抽出版 = "1"; エラー = "" }
+        $oldRow = [pscustomobject]@{ 相対パス = "$name\a.docx"; 更新日時 = "2025/01/10 12:34:56"; サイズ = "1"; 状態 = $stateDone; 抽出版 = "1"; エラー = "" }
+        # 前の版が書いた取り込み一覧（前の版の名前のフォルダの行と、その各ファイルの行）を読む
+        writeStatusFile @($folder, $oldFolder) @($row, $oldRow) $path
+        $before = readStatusFile $path
+        @($before.LegacyFolders | ForEach-Object { $_.Name }) | Should -Be @($name)
+        $before.Rows.ContainsKey("$name\a.docx") | Should -Be $false
+
+        writeStatusKeepingDropped $ledger @($folder) @($row) $before.LegacyFolders.ToArray() $before.Rows
+
+        $status = readStatusFile $path
+        @($status.Folders | ForEach-Object { $_.Name }) | Should -Be @("営業")
+        @($status.LegacyFolders | ForEach-Object { $_.Name }) | Should -Be @($name)
+        @($status.Rows.Keys) | Should -Be @("営業\c.docx")
+    }
+
+    It "予約名（<name>）のフォルダの行は、前の版の名前にせず、ふつうのフォルダと各ファイルの行として読む" -TestCases @(
+        @{ name = "aux.backup" }
+        @{ name = "CON" }
+    ) {
+        param ($name)
+        $path = "$TestDrive\keep_reserved\ingest_status.tsv"
+        [System.IO.Directory]::CreateDirectory("$TestDrive\keep_reserved") | Out-Null
+        $oldFolder = [pscustomobject]@{ Path = "C:\data\古い"; Name = $name }
+        $oldRow = [pscustomobject]@{ 相対パス = "$name\a.docx"; 更新日時 = "2025/01/10 12:34:56"; サイズ = "1"; 状態 = $stateDone; 抽出版 = "1"; エラー = "" }
+        writeStatusFile @($oldFolder) @($oldRow) $path
+
+        $status = readStatusFile $path
+
+        @($status.Folders | ForEach-Object { $_.Name }) | Should -Be @($name)
+        $status.LegacyFolders.Count | Should -Be 0
+        $status.Rows.ContainsKey("$name\a.docx") | Should -Be $true
+    }
+}
+
 Describe "removeDroppedFolders" -Tag Io {
     It "クロール対象から削除されたフォルダのインデックスだけを削除する" {
         $indexDir = "$TestDrive\dropped\index"
@@ -847,5 +897,52 @@ Describe "removeDroppedFolders" -Tag Io {
         removeDroppedFolders @(findDroppedIndexes @([pscustomobject]@{ Path = "C:\data\sales"; Name = "sales" }) @([pscustomobject]@{ Path = "C:\data\Sales"; Name = "Sales" }))
 
         Test-Path -LiteralPath "$indexDir\Sales\見積.xlsx\Sheet1.tsv" | Should -Be $true
+    }
+
+    It "置き場の外を指す名前は削除せず、例外にもしないで、次の名前を続ける" -TestCases @(
+        @{ badName = "..\外" }
+        @{ badName = "..\..\外" }
+        @{ badName = "営業\..\..\外" }
+        @{ badName = ".." }
+        @{ badName = "." }
+        @{ badName = "" }
+    ) {
+        $indexDir = "$TestDrive\dropped5\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
+        newTsv "$TestDrive\dropped5\外\a.tsv" @("a")
+        newTsv "$TestDrive\外\a.tsv" @("a")
+        newTsv "$indexDir\営業\見積.xlsx\Sheet1.tsv" @("b")
+        newTsv "$indexDir\技術\仕様.docx\ページ001.tsv" @("c")
+        Mock writeIndexerLog {}
+
+        { removeDroppedFolders @(
+            [pscustomobject]@{ Path = "C:\data\壊れた"; Name = $badName },
+            [pscustomobject]@{ Path = "C:\data\技術"; Name = "技術" }
+        ) } | Should -Not -Throw
+
+        Test-Path -LiteralPath "$TestDrive\dropped5\外\a.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$TestDrive\外\a.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$indexDir\営業\見積.xlsx\Sheet1.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$indexDir\技術" | Should -Be $false
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*削除しませんでした*" -and $color -eq "Yellow" }
+    }
+
+    It "前の版で作られた名前（最後の . ・前後の空白）のフォルダも、実在のフォルダを列挙して削除し、似た名前の別のインデックスは残す" -TestCases @(
+        @{ legacyName = "営業." }
+        @{ legacyName = "営業 " }
+        @{ legacyName = " 営業" }
+    ) {
+        param ($legacyName)
+        $indexDir = "$TestDrive\dropped6\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
+        newTsv (toLongPath "$indexDir\$legacyName\見積.xlsx\Sheet1.tsv") @("a")
+        newTsv "$indexDir\営業\見積.xlsx\Sheet1.tsv" @("b")   # 名前の最後の . や空白を取ると同じになる別のインデックス
+        newTsv "$TestDrive\dropped6\外\a.tsv" @("c")
+
+        removeDroppedFolders @([pscustomobject]@{ Path = "C:\data\旧営業"; Name = $legacyName })
+
+        [System.IO.Directory]::Exists((toLongPath "$indexDir\$legacyName")) | Should -Be $false
+        Test-Path -LiteralPath "$indexDir\営業\見積.xlsx\Sheet1.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$TestDrive\dropped6\外\a.tsv" | Should -Be $true
     }
 }

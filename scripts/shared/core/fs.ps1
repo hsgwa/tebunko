@@ -125,6 +125,57 @@ function toSafeFileName {
 
 ${maxFileNameLength} = 255  # Windows のファイル名（パスの区切りの間の1つ）の上限
 
+# Windows で使えないファイル名（フォルダ名として使えるかの判定に使う）
+${reservedFileNames} = @("CON", "PRN", "AUX", "NUL") +
+    @(1..9 | ForEach-Object { "COM$_" }) + @(1..9 | ForEach-Object { "LPT$_" })
+
+# ファイル名に使えない文字（getFolderNameProblemText とパスの区切りごとの確かめ（testPathSegments）が使う。呼ぶたびに作り直さない）
+${invalidFileNameChars} = [System.IO.Path]::GetInvalidFileNameChars()
+
+function getFolderNameProblemText {
+    # 作業フォルダの下に作る 1 つのフォルダ名として使えるかを調べ、使えない理由を返す（使えれば空文字列）。
+    # 空・前後の空白・長すぎる・使えない文字（\ / : など。.. のような外へ出る名前を含む）・最後の .・Windows の予約名を拒む。
+    # 設定ファイルや状態ファイルから読んだ名前を使う前の確かめ（ほかの名前との重複は調べない）。
+    #   allowReserved: $true なら Windows の予約名（aux.backup など）は拒まない（既にある実在のフォルダの名前を空にせず、そのまま使い続けるため。
+    #                  新しく付ける名前には使わない）
+    param (
+        [string]$name,
+        [bool]$allowReserved = $false
+    )
+
+    if ($name -eq "") {
+        return "名前を入力してください。"
+    }
+    if ($name -ne $name.Trim()) {
+        return "名前の前後に空白は使えません。"
+    }
+    if ($name.Length -gt ${maxFileNameLength}) {
+        return "名前が長すぎます（${maxFileNameLength} 文字まで）。"
+    }
+    if ($name.IndexOfAny(${invalidFileNameChars}) -ge 0) {
+        return "名前に使えない文字が含まれています（\ / : * ? " + [char]34 + " < > | と制御文字）。"
+    }
+    if ($name.EndsWith(".")) {
+        return "名前の最後に . は使えません。"
+    }
+    if (!$allowReserved -and ${reservedFileNames} -contains $name.Split(".")[0].ToUpperInvariant()) {
+        return "「${name}」は Windows で使えない名前です。"
+    }
+    return ""
+}
+
+function testPlainFolderName {
+    # 1 つのフォルダ名として、置き場の外へ出ず、名前のとおりに作れるかだけを調べる（予約名・最後の . や空白は問わない）。
+    # 空・.・..・長すぎる名前・使えない文字（\ / : など）を拒む。getFolderNameProblemText より緩く、
+    # 前の版で作られた名前を、名前でパスを組まずに扱う（列挙して消す）ときの、読み飛ばすかどうかの判断に使う
+    param (
+        [string]$name
+    )
+
+    return !($name -eq "" -or $name -eq "." -or $name -eq ".." -or $name.Length -gt ${maxFileNameLength} -or
+        $name.IndexOfAny(${invalidFileNameChars}) -ge 0)
+}
+
 
 function toLongPath {
     # パスの先頭に \\?\ を付け、260文字を超えるパスもファイル操作（System.IO・-LiteralPath）で扱えるようにする。
@@ -184,6 +235,29 @@ function fromLongPath {
         return $path.Substring(4)
     }
     return $path
+}
+
+function testPathUnder {
+    # path が root の「真下より下」（root そのものは含まない）かを返す。消す・書く直前に、
+    # 状態ファイルや設定から読んだ名前でつないだパスが、決めた置き場の外へ出ていないかを確かめるのに使う。
+    # \\?\ を外してから GetFullPath で正規化する（.. や . を解き、/ を \ にする）ため、\\?\ の有無・大文字小文字・末尾の \ に依らない。
+    # リンクは見ない（辿るかどうかは削除の部品が決める）。解けない（不正な）パスは $false
+    param (
+        [string]$path,
+        [string]$root
+    )
+
+    if (!$path -or !$root) {
+        return $false
+    }
+    try {
+        $fullPath = [System.IO.Path]::GetFullPath((fromLongPath $path))
+        $fullRoot = [System.IO.Path]::GetFullPath((fromLongPath $root)).TrimEnd("\")
+    } catch {
+        return $false
+    }
+    return $fullPath.StartsWith("$fullRoot\", [System.StringComparison]::OrdinalIgnoreCase) -and
+        $fullPath.TrimEnd("\").Length -gt $fullRoot.Length
 }
 
 function trimTrailingSeparator {

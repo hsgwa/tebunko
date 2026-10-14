@@ -801,6 +801,39 @@ Describe "indexer.ps1（設定から外れたインデックス）" -Tag Io {
     }
 }
 
+Describe "indexer.ps1（書き換えられた取り込み一覧）" -Tag Io {
+    It "置き場の外を指す行・名前だけの行・使えない名前のフォルダ行があっても、外を消さず最後まで動き、黄色のログで知らせる" {
+        $a = newSourceFolder "総務"
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "総務"; path = $a; enabled = $true })
+        runIndexer $root | Should -Be 0
+        [System.IO.Directory]::CreateDirectory("$root\work\outside") | Out-Null
+        [System.IO.File]::WriteAllText("$root\work\outside\keep.txt", "残る")
+        $statusFile = "$root\work\ingest_status.tsv"
+        $key = ${statusFolderKey}
+        $extra = @(
+            "総務\..\..\outside\keep.txt`t2024-01-01 00:00:00`t1`tok`t1`t2024-01-01 00:00:00`t",
+            "..\outside\keep.txt`t2024-01-01 00:00:00`t1`tok`t1`t2024-01-01 00:00:00`t",
+            "総務`t2024-01-01 00:00:00`t1`tok`t1`t2024-01-01 00:00:00`t",
+            "${key}`t${a}`t旧営業.",
+            "${key}`t${a}`t..\outside"
+        ) -join "`r`n"
+        $existing = [System.IO.File]::ReadAllText($statusFile)
+        if (!$existing.EndsWith("`n")) { $existing += "`r`n" }
+        [System.IO.File]::WriteAllText($statusFile, $existing + $extra + "`r`n", (New-Object System.Text.UTF8Encoding($true)))
+
+        { runIndexer $root | Should -Be 0 } | Should -Not -Throw
+
+        Test-Path -LiteralPath "$root\work\outside\keep.txt" | Should -Be $true
+        Test-Path -LiteralPath "$root\work\content_index\総務" | Should -Be $true
+        $log = [System.IO.File]::ReadAllText("$root\work\indexing_log.txt")
+        $log | Should -Match "取り込み一覧に読めない行が \d+ 行ありました"
+        $status = readTestStatus $root
+        @($status.Folders | ForEach-Object { $_.Name }) | Should -Contain "総務"
+        @($status.Rows.Keys | Where-Object { $_ -like "*outside*" }).Count | Should -Be 0
+    }
+}
+
 Describe "indexer.ps1（選んだインデックスだけを更新する。OnlyNames）" -Tag Io {
     BeforeAll {
         $approvalLine = @{ Script = $reporterPath; Pattern = '^\s+if \(!\$ch\.Answered\.WaitOne' }
