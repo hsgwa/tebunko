@@ -315,6 +315,78 @@ Describe "removeDirectoryRetry" -Tag Io {
         Test-Path -LiteralPath "$dir\a.tsv" | Should -Be $true
     }
 
+    It "予約名に拡張子の付いた名前（<name>）のフォルダも、中身ごと消える" -TestCases @(
+        @{ name = "aux.backup" }
+        @{ name = "CON.txt" }
+        @{ name = "nul.d" }
+    ) {
+        $dir = "$TestDrive\reserved_$name"
+        $long = toLongPath "$dir\$name"
+        [System.IO.Directory]::CreateDirectory("$long\中") | Out-Null
+        [System.IO.File]::WriteAllText("$long\中\a.tsv", "a")
+        [System.IO.Directory]::Exists($long) | Should -Be $true
+        removeDirectoryRetry "$dir\$name"
+        [System.IO.Directory]::Exists($long) | Should -Be $false
+        [System.IO.Directory]::Exists((toLongPath $dir)) | Should -Be $true
+    }
+
+    It "消したはずのフォルダが残っていれば、成功にせず、決めた回数だけ試してから例外にする" {
+        Mock Start-Sleep {}
+        Mock removeTreeNoFollow {}
+        $dir = "$TestDrive\消えないフォルダ"
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        { removeDirectoryRetry $dir 3 1 } | Should -Throw "*消えていません*"
+        Should -Invoke removeTreeNoFollow -Times 3 -Exactly -Scope It
+        Should -Invoke Start-Sleep -Times 2 -Exactly -Scope It
+        [System.IO.Directory]::Exists($dir) | Should -Be $true
+    }
+
+    It "無いと確かめられたフォルダは、何もせず成功にする" {
+        Mock removeTreeNoFollow {}
+        { removeDirectoryRetry "$TestDrive\無いフォルダ_確認" } | Should -Not -Throw
+        Should -Invoke removeTreeNoFollow -Times 0 -Exactly -Scope It
+    }
+
+    It "同じ名前でフォルダでないもの（ファイル）があるときは、消すフォルダが無いので成功にする" {
+        Mock removeTreeNoFollow {}
+        $file = "$TestDrive\ファイル_確認"
+        [System.IO.File]::WriteAllText($file, "x")
+        { removeDirectoryRetry $file } | Should -Not -Throw
+        Should -Invoke removeTreeNoFollow -Times 0 -Exactly -Scope It
+        [System.IO.File]::Exists($file) | Should -Be $true
+    }
+
+    It "空のパスは、何もせず成功にする" {
+        Mock removeTreeNoFollow {}
+        Mock getPathState {}
+        { removeDirectoryRetry "" } | Should -Not -Throw
+        Should -Invoke getPathState -Times 0 -Exactly -Scope It
+        Should -Invoke removeTreeNoFollow -Times 0 -Exactly -Scope It
+    }
+
+    It "届かない・読めない（<state>）ときは、成功にも試し直しにもせず、OS の理由を添えて例外にする" -TestCases @(
+        @{ state = "Unreachable" }
+        @{ state = "Other" }
+    ) {
+        Mock Start-Sleep {}
+        Mock removeTreeNoFollow {}
+        Mock getPathState { @{ State = $state; IsDirectory = $false; Message = "アクセスが拒否されました" } }
+        { removeDirectoryRetry "$TestDrive\分からないフォルダ" 3 1 } | Should -Throw "*フォルダがあるかどうか確かめられません*アクセスが拒否されました*"
+        Should -Invoke getPathState -Times 1 -Exactly -Scope It
+        Should -Invoke removeTreeNoFollow -Times 0 -Exactly -Scope It
+        Should -Invoke Start-Sleep -Times 0 -Exactly -Scope It
+    }
+
+    It "フォルダとして在るのに Exists が偽のときは、決めた回数だけ試してから、成功にせず例外にする" {
+        Mock Start-Sleep {}
+        Mock removeTreeNoFollow {}
+        Mock getPathState { @{ State = "Found"; IsDirectory = $true; Message = "" } }
+        { removeDirectoryRetry "$TestDrive\開けないフォルダ" 3 1 } | Should -Throw "*開けないため、消せません*"
+        Should -Invoke getPathState -Times 3 -Exactly -Scope It
+        Should -Invoke removeTreeNoFollow -Times 0 -Exactly -Scope It
+        Should -Invoke Start-Sleep -Times 2 -Exactly -Scope It
+    }
+
     It "中にあるジャンクションの先は消さず、ジャンクションだけを外す" {
         $dir = "$TestDrive\消すフォルダ_リンク"
         $outside = "$TestDrive\外のフォルダ_リンク"
@@ -657,6 +729,66 @@ Describe "testPathIsLink / testPathHasLink" -Tag Io {
     It "testPathHasLink: path が base の下になければ、確かめられないので真" {
         testPathHasLink "$TestDrive\haslink_a" "$TestDrive\haslink_b\x" | Should -Be $true
         testPathHasLink "$TestDrive\haslink_a" "$TestDrive\haslink_a2\x" | Should -Be $true
+    }
+}
+
+Describe "newDirectoryUnder" -Tag Io {
+    It "根の下に、途中の階層ごとフォルダを作って真を返し、すでにあっても真を返す: <name>" -TestCases @(
+        @{ name = "根の下の階層"; sub = "a\b" }
+        @{ name = "根と同じパス（根を作る）"; sub = "" }
+    ) {
+        param ($name, $sub)
+        $root = "$TestDrive\newdir_root_$($sub.Length)"
+        $path = if ($sub) { "$root\$sub" } else { $root }
+        newDirectoryUnder $path $root | Should -Be $true
+        [System.IO.Directory]::Exists($path) | Should -Be $true
+        newDirectoryUnder $path $root | Should -Be $true
+    }
+
+    It "途中や path そのものがジャンクションなら、何も作らずに偽を返し、リンクの先に何も書かない: <name>" -TestCases @(
+        @{ name = "途中がジャンクション"; sub = "リンク\新しい"; id = "mid" }
+        @{ name = "path そのものがジャンクション"; sub = "リンク"; id = "self" }
+    ) {
+        param ($name, $sub, $id)
+        $root = "$TestDrive\newdir_junction_root_$id"
+        [System.IO.Directory]::CreateDirectory($root) | Out-Null
+        if (!(newTestJunction "$root\リンク" "$root\外")) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        newDirectoryUnder "$root\$sub" $root | Should -Be $false
+        [System.IO.Directory]::Exists("$root\外\新しい") | Should -Be $false
+        [System.IO.Directory]::GetFileSystemEntries("$root\外").Count | Should -Be 0
+    }
+
+    It "根そのものがジャンクションでも、根の下には作れる" {
+        if (!(newTestJunction "$TestDrive\newdir_link_root" "$TestDrive\newdir_link_target\置き場")) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        newDirectoryUnder "$TestDrive\newdir_link_root\x" "$TestDrive\newdir_link_root" | Should -Be $true
+        [System.IO.Directory]::Exists("$TestDrive\newdir_link_target\置き場\x") | Should -Be $true
+    }
+
+    It "根の下でない・空のパスは、何も作らずに偽を返す: <name>" -TestCases @(
+        @{ name = "別のフォルダ"; path = "$TestDrive\newdir_other\x"; root = "$TestDrive\newdir_base" }
+        @{ name = "似た名前のフォルダ"; path = "$TestDrive\newdir_base2\x"; root = "$TestDrive\newdir_base" }
+        @{ name = "空のパス"; path = ""; root = "$TestDrive\newdir_base" }
+        @{ name = "空の根"; path = "$TestDrive\newdir_base\x"; root = "" }
+    ) {
+        param ($name, $path, $root)
+        newDirectoryUnder $path $root | Should -Be $false
+        if ($path) {
+            [System.IO.Directory]::Exists($path) | Should -Be $false
+        }
+    }
+
+    It "作ったあとに、途中がリンクに替わっていれば偽を返す" {
+        $root = "$TestDrive\newdir_after_root"
+        [System.IO.Directory]::CreateDirectory($root) | Out-Null
+        $script:newDirChecks = 0
+        Mock testPathHasLink { $script:newDirChecks++; return ($script:newDirChecks -ge 2) }
+        newDirectoryUnder "$root\x" $root | Should -Be $false
     }
 }
 

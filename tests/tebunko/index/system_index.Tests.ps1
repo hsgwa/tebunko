@@ -385,6 +385,46 @@ Describe "removeSystemIndexOf" -Tag Io {
         $state.Pending.Count | Should -Be 0
     }
 
+    It "予約名に拡張子の付いた名前（<name>）のフォルダも消し、状態の行も消す" -TestCases @(
+        @{ name = "aux.backup" }
+        @{ name = "CON.txt" }
+    ) {
+        $system = "$TestDrive\rm_reserved_$name\system_index"
+        $path = "$TestDrive\rm_reserved_$name\state.tsv"
+        $long = toLongPath "$system\$name"
+        [System.IO.Directory]::CreateDirectory($long) | Out-Null
+        [System.IO.File]::WriteAllText("$long\system_index.txt", "a")
+        [void](updateSystemIndexState { param ($s) [void]$s.Covered.Add($name) } $path)
+        (removeSystemIndexOf $name $system $path).Saved | Should -Be $true
+        [System.IO.Directory]::Exists($long) | Should -Be $false
+        (readSystemIndexState $path).Covered.Count | Should -Be 0
+    }
+
+    It "フォルダが消えなければ例外にし、状態の行を残す（フォルダが残ったまま記録だけ消えないように）" {
+        Mock Start-Sleep {}
+        $system = "$TestDrive\rm_locked\system_index"
+        $path = "$TestDrive\rm_locked\state.tsv"
+        [System.IO.Directory]::CreateDirectory("$system\営業") | Out-Null
+        [System.IO.File]::WriteAllText("$system\営業\system_index.txt", "a")
+        [void](updateSystemIndexState { param ($s) [void]$s.Covered.Add("営業") } $path)
+        $stream = [System.IO.File]::Open("$system\営業\system_index.txt", "Open", "Read", "None")
+        try {
+            { removeSystemIndexOf "営業" $system $path } | Should -Throw
+        } finally {
+            $stream.Dispose()
+        }
+        (readSystemIndexState $path).Covered.Contains("営業") | Should -Be $true
+    }
+
+    It "フォルダがあるかどうか確かめられなければ（届かない・読めない）、例外にし、状態の行を残す" {
+        Mock getPathState { @{ State = "Other"; IsDirectory = $false; Message = "アクセスが拒否されました" } }
+        $system = "$TestDrive\rm_unknown\system_index"
+        $path = "$TestDrive\rm_unknown\state.tsv"
+        [void](updateSystemIndexState { param ($s) [void]$s.Covered.Add("営業") } $path)
+        { removeSystemIndexOf "営業" $system $path } | Should -Throw "*アクセスが拒否されました*"
+        (readSystemIndexState $path).Covered.Contains("営業") | Should -Be $true
+    }
+
     It "置き場の外を指す名前は、外のフォルダを消さず、例外にもしない。状態の行は整理する" -TestCases @(
         @{ badRel = "..\外" }
         @{ badRel = "営業\..\..\外" }

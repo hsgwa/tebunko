@@ -61,7 +61,7 @@ class IndexCatalog {
                 [System.IO.Directory]::Move((toLongPath $from), (toLongPath $tmp))
                 [System.IO.Directory]::Move((toLongPath $tmp), (toLongPath $to))
             } else {
-                if (Test-Path -LiteralPath $to) {
+                if ([System.IO.Directory]::Exists((toLongPath $to)) -or [System.IO.File]::Exists((toLongPath $to))) {
                     throw "「${newName}」のフォルダが既にあるため、名前を変えられません: ${to}"
                 }
                 [System.IO.Directory]::Move((toLongPath $from), (toLongPath $to))

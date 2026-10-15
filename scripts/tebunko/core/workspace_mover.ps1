@@ -96,6 +96,7 @@ class WorkspaceMover {
         $entries = @($this.ListEntries($dir))
         foreach ($entry in $entries) {
             $long = toLongPath $entry
+            # フォルダかファイルかを分けるために Exists が要る。有無が分からないものは、後ろの File.Delete が例外にする
             if ([System.IO.Directory]::Exists($long)) {
                 removeDirectoryRetry $entry
             } else {
@@ -134,8 +135,13 @@ class WorkspaceMover {
         try {
             $this.CopyTree($longSource, $longDest)
         } catch {
-            removeDirectoryRetry $dest
-            throw
+            $original = $_
+            try {
+                removeDirectoryRetry $dest
+            } catch {
+                # 片付けに失敗しても、元の失敗の理由を隠さない
+            }
+            throw $original
         }
         removeDirectoryRetry $source
     }
