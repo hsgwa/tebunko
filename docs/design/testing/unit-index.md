@@ -14,7 +14,7 @@ flowchart LR
 
 | 対象 | 主な確認内容 |
 |---|---|
-| `toSafeFileName` | 禁止文字の全角化、`/` → `／`、`"` → `”`、使用可能文字は不変 |
+| `toSafeFileName`・`getFolderNameProblemText`・`testPlainFolderName`（`text.Tests.ps1`。ファイルに触らない単体テスト） | 禁止文字の全角化、`/` → `／`、`"` → `”`、使用可能文字は不変。フォルダ名の確かめ（空・前後の空白・長すぎる・使えない文字・最後の `.`・予約名） |
 | `toLongPath` / `fromLongPath`・長いパス | `\\?\`・`\\?\UNC\` の付け外し、260 文字を超えるパスの読み書き |
 | `copyFileShared` | ほかのアプリが書き込み用に開いているファイルもコピーでき、コピー中もほかのアプリの書き込みを妨げない |
 | `readListFile` / `writeListFile` | `[` `]`・先頭の空白を含むパスの往復、ファイル無しは空配列、読めないファイルは例外、行が無ければ空のファイル |

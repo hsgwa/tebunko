@@ -90,11 +90,7 @@ flowchart LR
     workspace_mover --> status_file
 ```
 
-向きの検査は、文字列ではなく構文木（AST）で行う（`tools/script_arch.ps1`。部品自身のテストは `tests/tools/script_arch.Tests.ps1`）。全部のファイルが同じスコープに読み込まれ、下の層が上の層の関数・変数を名前で使っても動いてしまうため、ファイルごとに構文木を作り、次を見る。
-
-- 関数の呼び出しが、別のパスのファイルで定義した関数を指していること
-- 別のパスのファイルが最上位（関数の外）・`$script:`・`$global:` で代入した変数を読んでいること
-- 決めた変数（`$ui`・`$window`）と型（`System.Windows.*`）に触っていること
+向きの検査は、文字列ではなく構文木（AST）で行う（`tools/script_arch.ps1`。部品自身のテストは `tests/tools/script_arch.Tests.ps1`）。全部のファイルが同じスコープに読み込まれ、下の層が上の層の関数・変数を名前で使っても動いてしまうため、ファイルごとに構文木を作り、関数の呼び出し・最上位で代入した変数の読み・決めた変数（`$ui`・`$window`）と型（`System.Windows.*`）に触っていることを見る。数える書き方の詳細は、下の「依存として数える書き方」にある。
 
 `tests/meta/layers.Tests.ps1` の「依存の向き（ファイル単位）」が、「このパスのファイルは、あのパスのファイルに依存しない」の表で決まりを書く。失敗の文には、ファイルの組と、関数・変数の名前が出る。
 
@@ -127,27 +123,29 @@ flowchart TD
 
 依存として数える書き方（見つかるもの）:
 
-- 関数の呼び出し（`${function:名前}` も含む）。
+- 関数の呼び出し（`${function:名前}`・`Get-Command <定数の名前>`（ワイルドカードの無いもの）も含む）。
 - `=` の代入と、`Set-Variable -Name <定数>`・`New-Variable -Name <定数>`・`$variable:名前 = …`（最上位・`$script:`・`$global:` の代入と同じ条件で数える）。
-- 変数を名前で読む形で、名前が定数のもの: `Get-Variable`（`gv`）、`${variable:名前}`・`$variable:名前`、`Get-Item`・`Get-Content`・`Test-Path` などの `variable:名前`。
+- 変数を名前で読む形で、名前が定数のもの: `Get-Variable`（`gv`）、`${variable:名前}`・`$variable:名前`、`Get-Item`・`Get-Content`・`Get-ItemProperty`・`Get-ItemPropertyValue`・`Resolve-Path`・`Test-Path` などの `variable:名前`。パスが定数だけのかっこ（`Test-Path ("variable:x")`）なら、その値を読む。
+- 名前を文字列の並びで受け取る関数（`newWorkerState`。`tests/meta/layers.Tests.ps1` が、1 つ目の引数を関数、2 つ目を変数の名前として渡す）の引数。`tools/script_arch.ps1` は関数の名前を知らず、一覧は呼び出す側から渡す。
 - 別のファイルで定義したクラスを、`[型名]`（`[型]::new()`・引数・戻り値・変数の型）か `New-Object <型>`・`New-Object -TypeName <型>`（型が定数のもの。`'System.Collections.Generic.List[Workspace]'`・`'Workspace[]'` は `[` `]` `,` で区切った名前のそれぞれ）で使う形。`findFileDependencyItems` が `[型名]` の名で返し、例外の一覧にも同じ名で書く。
-- `Set-Variable` は、`-Scope` が無いとき、名前の前の `script:`・`global:` などをスコープとして読む（`Set-Variable -Name "script:x"` は、関数の中でも `x` の最上位の変数を作る）。`-Scope` があるときは、名前の前の印は名前の一部。`New-Variable`・`Get-Variable`・`variable:` ドライブは、名前の前の `script:` などを名前の一部として数える（`New-Variable -Name "script:x"` は、`x` ではなく名前 `script:x` の変数）。`$variable:名前 = …` の代入は、関数の外だけ数える。
+- `Set-Variable` は、`-Scope` が無いとき、名前の前の `script:`・`global:` などをスコープとして読む（`Set-Variable -Name "script:x"` は、関数の中でも `x` の最上位の変数を作る）。`-Scope` があるときは、名前の前の印は名前の一部。`New-Variable`・`Get-Variable` は、名前の前の `script:` などを名前の一部として数える（`New-Variable -Name "script:x"` は、`x` ではなく名前 `script:x` の変数）。`variable:`・`function:` ドライブは、名前の前の `script:`・`global:`・`local:`・`private:` の印を外して比べる（`Test-Path variable:script:x`・`${function:script:f}` は `x`・`f`）。`$variable:名前 = …` の代入は、`$script:` の代入と同じ条件で数える（`script:`・`global:` の印があれば関数の中でも最上位の変数）。
 - コマンドの名前は、モジュール名の修飾（`Microsoft.PowerShell.Utility\Get-Command` など）を外して比べる。
 
 呼ぶ先や読む変数が構文木から決まらない書き方は、向きの表では数えない。代わりに、`tests/meta/layers.Tests.ps1` の「名前を文字列で渡す呼び出し」が、今ある所を理由つきの閉じた一覧にし、増えたら失敗にする。ファイルと形ごとの数も一覧の行に持たせ、載っているファイルに同じ形を足しても失敗にする。形は次のとおり。
 
-- `Get-Command`・`Invoke-Expression`（`iex`）・`Set-Alias`・`New-Alias`・`[scriptblock]::Create`・`$ExecutionContext.InvokeCommand`・`.AddCommand`・`.AddScript`
+- 名前が定数でない `Get-Command`・`Invoke-Expression`（`iex`）・`Set-Alias`・`New-Alias`・`[scriptblock]::Create`・`$ExecutionContext.InvokeCommand`・`.AddCommand`・`.AddScript`
 - `& (式)`・`& "展開文字列"`（呼ぶ名前が式で決まる形）
-- `function:` ドライブを引く `Get-Item`・`Get-Content`・`Test-Path`・`Get-ChildItem`・`Set-Item`・`New-Item` など（読む・書くのどちらも）
+- `function:` ドライブを引く `Get-Item`・`Get-Content`・`Test-Path`・`Get-ChildItem`・`Set-Item`・`New-Item` など（読む・書くのどちらも。かっこの中の定数でない式 `Get-Item ('function:' + $n)` も）
 - 名前が定数でない `Set-Variable`・`New-Variable`・`Get-Variable`
 - 名前が定数でない `variable:` ドライブの読み
-- `variable:` ドライブへの書き込み（`Set-Item`・`New-Item`・`Remove-Item`・`Copy-Item`）
+- `variable:` ドライブへの書き込み（`Set-Item`・`New-Item`・`Remove-Item`・`Copy-Item`・`Set-Content`・`Add-Content`・`Clear-Content`・`Clear-Item`・`Rename-Item`・`Move-Item`）
 - 型が定数でない `New-Object`（`New-Object $型`）
 
 見つからないもの（限界）:
 
 - `& $name` の呼び出し、コールバックで渡したスクリプトブロックの中から呼ぶ形、`$ui` を別の名前の引数で受け取る形、クラスのメソッドの呼び出し。
 - `using namespace` で短く書いた型。
+- `Join-Path` などで組み立てたパスを、変数に入れてから渡す形（`$path = Join-Path ...; Test-Path $path`）。
 
 同じ名前の関数・変数・クラスが、見る側のパスにもあるときは、そちらを使っているとみなす。
 
