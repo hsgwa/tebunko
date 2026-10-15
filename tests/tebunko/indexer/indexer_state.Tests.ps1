@@ -285,15 +285,16 @@ Describe "writeZipSizeLimitLog" -Tag Unit {
         $script:indexerLog = $null
     }
 
-    It "<limitKind>: 部品名・大きさ・部品ごとか合計かをログに書く" -TestCases @(
-        @{ limitKind = "Part"; kindText = "部品ごと" }
-        @{ limitKind = "Total"; kindText = "1ファイルの合計" }
+    It "<limitKind>: 部品名・大きさ・上限の種類をログに書く（Output は文字数）" -TestCases @(
+        @{ limitKind = "Part"; kindText = "部品ごと"; sizeText = "123456789 バイト、約117.7MB" }
+        @{ limitKind = "Total"; kindText = "1ファイルの合計"; sizeText = "123456789 バイト、約117.7MB" }
+        @{ limitKind = "Output"; kindText = "埋め込みから出す文字の合計"; sizeText = "123456789 文字、約117.7M文字" }
     ) {
-        param ($limitKind, $kindText)
+        param ($limitKind, $kindText, $sizeText)
         $script:indexerLog = New-Object System.IO.StringWriter
         $exception = newZipSizeLimitException "ファイルサイズが大きすぎるため更新できません。" "xl/charts/chart1.xml" 123456789 $limitKind
         writeZipSizeLimitLog $exception
-        $script:indexerLog.ToString() | Should -Be "    サイズの上限（${kindText}）を超えました: xl/charts/chart1.xml（123456789 バイト、約117.7MB）`r`n"
+        $script:indexerLog.ToString() | Should -Be "    サイズの上限（${kindText}）を超えました: xl/charts/chart1.xml（${sizeText}）`r`n"
     }
 
     It "ZipSizeLimitException でなければ何もしない" {

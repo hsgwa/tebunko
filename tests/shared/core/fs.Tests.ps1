@@ -65,6 +65,99 @@ Describe "copyFileShared" -Tag Io {
     }
 }
 
+Describe "invokeWithSourceCopy" -Tag Io {
+    BeforeEach {
+        $dir = Join-Path $TestDrive ("copy" + [guid]::NewGuid().ToString("N"))
+        New-Item -ItemType Directory -Path $dir | Out-Null
+        $source = Join-Path $dir "元.txt"
+        [System.IO.File]::WriteAllText($source, "あいう")
+        $copy = Join-Path $dir "source.copy"
+    }
+
+    It "読む処理の戻り値（<name>）をそのまま返し、コピーが残らない" -TestCases @(
+        @{ name = "文字列"; block = { "あいう" }; expected = "あいう" }
+        @{ name = "hashtable は 1 つで返る"; block = { @{ Count = 2; Items = @("a", "b") } }; expected = $null }
+    ) {
+        param($name, $block, $expected)
+        $result = invokeWithSourceCopy $source $copy $block
+        if ($null -ne $expected) {
+            $result | Should -Be $expected
+        } else {
+            $result | Should -BeOfType [hashtable]
+            $result.Count | Should -Be 2
+            $result.Items.Count | Should -Be 2
+        }
+        Test-Path -LiteralPath $copy | Should -BeFalse
+    }
+
+    It "読む処理の出力は、直接呼んだときと同じ形で届く（配列は配列のまま、何も出さなければ何も返らない）" {
+        $list = invokeWithSourceCopy $source $copy { , @("a", "b", "c") }
+        $list.Count | Should -Be 3
+        @(invokeWithSourceCopy $source $copy { @() }).Count | Should -Be 0
+        @(invokeWithSourceCopy $source $copy { "a" }).Count | Should -Be 1
+    }
+
+    It "読む処理がコピーを読める" {
+        invokeWithSourceCopy $source $copy { [System.IO.File]::ReadAllText($copy) } | Should -Be "あいう"
+    }
+
+    It "読む処理が投げたら、その例外が通り、コピーが残らない" {
+        { invokeWithSourceCopy $source $copy { throw "読めません" } } | Should -Throw "読めません"
+        Test-Path -LiteralPath $copy | Should -BeFalse
+    }
+
+    It "作業ファイルの一覧に足したファイルも消える（読む処理の中で足したもの）" {
+        $extra = Join-Path $dir "converted.docx"
+        $extraFiles = New-Object System.Collections.Generic.List[string]
+        invokeWithSourceCopy $source $copy {
+            [System.IO.File]::WriteAllText($extra, "x")
+            $extraFiles.Add($extra)
+        } $extraFiles | Out-Null
+        Test-Path -LiteralPath $extra | Should -BeFalse
+        Test-Path -LiteralPath $copy | Should -BeFalse
+    }
+
+    It "読む処理が途中で投げても、足した作業ファイルは消える" {
+        $extra = Join-Path $dir "converted.docx"
+        $extraFiles = New-Object System.Collections.Generic.List[string]
+        { invokeWithSourceCopy $source $copy {
+            [System.IO.File]::WriteAllText($extra, "x")
+            $extraFiles.Add($extra)
+            throw "変換に失敗"
+        } $extraFiles } | Should -Throw "変換に失敗"
+        Test-Path -LiteralPath $extra | Should -BeFalse
+    }
+
+    It "元が無ければ読む処理を呼ばずに例外にする" {
+        $called = @{ Value = $false }
+        { invokeWithSourceCopy (Join-Path $dir "無い.txt") $copy { $called.Value = $true } } | Should -Throw
+        $called.Value | Should -BeFalse
+    }
+
+    It "読む処理が成功してコピーを消せないとき、作業領域のコピーを消せませんでした で始まる例外になる" {
+        $lock = $null
+        try {
+            { invokeWithSourceCopy $source $copy {
+                $script:lock = [System.IO.File]::Open($copy, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::None)
+                "読めた"
+            } } | Should -Throw "作業領域のコピーを消せませんでした: *"
+        } finally {
+            if ($script:lock) { $script:lock.Dispose() }
+        }
+    }
+
+    It "読む処理が投げ、かつコピーを消せないとき、読む処理の例外が通る" {
+        try {
+            { invokeWithSourceCopy $source $copy {
+                $script:lock = [System.IO.File]::Open($copy, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::None)
+                throw "読めません"
+            } } | Should -Throw "読めません"
+        } finally {
+            if ($script:lock) { $script:lock.Dispose() }
+        }
+    }
+}
+
 Describe "長いパス（260文字超）" -Tag Io {
     # フォルダのパスが約248文字、ファイルのパスが260文字を超えると、\\?\ を付けないと扱えない
     BeforeAll {
@@ -921,7 +1014,7 @@ Describe "getPathState" -Tag Io {
     }
 }
 
-Describe "setNotContentIndexed" -Tag Io {
+Describe "setWindowsSearchExcluded" -Tag Io {
     BeforeAll {
         function script:hasAttr {
             param ([string]$path)
@@ -941,7 +1034,7 @@ Describe "setNotContentIndexed" -Tag Io {
         writeListFile "$dir\a.tsv" @("a")
 
         try {
-            $result = setNotContentIndexed $dir -Recurse
+            $result = setWindowsSearchExcluded $dir -Recurse
             $result.Ok | Should -Be $true
             $result.Changed | Should -Be 5   # dir・a.tsv・下・長い名前のフォルダ・long.tsv
             (hasAttr $dir) | Should -Be $true
@@ -961,7 +1054,7 @@ Describe "setNotContentIndexed" -Tag Io {
         writeListFile "$dir\a.tsv" @("a")
         writeListFile "$dir\下\b.tsv" @("b")
 
-        $result = setNotContentIndexed $dir
+        $result = setWindowsSearchExcluded $dir
         $result.Ok | Should -Be $true
         $result.Changed | Should -Be 2   # dir・a.tsv だけ
         (hasAttr $dir) | Should -Be $true
@@ -974,14 +1067,14 @@ Describe "setNotContentIndexed" -Tag Io {
         $dir = "$TestDrive\nci\2回目"
         writeListFile "$dir\a.tsv" @("a")
 
-        (setNotContentIndexed $dir -Recurse).Changed | Should -Be 2
-        (setNotContentIndexed $dir -Recurse).Changed | Should -Be 0
+        (setWindowsSearchExcluded $dir -Recurse).Changed | Should -Be 2
+        (setWindowsSearchExcluded $dir -Recurse).Changed | Should -Be 0
     }
 
     It "根に付いていれば、下に付いていないものがあっても変えない（下はたどらない）" {
         $dir = "$TestDrive\nci\根に付いている"
         writeListFile "$dir\a.tsv" @("a")
-        setNotContentIndexed $dir -Recurse | Out-Null
+        setWindowsSearchExcluded $dir -Recurse | Out-Null
         (hasAttr $dir) | Should -Be $true
 
         # 新しく作った（WriteAllLines で作った）ものは根の属性を継ぐため、Move で入れて属性を継がせない
@@ -991,7 +1084,7 @@ Describe "setNotContentIndexed" -Tag Io {
         [System.IO.File]::Move($src, "$dir\b.tsv")
         (hasAttr "$dir\b.tsv") | Should -Be $false
 
-        $result = setNotContentIndexed $dir -Recurse
+        $result = setWindowsSearchExcluded $dir -Recurse
         $result.Ok | Should -Be $true
         $result.Changed | Should -Be 0
         (hasAttr "$dir\b.tsv") | Should -Be $false
@@ -1008,7 +1101,7 @@ Describe "setNotContentIndexed" -Tag Io {
         $acl.AddAccessRule($deny)
         $locked.SetAccessControl($acl)
         try {
-            $result = setNotContentIndexed $dir -Recurse
+            $result = setWindowsSearchExcluded $dir -Recurse
             $result.Ok | Should -Be $false
             (hasAttr $dir) | Should -Be $false
         } finally {
@@ -1023,7 +1116,7 @@ Describe "setNotContentIndexed" -Tag Io {
         [System.IO.Directory]::CreateDirectory("$dir\対象") | Out-Null
         [System.IO.Directory]::CreateDirectory("$dir\隣のフォルダ") | Out-Null
 
-        setNotContentIndexed "$dir\対象" -Recurse | Out-Null
+        setWindowsSearchExcluded "$dir\対象" -Recurse | Out-Null
         (hasAttr "$dir\隣のフォルダ") | Should -Be $false
     }
 
@@ -1033,7 +1126,7 @@ Describe "setNotContentIndexed" -Tag Io {
         writeListFile $path @("a")
         [System.IO.File]::SetAttributes($path, [System.IO.FileAttributes]::ReadOnly)
         try {
-            setNotContentIndexed $dir -Recurse | Out-Null
+            setWindowsSearchExcluded $dir -Recurse | Out-Null
             $attrs = [System.IO.File]::GetAttributes($path)
             ($attrs -band [System.IO.FileAttributes]::ReadOnly) | Should -Not -Be 0
             ($attrs -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
@@ -1043,7 +1136,7 @@ Describe "setNotContentIndexed" -Tag Io {
     }
 
     It "無いパスは例外にならず Ok=`$false・Reason を返す" {
-        $result = setNotContentIndexed "$TestDrive\nci\無いフォルダ"
+        $result = setWindowsSearchExcluded "$TestDrive\nci\無いフォルダ"
         $result.Ok | Should -Be $false
         $result.Changed | Should -Be 0
         $result.Reason | Should -Not -BeNullOrEmpty
@@ -1060,7 +1153,7 @@ Describe "setNotContentIndexed" -Tag Io {
         $acl.AddAccessRule($deny)
         $locked.SetAccessControl($acl)
         try {
-            $result = setNotContentIndexed $dir -Recurse
+            $result = setWindowsSearchExcluded $dir -Recurse
             $result.Ok | Should -Be $false
             $result.Reason | Should -Not -BeNullOrEmpty
         } finally {
@@ -1267,7 +1360,7 @@ Describe "getFilesNoFollow" -Tag Io {
     }
 }
 
-Describe "setNotContentIndexed（リンク）" -Tag Io {
+Describe "setWindowsSearchExcluded（リンク）" -Tag Io {
     BeforeAll {
         function script:hasLinkAttr {
             param ([string]$path)
@@ -1287,7 +1380,7 @@ Describe "setNotContentIndexed（リンク）" -Tag Io {
             return
         }
 
-        $result = setNotContentIndexed $dir -Recurse
+        $result = setWindowsSearchExcluded $dir -Recurse
         $result.Ok | Should -Be $true
         $result.Changed | Should -Be 2   # dir・a.tsv だけ
         (hasLinkAttr $dir) | Should -Be $true
@@ -1310,7 +1403,7 @@ Describe "setNotContentIndexed（リンク）" -Tag Io {
         $acl.AddAccessRule($deny)
         $locked.SetAccessControl($acl)
         try {
-            $result = setNotContentIndexed $dir -Recurse
+            $result = setWindowsSearchExcluded $dir -Recurse
             $result.Ok | Should -Be $false
             $result.Changed | Should -Be 0
             $result.Reason | Should -Not -BeNullOrEmpty
@@ -1331,7 +1424,7 @@ Describe "setNotContentIndexed（リンク）" -Tag Io {
             return
         }
 
-        $result = setNotContentIndexed $dir -Recurse
+        $result = setWindowsSearchExcluded $dir -Recurse
         $result.Ok | Should -Be $true
         $result.Changed | Should -Be 3   # dir・a・a.tsv
         (hasLinkAttr "$dir\a\輪") | Should -Be $false
@@ -1344,31 +1437,31 @@ Describe "setNotContentIndexed（リンク）" -Tag Io {
         [System.IO.File]::SetAttributes("$dir\隠し.tsv", [System.IO.FileAttributes]::Hidden)
         [System.IO.File]::SetAttributes("$dir\隠しフォルダ", [System.IO.FileAttributes]::Directory -bor [System.IO.FileAttributes]::Hidden)
 
-        (setNotContentIndexed $dir -Recurse).Ok | Should -Be $true
+        (setWindowsSearchExcluded $dir -Recurse).Ok | Should -Be $true
         (hasLinkAttr "$dir\隠し.tsv") | Should -Be $true
         (hasLinkAttr "$dir\隠しフォルダ") | Should -Be $true
         (hasLinkAttr "$dir\隠しフォルダ\d.tsv") | Should -Be $true
     }
 }
 
-Describe "testNotContentIndexed" -Tag Io {
+Describe "testWindowsSearchExcluded" -Tag Io {
     It "属性が付いていれば `$true" {
         $dir = "$TestDrive\nci-test\付いている"
         [System.IO.Directory]::CreateDirectory($dir) | Out-Null
-        setNotContentIndexed $dir | Out-Null
+        setWindowsSearchExcluded $dir | Out-Null
 
-        testNotContentIndexed $dir | Should -Be $true
+        testWindowsSearchExcluded $dir | Should -Be $true
     }
 
     It "属性が付いていなければ `$false" {
         $dir = "$TestDrive\nci-test\付いていない"
         [System.IO.Directory]::CreateDirectory($dir) | Out-Null
 
-        testNotContentIndexed $dir | Should -Be $false
+        testWindowsSearchExcluded $dir | Should -Be $false
     }
 
     It "無いパスは例外にならず `$false" {
-        testNotContentIndexed "$TestDrive\nci-test\無いフォルダ" | Should -Be $false
+        testWindowsSearchExcluded "$TestDrive\nci-test\無いフォルダ" | Should -Be $false
     }
 }
 

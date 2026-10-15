@@ -148,6 +148,49 @@ function copyFileShared {
     }
 }
 
+function invokeWithSourceCopy {
+    # 元のファイルを作業領域へコピーし（copyFileShared）、コピーを読む処理（readBlock）を呼んでその戻り値を返し、最後にコピーを消す。
+    # 取り込みの入口（テキスト・PDF・Excel・Word・PowerPoint）が、元のファイルを直接開かないために使う。
+    # extraFiles は、読む処理が途中で作った作業ファイルの一覧（List[string]。読む処理の中で足してよい）。コピーと一緒に、あれば消す。
+    # 消せなかったとき: 読む処理が例外なら、その例外をそのまま通す（消せなかったことは握る）。
+    #   読む処理が成功したのに消せなかったときだけ「作業領域のコピーを消せませんでした: <元のメッセージ>」を投げる。
+    # readBlock は子のスコープで動くので、中で代入した変数は呼んだ側に残らない。要る値は出力（戻り値）で返す。
+    # 読む処理の中の COM の呼び出しなどの出力が混ざらないよう、出力は [void]・$null = で捨て、返す値は最後に 1 つだけ出す
+    param (
+        [string]$sourcePath,
+        [string]$copyPath,
+        [scriptblock]$readBlock,
+        [System.Collections.Generic.List[string]]$extraFiles = $null
+    )
+
+    $removeError = $null
+    try {
+        copyFileShared $sourcePath $copyPath
+        # 読む処理の出力は、まとめずにそのまま呼んだ側へ流す（配列・hashtable・何も出さない、のどれも、直接呼んだときと同じ形で届く）
+        & $readBlock
+    } finally {
+        $targets = New-Object System.Collections.Generic.List[string]
+        $targets.Add($copyPath)
+        if ($null -ne $extraFiles) {
+            $targets.AddRange($extraFiles)
+        }
+        foreach ($target in $targets) {
+            try {
+                if (Test-Path -LiteralPath (toLongPath $target)) {
+                    Remove-Item -LiteralPath (toLongPath $target) -Force -ErrorAction Stop
+                }
+            } catch {
+                if (!$removeError) {
+                    $removeError = $_.Exception.Message
+                }
+            }
+        }
+    }
+    if ($removeError) {
+        throw "作業領域のコピーを消せませんでした: $removeError"
+    }
+}
+
 function fromLongPath {
     # toLongPath で付けた \\?\ を外し、通常のパスに戻す（Get-ChildItem の FullName 等から相対パスを求めるため）
     param (
@@ -205,8 +248,8 @@ function trimTrailingSeparator {
     return $trimmed
 }
 
-function setNotContentIndexed {
-    # フォルダ（またはファイル）に「内容のインデックスを作成しない」属性（NotContentIndexed）を付ける。
+function setWindowsSearchExcluded {
+    # Windows Search の索引から外す（NotContentIndexed 属性を付ける）。フォルダ（またはファイル）が対象。
     # 既に付いているものには付け直さない（Changed に数えない）ので、ほかの属性（読み取り専用など）は変えない。
     #   Recurse 無し: path 自身と、フォルダなら直下のファイルに付ける（下のフォルダには付けない）
     #   Recurse あり: path 自身と、下のすべてのフォルダ・ファイルに付ける。ただし下のリンク（ジャンクション・シンボリックリンク）は
@@ -312,8 +355,8 @@ function setNotContentIndexed {
     return @{ Ok = $ok; Changed = $changed; Reason = $reason }
 }
 
-function testNotContentIndexed {
-    # path に「内容のインデックスを作成しない」属性（NotContentIndexed）が付いているかを返す。
+function testWindowsSearchExcluded {
+    # path が Windows Search の索引から外してあるか（NotContentIndexed 属性が付いているか）を返す。
     # 属性を確かめられなければ（パスが無い・アクセスできないなど）例外にせず $false を返す
     param (
         [string]$path

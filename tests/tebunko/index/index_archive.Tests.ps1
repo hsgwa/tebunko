@@ -361,7 +361,7 @@ Describe "importIndex" -Tag Io {
         # 一度インデックス作成を通った作業フォルダ（content_index の根に属性が付いている）へ入れる
         $wsB = [Workspace]::new("$TestDrive\attr_b")
         [System.IO.Directory]::CreateDirectory($wsB.IndexDir) | Out-Null
-        (setNotContentIndexed $wsB.IndexDir -Recurse).Ok | Should -BeTrue
+        (setWindowsSearchExcluded $wsB.IndexDir -Recurse).Ok | Should -BeTrue
         $result = importIndex $dest ${importCollisionRename} "" "D:\別の場所\営業部" $wsB "$TestDrive\attr_b\setting.config"
 
         $flag = [System.IO.FileAttributes]::NotContentIndexed

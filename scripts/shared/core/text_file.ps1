@@ -2,6 +2,9 @@
 # 文字コードの判定（バイト列 → 文字コードまたはバイナリ）は、画面にもファイルにも触らない判断層の関数にする。
 # ファイルを開いて読む関数（readTextFile）だけが状態層（ファイルに触る）。
 
+# 取り込むファイルが大きすぎるときの、利用者向けの文言（テキスト・PDF・Office で同じ。Office の ZIP の上限もこれを使う）
+${fileTooLargeMessage} = "ファイルサイズが大きすぎるため更新できません。"
+
 # 既定のアプリで開く、取り込み対象のテキストファイルの拡張子（小文字）。
 # 足す・減らすと tests\meta\safety.Tests.ps1 が固定の一覧で確かめる
 ${textOpenExtensions} = @(
@@ -338,7 +341,7 @@ function readTextFile {
     $stream = [System.IO.FileStream]::new((toLongPath $path), [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
     try {
         if ($stream.Length -gt $maxBytes) {
-            throw "ファイルサイズが大きすぎるため更新できません。"
+            throw ${fileTooLargeMessage}
         }
         $bytes = New-Object byte[] ([int]$stream.Length)
         $read = 0

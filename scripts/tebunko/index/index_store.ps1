@@ -278,5 +278,5 @@ function publishIndexFiles {
     }
     # bookDir はワークスペースの中（同じドライブ）の一時フォルダから Move で入れるため、親（content_index\）の
     # NotContentIndexed 属性を継がない。ここで、入れた分（フォルダと直下の TSV）だけに付ける
-    [void](setNotContentIndexed $bookDir)
+    [void](setWindowsSearchExcluded $bookDir)
 }
