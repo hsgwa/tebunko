@@ -86,7 +86,7 @@ function testInsideFunction {
 function getVariableBaseName {
     param ($variablePath)
 
-    # $variable:名前 は、名前が variable: のドライブの名前（名前の前の script: などは名前の一部）。ほかは先頭のスコープの印を外す
+    # $variable:名前 は、variable: のドライブの名前から、名前の前の script: などの印を外す。ほかも先頭のスコープの印を外す
     $driveName = getDriveVariableName $variablePath.UserPath
     if ($null -ne $driveName) { return $driveName }
     return (removeVariableScope $variablePath.UserPath)
@@ -184,7 +184,7 @@ function testWildcardName {
 }
 
 # Set-Variable・New-Variable（$kind が Set）・Get-Variable（$kind が Get）の呼び出しの -Name（位置引数を含む）と -Scope の式を返す。
-# 引数の名前は、前の部分だけでも（-N など）一つに決まれば読む。値を取る共通の引数（-ErrorAction など）の値は、位置引数に数えない
+# 引数の読み方は getCommandArguments と同じ。分からない引数の名前があれば、Name は $null（決まらない形として数える）
 function getVariableCommandInfo {
     param (
         $commandAst,
@@ -192,44 +192,26 @@ function getVariableCommandInfo {
     )
 
     $valueParams = @('Name', 'Include', 'Exclude', 'Scope')
-    $switchParams = @('Verbose', 'Debug', 'vb', 'db')
+    $switchParams = @()
     if ($kind -eq 'Set') {
         $valueParams += @('Value', 'Description', 'Option', 'Visibility')
         $switchParams += @('Force', 'PassThru', 'Confirm', 'WhatIf')
     } else {
         $switchParams += @('ValueOnly')
     }
-    $valueParams += @('ErrorAction', 'WarningAction', 'InformationAction', 'ProgressAction', 'ErrorVariable', 'WarningVariable', 'InformationVariable', 'OutVariable', 'OutBuffer', 'PipelineVariable', 'EA', 'WA', 'IA', 'EV', 'WV', 'IV', 'OV', 'OB', 'PV')
-    $all = $valueParams + $switchParams
+    $arguments = getCommandArguments $commandAst $valueParams $switchParams
     $nameArg = $null
     $scopeArg = $null
-    $positional = New-Object System.Collections.Generic.List[object]
-    $elements = $commandAst.CommandElements
-    for ($i = 1; $i -lt $elements.Count; $i++) {
-        $element = $elements[$i]
-        if ($element -isnot [System.Management.Automation.Language.CommandParameterAst]) {
-            $positional.Add($element)
-            continue
-        }
-        $given = $element.ParameterName
-        $match = @($all | Where-Object { $_ -eq $given })
-        if ($match.Count -eq 0) { $match = @($all | Where-Object { $_.StartsWith($given, [System.StringComparison]::OrdinalIgnoreCase) }) }
-        if ($match.Count -ne 1 -or $switchParams -contains $match[0]) { continue }
-        $arg = $element.Argument
-        if (-not $arg -and $i + 1 -lt $elements.Count) {
-            $i++
-            $arg = $elements[$i]
-        }
-        if ($match[0] -eq 'Name') { $nameArg = $arg } elseif ($match[0] -eq 'Scope') { $scopeArg = $arg }
-    }
-    if (-not $nameArg -and $positional.Count -gt 0) { $nameArg = $positional[0] }
+    if ($arguments.Named.ContainsKey('Name')) { $nameArg = $arguments.Named['Name'] } elseif ($arguments.Positional.Count -gt 0) { $nameArg = $arguments.Positional[0] }
+    if ($arguments.Named.ContainsKey('Scope')) { $scopeArg = $arguments.Named['Scope'] }
+    $nameText = $null
+    if (-not $arguments.HasUnknownName) { $nameText = getConstantText $nameArg }
     return [pscustomobject]@{
-        Name       = (getConstantText $nameArg)
+        Name       = $nameText
         Scope      = (getConstantText $scopeArg)
         ScopeGiven = [bool]$scopeArg
     }
 }
-
 # Set-Variable・New-Variable が、そのファイルの最上位の変数を作るか。= の代入と同じ条件
 # （関数の外なら作る。関数の中なら、-Scope が Script・Global・1 以上のときだけ作る。
 # Set-Variable は -Scope が無ければ、名前の前の script:・global: でも作る）。
@@ -484,7 +466,8 @@ function addProviderDriveFacts {
 }
 
 # コマンドの引数を、名前を付けた値（Named。引数の名前 → 式）と、位置引数（Positional）に分ける。
-# 引数の名前は、前の部分だけでも（-N など）一つに決まれば読む。決まらない名前と、値を取らない引数（$switchParams）は読み飛ばす
+# 引数の名前は、前の部分だけでも（-N など）一つに決まれば読む。値を取らない引数（$switchParams）は読み飛ばす。
+# 決まらない名前は読み飛ばし、HasUnknownName を $true にする
 function getCommandArguments {
     param (
         $commandAst,
@@ -497,6 +480,7 @@ function getCommandArguments {
     $all = $valueParams + $switchParams + $commonSwitches + $commonValues
     $named = @{}
     $positional = New-Object System.Collections.Generic.List[object]
+    $hasUnknownName = $false
     $elements = $commandAst.CommandElements
     for ($i = 1; $i -lt $elements.Count; $i++) {
         $element = $elements[$i]
@@ -507,7 +491,12 @@ function getCommandArguments {
         $given = $element.ParameterName
         $match = @($all | Where-Object { $_ -eq $given })
         if ($match.Count -eq 0) { $match = @($all | Where-Object { $_.StartsWith($given, [System.StringComparison]::OrdinalIgnoreCase) }) }
-        if ($match.Count -ne 1 -or $switchParams -contains $match[0] -or $commonSwitches -contains $match[0]) { continue }
+        if ($match.Count -ne 1) {
+            # 分からない名前は、値を取るかどうか決まらない（値が位置引数に混ざる）ので、呼ぶ側が形に倒せるよう覚えておく
+            $hasUnknownName = $true
+            continue
+        }
+        if ($switchParams -contains $match[0] -or $commonSwitches -contains $match[0]) { continue }
         $arg = $element.Argument
         if (-not $arg -and $i + 1 -lt $elements.Count) {
             $i++
@@ -515,7 +504,7 @@ function getCommandArguments {
         }
         $named[$match[0]] = $arg
     }
-    return [pscustomobject]@{ Named = $named; Positional = $positional.ToArray() }
+    return [pscustomobject]@{ Named = $named; Positional = $positional.ToArray(); HasUnknownName = $hasUnknownName }
 }
 
 # Get-Command（gcm）の名前の式の、定数の値を返す（-Name・位置引数）。定数でなければ $null
@@ -525,6 +514,8 @@ function getGetCommandNameText {
     $valueParams = @('Name', 'CommandType', 'Module', 'FullyQualifiedModule', 'Noun', 'Verb', 'ParameterName', 'ParameterType', 'TotalCount', 'ArgumentList')
     $switchParams = @('Syntax', 'All', 'ListImported', 'ShowCommandInfo', 'UseFuzzyMatching', 'UseAbbreviationExpansion')
     $arguments = getCommandArguments $commandAst $valueParams $switchParams
+    # 分からない引数の名前があると、その値が位置引数に混ざる（-Type Function betaFn の Function を名前と読む）ので、決まらない（形）とする
+    if ($arguments.HasUnknownName) { return $null }
     $nameArg = $null
     if ($arguments.Named.ContainsKey('Name')) { $nameArg = $arguments.Named['Name'] } elseif ($arguments.Positional.Count -gt 0) { $nameArg = $arguments.Positional[0] }
     return (getConstantText $nameArg)

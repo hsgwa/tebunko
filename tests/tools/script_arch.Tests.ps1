@@ -763,6 +763,7 @@ Describe "ドライブの名前の印・かっこ・コマンドの組み合わ�
         @{ code = 'function callA { Get-Command -Name:"betaFn" -All }'; expected = 'upper/a.ps1 -> lower/b.ps1（betaFn）' }
         @{ code = 'function callA { Get-Command $n }'; expected = '' }
         @{ code = 'function callA { Get-Command betaF* }'; expected = '' }
+        @{ code = 'function callA { Get-Command -Type Function betaFn }'; expected = '' }
     ) {
         param ($code, $expected)
 
@@ -796,6 +797,9 @@ Describe "ドライブの名前の印・かっこ・コマンドの組み合わ�
         @{ code = 'function callA { Get-Command }'; expected = "Get-Command" }
         @{ code = 'function callA { Get-Command -CommandType Function }'; expected = "Get-Command" }
         @{ code = 'function callA { Get-Command betaFn }'; expected = "" }
+        @{ code = 'function callA { Get-Command -Type Function betaFn }'; expected = "Get-Command" }
+        @{ code = 'function callA { Get-Command -Foo Bar betaFn }'; expected = "Get-Command" }
+        @{ code = 'function callA { Set-Variable -Foo Bar -Name x 1 }'; expected = "Set-Variable・New-Variable の -Name が定数でない" }
         @{ code = 'function callA { Set-Content "$env:TEMP\x" 1; Test-Path ($env:TEMP) }'; expected = "" }
         @{ code = 'function callA { Set-Content (Join-Path $dir "x") 1 }'; expected = "" }
     ) {
