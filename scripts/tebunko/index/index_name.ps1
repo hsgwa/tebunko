@@ -103,7 +103,7 @@ function splitIndexRelPath {
 }
 
 
-# Windows で使えないファイル名の一覧（${reservedFileNames}）は shared/core/fs.ps1 にある
+# Windows で使えないファイル名の一覧（${reservedFileNames}）は shared/core/text.ps1 にある
 
 
 function testIndexName {
@@ -140,7 +140,7 @@ function testStoredIndexName {
     return (getFolderNameProblemText ([string]$name) $true)
 }
 
-# ファイル名に使えない文字の配列 ${invalidFileNameChars} は shared/core/fs.ps1 にある（getFolderNameProblemText と共通）
+# ファイル名に使えない文字の配列 ${invalidFileNameChars} は shared/core/text.ps1 にある（getFolderNameProblemText と共通）
 
 function testPathSegments {
     # 区切り文字で分けたパスの各区切り（segments）が、ファイル名として安全に使えるかを調べ、

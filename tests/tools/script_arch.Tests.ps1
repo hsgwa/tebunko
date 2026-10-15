@@ -321,14 +321,20 @@ Describe "Set-Variable・New-Variable" -Tag Unit {
         @{ name = '関数の外の ${variable:名前} = … の代入を数える'
             code = '${variable:config} = 1'; counted = $true
         }
-        @{ name = '関数の外の ${variable:script:名前} = … は、名前そのもの（script:config）なので、config の読みには数えない'
-            code = '${variable:script:config} = 1'; counted = $false
+        @{ name = '関数の外の ${variable:script:名前} = … は、印を外した名前（config）の代入に数える'
+            code = '${variable:script:config} = 1'; counted = $true
         }
         @{ name = '関数の中の $variable:名前 = … は数えない'
             code = 'function init { $variable:config = 1 }'; counted = $false
         }
-        @{ name = '関数の中の ${variable:script:名前} = … は、スクリプトの変数を変えないので数えない'
-            code = 'function init { ${variable:script:config} = 1 }'; counted = $false
+        @{ name = '関数の中の $variable:script:名前 = … は、$script:名前 = … と同じく数える'
+            code = 'function init { $variable:script:config = 1 }'; counted = $true
+        }
+        @{ name = '関数の中の ${variable:global:名前} = … も、数える'
+            code = 'function init { ${variable:global:config} = 1 }'; counted = $true
+        }
+        @{ name = '関数の中の $variable:local:名前 = … は、その関数のスコープの変数なので数えない'
+            code = 'function init { $variable:local:config = 1 }'; counted = $false
         }
         @{ name = '関数の外の $env:名前 = … は数えない'
             code = '$env:config = 1'; counted = $false
@@ -402,8 +408,11 @@ Describe "名前で読む変数" -Tag Unit {
         @{ name = "script: 付きの名前は、名前そのもの（script:config）なので、config の読みには数えない"
             code = 'function callA { Get-Variable -Name "script:config" }'; counted = $false
         }
-        @{ name = 'variable:script:名前 の読みも、名前そのものなので、config の読みには数えない'
-            code = 'function callA { Get-Item variable:script:config; $variable:script:config }'; counted = $false
+        @{ name = 'variable:script:名前 の読みは、印を外した名前（config）の読みに数える'
+            code = 'function callA { Get-Item variable:script:config }'; counted = $true
+        }
+        @{ name = '$variable:script:名前 の読みも、印を外した名前の読みに数える'
+            code = 'function callA { $variable:script:config }'; counted = $true
         }
         @{ name = "名前を変数で渡す Get-Variable は、依存に数えない"
             code = 'function callA { param ($n) Get-Variable -Name $n }'; counted = $false
@@ -727,6 +736,110 @@ Describe "名前を文字列で渡す呼び出し" -Tag Unit {
         $allow = @{ From = "upper/a.ps1"; To = $items[0].To; Name = "Get-Command" }
         @(removeAllowedDependencies $items @($allow)).Count | Should -Be 0
         @(findUnusedAllowances @($allow) $items).Count | Should -Be 0
+    }
+}
+
+# 同じ意味の書き方の組み合わせ（ドライブの名前の印 × ドライブ × 読む・書く × コマンド・かっこ）を、表にして確かめる
+Describe "ドライブの名前の印・かっこ・コマンドの組み合わせ" -Tag Unit {
+    # 印（script: など）を外した名前で、変数の読み・関数の呼び出しとして数える（lower/b.ps1 の最上位の変数 $config・関数 betaFn と組になる）
+    It "<code> は <expected> に数える" -TestCases @(
+        @{ code = 'function callA { Test-Path variable:script:config }'; expected = 'upper/a.ps1 -> lower/b.ps1（$config）' }
+        @{ code = 'function callA { Get-Item variable:global:config }'; expected = 'upper/a.ps1 -> lower/b.ps1（$config）' }
+        @{ code = 'function callA { Get-Item variable:local:config }'; expected = 'upper/a.ps1 -> lower/b.ps1（$config）' }
+        @{ code = 'function callA { Get-ItemProperty variable:config }'; expected = 'upper/a.ps1 -> lower/b.ps1（$config）' }
+        @{ code = 'function callA { Get-ItemPropertyValue variable:script:config -Name Value }'; expected = 'upper/a.ps1 -> lower/b.ps1（$config）' }
+        @{ code = 'function callA { Resolve-Path variable:config }'; expected = 'upper/a.ps1 -> lower/b.ps1（$config）' }
+        @{ code = 'function callA { Test-Path "variable:script:config" }'; expected = 'upper/a.ps1 -> lower/b.ps1（$config）' }
+        @{ code = 'function callA { Test-Path ("variable:config") }'; expected = 'upper/a.ps1 -> lower/b.ps1（$config）' }
+        @{ code = 'function callA { Get-Item -Path ((''variable:script:config'')) }'; expected = 'upper/a.ps1 -> lower/b.ps1（$config）' }
+        @{ code = 'function callA { Get-Item -Path:("variable:config") }'; expected = 'upper/a.ps1 -> lower/b.ps1（$config）' }
+        @{ code = 'function callA { Get-Item -Path ("variable:config") }'; expected = 'upper/a.ps1 -> lower/b.ps1（$config）' }
+        @{ code = 'function callA { ${variable:global:config} }'; expected = 'upper/a.ps1 -> lower/b.ps1（$config）' }
+        @{ code = 'function callA { & ${function:script:betaFn} }'; expected = 'upper/a.ps1 -> lower/b.ps1（betaFn）' }
+        @{ code = 'function callA { & $function:global:betaFn }'; expected = 'upper/a.ps1 -> lower/b.ps1（betaFn）' }
+        @{ code = 'function callA { Get-Command betaFn -ErrorAction SilentlyContinue }'; expected = 'upper/a.ps1 -> lower/b.ps1（betaFn）' }
+        @{ code = 'function callA { Get-Command -CommandType Function betaFn }'; expected = 'upper/a.ps1 -> lower/b.ps1（betaFn）' }
+        @{ code = 'function callA { gcm -Name betaFn }'; expected = 'upper/a.ps1 -> lower/b.ps1（betaFn）' }
+        @{ code = 'function callA { Get-Command -Name:"betaFn" -All }'; expected = 'upper/a.ps1 -> lower/b.ps1（betaFn）' }
+        @{ code = 'function callA { Get-Command $n }'; expected = '' }
+        @{ code = 'function callA { Get-Command betaF* }'; expected = '' }
+        @{ code = 'function callA { Get-Command -Type Function betaFn }'; expected = '' }
+    ) {
+        param ($code, $expected)
+
+        $files = @{ "upper/a.ps1" = $code; "lower/b.ps1" = "`$config = 1`nfunction betaFn { 1 }" }
+        (dependenciesOf $files @("upper/*") @("lower/*")) | Should -Be $expected
+    }
+
+    # 呼ぶ先・変数の名前が決まらない書き方は、形として返す
+    It "<code> は、形 <expected> を返す" -TestCases @(
+        @{ code = 'function callA { Get-Item (''function:'' + $n) }'; expected = "function: ドライブ" }
+        @{ code = 'function callA { Test-Path ("function:$n") }'; expected = "function: ドライブ" }
+        @{ code = 'function callA { Get-Item (''variable:'' + $n) }'; expected = "variable: ドライブの名前が定数でない" }
+        @{ code = 'function callA { Get-Item -Path ("variable:$n") }'; expected = "variable: ドライブの名前が定数でない" }
+        @{ code = 'function callA { Set-Item (''variable:'' + $n) 1 }'; expected = "variable: ドライブへの書き込み" }
+        @{ code = 'function callA { Set-Content variable:p 1 }'; expected = "variable: ドライブへの書き込み" }
+        @{ code = 'function callA { Set-Content -Path ("variable:p") 1 }'; expected = "variable: ドライブへの書き込み" }
+        @{ code = 'function callA { sc variable:p 1 }'; expected = "variable: ドライブへの書き込み" }
+        @{ code = 'function callA { Add-Content variable:p 1 }'; expected = "variable: ドライブへの書き込み" }
+        @{ code = 'function callA { ac variable:p 1 }'; expected = "variable: ドライブへの書き込み" }
+        @{ code = 'function callA { Clear-Content variable:p }'; expected = "variable: ドライブへの書き込み" }
+        @{ code = 'function callA { Clear-Item variable:p }'; expected = "variable: ドライブへの書き込み" }
+        @{ code = 'function callA { Rename-Item variable:p q }'; expected = "variable: ドライブへの書き込み" }
+        @{ code = 'function callA { Move-Item variable:p variable:q }'; expected = "variable: ドライブへの書き込み・variable: ドライブへの書き込み" }
+        @{ code = 'function callA { Add-Content function:f "x" }'; expected = "function: ドライブ" }
+        @{ code = 'function callA { Set-Content function:f "x" }'; expected = "function: ドライブ" }
+        @{ code = 'function callA { Rename-Item function:f g }'; expected = "function: ドライブ" }
+        @{ code = 'function callA { Get-ItemProperty function:f }'; expected = "function: ドライブ" }
+        @{ code = 'function callA { Get-Command $n }'; expected = "Get-Command" }
+        @{ code = 'function callA { Get-Command betaF* }'; expected = "Get-Command" }
+        @{ code = 'function callA { Get-Command -Name "betaF?" }'; expected = "Get-Command" }
+        @{ code = 'function callA { Get-Command }'; expected = "Get-Command" }
+        @{ code = 'function callA { Get-Command -CommandType Function }'; expected = "Get-Command" }
+        @{ code = 'function callA { Get-Command betaFn }'; expected = "" }
+        @{ code = 'function callA { Get-Command -Type Function betaFn }'; expected = "Get-Command" }
+        @{ code = 'function callA { Get-Command -Foo Bar betaFn }'; expected = "Get-Command" }
+        @{ code = 'function callA { Set-Variable -Foo Bar -Name x 1 }'; expected = "Set-Variable・New-Variable の -Name が定数でない" }
+        @{ code = 'function callA { Set-Content "$env:TEMP\x" 1; Test-Path ($env:TEMP) }'; expected = "" }
+        @{ code = 'function callA { Set-Content (Join-Path $dir "x") 1 }'; expected = "" }
+    ) {
+        param ($code, $expected)
+
+        $arch = newScriptArch (newSampleRoot @{ "upper/a.ps1" = $code; "lower/b.ps1" = 'function betaFn { 1 }' })
+        (@(findStringNameCalls $arch -In "upper/*" | ForEach-Object { $_.Name }) -join "・") | Should -Be $expected
+    }
+
+    # 名前を文字列の並びで受け取る関数（newWorkerState）は、渡す側が表で教えたときだけ、中の定数の文字列を数える
+    Context "名前の並びを受け取る関数" {
+        BeforeAll {
+            $script:nameListCommands = @{
+                workerState = @(@{ Kind = "Function"; Parameter = "functions" }, @{ Kind = "Variable"; Parameter = "variables" })
+            }
+            function dependenciesWithNameList {
+                param ([string]$code, $nameListCommands)
+
+                $files = @{ "upper/a.ps1" = $code; "lower/b.ps1" = "`$config = 1`nfunction betaFn { 1 }`nfunction workerState { 1 }" }
+                $arch = newScriptArch (newSampleRoot $files) $nameListCommands
+                return (@(findFileDependencies $arch -From @("upper/*") -To @("lower/*")) -join ", ")
+            }
+        }
+
+        It "<code> は、関数の呼び出しと変数の読みに数える" -TestCases @(
+            @{ code = 'function callA { workerState @("betaFn") @("config") }'; expected = 'upper/a.ps1 -> lower/b.ps1（$config・betaFn・workerState）' }
+            @{ code = 'function callA { workerState -functions @("betaFn") }'; expected = 'upper/a.ps1 -> lower/b.ps1（betaFn・workerState）' }
+            @{ code = 'function callA { workerState -variables @("config") }'; expected = 'upper/a.ps1 -> lower/b.ps1（$config・workerState）' }
+            @{ code = 'function callA { workerState -variables @("config") @("betaFn") }'; expected = 'upper/a.ps1 -> lower/b.ps1（$config・betaFn・workerState）' }
+            @{ code = 'function callA { $s = workerState @("betaFn", $other) `' + "`n" + '  @("config") }'; expected = 'upper/a.ps1 -> lower/b.ps1（$config・betaFn・workerState）' }
+            @{ code = 'function callA { workerState @() @() }'; expected = 'upper/a.ps1 -> lower/b.ps1（workerState）' }
+        ) {
+            param ($code, $expected)
+
+            dependenciesWithNameList $code $script:nameListCommands | Should -Be $expected
+        }
+
+        It "表を渡さなければ、名前の並びの中の文字列は数えない" {
+            dependenciesWithNameList 'function callA { workerState @("betaFn") @("config") }' @{} | Should -Be 'upper/a.ps1 -> lower/b.ps1（workerState）'
+        }
     }
 }
 

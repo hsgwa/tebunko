@@ -1,4 +1,4 @@
-﻿# TSV とセルの文字列を扱う（判断層。ファイルに触らない）。
+﻿# TSV とセルの文字列・ファイル名の確かめを扱う（判断層。ファイルに触らない）。
 
 # インデックスのTSVで、セル内改行の代わりに使う文字（U+2028 LINE SEPARATOR）。
 # TSVの1行 = Excelの1行を保つため、セル内改行はこの文字に置き換えて保存し、検索結果の出力時に改行へ戻す
@@ -115,4 +115,77 @@ function testTextTrimmed {
         return $false
     }
     return (($requiredWidth - $actualWidth) -gt $tolerance)
+}
+
+function toSafeFileName {
+    # ファイル名に使えない文字を全角に変換
+    param (
+        [string]$name
+    )
+
+    $name = $name.Replace(">", "＞")
+    $name = $name.Replace("<", "＜")
+    $name = $name.Replace("\", "￥")
+    $name = $name.Replace("*", "＊")
+    $name = $name.Replace('"', '”')
+    $name = $name.Replace(":", "：")
+    $name = $name.Replace("?", "？")
+    $name = $name.Replace("|", "｜")
+    $name = $name.Replace("/", "／")
+
+    return $name
+}
+
+
+${maxFileNameLength} = 255  # Windows のファイル名（パスの区切りの間の1つ）の上限
+
+# Windows で使えないファイル名（フォルダ名として使えるかの判定に使う）
+${reservedFileNames} = @("CON", "PRN", "AUX", "NUL") +
+    @(1..9 | ForEach-Object { "COM$_" }) + @(1..9 | ForEach-Object { "LPT$_" })
+
+# ファイル名に使えない文字（getFolderNameProblemText とパスの区切りごとの確かめ（testPathSegments）が使う。呼ぶたびに作り直さない）
+${invalidFileNameChars} = [System.IO.Path]::GetInvalidFileNameChars()
+
+function getFolderNameProblemText {
+    # 作業フォルダの下に作る 1 つのフォルダ名として使えるかを調べ、使えない理由を返す（使えれば空文字列）。
+    # 空・前後の空白・長すぎる・使えない文字（\ / : など。.. のような外へ出る名前を含む）・最後の .・Windows の予約名を拒む。
+    # 設定ファイルや状態ファイルから読んだ名前を使う前の確かめ（ほかの名前との重複は調べない）。
+    #   allowReserved: $true なら Windows の予約名（aux.backup など）は拒まない（既にある実在のフォルダの名前を空にせず、そのまま使い続けるため。
+    #                  新しく付ける名前には使わない）
+    param (
+        [string]$name,
+        [bool]$allowReserved = $false
+    )
+
+    if ($name -eq "") {
+        return "名前を入力してください。"
+    }
+    if ($name -ne $name.Trim()) {
+        return "名前の前後に空白は使えません。"
+    }
+    if ($name.Length -gt ${maxFileNameLength}) {
+        return "名前が長すぎます（${maxFileNameLength} 文字まで）。"
+    }
+    if ($name.IndexOfAny(${invalidFileNameChars}) -ge 0) {
+        return "名前に使えない文字が含まれています（\ / : * ? " + [char]34 + " < > | と制御文字）。"
+    }
+    if ($name.EndsWith(".")) {
+        return "名前の最後に . は使えません。"
+    }
+    if (!$allowReserved -and ${reservedFileNames} -contains $name.Split(".")[0].ToUpperInvariant()) {
+        return "「${name}」は Windows で使えない名前です。"
+    }
+    return ""
+}
+
+function testPlainFolderName {
+    # 1 つのフォルダ名として、置き場の外へ出ず、名前のとおりに作れるかだけを調べる（予約名・最後の . や空白は問わない）。
+    # 空・.・..・長すぎる名前・使えない文字（\ / : など）を拒む。getFolderNameProblemText より緩く、
+    # 前の版で作られた名前を、名前でパスを組まずに扱う（列挙して消す）ときの、読み飛ばすかどうかの判断に使う
+    param (
+        [string]$name
+    )
+
+    return !($name -eq "" -or $name -eq "." -or $name -eq ".." -or $name.Length -gt ${maxFileNameLength} -or
+        $name.IndexOfAny(${invalidFileNameChars}) -ge 0)
 }

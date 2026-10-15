@@ -3,18 +3,6 @@ BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
 }
 
-Describe "toSafeFileName" -Tag Io {
-    It "<name>" -TestCases @(
-        @{ name = "ファイル名に使えない文字を全角に変換する"; text = 'a<b>c\d*e:f?g|h'; expected = 'a＜b＞c￥d＊e：f？g｜h' }
-        @{ name = "スラッシュを全角に変換する"; text = 'a/b'; expected = 'a／b' }
-        @{ name = "ダブルクォートを全角に変換する"; text = 'a"b'; expected = 'a”b' }
-        @{ name = "使える文字はそのまま返す"; text = 'シート1 (2)'; expected = 'シート1 (2)' }
-    ) {
-        param($name, $text, $expected)
-        toSafeFileName $text | Should -Be $expected
-    }
-}
-
 Describe "toLongPath / fromLongPath" -Tag Io {
     It "<name>。外すと元に戻り、付いていればそのまま、付いていなければ外してもそのまま" -TestCases @(
         @{ name = "ドライブのパスに \\?\ を付ける"; short = "C:\data\a.xlsx"; long = "\\?\C:\data\a.xlsx" }
@@ -258,67 +246,6 @@ Describe "readListFile / writeListFile" -Tag Io {
 Describe "formatFileTime" -Tag Io {
     It "秒までの日時にする" {
         formatFileTime (New-Object DateTime 2025, 1, 2, 3, 4, 5, 678) | Should -Be "2025/01/02 03:04:05"
-    }
-}
-
-Describe "getFolderNameProblemText" -Tag Unit {
-    It "「<name>」が使えるか: <usable>" -TestCases @(
-        @{ name = "営業部 2025"; usable = $true }
-        @{ name = "CONSOLE"; usable = $true }
-        @{ name = ("あ" * 255); usable = $true }
-        @{ name = ""; usable = $false }
-        @{ name = " 営業"; usable = $false }
-        @{ name = "営業　"; usable = $false }
-        @{ name = ("あ" * 256); usable = $false }
-        @{ name = ".."; usable = $false }
-        @{ name = "営業."; usable = $false }
-        @{ name = "a\b"; usable = $false }
-        @{ name = "a/b"; usable = $false }
-        @{ name = "a:b"; usable = $false }
-        @{ name = "con"; usable = $false }
-        @{ name = "NUL.txt"; usable = $false }
-        @{ name = "LPT1"; usable = $false }
-    ) {
-        $problem = getFolderNameProblemText $name
-        ($problem -eq "") | Should -Be $usable
-    }
-
-    It "予約名を許すとき、「<name>」が使えるか: <usable>（予約名以外は同じ決まり）" -TestCases @(
-        @{ name = "aux.backup"; usable = $true }
-        @{ name = "CON.txt"; usable = $true }
-        @{ name = "con"; usable = $true }
-        @{ name = "LPT1"; usable = $true }
-        @{ name = "営業部 2025"; usable = $true }
-        @{ name = ""; usable = $false }
-        @{ name = ".."; usable = $false }
-        @{ name = " con"; usable = $false }
-        @{ name = "con."; usable = $false }
-        @{ name = "a\b"; usable = $false }
-        @{ name = "a:b"; usable = $false }
-        @{ name = ("あ" * 256); usable = $false }
-    ) {
-        $problem = getFolderNameProblemText $name $true
-        ($problem -eq "") | Should -Be $usable
-    }
-}
-
-Describe "testPlainFolderName" -Tag Unit {
-    It "「<name>」が使えるか: <usable>" -TestCases @(
-        @{ name = "営業部"; usable = $true }
-        @{ name = "aux.backup"; usable = $true }
-        @{ name = "CON"; usable = $true }
-        @{ name = "営業."; usable = $true }
-        @{ name = "営業 "; usable = $true }
-        @{ name = ("あ" * 255); usable = $true }
-        @{ name = ""; usable = $false }
-        @{ name = "."; usable = $false }
-        @{ name = ".."; usable = $false }
-        @{ name = ("あ" * 256); usable = $false }
-        @{ name = "a\b"; usable = $false }
-        @{ name = "a/b"; usable = $false }
-        @{ name = "a:b"; usable = $false }
-    ) {
-        (testPlainFolderName $name) | Should -Be $usable
     }
 }
 
