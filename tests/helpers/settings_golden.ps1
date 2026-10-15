@@ -43,5 +43,8 @@ function writeGoldenSettings {
     }
     writeWorkspaceFolder "C:\tebunko_golden\ws" $path
     updateSettings "ingestThreads" 2 $path
-    updateSettings "searchLimit" 20000 $path   # この版より前の版には無いキー（見本は今の版で作る）
+    # 検索結果の件数の上限（この版より前の版には無いので、その版がキーを知っているときだけ書く）
+    if ((newSettings).Contains("searchLimit")) {
+        updateSettings "searchLimit" 20000 $path
+    }
 }

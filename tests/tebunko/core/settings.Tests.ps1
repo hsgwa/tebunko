@@ -817,11 +817,11 @@ Describe "検索結果の件数の上限（searchLimit）" {
         getSearchLimit $Value | Should -Be $Expected
     }
 
-    It "readSearchLimit: キーが無ければ既定（10000）、文字列で書いても数値として読む" -Tag Io {
+    It "readSearchLimit: ファイルが無い・キーが無ければ既定、文字列で書いても数値として読む" -Tag Io {
         $path = "$TestDrive\件数の上限\setting.config"
         readSearchLimit $path | Should -Be ${searchLimitDefault}
         updateSettings "useRegex" $true $path
-        readSearchLimit $path | Should -Be 10000
+        readSearchLimit $path | Should -Be ${searchLimitDefault}
         updateSettings "searchLimit" "20000" $path
         readSearchLimit $path | Should -Be 20000
     }
