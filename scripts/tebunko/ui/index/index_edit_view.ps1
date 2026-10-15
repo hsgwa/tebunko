@@ -95,6 +95,18 @@ function getIndexJobCloseConfirm {
     }
 }
 
+function getIndexingCloseConfirm {
+    # インデックスを更新中に画面を閉じようとしたときの確認（showConfirm に渡す文言）
+    return @{
+        Title      = "更新中です"
+        Heading    = "インデックスを更新中です。中止して閉じますか？"
+        Hint       = "更新したところまでは残ります。次に起動したときに続きから再開できます。"
+        StopText   = "中止して閉じる"
+        StopValue  = "stop"
+        CancelText = "閉じない"
+    }
+}
+
 function getIndexJobCloseAfterConfirm {
     # 確認から戻ったときの動き（"close" か "stay"）。聞いている間に仕事が終わったなら、答えにかかわらず閉じる
     # （終わったときの「終わったら閉じる」は、確認の間は動かさないため）

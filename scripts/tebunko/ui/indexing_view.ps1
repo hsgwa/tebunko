@@ -131,6 +131,25 @@ function getIndexingBannerBehavior {
     }
 }
 
+function getIndexingBannerView {
+    # 帯に何を出すか。@{ Level; Closable; AutoCloseSeconds }
+    #   Level: 帯の色・振る舞いの種類。更新中の帯（kind が running）は run、それ以外は渡された level のまま
+    #   Closable・AutoCloseSeconds: getIndexingBannerBehavior のとおり（閉じるボタンを出すか・自動で消えるまでの秒数）
+    param (
+        [string]$kind,     # 帯の種類（running / interrupted / done / 空）
+        [string]$level,    # 色の種類（info / warn / ok / ng）。更新中は使わない
+        [int]$pending = 0  # 取り込みの残りの件数
+    )
+
+    $effectiveLevel = if ($kind -eq "running") { "run" } else { $level }
+    $behavior = getIndexingBannerBehavior $effectiveLevel $pending
+    return @{
+        Level            = $effectiveLevel
+        Closable         = [bool]$behavior.Closable
+        AutoCloseSeconds = [int]$behavior.AutoCloseSeconds
+    }
+}
+
 function getIndexingResumeBannerDecision {
     # 更新の集計を読み直したときの、帯の扱い。@{ Action; Dismissed; CanResume }
     #   Action: Show（中断の帯を出す）/ Text（出ている中断の帯の文だけ直す）/ Retime（終わりの帯の自動で消える時計を決め直す）/

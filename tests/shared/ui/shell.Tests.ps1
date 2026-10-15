@@ -15,6 +15,9 @@ Describe "shell.ps1" -Tag Unit {
 
         # ---- 画面の偽物 ----
         $ui = @{ StatusText = [pscustomobject]@{ Text = ""; ToolTip = "" } }
+        # ステータスの文の出し先は、ツール側が登録する形（製品では tebunko/ui/shell/services.ps1）
+        $statusText = $ui.StatusText
+        setStatusSink { param ([string]$text) $statusText.Text = $text }.GetNewClosure()
 
         # 記録先は、製品が使う登録の口で、テスト用のフォルダにする
         setGuiErrorLogSource { Join-Path $TestDrive "gui_error_log.txt" } $null
@@ -196,6 +199,24 @@ Describe "shell.ps1" -Tag Unit {
             $ui.StatusText.Text | Should -Be "エラーが発生しました：x"
             Should -Invoke showErrorDialog -Times 2 -Exactly -ParameterFilter {
                 $heading -eq "予期しないエラーが起きました。" -and $detail -match ": x$" -and $logFile -match "gui_error_log.txt"
+            }
+        }
+    }
+
+    Describe "setStatus（出し先の登録）" {
+        It "登録した出し先に文を渡す" {
+            setStatus "確かめ中です"
+            $ui.StatusText.Text | Should -Be "確かめ中です"
+        }
+
+        It "出し先を登録していなければ、何もせず例外も出さない" {
+            $saved = $script:statusSink
+            try {
+                $script:statusSink = $null
+                { setStatus "捨てられる" } | Should -Not -Throw
+                $ui.StatusText.Text | Should -Be ""
+            } finally {
+                $script:statusSink = $saved
             }
         }
     }

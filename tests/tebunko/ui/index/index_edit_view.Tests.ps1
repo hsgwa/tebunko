@@ -114,6 +114,16 @@ Describe "getIndexJobCloseAction" -Tag Unit {
         $confirm.CloseValue | Should -Not -BeNullOrEmpty
     }
 
+    It "更新中に閉じるときの確認の文言を返す" {
+        $confirm = getIndexingCloseConfirm
+        $confirm.Title | Should -Be "更新中です"
+        $confirm.Heading | Should -BeLike "*更新中*中止して閉じますか*"
+        $confirm.Hint | Should -BeLike "*続きから再開*"
+        $confirm.StopText | Should -Be "中止して閉じる"
+        $confirm.StopValue | Should -Be "stop"
+        $confirm.CancelText | Should -Be "閉じない"
+    }
+
     It "<label>" -TestCases @(
         @{ label = "［待たずに閉じる］なら、まだ仕事の途中でも閉じる"; answer = "close"; busy = $true; expected = "close" }
         @{ label = "［終わるまで待つ］で、まだ仕事の途中なら閉じない"; answer = ""; busy = $true; expected = "stay" }

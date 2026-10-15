@@ -80,7 +80,7 @@ stateDiagram-v2
 
 帯（`IndexingProgressPanel`）は、更新の状態をこの画面の上に残す。ステータスバー（窓の下。`xaml/shell/status_bar.xaml`）は、直前の操作の結果を 1 行で知らせる。役割を分け、同じことを 2 か所に出さない。
 
-**帯がいつ消えるか**（判断層の `getIndexingBannerBehavior`。`Closable`＝閉じるボタン（×）を出すか、`AutoCloseSeconds`＝出してから自動で消えるまでの秒数。0 は自動では消えない）:
+**帯がいつ消えるか**（判断層の `getIndexingBannerView`（中で `getIndexingBannerBehavior` を使う）。`Closable`＝閉じるボタン（×）を出すか、`AutoCloseSeconds`＝出してから自動で消えるまでの秒数。0 は自動では消えない）:
 
 | 種類（level） | 閉じるボタン | 自動で消えるまで | 理由 |
 |---|---|---|---|

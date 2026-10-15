@@ -52,19 +52,19 @@ function setIndexingBanner {
     $ui.IndexingBannerClose.Foreground = $text
     $script:indexingBannerKind = $kind
     $script:indexingBannerDismissed = $false
-    $script:indexingBannerLevel = if ($kind -eq "running") { "run" } else { $level }
+    $script:indexingBannerLevel = (getIndexingBannerView $kind $level).Level
     setIndexingBannerBehavior
 }
 
 function setIndexingBannerBehavior {
-    # 閉じるボタンと自動で消える時機（getIndexingBannerBehavior）。残りがあって更新していないときは、閉じられるが自動では消えない
+    # 閉じるボタンと自動で消える時機（getIndexingBannerView）。残りがあって更新していないときは、閉じられるが自動では消えない
     $pending = if ($script:indexingState -and !(isIndexing)) { [int]$script:indexingState.Pending } else { 0 }
-    $behavior = getIndexingBannerBehavior $script:indexingBannerLevel $pending
-    $ui.IndexingBannerClose.Visibility = if ($behavior.Closable) { "Visible" } else { "Collapsed" }
-    $script:indexingBannerAutoClose = [int]$behavior.AutoCloseSeconds
+    $view = getIndexingBannerView $script:indexingBannerKind $script:indexingBannerLevel $pending
+    $ui.IndexingBannerClose.Visibility = if ($view.Closable) { "Visible" } else { "Collapsed" }
+    $script:indexingBannerAutoClose = $view.AutoCloseSeconds
     $script:indexingBannerTimer.Stop()
-    if ($behavior.AutoCloseSeconds -gt 0) {
-        $script:indexingBannerTimer.Interval = [TimeSpan]::FromSeconds($behavior.AutoCloseSeconds)
+    if ($view.AutoCloseSeconds -gt 0) {
+        $script:indexingBannerTimer.Interval = [TimeSpan]::FromSeconds($view.AutoCloseSeconds)
         $script:indexingBannerTimer.Start()
     }
 }
