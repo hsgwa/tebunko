@@ -4389,7 +4389,7 @@
 </ul>
 <h2 id="帯とステータスバー">帯とステータスバー<a class="headerlink" href="#帯とステータスバー" title="Permanent link">&para;</a></h2>
 <p>帯（<code>IndexingProgressPanel</code>）は、更新の状態をこの画面の上に残す。ステータスバー（窓の下。<code>xaml/shell/status_bar.xaml</code>）は、直前の操作の結果を 1 行で知らせる。役割を分け、同じことを 2 か所に出さない。</p>
-<p><strong>帯がいつ消えるか</strong>（判断層の <code>getIndexingBannerBehavior</code>。<code>Closable</code>＝閉じるボタン（×）を出すか、<code>AutoCloseSeconds</code>＝出してから自動で消えるまでの秒数。0 は自動では消えない）:</p>
+<p><strong>帯がいつ消えるか</strong>（判断層の <code>getIndexingBannerView</code>（中で <code>getIndexingBannerBehavior</code> を使う。更新中は残りを 0 と数える）。<code>Closable</code>＝閉じるボタン（×）を出すか、<code>AutoCloseSeconds</code>＝出してから自動で消えるまでの秒数。0 は自動では消えない）:</p>
 <table>
 <thead>
 <tr>
