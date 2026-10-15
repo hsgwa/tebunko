@@ -17,10 +17,10 @@ permissions:
 
 concurrency:
   group: gram-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
-  # データ生成スクリプトのリポジトリ（https://github.com/hsgwa/tebunko-perfdata）のコミット。更新するときは手で書き換える
+  # データ生成スクリプトのリポジトリ（https://github.com/hsgwa/tebunko-perfdata）のコミット。perf.yml と同じ値にする
   PERFDATA_SHA: 2d6c7a60ed9ae9949cc76f8ff00762d45707ee3a
 
 jobs:
