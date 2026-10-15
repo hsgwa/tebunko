@@ -55,8 +55,8 @@ class ZipSizeLimitException : System.Exception {
     # .Message は今までどおり利用者向けの簡潔な文言のまま（${fileTooLargeMessage}）。
     # 部品名・大きさ・部品ごとか合計かは、ここのプロパティにだけ持ち、呼び出し元がインデックス作成のログに書く
     [string]$PartName     # ZIP内のパス（例: "word/document.xml"）
-    [long]$MeasuredBytes  # 超えたと分かった時点の大きさ（バイト）。偽りのヘッダーのときは、実際の大きさまでは分からないため、検出できた時点の値
-    [string]$LimitKind    # "Part"（部品ごとの上限。偽りのヘッダーを含む）または "Total"（1ファイルの合計の上限）
+    [long]$MeasuredBytes  # 超えたと分かった時点の大きさ（バイト）。偽りのヘッダーのときは、実際の大きさまでは分からないため、検出できた時点の値。LimitKind が "Output" のときだけ、バイトでなく出す行の文字数
+    [string]$LimitKind    # "Part"（部品ごとの上限。偽りのヘッダーを含む）・"Total"（1ファイルの合計の上限）・"Output"（埋め込みから出す文字の合計の上限）
 
     ZipSizeLimitException([string]$message, [string]$partName, [long]$measuredBytes, [string]$limitKind) : base($message) {
         $this.PartName = $partName

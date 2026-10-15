@@ -182,7 +182,7 @@ function copyDataRangeToTempSheet {
         # ブックの構成が保護されている場合など。元のシートをそのまま書き出す（時間切れで失敗することがある）
         writeIndexerLog "    $($worksheet.Name) の使用範囲を縮められませんでした: $($_.Exception.Message)" "Yellow"
         if ($temp) {
-            $temp.Delete()
+            [void]$temp.Delete()
             releaseComObject $temp
         }
         return $null
@@ -308,7 +308,7 @@ function extractWorkbook {
                     } finally {
                         if ($temp) {
                             # 一時シートは、次のシートの Index がずれないようすぐ削除する（ブックは保存せずに閉じる）
-                            $temp.Delete()
+                            [void]$temp.Delete()
                             releaseComObject $temp
                         }
                     }

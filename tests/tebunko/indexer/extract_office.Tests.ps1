@@ -66,7 +66,7 @@ BeforeAll {
                 [void]$log.Add("SaveAs:$($this.Name):$($args[1])")
                 [System.IO.File]::WriteAllText($args[0], $this.Text, [System.Text.Encoding]::Unicode)
             }
-            Delete = { [void]$log.Add("Delete:$($this.Name)") }
+            Delete = { [void]$log.Add("Delete:$($this.Name)"); return $true }  # 本物の Worksheet.Delete は Boolean を返す
         }
         return $sheet
     }
