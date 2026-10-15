@@ -43,4 +43,5 @@ function writeGoldenSettings {
     }
     writeWorkspaceFolder "C:\tebunko_golden\ws" $path
     updateSettings "ingestThreads" 2 $path
+    updateSettings "searchLimit" 20000 $path   # この版より前の版には無いキー（見本は今の版で作る）
 }

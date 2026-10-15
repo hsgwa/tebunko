@@ -800,3 +800,29 @@ Describe "クラウドにだけあるファイルの扱い（cloudFiles）" -Tag
         readCloudFiles $path | Should -Be ${cloudFilesAsk}
     }
 }
+
+Describe "検索結果の件数の上限（searchLimit）" {
+    It "getSearchLimit: <Value> は <Expected>" -Tag Unit -TestCases @(
+        @{ Value = $null; Expected = 10000 }
+        @{ Value = 20000; Expected = 20000 }
+        @{ Value = "20000"; Expected = 20000 }
+        @{ Value = 0; Expected = 10000 }
+        @{ Value = -5; Expected = 10000 }
+        @{ Value = "abc"; Expected = 10000 }
+        @{ Value = 999; Expected = 1000 }
+        @{ Value = 1000; Expected = 1000 }
+        @{ Value = 100000; Expected = 100000 }
+        @{ Value = 200000; Expected = 100000 }
+    ) {
+        getSearchLimit $Value | Should -Be $Expected
+    }
+
+    It "readSearchLimit: キーが無ければ既定（10000）、文字列で書いても数値として読む" -Tag Io {
+        $path = "$TestDrive\件数の上限\setting.config"
+        readSearchLimit $path | Should -Be ${searchLimitDefault}
+        updateSettings "useRegex" $true $path
+        readSearchLimit $path | Should -Be 10000
+        updateSettings "searchLimit" "20000" $path
+        readSearchLimit $path | Should -Be 20000
+    }
+}

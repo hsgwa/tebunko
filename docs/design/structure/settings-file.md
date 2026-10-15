@@ -24,6 +24,7 @@
     "openMode": "normal",
     "cloudFiles": "ask",
     "workspaceFolder": "",
+    "searchLimit": 10000,
     "ingestThreads": 0
 }
 ```
@@ -41,6 +42,7 @@
 | `openMode` | `normal` / `readOnly` / `new` | `normal` | ［開き方］の状態。検索結果の元のファイルを、通常（編集する）・読み取り専用・新規（元のファイルを基にした無題の文書。占有しない）のどれで開くか（[元のファイルを開く](../gui/open-file.md)）。知らない値は `normal` とする | `readOpenMode` / `writeOpenMode` |
 | `cloudFiles` | `ask` / `download` | `ask` | クラウドにだけあるファイル（OneDrive・SharePoint のオンデマンド）の扱い。`ask` はダウンロードせずに残し、確認のダイアログで取り込むかを選ばせる。`download` は確認を出さずにダウンロードして取り込む（ダイアログの「次からこの確認を出さずにダウンロードする」で保存する）。ヘッドレスのインデクサは `download` のときだけダウンロードして取り込む。知らない値は `ask` とする（[取り込み対象の決定](../indexing/target-decision.md#クラウドにだけあるファイル)） | `readCloudFiles` / `writeCloudFiles` |
 | `workspaceFolder` | 文字列 | 空 | ワークスペース（インデックス・取り込み一覧・ログを置くフォルダ）。空なら既定の `%USERPROFILE%\Documents\tebunko_ws`（[データの置き場所とパスの決め方](data.md)）。既定の場所を選んだときも空で保存する。手で書いた相対パスは設定ファイルのフォルダから、`%変数%` は展開して読む | `getWorkDir` / `writeWorkspaceFolder` |
+| `searchLimit` | 数値 | 10000 | 画面の検索結果の件数の上限。この件数に達したら検索を打ち切る（[検索タブ](../gui/search-tab.md)）。範囲は 1,000〜100,000 で、範囲の外は近い端（999 は 1,000、200,000 は 100,000）にする。0 以下・数値にできない値は既定値にする。画面には出さない（手で書き換える）。起動のときに 1 回読むため、書き換えたら起動し直す | `readSearchLimit`（`getSearchLimit`） |
 | `ingestThreads` | 数値 | 0 | インデックス作成で、Office を使わずに読むファイル（`.docx`・`.pptx` など）を並べて取り込む読み取りのスレッドの数（1〜4。4 より大きい値は 4 にする）。0 はコア数 − 1（1〜4）にする。取り込むファイルの数より多くはしない。Excel・Word・PowerPoint のファイルは、この値にかかわらず種類ごとにスレッド 1 つ・Office 1 つで取り込む。画面には出さない（手で書き換える）（[取り込みの並列化](../indexing/parallel.md)） | `readSettings`（インデクサの `getIngestWorkerCount`） |
 
 ## 読み込み・保存
@@ -59,7 +61,7 @@ flowchart TD
 - ファイルが無くても作成しない（既定値で動く）。ファイルを作るのは画面が設定を保存したときだけ。
 - 記載の無いキー・未知のキー・値が `null` のキーは無視する（キーが増えても古い設定ファイルをそのまま読める）。
 - 真偽値のキーは、手で `"false"` のような文字列に書き換えても `true` / `false` として読む（`toSettingBool`）。読めない値は既定値にする。
-- 数値のキー（`ingestThreads`）は、手で `"2"` のような文字列に書き換えても数値として読む。数値にできない値は既定値にする。
+- 数値のキー（`ingestThreads`・`searchLimit`）は、手で `"2"` のような文字列に書き換えても数値として読む。数値にできない値は既定値にする。
 - 保存（`updateSettings`）は、保存のたびにファイルを読み直し、変えたキーだけを書き換える。ほかのキーは、ほかの画面・処理が保存した内容を保つ。UTF-8（BOM なし）。
 - 保存は、書き込みの途中で止まっても設定ファイルが壊れないよう、一時ファイル（`setting.config.tmp`）に書いてから置き換える（`writeTextLinesAtomic`）。
 - 「読み直す → 変える → 書く」の一続きは、設定ファイルごとの名前付きミューテックス（`Local\tebunko_settings_<getFolderKey 設定ファイルのパス>`。`invokeSettingsLocked`）の中で行う。画面・インデクサ（別のプロセスも）が同時に保存しても、互いの変更を消さない。待つのは 5 秒で、過ぎたら例外にする。同じ Windows のセッションの中だけの排他（別のセッションからは排他しない）。
