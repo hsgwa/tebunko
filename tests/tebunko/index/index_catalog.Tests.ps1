@@ -60,6 +60,25 @@ Describe "IndexCatalog.RenameIndex" -Tag Io {
         (readStatusFile $ws.Status).Rows.ContainsKey("営業部\a.xlsx") | Should -Be $true
     }
 
+    It "予約名に拡張子の付いた名前（<name>）のインデックスも、フォルダを動かしてから取り込み一覧の記録を変える" -TestCases @(
+        @{ name = "aux.backup" }
+        @{ name = "CON.txt" }
+    ) {
+        $ws = newCatalogWorkspace "$TestDrive\rename_reserved_$name"
+        $long = toLongPath "$($ws.Index)\$name\a.xlsx"
+        [System.IO.Directory]::CreateDirectory($long) | Out-Null
+        [System.IO.File]::WriteAllText("$long\Sheet1.tsv", "本文")
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = $name }) @(
+            (newStatusRow "$name\a.xlsx" "2025/01/10 12:34:56" "1" $stateNew)
+        ) $ws.Status
+
+        $ws.Catalog.RenameIndex($name, "営業部")
+
+        [System.IO.Directory]::Exists((toLongPath "$($ws.Index)\$name")) | Should -Be $false
+        [System.IO.File]::ReadAllText((toLongPath "$($ws.Index)\営業部\a.xlsx\Sheet1.tsv")) | Should -Be "本文"
+        (readStatusFile $ws.Status).Rows.ContainsKey("営業部\a.xlsx") | Should -Be $true
+    }
+
     It "同じ名前のフォルダが既にあれば例外にし、取り込み一覧の記録は変えない" {
         $ws = newCatalogWorkspace "$TestDrive\rename3"
         New-Item -ItemType Directory -Path "$($ws.Index)\営業" -Force | Out-Null
@@ -71,6 +90,21 @@ Describe "IndexCatalog.RenameIndex" -Tag Io {
         { $ws.Catalog.RenameIndex("営業", "技術") } | Should -Throw
 
         Test-Path -LiteralPath "$($ws.Index)\営業" | Should -Be $true
+        (readStatusFile $ws.Status).Rows.ContainsKey("営業\a.xlsx") | Should -Be $true
+    }
+
+    It "新しい名前がファイルとして既にあっても例外にし、フォルダも取り込み一覧の記録も変えない" {
+        $ws = newCatalogWorkspace "$TestDrive\rename3file"
+        New-Item -ItemType Directory -Path "$($ws.Index)\営業" -Force | Out-Null
+        [System.IO.File]::WriteAllText("$($ws.Index)\技術", "x")
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(
+            (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateNew)
+        ) $ws.Status
+
+        { $ws.Catalog.RenameIndex("営業", "技術") } | Should -Throw "*既にあるため*"
+
+        [System.IO.Directory]::Exists("$($ws.Index)\営業") | Should -Be $true
+        [System.IO.File]::Exists("$($ws.Index)\技術") | Should -Be $true
         (readStatusFile $ws.Status).Rows.ContainsKey("営業\a.xlsx") | Should -Be $true
     }
 
@@ -228,6 +262,24 @@ Describe "IndexCatalog.RemoveIndex" -Tag Io {
         $status.Rows.ContainsKey("技術\d.pptx") | Should -Be $true
     }
 
+    It "予約名に拡張子の付いた名前（<name>）のインデックスも、フォルダと取り込み一覧の記録を削除する" -TestCases @(
+        @{ name = "aux.backup" }
+        @{ name = "CON.txt" }
+    ) {
+        $ws = newCatalogWorkspace "$TestDrive\remove_reserved_$name"
+        $long = toLongPath "$($ws.Index)\$name\a.xlsx"
+        [System.IO.Directory]::CreateDirectory($long) | Out-Null
+        [System.IO.File]::WriteAllText("$long\Sheet1.tsv", "本文")
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = $name }) @(
+            (newStatusRow "$name\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00")
+        ) $ws.Status
+
+        $ws.Catalog.RemoveIndex($name)
+
+        [System.IO.Directory]::Exists((toLongPath "$($ws.Index)\$name")) | Should -Be $false
+        (readStatusFile $ws.Status).Folders.Count | Should -Be 0
+    }
+
     It "名前が空なら何もしない" {
         $ws = newCatalogWorkspace "$TestDrive\remove2"
         writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(
@@ -289,6 +341,18 @@ Describe "IndexCatalog.RemoveIndex" -Tag Io {
         $status = readStatusFile $ws.Status
         $status.Folders.Count | Should -Be 1
         $status.Rows.ContainsKey("営業\a.xlsx") | Should -Be $true
+    }
+
+    It "フォルダがあるかどうか確かめられなければ（届かない・読めない）、例外にし、取り込み一覧の記録は残す" {
+        $ws = newCatalogWorkspace "$TestDrive\remove_unknown"
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(
+            (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00")
+        ) $ws.Status
+        Mock getPathState { @{ State = "Other"; IsDirectory = $false; Message = "アクセスが拒否されました" } }
+
+        { $ws.Catalog.RemoveIndex("営業") } | Should -Throw "*フォルダがあるかどうか確かめられません*"
+
+        (readStatusFile $ws.Status).Rows.ContainsKey("営業\a.xlsx") | Should -Be $true
     }
 
     It "インデックスのフォルダの中にあるジャンクションの先は消さず、ジャンクションだけを外す" {

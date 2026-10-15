@@ -452,16 +452,39 @@ function removeDirectoryRetry {
         [int]$waitMilliseconds = 200
     )
 
+    if (!$path) {
+        return  # 空のパスは消すものが無い
+    }
     # 中に長いパス（260文字超）のファイルがあっても削除できるよう \\?\ 付きで削除する
     $longPath = toLongPath $path
     for ($i = 1; $true; $i++) {
         if (![System.IO.Directory]::Exists($longPath)) {
-            return
+            # Exists は、無いときだけでなく、届かない・読めないときも $false になる。「無い」と確かめられたときだけ成功にする
+            # （フォルダでないもの（ファイル）が同じ名前であるときも、消すフォルダは無いので成功にする）
+            $state = getPathState $path
+            if ($state.State -eq ${pathStateMissing} -or ($state.State -eq ${pathStateFound} -and !$state.IsDirectory)) {
+                return
+            }
+            if ($state.State -ne ${pathStateFound}) {
+                # 届かない・読めない（権限が無いなど）は、待っても変わらないので、試し直さずに例外にする。理由は OS の文面をそのまま添える
+                throw "フォルダがあるかどうか確かめられません: $path（$($state.Message)）"
+            }
+            # フォルダとして在るのに Exists が偽（開けない・消している途中など）。少し待って試し直す
+            if ($i -ge $tries) {
+                throw "フォルダがあるのに開けないため、消せません: $path"
+            }
+            Start-Sleep -Milliseconds $waitMilliseconds
+            continue
         }
         try {
             # リンク（ジャンクション・シンボリックリンク）は辿らず、リンクそのものだけを外す（removeTreeNoFollow）。
             # 消せなければ例外になり、catch で試し直す
             removeTreeNoFollow $longPath
+            # 例外が出なくても消えていないことがある（別のプロセスが同じ名前で作り直したとき・消す側の取りこぼしなど）。
+            # 消えたことを .NET で確かめてから成功にする（呼ぶ側は、成功を見て取り込み一覧・状態・ログに記録する）
+            if ([System.IO.Directory]::Exists($longPath)) {
+                throw "フォルダが消えていません: $(fromLongPath $longPath)"
+            }
             return
         } catch {
             if ($i -ge $tries) {
@@ -571,6 +594,25 @@ function testPathHasLink {
         }
     }
     return $false
+}
+
+function newDirectoryUnder {
+    # root の下に path のフォルダ（途中の階層を含む）を作り、作れたら（すでにあるときも）$true を返す。
+    # root から path までの途中の階層（path を含む）にリンクがあるとき、path が root の下でないときは、何も作らずに $false を返す。
+    # 作ったあとにもう一度確かめ、リンクに替わっていれば $false を返す（作ってしまった分は消さない。中には何も書かない）。
+    # root そのもの（とそれより上）がリンクのときは、構成を変えずに使えるよう、リンクとは見ない（testPathHasLink）。
+    # path が root と同じときは、root を（無ければ）作って $true を返す。
+    # 作れなかった理由（権限など）は例外で返る。ログは呼ぶ側が出す（shared/ はツールのログを知らない）
+    param (
+        [string]$path,
+        [string]$root
+    )
+
+    if (!$path -or !$root -or (testPathHasLink $root $path)) {
+        return $false
+    }
+    [System.IO.Directory]::CreateDirectory((toLongPath $path)) | Out-Null
+    return !(testPathHasLink $root $path)
 }
 
 function removeEntryOnly {
