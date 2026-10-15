@@ -4011,10 +4011,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#tsv-の整形sharedcoretextps1" class="md-nav__link">
+  <a href="#tsv-の整形ファイル名の確かめsharedcoretextps1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        TSV の整形（shared/core/text.ps1）
+        TSV の整形・ファイル名の確かめ（shared/core/text.ps1）
       
     </span>
   </a>
@@ -4166,10 +4166,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#tsv-の整形sharedcoretextps1" class="md-nav__link">
+  <a href="#tsv-の整形ファイル名の確かめsharedcoretextps1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        TSV の整形（shared/core/text.ps1）
+        TSV の整形・ファイル名の確かめ（shared/core/text.ps1）
       
     </span>
   </a>
@@ -4266,14 +4266,6 @@
 </tr>
 </thead>
 <tbody>
-<tr>
-<td><code>toSafeFileName</code></td>
-<td>name</td>
-<td>string</td>
-<td>ファイル名禁止文字を全角に置換</td>
-<td><a href="../../indexing/">インデックス作成</a></td>
-<td>インデックス名（newIndexName・getTargetFolders）、シート名の照合（画面。元のファイルを開くとき）</td>
-</tr>
 <tr>
 <td><code>encodeIndexPlace</code></td>
 <td>place</td>
@@ -4377,22 +4369,6 @@
 <td>path が root の下（root そのものは含まない）にあるか。<code>..</code>・<code>.</code>・最後の <code>.</code> や空白・<code>\\?\</code> を解決してから比べる。状態のファイルから読んだ名前でフォルダを消す前に使う</td>
 <td><a href="../../../safety/file-access/">ファイルの読み書きの範囲</a></td>
 <td>インデックス・作業フォルダの削除, <code>IndexCatalog</code></td>
-</tr>
-<tr>
-<td><code>getFolderNameProblemText</code></td>
-<td>name, allowReserved（既定 <code>$false</code>）</td>
-<td>string（問題の文。使えれば空）</td>
-<td>フォルダ名として使えるか（空・前後の空白・長すぎる・使えない文字・最後の <code>.</code>・予約名）。allowReserved が <code>$true</code> のときは予約名（<code>aux.backup</code> など）を拒まない（既にある実在のフォルダの名前を空にしないため。新しく付ける名前には使わない）。どのツールからも使う</td>
-<td>同上</td>
-<td>testIndexName, testStoredIndexName, newIndexName, getTargetFolders, readStatusFile</td>
-</tr>
-<tr>
-<td><code>testPlainFolderName</code></td>
-<td>name</td>
-<td>bool</td>
-<td>外へ出ず名前のとおりに作れるフォルダ名か（空・<code>.</code>・<code>..</code>・長すぎる・使えない文字だけを拒む。予約名・最後の <code>.</code> や空白は問わない）</td>
-<td>同上</td>
-<td>readStatusFile（<code>LegacyFolders</code> の判定）</td>
 </tr>
 <tr>
 <td><code>trimTrailingSeparator</code></td>
@@ -4500,7 +4476,7 @@
 </tr>
 </tbody>
 </table>
-<h2 id="tsv-の整形sharedcoretextps1">TSV の整形（<code>shared/core/text.ps1</code>）<a class="headerlink" href="#tsv-の整形sharedcoretextps1" title="Permanent link">&para;</a></h2>
+<h2 id="tsv-の整形ファイル名の確かめsharedcoretextps1">TSV の整形・ファイル名の確かめ（<code>shared/core/text.ps1</code>）<a class="headerlink" href="#tsv-の整形ファイル名の確かめsharedcoretextps1" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
@@ -4560,6 +4536,30 @@
 <td>文字が枠に入りきらず省略（…）で切れているか（要る幅が実際の幅より誤差を超えて大きいときだけ $true。幅 0 以下は $false）</td>
 <td>同上</td>
 <td>addTrimmedToolTip（<code>shared/ui/trimmed_tooltip.ps1</code>）</td>
+</tr>
+<tr>
+<td><code>toSafeFileName</code></td>
+<td>name</td>
+<td>string</td>
+<td>ファイル名禁止文字を全角に置換</td>
+<td><a href="../../indexing/">インデックス作成</a></td>
+<td>インデックス名（newIndexName・getTargetFolders）、シート名の照合（画面。元のファイルを開くとき）</td>
+</tr>
+<tr>
+<td><code>getFolderNameProblemText</code></td>
+<td>name, allowReserved（既定 <code>$false</code>）</td>
+<td>string（問題の文。使えれば空）</td>
+<td>フォルダ名として使えるか（空・前後の空白・長すぎる・使えない文字・最後の <code>.</code>・予約名）。allowReserved が <code>$true</code> のときは予約名（<code>aux.backup</code> など）を拒まない（既にある実在のフォルダの名前を空にしないため。新しく付ける名前には使わない）。どのツールからも使う</td>
+<td>同上</td>
+<td>testIndexName, testStoredIndexName, newIndexName, getTargetFolders, readStatusFile</td>
+</tr>
+<tr>
+<td><code>testPlainFolderName</code></td>
+<td>name</td>
+<td>bool</td>
+<td>外へ出ず名前のとおりに作れるフォルダ名か（空・<code>.</code>・<code>..</code>・長すぎる・使えない文字だけを拒む。予約名・最後の <code>.</code> や空白は問わない）</td>
+<td>同上</td>
+<td>readStatusFile（<code>LegacyFolders</code> の判定）</td>
 </tr>
 </tbody>
 </table>
