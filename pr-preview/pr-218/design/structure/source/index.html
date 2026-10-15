@@ -4321,12 +4321,7 @@
     index --&gt; diagnostics
     settings --&gt; source_name
     workspace_mover --&gt; status_file</code></pre>
-<p>向きの検査は、文字列ではなく構文木（AST）で行う（<code>tools/script_arch.ps1</code>。部品自身のテストは <code>tests/tools/script_arch.Tests.ps1</code>）。全部のファイルが同じスコープに読み込まれ、下の層が上の層の関数・変数を名前で使っても動いてしまうため、ファイルごとに構文木を作り、次を見る。</p>
-<ul>
-<li>関数の呼び出しが、別のパスのファイルで定義した関数を指していること</li>
-<li>別のパスのファイルが最上位（関数の外）・<code>$script:</code>・<code>$global:</code> で代入した変数を読んでいること</li>
-<li>決めた変数（<code>$ui</code>・<code>$window</code>）と型（<code>System.Windows.*</code>）に触っていること</li>
-</ul>
+<p>向きの検査は、文字列ではなく構文木（AST）で行う（<code>tools/script_arch.ps1</code>。部品自身のテストは <code>tests/tools/script_arch.Tests.ps1</code>）。全部のファイルが同じスコープに読み込まれ、下の層が上の層の関数・変数を名前で使っても動いてしまうため、ファイルごとに構文木を作り、関数の呼び出し・最上位で代入した変数の読み・決めた変数（<code>$ui</code>・<code>$window</code>）と型（<code>System.Windows.*</code>）に触っていることを見る。数える書き方の詳細は、下の「依存として数える書き方」にある。</p>
 <p><code>tests/meta/layers.Tests.ps1</code> の「依存の向き（ファイル単位）」が、「このパスのファイルは、あのパスのファイルに依存しない」の表で決まりを書く。失敗の文には、ファイルの組と、関数・変数の名前が出る。</p>
 <p>向きの検査は、依存があるかどうかだけを見る。境界での受け渡し（向こう側へ何を渡し、向こう側の答えをどう使うか）は、<code>tests/tebunko/ui/layer_boundary.Tests.ps1</code> が、向こう側をスタブに替えて確かめる。判断層の関数が呼ぶ状態層の関数をスタブにする組と、画面層の関数が呼ぶ判断層の関数をスタブにする組がある。境界を足したら、同じファイルに足す。</p>
 <p>今ある逆向きの依存は、同じファイルの例外の一覧（「from のファイル・to のファイル・名前」の組と、許している理由）に載せ、増やさない。直したら一覧から消す（どの行でも見つからなくなった例外は、テストが失敗にする）。例外は、次の種類に分かれる。</p>
@@ -4351,27 +4346,29 @@
 <p>共通の値を作る場所は、読む側より下の層に置く。<code>$workspace</code> は状態層の <code>tebunko/core/paths.ps1</code>（<code>initWorkspace</code>・<code>setCallerWorkspace</code>）だけが作り、画面層（<code>switchWorkspace</code>）は <code>initWorkspace</code> を呼んで作り直す。<code>shared/</code> が使うツール側の値は、ツール側が登録する（エラーの記録先と見出しは <code>setGuiErrorLogSource</code>、仕事の列は <code>setBackgroundQueue</code>・<code>setNetworkQueueFactory</code>、画面の標題は <code>setShellTitle</code>、ステータスの文の出し先は <code>setStatusSink</code>、ミューテックスの名前の先頭は <code>newAppMutex</code> の引数）。</p>
 <p>依存として数える書き方（見つかるもの）:</p>
 <ul>
-<li>関数の呼び出し（<code>${function:名前}</code> も含む）。</li>
+<li>関数の呼び出し（<code>${function:名前}</code>・<code>Get-Command &lt;定数の名前&gt;</code>（ワイルドカードの無いもの）も含む）。</li>
 <li><code>=</code> の代入と、<code>Set-Variable -Name &lt;定数&gt;</code>・<code>New-Variable -Name &lt;定数&gt;</code>・<code>$variable:名前 = …</code>（最上位・<code>$script:</code>・<code>$global:</code> の代入と同じ条件で数える）。</li>
-<li>変数を名前で読む形で、名前が定数のもの: <code>Get-Variable</code>（<code>gv</code>）、<code>${variable:名前}</code>・<code>$variable:名前</code>、<code>Get-Item</code>・<code>Get-Content</code>・<code>Test-Path</code> などの <code>variable:名前</code>。</li>
+<li>変数を名前で読む形で、名前が定数のもの: <code>Get-Variable</code>（<code>gv</code>）、<code>${variable:名前}</code>・<code>$variable:名前</code>、<code>Get-Item</code>・<code>Get-Content</code>・<code>Get-ItemProperty</code>・<code>Get-ItemPropertyValue</code>・<code>Resolve-Path</code>・<code>Test-Path</code> などの <code>variable:名前</code>。パスが定数だけのかっこ（<code>Test-Path ("variable:x")</code>）なら、その値を読む。</li>
+<li>名前を文字列の並びで受け取る関数（<code>newWorkerState</code>。<code>tests/meta/layers.Tests.ps1</code> が、1 つ目の引数を関数、2 つ目を変数の名前として渡す）の引数。<code>tools/script_arch.ps1</code> は関数の名前を知らず、一覧は呼び出す側から渡す。</li>
 <li>別のファイルで定義したクラスを、<code>[型名]</code>（<code>[型]::new()</code>・引数・戻り値・変数の型）か <code>New-Object &lt;型&gt;</code>・<code>New-Object -TypeName &lt;型&gt;</code>（型が定数のもの。<code>'System.Collections.Generic.List[Workspace]'</code>・<code>'Workspace[]'</code> は <code>[</code> <code>]</code> <code>,</code> で区切った名前のそれぞれ）で使う形。<code>findFileDependencyItems</code> が <code>[型名]</code> の名で返し、例外の一覧にも同じ名で書く。</li>
-<li><code>Set-Variable</code> は、<code>-Scope</code> が無いとき、名前の前の <code>script:</code>・<code>global:</code> などをスコープとして読む（<code>Set-Variable -Name "script:x"</code> は、関数の中でも <code>x</code> の最上位の変数を作る）。<code>-Scope</code> があるときは、名前の前の印は名前の一部。<code>New-Variable</code>・<code>Get-Variable</code>・<code>variable:</code> ドライブは、名前の前の <code>script:</code> などを名前の一部として数える（<code>New-Variable -Name "script:x"</code> は、<code>x</code> ではなく名前 <code>script:x</code> の変数）。<code>$variable:名前 = …</code> の代入は、関数の外だけ数える。</li>
+<li><code>Set-Variable</code> は、<code>-Scope</code> が無いとき、名前の前の <code>script:</code>・<code>global:</code> などをスコープとして読む（<code>Set-Variable -Name "script:x"</code> は、関数の中でも <code>x</code> の最上位の変数を作る）。<code>-Scope</code> があるときは、名前の前の印は名前の一部。<code>New-Variable</code>・<code>Get-Variable</code> は、名前の前の <code>script:</code> などを名前の一部として数える（<code>New-Variable -Name "script:x"</code> は、<code>x</code> ではなく名前 <code>script:x</code> の変数）。<code>variable:</code>・<code>function:</code> ドライブは、名前の前の <code>script:</code>・<code>global:</code>・<code>local:</code>・<code>private:</code> の印を外して比べる（<code>Test-Path variable:script:x</code>・<code>${function:script:f}</code> は <code>x</code>・<code>f</code>）。<code>$variable:名前 = …</code> の代入は、<code>$script:</code> の代入と同じ条件で数える（<code>script:</code>・<code>global:</code> の印があれば関数の中でも最上位の変数）。</li>
 <li>コマンドの名前は、モジュール名の修飾（<code>Microsoft.PowerShell.Utility\Get-Command</code> など）を外して比べる。</li>
 </ul>
 <p>呼ぶ先や読む変数が構文木から決まらない書き方は、向きの表では数えない。代わりに、<code>tests/meta/layers.Tests.ps1</code> の「名前を文字列で渡す呼び出し」が、今ある所を理由つきの閉じた一覧にし、増えたら失敗にする。ファイルと形ごとの数も一覧の行に持たせ、載っているファイルに同じ形を足しても失敗にする。形は次のとおり。</p>
 <ul>
-<li><code>Get-Command</code>・<code>Invoke-Expression</code>（<code>iex</code>）・<code>Set-Alias</code>・<code>New-Alias</code>・<code>[scriptblock]::Create</code>・<code>$ExecutionContext.InvokeCommand</code>・<code>.AddCommand</code>・<code>.AddScript</code></li>
+<li>名前が定数でない <code>Get-Command</code>・<code>Invoke-Expression</code>（<code>iex</code>）・<code>Set-Alias</code>・<code>New-Alias</code>・<code>[scriptblock]::Create</code>・<code>$ExecutionContext.InvokeCommand</code>・<code>.AddCommand</code>・<code>.AddScript</code></li>
 <li><code>&amp; (式)</code>・<code>&amp; "展開文字列"</code>（呼ぶ名前が式で決まる形）</li>
-<li><code>function:</code> ドライブを引く <code>Get-Item</code>・<code>Get-Content</code>・<code>Test-Path</code>・<code>Get-ChildItem</code>・<code>Set-Item</code>・<code>New-Item</code> など（読む・書くのどちらも）</li>
+<li><code>function:</code> ドライブを引く <code>Get-Item</code>・<code>Get-Content</code>・<code>Test-Path</code>・<code>Get-ChildItem</code>・<code>Set-Item</code>・<code>New-Item</code> など（読む・書くのどちらも。かっこの中の定数でない式 <code>Get-Item ('function:' + $n)</code> も）</li>
 <li>名前が定数でない <code>Set-Variable</code>・<code>New-Variable</code>・<code>Get-Variable</code></li>
 <li>名前が定数でない <code>variable:</code> ドライブの読み</li>
-<li><code>variable:</code> ドライブへの書き込み（<code>Set-Item</code>・<code>New-Item</code>・<code>Remove-Item</code>・<code>Copy-Item</code>）</li>
+<li><code>variable:</code> ドライブへの書き込み（<code>Set-Item</code>・<code>New-Item</code>・<code>Remove-Item</code>・<code>Copy-Item</code>・<code>Set-Content</code>・<code>Add-Content</code>・<code>Clear-Content</code>・<code>Clear-Item</code>・<code>Rename-Item</code>・<code>Move-Item</code>）</li>
 <li>型が定数でない <code>New-Object</code>（<code>New-Object $型</code>）</li>
 </ul>
 <p>見つからないもの（限界）:</p>
 <ul>
 <li><code>&amp; $name</code> の呼び出し、コールバックで渡したスクリプトブロックの中から呼ぶ形、<code>$ui</code> を別の名前の引数で受け取る形、クラスのメソッドの呼び出し。</li>
 <li><code>using namespace</code> で短く書いた型。</li>
+<li><code>Join-Path</code> などで組み立てたパスを、変数に入れてから渡す形（<code>$path = Join-Path ...; Test-Path $path</code>）。</li>
 </ul>
 <p>同じ名前の関数・変数・クラスが、見る側のパスにもあるときは、そちらを使っているとみなす。</p>
 <h2 id="読み込み口">読み込み口<a class="headerlink" href="#読み込み口" title="Permanent link">&para;</a></h2>

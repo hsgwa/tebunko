@@ -4069,8 +4069,8 @@
 </thead>
 <tbody>
 <tr>
-<td><code>toSafeFileName</code></td>
-<td>禁止文字の全角化、<code>/</code> → <code>／</code>、<code>"</code> → <code>”</code>、使用可能文字は不変</td>
+<td><code>toSafeFileName</code>・<code>getFolderNameProblemText</code>・<code>testPlainFolderName</code>（<code>text.Tests.ps1</code>。ファイルに触らない単体テスト）</td>
+<td>禁止文字の全角化、<code>/</code> → <code>／</code>、<code>"</code> → <code>”</code>、使用可能文字は不変。フォルダ名の確かめ（空・前後の空白・長すぎる・使えない文字・最後の <code>.</code>・予約名）</td>
 </tr>
 <tr>
 <td><code>toLongPath</code> / <code>fromLongPath</code>・長いパス</td>
