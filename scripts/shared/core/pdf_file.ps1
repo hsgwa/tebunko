@@ -1419,7 +1419,7 @@ function readPdfFile {
     )
 
     if ([System.IO.FileInfo]::new((toLongPath $path)).Length -gt $maxBytes) {
-        throw "ファイルサイズが大きすぎるため更新できません。"
+        throw ${fileTooLargeMessage}
     }
     $bytes = [System.IO.File]::ReadAllBytes((toLongPath $path))
     return , (readPdfPages $bytes $limits)

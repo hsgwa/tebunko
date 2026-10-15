@@ -241,8 +241,10 @@ function writeZipSizeLimitLog {
     }
 
     $kindText = switch ($exception.LimitKind) { "Total" { "1ファイルの合計" } "Output" { "埋め込みから出す文字の合計" } default { "部品ごと" } }
+    # Output の MeasuredBytes は、バイトでなく出す行の文字数（単位を「文字」にする）
     $mb = [math]::Round($exception.MeasuredBytes / 1MB, 1)
-    writeIndexerLog "    サイズの上限（${kindText}）を超えました: $($exception.PartName)（$($exception.MeasuredBytes) バイト、約${mb}MB）" "Yellow"
+    $sizeText = $(if ($exception.LimitKind -eq "Output") { "$($exception.MeasuredBytes) 文字、約${mb}M文字" } else { "$($exception.MeasuredBytes) バイト、約${mb}MB" })
+    writeIndexerLog "    サイズの上限（${kindText}）を超えました: $($exception.PartName)（${sizeText}）" "Yellow"
 }
 
 function newIngestPlanRow {

@@ -88,7 +88,7 @@ BeforeAll {
     function getSourcePathViolations {
         # 取り込みの入口の関数の中で、元のパス（変数 sourcePath）の渡し先が許した処理だけかを調べる。
         # 返す: Found = 見つけた入口の名前、Violations = 許さない渡し先の行（"関数名:行"）。コードを文字列で渡せるので、通ってはいけない形で落ちることをテストで確かめられる。
-        # 許す: copyFileShared（コピー）・getAppName・testTextExtension（拡張子の判定）・入口どうしの受け渡し・
+        # 許す: copyFileShared・invokeWithSourceCopy（コピー。1 番目の引数のときだけ）・getAppName・testTextExtension（拡張子の判定）・入口どうしの受け渡し・
         #       [System.IO.Path]::GetExtension / GetFileName・[System.IO.FileInfo]::new(toLongPath ...)（大きさをメタデータで見る。元は開かない）
         param (
             [string]$code,
@@ -112,7 +112,7 @@ BeforeAll {
                 $ok = $false
                 if ($parent -is [System.Management.Automation.Language.CommandAst]) {
                     $commandName = $parent.GetCommandName()
-                    if ($commandName -eq "copyFileShared") {
+                    if ($commandName -eq "copyFileShared" -or $commandName -eq "invokeWithSourceCopy") {
                         # 元（コピー元）になる 1 番目の引数のときだけ。2 番目（コピー先）に元を渡すと上書きする
                         $ok = [object]::ReferenceEquals($parent.CommandElements[1], $use)
                     } elseif ($allowedCommands -contains $commandName) {
@@ -616,6 +616,8 @@ Describe "取り込み対象のファイルを書き換えないこと（docs/sa
         @{ name = "元をコピー先にした copyFileShared"; code = 'function ingestFile { param([string]$sourcePath) copyFileShared "x" $sourcePath }'; ok = $false }
         @{ name = "GetFullPath"; code = 'function ingestFile { param([string]$sourcePath) [System.IO.Path]::GetFullPath($sourcePath) }'; ok = $false }
         @{ name = "FileInfo の大きさ（許す）"; code = 'function ingestFile { param([string]$sourcePath) [System.IO.FileInfo]::new((toLongPath $sourcePath)).Length }'; ok = $true }
+        @{ name = "元をコピー先にした invokeWithSourceCopy"; code = 'function ingestFile { param([string]$sourcePath) invokeWithSourceCopy "x" $sourcePath { } }'; ok = $false }
+        @{ name = "invokeWithSourceCopy の元（許す）"; code = 'function ingestFile { param([string]$sourcePath) invokeWithSourceCopy $sourcePath "x" { } }'; ok = $true }
         @{ name = "copyFileShared と GetExtension（許す）"; code = 'function ingestFile { param([string]$sourcePath) copyFileShared $sourcePath "x"; [System.IO.Path]::GetExtension($sourcePath) }'; ok = $true }
     ) {
         $result = getSourcePathViolations $code @("ingestFile")
@@ -776,21 +778,21 @@ set "PSCMD=$root=$env:TEBUNKO_ROOT;x"').Count | Should -Be 0
         (findPattern $code 'GetFolderPath\("?(System|Windows|ProgramFiles|Startup)') | Should -Be ""
     }
 
-    It "content_index を Windows Search の対象から外す属性は、fs.ps1 の setNotContentIndexed だけが書き、呼ぶのは決まった 6 ファイルだけ" {
-        # NotContentIndexed 属性を直接書くのは setNotContentIndexed（fs.ps1）だけ。
-        # 読むだけの testNotContentIndexed（fs.ps1。親フォルダの属性を見て引き継ぐか決める）は除く
-        $writes = @($code | Where-Object { $_.Text -match "(?<!set)(?<!test)NotContentIndexed" -and $_.File -ne "fs.ps1" })
+    It "content_index を Windows Search の対象から外す属性は、fs.ps1 の setWindowsSearchExcluded だけが書き、呼ぶのは決まった 6 ファイルだけ" {
+        # NotContentIndexed 属性を直接書くのは setWindowsSearchExcluded（fs.ps1）だけ。
+        # 読むだけの testWindowsSearchExcluded（fs.ps1。親フォルダの属性を見て引き継ぐか決める）は除く
+        $writes = @($code | Where-Object { $_.Text -match "NotContentIndexed" -and $_.File -ne "fs.ps1" })
         (@($writes | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
-        (findPattern $code 'function setNotContentIndexed') | Should -Not -Be ""
-        (findPattern $code 'function testNotContentIndexed') | Should -Not -Be ""
+        (findPattern $code 'function setWindowsSearchExcluded') | Should -Not -Be ""
+        (findPattern $code 'function testWindowsSearchExcluded') | Should -Not -Be ""
 
-        # testNotContentIndexed を呼ぶのは newWorkerTmpDir（index_migrate.ps1）だけ
-        $testCallers = @($code | Where-Object { $_.Text -match "testNotContentIndexed" -and $_.Text -notmatch "function testNotContentIndexed" })
+        # testWindowsSearchExcluded を呼ぶのは newWorkerTmpDir（index_migrate.ps1）だけ
+        $testCallers = @($code | Where-Object { $_.Text -match "testWindowsSearchExcluded" -and $_.Text -notmatch "function testWindowsSearchExcluded" })
         (@($testCallers | ForEach-Object { $_.File } | Sort-Object -Unique) -join ", ") | Should -Be "index_migrate.ps1"
 
         # 呼ぶのは全体に付ける indexer_run.ps1・取り込みの作業フォルダに付ける index_migrate.ps1・
         # 入れた直後に付ける index_store.ps1・content_index_store.ps1・source_map.ps1・インポートで入れたフォルダ全体に付ける index_archive.ps1 の 6 ファイルだけ
-        $callers = @($code | Where-Object { $_.Text -match "setNotContentIndexed" -and $_.Text -notmatch "function setNotContentIndexed" })
+        $callers = @($code | Where-Object { $_.Text -match "setWindowsSearchExcluded" -and $_.Text -notmatch "function setWindowsSearchExcluded" })
         $callerFiles = @($callers | ForEach-Object { $_.File } | Sort-Object -Unique)
         $callerFiles.Count | Should -Be 6
         ($callerFiles -contains "indexer_run.ps1") | Should -Be $true
@@ -803,11 +805,11 @@ set "PSCMD=$root=$env:TEBUNKO_ROOT;x"').Count | Should -Be 0
         # 渡す引数まで確かめる（indexer_run.ps1 は $workspace.IndexDir、index_migrate.ps1 は取り込みの作業フォルダ（$dir）、
         # index_store.ps1 は $bookDir、content_index_store.ps1 は $folder、index_archive.ps1 は $targetIndexDir）。
         # -Recurse で下をたどるのは indexer_run.ps1（content_index 全体）と index_archive.ps1（インポートで入れた 1 つのインデックス。Directory.Move で入るため）だけ（ほかは 1 か所ずつなので要らない）
-        (findPattern $callers 'setNotContentIndexed\s+\$workspace\.IndexDir\s+-Recurse') | Should -Not -Be ""
-        (findPattern $callers 'setNotContentIndexed\s+\$dir\)') | Should -Not -Be ""
-        (findPattern $callers 'setNotContentIndexed\s+\$bookDir\)') | Should -Not -Be ""
-        (findPattern $callers 'setNotContentIndexed\s+\$folder\)') | Should -Not -Be ""
-        (findPattern $callers 'setNotContentIndexed\s+\$targetIndexDir\s+-Recurse') | Should -Not -Be ""
+        (findPattern $callers 'setWindowsSearchExcluded\s+\$workspace\.IndexDir\s+-Recurse') | Should -Not -Be ""
+        (findPattern $callers 'setWindowsSearchExcluded\s+\$dir\)') | Should -Not -Be ""
+        (findPattern $callers 'setWindowsSearchExcluded\s+\$bookDir\)') | Should -Not -Be ""
+        (findPattern $callers 'setWindowsSearchExcluded\s+\$folder\)') | Should -Not -Be ""
+        (findPattern $callers 'setWindowsSearchExcluded\s+\$targetIndexDir\s+-Recurse') | Should -Not -Be ""
         $recurseCallers = @($callers | Where-Object { $_.Text -match "-Recurse" } | ForEach-Object { $_.File } | Sort-Object -Unique)
         ($recurseCallers -join ", ") | Should -Be "index_archive.ps1, indexer_run.ps1"
     }

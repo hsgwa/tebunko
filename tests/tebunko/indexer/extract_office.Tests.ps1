@@ -66,7 +66,7 @@ BeforeAll {
                 [void]$log.Add("SaveAs:$($this.Name):$($args[1])")
                 [System.IO.File]::WriteAllText($args[0], $this.Text, [System.Text.Encoding]::Unicode)
             }
-            Delete = { [void]$log.Add("Delete:$($this.Name)") }
+            Delete = { [void]$log.Add("Delete:$($this.Name)"); return $true }  # 本物の Worksheet.Delete は Boolean を返す
         }
         return $sheet
     }
@@ -570,6 +570,23 @@ Describe "extractDocument（偽の Word・PowerPoint）" -Tag Io {
         extractDocument $source | Should -Be 1
         (readTsv "page_001.tsv").Trim() | Should -Be "新形式の本文"
         Should -Invoke getApp -Times 0 -Exactly -Scope It
+    }
+
+    It "新形式（.docx）のコピーを読み終えて消せないときは、テキスト・PDF と同じ「作業領域のコピーを消せませんでした」になる" {
+        $source = Join-Path $TestDrive "消せない.docx"
+        writeMinimalDocx $source "本文"
+        Mock getApp { throw "Word を起動してはいけない" }
+        $copy = Join-Path $tmpDir "source.docx"
+        $script:holdCopy = $null
+        Mock readDocxUnits {
+            $script:holdCopy = [System.IO.File]::Open($copy, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::None)
+            return (New-Object System.Collections.Specialized.OrderedDictionary)
+        }
+        try {
+            { extractDocument $source } | Should -Throw "作業領域のコピーを消せませんでした: *"
+        } finally {
+            if ($script:holdCopy) { $script:holdCopy.Dispose() }
+        }
     }
 
     It "埋め込んだファイルが壊れていても本文は取り込み、読めなかった埋め込みはログに残す" {

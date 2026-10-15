@@ -48,15 +48,15 @@ $script:zipTotalReadBytes = 0
 # 画面には部品ごとか合計かの区別・部品名・大きさを出さない（分かると悪用のヒントになるため）。
 # 原因を調べられるよう、部品名・大きさ・部品ごとか合計かはインデックス作成のログにだけ書く。
 # shared/ はツール（インデックス作成のログ）を知らないため、ここでは書かず、
-# ZipSizeLimitException のプロパティで呼び出し元（tebunko/indexer）に伝える
-$script:zipTooLargeMessage = "ファイルサイズが大きすぎるため更新できません。"
+# ZipSizeLimitException のプロパティで呼び出し元（tebunko/indexer）に伝える。
+# 文言は shared/core/text_file.ps1 の ${fileTooLargeMessage}（テキスト・PDF と同じ）。
 
 class ZipSizeLimitException : System.Exception {
-    # .Message は今までどおり利用者向けの簡潔な文言のまま（$script:zipTooLargeMessage）。
+    # .Message は今までどおり利用者向けの簡潔な文言のまま（${fileTooLargeMessage}）。
     # 部品名・大きさ・部品ごとか合計かは、ここのプロパティにだけ持ち、呼び出し元がインデックス作成のログに書く
     [string]$PartName     # ZIP内のパス（例: "word/document.xml"）
-    [long]$MeasuredBytes  # 超えたと分かった時点の大きさ（バイト）。偽りのヘッダーのときは、実際の大きさまでは分からないため、検出できた時点の値
-    [string]$LimitKind    # "Part"（部品ごとの上限。偽りのヘッダーを含む）または "Total"（1ファイルの合計の上限）
+    [long]$MeasuredBytes  # 超えたと分かった時点の大きさ（バイト）。偽りのヘッダーのときは、実際の大きさまでは分からないため、検出できた時点の値。LimitKind が "Output" のときだけ、バイトでなく出す行の文字数
+    [string]$LimitKind    # "Part"（部品ごとの上限。偽りのヘッダーを含む）・"Total"（1ファイルの合計の上限）・"Output"（埋め込みから出す文字の合計の上限）
 
     ZipSizeLimitException([string]$message, [string]$partName, [long]$measuredBytes, [string]$limitKind) : base($message) {
         $this.PartName = $partName
@@ -123,11 +123,11 @@ function checkZipEntrySize {
 
     $length = $entry.Length
     if ($length -gt $script:zipPartMaxBytes) {
-        throw [ZipSizeLimitException]::new($script:zipTooLargeMessage, $entryName, $length, "Part")
+        throw [ZipSizeLimitException]::new(${fileTooLargeMessage}, $entryName, $length, "Part")
     }
     $script:zipTotalReadBytes += $length
     if ($script:zipTotalReadBytes -gt $script:zipTotalMaxBytes) {
-        throw [ZipSizeLimitException]::new($script:zipTooLargeMessage, $entryName, $script:zipTotalReadBytes, "Total")
+        throw [ZipSizeLimitException]::new(${fileTooLargeMessage}, $entryName, $script:zipTotalReadBytes, "Total")
     }
     return $length
 }
@@ -159,7 +159,7 @@ function readZipEntryBytes {
             $filled += $read
         }
         if ($filled -eq $length -and $stream.ReadByte() -ge 0) {
-            throw [ZipSizeLimitException]::new($script:zipTooLargeMessage, $entryName, $length + 1, "Part")
+            throw [ZipSizeLimitException]::new(${fileTooLargeMessage}, $entryName, $length + 1, "Part")
         }
     } finally {
         $stream.Dispose()
@@ -230,7 +230,7 @@ function readZipEntry {
             $totalRead += $filled
             if ($totalRead -gt $length) {
                 # 中身がヘッダーの値より長い（偽りのヘッダー）。実際の大きさは分からないため、検出できた時点の値を記録する
-                throw [ZipSizeLimitException]::new($script:zipTooLargeMessage, $entryName, $totalRead, "Part")
+                throw [ZipSizeLimitException]::new(${fileTooLargeMessage}, $entryName, $totalRead, "Part")
             }
 
             $byteOffset = 0
@@ -997,6 +997,15 @@ function readPptxUnitsFromZip {
     return $units
 }
 
+function testHiddenSheetElement {
+    # workbook.xml の sheet 要素が、非表示（hidden）・完全に非表示（veryHidden）のシートか。セルも図形・コメントも、非表示のシートは読まない
+    param (
+        $sheet
+    )
+
+    return ($sheet.GetAttribute("state") -in @("hidden", "veryHidden"))
+}
+
 function toObjectCellText {
     # 図形・コメントの文字を、Excel のテキスト保存と同じ形の 1 セルにする。
     # 改行はセル内改行（$cellNewLine）にし、改行・" ・タブを含むときは " で囲む（中の " は "" にする）
@@ -1402,7 +1411,7 @@ function readXlsxObjectUnits {
 
         foreach ($sheet in $workbook.GetElementsByTagName("sheet", $nsSheet)) {
             # 非表示（hidden）・完全に非表示（veryHidden）のシートは、セルと同じく読まない
-            if ($sheet.GetAttribute("state") -in @("hidden", "veryHidden")) {
+            if (testHiddenSheetElement $sheet) {
                 continue
             }
             $rel = $workbookRels[$sheet.GetAttribute("id", ${nsRel})]
