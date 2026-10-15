@@ -228,7 +228,7 @@ content_index/<相対フォルダ>/content_index.<拡張子>.<番号>.tsv … �
 
 判断層（`testIndexArchiveEntryPath`・`testIndexArchiveEntryLocation`・`testIndexArchiveManifest`・`testImportedStatusRow` / `testImportedStatusLines`）で、次のものを 1 つでも受け付けなければインポート全体を止める（途中まで取り込まない）。
 
-- **zip slip**: 絶対パス（`/`・ドライブ文字・UNC）、`..`・`.`・空の区切り、`:`（代替データストリーム）、ファイル名に使えない文字、予約名（拡張子付きも含む。`index_name.ps1` の `$reservedFileNames` と同じ決まり）、末尾の空白・`.`、1 つの区切りが 255 文字を超えるもの。区切りは `/` だけを認め、`\` を含む名前は受け付けない。
+- **zip slip**: 絶対パス（`/`・ドライブ文字・UNC）、`..`・`.`・空の区切り、`:`（代替データストリーム）、ファイル名に使えない文字、予約名（拡張子付きも含む。`shared/core/text.ps1` の `$reservedFileNames` と同じ決まり）、末尾の空白・`.`、1 つの区切りが 255 文字を超えるもの。区切りは `/` だけを認め、`\` を含む名前は受け付けない。
 - **置き場所**: `tebunko-index.json`・`ingest_status.tsv`・`content_index/…/<本文インデックスのファイル名の型>` 以外は受け付けない（本文インデックスのファイル名の型は `content_index_format.ps1` の型を使う）。
 - **重なり**: 目録の `files` に同じパスが 2 つ（大文字・小文字を区別しない）、zip の中に同じ名前のエントリーが 2 つ（`ZipArchive` は許すため数えて確かめる）、目録に無いエントリー、目録にあるのに zip に無いエントリー。
 - **大きさ**: 目録（`tebunko-index.json`）自体が 64MB 超、エントリーの展開後の大きさ・SHA-256 が目録と違う。書き込みは目録の大きさで打ち切る。空き容量に「合計 + 1GB」の余裕を求める（上の「インポート」の 5。調べられないときは確かめない）。

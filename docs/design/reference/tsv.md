@@ -1,4 +1,4 @@
-﻿# 部品ごとの関数（TSV と本文インデックス）
+# 部品ごとの関数（TSV と本文インデックス）
 
 扱うこと: TSV の名前と場所・整形（`fs.ps1`・`index_name.ps1`・`text.ps1`・`tsv_file.ps1`）、インデックスへの配置（`index_store.ps1`）、本文インデックスの形式と読み書き（`content_index_format.ps1`・`content_index_store.ps1`）の関数一覧。扱わないこと: 検索そのものの関数（[部品ごとの関数（検索・スレッド・元のファイル・画面）](search.md)）。先に読むページ: [部品から関数一覧を引く](index.md)。
 
@@ -6,7 +6,6 @@
 
 | 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |
 |---|---|---|---|---|---|
-| `toSafeFileName` | name | string | ファイル名禁止文字を全角に置換 | [インデックス作成](../indexing/index.md) | インデックス名（newIndexName・getTargetFolders）、シート名の照合（画面。元のファイルを開くとき） |
 | `encodeIndexPlace` | place | string | TSV のファイル名に入れる場所を符号化する（ファイル名禁止文字・制御文字・`_`・`%` を `%XX` に） | [インデックスのファイルの形](../index-data/format.md#場所の符号化encodeindexplace--decodeindexplace) | toIndexFileName |
 | `decodeIndexPlace` | place | string | `encodeIndexPlace` の `%XX` を元に戻す（それ以外の `%` はそのまま） | 同上 | convertIndexFileNameToPlace |
 | `convertPlaceBaseToFixedFileName` | base | string（固定名 / 空） | 場所の元の名前（`ページ001` など）が決まった種類なら、固定の英語のファイル名（`page_001` など）を返す。決まった種類でなければ空文字列 | [インデックスのファイルの形](../index-data/format.md#配置命名規則) | toIndexFileName |
@@ -20,8 +19,6 @@
 | `toLongPath` | path | string | ファイル操作に渡すパスの先頭に `\\?\`（ネットワークのパスは `\\?\UNC\`）を付け、260 文字を超えるパスも扱えるようにする。付いていればそのまま | [入れ替えと書き出し](../index-data/publish.md#長いパス260-文字超の扱い) | インデックス作成・検索 |
 | `fromLongPath` | path | string | `toLongPath` で付けた `\\?\` を外す（`Get-ChildItem` の `FullName` から相対パスを求めるため） | 同上 | インデックス作成・検索 |
 | `testPathUnder` | path, root | bool | path が root の下（root そのものは含まない）にあるか。`..`・`.`・最後の `.` や空白・`\\?\` を解決してから比べる。状態のファイルから読んだ名前でフォルダを消す前に使う | [ファイルの読み書きの範囲](../../safety/file-access.md) | インデックス・作業フォルダの削除, `IndexCatalog` |
-| `getFolderNameProblemText` | name, allowReserved（既定 `$false`） | string（問題の文。使えれば空） | フォルダ名として使えるか（空・前後の空白・長すぎる・使えない文字・最後の `.`・予約名）。allowReserved が `$true` のときは予約名（`aux.backup` など）を拒まない（既にある実在のフォルダの名前を空にしないため。新しく付ける名前には使わない）。どのツールからも使う | 同上 | testIndexName, testStoredIndexName, newIndexName, getTargetFolders, readStatusFile |
-| `testPlainFolderName` | name | bool | 外へ出ず名前のとおりに作れるフォルダ名か（空・`.`・`..`・長すぎる・使えない文字だけを拒む。予約名・最後の `.` や空白は問わない） | 同上 | readStatusFile（`LegacyFolders` の判定） |
 | `trimTrailingSeparator` | path | string | パスの末尾の `\`・`/` を落とす（ドライブのルート・`\\?\` だけのパスは落とさない）。リンクの判定・削除の入口で使う | 同上 | `testPathIsLink`・`removeTreeNoFollow` |
 | `removeDirectoryRetry` | path, tries（既定 3）, waitMilliseconds（既定 200） | – | フォルダを中身ごと削除する（`removeTreeNoFollow`。中のリンクは辿らない）。ほかのアプリが一時的に掴んでいることがあるため、少し待って数回試す。消したあとに `[System.IO.Directory]::Exists` でフォルダが残っていれば、成功にせず例外にする（呼ぶ側は、消えたことが確かめられてから記録する）。試すたびに `Exists` が偽なら `getPathState` で見る。無いと確かめられたとき・フォルダでないものが同じ名前であるときは成功にする。届かない・読めないなど有無が分からないときは、試し直さずに OS の文面を添えて例外にする（権限が無いのに「削除しました」と記録しない）。フォルダとして在るのに開けないときだけ、決めた回数まで待って試し直し、使い切れば例外にする。空のパスは何もしない | [ファイルの読み書きの範囲](../../safety/file-access.md) | インデックス作成・`RemoveIndex`・`removeDroppedFolders`（インデックス・作業フォルダの削除） |
 | `removeTreeNoFollow` | path | – | フォルダを中身ごと削除する。ジャンクション・シンボリックリンクは辿らず、リンクだけを外す（先は消さない）。path 自身がリンクならリンクだけを外す。先に全体を数え、リンクかどうか確かめられないフォルダ（`Unknown`）が 1 つでもあれば、何も消さずに例外を投げる。消す前に、フォルダごとにリンクでないかを確かめ直し、数えたあとにリンクに替わっていれば例外を投げる（それまでに消した分は戻らない。何も消さないと言えるのは、数える段で `Unknown` を見つけたときだけ）。確かめ直すのは、そのフォルダ自身だけで、上の階層が途中で替わったときは見つけられない。末尾の `\`・`/` は落とす。読み取り専用の属性は外してから消し、260 文字を超えるパスも扱う。フォルダが無ければ何もしない | 同上 | `removeDirectoryRetry` |
@@ -36,7 +33,7 @@
 | `testAnyEntry` | entries（`EnumerateFiles` などの列挙）, predicate（省略可） | 真偽値 | 条件に合うものが 1 つでもあるか。見つけたところで列挙をやめ、列挙子を必ず Dispose する（`foreach` を途中で抜けると下のフォルダを掴んだまま残り、そのフォルダを移動・削除できなくなるため） | – | 前の版のワークスペースの状態（`getLegacyIndexState`）・インデックスの有無（`testIndexExists`）・元のファイルごとのフォルダの判定（`testIndexBookDir`） |
 | `selectFirstEntries` | entries（`EnumerateFileSystemEntries` などの列挙）, count | 配列 | 列挙の先頭から count 件までを配列にして返す。count 件で列挙をやめ、列挙子を必ず Dispose する（`testAnyEntry` と同じ理由） | – | 作業フォルダに選べるかの判定（`testDefaultWorkspace`・`getFolderEntrySample`） |
 
-## TSV の整形（`shared/core/text.ps1`）
+## TSV の整形・ファイル名の確かめ（`shared/core/text.ps1`）
 
 | 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |
 |---|---|---|---|---|---|
@@ -46,6 +43,9 @@
 | `toColumnName` | number | string | 列番号を列名に変換（1 → `A`、27 → `AA`） | 同上 | toResultHeader |
 | `splitTsvCells` | line | string[] | TSV の 1 行をセルに分ける（`"` で囲まれたセルは 1 セルとし、囲みを外す。`countTsvFields` と同じ区切り方。画面のプレビューは同じ区切り方を型 `HitRow`（`ui/search/result_types.ps1`）の中に持つ） | – | テストだけ |
 | `testTextTrimmed` | actualWidth, requiredWidth, tolerance | bool | 文字が枠に入りきらず省略（…）で切れているか（要る幅が実際の幅より誤差を超えて大きいときだけ $true。幅 0 以下は $false） | 同上 | addTrimmedToolTip（`shared/ui/trimmed_tooltip.ps1`） |
+| `toSafeFileName` | name | string | ファイル名禁止文字を全角に置換 | [インデックス作成](../indexing/index.md) | インデックス名（newIndexName・getTargetFolders）、シート名の照合（画面。元のファイルを開くとき） |
+| `getFolderNameProblemText` | name, allowReserved（既定 `$false`） | string（問題の文。使えれば空） | フォルダ名として使えるか（空・前後の空白・長すぎる・使えない文字・最後の `.`・予約名）。allowReserved が `$true` のときは予約名（`aux.backup` など）を拒まない（既にある実在のフォルダの名前を空にしないため。新しく付ける名前には使わない）。どのツールからも使う | 同上 | testIndexName, testStoredIndexName, newIndexName, getTargetFolders, readStatusFile |
+| `testPlainFolderName` | name | bool | 外へ出ず名前のとおりに作れるフォルダ名か（空・`.`・`..`・長すぎる・使えない文字だけを拒む。予約名・最後の `.` や空白は問わない） | 同上 | readStatusFile（`LegacyFolders` の判定） |
 
 日時の文字列は `formatTime`（time → string。当日なら `H:mm`、それ以前は `M/d H:mm`。`$null` は空。判断層の `search_bar_view.ps1` と画面層が使う）も `text.ps1` にある。
 
