@@ -19,28 +19,10 @@ function getOpenCopyDir {
     return Join-Path $workspace.TmpRoot (Join-Path (getMachineKey) ${openCopyDirName})
 }
 
-function testOpenCopyReparsePoint {
-    # path がリンク（ReparsePoint）か。無いパスは $false（まだ作っていない）。属性が読めないなど、確かめられないときは $true（辿らない側に倒す）
-    param (
-        [string]$path
-    )
-
-    try {
-        $attributes = [System.IO.File]::GetAttributes((toLongPath $path))
-    } catch [System.IO.FileNotFoundException] {
-        return $false
-    } catch [System.IO.DirectoryNotFoundException] {
-        return $false
-    } catch {
-        return $true
-    }
-    return [bool]($attributes -band [System.IO.FileAttributes]::ReparsePoint)
-}
-
 function testOpenCopyDir {
     # copyDir が、open_copy の置き場所として使ってよいものか。コピーの作成・片付けは、これが真のときだけ行う。
     #   絶対パス（ドライブ付き・UNC）で、途中に .. や余計な区切りを含まず、tmpRoot\<PC の鍵>\open_copy と一致すること
-    #   copyDir・その親（<PC の鍵>）・その親（tmpRoot）が、リンク（ReparsePoint）でないこと（まだ無ければ問題にしない）
+    #   copyDir・その親（<PC の鍵>）・その親（tmpRoot）が、リンク（ジャンクション・シンボリックリンク。testPathIsLink）でないこと（まだ無ければ問題にしない）
     # 空・ドライブの直下・相対パス・別の場所の open_copy・リンクの先は $false
     param (
         [string]$copyDir,
@@ -66,7 +48,7 @@ function testOpenCopyDir {
     }
     $keyDir = [System.IO.Path]::GetDirectoryName($full)
     foreach ($checked in @($full, $keyDir, [System.IO.Path]::GetDirectoryName($keyDir))) {
-        if (testOpenCopyReparsePoint $checked) {
+        if (testPathIsLink $checked) {
             return $false
         }
     }
@@ -138,7 +120,9 @@ function copySourceForOpen {
     $dir = Join-Path $copyDir ([guid]::NewGuid().ToString("N").Substring(0, 12))
     $destPath = Join-Path $dir $name
     try {
-        [System.IO.Directory]::CreateDirectory((toLongPath $dir)) | Out-Null
+        if (!(newDirectoryUnder $dir $copyDir)) {
+            return @{ Path = ""; Reason = "Failed" }
+        }
         copyFileShared $sourcePath $destPath
     } catch {
         return @{ Path = ""; Reason = "Failed" }
@@ -184,7 +168,7 @@ function clearOldOpenCopies {
     $prefix = $copyDir.TrimEnd([char]92) + "\"
     $cleared = 0
     foreach ($old in @(Get-ChildItem -LiteralPath $copyDir -Directory -Force)) {
-        if ($old.Attributes -band [System.IO.FileAttributes]::ReparsePoint) {
+        if (testLinkItem $old) {
             continue
         }
         if (!$old.FullName.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase) -or (getOpenCopyLatestTime $old) -ge $limit) {
@@ -195,11 +179,11 @@ function clearOldOpenCopies {
             break
         }
         # 消すフォルダ自身も、列挙してから消すまでの間にリンクに替わっていないかを確かめる（リンクなら辿らない）
-        if (testOpenCopyReparsePoint $old.FullName) {
+        if (testPathIsLink $old.FullName) {
             continue
         }
         foreach ($copy in @(Get-ChildItem -LiteralPath $old.FullName -File -Force)) {
-            if ($copy.Attributes -band [System.IO.FileAttributes]::ReparsePoint) {
+            if (testLinkItem $copy) {
                 continue
             }
             try {
