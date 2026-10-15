@@ -12,8 +12,15 @@ BeforeAll {
     . "$PSScriptRoot\..\..\tools\script_rules.ps1"
     # 関数の呼び出し・変数・型の使い方を AST で読む部品（解析は重いので、使うときに 1 回だけ行って使い回す）
     . "$PSScriptRoot\..\..\tools\script_arch.ps1"
+    # 名前を文字列の並びで受け取る関数。別のスレッドへ渡す関数・変数の名前（位置引数の順）を、依存として数える（script_arch.ps1 は tebunko を知らないので、ここで教える）
+    $nameListCommands = @{
+        newWorkerState = @(
+            @{ Kind = "Function"; Parameter = "functions" }
+            @{ Kind = "Variable"; Parameter = "variables" }
+        )
+    }
     function getScriptArch {
-        if (-not $script:scriptArch) { $script:scriptArch = newScriptArch $scriptsDir }
+        if (-not $script:scriptArch) { $script:scriptArch = newScriptArch $scriptsDir $nameListCommands }
         return $script:scriptArch
     }
 
@@ -203,9 +210,9 @@ Describe "依存の向き（ファイル単位）" -Tag Meta {
             newAllowances "tebunko/index/index_store.ps1" "tebunko/search/source_map.ps1" @("getSourceFolderMap", "readSourceFolderFile") "取り込み一覧・情報源フォルダのファイルを読む関数を index へ移すと消える（ファイルの持ち主は index）"
             newAllowances "tebunko/index/index_catalog.ps1" "tebunko/search/source_map.ps1" @("writeSourceFolderFile") "情報源フォルダのファイルを書く writeSourceFolderFile を index へ移すと消える（ファイルの持ち主は index）"
             newAllowances "tebunko/index/system_index.ps1" "tebunko/search/search_gram.ps1" @(
-                '$systemIndexFileName', "addTextGrams", "convertFromSystemIndexState", "convertToGramText", "convertToSystemIndexState",
+                '$systemIndexFileName', '$systemIndexPartBytes', '$systemIndexPathMax', "addTextGrams", "convertFromSystemIndexState", "convertToGramText", "convertToSystemIndexState",
                 "getGramPartCount", "getIndexNameOfRelPath", "getSystemIndexFileNames", "newSystemIndexState", "testSystemIndexPath"
-            ) "システムインデックスの形式と gram の関数（search_gram.ps1 の該当の関数・値）を index へ移すと消える（search が index を読む向きになる）"
+            ) "システムインデックスの形式と gram の関数（search_gram.ps1 の該当の関数・値。スレッドへ渡す名前の並び newWorkerState の引数にある値も含む）を index へ移すと消える（search が index を読む向きになる）"
             # indexer → search
             newAllowances "tebunko/indexer/indexer_plan.ps1" "tebunko/search/search_gram.ps1" @('$systemIndexFileName') "システムインデックスのファイル名の値を index へ移すと消える（search も index を読む）"
             newAllowances "tebunko/indexer/indexer_run.ps1" "tebunko/search/source_map.ps1" @("writeSourceFolderFile") "情報源フォルダのファイルを書く writeSourceFolderFile を index へ移すと消える（ファイルの持ち主は index）"
@@ -218,7 +225,6 @@ Describe "依存の向き（ファイル単位）" -Tag Meta {
             newAllowances "tebunko/index/content_index_format.ps1" "shared/core/pdf_file.ps1" @("testPdfExtension") $moved "移すと消える"
             newAllowances "tebunko/index/content_index_format.ps1" "shared/core/text_file.ps1" @("testTextExtension") $moved "移すと消える"
             newAllowances "tebunko/index/index_name.ps1" "shared/core/folder.ps1" @("getFolderLeafName") $moved "移すと消える"
-            newAllowances "tebunko/index/index_name.ps1" "shared/core/fs.ps1" @('$invalidFileNameChars', '$maxFileNameLength', '$reservedFileNames', "getFolderNameProblemText", "toSafeFileName") $moved "移すと消える"
             newAllowances "tebunko/index/index_name.ps1" "shared/core/pdf_file.ps1" @('$pdfExtensions', "testPdfExtension") $moved "移すと消える"
             newAllowances "tebunko/index/index_name.ps1" "shared/core/text_file.ps1" @('$textExtensions', "testTextExtension") $moved "移すと消える"
             newAllowances "tebunko/indexer/indexer_decide.ps1" "tebunko/core/paths.ps1" @('$stateDone', '$stateFailed', '$stateNew') $moved "移すと消える"
@@ -336,8 +342,6 @@ Describe "名前を文字列で渡す呼び出し" -Tag Meta {
                 Reason = "取り込みの実行を別のスレッドで動かす。渡すのはスクリプトブロックで、中の呼び出しは構文木が数える" }
             @{ From = "tebunko/search/search_service.ps1"; To = $stringCall; Name = ".AddScript"; Count = 1
                 Reason = "検索の実行を別のスレッドで動かす。渡すのはスクリプトブロックで、中の呼び出しは構文木が数える" }
-            @{ From = "tebunko/ui/startup_error.ps1"; To = $stringCall; Name = "Get-Command"; Count = 2
-                Reason = "起動の失敗を知らせる関数が読み込まれているかを、定数の名前で確かめるだけ（呼ぶ先は決まっている）" }
             @{ From = "shared/core/worker_pool.ps1"; To = $stringCall; Name = "Get-Variable の名前が定数でない"; Count = 1
                 Reason = "別のスレッドへ写す変数の名前を、引数で受け取る。写す変数の一覧は、呼び出し側が渡す" }
             @{ From = "tebunko/core/parts.ps1"; To = $stringCall; Name = "Get-Variable の名前が定数でない"; Count = 1
