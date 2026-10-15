@@ -131,6 +131,28 @@ function getIndexingBannerBehavior {
     }
 }
 
+function getIndexingBannerView {
+    # 帯に何を出すか。@{ Level; Closable; AutoCloseSeconds }
+    #   Level: 帯の色・振る舞いの種類。更新中の帯（kind が running）は run、それ以外は渡された level のまま
+    #   Closable・AutoCloseSeconds: getIndexingBannerBehavior のとおり（閉じるボタンを出すか・自動で消えるまでの秒数）
+    # 残りの件数は、いま更新していないときだけ数える（更新中は残りを 0 とみる）。数え方はここで決める
+    param (
+        [string]$kind,           # 帯の種類（running / interrupted / done / 空）
+        [string]$level,          # 色の種類（info / warn / ok / ng）。更新中は使わない
+        [int]$pending = 0,       # 取り込みの残りの件数
+        [bool]$indexing = $false # いま更新しているか
+    )
+
+    $effectiveLevel = if ($kind -eq "running") { "run" } else { $level }
+    $effectivePending = if ($indexing) { 0 } else { $pending }
+    $behavior = getIndexingBannerBehavior $effectiveLevel $effectivePending
+    return @{
+        Level            = $effectiveLevel
+        Closable         = [bool]$behavior.Closable
+        AutoCloseSeconds = [int]$behavior.AutoCloseSeconds
+    }
+}
+
 function getIndexingResumeBannerDecision {
     # 更新の集計を読み直したときの、帯の扱い。@{ Action; Dismissed; CanResume }
     #   Action: Show（中断の帯を出す）/ Text（出ている中断の帯の文だけ直す）/ Retime（終わりの帯の自動で消える時計を決め直す）/
@@ -143,7 +165,7 @@ function getIndexingResumeBannerDecision {
         [bool]$panelVisible,       # 帯が出ているか
         [string]$kind,             # 出ている帯の種類（running / interrupted / done / 空）
         $dismissed = $false,       # 利用者が閉じた印（まだ一度も決めていないと $null）
-        [string]$level = "",       # 出ている帯の level（getIndexingBannerBehavior に渡す）
+        [string]$level = "",       # 出ている帯の level（getIndexingBannerView に渡す）
         [int]$currentAutoClose = 0 # いま掛けている自動で消えるまでの秒数
     )
 
@@ -157,8 +179,7 @@ function getIndexingResumeBannerDecision {
         $action = "Text"
     } elseif ($kind -eq "done" -and $panelVisible) {
         # 終わりの帯（完了・中止）は、出した時点の古い集計で時計を決めている。残りの有無が変わって秒数が違うときだけ決め直す
-        $pendingNow = if ($canResume) { $pending } else { 0 }
-        $seconds = [int](getIndexingBannerBehavior $level $pendingNow).AutoCloseSeconds
+        $seconds = (getIndexingBannerView $kind $level $pending $indexing).AutoCloseSeconds
         if ($seconds -ne $currentAutoClose) { $action = "Retime" }
     } elseif (!$canResume -and $kind -eq "interrupted") {
         $action = "Hide"

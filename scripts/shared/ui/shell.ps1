@@ -13,12 +13,26 @@ function setShellTitle {
     $script:shellTitle = $title
 }
 
+# ステータスの文の出し先。呼ぶ側（ツールの画面の読み込み）が setStatusSink で 1 回渡す（渡すまでは、文は捨てる）
+$script:statusSink = $null
+
+function setStatusSink {
+    # ステータスの文を出す処理を登録する。受け取った文字列 1 つを画面に出す
+    param (
+        [scriptblock]$sink
+    )
+
+    $script:statusSink = $sink
+}
+
 function setStatus {
     param (
         [string]$text
     )
 
-    $ui.StatusText.Text = $text
+    if ($null -ne $script:statusSink) {
+        & $script:statusSink $text
+    }
 }
 
 function showMessage {
@@ -578,32 +592,32 @@ function newTimer {
 
 # ---- 別スレッドの処理（インデックスの件数など） ----
 
-# 仕事を受けるスレッド（BackgroundQueue）は、読み込み口（gui_main.ps1）が setBackgroundQueue で渡す。
-# 仕事のスクリプトでは、そのツールの関数（lib.ps1）をそのまま使える（スレッドを始めたときに 1 回だけ読み込む）
+# 仕事を受けるスレッド（BackgroundQueue）は、読み込み口が setBackgroundQueue で渡す。
+# 仕事のスクリプトでは、そのツールの関数をそのまま使える（スレッドを始めたときに 1 回だけ読み込む）
 $script:backgroundQueue = $null
 
 function setBackgroundQueue {
-    # 既定の仕事の列を登録する（gui_main.ps1 が起動時に 1 回呼ぶ）
+    # 既定の仕事の列を登録する（読み込み口が起動時に 1 回呼ぶ）
     param ($queue)
     $script:backgroundQueue = $queue
 }
 
 # ネットワークのパスだけを調べる専用の列。届かない共有で止まっても、プレビュー・状態の読み直し（$script:backgroundQueue）が
-# 待たされないようにする。初めて使うときにだけ作る（ネットワークのパスが無い利用者には、スレッドも lib.ps1 の読み込みも増えない）。
-# 列を作る式（BackgroundQueue の生成）は gui.ps1 が持ち、setNetworkQueueFactory で渡す
-# （shared/ が tebunko/gui.ps1 の変数に直接頼らないようにするため）。
+# 待たされないようにする。初めて使うときにだけ作る（ネットワークのパスが無い利用者には、スレッドも関数の読み込みも増えない）。
+# 列を作る式（BackgroundQueue の生成）はツール側が持ち、setNetworkQueueFactory で渡す
+# （shared/ がツール側の変数に直接頼らないようにするため）。
 $script:networkQueue = $null
 $script:networkQueueFactory = $null
 
 function setNetworkQueueFactory {
-    # ネットワークを調べる列を作る式を登録する（gui.ps1 が起動時に 1 回呼ぶ）
+    # ネットワークを調べる列を作る式を登録する（読み込み口が起動時に 1 回呼ぶ）
     param ([scriptblock]$factory)
     $script:networkQueueFactory = $factory
 }
 
 function ensureNetworkQueue {
     # ネットワークを調べる列を、初めて使うときだけ作って返す。両方のスレッドを空の仕事で温める
-    # （1 回目の［開く］が冷えたスレッドに当たって lib.ps1 の読み込みを待たないようにする）
+    # （1 回目の［開く］が冷えたスレッドに当たって関数の読み込みを待たないようにする）
     if ($null -ne $script:networkQueue) {
         return $script:networkQueue
     }
@@ -611,7 +625,7 @@ function ensureNetworkQueue {
         throw "ensureNetworkQueue: setNetworkQueueFactory が呼ばれていない"
     }
     $script:networkQueue = & $script:networkQueueFactory
-    # 温める回数は、作った列自身のスレッドの数から取る（gui.ps1 の ${backgroundWorkers} に頼らない。
+    # 温める回数は、作った列自身のスレッドの数から取る（ツール側のスレッド数の変数に頼らない。
     # 無いと 0 回になって黙って温めないままになるため）
     for ($i = 0; $i -lt $script:networkQueue.Pool.Size; $i++) {
         $script:networkQueue.Post('$null', @(), $null)
