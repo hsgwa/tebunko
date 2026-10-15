@@ -4382,7 +4382,7 @@
 <td><code>removeDirectoryRetry</code></td>
 <td>path, tries（既定 3）, waitMilliseconds（既定 200）</td>
 <td>–</td>
-<td>フォルダを中身ごと削除する（<code>removeTreeNoFollow</code>。中のリンクは辿らない）。ほかのアプリが一時的に掴んでいることがあるため、少し待って数回試す</td>
+<td>フォルダを中身ごと削除する（<code>removeTreeNoFollow</code>。中のリンクは辿らない）。ほかのアプリが一時的に掴んでいることがあるため、少し待って数回試す。消したあとに <code>[System.IO.Directory]::Exists</code> でフォルダが残っていれば、成功にせず例外にする（呼ぶ側は、消えたことが確かめられてから記録する）。試すたびに <code>Exists</code> が偽なら <code>getPathState</code> で見る。無いと確かめられたとき・フォルダでないものが同じ名前であるときは成功にする。届かない・読めないなど有無が分からないときは、試し直さずに OS の文面を添えて例外にする（権限が無いのに「削除しました」と記録しない）。フォルダとして在るのに開けないときだけ、決めた回数まで待って試し直し、使い切れば例外にする。空のパスは何もしない</td>
 <td><a href="../../../safety/file-access/">ファイルの読み書きの範囲</a></td>
 <td>インデックス作成・<code>RemoveIndex</code>・<code>removeDroppedFolders</code>（インデックス・作業フォルダの削除）</td>
 </tr>
@@ -4400,7 +4400,7 @@
 <td>–</td>
 <td>1 つのファイル・フォルダ・リンクを、中を辿らずに消す（読み取り専用の属性は外してから）。フォルダは空のものだけ消す</td>
 <td>同上</td>
-<td><code>removeTreeNoFollow</code></td>
+<td><code>removeTreeNoFollow</code>・<code>clearTmpDir</code></td>
 </tr>
 <tr>
 <td><code>getFilesNoFollow</code></td>
@@ -4441,6 +4441,14 @@
 <td>base の下から path までの各階層（base 自身は見ない）に、リンクがあれば <code>$true</code>。まだ無い階層から先は見ない。path が base の下になければ、確かめられないので <code>$true</code></td>
 <td>同上</td>
 <td><code>initTmpDir</code>・<code>removeStaleTmpDirs</code></td>
+</tr>
+<tr>
+<td><code>newDirectoryUnder</code></td>
+<td>path, root</td>
+<td>bool</td>
+<td>root の下に path のフォルダを（途中の階層ごと）作り、作れたら（すでにあるときも）<code>$true</code>。root から path までの途中（path を含む）にリンクがある・path が root の下でない・空のパスのときは、何も作らずに <code>$false</code>。作ったあとにもう一度確かめ、リンクに替わっていれば <code>$false</code>。root 自身は見ない（path が root と同じなら、root を作って <code>$true</code>）。作れない理由（権限など）は例外</td>
+<td>同上</td>
+<td><code>copySourceForOpen</code></td>
 </tr>
 <tr>
 <td><code>moveDirectoryRetry</code></td>

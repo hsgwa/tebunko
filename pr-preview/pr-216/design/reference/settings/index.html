@@ -4624,7 +4624,7 @@
 <td><code>testOpenCopyDir</code></td>
 <td>copyDir, tmpRoot</td>
 <td>bool</td>
-<td>作る・消してよい置き場所か。絶対パスで、<code>tmpRoot\&lt;PC の鍵&gt;\open_copy</code>（大文字・小文字は区別しない）と一致し、<code>open_copy</code>・<code>&lt;PC の鍵&gt;</code>・<code>tmpRoot</code> がリンク（ReparsePoint）でないときだけ真。空・相対パス・ドライブの根・別の場所・リンクは偽</td>
+<td>作る・消してよい置き場所か。絶対パスで、<code>tmpRoot\&lt;PC の鍵&gt;\open_copy</code>（大文字・小文字は区別しない）と一致し、<code>open_copy</code>・<code>&lt;PC の鍵&gt;</code>・<code>tmpRoot</code> がリンク（ジャンクション・シンボリックリンク。<code>testPathIsLink</code>）でないときだけ真。空・相対パス・ドライブの根・別の場所・リンクは偽</td>
 <td><code>copySourceForOpen</code>, <code>clearOldOpenCopies</code></td>
 </tr>
 <tr>
