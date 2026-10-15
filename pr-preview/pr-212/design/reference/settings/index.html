@@ -4843,9 +4843,9 @@
 </tr>
 <tr>
 <td><code>newAppMutex</code></td>
-<td>name（<code>gui</code> / <code>indexer</code>）, dir（既定 <code>$rootDir</code>）</td>
+<td>name（<code>gui</code> / <code>indexer</code>）, dir（既定 <code>$rootDir</code>）, app（ツールの名前。呼ぶ側が渡す。空なら例外）</td>
 <td><code>@{Mutex; Acquired}</code></td>
-<td>同じツール（配置フォルダ）の処理を二重に動かさないための名前付きミューテックス（<code>Local\tebunko_&lt;name&gt;_&lt;getFolderKey の鍵&gt;</code>）。<code>Acquired</code> が <code>$false</code> なら、ほかで実行中。プロセスが終われば解放されるため、強制終了しても残らない</td>
+<td>同じツール（配置フォルダ）の処理を二重に動かさないための名前付きミューテックス（<code>Local\&lt;app&gt;_&lt;name&gt;_&lt;getFolderKey の鍵&gt;</code>。tebunko では <code>Local\tebunko_&lt;name&gt;_&lt;鍵&gt;</code>）。<code>Acquired</code> が <code>$false</code> なら、ほかで実行中。プロセスが終われば解放されるため、強制終了しても残らない</td>
 <td><a href="../../indexing/flow/">インデックス作成のメインフロー</a></td>
 <td>インデックス作成（起動時。dir に <code>$workspace.Dir</code> を渡し、同じ <code>work</code> を使うものを 1 つにする）。画面は <code>getFolderKey</code> の鍵で同じ規則の名前を自前で作る（ウィンドウを前面に出すイベントの名前と共通の鍵を使うため）</td>
 </tr>
@@ -4912,6 +4912,14 @@
 <td>フォルダ名（ドライブ直下はドライブ名、UNC は共有名）</td>
 <td><a href="../../indexing/ingest-list/">取り込み一覧</a></td>
 <td>newIndexName</td>
+</tr>
+<tr>
+<td><code>joinSourcePath</code></td>
+<td>folder, rest, name</td>
+<td>string</td>
+<td>フォルダ・相対フォルダ・ファイル名をつなぐ（ドライブ直下でも <code>\</code> を重ねない）</td>
+<td>–</td>
+<td>getFolderPathAliases, 元のファイルの特定（<code>source_map.ps1</code>）, 画面</td>
 </tr>
 <tr>
 <td><code>getExistingAncestorFolder</code></td>

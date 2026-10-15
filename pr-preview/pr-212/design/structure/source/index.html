@@ -4332,36 +4332,23 @@
 <p>今ある逆向きの依存は、同じファイルの例外の一覧（「from のファイル・to のファイル・名前」の組と、許している理由）に載せ、増やさない。直したら一覧から消す（どの行でも見つからなくなった例外は、テストが失敗にする）。例外は、次の種類に分かれる。</p>
 <ul>
 <li>状態層の中で、下のフォルダが上のフォルダの関数・変数を使う依存。<code>tebunko/core/workspace.ps1</code> から <code>tebunko/index/system_index.ps1</code>、<code>tebunko/index/</code> から <code>tebunko/search/</code>（gram の関数・情報源フォルダのファイルの読み書き・ヒット行の切り詰め）、<code>tebunko/indexer/</code> から <code>tebunko/search/</code> への依存が残る。どれも、下のフォルダへ関数を移すと消える。</li>
-<li><code>shared/</code> が <code>tebunko/</code> の関数・変数を使う依存。決めた形ではない今ある依存。</li>
-<li>判断層（<code>search_bar_view.ps1</code>）が、共有の画面層の <code>formatTime</code> を呼ぶ依存。</li>
 <li>判断層のファイルが、判断層でない状態層（ファイル・COM を読み書きする層）の関数・変数・クラスを使う依存。例外の行に種類を付ける。</li>
 <li><code>境界</code>: 判断層が状態層の関数に判定を任せる形。<code>tests/tebunko/ui/layer_boundary.Tests.ps1</code> の <code>Mock</code> の対象に出る関数だけが、この種類にできる（出ていなければテストが失敗にする）。</li>
 <li><code>移すと消える</code>: ファイル・COM に触らない値や関数（拡張子の一覧・状態の名前・フォルダ名の組み立てなど）が状態層のファイルにある。判断層のファイルへ移すと消える。</li>
 <li>画面の判断層（<code>result_list_view.ps1</code>）が、画面層のクラス（<code>FileGroup</code>・<code>HitRow</code>）を型として使う依存と、<code>tebunko/index/</code> が <code>tebunko/indexer/</code> のクラス（<code>StatusLedger</code>）を型として使う依存。</li>
 </ul>
-<p>例外の一覧に残っている依存のうち、状態層のフォルダどうしと <code>shared/</code> の逆向きの依存（と、判断層 <code>search_bar_view.ps1</code> から <code>shared/ui/</code> への <code>formatTime</code>）を、フォルダ単位で並べると次のとおり（点線の矢印が、決めた向きに反する今の依存。括弧は、ファイルの組ごとに 1 つと数えた一覧の行の数で、1 行に名前を複数書く行がある）。判断層から判断層でない状態層への依存（上の箇条書きの <code>境界</code>・<code>移すと消える</code>）と、クラスの型の依存は、フォルダ単位にまとまらないので、図には描かず箇条書きで示す。</p>
+<p>例外の一覧に残っている依存のうち、状態層のフォルダどうしの逆向きの依存を、フォルダ単位で並べると次のとおり（点線の矢印が、決めた向きに反する今の依存。括弧は、ファイルの組ごとに 1 つと数えた一覧の行の数で、1 行に名前を複数書く行がある）。判断層から判断層でない状態層への依存（上の箇条書きの <code>境界</code>・<code>移すと消える</code>）と、クラスの型の依存は、フォルダ単位にまとまらないので、図には描かず箇条書きで示す。</p>
 <pre class="mermaid"><code>flowchart TD
     subgraph tool["tebunko/"]
         indexer["indexer/"]
         search["search/"]
         index["index/"]
         core["core/"]
-        toolui["ui/"]
-    end
-    subgraph shared["shared/"]
-        sharedui["ui/"]
-        office["office/"]
-        sharedcore["core/"]
     end
     core -.-&gt;|"updateSystemIndexState（1）"| index
     index -.-&gt;|"gram・情報源フォルダ・truncateHitLine（5）"| search
-    indexer -.-&gt;|"systemIndexFileName・writeSourceFolderFile（2）"| search
-    sharedcore -.-&gt;|"joinSourcePath（1）"| search
-    sharedcore -.-&gt;|"appId（1）"| core
-    office -.-&gt;|"toIndexFileName（1）"| index
-    sharedui -.-&gt;|"appTitle（1）"| toolui
-    toolui -.-&gt;|"formatTime（1）。判断層 search_bar_view.ps1 から"| sharedui</code></pre>
-<p>共通の値を作る場所は、読む側より下の層に置く。<code>$workspace</code> は状態層の <code>tebunko/core/paths.ps1</code>（<code>initWorkspace</code>・<code>setCallerWorkspace</code>）だけが作り、画面層（<code>switchWorkspace</code>）は <code>initWorkspace</code> を呼んで作り直す。<code>shared/</code> が使うツール側の値は、ツール側が登録する（エラーの記録先と見出しは <code>setGuiErrorLogSource</code>、仕事の列は <code>setBackgroundQueue</code>・<code>setNetworkQueueFactory</code>）。</p>
+    indexer -.-&gt;|"systemIndexFileName・writeSourceFolderFile（2）"| search</code></pre>
+<p>共通の値を作る場所は、読む側より下の層に置く。<code>$workspace</code> は状態層の <code>tebunko/core/paths.ps1</code>（<code>initWorkspace</code>・<code>setCallerWorkspace</code>）だけが作り、画面層（<code>switchWorkspace</code>）は <code>initWorkspace</code> を呼んで作り直す。<code>shared/</code> が使うツール側の値は、ツール側が登録する（エラーの記録先と見出しは <code>setGuiErrorLogSource</code>、仕事の列は <code>setBackgroundQueue</code>・<code>setNetworkQueueFactory</code>、画面の標題は <code>setShellTitle</code>、ミューテックスの名前の先頭は <code>newAppMutex</code> の引数）。</p>
 <p>依存として数える書き方（見つかるもの）:</p>
 <ul>
 <li>関数の呼び出し（<code>${function:名前}</code> も含む）。</li>

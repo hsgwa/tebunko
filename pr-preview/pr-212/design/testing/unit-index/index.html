@@ -4126,7 +4126,11 @@
 </tr>
 <tr>
 <td><code>newAppMutex</code></td>
-<td>同じ処理・同じ配置フォルダでは 2 つ目を取得できない、処理の種類・配置フォルダが違えば同時に取得できる</td>
+<td>同じ処理・同じ配置フォルダでは 2 つ目を取得できない、処理の種類・配置フォルダが違えば同時に取得できる、名前は <code>Local\&lt;app&gt;_&lt;name&gt;_&lt;鍵&gt;</code>、app が空なら例外</td>
+</tr>
+<tr>
+<td><code>formatTime</code></td>
+<td>空は空、当日は時刻だけ、前の日以前は月日つき</td>
 </tr>
 <tr>
 <td><code>replaceCellNewLine</code></td>
@@ -4155,6 +4159,10 @@
 <tr>
 <td><code>getPathUnderFolder</code></td>
 <td>フォルダからの相対パス（フォルダ自身は空、末尾の <code>\</code> ・大文字と小文字の違い、ドライブ直下、UNC の共有直下）、フォルダの下でなければ <code>$null</code>（フォルダ名の途中では一致しない）</td>
+</tr>
+<tr>
+<td><code>joinSourcePath</code></td>
+<td>ドライブ直下・相対フォルダが空の場合・共有フォルダ・空の名前</td>
 </tr>
 <tr>
 <td><code>getFolderPathAliases</code> / <code>testSameFolder</code> / <code>testFolderUnder</code></td>
