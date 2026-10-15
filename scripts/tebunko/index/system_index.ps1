@@ -461,7 +461,8 @@ function removeSystemIndexOf {
     $skipped = $false
     if (!(testPathUnder $target $systemRoot)) {
         $skipped = $true
-    } elseif ([System.IO.Directory]::Exists((toLongPath $target))) {
+    } else {
+        # 有無は removeDirectoryRetry が確かめる（無ければ何もしない。届かない・読めないときは例外になり、状態の行を残す）
         removeDirectoryRetry $target
     }
     $name = getIndexNameOfRelPath $rel
