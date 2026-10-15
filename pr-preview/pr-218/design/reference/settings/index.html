@@ -4770,7 +4770,15 @@
 <td>インデックス作成</td>
 </tr>
 <tr>
-<td><code>setNotContentIndexed</code></td>
+<td><code>invokeWithSourceCopy</code></td>
+<td>sourcePath, copyPath, readBlock, extraFiles</td>
+<td>readBlock の出力</td>
+<td>元のファイルを <code>copyFileShared</code> で作業領域へコピーし、コピーを読む処理（readBlock）を実行して、終わったらコピー（と extraFiles）を必ず消す。読む処理が成功したのにコピーを消せなかったときは、<code>作業領域のコピーを消せませんでした: &lt;元のメッセージ&gt;</code> を投げて取り込みの失敗にする（テキスト・PDF・Excel・Word・PowerPoint で共通）</td>
+<td><a href="../../../safety/file-access/#取り込み対象のファイルは書き換えない">取り込み対象のファイルは書き換えない</a></td>
+<td>インデックス作成</td>
+</tr>
+<tr>
+<td><code>setWindowsSearchExcluded</code></td>
 <td>path, Recurse（スイッチ）</td>
 <td><code>@{Ok; Changed; Reason}</code></td>
 <td>フォルダ（またはファイル）に「内容のインデックスを作成しない」属性を付ける。Recurse 無しは path 自身と直下のファイルだけ、あれば下のすべてに付ける。既に付いているものは Changed に数えない。Recurse では、中のリンク（ジャンクション・シンボリックリンク）へ降りず、リンク自身にも付けない（先の、対象の外のファイルに付かないようにするため。<code>getFilesNoFollow</code>）。Recurse でフォルダを渡したときは、根フォルダに既に付いていれば（前回すべて付け終えたとみなし）下はたどらず <code>GetAttributes</code> 1 回で終え、付いていなければ下をすべて付け終えて成功したときにだけ最後に根へ付ける（途中で失敗した回は根に付けない）。1 件ずつの失敗・列挙そのものの失敗も例外にせず Ok=<code>$false</code>・Reason を返す</td>
@@ -4778,7 +4786,7 @@
 <td>インデックス作成（<code>indexer_run.ps1</code>・<code>index_store.ps1</code>・<code>content_index_store.ps1</code>・<code>source_map.ps1</code>）</td>
 </tr>
 <tr>
-<td><code>testNotContentIndexed</code></td>
+<td><code>testWindowsSearchExcluded</code></td>
 <td>path</td>
 <td>bool</td>
 <td>フォルダ（またはファイル）に「内容のインデックスを作成しない」属性が付いているか調べる。無ければ <code>$false</code></td>
