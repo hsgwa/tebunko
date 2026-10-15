@@ -118,7 +118,7 @@ function initTmpDir {
         return $unavailable
     }
     foreach ($dir in @($workspace.TmpRoot, (Split-Path $selected.Dir -Parent), $selected.Dir)) {
-        [void](setNotContentIndexed $dir)
+        [void](setWindowsSearchExcluded $dir)
     }
     return $selected
 }
@@ -143,8 +143,8 @@ function newWorkerTmpDir {
     if (!(newDirectoryReplacingExisting $dir)) {
         return ""
     }
-    if (testNotContentIndexed $parentDir) {
-        [void](setNotContentIndexed $dir)
+    if (testWindowsSearchExcluded $parentDir) {
+        [void](setWindowsSearchExcluded $dir)
     }
     return $dir
 }

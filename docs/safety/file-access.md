@@ -27,7 +27,7 @@
 
 インデックスのインポート（`importIndex`）の書き込みは、ワークスペースの中（`publish\<PID>\import\`・`content_index\<名前>\`・取り込み一覧・`setting.config`）だけである。zip から展開したファイルは、確かめた目録のパスからだけファイル名を組み立てる（zip のエントリー名は使わない）。インポートを始めるときは、エクスポートと同じくインデックス作成のロック（`newAppMutex "indexer"`）を取り、ほかの操作と同時に走らせない。
 
-`content_index\` の下のフォルダ・ファイルには、Windows Search の索引の対象から外すため「内容のインデックスを作成しない」属性（`NotContentIndexed`）を付ける（`setNotContentIndexed`。[入れ替えと書き出し](../design/index-data/publish.md#windows-search-の対象から外すnotcontentindexed)）。インデックス作成のとき（`content_index` を作った直後・入れた直後）と、インデックスをインポートした直後（入れたフォルダ全体）と、画面がインデックス一覧を保存したとき（`source_folder.txt` 1 件）に付ける。ほかの属性（読み取り専用など）は変えず、内容も書き換えない。
+`content_index\` の下のフォルダ・ファイルには、Windows Search の索引の対象から外すため「内容のインデックスを作成しない」属性（`NotContentIndexed`）を付ける（`setWindowsSearchExcluded`。[入れ替えと書き出し](../design/index-data/publish.md#windows-search-の対象から外すnotcontentindexed)）。インデックス作成のとき（`content_index` を作った直後・入れた直後）と、インデックスをインポートした直後（入れたフォルダ全体）と、画面がインデックス一覧を保存したとき（`source_folder.txt` 1 件）に付ける。ほかの属性（読み取り専用など）は変えず、内容も書き換えない。
 
 **状態ファイルの値を信用しない。** ワークスペースは共有でき、`ingest_status.tsv`・`ingesting.txt`・`system_index_state.tsv` と設定の `targetFolders` は他の人が書き換えられる。そこから読んだインデックス名・相対パスは、読むときに確かめ（取り込み一覧・状態ファイルは `testStoredIndexName`・`testIndexRelPath`、設定の名前は `getTargetFolders` が `getFolderNameProblemText`。`..`・最後の `.` や空白・使えない文字を含むものは、行なら読み飛ばし、設定の名前なら空にして割り当て直す。`aux.backup` のような予約名は、既にある実在のフォルダの名前なので、空にも読み飛ばしにもせず、そのまま使い続ける。厳しくするのは新しく付ける名前（`newIndexName`・画面の入力・インポート）だけ）、フォルダを消す・移す前にも、先が置き場（`content_index`・`system_index`）の下であることを `testPathUnder` で確かめる（`removeBookDir`・`removeSystemIndexOf`・`IndexCatalog.RemoveIndex`・`IndexCatalog.RenameIndex`）。外を指すものは消さず、黄色のログに出す（`RemoveIndex`・`RenameIndex` は例外にして、フォルダも取り込み一覧も動かさない）。`RenameIndex` は元の名前を `testStoredIndexName`、新しい名前を `testIndexName` で、`RemoveIndex` は名前を `testStoredIndexName` で確かめる（最後が `.` のような今の決まりに合わない名前は、設定を読むときに空になって届かない）。予約名のフォルダは `Test-Path` では無いことになるため、フォルダの有無は `Directory.Exists`（`removeDirectoryRetry` の中）で見る。設定から外れたインデックスの削除（`removeDroppedFolders`）は、名前でパスを組まず、`content_index` 直下のフォルダを一覧して名前が同じものだけを消す。今の名前の決まりに合わない前の版の名前（最後が `.` など）は、取り込み一覧の読み込みで分けて、同じ確認で削除できる。
 
@@ -36,7 +36,7 @@
 ```powershell
 # 削除・書き込みの呼び出し箇所をすべて列挙し、対象のパスが work / tmpDir 由来であることを目で確かめる
 scan 'Remove-Item','WriteAllText','WriteAllLines','StreamWriter','\.SaveAs','::Move','Move-Item'
-# NotContentIndexed 属性を書く箇所（fs.ps1 の setNotContentIndexed だけ）を確かめる
+# NotContentIndexed 属性を書く箇所（fs.ps1 の setWindowsSearchExcluded だけ）を確かめる
 scan 'NotContentIndexed'
 ```
 
@@ -46,7 +46,7 @@ scan 'NotContentIndexed'
 
 | 内容 | 今の置き場所 | 定義 |
 |---|---|---|
-| 原本のコピー（Excel・Word・PowerPoint が開く対象） | `work\tmp\<PC の鍵>\<PID>\w<番号>\<元のファイル名>` | `extract_office.ps1` の `copyFileShared` 呼び出し |
+| 原本のコピー（Excel・Word・PowerPoint が開く対象） | `work\tmp\<PC の鍵>\<PID>\w<番号>\<元のファイル名>` | `extract_office.ps1` の `invokeWithSourceCopy` 呼び出し |
 | テキストファイルのコピー（読み終えたら消す） | 同上の下の `source.copy` | `extract_text.ps1` の `extractTextFile` |
 | PDF ファイルのコピー（読み終えたら消す） | 同上の下の `source.copy` | `extract_pdf.ps1` の `extractPdfFile` |
 | Excel のシートごとの一時保存（`sheet<番号>.tmp`） | 同上の下 | `extract_office.ps1` の `extractWorkbook` |
@@ -73,7 +73,7 @@ scan 'NotContentIndexed'
 
 ## 取り込み対象のファイルは書き換えない
 
-本ツールは、クロール対象フォルダのファイルを**直接開かない**。作業フォルダへコピーし、そのコピーだけを開く（`tebunko/indexer/extract_office.ps1:192`・`434` と `tebunko/indexer/extract_text.ps1:23`（`extractTextFile`）の `copyFileShared`）。コピー元は読み取り専用で開く（`shared/core/fs.ps1:140`。`FileAccess::Read` で開き、ほかのアプリの読み書き・削除を妨げない）。
+本ツールは、クロール対象フォルダのファイルを**直接開かない**。作業フォルダへコピーし、そのコピーだけを開く（`tebunko/indexer/extract_office.ps1:192`・`434` と `tebunko/indexer/extract_text.ps1`（`extractTextFile`）の `invokeWithSourceCopy`。中で `copyFileShared` を呼ぶ）。コピー元は読み取り専用で開く（`shared/core/fs.ps1:140`。`FileAccess::Read` で開き、ほかのアプリの読み書き・削除を妨げない）。
 
 この設計は、原本に絶対に影響を出さないために入れたもので（効果として、インデックス作成中も利用者が原本を上書き保存・移動できる）、結果として原本への書き込み経路そのものが存在しない。
 
@@ -96,9 +96,9 @@ flowchart LR
 
 Office の `SaveAs` は 3 か所あるが、保存先は常に作業フォルダ内のパス（`$tmpPath` / `$destPath`）である（`extract_office.ps1:156`・`210`・`234`）。原本のパスを `SaveAs` に渡す経路は無い。
 
-テキストファイル（`.txt` 等）も、Office と同じく作業フォルダの `source.copy` へコピーし（`copyFileShared`）、そのコピーを読み（`shared/core/text_file.ps1` の `readTextFile`）、読み終えたら消す。原本は直接読まず、書き込みの API には渡さない。
+テキストファイル（`.txt` 等）も、Office と同じく作業フォルダの `source.copy` へコピーし（`invokeWithSourceCopy`）、そのコピーを読み（`shared/core/text_file.ps1` の `readTextFile`）、読み終えたら消す。原本は直接読まず、書き込みの API には渡さない。
 
-PDF ファイルもテキストファイルと同じく、作業フォルダの `source.copy` へコピーし（`copyFileShared`）、そのコピーを読み（`shared/core/pdf_file.ps1` の `readPdfFile`）、TSV を書く前に消す（`extractPdfFile`）。
+PDF ファイルもテキストファイルと同じく、作業フォルダの `source.copy` へコピーし（`invokeWithSourceCopy`）、そのコピーを読み（`shared/core/pdf_file.ps1` の `readPdfFile`）、TSV を書く前に消す（`extractPdfFile`）。
 
 `tests/meta/safety.Tests.ps1` の「取り込み対象のファイルを書き換えないこと」が、原本のパスを書き込み・削除の API に渡さないこと、原本を読むのは `copyFileShared` の読み取りだけであること、`SaveAs` の保存先が作業フォルダだけであること、Word・PowerPoint を読み取り専用で開くことを確かめる（Excel を読み取り専用で開くことは「Office ファイルを安全に開くこと」が確かめる）。
 
@@ -106,7 +106,7 @@ PDF ファイルもテキストファイルと同じく、作業フォルダの 
 
 クロール対象フォルダの中にあるジャンクション・シンボリックリンクは辿らない。リンクの先のフォルダへ降りず、リンクのファイルも取り込まない（`getFilesNoFollow`）。先が取り込み対象の外（別のドライブ・共有・システムのフォルダ）でも、親を指す輪でも、読まない。飛ばしたリンクは 1 件 1 行でログに出す。クロール対象フォルダそのものがリンクのときは、利用者が選んだ場所のため、これまでどおりその先の中を読む（中のリンクだけを辿らない）。
 
-同じく、インデックスの置き場に付ける属性（`setNotContentIndexed -Recurse`）と、インデックスの zip への書き出しも、置き場の中のリンクへは降りず、リンク自身にも触れない。再帰の列挙（`Get-ChildItem -Recurse`・`SearchOption.AllDirectories`）を、許した関数の一覧の外で書けないことは、`tests/meta/link_safety.Tests.ps1` が確かめる（一覧にあるのは、リンクを辿っても読むだけで済む関数）。
+同じく、インデックスの置き場に付ける属性（`setWindowsSearchExcluded -Recurse`）と、インデックスの zip への書き出しも、置き場の中のリンクへは降りず、リンク自身にも触れない。再帰の列挙（`Get-ChildItem -Recurse`・`SearchOption.AllDirectories`）を、許した関数の一覧の外で書けないことは、`tests/meta/link_safety.Tests.ps1` が確かめる（一覧にあるのは、リンクを辿っても読むだけで済む関数）。
 
 ## クラウドにだけあるファイル
 

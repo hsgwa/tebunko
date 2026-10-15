@@ -572,6 +572,23 @@ Describe "extractDocument（偽の Word・PowerPoint）" -Tag Io {
         Should -Invoke getApp -Times 0 -Exactly -Scope It
     }
 
+    It "新形式（.docx）のコピーを読み終えて消せないときは、テキスト・PDF と同じ「作業領域のコピーを消せませんでした」になる" {
+        $source = Join-Path $TestDrive "消せない.docx"
+        writeMinimalDocx $source "本文"
+        Mock getApp { throw "Word を起動してはいけない" }
+        $copy = Join-Path $tmpDir "source.docx"
+        $script:holdCopy = $null
+        Mock readDocxUnits {
+            $script:holdCopy = [System.IO.File]::Open($copy, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::None)
+            return (New-Object System.Collections.Specialized.OrderedDictionary)
+        }
+        try {
+            { extractDocument $source } | Should -Throw "作業領域のコピーを消せませんでした: *"
+        } finally {
+            if ($script:holdCopy) { $script:holdCopy.Dispose() }
+        }
+    }
+
     It "埋め込んだファイルが壊れていても本文は取り込み、読めなかった埋め込みはログに残す" {
         $source = Join-Path $TestDrive "埋め込み入り.docx"
         $officeRel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"

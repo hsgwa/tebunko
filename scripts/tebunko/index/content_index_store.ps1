@@ -342,7 +342,7 @@ function publishIndexFolders {
     foreach ($folder in @($pending.Keys)) {
         $contentIndexFile = updateFolderContentIndex $folder ([string[]]@($pending[$folder]))
         # 書いた本文インデックスのファイルは、フォルダごとに書いた直後にここで NotContentIndexed を付ける（件数が多いため失敗してもログに出さない）
-        [void](setNotContentIndexed $folder)
+        [void](setWindowsSearchExcluded $folder)
         $results.Add((writeSystemIndexFolder $folder $indexRoot $systemRoot $contentIndexFile.Texts))
     }
     if ($results.Count -gt 0) {

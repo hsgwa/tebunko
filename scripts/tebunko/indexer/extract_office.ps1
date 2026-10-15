@@ -70,17 +70,6 @@ function isPassthroughIngestException {
     return $false
 }
 
-function failProtectionCheck {
-    # 暗号化の判定で、Officeを開く前に作業フォルダのコピーを消してから失敗にする（throwProtectionFailure）
-    param (
-        [string]$copyPath,
-        [string]$message
-    )
-
-    Remove-Item -LiteralPath $copyPath -Force
-    throwProtectionFailure $message
-}
-
 function logProtectionKind {
     # 暗号化の判定の結果をインデックス作成ログに書く（Password・Rights・Unknownだけ。旧形式・ふつうのテキストは書かない）
     param (
@@ -212,130 +201,132 @@ function extractWorkbook {
     # （Excelで開いている間、元のファイルを利用者が上書き保存・移動できなくなるのを防ぐ。長いパスのファイルも開ける）。
     # ファイル名を参照する数式（CELL("filename") 等）の表示値が変わらないよう、コピーは元と同じファイル名にする。
     # 作業フォルダ＋ファイル名が長すぎてExcelで開けない場合だけ、短い名前にする。
-    # コピーはブックを閉じた後に削除する（開けずに例外になった場合は、次のファイルの取り込み前・終了時に作業フォルダごと空にする）
+    # コピーはブックを閉じた後に削除する（invokeWithSourceCopy。開けずに例外になった場合もその場で消しに行く）
     $copyPath = Join-Path $tmpDir $bookName
     if ($copyPath.Length -ge $excelMaxPath) {
         $copyPath = Join-Path $tmpDir ("source" + [System.IO.Path]::GetExtension($sourcePath))
     }
-    copyFileShared $sourcePath $copyPath
-    $openPath = $copyPath
+    $read = invokeWithSourceCopy $sourcePath $copyPath {
+        $openPath = $copyPath
 
-    # 図形・コメントの文字は、テキスト保存には出ないため、新形式（ZIP）のブックを直接読む（Excel より速い）。
-    # 旧形式（.xls）・パスワード付きのブックは ZIP ではないため読まない。
-    # 読めなくてもセルの値は取り込めるため、インデックス作成ログに記録して続ける
-    $objectUnits = $null
-    $protection = $null
-    if (isZipFile $copyPath) {
-        $chartFailures = New-Object System.Collections.Generic.List[string]
-        $chartSizeFailures = New-Object System.Collections.Generic.List[object]
-        try {
-            $objectUnits = readXlsxObjectUnits $copyPath $chartFailures $chartSizeFailures
-        } catch {
-            # サイズの上限を超えたとき（ZipSizeLimitException）は、原因を調べられるよう部品名・大きさ・
-            # 部品ごとか合計かをインデックス作成のログに書く。画面には出さない（悪用のヒントになるため）
-            writeZipSizeLimitLog $_.Exception
-            writeIndexerLog "    図形・コメントを読み取れませんでした: $($_.Exception.Message)" "Yellow"
-        }
-        # 1つのグラフ・SmartArt・シートのヘッダー/フッターが読めなくても、そこだけを空にしてほかは読む（readXlsxObjectUnits）。
-        # shared/ はツールを知らないため、読めなかった部品の名前・サイズの上限の詳細をここでログに書く
-        foreach ($sizeFailure in $chartSizeFailures) {
-            writeZipSizeLimitLog $sizeFailure
-        }
-        foreach ($failure in $chartFailures) {
-            writeIndexerLog "    一部を読み取れませんでした: $failure" "Yellow"
-        }
-    } else {
-        # IRM・秘密度ラベルの暗号化は、Excelを起動せずに失敗にする（サインイン画面を防ぐ）。
-        # パスワード付き（既定のパスワードで暗号化されたブックを含む）は、今までどおりExcelに任せる。
-        # 「形式の分からないバイナリ」（透過暗号化の製品の暗号文の見込み）は、アプリごとの切り替えが $false なら
-        # Excelを起動せずに失敗にする
-        $protection = getOfficeFileProtection $copyPath
-        logProtectionKind $protection
-        if ($protection -eq "Rights") {
-            failProtectionCheck $copyPath (getProtectionFailureText "Rights")
-        }
-        if ($protection -eq "Unknown" -and !(testOfficeFallbackEnabled "Excel")) {
-            failProtectionCheck $copyPath (getProtectionFailureText "Unknown")
-        }
-    }
-
-    # 読み取り専用・リンク更新なしで開く。
-    # パスワード付きのファイルは、ダイアログを出さずにエラーとするためダミーのパスワードを渡す。
-    # 「形式の分からないバイナリ」で開けなかったときは、元の例外をログに書いて文言を言い換える
-    # （見張りの時間切れ・「Officeが要る」・「利用者のOfficeが使用中」の例外はそのまま通す）
-    $workbooks = (getApp "Excel").Workbooks
-    try {
-        try {
-            $wb = $workbooks.Open($openPath, 0, $true, [Type]::Missing, "dummy", "dummy", $true)
-        } catch {
-            if ($protection -ne "Unknown" -or (isPassthroughIngestException $_.Exception)) {
-                throw
+        # 図形・コメントの文字は、テキスト保存には出ないため、新形式（ZIP）のブックを直接読む（Excel より速い）。
+        # 旧形式（.xls）・パスワード付きのブックは ZIP ではないため読まない。
+        # 読めなくてもセルの値は取り込めるため、インデックス作成ログに記録して続ける
+        $objectUnits = $null
+        $protection = $null
+        if (isZipFile $copyPath) {
+            $chartFailures = New-Object System.Collections.Generic.List[string]
+            $chartSizeFailures = New-Object System.Collections.Generic.List[object]
+            try {
+                $objectUnits = readXlsxObjectUnits $copyPath $chartFailures $chartSizeFailures
+            } catch {
+                # サイズの上限を超えたとき（ZipSizeLimitException）は、原因を調べられるよう部品名・大きさ・
+                # 部品ごとか合計かをインデックス作成のログに書く。画面には出さない（悪用のヒントになるため）
+                writeZipSizeLimitLog $_.Exception
+                writeIndexerLog "    図形・コメントを読み取れませんでした: $($_.Exception.Message)" "Yellow"
             }
-            writeIndexerLog "    予備の読み取りに失敗しました: $(describeIngestError $_.Exception)" "Yellow"
+            # 1つのグラフ・SmartArt・シートのヘッダー/フッターが読めなくても、そこだけを空にしてほかは読む（readXlsxObjectUnits）。
+            # shared/ はツールを知らないため、読めなかった部品の名前・サイズの上限の詳細をここでログに書く
+            foreach ($sizeFailure in $chartSizeFailures) {
+                writeZipSizeLimitLog $sizeFailure
+            }
+            foreach ($failure in $chartFailures) {
+                writeIndexerLog "    一部を読み取れませんでした: $failure" "Yellow"
+            }
+        } else {
+            # IRM・秘密度ラベルの暗号化は、Excelを起動せずに失敗にする（サインイン画面を防ぐ）。
+            # パスワード付き（既定のパスワードで暗号化されたブックを含む）は、今までどおりExcelに任せる。
+            # 「形式の分からないバイナリ」（透過暗号化の製品の暗号文の見込み）は、アプリごとの切り替えが $false なら
+            # Excelを起動せずに失敗にする
+            $protection = getOfficeFileProtection $copyPath
+            logProtectionKind $protection
+            if ($protection -eq "Rights") {
+                throwProtectionFailure (getProtectionFailureText "Rights")
+            }
+            if ($protection -eq "Unknown" -and !(testOfficeFallbackEnabled "Excel")) {
+                throwProtectionFailure (getProtectionFailureText "Unknown")
+            }
+        }
+
+        # 読み取り専用・リンク更新なしで開く。
+        # パスワード付きのファイルは、ダイアログを出さずにエラーとするためダミーのパスワードを渡す。
+        # 「形式の分からないバイナリ」で開けなかったときは、元の例外をログに書いて文言を言い換える
+        # （見張りの時間切れ・「Officeが要る」・「利用者のOfficeが使用中」の例外はそのまま通す）
+        $workbooks = (getApp "Excel").Workbooks
+        try {
+            try {
+                $wb = $workbooks.Open($openPath, 0, $true, [Type]::Missing, "dummy", "dummy", $true)
+            } catch {
+                if ($protection -ne "Unknown" -or (isPassthroughIngestException $_.Exception)) {
+                    throw
+                }
+                writeIndexerLog "    予備の読み取りに失敗しました: $(describeIngestError $_.Exception)" "Yellow"
+                throw (getProtectionFailureText "Unknown")
+            }
+        } finally {
+            releaseComObject $workbooks
+        }
+
+        # 「形式の分からないバイナリ」は、開けた後のブックの形式（テキスト・HTML・CSVでない）も確かめる。
+        # ほかの種類（HTML の .xls など）には当てない（本来読めているものまで失敗にしないため）
+        if ($protection -eq "Unknown" -and !(testWorkbookFormat $wb.FileFormat)) {
+            $wb.Close($false)
+            releaseComObject $wb
             throw (getProtectionFailureText "Unknown")
         }
-    } finally {
-        releaseComObject $workbooks
-    }
 
-    # 「形式の分からないバイナリ」は、開けた後のブックの形式（テキスト・HTML・CSVでない）も確かめる。
-    # ほかの種類（HTML の .xls など）には当てない（本来読めているものまで失敗にしないため）
-    if ($protection -eq "Unknown" -and !(testWorkbookFormat $wb.FileFormat)) {
-        $wb.Close($false)
-        releaseComObject $wb
-        Remove-Item -LiteralPath $copyPath -Force
-        throw (getProtectionFailureText "Unknown")
-    }
-
-    $sheets = New-Object System.Collections.Generic.List[object]
-    try {
-        $worksheets = $wb.Worksheets
-        foreach ($ws in @($worksheets)) {
-            try {
-                # 非表示シートは除外（-1 = xlSheetVisible。0 = 非表示、2 = 完全に非表示）
-                if ($ws.Visible -ne -1) {
-                    continue
-                }
-
-                # Excelは [ ] を含むパスに保存できないため、一時ファイル名で保存し、整形時にリネームする
-                $tmpPath = Join-Path $tmpDir ("sheet{0}.tmp" -f $ws.Index)
-                $tsvPath = Join-Path $tmpDir (toIndexFileName $ws.Name)
-
-                # 使用範囲が実際のデータよりずっと広いシートは、データの範囲だけを一時シートにコピーしてから書き出す
-                $temp = copyDataRangeToTempSheet $wb $ws
-                $target = if ($temp) { $temp } else { $ws }
+        $sheets = New-Object System.Collections.Generic.List[object]
+        try {
+            $worksheets = $wb.Worksheets
+            foreach ($ws in @($worksheets)) {
                 try {
-                    # Excelは使用範囲（UsedRange）の左上のセルから出力するため、整形時にA1からの位置に戻せるよう控えておく。
-                    # 一時シートは書式だけのセルが無く、元のシートより使用範囲が狭いことがあるため、書き出すシートから取る
-                    $usedRange = $target.UsedRange
-                    try {
-                        $firstRow = $usedRange.Row
-                        $firstColumn = $usedRange.Column
-                    } finally {
-                        releaseComObject $usedRange
+                    # 非表示シートは除外（-1 = xlSheetVisible。0 = 非表示、2 = 完全に非表示）
+                    if ($ws.Visible -ne -1) {
+                        continue
                     }
 
-                    [void]$target.Activate()
-                    [void]$target.SaveAs($tmpPath, 42)  # 42 = xlUnicodeText
-                } finally {
-                    if ($temp) {
-                        # 一時シートは、次のシートの Index がずれないようすぐ削除する（ブックは保存せずに閉じる）
-                        $temp.Delete()
-                        releaseComObject $temp
+                    # Excelは [ ] を含むパスに保存できないため、一時ファイル名で保存し、整形時にリネームする
+                    $tmpPath = Join-Path $tmpDir ("sheet{0}.tmp" -f $ws.Index)
+                    $tsvPath = Join-Path $tmpDir (toIndexFileName $ws.Name)
+
+                    # 使用範囲が実際のデータよりずっと広いシートは、データの範囲だけを一時シートにコピーしてから書き出す
+                    $temp = copyDataRangeToTempSheet $wb $ws
+                    $target = if ($temp) { $temp } else { $ws }
+                    try {
+                        # Excelは使用範囲（UsedRange）の左上のセルから出力するため、整形時にA1からの位置に戻せるよう控えておく。
+                        # 一時シートは書式だけのセルが無く、元のシートより使用範囲が狭いことがあるため、書き出すシートから取る
+                        $usedRange = $target.UsedRange
+                        try {
+                            $firstRow = $usedRange.Row
+                            $firstColumn = $usedRange.Column
+                        } finally {
+                            releaseComObject $usedRange
+                        }
+
+                        [void]$target.Activate()
+                        [void]$target.SaveAs($tmpPath, 42)  # 42 = xlUnicodeText
+                    } finally {
+                        if ($temp) {
+                            # 一時シートは、次のシートの Index がずれないようすぐ削除する（ブックは保存せずに閉じる）
+                            $temp.Delete()
+                            releaseComObject $temp
+                        }
                     }
+                    $sheets.Add(@($tmpPath, $tsvPath, $firstRow, $firstColumn))
+                } finally {
+                    releaseComObject $ws
                 }
-                $sheets.Add(@($tmpPath, $tsvPath, $firstRow, $firstColumn))
-            } finally {
-                releaseComObject $ws
             }
+            releaseComObject $worksheets
+        } finally {
+            # 保存したファイルはブックを閉じるまでロックされている
+            $wb.Close($false)
+            releaseComObject $wb
         }
-        releaseComObject $worksheets
-    } finally {
-        # 保存したファイルはブックを閉じるまでロックされている
-        $wb.Close($false)
-        releaseComObject $wb
-        Remove-Item -LiteralPath $copyPath -Force
+        @{ Sheets = $sheets; ObjectUnits = $objectUnits }
     }
+    $sheets = $read.Sheets
+    $objectUnits = $read.ObjectUnits
 
     $count = 0
     foreach ($sheet in $sheets) {
@@ -454,12 +445,12 @@ function extractDocument {
 
     # 元のファイルに影響を出さないよう、作業フォルダにコピーしてからコピーを読む（読んでいる間も、利用者が上書き保存・移動できる）。
     # 新形式（ZIP）はコピーをそのまま読む。
-    # 旧形式・パスワード付き・拡張子と中身が異なるファイルは、Word・PowerPointで新形式に変換してから読む
+    # 旧形式・パスワード付き・拡張子と中身が異なるファイルは、Word・PowerPointで新形式に変換してから読む。
+    # コピーと、読む処理の途中で作る作業ファイル（付け替えたコピー・変換後のファイル）は、invokeWithSourceCopy が最後に消す
     $copyPath = Join-Path $tmpDir ("source" + [System.IO.Path]::GetExtension($sourcePath))
     $readPath = $copyPath
-    $workFiles = @($copyPath)
-    try {
-        copyFileShared $sourcePath $copyPath
+    $workFiles = New-Object System.Collections.Generic.List[string]
+    $units = invokeWithSourceCopy $sourcePath $copyPath {
         if (!(isZipFile $copyPath)) {
             $protection = getOfficeFileProtection $copyPath
             logProtectionKind $protection
@@ -484,7 +475,7 @@ function extractDocument {
                 # 拡張子は元のまま変えない（付け替えると、Wordが文字コードを尋ねる・PowerPointがアウトラインとして
                 # 開くことがあるため）。Wordは形式を拡張子に合わせて固定し、自動判定に任せない
                 $readPath = Join-Path $tmpDir $(if ($isWord) { "converted.docx" } else { "converted.pptx" })
-                $workFiles = @($copyPath, $readPath)
+                $workFiles.Add($readPath)
                 $wordFormat = getWordOpenFormat ([System.IO.Path]::GetExtension($copyPath))
                 try {
                     extractWithOffice $isWord $copyPath $readPath $wordFormat
@@ -523,8 +514,9 @@ function extractDocument {
                 if ($legacyPath -ne $copyPath) {
                     [System.IO.File]::Move($copyPath, $legacyPath)
                     $copyPath = $legacyPath
+                    $workFiles.Add($copyPath)
                 }
-                $workFiles = @($copyPath, $readPath)
+                $workFiles.Add($readPath)
 
                 extractWithOffice $isWord $copyPath $readPath
                 verifyOfficeOutputIsZip $readPath
@@ -546,14 +538,8 @@ function extractDocument {
         foreach ($failure in $embedFailures) {
             writeIndexerLog "    埋め込みを読み取れませんでした: $failure" "Yellow"
         }
-    } finally {
-        foreach ($path in $workFiles) {
-            if (Test-Path -LiteralPath $path) {
-                Remove-Item -LiteralPath $path -Force
-            }
-        }
-    }
-
+        $units
+    } $workFiles
     return (writeUnits $units $tmpDir)
 }
 

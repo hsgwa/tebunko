@@ -810,7 +810,7 @@ function importIndexCore {
                 $swap = swapInImportedIndexDir $expanded.NewDir $targetIndexDir (Join-Path $workDir "previous") $ws.IndexDir
                 # Directory.Move で入れたフォルダは、work\content_index の NotContentIndexed を受け継がない。
                 # 根に付いたあとの -Recurse は中へ降りないため（publish.md）、入れた直後に付ける（失敗しても止めない）
-                setNotContentIndexed $targetIndexDir -Recurse | Out-Null
+                setWindowsSearchExcluded $targetIndexDir -Recurse | Out-Null
                 try {
                     rewriteStatusForImport $ws.StatusFile $finalName $folder $expanded.Rows
                 } catch {
