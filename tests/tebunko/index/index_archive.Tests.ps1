@@ -85,7 +85,7 @@ Describe "exportIndex" -Tag Io {
 
     It "止める: インデックス作成のロックを取れなければ例外にする" {
         $fixture = newIndexFixture "$TestDrive\export_locked" "営業" "C:\共有\営業部"
-        $lock = newAppMutex "indexer" $fixture.Workspace.Dir
+        $lock = newAppMutex "indexer" $fixture.Workspace.Dir "tebunko"
         $lock.Acquired | Should -Be $true
         try {
             { exportIndex "営業" "$TestDrive\export_locked\out.zip" $fixture.Workspace $fixture.SettingsPath } | Should -Throw "*更新中は*"
@@ -661,7 +661,7 @@ Describe "importIndex" -Tag Io {
 
         $wsB = [Workspace]::new("$TestDrive\import_locked_b")
         $settingsB = "$TestDrive\import_locked_b\setting.config"
-        $lock = newAppMutex "indexer" $wsB.Dir
+        $lock = newAppMutex "indexer" $wsB.Dir "tebunko"
         try {
             { importIndex $dest ${importCollisionRename} "" "C:\新しい場所" $wsB $settingsB } | Should -Throw "*更新中は*"
         } finally {

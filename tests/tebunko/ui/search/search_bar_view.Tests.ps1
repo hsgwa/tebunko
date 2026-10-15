@@ -208,10 +208,6 @@ Describe "ワークスペースの読み込みの文言" -Tag Unit {
 }
 
 Describe "getSearchTargetText" -Tag Unit {
-    BeforeAll {
-        function formatTime($time) { return $time.ToString("yyyy/MM/dd HH:mm") }
-    }
-
     It "<name>" -TestCases @(
         @{ name = "読み込み中は、ほかの状態より先に読み込み中と出す"; loading = $true; error = "\\fileserver\共有\ws"; total = 0; count = 0; all = $true; summary = $null; expected = "検索対象：読み込んでいます…" }
         @{ name = "接続できないときは、ワークスペースを入れて知らせる"; loading = $false; error = "\\fileserver\共有\ws"; total = 0; count = 0; all = $true; summary = $null; expected = "検索対象：なし（ワークスペースに接続できません：\\fileserver\共有\ws）" }
@@ -227,7 +223,7 @@ Describe "getSearchTargetText" -Tag Unit {
     It "すべてで、集計があれば件数と最終更新を出す" {
         $summary = @{ Count = 12345; LastWrite = [datetime]"2026-09-20 10:30" }
 
-        getSearchTargetText $false "" 2 2 $true "" $summary | Should -Be "検索対象：すべて（集約ファイル 12,345 件 ・ 最終更新 2026/09/20 10:30）"
+        getSearchTargetText $false "" 2 2 $true "" $summary | Should -Be "検索対象：すべて（集約ファイル 12,345 件 ・ 最終更新 9/20 10:30）"
     }
 }
 

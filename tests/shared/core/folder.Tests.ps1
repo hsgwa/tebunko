@@ -300,3 +300,16 @@ Describe "getExistingAncestorFolder" -Tag Io {
     }
 
 }
+
+Describe "joinSourcePath" -Tag Io {
+    It "フォルダ・相対フォルダ・ファイル名をつなぐ" {
+        joinSourcePath "C:\data\" "2024\見積" "a.xlsx" | Should -Be "C:\data\2024\見積\a.xlsx"
+        joinSourcePath "D:\" "" "a.xlsx" | Should -Be "D:\a.xlsx"
+        joinSourcePath "C:\data" "2024" | Should -Be "C:\data\2024"
+    }
+
+    It "共有フォルダ直下・名前なしでもつなげる" {
+        joinSourcePath "\\server\share" "見積" "a.xlsx" | Should -Be "\\server\share\見積\a.xlsx"
+        joinSourcePath "\\server\share\" "" "" | Should -Be "\\server\share"
+    }
+}

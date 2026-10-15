@@ -388,7 +388,7 @@ function invokeIndexer {
         } else {
             # 同じ work に対してインデックス作成を 2 つ動かすと、取り込み一覧・インデックスが食い違うため 1 つだけ動かす。
             # 画面と indexer.ps1 の両方から動かせるため、鍵は work のパスから作る。ログに触る前に確かめる
-            $mutex = newAppMutex "indexer" $workspace.Dir
+            $mutex = newAppMutex "indexer" $workspace.Dir ${appId}
             if (!$mutex.Acquired) {
                 throw "ほかのインデックス作成が実行中です。インデックス作成が終わってから実行してください。"
             }

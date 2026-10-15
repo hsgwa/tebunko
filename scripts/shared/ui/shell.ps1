@@ -1,6 +1,18 @@
 ﻿# 画面の共通部品（状態表示・メッセージ・確認ダイアログ・タイマー・別スレッド）。
 # メッセージ（showMessage）・確認（showConfirm）・エラーの知らせ（showErrorDialog）は、同じ窓（dialog_confirm.xaml）で出す。
 
+# メッセージ・確認ダイアログの標題に使うツールの表示名。読み込み口が setShellTitle で 1 回渡す
+# （渡さなければ空。shell.ps1 は関数の中で読み込まれるため、$script: を付けて読み込み口の変数と同じスコープに置く）
+$script:shellTitle = ""
+
+function setShellTitle {
+    param (
+        [string]$title
+    )
+
+    $script:shellTitle = $title
+}
+
 function setStatus {
     param (
         [string]$text
@@ -31,12 +43,12 @@ function showMessage {
     }
     if ($null -ne $owner) {
         try {
-            return [System.Windows.MessageBox]::Show($owner, $message, ${appTitle}, $buttons, $icon, $default)
+            return [System.Windows.MessageBox]::Show($owner, $message, $script:shellTitle, $buttons, $icon, $default)
         } catch {
             writeErrorLog "メッセージを親付きで表示できませんでした" $_
         }
     }
-    return [System.Windows.MessageBox]::Show($message, ${appTitle}, $buttons, $icon, $default)
+    return [System.Windows.MessageBox]::Show($message, $script:shellTitle, $buttons, $icon, $default)
 }
 
 function setDialogLook {
@@ -68,7 +80,7 @@ function showMessageDialog {
     )
 
     $dialog = loadWindow "${sharedXamlDir}\dialog_confirm.xaml"
-    $dialog.Title = ${appTitle}
+    $dialog.Title = $script:shellTitle
     $dialog.Width = getConfirmWidth "normal"
     if ($null -ne $owner) {
         $dialog.Owner = $owner
@@ -320,7 +332,7 @@ function showConfirm {
 
     $form = getConfirmForm $choices $form
     $dialog = loadWindow "${sharedXamlDir}\dialog_confirm.xaml"
-    $dialog.Title = if ($title -ne "") { $title } else { ${appTitle} }
+    $dialog.Title = if ($title -ne "") { $title } else { $script:shellTitle }
     $dialog.Width = getConfirmWidth $form
     $dialog.Owner = $owner
     $ctrl = @{}
@@ -562,21 +574,6 @@ function newTimer {
     $timer.Interval = [TimeSpan]::FromMilliseconds($milliseconds)
     $timer.Add_Tick($onTick)
     return $timer
-}
-
-function formatTime {
-    # 当日なら HH:mm、それ以前は M/d HH:mm
-    param (
-        $time
-    )
-
-    if ($null -eq $time) {
-        return ""
-    }
-    if ($time.Date -eq (Get-Date).Date) {
-        return $time.ToString("H:mm")
-    }
-    return $time.ToString("M/d H:mm")
 }
 
 # ---- 別スレッドの処理（インデックスの件数など） ----
