@@ -52,14 +52,20 @@ function setIndexingBanner {
     $ui.IndexingBannerClose.Foreground = $text
     $script:indexingBannerKind = $kind
     $script:indexingBannerDismissed = $false
-    $script:indexingBannerLevel = (getIndexingBannerView $kind $level).Level
-    setIndexingBannerBehavior
+    setIndexingBannerBehavior $kind $level
 }
 
 function setIndexingBannerBehavior {
-    # 閉じるボタンと自動で消える時機（getIndexingBannerView）。残りがあって更新していないときは、閉じられるが自動では消えない
-    $pending = if ($script:indexingState -and !(isIndexing)) { [int]$script:indexingState.Pending } else { 0 }
-    $view = getIndexingBannerView $script:indexingBannerKind $script:indexingBannerLevel $pending
+    # 帯の種類・閉じるボタン・自動で消える時機を、getIndexingBannerView の結果 1 回分で当てる。
+    # 渡さなければ、出ている帯の種類と level（引き直し）。判断（更新中は残りを数えない など）は判断層
+    param (
+        [string]$kind = $script:indexingBannerKind,
+        [string]$level = $script:indexingBannerLevel
+    )
+
+    $pending = if ($script:indexingState) { [int]$script:indexingState.Pending } else { 0 }
+    $view = getIndexingBannerView $kind $level $pending (isIndexing)
+    $script:indexingBannerLevel = $view.Level
     $ui.IndexingBannerClose.Visibility = if ($view.Closable) { "Visible" } else { "Collapsed" }
     $script:indexingBannerAutoClose = $view.AutoCloseSeconds
     $script:indexingBannerTimer.Stop()

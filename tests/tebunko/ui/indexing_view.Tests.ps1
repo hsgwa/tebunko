@@ -213,10 +213,12 @@ Describe "getIndexingBannerView（帯に何を出すか）" -Tag Unit {
         @{ name = "残りがある成功の帯は、再開のために自動では消えない"; kind = "done"; level = "ok"; pending = 3; expectedLevel = "ok"; closable = $true; seconds = 0 }
         @{ name = "注意の帯（warn）は自動では消えない"; kind = "done"; level = "warn"; pending = 0; expectedLevel = "warn"; closable = $true; seconds = 0 }
         @{ name = "中断の帯は warn のまま、閉じられ、自動では消えない"; kind = "interrupted"; level = "warn"; pending = 5; expectedLevel = "warn"; closable = $true; seconds = 0 }
-        @{ name = "更新中の帯は、残りがあっても run のまま消えない"; kind = "running"; level = "ok"; pending = 4; expectedLevel = "run"; closable = $true; seconds = 0 }
+        @{ name = "更新中の帯は、残りがあっても run のまま消えない"; kind = "running"; level = "ok"; pending = 4; indexing = $true; expectedLevel = "run"; closable = $true; seconds = 0 }
+        @{ name = "更新中は残りを 0 とみる（終わりの帯の ok でも、残りがあるからと自動で消えない扱いにしない）"; kind = "done"; level = "ok"; pending = 4; indexing = $true; expectedLevel = "ok"; closable = $true; seconds = 8 }
+        @{ name = "更新中でなければ残りを数える（同じ帯で、自動では消えない）"; kind = "done"; level = "ok"; pending = 4; indexing = $false; expectedLevel = "ok"; closable = $true; seconds = 0 }
     ) {
-        param ($name, $kind, $level, $pending, $expectedLevel, $closable, $seconds)
-        $view = getIndexingBannerView $kind $level $pending
+        param ($name, $kind, $level, $pending, $indexing = $false, $expectedLevel, $closable, $seconds)
+        $view = getIndexingBannerView $kind $level $pending $indexing
         $view.Level | Should -Be $expectedLevel
         $view.Closable | Should -Be $closable
         $view.AutoCloseSeconds | Should -Be $seconds
