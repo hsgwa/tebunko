@@ -4777,6 +4777,8 @@ content_index/&lt;相対フォルダ&gt;/content_index.&lt;拡張子&gt;.&lt;番
 <li><strong>取り込み一覧の行</strong>: 列の数が違う、<code>状態</code> が <code>未取り込み</code>・<code>済</code>・<code>失敗</code> 以外、相対パスが zip slip と同じ決まりを通らない、同じ相対パスが 2 つ。</li>
 <li>zip は <code>ZipFile::ExtractToDirectory</code>・<code>ExtractToFile</code> にエントリーの名前を渡して展開しない（確かめた目録のパスからだけファイル名を組み立てる）。</li>
 <li>本文インデックスのファイルの行の形は確かめない（大きさと SHA-256 で、作ったときのままであることだけを見る）。検索は今の本文インデックスと同じく読むだけで、中身を実行しない。</li>
+<li><strong>本文インデックスのファイルの中身も信用しない</strong>: 検索は、ファイル 1 つごとに読む・場所の一覧を作る・照合するまでを囲み、版が違う・形が崩れている・読めないファイルは飛ばして件数を知らせる（検索の全体を失敗にしない）。大きさが 64MB（<code>contentIndexSearchMaxBytes</code>）を超えるファイルは、全量を読んでメモリを使い切らないよう、読まずに飛ばす。名前の番号は <code>TryParse</code> で読み、整数にならない名前（桁あふれ・全角の数字）は本文インデックスのファイルの名前として扱わない（インポートは受け付けず、エクスポートはそのファイルを取り除くよう伝えて止める）。</li>
+<li>更新の側（<code>content_index_store.ps1</code>）とインポートの中身の確かめは、この決まりの対象にまだなっていない。</li>
 </ul>
 <p><strong>元のフォルダ・開示・書き込み先</strong>: 受け取った <code>sourceFolder</code> は検索結果から元のファイルを開くときの場所になる。<strong>確かめる前の元のフォルダには触れない</strong>: インポートの確認ダイアログは、<code>sourceFolder</code> がローカルのドライブでなければ有無を調べず（<code>SourceExists</code> は <code>$null</code>。<code>getImportArchiveInfo</code>）、利用者が確かめてから登録する。<code>content_index\</code> に手でコピーしたインデックス（<code>source_folder.txt</code> の場所）は、検索結果から初めて開くときに、元のフォルダに触れる前に確かめ、マクロを持てる形式は読み取り専用で開く（<a href="../../gui/open-file/#もらったインデックスの元のフォルダを確かめる">もらったインデックスの元のフォルダを確かめる</a>）。開示は <a href="../../../safety/disclosure/#インデックスが元文書の本文を保持する情報の集約">インデックスが元文書の本文を保持する（情報の集約）</a>、書き込み先は <a href="../../../safety/file-access/#書き込み削除する場所">書き込み・削除する場所</a> を参照。</p>
 <h2 id="前の版との互換">前の版との互換<a class="headerlink" href="#前の版との互換" title="Permanent link">&para;</a></h2>

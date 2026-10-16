@@ -4118,6 +4118,10 @@
 <td>本文インデックスのファイルの列挙（<code>getContentIndexFiles</code> → <code>findContentIndexFiles</code>）は、.NET（<code>DirectoryInfo.GetFiles</code>）で <code>content_index.*.tsv</code> を 1 回で集め、更新日時・サイズも列挙のときに得る</td>
 </tr>
 <tr>
+<td>読む大きさの上限</td>
+<td>本文インデックスのファイルは丸ごと読むため、大きさが <code>contentIndexSearchMaxBytes</code>（64MB）を超えるファイルは読まずに飛ばす（検索の結果の <code>Skipped</code> に入り、画面に件数が出る）。並列の検索は最大 4 スレッドなので、同時に持つのは最大でこの 4 倍（256MB）。正しく作ったファイルは 4MB（<code>contentIndexFileMaxBytes</code>）が目安で、1 つの元のファイルで超えるときだけ大きくなる</td>
+</tr>
+<tr>
 <td>読んだ内容の使い回し</td>
 <td>画面は <code>newTsvTextCache</code> を 1 つ持ち、検索で読んだ本文インデックスのファイルの内容と場所の一覧を残す（上限 6,400 万文字＝約 128MB）。次の検索では、更新日時・サイズが列挙したときと同じ本文インデックスのファイルはファイルを開かない。書き直した本文インデックスのファイルは更新日時・サイズが変わるため読み直す。選択行のプレビュー（<code>readContentIndexLines</code>）も同じ内容を使う。キャッシュに無いときは、画面が最後に読んだ 1 つのファイルの控え（場所の一覧と、場所ごとの 200 行ごとの文字の位置。更新日時・サイズが同じ間だけ使う）から、目当ての行の手前の位置から必要な行までだけを読む（<code>readContentIndexRange</code>）。同じファイルの行を↑↓で移るたびに、ファイルの全体を読み直さない。ただし、初めて開くファイル（前に読んだのが別のファイル・控えが無い・更新日時かサイズが変わった）の最初の読みは、ファイルの全体を読む。検索 1 回が終わるたびに、上限の 9 割を超えていれば、その検索で使わなかった内容を古いものから追い出す（<code>trimTsvTextCache</code>。<a href="../../structure/closing/#gc-とメモリ">GC とメモリ</a>）</td>
 </tr>
