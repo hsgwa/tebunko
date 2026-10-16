@@ -110,7 +110,10 @@ class WorkspaceMover {
         # ワークスペース dir の取り込み一覧にあるクロール対象フォルダを、インデックスの一覧（設定の targetFolders）にし、その数を返す。
         # ほかの人が作ったワークスペースを使うとき、一覧をそのワークスペースに合わせる（合わせないままインデックス作成をすると、
         # 一覧に無いインデックスは、インデックス更新の確認に「削除予定」として出る。findDroppedIndexes）。取り込み一覧が無ければ一覧は変えない
-        $map = getIndexNameMap (newWorkspace $dir.TrimEnd("\")).StatusFile
+        # 前の版のワークスペースは取り込み一覧がワークスペース直下（OldStatusFile）にあるため、新しい置き場に無ければそちらを読む
+        $target = newWorkspace $dir.TrimEnd("\")
+        $statusPath = if (Test-Path -LiteralPath $target.StatusFile) { $target.StatusFile } else { $target.OldStatusFile }
+        $map = getIndexNameMap $statusPath
         if ($map.Count -eq 0) {
             return 0
         }

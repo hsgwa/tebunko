@@ -141,6 +141,18 @@ Describe "WorkspaceMover.UseTargets" -Tag Io {
         @($targets | ForEach-Object { "$($_.Name)=$($_.Path)=$($_.Enabled)" }) -join "|" | Should -Be "営業=\\server\共有\営業部=True|技術=\\server\共有\技術部=True"
     }
 
+    It "前の版のワークスペース（取り込み一覧がワークスペース直下）でも、クロール対象フォルダを一覧にする" {
+        $settings = "$TestDrive\use_old\setting.config"
+        writeTargetFolders @([pscustomobject]@{ Name = "自分"; Path = "C:\自分のフォルダ"; Enabled = $true }) $settings
+        writeStatusFile @(
+            [pscustomobject]@{ Path = "\\server\共有\営業部"; Name = "営業" }
+        ) @() "$TestDrive\use_old\ws\ingest_status.tsv"
+
+        ([WorkspaceMover]::new($settings)).UseTargets("$TestDrive\use_old\ws") | Should -Be 1
+
+        @(getTargetFolders $settings)[0].Name | Should -Be "営業"
+    }
+
     It "取り込み一覧が無ければ、一覧は変えない" {
         $settings = "$TestDrive\use_none\setting.config"
         writeTargetFolders @([pscustomobject]@{ Name = "自分"; Path = "C:\自分のフォルダ"; Enabled = $true }) $settings
