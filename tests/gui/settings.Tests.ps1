@@ -257,8 +257,8 @@ Describe "S6 既定のワークスペース" -Tag Gui {
     }
 }
 
-# S8 は、検索結果の件数の上限。設定の画面で変え、起動し直さずに次の検索から効くこと（制限なしは打ち切らないこと）を確かめる
-Describe "S8 検索結果の件数の上限" -Tag Gui {
+# S12 は、検索結果の件数の上限。設定の画面で変え、起動し直さずに次の検索から効くこと（制限なしは打ち切らないこと）を確かめる
+Describe "S12 検索結果の件数の上限" -Tag Gui {
     BeforeAll {
         $script:envBefore = getGuiEnvSnapshot
         $script:tool = newGuiTool $TestDrive
@@ -269,7 +269,7 @@ Describe "S8 検索結果の件数の上限" -Tag Gui {
     }
 
     It "設定の画面で変えた上限が次の検索から効き、制限なしでは打ち切らない。正しくない入力は理由が出て変わらない" {
-        $S = startGui $script:tool "S8"
+        $S = startGui $script:tool "S12"
         invokeGuiScene $S {
             $limitText = { getGuiValue (findGui $S.Window -Id "SearchLimitBox") }
             $limitError = { getGuiText (findGui $S.Window -Id "SearchLimitInputError") }
