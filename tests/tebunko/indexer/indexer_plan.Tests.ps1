@@ -239,6 +239,28 @@ Describe "findTargetFiles（tebunko が作ったものの除外）" -Tag Io {
         @($scan.Files | ForEach-Object { $_.Name }) | Should -Not -Contain "sheet.tsv"
     }
 
+    It "新しい形式のほかのワークスペース（<目印>）は、ワークスペース直下のファイルも store の中も外れる" -TestCases @(
+        @{ 目印 = "store\ingest_status.tsv" }
+        @{ 目印 = "store\format.tsv" }
+    ) {
+        param ($目印)
+        $workspace = newTestWorkspace @{} (Join-Path $TestDrive "ws-out-of-tree4")
+        newFile "other-ws\$目印"
+        newFile "other-ws\store\content\営業\source_folder.txt"
+        newFile "other-ws\store\content\営業\sheet.tsv"
+        newFile "other-ws\search_results.txt"
+        newFile "other-ws\indexing_log.txt"
+        newFile "other-ws\system_index_state.tsv"
+        newFile "other-ws\my-file.txt"
+
+        $scan = findTargetFiles $source
+        $names = @($scan.Files | ForEach-Object { $_.Name })
+        $names | Should -Contain "my-file.txt"
+        foreach ($excluded in "source_folder.txt", "sheet.tsv", "search_results.txt", "indexing_log.txt", "system_index_state.tsv") {
+            $names | Should -Not -Contain $excluded
+        }
+    }
+
     It "名前で分かる本文インデックス・前の版の本文インデックスのファイル・システムインデックスは、どこにあっても外れる" {
         $workspace = newTestWorkspace @{} (Join-Path $TestDrive "ws-out-of-tree3")
         newFile "content_index.txt.001.tsv"

@@ -94,13 +94,22 @@ function getTebunkoExcludeDirs {
         [object[]]$scannedFiles
     )
 
+    # 取り込み一覧・目録は新しい形式では store\ の中にあるため、親が store ならその 1 つ上をワークスペースとみなす
+    #（前の版のワークスペースは、ワークスペース直下の取り込み一覧で見つかる）
     $statusFileName = [System.IO.Path]::GetFileName($workspace.StatusFile)
+    $formatFileName = [System.IO.Path]::GetFileName($workspace.FormatFile)
+    $storeDirName = [System.IO.Path]::GetFileName($workspace.StoreDir)
     $dirs = New-Object System.Collections.Generic.List[string]
     $dirs.AddRange([string[]]$workspace.Entries())
     foreach ($file in $scannedFiles) {
-        if ($file.Name -eq $statusFileName) {
+        if ($file.Name -eq $statusFileName -or $file.Name -eq $formatFileName) {
             $otherDir = [System.IO.Path]::GetDirectoryName((fromLongPath $file.FullName))
-            $dirs.AddRange([string[]]([Workspace]::new($otherDir).Entries()))
+            if ([System.IO.Path]::GetFileName($otherDir) -eq $storeDirName) {
+                $otherDir = [System.IO.Path]::GetDirectoryName($otherDir)
+            }
+            if ($otherDir) {
+                $dirs.AddRange([string[]]([Workspace]::new($otherDir).Entries()))
+            }
         }
     }
     return @($dirs | Where-Object { $_ } | Select-Object -Unique)
