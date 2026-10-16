@@ -750,7 +750,7 @@ Describe "indexer.ps1（設定から外れたインデックス）" -Tag Io {
             # 検索の経路（content_index_search.ps1）で、残したインデックスの中の語が今までどおり当たる
             $found = getContentIndexFiles @("$($state.Root)\work\content_index")
             $regex = New-Object regex ([regex]::Escape("大文字拡張子"))
-            @(searchContentIndexFiles $found.ContentIndexFiles 0 $found.ContentIndexFiles.Count $regex -1 $regex "lines").Count | Should -BeGreaterThan 0
+            @((searchContentIndexFiles $found.ContentIndexFiles 0 $found.ContentIndexFiles.Count $regex -1 $regex "lines").Hits).Count | Should -BeGreaterThan 0
         }
     }
 

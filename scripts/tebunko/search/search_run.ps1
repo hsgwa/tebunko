@@ -105,7 +105,7 @@ function newSearchRequest {
     # 検索の要求 1 つを作る（画面が作り、検索の司令のスレッド（SearchService）が invokeSearchRequest で実行する）。
     # 画面と司令のスレッドの両方から読み書きするため、Synchronized の hashtable にする。
     #   画面が書く: 検索条件・Stop（取り消し）
-    #   司令が書く: Queue（ヒット）・Done / Total / IndexTotal / Scanned（進み具合）・Folders・FastUsed / FastAvailable・Truncated / Cancelled / Error・Finished
+    #   司令が書く: Queue（ヒット）・Done / Total / IndexTotal / Scanned（進み具合）・Folders・FastUsed / FastAvailable・Truncated / Cancelled / Error・Skipped（飛ばした本文インデックスのファイルのパス）・Finished
     #   workDir: 高速検索で使うワークスペース（司令のスレッドは lib.ps1 を読み込んだときのワークスペースを覚えているため、画面から渡す）
     param (
         [string]$word,
@@ -124,7 +124,7 @@ function newSearchRequest {
         UseFast = $useFast; FastUsed = $false; FastAvailable = $null
         Queue = New-Object 'System.Collections.Concurrent.ConcurrentQueue[object]'
         Stop = $false; Finished = $false; Done = 0; Total = -1; IndexTotal = -1; Scanned = 0
-        Truncated = $false; Cancelled = $false; Error = $null
+        Truncated = $false; Cancelled = $false; Error = $null; Skipped = @()
     })
 }
 
@@ -177,6 +177,7 @@ function invokeSearchRequest {
         $request.Total = $result.Total
         $request.Truncated = $result.Truncated
         $request.Cancelled = $result.Cancelled
+        $request.Skipped = @($result.Skipped)
     } catch {
         $request.Error = $_.Exception.Message
     } finally {

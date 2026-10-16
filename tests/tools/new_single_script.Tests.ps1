@@ -410,8 +410,8 @@ Describe "`-Part indexer`（結合した単一 .ps1）" -Tag Slow {
                 $search = newSearchRegex "TC21" $true $false
                 $filter = newFileFilter ""
                 $excludePlace = newPlaceExclude $true $true
-                $hits = searchContentIndexFiles $contentIndexFiles 0 $contentIndexFiles.Count $search.Regex -1 $search.TextRegex $search.ScanMode $null $filter.Include $filter.Exclude $excludePlace
-                return $hits.Count
+                $found = searchContentIndexFiles $contentIndexFiles 0 $contentIndexFiles.Count $search.Regex -1 $search.TextRegex $search.ScanMode $null $filter.Include $filter.Exclude $excludePlace
+                return $found.Hits.Count
 '@)
             $handle = $ps.BeginInvoke()
             $completed = $handle.AsyncWaitHandle.WaitOne(30000)

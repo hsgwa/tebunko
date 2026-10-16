@@ -51,7 +51,7 @@ BeforeAll {
 
         $found = getContentIndexFiles @($ws.IndexDir)
         $regex = New-Object regex ([regex]::Escape($word))
-        return @(searchContentIndexFiles $found.ContentIndexFiles 0 $found.ContentIndexFiles.Count $regex -1 $regex "lines")
+        return , @((searchContentIndexFiles $found.ContentIndexFiles 0 $found.ContentIndexFiles.Count $regex -1 $regex "lines").Hits)
     }
 }
 
@@ -78,9 +78,19 @@ Describe "exportIndex" -Tag Io {
         Set-Content -LiteralPath (Join-Path $fixture.Workspace.IndexDir "営業\見積\B社.xlsx\Sheet1.tsv") -Value "本文" -Encoding UTF8
 
         $dest = "$TestDrive\export_pending\out.zip"
-        { exportIndex "営業" $dest $fixture.Workspace $fixture.SettingsPath } | Should -Throw "*更新の途中*"
+        { exportIndex "営業" $dest $fixture.Workspace $fixture.SettingsPath } | Should -Throw "*本文インデックスとして扱えないファイル*"
         Test-Path -LiteralPath $dest | Should -Be $false
         Test-Path -LiteralPath "${dest}.tmp" | Should -Be $false
+    }
+
+    It "止める: 番号が桁あふれした名前の本文インデックスのファイルがあれば、取り除くよう伝える例外にする" {
+        $fixture = newIndexFixture "$TestDrive\export_overflow" "営業" "C:\共有\営業部"
+        $overflow = Join-Path $fixture.Workspace.IndexDir "営業\content_index.xlsx.99999999999.tsv"
+        Set-Content -LiteralPath $overflow -Value "本文" -Encoding UTF8
+
+        $dest = "$TestDrive\export_overflow\out.zip"
+        { exportIndex "営業" $dest $fixture.Workspace $fixture.SettingsPath } | Should -Throw "*content_index.xlsx.99999999999.tsv*取り除いてからエクスポート*"
+        Test-Path -LiteralPath $dest | Should -Be $false
     }
 
     It "止める: インデックス作成のロックを取れなければ例外にする" {

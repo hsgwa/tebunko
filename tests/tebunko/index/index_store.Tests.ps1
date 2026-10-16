@@ -151,6 +151,16 @@ Describe "getIndexTsvCounts / testIndexComplete" -Tag Io {
         (getIndexTsvCounts $dir)["営業\2024\a社.XLSX"] | Should -Be 2
     }
 
+    It "番号が桁あふれした名前の本文インデックスのファイルがあっても、例外にならず数えない" {
+        $dir = "$TestDrive\index_overflow"
+        newTestIndex $dir
+        writeListFile "$dir\営業\content_index.xlsx.001.tsv" @("a")
+        writeListFile "$dir\営業\content_index.xlsx.99999999999.tsv" @("b")
+        $counts = getIndexTsvCounts $dir
+        $counts["営業\content_index.xlsx"] | Should -Be 1
+        @($counts.Keys | Where-Object { $_ -like "*99999999999*" }).Count | Should -Be 0
+    }
+
     It "インデックスのフォルダの直下のTSVは数えない" {
         $dir = "$TestDrive\index4"
         [System.IO.Directory]::CreateDirectory($dir) | Out-Null
