@@ -318,6 +318,18 @@ Describe "検索結果の件数の上限の入力" -Tag Unit {
         $decision.Value | Should -Be $Value
     }
 
+    It "testSearchLimitKeepText: 制限なしにしたとき、［制限あり］の入力として正しい文字だけ残す (<Text>)" -TestCases @(
+        @{ Text = "abc"; Keep = $false }
+        @{ Text = "500"; Keep = $false }
+        @{ Text = "100001"; Keep = $false }
+        @{ Text = "20,000"; Keep = $true }
+        @{ Text = "２０００"; Keep = $true }
+        @{ Text = ""; Keep = $true }
+    ) {
+        param ($Text, $Keep)
+        testSearchLimitKeepText $Text 0 1000 100000 10000 | Should -Be $Keep
+    }
+
     It "getSearchLimitView: 制限なしは既定の数を欄に残して見せ、制限ありはその数を出す" {
         $none = getSearchLimitView 0 10000
         $none.Mode | Should -Be "None"

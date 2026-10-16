@@ -310,6 +310,19 @@ function getSearchLimitView {
     return @{ Mode = "Limited"; Text = (formatSearchLimit $current) }
 }
 
+function testSearchLimitKeepText {
+    # 制限なしにしたとき、欄の文字を残してよいか（［制限あり］の入力として正しいときだけ残す）
+    param (
+        [string]$text,
+        [int]$current,
+        [int]$min,
+        [int]$max,
+        [int]$default
+    )
+
+    return ((getSearchLimitInputDecision "Limited" $text $current $min $max $default).Action -ne "Invalid")
+}
+
 function getSearchLimitInputDecision {
     # 検索結果の件数の上限を確定するときの判断。@{ Action; Value; Message }
     #   Action: None（変わっていない。欄を今の値に戻す）/ Invalid（直してほしい。Message に理由）/ Apply（Value で保存する。0 は制限なし）

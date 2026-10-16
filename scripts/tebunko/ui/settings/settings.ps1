@@ -82,8 +82,7 @@ function commitSearchLimit {
     # 制限なしにしたとき、欄に残すのは「制限あり」として正しい数だけ（正しくない文字は残さず、今の値に戻す）
     $keepBox = $false
     if ($decision.Action -eq "Apply" -and $decision.Value -eq 0) {
-        $boxDecision = getSearchLimitInputDecision "Limited" $ui.SearchLimitBox.Text $script:searchLimit ${searchLimitMin} ${searchLimitMax} ${searchLimitDefault}
-        $keepBox = ($boxDecision.Action -ne "Invalid")
+        $keepBox = testSearchLimitKeepText $ui.SearchLimitBox.Text $script:searchLimit ${searchLimitMin} ${searchLimitMax} ${searchLimitDefault}
     }
     updateSearchLimitView $keepBox
 }
