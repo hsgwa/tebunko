@@ -42,7 +42,7 @@
 | `openMode` | `normal` / `readOnly` / `new` | `normal` | ［開き方］の状態。検索結果の元のファイルを、通常（編集する）・読み取り専用・新規（元のファイルを基にした無題の文書。占有しない）のどれで開くか（[元のファイルを開く](../gui/open-file.md)）。知らない値は `normal` とする | `readOpenMode` / `writeOpenMode` |
 | `cloudFiles` | `ask` / `download` | `ask` | クラウドにだけあるファイル（OneDrive・SharePoint のオンデマンド）の扱い。`ask` はダウンロードせずに残し、確認のダイアログで取り込むかを選ばせる。`download` は確認を出さずにダウンロードして取り込む（ダイアログの「次からこの確認を出さずにダウンロードする」で保存する）。ヘッドレスのインデクサは `download` のときだけダウンロードして取り込む。知らない値は `ask` とする（[取り込み対象の決定](../indexing/target-decision.md#クラウドにだけあるファイル)） | `readCloudFiles` / `writeCloudFiles` |
 | `workspaceFolder` | 文字列 | 空 | ワークスペース（インデックス・取り込み一覧・ログを置くフォルダ）。空なら既定の `%USERPROFILE%\Documents\tebunko_ws`（[データの置き場所とパスの決め方](data.md)）。既定の場所を選んだときも空で保存する。手で書いた相対パスは設定ファイルのフォルダから、`%変数%` は展開して読む | `getWorkDir` / `writeWorkspaceFolder` |
-| `searchLimit` | 数値 | 10000 | 画面の検索結果の件数の上限。この件数に達したら検索を打ち切る（[検索タブ](../gui/search-tab.md)）。範囲は 1,000〜100,000 で、範囲の外は近い端（999 は 1,000、200,000 は 100,000）にする。0 以下・数値にできない値は既定値にする。画面には出さない（手で書き換える）。起動のときに 1 回読むため、書き換えたら起動し直す | `readSearchLimit`（`getSearchLimit`） |
+| `searchLimit` | 数値 | 10000 | 画面の検索結果の件数の上限。この件数に達したら検索を打ち切る（[検索タブ](../gui/search-tab.md)）。範囲は 1,000〜100,000 で、範囲の外は近い端（999 は 1,000、200,000 は 100,000）にする。0 は制限なし（打ち切らない）。負の数・数値にできない値は既定値にする。設定の画面の「検索結果」で変えられ、確定すると書き、次の検索から効く（手で書き換えたときは起動し直す） | `readSearchLimit`（`getSearchLimit`） |
 | `ingestThreads` | 数値 | 0 | インデックス作成で、Office を使わずに読むファイル（`.docx`・`.pptx` など）を並べて取り込む読み取りのスレッドの数（1〜4。4 より大きい値は 4 にする）。0 はコア数 − 1（1〜4）にする。取り込むファイルの数より多くはしない。Excel・Word・PowerPoint のファイルは、この値にかかわらず種類ごとにスレッド 1 つ・Office 1 つで取り込む。画面には出さない（手で書き換える）（[取り込みの並列化](../indexing/parallel.md)） | `readSettings`（インデクサの `getIngestWorkerCount`） |
 
 ## 読み込み・保存

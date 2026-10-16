@@ -273,3 +273,64 @@ Describe "getWorkspaceMoveOutcome" -Tag Unit {
         $failed.Warning | Should -Not -BeNullOrEmpty
     }
 }
+
+Describe "検索結果の件数の上限の入力" -Tag Unit {
+    It "制限あり・欄 <Text> は <Action> <Value>" -TestCases @(
+        @{ Text = "20000"; Action = "Apply"; Value = 20000 }
+        @{ Text = "10,000"; Action = "Apply"; Value = 10000 }
+        @{ Text = "１００００"; Action = "Apply"; Value = 10000 }
+        @{ Text = " 20000 "; Action = "Apply"; Value = 20000 }
+        @{ Text = "1000"; Action = "Apply"; Value = 1000 }
+        @{ Text = "100000"; Action = "Apply"; Value = 100000 }
+        @{ Text = "5000"; Action = "None"; Value = 5000 }
+        @{ Text = "5,000"; Action = "None"; Value = 5000 }
+        @{ Text = "   "; Action = "None"; Value = 5000 }
+        @{ Text = "1,0000"; Action = "Invalid"; Value = 5000 }
+        @{ Text = "999"; Action = "Invalid"; Value = 5000 }
+        @{ Text = "９９９"; Action = "Invalid"; Value = 5000 }
+        @{ Text = "100001"; Action = "Invalid"; Value = 5000 }
+        @{ Text = "abc"; Action = "Invalid"; Value = 5000 }
+        @{ Text = "1.5"; Action = "Invalid"; Value = 5000 }
+        @{ Text = "-1"; Action = "Invalid"; Value = 5000 }
+        @{ Text = "99999999999999999999"; Action = "Invalid"; Value = 5000 }
+    ) {
+        param ($Text, $Action, $Value)
+        $decision = getSearchLimitInputDecision "Limited" $Text 5000 1000 100000 10000
+        $decision.Action | Should -Be $Action
+        $decision.Value | Should -Be $Value
+        if ($Action -eq "Invalid") {
+            $decision.Message | Should -Be "1,000～100,000 の数で入力してください。"
+        } else {
+            $decision.Message | Should -Be ""
+        }
+    }
+
+    It "<Label>" -TestCases @(
+        @{ Label = "制限なしを選ぶと、今が制限ありなら 0 を保存する"; Mode = "None"; Text = "5,000"; Current = 10000; Action = "Apply"; Value = 0 }
+        @{ Label = "制限なしを選んでも、今が制限なしなら何もしない"; Mode = "None"; Text = "5,000"; Current = 0; Action = "None"; Value = 0 }
+        @{ Label = "制限なしから制限ありに戻して欄が空なら、既定の件数にする"; Mode = "Limited"; Text = ""; Current = 0; Action = "Apply"; Value = 10000 }
+        @{ Label = "制限なしから制限ありに戻して欄に数があれば、その数にする"; Mode = "Limited"; Text = "20000"; Current = 0; Action = "Apply"; Value = 20000 }
+        @{ Label = "制限ありのまま欄が空なら、何もしない"; Mode = "Limited"; Text = ""; Current = 10000; Action = "None"; Value = 10000 }
+    ) {
+        param ($Label, $Mode, $Text, $Current, $Action, $Value)
+        $decision = getSearchLimitInputDecision $Mode $Text $Current 1000 100000 10000
+        $decision.Action | Should -Be $Action
+        $decision.Value | Should -Be $Value
+    }
+
+    It "getSearchLimitView: 制限なしは既定の数を欄に残して見せ、制限ありはその数を出す" {
+        $none = getSearchLimitView 0 10000
+        $none.Mode | Should -Be "None"
+        $none.Text | Should -Be "10,000"
+        $limited = getSearchLimitView 20000 10000
+        $limited.Mode | Should -Be "Limited"
+        $limited.Text | Should -Be "20,000"
+    }
+
+    It "getSearchLimitTexts: 範囲と既定と、重さの注意を出す" {
+        $texts = getSearchLimitTexts 1000 100000 10000
+        $texts.Range | Should -Be "1,000～100,000 件の範囲で指定できます。既定は 10,000 件です。"
+        $texts.Caution | Should -Match "メモリを多く使います"
+        $texts.Error | Should -Be "1,000～100,000 の数で入力してください。"
+    }
+}

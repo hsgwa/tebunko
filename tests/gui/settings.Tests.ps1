@@ -256,3 +256,79 @@ Describe "S6 既定のワークスペース" -Tag Gui {
         compareGuiEnvSnapshot $script:envBefore (getGuiEnvSnapshot) | Should -BeNullOrEmpty
     }
 }
+
+# S7 は、検索結果の件数の上限。設定の画面で変え、起動し直さずに次の検索から効くこと（制限なしは打ち切らないこと）を確かめる
+Describe "S7 検索結果の件数の上限" -Tag Gui {
+    BeforeAll {
+        $script:envBefore = getGuiEnvSnapshot
+        $script:tool = newGuiTool $TestDrive
+        # 上限の下限（1,000 件）を超える架空の 1,500 行
+        $lines = @("品名`t数") + @(1..1500 | ForEach-Object { "あいう$_`t1" })
+        newTsv "$TestDrive\tsv\営業\見積.txt\$(toIndexFileName "見積")" $lines
+        [void](newContentIndexFiles "$TestDrive\tsv" "$($script:tool.Work)\content_index")
+    }
+
+    It "設定の画面で変えた上限が次の検索から効き、制限なしでは打ち切らない。正しくない入力は理由が出て変わらない" {
+        $S = startGui $script:tool "S7"
+        invokeGuiScene $S {
+            $limitText = { getGuiValue (findGui $S.Window -Id "SearchLimitBox") }
+            $limitError = { getGuiText (findGui $S.Window -Id "SearchLimitInputError") }
+            $search = {
+                selectGuiTab $S "SearchTab" "WordBox"
+                setGuiText $S (findGui $S.Window -Id "WordBox") "あいう"
+                waitGuiEnabled $S (findGui $S.Window -Id "SearchButton") "検索"
+                clickGui $S $S.Window "SearchButton" "検索"
+            }
+
+            setGuiStep $S "［設定］を開く: 既定は制限あり 10,000 件"
+            selectGuiTab $S "SettingsTab" "SearchLimitBox"
+            @(getGuiTexts $S.Window) | Should -Contain "検索結果の件数の上限"
+            isGuiSelected (findGui $S.Window -Id "SearchLimitedRadio") | Should -BeTrue
+            & $limitText | Should -Be "10,000"
+
+            setGuiStep $S "欄に 1,000 を入れて Enter: 保存される"
+            $box = findGui $S.Window -Id "SearchLimitBox"
+            $box.SetFocus()
+            setGuiText $S $box "1,000"
+            pressGuiKey $S.Window 0x0D
+            waitGui $S "設定に 1000 が書かれる" ${guiDefaultTimeout} { (readGuiConfig $script:tool).searchLimit -eq 1000 } | Out-Null
+
+            setGuiStep $S "起動し直さずに検索: 1,000 件で打ち切る"
+            & $search
+            waitGui $S "1,000 件で打ち切る" 120 { @(getGuiTexts $S.Window | Where-Object { $_ -like "1,000 件を超えたため*" }).Count -gt 0 } | Out-Null
+
+            setGuiStep $S "正しくない入力: 理由が出て、設定は変わらない。Esc で戻る"
+            selectGuiTab $S "SettingsTab" "SearchLimitBox"
+            $box = findGui $S.Window -Id "SearchLimitBox"
+            $box.SetFocus()
+            setGuiText $S $box "abc"
+            pressGuiKey $S.Window 0x0D
+            waitGui $S "理由が出る" ${guiDefaultTimeout} { (& $limitError) -like "1,000～100,000 の数で*" } | Out-Null
+            (readGuiConfig $script:tool).searchLimit | Should -Be 1000
+            pressGuiKey $S.Window 0x1B
+            waitGui $S "欄が戻り、理由が消える" ${guiDefaultTimeout} { (& $limitText) -eq "1,000" -and (& $limitError) -eq "" } | Out-Null
+
+            setGuiStep $S "「制限なし」を選ぶ: 0 が保存され、欄は読み取り専用になる"
+            selectGui (findGui $S.Window -Id "SearchNoneRadio")
+            waitGui $S "設定に 0 が書かれる" ${guiDefaultTimeout} { (readGuiConfig $script:tool).searchLimit -eq 0 } | Out-Null
+            $box = findGui $S.Window -Id "SearchLimitBox"
+            $box.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).Current.IsReadOnly | Should -BeTrue
+
+            setGuiStep $S "起動し直さずに検索: 打ち切らず、1,500 件すべて出る"
+            & $search
+            waitGui $S "1,500 件すべて出る" 120 { @(getGuiTexts $S.Window | Where-Object { $_ -like "*1,500 件*" }).Count -gt 0 } | Out-Null
+            @(getGuiTexts $S.Window | Where-Object { $_ -like "*打ち切りました*" }) | Should -BeNullOrEmpty
+
+            setGuiStep $S "「制限あり」に戻す: 残していた数（1,000）で保存される"
+            selectGuiTab $S "SettingsTab" "SearchLimitBox"
+            selectGui (findGui $S.Window -Id "SearchLimitedRadio")
+            waitGui $S "設定に 1000 が書かれる（戻す）" ${guiDefaultTimeout} { (readGuiConfig $script:tool).searchLimit -eq 1000 } | Out-Null
+
+            closeGui $S
+        }
+    }
+
+    It "利用者の環境に触っていない" {
+        compareGuiEnvSnapshot $script:envBefore (getGuiEnvSnapshot) | Should -BeNullOrEmpty
+    }
+}

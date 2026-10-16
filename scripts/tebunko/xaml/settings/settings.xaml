@@ -28,6 +28,43 @@
           </Setter.Value>
         </Setter>
       </Style>
+      <!-- 選択肢のラジオ。16×16 の丸で、枠は入力欄と同じ（Border.Input）、選ぶと Accent の枠と点。キーボードで選んだときは Accent.Ring の輪を出す -->
+      <Style x:Key="OptionRadio" TargetType="RadioButton">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Foreground" Value="{StaticResource Ink.Body}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="RadioButton">
+              <StackPanel Orientation="Horizontal" Background="Transparent">
+                <Border x:Name="Ring" CornerRadius="10" Padding="1" Background="Transparent" VerticalAlignment="Center">
+                  <Border x:Name="Circle" Width="16" Height="16" CornerRadius="8" Background="{StaticResource Bg.Surface}"
+                          BorderBrush="{StaticResource Border.Input}" BorderThickness="1">
+                    <Ellipse x:Name="Dot" Visibility="Collapsed" Width="8" Height="8" Fill="{StaticResource Accent}" />
+                  </Border>
+                </Border>
+                <ContentPresenter Margin="8,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="True" />
+              </StackPanel>
+              <ControlTemplate.Triggers>
+                <Trigger Property="IsChecked" Value="True">
+                  <Setter TargetName="Circle" Property="BorderBrush" Value="{StaticResource Accent}" />
+                  <Setter TargetName="Dot" Property="Visibility" Value="Visible" />
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                  <Setter TargetName="Circle" Property="BorderBrush" Value="{StaticResource Accent}" />
+                  <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
+                </Trigger>
+                <Trigger Property="IsKeyboardFocused" Value="True">
+                  <Setter TargetName="Ring" Property="Background" Value="{StaticResource Accent.Ring}" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                  <Setter Property="Opacity" Value="0.45" />
+                </Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
     </ResourceDictionary>
   </ScrollViewer.Resources>
   <Grid Margin="0,16,0,24">
@@ -82,6 +119,42 @@
                 </StackPanel>
               </DockPanel>
               <TextBlock x:Name="SettingsFileNote" Style="{StaticResource Micro}" Margin="0,8,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </Border>
+
+      <!-- 検索結果の件数の上限（設定 searchLimit）。制限なしは 0。確定すると、次の検索から効く（文言と可否は settings_view.ps1 の getSearchLimit*） -->
+      <Border Style="{StaticResource Section.Card}" Margin="0,16,0,0">
+        <StackPanel>
+          <Border Style="{StaticResource Section.Header}">
+            <TextBlock Style="{StaticResource Label.Strong}" VerticalAlignment="Center" Text="検索結果" />
+          </Border>
+
+          <Border Style="{StaticResource Section.Row}" BorderThickness="0">
+            <StackPanel>
+              <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Margin="12,0,0,0" VerticalAlignment="Top">
+                  <StackPanel Orientation="Horizontal">
+                    <RadioButton x:Name="SearchLimitedRadio" GroupName="SearchLimit" Style="{StaticResource OptionRadio}" Content="制限あり" VerticalAlignment="Center"
+                                 AutomationProperties.AutomationId="SearchLimitedRadio" />
+                    <TextBox x:Name="SearchLimitBox" Width="96" Margin="12,0,0,0" VerticalAlignment="Center" TextAlignment="Right"
+                             AutomationProperties.AutomationId="SearchLimitBox" AutomationProperties.Name="検索結果の件数の上限" />
+                    <TextBlock Style="{StaticResource Body}" Margin="6,0,0,0" VerticalAlignment="Center" Text="件" />
+                  </StackPanel>
+                  <RadioButton x:Name="SearchNoneRadio" GroupName="SearchLimit" Style="{StaticResource OptionRadio}" Content="制限なし" Margin="0,10,0,0"
+                               HorizontalAlignment="Left" AutomationProperties.AutomationId="SearchNoneRadio" />
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Style="{StaticResource Body}" FontWeight="SemiBold" Foreground="{StaticResource Ink.Strong}" Text="検索結果の件数の上限" />
+                  <TextBlock Style="{StaticResource Meta}" Margin="0,2,0,0" Text="この件数に達したら検索をやめます" />
+                </StackPanel>
+              </DockPanel>
+              <!-- 入力が正しくないときの理由。場所はいつも空けておき、出ても下の行が動かない -->
+              <TextBlock x:Name="SearchLimitInputError" Style="{StaticResource ErrorText}" Margin="0,8,0,0" MinHeight="16" TextWrapping="Wrap" Visibility="Hidden"
+                         AutomationProperties.AutomationId="SearchLimitInputError" />
+              <TextBlock x:Name="SearchLimitRange" Style="{StaticResource Micro}" Margin="0,8,0,0" TextWrapping="Wrap" />
+              <TextBlock x:Name="SearchLimitCaution" Style="{StaticResource Meta}" Margin="0,6,0,0" TextWrapping="Wrap" />
             </StackPanel>
           </Border>
         </StackPanel>

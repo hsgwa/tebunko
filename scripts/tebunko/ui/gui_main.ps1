@@ -62,8 +62,8 @@ function startGui {
     # 壊れた設定ファイルの退避と、ワークスペースの決定
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\shell\settings_recovery.ps1".Replace('`', '``')))
 
-    # 検索結果の件数の上限（設定 searchLimit）。壊れた設定の退避のあとに、起動のときに 1 回読む
-    ${searchLimit} = readSearchLimit
+    # 検索結果の件数の上限（設定 searchLimit。0 は制限なし）。壊れた設定の退避のあとに、起動のときに読む。設定の画面で変えると書き換わる
+    $script:searchLimit = readSearchLimit
 
     $ErrorActionPreference = "Stop"
 
