@@ -293,8 +293,21 @@ function repairIndexFormat {
             }
         }
     }
-    writeIndexFormat $indexes $workspace.FormatFile
-    return (readIndexFormat $workspace.FormatFile)
+    # 画面の裏とインデクサーが同時に呼びうるため、インデクサーの更新と同じロックの中で書く。
+    # ロックの中で、ほかが先に直していた（読める目録になっていた）ときは書き直さない
+    $computed = $indexes
+    $written = updateIndexFormat ({
+            param ($table)
+            if ($table.Count -eq 0) {
+                foreach ($key in $computed.Keys) { $table[$key] = $computed[$key] }
+            }
+        }.GetNewClosure()) $workspace.FormatFile
+    $result = readIndexFormat $workspace.FormatFile
+    if ($written -and $result.Status -eq "Ok") {
+        return $result
+    }
+    # ロックを取れない・書けないときは、書かずに求めた表を返す（次の機会に直す）
+    return @{ Status = "Ok"; Indexes = $computed }
 }
 
 

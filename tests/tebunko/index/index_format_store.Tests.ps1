@@ -132,6 +132,24 @@ Describe "repairIndexFormat / getWorkspaceIndexFormat" -Tag Io {
         $catalog.Indexes["営業"] | Should -Be "作成中"
     }
 
+    It "インデクサーが目録のロックを持っているときは、壊れた目録を書き直さず、求めた表で状態を返す" {
+        $ws = newFormatWorkspace "format_repair_locked"
+        $good = Join-Path $ws.IndexDir "営業"
+        [System.IO.Directory]::CreateDirectory($good) | Out-Null
+        $mark = [string][char]0x1E
+        [System.IO.File]::WriteAllText("$good\content_index.docx.001.tsv", "$mark 版=${indexFormatVersion}`n", [System.Text.Encoding]::Unicode)
+        [System.IO.File]::WriteAllText($ws.FormatFile, "こわれた", (New-Object System.Text.UTF8Encoding($true)))
+        $lock = New-Object System.IO.FileStream("$($ws.FormatFile).lock", [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+        try {
+            $state = getWorkspaceIndexFormat $ws
+        } finally {
+            $lock.Dispose()
+        }
+
+        $state.Indexes["営業"].Searchable | Should -Be $true
+        (readIndexFormat $ws.FormatFile).Status | Should -Be "Broken"
+    }
+
     It "古い置き場にだけ本文インデックスがあれば、そのインデックスは Old で、目録は書かない" {
         $ws = newFormatWorkspace "format_old_state"
         newOldIndex $ws "営業"
