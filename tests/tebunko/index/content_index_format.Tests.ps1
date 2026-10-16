@@ -346,6 +346,12 @@ Describe "getIndexFormatState（インデックスの状態の表）" -Tag Unit 
         $result = getIndexFormatState @{ Status = "Missing"; Indexes = @{} } @("営業") @() $false
         $result.Indexes["営業"].Message | Should -Be (getIndexRebuildMessage)
     }
+
+    It "Indexes は名前で引ける。画面は Contains で調べる（ordered の表は ContainsKey を持たない）" {
+        $result = getIndexFormatState @{ Status = "Missing"; Indexes = @{} } @("営業") @() $false
+        $result.Indexes.Contains("営業") | Should -BeTrue
+        $result.Indexes.Contains("無い") | Should -BeFalse
+    }
 }
 
 Describe "testContentIndexVersionLine" -Tag Unit {

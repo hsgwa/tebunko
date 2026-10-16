@@ -1,7 +1,7 @@
 ﻿# ワークスペースの中の置き場の名前（content_index・ingest_status.tsv・store）を、コードに直接書かないことを確かめる。
 # 置き場の名前は Workspace クラス（scripts/tebunko/core/workspace.ps1）が 1 か所で持ち、ほかは Workspace のプロパティ
 # （IndexDir・StatusFile・StoreDir・FormatFile・OldIndexDir・OldStatusFile）から取る。名前を直書きすると、置き場を替えたときに
-# 直し忘れる所が出る（前の版の置き場と今の置き場を取り違えた事故の再発防止）。
+# 直し忘れる所が出る（前の版の置き場と今の置き場を取り違えないため）。
 # コメントは対象にしない。名前の一部になっているだけのもの（content_index_format.ps1 のファイル名、content_index.xlsx.001.tsv の
 # ファイル名の型）は当たらない。
 # 直書きしてよい所は $allowed に、ファイルと理由を対にして書く。

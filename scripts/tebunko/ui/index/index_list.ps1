@@ -456,7 +456,7 @@ function applyIndexStats {
     foreach ($item in $script:targetItems) {
         $stat = $null
         $formatEntry = $null
-        if ($item.Name -and $null -ne $formatState -and $formatState.Indexes.ContainsKey($item.Name)) {
+        if ($item.Name -and $null -ne $formatState -and $formatState.Indexes.Contains($item.Name)) {
             $formatEntry = $formatState.Indexes[$item.Name]
         }
         if ($item.Name -and $null -ne $stats -and $stats.ContainsKey($item.Name)) {
