@@ -5,7 +5,10 @@
 # f だけ、ConfirmTargets で取りやめたときに Excel を起動していないことを確かめるため、プロセスの数を見る
 BeforeDiscovery {
     $compatIndexRoot = Join-Path (Resolve-Path "$PSScriptRoot\..\..").Path "testdata\compat\index"
-    $samples = @([System.IO.Directory]::GetDirectories($compatIndexRoot) | ForEach-Object { @{ Sample = [System.IO.Path]::GetFileName($_) } })
+    # 今の形式（ws\store\ のある見本）と、前の形式（ws\content_index\ だけの見本）に分ける。前の形式の見本は「古い形式」の入力（index_compat j）
+    $allSamples = @([System.IO.Directory]::GetDirectories($compatIndexRoot))
+    $samples = @($allSamples | Where-Object { [System.IO.Directory]::Exists("$_\ws\store") } | ForEach-Object { @{ Sample = [System.IO.Path]::GetFileName($_) } })
+    $oldSamples = @($allSamples | Where-Object { ![System.IO.Directory]::Exists("$_\ws\store") } | ForEach-Object { @{ Sample = [System.IO.Path]::GetFileName($_) } })
 }
 
 BeforeAll {
@@ -170,7 +173,7 @@ BeforeAll {
     function script:assertContentIndexUnchanged {
         # 取り込み直したファイル（reingestKeys）の本文インデックス（content_index.<拡張子>.*.tsv）のほかは、内容が変わっていないことを確かめる
         param ([hashtable]$before, [string]$workDir, [string[]]$reingestKeys)
-        $after = getFileHashes "$workDir\content_index"
+        $after = getFileHashes ([Workspace]::new($workDir)).IndexDir
         $before.Count | Should -BeGreaterThan 0
         $after.Count | Should -Be $before.Count
         $exempt = @($reingestKeys | ForEach-Object {
@@ -204,6 +207,12 @@ Describe "見本をそのまま読む（index_compat a）" -Tag Io {
         $legacy = getLegacyIndexState $ws.Dir
         $legacy.HasLegacyIndex | Should -Be $false
 
+        # 今の形式の見本は、目録（store\format.tsv）どおりに「作り終えた」ものとして検索の対象になる
+        $format = getWorkspaceIndexFormat $ws
+        $format.State | Should -Be "Current"
+        $format.Indexes[$s.IndexName].State | Should -Be "Current"
+        $format.Indexes[$s.IndexName].Searchable | Should -Be $true
+
         $state = readSystemIndexState $ws.SystemIndexStateFile
         $state.Covered.Contains($s.IndexName) | Should -Be $true
 
@@ -215,7 +224,7 @@ Describe "見本をそのまま読む（index_compat a）" -Tag Io {
 Describe "システムインデックスの語（index_compat b）" -Tag Io {
     It "<Sample>: writeSystemIndexFolders が作る語が、見本の system_index と同じになる（convertToGramText・getContentIndexBodyText）" -TestCases $samples {
         $s = getSample $Sample
-        $contentIndexRoot = "$($s.WsDir)\content_index"
+        $contentIndexRoot = ([Workspace]::new($s.WsDir)).IndexDir
         $outRoot = Join-Path $TestDrive "sysidx_out_$Sample"
         $folders = @(Get-ChildItem -LiteralPath "$contentIndexRoot\$($s.IndexName)" -Recurse -File -Filter "${contentIndexFileNamePrefix}.*.tsv" |
             ForEach-Object { $_.DirectoryName } | Sort-Object -Unique)
@@ -267,7 +276,7 @@ Describe "取り込み直し（index_compat d・e・f・g）" -Tag Io {
         writeTestSettings $compat.Root @(@{ name = $s.IndexName; path = $compat.SourceDir; enabled = $true })
         $before = readTestStatus $compat.Root
         $ticksBefore = getSystemIndexTicks $compat.WorkDir
-        $contentBefore = getFileHashes "$($compat.WorkDir)\content_index"
+        $contentBefore = getFileHashes ([Workspace]::new($compat.WorkDir)).IndexDir
         $stateBefore = [System.IO.File]::ReadAllText("$($compat.WorkDir)\system_index_state.tsv")
         $outdated = @(getOutdatedKeys $s)
 
@@ -304,11 +313,11 @@ Describe "取り込み直し（index_compat d・e・f・g）" -Tag Io {
         $key = findIngestKey $s @(".docx")
         if (!$key) { Set-ItResult -Skipped -Because "この見本に docx が無い"; return }
         $compat = newCompatRoot $s "e"
-        alignExtractVersions "$($compat.WorkDir)\ingest_status.tsv"
+        alignExtractVersions ([Workspace]::new($compat.WorkDir)).StatusFile
         writeTestSettings $compat.Root @(@{ name = $s.IndexName; path = $compat.SourceDir; enabled = $true })
         $before = readTestStatus $compat.Root
         $ticksBefore = getSystemIndexTicks $compat.WorkDir
-        $contentBefore = getFileHashes "$($compat.WorkDir)\content_index"
+        $contentBefore = getFileHashes ([Workspace]::new($compat.WorkDir)).IndexDir
         $relative = $key.Substring($s.IndexName.Length + 1)
         (Get-Item -LiteralPath "$($compat.SourceDir)\$relative").LastWriteTime = (Get-Date).AddDays(1)
 
@@ -333,14 +342,14 @@ Describe "取り込み直し（index_compat d・e・f・g）" -Tag Io {
         $key = findIngestKey $s @(".xlsx", ".xlsm")
         if (!$key) { Set-ItResult -Skipped -Because "この見本に xlsx が無い"; return }
         $compat = newCompatRoot $s "f"
-        $statusPath = "$($compat.WorkDir)\ingest_status.tsv"
+        $statusPath = ([Workspace]::new($compat.WorkDir)).StatusFile
         alignExtractVersions $statusPath
         $downgraded = (getExtractVersion $key) - 1
         setTestExtractVersions $statusPath @{ $key = $downgraded }
         writeTestSettings $compat.Root @(@{ name = $s.IndexName; path = $compat.SourceDir; enabled = $true })
         $beforeProcesses = @(Get-Process -Name EXCEL -ErrorAction SilentlyContinue).Count
         $ticksBefore = getSystemIndexTicks $compat.WorkDir
-        $contentBefore = getFileHashes "$($compat.WorkDir)\content_index"
+        $contentBefore = getFileHashes ([Workspace]::new($compat.WorkDir)).IndexDir
         $cancel = @{ Script = $reporterPath; Pattern = '^\s+if \(!\$ch\.Answered\.WaitOne'; Action = { answerIndexingPlan $channel $null } }
 
         runIndexer $compat.Root @{ ConfirmTargets = $true } @($cancel) | Should -Be 2
@@ -357,13 +366,13 @@ Describe "取り込み直し（index_compat d・e・f・g）" -Tag Io {
         $key = findIngestKey $s @(".pptx")
         if (!$key) { Set-ItResult -Skipped -Because "この見本に pptx が無い"; return }
         $compat = newCompatRoot $s "g"
-        $statusPath = "$($compat.WorkDir)\ingest_status.tsv"
+        $statusPath = ([Workspace]::new($compat.WorkDir)).StatusFile
         alignExtractVersions $statusPath
         setTestExtractVersions $statusPath @{ $key = ((getExtractVersion $key) - 1) }
         writeTestSettings $compat.Root @(@{ name = $s.IndexName; path = $compat.SourceDir; enabled = $true })
         $before = readTestStatus $compat.Root
         $ticksBefore = getSystemIndexTicks $compat.WorkDir
-        $contentBefore = getFileHashes "$($compat.WorkDir)\content_index"
+        $contentBefore = getFileHashes ([Workspace]::new($compat.WorkDir)).IndexDir
 
         runIndexer $compat.Root | Should -Be 0
 
@@ -395,6 +404,8 @@ Describe "zip のインポート（index_compat h）" -Tag Io {
         $status = readStatusFile $ws.StatusFile
         assertIngestListMatchesExpected $s $status
         assertSearchHitsMatchExpected $s $ws.Dir
+        # 取り込んだインデックスは、目録に「作り終えた」で載る
+        (readIndexFormat $ws.FormatFile).Indexes[$s.IndexName] | Should -Be ${catalogRowFinished}
     }
 }
 
@@ -416,5 +427,51 @@ Describe "zip のエクスポート（index_compat i）" -Tag Io {
         $text = readZipEntryText "$($s.Dir)\export.zip" ${indexArchiveManifestFileName}
         $text | Should -Not -BeNullOrEmpty
         [int]($text | ConvertFrom-Json).formatVersion | Should -Be ${indexArchiveFormatVersion}
+    }
+}
+
+Describe "古い形式（index_compat j）" -Tag Io {
+    It "<Sample>: 前の形式の見本は「古い形式」として扱い、検索の対象に入れない（読まず、消さない）" -TestCases $oldSamples {
+        $s = getSample $Sample
+        $compat = newCompatRoot $s "j1"
+        $ws = [Workspace]::new($compat.WorkDir)
+
+        $format = getWorkspaceIndexFormat $ws
+        $format.State | Should -Be "Old"
+        $format.Message | Should -Be (getIndexRebuildMessage)
+        $format.Indexes[$s.IndexName].State | Should -Be "Old"
+        $format.Indexes[$s.IndexName].Searchable | Should -Be $false
+        $format.Indexes[$s.IndexName].Message | Should -Be (getIndexRebuildMessage)
+        @(getSearchIndexes $ws.IndexDir $ws.StatusFile).Count | Should -Be 0
+
+        # 前の形式のファイルは、そのまま残っている（作り直しが終わるまで消さない）
+        [System.IO.Directory]::Exists($ws.OldIndexDir) | Should -Be $true
+        [System.IO.File]::Exists($ws.OldStatusFile) | Should -Be $true
+    }
+
+    It "<Sample>: 前の形式の見本の本文インデックスは、1 行目が今の版ではない" -TestCases $oldSamples {
+        $s = getSample $Sample
+        $ws = [Workspace]::new($s.WsDir)
+        $file = @(Get-ChildItem -LiteralPath $ws.OldIndexDir -Recurse -File -Filter ${contentIndexFilePattern} | Select-Object -First 1)
+        $file.Count | Should -Be 1
+        testIndexFileCurrentVersion $file[0].FullName | Should -Be $false
+    }
+
+    It "<Sample>: ［更新］で全部を取り込み直すと、新しい置き場に作り、古い置き場を消し、検索の結果が見本と同じになる" -TestCases $oldSamples {
+        $s = getSample $Sample
+        if ($null -ne (findIngestKey $s @(".xlsx", ".xlsm", ".xls", ".doc", ".ppt"))) { Set-ItResult -Skipped -Because "この見本の取り込みに Office が要る"; return }
+        $compat = newCompatRoot $s "j2"
+        writeTestSettings $compat.Root @(@{ name = $s.IndexName; path = $compat.SourceDir; enabled = $true })
+        $ws = [Workspace]::new($compat.WorkDir)
+
+        runIndexer $compat.Root | Should -Be 0
+
+        (readIndexFormat $ws.FormatFile).Indexes[$s.IndexName] | Should -Be ${catalogRowFinished}
+        [System.IO.Directory]::Exists($ws.OldIndexDir) | Should -Be $false
+        [System.IO.File]::Exists($ws.OldStatusFile) | Should -Be $false
+        (getWorkspaceIndexFormat $ws).State | Should -Be "Current"
+        $status = readStatusFile $ws.StatusFile
+        $status.Rows.Count | Should -Be $s.Expected.ingestList.Count
+        assertSearchHitsMatchExpected $s $compat.WorkDir
     }
 }

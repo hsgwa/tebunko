@@ -102,6 +102,24 @@
 | `splitContentIndexTextByBook` | text | `@{Name; Block}` の並び | 本文インデックスの文字列を元のファイルごとのまとまりに分ける（入れ替えない元のファイルをそのまま写すため）。版が違えば例外 | convertFolderToContentIndex |
 | `getContentIndexBodyText` | text | string | メタ情報の行を除いた中身（システムインデックスの語を作るため） | writeSystemIndexFolder |
 
+## インデックスの格納形式の目録（`tebunko/index/content_index_format.ps1`・`index_format_store.ps1`）
+
+形式は [インデックスのファイルの形](../index-data/format.md#置き場と目録store)「置き場と目録」。判定は判断層（`getIndexFormatState`）、ファイルの読み書きは状態層（`index_format_store.ps1`）。
+
+| 関数 | 入力 | 出力 | 概要 | 使用元 |
+|---|---|---|---|---|
+| `getIndexFormatState` | catalog, oldNames, v2Names, hasLegacyIndex | `@{State; Message; Indexes}` | 目録の行と、古い置き場・今の置き場にあるインデックスの名前から、ワークスペースと各インデックスの状態（Current・Building・Rebuilding・Old・Empty・Broken・Newer）・検索に出すか・文言を決める。ファイルには触れない | getWorkspaceIndexFormat |
+| `testContentIndexVersionLine` | line | bool | 本文インデックスの先頭行が今の版の `版=` の行か | testIndexFileCurrentVersion |
+| `readIndexFormat` / `writeIndexFormat` | path / indexes, path, appVersion | `@{Status; Version; AppVersion; Indexes}` / なし | 目録を読む（Ok・Missing・Broken・Newer・Older）/ 一時ファイルに書いて入れ替える | getWorkspaceIndexFormat, updateIndexFormat |
+| `updateIndexFormat` | change, path | bool | 目録を排他で読み、change で書き換えて書く。今より新しい版は書き換えない | setIndexFormatRow, removeIndexFormatRow, renameIndexFormatRow, markIndexFormatBuilding, completeIndexFormat |
+| `setIndexFormatRow` / `removeIndexFormatRow` / `renameIndexFormatRow` | name, state / name / oldName, newName | bool | インデックス 1 つの行を書く / 消す / 名前を変える | index_store.ps1, index_catalog.ps1 |
+| `repairIndexFormat` | workspace | 目録の読み取り結果 | 目録が壊れたとき、今の版の本文インデックスのファイルがあるインデックスを「作成中」として書き直す | getWorkspaceIndexFormat |
+| `getWorkspaceIndexFormat` | workspace | `getIndexFormatState` の結果 | 今のファイルから、ワークスペースと各インデックスの状態を求める（目録が壊れていれば先に直す） | indexer_run.ps1, index_detail.ps1, index_list.ps1 |
+| `findOldIndexNames` / `getIndexNamesWithContent` | workspace / dir | 名前の並び | 古い置き場・今の置き場で本文インデックスを持つインデックスの名前 | getWorkspaceIndexFormat |
+| `markIndexFormatBuilding` | names, workspace | bool | この回で作るインデックスのうち目録に行が無いものを「作成中」で足す | invokeIndexerBody |
+| `completeIndexFormat` | names, workspace | `@{Updated; Failed}` | 作り終えたインデックスの行を「作り終えた」にし、古い置き場の分を消す | invokeIndexerBody |
+| `removeOldIndexOf` | name, workspace | `@{Removed; Failed}` | 古い置き場の `<名前>` と、空になった古い置き場（`content_index\`・古い `ingest_status.tsv`）を消す。名前が不正なら何も消さない。ジャンクションは辿らない | completeIndexFormat |
+
 ## 本文インデックスの読み書き（`tebunko/index/content_index_store.ps1`）
 
 | 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |

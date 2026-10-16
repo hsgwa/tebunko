@@ -13,8 +13,8 @@ flowchart TD
     M -- いいえ --> PRE["前回の indexing_log.txt を<br>indexing_log_previous.txt へ移し、<br>indexing_log.txt を開いて版と環境の見出しを書く"]
     PRE --> T{"getTargetFolders 成功？<br>チェックの付いたフォルダがある？"}
     T -- 失敗 --> E0["受け渡しの口の Error にメッセージを入れる<br>終了コード 1"]
-    T -- 成功 --> LG{"前の版のしるしがある？<br>（getLegacyIndexState）"}
-    LG -- はい --> NOTICE["前の版のインデックスは使えないという知らせを<br>ログに黄色で出す（getLegacyIndexMessage）"] --> CLN{"content_index\ が空で、<br>片付けの条件に当たる？<br>（testLegacyCleanupNeeded）"}
+    T -- 成功 --> LG{"前の前の版のしるしがある？<br>（getLegacyIndexState）"}
+    LG -- はい --> NOTICE["前の版のインデックスは使えないという知らせを<br>ログに黄色で出す（getLegacyIndexMessage）"] --> CLN{"store\content\ と content_index\ が空で、<br>片付けの条件に当たる？<br>（testLegacyCleanupNeeded）"}
     LG -- いいえ --> PK
     CLN -- いいえ --> PK
     CLN -- はい --> CLR{"前の版のシステムインデックスを<br>片付けられた？（clearLegacySystemIndex）"}

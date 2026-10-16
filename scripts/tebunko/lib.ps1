@@ -16,6 +16,7 @@
 . ([WildcardPattern]::Escape("$PSScriptRoot\index\index_name.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\index\index_store.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\index\content_index_format.ps1".Replace('`', '``')))
+. ([WildcardPattern]::Escape("$PSScriptRoot\index\index_format_store.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\index\index_tree_data.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\index\content_index_store.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\index\system_index.ps1".Replace('`', '``')))

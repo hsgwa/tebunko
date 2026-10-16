@@ -12,7 +12,7 @@
 
 ## 概要
 
-画面の［検索］タブで入力したワードで、`work/content_index/` 配下のうち、画面の検索対象のツリーでチェックしたインデックス・フォルダの本文インデックス（[インデックスのファイルの形](../index-data/format.md#配置命名規則)）を検索する処理と、［結果をファイルに出力］で書き出す `work/search_results.txt` の形式を定める。
+画面の［検索］タブで入力したワードで、`work/store/content/` 配下のうち、画面の検索対象のツリーでチェックしたインデックス・フォルダの本文インデックス（[インデックスのファイルの形](../index-data/format.md#配置命名規則)）を検索する処理と、［結果をファイルに出力］で書き出す `work/search_results.txt` の形式を定める。
 
 ## 入出力
 
@@ -20,27 +20,27 @@
 |---|---|---|
 | 入力 | 画面で入力したワード | 1 回の検索で 1 ワード |
 | 入力 | `setting.config` の `searchExcludes` | 画面の検索対象のツリーでチェックを外したフォルダ（[インデックスの一覧](#インデックスの一覧getsearchindexes)、省略可） |
-| 入力 | `work/content_index/**/content_index.*.tsv` | インデックス作成で書き出した本文インデックス（フォルダ・元のファイルの拡張子ごとに 1 つ） |
+| 入力 | `work/store/content/**/content_index.*.tsv` | インデックス作成で書き出した本文インデックス（フォルダ・元のファイルの拡張子ごとに 1 つ） |
 | 入力 | `work/system_index/**/system_index*.txt`・`work/system_index_state.tsv` | 高速検索に使う システムインデックスとその状態（[高速検索（Windows Search）](fast-search.md)。Windows Search に問い合わせる） |
 | 出力 | `work/search_results.txt` | 画面の［結果をファイルに出力］で書き出す検索結果（[検索結果ファイル](output.md)）。出力ごとに上書き |
 
 ## インデックスの一覧（`getSearchIndexes`）
 
-検索対象は `work/content_index` に固定し、その直下のフォルダ 1 つをインデックス 1 つとして扱う。設定で場所を指定することはしない（［インデックス管理］で作ったインデックスは、すべてこの一覧に並ぶ）。
+検索対象は `work/store/content` に固定し、その直下のフォルダ 1 つをインデックス 1 つとして扱う。設定で場所を指定することはしない（［インデックス管理］で作ったインデックスは、すべてこの一覧に並ぶ）。
 
 ```mermaid
 flowchart TD
-    A["getSearchIndexes"] --> B{"work/content_index がある？"}
+    A["getSearchIndexes"] --> B{"work/store/content がある？"}
     B -- いいえ --> Z["空（インデックスが無い）"]
-    B -- はい --> C["work/content_index 直下のフォルダを列挙<br>（ファイルは対象外）"]
+    B -- はい --> C["work/store/content 直下のフォルダを列挙<br>（ファイルは対象外）"]
     C --> D["元のフォルダを引く<br>getSourceFolderMap"]
     D --> E["［インデックス管理］の一覧（targetFolders）の順に並べ、<br>一覧に無いものは名前順で後ろに付ける"]
 ```
 
 - 1 件を `@{ Name（インデックス名）; Path（インデックスのフォルダ）; SourcePath（元のフォルダ。分からなければ空） }` で返す。
-- 別の場所・PC で作ったインデックスは、そのフォルダを `work/content_index` 直下に置けば一覧に並ぶ（[クロール対象フォルダと取り込み対象](../indexing/crawl.md)）。
-- `work/content_index` が無ければ空を返す。`setting.config` は作成しない。
-- 画面では、インデックス 1 件を一番上にしたツリーで、検索するインデックス・フォルダを選ぶ（[［検索］タブ](../gui/search-tab.md) [検索対象のツリー](../gui/search-tree.md)）。選んだ範囲は `getContentIndexFiles` に `@{ Root（インデックスのフォルダ `work/content_index`）; RelPath（`<インデックス名>` またはその下のフォルダ）; Recurse }` の配列で渡す。`Recurse` が `$false` なら、そのフォルダ直下の本文インデックスのファイルだけを列挙する。結果の相対パス（`RelPath`・`RelDir`）は `Root` から求めるため、フォルダを絞っても結果の形は変わらない。
+- 別の場所・PC で作ったインデックスは、そのフォルダを `work/store/content` 直下に置けば一覧に並ぶ（[クロール対象フォルダと取り込み対象](../indexing/crawl.md)）。
+- `work/store/content` が無ければ空を返す。`setting.config` は作成しない。
+- 画面では、インデックス 1 件を一番上にしたツリーで、検索するインデックス・フォルダを選ぶ（[［検索］タブ](../gui/search-tab.md) [検索対象のツリー](../gui/search-tree.md)）。選んだ範囲は `getContentIndexFiles` に `@{ Root（インデックスのフォルダ `work/store/content`）; RelPath（`<インデックス名>` またはその下のフォルダ）; Recurse }` の配列で渡す。`Recurse` が `$false` なら、そのフォルダ直下の本文インデックスのファイルだけを列挙する。結果の相対パス（`RelPath`・`RelDir`）は `Root` から求めるため、フォルダを絞っても結果の形は変わらない。
 - チェックを外したフォルダは `searchExcludes`（`@{ path（フルパス）; subfolders（$false は直下のファイルだけ） }` の配列）に保存する（`readSearchExcludes` / `writeSearchExcludes`）。無ければすべてを検索する。
 
 ```mermaid
@@ -97,7 +97,7 @@ flowchart TD
 | # | 内容 | 確度 |
 |---|---|---|
 | 1 | 高速検索を使えないとき（[高速検索（Windows Search）](fast-search.md)）は、検索のたびにすべての本文インデックスを照合するため、インデックス量に比例して時間がかかる（本文インデックス 46MB で初回 2.1 秒・2 回目以降 0.29 秒、1.1GB で初回 38 秒・2 回目以降 16〜18 秒。読んだ内容の使い回しは約 128MB まで。[検索を速くする仕組み](speed.md)） | ◎ |
-| 1-2 | 初めて作った大きなインデックスは、Windows Search が システムインデックスを索引し終えるまで高速検索が効かない（その間は反映待ちのフォルダを照合するため、結果は欠けない）。`work/content_index` は自動で Windows Search の対象から外れ、早く終わる（[高速検索（Windows Search）](fast-search.md)） | ◎ |
+| 1-2 | 初めて作った大きなインデックスは、Windows Search が システムインデックスを索引し終えるまで高速検索が効かない（その間は反映待ちのフォルダを照合するため、結果は欠けない）。`work/store/content` は自動で Windows Search の対象から外れ、早く終わる（[高速検索（Windows Search）](fast-search.md)） | ◎ |
 | 1-3 | ワードによく出る 2-gram しか無いときは、ほとんどのフォルダが候補になり、高速検索でも速くならない（[高速検索（Windows Search）](fast-search.md)） | ◎ |
 | 2 | 結果ファイルを Excel で開いたまま［結果をファイルに出力］すると、ファイルがロックされて書き込めない（画面に `search_results.txt に書き込めません。…` と表示する） | ◎ |
 | 3 | Excel の図形・コメントの行頭の `^` は、文字の先頭には一致しない（行の先頭はセル番地のため。開始位置つきの照合でも `^` は文字列の先頭にだけ一致する。直すには、インデックスの形式の変更か照合の作り直しが要る） | ○ |

@@ -69,7 +69,7 @@ flowchart TD
     office --> sharedcore
 ```
 
-`tebunko/core/` には、上のフォルダ（`index/`・`indexer/`）か `core/` 自身が呼ぶ関数を置く。取り込み一覧（`ingest_status.tsv`）の読み書き、インデックス作成のログ、情報源の名前の判定、インデックス名の一覧がそれに当たる。ここに置いた関数は `index/`・`indexer/` の関数を呼ばず、上のフォルダは `core/` を下向きに呼ぶ。
+`tebunko/core/` には、上のフォルダ（`index/`・`indexer/`）か `core/` 自身が呼ぶ関数を置く。取り込み一覧（`store\ingest_status.tsv`）の読み書き、インデックス作成のログ、情報源の名前の判定、インデックス名の一覧がそれに当たる。ここに置いた関数は `index/`・`indexer/` の関数を呼ばず、上のフォルダは `core/` を下向きに呼ぶ。
 
 ```mermaid
 flowchart LR

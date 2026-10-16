@@ -22,6 +22,22 @@ function resolveTebunkoLib {
     throw "測る tebunko に scripts\tebunko\lib.ps1 がありません。-Tool に tebunko のフォルダを指定してください。"
 }
 
+function getToolIndexDir {
+    # 測る tebunko の、ワークスペース（work）の本文インデックスのフォルダを返す。
+    # 置き場の名前は版によって違うため、測る版の Workspace（core\workspace.ps1。クラスの本体は .NET の型だけを使う）から取る
+    param (
+        [string]$tool,
+        [string]$work
+    )
+
+    $workspaceScript = Join-Path (Split-Path -Parent (resolveTebunkoLib $tool)) "core\workspace.ps1"
+    if (!(Test-Path -LiteralPath $workspaceScript)) {
+        throw "測る tebunko に core\workspace.ps1 がありません。本文インデックスのフォルダを決められません。"
+    }
+    . ([WildcardPattern]::Escape($workspaceScript.Replace('`', '``')))
+    return ([Workspace]::new($work)).IndexDir
+}
+
 function getChildCrashEvents {
     # from から to までの間に Application ログへ載った、powershell.exe の異常終了に関するイベント（Application Error・.NET Runtime・Windows Error Reporting）を、
     # 1 件 1 行の文字列で返す。件数は maxCount 件、1 件は maxLength 文字まで。読めなければ空を返す

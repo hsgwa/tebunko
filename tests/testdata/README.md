@@ -302,12 +302,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests\testdata\text\make_tes
 
 前の版が作った本文インデックス・システムインデックス・取り込み一覧・エクスポートの zip を、今のコードがそのまま読めることを確かめるための見本（golden）。[前の版との互換](../../docs/design/index-data/format.md#前の版との互換) も参照。
 
-一覧（`tests\testdata\compat\index\<見本の名前>\`。今は `v0.3.1+english-names`（Excel・Word・PowerPoint・テキスト）と `v0.4.0+embedded-objects`（Excel のブックを埋め込んだ Word・PowerPoint。`[埋め込みN]` の場所）と `v0.4.0+pdf`（PDF。`ページN` の場所。日本語のフォントの対応表・相互参照のストリーム・オブジェクトのストリームを使うもの。メタデータに作成者などを持たない自作）の 3 つ）:
+一覧（`tests\testdata\compat\index\<見本の名前>\`。今は `v0.3.1+english-names`（Excel・Word・PowerPoint・テキスト）と `v0.4.0+embedded-objects`（Excel のブックを埋め込んだ Word・PowerPoint。`[埋め込みN]` の場所）と `v0.4.0+pdf`（PDF。`ページN` の場所。日本語のフォントの対応表・相互参照のストリーム・オブジェクトのストリームを使うもの。メタデータに作成者などを持たない自作）と `v2+store`（版番号つきの格納形式。`ws\store\` に目録 `format.tsv`・取り込み一覧・本文インデックスを置く。PDF）の 4 つ）:
 
 | 中身 | 内容 |
 |---|---|
 | `source\` | クロール対象フォルダに置くファイル（Excel・Word・PowerPoint・`.txt`・`.md`。サブフォルダ・`(株)`・`[確定]` を含むファイル名もある） |
-| `ws\` | ワークスペースのうち、版が上がっても残る部分だけ（`content_index\`・`system_index\`・`system_index_state.tsv`・`ingest_status.tsv`）。フォルダ名を `work` ではなく `ws` にしているのは、`.gitignore` の `work/` に引っかからないようにするため |
+| `ws\` | ワークスペースのうち、版が上がっても残る部分だけ（`content_index\`・`system_index\`・`system_index_state.tsv`・`ingest_status.tsv`。`v2+store` では `content_index\`・`ingest_status.tsv` の代わりに `store\`）。フォルダ名を `work` ではなく `ws` にしているのは、`.gitignore` の `work/` に引っかからないようにするため |
 | `export.zip` | `exportIndex` で書き出したインデックスの zip |
 | `file_times.tsv` | `source\` の各ファイルの更新日時（秒まで・タイムゾーンなしの Ticks）と、`ws\` の `content_index\`・`system_index\` の各ファイルの更新日時（UTC の Ticks）。git は取り出すときにファイルの更新日時を今の日時にしてしまうため、テストがこの値で書き戻す。`ws\` の分は、システムインデックスを作り直すかの判定（`content_index` の TSV と `system_index.txt` の更新日時の前後、`system_index_state.tsv` の「反映待ち」に書いた更新日時）を再現するのに要る |
 | `expected.json` | インデックス名・取り込み一覧の行・検索語ごとのヒットという、見本に対する期待（手で書く。中身は日本語のまま） |

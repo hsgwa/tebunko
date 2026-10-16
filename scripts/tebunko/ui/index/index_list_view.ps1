@@ -266,6 +266,8 @@ function getIndexRowView {
     #   ratio    : 更新全体の進み（0～1。分からないときは負の値）。更新中の補足に「45%」と出し、棒の長さにする
     #   inRound  : 今の回で更新するインデックスか（選んだものだけの回では、選ばなかった行は $false）
     #   exporting: エクスポートで書き出している最中の行か（バッジは「エクスポート中」。更新中と同じ Run の色。棒は出さない）
+    #   formatEntry: getIndexFormatState のそのインデックスの値（State; Searchable; Message）。無ければ $null。
+    #                古い形式・作り直しの途中・新しい版のときは、本文の状態の代わりにその旨を出す
     # 返す値の Percent は棒の長さ（0～100）。更新中でなければ 0
     param (
         $stat,
@@ -273,7 +275,8 @@ function getIndexRowView {
         [bool]$enabled = $true,
         [double]$ratio = -1.0,
         [bool]$inRound = $true,
-        [bool]$exporting = $false
+        [bool]$exporting = $false,
+        $formatEntry = $null
     )
 
     if ($exporting) {
@@ -284,6 +287,17 @@ function getIndexRowView {
         $percent = if ($ratio -ge 0) { [int][Math]::Floor([Math]::Min($ratio, 1.0) * 100) } else { 0 }
         $sub = if ($ratio -ge 0) { "${percent}%" } else { "" }
         return @{ Text = "更新中"; Sub = $sub; Level = "Run"; Percent = $percent; ToolTip = "インデックスを更新しています。終わると状態を表示します。" }
+    }
+    if ($null -ne $formatEntry -and [string]$formatEntry.Message -ne "") {
+        $formatView = @{
+            ${indexStateOld} = @{ Text = "古い形式"; Level = "Warn" }
+            ${indexStateRebuilding} = @{ Text = "作り直し中"; Level = "Wait" }
+            ${indexStateNewer} = @{ Text = "新しい版"; Level = "Ng" }
+        }
+        $entryView = $formatView[[string]$formatEntry.State]
+        if ($null -ne $entryView) {
+            return @{ Text = $entryView.Text; Sub = ""; Level = $entryView.Level; ToolTip = addIndexRowNotice $formatEntry.Message $notice }
+        }
     }
     if ($null -eq $stat -or $stat.Total -eq 0) {
         return @{ Text = "未作成"; Sub = ""; Level = "None"; ToolTip = addIndexRowNotice "まだ更新していません。［すべて更新］か、行の［更新］で作ります。" $notice }
@@ -401,7 +415,7 @@ function newFastSearchRowResult {
     if ($withUsageNotice) {
         [void]$all.Add("使えなくても検索の結果は同じで、時間だけが違います。")
         if ($progress -and $progress.ContentIndexed) {
-            [void]$all.Add("content_index が Windows Search の対象から自動で外れませんでした。対象から外すと反映が早くなります。")
+            [void]$all.Add("インデックスのフォルダが Windows Search の対象から自動で外れませんでした。対象から外すと反映が早くなります。")
         }
     }
     $tooltip = addFastSearchCheckedAt ($all -join "`n") $checkedAt

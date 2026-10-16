@@ -146,9 +146,12 @@ function getSearchTargetText {
         [int]$targetCount,         # 検索対象に選ばれている数
         [bool]$allChecked,         # インデックスがすべてチェックされているか
         [string]$targetsText,      # 選ばれた検索対象の表示（describeSearchTargets）
-        $summary                   # 本文インデックスのファイルの集計（Count・LastWrite。まだ数えていなければ $null）
+        $summary,                  # 本文インデックスのファイルの集計（Count・LastWrite。まだ数えていなければ $null）
+        [int]$oldIndexCount = 0    # 古い形式のままで、検索していないインデックスの数
     )
 
+    $notice = getOldIndexNoticeText $oldIndexCount
+    $suffix = $(if ($notice) { "`r`n$notice" } else { "" })
     if ($loading) {
         return "検索対象：読み込んでいます…"
     }
@@ -156,18 +159,30 @@ function getSearchTargetText {
         return "検索対象：なし（$(getWorkspaceUnreachableText $connectErrorDir)）"
     }
     if ($total -eq 0) {
-        return "［インデックス管理］で作ったインデックスの一覧です"
+        return "［インデックス管理］で作ったインデックスの一覧です${suffix}"
     }
     if ($targetCount -eq 0) {
-        return "検索対象：なし"
+        return "検索対象：なし${suffix}"
     }
     if (!$allChecked) {
-        return "検索対象：$targetsText"
+        return "検索対象：${targetsText}${suffix}"
     }
     if ($null -eq $summary) {
-        return "検索対象：すべて（確認中…）"
+        return "検索対象：すべて（確認中…）${suffix}"
     }
-    return "検索対象：すべて（集約ファイル $($summary['Count'].ToString('N0')) 件 ・ 最終更新 $(formatTime $summary['LastWrite'])）"
+    return "検索対象：すべて（集約ファイル $($summary['Count'].ToString('N0')) 件 ・ 最終更新 $(formatTime $summary['LastWrite'])）${suffix}"
+}
+
+function getOldIndexNoticeText {
+    # 古い形式のインデックスがあるときの、検索の状態に添える 1 行（無ければ空）
+    param (
+        [int]$oldIndexCount
+    )
+
+    if ($oldIndexCount -le 0) {
+        return ""
+    }
+    return "古い形式のインデックスは検索していません"
 }
 
 function getScopeButtonText {

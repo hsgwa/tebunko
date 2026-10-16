@@ -71,10 +71,10 @@ function testWorkspaceChoice {
     if (testSameFolder $folder $current $drives) {
         return @{ Kind = "same"; Message = "" }
     }
-    # 今のインデックスの中に置くと、ワークスペースの中身がインデックスとして検索される（前の版の index\ が残っている場合も同じ）。
+    # 今のインデックスの中に置くと、ワークスペースの中身がインデックスとして検索される（前の版の content_index\・index\ が残っている場合も同じ）。
     # フォルダ名は Workspace（core\workspace.ps1）の 1 か所から取る
     $currentWorkspace = [Workspace]::new($current)
-    if ((testFolderUnder $folder $currentWorkspace.IndexDir $drives) -or (testFolderUnder $folder $currentWorkspace.LegacyIndexDir $drives)) {
+    if ((testFolderUnder $folder $currentWorkspace.StoreDir $drives) -or (testFolderUnder $folder $currentWorkspace.OldIndexDir $drives) -or (testFolderUnder $folder $currentWorkspace.LegacyIndexDir $drives)) {
         return @{ Kind = "error"; Message = "「${folder}」は今のインデックスのフォルダの中です。インデックスの外のフォルダを選んでください。" }
     }
     if (-not $writable) {

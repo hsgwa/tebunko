@@ -13,8 +13,8 @@ sequenceDiagram
     participant X as Excel.Application
     participant WB as ブック（作業領域のコピー。読み取り専用）
     participant T as 作業領域（work/tmp/#lt;PC の鍵#gt;/#lt;PID#gt;）
-    participant I as work/content_index
-    participant L as 取り込み一覧（work/ingest_status.tsv）
+    participant I as work/store/content
+    participant L as 取り込み一覧（work/store/ingest_status.tsv）
 
     S->>T: 作業領域を空にする
     S->>T: 元ブックを同じファイル名（長すぎれば source.#lt;拡張子#gt;）でコピー<br>（copyFileShared。ほかのアプリの読み書きを妨げない共有モードで読む）
@@ -130,10 +130,10 @@ flowchart LR
 TSV の例（シート `見積` の F2 に左上があるテキストボックスと、C2 のコメント）:
 
 ```
-work/content_index/営業/見積.xlsx/見積.tsv            … セルの値
-work/content_index/営業/見積.xlsx/見積[shape].tsv     … F2<TAB>納期は別途ご相談
-work/content_index/営業/見積.xlsx/見積[comment].tsv   … C2<TAB>"test:<U+2028>税抜の金額"
-work/content_index/営業/見積.xlsx/見積[header_footer].tsv … 社外秘
+work/store/content/営業/見積.xlsx/見積.tsv            … セルの値
+work/store/content/営業/見積.xlsx/見積[shape].tsv     … F2<TAB>納期は別途ご相談
+work/store/content/営業/見積.xlsx/見積[comment].tsv   … C2<TAB>"test:<U+2028>税抜の金額"
+work/store/content/営業/見積.xlsx/見積[header_footer].tsv … 社外秘
 ```
 
 ### ヘッダー・フッターの読み取り

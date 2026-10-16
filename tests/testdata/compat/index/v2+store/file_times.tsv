@@ -1,0 +1,8 @@
+﻿# 見本のフォルダからの相対パス（/ 区切り）<TAB>Ticks。source/ は DateTimeKind なし（更新日時の文字列をそのまま解いた値）、ws/ は UTC
+source/仕様書.pdf	639277826110000000
+source/手順/手順書.pdf	639277826110000000
+ws/store/content/資料/content_index.pdf.001.tsv	639277529839753423
+ws/store/content/資料/source_folder.txt	639277529848495808
+ws/store/content/資料/手順/content_index.pdf.001.tsv	639277529843935420
+ws/system_index/資料/system_index.txt	639277529840681276
+ws/system_index/資料/手順/system_index.txt	639277529844108991

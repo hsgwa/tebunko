@@ -144,7 +144,7 @@ sequenceDiagram
 
 ファイルに残すのは次のものだけである。
 
-- `ingest_status.tsv`
+- `store/ingest_status.tsv`（と目録 `store/format.tsv`）
 - `ingesting.txt`（強制終了からの再開）
 - `indexing_log.txt`（`writeIndexerLog` で書く。実行ごとに上書き）
 

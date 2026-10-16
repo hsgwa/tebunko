@@ -197,9 +197,12 @@ function refreshIndexingState {
     $script:stateAgain = $false
     $script:stateJobPath = $workspace.StatusFile
     startJob {
-        param ($path)
-        getIndexingState -path $path
-    } @($script:stateJobPath) {
+        param ($path, $workspaceDir)
+        $state = getIndexingState -path $path
+        # 格納形式の状態（古い形式・作り直しの途中など）も同じ裏の仕事で調べる（置き場を数えるため）
+        $state.Format = getWorkspaceIndexFormat ([Workspace]::new($workspaceDir))
+        $state
+    } @($script:stateJobPath, [string]$workspace.Dir) {
         param ($output, $errorText)
         $script:stateRunning = $false
         if ($script:stateJobPath -ne $workspace.StatusFile) {
@@ -245,7 +248,7 @@ function applyIndexingState {
     $script:indexingState = $state
 
     # 失敗したファイルは下の一覧に原因とともに表示する
-    applyIndexStats $state.IndexStats (isIndexing)
+    applyIndexStats $state.IndexStats (isIndexing) $state.Format
     updateFailedList $state
     updateIndexSummaryText
     updateIndexingButton

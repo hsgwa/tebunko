@@ -1,0 +1,27 @@
+{
+    "indexName": "資料",
+    "ingestList": [
+        { "relativePath": "仕様書.pdf", "status": "済", "extractVersion": 1 },
+        { "relativePath": "手順/手順書.pdf", "status": "済", "extractVersion": 1 }
+    ],
+    "searches": [
+        {
+            "word": "CD",
+            "hits": [
+                { "relativePath": "仕様書.pdf", "location": "ページ002", "line": "CD" }
+            ]
+        },
+        {
+            "word": "あいぅう",
+            "hits": [
+                { "relativePath": "仕様書.pdf", "location": "ページ001", "line": "あいぅう" }
+            ]
+        },
+        {
+            "word": "Step one",
+            "hits": [
+                { "relativePath": "手順/手順書.pdf", "location": "ページ001", "line": "Step one" }
+            ]
+        }
+    ]
+}

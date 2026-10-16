@@ -531,7 +531,7 @@ function getDefaultWorkspaceError {
 
 function testDefaultWorkspace {
     # 既定のワークスペースを使えるか: @{ Usable; Folder; Message }。
-    # 使える: 無い（使うときに作る）・空（設定ファイルと、それに付いてできるファイルだけの場合を含む）・前から使っているワークスペース（content_index・前の版の index・ingest_status.tsv がある）。
+    # 使える: 無い（使うときに作る）・空（設定ファイルと、それに付いてできるファイルだけの場合を含む）・前から使っているワークスペース（store・前の版の content_index・index・ingest_status.tsv がある）。
     # それ以外（ほかのファイルが置いてある）は、インデックスのファイルと混ざるため使わせない
     param (
         [string]$folder = (getDefaultWorkDir)
@@ -551,7 +551,9 @@ function testDefaultWorkspace {
         $name = [System.IO.Path]::GetFileName($entry)
         if (-not (testSettingsFileName $name)) { $name }
     })
-    if ($names.Count -eq 0 -or ($names -contains "content_index") -or ($names -contains "index") -or ($names -contains [System.IO.Path]::GetFileName($workspace.StatusFile))) {
+    $known = [Workspace]::new($folder)
+    $knownNames = @($known.StoreDir, $known.OldIndexDir, $known.LegacyIndexDir, $known.OldStatusFile) | ForEach-Object { [System.IO.Path]::GetFileName($_) }
+    if ($names.Count -eq 0 -or @($names | Where-Object { $knownNames -contains $_ }).Count -gt 0) {
         return $result
     }
     $result.Usable = $false

@@ -32,9 +32,10 @@ Describe "前の版のファイル（compat\index）" -Tag Meta {
         foreach ($sample in $samples) {
             $problems = New-Object System.Collections.Generic.List[string]
             $wsDir = "$($sample.FullName)\ws"
+            $ws = [Workspace]::new($wsDir)
 
-            # contentIndexVersion: 本文インデックスのファイル（content_index\...\content_index.*.tsv）の先頭行 "版=<contentIndexVersion>"
-            $contentIndexFile = @(Get-ChildItem -LiteralPath "$wsDir\content_index" -Recurse -File -Filter "${contentIndexFileNamePrefix}.*.tsv" -ErrorAction SilentlyContinue | Select-Object -First 1)
+            # contentIndexVersion: 本文インデックスのファイル（store\content\...\content_index.*.tsv）の先頭行 "版=<contentIndexVersion>"
+            $contentIndexFile = @(Get-ChildItem -LiteralPath $ws.IndexDir -Recurse -File -Filter "${contentIndexFileNamePrefix}.*.tsv" -ErrorAction SilentlyContinue | Select-Object -First 1)
             if ($contentIndexFile.Count -eq 0) {
                 $problems.Add("contentIndexFileNamePrefix（${contentIndexFileNamePrefix}）に当たる本文インデックスのファイルが無い")
             } else {
@@ -46,27 +47,26 @@ Describe "前の版のファイル（compat\index）" -Tag Meta {
             }
 
             # sourceFolderFileName・systemIndexFileName
-            if (@(Get-ChildItem -LiteralPath "$wsDir\content_index" -Recurse -File -Filter ${sourceFolderFileName} -ErrorAction SilentlyContinue).Count -eq 0) {
+            if (@(Get-ChildItem -LiteralPath $ws.IndexDir -Recurse -File -Filter ${sourceFolderFileName} -ErrorAction SilentlyContinue).Count -eq 0) {
                 $problems.Add("sourceFolderFileName（${sourceFolderFileName}）が無い")
             }
-            if (@(Get-ChildItem -LiteralPath "$wsDir\system_index" -Recurse -File -Filter ${systemIndexFileName} -ErrorAction SilentlyContinue).Count -eq 0) {
+            if (@(Get-ChildItem -LiteralPath $ws.SystemIndexDir -Recurse -File -Filter ${systemIndexFileName} -ErrorAction SilentlyContinue).Count -eq 0) {
                 $problems.Add("systemIndexFileName（${systemIndexFileName}）が無い")
             }
 
-            # Workspace クラスの葉の名前（content_index・system_index・system_index_state.tsv・ingest_status.tsv）
-            $ws = [Workspace]::new($wsDir)
-            foreach ($leaf in @($ws.IndexDir, $ws.SystemIndexDir, $ws.SystemIndexStateFile, $ws.StatusFile)) {
+            # Workspace クラスの葉の名前（store\content・system_index・system_index_state.tsv・store\ingest_status.tsv・store\format.tsv）
+            foreach ($leaf in @($ws.IndexDir, $ws.SystemIndexDir, $ws.SystemIndexStateFile, $ws.StatusFile, $ws.FormatFile)) {
                 if (!(Test-Path -LiteralPath $leaf)) {
                     $problems.Add("Workspace の $([System.IO.Path]::GetFileName($leaf)) が無い")
                 }
             }
 
-            # statusColumns: ingest_status.tsv の見出し行
+            # statusColumns: 取り込み一覧（store\ingest_status.tsv）の見出し行
             if (Test-Path -LiteralPath $ws.StatusFile) {
                 $lines = [System.IO.File]::ReadAllLines($ws.StatusFile, [System.Text.Encoding]::UTF8)
                 $headerLine = @($lines | Where-Object { $_ -ne "" -and $_ -notmatch "^クロール対象フォルダ`t" } | Select-Object -First 1)
                 if ($headerLine.Count -eq 0 -or $headerLine[0] -ne (${statusColumns} -join "`t")) {
-                    $problems.Add("ingest_status.tsv の見出しが statusColumns と違う")
+                    $problems.Add("取り込み一覧の見出しが statusColumns と違う")
                 }
             }
 

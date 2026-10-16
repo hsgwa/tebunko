@@ -128,7 +128,7 @@ Describe "exportIndex" -Tag Io {
             $reader.Dispose()
             $manifest.indexName | Should -Be "営業"
             $manifest.sourceFolder | Should -Be "C:\共有\営業部"
-            $manifest.formatVersion | Should -Be 1
+            $manifest.formatVersion | Should -Be 2
 
             $statusEntry = $archive.GetEntry("ingest_status.tsv")
             $statusReader = New-Object System.IO.StreamReader($statusEntry.Open(), [System.Text.Encoding]::UTF8)
@@ -292,7 +292,7 @@ Describe "readIndexArchiveInfo" -Tag Io {
         $info.SourceFolder | Should -Be "C:\共有\営業部"
         $info.Files | Should -Be 2
         $info.Bytes | Should -BeGreaterThan 0
-        $info.FormatVersion | Should -Be 1
+        $info.FormatVersion | Should -Be 2
         Test-Path -LiteralPath (Join-Path $fixture.Workspace.IndexDir "営業") | Should -Be $true
     }
 
@@ -300,6 +300,7 @@ Describe "readIndexArchiveInfo" -Tag Io {
         @{ label = "zip でないファイル" }
         @{ label = "目録が無い" }
         @{ label = "formatVersion が新しい" }
+        @{ label = "formatVersion が古い" }
     ) {
         param ($label)
         $dir = "$TestDrive\info_bad_$([Guid]::NewGuid().ToString('N'))"
@@ -313,7 +314,7 @@ Describe "readIndexArchiveInfo" -Tag Io {
                 $archive = [System.IO.Compression.ZipFile]::Open($path, [System.IO.Compression.ZipArchiveMode]::Create)
                 $archive.Dispose()
             }
-            "formatVersion が新しい" {
+            { $_ -in @("formatVersion が新しい", "formatVersion が古い") } {
                 $fixture = newIndexFixture $dir "営業" "C:\共有\営業部"
                 exportIndex "営業" $path $fixture.Workspace $fixture.SettingsPath | Out-Null
                 $newPath = "$dir\bad2.zip"
@@ -325,7 +326,7 @@ Describe "readIndexArchiveInfo" -Tag Io {
                     $manifest = ConvertFrom-Json $reader.ReadToEnd()
                     $reader.Dispose()
                     $entry.Delete()
-                    $manifest.formatVersion = 2
+                    $manifest.formatVersion = $(if ($label -eq "formatVersion が古い") { 1 } else { 3 })
                     $newEntry = $archive.CreateEntry("tebunko-index.json")
                     $writer = New-Object System.IO.StreamWriter($newEntry.Open())
                     $writer.Write((ConvertTo-Json $manifest -Depth 5))

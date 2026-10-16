@@ -9,8 +9,8 @@ BeforeAll {
         [System.IO.Directory]::CreateDirectory($dir) | Out-Null
         return @{
             Dir      = $dir
-            Index    = "$dir\content_index"
-            Status   = "$dir\ingest_status.tsv"
+            Index    = "$dir\store\content"
+            Status   = "$dir\store\ingest_status.tsv"
             Settings = "$dir\setting.config"
             Catalog  = (newIndexCatalog $dir "$dir\setting.config")
         }
@@ -170,7 +170,7 @@ Describe "IndexCatalog.RenameIndex（使えない名前）" -Tag Io {
         Test-Path -LiteralPath "$dir\経理\b.xlsx\Sheet1.tsv" | Should -Be $true
         Test-Path -LiteralPath "$($ws.Dir)\外\c.tsv" | Should -Be $true
         @(Get-ChildItem -LiteralPath $dir -Directory | ForEach-Object { $_.Name } | Sort-Object) -join "," | Should -Be "営業,経理"
-        @(Get-ChildItem -LiteralPath $ws.Dir -Directory | ForEach-Object { $_.Name } | Sort-Object) -join "," | Should -Be "content_index,外"
+        @(Get-ChildItem -LiteralPath $ws.Dir -Directory | ForEach-Object { $_.Name } | Sort-Object) -join "," | Should -Be "store,外"
         $status = readStatusFile $ws.Status
         $status.Folders[0].Name | Should -Be "営業"
         $status.Rows.ContainsKey("営業\a.xlsx") | Should -Be $true

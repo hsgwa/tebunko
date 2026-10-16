@@ -46,15 +46,15 @@ gh workflow run perf.yml -f ref=<測る ref> -f scale=0.1 -f ingest=200
 `-Scale 1`（16 万件規模）の「最初のヒットまで 0.5 秒以内」の条件は、高速検索（Windows Search）を使わないと確かめられないため、Windows Search のある手元の PC で測る（ランナーには無いので `perf.yml` では測れない）。
 
 ```
-.\perfdata\tools\new_index.ps1 -Dest $env:USERPROFILE\perf\s1\content_index -Scale 1
-.\tools\measure_perf.ps1 -Index $env:USERPROFILE\perf\s1\content_index -Work $env:USERPROFILE\perf\s1 -Words perfdata\words.tsv -Count 1
+.\perfdata\tools\new_index.ps1 -Dest $env:USERPROFILE\perf\s1\store\content -Scale 1
+.\tools\measure_perf.ps1 -Index $env:USERPROFILE\perf\s1\store\content -Work $env:USERPROFILE\perf\s1 -Words perfdata\words.tsv -Count 1
 # ここで Windows Search がシステムインデックスを反映するのを待つ
-.\tools\measure_perf.ps1 -Index $env:USERPROFILE\perf\s1\content_index -Work $env:USERPROFILE\perf\s1 -Words perfdata\words.tsv -Count 5 -Typing 10 -TypingFast
+.\tools\measure_perf.ps1 -Index $env:USERPROFILE\perf\s1\store\content -Work $env:USERPROFILE\perf\s1 -Words perfdata\words.tsv -Count 5 -Typing 10 -TypingFast
 ```
 
-1. `<Work>`（例 `$env:USERPROFILE\perf\s1`。既定で Windows Search の索引の対象になる、利用者のフォルダの下にする）でデータを作る。`C:\perf` のような索引の対象外の場所では、高速検索が使えず測れない。`new_index.ps1 -Dest <Work>\content_index -Scale 1` でデータを作る
-2. `measure_perf.ps1 -Index <Work>\content_index -Work <Work> -Words <words.tsv> -Count 1` を 1 回流し、pack とシステムインデックスを作る（検索は 1 回だけにして時間を縮める）。`-TypingFast` では `-Index` を `<Work>\content_index`（ワークスペースの本文インデックスのフォルダ、`Workspace.IndexDir` と同じ）にする必要がある
-3. Windows Search がシステムインデックスを反映するのを待ち、`measure_perf.ps1 -Index <Work>\content_index -Work <Work> -Words <words.tsv> -Count 5 -Typing 10 -TypingFast` を流す（pack だけのインデックスなので、作成は測らない）
+1. `<Work>`（例 `$env:USERPROFILE\perf\s1`。既定で Windows Search の索引の対象になる、利用者のフォルダの下にする）でデータを作る。`C:\perf` のような索引の対象外の場所では、高速検索が使えず測れない。`new_index.ps1 -Dest <Work>\store\content -Scale 1` でデータを作る
+2. `measure_perf.ps1 -Index <Work>\store\content -Work <Work> -Words <words.tsv> -Count 1` を 1 回流し、pack とシステムインデックスを作る（検索は 1 回だけにして時間を縮める）。`-TypingFast` では `-Index` を `<Work>\store\content`（ワークスペースの本文インデックスのフォルダ、`Workspace.IndexDir` と同じ）にする必要がある
+3. Windows Search がシステムインデックスを反映するのを待ち、`measure_perf.ps1 -Index <Work>\store\content -Work <Work> -Words <words.tsv> -Count 5 -Typing 10 -TypingFast` を流す（pack だけのインデックスなので、作成は測らない）
 4. `summary.md` の「照合した pack」が、まれの語で全体の数より十分に少なければ、反映が済んでいる。全体の数と同じなら、反映を待って流し直す
 
 ## 取り込みの計測（手元の Windows。Excel・Word・PowerPoint が入った機械で）
@@ -66,7 +66,7 @@ gh workflow run perf.yml -f ref=<測る ref> -f scale=0.1 -f ingest=200
 
 - データ（`new_ingest_data.ps1`）… .docx・.pptx（`-Docx`・`-Pptx`。既定 200）、.doc・.ppt（`-Doc`・`-Ppt`。既定 0）はテストデータの複製、.xlsx（`-Xlsx`。既定 0）は tebunko-perfdata の `new_books.ps1` で作ったブック（`-Books`）の先頭の数冊。50 ファイルごとにフォルダを分ける（フォルダごとの本文インデックスの書き出しも一緒に測るため）。同じ引数からは同じ構成・同じ中身になる。Excel は .xlsx、Word は .doc、PowerPoint は .ppt を読むので、使う Office はデータにある種類で決まる
 - 測り方（`tools/perf/measure_ingest.ps1`）… `-Repeat` 回（既定 3）、1 回ごとに新しいプロセス・空のワークスペースで流す（Office の起動を含む、初めての取り込みの時間）。測る tebunko の `scripts` を作業フォルダに写して `setting.config` を書くので、利用者の設定・既定のワークスペース・リポジトリの `setting.config` には触らない。取り込みは起動口 `indexer.ps1 -Channel` で動かし、記録のスレッドが受け渡しの口の `Progress.Phase` を読んで、段階（クロール・確認・取り込み・仕上げ）ごとの時間とリソースを出す。1 ファイルあたりの ms は、取り込みの段階の秒 ÷ ファイル数
-- 成功・失敗は、ワークスペースの `ingest_status.tsv` を計測の側で読んで数える（同じ相対パスは最後の行の状態）。成功 + 失敗がファイル数と合わなければ、終了コードが 0 でなければ、取り込みの段階が読めなかったとき・知らない段階の名前が来たときは、計測を失敗にする。失敗したファイルがあれば `summary.md` に書く
+- 成功・失敗は、ワークスペースの `store\ingest_status.tsv` を計測の側で読んで数える（同じ相対パスは最後の行の状態）。成功 + 失敗がファイル数と合わなければ、終了コードが 0 でなければ、取り込みの段階が読めなかったとき・知らない段階の名前が来たときは、計測を失敗にする。失敗したファイルがあれば `summary.md` に書く
 - リソースの表が測るのは、計測の PowerShell のプロセスだけ。EXCEL・WINWORD・POWERPNT のプロセスは含まない（「PC の CPU」には含む）
 - Office を使う取り込み（.xlsx・.doc・.ppt）の時間に固定の上限を付けた合否のテストは無い。Office の時間は機械・Defender・Office の版で大きく揺れるので、比べるのは同じ機械・同じ日・同じ引数で続けて測った数字どうしにする（Office の版は結果の実行の情報に出す）。比べ方は下の「Office を使う形式の比べ方」。Office を使わずに読む .docx・.pptx は、`perf-check.yml` が固定の上限と比べる
 
@@ -80,6 +80,6 @@ gh workflow run perf.yml -f ref=<測る ref> -f scale=0.1 -f ingest=200
 | 読み込み口 | `scripts\tebunko\lib.ps1`（`resolveTebunkoLib` が頼っている）の `newIndexerChannel`（引数 `retryFailed`・`confirmTargets`・`workers`） |
 | 受け渡しの口 | `Progress.Phase` と、その値 `クロール`・`確認`・`取り込み`・`仕上げ` |
 | 設定 | `setting.config` がツールのフォルダにあること。キー `targetFolders`（`@{ name; path; enabled }` の配列）・`workspaceFolder`・`ingestThreads` |
-| 取り込み一覧 | ワークスペース直下の `ingest_status.tsv`。見出しの `相対パス`・`状態`。状態の値 `済`・`失敗` |
+| 取り込み一覧 | ワークスペースの `store\ingest_status.tsv`。見出しの `相対パス`・`状態`。状態の値 `済`・`失敗` |
 | 取り込んだ結果 | 最後の回のワークスペース（`<作業フォルダ>\ingest\ws`。`measure_ingest.ps1` は次の回の始めまで消さない）の下に、本文インデックスのファイル `content_index.*.tsv`（[インデックスのファイルの形](../index-data/format.md#配置命名規則)の形。サブフォルダの下にもできる）があること。取り込みの回帰テスト（`perf_ingest.Tests.ps1`）が、数と合計の大きさを数える |
 
