@@ -40,7 +40,7 @@ function searchContentIndexFiles {
     # 並列検索の別スレッドでも動くよう、コマンドレットは使わない
     $hits = [System.Collections.Generic.List[psobject]]::new()
     $skipped = [System.Collections.Generic.List[string]]::new()
-    $end =[Math]::Min($contentIndexFiles.Count, $start + $count)
+    $end = [Math]::Min($contentIndexFiles.Count, $start + $count)
     $lf = [char]10
     $mark = [char]0x1E
     $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete

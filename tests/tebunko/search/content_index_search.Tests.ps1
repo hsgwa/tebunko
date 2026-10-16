@@ -1083,7 +1083,7 @@ Describe "壊れた・大きすぎる本文インデックスのファイルは�
     It "<Name> のファイルが 1 つ混ざっても、ほかのファイルのヒットを返し、そのファイルだけを Skipped に入れる（直列・並列とも）" -TestCases @(
         @{ Name = "版が違う"; Text = "{RS} 版=999{LF}{RS} ファイル名=a.xlsx{LF}{RS} シート=S{LF}単価{LF}" }
         @{ Name = "版が無い"; Text = "{RS} ファイル名=a.xlsx{LF}{RS} シート=S{LF}単価{LF}" }
-        @{ Name = "改行が無い"; Text = "{RS} ファイル名=単価.xlsx" }
+        @{ Name = "ファイル名の行だけ"; Text = "{RS} ファイル名=単価.xlsx" }
         @{ Name = "版の値が数でない"; Text = "{RS} 版=あ{LF}{RS} ファイル名=a.xlsx{LF}単価{LF}" }
     ) {
         $text = $Text.Replace("{RS}", [string][char]0x1E).Replace("{LF}", "`n")
