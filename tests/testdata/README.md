@@ -253,7 +253,7 @@ Word・PowerPoint のインデックス作成の確認用。
 
 | 見るところ | 動作 |
 |---|---|
-| 検索の件数 | 10,000 件（`gui.ps1` の `$searchLimit`）を超えた時点で打ち切る。`.` では 10,000 件で約 2.8 秒（上限が無ければ約 24,000 件） |
+| 検索の件数 | 設定 `searchLimit`（既定 10,000 件。0 は制限なし）を超えた時点で打ち切る。`.` では 10,000 件で約 2.8 秒（上限が無ければ約 24,000 件） |
 | 打ち切りの表示 | ステータスに「10,000 件を超えたため、ここで打ち切りました。この先のファイルは検索していないため、ワード・対象ファイル・検索対象で絞り込んでください。」と出る |
 | 結果の一覧 | 行の仮想化（`EnableRowVirtualization`）が有効なので、10,000 行でも表示は重くならない |
 | 1 行の表示 | 先頭から 600 文字まで表示し、それ以降は `…` で省略する。最初のヒットまでが長い行は、その前を 40 文字だけ残す |
@@ -330,7 +330,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests\testdata\text\make_tes
 
 前の版が作った `setting.config` を、今のコードがそのまま読めることを確かめるための見本（golden）。[前の版との互換](../../docs/design/structure/settings-file.md#前の版との互換) も参照。
 
-一覧（`tests\testdata\compat\settings\<見本の名前>\`。今は `v0.3.1` の 1 つ）:
+一覧（`tests\testdata\compat\settings\<見本の名前>\`。`v0.3.1` は、その版が作った設定ファイル。`searchLimit`（件数の上限を 20,000 にしたもの）と `searchLimitNone`（0 = 制限なし）は、`searchLimit` のキーの読み方の見本）:
 
 | 中身 | 内容 |
 |---|---|

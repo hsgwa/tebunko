@@ -59,9 +59,12 @@ function startSearch {
     cancelPendingSourceLookup
 
     $useFast = (getFastSearchView $script:fastAvailable $useRegex $word).Usable
-    $shared = $script:searchService.Request((newSearchRequest $word $simpleMatch $folders ${searchLimit} $option $useFast))
+    # 件数の上限は検索ごとに控える（設定の画面で変えても、走っている検索には効かない。打ち切りの文言も、この検索の上限で出す）
+    $limit = $script:searchLimit
+    $shared = $script:searchService.Request((newSearchRequest $word $simpleMatch $folders $limit $option $useFast))
     $script:search = @{
         Shared = $shared
+        Limit = $limit
         Word = $word; Pattern = $pattern; SimpleMatch = $simpleMatch; UseRegex = $useRegex; Option = $option; Start = Get-Date
     }
 
@@ -210,7 +213,7 @@ function finishSearch {
     $status = getSearchStatusText $s.Word $count (describeSearchOption $s.Option)
     if ($shared.Truncated) {
         # パスの順に検索して打ち切るため、この先のファイルのヒットは結果に出ない。そのことが分かる文面にする
-        $status = "$(${searchLimit}.ToString('N0')) 件を超えたため、ここで打ち切りました。この先のファイルは検索していないため、ワード・種類・検索対象で絞り込んでください。"
+        $status = "$($s.Limit.ToString('N0')) 件を超えたため、ここで打ち切りました。この先のファイルは検索していないため、ワード・種類・検索対象で絞り込んでください。"
     } elseif ($shared.Cancelled) {
         $status = "中止しました（$($count.ToString('N0')) 件まで表示）"
     }

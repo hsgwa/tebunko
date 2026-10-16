@@ -46,7 +46,8 @@
             "PreviewHeaderScroll", "PreviewHeaderPanel", "PreviewHeader", "PreviewRows",
             "PreviewPlaceholder", "PreviewMenu", "MenuPreviewOpen", "MenuPreviewCopy", "MenuPreviewCopyRow") }
         @{ File = "settings\settings.xaml"; Slot = "ContentHost"; Screen = "SettingsTab"; Names = @(
-            "WorkspaceBox", "WorkspaceInputError", "WorkspaceNote", "WorkspaceCaution", "WorkspaceHowTo", "ChangeWorkspaceButton", "ResetWorkspaceButton", "SettingsFileText", "SettingsFileNote") }
+            "WorkspaceBox", "WorkspaceInputError", "WorkspaceNote", "WorkspaceCaution", "WorkspaceHowTo", "ChangeWorkspaceButton", "ResetWorkspaceButton", "SettingsFileText", "SettingsFileNote",
+            "SearchLimitedRadio", "SearchNoneRadio", "SearchLimitBox", "SearchLimitInputError", "SearchLimitRange", "SearchLimitCaution") }
     )
 
     foreach ($name in @("NavHost", "ContentHost", "StatusBarHost", "ScrimOverlay",

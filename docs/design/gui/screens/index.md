@@ -51,7 +51,7 @@ stateDiagram-v2
 
 ## 撮る状態の一覧
 
-「遷移」は[画面遷移の一覧](../../testing/gui-smoke.md#画面のスモークテスト)の番号。計 40 枚。
+「遷移」は[画面遷移の一覧](../../testing/gui-smoke.md#画面のスモークテスト)の番号。計 42 枚。
 
 **本体・共通（`window`）**
 
@@ -104,6 +104,8 @@ stateDiagram-v2
 | ID | 状態 | 遷移 |
 |---|---|---|
 | `settings-tab/normal` | 既定でないワークスペース（既定の場所の文は塗る） | 7 |
+| `settings-tab/limit-none` | 検索結果の件数の上限が［制限なし］（欄は薄く、既定の数を残す） | – |
+| `settings-tab/limit-error` | 件数の上限の入力が正しくない（欄の枠が赤く、欄の直下に理由） | – |
 | `settings-tab/running-warning` | 更新中に［変更…］（メッセージボックス） | 21 |
 | `settings-tab/empty-confirm` | 空のフォルダを選んだときの確認 | 31 |
 | `settings-tab/nonempty-confirm` | 空でないフォルダを選んだときの確認 | 32 |
