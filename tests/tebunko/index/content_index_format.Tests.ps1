@@ -117,6 +117,24 @@ Describe "getContentIndexFileName / readContentIndexFileName" -Tag Unit {
         # 前の版の名前（content_index に名前をそろえる前）は読まない
         readContentIndexFileName "content.xlsx.001.tsv" | Should -Be $null
     }
+
+    It "番号が整数にならない名前（桁あふれ・全角の数字）は、本文インデックスのファイルの名前でないとして `$null にする" -TestCases @(
+        @{ Name = "content_index.xlsx.99999999999.tsv" }
+        @{ Name = "content_index.xlsx.００１.tsv" }
+    ) {
+        readContentIndexFileName $Name | Should -Be $null
+    }
+}
+
+Describe "convertContentIndexMetaToPlace（番号が数でないとき）" -Tag Unit {
+    It "<Name> は例外にならず、その値の文字列を場所の名前にする" -TestCases @(
+        @{ Name = "ページ"; Meta = @{ "ページ" = "あ"; "対象" = "本文" }; Expected = "あ" }
+        @{ Name = "ページ（図形）"; Meta = @{ "ページ" = "99999999999"; "対象" = "図形" }; Expected = "99999999999[図形]" }
+        @{ Name = "スライド"; Meta = @{ "スライド" = "あ"; "対象" = "本文" }; Expected = "あ" }
+        @{ Name = "スライド（非表示）"; Meta = @{ "スライド" = "あ"; "対象" = "本文"; "非表示" = "はい" }; Expected = "あ（非表示）" }
+    ) {
+        convertContentIndexMetaToPlace $Meta | Should -BeExactly $Expected
+    }
 }
 
 Describe "planContentIndexParts" -Tag Unit {
@@ -216,6 +234,11 @@ Describe "convertToContentIndexText / readContentIndexPlaces" -Tag Unit {
         convertToContentIndexText $blocks | Should -BeExactly $text
         (splitContentIndexTextByBook "").Count | Should -Be 0
         { splitContentIndexTextByBook ([string][char]0x1E + " 版=2`n") } | Should -Throw
+    }
+
+    It "ファイル名の行に改行が無いときは、形が崩れている例外にする" {
+        $mark = [string][char]0x1E
+        { splitContentIndexTextByBook "$mark 版=1`n$mark ファイル名=見積.xlsx" } | Should -Throw "*形が崩れています*"
     }
 
     It "版が違う・無いときは例外にする" {

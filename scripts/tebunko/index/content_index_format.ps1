@@ -20,7 +20,7 @@
 # 先頭の語（content_index）は 1 か所の定数にする（index_store.ps1 の getContentIndexKeyOf も使う）
 ${contentIndexFileNamePrefix} = "content_index"
 ${contentIndexFilePattern} = "${contentIndexFileNamePrefix}.*.tsv"
-${contentIndexFileNamePattern} = "^${contentIndexFileNamePrefix}\.(?<ext>[^.]+)\.(?<part>\d{3,})\.tsv$"
+${contentIndexFileNamePattern} = "^${contentIndexFileNamePrefix}\.(?<ext>[^.]+)\.(?<part>[0-9]{3,})\.tsv$"
 ${contentIndexFileMaxBytes} = 4MB
 ${contentIndexVersion} = 1
 ${contentIndexMark} = [char]0x1E
@@ -65,12 +65,16 @@ function getContentIndexFileName {
 
 function readContentIndexFileName {
     # 本文インデックスのファイルの名前から @{ Extension; Part } を返す。本文インデックスのファイルの名前でなければ $null
+    # （番号が大きすぎて整数にできない名前も、本文インデックスのファイルの名前とはみなさない）
     param (
         [string]$name
     )
 
     if ($name -match ${contentIndexFileNamePattern}) {
-        return @{ Extension = $Matches.ext.ToLowerInvariant(); Part = [int]$Matches.part }
+        $part = 0
+        if ([int]::TryParse($Matches.part, [ref]$part)) {
+            return @{ Extension = $Matches.ext.ToLowerInvariant(); Part = $part }
+        }
     }
     return $null
 }
@@ -189,11 +193,16 @@ function convertContentIndexMetaToPlace {
     if ($meta.Contains("シート")) {
         return [string]$meta["シート"] + $suffix
     }
+    # 番号が数でないときは、その値の文字列のまま場所に使う（壊れた本文インデックスのファイルでも例外にしない）
+    $number = 0
     if ($meta.Contains("ページ")) {
-        return ("ページ{0:D3}" -f [int]$meta["ページ"]) + $suffix
+        $pageText = [string]$meta["ページ"]
+        $pageName = if ([int]::TryParse($pageText, [ref]$number)) { "ページ{0:D3}" -f $number } else { $pageText }
+        return $pageName + $suffix
     }
     if ($meta.Contains("スライド")) {
-        $base = "スライド{0:D3}" -f [int]$meta["スライド"]
+        $slideText = [string]$meta["スライド"]
+        $base = if ([int]::TryParse($slideText, [ref]$number)) { "スライド{0:D3}" -f $number } else { $slideText }
         if ($target -eq "ノート") {
             return "${base}_ノート"
         }
@@ -457,6 +466,9 @@ function splitContentIndexTextByBook {
     while ($pos -ge 0) {
         $start = $pos + 1
         $lineEnd = $text.IndexOf([char]10, $start)
+        if ($lineEnd -lt 0) {
+            throw "集約ファイルの形が崩れています（ファイル名の行に改行がありません）"
+        }
         $name = decodeContentIndexValue $text.Substring($start + $head.Length, $lineEnd - $start - $head.Length)
         $next = $text.IndexOf("`n$head", $lineEnd, [System.StringComparison]::Ordinal)
         $end = if ($next -ge 0) { $next + 1 } else { $text.Length }

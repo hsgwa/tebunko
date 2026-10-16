@@ -54,6 +54,18 @@ Describe "getSearchStatusText" -Tag Unit {
     }
 }
 
+Describe "getSkippedContentIndexText" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "0 件は空"; count = 0; expected = "" }
+        @{ name = "負の件数も空"; count = -1; expected = "" }
+        @{ name = "1 件"; count = 1; expected = "　読めなかったインデックスのファイル：1 件" }
+        @{ name = "件数を 3 桁区切りで出す"; count = 1234; expected = "　読めなかったインデックスのファイル：1,234 件" }
+    ) {
+        param ($name, $count, $expected)
+        getSkippedContentIndexText $count | Should -Be $expected
+    }
+}
+
 Describe "getFilteredSummaryText" -Tag Unit {
     It "全部の件数のうち、見せている件数を出す" {
         getFilteredSummaryText 1234 56 | Should -Be "一致 1,234 件中 56 件を表示"

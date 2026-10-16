@@ -58,6 +58,19 @@ Describe "invokeSearchRequest" -Tag Io {
         $request.FastUsed | Should -Be $false
     }
 
+    It "壊れた本文インデックスのファイルが混ざっても、Error にせず、ほかのヒットを返し、飛ばしたファイルを Skipped に入れる" {
+        $brokenRoot = Join-Path $TestDrive "request_broken_content_index"
+        [void](newContentIndexFiles $tsvRoot $brokenRoot)
+        [void][System.IO.Directory]::CreateDirectory("$brokenRoot\壊れ")
+        writeContentIndexFile "$brokenRoot\壊れ\content_index.xlsx.001.tsv" "$([char]0x1E) 版=999`n単価`n"
+        $request = newSearchRequest "単価" $true @($brokenRoot) 0
+        invokeSearchRequest $request
+        $request.Error | Should -BeNullOrEmpty
+        (takeHits $request).Count | Should -Be 2
+        @($request.Skipped).Count | Should -Be 1
+        $request.Skipped[0] | Should -BeLike "*\壊れ\content_index.xlsx.001.tsv"
+    }
+
     It "照合のプールを渡しても同じ結果になる" {
         $pool = newContentIndexWorkerPool 2
         try {

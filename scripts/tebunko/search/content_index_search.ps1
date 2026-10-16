@@ -17,8 +17,9 @@ function testCellPrefixedHit {
 
 
 function searchContentIndexFiles {
-    # contentIndexFiles の start から count 件の本文インデックスのファイルを読み、regex に一致する行を PSCustomObject で返す（1 行に複数一致しても 1 件）。
-    # max 以上（max+1 件目）が見つかった時点で打ち切る（負は上限なし）。読めないファイルは飛ばす。
+    # contentIndexFiles の start から count 件の本文インデックスのファイルを読み、regex に一致する行を @{ Hits; Skipped } で返す。
+    # Hits は PSCustomObject の並び（1 行に複数一致しても 1 件）。max 以上（max+1 件目）が見つかった時点で打ち切る（負は上限なし）。
+    # 読めない・形が崩れている・contentIndexSearchMaxBytes より大きいファイルは、そのファイルだけ飛ばし、パスを Skipped に入れる（キャッシュには入れない）。
     #   include / exclude: 元のファイル名の条件（$null は条件なし） / excludePlace: 除く場所（図形・コメント）
     #   cache: newTsvTextCache。更新日時・大きさが同じなら、前に読んだ内容と場所の一覧を使う
     # 照合が時間切れ（RegexMatchTimeoutException）なら、そのまま呼び出し元へ伝える
@@ -38,6 +39,7 @@ function searchContentIndexFiles {
 
     # 並列検索の別スレッドでも動くよう、コマンドレットは使わない
     $hits = [System.Collections.Generic.List[psobject]]::new()
+    $skipped = [System.Collections.Generic.List[string]]::new()
     $end = [Math]::Min($contentIndexFiles.Count, $start + $count)
     $lf = [char]10
     $mark = [char]0x1E
@@ -45,176 +47,188 @@ function searchContentIndexFiles {
     $mode = if ($null -eq $textRegex) { "scan" } else { $scanMode }
     for ($i = $start; $i -lt $end; $i++) {
         $contentIndexFile = $contentIndexFiles[$i]
-        $text = $null
-        $places = $null
-        $cached = $false
-        if ($null -ne $cache) {
-            $entry = $null
-            if ($cache.Texts.TryGetValue($contentIndexFile.Path, [ref]$entry) -and $entry[0] -eq $contentIndexFile.Ticks -and $entry[1] -eq $contentIndexFile.Size) {
-                $text = $entry[2]
-                $places = $entry[3]
-                $cached = $true
-                # この検索で使ったことを残す（trimTsvTextCache は、使われていない古いものから追い出す）
-                $entry[4] = $cache.Generation[0]
+        $hitsBefore = $hits.Count
+        try {
+            $text = $null
+            $places = $null
+            $cached = $false
+            if ($null -ne $cache) {
+                $entry = $null
+                if ($cache.Texts.TryGetValue($contentIndexFile.Path, [ref]$entry) -and $entry[0] -eq $contentIndexFile.Ticks -and $entry[1] -eq $contentIndexFile.Size) {
+                    $text = $entry[2]
+                    $places = $entry[3]
+                    $cached = $true
+                    # この検索で使ったことを残す（trimTsvTextCache は、使われていない古いものから追い出す）
+                    $entry[4] = $cache.Generation[0]
+                }
             }
-        }
-        if ($null -eq $text) {
-            try {
+            if ($null -eq $text) {
+                if ($contentIndexFile.Size -gt ${contentIndexSearchMaxBytes}) {
+                    # 全量を読んでメモリを使い切らないよう、大きすぎるファイルは読まずに飛ばす
+                    throw "本文インデックスのファイルが大きすぎます"
+                }
                 $stream = [System.IO.FileStream]::new($contentIndexFile.Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
                 $reader = [System.IO.StreamReader]::new($stream, [System.Text.Encoding]::Unicode, $true)
                 try { $text = $reader.ReadToEnd() } finally { $reader.Dispose() }
-            } catch [System.IO.IOException] {
-                continue
-            } catch [System.UnauthorizedAccessException] {
-                continue
             }
-        }
-        # 一致しなければ、場所の一覧も作らずに次へ（場所の一覧は、一致したときか、キャッシュに入れるときだけ作る）。
-        # 全文への照合が時間切れなら、このファイルは 1 行ずつ照合する
-        $contentIndexMode = $mode
-        $matched = $true
-        if ($contentIndexMode -ne "scan") {
-            try {
-                $matched = $textRegex.IsMatch($text)
-            } catch [System.Text.RegularExpressions.RegexMatchTimeoutException] {
-                $contentIndexMode = "scan"
-            }
-        }
-        if ($null -eq $places -and ($matched -or $null -ne $cache)) {
-            $places = readContentIndexPlaces $text
-        }
-        if ($null -ne $cache -and !$cached) {
-            [System.Threading.Monitor]::Enter($cache)
-            try {
-                $old = $null
-                if ($cache.Texts.TryRemove($contentIndexFile.Path, [ref]$old)) {
-                    $cache.Chars[0] -= $old[2].Length
+            # 一致しなければ、場所の一覧も作らずに次へ（場所の一覧は、一致したときか、キャッシュに入れるときだけ作る）。
+            # 全文への照合が時間切れなら、このファイルは 1 行ずつ照合する
+            $contentIndexMode = $mode
+            $matched = $true
+            if ($contentIndexMode -ne "scan") {
+                try {
+                    $matched = $textRegex.IsMatch($text)
+                } catch [System.Text.RegularExpressions.RegexMatchTimeoutException] {
+                    $contentIndexMode = "scan"
                 }
-                if ($cache.Chars[0] + $text.Length -le $cache.MaxChars) {
-                    $cache.Texts[$contentIndexFile.Path] = [object[]]@($contentIndexFile.Ticks, $contentIndexFile.Size, $text, $places, $cache.Generation[0])
-                    $cache.Chars[0] += $text.Length
-                }
-            } finally {
-                [System.Threading.Monitor]::Exit($cache)
             }
-        }
-        if (!$matched) { continue }
+            if ($null -eq $places -and ($matched -or $null -ne $cache)) {
+                $places = readContentIndexPlaces $text
+            }
+            if ($null -ne $cache -and !$cached) {
+                [System.Threading.Monitor]::Enter($cache)
+                try {
+                    $old = $null
+                    if ($cache.Texts.TryRemove($contentIndexFile.Path, [ref]$old)) {
+                        $cache.Chars[0] -= $old[2].Length
+                    }
+                    if ($cache.Chars[0] + $text.Length -le $cache.MaxChars) {
+                        $cache.Texts[$contentIndexFile.Path] = [object[]]@($contentIndexFile.Ticks, $contentIndexFile.Size, $text, $places, $cache.Generation[0])
+                        $cache.Chars[0] += $text.Length
+                    }
+                } finally {
+                    [System.Threading.Monitor]::Exit($cache)
+                }
+            }
+            if (!$matched) { continue }
 
-        $before = $hits.Count
-        $lineMode = $contentIndexMode -eq "lines"
-        if ($lineMode) {
-            try {
-                $length = $text.Length
-                $p = 0            # 今の場所（places の番号）
-                $number = 0       # 今の場所で、pos までに数えた行の数
-                $pos = -1         # 行を数え終えた位置（-1 は場所が変わったので数え直し）
-                $lastP = -1       # 直前に判定した場所の番号（isTextBook を場所が変わったときだけ判定し直す）
-                $isTextBook = $false
-                $m = $textRegex.Match($text)
-                while ($m.Success) {
-                    $index = $m.Index
-                    if ($index -ge $length) { break }
-                    $lineStart = if ($index -eq 0) { 0 } else { $text.LastIndexOf($lf, $index - 1) + 1 }
-                    $lineEnd = $text.IndexOf($lf, $index)
-                    if ($lineEnd -lt 0) { $lineEnd = $length }
-                    if ($lineStart -lt $length -and $text[$lineStart] -eq $mark) {
-                        # メタ情報の行（ファイル名・場所の名前）の中の一致は捨てる
+            $before = $hits.Count
+            $lineMode = $contentIndexMode -eq "lines"
+            if ($lineMode) {
+                try {
+                    $length = $text.Length
+                    $p = 0            # 今の場所（places の番号）
+                    $number = 0       # 今の場所で、pos までに数えた行の数
+                    $pos = -1         # 行を数え終えた位置（-1 は場所が変わったので数え直し）
+                    $lastP = -1       # 直前に判定した場所の番号（isTextBook を場所が変わったときだけ判定し直す）
+                    $isTextBook = $false
+                    $m = $textRegex.Match($text)
+                    while ($m.Success) {
+                        $index = $m.Index
+                        if ($index -ge $length) { break }
+                        $lineStart = if ($index -eq 0) { 0 } else { $text.LastIndexOf($lf, $index - 1) + 1 }
+                        $lineEnd = $text.IndexOf($lf, $index)
+                        if ($lineEnd -lt 0) { $lineEnd = $length }
+                        if ($lineStart -lt $length -and $text[$lineStart] -eq $mark) {
+                            # メタ情報の行（ファイル名・場所の名前）の中の一致は捨てる
+                            if ($lineEnd -ge $length) { break }
+                            $m = $textRegex.Match($text, $lineEnd + 1)
+                            continue
+                        }
+                        while ($p -lt $places.Count -and $places[$p].End -le $lineStart) { $p++; $pos = -1 }
+                        if ($p -ge $places.Count) { break }
+                        $place = $places[$p]
+                        if ($p -ne $lastP) {
+                            $isTextBook = ((getContentIndexFileKind $place.Book) -eq "テキスト")
+                            $lastP = $p
+                        }
+                        $skip = ($include -and !$include.IsMatch($place.Book)) -or ($exclude -and $exclude.IsMatch($place.Book)) -or
+                            ($excludePlace -and $excludePlace.IsMatch($place.Location))
+                        if ($skip) {
+                            if ($place.End -ge $length) { break }
+                            $m = $textRegex.Match($text, $place.End)
+                            continue
+                        }
+                        if ($pos -lt 0) { $pos = $place.Start; $number = 1 }
+                        # 前に数えた位置から行の先頭までの改行を数える（Substring を作らない）
+                        while ($pos -lt $lineStart) {
+                            $n = $text.IndexOf($lf, $pos, $lineStart - $pos)
+                            if ($n -lt 0) { break }
+                            $number++
+                            $pos = $n + 1
+                        }
+                        $pos = $lineStart
+                        $line = $text.Substring($lineStart, $lineEnd - $lineStart)
+                        if ($place.CellPrefixed -and !(testCellPrefixedHit $regex $line)) {
+                            # セル番地だけに一致した行はヒットにしない（行番号の数え方は崩さない）
+                            if ($lineEnd -ge $length) { break }
+                            $m = $textRegex.Match($text, $lineEnd + 1)
+                            continue
+                        }
+                        if ($isTextBook) {
+                            $line = truncateHitLine $line ($index - $lineStart)
+                        }
+                        $hits.Add([pscustomobject]@{
+                            Root = $contentIndexFile.Root; RelPath = $contentIndexFile.RelPath; RelDir = $contentIndexFile.RelDir; FileName = $place.Book
+                            Book = $place.Book; Location = $place.Location; LineNumber = $number; Line = $line
+                        })
+                        if ($max -ge 0 -and $hits.Count -gt $max) { return @{ Hits = $hits; Skipped = $skipped } }
                         if ($lineEnd -ge $length) { break }
                         $m = $textRegex.Match($text, $lineEnd + 1)
-                        continue
                     }
-                    while ($p -lt $places.Count -and $places[$p].End -le $lineStart) { $p++; $pos = -1 }
-                    if ($p -ge $places.Count) { break }
-                    $place = $places[$p]
-                    if ($p -ne $lastP) {
-                        $isTextBook = ((getContentIndexFileKind $place.Book) -eq "テキスト")
-                        $lastP = $p
-                    }
-                    $skip = ($include -and !$include.IsMatch($place.Book)) -or ($exclude -and $exclude.IsMatch($place.Book)) -or
-                        ($excludePlace -and $excludePlace.IsMatch($place.Location))
-                    if ($skip) {
-                        if ($place.End -ge $length) { break }
-                        $m = $textRegex.Match($text, $place.End)
-                        continue
-                    }
-                    if ($pos -lt 0) { $pos = $place.Start; $number = 1 }
-                    # 前に数えた位置から行の先頭までの改行を数える（Substring を作らない）
-                    while ($pos -lt $lineStart) {
-                        $n = $text.IndexOf($lf, $pos, $lineStart - $pos)
-                        if ($n -lt 0) { break }
-                        $number++
-                        $pos = $n + 1
-                    }
-                    $pos = $lineStart
-                    $line = $text.Substring($lineStart, $lineEnd - $lineStart)
-                    if ($place.CellPrefixed -and !(testCellPrefixedHit $regex $line)) {
-                        # セル番地だけに一致した行はヒットにしない（行番号の数え方は崩さない）
-                        if ($lineEnd -ge $length) { break }
-                        $m = $textRegex.Match($text, $lineEnd + 1)
-                        continue
-                    }
+                    continue
+                } catch [System.Text.RegularExpressions.RegexMatchTimeoutException] {
+                    # 全文への照合が時間切れなら、1 行ずつ照合し直す
+                    if ($hits.Count -gt $before) { $hits.RemoveRange($before, $hits.Count - $before) }
+                }
+            }
+            # filter・scan（と lines の時間切れ）: 場所ごとに 1 行ずつ照合する
+            foreach ($place in $places) {
+                if ($include -and !$include.IsMatch($place.Book)) { continue }
+                if ($exclude -and $exclude.IsMatch($place.Book)) { continue }
+                if ($excludePlace -and $excludePlace.IsMatch($place.Location)) { continue }
+                $isTextBook = ((getContentIndexFileKind $place.Book) -eq "テキスト")
+                $number = 0
+                $pos = $place.Start
+                while ($pos -lt $place.End) {
+                    $n = $text.IndexOf($lf, $pos, $place.End - $pos)
+                    if ($n -lt 0) { $n = $place.End }
+                    $number++
+                    $line = $text.Substring($pos, $n - $pos)
+                    $pos = $n + 1
+                    $lineMatch = $regex.Match($line)
+                    if (!$lineMatch.Success) { continue }
+                    if ($place.CellPrefixed -and !(testCellPrefixedHit $regex $line)) { continue }
                     if ($isTextBook) {
-                        $line = truncateHitLine $line ($index - $lineStart)
+                        $line = truncateHitLine $line $lineMatch.Index
                     }
                     $hits.Add([pscustomobject]@{
                         Root = $contentIndexFile.Root; RelPath = $contentIndexFile.RelPath; RelDir = $contentIndexFile.RelDir; FileName = $place.Book
                         Book = $place.Book; Location = $place.Location; LineNumber = $number; Line = $line
                     })
-                    if ($max -ge 0 -and $hits.Count -gt $max) { return , $hits }
-                    if ($lineEnd -ge $length) { break }
-                    $m = $textRegex.Match($text, $lineEnd + 1)
+                    if ($max -ge 0 -and $hits.Count -gt $max) { return @{ Hits = $hits; Skipped = $skipped } }
                 }
-                continue
-            } catch [System.Text.RegularExpressions.RegexMatchTimeoutException] {
-                # 全文への照合が時間切れなら、1 行ずつ照合し直す
-                if ($hits.Count -gt $before) { $hits.RemoveRange($before, $hits.Count - $before) }
             }
-        }
-        # filter・scan（と lines の時間切れ）: 場所ごとに 1 行ずつ照合する
-        foreach ($place in $places) {
-            if ($include -and !$include.IsMatch($place.Book)) { continue }
-            if ($exclude -and $exclude.IsMatch($place.Book)) { continue }
-            if ($excludePlace -and $excludePlace.IsMatch($place.Location)) { continue }
-            $isTextBook = ((getContentIndexFileKind $place.Book) -eq "テキスト")
-            $number = 0
-            $pos = $place.Start
-            while ($pos -lt $place.End) {
-                $n = $text.IndexOf($lf, $pos, $place.End - $pos)
-                if ($n -lt 0) { $n = $place.End }
-                $number++
-                $line = $text.Substring($pos, $n - $pos)
-                $pos = $n + 1
-                $lineMatch = $regex.Match($line)
-                if (!$lineMatch.Success) { continue }
-                if ($place.CellPrefixed -and !(testCellPrefixedHit $regex $line)) { continue }
-                if ($isTextBook) {
-                    $line = truncateHitLine $line $lineMatch.Index
-                }
-                $hits.Add([pscustomobject]@{
-                    Root = $contentIndexFile.Root; RelPath = $contentIndexFile.RelPath; RelDir = $contentIndexFile.RelDir; FileName = $place.Book
-                    Book = $place.Book; Location = $place.Location; LineNumber = $number; Line = $line
-                })
-                if ($max -ge 0 -and $hits.Count -gt $max) { return , $hits }
+        } catch {
+            # 照合の時間切れは検索語の問題のため、全体を中止する。それ以外（読めない・形が崩れている・大きすぎる）は、そのファイルだけ飛ばして知らせる
+            if ($_.Exception -is [System.Text.RegularExpressions.RegexMatchTimeoutException] -or $_.Exception.InnerException -is [System.Text.RegularExpressions.RegexMatchTimeoutException]) {
+                throw
             }
+            if ($hits.Count -gt $hitsBefore) { $hits.RemoveRange($hitsBefore, $hits.Count - $hitsBefore) }
+            $skipped.Add($contentIndexFile.Path)
         }
     }
-    return , $hits
+    return @{ Hits = $hits; Skipped = $skipped }
 }
 
 
 # 本文インデックスのファイルの検索で、1 つのスレッドにまとめて渡す大きさの目安（バイト）
 ${contentIndexTaskBytes} = 16MB
 
-# 本文インデックスのファイルの検索の各スレッドで動かすスクリプト。@{ Hits; Timeout } を返す
+# 検索で読む本文インデックスのファイル 1 つの大きさの上限（バイト）。超えるファイルは読まずに飛ばす。
+# 1 つのファイルは丸ごと読み、並列の検索は最大 4 スレッドなので、同時に持つのは最大でこの 4 倍（正しく作ったファイルは contentIndexFileMaxBytes が目安）
+${contentIndexSearchMaxBytes} = 64MB
+
+# 本文インデックスのファイルの検索の各スレッドで動かすスクリプト。@{ Hits; Timeout; Skipped } を返す
 ${contentIndexWorkerScript} = {
     param ($contentIndexFiles, $start, $count, $regex, $max, $textRegex, $scanMode, $cache, $include, $exclude, $excludePlace)
     try {
-        $hits = searchContentIndexFiles $contentIndexFiles $start $count $regex $max $textRegex $scanMode $cache $include $exclude $excludePlace
-        @{ Hits = $hits; Timeout = $false }
+        $found = searchContentIndexFiles $contentIndexFiles $start $count $regex $max $textRegex $scanMode $cache $include $exclude $excludePlace
+        @{ Hits = $found.Hits; Timeout = $false; Skipped = $found.Skipped }
     } catch {
         if ($_.Exception -is [System.Text.RegularExpressions.RegexMatchTimeoutException] -or
             $_.Exception.InnerException -is [System.Text.RegularExpressions.RegexMatchTimeoutException]) {
-            @{ Hits = $null; Timeout = $true }
+            @{ Hits = $null; Timeout = $true; Skipped = $null }
         } else {
             throw
         }
@@ -230,7 +244,7 @@ function newContentIndexWorkerPool {
     )
 
     $state = newWorkerState @("searchContentIndexFiles", "testCellPrefixedHit", "readContentIndexPlaces", "testContentIndexCellPrefixed", "testCellPrefixedPlace", "convertContentIndexMetaToPlace", "decodeContentIndexValue", "getContentIndexFileKind", "getOfficeFileKind", "testTextExtension", "testPdfExtension", "truncateHitLine") `
-        @("contentIndexMark", "contentIndexVersion", "officeFileKinds", "contentIndexPlaceKeys", "placeKindShape", "placeKindComment", "placeKindHeaderFooter", "placeKindEmbed", "textExtensions", "pdfExtensions", "hitLineMaxChars", "hitLineBeforeMatchChars")
+        @("contentIndexMark", "contentIndexVersion", "officeFileKinds", "contentIndexPlaceKeys", "placeKindShape", "placeKindComment", "placeKindHeaderFooter", "placeKindEmbed", "textExtensions", "pdfExtensions", "hitLineMaxChars", "hitLineBeforeMatchChars", "contentIndexSearchMaxBytes")
     return [WorkerPool]::new($workers, $state, $Host, "Normal")
 }
 
@@ -271,7 +285,7 @@ function searchContentIndex {
     #   taskBytes    : 1 つのスレッドにまとめて渡す大きさの目安（バイト）
     #   onProgress   : 1 つの作業を照合するたびに呼ぶ { param($done, $total, $newHits) }（done・total は本文インデックスのファイルの数）
     #   pool         : 照合に使うプール（newContentIndexWorkerPool。検索の司令が使い回す）。$null なら、並列にするときだけ作って最後に閉じる
-    # @{ Hits; SimpleMatch（実際に文字どおり検索したか）; Total（本文インデックスのファイルの数）; Truncated; Cancelled } を返す。
+    # @{ Hits; SimpleMatch（実際に文字どおり検索したか）; Total（本文インデックスのファイルの数）; Truncated; Cancelled; Skipped（飛ばしたファイルのパスの一覧） } を返す。
     # Hits の各要素は PSCustomObject（Root; RelPath（本文インデックスのファイル）; RelDir; FileName; Book; Location; LineNumber; Line）
     param (
         [string]$word,
@@ -294,7 +308,8 @@ function searchContentIndex {
     $filter = newFileFilter $fileFilter
     $excludePlace = newPlaceExclude $includeShapes $includeComments
     $hits = New-Object System.Collections.Generic.List[psobject]
-    $result = @{ Hits = $hits; SimpleMatch = $search.SimpleMatch; Total = $contentIndexFiles.Count; Truncated = $false; Cancelled = $false }
+    $skipped = New-Object System.Collections.Generic.List[string]
+    $result = @{ Hits = $hits; SimpleMatch = $search.SimpleMatch; Total = $contentIndexFiles.Count; Truncated = $false; Cancelled = $false; Skipped = $skipped }
     $timeoutMessage = "正規表現の照合に時間がかかりすぎるため、検索を中止しました。正規表現を見直してください。"
     $tasks = splitContentIndexTasks $contentIndexFiles $taskBytes
     $workers = if ($pool) { $pool.Size } elseif ($workerCount -gt 0) { $workerCount } else { getWorkerCount }
@@ -328,6 +343,7 @@ function searchContentIndex {
                 $output = $pool.Receive($pending.Dequeue())
                 if ($output[0].Timeout) { throw $timeoutMessage }
                 $newHits = $output[0].Hits
+                $skipped.AddRange([string[]]@($output[0].Skipped))
                 $done = $job.Done
             } else {
                 $task = $tasks[$next]
@@ -335,7 +351,9 @@ function searchContentIndex {
                 $done = $task.Start + $task.Count
                 $max = if ($limit -gt 0) { $limit - $hits.Count } else { -1 }
                 try {
-                    $newHits = searchContentIndexFiles $contentIndexFiles $task.Start $task.Count $search.Regex $max $search.TextRegex $search.ScanMode $cache $filter.Include $filter.Exclude $excludePlace
+                    $found = searchContentIndexFiles $contentIndexFiles $task.Start $task.Count $search.Regex $max $search.TextRegex $search.ScanMode $cache $filter.Include $filter.Exclude $excludePlace
+                    $newHits = $found.Hits
+                    $skipped.AddRange([string[]]@($found.Skipped))
                 } catch [System.Text.RegularExpressions.RegexMatchTimeoutException] {
                     throw $timeoutMessage
                 }
