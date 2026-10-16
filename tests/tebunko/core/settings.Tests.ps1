@@ -800,3 +800,54 @@ Describe "クラウドにだけあるファイルの扱い（cloudFiles）" -Tag
         readCloudFiles $path | Should -Be ${cloudFilesAsk}
     }
 }
+
+Describe "検索結果の件数の上限（searchLimit）" {
+    It "getSearchLimit: <Value> は <Expected>" -Tag Unit -TestCases @(
+        @{ Value = $null; Expected = 10000 }
+        @{ Value = 20000; Expected = 20000 }
+        @{ Value = "20000"; Expected = 20000 }
+        @{ Value = 0; Expected = 0 }
+        @{ Value = "0"; Expected = 0 }
+        @{ Value = -1; Expected = 10000 }
+        @{ Value = -5; Expected = 10000 }
+        @{ Value = 500; Expected = 1000 }
+        @{ Value = "abc"; Expected = 10000 }
+        @{ Value = 999; Expected = 1000 }
+        @{ Value = 1000; Expected = 1000 }
+        @{ Value = 100000; Expected = 100000 }
+        @{ Value = 200000; Expected = 100000 }
+    ) {
+        getSearchLimit $Value | Should -Be $Expected
+    }
+
+    It "readSearchLimit: ファイルが無い・キーが無ければ既定、文字列で書いても数値として読む" -Tag Io {
+        $path = "$TestDrive\件数の上限\setting.config"
+        readSearchLimit $path | Should -Be ${searchLimitDefault}
+        updateSettings "useRegex" $true $path
+        readSearchLimit $path | Should -Be ${searchLimitDefault}
+        updateSettings "searchLimit" "20000" $path
+        readSearchLimit $path | Should -Be 20000
+    }
+
+    It "writeSearchLimit: 0（制限なし）と範囲の中の値を書き、ほかのキーは変えない" -Tag Io {
+        $path = "$TestDrive\件数の上限の保存\setting.config"
+        updateSettings "useRegex" $true $path
+        writeSearchLimit 0 $path
+        readSearchLimit $path | Should -Be 0
+        (readSettings $path).useRegex | Should -BeTrue
+        writeSearchLimit 20000 $path
+        readSearchLimit $path | Should -Be 20000
+        (readSettings $path).useRegex | Should -BeTrue
+    }
+
+    It "writeSearchLimit: <Value> は範囲の外なので例外にして、設定は変えない" -Tag Io -TestCases @(
+        @{ Value = 500 }
+        @{ Value = -1 }
+        @{ Value = 100001 }
+    ) {
+        $path = "$TestDrive\件数の上限の拒否\setting.config"
+        writeSearchLimit 20000 $path
+        { writeSearchLimit $Value $path } | Should -Throw
+        readSearchLimit $path | Should -Be 20000
+    }
+}

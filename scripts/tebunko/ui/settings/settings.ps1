@@ -18,6 +18,78 @@ function updateSettingsView {
     $ui.SettingsFileText.Text = $file.Path
     $ui.SettingsFileText.ToolTip = $file.Path
     $ui.SettingsFileNote.Text = $file.Note
+
+    $texts = getSearchLimitTexts ${searchLimitMin} ${searchLimitMax} ${searchLimitDefault}
+    $ui.SearchLimitRange.Text = $texts.Range
+    $ui.SearchLimitCaution.Text = $texts.Caution
+    updateSearchLimitView
+}
+
+function setSearchLimitInputError {
+    # 件数の上限の欄の下に、直してほしい内容を出す（空なら隠す。場所は空けたままなので、下の行は動かない）。欄の枠は赤にする
+    param ([string]$message)
+    $ui.SearchLimitInputError.Text = $message
+    $ui.SearchLimitInputError.Visibility = if ($message) { "Visible" } else { "Hidden" }
+    $ui.SearchLimitBox.Tag = if ($message) { "Error" } else { $null }
+}
+
+function updateSearchLimitView {
+    # 今の件数の上限（$script:searchLimit）を、ラジオと欄に出す。制限なしのときは欄を読み取り専用にして薄くし、数は残す
+    param ([bool]$keepText = $false)
+    $view = getSearchLimitView $script:searchLimit ${searchLimitDefault}
+    $script:searchLimitSyncing = $true
+    try {
+        $ui.SearchLimitedRadio.IsChecked = ($view.Mode -eq "Limited")
+        $ui.SearchNoneRadio.IsChecked = ($view.Mode -eq "None")
+    } finally {
+        $script:searchLimitSyncing = $false
+    }
+    if (!($keepText -and $view.Mode -eq "None" -and $ui.SearchLimitBox.Text -ne "")) {
+        $ui.SearchLimitBox.Text = $view.Text
+    }
+    $ui.SearchLimitBox.IsReadOnly = ($view.Mode -eq "None")
+    $ui.SearchLimitBox.Opacity = if ($view.Mode -eq "None") { 0.5 } else { 1.0 }
+    setSearchLimitInputError ""
+}
+
+function commitSearchLimit {
+    # 件数の上限を確定する（Enter・欄から出たとき・ラジオを選んだとき）。保存して、次の検索から効かせる（走っている検索には効かない）。
+    # 直してほしいときは欄の下に理由を出し、欄の文字は直せるように残す（$keepText。Enter のとき）。欄から出たときは今の値に戻す
+    param (
+        [string]$mode,
+        [bool]$keepText
+    )
+    $decision = getSearchLimitInputDecision $mode $ui.SearchLimitBox.Text $script:searchLimit ${searchLimitMin} ${searchLimitMax} ${searchLimitDefault}
+    if ($decision.Action -eq "Invalid") {
+        if ($keepText) {
+            setSearchLimitInputError $decision.Message
+        } else {
+            updateSearchLimitView
+            setSearchLimitInputError $decision.Message
+        }
+        return
+    }
+    if ($decision.Action -eq "Apply") {
+        try {
+            writeSearchLimit $decision.Value
+        } catch {
+            updateSearchLimitView
+            setSearchLimitInputError "保存できませんでした。もう一度お試しください。"
+            return
+        }
+        $script:searchLimit = $decision.Value
+    }
+    # 制限なしにしたとき、欄に残すのは「制限あり」として正しい数だけ（正しくない文字は残さず、今の値に戻す）
+    $keepBox = $false
+    if ($decision.Action -eq "Apply" -and $decision.Value -eq 0) {
+        $keepBox = testSearchLimitKeepText $ui.SearchLimitBox.Text $script:searchLimit ${searchLimitMin} ${searchLimitMax} ${searchLimitDefault}
+    }
+    updateSearchLimitView $keepBox
+}
+
+function getSearchLimitMode {
+    # ラジオで選んでいる方（"Limited" / "None"）
+    return $(if ($ui.SearchNoneRadio.IsChecked) { "None" } else { "Limited" })
 }
 
 function testWorkspaceChangeable {
@@ -351,5 +423,20 @@ $ui.WorkspaceBox.Add_KeyDown({
 $ui.WorkspaceBox.Add_LostFocus({
     $window.Dispatcher.BeginInvoke([action]{ safe { commitWorkspaceInput $false } }, [System.Windows.Threading.DispatcherPriority]::Background) | Out-Null
 })
+$ui.SearchLimitBox.Add_KeyDown({
+    param ($sender, $e)
+    if ($e.Key -eq "Return") {
+        safe { if ((getSearchLimitMode) -eq "Limited") { commitSearchLimit "Limited" $true } }
+        $e.Handled = $true
+    } elseif ($e.Key -eq "Escape") {
+        safe { updateSearchLimitView }
+        $e.Handled = $true
+    }
+})
+$ui.SearchLimitBox.Add_LostFocus({
+    $window.Dispatcher.BeginInvoke([action]{ safe { if ((getSearchLimitMode) -eq "Limited") { commitSearchLimit "Limited" $false } } }, [System.Windows.Threading.DispatcherPriority]::Background) | Out-Null
+})
+$ui.SearchLimitedRadio.Add_Checked({ if (!$script:searchLimitSyncing) { safe { commitSearchLimit "Limited" $true } } })
+$ui.SearchNoneRadio.Add_Checked({ if (!$script:searchLimitSyncing) { safe { commitSearchLimit "None" $true } } })
 $ui.ChangeWorkspaceButton.Add_Click({ safe { chooseWorkspace } })
 $ui.ResetWorkspaceButton.Add_Click({ safe { resetWorkspace } })

@@ -66,6 +66,12 @@ ${cloudFilesAsk}      = "ask"       # ダウンロードせずに残す（確認
 ${cloudFilesDownload} = "download"  # 確認なしでダウンロードして取り込む
 ${cloudFilesModes}    = @(${cloudFilesAsk}, ${cloudFilesDownload})
 
+# 検索結果の件数の上限（設定 searchLimit。この件数に達したら照合をやめる）
+${searchLimitDefault} = 10000
+${searchLimitMin}     = 1000
+${searchLimitMax}     = 100000
+${searchLimitNone}    = 0  # 制限なし（searchContentIndex の limit の 0 と同じ）
+
 # 検索の対象にするファイルの種類（検索バーのチップ。設定ファイルの fileKinds の値）
 ${fileKindNames} = @("excel", "word", "powerpoint", "text", "pdf")
 
@@ -83,6 +89,7 @@ function newSettings {
         openMode           = ${openModeNormal}  # 検索結果の元のファイルの開き方: 通常（編集する）/ 読み取り専用 / 新規（元のファイルを基にした無題の文書。占有しない）
         workspaceFolder    = ""       # ワークスペース（インデックス・取り込み一覧・ログを置くフォルダ）。空なら既定（%USERPROFILE%\Documents\tebunko_ws。getDefaultWorkDir）
         cloudFiles         = ${cloudFilesAsk}  # クラウドにだけあるファイルの扱い: ask（ダウンロードせずに残す。確認の画面で選べる）/ download（ダウンロードして取り込む）。知らない値は ask（readCloudFiles）
+        searchLimit        = ${searchLimitDefault}  # 検索結果の件数の上限（${searchLimitMin}～${searchLimitMax}。0 は制限なし、範囲の外は近い端、数値にできない・負の数は既定。getSearchLimit）
         ingestThreads      = 0        # Office を使わずに読むファイル（.docx・.pptx など）の読み取りのスレッドの数（1～4。0 はコア数から決める。getIngestWorkerCount）。Excel・Word・PowerPoint は種類ごとに 1 つ
     }
 }
@@ -509,6 +516,44 @@ function readCloudFiles {
         return $mode
     }
     return ${cloudFilesAsk}
+}
+
+function getSearchLimit {
+    # 検索結果の件数の上限として使う値を返す。0 は制限なし、数値にできない・負の数は既定、範囲の外は近い端に寄せる
+    param (
+        $value
+    )
+
+    $number = 0
+    if (!([int]::TryParse([string]$value, [ref]$number)) -or $number -lt 0) {
+        return ${searchLimitDefault}
+    }
+    if ($number -eq ${searchLimitNone}) {
+        return ${searchLimitNone}
+    }
+    return [Math]::Min([Math]::Max($number, ${searchLimitMin}), ${searchLimitMax})
+}
+
+function readSearchLimit {
+    # 検索結果の件数の上限を返す（getSearchLimit で寄せる）。設定が無ければ既定
+    param (
+        [string]$path = ${settingsFile}
+    )
+
+    return getSearchLimit (readSettings $path).searchLimit
+}
+
+function writeSearchLimit {
+    # 検索結果の件数の上限を保存する。0（制限なし）か範囲の中だけ書く。それ以外は例外にして、設定は変えない
+    param (
+        [int]$value,
+        [string]$path = ${settingsFile}
+    )
+
+    if ($value -ne ${searchLimitNone} -and ($value -lt ${searchLimitMin} -or $value -gt ${searchLimitMax})) {
+        throw "検索結果の件数の上限は、0（制限なし）か ${searchLimitMin}～${searchLimitMax} で指定してください: $value"
+    }
+    updateSettings "searchLimit" $value $path
 }
 
 function writeCloudFiles {

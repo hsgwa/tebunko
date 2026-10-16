@@ -1,4 +1,4 @@
-﻿# 現行の画面を、状態ごとに全部（37 枚）自動で撮る道具。GUI を直す前の記録として docs\images\screens\ に置き、
+﻿# 現行の画面を、状態ごとに全部（39 枚）自動で撮る道具。GUI を直す前の記録として docs\images\screens\ に置き、
 # docs\design\gui\screens\ の写真として載せる。詳しい経緯・撮る状態の一覧・撮らないものは docs\design\gui\screens\index.md。
 #
 #   .\tools\capture_screens.ps1                 すべての状態を撮り直す
@@ -575,10 +575,10 @@ function captureSearchScene {
 }
 
 function captureSettingsScene {
-    # settings-tab の normal・empty-confirm・nonempty-confirm・index-confirm・invalid-warning
+    # settings-tab の normal・limit-none・limit-error・empty-confirm・nonempty-confirm・index-confirm・invalid-warning
     param ($Ids, $Root, $OutDir, $UserName, $ComputerName, $UserProfile, $Sizes)
 
-    $needed = @("settings-tab/normal", "settings-tab/empty-confirm", "settings-tab/nonempty-confirm", "settings-tab/index-confirm", "settings-tab/invalid-warning")
+    $needed = @("settings-tab/normal", "settings-tab/limit-none", "settings-tab/limit-error", "settings-tab/empty-confirm", "settings-tab/nonempty-confirm", "settings-tab/index-confirm", "settings-tab/invalid-warning")
     if (@($needed | Where-Object { $Ids -contains $_ }).Count -eq 0) { return }
 
     $dir = Join-Path $Root "settings"
@@ -604,6 +604,25 @@ function captureSettingsScene {
         selectGuiTab $S "SettingsTab" "ChangeWorkspaceButton"
         captureGuiState -S $S -Id "settings-tab/normal" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
+
+        setGuiStep $S "検索結果の件数の上限: 制限なし"
+        selectGui (findGui $S.Window -Id "SearchNoneRadio")
+        waitGui $S "欄が読み取り専用になる" ${guiDefaultTimeout} {
+            (findGui $S.Window -Id "SearchLimitBox").GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).Current.IsReadOnly
+        } | Out-Null
+        captureGuiState -S $S -Id "settings-tab/limit-none" -Ids $Ids -OutDir $OutDir `
+            -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
+
+        setGuiStep $S "検索結果の件数の上限: 入力エラー"
+        selectGui (findGui $S.Window -Id "SearchLimitedRadio")
+        $limitBox = findGui $S.Window -Id "SearchLimitBox"
+        $limitBox.SetFocus()
+        setGuiText $S $limitBox "abc"
+        pressGuiKey $S.Window 0x0D
+        waitGui $S "理由が出る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "SearchLimitInputError")) -like "1,000～100,000 の数で*" } | Out-Null
+        captureGuiState -S $S -Id "settings-tab/limit-error" -Ids $Ids -OutDir $OutDir `
+            -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
+        pressGuiKey $S.Window 0x1B
 
         setGuiStep $S "使えないフォルダ（今のインデックスの中）"
         & $changeWorkspace (Join-Path ([Workspace]::new($tool.Work)).IndexDir "営業")

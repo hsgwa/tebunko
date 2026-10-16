@@ -6,7 +6,7 @@
 
 | 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |
 |---|---|---|---|---|---|
-| `newSettings` | – | ordered hashtable | 設定の既定値（`targetFolders` `indexSources` `searchExcludes` `useRegex` `caseSensitive` `fileKinds` `includeShapes` `includeComments` `openMode` `workspaceFolder` `ingestThreads`） | [設定ファイル（setting.config）](../structure/settings-file.md) | readSettings |
+| `newSettings` | – | ordered hashtable | 設定の既定値（`targetFolders` `indexSources` `searchExcludes` `useRegex` `caseSensitive` `fileKinds` `includeShapes` `includeComments` `openMode` `workspaceFolder` `searchLimit` `ingestThreads`） | [設定ファイル（setting.config）](../structure/settings-file.md) | readSettings |
 | `readSettings` | path（既定 `$settingsFile`） | ordered hashtable | 設定を読む。記載の無いキーは既定値。ファイルが無ければ既定値（ファイルは作らない）。数値のキーは文字列でも数値にして読む（読めなければ既定値）。JSON として読めなければ `FormatException`（ファイルは動かさない）。ロック・共有違反は `IOException` のまま | 同上 | 設定の各関数 |
 | `toSettingBool` | value, default | bool | 設定ファイルの真偽値を読む。文字列の `"true"` / `"false"` も読み、読めなければ default | 同上 | readSettings, readSearchExcludes（`search_excludes.ps1`） |
 | `writeSettings` | settings, path（既定 `$settingsFile`） | – | 設定を JSON（UTF-8 BOM なし）で保存。一時ファイルに書いてから置き換える（`writeTextLinesAtomic`） | 同上 | updateSettings |
@@ -24,6 +24,9 @@
 | `resolveGitRef` | ref, dirs | string | リポジトリのリファレンス（`refs/heads/main` など。形が違えば空）が指すコミットの SHA を、`refs\` の下のファイル → `packed-refs` の順に読む（外部のコマンドは起動しない） | [画面](../gui/screens/window.md) | readDevVersion |
 | `readDevVersion` | rootDir | `@{Tag; AtHead; Sha}` / `$null` | 配布物でない（`VERSION.txt` が無い）ときの版の手がかりを、作業ツリーの `.git` のファイルだけから読む（worktree の `gitdir:`・`commondir` も読む）。HEAD に付いたリリースのタグ（`v<数>.<数>.<数>`）があればそれ、無ければ版の並びで最も新しいタグ。どちらも分からなければ SHA だけ、SHA も無ければ `$null` | [画面](../gui/screens/window.md) | getToolDiagnosticHeader, 画面の起動（裏の仕事） |
 | `readSearchOption` / `writeSearchOption` | path / option, path | `@{UseRegex; CaseSensitive; IncludeShapes; IncludeComments}` / – | 画面の検索条件（種類は `readFileKinds` / `writeFileKinds`）。[元のファイルの特定・画面](search.md#元のファイルの特定画面) を参照 | [続き](search.md#元のファイルの特定画面) | 画面 |
+| `getSearchLimit` | value | int | 検索結果の件数の上限として使う値を返す。0 は制限なし（`${searchLimitNone}`）でそのまま返す。数値にできない・負の数は既定の 10,000（`${searchLimitDefault}`）、範囲の外は近い端（1,000＝`${searchLimitMin}`～100,000＝`${searchLimitMax}`）に寄せる。ファイルは読まない | [設定ファイル（setting.config）](../structure/settings-file.md) | readSearchLimit |
+| `readSearchLimit` | path（既定 `$settingsFile`） | int | 検索結果の件数の上限（`searchLimit`）を読み、`getSearchLimit` で寄せて返す。画面は起動のときに読む | [検索タブ](../gui/search-tab.md) | 画面（`startGui`） |
+| `writeSearchLimit` | value、path（既定 `$settingsFile`） | – | 検索結果の件数の上限（`searchLimit`）を書く。0（制限なし）か 1,000〜100,000 だけ書き、ほかの値は例外にする。ほかのキーは変えない | [設定ファイル（setting.config）](../structure/settings-file.md) | 設定の画面（`commitSearchLimit`） |
 | `readCloudFiles` / `writeCloudFiles` | path（既定 `$settingsFile`） / mode, path | string / – | クラウドにだけあるファイルの扱い（`cloudFiles`。`ask` / `download`）を読み書きする。無い・知らない値なら `ask` | [取り込み対象の決定](../indexing/target-decision.md#クラウドにだけあるファイル) | 画面・インデクサ |
 | `readOpenMode` / `writeOpenMode` | path（既定 `$settingsFile`） / mode, path | string / – | 元のファイルの開き方（`openMode`）を読み書きする。無い・知らない値なら `normal` | [元のファイルを開く](../gui/open-file.md) | 画面 |
 | `getDefaultWorkDir` | profileDir（既定は利用者のプロファイル） | string | 既定のワークスペース `<profileDir>\Documents\tebunko_ws`（OneDrive にリダイレクトされた「ドキュメント」は使わない）。`profileDir` を渡さず、環境変数 `TEBUNKO_DEFAULT_WORKSPACE`（絶対パス）があるときは、その場所（テスト・実機の確かめ用。絶対パスでなければ例外） | [データの置き場所とパスの決め方](../structure/data.md) | getWorkDir, writeWorkspaceFolder, 画面 |
