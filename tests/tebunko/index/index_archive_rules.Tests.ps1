@@ -60,6 +60,8 @@ Describe "testIndexArchiveEntryLocation" -Tag Unit {
         @{ path = "content_index/2024/source_folder.txt" }
         @{ path = "content_index/content.xlsx.001.tsv"; label = "前の版の名前" }
         @{ path = "content_index/content_index.xlsx.tsv"; label = "番号が無い" }
+        @{ path = "content_index/content_index.xlsx.99999999999.tsv"; label = "番号が桁あふれ" }
+        @{ path = "content_index/content_index.xlsx.００１.tsv"; label = "全角の数字" }
         @{ path = "system_index/content_index.xlsx.001.tsv" }
     ) {
         param ($path)

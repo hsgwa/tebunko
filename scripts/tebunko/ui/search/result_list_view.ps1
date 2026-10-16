@@ -46,6 +46,18 @@ function getSearchStatusText {
     return $text
 }
 
+function getSkippedContentIndexText {
+    # 検索で読めずに飛ばした本文インデックスのファイルの件数の文（ステータスバーの文の後ろに付ける。0 件は空）
+    param (
+        [int]$count
+    )
+
+    if ($count -le 0) {
+        return ""
+    }
+    return "　読めなかったインデックスのファイル：$($count.ToString('N0')) 件"
+}
+
 function getFilteredSummaryText {
     # 結果を絞り込んでいるときの要約欄（全部の件数のうち、いくつ見せているか）
     param (

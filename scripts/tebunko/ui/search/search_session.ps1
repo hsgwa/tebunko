@@ -217,6 +217,8 @@ function finishSearch {
     } elseif ($shared.Cancelled) {
         $status = "中止しました（$($count.ToString('N0')) 件まで表示）"
     }
+    $skippedCount = @($shared.Skipped).Count
+    $status += getSkippedContentIndexText $skippedCount
     $missing = @($shared.Folders | Where-Object { !$_.Exists } | ForEach-Object { $_.Path })
     if ($missing.Count -gt 0) {
         $status += "　見つからない検索対象フォルダ：$($missing -join '、')"

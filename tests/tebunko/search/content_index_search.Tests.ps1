@@ -217,7 +217,7 @@ Describe "本文インデックスのファイルの作成と検索" -Tag Io {
         $options = [System.Text.RegularExpressions.RegexOptions]::None
         $lineRegex = [regex]::new($pattern, $options, [timespan]::FromSeconds(5))
         $textRegex = [regex]::new($pattern, $options -bor [System.Text.RegularExpressions.RegexOptions]::Multiline, [timespan]::FromMilliseconds(1))
-        $hits = searchContentIndexFiles $slowContentIndexFiles 0 1 $lineRegex -1 $textRegex "lines"
+        $hits = (searchContentIndexFiles $slowContentIndexFiles 0 1 $lineRegex -1 $textRegex "lines").Hits
         $hits.Count | Should -Be 1
         $hits[0].LineNumber | Should -Be 3001
     }
@@ -1062,5 +1062,80 @@ Describe "testCellPrefixedHit（セル番地 + 区切りのタブ + 文字の行
         @{ Name = "文字の中のタブだけに当たる語も一致"; Pattern = "`t"; Line = "C3`t`"品名`t納期`""; Expected = $true }
     ) {
         testCellPrefixedHit ([regex]::new($Pattern)) $Line | Should -Be $Expected
+    }
+}
+
+Describe "壊れた・大きすぎる本文インデックスのファイルは、そのファイルだけ飛ばす" -Tag Io {
+    BeforeAll {
+        function script:newMixedContentIndexFiles {
+            # 正しい本文インデックスのファイル（営業）に、中身 text の本文インデックスのファイル（壊れ）を混ぜた並びを返す
+            param ([string]$name, [string]$text)
+            $tsvRoot = Join-Path $TestDrive "mixed_tsv_$name"
+            newTsv "$tsvRoot\営業\見積.xlsx\Sheet1.tsv" @("単価`t105")
+            $root = Join-Path $TestDrive "mixed_content_index_$name"
+            [void](newContentIndexFiles $tsvRoot $root)
+            [void][System.IO.Directory]::CreateDirectory("$root\壊れ")
+            writeContentIndexFile "$root\壊れ\content_index.xlsx.001.tsv" $text
+            return , (getContentIndexFiles @($root)).ContentIndexFiles
+        }
+    }
+
+    It "<Name> のファイルが 1 つ混ざっても、ほかのファイルのヒットを返し、そのファイルだけを Skipped に入れる（直列・並列とも）" -TestCases @(
+        @{ Name = "版が違う"; Text = "{RS} 版=999{LF}{RS} ファイル名=a.xlsx{LF}{RS} シート=S{LF}単価{LF}" }
+        @{ Name = "版が無い"; Text = "{RS} ファイル名=a.xlsx{LF}{RS} シート=S{LF}単価{LF}" }
+        @{ Name = "ファイル名の行だけ"; Text = "{RS} ファイル名=単価.xlsx" }
+        @{ Name = "版の値が数でない"; Text = "{RS} 版=あ{LF}{RS} ファイル名=a.xlsx{LF}単価{LF}" }
+    ) {
+        $text = $Text.Replace("{RS}", [string][char]0x1E).Replace("{LF}", "`n")
+        $files = newMixedContentIndexFiles $Name $text
+        $files.Count | Should -Be 2
+        $pool = newContentIndexWorkerPool 2
+        try {
+            foreach ($usePool in @($false, $true)) {
+                $result = if ($usePool) { searchContentIndex "単価" $files $true -pool $pool -taskBytes 1 } else { searchContentIndex "単価" $files $true }
+                @($result.Hits).Count | Should -Be 1
+                $result.Hits[0].Book | Should -Be "見積.xlsx"
+                @($result.Skipped).Count | Should -Be 1
+                $result.Skipped[0] | Should -BeLike "*\壊れ\content_index.xlsx.001.tsv"
+            }
+        } finally {
+            $pool.Close()
+        }
+    }
+
+    It "大きさが上限を超える本文インデックスのファイルは、読まずに飛ばす（直列・並列とも）" {
+        $files = newMixedContentIndexFiles "large" "$([char]0x1E) 版=1`n"
+        $large = @($files | ForEach-Object { $copy = $_.Clone(); if ($copy.RelPath -like "壊れ*") { $copy.Size = ${contentIndexSearchMaxBytes} + 1 }; $copy })
+        $pool = newContentIndexWorkerPool 2
+        try {
+            foreach ($usePool in @($false, $true)) {
+                $result = if ($usePool) { searchContentIndex "単価" $large $true -pool $pool -taskBytes 1 } else { searchContentIndex "単価" $large $true }
+                @($result.Hits).Count | Should -Be 1
+                @($result.Skipped).Count | Should -Be 1
+            }
+        } finally {
+            $pool.Close()
+        }
+    }
+
+    It "場所の番号が数でなくても例外にならず、飛ばさない（場所の名前はその値のまま）" {
+        $text = "{RS} 版=1{LF}{RS} ファイル名=a.pdf{LF}{RS} ページ=あ{LF}単価{LF}".Replace("{RS}", [string][char]0x1E).Replace("{LF}", "`n")
+        $files = newMixedContentIndexFiles "page" $text
+        $result = searchContentIndex "単価" $files $true
+        @($result.Skipped).Count | Should -Be 0
+        @($result.Hits | Where-Object { $_.Book -eq "a.pdf" }).Count | Should -Be 1
+        @($result.Hits | Where-Object { $_.Book -eq "a.pdf" })[0].Location | Should -Be "あ"
+    }
+
+    It "照合の時間切れは飛ばさず、そのまま伝える（検索の全体を中止する）" {
+        $slowRoot = Join-Path $TestDrive "skip_slow"
+        newTsv "$slowRoot\idx\遅い.xlsx\Sheet1.tsv" @(("a" * 40) + "!")
+        convertFolderToContentIndex "$slowRoot\idx" "$slowRoot\content_index\idx" | Out-Null
+        $slowFiles = findContentIndexFiles "$slowRoot\content_index"
+        $lineRegex = [regex]::new("^(a|aa)+b", [System.Text.RegularExpressions.RegexOptions]::None, [timespan]::FromMilliseconds(1))
+        $thrown = $null
+        try { [void](searchContentIndexFiles $slowFiles 0 1 $lineRegex -1 $null) } catch { $thrown = $_.Exception }
+        $thrown | Should -Not -BeNullOrEmpty
+        ($thrown -is [System.Text.RegularExpressions.RegexMatchTimeoutException] -or $thrown.InnerException -is [System.Text.RegularExpressions.RegexMatchTimeoutException]) | Should -Be $true
     }
 }

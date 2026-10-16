@@ -201,7 +201,7 @@ function exportIndexCore {
         $rel = (fromLongPath $tsvFile.FullName).Substring($prefixLength)
         $fileName = [System.IO.Path]::GetFileName($rel)
         if ($null -eq (readContentIndexFileName $fileName)) {
-            throw "更新を最後まで行ってからエクスポートしてください（更新の途中のファイルが残っています: ${rel}）。"
+            throw "本文インデックスとして扱えないファイルが残っています（${rel}）。更新を最後まで行うか、そのファイルを取り除いてからエクスポートしてください。"
         }
         $contentIndexFiles.Add($rel)
     }
