@@ -142,7 +142,10 @@
                              AutomationProperties.AutomationId="SearchLimitBox" AutomationProperties.Name="検索結果の件数の上限" />
                     <TextBlock Style="{StaticResource Body}" Margin="6,0,0,0" VerticalAlignment="Center" Text="件" />
                   </StackPanel>
-                  <RadioButton x:Name="SearchNoneRadio" GroupName="SearchLimit" Style="{StaticResource OptionRadio}" Content="制限なし" Margin="0,10,0,0"
+                  <!-- 入力が正しくないときの理由。欄の直下に出す。場所はいつも空けておき、出ても下の行が動かない -->
+                  <TextBlock x:Name="SearchLimitInputError" Style="{StaticResource ErrorText}" Margin="0,4,0,0" MinHeight="16" TextWrapping="Wrap" Visibility="Hidden"
+                             HorizontalAlignment="Right" AutomationProperties.AutomationId="SearchLimitInputError" />
+                  <RadioButton x:Name="SearchNoneRadio" GroupName="SearchLimit" Style="{StaticResource OptionRadio}" Content="制限なし" Margin="0,4,0,0"
                                HorizontalAlignment="Left" AutomationProperties.AutomationId="SearchNoneRadio" />
                 </StackPanel>
                 <StackPanel>
@@ -150,9 +153,6 @@
                   <TextBlock Style="{StaticResource Meta}" Margin="0,2,0,0" Text="この件数に達したら検索をやめます" />
                 </StackPanel>
               </DockPanel>
-              <!-- 入力が正しくないときの理由。場所はいつも空けておき、出ても下の行が動かない -->
-              <TextBlock x:Name="SearchLimitInputError" Style="{StaticResource ErrorText}" Margin="0,8,0,0" MinHeight="16" TextWrapping="Wrap" Visibility="Hidden"
-                         AutomationProperties.AutomationId="SearchLimitInputError" />
               <TextBlock x:Name="SearchLimitRange" Style="{StaticResource Micro}" Margin="0,8,0,0" TextWrapping="Wrap" />
               <TextBlock x:Name="SearchLimitCaution" Style="{StaticResource Meta}" Margin="0,6,0,0" TextWrapping="Wrap" />
             </StackPanel>

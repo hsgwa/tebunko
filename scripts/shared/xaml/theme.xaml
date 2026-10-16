@@ -761,6 +761,11 @@
               <Setter TargetName="Bd" Property="Background" Value="{StaticResource Bg.Hover}" />
               <Setter Property="Foreground" Value="{StaticResource Ink.Faint}" />
             </Trigger>
+            <!-- 入力が正しくないとき（Tag="Error"）。枠を赤にする。マウス・フォーカスの枠より優先する（最後に置く） -->
+            <Trigger Property="Tag" Value="Error">
+              <Setter TargetName="Ring" Property="Background" Value="Transparent" />
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Danger.Text}" />
+            </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>

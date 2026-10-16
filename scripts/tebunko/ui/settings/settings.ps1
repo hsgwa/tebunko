@@ -30,11 +30,7 @@ function setSearchLimitInputError {
     param ([string]$message)
     $ui.SearchLimitInputError.Text = $message
     $ui.SearchLimitInputError.Visibility = if ($message) { "Visible" } else { "Hidden" }
-    if ($message) {
-        $ui.SearchLimitBox.BorderBrush = $ui.SearchLimitBox.FindResource("Danger.Text")
-    } else {
-        $ui.SearchLimitBox.ClearValue([System.Windows.Controls.Control]::BorderBrushProperty)
-    }
+    $ui.SearchLimitBox.Tag = if ($message) { "Error" } else { $null }
 }
 
 function updateSearchLimitView {
@@ -83,7 +79,13 @@ function commitSearchLimit {
         }
         $script:searchLimit = $decision.Value
     }
-    updateSearchLimitView ($decision.Action -eq "Apply" -and $decision.Value -eq 0)
+    # 制限なしにしたとき、欄に残すのは「制限あり」として正しい数だけ（正しくない文字は残さず、今の値に戻す）
+    $keepBox = $false
+    if ($decision.Action -eq "Apply" -and $decision.Value -eq 0) {
+        $boxDecision = getSearchLimitInputDecision "Limited" $ui.SearchLimitBox.Text $script:searchLimit ${searchLimitMin} ${searchLimitMax} ${searchLimitDefault}
+        $keepBox = ($boxDecision.Action -ne "Invalid")
+    }
+    updateSearchLimitView $keepBox
 }
 
 function getSearchLimitMode {

@@ -330,7 +330,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests\testdata\text\make_tes
 
 前の版が作った `setting.config` を、今のコードがそのまま読めることを確かめるための見本（golden）。[前の版との互換](../../docs/design/structure/settings-file.md#前の版との互換) も参照。
 
-一覧（`tests\testdata\compat\settings\<見本の名前>\`。今は `v0.3.1` の 1 つ）:
+一覧（`tests\testdata\compat\settings\<見本の名前>\`。`v0.3.1` は、その版が作った設定ファイル。`searchLimit`（件数の上限を 20,000 にしたもの）と `searchLimitNone`（0 = 制限なし）は、`searchLimit` のキーの読み方の見本）:
 
 | 中身 | 内容 |
 |---|---|

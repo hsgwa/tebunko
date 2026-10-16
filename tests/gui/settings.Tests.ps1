@@ -324,6 +324,19 @@ Describe "S7 検索結果の件数の上限" -Tag Gui {
             selectGui (findGui $S.Window -Id "SearchLimitedRadio")
             waitGui $S "設定に 1000 が書かれる（戻す）" ${guiDefaultTimeout} { (readGuiConfig $script:tool).searchLimit -eq 1000 } | Out-Null
 
+            setGuiStep $S "正しくない文字を残したまま［制限なし］を選び、［制限あり］に戻す: 文字は残らず、既定の 10,000 件で保存され、欄は直せる"
+            $box = findGui $S.Window -Id "SearchLimitBox"
+            $box.SetFocus()
+            setGuiText $S $box "abc"
+            pressGuiKey $S.Window 0x0D
+            waitGui $S "理由が出る（abc）" ${guiDefaultTimeout} { (& $limitError) -like "1,000～100,000 の数で*" } | Out-Null
+            selectGui (findGui $S.Window -Id "SearchNoneRadio")
+            waitGui $S "設定に 0 が書かれ、欄が既定の数に戻る" ${guiDefaultTimeout} { (readGuiConfig $script:tool).searchLimit -eq 0 -and (& $limitText) -eq "10,000" } | Out-Null
+            selectGui (findGui $S.Window -Id "SearchLimitedRadio")
+            waitGui $S "設定に 10000 が書かれる" ${guiDefaultTimeout} { (readGuiConfig $script:tool).searchLimit -eq 10000 } | Out-Null
+            $box = findGui $S.Window -Id "SearchLimitBox"
+            $box.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).Current.IsReadOnly | Should -BeFalse
+
             closeGui $S
         }
     }
