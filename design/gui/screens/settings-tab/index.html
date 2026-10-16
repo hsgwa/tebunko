@@ -3453,6 +3453,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#settings-tablimit-none件数の上限が制限なし" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        settings-tab/limit-none（件数の上限が［制限なし］）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#settings-tablimit-error件数の上限の入力が正しくない" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        settings-tab/limit-error（件数の上限の入力が正しくない）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#settings-tabrunning-warning作成中に変更遷移-21" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4274,6 +4296,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#settings-tablimit-none件数の上限が制限なし" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        settings-tab/limit-none（件数の上限が［制限なし］）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#settings-tablimit-error件数の上限の入力が正しくない" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        settings-tab/limit-error（件数の上限の入力が正しくない）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#settings-tabrunning-warning作成中に変更遷移-21" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4362,15 +4406,22 @@
 <li>カード「インデックス設定」（見出しの帯と行）から始める（題「設定」と説明は置かない）。</li>
 <li>「ワークスペース」の行（カード「インデックス設定」の中。見出しの帯の下、行の間に線）。今の場所、既定の場所の説明、［変更…］［既定に戻す］、変え方の注意。</li>
 <li>「設定ファイル」の行（同じカードの中）。設定ファイルの場所と、置き場所の説明。</li>
+<li>カード「検索結果」の「検索結果の件数の上限」の行。［制限あり］（数の欄と「件」）と［制限なし］、入力が正しくないときの理由（欄の直下。場所は常に空けてある）、範囲と既定、重さの注意。</li>
 </ul>
 <h2 id="状態と遷移">状態と遷移<a class="headerlink" href="#状態と遷移" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>stateDiagram-v2
     state "settings-tab/normal" as normal
+    state "settings-tab/limit-none" as limitnone
+    state "settings-tab/limit-error" as limiterror
     state "settings-tab/running-warning" as running
     state "settings-tab/empty-confirm" as empty
     state "settings-tab/nonempty-confirm" as nonempty
     state "settings-tab/index-confirm" as index
     state "settings-tab/invalid-warning" as invalid
+    normal --&gt; limitnone: 件数の上限で［制限なし］を選ぶ
+    limitnone --&gt; normal: ［制限あり］を選ぶ
+    normal --&gt; limiterror: 件数の上限に正しくない値を入れて Enter
+    limiterror --&gt; normal: Esc
     normal --&gt; running: 作成中に［変更…］（21）
     running --&gt; normal: ［OK］
     normal --&gt; empty: 空のフォルダを選ぶ（31）
@@ -4394,7 +4445,7 @@
 <tbody>
 <tr>
 <td>普通</td>
-<td>「ワークスペース」「インデックスとログの保存先。…」、［変更…］［既定に戻す］。「設定ファイル」「ツールのフォルダに置いています。」</td>
+<td>「ワークスペース」「インデックスとログの保存先。…」、［変更…］［既定に戻す］。「設定ファイル」「ツールのフォルダに置いています。」。「検索結果の件数の上限」［制限あり］［制限なし］</td>
 </tr>
 <tr>
 <td>作成中の［変更…］</td>
@@ -4421,6 +4472,10 @@
 <h2 id="写真">写真<a class="headerlink" href="#写真" title="Permanent link">&para;</a></h2>
 <h3 id="settings-tabnormal既定でないワークスペース遷移-7">settings-tab/normal（既定でないワークスペース。遷移 7）<a class="headerlink" href="#settings-tabnormal既定でないワークスペース遷移-7" title="Permanent link">&para;</a></h3>
 <p><img alt="既定でないワークスペース" src="../../../../images/screens/settings-tab/normal.png" /></p>
+<h3 id="settings-tablimit-none件数の上限が制限なし">settings-tab/limit-none（件数の上限が［制限なし］）<a class="headerlink" href="#settings-tablimit-none件数の上限が制限なし" title="Permanent link">&para;</a></h3>
+<p><img alt="件数の上限が［制限なし］" src="../../../../images/screens/settings-tab/limit-none.png" /></p>
+<h3 id="settings-tablimit-error件数の上限の入力が正しくない">settings-tab/limit-error（件数の上限の入力が正しくない）<a class="headerlink" href="#settings-tablimit-error件数の上限の入力が正しくない" title="Permanent link">&para;</a></h3>
+<p><img alt="件数の上限の入力が正しくない" src="../../../../images/screens/settings-tab/limit-error.png" /></p>
 <h3 id="settings-tabrunning-warning作成中に変更遷移-21">settings-tab/running-warning（作成中に［変更…］。遷移 21）<a class="headerlink" href="#settings-tabrunning-warning作成中に変更遷移-21" title="Permanent link">&para;</a></h3>
 <p><img alt="作成中に［変更…］" src="../../../../images/screens/settings-tab/running-warning.png" /></p>
 <h3 id="settings-tabempty-confirm空のフォルダを選んだときの確認遷移-31">settings-tab/empty-confirm（空のフォルダを選んだときの確認。遷移 31）<a class="headerlink" href="#settings-tabempty-confirm空のフォルダを選んだときの確認遷移-31" title="Permanent link">&para;</a></h3>

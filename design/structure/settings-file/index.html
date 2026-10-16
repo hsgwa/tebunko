@@ -4228,6 +4228,7 @@
 <span class="w">    </span><span class="nt">"openMode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"normal"</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"cloudFiles"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ask"</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"workspaceFolder"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"searchLimit"</span><span class="p">:</span><span class="w"> </span><span class="mi">10000</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"ingestThreads"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
 <span class="p">}</span>
 </code></pre></div>
@@ -4320,6 +4321,13 @@
 <td><code>getWorkDir</code> / <code>writeWorkspaceFolder</code></td>
 </tr>
 <tr>
+<td><code>searchLimit</code></td>
+<td>数値</td>
+<td>10000</td>
+<td>画面の検索結果の件数の上限。この件数に達したら検索を打ち切る（<a href="../../gui/search-tab/">検索タブ</a>）。範囲は 1,000〜100,000 で、範囲の外は近い端（999 は 1,000、200,000 は 100,000）にする。0 は制限なし（打ち切らない）。負の数・数値にできない値は既定値にする。設定の画面の「検索結果」で変えられ、確定すると書き、次の検索から効く（手で書き換えたときは起動し直す）</td>
+<td><code>readSearchLimit</code>（<code>getSearchLimit</code>）</td>
+</tr>
+<tr>
 <td><code>ingestThreads</code></td>
 <td>数値</td>
 <td>0</td>
@@ -4341,7 +4349,7 @@
 <li>ファイルが無くても作成しない（既定値で動く）。ファイルを作るのは画面が設定を保存したときだけ。</li>
 <li>記載の無いキー・未知のキー・値が <code>null</code> のキーは無視する（キーが増えても古い設定ファイルをそのまま読める）。</li>
 <li>真偽値のキーは、手で <code>"false"</code> のような文字列に書き換えても <code>true</code> / <code>false</code> として読む（<code>toSettingBool</code>）。読めない値は既定値にする。</li>
-<li>数値のキー（<code>ingestThreads</code>）は、手で <code>"2"</code> のような文字列に書き換えても数値として読む。数値にできない値は既定値にする。</li>
+<li>数値のキー（<code>ingestThreads</code>・<code>searchLimit</code>）は、手で <code>"2"</code> のような文字列に書き換えても数値として読む。数値にできない値は既定値にする。</li>
 <li>保存（<code>updateSettings</code>）は、保存のたびにファイルを読み直し、変えたキーだけを書き換える。ほかのキーは、ほかの画面・処理が保存した内容を保つ。UTF-8（BOM なし）。</li>
 <li>保存は、書き込みの途中で止まっても設定ファイルが壊れないよう、一時ファイル（<code>setting.config.tmp</code>）に書いてから置き換える（<code>writeTextLinesAtomic</code>）。</li>
 <li>「読み直す → 変える → 書く」の一続きは、設定ファイルごとの名前付きミューテックス（<code>Local\tebunko_settings_&lt;getFolderKey 設定ファイルのパス&gt;</code>。<code>invokeSettingsLocked</code>）の中で行う。画面・インデクサ（別のプロセスも）が同時に保存しても、互いの変更を消さない。待つのは 5 秒で、過ぎたら例外にする。同じ Windows のセッションの中だけの排他（別のセッションからは排他しない）。</li>
