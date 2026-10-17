@@ -5,6 +5,7 @@
 
 $indexerPath  = "${scriptsDir}\tebunko\indexer.ps1"
 $runPath      = "${scriptsDir}\tebunko\indexer\indexer_run.ps1"
+$dispatcherPath = "${scriptsDir}\tebunko\indexer\ingest_dispatcher.ps1"
 $settingsScriptPath = "${scriptsDir}\tebunko\core\settings.ps1"
 $pathsPath    = "${scriptsDir}\tebunko\core\paths.ps1"
 

@@ -43,7 +43,8 @@ flowchart LR
 | `tebunko/indexer/pending_publish.ps1` | `PendingPublish`（`Add` / `MarkFolder` / `AddPending` / `Dispatch` / `Skip` / `Complete` / `TakeFlushable` / `TakeAll`） | [入れ替えと書き出し](../index-data/publish.md)「本文インデックスへの書き出し」、[取り込みの並列化](../indexing/parallel.md) |
 | `tebunko/indexer/indexer_plan.ps1`（`IngestPlanner`） | `IngestPlanner`（`AssignNames` / `SaveNames` / `SelectOnly` / `Crawl` / `KeepForCancel` / `ApplyFailed` / `ApplyInterrupted` / `FolderByName`） | [取り込み対象の決定](../indexing/target-decision.md)、[クラスと関数の使い分け](../structure/classes.md) |
 | `tebunko/indexer/indexing_reporter.ps1` | `IndexingReporter`（`Progress` / `WaitForApproval`） | [インデックス作成のメインフロー](../indexing/flow.md)、[取り込み対象の決定](../indexing/target-decision.md#取り込み予定画面の確認に出す件数) |
-| `tebunko/indexer/indexer_run.ps1` | `invokeIndexer` / `invokeIndexerBody` / `getIngestWorkerCount` / `getIngestLaneCapacity` / `newIngestPool` / `addIngestTask` / `receiveIngestResult` / `stopIngestWorkers` / `runIngestWorker` / `invokeIngestTask` / `flushPending` | [インデックス作成のメインフロー](../indexing/flow.md)、[取り込みの並列化](../indexing/parallel.md) |
+| `tebunko/indexer/ingest_dispatcher.ps1` | `IngestDispatcher`（`Start` / `BeginPass` / `DispatchNext` / `Submit` / `SetInlineResult` / `Receive` / `TakeAbandonedLane` / `StopIfRequested` / `InflightCount` / `IngestingEntries` / `Stop`） | [取り込みの並列化](../indexing/parallel.md)、[クラスと関数の使い分け](../structure/classes.md) |
+| `tebunko/indexer/indexer_run.ps1` | `invokeIndexer` / `invokeIndexerBody` / `getIngestWorkerCount` / `getIngestLaneCapacity` / `runIngestWorker` / `invokeIngestTask` / `flushPending` | [インデックス作成のメインフロー](../indexing/flow.md)、[取り込みの並列化](../indexing/parallel.md) |
 | `shared/ui/*`・`tebunko/ui/*` | 画面の部品（`showConfirm`・`selectFolder` など） | [画面の実装構成](../gui/implementation.md#実装構成) |
 
 ## インデクサ・画面（検索）が使う関数

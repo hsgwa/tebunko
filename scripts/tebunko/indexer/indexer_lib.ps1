@@ -6,6 +6,7 @@
 . ([WildcardPattern]::Escape("$PSScriptRoot\..\..\shared\office\office_app.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\pending_publish.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\indexing_reporter.ps1".Replace('`', '``')))
+. ([WildcardPattern]::Escape("$PSScriptRoot\ingest_dispatcher.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\indexer_plan.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\extract_office.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\extract_text.ps1".Replace('`', '``')))

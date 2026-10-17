@@ -30,14 +30,14 @@ flowchart TD
     RF --> W2["取り込み一覧・元のフォルダの記録を書き出す"]
     W2 --> Z{"対象が 0 件？"}
     Z -- はい --> Z1["無くなった元のファイルを本文インデックスから外す<br>『取り込みが必要なファイルはありません。』<br>終了コード 0"]
-    Z -- いいえ --> N["件数を表示<br>レーンの列を用意する（newIngestPool）"]
+    Z -- いいえ --> N["件数を表示<br>レーンの列を用意する（IngestDispatcher の Start）"]
     N --> LOOP{"並びの先 200 件までに、<br>レーンに空きがあるまだ渡していないファイルがある？<br>（getIngestLane・getIngestLaneCapacity）"}
     LOOP -- はい --> STOP{"中止を求められている？<br>（受け渡しの口の Stop）"}
     STOP -- はい --> STOP1["残りは『未取り込み』のまま<br>次のファイルを渡さない"] --> WAIT
     STOP -- いいえ --> SRC{"元のファイルがある？"}
     SRC -- "無い（フォルダはある）" --> SKIP["『元のファイルが無くなったため…』<br>TSV を削除して一覧から除く<br>（本文インデックスからも外す）"] --> LOOP
     SRC -- "クロール対象フォルダごと無い" --> LOST["残りは『未取り込み』のまま<br>次のファイルを渡さない"] --> WAIT
-    SRC -- ある --> F["ingesting.txt に記録<br>そのレーンの列にファイルを渡す（addIngestTask）<br>レーンのスレッドが無ければ始める"] --> LOOP
+    SRC -- ある --> F["ingesting.txt に記録<br>そのレーンの列にファイルを渡す（IngestDispatcher の Submit）<br>レーンのスレッドが無ければ始める"] --> LOOP
     LOOP -- いいえ --> WAIT{"取り込み中のファイルがある？"}
     WAIT -- はい --> RR{"結果を 1 つ受け取る<br>Office が要る（Reroute）？"}
     RR -- "はい（中止を求められていないとき）" --> RT["Word・PowerPoint のレーンに渡し直す（getOfficeLane）<br>取り込み中のまま"] --> LOOP

@@ -336,7 +336,7 @@ Describe "名前を文字列で渡す呼び出し" -Tag Meta {
                 Reason = "別のスレッドで、ワーカーのスクリプト本文を実行する。本文は、呼び出し側が渡す値で、ここで関数の名前を決めない" }
             @{ From = "shared/office/office_app.ps1"; To = $stringCall; Name = ".AddScript"; Count = 1
                 Reason = "別のスレッドで、COM を扱うスクリプト本文を実行する。本文は、読み込み済みの関数を呼ぶだけで、ここで関数の名前を決めない" }
-            @{ From = "tebunko/indexer/indexer_run.ps1"; To = $stringCall; Name = ".AddScript"; Count = 1
+            @{ From = "tebunko/indexer/ingest_dispatcher.ps1"; To = $stringCall; Name = ".AddScript"; Count = 1
                 Reason = "取り込みのワーカーで、スクリプトブロックを実行する。ブロックの中の呼び出しは、構文木が数える" }
             @{ From = "tebunko/indexer/indexing_session.ps1"; To = $stringCall; Name = ".AddScript"; Count = 1
                 Reason = "取り込みの実行を別のスレッドで動かす。渡すのはスクリプトブロックで、中の呼び出しは構文木が数える" }
