@@ -215,10 +215,6 @@ function searchContentIndexFiles {
 # 本文インデックスのファイルの検索で、1 つのスレッドにまとめて渡す大きさの目安（バイト）
 ${contentIndexTaskBytes} = 16MB
 
-# 検索で読む本文インデックスのファイル 1 つの大きさの上限（バイト）。超えるファイルは読まずに飛ばす。
-# 1 つのファイルは丸ごと読み、並列の検索は最大 4 スレッドなので、同時に持つのは最大でこの 4 倍（正しく作ったファイルは contentIndexFileMaxBytes が目安）
-${contentIndexSearchMaxBytes} = 64MB
-
 # 本文インデックスのファイルの検索の各スレッドで動かすスクリプト。@{ Hits; Timeout; Skipped } を返す
 ${contentIndexWorkerScript} = {
     param ($contentIndexFiles, $start, $count, $regex, $max, $textRegex, $scanMode, $cache, $include, $exclude, $excludePlace)

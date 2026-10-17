@@ -258,7 +258,9 @@ Describe "本文インデックスのファイルの作成と検索" -Tag Io {
         $pending = New-Object 'System.Collections.Generic.Dictionary[string,object]'
         foreach ($folder in $found) { $pending[$folder] = @() }
         $state = "$work\system_index_state.tsv"
-        publishIndexFolders $pending $index "$work\system_index" $state | Should -Be 2
+        $published = publishIndexFolders $pending $index "$work\system_index" $state
+        $published.Count | Should -Be 2
+        @($published.Skipped).Count | Should -Be 0
         (findIndexFoldersWithBooks $index).Count | Should -Be 0
         [System.IO.File]::Exists("$index\人事\content_index.xlsx.001.tsv") | Should -Be $true
         [System.IO.File]::Exists("$index\人事\2025\content_index.docx.001.tsv") | Should -Be $true
@@ -289,7 +291,7 @@ Describe "本文インデックスのファイルの作成と検索" -Tag Io {
         $pending = New-Object 'System.Collections.Generic.Dictionary[string,object]'
         $pending["$index\営業\deep"] = @("C.xlsx")
 
-        publishIndexFolders $pending $index "$work\system_index" "$work\state.tsv" | Should -Be 0
+        (publishIndexFolders $pending $index "$work\system_index" "$work\state.tsv").Count | Should -Be 0
 
         [System.IO.File]::Exists("$outside\deep\content_index.xlsx.001.tsv") | Should -Be $true
         Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*書き出しませんでした*" }

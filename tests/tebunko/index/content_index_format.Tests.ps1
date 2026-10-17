@@ -367,3 +367,15 @@ Describe "testContentIndexVersionLine" -Tag Unit {
         testContentIndexVersionLine $line | Should -Be $expected
     }
 }
+
+Describe "getContentIndexPublishSkippedText" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "相対パス・段・理由を入れ、理由の改行は空白にする"; rel = "営業\2024"; stage = "本文インデックス"; reason = "壊れています`r`n（詳細）"
+           expected = "    本文インデックスにまとめられなかったフォルダがあります（営業\2024）: 本文インデックス: 壊れています （詳細）。インデックスを作り直すと直ります" },
+        @{ label = "置き場そのもの（相対パスが空）は . と出す"; rel = ""; stage = "システムインデックス"; reason = "書けません"
+           expected = "    本文インデックスにまとめられなかったフォルダがあります（.）: システムインデックス: 書けません。インデックスを作り直すと直ります" }
+    ) {
+        param ($label, $rel, $stage, $reason, $expected)
+        getContentIndexPublishSkippedText $rel $stage $reason | Should -BeExactly $expected
+    }
+}
