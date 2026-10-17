@@ -355,15 +355,15 @@ Describe "getIndexFormatState（インデックスの状態の表）" -Tag Unit 
 }
 
 Describe "testContentIndexVersionLine" -Tag Unit {
-    It "1 行目「<line>」は今の版か = <expected>" -TestCases @(
-        @{ line = "$([char]0x1E) 版=2"; expected = $true }
-        @{ line = "$([char]0x1E) 版=2`r"; expected = $true }
-        @{ line = "$([char]0x1E) 版=1"; expected = $false }
-        @{ line = "$([char]0x1E) 版=3"; expected = $false }
-        @{ line = "版=2"; expected = $false }
-        @{ line = ""; expected = $false }
+    It "1 行目「<label>」は今の版か = <expected>" -TestCases @(
+        @{ label = "RS 版=2"; line = "$([char]0x1E) 版=2"; expected = $true }
+        @{ label = "RS 版=2 CR"; line = "$([char]0x1E) 版=2`r"; expected = $true }
+        @{ label = "RS 版=1"; line = "$([char]0x1E) 版=1"; expected = $false }
+        @{ label = "RS 版=3"; line = "$([char]0x1E) 版=3"; expected = $false }
+        @{ label = "版=2"; line = "版=2"; expected = $false }
+        @{ label = "空"; line = ""; expected = $false }
     ) {
-        param ($line, $expected)
+        param ($label, $line, $expected)
         testContentIndexVersionLine $line | Should -Be $expected
     }
 }
