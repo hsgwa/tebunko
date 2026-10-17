@@ -123,10 +123,24 @@ Describe "PendingPublish（外し終えていない削除 Unpublished）" -Tag U
         $pending.Add("経理\無い.xlsx", $true)
         $other = [System.IO.Path]::GetDirectoryName((getBookDir "経理\無い.xlsx"))
 
-        $pending.MarkPublished([string[]]@($script:folder))
+        $taken = $pending.TakeAll()
+        $pending.MarkPublished([string[]]@($script:folder), $taken)
 
         $pending.Unpublished.ContainsKey($script:folder) | Should -Be $false
         $pending.Unpublished.ContainsKey($other) | Should -Be $true
+    }
+
+    It "書き出しを飛ばしたフォルダの名前は、同じ回の後の書き出しの MarkPublished で外れない" {
+        $pending = [PendingPublish]::new()
+        $pending.Restore($script:folder, [string[]]@("前回の残り.xlsx"))
+        [void]$pending.TakeAll()  # 1 回目: 書き出しに失敗して飛ばした（MarkPublished しない）
+        $pending.Add("営業\無い.xlsx", $true)
+        $taken = $pending.TakeAll()  # 2 回目: 成功した
+        $pending.MarkPublished([string[]]@($script:folder), $taken)
+
+        $pending.Unpublished.ContainsKey($script:folder) | Should -Be $true
+        $pending.Unpublished[$script:folder].Contains("前回の残り.xlsx") | Should -Be $true
+        $pending.Unpublished[$script:folder].Contains("無い.xlsx") | Should -Be $false
     }
 
     It "Restore は、書き出し待ちと Unpublished の両方に名前を戻す" {

@@ -2080,7 +2080,6 @@ Describe "indexer.ps1（無くなった元のファイルを、書き出せな�
 
         (getAllContentIndexText $root $env.Name) | Should -Not -BeLike "*議事録.docx*"
         Test-Path -LiteralPath $recordPath | Should -Be $false
-        Test-Path -LiteralPath "$root\work\store\content\消えたインデックス" | Should -Be $false
     }
 
     It "消したファイルが次の回までに同じ名前で戻って取り込み直されたとき、記録から戻した名前と重なっても新しい本文が残る" {

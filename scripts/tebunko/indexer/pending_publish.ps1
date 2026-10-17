@@ -52,10 +52,18 @@ class PendingPublish {
         }
     }
 
-    [void] MarkPublished([string[]]$folders) {
-        # 本文インデックスのファイルを書き終えたフォルダの、外し終えていない記録を外す
+    [void] MarkPublished([string[]]$folders, $taken) {
+        # 本文インデックスのファイルを書き終えたフォルダの、外し終えていない記録を外す。
+        # 外すのは、そのとき書き出した名前（$taken。TakeAll・TakeFlushable の戻り値）だけ。
+        # 同じ回に書き出しを飛ばした名前は、後の書き出しが成功しても残す
         foreach ($folder in $folders) {
-            [void]$this.Unpublished.Remove($folder)
+            if (!$this.Unpublished.ContainsKey($folder) -or !$taken.ContainsKey($folder)) {
+                continue
+            }
+            $this.Unpublished[$folder].ExceptWith([string[]]@($taken[$folder]))
+            if ($this.Unpublished[$folder].Count -eq 0) {
+                [void]$this.Unpublished.Remove($folder)
+            }
         }
     }
 

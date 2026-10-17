@@ -333,7 +333,7 @@ function flushPendingPublish {
         savePendingRemovals $pending
         $published = publishIndexFolders $flush
         # 書き終えたフォルダの分だけ記録から外す（飛ばしたフォルダの分は残る）
-        $pending.MarkPublished([string[]]@($published.Published))
+        $pending.MarkPublished([string[]]@($published.Published), $flush)
         savePendingRemovals $pending
     } catch {
         writeIndexerLog "    インデックスをまとめられませんでした（次のインデックス作成でまとめ直します）: $($_.Exception.Message)" "Yellow"
@@ -349,6 +349,7 @@ function savePendingRemovals {
     $root = ([string]$workspace.IndexDir).TrimEnd("\") + "\"
     $entries = New-Object System.Collections.Generic.List[hashtable]
     foreach ($folder in @($pending.Unpublished.Keys)) {
+        # 置き場の外のフォルダは、相対で書けないので記録しない（通常は起きない）
         if (!$folder.StartsWith($root, [System.StringComparison]::OrdinalIgnoreCase)) {
             continue
         }
@@ -380,6 +381,35 @@ function restorePendingRemovals {
     foreach ($folder in $byFolder.Keys) {
         $pending.Restore($folder, $byFolder[$folder].ToArray())
     }
+}
+
+function flushLeftovers {
+    # 前回、本文インデックスから外し終えていなかった「無くなった元のファイル」を書き出し待ちに戻し、
+    # 本文インデックスのファイルに入れていない TSV（元のファイルごとのフォルダ）と一緒に書き出す。
+    # 中止を求められていれば、TSV を探す段と書き出しは飛ばして次回に回す（段の途中では止めない）
+    param (
+        $pending,
+        $reporter,
+        $channel
+    )
+
+    restorePendingRemovals $pending
+    $leftover = if ($channel.Stop) { @() } else { findIndexFoldersWithBooks $workspace.IndexDir }
+    $removals = if ($channel.Stop) { 0 } else { $pending.Unpublished.Count }
+    if ($leftover.Count -eq 0 -and $removals -eq 0) {
+        return
+    }
+    if ($leftover.Count -gt 0) {
+        writeIndexerLog "集約ファイルに入れていないインデックス（$($leftover.Count) フォルダ）をまとめています…"
+    }
+    if ($removals -gt 0) {
+        writeIndexerLog "本文インデックスから外し終えていない削除（$removals フォルダ）をまとめています…"
+    }
+    $reporter.Progress(${indexingPhaseCrawl}, 0, 0, 0, "集約ファイルに入れていないインデックスをまとめています…")
+    foreach ($folder in $leftover) {
+        $pending.MarkFolder($folder)
+    }
+    flushPendingPublish $pending -All
 }
 
 function reportIngestProgress {
@@ -585,24 +615,8 @@ function invokeIndexerBody {
     $previous = $planner.Previous
     # 設定から外れたインデックスは、ここでは消さない。確認ダイアログに「削除予定」として出し、［更新を開始］が押されたときだけ消す
     $dropped = $planner.Dropped
-    # 前回、本文インデックスから外し終えていなかった「無くなった元のファイル」を書き出し待ちに戻す（下の段で一緒に書き出す）
-    restorePendingRemovals $pending
-    # 前回のインデックス作成が途中で止まり、本文インデックスのファイルに入れていない TSV（元のファイルごとのフォルダ）が残っていれば、先に入れる
-    # （中止を求められていれば、この段は飛ばして次回に回す。段の途中では止めない）
-    $leftover = if ($channel.Stop) { @() } else { findIndexFoldersWithBooks $workspace.IndexDir }
-    # 外し終えていない削除（上で戻した分）も、この段で一緒に書き出す
-    if ($leftover.Count -gt 0 -or (!$channel.Stop -and $pending.Unpublished.Count -gt 0)) {
-        if ($leftover.Count -gt 0) {
-            writeIndexerLog "集約ファイルに入れていないインデックス（$($leftover.Count) フォルダ）をまとめています…"
-        } else {
-            writeIndexerLog "本文インデックスから外し終えていない削除（$($pending.Unpublished.Count) フォルダ）をまとめています…"
-        }
-        $reporter.Progress(${indexingPhaseCrawl}, 0, 0, 0, "集約ファイルに入れていないインデックスをまとめています…")
-        foreach ($folder in $leftover) {
-            $pending.MarkFolder($folder)
-        }
-        flushPendingPublish $pending -All
-    }
+    # 前回のインデックス作成が途中で止まって残った分（本文インデックスに入れていない TSV・外し終えていない削除）を先に書き出す
+    flushLeftovers $pending $reporter $channel
 
     # 新しく割り当てたインデックス名を設定に保存する
     $planner.SaveNames($targetFolders, { param($assigned) $catalog.StoreAssignedNames($assigned) }.GetNewClosure())

@@ -1,4 +1,4 @@
-﻿# 部品ごとの関数（TSV と本文インデックス）
+# 部品ごとの関数（TSV と本文インデックス）
 
 扱うこと: TSV の名前と場所・整形（`fs.ps1`・`index_name.ps1`・`text.ps1`・`tsv_file.ps1`）、インデックスへの配置（`index_store.ps1`）、本文インデックスの形式と読み書き（`content_index_format.ps1`・`content_index_store.ps1`）の関数一覧。扱わないこと: 検索そのものの関数（[部品ごとの関数（検索・スレッド・元のファイル・画面）](search.md)）。先に読むページ: [部品から関数一覧を引く](index.md)。
 
