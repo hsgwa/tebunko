@@ -237,6 +237,29 @@ function testImportedStatusLines {
 }
 
 
+function testImportedContentIndexFile {
+    # 取り込む本文インデックスのファイル 1 つを、検索と更新が読めるかで確かめ、断る理由を返す（読めれば空文字列）。
+    # 断るのは、大きさが contentIndexSearchMaxBytes を超えるもの（このときは中身を渡さなくてよい）と、
+    # 検索（readContentIndexPlaces）か更新（splitContentIndexTextByBook）が例外にするもの。
+    # 形の決まりはここに写さず、2 つの関数をそのまま呼ぶ（読み取りの側の決まりが変わっても、取り込みの判定が付いてくる）
+    param (
+        [long]$size,
+        [string]$text
+    )
+
+    if ($size -gt ${contentIndexSearchMaxBytes}) {
+        return "大きさが上限（$([long](${contentIndexSearchMaxBytes} / 1MB)) MB）を超えています。"
+    }
+    try {
+        [void](readContentIndexPlaces $text)
+        [void](splitContentIndexTextByBook $text)
+    } catch {
+        return [string]$_.Exception.Message
+    }
+    return ""
+}
+
+
 function getIndexFolderConflict {
     # 元のフォルダが、ほかのクロール対象のインデックスと重なるかを調べ、直してほしい内容を返す（問題なければ空文字列）。
     # 画面の追加と詳細欄の編集（testIndexEditInput）とインポート（importIndex）の両方が使う、1 つの決まり。

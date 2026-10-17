@@ -253,6 +253,40 @@ Describe "testImportedStatusRow・testImportedStatusLines" -Tag Unit {
     }
 }
 
+Describe "testImportedContentIndexFile" -Tag Unit {
+    BeforeAll {
+        $script:rs = [string]${contentIndexMark}
+        $script:ver = "$($script:rs) 版=${contentIndexVersion}"
+        $script:good = "$($script:ver)`n$($script:rs) ファイル名=a.xlsx`n$($script:rs) シート=Sheet1`n品名`t数量`n鉛筆`t10`n"
+    }
+
+    It "断る（<label>）: 理由を返す" -TestCases @(
+        @{ label = "版が違う（検索・更新の両方が断る）"; text = { "$($script:rs) 版=99`n$($script:rs) ファイル名=a.xlsx`n" }; size = 100 }
+        @{ label = "版の行が無い（検索・更新の両方が断る）"; text = { "$($script:rs) ファイル名=a.xlsx`n$($script:rs) シート=Sheet1`n鉛筆`n" }; size = 100 }
+        @{ label = "版の行が 1 行目に無い（更新だけが断る）"; text = { "品名`n$($script:ver)`n$($script:rs) ファイル名=a.xlsx`n" }; size = 100 }
+        @{ label = "ファイル名の行で終わり改行が無い（更新だけが断る）"; text = { "$($script:ver)`n$($script:rs) ファイル名=a.xlsx" }; size = 100 }
+        @{ label = "大きさが上限を超える（大きさで断る。中身は渡さない）"; text = { $null }; size = (64MB + 1) }
+    ) {
+        param ($label, $text, $size)
+        testImportedContentIndexFile $size (& $text) | Should -Not -BeNullOrEmpty
+    }
+
+    It "受け入れる（<label>）: 空文字列を返す" -TestCases @(
+        @{ label = "正しい中身"; text = { $script:good } }
+        @{ label = "空の中身"; text = { "" } }
+        @{ label = "メタ情報の行に = が無い"; text = { $script:good.Replace("シート=Sheet1", "シート") } }
+        @{ label = "中身の行が途中で切れている"; text = { $script:good.Substring(0, $script:good.IndexOf("鉛筆") + 1) } }
+        @{ label = "メタ情報の行だけで中身が無い"; text = { $script:good.Substring(0, $script:good.IndexOf("品名")) } }
+    ) {
+        param ($label, $text)
+        testImportedContentIndexFile 100 (& $text) | Should -Be ""
+    }
+
+    It "大きさが上限ちょうどなら受け入れる" {
+        testImportedContentIndexFile 64MB $script:good | Should -Be ""
+    }
+}
+
 Describe "getImportIndexName" -Tag Unit {
     It "Cancel は `$null を返す" {
         getImportIndexName "営業" @("営業") ${importCollisionCancel} | Should -Be $null

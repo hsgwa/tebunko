@@ -1027,8 +1027,7 @@ Describe "importIndex" -Tag Io {
         @{ label = "メタ情報の行だけで中身が無い"; broken = { param ($t) $t.Substring(0, $t.IndexOf("品名")) } }
     ) {
         param ($label, $broken)
-        # インポートは本文インデックスのファイルの中身の形を確かめない（大きさと SHA-256 で、作ったときのままであることだけを見る）。
-        # 壊れた行があっても、検索が例外で止まらないことをここで確かめる
+        # 検索と更新が読めるものは受け入れる（壊れた行があっても、取り込みは止まらず、検索が例外で止まらない）
         $fixtureA = newIndexFixture "$TestDrive\brokenindex_a_$([Guid]::NewGuid().ToString('N'))" "営業" "C:\共有\営業部"
         $original = [System.IO.File]::ReadAllText($fixtureA.ContentIndexPath)
         [System.IO.File]::WriteAllText($fixtureA.ContentIndexPath, (& $broken $original), (New-Object System.Text.UTF8Encoding($true)))
@@ -1042,6 +1041,38 @@ Describe "importIndex" -Tag Io {
         $result.Files | Should -Be 2
         Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業\見積\content_index.xlsx.001.tsv") | Should -Be $true
         { readSearchWord $wsB "鉛筆" } | Should -Not -Throw
+    }
+
+    It "壊れた本文インデックス: <label> の zip は断り、ワークスペースが変わらず作業フォルダが残らない" -TestCases @(
+        @{ label = "版が違う"; broken = { param ($t) $t.Replace(" 版=${contentIndexVersion}", " 版=99") } }
+        @{ label = "版の行が無い"; broken = { param ($t) $t.Substring($t.IndexOf([char]10) + 1) } }
+        @{ label = "形が崩れている（ファイル名の行に改行が無い）"; broken = { param ($t) $t.Substring(0, $t.IndexOf("ファイル名=") + 8) } }
+    ) {
+        param ($label, $broken)
+        $fixtureA = newIndexFixture "$TestDrive\badcontent_a_$([Guid]::NewGuid().ToString('N'))" "営業" "C:\共有\営業部"
+        $original = [System.IO.File]::ReadAllText($fixtureA.ContentIndexPath)
+        [System.IO.File]::WriteAllText($fixtureA.ContentIndexPath, (& $broken $original), (New-Object System.Text.UTF8Encoding($true)))
+        $dest = "$($fixtureA.Workspace.Dir)\badcontent.zip"
+        exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
+
+        $fixtureB = newIndexFixture "$TestDrive\badcontent_b_$([Guid]::NewGuid().ToString('N'))" "総務" "C:\共有\総務部"
+        $wsB = $fixtureB.Workspace
+        $settingsBefore = [System.IO.File]::ReadAllText($fixtureB.SettingsPath)
+        $statusBefore = [System.IO.File]::ReadAllText($wsB.StatusFile)
+        $indexBefore = @(Get-ChildItem -LiteralPath $wsB.IndexDir -Recurse -File | ForEach-Object { $_.FullName })
+
+        $message = ""
+        try {
+            importIndex $dest ${importCollisionRename} "" "C:\新しい場所" $wsB $fixtureB.SettingsPath | Out-Null
+        } catch {
+            $message = $_.Exception.Message
+        }
+
+        $message | Should -BeLike "*content_index/見積/content_index.xlsx.001.tsv*を読み込めません*"
+        [System.IO.File]::ReadAllText($fixtureB.SettingsPath) | Should -Be $settingsBefore
+        [System.IO.File]::ReadAllText($wsB.StatusFile) | Should -Be $statusBefore
+        @(Get-ChildItem -LiteralPath $wsB.IndexDir -Recurse -File | ForEach-Object { $_.FullName }) | Should -Be $indexBefore
+        @(Get-ChildItem -LiteralPath $wsB.PublishDir -Recurse -Filter "import" -ErrorAction SilentlyContinue).Count | Should -Be 0
     }
 }
 
