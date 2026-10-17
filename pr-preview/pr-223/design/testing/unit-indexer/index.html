@@ -4141,7 +4141,7 @@
 </tr>
 <tr>
 <td><code>IngestDispatcher</code>（<code>ingest_dispatcher.Tests.ps1</code>）</td>
-<td>渡す順番とレーンの空き、先読みで満杯のレーンを飛ばす、元のファイルが無くなった・クロール対象フォルダが無い・中止、諦めたレーンの回し直し、遅れて届いた結果を捨てる、後回しの理由、止まった取り込みスレッド、<code>Stop</code> が待たない</td>
+<td>渡す順番とレーンの空き、先読みで満杯のレーンを飛ばす、元のファイルが無くなった・クロール対象フォルダが無い・中止、諦めたレーンの回し直し、遅れて届いた結果を捨てる、後回しの理由、止まった取り込みスレッド、<code>Stop</code> が諦めたレーンのスレッドを待たない</td>
 </tr>
 <tr>
 <td><code>clearTmpDir</code> / <code>initTmpDir</code> / <code>newWorkerTmpDir</code> の作業領域のリンク</td>
