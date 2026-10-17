@@ -273,6 +273,28 @@ Describe "本文インデックスのファイルの作成と検索" -Tag Io {
         ([System.IO.File]::GetAttributes($txt) -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Be 0
     }
 
+    It "途中にジャンクションがあるフォルダは、リンクの先の本文インデックスのファイルを消さず・書かず、飛ばしてログに出す" {
+        Mock writeIndexerLog {}
+        $work = Join-Path $TestDrive "publink"
+        $index = "$work\index"
+        $outside = "$work\外"
+        # 外のフォルダに、前の本文インデックスのファイルだけがある（元のファイルが無くなって、中身が空になる場面）
+        [System.IO.Directory]::CreateDirectory("$outside\deep") | Out-Null
+        writeContentIndexFile "$outside\deep\content_index.xlsx.001.tsv" (convertToContentIndexText @(@{ Name = "C.xlsx"; Places = @(@{ Place = "S"; Text = "外の中身" }) }))
+        [System.IO.Directory]::CreateDirectory($index) | Out-Null
+        if (!(newTestJunction "$index\営業" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        $pending = New-Object 'System.Collections.Generic.Dictionary[string,object]'
+        $pending["$index\営業\deep"] = @("C.xlsx")
+
+        publishIndexFolders $pending $index "$work\system_index" "$work\state.tsv" | Should -Be 0
+
+        [System.IO.File]::Exists("$outside\deep\content_index.xlsx.001.tsv") | Should -Be $true
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*書き出しませんでした*" }
+    }
+
     It "名前が .xlsx などで終わる本物のフォルダ・中身が空のファイルのフォルダは、本文インデックスにする前の TSV と取り違えない" {
         $index = Join-Path $TestDrive "bookdir\index"
         $folder = "$index\営業"

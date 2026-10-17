@@ -721,6 +721,80 @@ function moveDirectoryRetry {
     }
 }
 
+function testRemovablePath {
+    # path を、root の下で消す・移す・作ってよいかを返す。次のすべてが成り立つときだけ $true。
+    # ・path と root が絶対パス（ドライブか UNC。\\?\ 付きも可）である（相対パスは現在の場所に依って意味が変わるため偽）
+    # ・path が root の真下より下である（root そのもの・root より上・似た名前の別のフォルダは偽。testPathUnder）
+    # ・root から path までの途中の階層にリンクが無い（testPathHasLink）。root そのものがリンクの構成は今までどおり動く。
+    #   まだ無い階層は見ない（移動の先・作る先に使うため、根の下の無いパスは真）
+    # 確かめられない（読めない・例外）ときは $false
+    # leafLinkOk を付けると、path そのものがリンクでもよい（途中の階層だけ見る）。消す・移すフォルダそのものがリンクのときは、
+    # リンクだけを外す・動かす（先は辿らない）ため、これまでどおり扱えるように、removeDirectoryUnder・moveDirectoryUnder が付ける
+    param (
+        [string]$path,
+        [string]$root,
+        [switch]$leafLinkOk
+    )
+
+    if (!$path -or !$root) {
+        return $false
+    }
+    $absolutePattern = '^(\\\\|[A-Za-z]:[\\/])'
+    if (($path -notmatch $absolutePattern) -or ($root -notmatch $absolutePattern)) {
+        return $false
+    }
+    try {
+        if (!(testPathUnder $path $root)) {
+            return $false
+        }
+        $linkFrom = $path
+        if ($leafLinkOk) {
+            $linkFrom = [System.IO.Path]::GetDirectoryName((fromLongPath $path).TrimEnd("\"))
+        }
+        return !(testPathHasLink $root $linkFrom)
+    } catch {
+        return $false
+    }
+}
+
+function removeDirectoryUnder {
+    # path のフォルダを、root の下で途中にリンクが無いことを確かめてから、中身ごと消す（removeDirectoryRetry）。
+    # 確かめ（testRemovablePath）が偽なら何も消さずに $false、消したら（無くて消すものが無いときも）$true を返す。
+    # 消せなかった理由は例外のまま返る。ログは呼ぶ側が出す
+    param (
+        [string]$path,
+        [string]$root,
+        [int]$tries = 3
+    )
+
+    if (!(testRemovablePath $path $root -leafLinkOk)) {
+        return $false
+    }
+    removeDirectoryRetry $path $tries
+    return $true
+}
+
+function moveDirectoryUnder {
+    # source のフォルダを destination へ、どちらも root の下で途中にリンクが無いことを確かめてから移す（moveDirectoryRetry）。
+    # 移すと元の場所から無くなるため、消すのと同じ確かめを元と先の両方に行う。偽なら何も移さずに $false、移したら $true を返す。
+    # 元と先で根が違うときは、先の根を root、元の根を sourceRoot に渡す（省略したら元も root の下で確かめる）
+    param (
+        [string]$source,
+        [string]$destination,
+        [string]$root,
+        [string]$sourceRoot = ""
+    )
+
+    if ($sourceRoot -eq "") {
+        $sourceRoot = $root
+    }
+    if (!(testRemovablePath $source $sourceRoot -leafLinkOk) -or !(testRemovablePath $destination $root -leafLinkOk)) {
+        return $false
+    }
+    moveDirectoryRetry $source $destination
+    return $true
+}
+
 function testAnyEntry {
     # 列挙（[System.IO.Directory]::EnumerateFiles などの結果）に、predicate が $true を返すもの（省略したら何でも）が
     # 1 つでもあるか。見つけたところで列挙をやめ、列挙子を必ず Dispose する。

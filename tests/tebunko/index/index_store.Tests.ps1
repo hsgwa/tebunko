@@ -252,7 +252,7 @@ Describe "publishIndexFiles" -Tag Io {
         writeListFile "$bookDir\前のシート.tsv" @("old")
         writeListFile "$from\新しいシート.tsv" @("new")
 
-        publishIndexFiles $from $bookDir "$TestDrive\pub2\出力\A社.xlsx"
+        publishIndexFiles $from $bookDir "$TestDrive\pub2\出力\A社.xlsx" "$TestDrive\pub2\index" "$TestDrive\pub2\出力"
 
         Test-Path -LiteralPath "$bookDir\前のシート.tsv" | Should -Be $false
         Test-Path -LiteralPath "$bookDir\新しいシート.tsv" | Should -Be $true
@@ -266,7 +266,7 @@ Describe "publishIndexFiles" -Tag Io {
         [System.IO.Directory]::CreateDirectory($from) | Out-Null
         $bookDir = "$TestDrive\pub3\index\営業\空.xlsx"
 
-        publishIndexFiles $from $bookDir "$TestDrive\pub3\出力\空.xlsx"
+        publishIndexFiles $from $bookDir "$TestDrive\pub3\出力\空.xlsx" "$TestDrive\pub3\index" "$TestDrive\pub3\出力"
 
         Test-Path -LiteralPath $bookDir -PathType Container | Should -Be $true
         @(Get-ChildItem -LiteralPath $bookDir -Filter "*.tsv").Count | Should -Be 0
@@ -281,9 +281,29 @@ Describe "publishIndexFiles" -Tag Io {
         writeListFile "$staging\前回の残り.tsv" @("old")
         $bookDir = "$TestDrive\pub4\index\営業\A社.xlsx"
 
-        publishIndexFiles $from $bookDir $staging
+        publishIndexFiles $from $bookDir $staging "$TestDrive\pub4\index" "$TestDrive\pub4\出力"
 
         @(Get-ChildItem -LiteralPath $bookDir -Filter "*.tsv" | ForEach-Object { $_.Name }) | Should -Be "明細.tsv"
+    }
+}
+
+Describe "publishIndexFiles（置き場の外・途中のリンク）" -Tag Io {
+    It "インデックスの置き場の外・途中にジャンクションがあるパスには、何も置かずに例外にする" {
+        $from = "$TestDrive\publ\tmp"
+        writeListFile "$from\明細.tsv" @("a")
+        $indexRoot = "$TestDrive\publ\index"
+        $outside = "$TestDrive\publ\outside"
+        [System.IO.Directory]::CreateDirectory($indexRoot) | Out-Null
+        $staging = "$TestDrive\publ\出力\A社.xlsx"
+        { publishIndexFiles $from "$TestDrive\publ\other\A社.xlsx" $staging $indexRoot "$TestDrive\publ\出力" } | Should -Throw "*置き場の外*"
+        Test-Path -LiteralPath "$TestDrive\publ\other" | Should -Be $false
+
+        if (!(newTestJunction "$indexRoot\営業" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        { publishIndexFiles $from "$indexRoot\営業\A社.xlsx" $staging $indexRoot "$TestDrive\publ\出力" } | Should -Throw "*置き場の外*"
+        Test-Path -LiteralPath "$outside\A社.xlsx" | Should -Be $false
     }
 }
 
@@ -308,7 +328,7 @@ Describe "publishIndexFiles / getIndexTsvCounts（まれな状況）" -Tag Io {
             [System.IO.Directory]::CreateDirectory((toLongPath $bookDir)) | Out-Null
         }
         try {
-            publishIndexFiles $from $bookDir $staging
+            publishIndexFiles $from $bookDir $staging "$TestDrive\pub\index" "$TestDrive\pub\出力"
         } finally {
             Remove-PSBreakpoint -Breakpoint $point
         }

@@ -1113,6 +1113,67 @@ Describe "getImportArchiveInfo" -Tag Io {
         $info.SourceExists | Should -Be $exists
     }
 
+    Context "extractArchiveEntryToFile（置き場の下に、上書きせずに書く）" {
+        BeforeAll {
+            function script:newEntryZip {
+                param ([string]$path, [string]$text)
+                Add-Type -AssemblyName System.IO.Compression
+                Add-Type -AssemblyName System.IO.Compression.FileSystem
+                [System.IO.Directory]::CreateDirectory((Split-Path $path -Parent)) | Out-Null
+                $zip = [System.IO.Compression.ZipFile]::Open($path, [System.IO.Compression.ZipArchiveMode]::Create)
+                try {
+                    $entry = $zip.CreateEntry("a.tsv")
+                    $writer = New-Object System.IO.StreamWriter($entry.Open())
+                    $writer.Write($text)
+                    $writer.Dispose()
+                } finally {
+                    $zip.Dispose()
+                }
+            }
+            function script:getEntryHash {
+                param ([string]$text)
+                $bytes = [System.Text.Encoding]::UTF8.GetBytes($text)
+                return [BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash($bytes)).Replace("-", "")
+            }
+        }
+
+        It "置き場の下に書き、同じ名前のファイルが既にあれば上書きせず例外にする" {
+            $zipPath = "$TestDrive\extract\a.zip"
+            newEntryZip $zipPath "abc"
+            $root = "$TestDrive\extract\out"
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
+            try {
+                $entry = $zip.GetEntry("a.tsv")
+                extractArchiveEntryToFile $entry 3 (getEntryHash "abc") "$root\d\a.tsv" $root
+                [System.IO.File]::ReadAllText("$root\d\a.tsv") | Should -Be "abc"
+                { extractArchiveEntryToFile $entry 3 (getEntryHash "abc") "$root\d\a.tsv" $root } | Should -Throw
+                [System.IO.File]::ReadAllText("$root\d\a.tsv") | Should -Be "abc"
+            } finally {
+                $zip.Dispose()
+            }
+        }
+
+        It "途中にジャンクションがあれば、リンクの先へ書かず例外にする" {
+            $zipPath = "$TestDrive\extract2\a.zip"
+            newEntryZip $zipPath "abc"
+            $root = "$TestDrive\extract2\out"
+            $outside = "$TestDrive\extract2\outside"
+            [System.IO.Directory]::CreateDirectory($root) | Out-Null
+            if (!(newTestJunction "$root\link" $outside)) {
+                Set-ItResult -Skipped -Because $script:linkError
+                return
+            }
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
+            try {
+                $entry = $zip.GetEntry("a.tsv")
+                { extractArchiveEntryToFile $entry 3 (getEntryHash "abc") "$root\link\a.tsv" $root } | Should -Throw "*リンク*"
+                Test-Path -LiteralPath "$outside\a.tsv" | Should -Be $false
+            } finally {
+                $zip.Dispose()
+            }
+        }
+    }
+
     It "元のフォルダが空なら false" {
         Mock readIndexArchiveInfo { @{ IndexName = "営業"; SourceFolder = "" } }
 

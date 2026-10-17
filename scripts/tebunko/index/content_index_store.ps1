@@ -232,7 +232,10 @@ function convertFolderToContentIndex {
             continue
         }
         if ($part.Changed) {
-            [void][System.IO.Directory]::CreateDirectory($longDest)
+            # destFolder の親の下で、途中にリンクが無いときだけ作る（偽なら何も書かずに例外にする）
+            if (!(newDirectoryUnder $destFolder (Split-Path $destFolder -Parent))) {
+                throw "インデックスの置き場の外か、途中にリンクがあるため、本文インデックスのファイルを置けません: ${destFolder}"
+            }
             $text = convertToContentIndexText $part.Books
             writeContentIndexFile $path $text
             $written++
@@ -246,7 +249,8 @@ function convertFolderToContentIndex {
     if ($removeTsv) {
         foreach ($book in $books) {
             $bookDir = [System.IO.Path]::GetDirectoryName($book.Places[0].Path)
-            removeDirectoryRetry $bookDir
+            # 消すのは、元のフォルダ（folder）の下で途中にリンクが無いものだけ。偽なら消さずに続ける（TSV が残るだけで、中身は本文インデックスのファイルにある）
+            [void](removeDirectoryUnder $bookDir $folder)
         }
     }
     return @{ Books = $bookTotal; Tsv = $tsvCount; Chars = $chars; Files = $texts.Count; Written = $written; Texts = [string[]]$texts.ToArray() }
@@ -340,6 +344,13 @@ function publishIndexFolders {
 
     $results = New-Object System.Collections.Generic.List[hashtable]
     foreach ($folder in @($pending.Keys)) {
+        # 書く・消す前に、置き場（indexRoot）の下で途中にリンク（ジャンクション等）が無いことを確かめる。
+        # リンクの先の外のフォルダの本文インデックスのファイル・TSV を、消さず・書かないため（偽ならそのフォルダは飛ばし、TSV を残す）
+        $isRoot = ([System.IO.Path]::GetFullPath((fromLongPath $folder)).TrimEnd("\") -ieq [System.IO.Path]::GetFullPath((fromLongPath $indexRoot)).TrimEnd("\"))
+        if (!$isRoot -and !(testRemovablePath $folder $indexRoot)) {
+            writeIndexerLog "インデックスの置き場の外を指すパス（途中のリンクを含む）のため、書き出しませんでした: ${folder}" "Yellow"
+            continue
+        }
         $contentIndexFile = updateFolderContentIndex $folder ([string[]]@($pending[$folder]))
         # 書いた本文インデックスのファイルは、フォルダごとに書いた直後にここで NotContentIndexed を付ける（件数が多いため失敗してもログに出さない）
         [void](setWindowsSearchExcluded $folder)
