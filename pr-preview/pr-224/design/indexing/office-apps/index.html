@@ -4554,7 +4554,7 @@
 </tr>
 <tr>
 <td>制限時間の監視</td>
-<td>監視のスレッドは Excel・Word・PowerPoint のレーンのスレッドごとに 1 つ（<code>OfficeWatchdog</code> の <code>Start</code>。読み取りのスレッドは持たない）。<code>getApp</code> / <code>stopApp</code> のたびに、そのスレッドが自分で起動したアプリの PID を監視スレッドに渡す（<code>OfficeWatchdog</code> の <code>UpdateWatchedPids</code>）。1 ファイルの制限時間を過ぎたら、監視スレッドがそれらを強制終了する（<a href="../ingest-list/#強制終了時間切れからの再開">取り込み一覧</a>）。ほかのレーンのアプリは止めない。PID が別のプロセスに再利用されている場合に備え、プロセス名が <code>EXCEL</code> / <code>WINWORD</code> / <code>POWERPNT</code> で、かつ控えた名前・起動時刻と同じ（<code>isSameOfficeProcess</code>）ときだけ終了させる。起動時刻が読めないときは止めない（<code>quitApp</code>・画面を閉じるときの <code>KillOffice</code> も同じ。下の「起動時刻が読めないとき」）</td>
+<td>監視のスレッドは Excel・Word・PowerPoint のレーンのスレッドごとに 1 つ（<code>OfficeWatchdog</code> の <code>Start</code>。読み取りのスレッドは持たない）。<code>getApp</code> / <code>stopApp</code> のたびに、そのスレッドが自分で起動したアプリの PID を監視スレッドに渡す（<code>OfficeWatchdog</code> の <code>UpdateWatchedPids</code>）。1 ファイルの制限時間を過ぎたら、監視スレッドがそれらを強制終了する（<a href="../ingest-list/#強制終了時間切れからの再開">取り込み一覧</a>）。ほかのレーンのアプリは止めない。画面から中止を求められた（受け渡しの口の <code>Stop</code>。<code>State.Cancel</code> に口を渡してある）ときは、制限時間を待たず、同じ条件で自分が起動したアプリを止める。止めるものが実際にあったときだけ、<code>State.Cancelled</code> を立てる（利用者が使っているアプリだけで止めたものが無いときは立てない。制限時間の <code>TimedOut</code> とは別）。取り込みのスレッドは、<code>Cancelled</code> を見て、そのファイルを取り込まずに抜ける。PID が別のプロセスに再利用されている場合に備え、プロセス名が <code>EXCEL</code> / <code>WINWORD</code> / <code>POWERPNT</code> で、かつ控えた名前・起動時刻と同じ（<code>isSameOfficeProcess</code>）ときだけ終了させる。起動時刻が読めないときは止めない（<code>quitApp</code>・画面を閉じるときの <code>KillOffice</code> も同じ。下の「起動時刻が読めないとき」）</td>
 </tr>
 <tr>
 <td>利用者が使っている PowerPoint</td>
