@@ -183,7 +183,7 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             $rowUpdate = findGui $failRow -Id "IndexRowUpdateButton"
             testGuiVisible $rowUpdate | Should -BeTrue
             $rowUpdate.Current.IsEnabled | Should -BeTrue
-            Test-Path -LiteralPath "$($script:tool.Work)\content_index\資料" | Should -BeTrue
+            Test-Path -LiteralPath "$($script:tool.Work)\store\content\資料" | Should -BeTrue
 
             # 更新が終わった帯には［検索する］が出る。押すと検索の画面に切り替わる
             setGuiStep $S "帯の［検索する］"
@@ -210,7 +210,7 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             clickGuiAction $S "ActionDelete" "［削除…］"
             answerGuiConfirm $S "削除の確認" "インデックスを削除しますか" "削除する"
             waitGui $S "一覧から消える" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count -eq 0 } | Out-Null
-            waitGui $S "インデックスのフォルダが消える" ${guiDefaultTimeout} { !(Test-Path -LiteralPath "$($script:tool.Work)\content_index\資料") } | Out-Null
+            waitGui $S "インデックスのフォルダが消える" ${guiDefaultTimeout} { !(Test-Path -LiteralPath "$($script:tool.Work)\store\content\資料") } | Out-Null
 
             closeGui $S
             Write-Host ("S2 の秒数: " + (($S.Timing.GetEnumerator() | ForEach-Object { "$($_.Key) $($_.Value)" }) -join "・"))

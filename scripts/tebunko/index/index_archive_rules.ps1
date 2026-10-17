@@ -3,7 +3,7 @@
 
 # 目録（tebunko-index.json）の形式
 ${indexArchiveFormat}            = "tebunko-index"
-${indexArchiveFormatVersion}     = 1  # この版が読める形式の版（本文インデックスのファイルの形・zip の中の配置・目録・取り込み一覧の列を変えたら上げる）
+${indexArchiveFormatVersion}     = 2  # この版が読める形式の版（インデックスの格納形式の版 ${indexFormatVersion} と同じ番号にそろえる。本文インデックスのファイルの形・zip の中の配置・目録・取り込み一覧の列を変えたら上げる）
 ${indexArchiveManifestFileName}  = "tebunko-index.json"
 ${indexArchiveStatusEntryName}   = "ingest_status.tsv"
 ${indexArchiveMaxManifestBytes}  = 64MB   # 目録（tebunko-index.json）自体の大きさの上限（zip bomb 対策）
@@ -110,6 +110,9 @@ function testIndexArchiveManifest {
     $version = 0
     if (-not [int]::TryParse([string]$manifest.formatVersion, [ref]$version) -or $version -lt 1) {
         return "tebunko のインデックスの zip ではない、または壊れています（形式の版が読めません）。"
+    }
+    if ($version -lt ${indexArchiveFormatVersion}) {
+        return "古い形式のインデックスの zip のため、読み込めません。${indexRebuildMessage}"
     }
     if ($version -gt ${indexArchiveFormatVersion}) {
         return "新しい版の tebunko で作られたインデックスのため、この版では読み込めません。"

@@ -8,12 +8,16 @@ Describe "Workspace" -Tag Unit {
         $target = [Workspace]::new("C:\Users\test\Documents\tebunko_ws")
 
         $target.Dir | Should -Be "C:\Users\test\Documents\tebunko_ws"
-        $target.IndexDir | Should -Be "C:\Users\test\Documents\tebunko_ws\content_index"
+        $target.IndexDir | Should -Be "C:\Users\test\Documents\tebunko_ws\store\content"
+        $target.StoreDir | Should -Be "C:\Users\test\Documents\tebunko_ws\store"
+        $target.FormatFile | Should -Be "C:\Users\test\Documents\tebunko_ws\store\format.tsv"
+        $target.OldIndexDir | Should -Be "C:\Users\test\Documents\tebunko_ws\content_index"
+        $target.OldStatusFile | Should -Be "C:\Users\test\Documents\tebunko_ws\ingest_status.tsv"
         $target.LegacyIndexDir | Should -Be "C:\Users\test\Documents\tebunko_ws\index"
         $target.SystemIndexDir | Should -Be "C:\Users\test\Documents\tebunko_ws\system_index"
         $target.SystemIndexStateFile | Should -Be "C:\Users\test\Documents\tebunko_ws\system_index_state.tsv"
         $target.PublishDir | Should -Be "C:\Users\test\Documents\tebunko_ws\publish\$PID"
-        $target.StatusFile | Should -Be "C:\Users\test\Documents\tebunko_ws\ingest_status.tsv"
+        $target.StatusFile | Should -Be "C:\Users\test\Documents\tebunko_ws\store\ingest_status.tsv"
         $target.IngestingFile | Should -Be "C:\Users\test\Documents\tebunko_ws\ingesting.txt"
         $target.ResultFile | Should -Be "C:\Users\test\Documents\tebunko_ws\search_results.txt"
         $target.IndexingLogFile | Should -Be "C:\Users\test\Documents\tebunko_ws\indexing_log.txt"
@@ -26,14 +30,15 @@ Describe "Workspace" -Tag Unit {
     It "関数は呼んだときの `$workspace の場所を使う（差し替えれば、読み込み直さずに別のワークスペースを使う）" {
         $workspace = newTestWorkspace @{} "$TestDrive\別"
 
-        @((getIndexSummary).Missing) | Should -Be @("$TestDrive\別\content_index")
+        @((getIndexSummary).Missing) | Should -Be @("$TestDrive\別\store\content")
     }
 
     It "Entries() が前の版の index（LegacyIndexDir）と一時フォルダ（TmpRoot）を含む" {
         $target = [Workspace]::new("$TestDrive\entries")
 
         @($target.Entries()) | Should -Contain $target.LegacyIndexDir
-        @($target.Entries()) | Should -Contain $target.IndexDir
+        @($target.Entries()) | Should -Contain $target.StoreDir
+        @($target.Entries()) | Should -Contain $target.OldIndexDir
         @($target.Entries()) | Should -Contain $target.TmpRoot
         @($target.Entries()) | Should -Contain $target.OfficePidRoot
         @($target.Entries()) | Should -Contain $target.IndexingLogPreviousFile

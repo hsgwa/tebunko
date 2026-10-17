@@ -55,7 +55,7 @@ flowchart TB
 2 段階方式を採る。Office ファイル・テキストファイル・PDF ファイルから抽出した文字列を索引データ（**インデックス**）として事前に保存し、検索時はインデックスのみを照合する。これにより、検索のたびにファイルを開く処理を省く。インデックスの中身の具体例は [インデックスとは（はじめて読む方へ）](indexing/index.md#インデックスとははじめて読む方へ) にある。
 
 1. **インデックス作成**（[インデックス作成](indexing/index.md)）
-   各ファイルを取り込み、「場所」（Excel のシート、Word のページ、PowerPoint のスライド、PDF のページ、テキストは「本文」の 1 つ）ごとの TSV（UTF-8）に書き出し、フォルダの取り込みが終わるとフォルダ・拡張子ごとの本文インデックスにまとめて `work/content_index/` に蓄積する。Excel のセルは COM で操作してテキストを抽出し、Excel の図形・コメントと Word・PowerPoint はファイル（ZIP 内の XML）を直接読む（Word・PowerPoint の旧形式は Word・PowerPoint で新形式に変換してから読む）。テキストファイルは文字コードを判定してから行に分けて読む（[テキストファイルの読み取り](indexing/text.md)）。PDF は PowerShell だけでページごとの文字を読む（[PDF ファイルの読み取り](indexing/pdf.md)）。2 回目以降は、取り込み済みで更新の無いファイルをスキップする（差分取り込み）。
+   各ファイルを取り込み、「場所」（Excel のシート、Word のページ、PowerPoint のスライド、PDF のページ、テキストは「本文」の 1 つ）ごとの TSV（UTF-8）に書き出し、フォルダの取り込みが終わるとフォルダ・拡張子ごとの本文インデックスにまとめて `work/store/content/` に蓄積する。Excel のセルは COM で操作してテキストを抽出し、Excel の図形・コメントと Word・PowerPoint はファイル（ZIP 内の XML）を直接読む（Word・PowerPoint の旧形式は Word・PowerPoint で新形式に変換してから読む）。テキストファイルは文字コードを判定してから行に分けて読む（[テキストファイルの読み取り](indexing/text.md)）。PDF は PowerShell だけでページごとの文字を読む（[PDF ファイルの読み取り](indexing/pdf.md)）。2 回目以降は、取り込み済みで更新の無いファイルをスキップする（差分取り込み）。
 2. **検索**（[検索](search/index.md)）
    本文インデックスを検索し（大文字と小文字の区別・正規表現・ファイルの種類の条件はサクラエディタの Grep にならう）、ヒットした「ファイル名（相対フォルダ付き）・場所・該当行」を、元のファイルごとの見出しにまとめて画面の表に表示する。必要なときは `work/search_results.txt` に出力する。
 
@@ -71,14 +71,14 @@ flowchart TB
 | 取り込み | 1 ファイルをインデックスに入れる（Office もテキストも、コピー → 抽出 → コピーを消す → TSV に書き出す → インデックスに置く） | 出す | `ingest` |
 | 抽出 | 元のファイルからテキストを読み出す | 出さない | `extract` |
 | インデックス | 登録したフォルダ 1 件ぶんの索引。本文インデックスとシステムインデックスを合わせたもの | 出す | `index` |
-| 本文インデックス | 検索が照合する本体。フォルダ 1 つ・元のファイルの拡張子 1 つにつき、大きさで分けて 1 つ以上。`work/content_index/<インデックス名>/<相対フォルダ>/content_index.<拡張子>.<番号>.tsv`。1 つずつを指すときは「本文インデックスのファイル」 | 出さない | `contentIndex` |
+| 本文インデックス | 検索が照合する本体。フォルダ 1 つ・元のファイルの拡張子 1 つにつき、大きさで分けて 1 つ以上。`work/store/content/<インデックス名>/<相対フォルダ>/content_index.<拡張子>.<番号>.tsv`。1 つずつを指すときは「本文インデックスのファイル」 | 出さない | `contentIndex` |
 | システムインデックス | 高速検索のために Windows Search に索引させる 2-gram の txt。フォルダ 1 つにつき 1 つ。`work/system_index/<インデックス名>/<相対フォルダ>/system_index.txt`（大きいと `system_index_1.txt` …）。1 つずつを指すときは「システムインデックスの txt」 | 出さない。区別が要るときは「インデックス（高速検索用）」 | `systemIndex` |
-| 本文インデックスに入れる前の TSV | 取り込んでから本文インデックスに入れるまでの一時的な TSV。`work/content_index/<インデックス名>/<相対フォルダ>/<元のファイル名>/<場所>.tsv`。インデックス作成が途中で止まったときだけ残る | 出さない | 変えない（無し） |
-| 元のフォルダの記録 | `work/content_index/<インデックス名>/source_folder.txt`（インデックス名と登録したフォルダの対応。インデックスを写しても元の場所が分かるようにする） | 出さない | `sourceFolderFileName` |
-| 本文インデックスのフォルダ／システムインデックスのフォルダ | ワークスペースの `content_index/`／`system_index/` | 手引き・README ではフォルダの名前として出す | `Workspace.IndexDir`／`Workspace.SystemIndexDir` |
+| 本文インデックスに入れる前の TSV | 取り込んでから本文インデックスに入れるまでの一時的な TSV。`work/store/content/<インデックス名>/<相対フォルダ>/<元のファイル名>/<場所>.tsv`。インデックス作成が途中で止まったときだけ残る | 出さない | 変えない（無し） |
+| 元のフォルダの記録 | `work/store/content/<インデックス名>/source_folder.txt`（インデックス名と登録したフォルダの対応。インデックスを写しても元の場所が分かるようにする） | 出さない | `sourceFolderFileName` |
+| 本文インデックスのフォルダ／システムインデックスのフォルダ | ワークスペースの `store/content/`／`system_index/` | 手引き・README ではフォルダの名前として出す | `Workspace.IndexDir`／`Workspace.SystemIndexDir` |
 | インデックスの追加 | フォルダをインデックスとして一覧に登録する（中身は取り込まない） | 出す | `newIndex` |
 
-`content_index/` の中身は本文インデックス・入れる前の TSV・元のフォルダの記録の 3 種類で、本文インデックスは `content_index/` の中身すべてではない。コードの名前 `contentIndex`（関数・変数・ファイル名）は、設計書でもそのまま書く。計測の結果の項目（`Index.Pack` など）と段階の名前（`pack の作成`）は、実行をまたいで数字を比べるため、前の名前のまま残している。
+`store/content/` の中身は本文インデックス・入れる前の TSV・元のフォルダの記録の 3 種類で、本文インデックスは `store/content/` の中身すべてではない。コードの名前 `contentIndex`（関数・変数・ファイル名）は、設計書でもそのまま書く。計測の結果の項目（`Index.Pack` など）と段階の名前（`pack の作成`）は、実行をまたいで数字を比べるため、前の名前のまま残している。
 
 「変換」は、旧形式を新形式に保存し直す処理（`.doc` → `.docx` など）のように、形式を変えることだけに使う。検索ワード・件・該当行・元のファイルは検索エンジンの用語に合わせず、そのまま使う。
 
@@ -106,8 +106,8 @@ flowchart LR
     c1["setting.config<br>画面が保存する設定<br>（クロール対象フォルダ・検索対象インデックスなど）"]
 
     subgraph work["work/（自動生成）"]
-        idx[("content_index/<br>本文インデックス")]
-        status["ingest_status.tsv<br>（更新日時・状態）"]
+        idx[("store/content/<br>本文インデックス")]
+        status["store/ingest_status.tsv<br>（更新日時・状態）"]
         ctl["indexing_log.txt<br>ingesting.txt"]
         out["search_results.txt<br>（［結果をファイルに出力］）"]
     end

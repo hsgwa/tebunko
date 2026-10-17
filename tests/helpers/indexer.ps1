@@ -119,7 +119,7 @@ function runIndexer {
 
 function readTestStatus {
     param ([string]$root)
-    return (readStatusFile "$root\work\ingest_status.tsv")
+    return (readStatusFile ([Workspace]::new("$root\work")).StatusFile)
 }
 
 function readTestSystemState {

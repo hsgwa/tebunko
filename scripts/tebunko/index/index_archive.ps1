@@ -389,7 +389,7 @@ function getImportArchiveInfo {
 }
 
 function getImportUsedIndexNames {
-    # 今使われているインデックス名（設定の targetFolders・indexSources、content_index\ 直下のフォルダ、
+    # 今使われているインデックス名（設定の targetFolders・indexSources、インデックスのフォルダ（store\content\・古い content_index\）直下のフォルダ、
     # 取り込み一覧のクロール対象フォルダの行）を集めて返す（大文字・小文字を区別しない集合）
     param (
         $ws,
@@ -407,9 +407,12 @@ function getImportUsedIndexNames {
             [void]$names.Add($source.Name)
         }
     }
-    if (Test-Path -LiteralPath (toLongPath $ws.IndexDir) -PathType Container) {
-        foreach ($dir in [System.IO.Directory]::GetDirectories((toLongPath $ws.IndexDir))) {
-            [void]$names.Add([System.IO.Path]::GetFileName($dir))
+    # 作り直す前の形式のインデックス（古い置き場）の名前も使われているものとして数える（同じ名前を取り込んで、新旧が混ざらないように）
+    foreach ($root in @($ws.IndexDir, $ws.OldIndexDir)) {
+        if (Test-Path -LiteralPath (toLongPath $root) -PathType Container) {
+            foreach ($dir in [System.IO.Directory]::GetDirectories((toLongPath $root))) {
+                [void]$names.Add([System.IO.Path]::GetFileName($dir))
+            }
         }
     }
     foreach ($folder in (readStatusFile $ws.StatusFile).Folders.ToArray()) {
@@ -817,6 +820,10 @@ function importIndexCore {
                 # 根に付いたあとの -Recurse は中へ降りないため（publish.md）、入れた直後に付ける（失敗しても止めない）
                 setWindowsSearchExcluded $targetIndexDir -Recurse | Out-Null
                 try {
+                    # 取り込んだインデックスは、作り終えたものとして目録に載せる
+                    if (!(setIndexFormatRow $finalName ${catalogRowFinished} $ws.FormatFile)) {
+                        throw "インデックスの目録を書けません（新しい版の tebunko で作られたワークスペースの可能性があります）。"
+                    }
                     rewriteStatusForImport $ws.StatusFile $finalName $folder $expanded.Rows
                 } catch {
                     restoreSwappedIndexDir $swap

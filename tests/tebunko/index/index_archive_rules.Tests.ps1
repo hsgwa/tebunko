@@ -126,10 +126,19 @@ Describe "testIndexArchiveManifest" -Tag Unit {
 
     It "formatVersion が今の版より大きければ「新しい版」の理由を返す" {
         $files = @((newManifestFile "ingest_status.tsv"))
-        $manifest = newManifest $files -formatVersion 2
+        $manifest = newManifest $files -formatVersion (${indexArchiveFormatVersion} + 1)
 
         $reason = testIndexArchiveManifest $manifest @("tebunko-index.json", "ingest_status.tsv") 10
         $reason | Should -Match "新しい版"
+    }
+
+    It "formatVersion が今の版より小さければ、古い形式の理由（作り直しの案内つき）を返す" {
+        $files = @((newManifestFile "ingest_status.tsv"))
+        $manifest = newManifest $files -formatVersion 1
+
+        $reason = testIndexArchiveManifest $manifest @("tebunko-index.json", "ingest_status.tsv") 10
+        $reason | Should -Match "古い形式"
+        $reason | Should -Match ([regex]::Escape(${indexRebuildMessage}))
     }
 
     It "インデックス名が testIndexName を通らなければ理由を返す" {

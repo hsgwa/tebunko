@@ -4,14 +4,14 @@
 
 ## インデックスへの入れ替え（`publishTsv` / `publishIndexFiles`）
 
-1 ファイルの抽出が終わったら、作業領域（既定は `work/tmp/<PC の鍵>/<PID>`。[データの置き場所とパスの決め方](../structure/data.md)）にできた TSV をインデックスの一時的な置き場所（元のファイル名のフォルダ）へ入れる。このとき、TSV をいったん `work/publish/<PID>/<元のファイル名>` に集め、**集め終わってから**古い `work/content_index/…/<元のファイル名>` を削除してフォルダごと入れ替える。本文インデックスへは、そのフォルダの取り込みが終わってから入れる（下の「本文インデックスへの書き出し」）。
+1 ファイルの抽出が終わったら、作業領域（既定は `work/tmp/<PC の鍵>/<PID>`。[データの置き場所とパスの決め方](../structure/data.md)）にできた TSV をインデックスの一時的な置き場所（元のファイル名のフォルダ）へ入れる。このとき、TSV をいったん `work/publish/<PID>/<元のファイル名>` に集め、**集め終わってから**古い `work/store/content/…/<元のファイル名>` を削除してフォルダごと入れ替える。本文インデックスへは、そのフォルダの取り込みが終わってから入れる（下の「本文インデックスへの書き出し」）。
 
 ```mermaid
 sequenceDiagram
     participant EX as 抽出（1 ファイル）
     participant TMP as 作業領域（work/tmp/#lt;PC の鍵#gt;/#lt;PID#gt;）
     participant OUT as work/publish/<PID>/<元のファイル名>
-    participant IDX as work/content_index/…/<元のファイル名>
+    participant IDX as work/store/content/…/<元のファイル名>
 
     EX->>TMP: 場所ごとの TSV を書く
     TMP->>OUT: 集める（同じドライブの work 配下）
@@ -42,18 +42,18 @@ flowchart TD
 
 ## Windows Search の対象から外す（`NotContentIndexed`）
 
-`work/content_index` は、Windows Search の索引の対象から自動で外す（[高速検索（Windows Search）](../search/fast-search.md)）。フォルダ・ファイルに「内容のインデックスを作成しない」属性（`NotContentIndexed`）を `setWindowsSearchExcluded`（`shared/core/fs.ps1`）で付ける。新しく作った（`File.WriteAllText`・`Directory.CreateDirectory` など）ものは親フォルダの属性を継ぐが、`Directory.Move`・`File.Move` で入れたものは継がない（実測で確かめた）。継ぐかどうかに頼らず、次の 2 段構えで付ける。
+`work/store/content` は、Windows Search の索引の対象から自動で外す（[高速検索（Windows Search）](../search/fast-search.md)）。フォルダ・ファイルに「内容のインデックスを作成しない」属性（`NotContentIndexed`）を `setWindowsSearchExcluded`（`shared/core/fs.ps1`）で付ける。新しく作った（`File.WriteAllText`・`Directory.CreateDirectory` など）ものは親フォルダの属性を継ぐが、`Directory.Move`・`File.Move` で入れたものは継がない（実測で確かめた）。継ぐかどうかに頼らず、次の 2 段構えで付ける。
 
-- **インデックス作成の始め（1 回・`-Recurse`）**: `content_index` を作った直後（`indexer_run.ps1`）に、フォルダ全体へ付ける。根フォルダに既に付いていれば（前回すべて付け終えて根まで付いたとみなし）下はたどらず、`GetAttributes` 1 回だけで終える。付いていなければ下のすべてに付け、すべて成功したときにだけ最後に根へ付ける（列挙・付与の途中で失敗した回は根に付けず、次回もう一度下からたどり直す）。`-Recurse` は、中のジャンクション・シンボリックリンクへは降りず、リンク自身にも付けない（リンクの先は `content_index` の外のことがあるため。`getFilesNoFollow`）。前の版から続けて使うワークスペース・別のドライブへ写したワークスペース（`WorkspaceMover` の `CopyTree` は属性を写さない）・取り込んだワークスペースも、ここで付く。
-- **入れた直後（そのつど。インポートだけ `-Recurse`）**: 元のファイルごとのフォルダを入れたとき（`publishIndexFiles`）・本文インデックスを書いたとき（`publishIndexFolders`。フォルダごと）・`source_folder.txt` を書いたとき（`writeSourceFolderFile`。画面からインデックス一覧を保存したときも含む）に、その分だけへ付ける。始めの 1 回だけでは、初回の大きな取り込みの途中で入れたものが Windows Search に索引されてしまうため。インデックスをインポートしたとき（`importIndex`。`Directory.Move` で入れるため）も、入れ替えの直後に `content_index\<名前>` の全体へ `-Recurse` で付ける（根に付いたあとの始めの 1 回では拾えないため。失敗しても止めない）。
+- **インデックス作成の始め（1 回・`-Recurse`）**: `store\content` を作った直後（`indexer_run.ps1`）に、フォルダ全体へ付ける。根フォルダに既に付いていれば（前回すべて付け終えて根まで付いたとみなし）下はたどらず、`GetAttributes` 1 回だけで終える。付いていなければ下のすべてに付け、すべて成功したときにだけ最後に根へ付ける（列挙・付与の途中で失敗した回は根に付けず、次回もう一度下からたどり直す）。`-Recurse` は、中のジャンクション・シンボリックリンクへは降りず、リンク自身にも付けない（リンクの先は `store\content` の外のことがあるため。`getFilesNoFollow`）。前の版から続けて使うワークスペース・別のドライブへ写したワークスペース（`WorkspaceMover` の `CopyTree` は属性を写さない）・取り込んだワークスペースも、ここで付く。
+- **入れた直後（そのつど。インポートだけ `-Recurse`）**: 元のファイルごとのフォルダを入れたとき（`publishIndexFiles`）・本文インデックスを書いたとき（`publishIndexFolders`。フォルダごと）・`source_folder.txt` を書いたとき（`writeSourceFolderFile`。画面からインデックス一覧を保存したときも含む）に、その分だけへ付ける。始めの 1 回だけでは、初回の大きな取り込みの途中で入れたものが Windows Search に索引されてしまうため。インデックスをインポートしたとき（`importIndex`。`Directory.Move` で入れるため）も、入れ替えの直後に `store\content\<名前>` の全体へ `-Recurse` で付ける（根に付いたあとの始めの 1 回では拾えないため。失敗しても止めない）。
 
 根フォルダに付いている・いないだけで「下を全部たどり直すか」を決めるため、根に付いたあとは、始めの 1 回は入れた直後の付けそこねを拾い直す保険にはならない（根が未付与の間だけ、下を全部たどり直して拾い直す）。入れた直後を確実な経路として持つ設計（継ぐかどうかに頼らない）なので、これは割り切りとしている。
 
-`system_index`・ワークスペースのほかのファイル・クロール対象フォルダには付けない。付けられなかったとき（共有フォルダでアクセス権が無いなど）は、インデックス作成を止めず、始めの 1 回だけログに 1 行残す（`content_index を Windows Search の対象から外せませんでした（…）。高速検索が効くまで時間がかかることがあります。`）。入れた直後の付与は、件数が多くログがあふれるため、失敗してもログに出さない。
+`system_index`・ワークスペースのほかのファイル・クロール対象フォルダには付けない。付けられなかったとき（共有フォルダでアクセス権が無いなど）は、インデックス作成を止めず、始めの 1 回だけログに 1 行残す（`インデックスのフォルダを Windows Search の対象から外せませんでした（…）。高速検索が効くまで時間がかかることがあります。`）。入れた直後の付与は、件数が多くログがあふれるため、失敗してもログに出さない。
 
 ## 長いパス（260 文字超）の扱い
 
-出力 TSV のパスは、元ファイルのパスより `<ワークスペース>\content_index\<インデックス名>\` と `\<場所>.tsv` の分だけ長くなるため（本文インデックスも `<ワークスペース>\content_index\<インデックス名>\` の分だけ長くなる）、元ファイルが開けても TSV のパスが 260 文字を超えることがある。Windows PowerShell 5.1（.NET Framework 4.6.2 以降）では、パスの先頭に `\\?\` を付けると、OS の設定（LongPathsEnabled）や管理者権限なしで 260 文字を超えるパスを扱えるため、ファイル操作に渡すパスには `toLongPath` で `\\?\` を付ける。
+出力 TSV のパスは、元ファイルのパスより `<ワークスペース>\store\content\<インデックス名>\` と `\<場所>.tsv` の分だけ長くなるため（本文インデックスも `<ワークスペース>\store\content\<インデックス名>\` の分だけ長くなる）、元ファイルが開けても TSV のパスが 260 文字を超えることがある。Windows PowerShell 5.1（.NET Framework 4.6.2 以降）では、パスの先頭に `\\?\` を付けると、OS の設定（LongPathsEnabled）や管理者権限なしで 260 文字を超えるパスを扱えるため、ファイル操作に渡すパスには `toLongPath` で `\\?\` を付ける。
 
 ```mermaid
 flowchart TD

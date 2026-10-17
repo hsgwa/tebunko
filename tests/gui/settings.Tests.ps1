@@ -57,7 +57,7 @@ Describe "S5 ワークスペースの変更" -Tag Gui {
 
             # 今のインデックスの中のフォルダは使えない（メッセージボックス）（#34）
             setGuiStep $S "［変更…］→ 使えないフォルダ（今のインデックスの中）"
-            & $changeWorkspace "$($script:tool.Work)\content_index\営業"
+            & $changeWorkspace "$($script:tool.Work)\store\content\営業"
             closeGuiMessage $S "インデックスのフォルダの中です" "使えないフォルダの警告" | Out-Null
             & $workspaceText | Should -Be $script:tool.Work
 
@@ -70,7 +70,7 @@ Describe "S5 ワークスペースの変更" -Tag Gui {
             & $changeWorkspace $script:emptyDir
             answerGuiConfirm $S "ワークスペースを変える確認" "へ移動します" "移動する"
             waitGui $S "ワークスペースが空のフォルダに変わる" ${guiDefaultTimeout} { (& $workspaceText) -eq $script:emptyDir } | Out-Null
-            Test-Path -LiteralPath "$($script:emptyDir)\content_index\営業" | Should -BeTrue -Because "今のワークスペースの中身が移る"
+            Test-Path -LiteralPath "$($script:emptyDir)\store\content\営業" | Should -BeTrue -Because "今のワークスペースの中身が移る"
             (readGuiConfig $script:tool).workspaceFolder | Should -Be $script:emptyDir
             # 終わりの処理に、移した先と元の場所が届いている（空だと、ステータスの場所が抜ける）
             $statusText = { getGuiText (findGui $S.Window -Id "StatusText") }
@@ -85,7 +85,7 @@ Describe "S5 ワークスペースの変更" -Tag Gui {
             & $changeWorkspace $script:nonEmptyDir
             answerGuiConfirm $S "空でないフォルダの確認" "空ではありません" "中に*" -Like
             waitGui $S "ワークスペースが中の workspace に変わる" ${guiDefaultTimeout} { (& $workspaceText) -eq "$($script:nonEmptyDir)\workspace" } | Out-Null
-            Test-Path -LiteralPath "$($script:nonEmptyDir)\workspace\content_index\営業" | Should -BeTrue
+            Test-Path -LiteralPath "$($script:nonEmptyDir)\workspace\store\content\営業" | Should -BeTrue
 
             # インデックスのあるフォルダ: 確認でキャンセル、あるインデックスを使って切り替わる（#33）
             setGuiStep $S "［変更…］→ インデックスのあるフォルダ → 確認で［キャンセル］"
@@ -142,7 +142,7 @@ Describe "S5 ワークスペースの変更" -Tag Gui {
             waitGui $S "欄が戻り、理由が消える（［変更…］のキャンセル）" ${guiDefaultTimeout} { (& $workspaceText) -eq $script:sharedDir -and (& $inputError) -eq "" } | Out-Null
             (readGuiConfig $script:tool).workspaceFolder | Should -Be $script:sharedDir
             setGuiStep $S "欄に入力: 今のインデックスの中 → 警告が出て変わらない"
-            & $typeWorkspace "$($script:sharedDir)\content_index\共有"
+            & $typeWorkspace "$($script:sharedDir)\store\content\共有"
             closeGuiMessage $S "インデックスのフォルダの中です" "使えないフォルダの警告" | Out-Null
             & $workspaceText | Should -Be $script:sharedDir
             setGuiStep $S "欄に入力: 空のフォルダ → 確認で［移動する］ → 切り替わる"
@@ -157,12 +157,12 @@ Describe "S5 ワークスペースの変更" -Tag Gui {
     }
 
     It "移動が失敗したら、警告にフォルダ名が入り、元のワークスペースのまま使える" {
-        # 移す先の content_index の中のファイルをこちらで開いたままにして、消す処理を失敗させる（TestDrive の中だけ）
+        # 移す先の store\content の中のファイルをこちらで開いたままにして、消す処理を失敗させる（TestDrive の中だけ）
         $failTool = newGuiTool (Join-Path $TestDrive "失敗")
         newGuiSampleIndex $failTool $TestDrive "失敗用"
         $failDir = Join-Path $TestDrive "消せないインデックスのある先"
-        [void][IO.Directory]::CreateDirectory("$failDir\content_index\あ")
-        $held = [IO.File]::Open("$failDir\content_index\あ\a.tsv", [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+        [void][IO.Directory]::CreateDirectory("$failDir\store\content\あ")
+        $held = [IO.File]::Open("$failDir\store\content\あ\a.tsv", [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
         try {
             $S = startGui $failTool "S5f"
             invokeGuiScene $S {
@@ -176,7 +176,7 @@ Describe "S5 ワークスペースの変更" -Tag Gui {
                 closeGuiMessage $S "削除できませんでした" "移動の失敗の警告" | Out-Null
                 (getGuiValue (findGui $S.Window -Id "WorkspaceBox")) | Should -Be $failTool.Work
                 (readGuiConfig $failTool).workspaceFolder | Should -Be $failTool.Work
-                Test-Path -LiteralPath "$($failTool.Work)\content_index\失敗用" | Should -BeTrue
+                Test-Path -LiteralPath "$($failTool.Work)\store\content\失敗用" | Should -BeTrue
                 closeGui $S
             }
         } finally {
@@ -265,7 +265,7 @@ Describe "S12 検索結果の件数の上限" -Tag Gui {
         # 上限の下限（1,000 件）を超える架空の 1,500 行
         $lines = @("品名`t数") + @(1..1500 | ForEach-Object { "あいう$_`t1" })
         newTsv "$TestDrive\tsv\営業\見積.txt\$(toIndexFileName "見積")" $lines
-        [void](newContentIndexFiles "$TestDrive\tsv" "$($script:tool.Work)\content_index")
+        [void](newContentIndexFiles "$TestDrive\tsv" "$($script:tool.Work)\store\content")
     }
 
     It "設定の画面で変えた上限が次の検索から効き、制限なしでは打ち切らない。正しくない入力は理由が出て変わらない" {

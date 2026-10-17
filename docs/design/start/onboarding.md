@@ -34,7 +34,7 @@ sequenceDiagram
     actor U as 利用者
     participant G as 画面（tebunko.bat）
     participant CV as インデクサ（tebunko/indexer.ps1）
-    participant W as work/content_index/
+    participant W as work/store/content/
 
     U->>G: ［インデックス管理］の［＋ フォルダを追加］でインデックスを追加
     U->>G: ［すべて更新］

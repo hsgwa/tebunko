@@ -182,7 +182,7 @@ function updateSearchTarget {
     $ui.TargetCountText.Text = getTargetCountText $checked $total
     $targetsText = if ($targets.Count -gt 0) { describeSearchTargets $targets } else { "" }
     $ui.TargetCountText.ToolTip = getSearchTargetText ([bool]$script:indexTreeLoading) ([string]$script:indexTreeConnectError) `
-        $total $targets.Count (isAllIndexChecked) $targetsText $summary
+        $total $targets.Count (isAllIndexChecked) $targetsText $summary ([int]$script:indexTreeOldCount)
     # インデックスが無いときは、結果の表の代わりに空の状態（［インデックス管理を開く］）を出す。
     # 読み込み中・接続できないときは、「インデックスが無い」とは違うため出さない
     $noIndex = [bool]($summary -and $summary["Count"] -eq 0 -and !$script:indexTreeLoading -and !$script:indexTreeConnectError)

@@ -227,6 +227,24 @@ Describe "getSearchTargetText" -Tag Unit {
     }
 }
 
+Describe "getOldIndexNoticeText と古い形式の 1 行" -Tag Unit {
+    It "古い形式のインデックスが <count> 件のとき、1 行は「<expected>」" -TestCases @(
+        @{ count = 0; expected = "" }
+        @{ count = 1; expected = "古い形式のインデックスは検索していません" }
+        @{ count = 5; expected = "古い形式のインデックスは検索していません" }
+    ) {
+        param ($count, $expected)
+        getOldIndexNoticeText $count | Should -Be $expected
+    }
+
+    It "検索対象の説明の最後に、古い形式の 1 行を足す。読み込み中・接続できないときは足さない" {
+        getSearchTargetText $false "" 2 1 $false "営業部" $null 1 | Should -Be "検索対象：営業部`r`n古い形式のインデックスは検索していません"
+        getSearchTargetText $false "" 0 0 $true "" $null 1 | Should -Be "［インデックス管理］で作ったインデックスの一覧です`r`n古い形式のインデックスは検索していません"
+        getSearchTargetText $true "" 2 1 $false "営業部" $null 1 | Should -Be "検索対象：読み込んでいます…"
+        getSearchTargetText $false "" 2 1 $false "営業部" $null 0 | Should -Be "検索対象：営業部"
+    }
+}
+
 Describe "getConditionFlow（検索条件の行の折り返し）" -Tag Unit {
     # 項目は 0 種類・1〜4 チップ・5 ファイル内の対象・（空き）・6 大文字小文字・7 正規表現・8 高速検索の印。幅は右の間 8 を含む
     BeforeAll {
