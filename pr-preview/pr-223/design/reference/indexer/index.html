@@ -4038,6 +4038,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#ingestplannertebunkoindexerindexer_planps1司令のスレッドで作る" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        IngestPlanner（tebunko/indexer/indexer_plan.ps1。司令のスレッドで作る）
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4260,6 +4271,17 @@
     <span class="md-ellipsis">
       
         IngestDispatcher（新規 tebunko/indexer/ingest_dispatcher.ps1。司令のスレッドで作る）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ingestplannertebunkoindexerindexer_planps1司令のスレッドで作る" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        IngestPlanner（tebunko/indexer/indexer_plan.ps1。司令のスレッドで作る）
       
     </span>
   </a>
@@ -4697,7 +4719,7 @@
 <td>コンストラクタ</td>
 <td>targets, lanes, bookFolders, folderByName, carried, options</td>
 <td>–</td>
-<td>取り込み対象と設定を受け取る。必要な設定が足りなければ、その名前を書いて失敗する</td>
+<td>取り込み対象と設定を受け取る。必要な設定が足りなければ、その名前を書いて失敗する。省略できる <code>TestPath</code>（<code>{ param($path, $kind) }</code>。<code>$kind</code> は <code>File</code> か <code>Folder</code>）で、元のファイル・フォルダの有無の調べ方を差し替えられる</td>
 </tr>
 <tr>
 <td><code>Start</code></td>
@@ -4714,7 +4736,7 @@
 <tr>
 <td><code>DispatchNext</code></td>
 <td>–</td>
-<td><code>@{Kind=Abandoned／Vanished／Dispatched; ...}</code> / ``</td>
+<td><code>@{Kind=Abandoned／Vanished／Dispatched; ...}</code> / <code>$null</code></td>
 <td>並びの先から、レーンに空きがあるファイルを 1 つ選ぶ</td>
 </tr>
 <tr>
@@ -4727,25 +4749,25 @@
 <td><code>SetInlineResult</code></td>
 <td>result</td>
 <td>–</td>
-<td>スレッドを使わない実行の結果を、結果の列に入れる</td>
+<td>スレッドを使わないとき、司令が自分のスレッドで取り込んだ結果を <code>InlineResult</code> に置く（次の <code>Receive</code> が返して空にする）</td>
 </tr>
 <tr>
 <td><code>Receive</code></td>
 <td>–</td>
-<td><code>@{Kind=Completed／Postponed／RerouteAbandoned; ...}</code> / ``</td>
+<td><code>@{Kind=Completed／Postponed／RerouteAbandoned; ...}</code> / <code>$null</code></td>
 <td>結果を 1 つ受け取る</td>
 </tr>
 <tr>
 <td><code>TakeAbandonedLane</code></td>
 <td>–</td>
-<td><code>@{Lane; Entries}</code> / ``</td>
+<td><code>@{Lane; Entries}</code> / <code>$null</code></td>
 <td>諦めたレーンを 1 つ取り出す</td>
 </tr>
 <tr>
 <td><code>StopIfRequested</code></td>
-<td>stopRequested</td>
-<td>–</td>
-<td>中止を求められていたら、残りを渡さないようにする</td>
+<td>requested（bool）</td>
+<td>bool</td>
+<td>中止を求められ、渡していないファイルがあるとき、今回初めて止めた場合だけ <code>$true</code> を返し、以後は渡さない（残りの件数は <code>Remaining</code>）</td>
 </tr>
 <tr>
 <td><code>InflightCount</code> / <code>IngestingEntries</code></td>
@@ -4757,22 +4779,17 @@
 <td><code>Stop</code></td>
 <td>–</td>
 <td>–</td>
-<td>列を閉じ、各レーンのスレッドを終わらせる（待たない）</td>
+<td>列を閉じ、諦めていないレーンのワーカーが終わるのを待ってから片づける。諦めたレーンのワーカーは待たず、止める依頼だけを出す</td>
 </tr>
 <tr>
-<td><code>Pool</code>・<code>Stopped</code>・<code>FolderLost</code>・<code>Remaining</code>・<code>Undispatched</code>（プロパティ）</td>
+<td><code>Pool</code>・<code>UsesThreads</code>・<code>Stopped</code>・<code>FolderLost</code>・<code>Remaining</code>・<code>Undispatched</code>（プロパティ）</td>
 <td>–</td>
 <td>–</td>
-<td>プール・中止・フォルダ消失・残り・まだ渡していないファイル</td>
-</tr>
-<tr>
-<td>### IngestPlanner（<code>tebunko/indexer/indexer_plan.ps1</code>。司令のスレッドで作る）</td>
-<td></td>
-<td></td>
-<td></td>
+<td>プール・スレッドを使うか・中止・フォルダ消失・残り・まだ渡していないファイル</td>
 </tr>
 </tbody>
 </table>
+<h3 id="ingestplannertebunkoindexerindexer_planps1司令のスレッドで作る">IngestPlanner（<code>tebunko/indexer/indexer_plan.ps1</code>。司令のスレッドで作る）<a class="headerlink" href="#ingestplannertebunkoindexerindexer_planps1司令のスレッドで作る" title="Permanent link">&para;</a></h3>
 <p>クロール対象フォルダへの名前の割り当てと、クロールの結果から取り込む順番を決める。取り込み直すかの判断は <code>indexer_decide.ps1</code> の関数を <code>createTargetList</code> 経由で呼ぶ。計画の種類・状態の値はコンストラクタの <code>kinds</code>（<code>Unchecked</code>・<code>Missing</code>・<code>Dropped</code>・<code>StateFailed</code>。足りなければ例外）で、名前の保存は、<code>SaveNames</code> に司令が渡すスクリプトブロック（中身は <code>IndexCatalog.StoreAssignedNames</code>）で行う。メソッドは次の順に呼ぶ: <code>AssignNames</code> → <code>SaveNames</code> → <code>SelectOnly</code>（選んだときだけ）→ <code>Crawl</code> → <code>KeepForCancel</code>（取りやめるとき）か <code>ApplyFailed</code> → <code>ApplyInterrupted</code> → <code>FolderByName</code>。<code>AssignNames</code> の前に <code>Crawl</code> を呼ぶと例外にする。結果は <code>Folders</code>・<code>Previous</code>・<code>Dropped</code>・<code>Only</code>・<code>Rows</code>・<code>Targets</code>・<code>Failed</code>・<code>Cloud</code>（クラウドにだけあるファイル）・<code>Plan</code>・<code>RemovedPaths</code>・<code>Carried</code> で読む。</p>
 <table>
 <thead>
