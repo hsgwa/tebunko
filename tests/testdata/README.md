@@ -317,7 +317,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests\testdata\text\make_tes
 **作り方**（`tools\make_index_golden.ps1`）:
 
 1. `source\` に見本のファイルを手で置く（このスクリプトは触らない）。
-2. `setting.config` のクロール対象フォルダに `source\` を指したフォルダ（利用者名を含まない固定のパス）を登録し、`indexer.ps1` を 1 回動かして固定のパスのワークスペースを作る。
+2. `setting.config` のクロール対象フォルダに `source\` を指したフォルダ（利用者名を含まない固定のパス）を登録し、`indexer.ps1` を 1 回動かして固定のパスのワークスペースを作る（`v2+store` は、一時のドライブ（`subst R:`）に `source\` の写しを置き、クロール対象を `R:\資料` に固定して作った）。
 3. `exportIndex` でそのワークスペースを zip に書き出す。
 4. `tools\make_index_golden.ps1 -WorkspaceDir <ワークスペース> -ExportZip <zip> -SampleDir tests\testdata\compat\index\<見本の名前>` で、`ws\`・`export.zip`・`file_times.tsv` を見本へコピー・作成する（ワークスペースは `C:\tebunko_golden\ws`）。
 5. `expected.json` は手で書く（このスクリプトは作らない）。
