@@ -41,7 +41,7 @@ class IndexingSession {
     }
 
     [void] Stop() {
-        # 中止を求める（取り込み中のファイルが終わったところで止まる。確認を待っていれば取りやめる）
+        # 中止を求める（一覧化・取り込み中は、できたところまでで止まる。確認を待っていれば取りやめる）
         $this.Channel.Stop = $true
         [void]$this.Channel.Answered.Set()
     }

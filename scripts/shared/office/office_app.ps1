@@ -631,6 +631,9 @@ class OfficeWatchdog {
     #             印のあるプロセスは、制限時間を過ぎても強制終了しない。画面を閉じるときの KillOffice と共有するため、使う側が入れ替える
     #   Abandon : 印のあるプロセスを止めずに、制限時間を過ぎたレーンを諦めたと、司令に伝える入れ物（Synchronized な @{ Abandoned }）。
     #             取り込みのスレッドが入れる。無ければ（司令のスレッドで取り込むとき）止めないだけにする
+    #   Cancel  : 中止を伝える入れ物（Stop を持つ Synchronized な hashtable）。取り込み中に Stop が立ったら、制限時間を過ぎたのと同じに扱う
+    #             （自分で起動したアプリを止め、利用者が使った印のあるプロセスは止めない）。無ければ中止では止めない
+    #   Cancelled: 中止を求められて、取り込み中のアプリを止めた（TimedOut は立てない）
     #   WindowProbe: 窓があるかを見分ける関数の名前（既定は testOfficeProcessHasWindow。テストで差し替える）
     [hashtable]$State
     # 強制終了してよいプロセスの名前（Officeアプリ）
@@ -641,6 +644,7 @@ class OfficeWatchdog {
         $this.State = [hashtable]::Synchronized(@{
             Deadline = [datetime]::MaxValue; Pids = @(); TimedOut = $false; Stop = $false
             Users = (New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'); Abandon = $null
+            Cancel = $null; Cancelled = $false
             WindowProbe = 'testOfficeProcessHasWindow'
         })
         $this.ProcessNames = $processNames
@@ -692,7 +696,9 @@ class OfficeWatchdog {
                 if ($deadline -eq [datetime]::MaxValue) {
                     continue
                 }
-                $due = ([datetime]::Now -ge $deadline)
+                # 中止を求められたときも、制限時間を過ぎたのと同じに扱う（止める理由だけ Cancelled にする）
+                $cancelled = ($null -ne $watch.Cancel -and [bool]$watch.Cancel.Stop)
+                $due = ($cancelled -or [datetime]::Now -ge $deadline)
                 # 取り込み中は毎回、窓のあるプロセスに「利用者が使った」印を残す（固まったプロセスの窓は、約 5 秒で別のプロセスのゴースト窓に差し替わって
                 # 見えなくなるので、制限時間を過ぎたときに見るだけでは足りない。固まる前に見た窓を、固まった後の判断に使う）。
                 # 制限時間を過ぎたとき、印のあるプロセスは止めず、止めた分だけを targets に集める
@@ -731,11 +737,18 @@ class OfficeWatchdog {
                 if (-not $due) {
                     continue
                 }
+                if ($cancelled -and $targets.Count -eq 0 -and -not $spared) {
+                    # 止めるアプリがまだ無い（起動する前）。取り込みが終わるか、アプリが起動するまで、次の周でまた見る
+                    continue
+                }
                 $watch.Deadline = [datetime]::MaxValue
                 if ($spared -and $null -ne $watch.Abandon) {
                     $watch.Abandon.Abandoned = $true
                 }
-                if ($targets.Count -gt 0 -or -not $spared) {
+                if ($cancelled) {
+                    # 止めたプロセスがあるときだけ Cancelled（利用者が使っているプロセスだけなら、止めずに Abandon に任せる）
+                    if ($targets.Count -gt 0) { $watch.Cancelled = $true }
+                } elseif ($targets.Count -gt 0 -or -not $spared) {
                     $watch.TimedOut = $true
                 }
                 foreach ($target in $targets) {

@@ -235,11 +235,18 @@ class IngestDispatcher {
     }
 
     [object] Receive() {
+        return $this.Receive($false)
+    }
+
+    [object] Receive([bool]$stopRequested) {
         # 取り込みの結果を 1 つ受け取り、取り込み中から外して返す。司令が反映することが無いときは $null
         # （諦めたレーンがある・諦めたレーンのスレッドが後回しにしたあとで返した結果を捨てた・回し直しを渡した）。Kind:
         #   Completed       … 取り込んだ（成功・失敗）。@{ Kind; Entry; Result }
         #   Postponed       … 利用者の PowerPoint が起動していて使えなかった。@{ Kind; Entry; Reason }
         #   RerouteAbandoned … 回し直し先のレーンが諦めたレーンだった。渡さずに後回しにする。@{ Kind; Entry; Reason }
+        #   Stopped         … 中止を求められて、取り込まなかった・打ち切った（stopRequested のとき、回し直しも回さずにこれにする）。
+        #                     @{ Kind; Entry; RelPath; First }。First は、今回初めて止めたとき（残りの件数は Remaining）
+        # stopRequested: 画面から中止を求められているか（channel の Stop）
         $result = $null
         if ($this.Pool) {
             $result = $this.receiveFromPool()
@@ -255,9 +262,21 @@ class IngestDispatcher {
             # 諦めたレーンのスレッドが、後回しにしたあとで返した結果。捨てる
             return $null
         }
+        if ($result.Stopped -or ($result.Reroute -and $stopRequested)) {
+            # 中止を求められて、取り込まなかった・打ち切った。失敗にはしない（取り込み一覧は未取り込みのまま、インデックスは変えない）
+            [void]$this.Inflight.Remove($result.RelPath)
+            $this.LaneBusy[$entry.Lane] = $this.LaneBusy[$entry.Lane] - 1
+            $first = !$this.Stopped
+            if ($first) {
+                $this.Stopped = $true
+                $this.Remaining = $this.Undispatched
+            }
+            $this.Remaining = $this.Remaining + 1
+            return @{ Kind = "Stopped"; Entry = $entry; RelPath = $result.RelPath; First = $first }
+        }
         if ($result.Reroute) {
             # Office を使わずに読めなかった（中身が旧形式・パスワード付き）。Word・PowerPoint のレーンに回し直す
-            # （取り込み中のまま。中止を求められていても最後まで取り込む）
+            # （取り込み中のまま。中止を求められていれば、上で止めた扱いにしているため、ここへは来ない）
             $this.LaneBusy[$entry.Lane] = $this.LaneBusy[$entry.Lane] - 1
             $entry.Lane = getOfficeLane $result.RelPath
             if ($this.Pool.LaneStates[$entry.Lane].Abandoned) {

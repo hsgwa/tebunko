@@ -210,6 +210,23 @@ Describe "IngestDispatcher（振り分け）" -Tag Io {
         $dispatcher.StopIfRequested($true) | Should -Be $false
         (takeAllSteps $dispatcher).Count | Should -Be 0
     }
+
+    It "中止を求められているとき、Receive は止められた結果を取り込み中から外して `"Stopped`" で返し、初めの 1 件だけ First を真にして残りを数える" -TestCases @(
+        @{ Name = "止められた結果"; Result = @{ RelPath = "資料\a.docx"; Stopped = $true } }
+        @{ Name = "別の経路へ回す結果"; Result = @{ RelPath = "資料\a.docx"; Reroute = $true } }
+    ) {
+        param($Name, $Result)
+        $dispatcher = newTestDispatcher @("a.docx", "b.docx")
+        [void](takeAllSteps $dispatcher)
+        $dispatcher.SetInlineResult($Result)
+        $received = $dispatcher.Receive($true)
+        $received.Kind | Should -Be "Stopped"
+        $received.First | Should -Be $true
+        $received.RelPath | Should -Be "資料\a.docx"
+        $dispatcher.InflightCount() | Should -Be 0
+        $dispatcher.Stopped | Should -Be $true
+        $dispatcher.Remaining | Should -Be 2
+    }
 }
 
 Describe "IngestDispatcher（諦めたレーン）" -Tag Io {
