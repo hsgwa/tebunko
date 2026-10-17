@@ -2020,3 +2020,87 @@ Describe "completeIngestJob（取り込みの 1 件の終わり方）" -Tag Io {
         Should -Invoke writeIndexerLog -Times $Lines -Exactly -Scope It
     }
 }
+
+Describe "indexer.ps1（無くなった元のファイルを、書き出せなかった回の次に外し直す）" -Tag Io {
+    BeforeAll {
+        function getContentIndexFile {
+            param ([string]$root, [string]$name)
+            return "$root\work\store\content\$name\content_index.docx.001.tsv"
+        }
+        function getAllContentIndexText {
+            # name のインデックスの本文インデックスのファイルすべての中身をつなぐ
+            param ([string]$root, [string]$name)
+            return (@(Get-ChildItem -LiteralPath "$root\work\store\content\$name" -Recurse -Filter "content_index*.tsv" -File | ForEach-Object { readContentIndexText $_.FullName }) -join "`n")
+        }
+        function newIngestedRoot {
+            # 「総務」を取り込んだ状態にして、設定のルートを返す
+            param ([string]$folderName)
+            $dir = newSourceFolder $folderName
+            $root = newRoot
+            writeTestSettings $root @(@{ name = $folderName; path = $dir; enabled = $true })
+            runIndexer $root | Should -Be 0
+            return @{ Root = $root; Dir = $dir; Name = $folderName }
+        }
+    }
+
+    It "元のファイルを消した回に本文インデックスのファイルが壊れて書き出せなくても、一覧からは消え、記録に残り、直った次の回に外れて記録が消える" {
+        $env = newIngestedRoot "削除記録"
+        $root = $env.Root
+        $recordPath = "$root\work\store\pending_remove.tsv"
+        $file = getContentIndexFile $root $env.Name
+        $good = [System.IO.File]::ReadAllBytes($file)
+        (readContentIndexText $file) | Should -BeLike "*議事録.docx*"
+        Remove-Item -LiteralPath "$($env.Dir)\議事録.docx"
+        [System.IO.File]::WriteAllText($file, "壊れた中身`n")
+
+        runIndexer $root | Should -Be 0
+
+        (readTestStatus $root).Rows.ContainsKey("$($env.Name)\議事録.docx") | Should -Be $false
+        @(readPendingRemovals $recordPath | ForEach-Object { "$($_.Folder)|$($_.Name)" }) | Should -Be @("$($env.Name)|議事録.docx")
+
+        [System.IO.File]::WriteAllBytes($file, $good)
+        runIndexer $root | Should -Be 0
+
+        (getAllContentIndexText $root $env.Name) | Should -Not -BeLike "*議事録.docx*"
+        (getAllContentIndexText $root $env.Name) | Should -BeLike "*提案.pptx*"
+        Test-Path -LiteralPath $recordPath | Should -Be $false
+    }
+
+    It "前の回の記録を置いた状態から流すと、その名前が本文インデックスから外れ、置き場に無いフォルダの行は捨てられ、記録が無くなる" {
+        $env = newIngestedRoot "強制終了後"
+        $root = $env.Root
+        $recordPath = "$root\work\store\pending_remove.tsv"
+        # 一覧から行を消して、本文インデックスから外す前に強制終了した状態にする
+        Remove-Item -LiteralPath "$($env.Dir)\議事録.docx"
+        $statusPath = [Workspace]::new("$root\work").StatusFile
+        writeListFile $statusPath @(Get-Content -LiteralPath $statusPath -Encoding UTF8 | Where-Object { $_ -notlike "*議事録.docx*" })
+        writeListFile $recordPath @("$($env.Name)`t議事録.docx", "消えたインデックス`t別.docx")
+
+        runIndexer $root | Should -Be 0
+
+        (getAllContentIndexText $root $env.Name) | Should -Not -BeLike "*議事録.docx*"
+        Test-Path -LiteralPath $recordPath | Should -Be $false
+    }
+
+    It "消したファイルが次の回までに同じ名前で戻って取り込み直されたとき、記録から戻した名前と重なっても新しい本文が残る" {
+        $env = newIngestedRoot "戻る"
+        $root = $env.Root
+        $recordPath = "$root\work\store\pending_remove.tsv"
+        $file = getContentIndexFile $root $env.Name
+        $good = [System.IO.File]::ReadAllBytes($file)
+        $docx = "$($env.Dir)\議事録.docx"
+        Remove-Item -LiteralPath $docx
+        [System.IO.File]::WriteAllText($file, "壊れた中身`n")
+        runIndexer $root | Should -Be 0
+        Test-Path -LiteralPath $recordPath | Should -Be $true
+
+        [System.IO.File]::WriteAllBytes($file, $good)
+        Copy-Item -LiteralPath $docxSource -Destination $docx
+
+        runIndexer $root | Should -Be 0
+
+        (getAllContentIndexText $root $env.Name) | Should -BeLike "*議事録.docx*"
+        (readTestStatus $root).Rows["$($env.Name)\議事録.docx"].状態 | Should -Be ${stateDone}
+        Test-Path -LiteralPath $recordPath | Should -Be $false
+    }
+}

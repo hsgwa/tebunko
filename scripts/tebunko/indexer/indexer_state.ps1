@@ -480,3 +480,38 @@ class StatusLedger {
         [void]$this.DroppedRows.Add($relPath)
     }
 }
+
+function readPendingRemovals {
+    # 本文インデックスから外し終えていない、無くなった元のファイルの記録を読み、@{ Folder; Name } の配列を返す。無ければ空。
+    # 置き場の外を指す・使えない相対パスの行は読み飛ばす（testIndexRelPath）
+    param (
+        [string]$path = $workspace.PendingRemoveFile
+    )
+
+    $checkedNames = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+    $result = New-Object System.Collections.Generic.List[hashtable]
+    foreach ($entry in @(convertFromPendingRemoveLines @(readListFile $path))) {
+        if (testIndexRelPath "$($entry.Folder)\$($entry.Name)" $false $checkedNames) {
+            continue
+        }
+        $result.Add($entry)
+    }
+    return $result.ToArray()
+}
+
+function writePendingRemovals {
+    # 外し終えていない、無くなった元のファイルの記録を書く（一時ファイルに書いてから置き換える）。0 件なら記録を消す
+    param (
+        [object[]]$entries,
+        [string]$path = $workspace.PendingRemoveFile
+    )
+
+    $lines = @(convertToPendingRemoveLines $entries)
+    if ($lines.Count -eq 0) {
+        if (Test-Path -LiteralPath $path) {
+            Remove-Item -LiteralPath $path -Force
+        }
+        return
+    }
+    writeTextLinesAtomic $path $lines
+}
