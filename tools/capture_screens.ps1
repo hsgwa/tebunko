@@ -33,6 +33,8 @@ if (!$OutDir) { $OutDir = Join-Path $repoRoot "docs\images\screens" }
 . ([WildcardPattern]::Escape("$PSScriptRoot\capture\capture_common.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$repoRoot\tests\helpers\load.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$repoRoot\tests\gui\gui_helpers.ps1".Replace('`', '``')))
+# ワークスペースの中の置き場の名前は、本体の定義（クラスだけのファイル）から取る
+. ([WildcardPattern]::Escape("$repoRoot\scripts\tebunko\core\workspace.ps1".Replace('`', '``')))
 
 # 状態の一覧（${captureIds}）は tools\capture\capture_common.ps1 にある（tests\meta\screens.Tests.ps1 も読むため）
 
@@ -472,7 +474,7 @@ function captureSearchScene {
     $limitRoot = Join-Path $Root "search-limit-tsv"
     $limitLines = 1..10005 | ForEach-Object { "上限テスト" }
     newTsv "$limitRoot\大量\上限.xlsx\$(toIndexFileName "上限")" $limitLines
-    [void](newContentIndexFiles $limitRoot "$($tool.Work)\content_index")
+    [void](newContentIndexFiles $limitRoot ([Workspace]::new($tool.Work)).IndexDir)
 
     $S = startGui $tool "search"
     invokeGuiScene $S {
@@ -623,7 +625,7 @@ function captureSettingsScene {
         pressGuiKey $S.Window 0x1B
 
         setGuiStep $S "使えないフォルダ（今のインデックスの中）"
-        & $changeWorkspace "$($tool.Work)\content_index\営業"
+        & $changeWorkspace (Join-Path ([Workspace]::new($tool.Work)).IndexDir "営業")
         $invalid = waitGuiWindow $S "使えないフォルダの警告" -Text "インデックスのフォルダの中です"
         captureGuiState -S $S -Id "settings-tab/invalid-warning" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($invalid)

@@ -31,8 +31,8 @@ Describe "S10 設定から外れたインデックスの削除予定" -Tag Gui {
             } | Out-Null
             closeGui $S
         }
-        Test-Path -LiteralPath "$($script:tool.Work)\content_index\営業" | Should -BeTrue
-        Test-Path -LiteralPath "$($script:tool.Work)\content_index\資料" | Should -BeTrue
+        Test-Path -LiteralPath "$($script:tool.Work)\store\content\営業" | Should -BeTrue
+        Test-Path -LiteralPath "$($script:tool.Work)\store\content\資料" | Should -BeTrue
 
         # 資料だけを設定に残す（営業は設定から外れる）
         $config = [ordered]@{ workspaceFolder = $script:tool.Work; targetFolders = @(@{ name = "資料"; path = $script:sourceB; enabled = $true }) }
@@ -54,15 +54,15 @@ Describe "S10 設定から外れたインデックスの削除予定" -Tag Gui {
             clickGui $S $confirm "CancelButton" "［キャンセル］"
             waitGuiWindowClosed $S $confirm "取り込みの確認"
             waitGui $S "取りやめて［すべて更新］に戻る" ${guiDefaultTimeout} { (findGui $S.Window -Id "IndexingButton").Current.IsEnabled } | Out-Null
-            Test-Path -LiteralPath "$($script:tool.Work)\content_index\営業" | Should -BeTrue
+            Test-Path -LiteralPath "$($script:tool.Work)\store\content\営業" | Should -BeTrue
 
             setGuiStep $S "［更新を開始］で消える"
             clickGui $S $S.Window "IndexingButton" "［すべて更新］"
             $confirm = waitGuiWindow $S "取り込みの確認のダイアログ" -Id "StartButton" -Timeout ${guiIndexTimeout}
             clickGui $S $confirm "StartButton" "確認の［更新を開始］"
             waitGuiWindowClosed $S $confirm "取り込みの確認"
-            waitGui $S "営業のインデックスが消える" ${guiIndexTimeout} { !(Test-Path -LiteralPath "$($script:tool.Work)\content_index\営業") } | Out-Null
-            Test-Path -LiteralPath "$($script:tool.Work)\content_index\資料" | Should -BeTrue
+            waitGui $S "営業のインデックスが消える" ${guiIndexTimeout} { !(Test-Path -LiteralPath "$($script:tool.Work)\store\content\営業") } | Out-Null
+            Test-Path -LiteralPath "$($script:tool.Work)\store\content\資料" | Should -BeTrue
             waitGui $S "更新が終わる" ${guiIndexTimeout} { (findGui $S.Window -Id "IndexingButton").Current.IsEnabled } | Out-Null
             closeGui $S
         }

@@ -34,10 +34,10 @@ Describe "indexer.ps1（名前に記号があるフォルダ）" -Tag Io {
 
         runIndexer $root | Should -Be 0
 
-        $status = readStatusFile "$workspace\ingest_status.tsv"
+        $status = readStatusFile "$workspace\store\ingest_status.tsv"
         $key = "$source\営業\$file"
         $status.Rows[$key].状態 | Should -Be ${stateDone}
-        $contentIndexFiles = (getContentIndexFiles @("$workspace\content_index")).ContentIndexFiles
+        $contentIndexFiles = (getContentIndexFiles @("$workspace\store\content")).ContentIndexFiles
         $hits = @((searchContentIndex "検索語" $contentIndexFiles $true).Hits)
         $hits.Count | Should -Be 1
         $hits[0].Book | Should -Be $file

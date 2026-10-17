@@ -9,6 +9,7 @@ $ui.IndexTree.ItemsSource = $script:indexRoots
 $script:indexTreeRequest = @{ Value = 0 }   # ツリーの読み込みの依頼番号（新しい依頼が出たら、前の依頼の結果は捨てる）
 $script:indexTreeLoading = $false           # 検索対象のツリーを読み込んでいる最中か（ネットワークのとき、裏で読む間）
 $script:indexTreeConnectError = ""          # ワークスペースに接続できなかったときの、そのワークスペース（できたなら空）
+$script:indexTreeOldCount = 0               # 古い形式のままで、検索していないインデックスの数（getIndexTreeData の OldIndexCount）
 $script:indexTreeKeepStatus = $false        # 次に届くツリーの結果で、接続できない旨をステータスに書かない（先に出した失敗の知らせを残す。1 回で戻る）
 
 function loadIndexTree {
@@ -92,6 +93,7 @@ function applyIndexTreeData {
     $script:indexTreeKeepStatus = $false
     $script:indexTreeLoading = $false
     $script:indexTreeConnectError = ""
+    $script:indexTreeOldCount = [int]$data.OldIndexCount
     $script:indexRoots.Clear()
     if ($data.State -eq ${pathStateUnreachable} -or $data.State -eq ${pathStateOther}) {
         $script:indexTreeConnectError = [string]$workspace.Dir

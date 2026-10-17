@@ -133,12 +133,41 @@ Describe "WorkspaceMover.UseTargets" -Tag Io {
         writeStatusFile @(
             [pscustomobject]@{ Path = "\\server\共有\営業部"; Name = "営業" },
             [pscustomobject]@{ Path = "\\server\共有\技術部"; Name = "技術" }
-        ) @() "$TestDrive\use\ws\ingest_status.tsv"
+        ) @() "$TestDrive\use\ws\store\ingest_status.tsv"
 
         ([WorkspaceMover]::new($settings)).UseTargets("$TestDrive\use\ws") | Should -Be 2
 
         $targets = @(getTargetFolders $settings)
         @($targets | ForEach-Object { "$($_.Name)=$($_.Path)=$($_.Enabled)" }) -join "|" | Should -Be "営業=\\server\共有\営業部=True|技術=\\server\共有\技術部=True"
+    }
+
+    It "前の版のワークスペース（取り込み一覧がワークスペース直下）でも、クロール対象フォルダを一覧にする" {
+        $settings = "$TestDrive\use_old\setting.config"
+        writeTargetFolders @([pscustomobject]@{ Name = "自分"; Path = "C:\自分のフォルダ"; Enabled = $true }) $settings
+        writeStatusFile @(
+            [pscustomobject]@{ Path = "\\server\共有\営業部"; Name = "営業" }
+        ) @() "$TestDrive\use_old\ws\ingest_status.tsv"
+
+        ([WorkspaceMover]::new($settings)).UseTargets("$TestDrive\use_old\ws") | Should -Be 1
+
+        @(getTargetFolders $settings)[0].Name | Should -Be "営業"
+    }
+
+    It "移行の途中（新旧の取り込み一覧の両方があり、名前が一部だけ重なる）は、新しい方を先に、無い名前を前の版から足す" {
+        $settings = "$TestDrive\use_both\setting.config"
+        writeTargetFolders @([pscustomobject]@{ Name = "自分"; Path = "C:\自分のフォルダ"; Enabled = $true }) $settings
+        writeStatusFile @(
+            [pscustomobject]@{ Path = "\\server\共有\営業部"; Name = "営業" }
+        ) @() "$TestDrive\use_both\ws\store\ingest_status.tsv"
+        writeStatusFile @(
+            [pscustomobject]@{ Path = "\\old\営業部"; Name = "営業" }
+            [pscustomobject]@{ Path = "\\server\共有\技術部"; Name = "技術" }
+        ) @() "$TestDrive\use_both\ws\ingest_status.tsv"
+
+        ([WorkspaceMover]::new($settings)).UseTargets("$TestDrive\use_both\ws") | Should -Be 2
+
+        $targets = @(getTargetFolders $settings)
+        @($targets | ForEach-Object { "$($_.Name)=$($_.Path)" }) -join "|" | Should -Be "営業=\\server\共有\営業部|技術=\\server\共有\技術部"
     }
 
     It "取り込み一覧が無ければ、一覧は変えない" {
@@ -160,14 +189,14 @@ Describe "WorkspaceMover.ChangeWorkspace（画面が呼ぶ入口）" -Tag Io {
 
     It "move: 中身を移し、searchExcludes を付け替え、ワークスペースを設定に保存する" {
         newWorkspaceFiles "$TestDrive\change\from"
-        writeSearchExcludes @([pscustomobject]@{ Path = "$TestDrive\change\from\content_index\営業"; Subfolders = $true }) $script:settings
+        writeSearchExcludes @([pscustomobject]@{ Path = "$TestDrive\change\from\store\content\営業"; Subfolders = $true }) $script:settings
 
         $result = $script:mover.ChangeWorkspace("move", "$TestDrive\change\from", "$TestDrive\change\to")
 
         $result.Ok | Should -Be $true
         $result.Count | Should -Be 5
         Test-Path -LiteralPath "$TestDrive\change\to\ingest_status.tsv" | Should -Be $true
-        @(readSearchExcludes $script:settings)[0].Path | Should -Be "$TestDrive\change\to\content_index\営業"
+        @(readSearchExcludes $script:settings)[0].Path | Should -Be "$TestDrive\change\to\store\content\営業"
         (getWorkDir $script:settings) | Should -Be "$TestDrive\change\to"
     }
 
@@ -215,7 +244,7 @@ Describe "WorkspaceMover.ChangeWorkspace（画面が呼ぶ入口）" -Tag Io {
 
     It "use: 中身は移さず、選んだ先の取り込み一覧をインデックスの一覧にして、ワークスペースを保存する" {
         newWorkspaceFiles "$TestDrive\change\from"
-        writeStatusFile @([pscustomobject]@{ Path = "\\server\共有\営業部"; Name = "営業" }) @() "$TestDrive\change\to\ingest_status.tsv"
+        writeStatusFile @([pscustomobject]@{ Path = "\\server\共有\営業部"; Name = "営業" }) @() "$TestDrive\change\to\store\ingest_status.tsv"
 
         $result = $script:mover.ChangeWorkspace("use", "$TestDrive\change\from", "$TestDrive\change\to")
 

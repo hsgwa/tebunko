@@ -243,8 +243,8 @@ function newContentIndexWorkerPool {
         [int]$workers = (getWorkerCount)
     )
 
-    $state = newWorkerState @("searchContentIndexFiles", "testCellPrefixedHit", "readContentIndexPlaces", "testContentIndexCellPrefixed", "testCellPrefixedPlace", "convertContentIndexMetaToPlace", "decodeContentIndexValue", "getContentIndexFileKind", "getOfficeFileKind", "testTextExtension", "testPdfExtension", "truncateHitLine") `
-        @("contentIndexMark", "contentIndexVersion", "officeFileKinds", "contentIndexPlaceKeys", "placeKindShape", "placeKindComment", "placeKindHeaderFooter", "placeKindEmbed", "textExtensions", "pdfExtensions", "hitLineMaxChars", "hitLineBeforeMatchChars", "contentIndexSearchMaxBytes")
+    $state = newWorkerState @("searchContentIndexFiles", "testCellPrefixedHit", "readContentIndexPlaces", "getIndexRebuildMessage", "testContentIndexCellPrefixed", "testCellPrefixedPlace", "convertContentIndexMetaToPlace", "decodeContentIndexValue", "getContentIndexFileKind", "getOfficeFileKind", "testTextExtension", "testPdfExtension", "truncateHitLine") `
+        @("contentIndexMark", "contentIndexVersion", "indexRebuildMessage", "officeFileKinds", "contentIndexPlaceKeys", "placeKindShape", "placeKindComment", "placeKindHeaderFooter", "placeKindEmbed", "textExtensions", "pdfExtensions", "hitLineMaxChars", "hitLineBeforeMatchChars", "contentIndexSearchMaxBytes")
     return [WorkerPool]::new($workers, $state, $Host, "Normal")
 }
 

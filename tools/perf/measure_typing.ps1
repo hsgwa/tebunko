@@ -48,9 +48,9 @@ if (!$hasService) {
 }
 
 if ($Fast) {
-    $wantIndex = (Join-Path $Work "content_index").TrimEnd("\")
+    $wantIndex = ([Workspace]::new($Work)).IndexDir.TrimEnd("\")
     if (!$Index.TrimEnd("\").Equals($wantIndex, [System.StringComparison]::OrdinalIgnoreCase)) {
-        throw "-TypingFast では、-Index を <Work>\content_index にしてください。"
+        throw "-TypingFast では、-Index を <Work> の本文インデックスのフォルダ（${wantIndex}）にしてください。"
     }
     if (!(Get-Command newSearchRequest -CommandType Function).Parameters.ContainsKey("workDir")) {
         throw "測る版は、高速検索のワークスペースを要求で渡せません。"

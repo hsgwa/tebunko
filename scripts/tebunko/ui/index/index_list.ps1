@@ -449,11 +449,16 @@ function applyIndexStats {
     #   indexing: インデックス作成中か（getIndexRowView にそのまま渡す）
     param (
         $stats,
-        [bool]$indexing = $false
+        [bool]$indexing = $false,
+        $formatState = $null    # getWorkspaceIndexFormat の結果（インデックスの格納形式の状態）。無ければ $null
     )
 
     foreach ($item in $script:targetItems) {
         $stat = $null
+        $formatEntry = $null
+        if ($item.Name -and $null -ne $formatState -and $formatState.Indexes.Contains($item.Name)) {
+            $formatEntry = $formatState.Indexes[$item.Name]
+        }
         if ($item.Name -and $null -ne $stats -and $stats.ContainsKey($item.Name)) {
             $stat = $stats[$item.Name]
         }
@@ -468,7 +473,7 @@ function applyIndexStats {
             }
             $item.SetStats(("{0:#,0}" -f $stat.Total), ("更新済み {0:#,0} 件 ・ 未更新 {1:#,0} 件 ・ 失敗 {2:#,0} 件" -f $stat.Done, $stat.Pending, $stat.Failed), $lastText)
         }
-        $row = getIndexRowView $stat $indexing $item.Enabled (getIndexingRatio) (testIndexInRound $item) (testIndexExporting $item)
+        $row = getIndexRowView $stat $indexing $item.Enabled (getIndexingRatio) (testIndexInRound $item) (testIndexExporting $item) $formatEntry
         $item.SetIndexState($row.Text, $row.ToolTip, $row.Level, $row.Sub, [double]$row.Percent)
         setIndexRowActions $item
     }
@@ -508,7 +513,7 @@ function setExportingRows {
 
     $script:exportingNames = @($names | Where-Object { $_ })
     if ($null -ne $script:indexingState) {
-        applyIndexStats $script:indexingState.IndexStats (isIndexing)
+        applyIndexStats $script:indexingState.IndexStats (isIndexing) $script:indexingState.Format
     }
 }
 

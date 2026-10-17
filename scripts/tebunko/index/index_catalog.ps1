@@ -1,5 +1,5 @@
 ﻿# インデックスの改名・削除・名前の割り当て・一覧と元のフォルダの記録の保存。
-# インデックス 1 つの情報は複数の保存先に分かれて置かれている: 設定の targetFolders、取り込み一覧、インデックスのフォルダ（content_index\<名前>）と
+# インデックス 1 つの情報は複数の保存先に分かれて置かれている: 設定の targetFolders、取り込み一覧、インデックスのフォルダ（store\content\<名前>）、目録（store\format.tsv）の行と
 # 元のフォルダの記録（source_folder.txt）、設定の searchExcludes、システムインデックス（system_index）。
 # このクラスは、改名・削除でそれらを書き換える手順と順番、途中で失敗したときの扱い（止める・残す）だけを持つ。一覧（targetFolders）と元のフォルダの記録の書き直しは、画面が SaveTargets・WriteSourceFile（改名では RenameIndexWithSource）で呼ぶ。保存先の形式は知らず、
 # 保存先ごとの読み書きは既存の関数（searchExcludes は core\search_excludes.ps1）と、作る側から渡された StatusLedger に任せる。
@@ -28,7 +28,7 @@ class IndexCatalog {
     }
 
     [void] RenameIndex([string]$oldName, [string]$newName) {
-        # インデックス名を変える（画面の詳細の名前の欄）。インデックスのフォルダ（content_index\<名前>）を改名し、
+        # インデックス名を変える（画面の詳細の名前の欄）。インデックスのフォルダ（store\content\<名前>）を改名し、
         # 取り込み一覧の記録も書き換えるため、名前を変えてもインデックスは作り直さない。
         # インデックス作成中は呼ばない（画面はインデックス作成中この操作を無効にする）。
         # フォルダの改名か取り込み一覧の書き換えに失敗したら例外にする（システムインデックスと searchExcludes の整理は、失敗しても止めない）
@@ -68,6 +68,9 @@ class IndexCatalog {
             }
         }
         $this.Ledger.RenameIndexName($oldName, $newName)
+        # 古い置き場（作り直す前の形式）の同じ名前のフォルダと、目録の行も改名に合わせる。目録を書き換えられない（新しい版）ときは行を残す
+        renameOldIndexFolder $oldName $newName $this.Workspace
+        [void](renameIndexFormatRow $oldName $newName $this.Workspace.FormatFile)
         # 高速検索の システムインデックス（同じワークスペースの system_index）は古い名前の分を消す。次のインデックス作成で作り直す
         removeSystemIndexOfWorkspace $oldName $dir
         # 外したフォルダの記録（searchExcludes）は旧名・新名の下のものを消す（付け替えず、検索対象に戻す）
@@ -90,7 +93,7 @@ class IndexCatalog {
     }
 
     [void] RemoveIndex([string]$name) {
-        # インデックスを削除する（画面の［削除］）。インデックスのフォルダ（content_index\<名前>）と、取り込み一覧の記録を削除する。
+        # インデックスを削除する（画面の［削除］）。インデックスのフォルダ（store\content\<名前>）と、取り込み一覧の記録を削除する。
         # インデックス作成中は呼ばない（画面はインデックス作成中この操作を無効にする）。
         # フォルダを消せなければ例外にして、取り込み一覧の記録は残す
         $dir = $this.Workspace.IndexDir
@@ -110,6 +113,12 @@ class IndexCatalog {
             # 消せなければ例外にして、取り込み一覧の記録を残す（フォルダが残ったまま記録だけ消えないように）
             removeDirectoryRetry $target
         }
+        # 古い置き場（作り直す前の形式）の同じ名前のフォルダと、目録の行も消す
+        $oldTarget = Join-Path $this.Workspace.OldIndexDir $name
+        if (testPathUnder $oldTarget $this.Workspace.OldIndexDir) {
+            removeDirectoryRetry $oldTarget
+        }
+        [void](removeIndexFormatRow $name $this.Workspace.FormatFile)
         $this.Ledger.RemoveIndexName($name)
         removeSystemIndexOfWorkspace $name $dir
         # 外したフォルダの記録（searchExcludes）も消す
