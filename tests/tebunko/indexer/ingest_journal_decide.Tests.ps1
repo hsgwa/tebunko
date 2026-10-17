@@ -1,4 +1,4 @@
-﻿# 取り込みのジャーナルの行の組み立てと読み取り（tebunko\indexer\indexer_decide.ps1 の convertToIngestJournalLine・convertFromIngestJournal）のテスト
+﻿# 取り込みのジャーナルの行の組み立てと読み取り（tebunko\indexer\indexer_decide.ps1 の convertToIngestJournalLine・newIngestJournalHead・convertFromIngestJournal）のテスト
 BeforeDiscovery {
     # テストの表（-TestCases）は探索のときに作るため、ここで行を組み立てる（本番の関数は読み込まれていない）
     function j([string]$kind, [object[]]$fields = @()) {
@@ -20,6 +20,25 @@ Describe "convertToIngestJournalLine" -Tag Unit {
         (convertToIngestJournalLine "始" @("営業\a.xlsx", 2)) | Should -Be "始`t営業\a.xlsx`t2"
         (convertToIngestJournalLine "終") | Should -Be "終"
         (convertToIngestJournalLine "出" @("営業`tx\y`r`nz")) | Should -Be "出`t営業 x\y z"
+    }
+}
+
+Describe "newIngestJournalHead" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "持も未も無いときは、版と回だけ"; carried = [ordered]@{}; unpublished = @()
+           expected = @((j "版" @(2)), (j "回" @("2026/10/17 10:00:00", 3))) }
+        @{ name = "未が 1 件のときは、回の後に未を 1 行足す"; carried = [ordered]@{}; unpublished = @("営業")
+           expected = @((j "版" @(2)), (j "回" @("2026/10/17 10:00:00", 3)), (j "未" @("営業"))) }
+        @{ name = "未が 2 件のときは、渡した順に未を足す"; carried = [ordered]@{}; unpublished = @("営業", "開発\東")
+           expected = @((j "版" @(2)), (j "回" @("2026/10/17 10:00:00", 3)), (j "未" @("営業")), (j "未" @("開発\東"))) }
+        @{ name = "持と未が両方あるときは、回の後に持、その後に未の順"; carried = [ordered]@{ "営業\a.xlsx" = 2; "営業\b.xlsx" = 1 }; unpublished = @("営業")
+           expected = @((j "版" @(2)), (j "回" @("2026/10/17 10:00:00", 3)), (j "持" @("営業\a.xlsx", 2)), (j "持" @("営業\b.xlsx", 1)), (j "未" @("営業"))) }
+        @{ name = "未が null や空のときは、未の行を足さない"; carried = $null; unpublished = $null
+           expected = @((j "版" @(2)), (j "回" @("2026/10/17 10:00:00", 3))) }
+    ) {
+        param ($name, $carried, $unpublished, $expected)
+        $head = newIngestJournalHead 2 "2026/10/17 10:00:00" 3 $carried $unpublished
+        @($head) | Should -Be $expected
     }
 }
 

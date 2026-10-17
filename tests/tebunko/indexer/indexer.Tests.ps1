@@ -2011,12 +2011,18 @@ Describe "取り込みのジャーナルの復旧と書き出し（flushPendingP
 
         function newRecoverEnv {
             # 前回のジャーナル（records）を書き、書き出し前のフォルダ（営業\a.xlsx の TSV を入れる元のファイルごとのフォルダ）を作った状態の部品を返す
-            param ([string[]]$records = $null)
+            param (
+                [string[]]$records = $null,
+                [string[]]$folders = @("営業")
+            )
 
             $script:recoverCount++
             $ws = [Workspace]::new((Join-Path $TestDrive "recover$($script:recoverCount)"))
-            [System.IO.Directory]::CreateDirectory("$($ws.IndexDir)\営業\a.xlsx") | Out-Null
-            [System.IO.File]::WriteAllText("$($ws.IndexDir)\営業\a.xlsx\S.tsv", "x")
+            [System.IO.Directory]::CreateDirectory($ws.IndexDir) | Out-Null
+            foreach ($name in $folders) {
+                [System.IO.Directory]::CreateDirectory("$($ws.IndexDir)\$name\a.xlsx") | Out-Null
+                [System.IO.File]::WriteAllText("$($ws.IndexDir)\$name\a.xlsx\S.tsv", "x")
+            }
             $journal = [IngestJournal]::new($ws.JournalFile)
             if ($null -ne $records) {
                 $journal.Reset([string[]](@("版`t2", "回`t2026/10/17 10:00:00`t0") + $records))
@@ -2042,31 +2048,34 @@ Describe "取り込みのジャーナルの復旧と書き出し（flushPendingP
         Mock publishIndexFolders { return @{ Count = 1; Skipped = @() } }
     }
 
-    It "flushPendingPublish は、書き出せたフォルダに「出」を足し、Unfinished を立てない" {
+    It "flushPendingPublish は、書き出せたフォルダに「出」を足し、書き出せなかったフォルダ（Failed）を空のままにする" {
         $rc = newRecoverEnv
         $workspace = $rc.Workspace
         $rc.Pending.MarkFolder("$($workspace.IndexDir)\営業")
-        flushPendingPublish $rc.Pending $rc.Journal -All
-        $rc.Journal.Unfinished | Should -Be $false
+        $failed = New-Object System.Collections.Generic.List[string]
+        flushPendingPublish $rc.Pending $rc.Journal -All -Failed $failed
+        $failed.Count | Should -Be 0
         (readJournalLines $rc) | Should -Be @("出`t営業")
     }
 
-    It "flushPendingPublish は、<name>のとき、「出」を足さず、Unfinished を立てる" -TestCases @(
-        @{ name = "本文インデックスを書けなかった（Skipped）"; fail = "skip" }
-        @{ name = "書き出しが例外になった"; fail = "throw" }
+    It "flushPendingPublish は、<name>のとき、書き出せなかったフォルダだけを Failed に足し、「出」はできたフォルダにだけ足す" -TestCases @(
+        @{ name = "2 フォルダのうち 1 つの本文インデックスを書けなかった（Skipped）"; fail = "skip"; expectedFailed = @("営業"); expectedJournal = @("出`t開発") }
+        @{ name = "書き出しが例外になった（全部が書き出せていない）"; fail = "throw"; expectedFailed = @("営業", "開発"); expectedJournal = @() }
     ) {
-        param ($name, $fail)
-        $rc = newRecoverEnv
+        param ($name, $fail, $expectedFailed, $expectedJournal)
+        $rc = newRecoverEnv -folders @("営業", "開発")
         $workspace = $rc.Workspace
         if ($fail -eq "skip") {
-            Mock publishIndexFolders { return @{ Count = 0; Skipped = @(@{ Rel = "営業"; Stage = "本文インデックス"; Reason = "書けない" }) } }
+            Mock publishIndexFolders { return @{ Count = 1; Skipped = @(@{ Rel = "営業"; Stage = "本文インデックス"; Reason = "書けない" }) } }
         } else {
             Mock publishIndexFolders { throw "壊れた" }
         }
         $rc.Pending.MarkFolder("$($workspace.IndexDir)\営業")
-        flushPendingPublish $rc.Pending $rc.Journal -All
-        $rc.Journal.Unfinished | Should -Be $true
-        (readJournalLines $rc).Count | Should -Be 0
+        $rc.Pending.MarkFolder("$($workspace.IndexDir)\開発")
+        $failed = New-Object System.Collections.Generic.List[string]
+        flushPendingPublish $rc.Pending $rc.Journal -All -Failed $failed
+        @($failed | Sort-Object) | Should -Be @($expectedFailed | Sort-Object)
+        @(readJournalLines $rc) | Should -Be @($expectedJournal)
     }
 
     It "前の回が終まで書いたが、営業の出が無い（書き出せなかった）とき、始めに書き出し直し、出を足して、次の回へ持ち越すものは無い。済んだ仕事は止まった扱いにしない" {
@@ -2079,14 +2088,22 @@ Describe "取り込みのジャーナルの復旧と書き出し（flushPendingP
         (readJournalLines $rc)[-1] | Should -Be "出`t営業"
     }
 
-    It "始めの書き出しが失敗したときは、そのフォルダを次の回へ持ち越す（Unpublished）。済んだ仕事は止まった扱いにせず、Unfinished は戻す" {
+    It "始めの書き出しが失敗したときは、そのフォルダを次の回へ持ち越す（Unpublished）。済んだ仕事は止まった扱いにしない" {
         Mock publishIndexFolders { return @{ Count = 0; Skipped = @(@{ Rel = "営業"; Stage = "本文インデックス"; Reason = "書けない" }) } }
         $rc = newRecoverEnv @("始`t営業\a.xlsx`t1", "終")
         $workspace = $rc.Workspace
         $result = recoverIngestJournal $rc.Ledger $rc.Journal $rc.Pending $rc.Channel $rc.Reporter
         @($result.Resume).Count | Should -Be 0
         @($result.Unpublished) | Should -Be @("営業")
-        $rc.Journal.Unfinished | Should -Be $false
+    }
+
+    It "始めの書き出しが 2 フォルダのうち 1 つだけ失敗したときは、失敗した 1 つだけを次の回へ持ち越し、書き出せた 1 つは「出」を足す" {
+        Mock publishIndexFolders { return @{ Count = 1; Skipped = @(@{ Rel = "開発"; Stage = "本文インデックス"; Reason = "書けない" }) } }
+        $rc = newRecoverEnv @("始`t営業\a.xlsx`t1", "始`t開発\b.xlsx`t1", "終") -folders @("営業", "開発")
+        $workspace = $rc.Workspace
+        $result = recoverIngestJournal $rc.Ledger $rc.Journal $rc.Pending $rc.Channel $rc.Reporter
+        @($result.Unpublished) | Should -Be @("開発")
+        (readJournalLines $rc)[-1] | Should -Be "出`t営業"
     }
 
     It "中止を求められていれば、始めの書き出しはせず、書き出していないフォルダを次の回へ持ち越す" {
@@ -2107,12 +2124,21 @@ Describe "取り込みのジャーナルの復旧と書き出し（flushPendingP
         @($result.Unpublished) | Should -Be @("営業")
     }
 
-    It "ジャーナルが読めない（無い）ときは、今ある書き出し前のフォルダ（前の版で止まった跡を含む）を書き出す" {
-        $rc = newRecoverEnv
+    It "ジャーナルが読めない（無い）ときは、今ある書き出し前のフォルダ（<count> 件。前の版で止まった跡を含む）だけを書き出す" -TestCases @(
+        @{ count = 0; folders = @() }
+        @{ count = 2; folders = @("営業", "開発") }
+    ) {
+        param ($count, $folders)
+        $rc = newRecoverEnv -folders $folders
         $workspace = $rc.Workspace
+        $script:expectedKeys = (@($folders | ForEach-Object { "$($workspace.IndexDir)\$_" }) | Sort-Object) -join "|"
         $result = recoverIngestJournal $rc.Ledger $rc.Journal $rc.Pending $rc.Channel $rc.Reporter
         @($result.Unpublished).Count | Should -Be 0
-        Should -Invoke publishIndexFolders -Times 1 -Exactly -Scope It
+        if ($count -eq 0) {
+            Should -Invoke publishIndexFolders -Times 0 -Exactly -Scope It
+        } else {
+            Should -Invoke publishIndexFolders -Times 1 -Exactly -Scope It -ParameterFilter { ((@($pending.Keys) | Sort-Object) -join "|") -eq $script:expectedKeys }
+        }
     }
 
     It "前の版の ingesting.txt があれば、止まった仕事に足す。ジャーナルにも同じ仕事があるときは重ねない" {

@@ -5,13 +5,10 @@
 
 class IngestJournal {
     [string]$Path
-    # この回に書き出せなかったフォルダがある（「出」を書かないので、次の回の始めに「未」で持ち越してもう一度書き出す）
-    [bool]$Unfinished
     hidden [System.IO.StreamWriter]$Writer
 
     IngestJournal([string]$path) {
         $this.Path = $path
-        $this.Unfinished = $false
     }
 
     [string[]] ReadPrevious() {

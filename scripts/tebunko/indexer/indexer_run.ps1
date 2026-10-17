@@ -334,11 +334,13 @@ function flushPendingPublish {
     # 書き出し待ちのフォルダを本文インデックスへまとめる（書き出しは司令が呼ぶ。PendingPublish は決めて返すだけ）。
     # -All は、取り込み中・まだ渡していない数を見ずに、書き出し待ちのフォルダをすべて書き出す（クロールの前後・インデックス作成の終わり）
     # 書き出せたフォルダは、ジャーナルに「出」を足す（次の始めにもう一度書き出さなくてよい）。書き出せなかった（本文インデックスを書けなかった・例外）フォルダは
-    # 「出」が無いままなので、次の始めにもう一度書き出す。ジャーナルの Unfinished を立てる（始めの書き出しで、次の回へ「未」で持ち越すかを決めるのに使う）
+    # 「出」が無いままなので、次の始めにもう一度書き出す。-Failed に渡した List に、書き出せなかったフォルダ（インデックスからの相対。例外のときは全部）を足す
+    # （始めの書き出しで、次の回へ「未」で持ち越すフォルダを決めるのに使う）
     param (
         $pending,
         $journal,
-        [switch]$All
+        [switch]$All,
+        $Failed = $null
     )
 
     $flush = if ($All) { $pending.TakeAll() } else { $pending.TakeFlushable() }
@@ -356,18 +358,24 @@ function flushPendingPublish {
         }
     } catch {
         writeIndexerLog "    インデックスをまとめられませんでした（次のインデックス作成でまとめ直します）: $($_.Exception.Message)" "Yellow"
-        $journal.Unfinished = $true
+        foreach ($folder in $flush.Keys) {
+            $rel = getIndexFolderRel $folder
+            if ($rel -ne "" -and $null -ne $Failed) {
+                $Failed.Add($rel)
+            }
+        }
         return
-    }
-    if ($failedRels.Count -gt 0) {
-        $journal.Unfinished = $true
     }
     foreach ($folder in $flush.Keys) {
         $rel = getIndexFolderRel $folder
         if ($rel -eq "") {
             continue
         }
-        if (!$failedRels.Contains($rel)) {
+        if ($failedRels.Contains($rel)) {
+            if ($null -ne $Failed) {
+                $Failed.Add($rel)
+            }
+        } else {
             $journal.AddRecord((convertToIngestJournalLine "出" @($rel)))
         }
     }
@@ -414,30 +422,23 @@ function recoverIngestJournal {
             $leftover.Add($folder)
         }
     }
-    $done = $true
+    # 次の回へ持ち越すフォルダ: 中止で飛ばしたら全部、書き出しを試したら書き出せなかったものだけ
+    $unpublished = New-Object System.Collections.Generic.List[string]
     if ($leftover.Count -gt 0) {
         if ($channel.Stop) {
-            $done = $false
+            foreach ($folder in $leftover) {
+                $rel = getIndexFolderRel $folder
+                if ($rel -ne "") {
+                    $unpublished.Add($rel)
+                }
+            }
         } else {
             writeIndexerLog "集約ファイルに入れていないインデックス（$($leftover.Count) フォルダ）をまとめています…"
             $reporter.Progress(${indexingPhaseCrawl}, 0, 0, 0, "集約ファイルに入れていないインデックスをまとめています…")
             foreach ($folder in $leftover) {
                 $pending.MarkFolder($folder)
             }
-            flushPendingPublish $pending $journal -All
-            if ($journal.Unfinished) {
-                $done = $false
-                $journal.Unfinished = $false
-            }
-        }
-    }
-    $unpublished = New-Object System.Collections.Generic.List[string]
-    if (!$done) {
-        foreach ($folder in $leftover) {
-            $rel = getIndexFolderRel $folder
-            if ($rel -ne "") {
-                $unpublished.Add($rel)
-            }
+            flushPendingPublish $pending $journal -All -Failed $unpublished
         }
     }
     return @{ Resume = $resume; Unpublished = $unpublished.ToArray() }
@@ -820,16 +821,8 @@ function invokeIndexerBody {
     # 書き直しの途中で止まったときのために、書き直しの前に「書」の印を足す（前回のジャーナルの末尾に付く）
     $journal.AddRecord((convertToIngestJournalLine "書"))
     writeStatusKeepingDropped $ledger $folders $rows.ToArray() $keptDropped $previous
-    $journalLines = New-Object System.Collections.Generic.List[string]
-    $journalLines.Add((convertToIngestJournalLine "版" @(${indexFormatVersion})))
-    $journalLines.Add((convertToIngestJournalLine "回" @((formatFileTime (Get-Date)), @($ledger.ReadRelPaths()).Count)))
-    foreach ($carriedName in $carried.Keys) {
-        $journalLines.Add((convertToIngestJournalLine "持" @($carriedName, $carried[$carriedName])))
-    }
-    foreach ($unpublishedRel in $recovered.Unpublished) {
-        $journalLines.Add((convertToIngestJournalLine "未" @($unpublishedRel)))
-    }
-    $journal.Reset($journalLines.ToArray())
+    $journalHead = newIngestJournalHead ${indexFormatVersion} (formatFileTime (Get-Date)) (@($ledger.ReadRelPaths()).Count) $carried $recovered.Unpublished
+    $journal.Reset([string[]]$journalHead)
     removeLegacyIngesting
     # インデックスのフォルダごと別の場所・PCへコピーしても元のファイルの場所が分かるよう、インデックス名とクロール対象フォルダの対応を置く
     writeSourceFolderFile $folders

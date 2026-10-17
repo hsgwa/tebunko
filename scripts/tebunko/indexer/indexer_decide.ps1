@@ -231,6 +231,33 @@ function convertToIngestJournalLine {
     return [string]::Join("`t", $parts.ToArray())
 }
 
+function newIngestJournalHead {
+    # 新しい回のジャーナルの頭の行を作る（版・回・持ち越した仕事の「持」・書き出せていないフォルダの「未」の順）。
+    # $carried は 相対パス → 回数 のハッシュ、$unpublished はインデックスからの相対のフォルダ（無ければ空）
+    param (
+        [int]$version,
+        [string]$stamp,
+        [int]$rowCount,
+        $carried,
+        $unpublished
+    )
+
+    $lines = New-Object System.Collections.Generic.List[string]
+    $lines.Add((convertToIngestJournalLine "版" @($version)))
+    $lines.Add((convertToIngestJournalLine "回" @($stamp, $rowCount)))
+    if ($null -ne $carried) {
+        foreach ($name in $carried.Keys) {
+            $lines.Add((convertToIngestJournalLine "持" @($name, $carried[$name])))
+        }
+    }
+    foreach ($rel in @($unpublished)) {
+        if ($null -ne $rel -and [string]$rel -ne "") {
+            $lines.Add((convertToIngestJournalLine "未" @($rel)))
+        }
+    }
+    return $lines.ToArray()
+}
+
 function convertFromIngestJournal {
     # 前回のジャーナルの行と、そのときの取り込み一覧の相対パス（ファイルの順。同じ相対パスの追記も数える）から、
     # 始めの復旧の内容を決める。戻り値: @{ Valid; Finished; Aligned; Folders; Resume }
