@@ -385,17 +385,17 @@ function restorePendingRemovals {
 
 function flushLeftovers {
     # 前回、本文インデックスから外し終えていなかった「無くなった元のファイル」を書き出し待ちに戻し、
-    # 本文インデックスのファイルに入れていない TSV（元のファイルごとのフォルダ）と一緒に書き出す。
-    # 中止を求められていれば、TSV を探す段と書き出しは飛ばして次回に回す（段の途中では止めない）
+    # 呼ぶ側が渡した、本文インデックスのファイルに入れていない TSV（元のファイルごとのフォルダ）の一覧と一緒に書き出す。
+    # -Stop（中止を求められている）なら、書き出しは飛ばして次回に回す（戻すだけ。段の途中では止めない）
     param (
         $pending,
         $reporter,
-        $channel
+        $leftover,
+        [switch]$Stop
     )
 
     restorePendingRemovals $pending
-    $leftover = if ($channel.Stop) { @() } else { findIndexFoldersWithBooks $workspace.IndexDir }
-    $removals = if ($channel.Stop) { 0 } else { $pending.Unpublished.Count }
+    $removals = if ($Stop) { 0 } else { $pending.Unpublished.Count }
     if ($leftover.Count -eq 0 -and $removals -eq 0) {
         return
     }
@@ -616,7 +616,9 @@ function invokeIndexerBody {
     # 設定から外れたインデックスは、ここでは消さない。確認ダイアログに「削除予定」として出し、［更新を開始］が押されたときだけ消す
     $dropped = $planner.Dropped
     # 前回のインデックス作成が途中で止まって残った分（本文インデックスに入れていない TSV・外し終えていない削除）を先に書き出す
-    flushLeftovers $pending $reporter $channel
+    # （中止を求められていれば、TSV を探す段と書き出しは飛ばして次回に回す。段の途中では止めない）
+    $leftover = if ($channel.Stop) { @() } else { findIndexFoldersWithBooks $workspace.IndexDir }
+    flushLeftovers $pending $reporter $leftover -Stop:([bool]$channel.Stop)
 
     # 新しく割り当てたインデックス名を設定に保存する
     $planner.SaveNames($targetFolders, { param($assigned) $catalog.StoreAssignedNames($assigned) }.GetNewClosure())
