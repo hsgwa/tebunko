@@ -474,7 +474,7 @@ Describe "OfficeWatchdog（利用者が使っているプロセスは止めな�
         $env:TEBUNKO_TEST_FAKE_WINDOW = $null
     }
 
-    It "窓が一度でも見えたプロセスは、窓が消えて（ゴースト窓）制限時間を過ぎても止めず、レーンを諦める。<title>" -TestCases @(
+    It "窓が一度でも見えたプロセスは、窓が消えて（ゴースト窓）制限時間を過ぎても止めず、ワーカーを諦める。<title>" -TestCases @(
         @{ title = "窓を見たあとで消えた"; ghost = $true }
         @{ title = "窓が見えたまま"; ghost = $false }
     ) {
@@ -647,7 +647,7 @@ Describe "OfficeWatchdog.UpdateWatchedPids（利用者が使った印の片付�
         # 10・30 は見張りから外れた → 印は消える
         $watchdog.State.Users.ContainsKey(10) | Should -Be $false
         $watchdog.State.Users.ContainsKey(30) | Should -Be $false
-        # 一度も見張っていない PID の印（ほかのレーンのもの）は消さない
+        # 一度も見張っていない PID の印（ほかのワーカーのもの）は消さない
         $watchdog.State.Users.ContainsKey(99) | Should -Be $true
     }
 }

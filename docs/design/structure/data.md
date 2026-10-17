@@ -25,7 +25,7 @@ tebunko が読み書きするファイルとフォルダの一覧（置き場ご
 | `work/search_results.txt` | 画面の［結果をファイルに出力］で書き出す検索結果 |
 | `work/test/`・`work/release/`・`work/site/`・`work/cache/` | 開発用の出力（テスト結果とカバレッジ・配布物・設計書のサイト・サイトを作るときのキャッシュ） |
 
-取り込みの作業領域は、既定では `work/tmp/<PC の鍵>/<PID>/` に置く（`Workspace` の `TmpRoot`。`tebunko/core/workspace.ps1` の `selectTmpDir`）。`<PC の鍵>` はコンピューター名から作る 8 文字の鍵（`getMachineKey`）で、ワークスペースを複数の PC から共有しても、互いの作業フォルダを衝突・削除させない（プロセス ID だけでは PC をまたいで重なりうるため）。その下は、取り込みのスレッド（Excel・Word・PowerPoint・読み取りのレーンのスレッド）ごとに `w<番号>` のフォルダに分ける（`newWorkerTmpDir`。`work/publish/<PID>` も同じ。[取り込みの並列化](../indexing/parallel.md)）。
+取り込みの作業領域は、既定では `work/tmp/<PC の鍵>/<PID>/` に置く（`Workspace` の `TmpRoot`。`tebunko/core/workspace.ps1` の `selectTmpDir`）。`<PC の鍵>` はコンピューター名から作る 8 文字の鍵（`getMachineKey`）で、ワークスペースを複数の PC から共有しても、互いの作業フォルダを衝突・削除させない（プロセス ID だけでは PC をまたいで重なりうるため）。その下は、取り込みのスレッド（Excel・Word・PowerPoint・Office を使わずに読むワーカー）ごとに `w<番号>` のフォルダに分ける（`newWorkerTmpDir`。`work/publish/<PID>` も同じ。[取り込みの並列化](../indexing/parallel.md)）。
 
 ワークスペースのパスに `[` `]` が含まれる（Excel が保存できない）・パスが長すぎる（Office が開けない）ときは、作業フォルダを作らず、取り込みをすべてスキップする（どのファイルも中間 TSV やコピー（Office・テキストとも、元のファイルのコピーをここに置いて読み、読み終えたら消す）をこの作業領域に作るため、テキストファイルを含めすべての取り込みが対象になる。`%TEMP%` には逃がさない。理由をログに 1 行残し、スキップした各ファイルは取り込みの失敗として取り込み一覧に残る。[エラーメッセージ](../indexing/errors.md)）。インデックス作成の始め（`initTmpDir`）に、強制終了などで残った前回までの作業フォルダ（`work/tmp/` 配下・`work/publish/` 配下・前の版（`%TEMP%\tebunko\`）が残したものがあればそれも）を片付けてから、今回の場所を決める。作れたときは、Windows Search の索引対象から外す属性（`NotContentIndexed`）も付ける。
 

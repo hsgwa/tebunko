@@ -467,7 +467,7 @@ function extractDocument {
                 if (!(testOfficeFallbackEnabled $appName)) {
                     throwProtectionFailure (getProtectionFailureText "Unknown")
                 }
-                # 読み取りのスレッド（Office を持たない）では、Office のレーンに回す
+                # 読み取りのスレッド（Office を持たない）では、Office の持ち主のワーカーに回す
                 if ($script:officeUnavailable) {
                     throw (New-Object System.OperationCanceledException ${officeRequiredMessage})
                 }
@@ -497,7 +497,7 @@ function extractDocument {
                     throw "ファイルが壊れているか、PowerPointのファイルではありません（新形式（ZIP）でも旧形式でもない内容です）。"
                 }
 
-                # 読み取りのスレッド（Office を持たない）では、Office のレーンに回す（indexer_run.ps1 の runIngestWorker・invokeIngestTask）
+                # 読み取りのスレッド（Office を持たない）では、Office の持ち主のワーカーに回す（indexer_run.ps1 の runIngestWorker・invokeIngestTask）
                 if ($script:officeUnavailable) {
                     throw (New-Object System.OperationCanceledException ${officeRequiredMessage})
                 }
@@ -545,7 +545,7 @@ function extractDocument {
 
 function ingestFile {
     # 1ファイルを取り込み、作成したTSVの数を返す。
-    # テキストの拡張子（textExtensions）・PDF の拡張子（pdfExtensions）は Office を使わず読み取りのレーンで取り込む（extract_text.ps1・extract_pdf.ps1）
+    # テキストの拡張子（textExtensions）・PDF の拡張子（pdfExtensions）は Office を使わずに読んで取り込む（extract_text.ps1・extract_pdf.ps1）
     param (
         [string]$sourcePath
     )

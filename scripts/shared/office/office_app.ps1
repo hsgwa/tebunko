@@ -629,7 +629,7 @@ class OfficeWatchdog {
     #   Stop    : 見張りのスレッドに終わりを伝える
     #   Users   : 取り込み中に、見える窓が一度でもあったプロセス（利用者が使った印）。PID → @{ ProcessName; StartTicks }（ConcurrentDictionary）。
     #             印のあるプロセスは、制限時間を過ぎても強制終了しない。画面を閉じるときの KillOffice と共有するため、使う側が入れ替える
-    #   Abandon : 印のあるプロセスを止めずに、制限時間を過ぎたレーンを諦めたと、司令に伝える入れ物（Synchronized な @{ Abandoned }）。
+    #   Abandon : 印のあるプロセスを止めずに、制限時間を過ぎたワーカーを諦めたと、司令に伝える入れ物（Synchronized な @{ Abandoned }）。
     #             取り込みのスレッドが入れる。無ければ（司令のスレッドで取り込むとき）止めないだけにする
     #   Cancel  : 中止を伝える入れ物（Stop を持つ Synchronized な hashtable）。取り込み中に Stop が立ったら、制限時間を過ぎたのと同じに扱う
     #             （自分で起動したアプリを止め、利用者が使った印のあるプロセスは止めない）。無ければ中止では止めない
@@ -657,7 +657,7 @@ class OfficeWatchdog {
         $this.State.Pids = @($apps.Values | Where-Object { -not $_.Shared -and $_.Pid } |
             ForEach-Object { @{ Id = [int]$_.Pid; ProcessName = $_.ProcessName; StartTicks = $_.StartTicks; GuardWindow = [bool]$_.GuardWindow } })
         # 見張りから外れたプロセス（終わった・利用者に渡した）と、同じ PID でも起動時刻が違うもの（PID が使い回された）の「利用者が使った」印は消す
-        # （古い印で、別のプロセスを止めなくならないように）。ほかのレーンの印は、自分が見張ったことのある PID だけを対象にして消さない
+        # （古い印で、別のプロセスを止めなくならないように）。ほかのワーカーの印は、自分が見張ったことのある PID だけを対象にして消さない
         foreach ($old in $previous) {
             $now = @($this.State.Pids | Where-Object { $_.Id -eq $old.Id })
             if ($now.Count -eq 0 -or $now[0].StartTicks -ne $old.StartTicks) {

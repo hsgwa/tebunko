@@ -72,21 +72,21 @@
 
 ### IngestDispatcher（新規 `tebunko/indexer/ingest_dispatcher.ps1`。司令のスレッドで作る）
 
-取り込みのレーン・プール・先読み・取り込み中の管理だけを持つ。取り込み一覧・本文インデックスの書き出し待ち・進み具合は触らず、司令が戻り値を見て書く。取り込みのスレッドとは hashtable と `BlockingCollection` で受け渡す（クラスのインスタンスは渡さない）。
+取り込みのワーカー（1 種類。どれも STA）・先読み・取り込み中の管理だけを持つ。取り込み一覧・本文インデックスの書き出し待ち・進み具合は触らず、司令が戻り値を見て書く。取り込みのスレッドとは hashtable と `BlockingCollection` で受け渡す（クラスのインスタンスは渡さない）。
 
 | メソッド／プロパティ | 入力 | 出力 | 概要 |
 |---|---|---|---|
-| コンストラクタ | targets, lanes, bookFolders, folderByName, carried, options | – | 取り込み対象と設定を受け取る。必要な設定が足りなければ、その名前を書いて失敗する。省略できる `TestPath`（`{ param($path, $kind) }`。`$kind` は `File` か `Folder`）で、元のファイル・フォルダの有無の調べ方を差し替えられる |
-| `Start` | readers, settings | – | レーンごとの列を持つプールを作る（スレッドは、そのレーンに初めて渡すときに始める） |
+| コンストラクタ | targets, apps, bookFolders, folderByName, carried, options | – | 取り込み対象（apps はファイルごとに最初に要る Office のアプリ。要らなければ空）と設定を受け取る。必要な設定（`LookAhead`・`WorkerScript`・`PostponedReasonInUse`・`PostponedReasonRunning`）が足りなければ、その名前を書いて失敗する。省略できる `TestPath`（`{ param($path, $kind) }`。`$kind` は `File` か `Folder`）で、元のファイル・フォルダの有無の調べ方を差し替えられる |
+| `Start` | workerCount, settings | – | ワーカーごとの列を持つ入れ物を作る（スレッドは、そのワーカーに初めて渡すときに始める。持ち主のアプリ・渡してある数・諦めたかの状態もワーカーごとに持つ）。0 のときは作らず、司令のスレッドで取り込む |
 | `BeginPass` | – | – | 渡す繰り返しの 1 回分を始める（先読みの範囲を数え直す） |
-| `DispatchNext` | – | `@{Kind=Abandoned／Vanished／Dispatched; ...}` / `$null` | 並びの先から、レーンに空きがあるファイルを 1 つ選ぶ |
-| `Submit` | step | – | 選んだファイルをレーンの列に渡す |
+| `DispatchNext` | – | `@{Kind=Abandoned／Vanished／Dispatched; ...}` / `$null` | 並びの先から、`selectIngestWorker` で渡し先のワーカーを決め、空きがあるファイルを 1 つ選ぶ（渡し先は `Worker`。ワーカーを使うときは `Task.Office` に Office が要るかも入れる） |
+| `Submit` | step | – | 選んだファイルをワーカーの列に渡す |
 | `SetInlineResult` | result | – | スレッドを使わないとき、司令が自分のスレッドで取り込んだ結果を `InlineResult` に置く（次の `Receive` が返して空にする） |
 | `Receive` | – | `@{Kind=Completed／Postponed／RerouteAbandoned; ...}` / `$null` | 結果を 1 つ受け取る |
-| `TakeAbandonedLane` | – | `@{Lane; Entries}` / `$null` | 諦めたレーンを 1 つ取り出す |
+| `TakeAbandonedWorker` | – | `@{Worker; Entries}` / `$null` | 諦めたワーカーを 1 つ取り出す（取り込み中・列のファイルといっしょに返し、取り込み中から外す） |
 | `StopIfRequested` | requested（bool） | bool | 中止を求められ、渡していないファイルがあるとき、今回初めて止めた場合だけ `$true` を返し、以後は渡さない（残りの件数は `Remaining`） |
 | `InflightCount` / `IngestingEntries` | – | 件数 / 取り込み中のファイル | 取り込み中の数と一覧 |
-| `Stop` | – | – | 列を閉じ、諦めていないレーンのワーカーが終わるのを待ってから片づける。諦めたレーンのワーカーは待たず、止める依頼だけを出す |
+| `Stop` | – | – | 列を閉じ、諦めていないワーカーが終わるのを待ってから片づける。諦めたワーカーは待たず、止める依頼だけを出す |
 | `Pool`・`UsesThreads`・`Stopped`・`FolderLost`・`Remaining`・`Undispatched`（プロパティ） | – | – | プール・スレッドを使うか・中止・フォルダ消失・残り・まだ渡していないファイル |
 
 ### IngestPlanner（`tebunko/indexer/indexer_plan.ps1`。司令のスレッドで作る）
@@ -102,7 +102,7 @@
 | `KeepForCancel` | – | 取り込み一覧に書く行 | 取りやめるとき、取り込み対象の行（とクラウドにだけあって前回未完了の行）を前回の記録のままにする |
 | `ApplyFailed` | retry | – | 前回失敗した行を、再取り込みする（`Targets` に足す）かスキップするか |
 | `ApplyInterrupted` | entries, interruptLimit | – | 前回強制終了したファイルを最後に回し（`Carried`）、上限に達したものは失敗にする |
-| `FolderByName` | – | インデックス名 → フォルダ | 取り込みのレーンへ渡すための対応 |
+| `FolderByName` | – | インデックス名 → フォルダ | 取り込みのワーカーへ渡すための対応 |
 
 ## 取り込み直すかの判断（`tebunko/indexer/indexer_decide.ps1`）
 
@@ -111,8 +111,9 @@
 | `getExtractVersion` | path | int | ファイルの形式（拡張子）の今の抽出版（読み取る内容の版。`.xlsx` `.xlsm` はグラフの項目名を読まず、グラフ・SmartArt・ヘッダー・フッターを読む 4、`.docx` `.docm` `.pptx` `.pptm` はグラフの項目名を読まない 3、旧形式（`.doc` `.ppt`）など図形・コメントを読む形式は 2、ほかは 1） | [取り込み対象の決定](../indexing/target-decision.md#取り込み対象の決定createtargetlist) | testExtractOutdated、インデックス作成（取り込み一覧の抽出版の列） |
 | `testExtractOutdated` | row | bool | 取り込み一覧の行が、今の抽出版より前の版で取り込んだものか（抽出版の列が空なら 1） | 同上 | getIngestDecision |
 | `getIngestDecision` | old（前回の行 / `$null`）, updated, size, indexComplete | `@{Ingest; Reason}` | 取り込むかどうかと理由（`done` / `failed` / `new` / `updated` / `pending` / `lost` / `outdated`）。更新日時・サイズが同じでも、TSV が欠けていれば `lost`、前の抽出版なら `outdated` で取り込み直す | 同上 | createTargetList |
-| `getIngestLane` | relPath | string | 取り込むレーン（表（`$officeFileKinds`）の Excel の拡張子は `Excel`、`.doc` は `Word`、`.ppt` は `PowerPoint`、それ以外（`.docx`・`.docm`・`.pptx`・`.pptm`、テキストの拡張子、`.pdf`）は既定の `Reader`） | [取り込みの並列化](../indexing/parallel.md) | インデックス作成（司令） |
-| `getOfficeLane` | relPath | string | 読み取りのレーンで Office が要ると分かったファイルの回し先（`getOfficeFileKind` が `PowerPoint`（`.pptx` `.pptm` `.ppt`）なら `PowerPoint`、ほかは `Word`） | 同上 | インデックス作成（司令） |
+| `getIngestApp` | relPath | string | 取り込みに最初に要る Office のアプリ（表（`$officeFileKinds`）の Excel の拡張子は `Excel`、`.doc` は `Word`、`.ppt` は `PowerPoint`。それ以外（`.docx`・`.docm`・`.pptx`・`.pptm`、テキストの拡張子、`.pdf`）は Office が要らず空） | [取り込みの並列化](../indexing/parallel.md) | インデックス作成（司令） |
+| `getRerouteApp` | relPath | string | Office を使わずに読めず、Office が要ると分かったファイルの回し先のアプリ（`getOfficeFileKind` が `PowerPoint`（`.pptx` `.pptm` `.ppt`）なら `PowerPoint`、ほかは `Word`） | 同上 | インデックス作成（司令） |
+| `selectIngestWorker` | workers（ワーカーごとの `@{Busy; Owns; Abandoned}`）, app, capacity | `@{Kind=Worker／Wait／Abandoned; Index}` | 取り込むファイルの渡し先を決める。Office が要るファイルは、そのアプリの持ち主へ（満杯なら `Wait`、持ち主が諦めていれば `Abandoned`）。持ち主がいなければ、持ち主のいないワーカーのうちいちばん空いているもの。Office が要らないファイルは、持ち主のいないワーカーのうちいちばん空いているもの（無ければ、諦めていないいちばん空いているもの）。すべて諦めていれば `Abandoned` | 同上 | `IngestDispatcher` |
 
 ## インデックス名とインデックスの管理（`tebunko/index/index_name.ps1`・`index_store.ps1`）
 

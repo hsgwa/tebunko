@@ -4,7 +4,7 @@
 
 ## 方針
 
-PDF は PowerShell だけで読む（`shared/core/pdf_file.ps1`・暗号化の復号は `shared/core/pdf_crypt.ps1`）。外の部品・ライブラリ・Office・外部プロセスは使わない。Office は起動しないので、取り込みは Office を使わない読み取りのレーン（`Reader`）で並べて行う。
+PDF は PowerShell だけで読む（`shared/core/pdf_file.ps1`・暗号化の復号は `shared/core/pdf_crypt.ps1`）。外の部品・ライブラリ・Office・外部プロセスは使わない。Office は起動しないので、取り込みは Office を使わずに読む仕事（取り込みのワーカー）で並べて行う。
 
 画面にもファイルにも触らない関数（`readPdfPages`。バイト列からページごとの文字列を作る）と、ファイルを開いて読む関数（`readPdfFile`）に分ける。取り込みは `tebunko/indexer/extract_pdf.ps1` の `extractPdfFile` が行う。
 

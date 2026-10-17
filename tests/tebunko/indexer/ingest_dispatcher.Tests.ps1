@@ -9,7 +9,6 @@ BeforeAll {
         param ([hashtable]$extra = @{})
 
         $options = @{
-            LaneExcel = ${laneExcel}; LaneWord = ${laneWord}; LanePowerPoint = ${lanePowerPoint}; LaneReader = ${laneReader}
             LookAhead = 200; WorkerScript = { }
             PostponedReasonInUse = "使っていた"; PostponedReasonRunning = "起動していた"
         }
@@ -20,25 +19,34 @@ BeforeAll {
     }
 
     # 名前（拡張子つき）の並びのファイルを $TestDrive の下に作り、振り分け役を返す（Start はしない）。
-    # lanes を省くと、すべて読み取りのレーン。missing に入れた名前は、ファイルを作らない
+    # apps は、ファイルごとに最初に要る Office のアプリ。省くと、すべて Office が要らない（空）。missing に入れた名前は、ファイルを作らない
     function newTestDispatcher {
-        param ([string[]]$names, [string[]]$lanes = @(), [string[]]$missing = @(), [hashtable]$carried = @{}, [hashtable]$extraOptions = @{})
+        param ([string[]]$names, [string[]]$apps = @(), [string[]]$missing = @(), [hashtable]$carried = @{}, [hashtable]$extraOptions = @{})
 
         $script:folderCount++
         $folder = Join-Path $TestDrive "資料置き場$($script:folderCount)"
         [System.IO.Directory]::CreateDirectory($folder) | Out-Null
         $targets = New-Object System.Collections.Generic.List[object]
-        $laneList = New-Object System.Collections.Generic.List[string]
+        $appList = New-Object System.Collections.Generic.List[string]
         $bookFolders = New-Object System.Collections.Generic.List[string]
         for ($i = 0; $i -lt $names.Count; $i++) {
             if ($missing -notcontains $names[$i]) {
                 [System.IO.File]::WriteAllText("$folder\$($names[$i])", "x")
             }
             $targets.Add([pscustomobject]@{ 相対パス = "資料\$($names[$i])" })
-            $laneList.Add($(if ($lanes.Count -gt $i) { $lanes[$i] } else { ${laneReader} }))
+            $appList.Add($(if ($apps.Count -gt $i) { $apps[$i] } else { "" }))
             $bookFolders.Add("資料\$($names[$i])")
         }
-        return [IngestDispatcher]::new($targets, $laneList.ToArray(), $bookFolders.ToArray(), @{ "資料" = $folder }, $carried, (newDispatcherOptions $extraOptions))
+        return [IngestDispatcher]::new($targets, $appList.ToArray(), $bookFolders.ToArray(), @{ "資料" = $folder }, $carried, (newDispatcherOptions $extraOptions))
+    }
+
+    # スレッドを始めたことにする（本物のスレッドは作らない。終わっている入れ物を置く）
+    function startFakeWorker {
+        param ($dispatcher, [int]$index)
+
+        $ps = [pscustomobject]@{}
+        $ps | Add-Member -MemberType ScriptMethod -Name Dispose -Value { }
+        $dispatcher.Pool.Slots[$index].Worker = @{ PowerShell = $ps; Runspace = $ps; Handle = [pscustomobject]@{ IsCompleted = $true }; Ended = $true }
     }
 
     # DispatchNext を、回の終わりまで繰り返して集める
@@ -56,27 +64,26 @@ BeforeAll {
 
 Describe "IngestDispatcher（作り方）" -Tag Unit {
     It "options に足りないもの（<Key>）があれば、その名前を言って例外にする" -TestCases @(
-        @{ Key = "LaneExcel" }
         @{ Key = "LookAhead" }
         @{ Key = "WorkerScript" }
         @{ Key = "PostponedReasonInUse" }
+        @{ Key = "PostponedReasonRunning" }
     ) {
         $options = newDispatcherOptions
         $options.Remove($Key)
         { [IngestDispatcher]::new(@(), [string[]]@(), [string[]]@(), @{}, @{}, $options) } | Should -Throw "*${Key}*"
     }
 
-    It "Start は取り込みのスレッドの入れ物だけを作る（スレッドは、そのレーンの最初のファイルを渡すときまで始めない）" {
+    It "Start は取り込みのワーカーの入れ物だけを作る（スレッドは、そのワーカーに最初のファイルを渡すときまで始めない）" {
         $dispatcher = newTestDispatcher @("a.docx")
         $dispatcher.Pool | Should -BeNullOrEmpty
         $dispatcher.UsesThreads | Should -Be $false
-        $dispatcher.Start(2, @{})
+        $dispatcher.Start(3, @{})
         try {
             $dispatcher.UsesThreads | Should -Be $true
-            $dispatcher.Pool.Readers | Should -Be 2
-            $dispatcher.Pool.Workers.Count | Should -Be 0
-            $dispatcher.Pool.Started.Count | Should -Be 0
-            $dispatcher.Pool.Queues.Count | Should -Be 4
+            $dispatcher.Pool.Slots.Count | Should -Be 3
+            @($dispatcher.Pool.Slots | Where-Object { $null -ne $_.Worker }).Count | Should -Be 0
+            @($dispatcher.Pool.Slots | Where-Object { $_.Busy -ne 0 -or $_.Owns.Count -ne 0 }).Count | Should -Be 0
         } finally {
             $dispatcher.Stop()
         }
@@ -84,7 +91,7 @@ Describe "IngestDispatcher（作り方）" -Tag Unit {
 }
 
 Describe "IngestDispatcher（振り分け）" -Tag Io {
-    It "並びの順に、渡せるファイルを Dispatched で返す。レーンの取り込み中が上限（読み取りは 2 つのとき 4 件）なら、次の回まで渡さない" {
+    It "並びの順に、渡せるファイルを Dispatched で返す。ワーカーごとの渡してある数が上限（2 つのワーカーなら 4 件）なら、次の回まで渡さない" {
         $dispatcher = newTestDispatcher @("a.docx", "b.docx", "c.docx", "d.docx", "e.docx")
         $dispatcher.Start(2, @{})
         try {
@@ -100,26 +107,48 @@ Describe "IngestDispatcher（振り分け）" -Tag Io {
         }
     }
 
-    It "空いているレーンのファイルを先に渡す（並びの先頭のレーンが埋まっていても、先のファイルを待たせない）" {
-        $dispatcher = newTestDispatcher @("a.xlsx", "b.xlsx", "c.xlsx", "d.docx") @(${laneExcel}, ${laneExcel}, ${laneExcel}, ${laneReader})
-        $dispatcher.Start(1, @{})
+    It "Office が要るファイルは持ち主のワーカーにだけ渡し、持ち主が満杯なら、Office が要らないファイルを先に渡す。取り込みが 1 件終わると、次の回で飛ばしたファイルを渡す" {
+        $dispatcher = newTestDispatcher @("a.xlsx", "b.xlsx", "c.xlsx", "d.docx") @("Excel", "Excel", "Excel", "")
+        $dispatcher.Start(2, @{})
         try {
             $steps = takeAllSteps $dispatcher
-            # Excel のレーンは 2 件まで。3 件目を飛ばして、読み取りのレーンの 4 件目を渡す
+            # Excel の持ち主は 2 件まで。3 件目を飛ばして、Office を持たないワーカーに 4 件目を渡す
             @($steps | ForEach-Object { $_.Number }) | Should -Be @(1, 2, 4)
+            @($steps | ForEach-Object { $_.Worker }) | Should -Be @(0, 0, 1)
+            @($dispatcher.Pool.Slots[0].Owns) | Should -Be @("Excel")
+            $dispatcher.Pool.Slots[1].Owns.Count | Should -Be 0
             $dispatcher.Undispatched | Should -Be 1
-            # 取り込みが 1 件終わると、次の回で飛ばしたファイルを渡す
+            $dispatcher.Pool.Slots[0].Busy | Should -Be 2
+            $dispatcher.Pool.Slots[1].Busy | Should -Be 1
             $dispatcher.Pool.Results.Add(@{ RelPath = "資料\a.xlsx"; Ok = $true })
             $received = $dispatcher.Receive()
             $received.Kind | Should -Be "Completed"
             $received.Entry.Number | Should -Be 1
             $received.Result.Ok | Should -Be $true
+            $dispatcher.Pool.Slots[0].Busy | Should -Be 1
             $again = takeAllSteps $dispatcher
             @($again | ForEach-Object { $_.Number }) | Should -Be @(3)
+            $again[0].Worker | Should -Be 0
             $dispatcher.Undispatched | Should -Be 0
         } finally {
             $dispatcher.Stop()
         }
+    }
+
+    It "ワーカーに渡すファイルの Task は、Office が要るか（Office）を持つ。スレッドを使わないときは持たない" {
+        $dispatcher = newTestDispatcher @("a.xlsx", "b.docx") @("Excel", "")
+        $dispatcher.Start(2, @{})
+        try {
+            $steps = takeAllSteps $dispatcher
+            $steps[0].Task.Office | Should -Be $true
+            $steps[1].Task.Office | Should -Be $false
+        } finally {
+            $dispatcher.Stop()
+        }
+        $inline = newTestDispatcher @("a.xlsx") @("Excel")
+        $step = (takeAllSteps $inline)[0]
+        $step.Worker | Should -Be -1
+        $step.Task.ContainsKey("Office") | Should -Be $false
     }
 
     It "スレッドを使わないとき（UsesThreads が偽）は、取り込み中が 1 件あれば次を渡さず、預けた結果を Receive が返して取り込み中から外す" {
@@ -159,6 +188,17 @@ Describe "IngestDispatcher（振り分け）" -Tag Io {
         $dispatcher.InflightCount() | Should -Be 1
     }
 
+    It "元のファイルが無くなっていたファイルは、渡し先のワーカーの渡してある数にも、持ち主にも数えない" {
+        $dispatcher = newTestDispatcher @("a.xlsx") @("Excel") -missing @("a.xlsx")
+        $dispatcher.Start(2, @{})
+        try {
+            (takeAllSteps $dispatcher)[0].Kind | Should -Be "Vanished"
+            @($dispatcher.Pool.Slots | Where-Object { $_.Busy -ne 0 -or $_.Owns.Count -ne 0 }).Count | Should -Be 0
+        } finally {
+            $dispatcher.Stop()
+        }
+    }
+
     It "クロール対象フォルダごと見えなくなったら、FolderLost と残りの件数を残して回を終える" {
         $dispatcher = newTestDispatcher @("a.docx", "b.docx", "c.docx")
         Remove-Item -LiteralPath (Join-Path $TestDrive "資料置き場$($script:folderCount)") -Recurse -Force
@@ -184,16 +224,18 @@ Describe "IngestDispatcher（振り分け）" -Tag Io {
         }
     }
 
-    It "諦めたレーンのファイルは、渡さずに Abandoned で返す" {
-        $dispatcher = newTestDispatcher @("a.ppt", "b.docx") @(${lanePowerPoint}, ${laneReader})
-        $dispatcher.Start(1, @{})
+    It "持ち主が諦めたワーカーのアプリのファイルは、渡さずに Abandoned で返す。Office が要らないファイルは、諦めていないワーカーに渡す" {
+        $dispatcher = newTestDispatcher @("a.ppt", "b.docx") @("PowerPoint", "")
+        $dispatcher.Start(2, @{})
         try {
-            $dispatcher.Pool.LaneStates[${lanePowerPoint}].Abandoned = $true
+            $dispatcher.Pool.Slots[0].Owns.Add("PowerPoint")
+            $dispatcher.Pool.Slots[0].State.Abandoned = $true
             $steps = takeAllSteps $dispatcher
             $steps[0].Kind | Should -Be "Abandoned"
             $steps[0].Number | Should -Be 1
             $steps[0].Row.相対パス | Should -Be "資料\a.ppt"
             $steps[1].Kind | Should -Be "Dispatched"
+            $steps[1].Worker | Should -Be 1
             $dispatcher.InflightCount() | Should -Be 1
             $dispatcher.Undispatched | Should -Be 0
         } finally {
@@ -229,42 +271,44 @@ Describe "IngestDispatcher（振り分け）" -Tag Io {
     }
 }
 
-Describe "IngestDispatcher（諦めたレーン）" -Tag Io {
-    It "TakeAbandonedLane は、スレッドを始めたレーンのうち、諦めて後回しを済ませていないものを 1 つずつ、取り込み中のファイルといっしょに返す" {
-        $dispatcher = newTestDispatcher @("a.ppt", "b.docx", "c.ppt") @(${lanePowerPoint}, ${laneReader}, ${lanePowerPoint})
-        $dispatcher.Start(1, @{})
+Describe "IngestDispatcher（諦めたワーカー）" -Tag Io {
+    It "TakeAbandonedWorker は、スレッドを始めたワーカーのうち、諦めて後回しを済ませていないものを 1 つずつ、取り込み中のファイルといっしょに返す" {
+        $dispatcher = newTestDispatcher @("a.ppt", "b.docx", "c.ppt") @("PowerPoint", "", "PowerPoint")
+        $dispatcher.Start(3, @{})
         try {
-            $dispatcher.TakeAbandonedLane() | Should -BeNullOrEmpty
+            $dispatcher.TakeAbandonedWorker() | Should -BeNullOrEmpty
             $steps = takeAllSteps $dispatcher
             $steps.Count | Should -Be 3
-            # 始まったが諦めていないレーンは、返さない
-            $dispatcher.Pool.Started[${lanePowerPoint}] = $true
-            $dispatcher.Pool.Started[${laneReader}] = $true
-            $dispatcher.TakeAbandonedLane() | Should -BeNullOrEmpty
+            @($steps | ForEach-Object { $_.Worker }) | Should -Be @(0, 1, 0)
+            # 始まったが諦めていないワーカーは、返さない
+            startFakeWorker $dispatcher 0
+            startFakeWorker $dispatcher 1
+            $dispatcher.TakeAbandonedWorker() | Should -BeNullOrEmpty
             $dispatcher.InflightCount() | Should -Be 3
-            # スレッドを始めていないレーンは、諦めていても返さない
-            $dispatcher.Pool.LaneStates[${laneWord}].Abandoned = $true
-            $dispatcher.TakeAbandonedLane() | Should -BeNullOrEmpty
-            # 始めて、諦めたレーンは、取り込み中のファイルといっしょに返す
-            $dispatcher.Pool.LaneStates[${lanePowerPoint}].Abandoned = $true
-            $taken = $dispatcher.TakeAbandonedLane()
-            $taken.Lane | Should -Be ${lanePowerPoint}
+            # スレッドを始めていないワーカーは、諦めていても返さない
+            $dispatcher.Pool.Slots[2].State.Abandoned = $true
+            $dispatcher.TakeAbandonedWorker() | Should -BeNullOrEmpty
+            # 始めて、諦めたワーカーは、取り込み中のファイルといっしょに返す
+            $dispatcher.Pool.Slots[0].State.Abandoned = $true
+            $taken = $dispatcher.TakeAbandonedWorker()
+            $taken.Worker | Should -Be 0
             @($taken.Entries | ForEach-Object { $_.Number } | Sort-Object) | Should -Be @(1, 3)
             $dispatcher.InflightCount() | Should -Be 1
-            # 済ませたレーンは、もう返さない
-            $dispatcher.TakeAbandonedLane() | Should -BeNullOrEmpty
+            $dispatcher.Pool.Slots[0].Busy | Should -Be 0
+            # 済ませたワーカーは、もう返さない
+            $dispatcher.TakeAbandonedWorker() | Should -BeNullOrEmpty
         } finally {
             $dispatcher.Stop()
         }
     }
 
-    It "Receive は、諦めたレーンがあれば、戻らない結果を待たずに `$null を返す。結果があればそちらを返す" {
-        $dispatcher = newTestDispatcher @("a.docx") @(${lanePowerPoint})
+    It "Receive は、諦めたワーカーがあれば、戻らない結果を待たずに `$null を返す。結果があればそちらを返す" {
+        $dispatcher = newTestDispatcher @("a.docx") @("PowerPoint")
         $dispatcher.Start(1, @{})
         try {
             [void](takeAllSteps $dispatcher)
-            $dispatcher.Pool.Started[${lanePowerPoint}] = $true
-            $dispatcher.Pool.LaneStates[${lanePowerPoint}].Abandoned = $true
+            startFakeWorker $dispatcher 0
+            $dispatcher.Pool.Slots[0].State.Abandoned = $true
             $dispatcher.Pool.Results.Add(@{ RelPath = "資料\a.docx"; Ok = $true })
             $dispatcher.Receive().Kind | Should -Be "Completed"
             $dispatcher.Receive() | Should -BeNullOrEmpty
@@ -273,19 +317,19 @@ Describe "IngestDispatcher（諦めたレーン）" -Tag Io {
         }
     }
 
-    It "後回しにしたファイルについて、諦めたレーンのスレッドが後から返した結果は捨てる（取り込み中に無いため）" {
-        $dispatcher = newTestDispatcher @("a.ppt") @(${lanePowerPoint})
+    It "後回しにしたファイルについて、諦めたワーカーが後から返した結果は捨てる（取り込み中に無いため）" {
+        $dispatcher = newTestDispatcher @("a.ppt") @("PowerPoint")
         $dispatcher.Start(1, @{})
         try {
             [void](takeAllSteps $dispatcher)
             $dispatcher.InflightCount() | Should -Be 1
-            # 諦めたレーンのファイルを後回しにして、取り込み中から外す
-            $dispatcher.Pool.Started[${lanePowerPoint}] = $true
-            $dispatcher.Pool.LaneStates[${lanePowerPoint}].Abandoned = $true
-            $taken = $dispatcher.TakeAbandonedLane()
+            # 諦めたワーカーのファイルを後回しにして、取り込み中から外す
+            startFakeWorker $dispatcher 0
+            $dispatcher.Pool.Slots[0].State.Abandoned = $true
+            $taken = $dispatcher.TakeAbandonedWorker()
             $taken.Entries.Count | Should -Be 1
             $dispatcher.InflightCount() | Should -Be 0
-            # そのあとでスレッドが返した結果は、反映せずに捨てる
+            # そのあとでワーカーが返した結果は、反映せずに捨てる
             $dispatcher.Pool.Results.Add(@{ RelPath = "資料\a.ppt"; Ok = $true })
             $dispatcher.Receive() | Should -BeNullOrEmpty
             $dispatcher.Pool.Results.Count | Should -Be 0
@@ -294,16 +338,16 @@ Describe "IngestDispatcher（諦めたレーン）" -Tag Io {
         }
     }
 
-    It "Postponed は、諦めたレーンの結果なら『使っていた』、そうでなければ『起動していた』の理由で返す（諦めた: <Abandoned>）" -TestCases @(
+    It "Postponed は、諦めたワーカーの結果なら『使っていた』、そうでなければ『起動していた』の理由で返す（諦めた: <Abandoned>）" -TestCases @(
         @{ Abandoned = $true; Reason = "使っていた" }
         @{ Abandoned = $false; Reason = "起動していた" }
     ) {
-        $dispatcher = newTestDispatcher @("a.ppt") @(${lanePowerPoint})
+        $dispatcher = newTestDispatcher @("a.ppt") @("PowerPoint")
         $dispatcher.Start(1, @{})
         try {
             [void](takeAllSteps $dispatcher)
-            $dispatcher.Pool.LaneStates[${lanePowerPoint}].Abandoned = $Abandoned
-            $dispatcher.Pool.LaneStates[${lanePowerPoint}].Handled = $true
+            $dispatcher.Pool.Slots[0].State.Abandoned = $Abandoned
+            $dispatcher.Pool.Slots[0].State.Handled = $true
             $dispatcher.Pool.Results.Add(@{ RelPath = "資料\a.ppt"; Postponed = $true })
             $received = $dispatcher.Receive()
             $received.Kind | Should -Be "Postponed"
@@ -314,59 +358,82 @@ Describe "IngestDispatcher（諦めたレーン）" -Tag Io {
         }
     }
 
-    It "回し直し先（Word のレーン）が諦めたレーンなら、渡さずに RerouteAbandoned で返して取り込み中から外す" {
-        $dispatcher = newTestDispatcher @("a.docx")
-        $dispatcher.Start(1, @{})
+    It "回し直し先（PowerPoint）の持ち主が諦めたワーカーなら、渡さずに RerouteAbandoned で返して取り込み中から外す" {
+        $dispatcher = newTestDispatcher @("a.pptx")
+        $dispatcher.Start(2, @{})
         try {
             [void](takeAllSteps $dispatcher)
-            $dispatcher.Pool.LaneStates[${laneWord}].Abandoned = $true
-            $dispatcher.Pool.Results.Add(@{ RelPath = "資料\a.docx"; Reroute = $true })
+            $dispatcher.Pool.Slots[1].Owns.Add("PowerPoint")
+            $dispatcher.Pool.Slots[1].State.Abandoned = $true
+            $dispatcher.Pool.Results.Add(@{ RelPath = "資料\a.pptx"; Reroute = $true })
             $received = $dispatcher.Receive()
             $received.Kind | Should -Be "RerouteAbandoned"
             $received.Reason | Should -Be "使っていた"
             $received.Entry.Number | Should -Be 1
             $dispatcher.InflightCount() | Should -Be 0
-            $dispatcher.Pool.Workers.Count | Should -Be 0
+            @($dispatcher.Pool.Slots | Where-Object { $null -ne $_.Worker }).Count | Should -Be 0
+            $dispatcher.Pool.Slots[0].Busy | Should -Be 0
         } finally {
             $dispatcher.Stop()
         }
     }
 
-    It "回し直し先（Word のレーン）が空いていれば、そのレーンの列に渡し直して取り込み中のまま、諦めたあとはそのレーンで後回しにされる" {
+    It "回し直し先（Word）に持ち主がいなければ、空いているワーカーを持ち主にして列に渡し直して取り込み中のまま、諦めたあとはそのワーカーで後回しにされる" {
         $dispatcher = newTestDispatcher @("a.docx")
-        $dispatcher.Start(1, @{})
+        $dispatcher.Start(2, @{})
         try {
             [void](takeAllSteps $dispatcher)
-            # Word のレーンのスレッドは始めない（始めたことにして、列に渡すだけにする）
-            $dispatcher.Pool.Started[${laneWord}] = $true
+            # スレッドは始めない（始めたことにして、列に渡すだけにする）
+            startFakeWorker $dispatcher 0
+            startFakeWorker $dispatcher 1
             $dispatcher.Pool.Results.Add(@{ RelPath = "資料\a.docx"; Reroute = $true })
             $dispatcher.Receive() | Should -BeNullOrEmpty
             $dispatcher.InflightCount() | Should -Be 1
-            $dispatcher.Pool.Queues[${laneWord}].Count | Should -Be 1
-            $dispatcher.LaneBusy[${laneReader}] | Should -Be 0
-            $dispatcher.LaneBusy[${laneWord}] | Should -Be 1
-            $dispatcher.Pool.LaneStates[${laneWord}].Abandoned = $true
-            $taken = $dispatcher.TakeAbandonedLane()
-            $taken.Lane | Should -Be ${laneWord}
+            $owners = @(0, 1 | Where-Object { $dispatcher.Pool.Slots[$_].Owns -contains "Word" })
+            $owners.Count | Should -Be 1
+            $owner = $owners[0]
+            $dispatcher.Pool.Slots[$owner].Queue.Count | Should -Be 1
+            $dispatcher.Pool.Slots[$owner].Busy | Should -Be 1
+            $dispatcher.Pool.Slots[1 - $owner].Busy | Should -Be 0
+            $dispatcher.Pool.Slots[$owner].State.Abandoned = $true
+            $taken = $dispatcher.TakeAbandonedWorker()
+            $taken.Worker | Should -Be $owner
             $taken.Entries[0].Number | Should -Be 1
         } finally {
             $dispatcher.Stop()
         }
     }
 
-    It "Receive は、諦めたレーンのスレッドが正常に終わっていても失敗にしない。諦めていないレーンのスレッドが終わっていれば失敗にする（諦めた: <Abandoned>）" -TestCases @(
+    It "回し直しは、持ち主が取り込み中でも（渡してある数が上限でも）持ち主の列に渡す" {
+        $dispatcher = newTestDispatcher @("a.docx", "b.doc", "c.doc") @("", "Word", "Word")
+        $dispatcher.Start(2, @{})
+        try {
+            $steps = takeAllSteps $dispatcher
+            @($steps | ForEach-Object { $_.Worker }) | Should -Be @(0, 1, 1)
+            startFakeWorker $dispatcher 0
+            startFakeWorker $dispatcher 1
+            $dispatcher.Pool.Results.Add(@{ RelPath = "資料\a.docx"; Reroute = $true })
+            $dispatcher.Receive() | Should -BeNullOrEmpty
+            $dispatcher.Pool.Slots[1].Busy | Should -Be 3
+            $dispatcher.Pool.Slots[1].Queue.Count | Should -Be 1
+            $dispatcher.Pool.Slots[0].Busy | Should -Be 0
+        } finally {
+            $dispatcher.Stop()
+        }
+    }
+
+    It "Receive は、諦めたワーカーが正常に終わっていても失敗にしない。諦めていないワーカーが終わっていれば失敗にする（諦めた: <Abandoned>）" -TestCases @(
         @{ Abandoned = $true }
         @{ Abandoned = $false }
     ) {
         $runspaces = New-Object System.Collections.Generic.List[object]
         try {
-            $dispatcher = newTestDispatcher @("a.ppt") @(${lanePowerPoint})
+            $dispatcher = newTestDispatcher @("a.ppt") @("PowerPoint")
             $dispatcher.Start(1, @{})
             [void](takeAllSteps $dispatcher)
             $pool = $dispatcher.Pool
-            $pool.Started[${lanePowerPoint}] = $true
-            $pool.LaneStates[${lanePowerPoint}].Abandoned = $Abandoned
-            $pool.LaneStates[${lanePowerPoint}].Handled = $true
+            $pool.Slots[0].State.Abandoned = $Abandoned
+            $pool.Slots[0].State.Handled = $true
             $runspace = [runspacefactory]::CreateRunspace()
             $runspace.Open()
             $ps = [powershell]::Create()
@@ -376,8 +443,8 @@ Describe "IngestDispatcher（諦めたレーン）" -Tag Io {
             [void]$ps.AddScript({ 1 })
             $handle = $ps.BeginInvoke()
             [void]$handle.AsyncWaitHandle.WaitOne(10000)
-            $worker = @{ PowerShell = $ps; Runspace = $runspace; Handle = $handle; Ended = $false; Lane = ${lanePowerPoint} }
-            $pool.Workers.Add($worker)
+            $worker = @{ PowerShell = $ps; Runspace = $runspace; Handle = $handle; Ended = $false }
+            $pool.Slots[0].Worker = $worker
             if ($Abandoned) {
                 # 失敗にしないで待ち続けるので、別のスレッドが少しあとに結果を入れる
                 $feeder = [powershell]::Create()
@@ -400,20 +467,19 @@ Describe "IngestDispatcher（諦めたレーン）" -Tag Io {
         }
     }
 
-    It "Stop は、諦めたレーンの固まったスレッドが終わるのを待たずに戻る（止める依頼だけを出す）" {
-        $dispatcher = newTestDispatcher @("a.ppt") @(${lanePowerPoint})
+    It "Stop は、諦めたワーカーの固まったスレッドが終わるのを待たずに戻る（止める依頼だけを出す）" {
+        $dispatcher = newTestDispatcher @("a.ppt") @("PowerPoint")
         $dispatcher.Start(1, @{})
         $pool = $dispatcher.Pool
-        $pool.Started[${lanePowerPoint}] = $true
-        $pool.LaneStates[${lanePowerPoint}].Abandoned = $true
+        $pool.Slots[0].State.Abandoned = $true
         $gate = New-Object System.Threading.ManualResetEvent($false)
         $runspace = [runspacefactory]::CreateRunspace()
         $runspace.Open()
         $ps = [powershell]::Create()
         $ps.Runspace = $runspace
         [void]$ps.AddScript({ param ($gate) [void]$gate.WaitOne() }).AddArgument($gate)
-        $worker = @{ PowerShell = $ps; Runspace = $runspace; Handle = $ps.BeginInvoke(); Ended = $false; Lane = ${lanePowerPoint} }
-        $pool.Workers.Add($worker)
+        $worker = @{ PowerShell = $ps; Runspace = $runspace; Handle = $ps.BeginInvoke(); Ended = $false }
+        $pool.Slots[0].Worker = $worker
         try {
             $watch = [System.Diagnostics.Stopwatch]::StartNew()
             $dispatcher.Stop()

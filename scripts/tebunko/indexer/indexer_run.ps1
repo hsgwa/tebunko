@@ -3,8 +3,9 @@
 #
 # ・司令のスレッド（invokeIndexer を呼んだスレッド）が、クロール・確認・取り込み一覧・本文インデックスのファイルとシステムインデックスの書き出しを行う。
 #   Office の COM には触らない
-# ・1 ファイルの取り込み（Office で開いて TSV にする）は、取り込みのスレッド（STA）が行う。スレッドごとに自分の Office を持つ。
-#   スレッドの数が 0 のときは、司令のスレッドで取り込む（テストで、途中に割り込むため）
+# ・1 ファイルの取り込み（Office で開いて TSV にする）は、取り込みのワーカー（STA のスレッド。1 種類）が行う。Office のアプリは、
+#   初めてそのアプリのファイルを受けたワーカーが 1 つ持ち、そのアプリのファイルはそのワーカーにだけ渡す（IngestDispatcher・selectIngestWorker）。
+#   ワーカーの数が 0 のときは、司令のスレッドで取り込む（テストで、途中に割り込むため）
 # ・画面とのやり取りは受け渡しの口（newIndexerChannel）で行う。表示内容は indexing_log.txt に書く
 
 # Excel・Word・PowerPoint を利用者に渡したとき・渡すか決められず持ち続けるときのログ（indexing_log.txt）への 1 行。
@@ -21,15 +22,15 @@ ${officeHandOverNotice} = {
     }
 }
 
-# 取り込みのスレッドで動かすスクリプト。自分のレーンの列（tasks）から 1 ファイルずつ取り出して取り込み、結果を results に入れる。
-# Office のレーン（Excel・Word・PowerPoint）は STA で、そのアプリを 1 つ持つ。読み取りのレーンは Office を持たない。
+# 取り込みのワーカーのスクリプト。自分の列（tasks）から 1 ファイルずつ取り出して取り込み、結果を results に入れる。
+# ワーカーは 1 種類で、どれも STA。どの種類のファイルも受けられ、Office のアプリは受けたファイルに応じて起動する（持ち主の決め方は IngestDispatcher）。
 # 列が閉じられたら（CompleteAdding）、Office を終了して終わる
 ${ingestWorkerScript} = {
     param ($settings, $tasks, $results, $number)
     $ErrorActionPreference = "Stop"
     # indexerLib の部品（Prelude）は IngestDispatcher が、この param ブロックのあとにつなぐ（joinWorkerScript）
     # 置き場所は司令のスレッドと同じにする（読み込み直すと設定から決め直してしまうため）。一時フォルダはスレッドごとに分ける。
-    # 部品を読み込んだのと同じスコープ（取り込みのスレッドでは global）に置く
+    # 部品を読み込んだのと同じスコープ（取り込みのワーカーでは global）に置く
     $own = [Workspace]::new($settings.WorkDir)
     $own.PublishDir = Join-Path $settings.PublishDir "w$number"
     setCallerWorkspace $own
@@ -40,41 +41,39 @@ ${ingestWorkerScript} = {
     $script:officeRecordDir = $settings.OfficeRecordDir
     $script:officeOwnDir = resolveOwnDir $tmpDir
     $script:onOfficeHandOver = ${officeHandOverNotice}
-    $script:officeUnavailable = ($settings.Lane -eq ${laneReader})
+    # ファイルごとに、Office が要るか（task.Office）で決め直す。始めは Office を使わない
+    $script:officeUnavailable = $true
     [System.Threading.Thread]::CurrentThread.Priority = [System.Threading.ThreadPriority]::BelowNormal
 
-    # レーンの状態（制限時間を過ぎても利用者が使っている PowerPoint を止めずに諦めたか）。司令と共有する
-    $script:laneState = $settings.LaneState
-    if (!$script:officeUnavailable) {
-        $script:officeWatchdog.State.Abandon = $settings.LaneState
-        if ($settings.UserOfficePids) {
-            $script:officeWatchdog.State.Users = $settings.UserOfficePids
-        }
-        # 中止を求められたら、取り込み中の Office を止めて打ち切る（制限時間を待たない）
-        $script:officeWatchdog.State.Cancel = $settings.Channel
-        $script:officeWatchdog.Start()
+    # ワーカーの状態（制限時間を過ぎても利用者が使っている PowerPoint を止めずに諦めたか）。司令と共有する
+    $script:workerState = $settings.WorkerState
+    $script:officeWatchdog.State.Abandon = $settings.WorkerState
+    if ($settings.UserOfficePids) {
+        $script:officeWatchdog.State.Users = $settings.UserOfficePids
     }
+    # 中止を求められたら、取り込み中の Office を止めて打ち切る（制限時間を待たない）。
+    # 見張りが働くのは Office を使うファイルの間だけ（invokeIngestTask が Deadline を入れる）。Office を使わずに読むファイルは、中止でも読み終わるまで待つ
+    $script:officeWatchdog.State.Cancel = $settings.Channel
+    $script:officeWatchdog.Start()
     try {
         runIngestWorker $tasks $results $settings.FileTimeoutMinutes $settings.RestartInterval $settings.Channel
     } finally {
-        if (!$script:officeUnavailable) {
-            $script:officeWatchdog.Stop()
-            # 利用者が使っている PowerPoint を諦めたレーンは、終了させない（開いているファイルの保存されていない変更を失わせないため）
-            if (!$settings.LaneState.Abandoned) {
-                stopAllApps
-                # 渡し切れずに持ち続けているアプリは、ここで上限まで仕上げ直す（中止・画面を閉じるときは待たない）
-                waitKeptApps ({ [bool]$settings.Channel.Stop }.GetNewClosure())
-            }
+        $script:officeWatchdog.Stop()
+        # 利用者が使っている PowerPoint を諦めたワーカーは、終了させない（開いているファイルの保存されていない変更を失わせないため）
+        if (!$settings.WorkerState.Abandoned) {
+            stopAllApps
+            # 渡し切れずに持ち続けているアプリは、ここで上限まで仕上げ直す（中止・画面を閉じるときは待たない）
+            waitKeptApps ({ [bool]$settings.Channel.Stop }.GetNewClosure())
         }
     }
 }
 
-# 司令が並びの先を見る件数（空いているレーン向けのファイルを先に渡すため）。大きくすると、本文インデックスのファイルの書き出しが遅れるフォルダが増える
+# 司令が並びの先を見る件数（空いているワーカー向けのファイルを先に渡すため）。大きくすると、本文インデックスのファイルの書き出しが遅れるフォルダが増える
 ${ingestLookAhead} = 200
 
 function runIngestWorker {
-    # 取り込みのスレッドの繰り返し（ingestWorkerScript が呼ぶ）。列から 1 件ずつ取り込み、結果を results に入れる。
-    # Office を持つスレッドは、決まった数を取り込むたびに Office を起動し直す
+    # 取り込みのワーカーの繰り返し（ingestWorkerScript が呼ぶ）。列から 1 件ずつ取り込み、結果を results に入れる。
+    # Office が要るファイルを取り込んだあとは、決まった数を取り込むたびに Office を起動し直す
     param (
         $tasks,
         $results,
@@ -93,8 +92,12 @@ function runIngestWorker {
             # 中止で止めたファイルも数えない（中止のあとは Office を起動し直さない。アプリの片付けは ingestWorkerScript の終わりで行う）
             continue
         }
+        if ($script:officeUnavailable) {
+            # Office を使わずに読んだファイルは、起動し直しの数に数えない（Office を使うファイルの数で決める）
+            continue
+        }
         $done++
-        if (!$script:officeUnavailable -and ($result.TimedOut -or ($done % $restartInterval) -eq 0)) {
+        if ($result.TimedOut -or ($done % $restartInterval) -eq 0) {
             # 制限時間を過ぎて強制終了したアプリは使えないため、すべて終了して次に必要になったときに起動し直す
             stopAllApps
         }
@@ -102,7 +105,7 @@ function runIngestWorker {
 }
 
 function getIngestWorkerCount {
-    # 読み取りのスレッド（Office を使わずに読むファイル）の数を決める。requested が 0 以上ならその数
+    # Office を使わずに読む仕事の数（取り込みのワーカーの数のうち、Office のアプリ分を除いたもの）を決める。requested が 0 以上ならその数
     # （0 は取り込みのスレッドを使わず、司令のスレッドで取り込む）、負なら設定（ingestThreads）、設定が 0 ならコア数から決める。
     # 取り込むファイルの数より多くはしない
     param (
@@ -122,38 +125,29 @@ function getIngestWorkerCount {
     return [Math]::Max(0, [Math]::Min($count, $total))
 }
 
-function getIngestLaneCapacity {
-    # レーンに同時に渡しておく数。Office のレーンは取り込み中の 1 件と次の 1 件、読み取りのレーンはスレッドの数の 2 倍
-    param (
-        [string]$lane,
-        [int]$readers
-    )
-
-    if ($lane -eq ${laneReader}) {
-        return [Math]::Max(1, $readers) * 2
-    }
-    return 2
-}
-
-function testLaneAbandoned {
-    # このレーンが、制限時間を過ぎても利用者が使っている PowerPoint を止めずに諦めたものか（取り込みのスレッドの $script:laneState）
-    $state = $script:laneState
+function testWorkerAbandoned {
+    # このワーカーが、制限時間を過ぎても利用者が使っている PowerPoint を止めずに諦めたものか（取り込みのワーカーの $script:workerState）
+    $state = $script:workerState
     return ($null -ne $state -and [bool]$state.Abandoned)
 }
 
 function invokeIngestTask {
     # 1 ファイルを取り込み、結果 @{ RelPath; Ok; Reroute; Postponed; Stopped; TsvCount; Message; TimedOut; ExtractVersion; Log } を返す（例外は投げない）。
-    # 取り込みのスレッド、またはスレッドの数が 0 のときは司令のスレッドで動く。表示内容は Log に貯め、司令がログに書く
+    # 取り込みのワーカー、またはワーカーの数が 0 のときは司令のスレッドで動く。表示内容は Log に貯め、司令がログに書く
     param (
         [hashtable]$task,
         [int]$fileTimeoutMinutes,
         $channel = $null   # 受け渡しの口。Stop が立っていれば、取り込まずに Stopped を返す
     )
 
-    # Reroute: Office を使わずに読めなかった（中身が旧形式・パスワード付き）。司令が Word・PowerPoint のレーンに回し直す
+    # Reroute: Office を使わずに読めなかった（中身が旧形式・パスワード付き）。司令が Word・PowerPoint の持ち主に回し直す
     # Postponed: 利用者のPowerPointが起動していて使えなかった。司令が「未取り込み」のまま次回に回す
     # Stopped: 中止を求められて取り込まなかった・取り込みを打ち切った。失敗にせず、司令が「未取り込み」のまま次回に回す（インデックスは変えない）
     $result = @{ RelPath = $task.RelPath; Ok = $false; Reroute = $false; Postponed = $false; Stopped = $false; TsvCount = 0; Message = ""; TimedOut = $false; ExtractVersion = ""; Log = "" }
+    if ($task.ContainsKey("Office")) {
+        # 取り込みのワーカーでは、Office が要らないファイルは Office を使わずに読み、読めなければ Office が要ると返す（Reroute）
+        $script:officeUnavailable = !$task.Office
+    }
     if ($null -ne $channel -and $channel.Stop) {
         $result.Stopped = $true
         return $result
@@ -164,8 +158,8 @@ function invokeIngestTask {
         $result.Message = "$(getTmpDirUnavailableMessage $tmpDirReason)このファイルの取り込みをスキップしました。"
         return $result
     }
-    if (testLaneAbandoned) {
-        # 利用者が使っている PowerPoint を諦めたレーン。取り込まず、後回しにする（司令は結果を受け取らずに後回しにしている）
+    if (testWorkerAbandoned) {
+        # 利用者が使っている PowerPoint を諦めたワーカー。取り込まず、後回しにする（司令は結果を受け取らずに後回しにしている）
         $result.Postponed = $true
         return $result
     }
@@ -176,7 +170,11 @@ function invokeIngestTask {
         clearTmpDir
         $script:officeWatchdog.State.TimedOut = $false
         $script:officeWatchdog.State.Cancelled = $false
-        $script:officeWatchdog.State.Deadline = (Get-Date).AddMinutes($fileTimeoutMinutes)
+        # 制限時間・中止の見張りは、Office を使うファイルの間だけ働かせる（Office を使わずに読むファイルでは、持っている Office を止めず、
+        # 読み終わるまで待つ。見張りは Deadline が MaxValue のあいだは何もしない）
+        if (!$script:officeUnavailable) {
+            $script:officeWatchdog.State.Deadline = (Get-Date).AddMinutes($fileTimeoutMinutes)
+        }
         try {
             $result.TsvCount = ingestFile $task.SourcePath
         } finally {
@@ -187,7 +185,7 @@ function invokeIngestTask {
             $result.Stopped = $true
             return $result
         }
-        if (testLaneAbandoned) {
+        if (testWorkerAbandoned) {
             # 戻ってきたときには、司令がこのファイルを後回しにしている。書き出さない
             # （司令が同じフォルダを書き換えるのと重ならないようにし、取り込み一覧・インデックスを変えない）
             $result.Postponed = $true
@@ -198,8 +196,8 @@ function invokeIngestTask {
         $result.Ok = $true
     } catch {
         $base = $_.Exception.GetBaseException()
-        if (testLaneAbandoned) {
-            # 諦めたレーンで、利用者の PowerPoint が閉じられるなどして戻ってきた。失敗にも、アプリの終了にもしない
+        if (testWorkerAbandoned) {
+            # 諦めたワーカーで、利用者の PowerPoint が閉じられるなどして戻ってきた。失敗にも、アプリの終了にもしない
             $result.Postponed = $true
             return $result
         }
@@ -235,7 +233,7 @@ function invokeIngestTask {
     } finally {
         # Excel・Word・PowerPoint で利用者が開いたファイルがあれば、閉じずに利用者に渡す（次のファイルは新しいアプリで取り込む。PowerPoint は後回しになる）
         $appName = getAppName $task.RelPath
-        if (!$script:officeUnavailable -and $appName -and !(testLaneAbandoned)) {
+        if (!$script:officeUnavailable -and $appName -and !(testWorkerAbandoned)) {
             try { [void](handOverForeignApp $appName) } catch {}
         }
         $result.TimedOut = [bool]$script:officeWatchdog.State.TimedOut
@@ -318,6 +316,124 @@ function invokeIndexer {
     return $exitCode
 }
 
+function flushPendingPublish {
+    # 書き出し待ちのフォルダを本文インデックスへまとめる（書き出しは司令が呼ぶ。PendingPublish は決めて返すだけ）。
+    # -All は、取り込み中・まだ渡していない数を見ずに、書き出し待ちのフォルダをすべて書き出す（クロールの前後・インデックス作成の終わり）
+    param (
+        $pending,
+        [switch]$All
+    )
+
+    $flush = if ($All) { $pending.TakeAll() } else { $pending.TakeFlushable() }
+    if ($flush.Count -eq 0) {
+        return
+    }
+    try {
+        [void](publishIndexFolders $flush)
+    } catch {
+        writeIndexerLog "    インデックスをまとめられませんでした（次のインデックス作成でまとめ直します）: $($_.Exception.Message)" "Yellow"
+    }
+}
+
+function reportIngestProgress {
+    # 取り込みの進み具合を画面に伝える（画面はこの 1 行から進み具合を作る。取り込み一覧は読まない）。残りの数はここだけで数える
+    param (
+        $run
+    )
+
+    $failures = $run.Ledger.Failures.Count
+    $run.Reporter.Progress(${indexingPhaseIngest}, ($run.SuccessCount + $failures), ($run.Total - $run.SuccessCount - $failures), $failures, $run.CurrentPath)
+}
+
+function completeIngestJob {
+    # 取り込みの 1 件の終わり方（成功・失敗・後回し・中止）を、取り込み一覧・書き出し待ち・進み具合・ログに反映する。司令の結果の受け方はここだけ。
+    #   received: IngestDispatcher.Receive が返す @{ Kind; Entry; ... }。Kind が Completed（Result を持つ）・Stopped（First・RelPath を持つ）・
+    #             Postponed・RerouteAbandoned（Reason を持つ）のどれか。諦めたワーカーの取り込み中だったファイルと、渡さずに残したファイルも
+    #             Kind Postponed で渡す（渡さずに残したものは Undispatched を $true にする。Entry は @{ Row; Number; Folder }）
+    #   run: 司令がつなぐ値 @{ Ledger; Pending; Reporter; Dispatcher; Previous; Total; SuccessCount; PostponedCount; CurrentPath }
+    param (
+        $run,
+        $received
+    )
+
+    $ledger = $run.Ledger
+    $pending = $run.Pending
+    $entry = $received.Entry
+    if ($received.Kind -eq "Stopped") {
+        # 中止を求められて、取り込まなかった・打ち切った（回し直しも、中止のあとは回さない）。失敗にはしない。
+        # 取り込み一覧は「未取り込み」のまま（AddRow しない）、インデックスは変えず、次回のインデックス作成で取り込む
+        $pending.Complete($entry.Folder)
+        if ($received.First) {
+            writeIndexerLog ""
+            writeIndexerLog "中止の要求を受けたため、インデックス作成を中止します。（取り込み中だったファイルと残りは次回取り込みします）" "Yellow"
+        }
+        writeIndexerLog "    中止のため、取り込みませんでした（次回取り込みします）: $($received.RelPath)" "Yellow"
+    } elseif ($received.Kind -ne "Completed") {
+        # 後回し: 利用者の PowerPoint が起動していて使えなかった（Postponed）か、回し直し先の持ち主が諦めたワーカーだった（RerouteAbandoned）・
+        # 諦めたワーカーで取り込み中だった・諦めたワーカーのアプリのファイルだった。
+        # 失敗として理由を見せ、取り込み一覧は「未取り込み」のまま残して次回のインデックス作成で取り込む
+        # （インデックスは変えない。$ledger.AddRow・$pending.Add はしない）。
+        # 取り込み一覧の行は「未取り込み」のまま、理由を「エラー」列に書く（「失敗」にすると、次の更新で飛ばされるため）。
+        # 前の行があれば、TSV 数・取り込み日時・抽出版は前のまま残す（インデックスは変えていない）
+        if ($received.Undispatched) {
+            $pending.Skip($entry.Folder)
+        } else {
+            $pending.Complete($entry.Folder)
+        }
+        $run.PostponedCount++
+        $row = $entry.Row
+        $relPath = [string]$row.相対パス
+        $old = $null
+        if ($run.Previous.TryGetValue($relPath, [ref]$old) -and $old) {
+            $row.TSV数 = $old.TSV数
+            $row.取り込み日時 = $old.取り込み日時
+            $row.抽出版 = $old.抽出版
+        }
+        $row.状態 = ${stateNew}
+        $row.エラー = $received.Reason
+        $ledger.AddFailure($relPath, $received.Reason)
+        writeIndexerLog ("[{0}/{1}] {2}" -f $entry.Number, $run.Total, $relPath)
+        writeIndexerLog "    取り込めませんでした（次の更新で取り込みます）: $($received.Reason)" "Yellow"
+    } else {
+        $result = $received.Result
+        $row = $entry.Row
+        writeIndexerLog ("[{0}/{1}] {2}" -f $entry.Number, $run.Total, $result.RelPath)
+        foreach ($line in ($result.Log -split "\r?\n")) {
+            if ($line) {
+                writeIndexerLog $line
+            }
+        }
+        if ($result.Ok) {
+            $pending.Add($result.RelPath, $false)
+            # 高速検索: このフォルダの システムインデックスを作り直すまで、検索ではこのフォルダを必ず照合させる
+            if (!(markSystemIndexChanged @([System.IO.Path]::GetDirectoryName($result.RelPath)))) {
+                writeIndexerLog "    システムインデックスの状態を書き込めませんでした（インデックス作成の終わりに作り直します）。" "Yellow"
+            }
+            writeIndexerLog "    TSV $($result.TsvCount) 件を作成しました。"
+            $row.状態 = ${stateDone}
+            $row.TSV数 = [string]$result.TsvCount
+            $row.エラー = ""
+            $row.抽出版 = $result.ExtractVersion
+            $run.SuccessCount++
+        } else {
+            writeIndexerLog "    取り込みに失敗しました: $($result.Message)" "Red"
+            $row.状態 = ${stateFailed}
+            $row.TSV数 = ""
+            $row.エラー = $result.Message
+            $row.抽出版 = ""
+            $ledger.AddFailure($result.RelPath, $result.Message)
+        }
+        # 中断しても結果が残るよう、1件ごとに取り込み一覧へ追記する（最後に1ファイル1行にまとめ直す）
+        $row.取り込み日時 = formatFileTime (Get-Date)
+        $ledger.AddRow($row)
+        $pending.Complete($entry.Folder)
+    }
+    $ledger.WriteIngestingFiles($run.Dispatcher.IngestingEntries())
+    reportIngestProgress $run
+    # 取り込みが揃ったフォルダ（取り込み中が無く、まだ渡していないファイルも無い）を、本文インデックスのファイルに書き出す
+    flushPendingPublish $pending
+}
+
 function invokeIndexerBody {
     # invokeIndexer の本体（鍵を取り、ログを開いた後）。終了コードを返す。続けられないエラーは例外にする。
     # 取り込み一覧・取り込み中のファイル・今回の失敗と消えた行は StatusLedger（$ledger）、
@@ -330,42 +446,6 @@ function invokeIndexerBody {
     $ledger = [StatusLedger]::new($workspace)
     $pending = [PendingPublish]::new()
     $reporter = [IndexingReporter]::new($channel)
-
-    # 書き出し待ちのフォルダを本文インデックスへまとめる（書き出しは司令であるここが呼ぶ。PendingPublish は決めて返すだけ）。
-    # -All は、取り込み中・まだ渡していない数を見ずに、書き出し待ちのフォルダをすべて書き出す（クロールの前後・インデックス作成の終わり）
-    function flushPending {
-        param ([switch]$All)
-
-        $flush = if ($All) { $pending.TakeAll() } else { $pending.TakeFlushable() }
-        if ($flush.Count -eq 0) {
-            return
-        }
-        try {
-            [void](publishIndexFolders $flush)
-        } catch {
-            writeIndexerLog "    インデックスをまとめられませんでした（次のインデックス作成でまとめ直します）: $($_.Exception.Message)" "Yellow"
-        }
-    }
-
-    # 利用者が使っている PowerPoint のために取り込めなかったファイルを、失敗として記録する（件数は呼び出す側が数える）。
-    # 取り込み一覧の行は「未取り込み」のまま、理由を「エラー」列に書く（「失敗」にすると、次の更新で飛ばされるため）。
-    # 前回の行があれば、TSV 数・取り込み日時・抽出版は前回のまま残す（インデックスは変えていない）
-    function recordUserPowerPointPostponed {
-        param ([int]$number, $row, [string]$reason)
-
-        $relPath = [string]$row.相対パス
-        $old = $null
-        if ($previous.TryGetValue($relPath, [ref]$old) -and $old) {
-            $row.TSV数 = $old.TSV数
-            $row.取り込み日時 = $old.取り込み日時
-            $row.抽出版 = $old.抽出版
-        }
-        $row.状態 = ${stateNew}
-        $row.エラー = $reason
-        $ledger.AddFailure($relPath, $reason)
-        writeIndexerLog ("[{0}/{1}] {2}" -f $number, $total, $relPath)
-        writeIndexerLog "    取り込めませんでした（次の更新で取り込みます）: $reason" "Yellow"
-    }
 
     # この回で最後まで作り終えたインデックス（失敗したファイルの無いもの）の目録の行を「作り終えた」にし、古い形式の分を消す。
     # 中止・続けられないエラーのときは呼ばない（行は「作成中」のまま。古い形式の分も残る）。消せないものは残してログに出す
@@ -467,7 +547,7 @@ function invokeIndexerBody {
         foreach ($folder in $leftover) {
             $pending.MarkFolder($folder)
         }
-        flushPending -All
+        flushPendingPublish $pending -All
     }
 
     # 新しく割り当てたインデックス名を設定に保存する
@@ -628,7 +708,7 @@ function invokeIndexerBody {
             writeIndexerLog "取り込めるファイルはありません。（一覧: $(Split-Path $workspace.StatusFile -Leaf)）" "Green"
         }
         # 元のファイルが無くなったフォルダは、本文インデックスのファイルから外す
-        flushPending -All
+        flushPendingPublish $pending -All
         # 取り込むファイルが無くても、システムインデックスがまだ無いフォルダ（この版に上げた直後など）は作る
         $reporter.Progress(${indexingPhaseFinish}, 0, 0, 0, "システムインデックス（高速検索用）を確かめています…")
         try {
@@ -643,39 +723,47 @@ function invokeIndexerBody {
     }
 
     $total = $targets.Count
+    # 取り込みのワーカーの数 = Office を使わずに読む仕事の数（今までの読み取りのスレッドの数の決め方）＋この回に要る Office のアプリの数（最大 3）
+    $apps = New-Object string[] $total
+    $bookFolders = New-Object string[] $total
+    $appNames = @{}
+    for ($i = 0; $i -lt $total; $i++) {
+        $apps[$i] = getIngestApp $targets[$i].相対パス
+        if ($apps[$i]) {
+            $appNames[$apps[$i]] = $true
+        }
+        $bookFolders[$i] = [System.IO.Path]::GetDirectoryName((getBookDir $targets[$i].相対パス))
+        $pending.AddPending($bookFolders[$i])
+    }
     $readers = getIngestWorkerCount $channel.Workers $total ([int](readSettings).ingestThreads)
+    $workerCount = if ($readers -gt 0) { $readers + $appNames.Count } else { 0 }
     writeIndexerLog ""
-    if ($readers -gt 0) {
-        writeIndexerLog "$total 件のファイルを取り込みます。（Excel・Word・PowerPoint はそれぞれ 1 つずつ、Office を使わずに読むファイルは $readers 個のスレッドで並べて取り込みます。1ファイルの取り込みに ${fileTimeoutMinutes} 分以上かかった場合は、そのファイルを失敗として次のファイルへ進みます）"
+    if ($workerCount -gt 0) {
+        writeIndexerLog "$total 件のファイルを取り込みます。（Office を使わずに読むファイルは $readers 個のスレッド、Excel・Word・PowerPoint のファイルはそれぞれ 1 つのスレッド（Office も 1 つ）で並べて取り込みます。1ファイルの取り込みに ${fileTimeoutMinutes} 分以上かかった場合は、そのファイルを失敗として次のファイルへ進みます）"
     } else {
         writeIndexerLog "$total 件のファイルを取り込みます。（1ファイルの取り込みに ${fileTimeoutMinutes} 分以上かかった場合は、そのファイルを失敗として次のファイルへ進みます）"
     }
 
-    $successCount = 0
-    $postponedCount = 0 # 利用者のPowerPointのために取り込めなかった件数（失敗の件数に含む。一覧は「未取り込み」のまま次回に回す。終わりの案内で、再取り込みの選択が要る失敗と分ける）
+    # 取り込んだ件数・利用者のPowerPointのために取り込めなかった件数（失敗の件数に含む。一覧は「未取り込み」のまま次回に回す。終わりの案内で、再取り込みの選択が要る失敗と分ける）・
+    # 最後に取り込みのワーカーに渡したファイル（画面に「取り込み中のファイル」として出す）は、結果の受け方（completeIngestJob）と共有する $run に置く。
     # 今回失敗したファイル（$ledger.Failures。@{ RelPath; Message } の並び）・
     # 取り込みの直前に元のファイルが無くなっていた相対パス（$ledger.DroppedRows。取り込み一覧から除く）は StatusLedger が持つ
     # フォルダごとの取り込み中の数と、まだ渡していない数（どちらも 0 になったら本文インデックスのファイルに書き出す）は $pending が持つ
-    # 取り込み中のファイル・レーンごとの取り込み中の数・並びの先読み・取り込みのスレッド・中止の状態は IngestDispatcher（$dispatcher）が持つ
-    $lanes = New-Object string[] $total
-    $bookFolders = New-Object string[] $total
-    for ($i = 0; $i -lt $total; $i++) {
-        $lanes[$i] = getIngestLane $targets[$i].相対パス
-        $bookFolders[$i] = [System.IO.Path]::GetDirectoryName((getBookDir $targets[$i].相対パス))
-        $pending.AddPending($bookFolders[$i])
-    }
-    # 起動した Office の PID の記録を置く場所（開始時のワークスペースから決め、取り込みのスレッドへ文字列で渡す。途中でワークスペースが変わっても、書く所と消す所が食い違わない）
+    # 取り込み中のファイル・ワーカーごとの渡してある数と持っている Office のアプリ・並びの先読み・取り込みのワーカー・中止の状態は IngestDispatcher（$dispatcher）が持つ
+    # 起動した Office の PID の記録を置く場所（開始時のワークスペースから決め、取り込みのワーカーへ文字列で渡す。途中でワークスペースが変わっても、書く所と消す所が食い違わない）
     $officeRecordDir = getOfficePidDir $workspace
-    $currentPath = ""  # 最後に取り込みのスレッドに渡したファイル（画面に「取り込み中のファイル」として出す）
-    $dispatcher = [IngestDispatcher]::new($targets, $lanes, $bookFolders, $folderByName, $carried, @{
-        LaneExcel = ${laneExcel}; LaneWord = ${laneWord}; LanePowerPoint = ${lanePowerPoint}; LaneReader = ${laneReader}
+    $dispatcher = [IngestDispatcher]::new($targets, $apps, $bookFolders, $folderByName, $carried, @{
         LookAhead = ${ingestLookAhead}; WorkerScript = ${ingestWorkerScript}
         PostponedReasonInUse = ${postponedReasonInUse}; PostponedReasonRunning = ${postponedReasonRunning}
     })
+    $run = @{
+        Ledger = $ledger; Pending = $pending; Reporter = $reporter; Dispatcher = $dispatcher; Previous = $previous; Total = $total
+        SuccessCount = 0; PostponedCount = 0; CurrentPath = ""
+    }
 
     try {
-        if ($readers -gt 0) {
-            $dispatcher.Start($readers, @{
+        if ($workerCount -gt 0) {
+            $dispatcher.Start($workerCount, @{
                 Lib = (getPartLoad indexerLib)
                 WorkDir = $workspace.Dir; TmpDir = ${tmpDir}; TmpDirReason = ${tmpDirReason}; PublishDir = $workspace.PublishDir
                 FileTimeoutMinutes = $fileTimeoutMinutes; RestartInterval = $restartInterval; OfficePids = $channel.OfficePids
@@ -687,7 +775,7 @@ function invokeIndexerBody {
             $script:officeRecordDir = $officeRecordDir
             $script:officeOwnDir = resolveOwnDir ${tmpDir}
             $script:onOfficeHandOver = ${officeHandOverNotice}
-            # 司令のスレッドで取り込むときは、利用者が使っている PowerPoint を止めないだけ（諦めるレーンが無いため Abandon は渡さない）
+            # 司令のスレッドで取り込むときは、利用者が使っている PowerPoint を止めないだけ（諦めるワーカーが無いため Abandon は渡さない）
             $script:officeWatchdog.State.Users = $channel.UserOfficePids
             # 中止を求められたら、取り込み中の Office を止めて打ち切る（制限時間を待たない）
             $script:officeWatchdog.State.Cancel = $channel
@@ -695,32 +783,27 @@ function invokeIndexerBody {
         }
 
         while ($true) {
-            # 制限時間を過ぎても利用者が使っている PowerPoint を止めずに諦めたレーンは、取り込み中だったファイルを後回しにする
+            # 制限時間を過ぎても利用者が使っている PowerPoint を止めずに諦めたワーカーは、取り込み中だったファイルを後回しにする
             # （固まった呼び出しは戻らないことがあるため、結果を待たない。戻ってきた結果は捨てる）
-            while ($null -ne ($abandoned = $dispatcher.TakeAbandonedLane())) {
+            while ($null -ne ($abandoned = $dispatcher.TakeAbandonedWorker())) {
                 foreach ($lost in $abandoned.Entries) {
-                    $pending.Complete($lost.Folder)
-                    recordUserPowerPointPostponed $lost.Number $lost.Row ${postponedReasonInUse}
-                    $postponedCount++
+                    completeIngestJob $run @{ Kind = "Postponed"; Entry = $lost; Reason = ${postponedReasonInUse} }
                 }
-                $ledger.WriteIngestingFiles($dispatcher.IngestingEntries())
-                $reporter.Progress(${indexingPhaseIngest}, ($successCount + $ledger.Failures.Count), ($total - $successCount - $ledger.Failures.Count), $ledger.Failures.Count, $currentPath)
-                flushPending
             }
             # 画面から中止を求められたら、次のファイルを渡さずに終える（残りは「未取り込み」のまま、次回取り込みする）
             if ($dispatcher.StopIfRequested([bool]$channel.Stop)) {
                 writeIndexerLog ""
                 writeIndexerLog "中止の要求を受けたため、インデックス作成を中止します。（残り $($dispatcher.Remaining) 件は次回取り込みします）" "Yellow"
             }
-            # 空いているレーンに、次のファイルを渡す（並びの先の見方は IngestDispatcher.BeginPass）
+            # 空いているワーカーに、次のファイルを渡す（並びの先の見方は IngestDispatcher.BeginPass）
             $dispatcher.BeginPass()
             while ($null -ne ($step = $dispatcher.DispatchNext())) {
                 if ($step.Kind -eq "Abandoned") {
-                    # 諦めたレーンのファイルは、渡さずに「未取り込み」のまま残す
-                    $pending.Skip($step.BookFolder)
-                    $postponedCount++
-                    recordUserPowerPointPostponed $step.Number $step.Row ${postponedReasonInUse}
-                    $reporter.Progress(${indexingPhaseIngest}, ($successCount + $ledger.Failures.Count), ($total - $successCount - $ledger.Failures.Count), $ledger.Failures.Count, $currentPath)
+                    # 諦めたワーカーのアプリのファイルは、渡さずに「未取り込み」のまま残す
+                    completeIngestJob $run @{
+                        Kind = "Postponed"; Entry = @{ Row = $step.Row; Number = $step.Number; Folder = $step.BookFolder }
+                        Reason = ${postponedReasonInUse}; Undispatched = $true
+                    }
                 } elseif ($step.Kind -eq "Vanished") {
                     # 取り込み対象を調べてから取り込むまでの間に、元のファイルが移動・削除されたもの。
                     # 「失敗」として記録すると、再取り込みを選ぶまで残ってしまうため、一覧・インデックスから除く
@@ -734,9 +817,8 @@ function invokeIndexerBody {
                     # 強制終了したときに、どのファイルの取り込み中に止まったか次回分かるよう記録する
                     $pending.Dispatch($step.BookFolder)
                     $ledger.WriteIngestingFiles($dispatcher.IngestingEntries())
-                    # 画面はこの 1 行から進み具合を作る（取り込み一覧は読まない）
-                    $currentPath = $step.RelPath
-                    $reporter.Progress(${indexingPhaseIngest}, ($successCount + $ledger.Failures.Count), ($total - $successCount - $ledger.Failures.Count), $ledger.Failures.Count, $currentPath)
+                    $run.CurrentPath = $step.RelPath
+                    reportIngestProgress $run
                     if ($dispatcher.UsesThreads) {
                         $dispatcher.Submit($step)
                     } else {
@@ -754,86 +836,20 @@ function invokeIndexerBody {
             # 取り込みの結果を 1 つ受け取って記録する
             $received = $dispatcher.Receive([bool]$channel.Stop)
             if ($null -eq $received) {
-                # 諦めたレーンがある・回し直した。ループの先頭で続ける
+                # 諦めたワーカーがある・回し直した。ループの先頭で続ける
                 continue
             }
-            $entry = $received.Entry
-            if ($received.Kind -eq "Stopped") {
-                # 中止を求められて、取り込まなかった・打ち切った（回し直しも、中止のあとは回さない）。失敗にはしない。
-                # 取り込み一覧は「未取り込み」のまま（AddRow しない）、インデックスは変えず、次回のインデックス作成で取り込む
-                $pending.Complete($entry.Folder)
-                if ($received.First) {
-                    writeIndexerLog ""
-                    writeIndexerLog "中止の要求を受けたため、インデックス作成を中止します。（取り込み中だったファイルと残りは次回取り込みします）" "Yellow"
-                }
-                writeIndexerLog "    中止のため、取り込みませんでした（次回取り込みします）: $($received.RelPath)" "Yellow"
-                $ledger.WriteIngestingFiles($dispatcher.IngestingEntries())
-                $reporter.Progress(${indexingPhaseIngest}, ($successCount + $ledger.Failures.Count), ($total - $successCount - $ledger.Failures.Count), $ledger.Failures.Count, $currentPath)
-                flushPending
-                continue
-            }
-            if ($received.Kind -ne "Completed") {
-                # 後回し: 利用者のPowerPointが起動していて使えなかった（Postponed）か、回し直し先のレーンが諦めたレーンだった（RerouteAbandoned）。
-                # 失敗として理由を見せ、取り込み一覧は「未取り込み」のまま残して次回のインデックス作成で取り込む
-                # （インデックスは変えない。$ledger.AddRow・$pending.Add はしない）
-                $pending.Complete($entry.Folder)
-                $postponedCount++
-                recordUserPowerPointPostponed $entry.Number $entry.Row $received.Reason
-                $ledger.WriteIngestingFiles($dispatcher.IngestingEntries())
-                if ($received.Kind -eq "Postponed") {
-                    $reporter.Progress(${indexingPhaseIngest}, ($successCount + $ledger.Failures.Count), ($total - $successCount - $ledger.Failures.Count), $ledger.Failures.Count, $currentPath)
-                }
-                flushPending
-                continue
-            }
-            $result = $received.Result
-            $row = $entry.Row
-            writeIndexerLog ("[{0}/{1}] {2}" -f $entry.Number, $total, $result.RelPath)
-            foreach ($line in ($result.Log -split "\r?\n")) {
-                if ($line) {
-                    writeIndexerLog $line
-                }
-            }
-            if ($result.Ok) {
-                $pending.Add($result.RelPath, $false)
-                # 高速検索: このフォルダの システムインデックスを作り直すまで、検索ではこのフォルダを必ず照合させる
-                if (!(markSystemIndexChanged @([System.IO.Path]::GetDirectoryName($result.RelPath)))) {
-                    writeIndexerLog "    システムインデックスの状態を書き込めませんでした（インデックス作成の終わりに作り直します）。" "Yellow"
-                }
-                writeIndexerLog "    TSV $($result.TsvCount) 件を作成しました。"
-                $row.状態 = ${stateDone}
-                $row.TSV数 = [string]$result.TsvCount
-                $row.エラー = ""
-                $row.抽出版 = $result.ExtractVersion
-                $successCount++
-            } else {
-                writeIndexerLog "    取り込みに失敗しました: $($result.Message)" "Red"
-                $row.状態 = ${stateFailed}
-                $row.TSV数 = ""
-                $row.エラー = $result.Message
-                $row.抽出版 = ""
-                $ledger.AddFailure($result.RelPath, $result.Message)
-            }
-
-            # 中断しても結果が残るよう、1件ごとに取り込み一覧へ追記する（最後に1ファイル1行にまとめ直す）
-            $row.取り込み日時 = formatFileTime (Get-Date)
-            $ledger.AddRow($row)
-            $ledger.WriteIngestingFiles($dispatcher.IngestingEntries())
-            $pending.Complete($entry.Folder)
-            $reporter.Progress(${indexingPhaseIngest}, ($successCount + $ledger.Failures.Count), ($total - $successCount - $ledger.Failures.Count), $ledger.Failures.Count, $currentPath)
-
-            if (!$dispatcher.UsesThreads -and ($result.TimedOut -or (($successCount + $ledger.Failures.Count) % $restartInterval) -eq 0)) {
+            completeIngestJob $run $received
+            if ($received.Kind -eq "Completed" -and !$dispatcher.UsesThreads -and ($received.Result.TimedOut -or (($run.SuccessCount + $ledger.Failures.Count) % $restartInterval) -eq 0)) {
                 # 制限時間を過ぎて強制終了したアプリは使えないため、すべて終了して次に必要になったときに起動し直す
                 stopAllApps
             }
-            # 取り込みが揃ったフォルダ（取り込み中が無く、まだ渡していないファイルも無い）を、本文インデックスのファイルに書き出す
-            flushPending
         }
     } finally {
         # 中止・続けられないエラーの場合もここは実行される。
         # 後片付けも数十秒かかることがあるため、何をしているかを画面に伝える（進み具合の数はそのまま残す）
         # 画面は「成功 = 処理済み - 失敗」と出すため、取り込まなかった（元ファイルが無くなった）分は数に入れない
-        $processed = $successCount + $ledger.Failures.Count
+        $processed = $run.SuccessCount + $ledger.Failures.Count
         $reporter.Progress(${indexingPhaseFinish}, $processed, 0, $ledger.Failures.Count, "Officeアプリを終了しています…")
         if ($dispatcher.UsesThreads) {
             $dispatcher.Stop()
@@ -851,7 +867,7 @@ function invokeIndexerBody {
         $ledger.RemoveIngestingFile()
         # 取り込んだ TSV は、中止したときも残さず本文インデックスのファイルに入れる（残すとインデックスの容量が倍になる）
         $reporter.Progress(${indexingPhaseFinish}, $processed, 0, $ledger.Failures.Count, "インデックスをまとめています…")
-        flushPending -All
+        flushPendingPublish $pending -All
         $reporter.Progress(${indexingPhaseFinish}, $processed, 0, $ledger.Failures.Count, "更新の記録を書き直しています…")
         # 取り込みの直前に無くなっていたファイルの行は除く（次回の検索でも見つからず、インデックスも削除済み）
         writeStatusKeepingDropped $ledger $folders @($rows | Where-Object { $_ -and !$ledger.DroppedRows.Contains([string]$_.相対パス) }) $keptDropped $previous
@@ -888,9 +904,9 @@ function invokeIndexerBody {
     }
     writeIndexerLog ""
     if ($stopped) {
-        writeIndexerLog "インデックス作成を中止しました。（成功: ${successCount} 件 / 失敗: $($ledger.Failures.Count) 件）" "Yellow"
+        writeIndexerLog "インデックス作成を中止しました。（成功: $($run.SuccessCount) 件 / 失敗: $($ledger.Failures.Count) 件）" "Yellow"
     } else {
-        writeIndexerLog "インデックス作成が完了しました。（成功: ${successCount} 件 / 失敗: $($ledger.Failures.Count) 件）" "Green"
+        writeIndexerLog "インデックス作成が完了しました。（成功: $($run.SuccessCount) 件 / 失敗: $($ledger.Failures.Count) 件）" "Green"
     }
     if ($ledger.DroppedRows.Count -gt 0) {
         writeIndexerLog "取り込みの直前に元のファイルが無くなった $($ledger.DroppedRows.Count) 件は、取り込まずに一覧から除きました。" "Yellow"
@@ -908,12 +924,12 @@ function invokeIndexerBody {
             writeIndexerLog "  ほか $($ledger.Failures.Count - $failureListLimit) 件（原因は一覧の「エラー」列）"
         }
         writeIndexerLog ""
-        if ($ledger.Failures.Count -gt $postponedCount) {
+        if ($ledger.Failures.Count -gt $run.PostponedCount) {
             writeIndexerLog "失敗したファイルは、画面で「失敗分も再取り込みする」を選んで取り込むと再取り込みします。" "Yellow"
         }
-        if ($postponedCount -gt 0) {
+        if ($run.PostponedCount -gt 0) {
             # 一覧の状態は「未取り込み」のため、PowerPoint を閉じてからの次の更新で選ばなくても取り込む
-            writeIndexerLog "PowerPoint のために取り込めなかった ${postponedCount} 件は、PowerPoint を閉じてからもう一度更新すると、そのまま取り込みます。" "Yellow"
+            writeIndexerLog "PowerPoint のために取り込めなかった $($run.PostponedCount) 件は、PowerPoint を閉じてからもう一度更新すると、そのまま取り込みます。" "Yellow"
         }
     }
 
