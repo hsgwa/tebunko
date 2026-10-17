@@ -4637,7 +4637,12 @@
 </thead>
 <tbody>
 <tr>
-<td><code>work/content_index/</code>（<code>&lt;インデックス名&gt;/…/content_index.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code>・<code>source_folder.txt</code>）</td>
+<td><code>work/store/format.tsv</code>（一時ファイルを経由して置き換える）</td>
+<td>読む・書く</td>
+<td>目録（形式の版・各インデックスの状態。<a href="../../index-data/format/#置き場と目録store">インデックスのファイルの形</a>）</td>
+</tr>
+<tr>
+<td><code>work/store/content/</code>（<code>&lt;インデックス名&gt;/…/content_index.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code>・<code>source_folder.txt</code>）</td>
 <td>読む・書く</td>
 <td>本文インデックス。インデックス作成が書き、検索・一覧が読む。インポートで置き換え、クロール対象から外したフォルダの分は消す。<code>&lt;名前&gt;.tmp</code> に書いてから置き換える（<code>writeContentIndexFile</code>）。改名のときは <code>&lt;名前&gt;_rename_&lt;PID&gt;</code> を経由する</td>
 </tr>
@@ -4652,9 +4657,14 @@
 <td>システムインデックスの状態。排他で開いて書き換える</td>
 </tr>
 <tr>
-<td><code>work/ingest_status.tsv</code>（<code>.tmp</code> を経由して置き換える）</td>
+<td><code>work/store/ingest_status.tsv</code>（<code>.tmp</code> を経由して置き換える）</td>
 <td>読む・書く</td>
 <td>取り込み一覧</td>
+</tr>
+<tr>
+<td><code>work/content_index/</code>・<code>work/ingest_status.tsv</code>（前の版の置き場）</td>
+<td>読む（古い形式かの判定）・消す</td>
+<td>読まず、検索もしない。作り直しが終わったインデックスの分から消す</td>
 </tr>
 <tr>
 <td><code>work/ingesting.txt</code></td>
@@ -4976,9 +4986,14 @@
 </thead>
 <tbody>
 <tr>
+<td><code>store</code></td>
+<td>元のファイルの数に比例（中の <code>format.tsv</code> は上書き、<code>ingest_status.tsv</code> は上書きで 1 つ）</td>
+<td><code>store\content</code> は元のファイルが無くなれば消す。外したフォルダの分は利用者が確認ダイアログで消す（利用者のデータ。自動で期間では消さない）</td>
+</tr>
+<tr>
 <td><code>content_index</code></td>
-<td>元のファイルの数に比例</td>
-<td>元のファイルが無くなれば消す。外したフォルダの分は利用者が確認ダイアログで消す（利用者のデータ。自動で期間では消さない）</td>
+<td>増えない（前の版が置いたもの）</td>
+<td>作り直しが終わったインデックスの分から消す。空になれば <code>content_index</code> ごと消す。消せなければ残し、次のインデックス作成の終わりに消す</td>
 </tr>
 <tr>
 <td><code>index</code></td>
@@ -4997,8 +5012,8 @@
 </tr>
 <tr>
 <td><code>ingest_status.tsv</code></td>
-<td>上書き（<code>.tmp</code> を経由。<code>.tmp</code> は同じ名前で上書きされ 1 つまで）</td>
-<td>1 つ</td>
+<td>増えない（前の版が置いたもの。今の取り込み一覧は <code>store</code> の中）</td>
+<td>1 つ。作り直しが終われば消す</td>
 </tr>
 <tr>
 <td><code>ingesting.txt</code></td>
@@ -5124,8 +5139,8 @@
     CFG[("setting.config")]
     GUI["画面&lt;br&gt;gui.ps1"]
     IDX["インデクサ&lt;br&gt;indexer.ps1"]
-    ST[("ingest_status.tsv&lt;br&gt;ingesting.txt")]
-    IX[("work/content_index/")]
+    ST[("store/format.tsv&lt;br&gt;store/ingest_status.tsv&lt;br&gt;ingesting.txt")]
+    IX[("work/store/content/")]
     GUI -- 読み書き --&gt; CFG
     IDX -- クロール対象フォルダを読む --&gt; CFG
     IDX -- "進捗・取り込み予定・エラー（受け渡しの口）" --&gt; GUI
@@ -5155,7 +5170,7 @@
 <td>クロール対象フォルダ・検索対象のツリーでチェックを外したフォルダ・元のフォルダ・検索条件・開き方（<a href="../settings-file/">設定ファイル（setting.config）</a>）。PC ごとの設定</td>
 </tr>
 <tr>
-<td><code>work/ingest_status.tsv</code></td>
+<td><code>work/store/ingest_status.tsv</code></td>
 <td>インデックス作成の状態</td>
 <td>インデックス作成</td>
 <td>インデックス作成・画面</td>
@@ -5203,7 +5218,7 @@
 <td>画面で起きた予期しないエラーの内容（<code>writeErrorLog</code>。追記。1 MB で <code>gui_error_log_previous.txt</code> へ移す）</td>
 </tr>
 <tr>
-<td><code>work/content_index/</code></td>
+<td><code>work/store/content/</code></td>
 <td>インデックス</td>
 <td>インデックス作成</td>
 <td>検索</td>
@@ -5211,7 +5226,7 @@
 <td>フォルダ・拡張子ごとの本文インデックス（<code>content_index.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code>。元のファイルごと・場所（シート・ページ・スライド、図形・コメント・ヘッダー・フッター）ごとに、メタ情報の行と TSV の中身を並べる）。取り込み中だけ、シート・ページ・スライドごとの TSV と図形・コメント・ヘッダー・フッターの TSV（<code>&lt;元の場所&gt;[shape]</code>・<code>&lt;元の場所&gt;[comment]</code>・<code>&lt;元の場所&gt;[header_footer]</code>）</td>
 </tr>
 <tr>
-<td><code>work/content_index/&lt;インデックス名&gt;/source_folder.txt</code></td>
+<td><code>work/store/content/&lt;インデックス名&gt;/source_folder.txt</code></td>
 <td>インデックス</td>
 <td>インデックス作成</td>
 <td>画面</td>

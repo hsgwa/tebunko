@@ -4955,7 +4955,7 @@
 <td><code>splitIndexRelPath</code></td>
 <td>relPath</td>
 <td><code>@{Name; Rest}</code></td>
-<td><code>work\content_index</code> からの相対パスを、先頭のインデックス名と残りに分ける</td>
+<td><code>work\store\content</code> からの相対パスを、先頭のインデックス名と残りに分ける</td>
 <td>同上</td>
 <td>インデックス作成, resolveSourcePath</td>
 </tr>
@@ -4995,7 +4995,7 @@
 <td><code>getSearchIndexes</code></td>
 <td>dir（既定 <code>$workspace.IndexDir</code>）, statusPath, settingsPath</td>
 <td><code>@{Name; Path; SourcePath}</code> の配列</td>
-<td>インデックスの一覧（<code>work\content_index</code> 直下のフォルダ 1 つがインデックス 1 つ）。並びは［インデックス管理］の一覧と同じで、一覧に無いもの（コピーしたインデックスなど）は名前順で後ろ。<code>SourcePath</code> は元のフォルダ（分からなければ空）</td>
+<td>インデックスの一覧（<code>work\store\content</code> 直下のフォルダ 1 つがインデックス 1 つ）。並びは［インデックス管理］の一覧と同じで、一覧に無いもの（コピーしたインデックスなど）は名前順で後ろ。<code>SourcePath</code> は元のフォルダ（分からなければ空）</td>
 <td><a href="../../search/#インデックスの一覧getsearchindexes">インデックスの一覧</a></td>
 <td>画面（検索対象のツリー）</td>
 </tr>
@@ -5035,7 +5035,7 @@
 <td><code>RenameIndex</code></td>
 <td>oldName, newName</td>
 <td>–</td>
-<td>インデックス名を変える（旧 <code>renameIndex</code>）。<code>work\content_index\&lt;旧名&gt;</code> を改名し、取り込み一覧の記録（<code>StatusLedger.RenameIndexName</code>）も書き換えるため、<strong>インデックスは作り直さない</strong>。大文字・小文字だけの変更は一時名を経由する。移動先が既にあれば例外。<code>system_index</code> の古い名前の分と、旧名・新名の下の <code>searchExcludes</code>（<code>removeSearchExcludesUnder</code>。付け替えず、外したフォルダは検索対象に戻る）も消す。この 2 つの整理は、失敗しても止めない</td>
+<td>インデックス名を変える（旧 <code>renameIndex</code>）。<code>work\store\content\&lt;旧名&gt;</code> を改名し、取り込み一覧の記録（<code>StatusLedger.RenameIndexName</code>）も書き換えるため、<strong>インデックスは作り直さない</strong>。大文字・小文字だけの変更は一時名を経由する。移動先が既にあれば例外。<code>system_index</code> の古い名前の分と、旧名・新名の下の <code>searchExcludes</code>（<code>removeSearchExcludesUnder</code>。付け替えず、外したフォルダは検索対象に戻る）も消す。この 2 つの整理は、失敗しても止めない</td>
 <td><a href="../../gui/index-tab/#名前とフォルダパスの編集">名前とフォルダパスの編集</a></td>
 <td>画面（詳細の名前の欄）</td>
 </tr>
@@ -5051,7 +5051,7 @@
 <td><code>RemoveIndex</code></td>
 <td>name</td>
 <td>–</td>
-<td>インデックスを削除する（旧 <code>removeIndex</code>）。<code>work\content_index\&lt;名前&gt;</code> を中身ごと削除し（消せなければ例外にして、取り込み一覧の記録は残す）、取り込み一覧からもその記録を取り除く（<code>StatusLedger.RemoveIndexName</code>）。<code>system_index</code> とそのインデックスの下の <code>searchExcludes</code> も消す</td>
+<td>インデックスを削除する（旧 <code>removeIndex</code>）。<code>work\store\content\&lt;名前&gt;</code> を中身ごと削除し（消せなければ例外にして、取り込み一覧の記録は残す）、取り込み一覧からもその記録を取り除く（<code>StatusLedger.RemoveIndexName</code>）。<code>system_index</code> とそのインデックスの下の <code>searchExcludes</code> も消す</td>
 <td>同上</td>
 <td>画面（［削除］）</td>
 </tr>
@@ -5179,7 +5179,7 @@
 <td><code>importIndex</code></td>
 <td>zipPath, collisionMode（<code>Rename</code>/<code>Overwrite</code>/<code>Cancel</code>）, name, sourceFolder, ws, settingsPath</td>
 <td><code>@{Name; SourcePath; Enabled; Files; Bytes; Warnings}</code>（<code>Cancel</code> は <code>$null</code>）</td>
-<td>zip から 1 つのインデックスをインポートする。前の版のワークスペースの片付け・目録の確かめ・設定への登録・<code>content_index\&lt;名前&gt;\</code> の入れ替え・取り込み一覧の書き直しを行う。途中で失敗したら逆の操作で戻す</td>
+<td>zip から 1 つのインデックスをインポートする。前の版のワークスペースの片付け・目録の確かめ（版 1 の zip は断る）・設定への登録・<code>store\content\&lt;名前&gt;\</code> の入れ替え・取り込み一覧の書き直しを行う。途中で失敗したら逆の操作で戻す</td>
 <td>同上</td>
 <td>画面（［インポート…］）</td>
 </tr>

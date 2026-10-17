@@ -4063,8 +4063,8 @@
     M -- いいえ --&gt; PRE["前回の indexing_log.txt を&lt;br&gt;indexing_log_previous.txt へ移し、&lt;br&gt;indexing_log.txt を開いて版と環境の見出しを書く"]
     PRE --&gt; T{"getTargetFolders 成功？&lt;br&gt;チェックの付いたフォルダがある？"}
     T -- 失敗 --&gt; E0["受け渡しの口の Error にメッセージを入れる&lt;br&gt;終了コード 1"]
-    T -- 成功 --&gt; LG{"前の版のしるしがある？&lt;br&gt;（getLegacyIndexState）"}
-    LG -- はい --&gt; NOTICE["前の版のインデックスは使えないという知らせを&lt;br&gt;ログに黄色で出す（getLegacyIndexMessage）"] --&gt; CLN{"content_index\ が空で、&lt;br&gt;片付けの条件に当たる？&lt;br&gt;（testLegacyCleanupNeeded）"}
+    T -- 成功 --&gt; LG{"前の前の版のしるしがある？&lt;br&gt;（getLegacyIndexState）"}
+    LG -- はい --&gt; NOTICE["前の版のインデックスは使えないという知らせを&lt;br&gt;ログに黄色で出す（getLegacyIndexMessage）"] --&gt; CLN{"store\content\ と content_index\ が空で、&lt;br&gt;片付けの条件に当たる？&lt;br&gt;（testLegacyCleanupNeeded）"}
     LG -- いいえ --&gt; PK
     CLN -- いいえ --&gt; PK
     CLN -- はい --&gt; CLR{"前の版のシステムインデックスを&lt;br&gt;片付けられた？（clearLegacySystemIndex）"}
