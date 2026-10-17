@@ -4080,14 +4080,14 @@
     RF --&gt; W2["取り込み一覧・元のフォルダの記録を書き出す"]
     W2 --&gt; Z{"対象が 0 件？"}
     Z -- はい --&gt; Z1["無くなった元のファイルを本文インデックスから外す&lt;br&gt;『取り込みが必要なファイルはありません。』&lt;br&gt;終了コード 0"]
-    Z -- いいえ --&gt; N["件数を表示&lt;br&gt;レーンの列を用意する（newIngestPool）"]
+    Z -- いいえ --&gt; N["件数を表示&lt;br&gt;レーンの列を用意する（IngestDispatcher の Start）"]
     N --&gt; LOOP{"並びの先 200 件までに、&lt;br&gt;レーンに空きがあるまだ渡していないファイルがある？&lt;br&gt;（getIngestLane・getIngestLaneCapacity）"}
     LOOP -- はい --&gt; STOP{"中止を求められている？&lt;br&gt;（受け渡しの口の Stop）"}
     STOP -- はい --&gt; STOP1["残りは『未取り込み』のまま&lt;br&gt;次のファイルを渡さない"] --&gt; WAIT
     STOP -- いいえ --&gt; SRC{"元のファイルがある？"}
     SRC -- "無い（フォルダはある）" --&gt; SKIP["『元のファイルが無くなったため…』&lt;br&gt;TSV を削除して一覧から除く&lt;br&gt;（本文インデックスからも外す）"] --&gt; LOOP
     SRC -- "クロール対象フォルダごと無い" --&gt; LOST["残りは『未取り込み』のまま&lt;br&gt;次のファイルを渡さない"] --&gt; WAIT
-    SRC -- ある --&gt; F["ingesting.txt に記録&lt;br&gt;そのレーンの列にファイルを渡す（addIngestTask）&lt;br&gt;レーンのスレッドが無ければ始める"] --&gt; LOOP
+    SRC -- ある --&gt; F["ingesting.txt に記録&lt;br&gt;そのレーンの列にファイルを渡す（IngestDispatcher の Submit）&lt;br&gt;レーンのスレッドが無ければ始める"] --&gt; LOOP
     LOOP -- いいえ --&gt; WAIT{"取り込み中のファイルがある？"}
     WAIT -- はい --&gt; RR{"結果を 1 つ受け取る&lt;br&gt;Office が要る（Reroute）？"}
     RR -- "はい（中止を求められていないとき）" --&gt; RT["Word・PowerPoint のレーンに渡し直す（getOfficeLane）&lt;br&gt;取り込み中のまま"] --&gt; LOOP

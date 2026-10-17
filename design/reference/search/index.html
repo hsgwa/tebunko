@@ -4699,12 +4699,12 @@
 <td><code>OfficeWatchdog</code></td>
 </tr>
 <tr>
-<td><code>testLaneAbandoned</code> / <code>getUnhandledAbandonedLanes</code></td>
-<td>– / pool</td>
-<td>bool / レーンの配列</td>
-<td>取り込みのスレッドが自分のレーンが諦められたか見る / 司令がまだ後回しにしていない、諦められたレーンを返す。諦められたレーンのファイルは取り込まず、理由付きの失敗にする（状態は「未取り込み」のまま）</td>
+<td><code>testLaneAbandoned</code> / <code>IngestDispatcher.TakeAbandonedLane</code></td>
+<td>– / –</td>
+<td>bool / <code>@{ Lane; Entries }</code> または <code>$null</code></td>
+<td>取り込みのスレッドが自分のレーンが諦められたか見る / 司令がまだ後回しにしていない、諦められたレーンと、そのレーンで取り込み中だったファイルを、取り込み中から外して返す。諦められたレーンのファイルは取り込まず、理由付きの失敗にする（状態は「未取り込み」のまま）</td>
 <td><a href="../../indexing/ingest-list/">取り込み一覧</a></td>
-<td><code>invokeIngestTask</code>・<code>receiveIngestResult</code>・<code>invokeIndexerBody</code></td>
+<td><code>invokeIngestTask</code>・<code>IngestDispatcher</code>・<code>invokeIndexerBody</code></td>
 </tr>
 </tbody>
 </table>

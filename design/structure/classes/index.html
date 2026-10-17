@@ -4176,7 +4176,7 @@
 
 
 <h1 id="クラスと関数の使い分け">クラスと関数の使い分け<a class="headerlink" href="#クラスと関数の使い分け" title="Permanent link">&para;</a></h1>
-<p>扱うこと: PowerShell 5.1 でクラスを使ってよいところ・使ってはいけないところ（試した結果と決まり）、目的ごとのクラス設計（refactor で作る予定）とそのつなぎ方。扱わないこと: スレッド・プロセスの一覧そのもの（<a href="../threads/">プロセスとスレッド</a>）。先に読むページ: <a href="../threads/">プロセスとスレッド</a>。</p>
+<p>扱うこと: PowerShell 5.1 でクラスを使ってよいところ・使ってはいけないところ（試した結果と決まり）、目的ごとのクラス設計（作ったクラスの置き場所と役目）とそのつなぎ方。扱わないこと: スレッド・プロセスの一覧そのもの（<a href="../threads/">プロセスとスレッド</a>）。先に読むページ: <a href="../threads/">プロセスとスレッド</a>。</p>
 <h2 id="クラスと関数の使い分け_1">クラスと関数の使い分け<a class="headerlink" href="#クラスと関数の使い分け_1" title="Permanent link">&para;</a></h2>
 <p>PowerShell 5.1 のクラスのメソッドは、別のランスペースへ渡したインスタンスから呼んでも、作った側（定義したランスペース）の関数を呼ぶ（試し c）。作った側のランスペースが同時に実行中のときにどう動くかは試していない。次の 3 つを Windows で試し、その結果をもとに使い分けを決める。</p>
 <p><strong>試したこと</strong>（環境: Windows 11、PowerShell 5.1.26100.9549、main 79065aa、2026-09-26。個人のパスは書かない）</p>
@@ -4318,7 +4318,7 @@
 <li>部品に入れるファイルの範囲は、<code>tests/meta/structure.Tests.ps1</code> と <code>tools/new_single_script.ps1</code> の検査が、読み込み口（<code>lib.ps1</code>・<code>indexer_lib.ps1</code>・<code>indexer_main.ps1</code>）からたどれる範囲と一致するかで確かめる。</li>
 </ul>
 <h2 id="目的ごとのクラス">目的ごとのクラス<a class="headerlink" href="#目的ごとのクラス" title="Permanent link">&para;</a></h2>
-<p>refactor で作る予定の設計。作ったら、この節を実装に合わせて直す。<code>StatusLedger</code>・<code>PendingPublish</code>・<code>IndexingReporter</code> は実装ずみ（#147）。<code>OfficeWatchdog</code>・<code>IndexCatalog</code>・<code>WorkspaceMover</code> も実装ずみ。<code>IngestPlanner</code> は名前の保存を <code>IndexCatalog</code> に任せる形に直した。<code>IngestDispatcher</code> だけが予定のまま。</p>
+<p>目的ごとに分けたクラスの設計。クラスを足す・変えるときは、この節を実装に合わせて直す。<code>StatusLedger</code>・<code>PendingPublish</code>・<code>IndexingReporter</code> は実装ずみ（#147）。<code>OfficeWatchdog</code>・<code>IndexCatalog</code>・<code>WorkspaceMover</code> も実装ずみ。<code>IngestPlanner</code> は名前の保存を <code>IndexCatalog</code> に任せる形に直した。<code>IngestDispatcher</code> も実装ずみ。</p>
 <pre class="mermaid"><code>classDiagram
     class IndexCatalog
     class WorkspaceMover
@@ -4337,7 +4337,7 @@
 <th>目的（1 つに絞る。凝集）</th>
 <th>作って使うスレッド</th>
 <th>層</th>
-<th>置くファイル（案）</th>
+<th>置くファイル</th>
 <th>今ある場所</th>
 <th>依存してよい相手</th>
 </tr>
@@ -4411,9 +4411,9 @@
 <td>プール・レーン・先読み・取り込み中の管理（性能に効く経路）。取り込みのスレッドとは今までどおり hashtable と .NET のコレクションで受け渡す</td>
 <td>司令のスレッド</td>
 <td>状態層</td>
-<td><code>tebunko/indexer/indexer_run.ps1</code>（<code>indexer_lib.ps1</code>）</td>
-<td><code>invokeIndexerBody</code> の取り込みの繰り返し、<code>newIngestPool</code> など</td>
-<td>取り込みのスレッド（レーンごとに <code>CreateRunspace</code> で作る STA・MTA のランスペース。今の <code>newIngestPool</code>・<code>addIngestTask</code>）と <code>BlockingCollection</code>、取り込みのスレッドのスクリプト。<code>WorkerPool</code> には寄せない（今の形を変えない）。終わった取り込みの結果は hashtable で司令に返す</td>
+<td><code>tebunko/indexer/ingest_dispatcher.ps1</code>（<code>indexer_lib.ps1</code>）</td>
+<td>実装ずみ。<code>Start</code>・<code>BeginPass</code>・<code>DispatchNext</code>・<code>Submit</code>・<code>SetInlineResult</code>・<code>Receive</code>・<code>TakeAbandonedLane</code>・<code>StopIfRequested</code>・<code>InflightCount</code>・<code>IngestingEntries</code>・<code>Stop</code></td>
+<td>取り込みのスレッド（レーンごとに <code>CreateRunspace</code> で作る STA・MTA のランスペース。<code>Start</code>・<code>Submit</code> が作る）と <code>BlockingCollection</code>、取り込みのスレッドのスクリプト。<code>WorkerPool</code> には寄せない（今の形を変えない）。終わった取り込みの結果は hashtable で司令に返す</td>
 </tr>
 </tbody>
 </table>
@@ -4427,7 +4427,7 @@
 <li><strong><code>IndexCatalog</code> は保存先の形式を直接知らない。</strong> 保存先ごとの読み書きは小さな部品（既存の関数でよい）に任せ、<code>IndexCatalog</code> は書き換える手順と順番、途中で失敗したときの扱いだけを持つ。</li>
 <li>取り込みの 1 ファイルごとに司令を通るのは、<code>IngestDispatcher</code> が返した結果（hashtable）を <code>StatusLedger</code>・<code>PendingPublish</code>・<code>IndexingReporter</code> のメソッドに渡すところだけにする。増えるのはメソッドの呼び出しで、関数の呼び出しの段は増やさない（上の「速さ」のとおり）。</li>
 </ul>
-<p>置くファイルは案。refactor で変えたときは、この表と <a href="../source/">ソースの分け方</a> の表・図を同じ PR で直す。</p>
+<p>置いたファイルを変えたときは、この表と <a href="../source/">ソースの分け方</a> の表・図を同じ PR で直す。</p>
 <p><strong>refactor で守ること</strong></p>
 <ul>
 <li>スレッドをまたいでクラスのインスタンスを渡さない（上の「クラスと関数の使い分け」の決まり）。</li>
