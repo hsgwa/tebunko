@@ -122,7 +122,7 @@ class IndexCatalog {
         # 古い置き場（作り直す前の形式）の同じ名前のフォルダと、目録の行も消す
         $oldTarget = Join-Path $this.Workspace.OldIndexDir $name
         if (testPathUnder $oldTarget $this.Workspace.OldIndexDir) {
-            if (!(removeDirectoryUnder $oldTarget $this.Workspace.Dir)) {
+            if (!(removeDirectoryUnder $oldTarget $this.Workspace.OldIndexDir)) {
                 throw "置き場の外か、途中にリンクがあるため、削除できませんでした: ${name}"
             }
         }

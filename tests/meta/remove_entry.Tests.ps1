@@ -192,6 +192,10 @@ BeforeAll {
             } elseif ($node.Static -and $node.Expression -is [System.Management.Automation.Language.TypeExpressionAst] -and
                 $node.Expression.TypeName.Name -match "(^|\.)Directory$" -and "$($node.Member.Value)" -in @("Move", "CreateDirectory")) {
                 $call = "Directory.$($node.Member.Value)"
+            } elseif ($node.Static -and $node.Expression -is [System.Management.Automation.Language.VariableExpressionAst] -and
+                "$($node.Member.Value)" -in @("Move", "CreateDirectory")) {
+                # 型を変数に入れて呼ぶ書き方（`$t = [System.IO.Directory]; $t::Move(...)`）。型は分からないため、同じ名前の呼び出しは全部拾う
+                $call = "Directory.$($node.Member.Value)"
             }
             if (!$call) {
                 continue
@@ -292,7 +296,7 @@ Describe "フォルダを消す・移す・作る入口" -Tag Meta {
             @{ File = "tebunko\index\index_archive.ps1"; Owner = "exportIndexCore"; Call = "Directory.CreateDirectory"; Reason = "書き出す zip の一時ファイルの親フォルダを作るだけ（消さない）" }
             @{ File = "tebunko\index\index_archive.ps1"; Owner = "swapInImportedIndexDir"; Call = "Directory.CreateDirectory"; Reason = "インデックスの置き場（IndexDir）そのものを作る（置き場の中ではなく、置き場自身。消さない）" }
             @{ File = "tebunko\index\index_format_store.ps1"; Owner = "updateIndexFormat"; Call = "Directory.CreateDirectory"; Reason = "目録ファイルの親フォルダを作るだけ（消さない）" }
-            @{ File = "tebunko\index\index_store.ps1"; Owner = "publishIndexFiles"; Call = "Directory.Move"; Reason = "置き場の下かを testRemovablePath で、移す前に両側とも確かめてから移す（IOException のときの待ち直しのため、moveDirectoryUnder を使わない）" }
+            @{ File = "tebunko\index\index_store.ps1"; Owner = "publishIndexFiles"; Call = "Directory.Move"; Reason = "置き場の下かを testRemovablePath で、移す前に両側とも確かめてから移す（別ドライブでは必ず IOException になり、moveDirectoryRetry の待ち直しが本ごとにかかるため、1 件ずつ移す fallback へすぐ落とす。moveDirectoryUnder を使わない）" }
             @{ File = "tebunko\index\system_index.ps1"; Owner = "updateSystemIndexState"; Call = "Directory.CreateDirectory"; Reason = "状態ファイルの親フォルダを作るだけ（消さない）" }
             @{ File = "tebunko\indexer\indexer_run.ps1"; Owner = "invokeIndexerBody"; Call = "Directory.CreateDirectory"; Reason = "ワークスペースの根（PublishDir・IndexDir・Dir）そのものを作る（置き場自身。消さない）" }
             @{ File = "tebunko\indexer\indexer_run.ps1"; Owner = "invokeIndexer"; Call = "Directory.CreateDirectory"; Reason = "ワークスペースの根そのものを作る（置き場自身。消さない）" }
@@ -409,5 +413,28 @@ Describe "フォルダを消す書き方の見つけ方（自己テスト）" -T
         $groups = groupCommandsByOwner @(findCallsByOwner $ast)
         $groups["inner"] | Should -Be @("Test-Path")
         $groups["outer"] | Should -Be @("removeTreeNoFollow")
+    }
+
+    It "フォルダを消す・移す・作る呼び出しを見つける: <code>" -TestCases @(
+        @{ code = '[IO.Directory]::Move($a, $b)'; call = "Directory.Move" }
+        @{ code = '[System.IO.Directory]::CreateDirectory($a)'; call = "Directory.CreateDirectory" }
+        @{ code = 'removeDirectoryRetry $a'; call = "removeDirectoryRetry" }
+        @{ code = 'moveDirectoryRetry $a $b'; call = "moveDirectoryRetry" }
+        @{ code = '$t = [System.IO.Directory]; $t::Move($a, $b)'; call = "Directory.Move" }
+        @{ code = '$t::CreateDirectory($a)'; call = "Directory.CreateDirectory" }
+    ) {
+        $found = @(findFolderChangeCalls (parseCode $code))
+        $found.Count | Should -Be 1
+        $found[0].Call | Should -Be $call
+    }
+
+    It "フォルダを消す・移す・作る呼び出しでないものは見つけない: <code>" -TestCases @(
+        @{ code = '[System.IO.Directory]::Exists($a)' }
+        @{ code = '[System.IO.File]::Move($a, $b)' }
+        @{ code = '$t::Exists($a)' }
+        @{ code = 'removeDirectoryUnder $a $r' }
+        @{ code = 'Get-ChildItem $a' }
+    ) {
+        @(findFolderChangeCalls (parseCode $code)).Count | Should -Be 0
     }
 }

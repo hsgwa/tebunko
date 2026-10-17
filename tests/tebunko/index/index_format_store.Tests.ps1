@@ -212,6 +212,24 @@ Describe "renameOldIndexFolder" -Tag Io {
     }
 }
 
+Describe "renameOldIndexFolder（古い置き場がジャンクション）" -Tag Io {
+    It "古い置き場（content_index）そのものがジャンクションでも、中の名前を変えられる" {
+        $ws = newFormatWorkspace "format_old_rename_rootlink"
+        $outside = Join-Path $TestDrive "format_old_rename_rootlink_outside"
+        [System.IO.Directory]::CreateDirectory("$outside\営業") | Out-Null
+        [System.IO.File]::WriteAllText("$outside\営業\content_index.docx.001.tsv", "古い中身")
+        if (!(newTestJunction $ws.OldIndexDir $outside)) {
+            Set-ItResult -Skipped -Because "ジャンクションを作れません: $($script:linkError)"
+            return
+        }
+
+        renameOldIndexFolder "営業" "営業部" $ws
+
+        Test-Path -LiteralPath "$outside\営業" | Should -Be $false
+        Test-Path -LiteralPath "$outside\営業部\content_index.docx.001.tsv" | Should -Be $true
+    }
+}
+
 Describe "removeOldIndexOf / completeIndexFormat" -Tag Io {
     It "作り終えたインデックスの古い分だけを消す。ほかのインデックスが古い置き場に残れば、置き場そのものは残す" {
         $ws = newFormatWorkspace "format_remove_some"
@@ -262,6 +280,26 @@ Describe "removeOldIndexOf / completeIndexFormat" -Tag Io {
 
         Test-Path -LiteralPath "$outside\大事.txt" | Should -Be $true
         Test-Path -LiteralPath (Join-Path $ws.OldIndexDir "営業") | Should -Be $false
+    }
+
+    It "古い置き場（content_index）そのものがジャンクションでも、その中の同じ名前の分を消せる" {
+        $ws = newFormatWorkspace "format_remove_rootlink"
+        $outside = Join-Path $TestDrive "format_remove_rootlink_outside"
+        [System.IO.Directory]::CreateDirectory("$outside\営業") | Out-Null
+        [System.IO.File]::WriteAllText("$outside\営業\content_index.docx.001.tsv", "古い中身")
+        [System.IO.Directory]::CreateDirectory("$outside\技術") | Out-Null
+        [System.IO.File]::WriteAllText("$outside\技術\content_index.docx.001.tsv", "古い中身")
+        if (!(newTestJunction $ws.OldIndexDir $outside)) {
+            Set-ItResult -Skipped -Because "ジャンクションを作れません: $($script:linkError)"
+            return
+        }
+
+        $result = removeOldIndexOf "営業" $ws
+
+        $result.Failed.Count | Should -Be 0
+        $result.Removed | Should -Be 1
+        Test-Path -LiteralPath "$outside\営業" | Should -Be $false
+        Test-Path -LiteralPath "$outside\技術" | Should -Be $true
     }
 
     It "置き場の外を指す名前（<name>）では何も消さない" -TestCases @(

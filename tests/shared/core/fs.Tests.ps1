@@ -439,6 +439,7 @@ Describe "testRemovablePath" -Tag Unit {
         @{ name = "根の下のフォルダは真"; path = "C:\ws\store\a"; root = "C:\ws"; expected = $true }
         @{ name = "まだ無い階層の下も真（作る先・移す先に使うため）"; path = "C:\ws\store\新しい\b"; root = "C:\ws"; expected = $true }
         @{ name = "根そのものは偽"; path = "C:\ws"; root = "C:\ws"; expected = $false }
+        @{ name = "\\?\ 付きのパスも、根の下なら真"; path = "\\?\C:\ws\store\a"; root = "C:\ws"; expected = $true }
         @{ name = "根の外は偽"; path = "C:\other\a"; root = "C:\ws"; expected = $false }
         @{ name = "名前が似た別のフォルダは偽"; path = "C:\ws2\a"; root = "C:\ws"; expected = $false }
         @{ name = ".. で根の外へ出るパスは偽"; path = "C:\ws\..\other\a"; root = "C:\ws"; expected = $false }

@@ -749,7 +749,7 @@ function testRemovablePath {
         }
         $linkFrom = $path
         if ($leafLinkOk) {
-            $linkFrom = [System.IO.Path]::GetDirectoryName((fromLongPath $path).TrimEnd("\"))
+            $linkFrom = [System.IO.Path]::GetDirectoryName([System.IO.Path]::GetFullPath((fromLongPath $path)).TrimEnd("\"))
         }
         return !(testPathHasLink $root $linkFrom)
     } catch {

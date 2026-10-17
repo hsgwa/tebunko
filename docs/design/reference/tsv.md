@@ -83,7 +83,7 @@
 |---|---|---|---|---|---|
 | `getIndexTsvCounts` | dir（既定 `$workspace.IndexDir`） | 相対パス → 数の辞書 / `$null` | インデックスの中のファイルを 1 回列挙して数える。本文インデックスのファイルはそのファイルの相対パス → 1（0 バイトなら -1）、本文インデックスに入れる前の TSV は元のファイルのフォルダの相対パス（取り込み一覧の相対パスと同じ）→ TSV の数（0 バイトの TSV があれば -1。TSV の無いフォルダは 0）。列挙できなければ `$null` | [取り込み対象の決定](../indexing/target-decision.md#取り込み対象の決定createtargetlist) | インデックス作成（取り込み対象の決定） |
 | `testIndexComplete` | row, relPath, counts | bool | 取り込み一覧の「済」の行に対して、インデックスがそろっているかを返す。そのフォルダ・その拡張子の本文インデックスのファイルがあれば（0 バイトでなければ）`$true`。無ければ本文インデックスに入れる前の TSV を見て、行の TSV 数より少ない・0 バイトなら `$false`（取り込み直す）。TSV 数が空・counts が `$null` のときは確認しない | 同上 | インデックス作成（取り込み対象の決定） |
-| `publishIndexFiles` | fromDir, bookDir, stagingDir | – | 書き出した TSV を stagingDir に集めてから、`bookDir` をフォルダごと入れ替える（作りかけのインデックスを残さない）。別ドライブでフォルダごと移せない場合は 1 件ずつ移す | [入れ替えと書き出し](../index-data/publish.md#インデックスへの入れ替えpublishtsv--publishindexfiles) | インデックス作成（publishTsv） |
+| `publishIndexFiles` | fromDir, bookDir, stagingDir, indexRoot, publishRoot | – | 書き出した TSV を stagingDir に集めてから、`bookDir` をフォルダごと入れ替える（作りかけのインデックスを残さない）。別ドライブでフォルダごと移せない場合は 1 件ずつ移す | [入れ替えと書き出し](../index-data/publish.md#インデックスへの入れ替えpublishtsv--publishindexfiles) | インデックス作成（publishTsv） |
 
 ## 本文インデックスの形式（`tebunko/index/content_index_format.ps1`）
 

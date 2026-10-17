@@ -391,6 +391,42 @@ Describe "removeStaleTmpDirs" -Tag Io {
         $log.ToString() | Should -Match "リンク"
     }
 
+    It "出力用のフォルダの親（publish）がジャンクションなら、先にある終了済みのプロセスのフォルダも消さず、ログに出す" {
+        $workspace = newTestWorkspace @{ PublishDir = "$TestDrive\stale_publink\出力\$PID"; TmpRoot = "$TestDrive\stale_publink\tmp" }
+        ${legacyTmpParent} = "$TestDrive\stale_publink\legacy"
+        $outside = "$TestDrive\stale_publink_outside"
+        [System.IO.Directory]::CreateDirectory("$outside\$deadPid") | Out-Null
+        [System.IO.Directory]::CreateDirectory("$TestDrive\stale_publink") | Out-Null
+        if (!(newTestJunction "$TestDrive\stale_publink\出力" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        Mock writeIndexerLog {}
+
+        removeStaleTmpDirs
+
+        Test-Path -LiteralPath "$outside\$deadPid" | Should -Be $true
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -ParameterFilter { $color -eq "Yellow" -and $text -like "*リンク*" }
+    }
+
+    It "前の版までの %TEMP% の親（tebunko）がジャンクションなら、先にある終了済みのプロセスのフォルダも消さず、ログに出す" {
+        $workspace = newTestWorkspace @{ PublishDir = "$TestDrive\stale_legacylink\出力\$PID"; TmpRoot = "$TestDrive\stale_legacylink\tmp" }
+        ${legacyTmpParent} = "$TestDrive\stale_legacylink\legacy"
+        $outside = "$TestDrive\stale_legacylink_outside"
+        [System.IO.Directory]::CreateDirectory("$outside\$deadPid") | Out-Null
+        [System.IO.Directory]::CreateDirectory("$TestDrive\stale_legacylink") | Out-Null
+        if (!(newTestJunction ${legacyTmpParent} $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        Mock writeIndexerLog {}
+
+        removeStaleTmpDirs
+
+        Test-Path -LiteralPath "$outside\$deadPid" | Should -Be $true
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -ParameterFilter { $color -eq "Yellow" -and $text -like "*リンク*" }
+    }
+
     It "`$tmpDir が空（決める前）でも例外にならない" {
         $tmpDir = ""
         $workspace = newTestWorkspace @{ PublishDir = "$TestDrive\stale_untouched\出力\$PID"; TmpRoot = "$TestDrive\stale_untouched\tmp" }
