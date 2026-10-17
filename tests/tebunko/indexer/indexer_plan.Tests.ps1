@@ -280,6 +280,20 @@ Describe "findTargetFiles（tebunko が作ったものの除外）" -Tag Io {
         }
     }
 
+    It "読めない（開いたままで共有できない）X\store\format.tsv があっても、例外にせず、同じ場所のファイルを取り込む" {
+        $workspace = newTestWorkspace @{} (Join-Path $TestDrive "ws-out-of-tree6")
+        newFile "X\store\format.tsv" "版=2`r`n"
+        newFile "X\index\a.txt"
+        $stream = New-Object System.IO.FileStream((Join-Path $source "X\store\format.tsv"), [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+        try {
+            $names = @((findTargetFiles $source).Files | ForEach-Object { $_.Name })
+        } finally {
+            $stream.Dispose()
+        }
+
+        $names | Should -Contain "a.txt"
+    }
+
     It "名前で分かる本文インデックス・前の版の本文インデックスのファイル・システムインデックスは、どこにあっても外れる" {
         $workspace = newTestWorkspace @{} (Join-Path $TestDrive "ws-out-of-tree3")
         newFile "content_index.txt.001.tsv"

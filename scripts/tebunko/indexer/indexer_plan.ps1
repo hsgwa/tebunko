@@ -111,7 +111,16 @@ function getTebunkoExcludeDirs {
         $inStore = [System.IO.Path]::GetFileName($otherDir) -eq $storeDirName
         if ($file.Name -eq $formatFileName -and $file.Name -ne $statusFileName) {
             # 利用者のフォルダにもある名前のため、store の中で、目録として読めるものだけを目印にする
-            if (!$inStore -or (readIndexFormat $fullPath).Status -in @("Missing", "Broken")) {
+            # 読めない（ロックされている・アクセスできない）ものは目印にしない（インデックス作成を止めない）
+            if (!$inStore) {
+                continue
+            }
+            try {
+                $catalogStatus = (readIndexFormat $fullPath).Status
+            } catch {
+                continue
+            }
+            if ($catalogStatus -in @("Missing", "Broken")) {
                 continue
             }
         }
