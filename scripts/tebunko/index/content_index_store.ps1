@@ -213,6 +213,11 @@ function convertFolderToContentIndex {
         foreach ($old in [System.IO.Directory]::GetFiles($longDest, ${contentIndexFilePattern})) {
             $info = readContentIndexFileName ([System.IO.Path]::GetFileName($old))
             if ($null -eq $info) { continue }
+            # 大きすぎるファイルは丸ごと読まない（メモリを使い切らないため。例外にして、呼ぶ側がそのフォルダを飛ばす）
+            $oldSize = [System.IO.FileInfo]::new((toLongPath $old)).Length
+            if ($oldSize -gt ${contentIndexSearchMaxBytes}) {
+                throw "本文インデックスのファイルが大きすぎます（${oldSize} バイト）: $([System.IO.Path]::GetFileName($old))"
+            }
             $text = readContentIndexText $old
             $oldTexts[(getContentIndexFileName $info.Extension $info.Part)] = $text
             $parts.Add(@{ Extension = $info.Extension; Part = $info.Part; Books = (splitContentIndexTextByBook $text) })
@@ -334,8 +339,14 @@ function publishIndexFolders {
     #   1. 本文インデックスのファイルを書く（前の本文インデックスのファイルとまぜ、無くなった元のファイルは外す）
     #   2. 元のファイルごとのフォルダの TSV を消す
     #   3. 書いた本文インデックスのファイルの中身から、そのフォルダのシステムインデックスの txt を作る（読み直さない）
-    # txt の状態（反映待ち）はまとめて状態ファイルに書く。書き出したフォルダの数を返す。
+    # txt の状態（反映待ち）はまとめて状態ファイルに書く。@{ Count（書き出したフォルダの数）; Skipped（飛ばしたフォルダの @{ Rel; Stage; Reason } の配列）} を返す。
     #   pending: フォルダ（フルパス）→ 無くなった元のファイル名の集まり
+    # 例外はフォルダごとに受け止め、失敗したフォルダは飛ばして残りを続ける（飛ばしたことはログに黄色で出す）:
+    #   ・前の本文インデックスのファイルを読む所（書く前。壊れている・大きすぎる・読めないなど）で落ちたら、何も消さず・書き換えない
+    #     （TSV も壊れたファイルも残る。次のインデックス作成の始めに、またまとめ直しを試す）。
+    #     書き込みの途中（置き場所が作れない・ファイルを書けない）や TSV の削除で落ちたときは、書いたものと残った TSV が混ざるが、次の回に TSV を入れ直して直る
+    #   ・本文インデックスのファイルを書いて TSV を消した後（システムインデックス）で落ちたら、本文インデックスは新しいまま残し、そのフォルダの結果は
+    #     状態ファイルに入れない（txt はインデックス作成の終わりの作り直しで直る）
     param (
         $pending,
         [string]$indexRoot = $workspace.IndexDir,
@@ -344,20 +355,31 @@ function publishIndexFolders {
     )
 
     $results = New-Object System.Collections.Generic.List[hashtable]
+    $skipped = New-Object System.Collections.Generic.List[hashtable]
     $fullRoot = [System.IO.Path]::GetFullPath((fromLongPath $indexRoot)).TrimEnd("\")
     foreach ($folder in @($pending.Keys)) {
         # 書く・消す前に、置き場（indexRoot）の下で途中にリンク（ジャンクション等）が無いことを確かめる。
         # リンクの先の外のフォルダの本文インデックスのファイル・TSV を、消さず・書かないため（偽ならそのフォルダは飛ばし、TSV を残す）。
         # 置き場そのもの（フォルダが直接の本文インデックスのとき）は、確かめの対象外（置き場そのものがリンクの構成は使える）
-        $isRoot = [System.IO.Path]::GetFullPath((fromLongPath $folder)).TrimEnd("\") -ieq $fullRoot
+        $fullFolder = [System.IO.Path]::GetFullPath((fromLongPath $folder)).TrimEnd("\")
+        $isRoot = $fullFolder -ieq $fullRoot
         if (!$isRoot -and !(testRemovablePath $folder $indexRoot)) {
             writeIndexerLog "インデックスの置き場の外を指すパス（途中のリンクを含む）のため、書き出しませんでした: ${folder}" "Yellow"
             continue
         }
-        $contentIndexFile = updateFolderContentIndex $folder ([string[]]@($pending[$folder]))
-        # 書いた本文インデックスのファイルは、フォルダごとに書いた直後にここで NotContentIndexed を付ける（件数が多いため失敗してもログに出さない）
-        [void](setWindowsSearchExcluded $folder)
-        $results.Add((writeSystemIndexFolder $folder $indexRoot $systemRoot $contentIndexFile.Texts))
+        $stage = "本文インデックス"
+        try {
+            $contentIndexFile = updateFolderContentIndex $folder ([string[]]@($pending[$folder]))
+            $stage = "システムインデックス"
+            # 書いた本文インデックスのファイルは、フォルダごとに書いた直後にここで NotContentIndexed を付ける（件数が多いため失敗してもログに出さない）
+            [void](setWindowsSearchExcluded $folder)
+            $results.Add((writeSystemIndexFolder $folder $indexRoot $systemRoot $contentIndexFile.Texts))
+        } catch {
+            $rel = if ($isRoot) { "" } else { $fullFolder.Substring($fullRoot.Length).TrimStart("\") }
+            $reason = $_.Exception.Message
+            $skipped.Add(@{ Rel = $rel; Stage = $stage; Reason = $reason })
+            writeIndexerLog (getContentIndexPublishSkippedText $rel $stage $reason) "Yellow"
+        }
     }
     if ($results.Count -gt 0) {
         $saved = updateSystemIndexState { param ($state) setSystemIndexResults $state $results.ToArray() } $statePath
@@ -365,7 +387,7 @@ function publishIndexFolders {
             writeIndexerLog "システムインデックスの状態を書き込めませんでした（インデックス作成の終わりに作り直します）。" "Yellow"
         }
     }
-    return $results.Count
+    return @{ Count = $results.Count; Skipped = $skipped.ToArray() }
 }
 
 
