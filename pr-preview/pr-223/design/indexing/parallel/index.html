@@ -4141,9 +4141,37 @@
 <li><strong>本文インデックスはフォルダが揃ってから書く。</strong> 司令は、はじめにフォルダごとのファイルの数を <code>PendingPublish.AddPending</code> で数えておき、ファイルを渡すたびに <code>Dispatch</code>、結果を受け取るたびに <code>Complete</code>（または渡さずに済ませるとき <code>Skip</code>）を呼ぶ。結果を受け取るたびに、取り込み中の数・まだ渡していない数がどちらも 0 になったフォルダの本文インデックスとシステムインデックスを書き出す（<code>indexer_run.ps1</code> の <code>flushPending</code> が <code>PendingPublish.TakeFlushable</code> を呼ぶ）。</li>
 <li><strong>取り込み一覧と進み具合は司令だけが書く。</strong> 取り込みスレッドは結果を結果の列（<code>BlockingCollection</code>）に入れるだけで、取り込み一覧（<code>addStatusRow</code>）・進み具合・システムインデックスの変更の印（<code>markSystemIndexChanged</code>）は司令が書く。ログも、取り込みスレッドが 1 ファイル分を貯めて結果と一緒に返し、司令が書く。</li>
 <li><strong>取り込み中のファイルは、取り込み中のものをすべて記録する</strong>（<code>ingesting.txt</code>。1 行に 1 ファイル）。強制終了の後は、記録にあるファイルすべてを「前回止まったファイル」として扱う。</li>
-<li><strong>中止。</strong> 司令は振り分けをやめ、取り込み中のファイル（回し直したものを含む）が終わるのを待ってから、書き出しと Office の片づけを行う。各レーンのスレッドは、列が閉じられたら自分の Office を終了して終わる（<code>IngestDispatcher</code> の <code>Stop</code>）。</li>
-<li><strong>取り込みスレッドが止まったら。</strong> 取り込みスレッドが途中で止まった（読み込めない等）ときは、インデックス作成を続けられないエラー <code>取り込みのスレッドが止まりました：&lt;理由&gt;</code> にする。</li>
+<li><strong>中止。</strong> 司令は振り分けをやめ、Office のレーンの取り込み（回し直したものを含む）は待たずに止める（読み取りのレーンは、下の表のとおりそのファイルの読み取りが終わるまで待つ）。Office のレーンは、見張りが <code>Channel.Stop</code> を見て自分が起動したアプリを止め（<code>Cancelled</code>。<code>TimedOut</code> ではない）、<code>invokeIngestTask</code> が <code>Stopped</code> を返す。列に残っていたファイルも <code>ingestFile</code> を呼ばずに <code>Stopped</code> で返る。<code>Stopped</code> のファイルは、一覧の行を作らず、一時の TSV も本文インデックスに入れない（「未取り込み」のまま次回取り込む）。そのあとに書き出しと Office の片づけを行う。</li>
 </ul>
+<p>中止が待つものは次のとおり。</p>
+<table>
+<thead>
+<tr>
+<th>場面</th>
+<th>中止が待つもの</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>クロール（一覧化）</td>
+<td>フォルダごとと、100 ファイルごとの確認（それ以上は待たない）</td>
+</tr>
+<tr>
+<td>列で始めていないファイル</td>
+<td>待たない（<code>ingestFile</code> を呼ばず <code>Stopped</code>）</td>
+</tr>
+<tr>
+<td>Office のレーンで取り込み中</td>
+<td>見張りの周期（500 ミリ秒）と、アプリの終了</td>
+</tr>
+<tr>
+<td>読み取りのレーンで取り込み中</td>
+<td>そのファイルが終わるまで（打ち切りは範囲外）</td>
+</tr>
+</tbody>
+</table>
+<p>各レーンのスレッドは、列が閉じられたら自分の Office を終了して終わる（<code>IngestDispatcher</code> の <code>Stop</code>）。
+- <strong>取り込みスレッドが止まったら。</strong> 取り込みスレッドが途中で止まった（読み込めない等）ときは、インデックス作成を続けられないエラー <code>取り込みのスレッドが止まりました：&lt;理由&gt;</code> にする。</p>
 <p><code>setting.config</code> の <code>ingestThreads</code> で変えられるのは、読み取りのスレッドの数だけである。Excel・Word・PowerPoint のレーンは、いつもスレッド 1 つ・Office 1 つにする。</p>
 <p>取り込みのスレッドを使うときは、はじめにログに <code>N 件のファイルを取り込みます。（Excel・Word・PowerPoint はそれぞれ 1 つずつ、Office を使わずに読むファイルは R 個のスレッドで並べて取り込みます。…）</code> と出す。</p>
 <p>テストでは受け渡しの口の <code>Workers</code> を 0 にし、すべてのファイルの取り込みを司令のスレッドで行う（途中に割り込むため）。テストデータ（300 ファイル）で、スレッド 1 つと 4 つの結果（本文インデックスと取り込み一覧）が同じになることを確かめた。</p>
