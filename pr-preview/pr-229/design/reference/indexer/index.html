@@ -4485,7 +4485,7 @@
 <td><code>convertToIngestJournalLine</code></td>
 <td>kind, fields</td>
 <td>string</td>
-<td>ジャーナルの 1 記録（版・回・書・始・持・出・終）を 1 行の文字列にする。列のタブ・改行はスペースにする</td>
+<td>ジャーナルの 1 記録（版・回・書・始・持・未・出・終）を 1 行の文字列にする。列のタブ・改行はスペースにする</td>
 <td>同上</td>
 <td>インデックス作成</td>
 </tr>
@@ -4494,6 +4494,22 @@
 <td>lines, statusRelPaths, 上限</td>
 <td><code>@{Valid; Finished; Aligned; Folders; Resume}</code></td>
 <td>前回のジャーナルの行と取り込み一覧の相対パスから、始めの復旧の内容（先に書き出すフォルダ・やり直す仕事）を決める。ファイルには触らない（判断層）</td>
+<td>同上</td>
+<td>インデックス作成</td>
+</tr>
+<tr>
+<td><code>recoverIngestJournal</code></td>
+<td>ledger, journal, pending, channel, reporter</td>
+<td><code>@{Resume; Unpublished}</code></td>
+<td>始めの復旧。前回のジャーナル（と前の版の <code>ingesting.txt</code>）から、やり直す仕事を決め、書き出していないフォルダを先に書き出す。ジャーナルが読めないときは今ある書き出し前のフォルダを書き出す。書き出せなかった・中止で飛ばしたフォルダは Unpublished に入れ、次の回のジャーナルへ「未」で持ち越す</td>
+<td>同上</td>
+<td>インデックス作成</td>
+</tr>
+<tr>
+<td><code>writeStatusWithJournal</code></td>
+<td>journal, ledger, folders, rows, keptDropped, previous, [-Finish]</td>
+<td>–</td>
+<td>取り込み一覧を書き直す。前に「書」を足し、-Finish のときは書き直したあとに「終」を足す。最後にジャーナルを閉じる</td>
 <td>同上</td>
 <td>インデックス作成</td>
 </tr>

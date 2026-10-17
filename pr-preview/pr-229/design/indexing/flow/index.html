@@ -4069,7 +4069,7 @@
     CLN -- いいえ --&gt; PK
     CLN -- はい --&gt; CLR{"前の版のシステムインデックスを&lt;br&gt;片付けられた？（clearLegacySystemIndex）"}
     CLR -- いいえ --&gt; E0
-    CLR -- はい --&gt; PK["前回のジャーナルを読み、書き出していないフォルダがあれば、&lt;br&gt;先に本文インデックスに書き出す（convertFromIngestJournal）"]
+    CLR -- はい --&gt; PK["前回のジャーナルを読み、書き出していないフォルダがあれば、&lt;br&gt;先に本文インデックスに書き出す（recoverIngestJournal。書き出せなければ次の回へ「未」で持ち越す）"]
     PK --&gt; L["取り込み対象の決定&lt;br&gt;インデックスごとに件数を数える"]
     L -- "クロール中に中止" --&gt; C0
     L --&gt; CF{"受け渡しの口の ConfirmTargets？"}
