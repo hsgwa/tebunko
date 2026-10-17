@@ -1,6 +1,6 @@
 ﻿# クラスと関数の使い分け
 
-扱うこと: PowerShell 5.1 でクラスを使ってよいところ・使ってはいけないところ（試した結果と決まり）、目的ごとのクラス設計（refactor で作る予定）とそのつなぎ方。扱わないこと: スレッド・プロセスの一覧そのもの（[プロセスとスレッド](threads.md)）。先に読むページ: [プロセスとスレッド](threads.md)。
+扱うこと: PowerShell 5.1 でクラスを使ってよいところ・使ってはいけないところ（試した結果と決まり）、目的ごとのクラス設計（作ったクラスの置き場所と役目）とそのつなぎ方。扱わないこと: スレッド・プロセスの一覧そのもの（[プロセスとスレッド](threads.md)）。先に読むページ: [プロセスとスレッド](threads.md)。
 
 ## クラスと関数の使い分け
 
@@ -74,7 +74,7 @@ refactor で作るクラス（`IndexCatalog` など）は下の「目的ごと�
 
 ## 目的ごとのクラス
 
-refactor で作る予定の設計。作ったら、この節を実装に合わせて直す。`StatusLedger`・`PendingPublish`・`IndexingReporter` は実装ずみ（#147）。`OfficeWatchdog`・`IndexCatalog`・`WorkspaceMover` も実装ずみ。`IngestPlanner` は名前の保存を `IndexCatalog` に任せる形に直した。`IngestDispatcher` だけが予定のまま。
+目的ごとに分けたクラスの設計。クラスを足す・変えるときは、この節を実装に合わせて直す。`StatusLedger`・`PendingPublish`・`IndexingReporter` は実装ずみ（#147）。`OfficeWatchdog`・`IndexCatalog`・`WorkspaceMover` も実装ずみ。`IngestPlanner` は名前の保存を `IndexCatalog` に任せる形に直した。`IngestDispatcher` も実装ずみ。
 
 ```mermaid
 classDiagram
@@ -90,7 +90,7 @@ classDiagram
     note for IndexCatalog "使う側（画面・司令）の入口が\nほかの7つとつなぐ。互いは呼ばない"
 ```
 
-| クラス | 目的（1 つに絞る。凝集） | 作って使うスレッド | 層 | 置くファイル（案） | 今ある場所 | 依存してよい相手 |
+| クラス | 目的（1 つに絞る。凝集） | 作って使うスレッド | 層 | 置くファイル | 今ある場所 | 依存してよい相手 |
 |---|---|---|---|---|---|---|
 | `IndexCatalog` | インデックスの追加・改名・削除・名前の割り当て。保存先（`targetFolders`・取り込み一覧・元のフォルダの記録・`searchExcludes`・`system_index`）のうち、改名・削除が書き換えるものの手順と順番、途中で失敗したときの扱い（止める・残す）だけを持つ（一覧 `targetFolders` と元のフォルダの記録の書き直しは、画面が `SaveTargets`・`WriteSourceFile` で呼ぶ）。保存先の形式は知らない。`Workspace` と設定ファイルの場所を受け取って作る（場所を暗黙に使わない） | 画面のスレッド。別のスレッドの仕事の中でも、ワークスペースの場所（文字列）から `newIndexCatalog` で作り直して使う。インデクサが名前を保存するときは、司令のスレッドで別に作る | 状態層 | `tebunko/index/index_catalog.ps1`（`lib.ps1`） | 実装ずみ。`RenameIndex`・`RenameIndexWithSource`（改名のあと元のフォルダの記録を書き直す。記録だけ失敗しても改名は成功で、理由を返す）・`RemoveIndex`・`RemoveIndexes`（まとめて削除。1 つ失敗しても続ける）・`AssignAndSaveNames`・`StoreAssignedNames`（インデクサ用）・`SaveTargets`（`targetFolders` の保存）・`WriteSourceFile`（元のフォルダの記録）・`AssertReachable`（ワークスペースに届くかの確認）。作り方は `newIndexCatalog`（取り込み一覧を書く `StatusLedger` も作って渡す）。呼ぶ側は `ui/index/index_store.ps1` の `applyIndexEdit`・`deleteIndexes`、`ui/index/index_list.ps1` の `loadTargets`、`indexer/indexer_run.ps1`。改名・削除の手順は、`index_store.ps1` の `renameIndex`・`removeIndex`・`removeIndexes` だったもの | 保存先ごとの読み書きの部品（既存の関数でよい。設定は `invokeSettingsLocked`・`saveAssignedIndexNames`・`writeTargetFolders`、元のフォルダの記録・`system_index` はその読み書きの関数）、`searchExcludes` の読み書きの部品（`core/search_excludes.ps1` の `readSearchExcludes`・`writeSearchExcludes`・`removeSearchExcludesUnder`。`WorkspaceMover` と同じものを通す）、取り込み一覧は作る側から渡された `StatusLedger`、`index_name.ps1`（判断層）、`Workspace` |
 | `WorkspaceMover` | ワークスペースの切り替え（移す・`searchExcludes` の付け替え・保存・失敗したら戻す） | 確かめは画面のスレッド、`ChangeWorkspace` は裏のスレッド | 状態層 | `tebunko/core/workspace_mover.ps1`（`lib.ps1`） | 実装ずみ。`ListEntries`（tebunko のファイル・フォルダ）・`Conflicts`（移し先にある同じ名前）・`ChangeWorkspace`（`"use"`・`"move"`・`"reset"` のどれかで切り替え、`@{ Ok; Stage; Message; Targets; Count }` を返す）・`MoveEntries`・`RemoveEntries`・`UseTargets`。呼ぶ側は `ui/settings/settings.ps1` の `startWorkspaceMove`（`applyWorkspace` が確かめたあとに呼ぶ）。`core/workspace.ps1` の `getWorkspaceEntries`・`getWorkspaceMoveConflicts`・`moveWorkspace`・`moveWorkspaceEntry`・`copyDirectoryTree`・`removeWorkspaceEntries`・`useWorkspaceTargets` だったもの | 設定の読み書きの部品（`invokeSettingsLocked`）、`searchExcludes` の読み書きの部品（`core/search_excludes.ps1` の `moveSearchExcludes`。`IndexCatalog` と同じ `searchExcludes` の部品を通す）、ファイルの移動の部品（`fs.ps1`）、`Workspace` |
@@ -99,7 +99,7 @@ classDiagram
 | `IndexingReporter` | 進み具合の書き込みと、画面の確認を待つこと。受け渡しの口（hashtable のまま）を持って書く | 司令のスレッド | 状態層 | `tebunko/indexer/indexing_reporter.ps1`（`indexer_lib.ps1`） | 実装ずみ。`Progress`・`WaitForApproval`（`waitForIndexingApproval` だった処理）。段階（`${indexingPhase*}`）はクラスの本体で読まず、呼び出し元（司令）から引数で受け取る。ログ（`writeIndexerLog`・`$script:indexerLog`）は部品のまま、`IndexingReporter` には入れない | 受け渡しの口（hashtable）、ログの書き込みの部品 |
 | `IngestPlanner` | 対象フォルダ・名前・クロール・前回失敗・強制終了の回数から、取り込む順番を決める。取り込み直すかの判断は `indexer_decide.ps1`（判断層の関数）のまま呼ぶ | 司令のスレッド | 状態層 | `tebunko/indexer/indexer_plan.ps1`（`indexer_lib.ps1`） | 実装ずみ。`AssignNames`・`SaveNames`（インデックス名の割り当てと保存）・`SelectOnly`・`Crawl`・`KeepForCancel`・`ApplyFailed`・`ApplyInterrupted`・`FolderByName`。計画の種類・状態の値（`${planKind*}`・`${stateFailed}`）はクラスの本体で読まず、コンストラクタの `kinds`（4 つのキーが無ければ例外）で受け取る。名前の保存は、司令が渡すスクリプトブロック（`SaveNames` の `save`。中身は `IndexCatalog` の `StoreAssignedNames`）で行い、設定ファイルの場所はこのクラスが持たない。メソッドは `AssignNames` → `SaveNames` → `SelectOnly` → `Crawl` → `KeepForCancel` か `ApplyFailed` → `ApplyInterrupted` → `FolderByName` の順に呼ぶ。進み具合は、司令が渡すスクリプトブロック（`Crawl` の `onFolder`）で出す（`IndexingReporter` を直接呼ばない） | `indexer_decide.ps1`（判断層）、クロールの部品。前回の失敗・強制終了の回数は、司令が `StatusLedger` から取り出したデータで受け取る |
 | `OfficeWatchdog` | Office の制限時間を見張り、止まったら止める（取り込み中に利用者が窓を開いた PowerPoint は、止めるかの決め方 `getWatchdogVerdict` で止めずに残し、レーンを諦めたと司令に伝える）。見張りのスレッド（`Start` が `[PowerShell]::Create()` で作る別のランスペース）へは、今のまま `[hashtable]::Synchronized`（`State`）を渡す（クラスにしない）。Office が使えなくなったこと（`$script:officeUnavailable`）はツールの判断なので、クラスには入れず今の場所に残す | 読み込んだランスペースごとに 1 つ（`$script:officeWatchdog`）。見張りのスレッドを始める（`Start`）のは、Office のレーンと、スレッドを分けないときの指揮役だけ | 状態層（`shared/`） | `shared/office/office_app.ps1`（`indexer_lib.ps1` から今と同じく読む）。実装ずみ。`State`（`Deadline`・`Pids`・`TimedOut`・`Stop`・`Users`・`Abandon`・`WindowProbe`・`Cancel`・`Cancelled`。`Cancel` は受け渡しの口を渡す入れ物で、`Stop` が立つと制限時間を待たずに自分のアプリを止めて `Cancelled` を立てる）・`Start`・`Stop`・`UpdateWatchedPids`・`IsRunning`。インスタンスは、office_app.ps1 を読み込むときにランスペースごとに `$script:officeWatchdog` として 1 つ作る（読み取りのレーンも `State` を読み書きするため）。どのツールからも使う Office の部品なので `shared/` に置き、ツールを知らない | 実装ずみ。`ingestWorkerScript` は `Start` / `Stop` を呼ぶだけ。`$script:officeUnavailable` は `tebunko/indexer/extract_office.ps1`・`indexer_run.ps1` | `shared/office/` の部品（`office_process.ps1` など）だけ。ツールのものに依存しない |
-| `IngestDispatcher` | プール・レーン・先読み・取り込み中の管理（性能に効く経路）。取り込みのスレッドとは今までどおり hashtable と .NET のコレクションで受け渡す | 司令のスレッド | 状態層 | `tebunko/indexer/indexer_run.ps1`（`indexer_lib.ps1`） | `invokeIndexerBody` の取り込みの繰り返し、`newIngestPool` など | 取り込みのスレッド（レーンごとに `CreateRunspace` で作る STA・MTA のランスペース。今の `newIngestPool`・`addIngestTask`）と `BlockingCollection`、取り込みのスレッドのスクリプト。`WorkerPool` には寄せない（今の形を変えない）。終わった取り込みの結果は hashtable で司令に返す |
+| `IngestDispatcher` | プール・レーン・先読み・取り込み中の管理（性能に効く経路）。取り込みのスレッドとは今までどおり hashtable と .NET のコレクションで受け渡す | 司令のスレッド | 状態層 | `tebunko/indexer/ingest_dispatcher.ps1`（`indexer_lib.ps1`） | 実装ずみ。`Start`・`BeginPass`・`DispatchNext`・`Submit`・`SetInlineResult`・`Receive`・`TakeAbandonedLane`・`StopIfRequested`・`InflightCount`・`IngestingEntries`・`Stop` | 取り込みのスレッド（レーンごとに `CreateRunspace` で作る STA・MTA のランスペース。`Start`・`Submit` が作る）と `BlockingCollection`、取り込みのスレッドのスクリプト。`WorkerPool` には寄せない（今の形を変えない）。終わった取り込みの結果は hashtable で司令に返す |
 
 **クラスのつなぎ方**
 
@@ -111,7 +111,7 @@ classDiagram
 - **`IndexCatalog` は保存先の形式を直接知らない。** 保存先ごとの読み書きは小さな部品（既存の関数でよい）に任せ、`IndexCatalog` は書き換える手順と順番、途中で失敗したときの扱いだけを持つ。
 - 取り込みの 1 ファイルごとに司令を通るのは、`IngestDispatcher` が返した結果（hashtable）を `StatusLedger`・`PendingPublish`・`IndexingReporter` のメソッドに渡すところだけにする。増えるのはメソッドの呼び出しで、関数の呼び出しの段は増やさない（上の「速さ」のとおり）。
 
-置くファイルは案。refactor で変えたときは、この表と [ソースの分け方](source.md) の表・図を同じ PR で直す。
+置いたファイルを変えたときは、この表と [ソースの分け方](source.md) の表・図を同じ PR で直す。
 
 **refactor で守ること**
 

@@ -24,7 +24,7 @@
 | `scripts/shared/ui/` | 画面の土台と共通部品（`types.ps1`・`app_host.ps1`・`shell.ps1`・`folder_dialog.ps1`） |
 | `scripts/tebunko/core/` | tebunko のパス定義（`paths.ps1`）・取り込み一覧の読み書き（`status_file.ps1`）・元のフォルダを記録できる名前の判断（判断層 `source_name.ps1`）・診断の見出しとインデックス作成のログ（`diagnostics.ps1`）・設定ファイル（`settings.ps1`）・検索対象でチェックを外したフォルダの読み書きとフォルダの比べ方（`search_excludes.ps1`）・ワークスペース（`workspace.ps1`）・ワークスペースの切り替え（`workspace_mover.ps1`。`WorkspaceMover`）・［新規で開く］のコピーの作成と片付け（`open_copy.ps1`） |
 | `scripts/tebunko/index/` | インデックス名と TSV の名前の決め方（`index_name.ps1`）・インデックスの作成と集計（`index_store.ps1`）・インデックスの追加・改名・削除と名前の保存（`index_catalog.ps1`。`IndexCatalog`）・検索用の本文インデックスの形式（`content_index_format.ps1`）と読み書き（`content_index_store.ps1`）・高速検索用の システムインデックスと状態（`system_index.ps1`） |
-| `scripts/tebunko/indexer/` | 取り込み中のファイル・画面との受け渡しの口（`indexer_state.ps1`）・取り込み直すかの判断（`indexer_decide.ps1`）・取り込み対象の決定（`indexer_plan.ps1`）・1 ファイルの取り込みと抽出（`extract_office.ps1`）・作業フォルダ・外したフォルダのインデックスの後始末（`index_migrate.ps1`）・インデックス作成の本体と取り込みのスレッド（`indexer_run.ps1`）・画面のインデックス作成 1 回分のスレッド（`indexing_session.ps1`。`IndexingSession`）・インデックス作成の部品の読み込み口（`indexer_lib.ps1`） |
+| `scripts/tebunko/indexer/` | 取り込み中のファイル・画面との受け渡しの口（`indexer_state.ps1`）・取り込み直すかの判断（`indexer_decide.ps1`）・取り込み対象の決定（`indexer_plan.ps1`）・1 ファイルの取り込みと抽出（`extract_office.ps1`）・作業フォルダ・外したフォルダのインデックスの後始末（`index_migrate.ps1`）・取り込みの振り分け（`ingest_dispatcher.ps1`）・インデックス作成の本体と取り込みのスレッド（`indexer_run.ps1`）・画面のインデックス作成 1 回分のスレッド（`indexing_session.ps1`。`IndexingSession`）・インデックス作成の部品の読み込み口（`indexer_lib.ps1`） |
 | `scripts/tebunko/search/` | 検索条件（`search_query.ps1`）・本文インデックスの検索（`content_index_search.ps1`）・検索結果の組み立てとインデックスの件数（`search_run.ps1`）・元のファイルの場所（`source_map.ps1`）・高速検索の決まり（`search_gram.ps1`）・Windows Search への問い合わせ（`windows_search.ps1`）・高速検索で照合する本文インデックスの収集（`fast_search.ps1`）・検索の司令のスレッド（`search_service.ps1`。`SearchService`） |
 | `scripts/tebunko/ui/` | タブごとの画面（`*_tab.ps1` ほか）と、その判断層（`*_view.ps1`）。画面の枠（`ui/shell/`。左の欄と画面の切り替えの `nav.ps1`・判断層の `nav_view.ps1`。`startGui`（`gui_main.ps1`）の中身は `settings_recovery`・`regions`・`services`・`screens`・`window_events`・`closing`・`startup`・`activate_watch` の各 `.ps1` に分け、`startGui` の中でこの順に dot-source する。`$ui`・`$window` と `startGui` のローカル変数を共有するため、順を入れ替えない。型は `search/result_types.ps1`・`search/target_types.ps1`・`index/index_types.ps1`、インデックスの画面の判断層は `index/index_{list,edit,detail,archive}_view.ps1` に置く）と、タブに属さないもの（左の欄の［バージョン情報］と「バージョン情報」ダイアログ：`about_dialog.ps1`・判断層の `about_view.ps1` の `getAboutView`）も置く |
 
@@ -156,7 +156,7 @@ flowchart TD
     GUI["tebunko/gui.ps1<br>（画面の起動口）"] --> LIB
     IDX["tebunko/indexer.ps1<br>（インデックス作成の起動口）"]
     GUI --> UI["shared/ui/*・tebunko/ui/*"]
-    IDX --> IXL["tebunko/indexer/indexer_lib.ps1"] --> IXO["shared/office/office_reader.ps1・office_embedded.ps1・office_app.ps1<br>tebunko/indexer/indexer_plan.ps1・extract_office.ps1・index_migrate.ps1・indexer_run.ps1"]
+    IDX --> IXL["tebunko/indexer/indexer_lib.ps1"] --> IXO["shared/office/office_reader.ps1・office_embedded.ps1・office_app.ps1<br>tebunko/indexer/indexer_plan.ps1・ingest_dispatcher.ps1・extract_office.ps1・index_migrate.ps1・indexer_run.ps1"]
     IXL --> LIB
     LIB["tebunko/lib.ps1"] --> SH["shared/shared.ps1"]
     LIB --> TG["tebunko の core/・index/・search/<br>indexer/indexer_state.ps1・indexer_decide.ps1・indexing_session.ps1"]
@@ -169,13 +169,13 @@ flowchart TD
 |---|---|---|
 | `scripts/shared/shared.ps1` | 共通基盤（`core/` のすべてと、`office/` のうち `office_file_kind_view.ps1`・`office_process.ps1`・`office_protection_view.ps1`・`office_protection.ps1`） | `tebunko/lib.ps1` |
 | `scripts/tebunko/lib.ps1` | 上記＋ tebunko の `core/`・`index/`・`search/` と、`indexer/` のうち `indexer_state.ps1`・`indexer_decide.ps1`・`indexing_session.ps1` | 画面・インデクサ・テスト・画面が起こす別スレッド |
-| `scripts/tebunko/indexer/indexer_lib.ps1` | `lib.ps1` ＋ インデックス作成だけで使う `office_reader.ps1`・`office_embedded.ps1`・`office_app.ps1`・`indexer_plan.ps1`・`extract_office.ps1`・`index_migrate.ps1`・`indexer_run.ps1` | `indexer.ps1`・取り込みのスレッド（画面は読み込まない） |
+| `scripts/tebunko/indexer/indexer_lib.ps1` | `lib.ps1` ＋ インデックス作成だけで使う `office_reader.ps1`・`office_embedded.ps1`・`office_app.ps1`・`indexer_plan.ps1`・`ingest_dispatcher.ps1`・`extract_office.ps1`・`index_migrate.ps1`・`indexer_run.ps1` | `indexer.ps1`・取り込みのスレッド（画面は読み込まない） |
 
-画面の部品（`shared/ui/`・`tebunko/ui/`）は `gui.ps1` が、インデックス作成だけで使うもの（`office_reader.ps1`・`office_embedded.ps1`・`office_app.ps1`・`indexer_plan.ps1`・`extract_office.ps1`・`index_migrate.ps1`・`indexer_run.ps1`）は `indexer/indexer_lib.ps1` が読み込む。`indexer_lib.ps1` は `indexer.ps1` と取り込みのスレッドが読み込む（画面は読み込まない）。
+画面の部品（`shared/ui/`・`tebunko/ui/`）は `gui.ps1` が、インデックス作成だけで使うもの（`office_reader.ps1`・`office_embedded.ps1`・`office_app.ps1`・`indexer_plan.ps1`・`ingest_dispatcher.ps1`・`extract_office.ps1`・`index_migrate.ps1`・`indexer_run.ps1`）は `indexer/indexer_lib.ps1` が読み込む。`indexer_lib.ps1` は `indexer.ps1` と取り込みのスレッドが読み込む（画面は読み込まない）。
 
 各スクリプト・テストからは dot-source（`. "$PSScriptRoot\lib.ps1"`）して使う。`ui/` の部品は `$PSScriptRoot` ではなく、`gui.ps1` から渡された `$TebunkoDir`（`tebunko/` 直下のパス）を基準に読み込む。
 
-別スレッド（検索・背景の仕事・取り込み）の中では `$PSScriptRoot` が使えない。そのため、スレッドへ読み込ませる部品（`lib`・`indexerLib`）の読み込みは、`scripts/tebunko/core/parts.ps1` の `getPartLoad` が、呼び出し側で絶対パスに解決した `. '<パス>'` の文字列にして渡す。この文字列は、検索（`search_service.ps1`）・インデックス作成（`indexer_run.ps1`・`indexing_session.ps1`）が、別スレッドへ渡す前に `joinWorkerScript`（`shared/core/worker_pool.ps1`）でスレッドの本体の前につなぐ（背景の仕事の `WorkerPool` も、`worker_pool.ps1` の中で同じようにつなぐ）。スレッドの中には読み込みの行を書かないので、検査がたどる対象にならない（部品は `lib.ps1`・`indexer_lib.ps1` を通して読み込み漏れが見つかる）。
+別スレッド（検索・背景の仕事・取り込み）の中では `$PSScriptRoot` が使えない。そのため、スレッドへ読み込ませる部品（`lib`・`indexerLib`）の読み込みは、`scripts/tebunko/core/parts.ps1` の `getPartLoad` が、呼び出し側で絶対パスに解決した `. '<パス>'` の文字列にして渡す。この文字列は、検索（`search_service.ps1`）・インデックス作成（`ingest_dispatcher.ps1`・`indexing_session.ps1`）が、別スレッドへ渡す前に `joinWorkerScript`（`shared/core/worker_pool.ps1`）でスレッドの本体の前につなぐ（背景の仕事の `WorkerPool` も、`worker_pool.ps1` の中で同じようにつなぐ）。スレッドの中には読み込みの行を書かないので、検査がたどる対象にならない（部品は `lib.ps1`・`indexer_lib.ps1` を通して読み込み漏れが見つかる）。
 
 ## 起動口となるスクリプト（`scripts/`）
 
