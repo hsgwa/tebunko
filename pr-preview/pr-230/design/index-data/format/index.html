@@ -4959,7 +4959,7 @@ content_index/&lt;相対フォルダ&gt;/content_index.&lt;拡張子&gt;.&lt;番
 </ul>
 <p><strong>システムインデックスを作る時機</strong>: インポートでは作らず、次のインデックス作成に任せる（<code>updateSystemIndexes</code> はワークスペース全体を見てインデクサのログに書くため、画面のスレッドからロックを持ったまま長く走らせない）。作るまでは、そのインデックスは高速検索でもすべてを照合する（結果は同じで、速くならないだけ）。</p>
 <h3 id="受け取ったファイルを信用しない安全性">受け取ったファイルを信用しない（安全性）<a class="headerlink" href="#受け取ったファイルを信用しない安全性" title="Permanent link">&para;</a></h3>
-<p>判断層（<code>testIndexArchiveEntryPath</code>・<code>testIndexArchiveEntryLocation</code>・<code>testIndexArchiveManifest</code>・<code>testImportedStatusRow</code> / <code>testImportedStatusLines</code>）で、次のものを 1 つでも受け付けなければインポート全体を止める（途中まで取り込まない）。</p>
+<p>判断層（<code>testIndexArchiveEntryPath</code>・<code>testIndexArchiveEntryLocation</code>・<code>testIndexArchiveManifest</code>・<code>testImportedStatusRow</code> / <code>testImportedStatusLines</code>・<code>testImportedContentIndexFile</code>）で、次のものを 1 つでも受け付けなければインポート全体を止める（途中まで取り込まない）。</p>
 <ul>
 <li><strong>zip slip</strong>: 絶対パス（<code>/</code>・ドライブ文字・UNC）、<code>..</code>・<code>.</code>・空の区切り、<code>:</code>（代替データストリーム）、ファイル名に使えない文字、予約名（拡張子付きも含む。<code>shared/core/text.ps1</code> の <code>$reservedFileNames</code> と同じ決まり）、末尾の空白・<code>.</code>、1 つの区切りが 255 文字を超えるもの。区切りは <code>/</code> だけを認め、<code>\</code> を含む名前は受け付けない。</li>
 <li><strong>置き場所</strong>: <code>tebunko-index.json</code>・<code>ingest_status.tsv</code>・<code>content_index/…/&lt;本文インデックスのファイル名の型&gt;</code> 以外は受け付けない（本文インデックスのファイル名の型は <code>content_index_format.ps1</code> の型を使う）。</li>
