@@ -4473,6 +4473,30 @@
 <td><code>copySourceForOpen</code></td>
 </tr>
 <tr>
+<td><code>testRemovablePath</code></td>
+<td>path, root</td>
+<td>bool</td>
+<td>path を root の下で消す・移す・作ってよいか。path と root が絶対パス（ドライブ・UNC）、path が root の下（<code>testPathUnder</code>）、root から path までの途中にリンクが無い（<code>testPathHasLink</code>。まだ無い階層は見ない）のすべてが成り立つときだけ <code>$true</code>。root そのものがリンクの構成は今までどおり動く。<code>-leafLinkOk</code> を付けると path そのものがリンクでもよい（途中だけ見る。<code>removeDirectoryUnder</code>・<code>moveDirectoryUnder</code> が付け、消す・移すフォルダそのものがリンクなら、リンクだけを外す・動かす）。確かめられないときは <code>$false</code></td>
+<td>同上</td>
+<td><code>removeDirectoryUnder</code>・<code>moveDirectoryUnder</code>・<code>publishIndexFiles</code>・<code>clearOldOpenCopies</code></td>
+</tr>
+<tr>
+<td><code>removeDirectoryUnder</code></td>
+<td>path, root, tries（既定 3）</td>
+<td>bool</td>
+<td><code>testRemovablePath</code> が真のときだけ <code>removeDirectoryRetry</code> で消して <code>$true</code>。偽なら何も消さずに <code>$false</code>（ログ・例外は呼ぶ側が決める）。フォルダを消す呼び出しは、これを通す（通せないものは <code>tests/meta/remove_entry.Tests.ps1</code> の一覧に理由つきで置く）</td>
+<td>同上</td>
+<td><code>removeBookDir</code>・<code>RemoveIndex</code>・<code>removeOldIndexOf</code>・<code>removeSystemIndexOf</code>・<code>removeDroppedFolders</code>・<code>removeTmpDir</code>・<code>removeStaleProcessDirs</code>・<code>clearLegacySystemIndex</code>・インポート・本文インデックスの TSV の削除</td>
+</tr>
+<tr>
+<td><code>moveDirectoryUnder</code></td>
+<td>source, destination, root, sourceRoot（省略時は root）</td>
+<td>bool</td>
+<td>移すと元の場所から無くなるため、元（sourceRoot の下）と先（root の下）の両方を <code>testRemovablePath</code> で確かめてから <code>moveDirectoryRetry</code> で移して <code>$true</code>。偽なら何も移さずに <code>$false</code></td>
+<td>同上</td>
+<td><code>RenameIndex</code>・<code>renameOldIndexFolder</code>・インポート（<code>swapInImportedIndexDir</code>・<code>restoreSwappedIndexDir</code>。元と先で根が違う）</td>
+</tr>
+<tr>
 <td><code>moveDirectoryRetry</code></td>
 <td>source, destination, tries（既定 5）, waitMilliseconds（既定 200。試すたびに倍にする）</td>
 <td>–</td>
@@ -4739,7 +4763,7 @@
 </tr>
 <tr>
 <td><code>publishIndexFiles</code></td>
-<td>fromDir, bookDir, stagingDir</td>
+<td>fromDir, bookDir, stagingDir, indexRoot, publishRoot</td>
 <td>–</td>
 <td>書き出した TSV を stagingDir に集めてから、<code>bookDir</code> をフォルダごと入れ替える（作りかけのインデックスを残さない）。別ドライブでフォルダごと移せない場合は 1 件ずつ移す</td>
 <td><a href="../../index-data/publish/#インデックスへの入れ替えpublishtsv--publishindexfiles">入れ替えと書き出し</a></td>
