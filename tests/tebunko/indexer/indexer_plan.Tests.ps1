@@ -240,12 +240,12 @@ Describe "findTargetFiles（tebunko が作ったものの除外）" -Tag Io {
     }
 
     It "新しい形式のほかのワークスペース（<目印>）は、ワークスペース直下のファイルも store の中も外れる" -TestCases @(
-        @{ 目印 = "store\ingest_status.tsv" }
-        @{ 目印 = "store\format.tsv" }
+        @{ 目印 = "store\ingest_status.tsv"; 内容 = "dummy" }
+        @{ 目印 = "store\format.tsv"; 内容 = "版=2`r`n" }
     ) {
-        param ($目印)
+        param ($目印, $内容)
         $workspace = newTestWorkspace @{} (Join-Path $TestDrive "ws-out-of-tree4")
-        newFile "other-ws\$目印"
+        newFile "other-ws\$目印" $内容
         newFile "other-ws\store\content\営業\source_folder.txt"
         newFile "other-ws\store\content\営業\sheet.tsv"
         newFile "other-ws\search_results.txt"
@@ -258,6 +258,25 @@ Describe "findTargetFiles（tebunko が作ったものの除外）" -Tag Io {
         $names | Should -Contain "my-file.txt"
         foreach ($excluded in "source_folder.txt", "sheet.tsv", "search_results.txt", "indexing_log.txt", "system_index_state.tsv") {
             $names | Should -Not -Contain $excluded
+        }
+    }
+
+    It "利用者の format.tsv（<場所>）は、ワークスペースの目印にならず、同じ場所の index・tmp・store の中のファイルを取り込む" -TestCases @(
+        @{ 場所 = "X直下"; 目録 = "X\format.tsv"; 内容 = "版=2`r`n" }
+        @{ 場所 = "X直下（中身は任意）"; 目録 = "X\format.tsv"; 内容 = "a`tb`r`n" }
+        @{ 場所 = "store の中の目録でないもの"; 目録 = "X\store\format.tsv"; 内容 = "a`tb`r`n" }
+        @{ 場所 = "store の中の壊れたもの"; 目録 = "X\store\format.tsv"; 内容 = "" }
+    ) {
+        param ($場所, $目録, $内容)
+        $workspace = newTestWorkspace @{} (Join-Path $TestDrive "ws-out-of-tree5")
+        newFile $目録 $内容
+        newFile "X\index\a.txt"
+        newFile "X\tmp\b.txt"
+        newFile "X\store\c.txt"
+
+        $names = @((findTargetFiles $source).Files | ForEach-Object { $_.Name })
+        foreach ($kept in "a.txt", "b.txt", "c.txt") {
+            $names | Should -Contain $kept
         }
     }
 

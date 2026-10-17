@@ -86,9 +86,10 @@ function removeBookDir {
 
 function getTebunkoExcludeDirs {
     # 除外するフォルダ（tebunko が作ったワークスペース）の一覧を返す。
-    #   ・今のワークスペース（$workspace.Entries()。content_index・前の版の index・system_index・取り込み一覧 等）
-    #   ・スキャンで見つけたファイルの中に取り込み一覧（$workspace.StatusFile と同じ名前）があれば、
-    #     そのフォルダをほかのワークスペースとみなし、その Entries() も外す
+    #   ・今のワークスペース（$workspace.Entries()。本文インデックスの置き場 store・前の版の content_index と index・system_index 等）
+    #   ・スキャンで見つけたファイルの中に、ほかのワークスペースの目印があれば、そのフォルダの Entries() も外す
+    #     目印は、前の版の取り込み一覧（ワークスペース直下の ingest_status.tsv）・今の版の取り込み一覧（store\ingest_status.tsv）・
+    #     今の版の目録（store\format.tsv。ありふれた名前なので、親が store で、中身が目録として読めるときだけ）
     #     （以前の既定の場所・切り替える前のワークスペース・ほかの人のワークスペースを、テキストの拡張子（.tsv 等）で拾わないため）
     param (
         [object[]]$scannedFiles
@@ -102,14 +103,23 @@ function getTebunkoExcludeDirs {
     $dirs = New-Object System.Collections.Generic.List[string]
     $dirs.AddRange([string[]]$workspace.Entries())
     foreach ($file in $scannedFiles) {
-        if ($file.Name -eq $statusFileName -or $file.Name -eq $formatFileName) {
-            $otherDir = [System.IO.Path]::GetDirectoryName((fromLongPath $file.FullName))
-            if ([System.IO.Path]::GetFileName($otherDir) -eq $storeDirName) {
-                $otherDir = [System.IO.Path]::GetDirectoryName($otherDir)
+        if ($file.Name -ne $statusFileName -and $file.Name -ne $formatFileName) {
+            continue
+        }
+        $fullPath = fromLongPath $file.FullName
+        $otherDir = [System.IO.Path]::GetDirectoryName($fullPath)
+        $inStore = [System.IO.Path]::GetFileName($otherDir) -eq $storeDirName
+        if ($file.Name -eq $formatFileName -and $file.Name -ne $statusFileName) {
+            # 利用者のフォルダにもある名前のため、store の中で、目録として読めるものだけを目印にする
+            if (!$inStore -or (readIndexFormat $fullPath).Status -in @("Missing", "Broken")) {
+                continue
             }
-            if ($otherDir) {
-                $dirs.AddRange([string[]]([Workspace]::new($otherDir).Entries()))
-            }
+        }
+        if ($inStore) {
+            $otherDir = [System.IO.Path]::GetDirectoryName($otherDir)
+        }
+        if ($otherDir) {
+            $dirs.AddRange([string[]]([Workspace]::new($otherDir).Entries()))
         }
     }
     return @($dirs | Where-Object { $_ } | Select-Object -Unique)
