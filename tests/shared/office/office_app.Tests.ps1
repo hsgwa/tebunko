@@ -410,6 +410,45 @@ Describe "OfficeWatchdog（実際のプロセスを止める）" -Tag Io {
             if (-not $child.HasExited) { $child.Kill() }
         }
     }
+
+    It "中止の合図（Cancel.Stop）が立つと、制限時間の前でも自分が起動したプロセスを止め、Cancelled を立てる（TimedOut は立てない）" {
+        $child = startHarmlessChild
+        $watchdog = $null
+        try {
+            $watchdog = [OfficeWatchdog]::new([string[]]@($child.ProcessName))
+            $watchdog.State.Cancel = [hashtable]::Synchronized(@{ Stop = $false })
+            $watchdog.State.Pids = @(@{ Id = $child.Id; ProcessName = $child.ProcessName; StartTicks = (getOfficeStartTicks $child) })
+            $watchdog.Start()
+            $watchdog.State.Deadline = [datetime]::Now.AddMinutes(10)
+            Start-Sleep -Milliseconds 800
+            # 合図の前は止めない
+            $child.HasExited | Should -Be $false
+            $watchdog.State.Cancel.Stop = $true
+            $child.WaitForExit(10000) | Should -Be $true
+            $limit = [datetime]::Now.AddSeconds(10)
+            while (-not $watchdog.State.Cancelled -and [datetime]::Now -lt $limit) { Start-Sleep -Milliseconds 100 }
+            $watchdog.State.Cancelled | Should -Be $true
+            $watchdog.State.TimedOut | Should -Be $false
+            $watchdog.State.Deadline | Should -Be ([datetime]::MaxValue)
+        } finally {
+            if ($watchdog) { $watchdog.Stop() }
+            if (-not $child.HasExited) { $child.Kill() }
+        }
+    }
+
+    It "中止の合図が立っても、止める相手がまだ無いうちは何もせず、Cancelled を立てない" {
+        $watchdog = [OfficeWatchdog]::new([string[]]@("NoSuchOfficeApp"))
+        try {
+            $watchdog.State.Cancel = [hashtable]::Synchronized(@{ Stop = $true })
+            $watchdog.Start()
+            $watchdog.State.Deadline = [datetime]::Now.AddMinutes(10)
+            Start-Sleep -Milliseconds 1200
+            $watchdog.State.Cancelled | Should -Be $false
+            $watchdog.State.TimedOut | Should -Be $false
+        } finally {
+            $watchdog.Stop()
+        }
+    }
 }
 
 # 利用者が PowerPoint を使っている（見える窓がある）ときは、制限時間を過ぎても止めない。窓の有無は偽の関数（環境変数で切り替える）で見る。
@@ -532,6 +571,31 @@ Describe "OfficeWatchdog（利用者が使っているプロセスは止めな�
             $watchdog.State.Deadline = [datetime]::Now.AddSeconds(-1)
             waitUntil { $watchdog.State.Deadline -eq [datetime]::MaxValue }
             $watchdog.State.TimedOut | Should -Be $false
+            $child.HasExited | Should -Be $false
+        } finally {
+            $env:TEBUNKO_TEST_FAKE_WINDOW = $null
+            if ($watchdog) { $watchdog.Stop() }
+            if (-not $child.HasExited) { $child.Kill() }
+        }
+    }
+
+    It "中止の合図が立っても、窓が見える（利用者が使っている）プロセスは止めない。Cancelled も TimedOut も立てない" {
+        $child = startHarmlessChild
+        $watchdog = $null
+        try {
+            $watchdog = [OfficeWatchdog]::new([string[]]@($child.ProcessName))
+            $watchdog.State.WindowProbe = 'testFakeOfficeWindow'
+            $watchdog.State.Cancel = [hashtable]::Synchronized(@{ Stop = $false })
+            $watchdog.State.Pids = @(@{ Id = $child.Id; ProcessName = $child.ProcessName; StartTicks = (getOfficeStartTicks $child); GuardWindow = $true })
+            $env:TEBUNKO_TEST_FAKE_WINDOW = '1'
+            $watchdog.Start()
+            $watchdog.State.Deadline = [datetime]::Now.AddMinutes(10)
+            waitUntil { $watchdog.State.Users.ContainsKey($child.Id) }
+            $watchdog.State.Users.ContainsKey($child.Id) | Should -Be $true
+            $watchdog.State.Cancel.Stop = $true
+            Start-Sleep -Milliseconds 1500
+            $watchdog.State.TimedOut | Should -Be $false
+            $watchdog.State.Cancelled | Should -Be $false
             $child.HasExited | Should -Be $false
         } finally {
             $env:TEBUNKO_TEST_FAKE_WINDOW = $null
