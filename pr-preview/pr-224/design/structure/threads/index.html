@@ -4514,7 +4514,7 @@
 <p>画面のスレッドがファイル・フォルダに触る呼び出しは、<code>tests/meta/ui_thread_io.Tests.ps1</code> が機械的に見つける。組み込みのコマンドと <code>System.IO</code> の静的メソッドに加え、状態層の関数・クラスのメソッドのうち、中でファイル・フォルダに触るもの（それを呼ぶものも、呼び出しをたどって）を自動で求める。<code>startJob</code> の仕事のスクリプトブロックの外にある呼び出しは、理由を付けて一覧に載せたものだけを許す。一覧のものが使われていない・理由が空・先送りの書き方のときも落ちる。</p>
 <p>ファイルに残すのは次のものだけである。</p>
 <ul>
-<li><code>ingest_status.tsv</code></li>
+<li><code>store/ingest_status.tsv</code>（と目録 <code>store/format.tsv</code>）</li>
 <li><code>ingesting.txt</code>（強制終了からの再開）</li>
 <li><code>indexing_log.txt</code>（<code>writeIndexerLog</code> で書く。実行ごとに上書き）</li>
 </ul>

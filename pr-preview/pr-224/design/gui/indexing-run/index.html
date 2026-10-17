@@ -4504,12 +4504,12 @@
 <li>失敗の理由は帯に 1 行で出し、全文はツールチップで見せる。削除・まとめての操作の失敗は、メッセージボックスではなくこの帯で知らせる（ステータスバーには同じ文を出す）。名前の変更の失敗は帯に出さず、ステータスバーだけに出す。［すべて更新］の確認のメッセージボックスは変えない。</li>
 </ul>
 <h2 id="更新し直しの確かめ">更新し直しの確かめ<a class="headerlink" href="#更新し直しの確かめ" title="Permanent link">&para;</a></h2>
-<p>前の版のインデックス（<code>index\</code>。しるしあり）が見つかり、<code>content_index\</code> が空のまま［すべて更新］を押すと、更新の対象を数える前に確かめのダイアログを出す（<code>getReingestConfirm</code>。<code>tebunko/ui/indexing_view.ps1</code>）。</p>
+<p>前の前の版のインデックス（<code>index\</code>。しるしあり）が見つかり、<code>store\content\</code> と前の版の <code>content_index\</code> がどちらも空のまま［すべて更新］を押すと、更新の対象を数える前に確かめのダイアログを出す（<code>getReingestConfirm</code>。<code>tebunko/ui/indexing_view.ps1</code>）。</p>
 <ul>
-<li>判定は <code>hasLegacyIndex</code>（前の版のしるしがある）と <code>contentEmpty</code>（<code>content_index\</code> が空）の 2 つの引数だけで決まる（判断層。画面には触らない）。両方が真のときだけ文言を返し、ほかの 3 通りでは確かめを出さない。</li>
+<li>判定は <code>hasLegacyIndex</code>（前の版のしるしがある）と <code>contentEmpty</code>（<code>store\content\</code> と <code>content_index\</code> がどちらも空）の 2 つの引数だけで決まる（判断層。画面には触らない）。両方が真のときだけ文言を返し、ほかの 3 通りでは確かめを出さない。</li>
 <li>確かめは共通の確認ダイアログ（<a href="../common/#確認ダイアログshowconfirm">確認ダイアログ</a>）を使う。見出しは <code>前の版のインデックスは使えないため、元のファイルをすべて更新し直します。ファイルが多いと時間がかかります。始めますか？</code>、選択肢は［更新し直す］の 1 つ（＋既定の［キャンセル］）。</li>
 <li>［キャンセル］（または閉じる）を選ぶと、インデックス作成は始めない。［更新し直す］を選ぶと、通常の流れ（更新の対象を数え、<a href="#インデックス更新の確認ダイアログ">インデックス更新の確認ダイアログ</a>を出す）に進む。</li>
-<li>前の版のしるしが無い・<code>content_index\</code> が空でない（すでに更新し直した後など）のときは、この確かめを出さずに通常の流れに進む。</li>
+<li>前の前の版のしるしが無い・本文インデックスの置き場が空でない（すでに更新し直した後など）のときは、この確かめを出さずに通常の流れに進む。</li>
 </ul>
 <h2 id="インデックス更新の確認ダイアログ">インデックス更新の確認ダイアログ<a class="headerlink" href="#インデックス更新の確認ダイアログ" title="Permanent link">&para;</a></h2>
 <p><code>tebunko/xaml/dialog_indexing_confirm.xaml</code>。表題（<code>インデックス更新の確認</code>）の下に説明・一覧・合計・注意書き・ボタンを置く。［すべて更新］を押すと、インデクサはまず<strong>更新の対象を数えるだけ</strong>行って止まり（受け渡しの口の <code>ConfirmTargets</code>）、インデックスごとの件数を受け渡しの口の <code>Plan</code> に入れる（<a href="../../indexing/target-decision/#取り込み対象の決定createtargetlist">取り込み対象の決定</a>）。
@@ -4572,7 +4572,7 @@
 </ul>
 <h2 id="インデックス一覧を変更したとき">インデックス一覧を変更したとき<a class="headerlink" href="#インデックス一覧を変更したとき" title="Permanent link">&para;</a></h2>
 <p>確認は出さずにそのまま保存する。
-取り込み一覧（<code>&lt;ワークスペース&gt;\ingest_status.tsv</code>）の行はインデックス名で元のフォルダと対応させるため、元のフォルダの場所を変えても取り込み一覧は作り直さない（<a href="../../indexing/ingest-list/">取り込み一覧</a>）。
+取り込み一覧（<code>&lt;ワークスペース&gt;\store\ingest_status.tsv</code>）の行はインデックス名で元のフォルダと対応させるため、元のフォルダの場所を変えても取り込み一覧は作り直さない（<a href="../../indexing/ingest-list/">取り込み一覧</a>）。
 そのため、変更前のフォルダの相対パスのまま新しいフォルダを処理することはない。</p>
 <h2 id="更新の進み具合">更新の進み具合<a class="headerlink" href="#更新の進み具合" title="Permanent link">&para;</a></h2>
 <p>インデックス作成は別のスレッドで動くため、画面は<strong>インデクサが受け渡しの口に入れる進み具合</strong>（<code>readIndexingProgress</code>）を 1 秒ごとに読んで表示する（ファイルは読まない）。</p>
@@ -4620,7 +4620,7 @@
 <ul>
 <li>更新中の行を選んでいるときは、詳細の「インデックス」の箱にも同じ全体の進みを出す（<code>IndexingProgressBar</code> の棒・<code>IndexingCountText</code> の <code>N / M 件・残り約 N 分</code>・<code>IndexingFileText</code> の読み取り中のファイル名 1 行）。画面は進み具合を読むたびに、割合・件数・失敗・残り時間・今のファイルを画面側の変数（<code>indexingView</code>）に置いて詳細を書き直す（文言は判断層の <code>getIndexDetailView</code>）。インデックスごとの件数は無い。行の右端は［中止］になり、［すべて更新］の［中止］と同じく今の更新全体を止める。</li>
 <li>タスクバーのアイコンにも進み具合を表示する（失敗があれば黄色）。<strong>インデックス作成が終わったときは、帯で知らせる</strong>。前面には割り込まず、タスクバーのボタンも光らせない（光らせるには P/Invoke（<code>FlashWindowEx</code>）が要るため。<a href="../implementation/#実行時コンパイルcscexeを使わない">実行時コンパイル（csc.exe）を使わない</a>）。</li>
-<li><strong>取り込み一覧（<code>work/ingest_status.tsv</code>）は毎秒読まない</strong>。数万行になると 1 回の読み直しに数秒かかり（5 万行で約 5.8 秒）、1 秒ごとに読むと画面が固まる（「応答なし」になる）。進み具合はインデクサが数えて受け渡しの口に入れる（<a href="../../indexing/flow/">インデックス作成のメインフロー</a>）。</li>
+<li><strong>取り込み一覧（<code>work/store/ingest_status.tsv</code>）は毎秒読まない</strong>。数万行になると 1 回の読み直しに数秒かかり（5 万行で約 5.8 秒）、1 秒ごとに読むと画面が固まる（「応答なし」になる）。進み具合はインデクサが数えて受け渡しの口に入れる（<a href="../../indexing/flow/">インデックス作成のメインフロー</a>）。</li>
 <li>「処理済み」はインデクサが数えた件数（今回の実行で更新したファイルと、更新に失敗したファイル）。前回失敗したファイルを更新し直す場合（確認のダイアログでチェックを付けた場合）も、その分は最初から件数に入る。</li>
 </ul>
 <h2 id="中止終了ログ">中止・終了・ログ<a class="headerlink" href="#中止終了ログ" title="Permanent link">&para;</a></h2>

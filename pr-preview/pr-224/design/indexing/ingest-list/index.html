@@ -2122,10 +2122,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#取り込み一覧-workingest_statustsv" class="md-nav__link">
+  <a href="#取り込み一覧-workstoreingest_statustsv" class="md-nav__link">
     <span class="md-ellipsis">
       
-        取り込み一覧 work/ingest_status.tsv
+        取り込み一覧 work/store/ingest_status.tsv
       
     </span>
   </a>
@@ -4100,10 +4100,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#取り込み一覧-workingest_statustsv" class="md-nav__link">
+  <a href="#取り込み一覧-workstoreingest_statustsv" class="md-nav__link">
     <span class="md-ellipsis">
       
-        取り込み一覧 work/ingest_status.tsv
+        取り込み一覧 work/store/ingest_status.tsv
       
     </span>
   </a>
@@ -4142,8 +4142,8 @@
 
 
 <h1 id="取り込み一覧">取り込み一覧<a class="headerlink" href="#取り込み一覧" title="Permanent link">&para;</a></h1>
-<p>扱うこと: <code>work/ingest_status.tsv</code> の形式と書き込み方、強制終了・時間切れからの再開の仕組み。扱わないこと: インデックス作成全体の流れ（<a href="../flow/">インデックス作成のメインフロー</a>）、取り込み対象をどう決めるか（<a href="../target-decision/">取り込み対象の決定</a>）。先に読むページ: <a href="../">インデックス作成</a>、<a href="../flow/">インデックス作成のメインフロー</a>。</p>
-<h2 id="取り込み一覧-workingest_statustsv">取り込み一覧 <code>work/ingest_status.tsv</code><a class="headerlink" href="#取り込み一覧-workingest_statustsv" title="Permanent link">&para;</a></h2>
+<p>扱うこと: <code>work/store/ingest_status.tsv</code> の形式と書き込み方、強制終了・時間切れからの再開の仕組み。扱わないこと: インデックス作成全体の流れ（<a href="../flow/">インデックス作成のメインフロー</a>）、取り込み対象をどう決めるか（<a href="../target-decision/">取り込み対象の決定</a>）。先に読むページ: <a href="../">インデックス作成</a>、<a href="../flow/">インデックス作成のメインフロー</a>。</p>
+<h2 id="取り込み一覧-workstoreingest_statustsv">取り込み一覧 <code>work/store/ingest_status.tsv</code><a class="headerlink" href="#取り込み一覧-workstoreingest_statustsv" title="Permanent link">&para;</a></h2>
 <p>クロール対象フォルダ配下のファイルを 1 ファイル 1 行で記録する。UTF-8（BOM 付き）・タブ区切りで、Excel でそのまま開ける。</p>
 <div class="highlight"><pre><span></span><code>クロール対象フォルダ  C:\data\営業  営業
 クロール対象フォルダ  D:\old\2019年度   2019年度
@@ -4167,7 +4167,7 @@
 </tr>
 <tr>
 <td>相対パス</td>
-<td><code>&lt;インデックス名&gt;\&lt;クロール対象フォルダからの相対パス&gt;</code>（= <code>work/content_index</code> からの相対パス）。大文字・小文字は区別しない</td>
+<td><code>&lt;インデックス名&gt;\&lt;クロール対象フォルダからの相対パス&gt;</code>（= <code>work/store/content</code> からの相対パス）。大文字・小文字は区別しない</td>
 </tr>
 <tr>
 <td>更新日時・サイズ</td>
@@ -4197,7 +4197,7 @@
 </table>
 <p>書き込み方（<code>writeStatusFile</code> / <code>addStatusRow</code> / <code>readStatusFile</code>）:</p>
 <ul>
-<li>クロールの後に全ファイルを書き出す（一時ファイル <code>ingest_status.tsv.tmp</code> に書いてから置き換える）。</li>
+<li>クロールの後に全ファイルを書き出す（一時ファイル <code>store\ingest_status.tsv.tmp</code> に書いてから置き換える）。</li>
 <li>インデックス作成中は 1 件ごとに結果の行を<strong>末尾に追記</strong>する。読み込み時は同じ相対パスの後の行を優先するため、途中で中断しても取り込み済みの結果は失われない。列数の合わない行（書き込み途中で強制終了した行）は無視する。</li>
 <li>読み込み時、インデックス名（<code>クロール対象フォルダ</code> の行と、相対パスの先頭）が <code>testStoredIndexName</code>（<code>testIndexName</code> から予約名の拒みを外したもの。<code>aux.backup</code> のような既にある名前は通す）を通らない行、相対パスの残りに空・<code>.</code>・<code>..</code>・ファイル名に使えない文字の区切りがある行は読み飛ばし、数を <code>Rejected</code> で返す（ワークスペースは共有でき、ファイルは書き換えられうるため。読み飛ばした行は、次に書き直すときに消える）。インデックス作成は、読み飛ばした行があればその数を黄色のログに出す。<code>ingesting.txt</code> の行も同じ確かめを通す。</li>
 <li><code>クロール対象フォルダ</code> の行の名前が <code>testStoredIndexName</code> を通らなくても、パスにして外へ出ない（<code>testPlainFolderName</code> を通る。前の版が作った最後が <code>.</code> や空白の名前など）ときは、行は読み飛ばし、名前を <code>LegacyFolders</code> で返す。<code>LegacyFolders</code> は、設定から外れたインデックスの確認と削除（<code>removeDroppedFolders</code>）にだけ使い、検索・取り込み・改名・削除の対象にはしない（確認で取りやめた回・確認の返事が無く打ち切った回・画面なしの実行では、フォルダの行は書き戻されて次の回もまた確認に出る。各ファイルの行は読み飛ばすため残らない）。</li>

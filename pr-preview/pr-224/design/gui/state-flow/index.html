@@ -4336,19 +4336,19 @@
 <tbody>
 <tr>
 <td>未作成</td>
-<td><code>work/content_index</code> に本文インデックスのファイルが無い</td>
+<td><code>work/store/content</code> に本文インデックスのファイルが無い</td>
 <td>No.5 に <code>まだインデックスがありません。</code></td>
 <td>1</td>
 </tr>
 <tr>
 <td>中断中</td>
-<td><code>work/ingest_status.tsv</code> に状態が <code>未取り込み</code> の行がある（中止した場合の状態。利用者の PowerPoint のために取り込めなかったファイルも状態は <code>未取り込み</code> だが、エラーの列に理由があるので、待ちではなく失敗に数え、この表示には入らない）</td>
+<td><code>work/store/ingest_status.tsv</code> に状態が <code>未取り込み</code> の行がある（中止した場合の状態。利用者の PowerPoint のために取り込めなかったファイルも状態は <code>未取り込み</code> だが、エラーの列に理由があるので、待ちではなく失敗に数え、この表示には入らない）</td>
 <td>No.5 の次の行に <code>更新を中断しました（残り N 件）</code>（<code>getIndexingStateText</code>。<code>indexing_view.ps1</code>）、No.6 のボタンは［続きから再開（残り N 件）］</td>
 <td>1</td>
 </tr>
 <tr>
 <td>失敗あり</td>
-<td><code>work/ingest_status.tsv</code> に状態が <code>失敗</code> の行がある</td>
+<td><code>work/store/ingest_status.tsv</code> に状態が <code>失敗</code> の行がある</td>
 <td>「更新に失敗したファイル」の一覧（<code>⚠ 更新に失敗したファイル N 件</code>。ファイルごとに失敗の原因を表示）</td>
 <td>2（タブ見出しに ⚠）</td>
 </tr>
@@ -4367,7 +4367,7 @@
 </tbody>
 </table>
 <ul>
-<li>前の版のインデックス（<code>index\</code>。しるしあり）が見つかったときは、起動時・ワークスペースを切り替えたときにステータスへ知らせを出す（<code>getLegacyIndexMessage</code>）。［すべて更新］では、<code>content_index\</code> が空のときだけ更新し直しの確かめを出す（<a href="../indexing-run/#更新し直しの確かめ">更新し直しの確かめ</a>）。</li>
+<li>前の前の版のインデックス（<code>index\</code>。しるしあり）が見つかったときは、起動時・ワークスペースを切り替えたときにステータスへ知らせを出す（<code>getLegacyIndexMessage</code>）。［すべて更新］では、<code>store\content\</code> と <code>content_index\</code> がどちらも空のときだけ更新し直しの確かめを出す（<a href="../indexing-run/#更新し直しの確かめ">更新し直しの確かめ</a>）。</li>
 <li>「最終更新」は、インデックス配下の本文インデックスのファイルの最新の更新日時とする。</li>
 <li>「インデックス作成中」は、この画面で始めたインデックス作成のスレッドが動いているかで判定する。インデックス作成は画面のプロセスの中で動くため、画面を開いたときに動いているものは無い。画面を使わずに起動した <code>indexer.ps1</code> と重なったときは、インデクサがミューテックスで二重に動かないようにする（<a href="../../indexing/flow/">インデックス作成のメインフロー</a>）。</li>
 </ul>
@@ -4434,7 +4434,7 @@
     participant W as work/
 
     U-&gt;&gt;G: ［すべて更新］など
-    opt 前の版のしるしがあり content_index\ が空
+    opt 前の前の版のしるしがあり本文インデックスの置き場が空
         G-&gt;&gt;U: 更新し直しの確かめ（3.1。getReingestConfirm）
         U-&gt;&gt;G: ［キャンセル］なら始めない
     end
