@@ -263,6 +263,7 @@ Describe "testImportedContentIndexFile" -Tag Unit {
     It "断る（<label>）: 理由を返す" -TestCases @(
         @{ label = "版が違う（検索・更新の両方が断る）"; text = { "$($script:rs) 版=99`n$($script:rs) ファイル名=a.xlsx`n" }; size = 100 }
         @{ label = "版の行が無い（検索・更新の両方が断る）"; text = { "$($script:rs) ファイル名=a.xlsx`n$($script:rs) シート=Sheet1`n鉛筆`n" }; size = 100 }
+        @{ label = "2 行目以降に版の違う行がある（検索だけが断る）"; text = { "$($script:ver)`n$($script:rs) ファイル名=a.xlsx`n$($script:rs) 版=99`n" }; size = 100 }
         @{ label = "版の行が 1 行目に無い（更新だけが断る）"; text = { "品名`n$($script:ver)`n$($script:rs) ファイル名=a.xlsx`n" }; size = 100 }
         @{ label = "ファイル名の行で終わり改行が無い（更新だけが断る）"; text = { "$($script:ver)`n$($script:rs) ファイル名=a.xlsx" }; size = 100 }
         @{ label = "大きさが上限を超える（大きさで断る。中身は渡さない）"; text = { $null }; size = (64MB + 1) }

@@ -277,7 +277,7 @@ content_index/<相対フォルダ>/content_index.<拡張子>.<番号>.tsv … �
 
 ### 受け取ったファイルを信用しない（安全性）
 
-判断層（`testIndexArchiveEntryPath`・`testIndexArchiveEntryLocation`・`testIndexArchiveManifest`・`testImportedStatusRow` / `testImportedStatusLines`）で、次のものを 1 つでも受け付けなければインポート全体を止める（途中まで取り込まない）。
+判断層（`testIndexArchiveEntryPath`・`testIndexArchiveEntryLocation`・`testIndexArchiveManifest`・`testImportedStatusRow` / `testImportedStatusLines`・`testImportedContentIndexFile`）で、次のものを 1 つでも受け付けなければインポート全体を止める（途中まで取り込まない）。
 
 - **zip slip**: 絶対パス（`/`・ドライブ文字・UNC）、`..`・`.`・空の区切り、`:`（代替データストリーム）、ファイル名に使えない文字、予約名（拡張子付きも含む。`shared/core/text.ps1` の `$reservedFileNames` と同じ決まり）、末尾の空白・`.`、1 つの区切りが 255 文字を超えるもの。区切りは `/` だけを認め、`\` を含む名前は受け付けない。
 - **置き場所**: `tebunko-index.json`・`ingest_status.tsv`・`content_index/…/<本文インデックスのファイル名の型>` 以外は受け付けない（本文インデックスのファイル名の型は `content_index_format.ps1` の型を使う）。

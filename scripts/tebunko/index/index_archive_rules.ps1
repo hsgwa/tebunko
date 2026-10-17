@@ -244,11 +244,14 @@ function testImportedContentIndexFile {
     # 形の決まりはここに写さず、2 つの関数をそのまま呼ぶ（読み取りの側の決まりが変わっても、取り込みの判定が付いてくる）
     param (
         [long]$size,
-        [string]$text
+        [AllowNull()]$text   # 文字列。 大きさだけを先に確かめるときは $null（読み取りの判定は飛ばす）
     )
 
     if ($size -gt ${contentIndexSearchMaxBytes}) {
-        return "大きさが上限（$([long](${contentIndexSearchMaxBytes} / 1MB)) MB）を超えています。"
+        return "大きさが上限（$([long](${contentIndexSearchMaxBytes} / 1MB)) MB）を超えています"
+    }
+    if ($null -eq $text) {
+        return ""
     }
     try {
         [void](readContentIndexPlaces $text)
