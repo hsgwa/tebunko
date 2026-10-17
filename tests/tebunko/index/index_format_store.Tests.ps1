@@ -150,6 +150,21 @@ Describe "repairIndexFormat / getWorkspaceIndexFormat" -Tag Io {
         (readIndexFormat $ws.FormatFile).Status | Should -Be "Broken"
     }
 
+    It "書き直そうとしたとき、目録が今より新しい版になっていれば、書き換えず、Newer のまま返す" {
+        $ws = newFormatWorkspace "format_repair_newer"
+        $good = Join-Path $ws.IndexDir "営業"
+        [System.IO.Directory]::CreateDirectory($good) | Out-Null
+        $mark = [string][char]0x1E
+        [System.IO.File]::WriteAllText("$good\content_index.docx.001.tsv", "$mark 版=${indexFormatVersion}`n", [System.Text.Encoding]::Unicode)
+        $text = "版=99`r`n営業`t作り終えた`r`n"
+        [System.IO.File]::WriteAllText($ws.FormatFile, $text, (New-Object System.Text.UTF8Encoding($true)))
+
+        $result = repairIndexFormat $ws
+
+        $result.Status | Should -Be "Newer"
+        [System.IO.File]::ReadAllText($ws.FormatFile) | Should -Be $text
+    }
+
     It "古い置き場にだけ本文インデックスがあれば、そのインデックスは Old で、目録は書かない" {
         $ws = newFormatWorkspace "format_old_state"
         newOldIndex $ws "営業"

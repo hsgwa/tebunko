@@ -303,8 +303,11 @@ function repairIndexFormat {
             }
         }.GetNewClosure()) $workspace.FormatFile
     $result = readIndexFormat $workspace.FormatFile
-    if ($written -and $result.Status -eq "Ok") {
-        return $result
+    if ($result.Status -eq "Ok" -or $result.Status -eq "Newer") {
+        # ロックの中で、ほかが今より新しい版の目録にしていたとき（書き換えない）は、その目録をそのまま返す
+        if ($written -or $result.Status -eq "Newer") {
+            return $result
+        }
     }
     # ロックを取れない・書けないときは、書かずに求めた表を返す（次の機会に直す）
     return @{ Status = "Ok"; Indexes = $computed }
@@ -346,7 +349,7 @@ function getWorkspaceIndexFormat {
     if ($catalog.Status -eq "Broken") {
         # 書き直した後の状態は Ok だが、「目録だけ壊れていた」ことを今回の結果に残す（Indexes は書き直したもの）
         $repaired = repairIndexFormat $workspace
-        $catalog = @{ Status = "Broken"; Indexes = $repaired.Indexes }
+        $catalog = if ($repaired.Status -eq "Newer") { $repaired } else { @{ Status = "Broken"; Indexes = $repaired.Indexes } }
     }
     $legacy = getLegacyIndexState $workspace.Dir
     return (getIndexFormatState $catalog (findOldIndexNames $workspace) (getIndexNamesWithContent $workspace.IndexDir) $legacy.HasLegacyIndex)
