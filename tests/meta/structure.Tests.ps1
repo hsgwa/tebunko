@@ -11,7 +11,7 @@ Describe "パス定義" -Tag Meta {
 
     It "work の中身は work の置き場所（既定はリポジトリ直下の work。setting.config の workspaceFolder で変わる）を基準にする" {
         $workspace.Dir | Should -Be (getWorkDir $settingsFile)
-        $workspace.IndexDir | Should -Be "$($workspace.Dir)\content_index"
+        $workspace.IndexDir | Should -Be "$($workspace.Dir)\store\content"
         $workspace.LegacyIndexDir | Should -Be "$($workspace.Dir)\index"
         $workspace.TmpRoot | Should -Be "$($workspace.Dir)\tmp"
         $workspace.PublishDir | Should -Be "$($workspace.Dir)\publish\$PID"

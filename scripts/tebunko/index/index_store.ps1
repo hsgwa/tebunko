@@ -51,14 +51,14 @@ function getIndexStats {
 }
 
 function removeSystemIndexOfWorkspace {
-    # インデックスのフォルダ（dir = <ワークスペース>\index）と同じワークスペースの system_index から、インデックス name の分を消す。
+    # インデックスのフォルダ（dir = Workspace.IndexDir）と同じワークスペースの system_index から、インデックス name の分を消す。
     # 消せなくても（状態ファイルがほかに開かれている等）インデックスの操作は続ける。次のインデックス作成で整理される
     param (
         [string]$name,
         [string]$dir
     )
 
-    $owner = [Workspace]::new([System.IO.Path]::GetDirectoryName($dir.TrimEnd("\")))
+    $owner = [Workspace]::new((getWorkspaceDirOfIndexDir $dir))
     try {
         [void](removeSystemIndexOf $name $owner.SystemIndexDir $owner.SystemIndexStateFile)
     } catch {

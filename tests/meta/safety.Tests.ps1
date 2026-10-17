@@ -688,7 +688,7 @@ Describe "書き込み先が限られていること（docs/safety/file-access.m
         (findPattern $paths 'return \$fallbackDir') | Should -Not -Be ""
         # ワークスペースは設定から決め、中の場所はワークスペースのフォルダから組み立てる
         (findPattern $paths '\$\{script:workspace\}\s*=\s*\[Workspace\]::new\(\(getWorkDir\)\)') | Should -Not -Be ""
-        (findPattern $paths '\$this\.IndexDir\s*=\s*"\$dir\\content_index"') | Should -Not -Be ""
+        (findPattern $paths '\$this\.IndexDir\s*=\s*"\$dir\\store\\content"') | Should -Not -Be ""
         (findPattern $paths '\$\{legacyTmpParent\}\s*=\s*Join-Path\s*\(\[System\.IO\.Path\]::GetTempPath\(\)\)\s*"tebunko"') | Should -Not -Be ""
         (findPattern $paths '\$this\.TmpRoot\s*=\s*"\$dir\\tmp"') | Should -Not -Be ""
         (findPattern $paths '\$this\.OfficePidRoot\s*=\s*"\$dir\\office_pids"') | Should -Not -Be ""
@@ -805,7 +805,7 @@ set "PSCMD=$root=$env:TEBUNKO_ROOT;x"').Count | Should -Be 0
         # 渡す引数まで確かめる（indexer_run.ps1 は $workspace.IndexDir、index_migrate.ps1 は取り込みの作業フォルダ（$dir）、
         # index_store.ps1 は $bookDir、content_index_store.ps1 は $folder、index_archive.ps1 は $targetIndexDir）。
         # -Recurse で下をたどるのは indexer_run.ps1（content_index 全体）と index_archive.ps1（インポートで入れた 1 つのインデックス。Directory.Move で入るため）だけ（ほかは 1 か所ずつなので要らない）
-        (findPattern $callers 'setWindowsSearchExcluded\s+\$workspace\.IndexDir\s+-Recurse') | Should -Not -Be ""
+        (findPattern $callers 'setWindowsSearchExcluded\s+\$workspace\.StoreDir\s+-Recurse') | Should -Not -Be ""
         (findPattern $callers 'setWindowsSearchExcluded\s+\$dir\)') | Should -Not -Be ""
         (findPattern $callers 'setWindowsSearchExcluded\s+\$bookDir\)') | Should -Not -Be ""
         (findPattern $callers 'setWindowsSearchExcluded\s+\$folder\)') | Should -Not -Be ""

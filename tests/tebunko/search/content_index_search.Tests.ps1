@@ -1104,7 +1104,7 @@ Describe "壊れた・大きすぎる本文インデックスのファイルは�
     }
 
     It "大きさが上限を超える本文インデックスのファイルは、読まずに飛ばす（直列・並列とも）" {
-        $files = newMixedContentIndexFiles "large" "$([char]0x1E) 版=1`n"
+        $files = newMixedContentIndexFiles "large" "$([char]0x1E) 版=2`n"
         $large = @($files | ForEach-Object { $copy = $_.Clone(); if ($copy.RelPath -like "壊れ*") { $copy.Size = ${contentIndexSearchMaxBytes} + 1 }; $copy })
         $pool = newContentIndexWorkerPool 2
         try {
@@ -1119,7 +1119,7 @@ Describe "壊れた・大きすぎる本文インデックスのファイルは�
     }
 
     It "場所の番号が数でなくても例外にならず、飛ばさない（場所の名前はその値のまま）" {
-        $text = "{RS} 版=1{LF}{RS} ファイル名=a.pdf{LF}{RS} ページ=あ{LF}単価{LF}".Replace("{RS}", [string][char]0x1E).Replace("{LF}", "`n")
+        $text = "{RS} 版=2{LF}{RS} ファイル名=a.pdf{LF}{RS} ページ=あ{LF}単価{LF}".Replace("{RS}", [string][char]0x1E).Replace("{LF}", "`n")
         $files = newMixedContentIndexFiles "page" $text
         $result = searchContentIndex "単価" $files $true
         @($result.Skipped).Count | Should -Be 0

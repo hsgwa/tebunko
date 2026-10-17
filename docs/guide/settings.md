@@ -12,8 +12,8 @@
 
 | 種類 | ファイル・フォルダ |
 |---|---|
-| インデックス | `content_index\`（検索に使用）、`system_index\`（高速検索のために Windows Search に索引させるデータ） |
-| 取り込みの記録 | `ingest_status.tsv`、`ingesting.txt` |
+| インデックス | `store\`（検索に使うデータ。本文インデックスと取り込みの記録）、`system_index\`（高速検索のために Windows Search に索引させるデータ） |
+| 取り込みの記録 | `store\ingest_status.tsv`、`ingesting.txt` |
 | ログ | `indexing_log.txt`（インデックス作成ごとに、前回の分を `indexing_log_previous.txt` に移す）、`gui_error_log.txt`（1 MB 以上で `gui_error_log_previous.txt` に移す） |
 | 出力 | `search_results.txt`（［結果をファイルに出力］） |
 

@@ -371,13 +371,14 @@ function removeStatusIndexName {
 function getIndexingState {
     # 取り込み一覧からインデックス作成の状態を返す:
     #   @{ Exists; Folders（クロール対象フォルダ @{ Path; Name } の配列）; Total; Pending（未取り込み）; Failed; Done; IngestedSince（since 以降に取り込んだ件数）; Updated（取り込み一覧の更新日時）;
-    #      FailedRows（失敗したファイルの行。取り込み日時の新しい順）; IndexStats（インデックス名ごとの集計。getIndexStats） }
+    #      FailedRows（失敗したファイルの行。取り込み日時の新しい順）; IndexStats（インデックス名ごとの集計。getIndexStats）;
+    #      Format（格納形式の状態。getWorkspaceIndexFormat の結果。画面の裏の仕事が入れる。ここでは $null） }
     param (
         [datetime]$since = [datetime]::MaxValue,
         [string]$path = $workspace.StatusFile
     )
 
-    $state = @{ Exists = $false; Folders = @(); Total = 0; Pending = 0; Failed = 0; Done = 0; IngestedSince = 0; Updated = $null; FailedRows = @(); IndexStats = (getIndexStats $null) }
+    $state = @{ Exists = $false; Folders = @(); Total = 0; Pending = 0; Failed = 0; Done = 0; IngestedSince = 0; Updated = $null; FailedRows = @(); IndexStats = (getIndexStats $null); Format = $null }
     if (!(Test-Path -LiteralPath $path)) {
         return $state
     }

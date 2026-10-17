@@ -19,7 +19,8 @@ Describe "S9 ナビの画面の切り替えと F5" -Tag Gui {
             param ($count)
             $lines = @("相対パス`t更新日時`tサイズ`t状態`tTSV数`t取り込み日時`tエラー`t抽出版")
             for ($i = 1; $i -le $count; $i++) { $lines += "営業\資料$i.docx`t2026-01-01 00:00:00`t100`t未取り込み`t0`t`t`t" }
-            [IO.File]::WriteAllText("$($script:tool.Work)\ingest_status.tsv", ($lines -join "`r`n") + "`r`n", (New-Object Text.UTF8Encoding($true)))
+            [void][IO.Directory]::CreateDirectory("$($script:tool.Work)\store")
+            [IO.File]::WriteAllText("$($script:tool.Work)\store\ingest_status.tsv", ($lines -join "`r`n") + "`r`n", (New-Object Text.UTF8Encoding($true)))
         }
         $S = startGui $script:tool "S9"
         invokeGuiScene $S {
@@ -43,7 +44,7 @@ Describe "S9 ナビの画面の切り替えと F5" -Tag Gui {
             setGuiStep $S "取り込み一覧と集約ファイルを書き換えて F5"
             waitGui $S "集約ファイルはまだ無い" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "まだインデックスがありません*" } | Out-Null
             & $writeStatus 2
-            $contentIndexDir = "$($script:tool.Work)\content_index"
+            $contentIndexDir = "$($script:tool.Work)\store\content"
             [IO.Directory]::CreateDirectory($contentIndexDir) | Out-Null
             [IO.File]::WriteAllText("$contentIndexDir\content_index.xlsx.tsv", "x`r`n", (New-Object Text.UTF8Encoding($true)))
             pressGuiKey $S.Window 0x74

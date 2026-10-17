@@ -39,6 +39,7 @@ function getGuiEnvSnapshot {
     $snapshot = [ordered]@{
         "作業ツリーの setting.config" = (& $list "$root\setting.config")
         "作業ツリーの work\content_index" = (& $list "$root\work\content_index")
+        "作業ツリーの work\store" = (& $list "$root\work\store")
         "LOCALAPPDATA\tebunko"       = (& $list (Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) "tebunko"))
         "Office のプロセスの数"       = @(Get-Process -Name EXCEL, WINWORD, POWERPNT -ErrorAction SilentlyContinue).Count
     }
@@ -880,7 +881,7 @@ function newGuiSampleIndex {
     $tsvRoot = Join-Path $Root "tsv_$Name"
     newTsv "$tsvRoot\$Name\見積.xlsx\$(toIndexFileName "見積")" @("品名`t数量`t単価", "", "りんご`t10`t100", "ABC`tabc")
     newTsv "$tsvRoot\$Name\議事録.docx\$(toIndexFileName "ページ001")" @("見積の方針", "単価は据え置き")
-    [void](newContentIndexFiles $tsvRoot "$($Tool.Work)\content_index")
+    [void](newContentIndexFiles $tsvRoot "$($Tool.Work)\store\content")
 }
 
 function findGuiAnywhere {

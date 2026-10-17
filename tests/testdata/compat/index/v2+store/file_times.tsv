@@ -1,0 +1,21 @@
+﻿# 見本のフォルダからの相対パス（/ 区切り）<TAB>Ticks。source/ は DateTimeKind なし（更新日時の文字列をそのまま解いた値）、ws/ は UTC
+source/TXT01.txt	639277826110000000
+source/TXT04.md	639277826110000000
+source/仕様書.pdf	639277826110000000
+source/基本.docx	639277826110000000
+source/基本.pptx	639277826110000000
+source/進捗.xlsx	639277826110000000
+source/2024/(株)山田商事[確定]表.docx	639277826110000000
+source/手順/手順書.pdf	639277826110000000
+ws/store/content/資料/2024/content_index.docx.001.tsv	639277929576553741
+ws/store/content/資料/content_index.docx.001.tsv	639277929572538425
+ws/store/content/資料/content_index.md.001.tsv	639277929572558611
+ws/store/content/資料/content_index.pdf.001.tsv	639277929572598772
+ws/store/content/資料/content_index.pptx.001.tsv	639277929572626855
+ws/store/content/資料/content_index.txt.001.tsv	639277929572646955
+ws/store/content/資料/content_index.xlsx.001.tsv	639277929572657042
+ws/store/content/資料/source_folder.txt	639277929595360849
+ws/store/content/資料/手順/content_index.pdf.001.tsv	639277929580462215
+ws/system_index/資料/2024/system_index.txt	639277929576690829
+ws/system_index/資料/system_index.txt	639277929574965718
+ws/system_index/資料/手順/system_index.txt	639277929580736159

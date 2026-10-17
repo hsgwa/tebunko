@@ -518,6 +518,25 @@ function invokeIndexerBody {
         recordUserPowerPointPostponed $lost.Number $lost.Row $reason
     }
 
+    # この回で最後まで作り終えたインデックス（失敗したファイルの無いもの）の目録の行を「作り終えた」にし、古い形式の分を消す。
+    # 中止・続けられないエラーのときは呼ばない（行は「作成中」のまま。古い形式の分も残る）。消せないものは残してログに出す
+    function completeRoundIndexes {
+        param ([string[]]$names)
+
+        $failedPrefixes = @($ledger.Failures | ForEach-Object { ([string]$_.RelPath).Split("\")[0] })
+        $finishedNames = @($names | Where-Object { $failedPrefixes -notcontains $_ })
+        if ($finishedNames.Count -eq 0) {
+            return
+        }
+        $completion = completeIndexFormat $finishedNames $workspace
+        if (!$completion.Updated) {
+            writeIndexerLog "インデックスの目録を書けませんでした（古い形式の分は消していません）。" "Yellow"
+        }
+        foreach ($failedEntry in $completion.Failed) {
+            writeIndexerLog "古い形式のインデックスを消せませんでした（次のインデックス作成の終わりにもう一度消します）: $failedEntry" "Yellow"
+        }
+    }
+
     $reporter.Progress(${indexingPhaseCrawl}, 0, 0, 0, "インデックス作成の準備をしています…")
 
     $restartInterval = 100  # Officeアプリを再起動する間隔（取り込みのスレッドごとのファイル数）。メモリ肥大化対策（再起動 1 回で約 2 秒かかるため、間隔を詰めすぎない）
@@ -536,7 +555,7 @@ function invokeIndexerBody {
     }
 
     # 前の版のインデックス（index\）が見つかれば知らせ、取り込み直しを始めるときは前の版のシステムインデックスを片付ける。
-    # content_index\ を作る前に行う（片付けに失敗したら content_index\ を作らずに終わる）
+    # インデックスのフォルダ（store\）を作る前に行う（片付けに失敗したら作らずに終わる）
     $legacyState = getLegacyIndexState $workspace.Dir
     $legacyMessage = getLegacyIndexMessage $workspace.Dir $legacyState.HasLegacyIndex
     if ($legacyMessage) {
@@ -550,21 +569,33 @@ function invokeIndexerBody {
         }
     }
 
+    # 古い形式（作り直す前の形式）のインデックスがあれば知らせる。作り直しは、この回で全部を取り込み直す（古い取り込み一覧は読まない）
+    $formatState = getWorkspaceIndexFormat $workspace
+    if ($formatState.State -eq ${indexStateNewer}) {
+        throw ${indexNewerMessage}
+    }
+    foreach ($formatName in $formatState.Indexes.Keys) {
+        $formatEntry = $formatState.Indexes[$formatName]
+        if ($formatEntry.Message) {
+            writeIndexerLog "インデックス「${formatName}」: $($formatEntry.Message)" "Yellow"
+        }
+    }
+
     [System.IO.Directory]::CreateDirectory($workspace.IndexDir) | Out-Null
     # 前の版から続けて使うワークスペース・別のドライブへ写したワークスペース・取り込んだワークスペースもここで付く
-    # （継ぐかどうかに頼らず、ここで一度だけ content_index 全体に付ける。入れた直後にはそれぞれの場所でも付ける）。
+    # （継ぐかどうかに頼らず、ここで一度だけインデックスのフォルダ全体に付ける。入れた直後にはそれぞれの場所でも付ける）。
     # 根フォルダに未だ付いていない回（主に初回）は下をすべてたどるため時間がかかるので、先に 1 行残しておく
-    writeIndexerLog "content_index を Windows Search の対象から外しています…"
-    $nci = setWindowsSearchExcluded $workspace.IndexDir -Recurse
+    writeIndexerLog "インデックスのフォルダを Windows Search の対象から外しています…"
+    $nci = setWindowsSearchExcluded $workspace.StoreDir -Recurse
     if (!$nci.Ok) {
-        writeIndexerLog "content_index を Windows Search の対象から外せませんでした（$($nci.Reason)）。高速検索が効くまで時間がかかることがあります。" "Yellow"
+        writeIndexerLog "インデックスのフォルダを Windows Search の対象から外せませんでした（$($nci.Reason)）。高速検索が効くまで時間がかかることがあります。" "Yellow"
     }
     $selected = initTmpDir
     $script:tmpDir = $selected.Dir
     $script:tmpDirReason = $selected.Reason
     [System.IO.Directory]::CreateDirectory($workspace.PublishDir) | Out-Null
 
-    # クロール対象フォルダごとにインデックス名（work\content_index 直下のフォルダ名）を決める。前回と同じフォルダは同じ名前を使う
+    # クロール対象フォルダごとにインデックス名（インデックスのフォルダ直下のフォルダ名）を決める。前回と同じフォルダは同じ名前を使う
     $status = $ledger.ReadStatus()
     if ($status.Rejected -gt 0) {
         writeIndexerLog "取り込み一覧に読めない行が $($status.Rejected) 行ありました（無視しました）。" "Yellow"
@@ -734,6 +765,12 @@ function invokeIndexerBody {
     # インデックス名 → クロール対象フォルダ
     $folderByName = $planner.FolderByName()
 
+    # この回で作る（取り込み対象にした）インデックスの名前。目録に行が無ければ「作成中」で足し、最後まで終えたら「作り終えた」にする
+    $roundNames = @($plan | Where-Object { $_.区分 -eq ${planKindIngest} } | ForEach-Object { [string]$_.インデックス名 })
+    if (!(markIndexFormatBuilding $roundNames $workspace)) {
+        writeIndexerLog "インデックスの目録を書けませんでした（新しい版の tebunko で作られた可能性があります）。" "Yellow"
+    }
+
     if ($targets.Count -eq 0) {
         writeIndexerLog ""
         if ($cloudSkipped -eq 0) {
@@ -750,6 +787,7 @@ function invokeIndexerBody {
         } catch {
             writeIndexerLog "システムインデックスを作れませんでした（次のインデックス作成で作り直します）: $($_.Exception.Message)" "Yellow"
         }
+        completeRoundIndexes $roundNames
         $reporter.Progress(${indexingPhaseFinish}, 0, 0, 0, $(if ($cloudSkipped -eq 0) { "更新が必要なファイルはありませんでした" } else { "クラウドにだけあるファイルは、ダウンロードせずに残しました" }))
         removeTmpDir
         return 0
@@ -1087,6 +1125,9 @@ function invokeIndexerBody {
         return 1
     }
 
+    if (!$stopped) {
+        completeRoundIndexes $roundNames
+    }
     writeIndexerLog ""
     if ($stopped) {
         writeIndexerLog "インデックス作成を中止しました。（成功: ${successCount} 件 / 失敗: $($ledger.Failures.Count) 件）" "Yellow"

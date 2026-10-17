@@ -32,8 +32,8 @@ erDiagram
 インデックスは、クロール対象フォルダの中のフォルダ 1 つ・元のファイルの拡張子 1 つにつき 1 つの**本文インデックス**にする。検索は本文インデックスだけを読む（[検索を速くする仕組み](../search/speed.md)）。
 
 ```
-work/content_index/<インデックス名>/<相対フォルダ>/content_index.<拡張子（小文字）>.<番号>.tsv                        … 本文インデックス（検索に使う）
-work/content_index/<インデックス名>/<相対フォルダ>/<ファイル名（拡張子あり）>/<toIndexFileName(場所)>     … 取り込み中だけの TSV
+work/store/content/<インデックス名>/<相対フォルダ>/content_index.<拡張子（小文字）>.<番号>.tsv                        … 本文インデックス（検索に使う）
+work/store/content/<インデックス名>/<相対フォルダ>/<ファイル名（拡張子あり）>/<toIndexFileName(場所)>     … 取り込み中だけの TSV
 ```
 
 - **本文インデックス**（`content_index.xlsx.001.tsv` `content_index.docx.001.tsv` など）には、そのフォルダ**直下**にある、その拡張子の元のファイルすべての中身を入れる。サブフォルダのファイルは、サブフォルダの本文インデックスに入る。形式は下の「本文インデックスの形式」。
@@ -43,13 +43,13 @@ TSV は**元のファイル名をフォルダ名**にし、その中に場所ご
 
 | 元ファイル（クロール対象フォルダからの相対パス） | 場所 | 本文インデックスに入れる前の TSV | 本文インデックス |
 |---|---|---|---|
-| `2024/見積/A社.xlsx` | シート `明細` | `work/content_index/営業/2024/見積/A社.xlsx/明細.tsv` | `work/content_index/営業/2024/見積/content_index.xlsx.001.tsv` |
-| `売上.xls` | シート `2024_上期` | `work/content_index/営業/売上.xls/2024%5F上期.tsv` | `work/content_index/営業/content_index.xls.001.tsv` |
-| `[確定]見積.xlsx` | シート `記号<>` | `work/content_index/営業/[確定]見積.xlsx/記号%3C%3E.tsv` | `work/content_index/営業/content_index.xlsx.001.tsv` |
-| `コピー.xls_old.xlsx` | シート `Sheet1` | `work/content_index/営業/コピー.xls_old.xlsx/Sheet1.tsv` | `work/content_index/営業/content_index.xlsx.001.tsv` |
-| `報告書.DOCX` | `ページ001` | `work/content_index/営業/報告書.DOCX/page_001.tsv` | `work/content_index/営業/content_index.docx.001.tsv` |
+| `2024/見積/A社.xlsx` | シート `明細` | `work/store/content/営業/2024/見積/A社.xlsx/明細.tsv` | `work/store/content/営業/2024/見積/content_index.xlsx.001.tsv` |
+| `売上.xls` | シート `2024_上期` | `work/store/content/営業/売上.xls/2024%5F上期.tsv` | `work/store/content/営業/content_index.xls.001.tsv` |
+| `[確定]見積.xlsx` | シート `記号<>` | `work/store/content/営業/[確定]見積.xlsx/記号%3C%3E.tsv` | `work/store/content/営業/content_index.xlsx.001.tsv` |
+| `コピー.xls_old.xlsx` | シート `Sheet1` | `work/store/content/営業/コピー.xls_old.xlsx/Sheet1.tsv` | `work/store/content/営業/content_index.xlsx.001.tsv` |
+| `報告書.DOCX` | `ページ001` | `work/store/content/営業/報告書.DOCX/page_001.tsv` | `work/store/content/営業/content_index.docx.001.tsv` |
 
-- クロール対象フォルダのフォルダ構成が `work/content_index/<インデックス名>/` 配下にそのまま再現され、各フォルダに**拡張子ごとの本文インデックス**ができる。検索結果の先頭の相対フォルダにもインデックス名が付くため、どのクロール対象フォルダのファイルかが分かる。
+- クロール対象フォルダのフォルダ構成が `work/store/content/<インデックス名>/` 配下にそのまま再現され、各フォルダに**拡張子ごとの本文インデックス**ができる。検索結果の先頭の相対フォルダにもインデックス名が付くため、どのクロール対象フォルダのファイルかが分かる。
 - 本文インデックスの拡張子は小文字にそろえる（`報告書.DOCX` は `content_index.docx.001.tsv` に入る）。
 - 「場所」は Excel ではシート名と、図形・コメント・ヘッダー・フッターの `<シート名>[図形]` `<シート名>[コメント]` `<シート名>[ヘッダー・フッター]`（下の「図形・コメントの場所」、[Excel の図形・コメントの読み取り](../indexing/excel.md#excel-の図形コメントの読み取りreadxlsxobjectunits)）、Word ではページ・ヘッダー/フッター・脚注（[Word のテキスト読み取りと TSV の場所](../indexing/word.md#word-のテキスト読み取りと-tsv-の場所readdocxunits)）、PowerPoint ではスライド・ノート（[PowerPoint のテキスト読み取りと TSV の場所](../indexing/powerpoint.md#powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits)）。
 - TSV のファイル名は場所だけ（`toIndexFileName`）。場所は Excel のシート名で最長 31 文字のため、Windows のファイル名の上限（255 文字）は超えない。元のファイル名は Windows 上のファイル名そのものなので、フォルダ名にしても上限を超えない。
@@ -60,14 +60,65 @@ TSV は**元のファイル名をフォルダ名**にし、その中に場所ご
   - `<ファイル名>＋<場所>` が 255 文字を超えて保存できない、ということが起きない。
 - **本文インデックスにする理由**: 検索の時間は、読むファイルの数でほぼ決まる。ウイルス対策ソフト（Microsoft Defender）は、ファイルを初めて開くたびに検査し（実測で 1 ファイル約 11 ミリ秒）、検査済みとして覚えておけるのはおよそ 2 万ファイルまで。元のファイル 1 つ・場所 1 つにつき TSV 1 つだと、TSV が数万件になり、初回の検索が数分〜10 分以上かかった。フォルダ・拡張子ごとにまとめると、読むファイルの数が数百分の 1 になる（実測は [検索を速くする仕組み](../search/speed.md)）。
 
-### 前の版の index\ の扱い（`getLegacyIndexState`・`clearLegacySystemIndex`）
+## 置き場と目録（`store`）
 
-フォルダ名・ファイル名を `content_index`・`system_index` にそろえる前の版が使っていた `index\` は、そのままでは読めない（フォルダ名・ファイル名が違う）。新しい版はここを読まず、消しもしない。
+インデックスの格納形式は版番号つきの 1 つにまとめる。置き場は `work/store/` の下に集める。
+
+```
+work/store/format.tsv                 … 目録（形式の版・各インデックスの状態）
+work/store/ingest_status.tsv          … 取り込み一覧
+work/store/content/<インデックス名>/   … 本文インデックス（source_folder.txt も各インデックスのフォルダに置く）
+```
+
+前の版（形式の版 1）の置き場は `work/content_index/<インデックス名>/` と `work/ingest_status.tsv`。新しい版はここへ書かず、検索もしない。
+
+### 目録（`format.tsv`。`index_format_store.ps1`）
+
+UTF-8（BOM 付き）・タブ区切り。書くときは一時ファイルに書いて入れ替える（途中で止まっても半端な目録が残らない）。
+
+| 行 | 中身 |
+|---|---|
+| 1 行目 | `版=2`（形式の版） |
+| 2 行目 | `アプリの版=<書いた tebunko の版>`（調べるためだけ。判定に使わない） |
+| 3 行目以降 | `<インデックス名><TAB>作成中` または `<インデックス名><TAB>作り終えた` |
+
+- 知らないキー・知らない列・知らない行は読み飛ばす。
+- 目録が壊れたとき（読めない・版の行が無い）は、今の版の本文インデックスのファイルがあるインデックスを「作成中」として書き直す（`repairIndexFormat`）。作り終えたかは分からないが、取り込み一覧が残っていれば差分の更新で済む。画面の裏からもインデクサーからも呼ばれるため、インデクサーの更新と同じロックの中で書き（ほかが先に直していれば書かない）、ロックを取れなければ書かずに求めた表を使う。
+
+### 古い形式の扱いと状態（`getIndexFormatState`）
+
+目録の行と、古い置き場・今の置き場にある本文インデックスから、ワークスペースと各インデックスの状態を決める（判断層。ファイルには触れない）。
+
+| 状態 | 当たるとき | 検索 | 一覧の文言 |
+|---|---|---|---|
+| Current | 目録が「作り終えた」で、古い置き場に無い | する | 無し |
+| Building | 今の置き場にあり、目録が「作成中」（最初の取り込みの途中） | する | 無し |
+| Rebuilding | 今の置き場と古い置き場の両方にある（作り直しの途中） | する（作ってある分） | 「作り直しの途中です。［更新］で続きを作ってください」 |
+| Old | 古い置き場にだけある（前の版で作った） | しない | 「古い形式です。作り直してください」 |
+| Empty | インデックスが 1 つも無い | - | 無し |
+| Broken | 目録が壊れて直せなかった（各インデックスは、本文インデックスのファイルの有無から決める） | インデックスによる | 古い置き場にだけあるものは「古い形式です。作り直してください」 |
+| Newer | 目録の版が今より新しい | しない | 「新しい版の tebunko で作られています」 |
+
+- 検索に出すのは Current・Building・Rebuilding。古い形式のインデックスがあるときは、検索バーに「古い形式のインデックスは検索していません」を 1 行出す。
+- **作り直し**: 利用者が［更新］（［すべて更新］）を押す。今の置き場は空なので全部を取り込む。最後まで終われば、目録をそのインデックスについて「作り終えた」にし、古い置き場の `<名前>/` を消す（`completeIndexFormat`・`removeOldIndexOf`）。古い置き場が空になれば `content_index/` と古い `ingest_status.tsv` も消す。途中で中止したときは古い分を消さず、目録は「作成中」のままにする。
+  - 「最後まで終わった」とは、そのインデックスのファイルに取り込みの失敗が 1 つも無いこと（`completeRoundIndexes`）。クラウドにだけあって読まなかったファイルは失敗に数えないため、そのファイルが残っていても作り終えた扱いになり、古い置き場の分が消える。
+- **消す対象を絞る**: 消すのは、古い置き場の作り終えたインデックスのフォルダと、古い置き場そのもの・古い取り込み一覧だけ（`oldIndexEntries` の配列に書いたものに限る）。ジャンクションは辿らず（`removeDirectoryRetry`）、名前が空・`.`・`..`・ファイル名に使えない文字を含むときは何も消さない。消せなかったときはログに黄色で 1 行出して残し、次のインデックス作成の終わりに再度消す。
+- インデックスの名前を変える・消すときは、目録の行も同じ操作で変える（`renameIndexFormatRow`・`removeIndexFormatRow`）。
+
+### 目録の版の規則
+
+- 形式の版は、**古い版の tebunko が読めなくなる変更**をしたときに上げる（置き場の場所・本文インデックスの形・取り込み一覧の列の意味を変えるなど）。上げたら、前の版のものは「古い形式です。作り直してください」になり、利用者が作り直す。
+- 版を上げずに足してよいのは、**古い版が読み飛ばして困らないもの**だけ。目録に新しいキーや列を足す、`store/` の下に新しいフォルダを足す、など。知らないものは読み飛ばす決まりのため。
+- 版を上げるときは、`indexFormatVersion`（`content_index_format.ps1`）と zip の `formatVersion` をそろえ、互換の見本（`tests/testdata/compat/index/v<版>+store/`）を足す。
+
+### 前の前の版の index\ の扱い（`getLegacyIndexState`・`clearLegacySystemIndex`）
+
+フォルダ名・ファイル名を `content_index`・`system_index` にそろえる前の版（前の前の版）が使っていた `index\` は、そのままでは読めない（フォルダ名・ファイル名が違う）。新しい版はここを読まず、消しもしない。
 
 - **前の版のしるし**: `index\` があり、その直下のどれかのフォルダに `元のフォルダ.txt` がある（`getLegacyIndexState` の `HasLegacyIndex`）。`index\` があるだけでは、利用者が選んだフォルダにたまたま `index` があるときと区別できないため、しるしとしない。
-- **知らせ**: インデクサは `content_index\` を作る前に前の版のしるしを調べ、見つかれば `前の版のインデックス（「<index\ のパス>」）は、この版では使えません。［すべて更新］で、元のファイルをすべて更新し直します。更新し直した後、「<index\ のパス>」フォルダは削除してかまいません。` をログに黄色で出す（`getLegacyIndexMessage`）。
-- **片付けの条件**: `content_index\` が空（無いか、下のフォルダを含めてファイルが 1 つも無い）で、かつ、前の版のしるしがあるか、`system_index\` に前の名前の txt（`システムインデックス*.txt`）が残っている（`testLegacyCleanupNeeded`）。取り込み直す前に利用者が `index\` を消していても、前の名前の txt を残さないための条件。
-- **片付け**: 条件に当たれば、取り込み直しを始める前に前の版のシステムインデックスを片付ける（`clearLegacySystemIndex`）。順番は (1) 状態ファイル（`system_index_state.tsv`）の中身を排他の中で空にする（ファイルは消さない） (2) `system_index\` を `removeDirectoryRetry` で消す（Windows Search が txt を一時的に開くことがあるため）。どちらかに失敗したら、`content_index\` を作らず、失敗の理由をログと `channel.Error` に入れて終了コード 1 で終わる。途中で止まっても、次の開始で同じ条件に当たり、やり直せる。
+- **知らせ**: インデクサは `store\content\` を作る前に前の版のしるしを調べ、見つかれば `前の版のインデックス（「<index\ のパス>」）は、この版では使えません。［すべて更新］で、元のファイルをすべて更新し直します。更新し直した後、「<index\ のパス>」フォルダは削除してかまいません。` をログに黄色で出す（`getLegacyIndexMessage`）。
+- **片付けの条件**: `store\content\` と前の版の `content_index\` がどちらも空（無いか、下のフォルダを含めてファイルが 1 つも無い）で、かつ、前の版のしるしがあるか、`system_index\` に前の名前の txt（`システムインデックス*.txt`）が残っている（`testLegacyCleanupNeeded`）。取り込み直す前に利用者が `index\` を消していても、前の名前の txt を残さないための条件。
+- **片付け**: 条件に当たれば、取り込み直しを始める前に前の版のシステムインデックスを片付ける（`clearLegacySystemIndex`）。順番は (1) 状態ファイル（`system_index_state.tsv`）の中身を排他の中で空にする（ファイルは消さない） (2) `system_index\` を `removeDirectoryRetry` で消す（Windows Search が txt を一時的に開くことがあるため）。どちらかに失敗したら、`store\content\` を作らず、失敗の理由をログと `channel.Error` に入れて終了コード 1 で終わる。途中で止まっても、次の開始で同じ条件に当たり、やり直せる。
 - 画面での確かめ（[更新し直しの確かめ](../gui/indexing-run.md#更新し直しの確かめ)）とインデックス作成のメインフローでの扱い（[インデックス作成のメインフロー](../indexing/flow.md)）も参照。
 
 ### 本文インデックスの形式（`content_index_format.ps1`）
@@ -75,7 +126,7 @@ TSV は**元のファイル名をフォルダ名**にし、その中に場所ご
 本文インデックスは、元のファイルごと・場所（シート・ページ・スライドなど）ごとに、**メタ情報の行**と、その場所の TSV の中身（[TSV 整形仕様](../indexing/excel.md#tsv-整形仕様prettytsv--formattsv) など。1 行 = Excel の 1 行・段落 1 つ）を並べたもの。例（`␞` は RS（U+001E）、`→` はタブ）:
 
 ```
-␞ 版=1
+␞ 版=2
 ␞ ファイル名=(株)山田商事_見積書.xlsx
 ␞ 種類=Excel
 ␞ シート=見積
@@ -104,7 +155,7 @@ B2→確定版
 
 | キー | 値 | 意味 |
 |---|---|---|
-| `版` | `1` | 形式の版。ファイルの 1 行目。今の版と違えば例外にする（`readContentIndexPlaces`） |
+| `版` | `2` | 形式の版。ファイルの 1 行目。今の版と違えば例外にする（`readContentIndexPlaces`）。版を上げる規則は下の「目録の版の規則」 |
 | `ファイル名` | 元のファイル名（例 `見積書.xlsx`） | ここから新しい元のファイルが始まる |
 | `種類` | `Excel` / `Word` / `PowerPoint` / `テキスト` / `PDF` | 元のファイルの種類（拡張子から決める） |
 | `シート` / `ページ` / `スライド` / `部分` | シート名 / ページ番号 / スライド番号 / それ以外の場所の名前（`ヘッダー・フッター` など。テキストは場所が 1 つだけのため常に `本文`） | ここから新しい場所が始まる |
@@ -148,7 +199,7 @@ TSV のファイル名に入れる場所（シート名など、固定名（上�
 - 全角に置き換える方式にしないのは、`衝突"` と `衝突”` のように別のシートが同じ TSV 名になり、後のシートで上書きされるため。元に戻せる形にすれば、シート名が違えば TSV 名も必ず違う。
 - ファイル名は符号化しない（元ファイルの名前がそのまま TSV のフォルダ名になる。Windows のファイル名なので使えない文字は含まない）。
 - Excel のシート名はタブ・改行を含められる（VBA などで付けた場合）。制御文字も符号化するため、そのようなシートも保存できる（検索結果に出すときは、列・行が分かれないようスペースにする。[検索結果ファイル](../search/output.md#出力フォーマットworksearch_resultstxt)）。
-- インデックス名（`work/content_index` 直下のフォルダ名）は符号化せず、`toSafeFileName`（ファイル名に使えない文字を全角に置き換える）で作る。
+- インデックス名（`work/store/content` 直下のフォルダ名）は符号化せず、`toSafeFileName`（ファイル名に使えない文字を全角に置き換える）で作る。
 
 | 元 | `>` | `<` | `\` | `*` | `"` | `:` | `?` | `\|` | `/` |
 |---|---|---|---|---|---|---|---|---|---|
@@ -177,7 +228,7 @@ content_index/<相対フォルダ>/content_index.<拡張子>.<番号>.tsv … �
 ```json
 {
   "format": "tebunko-index",
-  "formatVersion": 1,
+  "formatVersion": 2,
   "appVersion": "v0.3.0",
   "exportedAt": "2026-09-27T10:00:00+09:00",
   "indexName": "営業",
@@ -191,7 +242,7 @@ content_index/<相対フォルダ>/content_index.<拡張子>.<番号>.tsv … �
 
 `files` は目録以外の全エントリーの一覧で、インポートはこの一覧に無いエントリーを受け付けない。大きさと SHA-256（`SHA256CryptoServiceProvider`）で、壊れた・書き換えられたファイルを見分ける。`appVersion` は記録だけ（判定に使わない）。
 
-**形式の版**（`formatVersion`）は、本文インデックスのファイルの形・zip の中の配置・目録と取り込み一覧の列を変えたら上げる整数。インポートは、今の版より大きければ「新しい版の tebunko で作ったため読めない」として止め、1 未満・整数でない・`format` が `tebunko-index` でなければ「tebunko のインデックスの zip ではない、または壊れている」として止める（`testIndexArchiveManifest`）。
+**形式の版**（`formatVersion`）は、本文インデックスのファイルの形・zip の中の配置・目録と取り込み一覧の列を変えたら上げる整数。インポートは、今の版より大きければ「新しい版の tebunko で作ったため読めない」として止め、今の版より小さければ（版 1 の zip）「前の版の tebunko で書き出した zip のため取り込めない」として止め、1 未満・整数でない・`format` が `tebunko-index` でなければ「tebunko のインデックスの zip ではない、または壊れている」として止める（`testIndexArchiveManifest`）。
 
 ### エクスポート（`exportIndex`）
 
@@ -201,24 +252,24 @@ content_index/<相対フォルダ>/content_index.<拡張子>.<番号>.tsv … �
 
 インデックス作成のロックを取り、以下を順に行う。
 
-1. **前の版のワークスペースの片付け**: `getLegacyIndexState`・`testLegacyCleanupNeeded` で調べ、必要なら `clearLegacySystemIndex` を先に行う（`content_index\` にこのインポートの分を足す前）。前の版の `index\` そのものには触らない。片付けられなければ止める。
+1. **前の版のワークスペースの片付け**: `getLegacyIndexState`・`testLegacyCleanupNeeded` で調べ、必要なら `clearLegacySystemIndex` を先に行う（`store\content\` にこのインポートの分を足す前）。前の版の `index\` そのものには触らない。片付けられなければ止める。
 2. **zip を開き、目録を確かめる**（`testIndexArchiveManifest`。下の「受け取ったファイルを信用しない」）。
 3. **名前を決める**（`getImportIndexName`）。同じ名前のインデックスがあるときの扱い（`Rename`・`Overwrite`・`Cancel`）を呼ぶ側が指定する。`Rename` は `名前(2)`・`名前(3)` …（`newIndexName` と同じ決まり）、`Overwrite` は置き換え、`Cancel` は何もしない。
 4. **元のフォルダを決める**（呼ぶ側の指定、無ければ目録の `sourceFolder`）。空なら止める。同じフォルダが別の名前のクロール対象フォルダにあれば止める（`getTargetFolders` は同じフォルダの 2 つ目以降を読まないため、登録しても次のインデックス作成の確認に `削除予定` として出る。画面の追加・編集と同じ決まり）。検索だけのインデックスと同じフォルダなら、止めずに `Warnings` で知らせる。
 5. **空き容量**（ワークスペースのドライブ。`getWorkspaceFreeSpace`）が「目録の合計 + 1GB」より少なければ止める（zip bomb 対策。`testImportFreeSpace`）。UNC（`\\server\share\…`）のワークスペースなど、ドライブとして空き容量を調べられないときは確かめずに進める（調べられないことでインポートを止めない。展開の途中で足りなくなれば、書き込みの失敗として 6 以降の戻しに入る）。
 6. **展開する**（`expandImportArchive`）: `<ワークスペース>\publish\<PID>\import\new\` に、確かめた目録のパスからだけファイル名を組み立てて 1 つずつ展開する（エントリーの名前からは組み立てない）。目録の大きさを超えて書こうとしたら止め、書き終えたら大きさと SHA-256 を比べる。`source_folder.txt` もここに書く。
 7. **設定に登録する**（`registerImportedIndexInSettings`）: `targetFolders` に `{ name, path, enabled }` を足す（上書きなら既存の項目を書き換え、並びは変えない）。`enabled` は元のフォルダがあれば `true`。同じ名前の `indexSources` は消す。**`targetFolders` に入れる理由**は、取り込み一覧の行を持ち込むので、次のインデックス作成で差分だけを取り込め、確認の `削除予定`（[取り込み一覧](../indexing/ingest-list.md)）に出ないため。
-8. **`content_index\<名前>\` を入れ替える**（`swapInImportedIndexDir`。上書きなら今のフォルダを `previous\` へ退避してから）。作ったばかり・書いたばかりのフォルダはウイルス対策ソフトに一時的に掴まれることがあるため、`removeDirectoryRetry` と同じ `moveDirectoryRetry`（`shared/core/fs.ps1`）で少し待って数回試す。
+8. **`store\content\<名前>\` を入れ替える**（`swapInImportedIndexDir`。上書きなら今のフォルダを `previous\` へ退避してから）。作ったばかり・書いたばかりのフォルダはウイルス対策ソフトに一時的に掴まれることがあるため、`removeDirectoryRetry` と同じ `moveDirectoryRetry`（`shared/core/fs.ps1`）で少し待って数回試す。
 9. **取り込み一覧を書き直す**（`rewriteStatusForImport`）: `readStatusFile` で読み、そのインデックスの前の `クロール対象フォルダ` の行とデータ行を除いて、新しい `クロール対象フォルダ` の行とデータ行を足し、インデクサと同じ `writeStatusFile` で書く。`クロール対象フォルダ` の行は見出しの行の前、見出しの行は必ずある形になる（`getIndexNameMap` は見出しの行で読むのをやめるため、行が見出しの後ろにあると名前を見つけられず、［設定］の［あるインデックスを使う］で一覧から落ちて確認の `削除予定` に出る）。空のワークスペースでも、ほかのインデックスがあるワークスペースでも同じ。
 10. 上書きなら、前のシステムインデックスを消す（失敗しても続ける。次のインデックス作成で整理される）。**システムインデックスはインポートでは作らない**（下の「システムインデックスを作る時機」）。
 11. 作業フォルダを消す。
 
-**戻し方**: 7〜9 のどこかで失敗したら、逆の操作で戻して例外にする（戻しは対になる関数 `restoreImportedSettings`・`restoreSwappedIndexDir` が行い、`importIndexCore` は入れ子の `try` の順に呼ぶ）。設定は、変える 3 つの項目（`targetFolders`・`indexSources`・`searchExcludes`）を、登録の前に読んだ値にそのまま書き戻す（並びも元のまま。ほかの項目には触れない）。`content_index\<名前>\` は退避した `previous\` を戻す（新しく足したときは消す）。取り込み一覧は一時ファイルからの置き換えなので、失敗すれば前のまま。どの段階で失敗しても、作業フォルダ（`import\`）は消す。`tests/tebunko/index/index_archive.Tests.ps1` の「戻す」で、設定に書けない・入れ替えられない・取り込み一覧を書けない、のそれぞれを確かめている。
+**戻し方**: 7〜9 のどこかで失敗したら、逆の操作で戻して例外にする（戻しは対になる関数 `restoreImportedSettings`・`restoreSwappedIndexDir` が行い、`importIndexCore` は入れ子の `try` の順に呼ぶ）。設定は、変える 3 つの項目（`targetFolders`・`indexSources`・`searchExcludes`）を、登録の前に読んだ値にそのまま書き戻す（並びも元のまま。ほかの項目には触れない）。`store\content\<名前>\` は退避した `previous\` を戻す（新しく足したときは消す）。取り込み一覧は一時ファイルからの置き換えなので、失敗すれば前のまま。どの段階で失敗しても、作業フォルダ（`import\`）は消す。`tests/tebunko/index/index_archive.Tests.ps1` の「戻す」で、設定に書けない・入れ替えられない・取り込み一覧を書けない、のそれぞれを確かめている。
 
 **強制終了したとき**:
 
 - 6 の途中: 作業フォルダだけが残り、次のインデックス作成の `removeStaleTmpDirs`（終了済みのプロセスの `publish\<PID>`）で消える。ワークスペースは変わらない。
-- 7 と 8 の間: 設定にだけ名前があり、`content_index\<名前>\` が無い（上書きなら前のもののまま）。インデックスの一覧に「元のフォルダ」として出るだけで、次のインデックス作成で取り込む。
+- 7 と 8 の間: 設定にだけ名前があり、`store\content\<名前>\` が無い（上書きなら前のもののまま）。インデックスの一覧に「元のフォルダ」として出るだけで、次のインデックス作成で取り込む。
 - 8 と 9 の間: 設定と本文インデックスはあるが、取り込み一覧に行が無い。次のインデックス作成でそのインデックスを全部取り込み直す（時間はかかるが、消えない）。設定を取り込み一覧より先に書くのはこのため（先に取り込み一覧を書くと、設定に名前が無いまま確認の `削除予定` に出る）。
 - 上書きの 8 の後: 前のインデックスは `previous\` に残り、次のインデックス作成の `removeStaleTmpDirs` で消える。
 

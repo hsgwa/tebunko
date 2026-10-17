@@ -624,7 +624,7 @@ Describe "measure_perf.ps1" -Tag Io {
         @{ name = "-PreviewFullRead だけ（-Preview が無い）"; extraArgs = @{ PreviewFullRead = $true }; expectedMessage = "*-PreviewFullRead は -Preview*" }
         @{ name = "-ReadMore だけ（-Preview が無い）"; extraArgs = @{ ReadMore = $true }; expectedMessage = "*-ReadMore は -Preview*" }
         @{ name = "-Typing 1"; extraArgs = @{ Typing = 1 }; expectedMessage = "*-Typing は 0 か 2 以上*" }
-        @{ name = "-TypingFast で -Index が <Work>\content_index でないとき"; extraArgs = @{ Typing = 2; TypingFast = $true }; expectedMessage = "*content_index*" }
+        @{ name = "-TypingFast で -Index が <Work> の本文インデックスのフォルダでないとき"; extraArgs = @{ Typing = 2; TypingFast = $true }; expectedMessage = "*store\content*" }
     ) {
         param ($extraArgs, $expectedMessage)
         $w = Join-Path $TestDrive ("typing-bad-" + [guid]::NewGuid().ToString("N"))
@@ -633,9 +633,9 @@ Describe "measure_perf.ps1" -Tag Io {
         (Test-Path -LiteralPath (Join-Path $w "result")) | Should -Be $false
     }
 
-    It "-TypingFast は、-Index を <Work>\content_index にすれば最後まで動く" {
+    It "-TypingFast は、-Index を <Work> の本文インデックスのフォルダにすれば最後まで動く" {
         $w = Join-Path $TestDrive "typing-fast"
-        $fastIndex = Join-Path $w "content_index"
+        $fastIndex = Join-Path $w "store\content"
         writeTsv "$fastIndex\営業\見積.xlsx\シート1.tsv" @("1`t見積書`t山田")
         & $measure -Index $fastIndex -Work $w -Words $words -Count 1 -SampleMs 50 -Typing 2 -TypingIntervalMs 50 -TypingFast 6>$null | Out-Null
         $r = [System.IO.File]::ReadAllText("$w\result\result.json") | ConvertFrom-Json

@@ -16,7 +16,7 @@
 #   -Typing   … 入力しながらの検索を測る、語ごとの入力の繰り返し回数（既定 0 は測らない。1 は受け付けない）
 #   -TypingIntervalMs … 入力しながらの検索の、要求の間隔（ミリ秒。既定 150。画面の入力しながらの検索の待ち時間と同じ）
 #   -TypingMinLength  … 入力しながらの検索で最初に送る語の長さ（既定 3。画面と同じ。合否はこの既定で決める）
-#   -TypingFast … 入力しながらの検索で高速検索（Windows Search）を使う。-Index を <Work>\content_index にしておくこと
+#   -TypingFast … 入力しながらの検索で高速検索（Windows Search）を使う。-Index を <Work> の本文インデックスのフォルダにしておくこと
 #   -Preview  … 選択行のプレビューを測る、語ごとのプレビューの数（既定 0 は測らない）。検索のヒットの先頭から順に、キャッシュ無しとキャッシュありで 1 回ずつ読む
 #   -Render   … -Preview のとき、プレビューの表を画面の部品に入れて Measure・Arrange する時間も測る（画面は出さない）
 #   -ReadMore … -Preview のとき、セルの数が最大だった行の表に、下へ 200 行ずつ 5 回読み足す時間も測る（Preview.Words[].ReadMore）
@@ -85,9 +85,9 @@ if ($Office) { $Office = (Resolve-Path -LiteralPath $Office).ProviderPath.TrimEn
 [void][System.IO.Directory]::CreateDirectory($Work)
 $Work = (Resolve-Path -LiteralPath $Work).ProviderPath.TrimEnd("\")
 if ($TypingFast) {
-    $wantIndex = (Join-Path $Work "content_index").TrimEnd("\")
+    $wantIndex = (getToolIndexDir $Tool $Work).TrimEnd("\")
     if (!$Index -or !$Index.Equals($wantIndex, [System.StringComparison]::OrdinalIgnoreCase)) {
-        throw "-TypingFast では、-Index を <Work>\content_index にしてください。"
+        throw "-TypingFast では、-Index を <Work> の本文インデックスのフォルダ（${wantIndex}）にしてください。"
     }
 }
 if (!$Out) { $Out = Join-Path $Work "result" }
