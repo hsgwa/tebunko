@@ -62,7 +62,7 @@
 | `ChangeWorkspace` | mode（`use`・`move`・`reset`）, from, to | `@{Ok; Stage; Message; Targets; Count}` | ワークスペースを from から to に変えて設定に保存する。`use` は to のインデックスを使う（`UseTargets`。from の中身は移さない）、`move` は中身を移す、`reset` は to の中身を消してから移す（`RemoveEntries`・`MoveEntries`）。移したあとに `searchExcludes` を付け替える（`moveSearchExcludes`）。失敗したときは設定を変えず、`Stage`（`remove`・`move`）と `Message` を返す | settings.ps1 |
 | `MoveEntries` | from, to | int | from の中身を to へ移し、移した数を返す。to に同じ名前があれば何も移さずに例外にする。途中で移せなければ、移した分を from へ戻してから例外にする（旧 `moveWorkspace`。1 つずつ移す `MoveEntry` と、別のドライブへ写す `CopyTree` は内部） | `ChangeWorkspace` |
 | `RemoveEntries` | dir | int | tebunko のファイル・フォルダを削除し、削除した数を返す。「消して、最初からやり直す」で使う（旧 `removeWorkspaceEntries`） | `ChangeWorkspace` |
-| `UseTargets` | dir | int | dir の取り込み一覧にあるクロール対象フォルダを、インデックスの一覧（`targetFolders`）にし、その数を返す。取り込み一覧が無ければ一覧は変えない（旧 `useWorkspaceTargets`） | `ChangeWorkspace` |
+| `UseTargets` | dir | int | dir の取り込み一覧（新しい `store\ingest_status.tsv` と前の版の直下の `ingest_status.tsv` の両方。新しい方が先）にあるクロール対象フォルダを、インデックスの一覧（`targetFolders`）にし、その数を返す。取り込み一覧が無ければ一覧は変えない（旧 `useWorkspaceTargets`） | `ChangeWorkspace` |
 
 ## ［新規で開く］のコピー（`tebunko/core/open_copy.ps1`）
 
