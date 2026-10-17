@@ -303,11 +303,9 @@ function repairIndexFormat {
             }
         }.GetNewClosure()) $workspace.FormatFile
     $result = readIndexFormat $workspace.FormatFile
-    if ($result.Status -eq "Ok" -or $result.Status -eq "Newer") {
-        # ロックの中で、ほかが今より新しい版の目録にしていたとき（書き換えない）は、その目録をそのまま返す
-        if ($written -or $result.Status -eq "Newer") {
-            return $result
-        }
+    # ロックの中で、ほかが今より新しい版の目録にしていたとき（書き換えない）は、その目録をそのまま返す
+    if (($result.Status -eq "Ok" -and $written) -or $result.Status -eq "Newer") {
+        return $result
     }
     # ロックを取れない・書けないときは、書かずに求めた表を返す（次の機会に直す）
     return @{ Status = "Ok"; Indexes = $computed }
