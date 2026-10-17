@@ -153,6 +153,23 @@ Describe "WorkspaceMover.UseTargets" -Tag Io {
         @(getTargetFolders $settings)[0].Name | Should -Be "営業"
     }
 
+    It "移行の途中（新旧の取り込み一覧の両方があり、名前が一部だけ重なる）は、新しい方を先に、無い名前を前の版から足す" {
+        $settings = "$TestDrive\use_both\setting.config"
+        writeTargetFolders @([pscustomobject]@{ Name = "自分"; Path = "C:\自分のフォルダ"; Enabled = $true }) $settings
+        writeStatusFile @(
+            [pscustomobject]@{ Path = "\\server\共有\営業部"; Name = "営業" }
+        ) @() "$TestDrive\use_both\ws\store\ingest_status.tsv"
+        writeStatusFile @(
+            [pscustomobject]@{ Path = "\\old\営業部"; Name = "営業" }
+            [pscustomobject]@{ Path = "\\server\共有\技術部"; Name = "技術" }
+        ) @() "$TestDrive\use_both\ws\ingest_status.tsv"
+
+        ([WorkspaceMover]::new($settings)).UseTargets("$TestDrive\use_both\ws") | Should -Be 2
+
+        $targets = @(getTargetFolders $settings)
+        @($targets | ForEach-Object { "$($_.Name)=$($_.Path)" }) -join "|" | Should -Be "営業=\\server\共有\営業部|技術=\\server\共有\技術部"
+    }
+
     It "取り込み一覧が無ければ、一覧は変えない" {
         $settings = "$TestDrive\use_none\setting.config"
         writeTargetFolders @([pscustomobject]@{ Name = "自分"; Path = "C:\自分のフォルダ"; Enabled = $true }) $settings
