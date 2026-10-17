@@ -434,6 +434,126 @@ Describe "removeDirectoryRetry" -Tag Io {
     }
 }
 
+Describe "testRemovablePath" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "根の下のフォルダは真"; path = "C:\ws\store\a"; root = "C:\ws"; expected = $true }
+        @{ name = "まだ無い階層の下も真（作る先・移す先に使うため）"; path = "C:\ws\store\新しい\b"; root = "C:\ws"; expected = $true }
+        @{ name = "根そのものは偽"; path = "C:\ws"; root = "C:\ws"; expected = $false }
+        @{ name = "\\?\ 付きのパスも、根の下なら真"; path = "\\?\C:\ws\store\a"; root = "C:\ws"; expected = $true }
+        @{ name = "根の外は偽"; path = "C:\other\a"; root = "C:\ws"; expected = $false }
+        @{ name = "名前が似た別のフォルダは偽"; path = "C:\ws2\a"; root = "C:\ws"; expected = $false }
+        @{ name = ".. で根の外へ出るパスは偽"; path = "C:\ws\..\other\a"; root = "C:\ws"; expected = $false }
+        @{ name = "相対パスは偽"; path = "store\a"; root = "C:\ws"; expected = $false }
+        @{ name = "根が相対パスなら偽"; path = "C:\ws\a"; root = "ws"; expected = $false }
+        @{ name = "パスが空なら偽"; path = ""; root = "C:\ws"; expected = $false }
+        @{ name = "根が空なら偽"; path = "C:\ws\a"; root = ""; expected = $false }
+    ) {
+        testRemovablePath $path $root | Should -Be $expected
+    }
+}
+
+Describe "removeDirectoryUnder / moveDirectoryUnder（置き場の下で、途中にリンクが無いときだけ）" -Tag Io {
+    It "置き場の下のフォルダを中身ごと消し、`$true を返す" {
+        $root = "$TestDrive\under_root"
+        writeListFile "$root\a\b\x.tsv" @("x")
+        removeDirectoryUnder "$root\a" $root | Should -Be $true
+        Test-Path -LiteralPath "$root\a" | Should -Be $false
+        Test-Path -LiteralPath $root | Should -Be $true
+    }
+
+    It "置き場の外・置き場そのものは消さず、`$false を返す" {
+        $root = "$TestDrive\under_root2"
+        writeListFile "$root\a\x.tsv" @("x")
+        writeListFile "$TestDrive\under_other\y.tsv" @("y")
+        removeDirectoryUnder "$TestDrive\under_other" $root | Should -Be $false
+        removeDirectoryUnder $root $root | Should -Be $false
+        readListFile "$TestDrive\under_other\y.tsv" | Should -Be @("y")
+        readListFile "$root\a\x.tsv" | Should -Be @("x")
+    }
+
+    It "途中の階層がジャンクションのパスは、先を消さずに `$false を返す（置き場の下に見えても）" {
+        $root = "$TestDrive\under_root3"
+        $outside = "$TestDrive\under_outside3"
+        writeListFile "$outside\book\外.tsv" @("外")
+        [System.IO.Directory]::CreateDirectory($root) | Out-Null
+        if (!(newTestJunction "$root\リンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        removeDirectoryUnder "$root\リンク\book" $root | Should -Be $false
+        readListFile "$outside\book\外.tsv" | Should -Be @("外")
+    }
+
+    It "消すフォルダそのものがジャンクションなら、リンクだけを外し、先は消さない（testRemovablePath は偽、removeDirectoryUnder は途中だけ見る）" {
+        $root = "$TestDrive\under_root4"
+        $outside = "$TestDrive\under_outside4"
+        writeListFile "$outside\外.tsv" @("外")
+        [System.IO.Directory]::CreateDirectory($root) | Out-Null
+        if (!(newTestJunction "$root\リンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        testRemovablePath "$root\リンク" $root | Should -Be $false
+        testRemovablePath "$root\リンク" $root -leafLinkOk | Should -Be $true
+        removeDirectoryUnder "$root\リンク" $root | Should -Be $true
+        Test-Path -LiteralPath "$root\リンク" | Should -Be $false
+        readListFile "$outside\外.tsv" | Should -Be @("外")
+    }
+
+    It "置き場そのものがジャンクションの構成でも、その下は今までどおり消せる" {
+        $outside = "$TestDrive\under_outside5"
+        writeListFile "$outside\book\x.tsv" @("x")
+        if (!(newTestJunction "$TestDrive\under_root5" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        removeDirectoryUnder "$TestDrive\under_root5\book" "$TestDrive\under_root5" | Should -Be $true
+        Test-Path -LiteralPath "$outside\book" | Should -Be $false
+    }
+
+    It "moveDirectoryUnder は、置き場の下のフォルダを移し、`$true を返す" {
+        $root = "$TestDrive\move_root"
+        writeListFile "$root\a\x.tsv" @("x")
+        moveDirectoryUnder "$root\a" "$root\b" $root | Should -Be $true
+        Test-Path -LiteralPath "$root\a" | Should -Be $false
+        readListFile "$root\b\x.tsv" | Should -Be @("x")
+    }
+
+    It "moveDirectoryUnder は、元と先で根が違うとき、元の根を sourceRoot で渡せる" {
+        $from = "$TestDrive\move_from"
+        $to = "$TestDrive\move_to"
+        writeListFile "$from\a\x.tsv" @("x")
+        [System.IO.Directory]::CreateDirectory($to) | Out-Null
+        moveDirectoryUnder "$from\a" "$to\a" $to | Should -Be $false
+        moveDirectoryUnder "$from\a" "$to\a" $to $from | Should -Be $true
+        readListFile "$to\a\x.tsv" | Should -Be @("x")
+    }
+
+    It "moveDirectoryUnder は、先が置き場の外なら移さず `$false を返す" {
+        $root = "$TestDrive\move_root2"
+        writeListFile "$root\a\x.tsv" @("x")
+        moveDirectoryUnder "$root\a" "$TestDrive\move_outside\a" $root | Should -Be $false
+        readListFile "$root\a\x.tsv" | Should -Be @("x")
+        Test-Path -LiteralPath "$TestDrive\move_outside" | Should -Be $false
+    }
+
+    It "moveDirectoryUnder は、元か先の途中がジャンクションなら移さず `$false を返す" {
+        $root = "$TestDrive\move_root3"
+        $outside = "$TestDrive\move_outside3"
+        writeListFile "$root\a\x.tsv" @("x")
+        writeListFile "$outside\b\y.tsv" @("y")
+        if (!(newTestJunction "$root\リンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        moveDirectoryUnder "$root\a" "$root\リンク\a" $root | Should -Be $false
+        moveDirectoryUnder "$root\リンク\b" "$root\c" $root | Should -Be $false
+        readListFile "$root\a\x.tsv" | Should -Be @("x")
+        readListFile "$outside\b\y.tsv" | Should -Be @("y")
+        Test-Path -LiteralPath "$outside\a" | Should -Be $false
+    }
+}
+
 Describe "removeTreeNoFollow" -Tag Io {
     It "フォルダを中身ごと消す（読み取り専用のファイル・フォルダも）" {
         $dir = "$TestDrive\tree_plain"

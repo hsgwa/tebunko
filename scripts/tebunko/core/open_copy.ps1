@@ -165,21 +165,20 @@ function clearOldOpenCopies {
         return 0
     }
     $limit = $now.AddDays(-$keepDays)
-    $prefix = $copyDir.TrimEnd([char]92) + "\"
     $cleared = 0
     foreach ($old in @(Get-ChildItem -LiteralPath $copyDir -Directory -Force)) {
         if (testLinkItem $old) {
             continue
         }
-        if (!$old.FullName.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase) -or (getOpenCopyLatestTime $old) -ge $limit) {
+        if (!(testRemovablePath $old.FullName $copyDir) -or (getOpenCopyLatestTime $old) -ge $limit) {
             continue
         }
         # 確かめてから消すまでの間に置き場所がリンクに替わっていないか、フォルダごとに消す直前にもう一度確かめる
         if (!(testOpenCopyDir $copyDir $tmpRoot)) {
             break
         }
-        # 消すフォルダ自身も、列挙してから消すまでの間にリンクに替わっていないかを確かめる（リンクなら辿らない）
-        if (testPathIsLink $old.FullName) {
+        # 消すフォルダ自身も、列挙してから消すまでの間にリンクに替わっていないかを、置き場の下で確かめる（リンクなら辿らない）
+        if (!(testRemovablePath $old.FullName $copyDir)) {
             continue
         }
         foreach ($copy in @(Get-ChildItem -LiteralPath $old.FullName -File -Force)) {

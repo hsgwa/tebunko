@@ -8,7 +8,7 @@ function publishTsv {
         [string]$bookDir
     )
 
-    publishIndexFiles $tmpDir $bookDir (Join-Path $workspace.PublishDir ([System.IO.Path]::GetFileName($bookDir)))
+    publishIndexFiles $tmpDir $bookDir (Join-Path $workspace.PublishDir ([System.IO.Path]::GetFileName($bookDir))) $workspace.IndexDir $workspace.PublishDir
 }
 
 function clearTmpDir {
@@ -46,9 +46,15 @@ function removeTmpDir {
     # 作業フォルダ（work\tmp\<PC の鍵>\<PID>）と出力用のフォルダ（work\publish\<PID>）を削除する。終了時に呼ぶ。
     # ${tmpDir} が決まっていなくても（置けなかった・決める前）、出力用のフォルダは消す
     # （$workspace.PublishDir は ${tmpDir} が置けないときも作られるため）
+    # 消すのは、作業フォルダは tmp の下、出力用のフォルダは publish の下で、途中にリンクが無いときだけ（removeDirectoryUnder）
+    $roots = @{ }
+    if (${tmpDir}) { $roots[${tmpDir}] = $workspace.TmpRoot }
+    $roots[$workspace.PublishDir] = Split-Path $workspace.PublishDir -Parent
     foreach ($dir in @(${tmpDir}, $workspace.PublishDir) | Where-Object { $_ }) {
         try {
-            removeDirectoryRetry $dir
+            if (!(removeDirectoryUnder $dir $roots[$dir])) {
+                writeIndexerLog "    作業フォルダを削除できませんでした: ${dir}（置き場の外か、途中にリンクがある）" "Yellow"
+            }
         } catch {
             writeIndexerLog "    作業フォルダを削除できませんでした: ${dir}（$($_.Exception.Message)）" "Yellow"
         }
@@ -65,15 +71,19 @@ function removeStaleTmpDirs {
     # 強制終了などで残った、ほかの（終了済みの）プロセスの作業フォルダ
     # （ワークスペースの tmp\<PC の鍵>\<PID>・work\publish\<PID>・前の版までの %TEMP%\tebunko\<PID>）を削除する。
     # 空になった親（tmp\<PC の鍵>・publish・${legacyTmpParent}。tmp\<PC の鍵> はさらに tmp 自体も）も消す
-    # tmp\<PC の鍵> の途中にリンク（ジャンクション・シンボリックリンク）があるときは、先のフォルダを消さないよう、片付けない
+    # 途中にリンク（ジャンクション・シンボリックリンク）があるときは、先のフォルダを消さないよう、片付けない
+    # （removeStaleProcessDirs が、親ごとの根の下で途中にリンクが無いことを確かめる）
     $keyDir = Split-Path (getWorkspaceTmpDir $workspace) -Parent
-    foreach ($parent in @($keyDir, (Split-Path $workspace.PublishDir -Parent), ${legacyTmpParent})) {
-        if (($parent -eq $keyDir) -and (testPathHasLink $workspace.TmpRoot $keyDir)) {
-            writeIndexerLog "    作業領域の途中にリンク（ジャンクション・シンボリックリンク）があるため、残った作業フォルダを片付けませんでした: ${keyDir}" "Yellow"
-            continue
-        }
-        removeStaleProcessDirs $parent
-        removeEmptyDir $parent
+    # 出力用のフォルダは <ワークスペース>\publish\<PID>。親（publish）の根はワークスペース（その 1 つ上）
+    $publishParent = Split-Path $workspace.PublishDir -Parent
+    $parents = @(
+        @{ Parent = $keyDir; Root = $workspace.TmpRoot },
+        @{ Parent = $publishParent; Root = (Split-Path $publishParent -Parent) },
+        @{ Parent = ${legacyTmpParent}; Root = (Split-Path ${legacyTmpParent} -Parent) }
+    )
+    foreach ($entry in $parents) {
+        removeStaleProcessDirs $entry.Parent $entry.Root
+        removeEmptyDir $entry.Parent
     }
     removeEmptyDir $workspace.TmpRoot
 }
@@ -81,16 +91,22 @@ function removeStaleTmpDirs {
 function newDirectoryReplacingExisting {
     # フォルダを作る。同じ名前（前の残り・先に置かれたリンク）が既にあれば、リンクは辿らずに消してから作り直す。
     # 作ったものがリンクでなければ $true（置けた）、リンクのまま残った（消せなかった）ときは $false
+    # 消す・作るのは、root の下で、途中にリンクが無いときだけ（removeDirectoryUnder・newDirectoryUnder）。偽なら何もせず $false
     param (
-        [string]$dir
+        [string]$dir,
+        [string]$root
     )
 
     try {
-        removeDirectoryRetry $dir
+        if (!(removeDirectoryUnder $dir $root)) {
+            return $false
+        }
     } catch {
         # 消せなくても、下の確かめでリンクが残っていなければ、そのまま使う
     }
-    [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+    if (!(newDirectoryUnder $dir $root)) {
+        return $false
+    }
     return !(testPathIsLink $dir)
 }
 
@@ -113,7 +129,7 @@ function initTmpDir {
     # 同じ名前（前のプロセスの残り・先に置かれたもの）が既にあれば、リンクは辿らずに消してから作り直す
     $placed = $false
     if (!(testPathHasLink $workspace.TmpRoot (Split-Path $selected.Dir -Parent))) {
-        $placed = newDirectoryReplacingExisting $selected.Dir
+        $placed = newDirectoryReplacingExisting $selected.Dir $workspace.TmpRoot
     }
     if (!$placed) {
         $unavailable = @{ Dir = ""; Reason = "Link" }
@@ -143,7 +159,7 @@ function newWorkerTmpDir {
         return ""
     }
     $dir = Join-Path $parentDir "w$number"
-    if (!(newDirectoryReplacingExisting $dir)) {
+    if (!(newDirectoryReplacingExisting $dir $workspace.TmpRoot)) {
         return ""
     }
     if (testWindowsSearchExcluded $parentDir) {
@@ -153,9 +169,11 @@ function newWorkerTmpDir {
 }
 
 function removeStaleProcessDirs {
-    # プロセスIDの名前のフォルダのうち、そのプロセスが既に終わっているものを削除する
+    # プロセスIDの名前のフォルダのうち、そのプロセスが既に終わっているものを削除する。
+    # 消すのは、root の下で、途中（parent を含む）にリンクが無いものだけ（removeDirectoryUnder）。そうでなければ黄色のログを出して残す
     param (
-        [string]$parent
+        [string]$parent,
+        [string]$root
     )
 
     if (![System.IO.Directory]::Exists((toLongPath $parent))) {
@@ -167,7 +185,9 @@ function removeStaleProcessDirs {
         }
         try {
             # 中に長いパスがあっても消え、中のリンクの先は消さない。使用中などで消せなければ 1 回だけ試して次回に回す
-            removeDirectoryRetry $dir.FullName 1
+            if (!(removeDirectoryUnder $dir.FullName $root 1)) {
+                writeIndexerLog "    終了したプロセスの作業フォルダを削除できませんでした: $($dir.FullName)（置き場の外か、途中にリンクがある）" "Yellow"
+            }
         } catch {
             # 使用中・リンクかどうか確かめられないフォルダがあるなどで削除できなければ、原因をログに出して次回に回す
             writeIndexerLog "    終了したプロセスの作業フォルダを削除できませんでした: $($dir.FullName)（$($_.Exception.Message)）" "Yellow"
@@ -260,7 +280,9 @@ function removeDroppedFolders {
         foreach ($dir in $found) {
             # 中に長いパス（260文字超）のTSVがあっても削除でき、中のリンク（ジャンクション・シンボリックリンク）の先は消さない。
             # 消えていなければ例外になる（下のログは、消えたことを確かめてから出る）
-            removeDirectoryRetry $dir
+            if (!(removeDirectoryUnder $dir $ws.IndexDir)) {
+                throw "置き場の外か、途中にリンクがあるため、消せません: ${dir}"
+            }
         }
         writeIndexerLog "クロール対象から削除されたフォルダ（$($previous.Path)）のインデックスを削除しました。"
     }

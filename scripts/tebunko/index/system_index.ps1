@@ -77,7 +77,10 @@ function writeSystemIndexFolder {
         return $result
     }
 
-    [System.IO.Directory]::CreateDirectory($longOut) | Out-Null
+    # system_index の下で途中にリンクが無いときだけ作る（偽なら何も書かずに例外にする）
+    if (!(newDirectoryUnder $outDir $systemRoot)) {
+        throw "システムインデックスの置き場の外か、途中にリンクがあるため、作れません: $outDir"
+    }
     $perPart = [int][Math]::Ceiling($values.Length / $parts)
     $names = getSystemIndexFileNames $parts
     $files = New-Object System.Collections.Generic.List[hashtable]
@@ -127,7 +130,8 @@ function writeSystemIndexFolders {
     # 各スレッドには必要な関数・値だけを読み込む（lib.ps1 全体を読み込むと、スレッドを用意するだけで時間がかかるため）。
     # インデックス作成の処理のため、スレッドの優先度を下げる（画面・検索を先に動かす。docs/design/structure/threads.md「スレッドの一覧」）
     $state = newWorkerState @("writeSystemIndexFolder", "getSystemIndexFolderTsvPaths", "addTextGrams", "convertToGramText",
-        "getGramPartCount", "getSystemIndexFileNames", "testSystemIndexPath", "toLongPath", "getContentIndexBodyText", "testIndexBookDir", "testAnyEntry") `
+        "getGramPartCount", "getSystemIndexFileNames", "testSystemIndexPath", "toLongPath", "getContentIndexBodyText", "testIndexBookDir", "testAnyEntry",
+        "newDirectoryUnder", "testPathHasLink", "testPathIsLink", "testLinkItem", "getLinkKind", "trimTrailingSeparator", "fromLongPath") `
         @("systemIndexFileName", "systemIndexPartBytes", "systemIndexPathMax", "indexBookDirPattern", "contentIndexFilePattern")
     $pool = [WorkerPool]::new($workers, $state, $Host, "BelowNormal")
     $pending = New-Object System.Collections.Generic.Queue[hashtable]
@@ -459,11 +463,10 @@ function removeSystemIndexOf {
     # 状態の書き込みの成否（Saved）と、置き場の外のため消さなかったか（Skipped）を @{ Saved; Skipped } で返す。ログは呼び出し側が出す
     $target = "$($systemRoot.TrimEnd('\'))\$rel"
     $skipped = $false
-    if (!(testPathUnder $target $systemRoot)) {
+    # 置き場の下で途中にリンクが無いときだけ消す（removeDirectoryUnder）。
+    # 有無は removeDirectoryRetry が確かめる（無ければ何もしない。届かない・読めないときは例外になり、状態の行を残す）
+    if (!(removeDirectoryUnder $target $systemRoot)) {
         $skipped = $true
-    } else {
-        # 有無は removeDirectoryRetry が確かめる（無ければ何もしない。届かない・読めないときは例外になり、状態の行を残す）
-        removeDirectoryRetry $target
     }
     $name = getIndexNameOfRelPath $rel
     $indexName = if ($name -eq $rel) { $name } else { "" }
