@@ -1,6 +1,6 @@
 ﻿# クラスと関数の使い分け
 
-扱うこと: PowerShell 5.1 でクラスを使ってよいところ・使ってはいけないところ（試した結果と決まり）、目的ごとのクラス設計（refactor で作る予定）とそのつなぎ方。扱わないこと: スレッド・プロセスの一覧そのもの（[プロセスとスレッド](threads.md)）。先に読むページ: [プロセスとスレッド](threads.md)。
+扱うこと: PowerShell 5.1 でクラスを使ってよいところ・使ってはいけないところ（試した結果と決まり）、目的ごとのクラス設計（作ったクラスの置き場所と役目）とそのつなぎ方。扱わないこと: スレッド・プロセスの一覧そのもの（[プロセスとスレッド](threads.md)）。先に読むページ: [プロセスとスレッド](threads.md)。
 
 ## クラスと関数の使い分け
 
@@ -74,7 +74,7 @@ refactor で作るクラス（`IndexCatalog` など）は下の「目的ごと�
 
 ## 目的ごとのクラス
 
-refactor で作る予定の設計。作ったら、この節を実装に合わせて直す。`StatusLedger`・`PendingPublish`・`IndexingReporter` は実装ずみ（#147）。`OfficeWatchdog`・`IndexCatalog`・`WorkspaceMover` も実装ずみ。`IngestPlanner` は名前の保存を `IndexCatalog` に任せる形に直した。`IngestDispatcher` も実装ずみ。
+目的ごとに分けたクラスの設計。クラスを足す・変えるときは、この節を実装に合わせて直す。`StatusLedger`・`PendingPublish`・`IndexingReporter` は実装ずみ（#147）。`OfficeWatchdog`・`IndexCatalog`・`WorkspaceMover` も実装ずみ。`IngestPlanner` は名前の保存を `IndexCatalog` に任せる形に直した。`IngestDispatcher` も実装ずみ。
 
 ```mermaid
 classDiagram
@@ -90,7 +90,7 @@ classDiagram
     note for IndexCatalog "使う側（画面・司令）の入口が\nほかの7つとつなぐ。互いは呼ばない"
 ```
 
-| クラス | 目的（1 つに絞る。凝集） | 作って使うスレッド | 層 | 置くファイル（案） | 今ある場所 | 依存してよい相手 |
+| クラス | 目的（1 つに絞る。凝集） | 作って使うスレッド | 層 | 置くファイル | 今ある場所 | 依存してよい相手 |
 |---|---|---|---|---|---|---|
 | `IndexCatalog` | インデックスの追加・改名・削除・名前の割り当て。保存先（`targetFolders`・取り込み一覧・元のフォルダの記録・`searchExcludes`・`system_index`）のうち、改名・削除が書き換えるものの手順と順番、途中で失敗したときの扱い（止める・残す）だけを持つ（一覧 `targetFolders` と元のフォルダの記録の書き直しは、画面が `SaveTargets`・`WriteSourceFile` で呼ぶ）。保存先の形式は知らない。`Workspace` と設定ファイルの場所を受け取って作る（場所を暗黙に使わない） | 画面のスレッド。別のスレッドの仕事の中でも、ワークスペースの場所（文字列）から `newIndexCatalog` で作り直して使う。インデクサが名前を保存するときは、司令のスレッドで別に作る | 状態層 | `tebunko/index/index_catalog.ps1`（`lib.ps1`） | 実装ずみ。`RenameIndex`・`RenameIndexWithSource`（改名のあと元のフォルダの記録を書き直す。記録だけ失敗しても改名は成功で、理由を返す）・`RemoveIndex`・`RemoveIndexes`（まとめて削除。1 つ失敗しても続ける）・`AssignAndSaveNames`・`StoreAssignedNames`（インデクサ用）・`SaveTargets`（`targetFolders` の保存）・`WriteSourceFile`（元のフォルダの記録）・`AssertReachable`（ワークスペースに届くかの確認）。作り方は `newIndexCatalog`（取り込み一覧を書く `StatusLedger` も作って渡す）。呼ぶ側は `ui/index/index_store.ps1` の `applyIndexEdit`・`deleteIndexes`、`ui/index/index_list.ps1` の `loadTargets`、`indexer/indexer_run.ps1`。改名・削除の手順は、`index_store.ps1` の `renameIndex`・`removeIndex`・`removeIndexes` だったもの | 保存先ごとの読み書きの部品（既存の関数でよい。設定は `invokeSettingsLocked`・`saveAssignedIndexNames`・`writeTargetFolders`、元のフォルダの記録・`system_index` はその読み書きの関数）、`searchExcludes` の読み書きの部品（`core/search_excludes.ps1` の `readSearchExcludes`・`writeSearchExcludes`・`removeSearchExcludesUnder`。`WorkspaceMover` と同じものを通す）、取り込み一覧は作る側から渡された `StatusLedger`、`index_name.ps1`（判断層）、`Workspace` |
 | `WorkspaceMover` | ワークスペースの切り替え（移す・`searchExcludes` の付け替え・保存・失敗したら戻す） | 確かめは画面のスレッド、`ChangeWorkspace` は裏のスレッド | 状態層 | `tebunko/core/workspace_mover.ps1`（`lib.ps1`） | 実装ずみ。`ListEntries`（tebunko のファイル・フォルダ）・`Conflicts`（移し先にある同じ名前）・`ChangeWorkspace`（`"use"`・`"move"`・`"reset"` のどれかで切り替え、`@{ Ok; Stage; Message; Targets; Count }` を返す）・`MoveEntries`・`RemoveEntries`・`UseTargets`。呼ぶ側は `ui/settings/settings.ps1` の `startWorkspaceMove`（`applyWorkspace` が確かめたあとに呼ぶ）。`core/workspace.ps1` の `getWorkspaceEntries`・`getWorkspaceMoveConflicts`・`moveWorkspace`・`moveWorkspaceEntry`・`copyDirectoryTree`・`removeWorkspaceEntries`・`useWorkspaceTargets` だったもの | 設定の読み書きの部品（`invokeSettingsLocked`）、`searchExcludes` の読み書きの部品（`core/search_excludes.ps1` の `moveSearchExcludes`。`IndexCatalog` と同じ `searchExcludes` の部品を通す）、ファイルの移動の部品（`fs.ps1`）、`Workspace` |
@@ -111,7 +111,7 @@ classDiagram
 - **`IndexCatalog` は保存先の形式を直接知らない。** 保存先ごとの読み書きは小さな部品（既存の関数でよい）に任せ、`IndexCatalog` は書き換える手順と順番、途中で失敗したときの扱いだけを持つ。
 - 取り込みの 1 ファイルごとに司令を通るのは、`IngestDispatcher` が返した結果（hashtable）を `StatusLedger`・`PendingPublish`・`IndexingReporter` のメソッドに渡すところだけにする。増えるのはメソッドの呼び出しで、関数の呼び出しの段は増やさない（上の「速さ」のとおり）。
 
-置くファイルは案。refactor で変えたときは、この表と [ソースの分け方](source.md) の表・図を同じ PR で直す。
+置いたファイルを変えたときは、この表と [ソースの分け方](source.md) の表・図を同じ PR で直す。
 
 **refactor で守ること**
 

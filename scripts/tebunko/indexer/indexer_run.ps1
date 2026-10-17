@@ -300,8 +300,8 @@ function invokeIndexer {
 function invokeIndexerBody {
     # invokeIndexer の本体（鍵を取り、ログを開いた後）。終了コードを返す。続けられないエラーは例外にする。
     # 取り込み一覧・取り込み中のファイル・今回の失敗と消えた行は StatusLedger（$ledger）、
-    # 本文インデックスへの書き出し待ちは PendingPublish（$pending）、進み具合・画面の確認待ちは IndexingReporter（$reporter）にまとめる。
-    # 3 つは互いを呼ばず、ここ（司令）がつなぐ（docs/design/structure/classes.md「クラスのつなぎ方」）
+    # 本文インデックスへの書き出し待ちは PendingPublish（$pending）、進み具合・画面の確認待ちは IndexingReporter（$reporter）、取り込みの振り分けは IngestDispatcher（$dispatcher）にまとめる。
+    # 4 つは互いを呼ばず、ここ（司令）がつなぐ（docs/design/structure/classes.md「クラスのつなぎ方」）
     param (
         $channel
     )
@@ -661,7 +661,7 @@ function invokeIndexerBody {
                     # 画面はこの 1 行から進み具合を作る（取り込み一覧は読まない）
                     $currentPath = $step.RelPath
                     $reporter.Progress(${indexingPhaseIngest}, ($successCount + $ledger.Failures.Count), ($total - $successCount - $ledger.Failures.Count), $ledger.Failures.Count, $currentPath)
-                    if ($dispatcher.Pool) {
+                    if ($dispatcher.UsesThreads) {
                         $dispatcher.Submit($step)
                     } else {
                         $dispatcher.SetInlineResult((invokeIngestTask $step.Task $fileTimeoutMinutes))
@@ -732,7 +732,7 @@ function invokeIndexerBody {
             $pending.Complete($entry.Folder)
             $reporter.Progress(${indexingPhaseIngest}, ($successCount + $ledger.Failures.Count), ($total - $successCount - $ledger.Failures.Count), $ledger.Failures.Count, $currentPath)
 
-            if (!$dispatcher.Pool -and ($result.TimedOut -or (($successCount + $ledger.Failures.Count) % $restartInterval) -eq 0)) {
+            if (!$dispatcher.UsesThreads -and ($result.TimedOut -or (($successCount + $ledger.Failures.Count) % $restartInterval) -eq 0)) {
                 # 制限時間を過ぎて強制終了したアプリは使えないため、すべて終了して次に必要になったときに起動し直す
                 stopAllApps
             }
@@ -745,7 +745,7 @@ function invokeIndexerBody {
         # 画面は「成功 = 処理済み - 失敗」と出すため、取り込まなかった（元ファイルが無くなった）分は数に入れない
         $processed = $successCount + $ledger.Failures.Count
         $reporter.Progress(${indexingPhaseFinish}, $processed, 0, $ledger.Failures.Count, "Officeアプリを終了しています…")
-        if ($dispatcher.Pool) {
+        if ($dispatcher.UsesThreads) {
             $dispatcher.Stop()
         } else {
             $script:officeWatchdog.Stop()

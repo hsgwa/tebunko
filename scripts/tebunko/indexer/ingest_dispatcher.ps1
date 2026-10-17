@@ -12,6 +12,8 @@
 class IngestDispatcher {
     # 取り込みのスレッドの入れ物 @{ Queues; LaneStates; Results; Workers; Readers; Settings; Started }。スレッドを使わないときは $null
     [object]$Pool
+    # 取り込みのスレッドを使うか（Start のあと $true。使わないときは $false）
+    [bool]$UsesThreads
     # 中止を受けて振り分けをやめた
     [bool]$Stopped
     # インデックス作成中に見えなくなったクロール対象フォルダ（見つかったら振り分けをやめる）。無ければ空
@@ -47,6 +49,7 @@ class IngestDispatcher {
         # folderByName: インデックス名 → クロール対象フォルダ。carried: 前回強制終了したファイル（相対パス → 回数）。
         # options: LaneExcel・LaneWord・LanePowerPoint・LaneReader（レーン名）、LookAhead（先読みの件数）、WorkerScript（取り込みのスレッドのスクリプト）、
         #   PostponedReasonInUse・PostponedReasonRunning（後回しの理由）
+        #   省略できる TestPath … パスを調べる scriptblock { param($path, $kind) }（$kind は File か Folder。あれば $true）。省略すると本物のファイルシステムを調べる
         foreach ($key in "LaneExcel", "LaneWord", "LanePowerPoint", "LaneReader", "LookAhead", "WorkerScript", "PostponedReasonInUse", "PostponedReasonRunning") {
             if (!$options.ContainsKey($key)) {
                 throw "IngestDispatcher の options に ${key} がありません。"
@@ -78,6 +81,7 @@ class IngestDispatcher {
             # Handled: 司令が、取り込み中だったファイルの後回しを済ませた
             $laneStates[$lane] = [hashtable]::Synchronized(@{ Abandoned = $false; Handled = $false })
         }
+        $this.UsesThreads = $true
         $this.Pool = @{
             Queues     = $queues
             LaneStates = $laneStates
@@ -172,8 +176,8 @@ class IngestDispatcher {
 
             # 取り込み対象を調べてから取り込むまでの間に、元のファイルが移動・削除されることがある。
             # 「失敗」として記録すると、再取り込みを選ぶまで残ってしまうため、無くなったファイルは一覧・インデックスから除く
-            if (![System.IO.File]::Exists((toLongPath $sourcePath))) {
-                if (!(Test-Path -LiteralPath $sourceFolder -PathType Container)) {
+            if (!$this.pathExists($sourcePath, "File")) {
+                if (!$this.pathExists($sourceFolder, "Folder")) {
                     # クロール対象フォルダごと見えなくなった（ネットワークの切断・USBメモリの取り外し等）。
                     # 残りのファイルをすべて失敗にしないよう、「未取り込み」のまま中止する（次回、続きから取り込める）
                     $this.FolderLost = $sourceFolder
@@ -307,6 +311,17 @@ class IngestDispatcher {
             }
             $state.Results.Dispose()
         }
+    }
+
+    hidden [bool] pathExists([string]$path, [string]$kind) {
+        # 元のファイル・フォルダがあるか。options の TestPath があれば、それで調べる（差し替え用）
+        if ($this.Options.ContainsKey("TestPath")) {
+            return [bool](& $this.Options.TestPath $path $kind)
+        }
+        if ($kind -eq "File") {
+            return [System.IO.File]::Exists((toLongPath $path))
+        }
+        return [bool](Test-Path -LiteralPath $path -PathType Container)
     }
 
     hidden [object[]] unhandledAbandonedLanes() {

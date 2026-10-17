@@ -76,18 +76,19 @@
 
 | メソッド／プロパティ | 入力 | 出力 | 概要 |
 |---|---|---|---|
-| コンストラクタ | targets, lanes, bookFolders, folderByName, carried, options | – | 取り込み対象と設定を受け取る。必要な設定が足りなければ、その名前を書いて失敗する |
+| コンストラクタ | targets, lanes, bookFolders, folderByName, carried, options | – | 取り込み対象と設定を受け取る。必要な設定が足りなければ、その名前を書いて失敗する。省略できる `TestPath`（`{ param($path, $kind) }`。`$kind` は `File` か `Folder`）で、元のファイル・フォルダの有無の調べ方を差し替えられる |
 | `Start` | readers, settings | – | レーンごとの列を持つプールを作る（スレッドは、そのレーンに初めて渡すときに始める） |
 | `BeginPass` | – | – | 渡す繰り返しの 1 回分を始める（先読みの範囲を数え直す） |
-| `DispatchNext` | – | `@{Kind=Abandoned／Vanished／Dispatched; ...}` / `` | 並びの先から、レーンに空きがあるファイルを 1 つ選ぶ |
+| `DispatchNext` | – | `@{Kind=Abandoned／Vanished／Dispatched; ...}` / `$null` | 並びの先から、レーンに空きがあるファイルを 1 つ選ぶ |
 | `Submit` | step | – | 選んだファイルをレーンの列に渡す |
-| `SetInlineResult` | result | – | スレッドを使わない実行の結果を、結果の列に入れる |
-| `Receive` | – | `@{Kind=Completed／Postponed／RerouteAbandoned; ...}` / `` | 結果を 1 つ受け取る |
-| `TakeAbandonedLane` | – | `@{Lane; Entries}` / `` | 諦めたレーンを 1 つ取り出す |
-| `StopIfRequested` | stopRequested | – | 中止を求められていたら、残りを渡さないようにする |
+| `SetInlineResult` | result | – | スレッドを使わないとき、司令が自分のスレッドで取り込んだ結果を `InlineResult` に置く（次の `Receive` が返して空にする） |
+| `Receive` | – | `@{Kind=Completed／Postponed／RerouteAbandoned; ...}` / `$null` | 結果を 1 つ受け取る |
+| `TakeAbandonedLane` | – | `@{Lane; Entries}` / `$null` | 諦めたレーンを 1 つ取り出す |
+| `StopIfRequested` | requested（bool） | bool | 中止を求められ、渡していないファイルがあるとき、今回初めて止めた場合だけ `$true` を返し、以後は渡さない（残りの件数は `Remaining`） |
 | `InflightCount` / `IngestingEntries` | – | 件数 / 取り込み中のファイル | 取り込み中の数と一覧 |
-| `Stop` | – | – | 列を閉じ、各レーンのスレッドを終わらせる（待たない） |
-| `Pool`・`Stopped`・`FolderLost`・`Remaining`・`Undispatched`（プロパティ） | – | – | プール・中止・フォルダ消失・残り・まだ渡していないファイル |
+| `Stop` | – | – | 列を閉じ、諦めていないレーンのワーカーが終わるのを待ってから片づける。諦めたレーンのワーカーは待たず、止める依頼だけを出す |
+| `Pool`・`UsesThreads`・`Stopped`・`FolderLost`・`Remaining`・`Undispatched`（プロパティ） | – | – | プール・スレッドを使うか・中止・フォルダ消失・残り・まだ渡していないファイル |
+
 ### IngestPlanner（`tebunko/indexer/indexer_plan.ps1`。司令のスレッドで作る）
 
 クロール対象フォルダへの名前の割り当てと、クロールの結果から取り込む順番を決める。取り込み直すかの判断は `indexer_decide.ps1` の関数を `createTargetList` 経由で呼ぶ。計画の種類・状態の値はコンストラクタの `kinds`（`Unchecked`・`Missing`・`Dropped`・`StateFailed`。足りなければ例外）で、名前の保存は、`SaveNames` に司令が渡すスクリプトブロック（中身は `IndexCatalog.StoreAssignedNames`）で行う。メソッドは次の順に呼ぶ: `AssignNames` → `SaveNames` → `SelectOnly`（選んだときだけ）→ `Crawl` → `KeepForCancel`（取りやめるとき）か `ApplyFailed` → `ApplyInterrupted` → `FolderByName`。`AssignNames` の前に `Crawl` を呼ぶと例外にする。結果は `Folders`・`Previous`・`Dropped`・`Only`・`Rows`・`Targets`・`Failed`・`Cloud`（クラウドにだけあるファイル）・`Plan`・`RemovedPaths`・`Carried` で読む。
