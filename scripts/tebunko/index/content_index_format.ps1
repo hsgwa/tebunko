@@ -22,6 +22,9 @@ ${contentIndexFileNamePrefix} = "content_index"
 ${contentIndexFilePattern} = "${contentIndexFileNamePrefix}.*.tsv"
 ${contentIndexFileNamePattern} = "^${contentIndexFileNamePrefix}\.(?<ext>[^.]+)\.(?<part>[0-9]{3,})\.tsv$"
 ${contentIndexFileMaxBytes} = 4MB
+# 読む本文インデックスのファイル 1 つの大きさの上限（バイト。検索も、インデックス作成で前のファイルとまぜるときも使う）。超えるファイルは読まずに飛ばす。
+# 1 つのファイルは丸ごと読み、並列の検索は最大 4 スレッドなので、同時に持つのは最大でこの 4 倍（正しく作ったファイルは contentIndexFileMaxBytes が目安）
+${contentIndexSearchMaxBytes} = 64MB
 # インデックスの格納形式の版（本文インデックスの「版=」の行・目録の版・zip の目録の版はすべてこの 1 つの番号にそろえる）。
 # 読み飛ばしても古い版が誤らない列・キーを足すときは上げない。意味を変える・無いと古い版が誤るものを足すときは上げる（format.md「目録の版の規則」）
 ${indexFormatVersion} = 2
@@ -517,6 +520,21 @@ function getContentIndexBodyText {
 function getIndexRebuildMessage {
     # 古い形式のインデックスを知らせる文言（1 か所）。本文インデックスの版の例外・一覧のステータス・インデクサのログ・zip の取り込みの断りで使う
     return ${indexRebuildMessage}
+}
+
+
+function getContentIndexPublishSkippedText {
+    # インデックス作成で、本文インデックスにまとめられず飛ばしたフォルダをログに出す 1 行（インデックスからの相対パス・段・理由）。
+    # 段は「本文インデックス」か「システムインデックス」（理由の頭に付けて、どこで止まったかが分かるようにする）
+    param (
+        [string]$rel,
+        [string]$stage,
+        [string]$reason
+    )
+
+    $shown = if ($rel) { $rel } else { "." }
+    $oneLine = ($reason -replace "[\r\n]+", " ").Trim()
+    return "    本文インデックスにまとめられなかったフォルダがあります（${shown}）: ${stage}: ${oneLine}。インデックスを作り直すと直ります"
 }
 
 
