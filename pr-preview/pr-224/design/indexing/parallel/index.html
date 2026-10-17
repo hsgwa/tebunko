@@ -4141,7 +4141,7 @@
 <li><strong>本文インデックスはフォルダが揃ってから書く。</strong> 司令は、はじめにフォルダごとのファイルの数を <code>PendingPublish.AddPending</code> で数えておき、ファイルを渡すたびに <code>Dispatch</code>、結果を受け取るたびに <code>Complete</code>（または渡さずに済ませるとき <code>Skip</code>）を呼ぶ。結果を受け取るたびに、取り込み中の数・まだ渡していない数がどちらも 0 になったフォルダの本文インデックスとシステムインデックスを書き出す（<code>indexer_run.ps1</code> の <code>flushPending</code> が <code>PendingPublish.TakeFlushable</code> を呼ぶ）。</li>
 <li><strong>取り込み一覧と進み具合は司令だけが書く。</strong> 取り込みスレッドは結果を結果の列（<code>BlockingCollection</code>）に入れるだけで、取り込み一覧（<code>addStatusRow</code>）・進み具合・システムインデックスの変更の印（<code>markSystemIndexChanged</code>）は司令が書く。ログも、取り込みスレッドが 1 ファイル分を貯めて結果と一緒に返し、司令が書く。</li>
 <li><strong>取り込み中のファイルは、取り込み中のものをすべて記録する</strong>（<code>ingesting.txt</code>。1 行に 1 ファイル）。強制終了の後は、記録にあるファイルすべてを「前回止まったファイル」として扱う。</li>
-<li><strong>中止。</strong> 司令は振り分けをやめ、取り込み中のファイル（回し直したものを含む）を待たずに止める。Office のレーンは、見張りが <code>Channel.Stop</code> を見て自分が起動したアプリを止め（<code>Cancelled</code>。<code>TimedOut</code> ではない）、<code>invokeIngestTask</code> が <code>Stopped</code> を返す。列に残っていたファイルも <code>ingestFile</code> を呼ばずに <code>Stopped</code> で返る。<code>Stopped</code> のファイルは、一覧の行を作らず、一時の TSV も本文インデックスに入れない（「未取り込み」のまま次回取り込む）。そのあとに書き出しと Office の片づけを行う。</li>
+<li><strong>中止。</strong> 司令は振り分けをやめ、Office のレーンの取り込み（回し直したものを含む）は待たずに止める（読み取りのレーンは、下の表のとおりそのファイルの読み取りが終わるまで待つ）。Office のレーンは、見張りが <code>Channel.Stop</code> を見て自分が起動したアプリを止め（<code>Cancelled</code>。<code>TimedOut</code> ではない）、<code>invokeIngestTask</code> が <code>Stopped</code> を返す。列に残っていたファイルも <code>ingestFile</code> を呼ばずに <code>Stopped</code> で返る。<code>Stopped</code> のファイルは、一覧の行を作らず、一時の TSV も本文インデックスに入れない（「未取り込み」のまま次回取り込む）。そのあとに書き出しと Office の片づけを行う。</li>
 </ul>
 <p>中止が待つものは次のとおり。</p>
 <table>
