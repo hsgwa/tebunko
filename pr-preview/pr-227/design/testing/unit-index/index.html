@@ -4322,7 +4322,7 @@
 </tr>
 <tr>
 <td><code>convertFolderToContentIndex</code> / <code>updateFolderContentIndex</code> / <code>findIndexFoldersWithBooks</code> / <code>publishIndexFolders</code></td>
-<td>フォルダごと・拡張子ごとに作る、元のファイルが無くなった拡張子の本文インデックスのファイルは消す、UTF-16LE（BOM 付き）で一時ファイルを残さない、置かれた TSV を入れて TSV を消し変わらない元のファイルは写す、TSV の残ったフォルダを見つけて本文インデックスとシステムインデックスに入れる</td>
+<td>フォルダごと・拡張子ごとに作る、元のファイルが無くなった拡張子の本文インデックスのファイルは消す、UTF-16LE（BOM 付き）で一時ファイルを残さない、置かれた TSV を入れて TSV を消し変わらない元のファイルは写す、TSV の残ったフォルダを見つけて本文インデックスとシステムインデックスに入れる、前の本文インデックスが壊れた・大きすぎるフォルダは書き換えずに飛ばして残りを書き出す（<code>tebunko/index/content_index_store.Tests.ps1</code>）</td>
 </tr>
 <tr>
 <td><code>searchContentIndex</code> / <code>getContentIndexFiles</code> / <code>readContentIndexLines</code></td>

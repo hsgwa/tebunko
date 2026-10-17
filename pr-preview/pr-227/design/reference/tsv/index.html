@@ -5033,8 +5033,8 @@
 <tr>
 <td><code>publishIndexFolders</code></td>
 <td>pending（フォルダ → 無くなった元のファイル名）, indexRoot, systemRoot, statePath</td>
-<td>書き出したフォルダの数</td>
-<td>フォルダごとに、本文インデックスに書き（<code>updateFolderContentIndex</code>）、TSV を消し、書いた中身からシステムインデックスの txt を作る（<code>writeSystemIndexFolder</code>）。txt の「反映待ち」はまとめて状態ファイルに書く</td>
+<td><code>@{ Count（書き出したフォルダの数）; Skipped（飛ばしたフォルダの</code>@{ Rel; Stage; Reason }<code>）}</code></td>
+<td>フォルダごとに、本文インデックスに書き（<code>updateFolderContentIndex</code>）、TSV を消し、書いた中身からシステムインデックスの txt を作る（<code>writeSystemIndexFolder</code>）。txt の「反映待ち」はまとめて状態ファイルに書く。フォルダの 1 つが失敗しても例外にせず、そのフォルダを飛ばして残りを続け、ログに黄色で出す（本文インデックスを書き終える前なら何も書き換えない）</td>
 <td>同上</td>
 <td>インデックス作成（indexer_run.ps1 の flushPending）</td>
 </tr>
