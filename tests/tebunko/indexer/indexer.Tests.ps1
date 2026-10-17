@@ -2061,8 +2061,10 @@ Describe "取り込みのジャーナルの復旧と書き出し（flushPendingP
     It "flushPendingPublish は、<name>のとき、書き出せなかったフォルダだけを Failed に足し、「出」はできたフォルダにだけ足す" -TestCases @(
         @{ name = "2 フォルダのうち 1 つの本文インデックスを書けなかった（Skipped）"; fail = "skip"; expectedFailed = @("営業"); expectedJournal = @("出`t開発") }
         @{ name = "書き出しが例外になった（全部が書き出せていない）"; fail = "throw"; expectedFailed = @("営業", "開発"); expectedJournal = @() }
+        @{ name = "Failed を渡さずに呼び、本文インデックスを書けなかった（落ちず、「出」は書けたフォルダにだけ足す）"; fail = "skip"; noList = $true; expectedFailed = @(); expectedJournal = @("出`t開発") }
+        @{ name = "Failed を渡さずに呼び、書き出しが例外になった（落ちず、「出」は足さない）"; fail = "throw"; noList = $true; expectedFailed = @(); expectedJournal = @() }
     ) {
-        param ($name, $fail, $expectedFailed, $expectedJournal)
+        param ($name, $fail, $expectedFailed, $expectedJournal, $noList = $false)
         $rc = newRecoverEnv -folders @("営業", "開発")
         $workspace = $rc.Workspace
         if ($fail -eq "skip") {
@@ -2073,7 +2075,11 @@ Describe "取り込みのジャーナルの復旧と書き出し（flushPendingP
         $rc.Pending.MarkFolder("$($workspace.IndexDir)\営業")
         $rc.Pending.MarkFolder("$($workspace.IndexDir)\開発")
         $failed = New-Object System.Collections.Generic.List[string]
-        flushPendingPublish $rc.Pending $rc.Journal -All -Failed $failed
+        if ($noList) {
+            { flushPendingPublish $rc.Pending $rc.Journal -All } | Should -Not -Throw
+        } else {
+            flushPendingPublish $rc.Pending $rc.Journal -All -Failed $failed
+        }
         @($failed | Sort-Object) | Should -Be @($expectedFailed | Sort-Object)
         @(readJournalLines $rc) | Should -Be @($expectedJournal)
     }
@@ -2104,6 +2110,7 @@ Describe "取り込みのジャーナルの復旧と書き出し（flushPendingP
         $result = recoverIngestJournal $rc.Ledger $rc.Journal $rc.Pending $rc.Channel $rc.Reporter
         @($result.Unpublished) | Should -Be @("開発")
         (readJournalLines $rc)[-1] | Should -Be "出`t営業"
+        @(readJournalLines $rc) | Should -Not -Contain "出`t開発"
     }
 
     It "中止を求められていれば、始めの書き出しはせず、書き出していないフォルダを次の回へ持ち越す" {
