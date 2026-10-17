@@ -4535,14 +4535,14 @@
 <td><code>getLegacyIndexState</code></td>
 <td>dir</td>
 <td><code>@{HasLegacyIndex; ContentEmpty; HasLegacySystemIndex}</code></td>
-<td>前の版のワークスペースの状態。<code>index\</code> の直下のフォルダに元のフォルダ.txt があれば前の版のしるし（<code>HasLegacyIndex</code>）。<code>content_index\</code> が空か（<code>ContentEmpty</code>）。空のときだけ、<code>system_index\</code> に前の名前の txt があるかも調べる</td>
+<td>前の版のワークスペースの状態。<code>index\</code> の直下のフォルダに元のフォルダ.txt があれば前の版のしるし（<code>HasLegacyIndex</code>）。<code>store\content\</code> と前の版の <code>content_index\</code> がどちらも空か（<code>ContentEmpty</code>）。空のときだけ、<code>system_index\</code> に前の名前の txt があるかも調べる</td>
 <td>indexing_tab.ps1, workspace_jobs.ps1, index_archive.ps1, indexer_run.ps1, paths.ps1</td>
 </tr>
 <tr>
 <td><code>testLegacyCleanupNeeded</code></td>
 <td>state</td>
 <td>bool</td>
-<td>取り込み直しを始めるときに、前の版のシステムインデックスを片付けるか。<code>content_index\</code> が空で、前の版のしるしか前の名前の txt があるとき</td>
+<td>取り込み直しを始めるときに、前の版のシステムインデックスを片付けるか。本文インデックスの置き場が空で、前の前の版のしるしか前の名前の txt があるとき</td>
 <td>index_archive.ps1, indexer_run.ps1</td>
 </tr>
 <tr>
@@ -4620,7 +4620,7 @@
 <td><code>UseTargets</code></td>
 <td>dir</td>
 <td>int</td>
-<td>dir の取り込み一覧にあるクロール対象フォルダを、インデックスの一覧（<code>targetFolders</code>）にし、その数を返す。取り込み一覧が無ければ一覧は変えない（旧 <code>useWorkspaceTargets</code>）</td>
+<td>dir の取り込み一覧（新しい <code>store\ingest_status.tsv</code> と前の版の直下の <code>ingest_status.tsv</code> の両方。新しい方が先）にあるクロール対象フォルダを、インデックスの一覧（<code>targetFolders</code>）にし、その数を返す。取り込み一覧が無ければ一覧は変えない（旧 <code>useWorkspaceTargets</code>）</td>
 <td><code>ChangeWorkspace</code></td>
 </tr>
 </tbody>
@@ -4719,7 +4719,7 @@
 <td><code>moveSearchExcludes</code></td>
 <td>from, to, path（既定 <code>$settingsFile</code>）</td>
 <td>int</td>
-<td>検索対象ツリーでチェックを外したフォルダ（<code>searchExcludes</code>）のうち、from の <code>content_index</code> の下のものを to の下に付け替えて保存し、付け替えた数を返す</td>
+<td>検索対象ツリーでチェックを外したフォルダ（<code>searchExcludes</code>）のうち、from の <code>store\content</code> の下のものを to の下に付け替えて保存し、付け替えた数を返す</td>
 <td><code>WorkspaceMover.ChangeWorkspace</code></td>
 </tr>
 </tbody>

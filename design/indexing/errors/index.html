@@ -4248,7 +4248,7 @@
 <p>インデクサ（<code>tebunko/indexer.ps1</code>・<code>indexer/indexer_run.ps1</code>）が利用者に示すエラー・警告の一覧。メッセージは種類によって記録先と画面での表示が異なる。</p>
 <pre class="mermaid"><code>flowchart LR
     E{"発生したエラー"} -- "インデックス作成を続けられない&lt;br&gt;（4.8.1）" --&gt; F["受け渡しの口の Error&lt;br&gt;終了コード 1"] --&gt; G1["画面: 進み具合欄とエラーのダイアログ"]
-    E -- "1 ファイルの取り込みに失敗&lt;br&gt;（4.8.2）" --&gt; S["work/ingest_status.tsv のエラー列&lt;br&gt;状態は『失敗』"] --&gt; G2["画面: 「取り込みに失敗したファイル」の一覧"]
+    E -- "1 ファイルの取り込みに失敗&lt;br&gt;（4.8.2）" --&gt; S["work/store/ingest_status.tsv のエラー列&lt;br&gt;状態は『失敗』"] --&gt; G2["画面: 「取り込みに失敗したファイル」の一覧"]
     E -- "警告・お知らせ&lt;br&gt;（4.8.3）" --&gt; L["work/indexing_log.txt"] --&gt; G3["利用者がログのファイルを開く"]</code></pre>
 <table>
 <thead>
@@ -4268,7 +4268,7 @@
 </tr>
 <tr>
 <td>ファイルごとの失敗（<a href="#ファイルごとの失敗取り込み一覧のエラー列">ファイルごとの失敗（取り込み一覧のエラー列）</a>）</td>
-<td><code>work/ingest_status.tsv</code> のエラー列（状態は <code>失敗</code>）</td>
+<td><code>work/store/ingest_status.tsv</code> のエラー列（状態は <code>失敗</code>）</td>
 <td>［インデックス管理］タブの「取り込みに失敗したファイル」の一覧（<a href="../../gui/index-tab/">インデックス一覧の管理</a>）</td>
 <td>次のファイルへ進む</td>
 </tr>
@@ -4330,7 +4330,7 @@
 </tr>
 <tr>
 <td>（例外のメッセージそのまま）</td>
-<td>上記以外の予期しない例外。例: <code>work/ingest_status.tsv</code> をほかのアプリが開いていて書き込めない</td>
+<td>上記以外の予期しない例外。例: <code>work/store/ingest_status.tsv</code> をほかのアプリが開いていて書き込めない</td>
 <td>メッセージと、<code>work/indexing_log.txt</code>（<a href="#警告お知らせインデックス作成ログ">警告・お知らせ</a>）の内容から原因を取り除き、もう一度インデックス作成を始める</td>
 </tr>
 </tbody>
@@ -4534,7 +4534,7 @@
 </tr>
 <tr>
 <td><code>インデックスのフォルダを調べられないため、インデックスが残っているかの確認は行いません。</code></td>
-<td><code>work/content_index</code> を列挙できなかった（アクセス権が無い等）。取り込み一覧の <code>済</code> をそのまま信じる</td>
+<td><code>work/store/content</code> を列挙できなかった（アクセス権が無い等）。取り込み一覧の <code>済</code> をそのまま信じる</td>
 </tr>
 <tr>
 <td><code>元のファイルが無くなったため、取り込まずに一覧から除きます。（移動・削除・名前変更された）</code></td>

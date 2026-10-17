@@ -4101,7 +4101,7 @@
 <p><strong>例</strong>: <code>C:\共有\営業部\見積\(株)山田商事_見積書.xlsx</code> に「見積」シートがあり、1 行目に <code>品名 数量 単価</code>、2 行目に <code>りんご 10 100</code> と書いてあるとする。</p>
 <pre class="mermaid"><code>flowchart LR
     X["(株)山田商事_見積書.xlsx&lt;br&gt;シート「見積」"] -- "① 取り込み&lt;br&gt;Excel でシートを&lt;br&gt;テキストに書き出す" --&gt; T["場所ごとの TSV&lt;br&gt;（1 行 = Excel の 1 行）"]
-    T -- "② フォルダの取り込みが&lt;br&gt;終わったら本文インデックスに入れる" --&gt; P[("本文インデックス&lt;br&gt;content_index/営業部/見積/&lt;br&gt;content_index.xlsx.001.tsv")]
+    T -- "② フォルダの取り込みが&lt;br&gt;終わったら本文インデックスに入れる" --&gt; P[("本文インデックス&lt;br&gt;store/content/営業部/見積/&lt;br&gt;content_index.xlsx.001.tsv")]
     P -- "③ 検索は&lt;br&gt;本文インデックスだけを読む" --&gt; R["結果: (株)山田商事_見積書.xlsx&lt;br&gt;見積・2 行目「りんご…」"]</code></pre>
 <ol>
 <li><strong>取り込み</strong>：元のファイルを読み（Office ファイルもテキストファイルも PDF ファイルも、作業領域にコピーしたコピーを開く・読む）、シート・ページ・スライドなどの<strong>場所</strong>ごとに、文字を TSV（タブ区切りのテキスト）に書き出す。1 行が Excel の 1 行（Word・PowerPoint では段落 1 つ）にあたるので、検索結果に「何行目か」を出せる。</li>
@@ -4130,12 +4130,12 @@
 <tbody>
 <tr>
 <td>本文インデックス</td>
-<td><code>work/content_index/&lt;インデックス名&gt;/&lt;フォルダ&gt;/content_index.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code></td>
+<td><code>work/store/content/&lt;インデックス名&gt;/&lt;フォルダ&gt;/content_index.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code></td>
 <td>検索が読む本体。<strong>インデックス名</strong>は、画面で登録したフォルダ（クロール対象フォルダ）1 つごとの名前</td>
 </tr>
 <tr>
 <td>取り込み一覧</td>
-<td><code>work/ingest_status.tsv</code></td>
+<td><code>work/store/ingest_status.tsv</code></td>
 <td>どのファイルを、いつ、どの版で取り込んだか。2 回目からは、ここと比べて新しいファイル・変わったファイルだけを取り込む（差分取り込み）</td>
 </tr>
 <tr>
@@ -4192,7 +4192,7 @@
 <li><a href="known-issues/">既知の問題</a></li>
 </ul>
 <h2 id="概要">概要<a class="headerlink" href="#概要" title="Permanent link">&para;</a></h2>
-<p>画面で登録したクロール対象フォルダ（<code>setting.config</code>。複数可。チェックを付けたフォルダだけ）配下のファイル（Office ファイルとテキストファイル）を、シート・ページ・スライドなどの場所ごとにテキストを抽出して TSV に書き出し、フォルダ・拡張子ごとの本文インデックスにまとめて <code>work/content_index/&lt;インデックス名&gt;/</code> に保存する（<a href="../index-data/format/#配置命名規則">インデックスのファイルの形</a>）。</p>
+<p>画面で登録したクロール対象フォルダ（<code>setting.config</code>。複数可。チェックを付けたフォルダだけ）配下のファイル（Office ファイルとテキストファイル）を、シート・ページ・スライドなどの場所ごとにテキストを抽出して TSV に書き出し、フォルダ・拡張子ごとの本文インデックスにまとめて <code>work/store/content/&lt;インデックス名&gt;/</code> に保存する（<a href="../index-data/format/#配置命名規則">インデックスのファイルの形</a>）。</p>
 <table>
 <thead>
 <tr>
@@ -4251,7 +4251,7 @@
 <p>コピーは 1 ファイルずつ、コピー → 読む（TSV を作る）→ コピーを消す、の順に進める。全部を先にコピーして置かない。取り込みのスレッド（レーン）は、1 ファイルを取り込む前に自分の作業フォルダを空にするので、作業領域に同時に置くコピーは、スレッドの数までになる。</p>
 <ul>
 <li>クロール対象フォルダは複数登録でき、チェックを付けたフォルダだけを取り込む。チェックを外したフォルダは取り込まないが、インデックスは残す。</li>
-<li>クロール対象フォルダ配下の全ファイルの更新日時・サイズ・状態を <code>work/ingest_status.tsv</code> に記録し、前回から更新されたファイル・未取り込みのファイルだけを取り込む（差分取り込み）。</li>
+<li>クロール対象フォルダ配下の全ファイルの更新日時・サイズ・状態を <code>work/store/ingest_status.tsv</code> に記録し、前回から更新されたファイル・未取り込みのファイルだけを取り込む（差分取り込み）。</li>
 <li>利用者に入力を求めない（コンソールで確認・キー入力を待たない）。画面から実行した場合（受け渡しの口の <code>ConfirmTargets</code>）は、<strong>取り込み対象を数えたところでいったん止まり、インデックスごとの件数を画面に出して取り込むかどうかの返事を待つ</strong>（<a href="target-decision/#取り込み対象の決定createtargetlist">取り込み対象の決定</a>）。前回失敗したファイルを再取り込みするかも、この確認で受け取る（コンソールから直接実行する場合は <code>-RetryFailed</code> で渡す）。</li>
 <li>画面の［中止］で中止した場合、次回は未処理のファイルから再開する。インデクサが強制終了された（PC が停止した等）場合も同様で、強制終了したときに取り込んでいたファイルは最後に回す（<a href="ingest-list/#強制終了時間切れからの再開">取り込み一覧</a>）。</li>
 <li>1 ファイルの取り込みが制限時間（10 分）を超えたら、Office アプリを強制終了してそのファイルを「失敗」とし、次のファイルへ進む（応答しなくなったファイルで止まり続けないため。<a href="ingest-list/#強制終了時間切れからの再開">取り込み一覧</a>）。</li>
@@ -4282,7 +4282,7 @@
 </tr>
 <tr>
 <td>入出力</td>
-<td><code>work/ingest_status.tsv</code></td>
+<td><code>work/store/ingest_status.tsv</code></td>
 <td>全ファイルの更新日時・サイズ・状態（<a href="ingest-list/">取り込み一覧</a>）</td>
 </tr>
 <tr>
@@ -4312,12 +4312,12 @@
 </tr>
 <tr>
 <td>出力</td>
-<td><code>work/content_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/content_index.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code></td>
+<td><code>work/store/content/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/content_index.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code></td>
 <td>フォルダ・元のファイルの拡張子ごとの本文インデックス（<a href="../index-data/format/">インデックスのファイルの形</a>）。インデックス名はクロール対象フォルダごと。取り込み中だけ、シート・ページ・スライドごとの TSV（<code>&lt;相対フォルダ&gt;/&lt;ファイル名&gt;/*.tsv</code>）を置く</td>
 </tr>
 <tr>
 <td>出力</td>
-<td><code>work/content_index/&lt;インデックス名&gt;/source_folder.txt</code></td>
+<td><code>work/store/content/&lt;インデックス名&gt;/source_folder.txt</code></td>
 <td>インデックス名とクロール対象フォルダの対応（<a href="crawl/">クロール対象フォルダと取り込み対象</a>）。インデックスを別の PC・場所へコピーしても、検索結果から元のファイルを開けるようにする</td>
 </tr>
 </tbody>

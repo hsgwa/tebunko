@@ -4324,9 +4324,9 @@
 <li>開き方の既定は、起動時に設定から読み込むときは保存しない（設定していない利用者の <code>setting.config</code> を作らないため。<a href="../../structure/settings-file/#画面での読み書き">画面での読み書き</a>）。</li>
 </ul>
 <h2 id="元のフォルダの特定インデックスを別の-pc場所で使う場合">元のフォルダの特定（インデックスを別の PC・場所で使う場合）<a class="headerlink" href="#元のフォルダの特定インデックスを別の-pc場所で使う場合" title="Permanent link">&para;</a></h2>
-<p>インデクサは元のフォルダの記録（<code>source_folder.txt</code>。インデックス名とクロール対象フォルダの対応。<a href="../../indexing/crawl/">クロール対象フォルダと取り込み対象</a>）を、<strong>各インデックスのフォルダ（<code>work\content_index\&lt;インデックス名&gt;</code>）に 1 件分ずつ</strong>置く。このため、<code>work\content_index</code> ごとコピーしても、<code>&lt;インデックス名&gt;</code> のフォルダだけを別の PC の <code>work\content_index</code> 直下へコピーしても、元のファイルの場所が分かる。</p>
+<p>インデクサは元のフォルダの記録（<code>source_folder.txt</code>。インデックス名とクロール対象フォルダの対応。<a href="../../indexing/crawl/">クロール対象フォルダと取り込み対象</a>）を、<strong>各インデックスのフォルダ（<code>work\store\content\&lt;インデックス名&gt;</code>）に 1 件分ずつ</strong>置く。このため、<code>work\store\content</code> ごとコピーしても、<code>&lt;インデックス名&gt;</code> のフォルダだけを別の PC の <code>work\store\content</code> 直下へコピーしても、元のファイルの場所が分かる。</p>
 <pre class="mermaid"><code>flowchart TD
-    A["検索結果&lt;br&gt;（Root = 検索対象フォルダ、RelDir）"] --&gt; B{"Root が work\content_index なら、取り込み一覧・設定に&lt;br&gt;RelDir の先頭のインデックス名がある？"}
+    A["検索結果&lt;br&gt;（Root = 検索対象フォルダ、RelDir）"] --&gt; B{"Root が work\store\content なら、取り込み一覧・設定に&lt;br&gt;RelDir の先頭のインデックス名がある？"}
     B -- はい --&gt; K["元のフォルダ\残りのフォルダ\ファイル名"]
     B -- いいえ --&gt; B2{"Root\#lt;インデックス名#gt; の 元のフォルダの記録 に&lt;br&gt;そのインデックス名がある？&lt;br&gt;（インデックス 1 個をコピーした場合）"}
     B2 -- はい --&gt; K
@@ -4350,8 +4350,8 @@
 </tr>
 <tr>
 <td>2</td>
-<td>取り込み一覧（<code>work\ingest_status.tsv</code>）</td>
-<td>既定の本文インデックスのフォルダ（<code>work\content_index</code>）のときだけ</td>
+<td>取り込み一覧（<code>work\store\ingest_status.tsv</code>）</td>
+<td>既定の本文インデックスのフォルダ（<code>work\store\content</code>）のときだけ</td>
 </tr>
 <tr>
 <td>3</td>
@@ -4366,7 +4366,7 @@
 <li>どれにも無い場合は、元のフォルダが分からない（<code>Known</code> = <code>$false</code>）。インデックス名（相対フォルダの先頭）は分かるため、フォルダを選んでもらえば設定に記録できる（<a href="#元のファイルが見つからないとき元のフォルダを設定する">元のファイルが見つからないとき（元のフォルダを設定する）</a>）。</li>
 </ul>
 <h2 id="もらったインデックスの元のフォルダを確かめる">もらったインデックスの元のフォルダを確かめる<a class="headerlink" href="#もらったインデックスの元のフォルダを確かめる" title="Permanent link">&para;</a></h2>
-<p><code>work\content_index\</code> に手でコピーしたインデックスの元のフォルダの記録（<code>source_folder.txt</code>・取り込み一覧）は、そのインデックスを作った人が書いたもので、この PC の利用者が決めた場所ではない。そこで、検索結果から開くときに、<strong>元のフォルダに触れる前</strong>（ファイルがあるかの確認・共有フォルダへの接続の前）に、一度だけ利用者に確かめる（<code>testSourceNeedsConfirm</code>）。</p>
+<p><code>work\store\content\</code> に手でコピーしたインデックスの元のフォルダの記録（<code>source_folder.txt</code>・取り込み一覧）は、そのインデックスを作った人が書いたもので、この PC の利用者が決めた場所ではない。そこで、検索結果から開くときに、<strong>元のフォルダに触れる前</strong>（ファイルがあるかの確認・共有フォルダへの接続の前）に、一度だけ利用者に確かめる（<code>testSourceNeedsConfirm</code>）。</p>
 <pre class="mermaid"><code>flowchart TD
     A["検索結果から開く"] --&gt; B{"元のフォルダが記録から分かり、&lt;br&gt;そのインデックス名が設定の&lt;br&gt;targetFolders / indexSources に無い？"}
     B -- いいえ --&gt; Z["元のフォルダを確かめて開く&lt;br&gt;（元のファイルが見つからないとき、へ）"]

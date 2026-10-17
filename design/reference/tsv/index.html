@@ -4066,6 +4066,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#インデックスの格納形式の目録tebunkoindexcontent_index_formatps1index_format_storeps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        インデックスの格納形式の目録（tebunko/index/content_index_format.ps1・index_format_store.ps1）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#本文インデックスの読み書きtebunkoindexcontent_index_storeps1" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4214,6 +4225,17 @@
     <span class="md-ellipsis">
       
         本文インデックスの形式（tebunko/index/content_index_format.ps1）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#インデックスの格納形式の目録tebunkoindexcontent_index_formatps1index_format_storeps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        インデックスの格納形式の目録（tebunko/index/content_index_format.ps1・index_format_store.ps1）
       
     </span>
   </a>
@@ -4828,6 +4850,98 @@
 <td>string</td>
 <td>メタ情報の行を除いた中身（システムインデックスの語を作るため）</td>
 <td>writeSystemIndexFolder</td>
+</tr>
+</tbody>
+</table>
+<h2 id="インデックスの格納形式の目録tebunkoindexcontent_index_formatps1index_format_storeps1">インデックスの格納形式の目録（<code>tebunko/index/content_index_format.ps1</code>・<code>index_format_store.ps1</code>）<a class="headerlink" href="#インデックスの格納形式の目録tebunkoindexcontent_index_formatps1index_format_storeps1" title="Permanent link">&para;</a></h2>
+<p>形式は <a href="../../index-data/format/#置き場と目録store">インデックスのファイルの形</a>「置き場と目録」。判定は判断層（<code>getIndexFormatState</code>）、ファイルの読み書きは状態層（<code>index_format_store.ps1</code>）。</p>
+<table>
+<thead>
+<tr>
+<th>関数</th>
+<th>入力</th>
+<th>出力</th>
+<th>概要</th>
+<th>使用元</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>getIndexFormatState</code></td>
+<td>catalog, oldNames, v2Names, hasLegacyIndex</td>
+<td><code>@{State; Message; Indexes}</code></td>
+<td>目録の行と、古い置き場・今の置き場にあるインデックスの名前から、ワークスペースと各インデックスの状態（Current・Building・Rebuilding・Old・Empty・Broken・Newer）・検索に出すか・文言を決める。ファイルには触れない</td>
+<td>getWorkspaceIndexFormat</td>
+</tr>
+<tr>
+<td><code>testContentIndexVersionLine</code></td>
+<td>line</td>
+<td>bool</td>
+<td>本文インデックスの先頭行が今の版の <code>版=</code> の行か</td>
+<td>testIndexFileCurrentVersion</td>
+</tr>
+<tr>
+<td><code>readIndexFormat</code> / <code>writeIndexFormat</code></td>
+<td>path / indexes, path, appVersion</td>
+<td><code>@{Status; Version; AppVersion; Indexes}</code> / なし</td>
+<td>目録を読む（Ok・Missing・Broken・Newer・Older）/ 一時ファイルに書いて入れ替える</td>
+<td>getWorkspaceIndexFormat, updateIndexFormat</td>
+</tr>
+<tr>
+<td><code>updateIndexFormat</code></td>
+<td>change, path</td>
+<td>bool</td>
+<td>目録を排他で読み、change で書き換えて書く。今より新しい版は書き換えない</td>
+<td>setIndexFormatRow, removeIndexFormatRow, renameIndexFormatRow, markIndexFormatBuilding, completeIndexFormat</td>
+</tr>
+<tr>
+<td><code>setIndexFormatRow</code> / <code>removeIndexFormatRow</code> / <code>renameIndexFormatRow</code></td>
+<td>name, state / name / oldName, newName</td>
+<td>bool</td>
+<td>インデックス 1 つの行を書く / 消す / 名前を変える</td>
+<td>index_store.ps1, index_catalog.ps1</td>
+</tr>
+<tr>
+<td><code>repairIndexFormat</code></td>
+<td>workspace</td>
+<td>目録の読み取り結果</td>
+<td>目録が壊れたとき、今の版の本文インデックスのファイルがあるインデックスを「作成中」として書き直す</td>
+<td>getWorkspaceIndexFormat</td>
+</tr>
+<tr>
+<td><code>getWorkspaceIndexFormat</code></td>
+<td>workspace</td>
+<td><code>getIndexFormatState</code> の結果</td>
+<td>今のファイルから、ワークスペースと各インデックスの状態を求める（目録が壊れていれば先に直す）</td>
+<td>indexer_run.ps1, index_detail.ps1, index_list.ps1</td>
+</tr>
+<tr>
+<td><code>findOldIndexNames</code> / <code>getIndexNamesWithContent</code></td>
+<td>workspace / dir</td>
+<td>名前の並び</td>
+<td>古い置き場・今の置き場で本文インデックスを持つインデックスの名前</td>
+<td>getWorkspaceIndexFormat</td>
+</tr>
+<tr>
+<td><code>markIndexFormatBuilding</code></td>
+<td>names, workspace</td>
+<td>bool</td>
+<td>この回で作るインデックスのうち目録に行が無いものを「作成中」で足す</td>
+<td>invokeIndexerBody</td>
+</tr>
+<tr>
+<td><code>completeIndexFormat</code></td>
+<td>names, workspace</td>
+<td><code>@{Updated; Failed}</code></td>
+<td>作り終えたインデックスの行を「作り終えた」にし、古い置き場の分を消す</td>
+<td>invokeIndexerBody</td>
+</tr>
+<tr>
+<td><code>removeOldIndexOf</code></td>
+<td>name, workspace</td>
+<td><code>@{Removed; Failed}</code></td>
+<td>古い置き場の <code>&lt;名前&gt;</code> と、空になった古い置き場（<code>content_index\</code>・古い <code>ingest_status.tsv</code>）を消す。名前が不正なら何も消さない。ジャンクションは辿らない</td>
+<td>completeIndexFormat</td>
 </tr>
 </tbody>
 </table>

@@ -4500,7 +4500,7 @@
 <li>ログのファイルは、増え続けないよう世代を決めている（前の分を置き換えられない場面を除く。インデックス作成のログは前回の分を <code>indexing_log_previous.txt</code> へ、画面のエラーの記録は 1 MB 以上で <code>gui_error_log_previous.txt</code> へ、起動の失敗の記録は 1 MB 以上で <code>startup_error_previous.txt</code> へ移す）。年月での自動削除はしない。仕様は<a href="../../design/structure/io-files/#増え方と片付け">ファイルの読み書き</a>。</li>
 </ul>
 <h2 id="インデックスが元文書の本文を保持する情報の集約">インデックスが元文書の本文を保持する（情報の集約）<a class="headerlink" href="#インデックスが元文書の本文を保持する情報の集約" title="Permanent link">&para;</a></h2>
-<p>本ツールは全文検索のために、<strong>元の文書の本文を平文の TSV として本文インデックス（インデックスのうち <code>work\content_index\</code> の TSV）に保持する</strong>。これはツールの目的そのものであり、避けられない。審査では次の点が論点になる。</p>
+<p>本ツールは全文検索のために、<strong>元の文書の本文を平文の TSV として本文インデックス（インデックスのうち <code>work\store\content\</code> の TSV）に保持する</strong>。これはツールの目的そのものであり、避けられない。審査では次の点が論点になる。</p>
 <table>
 <thead>
 <tr>
@@ -4515,7 +4515,7 @@
 </tr>
 <tr>
 <td>システムインデックス</td>
-<td>本文インデックスとは別に、高速検索のために <code>work\system_index\</code> の txt にも、本文から作った隣り合う 2 文字の組が入る。この txt は Windows Search に索引させる。本文インデックス（<code>content_index</code>）は、索引の対象から自動で外す。仕様は <a href="../../design/index-data/system-index/">システムインデックス</a> にある</td>
+<td>本文インデックスとは別に、高速検索のために <code>work\system_index\</code> の txt にも、本文から作った隣り合う 2 文字の組が入る。この txt は Windows Search に索引させる。本文インデックス（<code>store\content</code>）は、索引の対象から自動で外す。仕様は <a href="../../design/index-data/system-index/">システムインデックス</a> にある</td>
 </tr>
 <tr>
 <td>検索結果ファイル</td>

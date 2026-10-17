@@ -4062,7 +4062,7 @@
     D --&gt; E["状態ファイルに「反映待ち」として記録"]
     E --&gt; F["Windows Search が索引する"]
     F --&gt; G["検索時: getFastSearchContentIndexFiles が&lt;br&gt;候補フォルダを問い合わせる"]</code></pre>
-<div class="highlight"><pre><span></span><code>work/content_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/content_index.&lt;拡張子&gt;.&lt;番号&gt;.tsv              … 本文インデックス
+<div class="highlight"><pre><span></span><code>work/store/content/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/content_index.&lt;拡張子&gt;.&lt;番号&gt;.tsv              … 本文インデックス
 work/system_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/system_index.txt … システムインデックス
 work/system_index_state.tsv                                         … その状態
 </code></pre></div>
@@ -4076,7 +4076,7 @@ work/system_index_state.tsv                                         … その�
 <tbody>
 <tr>
 <td>単位</td>
-<td><code>work/content_index</code> の中のフォルダ 1 つにつき 1 つ。中身は、そのフォルダ直下の本文インデックス（拡張子ごとのものすべて）から作る。本文インデックスのメタ情報の行（ファイル名・シート名など）は除く（<code>getContentIndexBodyText</code>。入れると、その語で探したときにどのフォルダも候補になるため）。本文インデックスに入れる前の TSV（直下のブックのフォルダ <code>&lt;ファイル名.xlsx&gt;</code> の中の TSV）が残っていれば、それも入れる。サブフォルダのブックは、サブフォルダの txt に入る</td>
+<td><code>work/store/content</code> の中のフォルダ 1 つにつき 1 つ。中身は、そのフォルダ直下の本文インデックス（拡張子ごとのものすべて）から作る。本文インデックスのメタ情報の行（ファイル名・シート名など）は除く（<code>getContentIndexBodyText</code>。入れると、その語で探したときにどのフォルダも候補になるため）。本文インデックスに入れる前の TSV（直下のブックのフォルダ <code>&lt;ファイル名.xlsx&gt;</code> の中の TSV）が残っていれば、それも入れる。サブフォルダのブックは、サブフォルダの txt に入る</td>
 </tr>
 <tr>
 <td>中身</td>

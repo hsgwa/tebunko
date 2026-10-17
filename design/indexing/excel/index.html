@@ -4229,8 +4229,8 @@
     participant X as Excel.Application
     participant WB as ブック（作業領域のコピー。読み取り専用）
     participant T as 作業領域（work/tmp/#lt;PC の鍵#gt;/#lt;PID#gt;）
-    participant I as work/content_index
-    participant L as 取り込み一覧（work/ingest_status.tsv）
+    participant I as work/store/content
+    participant L as 取り込み一覧（work/store/ingest_status.tsv）
 
     S-&gt;&gt;T: 作業領域を空にする
     S-&gt;&gt;T: 元ブックを同じファイル名（長すぎれば source.#lt;拡張子#gt;）でコピー&lt;br&gt;（copyFileShared。ほかのアプリの読み書きを妨げない共有モードで読む）
@@ -4358,10 +4358,10 @@
 <li>読まないもの: グラフの項目名（横軸に並ぶ文字。セルの値としては検索できる）・数値、新しい種類のグラフ（じょうご・ツリーマップ・滝など。<code>cx:chart</code>）、グラフの中のテキストボックス（<code>c:userShapes</code>）、フォームコントロール・ActiveX コントロールの文字、ヘッダー・フッターの画像（<code>&amp;G</code>）、ハイパーリンクの URL、入力規則のメッセージ。</li>
 </ul>
 <p>TSV の例（シート <code>見積</code> の F2 に左上があるテキストボックスと、C2 のコメント）:</p>
-<div class="highlight"><pre><span></span><code>work/content_index/営業/見積.xlsx/見積.tsv            … セルの値
-work/content_index/営業/見積.xlsx/見積[shape].tsv     … F2&lt;TAB&gt;納期は別途ご相談
-work/content_index/営業/見積.xlsx/見積[comment].tsv   … C2&lt;TAB&gt;"test:&lt;U+2028&gt;税抜の金額"
-work/content_index/営業/見積.xlsx/見積[header_footer].tsv … 社外秘
+<div class="highlight"><pre><span></span><code>work/store/content/営業/見積.xlsx/見積.tsv            … セルの値
+work/store/content/営業/見積.xlsx/見積[shape].tsv     … F2&lt;TAB&gt;納期は別途ご相談
+work/store/content/営業/見積.xlsx/見積[comment].tsv   … C2&lt;TAB&gt;"test:&lt;U+2028&gt;税抜の金額"
+work/store/content/営業/見積.xlsx/見積[header_footer].tsv … 社外秘
 </code></pre></div>
 <h3 id="ヘッダーフッターの読み取り">ヘッダー・フッターの読み取り<a class="headerlink" href="#ヘッダーフッターの読み取り" title="Permanent link">&para;</a></h3>
 <p><code>readXlsxSheetHeaderFooter</code> が、シート（ワークシート・グラフシート）の XML にある <code>headerFooter</code> の文字を読む（<code>readXlsxHeaderFooterLines</code>・<code>getHeaderFooterLines</code>。<code>scripts/shared/office/office_reader.ps1</code>）。</p>
