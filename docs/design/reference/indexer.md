@@ -21,9 +21,10 @@
 | `addStatusRow` | row, path（既定 `$workspace.StatusFile`） | – | 取り込み一覧の末尾に 1 行追記する | [取り込み一覧](../indexing/ingest-list.md) | インデックス作成 |
 | `readStatusLines` | path（既定 `$workspace.StatusFile`） | 行の配列 | 取り込み一覧を共有を許して 1 行ずつ読む | – | renameStatusIndexName, removeStatusIndexName |
 | `renameStatusIndexName` / `removeStatusIndexName` | oldName, newName, path / name, path | – | 取り込み一覧のインデックス名を書き換える / その記録を取り除く。行の順序と内容はそのまま保つ（`readStatusLines` で読み、`writeTextLinesAtomic` で置き換える） | [名前とフォルダパスの編集](../gui/index-tab.md#名前とフォルダパスの編集) | IndexCatalog.RenameIndex, RemoveIndex |
-| `readIngestingFiles` | path（既定 `$workspace.IngestingFile`） | `@{RelPath; Count}` の配列 | 取り込み中のファイルの記録（1 行に 1 ファイル。相対パスと、続けて取り込みを始めて終わらなかった回数）を読む。無ければ空。壊れた行と、名前・相対パスが使えない行（`testIndexRelPath`）は読み飛ばす | [取り込み一覧](../indexing/ingest-list.md#強制終了時間切れからの再開) | インデックス作成 |
-| `writeIngestingFiles` | entries（`@{RelPath; Count}` の配列）, path（既定 `$workspace.IngestingFile`） | – | 取り込み中のファイルを 1 行に 1 つ `<回数><TAB><相対パス>` で記録する。無ければ記録を消す | 同上 | インデックス作成 |
-| `removeIngestingFile` | path（既定 `$workspace.IngestingFile`） | – | 取り込み中のファイルの記録を削除する（無くてもエラーにしない） | 同上 | インデックス作成 |
+| `readStatusRelPaths` | path（既定 `$workspace.StatusFile`） | 相対パスの配列 | 取り込み一覧のデータ行の相対パスを、ファイルの順に返す（同じ相対パスの追記も別の行として数える）。ジャーナルの「この回の行」の数え方に使う。無ければ空 | [ジャーナルの形](../indexing/ingest-list.md#ジャーナルの形) | StatusLedger.ReadRelPaths |
+| `convertToIngestJournalLine` | kind, fields | string | ジャーナルの 1 記録（版・回・書・始・持・出・終）を 1 行の文字列にする。列のタブ・改行はスペースにする | 同上 | インデックス作成 |
+| `convertFromIngestJournal` | lines, statusRelPaths, 上限 | `@{Valid; Finished; Aligned; Folders; Resume}` | 前回のジャーナルの行と取り込み一覧の相対パスから、始めの復旧の内容（先に書き出すフォルダ・やり直す仕事）を決める。ファイルには触らない（判断層） | 同上 | インデックス作成 |
+| `getLegacyIngestingPath` / `readLegacyIngesting` / `removeLegacyIngesting` | – | パス / `@{RelPath; Count}` の配列 / – | 前の版の `ingesting.txt` を始めに 1 度だけ読んで、ジャーナルの復旧に足し、読んだあとに消す（`ingest_journal.ps1`） | 同上 | インデックス作成 |
 | `newIndexerChannel` | retryFailed, confirmTargets, workers（既定 -1）, onlyNames（既定は空）, includeCloud（既定 `$false`） | 受け渡しの口（`[hashtable]::Synchronized`） | 画面とインデクサの受け渡しの口を作る（`RetryFailed`・`ConfirmTargets`・`Workers`・`OnlyNames`（更新するインデックス名。空ならチェックの付いたものすべて）・`OnlySkipped`（`OnlyNames` のうち更新できなかった名前と理由）・`Progress`・`Stop`・`Plan`・`Answer`・`Answered`・`Error`・`ExitCode`・`Notice`・`Postponed`・`IncludeCloud`（クラウドにだけあるファイルもダウンロードして取り込むか）・`CloudSkipped`（ダウンロードせずに残した件数）・`OfficePids`）。`Workers` は -1 で設定・コア数から決める、0 で司令のスレッドで取り込む（テスト） | [画面とインデクサの受け渡し](../structure/threads.md#画面とインデクサの受け渡し) | 画面・indexer.ps1 |
 | `writeIndexingProgress` | phase, processed, remaining, failed, detail, channel（既定はいま動いているインデックス作成の口） | – | インデックス作成の進み具合を受け渡しの口の `Progress` に入れる（口が無ければ何もしない） | [インデックス作成のメインフロー](../indexing/flow.md) | インデックス作成（1 ファイルにつき 1 回） |
 | `readIndexingProgress` | channel | `@{Phase; Processed; Remaining; Failed; Detail}` / `$null` | インデックス作成の進み具合を受け渡しの口から読む（まだ無ければ `$null`）。画面が 1 秒ごとに呼ぶ（数万行の取り込み一覧を読み直さない） | [インデックス作成の実行](../gui/indexing-run.md#更新の進み具合) | 画面 |
@@ -36,12 +37,12 @@
 
 ### StatusLedger（`indexer_state.ps1`。司令のスレッドで作る）
 
-インデクサの司令（`invokeIndexerBody`）が、コンストラクタで受け取った `Workspace` の `StatusFile`・`IngestingFile` を読み書きする。メソッドは、上の表の同じ処理をする関数をそのまま呼ぶ（列と状態の定義は `core/paths.ps1` のまま動かさない）。
+インデクサの司令（`invokeIndexerBody`）が、コンストラクタで受け取った `Workspace` の `StatusFile` を読み書きする。メソッドは、上の表の同じ処理をする関数をそのまま呼ぶ（列と状態の定義は `core/paths.ps1` のまま動かさない）。
 
 | メソッド／プロパティ | 入力 | 出力 | 概要 |
 |---|---|---|---|
 | `ReadStatus` / `WriteStatus` / `AddRow` | – / folders, rows / row | `readStatusFile` と同じ / – / – | `readStatusFile`・`writeStatusFile`・`addStatusRow` を呼ぶ |
-| `ReadIngestingFiles` / `WriteIngestingFiles` / `RemoveIngestingFile` | – / entries / – | `readIngestingFiles` と同じ / – / – | 取り込み中のファイルの記録を読み書き・削除する |
+| `ReadRelPaths` | – | `readStatusRelPaths` と同じ | 取り込み一覧の相対パスの並びを読む |
 | `RenameIndexName` / `RemoveIndexName` | oldName, newName / name | – | `renameStatusIndexName` / `removeStatusIndexName` を呼ぶ |
 | `Failures`（プロパティ）・`AddFailure` | relPath, message | – | 今回の取り込みで失敗したファイル（`@{RelPath; Message}` の並び）を集める |
 | `DroppedRows`（プロパティ）・`AddDropped` | relPath | – | 取り込みの直前に元のファイルが無くなった相対パスを集める |
@@ -85,7 +86,7 @@
 | `Receive` | – | `@{Kind=Completed／Postponed／RerouteAbandoned; ...}` / `$null` | 結果を 1 つ受け取る |
 | `TakeAbandonedWorker` | – | `@{Worker; Entries}` / `$null` | 諦めたワーカーを 1 つ取り出す（取り込み中・列のファイルといっしょに返し、取り込み中から外す） |
 | `StopIfRequested` | requested（bool） | bool | 中止を求められ、渡していないファイルがあるとき、今回初めて止めた場合だけ `$true` を返し、以後は渡さない（残りの件数は `Remaining`） |
-| `InflightCount` / `IngestingEntries` | – | 件数 / 取り込み中のファイル | 取り込み中の数と一覧 |
+| `GetInflightCount` | relPath | 件数 | 取り込み中のファイルを続けて取り込みを始めた回数（今の分を含む。取り込み中でなければ 0。ジャーナルの「始」に書く） |
 | `Stop` | – | – | 列を閉じ、諦めていないワーカーが終わるのを待ってから片づける。諦めたワーカーは待たず、止める依頼だけを出す |
 | `Pool`・`UsesThreads`・`Stopped`・`FolderLost`・`Remaining`・`Undispatched`（プロパティ） | – | – | プール・スレッドを使うか・中止・フォルダ消失・残り・まだ渡していないファイル |
 
@@ -122,7 +123,7 @@
 | `newIndexName` | folderPath, usedNames（HashSet・配列・文字列・`$null`） | string | インデックス名（フォルダ名・ドライブ名・共有名。重複すれば `名前(2)`…） | [取り込み一覧](../indexing/ingest-list.md) | assignIndexNames |
 | `assignIndexNames` | targetFolders, previousFolders（readStatusFile の Folders） | `@{Path; Enabled; Name}` の配列 | 設定の名前（getTargetFolders の Name）をそのまま使う（`testStoredIndexName` を通らない名前は無いものとする。予約名の `aux.backup` などは、既にある名前なのでそのまま使う）。名前が無ければ、前回の取り込み一覧の同じフォルダの名前、それも無ければフォルダ名から重複しない名前を作る | 同上 | インデックス作成 |
 | `testPathSegments` | segments, lenient（既定 `$false`） | string（問題の文。使えれば空） | `\` で区切った各部分が、空・`.`・`..`・長すぎる・使えない文字でないか。lenient のときは、前の版の名前（最後の `.`・空白など）も通し、パスにすると外へ出るものだけ止める | 同上 | testIndexRelPath, removeDroppedFolders, `index_archive_rules.ps1` の相対パスの確かめ |
-| `testIndexRelPath` | relPath, allowNameOnly（既定 `$false`）, checkedNames | string（問題の文。使えれば空） | `インデックス名\フォルダからの相対パス` が置き場の外へ出ないか。先頭の名前は `testStoredIndexName`（予約名は通す）で確かめる。取り込み一覧・取り込み中の記録の行は名前だけを通さない（システムインデックスの状態だけ通す） | 同上 | readIngestingFiles, readSystemIndexState |
+| `testIndexRelPath` | relPath, allowNameOnly（既定 `$false`）, checkedNames | string（問題の文。使えれば空） | `インデックス名\フォルダからの相対パス` が置き場の外へ出ないか。先頭の名前は `testStoredIndexName`（予約名は通す）で確かめる。取り込み一覧・取り込み中の記録の行は名前だけを通さない（システムインデックスの状態だけ通す） | 同上 | IngestJournal（読み込み）, readSystemIndexState |
 | `splitIndexRelPath` | relPath | `@{Name; Rest}` | `work\store\content` からの相対パスを、先頭のインデックス名と残りに分ける | 同上 | インデックス作成, resolveSourcePath |
 | `testIndexName` | name, usedNames | string（使えれば空） | 新しく付けるインデックス名として使えるか調べ、使えない理由を返す（フォルダ名の決め `getFolderNameProblemText`（空・前後の空白・255 文字超・使えない文字・末尾の `.`・Windows の予約語）に、ほかと重複を足す）。`newIndexName` が作る名前は必ず通る。`IndexCatalog.RenameIndex` は新しい名前を、これで確かめる | [名前とフォルダパスの編集](../gui/index-tab.md#名前とフォルダパスの編集) | 画面 |
 | `testStoredIndexName` | name | string（使えれば空） | 保存してあるインデックス名（設定・取り込み一覧・状態のフォルダから読んだもの）として使えるか調べる。`testIndexName` との違いは、Windows の予約名（`aux.backup`・`CON.txt` など）を拒まないこと（既にある実在のフォルダの名前を空にせず使い続けるため）。置き場の外へ出る名前・最後の `.` や前後の空白・使えない文字は拒む。`IndexCatalog.RenameIndex` は元の名前を、`RemoveIndex` は消す前に名前を、これで確かめる（通らない名前は何も動かさず例外にする） | 同上 | testIndexRelPath, assignIndexNames, limitSystemIndexStateNames, `IndexCatalog` |

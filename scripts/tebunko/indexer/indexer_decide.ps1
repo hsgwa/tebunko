@@ -200,3 +200,140 @@ function splitCloudItems {
     }
     return @{ Included = $included; Skipped = $skipped }
 }
+
+# ----------------------------------------------------------------------------
+# 取り込みのジャーナル（store\journal\ingest.tsv。司令だけが 1 行ずつ追記する。読み書きは ingest_journal.ps1）の行の形と読み方
+# ----------------------------------------------------------------------------
+# 記録の種類（1 行 = 1 記録。タブ区切り。取り込みの結果は取り込み一覧にだけ置き、ここには置かない）:
+#   版<TAB>版番号            先頭の 1 行。違えば読まない
+#   回<TAB>日時<TAB>行数     インデックス作成の 1 回の始め。行数は、その回の始めに書き直した後の取り込み一覧のデータ行の数
+#                            （これより後ろに追記された行を「この回の行」とする。日時では決めない）
+#   書                       取り込み一覧を書き直す前の印（書き直しの前後で行数がずれるため、印があれば行数で「この回の行」を決めない）
+#   始<TAB>相対パス<TAB>回数  取り込みのワーカーに渡した（回数は続けて終わらなかった回数。この渡しを含む）
+#   持<TAB>相対パス<TAB>回数  止まった仕事の回数の持ち越し（この回にまだ渡していない）
+#   出<TAB>フォルダ          そのフォルダ（インデックスのフォルダからの相対）を本文インデックスに書き出した
+#   終                       取り込み一覧を書き直し、全部を書き出し終えた
+# 知らない種類・余った列は読み飛ばす。
+
+function convertToIngestJournalLine {
+    # ジャーナルの 1 記録（種類と列）を 1 行の文字列にする。列のタブ・改行は 1 行を保つためスペースにする
+    param (
+        [string]$kind,
+        [object[]]$fields = @()
+    )
+
+    $parts = New-Object System.Collections.Generic.List[string]
+    $parts.Add($kind)
+    foreach ($field in $fields) {
+        $parts.Add((([string]$field) -replace "[\t\r\n]+", " "))
+    }
+    return [string]::Join("`t", $parts.ToArray())
+}
+
+function convertFromIngestJournal {
+    # 前回のジャーナルの行と、そのときの取り込み一覧の相対パス（ファイルの順。同じ相対パスの追記も数える）から、
+    # 始めの復旧の内容を決める。戻り値: @{ Valid; Finished; Aligned; Folders; Resume }
+    #   Valid   : 版が合い、回の記録がある（無い・違うなら、読まない＝何も復旧しない）
+    #   Finished: 回の後に「終」がある（前回はきれいに終わった。Folders・Resume は空）
+    #   Aligned : 取り込み一覧の行数で「この回の行」を決められた（書の印が無く、行数が合う）
+    #   Folders : 先に書き出すフォルダ（始めたが、出が無い）
+    #   Resume  : 取り込み中に止まった仕事と、持ち越した仕事の @{ RelPath; Count } の並び（回数を上げずに返す。上限は呼び出し側が見る）。
+    #             始の相対パスは、同じ回に何度も出たら最後の行。この回の行（取り込み一覧の、回の行数より後ろ）に相対パスがあれば済んでいる。
+    #             持だけで始が無いものは回数のまま。書の印があるときは、行を見ずに始の仕事を全部返す
+    param (
+        [string[]]$lines,
+        [string[]]$statusRelPaths,
+        [int]$version
+    )
+
+    $result = @{ Valid = $false; Finished = $false; Aligned = $true; Folders = [string[]]@(); Resume = @() }
+    $records = New-Object System.Collections.Generic.List[string[]]
+    foreach ($line in @($lines)) {
+        if ($null -ne $line -and $line.Trim() -ne "") {
+            $records.Add($line.Split("`t"))
+        }
+    }
+    if ($records.Count -eq 0 -or $records[0][0] -cne "版" -or $records[0].Count -lt 2 -or $records[0][1] -ne [string]$version) {
+        return $result
+    }
+    $round = -1
+    for ($i = 0; $i -lt $records.Count; $i++) {
+        if ($records[$i][0] -ceq "回") {
+            $round = $i
+        }
+    }
+    if ($round -lt 0) {
+        return $result
+    }
+    $result.Valid = $true
+
+    $rowCount = 0
+    if ($records[$round].Count -lt 3 -or -not [int]::TryParse($records[$round][2], [ref]$rowCount) -or $rowCount -lt 0) {
+        $result.Aligned = $false
+    }
+    $started = New-Object 'System.Collections.Generic.Dictionary[string,int]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $held = New-Object 'System.Collections.Generic.Dictionary[string,int]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $published = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $checkedNames = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+    for ($i = $round + 1; $i -lt $records.Count; $i++) {
+        $fields = $records[$i]
+        $count = 0
+        switch -CaseSensitive ($fields[0]) {
+            "始" {
+                if ($fields.Count -ge 3 -and [int]::TryParse($fields[2], [ref]$count) -and $count -ge 1 -and !(testIndexRelPath $fields[1] $false $checkedNames)) {
+                    $started[$fields[1]] = $count
+                }
+            }
+            "持" {
+                if ($fields.Count -ge 3 -and [int]::TryParse($fields[2], [ref]$count) -and $count -ge 1 -and !(testIndexRelPath $fields[1] $false $checkedNames)) {
+                    $held[$fields[1]] = $count
+                }
+            }
+            "出" {
+                if ($fields.Count -ge 2 -and $fields[1] -ne "") {
+                    [void]$published.Add($fields[1])
+                }
+            }
+            "書" { $result.Aligned = $false }
+            "終" { $result.Finished = $true }
+        }
+    }
+
+    $folders = New-Object System.Collections.Generic.List[string]
+    $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($relPath in $started.Keys) {
+        $folder = [System.IO.Path]::GetDirectoryName($relPath)
+        if (!$published.Contains($folder) -and $seen.Add($folder)) {
+            $folders.Add($folder)
+        }
+    }
+    $result.Folders = $folders.ToArray()
+    if ($result.Finished) {
+        return $result
+    }
+
+    $paths = @($statusRelPaths)
+    if ($result.Aligned -and $rowCount -gt $paths.Count) {
+        $result.Aligned = $false
+    }
+    $roundRows = $null
+    if ($result.Aligned) {
+        $roundRows = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+        for ($i = $rowCount; $i -lt $paths.Count; $i++) {
+            [void]$roundRows.Add($paths[$i])
+        }
+    }
+    $resume = New-Object System.Collections.Generic.List[hashtable]
+    foreach ($relPath in $started.Keys) {
+        if ($null -eq $roundRows -or !$roundRows.Contains($relPath)) {
+            $resume.Add(@{ RelPath = $relPath; Count = $started[$relPath] })
+        }
+    }
+    foreach ($relPath in $held.Keys) {
+        if (!$started.ContainsKey($relPath)) {
+            $resume.Add(@{ RelPath = $relPath; Count = $held[$relPath] })
+        }
+    }
+    $result.Resume = $resume.ToArray()
+    return $result
+}

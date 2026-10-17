@@ -72,7 +72,7 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 | `work/system_index_state.tsv` | 読む・書く | システムインデックスの状態。排他で開いて書き換える |
 | `work/store/ingest_status.tsv`（`.tmp` を経由して置き換える） | 読む・書く | 取り込み一覧 |
 | `work/content_index/`・`work/ingest_status.tsv`（前の版の置き場） | 読む（古い形式かの判定）・消す | 読まず、検索もしない。作り直しが終わったインデックスの分から消す |
-| `work/ingesting.txt` | 読む・書く | 取り込み中のファイル |
+| `work/store/journal/ingest.tsv` | 読む・追記する | 取り込みのジャーナル |
 | `work/publish/<PID>/`（`import/new/`・`import/previous/` を含む） | 読む・書く | 本文インデックスに入れる直前の TSV と、インポートの展開先 |
 | `work/tmp/<PC の鍵>/<PID>/w<番号>/` | 読む・書く | 取り込みの作業領域。元のファイルのコピー・抽出途中のファイル。`NotContentIndexed` 属性を付ける（`SetAttributes`） |
 | `work/office_pids/<PC の鍵>/<PID>.tmp`→`<PID>.txt` | 読む・書く | このツールが起動した Office の記録（`office_process.ps1`。`.tmp` に書いてから `.txt` に改名）。起動時の確認で読む |
@@ -182,7 +182,7 @@ tebunko が作るファイルとフォルダが、何年使っても溜まり続
 | `system_index` | 元のファイルの数に比例 | `content_index` と同じ |
 | `system_index_state.tsv` | 上書き | 1 つ |
 | `ingest_status.tsv` | 増えない（前の版が置いたもの。今の取り込み一覧は `store` の中） | 1 つ。作り直しが終われば消す |
-| `ingesting.txt` | 上書き | 1 つ。インデックス作成が終われば消す |
+| `store/journal/ingest.tsv` | 追記（始めに入れ替え） | 1 つ。1 記録ごとに追記して Flush する。始めに前回の分を読んで入れ替える |
 | `search_results.txt` | 上書き | 1 つ |
 | `indexing_log.txt` | 実行ごとに上書き | 1 回分。始めるとき（二重起動の鍵を取った後）に今の分を `indexing_log_previous.txt` へ移す |
 | `indexing_log_previous.txt` | 実行ごとに上書き | 1 回分。合わせて 2 回分で止まる |
@@ -223,7 +223,7 @@ flowchart LR
     CFG[("setting.config")]
     GUI["画面<br>gui.ps1"]
     IDX["インデクサ<br>indexer.ps1"]
-    ST[("store/format.tsv<br>store/ingest_status.tsv<br>ingesting.txt")]
+    ST[("store/format.tsv<br>store/ingest_status.tsv<br>store/journal/ingest.tsv")]
     IX[("work/store/content/")]
     GUI -- 読み書き --> CFG
     IDX -- クロール対象フォルダを読む --> CFG
@@ -239,7 +239,7 @@ flowchart LR
 |---|---|---|---|---|---|
 | `setting.config` | 設定 | 画面 | 画面・インデックス作成 | UTF-8（BOM なし）、JSON | クロール対象フォルダ・検索対象のツリーでチェックを外したフォルダ・元のフォルダ・検索条件・開き方（[設定ファイル（setting.config）](settings-file.md)）。PC ごとの設定 |
 | `work/store/ingest_status.tsv` | インデックス作成の状態 | インデックス作成 | インデックス作成・画面 | UTF-8（BOM 付き）、タブ区切り | 先頭にクロール対象フォルダの行、以降 1 ファイル 1 行で相対パス・更新日時・サイズ・状態・TSV 数・取り込み日時・エラー・抽出版（[取り込み一覧](../indexing/ingest-list.md)） |
-| `work/ingesting.txt` | インデックス作成の状態 | インデックス作成 | インデックス作成 | UTF-8（BOM 付き） | 取り込み中のファイルごとに `<回数><TAB><相対パス>` の 1 行（取り込みを複数のスレッドで行うため、取り込み中のものすべて。`readIngestingFiles` / `writeIngestingFiles` / `removeIngestingFile`）。取り込みが終わったファイルの行は消し、インデックス作成が終われば削除する。残っていれば、書かれたファイルの取り込み中に強制終了した（[取り込み一覧](../indexing/ingest-list.md#強制終了時間切れからの再開)） |
+| `work/store/journal/ingest.tsv` | インデックス作成の状態 | インデックス作成 | インデックス作成 | UTF-8（BOM 付き・CRLF） | 取り込みのジャーナル。1 行に 1 記録（版・回・持・始・出・書・終）で、先頭の列が種類。司令だけが追記して Flush し（`IngestJournal`）、始めに前回の分を読んで入れ替える。「終」が無いまま残っていれば、取り込み中に強制終了した（[ジャーナルの形](../indexing/ingest-list.md#ジャーナルの形)）。前の版の `work/ingesting.txt` が残っていれば、始めに 1 度だけ読んで消す |
 | `work/publish/<PID>/` | 作業領域 | インデックス作成 | インデックス作成 | – | 1 ファイル分の TSV（`<元のファイル名>/<場所>.tsv`）。集め終わったら `work/content_index` の中へフォルダごと移す（`publishIndexFiles`） |
 | `work/tmp/<PC の鍵>/<PID>/`（ワークスペースのパスに `[` `]` があるか長すぎるときは作らない。どのファイルも中間 TSV などをこのフォルダに作るため、テキストファイルを含めすべての取り込みをスキップする） | 作業領域 | インデックス作成 | インデックス作成 | – | 取り込み中の元ファイルのコピー（Excel は元と同じファイル名、長すぎれば `source.<拡張子>`。Word・PowerPoint は `source.<拡張子>`。テキスト・PDF は `source.copy`。元のファイルに影響を出さないため）、抽出途中の `sheet<N>.tmp`（UTF-16LE）/ `*.tsv`、旧形式の変換用の `source.doc` `source.ppt` / `converted.docx` `converted.pptx`（[データの置き場所とパスの決め方](data.md)「自動生成（`work/`）」） |
 | `work/indexing_log.txt` | 記録 | インデックス作成 | 利用者 | UTF-8（BOM 付き） | インデクサの表示内容（`writeIndexerLog`。実行ごとに上書き。先頭に版と環境の見出し）。前回の分は `indexing_log_previous.txt` |

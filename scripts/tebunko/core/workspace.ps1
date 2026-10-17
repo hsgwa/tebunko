@@ -27,7 +27,8 @@ class Workspace {
     [string]$PublishDir
     # 取り込み一覧・出力（自動生成）
     [string]$StatusFile
-    [string]$IngestingFile  # 取り込み中のファイル。強制終了で残っていれば、そのファイルの取り込み中に止まった
+    # 取り込みのジャーナル（どの仕事を始め・どのフォルダを書き出したかの追記ログ。強制終了からの復旧に使う。store\journal\。ingest_journal.ps1）
+    [string]$JournalFile
     [string]$ResultFile
     # インデックス作成の記録。画面とインデクサの受け渡しはメモリ上で行う（indexer_state.ps1 の newIndexerChannel）
     [string]$IndexingLogFile  # インデクサの表示内容の記録（実行ごとに上書き）
@@ -53,7 +54,7 @@ class Workspace {
         $this.SystemIndexStateFile = "$dir\system_index_state.tsv"
         $this.PublishDir = "$dir\publish\$([System.Diagnostics.Process]::GetCurrentProcess().Id)"
         $this.StatusFile = "$dir\store\ingest_status.tsv"
-        $this.IngestingFile = "$dir\ingesting.txt"
+        $this.JournalFile = "$dir\store\journal\ingest.tsv"
         $this.ResultFile = "$dir\search_results.txt"
         $this.IndexingLogFile = "$dir\indexing_log.txt"
         $this.GuiErrorLogFile = "$dir\gui_error_log.txt"
@@ -65,10 +66,10 @@ class Workspace {
 
     # ワークスペースを移すときに移すもの（tebunko が作るファイル・フォルダ）。利用者のほかのファイルは含めない。
     # 取り込みの出力（publish）はプロセスごとのフォルダ（PublishDir）の親を移す。
-    # StoreDir の中（IndexDir・StatusFile・FormatFile）は StoreDir ごと移す。
+    # StoreDir の中（IndexDir・StatusFile・FormatFile・JournalFile）は StoreDir ごと移す。
     # OldIndexDir・OldStatusFile・LegacyIndexDir は、あれば前の版のワークスペースとして tebunko のものと扱う（あるものだけが WorkspaceMover.ListEntries で拾われる）
     [string[]] Entries() {
-        return @($this.StoreDir, $this.OldIndexDir, $this.OldStatusFile, $this.LegacyIndexDir, $this.SystemIndexDir, $this.SystemIndexStateFile, $this.IngestingFile,
+        return @($this.StoreDir, $this.OldIndexDir, $this.OldStatusFile, $this.LegacyIndexDir, $this.SystemIndexDir, $this.SystemIndexStateFile,
             $this.ResultFile, $this.IndexingLogFile, $this.GuiErrorLogFile,
             $this.IndexingLogPreviousFile, $this.GuiErrorLogPreviousFile, [System.IO.Path]::GetDirectoryName($this.PublishDir), $this.TmpRoot, $this.OfficePidRoot)
     }

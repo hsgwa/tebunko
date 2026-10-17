@@ -560,7 +560,7 @@ class IngestPlanner {
         # 前回、取り込み中に強制終了した（ウィンドウを閉じた・PCが停止した等）ファイルは、同じファイルで止まり続けないよう最後に回す。
         # 続けて interruptLimit 回強制終了したファイルは、応答しなくなるファイルとみなして失敗とする。
         # 最後に回したファイルは Carried に残す（取り込みを始めるまで記録を残し、その前にまた止まっても回数が分かるように）。
-        # entries: StatusLedger の ReadIngestingFiles（@{ RelPath; Count } の並び）
+        # entries: ジャーナルの読み取り（convertFromIngestJournal）の Resume（@{ RelPath; Count } の並び。Count は続けて取り込みを始めた回数）
         foreach ($entry in $entries) {
             $hit = @($this.Targets | Where-Object { $_.相対パス -eq $entry.RelPath }) | Select-Object -First 1
             if (!$hit) {

@@ -16,7 +16,7 @@ tebunko が読み書きするファイルとフォルダの一覧（置き場ご
 | `work/system_index/` | システムインデックス（高速検索用。`work/store/content` の中のフォルダごとの 2-gram の txt。[システムインデックス](../index-data/system-index.md)）。Windows Search に索引させる |
 | `work/system_index_state.tsv` | システムインデックスの状態（対応済み・反映待ち・対象外。[システムインデックス](../index-data/system-index.md)） |
 | `work/store/ingest_status.tsv` | 取り込み対象のファイルごとの更新日時・サイズ・状態（未取り込み・済・失敗） |
-| `work/ingesting.txt` | 取り込み中のファイル（取り込みのスレッドごとに 1 行）。取り込み中に強制終了したときだけ残る |
+| `work/store/journal/ingest.tsv` | 取り込みのジャーナル（仕事の始まり・フォルダの書き出しの追記ログ）。終わりに「終」を書く。「終」が無いまま残っていれば、取り込み中に強制終了した |
 | `work/office_pids/<PC の鍵>/<PID>.txt` | インデックス作成が起動した Office の記録（起動時の確認で、残ったものだけを終了するため。[前回残った Office の確認](../gui/leftover-office.md#記録)） |
 | `work/publish/<PID>/` | 1 ファイル分の TSV を、インデックスに入れる直前に集めるフォルダ（インデックス作成の終了時に削除する） |
 | `work/tmp/<PC の鍵>/<PID>/` | 取り込みの作業領域（下の説明） |
@@ -100,7 +100,7 @@ flowchart LR
     W --> SS["SystemIndexStateFile<br>Dir\system_index_state.tsv"]
     W --> PB["PublishDir<br>Dir\publish\<PID>"]
     W --> ST["StatusFile<br>Dir\store\ingest_status.tsv"]
-    W --> IG["IngestingFile<br>Dir\ingesting.txt"]
+    W --> IG["JournalFile<br>Dir\store\journal\ingest.tsv"]
     W --> OP["OfficePidRoot<br>Dir\office_pids"]
     W --> RS["ResultFile<br>Dir\search_results.txt"]
     W --> IL["IndexingLogFile<br>Dir\indexing_log.txt"]
@@ -128,7 +128,7 @@ flowchart LR
 | `PublishDir` | `<Dir>\publish\<PID>`（TSV をインデックスに入れる直前に集めるフォルダ） |
 | `StatusFile` | `<Dir>\store\ingest_status.tsv` |
 | `OldStatusFile` | `<Dir>\ingest_status.tsv`（前の版の取り込み一覧。作り直しが終わったら消す） |
-| `IngestingFile` | `<Dir>\ingesting.txt` |
+| `JournalFile` | `<Dir>\store\journal\ingest.tsv` |
 | `ResultFile` | `<Dir>\search_results.txt` |
 | `IndexingLogFile` | `<Dir>\indexing_log.txt`（インデクサの表示内容の記録。実行ごとに新しく書き、前回の分は `IndexingLogPreviousFile` へ移す） |
 | `IndexingLogPreviousFile` | `<Dir>\indexing_log_previous.txt`（前回のインデックス作成の記録） |
