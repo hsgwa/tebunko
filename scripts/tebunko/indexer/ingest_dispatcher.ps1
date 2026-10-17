@@ -224,16 +224,13 @@ class IngestDispatcher {
         return $this.Inflight.Count
     }
 
-    [object[]] IngestingEntries() {
-        # 取り込み中のファイルの記録（StatusLedger.WriteIngestingFiles に渡す形）。取り込み中のものと、最後に回してまだ始めていないもの
-        $entries = New-Object System.Collections.Generic.List[object]
-        foreach ($key in $this.Inflight.Keys) {
-            $entries.Add(@{ RelPath = $key; Count = $this.Inflight[$key].Count })
+    [int] GetInflightCount([string]$relPath) {
+        # 取り込み中のファイルを続けて取り込みを始めた回数（今の分を含む）。ジャーナルの「始」に書く。取り込み中でなければ 0
+        $entry = $null
+        if ($this.Inflight.TryGetValue($relPath, [ref]$entry)) {
+            return [int]$entry.Count
         }
-        foreach ($key in $this.Carried.Keys) {
-            $entries.Add(@{ RelPath = $key; Count = $this.Carried[$key] })
-        }
-        return $entries.ToArray()
+        return 0
     }
 
     [object] Receive() {

@@ -151,6 +151,41 @@ function readStatusFile {
     return $result
 }
 
+function readStatusRelPaths {
+    # 取り込み一覧のデータ行（見出し行より後ろの、列数が合い、先頭が空でない行）の相対パスを、ファイルの順に返す。
+    # 同じ相対パスの追記も別の行として数える（readStatusFile のように後の行で畳まない）。ジャーナルの「回」の行数と
+    # 「この回の行」の数え方（取り込みの始めに書き直した後の行数より後ろの行）。ファイルが無ければ空
+    param (
+        [string]$path = $workspace.StatusFile
+    )
+
+    $paths = New-Object System.Collections.Generic.List[string]
+    if (!(Test-Path -LiteralPath $path)) {
+        return $paths.ToArray()
+    }
+    $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
+    $stream = New-Object System.IO.FileStream($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
+    $reader = New-Object System.IO.StreamReader($stream, ${utf8Bom})
+    try {
+        $header = ${statusColumns} -join "`t"
+        $columnCount = ${statusColumns}.Count
+        $inRows = $false
+        while ($null -ne ($line = $reader.ReadLine())) {
+            if (!$inRows) {
+                $inRows = ($line -eq $header)
+                continue
+            }
+            $fields = $line.Split("`t")
+            if ($fields.Count -eq $columnCount -and $fields[0] -ne "") {
+                $paths.Add($fields[0])
+            }
+        }
+    } finally {
+        $reader.Dispose()
+    }
+    return $paths.ToArray()
+}
+
 function writeStatusFile {
     # 取り込み一覧を書き出す（1ファイル1行）。途中で中断しても壊れないよう、一時ファイルに書いてから置き換える
     #   folders: クロール対象フォルダ @{ Path; Name } の配列。"クロール対象フォルダ<TAB>パス<TAB>インデックス名" の行にする

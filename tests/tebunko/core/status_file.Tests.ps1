@@ -3,6 +3,24 @@ BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
 }
 
+Describe "readStatusRelPaths" -Tag Io {
+    It "見出し行より後ろのデータ行の相対パスを、同じ相対パスの追記も別の行として、ファイルの順に返す。フォルダの行・列数の合わない行は数えない" {
+        $path = "$TestDrive\relpaths[1].tsv"
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(
+            (newStatusRow "data\a.xlsx" "2025/01/10 12:34:56" "1" $stateNew),
+            (newStatusRow "data\b.xlsx" "2025/01/10 12:34:56" "1" $stateNew)
+        ) $path
+        addStatusRow (newStatusRow "data\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1") $path
+        [System.IO.File]::AppendAllText($path, "途中で切れた行`t1`r`n")
+
+        @(readStatusRelPaths $path) | Should -Be @("data\a.xlsx", "data\b.xlsx", "data\a.xlsx")
+    }
+
+    It "ファイルが無ければ空を返す" {
+        @(readStatusRelPaths "$TestDrive\none.tsv").Count | Should -Be 0
+    }
+}
+
 Describe "readStatusFile / writeStatusFile" -Tag Io {
     It "まとめて書き出した行と、1件ずつ追記した行の整形が同じ（速さのために別々に書いているため）" {
         # writeStatusFile は数万行を速く書くため、toStatusLine と同じ整形をその場に展開している

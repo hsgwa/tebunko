@@ -12,7 +12,10 @@ BeforeAll {
     # index_compat.Tests.ps1 と共通のため tests\helpers\indexer.ps1 にある（中身は変えていない）
     . "$PSScriptRoot\..\..\helpers\indexer.ps1"
 
-    $planPath    = "${scriptsDir}\tebunko\indexer\indexer_plan.ps1"
+    # ジャーナルを読むため（クラスはこのファイルの外の関数から見えないので、読み込んでおく）
+    . "${scriptsDir}\tebunko\indexer\ingest_journal.ps1"
+
+    $planPath    ="${scriptsDir}\tebunko\indexer\indexer_plan.ps1"
     $reporterPath = "${scriptsDir}\tebunko\indexer\indexing_reporter.ps1"
     $docxSource  = "${testDataDir}\office\Word\形式\大文字拡張子.DOCX"
     $pptxSource  = "${testDataDir}\office\PowerPoint\基本.pptx"
@@ -26,6 +29,16 @@ BeforeAll {
         Copy-Item -LiteralPath $pptxSource -Destination "$dir\資料\提案.pptx"
         [System.IO.File]::WriteAllText("$dir\壊れた.pptx", "PowerPoint ではない内容")
         return $dir
+    }
+
+    function writeTestJournal {
+        # 前回の取り込みが残したジャーナル（work\store\journal\ingest.tsv）を、版と回の行に続けて作る（取り込み一覧に行が無い回）
+        param ([string]$root, [string[]]$records, [int]$rows = 0)
+        $path = "$root\work\store\journal\ingest.tsv"
+        [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($path)) | Out-Null
+        $lines = @("版`t2", "回`t2026/10/17 10:00:00`t$rows") + $records
+        [System.IO.File]::WriteAllText($path, (($lines -join "`r`n") + "`r`n"), (New-Object System.Text.UTF8Encoding($true)))
+        return $path
     }
 }
 
@@ -161,6 +174,8 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         $progress.Failed | Should -Be 1
         readTestError | Should -BeNullOrEmpty
         Test-Path -LiteralPath "$root\work\ingesting.txt" | Should -Be $false
+        # 正常に終わった回のジャーナルは「終」で終わる
+        @([IngestJournal]::new("$root\work\store\journal\ingest.tsv").ReadPrevious())[-1] | Should -Be "終"
         # 取り込みの作業フォルダ（work\tmp\<PC の鍵>\<PID>）も削除する
         Test-Path -LiteralPath (Join-Path "$root\work\tmp\$(getMachineKey)" "$PID") | Should -Be $false
         # 取り込み中は、前の版の片付けだけに使う場所（%TEMP%）ではなくワークスペースの tmp の下を使う
@@ -176,6 +191,21 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         foreach ($entry in @(Get-ChildItem -LiteralPath "$root\work\store\content\営業" -File)) {
             $entry.Name | Should -Match "^[\x20-\x7E]+$"
         }
+    }
+
+    It "作成中は、取り込み一覧に 1 件ごとに結果が追記され、画面が読む「取り込み済み＋失敗」の件数が途中で増える" {
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "営業"; path = $source; enabled = $true })
+        $global:testRowTotals = New-Object System.Collections.ArrayList
+        # 1 件を追記する直前の、取り込み済みと失敗の件数を控える（始めは対象の行が「未取り込み」で並んでいる）
+        $watch = @{ Script = $runPath; Pattern = '^\s+\$ledger\.AddRow\(\$row\)'; Action = { $s = getIndexingState; [void]$global:testRowTotals.Add($s.Done + $s.Failed) } }
+        try {
+            runIndexer $root @{} @($watch) | Should -Be 0
+            @($global:testRowTotals) -join "," | Should -Be "0,1,2"
+        } finally {
+            Remove-Variable -Name testRowTotals -Scope Global -ErrorAction SilentlyContinue
+        }
+        (readTestStatus $root).Rows.Count | Should -Be 3
     }
 
     It "2 回目は更新の無いファイルを取り込まず、前回失敗したファイルもスキップする" {
@@ -240,6 +270,17 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
     It "前回取り込み中に強制終了したファイルは最後に回して取り込む" {
         $root = newRoot
         writeTestSettings $root @(@{ name = "営業"; path = $source; enabled = $true })
+        # 「始」だけで「終」の無いジャーナル（取り込みの途中で強制終了した跡）
+        writeTestJournal $root @("始`t営業\議事録.docx`t1") | Out-Null
+
+        runIndexer $root | Should -Be 0
+        (readTestStatus $root).Rows["営業\議事録.docx"].状態 | Should -Be ${stateDone}
+        @([IngestJournal]::new("$root\work\store\journal\ingest.tsv").ReadPrevious())[-1] | Should -Be "終"
+    }
+
+    It "前の版の ingesting.txt（強制終了したファイルの記録）も読んで、最後に回して取り込み、読んだあとは消す" {
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "営業"; path = $source; enabled = $true })
         writeListFile "$root\work\ingesting.txt" @("1`t営業\議事録.docx")
 
         runIndexer $root | Should -Be 0
@@ -250,13 +291,12 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
     It "続けて強制終了したファイルは取り込まずに失敗とする" {
         $root = newRoot
         writeTestSettings $root @(@{ name = "営業"; path = $source; enabled = $true })
-        writeListFile "$root\work\ingesting.txt" @("2`t営業\議事録.docx")
+        writeTestJournal $root @("始`t営業\議事録.docx`t2") | Out-Null
 
         runIndexer $root | Should -Be 0
         $row = (readTestStatus $root).Rows["営業\議事録.docx"]
         $row.状態 | Should -Be ${stateFailed}
         $row.エラー | Should -Match "強制終了"
-        Test-Path -LiteralPath "$root\work\ingesting.txt" | Should -Be $false
     }
 
     It "Office に加えてテキスト（Shift_JIS の .txt）も取り込み、その語で検索すると正しい行番号でヒットする" {
@@ -400,44 +440,6 @@ Describe "indexer.ps1（後回しの司令の流れ。実際のPowerPointは使�
         }
     }
 
-    It "前回取り込み済みのファイルが後回しになったときは、状態とエラーだけを替え、TSV 数・取り込み日時・抽出版は前回のまま残す" {
-        $dir = Join-Path $TestDrive "後回し3"
-        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
-        Copy-Item -LiteralPath "${testDataDir}\office\PowerPoint\形式\旧形式.ppt" -Destination "$dir\旧形式.ppt"
-        $root = newRoot
-        writeTestSettings $root @(@{ name = "後回し3"; path = $dir; enabled = $true })
-
-        $global:testOfficeAppInUseMessage = ${officeAppInUseMessage}
-        $global:testUserPptOpen = $false
-        Mock ingestFile {
-            if ($global:testUserPptOpen) {
-                throw (New-Object System.InvalidOperationException "PowerPoint$global:testOfficeAppInUseMessage")
-            }
-            return 1
-        } -ParameterFilter { $sourcePath -like "*.ppt" }
-        Mock stopAllApps {}
-
-        try {
-            runIndexer $root @{ Workers = 0 } | Should -Be 0
-            $before = (readTestStatus $root).Rows["後回し3\旧形式.ppt"]
-            $before.状態 | Should -Be ${stateDone}
-
-            # ファイルが更新され、利用者の PowerPoint が起動している
-            (Get-Item -LiteralPath "$dir\旧形式.ppt").LastWriteTime = (Get-Date).AddMinutes(-5)
-            $global:testUserPptOpen = $true
-            runIndexer $root @{ Workers = 0 } | Should -Be 0
-
-            $after = (readTestStatus $root).Rows["後回し3\旧形式.ppt"]
-            $after.状態 | Should -Be ${stateNew}
-            $after.エラー | Should -Be ${postponedReasonRunning}
-            $after.TSV数 | Should -Be $before.TSV数
-            $after.取り込み日時 | Should -Be $before.取り込み日時
-            $after.抽出版 | Should -Be $before.抽出版
-        } finally {
-            Remove-Variable -Name testOfficeAppInUseMessage, testUserPptOpen -Scope Global -ErrorAction SilentlyContinue
-        }
-    }
-
     It "取り込みのワーカーを諦めたら、そのワーカーのファイルを未取り込みのまま後回しにし、0 で終わる。取り込み一覧・インデックスは変えない" {
         $dir = Join-Path $TestDrive "諦め"
         [System.IO.Directory]::CreateDirectory($dir) | Out-Null
@@ -469,39 +471,9 @@ Describe "indexer.ps1（後回しの司令の流れ。実際のPowerPointは使�
         (readTestProgress).Failed | Should -Be 3
         # 書き出していない（取り込んだ TSV もインデックスも無い）。取り込み中の記録・書き出しの置き場にも残さない
         (findIndexFoldersWithBooks "$root\work\store\content").Count | Should -Be 0
-        Test-Path -LiteralPath "$root\work\ingesting.txt" | Should -Be $false
+        @([IngestJournal]::new("$root\work\store\journal\ingest.tsv").ReadPrevious())[-1] | Should -Be "終"
         @(Get-ChildItem -LiteralPath "$root\work\publish" -Recurse -File -Force -ErrorAction SilentlyContinue).Count | Should -Be 0
         (Get-Content -LiteralPath "$root\work\indexing_log.txt" -Raw) | Should -Match "PowerPoint を使っている方がいたため取り込めませんでした"
-    }
-
-    It "回し直し先（Word）の持ち主のワーカーを諦めていたら、渡さずに未取り込みのまま後回しにし、0 で終わる" {
-        $dir = Join-Path $TestDrive "回し直し先を諦め"
-        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
-        Copy-Item -LiteralPath $docxSource -Destination "$dir\議事録.docx"
-        $root = newRoot
-        writeTestSettings $root @(@{ name = "回し直し先を諦め"; path = $dir; enabled = $true })
-        # 読み取りのスレッドが「Office が要る」と返したことにし、回し直し先（Word）の持ち主のワーカーを諦めたことにする
-        $global:testRerouteDone = $false
-        $hook = @{ Script = $dispatcherPath; Pattern = '^\s+if \(\$result\.Reroute\) \{'; Action = {
-                if (-not $global:testRerouteDone) {
-                    $global:testRerouteDone = $true
-                    $result.Reroute = $true
-                    $this.Pool.Slots[0].Owns.Add("Word")
-                    $this.Pool.Slots[0].State.Abandoned = $true
-                }
-            }
-        }
-        try {
-            runIndexer $root @{ Workers = 2 } @($hook) | Should -Be 0
-        } finally {
-            Remove-Variable -Name testRerouteDone -Scope Global -ErrorAction SilentlyContinue
-        }
-
-        $row = (readTestStatus $root).Rows["回し直し先を諦め\議事録.docx"]
-        $row.状態 | Should -Be ${stateNew}
-        $row.エラー | Should -Be ${postponedReasonInUse}
-        (readTestProgress).Failed | Should -Be 1
-        Test-Path -LiteralPath "$root\work\ingesting.txt" | Should -Be $false
     }
 
     It "司令のスレッドで取り込む形では、終わりの待ちに、中止の合図（Channel.Stop）を見る判定を渡す（立てる前は偽・立てたあとは真）" {
@@ -577,6 +549,8 @@ Describe "indexer.ps1（クラウドにだけあるファイル）" -Tag Io {
         $bookDir = "$root\work\store\content\雲\議事録.docx"
         [System.IO.Directory]::CreateDirectory($bookDir) | Out-Null
         [System.IO.File]::WriteAllText("$bookDir\途中.tsv", "x")
+        # 前回、このファイルを取り込み始めて、書き出す前に止まった跡（取り込み一覧に前回の行が 1 行ある）
+        writeTestJournal $root @("始`t雲\議事録.docx`t1") 1 | Out-Null
         return @{ File = $file; BookDir = $bookDir }
     }
     }
@@ -774,7 +748,7 @@ Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
         # 止めたファイルは失敗として数えない
         (readTestProgress).Failed | Should -Be 0
         (findIndexFoldersWithBooks "$root\work\store\content").Count | Should -Be 0
-        Test-Path -LiteralPath "$root\work\ingesting.txt" | Should -Be $false
+        @([IngestJournal]::new("$root\work\store\journal\ingest.tsv").ReadPrevious())[-1] | Should -Be "終"
         $log = Get-Content -LiteralPath "$root\work\indexing_log.txt" -Raw
         $log | Should -Match "中止のため、取り込みませんでした（次回取り込みします）"
         $log | Should -Match "中止の要求を受けたため、インデックス作成を中止します"
@@ -1049,6 +1023,9 @@ Describe "indexer.ps1（取り込み中に元のファイルが無くなる）" 
         writeTestSettings $root @(@{ name = "総務3"; path = $source; enabled = $true })
         runIndexer $root | Should -Be 0
         writeListFile "$root\work\store\content\総務3\残った.xlsx\S.tsv" @("残っていた中身")
+        # 取り込みは終わったが、書き出す前に止まった跡（ジャーナルに「始」があり「出」が無い）
+        $rowCount = @((readTestStatus $root).Rows.Keys).Count
+        writeTestJournal $root @("始`t総務3\残った.xlsx`t1", "終") $rowCount | Out-Null
 
         runIndexer $root | Should -Be 0
         [System.IO.Directory]::Exists("$root\work\store\content\総務3\残った.xlsx") | Should -Be $false
@@ -1204,7 +1181,7 @@ Describe "indexer.ps1（取り込みのスレッド）" -Tag Io {
         (readContentIndexLines $parallel) -join "`n" | Should -BeExactly ((readContentIndexLines $single) -join "`n")
         # 取り込んだ TSV（元のファイルごとのフォルダ）・取り込み中の記録・一時フォルダは残さない
         (findIndexFoldersWithBooks "$parallel\work\store\content").Count | Should -Be 0
-        Test-Path -LiteralPath "$parallel\work\ingesting.txt" | Should -Be $false
+        @([IngestJournal]::new("$parallel\work\store\journal\ingest.tsv").ReadPrevious())[-1] | Should -Be "終"
         @(Get-ChildItem -LiteralPath "$parallel\work\publish" -Force -ErrorAction SilentlyContinue).Count | Should -Be 0
         Test-Path -LiteralPath (Join-Path "$parallel\work\tmp\$(getMachineKey)" "$PID") | Should -Be $false
         # 取り込み中は、前の版の片付けだけに使う場所（%TEMP%）ではなくワークスペースの tmp の下を使う
@@ -1916,7 +1893,7 @@ Describe "completeIngestJob（取り込みの 1 件の終わり方）" -Tag Io {
             $script:jobCount++
             $dir = Join-Path $TestDrive "job$($script:jobCount)"
             [System.IO.Directory]::CreateDirectory($dir) | Out-Null
-            $ledger = [StatusLedger]::new([pscustomobject]@{ StatusFile = "$dir\ingest_status.tsv"; IngestingFile = "$dir\ingesting.txt" })
+            $ledger = [StatusLedger]::new([pscustomobject]@{ StatusFile = "$dir\ingest_status.tsv" })
             $pending = [PendingPublish]::new()
             $folder = [System.IO.Path]::GetDirectoryName((getBookDir "営業\a.docx"))
             $pending.MarkFolder($folder)
@@ -1928,7 +1905,7 @@ Describe "completeIngestJob（取り込みの 1 件の終わり方）" -Tag Io {
             $options = @{ LookAhead = 200; WorkerScript = { }; PostponedReasonInUse = "使っていた"; PostponedReasonRunning = "起動していた" }
             $dispatcher = [IngestDispatcher]::new(@(), [string[]]@(), [string[]]@(), @{}, @{}, $options)
             return @{
-                Ledger = $ledger; Pending = $pending; Reporter = [IndexingReporter]::new($channel); Dispatcher = $dispatcher
+                Ledger = $ledger; Pending = $pending; Reporter = [IndexingReporter]::new($channel); Dispatcher = $dispatcher; Journal = [IngestJournal]::new("$dir\journal.tsv")
                 Previous = (New-Object 'System.Collections.Generic.Dictionary[string,object]'); Total = 3; SuccessCount = 0; PostponedCount = 0; CurrentPath = ""
                 Channel = $channel; Dir = $dir; Folder = $folder
             }
@@ -1978,7 +1955,7 @@ Describe "completeIngestJob（取り込みの 1 件の終わり方）" -Tag Io {
         Should -Invoke markSystemIndexChanged -Times 0 -Exactly -Scope It
     }
 
-    It "後回し（<Kind>）は、取り込み一覧に足さずに理由を失敗として見せ、前の行の TSV 数・取り込み日時・抽出版を残す。後回しの数に数える" -TestCases @(
+    It "後回し（<Kind>）は、理由を失敗として見せ、前の行の TSV 数・取り込み日時・抽出版を残す。後回しの数に数える。渡していた仕事（Undispatched が偽）だけ、取り込み一覧に「未取り込み」の行を足す" -TestCases @(
         @{ Kind = "Postponed"; Undispatched = $false }
         @{ Kind = "RerouteAbandoned"; Undispatched = $false }
         @{ Kind = "Postponed"; Undispatched = $true }
@@ -1998,13 +1975,16 @@ Describe "completeIngestJob（取り込みの 1 件の終わり方）" -Tag Io {
         $entryRow.抽出版 | Should -Be "6"
         $run.Ledger.Failures.Count | Should -Be 1
         $run.Ledger.Failures[0].Message | Should -Be "使っていた"
-        # 取り込み一覧には書かない（「失敗」にすると次の更新で飛ばされる）
-        $run.Ledger.ReadStatus().Rows.ContainsKey("営業\a.docx") | Should -Be $false
+        # 取り込み一覧の行は「未取り込み」（「失敗」にすると次の更新で飛ばされる）。渡さずに残したものは足さない
+        $run.Ledger.ReadStatus().Rows.ContainsKey("営業\a.docx") | Should -Be (!$Undispatched)
+        if (!$Undispatched) {
+            $run.Ledger.ReadStatus().Rows["営業\a.docx"].状態 | Should -Be ${stateNew}
+        }
         # 取り込み中（渡していない）の数を戻すため、書き出し待ちのフォルダは揃ったものとして書き出す
         Should -Invoke publishIndexFolders -Times 1 -Exactly -Scope It
     }
 
-    It "中止（Stopped）は、取り込み一覧にも失敗にも足さず、最初の 1 件だけ中止のログを出す" -TestCases @(
+    It "中止（Stopped）は、失敗には足さず、取り込み一覧に今の行を足す（ジャーナルが、この仕事は終わったと読める）。最初の 1 件だけ中止のログを出す" -TestCases @(
         @{ First = $true; Lines = 3 }
         @{ First = $false; Lines = 1 }
     ) {
@@ -2015,8 +1995,181 @@ Describe "completeIngestJob（取り込みの 1 件の終わり方）" -Tag Io {
         $run.SuccessCount | Should -Be 0
         $run.PostponedCount | Should -Be 0
         $run.Ledger.Failures.Count | Should -Be 0
-        $run.Ledger.ReadStatus().Rows.ContainsKey("営業\a.docx") | Should -Be $false
+        $run.Ledger.ReadStatus().Rows["営業\a.docx"].状態 | Should -Be ${stateNew}
         # 最初の 1 件は（空行・中止の知らせ・このファイル）の 3 回、ほかは（このファイル）の 1 回ログを書く
         Should -Invoke writeIndexerLog -Times $Lines -Exactly -Scope It
+    }
+}
+
+Describe "取り込みのジャーナルの復旧と書き出し（flushPendingPublish・recoverIngestJournal・writeStatusWithJournal）" -Tag Io {
+    # 本文インデックスへの書き出し（publishIndexFolders）だけ Mock にして、書き出せたとき・書き出せなかったときのジャーナルの記録と、
+    # 始めの復旧が次の回へ持ち越すフォルダを確かめる。ジャーナル・取り込み一覧・書き出し待ちは本物
+    BeforeAll {
+        . "${scriptsDir}\tebunko\indexer\indexer_lib.ps1"
+        . $runPath
+        $script:recoverCount = 0
+
+        function newRecoverEnv {
+            # 前回のジャーナル（records）を書き、書き出し前のフォルダ（営業\a.xlsx の TSV を入れる元のファイルごとのフォルダ）を作った状態の部品を返す
+            param (
+                [string[]]$records = $null,
+                [string[]]$folders = @("営業")
+            )
+
+            $script:recoverCount++
+            $ws = [Workspace]::new((Join-Path $TestDrive "recover$($script:recoverCount)"))
+            [System.IO.Directory]::CreateDirectory($ws.IndexDir) | Out-Null
+            foreach ($name in $folders) {
+                [System.IO.Directory]::CreateDirectory("$($ws.IndexDir)\$name\a.xlsx") | Out-Null
+                [System.IO.File]::WriteAllText("$($ws.IndexDir)\$name\a.xlsx\S.tsv", "x")
+            }
+            $journal = [IngestJournal]::new($ws.JournalFile)
+            if ($null -ne $records) {
+                $journal.Reset([string[]](@("版`t2", "回`t2026/10/17 10:00:00`t0") + $records))
+            }
+            $channel = newIndexerChannel
+            return @{
+                Workspace = $ws; Journal = $journal; Pending = [PendingPublish]::new(); Channel = $channel
+                Ledger = [StatusLedger]::new([pscustomobject]@{ StatusFile = "$($ws.Dir)\ingest_status.tsv" })
+                Reporter = [IndexingReporter]::new($channel)
+            }
+        }
+
+        function readJournalLines {
+            param ($rc)
+
+            $rc.Journal.Close()
+            return @($rc.Journal.ReadPrevious())
+        }
+    }
+
+    BeforeEach {
+        Mock writeIndexerLog { }
+        Mock publishIndexFolders { return @{ Count = 1; Skipped = @() } }
+    }
+
+    It "flushPendingPublish は、書き出せたフォルダに「出」を足し、書き出せなかったフォルダ（Failed）を空のままにする" {
+        $rc = newRecoverEnv
+        $workspace = $rc.Workspace
+        $rc.Pending.MarkFolder("$($workspace.IndexDir)\営業")
+        $failed = New-Object System.Collections.Generic.List[string]
+        flushPendingPublish $rc.Pending $rc.Journal -All -Failed $failed
+        $failed.Count | Should -Be 0
+        (readJournalLines $rc) | Should -Be @("出`t営業")
+    }
+
+    It "flushPendingPublish は、<name>のとき、書き出せなかったフォルダだけを Failed に足し、「出」はできたフォルダにだけ足す" -TestCases @(
+        @{ name = "2 フォルダのうち 1 つの本文インデックスを書けなかった（Skipped）"; fail = "skip"; expectedFailed = @("営業"); expectedJournal = @("出`t開発") }
+        @{ name = "書き出しが例外になった（全部が書き出せていない）"; fail = "throw"; expectedFailed = @("営業", "開発"); expectedJournal = @() }
+        @{ name = "Failed を渡さずに呼び、本文インデックスを書けなかった（落ちず、「出」は書けたフォルダにだけ足す）"; fail = "skip"; noList = $true; expectedFailed = @(); expectedJournal = @("出`t開発") }
+        @{ name = "Failed を渡さずに呼び、書き出しが例外になった（落ちず、「出」は足さない）"; fail = "throw"; noList = $true; expectedFailed = @(); expectedJournal = @() }
+    ) {
+        param ($name, $fail, $expectedFailed, $expectedJournal, $noList = $false)
+        $rc = newRecoverEnv -folders @("営業", "開発")
+        $workspace = $rc.Workspace
+        if ($fail -eq "skip") {
+            Mock publishIndexFolders { return @{ Count = 1; Skipped = @(@{ Rel = "営業"; Stage = "本文インデックス"; Reason = "書けない" }) } }
+        } else {
+            Mock publishIndexFolders { throw "壊れた" }
+        }
+        $rc.Pending.MarkFolder("$($workspace.IndexDir)\営業")
+        $rc.Pending.MarkFolder("$($workspace.IndexDir)\開発")
+        $failed = New-Object System.Collections.Generic.List[string]
+        if ($noList) {
+            { flushPendingPublish $rc.Pending $rc.Journal -All } | Should -Not -Throw
+        } else {
+            flushPendingPublish $rc.Pending $rc.Journal -All -Failed $failed
+        }
+        @($failed | Sort-Object) | Should -Be @($expectedFailed | Sort-Object)
+        @(readJournalLines $rc) | Should -Be @($expectedJournal)
+    }
+
+    It "前の回が終まで書いたが、営業の出が無い（書き出せなかった）とき、始めに書き出し直し、出を足して、次の回へ持ち越すものは無い。済んだ仕事は止まった扱いにしない" {
+        $rc = newRecoverEnv @("始`t営業\a.xlsx`t1", "終")
+        $workspace = $rc.Workspace
+        $result = recoverIngestJournal $rc.Ledger $rc.Journal $rc.Pending $rc.Channel $rc.Reporter
+        @($result.Resume).Count | Should -Be 0
+        @($result.Unpublished).Count | Should -Be 0
+        Should -Invoke publishIndexFolders -Times 1 -Exactly -Scope It
+        (readJournalLines $rc)[-1] | Should -Be "出`t営業"
+    }
+
+    It "始めの書き出しが失敗したときは、そのフォルダを次の回へ持ち越す（Unpublished）。済んだ仕事は止まった扱いにしない" {
+        Mock publishIndexFolders { return @{ Count = 0; Skipped = @(@{ Rel = "営業"; Stage = "本文インデックス"; Reason = "書けない" }) } }
+        $rc = newRecoverEnv @("始`t営業\a.xlsx`t1", "終")
+        $workspace = $rc.Workspace
+        $result = recoverIngestJournal $rc.Ledger $rc.Journal $rc.Pending $rc.Channel $rc.Reporter
+        @($result.Resume).Count | Should -Be 0
+        @($result.Unpublished) | Should -Be @("営業")
+    }
+
+    It "始めの書き出しが 2 フォルダのうち 1 つだけ失敗したときは、失敗した 1 つだけを次の回へ持ち越し、書き出せた 1 つは「出」を足す" {
+        Mock publishIndexFolders { return @{ Count = 1; Skipped = @(@{ Rel = "開発"; Stage = "本文インデックス"; Reason = "書けない" }) } }
+        $rc = newRecoverEnv @("始`t営業\a.xlsx`t1", "始`t開発\b.xlsx`t1", "終") -folders @("営業", "開発")
+        $workspace = $rc.Workspace
+        $result = recoverIngestJournal $rc.Ledger $rc.Journal $rc.Pending $rc.Channel $rc.Reporter
+        @($result.Unpublished) | Should -Be @("開発")
+        (readJournalLines $rc)[-1] | Should -Be "出`t営業"
+        @(readJournalLines $rc) | Should -Not -Contain "出`t開発"
+    }
+
+    It "中止を求められていれば、始めの書き出しはせず、書き出していないフォルダを次の回へ持ち越す" {
+        $rc = newRecoverEnv @("未`t営業")
+        $workspace = $rc.Workspace
+        $rc.Channel.Stop = $true
+        $result = recoverIngestJournal $rc.Ledger $rc.Journal $rc.Pending $rc.Channel $rc.Reporter
+        @($result.Unpublished) | Should -Be @("営業")
+        Should -Invoke publishIndexFolders -Times 0 -Exactly -Scope It
+    }
+
+    It "取り込み中に止まった仕事（始だけ）は、書き出しが失敗しても、やり直す仕事として返す" {
+        Mock publishIndexFolders { return @{ Count = 0; Skipped = @(@{ Rel = "営業"; Stage = "本文インデックス"; Reason = "書けない" }) } }
+        $rc = newRecoverEnv @("始`t営業\a.xlsx`t1")
+        $workspace = $rc.Workspace
+        $result = recoverIngestJournal $rc.Ledger $rc.Journal $rc.Pending $rc.Channel $rc.Reporter
+        @($result.Resume | ForEach-Object { "$($_.RelPath)=$($_.Count)" }) | Should -Be @("営業\a.xlsx=1")
+        @($result.Unpublished) | Should -Be @("営業")
+    }
+
+    It "ジャーナルが読めない（無い）ときは、今ある書き出し前のフォルダ（<count> 件。前の版で止まった跡を含む）だけを書き出す" -TestCases @(
+        @{ count = 0; folders = @() }
+        @{ count = 2; folders = @("営業", "開発") }
+    ) {
+        param ($count, $folders)
+        $rc = newRecoverEnv -folders $folders
+        $workspace = $rc.Workspace
+        $script:expectedKeys = (@($folders | ForEach-Object { "$($workspace.IndexDir)\$_" }) | Sort-Object) -join "|"
+        $result = recoverIngestJournal $rc.Ledger $rc.Journal $rc.Pending $rc.Channel $rc.Reporter
+        @($result.Unpublished).Count | Should -Be 0
+        if ($count -eq 0) {
+            Should -Invoke publishIndexFolders -Times 0 -Exactly -Scope It
+        } else {
+            Should -Invoke publishIndexFolders -Times 1 -Exactly -Scope It -ParameterFilter { ((@($pending.Keys) | Sort-Object) -join "|") -eq $script:expectedKeys }
+        }
+    }
+
+    It "前の版の ingesting.txt があれば、止まった仕事に足す。ジャーナルにも同じ仕事があるときは重ねない" {
+        $rc = newRecoverEnv @("始`t営業\a.xlsx`t1")
+        $workspace = $rc.Workspace
+        writeListFile "$($workspace.Dir)\ingesting.txt" @("1`t営業\a.xlsx", "1`t営業\b.xlsx")
+        $result = recoverIngestJournal $rc.Ledger $rc.Journal $rc.Pending $rc.Channel $rc.Reporter
+        @($result.Resume | ForEach-Object { $_.RelPath } | Sort-Object) | Should -Be @("営業\a.xlsx", "営業\b.xlsx")
+    }
+
+    It "writeStatusWithJournal は、書き直しの前に「書」を足し、-Finish のときだけ書き直しのあとに「終」を足す" -TestCases @(
+        @{ finish = $true; expected = @("書", "終") }
+        @{ finish = $false; expected = @("書") }
+    ) {
+        param ($finish, $expected)
+        Mock writeStatusKeepingDropped { }
+        $rc = newRecoverEnv
+        $workspace = $rc.Workspace
+        if ($finish) {
+            writeStatusWithJournal $rc.Journal $rc.Ledger @() @() @() @{} -Finish
+        } else {
+            writeStatusWithJournal $rc.Journal $rc.Ledger @() @() @() @{}
+        }
+        Should -Invoke writeStatusKeepingDropped -Times 1 -Exactly -Scope It
+        (readJournalLines $rc) | Should -Be $expected
     }
 }

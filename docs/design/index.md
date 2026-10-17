@@ -108,7 +108,7 @@ flowchart LR
     subgraph work["work/（自動生成）"]
         idx[("store/content/<br>本文インデックス")]
         status["store/ingest_status.tsv<br>（更新日時・状態）"]
-        ctl["indexing_log.txt<br>ingesting.txt"]
+        ctl["indexing_log.txt<br>store/journal/ingest.tsv"]
         out["search_results.txt<br>（［結果をファイルに出力］）"]
     end
 

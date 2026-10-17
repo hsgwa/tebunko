@@ -6,52 +6,6 @@ BeforeAll {
     . "${scriptsDir}\shared\office\office_reader.ps1"
 }
 
-Describe "readIngestingFiles / writeIngestingFiles / removeIngestingFile" -Tag Io {
-    It "取り込み中の複数のファイルの相対パスと回数をそのまま読み込める（[ ] や空白を含むパス）" {
-        $path = "$TestDrive\ingesting[1].txt"
-        writeIngestingFiles @(@{ RelPath = "フォルダ1\a [確定]\見積.xlsx"; Count = 2 }, @{ RelPath = "フォルダ2\b.docx"; Count = 1 }) $path
-
-        $ingesting = readIngestingFiles $path
-        $ingesting.Count | Should -Be 2
-        $ingesting[0].RelPath | Should -Be "フォルダ1\a [確定]\見積.xlsx"
-        $ingesting[0].Count | Should -Be 2
-        $ingesting[1].RelPath | Should -Be "フォルダ2\b.docx"
-    }
-
-    It "取り込み中が無ければ記録を消す" {
-        $path = "$TestDrive\ingesting_empty.txt"
-        writeIngestingFiles @(@{ RelPath = "営業\a.xlsx"; Count = 1 }) $path
-        writeIngestingFiles @() $path
-        Test-Path -LiteralPath $path | Should -Be $false
-        (readIngestingFiles $path).Count | Should -Be 0
-    }
-
-    It "削除すると記録なし（空）になる。ファイルが無くても削除でエラーにならない" {
-        $path = "$TestDrive\ingesting_remove.txt"
-        writeIngestingFiles @(@{ RelPath = "営業\a.xlsx"; Count = 1 }) $path
-        removeIngestingFile $path
-        Test-Path -LiteralPath $path | Should -Be $false
-        (readIngestingFiles $path).Count | Should -Be 0
-        { removeIngestingFile "$TestDrive\none_ingesting.txt" } | Should -Not -Throw
-    }
-
-    It "壊れた行（回数が数値でない・相対パスが無い・空）は読み飛ばす" {
-        $path = "$TestDrive\ingesting_broken.txt"
-        writeListFile $path @("x`t営業\a.xlsx", "0`t営業\a.xlsx", "1`t", "営業\a.xlsx", "", "3`t営業\残る.xlsx")
-        $ingesting = readIngestingFiles $path
-        $ingesting.Count | Should -Be 1
-        $ingesting[0].RelPath | Should -Be "営業\残る.xlsx"
-        $ingesting[0].Count | Should -Be 3
-    }
-
-    It "相対パスが使えない行（.. を含む・名前が使えない）は読み飛ばす。予約名のインデックスの行は、既にある名前なので読む" {
-        $path = "$TestDrive\ingesting_unsafe.txt"
-        writeListFile $path @("1`t..\外\a.xlsx", "1`t営業\..\..\外", "2`t..", "1`tCON\a.xlsx", "1`t営業.\a.xlsx", "1`t営業", "1`ta.xlsx", "1`t営業\a.xlsx", "3`t営業\サブ\b.xlsx", "1`taux.backup\c.xlsx")
-        $ingesting = @(readIngestingFiles $path)
-        @($ingesting | ForEach-Object { $_.RelPath }) | Should -Be @("CON\a.xlsx", "営業\a.xlsx", "営業\サブ\b.xlsx", "aux.backup\c.xlsx")
-    }
-}
-
 Describe "describeIngestError" -Tag Io {
     BeforeDiscovery {
         function newComError([string]$message, [string]$code) {
@@ -367,7 +321,7 @@ Describe "StatusLedger" -Tag Io {
         # 場所を暗黙に使わないため、コンストラクタで渡す保存先（Workspace の代わりに、同じプロパティを持つ値で差し替える）
         function newTestWorkspace([string]$dir) {
             [System.IO.Directory]::CreateDirectory($dir) | Out-Null
-            return [pscustomobject]@{ StatusFile = "$dir\ingest_status.tsv"; IngestingFile = "$dir\ingesting.txt" }
+            return [pscustomobject]@{ StatusFile = "$dir\ingest_status.tsv" }
         }
     }
 
@@ -384,14 +338,13 @@ Describe "StatusLedger" -Tag Io {
         (readStatusFile $ws.StatusFile).Rows.Count | Should -Be 2
     }
 
-    It "ReadIngestingFiles / WriteIngestingFiles / RemoveIngestingFile は、渡した保存先（IngestingFile）を読み書きする" {
+    It "ReadRelPaths は、渡した保存先（StatusFile）のデータ行の相対パスを、追記した行も数えてファイルの順に返す" {
         $ws = newTestWorkspace "$TestDrive\ledger2"
         $ledger = [StatusLedger]::new($ws)
-        $ledger.WriteIngestingFiles(@(@{ RelPath = "data\a.xlsx"; Count = 1 }))
-        $ledger.ReadIngestingFiles().Count | Should -Be 1
-        $ledger.RemoveIngestingFile()
-        Test-Path -LiteralPath $ws.IngestingFile | Should -Be $false
-        $ledger.ReadIngestingFiles().Count | Should -Be 0
+        $ledger.ReadRelPaths().Count | Should -Be 0
+        $ledger.WriteStatus(@([pscustomobject]@{ Path = "C:\data"; Name = "data" }), @((newStatusRow "data\a.xlsx" "2025/01/10 12:34:56" "1" $stateNew)))
+        $ledger.AddRow((newStatusRow "data\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"))
+        @($ledger.ReadRelPaths()) | Should -Be @("data\a.xlsx", "data\a.xlsx")
     }
 
     It "RenameIndexName / RemoveIndexName は、renameStatusIndexName / removeStatusIndexName と同じ結果になる" {
