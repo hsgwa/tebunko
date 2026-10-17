@@ -4276,7 +4276,7 @@
 <h1 id="pdf-ファイルの読み取り">PDF ファイルの読み取り<a class="headerlink" href="#pdf-ファイルの読み取り" title="Permanent link">&para;</a></h1>
 <p>扱うこと: PDF ファイル（<code>.pdf</code>）から文字を読む範囲、読めない PDF の扱い、読み取りの上限、場所（ページ）の付け方、取り込みの流れ。扱わないこと: Office ファイルの取り込み（<a href="../crawl/">クロール対象フォルダと取り込み対象</a>・<a href="../excel/">Excel</a>）、テキストファイルの取り込み（<a href="../text/">テキストファイルの読み取り</a>）、細工した PDF から身を守る確認（<a href="../../../safety/checks/">安全性の確認の詳細</a>）。先に読むページ: <a href="../crawl/">クロール対象フォルダと取り込み対象</a>、<a href="../target-decision/">取り込み対象の決定</a>。</p>
 <h2 id="方針">方針<a class="headerlink" href="#方針" title="Permanent link">&para;</a></h2>
-<p>PDF は PowerShell だけで読む（<code>shared/core/pdf_file.ps1</code>・暗号化の復号は <code>shared/core/pdf_crypt.ps1</code>）。外の部品・ライブラリ・Office・外部プロセスは使わない。Office は起動しないので、取り込みは Office を使わない読み取りのレーン（<code>Reader</code>）で並べて行う。</p>
+<p>PDF は PowerShell だけで読む（<code>shared/core/pdf_file.ps1</code>・暗号化の復号は <code>shared/core/pdf_crypt.ps1</code>）。外の部品・ライブラリ・Office・外部プロセスは使わない。Office は起動しないので、取り込みは Office を使わずに読む仕事（取り込みのワーカー）で並べて行う。</p>
 <p>画面にもファイルにも触らない関数（<code>readPdfPages</code>。バイト列からページごとの文字列を作る）と、ファイルを開いて読む関数（<code>readPdfFile</code>）に分ける。取り込みは <code>tebunko/indexer/extract_pdf.ps1</code> の <code>extractPdfFile</code> が行う。</p>
 <h2 id="取り込みの流れ">取り込みの流れ<a class="headerlink" href="#取り込みの流れ" title="Permanent link">&para;</a></h2>
 <ol>

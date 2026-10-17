@@ -4266,7 +4266,7 @@
 </tr>
 <tr>
 <td>17</td>
-<td>制限時間を過ぎたときは、そのレーンのスレッドが自分で起動した Office（レーンごとに 1 つ）を強制終了する。ほかのレーンのアプリは止めない（次に必要になったときに起動し直すため、結果には影響しない）</td>
+<td>制限時間を過ぎたときは、そのワーカーのスレッドが自分で起動した Office（ワーカーごとに 1 つ）を強制終了する。ほかのワーカーのアプリは止めない（次に必要になったときに起動し直すため、結果には影響しない）</td>
 <td>○</td>
 </tr>
 <tr>
@@ -4286,7 +4286,7 @@
 </tr>
 <tr>
 <td>21</td>
-<td>取り込みはファイルの種類ごとのレーンで並べて行い、Excel・Word・PowerPoint を同時に 1 つずつ動かすため、メモリを多く使う（同じ種類の Office を複数は起動しない）。Office を使わずに読むスレッド（既定はコア数 − 1、最大 4）もメモリを使う。メモリの少ない PC でメモリが足りなくなるときは、<code>setting.config</code> の <code>ingestThreads</code> を減らす（<a href="../../structure/settings-file/#形式">形式</a>）</td>
+<td>取り込みは取り込みのワーカーで並べて行い、Excel・Word・PowerPoint を同時に 1 つずつ動かすため、メモリを多く使う（同じ種類の Office を複数は起動しない）。Office を使わずに読むスレッド（既定はコア数 − 1、最大 4）もメモリを使う。メモリの少ない PC でメモリが足りなくなるときは、<code>setting.config</code> の <code>ingestThreads</code> を減らす（<a href="../../structure/settings-file/#形式">形式</a>）</td>
 <td>○</td>
 </tr>
 <tr>

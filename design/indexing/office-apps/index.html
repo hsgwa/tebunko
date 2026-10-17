@@ -4377,7 +4377,7 @@
 <li>PowerPoint: 拡張子を変えずに開く（<code>.ppt</code> に変えるとアウトラインとして読むため）。</li>
 <li>実機で数秒以内に例外にならない・ダイアログが出るアプリは、<code>${officeFallbackEnabled}</code> でそのアプリの予備を無効にする（<a href="../known-issues/">Word・PowerPointの注意点・既知の問題</a>）。</li>
 <li><strong>判定で失敗にしたときは、Officeの起動し直し（<code>stopApp</code>）を呼ばない</strong>（<code>throwProtectionFailure</code> が例外の <code>Data</code> に印を付け、<code>invokeIngestTask</code> がそれを見る）。IRM・パスワード付きのファイルが並んでも、そのたびにOfficeを起動し直さないため。Officeを一度使ってから失敗にしたとき（予備で開けた後に出力が合わない等）は、今までどおり起動し直す。</li>
-<li>Excel は、コピーが ZIP でないときにこの判定を呼ぶ（<a href="../excel/#excel-の抽出処理extractworkbook">Excel の抽出処理</a>）。読み取りのスレッド（Office を持たない）では、<code>Password</code>・<code>Rights</code> はその場で失敗にし、<code>Unknown</code>（予備が有効なとき）は今の旧形式と同じく Office のレーンに回し直す。</li>
+<li>Excel は、コピーが ZIP でないときにこの判定を呼ぶ（<a href="../excel/#excel-の抽出処理extractworkbook">Excel の抽出処理</a>）。読み取りのスレッド（Office を持たない）では、<code>Password</code>・<code>Rights</code> はその場で失敗にし、<code>Unknown</code>（予備が有効なとき）は今の旧形式と同じく Office の持ち主のワーカーに回し直す。</li>
 </ul>
 <blockquote>
 <p><strong><a href="../word/#word-の旧形式の変換extractwithword">Word の旧形式の変換</a> Word の旧形式の変換（<code>extractWithWord</code>）</strong> → <a href="../word/#word-の旧形式の変換extractwithword">Word の旧形式の変換</a></p>
@@ -4526,11 +4526,11 @@
 <tbody>
 <tr>
 <td>起動</td>
-<td><code>getApp &lt;名前&gt;</code> がアプリごとに 1 つの COM オブジェクトを保持し、最初に必要になったときに起動する。保持はスレッドごとで、Excel・Word・PowerPoint はそれぞれのレーンのスレッド 1 つだけが起動する（Excel のスレッドは Excel だけ、Word のスレッドは Word だけ、PowerPoint のスレッドは PowerPoint だけを持つ。読み取りのスレッドは Office を起動しない）。インデックス作成が起動する Office は、種類ごとに最大 1 つである。スレッドの間で Office を分け合わないため、鍵は使わない（<a href="../parallel/">取り込みの並列化</a>）</td>
+<td><code>getApp &lt;名前&gt;</code> がアプリごとに 1 つの COM オブジェクトを保持し、最初に必要になったときに起動する。保持はスレッドごとで、Excel・Word・PowerPoint はそれぞれのアプリの持ち主のワーカー 1 つだけが起動する（Excel のスレッドは Excel だけ、Word のスレッドは Word だけ、PowerPoint のスレッドは PowerPoint だけを持つ。読み取りのスレッドは Office を起動しない）。インデックス作成が起動する Office は、種類ごとに最大 1 つである。スレッドの間で Office を分け合わないため、鍵は使わない（<a href="../parallel/">取り込みの並列化</a>）</td>
 </tr>
 <tr>
 <td>PID の取得</td>
-<td>COM 生成の前後でプロセス一覧（<code>EXCEL</code> / <code>WINWORD</code> / <code>POWERPNT</code>）を比べ、新しく増えた 1 つを自分が起動したプロセスとする。比較は自分のセッションのプロセスだけで行う（別の利用者・別の作業フォルダの tebunko など、ほかのセッションのプロセスを自分のものと取り違えない）。同じ種類の Office を起動するのはそのレーンのスレッド 1 つだけのため、ほかのスレッドの起動と取り違えない。増えた 1 つの起動時刻（UTC の Ticks）も、止める前の照合に使うために一度だけ読んで控える（<code>getOfficeStartTicks</code>）。読めなければ控えず、記録も書かない（下の「起動時刻が読めないとき」）</td>
+<td>COM 生成の前後でプロセス一覧（<code>EXCEL</code> / <code>WINWORD</code> / <code>POWERPNT</code>）を比べ、新しく増えた 1 つを自分が起動したプロセスとする。比較は自分のセッションのプロセスだけで行う（別の利用者・別の作業フォルダの tebunko など、ほかのセッションのプロセスを自分のものと取り違えない）。同じ種類の Office を起動するのはそのアプリの持ち主のワーカー 1 つだけのため、ほかのスレッドの起動と取り違えない。増えた 1 つの起動時刻（UTC の Ticks）も、止める前の照合に使うために一度だけ読んで控える（<code>getOfficeStartTicks</code>）。読めなければ控えず、記録も書かない（下の「起動時刻が読めないとき」）</td>
 </tr>
 <tr>
 <td>優先度</td>
@@ -4554,11 +4554,11 @@
 </tr>
 <tr>
 <td>制限時間の監視</td>
-<td>監視のスレッドは Excel・Word・PowerPoint のレーンのスレッドごとに 1 つ（<code>OfficeWatchdog</code> の <code>Start</code>。読み取りのスレッドは持たない）。<code>getApp</code> / <code>stopApp</code> のたびに、そのスレッドが自分で起動したアプリの PID を監視スレッドに渡す（<code>OfficeWatchdog</code> の <code>UpdateWatchedPids</code>）。1 ファイルの制限時間を過ぎたら、監視スレッドがそれらを強制終了する（<a href="../ingest-list/#強制終了時間切れからの再開">取り込み一覧</a>）。ほかのレーンのアプリは止めない。画面から中止を求められた（受け渡しの口の <code>Stop</code>。<code>State.Cancel</code> に口を渡してある）ときは、制限時間を待たず、同じ条件で自分が起動したアプリを止める。止めるものが実際にあったときだけ、<code>State.Cancelled</code> を立てる（利用者が使っているアプリだけで止めたものが無いときは立てない。制限時間の <code>TimedOut</code> とは別）。取り込みのスレッドは、<code>Cancelled</code> を見て、そのファイルを取り込まずに抜ける。PID が別のプロセスに再利用されている場合に備え、プロセス名が <code>EXCEL</code> / <code>WINWORD</code> / <code>POWERPNT</code> で、かつ控えた名前・起動時刻と同じ（<code>isSameOfficeProcess</code>）ときだけ終了させる。起動時刻が読めないときは止めない（<code>quitApp</code>・画面を閉じるときの <code>KillOffice</code> も同じ。下の「起動時刻が読めないとき」）</td>
+<td>監視のスレッドは 取り込みのワーカーごとに 1 つ（<code>OfficeWatchdog</code> の <code>Start</code>。読み取りのスレッドは持たない）。<code>getApp</code> / <code>stopApp</code> のたびに、そのスレッドが自分で起動したアプリの PID を監視スレッドに渡す（<code>OfficeWatchdog</code> の <code>UpdateWatchedPids</code>）。1 ファイルの制限時間を過ぎたら、監視スレッドがそれらを強制終了する（<a href="../ingest-list/#強制終了時間切れからの再開">取り込み一覧</a>）。ほかのワーカーのアプリは止めない。画面から中止を求められた（受け渡しの口の <code>Stop</code>。<code>State.Cancel</code> に口を渡してある）ときは、制限時間を待たず、同じ条件で自分が起動したアプリを止める。止めるものが実際にあったときだけ、<code>State.Cancelled</code> を立てる（利用者が使っているアプリだけで止めたものが無いときは立てない。制限時間の <code>TimedOut</code> とは別）。取り込みのスレッドは、<code>Cancelled</code> を見て、そのファイルを取り込まずに抜ける。PID が別のプロセスに再利用されている場合に備え、プロセス名が <code>EXCEL</code> / <code>WINWORD</code> / <code>POWERPNT</code> で、かつ控えた名前・起動時刻と同じ（<code>isSameOfficeProcess</code>）ときだけ終了させる。起動時刻が読めないときは止めない（<code>quitApp</code>・画面を閉じるときの <code>KillOffice</code> も同じ。下の「起動時刻が読めないとき」）</td>
 </tr>
 <tr>
 <td>利用者が使っている PowerPoint</td>
-<td>取り込み中に、利用者が PowerPoint にファイルを開く（インデックス作成が起動した PowerPoint に、利用者が窓を出して使い始める）ことがある。固まった PowerPoint の窓は、約 5 秒でゴースト窓に差し替わって見えなくなるため、制限時間を過ぎたときに窓を探しても見つからない。そこで監視のスレッドは、取り込み中は 500 ミリ秒ごとに、PowerPoint の PID の <code>Process.MainWindowHandle</code> を取り直して見る（<code>testOfficeProcessHasWindow</code>。COM も窓へのメッセージも使わないので、固まったプロセスにも戻る。窓の中身で探さず、PID だけを見る）。見えた窓があれば、その PID と起動時刻を「利用者が使った」印（<code>OfficeWatchdog</code> の <code>State.Users</code>、受け渡しの口の <code>UserOfficePids</code>）に残す。制限時間を過ぎたとき、印のあるプロセスは<strong>止めない</strong>（窓が消えていても止めない）。印は、ファイルを取り込み終えた境目（<code>handOverForeignApp</code>）で COM が利用者のファイルを 0 件と答えたとき（利用者が窓を開いて閉じた）、PID が見張りから外れたとき（<code>UpdateWatchedPids</code>・<code>stopApp</code>・<code>untrackApp</code>）と、同じ PID で起動時刻が違うとき（PID の使い回し）に消す。止めない代わりに、監視は取り込みのスレッドのレーンを<strong>諦めた</strong>と司令に伝える（レーンの状態 <code>Abandoned</code>）。司令は、そのレーンで取り込み中だったファイルと、まだ渡していないファイルを、取り込まず、理由付きの失敗として見せる（一覧の状態は「未取り込み」のまま、理由はエラーの列。インデックスは変えない。<a href="../ingest-list/#強制終了時間切れからの再開">取り込み一覧</a>）。固まった呼び出しから戻らないスレッドは待たず（<code>IngestDispatcher.Stop</code> は止める依頼だけを出す）、戻ってきた結果は捨てる。戻ってきたスレッドも、書き出さず、アプリも終了させない。印が無い（窓を一度も見ていない）プロセスは、今までどおり制限時間で止める。司令のスレッドで取り込む形（<code>-Workers 0</code>）では諦めるレーンが無く、止めないだけにする</td>
+<td>取り込み中に、利用者が PowerPoint にファイルを開く（インデックス作成が起動した PowerPoint に、利用者が窓を出して使い始める）ことがある。固まった PowerPoint の窓は、約 5 秒でゴースト窓に差し替わって見えなくなるため、制限時間を過ぎたときに窓を探しても見つからない。そこで監視のスレッドは、取り込み中は 500 ミリ秒ごとに、PowerPoint の PID の <code>Process.MainWindowHandle</code> を取り直して見る（<code>testOfficeProcessHasWindow</code>。COM も窓へのメッセージも使わないので、固まったプロセスにも戻る。窓の中身で探さず、PID だけを見る）。見えた窓があれば、その PID と起動時刻を「利用者が使った」印（<code>OfficeWatchdog</code> の <code>State.Users</code>、受け渡しの口の <code>UserOfficePids</code>）に残す。制限時間を過ぎたとき、印のあるプロセスは<strong>止めない</strong>（窓が消えていても止めない）。印は、ファイルを取り込み終えた境目（<code>handOverForeignApp</code>）で COM が利用者のファイルを 0 件と答えたとき（利用者が窓を開いて閉じた）、PID が見張りから外れたとき（<code>UpdateWatchedPids</code>・<code>stopApp</code>・<code>untrackApp</code>）と、同じ PID で起動時刻が違うとき（PID の使い回し）に消す。止めない代わりに、監視は取り込みのワーカーを<strong>諦めた</strong>と司令に伝える（ワーカーの状態 <code>Abandoned</code>）。司令は、そのワーカーで取り込み中だったファイルと、まだ渡していないファイルを、取り込まず、理由付きの失敗として見せる（一覧の状態は「未取り込み」のまま、理由はエラーの列。インデックスは変えない。<a href="../ingest-list/#強制終了時間切れからの再開">取り込み一覧</a>）。固まった呼び出しから戻らないスレッドは待たず（<code>IngestDispatcher.Stop</code> は止める依頼だけを出す）、戻ってきた結果は捨てる。戻ってきたスレッドも、書き出さず、アプリも終了させない。印が無い（窓を一度も見ていない）プロセスは、今までどおり制限時間で止める。司令のスレッドで取り込む形（<code>-Workers 0</code>）では諦めるワーカーが無く、止めないだけにする</td>
 </tr>
 <tr>
 <td>起動時刻が読めないとき</td>
@@ -4634,7 +4634,7 @@
 <td></td>
 </tr>
 <tr>
-<td>- <strong>残りうるもの</strong>: 上限まで通らなかったもの、または待たずに抜けたもの（中止したとき・画面を閉じたとき）は、そのまま持ち続け、スレッドが終わると参照が切れる。そのとき残りうるのは、<code>DisplayAlerts</code> が偽のまま（利用者がブックを閉じるときの保存の確認が出ない）、任意の設定が戻らないまま、自分の一時コピーが閉じられないまま、窓が出ないまま、である。窓も操作する人もいなければ、そのアプリは終わることがある。一覧を読めないまま持ち続けた Word も、スレッドが終わると参照が切れ、窓の無い Word が残りうる。持ち続けたアプリが、閉じ損ねた自分の一時コピーを開いたままのときは、同じレーンの次のファイルの取り込みの最初の作業フォルダの片付け（<code>clearTmpDir</code>）が失敗し、そのファイルは取り込みの失敗として記録される（次の更新で取り込み直す）。</td>
+<td>- <strong>残りうるもの</strong>: 上限まで通らなかったもの、または待たずに抜けたもの（中止したとき・画面を閉じたとき）は、そのまま持ち続け、スレッドが終わると参照が切れる。そのとき残りうるのは、<code>DisplayAlerts</code> が偽のまま（利用者がブックを閉じるときの保存の確認が出ない）、任意の設定が戻らないまま、自分の一時コピーが閉じられないまま、窓が出ないまま、である。窓も操作する人もいなければ、そのアプリは終わることがある。一覧を読めないまま持ち続けた Word も、スレッドが終わると参照が切れ、窓の無い Word が残りうる。持ち続けたアプリが、閉じ損ねた自分の一時コピーを開いたままのときは、同じワーカーの次のファイルの取り込みの最初の作業フォルダの片付け（<code>clearTmpDir</code>）が失敗し、そのファイルは取り込みの失敗として記録される（次の更新で取り込み直す）。</td>
 <td></td>
 <td></td>
 </tr>

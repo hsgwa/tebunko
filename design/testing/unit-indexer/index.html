@@ -4116,8 +4116,8 @@
 <td>形式ごとの抽出版、取り込むかどうかと理由（新規・更新あり・前回未完了（<code>未取り込み</code> でエラーがあっても同じ）・インデックスなし・前回失敗・前の抽出版）</td>
 </tr>
 <tr>
-<td><code>getIngestLane</code> / <code>getOfficeLane</code></td>
-<td>Excel はすべて Excel のレーン、旧形式の Word・PowerPoint は Office のレーン、新形式は読み取りのレーン。読み取りのレーンから回し直すときは、PowerPoint のファイルは PowerPoint、それ以外は Word のレーン。表（<code>$officeFileKinds</code>）に無い拡張子（<code>.pptz</code> など）は Office とみなさず、読み取りのレーンになる</td>
+<td><code>getIngestApp</code> / <code>getRerouteApp</code> / <code>selectIngestWorker</code></td>
+<td>Excel はすべて Excel、旧形式の Word・PowerPoint はそのアプリ、新形式は Office が要らない（空）。回し直すときは、PowerPoint のファイルは PowerPoint、それ以外は Word。表（<code>$officeFileKinds</code>）に無い拡張子（<code>.pptz</code> など）は Office とみなさない。渡し先は、持ち主へ（満杯なら待つ・諦めていれば後回し）・持ち主がいなければ持ち主のいないいちばん空いているワーカー・Office が要らないファイルは持ち主のいないワーカーを先に・すべて諦めていれば後回し（<code>-TestCases</code> の表）</td>
 </tr>
 <tr>
 <td><code>createTargetList</code> / <code>findTargetFiles</code></td>
@@ -4141,7 +4141,7 @@
 </tr>
 <tr>
 <td><code>IngestDispatcher</code>（<code>ingest_dispatcher.Tests.ps1</code>）</td>
-<td>渡す順番とレーンの空き、先読みで満杯のレーンを飛ばす、元のファイルが無くなった・クロール対象フォルダが無い・中止、諦めたレーンの回し直し、遅れて届いた結果を捨てる、後回しの理由、止まった取り込みスレッド、<code>Stop</code> が諦めたレーンのスレッドを待たない</td>
+<td>渡す順番とワーカーの空き、先読みで満杯の持ち主のファイルを飛ばす、元のファイルが無くなった・クロール対象フォルダが無い・中止、諦めたワーカーの取り込み中・列のファイルの後回し（<code>TakeAbandonedWorker</code>）、回し直し先の持ち主が諦めていたとき、遅れて届いた結果を捨てる、後回しの理由、止まった取り込みスレッド、<code>Stop</code> が諦めたワーカーのスレッドを待たない</td>
 </tr>
 <tr>
 <td><code>clearTmpDir</code> / <code>initTmpDir</code> / <code>newWorkerTmpDir</code> の作業領域のリンク</td>
@@ -4161,15 +4161,15 @@
 </tr>
 <tr>
 <td><code>getIngestWorkerCount</code></td>
-<td>読み取りのスレッドの数。指定があればその数、無ければ設定（<code>ingestThreads</code>）、設定が 0 ならコア数から決める、ファイルの数より多くしない</td>
+<td>Office を使わずに読む仕事の数。指定があればその数、無ければ設定（<code>ingestThreads</code>）、設定が 0 ならコア数から決める、ファイルの数より多くしない</td>
 </tr>
 <tr>
-<td><code>getIngestLaneCapacity</code></td>
-<td>Office のレーンは取り込み中と次の 1 件、読み取りのレーンはスレッドの数の 2 倍まで渡す</td>
+<td><code>completeIngestJob</code>（<code>indexer.Tests.ps1</code>）</td>
+<td>司令の結果の受け方（成功・失敗・後回し・渡さずに残したファイルの後回し・中止）が、取り込み一覧・書き出し待ち・進み具合・ログに反映される（取り込みのワーカーの数 0 の形で、司令のスレッドから呼ぶ）</td>
 </tr>
 <tr>
-<td><code>runIngestWorker</code> / <code>invokeIngestTask</code>（レーン）</td>
-<td>列の順に取り込み、結果を 1 件に 1 つ返して、列が閉じられたら終わる、読み取りのスレッドは Office を起動し直さない。「Office が要る」の例外なら、失敗にせず回し直し（<code>Reroute</code>）として返し、Office も終了しない。利用者の PowerPoint が使用中の例外なら、失敗にせず後回し（<code>Postponed</code>）として返し（司令が理由付きの失敗として数える）、Office も終了しない。後回しは取り込んだ件数に数えず、起動し直しを早めない。<strong>暗号化の判定でOfficeにまだ触れていない失敗</strong>（<a href="../../indexing/office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>の<code>throwProtectionFailure</code>）は失敗にするがOfficeは終了しない。ふつうの失敗は今までどおりOfficeを終了する。<strong>諦められたレーン</strong>（制限時間を過ぎても利用者の PowerPoint を止めなかったとき）のファイルは、取り込む前・取り込んだ後・例外のどこでも、公開せず <code>Postponed</code> を返し、Office を終了しない。司令は、そのレーンの取り込み中と未送出のファイルを、理由付きの失敗にして（状態は「未取り込み」のまま）、遅れて届いた結果は捨て、スレッドの終わりを待たずに止める。回し直し先のレーンを諦めていれば渡さずに後回しにする（司令の流れ）。諦めたレーンのスレッドが正常に終わっても失敗にしない（<code>IngestDispatcher</code> の <code>Receive</code>）。取り込みのスレッドのスクリプトが、レーンの状態と利用者が使った印の入れ物を見張りに渡し、諦めたレーンでは Office を片づけない（配線）</td>
+<td><code>runIngestWorker</code> / <code>invokeIngestTask</code>（ワーカー）</td>
+<td>列の順に取り込み、結果を 1 件に 1 つ返して、列が閉じられたら終わる、Office を使わないファイルだけを取り込んだワーカーは Office を起動し直さない。「Office が要る」の例外なら、失敗にせず回し直し（<code>Reroute</code>）として返し、Office も終了しない。利用者の PowerPoint が使用中の例外なら、失敗にせず後回し（<code>Postponed</code>）として返し（司令が理由付きの失敗として数える）、Office も終了しない。後回しは取り込んだ件数に数えず、起動し直しを早めない。<strong>暗号化の判定でOfficeにまだ触れていない失敗</strong>（<a href="../../indexing/office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>の<code>throwProtectionFailure</code>）は失敗にするがOfficeは終了しない。ふつうの失敗は今までどおりOfficeを終了する。<strong>諦められたワーカー</strong>（制限時間を過ぎても利用者の PowerPoint を止めなかったとき）のファイルは、取り込む前・取り込んだ後・例外のどこでも、公開せず <code>Postponed</code> を返し、Office を終了しない。司令は、そのワーカーの取り込み中と列のファイル、持ち主が諦めたワーカーのアプリのファイルを、理由付きの失敗にして（状態は「未取り込み」のまま）、遅れて届いた結果は捨て、スレッドの終わりを待たずに止める。回し直し先の持ち主のワーカーを諦めていれば渡さずに後回しにする（司令の流れ）。諦めたワーカーのスレッドが正常に終わっても失敗にしない（<code>IngestDispatcher</code> の <code>Receive</code>）。取り込みのスレッドのスクリプトが、ワーカーの状態と利用者が使った印の入れ物を見張りに渡し、諦めたワーカーでは Office を片づけない（配線）</td>
 </tr>
 <tr>
 <td><code>IndexingSession</code>（<code>indexing_session</code>）</td>

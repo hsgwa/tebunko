@@ -4053,14 +4053,15 @@
 
 
 <h1 id="取り込みの並列化">取り込みの並列化<a class="headerlink" href="#取り込みの並列化" title="Permanent link">&para;</a></h1>
-<p>扱うこと: ファイルの種類ごとのレーンと、司令・取り込みスレッド・監視の役割分担、Office の起動し直しと制限時間、中止のときの片づけ、実測。扱わないこと: メインフローそのもの（<a href="../flow/">インデックス作成のメインフロー</a>）、スレッド・プロセス全般の一覧（<a href="../../structure/threads/">プロセスとスレッド</a>）。先に読むページ: <a href="../flow/">インデックス作成のメインフロー</a>。</p>
-<p>インデクサの司令が取り込み対象を並べ、ファイルの種類ごとの「レーン」に 1 ファイルずつ渡す。レーンごとに列と取り込みスレッドを持つ。取り込みスレッドは結果（成功・失敗・TSV の場所）を返し、書き出しは司令がまとめて行う。</p>
+<p>扱うこと: 取り込みのワーカーと、司令・取り込みスレッド・監視の役割分担、Office の起動し直しと制限時間、中止のときの片づけ、実測。扱わないこと: メインフローそのもの（<a href="../flow/">インデックス作成のメインフロー</a>）、スレッド・プロセス全般の一覧（<a href="../../structure/threads/">プロセスとスレッド</a>）。先に読むページ: <a href="../flow/">インデックス作成のメインフロー</a>。</p>
+<p>インデクサの司令が取り込み対象を並べ、取り込みのワーカーに 1 ファイルずつ渡す。ワーカーは 1 種類で、どれも同じスクリプトを動かし、どの種類のファイルも受けられる（STA）。ワーカーごとに列と取り込みスレッドを持つ。取り込みスレッドは結果（成功・失敗・TSV の場所）を返し、書き出しは司令がまとめて行う。</p>
+<p>Office のアプリ（Excel・Word・PowerPoint）は、そのアプリのファイルを最初に受けたワーカーが「持ち主」になる。Office の COM を呼ぶのは持ち主のスレッドだけで、アプリごとに起動する Office は最大 1 つになる。</p>
 <table>
 <thead>
 <tr>
-<th>レーン</th>
+<th>仕事</th>
 <th>対象（拡張子）</th>
-<th>スレッド</th>
+<th>渡し先のワーカー</th>
 <th>Office</th>
 </tr>
 </thead>
@@ -4068,54 +4069,52 @@
 <tr>
 <td>Excel</td>
 <td><code>.xls*</code>（すべての Excel のファイル。セルの表示値を読むため Excel が要る）</td>
-<td>1（STA）</td>
+<td>Excel の持ち主</td>
 <td>Excel を 1 つ</td>
 </tr>
 <tr>
 <td>Word</td>
 <td><code>.doc</code></td>
-<td>1（STA）</td>
+<td>Word の持ち主</td>
 <td>Word を 1 つ</td>
 </tr>
 <tr>
 <td>PowerPoint</td>
 <td><code>.ppt</code></td>
-<td>1（STA）</td>
+<td>PowerPoint の持ち主</td>
 <td>PowerPoint を 1 つ</td>
 </tr>
 <tr>
-<td>読み取り</td>
-<td><code>.docx</code>・<code>.docm</code>・<code>.pptx</code>・<code>.pptm</code></td>
-<td>設定 <code>ingestThreads</code>（1〜4。0 はコア数 − 1 で 1〜4。取り込むファイルの数より多くはしない）（MTA）</td>
+<td>Office を使わずに読む</td>
+<td><code>.docx</code>・<code>.docm</code>・<code>.pptx</code>・<code>.pptm</code>・テキスト・PDF など</td>
+<td>持ち主でない、いちばん空いているワーカー（無ければいちばん空いているワーカー）</td>
 <td>使わない</td>
 </tr>
 </tbody>
 </table>
+<p>ワーカーの数は、Office を使わずに読む仕事の数（設定 <code>ingestThreads</code>。1〜4。0 はコア数 − 1 で 1〜4。取り込むファイルの数より多くはしない）に、この回に要る Office のアプリの数（最大 3）を足した数である。0 のときは、取り込みのスレッドを使わず、司令のスレッドで取り込む。</p>
 <pre class="mermaid"><code>flowchart LR
-    C["インデクサの司令&lt;br&gt;（MTA）"] -- ".xls*" --&gt; QE[("Excel の列")]
-    C -- ".doc" --&gt; QW[("Word の列")]
-    C -- ".ppt" --&gt; QP[("PowerPoint の列")]
-    C -- ".docx・.pptx など" --&gt; QR[("読み取りの列")]
-    QE --&gt; WE["Excel のスレッド&lt;br&gt;（STA・Excel を 1 つ&lt;br&gt;自分の監視）"]
-    QW --&gt; WW["Word のスレッド&lt;br&gt;（STA・Word を 1 つ&lt;br&gt;自分の監視）"]
-    QP --&gt; WP["PowerPoint のスレッド&lt;br&gt;（STA・PowerPoint を 1 つ&lt;br&gt;自分の監視）"]
-    QR --&gt; WR["読み取りのスレッド 1〜4&lt;br&gt;（MTA・Office を使わない）"]
-    WE &amp; WW &amp; WP &amp; WR -- 結果 --&gt; R[("結果の列")]
+    C["インデクサの司令&lt;br&gt;（MTA）&lt;br&gt;selectIngestWorker で渡し先を決める"] --&gt; Q1[("ワーカー 1 の列")]
+    C --&gt; Q2[("ワーカー 2 の列")]
+    C --&gt; Qn[("ワーカー n の列")]
+    Q1 --&gt; W1["ワーカー 1&lt;br&gt;（STA・Office の持ち主は&lt;br&gt;自分の Office を 1 つ・自分の監視）"]
+    Q2 --&gt; W2["ワーカー 2&lt;br&gt;（STA）"]
+    Qn --&gt; Wn["ワーカー n&lt;br&gt;（STA）"]
+    W1 &amp; W2 &amp; Wn -- 結果 --&gt; R[("結果の列")]
     R --&gt; C
-    C -- "Office が要る（回し直し）" --&gt; QW
-    C -- "Office が要る（回し直し）" --&gt; QP
+    C -- "Office が要る（回し直し）&lt;br&gt;持ち主の列へ" --&gt; Q1
     C -- フォルダが揃ったら --&gt; P["本文インデックス&lt;br&gt;システムインデックス"]</code></pre>
 <pre class="mermaid"><code>sequenceDiagram
     participant C as 司令
-    participant W as レーンのスレッド
+    participant W as ワーカーのスレッド
     participant O as Office（要る場合）
 
-    C-&gt;&gt;W: IngestDispatcher がファイルを渡す
+    C-&gt;&gt;W: IngestDispatcher がファイルを渡す（Task.Office で Office が要るかも伝える）
     W-&gt;&gt;O: コピーを開いて抽出（COM／office_reader）
-    alt Office が要ると分かった（読み取りレーン）
+    alt Office が要ると分かった（Office を使わずに読む仕事）
         O--&gt;&gt;W: Reroute（officeRequiredMessage）
         W--&gt;&gt;C: Reroute を返す
-        C-&gt;&gt;W: Office のレーンに渡し直す
+        C-&gt;&gt;W: Office の持ち主のワーカーに渡し直す
     else 取り込めた
         O--&gt;&gt;W: TSV の場所
         W--&gt;&gt;C: 結果（成功・TSV）
@@ -4123,25 +4122,25 @@
         Note over W: 監視が Office を強制終了
         W--&gt;&gt;C: 結果（失敗）
     else 制限時間超過・利用者が使っている PowerPoint
-        Note over W: 監視は止めずにレーンを諦める
-        C-&gt;&gt;C: そのレーンのファイルを取り込まず、失敗として理由を見せる
+        Note over W: 監視は止めずにワーカーを諦める
+        C-&gt;&gt;C: そのワーカーの取り込み中・列のファイル、PowerPoint の続きを取り込まず、失敗として理由を見せる
     end
-    C-&gt;&gt;C: PendingPublish で取り込み中・まだ渡していない数を更新&lt;br&gt;0 になったら本文インデックスを書き出す</code></pre>
+    C-&gt;&gt;C: completeIngestJob で取り込み一覧・進み具合を更新し、PendingPublish の数が 0 になったら本文インデックスを書き出す</code></pre>
 <ul>
-<li><strong>レーンは拡張子で決める</strong>（<code>getIngestLane</code>。判断層の <code>indexer_decide.ps1</code>）。Excel のファイルはセルの表示値を読むため、すべて Excel のレーンにする。Word・PowerPoint は、旧形式（<code>.doc</code>・<code>.ppt</code>）だけ Office のレーンにし、新形式は読み取りのレーンにする。テキストの拡張子（<code>.txt</code> 等）は、どの分岐にも当たらないため既定の読み取りのレーンになる（Office を使わずに読む。<a href="../text/">テキストファイルの読み取り</a>）。</li>
-<li><strong>Office は種類ごとに 1 つだけ起動する。</strong> Excel・Word・PowerPoint のレーンは、それぞれスレッド 1 つが自分の Office を 1 つ持つ。インデックス作成が起動する Office は、Excel・Word・PowerPoint がそれぞれ最大 1 つになる。3 つのレーンは互いに並べて動く。PowerPoint も、自分のスレッドが一度起動したら使い回す（変換のたびに起動し直さない）。同じ種類の Office を複数のスレッドが同時に起動しないため、起動の前後のプロセスの一覧の差で PID を取り違えない。起動した Office の優先度は変えない（<a href="../../structure/threads/#スレッドの一覧">スレッドの一覧</a>）。起動した Office の PID は受け渡しの口（<code>OfficePids</code>）に記録する。</li>
-<li><strong>レーンのスレッドは、そのレーンのファイルを初めて渡すときに始める</strong>（<code>IngestDispatcher</code> の <code>Submit</code>）。渡すファイルが無いレーンは、スレッドも Office も作らない。列は <code>IngestDispatcher</code> の <code>Start</code> がレーンごとに作る（<code>BlockingCollection</code>）。</li>
-<li><strong>読み取りのスレッドは Office を使わない。</strong> <code>.docx</code>・<code>.pptx</code> などの ZIP（XML）の形式を <code>office_reader</code> で直接読む。監視も持たない。</li>
-<li><strong>Office が要ると分かったファイルは、Office のレーンに回し直す。</strong> 新形式の拡張子でも、中身が ZIP でない（パスワード付き・中身が旧形式）ことがある。読み取りのスレッドでは、<code>extractDocument</code> が <code>${officeRequiredMessage}</code>（<code>このファイルの取り込みには Word・PowerPoint が要ります。</code>）の例外を投げ、<code>invokeIngestTask</code> が <code>Reroute</code> を返す。司令は同じファイルを Word または PowerPoint のレーン（<code>getOfficeLane</code>）に渡し直す。回し直す間も取り込み中のまま扱う。ZIP でも旧形式でもない PowerPoint のファイル（壊れている）は、回し直さずに失敗にする。パスワード付き（新形式）・IRM・秘密度ラベルの暗号化（<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>）も、回し直さずにその場で失敗にする（Officeが要らないため）。「形式の分からないバイナリ」は、アプリごとの予備が有効なときだけ今の旧形式と同じく回し直す。</li>
-<li><strong>判定でOfficeにまだ触れていない失敗は、<code>stopApp</code> を呼ばない。</strong> パスワード付き・IRM・「形式の分からないバイナリ」（予備が無効）の失敗は、例外の <code>Data</code> に印（<code>throwProtectionFailure</code>）を付け、<code>invokeIngestTask</code> がそれを見て、そのレーンのOfficeを終了し直さずに次のファイルへ進む。IRM・パスワード付きのファイルが並んでも、そのたびにOfficeを起動し直して遅くならないため。</li>
-<li><strong>並びの先を見て、空いているレーンに渡す。</strong> 司令は、まだ渡していない最初のファイルから <code>${ingestLookAhead}</code>（200 件）先までを見て、レーンに空きがあるファイルを渡す。レーンに渡しておける数（<code>getIngestLaneCapacity</code>）は、Office のレーンが 2（取り込み中の 1 件と次の 1 件）、読み取りのレーンが読み取りのスレッドの数 × 2 である。Excel のファイルが続いても、読み取りのスレッドを遊ばせない。取り込む順は取り込み一覧の順と変わることがあるが、結果（取り込み一覧・本文インデックス）は同じになる。</li>
-<li><strong>監視は Office のスレッドごとに持つ。</strong> Office のレーンのスレッドは、始めるときに自分の監視のスレッドを作る（<code>OfficeWatchdog</code> の <code>Start</code>）。監視は、そのスレッドの制限時間だけを見て、そのスレッドが起動した Office だけを PID で止める。ただし、取り込み中に利用者が窓を開いた PowerPoint は、制限時間を過ぎても止めない（窓を一度でも見た印がある間。<a href="../office-apps/#office-アプリexcelwordpowerpointの管理">Office アプリの管理</a>）。止めない代わりにそのレーンを諦め、レーンのファイルは取り込まず、失敗として理由を見せる（状態は未取り込みのまま）。</li>
-<li><strong>Office の起動し直しと制限時間は、Office のスレッドごとに数える。</strong> スレッドごとに 100 ファイルで起動し直す。1 ファイルの制限時間は 10 分。</li>
+<li><strong>渡し先は判断層が決める</strong>（<code>selectIngestWorker</code>・<code>getIngestApp</code>・<code>getRerouteApp</code>。判断層の <code>indexer_decide.ps1</code>）。Excel のファイルはセルの表示値を読むため、すべて Excel の仕事にする。Word・PowerPoint は、旧形式（<code>.doc</code>・<code>.ppt</code>）だけ Office の仕事にし、新形式は Office を使わずに読む仕事にする。テキストの拡張子（<code>.txt</code> 等）や PDF は、どの分岐にも当たらないため Office を使わずに読む仕事になる（<a href="../text/">テキストファイルの読み取り</a>）。</li>
+<li><strong>Office は種類ごとに 1 つだけ起動する。</strong> あるアプリのファイルは、そのアプリの持ち主のワーカーにだけ渡す。持ち主がまだいなければ、持ち主のいないワーカーのうちいちばん空いているものを持ち主にする（持ち主のいないワーカーが 1 つも無ければ、いちばん空いているワーカーが 2 つ目以降のアプリも持つ）。インデックス作成が起動する Office は、Excel・Word・PowerPoint がそれぞれ最大 1 つになる。PowerPoint も、持ち主が一度起動したら使い回す（変換のたびに起動し直さない）。同じ種類の Office を複数のスレッドが同時に起動しないため、起動の前後のプロセスの一覧の差で PID を取り違えない。起動した Office の優先度は変えない（<a href="../../structure/threads/#スレッドの一覧">スレッドの一覧</a>）。起動した Office の PID は受け渡しの口（<code>OfficePids</code>）に記録する。</li>
+<li><strong>ワーカーのスレッドは、そのワーカーにファイルを初めて渡すときに始める</strong>（<code>IngestDispatcher</code> の <code>Submit</code>）。渡すファイルが無いワーカーは、スレッドも Office も作らない。列は <code>IngestDispatcher</code> の <code>Start</code> がワーカーごとに作る（<code>BlockingCollection</code>）。</li>
+<li><strong>ファイルごとに、Office を使うかを決める。</strong> 渡すファイルの <code>Task.Office</code> が偽のとき、ワーカーは Office を使わずに <code>office_reader</code> で ZIP（XML）の形式を直接読む。真のときは Office の COM で読む。ワーカーを動かすスクリプトは 1 種類だけで、これで取り込み方を切り替える。スレッドを使わないとき（司令のスレッドで取り込むとき）は <code>Task.Office</code> を付けず、今までどおり動く。</li>
+<li><strong>Office が要ると分かったファイルは、Office の持ち主のワーカーに回し直す。</strong> 新形式の拡張子でも、中身が ZIP でない（パスワード付き・中身が旧形式）ことがある。<code>extractDocument</code> が <code>${officeRequiredMessage}</code>（<code>このファイルの取り込みには Word・PowerPoint が要ります。</code>）の例外を投げ、<code>invokeIngestTask</code> が <code>Reroute</code> を返す。司令は同じファイルを Word または PowerPoint の持ち主（<code>getRerouteApp</code>）に渡し直す。回し直しは、渡してある数の上限を超えても渡す（持ち主が取り込み中でも列に足す）。回し直す間も取り込み中のまま扱う。ZIP でも旧形式でもない PowerPoint のファイル（壊れている）は、回し直さずに失敗にする。パスワード付き（新形式）・IRM・秘密度ラベルの暗号化（<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>）も、回し直さずにその場で失敗にする（Officeが要らないため）。「形式の分からないバイナリ」は、アプリごとの予備が有効なときだけ今の旧形式と同じく回し直す。</li>
+<li><strong>判定でOfficeにまだ触れていない失敗は、<code>stopApp</code> を呼ばない。</strong> パスワード付き・IRM・「形式の分からないバイナリ」（予備が無効）の失敗は、例外の <code>Data</code> に印（<code>throwProtectionFailure</code>）を付け、<code>invokeIngestTask</code> がそれを見て、そのワーカーのOfficeを終了し直さずに次のファイルへ進む。IRM・パスワード付きのファイルが並んでも、そのたびにOfficeを起動し直して遅くならないため。</li>
+<li><strong>並びの先を見て、空いているワーカーに渡す。</strong> 司令は、まだ渡していない最初のファイルから <code>${ingestLookAhead}</code>（200 件）先までを見て、ワーカーに空きがあるファイルを渡す。ワーカー 1 つに渡しておける数は 2（取り込み中の 1 件と次の 1 件）である。Excel のファイルが続いても、Office を使わずに読むワーカーを遊ばせない。取り込む順は取り込み一覧の順と変わることがあるが、結果（取り込み一覧・本文インデックス）は同じになる。</li>
+<li><strong>監視はワーカーごとに持つ。</strong> どのワーカーも、始めるときに自分の監視のスレッドを作る（<code>OfficeWatchdog</code> の <code>Start</code>）。監視は、そのスレッドの制限時間だけを見て、そのスレッドが起動した Office だけを PID で止める。制限時間と中止の見張りが働くのは、Office を使うファイル（<code>task.Office</code>）を取り込んでいる間だけで、Office を使わずに読むファイルの間は <code>Deadline</code> を入れず、見張りは何もしない（Office を持つワーカーが PDF などを読んでいても、遊んでいる Office を止めず、そのファイルは読み終わるまで待つ）。ただし、取り込み中に利用者が窓を開いた PowerPoint は、制限時間を過ぎても止めない（窓を一度でも見た印がある間。<a href="../office-apps/#office-アプリexcelwordpowerpointの管理">Office アプリの管理</a>）。止めない代わりにそのワーカーを諦める。諦めたワーカーの取り込み中・列のファイルと、持ち主が諦めたワーカーのアプリのファイルは、取り込まず、失敗として理由を見せる（状態は未取り込みのまま）。ほかのワーカーは取り込みを続ける。</li>
+<li><strong>Office の起動し直しと制限時間は、ワーカーごとに数える。</strong> ワーカーごとに 100 ファイルで起動し直す（Office を使ったファイルだけを数え、取り込んだあとに起動し直す）。1 ファイルの制限時間は 10 分。</li>
 <li><strong>一時フォルダはスレッドごとに分ける。</strong> 作業領域の <code>&lt;PID&gt;\w&lt;番号&gt;</code>（<code>newWorkerTmpDir</code>）と、<code>publish</code> の <code>w&lt;番号&gt;</code> を使う。</li>
-<li><strong>本文インデックスはフォルダが揃ってから書く。</strong> 司令は、はじめにフォルダごとのファイルの数を <code>PendingPublish.AddPending</code> で数えておき、ファイルを渡すたびに <code>Dispatch</code>、結果を受け取るたびに <code>Complete</code>（または渡さずに済ませるとき <code>Skip</code>）を呼ぶ。結果を受け取るたびに、取り込み中の数・まだ渡していない数がどちらも 0 になったフォルダの本文インデックスとシステムインデックスを書き出す（<code>indexer_run.ps1</code> の <code>flushPending</code> が <code>PendingPublish.TakeFlushable</code> を呼ぶ）。</li>
-<li><strong>取り込み一覧と進み具合は司令だけが書く。</strong> 取り込みスレッドは結果を結果の列（<code>BlockingCollection</code>）に入れるだけで、取り込み一覧（<code>addStatusRow</code>）・進み具合・システムインデックスの変更の印（<code>markSystemIndexChanged</code>）は司令が書く。ログも、取り込みスレッドが 1 ファイル分を貯めて結果と一緒に返し、司令が書く。</li>
+<li><strong>本文インデックスはフォルダが揃ってから書く。</strong> 司令は、はじめにフォルダごとのファイルの数を <code>PendingPublish.AddPending</code> で数えておき、ファイルを渡すたびに <code>Dispatch</code>、結果を受け取るたびに <code>Complete</code>（または渡さずに済ませるとき <code>Skip</code>）を呼ぶ。結果を受け取るたびに、取り込み中の数・まだ渡していない数がどちらも 0 になったフォルダの本文インデックスとシステムインデックスを書き出す（<code>indexer_run.ps1</code> の <code>flushPendingPublish</code> が <code>PendingPublish.TakeFlushable</code> を呼ぶ）。</li>
+<li><strong>取り込み一覧と進み具合は司令だけが書く。</strong> 取り込みスレッドは結果を結果の列（<code>BlockingCollection</code>）に入れるだけで、取り込み一覧（<code>addStatusRow</code>）・進み具合・システムインデックスの変更の印（<code>markSystemIndexChanged</code>）は司令が書く。結果の受け方は <code>completeIngestJob</code>（<code>indexer_run.ps1</code>）にまとめてあり、成功・失敗・後回し・中止のどれも同じ関数が反映する。ログも、取り込みスレッドが 1 ファイル分を貯めて結果と一緒に返し、司令が書く。</li>
 <li><strong>取り込み中のファイルは、取り込み中のものをすべて記録する</strong>（<code>ingesting.txt</code>。1 行に 1 ファイル）。強制終了の後は、記録にあるファイルすべてを「前回止まったファイル」として扱う。</li>
-<li><strong>中止。</strong> 司令は振り分けをやめ、Office のレーンの取り込み（回し直したものを含む）は待たずに止める（読み取りのレーンは、下の表のとおりそのファイルの読み取りが終わるまで待つ）。Office のレーンは、見張りが <code>Channel.Stop</code> を見て自分が起動したアプリを止め（<code>Cancelled</code>。<code>TimedOut</code> ではない）、<code>invokeIngestTask</code> が <code>Stopped</code> を返す。列に残っていたファイルも <code>ingestFile</code> を呼ばずに <code>Stopped</code> で返る。<code>Stopped</code> のファイルは、一覧の行を作らず、一時の TSV も本文インデックスに入れない（「未取り込み」のまま次回取り込む）。そのあとに書き出しと Office の片づけを行う。</li>
+<li><strong>中止。</strong> 司令は振り分けをやめ、Office を使っているファイル（回し直したものを含む）の取り込みは待たずに止める（Office を使わずに読んでいるファイルは、下の表のとおりそのファイルの読み取りが終わるまで待つ）。Office を持つワーカーは、見張りが <code>Channel.Stop</code> を見て自分が起動したアプリを止め（<code>Cancelled</code>。<code>TimedOut</code> ではない）、<code>invokeIngestTask</code> が <code>Stopped</code> を返す。列に残っていたファイルも <code>ingestFile</code> を呼ばずに <code>Stopped</code> で返る。<code>Stopped</code> のファイルは、一覧の行を作らず、一時の TSV も本文インデックスに入れない（「未取り込み」のまま次回取り込む）。そのあとに書き出しと Office の片づけを行う。</li>
 </ul>
 <p>中止が待つものは次のとおり。</p>
 <table>
@@ -4161,19 +4160,19 @@
 <td>待たない（<code>ingestFile</code> を呼ばず <code>Stopped</code>）</td>
 </tr>
 <tr>
-<td>Office のレーンで取り込み中</td>
+<td>Office を使って取り込み中</td>
 <td>見張りの周期（500 ミリ秒）と、アプリの終了</td>
 </tr>
 <tr>
-<td>読み取りのレーンで取り込み中</td>
+<td>Office を使わずに読んで取り込み中</td>
 <td>そのファイルが終わるまで（打ち切りは範囲外）</td>
 </tr>
 </tbody>
 </table>
-<p>各レーンのスレッドは、列が閉じられたら自分の Office を終了して終わる（<code>IngestDispatcher</code> の <code>Stop</code>）。
+<p>各ワーカーのスレッドは、列が閉じられたら自分の Office を終了して終わる（<code>IngestDispatcher</code> の <code>Stop</code>）。
 - <strong>取り込みスレッドが止まったら。</strong> 取り込みスレッドが途中で止まった（読み込めない等）ときは、インデックス作成を続けられないエラー <code>取り込みのスレッドが止まりました：&lt;理由&gt;</code> にする。</p>
-<p><code>setting.config</code> の <code>ingestThreads</code> で変えられるのは、読み取りのスレッドの数だけである。Excel・Word・PowerPoint のレーンは、いつもスレッド 1 つ・Office 1 つにする。</p>
-<p>取り込みのスレッドを使うときは、はじめにログに <code>N 件のファイルを取り込みます。（Excel・Word・PowerPoint はそれぞれ 1 つずつ、Office を使わずに読むファイルは R 個のスレッドで並べて取り込みます。…）</code> と出す。</p>
+<p><code>setting.config</code> の <code>ingestThreads</code> で変えられるのは、Office を使わずに読む仕事の数だけである。Office のアプリ（Excel・Word・PowerPoint）の分のワーカーは、いつも 1 つずつ・Office 1 つにする。</p>
+<p>取り込みのスレッドを使うときは、はじめにログに <code>N 件のファイルを取り込みます。（Office を使わずに読むファイルは R 個のスレッド、Excel・Word・PowerPoint のファイルはそれぞれ 1 つのスレッド（Office も 1 つ）で並べて取り込みます。…）</code> と出す。</p>
 <p>テストでは受け渡しの口の <code>Workers</code> を 0 にし、すべてのファイルの取り込みを司令のスレッドで行う（途中に割り込むため）。テストデータ（300 ファイル）で、スレッド 1 つと 4 つの結果（本文インデックスと取り込み一覧）が同じになることを確かめた。</p>
 <p>速さは、空いている CPU の量で決まる。1 ファイルの取り込みには、Excel と PowerShell で約 1 コアを使う。スレッドと Office の両方の優先度を下げると、ほかのアプリが約 2 コアを使っている PC で、両方 Normal より 1〜2 割遅くなる（性能データ 1,080 ファイル。取り込みのスレッド 1 つ 518 秒、3 つ 456 秒。両方 Normal では 398 秒）。PowerPoint を変換のたびに起動し直すと旧形式 1 件に約 7 秒かかり、使い回すと約 0.25 秒である。</p>
 

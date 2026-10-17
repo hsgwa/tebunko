@@ -4704,7 +4704,7 @@
 </tbody>
 </table>
 <h3 id="ingestdispatcher新規-tebunkoindexeringest_dispatcherps1司令のスレッドで作る">IngestDispatcher（新規 <code>tebunko/indexer/ingest_dispatcher.ps1</code>。司令のスレッドで作る）<a class="headerlink" href="#ingestdispatcher新規-tebunkoindexeringest_dispatcherps1司令のスレッドで作る" title="Permanent link">&para;</a></h3>
-<p>取り込みのレーン・プール・先読み・取り込み中の管理だけを持つ。取り込み一覧・本文インデックスの書き出し待ち・進み具合は触らず、司令が戻り値を見て書く。取り込みのスレッドとは hashtable と <code>BlockingCollection</code> で受け渡す（クラスのインスタンスは渡さない）。</p>
+<p>取り込みのワーカー（1 種類。どれも STA）・先読み・取り込み中の管理だけを持つ。取り込み一覧・本文インデックスの書き出し待ち・進み具合は触らず、司令が戻り値を見て書く。取り込みのスレッドとは hashtable と <code>BlockingCollection</code> で受け渡す（クラスのインスタンスは渡さない）。</p>
 <table>
 <thead>
 <tr>
@@ -4717,15 +4717,15 @@
 <tbody>
 <tr>
 <td>コンストラクタ</td>
-<td>targets, lanes, bookFolders, folderByName, carried, options</td>
+<td>targets, apps, bookFolders, folderByName, carried, options</td>
 <td>–</td>
-<td>取り込み対象と設定を受け取る。必要な設定が足りなければ、その名前を書いて失敗する。省略できる <code>TestPath</code>（<code>{ param($path, $kind) }</code>。<code>$kind</code> は <code>File</code> か <code>Folder</code>）で、元のファイル・フォルダの有無の調べ方を差し替えられる</td>
+<td>取り込み対象（apps はファイルごとに最初に要る Office のアプリ。要らなければ空）と設定を受け取る。必要な設定（<code>LookAhead</code>・<code>WorkerScript</code>・<code>PostponedReasonInUse</code>・<code>PostponedReasonRunning</code>）が足りなければ、その名前を書いて失敗する。省略できる <code>TestPath</code>（<code>{ param($path, $kind) }</code>。<code>$kind</code> は <code>File</code> か <code>Folder</code>）で、元のファイル・フォルダの有無の調べ方を差し替えられる</td>
 </tr>
 <tr>
 <td><code>Start</code></td>
-<td>readers, settings</td>
+<td>workerCount, settings</td>
 <td>–</td>
-<td>レーンごとの列を持つプールを作る（スレッドは、そのレーンに初めて渡すときに始める）</td>
+<td>ワーカーごとの列を持つ入れ物を作る（スレッドは、そのワーカーに初めて渡すときに始める。持ち主のアプリ・渡してある数・諦めたかの状態もワーカーごとに持つ）。0 のときは作らず、司令のスレッドで取り込む</td>
 </tr>
 <tr>
 <td><code>BeginPass</code></td>
@@ -4737,13 +4737,13 @@
 <td><code>DispatchNext</code></td>
 <td>–</td>
 <td><code>@{Kind=Abandoned／Vanished／Dispatched; ...}</code> / <code>$null</code></td>
-<td>並びの先から、レーンに空きがあるファイルを 1 つ選ぶ</td>
+<td>並びの先から、<code>selectIngestWorker</code> で渡し先のワーカーを決め、空きがあるファイルを 1 つ選ぶ（渡し先は <code>Worker</code>。ワーカーを使うときは <code>Task.Office</code> に Office が要るかも入れる）</td>
 </tr>
 <tr>
 <td><code>Submit</code></td>
 <td>step</td>
 <td>–</td>
-<td>選んだファイルをレーンの列に渡す</td>
+<td>選んだファイルをワーカーの列に渡す</td>
 </tr>
 <tr>
 <td><code>SetInlineResult</code></td>
@@ -4758,10 +4758,10 @@
 <td>結果を 1 つ受け取る</td>
 </tr>
 <tr>
-<td><code>TakeAbandonedLane</code></td>
+<td><code>TakeAbandonedWorker</code></td>
 <td>–</td>
-<td><code>@{Lane; Entries}</code> / <code>$null</code></td>
-<td>諦めたレーンを 1 つ取り出す</td>
+<td><code>@{Worker; Entries}</code> / <code>$null</code></td>
+<td>諦めたワーカーを 1 つ取り出す（取り込み中・列のファイルといっしょに返し、取り込み中から外す）</td>
 </tr>
 <tr>
 <td><code>StopIfRequested</code></td>
@@ -4779,7 +4779,7 @@
 <td><code>Stop</code></td>
 <td>–</td>
 <td>–</td>
-<td>列を閉じ、諦めていないレーンのワーカーが終わるのを待ってから片づける。諦めたレーンのワーカーは待たず、止める依頼だけを出す</td>
+<td>列を閉じ、諦めていないワーカーが終わるのを待ってから片づける。諦めたワーカーは待たず、止める依頼だけを出す</td>
 </tr>
 <tr>
 <td><code>Pool</code>・<code>UsesThreads</code>・<code>Stopped</code>・<code>FolderLost</code>・<code>Remaining</code>・<code>Undispatched</code>（プロパティ）</td>
@@ -4847,7 +4847,7 @@
 <td><code>FolderByName</code></td>
 <td>–</td>
 <td>インデックス名 → フォルダ</td>
-<td>取り込みのレーンへ渡すための対応</td>
+<td>取り込みのワーカーへ渡すための対応</td>
 </tr>
 </tbody>
 </table>
@@ -4889,20 +4889,28 @@
 <td>createTargetList</td>
 </tr>
 <tr>
-<td><code>getIngestLane</code></td>
+<td><code>getIngestApp</code></td>
 <td>relPath</td>
 <td>string</td>
-<td>取り込むレーン（表（<code>$officeFileKinds</code>）の Excel の拡張子は <code>Excel</code>、<code>.doc</code> は <code>Word</code>、<code>.ppt</code> は <code>PowerPoint</code>、それ以外（<code>.docx</code>・<code>.docm</code>・<code>.pptx</code>・<code>.pptm</code>、テキストの拡張子、<code>.pdf</code>）は既定の <code>Reader</code>）</td>
+<td>取り込みに最初に要る Office のアプリ（表（<code>$officeFileKinds</code>）の Excel の拡張子は <code>Excel</code>、<code>.doc</code> は <code>Word</code>、<code>.ppt</code> は <code>PowerPoint</code>。それ以外（<code>.docx</code>・<code>.docm</code>・<code>.pptx</code>・<code>.pptm</code>、テキストの拡張子、<code>.pdf</code>）は Office が要らず空）</td>
 <td><a href="../../indexing/parallel/">取り込みの並列化</a></td>
 <td>インデックス作成（司令）</td>
 </tr>
 <tr>
-<td><code>getOfficeLane</code></td>
+<td><code>getRerouteApp</code></td>
 <td>relPath</td>
 <td>string</td>
-<td>読み取りのレーンで Office が要ると分かったファイルの回し先（<code>getOfficeFileKind</code> が <code>PowerPoint</code>（<code>.pptx</code> <code>.pptm</code> <code>.ppt</code>）なら <code>PowerPoint</code>、ほかは <code>Word</code>）</td>
+<td>Office を使わずに読めず、Office が要ると分かったファイルの回し先のアプリ（<code>getOfficeFileKind</code> が <code>PowerPoint</code>（<code>.pptx</code> <code>.pptm</code> <code>.ppt</code>）なら <code>PowerPoint</code>、ほかは <code>Word</code>）</td>
 <td>同上</td>
 <td>インデックス作成（司令）</td>
+</tr>
+<tr>
+<td><code>selectIngestWorker</code></td>
+<td>workers（ワーカーごとの <code>@{Busy; Owns; Abandoned}</code>）, app, capacity</td>
+<td><code>@{Kind=Worker／Wait／Abandoned; Index}</code></td>
+<td>取り込むファイルの渡し先を決める。Office が要るファイルは、そのアプリの持ち主へ（満杯なら <code>Wait</code>、持ち主が諦めていれば <code>Abandoned</code>）。持ち主がいなければ、持ち主のいないワーカーのうちいちばん空いているもの。Office が要らないファイルは、持ち主のいないワーカーのうちいちばん空いているもの（無ければ、諦めていないいちばん空いているもの）。すべて諦めていれば <code>Abandoned</code></td>
+<td>同上</td>
+<td><code>IngestDispatcher</code></td>
 </tr>
 </tbody>
 </table>

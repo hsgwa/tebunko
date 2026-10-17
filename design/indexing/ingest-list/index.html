@@ -4237,7 +4237,7 @@
     state "制限時間 10 分" as Timeout
     state "済 / 失敗" as Done
 
-    [*] --&gt; Ingesting : レーンに渡す
+    [*] --&gt; Ingesting : ワーカーに渡す
     Ingesting --&gt; Recorded : 記録
     Recorded --&gt; Timeout : 監視スレッドが計測
     Timeout --&gt; Done : 超えたら Office を強制終了して失敗
@@ -4253,7 +4253,7 @@
 <tbody>
 <tr>
 <td>1 ファイルの制限時間（<code>$fileTimeoutMinutes</code> = 10 分）</td>
-<td>Excel・Word・PowerPoint のレーンのスレッドごとに、別のスレッド（監視。<code>OfficeWatchdog</code>）で制限時刻を監視する。制限時間を過ぎたら、そのスレッドが自分で起動した Office アプリ（<code>getApp</code> で PID を控えたもの。利用者のアプリ・ほかのレーンのアプリは除く）を強制終了する。COM の呼び出しが例外で戻るため、そのファイルは <code>失敗</code>（エラー: <code>10 分以内に取り込みが終わらなかったため中止しました（Officeアプリを強制終了しました）</code>）とし、次のファイルへ進む。画面の［中止］のときも同じ見張りが、制限時間を待たずに自分のアプリを止める（そのファイルは失敗にせず「未取り込み」のまま残す）。強制終了したアプリはすべて終了扱いにし、次に必要になったときに起動し直す</td>
+<td>取り込みのワーカーごとに、別のスレッド（監視。<code>OfficeWatchdog</code>）で制限時刻を監視する。制限時間を過ぎたら、そのスレッドが自分で起動した Office アプリ（<code>getApp</code> で PID を控えたもの。利用者のアプリ・ほかのワーカーのアプリは除く）を強制終了する。COM の呼び出しが例外で戻るため、そのファイルは <code>失敗</code>（エラー: <code>10 分以内に取り込みが終わらなかったため中止しました（Officeアプリを強制終了しました）</code>）とし、次のファイルへ進む。画面の［中止］のときも同じ見張りが、制限時間を待たずに自分のアプリを止める（そのファイルは失敗にせず「未取り込み」のまま残す）。強制終了したアプリはすべて終了扱いにし、次に必要になったときに起動し直す</td>
 </tr>
 <tr>
 <td>取り込み中のファイルの記録（<code>work/ingesting.txt</code>）</td>
@@ -4261,7 +4261,7 @@
 </tr>
 <tr>
 <td>PowerPoint が要るファイルの後回し（Postponed）</td>
-<td>PowerPoint は 1 つのセッションに 1 つのプロセスしか持てないため、利用者が PowerPoint を開いていると接続することになり、固まっても止められない（<a href="../office-apps/#office-アプリexcelwordpowerpointの管理">Word・PowerPoint の共通処理と Office アプリの管理</a>「PowerPoint」）。そこで、そもそも接続せず、そのファイルを取り込まず、<strong>失敗として数えて理由を見せる</strong>（<code>indexer_run.ps1</code> の司令が <code>Postponed</code> の結果を受けたとき。<code>StatusLedger.AddFailure</code> に理由を入れ、進み具合の失敗の件数と、終わりの「更新に失敗したファイル」に出す。インデックスと取り込み中の記録は変えない）。取り込み一覧の行は状態を「未取り込み」のまま、理由を「エラー」の列に書く（前回の行があれば、TSV 数・取り込み日時・抽出版は前回のまま残す。無ければ新しい行にする）。<strong>状態を「失敗」にしない</strong>のは、「失敗」の行は次の更新で飛ばされ、失敗分の再取り込みを選ばないと取り込まないため。「未取り込み」なら、利用者が PowerPoint を閉じてからの次のインデックス作成で、選ばなくても取り込む。「未取り込み」でエラーが空でない行は、<code>testStatusRowFailed</code>（<code>index_store.ps1</code>）で失敗に数える（<code>getIndexingState</code>・<code>getIndexStats</code>）。理由は 2 つある（<code>indexer_decide.ps1</code> の <code>postponedReasonRunning</code>・<code>postponedReasonInUse</code>。文は <a href="../errors/">エラーメッセージ</a>）。利用者が PowerPoint を閉じれば、次のインデックス作成で取り込む（この扱いは PowerPoint だけ。Word は利用者のアプリを共有するため、Excel は新しいプロセスを起動して利用者が開いたファイルを渡すため、取り込めないことがない）（強制終了の回数には数えない。取り込み中に強制終了した場合とは別の扱い）。取り込み中に利用者が PowerPoint の窓を使い始め、制限時間を過ぎても、その PowerPoint は強制終了しない。そのレーンを諦め、取り込み中のファイルと残りの PowerPoint のファイルを、同じく取り込まず、使っている方がいた理由で失敗として見せる（状態は「未取り込み」のまま。詳しくは <a href="../office-apps/#office-アプリexcelwordpowerpointの管理">Office アプリの管理</a>「利用者が使っている PowerPoint」）</td>
+<td>PowerPoint は 1 つのセッションに 1 つのプロセスしか持てないため、利用者が PowerPoint を開いていると接続することになり、固まっても止められない（<a href="../office-apps/#office-アプリexcelwordpowerpointの管理">Word・PowerPoint の共通処理と Office アプリの管理</a>「PowerPoint」）。そこで、そもそも接続せず、そのファイルを取り込まず、<strong>失敗として数えて理由を見せる</strong>（<code>indexer_run.ps1</code> の司令が <code>Postponed</code> の結果を受けたとき。<code>StatusLedger.AddFailure</code> に理由を入れ、進み具合の失敗の件数と、終わりの「更新に失敗したファイル」に出す。インデックスと取り込み中の記録は変えない）。取り込み一覧の行は状態を「未取り込み」のまま、理由を「エラー」の列に書く（前回の行があれば、TSV 数・取り込み日時・抽出版は前回のまま残す。無ければ新しい行にする）。<strong>状態を「失敗」にしない</strong>のは、「失敗」の行は次の更新で飛ばされ、失敗分の再取り込みを選ばないと取り込まないため。「未取り込み」なら、利用者が PowerPoint を閉じてからの次のインデックス作成で、選ばなくても取り込む。「未取り込み」でエラーが空でない行は、<code>testStatusRowFailed</code>（<code>index_store.ps1</code>）で失敗に数える（<code>getIndexingState</code>・<code>getIndexStats</code>）。理由は 2 つある（<code>indexer_decide.ps1</code> の <code>postponedReasonRunning</code>・<code>postponedReasonInUse</code>。文は <a href="../errors/">エラーメッセージ</a>）。利用者が PowerPoint を閉じれば、次のインデックス作成で取り込む（この扱いは PowerPoint だけ。Word は利用者のアプリを共有するため、Excel は新しいプロセスを起動して利用者が開いたファイルを渡すため、取り込めないことがない）（強制終了の回数には数えない。取り込み中に強制終了した場合とは別の扱い）。取り込み中に利用者が PowerPoint の窓を使い始め、制限時間を過ぎても、その PowerPoint は強制終了しない。そのワーカーを諦め、取り込み中のファイルと残りの PowerPoint のファイルを、同じく取り込まず、使っている方がいた理由で失敗として見せる（状態は「未取り込み」のまま。詳しくは <a href="../office-apps/#office-アプリexcelwordpowerpointの管理">Office アプリの管理</a>「利用者が使っている PowerPoint」）</td>
 </tr>
 </tbody>
 </table>

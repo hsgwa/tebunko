@@ -4306,44 +4306,20 @@
 <td>クロール・確認・取り込みの振り分け・取り込み一覧・本文インデックスとシステムインデックスの書き出し</td>
 </tr>
 <tr>
-<td>取り込み（Excel）</td>
-<td>1</td>
+<td>取り込み</td>
+<td>Office を使わずに読む仕事の数（コア数 − 1。1〜4。設定 <code>ingestThreads</code> で変えられる）＋この回に要る Office のアプリの数（最大 3）</td>
 <td>インデックス作成 1 回</td>
 <td>STA</td>
 <td>BelowNormal</td>
-<td>Excel のファイル（<code>.xls*</code>）を 1 つずつ TSV に取り込む。Excel を 1 つ持つ</td>
-</tr>
-<tr>
-<td>取り込み（Word）</td>
-<td>1</td>
-<td>インデックス作成 1 回</td>
-<td>STA</td>
-<td>BelowNormal</td>
-<td>旧形式の Word のファイル（<code>.doc</code>）を取り込む。Word を 1 つ持つ</td>
-</tr>
-<tr>
-<td>取り込み（PowerPoint）</td>
-<td>1</td>
-<td>インデックス作成 1 回</td>
-<td>STA</td>
-<td>BelowNormal</td>
-<td>旧形式の PowerPoint のファイル（<code>.ppt</code>）を取り込む。PowerPoint を 1 つ持つ</td>
-</tr>
-<tr>
-<td>取り込み（読み取り）</td>
-<td>コア数 − 1（1〜4。設定 <code>ingestThreads</code> で変えられる）</td>
-<td>インデックス作成 1 回</td>
-<td>MTA</td>
-<td>BelowNormal</td>
-<td>新形式の Word・PowerPoint のファイル（<code>.docx</code>・<code>.docm</code>・<code>.pptx</code>・<code>.pptm</code>）を、Office を使わずに読む</td>
+<td>ファイルを 1 つずつ TSV に取り込む。ワーカーは 1 種類で、どれも同じスクリプトを動かす。Excel・Word・PowerPoint のファイルは、そのアプリの持ち主のワーカーが Office を 1 つ持って取り込む。ほかのワーカーは Office を使わずに読む（新形式の Word・PowerPoint・テキスト・PDF）。始めるのは、そのワーカーに最初のファイルを渡すとき</td>
 </tr>
 <tr>
 <td>監視</td>
-<td>Office の取り込みスレッド 1 つに 1 つ</td>
+<td>取り込みのワーカー 1 つに 1 つ</td>
 <td>インデックス作成 1 回</td>
 <td>MTA</td>
 <td>Normal</td>
-<td>自分の取り込みスレッドの制限時間を見て、過ぎたらそのスレッドが起動した Office だけを PID で止める。ただし、取り込み中に窓が見えた（利用者が使っている）PowerPoint は止めず、そのレーンを諦めたと司令に伝える（レーンの状態 <code>Abandoned</code>）</td>
+<td>自分の取り込みスレッドの制限時間を見て、過ぎたらそのスレッドが起動した Office だけを PID で止める（Office を持たないワーカーは止める相手が無く、<code>TimedOut</code> を記録するだけ）。ただし、取り込み中に窓が見えた（利用者が使っている）PowerPoint は止めず、そのワーカーを諦めたと司令に伝える（ワーカーの状態 <code>Abandoned</code>）</td>
 </tr>
 <tr>
 <td>システムインデックスのプール</td>
