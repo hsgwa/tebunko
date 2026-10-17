@@ -342,8 +342,9 @@ function publishIndexFolders {
     # txt の状態（反映待ち）はまとめて状態ファイルに書く。@{ Count（書き出したフォルダの数）; Skipped（飛ばしたフォルダの @{ Rel; Stage; Reason } の配列）} を返す。
     #   pending: フォルダ（フルパス）→ 無くなった元のファイル名の集まり
     # 例外はフォルダごとに受け止め、失敗したフォルダは飛ばして残りを続ける（飛ばしたことはログに黄色で出す）:
-    #   ・本文インデックスのファイルを書き終える前（前のファイルが壊れている・大きすぎる・読めないなど）に落ちたら、何も消さず・書き換えない
-    #     （TSV も壊れたファイルも残る。次のインデックス作成の始めに、またまとめ直しを試す）
+    #   ・前の本文インデックスのファイルを読む所（書く前。壊れている・大きすぎる・読めないなど）で落ちたら、何も消さず・書き換えない
+    #     （TSV も壊れたファイルも残る。次のインデックス作成の始めに、またまとめ直しを試す）。
+    #     書き込みの途中（置き場所が作れない・ファイルを書けない）や TSV の削除で落ちたときは、書いたものと残った TSV が混ざるが、次の回に TSV を入れ直して直る
     #   ・本文インデックスのファイルを書いて TSV を消した後（システムインデックス）で落ちたら、本文インデックスは新しいまま残し、そのフォルダの結果は
     #     状態ファイルに入れない（txt はインデックス作成の終わりの作り直しで直る）
     param (
@@ -360,7 +361,8 @@ function publishIndexFolders {
         # 書く・消す前に、置き場（indexRoot）の下で途中にリンク（ジャンクション等）が無いことを確かめる。
         # リンクの先の外のフォルダの本文インデックスのファイル・TSV を、消さず・書かないため（偽ならそのフォルダは飛ばし、TSV を残す）。
         # 置き場そのもの（フォルダが直接の本文インデックスのとき）は、確かめの対象外（置き場そのものがリンクの構成は使える）
-        $isRoot = [System.IO.Path]::GetFullPath((fromLongPath $folder)).TrimEnd("\") -ieq $fullRoot
+        $fullFolder = [System.IO.Path]::GetFullPath((fromLongPath $folder)).TrimEnd("\")
+        $isRoot = $fullFolder -ieq $fullRoot
         if (!$isRoot -and !(testRemovablePath $folder $indexRoot)) {
             writeIndexerLog "インデックスの置き場の外を指すパス（途中のリンクを含む）のため、書き出しませんでした: ${folder}" "Yellow"
             continue
@@ -373,8 +375,7 @@ function publishIndexFolders {
             [void](setWindowsSearchExcluded $folder)
             $results.Add((writeSystemIndexFolder $folder $indexRoot $systemRoot $contentIndexFile.Texts))
         } catch {
-            $rel = [System.IO.Path]::GetFullPath((fromLongPath $folder)).TrimEnd("\")
-            $rel = if ($isRoot) { "" } else { $rel.Substring($fullRoot.Length).TrimStart("\") }
+            $rel = if ($isRoot) { "" } else { $fullFolder.Substring($fullRoot.Length).TrimStart("\") }
             $reason = $_.Exception.Message
             $skipped.Add(@{ Rel = $rel; Stage = $stage; Reason = $reason })
             writeIndexerLog (getContentIndexPublishSkippedText $rel $stage $reason) "Yellow"
