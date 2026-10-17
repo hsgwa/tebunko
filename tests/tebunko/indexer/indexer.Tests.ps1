@@ -438,7 +438,7 @@ Describe "indexer.ps1（後回しの司令の流れ。実際のPowerPointは使�
         }
     }
 
-    It "取り込みのスレッドのレーンを諦めたら、そのレーンのファイルを未取り込みのまま後回しにし、0 で終わる。取り込み一覧・インデックスは変えない" {
+    It "取り込みのワーカーを諦めたら、そのワーカーのファイルを未取り込みのまま後回しにし、0 で終わる。取り込み一覧・インデックスは変えない" {
         $dir = Join-Path $TestDrive "諦め"
         [System.IO.Directory]::CreateDirectory($dir) | Out-Null
         foreach ($name in "a", "b", "c") {
@@ -446,12 +446,12 @@ Describe "indexer.ps1（後回しの司令の流れ。実際のPowerPointは使�
         }
         $root = newRoot
         writeTestSettings $root @(@{ name = "諦め"; path = $dir; enabled = $true })
-        # 最初のファイルを渡す直前に、そのレーンを諦めたことにする（本物では、制限時間を過ぎたときの監視が立てる）
+        # 最初のファイルを渡す直前に、そのワーカーを諦めたことにする（本物では、制限時間を過ぎたときの監視が立てる）
         $global:testAbandonDone = $false
         $hook = @{ Script = $runPath; Pattern = '^\s+\$dispatcher\.Submit\(\$step\)'; Action = {
                 if (-not $global:testAbandonDone) {
                     $global:testAbandonDone = $true
-                    $dispatcher.Pool.LaneStates[$step.Lane].Abandoned = $true
+                    foreach ($slot in $dispatcher.Pool.Slots) { $slot.State.Abandoned = $true }
                 }
             }
         }
@@ -474,19 +474,20 @@ Describe "indexer.ps1（後回しの司令の流れ。実際のPowerPointは使�
         (Get-Content -LiteralPath "$root\work\indexing_log.txt" -Raw) | Should -Match "PowerPoint を使っている方がいたため取り込めませんでした"
     }
 
-    It "回し直し先のレーンを諦めていたら、渡さずに未取り込みのまま後回しにし、0 で終わる" {
+    It "回し直し先（Word）の持ち主のワーカーを諦めていたら、渡さずに未取り込みのまま後回しにし、0 で終わる" {
         $dir = Join-Path $TestDrive "回し直し先を諦め"
         [System.IO.Directory]::CreateDirectory($dir) | Out-Null
         Copy-Item -LiteralPath $docxSource -Destination "$dir\議事録.docx"
         $root = newRoot
         writeTestSettings $root @(@{ name = "回し直し先を諦め"; path = $dir; enabled = $true })
-        # 読み取りのスレッドが「Office が要る」と返したことにし、回し直し先（Word のレーン）を諦めたことにする
+        # 読み取りのスレッドが「Office が要る」と返したことにし、回し直し先（Word）の持ち主のワーカーを諦めたことにする
         $global:testRerouteDone = $false
         $hook = @{ Script = $dispatcherPath; Pattern = '^\s+if \(\$result\.Reroute\) \{'; Action = {
                 if (-not $global:testRerouteDone) {
                     $global:testRerouteDone = $true
                     $result.Reroute = $true
-                    $this.Pool.LaneStates[(getOfficeLane $result.RelPath)].Abandoned = $true
+                    $this.Pool.Slots[0].Owns.Add("Word")
+                    $this.Pool.Slots[0].State.Abandoned = $true
                 }
             }
         }
@@ -1215,7 +1216,7 @@ Describe "indexer.ps1（取り込みのスレッド）" -Tag Io {
         $progress = readTestProgress
         $progress.Processed | Should -Be 5
         $progress.Failed | Should -Be 1
-        (Get-Content -LiteralPath "$parallel\work\indexing_log.txt" -Raw) | Should -Match "3 個のスレッドで並べて取り込みます"
+        (Get-Content -LiteralPath "$parallel\work\indexing_log.txt" -Raw) | Should -Match "3 個のスレッド、Excel・Word・PowerPoint のファイルはそれぞれ 1 つのスレッド"
     }
 
     It "取り込みのスレッドが読み込む部品が見つからなければ、続けられないエラーで 1 を返す" {
@@ -1273,7 +1274,6 @@ Describe "取り込みのスレッドのスクリプト（ingestWorkerScript）"
             WorkDir = $root; TmpDir = "$root\tmp"; PublishDir = "$root\publish"
             FileTimeoutMinutes = 10; RestartInterval = 1
             OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'
-            Lane = ${laneReader}
         }
         $priority = [System.Threading.Thread]::CurrentThread.Priority
         try {
@@ -1311,7 +1311,7 @@ Describe "取り込みのスレッドのスクリプト（ingestWorkerScript）"
             WorkDir = $root; TmpDir = "$root\tmp"; PublishDir = "$root\publish"
             FileTimeoutMinutes = 10; RestartInterval = 1
             OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'
-            Lane = ${laneExcel}; Channel = $global:waitChannel
+            Channel = $global:waitChannel
         }
         # 見張りは本物のまま動かす（Pids が空なので何も止めない。ingestWorkerScript が Start と Stop を呼ぶ）
         Mock stopAllApps {}
@@ -1331,12 +1331,12 @@ Describe "取り込みのスレッドのスクリプト（ingestWorkerScript）"
     }
 }
 
-Describe "取り込みのスレッドのスクリプト（諦めたレーンの配線）" -Tag Io {
+Describe "取り込みのスレッドのスクリプト（諦めたワーカーの配線）" -Tag Io {
     BeforeAll {
         . "${scriptsDir}\tebunko\indexer\indexer_lib.ps1"
     }
 
-    It "レーンの状態と利用者が使った印の入れ物を、見張りに渡す。諦めていなければ Office を片づける。諦めていれば片づけない（<title>）" -TestCases @(
+    It "ワーカーの状態と利用者が使った印の入れ物を、見張りに渡す。諦めていなければ Office を片づける。諦めていれば片づけない（<title>）" -TestCases @(
         @{ title = "諦めていない"; abandoned = $false; expectedStops = 1 }
         @{ title = "諦めた"; abandoned = $true; expectedStops = 0 }
     ) {
@@ -1348,15 +1348,15 @@ Describe "取り込みのスレッドのスクリプト（諦めたレーンの�
         $tasks = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
         $results = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
         $tasks.CompleteAdding()
-        $laneState = [hashtable]::Synchronized(@{ Abandoned = $abandoned; Handled = $false })
+        $workerState = [hashtable]::Synchronized(@{ Abandoned = $abandoned; Handled = $false })
         $users = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'
         $settings = @{
             Lib = getPartLoad indexerLib
             WorkDir = $root; TmpDir = "$root\tmp"; PublishDir = "$root\publish"
             FileTimeoutMinutes = 10; RestartInterval = 1
             OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'
-            Lane = ${lanePowerPoint}; Channel = [pscustomobject]@{ Stop = $false }
-            LaneState = $laneState; UserOfficePids = $users
+            Channel = [pscustomobject]@{ Stop = $false }
+            WorkerState = $workerState; UserOfficePids = $users
         }
         Mock stopAllApps {}
         Mock waitKeptApps {}
@@ -1366,12 +1366,12 @@ Describe "取り込みのスレッドのスクリプト（諦めたレーンの�
         try {
             & ${ingestWorkerScript} $settings $tasks $results 9
             # 見張りの State が、司令と同じ入れ物を持つ（別の入れ物にすると、印も諦めた合図も司令に届かない）
-            [object]::ReferenceEquals($script:officeWatchdog.State.Abandon, $laneState) | Should -Be $true
+            [object]::ReferenceEquals($script:officeWatchdog.State.Abandon, $workerState) | Should -Be $true
             [object]::ReferenceEquals($script:officeWatchdog.State.Users, $users) | Should -Be $true
         } finally {
             [System.Threading.Thread]::CurrentThread.Priority = $priority
-            # 後のテストに諦めたレーンの状態を残さない
-            $script:laneState = $null
+            # 後のテストに諦めたワーカーの状態を残さない
+            $script:workerState = $null
             $script:officeWatchdog.State.Abandon = $previousAbandon
             $script:officeWatchdog.State.Users = $previousUsers
         }
@@ -1380,7 +1380,7 @@ Describe "取り込みのスレッドのスクリプト（諦めたレーンの�
     }
 }
 
-Describe "runIngestWorker・invokeIngestTask（レーン）" -Tag Io {
+Describe "runIngestWorker・invokeIngestTask（ワーカー）" -Tag Io {
     BeforeAll {
         . "${scriptsDir}\shared\office\office_app.ps1"
         . "${scriptsDir}\tebunko\indexer\extract_office.ps1"
@@ -1776,8 +1776,8 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
     }
 }
 
-Describe "諦めたレーン（制限時間を過ぎても利用者が使っている PowerPoint を止めなかったとき）" -Tag Io {
-    # 実際の PowerPoint は使わない。監視が立てる合図（レーンの Abandoned）を、テストが立てる
+Describe "諦めたワーカー（制限時間を過ぎても利用者が使っている PowerPoint を止めなかったとき）" -Tag Io {
+    # 実際の PowerPoint は使わない。監視が立てる合図（ワーカーの Abandoned）を、テストが立てる
     BeforeAll {
         . "${scriptsDir}\shared\office\office_reader.ps1"
         . "${scriptsDir}\shared\office\office_embedded.ps1"
@@ -1790,37 +1790,37 @@ Describe "諦めたレーン（制限時間を過ぎても利用者が使って�
     }
 
     BeforeEach {
-        $global:testLaneState = [hashtable]::Synchronized(@{ Abandoned = $false; Handled = $false })
-        $script:laneState = $global:testLaneState
+        $global:testWorkerState = [hashtable]::Synchronized(@{ Abandoned = $false; Handled = $false })
+        $script:workerState = $global:testWorkerState
         ${tmpDir} = Join-Path $TestDrive "abandoned_tmp"
         [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
     }
     AfterEach {
-        $script:laneState = $null
+        $script:workerState = $null
         $script:officeUnavailable = $false
-        Remove-Variable -Name testLaneState -Scope Global -ErrorAction SilentlyContinue
+        Remove-Variable -Name testWorkerState -Scope Global -ErrorAction SilentlyContinue
     }
 
     It "<title>" -TestCases @(
-        @{ title = "諦めたレーンのファイルは、取り込まずに後回しにする"; when = "before" }
+        @{ title = "諦めたワーカーのファイルは、取り込まずに後回しにする"; when = "before" }
         @{ title = "取り込みが戻ったときに諦めていたら、書き出さずに後回しにする（司令と同じフォルダを書き換えない）"; when = "after" }
         @{ title = "取り込みが失敗して戻ったときに諦めていても、失敗にせず、アプリも終了させない"; when = "throw" }
     ) {
         param ($title, $when)
-        $global:testLaneWhen = $when
+        $global:testWorkerWhen = $when
         Mock ingestFile {
-            if ($global:testLaneWhen -eq "throw") { $global:testLaneState.Abandoned = $true; throw "固まった呼び出しが、失敗で戻った" }
-            if ($global:testLaneWhen -eq "after") { $global:testLaneState.Abandoned = $true }
+            if ($global:testWorkerWhen -eq "throw") { $global:testWorkerState.Abandoned = $true; throw "固まった呼び出しが、失敗で戻った" }
+            if ($global:testWorkerWhen -eq "after") { $global:testWorkerState.Abandoned = $true }
             return 1
         }
         Mock publishTsv { }
         Mock stopApp { }
         Mock handOverForeignApp { }
-        if ($when -eq "before") { $global:testLaneState.Abandoned = $true }
+        if ($when -eq "before") { $global:testWorkerState.Abandoned = $true }
         try {
             $result = invokeIngestTask @{ RelPath = "資料\発表.pptx"; SourcePath = "C:\data\発表.pptx" } 10
         } finally {
-            Remove-Variable -Name testLaneWhen -Scope Global -ErrorAction SilentlyContinue
+            Remove-Variable -Name testWorkerWhen -Scope Global -ErrorAction SilentlyContinue
         }
         $result.Postponed | Should -Be $true
         $result.Ok | Should -Be $false
@@ -1831,7 +1831,7 @@ Describe "諦めたレーン（制限時間を過ぎても利用者が使って�
         Should -Invoke ingestFile -Times $(if ($when -eq "before") { 0 } else { 1 }) -Exactly -Scope It
     }
 
-    It "諦めていないレーンは、今までどおり書き出して成功にする" {
+    It "諦めていないワーカーは、今までどおり書き出して成功にする" {
         Mock ingestFile { return 1 }
         Mock publishTsv { }
         Mock getExtractVersion { return "1" }
@@ -1844,14 +1844,122 @@ Describe "諦めたレーン（制限時間を過ぎても利用者が使って�
     }
 }
 
-Describe "getIngestLaneCapacity" -Tag Unit {
+Describe "completeIngestJob（取り込みの 1 件の終わり方）" -Tag Io {
+    # 取り込みのワーカーの数が 0（司令のスレッドで取り込む形）と同じ形で、司令の結果の受け方だけを確かめる。
+    # 取り込み一覧（StatusLedger）・書き出し待ち（PendingPublish）・進み具合（IndexingReporter）は本物、本文インデックスへの書き出しだけ Mock にする
     BeforeAll {
+        . "${scriptsDir}\tebunko\indexer\indexer_lib.ps1"
         . $runPath
+        $script:jobCount = 0
+
+        # 1 件を取り込み中にした状態の run を作る（folder の Busy は 1。Undispatched のときは Pending が 1 のまま）
+        function newJobRun {
+            param ([bool]$undispatched = $false)
+
+            $script:jobCount++
+            $dir = Join-Path $TestDrive "job$($script:jobCount)"
+            [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+            $ledger = [StatusLedger]::new([pscustomobject]@{ StatusFile = "$dir\ingest_status.tsv"; IngestingFile = "$dir\ingesting.txt" })
+            $pending = [PendingPublish]::new()
+            $folder = [System.IO.Path]::GetDirectoryName((getBookDir "営業\a.docx"))
+            $pending.MarkFolder($folder)
+            $pending.AddPending($folder)
+            if (!$undispatched) {
+                $pending.Dispatch($folder)
+            }
+            $channel = newIndexerChannel
+            $options = @{ LookAhead = 200; WorkerScript = { }; PostponedReasonInUse = "使っていた"; PostponedReasonRunning = "起動していた" }
+            $dispatcher = [IngestDispatcher]::new(@(), [string[]]@(), [string[]]@(), @{}, @{}, $options)
+            return @{
+                Ledger = $ledger; Pending = $pending; Reporter = [IndexingReporter]::new($channel); Dispatcher = $dispatcher
+                Previous = (New-Object 'System.Collections.Generic.Dictionary[string,object]'); Total = 3; SuccessCount = 0; PostponedCount = 0; CurrentPath = ""
+                Channel = $channel; Dir = $dir; Folder = $folder
+            }
+        }
+
+        function newJobEntry {
+            param ($run)
+
+            return @{ Row = (newStatusRow "営業\a.docx" "2026/10/01 10:00:00" "1" ${stateNew}); Number = 1; Folder = $run.Folder }
+        }
     }
-    It "Office のレーンは取り込み中と次の 1 件、読み取りのレーンはスレッドの数の 2 倍まで渡す" {
-        getIngestLaneCapacity ${laneExcel} 3 | Should -Be 2
-        getIngestLaneCapacity ${lanePowerPoint} 3 | Should -Be 2
-        getIngestLaneCapacity ${laneReader} 3 | Should -Be 6
-        getIngestLaneCapacity ${laneReader} 0 | Should -Be 2
+
+    BeforeEach {
+        Mock writeIndexerLog { }
+        Mock markSystemIndexChanged { return $true }
+        Mock publishIndexFolders { return @() }
+    }
+
+    It "成功は、取り込み一覧に「取り込み済み」で足し、書き出し待ちのフォルダを本文インデックスへ書き出し、成功の数と進み具合を更新する" {
+        $run = newJobRun
+        $received = @{ Kind = "Completed"; Entry = (newJobEntry $run); Result = @{ RelPath = "営業\a.docx"; Ok = $true; TsvCount = 4; ExtractVersion = "7"; Log = "" } }
+        completeIngestJob $run $received
+        $run.SuccessCount | Should -Be 1
+        $run.PostponedCount | Should -Be 0
+        $row = $run.Ledger.ReadStatus().Rows["営業\a.docx"]
+        $row.状態 | Should -Be ${stateDone}
+        $row.TSV数 | Should -Be "4"
+        $row.抽出版 | Should -Be "7"
+        Should -Invoke publishIndexFolders -Times 1 -Exactly -Scope It
+        Should -Invoke markSystemIndexChanged -Times 1 -Exactly -Scope It
+        $progress = readIndexingProgress $run.Channel
+        $progress.Processed | Should -Be 1
+        $progress.Remaining | Should -Be 2
+        $progress.Failed | Should -Be 0
+    }
+
+    It "失敗は、取り込み一覧に「失敗」と原因を足し、今回の失敗に数える。書き出し待ちには入れない" {
+        $run = newJobRun
+        $received = @{ Kind = "Completed"; Entry = (newJobEntry $run); Result = @{ RelPath = "営業\a.docx"; Ok = $false; Message = "壊れている"; Log = "" } }
+        completeIngestJob $run $received
+        $run.SuccessCount | Should -Be 0
+        $row = $run.Ledger.ReadStatus().Rows["営業\a.docx"]
+        $row.状態 | Should -Be ${stateFailed}
+        $row.エラー | Should -Be "壊れている"
+        $run.Ledger.Failures.Count | Should -Be 1
+        (readIndexingProgress $run.Channel).Failed | Should -Be 1
+        Should -Invoke markSystemIndexChanged -Times 0 -Exactly -Scope It
+    }
+
+    It "後回し（<Kind>）は、取り込み一覧に足さずに理由を失敗として見せ、前の行の TSV 数・取り込み日時・抽出版を残す。後回しの数に数える" -TestCases @(
+        @{ Kind = "Postponed"; Undispatched = $false }
+        @{ Kind = "RerouteAbandoned"; Undispatched = $false }
+        @{ Kind = "Postponed"; Undispatched = $true }
+    ) {
+        param ($Kind, $Undispatched)
+        $run = newJobRun $Undispatched
+        $run.Previous["営業\a.docx"] = (newStatusRow "営業\a.docx" "2026/09/01 10:00:00" "1" ${stateDone} "5" "2026/09/02 09:00:00" "" "6")
+        $received = @{ Kind = $Kind; Entry = (newJobEntry $run); Reason = "使っていた"; Undispatched = $Undispatched }
+        completeIngestJob $run $received
+        $run.PostponedCount | Should -Be 1
+        $run.SuccessCount | Should -Be 0
+        $entryRow = $received.Entry.Row
+        $entryRow.状態 | Should -Be ${stateNew}
+        $entryRow.エラー | Should -Be "使っていた"
+        $entryRow.TSV数 | Should -Be "5"
+        $entryRow.取り込み日時 | Should -Be "2026/09/02 09:00:00"
+        $entryRow.抽出版 | Should -Be "6"
+        $run.Ledger.Failures.Count | Should -Be 1
+        $run.Ledger.Failures[0].Message | Should -Be "使っていた"
+        # 取り込み一覧には書かない（「失敗」にすると次の更新で飛ばされる）
+        $run.Ledger.ReadStatus().Rows.ContainsKey("営業\a.docx") | Should -Be $false
+        # 取り込み中（渡していない）の数を戻すため、書き出し待ちのフォルダは揃ったものとして書き出す
+        Should -Invoke publishIndexFolders -Times 1 -Exactly -Scope It
+    }
+
+    It "中止（Stopped）は、取り込み一覧にも失敗にも足さず、最初の 1 件だけ中止のログを出す" -TestCases @(
+        @{ First = $true; Lines = 3 }
+        @{ First = $false; Lines = 1 }
+    ) {
+        param ($First, $Lines)
+        $run = newJobRun
+        $received = @{ Kind = "Stopped"; Entry = (newJobEntry $run); RelPath = "営業\a.docx"; First = $First }
+        completeIngestJob $run $received
+        $run.SuccessCount | Should -Be 0
+        $run.PostponedCount | Should -Be 0
+        $run.Ledger.Failures.Count | Should -Be 0
+        $run.Ledger.ReadStatus().Rows.ContainsKey("営業\a.docx") | Should -Be $false
+        # 最初の 1 件は（空行・中止の知らせ・このファイル）の 3 回、ほかは（このファイル）の 1 回ログを書く
+        Should -Invoke writeIndexerLog -Times $Lines -Exactly -Scope It
     }
 }

@@ -694,7 +694,7 @@ Describe "ingestFile" -Tag Io {
 }
 
 Describe "extractDocument（読み取りのスレッド）" -Tag Io {
-    # 読み取りのスレッドは Office を持たない。Office が要るファイルは「Office が要る」の例外にして、Office のレーンに回してもらう
+    # 読み取りのスレッドは Office を持たない。Office が要るファイルは「Office が要る」の例外にして、Office の持ち主のワーカーに回してもらう
     BeforeAll {
         ${tmpDir} = Join-Path $TestDrive "reader_tmp"
         [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
@@ -734,7 +734,7 @@ Describe "extractDocument（読み取りのスレッド）" -Tag Io {
         Should -Invoke getApp -Times 0 -Exactly -Scope It
     }
 
-    It "「形式の分からないバイナリ」は、予備が有効なら Office のレーンに回す" {
+    It "「形式の分からないバイナリ」は、予備が有効なら Office の持ち主のワーカーに回す" {
         $unknown = Join-Path $TestDrive "reader-unknown.docx"
         writeUnknownBinary $unknown
         Mock getApp { throw "Office は使わない" }

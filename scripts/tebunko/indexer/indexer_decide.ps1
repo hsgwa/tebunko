@@ -87,42 +87,95 @@ function getIngestDecision {
 ${postponedReasonRunning} = "PowerPoint が起動していたため取り込めませんでした。PowerPoint を閉じてから、もう一度更新してください。"
 ${postponedReasonInUse}   = "PowerPoint を使っている方がいたため取り込めませんでした。PowerPoint を保存して閉じてから、もう一度更新してください。"
 
-# 取り込みのレーン（docs/design/indexing/parallel.md）。Office のレーンはアプリごとに 1 つのスレッドで、そのアプリを 1 つ持つ。
-# 読み取りのレーンは Office を使わず、ZIP の中の XML を直接読む（複数のスレッド）
-${laneExcel}      = "Excel"
-${laneWord}       = "Word"
-${lanePowerPoint} = "PowerPoint"
-${laneReader}     = "Reader"
-
-function getIngestLane {
-    # 取り込むファイルのレーンを拡張子で決める。Excel はセルの表示値を読むため、すべて Excel のレーン。
-    # Word・PowerPoint は、旧形式（.doc / .ppt）だけ Office のレーン、新形式は読み取りのレーン
-    # （中身が旧形式・パスワード付きと分かったら、読み取りのスレッドが Office のレーンに回し直す。getOfficeLane）。
-    # テキストの拡張子（.txt 等）と PDF（.pdf）は、どの分岐にも当たらないため既定の読み取りのレーンになる（Office を使わずに読むため）
+# 取り込むファイルが最初に要る Office のアプリ（docs/design/indexing/parallel.md）。Office を使わずに読めるファイルは空文字を返す
+function getIngestApp {
+    # Excel はセルの表示値を読むため、すべて Excel。Word・PowerPoint は、旧形式（.doc / .ppt）だけ Office が要り、新形式は Office を使わずに直接読む
+    # （中身が旧形式・パスワード付きと分かったら、読み取りが Office が要ると返し、getRerouteApp のアプリに回し直す）。
+    # テキストの拡張子（.txt 等）と PDF（.pdf）は、どの分岐にも当たらないため Office を使わずに読む
     param (
         [string]$relPath
     )
 
     # 種類は getOfficeFileKind（取り込みの対象の拡張子の表）で決め、旧形式かどうかだけをここで見る
     $kind = getOfficeFileKind $relPath
-    if ($kind -eq "Excel") { return ${laneExcel} }
+    if ($kind -eq "Excel") { return "Excel" }
     $extension = [System.IO.Path]::GetExtension($relPath).ToLowerInvariant()
-    if ($kind -eq "Word" -and $extension -eq ".doc") { return ${laneWord} }
-    if ($kind -eq "PowerPoint" -and $extension -eq ".ppt") { return ${lanePowerPoint} }
-    return ${laneReader}
+    if ($kind -eq "Word" -and $extension -eq ".doc") { return "Word" }
+    if ($kind -eq "PowerPoint" -and $extension -eq ".ppt") { return "PowerPoint" }
+    return ""
 }
 
-function getOfficeLane {
-    # 読み取りのスレッドが Office が要ると返したファイルの、回し先の Office のレーン
+function getRerouteApp {
+    # Office を使わずに読めず、Office が要ると返したファイルの、回し直し先の Office のアプリ
     param (
         [string]$relPath
     )
 
     if ((getOfficeFileKind $relPath) -eq "PowerPoint") {
-        return ${lanePowerPoint}
+        return "PowerPoint"
     }
-    return ${laneWord}
+    return "Word"
 }
+
+function selectIngestWorker {
+    # 取り込みのワーカーのうち、ファイル 1 つを渡す先を決める（取り込みのワーカーは 1 種類。IngestDispatcher が呼ぶ）。
+    # Office の COM は作ったスレッドからしか呼べないため、Office のアプリは「初めてそのアプリのファイルを受けたワーカー」が持ち（Owns）、
+    # そのアプリのファイルはそのワーカーにだけ渡す。Office のプロセスはアプリごとに最大 1 つのままにする。
+    #   Office が要るファイル … 持ち主へ。いなければ、Office を持たないワーカーのうち空いているものを新しい持ち主にする。
+    #                         Office を持たないワーカーが 1 つも無いときだけ、空いているワーカーが 2 つ目のアプリを持つ
+    #   Office が要らないファイル … Office を持たないワーカーのうち空いているものを先に。無ければ、空いているワーカーへ
+    # workers: ワーカーごとの @{ Busy（渡してある数）; Owns（持っているアプリの名前の並び）; Abandoned（諦めた）} の並び。
+    #   まだ始めていないワーカーは Busy 0・Owns 空で並べる。app: ファイルが要る Office のアプリ（要らなければ空）。
+    #   capacity: 1 ワーカーに同時に渡しておく数
+    # 戻り値 @{ Kind; Index }。Kind: Worker（Index のワーカーに渡す）／Wait（空きが無い。今は渡さない）／
+    #   Abandoned（渡し先が全部、制限時間を過ぎても利用者が使っている PowerPoint を止めずに諦めたワーカー。後回しにする）
+    param (
+        $workers,
+        [string]$app,
+        [int]$capacity
+    )
+
+    $free = {
+        param ($list)
+        $best = -1
+        foreach ($i in $list) {
+            if ([int]$workers[$i].Busy -lt $capacity -and ($best -lt 0 -or [int]$workers[$i].Busy -lt [int]$workers[$best].Busy)) {
+                $best = $i
+            }
+        }
+        return $best
+    }
+    $alive = @(for ($i = 0; $i -lt $workers.Count; $i++) { if (!$workers[$i].Abandoned) { $i } })
+    if ($alive.Count -eq 0) {
+        return @{ Kind = "Abandoned"; Index = -1 }
+    }
+    $bare = @($alive | Where-Object { @($workers[$_].Owns).Count -eq 0 })
+    if ($app) {
+        for ($i = 0; $i -lt $workers.Count; $i++) {
+            if (@($workers[$i].Owns) -contains $app) {
+                if ($workers[$i].Abandoned) {
+                    return @{ Kind = "Abandoned"; Index = $i }
+                }
+                if ([int]$workers[$i].Busy -lt $capacity) {
+                    return @{ Kind = "Worker"; Index = $i }
+                }
+                return @{ Kind = "Wait"; Index = -1 }
+            }
+        }
+        $pool = if ($bare.Count -gt 0) { $bare } else { $alive }
+        $index = & $free $pool
+    } else {
+        $index = & $free $bare
+        if ($index -lt 0) {
+            $index = & $free $alive
+        }
+    }
+    if ($index -lt 0) {
+        return @{ Kind = "Wait"; Index = -1 }
+    }
+    return @{ Kind = "Worker"; Index = $index }
+}
+
 function splitCloudItems {
     # クラウドにだけあるファイルの一覧を、取り込むものと、ダウンロードせずに残すものに分ける。
     #   取り込む: 「ダウンロードして取り込む」が選ばれていて、取り込み対象のもの（Failed が $false）。

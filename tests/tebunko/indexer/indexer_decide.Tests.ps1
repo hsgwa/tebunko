@@ -89,33 +89,75 @@ Describe "getIngestDecision（利用者のPowerPointのために取り込めな�
     }
 }
 
-Describe "getIngestLane・getOfficeLane" -Tag Unit {
-    It "Excel はすべて Excel のレーン、旧形式の Word・PowerPoint は Office のレーン、新形式は読み取りのレーン" {
+Describe "getIngestApp・getRerouteApp" -Tag Unit {
+    It "Excel はすべて Excel、旧形式の Word・PowerPoint はそのアプリ、新形式・テキスト・PDF は Office が要らない（空）" {
         $expected = @(
-            @("営業\a.xlsx", ${laneExcel}), @("a.xlsm", ${laneExcel}), @("a.xls", ${laneExcel}), @("a.xlsb", ${laneExcel}), @("A.XLSX", ${laneExcel}),
-            @("a.doc", ${laneWord}), @("B.DOC", ${laneWord}),
-            @("a.ppt", ${lanePowerPoint}), @("B.PPT", ${lanePowerPoint}),
-            @("a.docx", ${laneReader}), @("a.docm", ${laneReader}), @("a.pptx", ${laneReader}), @("a.pptm", ${laneReader}), @("大文字.DOCX", ${laneReader}),
-            # テキストの拡張子は、どの分岐にも当たらないため既定の読み取りのレーンになる
-            @("a.txt", ${laneReader}), @("a.log", ${laneReader}),
-            # PDF も Office を使わずに読むため、読み取りのレーン
-            @("a.pdf", ${laneReader}), @("営業\B.PDF", ${laneReader}),
-            # 表（取り込みの対象の拡張子）に無い拡張子は Office とみなさず、読み取りのレーン
-            @("a.xlsxyz", ${laneReader}), @("a.xlsa", ${laneReader}), @("a.docz", ${laneReader}), @("a.pptz", ${laneReader}), @("a.xlsx.bak", ${laneReader}), @("", ${laneReader})
+            @("営業\a.xlsx", "Excel"), @("a.xlsm", "Excel"), @("a.xls", "Excel"), @("a.xlsb", "Excel"), @("A.XLSX", "Excel"),
+            @("a.doc", "Word"), @("B.DOC", "Word"),
+            @("a.ppt", "PowerPoint"), @("B.PPT", "PowerPoint"),
+            @("a.docx", ""), @("a.docm", ""), @("a.pptx", ""), @("a.pptm", ""), @("大文字.DOCX", ""),
+            # テキストの拡張子は、どの分岐にも当たらないため Office が要らない
+            @("a.txt", ""), @("a.log", ""),
+            # PDF も Office を使わずに読む
+            @("a.pdf", ""), @("営業\B.PDF", ""),
+            # 表（取り込みの対象の拡張子）に無い拡張子は Office とみなさない
+            @("a.xlsxyz", ""), @("a.xlsa", ""), @("a.docz", ""), @("a.pptz", ""), @("a.xlsx.bak", ""), @("", "")
         )
         foreach ($case in $expected) {
-            getIngestLane $case[0] | Should -Be $case[1]
+            getIngestApp $case[0] | Should -Be $case[1]
         }
     }
 
-    It "読み取りのレーンから回し直すときは、PowerPoint のファイルは PowerPoint、それ以外は Word のレーン" {
-        getOfficeLane "a.pptx" | Should -Be ${lanePowerPoint}
-        getOfficeLane "A.PPTM" | Should -Be ${lanePowerPoint}
-        getOfficeLane "a.ppt" | Should -Be ${lanePowerPoint}
-        # 表に無い拡張子は PowerPoint ではないため、Word のレーン
-        getOfficeLane "a.pptz" | Should -Be ${laneWord}
-        getOfficeLane "a.docx" | Should -Be ${laneWord}
-        getOfficeLane "a.docm" | Should -Be ${laneWord}
+    It "Office を使わずに読めなかったファイルの回し直し先は、PowerPoint のファイルは PowerPoint、それ以外は Word" {
+        getRerouteApp "a.pptx" | Should -Be "PowerPoint"
+        getRerouteApp "A.PPTM" | Should -Be "PowerPoint"
+        getRerouteApp "a.ppt" | Should -Be "PowerPoint"
+        # 表に無い拡張子は PowerPoint ではないため、Word
+        getRerouteApp "a.pptz" | Should -Be "Word"
+        getRerouteApp "a.docx" | Should -Be "Word"
+        getRerouteApp "a.docm" | Should -Be "Word"
+    }
+}
+
+Describe "selectIngestWorker" -Tag Unit {
+    BeforeDiscovery {
+        function newWorker([int]$busy = 0, [string[]]$owns = @(), [bool]$abandoned = $false) {
+            return @{ Busy = $busy; Owns = $owns; Abandoned = $abandoned }
+        }
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "Office のファイルは、そのアプリの持ち主へ（ほかが空いていても）"
+           workers = @((newWorker 0), (newWorker 1 @("Excel")), (newWorker 0)); app = "Excel"; kind = "Worker"; index = 1 }
+        @{ name = "持ち主が満杯なら、ほかが空いていても待つ（そのアプリは持ち主だけが扱う）"
+           workers = @((newWorker 0), (newWorker 2 @("Excel"))); app = "Excel"; kind = "Wait"; index = -1 }
+        @{ name = "持ち主がいなければ、Office を持たないワーカーのうち一番空いているものが持ち主になる"
+           workers = @((newWorker 1 @("Word")), (newWorker 1), (newWorker 0)); app = "Excel"; kind = "Worker"; index = 2 }
+        @{ name = "持ち主がいなければ、Office を持たないワーカーが全部満杯なら待つ"
+           workers = @((newWorker 0 @("Word")), (newWorker 2), (newWorker 2)); app = "Excel"; kind = "Wait"; index = -1 }
+        @{ name = "Office を持たないワーカーが 1 つも無いときだけ、空いているワーカーが 2 つ目のアプリを持つ"
+           workers = @((newWorker 2 @("Word")), (newWorker 1 @("Excel"))); app = "PowerPoint"; kind = "Worker"; index = 1 }
+        @{ name = "Office が要らないファイルは、Office を持たないワーカーを先に（持ち主が空いていても）"
+           workers = @((newWorker 0 @("Excel")), (newWorker 1), (newWorker 0)); app = ""; kind = "Worker"; index = 2 }
+        @{ name = "Office が要らないファイルは、Office を持たないワーカーが満杯なら、空いている持ち主へ"
+           workers = @((newWorker 2), (newWorker 1 @("Excel")), (newWorker 2 @("Word"))); app = ""; kind = "Worker"; index = 1 }
+        @{ name = "全部が満杯なら待つ（Office が要らないファイル）"
+           workers = @((newWorker 2), (newWorker 2 @("Excel"))); app = ""; kind = "Wait"; index = -1 }
+        @{ name = "持ち主が諦めたワーカーなら、そのアプリのファイルは後回し"
+           workers = @((newWorker 0 @("PowerPoint") $true), (newWorker 0)); app = "PowerPoint"; kind = "Abandoned"; index = 0 }
+        @{ name = "諦めたワーカーには、Office が要らないファイルも渡さない"
+           workers = @((newWorker 0 @("PowerPoint") $true), (newWorker 1)); app = ""; kind = "Worker"; index = 1 }
+        @{ name = "諦めていないアプリのファイルは、諦めたワーカーがいても持ち主へ"
+           workers = @((newWorker 0 @("PowerPoint") $true), (newWorker 1 @("Excel"))); app = "Excel"; kind = "Worker"; index = 1 }
+        @{ name = "ワーカーが全部諦めたなら、後回し"
+           workers = @((newWorker 0 @("PowerPoint") $true)); app = ""; kind = "Abandoned"; index = -1 }
+        @{ name = "回し直し（容量を大きくして呼ぶ）は、持ち主が満杯でも渡す"
+           workers = @((newWorker 5 @("Word")), (newWorker 0)); app = "Word"; kind = "Worker"; index = 0; capacity = 1000 }
+    ) {
+        $cap = if ($capacity) { $capacity } else { 2 }
+        $pick = selectIngestWorker $workers $app $cap
+        $pick.Kind | Should -Be $kind
+        $pick.Index | Should -Be $index
     }
 }
 

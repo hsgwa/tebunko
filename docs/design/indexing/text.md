@@ -87,7 +87,7 @@ flowchart TD
 
 ## テキストファイルの抽出処理（`extractTextFile`）
 
-`tebunko/indexer/extract_text.ps1` の `extractTextFile` は、元のファイルに影響を出さないため、元を作業領域の `source.copy`（`.tsv` にならない固定の名前。消せずに残っても TSV として公開されない）に `copyFileShared`（読み取りだけ・`FileShare.ReadWrite | Delete`）でコピーし、コピーを `shared/core/text_file.ps1` の `readTextFile`（ファイルを開いて読む状態層の関数）で読み、TSV を書く前にコピーを消す（`finally`。消せなかったときは黙らず取り込みの失敗にする。作業領域の中身は本文インデックスに回るため、コピーを残さない）。強制終了で残ったコピーは、次のファイルの前と次のインデックス作成の始めに作業フォルダごと片付けられる。排他で開かれたファイルはコピーできず、取り込みの失敗になる。大きさの上限は、コピーの前に元の大きさで確かめる（コピーを読むときの確かめは、コピー中に大きくなった場合の保険）。書きかけのファイルをコピーしたときの中身は、直接読む場合と同じ。`readTextFile` が返す行の並びを、`tebunko/indexer/extract_text.ps1` の `extractTextFile` が場所「本文」の TSV 1 つに書き出す（`writeUnits` と違い、途中の空の行を捨てない）。取り込み（`ingestFile`。`tebunko/indexer/extract_office.ps1`）は、対象の拡張子ならここに回し、Excel・Word・PowerPoint を使わない読み取りのレーン（`Reader`）で取り込む（[取り込みのレーン](parallel.md)）。
+`tebunko/indexer/extract_text.ps1` の `extractTextFile` は、元のファイルに影響を出さないため、元を作業領域の `source.copy`（`.tsv` にならない固定の名前。消せずに残っても TSV として公開されない）に `copyFileShared`（読み取りだけ・`FileShare.ReadWrite | Delete`）でコピーし、コピーを `shared/core/text_file.ps1` の `readTextFile`（ファイルを開いて読む状態層の関数）で読み、TSV を書く前にコピーを消す（`finally`。消せなかったときは黙らず取り込みの失敗にする。作業領域の中身は本文インデックスに回るため、コピーを残さない）。強制終了で残ったコピーは、次のファイルの前と次のインデックス作成の始めに作業フォルダごと片付けられる。排他で開かれたファイルはコピーできず、取り込みの失敗になる。大きさの上限は、コピーの前に元の大きさで確かめる（コピーを読むときの確かめは、コピー中に大きくなった場合の保険）。書きかけのファイルをコピーしたときの中身は、直接読む場合と同じ。`readTextFile` が返す行の並びを、`tebunko/indexer/extract_text.ps1` の `extractTextFile` が場所「本文」の TSV 1 つに書き出す（`writeUnits` と違い、途中の空の行を捨てない）。取り込み（`ingestFile`。`tebunko/indexer/extract_office.ps1`）は、対象の拡張子ならここに回し、Office を使わずに読む仕事で取り込む（[取り込みの並列化](parallel.md)）。
 
 本文インデックスへは、今の形式（版 1）のまま、種類 `テキスト`・場所 1 つ（部分 = 本文・対象 = 本文）で入る（[本文インデックスの形式](../index-data/format.md)）。
 
