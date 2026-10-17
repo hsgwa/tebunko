@@ -316,11 +316,25 @@ function invokeIndexer {
     return $exitCode
 }
 
+function getIndexFolderRel {
+    # インデックスのフォルダ（IndexDir の下の、元のファイルごとのフォルダ）の、IndexDir からの相対パス。IndexDir の下でなければ空
+    param (
+        [string]$folder
+    )
+
+    $fullRoot = [System.IO.Path]::GetFullPath((fromLongPath $workspace.IndexDir)).TrimEnd("\")
+    $full = [System.IO.Path]::GetFullPath((fromLongPath $folder)).TrimEnd("\")
+    if ($full.Length -le $fullRoot.Length) {
+        return ""
+    }
+    return $full.Substring($fullRoot.Length).TrimStart("\")
+}
+
 function flushPendingPublish {
     # 書き出し待ちのフォルダを本文インデックスへまとめる（書き出しは司令が呼ぶ。PendingPublish は決めて返すだけ）。
     # -All は、取り込み中・まだ渡していない数を見ずに、書き出し待ちのフォルダをすべて書き出す（クロールの前後・インデックス作成の終わり）
-    # 書き出せたフォルダは、ジャーナルに「出」を足す（次の始めにもう一度書き出さなくてよい）。書き出せなかった（本文インデックスを書けなかった・例外）フォルダが
-    # あれば、ジャーナルの Unfinished を立てる（「終」を書かず、次の始めにそのフォルダをもう一度書き出す）
+    # 書き出せたフォルダは、ジャーナルに「出」を足す（次の始めにもう一度書き出さなくてよい）。書き出せなかった（本文インデックスを書けなかった・例外）フォルダは
+    # 「出」が無いままなので、次の始めにもう一度書き出す。ジャーナルの Unfinished を立てる（始めの書き出しで、次の回へ「未」で持ち越すかを決めるのに使う）
     param (
         $pending,
         $journal,
@@ -348,17 +362,107 @@ function flushPendingPublish {
     if ($failedRels.Count -gt 0) {
         $journal.Unfinished = $true
     }
-    $fullRoot = [System.IO.Path]::GetFullPath((fromLongPath $workspace.IndexDir)).TrimEnd("\")
     foreach ($folder in $flush.Keys) {
-        $rel = [System.IO.Path]::GetFullPath((fromLongPath $folder)).TrimEnd("\")
-        if ($rel.Length -le $fullRoot.Length) {
+        $rel = getIndexFolderRel $folder
+        if ($rel -eq "") {
             continue
         }
-        $rel = $rel.Substring($fullRoot.Length).TrimStart("\")
         if (!$failedRels.Contains($rel)) {
             $journal.AddRecord((convertToIngestJournalLine "出" @($rel)))
         }
     }
+}
+
+function recoverIngestJournal {
+    # 取り込みの始めの復旧。前回のジャーナル（と、前の版の ingesting.txt）から、やり直す仕事を決め、書き出していないフォルダを先に書き出す。
+    # ジャーナルが読めない（無い・版が違う。前の版で止まった跡を含む）ときは、今ある書き出し前のフォルダ（findIndexFoldersWithBooks）を書き出す。
+    # 中止を求められていれば、書き出しは飛ばして次回に回す（段の途中では止めない）。
+    # 戻り値: @{ Resume = やり直す仕事（@{ RelPath; Count } の List）; Unpublished = まだ書き出していないフォルダ（インデックスからの相対）。
+    # 次の回のジャーナルに「未」で持ち越す }
+    param (
+        $ledger,
+        $journal,
+        $pending,
+        $channel,
+        $reporter
+    )
+
+    $recovery = convertFromIngestJournal ($journal.ReadPrevious()) ($ledger.ReadRelPaths()) ${indexFormatVersion}
+    $resume = New-Object System.Collections.Generic.List[hashtable]
+    $resumeNames = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($item in @($recovery.Resume)) {
+        $resume.Add($item)
+        [void]$resumeNames.Add($item.RelPath)
+    }
+    # 前の版の取り込み中のファイルの記録（ingesting.txt）が残っていれば、一度だけ読んで、止まった仕事に足す
+    foreach ($item in @(readLegacyIngesting)) {
+        if ($resumeNames.Add($item.RelPath)) {
+            $resume.Add($item)
+        }
+    }
+    $leftover = New-Object System.Collections.Generic.List[string]
+    if ($recovery.Valid) {
+        foreach ($rel in @($recovery.Folders)) {
+            $folder = Join-Path $workspace.IndexDir $rel
+            if (Test-Path -LiteralPath $folder -PathType Container) {
+                $leftover.Add($folder)
+            }
+        }
+    } else {
+        $withBooks = findIndexFoldersWithBooks $workspace.IndexDir
+        foreach ($folder in $withBooks) {
+            $leftover.Add($folder)
+        }
+    }
+    $done = $true
+    if ($leftover.Count -gt 0) {
+        if ($channel.Stop) {
+            $done = $false
+        } else {
+            writeIndexerLog "集約ファイルに入れていないインデックス（$($leftover.Count) フォルダ）をまとめています…"
+            $reporter.Progress(${indexingPhaseCrawl}, 0, 0, 0, "集約ファイルに入れていないインデックスをまとめています…")
+            foreach ($folder in $leftover) {
+                $pending.MarkFolder($folder)
+            }
+            flushPendingPublish $pending $journal -All
+            if ($journal.Unfinished) {
+                $done = $false
+                $journal.Unfinished = $false
+            }
+        }
+    }
+    $unpublished = New-Object System.Collections.Generic.List[string]
+    if (!$done) {
+        foreach ($folder in $leftover) {
+            $rel = getIndexFolderRel $folder
+            if ($rel -ne "") {
+                $unpublished.Add($rel)
+            }
+        }
+    }
+    return @{ Resume = $resume; Unpublished = $unpublished.ToArray() }
+}
+
+function writeStatusWithJournal {
+    # 取り込み一覧を書き直す。書き直すと「回」の行数が合わなくなるので、前に「書」の印を足す（途中で止まっても、次の始めは取り込み中だった仕事を全部やり直す側に倒れる）。
+    # -Finish は、書き直し終えたら「終」を足す（書き出せなかったフォルダがあっても書く。そのフォルダは「出」が無いことで次の始めに残る）。
+    # 取りやめのように、この回のジャーナルを始めていないときは付けない（前回の取り込み中の仕事を残すため）。最後にジャーナルを閉じる
+    param (
+        $journal,
+        $ledger,
+        $folders,
+        $rows,
+        $keptDropped,
+        $previous,
+        [switch]$Finish
+    )
+
+    $journal.AddRecord((convertToIngestJournalLine "書"))
+    writeStatusKeepingDropped $ledger $folders $rows $keptDropped $previous
+    if ($Finish) {
+        $journal.AddRecord((convertToIngestJournalLine "終"))
+    }
+    $journal.Close()
 }
 
 function reportIngestProgress {
@@ -570,50 +674,10 @@ function invokeIndexerBody {
     $previous = $planner.Previous
     # 設定から外れたインデックスは、ここでは消さない。確認ダイアログに「削除予定」として出し、［更新を開始］が押されたときだけ消す
     $dropped = $planner.Dropped
-    # 前回のジャーナルから、前回止まった跡（始めて終わらなかった仕事・書き出していないフォルダ）を読む。
-    # 書き出していないフォルダ（TSV を置いたが本文インデックスのファイルに入れていない）が残っていれば、先に入れる
-    # （中止を求められていれば、この段は飛ばして次回に回す。段の途中では止めない）。
-    # 前の版の取り込み中のファイルの記録（ingesting.txt）が残っていれば、一度だけ読んで、止まった仕事に足す
+    # 前回のジャーナルから、前回止まった跡（始めて終わらなかった仕事・書き出していないフォルダ）を読み、書き出していないフォルダを先に入れる
     $journal = [IngestJournal]::new($workspace.JournalFile)
-    $recovery = convertFromIngestJournal ($journal.ReadPrevious()) ($ledger.ReadRelPaths()) ${indexFormatVersion}
-    $resume = New-Object System.Collections.Generic.List[hashtable]
-    foreach ($item in @($recovery.Resume)) {
-        $resume.Add($item)
-    }
-    $resumeNames = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($item in $resume) {
-        [void]$resumeNames.Add($item.RelPath)
-    }
-    foreach ($item in @(readLegacyIngesting)) {
-        if ($resumeNames.Add($item.RelPath)) {
-            $resume.Add($item)
-        }
-    }
-    $leftover = New-Object System.Collections.Generic.List[string]
-    foreach ($rel in @($recovery.Folders)) {
-        $folder = Join-Path $workspace.IndexDir $rel
-        if (Test-Path -LiteralPath $folder -PathType Container) {
-            $leftover.Add($folder)
-        }
-    }
-    # 止まった跡を片付け終えた（ジャーナルを新しくしてよい）。書き出せなかった・中止で飛ばしたときは、ジャーナルをそのまま残す（次の始めにもう一度）
-    $recoveryDone = $true
-    if ($leftover.Count -gt 0) {
-        if ($channel.Stop) {
-            $recoveryDone = $false
-        } else {
-            writeIndexerLog "集約ファイルに入れていないインデックス（$($leftover.Count) フォルダ）をまとめています…"
-            $reporter.Progress(${indexingPhaseCrawl}, 0, 0, 0, "集約ファイルに入れていないインデックスをまとめています…")
-            foreach ($folder in $leftover) {
-                $pending.MarkFolder($folder)
-            }
-            flushPendingPublish $pending $journal -All
-            if ($journal.Unfinished) {
-                $recoveryDone = $false
-                $journal.Unfinished = $false
-            }
-        }
-    }
+    $recovered = recoverIngestJournal $ledger $journal $pending $channel $reporter
+    $resume = $recovered.Resume
 
     # 新しく割り当てたインデックス名を設定に保存する
     $planner.SaveNames($targetFolders, { param($assigned) $catalog.StoreAssignedNames($assigned) }.GetNewClosure())
@@ -670,10 +734,8 @@ function invokeIndexerBody {
         $keep = $planner.KeepForCancel()
         writeIndexerLog ""
         writeIndexerLog $message "Yellow"
-        # 取り込み一覧を書き直すと、ジャーナルの「回」の行数が合わなくなる。印を残し、前回の取り込み中だった仕事は全部やり直す側に倒す
-        $journal.AddRecord((convertToIngestJournalLine "書"))
-        $journal.Close()
-        writeStatusKeepingDropped $ledger $folders $keep $keptDropped $previous
+        # この回のジャーナルは始めていない（前回のものを残す）ので「終」は付けない
+        writeStatusWithJournal $journal $ledger $folders $keep $keptDropped $previous
         writeSourceFolderFile $folders
         $reporter.Progress(${indexingPhaseFinish}, 0, 0, 0, "インデックス作成を取りやめました")
         removeTmpDir
@@ -754,19 +816,21 @@ function invokeIndexerBody {
     $planner.ApplyInterrupted($resume.ToArray(), $interruptLimit)
     $carried = $planner.Carried
     $reporter.Progress(${indexingPhaseCrawl}, 0, $targets.Count, 0, "更新の記録を書き出しています…")
+    # 取り込み一覧を書き直したら、この回のジャーナルを新しく始める（版・回（書き直した後の行数）・持ち越した仕事・書き出せていないフォルダ）。
+    # 書き直しの途中で止まったときのために、書き直しの前に「書」の印を足す（前回のジャーナルの末尾に付く）
     $journal.AddRecord((convertToIngestJournalLine "書"))
     writeStatusKeepingDropped $ledger $folders $rows.ToArray() $keptDropped $previous
-    if ($recoveryDone) {
-        # 前回止まった跡は片付けたので、この回のジャーナルを新しく始める（版・回（取り込み一覧の書き直し後の行数）・持ち越した仕事）
-        $journalLines = New-Object System.Collections.Generic.List[string]
-        $journalLines.Add((convertToIngestJournalLine "版" @(${indexFormatVersion})))
-        $journalLines.Add((convertToIngestJournalLine "回" @((formatFileTime (Get-Date)), @($ledger.ReadRelPaths()).Count)))
-        foreach ($carriedName in $carried.Keys) {
-            $journalLines.Add((convertToIngestJournalLine "持" @($carriedName, $carried[$carriedName])))
-        }
-        $journal.Reset($journalLines.ToArray())
-        removeLegacyIngesting
+    $journalLines = New-Object System.Collections.Generic.List[string]
+    $journalLines.Add((convertToIngestJournalLine "版" @(${indexFormatVersion})))
+    $journalLines.Add((convertToIngestJournalLine "回" @((formatFileTime (Get-Date)), @($ledger.ReadRelPaths()).Count)))
+    foreach ($carriedName in $carried.Keys) {
+        $journalLines.Add((convertToIngestJournalLine "持" @($carriedName, $carried[$carriedName])))
     }
+    foreach ($unpublishedRel in $recovered.Unpublished) {
+        $journalLines.Add((convertToIngestJournalLine "未" @($unpublishedRel)))
+    }
+    $journal.Reset($journalLines.ToArray())
+    removeLegacyIngesting
     # インデックスのフォルダごと別の場所・PCへコピーしても元のファイルの場所が分かるよう、インデックス名とクロール対象フォルダの対応を置く
     writeSourceFolderFile $folders
 
@@ -788,10 +852,8 @@ function invokeIndexerBody {
         }
         # 元のファイルが無くなったフォルダは、本文インデックスのファイルから外す
         flushPendingPublish $pending $journal -All
-        # 取り込む仕事が無かった。書き出せないフォルダが無ければ、ジャーナルを「終」にする
-        if (!$journal.Unfinished) {
-            $journal.AddRecord((convertToIngestJournalLine "終"))
-        }
+        # 取り込む仕事が無かった（書き出せなかったフォルダは、「出」が無いので次の始めに残る）
+        $journal.AddRecord((convertToIngestJournalLine "終"))
         $journal.Close()
         # 取り込むファイルが無くても、システムインデックスがまだ無いフォルダ（この版に上げた直後など）は作る
         $reporter.Progress(${indexingPhaseFinish}, 0, 0, 0, "システムインデックス（高速検索用）を確かめています…")
@@ -953,14 +1015,8 @@ function invokeIndexerBody {
         flushPendingPublish $pending $journal -All
         $reporter.Progress(${indexingPhaseFinish}, $processed, 0, $ledger.Failures.Count, "更新の記録を書き直しています…")
         # 取り込みの直前に無くなっていたファイルの行は除く（次回の検索でも見つからず、インデックスも削除済み）。
-        # 書き直す前に「書」の印を残し、書き直し終えたら（書き出せないフォルダが無ければ）「終」を足す。
-        # 書き直しの途中で止まっても、印があるので、次の始めは取り込み中だった仕事を全部やり直す側に倒れる
-        $journal.AddRecord((convertToIngestJournalLine "書"))
-        writeStatusKeepingDropped $ledger $folders @($rows | Where-Object { $_ -and !$ledger.DroppedRows.Contains([string]$_.相対パス) }) $keptDropped $previous
-        if (!$journal.Unfinished) {
-            $journal.AddRecord((convertToIngestJournalLine "終"))
-        }
-        $journal.Close()
+        # 書き直し終えたら「終」を足す（書き直しの途中で止まっても、印があるので、次の始めは取り込み中だった仕事を全部やり直す側に倒れる）
+        writeStatusWithJournal $journal $ledger $folders @($rows | Where-Object { $_ -and !$ledger.DroppedRows.Contains([string]$_.相対パス) }) $keptDropped $previous -Finish
         # 初めて取り込んだインデックスは、最初に書き出した時点ではまだフォルダが無いため、ここでもう一度書く
         # （work\content_index\<インデックス名>\source_folder.txt。インデックス 1 個だけをコピーしても元のファイルの場所が分かる）
         writeSourceFolderFile $folders

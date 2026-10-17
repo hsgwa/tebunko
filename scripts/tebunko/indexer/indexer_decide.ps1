@@ -208,11 +208,12 @@ function splitCloudItems {
 #   版<TAB>版番号            先頭の 1 行。違えば読まない
 #   回<TAB>日時<TAB>行数     インデックス作成の 1 回の始め。行数は、その回の始めに書き直した後の取り込み一覧のデータ行の数
 #                            （これより後ろに追記された行を「この回の行」とする。日時では決めない）
-#   書                       取り込み一覧を書き直す前の印（書き直しの前後で行数がずれるため、印があれば行数で「この回の行」を決めない）
+#   書                       取り込み一覧を書き直す前の印（書き直しの途中で止まると行数がずれるため、印があれば行数で「この回の行」を決めない。後ろに終があれば済んでいる）
+#   未<TAB>フォルダ          回の直後に、前の回から持ち越した「まだ書き出していないフォルダ」（始めの書き出しに失敗・中止で飛ばしたとき）
 #   始<TAB>相対パス<TAB>回数  取り込みのワーカーに渡した（回数は続けて終わらなかった回数。この渡しを含む）
 #   持<TAB>相対パス<TAB>回数  止まった仕事の回数の持ち越し（この回にまだ渡していない）
 #   出<TAB>フォルダ          そのフォルダ（インデックスのフォルダからの相対）を本文インデックスに書き出した
-#   終                       取り込み一覧を書き直し、全部を書き出し終えた
+#   終                       取り込み一覧を書き直し終えた（書き出せなかったフォルダがあっても書く。そのフォルダは始・未の出が無いことで残る）
 # 知らない種類・余った列は読み飛ばす。
 
 function convertToIngestJournalLine {
@@ -234,9 +235,9 @@ function convertFromIngestJournal {
     # 前回のジャーナルの行と、そのときの取り込み一覧の相対パス（ファイルの順。同じ相対パスの追記も数える）から、
     # 始めの復旧の内容を決める。戻り値: @{ Valid; Finished; Aligned; Folders; Resume }
     #   Valid   : 版が合い、回の記録がある（無い・違うなら、読まない＝何も復旧しない）
-    #   Finished: 回の後に「終」がある（前回はきれいに終わった。Folders・Resume は空）
+    #   Finished: 回の後に「終」がある（取り込み一覧の書き直しまで済んだ。Resume は空。Folders は、終があっても出の無いものを返す）
     #   Aligned : 取り込み一覧の行数で「この回の行」を決められた（書の印が無く、行数が合う）
-    #   Folders : 先に書き出すフォルダ（始めたが、出が無い）
+    #   Folders : 先に書き出すフォルダ（始・未にあって、その後の出が無い。記録の順）
     #   Resume  : 取り込み中に止まった仕事と、持ち越した仕事の @{ RelPath; Count } の並び（回数を上げずに返す。上限は呼び出し側が見る）。
     #             始の相対パスは、同じ回に何度も出たら最後の行。この回の行（取り込み一覧の、回の行数より後ろ）に相対パスがあれば済んでいる。
     #             持だけで始が無いものは回数のまま。書の印があるときは、行を見ずに始の仕事を全部返す
@@ -273,7 +274,7 @@ function convertFromIngestJournal {
     }
     $started = New-Object 'System.Collections.Generic.Dictionary[string,int]' ([System.StringComparer]::OrdinalIgnoreCase)
     $held = New-Object 'System.Collections.Generic.Dictionary[string,int]' ([System.StringComparer]::OrdinalIgnoreCase)
-    $published = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $unpublished = New-Object System.Collections.Specialized.OrderedDictionary ([System.StringComparer]::OrdinalIgnoreCase)
     $checkedNames = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
     for ($i = $round + 1; $i -lt $records.Count; $i++) {
         $fields = $records[$i]
@@ -282,6 +283,15 @@ function convertFromIngestJournal {
             "始" {
                 if ($fields.Count -ge 3 -and [int]::TryParse($fields[2], [ref]$count) -and $count -ge 1 -and !(testIndexRelPath $fields[1] $false $checkedNames)) {
                     $started[$fields[1]] = $count
+                    $startedFolder = [System.IO.Path]::GetDirectoryName($fields[1])
+                    if (!$unpublished.Contains($startedFolder)) {
+                        $unpublished.Add($startedFolder, $true)
+                    }
+                }
+            }
+            "未" {
+                if ($fields.Count -ge 2 -and $fields[1] -ne "" -and !$unpublished.Contains($fields[1])) {
+                    $unpublished.Add($fields[1], $true)
                 }
             }
             "持" {
@@ -291,7 +301,7 @@ function convertFromIngestJournal {
             }
             "出" {
                 if ($fields.Count -ge 2 -and $fields[1] -ne "") {
-                    [void]$published.Add($fields[1])
+                    $unpublished.Remove($fields[1])
                 }
             }
             "書" { $result.Aligned = $false }
@@ -299,15 +309,7 @@ function convertFromIngestJournal {
         }
     }
 
-    $folders = New-Object System.Collections.Generic.List[string]
-    $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($relPath in $started.Keys) {
-        $folder = [System.IO.Path]::GetDirectoryName($relPath)
-        if (!$published.Contains($folder) -and $seen.Add($folder)) {
-            $folders.Add($folder)
-        }
-    }
-    $result.Folders = $folders.ToArray()
+    $result.Folders = [string[]]@($unpublished.Keys)
     if ($result.Finished) {
         return $result
     }

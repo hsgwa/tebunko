@@ -19,7 +19,7 @@ flowchart TD
     CLN -- いいえ --> PK
     CLN -- はい --> CLR{"前の版のシステムインデックスを<br>片付けられた？（clearLegacySystemIndex）"}
     CLR -- いいえ --> E0
-    CLR -- はい --> PK["前回のジャーナルを読み、書き出していないフォルダがあれば、<br>先に本文インデックスに書き出す（convertFromIngestJournal）"]
+    CLR -- はい --> PK["前回のジャーナルを読み、書き出していないフォルダがあれば、<br>先に本文インデックスに書き出す（recoverIngestJournal。書き出せなければ次の回へ「未」で持ち越す）"]
     PK --> L["取り込み対象の決定<br>インデックスごとに件数を数える"]
     L -- "クロール中に中止" --> C0
     L --> CF{"受け渡しの口の ConfirmTargets？"}

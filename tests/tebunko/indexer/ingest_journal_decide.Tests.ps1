@@ -73,6 +73,24 @@ Describe "convertFromIngestJournal" -Tag Unit {
         @{ name = "サブフォルダの仕事は、元のファイルのフォルダ（インデックスのフォルダからの相対）を書き出す"
            lines = (round 0 @((j "始" @("営業\サブ\a.xlsx", 1)), (j "始" @("営業\サブ\b.xlsx", 1)), (j "始" @("営業\c.xlsx", 1)))); rows = @()
            folders = @("営業\サブ", "営業"); resume = @("営業\サブ\a.xlsx=1", "営業\サブ\b.xlsx=1", "営業\c.xlsx=1") }
+        @{ name = "未（前の回から持ち越した書き出し前のフォルダ）は、始が無くても書き出す。回の行数には関係しない"
+           lines = (round 0 @((j "未" @("営業")), (j "未" @("営業")), (j "未" @("総務\サブ")))); rows = @()
+           folders = @("営業", "総務\サブ"); resume = @() }
+        @{ name = "未に出が付けば書き出さない。出は大文字小文字を区別しない"
+           lines = (round 0 @((j "未" @("営業")), (j "未" @("Sales")), (j "出" @("営業")), (j "出" @("SALES")))); rows = @()
+           folders = @(); resume = @() }
+        @{ name = "出のあとにもう一度始まったフォルダは、書き出していないものとして残す"
+           lines = (round 0 @((j "始" @("営業\a.xlsx", 1)), (j "出" @("営業")), (j "始" @("営業\b.xlsx", 1)))); rows = @()
+           folders = @("営業"); resume = @("営業\a.xlsx=1", "営業\b.xlsx=1") }
+        @{ name = "終があっても、未のフォルダは書き出す（書き出せなかった回も終を書く）。仕事はやり直さない"
+           lines = (round 1 @((j "未" @("営業")), (j "始" @("営業\a.xlsx", 1)), (j "終"))); rows = @("営業\a.xlsx")
+           folders = @("営業"); resume = @(); finished = $true }
+        @{ name = "書の後に終があれば、書き直しは終わっている（仕事はやり直さない）"
+           lines = (round 1 @((j "始" @("営業\a.xlsx", 1)), (j "出" @("営業")), (j "書"), (j "終"))); rows = @("営業\a.xlsx")
+           folders = @(); resume = @(); finished = $true }
+        @{ name = "列の無い未・出は読み飛ばす"
+           lines = (round 0 @((j "未"), (j "未" @("")), (j "出"), (j "始" @("営業\a.xlsx", 1)))); rows = @()
+           folders = @("営業"); resume = @("営業\a.xlsx=1") }
         @{ name = "始の無い回（取り込みを始める前に止まった）は、何も復旧しない"
            lines = (round 0 @()); rows = @()
            folders = @(); resume = @() }

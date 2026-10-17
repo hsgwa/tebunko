@@ -18,7 +18,7 @@ flowchart LR
 | `addStatusRow` | 追記した行の優先（大文字・小文字を区別しない）、追記した行の抽出版 |
 | `readStatusLines` / `renameStatusIndexName` / `removeStatusIndexName` | 名前の変更（クロール対象フォルダの行と各行の相対パス）、インデックスの記録の削除 |
 | `readStatusRelPaths` | 取り込み一覧の相対パスを順に返す（同じ相対パスの追記も数える・壊れた行と見出しは数えない） |
-| `IngestJournal`・`convertToIngestJournalLine`・`convertFromIngestJournal` | ジャーナルの追記と読み戻し（途中で切れた最後の行を捨てる）、記録の種類ごとの復旧（書き出すフォルダ・やり直す仕事・済んだ仕事）、行数がずれたときの全部やり直し、前の版の記録の読み込み |
+| `IngestJournal`・`convertToIngestJournalLine`・`convertFromIngestJournal` | ジャーナルの追記と読み戻し（途中で切れた最後の行を捨てる）、記録の種類ごとの復旧（書き出すフォルダ・やり直す仕事・済んだ仕事。「未」の持ち越しと「出」の打ち消し）、書き出せなかった回のあとの書き出し直し、行数がずれたときの全部やり直し、前の版の記録の読み込み |
 | `describeIngestError` | 取り込みの例外から失敗の原因を作る（パスが長すぎる場合を含む） |
 | `getIndexingState` | 状態ごとの件数、失敗したファイルの行の並び（`未取り込み` でエラーがある行は失敗に数え、エラーが空の `未取り込み` は待ちのまま）、指定した時刻以降に取り込んだ件数 |
 | `newIndexerChannel` / `writeIndexingProgress` / `readIndexingProgress` | 画面が決めた条件を入れスレッドをまたいで使える形にする、段階・件数・内容の往復（タブ・改行はスペース）、受け渡しの口が無ければ何もしない |

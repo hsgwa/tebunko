@@ -68,6 +68,8 @@ class Workspace {
     # 取り込みの出力（publish）はプロセスごとのフォルダ（PublishDir）の親を移す。
     # StoreDir の中（IndexDir・StatusFile・FormatFile・JournalFile）は StoreDir ごと移す。
     # OldIndexDir・OldStatusFile・LegacyIndexDir は、あれば前の版のワークスペースとして tebunko のものと扱う（あるものだけが WorkspaceMover.ListEntries で拾われる）
+    # 前の版の取り込み中のファイルの記録（ワークスペース直下の ingesting.txt）は含めない。新しい版は始めに 1 度だけ読んで消す一時的な跡で、
+    # 移すときに残っても取り込み直しが増えるだけ（取り込み一覧が前回のままなので、止まったファイルは更新ありのまま次の回で取り込まれる）
     [string[]] Entries() {
         return @($this.StoreDir, $this.OldIndexDir, $this.OldStatusFile, $this.LegacyIndexDir, $this.SystemIndexDir, $this.SystemIndexStateFile,
             $this.ResultFile, $this.IndexingLogFile, $this.GuiErrorLogFile,

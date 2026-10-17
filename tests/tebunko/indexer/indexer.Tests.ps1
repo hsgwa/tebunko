@@ -2000,3 +2000,143 @@ Describe "completeIngestJob（取り込みの 1 件の終わり方）" -Tag Io {
         Should -Invoke writeIndexerLog -Times $Lines -Exactly -Scope It
     }
 }
+
+Describe "取り込みのジャーナルの復旧と書き出し（flushPendingPublish・recoverIngestJournal・writeStatusWithJournal）" -Tag Io {
+    # 本文インデックスへの書き出し（publishIndexFolders）だけ Mock にして、書き出せたとき・書き出せなかったときのジャーナルの記録と、
+    # 始めの復旧が次の回へ持ち越すフォルダを確かめる。ジャーナル・取り込み一覧・書き出し待ちは本物
+    BeforeAll {
+        . "${scriptsDir}\tebunko\indexer\indexer_lib.ps1"
+        . $runPath
+        $script:recoverCount = 0
+
+        function newRecoverEnv {
+            # 前回のジャーナル（records）を書き、書き出し前のフォルダ（営業\a.xlsx の TSV を入れる元のファイルごとのフォルダ）を作った状態の部品を返す
+            param ([string[]]$records = $null)
+
+            $script:recoverCount++
+            $ws = [Workspace]::new((Join-Path $TestDrive "recover$($script:recoverCount)"))
+            [System.IO.Directory]::CreateDirectory("$($ws.IndexDir)\営業\a.xlsx") | Out-Null
+            [System.IO.File]::WriteAllText("$($ws.IndexDir)\営業\a.xlsx\S.tsv", "x")
+            $journal = [IngestJournal]::new($ws.JournalFile)
+            if ($null -ne $records) {
+                $journal.Reset([string[]](@("版`t2", "回`t2026/10/17 10:00:00`t0") + $records))
+            }
+            $channel = newIndexerChannel
+            return @{
+                Workspace = $ws; Journal = $journal; Pending = [PendingPublish]::new(); Channel = $channel
+                Ledger = [StatusLedger]::new([pscustomobject]@{ StatusFile = "$($ws.Dir)\ingest_status.tsv" })
+                Reporter = [IndexingReporter]::new($channel)
+            }
+        }
+
+        function readJournalLines {
+            param ($rc)
+
+            $rc.Journal.Close()
+            return @($rc.Journal.ReadPrevious())
+        }
+    }
+
+    BeforeEach {
+        Mock writeIndexerLog { }
+        Mock publishIndexFolders { return @{ Count = 1; Skipped = @() } }
+    }
+
+    It "flushPendingPublish は、書き出せたフォルダに「出」を足し、Unfinished を立てない" {
+        $rc = newRecoverEnv
+        $workspace = $rc.Workspace
+        $rc.Pending.MarkFolder("$($workspace.IndexDir)\営業")
+        flushPendingPublish $rc.Pending $rc.Journal -All
+        $rc.Journal.Unfinished | Should -Be $false
+        (readJournalLines $rc) | Should -Be @("出`t営業")
+    }
+
+    It "flushPendingPublish は、<name>のとき、「出」を足さず、Unfinished を立てる" -TestCases @(
+        @{ name = "本文インデックスを書けなかった（Skipped）"; fail = "skip" }
+        @{ name = "書き出しが例外になった"; fail = "throw" }
+    ) {
+        param ($name, $fail)
+        $rc = newRecoverEnv
+        $workspace = $rc.Workspace
+        if ($fail -eq "skip") {
+            Mock publishIndexFolders { return @{ Count = 0; Skipped = @(@{ Rel = "営業"; Stage = "本文インデックス"; Reason = "書けない" }) } }
+        } else {
+            Mock publishIndexFolders { throw "壊れた" }
+        }
+        $rc.Pending.MarkFolder("$($workspace.IndexDir)\営業")
+        flushPendingPublish $rc.Pending $rc.Journal -All
+        $rc.Journal.Unfinished | Should -Be $true
+        (readJournalLines $rc).Count | Should -Be 0
+    }
+
+    It "前の回が終まで書いたが、営業の出が無い（書き出せなかった）とき、始めに書き出し直し、出を足して、次の回へ持ち越すものは無い。済んだ仕事は止まった扱いにしない" {
+        $rc = newRecoverEnv @("始`t営業\a.xlsx`t1", "終")
+        $workspace = $rc.Workspace
+        $result = recoverIngestJournal $rc.Ledger $rc.Journal $rc.Pending $rc.Channel $rc.Reporter
+        @($result.Resume).Count | Should -Be 0
+        @($result.Unpublished).Count | Should -Be 0
+        Should -Invoke publishIndexFolders -Times 1 -Exactly -Scope It
+        (readJournalLines $rc)[-1] | Should -Be "出`t営業"
+    }
+
+    It "始めの書き出しが失敗したときは、そのフォルダを次の回へ持ち越す（Unpublished）。済んだ仕事は止まった扱いにせず、Unfinished は戻す" {
+        Mock publishIndexFolders { return @{ Count = 0; Skipped = @(@{ Rel = "営業"; Stage = "本文インデックス"; Reason = "書けない" }) } }
+        $rc = newRecoverEnv @("始`t営業\a.xlsx`t1", "終")
+        $workspace = $rc.Workspace
+        $result = recoverIngestJournal $rc.Ledger $rc.Journal $rc.Pending $rc.Channel $rc.Reporter
+        @($result.Resume).Count | Should -Be 0
+        @($result.Unpublished) | Should -Be @("営業")
+        $rc.Journal.Unfinished | Should -Be $false
+    }
+
+    It "中止を求められていれば、始めの書き出しはせず、書き出していないフォルダを次の回へ持ち越す" {
+        $rc = newRecoverEnv @("未`t営業")
+        $workspace = $rc.Workspace
+        $rc.Channel.Stop = $true
+        $result = recoverIngestJournal $rc.Ledger $rc.Journal $rc.Pending $rc.Channel $rc.Reporter
+        @($result.Unpublished) | Should -Be @("営業")
+        Should -Invoke publishIndexFolders -Times 0 -Exactly -Scope It
+    }
+
+    It "取り込み中に止まった仕事（始だけ）は、書き出しが失敗しても、やり直す仕事として返す" {
+        Mock publishIndexFolders { return @{ Count = 0; Skipped = @(@{ Rel = "営業"; Stage = "本文インデックス"; Reason = "書けない" }) } }
+        $rc = newRecoverEnv @("始`t営業\a.xlsx`t1")
+        $workspace = $rc.Workspace
+        $result = recoverIngestJournal $rc.Ledger $rc.Journal $rc.Pending $rc.Channel $rc.Reporter
+        @($result.Resume | ForEach-Object { "$($_.RelPath)=$($_.Count)" }) | Should -Be @("営業\a.xlsx=1")
+        @($result.Unpublished) | Should -Be @("営業")
+    }
+
+    It "ジャーナルが読めない（無い）ときは、今ある書き出し前のフォルダ（前の版で止まった跡を含む）を書き出す" {
+        $rc = newRecoverEnv
+        $workspace = $rc.Workspace
+        $result = recoverIngestJournal $rc.Ledger $rc.Journal $rc.Pending $rc.Channel $rc.Reporter
+        @($result.Unpublished).Count | Should -Be 0
+        Should -Invoke publishIndexFolders -Times 1 -Exactly -Scope It
+    }
+
+    It "前の版の ingesting.txt があれば、止まった仕事に足す。ジャーナルにも同じ仕事があるときは重ねない" {
+        $rc = newRecoverEnv @("始`t営業\a.xlsx`t1")
+        $workspace = $rc.Workspace
+        writeListFile "$($workspace.Dir)\ingesting.txt" @("1`t営業\a.xlsx", "1`t営業\b.xlsx")
+        $result = recoverIngestJournal $rc.Ledger $rc.Journal $rc.Pending $rc.Channel $rc.Reporter
+        @($result.Resume | ForEach-Object { $_.RelPath } | Sort-Object) | Should -Be @("営業\a.xlsx", "営業\b.xlsx")
+    }
+
+    It "writeStatusWithJournal は、書き直しの前に「書」を足し、-Finish のときだけ書き直しのあとに「終」を足す" -TestCases @(
+        @{ finish = $true; expected = @("書", "終") }
+        @{ finish = $false; expected = @("書") }
+    ) {
+        param ($finish, $expected)
+        Mock writeStatusKeepingDropped { }
+        $rc = newRecoverEnv
+        $workspace = $rc.Workspace
+        if ($finish) {
+            writeStatusWithJournal $rc.Journal $rc.Ledger @() @() @() @{} -Finish
+        } else {
+            writeStatusWithJournal $rc.Journal $rc.Ledger @() @() @() @{}
+        }
+        Should -Invoke writeStatusKeepingDropped -Times 1 -Exactly -Scope It
+        (readJournalLines $rc) | Should -Be $expected
+    }
+}
