@@ -170,8 +170,8 @@ Describe "IngestDispatcher（振り分け）" -Tag Io {
     }
 
     It "options の TestPath で、元のファイル・フォルダの有無を差し替えられる（ファイルが無くフォルダがあれば Vanished、フォルダも無ければ FolderLost）" -TestCases @(
-        @{ FolderExists = $true; Kind = "Vanished"; Lost = "" }
-        @{ FolderExists = $false; Kind = $null; Lost = "あり" }
+        @{ FolderExists = $true; Kind = "Vanished" }
+        @{ FolderExists = $false; Kind = $null }
     ) {
         $folderExists = $FolderExists
         $dispatcher = newTestDispatcher @("a.docx") -extraOptions @{ TestPath = { param ($path, $kind) $kind -eq "Folder" -and $folderExists }.GetNewClosure() }
@@ -326,6 +326,8 @@ Describe "IngestDispatcher（諦めたレーン）" -Tag Io {
             $dispatcher.Receive() | Should -BeNullOrEmpty
             $dispatcher.InflightCount() | Should -Be 1
             $dispatcher.Pool.Queues[${laneWord}].Count | Should -Be 1
+            $dispatcher.LaneBusy[${laneReader}] | Should -Be 0
+            $dispatcher.LaneBusy[${laneWord}] | Should -Be 1
             $dispatcher.Pool.LaneStates[${laneWord}].Abandoned = $true
             $taken = $dispatcher.TakeAbandonedLane()
             $taken.Lane | Should -Be ${laneWord}

@@ -41,7 +41,7 @@ class IngestDispatcher {
     hidden $Inflight
     # レーンごとの取り込み中の数
     hidden [hashtable]$LaneBusy
-    # スレッドを使わないとき、Submit で取り込んだ結果（Receive が取り出す）
+    # スレッドを使わないとき、SetInlineResult で預けた結果（Receive が取り出す）
     hidden $InlineResult
 
     IngestDispatcher($targets, [string[]]$lanes, [string[]]$bookFolders, $folderByName, $carried, [hashtable]$options) {
