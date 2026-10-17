@@ -723,6 +723,83 @@ Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
         (readTestSystemState $root).Covered.Count | Should -Be 0
     }
 
+    It "取り込みの途中で中止を求められても、取り込めた分は済のまま検索でき、止めた・始めていない分は未取り込みで、次の回に取り込む" {
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "総務"; path = $source; enabled = $true })
+        # 済になった行を記録した直後に、画面が中止要求を作る（取り込めないファイルがあれば、その行は失敗として記録される）
+        $global:testStopDoneState = ${stateDone}
+        $stop = @{ Script = $runPath; Pattern = '^\s+\$ledger\.AddRow\(\$row\)'; Action = { if ($row.状態 -eq $global:testStopDoneState) { $channel.Stop = $true } } }
+
+        try {
+            runIndexer $root @{} @($stop) | Should -Be 2
+        } finally {
+            Remove-Variable -Name testStopDoneState -Scope Global -ErrorAction SilentlyContinue
+        }
+        $rows = @((readTestStatus $root).Rows.Values)
+        @($rows | Where-Object { $_.状態 -eq ${stateDone} }).Count | Should -Be 1
+        @($rows | Where-Object { $_.状態 -eq ${stateNew} }).Count | Should -BeGreaterThan 0
+        # 止めた分の取り込み途中の TSV は、本文インデックスに入らない（元のファイルごとのフォルダも残らない）
+        (findIndexFoldersWithBooks "$root\work\store\content").Count | Should -Be 0
+        $found = getContentIndexFiles @("$root\work\store\content")
+        @($found.ContentIndexFiles).Count | Should -BeGreaterThan 0
+
+        # 次の回で、残りを取り込んで済にする
+        runIndexer $root | Should -Be 0
+        $after = @((readTestStatus $root).Rows.Values)
+        @($after | Where-Object { $_.状態 -eq ${stateNew} }).Count | Should -Be 0
+        @($after | Where-Object { $_.状態 -eq ${stateDone} }).Count | Should -BeGreaterThan 1
+    }
+
+    It "取り込みのスレッドにファイルを渡した直後に中止を求められたら、そのファイルを取り込まず（失敗にせず）未取り込みのまま、すぐ 2 で終わる" {
+        $dir = Join-Path $TestDrive "渡した直後に中止"
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        foreach ($name in "a", "b", "c") {
+            Copy-Item -LiteralPath $docxSource -Destination "$dir\$name.docx"
+        }
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "渡した直後に中止"; path = $dir; enabled = $true })
+        # 最初のファイルを取り込みのスレッドに渡す直前に、画面が中止要求を作る（スレッドは取り出すとき、中止を見て取り込まずに返す）
+        $hook = @{ Script = $runPath; Pattern = '^\s+addIngestTask \$pool \$lane \$task'; Action = { $channel.Stop = $true } }
+        $watch = [System.Diagnostics.Stopwatch]::StartNew()
+
+        runIndexer $root @{ Workers = 1 } @($hook) | Should -Be 2
+        $watch.Stop()
+        $watch.Elapsed.TotalMinutes | Should -BeLessThan 2
+
+        $status = readTestStatus $root
+        foreach ($name in "a", "b", "c") {
+            $status.Rows["渡した直後に中止\$name.docx"].状態 | Should -Be ${stateNew}
+        }
+        # 止めたファイルは失敗として数えない
+        (readTestProgress).Failed | Should -Be 0
+        (findIndexFoldersWithBooks "$root\work\store\content").Count | Should -Be 0
+        Test-Path -LiteralPath "$root\work\ingesting.txt" | Should -Be $false
+        $log = Get-Content -LiteralPath "$root\work\indexing_log.txt" -Raw
+        $log | Should -Match "中止のため、取り込みませんでした（次回取り込みします）"
+        $log | Should -Match "中止の要求を受けたため、インデックス作成を中止します"
+    }
+
+    It "一覧化（クロール）の前に中止を求められたら、確認を出さずに 2 で終わり、取り込み一覧は前回のままで、無くなったファイルのインデックスも消さない" {
+        $a = newSourceFolder "総務"
+        $b = newSourceFolder "企画"
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "総務"; path = $a; enabled = $true }, @{ name = "企画"; path = $b; enabled = $true })
+        runIndexer $root | Should -Be 0
+        $before = readTestStatus $root
+        $beforeFiles = @(Get-ChildItem -LiteralPath "$root\work\store\content" -Recurse -File | ForEach-Object { $_.FullName } | Sort-Object)
+        # 元のファイルが無くなったことにする（止めなければ、この行とインデックスが消える）
+        Remove-Item -LiteralPath "$a\議事録.docx"
+        $stop = @{ Script = $runPath; Pattern = '^\s+\$planner\.Crawl\('; Action = { $channel.Stop = $true } }
+
+        runIndexer $root @{ ConfirmTargets = $true } @($stop) | Should -Be 2
+        $after = readTestStatus $root
+        $after.Rows.Count | Should -Be $before.Rows.Count
+        $after.Rows.ContainsKey("総務\議事録.docx") | Should -Be $true
+        @(Get-ChildItem -LiteralPath "$root\work\store\content" -Recurse -File | ForEach-Object { $_.FullName } | Sort-Object) | Should -Be $beforeFiles
+        # 確認の返事を待っていない
+        $script:lastChannel.Answered.WaitOne(0) | Should -Be $false
+    }
+
     It "古い形式のインデックスがあるとき、作り直しの途中で中止したら、古い形式の分を消さず、目録の行は「作成中」のまま。最後まで作ると消して「作り終えた」にする" {
         $root = newRoot
         writeTestSettings $root @(@{ name = "総務"; path = $source; enabled = $true })
@@ -1352,6 +1429,24 @@ Describe "runIngestWorker・invokeIngestTask（レーン）" -Tag Io {
         # 後回しを数えると、起動し直し（2件ごと）が早まって2回になる
         Should -Invoke stopAllApps -Times 1 -Exactly -Scope It
     }
+
+    It "中止（Stopped）で返したファイルは、取り込んだ件数に数えず、Office を起動し直さない。列の残りも Stopped で返す" {
+        Mock invokeIngestTask {
+            param ($task, $timeout, $channel)
+            @{ RelPath = $task.RelPath; Ok = $false; Reroute = $false; TimedOut = $false; Stopped = ($task.RelPath -ne "a.xlsx") }
+        }
+        Mock stopAllApps { }
+        $tasks = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
+        foreach ($path in "a.xlsx", "b.xlsx", "c.xlsx", "d.xlsx") { $tasks.Add(@{ RelPath = $path }) }
+        $tasks.CompleteAdding()
+        $results = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
+        $channel = [hashtable]::Synchronized(@{ Stop = $true })
+        runIngestWorker $tasks $results 10 2 $channel
+        @($results.ToArray() | Where-Object { $_.Stopped }).Count | Should -Be 3
+        # 数えると 2 件目で起動し直しが起きる
+        Should -Invoke stopAllApps -Times 0 -Exactly -Scope It
+        Should -Invoke invokeIngestTask -Times 4 -Exactly -Scope It -ParameterFilter { $channel.Stop }
+    }
 }
 
 Describe "invokeIngestTask（Office が要る）" -Tag Io {
@@ -1435,6 +1530,46 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
         $result = invokeIngestTask @{ RelPath = "資料\ふつう.docx"; SourcePath = "C:\data\ふつう.docx" } 10
         $result.Ok | Should -Be $false
         Should -Invoke stopApp -Times 1 -Exactly -Scope It
+    }
+
+    It "中止の合図が立っているときは、ingestFile を呼ばずに Stopped を返す（失敗にしない）" {
+        ${tmpDir} = Join-Path $TestDrive "stop_before_tmp"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+        Mock ingestFile { }
+        Mock stopApp { }
+        $channel = [hashtable]::Synchronized(@{ Stop = $true })
+        $result = invokeIngestTask @{ RelPath = "資料\待ち.docx"; SourcePath = "C:\data\待ち.docx" } 10 $channel
+        $result.Stopped | Should -Be $true
+        $result.Ok | Should -Be $false
+        $result.Message | Should -BeNullOrEmpty
+        Should -Invoke ingestFile -Times 0 -Exactly -Scope It
+    }
+
+    It "取り込み中に中止で見張りがプロセスを止めた（Cancelled）ときは、失敗にせず Stopped を返す。中止の合図だけが立った例外のときも同じ" -TestCases @(
+        @{ via = "Cancelled" }
+        @{ via = "Stop" }
+    ) {
+        param ($via)
+        ${tmpDir} = Join-Path $TestDrive "stop_during_tmp_$via"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+        $channel = [hashtable]::Synchronized(@{ Stop = $false })
+        $global:testCancelWatch = $script:officeWatchdog
+        $global:testCancelChannel = $channel
+        $global:testCancelVia = $via
+        Mock ingestFile {
+            if ($global:testCancelVia -eq "Cancelled") { $global:testCancelWatch.State.Cancelled = $true } else { $global:testCancelChannel.Stop = $true }
+            throw "プロセスを止められた"
+        }
+        Mock stopApp { }
+        try {
+            $result = invokeIngestTask @{ RelPath = "資料\途中.docx"; SourcePath = "C:\data\途中.docx" } 10 $channel
+        } finally {
+            $global:testCancelWatch.State.Cancelled = $false
+            Remove-Variable -Name testCancelWatch, testCancelChannel, testCancelVia -Scope Global -ErrorAction SilentlyContinue
+        }
+        $result.Stopped | Should -Be $true
+        $result.Ok | Should -Be $false
+        $result.Message | Should -BeNullOrEmpty
     }
 
     It "本文（word/document.xml）が部品のサイズの上限を超えた .docx は、Office を使わず簡潔なメッセージで失敗にする" {

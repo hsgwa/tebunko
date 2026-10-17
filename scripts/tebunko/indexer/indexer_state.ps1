@@ -184,7 +184,7 @@ function readIndexingProgress {
 }
 
 function requestIndexingStop {
-    # 中止を求める。取り込みはファイルの切れ目で止まる。確認を待っていれば、取りやめの返事にする
+    # 中止を求める。一覧化・取り込み中は、切れ目まで待たずにできたところまでで止まる（取り込み中の Office は止める）。確認を待っていれば、取りやめの返事にする
     param (
         $channel
     )

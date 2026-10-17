@@ -1298,6 +1298,27 @@ Describe "getFilesNoFollow" -Tag Io {
         $tree.HasError | Should -Be $false
     }
 
+    It "shouldStop が真になったら、途中で止めて Stopped を立てる（それまでに集めた分は返す）。止めなければ Stopped は偽" {
+        $dir = "$TestDrive\nofollow\中止"
+        writeListFile "$dir\a.tsv" @("a")
+        writeListFile "$dir\下1\b.tsv" @("b")
+        writeListFile "$dir\下2\c.tsv" @("c")
+
+        (getFilesNoFollow $dir).Stopped | Should -Be $false
+        (getFilesNoFollow $dir -shouldStop { $false }).Stopped | Should -Be $false
+
+        # 1 つ目のフォルダを読んだあと（2 回目の確認）から真にする
+        $global:fsStopCalls = 0
+        try {
+            $tree = getFilesNoFollow $dir -shouldStop { $global:fsStopCalls++; $global:fsStopCalls -ge 2 }
+        } finally {
+            Remove-Variable -Name fsStopCalls -Scope Global -ErrorAction SilentlyContinue
+        }
+        $tree.Stopped | Should -Be $true
+        @($tree.Files | ForEach-Object { $_.Name }) | Should -Contain "a.tsv"
+        @($tree.Files).Count | Should -BeLessThan 3
+    }
+
     It "末尾に \ を付けた root でも同じ結果になる" {
         $dir = "$TestDrive\nofollow\末尾"
         writeListFile "$dir\a.tsv" @("a")

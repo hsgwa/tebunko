@@ -633,6 +633,7 @@ function getFilesNoFollow {
     #   Links       … 飛ばしたリンク（ファイル・フォルダ）の、\\?\ の付かない通常のパス
     #   HasError    … 読めなかったフォルダがあったか。読めたところまでは Files・Directories に入る（途中で例外にしない）
     #   Reason      … 最初に読めなかった理由
+    #   Stopped     … shouldStop が $true を返して、途中で止めたか。フォルダ 1 つを読むごとに見て、止めたら読んだところまでを返す
     # リンクかどうかの見分けは getLinkKind。リンクかどうか確かめられないフォルダ（ReparsePoint が付き、LinkType が取れない。
     # OneDrive のオンデマンドのフォルダなど）は、SkipUnknown が無ければ降りる（読むだけのため）。属性を書くときは SkipUnknown を付け、降りずに Links に入れる。
     # Hidden の付いたものは、IncludeHidden が無ければ入れない（Get-ChildItem の既定と同じ。System だけのものは入れる）。
@@ -640,7 +641,8 @@ function getFilesNoFollow {
     param (
         [string]$root,
         [switch]$IncludeHidden,
-        [switch]$SkipUnknown
+        [switch]$SkipUnknown,
+        [scriptblock]$shouldStop = $null
     )
 
     $files = New-Object System.Collections.Generic.List[object]
@@ -648,11 +650,16 @@ function getFilesNoFollow {
     $links = New-Object System.Collections.Generic.List[string]
     $hasError = $false
     $reason = ""
+    $stopped = $false
     $reparseFlag = [System.IO.FileAttributes]::ReparsePoint
     $hiddenFlag = [System.IO.FileAttributes]::Hidden
     $pending = New-Object System.Collections.Generic.Stack[string]
     $pending.Push((toLongPath (trimTrailingSeparator $root)))
     while ($pending.Count -gt 0) {
+        if ($null -ne $shouldStop -and (& $shouldStop)) {
+            $stopped = $true
+            break
+        }
         $directory = New-Object System.IO.DirectoryInfo ($pending.Pop())
         try {
             # 列挙の途中で読めなくなることがあるので、配列にして受ける（例外はこの try で受ける）
@@ -690,7 +697,7 @@ function getFilesNoFollow {
             $pending.Push($subDirectories[$i])
         }
     }
-    return @{ Files = $files.ToArray(); Directories = $directories.ToArray(); Links = $links.ToArray(); HasError = $hasError; Reason = $reason }
+    return @{ Files = $files.ToArray(); Directories = $directories.ToArray(); Links = $links.ToArray(); HasError = $hasError; Reason = $reason; Stopped = $stopped }
 }
 
 function moveDirectoryRetry {
