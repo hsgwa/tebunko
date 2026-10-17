@@ -545,7 +545,7 @@ function extractDocument {
 
 function ingestFile {
     # 1ファイルを取り込み、作成したTSVの数を返す。
-    # テキストの拡張子（textExtensions）・PDF の拡張子（pdfExtensions）は Office を使わずOffice を使わずに読んで取り込む（extract_text.ps1・extract_pdf.ps1）
+    # テキストの拡張子（textExtensions）・PDF の拡張子（pdfExtensions）は Office を使わずに読んで取り込む（extract_text.ps1・extract_pdf.ps1）
     param (
         [string]$sourcePath
     )

@@ -1414,6 +1414,21 @@ Describe "runIngestWorker・invokeIngestTask（ワーカー）" -Tag Io {
         Should -Invoke stopAllApps -Times 0 -Exactly -Scope It
     }
 
+    It "Office を使わずに読んだファイルは、起動し直しの数に数えない（Office を使うファイルの数で決める）" {
+        Mock invokeIngestTask {
+            param ($task)
+            $script:officeUnavailable = ($task.RelPath -like "*.pdf")
+            @{ RelPath = $task.RelPath; Ok = $true; Reroute = $false; TimedOut = $false }
+        }
+        Mock stopAllApps { }
+        $tasks = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
+        foreach ($path in "a.pdf", "a.xlsx", "b.pdf", "b.xlsx") { $tasks.Add(@{ RelPath = $path }) }
+        $tasks.CompleteAdding()
+        runIngestWorker $tasks (New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]') 10 2
+        # 4 件すべてを数えると 2 回（2 件目と 4 件目）になる。Office を使う 2 件だけなら 1 回
+        Should -Invoke stopAllApps -Times 1 -Exactly -Scope It
+    }
+
     It "後回し（Postponed）は取り込んだ件数に数えず、起動し直しを早めない" {
         Mock invokeIngestTask {
             param ($task)
@@ -1530,6 +1545,48 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
         $result = invokeIngestTask @{ RelPath = "資料\ふつう.docx"; SourcePath = "C:\data\ふつう.docx" } 10
         $result.Ok | Should -Be $false
         Should -Invoke stopApp -Times 1 -Exactly -Scope It
+    }
+
+    It "ファイルごとに task.Office で Office の使用を切り替える。Deadline は Office を使うファイルの間だけ入れ、使わないファイルでは MaxValue のまま（持っている Office を止めない）" {
+        ${tmpDir} = Join-Path $TestDrive "office_switch_tmp"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+        $global:testSwitchWatch = $script:officeWatchdog
+        $global:testSwitchSeen = New-Object System.Collections.Generic.List[object]
+        Mock ingestFile {
+            $global:testSwitchSeen.Add(@{ Unavailable = $script:officeUnavailable; Deadline = $global:testSwitchWatch.State.Deadline })
+            throw "記録だけして失敗にする"
+        }
+        Mock stopApp { }
+        foreach ($office in $false, $true, $false, $true) {
+            [void](invokeIngestTask @{ RelPath = "資料\a.docx"; SourcePath = "C:\data\a.docx"; Office = $office } 10)
+        }
+        $seen = $global:testSwitchSeen.ToArray()
+        Remove-Variable -Name testSwitchSeen, testSwitchWatch -Scope Global
+        @($seen | ForEach-Object { $_.Unavailable }) | Should -Be @($true, $false, $true, $false)
+        @($seen | ForEach-Object { $_.Deadline -eq [datetime]::MaxValue }) | Should -Be @($true, $false, $true, $false)
+        $script:officeWatchdog.State.Deadline | Should -Be ([datetime]::MaxValue)
+        # Office を使わないファイルの失敗では、Office を終了しない（使うファイルの 2 回だけ）
+        Should -Invoke stopApp -Times 2 -Exactly -Scope It
+    }
+
+    It "Office を使わないファイルは、取り込み中に中止の合図が立っても読み終わるまで待ち、Stopped にも後回しにもしない" {
+        ${tmpDir} = Join-Path $TestDrive "no_office_wait_tmp"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+        $channel = [hashtable]::Synchronized(@{ Stop = $false })
+        $global:testWaitChannel = $channel
+        Mock ingestFile { $global:testWaitChannel.Stop = $true; 3 }
+        Mock publishTsv { }
+        Mock getBookDir { "dir" }
+        Mock getExtractVersion { "1" }
+        Mock stopApp { }
+        $result = invokeIngestTask @{ RelPath = "資料\a.pdf"; SourcePath = "C:\data\a.pdf"; Office = $false } 10 $channel
+        Remove-Variable -Name testWaitChannel -Scope Global
+        $result.Ok | Should -Be $true
+        $result.Stopped | Should -Be $false
+        $result.Postponed | Should -Be $false
+        $result.TimedOut | Should -Be $false
+        $result.TsvCount | Should -Be 3
+        Should -Invoke stopApp -Times 0 -Exactly -Scope It
     }
 
     It "中止の合図が立っているときは、ingestFile を呼ばずに Stopped を返す（失敗にしない）" {

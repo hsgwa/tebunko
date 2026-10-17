@@ -52,7 +52,7 @@ ${ingestWorkerScript} = {
         $script:officeWatchdog.State.Users = $settings.UserOfficePids
     }
     # 中止を求められたら、取り込み中の Office を止めて打ち切る（制限時間を待たない）。
-    # Office を持たないワーカーは、止める相手が無いため、制限時間を過ぎても TimedOut を記録するだけ
+    # 見張りが働くのは Office を使うファイルの間だけ（invokeIngestTask が Deadline を入れる）。Office を使わずに読むファイルは、中止でも読み終わるまで待つ
     $script:officeWatchdog.State.Cancel = $settings.Channel
     $script:officeWatchdog.Start()
     try {
@@ -92,8 +92,12 @@ function runIngestWorker {
             # 中止で止めたファイルも数えない（中止のあとは Office を起動し直さない。アプリの片付けは ingestWorkerScript の終わりで行う）
             continue
         }
+        if ($script:officeUnavailable) {
+            # Office を使わずに読んだファイルは、起動し直しの数に数えない（Office を使うファイルの数で決める）
+            continue
+        }
         $done++
-        if (!$script:officeUnavailable -and ($result.TimedOut -or ($done % $restartInterval) -eq 0)) {
+        if ($result.TimedOut -or ($done % $restartInterval) -eq 0) {
             # 制限時間を過ぎて強制終了したアプリは使えないため、すべて終了して次に必要になったときに起動し直す
             stopAllApps
         }
@@ -166,7 +170,11 @@ function invokeIngestTask {
         clearTmpDir
         $script:officeWatchdog.State.TimedOut = $false
         $script:officeWatchdog.State.Cancelled = $false
-        $script:officeWatchdog.State.Deadline = (Get-Date).AddMinutes($fileTimeoutMinutes)
+        # 制限時間・中止の見張りは、Office を使うファイルの間だけ働かせる（Office を使わずに読むファイルでは、持っている Office を止めず、
+        # 読み終わるまで待つ。見張りは Deadline が MaxValue のあいだは何もしない）
+        if (!$script:officeUnavailable) {
+            $script:officeWatchdog.State.Deadline = (Get-Date).AddMinutes($fileTimeoutMinutes)
+        }
         try {
             $result.TsvCount = ingestFile $task.SourcePath
         } finally {
