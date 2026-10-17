@@ -750,6 +750,35 @@ Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
         @($after | Where-Object { $_.状態 -eq ${stateDone} }).Count | Should -BeGreaterThan 1
     }
 
+    It "取り込みのスレッドにファイルを渡した直後に中止を求められたら、そのファイルを取り込まず（失敗にせず）未取り込みのまま、すぐ 2 で終わる" {
+        $dir = Join-Path $TestDrive "渡した直後に中止"
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        foreach ($name in "a", "b", "c") {
+            Copy-Item -LiteralPath $docxSource -Destination "$dir\$name.docx"
+        }
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "渡した直後に中止"; path = $dir; enabled = $true })
+        # 最初のファイルを取り込みのスレッドに渡す直前に、画面が中止要求を作る（スレッドは取り出すとき、中止を見て取り込まずに返す）
+        $hook = @{ Script = $runPath; Pattern = '^\s+addIngestTask \$pool \$lane \$task'; Action = { $channel.Stop = $true } }
+        $watch = [System.Diagnostics.Stopwatch]::StartNew()
+
+        runIndexer $root @{ Workers = 1 } @($hook) | Should -Be 2
+        $watch.Stop()
+        $watch.Elapsed.TotalMinutes | Should -BeLessThan 2
+
+        $status = readTestStatus $root
+        foreach ($name in "a", "b", "c") {
+            $status.Rows["渡した直後に中止\$name.docx"].状態 | Should -Be ${stateNew}
+        }
+        # 止めたファイルは失敗として数えない
+        (readTestProgress).Failed | Should -Be 0
+        (findIndexFoldersWithBooks "$root\work\content_index").Count | Should -Be 0
+        Test-Path -LiteralPath "$root\work\ingesting.txt" | Should -Be $false
+        $log = Get-Content -LiteralPath "$root\work\indexing_log.txt" -Raw
+        $log | Should -Match "中止のため、取り込みませんでした（次回取り込みします）"
+        $log | Should -Match "中止の要求を受けたため、インデックス作成を中止します"
+    }
+
     It "一覧化（クロール）の前に中止を求められたら、確認を出さずに 2 で終わり、取り込み一覧は前回のままで、無くなったファイルのインデックスも消さない" {
         $a = newSourceFolder "総務"
         $b = newSourceFolder "企画"

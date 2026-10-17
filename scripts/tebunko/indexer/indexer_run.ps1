@@ -653,7 +653,7 @@ function invokeIndexerBody {
     }
     if ($planner.Stopped -or $channel.Stop) {
         # 一覧化の途中で中止を求められた。確認は出さずに取りやめる
-        return (cancelBeforeIngest "中止の要求を受けたため、取り込み対象の一覧化を中止しました。（取り込み一覧は前回のままです）")
+        return (cancelBeforeIngest "中止の要求を受けたため、取り込み対象の一覧化を中止しました。（読み終えたフォルダで無くなっていたファイルは取り込み一覧から外し、ほかは前回のままです）")
     }
     if ($channel.ConfirmTargets) {
         $answer = $reporter.WaitForApproval(${indexingPhaseConfirm}, $plan.ToArray(), $targets.Count, $failed.Count, $approvalTimeoutMinutes)
@@ -949,7 +949,7 @@ function invokeIndexerBody {
                     $stopped = $true
                     $remaining = $undispatched
                     writeIndexerLog ""
-                    writeIndexerLog "中止の要求を受けたため、インデックス作成を中止します。" "Yellow"
+                    writeIndexerLog "中止の要求を受けたため、インデックス作成を中止します。（取り込み中だったファイルと残りは次回取り込みします）" "Yellow"
                 }
                 $remaining++
                 writeIndexerLog "    中止のため、取り込みませんでした（次回取り込みします）: $($result.RelPath)" "Yellow"
@@ -960,7 +960,7 @@ function invokeIndexerBody {
             }
             if ($result.Reroute) {
                 # Office を使わずに読めなかった（中身が旧形式・パスワード付き）。Word・PowerPoint のレーンに回し直す
-                # （取り込み中のまま。中止を求められていても最後まで取り込む）
+                # （取り込み中のまま。中止を求められていれば、上で止めた扱いにしているため、ここへは来ない）
                 $laneBusy[$entry.Lane] = $laneBusy[$entry.Lane] - 1
                 $entry.Lane = getOfficeLane $result.RelPath
                 if ($pool.LaneStates[$entry.Lane].Abandoned) {
