@@ -120,6 +120,41 @@ Describe "createTargetList（サブフォルダ・無くなったファイル）
         Test-Path -LiteralPath $gone | Should -Be $false
     }
 
+    It "中止の合図（shouldStop）が、一覧化のどの時点で立っても、Stopped を返し、無くなったファイルのインデックスは消さない" -TestCases @(
+        @{ from = 1 }
+        @{ from = 2 }
+        @{ from = 3 }
+        @{ from = 4 }
+        @{ from = 5 }
+    ) {
+        param ($from)
+        $gone = Join-Path ${indexDir} "経理\消えた.xlsx"
+        [System.IO.Directory]::CreateDirectory($gone) | Out-Null
+        [System.IO.File]::WriteAllText("$gone\Sheet1.tsv", "1`t見積")
+        $previous = newPrevious @((newStatusRow "経理\消えた.xlsx" "2024/01/01 00:00:00" "10" ${stateDone} 1 "2024/01/01 00:00:00"))
+        $global:planStopCalls = 0
+        $global:planStopFrom = $from
+        try {
+            $result = createTargetList $folder $previous $null { $global:planStopCalls++; $global:planStopCalls -ge $global:planStopFrom }
+        } finally {
+            Remove-Variable -Name planStopCalls, planStopFrom -Scope Global -ErrorAction SilentlyContinue
+        }
+        # 止まったなら、何も消さない（止まらずに最後まで進んだ回は、無くなったファイルとして消える）
+        if ($result.Stopped) {
+            Test-Path -LiteralPath $gone | Should -Be $true
+            @($result.Removed).Count | Should -Be 0
+        } else {
+            $result.Removed.Count | Should -Be 1
+        }
+        # 最初から立っていれば必ず止まる
+        if ($from -eq 1) { $result.Stopped | Should -Be $true }
+    }
+
+    It "中止の合図が立っていなければ、Stopped は偽" {
+        (createTargetList $folder (newPrevious) $null { $false }).Stopped | Should -Be $false
+        (createTargetList $folder (newPrevious) $null).Stopped | Should -Be $false
+    }
+
     It "ほかのインデックスの行には触らない（名前が前方一致するインデックスも別のものとして扱う）" {
         $other = Join-Path ${indexDir} "経理2\c.xlsx"
         [System.IO.Directory]::CreateDirectory($other) | Out-Null
@@ -571,6 +606,42 @@ Describe "IngestPlanner" -Tag Io {
         $firstTime = newPlanner $folders
         $firstTime.Crawl($null, $null)
         @($firstTime.KeepForCancel()).Count | Should -Be 0
+    }
+
+    It "クロールの途中で中止の合図が立ったら、残りのフォルダは前回の行を残し、Stopped を立てる" {
+        $source2 = Join-Path $TestDrive "planner-src2"
+        [System.IO.Directory]::CreateDirectory($source2) | Out-Null
+        [System.IO.File]::WriteAllText((Join-Path $source2 "b.xlsx"), "dummy")
+        $folders = @(
+            [pscustomobject]@{ Path = $source; Name = "売上"; Enabled = $true }
+            [pscustomobject]@{ Path = $source2; Name = "経理"; Enabled = $true }
+        )
+        $old = newStatusRow "経理\z.xlsx" "2000/01/01 00:00:00" "1" ${stateDone}
+        $planner = newPlanner $folders @($old)
+        # 1 つ目のフォルダを出し終えたら中止の合図を立てる
+        $script:stopNow = $false
+        $planner.Crawl((newCounts), { param ($target) $script:stopNow = $true }, { $script:stopNow })
+
+        $planner.Stopped | Should -Be $true
+        # 2 つ目のフォルダは見ず、前回の行をそのまま残す
+        @($planner.Rows | ForEach-Object { $_.相対パス }) | Should -Contain "経理\z.xlsx"
+        @($planner.Rows | ForEach-Object { $_.相対パス }) | Should -Not -Contain "経理\b.xlsx"
+        @($planner.RemovedPaths).Count | Should -Be 0
+    }
+
+    It "中止の合図が立っていなければ Stopped は偽。最初から立っていれば、どのフォルダも見ない" {
+        $folders = @([pscustomobject]@{ Path = $source; Name = "売上"; Enabled = $true })
+        $planner = newPlanner $folders
+        $planner.Crawl($null, $null, { $false })
+        $planner.Stopped | Should -Be $false
+        $planner.Targets.Count | Should -Be 1
+
+        $old = newStatusRow "売上\a.xlsx" "2000/01/01 00:00:00" $size ${stateDone}
+        $planner = newPlanner $folders @($old)
+        $planner.Crawl($null, $null, { $true })
+        $planner.Stopped | Should -Be $true
+        $planner.Targets.Count | Should -Be 0
+        @($planner.Rows | ForEach-Object { $_.相対パス }) | Should -Be @("売上\a.xlsx")
     }
 
     It "前回の失敗は、再取り込みを選べば取り込み対象に足し、選ばなければ足さない" -TestCases @(

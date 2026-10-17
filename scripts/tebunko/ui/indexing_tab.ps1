@@ -306,7 +306,7 @@ function stopIndexing {
     }
     requestIndexingStop $script:indexingSession.Channel
     $ui.IndexingStopButton.IsEnabled = $false
-    $ui.IndexingProgressDetail.Text = "中止しています…（読み取り中のファイルが終わるまでお待ちください）"
+    $ui.IndexingProgressDetail.Text = "中止しています…（取り込みを止めて、取り込めた分をまとめています）"
     showIndexingWait "Stopping"
 }
 
