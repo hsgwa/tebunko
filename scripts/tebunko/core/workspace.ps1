@@ -274,7 +274,9 @@ function clearLegacySystemIndex {
         return @{ Ok = $false; Reason = "システムインデックスの状態ファイル（$([System.IO.Path]::GetFileName($ws.SystemIndexStateFile))）を開けませんでした" }
     }
     try {
-        removeDirectoryRetry $ws.SystemIndexDir
+        if (!(removeDirectoryUnder $ws.SystemIndexDir $ws.Dir)) {
+            return @{ Ok = $false; Reason = "システムインデックスのフォルダが、置き場の外か、途中にリンクがあるため、消せません: $($ws.SystemIndexDir)" }
+        }
     } catch {
         return @{ Ok = $false; Reason = $_.Exception.Message }
     }

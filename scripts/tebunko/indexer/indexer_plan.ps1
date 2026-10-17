@@ -77,11 +77,10 @@ function removeBookDir {
         [string]$bookDir
     )
 
-    if (!(testPathUnder $bookDir $workspace.IndexDir)) {
-        writeIndexerLog "インデックスの置き場の外を指すパスのため、削除しませんでした: ${bookDir}" "Yellow"
-        return
+    # 途中にリンク（ジャンクション等）があるパスも、置き場の外と同じく消さない（removeDirectoryUnder）
+    if (!(removeDirectoryUnder $bookDir $workspace.IndexDir)) {
+        writeIndexerLog "インデックスの置き場の外を指すパス（途中のリンクを含む）のため、削除しませんでした: ${bookDir}" "Yellow"
     }
-    removeDirectoryRetry $bookDir
 }
 
 function getTebunkoExcludeDirs {

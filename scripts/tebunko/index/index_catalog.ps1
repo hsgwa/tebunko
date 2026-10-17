@@ -58,13 +58,17 @@ class IndexCatalog {
             if ([string]::Equals($oldName, $newName, [System.StringComparison]::OrdinalIgnoreCase)) {
                 # 大文字・小文字だけを変える場合は、そのままでは改名できないため一時名を経由する
                 $tmp = Join-Path $dir "${oldName}_rename_$([System.Diagnostics.Process]::GetCurrentProcess().Id)"
-                [System.IO.Directory]::Move((toLongPath $from), (toLongPath $tmp))
-                [System.IO.Directory]::Move((toLongPath $tmp), (toLongPath $to))
+                # 移すのは、置き場（IndexDir）の下で途中にリンクが無いときだけ（moveDirectoryUnder）。偽なら何も動かさずに例外にする
+                if (!(moveDirectoryUnder $from $tmp $dir) -or !(moveDirectoryUnder $tmp $to $dir)) {
+                    throw "置き場の外か、途中にリンクがあるため、名前を変えられません: ${oldName}"
+                }
             } else {
                 if ([System.IO.Directory]::Exists((toLongPath $to)) -or [System.IO.File]::Exists((toLongPath $to))) {
                     throw "「${newName}」のフォルダが既にあるため、名前を変えられません: ${to}"
                 }
-                [System.IO.Directory]::Move((toLongPath $from), (toLongPath $to))
+                if (!(moveDirectoryUnder $from $to $dir)) {
+                    throw "置き場の外か、途中にリンクがあるため、名前を変えられません: ${oldName}"
+                }
             }
         }
         $this.Ledger.RenameIndexName($oldName, $newName)
@@ -111,12 +115,16 @@ class IndexCatalog {
             # ただし testPathUnder は GetFullPath に頼るため、最後の区切りをデバイス名として解く古い版の Windows では、
             # 上の確かめを通らず、何も消さずに例外になる）。
             # 消せなければ例外にして、取り込み一覧の記録を残す（フォルダが残ったまま記録だけ消えないように）
-            removeDirectoryRetry $target
+            if (!(removeDirectoryUnder $target $dir)) {
+                throw "置き場の外か、途中にリンクがあるため、削除できませんでした: ${name}"
+            }
         }
         # 古い置き場（作り直す前の形式）の同じ名前のフォルダと、目録の行も消す
         $oldTarget = Join-Path $this.Workspace.OldIndexDir $name
         if (testPathUnder $oldTarget $this.Workspace.OldIndexDir) {
-            removeDirectoryRetry $oldTarget
+            if (!(removeDirectoryUnder $oldTarget $this.Workspace.OldIndexDir)) {
+                throw "置き場の外か、途中にリンクがあるため、削除できませんでした: ${name}"
+            }
         }
         [void](removeIndexFormatRow $name $this.Workspace.FormatFile)
         $this.Ledger.RemoveIndexName($name)

@@ -328,10 +328,12 @@ function renameOldIndexFolder {
     }
     if ([string]::Equals($oldName, $newName, [System.StringComparison]::OrdinalIgnoreCase)) {
         $tmp = Join-Path $workspace.OldIndexDir "${oldName}_rename_$([System.Diagnostics.Process]::GetCurrentProcess().Id)"
-        [System.IO.Directory]::Move((toLongPath $from), (toLongPath $tmp))
-        [System.IO.Directory]::Move((toLongPath $tmp), (toLongPath $to))
+        # 置き場の外・途中にリンクがあるときは動かさない（古い置き場のものは作り直しで消えるため、改名は止めない）
+        if (moveDirectoryUnder $from $tmp $workspace.OldIndexDir) {
+            [void](moveDirectoryUnder $tmp $to $workspace.OldIndexDir)
+        }
     } elseif (![System.IO.Directory]::Exists((toLongPath $to))) {
-        [System.IO.Directory]::Move((toLongPath $from), (toLongPath $to))
+        [void](moveDirectoryUnder $from $to $workspace.OldIndexDir)
     }
 }
 
@@ -373,7 +375,9 @@ function removeOldIndexOf {
     $oldDir = Join-Path $workspace.OldIndexDir $name
     if ([System.IO.Directory]::Exists((toLongPath $oldDir))) {
         try {
-            removeDirectoryRetry $oldDir
+            if (!(removeDirectoryUnder $oldDir $workspace.OldIndexDir)) {
+                throw "置き場の外か、途中にリンクがあるため、消していません"
+            }
             $removed++
         } catch {
             $failed.Add("${oldDir}（$($_.Exception.Message)）")
@@ -385,7 +389,9 @@ function removeOldIndexOf {
             $entry = [string]$workspace.$property
             try {
                 if ([System.IO.Directory]::Exists((toLongPath $entry))) {
-                    removeDirectoryRetry $entry
+                    if (!(removeDirectoryUnder $entry $workspace.Dir)) {
+                        throw "置き場の外か、途中にリンクがあるため、消していません"
+                    }
                     $removed++
                 } elseif ([System.IO.File]::Exists((toLongPath $entry))) {
                     [System.IO.File]::Delete((toLongPath $entry))

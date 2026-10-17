@@ -251,30 +251,43 @@ function publishIndexFiles {
     # 作りかけのインデックスを残さないよう、いったん stagingDir に集めてから bookDir ごと入れ替える。
     # 途中で強制終了されても、bookDir は「前回のまま」か「今回の分がそろった状態」のどちらかになる
     # （1件ずつ bookDir へ移すと、途中で止まったときに一部のシートだけのインデックスが残り、検索で気付けない）。
-    # 以前のインデックスはフォルダごと置き換える（シートの削除・名前変更に追従するため）
+    # 以前のインデックスはフォルダごと置き換える（シートの削除・名前変更に追従するため）。
+    # 消す・作る・移すのは、stagingDir は publishRoot の下、bookDir は indexRoot の下で、途中にリンクが無いときだけ
+    # （確かめが偽なら何も動かさず、例外にする）
     param (
         [string]$fromDir,
         [string]$bookDir,
-        [string]$stagingDir
+        [string]$stagingDir,
+        [string]$indexRoot,
+        [string]$publishRoot
     )
 
-    removeDirectoryRetry $stagingDir
-    [System.IO.Directory]::CreateDirectory((toLongPath $stagingDir)) | Out-Null
+    $outside = "置き場の外か、途中にリンクがあるため、インデックスを置けません: "
+    if (!(removeDirectoryUnder $stagingDir $publishRoot) -or !(newDirectoryUnder $stagingDir $publishRoot)) {
+        throw "${outside}${stagingDir}"
+    }
     foreach ($file in @(Get-ChildItem -LiteralPath (toLongPath $fromDir) -Filter "*.tsv" -File)) {
         [System.IO.File]::Move($file.FullName, (toLongPath (Join-Path $stagingDir $file.Name)))
     }
 
-    removeDirectoryRetry $bookDir
-    [System.IO.Directory]::CreateDirectory((toLongPath ([System.IO.Path]::GetDirectoryName($bookDir)))) | Out-Null
+    if (!(removeDirectoryUnder $bookDir $indexRoot) -or !(newDirectoryUnder ([System.IO.Path]::GetDirectoryName($bookDir)) $indexRoot)) {
+        throw "${outside}${bookDir}"
+    }
     try {
+        # 元と先で根が違う（publishRoot と indexRoot）ため moveDirectoryUnder でなく、それぞれの根で確かめてから移す
+        if (!(testRemovablePath $stagingDir $publishRoot) -or !(testRemovablePath $bookDir $indexRoot)) {
+            throw "${outside}${bookDir}"
+        }
         [System.IO.Directory]::Move((toLongPath $stagingDir), (toLongPath $bookDir))
     } catch [System.IO.IOException] {
         # work を別のドライブへのリンクにしている場合など、フォルダごとは移せないときは1件ずつ移す
-        [System.IO.Directory]::CreateDirectory((toLongPath $bookDir)) | Out-Null
+        if (!(newDirectoryUnder $bookDir $indexRoot)) {
+            throw "${outside}${bookDir}"
+        }
         foreach ($file in @(Get-ChildItem -LiteralPath (toLongPath $stagingDir) -Filter "*.tsv" -File)) {
             [System.IO.File]::Move($file.FullName, (toLongPath (Join-Path $bookDir $file.Name)))
         }
-        removeDirectoryRetry $stagingDir
+        [void](removeDirectoryUnder $stagingDir $publishRoot)
     }
     # bookDir はワークスペースの中（同じドライブ）の一時フォルダから Move で入れるため、親（content_index\）の
     # NotContentIndexed 属性を継がない。ここで、入れた分（フォルダと直下の TSV）だけに付ける

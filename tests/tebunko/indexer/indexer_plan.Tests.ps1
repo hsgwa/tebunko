@@ -201,6 +201,22 @@ Describe "createTargetList（サブフォルダ・無くなったファイル）
         Test-Path -LiteralPath $inside | Should -Be $false
     }
 
+    It "removeBookDir は、途中の階層がジャンクションなら、置き場の下に見えても先を消さずにログに出す" {
+        Mock writeIndexerLog {}
+        $outside = Join-Path $TestDrive "リンクの先"
+        [System.IO.File]::WriteAllText((Join-Path $outside "経理\中.xlsx\a.tsv" | ForEach-Object { [System.IO.Directory]::CreateDirectory((Split-Path $_ -Parent)) | Out-Null; $_ }), "a")
+        [System.IO.Directory]::CreateDirectory(${indexDir}) | Out-Null
+        if (!(newTestJunction (Join-Path ${indexDir} "営業") $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        removeBookDir (Join-Path ${indexDir} "営業\経理\中.xlsx")
+
+        Test-Path -LiteralPath "$outside\経理\中.xlsx\a.tsv" | Should -Be $true
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*削除しませんでした*" -and $color -eq "Yellow" }
+    }
+
     It "アクセスできないフォルダがあったときは、見つからなかったファイルの行とインデックスを残す" {
         Mock findTargetFiles { @{ Root = $source; Files = @(Get-Item -LiteralPath $file); HasError = $true } }
         $gone = Join-Path ${indexDir} "経理\読めない\d.xlsx"

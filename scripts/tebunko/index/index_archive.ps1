@@ -430,15 +430,19 @@ function extractArchiveEntryToFile {
         $entry,
         [long]$expectedSize,
         [string]$expectedSha256,
-        [string]$destPath
+        [string]$destPath,
+        [string]$root
     )
 
-    [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName((toLongPath $destPath))) | Out-Null
+    # 書き出すのは、root の下で途中にリンクが無いときだけ。同じ名前のファイルが既にあれば上書きせず、例外にする（CreateNew）
+    if (!(newDirectoryUnder ([System.IO.Path]::GetDirectoryName($destPath)) $root)) {
+        throw "置き場の外か、途中にリンクがあるため、展開できません: ${destPath}"
+    }
     $source = $entry.Open()
     $sha = New-Object System.Security.Cryptography.SHA256CryptoServiceProvider
     $total = [long]0
     try {
-        $dest = New-Object System.IO.FileStream((toLongPath $destPath), [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+        $dest = New-Object System.IO.FileStream((toLongPath $destPath), [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
         try {
             $buffer = New-Object byte[] 1MB
             while ($true) {
@@ -542,12 +546,15 @@ function expandImportArchive {
         $fileEntries,
         [string]$workDir,
         [string]$finalName,
-        [string]$folder
+        [string]$folder,
+        [string]$workRoot
     )
 
     $newDir = Join-Path $workDir "new"
-    removeDirectoryRetry $workDir
-    [System.IO.Directory]::CreateDirectory((toLongPath $newDir)) | Out-Null
+    # 消す・作るのは、workRoot の下で途中にリンクが無いときだけ（偽なら何も書かずに例外にする）
+    if (!(removeDirectoryUnder $workDir $workRoot) -or !(newDirectoryUnder $newDir $workRoot)) {
+        throw "置き場の外か、途中にリンクがあるため、展開できません: ${workDir}"
+    }
     try {
         $statusTmpPath = Join-Path $workDir ${indexArchiveStatusEntryName}
         $statusLines = $null
@@ -560,7 +567,7 @@ function expandImportArchive {
             $size = [long]$file.size
             $sha256 = [string]$file.sha256
             if ($path -ceq ${indexArchiveStatusEntryName}) {
-                extractArchiveEntryToFile $entry $size $sha256 $statusTmpPath
+                extractArchiveEntryToFile $entry $size $sha256 $statusTmpPath $workDir
                 $bytes = [System.IO.File]::ReadAllBytes((toLongPath $statusTmpPath))
                 $text = ${utf8Bom}.GetString($bytes)
                 $statusLines = @($text -split "\r?\n" | Where-Object { $_ -ne "" })
@@ -570,7 +577,7 @@ function expandImportArchive {
                 }
             } else {
                 $rel = $path.Substring("content_index/".Length).Replace("/", "\")
-                extractArchiveEntryToFile $entry $size $sha256 (Join-Path $newDir $rel)
+                extractArchiveEntryToFile $entry $size $sha256 (Join-Path $newDir $rel) $workDir
             }
         }
         if ($null -eq $statusLines) {
@@ -589,7 +596,7 @@ function expandImportArchive {
     } catch {
         $original = $_
         try {
-            removeDirectoryRetry $workDir
+            [void](removeDirectoryUnder $workDir $workRoot)
         } catch {
             # 片付けに失敗しても、元の失敗の理由を隠さない
         }
@@ -675,26 +682,34 @@ function swapInImportedIndexDir {
         [string]$newDir,
         [string]$targetDir,
         [string]$previousDir,
-        [string]$indexRoot
+        [string]$indexRoot,
+        [string]$workRoot
     )
 
     # ウイルス対策ソフトが、作ったばかり・書いたばかりのフォルダ（$targetDir は前の取り込みで、$newDir はこの
     # インポートの展開で、それぞれ書いたばかり）を一時的に掴んでいることがあるため、moveDirectoryRetry で試し直す
     # （removeDirectoryRetry と同じ理由。docs/design/index-data/format.md「インポート」を参照）
+    # 移すのは、targetDir が indexRoot の下、newDir と previousDir が workRoot の下で、どれも途中にリンクが無いときだけ
+    # （moveDirectoryUnder。偽なら何も移さずに例外にする）
+    $outside = "置き場の外か、途中にリンクがあるため、インデックスを入れ替えられません: ${targetDir}"
     $hadPrevious = Test-Path -LiteralPath (toLongPath $targetDir) -PathType Container
     if ($hadPrevious) {
-        moveDirectoryRetry $targetDir $previousDir
+        if (!(moveDirectoryUnder $targetDir $previousDir $workRoot $indexRoot)) {
+            throw $outside
+        }
     }
     try {
         [System.IO.Directory]::CreateDirectory((toLongPath $indexRoot)) | Out-Null
-        moveDirectoryRetry $newDir $targetDir
+        if (!(moveDirectoryUnder $newDir $targetDir $indexRoot $workRoot)) {
+            throw $outside
+        }
     } catch {
         if ($hadPrevious) {
-            moveDirectoryRetry $previousDir $targetDir
+            [void](moveDirectoryUnder $previousDir $targetDir $indexRoot $workRoot)
         }
         throw
     }
-    return @{ TargetDir = $targetDir; PreviousDir = $previousDir; HadPrevious = $hadPrevious }
+    return @{ TargetDir = $targetDir; PreviousDir = $previousDir; HadPrevious = $hadPrevious; IndexRoot = $indexRoot; WorkRoot = $workRoot }
 }
 
 function restoreSwappedIndexDir {
@@ -703,9 +718,13 @@ function restoreSwappedIndexDir {
         $swap
     )
 
-    removeDirectoryRetry $swap.TargetDir
+    if (!(removeDirectoryUnder $swap.TargetDir $swap.IndexRoot)) {
+        throw "置き場の外か、途中にリンクがあるため、入れ替えを戻せません: $($swap.TargetDir)"
+    }
     if ($swap.HadPrevious) {
-        moveDirectoryRetry $swap.PreviousDir $swap.TargetDir
+        if (!(moveDirectoryUnder $swap.PreviousDir $swap.TargetDir $swap.IndexRoot $swap.WorkRoot)) {
+            throw "置き場の外か、途中にリンクがあるため、入れ替えを戻せません: $($swap.TargetDir)"
+        }
     }
 }
 
@@ -810,12 +829,12 @@ function importIndexCore {
         }
 
         $workDir = Join-Path $ws.PublishDir "import"
-        $expanded = expandImportArchive $archive $fileEntries $workDir $finalName $folder
+        $expanded = expandImportArchive $archive $fileEntries $workDir $finalName $folder $ws.PublishDir
         $targetIndexDir = Join-Path $ws.IndexDir $finalName
         try {
             $before = registerImportedIndexInSettings $finalName $folder $overwrite $targetIndexDir $settingsPath
             try {
-                $swap = swapInImportedIndexDir $expanded.NewDir $targetIndexDir (Join-Path $workDir "previous") $ws.IndexDir
+                $swap = swapInImportedIndexDir $expanded.NewDir $targetIndexDir (Join-Path $workDir "previous") $ws.IndexDir $ws.PublishDir
                 # Directory.Move で入れたフォルダは、work\content_index の NotContentIndexed を受け継がない。
                 # 根に付いたあとの -Recurse は中へ降りないため（publish.md）、入れた直後に付ける（失敗しても止めない）
                 setWindowsSearchExcluded $targetIndexDir -Recurse | Out-Null
@@ -836,7 +855,7 @@ function importIndexCore {
         } catch {
             $original = $_
             try {
-                removeDirectoryRetry $workDir
+                [void](removeDirectoryUnder $workDir $ws.PublishDir)
             } catch {
                 # 片付けに失敗しても、元の失敗の理由を隠さない
             }
@@ -848,7 +867,9 @@ function importIndexCore {
             removeSystemIndexOfWorkspace $finalName $ws.IndexDir
         }
         # 12. 作業フォルダを消す
-        removeDirectoryRetry $workDir
+        if (!(removeDirectoryUnder $workDir $ws.PublishDir)) {
+            throw "置き場の外か、途中にリンクがあるため、作業フォルダを消せません: ${workDir}"
+        }
 
         return @{
             Name = $finalName; SourcePath = $folder; Enabled = [System.IO.Directory]::Exists((toLongPath $folder))

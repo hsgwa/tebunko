@@ -391,6 +391,65 @@ Describe "IndexCatalog.RemoveIndex" -Tag Io {
         Test-Path -LiteralPath "$($ws.Index)\営業" | Should -Be $false
         readListFile "$outside\外.tsv" | Should -Be @("外")
     }
+
+    It "古い置き場（content_index）そのものがジャンクションでも、削除でき、取り込み一覧の記録も消える" {
+        $ws = newCatalogWorkspace "$TestDrive\remove_oldrootlink"
+        $outside = "$TestDrive\remove_oldrootlink_outside"
+        writeListFile "$outside\営業\content_index.docx.001.tsv" @("古い中身")
+        writeListFile "$outside\技術\content_index.docx.001.tsv" @("古い中身")
+        writeListFile "$($ws.Index)\営業\a.xlsx\Sheet1.tsv" @("本文")
+        if (!(newTestJunction "$($ws.Dir)\content_index" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(
+            (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00")
+        ) $ws.Status
+
+        $ws.Catalog.RemoveIndex("営業")
+
+        Test-Path -LiteralPath "$($ws.Index)\営業" | Should -Be $false
+        Test-Path -LiteralPath "$outside\営業" | Should -Be $false
+        Test-Path -LiteralPath "$outside\技術" | Should -Be $true
+        (readStatusFile $ws.Status).Rows.Count | Should -Be 0
+    }
+}
+
+Describe "IndexCatalog.RenameIndex（リンク）" -Tag Io {
+    It "インデックスのフォルダがジャンクションなら、ジャンクションの名前だけを変え、先は動かさない" {
+        # 名前は 1 階層なので、途中にリンクが挟まる形は作れない。リンクになりうるのは名前のフォルダそのものだけ
+        $ws = newCatalogWorkspace "$TestDrive\rename_link"
+        $outside = "$TestDrive\rename_link_outside"
+        writeListFile "$outside\外.tsv" @("外")
+        [System.IO.Directory]::CreateDirectory($ws.Index) | Out-Null
+        if (!(newTestJunction "$($ws.Index)\営業" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $ws.Catalog.RenameIndex("営業", "営業部")
+
+        Test-Path -LiteralPath "$($ws.Index)\営業" | Should -Be $false
+        Test-Path -LiteralPath "$($ws.Index)\営業部" | Should -Be $true
+        readListFile "$outside\外.tsv" | Should -Be @("外")
+    }
+
+    It "古い置き場（content_index）そのものがジャンクションでも、改名でき、古い置き場の同じ名前も変わる" {
+        $ws = newCatalogWorkspace "$TestDrive\rename_oldrootlink"
+        $outside = "$TestDrive\rename_oldrootlink_outside"
+        writeListFile "$outside\営業\content_index.docx.001.tsv" @("古い中身")
+        writeListFile "$($ws.Index)\営業\a.xlsx\Sheet1.tsv" @("本文")
+        if (!(newTestJunction "$($ws.Dir)\content_index" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $ws.Catalog.RenameIndex("営業", "営業部")
+
+        Test-Path -LiteralPath "$($ws.Index)\営業部" | Should -Be $true
+        Test-Path -LiteralPath "$outside\営業部\content_index.docx.001.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$outside\営業" | Should -Be $false
+    }
 }
 
 Describe "IndexCatalog.RemoveIndexes" -Tag Io {

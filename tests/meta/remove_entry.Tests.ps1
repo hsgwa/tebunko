@@ -171,6 +171,46 @@ BeforeAll {
         return $groups
     }
 
+    function findFolderChangeCalls {
+        # ast の中の、フォルダを消す・移す・作る呼び出し（removeDirectoryRetry・moveDirectoryRetry・Directory.Move・Directory.CreateDirectory）を、
+        # 呼び出しごとに、いちばん内側の関数（クラスのメソッドを含む）の名前を付けて @{ Owner; Call } で返す。
+        # 置き場の下かを確かめる入口は removeDirectoryUnder・moveDirectoryUnder・newDirectoryUnder（shared/core/fs.ps1）
+        param (
+            $ast
+        )
+        $nodes = $ast.FindAll({
+                param ($n)
+                $n -is [System.Management.Automation.Language.CommandAst] -or $n -is [System.Management.Automation.Language.InvokeMemberExpressionAst]
+            }, $true)
+        foreach ($node in $nodes) {
+            $call = $null
+            if ($node -is [System.Management.Automation.Language.CommandAst]) {
+                $name = "$($node.GetCommandName())".Split("\")[-1]
+                if ($name -in @("removeDirectoryRetry", "moveDirectoryRetry")) {
+                    $call = $name
+                }
+            } elseif ($node.Static -and $node.Expression -is [System.Management.Automation.Language.TypeExpressionAst] -and
+                $node.Expression.TypeName.Name -match "(^|\.)Directory$" -and "$($node.Member.Value)" -in @("Move", "CreateDirectory")) {
+                $call = "Directory.$($node.Member.Value)"
+            } elseif ($node.Static -and $node.Expression -is [System.Management.Automation.Language.VariableExpressionAst] -and
+                "$($node.Member.Value)" -in @("Move", "CreateDirectory")) {
+                # 型を変数に入れて呼ぶ書き方（`$t = [System.IO.Directory]; $t::Move(...)`）。型は分からないため、同じ名前の呼び出しは全部拾う
+                $call = "Directory.$($node.Member.Value)"
+            }
+            if (!$call) {
+                continue
+            }
+            $owner = "(スクリプト直下)"
+            for ($parent = $node.Parent; $null -ne $parent; $parent = $parent.Parent) {
+                if ($parent -is [System.Management.Automation.Language.FunctionDefinitionAst] -or $parent -is [System.Management.Automation.Language.FunctionMemberAst]) {
+                    $owner = $parent.Name
+                    break
+                }
+            }
+            @{ Owner = $owner; Call = $call }
+        }
+    }
+
     function getScriptFiles {
         $files = @(Get-ChildItem -LiteralPath ${scriptsDir} -Filter "*.ps1" -Recurse)
         $files.Count | Should -BeGreaterThan 0 -Because "scripts の下の .ps1 が見つからないと、何も調べずに通ってしまう"
@@ -231,6 +271,72 @@ Describe "フォルダを消す入口" -Tag Meta {
             }
         }
         @($hits) | Should -BeNullOrEmpty -Because "予約名に拡張子の付いた名前のフォルダは、Test-Path が無いと答えて消さずに記録だけが進む"
+    }
+}
+
+Describe "フォルダを消す・移す・作る入口" -Tag Meta {
+    BeforeAll {
+        # 置き場の下かを確かめる入口（removeDirectoryUnder・moveDirectoryUnder・newDirectoryUnder）を通さずに、フォルダを消す・移す・作る呼び出し。
+        # 足すときは Reason に、置き場が決まっている（確かめ済み・利用者が選んだ場所・作業の根）理由を書く。
+        # File = ファイル名、Owner = 関数（クラスのメソッドを含む）の名前、Call = 呼び出し
+        ${folderChangeAllowed} = @(
+            @{ File = "shared\core\fs.ps1"; Owner = "removeDirectoryUnder"; Call = "removeDirectoryRetry"; Reason = "入口そのもの（置き場の下かを確かめてから消す）" }
+            @{ File = "shared\core\fs.ps1"; Owner = "moveDirectoryUnder"; Call = "moveDirectoryRetry"; Reason = "入口そのもの（置き場の下かを確かめてから移す）" }
+            @{ File = "shared\core\fs.ps1"; Owner = "newDirectoryUnder"; Call = "Directory.CreateDirectory"; Reason = "入口そのもの（置き場の下かを確かめてから作る）" }
+            @{ File = "shared\core\fs.ps1"; Owner = "moveDirectoryRetry"; Call = "Directory.Move"; Reason = "移す処理の本体（呼ぶ側が moveDirectoryUnder で確かめる）" }
+            @{ File = "shared\core\fs.ps1"; Owner = "writeListFile"; Call = "Directory.CreateDirectory"; Reason = "書き込む 1 ファイルの親フォルダを作るだけ（置き場は呼ぶ側が決めたファイルのパス。消さない）" }
+            @{ File = "shared\core\fs.ps1"; Owner = "writeTextLinesAtomic"; Call = "Directory.CreateDirectory"; Reason = "書き込む 1 ファイルの親フォルダを作るだけ（消さない）" }
+            @{ File = "shared\office\office_process.ps1"; Owner = "addOfficeRecord"; Call = "Directory.CreateDirectory"; Reason = "Office の記録ファイルの親フォルダを作るだけ（ワークスペースの外の一時の場所。消さない）" }
+            @{ File = "shared\ui\app_host.ps1"; Owner = "writeErrorLog"; Call = "Directory.CreateDirectory"; Reason = "エラーログの親フォルダを作るだけ（消さない）" }
+            @{ File = "tebunko\core\workspace_mover.ps1"; Owner = "CopyTree"; Call = "Directory.CreateDirectory"; Reason = "ワークスペースを移すときの、移し先の中の複写。移し先は利用者が選んだ（検査済みの）フォルダで、リンクの先はたどらない" }
+            @{ File = "tebunko\core\workspace_mover.ps1"; Owner = "MoveEntries"; Call = "Directory.CreateDirectory"; Reason = "ワークスペースを移すときの、利用者が選んだ移し先を作る" }
+            @{ File = "tebunko\core\workspace_mover.ps1"; Owner = "MoveEntry"; Call = "Directory.Move"; Reason = "ワークスペースを移すときの、利用者が選んだ移し先への移動（検査済み）" }
+            @{ File = "tebunko\core\workspace_mover.ps1"; Owner = "MoveEntry"; Call = "removeDirectoryRetry"; Reason = "ワークスペースを移し終えた元のフォルダと、失敗した移し先の途中を消す（利用者が選んだ移動の後始末）" }
+            @{ File = "tebunko\core\workspace_mover.ps1"; Owner = "RemoveEntries"; Call = "removeDirectoryRetry"; Reason = "利用者が［消して、最初からやり直す］を選んだ回だけ、選んだフォルダの tebunko のフォルダを消す" }
+            @{ File = "tebunko\index\index_archive.ps1"; Owner = "exportIndexCore"; Call = "Directory.CreateDirectory"; Reason = "書き出す zip の一時ファイルの親フォルダを作るだけ（消さない）" }
+            @{ File = "tebunko\index\index_archive.ps1"; Owner = "swapInImportedIndexDir"; Call = "Directory.CreateDirectory"; Reason = "インデックスの置き場（IndexDir）そのものを作る（置き場の中ではなく、置き場自身。消さない）" }
+            @{ File = "tebunko\index\index_format_store.ps1"; Owner = "updateIndexFormat"; Call = "Directory.CreateDirectory"; Reason = "目録ファイルの親フォルダを作るだけ（消さない）" }
+            @{ File = "tebunko\index\index_store.ps1"; Owner = "publishIndexFiles"; Call = "Directory.Move"; Reason = "置き場の下かを testRemovablePath で、移す前に両側とも確かめてから移す（別ドライブでは必ず IOException になり、moveDirectoryRetry の待ち直しが本ごとにかかるため、1 件ずつ移す fallback へすぐ落とす。moveDirectoryUnder を使わない）" }
+            @{ File = "tebunko\index\system_index.ps1"; Owner = "updateSystemIndexState"; Call = "Directory.CreateDirectory"; Reason = "状態ファイルの親フォルダを作るだけ（消さない）" }
+            @{ File = "tebunko\indexer\indexer_run.ps1"; Owner = "invokeIndexerBody"; Call = "Directory.CreateDirectory"; Reason = "ワークスペースの根（PublishDir・IndexDir・Dir）そのものを作る（置き場自身。消さない）" }
+            @{ File = "tebunko\indexer\indexer_run.ps1"; Owner = "invokeIndexer"; Call = "Directory.CreateDirectory"; Reason = "ワークスペースの根そのものを作る（置き場自身。消さない）" }
+            @{ File = "tebunko\indexer\indexer_run.ps1"; Owner = "(スクリプト直下)"; Call = "Directory.CreateDirectory"; Reason = "ワークスペースの根そのものを作る（置き場自身。消さない）" }
+            @{ File = "tebunko\ui\open_source.ps1"; Owner = "exportResults"; Call = "Directory.CreateDirectory"; Reason = "ワークスペースの根そのものを作る（置き場自身。消さない）" }
+            @{ File = "tebunko\ui\settings\settings.ps1"; Owner = "applyWorkspace"; Call = "Directory.CreateDirectory"; Reason = "利用者が設定画面で選んだワークスペースの根を作る（置き場自身。消さない）" }
+            @{ File = "tebunko\ui\settings\settings.ps1"; Owner = "resetWorkspace"; Call = "Directory.CreateDirectory"; Reason = "利用者が選んだワークスペースの根の下のフォルダを作る（消さない）" }
+        )
+    }
+
+    It "フォルダを消す・移す・作る呼び出しは、入口を通すか、理由つきの一覧にある" {
+        $unknown = New-Object System.Collections.Generic.List[string]
+        foreach ($file in getScriptFiles) {
+            $errors = $null
+            $tokens = $null
+            $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors)
+            $relative = getRelativeName $file
+            foreach ($call in @(findFolderChangeCalls $ast)) {
+                $hit = $call
+                if (@(${folderChangeAllowed} | Where-Object { $_.File -eq $relative -and $_.Owner -eq $hit.Owner -and $_.Call -eq $hit.Call }).Count -eq 0) {
+                    $unknown.Add("$relative › $($call.Owner) › $($call.Call)")
+                }
+            }
+        }
+        @($unknown | Sort-Object -Unique) | Should -BeNullOrEmpty -Because "消す・移す・作るは removeDirectoryUnder・moveDirectoryUnder・newDirectoryUnder（shared/core/fs.ps1）を通す。通せないなら、この一覧に理由つきで足す"
+    }
+
+    It "一覧の呼び出しは、いまも存在する（消した・名前を変えた呼び出しを一覧に残さない）" {
+        $current = New-Object System.Collections.Generic.List[string]
+        foreach ($file in getScriptFiles) {
+            $errors = $null
+            $tokens = $null
+            $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors)
+            foreach ($call in @(findFolderChangeCalls $ast)) {
+                $current.Add("$(getRelativeName $file)|$($call.Owner)|$($call.Call)")
+            }
+        }
+        $stale = @(${folderChangeAllowed} | Where-Object { $current -notcontains "$($_.File)|$($_.Owner)|$($_.Call)" } |
+                ForEach-Object { "$($_.File) › $($_.Owner) › $($_.Call)" })
+        $stale | Should -BeNullOrEmpty
     }
 }
 
@@ -307,5 +413,28 @@ Describe "フォルダを消す書き方の見つけ方（自己テスト）" -T
         $groups = groupCommandsByOwner @(findCallsByOwner $ast)
         $groups["inner"] | Should -Be @("Test-Path")
         $groups["outer"] | Should -Be @("removeTreeNoFollow")
+    }
+
+    It "フォルダを消す・移す・作る呼び出しを見つける: <code>" -TestCases @(
+        @{ code = '[IO.Directory]::Move($a, $b)'; call = "Directory.Move" }
+        @{ code = '[System.IO.Directory]::CreateDirectory($a)'; call = "Directory.CreateDirectory" }
+        @{ code = 'removeDirectoryRetry $a'; call = "removeDirectoryRetry" }
+        @{ code = 'moveDirectoryRetry $a $b'; call = "moveDirectoryRetry" }
+        @{ code = '$t = [System.IO.Directory]; $t::Move($a, $b)'; call = "Directory.Move" }
+        @{ code = '$t::CreateDirectory($a)'; call = "Directory.CreateDirectory" }
+    ) {
+        $found = @(findFolderChangeCalls (parseCode $code))
+        $found.Count | Should -Be 1
+        $found[0].Call | Should -Be $call
+    }
+
+    It "フォルダを消す・移す・作る呼び出しでないものは見つけない: <code>" -TestCases @(
+        @{ code = '[System.IO.Directory]::Exists($a)' }
+        @{ code = '[System.IO.File]::Move($a, $b)' }
+        @{ code = '$t::Exists($a)' }
+        @{ code = 'removeDirectoryUnder $a $r' }
+        @{ code = 'Get-ChildItem $a' }
+    ) {
+        @(findFolderChangeCalls (parseCode $code)).Count | Should -Be 0
     }
 }
