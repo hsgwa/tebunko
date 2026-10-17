@@ -70,6 +70,24 @@
 | `Progress` | phase, processed, remaining, failed, detail | – | `writeIndexingProgress` を呼ぶ |
 | `WaitForApproval` | phase, plan, targetCount, failedCount, timeoutMinutes | `@{RetryFailed}` / `$null` | 取り込む内容を画面に渡し、開始の返事を待つ（旧 `indexer_plan.ps1` の `waitForIndexingApproval`） |
 
+### IngestDispatcher（新規 `tebunko/indexer/ingest_dispatcher.ps1`。司令のスレッドで作る）
+
+取り込みのレーン・プール・先読み・取り込み中の管理だけを持つ。取り込み一覧・本文インデックスの書き出し待ち・進み具合は触らず、司令が戻り値を見て書く。取り込みのスレッドとは hashtable と `BlockingCollection` で受け渡す（クラスのインスタンスは渡さない）。
+
+| メソッド／プロパティ | 入力 | 出力 | 概要 |
+|---|---|---|---|
+| コンストラクタ | targets, lanes, bookFolders, folderByName, carried, options | – | 取り込み対象と設定を受け取る。必要な設定が足りなければ、その名前を書いて失敗する |
+| `Start` | readers, settings | – | レーンごとの列を持つプールを作る（スレッドは、そのレーンに初めて渡すときに始める） |
+| `BeginPass` | – | – | 渡す繰り返しの 1 回分を始める（先読みの範囲を数え直す） |
+| `DispatchNext` | – | `@{Kind=Abandoned／Vanished／Dispatched; ...}` / `` | 並びの先から、レーンに空きがあるファイルを 1 つ選ぶ |
+| `Submit` | step | – | 選んだファイルをレーンの列に渡す |
+| `SetInlineResult` | result | – | スレッドを使わない実行の結果を、結果の列に入れる |
+| `Receive` | – | `@{Kind=Completed／Postponed／RerouteAbandoned; ...}` / `` | 結果を 1 つ受け取る |
+| `TakeAbandonedLane` | – | `@{Lane; Entries}` / `` | 諦めたレーンを 1 つ取り出す |
+| `StopIfRequested` | stopRequested | – | 中止を求められていたら、残りを渡さないようにする |
+| `InflightCount` / `IngestingEntries` | – | 件数 / 取り込み中のファイル | 取り込み中の数と一覧 |
+| `Stop` | – | – | 列を閉じ、各レーンのスレッドを終わらせる（待たない） |
+| `Pool`・`Stopped`・`FolderLost`・`Remaining`・`Undispatched`（プロパティ） | – | – | プール・中止・フォルダ消失・残り・まだ渡していないファイル |
 ### IngestPlanner（`tebunko/indexer/indexer_plan.ps1`。司令のスレッドで作る）
 
 クロール対象フォルダへの名前の割り当てと、クロールの結果から取り込む順番を決める。取り込み直すかの判断は `indexer_decide.ps1` の関数を `createTargetList` 経由で呼ぶ。計画の種類・状態の値はコンストラクタの `kinds`（`Unchecked`・`Missing`・`Dropped`・`StateFailed`。足りなければ例外）で、名前の保存は、`SaveNames` に司令が渡すスクリプトブロック（中身は `IndexCatalog.StoreAssignedNames`）で行う。メソッドは次の順に呼ぶ: `AssignNames` → `SaveNames` → `SelectOnly`（選んだときだけ）→ `Crawl` → `KeepForCancel`（取りやめるとき）か `ApplyFailed` → `ApplyInterrupted` → `FolderByName`。`AssignNames` の前に `Crawl` を呼ぶと例外にする。結果は `Folders`・`Previous`・`Dropped`・`Only`・`Rows`・`Targets`・`Failed`・`Cloud`（クラウドにだけあるファイル）・`Plan`・`RemovedPaths`・`Carried` で読む。

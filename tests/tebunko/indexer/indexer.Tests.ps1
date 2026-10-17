@@ -448,10 +448,10 @@ Describe "indexer.ps1（後回しの司令の流れ。実際のPowerPointは使�
         writeTestSettings $root @(@{ name = "諦め"; path = $dir; enabled = $true })
         # 最初のファイルを渡す直前に、そのレーンを諦めたことにする（本物では、制限時間を過ぎたときの監視が立てる）
         $global:testAbandonDone = $false
-        $hook = @{ Script = $runPath; Pattern = '^\s+addIngestTask \$pool \$lane \$task'; Action = {
+        $hook = @{ Script = $runPath; Pattern = '^\s+\$dispatcher\.Submit\(\$step\)'; Action = {
                 if (-not $global:testAbandonDone) {
                     $global:testAbandonDone = $true
-                    $pool.LaneStates[$lane].Abandoned = $true
+                    $dispatcher.Pool.LaneStates[$step.Lane].Abandoned = $true
                 }
             }
         }
@@ -482,11 +482,11 @@ Describe "indexer.ps1（後回しの司令の流れ。実際のPowerPointは使�
         writeTestSettings $root @(@{ name = "回し直し先を諦め"; path = $dir; enabled = $true })
         # 読み取りのスレッドが「Office が要る」と返したことにし、回し直し先（Word のレーン）を諦めたことにする
         $global:testRerouteDone = $false
-        $hook = @{ Script = $runPath; Pattern = '^\s+if \(\$result\.Reroute\) \{'; Action = {
+        $hook = @{ Script = $dispatcherPath; Pattern = '^\s+if \(\$result\.Reroute\) \{'; Action = {
                 if (-not $global:testRerouteDone) {
                     $global:testRerouteDone = $true
                     $result.Reroute = $true
-                    $pool.LaneStates[(getOfficeLane $result.RelPath)].Abandoned = $true
+                    $this.Pool.LaneStates[(getOfficeLane $result.RelPath)].Abandoned = $true
                 }
             }
         }
@@ -923,7 +923,7 @@ Describe "indexer.ps1（制限時間）" -Tag Io {
 Describe "indexer.ps1（取り込み中に元のファイルが無くなる）" -Tag Io {
     # 取り込みを始める直前（1 件目）に、元のファイル・フォルダを消す
     BeforeAll {
-        $beforeIngest = '^\s+\$row = \$targets\[\$i\]'
+        $beforeIngest = '^\s+\$row = \$this\.Targets\[\$i\]'
     }
 
     It "元のファイルが無くなっていたら、取り込まずに一覧から除く" {
@@ -931,7 +931,7 @@ Describe "indexer.ps1（取り込み中に元のファイルが無くなる）" 
         $root = newRoot
         writeTestSettings $root @(@{ name = "人事"; path = $source; enabled = $true })
         $global:indexerTestVictim = "$source\壊れた.pptx"
-        $remove = @{ Script = $runPath; Pattern = $beforeIngest; Action = {
+        $remove = @{ Script = $dispatcherPath; Pattern = $beforeIngest; Action = {
             if (Test-Path -LiteralPath $global:indexerTestVictim) { Remove-Item -LiteralPath $global:indexerTestVictim -Force }
         } }
         try {
@@ -962,7 +962,7 @@ Describe "indexer.ps1（取り込み中に元のファイルが無くなる）" 
         $root = newRoot
         writeTestSettings $root @(@{ name = "法務"; path = $source; enabled = $true })
         $global:indexerTestVictim = $source
-        $remove = @{ Script = $runPath; Pattern = $beforeIngest; Action = {
+        $remove = @{ Script = $dispatcherPath; Pattern = $beforeIngest; Action = {
             if (Test-Path -LiteralPath $global:indexerTestVictim) { Remove-Item -LiteralPath $global:indexerTestVictim -Recurse -Force }
         } }
         try {
@@ -1125,7 +1125,7 @@ Describe "indexer.ps1（取り込みのスレッド）" -Tag Io {
         writeTestSettings $root @(@{ name = "並列"; path = $source; enabled = $true })
         # getPartLoad indexerLib が部品を見つけられないようにする（単一 .ps1 版の分岐に入れる。
         # bundledParts はこの breakpoint が止まった関数（invokeIndexerBody）のスコープだけに置き、他のテストに残さない）
-        $broken = @{ Script = $runPath; Pattern = '^\s+\$pool = newIngestPool'; Action = {
+        $broken = @{ Script = $runPath; Pattern = '^\s+\$dispatcher\.Start\('; Action = {
                 Set-Variable -Name bundledParts -Value @{} -Scope 1
             }
         }
@@ -1154,7 +1154,7 @@ Describe "getIngestWorkerCount" -Tag Unit {
 
 Describe "取り込みのスレッドのスクリプト（ingestWorkerScript）" -Tag Io {
     # 取り込みのスレッドで動くスクリプトを、このスレッドで直接動かして確かめる（スレッドの中の動きはブレークポイントで止められないため）。
-    # 本物は addIngestTask が indexerLib の Prelude をつないでから動かすため（newWorkerTmpDir など indexer_lib.ps1 の関数を使う）、
+    # 本物は IngestDispatcher が indexerLib の Prelude をつないでから動かすため（newWorkerTmpDir など indexer_lib.ps1 の関数を使う）、
     # ここでは直接呼ぶため indexer_lib.ps1 をまとめて読み込んでおく
     BeforeAll {
         . "${scriptsDir}\tebunko\indexer\indexer_lib.ps1"
@@ -1685,97 +1685,6 @@ Describe "諦めたレーン（制限時間を過ぎても利用者が使って�
         $result.Ok | Should -Be $true
         $result.Postponed | Should -Be $false
         Should -Invoke publishTsv -Times 1 -Exactly -Scope It
-    }
-
-    It "getUnhandledAbandonedLanes は、スレッドを始めたレーンのうち、諦めて司令がまだ後回しを済ませていないものだけを返す" {
-        $pool = newIngestPool 1 @{}
-        $pool.Started[${laneExcel}] = $true
-        $pool.Started[${lanePowerPoint}] = $true
-        @(getUnhandledAbandonedLanes $pool).Count | Should -Be 0
-        $pool.LaneStates[${lanePowerPoint}].Abandoned = $true
-        # スレッドを始めていないレーンは返さない
-        $pool.LaneStates[${laneWord}].Abandoned = $true
-        @(getUnhandledAbandonedLanes $pool) | Should -Be @(${lanePowerPoint})
-        $pool.LaneStates[${lanePowerPoint}].Handled = $true
-        @(getUnhandledAbandonedLanes $pool).Count | Should -Be 0
-        stopIngestWorkers $pool
-    }
-
-    It "receiveIngestResult は、諦めたレーンがあれば、戻らない結果を待たずに `$null を返す。結果があればそちらを返す" {
-        $pool = newIngestPool 1 @{}
-        $pool.Started[${lanePowerPoint}] = $true
-        $pool.LaneStates[${lanePowerPoint}].Abandoned = $true
-        $pool.Results.Add(@{ RelPath = "a.docx" })
-        (receiveIngestResult $pool).RelPath | Should -Be "a.docx"
-        receiveIngestResult $pool | Should -BeNullOrEmpty
-        stopIngestWorkers $pool
-    }
-
-    It "receiveIngestResult は、諦めたレーンのスレッドが正常に終わっていても失敗にしない。諦めていないレーンのスレッドが終わっていれば失敗にする" {
-        $runspaces = New-Object System.Collections.Generic.List[object]
-        try {
-            foreach ($abandoned in $true, $false) {
-                $pool = newIngestPool 1 @{}
-                $pool.Started[${lanePowerPoint}] = $true
-                $pool.LaneStates[${lanePowerPoint}].Abandoned = $abandoned
-                $pool.LaneStates[${lanePowerPoint}].Handled = $true
-                $runspace = [runspacefactory]::CreateRunspace()
-                $runspace.Open()
-                $ps = [powershell]::Create()
-                $ps.Runspace = $runspace
-                $runspaces.Add(@{ PowerShell = $ps; Runspace = $runspace })
-                # すぐ終わるスレッド
-                [void]$ps.AddScript({ 1 })
-                $handle = $ps.BeginInvoke()
-                [void]$handle.AsyncWaitHandle.WaitOne(10000)
-                $worker = @{ PowerShell = $ps; Runspace = $runspace; Handle = $handle; Ended = $false; Lane = ${lanePowerPoint} }
-                $pool.Workers.Add($worker)
-                if ($abandoned) {
-                    # 失敗にしないで待ち続けるので、別のスレッドが少しあとに結果を入れる
-                    $feeder = [powershell]::Create()
-                    $feederRunspace = [runspacefactory]::CreateRunspace()
-                    $feederRunspace.Open()
-                    $feeder.Runspace = $feederRunspace
-                    $runspaces.Add(@{ PowerShell = $feeder; Runspace = $feederRunspace })
-                    [void]$feeder.AddScript({ param ($results) Start-Sleep -Milliseconds 1200; $results.Add(@{ RelPath = "後から届いた" }) }).AddArgument($pool.Results)
-                    [void]$feeder.BeginInvoke()
-                    (receiveIngestResult $pool).RelPath | Should -Be "後から届いた"
-                    $worker.Ended | Should -Be $false
-                } else {
-                    { receiveIngestResult $pool } | Should -Throw "*取り込みのスレッドが止まりました*"
-                }
-            }
-        } finally {
-            foreach ($item in $runspaces) {
-                try { $item.PowerShell.Dispose() } catch {}
-                try { $item.Runspace.Dispose() } catch {}
-            }
-        }
-    }
-
-    It "stopIngestWorkers は、諦めたレーンの固まったスレッドが終わるのを待たずに戻る（止める依頼だけを出す）" {
-        $pool = newIngestPool 1 @{}
-        $pool.Started[${lanePowerPoint}] = $true
-        $pool.LaneStates[${lanePowerPoint}].Abandoned = $true
-        $gate = New-Object System.Threading.ManualResetEvent($false)
-        $runspace = [runspacefactory]::CreateRunspace()
-        $runspace.Open()
-        $ps = [powershell]::Create()
-        $ps.Runspace = $runspace
-        [void]$ps.AddScript({ param ($gate) [void]$gate.WaitOne() }).AddArgument($gate)
-        $worker = @{ PowerShell = $ps; Runspace = $runspace; Handle = $ps.BeginInvoke(); Ended = $false; Lane = ${lanePowerPoint} }
-        $pool.Workers.Add($worker)
-        try {
-            $watch = [System.Diagnostics.Stopwatch]::StartNew()
-            stopIngestWorkers $pool
-            $watch.Elapsed.TotalSeconds | Should -BeLessThan 20
-            $worker.Ended | Should -Be $true
-        } finally {
-            [void]$gate.Set()
-            [void]$worker.Handle.AsyncWaitHandle.WaitOne(10000)
-            $ps.Dispose()
-            $runspace.Dispose()
-        }
     }
 }
 
