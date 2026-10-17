@@ -200,3 +200,39 @@ function splitCloudItems {
     }
     return @{ Included = $included; Skipped = $skipped }
 }
+
+function convertToPendingRemoveLines {
+    # 本文インデックスから外し終えていない、無くなった元のファイルの記録（pending_remove.tsv）の行を組み立てる。
+    # 1 行 = "<置き場からのフォルダの相対パス><TAB><元のファイル名>"。entries は @{ Folder; Name } の並び（空のものは書かない）
+    param (
+        [object[]]$entries
+    )
+
+    $lines = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($entry in @($entries | Where-Object { $_ })) {
+        $folder = [string]$entry.Folder
+        $name = [string]$entry.Name
+        if ($folder -eq "" -or $name -eq "" -or $folder.Contains("`t") -or $name.Contains("`t")) {
+            continue
+        }
+        $lines.Add("${folder}`t${name}")
+    }
+    return [string[]]@($lines | Sort-Object -Unique)
+}
+
+function convertFromPendingRemoveLines {
+    # 記録の行を @{ Folder; Name } の配列にする（convertToPendingRemoveLines の逆。壊れた行・空の行は飛ばす）
+    param (
+        [string[]]$lines
+    )
+
+    $result = New-Object System.Collections.Generic.List[hashtable]
+    foreach ($line in @($lines)) {
+        $fields = ([string]$line).Split("`t")
+        if ($fields.Count -ne 2 -or $fields[0].Trim() -eq "" -or $fields[1].Trim() -eq "") {
+            continue
+        }
+        $result.Add(@{ Folder = $fields[0]; Name = $fields[1] })
+    }
+    return $result.ToArray()
+}

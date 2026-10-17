@@ -92,3 +92,50 @@ Describe "PendingPublish" -Tag Unit {
         $flush.ContainsKey($busyFolder) | Should -Be $false
     }
 }
+
+Describe "PendingPublish（外し終えていない削除 Unpublished）" -Tag Unit {
+    BeforeAll {
+        $script:folder = [System.IO.Path]::GetDirectoryName((getBookDir "営業\無い.xlsx"))
+    }
+
+    It "無くなったファイル（Add の removed）は Unpublished に入り、取り込んだだけのファイルは入らない" {
+        $pending = [PendingPublish]::new()
+        $pending.Add("営業\無い.xlsx", $true)
+        $pending.Add("経理\ある.xlsx", $false)
+
+        $pending.Unpublished.Count | Should -Be 1
+        $pending.Unpublished[$script:folder].Contains("無い.xlsx") | Should -Be $true
+    }
+
+    It "TakeAll・TakeFlushable で取り出しても、MarkPublished されるまで Unpublished に残る" {
+        $pending = [PendingPublish]::new()
+        $pending.Add("営業\無い.xlsx", $true)
+        [void]$pending.TakeFlushable()
+        $pending.Unpublished.ContainsKey($script:folder) | Should -Be $true
+        $pending.Add("営業\無い.xlsx", $true)
+        [void]$pending.TakeAll()
+        $pending.Unpublished[$script:folder].Contains("無い.xlsx") | Should -Be $true
+    }
+
+    It "MarkPublished で、書き出し終えたフォルダだけ Unpublished から外れる" {
+        $pending = [PendingPublish]::new()
+        $pending.Add("営業\無い.xlsx", $true)
+        $pending.Add("経理\無い.xlsx", $true)
+        $other = [System.IO.Path]::GetDirectoryName((getBookDir "経理\無い.xlsx"))
+
+        $pending.MarkPublished([string[]]@($script:folder))
+
+        $pending.Unpublished.ContainsKey($script:folder) | Should -Be $false
+        $pending.Unpublished.ContainsKey($other) | Should -Be $true
+    }
+
+    It "Restore は、書き出し待ちと Unpublished の両方に名前を戻す" {
+        $pending = [PendingPublish]::new()
+        $pending.Restore($script:folder, [string[]]@("a.xlsx", "b.xlsx"))
+
+        $pending.Unpublished[$script:folder].Count | Should -Be 2
+        $flush = $pending.TakeAll()
+        $flush[$script:folder].Contains("a.xlsx") | Should -Be $true
+        $flush[$script:folder].Contains("b.xlsx") | Should -Be $true
+    }
+}

@@ -64,6 +64,7 @@ Describe "publishIndexFolders: 1 つのフォルダが失敗しても残りを�
         @($result.Skipped).Count | Should -Be 1
         $result.Skipped[0].Rel | Should -Be "B"
         $result.Skipped[0].Stage | Should -Be "本文インデックス"
+        @($result.Published | Sort-Object) | Should -Be @("$root\index\A", "$root\index\C")
         foreach ($name in "A", "C") {
             [System.IO.File]::Exists("$root\index\$name\content_index.xlsx.001.tsv") | Should -Be $true
             [System.IO.File]::Exists("$root\system_index\$name\${systemIndexFileName}") | Should -Be $true
@@ -89,6 +90,8 @@ Describe "publishIndexFolders: 1 つのフォルダが失敗しても残りを�
         @($result.Skipped).Count | Should -Be 1
         $result.Skipped[0].Rel | Should -Be "B"
         $result.Skipped[0].Stage | Should -Be "システムインデックス"
+        # 本文インデックスは書けているので、システムインデックスの段で落ちたフォルダも書き終えたものに入る
+        @($result.Published).Count | Should -Be 3
         (readContentIndexText "$root\index\B\content_index.xlsx.001.tsv") | Should -BeLike "*B の単価*"
         [System.IO.Directory]::Exists("$root\index\B\新規.xlsx") | Should -Be $false
         $state = readSystemIndexState "$root\state.tsv"
@@ -113,5 +116,38 @@ Describe "convertFolderToContentIndex: 前の本文インデックスのファ�
 
         { convertFolderToContentIndex $dir $dir } | Should -Throw "*大きすぎます*"
         Should -Invoke readContentIndexText -Times 0 -Exactly -Scope It
+    }
+}
+
+Describe "publishIndexFolders: 書き終えたフォルダ（Published）" -Tag Io {
+    BeforeEach {
+        Mock writeIndexerLog {}
+    }
+
+    It "置き場の外を指すリンクのフォルダは飛ばし、Published に入れない" {
+        $root = Join-Path $TestDrive "linked"
+        $outside = Join-Path $TestDrive "linked_outside"
+        newTsv "$root\index\A\新規.xlsx\$(toIndexFileName "S")" @("A の単価")
+        newTsv "$outside\新規.xlsx\$(toIndexFileName "S")" @("外の単価")
+        if (!(newTestJunction "$root\index\L" $outside)) {
+            Set-ItResult -Skipped -Because "ジャンクションを作れない"
+            return
+        }
+        $pending = New-Object 'System.Collections.Generic.Dictionary[string,object]'
+        $pending["$root\index\A"] = @()
+        $pending["$root\index\L"] = @()
+
+        $result = publishTree $pending $root
+
+        @($result.Published) | Should -Be @("$root\index\A")
+    }
+
+    It "書き出すフォルダが無ければ、Published は空" {
+        $root = Join-Path $TestDrive "nothing"
+        $pending = New-Object 'System.Collections.Generic.Dictionary[string,object]'
+
+        $result = publishTree $pending $root
+
+        @($result.Published).Count | Should -Be 0
     }
 }

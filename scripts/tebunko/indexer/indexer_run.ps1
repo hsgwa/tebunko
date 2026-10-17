@@ -329,9 +329,56 @@ function flushPendingPublish {
         return
     }
     try {
-        [void](publishIndexFolders $flush)
+        # 外す予定の記録を先に残す（書き出しが落ちる・強制終了しても、次の回に外し直せるように）
+        savePendingRemovals $pending
+        $published = publishIndexFolders $flush
+        # 書き終えたフォルダの分だけ記録から外す（飛ばしたフォルダの分は残る）
+        $pending.MarkPublished([string[]]@($published.Published))
+        savePendingRemovals $pending
     } catch {
         writeIndexerLog "    インデックスをまとめられませんでした（次のインデックス作成でまとめ直します）: $($_.Exception.Message)" "Yellow"
+    }
+}
+
+function savePendingRemovals {
+    # まだ本文インデックスから外し終えていない、無くなった元のファイルを記録ファイルに書く（0 件なら記録を消す）
+    param (
+        $pending
+    )
+
+    $root = ([string]$workspace.IndexDir).TrimEnd("\") + "\"
+    $entries = New-Object System.Collections.Generic.List[hashtable]
+    foreach ($folder in @($pending.Unpublished.Keys)) {
+        if (!$folder.StartsWith($root, [System.StringComparison]::OrdinalIgnoreCase)) {
+            continue
+        }
+        foreach ($name in @($pending.Unpublished[$folder])) {
+            $entries.Add(@{ Folder = $folder.Substring($root.Length); Name = $name })
+        }
+    }
+    writePendingRemovals $entries.ToArray()
+}
+
+function restorePendingRemovals {
+    # 前の回に外し終えていなかった、無くなった元のファイルを書き出し待ちに戻す。
+    # 置き場の下にフォルダがもう無いもの（インデックスごと消えた）は捨てる（次に記録を書くときに消える）
+    param (
+        $pending
+    )
+
+    $byFolder = @{}
+    foreach ($entry in @(readPendingRemovals)) {
+        $folder = Join-Path $workspace.IndexDir $entry.Folder
+        if (!(Test-Path -LiteralPath (toLongPath $folder) -PathType Container)) {
+            continue
+        }
+        if (!$byFolder.ContainsKey($folder)) {
+            $byFolder[$folder] = New-Object System.Collections.Generic.List[string]
+        }
+        $byFolder[$folder].Add($entry.Name)
+    }
+    foreach ($folder in $byFolder.Keys) {
+        $pending.Restore($folder, $byFolder[$folder].ToArray())
     }
 }
 
@@ -538,11 +585,18 @@ function invokeIndexerBody {
     $previous = $planner.Previous
     # 設定から外れたインデックスは、ここでは消さない。確認ダイアログに「削除予定」として出し、［更新を開始］が押されたときだけ消す
     $dropped = $planner.Dropped
+    # 前回、本文インデックスから外し終えていなかった「無くなった元のファイル」を書き出し待ちに戻す（下の段で一緒に書き出す）
+    restorePendingRemovals $pending
     # 前回のインデックス作成が途中で止まり、本文インデックスのファイルに入れていない TSV（元のファイルごとのフォルダ）が残っていれば、先に入れる
     # （中止を求められていれば、この段は飛ばして次回に回す。段の途中では止めない）
     $leftover = if ($channel.Stop) { @() } else { findIndexFoldersWithBooks $workspace.IndexDir }
-    if ($leftover.Count -gt 0) {
-        writeIndexerLog "集約ファイルに入れていないインデックス（$($leftover.Count) フォルダ）をまとめています…"
+    # 外し終えていない削除（上で戻した分）も、この段で一緒に書き出す
+    if ($leftover.Count -gt 0 -or (!$channel.Stop -and $pending.Unpublished.Count -gt 0)) {
+        if ($leftover.Count -gt 0) {
+            writeIndexerLog "集約ファイルに入れていないインデックス（$($leftover.Count) フォルダ）をまとめています…"
+        } else {
+            writeIndexerLog "本文インデックスから外し終えていない削除（$($pending.Unpublished.Count) フォルダ）をまとめています…"
+        }
         $reporter.Progress(${indexingPhaseCrawl}, 0, 0, 0, "集約ファイルに入れていないインデックスをまとめています…")
         foreach ($folder in $leftover) {
             $pending.MarkFolder($folder)
@@ -597,6 +651,13 @@ function invokeIndexerBody {
     # 「更新不要」かどうかも、この件数を見て画面が知らせる（取り込み対象が 0 件でも、前回失敗の再取り込みを選べる）
     $retryTargets = [bool]$channel.RetryFailed
     $includeCloud = [bool]$channel.IncludeCloud
+    # 取り込み一覧を書く。行を一覧から消す前に、外す予定の記録を先に書く（強制終了しても、次の回に本文インデックスから外せるように）
+    function writeStatusWithRemovals {
+        param ([object[]]$statusRows)
+
+        savePendingRemovals $pending
+        writeStatusKeepingDropped $ledger $folders $statusRows $keptDropped $previous
+    }
     # 取りやめ。取り込み対象にした行は前回の記録のまま（一覧に無かったファイルは記録しない）にする。
     # 取り込み一覧自体は書き直す（無くなったファイルの削除を反映する必要があるため）
     function cancelBeforeIngest {
@@ -605,7 +666,7 @@ function invokeIndexerBody {
         $keep = $planner.KeepForCancel()
         writeIndexerLog ""
         writeIndexerLog $message "Yellow"
-        writeStatusKeepingDropped $ledger $folders $keep $keptDropped $previous
+        writeStatusWithRemovals $keep
         writeSourceFolderFile $folders
         $reporter.Progress(${indexingPhaseFinish}, 0, 0, 0, "インデックス作成を取りやめました")
         removeTmpDir
@@ -687,7 +748,7 @@ function invokeIndexerBody {
     $carried = $planner.Carried
     $ledger.WriteIngestingFiles(@($carried.Keys | ForEach-Object { @{ RelPath = $_; Count = $carried[$_] } }))
     $reporter.Progress(${indexingPhaseCrawl}, 0, $targets.Count, 0, "更新の記録を書き出しています…")
-    writeStatusKeepingDropped $ledger $folders $rows.ToArray() $keptDropped $previous
+    writeStatusWithRemovals $rows.ToArray()
     # インデックスのフォルダごと別の場所・PCへコピーしても元のファイルの場所が分かるよう、インデックス名とクロール対象フォルダの対応を置く
     writeSourceFolderFile $folders
 
@@ -870,7 +931,7 @@ function invokeIndexerBody {
         flushPendingPublish $pending -All
         $reporter.Progress(${indexingPhaseFinish}, $processed, 0, $ledger.Failures.Count, "更新の記録を書き直しています…")
         # 取り込みの直前に無くなっていたファイルの行は除く（次回の検索でも見つからず、インデックスも削除済み）
-        writeStatusKeepingDropped $ledger $folders @($rows | Where-Object { $_ -and !$ledger.DroppedRows.Contains([string]$_.相対パス) }) $keptDropped $previous
+        writeStatusWithRemovals @($rows | Where-Object { $_ -and !$ledger.DroppedRows.Contains([string]$_.相対パス) })
         # 初めて取り込んだインデックスは、最初に書き出した時点ではまだフォルダが無いため、ここでもう一度書く
         # （work\content_index\<インデックス名>\source_folder.txt。インデックス 1 個だけをコピーしても元のファイルの場所が分かる）
         writeSourceFolderFile $folders
