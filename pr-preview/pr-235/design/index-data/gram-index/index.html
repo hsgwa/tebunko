@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://hsgwa.github.io/tebunko/design/index-data/gram-index/">
       
       
-        <link rel="prev" href="../system-index/">
+        <link rel="prev" href="../publish/">
       
       
         <link rel="next" href="../../search/">
@@ -564,8 +564,6 @@
       
         
       
-        
-      
     
     
     
@@ -682,34 +680,6 @@
     
   
     元のファイルを開く
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../guide/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索
   
 
     
@@ -2358,8 +2328,6 @@
       
         
       
-        
-      
     
     
     
@@ -2451,34 +2419,6 @@
     
   
     入れ替えと書き出し
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../system-index/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    システムインデックス
   
 
     
@@ -2636,8 +2576,6 @@
       
         
       
-        
-      
     
     
     
@@ -2710,34 +2648,6 @@
     
   
     検索を速くする仕組み
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../search/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索（Windows Search）
   
 
     
@@ -4216,7 +4126,7 @@
 
 
 <h1 id="gram-索引">gram 索引<a class="headerlink" href="#gram-索引" title="Permanent link">&para;</a></h1>
-<p>扱うこと: 検索で照合する本文インデックスのファイルを絞る、自前の 2-gram の索引（gram 索引）の形・作り方・安全側の決まり。扱わないこと: Windows Search を使った高速検索（<a href="../../search/fast-search/">高速検索（Windows Search）</a>）。先に読むページ: <a href="../format/">インデックスのファイルの形</a>。</p>
+<p>扱うこと: 検索で照合する本文インデックスのファイルを絞る、自前の 2-gram の索引（gram 索引）の形・作り方・安全側の決まり。扱わないこと: 検索の流れ全体（<a href="../../search/">検索</a>）。先に読むページ: <a href="../format/">インデックスのファイルの形</a>。</p>
 <p>検索のたびに本文インデックスのファイルを全部読まないよう、ファイルごとの 2-gram（隣り合う 2 文字）を索引に持つ。検索語を含むファイルには、検索語のすべての 2-gram が必ず入っている。そのため、検索語の 2-gram を 1 つでも含まないファイルは照合しなくてよい。絞っても結果（行・行番号・順番）は、すべてを照合したときと同じになる。</p>
 <div class="highlight"><pre><span></span><code>work/store/gram/&lt;インデックス名&gt;/toc.tsv          … 目録
 work/store/gram/&lt;インデックス名&gt;/g&lt;10 桁&gt;.seg     … 区画
@@ -4225,7 +4135,7 @@ work/store/gram/&lt;インデックス名&gt;/g&lt;10 桁&gt;.seg     … 区画
 <h2 id="使う条件と順序">使う条件と順序<a class="headerlink" href="#使う条件と順序" title="Permanent link">&para;</a></h2>
 <ul>
 <li>文字どおりに探すとき（正規表現でないとき）で、検索語から 2-gram を作れるときだけ使う。2-gram は空白で区切った部分の隣り合う 2 文字（小文字にそろえる）。多いときは 16 個に均等に間引く。</li>
-<li>検索の順序は、gram 索引（1 つもファイルを外せなかったときは使えない扱い）、使えなければ Windows Search による絞り込み（高速検索を使う設定のとき）、それも使えなければすべて照合。</li>
+<li>検索の順序は、gram 索引（1 つもファイルを外せなかったときは使えない扱い）、使えなければすべて照合。</li>
 </ul>
 <h2 id="安全側の決まり">安全側の決まり<a class="headerlink" href="#安全側の決まり" title="Permanent link">&para;</a></h2>
 <p>次のときは、そのファイルを必ず照合する（絞らない）。</p>
@@ -4282,7 +4192,7 @@ work/store/gram/&lt;インデックス名&gt;/g&lt;10 桁&gt;.seg     … 区画
       <nav class="md-footer__inner md-grid" aria-label="フッター" >
         
           
-          <a href="../system-index/" class="md-footer__link md-footer__link--prev" aria-label="前: システムインデックス">
+          <a href="../publish/" class="md-footer__link md-footer__link--prev" aria-label="前: 入れ替えと書き出し">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -4292,7 +4202,7 @@ work/store/gram/&lt;インデックス名&gt;/g&lt;10 桁&gt;.seg     … 区画
                 前
               </span>
               <div class="md-ellipsis">
-                システムインデックス
+                入れ替えと書き出し
               </div>
             </div>
           </a>

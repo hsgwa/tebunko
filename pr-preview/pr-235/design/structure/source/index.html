@@ -564,8 +564,6 @@
       
         
       
-        
-      
     
     
     
@@ -682,34 +680,6 @@
     
   
     元のファイルを開く
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../guide/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索
   
 
     
@@ -2438,8 +2408,6 @@
       
         
       
-        
-      
     
     
     
@@ -2551,34 +2519,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../index-data/system-index/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    システムインデックス
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../index-data/gram-index/" class="md-nav__link">
         
   
@@ -2619,8 +2559,6 @@
       
         
           
-        
-      
         
       
         
@@ -2699,34 +2637,6 @@
     
   
     検索を速くする仕組み
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../search/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索（Windows Search）
   
 
     
@@ -4247,7 +4157,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/index/</code></td>
-<td>インデックス名と TSV の名前の決め方（<code>index_name.ps1</code>）・インデックスの作成と集計（<code>index_store.ps1</code>）・インデックスの追加・改名・削除と名前の保存（<code>index_catalog.ps1</code>。<code>IndexCatalog</code>）・検索用の本文インデックスの形式（<code>content_index_format.ps1</code>）と読み書き（<code>content_index_store.ps1</code>）・高速検索用の システムインデックスと状態（<code>system_index.ps1</code>）</td>
+<td>インデックス名と TSV の名前の決め方（<code>index_name.ps1</code>）・インデックスの作成と集計（<code>index_store.ps1</code>）・インデックスの追加・改名・削除と名前の保存（<code>index_catalog.ps1</code>。<code>IndexCatalog</code>）・検索用の本文インデックスの形式（<code>content_index_format.ps1</code>）と読み書き（<code>content_index_store.ps1</code>）・2-gram の索引の形式（<code>gram_index.ps1</code>）と読み書き（<code>gram_index_store.ps1</code>）</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/indexer/</code></td>
@@ -4255,7 +4165,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/search/</code></td>
-<td>検索条件（<code>search_query.ps1</code>）・本文インデックスの検索（<code>content_index_search.ps1</code>）・検索結果の組み立てとインデックスの件数（<code>search_run.ps1</code>）・元のファイルの場所（<code>source_map.ps1</code>）・高速検索の決まり（<code>search_gram.ps1</code>）・Windows Search への問い合わせ（<code>windows_search.ps1</code>）・高速検索で照合する本文インデックスの収集（<code>fast_search.ps1</code>）・検索の司令のスレッド（<code>search_service.ps1</code>。<code>SearchService</code>）</td>
+<td>検索条件（<code>search_query.ps1</code>）・本文インデックスの検索（<code>content_index_search.ps1</code>）・検索結果の組み立てとインデックスの件数（<code>search_run.ps1</code>）・元のファイルの場所（<code>source_map.ps1</code>）・検索語の 2-gram（<code>search_gram.ps1</code>）・2-gram の索引で絞った本文インデックスの収集（<code>gram_search.ps1</code>）・検索の司令のスレッド（<code>search_service.ps1</code>。<code>SearchService</code>）</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/</code></td>
@@ -4280,7 +4190,7 @@
 </tr>
 <tr>
 <td>状態層（ファイル・COM を読み書きする）</td>
-<td><code>status_file.ps1</code>・<code>indexer_state.ps1</code>・<code>index_store.ps1</code>・<code>index_catalog.ps1</code>・<code>workspace_mover.ps1</code>・<code>search_excludes.ps1</code>・<code>content_index_store.ps1</code>・<code>content_index_search.ps1</code>・<code>search_run.ps1</code>・<code>system_index.ps1</code>・<code>fast_search.ps1</code>・<code>windows_search.ps1</code>・<code>version.ps1</code></td>
+<td><code>status_file.ps1</code>・<code>indexer_state.ps1</code>・<code>index_store.ps1</code>・<code>index_catalog.ps1</code>・<code>workspace_mover.ps1</code>・<code>search_excludes.ps1</code>・<code>content_index_store.ps1</code>・<code>content_index_search.ps1</code>・<code>search_run.ps1</code>・<code>gram_index_store.ps1</code>・<code>gram_search.ps1</code>・<code>version.ps1</code></td>
 <td>する（主にタグ <code>Io</code>。<code>$TestDrive</code> を使う）</td>
 </tr>
 <tr>
@@ -4356,7 +4266,7 @@
 <p>向きの検査は、依存があるかどうかだけを見る。境界での受け渡し（向こう側へ何を渡し、向こう側の答えをどう使うか）は、<code>tests/tebunko/ui/layer_boundary.Tests.ps1</code> が、向こう側をスタブに替えて確かめる。判断層の関数が呼ぶ状態層の関数をスタブにする組と、画面層の関数が呼ぶ判断層の関数をスタブにする組がある。境界を足したら、同じファイルに足す。</p>
 <p>今ある逆向きの依存は、同じファイルの例外の一覧（「from のファイル・to のファイル・名前」の組と、許している理由）に載せ、増やさない。直したら一覧から消す（どの行でも見つからなくなった例外は、テストが失敗にする）。例外は、次の種類に分かれる。</p>
 <ul>
-<li>状態層の中で、下のフォルダが上のフォルダの関数・変数を使う依存。<code>tebunko/core/workspace.ps1</code> から <code>tebunko/index/system_index.ps1</code>、<code>tebunko/index/</code> から <code>tebunko/search/</code>（gram の関数・情報源フォルダのファイルの読み書き・ヒット行の切り詰め）、<code>tebunko/indexer/</code> から <code>tebunko/search/</code> への依存が残る。どれも、下のフォルダへ関数を移すと消える。</li>
+<li>状態層の中で、下のフォルダが上のフォルダの関数・変数を使う依存。<code>tebunko/index/</code> から <code>tebunko/search/</code>（gram の関数・情報源フォルダのファイルの読み書き・ヒット行の切り詰め）、<code>tebunko/indexer/</code> から <code>tebunko/search/</code> への依存が残る。どれも、下のフォルダへ関数を移すと消える。</li>
 <li>判断層のファイルが、判断層でない状態層（ファイル・COM を読み書きする層）の関数・変数・クラスを使う依存。例外の行に種類を付ける。</li>
 <li><code>境界</code>: 判断層が状態層の関数に判定を任せる形。<code>tests/tebunko/ui/layer_boundary.Tests.ps1</code> の <code>Mock</code> の対象に出る関数だけが、この種類にできる（出ていなければテストが失敗にする）。</li>
 <li><code>移すと消える</code>: ファイル・COM に触らない値や関数（拡張子の一覧・状態の名前・フォルダ名の組み立てなど）が状態層のファイルにある。判断層のファイルへ移すと消える。</li>

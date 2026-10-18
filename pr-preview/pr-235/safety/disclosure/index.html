@@ -572,8 +572,6 @@
       
         
       
-        
-      
     
     
     
@@ -693,34 +691,6 @@
     
   
     元のファイルを開く
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../guide/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索
   
 
     
@@ -2548,8 +2518,6 @@
       
         
       
-        
-      
     
     
     
@@ -2658,34 +2626,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/index-data/system-index/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    システムインデックス
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../design/index-data/gram-index/" class="md-nav__link">
         
   
@@ -2726,8 +2666,6 @@
       
         
           
-        
-      
         
       
         
@@ -2803,34 +2741,6 @@
     
   
     検索を速くする仕組み
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../design/search/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索（Windows Search）
   
 
     
@@ -4544,8 +4454,8 @@
 <td>インデックスは<strong>作成した人の権限で作られる</strong>。元のファイルに設定されたアクセス権は引き継がれない。インデックスを置いた場所を読める人は、元のファイルを読む権限が無くても本文を読める</td>
 </tr>
 <tr>
-<td>システムインデックス</td>
-<td>本文インデックスとは別に、高速検索のために <code>work\system_index\</code> の txt にも、本文から作った隣り合う 2 文字の組が入る。この txt は Windows Search に索引させる。本文インデックス（<code>store\content</code>）は、索引の対象から自動で外す。仕様は <a href="../../design/index-data/system-index/">システムインデックス</a> にある</td>
+<td>2-gram の索引</td>
+<td>本文インデックスとは別に、検索の候補を絞るために <code>store\gram\&lt;名前&gt;\</code> の区画ファイル（<code>.seg</code>）にも、ファイルの相対パスと、本文から作った隣り合う 2 文字の組の値が入る。本文インデックスから作り直せる派生のデータ。仕様は <a href="../../design/index-data/gram-index/">gram 索引</a> にある</td>
 </tr>
 <tr>
 <td>検索結果ファイル</td>
@@ -4557,7 +4467,7 @@
 </tr>
 <tr>
 <td>残留</td>
-<td><code>work/</code> を消さない限りインデックスは残る。元のファイルを削除しても、インデックス側の本文は次のインデックス作成まで残る。前の版のワークスペース（<code>index\</code>）は自動で消さず、利用者が消す（取り込み直した後、<code>system_index\</code> は本ツールが消すが、<code>index\</code> はそのまま残る）</td>
+<td><code>work/</code> を消さない限りインデックスは残る。元のファイルを削除しても、インデックス側の本文は次のインデックス作成まで残る。前の版のワークスペース（<code>index\</code>）は自動で消さず、利用者が消す（前の版の <code>system_index\</code> は、次のインデックス作成で本ツールが消すが、<code>index\</code> はそのまま残る）</td>
 </tr>
 </tbody>
 </table>

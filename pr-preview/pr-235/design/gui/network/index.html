@@ -564,8 +564,6 @@
       
         
       
-        
-      
     
     
     
@@ -682,34 +680,6 @@
     
   
     元のファイルを開く
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../guide/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索
   
 
     
@@ -2356,8 +2326,6 @@
       
         
       
-        
-      
     
     
     
@@ -2469,34 +2437,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../index-data/system-index/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    システムインデックス
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../index-data/gram-index/" class="md-nav__link">
         
   
@@ -2537,8 +2477,6 @@
       
         
           
-        
-      
         
       
         
@@ -2617,34 +2555,6 @@
     
   
     検索を速くする仕組み
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../search/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索（Windows Search）
   
 
     
@@ -4178,7 +4088,7 @@
 <h2 id="ワークスペースがネットワークにあるとき">ワークスペースがネットワークにあるとき<a class="headerlink" href="#ワークスペースがネットワークにあるとき" title="Permanent link">&para;</a></h2>
 <p>ワークスペース（インデックス・取り込み一覧・ログの置き場所）が UNC パス・ネットワークドライブにあるときも、届かない共有で画面が固まらないようにする。画面のスレッドは、ワークスペースの中のファイル・フォルダに触らない。判定は同じ <code>testNetworkPath</code>（共有に接続せず、文字列だけで見分ける）で、ローカルのワークスペースは今までどおり画面のスレッドでその場で行う。</p>
 <ul>
-<li><strong>列の選び方は <code>getWorkspaceJobQueue</code></strong>（<code>core/workspace.ps1</code>）の 1 つだけ。渡した場所（ワークスペース・インデックスのフォルダ・元のフォルダ・Office の記録の置き場所・書き出し先など。複数でもよい）に 1 つでもネットワークのパスがあれば <code>"network"</code>、無ければ <code>"default"</code> を返す。ワークスペースの中に触る仕事（取り込みの状態・件数の集計、削除・名前の変更、エクスポート・インポート、高速検索の確かめを含む）は <code>startJob</code> にこの列を渡し、元のフォルダの確かめと同じネットワークを調べる列で動かす。<code>"network"</code> の文字を直接書かない。</li>
+<li><strong>列の選び方は <code>getWorkspaceJobQueue</code></strong>（<code>core/workspace.ps1</code>）の 1 つだけ。渡した場所（ワークスペース・インデックスのフォルダ・元のフォルダ・Office の記録の置き場所・書き出し先など。複数でもよい）に 1 つでもネットワークのパスがあれば <code>"network"</code>、無ければ <code>"default"</code> を返す。ワークスペースの中に触る仕事（取り込みの状態・件数の集計、削除・名前の変更、エクスポート・インポートを含む）は <code>startJob</code> にこの列を渡し、元のフォルダの確かめと同じネットワークを調べる列で動かす。<code>"network"</code> の文字を直接書かない。</li>
 <li><strong>ネットワークのワークスペースで裏に出す操作</strong></li>
 </ul>
 <table>

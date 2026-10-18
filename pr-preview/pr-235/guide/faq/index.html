@@ -572,8 +572,6 @@
       
         
       
-        
-      
     
     
     
@@ -693,34 +691,6 @@
     
   
     元のファイルを開く
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索
   
 
     
@@ -2606,8 +2576,6 @@
       
         
       
-        
-      
     
     
     
@@ -2716,34 +2684,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/index-data/system-index/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    システムインデックス
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../design/index-data/gram-index/" class="md-nav__link">
         
   
@@ -2784,8 +2724,6 @@
       
         
           
-        
-      
         
       
         
@@ -2861,34 +2799,6 @@
     
   
     検索を速くする仕組み
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../design/search/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索（Windows Search）
   
 
     
@@ -4519,7 +4429,7 @@
 <h2 id="元のファイルが変更されることはありますか">元のファイルが変更されることはありますか。<a class="headerlink" href="#元のファイルが変更されることはありますか" title="Permanent link">&para;</a></h2>
 <p>インデックス作成では、Office ファイルはコピーを読み取り専用・マクロ無効で開き、テキストファイルもコピーを読んで、文字を抽出するため、元のファイルは変更しません。検索結果から［通常（編集する）］で開いた場合は、通常の Office の操作と同様に、利用者が保存した時点でファイルが更新されます。</p>
 <h2 id="インデックスの保存先と容量を教えてください">インデックスの保存先と容量を教えてください。<a class="headerlink" href="#インデックスの保存先と容量を教えてください" title="Permanent link">&para;</a></h2>
-<p>ワークスペース（既定：<code>%USERPROFILE%\Documents\tebunko_ws</code>）の <code>store</code> フォルダと <code>system_index</code> フォルダに保存します。容量（<code>store</code> フォルダ）は更新したファイルの文字量によります。目安は 100 万行で約 70MB です。</p>
+<p>ワークスペース（既定：<code>%USERPROFILE%\Documents\tebunko_ws</code>）の <code>store</code> フォルダに保存します。容量（<code>store</code> フォルダ）は更新したファイルの文字量によります。目安は 100 万行で約 70MB です。</p>
 <h2 id="インデックスの取り扱いで注意すべき点はありますか">インデックスの取り扱いで注意すべき点はありますか。<a class="headerlink" href="#インデックスの取り扱いで注意すべき点はありますか" title="Permanent link">&para;</a></h2>
 <p>インデックスには文書の本文がそのまま含まれ、元のファイルのアクセス権は引き継がれません。ワークスペースには、検索対象のフォルダと同等以上のアクセス制限を設定してください。詳細は <a href="../../safety/disclosure/">開示事項</a> を参照してください。</p>
 <h2 id="共有フォルダや-nas-上のファイルを検索できますか">共有フォルダや NAS 上のファイルを検索できますか。<a class="headerlink" href="#共有フォルダや-nas-上のファイルを検索できますか" title="Permanent link">&para;</a></h2>
@@ -4532,7 +4442,7 @@
 <h2 id="ファイルを追加した場合の操作を教えてください">ファイルを追加した場合の操作を教えてください。<a class="headerlink" href="#ファイルを追加した場合の操作を教えてください" title="Permanent link">&para;</a></h2>
 <p>［インデックス管理］で［すべて更新］を実行してください。追加・変更されたファイルのみを更新するため、短時間で完了します。</p>
 <h2 id="検索に時間がかかります">検索に時間がかかります。<a class="headerlink" href="#検索に時間がかかります" title="Permanent link">&para;</a></h2>
-<p>インデックスの規模が大きい場合は、<a href="../fast-search/">高速検索</a> を利用できる状態にしてください。検索対象や種類のチップで範囲を限定することも有効です。</p>
+<p>2 文字以上の検索ワードは、インデックス作成のたびに更新する索引で候補を絞るため、規模が大きくても速く検索できます。正規表現による検索や、索引が無いインデックス（前の版のもの・インポートしたままのもの）では、すべてのファイルを照合するため時間がかかります。［すべて更新］を実行するか、検索対象や種類のチップで範囲を限定してください。</p>
 <h2 id="起動しても画面が表示されません">起動しても画面が表示されません。<a class="headerlink" href="#起動しても画面が表示されません" title="Permanent link">&para;</a></h2>
 <p>ショートカットや <code>tebunko.bat</code> で起動したときの原因と対処は <a href="../troubleshooting/#起動できない場合">トラブルシューティング</a> にあります。<code>tebunko.bat</code> が使えない場合の起動方法は <a href="../#tebunkobat-を使わずに起動するzip-版">はじめに</a> を参照してください。</p>
 <h2 id="officeアプリexcelwordpowerpointを起動できませんでしたと表示されます">「Officeアプリ（Excel・Word・PowerPoint）を起動できませんでした」と表示されます。<a class="headerlink" href="#officeアプリexcelwordpowerpointを起動できませんでしたと表示されます" title="Permanent link">&para;</a></h2>

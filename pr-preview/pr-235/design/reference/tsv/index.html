@@ -564,8 +564,6 @@
       
         
       
-        
-      
     
     
     
@@ -682,34 +680,6 @@
     
   
     元のファイルを開く
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../guide/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索
   
 
     
@@ -2356,8 +2326,6 @@
       
         
       
-        
-      
     
     
     
@@ -2469,34 +2437,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../index-data/system-index/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    システムインデックス
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../index-data/gram-index/" class="md-nav__link">
         
   
@@ -2537,8 +2477,6 @@
       
         
           
-        
-      
         
       
         
@@ -2617,34 +2555,6 @@
     
   
     検索を速くする仕組み
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../search/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索（Windows Search）
   
 
     
@@ -4516,7 +4426,7 @@
 <td>bool</td>
 <td><code>testRemovablePath</code> が真のときだけ <code>removeDirectoryRetry</code> で消して <code>$true</code>。偽なら何も消さずに <code>$false</code>（ログ・例外は呼ぶ側が決める）。フォルダを消す呼び出しは、これを通す（通せないものは <code>tests/meta/remove_entry.Tests.ps1</code> の一覧に理由つきで置く）</td>
 <td>同上</td>
-<td><code>removeBookDir</code>・<code>RemoveIndex</code>・<code>removeOldIndexOf</code>・<code>removeSystemIndexOf</code>・<code>removeDroppedFolders</code>・<code>removeTmpDir</code>・<code>removeStaleProcessDirs</code>・<code>clearLegacySystemIndex</code>・インポート・本文インデックスの TSV の削除</td>
+<td><code>removeBookDir</code>・<code>RemoveIndex</code>・<code>removeOldIndexOf</code>・<code>removeOldSystemIndex</code>・<code>removeDroppedFolders</code>・<code>removeTmpDir</code>・<code>removeStaleProcessDirs</code>・インポート・本文インデックスの TSV の削除</td>
 </tr>
 <tr>
 <td><code>moveDirectoryUnder</code></td>
@@ -4902,8 +4812,8 @@
 <td><code>getContentIndexBodyText</code></td>
 <td>text</td>
 <td>string</td>
-<td>メタ情報の行を除いた中身（システムインデックスの語を作るため）</td>
-<td>writeSystemIndexFolder</td>
+<td>メタ情報の行を除いた中身（2-gram の値を作るため）</td>
+<td>getFileGramValues</td>
 </tr>
 </tbody>
 </table>
@@ -5062,9 +4972,9 @@
 </tr>
 <tr>
 <td><code>publishIndexFolders</code></td>
-<td>pending（フォルダ → 無くなった元のファイル名）, indexRoot, systemRoot, statePath</td>
+<td>pending（フォルダ → 無くなった元のファイル名）, indexRoot</td>
 <td><code>@{ Count（書き出したフォルダの数）; Skipped（飛ばしたフォルダの</code>@{ Rel; Stage; Reason }<code>）; Published（本文インデックスのファイルを書き終えたフォルダ）}</code></td>
-<td>フォルダごとに、本文インデックスに書き（<code>updateFolderContentIndex</code>）、TSV を消し、書いた中身からシステムインデックスの txt を作る（<code>writeSystemIndexFolder</code>）。txt の「反映待ち」はまとめて状態ファイルに書く。フォルダの 1 つが失敗しても例外にせず、そのフォルダを飛ばして残りを続け、ログに黄色で出す（本文インデックスを書き終える前なら何も書き換えない）</td>
+<td>フォルダごとに、本文インデックスに書き（<code>updateFolderContentIndex</code>）、TSV を消し。フォルダの 1 つが失敗しても例外にせず、そのフォルダを飛ばして残りを続け、ログに黄色で出す（本文インデックスを書き終える前なら何も書き換えない）</td>
 <td>同上</td>
 <td>インデックス作成（indexer_run.ps1 の flushPending）</td>
 </tr>

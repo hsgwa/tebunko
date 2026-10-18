@@ -16,7 +16,7 @@
         <link rel="prev" href="../">
       
       
-        <link rel="next" href="../fast-search/">
+        <link rel="next" href="../output/">
       
       
         
@@ -564,8 +564,6 @@
       
         
       
-        
-      
     
     
     
@@ -682,34 +680,6 @@
     
   
     元のファイルを開く
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../guide/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索
   
 
     
@@ -2356,8 +2326,6 @@
       
         
       
-        
-      
     
     
     
@@ -2469,34 +2437,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../index-data/system-index/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    システムインデックス
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../index-data/gram-index/" class="md-nav__link">
         
   
@@ -2539,8 +2479,6 @@
       
         
           
-        
-      
         
       
         
@@ -2637,34 +2575,6 @@
 
       </a>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索（Windows Search）
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -4083,7 +3993,7 @@
 
 
 <h1 id="検索を速くする仕組み">検索を速くする仕組み<a class="headerlink" href="#検索を速くする仕組み" title="Permanent link">&para;</a></h1>
-<p>扱うこと: 本文インデックスの読み込みと照合の実装、正規表現の判定（<code>lines</code>/<code>filter</code>/<code>scan</code>）、並列検索・スレッドの使い回し・読んだ内容の使い回しによる速さの実測。扱わないこと: 検索の仕様そのもの（<a href="../">検索</a>）、Windows Search による高速検索（<a href="../fast-search/">高速検索（Windows Search）</a>）。先に読むページ: <a href="../">検索</a>。</p>
+<p>扱うこと: 本文インデックスの読み込みと照合の実装、正規表現の判定（<code>lines</code>/<code>filter</code>/<code>scan</code>）、並列検索・スレッドの使い回し・読んだ内容の使い回しによる速さの実測。扱わないこと: 検索の仕様そのもの（<a href="../">検索</a>）、検索で照合するファイルを絞る 2-gram の索引（<a href="../../index-data/gram-index/">2-gram の索引</a>）。先に読むページ: <a href="../">検索</a>。</p>
 <p>本文インデックス（<a href="../../index-data/format/#配置命名規則">インデックスのファイルの形</a>）の読み込みと照合、結果 1 件の作成は PowerShell から .NET を直接呼ぶ（<code>tebunko/search/content_index_search.ps1</code> の <code>searchContentIndex</code>／<code>searchContentIndexFiles</code>。<code>FileStream</code>＋<code>StreamReader</code>＋<code>[regex]</code>。<code>Select-String</code> で 1 件ずつ結果を作ると件数が多いときに遅いため）。資産管理・EDR に注目されやすい実行時コンパイル（<code>Add-Type</code>／csc.exe）は使わない（<a href="../../gui/implementation/#実行時コンパイルcscexeを使わない">画面の実装</a>。実測: 50 万行で約 0.6 秒）。</p>
 <p>1 行ずつ PowerShell で照合すると、行数に比例して時間がかかる（1 行あたり十数マイクロ秒）。このため本文インデックスのファイルを丸ごと読み（改行は書くときに LF にそろえてある）、正規表現を全文に 1 回かける（.NET の中で走る）。<strong>全文で一致しない本文インデックスのファイルは、そのまま飛ばす。</strong> 一致したときだけ、メタ情報の行から場所ごとの範囲（元のファイル名・場所の名前・中身の先頭と終わりの位置）の一覧を作り（<code>readContentIndexPlaces</code>）、一致の位置から元のファイル・場所・行番号を求める（<a href="../output/#ファイル名場所の求め方readcontentindexplaces">ファイル名・場所の求め方</a>）。全文にかけてよいかは <code>getRegexScanMode</code> が正規表現の書き方から判定する。</p>
 <table>
@@ -4253,13 +4163,13 @@
         
         
           
-          <a href="../fast-search/" class="md-footer__link md-footer__link--next" aria-label="次: 高速検索（Windows Search）">
+          <a href="../output/" class="md-footer__link md-footer__link--next" aria-label="次: 検索結果ファイル">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 次
               </span>
               <div class="md-ellipsis">
-                高速検索（Windows Search）
+                検索結果ファイル
               </div>
             </div>
             <div class="md-footer__button md-icon">

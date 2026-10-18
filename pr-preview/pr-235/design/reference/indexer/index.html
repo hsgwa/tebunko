@@ -564,8 +564,6 @@
       
         
       
-        
-      
     
     
     
@@ -682,34 +680,6 @@
     
   
     元のファイルを開く
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../guide/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索
   
 
     
@@ -2356,8 +2326,6 @@
       
         
       
-        
-      
     
     
     
@@ -2469,34 +2437,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../index-data/system-index/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    システムインデックス
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../index-data/gram-index/" class="md-nav__link">
         
   
@@ -2537,8 +2477,6 @@
       
         
           
-        
-      
         
       
         
@@ -2617,34 +2555,6 @@
     
   
     検索を速くする仕組み
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../search/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索（Windows Search）
   
 
     
@@ -5029,9 +4939,9 @@
 <td><code>testIndexRelPath</code></td>
 <td>relPath, allowNameOnly（既定 <code>$false</code>）, checkedNames</td>
 <td>string（問題の文。使えれば空）</td>
-<td><code>インデックス名\フォルダからの相対パス</code> が置き場の外へ出ないか。先頭の名前は <code>testStoredIndexName</code>（予約名は通す）で確かめる。取り込み一覧・取り込み中の記録の行は名前だけを通さない（システムインデックスの状態だけ通す）</td>
+<td><code>インデックス名\フォルダからの相対パス</code> が置き場の外へ出ないか。先頭の名前は <code>testStoredIndexName</code>（予約名は通す）で確かめる。取り込み一覧・取り込み中の記録の行は名前だけを通さない</td>
 <td>同上</td>
-<td>IngestJournal（読み込み）, readSystemIndexState</td>
+<td>IngestJournal（読み込み）</td>
 </tr>
 <tr>
 <td><code>splitIndexRelPath</code></td>
@@ -5108,7 +5018,7 @@
 </tbody>
 </table>
 <h3 id="indexcatalogtebunkoindexindex_catalogps1画面のスレッドで作る別のスレッドの仕事の中では-newindexcatalog-で作り直す">IndexCatalog（<code>tebunko/index/index_catalog.ps1</code>。画面のスレッドで作る。別のスレッドの仕事の中では <code>newIndexCatalog</code> で作り直す）<a class="headerlink" href="#indexcatalogtebunkoindexindex_catalogps1画面のスレッドで作る別のスレッドの仕事の中では-newindexcatalog-で作り直す" title="Permanent link">&para;</a></h3>
-<p>インデックスの改名・削除・名前の割り当て・一覧と元のフォルダの記録の保存。インデックス 1 つの情報が置かれている保存先（設定の <code>targetFolders</code>・取り込み一覧・インデックスのフォルダと <code>source_folder.txt</code>・設定の <code>searchExcludes</code>・<code>system_index</code>）のうち、改名・削除が書き換えるものの手順と順番、途中で失敗したときの扱いだけを持つ（一覧 <code>targetFolders</code> と元のフォルダの記録の書き直しは、画面が <code>SaveTargets</code>・<code>WriteSourceFile</code> で呼ぶ。改名のあとの記録は <code>RenameIndexWithSource</code> が書く）。保存先ごとの読み書きは既存の関数と、作る側が渡す <code>StatusLedger</code>（取り込み一覧）に任せる。場所はコンストラクタで受け取る <code>Workspace</code> と設定ファイルの場所で決める。作り方は <code>newIndexCatalog</code>（ワークスペースの場所の文字列から、<code>StatusLedger</code> も作って渡す）。以前の <code>index_store.ps1</code> の <code>renameIndex</code>・<code>removeIndex</code>・<code>removeIndexes</code> の手順をそのまま移したもの。</p>
+<p>インデックスの改名・削除・名前の割り当て・一覧と元のフォルダの記録の保存。インデックス 1 つの情報が置かれている保存先（設定の <code>targetFolders</code>・取り込み一覧・インデックスのフォルダと <code>source_folder.txt</code>・設定の <code>searchExcludes</code>・<code>store\gram\</code>）のうち、改名・削除が書き換えるものの手順と順番、途中で失敗したときの扱いだけを持つ（一覧 <code>targetFolders</code> と元のフォルダの記録の書き直しは、画面が <code>SaveTargets</code>・<code>WriteSourceFile</code> で呼ぶ。改名のあとの記録は <code>RenameIndexWithSource</code> が書く）。保存先ごとの読み書きは既存の関数と、作る側が渡す <code>StatusLedger</code>（取り込み一覧）に任せる。場所はコンストラクタで受け取る <code>Workspace</code> と設定ファイルの場所で決める。作り方は <code>newIndexCatalog</code>（ワークスペースの場所の文字列から、<code>StatusLedger</code> も作って渡す）。以前の <code>index_store.ps1</code> の <code>renameIndex</code>・<code>removeIndex</code>・<code>removeIndexes</code> の手順をそのまま移したもの。</p>
 <table>
 <thead>
 <tr>
@@ -5125,7 +5035,7 @@
 <td><code>RenameIndex</code></td>
 <td>oldName, newName</td>
 <td>–</td>
-<td>インデックス名を変える（旧 <code>renameIndex</code>）。<code>work\store\content\&lt;旧名&gt;</code> を改名し、取り込み一覧の記録（<code>StatusLedger.RenameIndexName</code>）も書き換えるため、<strong>インデックスは作り直さない</strong>。大文字・小文字だけの変更は一時名を経由する。移動先が既にあれば例外。<code>system_index</code> の古い名前の分と、旧名・新名の下の <code>searchExcludes</code>（<code>removeSearchExcludesUnder</code>。付け替えず、外したフォルダは検索対象に戻る）も消す。この 2 つの整理は、失敗しても止めない</td>
+<td>インデックス名を変える（旧 <code>renameIndex</code>）。<code>work\store\content\&lt;旧名&gt;</code> を改名し、取り込み一覧の記録（<code>StatusLedger.RenameIndexName</code>）も書き換えるため、<strong>インデックスは作り直さない</strong>。大文字・小文字だけの変更は一時名を経由する。移動先が既にあれば例外。<code>store\gram\</code> の古い名前の分と、旧名・新名の下の <code>searchExcludes</code>（<code>removeSearchExcludesUnder</code>。付け替えず、外したフォルダは検索対象に戻る）も消す。この 2 つの整理は、失敗しても止めない</td>
 <td><a href="../../gui/index-tab/#名前とフォルダパスの編集">名前とフォルダパスの編集</a></td>
 <td>画面（詳細の名前の欄）</td>
 </tr>
@@ -5141,7 +5051,7 @@
 <td><code>RemoveIndex</code></td>
 <td>name</td>
 <td>–</td>
-<td>インデックスを削除する（旧 <code>removeIndex</code>）。<code>work\store\content\&lt;名前&gt;</code> を中身ごと削除し（消せなければ例外にして、取り込み一覧の記録は残す）、取り込み一覧からもその記録を取り除く（<code>StatusLedger.RemoveIndexName</code>）。<code>system_index</code> とそのインデックスの下の <code>searchExcludes</code> も消す</td>
+<td>インデックスを削除する（旧 <code>removeIndex</code>）。<code>work\store\content\&lt;名前&gt;</code> を中身ごと削除し（消せなければ例外にして、取り込み一覧の記録は残す）、取り込み一覧からもその記録を取り除く（<code>StatusLedger.RemoveIndexName</code>）。<code>store\gram\</code> のそのインデックスの分と、そのインデックスの下の <code>searchExcludes</code> も消す</td>
 <td>同上</td>
 <td>画面（［削除］）</td>
 </tr>

@@ -562,8 +562,6 @@
       
         
       
-        
-      
     
     
     
@@ -680,34 +678,6 @@
     
   
     元のファイルを開く
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../guide/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索
   
 
     
@@ -2354,8 +2324,6 @@
       
         
       
-        
-      
     
     
     
@@ -2467,34 +2435,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../index-data/system-index/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    システムインデックス
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../index-data/gram-index/" class="md-nav__link">
         
   
@@ -2535,8 +2475,6 @@
       
         
           
-        
-      
         
       
         
@@ -2615,34 +2553,6 @@
     
   
     検索を速くする仕組み
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../search/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索（Windows Search）
   
 
     
@@ -4067,10 +3977,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#高速検索windows-searchの状態tebunkosearchwindows_searchps1fast_searchps1" class="md-nav__link">
+  <a href="#gram-索引で絞るtebunkosearchgram_searchps1search_gramps1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        高速検索（Windows Search）の状態（tebunko/search/windows_search.ps1・fast_search.ps1）
+        gram 索引で絞る（tebunko/search/gram_search.ps1・search_gram.ps1）
       
     </span>
   </a>
@@ -4189,10 +4099,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#高速検索windows-searchの状態tebunkosearchwindows_searchps1fast_searchps1" class="md-nav__link">
+  <a href="#gram-索引で絞るtebunkosearchgram_searchps1search_gramps1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        高速検索（Windows Search）の状態（tebunko/search/windows_search.ps1・fast_search.ps1）
+        gram 索引で絞る（tebunko/search/gram_search.ps1・search_gram.ps1）
       
     </span>
   </a>
@@ -4354,7 +4264,7 @@
 <td><code>@{Folders; ContentIndexFiles}</code></td>
 <td>検索対象の本文インデックスのファイルを列挙する（<code>findContentIndexFiles</code>）。結果の相対パスは <code>Root</code> から求める。Folders はフォルダごとの <code>@{Path; Root; Exists; Count}</code>、ContentIndexFiles は <code>findContentIndexFiles</code> の要素をつないだもの（フォルダの順・名前の順、重複なし）</td>
 <td><a href="../../search/speed/">検索を速くする仕組み</a></td>
-<td>検索・画面、getFastSearchContentIndexFiles</td>
+<td>検索・画面、getGramContentIndexFiles</td>
 </tr>
 <tr>
 <td><code>testIndexExists</code></td>
@@ -4430,7 +4340,7 @@
 </tr>
 <tr>
 <td><code>newSearchRequest</code></td>
-<td>word, simpleMatch, folders, limit, option, useFast</td>
+<td>word, simpleMatch, folders, limit, option, workDir（既定 <code>$workspace.Dir</code>）</td>
 <td>検索の要求（<code>[hashtable]::Synchronized</code>）</td>
 <td>検索 1 回分の要求を作る。画面が条件と <code>Stop</code>（取り消し）を書き、検索の司令がヒット（<code>Queue</code>）・進み具合・<code>Finished</code> を書く</td>
 <td><a href="../../structure/threads/#寿命">プロセスとスレッド</a></td>
@@ -4478,8 +4388,8 @@
 </tr>
 </tbody>
 </table>
-<h2 id="高速検索windows-searchの状態tebunkosearchwindows_searchps1fast_searchps1">高速検索（Windows Search）の状態（<code>tebunko/search/windows_search.ps1</code>・<code>fast_search.ps1</code>）<a class="headerlink" href="#高速検索windows-searchの状態tebunkosearchwindows_searchps1fast_searchps1" title="Permanent link">&para;</a></h2>
-<p>詳細は <a href="../../search/fast-search/">高速検索（Windows Search）</a>。</p>
+<h2 id="gram-索引で絞るtebunkosearchgram_searchps1search_gramps1">gram 索引で絞る（<code>tebunko/search/gram_search.ps1</code>・<code>search_gram.ps1</code>）<a class="headerlink" href="#gram-索引で絞るtebunkosearchgram_searchps1search_gramps1" title="Permanent link">&para;</a></h2>
+<p>詳細は <a href="../../index-data/gram-index/">2-gram の索引</a>。</p>
 <table>
 <thead>
 <tr>
@@ -4492,25 +4402,18 @@
 </thead>
 <tbody>
 <tr>
-<td><code>openWindowsSearch</code></td>
-<td>–</td>
-<td><code>OleDbConnection</code> / <code>$null</code></td>
-<td>Windows Search への接続を開く（開けなければ <code>$null</code>）</td>
-<td>getWindowsSearchState, getSystemIndexProgress, 検索（高速検索）</td>
+<td><code>getSearchGramValues</code></td>
+<td>word</td>
+<td>値の配列</td>
+<td>検索語から、照合に使う 2-gram の値を作る（空白で区切った部分の隣り合う 2 文字。小文字にそろえ、多いときは 16 個に均等に間引く）</td>
+<td>getGramContentIndexFiles</td>
 </tr>
 <tr>
-<td><code>getWindowsSearchState</code></td>
-<td>systemRoot（既定 <code>$workspace.SystemIndexDir</code>）, workspaceDir, connection</td>
-<td>string（<code>NoFolder</code> / <code>NoConnection</code> / <code>NotInScope</code> / <code>NotYet</code> / <code>Ok</code>）</td>
-<td>高速検索に使えるかと、使えない理由。<code>system_index</code> のフォルダの有無・Windows Search への接続・ワークスペースが索引の対象かを順に確かめる</td>
-<td>画面（一覧の「高速検索」列）、testWindowsSearch</td>
-</tr>
-<tr>
-<td><code>getSystemIndexProgress</code></td>
-<td>query（既定 <code>$null</code> で自分で問い合わせる）, indexRoot, systemRoot, statePath, connection</td>
-<td><code>@{Folders; Waiting; ContentIndexed; ByIndex}</code> / <code>$null</code></td>
-<td>システムインデックスが Windows Search にどこまで反映されたかを数える。<code>ByIndex</code> はインデックス名 → <code>@{Folders; Waiting}</code> の辞書（OrdinalIgnoreCase）。状態ファイルを読めない・問い合わせられないときは <code>$null</code></td>
-<td>画面（一覧の「高速検索」列）</td>
+<td><code>getGramContentIndexFiles</code></td>
+<td>word, simpleMatch, folders, indexRoot, gramRoot, onProgress</td>
+<td><code>@{Folders; ContentIndexFiles; Gram（@{Total; Candidates}）}</code> / <code>$null</code></td>
+<td>検索語の 2-gram をすべて含むと分かったファイルだけに、照合する本文インデックスのファイルを絞る。正規表現・2-gram が作れない・索引の置き場が無い・1 つも外せなかったときは <code>$null</code>（呼ぶ側が <code>getContentIndexFiles</code> ですべてを集める）</td>
+<td>検索（<code>search_run.ps1</code>）</td>
 </tr>
 </tbody>
 </table>

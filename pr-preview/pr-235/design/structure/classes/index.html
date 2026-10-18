@@ -564,8 +564,6 @@
       
         
       
-        
-      
     
     
     
@@ -682,34 +680,6 @@
     
   
     元のファイルを開く
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../guide/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索
   
 
     
@@ -2444,8 +2414,6 @@
       
         
       
-        
-      
     
     
     
@@ -2557,34 +2525,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../index-data/system-index/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    システムインデックス
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../index-data/gram-index/" class="md-nav__link">
         
   
@@ -2625,8 +2565,6 @@
       
         
           
-        
-      
         
       
         
@@ -2705,34 +2643,6 @@
     
   
     検索を速くする仕組み
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../search/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索（Windows Search）
   
 
     
@@ -4290,7 +4200,7 @@
 </tr>
 <tr>
 <td><code>WorkerPool</code></td>
-<td>プールを持つ側のスレッドで作り、そのスレッドから使う: 画面のスレッド（<code>BackgroundQueue</code> の中。<code>shared/core/worker_pool.ps1</code>）・検索の司令のスレッド（<code>newContentIndexWorkerPool</code>。<code>tebunko/search/content_index_search.ps1</code>）・インデクサの司令のスレッド（<code>writeSystemIndexFolders</code>。<code>tebunko/index/system_index.ps1</code>）</td>
+<td>プールを持つ側のスレッドで作り、そのスレッドから使う: 画面のスレッド（<code>BackgroundQueue</code> の中。<code>shared/core/worker_pool.ps1</code>）・検索の司令のスレッド（<code>newContentIndexWorkerPool</code>。<code>tebunko/search/content_index_search.ps1</code>）・インデクサの司令のスレッド（<code>getFilesGramValues</code>。<code>tebunko/index/gram_index_store.ps1</code>）</td>
 </tr>
 <tr>
 <td><code>Workspace</code>（<code>tebunko/core/workspace.ps1</code>）</td>
@@ -4375,12 +4285,12 @@
 <tbody>
 <tr>
 <td><code>IndexCatalog</code></td>
-<td>インデックスの追加・改名・削除・名前の割り当て。保存先（<code>targetFolders</code>・取り込み一覧・元のフォルダの記録・<code>searchExcludes</code>・<code>system_index</code>）のうち、改名・削除が書き換えるものの手順と順番、途中で失敗したときの扱い（止める・残す）だけを持つ（一覧 <code>targetFolders</code> と元のフォルダの記録の書き直しは、画面が <code>SaveTargets</code>・<code>WriteSourceFile</code> で呼ぶ）。保存先の形式は知らない。<code>Workspace</code> と設定ファイルの場所を受け取って作る（場所を暗黙に使わない）</td>
+<td>インデックスの追加・改名・削除・名前の割り当て。保存先（<code>targetFolders</code>・取り込み一覧・元のフォルダの記録・<code>searchExcludes</code>・<code>store\gram\</code>）のうち、改名・削除が書き換えるものの手順と順番、途中で失敗したときの扱い（止める・残す）だけを持つ（一覧 <code>targetFolders</code> と元のフォルダの記録の書き直しは、画面が <code>SaveTargets</code>・<code>WriteSourceFile</code> で呼ぶ）。保存先の形式は知らない。<code>Workspace</code> と設定ファイルの場所を受け取って作る（場所を暗黙に使わない）</td>
 <td>画面のスレッド。別のスレッドの仕事の中でも、ワークスペースの場所（文字列）から <code>newIndexCatalog</code> で作り直して使う。インデクサが名前を保存するときは、司令のスレッドで別に作る</td>
 <td>状態層</td>
 <td><code>tebunko/index/index_catalog.ps1</code>（<code>lib.ps1</code>）</td>
 <td>実装ずみ。<code>RenameIndex</code>・<code>RenameIndexWithSource</code>（改名のあと元のフォルダの記録を書き直す。記録だけ失敗しても改名は成功で、理由を返す）・<code>RemoveIndex</code>・<code>RemoveIndexes</code>（まとめて削除。1 つ失敗しても続ける）・<code>AssignAndSaveNames</code>・<code>StoreAssignedNames</code>（インデクサ用）・<code>SaveTargets</code>（<code>targetFolders</code> の保存）・<code>WriteSourceFile</code>（元のフォルダの記録）・<code>AssertReachable</code>（ワークスペースに届くかの確認）。作り方は <code>newIndexCatalog</code>（取り込み一覧を書く <code>StatusLedger</code> も作って渡す）。呼ぶ側は <code>ui/index/index_store.ps1</code> の <code>applyIndexEdit</code>・<code>deleteIndexes</code>、<code>ui/index/index_list.ps1</code> の <code>loadTargets</code>、<code>indexer/indexer_run.ps1</code>。改名・削除の手順は、<code>index_store.ps1</code> の <code>renameIndex</code>・<code>removeIndex</code>・<code>removeIndexes</code> だったもの</td>
-<td>保存先ごとの読み書きの部品（既存の関数でよい。設定は <code>invokeSettingsLocked</code>・<code>saveAssignedIndexNames</code>・<code>writeTargetFolders</code>、元のフォルダの記録・<code>system_index</code> はその読み書きの関数）、<code>searchExcludes</code> の読み書きの部品（<code>core/search_excludes.ps1</code> の <code>readSearchExcludes</code>・<code>writeSearchExcludes</code>・<code>removeSearchExcludesUnder</code>。<code>WorkspaceMover</code> と同じものを通す）、取り込み一覧は作る側から渡された <code>StatusLedger</code>、<code>index_name.ps1</code>（判断層）、<code>Workspace</code></td>
+<td>保存先ごとの読み書きの部品（既存の関数でよい。設定は <code>invokeSettingsLocked</code>・<code>saveAssignedIndexNames</code>・<code>writeTargetFolders</code>、元のフォルダの記録・2-gram の索引は、その読み書きの関数）、<code>searchExcludes</code> の読み書きの部品（<code>core/search_excludes.ps1</code> の <code>readSearchExcludes</code>・<code>writeSearchExcludes</code>・<code>removeSearchExcludesUnder</code>。<code>WorkspaceMover</code> と同じものを通す）、取り込み一覧は作る側から渡された <code>StatusLedger</code>、<code>index_name.ps1</code>（判断層）、<code>Workspace</code></td>
 </tr>
 <tr>
 <td><code>WorkspaceMover</code></td>
