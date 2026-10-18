@@ -7,7 +7,10 @@ ${indexArchiveFormatVersion}     = 2  # この版が読める形式の版（イ�
 ${indexArchiveManifestFileName}  = "tebunko-index.json"
 ${indexArchiveStatusEntryName}   = "ingest_status.tsv"
 ${indexArchiveMaxManifestBytes}  = 64MB   # 目録（tebunko-index.json）自体の大きさの上限（zip bomb 対策）
-${indexArchiveFreeSpaceMargin}   = 1GB    # インポートに求める空き容量の余裕（目録の合計 + この量）
+${indexArchiveMaxEntries}        = 100000 # zip のエントリーの数の上限（目録自身を含む）
+${indexArchiveMaxTotalBytes}     = 10GB   # 目録の files の size の合計の上限（空き容量を調べられないときも効く）
+${indexArchiveMaxStatusBytes}    = 256MB  # 取り込み一覧（ingest_status.tsv）の大きさの上限（展開したあと全量を読むため）
+${indexArchiveFreeSpaceMargin}   = 1GB   # インポートに求める空き容量の余裕（目録の合計 + この量）
 
 # 同じ名前のインデックスがあったときの扱い（importIndex・getImportIndexName に渡す）
 ${importCollisionRename}    = "Rename"
@@ -101,6 +104,9 @@ function testIndexArchiveManifest {
     if ($manifestBytes -gt ${indexArchiveMaxManifestBytes}) {
         return "目録（${indexArchiveManifestFileName}）が大きすぎます。"
     }
+    if (@($entryNames).Count -gt ${indexArchiveMaxEntries}) {
+        return "zip のエントリーの数が多すぎます。"
+    }
     if ($null -eq $manifest) {
         return "tebunko のインデックスの zip ではない、または壊れています（目録を読めません）。"
     }
@@ -132,6 +138,7 @@ function testIndexArchiveManifest {
     }
 
     $fileMap = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $totalBytes = [long]0
     foreach ($file in @($manifest.files | Where-Object { $_ })) {
         $path = [string]$file.path
         $reason = testIndexArchiveEntryPath $path
@@ -150,6 +157,13 @@ function testIndexArchiveManifest {
         }
         if ([string]$file.sha256 -eq "") {
             return "目録のファイルの SHA-256 がありません: ${path}"
+        }
+        if ($path -ceq ${indexArchiveStatusEntryName} -and $size -gt ${indexArchiveMaxStatusBytes}) {
+            return "${indexArchiveStatusEntryName} が大きすぎます。"
+        }
+        $totalBytes += $size
+        if ($totalBytes -gt ${indexArchiveMaxTotalBytes}) {
+            return "インデックスの合計の大きさが大きすぎます。"
         }
         $fileMap[$path] = $file
     }

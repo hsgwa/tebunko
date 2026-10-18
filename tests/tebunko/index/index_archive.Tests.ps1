@@ -1076,6 +1076,137 @@ Describe "importIndex" -Tag Io {
     }
 }
 
+Describe "受け取る zip の大きさと件数の上限" -Tag Io {
+    BeforeAll {
+        function script:newManifestOnlyZip {
+            # 目録（tebunko-index.json）だけの zip を作る。manifestText を省くと、files に manifestFiles（path・size・sha256）を持つ正しい形の目録を書く
+            param ([string]$path, $manifestFiles = @(), [string]$manifestText = "")
+
+            if ($manifestText -eq "") {
+                $manifestText = ConvertTo-Json ([ordered]@{
+                    format = ${indexArchiveFormat}; formatVersion = ${indexArchiveFormatVersion}; appVersion = ""
+                    exportedAt = "2026-09-27T10:00:00+09:00"; indexName = "営業"; sourceFolder = "C:\共有\営業部"
+                    files = @($manifestFiles)
+                }) -Depth 5
+            }
+            $archive = [System.IO.Compression.ZipFile]::Open($path, [System.IO.Compression.ZipArchiveMode]::Create, [System.Text.Encoding]::UTF8)
+            try {
+                writeArchiveBytes $archive "tebunko-index.json" ((New-Object System.Text.UTF8Encoding($false)).GetBytes($manifestText))
+            } finally {
+                $archive.Dispose()
+            }
+        }
+
+        function script:setDeclaredSize {
+            # zip の中央ディレクトリ（と、値が入っていれば local header）の、エントリーの展開後の大きさの申告を書き換える
+            param ([string]$path, [string]$entryName, [uint32]$newSize)
+
+            $bytes = [System.IO.File]::ReadAllBytes($path)
+            $patched = $false
+            for ($i = 0; $i -le $bytes.Length - 46; $i++) {
+                if ($bytes[$i] -eq 0x50 -and $bytes[$i + 1] -eq 0x4B -and $bytes[$i + 2] -eq 0x01 -and $bytes[$i + 3] -eq 0x02) {
+                    $nameLength = [BitConverter]::ToUInt16($bytes, $i + 28)
+                    $name = [System.Text.Encoding]::UTF8.GetString($bytes, $i + 46, $nameLength)
+                    if ($name -ceq $entryName) {
+                        [Array]::Copy([BitConverter]::GetBytes($newSize), 0, $bytes, $i + 24, 4)
+                        $local = [int][BitConverter]::ToUInt32($bytes, $i + 42)
+                        if ([BitConverter]::ToUInt32($bytes, $local + 22) -ne 0) {
+                            [Array]::Copy([BitConverter]::GetBytes($newSize), 0, $bytes, $local + 22, 4)
+                        }
+                        $patched = $true
+                    }
+                }
+            }
+            $patched | Should -Be $true
+            [System.IO.File]::WriteAllBytes($path, $bytes)
+        }
+    }
+
+    It "目録の展開後の大きさを小さく偽った zip: <label> は「大きすぎます」で例外になり、ワークスペースが変わらない" -TestCases @(
+        @{ label = "openIndexArchive"; action = "open" }
+        @{ label = "readIndexArchiveInfo"; action = "info" }
+        @{ label = "importIndex"; action = "import" }
+    ) {
+        param ($label, $action)
+        # 上限を小さくして確かめる（実際の上限は 64MB。関数は呼び出し元の変数を見るので、この It の中だけで効く）
+        ${indexArchiveMaxManifestBytes} = 1MB
+        $wsB = [Workspace]::new("$TestDrive\forged_$([Guid]::NewGuid().ToString('N'))")
+        $settingsB = "$($wsB.Dir)\setting.config"
+        [System.IO.Directory]::CreateDirectory($wsB.Dir) | Out-Null
+        $path = "$($wsB.Dir)\forged.zip"
+        newManifestOnlyZip $path @() ('{"pad":"' + ("a" * 3MB) + '"}')
+        setDeclaredSize $path "tebunko-index.json" 100
+
+        # 申告が上限以下でも、実際に読んだ大きさで断る
+        switch ($action) {
+            "open" { { openIndexArchive $path } | Should -Throw "*大きすぎます*" }
+            "info" { { readIndexArchiveInfo $path } | Should -Throw "*大きすぎます*" }
+            "import" { { importIndex $path ${importCollisionRename} "" "C:\新しい場所" $wsB $settingsB } | Should -Throw "*大きすぎます*" }
+        }
+        Test-Path -LiteralPath $wsB.IndexDir | Should -Be $false
+        Test-Path -LiteralPath $wsB.StatusFile | Should -Be $false
+        Test-Path -LiteralPath $settingsB | Should -Be $false
+        Test-Path -LiteralPath $wsB.PublishDir | Should -Be $false
+        Remove-Item -LiteralPath $path -Force  # 断ったあとは zip を開いたままにしない
+    }
+
+    It "合計の上限: 空き容量を調べられなくても、上限を超える目録の zip は展開の前に断る" {
+        $wsB = [Workspace]::new("$TestDrive\total_$([Guid]::NewGuid().ToString('N'))")
+        $settingsB = "$($wsB.Dir)\setting.config"
+        [System.IO.Directory]::CreateDirectory($wsB.Dir) | Out-Null
+        $path = "$($wsB.Dir)\total.zip"
+        newManifestOnlyZip $path @([ordered]@{ path = "content_index/content_index.xlsx.001.tsv"; size = (${indexArchiveMaxTotalBytes} + 1); sha256 = ("a" * 64) })
+
+        { importIndex $path ${importCollisionRename} "" "C:\新しい場所" $wsB $settingsB { param ($root) $null } } | Should -Throw "*合計の大きさ*"
+        Test-Path -LiteralPath $wsB.PublishDir | Should -Be $false
+        Test-Path -LiteralPath $wsB.IndexDir | Should -Be $false
+    }
+
+    Context "検証の前に前の版の片付けをしない" {
+        BeforeEach {
+            $script:wsLegacy = [Workspace]::new("$TestDrive\legacykeep_$([Guid]::NewGuid().ToString('N'))")
+            $script:settingsLegacy = "$($script:wsLegacy.Dir)\setting.config"
+            New-Item -ItemType Directory -Path (Join-Path $script:wsLegacy.LegacyIndexDir "旧") -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $script:wsLegacy.LegacyIndexDir "旧\元のフォルダ.txt") -Value "旧`tC:\旧" -Encoding UTF8
+            New-Item -ItemType Directory -Path (Join-Path $script:wsLegacy.SystemIndexDir "旧") -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $script:wsLegacy.SystemIndexDir "旧\システムインデックス.txt") -Value "x00000000" -Encoding UTF8
+        }
+
+        It "<label>のとき、system_index が残る" -TestCases @(
+            @{ label = "目録が JSON でない zip"; kind = "notjson" }
+            @{ label = "目録の検査で断る zip（合計が大きすぎる）"; kind = "toobig" }
+            @{ label = "zip でないファイル"; kind = "notzip" }
+        ) {
+            param ($label, $kind)
+            $path = "$($script:wsLegacy.Dir)\keep.zip"
+            switch ($kind) {
+                "notjson" { newManifestOnlyZip $path @() "これは JSON ではありません" }
+                "toobig" { newManifestOnlyZip $path @([ordered]@{ path = "content_index/content_index.xlsx.001.tsv"; size = (${indexArchiveMaxTotalBytes} + 1); sha256 = ("a" * 64) }) }
+                "notzip" { Set-Content -LiteralPath $path -Value "これは zip ではありません" -Encoding UTF8 }
+            }
+
+            { importIndex $path ${importCollisionRename} "" "C:\新しい場所" $script:wsLegacy $script:settingsLegacy } | Should -Throw
+            Test-Path -LiteralPath (Join-Path $script:wsLegacy.SystemIndexDir "旧\システムインデックス.txt") | Should -Be $true
+        }
+
+        It "片付けに失敗して止まっても、zip を閉じている（そのあと zip を消せる）" {
+            $fixtureA = newIndexFixture "$TestDrive\legacykeep_a_$([Guid]::NewGuid().ToString('N'))" "営業" "C:\共有\営業部"
+            $dest = "$TestDrive\legacykeep_$([Guid]::NewGuid().ToString('N')).zip"
+            exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
+            $txt = Join-Path $script:wsLegacy.SystemIndexDir "旧\システムインデックス.txt"
+
+            $stream = [System.IO.File]::Open($txt, "Open", "Read", "None")
+            try {
+                { importIndex $dest ${importCollisionRename} "" "C:\共有\営業部" $script:wsLegacy $script:settingsLegacy } | Should -Throw "*前の版のインデックス*片付けられませんでした*"
+            } finally {
+                $stream.Dispose()
+            }
+            { Remove-Item -LiteralPath $dest -Force -ErrorAction Stop } | Should -Not -Throw
+            Test-Path -LiteralPath (Join-Path $script:wsLegacy.IndexDir "営業") | Should -Be $false
+        }
+    }
+}
+
 Describe "getWorkspaceFreeSpace" -Tag Io {
     It "ドライブのルートなら空き容量（バイト）を返す" {
         $root = [System.IO.Path]::GetPathRoot($TestDrive)

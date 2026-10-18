@@ -542,6 +542,26 @@ Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を�
         ($targets.Count -gt 0) | Should -Be $true  # 検査の取りこぼし（対象0件で通る）を防ぐ
     }
 
+    It "受け取る zip（index_archive.ps1）のエントリーを開く（.Open()）のは、書き込みの 2 つと上限付きの読み取りの 2 つの関数だけで、ReadToEnd は使わない" {
+        # 申告の大きさ（送り手が書ける）に頼らず、実際に読んだ大きさを数えて打ち切る関数（readArchiveEntryBytesLimited・extractArchiveEntryToFile）を通さずに
+        # 中身を全量読む処理が足されないよう、関数の行範囲で確かめる
+        $archiveLines = @($code | Where-Object { $_.File -eq "index_archive.ps1" })
+        $funcStarts = @($archiveLines | Where-Object { $_.Text -match '^\s*function\s+\w+' } | Sort-Object Line)
+        $ranges = @()
+        foreach ($fn in @("writeArchiveBytes", "writeArchiveFile", "readArchiveEntryBytesLimited", "extractArchiveEntryToFile")) {
+            $start = ($funcStarts | Where-Object { $_.Text -match "function\s+$fn\b" }).Line
+            $start | Should -Not -BeNullOrEmpty
+            $end = ($funcStarts | Where-Object { $_.Line -gt $start } | Sort-Object Line | Select-Object -First 1).Line
+            if (-not $end) { $end = [int]::MaxValue }
+            $ranges += , @($start, $end)
+        }
+        $opens = @($archiveLines | Where-Object { $_.Text -match '\.Open\(\)' })
+        ($opens.Count -gt 0) | Should -Be $true  # 対象 0 件で通ってしまうのを防ぐ
+        $outside = @($opens | Where-Object { $o = $_; @($ranges | Where-Object { $o.Line -ge $_[0] -and $o.Line -lt $_[1] }).Count -eq 0 })
+        (@($outside | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
+        (findPattern $archiveLines 'ReadToEnd') | Should -Be ""
+    }
+
     It "readZipEntry の StringBuilder に容量を渡さない（申告の大きさぶんのメモリを先に確保しないため）" {
         $officeReaderLines = @($code | Where-Object { $_.File -eq "office_reader.ps1" })
         $funcStarts = @($officeReaderLines | Where-Object { $_.Text -match '^\s*function\s+\w+' } | Sort-Object Line)

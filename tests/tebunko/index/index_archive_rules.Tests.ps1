@@ -105,6 +105,33 @@ Describe "testIndexArchiveManifest" -Tag Unit {
         testIndexArchiveManifest $null @("tebunko-index.json") 10 | Should -Not -BeNullOrEmpty
     }
 
+    It "上限: <label>は、ちょうどなら通り、1 超えると理由を返す" -TestCases @(
+        @{ label = "エントリーの数"; kind = "entries" }
+        @{ label = "目録の files の大きさの合計"; kind = "total" }
+        @{ label = "ingest_status.tsv の大きさ"; kind = "status" }
+    ) {
+        param ($label, $kind)
+        $statusSize = 10
+        $contentSize = 10
+        $extraNames = @()
+        switch ($kind) {
+            "entries" { $extraNames = @(1..(${indexArchiveMaxEntries} - 3) | ForEach-Object { "x$_" }) }
+            "total" { $statusSize = 1; $contentSize = ${indexArchiveMaxTotalBytes} - 1 }
+            "status" { $statusSize = ${indexArchiveMaxStatusBytes} }
+        }
+        $entryNames = @("tebunko-index.json", "ingest_status.tsv", "content_index/content_index.xlsx.001.tsv") + $extraNames
+        $files = @((newManifestFile "ingest_status.tsv" $statusSize), (newManifestFile "content_index/content_index.xlsx.001.tsv" $contentSize))
+        # 上限ちょうど（エントリーは目録に無い名前が混ざるので、数の確かめだけ見る）
+        if ($kind -eq "entries") {
+            (testIndexArchiveManifest (newManifest $files) $entryNames 100) | Should -Not -BeLike "*多すぎ*"
+            (testIndexArchiveManifest (newManifest $files) ($entryNames + "x_over") 100) | Should -BeLike "*多すぎ*"
+        } else {
+            testIndexArchiveManifest (newManifest $files) $entryNames 100 | Should -Be ""
+            $over = if ($kind -eq "total") { @((newManifestFile "ingest_status.tsv" 2), (newManifestFile "content_index/content_index.xlsx.001.tsv" $contentSize)) } else { @((newManifestFile "ingest_status.tsv" ($statusSize + 1)), (newManifestFile "content_index/content_index.xlsx.001.tsv" $contentSize)) }
+            testIndexArchiveManifest (newManifest $over) $entryNames 100 | Should -BeLike "*大きすぎ*"
+        }
+    }
+
     It "format が違うと理由を返す" {
         $files = @((newManifestFile "ingest_status.tsv"))
         $manifest = newManifest $files

@@ -253,8 +253,8 @@ content_index/<相対フォルダ>/content_index.<拡張子>.<番号>.tsv … �
 
 インデックス作成のロックを取り、以下を順に行う。
 
-1. **前の版のワークスペースの片付け**: `getLegacyIndexState`・`testLegacyCleanupNeeded` で調べ、必要なら `clearLegacySystemIndex` を先に行う（`store\content\` にこのインポートの分を足す前）。前の版の `index\` そのものには触らない。片付けられなければ止める。
-2. **zip を開き、目録を確かめる**（`testIndexArchiveManifest`。下の「受け取ったファイルを信用しない」）。
+1. **前の版のワークスペースの片付け（行うのは、5 の後・6 の展開の直前）**: `getLegacyIndexState`・`testLegacyCleanupNeeded` で調べ、必要なら `clearLegacySystemIndex` を行う（`store\content\` にこのインポートの分を足す前）。壊れた zip・断る zip で `system_index\` を消さないよう、zip と名前・元のフォルダ・空き容量の確かめがすべて済んでから行う。前の版の `index\` そのものには触らない。片付けられなければ止める。
+2. **zip を開き、目録を確かめる**（`testIndexArchiveManifest`。下の「受け取ったファイルを信用しない」）。この手順が最初に行われる。
 3. **名前を決める**（`getImportIndexName`）。同じ名前のインデックスがあるときの扱い（`Rename`・`Overwrite`・`Cancel`）を呼ぶ側が指定する。`Rename` は `名前(2)`・`名前(3)` …（`newIndexName` と同じ決まり）、`Overwrite` は置き換え、`Cancel` は何もしない。
 4. **元のフォルダを決める**（呼ぶ側の指定、無ければ目録の `sourceFolder`）。空なら止める。同じフォルダが別の名前のクロール対象フォルダにあれば止める（`getTargetFolders` は同じフォルダの 2 つ目以降を読まないため、登録しても次のインデックス作成の確認に `削除予定` として出る。画面の追加・編集と同じ決まり）。検索だけのインデックスと同じフォルダなら、止めずに `Warnings` で知らせる。
 5. **空き容量**（ワークスペースのドライブ。`getWorkspaceFreeSpace`）が「目録の合計 + 1GB」より少なければ止める（zip bomb 対策。`testImportFreeSpace`）。UNC（`\\server\share\…`）のワークスペースなど、ドライブとして空き容量を調べられないときは確かめずに進める（調べられないことでインポートを止めない。展開の途中で足りなくなれば、書き込みの失敗として 6 以降の戻しに入る）。
@@ -283,7 +283,7 @@ content_index/<相対フォルダ>/content_index.<拡張子>.<番号>.tsv … �
 - **zip slip**: 絶対パス（`/`・ドライブ文字・UNC）、`..`・`.`・空の区切り、`:`（代替データストリーム）、ファイル名に使えない文字、予約名（拡張子付きも含む。`shared/core/text.ps1` の `$reservedFileNames` と同じ決まり）、末尾の空白・`.`、1 つの区切りが 255 文字を超えるもの。区切りは `/` だけを認め、`\` を含む名前は受け付けない。
 - **置き場所**: `tebunko-index.json`・`ingest_status.tsv`・`content_index/…/<本文インデックスのファイル名の型>` 以外は受け付けない（本文インデックスのファイル名の型は `content_index_format.ps1` の型を使う）。
 - **重なり**: 目録の `files` に同じパスが 2 つ（大文字・小文字を区別しない）、zip の中に同じ名前のエントリーが 2 つ（`ZipArchive` は許すため数えて確かめる）、目録に無いエントリー、目録にあるのに zip に無いエントリー。
-- **大きさ**: 目録（`tebunko-index.json`）自体が 64MB 超、エントリーの展開後の大きさ・SHA-256 が目録と違う。書き込みは目録の大きさで打ち切る。空き容量に「合計 + 1GB」の余裕を求める（上の「インポート」の 5。調べられないときは確かめない）。
+- **大きさ**: 目録（`tebunko-index.json`）自体が 64MB 超、エントリーの展開後の大きさ・SHA-256 が目録と違う。目録は、zip の中央ディレクトリの申告の大きさ（送り手が自由に書ける）に頼らず、実際に読んだバイト数を数えて 64MB で打ち切る（`readArchiveEntryBytesLimited`）。ほかのエントリーの書き込みは目録の大きさで打ち切る。zip のエントリーの数（目録を含めて 100,000）、目録の `files` の大きさの合計（10GB）、`ingest_status.tsv` の大きさ（256MB）にも上限を置き、超えれば展開の前に断る（`testIndexArchiveManifest`。空き容量を調べられないときも効く）。空き容量に「合計 + 1GB」の余裕を求める（上の「インポート」の 5。調べられないときは確かめない）。
 - **目録の値**: `indexName` が `testIndexName` を通らない、`sourceFolder` が絶対パス・UNC でない・制御文字を含む（そのときは空とみなし、呼ぶ側に指定させる）。
 - **取り込み一覧の行**: 列の数が違う、`状態` が `未取り込み`・`済`・`失敗` 以外、相対パスが zip slip と同じ決まりを通らない、同じ相対パスが 2 つ。
 - zip は `ZipFile::ExtractToDirectory`・`ExtractToFile` にエントリーの名前を渡して展開しない（確かめた目録のパスからだけファイル名を組み立てる）。
