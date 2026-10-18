@@ -8,8 +8,7 @@
 #   2. setting.config のクロール対象フォルダに source/ を指したフォルダ（利用者名を含まない固定のパス）を登録し、
 #      indexer.ps1 を 1 回動かして workspaceFolder（固定のパス）にワークスペースを作る
 #   3. exportIndex でワークスペースを zip に書き出す
-#   4. このスクリプトで、ワークスペースの形のまま残す部分（インデックスの置き場・システムインデックス・
-#      システムインデックスの状態・取り込み一覧。置き場の名前は Workspace クラスから取る）と zip を見本へコピーし、file_times.tsv を作る
+#   4. このスクリプトで、ワークスペースの形のまま残す部分（インデックスの置き場（store\）・取り込み一覧。置き場の名前は Workspace クラスから取る）と zip を見本へコピーし、file_times.tsv を作る
 #   5. expected.json は手で書く（このスクリプトは作らない）
 #
 # file_times.tsv: 見本のファイルの更新日時の記録。git は取り出すときにファイルの更新日時を今の日時にしてしまうため、
@@ -18,7 +17,7 @@
 #             （Ticks は DateTimeKind を持たないため、実行する PC のタイムゾーンに関わらず同じ文字列になる）。
 #             indexer が取り込み済みと判断する条件（indexer_decide.ps1 の getIngestDecision）が、記録した更新日時の文字列と
 #             実際にファイルから読んだ更新日時の文字列が等しいことのため、文字列を再現できることが要る
-#   ws/     … 本文インデックスとシステムインデックスのフォルダのファイルの実際の更新日時（UTC の Ticks）。File.SetLastWriteTimeUtc で戻す
+#   ws/     … 本文インデックスのフォルダのファイルの実際の更新日時（UTC の Ticks）。File.SetLastWriteTimeUtc で戻す
 param (
     [Parameter(Mandatory = $true)]
     [string]$WorkspaceDir,
@@ -94,8 +93,7 @@ if (Test-Path -LiteralPath $wsDest) {
 
 # 見本に残す、ワークスペースの中の形のまま残る部分（tmp\・publish\・store\journal\・indexing_log.txt・
 # gui_error_log.txt・search_results.txt・setting.config は見本に含めない。tests/testdata/README.md に理由を書く）
-$keepEntries = @($sourceWorkspace.StoreDir, $sourceWorkspace.OldIndexDir, $sourceWorkspace.OldStatusFile,
-    $sourceWorkspace.SystemIndexDir, $sourceWorkspace.SystemIndexStateFile) | ForEach-Object { getWorkspaceRelativePath $WorkspaceDir $_ }
+$keepEntries = @($sourceWorkspace.StoreDir, $sourceWorkspace.OldIndexDir, $sourceWorkspace.OldStatusFile) | ForEach-Object { getWorkspaceRelativePath $WorkspaceDir $_ }
 foreach ($entry in $keepEntries) {
     $src = Join-Path $WorkspaceDir $entry
     if (!(Test-Path -LiteralPath $src)) { continue }
@@ -121,12 +119,9 @@ foreach ($relative in $times.Keys) {
     $parsed = [datetime]::ParseExact($times[$relative], "yyyy/MM/dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture)
     $timesLines.Add("source/${relative}`t$($parsed.Ticks)")
 }
-# ws/ の本文インデックスとシステムインデックスのフォルダのファイルは、実際の更新日時（UTC の Ticks）を残す。
-# システムインデックスの作り直しの判定（system_index.ps1）が、本文インデックスの TSV と system_index.txt の更新日時の前後と、
-# system_index_state.tsv の「反映待ち」に書いた system_index.txt の更新日時（UTC の Ticks）を見るため、取り出した直後の日時のままでは
-# 「古い」と見なして作り直してしまう
+# ws/ の本文インデックスのフォルダのファイルは、実際の更新日時（UTC の Ticks）を残す（git は取り出すときに更新日時を今の日時にしてしまうため）
 $wsFileCount = 0
-$timedDirs = @($sourceWorkspace.IndexDir, $sourceWorkspace.OldIndexDir, $sourceWorkspace.SystemIndexDir) | ForEach-Object { getWorkspaceRelativePath $WorkspaceDir $_ }
+$timedDirs = @($sourceWorkspace.IndexDir, $sourceWorkspace.OldIndexDir) | ForEach-Object { getWorkspaceRelativePath $WorkspaceDir $_ }
 foreach ($sub in $timedDirs) {
     $subDir = Join-Path $wsDest $sub
     if (!(Test-Path -LiteralPath $subDir)) { continue }

@@ -36,7 +36,7 @@ flowchart LR
 |---|---|---|
 | 本文インデックス | `work/store/content/<インデックス名>/<フォルダ>/content_index.<拡張子>.<番号>.tsv` | 検索が読む本体。**インデックス名**は、画面で登録したフォルダ（クロール対象フォルダ）1 つごとの名前 |
 | 取り込み一覧 | `work/store/ingest_status.tsv` | どのファイルを、いつ、どの版で取り込んだか。2 回目からは、ここと比べて新しいファイル・変わったファイルだけを取り込む（差分取り込み） |
-| システムインデックス | `work/system_index/` | 高速検索のために Windows Search に索引させる txt（[高速検索（Windows Search）](../search/fast-search.md)） |
+| 2-gram の索引 | `work/store/gram/<インデックス名>/` | 検索で照合する本文インデックスのファイルを絞る（[2-gram の索引](../index-data/gram-index.md)）。作り直せる |
 
 インデックスは元のファイルから作り直せる。消しても元のファイルは失われず、次のインデックス作成ですべて取り込み直す。
 

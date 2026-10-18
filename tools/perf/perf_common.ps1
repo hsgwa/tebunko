@@ -757,11 +757,11 @@ function getTypingSteps {
 function newTypingWordResult {
     # 入力しながらの検索を、語ごとに 1 回ごとの記録（measure_typing.ps1 の Attempts）から result.json の Typing.Words の 1 件にまとめる。
     #   attempts: 1 回目が先頭の配列。1 回ごとに @{ FirstHitMs; FinishMs; WaitPrevMs（すべて 1 回目は含めても除いても呼び出し側が扱う）；
-    #             IntervalMs; LagMs; RequestMs（要求ごとの値の配列）; Hits; Truncated; Packs; FastUsed; CancelledSteps }
+    #             IntervalMs; LagMs; RequestMs（要求ごとの値の配列）; Hits; Truncated; Packs; GramUsed; CancelledSteps }
     #   steps   : 送った語の数（getTypingSteps の結果の数）。並びが空だった語は 0
     #   skipped : 測らなかった理由（並びが空の語）。$null なら測った
     # 統計（Min・Median・Mean・Max・Count）は getStats を使う。FirstHitMs・FinishMs・WaitPrevMs は 2 回目以降（attempts の 2 件目から）、
-    # IntervalMs・LagMs・RequestMs は全回（1 回目を含む）から作る。CancelledSteps は 2 回目以降の合計、FastUsed は全回の合計（回数）。
+    # IntervalMs・LagMs・RequestMs は全回（1 回目を含む）から作る。CancelledSteps は 2 回目以降の合計、GramUsed は全回の合計（回数）。
     param (
         [string]$name,
         [bool]$regex,
@@ -779,7 +779,7 @@ function newTypingWordResult {
     if ($skipped -or $attempts.Count -eq 0) {
         return [ordered]@{
             Name = $name; Regex = $regex; Steps = $steps
-            Hits = $null; Truncated = $null; Packs = $null; FastUsed = $null; CancelledSteps = $null
+            Hits = $null; Truncated = $null; Packs = $null; GramUsed = $null; CancelledSteps = $null
             FirstHitMs = $null; FinishMs = $null; WaitPrevMs = $null; IntervalMs = $null; LagMs = $null; RequestMs = $null
             First = $null
             WorkingSetMaxMB = $null; CpuSeconds = $null; Gc0 = $null; Gc1 = $null; Gc2 = $null
@@ -805,7 +805,7 @@ function newTypingWordResult {
     return [ordered]@{
         Name = $name; Regex = $regex; Steps = $steps
         Hits = [int]$last.Hits; Truncated = [bool]$last.Truncated; Packs = [int]$last.Packs
-        FastUsed = @($attempts | Where-Object { $_.FastUsed }).Count
+        GramUsed = @($attempts | Where-Object { $_.GramUsed }).Count
         CancelledSteps = [int]((@($rest | ForEach-Object { [int]$_.CancelledSteps }) | Measure-Object -Sum).Sum)
         FirstHitMs = getStats (flattenTypingValues $rest "FirstHitMs")
         FinishMs = getStats (flattenTypingValues $rest "FinishMs")

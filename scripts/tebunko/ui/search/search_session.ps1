@@ -9,8 +9,6 @@ $script:filterText = ""
 $script:tsvCache = newTsvTextCache
 # 検索の司令のスレッド（画面を開いている間 1 つ。閉じるときに gui.ps1 が Close する）
 $script:searchService = newSearchService $script:tsvCache
-# Windows Search が使えるか（高速検索の使用可否に使う。$null はまだ確かめていない）
-$script:fastAvailable = $null
 
 function startSearch {
     if (!(testIndexReadAllowed ([bool]$script:workspaceMoving))) {
@@ -58,10 +56,9 @@ function startSearch {
     # 新しく検索を始めるため、待っている元のファイルの確認（別の行）は打ち切る
     cancelPendingSourceLookup
 
-    $useFast = (getFastSearchView $script:fastAvailable $useRegex $word).Usable
     # 件数の上限は検索ごとに控える（設定の画面で変えても、走っている検索には効かない。打ち切りの文言も、この検索の上限で出す）
     $limit = $script:searchLimit
-    $shared = $script:searchService.Request((newSearchRequest $word $simpleMatch $folders $limit $option $useFast))
+    $shared = $script:searchService.Request((newSearchRequest $word $simpleMatch $folders $limit $option))
     $script:search = @{
         Shared = $shared
         Limit = $limit
@@ -101,7 +98,6 @@ function clearSearchView {
     }
     $script:lastSearch = $null
     $script:sourceFolderMaps = @{}
-    $script:fastAvailable = $null
     $ui.FilterBox.Text = ""
     $script:filterText = ""
     clearResults "" $null
@@ -191,15 +187,10 @@ function finishSearch {
 
     $count = $script:hitCount
     $files = $script:fileGroups
-    if ($null -ne $shared.FastAvailable) {
-        $script:fastAvailable = [bool]$shared.FastAvailable
-        updateFastSearchView
-    }
-
-    # 高速検索・gram 索引では、候補の無いファイルを集めないため、集めた数が 0 でも「インデックスが無い」とは限らない（0 件は下の「一致する結果はありません」）
-    if (!$shared.FastUsed -and !$shared.GramUsed -and $shared.IndexTotal -gt 0 -and $shared.Total -eq 0) {
+    # gram 索引では、候補の無いファイルを集めないため、集めた数が 0 でも「インデックスが無い」とは限らない（0 件は下の「一致する結果はありません」）
+    if (!$shared.GramUsed -and $shared.IndexTotal -gt 0 -and $shared.Total -eq 0) {
         $ui.SummaryText.Text = getNoKindMatchText $s.Option.FileKinds
-    } elseif (!$shared.FastUsed -and !$shared.GramUsed -and $shared.Total -eq 0) {
+    } elseif (!$shared.GramUsed -and $shared.Total -eq 0) {
         $ui.SummaryText.Text = "インデックスが未作成です"
     } elseif ($count -eq 0) {
         # 0 件は、結果欄の要約と表の空いた所に「一致する結果はありません」を出す（ステータスバーの「検索しました：… 0 件」はそのまま）

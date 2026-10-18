@@ -1,4 +1,4 @@
-# 部品ごとの関数（TSV と本文インデックス）
+﻿# 部品ごとの関数（TSV と本文インデックス）
 
 扱うこと: TSV の名前と場所・整形（`fs.ps1`・`index_name.ps1`・`text.ps1`・`tsv_file.ps1`）、インデックスへの配置（`index_store.ps1`）、本文インデックスの形式と読み書き（`content_index_format.ps1`・`content_index_store.ps1`）の関数一覧。扱わないこと: 検索そのものの関数（[部品ごとの関数（検索・スレッド・元のファイル・画面）](search.md)）。先に読むページ: [部品から関数一覧を引く](index.md)。
 
@@ -30,7 +30,7 @@
 | `testPathHasLink` | base, path | bool | base の下から path までの各階層（base 自身は見ない）に、リンクがあれば `$true`。まだ無い階層から先は見ない。path が base の下になければ、確かめられないので `$true` | 同上 | `initTmpDir`・`removeStaleTmpDirs` |
 | `newDirectoryUnder` | path, root | bool | root の下に path のフォルダを（途中の階層ごと）作り、作れたら（すでにあるときも）`$true`。root から path までの途中（path を含む）にリンクがある・path が root の下でない・空のパスのときは、何も作らずに `$false`。作ったあとにもう一度確かめ、リンクに替わっていれば `$false`。root 自身は見ない（path が root と同じなら、root を作って `$true`）。作れない理由（権限など）は例外 | 同上 | `copySourceForOpen` |
 | `testRemovablePath` | path, root | bool | path を root の下で消す・移す・作ってよいか。path と root が絶対パス（ドライブ・UNC）、path が root の下（`testPathUnder`）、root から path までの途中にリンクが無い（`testPathHasLink`。まだ無い階層は見ない）のすべてが成り立つときだけ `$true`。root そのものがリンクの構成は今までどおり動く。`-leafLinkOk` を付けると path そのものがリンクでもよい（途中だけ見る。`removeDirectoryUnder`・`moveDirectoryUnder` が付け、消す・移すフォルダそのものがリンクなら、リンクだけを外す・動かす）。確かめられないときは `$false` | 同上 | `removeDirectoryUnder`・`moveDirectoryUnder`・`publishIndexFiles`・`clearOldOpenCopies` |
-| `removeDirectoryUnder` | path, root, tries（既定 3） | bool | `testRemovablePath` が真のときだけ `removeDirectoryRetry` で消して `$true`。偽なら何も消さずに `$false`（ログ・例外は呼ぶ側が決める）。フォルダを消す呼び出しは、これを通す（通せないものは `tests/meta/remove_entry.Tests.ps1` の一覧に理由つきで置く） | 同上 | `removeBookDir`・`RemoveIndex`・`removeOldIndexOf`・`removeSystemIndexOf`・`removeDroppedFolders`・`removeTmpDir`・`removeStaleProcessDirs`・`clearLegacySystemIndex`・インポート・本文インデックスの TSV の削除 |
+| `removeDirectoryUnder` | path, root, tries（既定 3） | bool | `testRemovablePath` が真のときだけ `removeDirectoryRetry` で消して `$true`。偽なら何も消さずに `$false`（ログ・例外は呼ぶ側が決める）。フォルダを消す呼び出しは、これを通す（通せないものは `tests/meta/remove_entry.Tests.ps1` の一覧に理由つきで置く） | 同上 | `removeBookDir`・`RemoveIndex`・`removeOldIndexOf`・`removeOldSystemIndex`・`removeDroppedFolders`・`removeTmpDir`・`removeStaleProcessDirs`・インポート・本文インデックスの TSV の削除 |
 | `moveDirectoryUnder` | source, destination, root, sourceRoot（省略時は root） | bool | 移すと元の場所から無くなるため、元（sourceRoot の下）と先（root の下）の両方を `testRemovablePath` で確かめてから `moveDirectoryRetry` で移して `$true`。偽なら何も移さずに `$false` | 同上 | `RenameIndex`・`renameOldIndexFolder`・インポート（`swapInImportedIndexDir`・`restoreSwappedIndexDir`。元と先で根が違う） |
 | `moveDirectoryRetry` | source, destination, tries（既定 5）, waitMilliseconds（既定 200。試すたびに倍にする） | – | フォルダを移動する。`removeDirectoryRetry` と同じ理由で、待つ時間を倍にしながら数回試す | [インポート](../index-data/format.md#インポートimportindex) | インデックスのインポート（`swapInImportedIndexDir`・`restoreSwappedIndexDir`） |
 | `testAnyEntry` | entries（`EnumerateFiles` などの列挙）, predicate（省略可） | 真偽値 | 条件に合うものが 1 つでもあるか。見つけたところで列挙をやめ、列挙子を必ず Dispose する（`foreach` を途中で抜けると下のフォルダを掴んだまま残り、そのフォルダを移動・削除できなくなるため） | – | 前の版のワークスペースの状態（`getLegacyIndexState`）・インデックスの有無（`testIndexExists`）・元のファイルごとのフォルダの判定（`testIndexBookDir`） |
@@ -103,7 +103,7 @@
 | `testContentIndexCellPrefixed` | book, meta | bool | 場所の行が「セル番地 + タブ + 文字」の形か。メタ情報の `対象` を `testCellPrefixedPlace` に渡して返す | readContentIndexPlaces |
 | `testCellPrefixedPlace` | book, kind | bool | 場所の行が「セル番地 + タブ + 文字」の形か（元のファイルが Excel で、場所の種類が図形・コメント。ふつうの場所の種類は空）。この判定はここだけにあり、検索結果の行（`HitRow.IsCellPrefixed`）も行を作るときにこれで決める | testContentIndexCellPrefixed、検索結果の行を作る所（result_list.ps1） |
 | `splitContentIndexTextByBook` | text | `@{Name; Block}` の並び | 本文インデックスの文字列を元のファイルごとのまとまりに分ける（入れ替えない元のファイルをそのまま写すため）。版が違えば例外 | convertFolderToContentIndex |
-| `getContentIndexBodyText` | text | string | メタ情報の行を除いた中身（システムインデックスの語を作るため） | writeSystemIndexFolder |
+| `getContentIndexBodyText` | text | string | メタ情報の行を除いた中身（2-gram の値を作るため） | getFileGramValues |
 
 ## インデックスの格納形式の目録（`tebunko/index/content_index_format.ps1`・`index_format_store.ps1`）
 
@@ -133,7 +133,7 @@
 | `updateFolderContentIndex` | folder, removeBooks | 同上 | `convertFolderToContentIndex` を同じフォルダに書き、TSV を消す形で呼ぶ | 同上 | publishIndexFolders |
 | `findContentIndexFiles` | root, relPath, recurse | `@{Path; Root; RelDir; RelPath; Ticks; Size}` の配列 | フォルダ以下の本文インデックスのファイルを列挙し、フォルダの順・フォルダの中は名前の順に並べる（Path は `\\?\` 付き。Ticks・Size は読んだ内容を使い回してよいかの判定に使う） | [検索を速くする仕組み](../search/speed.md) | getContentIndexFiles |
 | `findIndexFoldersWithBooks` | root | string[] | 元のファイルごとのフォルダ（本文インデックスに入れる前の TSV）が直下にあるフォルダを返す（インデックス作成が途中で止まったとき） | [インデックスのファイルの形](../index-data/format.md#配置命名規則) | インデックス作成（開始時） |
-| `publishIndexFolders` | pending（フォルダ → 無くなった元のファイル名）, indexRoot, systemRoot, statePath | `@{ Count（書き出したフォルダの数）; Skipped（飛ばしたフォルダの `@{ Rel; Stage; Reason }`）; Published（本文インデックスのファイルを書き終えたフォルダ）}` | フォルダごとに、本文インデックスに書き（`updateFolderContentIndex`）、TSV を消し、書いた中身からシステムインデックスの txt を作る（`writeSystemIndexFolder`）。txt の「反映待ち」はまとめて状態ファイルに書く。フォルダの 1 つが失敗しても例外にせず、そのフォルダを飛ばして残りを続け、ログに黄色で出す（本文インデックスを書き終える前なら何も書き換えない） | 同上 | インデックス作成（indexer_run.ps1 の flushPending） |
+| `publishIndexFolders` | pending（フォルダ → 無くなった元のファイル名）, indexRoot | `@{ Count（書き出したフォルダの数）; Skipped（飛ばしたフォルダの `@{ Rel; Stage; Reason }`）; Published（本文インデックスのファイルを書き終えたフォルダ）}` | フォルダごとに、本文インデックスに書き（`updateFolderContentIndex`）、TSV を消し。フォルダの 1 つが失敗しても例外にせず、そのフォルダを飛ばして残りを続け、ログに黄色で出す（本文インデックスを書き終える前なら何も書き換えない） | 同上 | インデックス作成（indexer_run.ps1 の flushPending） |
 | `readContentIndexLines` | path, book, location, firstLine, count, cache, marks | `@{Rows; End; Marks}` | 本文インデックスのファイルの中の元のファイル book・場所 location の firstLine 行目から count 行を返す（行の数え方は検索と同じ。`Rows` は `@{LineNumber; Line}` の並び。`End` は count 行に満たなかった＝その先にもう行が無い）。cache（`newTsvTextCache`）に同じ本文インデックスのファイルの内容があれば読み直さない。無ければ、`marks`（前に読んだときの控え。ファイルのパス・更新日時・サイズ・場所の一覧・場所ごとの 200 行ごとの文字の位置）が今のファイルのものである間は、場所の一覧を使い回し、控えのうち目当てに一番近い所から必要な行までだけを読む（`readContentIndexRange`）。`marks` が無い・別のファイルのもの・更新日時かサイズが違うとき、範囲を読めないとき、読んでいる間にファイルが置き換わったときは、ファイルの全体を読む（初めて開くファイルの最初の読みはこれに当たる）。更新した控えを `Marks` で返す（引数で渡し戻り値で受ける。複数のスレッドで動くため `$script:` に持たない。渡された控えは書き換えない）。更新日時もサイズも同じまま中身だけが書き換わったファイルは、控えが古いことを見分けられない。読めない・見つからなければ空 | [選択行のプレビュー](../gui/preview.md) | 画面 |
 | `readContentIndexRange` | path, start, end, firstLine, lines, baseLine（既定 1）, checkpoints | string / null | 本文インデックスのファイル（UTF-16LE・BOM 付き）の、文字の位置 `start`（含む）から `end`（含まない）までを `start` から数え、`firstLine` 行目の先頭から `lines` 個目の改行までを文字列で返す（それより前の行は持たない）。`baseLine` は `start` の行の番号。`checkpoints`（ハッシュテーブル）を渡すと、通った 200 行ごとの行の先頭（行の番号 → 文字の位置）を足す。BOM が無ければ `$null`（呼び出し側がファイルの全体を読む）。置き換え・削除を妨げない共有モードで開く | 同上 | readContentIndexLines |
 

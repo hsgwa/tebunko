@@ -1,6 +1,6 @@
 ﻿# 検索を速くする仕組み
 
-扱うこと: 本文インデックスの読み込みと照合の実装、正規表現の判定（`lines`/`filter`/`scan`）、並列検索・スレッドの使い回し・読んだ内容の使い回しによる速さの実測。扱わないこと: 検索の仕様そのもの（[検索](index.md)）、Windows Search による高速検索（[高速検索（Windows Search）](fast-search.md)）。先に読むページ: [検索](index.md)。
+扱うこと: 本文インデックスの読み込みと照合の実装、正規表現の判定（`lines`/`filter`/`scan`）、並列検索・スレッドの使い回し・読んだ内容の使い回しによる速さの実測。扱わないこと: 検索の仕様そのもの（[検索](index.md)）、検索で照合するファイルを絞る 2-gram の索引（[2-gram の索引](../index-data/gram-index.md)）。先に読むページ: [検索](index.md)。
 
 本文インデックス（[インデックスのファイルの形](../index-data/format.md#配置命名規則)）の読み込みと照合、結果 1 件の作成は PowerShell から .NET を直接呼ぶ（`tebunko/search/content_index_search.ps1` の `searchContentIndex`／`searchContentIndexFiles`。`FileStream`＋`StreamReader`＋`[regex]`。`Select-String` で 1 件ずつ結果を作ると件数が多いときに遅いため）。資産管理・EDR に注目されやすい実行時コンパイル（`Add-Type`／csc.exe）は使わない（[画面の実装](../gui/implementation.md#実行時コンパイルcscexeを使わない)。実測: 50 万行で約 0.6 秒）。
 

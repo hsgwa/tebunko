@@ -244,7 +244,7 @@ Describe "本文インデックスのファイルの作成と検索" -Tag Io {
         @([System.IO.Directory]::GetFiles($dir) | ForEach-Object { [System.IO.Path]::GetFileName($_) }) -join "," | Should -Be "content_index.xlsx.001.tsv"
     }
 
-    It "TSV の残ったフォルダを見つけ、本文インデックスのファイルとシステムインデックスに書き出して TSV を消す" {
+    It "TSV の残ったフォルダを見つけ、本文インデックスのファイルに書き出して TSV を消す" {
         $work = Join-Path $TestDrive "publish"
         $index = "$work\index"
         newTsv "$index\人事\A.xlsx\$(toIndexFileName "S")" @("採用の計画")
@@ -257,22 +257,12 @@ Describe "本文インデックスのファイルの作成と検索" -Tag Io {
 
         $pending = New-Object 'System.Collections.Generic.Dictionary[string,object]'
         foreach ($folder in $found) { $pending[$folder] = @() }
-        $state = "$work\system_index_state.tsv"
-        $published = publishIndexFolders $pending $index "$work\system_index" $state
+        $published = publishIndexFolders $pending $index
         $published.Count | Should -Be 2
         @($published.Skipped).Count | Should -Be 0
         (findIndexFoldersWithBooks $index).Count | Should -Be 0
         [System.IO.File]::Exists("$index\人事\content_index.xlsx.001.tsv") | Should -Be $true
         [System.IO.File]::Exists("$index\人事\2025\content_index.docx.001.tsv") | Should -Be $true
-        $txt = "$work\system_index\人事\2025\${systemIndexFileName}"
-        [System.IO.File]::Exists($txt) | Should -Be $true
-        (readSystemIndexState $state).Pending["人事\2025\${systemIndexFileName}"] | Should -Be ([System.IO.File]::GetLastWriteTimeUtc($txt).Ticks)
-        # 書き出したフォルダと本文インデックスのファイルに NotContentIndexed が付く（システムインデックス側には付けない）
-        ([System.IO.File]::GetAttributes("$index\人事") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
-        ([System.IO.File]::GetAttributes("$index\人事\content_index.xlsx.001.tsv") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
-        ([System.IO.File]::GetAttributes("$index\人事\2025") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
-        ([System.IO.File]::GetAttributes("$index\人事\2025\content_index.docx.001.tsv") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
-        ([System.IO.File]::GetAttributes($txt) -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Be 0
     }
 
     It "途中にジャンクションがあるフォルダは、リンクの先の本文インデックスのファイルを消さず・書かず、飛ばしてログに出す" {
@@ -291,7 +281,7 @@ Describe "本文インデックスのファイルの作成と検索" -Tag Io {
         $pending = New-Object 'System.Collections.Generic.Dictionary[string,object]'
         $pending["$index\営業\deep"] = @("C.xlsx")
 
-        (publishIndexFolders $pending $index "$work\system_index" "$work\state.tsv").Count | Should -Be 0
+        (publishIndexFolders $pending $index).Count | Should -Be 0
 
         [System.IO.File]::Exists("$outside\deep\content_index.xlsx.001.tsv") | Should -Be $true
         Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*書き出しませんでした*" }
@@ -323,8 +313,6 @@ Describe "本文インデックスのファイルの作成と検索" -Tag Io {
         [System.IO.Directory]::Exists("$folder\空.xlsx") | Should -Be $true
         [System.IO.Directory]::Exists("$folder\B.xlsx") | Should -Be $false
         (findIndexFoldersWithBooks $index).Count | Should -Be 0
-        # 本物のフォルダは、システムインデックスでも自分の txt を持つ（親の txt に入れない）
-        (getSystemIndexFolderTsvPaths $folder | ForEach-Object { [System.IO.Path]::GetFileName($_) }) -join "," | Should -Be "content_index.xlsx.001.tsv"
     }
 
     It "大きさの上限を超えたら次の番号の本文インデックスのファイルに分け、変わった本文インデックスのファイルだけを書き直す。検索の結果は変わらない" {

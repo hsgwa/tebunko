@@ -1,4 +1,4 @@
-# 部品ごとの関数（設定・ファイル）
+﻿# 部品ごとの関数（設定・ファイル）
 
 扱うこと: 設定ファイル（`tebunko/core/settings.ps1`）、検索対象でチェックを外したフォルダ（`search_excludes.ps1`）、ワークスペース（`workspace.ps1`）とその切り替え（`workspace_mover.ps1`）、ファイル・フォルダ操作（`shared/core/fs.ps1`・`folder.ps1`・`office_file_kind_view.ps1`）の関数一覧（入力・出力・概要・使用元）。扱わないこと: 取り込み一覧・インデックスの管理（[部品ごとの関数（インデックス作成）](indexer.md)）。先に読むページ: [部品から関数一覧を引く](index.md)。
 
@@ -45,10 +45,9 @@
 | `getWorkspaceTmpDir` | workspace | string | 取り込みの作業フォルダの候補 `<TmpRoot>\<PC の鍵>\<PID>`。副作用は無い | selectTmpDir, index_migrate.ps1 |
 | `selectTmpDir` | workspace | `@{Dir; Reason}` | 作業フォルダの置き場所を決める。候補のパスに `[` `]` があれば（Excel が保存できない）`Dir` を空にして `Reason = Brackets`、候補の長さに取り込みのスレッドが下に作る名前の分を足して `$excelMaxPath` 以上なら `Reason = TooLong`。どちらでもなければ候補のまま（`Reason` は空）。`%TEMP%` には逃がさない | paths.ps1, indexer_run.ps1, extract_office.ps1, index_migrate.ps1 |
 | `getTmpDirUnavailableMessage` | reason | string | 作業フォルダを置けない理由（`Brackets`・`TooLong`・`Link`（作業領域の途中にリンクがある）・その他）を、利用者向けの 1 文にする | indexer_run.ps1, index_migrate.ps1 |
-| `getLegacyIndexState` | dir | `@{HasLegacyIndex; ContentEmpty; HasLegacySystemIndex}` | 前の版のワークスペースの状態。`index\` の直下のフォルダに元のフォルダ.txt があれば前の版のしるし（`HasLegacyIndex`）。`store\content\` と前の版の `content_index\` がどちらも空か（`ContentEmpty`）。空のときだけ、`system_index\` に前の名前の txt があるかも調べる | indexing_tab.ps1, workspace_jobs.ps1, index_archive.ps1, indexer_run.ps1, paths.ps1 |
-| `testLegacyCleanupNeeded` | state | bool | 取り込み直しを始めるときに、前の版のシステムインデックスを片付けるか。本文インデックスの置き場が空で、前の前の版のしるしか前の名前の txt があるとき | index_archive.ps1, indexer_run.ps1 |
+| `getLegacyIndexState` | dir | `@{HasLegacyIndex; ContentEmpty}` | 前の版のワークスペースの状態。`index\` の直下のフォルダに元のフォルダ.txt があれば前の版のしるし（`HasLegacyIndex`）。`store\content\` と前の版の `content_index\` がどちらも空か（`ContentEmpty`） | indexing_tab.ps1, workspace_jobs.ps1, index_archive.ps1, indexer_run.ps1, paths.ps1 |
 | `getLegacyIndexMessage` | dir, hasLegacyIndex | string | 前の版のインデックスが見つかったときの知らせ。しるしが無ければ空 | workspace_jobs.ps1, indexer_run.ps1 |
-| `clearLegacySystemIndex` | dir | `@{Ok; Reason}` | 前の版のシステムインデックスを片付ける。状態ファイルの中身を排他の中で空にしてから、`system_index\` を消す。どちらかに失敗したら `Ok = $false`（次に呼べば続きから） | indexer_run.ps1, index_archive.ps1 |
+| `removeOldSystemIndex` | dir | `@{Ok; Reason}` | 前の版が作った検索用のファイル（`system_index\` と `system_index_state.tsv`）を消す。ワークスペースの下で途中にリンクが無いことを確かめてから消し（`removeDirectoryUnder`・`removeFileUnder`）、無ければ何もしない。消せなくても例外にせず `Ok = $false`（次に呼べば続きから） | indexer_run.ps1, index_archive.ps1 |
 | `newWorkspace` | dir | `Workspace` | `Workspace` のインスタンスを作る（クラスの本体では型の名前を書けないため、`WorkspaceMover`・`IndexCatalog` がこの関数を通して作る） | workspace_mover.ps1 |
 
 ## ワークスペースの切り替え（`tebunko/core/workspace_mover.ps1`。`WorkspaceMover`）
@@ -98,7 +97,6 @@
 | `formatFileTime` | time | string | 取り込み一覧に記録する日時（`yyyy/MM/dd HH:mm:ss`）。更新の有無はこの文字列で比べる | [取り込み一覧](../indexing/ingest-list.md) | インデックス作成 |
 | `copyFileShared` | sourcePath, destPath | – | 元のファイルを読み取りだけで開いてコピーする（ほかのアプリの読み書き・削除を妨げない）。インデックス作成は、このコピーを開く | [取り込み対象のファイルは書き換えない](../../safety/file-access.md#取り込み対象のファイルは書き換えない) | インデックス作成 |
 | `invokeWithSourceCopy` | sourcePath, copyPath, readBlock, extraFiles | readBlock の出力 | 元のファイルを `copyFileShared` で作業領域へコピーし、コピーを読む処理（readBlock）を実行して、終わったらコピー（と extraFiles）を必ず消す。読む処理が成功したのにコピーを消せなかったときは、`作業領域のコピーを消せませんでした: <元のメッセージ>` を投げて取り込みの失敗にする（テキスト・PDF・Excel・Word・PowerPoint で共通） | [取り込み対象のファイルは書き換えない](../../safety/file-access.md#取り込み対象のファイルは書き換えない) | インデックス作成 |
-| `setWindowsSearchExcluded` | path, Recurse（スイッチ） | `@{Ok; Changed; Reason}` | フォルダ（またはファイル）に「内容のインデックスを作成しない」属性を付ける。Recurse 無しは path 自身と直下のファイルだけ、あれば下のすべてに付ける。既に付いているものは Changed に数えない。Recurse では、中のリンク（ジャンクション・シンボリックリンク）へ降りず、リンク自身にも付けない（先の、対象の外のファイルに付かないようにするため。`getFilesNoFollow`）。Recurse でフォルダを渡したときは、根フォルダに既に付いていれば（前回すべて付け終えたとみなし）下はたどらず `GetAttributes` 1 回で終え、付いていなければ下をすべて付け終えて成功したときにだけ最後に根へ付ける（途中で失敗した回は根に付けない）。1 件ずつの失敗・列挙そのものの失敗も例外にせず Ok=`$false`・Reason を返す | [Windows Search の対象から外す（`NotContentIndexed`）](../index-data/publish.md#windows-search-の対象から外すnotcontentindexed) | インデックス作成（`indexer_run.ps1`・`index_store.ps1`・`content_index_store.ps1`・`source_map.ps1`） |
 | `testWindowsSearchExcluded` | path | bool | フォルダ（またはファイル）に「内容のインデックスを作成しない」属性が付いているか調べる。無ければ `$false` | 同上 | `newWorkerTmpDir`（親の作業フォルダに付いていれば、スレッドの作業フォルダにも同じ属性を付ける） |
 | `getFolderKey` | dir | string（16 進 64 文字） | フォルダのパスを小文字にした SHA-256。名前付きミューテックス・イベントの名前に使う。FIPS モードの Windows でも動くよう、FIPS 準拠の実装（`SHA256CryptoServiceProvider`）を使う | – | newAppMutex, 画面（多重起動の防止） |
 | `testWritableFolder` | dir | bool | フォルダにファイルを作れるか（試しに作ったファイルは閉じると消える）。無いフォルダは `$false` | [データの置き場所とパスの決め方](../structure/data.md) | getDataDir, 画面（置き場所の変更） |

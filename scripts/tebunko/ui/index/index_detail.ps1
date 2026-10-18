@@ -4,7 +4,6 @@
 foreach ($detailName in @(
         "IndexDetailBody", "IndexDetailName", "IndexDetailPath", "IndexDetailPathButton", "IndexDetailEditError", "IndexDetailFolderStatus", "IndexDetailFolderIcon",
         "IndexDetailBadge", "IndexDetailBadgeText", "IndexDetailBadgeSub", "IndexErrorText", "IndexErrorHintText", "IndexDetailUpdated", "IndexDetailCount",
-        "IndexDetailFastBadge", "IndexDetailFastBadgeText", "IndexDetailFastReason", "IndexDetailFastSteps", "IndexDetailFastChecked", "IndexDetailFastNote",
         "IndexingDetailPanel", "IndexingProgressBar", "IndexingCountText", "IndexingFileText", "MultiSelectHintText")) {
     $ui[$detailName] = $ui.IndexDetailHost.Content.FindName($detailName)
 }
@@ -390,25 +389,18 @@ function getIndexTargetItem {
 }
 
 function updateIndexDetailPanel {
-    # 選んだインデックスの値の行と、高速検索の反映の進み具合を出す（文言の組み立ては getIndexDetailView）。
-    # 選びなおしたとき・取り込みの集計や高速検索の確かめが届いたときに呼ぶ
+    # 選んだインデックスの値の行を出す（文言の組み立ては getIndexDetailView）。
+    # 選びなおしたとき・取り込みの集計が届いたときに呼ぶ
     $selected = @()
-    $entry = $null
     $checkedItems = @(getIndexCheckedItems @($script:targetItems))
     $item = getIndexDetailItem $ui.IndexGrid.SelectedItem $checkedItems
     if ($null -ne $item) {
-        $checkedText = if ($null -ne $script:fastSearchCheckedAt) { "最終確認 $($script:fastSearchCheckedAt.ToString('HH:mm'))" } else { "" }
         $selected = @(@{
             Name = $item.Name; Path = $item.Path; Enabled = $item.Enabled; FolderStatus = $item.StatusText
             FolderMissing = ($item.StatusChecked -and !$item.FolderExists); FolderChecked = [bool]$item.StatusChecked
             IndexText = $item.IndexText; IndexLevel = $item.IndexLevel; IndexSub = $item.IndexSub; FileCountText = $item.FileCountText
-            LastIngestedText = $item.LastIngestedText; FastText = $item.FastText; FastLevel = $item.FastLevel
-            FastToolTip = $item.FastToolTip; FastSteps = $item.FastSteps; FastCheckedText = $checkedText
+            LastIngestedText = $item.LastIngestedText
         })
-        $progress = $script:fastSearchProgress
-        if ($progress -and $progress.ByIndex -and $progress.ByIndex.ContainsKey($item.Name)) {
-            $entry = $progress.ByIndex[$item.Name]
-        }
     }
     # 選んだインデックスが変わったら、失敗の一覧もそのインデックスの分に書き直す（変わらないときは置き直さない）
     $failedName = if ($null -ne $item) { [string]$item.Name } else { "" }
@@ -416,7 +408,7 @@ function updateIndexDetailPanel {
         updateFailedList $script:indexingState
     }
     $multiCount = getIndexDetailMultiCount $checkedItems.Count
-    $view = getIndexDetailView $selected $entry $multiCount $script:indexingView
+    $view = getIndexDetailView $selected $multiCount $script:indexingView
 
     $ui.IndexDetailTitle.Text = $view.Title
     $ui.IndexDetailBody.Visibility = if ($view.Selected) { "Visible" } else { "Collapsed" }
@@ -469,17 +461,6 @@ function updateIndexDetailPanel {
         }
         $ui.IndexDetailRows.ItemsSource = $rows
     }
-    setIndexBadge $ui.IndexDetailFastBadge $ui.IndexDetailFastBadgeText $view.Fast.State $view.Fast.Level
-    $ui.IndexDetailFastReason.Text = $view.Fast.Reason
-    $ui.IndexDetailFastReason.Visibility = if ($view.Fast.Reason) { "Visible" } else { "Collapsed" }
-    $ui.IndexDetailFastSteps.Text = (@($view.Fast.Steps | ForEach-Object { "・$_" }) -join "`n")
-    $ui.IndexDetailFastSteps.Visibility = if (@($view.Fast.Steps).Count -gt 0) { "Visible" } else { "Collapsed" }
-    $ui.IndexDetailFastPanel.Visibility = if ($view.Fast.Shown) { "Visible" } else { "Collapsed" }
-    $ui.IndexDetailFastText.Text = $view.Fast.Text
-    $ui.IndexDetailFastBar.Value = $view.Fast.Value
-    $ui.IndexDetailFastChecked.Text = $view.Fast.Checked
-    $ui.IndexDetailFastNote.Text = $view.Fast.Note
-    $ui.IndexDetailFastNote.Visibility = if ($view.Fast.Note) { "Visible" } else { "Collapsed" }
 }
 
 function updateIndexSummaryText {

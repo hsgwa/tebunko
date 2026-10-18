@@ -23,7 +23,7 @@ BeforeAll {
 
 Describe "newSearchRequest" -Tag Unit {
     It "検索条件を入れ、進み具合を始めの値にする" {
-        $request = newSearchRequest "単価" $true @("x") 100 @{ CaseSensitive = $true; FileKinds = @("excel"); IncludeShapes = $false } $true
+        $request = newSearchRequest "単価" $true @("x") 100 @{ CaseSensitive = $true; FileKinds = @("excel"); IncludeShapes = $false } "C:\ws"
         $request.Word | Should -Be "単価"
         $request.Limit | Should -Be 100
         $request.CaseSensitive | Should -Be $true
@@ -31,7 +31,8 @@ Describe "newSearchRequest" -Tag Unit {
         $request.FileFilter | Should -Not -Be ""
         $request.IncludeShapes | Should -Be $false
         $request.IncludeComments | Should -Be $true
-        $request.UseFast | Should -Be $true
+        $request.WorkDir | Should -Be "C:\ws"
+        $request.GramUsed | Should -Be $false
         $request.Total | Should -Be -1
         $request.Finished | Should -Be $false
         $request.IsSynchronized | Should -Be $true
@@ -55,7 +56,6 @@ Describe "invokeSearchRequest" -Tag Io {
         (takeHits $request).Count | Should -Be 2
         $request.Total | Should -Be 2
         $request.Done | Should -Be 2
-        $request.FastUsed | Should -Be $false
     }
 
     It "壊れた本文インデックスのファイルが混ざっても、Error にせず、ほかのヒットを返し、飛ばしたファイルを Skipped に入れる" {
@@ -352,26 +352,6 @@ Describe "検索の司令のスクリプト（searchServiceScript）" -Tag Io {
     }
 }
 
-Describe "invokeSearchRequest（高速検索）" -Tag Io {
-    BeforeAll {
-        $tsvRoot = Join-Path $TestDrive "fast_tsv"
-        newTsv "$tsvRoot\A社.xlsx\Sheet1.tsv" @("単価`t105")
-        $contentIndexRoot = Join-Path $TestDrive "fast_content_index"
-        $contentIndexFiles = newContentIndexFiles $tsvRoot $contentIndexRoot
-    }
-
-    It "Windows Search が使えれば、候補の本文インデックスのファイルだけを照合する" {
-        Mock testWindowsSearch { $true }
-        Mock getFastSearchContentIndexFiles { @{ Folders = @(); ContentIndexFiles = $contentIndexFiles } }
-        $request = newSearchRequest "単価" $true @($contentIndexRoot) 0 @{} $true
-        invokeSearchRequest $request
-        $request.FastAvailable | Should -Be $true
-        $request.FastUsed | Should -Be $true
-        (takeHits $request).Count | Should -Be 1
-        Should -Invoke getFastSearchContentIndexFiles -Times 1 -Exactly
-    }
-}
-
 Describe "invokeSearchRequest（gram 索引）" -Tag Io {
     BeforeAll {
         $tsvRoot = Join-Path $TestDrive "gram_tsv"
@@ -381,38 +361,31 @@ Describe "invokeSearchRequest（gram 索引）" -Tag Io {
         $contentIndexFiles = newContentIndexFiles $tsvRoot $contentIndexRoot
     }
 
-    It "gram 索引で絞れたら GramUsed が立ち、Windows Search には頼らず、絞った分だけを照合する" {
+    It "gram 索引で絞れたら GramUsed が立ち、絞った分だけを照合する" {
         $narrowed = @{ Folders = @(); ContentIndexFiles = @($contentIndexFiles | Select-Object -First 1) }
         Mock getGramContentIndexFiles { $narrowed }
-        Mock testWindowsSearch { $true }
-        Mock getFastSearchContentIndexFiles { throw "呼ばれないはず" }
-        $request = newSearchRequest "単価" $true @($contentIndexRoot) 0 @{} $true
+        $request = newSearchRequest "単価" $true @($contentIndexRoot) 0 @{}
         invokeSearchRequest $request
         $request.Error | Should -BeNullOrEmpty
         $request.GramUsed | Should -Be $true
-        $request.FastUsed | Should -Be $false
         $request.Total | Should -Be 1
-        Should -Invoke getFastSearchContentIndexFiles -Times 0 -Exactly
     }
 
-    It "gram 索引で絞れなかったら、Windows Search が使えれば高速検索に回る（GramUsed は立たない）" {
+    It "gram 索引で絞れなかったら、すべてを照合する（GramUsed は立たない）" {
         Mock getGramContentIndexFiles { $null }
-        Mock testWindowsSearch { $true }
-        Mock getFastSearchContentIndexFiles { @{ Folders = @(); ContentIndexFiles = @($contentIndexFiles) } }
-        $request = newSearchRequest "単価" $true @($contentIndexRoot) 0 @{} $true
+        $request = newSearchRequest "単価" $true @($contentIndexRoot) 0
         invokeSearchRequest $request
         $request.GramUsed | Should -Be $false
-        $request.FastUsed | Should -Be $true
-        Should -Invoke getFastSearchContentIndexFiles -Times 1 -Exactly
+        $request.Total | Should -Be @($contentIndexFiles).Count
+        (takeHits $request).Count | Should -Be 1
     }
 
     It "gram 索引で 0 件まで絞ったとき、GramUsed が立ち、集めた数は 0（画面は「インデックスが未作成」にしない）" {
         Mock getGramContentIndexFiles { @{ Folders = @(); ContentIndexFiles = @() } }
-        $request = newSearchRequest "単価" $true @($contentIndexRoot) 0 @{} $true
+        $request = newSearchRequest "単価" $true @($contentIndexRoot) 0 @{}
         invokeSearchRequest $request
         $request.Error | Should -BeNullOrEmpty
         $request.GramUsed | Should -Be $true
-        $request.FastUsed | Should -Be $false
         $request.IndexTotal | Should -Be 0
         $request.Total | Should -Be 0
         (takeHits $request).Count | Should -Be 0
@@ -421,20 +394,10 @@ Describe "invokeSearchRequest（gram 索引）" -Tag Io {
     It "gram 索引で絞った候補が、ファイルの種類の絞り込みで全部外れたとき、GramUsed が立つ（ヒットは 0 件）" {
         $narrowed = @{ Folders = @(); ContentIndexFiles = @($contentIndexFiles | Select-Object -First 1) }
         Mock getGramContentIndexFiles { $narrowed }
-        $request = newSearchRequest "単価" $true @($contentIndexRoot) 0 @{ FileKinds = @("word") } $true
+        $request = newSearchRequest "単価" $true @($contentIndexRoot) 0 @{ FileKinds = @("word") }
         invokeSearchRequest $request
         $request.GramUsed | Should -Be $true
         $request.IndexTotal | Should -Be 1
         (takeHits $request).Count | Should -Be 0
-    }
-
-    It "どちらも使えなければ、すべてを照合する（GramUsed も FastUsed も立たない）" {
-        Mock getGramContentIndexFiles { $null }
-        $request = newSearchRequest "単価" $true @($contentIndexRoot) 0 @{} $false
-        invokeSearchRequest $request
-        $request.GramUsed | Should -Be $false
-        $request.FastUsed | Should -Be $false
-        $request.Total | Should -Be @($contentIndexFiles).Count
-        (takeHits $request).Count | Should -Be 1
     }
 }

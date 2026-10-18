@@ -8,7 +8,6 @@
         loadIndexTree
         # 検索対象のツリーを読み込んだので、［検索］の可否を決め直す
         updateSearchButton
-        checkFastSearchAvailable
         refreshIndexSummary
     }
 

@@ -1,7 +1,7 @@
 ﻿# インデックス作成の本体（invokeIndexer）。画面を使わない起動口（indexer.ps1）と、画面のインデクサのスレッド（IndexingSession）が呼ぶ。
 # 設計は docs/design/indexing/parallel.md、docs/design/structure/threads.md「画面とインデクサの受け渡し」。
 #
-# ・司令のスレッド（invokeIndexer を呼んだスレッド）が、クロール・確認・取り込み一覧・本文インデックスのファイルとシステムインデックスの書き出しを行う。
+# ・司令のスレッド（invokeIndexer を呼んだスレッド）が、クロール・確認・取り込み一覧・インデックスのファイルと検索用の索引の書き出しを行う。
 #   Office の COM には触らない
 # ・1 ファイルの取り込み（Office で開いて TSV にする）は、取り込みのワーカー（STA のスレッド。1 種類）が行う。Office のアプリは、
 #   初めてそのアプリのファイルを受けたワーカーが 1 つ持ち、そのアプリのファイルはそのワーカーにだけ渡す（IngestDispatcher・selectIngestWorker）。
@@ -526,12 +526,12 @@ function flushLeftovers {
         return
     }
     if ($leftover.Count -gt 0) {
-        writeIndexerLog "集約ファイルに入れていないインデックス（$($leftover.Count) フォルダ）をまとめています…"
+        writeIndexerLog "まとめていないインデックス（$($leftover.Count) フォルダ）をまとめています…"
     }
     if ($removals -gt 0) {
-        writeIndexerLog "本文インデックスから外し終えていない削除（$removals フォルダ）をまとめています…"
+        writeIndexerLog "インデックスから外し終えていない削除（$removals フォルダ）をまとめています…"
     }
-    $reporter.Progress(${indexingPhaseCrawl}, 0, 0, 0, "集約ファイルに入れていないインデックスをまとめています…")
+    $reporter.Progress(${indexingPhaseCrawl}, 0, 0, 0, "まとめていないインデックスをまとめています…")
     foreach ($folder in $leftover) {
         $pending.MarkFolder($folder)
     }
@@ -615,10 +615,6 @@ function completeIngestJob {
         }
         if ($result.Ok) {
             $pending.Add($result.RelPath, $false)
-            # 高速検索: このフォルダの システムインデックスを作り直すまで、検索ではこのフォルダを必ず照合させる
-            if (!(markSystemIndexChanged @([System.IO.Path]::GetDirectoryName($result.RelPath)))) {
-                writeIndexerLog "    システムインデックスの状態を書き込めませんでした（インデックス作成の終わりに作り直します）。" "Yellow"
-            }
             writeIndexerLog "    TSV $($result.TsvCount) 件を作成しました。"
             $row.状態 = ${stateDone}
             $row.TSV数 = [string]$result.TsvCount
@@ -709,19 +705,16 @@ function completeRoundIndexes {
         throw "チェックの付いたクロール対象フォルダがありません。画面で取り込むフォルダにチェックを付けてください。"
     }
 
-    # 前の版のインデックス（index\）が見つかれば知らせ、取り込み直しを始めるときは前の版のシステムインデックスを片付ける。
-    # インデックスのフォルダ（store\）を作る前に行う（片付けに失敗したら作らずに終わる）
+    # 前の版のインデックス（index\）が見つかれば知らせる。前の版が作った検索用のファイル（system_index\）は、新しい版では使わないので消す。
+    # 消せなくても止めずにログに残し、次の回にもう一度消す
     $legacyState = getLegacyIndexState $workspace.Dir
     $legacyMessage = getLegacyIndexMessage $workspace.Dir $legacyState.HasLegacyIndex
     if ($legacyMessage) {
         writeIndexerLog $legacyMessage "Yellow"
     }
-    if (testLegacyCleanupNeeded $legacyState) {
-        writeIndexerLog "前の版のインデックス（高速検索用）を片付けています…"
-        $cleanup = clearLegacySystemIndex $workspace.Dir
-        if (!$cleanup.Ok) {
-            throw "前の版のインデックス（高速検索用）を片付けられませんでした（$($cleanup.Reason)）。tebunko の画面やエクスプローラーで開いていれば閉じてから、もう一度インデックス作成を行ってください。"
-        }
+    $oldSearchFiles = removeOldSystemIndex $workspace.Dir
+    if (!$oldSearchFiles.Ok) {
+        writeIndexerLog "前の版が作った検索用のファイルを消せませんでした（$($oldSearchFiles.Reason)）。次のインデックス作成でもう一度消します。" "Yellow"
     }
 
     # 古い形式（作り直す前の形式）のインデックスがあれば知らせる。作り直しは、この回で全部を取り込み直す（古い取り込み一覧は読まない）
@@ -737,14 +730,6 @@ function completeRoundIndexes {
     }
 
     [System.IO.Directory]::CreateDirectory($workspace.IndexDir) | Out-Null
-    # 前の版から続けて使うワークスペース・別のドライブへ写したワークスペース・取り込んだワークスペースもここで付く
-    # （継ぐかどうかに頼らず、ここで一度だけインデックスのフォルダ全体に付ける。入れた直後にはそれぞれの場所でも付ける）。
-    # 根フォルダに未だ付いていない回（主に初回）は下をすべてたどるため時間がかかるので、先に 1 行残しておく
-    writeIndexerLog "インデックスのフォルダを Windows Search の対象から外しています…"
-    $nci = setWindowsSearchExcluded $workspace.StoreDir -Recurse
-    if (!$nci.Ok) {
-        writeIndexerLog "インデックスのフォルダを Windows Search の対象から外せませんでした（$($nci.Reason)）。高速検索が効くまで時間がかかることがあります。" "Yellow"
-    }
     $selected = initTmpDir
     $script:tmpDir = $selected.Dir
     $script:tmpDirReason = $selected.Reason
@@ -943,13 +928,6 @@ function completeRoundIndexes {
         # 取り込む仕事が無かった（書き出せなかったフォルダは、「出」が無いので次の始めに残る）
         $journal.AddRecord((convertToIngestJournalLine "終"))
         $journal.Close()
-        # 取り込むファイルが無くても、システムインデックスがまだ無いフォルダ（この版に上げた直後など）は作る
-        $reporter.Progress(${indexingPhaseFinish}, 0, 0, 0, "システムインデックス（高速検索用）を確かめています…")
-        try {
-            [void](updateSystemIndexes -shouldStop { $channel.Stop })
-        } catch {
-            writeIndexerLog "システムインデックスを作れませんでした（次のインデックス作成で作り直します）: $($_.Exception.Message)" "Yellow"
-        }
         updateGramIndexesOfRound { $channel.Stop }
         completeRoundIndexes $roundNames
         $reporter.Progress(${indexingPhaseFinish}, 0, 0, 0, $(if ($cloudSkipped -eq 0) { "更新が必要なファイルはありませんでした" } else { "クラウドにだけあるファイルは、ダウンロードせずに残しました" }))
@@ -1110,15 +1088,7 @@ function completeRoundIndexes {
         # 初めて取り込んだインデックスは、最初に書き出した時点ではまだフォルダが無いため、ここでもう一度書く
         # （work\content_index\<インデックス名>\source_folder.txt。インデックス 1 個だけをコピーしても元のファイルの場所が分かる）
         writeSourceFolderFile $folders
-        # 高速検索用の システムインデックスを作り直す。中止したとき・フォルダが見えなくなったときは作らない
-        # （作り直していないフォルダは反映待ちのままのため、検索ではそのフォルダを照合する）
         if (!$dispatcher.Stopped -and !$dispatcher.FolderLost) {
-            $reporter.Progress(${indexingPhaseFinish}, $processed, 0, $ledger.Failures.Count, "システムインデックス（高速検索用）を作っています…")
-            try {
-                [void](updateSystemIndexes -shouldStop { $channel.Stop })
-            } catch {
-                writeIndexerLog "システムインデックスを作れませんでした（次のインデックス作成で作り直します）: $($_.Exception.Message)" "Yellow"
-            }
             $reporter.Progress(${indexingPhaseFinish}, $processed, 0, $ledger.Failures.Count, "検索用の索引（gram 索引）を作っています…")
             updateGramIndexesOfRound { $channel.Stop }
         }

@@ -1,4 +1,4 @@
-﻿# 検索バー（検索ワード・種類のチップ・ファイル内の対象・検索条件・検索ボタン・高速検索の状態）の画面層。
+﻿# 検索バー（検索ワード・種類のチップ・ファイル内の対象・検索条件・検索ボタン）の画面層。
 # 文言と可否の判断は search_bar_view.ps1（テストあり）。検索の実行は search_session.ps1。
 
 # 種類のチップ（${fileKindNames} の値 → ToggleButton）
@@ -48,18 +48,6 @@ function setSearchOptionToUi {
     $ui.CommentCheck.IsChecked = [bool]$option.IncludeComments
     updateScopeButton
     setFileKindsToUi (readFileKinds)
-}
-
-function updateFastSearchView {
-    # 高速検索の使用可否（ワード・［正規表現］を変えたらすぐ、Windows Search が使えるかは確かめたときに変わる）。
-    # 使えるときは緑、使えないときは灰色。情報の印（info）は常に出し、ツールチップで印の意味（使えないときは理由と直し方）を知らせる。
-    # 印の幅は XAML で固定してあり、ここでは変えない
-    $view = getFastSearchView $script:fastAvailable ([bool]$ui.RegexCheck.IsChecked) (getWordText)
-    $ui.FastSearchText.Text = $view.Text
-    $ui.FastBadge.Tag = if ($view.Usable) { "ok" } else { "off" }
-    $ui.FastBadge.ToolTip = $view.Tip
-    $script:fastGoToIndex = [bool]$view.GoToIndex
-    $ui.FastBadge.Cursor = if ($script:fastGoToIndex) { [System.Windows.Input.Cursors]::Hand } else { [System.Windows.Input.Cursors]::Arrow }
 }
 
 function placeSearchBalloon {
@@ -131,23 +119,6 @@ function updateScopeButton {
     $ui.ScopeButton.Tag = if ($view.Changed) { "changed" } else { $null }
 }
 
-function checkFastSearchAvailable {
-    # Windows Search が使えるか（system_index が索引の対象か）を別スレッドで確かめる（画面を固めないように）
-    startJob {
-        param ($systemRoot)
-        @{ Root = $systemRoot; Available = (testWindowsSearch $systemRoot) }
-    } @($workspace.SystemIndexDir) {
-        param ($output, $errorText)
-        $result = if (!$errorText -and $output.Count -gt 0) { $output[0] } else { $null }
-        if ($result -and $result.Root -ne $workspace.SystemIndexDir) {
-            # 確かめている間にワークスペースを変えた（切り替えたときに確かめ直している）
-            return
-        }
-        $script:fastAvailable = if ($result) { [bool]$result.Available } else { $false }
-        updateFastSearchView
-    } (getWorkspaceJobQueue $workspace.SystemIndexDir)
-}
-
 function getCurrentWordNotice {
     # いまの検索ワード・［正規表現］の状態での、正規表現の注意（正しくなければ文言、正しければ ""）
     getWordNotice (getWordText) ([bool]$ui.RegexCheck.IsChecked)
@@ -155,7 +126,6 @@ function getCurrentWordNotice {
 
 function updateWordNotice {
     $ui.WordPlaceholder.Visibility = if ($ui.WordBox.Text -eq "") { "Visible" } else { "Collapsed" }
-    updateFastSearchView
     # 正規表現が正しくないときは、入力欄の枠を赤くし、［正規表現］の下に吹き出しを出す
     $notice = getCurrentWordNotice
     $ui.WordErrorRing.Visibility = if ($notice -ne "") { "Visible" } else { "Collapsed" }
@@ -187,16 +157,13 @@ function updateSearchTarget {
     # 読み込み中・接続できないときは、「インデックスが無い」とは違うため出さない
     $noIndex = [bool]($summary -and $summary["Count"] -eq 0 -and !$script:indexTreeLoading -and !$script:indexTreeConnectError)
     $ui.ResultEmptyState.Visibility = if ($noIndex) { "Visible" } else { "Collapsed" }
-    # 検索できるインデックスが無いときは、高速検索の状態も出さない
-    $ui.FastBadge.Visibility = if ($noIndex) { "Collapsed" } else { "Visible" }
-    $ui.FastSearchSlot.Visibility = $ui.FastBadge.Visibility
     updateConditionFlow
     updateSearchButton
 }
 
 function updateConditionFlow {
     # 検索条件の行の折り返し。判断（getConditionFlow）の結果を、「伸びる空き」の幅に反映する。
-    # 並びの幅が変わったとき・高速検索の印を出す／隠したときに呼ぶ
+    # 並びの幅が変わったときに呼ぶ
     $panel = $ui.ConditionsPanel
     if ($panel.ActualWidth -le 0) { return }
     $items = @($panel.Children | Where-Object { $_ -ne $ui.ConditionsSpacer })
@@ -214,18 +181,12 @@ function updateConditionFlow {
     if ([Math]::Abs($ui.ConditionsSpacer.Width - $flow.SpacerWidth) -gt 0.1) {
         $ui.ConditionsSpacer.Width = $flow.SpacerWidth
     }
-    # 空きの幅が変わると、並びの大きさが同じでも［正規表現］などが横に動く（高速検索の印の出し入れ）。吹き出しもここで置き直す
+    # 空きの幅が変わると、並びの大きさが同じでも［正規表現］などが横に動く。吹き出しもここで置き直す
     placeSearchBalloons
 }
 
 # ---- イベント ----
 $ui.ConditionsPanel.Add_SizeChanged({ safe { updateConditionFlow } })
-# 高速検索が使用不可の印（Windows Search が使えないとき）を押すと、確かめるインデックス管理へ移る（移るかは getFastSearchView の GoToIndex）
-$script:fastGoToIndex = $false
-$ui.FastBadge.Add_MouseLeftButtonUp({
-    if ($script:fastGoToIndex) { safe { selectScreen "IndexTab" } }
-})
-
 
 $ui.WordBox.Add_TextChanged({ safe { updateWordNotice } })
 $ui.WordBox.Add_PreviewKeyDown({

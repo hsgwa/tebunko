@@ -17,9 +17,6 @@
             refreshFolderStatus
             if (!(isIndexing)) {
                 refreshIndexingState
-                if (shouldRefreshFastSearchStatus) {
-                    refreshFastSearchStatus
-                }
             }
             updateSearchTarget
         }

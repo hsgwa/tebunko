@@ -65,7 +65,7 @@ function searchContentIndexFiles {
             if ($null -eq $text) {
                 if ($contentIndexFile.Size -gt ${contentIndexSearchMaxBytes}) {
                     # 全量を読んでメモリを使い切らないよう、大きすぎるファイルは読まずに飛ばす
-                    throw "本文インデックスのファイルが大きすぎます"
+                    throw "インデックスのファイルが大きすぎます"
                 }
                 $stream = [System.IO.FileStream]::new($contentIndexFile.Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
                 $reader = [System.IO.StreamReader]::new($stream, [System.Text.Encoding]::Unicode, $true)

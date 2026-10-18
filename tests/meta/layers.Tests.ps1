@@ -202,20 +202,13 @@ Describe "依存の向き（ファイル単位）" -Tag Meta {
         }
 
         $script:allowances = @(
-            # core → index
-            newAllowances "tebunko/core/workspace.ps1" "tebunko/index/system_index.ps1" @("updateSystemIndexState") "updateSystemIndexState は、index へ移す convertFromSystemIndexState・convertToSystemIndexState を呼ぶため core へは移せない。呼ぶ側の clearLegacySystemIndex（core/workspace.ps1）を index へ移すと消える"
-            # index → search（取り込み一覧・情報源フォルダのファイルの読み書きと、システムインデックスの gram の関数が search にある）
+            # index → search（取り込み一覧・情報源フォルダのファイルの読み書きと、gram の関数が search にある）
             newAllowances "tebunko/index/content_index_store.ps1" "tebunko/search/search_query.ps1" @("truncateHitLine") "ヒットの行を切り詰める truncateHitLine を、定数（hitLineMaxChars・hitLineBeforeMatchChars）と一緒に core へ移すと消える（文字列だけを扱う）"
             newAllowances "tebunko/index/index_archive.ps1" "tebunko/search/source_map.ps1" @("getSourceFolderMap", "readSourceFolderFile") "取り込み一覧・情報源フォルダのファイルを読む関数を index へ移すと消える（ファイルの持ち主は index）"
             newAllowances "tebunko/index/index_store.ps1" "tebunko/search/source_map.ps1" @("getSourceFolderMap", "readSourceFolderFile") "取り込み一覧・情報源フォルダのファイルを読む関数を index へ移すと消える（ファイルの持ち主は index）"
             newAllowances "tebunko/index/index_catalog.ps1" "tebunko/search/source_map.ps1" @("writeSourceFolderFile") "情報源フォルダのファイルを書く writeSourceFolderFile を index へ移すと消える（ファイルの持ち主は index）"
-            newAllowances "tebunko/index/system_index.ps1" "tebunko/search/search_gram.ps1" @(
-                '$systemIndexFileName', '$systemIndexPartBytes', '$systemIndexPathMax', "addTextGrams", "convertFromSystemIndexState", "convertToGramText", "convertToSystemIndexState",
-                "getGramPartCount", "getIndexNameOfRelPath", "getSystemIndexFileNames", "newSystemIndexState", "testSystemIndexPath"
-            ) "システムインデックスの形式と gram の関数（search_gram.ps1 の該当の関数・値。スレッドへ渡す名前の並び newWorkerState の引数にある値も含む）を index へ移すと消える（search が index を読む向きになる）"
-            newAllowances "tebunko/index/gram_index_store.ps1" "tebunko/search/search_gram.ps1" @("addTextGrams") "2-gram を数える addTextGrams を index へ移すと消える（system_index と同じ。search_gram.ps1 の関数）"
+            newAllowances "tebunko/index/gram_index_store.ps1" "tebunko/search/search_gram.ps1" @("addTextGrams") "2-gram を数える addTextGrams を index へ移すと消える（search_gram.ps1 の関数）"
             # indexer → search
-            newAllowances "tebunko/indexer/indexer_plan.ps1" "tebunko/search/search_gram.ps1" @('$systemIndexFileName') "システムインデックスのファイル名の値を index へ移すと消える（search も index を読む）"
             newAllowances "tebunko/indexer/indexer_run.ps1" "tebunko/search/source_map.ps1" @("writeSourceFolderFile") "情報源フォルダのファイルを書く writeSourceFolderFile を index へ移すと消える（ファイルの持ち主は index）"
             # index → indexer（クラス）
             newAllowances "tebunko/index/index_catalog.ps1" "tebunko/indexer/indexer_state.ps1" @("[StatusLedger]") "取り込み一覧の台帳のクラス StatusLedger を index へ移すと消える（台帳は index が使う）"

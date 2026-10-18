@@ -17,7 +17,6 @@ function addIndexItem {
     updateIndexSourceFile
     updateIndexListView
     refreshIndexingState
-    refreshFastSearchStatus
     # フォルダの有無は refreshFolderStatus（別スレッド）が調べるので、ここでは Test-Path を呼ばない
     # （届かないネットワークのフォルダで画面のスレッドが止まらないようにする）。有無は一覧の列で分かる
     setStatus (getIndexAddedStatus $name)

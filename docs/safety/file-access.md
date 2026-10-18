@@ -21,27 +21,25 @@
 
 フォルダを消す・移す・作る呼び出しは、置き場の下で途中にリンクが無いことを確かめる入口（`removeDirectoryUnder`・`moveDirectoryUnder`・`newDirectoryUnder`。確かめは `testRemovablePath`）を通す。置き場の外、または置き場から先までの途中の階層がジャンクション・シンボリックリンクのパスは、置き場の下に見えても、何も消さず・移さず・作らずに偽を返す（呼ぶ側が、ログに出して続けるか、例外にするかを決める）。通せない呼び出し（ワークスペースを移す処理・設定の画面が選んだ根を作る処理など）は、`tests/meta/remove_entry.Tests.ps1` の一覧に、置き場が決まっている理由とともに置く。インポートで zip から展開するファイルは、`FileMode.CreateNew`（同じ名前が既にあれば失敗）で書き、展開の途中に置かれたリンクの先へ書かない。インデックスの書き出し（publishIndexFolders）も、置き場の下で途中にリンクがあるフォルダは飛ばしてログに出し、リンクの先の本文インデックスのファイルを書かず・消さない。
 
-削除の対象になるフォルダの置き場（`store\`・`content_index\`・`system_index\`・`tmp\`）そのものが、利用者によって別の場所へのリンク（ジャンクション）にされているときは、これまでどおり使える（置き場そのものは調べない）。この場合、リンクの先に新しいフォルダが作られることはあるが、先の既存のファイルを消す・上書きすることはない。削除の前に確かめてから消すまでの間に、別のプロセスがフォルダをリンクに差し替えることは想定していない（`removeTreeNoFollow` は、下りる直前と、フォルダのファイルを消す直前にもう一度リンクかどうかを確かめて、この間を短くしている）。
+削除の対象になるフォルダの置き場（`store\`・`content_index\`・`tmp\`）そのものが、利用者によって別の場所へのリンク（ジャンクション）にされているときは、これまでどおり使える（置き場そのものは調べない）。この場合、リンクの先に新しいフォルダが作られることはあるが、先の既存のファイルを消す・上書きすることはない。削除の前に確かめてから消すまでの間に、別のプロセスがフォルダをリンクに差し替えることは想定していない（`removeTreeNoFollow` は、下りる直前と、フォルダのファイルを消す直前にもう一度リンクかどうかを確かめて、この間を短くしている）。
 
-［設定］でワークスペースを変えるときは、前のワークスペースの中の本ツールが作ったファイル・フォルダ（`Workspace.Entries`：`store`・前の版の `content_index`・前の前の版の `index`・`system_index`・状態・ログ・`publish`）だけを新しいワークスペースへ移す（`WorkspaceMover.ChangeWorkspace`）。別のドライブへは写してから元を削除する。選んだフォルダにすでにインデックスなどがあり、利用者が［消して、最初からやり直す］を選んだときは、そのフォルダの本ツールのファイル・フォルダ（同じ `Workspace.Entries`）だけを削除する（`WorkspaceMover.RemoveEntries`）。利用者がワークスペースに置いたほかのファイルは移さず、削除しない。
+［設定］でワークスペースを変えるときは、前のワークスペースの中の本ツールが作ったファイル・フォルダ（`Workspace.Entries`：`store`・前の版の `content_index`・前の前の版の `index`・状態・ログ・`publish`）だけを新しいワークスペースへ移す（`WorkspaceMover.ChangeWorkspace`）。別のドライブへは写してから元を削除する。選んだフォルダにすでにインデックスなどがあり、利用者が［消して、最初からやり直す］を選んだときは、そのフォルダの本ツールのファイル・フォルダ（同じ `Workspace.Entries`）だけを削除する（`WorkspaceMover.RemoveEntries`）。利用者がワークスペースに置いたほかのファイルは移さず、削除しない。
 
-前の版のワークスペース（`index\`。しるしあり）が見つかり、`store\content\` と `content_index\` がどちらも空のまま取り込み直しを始めるときは、インデクサが `system_index\`（本ツールが自分で作ったフォルダ）を削除し、`system_index_state.tsv`（本ツールが自分で作ったファイル）の中身を空にする（`clearLegacySystemIndex`）。前の版の `index\` そのものは読まず、削除しない（利用者が消す）。
+前の版が作った `system_index\`（フォルダ）と `system_index_state.tsv`（ファイル）は、この版では使わない。インデックス作成の始めと、インデックスのインポートで登録する前に、`removeOldSystemIndex` が消す（フォルダは `removeDirectoryUnder`、ファイルは `removeFileUnder` を通す。途中にリンクがあれば消さずにログに出し、続ける。リンクそのものは、先を辿らずに消す）。ワークスペースを移す・書き出す・消す対象には含めない。前の版の `index\` そのものは読まず、削除しない（利用者が消す）。
 
 作り直しが最後まで終わったインデックスについて、前の版の置き場（`content_index\<名前>\`。空になれば `content_index\` と前の版の `ingest_status.tsv` も）は、インデクサが消す（`removeOldIndexOf`）。消す対象は、前の版の置き場として決めた 2 つ（`oldIndexEntries`）の配列に書いたものと、作り終えたインデックスのフォルダだけで、インデックスの名前が空・`.`・`..`・ファイル名に使えない文字を含むときは何も消さない。フォルダはジャンクションを辿らずに消し（`removeDirectoryUnder`）、中止したときは消さない。
 
 インデックスのインポート（`importIndex`）の書き込みは、ワークスペースの中（`publish\<PID>\import\`・`store\content\<名前>\`・取り込み一覧・目録・`setting.config`）だけである。zip から展開したファイルは、確かめた目録のパスからだけファイル名を組み立てる（zip のエントリー名は使わない）。インポートを始めるときは、エクスポートと同じくインデックス作成のロック（`newAppMutex "indexer"`）を取り、ほかの操作と同時に走らせない。
 
-`store\content\` の下のフォルダ・ファイルには、Windows Search の索引の対象から外すため「内容のインデックスを作成しない」属性（`NotContentIndexed`）を付ける（`setWindowsSearchExcluded`。[入れ替えと書き出し](../design/index-data/publish.md#windows-search-の対象から外すnotcontentindexed)）。インデックス作成のとき（`store\content` を作った直後・入れた直後）と、インデックスをインポートした直後（入れたフォルダ全体）と、画面がインデックス一覧を保存したとき（`source_folder.txt` 1 件）に付ける。ほかの属性（読み取り専用など）は変えず、内容も書き換えない。
-
-**状態ファイルの値を信用しない。** ワークスペースは共有でき、`store\ingest_status.tsv`・`store\format.tsv`・`store\journal\ingest.tsv`・`system_index_state.tsv` と設定の `targetFolders` は他の人が書き換えられる。そこから読んだインデックス名・相対パスは、読むときに確かめ（取り込み一覧・状態ファイルは `testStoredIndexName`・`testIndexRelPath`、設定の名前は `getTargetFolders` が `getFolderNameProblemText`。`..`・最後の `.` や空白・使えない文字を含むものは、行なら読み飛ばし、設定の名前なら空にして割り当て直す。`aux.backup` のような予約名は、既にある実在のフォルダの名前なので、空にも読み飛ばしにもせず、そのまま使い続ける。厳しくするのは新しく付ける名前（`newIndexName`・画面の入力・インポート）だけ）、フォルダを消す・移す前にも、先が置き場（`content_index`・`system_index`）の下であることを `testPathUnder` で確かめる（`removeBookDir`・`removeSystemIndexOf`・`IndexCatalog.RemoveIndex`・`IndexCatalog.RenameIndex`）。外を指すものは消さず、黄色のログに出す（`RemoveIndex`・`RenameIndex` は例外にして、フォルダも取り込み一覧も動かさない）。`RenameIndex` は元の名前を `testStoredIndexName`、新しい名前を `testIndexName` で、`RemoveIndex` は名前を `testStoredIndexName` で確かめる（最後が `.` のような今の決まりに合わない名前は、設定を読むときに空になって届かない）。予約名のフォルダは `Test-Path` では無いことになるため、フォルダの有無は `Directory.Exists`（`removeDirectoryRetry` の中）で見る。設定から外れたインデックスの削除（`removeDroppedFolders`）は、名前でパスを組まず、`content_index` 直下のフォルダを一覧して名前が同じものだけを消す。今の名前の決まりに合わない前の版の名前（最後が `.` など）は、取り込み一覧の読み込みで分けて、同じ確認で削除できる。ジャーナルから読んだ相対パス（やり直す仕事・書き出すフォルダ）も、読むときに `testIndexRelPath` で確かめ、使えないものは読み飛ばす。
+**状態ファイルの値を信用しない。** ワークスペースは共有でき、`store\ingest_status.tsv`・`store\format.tsv`・`store\journal\ingest.tsv`・と設定の `targetFolders` は他の人が書き換えられる。そこから読んだインデックス名・相対パスは、読むときに確かめ（取り込み一覧・状態ファイルは `testStoredIndexName`・`testIndexRelPath`、設定の名前は `getTargetFolders` が `getFolderNameProblemText`。`..`・最後の `.` や空白・使えない文字を含むものは、行なら読み飛ばし、設定の名前なら空にして割り当て直す。`aux.backup` のような予約名は、既にある実在のフォルダの名前なので、空にも読み飛ばしにもせず、そのまま使い続ける。厳しくするのは新しく付ける名前（`newIndexName`・画面の入力・インポート）だけ）、フォルダを消す・移す前にも、先が置き場（`content_index`）の下であることを `testPathUnder` で確かめる（`removeBookDir`・`IndexCatalog.RemoveIndex`・`IndexCatalog.RenameIndex`）。外を指すものは消さず、黄色のログに出す（`RemoveIndex`・`RenameIndex` は例外にして、フォルダも取り込み一覧も動かさない）。`RenameIndex` は元の名前を `testStoredIndexName`、新しい名前を `testIndexName` で、`RemoveIndex` は名前を `testStoredIndexName` で確かめる（最後が `.` のような今の決まりに合わない名前は、設定を読むときに空になって届かない）。予約名のフォルダは `Test-Path` では無いことになるため、フォルダの有無は `Directory.Exists`（`removeDirectoryRetry` の中）で見る。設定から外れたインデックスの削除（`removeDroppedFolders`）は、名前でパスを組まず、`content_index` 直下のフォルダを一覧して名前が同じものだけを消す。今の名前の決まりに合わない前の版の名前（最後が `.` など）は、取り込み一覧の読み込みで分けて、同じ確認で削除できる。ジャーナルから読んだ相対パス（やり直す仕事・書き出すフォルダ）も、読むときに `testIndexRelPath` で確かめ、使えないものは読み飛ばす。
 
 確認コマンド（[検査項目と結果](checks.md#検査項目と結果) の `scan` を使う）:
 
 ```powershell
 # 削除・書き込みの呼び出し箇所をすべて列挙し、対象のパスが work / tmpDir 由来であることを目で確かめる
 scan 'Remove-Item','WriteAllText','WriteAllLines','StreamWriter','\.SaveAs','::Move','Move-Item'
-# NotContentIndexed 属性を書く箇所（fs.ps1 の setWindowsSearchExcluded だけ）を確かめる
-scan 'NotContentIndexed'
+# Windows Search への問い合わせと、索引の対象から外す属性の書き込みが無いことを確かめる（0 件）
+scan 'OleDb','CommandText','NotContentIndexed'
 ```
 
 ### 取り込みの作業フォルダに置くもの

@@ -55,12 +55,10 @@ Describe "getIndexDetailRowPlan" -Tag Unit {
 Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
     BeforeAll {
         function newDetailItem {
-            param ($name = "営業", $enabled = $true, $fileCount = "1,234", $last = "09/30 10:00", $folderStatus = "フォルダがあります",
-                $fastLevel = "Ok", $fastTip = "")
+            param ($name = "営業", $enabled = $true, $fileCount = "1,234", $last = "09/30 10:00", $folderStatus = "フォルダがあります")
             return @{
                 Name = $name; Path = "C:\共有\営業部"; Enabled = $enabled; FolderStatus = $folderStatus
                 IndexText = "最新"; IndexLevel = "Ok"; IndexSub = ""; FileCountText = $fileCount; LastIngestedText = $last
-                FastText = "可"; FastLevel = $fastLevel; FastToolTip = $fastTip; FastCheckedText = "最終確認 10:05"
             }
         }
     }
@@ -71,11 +69,10 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         @{ label = "複数を選んでいる"; items = @(@{ Name = "営業"; Path = "C:\共有\営業部" }, @{ Name = "経理"; Path = "C:\共有\経理部" }) }
     ) {
         param ($label, $items)
-        $view = getIndexDetailView $items $null
+        $view = getIndexDetailView $items
         $view.Title | Should -Be "インデックスの状態"
         $view.Selected | Should -BeFalse
         @($view.Rows).Count | Should -Be 0
-        $view.Fast.Shown | Should -BeFalse
     }
 
     It "元のフォルダが無いとき（FolderMissing）は、バッジを「エラー」にして理由と直し方を出す。更新中は出さない" -TestCases @(
@@ -87,7 +84,7 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         $item = newDetailItem
         $item.FolderMissing = $missing
         $item.IndexLevel = $level
-        $view = getIndexDetailView @($item) $null
+        $view = getIndexDetailView @($item)
         $view.Badge.Text | Should -Be $badge
         $view.Badge.Level | Should -Be $badgeLevel
         $view.Error | Should -Be $error
@@ -109,7 +106,7 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         $item.FolderMissing = $missing
         $item.FolderChecked = $checked
         $item.IndexLevel = $level
-        (getIndexDetailView @($item) $null).FolderBrush | Should -Be $brush
+        (getIndexDetailView @($item)).FolderBrush | Should -Be $brush
     }
 
     It "フォルダの状態のアイコン（FolderIcon）: <name> は <icon>" -TestCases @(
@@ -124,35 +121,35 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         $item.FolderMissing = $missing
         $item.FolderChecked = $checked
         $item.IndexLevel = $level
-        (getIndexDetailView @($item) $null).FolderIcon | Should -Be $icon
+        (getIndexDetailView @($item)).FolderIcon | Should -Be $icon
     }
 
     It "何も選んでいないとき・複数を選んでいるときは、フォルダの状態のアイコンを出さない。調べ終えたかを省くと調べ終えたものとして Check にする" {
-        (getIndexDetailView @() $null).FolderIcon | Should -Be ""
-        (getIndexDetailView @() $null 2).FolderIcon | Should -Be ""
-        (getIndexDetailView @(newDetailItem) $null).FolderIcon | Should -Be "Check"
+        (getIndexDetailView @()).FolderIcon | Should -Be ""
+        (getIndexDetailView @() 2).FolderIcon | Should -Be ""
+        (getIndexDetailView @(newDetailItem)).FolderIcon | Should -Be "Check"
     }
 
     It "何も選んでいないときのフォルダの状態の色は灰、調べ終えたかを省くと調べ終えたものとして扱う" {
-        (getIndexDetailView @() $null).FolderBrush | Should -Be "Ink.Muted"
-        (getIndexDetailView @(newDetailItem) $null).FolderBrush | Should -Be "Ok"
+        (getIndexDetailView @()).FolderBrush | Should -Be "Ink.Muted"
+        (getIndexDetailView @(newDetailItem)).FolderBrush | Should -Be "Ok"
     }
 
     It "2 件以上を選んでいる（multiCount）と、題に件数を出し、詳細の代わりに案内を出す" {
-        $view = getIndexDetailView @() $null 2
+        $view = getIndexDetailView @() 2
         $view.Title | Should -Be "2 件を選択中"
         $view.Multi | Should -BeTrue
         $view.Selected | Should -BeFalse
         $view.Hint | Should -Be "1 件だけ選ぶと、ここに詳細を表示します。"
-        (getIndexDetailView @(newDetailItem) $null 1).Multi | Should -BeFalse
-        (getIndexDetailView @(newDetailItem) $null 0).Hint | Should -Be ""
+        (getIndexDetailView @(newDetailItem) 1).Multi | Should -BeFalse
+        (getIndexDetailView @(newDetailItem) 0).Hint | Should -Be ""
     }
 
     It "更新中の行は、棒の長さ・件数と残り時間・読み取り中のファイルを返す" {
         $item = newDetailItem
         $item.IndexLevel = "Run"; $item.IndexText = "更新中"
         $running = @{ Ratio = 0.45; Processed = 205; Total = 455; Failed = 1; Eta = "残り約 3 分"; Current = "見積もり\A社\A社_見積書_改訂.xlsx" }
-        $view = getIndexDetailView @($item) $null 0 $running
+        $view = getIndexDetailView @($item) 0 $running
         $view.Run.Shown | Should -BeTrue
         $view.Run.Value | Should -Be 0.45
         $view.Run.CountText | Should -Be "205 / 455 件（失敗 1 件）・残り約 3 分"
@@ -167,7 +164,7 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         param ($running, $count, $file)
         $item = newDetailItem
         $item.IndexLevel = "Run"
-        $view = getIndexDetailView @($item) $null 0 $running
+        $view = getIndexDetailView @($item) 0 $running
         $view.Run.Shown | Should -BeTrue
         $view.Run.CountText | Should -Be $count
         $view.Run.FileText | Should -Be $file
@@ -175,11 +172,11 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
     }
 
     It "更新中でない行には、更新中の表示を出さない" {
-        (getIndexDetailView @(newDetailItem) $null 0 @{ Ratio = 0.5; Processed = 1; Total = 2; Failed = 0; Eta = ""; Current = "" }).Run.Shown | Should -BeFalse
+        (getIndexDetailView @(newDetailItem) 0 @{ Ratio = 0.5; Processed = 1; Total = 2; Failed = 0; Eta = ""; Current = "" }).Run.Shown | Should -BeFalse
     }
 
     It "1 つ選ぶと、題に名前を入れ、左の基本設定と右の情報の表を作る" {
-        $view = getIndexDetailView @(newDetailItem) $null
+        $view = getIndexDetailView @(newDetailItem)
         $view.Title | Should -Be "営業 - 詳細"
         $view.Selected | Should -BeTrue
         $view.Name | Should -Be "営業"
@@ -190,8 +187,6 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         $view.Count | Should -Be "1,234 ファイル"
         ($view.Rows | ForEach-Object { $_.Label }) -join "," | Should -Be "対象ファイル数,最終更新"
         $view.Rows[0].Value | Should -Be "1,234 ファイル"
-        $view.Fast.State | Should -Be "可"
-        $view.Fast.Checked | Should -Be "最終確認 10:05"
     }
 
     It "<label>: 出せない値は空にするか、言い換える" -TestCases @(
@@ -199,7 +194,7 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         @{ label = "まだ更新していない（日時）"; args1 = @{ fileCount = "－"; last = "" }; field = "updated"; expected = "" }
     ) {
         param ($label, $args1, $field, $expected)
-        $view = getIndexDetailView @(newDetailItem @args1) $null
+        $view = getIndexDetailView @(newDetailItem @args1)
         $actual = switch ($field) {
             "count" { $view.Count }
             "updated" { $view.Updated }
@@ -207,59 +202,18 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         $actual | Should -Be $expected
     }
 
-    It "<label>: 高速検索の反映の進み具合" -TestCases @(
-        @{ label = "途中"; entry = @{ Folders = 4; Waiting = 1 }; visible = $true; value = 0.75; text = "反映済み 3 / 4 フォルダ"; note = $true }
-        @{ label = "すべて反映済み"; entry = @{ Folders = 2; Waiting = 0 }; visible = $true; value = 1.0; text = "反映済み 2 / 2 フォルダ"; note = $false }
-        @{ label = "すべて反映待ち"; entry = @{ Folders = 3; Waiting = 3 }; visible = $true; value = 0.0; text = "反映済み 0 / 3 フォルダ"; note = $true }
-        @{ label = "待ちが多すぎる値でも 0 未満にしない"; entry = @{ Folders = 3; Waiting = 5 }; visible = $true; value = 0.0; text = "反映済み 0 / 3 フォルダ"; note = $true }
-        @{ label = "フォルダが無い"; entry = @{ Folders = 0; Waiting = 0 }; visible = $false; value = 0.0; text = ""; note = $false }
-        @{ label = "値が無い"; entry = $null; visible = $false; value = 0.0; text = ""; note = $false }
-    ) {
-        param ($label, $entry, $visible, $value, $text, $note)
-        $view = getIndexDetailView @(newDetailItem) $entry
-        $view.Fast.Shown | Should -Be $visible
-        $view.Fast.Value | Should -Be $value
-        $view.Fast.Text | Should -Be $text
-        # 反映待ちのフォルダがあるときだけ、通常の検索で調べる旨の注記を出す
-        ($view.Fast.Note -ne "") | Should -Be $note
-    }
-
-    It "高速検索が不可（Warn）のときも、理由と手順を出す" {
-        $item = newDetailItem -fastLevel "Warn" -fastTip "対象外です。"
-        $item.FastSteps = @("手順 1", "手順 2")
-        $view = getIndexDetailView @($item) $null
-        $view.Fast.Reason | Should -Be "対象外です。"
-        @($view.Fast.Steps) | Should -Be @("手順 1", "手順 2")
-        $item.FastSteps = @("手順 1")
-        (getIndexDetailView @($item) $null).RowsKey | Should -Not -Be $view.RowsKey
-    }
-
-    It "高速検索が不可のときは、理由（ツールヒントの 1 行目）を出す" {
-        $view = getIndexDetailView @(newDetailItem -fastLevel "Warn" -fastTip "Windows Search に接続できない。`n最終確認 10:05") $null
-        $view.Fast.Reason | Should -Be "Windows Search に接続できない。"
-        (getIndexDetailView @(newDetailItem) $null).Fast.Reason | Should -Be ""
-    }
-
     It "<label>: 行の鍵（RowsKey）" -TestCases @(
         @{ label = "値が変わると変わる"; changed = @{ fileCount = "99" } }
         @{ label = "日時が変わると変わる"; changed = @{ last = "" } }
         @{ label = "フォルダの状態が変わると変わる"; changed = @{ folderStatus = "" } }
-        @{ label = "高速検索の状態が変わると変わる"; changed = @{ fastLevel = "Ng"; fastTip = "理由" } }
     ) {
         param ($label, $changed)
-        $base = (getIndexDetailView @(newDetailItem) $null).RowsKey
-        (getIndexDetailView @(newDetailItem @changed) $null).RowsKey | Should -Not -Be $base
-    }
-
-    It "高速検索の進み具合だけが変わっても、行の鍵は同じ" {
-        $a = getIndexDetailView @(newDetailItem) @{ Folders = 4; Waiting = 3 }
-        $b = getIndexDetailView @(newDetailItem) @{ Folders = 4; Waiting = 1 }
-        $a.RowsKey | Should -Be $b.RowsKey
-        $a.RowsKey | Should -Not -BeNullOrEmpty
+        $base = (getIndexDetailView @(newDetailItem)).RowsKey
+        (getIndexDetailView @(newDetailItem @changed)).RowsKey | Should -Not -Be $base
     }
 
     It "何も選んでいないときの行の鍵は空" {
-        (getIndexDetailView @() $null).RowsKey | Should -Be ""
+        (getIndexDetailView @()).RowsKey | Should -Be ""
     }
 }
 

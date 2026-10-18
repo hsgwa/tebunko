@@ -91,7 +91,7 @@ function getGramContentIndexFiles {
         }
     }
     if ($dropped.Count -eq 0) {
-        # 1 つも外せなかった（索引が無い・古い・どのファイルも語を含みうる）。絞れていないので、$null を返し、呼び出し側が Windows Search での絞り込みを試せるようにする
+        # 1 つも外せなかった（索引が無い・古い・どのファイルも語を含みうる）。絞れていないので、$null を返し、呼び出し側が全部のファイルを照合する
         return $null
     }
     $index.ContentIndexFiles = $files.ToArray()

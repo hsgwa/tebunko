@@ -233,14 +233,14 @@ Describe "perf_common.ps1 の入力しながらの検索の部品" -Tag Unit {
 
     It "1 回ごとの記録から、2 回目以降の統計・全回の統計・1 回目の値・回数の合計を作る" {
         $attempts = @(
-            @{ FirstHitMs = 50; FinishMs = 80; WaitPrevMs = 5; IntervalMs = @(140); LagMs = @(2, 10); RequestMs = @(1, 2); Hits = 1; Truncated = $false; Packs = 5; FastUsed = $false; CancelledSteps = 1 }
-            @{ FirstHitMs = $null; FinishMs = 60; WaitPrevMs = 0; IntervalMs = @(145); LagMs = @(1, 3); RequestMs = @(1, 1); Hits = 0; Truncated = $false; Packs = 5; FastUsed = $true; CancelledSteps = 0 }
-            @{ FirstHitMs = 40; FinishMs = 70; WaitPrevMs = 2; IntervalMs = @(150); LagMs = @(0, 5); RequestMs = @(1, 2); Hits = 1; Truncated = $false; Packs = 5; FastUsed = $true; CancelledSteps = 2 }
+            @{ FirstHitMs = 50; FinishMs = 80; WaitPrevMs = 5; IntervalMs = @(140); LagMs = @(2, 10); RequestMs = @(1, 2); Hits = 1; Truncated = $false; Packs = 5; GramUsed = $false; CancelledSteps = 1 }
+            @{ FirstHitMs = $null; FinishMs = 60; WaitPrevMs = 0; IntervalMs = @(145); LagMs = @(1, 3); RequestMs = @(1, 1); Hits = 0; Truncated = $false; Packs = 5; GramUsed = $true; CancelledSteps = 0 }
+            @{ FirstHitMs = 40; FinishMs = 70; WaitPrevMs = 2; IntervalMs = @(150); LagMs = @(0, 5); RequestMs = @(1, 2); Hits = 1; Truncated = $false; Packs = 5; GramUsed = $true; CancelledSteps = 2 }
         )
         $r = newTypingWordResult -name "まれ" -regex $false -steps 2 -attempts $attempts
         $r.Skipped | Should -BeNullOrEmpty
         $r.Hits | Should -Be 1   # 最後（3 回目）の要求の結果
-        $r.FastUsed | Should -Be 2   # 全回のうち高速検索を使った回数
+        $r.GramUsed | Should -Be 2   # 全回のうち gram 索引を使った回数
         $r.CancelledSteps | Should -Be 2   # 2 回目以降（0 + 2）の合計
         $r.FirstHitMs.Median | Should -Be 40   # 2 回目以降（$null を除く）
         $r.FirstHitMs.Count | Should -Be 1
@@ -256,8 +256,8 @@ Describe "perf_common.ps1 の入力しながらの検索の部品" -Tag Unit {
 
     It "ヒットの無い語（2 回目以降すべて null）は、FirstHitMs の統計が null になる" {
         $attempts = @(
-            @{ FirstHitMs = $null; FinishMs = 20; WaitPrevMs = 0; IntervalMs = @(); LagMs = @(0); RequestMs = @(1); Hits = 0; Truncated = $false; Packs = 3; FastUsed = $false; CancelledSteps = 0 }
-            @{ FirstHitMs = $null; FinishMs = 18; WaitPrevMs = 0; IntervalMs = @(); LagMs = @(0); RequestMs = @(1); Hits = 0; Truncated = $false; Packs = 3; FastUsed = $false; CancelledSteps = 0 }
+            @{ FirstHitMs = $null; FinishMs = 20; WaitPrevMs = 0; IntervalMs = @(); LagMs = @(0); RequestMs = @(1); Hits = 0; Truncated = $false; Packs = 3; GramUsed = $false; CancelledSteps = 0 }
+            @{ FirstHitMs = $null; FinishMs = 18; WaitPrevMs = 0; IntervalMs = @(); LagMs = @(0); RequestMs = @(1); Hits = 0; Truncated = $false; Packs = 3; GramUsed = $false; CancelledSteps = 0 }
         )
         $r = newTypingWordResult -name "無い" -regex $false -steps 1 -attempts $attempts
         $r.Hits | Should -Be 0
@@ -624,26 +624,12 @@ Describe "measure_perf.ps1" -Tag Io {
         @{ name = "-PreviewFullRead だけ（-Preview が無い）"; extraArgs = @{ PreviewFullRead = $true }; expectedMessage = "*-PreviewFullRead は -Preview*" }
         @{ name = "-ReadMore だけ（-Preview が無い）"; extraArgs = @{ ReadMore = $true }; expectedMessage = "*-ReadMore は -Preview*" }
         @{ name = "-Typing 1"; extraArgs = @{ Typing = 1 }; expectedMessage = "*-Typing は 0 か 2 以上*" }
-        @{ name = "-TypingFast で -Index が <Work> の本文インデックスのフォルダでないとき"; extraArgs = @{ Typing = 2; TypingFast = $true }; expectedMessage = "*store\content*" }
     ) {
         param ($extraArgs, $expectedMessage)
         $w = Join-Path $TestDrive ("typing-bad-" + [guid]::NewGuid().ToString("N"))
         { & $measure -Index $index -Work $w -Words $words -Count 1 -SampleMs 50 @extraArgs 6>$null | Out-Null } | Should -Throw -ExpectedMessage $expectedMessage
         # 始める前（インデックス作成・検索の前）に失敗するため、結果のフォルダは作られない
         (Test-Path -LiteralPath (Join-Path $w "result")) | Should -Be $false
-    }
-
-    It "-TypingFast は、-Index を <Work> の本文インデックスのフォルダにすれば最後まで動く" {
-        $w = Join-Path $TestDrive "typing-fast"
-        $fastIndex = Join-Path $w "store\content"
-        writeTsv "$fastIndex\営業\見積.xlsx\シート1.tsv" @("1`t見積書`t山田")
-        & $measure -Index $fastIndex -Work $w -Words $words -Count 1 -SampleMs 50 -Typing 2 -TypingIntervalMs 50 -TypingFast 6>$null | Out-Null
-        $r = [System.IO.File]::ReadAllText("$w\result\result.json") | ConvertFrom-Json
-        $r.Typing.Fast | Should -Be $true
-        $byName = @{}
-        foreach ($t in $r.Typing.Words) { $byName[$t.Name] = $t }
-        # ランナーには Windows Search が無いことがあるので、高速検索を使えたか（FastUsed）は比べない
-        $byName["まれ"].Hits | Should -Be 1
     }
 
     It "実行の日時は、現在のカルチャ（暦・時刻の区切り）に左右されず ISO 8601 の形で書く" {

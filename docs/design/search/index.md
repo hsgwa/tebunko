@@ -1,12 +1,12 @@
 ﻿# 検索
 
-扱うこと: 検索の仕様（検索対象・ファイルの種類・図形とコメント・長いパス など）、検索条件（文字どおり・正規表現・大文字と小文字）、検索対象インデックスの一覧の作り方、既知の問題。扱わないこと: 検索を速くする実装（[検索を速くする仕組み](speed.md)）、Windows Search を使う高速検索（[高速検索（Windows Search）](fast-search.md)）、検索結果ファイルの形式（[検索結果ファイル](output.md)）。先に読むページ: [設計の概要](../index.md)、[インデックスのファイルの形](../index-data/format.md)。
+扱うこと: 検索の仕様（検索対象・ファイルの種類・図形とコメント・長いパス など）、検索条件（文字どおり・正規表現・大文字と小文字）、検索対象インデックスの一覧の作り方、既知の問題。扱わないこと: 検索を速くする実装（[検索を速くする仕組み](speed.md)）、検索で照合するファイルを絞る 2-gram の索引（[2-gram の索引](../index-data/gram-index.md)）、検索結果ファイルの形式（[検索結果ファイル](output.md)）。先に読むページ: [設計の概要](../index.md)、[インデックスのファイルの形](../index-data/format.md)。
 
 | 項目 | 内容 |
 |---|---|
 | 画面 | ［検索］タブ（[検索タブ](../gui/search-tab.md)） |
 | スクリプト | `scripts/tebunko/search/search_query.ps1`（検索条件）・`content_index_search.ps1`（本文インデックスの列挙と検索）・`search_run.ps1`（結果の組み立て）。`scripts/tebunko/lib.ps1` から読み込み、画面 `scripts/tebunko/gui.ps1` から呼ぶ |
-| 使用する共通関数 | `getFastSearchContentIndexFiles`（高速検索。[高速検索（Windows Search）](fast-search.md)）/ `getContentIndexFiles` / `getSearchIndexes` / `searchContentIndex` / `writeSearchResult`（→ `toSearchResultLines` → `toResultLine` / `toResultHeader`）（[部品ごとの関数](../reference/search.md)） |
+| 使用する共通関数 | `getGramContentIndexFiles`（2-gram の索引で絞る。[2-gram の索引](../index-data/gram-index.md)）/ `getContentIndexFiles` / `getSearchIndexes` / `searchContentIndex` / `writeSearchResult`（→ `toSearchResultLines` → `toResultLine` / `toResultHeader`）（[部品ごとの関数](../reference/search.md)） |
 
 全体構成・動作環境・フォルダ構成は [設計の概要](../index.md) を参照。インデックス（本文インデックス）の作り方は [インデックス作成](../indexing/index.md) を参照。画面の操作・表示は [検索タブ](../gui/search-tab.md) を参照。
 
@@ -21,7 +21,7 @@
 | 入力 | 画面で入力したワード | 1 回の検索で 1 ワード |
 | 入力 | `setting.config` の `searchExcludes` | 画面の検索対象のツリーでチェックを外したフォルダ（[インデックスの一覧](#インデックスの一覧getsearchindexes)、省略可） |
 | 入力 | `work/store/content/**/content_index.*.tsv` | インデックス作成で書き出した本文インデックス（フォルダ・元のファイルの拡張子ごとに 1 つ） |
-| 入力 | `work/system_index/**/system_index*.txt`・`work/system_index_state.tsv` | 高速検索に使う システムインデックスとその状態（[高速検索（Windows Search）](fast-search.md)。Windows Search に問い合わせる） |
+| 入力 | `work/store/gram/<インデックス名>/` | 照合するファイルを絞る 2-gram の索引（[2-gram の索引](../index-data/gram-index.md)。無くても検索できる） |
 | 出力 | `work/search_results.txt` | 画面の［結果をファイルに出力］で書き出す検索結果（[検索結果ファイル](output.md)）。出力ごとに上書き |
 
 ## インデックスの一覧（`getSearchIndexes`）
@@ -96,8 +96,7 @@ flowchart TD
 
 | # | 内容 | 確度 |
 |---|---|---|
-| 1 | 高速検索を使えないとき（[高速検索（Windows Search）](fast-search.md)）は、検索のたびにすべての本文インデックスを照合するため、インデックス量に比例して時間がかかる（本文インデックス 46MB で初回 2.1 秒・2 回目以降 0.29 秒、1.1GB で初回 38 秒・2 回目以降 16〜18 秒。読んだ内容の使い回しは約 128MB まで。[検索を速くする仕組み](speed.md)） | ◎ |
-| 1-2 | 初めて作った大きなインデックスは、Windows Search が システムインデックスを索引し終えるまで高速検索が効かない（その間は反映待ちのフォルダを照合するため、結果は欠けない）。`work/store/content` は自動で Windows Search の対象から外れ、早く終わる（[高速検索（Windows Search）](fast-search.md)） | ◎ |
-| 1-3 | ワードによく出る 2-gram しか無いときは、ほとんどのフォルダが候補になり、高速検索でも速くならない（[高速検索（Windows Search）](fast-search.md)） | ◎ |
+| 1 | 2-gram の索引を使えないとき（正規表現のとき・索引が無いとき。[2-gram の索引](../index-data/gram-index.md)）は、検索のたびにすべての本文インデックスを照合するため、インデックス量に比例して時間がかかる（本文インデックス 46MB で初回 2.1 秒・2 回目以降 0.29 秒、1.1GB で初回 38 秒・2 回目以降 16〜18 秒。読んだ内容の使い回しは約 128MB まで。[検索を速くする仕組み](speed.md)） | ◎ |
+| 1-3 | ワードによく出る 2-gram しか無いときは、ほとんどのファイルが候補になり、2-gram の索引でも速くならない（[2-gram の索引](../index-data/gram-index.md)） | ◎ |
 | 2 | 結果ファイルを Excel で開いたまま［結果をファイルに出力］すると、ファイルがロックされて書き込めない（画面に `search_results.txt に書き込めません。…` と表示する） | ◎ |
 | 3 | Excel の図形・コメントの行頭の `^` は、文字の先頭には一致しない（行の先頭はセル番地のため。開始位置つきの照合でも `^` は文字列の先頭にだけ一致する。直すには、インデックスの形式の変更か照合の作り直しが要る） | ○ |
