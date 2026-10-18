@@ -134,13 +134,25 @@ function captureGuiState {
     }
     # 大きさが決まっても、前の窓の絵がまだ残って見えることがある（確認が続けて出るときなど）。強制的に描き直させて少し待つ
     foreach ($w in $windows) { redrawGuiWindow $w }
-    # マウスの矢印が窓の上に残っていると、その下の部品のツールヒント（吹き出し）が出て、検索対象の木などを隠したまま撮れる。
-    # 矢印を画面の右下の隅（窓の外）へ逃がし、出ている吹き出しが消えるのを待つ
-    $screen = [Windows.Forms.Screen]::PrimaryScreen.Bounds
-    [Windows.Forms.Cursor]::Position = New-Object Drawing.Point(($screen.Right - 1), ($screen.Bottom - 1))
-    Start-Sleep -Milliseconds 800
     # 窓そのものの範囲はネイティブの GetWindowRect（UI オートメーションの BoundingRectangle は、描画前の窓で 0 x 0 になることがある）
     $rects = @($windows | ForEach-Object { getGuiWindowRect $_ })
+    # マウスの矢印が窓の上に残っていると、その下の部品のツールヒントが出て、検索対象の木などを隠したまま撮れる
+    # （このスクリプトでいう「吹き出し」の正規表現の RegexBalloon とは別のもの）。
+    # 矢印を、作業領域（WorkingArea）の中で撮る範囲の外にある点へ逃がす。画面の隅（タスクバーの端の「デスクトップの表示」）は、
+    # Peek が有効な PC ですべての窓が透けるため避ける。作業領域の四隅・各辺の中央から、撮る範囲に重ならない最初の点を選ぶ
+    $work = [Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+    $xs = @(($work.Right - 2), ($work.Left + 1), [int](($work.Left + $work.Right) / 2))
+    $ys = @(($work.Bottom - 2), ($work.Top + 1), [int](($work.Top + $work.Bottom) / 2))
+    $away = New-Object Drawing.Point(($work.Right - 2), ($work.Bottom - 2))
+    :search foreach ($y in $ys) {
+        foreach ($x in $xs) {
+            $hit = @($rects | Where-Object { $x -ge $_.Left -and $x -lt $_.Right -and $y -ge $_.Top -and $y -lt $_.Bottom }).Count -gt 0
+            if (!$hit) { $away = New-Object Drawing.Point($x, $y); break search }
+        }
+    }
+    [Windows.Forms.Cursor]::Position = $away
+    # 出ているツールヒントは、矢印が離れてから 0.5 秒ほどで消える。余裕を見て 0.8 秒待つ（短くすると消える前に撮れてしまう）
+    Start-Sleep -Milliseconds 800
     # Measure-Object の Maximum・Minimum は [double] で返るため、大きさは必ず [int] に直す
     # （[double] のまま New-Object Drawing.Bitmap に渡すと、コンストラクターの解決を誤り「パラメーターが有効ではない」で失敗する）
     $left = [int](($rects | ForEach-Object { $_.Left } | Measure-Object -Minimum).Minimum)
@@ -534,9 +546,7 @@ function captureSearchScene {
         waitGui $S "プレビューが出る" ${guiDefaultTimeout} {
             @(getGuiPreviewTexts $S.Window | Where-Object { $_.Text.Current.Name -eq "りんご" }).Count -gt 0
         } | Out-Null
-        # 行を選ぶと、部品を選ぶだけで出るツールヒント（元のファイルのパス）が重なって写ることがある。
-        # フォーカスを移す・ツールヒントの窓が消えるまで待つ、の両方を試したが消えなかった（架空の subst ドライブの
-        # パスで個人情報ではないため、写り込んだまま撮る）
+        # 行を選ぶと、ツールヒント（元のファイルのパス）が出ることがある。captureGuiState が撮る前に矢印を窓の外へ出すので写らない
         captureGuiState -S $S -Id "search-tab/results" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
 

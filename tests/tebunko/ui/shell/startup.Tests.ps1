@@ -48,11 +48,11 @@ Describe "起動時の前の版のシステムインデックスの片付け" -T
         @($global:errorLogs).Count | Should -Be 0
     }
 
-    It "消す仕事は画面のスレッドでなく startJob に渡す（loadStartupData の中で直接 removeOldSystemIndex を呼ばない）" {
+    It "startOldSystemIndexRemoval は、消す仕事を画面のスレッドでなく startJob に（workspace の Dir を渡して）渡す" {
         Mock removeOldSystemIndex { return @{ Ok = $true; Reason = "" } }
         Mock startJob { }
         startOldSystemIndexRemoval
-        Should -Invoke startJob -Times 1 -Exactly -ParameterFilter { $scriptBlock.ToString() -match 'removeOldSystemIndex' }
+        Should -Invoke startJob -Times 1 -Exactly -ParameterFilter { $scriptBlock.ToString() -match 'removeOldSystemIndex' -and @($arguments)[0] -eq $script:workspace.Dir }
         Should -Invoke removeOldSystemIndex -Times 0 -Exactly
     }
 
