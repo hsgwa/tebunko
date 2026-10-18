@@ -251,6 +251,19 @@ Describe "getImportCollisionChoiceView" -Tag Unit {
         }
     }
 
+    It "一覧が空（listedNames が @()）なら、使えない名前はすべて外れて残っている名前として、置き換えを出さない" {
+        $view = getImportCollisionChoiceView "旧" "営業" @("営業", "旧") "Overwrite" @()
+        $view.OverwriteVisible | Should -Be $false
+        $view.Mode | Should -Be "Rename"
+        $view.Danger | Should -Be $false
+    }
+
+    It "一覧にある名前のときの見出しは「同じ名前のインデックス [総務] があります」" {
+        $view = getImportCollisionChoiceView "総務" "旧" @("営業", "総務", "旧") "Rename" @("営業", "総務")
+        $view.Heading | Should -Be "同じ名前のインデックス [総務] があります"
+        $view.OverwriteVisible | Should -Be $true
+    }
+
     It "一覧の名前を渡さなければ、使えない名前はすべて一覧にあるものとして扱う（これまでの動き）" {
         $view = getImportCollisionChoiceView "旧" "営業" @("営業", "総務", "旧") "Overwrite"
         $view.OverwriteVisible | Should -Be $true

@@ -82,6 +82,17 @@ Describe "getUsedIndexNames（設定から外れて残してあるインデッ�
         (getBlockedIndexNames $listed $leftovers "C:\data\新しい場所").Contains("売上") | Should -Be $false
     }
 
+    It "残っている名前が Keys でも、使えない名前の集合に入る（Hashtable の .Keys が値を返さない）" {
+        $left = @(
+            [pscustomobject]@{ Name = "Keys"; Path = "C:\data\Keys" }
+            [pscustomobject]@{ Name = "旧"; Path = "C:\data\旧" }
+        )
+        $used = getUsedIndexNames $items $null $left "C:\data\別"
+        $used.Contains("Keys") | Should -Be $true
+        $used.Contains("旧") | Should -Be $true
+        $used.Contains("detached") | Should -Be $false
+    }
+
     It "今の一覧の自分の名前は except に渡せば使える（残りに同じ名前が無いとき）" {
         $used = getUsedIndexNames $items $items[0] $leftovers "C:\data\現在"
         $used.Contains("現在") | Should -Be $false

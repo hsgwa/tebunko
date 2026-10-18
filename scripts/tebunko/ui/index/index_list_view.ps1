@@ -21,7 +21,8 @@ function getUsedIndexNames {
         }
     }
     $blocked = getBlockedIndexNames $items $leftovers $folder
-    foreach ($name in $blocked.Keys) {
+    # .Keys と書くと、名前が Keys のキーがあるとき、キーの一覧でなくその値が返る。メソッドで読む
+    foreach ($name in $blocked.get_Keys()) {
         [void]$used.Add($name)
     }
     # HashSet をそのまま return すると PowerShell が中身を展開してしまい（0 件なら $null、1 件なら文字列）、
