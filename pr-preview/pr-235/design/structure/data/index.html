@@ -4384,7 +4384,7 @@
 <li>取り込みのスレッドは <code>PublishDir</code> を、その下の <code>w&lt;番号&gt;</code> に差し替える。</li>
 <li>ワークスペースを変えるときは、今のワークスペースの中身を移す。移すのは <code>Entries()</code>（tebunko が作るファイル・フォルダ）だけで、利用者のほかのファイルは移さない。<code>WorkspaceMover.ListEntries</code>（あるものだけ）・<code>WorkspaceMover.Conflicts</code>（移し先に同じ名前があるもの）・<code>WorkspaceMover.MoveEntries</code>（移す。移し先に同じ名前があれば何も移さず、途中で失敗したら移した分を戻す。別のドライブのフォルダは <code>CopyTree</code> で写してから消す）・<code>moveSearchExcludes</code>（<code>searchExcludes</code> を移した先のインデックスに付け替える）。選んだフォルダにすでにインデックスなどがあれば、<code>WorkspaceMover.UseTargets</code>（そのワークスペースの取り込み一覧のクロール対象フォルダを、インデックスの一覧にする）で使うか、<code>WorkspaceMover.RemoveEntries</code>（tebunko のファイル・フォルダだけを削除する）で消してから移す。</li>
 <li><strong>前の前の版の <code>index\</code> の扱い</strong>（<a href="../../index-data/format/#前の前の版の-index-の扱いgetlegacyindexstate">前の前の版の index\ の扱い</a>）: <code>getLegacyIndexState</code>（dir → <code>@{HasLegacyIndex; ContentEmpty}</code>。前の前の版のしるし・<code>store\content\</code> と <code>content_index\</code> がどちらも空かを調べる）・<code>getLegacyIndexMessage</code>（dir, hasLegacyIndex → 知らせの文言。しるしが無ければ空）。画面の判断層（<code>indexing_view.ps1</code> の <code>getReingestConfirm</code>。hasLegacyIndex, contentEmpty → 確かめの文言）は［すべて更新］で使う（<a href="../../gui/indexing-run/#更新し直しの確かめ">更新し直しの確かめ</a>）。</li>
-<li><strong>前の版が作った検索用のファイル</strong>（<a href="../../index-data/format/#前の版が作った検索用のファイルの片付けremoveoldsystemindex">前の版が作った検索用のファイルの片付け</a>）: <code>removeOldSystemIndex</code>（dir → <code>@{Ok; Reason}</code>。<code>system_index\</code> と <code>system_index_state.tsv</code> の削除。失敗したら理由を返す）。インデクサ（<code>invokeIndexerBody</code>）がインデックス作成の始めに毎回呼び、インポートも取り込む前に呼ぶ。</li>
+<li><strong>前の版が作った検索用のファイル</strong>（<a href="../../index-data/format/#前の版が作った検索用のファイルの片付けremoveoldsystemindex">前の版が作った検索用のファイルの片付け</a>）: <code>removeOldSystemIndex</code>（dir → <code>@{Ok; Reason}</code>。<code>system_index\</code> と <code>system_index_state.tsv</code> の削除。失敗したら理由を返す）。画面の起動のとき（裏の仕事。<code>startOldSystemIndexRemoval</code>）、インデクサ（<code>invokeIndexerBody</code>）のインデックス作成の始め、インポートの取り込む前に呼ぶ。</li>
 </ul>
 <table>
 <thead>
@@ -4424,7 +4424,7 @@
 </tr>
 <tr>
 <td><code>OldSystemIndexDir</code></td>
-<td><code>&lt;Dir&gt;\system_index</code>（前の版のシステムインデックス。読まず、インデックス作成の始めに消す）</td>
+<td><code>&lt;Dir&gt;\system_index</code>（前の版のシステムインデックス。読まず、起動・インデックス作成の始め・インポートのときに消す）</td>
 </tr>
 <tr>
 <td><code>OldSystemIndexStateFile</code></td>

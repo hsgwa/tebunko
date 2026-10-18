@@ -4370,7 +4370,7 @@
 <td><code>@{ Files; Directories; Links; HasError; Reason }</code></td>
 <td>root の下のファイル・フォルダを、リンクのフォルダへ降りずに集める（<code>Get-ChildItem -Recurse</code>・<code>AllDirectories</code> の代わり）。ジャンクション・シンボリックリンクは <code>Links</code> に入れ、中へ降りない（リンクの先のファイルは <code>Files</code> に入らない）。root そのものはリンクかどうか見ず、先の中を集める。Hidden は、既定では除く（<code>-IncludeHidden</code> で含める。System だけのものは入れる）。並びは <code>Get-ChildItem -Recurse</code> と同じ（フォルダごとに、その中身を並べてから、サブフォルダの下へ進む）。<code>getLinkKind</code> が <code>Unknown</code> のフォルダ（OneDrive のオンデマンドのフォルダなど）は、既定では降り、<code>-SkipUnknown</code> を付けると降りずに <code>Links</code> に入れる。読めないフォルダがあっても例外にせず <code>HasError</code> を <code>$true</code>・<code>Reason</code> にして、読めたところを返す</td>
 <td><a href="../../../safety/file-access/">ファイルの読み書きの範囲</a></td>
-<td><code>findTargetFiles</code>・<code>setWindowsSearchExcluded -Recurse</code>・<code>getIndexTsvFilesNoFollow</code></td>
+<td><code>findTargetFiles</code>・<code>getIndexTsvFilesNoFollow</code></td>
 </tr>
 <tr>
 <td><code>getLinkKind</code></td>
@@ -4419,6 +4419,14 @@
 <td>path を root の下で消す・移す・作ってよいか。path と root が絶対パス（ドライブ・UNC）、path が root の下（<code>testPathUnder</code>）、root から path までの途中にリンクが無い（<code>testPathHasLink</code>。まだ無い階層は見ない）のすべてが成り立つときだけ <code>$true</code>。root そのものがリンクの構成は今までどおり動く。<code>-leafLinkOk</code> を付けると path そのものがリンクでもよい（途中だけ見る。<code>removeDirectoryUnder</code>・<code>moveDirectoryUnder</code> が付け、消す・移すフォルダそのものがリンクなら、リンクだけを外す・動かす）。確かめられないときは <code>$false</code></td>
 <td>同上</td>
 <td><code>removeDirectoryUnder</code>・<code>moveDirectoryUnder</code>・<code>publishIndexFiles</code>・<code>clearOldOpenCopies</code></td>
+</tr>
+<tr>
+<td><code>removeFileUnder</code></td>
+<td>path, root</td>
+<td>bool</td>
+<td><code>testRemovablePath</code> が真のときだけ、ファイル 1 つを <code>removeEntryOnly</code> で消して <code>$true</code>（path 自身がリンクならリンクだけを外す。無いときも <code>$true</code>）。偽なら何も消さずに <code>$false</code>（ログ・例外は呼ぶ側）</td>
+<td>同上</td>
+<td><code>removeOldSystemIndex</code></td>
 </tr>
 <tr>
 <td><code>removeDirectoryUnder</code></td>

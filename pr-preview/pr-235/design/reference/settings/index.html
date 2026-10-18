@@ -4490,7 +4490,7 @@
 <td>dir</td>
 <td><code>@{Ok; Reason}</code></td>
 <td>前の版が作った検索用のファイル（<code>system_index\</code> と <code>system_index_state.tsv</code>）を消す。ワークスペースの下で途中にリンクが無いことを確かめてから消し（<code>removeDirectoryUnder</code>・<code>removeFileUnder</code>）、無ければ何もしない。消せなくても例外にせず <code>Ok = $false</code>（次に呼べば続きから）</td>
-<td>indexer_run.ps1, index_archive.ps1</td>
+<td>startup.ps1（画面の起動）, indexer_run.ps1, index_archive.ps1</td>
 </tr>
 <tr>
 <td><code>newWorkspace</code></td>
@@ -4733,14 +4733,6 @@
 <td>元のファイルを <code>copyFileShared</code> で作業領域へコピーし、コピーを読む処理（readBlock）を実行して、終わったらコピー（と extraFiles）を必ず消す。読む処理が成功したのにコピーを消せなかったときは、<code>作業領域のコピーを消せませんでした: &lt;元のメッセージ&gt;</code> を投げて取り込みの失敗にする（テキスト・PDF・Excel・Word・PowerPoint で共通）</td>
 <td><a href="../../../safety/file-access/#取り込み対象のファイルは書き換えない">取り込み対象のファイルは書き換えない</a></td>
 <td>インデックス作成</td>
-</tr>
-<tr>
-<td><code>testWindowsSearchExcluded</code></td>
-<td>path</td>
-<td>bool</td>
-<td>フォルダ（またはファイル）に「内容のインデックスを作成しない」属性が付いているか調べる。無ければ <code>$false</code></td>
-<td>同上</td>
-<td><code>newWorkerTmpDir</code>（親の作業フォルダに付いていれば、スレッドの作業フォルダにも同じ属性を付ける）</td>
 </tr>
 <tr>
 <td><code>getFolderKey</code></td>

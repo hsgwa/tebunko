@@ -4632,9 +4632,9 @@ work/store/content/&lt;インデックス名&gt;/   … 本文インデックス
 <h3 id="前の版が作った検索用のファイルの片付けremoveoldsystemindex">前の版が作った検索用のファイルの片付け（<code>removeOldSystemIndex</code>）<a class="headerlink" href="#前の版が作った検索用のファイルの片付けremoveoldsystemindex" title="Permanent link">&para;</a></h3>
 <p>前の版は、本文インデックスの 2-gram を書いた txt を <code>system_index\</code> に、その状態を <code>system_index_state.tsv</code> に置いていた。この版は 2-gram の索引を <code>store\gram\</code> に自前で持つため、これらは読まず、使わない。</p>
 <ul>
-<li>インデクサは、インデックス作成の始めに毎回、<code>system_index\</code> と <code>system_index_state.tsv</code> を消す（<code>removeOldSystemIndex</code>）。無ければ何もしない。</li>
+<li>画面の起動のとき（裏の仕事）、インデックスの作成と更新の始め（インデクサ）、インポートの登録の前に、<code>system_index\</code> と <code>system_index_state.tsv</code> を消す（<code>removeOldSystemIndex</code>）。無ければ何もしない。</li>
 <li>消すのはワークスペースの下の、この 2 つだけ。途中にリンク（ジャンクション・シンボリックリンク）があるものは消さない（<code>removeDirectoryUnder</code>・<code>removeFileUnder</code>）。末端がリンクのときは、リンクだけを外し、先の中身は残す。</li>
-<li>消せなくても止めない。理由をログに黄色で 1 行出して続け、次のインデックス作成でもう一度消す。</li>
+<li>消せなくても止めない。理由を、起動のときは画面エラーの記録に、インデックスの作成と更新のときはログに黄色で、インポートのときは警告に 1 行出して続け、次の機会にもう一度消す。</li>
 <li>インポートで取り込む前にも同じ片付けをする。ワークスペースを移す・書き出す・消す対象には含めない（前の版のものを新しい場所へ持ち越さない）。</li>
 <li>画面での確かめ（<a href="../../gui/indexing-run/#更新し直しの確かめ">更新し直しの確かめ</a>）とインデックス作成のメインフローでの扱い（<a href="../../indexing/flow/">インデックス作成のメインフロー</a>）も参照。</li>
 </ul>
