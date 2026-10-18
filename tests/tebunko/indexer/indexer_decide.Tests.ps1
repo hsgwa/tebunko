@@ -191,3 +191,38 @@ Describe "splitCloudItems" -Tag Unit {
         $result.Skipped.Count | Should -Be 0
     }
 }
+
+Describe "convertToPendingRemoveLines / convertFromPendingRemoveLines" -Tag Unit {
+    It "記録の行は、組み立てて読み戻すと同じ（重なりは 1 行にまとめ、空の項目は書かない）" {
+        $lines = convertToPendingRemoveLines @(
+            @{ Folder = "営業\2024"; Name = "A社.xlsx" },
+            @{ Folder = "営業\2024"; Name = "A社.xlsx" },
+            @{ Folder = "経理"; Name = "b.docx" },
+            @{ Folder = ""; Name = "x.xlsx" },
+            @{ Folder = "経理"; Name = "" },
+            $null
+        )
+
+        @($lines).Count | Should -Be 2
+        $back = @(convertFromPendingRemoveLines $lines)
+        $back.Count | Should -Be 2
+        ($back | Where-Object { $_.Folder -eq "営業\2024" }).Name | Should -Be "A社.xlsx"
+        ($back | Where-Object { $_.Folder -eq "経理" }).Name | Should -Be "b.docx"
+    }
+
+    It "壊れた行（<name>）は飛ばす" -TestCases @(
+        @{ name = "タブが無い"; line = "営業A社.xlsx" },
+        @{ name = "項目が 3 つ"; line = "営業`tA社.xlsx`t余り" },
+        @{ name = "フォルダが空"; line = "`tA社.xlsx" },
+        @{ name = "名前が空"; line = "営業`t" },
+        @{ name = "空の行"; line = "" }
+    ) {
+        param ($line)
+        @(convertFromPendingRemoveLines @($line, "営業`tok.xlsx")).Count | Should -Be 1
+    }
+
+    It "行が無ければ空" {
+        @(convertToPendingRemoveLines @()).Count | Should -Be 0
+        @(convertFromPendingRemoveLines @()).Count | Should -Be 0
+    }
+}

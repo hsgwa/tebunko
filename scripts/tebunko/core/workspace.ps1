@@ -27,6 +27,8 @@ class Workspace {
     [string]$PublishDir
     # 取り込み一覧・出力（自動生成）
     [string]$StatusFile
+    # 本文インデックスから外し終えていない、無くなった元のファイルの記録（書き出しを飛ばした・落ちた・強制終了した回の次の回に外し直す）
+    [string]$PendingRemoveFile
     [string]$IngestingFile  # 取り込み中のファイル。強制終了で残っていれば、そのファイルの取り込み中に止まった
     [string]$ResultFile
     # インデックス作成の記録。画面とインデクサの受け渡しはメモリ上で行う（indexer_state.ps1 の newIndexerChannel）
@@ -53,6 +55,7 @@ class Workspace {
         $this.SystemIndexStateFile = "$dir\system_index_state.tsv"
         $this.PublishDir = "$dir\publish\$([System.Diagnostics.Process]::GetCurrentProcess().Id)"
         $this.StatusFile = "$dir\store\ingest_status.tsv"
+        $this.PendingRemoveFile = "$dir\store\pending_remove.tsv"
         $this.IngestingFile = "$dir\ingesting.txt"
         $this.ResultFile = "$dir\search_results.txt"
         $this.IndexingLogFile = "$dir\indexing_log.txt"

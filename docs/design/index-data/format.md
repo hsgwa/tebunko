@@ -67,6 +67,7 @@ TSV は**元のファイル名をフォルダ名**にし、その中に場所ご
 ```
 work/store/format.tsv                 … 目録（形式の版・各インデックスの状態）
 work/store/ingest_status.tsv          … 取り込み一覧
+work/store/pending_remove.tsv         … 本文インデックスから外し終えていない、無くなった元のファイル（作業用。無ければ空。エクスポートには入れない）
 work/store/content/<インデックス名>/   … 本文インデックス（source_folder.txt も各インデックスのフォルダに置く）
 ```
 
