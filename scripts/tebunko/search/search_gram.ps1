@@ -29,20 +29,20 @@ function convertToGramToken {
     return "x" + [System.BitConverter]::ToString([System.Text.Encoding]::Unicode.GetBytes($pair)).Replace("-", "").ToLowerInvariant()
 }
 
-function getSearchGrams {
-    # 検索語から、問い合わせに使う語を返す（重複なし・最大 searchGramMax 個）。
-    # 空白で区切り、2 文字以上の部分の隣り合う 2 文字を語にする。語が無ければ空（高速検索は使えない）
+function getSearchGramValues {
+    # 検索語から、絞り込みに使う 2-gram の値（uint32。addTextGrams と同じ値）を返す（重複なし・最大 searchGramMax 個）。
+    # 空白で区切り、2 文字以上の部分の隣り合う 2 文字を値にする。値が無ければ空（絞り込みは使えない）
     param (
         [string]$word
     )
 
-    $grams = New-Object System.Collections.Generic.List[string]
-    $seen = New-Object System.Collections.Generic.HashSet[string]
+    $grams = New-Object System.Collections.Generic.List[uint32]
+    $seen = New-Object System.Collections.Generic.HashSet[uint32]
     foreach ($part in ([string]$word).ToLowerInvariant() -split "[\s\u2028]+") {
         for ($i = 0; $i -lt $part.Length - 1; $i++) {
-            $token = convertToGramToken $part.Substring($i, 2)
-            if ($seen.Add($token)) {
-                $grams.Add($token)
+            $value = [uint32]([long][int]$part[$i] + 65536L * [long][int]$part[$i + 1])
+            if ($seen.Add($value)) {
+                $grams.Add($value)
             }
         }
     }
@@ -50,11 +50,23 @@ function getSearchGrams {
         return , $grams.ToArray()
     }
     # 均等に間引く（先頭と末尾は残す）
-    $picked = New-Object System.Collections.Generic.List[string]
+    $picked = New-Object System.Collections.Generic.List[uint32]
     for ($k = 0; $k -lt ${searchGramMax}; $k++) {
         $picked.Add($grams[[int][Math]::Round($k * ($grams.Count - 1) / (${searchGramMax} - 1))])
     }
     return , $picked.ToArray()
+}
+
+function getSearchGrams {
+    # 検索語から、Windows Search の問い合わせに使う語を返す（getSearchGramValues の値を x ＋ 16 進 8 桁にしたもの）
+    param (
+        [string]$word
+    )
+
+    $tokens = foreach ($value in (getSearchGramValues $word)) {
+        "x" + [System.BitConverter]::ToString([System.BitConverter]::GetBytes([uint32]$value)).Replace("-", "").ToLowerInvariant()
+    }
+    return , @($tokens)
 }
 
 function testFastSearchUsable {

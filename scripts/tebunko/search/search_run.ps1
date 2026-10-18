@@ -105,7 +105,7 @@ function newSearchRequest {
     # 検索の要求 1 つを作る（画面が作り、検索の司令のスレッド（SearchService）が invokeSearchRequest で実行する）。
     # 画面と司令のスレッドの両方から読み書きするため、Synchronized の hashtable にする。
     #   画面が書く: 検索条件・Stop（取り消し）
-    #   司令が書く: Queue（ヒット）・Done / Total / IndexTotal / Scanned（進み具合）・Folders・FastUsed / FastAvailable・Truncated / Cancelled / Error・Skipped（飛ばした本文インデックスのファイルのパス）・Finished
+    #   司令が書く: Queue（ヒット）・Done / Total / IndexTotal / Scanned（進み具合）・Folders・FastUsed / FastAvailable・GramUsed（gram 索引で絞ったか）・Truncated / Cancelled / Error・Skipped（飛ばした本文インデックスのファイルのパス）・Finished
     #   workDir: 高速検索で使うワークスペース（司令のスレッドは lib.ps1 を読み込んだときのワークスペースを覚えているため、画面から渡す）
     param (
         [string]$word,
@@ -121,7 +121,7 @@ function newSearchRequest {
         Word = $word; SimpleMatch = $simpleMatch; Folders = $folders; Limit = $limit; WorkDir = $workDir
         CaseSensitive = [bool]$option.CaseSensitive; FileFilter = (newFileKindFilter $option.FileKinds)
         IncludeShapes = ($option.IncludeShapes -ne $false); IncludeComments = ($option.IncludeComments -ne $false)
-        UseFast = $useFast; FastUsed = $false; FastAvailable = $null
+        UseFast = $useFast; FastUsed = $false; FastAvailable = $null; GramUsed = $false
         Queue = New-Object 'System.Collections.Concurrent.ConcurrentQueue[object]'
         Stop = $false; Finished = $false; Done = 0; Total = -1; IndexTotal = -1; Scanned = 0
         Truncated = $false; Cancelled = $false; Error = $null; Skipped = @()
@@ -146,17 +146,20 @@ function invokeSearchRequest {
         }
         $word = $request.Word
         $folders = $request.Folders
-        # 高速検索が使えるなら、Windows Search で検索語を含みうるフォルダを先に絞る（使えなければ $null で、すべてを集める）
-        $index = $null
-        if ($request.UseFast) {
-            $own = [Workspace]::new($request.WorkDir)
+        # gram 索引で、検索語のすべての 2-gram を含むファイルだけに絞る（索引を使えなければ $null）
+        $own = [Workspace]::new($request.WorkDir)
+        $index = getGramContentIndexFiles $word $request.SimpleMatch $folders -indexRoot $own.IndexDir -gramRoot $own.GramDir `
+            -onProgress { param ($count) $request.Scanned = $count }
+        $request.GramUsed = ($null -ne $index)
+        # 使えなければ、高速検索が使えるなら、Windows Search で検索語を含みうるフォルダを先に絞る（使えなければ $null で、すべてを集める）
+        if ($null -eq $index -and $request.UseFast) {
             $request.FastAvailable = testWindowsSearch $own.SystemIndexDir
             if ($request.FastAvailable) {
                 $index = getFastSearchContentIndexFiles $word $folders -indexRoot $own.IndexDir -systemRoot $own.SystemIndexDir -statePath $own.SystemIndexStateFile `
                     -onProgress { param ($count) $request.Scanned = $count }
             }
         }
-        $request.FastUsed = ($null -ne $index)
+        $request.FastUsed = ($null -ne $index -and !$request.GramUsed)
         if ($null -eq $index) {
             # 途中の件数を画面に伝える（止まって見えないように）
             $index = getContentIndexFiles $folders { param ($count) $request.Scanned = $count }

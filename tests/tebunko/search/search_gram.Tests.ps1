@@ -195,3 +195,39 @@ Describe "状態ファイルの行" -Tag Unit {
         (convertToSystemIndexState $state) -join "|" | Should -Be ($lines[0..2] -join "|")
     }
 }
+
+Describe "getSearchGramValues" -Tag Unit {
+    It "隣り合う 2 文字を uint32 にし（先の文字 + 65536 * 後の文字）、小文字にそろえる" {
+        $values = getSearchGramValues "AB"
+        $values.Count | Should -Be 1
+        $values[0] | Should -Be ([uint32]([int][char]"a" + 65536 * [int][char]"b"))
+    }
+
+    It "getSearchGrams の語と同じ 2-gram を同じ順に返す" {
+        $word = "ニター ab"
+        $tokens = foreach ($v in (getSearchGramValues $word)) { "x" + [BitConverter]::ToString([BitConverter]::GetBytes([uint32]$v)).Replace("-", "").ToLowerInvariant() }
+        @($tokens) -join "," | Should -Be ((getSearchGrams $word) -join ",")
+    }
+
+    It "本文の 2-gram（addTextGrams）に、本文に含まれる語の 2-gram がすべて入る" -TestCases @(
+        @{ text = "保守サービスの見積"; word = "サービス" }
+        @{ text = "Hello World"; word = "LO WO" }
+        @{ text = "x ab y"; word = "ab" }
+    ) {
+        $set = New-Object "System.Collections.Generic.HashSet[uint32]"
+        addTextGrams $set $text
+        foreach ($gram in (getSearchGramValues $word)) {
+            $set.Contains($gram) | Should -BeTrue
+        }
+    }
+
+    It "空・1 文字は空" {
+        (getSearchGramValues "").Count | Should -Be 0
+        (getSearchGramValues "a").Count | Should -Be 0
+    }
+
+    It "多いときは searchGramMax 個に間引く" {
+        $word = -join (0..40 | ForEach-Object { [char](0x4E00 + $_) })
+        (getSearchGramValues $word).Count | Should -Be ${searchGramMax}
+    }
+}

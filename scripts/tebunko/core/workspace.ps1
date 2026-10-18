@@ -11,6 +11,8 @@ class Workspace {
     [string]$StoreDir
     [string]$FormatFile
     [string]$IndexDir
+    # gram 索引（本文インデックスのファイルごとの 2-gram の索引。インデックス名ごとのフォルダ。検索で、検索語を含まないファイルを読まずに外す）
+    [string]$GramDir
     # 前の版（版番号つきの置き場に替える前）の本文インデックスのフォルダと取り込み一覧。
     # 新しい版は読むだけで書かない。作り直しが最後まで終わったインデックスから消す（index_format_store.ps1）
     [string]$OldIndexDir
@@ -49,6 +51,7 @@ class Workspace {
         $this.StoreDir = "$dir\store"
         $this.FormatFile = "$dir\store\format.tsv"
         $this.IndexDir = "$dir\store\content"
+        $this.GramDir = "$dir\store\gram"
         $this.OldIndexDir = "$dir\content_index"
         $this.OldStatusFile = "$dir\ingest_status.tsv"
         $this.LegacyIndexDir = "$dir\index"

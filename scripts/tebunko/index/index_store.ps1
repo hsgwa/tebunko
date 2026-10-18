@@ -63,6 +63,11 @@ function removeSystemIndexOfWorkspace {
         [void](removeSystemIndexOf $name $owner.SystemIndexDir $owner.SystemIndexStateFile)
     } catch {
     }
+    # gram 索引も消す。消せなくても続ける（インデックスが無いフォルダの索引は、次のインデックス作成で消える）
+    try {
+        [void](removeGramIndexOf $name $owner.GramDir)
+    } catch {
+    }
 }
 
 function getSearchIndexes {

@@ -32,7 +32,7 @@
 
 | 層 | 例 | テスト |
 |---|---|---|
-| 判断層（入力は素の値、出力は素の値） | `text.ps1`・`index_name.ps1`・`source_name.ps1`・`content_index_format.ps1`・`search_query.ps1`・`search_gram.ps1`・`indexer_decide.ps1`・`*_view.ps1`（一覧は `tests/helpers/layer_paths.ps1`。`tebunko/ui/` の画面の判断層のほか、`shared/office/office_protection_view.ps1`・`shared/office/office_file_kind_view.ps1` のように `ui/` の外にも置く。テスト（`layers.Tests.ps1`）とカバレッジは名前で拾うため、置き場所によらず判断層として扱われる） | する（主にタグ `Unit`） |
+| 判断層（入力は素の値、出力は素の値） | `text.ps1`・`index_name.ps1`・`source_name.ps1`・`content_index_format.ps1`・`search_query.ps1`・`search_gram.ps1`・`gram_index.ps1`・`indexer_decide.ps1`・`*_view.ps1`（一覧は `tests/helpers/layer_paths.ps1`。`tebunko/ui/` の画面の判断層のほか、`shared/office/office_protection_view.ps1`・`shared/office/office_file_kind_view.ps1` のように `ui/` の外にも置く。テスト（`layers.Tests.ps1`）とカバレッジは名前で拾うため、置き場所によらず判断層として扱われる） | する（主にタグ `Unit`） |
 | 状態層（ファイル・COM を読み書きする） | `status_file.ps1`・`indexer_state.ps1`・`index_store.ps1`・`index_catalog.ps1`・`workspace_mover.ps1`・`search_excludes.ps1`・`content_index_store.ps1`・`content_index_search.ps1`・`search_run.ps1`・`system_index.ps1`・`fast_search.ps1`・`windows_search.ps1`・`version.ps1` | する（主にタグ `Io`。`$TestDrive` を使う） |
 | 画面層（`$ui` を触る） | `gui.ps1`・`*_tab.ps1`・`shell.ps1`・`app_host.ps1`・`folder_dialog.ps1`、`result_list.ps1`・`open_source.ps1`・`preview.ps1`・`index_tree.ps1` | `gui.ps1`・`*_tab.ps1`・`shell.ps1`・`app_host.ps1`・`*_dialog.ps1` は手で確かめる（カバレッジの対象外）。ほかは `$ui` を偽物にしてテストする |
 

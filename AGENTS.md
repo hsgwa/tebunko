@@ -101,7 +101,7 @@ git config user.email <ID>+<アカウント名>@users.noreply.github.com
 守ること（`tests/meta/` が機械的に確かめる）:
 
 - `shared/` はツールを知らない。ツール同士も互いを読み込まない。
-- 判断層（`*_view.ps1`・`index_name.ps1`・`source_name.ps1`・`content_index_format.ps1`・`search_query.ps1`・`search_gram.ps1`・`indexer_decide.ps1`・`text.ps1`）は `$ui` / `$window` / WPF の型に触らない。判断層のファイルは、判断層でない状態層（ファイル・COM を読み書きする層）にも依存しない（今ある依存は `tests/meta/layers.Tests.ps1` の例外の一覧に理由つきで載せ、増やさない）。画面に出す文言や可否の判定はここに置き、テストを書く。
+- 判断層（`*_view.ps1`・`index_name.ps1`・`source_name.ps1`・`content_index_format.ps1`・`search_query.ps1`・`search_gram.ps1`・`gram_index.ps1`・`indexer_decide.ps1`・`text.ps1`）は `$ui` / `$window` / WPF の型に触らない。判断層のファイルは、判断層でない状態層（ファイル・COM を読み書きする層）にも依存しない（今ある依存は `tests/meta/layers.Tests.ps1` の例外の一覧に理由つきで載せ、増やさない）。画面に出す文言や可否の判定はここに置き、テストを書く。
 - 状態層（`tebunko/` の `core/`・`index/`・`indexer/`・`search/`、`shared/` の `core/`・`office/`）は画面に触らない（`$ui` / `$window` / `System.Windows` を書かない）。画面以外の読み込み口（`shared/shared.ps1`・`tebunko/lib.ps1`・`indexer.ps1`・`tebunko/indexer/indexer_lib.ps1`）から `ui/` のファイルを読み込まない。
 - 足したファイルは、必ず読み込み口（`shared/shared.ps1`・`tebunko/lib.ps1`・`gui.ps1`・`indexer.ps1`・`tebunko/indexer/indexer_lib.ps1`）から読み込む。
 - スクリプト・XAML は BOM 付き UTF-8・CRLF で保存する。

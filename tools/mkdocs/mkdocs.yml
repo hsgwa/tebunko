@@ -171,6 +171,7 @@ nav:
           - インデックスのファイルの形: design/index-data/format.md
           - 入れ替えと書き出し: design/index-data/publish.md
           - システムインデックス: design/index-data/system-index.md
+          - gram 索引: design/index-data/gram-index.md
       - 検索:
           - design/search/index.md
           - 検索を速くする仕組み: design/search/speed.md

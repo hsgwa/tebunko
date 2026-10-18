@@ -20,6 +20,7 @@ BeforeAll {
         @{ File = "index_archive.ps1"; Function = "importIndexCore"; Reason = "作業フォルダを消す。置き換えは、インポートのダイアログで利用者が［置き換える］を選んだ回だけ" }
         @{ File = "index_store.ps1"; Function = "publishIndexFiles"; Reason = "取り込みで作り直す元のファイル 1 つ分のフォルダを、更新の確認を経た取り込みの結果に置き換える" }
         @{ File = "index_format_store.ps1"; Function = "removeOldIndexOf"; Reason = "作り直しが終わったインデックスの、古い置き場（content_index）の分だけを消す。消す対象は古い置き場の配列と作り終えたインデックスに限り、ジャンクションは辿らない" }
+        @{ File = "gram_index_store.ps1"; Function = "updateGramIndexes"; Reason = "インデックスが無くなったあとの gram 索引（インデックスから作り直せる派生物）のフォルダだけを、置き場の下か・途中にリンクが無いかを removeDirectoryUnder で確かめて消す" }
         @{ File = "system_index.ps1"; Function = "removeSystemIndexOf"; Reason = "システムインデックス（インデックスから作り直せる派生物）だけを消す" }
         @{ File = "workspace_mover.ps1"; Function = "RemoveEntries"; Reason = "ワークスペースを変えるときの確認で、利用者が［消して、最初からやり直す］を選んだ回だけ、選んだフォルダの tebunko のファイル・フォルダを消す（画面は applyWorkspace が ChangeWorkspace を呼ぶ）" }
         @{ File = "workspace.ps1"; Function = "clearLegacySystemIndex"; Reason = "前の版のシステムインデックス（作り直せる派生物）だけを消す" }

@@ -658,7 +658,24 @@ function invokeIndexerBody {
 
     # この回で最後まで作り終えたインデックス（失敗したファイルの無いもの）の目録の行を「作り終えた」にし、古い形式の分を消す。
     # 中止・続けられないエラーのときは呼ばない（行は「作成中」のまま。古い形式の分も残る）。消せないものは残してログに出す
-    function completeRoundIndexes {
+    function updateGramIndexesOfRound {
+    # gram 索引（検索語を含まないファイルを読まずに外すための索引）を、本文インデックスのファイルの今の状態に合わせる。
+    # 作れなくても検索は安全側（全部照合）に倒れるため、インデックス作成は失敗にしない（ログに黄色で出して、次の回に作り直す）
+    param (
+        [scriptblock]$shouldStop
+    )
+
+    try {
+        $summary = updateGramIndexes -shouldStop $shouldStop
+        foreach ($failed in $summary.Failed) {
+            writeIndexerLog "gram 索引を作れませんでした（$($failed.Name)。次のインデックス作成で作り直します）: $($failed.Reason)" "Yellow"
+        }
+    } catch {
+        writeIndexerLog "gram 索引を作れませんでした（次のインデックス作成で作り直します）: $($_.Exception.Message)" "Yellow"
+    }
+}
+
+function completeRoundIndexes {
         param ([string[]]$names)
 
         $failedPrefixes = @($ledger.Failures | ForEach-Object { ([string]$_.RelPath).Split("\")[0] })
@@ -933,6 +950,7 @@ function invokeIndexerBody {
         } catch {
             writeIndexerLog "システムインデックスを作れませんでした（次のインデックス作成で作り直します）: $($_.Exception.Message)" "Yellow"
         }
+        updateGramIndexesOfRound { $channel.Stop }
         completeRoundIndexes $roundNames
         $reporter.Progress(${indexingPhaseFinish}, 0, 0, 0, $(if ($cloudSkipped -eq 0) { "更新が必要なファイルはありませんでした" } else { "クラウドにだけあるファイルは、ダウンロードせずに残しました" }))
         removeTmpDir
@@ -1101,6 +1119,8 @@ function invokeIndexerBody {
             } catch {
                 writeIndexerLog "システムインデックスを作れませんでした（次のインデックス作成で作り直します）: $($_.Exception.Message)" "Yellow"
             }
+            $reporter.Progress(${indexingPhaseFinish}, $processed, 0, $ledger.Failures.Count, "検索用の索引（gram 索引）を作っています…")
+            updateGramIndexesOfRound { $channel.Stop }
         }
         # 画面が終わり方（成功・失敗の件数）を読めるよう、進み具合は消さずに最後の状態を残す
         $reporter.Progress(${indexingPhaseFinish}, $processed, $dispatcher.Remaining, $ledger.Failures.Count, "")
