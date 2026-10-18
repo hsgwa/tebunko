@@ -1379,7 +1379,7 @@ function readXlsxSheetHeaderFooter {
     $settings = New-Object System.Xml.XmlReaderSettings
     $settings.DtdProcessing = [System.Xml.DtdProcessing]::Prohibit
     # シートの部品は sheetData が大きいため、文字列にせず流れで読む（readZipEntry は使わない）。
-    # 代わりに、1ファイルで流れ読みが読める残り（zipSheetStreamMaxBytes − 既に読んだ合計 zipSheetStreamReadBytes）を決め、
+    # 代わりに、1ファイルで流れ読みが読める残り（zipSheetStreamMaxBytes から既に読んだ合計 zipSheetStreamReadBytes）を決め、
     # 申告の大きさ（entry.Length）が残りを超える部品は開かずに読めなかった扱いにする。
     # 申告を偽った部品（実際は大きいのに小さく申告）は、LimitedReadStream が実際に読んだ量を数えて残りを超えたところで止める。
     # 読み終えたら（成功・失敗とも）読んだ量を合計に足す

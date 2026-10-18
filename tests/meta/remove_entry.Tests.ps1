@@ -298,6 +298,7 @@ Describe "フォルダを消す・移す・作る入口" -Tag Meta {
             @{ File = "tebunko\index\index_format_store.ps1"; Owner = "updateIndexFormat"; Call = "Directory.CreateDirectory"; Reason = "目録ファイルの親フォルダを作るだけ（消さない）" }
             @{ File = "tebunko\index\index_store.ps1"; Owner = "publishIndexFiles"; Call = "Directory.Move"; Reason = "置き場の下かを testRemovablePath で、移す前に両側とも確かめてから移す（別ドライブでは必ず IOException になり、moveDirectoryRetry の待ち直しが本ごとにかかるため、1 件ずつ移す fallback へすぐ落とす。moveDirectoryUnder を使わない）" }
             @{ File = "tebunko\index\system_index.ps1"; Owner = "updateSystemIndexState"; Call = "Directory.CreateDirectory"; Reason = "状態ファイルの親フォルダを作るだけ（消さない）" }
+            @{ File = "tebunko\indexer\ingest_journal.ps1"; Owner = "AddRecord"; Call = "Directory.CreateDirectory"; Reason = "ジャーナルファイルの親フォルダ（store\journal）を作るだけ（消さない）" }
             @{ File = "tebunko\indexer\indexer_run.ps1"; Owner = "invokeIndexerBody"; Call = "Directory.CreateDirectory"; Reason = "ワークスペースの根（PublishDir・IndexDir・Dir）そのものを作る（置き場自身。消さない）" }
             @{ File = "tebunko\indexer\indexer_run.ps1"; Owner = "invokeIndexer"; Call = "Directory.CreateDirectory"; Reason = "ワークスペースの根そのものを作る（置き場自身。消さない）" }
             @{ File = "tebunko\indexer\indexer_run.ps1"; Owner = "(スクリプト直下)"; Call = "Directory.CreateDirectory"; Reason = "ワークスペースの根そのものを作る（置き場自身。消さない）" }

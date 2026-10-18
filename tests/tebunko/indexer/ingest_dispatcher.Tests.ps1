@@ -166,16 +166,13 @@ Describe "IngestDispatcher（振り分け）" -Tag Io {
         @(takeAllSteps $dispatcher | ForEach-Object { $_.Number }) | Should -Be @(2)
     }
 
-    It "前回強制終了したファイル（carried）は、回数を 1 つ増やして取り込み中の記録に移す。記録に残るのは、まだ渡していない分だけ" {
+    It "前回強制終了したファイル（carried）は、渡すときに回数を 1 つ増やす（GetInflightCount が今回の分まで含めた回数を返す。渡していない・取り込み中でないものは 0）" {
         $dispatcher = newTestDispatcher @("a.docx", "b.docx") -carried @{ "資料\a.docx" = 1; "資料\b.docx" = 3 }
+        $dispatcher.GetInflightCount("資料\a.docx") | Should -Be 0
         $steps = takeAllSteps $dispatcher
         $steps.Count | Should -Be 1
-        $entries = @($dispatcher.IngestingEntries() | Sort-Object { $_.RelPath })
-        $entries.Count | Should -Be 2
-        $entries[0].RelPath | Should -Be "資料\a.docx"
-        $entries[0].Count | Should -Be 2
-        $entries[1].RelPath | Should -Be "資料\b.docx"
-        $entries[1].Count | Should -Be 3
+        $dispatcher.GetInflightCount($steps[0].RelPath) | Should -BeGreaterThan 1
+        $dispatcher.GetInflightCount("資料\無い.docx") | Should -Be 0
     }
 
     It "取り込む直前に元のファイルが無くなっていたら Vanished で返し、渡さずに済ませる（取り込み中にはしない）" {

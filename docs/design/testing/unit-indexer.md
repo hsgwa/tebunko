@@ -17,7 +17,9 @@ flowchart LR
 | `writeUnits`（`tests/tebunko/indexer/extract_office`） | 場所ごとの TSV 出力、空の場所は出力しない、`[` `]` を含むパス |
 | `addStatusRow` | 追記した行の優先（大文字・小文字を区別しない）、追記した行の抽出版 |
 | `readStatusLines` / `renameStatusIndexName` / `removeStatusIndexName` | 名前の変更（クロール対象フォルダの行と各行の相対パス）、インデックスの記録の削除 |
-| `readIngestingFiles` / `writeIngestingFiles` / `removeIngestingFile` | 取り込み中の複数のファイルの回数と相対パスの往復、取り込み中が無ければ記録を消す、壊れた行は読み飛ばす |
+| `readStatusRelPaths` | 取り込み一覧の相対パスを順に返す（同じ相対パスの追記も数える・壊れた行と見出しは数えない） |
+| `IngestJournal`・`convertToIngestJournalLine`・`newIngestJournalHead`・`convertFromIngestJournal` | ジャーナルの追記と読み戻し（途中で切れた最後の行を捨てる）、新しい回の頭の行（版・回・持・未の順。未が 0・1・2 件のとき、持と未が両方あるとき）、記録の種類ごとの復旧（書き出すフォルダ・やり直す仕事・済んだ仕事。「未」の持ち越しと「出」の打ち消し）、書き出せなかった回のあとの書き出し直し、行数がずれたときの全部やり直し、前の版の記録の読み込み |
+| `flushPendingPublish`・`recoverIngestJournal`・`writeStatusWithJournal`（Io。`tests/tebunko/indexer/indexer`） | 書き出せたフォルダ（`publishIndexFolders` の `Published`）にだけ「出」を足す、書き出せなかったフォルダだけを返す（2 フォルダのうち 1 つが失敗したとき・置き場の外を指すパスで飛ばしたとき・例外のときは全部。システムインデックスの段で落ちても本文インデックスは書けているので「出」を足す）、始めの復旧が書き出せなかった・中止で飛ばしたフォルダを次の回へ持ち越す、ジャーナルが読めないとき（フォルダが 0 件・2 件）今ある書き出し前のフォルダだけを書き出す、前の版の `ingesting.txt` を足して重ねない、「書」と（`-Finish` のときだけ）「終」の記録 |
 | `describeIngestError` | 取り込みの例外から失敗の原因を作る（パスが長すぎる場合を含む） |
 | `getIndexingState` | 状態ごとの件数、失敗したファイルの行の並び（`未取り込み` でエラーがある行は失敗に数え、エラーが空の `未取り込み` は待ちのまま）、指定した時刻以降に取り込んだ件数 |
 | `newIndexerChannel` / `writeIndexingProgress` / `readIndexingProgress` | 画面が決めた条件を入れスレッドをまたいで使える形にする、段階・件数・内容の往復（タブ・改行はスペース）、受け渡しの口が無ければ何もしない |

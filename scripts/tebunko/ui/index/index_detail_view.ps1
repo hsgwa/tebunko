@@ -48,7 +48,8 @@ function getIndexDetailEditDecision {
         [string]$name,
         [string]$path,
         $item,            # 直している行（Name・Path を持つ）
-        $items            # 今の一覧
+        $items,           # 今の一覧
+        $leftovers = $null # 設定から外れたまま残してあるインデックス（getWorkspaceIndexFolders の結果。省くと調べない）
     )
 
     $newName = $name.Trim()
@@ -56,7 +57,7 @@ function getIndexDetailEditDecision {
     if ($newName -ceq $item.Name -and $newPath -eq $item.Path) {
         return @{ Action = "None"; Message = ""; Name = $item.Name; Path = $item.Path }
     }
-    $message = testIndexEditInput $path $newName $items $item
+    $message = testIndexEditInput $path $newName $items $item $leftovers
     if ($message -ne "") {
         return @{ Action = "Invalid"; Message = $message; Name = $item.Name; Path = $item.Path }
     }
