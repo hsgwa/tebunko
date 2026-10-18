@@ -50,10 +50,16 @@ BeforeAll {
         (readGramToc "$gram\$name").Segments.Count | Should -BeGreaterThan 0
         $all = getContentIndexFiles @($index)
         $compared = 0
+        $narrowedWords = 0
         foreach ($item in @($all.ContentIndexFiles)) {
             $body = getContentIndexBodyText (readContentIndexText $item.Path)
             foreach ($word in @(($body -split "\s+") | Where-Object { $_.Length -ge 2 } | Select-Object -First 3)) {
                 $narrowed = getGramContentIndexFiles $word $true @($index) $index $gram
+                if ($null -ne $narrowed) {
+                    # 絞れたとき（$null でない）は、1 つ以上のファイルを外している
+                    @($narrowed.ContentIndexFiles).Count | Should -BeLessThan @($all.ContentIndexFiles).Count
+                    $narrowedWords++
+                }
                 $files = @(if ($null -eq $narrowed) { $all.ContentIndexFiles } else { $narrowed.ContentIndexFiles })
                 $viaGram = searchContentIndex $word $files $true 0
                 $full = searchContentIndex $word $all.ContentIndexFiles $true 0
@@ -63,6 +69,7 @@ BeforeAll {
             }
         }
         $compared | Should -BeGreaterThan 0
+        $narrowedWords | Should -BeGreaterThan 0
     }
 }
 

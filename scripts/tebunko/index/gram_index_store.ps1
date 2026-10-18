@@ -535,9 +535,16 @@ function updateGramIndexOf {
                 $segments.Add($segment)
             }
         }
+        # まとめた後の数の基準は、生きている組の数。古い区画に残った重複（変わる前の版）と消えたファイルの分を、
+        # 「今のファイルの数 / 全区画のファイルの数」の割合で除く
         $postings = 0L
+        $listedFiles = 0L
         foreach ($segment in $segments) {
             $postings += $segment.Header.PostingCount
+            $listedFiles += $segment.Header.FileCount
+        }
+        if ($listedFiles -gt $items.Count) {
+            $postings = [long][Math]::Floor([double]$postings * $items.Count / $listedFiles)
         }
         $existing = if ($toc) { @($toc.Segments | ForEach-Object { $_.Name }) } else { @() }
         $merge = ($toc -and (testGramMergeNeeded ($segments.Count + 1) $postings))

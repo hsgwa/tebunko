@@ -196,10 +196,10 @@ function finishSearch {
         updateFastSearchView
     }
 
-    # 高速検索では、候補の無いフォルダの本文インデックスのファイルを集めないため、集めた数が 0 でも「インデックスが無い」とは限らない
-    if (!$shared.FastUsed -and $shared.IndexTotal -gt 0 -and $shared.Total -eq 0) {
+    # 高速検索・gram 索引では、候補の無いファイルを集めないため、集めた数が 0 でも「インデックスが無い」とは限らない（0 件は下の「一致する結果はありません」）
+    if (!$shared.FastUsed -and !$shared.GramUsed -and $shared.IndexTotal -gt 0 -and $shared.Total -eq 0) {
         $ui.SummaryText.Text = getNoKindMatchText $s.Option.FileKinds
-    } elseif (!$shared.FastUsed -and $shared.Total -eq 0) {
+    } elseif (!$shared.FastUsed -and !$shared.GramUsed -and $shared.Total -eq 0) {
         $ui.SummaryText.Text = "インデックスが未作成です"
     } elseif ($count -eq 0) {
         # 0 件は、結果欄の要約と表の空いた所に「一致する結果はありません」を出す（ステータスバーの「検索しました：… 0 件」はそのまま）

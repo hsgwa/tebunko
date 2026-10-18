@@ -311,8 +311,12 @@ Describe "getFilesGramValues（スレッドに分けて数える）" -Tag Io {
     It "スレッドの数を 2 にして作業を分けても、1 つずつ数えたときと同じ値になる" {
         $items = newManyItems "$TestDrive\w1"
         ${gramTaskFiles} = 2
+        $real = ${function:newWorkerState}
+        Mock newWorkerState { & $real @args }
         $single = getFilesGramValues $items 1
+        Should -Invoke newWorkerState -Times 0 -Exactly
         $pooled = getFilesGramValues $items 2
+        Should -Invoke newWorkerState -Times 1 -Exactly
         $pooled.Count | Should -Be $items.Count
         for ($i = 0; $i -lt $items.Count; $i++) {
             $pooled[$i] | Should -Not -BeNullOrEmpty
@@ -323,7 +327,10 @@ Describe "getFilesGramValues（スレッドに分けて数える）" -Tag Io {
     It "スレッドに分けた数え方も、止めるよう言われたら数えずに `$null を返す" {
         $items = newManyItems "$TestDrive\w2"
         ${gramTaskFiles} = 2
+        $real = ${function:newWorkerState}
+        Mock newWorkerState { & $real @args }
         $stopped = getFilesGramValues $items 2 { $true }
+        Should -Invoke newWorkerState -Times 1 -Exactly
         @($stopped | Where-Object { $null -ne $_ }).Count | Should -Be 0
     }
 
@@ -331,9 +338,51 @@ Describe "getFilesGramValues（スレッドに分けて数える）" -Tag Io {
         $items = newManyItems "$TestDrive\w3"
         ${gramTaskFiles} = 2
         $items[3] = @{ Path = $items[3].Path; Ticks = $items[3].Ticks + 1; Size = $items[3].Size }
+        $real = ${function:newWorkerState}
+        Mock newWorkerState { & $real @args }
         $pooled = getFilesGramValues $items 2
+        Should -Invoke newWorkerState -Times 1 -Exactly
         $pooled[3] | Should -BeNullOrEmpty
         $pooled[2] | Should -Not -BeNullOrEmpty
+    }
+}
+Describe "まとめ直しの基準（生きている組の数）" -Tag Io {
+    BeforeAll {
+        function script:segmentCount {
+            param ($tree)
+            return (readGramToc "$($tree.Gram)\営業").Segments.Count
+        }
+    }
+
+    It "まとめて 2 区画以上になったあと、次の 1 回ではまとめない" {
+        ${gramBatchPostings} = 30
+        $tree = newGramTree "$TestDrive\mg1"
+        [void](updateGramIndexOf $tree.Index $tree.Gram "営業")
+        $merged = $false
+        for ($i = 0; $i -lt 60 -and !$merged; $i++) {
+            putContentIndex $tree.Index "営業" "m$i" "M$i.xlsx" "追加の帳票 $i の本文です" | Out-Null
+            $merged = (updateGramIndexOf $tree.Index $tree.Gram "営業").Merged
+        }
+        $merged | Should -BeTrue
+        (segmentCount $tree) | Should -BeGreaterOrEqual 2
+        putContentIndex $tree.Index "営業" "next" "Next.xlsx" "まとめた直後に足す本文" | Out-Null
+        $result = updateGramIndexOf $tree.Index $tree.Gram "営業"
+        $result.Added | Should -BeGreaterThan 0
+        $result.Merged | Should -BeFalse
+    }
+
+    It "同じファイルを何度も変えて足し続けても、区画の数がまとめた後の数 + 8 を超えない" {
+        ${gramBatchPostings} = 30
+        $tree = newGramTree "$TestDrive\mg2"
+        [void](updateGramIndexOf $tree.Index $tree.Gram "営業")
+        $max = 0
+        for ($i = 0; $i -lt 50; $i++) {
+            putContentIndex $tree.Index "営業" "b" "B.xlsx" "千代田区の見積書 第 $i 版の内容" | Out-Null
+            [void](updateGramIndexOf $tree.Index $tree.Gram "営業")
+            $max = [Math]::Max($max, (segmentCount $tree))
+        }
+        # 今ある 3 ファイルの組は 100 に満たない（まとめた後は 4 区画以下）。重複を数えていると、これを大きく超えて増える
+        $max | Should -BeLessOrEqual ([Math]::Ceiling(100 / 30) + 8 + 1)
     }
 }
 Describe "検索のあいだに索引が書き換わっても、結果は漏れない（正しい絞り込みか、絞らない）" -Tag Io {
@@ -366,8 +415,13 @@ Describe "検索のあいだに索引が書き換わっても、結果は漏れ�
         foreach ($entry in $toc.Segments) {
             $held.Add((openGramSegment "$dir\$($entry.Name)" $entry.Length))
         }
+        $grams = getSearchGramValues "モニター"
+        $before = @($held | ForEach-Object { (@(getGramCandidates $_ $grams | Sort-Object) -join ",") })
+        ($before -join "|") | Should -Not -Be ""
         try {
             { grow $tree } | Should -Not -Throw
+            $after = @($held | ForEach-Object { (@(getGramCandidates $_ $grams | Sort-Object) -join ",") })
+            ($after -join "|") | Should -Be ($before -join "|")
             foreach ($segment in $held) {
                 $segment | Should -Not -BeNullOrEmpty
                 $segment.Stream.CanRead | Should -BeTrue

@@ -406,6 +406,28 @@ Describe "invokeSearchRequest（gram 索引）" -Tag Io {
         Should -Invoke getFastSearchContentIndexFiles -Times 1 -Exactly
     }
 
+    It "gram 索引で 0 件まで絞ったとき、GramUsed が立ち、集めた数は 0（画面は「インデックスが未作成」にしない）" {
+        Mock getGramContentIndexFiles { @{ Folders = @(); ContentIndexFiles = @() } }
+        $request = newSearchRequest "単価" $true @($contentIndexRoot) 0 @{} $true
+        invokeSearchRequest $request
+        $request.Error | Should -BeNullOrEmpty
+        $request.GramUsed | Should -Be $true
+        $request.FastUsed | Should -Be $false
+        $request.IndexTotal | Should -Be 0
+        $request.Total | Should -Be 0
+        (takeHits $request).Count | Should -Be 0
+    }
+
+    It "gram 索引で絞った候補が、ファイルの種類の絞り込みで全部外れたとき、GramUsed が立つ（ヒットは 0 件）" {
+        $narrowed = @{ Folders = @(); ContentIndexFiles = @($contentIndexFiles | Select-Object -First 1) }
+        Mock getGramContentIndexFiles { $narrowed }
+        $request = newSearchRequest "単価" $true @($contentIndexRoot) 0 @{ FileKinds = @("word") } $true
+        invokeSearchRequest $request
+        $request.GramUsed | Should -Be $true
+        $request.IndexTotal | Should -Be 1
+        (takeHits $request).Count | Should -Be 0
+    }
+
     It "どちらも使えなければ、すべてを照合する（GramUsed も FastUsed も立たない）" {
         Mock getGramContentIndexFiles { $null }
         $request = newSearchRequest "単価" $true @($contentIndexRoot) 0 @{} $false
