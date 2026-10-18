@@ -167,7 +167,7 @@
 | `readArchiveEntryBytesLimited` | entry, maxBytes | byte[]（maxBytes を超えたら `$null`） | zip のエントリーを、実際に読んだバイト数を数えながら読む。中央ディレクトリの大きさの申告に頼らない（目録の読み取りに使う） | 同上 | openIndexArchive |
 | `getWorkspaceFreeSpace` | root | long（調べられなければ `$null`） | ドライブのルートの空き容量。UNC など `DriveInfo` にできないパスは例外にせず `$null` | 同上 | importIndex |
 | `testImportFreeSpace` | totalBytes, root, getFreeSpace | string（足りていれば空） | 空き容量が「合計 + 1GB」に足りなければ理由を返す。調べられない（`$null`・例外）ときは確かめない | 同上 | importIndexCore |
-| `expandImportArchive` / `registerImportedIndexInSettings` / `swapInImportedIndexDir` / `rewriteStatusForImport` | 同上（`importIndexCore` の手順 6〜9） | – | インポートの手順を 1 つずつ。失敗したら自分で戻す（`restoreImportedSettings`・`restoreSwappedIndexDir`）。取り込み一覧は `readStatusFile` → `writeStatusFile` で書く | 同上 | importIndexCore |
+| `expandImportArchive` / `registerImportedIndexInSettings` / `swapInImportedIndexDir` / `rewriteStatusForImport` | 同上（`importIndexCore` の手順 5〜9） | – | インポートの手順を 1 つずつ。失敗したら自分で戻す（`restoreImportedSettings`・`restoreSwappedIndexDir`）。取り込み一覧は `readStatusFile` → `writeStatusFile` で書く | 同上 | importIndexCore |
 | `getImportIndexName` | suggestedName, usedNames, collisionMode | string（`$null` は Cancel） | 同じ名前のインデックスがあるときの扱いから、インポートで使う名前を決める（`Rename` は `newIndexName` と同じ決まり） | 同上 | importIndex, 画面 |
 | `getExportFileName` | indexName, usedNames（保存先フォルダの既存のファイル名）, now | string | エクスポートの既定のファイル名（`<インデックス名>_インデックス_<yyyyMMdd>.zip`。重なれば `(2)`…） | 同上 | 画面（［エクスポート…］） |
 | `testIndexArchiveManifest` | manifest, entryNames, manifestBytes | string（受け付けられれば空） | zip の目録・エントリーが受け付けられるかを調べる（形式の版・zip slip・重なり・大きさ・エントリーの数と合計の上限） | 同上 | openIndexArchive |

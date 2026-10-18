@@ -1150,6 +1150,39 @@ Describe "受け取る zip の大きさと件数の上限" -Tag Io {
         Remove-Item -LiteralPath $path -Force  # 断ったあとは zip を開いたままにしない
     }
 
+    It "readArchiveEntryBytesLimited: <label>" -TestCases @(
+        @{ label = "ちょうど上限は読める"; size = 10; max = 10; overflow = $false }
+        @{ label = "上限を 1 超えると `$null"; size = 11; max = 10; overflow = $true }
+        @{ label = "0 バイトは空の配列"; size = 0; max = 10; overflow = $false }
+        @{ label = "読み取りの区切り（1MB）をまたいで、ちょうど上限は読める"; size = (1MB + 1); max = (1MB + 1); overflow = $false }
+        @{ label = "読み取りの区切り（1MB）をまたいで、1 超えると `$null"; size = (1MB + 2); max = (1MB + 1); overflow = $true }
+    ) {
+        param ($label, $size, $max, $overflow)
+        $path = "$TestDrive\limited_$([Guid]::NewGuid().ToString('N')).zip"
+        $content = New-Object byte[] $size
+        for ($i = 0; $i -lt $size; $i++) { $content[$i] = [byte](65 + ($i % 26)) }
+        $a = [System.IO.Compression.ZipFile]::Open($path, [System.IO.Compression.ZipArchiveMode]::Create, [System.Text.Encoding]::UTF8)
+        try {
+            writeArchiveBytes $a "a.bin" $content
+        } finally {
+            $a.Dispose()
+        }
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
+        try {
+            $result = readArchiveEntryBytesLimited ($zip.GetEntry("a.bin")) $max
+        } finally {
+            $zip.Dispose()
+        }
+
+        if ($overflow) {
+            ($null -eq $result) | Should -Be $true
+        } else {
+            ($null -eq $result) | Should -Be $false
+            $result.Length | Should -Be $size
+            if ($size -gt 0) { $result[$size - 1] | Should -Be $content[$size - 1] }
+        }
+    }
+
     It "合計の上限: 空き容量を調べられなくても、上限を超える目録の zip は展開の前に断る" {
         $wsB = [Workspace]::new("$TestDrive\total_$([Guid]::NewGuid().ToString('N'))")
         $settingsB = "$($wsB.Dir)\setting.config"
@@ -1173,19 +1206,46 @@ Describe "受け取る zip の大きさと件数の上限" -Tag Io {
         }
 
         It "<label>のとき、system_index が残る" -TestCases @(
-            @{ label = "目録が JSON でない zip"; kind = "notjson" }
-            @{ label = "目録の検査で断る zip（合計が大きすぎる）"; kind = "toobig" }
-            @{ label = "zip でないファイル"; kind = "notzip" }
+            @{ label = "目録が JSON でない zip"; kind = "notjson"; message = "*目録を読めません*" }
+            @{ label = "目録の検査で断る zip（合計が大きすぎる）"; kind = "toobig"; message = "*合計の大きさ*" }
+            @{ label = "zip でないファイル"; kind = "notzip"; message = "*壊れています*" }
+            @{ label = "SHA-256 を偽った zip（展開の途中で断る）"; kind = "badsha"; message = "*大きさか内容が目録と違います*" }
+            @{ label = "空き容量が足りない正しい zip"; kind = "nospace"; message = "*空き容量*" }
+            @{ label = "元のフォルダが別のインデックスと重なる正しい zip"; kind = "overlap"; message = "*が既にあります*" }
         ) {
-            param ($label, $kind)
+            param ($label, $kind, $message)
             $path = "$($script:wsLegacy.Dir)\keep.zip"
+            $getFree = { param ($root) $null }
             switch ($kind) {
                 "notjson" { newManifestOnlyZip $path @() "これは JSON ではありません" }
                 "toobig" { newManifestOnlyZip $path @([ordered]@{ path = "content_index/content_index.xlsx.001.tsv"; size = (${indexArchiveMaxTotalBytes} + 1); sha256 = ("a" * 64) }) }
                 "notzip" { Set-Content -LiteralPath $path -Value "これは zip ではありません" -Encoding UTF8 }
+                "badsha" {
+                    $a = [System.IO.Compression.ZipFile]::Open($path, [System.IO.Compression.ZipArchiveMode]::Create, [System.Text.Encoding]::UTF8)
+                    try {
+                        writeArchiveBytes $a "ingest_status.tsv" ([System.Text.Encoding]::UTF8.GetBytes("x"))
+                        $manifest = [ordered]@{
+                            format = ${indexArchiveFormat}; formatVersion = ${indexArchiveFormatVersion}; appVersion = ""
+                            exportedAt = "2026-09-27T10:00:00+09:00"; indexName = "営業"; sourceFolder = "C:\共有\営業部"
+                            files = @([ordered]@{ path = "ingest_status.tsv"; size = 1; sha256 = ("a" * 64) })
+                        }
+                        writeArchiveBytes $a "tebunko-index.json" ((New-Object System.Text.UTF8Encoding($false)).GetBytes((ConvertTo-Json $manifest -Depth 5)))
+                    } finally {
+                        $a.Dispose()
+                    }
+                }
+                default {
+                    $fixtureA = newIndexFixture "$TestDrive\legacykeep_src_$([Guid]::NewGuid().ToString('N'))" "営業" "C:\共有\営業部"
+                    exportIndex "営業" $path $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
+                    if ($kind -eq "nospace") {
+                        $getFree = { param ($root) [long]0 }
+                    } else {
+                        writeTargetFolders @([pscustomobject]@{ Name = "別"; Path = "C:\新しい場所"; Enabled = $true }) $script:settingsLegacy
+                    }
+                }
             }
 
-            { importIndex $path ${importCollisionRename} "" "C:\新しい場所" $script:wsLegacy $script:settingsLegacy } | Should -Throw
+            { importIndex $path ${importCollisionRename} "" "C:\新しい場所" $script:wsLegacy $script:settingsLegacy $getFree } | Should -Throw $message
             Test-Path -LiteralPath (Join-Path $script:wsLegacy.SystemIndexDir "旧\システムインデックス.txt") | Should -Be $true
         }
 

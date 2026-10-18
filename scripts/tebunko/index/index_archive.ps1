@@ -859,21 +859,20 @@ function importIndexCore {
             }
         }
 
-        # 前の版のワークスペース（index\ あり・content_index\ が空）を、取り込み直しを始めるときと同じ手順で片付ける。
-        # zip と各種の確かめが済んでから、展開の直前に行う（断る zip で消さないため）。
-        # content_index\ にこのインポートの分を足す前に行う（片付けに失敗したら、以降は行わない）
-        $legacyState = getLegacyIndexState $ws.Dir
-        if (testLegacyCleanupNeeded $legacyState) {
-            $cleanup = clearLegacySystemIndex $ws.Dir
-            if (!$cleanup.Ok) {
-                throw "前の版のインデックス（高速検索用）を片付けられませんでした（$($cleanup.Reason)）。tebunko の画面やエクスプローラーで開いていれば閉じてから、もう一度インポートしてください。"
-            }
-        }
-
         $workDir = Join-Path $ws.PublishDir "import"
         $expanded = expandImportArchive $archive $fileEntries $workDir $finalName $folder $ws.PublishDir
         $targetIndexDir = Join-Path $ws.IndexDir $finalName
         try {
+            # 前の版のワークスペース（index\ あり・content_index\ が空）を、取り込み直しを始めるときと同じ手順で片付ける。
+            # 展開（大きさ・SHA-256・本文インデックスの確かめ）が済んでから、設定に登録する前に行う（断る zip で消さないため）。
+            # content_index\ にこのインポートの分を足す前に行う（片付けに失敗したら、以降は行わず、外側の catch が作業フォルダを消す）
+            $legacyState = getLegacyIndexState $ws.Dir
+            if (testLegacyCleanupNeeded $legacyState) {
+                $cleanup = clearLegacySystemIndex $ws.Dir
+                if (!$cleanup.Ok) {
+                    throw "前の版のインデックス（高速検索用）を片付けられませんでした（$($cleanup.Reason)）。tebunko の画面やエクスプローラーで開いていれば閉じてから、もう一度インポートしてください。"
+                }
+            }
             $before = registerImportedIndexInSettings $finalName $folder $overwrite $targetIndexDir $settingsPath
             try {
                 $swap = swapInImportedIndexDir $expanded.NewDir $targetIndexDir (Join-Path $workDir "previous") $ws.IndexDir $ws.PublishDir
