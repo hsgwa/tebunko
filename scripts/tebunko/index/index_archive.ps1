@@ -290,6 +290,38 @@ function exportIndexCore {
     return @{ Name = $name; Path = $destPath; Files = $manifestFiles.Count; Bytes = $totalBytes }
 }
 
+function readArchiveEntryBytesLimited {
+    # zip のエントリーを、実際に読んだバイト数を数えながらバイト列で読む。maxBytes を超えたら、それ以上読まずに $null を返す
+    # （中央ディレクトリの展開後の大きさの申告は、送り手が偽れるため当てにしない）
+    param (
+        $entry,
+        [long]$maxBytes
+    )
+
+    $source = $entry.Open()
+    try {
+        $memory = New-Object System.IO.MemoryStream
+        try {
+            $buffer = New-Object byte[] 1MB
+            while ($true) {
+                $read = $source.Read($buffer, 0, $buffer.Length)
+                if ($read -le 0) {
+                    break
+                }
+                if ($memory.Length + $read -gt $maxBytes) {
+                    return $null
+                }
+                $memory.Write($buffer, 0, $read)
+            }
+            return , $memory.ToArray()
+        } finally {
+            $memory.Dispose()
+        }
+    } finally {
+        $source.Dispose()
+    }
+}
+
 function openIndexArchive {
     # zip を開き、目録（testIndexArchiveManifest）を確かめる。確かめられなければ、開いたアーカイブを閉じて例外にする。
     # 返すもの: @{ Archive; Manifest }（呼んだ側が Archive.Dispose() を行う）
@@ -310,16 +342,16 @@ function openIndexArchive {
         if ($null -ne $manifestEntry) {
             $manifestBytes = $manifestEntry.Length
             if ($manifestBytes -le ${indexArchiveMaxManifestBytes}) {
-                $reader = New-Object System.IO.StreamReader($manifestEntry.Open(), [System.Text.Encoding]::UTF8)
-                try {
-                    $json = $reader.ReadToEnd()
-                } finally {
-                    $reader.Dispose()
-                }
-                try {
-                    $manifest = ConvertFrom-Json $json
-                } catch {
-                    $manifest = $null
+                # 申告の大きさ（送り手が書ける）に頼らず、実際に読んだ大きさで打ち切る。超えたら大きすぎるものとして断る
+                $manifestData = readArchiveEntryBytesLimited $manifestEntry ${indexArchiveMaxManifestBytes}
+                if ($null -eq $manifestData) {
+                    $manifestBytes = ${indexArchiveMaxManifestBytes} + 1
+                } else {
+                    try {
+                        $manifest = ConvertFrom-Json ([System.Text.Encoding]::UTF8.GetString($manifestData).TrimStart([char]0xFEFF))
+                    } catch {
+                        $manifest = $null
+                    }
                 }
             }
         }
@@ -779,16 +811,6 @@ function importIndexCore {
         [scriptblock]$getFreeSpace
     )
 
-    # 前の版のワークスペース（index\ あり・content_index\ が空）を、取り込み直しを始めるときと同じ手順で片付ける。
-    # content_index\ にこのインポートの分を足す前に行う（片付けに失敗したら、以降は行わない）
-    $legacyState = getLegacyIndexState $ws.Dir
-    if (testLegacyCleanupNeeded $legacyState) {
-        $cleanup = clearLegacySystemIndex $ws.Dir
-        if (!$cleanup.Ok) {
-            throw "前の版のインデックス（高速検索用）を片付けられませんでした（$($cleanup.Reason)）。tebunko の画面やエクスプローラーで開いていれば閉じてから、もう一度インポートしてください。"
-        }
-    }
-
     $opened = openIndexArchive $zipPath
     $archive = $opened.Archive
     try {
@@ -841,6 +863,16 @@ function importIndexCore {
         $expanded = expandImportArchive $archive $fileEntries $workDir $finalName $folder $ws.PublishDir
         $targetIndexDir = Join-Path $ws.IndexDir $finalName
         try {
+            # 前の版のワークスペース（index\ あり・content_index\ が空）を、取り込み直しを始めるときと同じ手順で片付ける。
+            # 展開（大きさ・SHA-256・本文インデックスの確かめ）が済んでから、設定に登録する前に行う（断る zip で消さないため）。
+            # content_index\ にこのインポートの分を足す前に行う（片付けに失敗したら、以降は行わず、外側の catch が作業フォルダを消す）
+            $legacyState = getLegacyIndexState $ws.Dir
+            if (testLegacyCleanupNeeded $legacyState) {
+                $cleanup = clearLegacySystemIndex $ws.Dir
+                if (!$cleanup.Ok) {
+                    throw "前の版のインデックス（高速検索用）を片付けられませんでした（$($cleanup.Reason)）。tebunko の画面やエクスプローラーで開いていれば閉じてから、もう一度インポートしてください。"
+                }
+            }
             $before = registerImportedIndexInSettings $finalName $folder $overwrite $targetIndexDir $settingsPath
             try {
                 $swap = swapInImportedIndexDir $expanded.NewDir $targetIndexDir (Join-Path $workDir "previous") $ws.IndexDir $ws.PublishDir
