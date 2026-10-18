@@ -92,7 +92,7 @@ if (Test-Path -LiteralPath $wsDest) {
 }
 [void][System.IO.Directory]::CreateDirectory($wsDest)
 
-# 見本に残す、ワークスペースの中の形のまま残る部分（tmp\・publish\・ingesting.txt・indexing_log.txt・
+# 見本に残す、ワークスペースの中の形のまま残る部分（tmp\・publish\・store\journal\・indexing_log.txt・
 # gui_error_log.txt・search_results.txt・setting.config は見本に含めない。tests/testdata/README.md に理由を書く）
 $keepEntries = @($sourceWorkspace.StoreDir, $sourceWorkspace.OldIndexDir, $sourceWorkspace.OldStatusFile,
     $sourceWorkspace.SystemIndexDir, $sourceWorkspace.SystemIndexStateFile) | ForEach-Object { getWorkspaceRelativePath $WorkspaceDir $_ }
@@ -105,6 +105,11 @@ foreach ($entry in $keepEntries) {
     } else {
         Copy-Item -LiteralPath $src -Destination $dest -Force
     }
+}
+# store\ ごと写した中の、取り込みのジャーナル（store\journal\）は、取り込み中の記録で、前の版との互換の確かめには要らないため消す
+$journalDest = Join-Path $wsDest (getWorkspaceRelativePath $WorkspaceDir (Split-Path -Parent $sourceWorkspace.JournalFile))
+if (Test-Path -LiteralPath $journalDest) {
+    Remove-Item -LiteralPath $journalDest -Recurse -Force
 }
 
 Copy-Item -LiteralPath $ExportZip -Destination (Join-Path $SampleDir "export.zip") -Force
