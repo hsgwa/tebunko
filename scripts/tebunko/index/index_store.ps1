@@ -11,6 +11,36 @@ function testStatusRowFailed {
     return ($state -eq ${stateFailed}) -or ($state -eq ${stateNew} -and [string]$row.エラー -ne "")
 }
 
+function getWorkspaceIndexFolders {
+    # ワークスペースに残っているインデックスを、名前と前回の元のフォルダの組（@{ Name; Path }）で集めて返す。
+    # 取り込み一覧のクロール対象フォルダの行は名前と Path を持つ。インデックスのフォルダ（store\content\・古い content_index\）の直下にだけあって
+    # 取り込み一覧に行の無いフォルダは Path を空にする（どのフォルダにも付けられない名前として扱う）。
+    # 設定から外れたあとも残してあるインデックスを含む。画面の追加・名前の変更・インポートが、その名前を別のフォルダに付けないために使う
+    param (
+        $ws
+    )
+
+    $folders = New-Object System.Collections.Generic.List[object]
+    foreach ($folder in (readStatusFile $ws.StatusFile).Folders.ToArray()) {
+        if ($folder.Name) {
+            $folders.Add([pscustomobject]@{ Name = [string]$folder.Name; Path = [string]$folder.Path })
+        }
+    }
+    # 作り直す前の形式のインデックス（古い置き場）の名前も数える
+    foreach ($root in @($ws.IndexDir, $ws.OldIndexDir)) {
+        if (Test-Path -LiteralPath (toLongPath $root) -PathType Container) {
+            foreach ($dir in [System.IO.Directory]::GetDirectories((toLongPath $root))) {
+                $name = [System.IO.Path]::GetFileName($dir)
+                if (@($folders | Where-Object { $_.Name -ieq $name }).Count -eq 0) {
+                    $folders.Add([pscustomobject]@{ Name = $name; Path = "" })
+                }
+            }
+        }
+    }
+    # 1 件ずつ返す（受け取る側は @(...) で包んで配列にする。, を付けて返すと配列が 1 要素の入れ子になる）
+    return $folders.ToArray()
+}
+
 function getIndexStats {
     # 取り込み一覧の行をインデックス名ごとに集計する（画面のインデックス一覧に出す件数・最終更新）:
     #   インデックス名（大文字・小文字を区別しない）→ @{ Total; Done; Pending; Failed; LastIngested（"yyyy/MM/dd HH:mm:ss"。無ければ空） }

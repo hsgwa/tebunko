@@ -267,13 +267,61 @@ function getIndexBulkResultView {
     }
 }
 
+function testSameFolderPath {
+    # 2 つのフォルダパスが同じ書き方のフォルダか（normalizeFolderPath で整えて、大文字・小文字を区別せずに比べる）。
+    # ディスクを読まない（入力のたびに画面のスレッドで呼ぶため）。ドライブの割り当てだけが違うパス（Z:\売上 と UNC）は同じと見分けられず、
+    # 「違う」になる（名前を拒む側に倒れるだけで、データは消えない）。どちらかが空なら違う
+    param (
+        [string]$a,
+        [string]$b
+    )
+
+    $x = normalizeFolderPath $a
+    $y = normalizeFolderPath $b
+    return ($x -ne "" -and $y -ne "" -and [string]::Equals($x, $y, [System.StringComparison]::OrdinalIgnoreCase))
+}
+
+function getBlockedIndexNames {
+    # 設定から外れたまま残してあるインデックスの名前のうち、folder には付けられないもの（大文字・小文字を区別しない集合）。
+    # 外れたインデックスと同じ名前を別のフォルダに付けると、次の更新で前の中身が「無くなったファイル」として確認なしに消えるため。
+    #   items    : 今の画面の一覧（Name を持つ行）。名前が一覧にあるものは対象外（一覧の名前の重なりとして別に拒む）
+    #   leftovers: getWorkspaceIndexFolders の結果（@{ Name; Path }）。$null なら何も拒まない
+    #   folder   : 名前を付けようとするフォルダ。前回の行のフォルダと同じなら付けられる（同じフォルダに名前を戻す操作は通す）。
+    #              省くと、残っているものはすべて付けられない（フォルダが決まっていないとき）。前回の行が無い（Path が空の）ものは常に付けられない
+    param (
+        $items,
+        $leftovers = $null,
+        [string]$folder = ""
+    )
+
+    $listed = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($item in @($items)) {
+        if ($item -and $item.Name) {
+            [void]$listed.Add([string]$item.Name)
+        }
+    }
+    $blocked = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($left in @($leftovers)) {
+        if (!$left -or !$left.Name -or $listed.Contains([string]$left.Name)) {
+            continue
+        }
+        if ($left.Path -and $folder -ne "" -and (testSameFolderPath $left.Path $folder)) {
+            continue
+        }
+        [void]$blocked.Add([string]$left.Name)
+    }
+    # 集合のまま返す（getUsedIndexNames と同じ理由）
+    return , $blocked
+}
+
 function testIndexEditInput {
     # 追加と詳細欄の編集の入力を調べ、直してほしい内容を返す（問題なければ空文字列）
     param (
         [string]$path,   # 入力された元のフォルダ
         [string]$name,   # 入力されたインデックス名
         $items,          # 今の一覧（Name・Path を持つ行）
-        $current = $null # 編集中の行（重複の判定から外す）
+        $current = $null, # 編集中の行（重複の判定から外す）
+        $leftovers = $null # 設定から外れたまま残してあるインデックス（getWorkspaceIndexFolders の結果。省くと調べない）
     )
 
     $folder = normalizeFolderPath $path
@@ -286,5 +334,13 @@ function testIndexEditInput {
     }
     # @(getUsedIndexNames ...) と直接書くと集合が 1 要素の配列に入るだけなので、変数に受けてから配列にする
     $usedNames = getUsedIndexNames $items $current
-    return (testIndexName $name.Trim() @($usedNames))
+    $message = testIndexName $name.Trim() @($usedNames)
+    if ($message -ne "") {
+        return $message
+    }
+    $blocked = getBlockedIndexNames $items $leftovers $folder
+    if ($blocked.Contains($name.Trim())) {
+        return "「$($name.Trim())」は、設定から外したインデックスが残っているため、このフォルダには使えません。別の名前を付けるか、［すべて更新］の確認に「削除予定」として出るインデックスを削除してから付けてください。"
+    }
+    return ""
 }

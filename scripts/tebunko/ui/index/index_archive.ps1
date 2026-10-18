@@ -273,7 +273,7 @@ function showIndexImportDialog {
 
     $result = $null
     if ((showOwnedDialog $dialog)) {
-        $choice = getImportCollisionChoiceView $ctrl.NameBox.Text $script:importDialog.ZipName (getUsedIndexNames $script:targetItems) $script:importDialog.Mode
+        $choice = getImportCollisionChoiceView $ctrl.NameBox.Text $script:importDialog.ZipName (getUsedIndexNames $script:targetItems $null $script:leftoverIndexes) $script:importDialog.Mode
         $result = @{ Path = (normalizeFolderPath $ctrl.FolderBox.Text); Name = $ctrl.NameBox.Text.Trim(); CollisionMode = $choice.Mode }
     }
     return $result
@@ -292,7 +292,7 @@ function updateImportDialogChecks {
     $ctrl.SourceCheckText.Text = $check.Text
     $ctrl.SourceCheckText.Foreground = themeBrush $brush
     $ctrl.SourceCheckText.Visibility = if ($check.Text) { "Visible" } else { "Collapsed" }
-    $choice = getImportCollisionChoiceView $ctrl.NameBox.Text $d.ZipName (getUsedIndexNames $script:targetItems) $d.Mode
+    $choice = getImportCollisionChoiceView $ctrl.NameBox.Text $d.ZipName (getUsedIndexNames $script:targetItems $null $script:leftoverIndexes) $d.Mode
     $ctrl.CollisionHeading.Text = $choice.Heading
     $ctrl.CollisionNotice.Text = $choice.Notice
     $ctrl.CollisionNotice.Visibility = if ($choice.Notice) { "Visible" } else { "Collapsed" }
@@ -319,7 +319,7 @@ function selectImportCollisionMode {
         return
     }
     $d.Mode = $mode
-    $choice = getImportCollisionChoiceView $d.Ctrl.NameBox.Text $d.ZipName (getUsedIndexNames $script:targetItems) $mode
+    $choice = getImportCollisionChoiceView $d.Ctrl.NameBox.Text $d.ZipName (getUsedIndexNames $script:targetItems $null $script:leftoverIndexes) $mode
     $d.Ctrl.NameBox.Text = if ($mode -eq ${importCollisionOverwrite}) { $choice.OverwriteName } else { $choice.Candidate }
     updateImportDialogChecks
 }
@@ -359,7 +359,7 @@ function continueImportIndex {
     )
 
     # @(getUsedIndexNames ...) と直接書くと集合が 1 要素の配列に入るだけで、名前の重なりを見落とす。変数に受けてから使う
-    $usedNames = getUsedIndexNames $script:targetItems
+    $usedNames = getUsedIndexNames $script:targetItems $null $script:leftoverIndexes
     $suggestedName = getImportSuggestedName $info.IndexName $usedNames
     $result = showIndexImportDialog $suggestedName $info
     if ($null -eq $result) {

@@ -2,6 +2,7 @@
 BeforeAll {
     . "$PSScriptRoot\..\..\..\helpers\load.ps1"
     . "${scriptsDir}\tebunko\ui\index\index_list_view.ps1"
+    . "${scriptsDir}\tebunko\ui\index\index_edit_view.ps1"
     . "${scriptsDir}\tebunko\ui\index\index_archive_view.ps1"
 
     function newItem {
@@ -51,6 +52,18 @@ Describe "getImportSuggestedName / testImportNameCollision" -Tag Unit {
         $used = @(newUsed @("経理", "営業"))
         testImportNameCollision "営業" $used | Should -BeTrue
         getImportSuggestedName "営業" $used | Should -Be "営業(2)"
+    }
+
+    It "設定から外したインデックスが残っている名前（フォルダが決まっていない）は、使用中として別の名前を提案し、選び方を出す" {
+        $items = @((newItem "経理" "C:\data\経理"))
+        $leftovers = @([pscustomobject]@{ Name = "営業"; Path = "C:\data\営業" })
+        $used = getUsedIndexNames $items $null $leftovers
+        getImportSuggestedName "営業" $used | Should -Be "営業(2)"
+        testImportNameCollision "営業" $used | Should -BeTrue
+        $choice = getImportCollisionChoiceView "営業(2)" "営業" $used ${importCollisionRename}
+        $choice.Visible | Should -BeTrue
+        $choice.Candidate | Should -Be "営業(2)"
+        $choice.TargetName | Should -Be "営業"
     }
 }
 

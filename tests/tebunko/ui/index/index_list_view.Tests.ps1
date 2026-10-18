@@ -2,6 +2,7 @@
 BeforeAll {
     . "$PSScriptRoot\..\..\..\helpers\load.ps1"
     . "${scriptsDir}\tebunko\ui\index\index_list_view.ps1"
+    . "${scriptsDir}\tebunko\ui\index\index_edit_view.ps1"
 
     function newItem {
         param ([string]$name, [string]$path)
@@ -36,6 +37,54 @@ Describe "getUsedIndexNames" -Tag Unit {
         $used = getUsedIndexNames $items $items[0]
         $used.Contains("売上") | Should -Be $false
         $used.Contains("見積") | Should -Be $true
+    }
+}
+
+Describe "getUsedIndexNames（設定から外れて残してあるインデックス）" -Tag Unit {
+    BeforeDiscovery {
+        $cases = @(
+            @{ name = "違うフォルダには付けられない"; folder = "C:\data\別"; query = "売上"; expected = $true }
+            @{ name = "前回と同じフォルダには付けられる"; folder = "C:\data\売上"; query = "売上"; expected = $false }
+            @{ name = "末尾の区切り・大文字小文字の違いは同じフォルダ"; folder = "c:\DATA\売上\"; query = "売上"; expected = $false }
+            @{ name = "大文字・小文字違いの名前も付けられない"; folder = "C:\data\別"; query = "SALES"; expected = $true }
+            @{ name = "大文字・小文字違いの名前も、同じフォルダなら付けられる"; folder = "C:\data\売上"; query = "SALES"; expected = $false }
+            @{ name = "ドライブの割り当てだけが違うパスは拒む"; folder = "\\srv\share\売上"; query = "売上"; expected = $true }
+            @{ name = "フォルダが決まっていないときは付けられない"; folder = ""; query = "売上"; expected = $true }
+            @{ name = "置き場にだけあり Path の無い名前はどのフォルダにも付けられない"; folder = "C:\data\孤立"; query = "孤立"; expected = $true }
+            @{ name = "残っていない名前は付けられる"; folder = "C:\data\別"; query = "見積"; expected = $false }
+        )
+    }
+    BeforeAll {
+        $items = @((newItem "現在" "C:\data\現在"))
+        $leftovers = @(
+            [pscustomobject]@{ Name = "売上"; Path = "C:\data\売上" },
+            [pscustomobject]@{ Name = "Sales"; Path = "C:\data\売上" },
+            [pscustomobject]@{ Name = "孤立"; Path = "" }
+        )
+    }
+
+    It "<name>" -TestCases $cases {
+        param ($name, $folder, $query, $expected)
+        (getUsedIndexNames $items $null $leftovers $folder).Contains($query) | Should -Be $expected
+    }
+
+    It "残りを渡さないときは、一覧の名前だけ（今と同じ）" {
+        $used = getUsedIndexNames $items
+        @($used).Count | Should -Be 1
+        $used.Contains("売上") | Should -Be $false
+    }
+
+    It "残っている名前が今の一覧にあれば、重複扱いにしない（一覧の名前として 1 つだけ）" {
+        $listed = @((newItem "売上" "C:\data\新しい場所"))
+        $used = getUsedIndexNames $listed $null $leftovers "C:\data\新しい場所"
+        $used.Contains("売上") | Should -Be $true
+        @($used | Where-Object { $_ -ieq "売上" }).Count | Should -Be 1
+        (getBlockedIndexNames $listed $leftovers "C:\data\新しい場所").Contains("売上") | Should -Be $false
+    }
+
+    It "今の一覧の自分の名前は except に渡せば使える（残りに同じ名前が無いとき）" {
+        $used = getUsedIndexNames $items $items[0] $leftovers "C:\data\現在"
+        $used.Contains("現在") | Should -Be $false
     }
 }
 

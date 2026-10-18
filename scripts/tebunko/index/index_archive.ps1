@@ -407,18 +407,10 @@ function getImportUsedIndexNames {
             [void]$names.Add($source.Name)
         }
     }
-    # 作り直す前の形式のインデックス（古い置き場）の名前も使われているものとして数える（同じ名前を取り込んで、新旧が混ざらないように）
-    foreach ($root in @($ws.IndexDir, $ws.OldIndexDir)) {
-        if (Test-Path -LiteralPath (toLongPath $root) -PathType Container) {
-            foreach ($dir in [System.IO.Directory]::GetDirectories((toLongPath $root))) {
-                [void]$names.Add([System.IO.Path]::GetFileName($dir))
-            }
-        }
-    }
-    foreach ($folder in (readStatusFile $ws.StatusFile).Folders.ToArray()) {
-        if ($folder.Name) {
-            [void]$names.Add($folder.Name)
-        }
+    # 作り直す前の形式のインデックス（古い置き場）の名前も使われているものとして数える（同じ名前を取り込んで、新旧が混ざらないように）。
+    # ワークスペースに残っているインデックスの集め方は getWorkspaceIndexFolders（画面の追加・名前の変更と同じ）
+    foreach ($folder in @(getWorkspaceIndexFolders $ws)) {
+        [void]$names.Add($folder.Name)
     }
     return , $names
 }

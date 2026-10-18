@@ -361,3 +361,45 @@ Describe "publishIndexFiles / getIndexTsvCounts（まれな状況）" -Tag Io {
         }
     }
 }
+
+Describe "getWorkspaceIndexFolders / getImportUsedIndexNames（設定から外れて残してあるインデックス）" -Tag Io {
+    BeforeAll {
+        . "${scriptsDir}\tebunko\ui\index\index_list_view.ps1"
+        . "${scriptsDir}\tebunko\ui\index\index_edit_view.ps1"
+        $script:ws = newTestWorkspace @{} "$TestDrive\leftover_ws"
+        New-Item -ItemType Directory -Path (Split-Path $script:ws.StatusFile) -Force | Out-Null
+        # 取り込み一覧の行は「売上」（C:\共有\営業部）。置き場の直下には「売上」と、取り込み一覧に行の無い「孤立」がある
+        writeStatusFile @([pscustomobject]@{ Path = "C:\共有\営業部"; Name = "売上" }) @() $script:ws.StatusFile
+        New-Item -ItemType Directory -Path (Join-Path $script:ws.IndexDir "売上") -Force | Out-Null
+        New-Item -ItemType Directory -Path (Join-Path $script:ws.IndexDir "孤立") -Force | Out-Null
+    }
+
+    It "取り込み一覧の行は名前と Path、置き場にだけあるフォルダは Path を空にして返す" {
+        $folders = @(getWorkspaceIndexFolders $script:ws)
+        $folders.Count | Should -Be 2
+        ($folders | Where-Object { $_.Name -eq "売上" }).Path | Should -Be "C:\共有\営業部"
+        ($folders | Where-Object { $_.Name -eq "孤立" }).Path | Should -Be ""
+    }
+
+    It "何も無いワークスペースでは空の配列を返す" {
+        $empty = newTestWorkspace @{} "$TestDrive\empty_ws"
+        @(getWorkspaceIndexFolders $empty).Count | Should -Be 0
+    }
+
+    It "取り込みの名前の集合は、集めた名前と同じ（設定の名前も含む）" {
+        $names = getImportUsedIndexNames $script:ws "$TestDrive\leftover_setting.config"
+        $names.Contains("売上") | Should -BeTrue
+        $names.Contains("孤立") | Should -BeTrue
+        $names.Contains("見積") | Should -BeFalse
+    }
+
+    It "外れた「売上」を残したワークスペースで、別のフォルダへの「売上」は拒み、前回と同じフォルダへの「売上」は通す" {
+        $leftovers = @(getWorkspaceIndexFolders $script:ws)
+        $items = @()
+        (getUsedIndexNames $items $null $leftovers "C:\別の場所\売上").Contains("売上") | Should -BeTrue
+        (getUsedIndexNames $items $null $leftovers "C:\共有\営業部").Contains("売上") | Should -BeFalse
+        testIndexEditInput "C:\別の場所\売上" "売上" $items $null $leftovers | Should -Match "設定から外したインデックスが残っているため"
+        testIndexEditInput "C:\共有\営業部" "売上" $items $null $leftovers | Should -Be ""
+        testIndexEditInput "C:\共有\営業部" "孤立" $items $null $leftovers | Should -Match "設定から外したインデックスが残っているため"
+    }
+}
