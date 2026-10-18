@@ -835,6 +835,46 @@ Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
         Test-Path -LiteralPath $ws.OldStatusFile | Should -Be $false
         (readIndexFormat $ws.FormatFile).Indexes["総務"] | Should -Be ${catalogRowFinished}
     }
+
+    It "古い形式のインデックスが 2 つあるとき、1 つ目を取り込み終えたあと 2 つ目の途中で<Kind>と、どちらも「作り終えた」にせず、古い形式の分を消さない（終了コード <Code>）" -TestCases @(
+        @{ Kind = "中止する"; Code = 2; Stop = $true }
+        @{ Kind = "フォルダが見えなくなる"; Code = 1; Stop = $false }
+    ) {
+        param ($Kind, $Code, $Stop)
+        $a = newSourceFolder "総務"
+        $b = newSourceFolder "企画"
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "総務"; path = $a; enabled = $true }, @{ name = "企画"; path = $b; enabled = $true })
+        $ws = [Workspace]::new("$root\work")
+        newTsv "$($ws.OldIndexDir)\総務\content_index.docx.001.tsv" @("古い中身")
+        newTsv "$($ws.OldIndexDir)\企画\content_index.docx.001.tsv" @("古い中身")
+        newTsv $ws.OldStatusFile @("古い取り込み一覧")
+        # 2 つ目（企画）の最初のファイルを取り込む直前に、止める（1 つ目は取り込み終えている）
+        $global:indexerTestVictim = $b
+        if ($Stop) {
+            # 中止は、2 つ目の最初のファイルを一覧に足したあとに求める
+            $hook = @{ Script = $runPath; Pattern = '^\s+\$ledger\.AddRow\(\$row\)'; Action = {
+                if ($row.相対パス -like "企画\*") { $channel.Stop = $true }
+            } }
+        } else {
+            $hook = @{ Script = $dispatcherPath; Pattern = '^\s+\$row = \$this\.Targets\[\$i\]'; Action = {
+                if ($this.Targets[$i].相対パス -like "企画\*" -and (Test-Path -LiteralPath $global:indexerTestVictim)) {
+                    Remove-Item -LiteralPath $global:indexerTestVictim -Recurse -Force
+                }
+            } }
+        }
+        try {
+            runIndexer $root @{} @($hook) | Should -Be $Code
+        } finally {
+            Remove-Variable -Name indexerTestVictim -Scope Global
+        }
+
+        foreach ($name in "総務", "企画") {
+            (readIndexFormat $ws.FormatFile).Indexes[$name] | Should -Be ${catalogRowBuilding}
+            Test-Path -LiteralPath "$($ws.OldIndexDir)\$name\content_index.docx.001.tsv" | Should -Be $true
+        }
+        Test-Path -LiteralPath $ws.OldStatusFile | Should -Be $true
+    }
 }
 
 Describe "indexer.ps1（設定から外れたインデックス）" -Tag Io {
