@@ -27,9 +27,9 @@
       </Button>
       <Grid DockPanel.Dock="Right" Width="220">
         <TextBox x:Name="FilterBox" FontSize="11" Height="26" />
-        <TextBlock x:Name="FilterPlaceholder" Style="{StaticResource Placeholder}" FontSize="11" Text="ファイル名・場所・中身で絞り込む" />
+        <TextBlock x:Name="FilterPlaceholder" Style="{StaticResource Placeholder}" FontSize="11" Text="ファイル名で絞り込む" />
       </Grid>
-      <TextBlock DockPanel.Dock="Right" Text="結果を絞り込み" Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="0,0,10,0" />
+      <TextBlock DockPanel.Dock="Right" Text="ファイル名で絞り込み" Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="0,0,10,0" />
       <ProgressBar x:Name="SearchProgress" DockPanel.Dock="Right" Width="60" Margin="0,0,12,0" Maximum="1" Visibility="Collapsed" VerticalAlignment="Center" />
       <!-- 検索結果の件数は、この画面の主役 -->
       <TextBlock x:Name="SummaryText" DockPanel.Dock="Left" Style="{StaticResource Meta.Strong}"

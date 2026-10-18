@@ -264,16 +264,21 @@ Describe "ensureRows" -Tag Unit {
         [object]::ReferenceEquals($group.Rows[0], $first) | Should -Be $true
     }
 
-    It "絞り込み中は、合う行だけを ShownRows に入れる" {
+    It "絞り込み中は、ファイル名が合えばそのファイルの行をすべて ShownRows に入れ、合わなければ入れない" {
         $group = addHit "見積.xlsx" "4月" "`t見積 山田" 1
         [void](addHit "見積.xlsx" "4月" "`t見積 佐藤" 2)
-        $script:filterText = "佐藤"
+        $script:filterText = "見積"
 
         ensureRows $group
 
         $group.Rows.Count | Should -Be 2
-        $group.ShownRows.Count | Should -Be 1
-        $group.ShownRows[0].LineNumber | Should -Be 2
+        $group.ShownRows.Count | Should -Be 2
+
+        $other = addHit "議事録.docx" "ページ001" "見積 佐藤" 1
+        ensureRows $other
+
+        $other.Rows.Count | Should -Be 1
+        $other.ShownRows.Count | Should -Be 0
     }
 }
 
@@ -288,13 +293,20 @@ Describe "updateGroupCount" -Tag Unit {
         $group.Rows.Count | Should -Be 0
     }
 
-    It "絞り込み中は合う行の数" {
+    It "絞り込み中は、ファイル名が合えばヒットの数、合わなければ 0" {
         $group = addHit "見積.xlsx" "4月" "`t見積 山田" 1
         [void](addHit "見積.xlsx" "4月" "`t見積 佐藤" 2)
-        $script:filterText = "山田"
+        $script:filterText = "見積"
         ensureRows $group
         updateGroupCount $group
-        $group.ShownCount | Should -Be 1
+        $group.ShownCount | Should -Be 2
+
+        $script:filterText = "山田"
+        $group.Rows.Clear()
+        $group.ShownRows.Clear()
+        ensureRows $group
+        updateGroupCount $group
+        $group.ShownCount | Should -Be 0
     }
 }
 
@@ -311,7 +323,6 @@ Describe "flushResults" -Tag Unit {
         (getItemNames) -join "," | Should -Be "#見積.xlsx,#議事録.docx"
         $script:fileGroups["C:\共有\営業部\2024\見積.xlsx"].ShownCount | Should -Be 2
         $script:dirtyGroups.Count | Should -Be 0
-        $script:lastInViewOrder | Should -Be 1
     }
 
     It "増えたヒットがある回だけ、そのときの行数で、表とプレビューの境目を決め直す" {
@@ -337,9 +348,9 @@ Describe "flushResults" -Tag Unit {
         $script:fileGroups["C:\共有\営業部\2024\見積.xlsx"].DisplayedCount | Should -Be 2
     }
 
-    It "絞り込みに合う行が無いファイルは見出しも出さない" {
-        $script:filterText = "佐藤"
-        [void](addHit "見積.xlsx" "4月" "`t見積 山田" 1)
+    It "ファイル名が合わないファイルは見出しも出さない" {
+        $script:filterText = "議事録"
+        [void](addHit "見積.xlsx" "4月" "`t議事録 山田" 1)
         [void](addHit "議事録.docx" "ページ001" "見積 佐藤" 1)
 
         flushResults
@@ -347,16 +358,15 @@ Describe "flushResults" -Tag Unit {
         (getItemNames) -join "," | Should -Be "#議事録.docx"
     }
 
-    It "隠れていたファイルに、あとから合う行が来たら作り直しを予約する" {
-        $script:filterText = "佐藤"
+    It "隠れているファイルに、あとから該当行に絞り込みの語がある行が来ても、隠れたまま" {
+        $script:filterText = "議事録"
         [void](addHit "見積.xlsx" "4月" "`t見積 山田" 1)
         [void](addHit "議事録.docx" "ページ001" "見積 佐藤" 1)
         flushResults
-        [void](addHit "見積.xlsx" "4月" "`t見積 佐藤" 2)
+        [void](addHit "見積.xlsx" "4月" "`t議事録 佐藤" 2)
 
         flushResults
 
-        $script:needsRebuild | Should -Be $true
         (getItemNames) -join "," | Should -Be "#議事録.docx"
     }
 }
@@ -384,7 +394,6 @@ Describe "setResultItems" -Tag Unit {
         setResultItems (New-Object 'System.Collections.Generic.List[object]')
 
         $group.InView | Should -Be $false
-        $script:lastInViewOrder | Should -Be -1
         $ui.ResultGrid.Scrolled.Count | Should -Be 0
     }
 
@@ -399,7 +408,6 @@ Describe "setResultItems" -Tag Unit {
 
         $group.InView | Should -Be $true
         $group.DisplayedCount | Should -Be 2
-        $script:lastInViewOrder | Should -Be 0
     }
 }
 
@@ -475,18 +483,24 @@ Describe "setAllFileGroupsExpanded" -Tag Unit {
 Describe "applyResultFilter" -Tag Unit {
     BeforeEach { resetResults }
 
-    It "絞り込むと合う行のあるファイルだけを出し、件数も合う行の数にする" {
+    It "絞り込むとファイル名が合うファイルだけを出し、そのファイルの行は全部残る" {
         $mitsumori = addHit "見積.xlsx" "4月" "`t見積 山田" 1
         [void](addHit "見積.xlsx" "4月" "`t見積 佐藤" 2)
         [void](addHit "議事録.docx" "ページ001" "見積 山田" 1)
         flushResults
 
+        $script:filterText = "見積.x"
+        applyResultFilter "見積.x"
+
+        (getItemNames) -join "," | Should -Be "#見積.xlsx"
+        $mitsumori.ShownCount | Should -Be 2
+        (getShownHitCount) | Should -Be 2
+
         $script:filterText = "佐藤"
         applyResultFilter "佐藤"
 
-        (getItemNames) -join "," | Should -Be "#見積.xlsx"
-        $mitsumori.ShownCount | Should -Be 1
-        (getShownHitCount) | Should -Be 1
+        (getItemNames) -join "," | Should -Be "" -Because "該当行にだけある語では 0 件"
+        (getShownHitCount) | Should -Be 0
 
         $script:filterText = ""
         applyResultFilter ""
@@ -505,39 +519,40 @@ Describe "applyResultFilter（絞り込みの文字）" -Tag Unit {
         [void](addHit "議事録.docx" "ページ001" "見積" 1)
         flushResults
 
-        $script:filterText = "ESTIMATE"
-        applyResultFilter "ESTIMATE"
+        $script:filterText = "MITSUMORI"
+        applyResultFilter "MITSUMORI"
 
         (getItemNames) -join "," | Should -Be "#Mitsumori.xlsx"
     }
 
-    It "ワイルドカード・正規表現の記号も文字どおりに探す" {
-        [void](addHit "見積.xlsx" "4月[図形]" "B2`t見積*" 1)
+    It "ワイルドカード・正規表現の記号も文字どおりに探す（ファイル名に無ければ 0 件）" {
+        [void](addHit "見積[1].xlsx" "4月" "B2`t見積*" 1)
         [void](addHit "見積.xlsx" "4月" "`t見積A" 2)
         flushResults
 
-        $script:filterText = "[図形]"
-        applyResultFilter "[図形]"
+        $script:filterText = "[1]"
+        applyResultFilter "[1]"
         (getShownHitCount) | Should -Be 1
 
         $script:filterText = "*"
         applyResultFilter "*"
-        (getShownHitCount) | Should -Be 1
+        (getShownHitCount) | Should -Be 0
 
         $script:filterText = "?"
         applyResultFilter "?"
         (getShownHitCount) | Should -Be 0
     }
 
-    It "場所・種別の表示でも絞り込める" {
+    It "場所・種別・フォルダ名では絞り込めない" {
         [void](addHit "見積.xlsx" "4月[コメント]" "B2`t見積" 1)
         [void](addHit "見積.xlsx" "4月" "`t見積" 2)
         flushResults
 
-        $script:filterText = "コメント"
-        applyResultFilter "コメント"
-
-        (getShownHitCount) | Should -Be 1
+        foreach ($text in @("コメント", "4月", "営業部")) {
+            $script:filterText = $text
+            applyResultFilter $text
+            (getShownHitCount) | Should -Be 0
+        }
     }
 }
 
@@ -600,13 +615,14 @@ Describe "sortResults・applySort" -Tag Unit {
         $group = addHit "見積.xlsx" "4月" "`t見積 山田" 1
         [void](addHit "見積.xlsx" "4月" "`t見積 佐藤" 2)
         [void](addHit "見積.xlsx" "4月" "`t見積 山田" 3)
+        [void](addHit "議事録.docx" "ページ001" "見積" 1)
         $group.SetExpanded($true)
-        $script:filterText = "山田"
+        $script:filterText = "見積"
         flushResults
 
         applySort "LineNumber" $true
 
-        (getItemNames) -join "," | Should -Be "#見積.xlsx,見積.xlsx:3,見積.xlsx:1"
+        (getItemNames) -join "," | Should -Be "#見積.xlsx,見積.xlsx:3,見積.xlsx:2,見積.xlsx:1"
     }
 
     It "表の並べ替えのイベントは、表に任せずファイルごとに並べ替える" {
@@ -649,19 +665,18 @@ Describe "finishResults" -Tag Unit {
         $script:paneHeightCalls | Should -Be @(2)
     }
 
-    It "隠れていたファイルに合う行が来ていたら作り直す" {
-        $script:filterText = "佐藤"
+    It "隠れていたファイルに該当行だけ絞り込みの語がある行が来ても、隠れたままにして境目を 1 回決め直す" {
+        $script:filterText = "議事録"
         [void](addHit "見積.xlsx" "4月" "`t見積 山田" 1)
         [void](addHit "議事録.docx" "ページ001" "見積 佐藤" 1)
         flushResults
-        [void](addHit "見積.xlsx" "4月" "`t見積 佐藤" 2)
+        [void](addHit "見積.xlsx" "4月" "`t議事録 佐藤" 2)
         $script:paneHeightCalls = @()
 
         finishResults
 
-        $script:needsRebuild | Should -Be $false
-        (getItemNames) -join "," | Should -Be "#見積.xlsx,#議事録.docx"
-        $script:paneHeightCalls | Should -Be @(2) -Because "作り直したあとに、1 回だけ決め直す"
+        (getItemNames) -join "," | Should -Be "#議事録.docx"
+        $script:paneHeightCalls | Should -Be @(1)
     }
 
     It "どちらでもなければ表はそのまま" {
