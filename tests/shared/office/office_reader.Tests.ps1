@@ -728,7 +728,7 @@ Describe "readXlsxObjectUnits（ヘッダー・フッター）" -Tag Io {
         $path = Join-Path $TestDrive "fake_sheet_$compress.xlsx"
         # sheet1 は実際は 6KB 以上だが、中央ディレクトリには 100 バイトと申告する（申告だけを見ると上限内に見える）
         newRawZip $path @{
-            "xl/workbook.xml" = @{ bytes = $utf8.GetBytes("<workbook $xNs><sheets><sheet name=`"偽`" sheetId=`"1`" r:id=`"rId1`"/><sheet name=`"小`" sheetId=`"2`" r:id=`"rId2`"/></sheets></workbook>") }
+            "xl/workbook.xml" = @{ bytes = $utf8.GetBytes("<workbook $xNs><sheets><sheet name=`"小`" sheetId=`"2`" r:id=`"rId2`"/><sheet name=`"偽`" sheetId=`"1`" r:id=`"rId1`"/></sheets></workbook>") }
             "xl/_rels/workbook.xml.rels" = @{ bytes = $utf8.GetBytes("<Relationships $relNs><Relationship Id=`"rId1`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet1.xml`"/><Relationship Id=`"rId2`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet2.xml`"/></Relationships>") }
             "xl/worksheets/sheet1.xml" = @{ bytes = $utf8.GetBytes("<worksheet $xNs><sheetData>$rows</sheetData>$(hf 'oddHeader=&C偽のシート')</worksheet>"); compress = $compress; fakeSize = 100 }
             "xl/worksheets/sheet2.xml" = @{ bytes = $utf8.GetBytes("<worksheet $xNs><sheetData/>$(hf 'oddHeader=&C小さいシート')</worksheet>") }
@@ -745,7 +745,7 @@ Describe "readXlsxObjectUnits（ヘッダー・フッター）" -Tag Io {
         $fails = New-Object System.Collections.Generic.List[string]
         $result = readXlsxObjectUnits $path $fails
         @($fails).Count | Should -Be 0
-        @($result.Keys) -join "|" | Should -Be "偽[ヘッダー・フッター]|小[ヘッダー・フッター]"
+        @($result.Keys) -join "|" | Should -Be "小[ヘッダー・フッター]|偽[ヘッダー・フッター]"
 
         $orig = $script:zipSheetStreamMaxBytes
         $script:zipSheetStreamMaxBytes = 2000
@@ -756,6 +756,136 @@ Describe "readXlsxObjectUnits（ヘッダー・フッター）" -Tag Io {
             @($result.Keys) -join "|" | Should -Be "小[ヘッダー・フッター]"
             @($fails).Count | Should -Be 1
             @($fails)[0] | Should -BeLike "xl/worksheets/sheet1.xml*流れ読みの上限*"
+        } finally {
+            $script:zipSheetStreamMaxBytes = $orig
+        }
+    }
+
+    It "流れ読みの上限は1ファイルの合計で数える。1つずつは上限内の2つのシートでも、合計が超えた2つ目は読めなかったことにする" {
+        $path = "$TestDrive\total_hf.xlsx"
+        $rows = "<row r=`"1`"><c r=`"A1`" t=`"inlineStr`"><is><t>$('a' * 1000)</t></is></c></row>"
+        newZip $path @{
+            "xl/workbook.xml" = "<workbook $xNs><sheets><sheet name=`"一`" sheetId=`"1`" r:id=`"rId1`"/><sheet name=`"二`" sheetId=`"2`" r:id=`"rId2`"/></sheets></workbook>"
+            "xl/_rels/workbook.xml.rels" = "<Relationships $relNs>" +
+                "<Relationship Id=`"rId1`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet1.xml`"/>" +
+                "<Relationship Id=`"rId2`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet2.xml`"/></Relationships>"
+            "xl/worksheets/sheet1.xml" = "<worksheet $xNs><sheetData>$rows</sheetData>$(hf 'oddHeader=&C一つ目')</worksheet>"
+            "xl/worksheets/sheet2.xml" = "<worksheet $xNs><sheetData>$rows</sheetData>$(hf 'oddHeader=&C二つ目')</worksheet>"
+        }
+        $orig = $script:zipSheetStreamMaxBytes
+        try {
+            # 上限が十分大きければ、両方読める（落ちる原因が合計であることの対照）
+            $fails = New-Object System.Collections.Generic.List[string]
+            @((readXlsxObjectUnits $path $fails).Keys) -join "|" | Should -Be "一[ヘッダー・フッター]|二[ヘッダー・フッター]"
+            @($fails).Count | Should -Be 0
+
+            $script:zipSheetStreamMaxBytes = 2000
+            $fails = New-Object System.Collections.Generic.List[string]
+            $result = readXlsxObjectUnits $path $fails
+            @($result.Keys) -join "|" | Should -Be "一[ヘッダー・フッター]"
+            @($fails).Count | Should -Be 1
+            @($fails)[0] | Should -BeLike "xl/worksheets/sheet2.xml*流れ読みの上限*"
+        } finally {
+            $script:zipSheetStreamMaxBytes = $orig
+        }
+    }
+
+    It "<name>: 申告を小さく偽ったシートは、合計の残りを超えたところで打ち切られ、その後のシートも開かれない" -TestCases @(
+        @{ name = "無圧縮"; compress = $false }
+        @{ name = "Deflate"; compress = $true }
+    ) {
+        param ($name, $compress)
+        $rows = "<row r=`"1`"><c r=`"A1`" t=`"inlineStr`"><is><t>$('a' * 1000)</t></is></c></row>"
+        $utf8 = [System.Text.Encoding]::UTF8
+        $path = Join-Path $TestDrive "fake_total_$compress.xlsx"
+        $sheetBytes = @{}
+        foreach ($text in @("一つ目", "偽のシート", "後のシート")) {
+            $sheetBytes[$text] = [byte[]]$utf8.GetBytes("<worksheet $xNs><sheetData>$rows</sheetData>$(hf "oddHeader=&C$text")</worksheet>")
+        }
+        # sheet2 は実際は 1KB 以上だが 100 バイトと申告する。1つずつは上限（2000）内だが、sheet1 の後の残りは超える
+        newRawZip $path @{
+            "xl/workbook.xml" = @{ bytes = $utf8.GetBytes("<workbook $xNs><sheets><sheet name=`"一`" sheetId=`"1`" r:id=`"rId1`"/><sheet name=`"偽`" sheetId=`"2`" r:id=`"rId2`"/><sheet name=`"後`" sheetId=`"3`" r:id=`"rId3`"/></sheets></workbook>") }
+            "xl/_rels/workbook.xml.rels" = @{ bytes = $utf8.GetBytes("<Relationships $relNs><Relationship Id=`"rId1`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet1.xml`"/><Relationship Id=`"rId2`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet2.xml`"/><Relationship Id=`"rId3`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet3.xml`"/></Relationships>") }
+            "xl/worksheets/sheet1.xml" = @{ bytes = $sheetBytes["一つ目"] }
+            "xl/worksheets/sheet2.xml" = @{ bytes = $sheetBytes["偽のシート"]; compress = $compress; fakeSize = 100 }
+            "xl/worksheets/sheet3.xml" = @{ bytes = $sheetBytes["後のシート"] }
+        }
+        $orig = $script:zipSheetStreamMaxBytes
+        $script:zipSheetStreamMaxBytes = 2000
+        try {
+            $fails = New-Object System.Collections.Generic.List[string]
+            $result = readXlsxObjectUnits $path $fails
+            @($result.Keys) -join "|" | Should -Be "一[ヘッダー・フッター]"
+            @($fails).Count | Should -Be 2
+            @($fails)[0] | Should -BeLike "xl/worksheets/sheet2.xml*流れ読みの上限*"
+            @($fails)[1] | Should -BeLike "xl/worksheets/sheet3.xml*流れ読みの上限*"
+        } finally {
+            $script:zipSheetStreamMaxBytes = $orig
+        }
+    }
+
+    It "同じシートの部品を指す<sheet>が複数あっても、流れ読みは1回だけで、どのシートにも同じヘッダー・フッターを出す" {
+        $rows = "<row r=`"1`"><c r=`"A1`" t=`"inlineStr`"><is><t>$('a' * 1000)</t></is></c></row>"
+        $sheetXml = "<worksheet $xNs><sheetData>$rows</sheetData>$(hf 'oddHeader=&C共通')</worksheet>"
+        $single = "$TestDrive\same_single.xlsx"
+        newZip $single @{
+            "xl/workbook.xml" = "<workbook $xNs><sheets><sheet name=`"S1`" sheetId=`"1`" r:id=`"rId1`"/></sheets></workbook>"
+            "xl/_rels/workbook.xml.rels" = "<Relationships $relNs><Relationship Id=`"rId1`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet1.xml`"/></Relationships>"
+            "xl/worksheets/sheet1.xml" = $sheetXml
+        }
+        $null = readXlsxObjectUnits $single
+        $oneRead = $script:zipSheetStreamReadBytes
+        $oneRead | Should -BeGreaterThan 1000
+
+        $sheets = (1..10 | ForEach-Object { "<sheet name=`"S$_`" sheetId=`"$_`" r:id=`"rId$_`"/>" }) -join ""
+        $rels = (1..10 | ForEach-Object { "<Relationship Id=`"rId$_`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet1.xml`"/>" }) -join ""
+        $many = "$TestDrive\same_many.xlsx"
+        newZip $many @{
+            "xl/workbook.xml" = "<workbook $xNs><sheets>$sheets</sheets></workbook>"
+            "xl/_rels/workbook.xml.rels" = "<Relationships $relNs>$rels</Relationships>"
+            "xl/worksheets/sheet1.xml" = $sheetXml
+        }
+        $fails = New-Object System.Collections.Generic.List[string]
+        $result = readXlsxObjectUnits $many $fails
+        $script:zipSheetStreamReadBytes | Should -Be $oneRead
+        $result.Count | Should -Be 10
+        foreach ($i in 1..10) {
+            @($result["S$i[ヘッダー・フッター]"]) -join "|" | Should -Be "共通"
+        }
+        @($fails).Count | Should -Be 0
+    }
+
+    It "同じ部品を指す<sheet>が読めない部品のとき、読めなかったことは1回だけ記録する" {
+        $path = "$TestDrive\same_broken.xlsx"
+        $sheets = (1..3 | ForEach-Object { "<sheet name=`"S$_`" sheetId=`"$_`" r:id=`"rId$_`"/>" }) -join ""
+        $rels = (1..3 | ForEach-Object { "<Relationship Id=`"rId$_`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet1.xml`"/>" }) -join ""
+        newZip $path @{
+            "xl/workbook.xml" = "<workbook $xNs><sheets>$sheets</sheets></workbook>"
+            "xl/_rels/workbook.xml.rels" = "<Relationships $relNs>$rels</Relationships>"
+            "xl/worksheets/sheet1.xml" = "<worksheet $xNs><sheetData/><headerFooter><oddHeader>&amp;C途中まで"
+        }
+        $fails = New-Object System.Collections.Generic.List[string]
+        (readXlsxObjectUnits $path $fails).Count | Should -Be 0
+        @($fails) | Should -Be @("xl/worksheets/sheet1.xml")
+    }
+
+    It "流れ読みの合計は readXlsxObjectUnits を呼ぶたびに0から数え直す（2回目も読める）" {
+        $path = "$TestDrive\reset_hf.xlsx"
+        $rows = "<row r=`"1`"><c r=`"A1`" t=`"inlineStr`"><is><t>$('a' * 1000)</t></is></c></row>"
+        newZip $path @{
+            "xl/workbook.xml" = "<workbook $xNs><sheets><sheet name=`"一`" sheetId=`"1`" r:id=`"rId1`"/></sheets></workbook>"
+            "xl/_rels/workbook.xml.rels" = "<Relationships $relNs><Relationship Id=`"rId1`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet1.xml`"/></Relationships>"
+            "xl/worksheets/sheet1.xml" = "<worksheet $xNs><sheetData>$rows</sheetData>$(hf 'oddHeader=&C一つ目')</worksheet>"
+        }
+        $orig = $script:zipSheetStreamMaxBytes
+        $script:zipSheetStreamMaxBytes = 2000
+        try {
+            foreach ($i in 1..2) {
+                $fails = New-Object System.Collections.Generic.List[string]
+                $result = readXlsxObjectUnits $path $fails
+                @($result["一[ヘッダー・フッター]"]) -join "|" | Should -Be "一つ目"
+                @($fails).Count | Should -Be 0
+            }
         } finally {
             $script:zipSheetStreamMaxBytes = $orig
         }

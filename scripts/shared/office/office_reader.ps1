@@ -39,8 +39,11 @@ $script:zipTotalMaxBytes = 300MB
 # シートの部品を流れで読む（readXlsxSheetHeaderFooter）ときの、展開後の大きさ（バイト）の上限。流れ読みは文字列にしない
 # のでメモリを使わず、かかるのは時間だけ。シートは sheetData が大きく、実在のブックでも部品の上限（100MB）を超えうる
 # ため、部品の上限より大きい別の値にする（超えたシートは、そのシートのヘッダー・フッターだけ読めなかった扱い）。
-# 1ファイルの合計（zipTotalMaxBytes）には数えないので、シートごとに最大この大きさまで読む
+# この上限は1ファイルの流れ読みの合計（readXlsxObjectUnits が0から数え直す zipSheetStreamReadBytes）に掛ける。
+# readZipEntry の合計（zipTotalMaxBytes）には数えない
 $script:zipSheetStreamMaxBytes = 1000MB
+# 1ファイルの流れ読みが実際に読んだ合計（バイト。申告でなく LimitedReadStream が数えた量）
+$script:zipSheetStreamReadBytes = 0
 # 1ファイルの合計（バイト）。readZipEntry が確保する大きさ（entry.Length）を足していく
 $script:zipTotalReadBytes = 0
 
@@ -63,6 +66,42 @@ class ZipSizeLimitException : System.Exception {
         $this.MeasuredBytes = $measuredBytes
         $this.LimitKind = $limitKind
     }
+}
+
+class LimitedReadStream : System.IO.Stream {
+    # 読み取り専用の流れの包み。実際に読んだバイト数（展開後）を数え、上限を超えたら IOException を投げて止める。
+    # 責任は「読んだ量を数えて止める」だけ。止める条件（上限）は呼び出し元がコンストラクターで渡す
+    # （申告の大きさは使わない。申告を偽った部品も、実際に読んだ量で止まる）
+    hidden [System.IO.Stream]$Inner
+    [long]$Limit
+    [long]$ReadBytes = 0
+    [bool]$Exceeded = $false
+
+    LimitedReadStream([System.IO.Stream]$inner, [long]$limit) {
+        $this.Inner = $inner
+        $this.Limit = $limit
+    }
+
+    [int] Read([byte[]]$buffer, [int]$offset, [int]$count) {
+        $n = $this.Inner.Read($buffer, $offset, $count)
+        $this.ReadBytes += $n
+        if ($this.ReadBytes -gt $this.Limit) {
+            $this.Exceeded = $true
+            throw [System.IO.IOException]::new("読んだ量が上限を超えました")
+        }
+        return $n
+    }
+
+    [bool] get_CanRead() { return $true }
+    [bool] get_CanSeek() { return $false }
+    [bool] get_CanWrite() { return $false }
+    [long] get_Length() { throw [System.NotSupportedException]::new() }
+    [long] get_Position() { throw [System.NotSupportedException]::new() }
+    [void] set_Position([long]$value) { throw [System.NotSupportedException]::new() }
+    [void] Flush() { }
+    [long] Seek([long]$offset, [System.IO.SeekOrigin]$origin) { throw [System.NotSupportedException]::new() }
+    [void] SetLength([long]$value) { throw [System.NotSupportedException]::new() }
+    [void] Write([byte[]]$buffer, [int]$offset, [int]$count) { throw [System.NotSupportedException]::new() }
 }
 
 function isZipFile {
@@ -1340,9 +1379,12 @@ function readXlsxSheetHeaderFooter {
     $settings = New-Object System.Xml.XmlReaderSettings
     $settings.DtdProcessing = [System.Xml.DtdProcessing]::Prohibit
     # シートの部品は sheetData が大きいため、文字列にせず流れで読む（readZipEntry は使わない）。
-    # 代わりに、申告の大きさ（entry.Length）が上限（zipSheetStreamMaxBytes）を超える部品は開かずに読めなかった扱いにする。
-    # MaxCharactersInDocument は、申告を偽った部品（実際は大きいのに小さく申告）を打ち切る守り（XmlException → 読めなかった扱い）
-    $settings.MaxCharactersInDocument = $script:zipSheetStreamMaxBytes
+    # 代わりに、1ファイルで流れ読みが読める残り（zipSheetStreamMaxBytes − 既に読んだ合計 zipSheetStreamReadBytes）を決め、
+    # 申告の大きさ（entry.Length）が残りを超える部品は開かずに読めなかった扱いにする。
+    # 申告を偽った部品（実際は大きいのに小さく申告）は、LimitedReadStream が実際に読んだ量を数えて残りを超えたところで止める。
+    # 読み終えたら（成功・失敗とも）読んだ量を合計に足す
+    $remaining = $script:zipSheetStreamMaxBytes - $script:zipSheetStreamReadBytes
+    $inner = $null
     $stream = $null
     $reader = $null
     try {
@@ -1353,20 +1395,21 @@ function readXlsxSheetHeaderFooter {
             if ($null -eq $entry) {
                 return @()
             }
-            if ($entry.Length -gt $script:zipSheetStreamMaxBytes) {
-                # 申告の大きさが流れ読みの上限を超える（開かずに読めなかった扱いにし、理由をログに出せるようにする）
+            if ($remaining -le 0 -or $entry.Length -gt $remaining) {
+                # 申告の大きさが流れ読みの残りを超える（開かずに読めなかった扱いにし、理由をログに出せるようにする）
                 if ($null -ne $failures) {
                     $failures.Add("$entryName（流れ読みの上限 $([long]($script:zipSheetStreamMaxBytes / 1MB))MB を超えています）")
                 }
                 return @()
             }
-            $stream = $entry.Open()
+            $inner = $entry.Open()
+            $stream = [LimitedReadStream]::new($inner, $remaining)
             $reader = [System.Xml.XmlReader]::Create($stream, $settings)
         }
         return @(readXlsxHeaderFooterLines $reader)
     } catch {
         if ($null -ne $failures) {
-            if ($_.Exception.Message -like "*MaxCharactersInDocument*") {
+            if ($null -ne $stream -and $stream.Exceeded) {
                 $failures.Add("$entryName（流れ読みの上限 $([long]($script:zipSheetStreamMaxBytes / 1MB))MB を超えています）")
             } else {
                 $failures.Add($entryName)
@@ -1375,7 +1418,11 @@ function readXlsxSheetHeaderFooter {
         return @()
     } finally {
         if ($null -ne $reader) { $reader.Dispose() }
-        if ($null -ne $stream) { $stream.Dispose() }
+        if ($null -ne $stream) {
+            $script:zipSheetStreamReadBytes += $stream.ReadBytes
+            $stream.Dispose()
+        }
+        if ($null -ne $inner) { $inner.Dispose() }
     }
 }
 
@@ -1398,6 +1445,8 @@ function readXlsxObjectUnits {
     )
 
     $script:zipTotalReadBytes = 0  # このファイル1つ分の、readZipEntryが読む合計（zipTotalMaxBytes）を0から数え直す
+    $script:zipSheetStreamReadBytes = 0  # 同じく、シートの流れ読みが実際に読んだ合計（zipSheetStreamMaxBytes）を0から数え直す
+    $sheetHeaderFooters = @{}  # シートの部品ごとのヘッダー・フッターの行。同じ部品を指す<sheet>が複数あっても、流れ読みは1回だけにする
     $units = New-Object System.Collections.Specialized.OrderedDictionary
     $nsSheet = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
     $zip = [System.IO.Compression.ZipFile]::OpenRead((toLongPath $path))
@@ -1477,7 +1526,10 @@ function readXlsxObjectUnits {
                 addUnitLines $units "${sheetName}[コメント]" $lines
             }
 
-            $headerFooter = @(readXlsxSheetHeaderFooter $zip $rel.Target $null $failures)
+            if (-not $sheetHeaderFooters.ContainsKey($rel.Target)) {
+                $sheetHeaderFooters[$rel.Target] = @(readXlsxSheetHeaderFooter $zip $rel.Target $null $failures)
+            }
+            $headerFooter = $sheetHeaderFooters[$rel.Target]
             if ($headerFooter.Count -gt 0) {
                 addUnitLines $units "${sheetName}[ヘッダー・フッター]" $headerFooter
             }
