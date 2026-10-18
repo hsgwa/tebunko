@@ -22,7 +22,7 @@ flowchart LR
 | `writeTextLinesAtomic` | 新しいファイルを作り、一時ファイルを残さない。既定は BOM 付き UTF-8、文字コードの引数で BOM なし UTF-8 にできる |
 | `formatFileTime` | 秒までの日時（`yyyy/MM/dd HH:mm:ss`） |
 | `removeDirectoryRetry` / `removeTreeNoFollow` | 中身ごと削除（読み取り専用・260 文字超も）、フォルダが無ければ何もしない、中のジャンクション・シンボリックリンクの先は消さずリンクだけを外す、消すフォルダそのものがリンクならリンクだけを外す（読み取り専用のジャンクション・末尾に `\` が付いたパスも）、確かめられないフォルダが兄弟・根にあっても何も消さずに失敗する、数えたあとでフォルダがリンクに替わったらそのフォルダのファイルを消さずに失敗する、親を指す輪のジャンクションがあっても時間内に終わる（別スレッドで上限を決めて待つ）、予約名に拡張子の付いた名前（`aux.backup`・`CON.txt`）のフォルダも消える、消したあとにフォルダが残っていれば成功にせず決めた回数だけ試して例外にする、有無が分からないとき（届かない・読めない）は試し直さず例外にする、空のパスは何もしない（`removeDirectoryRetry`）。呼ぶ側（`removeDroppedFolders`・`RemoveIndex`・`removeSystemIndexOf`・`importIndex`）は、有無が分からない例外のとき「削除しました」を出さず記録を残す、片付けの失敗が元の失敗の理由を隠さない |
-| `getFilesNoFollow` / `setWindowsSearchExcluded`（リンク） | 下のファイル・フォルダを集める（末尾の `\`・Hidden の既定と `-IncludeHidden`）、ジャンクション・親を指す輪・ファイルのシンボリックリンクは降りず `Links` に入れる、root がジャンクションでも先の中を集める、リンクかどうか確かめられないフォルダは既定では降り `-SkipUnknown` では `Links` に入れる、読めないフォルダは `HasError` で返す。`-Recurse` の属性付けは、中のジャンクションの先にも、ジャンクション自身にも付けない |
+| `getFilesNoFollow`（リンク） | 下のファイル・フォルダを集める（末尾の `\`・Hidden の既定と `-IncludeHidden`）、ジャンクション・親を指す輪・ファイルのシンボリックリンクは降りず `Links` に入れる、root がジャンクションでも先の中を集める、リンクかどうか確かめられないフォルダは既定では降り `-SkipUnknown` では `Links` に入れる、読めないフォルダは `HasError` で返す |
 | `getIndexExportSize` / `exportIndex`（リンク） | 置き場の中のジャンクションの先のファイルを zip に入れず大きさにも数えない、親を指す輪があっても止まらない |
 | `testLinkItem` / `getLinkKind` | 普通のファイル・フォルダ、`ReparsePoint` のファイルで `LinkType` が空のもの（OneDrive）はリンクでない、ジャンクション・シンボリックリンクはリンク、フォルダで `ReparsePoint` があり `LinkType` が空・`$null`・知らない値のものと、属性が読めないものはリンクとして扱う（`getLinkKind` は `Unknown`。辿らず・消さずに失敗する） |
 | `trimTrailingSeparator` | 末尾の `\`・`/`（重なっていても）だけを落とす、途中の区切りは変えない、ドライブのルート・`\\?\C:\`・`\\?\`・`\`・`/`・空のパスはそのまま返す |

@@ -78,7 +78,7 @@ Describe "exportIndex" -Tag Io {
         Set-Content -LiteralPath (Join-Path $fixture.Workspace.IndexDir "営業\見積\B社.xlsx\Sheet1.tsv") -Value "本文" -Encoding UTF8
 
         $dest = "$TestDrive\export_pending\out.zip"
-        { exportIndex "営業" $dest $fixture.Workspace $fixture.SettingsPath } | Should -Throw "*本文インデックスとして扱えないファイル*"
+        { exportIndex "営業" $dest $fixture.Workspace $fixture.SettingsPath } | Should -Throw "*インデックスとして扱えないファイル*"
         Test-Path -LiteralPath $dest | Should -Be $false
         Test-Path -LiteralPath "${dest}.tmp" | Should -Be $false
     }
@@ -556,10 +556,11 @@ Describe "importIndex" -Tag Io {
 
         $stream = [System.IO.File]::Open($txt, "Open", "Read", "None")
         try {
-            { importIndex $dest ${importCollisionRename} "" "C:\共有\営業部" $wsB $settingsB } | Should -Not -Throw
+            $result = importIndex $dest ${importCollisionRename} "" "C:\共有\営業部" $wsB $settingsB
         } finally {
             $stream.Dispose()
         }
+        @($result.Warnings | Where-Object { $_ -like "前の版が作った検索用のファイルを消せませんでした*" }).Count | Should -Be 1
         Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業") | Should -Be $true
         @(getTargetFolders $settingsB).Count | Should -Be 1
     }

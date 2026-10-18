@@ -114,7 +114,7 @@ flowchart LR
 - 取り込みのスレッドは `PublishDir` を、その下の `w<番号>` に差し替える。
 - ワークスペースを変えるときは、今のワークスペースの中身を移す。移すのは `Entries()`（tebunko が作るファイル・フォルダ）だけで、利用者のほかのファイルは移さない。`WorkspaceMover.ListEntries`（あるものだけ）・`WorkspaceMover.Conflicts`（移し先に同じ名前があるもの）・`WorkspaceMover.MoveEntries`（移す。移し先に同じ名前があれば何も移さず、途中で失敗したら移した分を戻す。別のドライブのフォルダは `CopyTree` で写してから消す）・`moveSearchExcludes`（`searchExcludes` を移した先のインデックスに付け替える）。選んだフォルダにすでにインデックスなどがあれば、`WorkspaceMover.UseTargets`（そのワークスペースの取り込み一覧のクロール対象フォルダを、インデックスの一覧にする）で使うか、`WorkspaceMover.RemoveEntries`（tebunko のファイル・フォルダだけを削除する）で消してから移す。
 - **前の前の版の `index\` の扱い**（[前の前の版の index\ の扱い](../index-data/format.md#前の前の版の-index-の扱いgetlegacyindexstate)）: `getLegacyIndexState`（dir → `@{HasLegacyIndex; ContentEmpty}`。前の前の版のしるし・`store\content\` と `content_index\` がどちらも空かを調べる）・`getLegacyIndexMessage`（dir, hasLegacyIndex → 知らせの文言。しるしが無ければ空）。画面の判断層（`indexing_view.ps1` の `getReingestConfirm`。hasLegacyIndex, contentEmpty → 確かめの文言）は［すべて更新］で使う（[更新し直しの確かめ](../gui/indexing-run.md#更新し直しの確かめ)）。
-- **前の版が作った検索用のファイル**（[前の版が作った検索用のファイルの片付け](../index-data/format.md#前の版が作った検索用のファイルの片付けremoveoldsystemindex)）: `removeOldSystemIndex`（dir → `@{Ok; Reason}`。`system_index\` と `system_index_state.tsv` の削除。失敗したら理由を返す）。インデクサ（`invokeIndexerBody`）がインデックス作成の始めに毎回呼び、インポートも取り込む前に呼ぶ。
+- **前の版が作った検索用のファイル**（[前の版が作った検索用のファイルの片付け](../index-data/format.md#前の版が作った検索用のファイルの片付けremoveoldsystemindex)）: `removeOldSystemIndex`（dir → `@{Ok; Reason}`。`system_index\` と `system_index_state.tsv` の削除。失敗したら理由を返す）。画面の起動のとき（裏の仕事。`startOldSystemIndexRemoval`）、インデクサ（`invokeIndexerBody`）のインデックス作成の始め、インポートの取り込む前に呼ぶ。
 
 | プロパティ | 値 |
 |---|---|
@@ -125,7 +125,7 @@ flowchart LR
 | `OldIndexDir` | `<Dir>\content_index`（前の版の置き場。読まず、作り直しが終わったら消す） |
 | `LegacyIndexDir` | `<Dir>\index`（前の版が使っていた場所。読まず、消しもしない） |
 | `GramDir` | `<Dir>\store\gram`（2-gram の索引） |
-| `OldSystemIndexDir` | `<Dir>\system_index`（前の版のシステムインデックス。読まず、インデックス作成の始めに消す） |
+| `OldSystemIndexDir` | `<Dir>\system_index`（前の版のシステムインデックス。読まず、起動・インデックス作成の始め・インポートのときに消す） |
 | `OldSystemIndexStateFile` | `<Dir>\system_index_state.tsv`（前の版の状態ファイル。同じく消す） |
 | `PublishDir` | `<Dir>\publish\<PID>`（TSV をインデックスに入れる直前に集めるフォルダ） |
 | `StatusFile` | `<Dir>\store\ingest_status.tsv` |

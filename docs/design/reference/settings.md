@@ -47,7 +47,7 @@
 | `getTmpDirUnavailableMessage` | reason | string | 作業フォルダを置けない理由（`Brackets`・`TooLong`・`Link`（作業領域の途中にリンクがある）・その他）を、利用者向けの 1 文にする | indexer_run.ps1, index_migrate.ps1 |
 | `getLegacyIndexState` | dir | `@{HasLegacyIndex; ContentEmpty}` | 前の版のワークスペースの状態。`index\` の直下のフォルダに元のフォルダ.txt があれば前の版のしるし（`HasLegacyIndex`）。`store\content\` と前の版の `content_index\` がどちらも空か（`ContentEmpty`） | indexing_tab.ps1, workspace_jobs.ps1, index_archive.ps1, indexer_run.ps1, paths.ps1 |
 | `getLegacyIndexMessage` | dir, hasLegacyIndex | string | 前の版のインデックスが見つかったときの知らせ。しるしが無ければ空 | workspace_jobs.ps1, indexer_run.ps1 |
-| `removeOldSystemIndex` | dir | `@{Ok; Reason}` | 前の版が作った検索用のファイル（`system_index\` と `system_index_state.tsv`）を消す。ワークスペースの下で途中にリンクが無いことを確かめてから消し（`removeDirectoryUnder`・`removeFileUnder`）、無ければ何もしない。消せなくても例外にせず `Ok = $false`（次に呼べば続きから） | indexer_run.ps1, index_archive.ps1 |
+| `removeOldSystemIndex` | dir | `@{Ok; Reason}` | 前の版が作った検索用のファイル（`system_index\` と `system_index_state.tsv`）を消す。ワークスペースの下で途中にリンクが無いことを確かめてから消し（`removeDirectoryUnder`・`removeFileUnder`）、無ければ何もしない。消せなくても例外にせず `Ok = $false`（次に呼べば続きから） | startup.ps1（画面の起動）, indexer_run.ps1, index_archive.ps1 |
 | `newWorkspace` | dir | `Workspace` | `Workspace` のインスタンスを作る（クラスの本体では型の名前を書けないため、`WorkspaceMover`・`IndexCatalog` がこの関数を通して作る） | workspace_mover.ps1 |
 
 ## ワークスペースの切り替え（`tebunko/core/workspace_mover.ps1`。`WorkspaceMover`）
@@ -97,7 +97,6 @@
 | `formatFileTime` | time | string | 取り込み一覧に記録する日時（`yyyy/MM/dd HH:mm:ss`）。更新の有無はこの文字列で比べる | [取り込み一覧](../indexing/ingest-list.md) | インデックス作成 |
 | `copyFileShared` | sourcePath, destPath | – | 元のファイルを読み取りだけで開いてコピーする（ほかのアプリの読み書き・削除を妨げない）。インデックス作成は、このコピーを開く | [取り込み対象のファイルは書き換えない](../../safety/file-access.md#取り込み対象のファイルは書き換えない) | インデックス作成 |
 | `invokeWithSourceCopy` | sourcePath, copyPath, readBlock, extraFiles | readBlock の出力 | 元のファイルを `copyFileShared` で作業領域へコピーし、コピーを読む処理（readBlock）を実行して、終わったらコピー（と extraFiles）を必ず消す。読む処理が成功したのにコピーを消せなかったときは、`作業領域のコピーを消せませんでした: <元のメッセージ>` を投げて取り込みの失敗にする（テキスト・PDF・Excel・Word・PowerPoint で共通） | [取り込み対象のファイルは書き換えない](../../safety/file-access.md#取り込み対象のファイルは書き換えない) | インデックス作成 |
-| `testWindowsSearchExcluded` | path | bool | フォルダ（またはファイル）に「内容のインデックスを作成しない」属性が付いているか調べる。無ければ `$false` | 同上 | `newWorkerTmpDir`（親の作業フォルダに付いていれば、スレッドの作業フォルダにも同じ属性を付ける） |
 | `getFolderKey` | dir | string（16 進 64 文字） | フォルダのパスを小文字にした SHA-256。名前付きミューテックス・イベントの名前に使う。FIPS モードの Windows でも動くよう、FIPS 準拠の実装（`SHA256CryptoServiceProvider`）を使う | – | newAppMutex, 画面（多重起動の防止） |
 | `testWritableFolder` | dir | bool | フォルダにファイルを作れるか（試しに作ったファイルは閉じると消える）。無いフォルダは `$false` | [データの置き場所とパスの決め方](../structure/data.md) | getDataDir, 画面（置き場所の変更） |
 | `getDataDir` | root（既定 `$rootDir`）, fallbackDir（必須） | string | 設定ファイルを置くフォルダ。root に書き込めれば root、書き込めなければ fallbackDir（`%LOCALAPPDATA%\tebunko` には置かない。`shared/core/data_dir.ps1`） | 同上 | `settings.ps1`（`getSettingsFilePath`） |

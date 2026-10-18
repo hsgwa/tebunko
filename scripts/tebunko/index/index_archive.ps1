@@ -855,8 +855,11 @@ function importIndexCore {
         $expanded = expandImportArchive $archive $fileEntries $workDir $finalName $folder $ws.PublishDir
         $targetIndexDir = Join-Path $ws.IndexDir $finalName
         try {
-            # 前の版が作ったシステムインデックスは、この版では使わない。消せなくても取り込みは続ける（次のインデックス作成でも消す）
-            [void](removeOldSystemIndex $ws.Dir)
+            # 前の版が作ったシステムインデックスは、この版では使わない。消せなくても取り込みは続け、警告に 1 行足す（次のインデックス作成でも消す）
+            $oldSearchFiles = removeOldSystemIndex $ws.Dir
+            if (!$oldSearchFiles.Ok) {
+                $warnings.Add("前の版が作った検索用のファイルを消せませんでした（$($oldSearchFiles.Reason)）。次のインデックス作成でもう一度消します。")
+            }
             $before = registerImportedIndexInSettings $finalName $folder $overwrite $targetIndexDir $settingsPath
             try {
                 $swap = swapInImportedIndexDir $expanded.NewDir $targetIndexDir (Join-Path $workDir "previous") $ws.IndexDir $ws.PublishDir

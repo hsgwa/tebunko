@@ -29,6 +29,21 @@
         } (getWorkspaceJobQueue $paths)
     }
 
+    function startOldSystemIndexRemoval {
+        # 前の版が作ったシステムインデックス（system_index\・system_index_state.tsv）を、裏の仕事で消す（画面のスレッドでは触らない）。
+        # 消せなくても起動は続け、画面エラーの記録に 1 行残す。無ければ何もしない。インデックス作成の始めとインポートでも消す（removeOldSystemIndex）
+        startJob {
+            param ($workspaceDir)
+            removeOldSystemIndex $workspaceDir
+        } @($workspace.Dir) {
+            param ($output, $errorText)
+            $reason = if ($errorText) { [string]$errorText } elseif ($null -ne $output -and @($output).Count -gt 0 -and !$output[0].Ok) { [string]$output[0].Reason } else { "" }
+            if ($reason) {
+                writeErrorLog "前の版が作った検索用のファイルを消せませんでした（起動時）" ([System.Management.Automation.ErrorRecord]::new([System.Exception]::new($reason), "OldSystemIndex", [System.Management.Automation.ErrorCategory]::NotSpecified, $null))
+            }
+        } (getWorkspaceJobQueue @($workspace.Dir))
+    }
+
     function loadStartupData {
         try {
             loadWorkspaceViews
@@ -42,6 +57,8 @@
         setStatus $(if ($script:workspaceBlock) { $script:workspaceBlock } elseif ($script:legacyIndexMessage) { $script:legacyIndexMessage } else { "" })
         # 前回のインデックス作成が起動したまま残った Office があれば、終了するか確認する（記録の読み取りは裏で行う）
         startLeftoverCheck
+        # 前の版が作った検索用のファイル（system_index\）を裏で消す
+        startOldSystemIndexRemoval
         # ［新規で開く］のために作ったコピー（open_copy）のうち、1 日より古いものを裏で片付ける（起動時の 1 回だけ。開いているコピーは残る）
         startJob {
             param ($copyDir, $tmpRoot)
