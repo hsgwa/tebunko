@@ -4093,7 +4093,7 @@
 </tr>
 <tr>
 <td><code>flushPendingPublish</code>・<code>recoverIngestJournal</code>・<code>writeStatusWithJournal</code>（Io。<code>tests/tebunko/indexer/indexer</code>）</td>
-<td>書き出せたフォルダにだけ「出」を足す、書き出せなかったフォルダだけを返す（2 フォルダのうち 1 つが失敗したとき・例外のときは全部）、始めの復旧が書き出せなかった・中止で飛ばしたフォルダを次の回へ持ち越す、ジャーナルが読めないとき（フォルダが 0 件・2 件）今ある書き出し前のフォルダだけを書き出す、前の版の <code>ingesting.txt</code> を足して重ねない、「書」と（<code>-Finish</code> のときだけ）「終」の記録</td>
+<td>書き出せたフォルダ（<code>publishIndexFolders</code> の <code>Published</code>）にだけ「出」を足す、書き出せなかったフォルダだけを返す（2 フォルダのうち 1 つが失敗したとき・置き場の外を指すパスで飛ばしたとき・例外のときは全部。システムインデックスの段で落ちても本文インデックスは書けているので「出」を足す）、始めの復旧が書き出せなかった・中止で飛ばしたフォルダを次の回へ持ち越す、ジャーナルが読めないとき（フォルダが 0 件・2 件）今ある書き出し前のフォルダだけを書き出す、前の版の <code>ingesting.txt</code> を足して重ねない、「書」と（<code>-Finish</code> のときだけ）「終」の記録</td>
 </tr>
 <tr>
 <td><code>describeIngestError</code></td>
@@ -4137,7 +4137,7 @@
 </tr>
 <tr>
 <td><code>PendingPublish</code>（<code>pending_publish.Tests.ps1</code>）</td>
-<td>取り込んだ・無くなったファイルの記録、取り込み中・まだ渡していないファイルが 1 つでもあるフォルダは取り出さない、無くなれば取り出せる、一度取り出したフォルダは消える</td>
+<td>取り込んだ・無くなったファイルの記録、外し終えていない削除（Unpublished。取り出しても残り、MarkPublished で外れ、Restore で戻る）、取り込み中・まだ渡していないファイルが 1 つでもあるフォルダは取り出さない、無くなれば取り出せる、一度取り出したフォルダは消える</td>
 </tr>
 <tr>
 <td><code>IngestPlanner</code>（<code>indexer_plan.Tests.ps1</code>）</td>

@@ -4662,6 +4662,11 @@
 <td>取り込み一覧</td>
 </tr>
 <tr>
+<td><code>work/store/pending_remove.tsv</code>（<code>.tmp</code> を経由して置き換える。0 件なら消す）</td>
+<td>読む・書く・消す</td>
+<td>本文インデックスから外し終えていない、無くなった元のファイルの記録。次のインデックス作成の始めに読み、外し終えたら消す。<code>work/store/</code> の中なので、移すときも <code>store\</code> ごと移り、作り直しで置き場ごと消える</td>
+</tr>
+<tr>
 <td><code>work/content_index/</code>・<code>work/ingest_status.tsv</code>（前の版の置き場）</td>
 <td>読む（古い形式かの判定）・消す</td>
 <td>読まず、検索もしない。作り直しが終わったインデックスの分から消す</td>

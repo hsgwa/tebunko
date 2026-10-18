@@ -4376,7 +4376,7 @@
 <td>司令のスレッド</td>
 <td>状態層</td>
 <td><code>tebunko/indexer/pending_publish.ps1</code>（<code>indexer_lib.ps1</code>）</td>
-<td>実装ずみ。<code>Add</code>・<code>MarkFolder</code>（書き出し待ちの記録）・<code>AddPending</code>・<code>Dispatch</code>・<code>Skip</code>・<code>Complete</code>（数える）・<code>TakeFlushable</code>・<code>TakeAll</code>（取り出す）</td>
+<td>実装ずみ。<code>Add</code>・<code>MarkFolder</code>（書き出し待ちの記録）・<code>Restore</code>・<code>MarkPublished</code>（外し終えていない削除 <code>Unpublished</code>）・<code>AddPending</code>・<code>Dispatch</code>・<code>Skip</code>・<code>Complete</code>（数える）・<code>TakeFlushable</code>・<code>TakeAll</code>（取り出す）</td>
 <td>ファイルの相対パスからフォルダを決める <code>getBookDir</code>（<code>indexer_plan.ps1</code>）。書き出し（<code>publishIndexFolders</code>）は <code>TakeFlushable</code> / <code>TakeAll</code> が返した結果を見て司令（<code>invokeIndexerBody</code> の中の <code>flushPending</code>）が呼ぶ</td>
 </tr>
 <tr>
