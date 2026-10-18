@@ -2,10 +2,16 @@
 # 画面に触らないため、そのままテストできる（tests\tebunko\ui\index\index_list_view.Tests.ps1）。
 
 function getUsedIndexNames {
-    # 一覧のインデックス名の集合（大文字・小文字を区別しない）。except に渡した行の名前は含めない
+    # 付けられない名前の集合（大文字・小文字を区別しない）。一覧のインデックス名（except に渡した行の名前は含めない）に、
+    # 設定から外れたまま残してあるインデックスの名前のうち folder には付けられないもの（getBlockedIndexNames）を足す。
+    # 名前を決める入口（追加の自動の名前・インポートの提案など）はすべてこの集合を使う。入口ごとに別の集合を作らない
+    #   leftovers: getWorkspaceIndexFolders の結果（@{ Name; Path }）。省くと一覧の名前だけ
+    #   folder   : 名前を付けようとするフォルダ。省くと、残っているものはすべて付けられない
     param (
         $items,
-        $except = $null
+        $except = $null,
+        $leftovers = $null,
+        [string]$folder = ""
     )
 
     $used = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
@@ -13,6 +19,11 @@ function getUsedIndexNames {
         if ($item -ne $except -and $item.Name) {
             [void]$used.Add($item.Name)
         }
+    }
+    $blocked = getBlockedIndexNames $items $leftovers $folder
+    # .Keys と書くと、名前が Keys のキーがあるとき、キーの一覧でなくその値が返る。メソッドで読む
+    foreach ($name in $blocked.get_Keys()) {
+        [void]$used.Add($name)
     }
     # HashSet をそのまま return すると PowerShell が中身を展開してしまい（0 件なら $null、1 件なら文字列）、
     # 受け取った側の .Contains が落ちる・部分一致になる。, を付けて集合のまま返す

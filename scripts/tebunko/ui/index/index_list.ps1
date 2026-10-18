@@ -17,6 +17,8 @@ foreach ($footerName in @("IndexEmptyAddButton")) {
 }
 $script:loadingTargets = $false
 $script:targetsLoadRequest = @{ Value = 0 }  # 一覧の読み込みの依頼番号（新しい依頼が出たら、前の依頼の結果は捨てる）
+$script:leftoverIndexes = @()  # ワークスペースに残っているインデックスの「名前と前回のフォルダの組」（getWorkspaceIndexFolders）。名前を付ける入口が使う
+$script:leftoverJobDir = $null  # 上を最後に読み始めたときのワークスペース（$workspace.Dir）
 $script:indexingPreparing = $false  # インデックス作成を始める前に、ネットワークのワークスペースを裏で確かめている間
 $script:indexBusy = $false  # 前のインデックスの削除・名前の変更中（別スレッド）。getIndexJobBlocker に [bool] で渡すため、$null のままにしない
 # 行のチェック（一時の選択。保存しない）の状態が変わったら、行の値と画面の表示を合わせる（Checked・Unchecked。
@@ -350,6 +352,33 @@ function loadTargets {
     fillTargetItems $folders $checkedNames
 }
 
+function refreshLeftoverIndexes {
+    # 設定から外れたまま残してあるインデックス（名前と前回のフォルダの組）を、別スレッドで読み直して控える。
+    # 追加・名前の変更・インポートが、その名前を別のフォルダに付けないために使う（付けると次の更新で前の中身が消える）。
+    # 入力のたびにワークスペースを読むと、ネットワークの作業フォルダで画面が止まるため、一覧を読み直すところで 1 回だけ読む。
+    # 届かないときは空にして画面は止めない。読んでいる間にワークスペースを変えたときは、結果を捨てる
+    # （仕事は順に動くので、続けて呼んだときは最後に読んだ結果が残る）
+    $dir = [string]$workspace.Dir
+    if ($script:leftoverJobDir -ne $dir) {
+        # ワークスペースを替えたときは、前の場所の控えを使わないよう空に戻す
+        $script:leftoverIndexes = @()
+    }
+    $script:leftoverJobDir = $dir
+    startJob {
+        param ($workspaceDir)
+        $ws = [Workspace]::new($workspaceDir)
+        foreach ($folder in @(getWorkspaceIndexFolders $ws)) {
+            @{ Name = [string]$folder.Name; Path = [string]$folder.Path }
+        }
+    } @($dir) {
+        param ($output, $errorText)
+        if ($script:leftoverJobDir -ne [string]$workspace.Dir) {
+            return
+        }
+        $script:leftoverIndexes = if ($errorText) { @() } else { @($output | Where-Object { $_ } | ForEach-Object { [pscustomobject]@{ Name = [string]$_.Name; Path = [string]$_.Path } }) }
+    } (getWorkspaceJobQueue $dir)
+}
+
 function finishTargetsNaming {
     # ネットワークのワークスペースで、裏の名前の割り当てが終わったときの処理。保存し直された一覧を読み込む（失敗したら理由を出し、設定のまま）
     param (
@@ -387,6 +416,7 @@ function fillTargetItems {
     updateIndexListView
     refreshFolderStatus
     refreshFastSearchStatus
+    refreshLeftoverIndexes
 }
 
 function saveTargets {
@@ -427,6 +457,7 @@ function refreshIndexViews {
     refreshIndexSummary
     refreshIndexingState
     refreshFastSearchStatus
+    refreshLeftoverIndexes
     updateIndexDetailPanel
 }
 
