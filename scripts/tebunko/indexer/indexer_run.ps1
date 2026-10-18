@@ -349,7 +349,12 @@ function flushPendingPublish {
     }
     $failedRels = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
     try {
+        # 外す予定の記録を先に残す（書き出しが落ちる・強制終了しても、次の回に外し直せるように）
+        savePendingRemovals $pending
         $published = publishIndexFolders $flush
+        # 書き終えたフォルダの分だけ記録から外す（飛ばしたフォルダの分は残る）
+        $pending.MarkPublished([string[]]@($published.Published), $flush)
+        savePendingRemovals $pending
         $skippedList = if ($published -is [hashtable]) { @($published.Skipped) } else { @() }
         foreach ($skip in $skippedList) {
             if ($skip.Stage -eq "本文インデックス") {
@@ -416,7 +421,8 @@ function recoverIngestJournal {
                 $leftover.Add($folder)
             }
         }
-    } else {
+    } elseif (!$channel.Stop) {
+        # 中止を求められていれば、TSV を探す段は飛ばす（段の途中では止めない）
         $withBooks = findIndexFoldersWithBooks $workspace.IndexDir
         foreach ($folder in $withBooks) {
             $leftover.Add($folder)
@@ -424,23 +430,15 @@ function recoverIngestJournal {
     }
     # 次の回へ持ち越すフォルダ: 中止で飛ばしたら全部、書き出しを試したら書き出せなかったものだけ
     $unpublished = New-Object System.Collections.Generic.List[string]
-    if ($leftover.Count -gt 0) {
-        if ($channel.Stop) {
-            foreach ($folder in $leftover) {
-                $rel = getIndexFolderRel $folder
-                if ($rel -ne "") {
-                    $unpublished.Add($rel)
-                }
+    if ($channel.Stop) {
+        foreach ($folder in $leftover) {
+            $rel = getIndexFolderRel $folder
+            if ($rel -ne "") {
+                $unpublished.Add($rel)
             }
-        } else {
-            writeIndexerLog "集約ファイルに入れていないインデックス（$($leftover.Count) フォルダ）をまとめています…"
-            $reporter.Progress(${indexingPhaseCrawl}, 0, 0, 0, "集約ファイルに入れていないインデックスをまとめています…")
-            foreach ($folder in $leftover) {
-                $pending.MarkFolder($folder)
-            }
-            flushPendingPublish $pending $journal -All -Failed $unpublished
         }
     }
+    flushLeftovers $pending $journal $reporter $leftover -Stop:([bool]$channel.Stop) -Failed $unpublished
     return @{ Resume = $resume; Unpublished = $unpublished.ToArray() }
 }
 
@@ -464,6 +462,84 @@ function writeStatusWithJournal {
         $journal.AddRecord((convertToIngestJournalLine "終"))
     }
     $journal.Close()
+}
+
+function savePendingRemovals {
+    # まだ本文インデックスから外し終えていない、無くなった元のファイルを記録ファイルに書く（0 件なら記録を消す）
+    param (
+        $pending
+    )
+
+    $root = ([string]$workspace.IndexDir).TrimEnd("\") + "\"
+    $entries = New-Object System.Collections.Generic.List[hashtable]
+    foreach ($folder in @($pending.Unpublished.Keys)) {
+        # 置き場の外のフォルダは、相対で書けないので記録しない（通常は起きない）
+        if (!$folder.StartsWith($root, [System.StringComparison]::OrdinalIgnoreCase)) {
+            continue
+        }
+        foreach ($name in @($pending.Unpublished[$folder])) {
+            $entries.Add(@{ Folder = $folder.Substring($root.Length); Name = $name })
+        }
+    }
+    writePendingRemovals $entries.ToArray()
+}
+
+function restorePendingRemovals {
+    # 前の回に外し終えていなかった、無くなった元のファイルを書き出し待ちに戻す。
+    # 置き場の下にフォルダがもう無いもの（インデックスごと消えた）は捨てる（次に記録を書くときに消える）
+    param (
+        $pending
+    )
+
+    $byFolder = @{}
+    foreach ($entry in @(readPendingRemovals)) {
+        $folder = Join-Path $workspace.IndexDir $entry.Folder
+        if (!(Test-Path -LiteralPath (toLongPath $folder) -PathType Container)) {
+            continue
+        }
+        if (!$byFolder.ContainsKey($folder)) {
+            $byFolder[$folder] = New-Object System.Collections.Generic.List[string]
+        }
+        $byFolder[$folder].Add($entry.Name)
+    }
+    foreach ($folder in $byFolder.Keys) {
+        $pending.Restore($folder, $byFolder[$folder].ToArray())
+    }
+}
+
+function flushLeftovers {
+    # 前回、本文インデックスから外し終えていなかった「無くなった元のファイル」を書き出し待ちに戻し、
+    # 呼ぶ側が渡した、本文インデックスのファイルに入れていない TSV（元のファイルごとのフォルダ）の一覧と一緒に書き出す。
+    # -Stop（中止を求められている）なら、書き出しは飛ばして次回に回す（戻すだけ。段の途中では止めない）
+    # 書き出せなかったフォルダは、-Failed に渡した List に足す（次の回へ「未」で持ち越すフォルダを決めるのに使う）
+    param (
+        $pending,
+        $journal,
+        $reporter,
+        $leftover,
+        [switch]$Stop,
+        $Failed = $null
+    )
+
+    restorePendingRemovals $pending
+    if ($Stop) {
+        return
+    }
+    $removals = $pending.Unpublished.Count
+    if ($leftover.Count -eq 0 -and $removals -eq 0) {
+        return
+    }
+    if ($leftover.Count -gt 0) {
+        writeIndexerLog "集約ファイルに入れていないインデックス（$($leftover.Count) フォルダ）をまとめています…"
+    }
+    if ($removals -gt 0) {
+        writeIndexerLog "本文インデックスから外し終えていない削除（$removals フォルダ）をまとめています…"
+    }
+    $reporter.Progress(${indexingPhaseCrawl}, 0, 0, 0, "集約ファイルに入れていないインデックスをまとめています…")
+    foreach ($folder in $leftover) {
+        $pending.MarkFolder($folder)
+    }
+    flushPendingPublish $pending $journal -All -Failed $Failed
 }
 
 function reportIngestProgress {
@@ -675,7 +751,8 @@ function invokeIndexerBody {
     $previous = $planner.Previous
     # 設定から外れたインデックスは、ここでは消さない。確認ダイアログに「削除予定」として出し、［更新を開始］が押されたときだけ消す
     $dropped = $planner.Dropped
-    # 前回のジャーナルから、前回止まった跡（始めて終わらなかった仕事・書き出していないフォルダ）を読み、書き出していないフォルダを先に入れる
+    # 前回のジャーナルから、前回止まった跡（始めて終わらなかった仕事・書き出していないフォルダ）を読み、書き出していないフォルダと
+    # 外し終えていない削除を先に書き出す（中止を求められていれば、TSV を探す段と書き出しは飛ばして次回に回す。段の途中では止めない）
     $journal = [IngestJournal]::new($workspace.JournalFile)
     $recovered = recoverIngestJournal $ledger $journal $pending $channel $reporter
     $resume = $recovered.Resume
@@ -727,6 +804,7 @@ function invokeIndexerBody {
     # 「更新不要」かどうかも、この件数を見て画面が知らせる（取り込み対象が 0 件でも、前回失敗の再取り込みを選べる）
     $retryTargets = [bool]$channel.RetryFailed
     $includeCloud = [bool]$channel.IncludeCloud
+
     # 取りやめ。取り込み対象にした行は前回の記録のまま（一覧に無かったファイルは記録しない）にする。
     # 取り込み一覧自体は書き直す（無くなったファイルの削除を反映する必要があるため）
     function cancelBeforeIngest {
@@ -736,6 +814,7 @@ function invokeIndexerBody {
         writeIndexerLog ""
         writeIndexerLog $message "Yellow"
         # この回のジャーナルは始めていない（前回のものを残す）ので「終」は付けない
+        savePendingRemovals $pending
         writeStatusWithJournal $journal $ledger $folders $keep $keptDropped $previous
         writeSourceFolderFile $folders
         $reporter.Progress(${indexingPhaseFinish}, 0, 0, 0, "インデックス作成を取りやめました")
@@ -818,12 +897,15 @@ function invokeIndexerBody {
     $carried = $planner.Carried
     $reporter.Progress(${indexingPhaseCrawl}, 0, $targets.Count, 0, "更新の記録を書き出しています…")
     # 取り込み一覧を書き直したら、この回のジャーナルを新しく始める（版・回（書き直した後の行数）・持ち越した仕事・書き出せていないフォルダ）。
-    # 書き直しの途中で止まったときのために、書き直しの前に「書」の印を足す（前回のジャーナルの末尾に付く）
+    # 書き直しの途中で止まったときのために、書き直しの前に「書」の印を足す（前回のジャーナルの末尾に付く）。
+    # 行を一覧から消す前に、外す予定の記録を先に書く（強制終了しても、次の回に本文インデックスから外せるように）
+    savePendingRemovals $pending
     $journal.AddRecord((convertToIngestJournalLine "書"))
     writeStatusKeepingDropped $ledger $folders $rows.ToArray() $keptDropped $previous
     $journalHead = newIngestJournalHead ${indexFormatVersion} (formatFileTime (Get-Date)) (@($ledger.ReadRelPaths()).Count) $carried $recovered.Unpublished
     $journal.Reset([string[]]$journalHead)
     removeLegacyIngesting
+
     # インデックスのフォルダごと別の場所・PCへコピーしても元のファイルの場所が分かるよう、インデックス名とクロール対象フォルダの対応を置く
     writeSourceFolderFile $folders
 
@@ -1009,6 +1091,7 @@ function invokeIndexerBody {
         $reporter.Progress(${indexingPhaseFinish}, $processed, 0, $ledger.Failures.Count, "更新の記録を書き直しています…")
         # 取り込みの直前に無くなっていたファイルの行は除く（次回の検索でも見つからず、インデックスも削除済み）。
         # 書き直し終えたら「終」を足す（書き直しの途中で止まっても、印があるので、次の始めは取り込み中だった仕事を全部やり直す側に倒れる）
+        savePendingRemovals $pending
         writeStatusWithJournal $journal $ledger $folders @($rows | Where-Object { $_ -and !$ledger.DroppedRows.Contains([string]$_.相対パス) }) $keptDropped $previous -Finish
         # 初めて取り込んだインデックスは、最初に書き出した時点ではまだフォルダが無いため、ここでもう一度書く
         # （work\content_index\<インデックス名>\source_folder.txt。インデックス 1 個だけをコピーしても元のファイルの場所が分かる）

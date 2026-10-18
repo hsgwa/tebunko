@@ -19,6 +19,7 @@ Describe "Workspace" -Tag Unit {
         $target.PublishDir | Should -Be "C:\Users\test\Documents\tebunko_ws\publish\$PID"
         $target.StatusFile | Should -Be "C:\Users\test\Documents\tebunko_ws\store\ingest_status.tsv"
         $target.JournalFile | Should -Be "C:\Users\test\Documents\tebunko_ws\store\journal\ingest.tsv"
+        $target.PendingRemoveFile | Should -Be "C:\Users\test\Documents\tebunko_ws\store\pending_remove.tsv"
         $target.ResultFile | Should -Be "C:\Users\test\Documents\tebunko_ws\search_results.txt"
         $target.IndexingLogFile | Should -Be "C:\Users\test\Documents\tebunko_ws\indexing_log.txt"
         $target.GuiErrorLogFile | Should -Be "C:\Users\test\Documents\tebunko_ws\gui_error_log.txt"

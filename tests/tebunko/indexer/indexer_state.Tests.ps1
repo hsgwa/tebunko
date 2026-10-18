@@ -403,3 +403,36 @@ Describe "newIngestPlanRow（クラウドにだけあるファイル）" -Tag Un
         @($row.PSObject.Properties.Name) | Should -Be @(${ingestPlanColumns})
     }
 }
+
+Describe "readPendingRemovals / writePendingRemovals" -Tag Io {
+    It "書いた記録を読み戻せる。記録が無ければ空" {
+        $path = "$TestDrive\store\pending_remove.tsv"
+        @(readPendingRemovals $path).Count | Should -Be 0
+
+        writePendingRemovals @(@{ Folder = "営業\2024"; Name = "A社 [確定].xlsx" }, @{ Folder = "経理"; Name = "b.docx" }) $path
+
+        $read = @(readPendingRemovals $path)
+        $read.Count | Should -Be 2
+        ($read | Where-Object { $_.Folder -eq "営業\2024" }).Name | Should -Be "A社 [確定].xlsx"
+        [System.IO.File]::Exists("$path.tmp") | Should -Be $false
+    }
+
+    It "0 件を書くと記録を消す（無くても失敗しない）" {
+        $path = "$TestDrive\store2\pending_remove.tsv"
+        writePendingRemovals @(@{ Folder = "営業"; Name = "a.xlsx" }) $path
+        [System.IO.File]::Exists($path) | Should -Be $true
+
+        writePendingRemovals @() $path
+        [System.IO.File]::Exists($path) | Should -Be $false
+        { writePendingRemovals @() $path } | Should -Not -Throw
+    }
+
+    It "置き場の外を指す行（..）は読み飛ばす" {
+        $path = "$TestDrive\store3\pending_remove.tsv"
+        writeListFile $path @("営業`tok.xlsx", "..\外`tx.xlsx", "営業\..\..`ty.xlsx")
+
+        $read = @(readPendingRemovals $path)
+        $read.Count | Should -Be 1
+        $read[0].Name | Should -Be "ok.xlsx"
+    }
+}

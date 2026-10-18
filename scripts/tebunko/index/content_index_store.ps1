@@ -339,7 +339,8 @@ function publishIndexFolders {
     #   1. 本文インデックスのファイルを書く（前の本文インデックスのファイルとまぜ、無くなった元のファイルは外す）
     #   2. 元のファイルごとのフォルダの TSV を消す
     #   3. 書いた本文インデックスのファイルの中身から、そのフォルダのシステムインデックスの txt を作る（読み直さない）
-    # txt の状態（反映待ち）はまとめて状態ファイルに書く。@{ Count（書き出したフォルダの数）; Skipped（飛ばしたフォルダの @{ Rel; Stage; Reason } の配列）} を返す。
+    # txt の状態（反映待ち）はまとめて状態ファイルに書く。@{ Count（書き出したフォルダの数）; Skipped（飛ばしたフォルダの @{ Rel; Stage; Reason } の配列）; Published（本文インデックスのファイルを書き終えたフォルダ。引数のキーのまま。
+    # システムインデックスの段で落ちたものも含み、リンクで飛ばしたものは含まない）} を返す。
     #   pending: フォルダ（フルパス）→ 無くなった元のファイル名の集まり
     # 例外はフォルダごとに受け止め、失敗したフォルダは飛ばして残りを続ける（飛ばしたことはログに黄色で出す）:
     #   ・前の本文インデックスのファイルを読む所（書く前。壊れている・大きすぎる・読めないなど）で落ちたら、何も消さず・書き換えない
@@ -356,6 +357,7 @@ function publishIndexFolders {
 
     $results = New-Object System.Collections.Generic.List[hashtable]
     $skipped = New-Object System.Collections.Generic.List[hashtable]
+    $published = New-Object System.Collections.Generic.List[string]
     $fullRoot = [System.IO.Path]::GetFullPath((fromLongPath $indexRoot)).TrimEnd("\")
     foreach ($folder in @($pending.Keys)) {
         # 書く・消す前に、置き場（indexRoot）の下で途中にリンク（ジャンクション等）が無いことを確かめる。
@@ -370,6 +372,8 @@ function publishIndexFolders {
         $stage = "本文インデックス"
         try {
             $contentIndexFile = updateFolderContentIndex $folder ([string[]]@($pending[$folder]))
+            # 本文インデックスのファイルを書き終えたフォルダ（システムインデックスの段で落ちても、外す分は外れている）
+            $published.Add($folder)
             $stage = "システムインデックス"
             # 書いた本文インデックスのファイルは、フォルダごとに書いた直後にここで NotContentIndexed を付ける（件数が多いため失敗してもログに出さない）
             [void](setWindowsSearchExcluded $folder)
@@ -387,7 +391,7 @@ function publishIndexFolders {
             writeIndexerLog "システムインデックスの状態を書き込めませんでした（インデックス作成の終わりに作り直します）。" "Yellow"
         }
     }
-    return @{ Count = $results.Count; Skipped = $skipped.ToArray() }
+    return @{ Count = $results.Count; Skipped = $skipped.ToArray(); Published = $published.ToArray() }
 }
 
 

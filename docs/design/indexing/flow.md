@@ -43,7 +43,7 @@ flowchart TD
     RR -- "はい（中止を求められていないとき）" --> RT["Word・PowerPoint の持ち主に渡し直す（getRerouteApp）<br>取り込み中のまま"] --> LOOP
     RR -- "中止で止めた（Stopped、または中止後の Reroute）" --> RS["失敗に数えず、『未取り込み』のまま<br>今の行を取り込み一覧に追記<br>以後、次のファイルを渡さない"] --> LOOP
     RR -- いいえ --> R["ログを書き、結果（済・失敗）を取り込み一覧に追記"]
-    R --> PF["取り込み中のファイルも、まだ渡していないファイルも無いフォルダを、<br>本文インデックスに書き出す（flushPending → publishIndexFolders）"] --> LOOP
+    R --> PF["取り込み中のファイルも、まだ渡していないファイルも無いフォルダを、<br>本文インデックスに書き出す（flushPending → publishIndexFolders。前後で pending_remove.tsv を書く）"] --> LOOP
     WAIT -- いいえ --> FIN["finally: 取り込みのスレッドを終える（Office のスレッドは監視と Office を終了）<br>作業領域を空にする<br>書き出し待ちのフォルダを本文インデックスに書き出す（書き出すたびに「出」を記録）<br>取り込み一覧を 1 ファイル 1 行に書き直す<br>ジャーナルに「終」を記録"]
     FIN --> LOST2{"クロール対象フォルダが<br>見つからなくなった？"}
     LOST2 -- はい --> E0

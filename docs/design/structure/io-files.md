@@ -71,6 +71,7 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 | `work/system_index/<インデックス名>/…/system_index.txt` | 読む・書く | システムインデックス（2-gram の txt）。Windows Search が読む（[システムインデックス](../index-data/system-index.md)） |
 | `work/system_index_state.tsv` | 読む・書く | システムインデックスの状態。排他で開いて書き換える |
 | `work/store/ingest_status.tsv`（`.tmp` を経由して置き換える） | 読む・書く | 取り込み一覧 |
+| `work/store/pending_remove.tsv`（`.tmp` を経由して置き換える。0 件なら消す） | 読む・書く・消す | 本文インデックスから外し終えていない、無くなった元のファイルの記録。次のインデックス作成の始めに読み、外し終えたら消す。`work/store/` の中なので、移すときも `store\` ごと移り、作り直しで置き場ごと消える |
 | `work/content_index/`・`work/ingest_status.tsv`（前の版の置き場） | 読む（古い形式かの判定）・消す | 読まず、検索もしない。作り直しが終わったインデックスの分から消す |
 | `work/store/journal/ingest.tsv` | 読む・追記する | 取り込みのジャーナル |
 | `work/publish/<PID>/`（`import/new/`・`import/previous/` を含む） | 読む・書く | 本文インデックスに入れる直前の TSV と、インポートの展開先 |
