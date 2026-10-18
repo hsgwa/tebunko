@@ -4216,7 +4216,7 @@
 <li>リソース … 別のスレッドで 0.2 秒ごと（および段階の切り替わり）に、プロセスのワーキングセット・プライベート・マネージドヒープ、CPU 時間、スレッド・ハンドルの数、GC の回数と、PC 全体の CPU・空きメモリを記録する。検索では、検索 1 回ごとのメモリも記録し、10 回あたりの増え方（最小二乗の傾き）を出す（検索を続けたときにメモリが増え続けないかを見るため）</li>
 <li>OS のファイルキャッシュは空にしない。本文インデックスは作成の直後なので OS のキャッシュに載っており、PC を起動した直後の検索（ディスクから読む）とは違う</li>
 <li>結果は、ジョブの Summary（表と Mermaid のグラフ）と、artifact <code>perf-&lt;実行の番号&gt;</code>（保存期間は 90 日）に出力する。パスやファイル名は出力しない</li>
-<li><code>summary.md</code> … Summary と同じ内容（「Office からの取り込み」「入力しながらの検索」の節を含む）</li>
+<li><code>summary.md</code> … Summary と同じ内容（「Excel の流れ読み」「Office からの取り込み」「入力しながらの検索」の節を含む）</li>
 <li><code>result.json</code> … すべての数字。形式の版（<code>Schema</code>）と実行の情報（実行の番号・ref・コミット・scale・日時・ランナーの CPU）を含む</li>
 <li><code>metrics.csv</code> … 1 行 1 指標の縦長の形（<code>run_id, date, ref, sha, scale, metric, word, stat, value, unit</code>）。実行をまたいで数字を貯め、Grafana などで見るときに使う（貯める仕組みはまだ無い）</li>
 <li><code>searches.csv</code>（検索 1 回ごと）・<code>typing.csv</code>（入力しながらの検索、1 回の入力ごと）・<code>resource-xlsx.csv</code>・<code>resource-ingest.csv</code>・<code>resource-index.csv</code>・<code>resource-search.csv</code>・<code>resource-typing.csv</code>（リソースの記録）</li>
@@ -4264,6 +4264,10 @@
 <tr>
 <td>読み込み口</td>
 <td><code>scripts\tebunko\lib.ps1</code>（<code>resolveTebunkoLib</code> が頼っている）の <code>newIndexerChannel</code>（引数 <code>retryFailed</code>・<code>confirmTargets</code>・<code>workers</code>）</td>
+</tr>
+<tr>
+<td>Excel の流れ読み</td>
+<td><code>scripts\tebunko\indexer\indexer_lib.ps1</code>（<code>lib.ps1</code> も読み込む）が読み込む <code>readXlsxObjectUnits</code>（引数 <code>path</code>・<code>failures</code>・<code>sizeFailures</code>）。無い版は <code>xlsx</code> を渡すと失敗する</td>
 </tr>
 <tr>
 <td>受け渡しの口</td>
