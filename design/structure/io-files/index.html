@@ -4672,9 +4672,9 @@
 <td>読まず、検索もしない。作り直しが終わったインデックスの分から消す</td>
 </tr>
 <tr>
-<td><code>work/ingesting.txt</code></td>
-<td>読む・書く</td>
-<td>取り込み中のファイル</td>
+<td><code>work/store/journal/ingest.tsv</code></td>
+<td>読む・追記する</td>
+<td>取り込みのジャーナル</td>
 </tr>
 <tr>
 <td><code>work/publish/&lt;PID&gt;/</code>（<code>import/new/</code>・<code>import/previous/</code> を含む）</td>
@@ -5021,9 +5021,9 @@
 <td>1 つ。作り直しが終われば消す</td>
 </tr>
 <tr>
-<td><code>ingesting.txt</code></td>
-<td>上書き</td>
-<td>1 つ。インデックス作成が終われば消す</td>
+<td><code>store/journal/ingest.tsv</code></td>
+<td>追記（始めに入れ替え）</td>
+<td>1 つ。1 記録ごとに追記して Flush する。始めに前回の分を読んで入れ替える</td>
 </tr>
 <tr>
 <td><code>search_results.txt</code></td>
@@ -5144,7 +5144,7 @@
     CFG[("setting.config")]
     GUI["画面&lt;br&gt;gui.ps1"]
     IDX["インデクサ&lt;br&gt;indexer.ps1"]
-    ST[("store/format.tsv&lt;br&gt;store/ingest_status.tsv&lt;br&gt;ingesting.txt")]
+    ST[("store/format.tsv&lt;br&gt;store/ingest_status.tsv&lt;br&gt;store/journal/ingest.tsv")]
     IX[("work/store/content/")]
     GUI -- 読み書き --&gt; CFG
     IDX -- クロール対象フォルダを読む --&gt; CFG
@@ -5183,12 +5183,12 @@
 <td>先頭にクロール対象フォルダの行、以降 1 ファイル 1 行で相対パス・更新日時・サイズ・状態・TSV 数・取り込み日時・エラー・抽出版（<a href="../../indexing/ingest-list/">取り込み一覧</a>）</td>
 </tr>
 <tr>
-<td><code>work/ingesting.txt</code></td>
+<td><code>work/store/journal/ingest.tsv</code></td>
 <td>インデックス作成の状態</td>
 <td>インデックス作成</td>
 <td>インデックス作成</td>
-<td>UTF-8（BOM 付き）</td>
-<td>取り込み中のファイルごとに <code>&lt;回数&gt;&lt;TAB&gt;&lt;相対パス&gt;</code> の 1 行（取り込みを複数のスレッドで行うため、取り込み中のものすべて。<code>readIngestingFiles</code> / <code>writeIngestingFiles</code> / <code>removeIngestingFile</code>）。取り込みが終わったファイルの行は消し、インデックス作成が終われば削除する。残っていれば、書かれたファイルの取り込み中に強制終了した（<a href="../../indexing/ingest-list/#強制終了時間切れからの再開">取り込み一覧</a>）</td>
+<td>UTF-8（BOM 付き・CRLF）</td>
+<td>取り込みのジャーナル。1 行に 1 記録（版・回・持・未・始・出・書・終）で、先頭の列が種類。司令だけが追記して Flush し（<code>IngestJournal</code>）、始めに前回の分を読んで入れ替える。取り込み一覧を書き直し終えると「終」を書く（書き出せなかったフォルダがあっても書く。そのフォルダは「出」が無いことで次の回へ「未」で持ち越す）。「終」が無いまま残っていれば、取り込み中に強制終了した（<a href="../../indexing/ingest-list/#ジャーナルの形">ジャーナルの形</a>）。前の版の <code>work/ingesting.txt</code> が残っていれば、始めに 1 度だけ読んで消す</td>
 </tr>
 <tr>
 <td><code>work/publish/&lt;PID&gt;/</code></td>
