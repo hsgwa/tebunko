@@ -141,6 +141,84 @@ Describe "invokeSearchRequest" -Tag Io {
     }
 }
 
+Describe "invokeSearchRequest（どの段で中止されても、先の段に進まない）" -Tag Io {
+    BeforeDiscovery {
+        # invokeSearchRequest が順に呼ぶ段。段を足したら（呼ぶ関数を足したら）ここに行を足し、下の Mock にも足す
+        $stages = @(
+            @{ Stage = "getFastSearchContentIndexFiles"; UseFast = $true; Later = @("getContentIndexFiles", "searchContentIndex") }
+            @{ Stage = "getContentIndexFiles"; UseFast = $false; Later = @("searchContentIndex") }
+            @{ Stage = "searchContentIndex"; UseFast = $false; Later = @() }
+        )
+    }
+
+    BeforeAll {
+        $tsvRoot = Join-Path $TestDrive "stage_tsv"
+        newTsv "$tsvRoot\A社.xlsx\Sheet1.tsv" @("単価`t105")
+        $contentIndexRoot = Join-Path $TestDrive "stage_content_index"
+        [void](newContentIndexFiles $tsvRoot $contentIndexRoot)
+    }
+
+    It "<Stage> の中で Stop が立つと、Cancelled にして終え、後の段（<Later>）を呼ばず、ヒットを列に入れない" -ForEach $stages {
+        $script:stopStage = $Stage
+        $script:stopRequest = newSearchRequest "単価" $true @($contentIndexRoot) 0 @{} $UseFast
+        Mock testWindowsSearch { $true }
+        Mock getFastSearchContentIndexFiles {
+            if ($script:stopStage -eq "getFastSearchContentIndexFiles") { $script:stopRequest.Stop = $true }
+            return $null
+        }
+        Mock getContentIndexFiles {
+            if ($script:stopStage -eq "getContentIndexFiles") { $script:stopRequest.Stop = $true }
+            return @{ Folders = @(); ContentIndexFiles = @() }
+        }
+        Mock searchContentIndex {
+            if ($script:stopStage -eq "searchContentIndex") { $script:stopRequest.Stop = $true }
+            return @{ Hits = @(); Total = 0; Truncated = $false; Cancelled = $true; Skipped = @() }
+        }
+
+        invokeSearchRequest $script:stopRequest
+
+        $script:stopRequest.Cancelled | Should -Be $true
+        $script:stopRequest.Finished | Should -Be $true
+        $script:stopRequest.Error | Should -BeNullOrEmpty
+        $script:stopRequest.Queue.IsEmpty | Should -Be $true
+        Should -Invoke -CommandName $Stage -Times 1 -Exactly -Scope It
+        foreach ($name in $Later) {
+            Should -Invoke -CommandName $name -Times 0 -Exactly -Scope It
+        }
+        # 止める合図は、要求そのものを渡す（作業スレッドにも渡せる）
+        if ($Stage -eq "searchContentIndex") {
+            Should -Invoke -CommandName searchContentIndex -Times 1 -Exactly -Scope It -ParameterFilter { [object]::ReferenceEquals($stopSignal, $script:stopRequest) }
+        }
+        if ($Stage -eq "getContentIndexFiles") {
+            Should -Invoke -CommandName getContentIndexFiles -Times 1 -Exactly -Scope It -ParameterFilter { [object]::ReferenceEquals($stopSignal, $script:stopRequest) }
+        }
+    }
+
+    It "invokeSearchRequest が呼ぶ検索・インデックスの関数は、すべて段の表にあるか、止める必要の無い短い呼び出しとして許されている（段を足したとき表に足し忘れない）" -ForEach @(@{ Stages = $stages }) {
+        $allowed = @{
+            testWindowsSearch = "Windows Search が使えるかの短い確認（ファイルの有無を調べるだけ）"
+        }
+        $parse = { param ($path) [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$null) }
+        $defined = New-Object System.Collections.Generic.HashSet[string]
+        foreach ($dir in @("search", "index")) {
+            foreach ($file in (Get-ChildItem -LiteralPath "${scriptsDir}\tebunko\$dir" -Filter "*.ps1")) {
+                foreach ($function in (& $parse $file.FullName).FindAll({ param ($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)) {
+                    [void]$defined.Add($function.Name)
+                }
+            }
+        }
+        $body = (Get-Command invokeSearchRequest).ScriptBlock.Ast
+        $called = @($body.FindAll({ param ($node) $node -is [System.Management.Automation.Language.CommandAst] }, $true) |
+                ForEach-Object { $_.GetCommandName() } | Where-Object { $_ -and $defined.Contains($_) } | Sort-Object -Unique)
+        $called.Count | Should -BeGreaterThan 0
+        $stageNames = @($Stages | ForEach-Object { $_.Stage })
+        $unexpected = @($called | Where-Object { $stageNames -notcontains $_ -and !$allowed.ContainsKey($_) })
+        $unexpected | Should -Be @()
+        # 表の段は、実際に呼ばれている
+        @($stageNames | Where-Object { $called -notcontains $_ }) | Should -Be @()
+    }
+}
+
 Describe "SearchService" -Tag Io {
     BeforeAll {
         $tsvRoot = Join-Path $TestDrive "service_tsv"

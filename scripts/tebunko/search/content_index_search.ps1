@@ -21,6 +21,7 @@ function searchContentIndexFiles {
     # Hits は PSCustomObject の並び（1 行に複数一致しても 1 件）。max 以上（max+1 件目）が見つかった時点で打ち切る（負は上限なし）。
     # 読めない・形が崩れている・contentIndexSearchMaxBytes より大きいファイルは、そのファイルだけ飛ばし、パスを Skipped に入れる（キャッシュには入れない）。
     #   include / exclude: 元のファイル名の条件（$null は条件なし） / excludePlace: 除く場所（図形・コメント）
+    #   stopSignal: Stop を持つもの（検索の要求。$null は止めない）。Stop が立ったら、次のファイルから読まずに、ここまでのヒットを返す
     #   cache: newTsvTextCache。更新日時・大きさが同じなら、前に読んだ内容と場所の一覧を使う
     # 照合が時間切れ（RegexMatchTimeoutException）なら、そのまま呼び出し元へ伝える
     param (
@@ -34,7 +35,8 @@ function searchContentIndexFiles {
         $cache = $null,
         [regex]$include = $null,
         [regex]$exclude = $null,
-        [regex]$excludePlace = $null
+        [regex]$excludePlace = $null,
+        $stopSignal = $null
     )
 
     # 並列検索の別スレッドでも動くよう、コマンドレットは使わない
@@ -46,6 +48,8 @@ function searchContentIndexFiles {
     $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
     $mode = if ($null -eq $textRegex) { "scan" } else { $scanMode }
     for ($i = $start; $i -lt $end; $i++) {
+        # 本文インデックスのファイル 1 件ごとに中止を見る（行ごとには見ない）。ここまでのヒットを返す
+        if ($null -ne $stopSignal -and $stopSignal.Stop) { break }
         $contentIndexFile = $contentIndexFiles[$i]
         $hitsBefore = $hits.Count
         try {
@@ -217,9 +221,9 @@ ${contentIndexTaskBytes} = 16MB
 
 # 本文インデックスのファイルの検索の各スレッドで動かすスクリプト。@{ Hits; Timeout; Skipped } を返す
 ${contentIndexWorkerScript} = {
-    param ($contentIndexFiles, $start, $count, $regex, $max, $textRegex, $scanMode, $cache, $include, $exclude, $excludePlace)
+    param ($contentIndexFiles, $start, $count, $regex, $max, $textRegex, $scanMode, $cache, $include, $exclude, $excludePlace, $stopSignal)
     try {
-        $found = searchContentIndexFiles $contentIndexFiles $start $count $regex $max $textRegex $scanMode $cache $include $exclude $excludePlace
+        $found = searchContentIndexFiles $contentIndexFiles $start $count $regex $max $textRegex $scanMode $cache $include $exclude $excludePlace $stopSignal
         @{ Hits = $found.Hits; Timeout = $false; Skipped = $found.Skipped }
     } catch {
         if ($_.Exception -is [System.Text.RegularExpressions.RegexMatchTimeoutException] -or
@@ -272,7 +276,7 @@ function searchContentIndex {
     #   contentIndexFiles        : findContentIndexFiles・getContentIndexFiles の結果
     #   simpleMatch  : $true なら文字どおりに検索する。$false なら正規表現として検索し、正規表現として不正なら文字どおりに検索する
     #   limit        : 件数の上限（0 は上限なし）。超えたら打ち切る
-    #   shouldStop   : $true を返すと中止する
+    #   stopSignal   : Stop を持つもの（検索の要求。$null は止めない）。Stop が立ったら、本文インデックスのファイル 1 件ごとに止める（作業スレッドにも同じものを渡す）
     #   caseSensitive: 英字の大文字・小文字を区別する（newSearchRegex）
     #   fileFilter   : 対象ファイル（newFileFilter）。元のファイル名が一致しないものは検索しない
     #   workerCount  : 並列に検索するスレッドの数（0 は CPU のコア数から決める。最大 4）
@@ -288,7 +292,7 @@ function searchContentIndex {
         $contentIndexFiles,
         [bool]$simpleMatch = $false,
         [int]$limit = 0,
-        [scriptblock]$shouldStop = $null,
+        $stopSignal = $null,
         [bool]$caseSensitive = $false,
         [string]$fileFilter = "",
         [int]$workerCount = 0,
@@ -313,6 +317,7 @@ function searchContentIndex {
 
     $ownPool = $null
     $pending = New-Object System.Collections.Generic.Queue[hashtable]
+    $drain = $false   # 中止したとき、残った作業を受け取って捨てる（プールを使い回せる）。時間切れ・打ち切り・例外のときは Cancel で捨てる
     try {
         if ($workers -le 1) {
             $pool = $null
@@ -322,8 +327,9 @@ function searchContentIndex {
         }
         $next = 0
         while ($next -lt $tasks.Count -or $pending.Count -gt 0) {
-            if ($shouldStop -and (& $shouldStop)) {
+            if ($null -ne $stopSignal -and $stopSignal.Stop) {
                 $result.Cancelled = $true
+                $drain = $true
                 break
             }
             if ($pool) {
@@ -331,23 +337,24 @@ function searchContentIndex {
                     $max = if ($limit -gt 0) { $limit - $hits.Count } else { -1 }
                     $task = $tasks[$next]
                     $job = $pool.Submit(${contentIndexWorkerScript}.ToString(), @($contentIndexFiles, $task.Start, $task.Count, $search.Regex, $max, $search.TextRegex,
-                            $search.ScanMode, $cache, $filter.Include, $filter.Exclude, $excludePlace))
+                            $search.ScanMode, $cache, $filter.Include, $filter.Exclude, $excludePlace, $stopSignal))
                     $job.Done = $task.Start + $task.Count
                     $pending.Enqueue($job)
                     $next++
                 }
-                $output = $pool.Receive($pending.Dequeue())
+                $received = $pending.Dequeue()
+                $output = $pool.Receive($received)
                 if ($output[0].Timeout) { throw $timeoutMessage }
                 $newHits = $output[0].Hits
                 $skipped.AddRange([string[]]@($output[0].Skipped))
-                $done = $job.Done
+                $done = $received.Done
             } else {
                 $task = $tasks[$next]
                 $next++
                 $done = $task.Start + $task.Count
                 $max = if ($limit -gt 0) { $limit - $hits.Count } else { -1 }
                 try {
-                    $found = searchContentIndexFiles $contentIndexFiles $task.Start $task.Count $search.Regex $max $search.TextRegex $search.ScanMode $cache $filter.Include $filter.Exclude $excludePlace
+                    $found = searchContentIndexFiles $contentIndexFiles $task.Start $task.Count $search.Regex $max $search.TextRegex $search.ScanMode $cache $filter.Include $filter.Exclude $excludePlace $stopSignal
                     $newHits = $found.Hits
                     $skipped.AddRange([string[]]@($found.Skipped))
                 } catch [System.Text.RegularExpressions.RegexMatchTimeoutException] {
@@ -360,6 +367,12 @@ function searchContentIndex {
                 $result.Truncated = $true
             }
             $hits.AddRange($newHits)
+            # 作業の途中で止められたときは、途中までの作業を進み具合として知らせない（画面の列に入れない）
+            if ($null -ne $stopSignal -and $stopSignal.Stop) {
+                $result.Cancelled = $true
+                $drain = $true
+                break
+            }
             if ($onProgress) {
                 & $onProgress $done $contentIndexFiles.Count $newHits
             }
@@ -367,7 +380,12 @@ function searchContentIndex {
         }
     } finally {
         foreach ($job in $pending) {
-            $pool.Cancel($job)
+            if ($drain) {
+                # 各作業はファイル 1 件ごとに Stop を見て早く終わる。受け取って捨てれば、プールを次の検索で使い回せる
+                try { [void]$pool.Receive($job) } catch { }
+            } else {
+                $pool.Cancel($job)
+            }
         }
         if ($ownPool) { $ownPool.Close() }
     }
@@ -382,15 +400,18 @@ function getContentIndexFiles {
     #   Folders: フォルダごとの @{ Path; Root（フルパス）; Exists; Count }
     #   ContentIndexFiles  : findContentIndexFiles の結果をつないだもの（入れ子のフォルダを選んでも重複しない）
     #   onProgress: 数えた件数を知らせる { param($count) }
+    #   stopSignal: Stop を持つもの（検索の要求。$null は止めない）。Stop が立ったら、検索対象のフォルダ 1 つごとに止め、ここまでの結果を返す
     param (
         [object[]]$folders = @($workspace.IndexDir),
-        [scriptblock]$onProgress = $null
+        [scriptblock]$onProgress = $null,
+        $stopSignal = $null
     )
 
     $folderInfo = New-Object System.Collections.Generic.List[object]
     $contentIndexFiles = New-Object System.Collections.Generic.List[hashtable]
     $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($target in $folders) {
+        if ($null -ne $stopSignal -and $stopSignal.Stop) { break }
         if ($target -is [string]) {
             $target = @{ Root = $target; RelPath = ""; Recurse = $true }
         }

@@ -38,6 +38,7 @@ function getFastSearchContentIndexFiles {
     # （呼び出し側が getContentIndexFiles ですべての本文インデックスのファイルを集める）。
     #   folders: getContentIndexFiles と同じ（文字列、または @{ Root; RelPath; Recurse }）
     #   query  : { param($sql) 行（object[]）の一覧 }。$null なら Windows Search を開いて問い合わせる（テストで差し替える）
+    #   stopSignal: Stop を持つもの（検索の要求。$null は止めない）。接続の前と問い合わせ 1 回ごとに見て、立っていれば $null を返す（状態ファイルは書き換えない）
     param (
         [string]$word,
         [object[]]$folders,
@@ -45,7 +46,8 @@ function getFastSearchContentIndexFiles {
         [string]$indexRoot = $workspace.IndexDir,
         [string]$systemRoot = $workspace.SystemIndexDir,
         [string]$statePath = $workspace.SystemIndexStateFile,
-        [scriptblock]$onProgress = $null
+        [scriptblock]$onProgress = $null,
+        $stopSignal = $null
     )
 
     $grams = getSearchGrams $word
@@ -56,6 +58,10 @@ function getFastSearchContentIndexFiles {
     if ($null -eq $state) {
         return $null
     }
+    # Stop が立っていたら Windows Search に接続せず、状態ファイルも書き換えずに $null を返す（呼び出し側が Stop を見て終える）
+    if ($null -ne $stopSignal -and $stopSignal.Stop) {
+        return $null
+    }
     $connection = $null
     if ($null -eq $query) {
         $connection = openWindowsSearch
@@ -64,8 +70,10 @@ function getFastSearchContentIndexFiles {
         }
     }
     # 問い合わせ（差し替えが無ければ開いた接続で）。& で呼ぶと、この関数の $query・$connection が見える
+    # 問い合わせ 1 回ごとに Stop を見る。立っていたら投げ、下の catch で $null にする
     $ask = {
         param ($sql)
+        if ($null -ne $stopSignal -and $stopSignal.Stop) { throw "検索が中止されました" }
         if ($query) { & $query $sql } else { invokeWindowsSearch $connection $sql }
     }
 
@@ -130,7 +138,10 @@ function getFastSearchContentIndexFiles {
         }
     }
 
-    $index = getContentIndexFiles $targets.ToArray() $onProgress
+    $index = getContentIndexFiles $targets.ToArray() $onProgress $stopSignal
+    if ($null -ne $stopSignal -and $stopSignal.Stop) {
+        return $null
+    }
     if ($reflected.Count -gt 0) {
         # 反映済みになった行を消す（txt が書き直されて日時が変わった行は残す）。書けなくても検索は続ける。
         # 書き換えの中から見る値は、updateSystemIndexState の変数と名前が重ならないようにする（呼び出し先の $state が見えてしまう）

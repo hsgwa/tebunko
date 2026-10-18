@@ -15,6 +15,7 @@
 | 反映の判定 | txt が Windows Search に反映済み ⇔ `System.Search.GatherTime` が空でない（本文を読み終えた）かつ `System.DateModified` が txt の更新日時（UTC）を秒で切り捨てた値と同じ（Windows Search は秒未満を切り捨てて持つ。`testSystemIndexReflected`） |
 | 照合するフォルダ | 候補、反映されていないフォルダ（状態ファイルの「反映待ち」）、対象外のフォルダ、対応済みでないインデックスの全体。これらのフォルダの本文インデックスを `getContentIndexFiles` で集め、`searchContentIndex` で照合する |
 | すべてを照合する場合 | 使える条件を満たさない、状態ファイルを読めない、Windows Search への問い合わせに失敗した（時間切れ 10 秒を含む）、インデックス全体（ツリーの一番上より上）・別の場所のインデックス・無いフォルダを検索対象にした |
+| 中止 | Windows Search に接続する前と、問い合わせ 1 回ごとに要求の `Stop` を見る。立っていれば次の問い合わせをせず `$null` を返し（状態ファイルは書き換えない）、呼び出し側（`invokeSearchRequest`）は `Stop` を見て、全部を列挙せずに中止として終える |
 | 状態の整理 | 反映済みになった「反映待ち」の行は、検索のたびに状態ファイルから消す（書けなければ次の機会に回す） |
 
 ```mermaid

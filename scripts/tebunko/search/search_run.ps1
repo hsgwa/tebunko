@@ -153,13 +153,23 @@ function invokeSearchRequest {
             $request.FastAvailable = testWindowsSearch $own.SystemIndexDir
             if ($request.FastAvailable) {
                 $index = getFastSearchContentIndexFiles $word $folders -indexRoot $own.IndexDir -systemRoot $own.SystemIndexDir -statePath $own.SystemIndexStateFile `
-                    -onProgress { param ($count) $request.Scanned = $count }
+                    -onProgress { param ($count) $request.Scanned = $count } -stopSignal $request
             }
+        }
+        # 高速検索の途中で止められたとき、$null を受けて全部の列挙に進まない
+        if ($request.Stop) {
+            $request.Cancelled = $true
+            return
         }
         $request.FastUsed = ($null -ne $index)
         if ($null -eq $index) {
             # 途中の件数を画面に伝える（止まって見えないように）
-            $index = getContentIndexFiles $folders { param ($count) $request.Scanned = $count }
+            $index = getContentIndexFiles $folders { param ($count) $request.Scanned = $count } -stopSignal $request
+        }
+        # 列挙の途中で止められたとき、照合に進まない
+        if ($request.Stop) {
+            $request.Cancelled = $true
+            return
         }
         $request.Folders = $index.Folders
         $request.Total = $index.ContentIndexFiles.Count
@@ -173,7 +183,7 @@ function invokeSearchRequest {
             }
             $request.Total = $total
             $request.Done = $done
-        } -shouldStop { $request.Stop }
+        } -stopSignal $request
         $request.Total = $result.Total
         $request.Truncated = $result.Truncated
         $request.Cancelled = $result.Cancelled

@@ -150,6 +150,23 @@ Describe "getFastSearchContentIndexFiles" -Tag Io {
         @($fast.ContentIndexFiles | Where-Object { $_.RelPath -like "*\2月\*" }).Count | Should -Be 0
     }
 
+    It "問い合わせの途中で Stop が立つと、次の問い合わせをせず null を返し、状態ファイルを書き換えない" {
+        $ws = newFastWorkspace "$TestDrive\f_stop"
+        $stateBefore = [System.IO.File]::ReadAllText($ws.State)
+        $folders = @(@{ Root = $ws.Index; RelPath = "営業"; Recurse = $true })
+        $script:stopFake = newFakeWindowsSearch $ws.System
+        $script:stopRequest = @{ Stop = $false }
+        $script:askCount = 0
+        $query = { param ($sql) $script:askCount++; $script:stopRequest.Stop = $true; & $script:stopFake $sql }
+        getFastSearchContentIndexFiles "モニター" $folders $query $ws.Index $ws.System $ws.State -stopSignal $script:stopRequest | Should -Be $null
+        $script:askCount | Should -Be 1
+        [System.IO.File]::ReadAllText($ws.State) | Should -Be $stateBefore
+        # 始めから Stop が立っていれば、問い合わせない
+        $script:askCount = 0
+        getFastSearchContentIndexFiles "モニター" $folders $query $ws.Index $ws.System $ws.State -stopSignal @{ Stop = $true } | Should -Be $null
+        $script:askCount | Should -Be 0
+    }
+
     It "インデックス全体・別の場所・無いフォルダの検索対象は、すべてを列挙する" {
         $ws = newFastWorkspace "$TestDrive\f9"
         $query = newFakeWindowsSearch $ws.System
