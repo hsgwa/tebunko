@@ -1,4 +1,4 @@
-﻿# Office からの取り込み、インデックス作成（pack の作成）、検索の速さ、およびその間のリソース（メモリ・CPU・スレッド・ハンドル・GC）を測る。
+﻿# Office からの取り込み、Excel のブックの流れ読み、インデックス作成（pack の作成）、検索の速さ、およびその間のリソース（メモリ・CPU・スレッド・ハンドル・GC）を測る。
 # GitHub Actions の perf.yml からも、手元からも使う。結果には数字だけを書き、パスやファイル名は書かない（そのまま共有できるようにするため）。
 #
 #   .\tools\measure_perf.ps1 -Index <TSV のインデックス> -Work <作業フォルダ> -Words <words.tsv>
@@ -8,6 +8,7 @@
 #                測る tebunko の scripts を写して取り込むので、利用者の設定・既定のワークスペースには触らない。Excel・Word・PowerPoint の実機が要る種類は、データにあるときだけ使う
 #   -Xlsx     … Excel のブックを Office を使わずに ZIP から読む部分（readXlsxObjectUnits。シートの流れ読み）を測る、普通のブックを読む回数（既定 0 は測らない）。
 #                ブックはその場で作る（tools\perf\xlsx_data.ps1）。普通のブック（シート 1 枚）を -Xlsx 回、同じシートの部品を指す <sheet> を並べたブックを 1 回読む
+#   -XlsxRows・-XlsxManyRows … -Xlsx で作るブックの行の数（普通のブック／<sheet> を並べたブック。既定 200000／50000）。小さくして動きの確かめに使える
 #   -Threads  … 取り込みの、Office を使わずに読むファイル（.docx・.pptx）の読み取りのスレッドの数（既定 2）
 #   -Repeat   … 取り込みを測る回数（既定 3）。1 回ごとに新しいプロセス・空のワークスペースで流す（Office の起動を含む、初めての取り込みの時間）
 #   -Index    … 場所ごとの TSV（取り込みの一時置き場の形。tebunko-perfdata の new_index.ps1 で作る）。
@@ -50,6 +51,8 @@ param (
     [string]$Index,
     [string]$Office,
     [int]$Xlsx = 0,
+[int]$XlsxRows = 200000,
+[int]$XlsxManyRows = 50000,
     [Parameter(Mandatory = $true)][string]$Work,
     [string]$Tool = (Split-Path $PSScriptRoot -Parent),
     [string]$Words,
@@ -141,7 +144,7 @@ $xlsxRaw = $null
 if ($Xlsx -gt 0) {
     Write-Host "Excel の流れ読みを測ります。"
     $xlsxJson = Join-Path $raw "xlsx.json"
-    invokeChild "measure_xlsx.ps1" @("-Tool", $Tool, "-Work", $Work, "-Out", $xlsxJson, "-Repeat", $Xlsx, "-SampleMs", $SampleMs)
+    invokeChild "measure_xlsx.ps1" @("-Tool", $Tool, "-Work", $Work, "-Out", $xlsxJson, "-Repeat", $Xlsx, "-Rows", $XlsxRows, "-ManyRows", $XlsxManyRows, "-SampleMs", $SampleMs)
     $xlsxRaw = readJson $xlsxJson
     $normalMs = [double[]]@(@($xlsxRaw.Normal) | ForEach-Object { $_.Ms })
     $xlsxResult = [ordered]@{
@@ -295,6 +298,8 @@ if ($xlsxResult) {
     addMetric "xlsx_normal_units" "" "value" $xlsxResult.NormalUnits "count"
     addMetric "xlsx_many_ms" "" "value" $xlsxResult.ManyMs "ms"
     addMetric "xlsx_many_units" "" "value" $xlsxResult.ManyUnits "count"
+    addMetric "xlsx_normal_failures" "" "max" $xlsxResult.NormalFailures "count"
+    addMetric "xlsx_many_failures" "" "value" $xlsxResult.ManyFailures "count"
     $xlsxPhases = @($xlsxResult.Resources | Where-Object { $_.Phase -eq "同じ部品を指すブック" })
     if ($xlsxPhases.Count) { addMetric "xlsx_many_working_set_mb" "" "max" $xlsxPhases[0].WorkingSetMaxMB "MB" }
     addMetric "xlsx_peak_working_set_mb" "" "max" $xlsxResult.PeakWorkingSetMB "MB"

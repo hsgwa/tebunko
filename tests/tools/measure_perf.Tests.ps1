@@ -826,6 +826,69 @@ Describe "new_ingest_data.ps1" -Tag Io {
     }
 }
 
+Describe "measure_perf.ps1 -Xlsx" -Tag Io {
+    BeforeAll {
+        $measure = "$PSScriptRoot\..\..\tools\measure_perf.ps1"
+        $repoConfig = Join-Path (Resolve-Path "$PSScriptRoot\..\..").ProviderPath "setting.config"
+        $configBefore = if (Test-Path -LiteralPath $repoConfig) { (Get-FileHash $repoConfig).Hash } else { $null }
+        $work = Join-Path $TestDrive "xlsx-work"
+        & $measure -Xlsx 2 -XlsxRows 50 -XlsxManyRows 20 -Work $work -SampleMs 20 -RunId "9" -Sha "abc1234" 6>$null | Out-Null
+        $out = Join-Path $work "result"
+        $result = [System.IO.File]::ReadAllText("$out\result.json") | ConvertFrom-Json
+    }
+
+    It "Excel の流れ読みを測り、読んだ場所の数・行の数・失敗の数・時間を書く" {
+        $result.Schema | Should -Be 5
+        $result.Xlsx.Repeat | Should -Be 2
+        $result.Xlsx.Rows | Should -Be 50
+        $result.Xlsx.ManyRows | Should -Be 20
+        $result.Xlsx.NormalUnits | Should -Be 1
+        $result.Xlsx.ManyUnits | Should -Be $result.Xlsx.ManySheets
+        $result.Xlsx.NormalFailures | Should -Be 0
+        $result.Xlsx.ManyFailures | Should -Be 0
+        $result.Xlsx.NormalMs.Count | Should -Be 2
+        $result.Xlsx.ManyMs | Should -BeGreaterOrEqual 0
+        @($result.Xlsx.Resources | ForEach-Object { $_.Phase }) | Should -Contain "普通のブック"
+        @($result.Xlsx.Resources | ForEach-Object { $_.Phase }) | Should -Contain "同じ部品を指すブック"
+    }
+
+    It "-Xlsx だけのときは、Index・Search・Ingest のキーを残して null にする" {
+        $names = @($result.PSObject.Properties | ForEach-Object { $_.Name })
+        foreach ($name in @("Index", "Search", "Ingest", "Xlsx")) { $names | Should -Contain $name }
+        $result.Index | Should -BeNullOrEmpty
+        $result.Search | Should -BeNullOrEmpty
+        $result.Ingest | Should -BeNullOrEmpty
+        [System.IO.File]::Exists("$out\searches.csv") | Should -Be $false
+        [System.IO.File]::Exists("$out\resource-xlsx.csv") | Should -Be $true
+    }
+
+    It "metrics.csv に xlsx_ の行を書く" {
+        $metrics = @(Import-Csv "$out\metrics.csv")
+        foreach ($stat in @("min", "median", "mean", "max")) {
+            @($metrics | Where-Object { $_.metric -eq "xlsx_normal_ms" -and $_.stat -eq $stat }).Count | Should -Be 1
+        }
+        foreach ($name in @("xlsx_normal_units", "xlsx_normal_failures", "xlsx_many_ms", "xlsx_many_units", "xlsx_many_failures", "xlsx_peak_working_set_mb")) {
+            @($metrics | Where-Object { $_.metric -eq $name }).Count | Should -Be 1
+        }
+        @($metrics | Where-Object { $_.metric -eq "xlsx_normal_failures" }).value | Should -Be "0"
+        @($metrics | Where-Object { $_.metric -like "index_*" -or $_.metric -like "search_*" -or $_.metric -like "ingest_*" }).Count | Should -Be 0
+    }
+
+    It "summary.md に「Excel の流れ読み」の表を書き、パスを書かない" {
+        $md = [System.IO.File]::ReadAllText("$out\summary.md")
+        $md | Should -Match "## Excel の流れ読み"
+        $md | Should -Not -Match "## インデックス作成"
+        $md | Should -Not -Match "## 検索"
+        $md.Contains($TestDrive) | Should -Be $false
+        [System.IO.File]::ReadAllText("$out\result.json").Contains($TestDrive) | Should -Be $false
+        [System.IO.File]::ReadAllText("$out\metrics.csv").Contains($TestDrive) | Should -Be $false
+    }
+
+    It "リポジトリの setting.config を作らず、変えない" {
+        $after = if (Test-Path -LiteralPath $repoConfig) { (Get-FileHash $repoConfig).Hash } else { $null }
+        $after | Should -Be $configBefore
+    }
+}
 Describe "measure_perf.ps1 -Office" -Tag Io {
     BeforeAll {
         $measure = "$PSScriptRoot\..\..\tools\measure_perf.ps1"

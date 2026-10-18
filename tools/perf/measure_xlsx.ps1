@@ -40,6 +40,7 @@ $normalPath = Join-Path $dir "normal.xlsx"
 $manyPath = Join-Path $dir "many.xlsx"
 Write-Host "ブックを作ります（シート 1 枚・$Rows 行／シート $ManySheets 個・$ManyRows 行）。"
 newXlsxPerfBook $normalPath 1 $Rows
+# 読む量の見積もり: 部品 1 つは 1 行約 120 バイトで、既定（50000 行）だと約 6 MB。<sheet> ごとに同じ部品を読む版は、200 個で約 1.2 GB を読む（流れ読みの上限 1000 MB を超える）。同じ部品は 1 回だけ読む版は、約 6 MB のまま
 newXlsxPerfBook $manyPath $ManySheets $ManyRows
 
 $monitor = startResourceMonitor $SampleMs

@@ -35,7 +35,7 @@ gh workflow run perf.yml -f ref=<測る ref> -f scale=0.1 -f ingest=200
   - リソース … 別のスレッドで 0.2 秒ごと（および段階の切り替わり）に、プロセスのワーキングセット・プライベート・マネージドヒープ、CPU 時間、スレッド・ハンドルの数、GC の回数と、PC 全体の CPU・空きメモリを記録する。検索では、検索 1 回ごとのメモリも記録し、10 回あたりの増え方（最小二乗の傾き）を出す（検索を続けたときにメモリが増え続けないかを見るため）
 - OS のファイルキャッシュは空にしない。本文インデックスは作成の直後なので OS のキャッシュに載っており、PC を起動した直後の検索（ディスクから読む）とは違う
 - 結果は、ジョブの Summary（表と Mermaid のグラフ）と、artifact `perf-<実行の番号>`（保存期間は 90 日）に出力する。パスやファイル名は出力しない
-  - `summary.md` … Summary と同じ内容（「Office からの取り込み」「入力しながらの検索」の節を含む）
+  - `summary.md` … Summary と同じ内容（「Excel の流れ読み」「Office からの取り込み」「入力しながらの検索」の節を含む）
   - `result.json` … すべての数字。形式の版（`Schema`）と実行の情報（実行の番号・ref・コミット・scale・日時・ランナーの CPU）を含む
   - `metrics.csv` … 1 行 1 指標の縦長の形（`run_id, date, ref, sha, scale, metric, word, stat, value, unit`）。実行をまたいで数字を貯め、Grafana などで見るときに使う（貯める仕組みはまだ無い）
   - `searches.csv`（検索 1 回ごと）・`typing.csv`（入力しながらの検索、1 回の入力ごと）・`resource-xlsx.csv`・`resource-ingest.csv`・`resource-index.csv`・`resource-search.csv`・`resource-typing.csv`（リソースの記録）
@@ -79,6 +79,7 @@ gh workflow run perf.yml -f ref=<測る ref> -f scale=0.1 -f ingest=200
 |---|---|
 | 起動口 | `scripts\tebunko\indexer.ps1 -Channel <口>`。終了コード 0 = 完了 |
 | 読み込み口 | `scripts\tebunko\lib.ps1`（`resolveTebunkoLib` が頼っている）の `newIndexerChannel`（引数 `retryFailed`・`confirmTargets`・`workers`） |
+| Excel の流れ読み | `scripts\tebunko\indexer\indexer_lib.ps1`（`lib.ps1` も読み込む）が読み込む `readXlsxObjectUnits`（引数 `path`・`failures`・`sizeFailures`）。無い版は `xlsx` を渡すと失敗する |
 | 受け渡しの口 | `Progress.Phase` と、その値 `クロール`・`確認`・`取り込み`・`仕上げ` |
 | 設定 | `setting.config` がツールのフォルダにあること。キー `targetFolders`（`@{ name; path; enabled }` の配列）・`workspaceFolder`・`ingestThreads` |
 | 取り込み一覧 | ワークスペースの `store\ingest_status.tsv`。見出しの `相対パス`・`状態`。状態の値 `済`・`失敗` |
