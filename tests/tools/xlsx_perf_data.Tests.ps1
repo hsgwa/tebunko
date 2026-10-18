@@ -35,6 +35,8 @@ Describe "measure_xlsx.ps1" -Tag Io {
         $r = [System.IO.File]::ReadAllText($out) | ConvertFrom-Json
         @($r.Normal).Count | Should -Be 2
         $r.Normal[0].Units | Should -Be 1
+        $r.Normal[0].Lines | Should -Be 2
+        $r.Many.Lines | Should -Be 6
         $r.Many.Units | Should -Be 3
         $r.Normal[0].Failures | Should -Be 0
         $r.Normal[1].Failures | Should -Be 0

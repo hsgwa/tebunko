@@ -843,6 +843,8 @@ Describe "measure_perf.ps1 -Xlsx" -Tag Io {
         $result.Xlsx.Rows | Should -Be 50
         $result.Xlsx.ManyRows | Should -Be 20
         $result.Xlsx.NormalUnits | Should -Be 1
+        $result.Xlsx.NormalLines | Should -Be 2
+        $result.Xlsx.ManyLines | Should -Be (2 * $result.Xlsx.ManySheets)
         $result.Xlsx.ManyUnits | Should -Be $result.Xlsx.ManySheets
         $result.Xlsx.NormalFailures | Should -Be 0
         $result.Xlsx.ManyFailures | Should -Be 0

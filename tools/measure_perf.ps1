@@ -8,7 +8,7 @@
 #                測る tebunko の scripts を写して取り込むので、利用者の設定・既定のワークスペースには触らない。Excel・Word・PowerPoint の実機が要る種類は、データにあるときだけ使う
 #   -Xlsx     … Excel のブックを Office を使わずに ZIP から読む部分（readXlsxObjectUnits。シートの流れ読み）を測る、普通のブックを読む回数（既定 0 は測らない）。
 #                ブックはその場で作る（tools\perf\xlsx_data.ps1）。普通のブック（シート 1 枚）を -Xlsx 回、同じシートの部品を指す <sheet> を並べたブックを 1 回読む
-#   -XlsxRows・-XlsxManyRows … -Xlsx で作るブックの行の数（普通のブック／<sheet> を並べたブック。既定 200000／50000）。小さくして動きの確かめに使える
+#   -XlsxRows・-XlsxManyRows … -Xlsx で作るブックの行の数（普通のブック／<sheet> を並べたブック）。指定しないと measure_xlsx.ps1 の既定（200000／50000）。小さくして動きの確かめに使える
 #   -Threads  … 取り込みの、Office を使わずに読むファイル（.docx・.pptx）の読み取りのスレッドの数（既定 2）
 #   -Repeat   … 取り込みを測る回数（既定 3）。1 回ごとに新しいプロセス・空のワークスペースで流す（Office の起動を含む、初めての取り込みの時間）
 #   -Index    … 場所ごとの TSV（取り込みの一時置き場の形。tebunko-perfdata の new_index.ps1 で作る）。
@@ -51,8 +51,8 @@ param (
     [string]$Index,
     [string]$Office,
     [int]$Xlsx = 0,
-[int]$XlsxRows = 200000,
-[int]$XlsxManyRows = 50000,
+    [int]$XlsxRows,
+    [int]$XlsxManyRows,
     [Parameter(Mandatory = $true)][string]$Work,
     [string]$Tool = (Split-Path $PSScriptRoot -Parent),
     [string]$Words,
@@ -144,7 +144,11 @@ $xlsxRaw = $null
 if ($Xlsx -gt 0) {
     Write-Host "Excel の流れ読みを測ります。"
     $xlsxJson = Join-Path $raw "xlsx.json"
-    invokeChild "measure_xlsx.ps1" @("-Tool", $Tool, "-Work", $Work, "-Out", $xlsxJson, "-Repeat", $Xlsx, "-Rows", $XlsxRows, "-ManyRows", $XlsxManyRows, "-SampleMs", $SampleMs)
+    $xlsxArgs = @("-Tool", $Tool, "-Work", $Work, "-Out", $xlsxJson, "-Repeat", $Xlsx, "-SampleMs", $SampleMs)
+    # 行の数の既定値は measure_xlsx.ps1 に置く。指定されたときだけ渡す
+    if ($PSBoundParameters.ContainsKey("XlsxRows")) { $xlsxArgs += @("-Rows", $XlsxRows) }
+    if ($PSBoundParameters.ContainsKey("XlsxManyRows")) { $xlsxArgs += @("-ManyRows", $XlsxManyRows) }
+    invokeChild "measure_xlsx.ps1" $xlsxArgs
     $xlsxRaw = readJson $xlsxJson
     $normalMs = [double[]]@(@($xlsxRaw.Normal) | ForEach-Object { $_.Ms })
     $xlsxResult = [ordered]@{
