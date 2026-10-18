@@ -718,7 +718,7 @@ Describe "readXlsxObjectUnits（ヘッダー・フッター）" -Tag Io {
         }
     }
 
-    It "<name>: 申告を小さく偽ったシートは、読んだ量が流れ読みの上限を超えたところで止まり、そのシートだけ読めなかったことにする（ほかのシートは読める）" -TestCases @(
+    It "<name>: 申告を小さく偽ったシートは、読んだ量が流れ読みの上限を超えたところで止まり、そのシートだけ読めなかったことにする（前のシートは読める）" -TestCases @(
         @{ name = "無圧縮"; compress = $false }
         @{ name = "Deflate"; compress = $true }
     ) {
@@ -867,6 +867,20 @@ Describe "readXlsxObjectUnits（ヘッダー・フッター）" -Tag Io {
         $fails = New-Object System.Collections.Generic.List[string]
         (readXlsxObjectUnits $path $fails).Count | Should -Be 0
         @($fails) | Should -Be @("xl/worksheets/sheet1.xml")
+    }
+
+    It "名前が大文字小文字だけ違う部品（sheet1.xml と Sheet1.xml）は、別の部品として別々に読む" {
+        $path = "$TestDrive\case_parts.xlsx"
+        # PowerShell の @{} は大文字小文字を区別しないので、区別する辞書で作る
+        $entries = [hashtable]::new([StringComparer]::Ordinal)
+        $entries["xl/workbook.xml"] = "<workbook $xNs><sheets><sheet name=`"小`" sheetId=`"1`" r:id=`"rId1`"/><sheet name=`"大`" sheetId=`"2`" r:id=`"rId2`"/></sheets></workbook>"
+        $entries["xl/_rels/workbook.xml.rels"] = "<Relationships $relNs><Relationship Id=`"rId1`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet1.xml`"/><Relationship Id=`"rId2`" Type=`"$officeRel/worksheet`" Target=`"worksheets/Sheet1.xml`"/></Relationships>"
+        $entries["xl/worksheets/sheet1.xml"] = "<worksheet $xNs><sheetData/>$(hf 'oddHeader=&C小文字の部品')</worksheet>"
+        $entries["xl/worksheets/Sheet1.xml"] = "<worksheet $xNs><sheetData/>$(hf 'oddHeader=&C大文字の部品')</worksheet>"
+        newZip $path $entries
+        $result = readXlsxObjectUnits $path
+        @($result["小[ヘッダー・フッター]"]) -join "|" | Should -Be "小文字の部品"
+        @($result["大[ヘッダー・フッター]"]) -join "|" | Should -Be "大文字の部品"
     }
 
     It "流れ読みの合計は readXlsxObjectUnits を呼ぶたびに0から数え直す（2回目も読める）" {

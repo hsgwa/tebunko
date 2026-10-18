@@ -1446,7 +1446,7 @@ function readXlsxObjectUnits {
 
     $script:zipTotalReadBytes = 0  # このファイル1つ分の、readZipEntryが読む合計（zipTotalMaxBytes）を0から数え直す
     $script:zipSheetStreamReadBytes = 0  # 同じく、シートの流れ読みが実際に読んだ合計（zipSheetStreamMaxBytes）を0から数え直す
-    $sheetHeaderFooters = @{}  # シートの部品ごとのヘッダー・フッターの行。同じ部品を指す<sheet>が複数あっても、流れ読みは1回だけにする
+    $sheetHeaderFooters = [System.Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal)  # 大文字小文字を区別する。 シートの部品ごとのヘッダー・フッターの行。同じ部品を指す<sheet>が複数あっても、流れ読みは1回だけにする
     $units = New-Object System.Collections.Specialized.OrderedDictionary
     $nsSheet = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
     $zip = [System.IO.Compression.ZipFile]::OpenRead((toLongPath $path))
