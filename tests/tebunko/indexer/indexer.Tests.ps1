@@ -819,6 +819,22 @@ Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
         Test-Path -LiteralPath $ws.OldStatusFile | Should -Be $false
         (readIndexFormat $ws.FormatFile).Indexes["総務"] | Should -Be ${catalogRowFinished}
     }
+
+    It "古い形式のインデックスがあるとき、取り込めないファイルがあっても、最後まで作ると古い形式の分を消して「作り終えた」にする（失敗は一覧に残す）" {
+        $root = newRoot
+        # $source には、取り込めない壊れた PowerPoint のファイルが入っている。作り直しの 1 回目で失敗する
+        writeTestSettings $root @(@{ name = "総務"; path = $source; enabled = $true })
+        $ws = [Workspace]::new("$root\work")
+        newTsv "$($ws.OldIndexDir)\総務\content_index.docx.001.tsv" @("古い中身")
+        newTsv $ws.OldStatusFile @("古い取り込み一覧")
+
+        runIndexer $root | Should -Be 0
+
+        (readTestStatus $root).Rows["総務\壊れた.pptx"].状態 | Should -Be ${stateFailed}
+        Test-Path -LiteralPath $ws.OldIndexDir | Should -Be $false
+        Test-Path -LiteralPath $ws.OldStatusFile | Should -Be $false
+        (readIndexFormat $ws.FormatFile).Indexes["総務"] | Should -Be ${catalogRowFinished}
+    }
 }
 
 Describe "indexer.ps1（設定から外れたインデックス）" -Tag Io {

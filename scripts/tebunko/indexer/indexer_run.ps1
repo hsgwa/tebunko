@@ -674,12 +674,13 @@ function invokeIndexerBody {
 function completeRoundIndexes {
         param ([string[]]$names)
 
-        $failedPrefixes = @($ledger.Failures | ForEach-Object { ([string]$_.RelPath).Split("\")[0] })
-        $finishedNames = @($names | Where-Object { $failedPrefixes -notcontains $_ })
-        if ($finishedNames.Count -eq 0) {
+        # 回を最後まで終えた（中止・フォルダが見えなくなったときは呼ばれない。1 ファイルの制限時間は、そのファイルの失敗になるだけで回は続く）インデックスは、取り込めなかった
+        # ファイルがあっても「作り終えた」にする。失敗は取り込み一覧に残り、一覧では「警告」になる。
+        # 失敗を理由に外すと、取り込めないファイルは毎回失敗するため、いつまでも「作り直し中」のままになる
+        if (@($names).Count -eq 0) {
             return
         }
-        $completion = completeIndexFormat $finishedNames $workspace
+        $completion = completeIndexFormat $names $workspace
         if (!$completion.Updated) {
             writeIndexerLog "インデックスの目録を書けませんでした（古い形式の分は消していません）。" "Yellow"
         }
