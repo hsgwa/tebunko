@@ -400,6 +400,6 @@ Describe "getWorkspaceIndexFolders / getImportUsedIndexNames（設定から外�
         (getUsedIndexNames $items $null $leftovers "C:\共有\営業部").Contains("売上") | Should -BeFalse
         testIndexEditInput "C:\別の場所\売上" "売上" $items $null $leftovers | Should -Match "設定から外したインデックスが残っているため"
         testIndexEditInput "C:\共有\営業部" "売上" $items $null $leftovers | Should -Be ""
-        testIndexEditInput "C:\共有\営業部" "孤立" $items $null $leftovers | Should -Match "設定から外したインデックスが残っているため"
+        testIndexEditInput "C:\共有\営業部" "孤立" $items $null $leftovers | Should -Match "作業フォルダに同じ名前のインデックスがあるため使えません"
     }
 }

@@ -21,7 +21,7 @@ function getUsedIndexNames {
         }
     }
     $blocked = getBlockedIndexNames $items $leftovers $folder
-    foreach ($name in $blocked) {
+    foreach ($name in $blocked.Keys) {
         [void]$used.Add($name)
     }
     # HashSet をそのまま return すると PowerShell が中身を展開してしまい（0 件なら $null、1 件なら文字列）、

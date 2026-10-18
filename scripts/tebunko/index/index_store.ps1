@@ -21,9 +21,11 @@ function getWorkspaceIndexFolders {
     )
 
     $folders = New-Object System.Collections.Generic.List[object]
+    $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($folder in (readStatusFile $ws.StatusFile).Folders.ToArray()) {
         if ($folder.Name) {
             $folders.Add([pscustomobject]@{ Name = [string]$folder.Name; Path = [string]$folder.Path })
+            [void]$seen.Add([string]$folder.Name)
         }
     }
     # 作り直す前の形式のインデックス（古い置き場）の名前も数える
@@ -31,7 +33,7 @@ function getWorkspaceIndexFolders {
         if (Test-Path -LiteralPath (toLongPath $root) -PathType Container) {
             foreach ($dir in [System.IO.Directory]::GetDirectories((toLongPath $root))) {
                 $name = [System.IO.Path]::GetFileName($dir)
-                if (@($folders | Where-Object { $_.Name -ieq $name }).Count -eq 0) {
+                if ($seen.Add($name)) {
                     $folders.Add([pscustomobject]@{ Name = $name; Path = "" })
                 }
             }

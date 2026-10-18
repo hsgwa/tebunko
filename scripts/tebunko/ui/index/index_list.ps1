@@ -359,6 +359,10 @@ function refreshLeftoverIndexes {
     # 届かないときは空にして画面は止めない。読んでいる間にワークスペースを変えたときは、結果を捨てる
     # （仕事は順に動くので、続けて呼んだときは最後に読んだ結果が残る）
     $dir = [string]$workspace.Dir
+    if ($script:leftoverJobDir -ne $dir) {
+        # ワークスペースを替えたときは、前の場所の控えを使わないよう空に戻す
+        $script:leftoverIndexes = @()
+    }
     $script:leftoverJobDir = $dir
     startJob {
         param ($workspaceDir)

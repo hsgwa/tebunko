@@ -282,7 +282,9 @@ function testSameFolderPath {
 }
 
 function getBlockedIndexNames {
-    # 設定から外れたまま残してあるインデックスの名前のうち、folder には付けられないもの（大文字・小文字を区別しない集合）。
+    # 設定から外れたまま残してあるインデックスの名前のうち、folder には付けられないもの（大文字・小文字を区別しない Hashtable。
+    # キーが名前、値が理由: "detached" = 取り込み一覧に前回のフォルダの行がある（［すべて更新］の確認に「削除予定」で出る）、
+    # "unknown" = 行が無く置き場にだけある（前回のフォルダが分からず、「削除予定」にも出ない））。
     # 外れたインデックスと同じ名前を別のフォルダに付けると、次の更新で前の中身が「無くなったファイル」として確認なしに消えるため。
     #   items    : 今の画面の一覧（Name を持つ行）。名前が一覧にあるものは対象外（一覧の名前の重なりとして別に拒む）
     #   leftovers: getWorkspaceIndexFolders の結果（@{ Name; Path }）。$null なら何も拒まない
@@ -300,17 +302,17 @@ function getBlockedIndexNames {
             [void]$listed.Add([string]$item.Name)
         }
     }
-    $blocked = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $blocked = New-Object System.Collections.Hashtable ([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($left in @($leftovers)) {
         if (!$left -or !$left.Name -or $listed.Contains([string]$left.Name)) {
             continue
         }
-        if ($left.Path -and $folder -ne "" -and (testSameFolderPath $left.Path $folder)) {
+        if ($left.Path -and (testSameFolderPath $left.Path $folder)) {
             continue
         }
-        [void]$blocked.Add([string]$left.Name)
+        $blocked[[string]$left.Name] = $(if ($left.Path) { "detached" } else { "unknown" })
     }
-    # 集合のまま返す（getUsedIndexNames と同じ理由）
+    # そのまま返すと展開されるため、, を付けて Hashtable のまま返す（getUsedIndexNames と同じ理由）
     return , $blocked
 }
 
@@ -340,6 +342,9 @@ function testIndexEditInput {
     }
     $blocked = getBlockedIndexNames $items $leftovers $folder
     if ($blocked.Contains($name.Trim())) {
+        if ($blocked[$name.Trim()] -eq "unknown") {
+            return "「$($name.Trim())」は、作業フォルダに同じ名前のインデックスがあるため使えません。別の名前を付けてください。"
+        }
         return "「$($name.Trim())」は、設定から外したインデックスが残っているため、このフォルダには使えません。別の名前を付けるか、［すべて更新］の確認に「削除予定」として出るインデックスを削除してから付けてください。"
     }
     return ""
