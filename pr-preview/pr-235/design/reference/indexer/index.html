@@ -4965,7 +4965,7 @@
 <td>string（使えれば空）</td>
 <td>保存してあるインデックス名（設定・取り込み一覧・状態のフォルダから読んだもの）として使えるか調べる。<code>testIndexName</code> との違いは、Windows の予約名（<code>aux.backup</code>・<code>CON.txt</code> など）を拒まないこと（既にある実在のフォルダの名前を空にせず使い続けるため）。置き場の外へ出る名前・最後の <code>.</code> や前後の空白・使えない文字は拒む。<code>IndexCatalog.RenameIndex</code> は元の名前を、<code>RemoveIndex</code> は消す前に名前を、これで確かめる（通らない名前は何も動かさず例外にする）</td>
 <td>同上</td>
-<td>testIndexRelPath, assignIndexNames, limitSystemIndexStateNames, <code>IndexCatalog</code></td>
+<td>testIndexRelPath, assignIndexNames, <code>IndexCatalog</code></td>
 </tr>
 <tr>
 <td><code>testStatusRowFailed</code></td>

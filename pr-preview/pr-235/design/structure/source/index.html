@@ -4280,9 +4280,8 @@
         index["index/"]
         core["core/"]
     end
-    core -.-&gt;|"updateSystemIndexState（1）"| index
     index -.-&gt;|"gram・情報源フォルダ・truncateHitLine（5）"| search
-    indexer -.-&gt;|"systemIndexFileName・writeSourceFolderFile（2）"| search</code></pre>
+    indexer -.-&gt;|"writeSourceFolderFile（1）"| search</code></pre>
 <p>共通の値を作る場所は、読む側より下の層に置く。<code>$workspace</code> は状態層の <code>tebunko/core/paths.ps1</code>（<code>initWorkspace</code>・<code>setCallerWorkspace</code>）だけが作り、画面層（<code>switchWorkspace</code>）は <code>initWorkspace</code> を呼んで作り直す。<code>shared/</code> が使うツール側の値は、ツール側が登録する（エラーの記録先と見出しは <code>setGuiErrorLogSource</code>、仕事の列は <code>setBackgroundQueue</code>・<code>setNetworkQueueFactory</code>、画面の標題は <code>setShellTitle</code>、ステータスの文の出し先は <code>setStatusSink</code>、ミューテックスの名前の先頭は <code>newAppMutex</code> の引数）。</p>
 <p>依存として数える書き方（見つかるもの）:</p>
 <ul>
