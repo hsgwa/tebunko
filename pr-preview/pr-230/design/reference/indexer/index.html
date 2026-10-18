@@ -4640,6 +4640,18 @@
 <td>前回のインデックス作成で本文インデックスに入れていないフォルダを、無くなったファイルの記録無しで書き出し待ちにする</td>
 </tr>
 <tr>
+<td><code>Restore</code></td>
+<td>folder, names</td>
+<td>–</td>
+<td>前の回に外し終えていなかった、無くなった元のファイル名を、書き出し待ちと <code>Unpublished</code> の両方に戻す</td>
+</tr>
+<tr>
+<td><code>MarkPublished</code></td>
+<td>folders, taken</td>
+<td>–</td>
+<td>本文インデックスのファイルを書き終えたフォルダの、そのとき書き出した名前（<code>taken</code>。<code>TakeAll</code> などの戻り値）だけを、<code>Unpublished</code>（外し終えていない削除。<code>TakeAll</code> などでは消えない）から外す。同じ回に書き出しを飛ばした名前は残る</td>
+</tr>
+<tr>
 <td><code>AddPending</code></td>
 <td>folder</td>
 <td>–</td>

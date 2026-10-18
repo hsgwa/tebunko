@@ -4093,7 +4093,7 @@
     RR -- "はい（中止を求められていないとき）" --&gt; RT["Word・PowerPoint の持ち主に渡し直す（getRerouteApp）&lt;br&gt;取り込み中のまま"] --&gt; LOOP
     RR -- "中止で止めた（Stopped、または中止後の Reroute）" --&gt; RS["失敗に数えず、『未取り込み』のまま&lt;br&gt;ingesting.txt から除く&lt;br&gt;以後、次のファイルを渡さない"] --&gt; LOOP
     RR -- いいえ --&gt; R["ログを書き、結果（済・失敗）を取り込み一覧に追記&lt;br&gt;ingesting.txt から除く"]
-    R --&gt; PF["取り込み中のファイルも、まだ渡していないファイルも無いフォルダを、&lt;br&gt;本文インデックスに書き出す（flushPending → publishIndexFolders）"] --&gt; LOOP
+    R --&gt; PF["取り込み中のファイルも、まだ渡していないファイルも無いフォルダを、&lt;br&gt;本文インデックスに書き出す（flushPending → publishIndexFolders。前後で pending_remove.tsv を書く）"] --&gt; LOOP
     WAIT -- いいえ --&gt; FIN["finally: 取り込みのスレッドを終える（Office のスレッドは監視と Office を終了）&lt;br&gt;作業領域を空にする・ingesting.txt を削除&lt;br&gt;書き出し待ちのフォルダを本文インデックスに書き出す&lt;br&gt;取り込み一覧を 1 ファイル 1 行に書き直す"]
     FIN --&gt; LOST2{"クロール対象フォルダが&lt;br&gt;見つからなくなった？"}
     LOST2 -- はい --&gt; E0
