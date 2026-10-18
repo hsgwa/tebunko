@@ -924,6 +924,6 @@ Describe "measure_perf.ps1 -Office" -Tag Io {
     }
 
     It "-Index も -Office も無いときは失敗にする" {
-        { & $measure -Work (Join-Path $TestDrive "none") 6>$null } | Should -Throw "*-Index と -Office*"
+        { & $measure -Work (Join-Path $TestDrive "none") 6>$null } | Should -Throw "*-Index・-Office・-Xlsx*"
     }
 }
