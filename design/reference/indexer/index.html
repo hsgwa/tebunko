@@ -5231,9 +5231,17 @@
 <td><code>importIndex</code></td>
 <td>zipPath, collisionMode（<code>Rename</code>/<code>Overwrite</code>/<code>Cancel</code>）, name, sourceFolder, ws, settingsPath</td>
 <td><code>@{Name; SourcePath; Enabled; Files; Bytes; Warnings}</code>（<code>Cancel</code> は <code>$null</code>）</td>
-<td>zip から 1 つのインデックスをインポートする。前の版のワークスペースの片付け・目録の確かめ（版 1 の zip は断る）・設定への登録・<code>store\content\&lt;名前&gt;\</code> の入れ替え・取り込み一覧の書き直しを行う。途中で失敗したら逆の操作で戻す</td>
+<td>zip から 1 つのインデックスをインポートする。目録の確かめ（版 1 の zip は断る）・展開・前の版のワークスペースの片付け・設定への登録・<code>store\content\&lt;名前&gt;\</code> の入れ替え・取り込み一覧の書き直しを行う。途中で失敗したら逆の操作で戻す</td>
 <td>同上</td>
 <td>画面（［インポート…］）</td>
+</tr>
+<tr>
+<td><code>readArchiveEntryBytesLimited</code></td>
+<td>entry, maxBytes</td>
+<td>byte[]（maxBytes を超えたら <code>$null</code>）</td>
+<td>zip のエントリーを、実際に読んだバイト数を数えながら読む。中央ディレクトリの大きさの申告に頼らない（目録の読み取りに使う）</td>
+<td>同上</td>
+<td>openIndexArchive</td>
 </tr>
 <tr>
 <td><code>getWorkspaceFreeSpace</code></td>
@@ -5253,7 +5261,7 @@
 </tr>
 <tr>
 <td><code>expandImportArchive</code> / <code>registerImportedIndexInSettings</code> / <code>swapInImportedIndexDir</code> / <code>rewriteStatusForImport</code></td>
-<td>同上（<code>importIndexCore</code> の手順 6〜9）</td>
+<td>同上（<code>importIndexCore</code> の手順 5・7〜9）</td>
 <td>–</td>
 <td>インポートの手順を 1 つずつ。失敗したら自分で戻す（<code>restoreImportedSettings</code>・<code>restoreSwappedIndexDir</code>）。取り込み一覧は <code>readStatusFile</code> → <code>writeStatusFile</code> で書く</td>
 <td>同上</td>
@@ -5279,7 +5287,7 @@
 <td><code>testIndexArchiveManifest</code></td>
 <td>manifest, entryNames, manifestBytes</td>
 <td>string（受け付けられれば空）</td>
-<td>zip の目録・エントリーが受け付けられるかを調べる（形式の版・zip slip・重なり・大きさ）</td>
+<td>zip の目録・エントリーが受け付けられるかを調べる（形式の版・zip slip・重なり・大きさ・エントリーの数と合計の上限）</td>
 <td>同上</td>
 <td>openIndexArchive</td>
 </tr>
