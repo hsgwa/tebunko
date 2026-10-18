@@ -76,13 +76,13 @@ Describe "同じフォルダを 2 回書き出しても結果が同じ（仕事�
         $tsv = "$folder\A.xlsx\$(toIndexFileName "S")"
 
         newTsv $tsv @("A の単価")
-        [void](publishIndexFolders $pending $index "$work\system_index" "$work\state.tsv")
+        [void](publishIndexFolders $pending $index)
         $file = "$folder\content_index.xlsx.001.tsv"
         $first = [System.IO.File]::ReadAllBytes($file)
 
         # 書き出しの途中で止まった跡と同じ状態（同じ仕事をやり直して、TSV がもう一度置かれた）から、もう一度書き出す
         newTsv $tsv @("A の単価")
-        [void](publishIndexFolders $pending $index "$work\system_index" "$work\state.tsv")
+        [void](publishIndexFolders $pending $index)
         $second = [System.IO.File]::ReadAllBytes($file)
 
         ($second -join ",") | Should -Be ($first -join ",")

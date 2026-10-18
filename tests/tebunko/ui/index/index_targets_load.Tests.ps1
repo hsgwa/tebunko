@@ -19,7 +19,6 @@ BeforeAll {
     function isIndexing { return $false }
     function showMessage { param($text, $buttons, $icon) $script:messages.Add($text); return "OK" }
     function refreshFolderStatus { $script:calls.Add("refreshFolderStatus") }
-    function refreshFastSearchStatus { $script:calls.Add("refreshFastSearchStatus") }
     function refreshLeftoverIndexes { $script:calls.Add("refreshLeftoverIndexes") }
     function newFolderItem {
         param ([string]$path, [bool]$enabled, [string]$name)

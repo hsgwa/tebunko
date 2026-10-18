@@ -28,7 +28,7 @@ BeforeDiscovery {
     @{ Kind = '関数'; Pattern = 'updateIndexFolderPack'; New = 'updateFolderContentIndex'; Docs = $true }
     @{ Kind = '関数'; Pattern = 'getIndexPackFiles'; New = 'getContentIndexFiles'; Docs = $true }
     @{ Kind = '関数'; Pattern = 'getPackFiles'; New = 'findContentIndexFiles'; Docs = $true }
-    @{ Kind = '関数'; Pattern = 'getFastSearchPackFiles'; New = 'getFastSearchContentIndexFiles'; Docs = $true }
+    @{ Kind = '関数'; Pattern = 'getFastSearchPackFiles'; New = '（削除した。高速検索ごと無くしたので代わりは無い）'; Docs = $true }
     @{ Kind = '関数'; Pattern = 'getPackKeyOf'; New = 'getContentIndexKeyOf'; Docs = $true }
     @{ Kind = '関数'; Pattern = 'searchPackFiles'; New = 'searchContentIndexFiles'; Docs = $true }
     @{ Kind = '関数'; Pattern = 'searchPackIndex'; New = 'searchContentIndex'; Docs = $true }

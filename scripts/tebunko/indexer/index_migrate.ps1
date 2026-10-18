@@ -114,7 +114,7 @@ function initTmpDir {
     # インデックス作成の始めに、取り込みの作業フォルダの片付けと用意をまとめて行う: @{ Dir; Reason（置けなかったときだけ） }
     #   1. 強制終了などで残った、ほかの（終了済みの）プロセスの作業フォルダを片付ける（決めた場所を巻き込まないよう、場所を決める前に行う）
     #   2. selectTmpDir で置き場所を決める
-    #   3. 置けたら、フォルダを作って tmp・tmp\<PC の鍵>・<PID> に NotContentIndexed を付ける
+    #   3. 置けたら、フォルダを作る
     #   4. 置けなければ（Dir が空）、フォルダは作らず、理由と「取り込みをすべてスキップする」ことをログに 1 行書く
     #      （どのファイルも中間 TSV などをこのフォルダに作るため、テキストファイルを含めすべての取り込みが対象になる）
     #      （1 ファイルごとのスキップは invokeIngestTask が取り込みの失敗として記録する）
@@ -136,15 +136,11 @@ function initTmpDir {
         writeIndexerLog "$(getTmpDirUnavailableMessage $unavailable.Reason)取り込みをすべてスキップします。" "Yellow"
         return $unavailable
     }
-    foreach ($dir in @($workspace.TmpRoot, (Split-Path $selected.Dir -Parent), $selected.Dir)) {
-        [void](setWindowsSearchExcluded $dir)
-    }
     return $selected
 }
 
 function newWorkerTmpDir {
     # 取り込みのスレッドの作業フォルダ（parentDir\w<番号>）を作り、パスを返す。
-    # 親（parentDir。司令のスレッドの作業フォルダ）に NotContentIndexed が付いていれば、同じ属性を付ける。
     # 親が無い（置けなかった）ときは、何も作らず空文字を返す
     param (
         [string]$parentDir,
@@ -161,9 +157,6 @@ function newWorkerTmpDir {
     $dir = Join-Path $parentDir "w$number"
     if (!(newDirectoryReplacingExisting $dir $workspace.TmpRoot)) {
         return ""
-    }
-    if (testWindowsSearchExcluded $parentDir) {
-        [void](setWindowsSearchExcluded $dir)
     }
     return $dir
 }

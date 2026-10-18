@@ -554,6 +554,38 @@ Describe "removeDirectoryUnder / moveDirectoryUnder（置き場の下で、途�
     }
 }
 
+Describe "removeFileUnder（置き場の下の 1 ファイルを、途中にリンクが無いときだけ消す）" -Tag Io {
+    It "置き場の下のファイルを消し、`$true を返す。無ければ何もせず `$true" {
+        $root = "$TestDrive\file_under1"
+        writeListFile "$root\a\x.tsv" @("x")
+        removeFileUnder "$root\a\x.tsv" $root | Should -Be $true
+        Test-Path -LiteralPath "$root\a\x.tsv" | Should -Be $false
+        Test-Path -LiteralPath "$root\a" | Should -Be $true
+        removeFileUnder "$root\a\無い.tsv" $root | Should -Be $true
+    }
+
+    It "置き場の外のファイルは消さず、`$false を返す" {
+        $root = "$TestDrive\file_under2"
+        [System.IO.Directory]::CreateDirectory($root) | Out-Null
+        writeListFile "$TestDrive\file_under_other\y.tsv" @("y")
+        removeFileUnder "$TestDrive\file_under_other\y.tsv" $root | Should -Be $false
+        readListFile "$TestDrive\file_under_other\y.tsv" | Should -Be @("y")
+    }
+
+    It "途中の階層がジャンクションなら、外の中身を消さず `$false を返す" {
+        $root = "$TestDrive\file_under3"
+        $outside = "$TestDrive\file_under_outside3"
+        writeListFile "$outside\x.tsv" @("外")
+        [System.IO.Directory]::CreateDirectory($root) | Out-Null
+        if (!(newTestJunction "$root\リンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        removeFileUnder "$root\リンク\x.tsv" $root | Should -Be $false
+        readListFile "$outside\x.tsv" | Should -Be @("外")
+    }
+}
+
 Describe "removeTreeNoFollow" -Tag Io {
     It "フォルダを中身ごと消す（読み取り専用のファイル・フォルダも）" {
         $dir = "$TestDrive\tree_plain"
@@ -1134,156 +1166,6 @@ Describe "getPathState" -Tag Io {
     }
 }
 
-Describe "setWindowsSearchExcluded" -Tag Io {
-    BeforeAll {
-        function script:hasAttr {
-            param ([string]$path)
-            $attrs = [System.IO.File]::GetAttributes((toLongPath $path))
-            return [bool]($attrs -band [System.IO.FileAttributes]::NotContentIndexed)
-        }
-    }
-
-    It "-Recurse ありで、フォルダ自身・下のフォルダ・ファイル（長いパスを含む）に付く" {
-        $dir = "$TestDrive\nci\付ける"
-        $sub1 = "$dir\下"
-        $sub2 = "$sub1\" + ("永" * 200)
-        $long = "$sub2\long.tsv"
-        [void][System.IO.Directory]::CreateDirectory((toLongPath $sub2))
-        [System.IO.File]::WriteAllText((toLongPath $long), "x")
-        ($long.Length) | Should -BeGreaterThan 260
-        writeListFile "$dir\a.tsv" @("a")
-
-        try {
-            $result = setWindowsSearchExcluded $dir -Recurse
-            $result.Ok | Should -Be $true
-            $result.Changed | Should -Be 5   # dir・a.tsv・下・長い名前のフォルダ・long.tsv
-            (hasAttr $dir) | Should -Be $true
-            (hasAttr "$dir\a.tsv") | Should -Be $true
-            (hasAttr $sub1) | Should -Be $true
-            (hasAttr $sub2) | Should -Be $true
-            (hasAttr $long) | Should -Be $true
-        } finally {
-            # Pester の TestDrive の後始末は \\?\ を付けずに消すため、260 文字超のパスを自分で先に消しておく
-            Remove-Item -LiteralPath (toLongPath $dir) -Recurse -Force
-        }
-    }
-
-    It "-Recurse なしでは、フォルダ自身と直下のファイルだけに付き、下のフォルダには付かない" {
-        $dir = "$TestDrive\nci\直下だけ"
-        [System.IO.Directory]::CreateDirectory("$dir\下") | Out-Null
-        writeListFile "$dir\a.tsv" @("a")
-        writeListFile "$dir\下\b.tsv" @("b")
-
-        $result = setWindowsSearchExcluded $dir
-        $result.Ok | Should -Be $true
-        $result.Changed | Should -Be 2   # dir・a.tsv だけ
-        (hasAttr $dir) | Should -Be $true
-        (hasAttr "$dir\a.tsv") | Should -Be $true
-        (hasAttr "$dir\下") | Should -Be $false
-        (hasAttr "$dir\下\b.tsv") | Should -Be $false
-    }
-
-    It "既に付いているものは Changed に数えない（2 回目は 0）" {
-        $dir = "$TestDrive\nci\2回目"
-        writeListFile "$dir\a.tsv" @("a")
-
-        (setWindowsSearchExcluded $dir -Recurse).Changed | Should -Be 2
-        (setWindowsSearchExcluded $dir -Recurse).Changed | Should -Be 0
-    }
-
-    It "根に付いていれば、下に付いていないものがあっても変えない（下はたどらない）" {
-        $dir = "$TestDrive\nci\根に付いている"
-        writeListFile "$dir\a.tsv" @("a")
-        setWindowsSearchExcluded $dir -Recurse | Out-Null
-        (hasAttr $dir) | Should -Be $true
-
-        # 新しく作った（WriteAllLines で作った）ものは根の属性を継ぐため、Move で入れて属性を継がせない
-        # （実装が「入れた直後にそれぞれの場所で付ける」ことに頼らず、根の属性だけで判断することを確かめる）
-        $src = "$TestDrive\nci\移す元\b.tsv"
-        writeListFile $src @("b")
-        [System.IO.File]::Move($src, "$dir\b.tsv")
-        (hasAttr "$dir\b.tsv") | Should -Be $false
-
-        $result = setWindowsSearchExcluded $dir -Recurse
-        $result.Ok | Should -Be $true
-        $result.Changed | Should -Be 0
-        (hasAttr "$dir\b.tsv") | Should -Be $false
-    }
-
-    It "途中で失敗した回は根に付けない（次回また下からたどれるようにする）" {
-        $dir = "$TestDrive\nci\失敗した回"
-        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
-        $locked = New-Object System.IO.DirectoryInfo "$dir\読めない"
-        $locked.Create()
-        $user = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-        $deny = New-Object System.Security.AccessControl.FileSystemAccessRule($user, "ListDirectory", "Deny")
-        $acl = $locked.GetAccessControl("Access")
-        $acl.AddAccessRule($deny)
-        $locked.SetAccessControl($acl)
-        try {
-            $result = setWindowsSearchExcluded $dir -Recurse
-            $result.Ok | Should -Be $false
-            (hasAttr $dir) | Should -Be $false
-        } finally {
-            $acl = $locked.GetAccessControl("Access")
-            [void]$acl.RemoveAccessRule($deny)
-            $locked.SetAccessControl($acl)
-        }
-    }
-
-    It "隣のフォルダには付かない" {
-        $dir = "$TestDrive\nci\隣"
-        [System.IO.Directory]::CreateDirectory("$dir\対象") | Out-Null
-        [System.IO.Directory]::CreateDirectory("$dir\隣のフォルダ") | Out-Null
-
-        setWindowsSearchExcluded "$dir\対象" -Recurse | Out-Null
-        (hasAttr "$dir\隣のフォルダ") | Should -Be $false
-    }
-
-    It "ほかの属性（読み取り専用など）は変えない" {
-        $dir = "$TestDrive\nci\属性"
-        $path = "$dir\a.tsv"
-        writeListFile $path @("a")
-        [System.IO.File]::SetAttributes($path, [System.IO.FileAttributes]::ReadOnly)
-        try {
-            setWindowsSearchExcluded $dir -Recurse | Out-Null
-            $attrs = [System.IO.File]::GetAttributes($path)
-            ($attrs -band [System.IO.FileAttributes]::ReadOnly) | Should -Not -Be 0
-            ($attrs -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
-        } finally {
-            [System.IO.File]::SetAttributes($path, [System.IO.FileAttributes]::Normal)
-        }
-    }
-
-    It "無いパスは例外にならず Ok=`$false・Reason を返す" {
-        $result = setWindowsSearchExcluded "$TestDrive\nci\無いフォルダ"
-        $result.Ok | Should -Be $false
-        $result.Changed | Should -Be 0
-        $result.Reason | Should -Not -BeNullOrEmpty
-    }
-
-    It "列挙の途中で読めなくなるフォルダがあっても例外にならず Ok=`$false・Reason を返す" {
-        $dir = "$TestDrive\nci\読めない親"
-        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
-        $locked = New-Object System.IO.DirectoryInfo "$dir\読めない"
-        $locked.Create()
-        $user = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-        $deny = New-Object System.Security.AccessControl.FileSystemAccessRule($user, "ListDirectory", "Deny")
-        $acl = $locked.GetAccessControl("Access")
-        $acl.AddAccessRule($deny)
-        $locked.SetAccessControl($acl)
-        try {
-            $result = setWindowsSearchExcluded $dir -Recurse
-            $result.Ok | Should -Be $false
-            $result.Reason | Should -Not -BeNullOrEmpty
-        } finally {
-            $acl = $locked.GetAccessControl("Access")
-            [void]$acl.RemoveAccessRule($deny)
-            $locked.SetAccessControl($acl)
-        }
-    }
-}
-
 Describe "getFilesNoFollow" -Tag Io {
     It "下のファイル・フォルダを集める（root は Directories に入れない）。Links は空、HasError は `$false" {
         $dir = "$TestDrive\nofollow\普通"
@@ -1498,111 +1380,6 @@ Describe "getFilesNoFollow" -Tag Io {
             [void]$acl.RemoveAccessRule($deny)
             $locked.SetAccessControl($acl)
         }
-    }
-}
-
-Describe "setWindowsSearchExcluded（リンク）" -Tag Io {
-    BeforeAll {
-        function script:hasLinkAttr {
-            param ([string]$path)
-            $attrs = [System.IO.File]::GetAttributes((toLongPath $path))
-            return [bool]($attrs -band [System.IO.FileAttributes]::NotContentIndexed)
-        }
-    }
-
-    It "-Recurse で、中のジャンクションの先のフォルダ・ファイルにも、ジャンクション自身にも付けない" {
-        $dir = "$TestDrive\nci-link\付ける"
-        $outside = "$TestDrive\nci-link\外"
-        writeListFile "$outside\外.tsv" @("外")
-        writeListFile "$outside\下\外の下.tsv" @("外")
-        writeListFile "$dir\a.tsv" @("a")
-        if (!(newTestJunction "$dir\リンク" $outside)) {
-            Set-ItResult -Skipped -Because $script:linkError
-            return
-        }
-
-        $result = setWindowsSearchExcluded $dir -Recurse
-        $result.Ok | Should -Be $true
-        $result.Changed | Should -Be 2   # dir・a.tsv だけ
-        (hasLinkAttr $dir) | Should -Be $true
-        (hasLinkAttr "$dir\a.tsv") | Should -Be $true
-        (hasLinkAttr "$dir\リンク") | Should -Be $false
-        (hasLinkAttr $outside) | Should -Be $false
-        (hasLinkAttr "$outside\外.tsv") | Should -Be $false
-        (hasLinkAttr "$outside\下") | Should -Be $false
-        (hasLinkAttr "$outside\下\外の下.tsv") | Should -Be $false
-    }
-
-    It "-Recurse で読めないフォルダがあると Ok=`$false にし、根にも属性を付けない" {
-        $dir = "$TestDrive\nci-link\読めない"
-        writeListFile "$dir\a.tsv" @("a")
-        $locked = New-Object System.IO.DirectoryInfo "$dir\読めない"
-        $locked.Create()
-        $user = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-        $deny = New-Object System.Security.AccessControl.FileSystemAccessRule($user, "ListDirectory", "Deny")
-        $acl = $locked.GetAccessControl("Access")
-        $acl.AddAccessRule($deny)
-        $locked.SetAccessControl($acl)
-        try {
-            $result = setWindowsSearchExcluded $dir -Recurse
-            $result.Ok | Should -Be $false
-            $result.Changed | Should -Be 0
-            $result.Reason | Should -Not -BeNullOrEmpty
-            (hasLinkAttr $dir) | Should -Be $false
-            (hasLinkAttr "$dir\a.tsv") | Should -Be $false
-        } finally {
-            $acl = $locked.GetAccessControl("Access")
-            [void]$acl.RemoveAccessRule($deny)
-            $locked.SetAccessControl($acl)
-        }
-    }
-
-    It "親を指すジャンクション（輪）があっても終わり、輪の先に属性が付き続けない" {
-        $dir = "$TestDrive\nci-link\輪"
-        writeListFile "$dir\a\a.tsv" @("a")
-        if (!(newTestJunction "$dir\a\輪" $dir)) {
-            Set-ItResult -Skipped -Because $script:linkError
-            return
-        }
-
-        $result = setWindowsSearchExcluded $dir -Recurse
-        $result.Ok | Should -Be $true
-        $result.Changed | Should -Be 3   # dir・a・a.tsv
-        (hasLinkAttr "$dir\a\輪") | Should -Be $false
-    }
-
-    It "Hidden のファイル・フォルダには、これまでどおり付ける" {
-        $dir = "$TestDrive\nci-link\隠し"
-        writeListFile "$dir\隠し.tsv" @("h")
-        writeListFile "$dir\隠しフォルダ\d.tsv" @("d")
-        [System.IO.File]::SetAttributes("$dir\隠し.tsv", [System.IO.FileAttributes]::Hidden)
-        [System.IO.File]::SetAttributes("$dir\隠しフォルダ", [System.IO.FileAttributes]::Directory -bor [System.IO.FileAttributes]::Hidden)
-
-        (setWindowsSearchExcluded $dir -Recurse).Ok | Should -Be $true
-        (hasLinkAttr "$dir\隠し.tsv") | Should -Be $true
-        (hasLinkAttr "$dir\隠しフォルダ") | Should -Be $true
-        (hasLinkAttr "$dir\隠しフォルダ\d.tsv") | Should -Be $true
-    }
-}
-
-Describe "testWindowsSearchExcluded" -Tag Io {
-    It "属性が付いていれば `$true" {
-        $dir = "$TestDrive\nci-test\付いている"
-        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
-        setWindowsSearchExcluded $dir | Out-Null
-
-        testWindowsSearchExcluded $dir | Should -Be $true
-    }
-
-    It "属性が付いていなければ `$false" {
-        $dir = "$TestDrive\nci-test\付いていない"
-        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
-
-        testWindowsSearchExcluded $dir | Should -Be $false
-    }
-
-    It "無いパスは例外にならず `$false" {
-        testWindowsSearchExcluded "$TestDrive\nci-test\無いフォルダ" | Should -Be $false
     }
 }
 

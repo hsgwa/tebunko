@@ -11,6 +11,8 @@ class Workspace {
     [string]$StoreDir
     [string]$FormatFile
     [string]$IndexDir
+    # gram 索引（本文インデックスのファイルごとの 2-gram の索引。インデックス名ごとのフォルダ。検索で、検索語を含まないファイルを読まずに外す）
+    [string]$GramDir
     # 前の版（版番号つきの置き場に替える前）の本文インデックスのフォルダと取り込み一覧。
     # 新しい版は読むだけで書かない。作り直しが最後まで終わったインデックスから消す（index_format_store.ps1）
     [string]$OldIndexDir
@@ -18,9 +20,10 @@ class Workspace {
     # 前の版（content_index・system_index に名前をそろえる前）が使っていた本文インデックスのフォルダ。
     # 新しい版はここを読まず、消しもしない（前の版のしるしの調べ・知らせ・［設定］で「移す」「消して最初から」の対象にするために持つ）
     [string]$LegacyIndexDir
-    # システムインデックス（本文インデックスの 2-gram を書いた txt。index と同じ相対パスの構成。Windows Search に索引させる）と、その状態
-    [string]$SystemIndexDir
-    [string]$SystemIndexStateFile
+    # 前の版が作ったシステムインデックス（本文インデックスの 2-gram を書いた txt）と、その状態ファイル。
+    # 新しい版は読まず、使わない。インデックス作成の始めに removeOldSystemIndex が消す（ワークスペースを移す・書き出す・消す対象には含めない）
+    [string]$OldSystemIndexDir
+    [string]$OldSystemIndexStateFile
     # 取り込んだTSVをインデックスに入れる直前に集めるフォルダ（publishIndexFiles）。
     # フォルダごと入れ替えるため、インデックスと同じドライブ（ワークスペースの中）に置く。
     # 検索対象に入らないよう index の外にする。インデックス作成を同時に複数実行しても混ざらないよう、プロセスごとに分ける
@@ -49,11 +52,12 @@ class Workspace {
         $this.StoreDir = "$dir\store"
         $this.FormatFile = "$dir\store\format.tsv"
         $this.IndexDir = "$dir\store\content"
+        $this.GramDir = "$dir\store\gram"
         $this.OldIndexDir = "$dir\content_index"
         $this.OldStatusFile = "$dir\ingest_status.tsv"
         $this.LegacyIndexDir = "$dir\index"
-        $this.SystemIndexDir = "$dir\system_index"
-        $this.SystemIndexStateFile = "$dir\system_index_state.tsv"
+        $this.OldSystemIndexDir = "$dir\system_index"
+        $this.OldSystemIndexStateFile = "$dir\system_index_state.tsv"
         $this.PublishDir = "$dir\publish\$([System.Diagnostics.Process]::GetCurrentProcess().Id)"
         $this.StatusFile = "$dir\store\ingest_status.tsv"
         $this.JournalFile = "$dir\store\journal\ingest.tsv"
@@ -74,15 +78,11 @@ class Workspace {
     # 前の版の取り込み中のファイルの記録（ワークスペース直下の ingesting.txt）は含めない。新しい版は始めに 1 度だけ読んで消す一時的な跡で、
     # 移すときに残っても取り込み直しが増えるだけ（取り込み一覧が前回のままなので、止まったファイルは更新ありのまま次の回で取り込まれる）
     [string[]] Entries() {
-        return @($this.StoreDir, $this.OldIndexDir, $this.OldStatusFile, $this.LegacyIndexDir, $this.SystemIndexDir, $this.SystemIndexStateFile,
+        return @($this.StoreDir, $this.OldIndexDir, $this.OldStatusFile, $this.LegacyIndexDir,
             $this.ResultFile, $this.IndexingLogFile, $this.GuiErrorLogFile,
             $this.IndexingLogPreviousFile, $this.GuiErrorLogPreviousFile, [System.IO.Path]::GetDirectoryName($this.PublishDir), $this.TmpRoot, $this.OfficePidRoot)
     }
 }
-
-# 前の版（content_index・system_index に名前をそろえる前）が system_index に置いていた txt の名前の型。
-# 新しい版は system_index.txt を使うため、前の版の txt を見つける・片付けるためだけに使う（読み書きの形式は変えない）
-${legacySystemIndexPattern} = "システムインデックス*.txt"
 
 function getWorkspaceDirOfIndexDir {
     # 本文インデックスのフォルダ（Workspace.IndexDir）から、そのワークスペースのフォルダを返す。
@@ -191,12 +191,10 @@ function getTmpDirUnavailableMessage {
 }
 
 function getLegacyIndexState {
-    # 前の版のワークスペース（dir）の状態を返す: @{ HasLegacyIndex; ContentEmpty; HasLegacySystemIndex }
+    # 前の版のワークスペース（dir）の状態を返す: @{ HasLegacyIndex; ContentEmpty }
     #   HasLegacyIndex       : 前の版の index\ があり、直下のどれかのフォルダに legacySourceFolderFileName（元のフォルダ.txt）がある（前の版のしるし）。
     #                          index\ があるだけでは、利用者が選んだフォルダにたまたま index があるときと区別できないため、しるしとしない
     #   ContentEmpty         : 今の本文インデックスの置き場（IndexDir）と前の版の置き場（OldIndexDir）の両方が、無いか、下のフォルダを含めてファイルが 1 つも無い
-    #   HasLegacySystemIndex : system_index\ の下に前の名前の txt（システムインデックス*.txt）がある。
-    #                          ContentEmpty のときだけ調べる（片付けの条件にしか使わないため）
     param (
         [string]$dir
     )
@@ -221,26 +219,38 @@ function getLegacyIndexState {
         }
     }
 
-    $hasLegacySystemIndex = $false
-    if ($contentEmpty) {
-        $longSystem = toLongPath $ws.SystemIndexDir
-        if ([System.IO.Directory]::Exists($longSystem)) {
-            $hasLegacySystemIndex = testAnyEntry ([System.IO.Directory]::EnumerateFiles($longSystem, ${legacySystemIndexPattern}, [System.IO.SearchOption]::AllDirectories))
-        }
-    }
-
-    return @{ HasLegacyIndex = $hasLegacyIndex; ContentEmpty = $contentEmpty; HasLegacySystemIndex = $hasLegacySystemIndex }
+    return @{ HasLegacyIndex = $hasLegacyIndex; ContentEmpty = $contentEmpty }
 }
 
-function testLegacyCleanupNeeded {
-    # 取り込み直しを始めるときに、前の版のシステムインデックスを片付けるかどうか（getLegacyIndexState の結果から決まる）。
-    # content_index\ が空で、かつ、前の版のしるしがあるか、system_index\ に前の名前の txt が残っているときに片付ける
-    # （取り込み直す前に利用者が index\ を消していても、前の名前の txt を残さないため）
+function removeOldSystemIndex {
+    # 前の版が作ったシステムインデックス（system_index\ と system_index_state.tsv）を消す: @{ Ok; Reason（失敗のときだけ） }
+    # 新しい版は使わないため、画面の起動（裏の仕事）・インデックスの作成と更新の始め・インポートの登録前の 3 か所から呼ぶ（無ければ何もしない）。
+    # ワークスペース（dir）の下で、途中にリンクが無いことを確かめてから消す（removeDirectoryUnder・removeFileUnder）。
+    # 消せなくても例外にせず Ok = $false を返す（記録先は呼ぶ側が決める: 起動は画面エラーの記録・作成と更新はログ・インポートは警告。残して続け、次の機会にもう一度消す）
     param (
-        $state
+        [string]$dir
     )
 
-    return ($state.ContentEmpty -and ($state.HasLegacyIndex -or $state.HasLegacySystemIndex))
+    $ws = [Workspace]::new($dir)
+    $problems = New-Object System.Collections.Generic.List[string]
+    try {
+        if (!(removeDirectoryUnder $ws.OldSystemIndexDir $ws.Dir)) {
+            $problems.Add("途中にリンクがあるため、消せません: $($ws.OldSystemIndexDir)")
+        }
+    } catch {
+        $problems.Add($_.Exception.Message)
+    }
+    try {
+        if (!(removeFileUnder $ws.OldSystemIndexStateFile $ws.Dir)) {
+            $problems.Add("途中にリンクがあるため、消せません: $($ws.OldSystemIndexStateFile)")
+        }
+    } catch {
+        $problems.Add($_.Exception.Message)
+    }
+    if ($problems.Count -gt 0) {
+        return @{ Ok = $false; Reason = ($problems -join " ") }
+    }
+    return @{ Ok = $true; Reason = "" }
 }
 
 function getLegacyIndexMessage {
@@ -256,37 +266,6 @@ function getLegacyIndexMessage {
     $legacyDir = [Workspace]::new($dir).LegacyIndexDir
     return "前の版のインデックス（「${legacyDir}」）は、この版では使えません。［すべて更新］で、元のファイルをすべて更新し直します。" +
         "更新し直した後、「${legacyDir}」フォルダは削除してかまいません。"
-}
-
-function clearLegacySystemIndex {
-    # 前の版のシステムインデックス（system_index\ と、システムインデックスの状態ファイルの中身）を片付ける: @{ Ok; Reason（失敗のときだけ） }
-    # 片付けの順番: (1) updateSystemIndexState の排他の中で、状態ファイルの中身を空にする（ファイルは消さない。
-    #     画面の検索（fast_search.ps1）やインデックスの削除（index_store.ps1）が同じ排他で書き換えるため、
-    #     消した直後に前のキーを書き戻されないようにする）。
-    # (2) system_index\ を removeDirectoryRetry で消す（Windows Search が txt を一時的に開くことがあるため）。
-    # どちらかに失敗したら Ok = $false（途中で止まっても、次に呼べば同じ状態から続けられる）
-    param (
-        [string]$dir
-    )
-
-    $ws = [Workspace]::new($dir)
-    $cleared = updateSystemIndexState {
-        param ($state)
-        $state.Covered.Clear()
-        $state.Pending.Clear()
-        $state.Excluded.Clear()
-    } $ws.SystemIndexStateFile
-    if (!$cleared) {
-        return @{ Ok = $false; Reason = "システムインデックスの状態ファイル（$([System.IO.Path]::GetFileName($ws.SystemIndexStateFile))）を開けませんでした" }
-    }
-    try {
-        if (!(removeDirectoryUnder $ws.SystemIndexDir $ws.Dir)) {
-            return @{ Ok = $false; Reason = "システムインデックスのフォルダが、置き場の外か、途中にリンクがあるため、消せません: $($ws.SystemIndexDir)" }
-        }
-    } catch {
-        return @{ Ok = $false; Reason = $_.Exception.Message }
-    }
-    return @{ Ok = $true; Reason = "" }
 }
 
 function newWorkspace {

@@ -12,13 +12,12 @@ function getIndexArchiveCancelledStatus {
 
 function getImportResultStatus {
     # インポートの結果（importIndex の戻り値）から、ステータスに出す文言を返す。
-    # Warnings（同じ元のフォルダが別の名前で既に登録されている等）と、高速検索が次の更新の後に効くことを添える
+    # Warnings（同じ元のフォルダが別の名前で既に登録されている等）を添える
     param (
         $result
     )
 
-    $text = "インデックス [$($result.Name)] をインポートしました（$($result.Files) ファイル）。" +
-        "高速検索は次の更新の後に効きます。"
+    $text = "インデックス [$($result.Name)] をインポートしました（$($result.Files) ファイル）。"
     foreach ($warning in @($result.Warnings)) {
         $text += " ${warning}"
     }

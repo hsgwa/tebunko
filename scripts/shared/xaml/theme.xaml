@@ -98,7 +98,7 @@
   <SolidColorBrush x:Key="Badge.Ok.Text"   Color="#218A21" />
   <SolidColorBrush x:Key="Badge.Wait.Bg"   Color="#FFF5E0" />
   <SolidColorBrush x:Key="Badge.Wait.Text" Color="#BA7D00" />
-  <!-- 使えない・足りないが、失敗ではないもの（高速検索の「不可」など）。Wait と同じ黄の系統で、文字だけ濃くする -->
+  <!-- 使えない・足りないが、失敗ではないもの（「不可」など）。Wait と同じ黄の系統で、文字だけ濃くする -->
   <SolidColorBrush x:Key="Badge.Warn.Bg"   Color="#FFF5E0" />
   <SolidColorBrush x:Key="Badge.Warn.Text" Color="#8A5A00" />
   <SolidColorBrush x:Key="Badge.Ng.Bg"     Color="#FFE6E6" />
@@ -373,7 +373,7 @@
       </Setter.Value>
     </Setter>
   </Style>
-  <!-- 状態の札（インデックス・高速検索の 3 状態） -->
+  <!-- 状態の札（インデックスの状態） -->
   <Style x:Key="StatusBadge" TargetType="Border">
     <Setter Property="CornerRadius" Value="8" />
     <Setter Property="BorderThickness" Value="1" />

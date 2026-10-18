@@ -8,7 +8,7 @@
 # Excel は COM が要るため使わない。Word・PowerPoint の新形式（.docx・.pptx）はファイルを直接読むため、そのまま取り込む。
 BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
-    # findLine・newRoot・writeTestSettings・runIndexer・readTestStatus・readTestSystemState・readTestError・readTestProgress は
+    # findLine・newRoot・writeTestSettings・runIndexer・readTestStatus・readTestError・readTestProgress は
     # index_compat.Tests.ps1 と共通のため tests\helpers\indexer.ps1 にある（中身は変えていない）
     . "$PSScriptRoot\..\..\helpers\indexer.ps1"
 
@@ -39,6 +39,37 @@ BeforeAll {
         $lines = @("版`t2", "回`t2026/10/17 10:00:00`t$rows") + $records
         [System.IO.File]::WriteAllText($path, (($lines -join "`r`n") + "`r`n"), (New-Object System.Text.UTF8Encoding($true)))
         return $path
+    }
+
+    function assertGramMatchesFullScan {
+        # インデックス name の gram 索引（目録）があり、本文から取った語の検索結果が、gram 索引で絞ったときと全件を照合したときで同じになる
+        param ([string]$root, [string]$name)
+        $index = "$root\work\store\content"
+        $gram = "$root\work\store\gram"
+        [System.IO.File]::Exists("$gram\$name\toc.tsv") | Should -BeTrue
+        (readGramToc "$gram\$name").Segments.Count | Should -BeGreaterThan 0
+        $all = getContentIndexFiles @($index)
+        $compared = 0
+        $narrowedWords = 0
+        foreach ($item in @($all.ContentIndexFiles)) {
+            $body = getContentIndexBodyText (readContentIndexText $item.Path)
+            foreach ($word in @(($body -split "\s+") | Where-Object { $_.Length -ge 2 } | Select-Object -First 3)) {
+                $narrowed = getGramContentIndexFiles $word $true @($index) $index $gram
+                if ($null -ne $narrowed) {
+                    # 絞れたとき（$null でない）は、1 つ以上のファイルを外している
+                    @($narrowed.ContentIndexFiles).Count | Should -BeLessThan @($all.ContentIndexFiles).Count
+                    $narrowedWords++
+                }
+                $files = @(if ($null -eq $narrowed) { $all.ContentIndexFiles } else { $narrowed.ContentIndexFiles })
+                $viaGram = searchContentIndex $word $files $true 0
+                $full = searchContentIndex $word $all.ContentIndexFiles $true 0
+                (@($viaGram.Hits | ForEach-Object { "$($_.RelPath)|$($_.Book)|$($_.Location)|$($_.LineNumber)" }) -join "`n") | Should -Be (@($full.Hits | ForEach-Object { "$($_.RelPath)|$($_.Book)|$($_.Location)|$($_.LineNumber)" }) -join "`n")
+                $full.Hits.Count | Should -BeGreaterThan 0
+                $compared++
+            }
+        }
+        $compared | Should -BeGreaterThan 0
+        $narrowedWords | Should -BeGreaterThan 0
     }
 }
 
@@ -155,17 +186,6 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         [System.IO.File]::Exists("$root\work\store\content\営業\content_index.docx.001.tsv") | Should -Be $true
         [System.IO.Directory]::Exists("$root\work\store\content\営業\議事録.docx") | Should -Be $false
         Test-Path -LiteralPath "$root\work\store\content\営業\source_folder.txt" | Should -Be $true
-        # フォルダごとのシステムインデックスを作り、インデックスを対応済みにする
-        [System.IO.File]::Exists("$root\work\system_index\営業\${systemIndexFileName}") | Should -Be $true
-        (readTestSystemState $root).Covered.Contains("営業") | Should -Be $true
-        # content_index（フォルダ・本文インデックスのファイル・source_folder.txt）は Windows Search の対象から外れ、
-        # system_index はそのまま索引され続ける
-        ([System.IO.File]::GetAttributes("$root\work\store\content") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
-        ([System.IO.File]::GetAttributes("$root\work\store\content\営業") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
-        ([System.IO.File]::GetAttributes("$root\work\store\content\営業\content_index.docx.001.tsv") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
-        ([System.IO.File]::GetAttributes("$root\work\store\content\営業\source_folder.txt") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
-        ([System.IO.File]::GetAttributes("$root\work\system_index") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Be 0
-        ([System.IO.File]::GetAttributes("$root\work\system_index\営業\${systemIndexFileName}") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Be 0
         # 名前の無かったフォルダには名前を割り当てて保存する
         @(getTargetFolders "$root\setting.config" | ForEach-Object { $_.Name }) -join "," | Should -Be "営業,経理,無くなったフォルダ"
         # 画面が終わり方を読めるよう、最後の進み具合を残す
@@ -184,6 +204,8 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         # ${legacyTmpParent} の差し替えが取り込み中も効いていた（本物の %TEMP%\tebunko を指していない）ことを確かめる
         $global:capturedLegacyTmpParent | Should -Be (Join-Path $root "legacy_tmp")
         Test-Path -LiteralPath (Join-Path "$root\legacy_tmp" "$PID") | Should -Be $false
+        # 検索を絞る gram 索引ができていて、絞った検索の結果が全件を照合した結果と同じになる
+        assertGramMatchesFullScan $root "営業"
         # ワークスペースの直下・content_index\<名前>\ の直下のファイル名はすべて英語にする（再発防止）
         foreach ($entry in @(Get-ChildItem -LiteralPath "$root\work")) {
             $entry.Name | Should -Match "^[\x20-\x7E]+$"
@@ -276,6 +298,7 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         runIndexer $root | Should -Be 0
         (readTestStatus $root).Rows["営業\議事録.docx"].状態 | Should -Be ${stateDone}
         @([IngestJournal]::new("$root\work\store\journal\ingest.tsv").ReadPrevious())[-1] | Should -Be "終"
+        assertGramMatchesFullScan $root "営業"
     }
 
     It "前の版の ingesting.txt（強制終了したファイルの記録）も読んで、最後に回して取り込み、読んだあとは消す" {
@@ -695,7 +718,6 @@ Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
         $progress.Remaining | Should -Be 2
         # 取り込んだ TSV は元のファイルごとのフォルダに残さず（本文インデックスのファイルに入れる）、途中なので対応済みにはしない
         (findIndexFoldersWithBooks "$root\work\store\content").Count | Should -Be 0
-        (readTestSystemState $root).Covered.Count | Should -Be 0
     }
 
     It "取り込みの途中で中止を求められても、取り込めた分は済のまま検索でき、止めた・始めていない分は未取り込みで、次の回に取り込む" {
@@ -723,6 +745,8 @@ Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
         $after = @((readTestStatus $root).Rows.Values)
         @($after | Where-Object { $_.状態 -eq ${stateNew} }).Count | Should -Be 0
         @($after | Where-Object { $_.状態 -eq ${stateDone} }).Count | Should -BeGreaterThan 1
+        # 止めた回は gram 索引を作らず（検索は全件を照合）、次の回で作る
+        assertGramMatchesFullScan $root "総務"
     }
 
     It "取り込みのスレッドにファイルを渡した直後に中止を求められたら、そのファイルを取り込まず（失敗にせず）未取り込みのまま、すぐ 2 で終わる" {
@@ -794,6 +818,63 @@ Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
         Test-Path -LiteralPath $ws.OldIndexDir | Should -Be $false
         Test-Path -LiteralPath $ws.OldStatusFile | Should -Be $false
         (readIndexFormat $ws.FormatFile).Indexes["総務"] | Should -Be ${catalogRowFinished}
+    }
+
+    It "古い形式のインデックスがあるとき、取り込めないファイルがあっても、最後まで作ると古い形式の分を消して「作り終えた」にする（失敗は一覧に残す）" {
+        $root = newRoot
+        # $source には、取り込めない壊れた PowerPoint のファイルが入っている。作り直しの 1 回目で失敗する
+        writeTestSettings $root @(@{ name = "総務"; path = $source; enabled = $true })
+        $ws = [Workspace]::new("$root\work")
+        newTsv "$($ws.OldIndexDir)\総務\content_index.docx.001.tsv" @("古い中身")
+        newTsv $ws.OldStatusFile @("古い取り込み一覧")
+
+        runIndexer $root | Should -Be 0
+
+        (readTestStatus $root).Rows["総務\壊れた.pptx"].状態 | Should -Be ${stateFailed}
+        Test-Path -LiteralPath $ws.OldIndexDir | Should -Be $false
+        Test-Path -LiteralPath $ws.OldStatusFile | Should -Be $false
+        (readIndexFormat $ws.FormatFile).Indexes["総務"] | Should -Be ${catalogRowFinished}
+    }
+
+    It "古い形式のインデックスが 2 つあるとき、1 つ目を取り込み終えたあと 2 つ目の途中で<Kind>と、どちらも「作り終えた」にせず、古い形式の分を消さない（終了コード <Code>）" -TestCases @(
+        @{ Kind = "中止する"; Code = 2; Stop = $true }
+        @{ Kind = "フォルダが見えなくなる"; Code = 1; Stop = $false }
+    ) {
+        param ($Kind, $Code, $Stop)
+        $a = newSourceFolder "総務"
+        $b = newSourceFolder "企画"
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "総務"; path = $a; enabled = $true }, @{ name = "企画"; path = $b; enabled = $true })
+        $ws = [Workspace]::new("$root\work")
+        newTsv "$($ws.OldIndexDir)\総務\content_index.docx.001.tsv" @("古い中身")
+        newTsv "$($ws.OldIndexDir)\企画\content_index.docx.001.tsv" @("古い中身")
+        newTsv $ws.OldStatusFile @("古い取り込み一覧")
+        # 2 つ目（企画）のファイルのところで止める。並べた順に取り込むが、並列のときは 1 つ目を取り込み終えているとは限らない（どちらでも、作り終えた扱いにはならない）
+        if ($Stop) {
+            # 中止は、2 つ目の最初のファイルを一覧に足したあとに求める
+            $hook = @{ Script = $runPath; Pattern = '^\s+\$ledger\.AddRow\(\$row\)'; Action = {
+                if ($row.相対パス -like "企画\*") { $channel.Stop = $true }
+            } }
+        } else {
+            # フォルダが見えなくなるのは、2 つ目の最初のファイルを取り込む直前
+            $global:indexerTestVictim = $b
+            $hook = @{ Script = $dispatcherPath; Pattern = '^\s+\$row = \$this\.Targets\[\$i\]'; Action = {
+                if ($this.Targets[$i].相対パス -like "企画\*" -and (Test-Path -LiteralPath $global:indexerTestVictim)) {
+                    Remove-Item -LiteralPath $global:indexerTestVictim -Recurse -Force
+                }
+            } }
+        }
+        try {
+            runIndexer $root @{} @($hook) | Should -Be $Code
+        } finally {
+            Remove-Variable -Name indexerTestVictim -Scope Global -ErrorAction SilentlyContinue
+        }
+
+        foreach ($name in "総務", "企画") {
+            (readIndexFormat $ws.FormatFile).Indexes[$name] | Should -Be ${catalogRowBuilding}
+            Test-Path -LiteralPath "$($ws.OldIndexDir)\$name\content_index.docx.001.tsv" | Should -Be $true
+        }
+        Test-Path -LiteralPath $ws.OldStatusFile | Should -Be $true
     }
 }
 
@@ -1095,7 +1176,7 @@ Describe "indexer.ps1（前の版のインデックス）" -Tag Io {
         ) "$work\store\ingest_status.tsv"
     }
 
-    It "前の版のインデックスがあれば知らせて片付け、取り込み直す（前の版の index には触らない）" {
+    It "前の版のインデックスがあれば知らせ、前のシステムインデックスを消して、取り込み直す（前の版の index には触らない）" {
         $source = newSourceFolder "旧版"
         $root = newRoot
         writeTestSettings $root @(@{ name = "旧版"; path = $source; enabled = $true })
@@ -1109,11 +1190,9 @@ Describe "indexer.ps1（前の版のインデックス）" -Tag Io {
         # 「済」の行が取り込み直された理由が、本文インデックスが無いこと（lost）であることをログで確かめる
         $log | Should -Match "インデックスが無い・壊れている 1 件"
         [System.IO.File]::Exists("$root\work\store\content\旧版\content_index.docx.001.tsv") | Should -Be $true
-        [System.IO.File]::Exists("$root\work\system_index\旧版\system_index.txt") | Should -Be $true
-        @([System.IO.Directory]::GetFiles("$root\work\system_index", "システムインデックス*.txt", "AllDirectories")).Count | Should -Be 0
-        $stateText = [System.IO.File]::ReadAllText("$root\work\system_index_state.tsv")
-        $stateText | Should -Not -Match "システムインデックス"
-        (readTestSystemState $root).Covered.Contains("旧版") | Should -Be $true
+        # 前の版のシステムインデックスと状態ファイルは消える
+        Test-Path -LiteralPath "$root\work\system_index" | Should -Be $false
+        Test-Path -LiteralPath "$root\work\system_index_state.tsv" | Should -Be $false
         # 取り込み一覧の「済」の行（前の版の記録）も、本文インデックスが無いため取り込み直す
         $row = (readTestStatus $root).Rows["旧版\議事録.docx"]
         $row.状態 | Should -Be ${stateDone}
@@ -1123,7 +1202,7 @@ Describe "indexer.ps1（前の版のインデックス）" -Tag Io {
         Test-Path -LiteralPath "$root\work\index\旧版\議事録.docx\S.tsv" | Should -Be $true
     }
 
-    It "前の版のシステムインデックスを片付けられなければ、content_index を作らずに 1 で終わる。閉じてもう一度で取り込み直す" {
+    It "前の版のシステムインデックスを消せなくても止まらず、ログに残して取り込む。閉じてもう一度で消える" {
         $source = newSourceFolder "旧版2"
         $root = newRoot
         writeTestSettings $root @(@{ name = "旧版2"; path = $source; enabled = $true })
@@ -1131,16 +1210,15 @@ Describe "indexer.ps1（前の版のインデックス）" -Tag Io {
         $legacyTxt = "$root\work\system_index\旧版2\システムインデックス.txt"
         $stream = [System.IO.File]::Open($legacyTxt, "Open", "Read", "None")
         try {
-            runIndexer $root | Should -Be 1
+            runIndexer $root | Should -Be 0
         } finally {
             $stream.Dispose()
         }
-        readTestError | Should -Match "片付けられませんでした"
-        Test-Path -LiteralPath "$root\work\store\content" | Should -Be $false
+        [System.IO.File]::ReadAllText("$root\work\indexing_log.txt") | Should -Match "消せませんでした"
+        [System.IO.File]::Exists("$root\work\store\content\旧版2\content_index.docx.001.tsv") | Should -Be $true
         Test-Path -LiteralPath $legacyTxt | Should -Be $true
 
         runIndexer $root | Should -Be 0
-        [System.IO.File]::Exists("$root\work\store\content\旧版2\content_index.docx.001.tsv") | Should -Be $true
         Test-Path -LiteralPath $legacyTxt | Should -Be $false
     }
 }
@@ -1920,7 +1998,6 @@ Describe "completeIngestJob（取り込みの 1 件の終わり方）" -Tag Io {
 
     BeforeEach {
         Mock writeIndexerLog { }
-        Mock markSystemIndexChanged { return $true }
         Mock publishIndexFolders { return @() }
     }
 
@@ -1935,7 +2012,6 @@ Describe "completeIngestJob（取り込みの 1 件の終わり方）" -Tag Io {
         $row.TSV数 | Should -Be "4"
         $row.抽出版 | Should -Be "7"
         Should -Invoke publishIndexFolders -Times 1 -Exactly -Scope It
-        Should -Invoke markSystemIndexChanged -Times 1 -Exactly -Scope It
         $progress = readIndexingProgress $run.Channel
         $progress.Processed | Should -Be 1
         $progress.Remaining | Should -Be 2
@@ -1952,7 +2028,6 @@ Describe "completeIngestJob（取り込みの 1 件の終わり方）" -Tag Io {
         $row.エラー | Should -Be "壊れている"
         $run.Ledger.Failures.Count | Should -Be 1
         (readIndexingProgress $run.Channel).Failed | Should -Be 1
-        Should -Invoke markSystemIndexChanged -Times 0 -Exactly -Scope It
     }
 
     It "後回し（<Kind>）は、理由を失敗として見せ、前の行の TSV 数・取り込み日時・抽出版を残す。後回しの数に数える。渡していた仕事（Undispatched が偽）だけ、取り込み一覧に「未取り込み」の行を足す" -TestCases @(
@@ -2062,7 +2137,6 @@ Describe "取り込みのジャーナルの復旧と書き出し（flushPendingP
         @{ name = "2 フォルダのうち 1 つの本文インデックスを書けなかった（Skipped）"; fail = "skip"; expectedFailed = @("営業"); expectedJournal = @("出`t開発") }
         @{ name = "書き出しが例外になった（全部が書き出せていない）"; fail = "throw"; expectedFailed = @("営業", "開発"); expectedJournal = @() }
         @{ name = "2 フォルダのうち 1 つを、置き場の外を指すパスで飛ばした（Skipped に出ず、Published にも無い）"; fail = "link"; expectedFailed = @("営業"); expectedJournal = @("出`t開発") }
-        @{ name = "2 フォルダのうち 1 つがシステムインデックスの段で落ちた（本文インデックスは書けているので、Published にあり、「出」を足す）"; fail = "system"; expectedFailed = @(); expectedJournal = @("出`t営業", "出`t開発") }
         @{ name = "Failed を渡さずに呼び、本文インデックスを書けなかった（落ちず、「出」は書けたフォルダにだけ足す）"; fail = "skip"; noList = $true; expectedFailed = @(); expectedJournal = @("出`t開発") }
         @{ name = "Failed を渡さずに呼び、書き出しが例外になった（落ちず、「出」は足さない）"; fail = "throw"; noList = $true; expectedFailed = @(); expectedJournal = @() }
     ) {
@@ -2073,8 +2147,6 @@ Describe "取り込みのジャーナルの復旧と書き出し（flushPendingP
             Mock publishIndexFolders { return @{ Count = 1; Skipped = @(@{ Rel = "営業"; Stage = "本文インデックス"; Reason = "書けない" }); Published = @($pending.Keys | Where-Object { $_ -notlike "*\営業" }) } }
         } elseif ($fail -eq "link") {
             Mock publishIndexFolders { return @{ Count = 1; Skipped = @(); Published = @($pending.Keys | Where-Object { $_ -notlike "*\営業" }) } }
-        } elseif ($fail -eq "system") {
-            Mock publishIndexFolders { return @{ Count = 1; Skipped = @(@{ Rel = "営業"; Stage = "システムインデックス"; Reason = "書けない" }); Published = @($pending.Keys) } }
         } else {
             Mock publishIndexFolders { throw "壊れた" }
         }

@@ -122,11 +122,6 @@ function readTestStatus {
     return (readStatusFile ([Workspace]::new("$root\work")).StatusFile)
 }
 
-function readTestSystemState {
-    param ([string]$root)
-    return (readSystemIndexState "$root\work\system_index_state.tsv")
-}
-
 function readTestError {
     return $script:lastChannel.Error
 }

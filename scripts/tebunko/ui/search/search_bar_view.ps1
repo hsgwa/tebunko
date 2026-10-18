@@ -213,33 +213,6 @@ function getWordNotice {
     return ""
 }
 
-function getFastSearchView {
-    # 検索ワードの下に出す、高速検索（Windows Search で先に絞る）の使用可否。
-    #   available: Windows Search が使えるか（testWindowsSearch）。$null はまだ確かめていない（使えるものとして扱う）
-    # Tip は、印にマウスを置いたときのツールチップ。使えるときは印の意味、使えないときは理由と直し方（どの場合も空にしない）。
-    # GoToIndex は、印を押すとインデックス管理へ移るか。Windows Search が使えないとき（Tip の［インデックス管理で確認］）だけ。
-    # 正規表現・語の長さが理由のときは、検索条件で直せるので移らない
-    # 使えない理由は、上から順に最初に当てはまるもの
-    param (
-        $available,
-        [bool]$useRegex,
-        [string]$word
-    )
-
-    $usable = testFastSearchUsable ($available -ne $false) $useRegex $word
-    $tip = "インデックスを使って速く検索します"
-    if (!$usable) {
-        if ($available -eq $false) {
-            $tip = "検索はできますが時間がかかります　［インデックス管理で確認］"
-        } elseif ($useRegex) {
-            $tip = "正規表現をオフにすると速く検索できます"
-        } else {
-            $tip = "空白で区切った語のどれかが 2 文字以上のときに使えます"
-        }
-    }
-    return @{ Usable = $usable; Text = if ($usable) { "高速検索：使用可" } else { "高速検索：使用不可" }; Tip = $tip; GoToIndex = (!$usable -and $available -eq $false) }
-}
-
 function newSearchButtonState {
     # ［検索］ボタンの文言と、押せるかどうか
     param (
@@ -273,7 +246,7 @@ function getBalloonLeft {
 }
 
 function getConditionFlow {
-    # 検索条件の行（種類・チップ・ファイル内の対象・検索条件・高速検索の印）の折り返しを決める。
+    # 検索条件の行（種類・チップ・ファイル内の対象・検索条件）の折り返しを決める。
     # 項目は左から順に並べ、入りきらなくなったら次の行の左端へ落ちる（後ろの項目から落ちる）。
     # 「伸びる空き」は spacerIndex 番の項目の前に置き、その行の余りを全部取る（右の組を右端に寄せる）。
     # widths は各項目の幅（右の間を含む。出していない項目は 0）。available は並べられる幅（右の間を含む）。

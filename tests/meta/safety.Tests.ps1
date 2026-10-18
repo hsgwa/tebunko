@@ -298,10 +298,9 @@ Describe "危険な処理を使っていないこと（docs/safety/checks.md「�
         ($addType.Count -gt 0) | Should -Be $true
     }
 
-    It "Windows Search への問い合わせは windows_search.ps1 だけで行い、SELECT だけを送る" {
-        # 高速検索（docs/design/search/index.md）は OLE DB の Search.CollatorDSO で読み取るだけ。ほかのファイルからは DB に触らない
-        (@($code | Where-Object { $_.Text -match 'OleDb|CommandText' -and $_.File -ne "windows_search.ps1" } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
-        (@($code | Where-Object { $_.File -eq "windows_search.ps1" -and $_.Text -match '\^\\s\*SELECT' }).Count -gt 0) | Should -Be $true
+    It "Windows Search を使わない（OleDb・CommandText・NotContentIndexed がどこにも無い）" {
+        # 検索は自前の gram 索引で候補を絞る。Windows Search への問い合わせと、インデックスの対象から外す属性の書き込みはしない
+        (@($code | Where-Object { $_.Text -match 'OleDb|CommandText|NotContentIndexed|CollatorDSO' } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
     }
 
     It "レジストリを読み書きしない" {
@@ -831,42 +830,6 @@ set "PSCMD=$root=$env:TEBUNKO_ROOT;x"').Count | Should -Be 0
     It "ドライブ直下・システムフォルダを直接指す書き込み先が無い" {
         (findPattern $code '"[A-Za-z]:\\(Windows|Program Files|Users)') | Should -Be ""
         (findPattern $code 'GetFolderPath\("?(System|Windows|ProgramFiles|Startup)') | Should -Be ""
-    }
-
-    It "content_index を Windows Search の対象から外す属性は、fs.ps1 の setWindowsSearchExcluded だけが書き、呼ぶのは決まった 6 ファイルだけ" {
-        # NotContentIndexed 属性を直接書くのは setWindowsSearchExcluded（fs.ps1）だけ。
-        # 読むだけの testWindowsSearchExcluded（fs.ps1。親フォルダの属性を見て引き継ぐか決める）は除く
-        $writes = @($code | Where-Object { $_.Text -match "NotContentIndexed" -and $_.File -ne "fs.ps1" })
-        (@($writes | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
-        (findPattern $code 'function setWindowsSearchExcluded') | Should -Not -Be ""
-        (findPattern $code 'function testWindowsSearchExcluded') | Should -Not -Be ""
-
-        # testWindowsSearchExcluded を呼ぶのは newWorkerTmpDir（index_migrate.ps1）だけ
-        $testCallers = @($code | Where-Object { $_.Text -match "testWindowsSearchExcluded" -and $_.Text -notmatch "function testWindowsSearchExcluded" })
-        (@($testCallers | ForEach-Object { $_.File } | Sort-Object -Unique) -join ", ") | Should -Be "index_migrate.ps1"
-
-        # 呼ぶのは全体に付ける indexer_run.ps1・取り込みの作業フォルダに付ける index_migrate.ps1・
-        # 入れた直後に付ける index_store.ps1・content_index_store.ps1・source_map.ps1・インポートで入れたフォルダ全体に付ける index_archive.ps1 の 6 ファイルだけ
-        $callers = @($code | Where-Object { $_.Text -match "setWindowsSearchExcluded" -and $_.Text -notmatch "function setWindowsSearchExcluded" })
-        $callerFiles = @($callers | ForEach-Object { $_.File } | Sort-Object -Unique)
-        $callerFiles.Count | Should -Be 6
-        ($callerFiles -contains "indexer_run.ps1") | Should -Be $true
-        ($callerFiles -contains "index_migrate.ps1") | Should -Be $true
-        ($callerFiles -contains "index_store.ps1") | Should -Be $true
-        ($callerFiles -contains "content_index_store.ps1") | Should -Be $true
-        ($callerFiles -contains "source_map.ps1") | Should -Be $true
-        ($callerFiles -contains "index_archive.ps1") | Should -Be $true
-
-        # 渡す引数まで確かめる（indexer_run.ps1 は $workspace.IndexDir、index_migrate.ps1 は取り込みの作業フォルダ（$dir）、
-        # index_store.ps1 は $bookDir、content_index_store.ps1 は $folder、index_archive.ps1 は $targetIndexDir）。
-        # -Recurse で下をたどるのは indexer_run.ps1（content_index 全体）と index_archive.ps1（インポートで入れた 1 つのインデックス。Directory.Move で入るため）だけ（ほかは 1 か所ずつなので要らない）
-        (findPattern $callers 'setWindowsSearchExcluded\s+\$workspace\.StoreDir\s+-Recurse') | Should -Not -Be ""
-        (findPattern $callers 'setWindowsSearchExcluded\s+\$dir\)') | Should -Not -Be ""
-        (findPattern $callers 'setWindowsSearchExcluded\s+\$bookDir\)') | Should -Not -Be ""
-        (findPattern $callers 'setWindowsSearchExcluded\s+\$folder\)') | Should -Not -Be ""
-        (findPattern $callers 'setWindowsSearchExcluded\s+\$targetIndexDir\s+-Recurse') | Should -Not -Be ""
-        $recurseCallers = @($callers | Where-Object { $_.Text -match "-Recurse" } | ForEach-Object { $_.File } | Sort-Object -Unique)
-        ($recurseCallers -join ", ") | Should -Be "index_archive.ps1, indexer_run.ps1"
     }
 
     It "%TEMP% を指す書き方は決めた所だけ（取り込みの作業フォルダはワークスペースの tmp\\の下を使う）" {

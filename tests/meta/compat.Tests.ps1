@@ -46,16 +46,13 @@ Describe "前の版のファイル（compat\index）" -Tag Meta {
                 }
             }
 
-            # sourceFolderFileName・systemIndexFileName
+            # sourceFolderFileName
             if (@(Get-ChildItem -LiteralPath $ws.IndexDir -Recurse -File -Filter ${sourceFolderFileName} -ErrorAction SilentlyContinue).Count -eq 0) {
                 $problems.Add("sourceFolderFileName（${sourceFolderFileName}）が無い")
             }
-            if (@(Get-ChildItem -LiteralPath $ws.SystemIndexDir -Recurse -File -Filter ${systemIndexFileName} -ErrorAction SilentlyContinue).Count -eq 0) {
-                $problems.Add("systemIndexFileName（${systemIndexFileName}）が無い")
-            }
 
-            # Workspace クラスの葉の名前（store\content・system_index・system_index_state.tsv・store\ingest_status.tsv・store\format.tsv）
-            foreach ($leaf in @($ws.IndexDir, $ws.SystemIndexDir, $ws.SystemIndexStateFile, $ws.StatusFile, $ws.FormatFile)) {
+            # Workspace クラスの葉の名前（store\content・store\ingest_status.tsv・store\format.tsv）
+            foreach ($leaf in @($ws.IndexDir, $ws.StatusFile, $ws.FormatFile)) {
                 if (!(Test-Path -LiteralPath $leaf)) {
                     $problems.Add("Workspace の $([System.IO.Path]::GetFileName($leaf)) が無い")
                 }
