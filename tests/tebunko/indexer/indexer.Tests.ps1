@@ -40,6 +40,30 @@ BeforeAll {
         [System.IO.File]::WriteAllText($path, (($lines -join "`r`n") + "`r`n"), (New-Object System.Text.UTF8Encoding($true)))
         return $path
     }
+
+    function assertGramMatchesFullScan {
+        # インデックス name の gram 索引（目録）があり、本文から取った語の検索結果が、gram 索引で絞ったときと全件を照合したときで同じになる
+        param ([string]$root, [string]$name)
+        $index = "$root\work\store\content"
+        $gram = "$root\work\store\gram"
+        [System.IO.File]::Exists("$gram\$name\toc.tsv") | Should -BeTrue
+        (readGramToc "$gram\$name").Segments.Count | Should -BeGreaterThan 0
+        $all = getContentIndexFiles @($index)
+        $compared = 0
+        foreach ($item in @($all.ContentIndexFiles)) {
+            $body = getContentIndexBodyText (readContentIndexText $item.Path)
+            foreach ($word in @(($body -split "\s+") | Where-Object { $_.Length -ge 2 } | Select-Object -First 3)) {
+                $narrowed = getGramContentIndexFiles $word $true @($index) $index $gram
+                $files = @(if ($null -eq $narrowed) { $all.ContentIndexFiles } else { $narrowed.ContentIndexFiles })
+                $viaGram = searchContentIndex $word $files $true 0
+                $full = searchContentIndex $word $all.ContentIndexFiles $true 0
+                (@($viaGram.Hits | ForEach-Object { "$($_.RelPath)|$($_.Book)|$($_.Location)|$($_.LineNumber)" }) -join "`n") | Should -Be (@($full.Hits | ForEach-Object { "$($_.RelPath)|$($_.Book)|$($_.Location)|$($_.LineNumber)" }) -join "`n")
+                $full.Hits.Count | Should -BeGreaterThan 0
+                $compared++
+            }
+        }
+        $compared | Should -BeGreaterThan 0
+    }
 }
 
 Describe "indexer.ps1（続けられないエラー）" -Tag Io {
@@ -184,6 +208,8 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         # ${legacyTmpParent} の差し替えが取り込み中も効いていた（本物の %TEMP%\tebunko を指していない）ことを確かめる
         $global:capturedLegacyTmpParent | Should -Be (Join-Path $root "legacy_tmp")
         Test-Path -LiteralPath (Join-Path "$root\legacy_tmp" "$PID") | Should -Be $false
+        # 検索を絞る gram 索引ができていて、絞った検索の結果が全件を照合した結果と同じになる
+        assertGramMatchesFullScan $root "営業"
         # ワークスペースの直下・content_index\<名前>\ の直下のファイル名はすべて英語にする（再発防止）
         foreach ($entry in @(Get-ChildItem -LiteralPath "$root\work")) {
             $entry.Name | Should -Match "^[\x20-\x7E]+$"
@@ -276,6 +302,7 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         runIndexer $root | Should -Be 0
         (readTestStatus $root).Rows["営業\議事録.docx"].状態 | Should -Be ${stateDone}
         @([IngestJournal]::new("$root\work\store\journal\ingest.tsv").ReadPrevious())[-1] | Should -Be "終"
+        assertGramMatchesFullScan $root "営業"
     }
 
     It "前の版の ingesting.txt（強制終了したファイルの記録）も読んで、最後に回して取り込み、読んだあとは消す" {
@@ -723,6 +750,8 @@ Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
         $after = @((readTestStatus $root).Rows.Values)
         @($after | Where-Object { $_.状態 -eq ${stateNew} }).Count | Should -Be 0
         @($after | Where-Object { $_.状態 -eq ${stateDone} }).Count | Should -BeGreaterThan 1
+        # 止めた回は gram 索引を作らず（検索は全件を照合）、次の回で作る
+        assertGramMatchesFullScan $root "総務"
     }
 
     It "取り込みのスレッドにファイルを渡した直後に中止を求められたら、そのファイルを取り込まず（失敗にせず）未取り込みのまま、すぐ 2 で終わる" {

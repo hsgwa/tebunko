@@ -5,7 +5,7 @@
 
 function getGramContentIndexFiles {
     # 照合する本文インデックスのファイルを、getContentIndexFiles と同じ形（@{ Folders; ContentIndexFiles }）に Gram（@{ Total; Candidates }）を足して返す。
-    # 絞り込みを使えないとき（正規表現・検索語から 2-gram を作れない・gram 索引の置き場が無い）は $null
+    # 絞り込みを使えないとき（正規表現・検索語から 2-gram を作れない・gram 索引の置き場が無い）と、1 つも外せなかったときは $null
     # （呼び出し側が getContentIndexFiles ですべての本文インデックスのファイルを集める）。
     #   simpleMatch: 文字どおりに探すか（正規表現のときは絞れない）
     #   folders    : getContentIndexFiles と同じ（文字列、または @{ Root; RelPath; Recurse }）
@@ -89,6 +89,10 @@ function getGramContentIndexFiles {
         if (!$dropped.Contains([string]$item.Path)) {
             $files.Add($item)
         }
+    }
+    if ($dropped.Count -eq 0) {
+        # 1 つも外せなかった（索引が無い・古い・どのファイルも語を含みうる）。絞れていないので、$null を返し、呼び出し側が Windows Search での絞り込みを試せるようにする
+        return $null
     }
     $index.ContentIndexFiles = $files.ToArray()
     $index.Gram = @{ Total = $all.Count; Candidates = $files.Count }

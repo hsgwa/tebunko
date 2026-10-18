@@ -130,8 +130,8 @@ Describe "gram 索引を作って絞る" -Tag Io {
         [void](updateGramIndexOf $tree.Index $tree.Gram "営業")
         $dir = "$($tree.Gram)\営業"
         & $action $dir
-        # 絞らない = 3 つとも残る
-        (candidateRels "モニター" $tree) -split ";" | Should -HaveCount 3
+        # 絞らない = 1 つも外せないので $null（呼び出し側はすべてを照合する）
+        ($null -eq (candidateRels "モニター" $tree)) | Should -BeTrue
         $again = updateGramIndexOf $tree.Index $tree.Gram "営業"
         $again.Files | Should -Be 3
         candidateRels "モニター" $tree | Should -Be "営業\a\content_index.xlsx.001.tsv"
@@ -154,7 +154,7 @@ Describe "gram 索引を作って絞る" -Tag Io {
         $result = updateGramIndexOf $tree.Index $tree.Gram "営業" { $true }
         $result.Stopped | Should -BeTrue
         readGramToc "$($tree.Gram)\営業" | Should -BeNullOrEmpty
-        (candidateRels "モニター" $tree) -split ";" | Should -HaveCount 3
+        ($null -eq (candidateRels "モニター" $tree)) | Should -BeTrue
     }
 }
 
@@ -201,10 +201,10 @@ Describe "getFileGramValues" -Tag Io {
 }
 
 Describe "特殊な文字でも、全部を照合した結果が絞り込みで漏れない" -Tag Io {
-    It "<word>（大文字小文字の区別: <case>）" -TestCases @(
+    It "<word>（大文字小文字の区別: <case>。expectNull は 2-gram を作れない語）" -TestCases @(
         @{ word = "kb"; case = $false }
         @{ word = "KB"; case = $false }
-        @{ word = "k"; case = $false }
+        @{ word = "k"; case = $false; expectNull = $true }
         @{ word = "kel"; case = $false }
         @{ word = "istanbul"; case = $false }
         @{ word = "ISTANBUL"; case = $false }
@@ -233,9 +233,13 @@ Describe "特殊な文字でも、全部を照合した結果が絞り込みで�
         $files = getContentIndexFiles @($index)
         $full = searchContentIndex $word $files.ContentIndexFiles $true 0 $null $case
         $gram = getGramContentIndexFiles $word $true @($index) $index "$base\gram"
-        if ($null -eq $gram) {
+        if ($expectNull) {
+            # 検索語から 2-gram を作れない（1 文字）ときは絞らない
+            $gram | Should -BeNullOrEmpty
             return
         }
+        # 絞れる語は、必ず絞り込みの結果を求めて全件の照合と比べる（黙って終えない）
+        $gram | Should -Not -BeNullOrEmpty
         $kept = @($gram.ContentIndexFiles | ForEach-Object { $_.RelPath })
         foreach ($rel in @($full.Hits | ForEach-Object { $_.RelPath } | Select-Object -Unique)) {
             $kept | Should -Contain $rel
@@ -245,6 +249,170 @@ Describe "特殊な文字でも、全部を照合した結果が絞り込みで�
     }
 }
 
+Describe "絞り込みと全件の照合で、件数の上限・場所・種類の結果が同じ" -Tag Io {
+    BeforeAll {
+        function script:putPlaces {
+            param ([string]$root, [string]$index, [string]$folder, [string]$bookName, [object[]]$places)
+            $path = "$root\$index\$folder\content_index.xlsx.001.tsv"
+            [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($path)) | Out-Null
+            writeContentIndexFile $path (convertToContentIndexText @(@{ Name = $bookName; Places = $places }))
+        }
+        function script:hitKeys {
+            param ($result)
+            return (@($result.Hits | ForEach-Object { "$($_.RelPath):$($_.Book):$($_.Location):$($_.LineNumber)" }) -join "|")
+        }
+        $script:scopeBase = "$TestDrive\scope"
+        $script:scopeIndex = "$script:scopeBase\index"
+        putPlaces $script:scopeIndex "営業" "a" "A.xlsx" @(@{ Place = "S"; Text = "共通語 いち" })
+        putPlaces $script:scopeIndex "営業" "b" "B.xlsx" @(@{ Place = "S"; Text = "共通語 に" })
+        putPlaces $script:scopeIndex "営業" "c" "C.docx" @(@{ Place = "S"; Text = "共通語 さん" })
+        putPlaces $script:scopeIndex "営業" "d" "D.xlsx" @(@{ Place = "S[図形]"; Text = "共通語 図形だけ" })
+        putPlaces $script:scopeIndex "営業" "e" "E.xlsx" @(@{ Place = "S[コメント]"; Text = "共通語 コメントだけ" })
+        putPlaces $script:scopeIndex "営業" "f" "F.xlsx" @(@{ Place = "S"; Text = "別の本文" })
+        putPlaces $script:scopeIndex "営業" "g" "G.xlsx" @(@{ Place = "S"; Text = "さらに別" })
+        [void](updateGramIndexOf $script:scopeIndex "$script:scopeBase\gram" "営業")
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "上限なし"; limit = 0; filter = ""; shapes = $true; comments = $true }
+        @{ name = "上限で切れる（Truncated）"; limit = 2; filter = ""; shapes = $true; comments = $true }
+        @{ name = "上限がちょうどヒット数（切れない）"; limit = 5; filter = ""; shapes = $true; comments = $true }
+        @{ name = "上限がヒット数より 1 つ少ない（切れる）"; limit = 4; filter = ""; shapes = $true; comments = $true }
+        @{ name = "図形を除く"; limit = 0; filter = ""; shapes = $false; comments = $true }
+        @{ name = "コメントを除く"; limit = 0; filter = ""; shapes = $true; comments = $false }
+        @{ name = "図形もコメントも除く"; limit = 0; filter = ""; shapes = $false; comments = $false }
+        @{ name = "ファイルの種類（.docx だけ）"; limit = 0; filter = "*.docx"; shapes = $true; comments = $true }
+        @{ name = "ファイルの種類（.xlsx で A を除く）"; limit = 0; filter = "*.xlsx;!A*"; shapes = $true; comments = $true }
+    ) {
+        $files = getContentIndexFiles @($script:scopeIndex)
+        $full = searchContentIndex "共通語" $files.ContentIndexFiles $true $limit -fileFilter $filter -includeShapes $shapes -includeComments $comments
+        $gram = getGramContentIndexFiles "共通語" $true @($script:scopeIndex) $script:scopeIndex "$script:scopeBase\gram"
+        $gram | Should -Not -BeNullOrEmpty
+        @($gram.ContentIndexFiles).Count | Should -BeLessThan @($files.ContentIndexFiles).Count
+        $narrow = searchContentIndex "共通語" $gram.ContentIndexFiles $true $limit -fileFilter $filter -includeShapes $shapes -includeComments $comments
+        hitKeys $narrow | Should -Be (hitKeys $full)
+        $narrow.Truncated | Should -Be $full.Truncated
+        $narrow.Cancelled | Should -Be $full.Cancelled
+    }
+}
+
+Describe "getFilesGramValues（スレッドに分けて数える）" -Tag Io {
+    BeforeAll {
+        function script:newManyItems {
+            param ([string]$base)
+            $index = "$base\index"
+            for ($i = 0; $i -lt 6; $i++) {
+                putContentIndex $index "営業" "n$i" "N$i.xlsx" "本文 $i 番目の帳票 モニター$i" | Out-Null
+            }
+            return @(findContentIndexFiles $index "営業" $true)
+        }
+    }
+
+    It "スレッドの数を 2 にして作業を分けても、1 つずつ数えたときと同じ値になる" {
+        $items = newManyItems "$TestDrive\w1"
+        ${gramTaskFiles} = 2
+        $single = getFilesGramValues $items 1
+        $pooled = getFilesGramValues $items 2
+        $pooled.Count | Should -Be $items.Count
+        for ($i = 0; $i -lt $items.Count; $i++) {
+            $pooled[$i] | Should -Not -BeNullOrEmpty
+            ($pooled[$i] -join ",") | Should -Be ($single[$i] -join ",")
+        }
+    }
+
+    It "スレッドに分けた数え方も、止めるよう言われたら数えずに `$null を返す" {
+        $items = newManyItems "$TestDrive\w2"
+        ${gramTaskFiles} = 2
+        $stopped = getFilesGramValues $items 2 { $true }
+        @($stopped | Where-Object { $null -ne $_ }).Count | Should -Be 0
+    }
+
+    It "更新日時が違うファイルは、スレッドに分けても `$null になる" {
+        $items = newManyItems "$TestDrive\w3"
+        ${gramTaskFiles} = 2
+        $items[3] = @{ Path = $items[3].Path; Ticks = $items[3].Ticks + 1; Size = $items[3].Size }
+        $pooled = getFilesGramValues $items 2
+        $pooled[3] | Should -BeNullOrEmpty
+        $pooled[2] | Should -Not -BeNullOrEmpty
+    }
+}
+Describe "検索のあいだに索引が書き換わっても、結果は漏れない（正しい絞り込みか、絞らない）" -Tag Io {
+    BeforeAll {
+        function script:grow {
+            # 区画を足し続け、まとめ直しと外した区画の削除まで進める
+            param ($tree)
+            for ($i = 0; $i -lt 12; $i++) {
+                putContentIndex $tree.Index "営業" "g$i" "G$i.xlsx" "追加の本文 $i" | Out-Null
+                [void](updateGramIndexOf $tree.Index $tree.Gram "営業")
+            }
+        }
+
+        function script:assertNoMiss {
+            # 絞らない（$null）か、モニターを含むファイルがすべて残っている
+            param ($tree)
+            $kept = candidateRels "モニター" $tree
+            if ($null -ne $kept) {
+                ($kept -split ";") | Should -Contain "営業\a\content_index.xlsx.001.tsv"
+            }
+        }
+    }
+
+    It "検索が区画を開いたまま、足す・まとめ直す・外した区画を消すが進んでも、開いた区画から同じ候補を読める" {
+        $tree = newGramTree "$TestDrive\cc1"
+        [void](updateGramIndexOf $tree.Index $tree.Gram "営業")
+        $dir = "$($tree.Gram)\営業"
+        $toc = readGramToc $dir
+        $held = New-Object System.Collections.Generic.List[object]
+        foreach ($entry in $toc.Segments) {
+            $held.Add((openGramSegment "$dir\$($entry.Name)" $entry.Length))
+        }
+        try {
+            { grow $tree } | Should -Not -Throw
+            foreach ($segment in $held) {
+                $segment | Should -Not -BeNullOrEmpty
+                $segment.Stream.CanRead | Should -BeTrue
+                $segment.Names.Count | Should -BeGreaterThan 0
+            }
+            assertNoMiss $tree
+        } finally {
+            closeGramSegments $held.ToArray()
+        }
+    }
+
+    It "目録を読んだあとで区画が消えても（古い目録のまま）、例外にならず、絞らないか漏れない" {
+        $tree = newGramTree "$TestDrive\cc2"
+        [void](updateGramIndexOf $tree.Index $tree.Gram "営業")
+        $stale = readGramToc "$($tree.Gram)\営業"
+        grow $tree
+        # 読んだ時点の目録が、そのあと消えた区画を指す
+        Mock readGramToc { $stale }
+        { candidateRels "モニター" $tree } | Should -Not -Throw
+        $kept = candidateRels "モニター" $tree
+        if ($null -ne $kept) {
+            ($kept -split ";") | Should -Contain "営業\a\content_index.xlsx.001.tsv"
+        }
+    }
+
+    It "検索の途中で目録が入れ替わっても（区画を開いたあと）、例外にならず、漏れない" {
+        $tree = newGramTree "$TestDrive\cc3"
+        [void](updateGramIndexOf $tree.Index $tree.Gram "営業")
+        $script:swapTree = $tree
+        # 区画を開いたあとに、索引の書き換え（足す・まとめ直す）が入る
+        $real = ${function:openGramSegment}
+        Mock openGramSegment {
+            $segment = & $real @PSBoundParameters
+            if (!$script:swapped) {
+                $script:swapped = $true
+                grow $script:swapTree
+            }
+            return $segment
+        }
+        $script:swapped = $false
+        { candidateRels "モニター" $tree } | Should -Not -Throw
+        $script:swapped | Should -BeTrue
+        assertNoMiss $tree
+    }
+}
 Describe "前の版の gram 索引（tests\testdata\compat\gram\v1）が今のコードで読める" -Tag Io {
     It "目録と区画を読み、検索語の候補を求められる（この見本は変えない・消さない。形を変えるなら新しい見本を足す）" -TestCases @(
         @{ word = "モニター"; expected = "営業\a\content_index.xlsx.001.tsv" }

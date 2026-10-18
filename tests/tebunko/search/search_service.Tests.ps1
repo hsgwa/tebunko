@@ -371,3 +371,48 @@ Describe "invokeSearchRequest（高速検索）" -Tag Io {
         Should -Invoke getFastSearchContentIndexFiles -Times 1 -Exactly
     }
 }
+
+Describe "invokeSearchRequest（gram 索引）" -Tag Io {
+    BeforeAll {
+        $tsvRoot = Join-Path $TestDrive "gram_tsv"
+        newTsv "$tsvRoot\A社.xlsx\Sheet1.tsv" @("単価`t105")
+        newTsv "$tsvRoot\B社.xlsx\Sheet1.tsv" @("別の本文")
+        $contentIndexRoot = Join-Path $TestDrive "gram_content_index"
+        $contentIndexFiles = newContentIndexFiles $tsvRoot $contentIndexRoot
+    }
+
+    It "gram 索引で絞れたら GramUsed が立ち、Windows Search には頼らず、絞った分だけを照合する" {
+        $narrowed = @{ Folders = @(); ContentIndexFiles = @($contentIndexFiles | Select-Object -First 1) }
+        Mock getGramContentIndexFiles { $narrowed }
+        Mock testWindowsSearch { $true }
+        Mock getFastSearchContentIndexFiles { throw "呼ばれないはず" }
+        $request = newSearchRequest "単価" $true @($contentIndexRoot) 0 @{} $true
+        invokeSearchRequest $request
+        $request.Error | Should -BeNullOrEmpty
+        $request.GramUsed | Should -Be $true
+        $request.FastUsed | Should -Be $false
+        $request.Total | Should -Be 1
+        Should -Invoke getFastSearchContentIndexFiles -Times 0 -Exactly
+    }
+
+    It "gram 索引で絞れなかったら、Windows Search が使えれば高速検索に回る（GramUsed は立たない）" {
+        Mock getGramContentIndexFiles { $null }
+        Mock testWindowsSearch { $true }
+        Mock getFastSearchContentIndexFiles { @{ Folders = @(); ContentIndexFiles = @($contentIndexFiles) } }
+        $request = newSearchRequest "単価" $true @($contentIndexRoot) 0 @{} $true
+        invokeSearchRequest $request
+        $request.GramUsed | Should -Be $false
+        $request.FastUsed | Should -Be $true
+        Should -Invoke getFastSearchContentIndexFiles -Times 1 -Exactly
+    }
+
+    It "どちらも使えなければ、すべてを照合する（GramUsed も FastUsed も立たない）" {
+        Mock getGramContentIndexFiles { $null }
+        $request = newSearchRequest "単価" $true @($contentIndexRoot) 0 @{} $false
+        invokeSearchRequest $request
+        $request.GramUsed | Should -Be $false
+        $request.FastUsed | Should -Be $false
+        $request.Total | Should -Be @($contentIndexFiles).Count
+        (takeHits $request).Count | Should -Be 1
+    }
+}

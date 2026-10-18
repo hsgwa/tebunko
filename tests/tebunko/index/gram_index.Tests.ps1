@@ -189,6 +189,9 @@ Describe "区切りとまとめ直し" -Tag Unit {
         @{ name = "区画が上限以下ならまとめない"; count = 8; postings = 10; limit = 100; expected = $false }
         @{ name = "上限を超え、まとめると減るならまとめる"; count = 9; postings = 10; limit = 100; expected = $true }
         @{ name = "まとめても同じ数に分かれるならまとめない"; count = 9; postings = 900; limit = 100; expected = $false }
+        @{ name = "まとめたあとの数が 8 以上でも、上限の分を超えるまでは次の 1 本でまとめない"; count = 15; postings = 800; limit = 100; expected = $false }
+        @{ name = "まとめたあとの数が 8 以上で、上限の分だけ増えたらまとめる"; count = 16; postings = 800; limit = 100; expected = $true }
+        @{ name = "まとめたあとの数が 1 のとき、9 本でまとめる"; count = 9; postings = 100; limit = 100; expected = $true }
     ) {
         testGramMergeNeeded $count $postings $limit | Should -Be $expected
     }

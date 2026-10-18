@@ -323,7 +323,8 @@ function splitGramBatches {
 }
 
 function testGramMergeNeeded {
-    # 区画をまとめ直すか: 区画の数が上限を超え、まとめると区画の数が減るとき（組が多すぎて、まとめても同じ数に分かれるなら、毎回作り直さない）
+    # 区画をまとめ直すか: まとめたあとの区画の数（組の数 / limit の切り上げ）より、区画が上限の分以上に多いとき。
+    # 組が多くて、まとめたあとの数が上限以上になる場合も、まとめた直後に毎回まとめ直さないよう、まとめたあとの数を基準にする
     param (
         [int]$segmentCount,
         [long]$totalPostings,
@@ -334,5 +335,5 @@ function testGramMergeNeeded {
         return $false
     }
     $after = [Math]::Max(1, [int][Math]::Ceiling($totalPostings / $limit))
-    return ($after -lt $segmentCount)
+    return ($segmentCount -ge $after + ${gramSegmentLimit})
 }

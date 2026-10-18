@@ -28,7 +28,6 @@
 . ([WildcardPattern]::Escape("$PSScriptRoot\indexer\indexing_session.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\search\search_query.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\search\search_gram.ps1".Replace('`', '``')))
-
 . ([WildcardPattern]::Escape("$PSScriptRoot\search\windows_search.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\search\fast_search.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\search\gram_search.ps1".Replace('`', '``')))

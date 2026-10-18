@@ -570,6 +570,11 @@ Describe "IndexCatalog 5 つの保存先（targetFolders・取り込み一覧・
             [pscustomobject]@{ Path = "$($script:dir)\営業\2024"; Subfolders = $true },
             [pscustomobject]@{ Path = "$($script:dir)\営業部\2024"; Subfolders = $true }) $script:ws.Settings
         [void](updateSystemIndexes $script:dir "$($script:ws.Dir)\system_index" "$($script:ws.Dir)\system_index_state.tsv" { $false })
+        # gram 索引（インデックス名ごとのフォルダ）
+        foreach ($name in @("営業", "営業部")) {
+            [System.IO.Directory]::CreateDirectory("$($script:ws.Dir)\store\gram\$name") | Out-Null
+            [System.IO.File]::WriteAllText("$($script:ws.Dir)\store\gram\$name\toc.tsv", "tebunko-gram 1`r`nnext 1`r`n")
+        }
     }
 
     It "名前を変えると 5 つとも新しい名前になり、頭が同じ別のインデックスはそのまま残る" {
@@ -598,6 +603,9 @@ Describe "IndexCatalog 5 つの保存先（targetFolders・取り込み一覧・
         # 5. system_index（旧名の分は消え、営業部の分は残る）
         [System.IO.Directory]::Exists("$($script:ws.Dir)\system_index\営業") | Should -Be $false
         [System.IO.Directory]::Exists("$($script:ws.Dir)\system_index\営業部") | Should -Be $true
+        # 6. gram 索引（旧名の分は消え、営業部の分は残る）
+        [System.IO.Directory]::Exists("$($script:ws.Dir)\store\gram\営業") | Should -Be $false
+        [System.IO.Directory]::Exists("$($script:ws.Dir)\store\gram\営業部") | Should -Be $true
     }
 
     It "削除すると 5 つとも消え、頭が同じ別のインデックスはそのまま残る" {
@@ -617,6 +625,8 @@ Describe "IndexCatalog 5 つの保存先（targetFolders・取り込み一覧・
         @(readSearchExcludes $script:ws.Settings | ForEach-Object { $_.Path }) | Should -Be @("$($script:dir)\営業部\2024")
         [System.IO.Directory]::Exists("$($script:ws.Dir)\system_index\営業") | Should -Be $false
         [System.IO.Directory]::Exists("$($script:ws.Dir)\system_index\営業部") | Should -Be $true
+        [System.IO.Directory]::Exists("$($script:ws.Dir)\store\gram\営業") | Should -Be $false
+        [System.IO.Directory]::Exists("$($script:ws.Dir)\store\gram\営業部") | Should -Be $true
     }
 }
 

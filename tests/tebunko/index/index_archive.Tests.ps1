@@ -489,9 +489,15 @@ Describe "importIndex" -Tag Io {
         # 前のシステムインデックス（営業の txt と、対応済みの記録）
         [void](updateSystemIndexes $wsB.IndexDir $wsB.SystemIndexDir $wsB.SystemIndexStateFile { $false })
         Test-Path -LiteralPath (Join-Path $wsB.SystemIndexDir "営業") | Should -Be $true
+        # 前の gram 索引（営業と、頭が同じ別のインデックス）
+        [System.IO.Directory]::CreateDirectory("$($wsB.GramDir)\営業") | Out-Null
+        [System.IO.File]::WriteAllText("$($wsB.GramDir)\営業\toc.tsv", "tebunko-gram 1`r`nnext 1`r`n")
+        [System.IO.Directory]::CreateDirectory("$($wsB.GramDir)\営業部") | Out-Null
 
         importIndex $dest ${importCollisionOverwrite} "" "C:\新しい場所" $wsB $fixtureB.SettingsPath | Out-Null
 
+        [System.IO.Directory]::Exists("$($wsB.GramDir)\営業") | Should -Be $false
+        [System.IO.Directory]::Exists("$($wsB.GramDir)\営業部") | Should -Be $true
         (readStatusFile $wsB.StatusFile).Rows.ContainsKey("営業\前の資料\旧.xlsx") | Should -Be $false
         (readStatusFile $wsB.StatusFile).Rows.ContainsKey("営業\見積\A社.xlsx") | Should -Be $true
         Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業\前の資料") | Should -Be $false
