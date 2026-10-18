@@ -27,9 +27,10 @@ class Workspace {
     [string]$PublishDir
     # 取り込み一覧・出力（自動生成）
     [string]$StatusFile
+    # 取り込みのジャーナル（どの仕事を始め・どのフォルダを書き出したかの追記ログ。強制終了からの復旧に使う。store\journal\。ingest_journal.ps1）
+    [string]$JournalFile
     # 本文インデックスから外し終えていない、無くなった元のファイルの記録（書き出しを飛ばした・落ちた・強制終了した回の次の回に外し直す）
     [string]$PendingRemoveFile
-    [string]$IngestingFile  # 取り込み中のファイル。強制終了で残っていれば、そのファイルの取り込み中に止まった
     [string]$ResultFile
     # インデックス作成の記録。画面とインデクサの受け渡しはメモリ上で行う（indexer_state.ps1 の newIndexerChannel）
     [string]$IndexingLogFile  # インデクサの表示内容の記録（実行ごとに上書き）
@@ -55,8 +56,8 @@ class Workspace {
         $this.SystemIndexStateFile = "$dir\system_index_state.tsv"
         $this.PublishDir = "$dir\publish\$([System.Diagnostics.Process]::GetCurrentProcess().Id)"
         $this.StatusFile = "$dir\store\ingest_status.tsv"
+        $this.JournalFile = "$dir\store\journal\ingest.tsv"
         $this.PendingRemoveFile = "$dir\store\pending_remove.tsv"
-        $this.IngestingFile = "$dir\ingesting.txt"
         $this.ResultFile = "$dir\search_results.txt"
         $this.IndexingLogFile = "$dir\indexing_log.txt"
         $this.GuiErrorLogFile = "$dir\gui_error_log.txt"
@@ -68,10 +69,12 @@ class Workspace {
 
     # ワークスペースを移すときに移すもの（tebunko が作るファイル・フォルダ）。利用者のほかのファイルは含めない。
     # 取り込みの出力（publish）はプロセスごとのフォルダ（PublishDir）の親を移す。
-    # StoreDir の中（IndexDir・StatusFile・FormatFile）は StoreDir ごと移す。
+    # StoreDir の中（IndexDir・StatusFile・FormatFile・JournalFile）は StoreDir ごと移す。
     # OldIndexDir・OldStatusFile・LegacyIndexDir は、あれば前の版のワークスペースとして tebunko のものと扱う（あるものだけが WorkspaceMover.ListEntries で拾われる）
+    # 前の版の取り込み中のファイルの記録（ワークスペース直下の ingesting.txt）は含めない。新しい版は始めに 1 度だけ読んで消す一時的な跡で、
+    # 移すときに残っても取り込み直しが増えるだけ（取り込み一覧が前回のままなので、止まったファイルは更新ありのまま次の回で取り込まれる）
     [string[]] Entries() {
-        return @($this.StoreDir, $this.OldIndexDir, $this.OldStatusFile, $this.LegacyIndexDir, $this.SystemIndexDir, $this.SystemIndexStateFile, $this.IngestingFile,
+        return @($this.StoreDir, $this.OldIndexDir, $this.OldStatusFile, $this.LegacyIndexDir, $this.SystemIndexDir, $this.SystemIndexStateFile,
             $this.ResultFile, $this.IndexingLogFile, $this.GuiErrorLogFile,
             $this.IndexingLogPreviousFile, $this.GuiErrorLogPreviousFile, [System.IO.Path]::GetDirectoryName($this.PublishDir), $this.TmpRoot, $this.OfficePidRoot)
     }

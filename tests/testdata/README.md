@@ -312,7 +312,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests\testdata\text\make_tes
 | `file_times.tsv` | `source\` の各ファイルの更新日時（秒まで・タイムゾーンなしの Ticks）と、`ws\` の `content_index\`・`system_index\` の各ファイルの更新日時（UTC の Ticks）。git は取り出すときにファイルの更新日時を今の日時にしてしまうため、テストがこの値で書き戻す。`ws\` の分は、システムインデックスを作り直すかの判定（`content_index` の TSV と `system_index.txt` の更新日時の前後、`system_index_state.tsv` の「反映待ち」に書いた更新日時）を再現するのに要る |
 | `expected.json` | インデックス名・取り込み一覧の行・検索語ごとのヒットという、見本に対する期待（手で書く。中身は日本語のまま） |
 
-`ws\`・`export.zip` には `tmp\`・`publish\`・`ingesting.txt`・`indexing_log.txt`・`gui_error_log.txt`・`search_results.txt`・`setting.config` を含めない（取り込み中・画面の動作ログで、前の版との互換の確かめには要らないため）。
+`ws\`・`export.zip` には `tmp\`・`publish\`・`store\journal\`・`indexing_log.txt`・`gui_error_log.txt`・`search_results.txt`・`setting.config` を含めない（取り込み中・画面の動作ログで、前の版との互換の確かめには要らないため）。
 
 **作り方**（`tools\make_index_golden.ps1`）:
 
