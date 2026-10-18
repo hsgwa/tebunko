@@ -114,9 +114,8 @@ flowchart TD
         index["index/"]
         core["core/"]
     end
-    core -.->|"updateSystemIndexState（1）"| index
     index -.->|"gram・情報源フォルダ・truncateHitLine（5）"| search
-    indexer -.->|"systemIndexFileName・writeSourceFolderFile（2）"| search
+    indexer -.->|"writeSourceFolderFile（1）"| search
 ```
 
 共通の値を作る場所は、読む側より下の層に置く。`$workspace` は状態層の `tebunko/core/paths.ps1`（`initWorkspace`・`setCallerWorkspace`）だけが作り、画面層（`switchWorkspace`）は `initWorkspace` を呼んで作り直す。`shared/` が使うツール側の値は、ツール側が登録する（エラーの記録先と見出しは `setGuiErrorLogSource`、仕事の列は `setBackgroundQueue`・`setNetworkQueueFactory`、画面の標題は `setShellTitle`、ステータスの文の出し先は `setStatusSink`、ミューテックスの名前の先頭は `newAppMutex` の引数）。

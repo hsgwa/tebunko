@@ -134,7 +134,11 @@ function captureGuiState {
     }
     # 大きさが決まっても、前の窓の絵がまだ残って見えることがある（確認が続けて出るときなど）。強制的に描き直させて少し待つ
     foreach ($w in $windows) { redrawGuiWindow $w }
-    Start-Sleep -Milliseconds 300
+    # マウスの矢印が窓の上に残っていると、その下の部品のツールヒント（吹き出し）が出て、検索対象の木などを隠したまま撮れる。
+    # 矢印を画面の右下の隅（窓の外）へ逃がし、出ている吹き出しが消えるのを待つ
+    $screen = [Windows.Forms.Screen]::PrimaryScreen.Bounds
+    [Windows.Forms.Cursor]::Position = New-Object Drawing.Point(($screen.Right - 1), ($screen.Bottom - 1))
+    Start-Sleep -Milliseconds 800
     # 窓そのものの範囲はネイティブの GetWindowRect（UI オートメーションの BoundingRectangle は、描画前の窓で 0 x 0 になることがある）
     $rects = @($windows | ForEach-Object { getGuiWindowRect $_ })
     # Measure-Object の Maximum・Minimum は [double] で返るため、大きさは必ず [int] に直す
@@ -563,6 +567,15 @@ function captureSearchScene {
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($missing)
         clickGuiByName $S $missing "キャンセル"
         waitGuiWindowClosed $S $missing "見つからない確認"
+
+        # 見つからない確認のあと、ステータスバーに「元のファイルが見つかりません：<パス>」が残る。検索し直して消してから撮る
+        setGuiStep $S "検索し直してステータスを戻す"
+        & $search "単価"
+        waitGui $S "ステータスが検索の結果に戻る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "StatusText")) -like "検索しました：単価*" } | Out-Null
+        clickGui $S $S.Window "ExpandAllButton" "［すべて開く］"
+        waitGui $S "結果の行が戻る" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 2 } | Out-Null
+        selectGui (@(& $hitRows) | Select-Object -Last 1)
+        waitGuiEnabled $S (findGui $S.Window -Id "OpenButton") "［開く］"
 
         setGuiStep $S "最小の大きさ"
         resizeGuiWindow $S 1024 640

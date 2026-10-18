@@ -14,7 +14,6 @@ BeforeAll {
     # 裏の仕事は、その場で（同じスレッドで）流し、終わりの処理を呼ぶ
     function startJob {
         param ([scriptblock]$scriptBlock, [object[]]$arguments, [scriptblock]$onDone, [string]$queue = "default")
-        $global:jobQueues.Add($queue)
         $output = $null
         $errorText = $null
         try { $output = @(& $scriptBlock @arguments) } catch { $errorText = $_.Exception.Message }
@@ -32,7 +31,6 @@ BeforeAll {
 
 Describe "起動時の前の版のシステムインデックスの片付け" -Tag Io {
     BeforeEach {
-        $global:jobQueues = New-Object System.Collections.Generic.List[string]
         $global:errorLogs = New-Object System.Collections.Generic.List[string]
         $script:workspace = [Workspace]::new("$TestDrive\ws")
         New-Item -ItemType Directory -Path (Join-Path $script:workspace.OldSystemIndexDir "旧") -Force | Out-Null
@@ -40,7 +38,7 @@ Describe "起動時の前の版のシステムインデックスの片付け" -T
         Set-Content -LiteralPath $script:workspace.OldSystemIndexStateFile -Value "旧" -Encoding UTF8
     }
     AfterAll {
-        Remove-Variable -Name jobQueues, errorLogs -Scope Global -ErrorAction SilentlyContinue
+        Remove-Variable -Name errorLogs -Scope Global -ErrorAction SilentlyContinue
     }
 
     It "起動時の読み込み（loadStartupData）が、裏の仕事で system_index と状態ファイルを消す" {
@@ -54,8 +52,18 @@ Describe "起動時の前の版のシステムインデックスの片付け" -T
         Mock removeOldSystemIndex { return @{ Ok = $true; Reason = "" } }
         Mock startJob { }
         startOldSystemIndexRemoval
-        Should -Invoke startJob -Times 1 -Exactly
+        Should -Invoke startJob -Times 1 -Exactly -ParameterFilter { $scriptBlock.ToString() -match 'removeOldSystemIndex' }
         Should -Invoke removeOldSystemIndex -Times 0 -Exactly
+    }
+
+    It "消す仕事が <name> ときも例外にせず、理由を画面エラーの記録に残す" -TestCases @(
+        @{ name = "失敗を返した"; behavior = { return @{ Ok = $false; Reason = "使用中です" } }; expected = "*使用中です*" }
+        @{ name = "例外で終わった"; behavior = { throw "仕事が落ちました" }; expected = "*仕事が落ちました*" }
+    ) {
+        Mock removeOldSystemIndex $behavior
+        { startOldSystemIndexRemoval } | Should -Not -Throw
+        @($global:errorLogs).Count | Should -Be 1
+        $global:errorLogs[0] | Should -BeLike $expected
     }
 
     It "消せなくても例外にせず、画面エラーの記録に 1 行残す" {

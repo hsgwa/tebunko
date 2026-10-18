@@ -96,7 +96,7 @@ flowchart LR
     W["Workspace（Dir）"] --> IX["IndexDir<br>Dir\store\content"]
     W --> LI["LegacyIndexDir<br>Dir\index（前の版。読まず消さない）"]
     W --> GR["GramDir<br>Dir\store\gram"]
-    W --> SI["OldSystemIndexDir<br>Dir\system_index（前の版。インデックス作成の始めに消す）"]
+    W --> SI["OldSystemIndexDir<br>Dir\system_index（前の版。起動・インデックスの作成と更新の始め・インポートのときに消す）"]
     W --> SS["OldSystemIndexStateFile<br>Dir\system_index_state.tsv"]
     W --> PB["PublishDir<br>Dir\publish\<PID>"]
     W --> ST["StatusFile<br>Dir\store\ingest_status.tsv"]

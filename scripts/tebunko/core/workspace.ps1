@@ -224,9 +224,9 @@ function getLegacyIndexState {
 
 function removeOldSystemIndex {
     # 前の版が作ったシステムインデックス（system_index\ と system_index_state.tsv）を消す: @{ Ok; Reason（失敗のときだけ） }
-    # 新しい版は使わないため、インデックス作成の始めに毎回呼ぶ（無ければ何もしない）。
+    # 新しい版は使わないため、画面の起動（裏の仕事）・インデックスの作成と更新の始め・インポートの登録前の 3 か所から呼ぶ（無ければ何もしない）。
     # ワークスペース（dir）の下で、途中にリンクが無いことを確かめてから消す（removeDirectoryUnder・removeFileUnder）。
-    # 消せなくても例外にせず Ok = $false を返す（呼ぶ側はログに 1 行残して続ける。次の回にもう一度消す）
+    # 消せなくても例外にせず Ok = $false を返す（記録先は呼ぶ側が決める: 起動は画面エラーの記録・作成と更新はログ・インポートは警告。残して続け、次の機会にもう一度消す）
     param (
         [string]$dir
     )
