@@ -564,8 +564,6 @@
       
         
       
-        
-      
     
     
     
@@ -682,34 +680,6 @@
     
   
     元のファイルを開く
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../guide/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索
   
 
     
@@ -2560,14 +2530,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../index-data/system-index/" class="md-nav__link">
+      <a href="../../index-data/gram-index/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    システムインデックス
+    gram 索引
   
 
     
@@ -2600,8 +2570,6 @@
       
         
           
-        
-      
         
       
         
@@ -2680,34 +2648,6 @@
     
   
     検索を速くする仕組み
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../search/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索（Windows Search）
   
 
     
@@ -4303,7 +4243,7 @@
 <td>インデックス作成 1 回</td>
 <td>MTA</td>
 <td>BelowNormal</td>
-<td>クロール・確認・取り込みの振り分け・取り込み一覧・本文インデックスとシステムインデックスの書き出し</td>
+<td>クロール・確認・取り込みの振り分け・取り込み一覧・本文インデックスの書き出し・2-gram の索引の更新</td>
 </tr>
 <tr>
 <td>取り込み</td>
@@ -4322,12 +4262,12 @@
 <td>自分の取り込みスレッドの制限時間を見て、過ぎたらそのスレッドが起動した Office だけを PID で止める（Office を持たないワーカーは止める相手が無く、<code>TimedOut</code> を記録するだけ）。ただし、取り込み中に窓が見えた（利用者が使っている）PowerPoint は止めず、そのワーカーを諦めたと司令に伝える（ワーカーの状態 <code>Abandoned</code>）</td>
 </tr>
 <tr>
-<td>システムインデックスのプール</td>
+<td>2-gram の索引のプール</td>
 <td>最大 4</td>
 <td>インデックス作成 1 回</td>
 <td>MTA</td>
 <td>BelowNormal</td>
-<td>フォルダごとのシステムインデックスを作る（<code>WorkerPool</code>）</td>
+<td>本文インデックスのファイルごとの 2-gram の値を作る（<code>WorkerPool</code>）</td>
 </tr>
 </tbody>
 </table>
@@ -4375,7 +4315,7 @@
 <td>インデックス作成 1 回</td>
 <td>［すべて更新］</td>
 <td>完了・中止・エラー</td>
-<td>インデクサの司令・取り込み・監視・システムインデックスのプール・Office</td>
+<td>インデクサの司令・取り込み・監視・2-gram の索引のプール・Office</td>
 </tr>
 <tr>
 <td>検索の要求 1 回</td>

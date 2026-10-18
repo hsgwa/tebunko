@@ -564,8 +564,6 @@
       
         
       
-        
-      
     
     
     
@@ -682,34 +680,6 @@
     
   
     元のファイルを開く
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../guide/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索
   
 
     
@@ -2599,14 +2569,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../index-data/system-index/" class="md-nav__link">
+      <a href="../../index-data/gram-index/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    システムインデックス
+    gram 索引
   
 
     
@@ -2639,8 +2609,6 @@
       
         
           
-        
-      
         
       
         
@@ -2719,34 +2687,6 @@
     
   
     検索を速くする仕組み
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../search/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索（Windows Search）
   
 
     
@@ -4359,11 +4299,11 @@
 <p><code>tebunko/indexer/extract_text.ps1</code> の <code>extractTextFile</code> は、元のファイルに影響を出さないため、元を作業領域の <code>source.copy</code>（<code>.tsv</code> にならない固定の名前。消せずに残っても TSV として公開されない）に <code>copyFileShared</code>（読み取りだけ・<code>FileShare.ReadWrite | Delete</code>）でコピーし、コピーを <code>shared/core/text_file.ps1</code> の <code>readTextFile</code>（ファイルを開いて読む状態層の関数）で読み、TSV を書く前にコピーを消す（<code>finally</code>。消せなかったときは黙らず取り込みの失敗にする。作業領域の中身は本文インデックスに回るため、コピーを残さない）。強制終了で残ったコピーは、次のファイルの前と次のインデックス作成の始めに作業フォルダごと片付けられる。排他で開かれたファイルはコピーできず、取り込みの失敗になる。大きさの上限は、コピーの前に元の大きさで確かめる（コピーを読むときの確かめは、コピー中に大きくなった場合の保険）。書きかけのファイルをコピーしたときの中身は、直接読む場合と同じ。<code>readTextFile</code> が返す行の並びを、<code>tebunko/indexer/extract_text.ps1</code> の <code>extractTextFile</code> が場所「本文」の TSV 1 つに書き出す（<code>writeUnits</code> と違い、途中の空の行を捨てない）。取り込み（<code>ingestFile</code>。<code>tebunko/indexer/extract_office.ps1</code>）は、対象の拡張子ならここに回し、Office を使わずに読む仕事で取り込む（<a href="../parallel/">取り込みの並列化</a>）。</p>
 <p>本文インデックスへは、今の形式（版 1）のまま、種類 <code>テキスト</code>・場所 1 つ（部分 = 本文・対象 = 本文）で入る（<a href="../../index-data/format/">本文インデックスの形式</a>）。</p>
 <h2 id="tebunko-が作ったファイルの除外">tebunko が作ったファイルの除外<a class="headerlink" href="#tebunko-が作ったファイルの除外" title="Permanent link">&para;</a></h2>
-<p><code>.tsv</code> <code>.txt</code> などを取り込み対象にすると、tebunko 自身が作るファイル（本文インデックス・システムインデックス・取り込み一覧・ログ・検索結果ファイル）まで取り込んでしまい、すべての語が二重にヒットする。<code>findTargetFiles</code>（<code>tebunko/indexer/indexer_plan.ps1</code>）は、クロール対象の拡張子で列挙した後、次のいずれかに当たるファイルを除く。</p>
+<p><code>.tsv</code> <code>.txt</code> などを取り込み対象にすると、tebunko 自身が作るファイル（本文インデックス・取り込み一覧・ログ・検索結果ファイル）まで取り込んでしまい、すべての語が二重にヒットする。<code>findTargetFiles</code>（<code>tebunko/indexer/indexer_plan.ps1</code>）は、クロール対象の拡張子で列挙した後、次のいずれかに当たるファイルを除く。</p>
 <ol>
-<li><strong>今のワークスペース</strong>: <code>$workspace.Entries()</code>（<code>store</code>・前の版の <code>content_index</code>・前の前の版の <code>index</code>・<code>system_index</code>・ログ等）の下・そのもの。拡張子にかかわらない。</li>
+<li><strong>今のワークスペース</strong>: <code>$workspace.Entries()</code>（<code>store</code>・前の版の <code>content_index</code>・前の前の版の <code>index</code>・ログ等）の下・そのもの。拡張子にかかわらない。</li>
 <li><strong>ほかの tebunko のワークスペース</strong>: 目印は次の 3 つ。前の版の取り込み一覧（ワークスペース直下の <code>ingest_status.tsv</code>）、今の版の取り込み一覧（<code>store\ingest_status.tsv</code>）、今の版の目録（<code>store\format.tsv</code>）。目録はありふれた名前なので、親が <code>store</code> で、中身が目録として読める（<code>readIndexFormat</code> が <code>Missing</code>・<code>Broken</code> でない）ときだけ目印にする。利用者のフォルダの <code>format.tsv</code> と、ロックされるなどで読めない目録は目印にしない。列挙したファイルの中に目印があれば、そのフォルダ（親が <code>store</code> なら 1 つ上）をワークスペースとみなし、<code>Entries()</code> の下も同じく除く（以前の既定の場所・切り替える前のワークスペース・ほかの人のワークスペースに対応）。</li>
-<li><strong>名前で分かる tebunko のファイル</strong>: 本文インデックス（<code>content_index.*.tsv</code>）・前の版の集約ファイル（<code>content.*.tsv</code>）・システムインデックス（<code>system_index*.txt</code>・前の版の <code>システムインデックス*.txt</code>）は、どこにあっても除く。</li>
+<li><strong>名前で分かる tebunko のファイル</strong>: 本文インデックス（<code>content_index.*.tsv</code>）・前の版の集約ファイル（<code>content.*.tsv</code>）・前の版のシステムインデックス（<code>system_index*.txt</code>・<code>システムインデックス*.txt</code>）は、どこにあっても除く。</li>
 <li><strong><code>~$</code> で始まる一時ファイル</strong>（既存の除外をそのまま続ける）。</li>
 </ol>
 <p>既定でない場所のワークスペースに利用者が置いた <code>.xlsx</code>・<code>.txt</code> は、1〜3 のどれにも当たらないため今までどおり取り込む。判定はファイルごとに重くしないよう、除外するフォルダの <code>\\?\</code> 付きの前方一致の文字列を先に作ってから <code>StartsWith</code> で比べる（ファイルごとにドライブの割り当てをたどる処理は呼ばない）。</p>

@@ -564,8 +564,6 @@
       
         
       
-        
-      
     
     
     
@@ -682,34 +680,6 @@
     
   
     元のファイルを開く
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../guide/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索
   
 
     
@@ -2467,14 +2437,14 @@
   
   
     <li class="md-nav__item">
-      <a href="index-data/system-index/" class="md-nav__link">
+      <a href="index-data/gram-index/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    システムインデックス
+    gram 索引
   
 
     
@@ -2507,8 +2477,6 @@
       
         
           
-        
-      
         
       
         
@@ -2587,34 +2555,6 @@
     
   
     検索を速くする仕組み
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="search/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索（Windows Search）
   
 
     
@@ -4219,7 +4159,7 @@
 </tr>
 <tr>
 <td>インデックス</td>
-<td>登録したフォルダ 1 件ぶんの索引。本文インデックスとシステムインデックスを合わせたもの</td>
+<td>登録したフォルダ 1 件ぶんの索引。本文インデックスと 2-gram の索引を合わせたもの</td>
 <td>出す</td>
 <td><code>index</code></td>
 </tr>
@@ -4230,10 +4170,10 @@
 <td><code>contentIndex</code></td>
 </tr>
 <tr>
-<td>システムインデックス</td>
-<td>高速検索のために Windows Search に索引させる 2-gram の txt。フォルダ 1 つにつき 1 つ。<code>work/system_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/system_index.txt</code>（大きいと <code>system_index_1.txt</code> …）。1 つずつを指すときは「システムインデックスの txt」</td>
-<td>出さない。区別が要るときは「インデックス（高速検索用）」</td>
-<td><code>systemIndex</code></td>
+<td>2-gram の索引（gram 索引）</td>
+<td>検索で照合する本文インデックスのファイルを絞るための索引。インデックス 1 つにつき、目録 1 つと区画のファイル。<code>work/store/gram/&lt;インデックス名&gt;/toc.tsv</code>・<code>g&lt;10 桁&gt;.seg</code>。作り直せる派生データ</td>
+<td>出さない</td>
+<td><code>gram</code></td>
 </tr>
 <tr>
 <td>本文インデックスに入れる前の TSV</td>
@@ -4248,10 +4188,10 @@
 <td><code>sourceFolderFileName</code></td>
 </tr>
 <tr>
-<td>本文インデックスのフォルダ／システムインデックスのフォルダ</td>
-<td>ワークスペースの <code>store/content/</code>／<code>system_index/</code></td>
+<td>本文インデックスのフォルダ</td>
+<td>ワークスペースの <code>store/content/</code></td>
 <td>手引き・README ではフォルダの名前として出す</td>
-<td><code>Workspace.IndexDir</code>／<code>Workspace.SystemIndexDir</code></td>
+<td><code>Workspace.IndexDir</code></td>
 </tr>
 <tr>
 <td>インデックスの追加</td>

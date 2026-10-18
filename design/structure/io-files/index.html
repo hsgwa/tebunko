@@ -564,8 +564,6 @@
       
         
       
-        
-      
     
     
     
@@ -682,34 +680,6 @@
     
   
     元のファイルを開く
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../guide/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索
   
 
     
@@ -2715,14 +2685,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../index-data/system-index/" class="md-nav__link">
+      <a href="../../index-data/gram-index/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    システムインデックス
+    gram 索引
   
 
     
@@ -2755,8 +2725,6 @@
       
         
           
-        
-      
         
       
         
@@ -2835,34 +2803,6 @@
     
   
     検索を速くする仕組み
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../search/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索（Windows Search）
   
 
     
@@ -4647,14 +4587,14 @@
 <td>本文インデックス。インデックス作成が書き、検索・一覧が読む。インポートで置き換え、クロール対象から外したフォルダの分は消す。<code>&lt;名前&gt;.tmp</code> に書いてから置き換える（<code>writeContentIndexFile</code>）。改名のときは <code>&lt;名前&gt;_rename_&lt;PID&gt;</code> を経由する</td>
 </tr>
 <tr>
-<td><code>work/system_index/&lt;インデックス名&gt;/…/system_index.txt</code></td>
+<td><code>work/store/gram/&lt;インデックス名&gt;/</code>（<code>toc.tsv</code>・<code>g&lt;10 桁&gt;.seg</code>）</td>
 <td>読む・書く</td>
-<td>システムインデックス（2-gram の txt）。Windows Search が読む（<a href="../../index-data/system-index/">システムインデックス</a>）</td>
+<td>2-gram の索引（検索で照合するファイルを絞る。作り直せる。<a href="../../index-data/gram-index/">2-gram の索引</a>）。区画は一時ファイルに書いて置き換える</td>
 </tr>
 <tr>
-<td><code>work/system_index_state.tsv</code></td>
-<td>読む・書く</td>
-<td>システムインデックスの状態。排他で開いて書き換える</td>
+<td><code>work/system_index/</code>・<code>work/system_index_state.tsv</code>（前の版が作った検索用のファイル）</td>
+<td>消す</td>
+<td>インデックス作成の始めと、インポートの取り込む前に消す（読まず、書かない。<a href="../../index-data/format/#前の版が作った検索用のファイルの片付けremoveoldsystemindex">片付け</a>）</td>
 </tr>
 <tr>
 <td><code>work/store/ingest_status.tsv</code>（<code>.tmp</code> を経由して置き換える）</td>
@@ -4684,7 +4624,7 @@
 <tr>
 <td><code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;/w&lt;番号&gt;/</code></td>
 <td>読む・書く</td>
-<td>取り込みの作業領域。元のファイルのコピー・抽出途中のファイル。<code>NotContentIndexed</code> 属性を付ける（<code>SetAttributes</code>）</td>
+<td>取り込みの作業領域。元のファイルのコピー・抽出途中のファイル</td>
 </tr>
 <tr>
 <td><code>work/office_pids/&lt;PC の鍵&gt;/&lt;PID&gt;.tmp</code>→<code>&lt;PID&gt;.txt</code></td>
@@ -4717,7 +4657,7 @@
 <td>検索結果の出力</td>
 </tr>
 <tr>
-<td><code>work/index/</code>（過去の版が置いた本文インデックス）・<code>work/system_index/</code> の古い名前の txt</td>
+<td><code>work/index/</code>（過去の版が置いた本文インデックス）</td>
 <td>読む・消す</td>
 <td>残っているかの調べ・知らせ・［設定］の「移す」「消して最初から」のときだけ。ここには書かない</td>
 </tr>
@@ -4858,11 +4798,6 @@
 <td>ログの見出しの Office の版・形態・ビット数（<code>findOfficeApps</code>）。ほかのドライブや別の版の Office は <code>見つからない</code> と出る</td>
 </tr>
 <tr>
-<td>Windows Search（<code>Search.CollatorDSO</code>）</td>
-<td>読む（SELECT だけ）</td>
-<td>高速検索。システムインデックスを索引させ、問い合わせる</td>
-</tr>
-<tr>
 <td>Excel・Word・PowerPoint のプロセス</td>
 <td>起動・終了</td>
 <td>古い形式の変換・元のファイルを開く。起動した PID は <code>work/office_pids/</code> に記録する</td>
@@ -4915,7 +4850,7 @@
 <td>過去の版が一時ファイルを置いていた場所。インデックス作成の始めに、終わったプロセスの分を消す。この場所には書かない</td>
 </tr>
 <tr>
-<td><code>&lt;ワークスペース&gt;\index\</code>（過去の版が置いた本文インデックス）と、古い名前の <code>system_index\</code> の txt</td>
+<td><code>&lt;ワークスペース&gt;\index\</code>（過去の版が置いた本文インデックス）</td>
 <td>読む・消す</td>
 <td>上の「ワークスペース」の最後から 2 行目のとおり</td>
 </tr>
@@ -5006,14 +4941,9 @@
 <td>［設定］の「移す」「消して最初から」・インデックス作成の始めに片付ける</td>
 </tr>
 <tr>
-<td><code>system_index</code></td>
+<td><code>store\gram\&lt;インデックス名&gt;\</code></td>
 <td>元のファイルの数に比例</td>
-<td><code>content_index</code> と同じ</td>
-</tr>
-<tr>
-<td><code>system_index_state.tsv</code></td>
-<td>上書き</td>
-<td>1 つ</td>
+<td>区画（<code>g&lt;10 桁&gt;.seg</code>）と目録 <code>toc.tsv</code>。作り直せる</td>
 </tr>
 <tr>
 <td><code>ingest_status.tsv</code></td>
