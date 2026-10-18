@@ -2045,7 +2045,7 @@ Describe "取り込みのジャーナルの復旧と書き出し（flushPendingP
 
     BeforeEach {
         Mock writeIndexerLog { }
-        Mock publishIndexFolders { return @{ Count = 1; Skipped = @() } }
+        Mock publishIndexFolders { return @{ Count = 1; Skipped = @(); Published = @($pending.Keys) } }
     }
 
     It "flushPendingPublish は、書き出せたフォルダに「出」を足し、書き出せなかったフォルダ（Failed）を空のままにする" {
@@ -2061,6 +2061,8 @@ Describe "取り込みのジャーナルの復旧と書き出し（flushPendingP
     It "flushPendingPublish は、<name>のとき、書き出せなかったフォルダだけを Failed に足し、「出」はできたフォルダにだけ足す" -TestCases @(
         @{ name = "2 フォルダのうち 1 つの本文インデックスを書けなかった（Skipped）"; fail = "skip"; expectedFailed = @("営業"); expectedJournal = @("出`t開発") }
         @{ name = "書き出しが例外になった（全部が書き出せていない）"; fail = "throw"; expectedFailed = @("営業", "開発"); expectedJournal = @() }
+        @{ name = "2 フォルダのうち 1 つを、置き場の外を指すパスで飛ばした（Skipped に出ず、Published にも無い）"; fail = "link"; expectedFailed = @("営業"); expectedJournal = @("出`t開発") }
+        @{ name = "2 フォルダのうち 1 つがシステムインデックスの段で落ちた（本文インデックスは書けているので、Published にあり、「出」を足す）"; fail = "system"; expectedFailed = @(); expectedJournal = @("出`t営業", "出`t開発") }
         @{ name = "Failed を渡さずに呼び、本文インデックスを書けなかった（落ちず、「出」は書けたフォルダにだけ足す）"; fail = "skip"; noList = $true; expectedFailed = @(); expectedJournal = @("出`t開発") }
         @{ name = "Failed を渡さずに呼び、書き出しが例外になった（落ちず、「出」は足さない）"; fail = "throw"; noList = $true; expectedFailed = @(); expectedJournal = @() }
     ) {
@@ -2068,7 +2070,11 @@ Describe "取り込みのジャーナルの復旧と書き出し（flushPendingP
         $rc = newRecoverEnv -folders @("営業", "開発")
         $workspace = $rc.Workspace
         if ($fail -eq "skip") {
-            Mock publishIndexFolders { return @{ Count = 1; Skipped = @(@{ Rel = "営業"; Stage = "本文インデックス"; Reason = "書けない" }) } }
+            Mock publishIndexFolders { return @{ Count = 1; Skipped = @(@{ Rel = "営業"; Stage = "本文インデックス"; Reason = "書けない" }); Published = @($pending.Keys | Where-Object { $_ -notlike "*\営業" }) } }
+        } elseif ($fail -eq "link") {
+            Mock publishIndexFolders { return @{ Count = 1; Skipped = @(); Published = @($pending.Keys | Where-Object { $_ -notlike "*\営業" }) } }
+        } elseif ($fail -eq "system") {
+            Mock publishIndexFolders { return @{ Count = 1; Skipped = @(@{ Rel = "営業"; Stage = "システムインデックス"; Reason = "書けない" }); Published = @($pending.Keys) } }
         } else {
             Mock publishIndexFolders { throw "壊れた" }
         }
@@ -2081,7 +2087,7 @@ Describe "取り込みのジャーナルの復旧と書き出し（flushPendingP
             flushPendingPublish $rc.Pending $rc.Journal -All -Failed $failed
         }
         @($failed | Sort-Object) | Should -Be @($expectedFailed | Sort-Object)
-        @(readJournalLines $rc) | Should -Be @($expectedJournal)
+        @(readJournalLines $rc | Sort-Object) | Should -Be @($expectedJournal | Sort-Object)
     }
 
     It "前の回が終まで書いたが、営業の出が無い（書き出せなかった）とき、始めに書き出し直し、出を足して、次の回へ持ち越すものは無い。済んだ仕事は止まった扱いにしない" {
@@ -2095,7 +2101,7 @@ Describe "取り込みのジャーナルの復旧と書き出し（flushPendingP
     }
 
     It "始めの書き出しが失敗したときは、そのフォルダを次の回へ持ち越す（Unpublished）。済んだ仕事は止まった扱いにしない" {
-        Mock publishIndexFolders { return @{ Count = 0; Skipped = @(@{ Rel = "営業"; Stage = "本文インデックス"; Reason = "書けない" }) } }
+        Mock publishIndexFolders { return @{ Count = 0; Skipped = @(@{ Rel = "営業"; Stage = "本文インデックス"; Reason = "書けない" }); Published = @() } }
         $rc = newRecoverEnv @("始`t営業\a.xlsx`t1", "終")
         $workspace = $rc.Workspace
         $result = recoverIngestJournal $rc.Ledger $rc.Journal $rc.Pending $rc.Channel $rc.Reporter
@@ -2104,7 +2110,7 @@ Describe "取り込みのジャーナルの復旧と書き出し（flushPendingP
     }
 
     It "始めの書き出しが 2 フォルダのうち 1 つだけ失敗したときは、失敗した 1 つだけを次の回へ持ち越し、書き出せた 1 つは「出」を足す" {
-        Mock publishIndexFolders { return @{ Count = 1; Skipped = @(@{ Rel = "開発"; Stage = "本文インデックス"; Reason = "書けない" }) } }
+        Mock publishIndexFolders { return @{ Count = 1; Skipped = @(@{ Rel = "開発"; Stage = "本文インデックス"; Reason = "書けない" }); Published = @($pending.Keys | Where-Object { $_ -notlike "*\開発" }) } }
         $rc = newRecoverEnv @("始`t営業\a.xlsx`t1", "始`t開発\b.xlsx`t1", "終") -folders @("営業", "開発")
         $workspace = $rc.Workspace
         $result = recoverIngestJournal $rc.Ledger $rc.Journal $rc.Pending $rc.Channel $rc.Reporter
@@ -2123,7 +2129,7 @@ Describe "取り込みのジャーナルの復旧と書き出し（flushPendingP
     }
 
     It "取り込み中に止まった仕事（始だけ）は、書き出しが失敗しても、やり直す仕事として返す" {
-        Mock publishIndexFolders { return @{ Count = 0; Skipped = @(@{ Rel = "営業"; Stage = "本文インデックス"; Reason = "書けない" }) } }
+        Mock publishIndexFolders { return @{ Count = 0; Skipped = @(@{ Rel = "営業"; Stage = "本文インデックス"; Reason = "書けない" }); Published = @() } }
         $rc = newRecoverEnv @("始`t営業\a.xlsx`t1")
         $workspace = $rc.Workspace
         $result = recoverIngestJournal $rc.Ledger $rc.Journal $rc.Pending $rc.Channel $rc.Reporter

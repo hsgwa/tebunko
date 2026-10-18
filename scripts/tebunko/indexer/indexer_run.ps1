@@ -333,7 +333,8 @@ function getIndexFolderRel {
 function flushPendingPublish {
     # 書き出し待ちのフォルダを本文インデックスへまとめる（書き出しは司令が呼ぶ。PendingPublish は決めて返すだけ）。
     # -All は、取り込み中・まだ渡していない数を見ずに、書き出し待ちのフォルダをすべて書き出す（クロールの前後・インデックス作成の終わり）
-    # 書き出せたフォルダは、ジャーナルに「出」を足す（次の始めにもう一度書き出さなくてよい）。書き出せなかった（本文インデックスを書けなかった・例外）フォルダは
+    # 書き出せたフォルダ（publishIndexFolders の Published。本文インデックスのファイルを書き終えたフォルダ）は、ジャーナルに「出」を足す（次の始めにもう一度書き出さなくてよい）。
+    # 書き出せなかった（本文インデックスを書けなかった・置き場の外を指すパスで飛ばした・例外）フォルダは
     # 「出」が無いままなので、次の始めにもう一度書き出す。-Failed に渡した List に、書き出せなかったフォルダ（インデックスからの相対。例外のときは全部）を足す
     # （始めの書き出しで、次の回へ「未」で持ち越すフォルダを決めるのに使う）
     param (
@@ -347,7 +348,7 @@ function flushPendingPublish {
     if ($flush.Count -eq 0) {
         return
     }
-    $failedRels = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $publishedRels = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
     try {
         # 外す予定の記録を先に残す（書き出しが落ちる・強制終了しても、次の回に外し直せるように）
         savePendingRemovals $pending
@@ -355,11 +356,8 @@ function flushPendingPublish {
         # 書き終えたフォルダの分だけ記録から外す（飛ばしたフォルダの分は残る）
         $pending.MarkPublished([string[]]@($published.Published), $flush)
         savePendingRemovals $pending
-        $skippedList = if ($published -is [hashtable]) { @($published.Skipped) } else { @() }
-        foreach ($skip in $skippedList) {
-            if ($skip.Stage -eq "本文インデックス") {
-                [void]$failedRels.Add([string]$skip.Rel)
-            }
+        foreach ($folder in @($published.Published | Where-Object { $_ })) {
+            [void]$publishedRels.Add((getIndexFolderRel ([string]$folder)))
         }
     } catch {
         writeIndexerLog "    インデックスをまとめられませんでした（次のインデックス作成でまとめ直します）: $($_.Exception.Message)" "Yellow"
@@ -376,12 +374,10 @@ function flushPendingPublish {
         if ($rel -eq "") {
             continue
         }
-        if ($failedRels.Contains($rel)) {
-            if ($null -ne $Failed) {
-                $Failed.Add($rel)
-            }
-        } else {
+        if ($publishedRels.Contains($rel)) {
             $journal.AddRecord((convertToIngestJournalLine "出" @($rel)))
+        } elseif ($null -ne $Failed) {
+            $Failed.Add($rel)
         }
     }
 }
