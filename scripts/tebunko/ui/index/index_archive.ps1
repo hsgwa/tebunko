@@ -273,7 +273,7 @@ function showIndexImportDialog {
 
     $result = $null
     if ((showOwnedDialog $dialog)) {
-        $choice = getImportCollisionChoiceView $ctrl.NameBox.Text $script:importDialog.ZipName (getUsedIndexNames $script:targetItems) $script:importDialog.Mode
+        $choice = getImportCollisionChoiceView $ctrl.NameBox.Text $script:importDialog.ZipName (getUsedIndexNames $script:targetItems $null $script:leftoverIndexes) $script:importDialog.Mode @($script:targetItems | ForEach-Object { $_.Name })
         $result = @{ Path = (normalizeFolderPath $ctrl.FolderBox.Text); Name = $ctrl.NameBox.Text.Trim(); CollisionMode = $choice.Mode }
     }
     return $result
@@ -292,12 +292,13 @@ function updateImportDialogChecks {
     $ctrl.SourceCheckText.Text = $check.Text
     $ctrl.SourceCheckText.Foreground = themeBrush $brush
     $ctrl.SourceCheckText.Visibility = if ($check.Text) { "Visible" } else { "Collapsed" }
-    $choice = getImportCollisionChoiceView $ctrl.NameBox.Text $d.ZipName (getUsedIndexNames $script:targetItems) $d.Mode
+    $choice = getImportCollisionChoiceView $ctrl.NameBox.Text $d.ZipName (getUsedIndexNames $script:targetItems $null $script:leftoverIndexes) $d.Mode @($script:targetItems | ForEach-Object { $_.Name })
     $ctrl.CollisionHeading.Text = $choice.Heading
     $ctrl.CollisionNotice.Text = $choice.Notice
     $ctrl.CollisionNotice.Visibility = if ($choice.Notice) { "Visible" } else { "Collapsed" }
     $ctrl.RenameRadio.Content = $choice.RenameText
     $ctrl.OverwriteRadio.Content = $choice.OverwriteText
+    $ctrl.OverwriteRadio.Visibility = if ($choice.OverwriteVisible) { "Visible" } else { "Collapsed" }
     $ctrl.CollisionPanel.Visibility = if ($choice.Visible) { "Visible" } else { "Collapsed" }
     # 名前の欄を手で替えて置き換えられなくなったときは、選び方も別の名前にするに戻す
     # （Mode を先に揃えるので、下の選び直しで selectImportCollisionMode は何もしない）
@@ -319,7 +320,7 @@ function selectImportCollisionMode {
         return
     }
     $d.Mode = $mode
-    $choice = getImportCollisionChoiceView $d.Ctrl.NameBox.Text $d.ZipName (getUsedIndexNames $script:targetItems) $mode
+    $choice = getImportCollisionChoiceView $d.Ctrl.NameBox.Text $d.ZipName (getUsedIndexNames $script:targetItems $null $script:leftoverIndexes) $mode @($script:targetItems | ForEach-Object { $_.Name })
     $d.Ctrl.NameBox.Text = if ($mode -eq ${importCollisionOverwrite}) { $choice.OverwriteName } else { $choice.Candidate }
     updateImportDialogChecks
 }
@@ -359,7 +360,7 @@ function continueImportIndex {
     )
 
     # @(getUsedIndexNames ...) と直接書くと集合が 1 要素の配列に入るだけで、名前の重なりを見落とす。変数に受けてから使う
-    $usedNames = getUsedIndexNames $script:targetItems
+    $usedNames = getUsedIndexNames $script:targetItems $null $script:leftoverIndexes
     $suggestedName = getImportSuggestedName $info.IndexName $usedNames
     $result = showIndexImportDialog $suggestedName $info
     if ($null -eq $result) {

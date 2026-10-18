@@ -158,11 +158,15 @@ function getImportCollisionChoiceView {
     # 名前の欄が一覧に無い名前なら、選んでいても Rename（重ならないので別の名前の扱いと同じ）。
     # Danger は［インポート］を危険の型（赤）にするか（Mode が Overwrite のとき）。Notice は置き換えるときに添える一文。
     # Candidate は［別の名前にする］を選んだときに名前の欄へ入れる候補、OverwriteName は［置き換える］を選んだときの名前の欄の値
+    # listedNames は今の一覧の名前（省くと、usedNames の名前はすべて一覧にあるものとして扱う）。
+    # 置き換える相手が、一覧に無く作業フォルダに残っているだけの名前（設定から外した・置き場にだけある）のときは、置き換えを出さない
+    # （OverwriteVisible = $false。選んでいても Rename）。見出しは「今のインデックス」と書かず、残っていることを伝える
     param (
         [string]$name,
         [string]$zipName,
         $usedNames = $null,
-        [string]$mode = ${importCollisionRename}
+        [string]$mode = ${importCollisionRename},
+        $listedNames = $null
     )
 
     $trimmed = $name.Trim()
@@ -170,15 +174,18 @@ function getImportCollisionChoiceView {
     $nameCollides = $trimmed -ne "" -and (testImportNameCollision $trimmed $usedNames)
     $zipCollides = testImportNameCollision $zipName $usedNames
     $visible = $nameCollides -or ($zipCollides -and $trimmed -ieq $candidate)
-    $effective = if ($nameCollides -and $mode -eq ${importCollisionOverwrite}) { ${importCollisionOverwrite} } else { ${importCollisionRename} }
     $target = if ($nameCollides) { $trimmed } else { $zipName }
+    $targetListed = ($null -eq $listedNames) -or (testImportNameCollision $target $listedNames)
+    $effective = if ($nameCollides -and $targetListed -and $mode -eq ${importCollisionOverwrite}) { ${importCollisionOverwrite} } else { ${importCollisionRename} }
+    $heading = if (!$visible) { "" } elseif ($targetListed) { "同じ名前のインデックス [${target}] があります" } else { "作業フォルダに同じ名前のインデックス [${target}] が残っています（置き換えはできません）" }
     return @{
         Visible       = $visible
         Mode          = $effective
         Danger        = ($effective -eq ${importCollisionOverwrite})
-        Heading       = if ($visible) { "同じ名前のインデックス [${target}] があります" } else { "" }
+        Heading       = $heading
         RenameText    = "別の名前にする"
         OverwriteText = "置き換える"
+        OverwriteVisible = $targetListed
         Notice        = if ($visible -and $effective -eq ${importCollisionOverwrite}) { "今のインデックス [${target}] は、インポートするもので置き換わります。" } else { "" }
         TargetName    = $target
         Candidate     = $candidate
