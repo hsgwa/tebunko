@@ -4363,11 +4363,11 @@
 </tr>
 <tr>
 <td><code>StatusLedger</code></td>
-<td>取り込み一覧・取り込み中のファイル・今回の失敗と消えたファイルの記録。改名・削除の書き換えもラップする。列と状態の定義（<code>core/paths.ps1</code>）は判断層・<code>index_store.ps1</code> なども読むため動かさない</td>
+<td>取り込み一覧・今回の失敗と消えたファイルの記録。改名・削除の書き換えもラップする。列と状態の定義（<code>core/paths.ps1</code>）は判断層・<code>index_store.ps1</code> なども読むため動かさない</td>
 <td>インデクサの司令のスレッド。画面が取り込み一覧を読むときは画面のスレッドで別に作る</td>
 <td>状態層</td>
 <td><code>tebunko/indexer/indexer_state.ps1</code>（<code>lib.ps1</code>）</td>
-<td>実装ずみ。<code>ReadStatus</code>・<code>WriteStatus</code>・<code>AddRow</code>・<code>ReadIngestingFiles</code>・<code>WriteIngestingFiles</code>・<code>RemoveIngestingFile</code>・<code>RenameIndexName</code>・<code>RemoveIndexName</code>・<code>Failures</code>（プロパティ）・<code>DroppedRows</code>（プロパティ）。<code>getIndexNameMap</code>（<code>core/status_file.ps1</code>）・<code>getIndexStats</code>（<code>index_store.ps1</code>）は読むだけの部品として外に残す</td>
+<td>実装ずみ。<code>ReadStatus</code>・<code>WriteStatus</code>・<code>AddRow</code>・<code>ReadRelPaths</code>・<code>RenameIndexName</code>・<code>RemoveIndexName</code>・<code>Failures</code>（プロパティ）・<code>DroppedRows</code>（プロパティ）。<code>getIndexNameMap</code>（<code>core/status_file.ps1</code>）・<code>getIndexStats</code>（<code>index_store.ps1</code>）は読むだけの部品として外に残す</td>
 <td>取り込み一覧・状態ファイルの読み書きの部品（<code>core/status_file.ps1</code> の関数と、<code>indexer_state.ps1</code> の <code>addStatusRow</code>）、コンストラクタで受け取った <code>Workspace</code>（場所を暗黙に使わない）</td>
 </tr>
 <tr>
@@ -4412,7 +4412,7 @@
 <td>司令のスレッド</td>
 <td>状態層</td>
 <td><code>tebunko/indexer/ingest_dispatcher.ps1</code>（<code>indexer_lib.ps1</code>）</td>
-<td>実装ずみ。<code>Start</code>・<code>BeginPass</code>・<code>DispatchNext</code>・<code>Submit</code>・<code>SetInlineResult</code>・<code>Receive</code>・<code>TakeAbandonedWorker</code>・<code>StopIfRequested</code>・<code>InflightCount</code>・<code>IngestingEntries</code>・<code>Stop</code></td>
+<td>実装ずみ。<code>Start</code>・<code>BeginPass</code>・<code>DispatchNext</code>・<code>Submit</code>・<code>SetInlineResult</code>・<code>Receive</code>・<code>TakeAbandonedWorker</code>・<code>StopIfRequested</code>・<code>InflightCount</code>・<code>GetInflightCount</code>・<code>Stop</code></td>
 <td>取り込みのスレッド（ワーカーごとに <code>CreateRunspace</code> で作る STA のランスペース。<code>Start</code>・<code>Submit</code> が作る）と <code>BlockingCollection</code>、取り込みのスレッドのスクリプト。<code>WorkerPool</code> には寄せない（今の形を変えない）。終わった取り込みの結果は hashtable で司令に返す</td>
 </tr>
 </tbody>

@@ -4084,8 +4084,16 @@
 <td>名前の変更（クロール対象フォルダの行と各行の相対パス）、インデックスの記録の削除</td>
 </tr>
 <tr>
-<td><code>readIngestingFiles</code> / <code>writeIngestingFiles</code> / <code>removeIngestingFile</code></td>
-<td>取り込み中の複数のファイルの回数と相対パスの往復、取り込み中が無ければ記録を消す、壊れた行は読み飛ばす</td>
+<td><code>readStatusRelPaths</code></td>
+<td>取り込み一覧の相対パスを順に返す（同じ相対パスの追記も数える・壊れた行と見出しは数えない）</td>
+</tr>
+<tr>
+<td><code>IngestJournal</code>・<code>convertToIngestJournalLine</code>・<code>newIngestJournalHead</code>・<code>convertFromIngestJournal</code></td>
+<td>ジャーナルの追記と読み戻し（途中で切れた最後の行を捨てる）、新しい回の頭の行（版・回・持・未の順。未が 0・1・2 件のとき、持と未が両方あるとき）、記録の種類ごとの復旧（書き出すフォルダ・やり直す仕事・済んだ仕事。「未」の持ち越しと「出」の打ち消し）、書き出せなかった回のあとの書き出し直し、行数がずれたときの全部やり直し、前の版の記録の読み込み</td>
+</tr>
+<tr>
+<td><code>flushPendingPublish</code>・<code>recoverIngestJournal</code>・<code>writeStatusWithJournal</code>（Io。<code>tests/tebunko/indexer/indexer</code>）</td>
+<td>書き出せたフォルダ（<code>publishIndexFolders</code> の <code>Published</code>）にだけ「出」を足す、書き出せなかったフォルダだけを返す（2 フォルダのうち 1 つが失敗したとき・置き場の外を指すパスで飛ばしたとき・例外のときは全部。システムインデックスの段で落ちても本文インデックスは書けているので「出」を足す）、始めの復旧が書き出せなかった・中止で飛ばしたフォルダを次の回へ持ち越す、ジャーナルが読めないとき（フォルダが 0 件・2 件）今ある書き出し前のフォルダだけを書き出す、前の版の <code>ingesting.txt</code> を足して重ねない、「書」と（<code>-Finish</code> のときだけ）「終」の記録</td>
 </tr>
 <tr>
 <td><code>describeIngestError</code></td>

@@ -4199,8 +4199,13 @@
 </tr>
 <tr>
 <td><code>tebunko/indexer/ingest_dispatcher.ps1</code></td>
-<td><code>IngestDispatcher</code>（<code>Start</code> / <code>BeginPass</code> / <code>DispatchNext</code> / <code>Submit</code> / <code>SetInlineResult</code> / <code>Receive</code> / <code>TakeAbandonedWorker</code> / <code>StopIfRequested</code> / <code>InflightCount</code> / <code>IngestingEntries</code> / <code>Stop</code>）</td>
+<td><code>IngestDispatcher</code>（<code>Start</code> / <code>BeginPass</code> / <code>DispatchNext</code> / <code>Submit</code> / <code>SetInlineResult</code> / <code>Receive</code> / <code>TakeAbandonedWorker</code> / <code>StopIfRequested</code> / <code>InflightCount</code> / <code>GetInflightCount</code> / <code>Stop</code>）</td>
 <td><a href="../indexing/parallel/">取り込みの並列化</a>、<a href="../structure/classes/">クラスと関数の使い分け</a></td>
+</tr>
+<tr>
+<td><code>tebunko/indexer/ingest_journal.ps1</code></td>
+<td><code>IngestJournal</code>（<code>ReadPrevious</code> / <code>AddRecord</code> / <code>Reset</code> / <code>Close</code>）、<code>getLegacyIngestingPath</code> / <code>readLegacyIngesting</code> / <code>removeLegacyIngesting</code></td>
+<td><a href="../indexing/ingest-list/#ジャーナルの形">取り込み一覧</a></td>
 </tr>
 <tr>
 <td><code>tebunko/indexer/indexer_run.ps1</code></td>
