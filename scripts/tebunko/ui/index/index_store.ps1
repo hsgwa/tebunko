@@ -34,8 +34,8 @@ function newIndex {
         return
     }
     $path = normalizeFolderPath $path
-    $name = newIndexName $path (getUsedIndexNames $script:targetItems)
-    $message = testIndexEditInput $path $name $script:targetItems
+    $name = newIndexName $path (getUsedIndexNames $script:targetItems $null $script:leftoverIndexes $path)
+    $message = testIndexEditInput $path $name $script:targetItems $null $script:leftoverIndexes
     if ($message -ne "") {
         showMessage $message "OK" "Warning" | Out-Null
         return
@@ -64,7 +64,7 @@ function addIndexForFolder {
             return
         }
     }
-    addIndexItem $path (newIndexName $path (getUsedIndexNames $script:targetItems))
+    addIndexItem $path (newIndexName $path (getUsedIndexNames $script:targetItems $null $script:leftoverIndexes $path))
 }
 
 function applyIndexEdit {
@@ -168,7 +168,7 @@ function commitIndexDetailEdit {
         restoreIndexDetailEdit
         return
     }
-    $decision = getIndexDetailEditDecision $ui.IndexDetailName.Text $ui.IndexDetailPath.Text $item $script:targetItems
+    $decision = getIndexDetailEditDecision $ui.IndexDetailName.Text $ui.IndexDetailPath.Text $item $script:targetItems $script:leftoverIndexes
     if ($decision.Action -eq "None") {
         setIndexDetailEditError ""
         return

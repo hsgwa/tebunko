@@ -294,4 +294,22 @@ Describe "getIndexDetailEditDecision（詳細の名前・フォルダパスの�
         $result.Path | Should -Be $newPath
         $result.Message | Should -BeLike $message
     }
+
+    It "<label>" -TestCases @(
+        @{ label = "売上 → 売上2 に直したあと、同じフォルダの「売上」に戻せる"; folder = "C:\data\売上"; action = "Apply"; message = "" }
+        @{ label = "別のフォルダの「売上」には付けられない（設定から外したインデックスが残っている）"; folder = "C:\data\別"; action = "Invalid"; message = "*設定から外したインデックスが残っているため*" }
+    ) {
+        param ($label, $folder, $action, $message)
+        $renamed = newItem "売上2" "C:\data\売上"
+        $list = @($renamed, (newItem "見積" "C:\data\見積"))
+        $leftovers = @([pscustomobject]@{ Name = "売上"; Path = "C:\data\売上" })
+        $target = $renamed
+        if ($folder -ne "C:\data\売上") {
+            $target = newItem "売上2" $folder
+            $list = @($target, $list[1])
+        }
+        $result = getIndexDetailEditDecision "売上" $folder $target $list $leftovers
+        $result.Action | Should -Be $action
+        $result.Message | Should -BeLike $message
+    }
 }

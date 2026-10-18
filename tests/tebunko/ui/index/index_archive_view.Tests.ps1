@@ -2,6 +2,7 @@
 BeforeAll {
     . "$PSScriptRoot\..\..\..\helpers\load.ps1"
     . "${scriptsDir}\tebunko\ui\index\index_list_view.ps1"
+    . "${scriptsDir}\tebunko\ui\index\index_edit_view.ps1"
     . "${scriptsDir}\tebunko\ui\index\index_archive_view.ps1"
 
     function newItem {
@@ -51,6 +52,18 @@ Describe "getImportSuggestedName / testImportNameCollision" -Tag Unit {
         $used = @(newUsed @("経理", "営業"))
         testImportNameCollision "営業" $used | Should -BeTrue
         getImportSuggestedName "営業" $used | Should -Be "営業(2)"
+    }
+
+    It "設定から外したインデックスが残っている名前（フォルダが決まっていない）は、使用中として別の名前を提案し、選び方を出す" {
+        $items = @((newItem "経理" "C:\data\経理"))
+        $leftovers = @([pscustomobject]@{ Name = "営業"; Path = "C:\data\営業" })
+        $used = getUsedIndexNames $items $null $leftovers
+        getImportSuggestedName "営業" $used | Should -Be "営業(2)"
+        testImportNameCollision "営業" $used | Should -BeTrue
+        $choice = getImportCollisionChoiceView "営業(2)" "営業" $used ${importCollisionRename}
+        $choice.Visible | Should -BeTrue
+        $choice.Candidate | Should -Be "営業(2)"
+        $choice.TargetName | Should -Be "営業"
     }
 }
 
@@ -216,6 +229,45 @@ Describe "getImportCollisionChoiceView" -Tag Unit {
         $overwrite.Heading | Should -Be "同じ名前のインデックス [総務] があります"
         $overwrite.Notice | Should -Be "今のインデックス [総務] は、インポートするもので置き換わります。"
         (getImportCollisionChoiceView "新規" "新規" @("営業")).Heading | Should -Be ""
+    }
+
+    # 「旧」は今の一覧に無く、設定から外して作業フォルダに残っているだけの名前（使えない名前の集合には入る）
+    It "<label>" -TestCases @(
+        @{ label = "外れた名前を zip が指す初めの状態は、置き換えを出さず、別の名前（旧(2)）だけにする"; name = "旧(2)"; zip = "旧"; mode = "Rename"; overwriteVisible = $false; effective = "Rename"; candidate = "旧(2)" }
+        @{ label = "外れた名前を手で入れ、置き換えるを選んでいても、置き換えにならず赤くもしない"; name = "旧"; zip = "営業"; mode = "Overwrite"; overwriteVisible = $false; effective = "Rename"; candidate = "営業(2)" }
+        @{ label = "一覧にある名前は、これまでどおり置き換えられる"; name = "総務"; zip = "旧"; mode = "Overwrite"; overwriteVisible = $true; effective = "Overwrite"; candidate = "旧(2)" }
+    ) {
+        param ($label, $name, $zip, $mode, $overwriteVisible, $effective, $candidate)
+        $view = getImportCollisionChoiceView $name $zip @("営業", "総務", "旧") $mode @("営業", "総務")
+        $view.Visible | Should -Be $true
+        $view.OverwriteVisible | Should -Be $overwriteVisible
+        $view.Mode | Should -Be $effective
+        $view.Danger | Should -Be ($effective -eq "Overwrite")
+        $view.Candidate | Should -Be $candidate
+        if (!$overwriteVisible) {
+            $view.Heading | Should -Be "作業フォルダに同じ名前のインデックス [旧] が残っています（置き換えはできません）".Replace("[旧]", "[$($view.TargetName)]")
+            $view.Heading | Should -Not -Match "今のインデックス"
+            $view.Notice | Should -Be ""
+        }
+    }
+
+    It "一覧が空（listedNames が @()）なら、使えない名前はすべて外れて残っている名前として、置き換えを出さない" {
+        $view = getImportCollisionChoiceView "旧" "営業" @("営業", "旧") "Overwrite" @()
+        $view.OverwriteVisible | Should -Be $false
+        $view.Mode | Should -Be "Rename"
+        $view.Danger | Should -Be $false
+    }
+
+    It "一覧にある名前のときの見出しは「同じ名前のインデックス [総務] があります」" {
+        $view = getImportCollisionChoiceView "総務" "旧" @("営業", "総務", "旧") "Rename" @("営業", "総務")
+        $view.Heading | Should -Be "同じ名前のインデックス [総務] があります"
+        $view.OverwriteVisible | Should -Be $true
+    }
+
+    It "一覧の名前を渡さなければ、使えない名前はすべて一覧にあるものとして扱う（これまでの動き）" {
+        $view = getImportCollisionChoiceView "旧" "営業" @("営業", "総務", "旧") "Overwrite"
+        $view.OverwriteVisible | Should -Be $true
+        $view.Mode | Should -Be "Overwrite"
     }
 }
 

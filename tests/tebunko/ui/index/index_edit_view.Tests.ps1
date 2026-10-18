@@ -238,6 +238,42 @@ Describe "testIndexEditInput" -Tag Unit {
         testIndexEditInput "C:\data\売上" "売上" $items $items[0] | Should -Be ""
     }
 
+    It "設定から外したインデックスが残っている名前は、違うフォルダには付けられず、同じフォルダなら付けられる。残りを渡さなければ調べない" -TestCases @(
+        @{ name = "違うフォルダ"; path = "C:\data\別"; leftovers = @([pscustomobject]@{ Name = "旧"; Path = "C:\data\旧" }); expected = "Match" }
+        @{ name = "置き場にだけあり Path が無い"; path = "C:\data\旧"; leftovers = @([pscustomobject]@{ Name = "旧"; Path = "" }); expected = "Unknown" }
+        @{ name = "同じフォルダ（末尾の区切り・大文字小文字違い）"; path = "c:\DATA\旧\"; leftovers = @([pscustomobject]@{ Name = "旧"; Path = "C:\data\旧" }); expected = "" }
+        @{ name = "残りを渡さない"; path = "C:\data\別"; leftovers = $null; expected = "" }
+    ) {
+        param ($name, $path, $leftovers, $expected)
+        $message = testIndexEditInput $path "旧" $items $null $leftovers
+        if ($expected -eq "Match") {
+            $message | Should -Match "設定から外したインデックスが残っているため、このフォルダには使えません"
+            $message | Should -Match "削除予定"
+            $message | Should -Not -Match "ほかのインデックスが使っています"
+        } elseif ($expected -eq "Unknown") {
+            # 取り込み一覧に行が無いものは「削除予定」に出ないため、案内に出さない
+            $message | Should -Be "「旧」は、作業フォルダに同じ名前のインデックスがあるため使えません。別の名前を付けてください。"
+            $message | Should -Not -Match "削除予定"
+        } else {
+            $message | Should -Be ""
+        }
+    }
+
+    It "getBlockedIndexNames は理由を返す（detached = 前回のフォルダの行あり / unknown = 行なし）" {
+        $blocked = getBlockedIndexNames $items @(
+            [pscustomobject]@{ Name = "旧"; Path = "C:\data\旧" }
+            [pscustomobject]@{ Name = "孤"; Path = "" }
+        ) "C:\data\別"
+        $blocked["旧"] | Should -Be "detached"
+        $blocked["孤"] | Should -Be "unknown"
+        $blocked.Contains("旧") | Should -Be $true
+    }
+
+    It "一覧に同じ名前があるときは、これまでの「ほかのインデックスが使っています」を返す" {
+        $leftovers = @([pscustomobject]@{ Name = "売上"; Path = "C:\data\旧" })
+        testIndexEditInput "C:\data\別" "売上" $items $null $leftovers | Should -Match "ほかのインデックスが使っています"
+    }
+
     It "名前が重複していれば断る" {
         testIndexEditInput "C:\data\新規" "見積" $items | Should -Be "「見積」は、ほかのインデックスが使っています。別の名前を付けてください。"
     }
