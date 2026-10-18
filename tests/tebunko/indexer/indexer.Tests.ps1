@@ -849,14 +849,15 @@ Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
         newTsv "$($ws.OldIndexDir)\総務\content_index.docx.001.tsv" @("古い中身")
         newTsv "$($ws.OldIndexDir)\企画\content_index.docx.001.tsv" @("古い中身")
         newTsv $ws.OldStatusFile @("古い取り込み一覧")
-        # 2 つ目（企画）の最初のファイルを取り込む直前に、止める（1 つ目は取り込み終えている）
-        $global:indexerTestVictim = $b
+        # 2 つ目（企画）のファイルのところで止める。並べた順に取り込むが、並列のときは 1 つ目を取り込み終えているとは限らない（どちらでも、作り終えた扱いにはならない）
         if ($Stop) {
             # 中止は、2 つ目の最初のファイルを一覧に足したあとに求める
             $hook = @{ Script = $runPath; Pattern = '^\s+\$ledger\.AddRow\(\$row\)'; Action = {
                 if ($row.相対パス -like "企画\*") { $channel.Stop = $true }
             } }
         } else {
+            # フォルダが見えなくなるのは、2 つ目の最初のファイルを取り込む直前
+            $global:indexerTestVictim = $b
             $hook = @{ Script = $dispatcherPath; Pattern = '^\s+\$row = \$this\.Targets\[\$i\]'; Action = {
                 if ($this.Targets[$i].相対パス -like "企画\*" -and (Test-Path -LiteralPath $global:indexerTestVictim)) {
                     Remove-Item -LiteralPath $global:indexerTestVictim -Recurse -Force
@@ -866,7 +867,7 @@ Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
         try {
             runIndexer $root @{} @($hook) | Should -Be $Code
         } finally {
-            Remove-Variable -Name indexerTestVictim -Scope Global
+            Remove-Variable -Name indexerTestVictim -Scope Global -ErrorAction SilentlyContinue
         }
 
         foreach ($name in "総務", "企画") {

@@ -652,31 +652,31 @@ function invokeIndexerBody {
     $pending = [PendingPublish]::new()
     $reporter = [IndexingReporter]::new($channel)
 
-    # この回で最後まで作り終えたインデックス（失敗したファイルの無いもの）の目録の行を「作り終えた」にし、古い形式の分を消す。
-    # 中止・続けられないエラーのときは呼ばない（行は「作成中」のまま。古い形式の分も残る）。消せないものは残してログに出す
     function updateGramIndexesOfRound {
-    # gram 索引（検索語を含まないファイルを読まずに外すための索引）を、本文インデックスのファイルの今の状態に合わせる。
-    # 作れなくても検索は安全側（全部照合）に倒れるため、インデックス作成は失敗にしない（ログに黄色で出して、次の回に作り直す）
-    param (
-        [scriptblock]$shouldStop
-    )
+        # gram 索引（検索語を含まないファイルを読まずに外すための索引）を、本文インデックスのファイルの今の状態に合わせる。
+        # 作れなくても検索は安全側（全部照合）に倒れるため、インデックス作成は失敗にしない（ログに黄色で出して、次の回に作り直す）
+        param (
+            [scriptblock]$shouldStop
+        )
 
-    try {
-        $summary = updateGramIndexes -shouldStop $shouldStop
-        foreach ($failed in $summary.Failed) {
-            writeIndexerLog "gram 索引を作れませんでした（$($failed.Name)。次のインデックス作成で作り直します）: $($failed.Reason)" "Yellow"
+        try {
+            $summary = updateGramIndexes -shouldStop $shouldStop
+            foreach ($failed in $summary.Failed) {
+                writeIndexerLog "gram 索引を作れませんでした（$($failed.Name)。次のインデックス作成で作り直します）: $($failed.Reason)" "Yellow"
+            }
+        } catch {
+            writeIndexerLog "gram 索引を作れませんでした（次のインデックス作成で作り直します）: $($_.Exception.Message)" "Yellow"
         }
-    } catch {
-        writeIndexerLog "gram 索引を作れませんでした（次のインデックス作成で作り直します）: $($_.Exception.Message)" "Yellow"
     }
-}
 
-function completeRoundIndexes {
+    # この回で最後まで作り終えたインデックスの目録の行を「作り終えた」にし、古い形式の分を消す。
+    # 中止・続けられないエラーのときは呼ばない（行は「作成中」のまま。古い形式の分も残る）。消せないものは残してログに出す
+    function completeRoundIndexes {
         param ([string[]]$names)
 
         # 回を最後まで終えた（中止・フォルダが見えなくなったときは呼ばれない。1 ファイルの制限時間は、そのファイルの失敗になるだけで回は続く）インデックスは、取り込めなかった
         # ファイルがあっても「作り終えた」にする。失敗は取り込み一覧に残り、一覧では「警告」になる。
-        # 後回しにしたファイルは $ledger.Failures に入るが、未取り込みのまま残り、一覧は「警告」ではなく「要更新」になる（次の更新で取り込む）。
+        # 後回しにしたファイル（利用者の PowerPoint が使えなかったなど）は「未取り込み」のまま理由を書いて残し、失敗に数える（一覧は「警告」、「更新に失敗したファイル」に出る）。次の更新で取り込む。
         # 失敗を理由に外すと、取り込めないファイルは毎回失敗するため、いつまでも「作り直し中」のままになる
         if (@($names).Count -eq 0) {
             return
