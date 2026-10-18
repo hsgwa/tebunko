@@ -601,6 +601,7 @@ Describe "importIndex" -Tag Io {
             $stream.Dispose()
         }
         Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業") | Should -Be $false
+        Test-Path -LiteralPath (Join-Path $wsB.PublishDir "import") | Should -Be $false
         @(getTargetFolders $settingsB).Count | Should -Be 0
     }
 
@@ -1263,6 +1264,7 @@ Describe "受け取る zip の大きさと件数の上限" -Tag Io {
             }
             { Remove-Item -LiteralPath $dest -Force -ErrorAction Stop } | Should -Not -Throw
             Test-Path -LiteralPath (Join-Path $script:wsLegacy.IndexDir "営業") | Should -Be $false
+            Test-Path -LiteralPath (Join-Path $script:wsLegacy.PublishDir "import") | Should -Be $false
         }
     }
 }
