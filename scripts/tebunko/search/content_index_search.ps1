@@ -361,18 +361,18 @@ function searchContentIndex {
                     throw $timeoutMessage
                 }
             }
+            # 作業の途中で止められたときは、その作業のヒットを結果にも進み具合にも入れない（途中までの作業のため）
+            if ($null -ne $stopSignal -and $stopSignal.Stop) {
+                $result.Cancelled = $true
+                $drain = $true
+                break
+            }
             $max = if ($limit -gt 0) { $limit - $hits.Count } else { -1 }
             if ($max -ge 0 -and $newHits.Count -gt $max) {
                 $newHits.RemoveRange($max, $newHits.Count - $max)
                 $result.Truncated = $true
             }
             $hits.AddRange($newHits)
-            # 作業の途中で止められたときは、途中までの作業を進み具合として知らせない（画面の列に入れない）
-            if ($null -ne $stopSignal -and $stopSignal.Stop) {
-                $result.Cancelled = $true
-                $drain = $true
-                break
-            }
             if ($onProgress) {
                 & $onProgress $done $contentIndexFiles.Count $newHits
             }

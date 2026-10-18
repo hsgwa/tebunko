@@ -227,15 +227,18 @@ Describe "本文インデックスのファイルの作成と検索" -Tag Io {
     }
 
     It "1 つのスレッドで作業が 1 つ（ファイル全部）でも、作業の途中で止まる。止めた作業の分は進み具合として知らせない" {
-        $all = searchContentIndex "単価" $contentIndexFiles $true -workerCount 1
-        # 3 回目に読まれたときから Stop が立つ（繰り返しの先頭と 1 件目の前は立たず、2 件目の前で立つ）。何回目で止まるかには頼らない
+        # 止めない入れ物で、Stop を見る回数を数える（最後まで照合したときの回数）
+        $counter = [pscustomobject]@{ Reads = 0 }
+        $counter | Add-Member -MemberType ScriptProperty -Name Stop -Value { $this.Reads++; $false }
+        [void](searchContentIndex "単価" $contentIndexFiles $true -workerCount 1 -stopSignal $counter)
+        # 3 回目に読まれたときから Stop が立つ。作業の途中で止まったことは、読んだ回数が最後まで照合したときより少ないことで確かめる
         $signal = [pscustomobject]@{ Reads = 0 }
         $signal | Add-Member -MemberType ScriptProperty -Name Stop -Value { $this.Reads++; $this.Reads -ge 3 }
         $script:progress = 0
         $result = searchContentIndex "単価" $contentIndexFiles $true -workerCount 1 -stopSignal $signal -onProgress { param($done, $total, $newHits) $script:progress++ }
         $result.Cancelled | Should -Be $true
-        $result.Hits.Count | Should -BeGreaterThan 0
-        $result.Hits.Count | Should -BeLessThan $all.Hits.Count
+        $signal.Reads | Should -BeLessThan $counter.Reads
+        $result.Hits.Count | Should -Be 0   # 止めた作業のヒットは、結果にも進み具合にも入れない
         $script:progress | Should -Be 0
     }
 

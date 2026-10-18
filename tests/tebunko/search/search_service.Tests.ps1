@@ -186,12 +186,7 @@ Describe "invokeSearchRequest（どの段で中止されても、先の段に進
             Should -Invoke -CommandName $name -Times 0 -Exactly -Scope It
         }
         # 止める合図は、要求そのものを渡す（作業スレッドにも渡せる）
-        if ($Stage -eq "searchContentIndex") {
-            Should -Invoke -CommandName searchContentIndex -Times 1 -Exactly -Scope It -ParameterFilter { [object]::ReferenceEquals($stopSignal, $script:stopRequest) }
-        }
-        if ($Stage -eq "getContentIndexFiles") {
-            Should -Invoke -CommandName getContentIndexFiles -Times 1 -Exactly -Scope It -ParameterFilter { [object]::ReferenceEquals($stopSignal, $script:stopRequest) }
-        }
+        Should -Invoke -CommandName $Stage -Times 1 -Exactly -Scope It -ParameterFilter { [object]::ReferenceEquals($stopSignal, $script:stopRequest) }
     }
 
     It "invokeSearchRequest が呼ぶ検索・インデックスの関数は、すべて段の表にあるか、止める必要の無い短い呼び出しとして許されている（段を足したとき表に足し忘れない）" -ForEach @(@{ Stages = $stages }) {
