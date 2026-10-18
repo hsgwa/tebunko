@@ -2141,6 +2141,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="強制終了・時間切れからの再開">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ジャーナルの形" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ジャーナルの形
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -4119,6 +4136,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="強制終了・時間切れからの再開">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ジャーナルの形" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ジャーナルの形
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -4233,7 +4267,7 @@
 <pre class="mermaid"><code>stateDiagram-v2
     direction LR
     state "取り込み中" as Ingesting
-    state "ingesting.txt に記録" as Recorded
+    state "ジャーナルに「始」を記録" as Recorded
     state "制限時間 10 分" as Timeout
     state "済 / 失敗" as Done
 
@@ -4241,8 +4275,8 @@
     Ingesting --&gt; Recorded : 記録
     Recorded --&gt; Timeout : 監視スレッドが計測
     Timeout --&gt; Done : 超えたら Office を強制終了して失敗
-    Recorded --&gt; Done : 制限時間内に終わる（記録を削除）
-    Recorded --&gt; [*] : PC 停止・プロセス強制終了（記録が残る）</code></pre>
+    Recorded --&gt; Done : 制限時間内に終わる（結果を取り込み一覧に追記）
+    Recorded --&gt; [*] : PC 停止・プロセス強制終了（「始」だけが残る）</code></pre>
 <table>
 <thead>
 <tr>
@@ -4256,8 +4290,8 @@
 <td>取り込みのワーカーごとに、別のスレッド（監視。<code>OfficeWatchdog</code>）で制限時刻を監視する。制限時間を過ぎたら、そのスレッドが自分で起動した Office アプリ（<code>getApp</code> で PID を控えたもの。利用者のアプリ・ほかのワーカーのアプリは除く）を強制終了する。COM の呼び出しが例外で戻るため、そのファイルは <code>失敗</code>（エラー: <code>10 分以内に取り込みが終わらなかったため中止しました（Officeアプリを強制終了しました）</code>）とし、次のファイルへ進む。画面の［中止］のときも同じ見張りが、制限時間を待たずに自分のアプリを止める（そのファイルは失敗にせず「未取り込み」のまま残す）。強制終了したアプリはすべて終了扱いにし、次に必要になったときに起動し直す</td>
 </tr>
 <tr>
-<td>取り込み中のファイルの記録（<code>work/ingesting.txt</code>）</td>
-<td>取り込み中のファイルを 1 行に 1 つ <code>&lt;回数&gt;&lt;TAB&gt;&lt;相対パス&gt;</code> で書く（<code>writeIngestingFiles</code>。取り込みを複数のスレッドで行うため、取り込み中のものすべて）。ファイルを取り込みのスレッドに渡す前に加え、結果を取り込み一覧に追記した後に除く。インデックス作成の終わりには、中止・続けられないエラーの場合も <code>finally</code> で削除する（<code>removeIngestingFile</code>。回数に数えない）。PC が停止した・プロセスが強制終了された等の場合だけ残る</td>
+<td>取り込みのジャーナル（<code>work/store/journal/ingest.tsv</code>）</td>
+<td>仕事（元のファイル 1 つの取り込み）の始まりと、フォルダの書き出しを、司令が 1 行ずつ追記して Flush する（<code>IngestJournal</code>）。ファイルを取り込みのワーカーに渡すときに「始」（相対パスと、続けて取り込みを始めた回数）を書く。結果は取り込み一覧に追記するだけで、ジャーナルには書かない（行があれば、その仕事は終わったと読める）。インデックス作成の終わりに、取り込み一覧を書き直し終えたら「終」を書く。中止・続けられないエラーでも <code>finally</code> で書く（書き出せなかったフォルダがあっても書く。そのフォルダは「出」が無いことで次の始めに残る）。PC が停止した・プロセスが強制終了された等の場合は「終」が無いまま残り、次の始めに読む。行の形と読み方は <a href="#ジャーナルの形">ジャーナルの形</a></td>
 </tr>
 <tr>
 <td>無くなった元のファイルの外し直し（<code>work/store/pending_remove.tsv</code>）</td>
@@ -4265,32 +4299,92 @@
 </tr>
 <tr>
 <td>PowerPoint が要るファイルの後回し（Postponed）</td>
-<td>PowerPoint は 1 つのセッションに 1 つのプロセスしか持てないため、利用者が PowerPoint を開いていると接続することになり、固まっても止められない（<a href="../office-apps/#office-アプリexcelwordpowerpointの管理">Word・PowerPoint の共通処理と Office アプリの管理</a>「PowerPoint」）。そこで、そもそも接続せず、そのファイルを取り込まず、<strong>失敗として数えて理由を見せる</strong>（<code>indexer_run.ps1</code> の司令が <code>Postponed</code> の結果を受けたとき。<code>StatusLedger.AddFailure</code> に理由を入れ、進み具合の失敗の件数と、終わりの「更新に失敗したファイル」に出す。インデックスと取り込み中の記録は変えない）。取り込み一覧の行は状態を「未取り込み」のまま、理由を「エラー」の列に書く（前回の行があれば、TSV 数・取り込み日時・抽出版は前回のまま残す。無ければ新しい行にする）。<strong>状態を「失敗」にしない</strong>のは、「失敗」の行は次の更新で飛ばされ、失敗分の再取り込みを選ばないと取り込まないため。「未取り込み」なら、利用者が PowerPoint を閉じてからの次のインデックス作成で、選ばなくても取り込む。「未取り込み」でエラーが空でない行は、<code>testStatusRowFailed</code>（<code>index_store.ps1</code>）で失敗に数える（<code>getIndexingState</code>・<code>getIndexStats</code>）。理由は 2 つある（<code>indexer_decide.ps1</code> の <code>postponedReasonRunning</code>・<code>postponedReasonInUse</code>。文は <a href="../errors/">エラーメッセージ</a>）。利用者が PowerPoint を閉じれば、次のインデックス作成で取り込む（この扱いは PowerPoint だけ。Word は利用者のアプリを共有するため、Excel は新しいプロセスを起動して利用者が開いたファイルを渡すため、取り込めないことがない）（強制終了の回数には数えない。取り込み中に強制終了した場合とは別の扱い）。取り込み中に利用者が PowerPoint の窓を使い始め、制限時間を過ぎても、その PowerPoint は強制終了しない。そのワーカーを諦め、取り込み中のファイルと残りの PowerPoint のファイルを、同じく取り込まず、使っている方がいた理由で失敗として見せる（状態は「未取り込み」のまま。詳しくは <a href="../office-apps/#office-アプリexcelwordpowerpointの管理">Office アプリの管理</a>「利用者が使っている PowerPoint」）</td>
+<td>PowerPoint は 1 つのセッションに 1 つのプロセスしか持てないため、利用者が PowerPoint を開いていると接続することになり、固まっても止められない（<a href="../office-apps/#office-アプリexcelwordpowerpointの管理">Word・PowerPoint の共通処理と Office アプリの管理</a>「PowerPoint」）。そこで、そもそも接続せず、そのファイルを取り込まず、<strong>失敗として数えて理由を見せる</strong>（<code>indexer_run.ps1</code> の司令が <code>Postponed</code> の結果を受けたとき。<code>StatusLedger.AddFailure</code> に理由を入れ、進み具合の失敗の件数と、終わりの「更新に失敗したファイル」に出す。インデックスは変えない）。取り込み一覧の行は状態を「未取り込み」のまま、理由を「エラー」の列に書く（前回の行があれば、TSV 数・取り込み日時・抽出版は前回のまま残す。無ければ新しい行にする）。ワーカーに渡していた仕事は、この行を追記する（ジャーナルが、その仕事は終わったと読めるように。中止で止めた仕事も、今の行を追記する）。<strong>状態を「失敗」にしない</strong>のは、「失敗」の行は次の更新で飛ばされ、失敗分の再取り込みを選ばないと取り込まないため。「未取り込み」なら、利用者が PowerPoint を閉じてからの次のインデックス作成で、選ばなくても取り込む。「未取り込み」でエラーが空でない行は、<code>testStatusRowFailed</code>（<code>index_store.ps1</code>）で失敗に数える（<code>getIndexingState</code>・<code>getIndexStats</code>）。理由は 2 つある（<code>indexer_decide.ps1</code> の <code>postponedReasonRunning</code>・<code>postponedReasonInUse</code>。文は <a href="../errors/">エラーメッセージ</a>）。利用者が PowerPoint を閉じれば、次のインデックス作成で取り込む（この扱いは PowerPoint だけ。Word は利用者のアプリを共有するため、Excel は新しいプロセスを起動して利用者が開いたファイルを渡すため、取り込めないことがない）（強制終了の回数には数えない。取り込み中に強制終了した場合とは別の扱い）。取り込み中に利用者が PowerPoint の窓を使い始め、制限時間を過ぎても、その PowerPoint は強制終了しない。そのワーカーを諦め、取り込み中のファイルと残りの PowerPoint のファイルを、同じく取り込まず、使っている方がいた理由で失敗として見せる（状態は「未取り込み」のまま。詳しくは <a href="../office-apps/#office-アプリexcelwordpowerpointの管理">Office アプリの管理</a>「利用者が使っている PowerPoint」）</td>
 </tr>
 </tbody>
 </table>
 <pre class="mermaid"><code>sequenceDiagram
     participant P as 前回の実行
-    participant F as ingesting.txt
+    participant J as ジャーナル（store/journal/ingest.tsv）
     participant N as 次回の実行
 
-    P-&gt;&gt;F: 取り込み前にファイルを記録（writeIngestingFiles）
+    P-&gt;&gt;J: ワーカーに渡すとき「始」を記録（IngestJournal.AddRecord）
     Note over P: PC 停止・プロセス強制終了
-    N-&gt;&gt;F: readIngestingFiles で読む
-    F--&gt;&gt;N: 記録済みのファイル（前回止まったもの）
-    N-&gt;&gt;N: 取り込み対象の最後に回す
-    N-&gt;&gt;N: 取り込み開始時に回数を +1 して記録し直す
+    N-&gt;&gt;J: ReadPrevious で読み、取り込み一覧の行と突き合わせる（convertFromIngestJournal）
+    J--&gt;&gt;N: やり直す仕事・書き出していないフォルダ
+    N-&gt;&gt;N: 書き出していないフォルダを書き出す
+    N-&gt;&gt;N: やり直す仕事を取り込み対象の最後に回す
+    N-&gt;&gt;J: ジャーナルを作り直し、渡すたびに回数を +1 して「始」を記録
     alt 2 回続けて強制終了
         N-&gt;&gt;N: 失敗として取り込み対象から除く
     else 取り込めた
-        N-&gt;&gt;F: 記録を削除
+        N-&gt;&gt;N: 結果を取り込み一覧に追記する
     end</code></pre>
-<p>次回の実行時（取り込み対象の決定の後、<code>readIngestingFiles</code>）:</p>
+<h3 id="ジャーナルの形">ジャーナルの形<a class="headerlink" href="#ジャーナルの形" title="Permanent link">&para;</a></h3>
+<p><code>work/store/journal/ingest.tsv</code>（UTF-8 BOM 付き・CRLF）は、1 行に 1 記録で、先頭の列が記録の種類。書くのは司令だけで、1 行ずつ追記して Flush する。追記した行は、強制終了しても残る。</p>
+<table>
+<thead>
+<tr>
+<th>種類</th>
+<th>列</th>
+<th>書くとき</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>版</code></td>
+<td>格納形式の版（<code>2</code>）</td>
+<td>ファイルの先頭の 1 行。版が違えば、読まずに捨てる</td>
+</tr>
+<tr>
+<td><code>回</code></td>
+<td>日時・取り込み一覧のデータ行の数</td>
+<td>1 回の始め。取り込み一覧を書き直したあとの行数</td>
+</tr>
+<tr>
+<td><code>持</code></td>
+<td>相対パス・回数</td>
+<td>前回から持ち越した、まだ渡していない仕事</td>
+</tr>
+<tr>
+<td><code>始</code></td>
+<td>相対パス・回数</td>
+<td>仕事をワーカーに渡すとき。回数は今回を含めた、続けて取り込みを始めた回数</td>
+</tr>
+<tr>
+<td><code>出</code></td>
+<td>インデックスのフォルダからの相対パス</td>
+<td>フォルダを本文インデックスのファイルへ書き出したとき</td>
+</tr>
+<tr>
+<td><code>未</code></td>
+<td>インデックスのフォルダからの相対パス</td>
+<td>1 回の始め（<code>回</code> の直後）。前の回から持ち越した、まだ書き出していないフォルダ（始めの書き出しに失敗した・中止で飛ばした）</td>
+</tr>
+<tr>
+<td><code>書</code></td>
+<td>–</td>
+<td>取り込み一覧を書き直す前。書き直しの途中で止まると行の位置の対応が崩れるため、後ろに「終」が無ければ、「始」の仕事はすべてやり直す</td>
+</tr>
+<tr>
+<td><code>終</code></td>
+<td>–</td>
+<td>取り込み一覧を書き直し終えたとき（インデックス作成の終わり）。書き出せなかったフォルダがあっても書く</td>
+</tr>
+</tbody>
+</table>
+<p>知らない種類の行と余分な列は読み飛ばす。最後の行が改行で終わっていなければ（書いている途中で止まった）、その行を捨てる。</p>
+<p>次回の実行時（取り込み対象の決定の前、<code>convertFromIngestJournal</code>。判断層）:</p>
 <ul>
-<li><code>work/ingesting.txt</code> のファイルは、<strong>すべて</strong>「前回止まったファイル」として扱う（どのファイルで止まったかは分からないため）。取り込み対象にあれば、取り込み対象の<strong>最後に回す</strong>（<code>前回、取り込み中に強制終了したファイルは最後に取り込みます: &lt;相対パス&gt;</code>）。他のファイルの取り込みが先に進む。最後に回したファイルは、取り込みを始めるまで記録を残す（その前にまた止まっても、回数が分かるように）。</li>
-<li>そのファイルの取り込みを始めるときは、回数を 1 増やして記録する。続けて <code>$interruptLimit</code>（2）回強制終了したファイルは、応答しなくなるファイルとみなして <code>失敗</code>（エラー: <code>取り込み中に 2 回続けて強制終了されたため、取り込みを中止しました（…）</code>）とし、取り込み対象から除く。以降は他の失敗と同じく、画面で「失敗分も再取り込みする」を選ぶ（<code>-RetryFailed</code>）か元ファイルが更新されたときに取り込み直す。</li>
-<li>記録のファイルが取り込み対象に無い（取り込み済み・削除された等）場合は、記録を削除する。</li>
+<li><strong>書き出していないフォルダ</strong>: 「始」または「未」があって、そのあとの「出」が無いフォルダ（<code>終</code> があっても）。TSV を置いたが本文インデックスのファイルに入れていないかもしれないため、始めに書き出す（<code>PendingPublish</code> の書き出しは、同じ仕事をもう一度やり直して書き出しても同じ結果になる）。中止を求められていれば飛ばし、書き出せなかったフォルダは、新しいジャーナルに「未」で持ち越す（次の始めにもう一度書き出す。書き出せないフォルダがあっても、やり直す仕事を強制終了と数え間違えない）。ジャーナルが読めないとき（無い・版が違う。前の版で止まった跡を含む）は、今ある書き出し前のフォルダ（<code>findIndexFoldersWithBooks</code>）を書き出す。</li>
+<li><strong>やり直す仕事</strong>: 「始」を書いたあと、この回（<code>回</code> の行数より後ろ）の取り込み一覧の行が無い仕事。後回し・中止の仕事も、渡した仕事は行を追記するため、止まったと見ない。「持」だけで「始」が無い仕事は、回数のまま持ち越す。「始」が同じ仕事に何度もあれば、最後の行を使う。<code>終</code> が無く、<code>書</code> があるとき、<code>回</code> の行数が取り込み一覧より多いとき（外から書き換えられた）は、行を見ず、「始」の仕事をすべてやり直す。<code>終</code> があれば、やり直す仕事は無い。</li>
+<li>やり直す仕事が取り込み対象にあれば、取り込み対象の<strong>最後に回す</strong>（<code>前回、取り込み中に強制終了したファイルは最後に取り込みます: &lt;相対パス&gt;</code>）。他のファイルの取り込みが先に進む。</li>
+<li>回数が <code>$interruptLimit</code>（2）以上の仕事は、応答しなくなるファイルとみなして <code>失敗</code>（エラー: <code>取り込み中に 2 回続けて強制終了されたため、取り込みを中止しました（…）</code>）とし、取り込み対象から除く。以降は他の失敗と同じく、画面で「失敗分も再取り込みする」を選ぶ（<code>-RetryFailed</code>）か元ファイルが更新されたときに取り込み直す。</li>
+<li>取り込み対象に無い（取り込み済み・削除された等）仕事は、何もしない。</li>
+<li>読み終えたら、ジャーナルを <code>版</code>・<code>回</code>・<code>持</code>（まだ渡していない仕事）・<code>未</code>（まだ書き出していないフォルダ）だけの新しいものに入れ替え（取りやめた回は入れ替えず、前回のまま残す）（一時ファイルに書いて入れ替える）、この回の記録を追記していく。</li>
 </ul>
+<p>取り込み一覧は、取り込みの途中は行を追記するだけで、1 ファイル 1 行にまとめ直すのは終わりの直前（ジャーナルに <code>書</code> を書いてから）。そのため、作成中に取り込み一覧の行が 1 件ごとに増え、画面が読む取り込み済み・失敗の件数も途中で増える。前の版が作った <code>work/ingesting.txt</code> が残っていれば、始めに 1 度だけ読んで「やり直す仕事」に足し、ジャーナルを作り直したあとで消す（<code>readLegacyIngesting</code>・<code>removeLegacyIngesting</code>）。</p>
+<p><strong>限りがあること</strong>: 強制終了のあと、次の実行の前に取り込み一覧が外から書き換えられると、行の位置の対応が崩れることがある。その場合も、影響は回数が合わないことだけで、取り込みはやり直される（取り込み一覧の行数が <code>回</code> の行数より少なければ、「始」の仕事をすべてやり直す）。</p>
 
 
 

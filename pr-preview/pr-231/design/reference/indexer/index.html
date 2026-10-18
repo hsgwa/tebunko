@@ -4474,26 +4474,58 @@
 <td>IndexCatalog.RenameIndex, RemoveIndex</td>
 </tr>
 <tr>
-<td><code>readIngestingFiles</code></td>
-<td>path（既定 <code>$workspace.IngestingFile</code>）</td>
-<td><code>@{RelPath; Count}</code> の配列</td>
-<td>取り込み中のファイルの記録（1 行に 1 ファイル。相対パスと、続けて取り込みを始めて終わらなかった回数）を読む。無ければ空。壊れた行と、名前・相対パスが使えない行（<code>testIndexRelPath</code>）は読み飛ばす</td>
-<td><a href="../../indexing/ingest-list/#強制終了時間切れからの再開">取り込み一覧</a></td>
-<td>インデックス作成</td>
+<td><code>readStatusRelPaths</code></td>
+<td>path（既定 <code>$workspace.StatusFile</code>）</td>
+<td>相対パスの配列</td>
+<td>取り込み一覧のデータ行の相対パスを、ファイルの順に返す（同じ相対パスの追記も別の行として数える）。ジャーナルの「この回の行」の数え方に使う。無ければ空</td>
+<td><a href="../../indexing/ingest-list/#ジャーナルの形">ジャーナルの形</a></td>
+<td>StatusLedger.ReadRelPaths</td>
 </tr>
 <tr>
-<td><code>writeIngestingFiles</code></td>
-<td>entries（<code>@{RelPath; Count}</code> の配列）, path（既定 <code>$workspace.IngestingFile</code>）</td>
-<td>–</td>
-<td>取り込み中のファイルを 1 行に 1 つ <code>&lt;回数&gt;&lt;TAB&gt;&lt;相対パス&gt;</code> で記録する。無ければ記録を消す</td>
+<td><code>convertToIngestJournalLine</code></td>
+<td>kind, fields</td>
+<td>string</td>
+<td>ジャーナルの 1 記録（版・回・書・始・持・未・出・終）を 1 行の文字列にする。列のタブ・改行はスペースにする</td>
 <td>同上</td>
 <td>インデックス作成</td>
 </tr>
 <tr>
-<td><code>removeIngestingFile</code></td>
-<td>path（既定 <code>$workspace.IngestingFile</code>）</td>
+<td><code>newIngestJournalHead</code></td>
+<td>version, stamp, rowCount, carried, unpublished</td>
+<td>string の配列</td>
+<td>新しい回のジャーナルの頭の行（版・回・持ち越した仕事の「持」・書き出せていないフォルダの「未」の順）を組み立てる（判断層）</td>
+<td>同上</td>
+<td>インデックス作成</td>
+</tr>
+<tr>
+<td><code>convertFromIngestJournal</code></td>
+<td>lines, statusRelPaths, 上限</td>
+<td><code>@{Valid; Finished; Aligned; Folders; Resume}</code></td>
+<td>前回のジャーナルの行と取り込み一覧の相対パスから、始めの復旧の内容（先に書き出すフォルダ・やり直す仕事）を決める。ファイルには触らない（判断層）</td>
+<td>同上</td>
+<td>インデックス作成</td>
+</tr>
+<tr>
+<td><code>recoverIngestJournal</code></td>
+<td>ledger, journal, pending, channel, reporter</td>
+<td><code>@{Resume; Unpublished}</code></td>
+<td>始めの復旧。前回のジャーナル（と前の版の <code>ingesting.txt</code>）から、やり直す仕事を決め、書き出していないフォルダを先に書き出す。ジャーナルが読めないときは今ある書き出し前のフォルダを書き出す。書き出せなかった・中止で飛ばしたフォルダは Unpublished に入れ、次の回のジャーナルへ「未」で持ち越す</td>
+<td>同上</td>
+<td>インデックス作成</td>
+</tr>
+<tr>
+<td><code>writeStatusWithJournal</code></td>
+<td>journal, ledger, folders, rows, keptDropped, previous, [-Finish]</td>
 <td>–</td>
-<td>取り込み中のファイルの記録を削除する（無くてもエラーにしない）</td>
+<td>取り込み一覧を書き直す。前に「書」を足し、-Finish のときは書き直したあとに「終」を足す。最後にジャーナルを閉じる</td>
+<td>同上</td>
+<td>インデックス作成</td>
+</tr>
+<tr>
+<td><code>getLegacyIngestingPath</code> / <code>readLegacyIngesting</code> / <code>removeLegacyIngesting</code></td>
+<td>–</td>
+<td>パス / <code>@{RelPath; Count}</code> の配列 / –</td>
+<td>前の版の <code>ingesting.txt</code> を始めに 1 度だけ読んで、ジャーナルの復旧に足し、読んだあとに消す（<code>ingest_journal.ps1</code>）</td>
 <td>同上</td>
 <td>インデックス作成</td>
 </tr>
@@ -4572,7 +4604,7 @@
 </tbody>
 </table>
 <h3 id="statusledgerindexer_stateps1司令のスレッドで作る">StatusLedger（<code>indexer_state.ps1</code>。司令のスレッドで作る）<a class="headerlink" href="#statusledgerindexer_stateps1司令のスレッドで作る" title="Permanent link">&para;</a></h3>
-<p>インデクサの司令（<code>invokeIndexerBody</code>）が、コンストラクタで受け取った <code>Workspace</code> の <code>StatusFile</code>・<code>IngestingFile</code> を読み書きする。メソッドは、上の表の同じ処理をする関数をそのまま呼ぶ（列と状態の定義は <code>core/paths.ps1</code> のまま動かさない）。</p>
+<p>インデクサの司令（<code>invokeIndexerBody</code>）が、コンストラクタで受け取った <code>Workspace</code> の <code>StatusFile</code> を読み書きする。メソッドは、上の表の同じ処理をする関数をそのまま呼ぶ（列と状態の定義は <code>core/paths.ps1</code> のまま動かさない）。</p>
 <table>
 <thead>
 <tr>
@@ -4590,10 +4622,10 @@
 <td><code>readStatusFile</code>・<code>writeStatusFile</code>・<code>addStatusRow</code> を呼ぶ</td>
 </tr>
 <tr>
-<td><code>ReadIngestingFiles</code> / <code>WriteIngestingFiles</code> / <code>RemoveIngestingFile</code></td>
-<td>– / entries / –</td>
-<td><code>readIngestingFiles</code> と同じ / – / –</td>
-<td>取り込み中のファイルの記録を読み書き・削除する</td>
+<td><code>ReadRelPaths</code></td>
+<td>–</td>
+<td><code>readStatusRelPaths</code> と同じ</td>
+<td>取り込み一覧の相対パスの並びを読む</td>
 </tr>
 <tr>
 <td><code>RenameIndexName</code> / <code>RemoveIndexName</code></td>
@@ -4782,10 +4814,10 @@
 <td>中止を求められ、渡していないファイルがあるとき、今回初めて止めた場合だけ <code>$true</code> を返し、以後は渡さない（残りの件数は <code>Remaining</code>）</td>
 </tr>
 <tr>
-<td><code>InflightCount</code> / <code>IngestingEntries</code></td>
-<td>–</td>
-<td>件数 / 取り込み中のファイル</td>
-<td>取り込み中の数と一覧</td>
+<td><code>GetInflightCount</code></td>
+<td>relPath</td>
+<td>件数</td>
+<td>取り込み中のファイルを続けて取り込みを始めた回数（今の分を含む。取り込み中でなければ 0。ジャーナルの「始」に書く）</td>
 </tr>
 <tr>
 <td><code>Stop</code></td>
@@ -4969,7 +5001,7 @@
 <td>string（問題の文。使えれば空）</td>
 <td><code>インデックス名\フォルダからの相対パス</code> が置き場の外へ出ないか。先頭の名前は <code>testStoredIndexName</code>（予約名は通す）で確かめる。取り込み一覧・取り込み中の記録の行は名前だけを通さない（システムインデックスの状態だけ通す）</td>
 <td>同上</td>
-<td>readIngestingFiles, readSystemIndexState</td>
+<td>IngestJournal（読み込み）, readSystemIndexState</td>
 </tr>
 <tr>
 <td><code>splitIndexRelPath</code></td>
