@@ -1,11 +1,14 @@
-﻿# Office からの取り込み、インデックス作成（pack の作成）、検索の速さ、およびその間のリソース（メモリ・CPU・スレッド・ハンドル・GC）を測る。
+﻿# Office からの取り込み、Excel のブックの流れ読み、インデックス作成（pack の作成）、検索の速さ、およびその間のリソース（メモリ・CPU・スレッド・ハンドル・GC）を測る。
 # GitHub Actions の perf.yml からも、手元からも使う。結果には数字だけを書き、パスやファイル名は書かない（そのまま共有できるようにするため）。
 #
 #   .\tools\measure_perf.ps1 -Index <TSV のインデックス> -Work <作業フォルダ> -Words <words.tsv>
 #   .\tools\measure_perf.ps1 -Office <Office ファイルのフォルダ> -Work <作業フォルダ>
-#   -Index と -Office は、少なくとも一方を指定する（両方でもよい）。指定しなかった側は測らず、result.json の Index・Search・Ingest は null になる
+#   -Index・-Office・-Xlsx は、少なくとも 1 つを指定する（いくつでもよい）。指定しなかった側は測らず、result.json の Index・Search・Ingest は null になる
 #   -Office   … Office からの取り込みを測る。取り込む Office ファイルのフォルダ（tools\perf\new_ingest_data.ps1 で作る）。
 #                測る tebunko の scripts を写して取り込むので、利用者の設定・既定のワークスペースには触らない。Excel・Word・PowerPoint の実機が要る種類は、データにあるときだけ使う
+#   -Xlsx     … Excel のブックを Office を使わずに ZIP から読む部分（readXlsxObjectUnits。シートの流れ読み）を測る、普通のブックを読む回数（既定 0 は測らない）。
+#                ブックはその場で作る（tools\perf\xlsx_data.ps1）。普通のブック（シート 1 枚）を -Xlsx 回、同じシートの部品を指す <sheet> を並べたブックを 1 回読む
+#   -XlsxRows・-XlsxManyRows … -Xlsx で作るブックの行の数（普通のブック／<sheet> を並べたブック）。指定しないと measure_xlsx.ps1 の既定（200000／50000）。小さくして動きの確かめに使える
 #   -Threads  … 取り込みの、Office を使わずに読むファイル（.docx・.pptx）の読み取りのスレッドの数（既定 2）
 #   -Repeat   … 取り込みを測る回数（既定 3）。1 回ごとに新しいプロセス・空のワークスペースで流す（Office の起動を含む、初めての取り込みの時間）
 #   -Index    … 場所ごとの TSV（取り込みの一時置き場の形。tebunko-perfdata の new_index.ps1 で作る）。
@@ -27,6 +30,7 @@
 #   -Out      … 結果を書くフォルダ。既定は <Work>\result
 #
 # 流れ（それぞれ別のプロセスで動かし、リソースが混ざらないようにする）:
+#   0. Excel の流れ読み … -Xlsx が 0 でないときだけ。tools\perf\measure_xlsx.ps1 を起動する
 #   1. 取り込み        … tools\perf\measure_ingest.ps1（起動口の indexer.ps1 で Office ファイルを取り込む。-Repeat 回）
 #   2. インデックス作成 … tools\perf\measure_index.ps1（インデクサと同じ publishIndexFolders。Office からの取り込みは含まない）
 #   3. 検索            … 語ごとに tools\perf\measure_search.ps1 を起動し、同じプロセスで -Count 回続けて検索する
@@ -40,11 +44,15 @@
 #   metrics.csv         … 1 行 1 指標の縦長の形（run_id, date, ref, sha, scale, metric, word, stat, value, unit）。後で Grafana などに入れるため
 #   searches.csv        … 検索 1 回ごとの時間・ヒット件数・メモリ
 #   typing.csv          … 入力しながらの検索の、1 回の入力ごとの時間・ヒット件数・メモリ（-Typing のときだけ）
+#   resource-xlsx.csv   … Excel の流れ読みのリソースの記録（-Xlsx のときだけ）
 #   preview.csv         … プレビュー 1 回ごとの読み込み・表を作る時間・セルの数・メモリ（-Preview のときだけ）
 #   resource-ingest.csv・resource-index.csv・resource-search.csv・resource-typing.csv … リソースの記録（-SampleMs ごと。取り込みは段階が変わるたびにも記録する）
 param (
     [string]$Index,
     [string]$Office,
+    [int]$Xlsx = 0,
+    [int]$XlsxRows,
+    [int]$XlsxManyRows,
     [Parameter(Mandatory = $true)][string]$Work,
     [string]$Tool = (Split-Path $PSScriptRoot -Parent),
     [string]$Words,
@@ -72,7 +80,7 @@ param (
 $ErrorActionPreference = "Stop"
 . ([WildcardPattern]::Escape("$PSScriptRoot\perf\perf_common.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\perf\ingest_common.ps1".Replace('`', '``')))
-if (!$Index -and !$Office) { throw "-Index と -Office の少なくとも一方を指定してください。" }
+if (!$Index -and !$Office -and $Xlsx -le 0) { throw "-Index・-Office・-Xlsx の少なくとも 1 つを指定してください。" }
 if ($Typing -eq 1) { throw "-Typing は 0 か 2 以上にしてください。" }
 if ($Preview -lt 0) { throw "-Preview は 0 以上にしてください。" }
 if ($Render -and $Preview -le 0) { throw "-Render は -Preview と一緒に指定してください。" }
@@ -129,6 +137,28 @@ $run.Office = getOfficeVersions
 try { $run.Cpu = (@(Get-CimInstance Win32_Processor)[0].Name).Trim() } catch { $run.Cpu = "不明" }
 try { $run.MemoryGB = [Math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 1) } catch { $run.MemoryGB = $null }
 try { $run.DefenderRealtime = [string](Get-MpComputerStatus -ErrorAction Stop).RealTimeProtectionEnabled } catch { $run.DefenderRealtime = "不明" }
+
+# 0. Excel の流れ読み（別のプロセス）。-Xlsx が 0 のときは測らない
+$xlsxResult = $null
+$xlsxRaw = $null
+if ($Xlsx -gt 0) {
+    Write-Host "Excel の流れ読みを測ります。"
+    $xlsxJson = Join-Path $raw "xlsx.json"
+    $xlsxArgs = @("-Tool", $Tool, "-Work", $Work, "-Out", $xlsxJson, "-Repeat", $Xlsx, "-SampleMs", $SampleMs)
+    # 行の数の既定値は measure_xlsx.ps1 に置く。指定されたときだけ渡す
+    if ($PSBoundParameters.ContainsKey("XlsxRows")) { $xlsxArgs += @("-Rows", $XlsxRows) }
+    if ($PSBoundParameters.ContainsKey("XlsxManyRows")) { $xlsxArgs += @("-ManyRows", $XlsxManyRows) }
+    invokeChild "measure_xlsx.ps1" $xlsxArgs
+    $xlsxRaw = readJson $xlsxJson
+    $normalMs = [double[]]@(@($xlsxRaw.Normal) | ForEach-Object { $_.Ms })
+    $xlsxResult = [ordered]@{
+        Repeat = $Xlsx; Rows = $xlsxRaw.Rows; NormalMB = $xlsxRaw.NormalMB; ManySheets = $xlsxRaw.ManySheets; ManyRows = $xlsxRaw.ManyRows; ManyMB = $xlsxRaw.ManyMB
+        NormalMs = getStats $normalMs; NormalUnits = $xlsxRaw.Normal[0].Units; NormalLines = $xlsxRaw.Normal[0].Lines
+        NormalFailures = (@($xlsxRaw.Normal | ForEach-Object { $_.Failures }) | Measure-Object -Maximum).Maximum
+        ManyMs = [double]$xlsxRaw.Many.Ms; ManyUnits = $xlsxRaw.Many.Units; ManyLines = $xlsxRaw.Many.Lines; ManyFailures = $xlsxRaw.Many.Failures
+        Resources = (getPhaseResources @($xlsxRaw.Samples) $cores); PeakWorkingSetMB = $xlsxRaw.PeakWorkingSetMB
+    }
+}
 
 # 1. Office からの取り込み（1 回ごとに別のプロセス）
 $ingestResult = $null
@@ -250,7 +280,7 @@ if ($Index -and $Preview -gt 0) {
 
 # result.json（形式の版 5。版 2 で Preview を足し、版 3 で Preview.Words[].FullRead・ReadTextCallsUncached を足し、版 4 で Preview.Words[].BuildFirstMs・BuildRestMs と Render.FirstMs・RestMs を足し、版 5 で Preview.Words[].CreatedCells・ReadMore と Render.Elements・ScrollMs・RenderRetainedMB を足した）
 $run.SearchMode = (@($search | ForEach-Object { $_.Mode } | Select-Object -Unique) -join ",")
-$result = [ordered]@{ Schema = 5; Run = $run; Index = $indexResult; Search = $(if ($Index) { $search.ToArray() } else { $null }); Ingest = $ingestResult
+$result = [ordered]@{ Schema = 5; Run = $run; Index = $indexResult; Search = $(if ($Index) { $search.ToArray() } else { $null }); Ingest = $ingestResult; Xlsx = $xlsxResult
     Preview = $(if ($Index -and $Preview -gt 0) { [ordered]@{ Count = $Preview; Render = [bool]$Render; Words = $previewWords.ToArray(); Skipped = $previewSkipped.ToArray() } } else { $null })
     Typing = $(if ($Index -and $Typing -gt 0) { [ordered]@{
         Mode = [string]$typingRaw[0].Mode; Count = $Typing; IntervalMs = $TypingIntervalMs; MinLength = $TypingMinLength; Fast = [bool]$TypingFast
@@ -267,6 +297,17 @@ function addMetric([string]$metric, [string]$word, [string]$stat, $value, [strin
         metric = $metric; word = $word; stat = $stat; value = (formatPerfNumber ([double]$value)); unit = $unit })
 }
 addMetric "data_seconds" "" "value" $run.DataSeconds "s"
+if ($xlsxResult) {
+    foreach ($stat in @("Min", "Median", "Mean", "Max")) { addMetric "xlsx_normal_ms" "" $stat.ToLower() $xlsxResult.NormalMs[$stat] "ms" }
+    addMetric "xlsx_normal_units" "" "value" $xlsxResult.NormalUnits "count"
+    addMetric "xlsx_many_ms" "" "value" $xlsxResult.ManyMs "ms"
+    addMetric "xlsx_many_units" "" "value" $xlsxResult.ManyUnits "count"
+    addMetric "xlsx_normal_failures" "" "max" $xlsxResult.NormalFailures "count"
+    addMetric "xlsx_many_failures" "" "value" $xlsxResult.ManyFailures "count"
+    $xlsxPhases = @($xlsxResult.Resources | Where-Object { $_.Phase -eq "同じ部品を指すブック" })
+    if ($xlsxPhases.Count) { addMetric "xlsx_many_working_set_mb" "" "max" $xlsxPhases[0].WorkingSetMaxMB "MB" }
+    addMetric "xlsx_peak_working_set_mb" "" "max" $xlsxResult.PeakWorkingSetMB "MB"
+}
 if ($ingestResult) {
     addMetric "ingest_files" "" "value" $ingestResult.Total "count"
     addMetric "ingest_failed" "" "max" $ingestResult.Failed "count"
@@ -348,6 +389,9 @@ foreach ($p in $previewWords) {
 [System.IO.File]::WriteAllLines((Join-Path $Out "metrics.csv"), [string[]]@($metrics | ConvertTo-Csv -NoTypeInformation), $utf8Bom)
 
 # searches.csv・resource-*.csv
+if ($xlsxRaw) {
+    [System.IO.File]::WriteAllLines((Join-Path $Out "resource-xlsx.csv"), [string[]]@(@($xlsxRaw.Samples) | ConvertTo-Csv -NoTypeInformation), $utf8Bom)
+}
 if ($ingestRuns.Count) {
     $ingestSampleRows = for ($i = 0; $i -lt $ingestRuns.Count; $i++) { foreach ($sm in @($ingestRuns[$i].Samples)) { $o = [ordered]@{ Run = $i + 1 }; foreach ($p in $sm.PSObject.Properties) { $o[$p.Name] = $p.Value }; [pscustomobject]$o } }
     [System.IO.File]::WriteAllLines((Join-Path $Out "resource-ingest.csv"), [string[]]@($ingestSampleRows | ConvertTo-Csv -NoTypeInformation), $utf8Bom)
@@ -401,6 +445,26 @@ if ($null -ne $run.DataSeconds) {
     add ("データ（TSV）の生成に {0:N1} 秒かかった（tebunko-perfdata の new_index.ps1 による。tebunko の処理時間には含まない）。" -f $run.DataSeconds)
 }
 
+if ($xlsxResult) {
+    $xr = $xlsxResult
+    add
+    add "## Excel の流れ読み"
+    add
+    add "Excel のブックを、Office を使わずに ZIP から直接読む部分（readXlsxObjectUnits。図形・コメント・ヘッダー／フッター。シートの流れ読みを含む）の時間。ブックはその場で作った（Office は使わない）。普通のブック（シート 1 枚・$($xr.Rows) 行・$($xr.NormalMB) MB）を $($xr.Repeat) 回、同じシートの部品を指す <sheet> を $($xr.ManySheets) 個並べたブック（$($xr.ManyRows) 行・$($xr.ManyMB) MB）を 1 回読んだ。同じ ref の数字どうし、または測る版どうしで比べる。"
+    add
+    add "| ブック | 読んだ場所の数 | 読んだ行の数 | 読めなかった部品 | 最小 | 中央値 | 平均 | 最大 |"
+    add "|---|---|---|---|---|---|---|---|"
+    add ("| 普通のブック（{0} 回） | {1} | {2} | {3} | {4:N0} ms | {5:N0} ms | {6:N0} ms | {7:N0} ms |" -f $xr.Repeat, $xr.NormalUnits, $xr.NormalLines, $xr.NormalFailures, $xr.NormalMs.Min, $xr.NormalMs.Median, $xr.NormalMs.Mean, $xr.NormalMs.Max)
+    add ("| 同じ部品を指すブック（1 回） | {0} | {1} | {2} | – | {3:N0} ms | – | – |" -f $xr.ManyUnits, $xr.ManyLines, $xr.ManyFailures, $xr.ManyMs)
+    add
+    add "ワーキングセットのピークは $($xr.PeakWorkingSetMB) MB。"
+    add
+    add "| 段階 | 時間 | CPU 時間 | CPU | ワーキングセット | マネージドヒープ | GC 回数（0/1/2 世代） |"
+    add "|---|---|---|---|---|---|---|"
+    foreach ($p in $xr.Resources) {
+        add ("| {0} | {1:N1} 秒 | {2:N1} 秒 | {3}% | {4:N0} MB | {5:N0} MB | {6}/{7}/{8} |" -f $p.Phase, $p.Seconds, $p.CpuSeconds, $p.CpuPercent, $p.WorkingSetMaxMB, $p.ManagedMaxMB, $p.Gc0, $p.Gc1, $p.Gc2)
+    }
+}
 if ($ingestResult) {
     $ig = $ingestResult
     add
