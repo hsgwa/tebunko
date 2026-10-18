@@ -494,7 +494,7 @@ Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を�
         $officeReaderLines = @($code | Where-Object { $_.File -eq "office_reader.ps1" })
         $funcStarts = @($officeReaderLines | Where-Object { $_.Text -match '^\s*function\s+\w+' } | Sort-Object Line)
         # readZipEntry のほかに、シートのヘッダー・フッターを流れで読む readXlsxSheetHeaderFooter だけは、
-        # 大きさの上限（zipSheetStreamMaxBytes。偽りの申告は MaxCharactersInDocument で打ち切る）を付けて entry.Open() してよい
+        # 1ファイルの合計の上限（zipSheetStreamMaxBytes。実際に読んだ量を LimitedReadStream で数えて打ち切る）を付けて entry.Open() してよい
         # readZipEntryBytes（埋め込んだファイルをバイト列で読む）は、readZipEntry と同じ上限の数え方（checkZipEntrySize）を通し、
         # 申告の大きさだけ確保して読む。埋め込みの Excel のシートも readZipEntryBytes で読む（office_embedded.ps1 では
         # entry.Open() を使わない）。出す文字数は addEmbeddedOutputChars で数えて上限を付ける
@@ -507,7 +507,9 @@ Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を�
             $ranges += , @($start, $end)
         }
         $streamed = @($officeReaderLines | Where-Object { $_.Line -ge $ranges[1][0] -and $_.Line -lt $ranges[1][1] })
-        (findPattern $streamed 'MaxCharactersInDocument\s*=\s*\$script:zipSheetStreamMaxBytes') | Should -Not -Be ""
+        # 流れ読みは、1ファイルの残り（zipSheetStreamMaxBytes − zipSheetStreamReadBytes）で止める包み（LimitedReadStream）を通す
+        (findPattern $streamed 'LimitedReadStream\]::new\(\$inner,\s*\$remaining\)') | Should -Not -Be ""
+        (findPattern $streamed '\$script:zipSheetStreamReadBytes\s*\+=') | Should -Not -Be ""
 
         $embeddedLines = @($code | Where-Object { $_.File -eq "office_embedded.ps1" })
         $embeddedStarts = @($embeddedLines | Where-Object { $_.Text -match '^\s*function\s+\w+' } | Sort-Object Line)
@@ -540,6 +542,39 @@ Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を�
         })
         (@($outside | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
         ($targets.Count -gt 0) | Should -Be $true  # 検査の取りこぼし（対象0件で通る）を防ぐ
+    }
+
+    It "1ファイルで読む量の合計（readZipEntry の zipTotalReadBytes と、シートの流れ読みの zipSheetStreamReadBytes）は、readXlsxObjectUnits の始めで0にし、流れ読みは数えて止める包みを通す" {
+        $officeReaderLines = @($code | Where-Object { $_.File -eq "office_reader.ps1" })
+        $funcStarts = @($officeReaderLines | Where-Object { $_.Text -match '^\s*function\s+\w+' } | Sort-Object Line)
+        function getReaderFunctionLines([string]$name) {
+            $start = ($funcStarts | Where-Object { $_.Text -match "function\s+$name\b" }).Line
+            $start | Should -Not -BeNullOrEmpty
+            $end = ($funcStarts | Where-Object { $_.Line -gt $start } | Sort-Object Line | Select-Object -First 1).Line
+            if (-not $end) { $end = [int]::MaxValue }
+            return @($officeReaderLines | Where-Object { $_.Line -ge $start -and $_.Line -lt $end })
+        }
+        # 合計を数え直さないと、2つ目以降のファイルが前のファイルの続きの量で打ち切られる（または上限が効かなくなる）
+        $units = getReaderFunctionLines "readXlsxObjectUnits"
+        (findPattern $units '\$script:zipTotalReadBytes\s*=\s*0') | Should -Not -Be ""
+        (findPattern $units '\$script:zipSheetStreamReadBytes\s*=\s*0') | Should -Not -Be ""
+        # ヘッダー・フッターの流れ読みは、同じ部品を指す <sheet> が複数あっても1回だけ（結果を使い回す）
+        (findPattern $units 'ContainsKey\(\$rel\.Target\)') | Should -Not -Be ""
+
+        # entry.Open() の結果は、数えて止める包みに入れて XmlReader に渡す（包みを通さない読み方が増えたら落ちる）
+        $header = getReaderFunctionLines "readXlsxSheetHeaderFooter"
+        $opens = @($header | Where-Object { $_.Text -match '\.Open\(\)' })
+        $opens.Count | Should -Be 1
+        $opens[0].Text | Should -Match '\$inner\s*=\s*\$entry\.Open\(\)'
+        (findPattern $header 'XmlReader\]::Create\(\$stream,') | Should -Not -Be ""
+        (findPattern $header 'XmlReader\]::Create\(\$inner') | Should -Be ""
+
+        # 包みは、読んだ量が上限を超えたら止める
+        $classStart = ($officeReaderLines | Where-Object { $_.Text -match '^class\s+LimitedReadStream\b' }).Line
+        $classStart | Should -Not -BeNullOrEmpty
+        $classLines = @($officeReaderLines | Where-Object { $_.Line -ge $classStart -and $_.Line -lt ($classStart + 30) })
+        (findPattern $classLines '\$this\.ReadBytes\s*\+=') | Should -Not -Be ""
+        (findPattern $classLines '\$this\.ReadBytes\s+-gt\s+\$this\.Limit') | Should -Not -Be ""
     }
 
     It "受け取る zip（index_archive.ps1）のエントリーを開く（.Open()）のは、書き込みの 2 つと上限付きの読み取りの 2 つの関数だけで、ReadToEnd は使わない" {
