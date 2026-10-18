@@ -576,8 +576,17 @@ function expandImportArchive {
                     throw "ingest_status.tsv を読み込めません（${reason}）"
                 }
             } else {
-                $rel = $path.Substring("content_index/".Length).Replace("/", "\")
-                extractArchiveEntryToFile $entry $size $sha256 (Join-Path $newDir $rel) $workDir
+                # 本文インデックスのファイル: 大きすぎれば展開しない。展開して SHA-256 を比べたあと、検索と更新が読めるかを確かめる
+                $reason = testImportedContentIndexFile $size $null
+                if (!$reason) {
+                    $rel = $path.Substring("content_index/".Length).Replace("/", "\")
+                    $target = Join-Path $newDir $rel
+                    extractArchiveEntryToFile $entry $size $sha256 $target $workDir
+                    $reason = testImportedContentIndexFile $size (readContentIndexText $target)
+                }
+                if ($reason) {
+                    throw "本文インデックスのファイル「${path}」を読み込めません（${reason}）。エクスポートした側で更新し直してから、もう一度エクスポートしてください。"
+                }
             }
         }
         if ($null -eq $statusLines) {
