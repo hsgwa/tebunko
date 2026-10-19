@@ -326,7 +326,7 @@ function testSearchLimitKeepText {
 function getSearchLimitInputDecision {
     # 検索結果の件数の上限を確定するときの判断。@{ Action; Value; Message }
     #   Action: None（変わっていない。欄を今の値に戻す）/ Invalid（直してほしい。Message に理由）/ Apply（Value で保存する。0 は制限なし）
-    # mode: "Limited"（欄の数。全角の数字・正しい位置の , ・前後の空白を受ける）/ "None"（制限なし）
+    # mode: "Limited"（欄の数。全角の数字・前後の空白を受ける。, は表示だけなので、どこにあっても無視する）/ "None"（制限なし）
     param (
         [string]$mode,
         [string]$text,
@@ -353,11 +353,12 @@ function getSearchLimitInputDecision {
         return @{ Action = "None"; Value = $current; Message = "" }
     }
     $invalid = @{ Action = "Invalid"; Value = $current; Message = (getSearchLimitTexts $min $max $default).Error }
-    if ($typed -notmatch '^([0-9]+|[0-9]{1,3}(,[0-9]{3})+)$') {
+    $typed = $typed.Replace(",", "")
+    if ($typed -notmatch '^[0-9]+$') {
         return $invalid
     }
     $number = 0L
-    if (![long]::TryParse($typed.Replace(",", ""), [ref]$number) -or $number -lt $min -or $number -gt $max) {
+    if (![long]::TryParse($typed, [ref]$number) -or $number -lt $min -or $number -gt $max) {
         return $invalid
     }
     if ($number -eq $current) {
