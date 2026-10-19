@@ -511,31 +511,33 @@ Describe "HitRow.Prepare" -Tag Unit {
     }
 }
 
-Describe "HitRow.Contains" -Tag Unit {
+Describe "HitRow.MatchesFileName" -Tag Unit {
     BeforeAll {
         $row = newHitRow -relDir "営業部" -book "見積.xlsx" -location "4月" -lineNumber 12 -line "品名`tABC"
         $row.PlaceText = "[シート]四月"
         $row.Kind = "セル"
     }
 
-    It "<name>で絞り込める" -TestCases @(
+    It "<name>で合う: '<text>'" -TestCases @(
+        @{ name = "ファイル名の一部"; text = "見積" }
+        @{ name = "拡張子を含む大文字"; text = "見積.XLSX" }
+        @{ name = "拡張子だけの小文字"; text = "xlsx" }
+        @{ name = "空文字"; text = "" }
+    ) {
+        param ($text)
+        $row.MatchesFileName($text) | Should -Be $true
+    }
+
+    It "ファイル名に無い文字では合わない（<name>）: <text>" -TestCases @(
         @{ name = "相対フォルダ"; text = "営業" }
-        @{ name = "元ファイル名"; text = "見積.XLSX" }
         @{ name = "場所"; text = "4月" }
         @{ name = "場所の表記"; text = "四月" }
         @{ name = "種別"; text = "セル" }
-        @{ name = "行（大文字小文字を区別しない）"; text = "abc" }
+        @{ name = "該当行"; text = "abc" }
+        @{ name = "行番号"; text = "12" }
     ) {
         param ($name, $text)
-        $row.Contains($text) | Should -Be $true
-    }
-
-    It "どれにも無ければ $false" {
-        $row.Contains("請求") | Should -Be $false
-    }
-
-    It "列に出さない行番号では絞り込めない" {
-        $row.Contains("12") | Should -Be $false
+        $row.MatchesFileName($text) | Should -Be $false
     }
 }
 
@@ -866,10 +868,6 @@ Describe "HitRow（境界値）" -Tag Unit {
         $found = [HitRow]::FindMatches("あああ", "ああ", $null)
         $found.Count | Should -Be 1
         ($found[0] -join ",") | Should -Be "0,2"
-    }
-
-    It "空の文字で絞り込むとすべて合う" {
-        (newHitRow -line "見積").Contains("") | Should -Be $true
     }
 
     It "正規表現で Excel のセル番地を決める" {

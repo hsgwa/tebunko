@@ -46,7 +46,7 @@ flowchart LR
 
 守りの限界: 既定のワークスペースの場所との同じ・下かどうかは、パスの文字で比べる。8.3 形式の短い名前・ジャンクション・`subst` で既定のワークスペースを指す場所は、事前の確かめでは見つけられない（流したあとの前後の比べが、書かれたことを見つける）。前後の比べはフォルダの更新時刻を比べないので、比べの間に作られて消えたもの（跡が残らないもの）は見つけられない。また `tools/perf/` など `run.ps1` や `run_isolated.ps1` を通らない道具は、この守りの外にある。
 
-入力と期待値だけが違うテストは、`-TestCases` の 1 つの `It` にまとめる（例: `tests/tebunko/ui/search/result_types.Tests.ps1` の `HitRow.Contains`）。表は `It` の中にそのまま書き、計算で作らない。キーには `input`・`args`・`_`・`Matches` など PowerShell の自動変数の名前を使わない。各行に `name` を持たせ、`It "<name>"` で失敗した行が分かるようにする。表の中で変数（`$stateDone` など）を使うときは、`BeforeDiscovery` で用意する（表はテストを探す段階で作られ、`BeforeAll` より先に評価されるため）。
+入力と期待値だけが違うテストは、`-TestCases` の 1 つの `It` にまとめる（例: `tests/tebunko/ui/search/result_types.Tests.ps1` の `HitRow.MatchesFileName`）。表は `It` の中にそのまま書き、計算で作らない。キーには `input`・`args`・`_`・`Matches` など PowerShell の自動変数の名前を使わない。各行に `name` を持たせ、`It "<name>"` で失敗した行が分かるようにする。表の中で変数（`$stateDone` など）を使うときは、`BeforeDiscovery` で用意する（表はテストを探す段階で作られ、`BeforeAll` より先に評価されるため）。
 
 Pester 5 はテストを「探す段階」と「流す段階」に分けて動かす。探す段階では `Describe` の中身がそのまま実行され、`BeforeAll` の中身は流す段階まで実行されない。そのため次のように書く。
 
