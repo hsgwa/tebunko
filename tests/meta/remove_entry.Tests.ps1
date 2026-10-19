@@ -286,11 +286,12 @@ Describe "フォルダを消す・移す・作る入口" -Tag Meta {
             @{ File = "shared\core\fs.ps1"; Owner = "moveDirectoryRetry"; Call = "Directory.Move"; Reason = "移す処理の本体（呼ぶ側が moveDirectoryUnder で確かめる）" }
             @{ File = "shared\core\fs.ps1"; Owner = "writeListFile"; Call = "Directory.CreateDirectory"; Reason = "書き込む 1 ファイルの親フォルダを作るだけ（置き場は呼ぶ側が決めたファイルのパス。消さない）" }
             @{ File = "shared\core\fs.ps1"; Owner = "writeTextLinesAtomic"; Call = "Directory.CreateDirectory"; Reason = "書き込む 1 ファイルの親フォルダを作るだけ（消さない）" }
+            @{ File = "tebunko\search\search_overflow.ps1"; Owner = "newSearchOverflowWriter"; Call = "Directory.CreateDirectory"; Reason = "溢れのファイルの置き場所（検索の始めに testSearchOverflowRoot で、根が TmpRoot の search_overflow そのものでリンクでないと確かめた dir）を作るだけ。照合のスレッドが書き始めるときに作る（消さない）" }
             @{ File = "shared\office\office_process.ps1"; Owner = "addOfficeRecord"; Call = "Directory.CreateDirectory"; Reason = "Office の記録ファイルの親フォルダを作るだけ（ワークスペースの外の一時の場所。消さない）" }
             @{ File = "shared\ui\app_host.ps1"; Owner = "writeErrorLog"; Call = "Directory.CreateDirectory"; Reason = "エラーログの親フォルダを作るだけ（消さない）" }
             @{ File = "tebunko\core\workspace_mover.ps1"; Owner = "CopyTree"; Call = "Directory.CreateDirectory"; Reason = "ワークスペースを移すときの、移し先の中の複写。移し先は利用者が選んだ（検査済みの）フォルダで、リンクの先はたどらない" }
             @{ File = "tebunko\core\workspace_mover.ps1"; Owner = "MoveEntries"; Call = "Directory.CreateDirectory"; Reason = "ワークスペースを移すときの、利用者が選んだ移し先を作る" }
-            @{ File = "tebunko\core\workspace_mover.ps1"; Owner = "MoveEntry"; Call = "Directory.Move"; Reason = "ワークスペースを移すときの、利用者が選んだ移し先への移動（検査済み）" }
+            @{ File = "tebunko\core\workspace_mover.ps1"; Owner = "MoveEntry"; Call = "moveDirectoryRetry"; Reason = "ワークスペースを移すときの、利用者が選んだ移し先への移動（検査済み。掴まれていても試し直す）" }
             @{ File = "tebunko\core\workspace_mover.ps1"; Owner = "MoveEntry"; Call = "removeDirectoryRetry"; Reason = "ワークスペースを移し終えた元のフォルダと、失敗した移し先の途中を消す（利用者が選んだ移動の後始末）" }
             @{ File = "tebunko\core\workspace_mover.ps1"; Owner = "RemoveEntries"; Call = "removeDirectoryRetry"; Reason = "利用者が［消して、最初からやり直す］を選んだ回だけ、選んだフォルダの tebunko のフォルダを消す" }
             @{ File = "tebunko\index\index_archive.ps1"; Owner = "exportIndexCore"; Call = "Directory.CreateDirectory"; Reason = "書き出す zip の一時ファイルの親フォルダを作るだけ（消さない）" }

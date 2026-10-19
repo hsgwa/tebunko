@@ -212,7 +212,7 @@ function newWorkspaceConfirm {
 }
 
 function getWorkspaceMoveChange {
-    # 裏のスレッドの仕事の戻り値（output）から、WorkspaceMover.ChangeWorkspace の結果（@{ Ok; Stage; Message; Targets; Count }）を取り出す。無ければ $null
+    # 裏のスレッドの仕事の戻り値（output）から、WorkspaceMover.ChangeWorkspace の結果（@{ Ok; Stage; Message; Targets; Count; Leftovers }）を取り出す。無ければ $null
     param (
         $output
     )
@@ -231,7 +231,8 @@ function getWorkspaceMoveOutcome {
     #   change: getWorkspaceMoveChange の結果（無い・例外のときは $null）
     #   errorText: 裏のスレッドの例外の文（無ければ空）
     #   closeRequested: 移している間に窓を閉じようとして、終わるのを待っていた（成功のときだけ、終わったら閉じる。失敗のときは閉じずに警告を出す）
-    # 戻り値: @{ Ok（移せた）; Warning（失敗のとき、利用者に出す文。成功なら空）; Status（成功のとき switchWorkspace のあとに出すステータス。空なら出さない）; Close（終わったら閉じる） }
+    # 戻り値: @{ Ok（移せた）; Warning（失敗のとき、利用者に出す文。成功なら空）; Status（成功のとき switchWorkspace のあとに出すステータス。空なら出さない）; Close（終わったら閉じる）;
+    #            Notice（成功のとき、元を消せずに残ったものがあれば、切り替えたあとに出す警告。無ければ空）}
     # 成功のときだけ画面を切り替える（Ok）。失敗のときは設定も画面も変えない（WorkspaceMover は失敗したら設定を変えずに戻している）
     param (
         $change,
@@ -268,7 +269,21 @@ function getWorkspaceMoveOutcome {
     } elseif ($change.Count -gt 0) {
         $status = "ワークスペースを「${folder}」に変え、中身を移しました（移す前の場所：${previous}）"
     }
-    return @{ Ok = $true; Warning = ""; Status = $status; Close = $closeRequested }
+    return @{ Ok = $true; Warning = ""; Status = $status; Close = $closeRequested; Notice = (getWorkspaceLeftoverNotice @($change.Leftovers)) }
+}
+
+function getWorkspaceLeftoverNotice {
+    # 別のドライブへ写して移したあと、元を消せずに残ったフォルダがあるときの知らせ（移すこと自体は成功。画面を切り替えたあとに出す）。無ければ空
+    param (
+        [string[]]$leftovers
+    )
+
+    $paths = @($leftovers | Where-Object { $_ })
+    if ($paths.Count -eq 0) {
+        return ""
+    }
+    $list = ($paths | ForEach-Object { "「${_}」" }) -join "、"
+    return "移し終えましたが、元の${list}を消せませんでした。ほかのアプリを閉じてから手で消してください。"
 }
 
 function formatSearchLimit {
@@ -326,7 +341,7 @@ function testSearchLimitKeepText {
 function getSearchLimitInputDecision {
     # 検索結果の件数の上限を確定するときの判断。@{ Action; Value; Message }
     #   Action: None（変わっていない。欄を今の値に戻す）/ Invalid（直してほしい。Message に理由）/ Apply（Value で保存する。0 は制限なし）
-    # mode: "Limited"（欄の数。全角の数字・正しい位置の , ・前後の空白を受ける）/ "None"（制限なし）
+    # mode: "Limited"（欄の数。全角の数字・前後の空白を受ける。, は表示だけなので、どこにあっても無視する）/ "None"（制限なし）
     param (
         [string]$mode,
         [string]$text,
@@ -353,11 +368,12 @@ function getSearchLimitInputDecision {
         return @{ Action = "None"; Value = $current; Message = "" }
     }
     $invalid = @{ Action = "Invalid"; Value = $current; Message = (getSearchLimitTexts $min $max $default).Error }
-    if ($typed -notmatch '^([0-9]+|[0-9]{1,3}(,[0-9]{3})+)$') {
+    $typed = $typed.Replace(",", "")
+    if ($typed -notmatch '^[0-9]+$') {
         return $invalid
     }
     $number = 0L
-    if (![long]::TryParse($typed.Replace(",", ""), [ref]$number) -or $number -lt $min -or $number -gt $max) {
+    if (![long]::TryParse($typed, [ref]$number) -or $number -lt $min -or $number -gt $max) {
         return $invalid
     }
     if ($number -eq $current) {

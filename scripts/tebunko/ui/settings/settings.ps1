@@ -369,6 +369,9 @@ function finishWorkspaceMove {
             if ($outcome.Status -ne "") {
                 setStatus $outcome.Status
             }
+            if ($outcome.Notice) {
+                showMessage $outcome.Notice "OK" "Warning" | Out-Null
+            }
             return
         }
         $ui.WorkspaceBox.Text = $workspace.Dir

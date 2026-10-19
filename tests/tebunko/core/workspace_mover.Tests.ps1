@@ -21,7 +21,9 @@ Describe "WorkspaceMover.MoveEntries" -Tag Io {
     It "tebunko のファイル・フォルダだけを移し、移した数を返す（利用者のファイルは残す）" {
         newWorkspaceFiles "$TestDrive\move\from"
 
-        $script:mover.MoveEntries("$TestDrive\move\from", "$TestDrive\move\to") | Should -Be 4
+        $result = $script:mover.MoveEntries("$TestDrive\move\from", "$TestDrive\move\to")
+        $result.Count | Should -Be 4
+        @($result.Leftovers).Count | Should -Be 0
 
         Test-Path -LiteralPath "$TestDrive\move\to\content_index\営業\見積\content_index.xlsx.001.tsv" | Should -Be $true
         Test-Path -LiteralPath "$TestDrive\move\to\index\営業\見積\content.xlsx.001.tsv" | Should -Be $true
@@ -41,12 +43,29 @@ Describe "WorkspaceMover.MoveEntries" -Tag Io {
         Test-Path -LiteralPath "$TestDrive\conflict\to\content_index" | Should -Be $false
     }
 
-    It "途中で移せなければ、移した分を戻して例外にする（中身が 2 つに分かれない）" {
+    It "一時的に掴まれていても、放されれば移せる（待ちながら試し直す）" {
+        newWorkspaceFiles "$TestDrive\grab\from"
+        # content_index の中のファイルを開いておき、1 回目の待ちで放す
+        $script:grabbed = [System.IO.File]::Open("$TestDrive\grab\from\content_index\営業\見積\content_index.xlsx.001.tsv", "Open", "Read", "None")
+        Mock Start-Sleep { if ($script:grabbed) { $script:grabbed.Dispose(); $script:grabbed = $null } }
+        try {
+            $result = $script:mover.MoveEntries("$TestDrive\grab\from", "$TestDrive\grab\to", 8, 100)
+        } finally {
+            if ($script:grabbed) { $script:grabbed.Dispose(); $script:grabbed = $null }
+        }
+        Should -Invoke Start-Sleep -Times 1 -Exactly -Scope It
+
+        $result.Count | Should -Be 4
+        Test-Path -LiteralPath "$TestDrive\grab\to\content_index\営業\見積\content_index.xlsx.001.tsv" | Should -Be $true
+        @($script:mover.ListEntries("$TestDrive\grab\from")).Count | Should -Be 0
+    }
+
+    It "掴まれたままなら、決めた回数だけ試したあとに移した分を戻して例外にする（中身が 2 つに分かれない）" {
         newWorkspaceFiles "$TestDrive\rollback\from"
         # content_index の中のファイルを開いておき、フォルダを移せなくする（先に並ぶ index・ingest_status.tsv は先に移る）
         $stream = [System.IO.File]::Open("$TestDrive\rollback\from\content_index\営業\見積\content_index.xlsx.001.tsv", "Open", "Read", "None")
         try {
-            { $script:mover.MoveEntries("$TestDrive\rollback\from", "$TestDrive\rollback\to") } | Should -Throw "*中身は「$TestDrive\rollback\from」に残しています*"
+            { $script:mover.MoveEntries("$TestDrive\rollback\from", "$TestDrive\rollback\to", 3, 1) } | Should -Throw "*移せませんでした*中身は「$TestDrive\rollback\from」に残しています*"
         } finally {
             $stream.Dispose()
         }
@@ -54,8 +73,37 @@ Describe "WorkspaceMover.MoveEntries" -Tag Io {
         @($script:mover.ListEntries("$TestDrive\rollback\to")).Count | Should -Be 0
     }
 
+    It "戻せなかった項目があるときは、「移せませんでした」に続けてその項目と場所を書き、「残しています」と書かない" {
+        newWorkspaceFiles "$TestDrive\norestore\from"
+        # 先に移した content_index は、戻すときに掴まれて戻せない。あとに並ぶ index は移せず、ここで失敗にする
+        Mock moveDirectoryRetry {
+            if ($destination -like "*\norestore\from\*" -or $source -like "*\index") { throw "掴まれています" }
+            [System.IO.Directory]::Move((toLongPath $source), (toLongPath $destination))
+        }
+        $caught = $null
+        try { $script:mover.MoveEntries("$TestDrive\norestore\from", "$TestDrive\norestore\to", 2, 1) } catch { $caught = $_.Exception.Message }
+
+        $caught | Should -BeLike "*移せませんでした*元へ戻せなかった項目があります（content_index）。それは「$TestDrive\norestore\to」にあります*"
+        $caught | Should -Not -BeLike "*残しています*"
+        Test-Path -LiteralPath "$TestDrive\norestore\to\content_index" | Should -Be $true
+    }
+
+    It "別のドライブで元を消せないときは、移したものとして扱い、残った元の場所を返す" {
+        newWorkspaceFiles "$TestDrive\leftover\from"
+        Mock testSameDriveRoot { $false }
+        Mock removeDirectoryRetry { throw "消せません" } -ParameterFilter { $path -like "*\leftover\from\*" }
+
+        $result = $script:mover.MoveEntries("$TestDrive\leftover\from", "$TestDrive\leftover\to", 2, 1)
+
+        $result.Count | Should -Be 4
+        @($result.Leftovers | ForEach-Object { [System.IO.Path]::GetFileName($_) }) | Should -Contain "content_index"
+        Test-Path -LiteralPath "$TestDrive\leftover\to\content_index\営業\見積\content_index.xlsx.001.tsv" | Should -Be $true
+    }
+
     It "中身が無ければ何も移さない" {
-        $script:mover.MoveEntries("$TestDrive\empty\from", "$TestDrive\empty\to") | Should -Be 0
+        $result = $script:mover.MoveEntries("$TestDrive\empty\from", "$TestDrive\empty\to")
+        $result.Count | Should -Be 0
+        @($result.Leftovers).Count | Should -Be 0
     }
 }
 
@@ -77,7 +125,7 @@ Describe "WorkspaceMover の設定ファイルは、移しても消しても動�
     }
 
     It "別のフォルダへ移しても、元の場所に残り、移した先には行かない" {
-        $script:mover.MoveEntries($script:ws, "$TestDrive\settings_to") | Should -Be 2
+        $script:mover.MoveEntries($script:ws, "$TestDrive\settings_to").Count | Should -Be 2
 
         Test-Path -LiteralPath "$script:ws\setting.config" | Should -Be $true
         Test-Path -LiteralPath "$script:ws\setting.config.broken-20261003-120000" | Should -Be $true

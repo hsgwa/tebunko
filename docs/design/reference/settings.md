@@ -52,14 +52,14 @@
 
 ## ワークスペースの切り替え（`tebunko/core/workspace_mover.ps1`。`WorkspaceMover`）
 
-作るのは `[WorkspaceMover]::new(設定ファイルの場所)`。`ListEntries` などの確かめは画面のスレッドで使う。画面（`applyWorkspace`）は、選んだ直後のフォルダを確かめて利用者に選ばせたあと、`ChangeWorkspace` を画面の裏の仕事（`startWorkspaceMove`）で呼ぶ。終わったら、画面のスレッドで結果を出して画面を切り替える（結果の判断は `getWorkspaceMoveOutcome`）。`ChangeWorkspace` は成功したときだけ設定を書き、失敗したら戻すので、裏で失敗しても設定は変わらない。クラスの考え方は [クラスと関数の使い分け](../structure/classes.md)。
+作るのは `[WorkspaceMover]::new(設定ファイルの場所)`。`ListEntries` などの確かめは画面のスレッドで使う。画面（`applyWorkspace`）は、選んだ直後のフォルダを確かめて利用者に選ばせたあと、`ChangeWorkspace` を画面の裏の仕事（`startWorkspaceMove`）で呼ぶ。終わったら、画面のスレッドで結果を出して画面を切り替える（結果の判断は `getWorkspaceMoveOutcome`。元を消せずに残ったものがあれば、切り替えたあとに `getWorkspaceLeftoverNotice` の警告を出す）。`ChangeWorkspace` は成功したときだけ設定を書き、失敗したら戻すので、裏で失敗しても設定は変わらない。クラスの考え方は [クラスと関数の使い分け](../structure/classes.md)。
 
 | メソッド | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
 | `ListEntries` | dir | string[] | tebunko のファイル・フォルダ（`Workspace.Entries` のうち、あるもの）のフルパス。利用者のほかのファイルは含めない（旧 `getWorkspaceEntries`） | settings.ps1 |
 | `Conflicts` | from, to | string[] | from の中身を to へ移すとき、to に同じ名前が既にあるものの名前（旧 `getWorkspaceMoveConflicts`） | `MoveEntries` |
-| `ChangeWorkspace` | mode（`use`・`move`・`reset`）, from, to | `@{Ok; Stage; Message; Targets; Count}` | ワークスペースを from から to に変えて設定に保存する。`use` は to のインデックスを使う（`UseTargets`。from の中身は移さない）、`move` は中身を移す、`reset` は to の中身を消してから移す（`RemoveEntries`・`MoveEntries`）。移したあとに `searchExcludes` を付け替える（`moveSearchExcludes`）。失敗したときは設定を変えず、`Stage`（`remove`・`move`）と `Message` を返す | settings.ps1 |
-| `MoveEntries` | from, to | int | from の中身を to へ移し、移した数を返す。to に同じ名前があれば何も移さずに例外にする。途中で移せなければ、移した分を from へ戻してから例外にする（旧 `moveWorkspace`。1 つずつ移す `MoveEntry` と、別のドライブへ写す `CopyTree` は内部） | `ChangeWorkspace` |
+| `ChangeWorkspace` | mode（`use`・`move`・`reset`）, from, to | `@{Ok; Stage; Message; Targets; Count; Leftovers}` | ワークスペースを from から to に変えて設定に保存する。`use` は to のインデックスを使う（`UseTargets`。from の中身は移さない）、`move` は中身を移す、`reset` は to の中身を消してから移す（`RemoveEntries`・`MoveEntries`）。移したあとに `searchExcludes` を付け替える（`moveSearchExcludes`）。失敗したときは設定を変えず、`Stage`（`remove`・`move`）と `Message` を返す | settings.ps1 |
+| `MoveEntries` | from, to, tries（省略時 5）, waitMilliseconds（省略時 200） | `@{Count; Leftovers}` | from の中身を to へ移し、移した数（`Count`）と、別のドライブへ写したあと元を消せずに残った元の場所（`Leftovers`）を返す。フォルダは `moveDirectoryRetry` で試し直す。to に同じ名前があれば何も移さずに例外にする。途中で移せなければ、移した分を from へ戻してから例外にする（戻せなかった項目は、名前と移し先を例外の文に書く）（旧 `moveWorkspace`。1 つずつ移す `MoveEntry` と、別のドライブへ写す `CopyTree` は内部） | `ChangeWorkspace` |
 | `RemoveEntries` | dir | int | tebunko のファイル・フォルダを削除し、削除した数を返す。「消して、最初からやり直す」で使う（旧 `removeWorkspaceEntries`） | `ChangeWorkspace` |
 | `UseTargets` | dir | int | dir の取り込み一覧（新しい `store\ingest_status.tsv` と前の版の直下の `ingest_status.tsv` の両方。新しい方が先）にあるクロール対象フォルダを、インデックスの一覧（`targetFolders`）にし、その数を返す。取り込み一覧が無ければ一覧は変えない（旧 `useWorkspaceTargets`） | `ChangeWorkspace` |
 

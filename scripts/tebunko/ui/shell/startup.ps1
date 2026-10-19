@@ -66,6 +66,13 @@
         } @((getOpenCopyDir $workspace), $workspace.TmpRoot) {
             param ($output, $errorText)
         } (getWorkspaceJobQueue @($workspace.Dir, (getOpenCopyDir $workspace)))
+        # 強制終了などで残った、検索の溢れ（search_overflow）のうち、動いていないプロセスのものを裏で消す（起動時の 1 回だけ）
+        startJob {
+            param ($tmpRoot)
+            [void](removeStaleSearchOverflow $tmpRoot)
+        } @($workspace.TmpRoot) {
+            param ($output, $errorText)
+        } (getWorkspaceJobQueue @($workspace.Dir, $workspace.TmpRoot))
     }
 
     # ---- 起動 ----

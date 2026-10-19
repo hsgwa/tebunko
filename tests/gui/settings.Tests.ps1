@@ -257,7 +257,7 @@ Describe "S6 既定のワークスペース" -Tag Gui {
     }
 }
 
-# S12 は、検索結果の件数の上限。設定の画面で変え、起動し直さずに次の検索から効くこと（制限なしは打ち切らないこと）を確かめる
+# S12 は、検索結果の件数の上限。設定の画面で変え、起動し直さずに次の検索から効くこと（制限なしは総数を分けて出さないこと）を確かめる
 Describe "S12 検索結果の件数の上限" -Tag Gui {
     BeforeAll {
         $script:envBefore = getGuiEnvSnapshot
@@ -293,9 +293,9 @@ Describe "S12 検索結果の件数の上限" -Tag Gui {
             pressGuiKey $S.Window 0x0D
             waitGui $S "設定に 1000 が書かれる" ${guiDefaultTimeout} { (readGuiConfig $script:tool).searchLimit -eq 1000 } | Out-Null
 
-            setGuiStep $S "起動し直さずに検索: 1,000 件で打ち切る"
+            setGuiStep $S "起動し直さずに検索: 1,000 件を表示し、総数まで数える"
             & $search
-            waitGui $S "1,000 件で打ち切る" 120 { @(getGuiTexts $S.Window | Where-Object { $_ -like "1,000 件を超えたため*" }).Count -gt 0 } | Out-Null
+            waitGui $S "全 1,500 件中 1,000 件を表示" 120 { @(getGuiTexts $S.Window | Where-Object { $_ -like "全 1,500 件中 1,000 件を表示*" }).Count -gt 0 } | Out-Null
 
             setGuiStep $S "正しくない入力: 理由が出て、設定は変わらない。Esc で戻る"
             selectGuiTab $S "SettingsTab" "SearchLimitBox"
@@ -314,10 +314,10 @@ Describe "S12 検索結果の件数の上限" -Tag Gui {
             $box = findGui $S.Window -Id "SearchLimitBox"
             $box.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).Current.IsReadOnly | Should -BeTrue
 
-            setGuiStep $S "起動し直さずに検索: 打ち切らず、1,500 件すべて出る"
+            setGuiStep $S "起動し直さずに検索: 上限なしで、1,500 件すべて出る"
             & $search
             waitGui $S "1,500 件すべて出る" 120 { @(getGuiTexts $S.Window | Where-Object { $_ -like "*1,500 件*" }).Count -gt 0 } | Out-Null
-            @(getGuiTexts $S.Window | Where-Object { $_ -like "*打ち切りました*" }) | Should -BeNullOrEmpty
+            @(getGuiTexts $S.Window | Where-Object { $_ -like "全 *件中*件を表示*" }) | Should -BeNullOrEmpty
 
             setGuiStep $S "「制限あり」に戻す: 残していた数（1,000）で保存される"
             selectGuiTab $S "SettingsTab" "SearchLimitBox"

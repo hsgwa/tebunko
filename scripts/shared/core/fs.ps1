@@ -606,6 +606,17 @@ function moveDirectoryRetry {
     }
 }
 
+function testSameDriveRoot {
+    # 2 つのパスが同じドライブ（同じ根）にあるかを返す。同じなら Directory.Move で移せ、違えば写してから消す。
+    # 呼ぶ側のテストが、別のドライブを用意せずに、この判定を差し替えられるよう、関数にしてある
+    param (
+        [string]$first,
+        [string]$second
+    )
+
+    return [System.IO.Path]::GetPathRoot($first) -eq [System.IO.Path]::GetPathRoot($second)
+}
+
 function testRemovablePath {
     # path を、root の下で消す・移す・作ってよいかを返す。次のすべてが成り立つときだけ $true。
     # ・path と root が絶対パス（ドライブか UNC。\\?\ 付きも可）である（相対パスは現在の場所に依って意味が変わるため偽）

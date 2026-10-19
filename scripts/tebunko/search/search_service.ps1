@@ -14,8 +14,19 @@ ${searchServiceScript} = {
     initWorkspace
     $ErrorActionPreference = "Continue"
     $pool = if ($workers -gt 1) { newContentIndexWorkerPool $workers } else { $null }
+    # 溢れを書いた（かもしれない）tmp の根。ワークスペースを切り替えると、要求の WorkDir が変わるため、起動時の $workspace とは限らない
+    $overflowRoots = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     try {
         foreach ($request in $requests.GetConsumingEnumerable()) {
+            $requestRoot = try { [Workspace]::new($request.WorkDir).TmpRoot } catch { $null }
+            # 前の検索で使った別のワークスペースの溢れは、この検索の始めに消す（今の要求の根は invokeSearchRequest が消す）
+            foreach ($root in @($overflowRoots)) {
+                if ($root -ne $requestRoot) {
+                    try { [void](removeSearchOverflow (getSearchOverflowPidDir $root) $root) } catch { }
+                    [void]$overflowRoots.Remove($root)
+                }
+            }
+            if ($requestRoot) { [void]$overflowRoots.Add($requestRoot) }
             invokeSearchRequest $request $pool $cache
             if ($cache) {
                 [void](trimTsvTextCache $cache)
@@ -24,6 +35,11 @@ ${searchServiceScript} = {
     } finally {
         if ($pool) {
             $pool.Close()
+        }
+        # この画面の検索の溢れ（search_overflow\<PID>）を、使った根のすべてと起動時の根で消す（照合のプールを閉じた後なので、書き手はいない。画面のスレッドでは消さない）
+        [void]$overflowRoots.Add($workspace.TmpRoot)
+        foreach ($root in @($overflowRoots)) {
+            try { [void](removeSearchOverflow (getSearchOverflowPidDir $root) $root) } catch { }
         }
     }
 }

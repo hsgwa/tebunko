@@ -25,10 +25,10 @@ function scan { param([string[]]$Pattern)
 | 9 | 資格情報の入力要求・保存 | 該当 0 件 | `scan 'Get-Credential','ConvertTo-SecureString','PSCredential'` |
 | 10 | リモート実行 | 該当 0 件 | `scan 'Invoke-Command','New-PSSession','Enter-PSSession','WinRM'` |
 | 11 | 外部プロセスの起動 | 決まった起動だけ（[外部プロセスの起動](#外部プロセスの起動)） | `scan 'Start-Process'` |
-| 12 | プロセスの強制終了 | 1 か所のみ（[前回残った Office の終了（起動時の確認）](disclosure.md#前回残った-office-の終了起動時の確認)）。止める前に `isSameOfficeProcess` を呼ぶ。`taskkill`・`CloseMainWindow`・WMI の `Terminate` などの別の止め方は 0 件 | `scan 'Stop-Process'`、`scan 'taskkill','CloseMainWindow','Terminate','spps'` |
+| 12 | プロセスの強制終了 | 1 か所のみ（[前回残った Office の終了（起動時の確認）](disclosure.md#前回残った-office-の終了起動時の確認)）。止める前に照合（`isSameOfficeProcess`）を通す。`taskkill`・`CloseMainWindow`・WMI の `Terminate` などの別の止め方は 0 件 | `scan 'Stop-Process'`、`scan 'taskkill','CloseMainWindow','Terminate','spps'` |
 | 13 | 壊れたハッシュ（MD5・SHA-1）、FIPS 準拠でないハッシュの実装 | 該当 0 件 | `scan 'MD5','SHA1','RIPEMD','SHA256Managed','SHA384Managed','SHA512Managed','HashAlgorithm\]::Create'` |
 | 14 | 内部の型（`NonPublic`）のリフレクションでの呼び出し | 1 か所のみ（下） | `scan 'NonPublic','Reflection\.BindingFlags'` |
-| 15 | プロセスの強制終了（`.Kill()`） | 3 か所のみ（Office の終了の `quitApp`・制限時間の見張り・画面を閉じるときの `KillOffice`）。どれも、同じ関数の中で、止める前に `isSameOfficeProcess` を呼び、控えたときと同じプロセス（名前・起動時刻）だけを止める。制限時間の見張りと `KillOffice` は、さらに、取り込み中に見える窓があった（利用者が使った）PowerPoint を止めない（`quitApp` は Office を終わらせる通常の手順のため、この印を見ない）。12 の `Stop-Process` も同じ | `scan '\.Kill\('`（`tests/meta/safety.Tests.ps1` が、場所と照合を構文で確かめる） |
+| 15 | プロセスの強制終了（`.Kill()`） | 3 か所のみ（Office の終了の `quitApp`・制限時間の見張り・画面を閉じるときの `KillOffice`）。どれも、同じ関数の中で、止める前に照合（`isSameOfficeProcess`、または `compareOfficeProcess` の結果が `Same` のときの枝）を通し、控えたときと同じプロセス（名前・起動時刻）だけを止める。制限時間の見張りと `KillOffice` は、さらに、取り込み中に見える窓があった（利用者が使った）PowerPoint を止めない（`quitApp` は Office を終わらせる通常の手順のため、この印を見ない）。12 の `Stop-Process` も同じ | `scan '\.Kill\('`（`tests/meta/safety.Tests.ps1` が、場所と照合を構文で確かめる） |
 
 クロール対象が共有フォルダにある場合のファイルの読み取りは、Windows のファイル共有（SMB）を通る。これは OS のファイル API によるもので、本ツールが通信処理を持つわけではない。
 

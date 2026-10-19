@@ -27,6 +27,7 @@ BeforeAll {
     function startLeftoverCheck { }
     function getOpenCopyDir { param ($ws) return "$($ws.Dir)\open_copy" }
     function clearOldOpenCopies { param ($copyDir, $tmpRoot) return 0 }
+    function removeStaleSearchOverflow { param ($tmpRoot) return 0 }
 }
 
 Describe "起動時の前の版のシステムインデックスの片付け" -Tag Io {

@@ -144,7 +144,11 @@ function pumpSearch {
         $taskbar.ProgressState = "Normal"
         $taskbar.ProgressValue = $ratio
         if (!$shared.Stop) {
-            $ui.SummaryText.Text = getSearchProgressText $script:hitCount
+            $ui.SummaryText.Text = if ($shared.Truncated) {
+                getSearchCountingText $s.Limit ([int]$shared.HitTotal)
+            } else {
+                getSearchProgressText $script:hitCount
+            }
         }
     } elseif ($shared.Total -lt 0 -and !$shared.Stop) {
         # 数え上げの途中。件数が増えていくのが見えれば、止まっていないことが分かる
@@ -198,16 +202,10 @@ function finishSearch {
         $ui.NoHitText.Text = getNoHitText
         $ui.NoHitText.Visibility = "Visible"
     } else {
-        $ui.SummaryText.Text = getSearchSummaryText $count $files.Count $seconds
+        $ui.SummaryText.Text = getSearchFinishSummaryText $count $files.Count $seconds ([bool]$shared.Truncated) ([int]$shared.HitTotal)
     }
 
-    $status = getSearchStatusText $s.Word $count (describeSearchOption $s.Option)
-    if ($shared.Truncated) {
-        # パスの順に検索して打ち切るため、この先のファイルのヒットは結果に出ない。そのことが分かる文面にする
-        $status = "$($s.Limit.ToString('N0')) 件を超えたため、ここで打ち切りました。この先のファイルは検索していないため、ワード・種類・検索対象で絞り込んでください。"
-    } elseif ($shared.Cancelled) {
-        $status = "中止しました（$($count.ToString('N0')) 件まで表示）"
-    }
+    $status = getSearchFinishStatusText $s.Word $count (describeSearchOption $s.Option) ([bool]$shared.Truncated) ([int]$shared.HitTotal) ([bool]$shared.CountTimeout) ([bool]$shared.Cancelled)
     $skippedCount = @($shared.Skipped).Count
     $status += getSkippedContentIndexText $skippedCount
     $missing = @($shared.Folders | Where-Object { !$_.Exists } | ForEach-Object { $_.Path })
