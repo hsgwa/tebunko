@@ -4251,7 +4251,7 @@
 <td><code>tests/tools/perf_search.Tests.ps1</code>（検索と本文インデックスの作成）</td>
 <td>tebunko-perfdata の <code>new_index.ps1 -Scale 0.1</code>（種は既定の 1。ブック 5,361・TSV 16,078 → 本文インデックスのファイル 521・118MB）。語は同じリポジトリの <code>words.tsv</code></td>
 <td><code>measure_perf.ps1 -Index ... -Words ... -Count 20</code>（<code>perf.yml</code> の既定と同じ手順・同じ条件）</td>
-<td>語ごとの検索の、表がそろうまで（上限を超えたと分かる時刻。超えなければ終わった時刻）の中央値（<code>Search[].ShownMs.Median</code>。0 件・まれでは総数が出るまでの <code>TotalMs</code> と同じ）。<code>TotalMs</code>（総数が出るまで）は、「大量」「正規表現」だけ緩い上限（<code>getSearchPerfProblems</code> の <code>totalLimits</code>。上限を超えたあとも数え続ける分の増え方を見る）と比べる。総数（<code>HitTotal</code>）は件数の確かめにだけ使う。本文インデックスの作成の秒（<code>Index.Pack.Seconds</code>。1 回の値）</td>
+<td>語ごとの検索の、表がそろうまで（上限を超えたと分かる時刻。超えなければ終わった時刻）の中央値（<code>Search[].ShownMs.Median</code>。0 件・まれでは総数が出るまでの <code>TotalMs</code> と同じ）。<code>TotalMs</code>（総数が出るまで）は判定に使わず、記録だけにする（上限を超えたあとも数え続ける分は、<code>measure_perf.ps1 -SearchLimit 0</code>（制限なし）で測った、上限を設けない版の値と、PR ごとに見比べる。目安は 1.2 倍以内）。総数（<code>HitTotal</code>）は件数の確かめにだけ使う。本文インデックスの作成の秒（<code>Index.Pack.Seconds</code>。1 回の値）</td>
 </tr>
 <tr>
 <td><code>tests/tools/perf_ingest.Tests.ps1</code>（取り込み）</td>
