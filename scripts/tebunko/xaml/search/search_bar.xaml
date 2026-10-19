@@ -1,4 +1,4 @@
-﻿<!-- 検索バー（検索ワード・検索ボタン・種類のチップ・ファイル内の対象・検索条件・高速検索の状態）と、エラーの吹き出し。search.xaml の SearchBarHost に入れる（gui_main.ps1）。
+﻿<!-- 検索バー（検索ワード・検索ボタン・種類のチップ・ファイル内の対象・検索条件）と、エラーの吹き出し。search.xaml の SearchBarHost に入れる（gui_main.ps1）。
      白い面にそのまま置き、下に 1px の線を引く（枠のあるカードにしない）。
      検索のエラーは吹き出しで重ねて出し、検索バーの高さは変えない（高さ 0 の Canvas の BalloonLayer に置く。位置は ui/search/search_bar.ps1 の placeSearchBalloon）。
      SearchKindBalloon は、種類を 1 つも選ばずに［検索］を押したときだけ、種類のチップの下に出す。
@@ -104,35 +104,6 @@
           </Setter.Value>
         </Setter>
       </Style>
-      <!-- 高速検索の状態（Tag = ok の緑・off の灰色）。中の文字・アイコンの色も Tag で切り替える。
-           印は幅 170 で固定し、使用可／不可でも変わらない（並びは左から 稲妻の印（zap）・文字・右端の 情報の印（info）。情報の印（info）は常に出す） -->
-      <Style x:Key="FastBadgeText" TargetType="TextBlock">
-        <Setter Property="Foreground" Value="{StaticResource Badge.None.Text}" />
-        <Style.Triggers>
-          <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=Border}}" Value="ok">
-            <Setter Property="Foreground" Value="{StaticResource Badge.Ok.Text}" />
-          </DataTrigger>
-        </Style.Triggers>
-      </Style>
-      <Style x:Key="FastBadgeIcon" TargetType="Path">
-        <Setter Property="Stroke" Value="{StaticResource Badge.None.Text}" />
-        <Style.Triggers>
-          <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=Border}}" Value="ok">
-            <Setter Property="Stroke" Value="{StaticResource Badge.Ok.Text}" />
-          </DataTrigger>
-        </Style.Triggers>
-      </Style>
-      <Style x:Key="FastBadge" TargetType="Border">
-        <Setter Property="CornerRadius" Value="{StaticResource Radius.Pill}" />
-        <Setter Property="Width" Value="170" />
-        <Setter Property="Padding" Value="9,3" />
-        <Setter Property="Background" Value="{StaticResource Badge.None.Bg}" />
-        <Style.Triggers>
-          <Trigger Property="Tag" Value="ok">
-            <Setter Property="Background" Value="{StaticResource Badge.Ok.Bg}" />
-          </Trigger>
-        </Style.Triggers>
-      </Style>
     </ResourceDictionary>
   </Border.Resources>
 
@@ -149,9 +120,9 @@
       </Grid>
     </DockPanel>
 
-    <!-- 種類のチップ・ファイル内の対象・検索条件・高速検索の状態。1 本の折り返す並び（項目の間 8・折り返した行の間 8）。
-         入りきらないときは後ろの項目（高速検索の印から）が次の行の左端へ落ちる。
-         ConditionsSpacer は［ファイル内の対象］と検索条件の間の「伸びる空き」で、広い幅では右の組（検索条件・高速検索の印）を右端に寄せる。
+    <!-- 種類のチップ・ファイル内の対象・検索条件。1 本の折り返す並び（項目の間 8・折り返した行の間 8）。
+         入りきらないときは後ろの項目（検索条件から）が次の行の左端へ落ちる。
+         ConditionsSpacer は［ファイル内の対象］と検索条件の間の「伸びる空き」で、広い幅では右の組（検索条件）を右端に寄せる。
          幅は ui/search/search_bar.ps1 の updateConditionFlow が、折り返しの判断（search_bar_view.ps1 の getConditionFlow）で決める。
          各項目は右と下に間 8 を持ち、並びの右・下の余白を -8 にして間を外へはみ出させる -->
     <WrapPanel x:Name="ConditionsPanel" Orientation="Horizontal" Margin="0,8,-8,-8">
@@ -189,7 +160,7 @@
       <Border x:Name="ConditionsSpacer" Width="0" Height="1" />
       <CheckBox x:Name="CaseCheck" Content="大文字・小文字を区別" FontSize="11" Foreground="{StaticResource Ink.Muted}" VerticalAlignment="Center" Margin="0,0,8,8"
                 ToolTip="オンにすると、英字の大文字と小文字を区別します（例: ID は id・Id に一致しない）" />
-      <CheckBox x:Name="RegexCheck" Content="正規表現" ToolTip="正規表現を使う&#10;オンにすると高速検索は使えません" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,8">
+      <CheckBox x:Name="RegexCheck" Content="正規表現" ToolTip="正規表現を使う" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,8">
         <CheckBox.Style>
           <Style TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
             <Setter Property="Foreground" Value="{StaticResource Ink.Muted}" />
@@ -201,19 +172,6 @@
           </Style>
         </CheckBox.Style>
       </CheckBox>
-      <!-- 高速検索の印。幅 170 で固定する。ツールチップ（ToolTip）は updateFastSearchView が常に付ける -->
-      <Border x:Name="FastSearchSlot" Width="170" Margin="0,0,8,8" VerticalAlignment="Center">
-        <Border x:Name="FastBadge" Style="{StaticResource FastBadge}" Tag="off" VerticalAlignment="Center">
-          <DockPanel LastChildFill="True">
-            <Path x:Name="FastBadgeIcon" DockPanel.Dock="Left" Style="{StaticResource FastBadgeIcon}" Data="{StaticResource Icon.Zap}" Width="12" Height="12" Stretch="Uniform" Margin="0,0,5,0"
-                  StrokeThickness="1.8" StrokeLineJoin="Round" VerticalAlignment="Center" />
-            <Path x:Name="FastBadgeInfo" DockPanel.Dock="Right" Style="{StaticResource FastBadgeIcon}" Data="{StaticResource Icon.Info}" Width="13" Height="13" Stretch="Uniform" Margin="5,0,0,0"
-                  StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" VerticalAlignment="Center" />
-            <TextBlock x:Name="FastSearchText" Style="{StaticResource FastBadgeText}" FontSize="11" VerticalAlignment="Center"
-                       TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
-          </DockPanel>
-        </Border>
-      </Border>
     </WrapPanel>
 
   </StackPanel>

@@ -22,7 +22,11 @@ BeforeAll {
             [regex]$pattern = $null,
             [string]$relDir = "営業部"
         )
-        [HitRow]::Create("営業", "C:\index\営業", "$relDir\$book", $relDir, "$book.tsv", $book, $location, $lineNumber, $line, $word, $pattern)
+        $row = [HitRow]::Create("営業", "C:\index\営業", "$relDir\$book", $relDir, "$book.tsv", $book, $location, $lineNumber, $line, $word, $pattern)
+        # 行を作る側（result_list.ps1）と同じ式で IsExcel・IsCellPrefixed を入れる
+        $row.IsExcel = ((getContentIndexFileKind $book) -eq "Excel")
+        $row.IsCellPrefixed = testCellPrefixedPlace $book (splitObjectPlace $location).Kind
+        $row
     }
 
     # 表の全部の列・全部の行のセルを作る（画面は見えている範囲だけ作る。テストでは全部を見えている範囲にして確かめる）
@@ -353,10 +357,9 @@ Describe "HitRow.Create" -Tag Unit {
         $row.IsFileHeader | Should -Be $false
     }
 
-    It "Excel の拡張子は大文字小文字を区別しない" {
-        (newHitRow -book "見積.XLS").IsExcel | Should -Be $true
-        (newHitRow -book "見積.xlsm").IsExcel | Should -Be $true
-        (newHitRow -book "議事録.docx").IsExcel | Should -Be $false
+    It "Excel かどうかは、行を作る側が入れる（Create は決めない）" {
+        $created = [HitRow]::Create("営業", "C:\index\営業", "見積.xlsx", "営業", "見積.xlsx.tsv", "見積.xlsx", "4月", 1, "A1`t見積", "見積", $null)
+        $created.IsExcel | Should -Be $false
     }
 
     It "コメントの場所も図形と同じく扱う" {
@@ -374,12 +377,15 @@ Describe "HitRow.Create" -Tag Unit {
         [HitRow]::ObjectPlaceRegex.ToString() | Should -Be (newObjectPlaceKindPattern)
     }
 
-    It "Excel のヘッダー・フッターの場所は、図形の場所の一種で、行にセル番地が無い場所として決める" {
+    It "Excel のヘッダー・フッターの場所は、図形の場所の一種で、行の先頭がセル番地ではない（IsCellPrefixed は入れた値のまま。既定は偽）" {
         $row = newHitRow -location "[シート]4月[ヘッダー・フッター]"
         $row.IsObjectPlace | Should -Be $true
-        $row.IsCelllessPlace | Should -Be $true
-        (newHitRow -location "[シート]4月[図形]").IsCelllessPlace | Should -Be $false
-        (newHitRow -location "[シート]4月").IsCelllessPlace | Should -Be $false
+        $row.IsCellPrefixed | Should -Be $false
+        (newHitRow -location "[シート]4月[図形]").IsCellPrefixed | Should -Be $true
+        (newHitRow -location "[シート]4月[コメント]").IsCellPrefixed | Should -Be $true
+        (newHitRow -location "[シート]4月").IsCellPrefixed | Should -Be $false
+        $created = [HitRow]::Create("営業", "C:\index\営業", "見積.xlsx", "営業", "見積.xlsx.tsv", "見積.xlsx", "[シート]4月[図形]", 1, "A1`t見積", "見積", $null)
+        $created.IsCellPrefixed | Should -Be $false
         # Word・PowerPoint の場所の名前 ヘッダー・フッター は、種類ではない
         (newHitRow -book "議事録.docx" -location "ヘッダー・フッター").IsObjectPlace | Should -Be $false
     }
@@ -388,7 +394,6 @@ Describe "HitRow.Create" -Tag Unit {
         $row = [HitRow]::Create("営業", "C:\index\営業", "見積.xlsx", $null, "見積.xlsx.tsv", $null, $null, 1, $null, "見積", $null)
         $row.RelDir | Should -Be ""
         $row.Line | Should -Be ""
-        $row.IsExcel | Should -Be $false
         $row.IsObjectPlace | Should -Be $false
     }
 }
@@ -506,31 +511,33 @@ Describe "HitRow.Prepare" -Tag Unit {
     }
 }
 
-Describe "HitRow.Contains" -Tag Unit {
+Describe "HitRow.MatchesFileName" -Tag Unit {
     BeforeAll {
         $row = newHitRow -relDir "営業部" -book "見積.xlsx" -location "4月" -lineNumber 12 -line "品名`tABC"
         $row.PlaceText = "[シート]四月"
         $row.Kind = "セル"
     }
 
-    It "<name>で絞り込める" -TestCases @(
+    It "<name>で合う: '<text>'" -TestCases @(
+        @{ name = "ファイル名の一部"; text = "見積" }
+        @{ name = "拡張子を含む大文字"; text = "見積.XLSX" }
+        @{ name = "拡張子だけの小文字"; text = "xlsx" }
+        @{ name = "空文字"; text = "" }
+    ) {
+        param ($text)
+        $row.MatchesFileName($text) | Should -Be $true
+    }
+
+    It "ファイル名に無い文字では合わない（<name>）: <text>" -TestCases @(
         @{ name = "相対フォルダ"; text = "営業" }
-        @{ name = "元ファイル名"; text = "見積.XLSX" }
         @{ name = "場所"; text = "4月" }
         @{ name = "場所の表記"; text = "四月" }
         @{ name = "種別"; text = "セル" }
-        @{ name = "行（大文字小文字を区別しない）"; text = "abc" }
+        @{ name = "該当行"; text = "abc" }
+        @{ name = "行番号"; text = "12" }
     ) {
         param ($name, $text)
-        $row.Contains($text) | Should -Be $true
-    }
-
-    It "どれにも無ければ $false" {
-        $row.Contains("請求") | Should -Be $false
-    }
-
-    It "列に出さない行番号では絞り込めない" {
-        $row.Contains("12") | Should -Be $false
+        $row.MatchesFileName($text) | Should -Be $false
     }
 }
 
@@ -861,10 +868,6 @@ Describe "HitRow（境界値）" -Tag Unit {
         $found = [HitRow]::FindMatches("あああ", "ああ", $null)
         $found.Count | Should -Be 1
         ($found[0] -join ",") | Should -Be "0,2"
-    }
-
-    It "空の文字で絞り込むとすべて合う" {
-        (newHitRow -line "見積").Contains("") | Should -Be $true
     }
 
     It "正規表現で Excel のセル番地を決める" {

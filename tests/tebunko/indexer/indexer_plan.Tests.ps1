@@ -120,6 +120,41 @@ Describe "createTargetList（サブフォルダ・無くなったファイル）
         Test-Path -LiteralPath $gone | Should -Be $false
     }
 
+    It "中止の合図（shouldStop）が、一覧化のどの時点で立っても、Stopped を返し、無くなったファイルのインデックスは消さない" -TestCases @(
+        @{ from = 1 }
+        @{ from = 2 }
+        @{ from = 3 }
+        @{ from = 4 }
+        @{ from = 5 }
+    ) {
+        param ($from)
+        $gone = Join-Path ${indexDir} "経理\消えた.xlsx"
+        [System.IO.Directory]::CreateDirectory($gone) | Out-Null
+        [System.IO.File]::WriteAllText("$gone\Sheet1.tsv", "1`t見積")
+        $previous = newPrevious @((newStatusRow "経理\消えた.xlsx" "2024/01/01 00:00:00" "10" ${stateDone} 1 "2024/01/01 00:00:00"))
+        $global:planStopCalls = 0
+        $global:planStopFrom = $from
+        try {
+            $result = createTargetList $folder $previous $null { $global:planStopCalls++; $global:planStopCalls -ge $global:planStopFrom }
+        } finally {
+            Remove-Variable -Name planStopCalls, planStopFrom -Scope Global -ErrorAction SilentlyContinue
+        }
+        # 止まったなら、何も消さない（止まらずに最後まで進んだ回は、無くなったファイルとして消える）
+        if ($result.Stopped) {
+            Test-Path -LiteralPath $gone | Should -Be $true
+            @($result.Removed).Count | Should -Be 0
+        } else {
+            $result.Removed.Count | Should -Be 1
+        }
+        # 最初から立っていれば必ず止まる
+        if ($from -eq 1) { $result.Stopped | Should -Be $true }
+    }
+
+    It "中止の合図が立っていなければ、Stopped は偽" {
+        (createTargetList $folder (newPrevious) $null { $false }).Stopped | Should -Be $false
+        (createTargetList $folder (newPrevious) $null).Stopped | Should -Be $false
+    }
+
     It "ほかのインデックスの行には触らない（名前が前方一致するインデックスも別のものとして扱う）" {
         $other = Join-Path ${indexDir} "経理2\c.xlsx"
         [System.IO.Directory]::CreateDirectory($other) | Out-Null
@@ -127,6 +162,59 @@ Describe "createTargetList（サブフォルダ・無くなったファイル）
         $result = createTargetList $folder $previous $null
         @($result.Rows | Where-Object { $_.相対パス -eq "経理2\c.xlsx" }).Count | Should -Be 0
         Test-Path -LiteralPath $other | Should -Be $true
+    }
+
+    It "置き場の外を指す相対パスの行は、外のフォルダを消さず、例外にもしない" -TestCases @(
+        @{ rel = "経理\..\..\外\消えた.xlsx"; outsideName = "外" }
+        @{ rel = "経理\..\..\index2外\消えた.xlsx"; outsideName = "index2外" }   # 置き場の名前で始まるだけの別のフォルダ
+        @{ rel = "経理\..\.."; outsideName = "外" }
+    ) {
+        param ($rel, $outsideName)
+        Mock writeIndexerLog {}
+        $outside = Join-Path $TestDrive $outsideName
+        [System.IO.Directory]::CreateDirectory("$outside\消えた.xlsx") | Out-Null
+        [System.IO.File]::WriteAllText("$outside\消えた.xlsx\Sheet1.tsv", "1`t見積")
+        [System.IO.File]::WriteAllText("$TestDrive\残る.txt", "a")
+        $previous = newPrevious @((newStatusRow $rel "2024/01/01 00:00:00" "10" ${stateDone} 1 "2024/01/01 00:00:00"))
+        { createTargetList $folder $previous $null } | Should -Not -Throw
+        Test-Path -LiteralPath "$outside\消えた.xlsx\Sheet1.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$TestDrive\残る.txt" | Should -Be $true
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*削除しませんでした*" -and $color -eq "Yellow" }
+    }
+
+    It "removeBookDir は、置き場の外のフォルダを消さずにログに出し、中のフォルダは消す" {
+        Mock writeIndexerLog {}
+        $outside = Join-Path $TestDrive "外2"
+        [System.IO.Directory]::CreateDirectory($outside) | Out-Null
+        [System.IO.File]::WriteAllText("$outside\a.tsv", "a")
+        $inside = Join-Path ${indexDir} "経理\中.xlsx"
+        [System.IO.Directory]::CreateDirectory($inside) | Out-Null
+
+        removeBookDir (Join-Path ${indexDir} "..\外2")
+        removeBookDir ${indexDir}
+
+        Test-Path -LiteralPath "$outside\a.tsv" | Should -Be $true
+        Test-Path -LiteralPath $inside | Should -Be $true
+        Should -Invoke writeIndexerLog -Times 2 -Exactly -Scope It -ParameterFilter { $text -like "*削除しませんでした*" -and $color -eq "Yellow" }
+
+        removeBookDir $inside
+        Test-Path -LiteralPath $inside | Should -Be $false
+    }
+
+    It "removeBookDir は、途中の階層がジャンクションなら、置き場の下に見えても先を消さずにログに出す" {
+        Mock writeIndexerLog {}
+        $outside = Join-Path $TestDrive "リンクの先"
+        [System.IO.File]::WriteAllText((Join-Path $outside "経理\中.xlsx\a.tsv" | ForEach-Object { [System.IO.Directory]::CreateDirectory((Split-Path $_ -Parent)) | Out-Null; $_ }), "a")
+        [System.IO.Directory]::CreateDirectory(${indexDir}) | Out-Null
+        if (!(newTestJunction (Join-Path ${indexDir} "営業") $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        removeBookDir (Join-Path ${indexDir} "営業\経理\中.xlsx")
+
+        Test-Path -LiteralPath "$outside\経理\中.xlsx\a.tsv" | Should -Be $true
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*削除しませんでした*" -and $color -eq "Yellow" }
     }
 
     It "アクセスできないフォルダがあったときは、見つからなかったファイルの行とインデックスを残す" {
@@ -202,6 +290,61 @@ Describe "findTargetFiles（tebunko が作ったものの除外）" -Tag Io {
         @($scan.Files | ForEach-Object { $_.Name }) | Should -Not -Contain "sheet.tsv"
     }
 
+    It "新しい形式のほかのワークスペース（<目印>）は、ワークスペース直下のファイルも store の中も外れる" -TestCases @(
+        @{ 目印 = "store\ingest_status.tsv"; 内容 = "dummy" }
+        @{ 目印 = "store\format.tsv"; 内容 = "版=2`r`n" }
+    ) {
+        param ($目印, $内容)
+        $workspace = newTestWorkspace @{} (Join-Path $TestDrive "ws-out-of-tree4")
+        newFile "other-ws\$目印" $内容
+        newFile "other-ws\store\content\営業\source_folder.txt"
+        newFile "other-ws\store\content\営業\sheet.tsv"
+        newFile "other-ws\search_results.txt"
+        newFile "other-ws\indexing_log.txt"
+        newFile "other-ws\system_index_state.tsv"
+        newFile "other-ws\my-file.txt"
+
+        $scan = findTargetFiles $source
+        $names = @($scan.Files | ForEach-Object { $_.Name })
+        $names | Should -Contain "my-file.txt"
+        foreach ($excluded in "source_folder.txt", "sheet.tsv", "search_results.txt", "indexing_log.txt", "system_index_state.tsv") {
+            $names | Should -Not -Contain $excluded
+        }
+    }
+
+    It "利用者の format.tsv（<場所>）は、ワークスペースの目印にならず、同じ場所の index・tmp・store の中のファイルを取り込む" -TestCases @(
+        @{ 場所 = "X直下"; 目録 = "X\format.tsv"; 内容 = "版=2`r`n" }
+        @{ 場所 = "X直下（中身は任意）"; 目録 = "X\format.tsv"; 内容 = "a`tb`r`n" }
+        @{ 場所 = "store の中の目録でないもの"; 目録 = "X\store\format.tsv"; 内容 = "a`tb`r`n" }
+        @{ 場所 = "store の中の壊れたもの"; 目録 = "X\store\format.tsv"; 内容 = "" }
+    ) {
+        param ($場所, $目録, $内容)
+        $workspace = newTestWorkspace @{} (Join-Path $TestDrive "ws-out-of-tree5")
+        newFile $目録 $内容
+        newFile "X\index\a.txt"
+        newFile "X\tmp\b.txt"
+        newFile "X\store\c.txt"
+
+        $names = @((findTargetFiles $source).Files | ForEach-Object { $_.Name })
+        foreach ($kept in "a.txt", "b.txt", "c.txt") {
+            $names | Should -Contain $kept
+        }
+    }
+
+    It "読めない（開いたままで共有できない）X\store\format.tsv があっても、例外にせず、同じ場所のファイルを取り込む" {
+        $workspace = newTestWorkspace @{} (Join-Path $TestDrive "ws-out-of-tree6")
+        newFile "X\store\format.tsv" "版=2`r`n"
+        newFile "X\index\a.txt"
+        $stream = New-Object System.IO.FileStream((Join-Path $source "X\store\format.tsv"), [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+        try {
+            $names = @((findTargetFiles $source).Files | ForEach-Object { $_.Name })
+        } finally {
+            $stream.Dispose()
+        }
+
+        $names | Should -Contain "a.txt"
+    }
+
     It "名前で分かる本文インデックス・前の版の本文インデックスのファイル・システムインデックスは、どこにあっても外れる" {
         $workspace = newTestWorkspace @{} (Join-Path $TestDrive "ws-out-of-tree3")
         newFile "content_index.txt.001.tsv"
@@ -223,6 +366,121 @@ Describe "findTargetFiles（tebunko が作ったものの除外）" -Tag Io {
         newFile ('~$locked.txt')
         $scan = findTargetFiles $source
         @($scan.Files | ForEach-Object { $_.Name }) | Should -Not -Contain '~$locked.txt'
+    }
+}
+
+Describe "findTargetFiles・createTargetList（リンク）" -Tag Io {
+    BeforeEach {
+        $base = Join-Path $TestDrive "link-$(New-Guid)"
+        $source = Join-Path $base "対象"
+        $outside = Join-Path $base "外"
+        [System.IO.Directory]::CreateDirectory($source) | Out-Null
+        [System.IO.Directory]::CreateDirectory($outside) | Out-Null
+        [System.IO.File]::WriteAllText("$source\a.txt", "dummy")
+        [System.IO.File]::WriteAllText("$outside\外.txt", "dummy")
+        $workspace = newTestWorkspace @{} (Join-Path $TestDrive "ws-out-of-tree-link-$(New-Guid)")
+        ${indexDir} = Join-Path $TestDrive "index-link-$(New-Guid)"
+        $workspace = newTestWorkspace @{ IndexDir = ${indexDir} }
+        $script:logged = New-Object System.Collections.Generic.List[string]
+        Mock writeIndexerLog { $script:logged.Add([string]$text) }
+    }
+
+    It "中のジャンクションの先のファイルは Files に入れず、Links に入れる" {
+        if (!(newTestJunction "$source\リンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $scan = findTargetFiles $source
+        @($scan.Files | ForEach-Object { $_.Name }) | Should -Be @("a.txt")
+        @($scan.Links) | Should -Be @("$source\リンク")
+        $scan.HasError | Should -Be $false
+    }
+
+    It "親を指すジャンクション（輪）があっても終わり、Files に同じファイルが重ならない" {
+        if (!(newTestJunction "$source\輪" $base)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $scan = findTargetFiles $source
+        @($scan.Files | ForEach-Object { $_.Name }) | Should -Be @("a.txt")
+        @($scan.Links) | Should -Be @("$source\輪")
+    }
+
+    It "ファイルのシンボリックリンクは Files に入れず、Links に入れる（作れなければ飛ばす）" {
+        if (!(newTestSymlink "$source\リンク.txt" "$outside\外.txt" -file)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $scan = findTargetFiles $source
+        @($scan.Files | ForEach-Object { $_.Name }) | Should -Be @("a.txt")
+        @($scan.Links) | Should -Be @("$source\リンク.txt")
+    }
+
+    It "リンクかどうか確かめられないフォルダ（クラウドのオンデマンドのフォルダなど）は、これまでどおり中も取り込む" {
+        if (!(newTestJunction "$source\不明" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        Mock getLinkKind { return "Unknown" }
+
+        $scan = findTargetFiles $source
+        @($scan.Files | ForEach-Object { $_.Name } | Sort-Object) | Should -Be @("a.txt", "外.txt")
+        @($scan.Links).Count | Should -Be 0
+    }
+
+    It "クロール対象フォルダそのものがジャンクションなら、これまでどおり先の中を読み、中のジャンクションだけを Links に入れる" {
+        if (!(newTestJunction "$base\根" $outside) -or !(newTestJunction "$outside\内リンク" $source)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $scan = findTargetFiles "$base\根"
+        @($scan.Files | ForEach-Object { $_.Name }) | Should -Be @("外.txt")
+        $scan.HasError | Should -Be $false
+        @($scan.Links) | Should -Be @("$base\根\内リンク")
+    }
+
+    It "createTargetList は、中のリンクの先に前回の行があるとき、元のファイルが無くなったものとして Removed に入れる" {
+        if (!(newTestJunction "$source\リンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        $previous = newPrevious @(
+            (newStatusRow "売上\リンク\外.txt" "2024/01/01 00:00:00" "10" ${stateDone} 1 "2024/01/01 00:00:00")
+        )
+
+        $result = createTargetList @{ Path = $source; Name = "売上" } $previous $null
+        @($result.Removed) | Should -Be @("売上\リンク\外.txt")
+        @($result.Rows | Where-Object { $_.相対パス -eq "売上\リンク\外.txt" }).Count | Should -Be 0
+    }
+
+    It "createTargetList は、飛ばしたリンクを 1 件 1 行でログに出す" {
+        if (!(newTestJunction "$source\リンク1" $outside) -or !(newTestJunction "$source\リンク2" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $result = createTargetList @{ Path = $source; Name = "売上" } (newPrevious) $null
+        $result.Rows.Count | Should -Be 1
+        @($script:logged | Where-Object { $_ -like "*リンク*のため取り込みませんでした: *" }).Count | Should -Be 2
+        @($script:logged | Where-Object { $_ -like "*のため取り込みませんでした: $source\リンク1" }).Count | Should -Be 1
+        @($script:logged | Where-Object { $_ -like "*のため取り込みませんでした: $source\リンク2" }).Count | Should -Be 1
+    }
+
+    It "createTargetList は、クロール対象フォルダがリンクのとき、先の中のファイルを取り込み対象にし、リンクを理由にしたログを出さない" {
+        if (!(newTestJunction "$base\根" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $result = createTargetList @{ Path = "$base\根"; Name = "売上" } (newPrevious) $null
+        @($result.Targets | ForEach-Object { $_.相対パス }) | Should -Be @("売上\外.txt")
+        @($result.Removed).Count | Should -Be 0
+        @($script:logged | Where-Object { $_ -like "*リンク*のため取り込みませんでした*" }).Count | Should -Be 0
+        @($script:logged | Where-Object { $_ -like "*アクセスできないフォルダ*" }).Count | Should -Be 0
     }
 }
 
@@ -284,6 +542,17 @@ Describe "IngestPlanner" -Tag Io {
         $planner.Folders[0].Name | Should -Not -BeNullOrEmpty
         $planner.Folders[0].Path | Should -Be $source
         @($planner.Dropped | ForEach-Object { $_.Name }) | Should -Be @("古い")
+    }
+
+    It "名前が今の決まりに合わない前の版のインデックス（LegacyFolders）も、外れたものとして見つける。LegacyFolders が無い状態でも動く" {
+        $planner = [IngestPlanner]::new($kinds)
+        $status = @{ Folders = @(@{ Path = "C:\古い"; Name = "古い" }); Rows = (newPrevious @()); LegacyFolders = @(@{ Path = "C:\営業"; Name = "営業." }) }
+        $planner.AssignNames(@([pscustomobject]@{ Path = $source; Name = "売上"; Enabled = $true }), $status)
+        @($planner.Dropped | ForEach-Object { $_.Name }) | Should -Be @("古い", "営業.")
+
+        $planner = [IngestPlanner]::new($kinds)
+        $planner.AssignNames(@([pscustomobject]@{ Path = $source; Name = "売上"; Enabled = $true }), @{ Folders = @(); Rows = (newPrevious @()) })
+        $planner.Dropped.Count | Should -Be 0
     }
 
     It "全部に名前があれば、設定ファイルを書かない" {
@@ -408,6 +677,42 @@ Describe "IngestPlanner" -Tag Io {
         $firstTime = newPlanner $folders
         $firstTime.Crawl($null, $null)
         @($firstTime.KeepForCancel()).Count | Should -Be 0
+    }
+
+    It "クロールの途中で中止の合図が立ったら、残りのフォルダは前回の行を残し、Stopped を立てる" {
+        $source2 = Join-Path $TestDrive "planner-src2"
+        [System.IO.Directory]::CreateDirectory($source2) | Out-Null
+        [System.IO.File]::WriteAllText((Join-Path $source2 "b.xlsx"), "dummy")
+        $folders = @(
+            [pscustomobject]@{ Path = $source; Name = "売上"; Enabled = $true }
+            [pscustomobject]@{ Path = $source2; Name = "経理"; Enabled = $true }
+        )
+        $old = newStatusRow "経理\z.xlsx" "2000/01/01 00:00:00" "1" ${stateDone}
+        $planner = newPlanner $folders @($old)
+        # 1 つ目のフォルダを出し終えたら中止の合図を立てる
+        $script:stopNow = $false
+        $planner.Crawl((newCounts), { param ($target) $script:stopNow = $true }, { $script:stopNow })
+
+        $planner.Stopped | Should -Be $true
+        # 2 つ目のフォルダは見ず、前回の行をそのまま残す
+        @($planner.Rows | ForEach-Object { $_.相対パス }) | Should -Contain "経理\z.xlsx"
+        @($planner.Rows | ForEach-Object { $_.相対パス }) | Should -Not -Contain "経理\b.xlsx"
+        @($planner.RemovedPaths).Count | Should -Be 0
+    }
+
+    It "中止の合図が立っていなければ Stopped は偽。最初から立っていれば、どのフォルダも見ない" {
+        $folders = @([pscustomobject]@{ Path = $source; Name = "売上"; Enabled = $true })
+        $planner = newPlanner $folders
+        $planner.Crawl($null, $null, { $false })
+        $planner.Stopped | Should -Be $false
+        $planner.Targets.Count | Should -Be 1
+
+        $old = newStatusRow "売上\a.xlsx" "2000/01/01 00:00:00" $size ${stateDone}
+        $planner = newPlanner $folders @($old)
+        $planner.Crawl($null, $null, { $true })
+        $planner.Stopped | Should -Be $true
+        $planner.Targets.Count | Should -Be 0
+        @($planner.Rows | ForEach-Object { $_.相対パス }) | Should -Be @("売上\a.xlsx")
     }
 
     It "前回の失敗は、再取り込みを選べば取り込み対象に足し、選ばなければ足さない" -TestCases @(

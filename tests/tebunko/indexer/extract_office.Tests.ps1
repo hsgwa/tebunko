@@ -66,7 +66,7 @@ BeforeAll {
                 [void]$log.Add("SaveAs:$($this.Name):$($args[1])")
                 [System.IO.File]::WriteAllText($args[0], $this.Text, [System.Text.Encoding]::Unicode)
             }
-            Delete = { [void]$log.Add("Delete:$($this.Name)") }
+            Delete = { [void]$log.Add("Delete:$($this.Name)"); return $true }  # 本物の Worksheet.Delete は Boolean を返す
         }
         return $sheet
     }
@@ -572,6 +572,23 @@ Describe "extractDocument（偽の Word・PowerPoint）" -Tag Io {
         Should -Invoke getApp -Times 0 -Exactly -Scope It
     }
 
+    It "新形式（.docx）のコピーを読み終えて消せないときは、テキスト・PDF と同じ「作業領域のコピーを消せませんでした」になる" {
+        $source = Join-Path $TestDrive "消せない.docx"
+        writeMinimalDocx $source "本文"
+        Mock getApp { throw "Word を起動してはいけない" }
+        $copy = Join-Path $tmpDir "source.docx"
+        $script:holdCopy = $null
+        Mock readDocxUnits {
+            $script:holdCopy = [System.IO.File]::Open($copy, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::None)
+            return (New-Object System.Collections.Specialized.OrderedDictionary)
+        }
+        try {
+            { extractDocument $source } | Should -Throw "作業領域のコピーを消せませんでした: *"
+        } finally {
+            if ($script:holdCopy) { $script:holdCopy.Dispose() }
+        }
+    }
+
     It "埋め込んだファイルが壊れていても本文は取り込み、読めなかった埋め込みはログに残す" {
         $source = Join-Path $TestDrive "埋め込み入り.docx"
         $officeRel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
@@ -677,7 +694,7 @@ Describe "ingestFile" -Tag Io {
 }
 
 Describe "extractDocument（読み取りのスレッド）" -Tag Io {
-    # 読み取りのスレッドは Office を持たない。Office が要るファイルは「Office が要る」の例外にして、Office のレーンに回してもらう
+    # 読み取りのスレッドは Office を持たない。Office が要るファイルは「Office が要る」の例外にして、Office の持ち主のワーカーに回してもらう
     BeforeAll {
         ${tmpDir} = Join-Path $TestDrive "reader_tmp"
         [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
@@ -717,7 +734,7 @@ Describe "extractDocument（読み取りのスレッド）" -Tag Io {
         Should -Invoke getApp -Times 0 -Exactly -Scope It
     }
 
-    It "「形式の分からないバイナリ」は、予備が有効なら Office のレーンに回す" {
+    It "「形式の分からないバイナリ」は、予備が有効なら Office の持ち主のワーカーに回す" {
         $unknown = Join-Path $TestDrive "reader-unknown.docx"
         writeUnknownBinary $unknown
         Mock getApp { throw "Office は使わない" }
@@ -1034,5 +1051,53 @@ Describe "extractWorkbook（暗号化されたファイル）" -Tag Io {
         Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
 
         { extractWorkbook $source } | Should -Throw -ExpectedMessage "*ファイルを暗号化する製品が一時ファイルを暗号化したため更新できません*"
+    }
+}
+
+Describe "writeUnits" -Tag Io {
+    It "場所ごとにTSVを出力し、空の場所は出力しない" {
+        $outDir = "$TestDrive\out[1]"
+        [System.IO.Directory]::CreateDirectory($outDir) | Out-Null
+
+        $units = New-Object System.Collections.Specialized.OrderedDictionary
+        addUnitLines $units "ページ001" @("a`tb`t", "  ")
+        addUnitLines $units "ページ002" @("", " ")
+        addUnitLines $units "スライド001_ノート" @("メモ")
+
+        # ファイル名はフォルダ名（インデクサが作業フォルダから移す先）になるため、TSVの名前は場所だけ
+        writeUnits $units $outDir | Should -Be 2
+        [System.IO.File]::ReadAllText("$outDir\page_001.tsv") | Should -Be "a`tb`r`n"
+        Test-Path -LiteralPath "$outDir\page_002.tsv" | Should -Be $false
+        # 固定名に当てはまる場所は英語の固定名にする（toIndexFileName）
+        Test-Path -LiteralPath "$outDir\slide_001_notes.tsv" | Should -Be $true
+    }
+
+    It "testdata の docx・pptx すべてで、出力するファイル名がASCIIになる（再発防止。場所や種類を足して英語の名前を忘れると、ここで落ちる）" {
+        $root = [System.IO.Path]::GetFullPath("$PSScriptRoot\..\..\testdata\office")
+        $files = @(Get-ChildItem -Path $root -Recurse -File -Include "*.docx", "*.pptx")
+        $files.Count | Should -BeGreaterThan 0
+
+        $checked = 0
+        foreach ($file in $files) {
+            $units = $null
+            try {
+                $units = $(if ($file.Extension -ieq ".docx") { readDocxUnits $file.FullName } else { readPptxUnits $file.FullName })
+            } catch {
+                continue
+            }
+            if ($null -eq $units -or $units.Count -eq 0) {
+                continue
+            }
+
+            $sweepDir = "$TestDrive\ascii_sweep\$([Guid]::NewGuid().ToString('N'))"
+            [System.IO.Directory]::CreateDirectory($sweepDir) | Out-Null
+            writeUnits $units $sweepDir | Out-Null
+            foreach ($written in Get-ChildItem -Path $sweepDir -File) {
+                $written.Name | Should -Match "^[\x20-\x7E]+$"
+            }
+            $checked++
+        }
+
+        $checked | Should -BeGreaterThan 0
     }
 }

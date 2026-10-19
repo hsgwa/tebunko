@@ -8,7 +8,7 @@ This page collects information about the safety of tebunko and explains how to c
 
 What the tool does and does not do, why it does not use dangerous operations or libraries, and the results of checks by third-party tools are described in [docs/safety/index.md](../docs/safety/index.md) (Japanese). If you are reviewing the tool before introducing it, read this document first.
 
-The index keeps the body text of the documents. For fast search, the tool also writes a system index text file made of two-character pairs taken from the body, and has Windows Search index it. The folder of the body index itself is excluded from Windows Search automatically. See [docs/safety/disclosure.md](../docs/safety/disclosure.md) (Japanese).
+The index keeps the body text of the documents. To speed up search, the tool also writes a gram index made of two-character pairs taken from the body, in the same workspace. It is derived data and can be rebuilt from the index. See [docs/safety/disclosure.md](../docs/safety/disclosure.md) (Japanese).
 
 The claims can be checked automatically with the following command (the checks are in `tests/meta/safety.Tests.ps1`).
 
@@ -51,7 +51,7 @@ Security fixes are made for the latest minor version (the latest `v<major>.<mino
 
 ## What we ask of users
 
-The tool **keeps the text of the original documents in plain text in the content index (the TSV files in `content_index\` in the workspace), which is part of the index**. The access rights of the original files are not carried over. Please note the following (details in [docs/safety/disclosure.md](../docs/safety/disclosure.md), Japanese).
+The tool **keeps the text of the original documents in plain text in the content index (the TSV files in `store\content\` in the workspace), which is part of the index**. The access rights of the original files are not carried over. Please note the following (details in [docs/safety/disclosure.md](../docs/safety/disclosure.md), Japanese).
 
 - Restrict access to the folder where the tool is placed to at least the same level as the crawled folders.
 - Do not put the index as is in a shared folder that users with different access rights can read.

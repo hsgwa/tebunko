@@ -1,4 +1,4 @@
-﻿# 本文インデックスのコードの名前を pack から contentIndex に改めた後、古い名前が戻らないことを確かめるテスト。
+﻿# 名前を改めた後（本文インデックスのコードの pack から contentIndex へ、HitRow の IsCelllessPlace から IsCellPrefixed へ）、古い名前が戻らないことを確かめるテスト。
 # 表は、名前を改めたときに消えた名前。新しい名前を足すときは、この表を直さない（古い名前を使い直さない限り当たらない）。
 # 残してよい所は $skip に、ファイルと理由を対にして書く。
 BeforeDiscovery {
@@ -28,7 +28,7 @@ BeforeDiscovery {
     @{ Kind = '関数'; Pattern = 'updateIndexFolderPack'; New = 'updateFolderContentIndex'; Docs = $true }
     @{ Kind = '関数'; Pattern = 'getIndexPackFiles'; New = 'getContentIndexFiles'; Docs = $true }
     @{ Kind = '関数'; Pattern = 'getPackFiles'; New = 'findContentIndexFiles'; Docs = $true }
-    @{ Kind = '関数'; Pattern = 'getFastSearchPackFiles'; New = 'getFastSearchContentIndexFiles'; Docs = $true }
+    @{ Kind = '関数'; Pattern = 'getFastSearchPackFiles'; New = '（削除した。高速検索ごと無くしたので代わりは無い）'; Docs = $true }
     @{ Kind = '関数'; Pattern = 'getPackKeyOf'; New = 'getContentIndexKeyOf'; Docs = $true }
     @{ Kind = '関数'; Pattern = 'searchPackFiles'; New = 'searchContentIndexFiles'; Docs = $true }
     @{ Kind = '関数'; Pattern = 'searchPackIndex'; New = 'searchContentIndex'; Docs = $true }
@@ -37,6 +37,8 @@ BeforeDiscovery {
     @{ Kind = '関数'; Pattern = 'newPackIndex'; New = 'newContentIndexFiles'; Docs = $true }
     @{ Kind = '関数'; Pattern = 'writeHitPack'; New = 'writeHitContentIndex'; Docs = $true }
     @{ Kind = '関数'; Pattern = 'testPackCellPrefixed'; New = 'testContentIndexCellPrefixed'; Docs = $true }
+    @{ Kind = 'クラスのメンバー'; Pattern = 'IsCelllessPlace'; New = 'IsCellPrefixed'; Docs = $true }
+    @{ Kind = 'クラスのメンバー'; Pattern = 'CelllessPlaceRegex'; New = 'testCellPrefixedPlace'; Docs = $true }
     @{ Kind = 'ファイル名'; Pattern = 'pack_format'; New = 'content_index_format'; Docs = $true }
     @{ Kind = 'ファイル名'; Pattern = 'pack_store'; New = 'content_index_store'; Docs = $true }
     @{ Kind = 'ファイル名'; Pattern = 'pack_search'; New = 'content_index_search'; Docs = $true }
@@ -66,18 +68,18 @@ BeforeAll {
         @{ Path = "docs\design\testing\perf.md"; Reason = "計測の道具が、名前を改める前の版の関数名も受け付けることの説明" }
         @{ Path = "docs\design\testing\perf-check.md"; Reason = "性能テストの上限の名前（packLimitSeconds）。性能テストは名前を改めていない" }
     )
-    # 名前を改める前の語は、どれも pack を含む（大文字小文字は問わず）。含む行だけを残して、表の型ごとの照合を軽くする
+    # 名前を改める前の語は、どれも pack か Cellless を含む（pack は大文字小文字を問わず）。含む行だけを残して、表の型ごとの照合を軽くする
     $script:targets = New-Object System.Collections.Generic.List[object]
     foreach ($dir in "scripts", "tests", "tools", "docs") {
         foreach ($file in Get-ChildItem -LiteralPath "$repo\$dir" -Recurse -File -Include "*.ps1", "*.psm1", "*.xaml", "*.md", "*.yml") {
             $rel = $file.FullName.Substring($repo.Length + 1)
             if (@($script:skip | Where-Object { $rel.StartsWith($_.Path, [System.StringComparison]::OrdinalIgnoreCase) }).Count -gt 0) { continue }
-            $script:targets.Add(@{ Rel = $rel; Docs = ($dir -eq "docs"); Lines = @(Get-Content -LiteralPath $file.FullName -Encoding UTF8 | ForEach-Object -Begin { $n = 0 } -Process { $n++; if ($_ -match 'pack') { @{ No = $n; Text = $_ } } }) })
+            $script:targets.Add(@{ Rel = $rel; Docs = ($dir -eq "docs"); Lines = @(Get-Content -LiteralPath $file.FullName -Encoding UTF8 | ForEach-Object -Begin { $n = 0 } -Process { $n++; if ($_ -match 'pack|Cellless') { @{ No = $n; Text = $_ } } }) })
         }
     }
 }
 
-Describe "本文インデックスのコードの名前に、古い名前（pack の系）が戻らない" -Tag Meta {
+Describe "本文インデックスのコードの名前に、古い名前（pack・Cellless の系）が戻らない" -Tag Meta {
     It "<Kind> <Pattern> を使っていない（新しい名前は <New>）" -ForEach $oldNames {
         $hits = New-Object System.Collections.Generic.List[string]
         foreach ($target in $script:targets) {

@@ -16,7 +16,6 @@ function startGui {
     # （docs/design/structure/closing.md「GC とメモリ」）
     [System.Runtime.GCSettings]::LatencyMode = [System.Runtime.GCLatencyMode]::SustainedLowLatency
 
-    ${searchLimit} = 10000
     ${previewFirstLines}    = 50   # 行を選んだときに、プレビューへ最初に出す選択行の前後の行数（それぞれ）
     ${previewReadAheadLines} = 20  # 見えている行が、読んである範囲の端からこの行数以内に近づいたら、その向きに読み足す
     ${previewChunkLines}    = 200  # 1 回に読み足す行数（持つ行が上限を超えたとき、遠い側から捨てる行数も同じ）
@@ -62,6 +61,9 @@ function startGui {
 
     # 壊れた設定ファイルの退避と、ワークスペースの決定
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\shell\settings_recovery.ps1".Replace('`', '``')))
+
+    # 検索結果の件数の上限（設定 searchLimit。0 は制限なし）。壊れた設定の退避のあとに、起動のときに読む。設定の画面で変えると書き換わる
+    $script:searchLimit = readSearchLimit
 
     $ErrorActionPreference = "Stop"
 

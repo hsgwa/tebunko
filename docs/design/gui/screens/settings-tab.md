@@ -11,17 +11,24 @@
 - カード「インデックス設定」（見出しの帯と行）から始める（題「設定」と説明は置かない）。
 - 「ワークスペース」の行（カード「インデックス設定」の中。見出しの帯の下、行の間に線）。今の場所、既定の場所の説明、［変更…］［既定に戻す］、変え方の注意。
 - 「設定ファイル」の行（同じカードの中）。設定ファイルの場所と、置き場所の説明。
+- カード「検索結果」の「検索結果の件数の上限」の行。［制限あり］（数の欄と「件」）と［制限なし］、入力が正しくないときの理由（欄の直下。場所は常に空けてある）、範囲と既定、重さの注意。
 
 ## 状態と遷移
 
 ```mermaid
 stateDiagram-v2
     state "settings-tab/normal" as normal
+    state "settings-tab/limit-none" as limitnone
+    state "settings-tab/limit-error" as limiterror
     state "settings-tab/running-warning" as running
     state "settings-tab/empty-confirm" as empty
     state "settings-tab/nonempty-confirm" as nonempty
     state "settings-tab/index-confirm" as index
     state "settings-tab/invalid-warning" as invalid
+    normal --> limitnone: 件数の上限で［制限なし］を選ぶ
+    limitnone --> normal: ［制限あり］を選ぶ
+    normal --> limiterror: 件数の上限に正しくない値を入れて Enter
+    limiterror --> normal: Esc
     normal --> running: 作成中に［変更…］（21）
     running --> normal: ［OK］
     normal --> empty: 空のフォルダを選ぶ（31）
@@ -40,7 +47,7 @@ stateDiagram-v2
 
 | 状態 | 文言 |
 |---|---|
-| 普通 | 「ワークスペース」「インデックスとログの保存先。…」、［変更…］［既定に戻す］。「設定ファイル」「ツールのフォルダに置いています。」 |
+| 普通 | 「ワークスペース」「インデックスとログの保存先。…」、［変更…］［既定に戻す］。「設定ファイル」「ツールのフォルダに置いています。」。「検索結果の件数の上限」［制限あり］［制限なし］ |
 | 作成中の［変更…］ | 「更新中はワークスペースを変えられません。更新が終わるまでお待ちください（［中止］で止められます）。」 |
 | 空のフォルダ | 「インデックスとログを「<フォルダ>」へ移動します。」「移動中は、検索とインデックスの更新はできません。」、［移動する］［キャンセル］（［既定に戻す］からは［戻す］） |
 | 空でないフォルダ | 「選んだフォルダは空ではありません。ワークスペースには空のフォルダを選んでください」。選択肢は「中に「workspace」を作って使う」「このフォルダのまま使う」、［キャンセル］ |
@@ -52,6 +59,14 @@ stateDiagram-v2
 ### settings-tab/normal（既定でないワークスペース。遷移 7）
 
 ![既定でないワークスペース](../../../images/screens/settings-tab/normal.png)
+
+### settings-tab/limit-none（件数の上限が［制限なし］）
+
+![件数の上限が［制限なし］](../../../images/screens/settings-tab/limit-none.png)
+
+### settings-tab/limit-error（件数の上限の入力が正しくない）
+
+![件数の上限の入力が正しくない](../../../images/screens/settings-tab/limit-error.png)
 
 ### settings-tab/running-warning（作成中に［変更…］。遷移 21）
 

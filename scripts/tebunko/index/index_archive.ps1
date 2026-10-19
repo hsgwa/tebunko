@@ -80,7 +80,7 @@ function exportIndex {
         [string]$settingsPath = ${settingsFile}
     )
 
-    $lock = newAppMutex "indexer" $ws.Dir
+    $lock = newAppMutex "indexer" $ws.Dir ${appId}
     if (!$lock.Acquired) {
         $lock.Mutex.Dispose()
         throw "更新中はエクスポートできません。更新が終わってからやり直してください。"
@@ -136,6 +136,21 @@ function exportIndexes {
     return , $results.ToArray()
 }
 
+function getIndexTsvFilesNoFollow {
+    # インデックスのフォルダの下の *.tsv（FileInfo）を返す。下のリンク（ジャンクション・シンボリックリンク）は辿らない
+    # （先の、インデックスの外のファイルを zip に入れて持ち出さないため。親を指すリンクで輪になることも無い）。
+    # 読めなかったフォルダがあれば、一部だけをエクスポートしないよう例外にする
+    param (
+        [string]$indexDir
+    )
+
+    $tree = getFilesNoFollow $indexDir -IncludeHidden
+    if ($tree.HasError) {
+        throw "インデックスのフォルダを最後まで読めませんでした: $($tree.Reason)"
+    }
+    return @($tree.Files | Where-Object { [string]::Equals($_.Extension, ".tsv", [System.StringComparison]::OrdinalIgnoreCase) })
+}
+
 function getIndexExportSize {
     # エクスポートする前に、選んだインデックスが zip に入れる本文インデックスのファイル（*.tsv）の大きさの合計を数える。
     # 戻り値: @{ Bytes（合計のバイト数）; Missing（インデックスのフォルダが無かった名前の配列）}。
@@ -154,8 +169,8 @@ function getIndexExportSize {
             $missing.Add($name)
             continue
         }
-        foreach ($file in [System.IO.Directory]::GetFiles((toLongPath $indexDir), "*.tsv", [System.IO.SearchOption]::AllDirectories)) {
-            $bytes += ([System.IO.FileInfo]::new($file)).Length
+        foreach ($file in @(getIndexTsvFilesNoFollow $indexDir)) {
+            $bytes += $file.Length
         }
     }
     return @{ Bytes = $bytes; Missing = $missing.ToArray() }
@@ -179,15 +194,14 @@ function exportIndexCore {
     }
 
     # 入れる前の TSV（本文インデックスのファイル以外の *.tsv）が残っていれば、途中で止まったインデックスとして止める
-    $longIndexDir = toLongPath $indexDir
     $prefixLength = $indexDir.TrimEnd("\").Length + 1
     $contentIndexFiles = New-Object System.Collections.Generic.List[string]
-    # 途中で throw して抜けても下のフォルダを掴んだまま残らないよう、列挙子（EnumerateFiles）でなく配列（GetFiles）で受ける
-    foreach ($file in [System.IO.Directory]::GetFiles($longIndexDir, "*.tsv", [System.IO.SearchOption]::AllDirectories)) {
-        $rel = (fromLongPath $file).Substring($prefixLength)
+    # 途中で throw して抜けても下のフォルダを掴んだまま残らないよう、列挙子（EnumerateFiles）でなく配列で受ける
+    foreach ($tsvFile in @(getIndexTsvFilesNoFollow $indexDir)) {
+        $rel = (fromLongPath $tsvFile.FullName).Substring($prefixLength)
         $fileName = [System.IO.Path]::GetFileName($rel)
         if ($null -eq (readContentIndexFileName $fileName)) {
-            throw "更新を最後まで行ってからエクスポートしてください（更新の途中のファイルが残っています: ${rel}）。"
+            throw "インデックスとして扱えないファイルが残っています（${rel}）。更新を最後まで行うか、そのファイルを取り除いてからエクスポートしてください。"
         }
         $contentIndexFiles.Add($rel)
     }
@@ -276,6 +290,38 @@ function exportIndexCore {
     return @{ Name = $name; Path = $destPath; Files = $manifestFiles.Count; Bytes = $totalBytes }
 }
 
+function readArchiveEntryBytesLimited {
+    # zip のエントリーを、実際に読んだバイト数を数えながらバイト列で読む。maxBytes を超えたら、それ以上読まずに $null を返す
+    # （中央ディレクトリの展開後の大きさの申告は、送り手が偽れるため当てにしない）
+    param (
+        $entry,
+        [long]$maxBytes
+    )
+
+    $source = $entry.Open()
+    try {
+        $memory = New-Object System.IO.MemoryStream
+        try {
+            $buffer = New-Object byte[] 1MB
+            while ($true) {
+                $read = $source.Read($buffer, 0, $buffer.Length)
+                if ($read -le 0) {
+                    break
+                }
+                if ($memory.Length + $read -gt $maxBytes) {
+                    return $null
+                }
+                $memory.Write($buffer, 0, $read)
+            }
+            return , $memory.ToArray()
+        } finally {
+            $memory.Dispose()
+        }
+    } finally {
+        $source.Dispose()
+    }
+}
+
 function openIndexArchive {
     # zip を開き、目録（testIndexArchiveManifest）を確かめる。確かめられなければ、開いたアーカイブを閉じて例外にする。
     # 返すもの: @{ Archive; Manifest }（呼んだ側が Archive.Dispose() を行う）
@@ -296,16 +342,16 @@ function openIndexArchive {
         if ($null -ne $manifestEntry) {
             $manifestBytes = $manifestEntry.Length
             if ($manifestBytes -le ${indexArchiveMaxManifestBytes}) {
-                $reader = New-Object System.IO.StreamReader($manifestEntry.Open(), [System.Text.Encoding]::UTF8)
-                try {
-                    $json = $reader.ReadToEnd()
-                } finally {
-                    $reader.Dispose()
-                }
-                try {
-                    $manifest = ConvertFrom-Json $json
-                } catch {
-                    $manifest = $null
+                # 申告の大きさ（送り手が書ける）に頼らず、実際に読んだ大きさで打ち切る。超えたら大きすぎるものとして断る
+                $manifestData = readArchiveEntryBytesLimited $manifestEntry ${indexArchiveMaxManifestBytes}
+                if ($null -eq $manifestData) {
+                    $manifestBytes = ${indexArchiveMaxManifestBytes} + 1
+                } else {
+                    try {
+                        $manifest = ConvertFrom-Json ([System.Text.Encoding]::UTF8.GetString($manifestData).TrimStart([char]0xFEFF))
+                    } catch {
+                        $manifest = $null
+                    }
                 }
             }
         }
@@ -375,7 +421,7 @@ function getImportArchiveInfo {
 }
 
 function getImportUsedIndexNames {
-    # 今使われているインデックス名（設定の targetFolders・indexSources、content_index\ 直下のフォルダ、
+    # 今使われているインデックス名（設定の targetFolders・indexSources、インデックスのフォルダ（store\content\・古い content_index\）直下のフォルダ、
     # 取り込み一覧のクロール対象フォルダの行）を集めて返す（大文字・小文字を区別しない集合）
     param (
         $ws,
@@ -393,15 +439,10 @@ function getImportUsedIndexNames {
             [void]$names.Add($source.Name)
         }
     }
-    if (Test-Path -LiteralPath (toLongPath $ws.IndexDir) -PathType Container) {
-        foreach ($dir in [System.IO.Directory]::GetDirectories((toLongPath $ws.IndexDir))) {
-            [void]$names.Add([System.IO.Path]::GetFileName($dir))
-        }
-    }
-    foreach ($folder in (readStatusFile $ws.StatusFile).Folders.ToArray()) {
-        if ($folder.Name) {
-            [void]$names.Add($folder.Name)
-        }
+    # 作り直す前の形式のインデックス（古い置き場）の名前も使われているものとして数える（同じ名前を取り込んで、新旧が混ざらないように）。
+    # ワークスペースに残っているインデックスの集め方は getWorkspaceIndexFolders（画面の追加・名前の変更と同じ）
+    foreach ($folder in @(getWorkspaceIndexFolders $ws)) {
+        [void]$names.Add($folder.Name)
     }
     return , $names
 }
@@ -413,15 +454,19 @@ function extractArchiveEntryToFile {
         $entry,
         [long]$expectedSize,
         [string]$expectedSha256,
-        [string]$destPath
+        [string]$destPath,
+        [string]$root
     )
 
-    [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName((toLongPath $destPath))) | Out-Null
+    # 書き出すのは、root の下で途中にリンクが無いときだけ。同じ名前のファイルが既にあれば上書きせず、例外にする（CreateNew）
+    if (!(newDirectoryUnder ([System.IO.Path]::GetDirectoryName($destPath)) $root)) {
+        throw "置き場の外か、途中にリンクがあるため、展開できません: ${destPath}"
+    }
     $source = $entry.Open()
     $sha = New-Object System.Security.Cryptography.SHA256CryptoServiceProvider
     $total = [long]0
     try {
-        $dest = New-Object System.IO.FileStream((toLongPath $destPath), [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+        $dest = New-Object System.IO.FileStream((toLongPath $destPath), [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
         try {
             $buffer = New-Object byte[] 1MB
             while ($true) {
@@ -478,7 +523,7 @@ function importIndex {
         [scriptblock]$getFreeSpace = { param ($root) getWorkspaceFreeSpace $root }
     )
 
-    $lock = newAppMutex "indexer" $ws.Dir
+    $lock = newAppMutex "indexer" $ws.Dir ${appId}
     if (!$lock.Acquired) {
         $lock.Mutex.Dispose()
         throw "更新中はインポートできません。更新が終わってからやり直してください。"
@@ -525,12 +570,15 @@ function expandImportArchive {
         $fileEntries,
         [string]$workDir,
         [string]$finalName,
-        [string]$folder
+        [string]$folder,
+        [string]$workRoot
     )
 
     $newDir = Join-Path $workDir "new"
-    removeDirectoryRetry $workDir
-    [System.IO.Directory]::CreateDirectory((toLongPath $newDir)) | Out-Null
+    # 消す・作るのは、workRoot の下で途中にリンクが無いときだけ（偽なら何も書かずに例外にする）
+    if (!(removeDirectoryUnder $workDir $workRoot) -or !(newDirectoryUnder $newDir $workRoot)) {
+        throw "置き場の外か、途中にリンクがあるため、展開できません: ${workDir}"
+    }
     try {
         $statusTmpPath = Join-Path $workDir ${indexArchiveStatusEntryName}
         $statusLines = $null
@@ -543,7 +591,7 @@ function expandImportArchive {
             $size = [long]$file.size
             $sha256 = [string]$file.sha256
             if ($path -ceq ${indexArchiveStatusEntryName}) {
-                extractArchiveEntryToFile $entry $size $sha256 $statusTmpPath
+                extractArchiveEntryToFile $entry $size $sha256 $statusTmpPath $workDir
                 $bytes = [System.IO.File]::ReadAllBytes((toLongPath $statusTmpPath))
                 $text = ${utf8Bom}.GetString($bytes)
                 $statusLines = @($text -split "\r?\n" | Where-Object { $_ -ne "" })
@@ -552,8 +600,17 @@ function expandImportArchive {
                     throw "ingest_status.tsv を読み込めません（${reason}）"
                 }
             } else {
-                $rel = $path.Substring("content_index/".Length).Replace("/", "\")
-                extractArchiveEntryToFile $entry $size $sha256 (Join-Path $newDir $rel)
+                # 本文インデックスのファイル: 大きすぎれば展開しない。展開して SHA-256 を比べたあと、検索と更新が読めるかを確かめる
+                $reason = testImportedContentIndexFile $size $null
+                if (!$reason) {
+                    $rel = $path.Substring("content_index/".Length).Replace("/", "\")
+                    $target = Join-Path $newDir $rel
+                    extractArchiveEntryToFile $entry $size $sha256 $target $workDir
+                    $reason = testImportedContentIndexFile $size (readContentIndexText $target)
+                }
+                if ($reason) {
+                    throw "インデックスのファイル「${path}」を読み込めません（${reason}）。エクスポートした側で更新し直してから、もう一度エクスポートしてください。"
+                }
             }
         }
         if ($null -eq $statusLines) {
@@ -570,8 +627,13 @@ function expandImportArchive {
         writeListFile (Join-Path $newDir ${sourceFolderFileName}) @($header, "${finalName}`t${folder}")
         return @{ NewDir = $newDir; Rows = $rows.ToArray() }
     } catch {
-        removeDirectoryRetry $workDir
-        throw
+        $original = $_
+        try {
+            [void](removeDirectoryUnder $workDir $workRoot)
+        } catch {
+            # 片付けに失敗しても、元の失敗の理由を隠さない
+        }
+        throw $original
     }
 }
 
@@ -653,26 +715,34 @@ function swapInImportedIndexDir {
         [string]$newDir,
         [string]$targetDir,
         [string]$previousDir,
-        [string]$indexRoot
+        [string]$indexRoot,
+        [string]$workRoot
     )
 
     # ウイルス対策ソフトが、作ったばかり・書いたばかりのフォルダ（$targetDir は前の取り込みで、$newDir はこの
     # インポートの展開で、それぞれ書いたばかり）を一時的に掴んでいることがあるため、moveDirectoryRetry で試し直す
     # （removeDirectoryRetry と同じ理由。docs/design/index-data/format.md「インポート」を参照）
+    # 移すのは、targetDir が indexRoot の下、newDir と previousDir が workRoot の下で、どれも途中にリンクが無いときだけ
+    # （moveDirectoryUnder。偽なら何も移さずに例外にする）
+    $outside = "置き場の外か、途中にリンクがあるため、インデックスを入れ替えられません: ${targetDir}"
     $hadPrevious = Test-Path -LiteralPath (toLongPath $targetDir) -PathType Container
     if ($hadPrevious) {
-        moveDirectoryRetry $targetDir $previousDir
+        if (!(moveDirectoryUnder $targetDir $previousDir $workRoot $indexRoot)) {
+            throw $outside
+        }
     }
     try {
         [System.IO.Directory]::CreateDirectory((toLongPath $indexRoot)) | Out-Null
-        moveDirectoryRetry $newDir $targetDir
+        if (!(moveDirectoryUnder $newDir $targetDir $indexRoot $workRoot)) {
+            throw $outside
+        }
     } catch {
         if ($hadPrevious) {
-            moveDirectoryRetry $previousDir $targetDir
+            [void](moveDirectoryUnder $previousDir $targetDir $indexRoot $workRoot)
         }
         throw
     }
-    return @{ TargetDir = $targetDir; PreviousDir = $previousDir; HadPrevious = $hadPrevious }
+    return @{ TargetDir = $targetDir; PreviousDir = $previousDir; HadPrevious = $hadPrevious; IndexRoot = $indexRoot; WorkRoot = $workRoot }
 }
 
 function restoreSwappedIndexDir {
@@ -681,9 +751,13 @@ function restoreSwappedIndexDir {
         $swap
     )
 
-    removeDirectoryRetry $swap.TargetDir
+    if (!(removeDirectoryUnder $swap.TargetDir $swap.IndexRoot)) {
+        throw "置き場の外か、途中にリンクがあるため、入れ替えを戻せません: $($swap.TargetDir)"
+    }
     if ($swap.HadPrevious) {
-        moveDirectoryRetry $swap.PreviousDir $swap.TargetDir
+        if (!(moveDirectoryUnder $swap.PreviousDir $swap.TargetDir $swap.IndexRoot $swap.WorkRoot)) {
+            throw "置き場の外か、途中にリンクがあるため、入れ替えを戻せません: $($swap.TargetDir)"
+        }
     }
 }
 
@@ -728,16 +802,6 @@ function importIndexCore {
         [string]$settingsPath,
         [scriptblock]$getFreeSpace
     )
-
-    # 前の版のワークスペース（index\ あり・content_index\ が空）を、取り込み直しを始めるときと同じ手順で片付ける。
-    # content_index\ にこのインポートの分を足す前に行う（片付けに失敗したら、以降は行わない）
-    $legacyState = getLegacyIndexState $ws.Dir
-    if (testLegacyCleanupNeeded $legacyState) {
-        $cleanup = clearLegacySystemIndex $ws.Dir
-        if (!$cleanup.Ok) {
-            throw "前の版のインデックス（高速検索用）を片付けられませんでした（$($cleanup.Reason)）。tebunko の画面やエクスプローラーで開いていれば閉じてから、もう一度インポートしてください。"
-        }
-    }
 
     $opened = openIndexArchive $zipPath
     $archive = $opened.Archive
@@ -788,16 +852,22 @@ function importIndexCore {
         }
 
         $workDir = Join-Path $ws.PublishDir "import"
-        $expanded = expandImportArchive $archive $fileEntries $workDir $finalName $folder
+        $expanded = expandImportArchive $archive $fileEntries $workDir $finalName $folder $ws.PublishDir
         $targetIndexDir = Join-Path $ws.IndexDir $finalName
         try {
+            # 前の版が作ったシステムインデックスは、この版では使わない。消せなくても取り込みは続け、警告に 1 行足す（次のインデックス作成でも消す）
+            $oldSearchFiles = removeOldSystemIndex $ws.Dir
+            if (!$oldSearchFiles.Ok) {
+                $warnings.Add("前の版が作った検索用のファイルを消せませんでした（$($oldSearchFiles.Reason)）。次のインデックス作成でもう一度消します。")
+            }
             $before = registerImportedIndexInSettings $finalName $folder $overwrite $targetIndexDir $settingsPath
             try {
-                $swap = swapInImportedIndexDir $expanded.NewDir $targetIndexDir (Join-Path $workDir "previous") $ws.IndexDir
-                # Directory.Move で入れたフォルダは、work\content_index の NotContentIndexed を受け継がない。
-                # 根に付いたあとの -Recurse は中へ降りないため（publish.md）、入れた直後に付ける（失敗しても止めない）
-                setNotContentIndexed $targetIndexDir -Recurse | Out-Null
+                $swap = swapInImportedIndexDir $expanded.NewDir $targetIndexDir (Join-Path $workDir "previous") $ws.IndexDir $ws.PublishDir
                 try {
+                    # 取り込んだインデックスは、作り終えたものとして目録に載せる
+                    if (!(setIndexFormatRow $finalName ${catalogRowFinished} $ws.FormatFile)) {
+                        throw "インデックスの目録を書けません（新しい版の tebunko で作られたワークスペースの可能性があります）。"
+                    }
                     rewriteStatusForImport $ws.StatusFile $finalName $folder $expanded.Rows
                 } catch {
                     restoreSwappedIndexDir $swap
@@ -808,16 +878,23 @@ function importIndexCore {
                 throw
             }
         } catch {
-            removeDirectoryRetry $workDir
-            throw
+            $original = $_
+            try {
+                [void](removeDirectoryUnder $workDir $ws.PublishDir)
+            } catch {
+                # 片付けに失敗しても、元の失敗の理由を隠さない
+            }
+            throw $original
         }
 
-        # 11. 上書きなら、前のシステムインデックスを消す（消せなくても続ける。次のインデックス作成で整理される）
+        # 11. 上書きなら、前の gram 索引を消す（消せなくても続ける。次のインデックス作成で整理される）
         if ($overwrite) {
-            removeSystemIndexOfWorkspace $finalName $ws.IndexDir
+            removeGramIndexOfWorkspace $finalName $ws.IndexDir
         }
         # 12. 作業フォルダを消す
-        removeDirectoryRetry $workDir
+        if (!(removeDirectoryUnder $workDir $ws.PublishDir)) {
+            throw "置き場の外か、途中にリンクがあるため、作業フォルダを消せません: ${workDir}"
+        }
 
         return @{
             Name = $finalName; SourcePath = $folder; Enabled = [System.IO.Directory]::Exists((toLongPath $folder))

@@ -1,18 +1,18 @@
 ﻿# クロール（どのファイルを取り込むかを数え、画面の返事を待つ）。
 
-# 取り込み対象の拡張子（Office は shared\office\office_files.ps1、テキストは shared\core\text_file.ps1、PDF は shared\core\pdf_file.ps1）
+# 取り込み対象の拡張子（Office は shared\office\office_file_kind_view.ps1、テキストは shared\core\text_file.ps1、PDF は shared\core\pdf_file.ps1）
 $targetExtensions = @(${officeExtensions}) + @(${textExtensions}) + @(${pdfExtensions})
 
 # tebunko が作ったファイルを、名前だけで見分けるパターン（テキストの拡張子のものだけに当たる。どこにあっても外す）。
 #   ・今の版の本文インデックス（content_index.xlsx.001.tsv 等。contentIndexFileNamePattern と同じ組み立て）
 #   ・前の版（名前をそろえる前）の本文インデックスのファイル（content.xlsx.001.tsv 等）
-#   ・システムインデックス（今の版 system_index*.txt・前の版 システムインデックス*.txt。search_gram.ps1 の systemIndexFileName・
-#     workspace.ps1 の legacySystemIndexPattern と同じ組み立て）
+#   ・前の版が作ったシステムインデックス（system_index*.txt・system_index_state.tsv・システムインデックス*.txt）。今の版は作らないが、残っていても取り込まない
 ${tebunkoOwnFileNamePatterns} = @(
     "${contentIndexFileNamePrefix}.*.tsv",
     "content.*.tsv",
-    "$([System.IO.Path]::GetFileNameWithoutExtension(${systemIndexFileName}))*.txt",
-    ${legacySystemIndexPattern}
+    "system_index*.txt",
+    "system_index_state.tsv",
+    "システムインデックス*.txt"
 )
 
 function testTebunkoOwnFileName {
@@ -71,29 +71,62 @@ function getBookDir {
 function removeBookDir {
     # そのファイルのインデックスのフォルダを削除する（元のファイルが無くなったとき・取り込み直すとき）。
     # ウイルス対策ソフト・エクスプローラーが一時的に掴んでいることがあるため、少し待って数回試す
+    # 相対パスは取り込み一覧（共有のワークスペースで書き換えられうる）から来るため、置き場（IndexDir）の下でなければ消さない
+    # （例外にすると、書き換えられた 1 行で毎回インデックス作成が止まるため、ログに出して続ける）
     param (
         [string]$bookDir
     )
 
-    removeDirectoryRetry $bookDir
+    # 途中にリンク（ジャンクション等）があるパスも、置き場の外と同じく消さない（removeDirectoryUnder）
+    if (!(removeDirectoryUnder $bookDir $workspace.IndexDir)) {
+        writeIndexerLog "インデックスの置き場の外を指すパス（途中のリンクを含む）のため、削除しませんでした: ${bookDir}" "Yellow"
+    }
 }
 
 function getTebunkoExcludeDirs {
     # 除外するフォルダ（tebunko が作ったワークスペース）の一覧を返す。
-    #   ・今のワークスペース（$workspace.Entries()。content_index・前の版の index・system_index・取り込み一覧 等）
-    #   ・スキャンで見つけたファイルの中に取り込み一覧（$workspace.StatusFile と同じ名前）があれば、
-    #     そのフォルダをほかのワークスペースとみなし、その Entries() も外す
+    #   ・今のワークスペース（$workspace.Entries()。本文インデックスの置き場 store・前の版の content_index と index・system_index 等）
+    #   ・スキャンで見つけたファイルの中に、ほかのワークスペースの目印があれば、そのフォルダの Entries() も外す
+    #     目印は、前の版の取り込み一覧（ワークスペース直下の ingest_status.tsv）・今の版の取り込み一覧（store\ingest_status.tsv）・
+    #     今の版の目録（store\format.tsv。ありふれた名前なので、親が store で、中身が目録として読めるときだけ）
     #     （以前の既定の場所・切り替える前のワークスペース・ほかの人のワークスペースを、テキストの拡張子（.tsv 等）で拾わないため）
     param (
         [object[]]$scannedFiles
     )
 
+    # 取り込み一覧・目録は新しい形式では store\ の中にあるため、親が store ならその 1 つ上をワークスペースとみなす
+    #（前の版のワークスペースは、ワークスペース直下の取り込み一覧で見つかる）
     $statusFileName = [System.IO.Path]::GetFileName($workspace.StatusFile)
+    $formatFileName = [System.IO.Path]::GetFileName($workspace.FormatFile)
+    $storeDirName = [System.IO.Path]::GetFileName($workspace.StoreDir)
     $dirs = New-Object System.Collections.Generic.List[string]
     $dirs.AddRange([string[]]$workspace.Entries())
     foreach ($file in $scannedFiles) {
-        if ($file.Name -eq $statusFileName) {
-            $otherDir = [System.IO.Path]::GetDirectoryName((fromLongPath $file.FullName))
+        if ($file.Name -ne $statusFileName -and $file.Name -ne $formatFileName) {
+            continue
+        }
+        $fullPath = fromLongPath $file.FullName
+        $otherDir = [System.IO.Path]::GetDirectoryName($fullPath)
+        $inStore = [System.IO.Path]::GetFileName($otherDir) -eq $storeDirName
+        if ($file.Name -eq $formatFileName -and $file.Name -ne $statusFileName) {
+            # 利用者のフォルダにもある名前のため、store の中で、目録として読めるものだけを目印にする
+            # 読めない（ロックされている・アクセスできない）ものは目印にしない（インデックス作成を止めない）
+            if (!$inStore) {
+                continue
+            }
+            try {
+                $catalogStatus = (readIndexFormat $fullPath).Status
+            } catch {
+                continue
+            }
+            if ($catalogStatus -in @("Missing", "Broken")) {
+                continue
+            }
+        }
+        if ($inStore) {
+            $otherDir = [System.IO.Path]::GetDirectoryName($otherDir)
+        }
+        if ($otherDir) {
             $dirs.AddRange([string[]]([Workspace]::new($otherDir).Entries()))
         }
     }
@@ -119,20 +152,28 @@ function testUnderAnyDir {
 
 function findTargetFiles {
     # クロール対象フォルダ配下の、取り込み対象（Office・テキストの拡張子）のファイルを検索し、
-    # @{ Root; Files; HasError（アクセスできないフォルダがあった） } を返す。
+    # @{ Root; Files; Links; HasError（アクセスできないフォルダがあった）; Stopped（shouldStop で途中で止めた。Files は空） } を返す。
+    # クロール対象フォルダの中のリンク（ジャンクション・シンボリックリンク）は辿らず、取り込まない。飛ばしたリンクは Links に入る
+    # （飛ばしたものは HasError にしない）。クロール対象フォルダそのものがリンクのときは、これまでどおりその先の中を読む（中のリンクだけを辿らない）。
     # Root は実際に列挙したフォルダ（\\?\ の付かない通常のパス）。相対パスはこの Root から求める
     # （設定に書かれたパスは、末尾の \ ・ドライブ文字と UNC パスなど書き方が違うことがあるため、文字数で切り出さない）。
     # tebunko が作ったファイル（getTebunkoExcludeDirs のフォルダの下・名前で分かるファイル）は対象に含めない
+    # shouldStop: 省略できる。フォルダ 1 つを読むごとに見て、$true を返したら読むのをやめる（中止を求められたとき）
     param (
-        [string]$targetFolder
+        [string]$targetFolder,
+        [scriptblock]$shouldStop = $null
     )
 
     # \\?\ を付けないと、パスが約248文字を超えるフォルダの中を検索できない（アクセスできないフォルダ扱いになる）。
     # 見つかったファイルの FullName は \\?\ 付きになる（fromLongPath で戻す）
-    $scanErrors = $null
     $root = (Resolve-Path -LiteralPath $targetFolder).ProviderPath
-    $scanned = @(Get-ChildItem -LiteralPath (toLongPath $root) -Recurse -File -ErrorAction SilentlyContinue -ErrorVariable scanErrors |
-        Where-Object { ($targetExtensions -contains $_.Extension.ToLower()) -and -not $_.Name.StartsWith('~$') })
+    # 中のリンクは辿らず、飛ばしたものは Links に入れる（先の、対象の外のファイルを読まないため）。
+    # クロール対象フォルダそのものはリンクでもよい（利用者が選んだ場所のため、その先の中を読む）
+    $tree = getFilesNoFollow $root -shouldStop $shouldStop
+    if ($tree.Stopped) {
+        return @{ Root = $root; Files = @(); Links = @($tree.Links); HasError = $tree.HasError; Stopped = $true }
+    }
+    $scanned = @($tree.Files | Where-Object { ($targetExtensions -contains $_.Extension.ToLower()) -and -not $_.Name.StartsWith('~$') })
 
     # 除外するフォルダの \\?\ 付きの前方一致の文字列を先に作る（ファイルごとにドライブの割り当てをたどる処理は呼ばない）。
     # このクロール対象フォルダの外にあるものは、どのファイルにも当たらないため先に落とす（比べる数を減らす）
@@ -147,7 +188,7 @@ function findTargetFiles {
         return $true
     })
 
-    return @{ Root = $root; Files = $files; HasError = (@($scanErrors).Count -gt 0) }
+    return @{ Root = $root; Files = $files; Links = @($tree.Links); HasError = $tree.HasError; Stopped = $false }
 }
 
 function createTargetList {
@@ -159,6 +200,7 @@ function createTargetList {
     #            Rows には前回の行をそのまま入れる（前回の行が無い・前回未完了のときは入れない）
     #   Plan   : 画面の確認に出す件数（newIngestPlanRow。取り込み予定.tsv の1行）
     #   Removed: 元のファイルが無くなったファイルの相対パス（呼び出し元が本文インデックスのファイルから外す）
+    #   Stopped: shouldStop が $true を返して途中で止めた。このときほかの値は空で、何も消していない（呼び出し元は前回の行をそのまま残す）
     # 行の相対パスは "インデックス名\フォルダからの相対パス"（= work\index からの相対パス）とする。
     # ・前回の一覧と更新日時・サイズが同じで取り込み済み（済）のファイルは取り込まない
     # ・取り込み済みでも、インデックス（TSV）が無くなっていれば取り込み直す（利用者が work\index を直接削除した場合など）
@@ -166,11 +208,22 @@ function createTargetList {
     param (
         $folder,   # @{ Path; Name }
         $previous, # readStatusFile の Rows（相対パス → 行）
-        $counts    # getIndexTsvCounts の結果（インデックスの実体。$null なら確認しない）
+        $counts,   # getIndexTsvCounts の結果（インデックスの実体。$null なら確認しない）
+        [scriptblock]$shouldStop = $null # 省略できる。フォルダを読むごと・ファイルを調べる途中で見て、$true なら途中で止める
     )
 
     $prefix = "$($folder.Name)\"
-    $scan = findTargetFiles $folder.Path
+    $stoppedResult = @{
+        Rows = @(); Targets = @(); Failed = @(); Cloud = @(); Plan = $null; Removed = @(); Stopped = $true
+    }
+    $scan = findTargetFiles $folder.Path $shouldStop
+    if ($scan.Stopped) {
+        return $stoppedResult
+    }
+    # 飛ばしたリンクは 1 件 1 行でログに出す
+    foreach ($link in @($scan.Links | Where-Object { $_ })) {
+        writeIndexerLog "    リンク（ジャンクション・シンボリックリンク）のため取り込みませんでした: $link" "Yellow"
+    }
     $rows = New-Object System.Collections.Generic.List[object]
     $targets = New-Object System.Collections.Generic.List[object]
     $failed = New-Object System.Collections.Generic.List[object]
@@ -186,7 +239,13 @@ function createTargetList {
     # 列挙したファイルの FullName は、\\?\ 付きの Root で始まる。ファイルが多いと1件ずつの関数呼び出しだけで
     # 時間がかかるため、その場合は先頭を切り落として相対パスにする（それ以外は getPathUnderFolder で求める）
     $longRoot = (toLongPath $scan.Root).TrimEnd("\") + "\"
+    $checked = 0
     foreach ($file in $scan.Files) {
+        # 中止の確認は、ファイルが多いときに重くならないよう 100 件ごとに見る
+        $checked++
+        if ($null -ne $shouldStop -and ($checked % 100) -eq 0 -and (& $shouldStop)) {
+            return $stoppedResult
+        }
         $fullName = $file.FullName
         if ($fullName.Length -gt $longRoot.Length -and $fullName.StartsWith($longRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
             $relative = $fullName.Substring($longRoot.Length)
@@ -260,6 +319,10 @@ function createTargetList {
         $rows.Add($row)
     }
 
+    # 元のファイルが無くなったものの削除（取り返しがつかない）の前に、中止を見る
+    if ($null -ne $shouldStop -and (& $shouldStop)) {
+        return $stoppedResult
+    }
     $removed = New-Object System.Collections.Generic.List[string]
     foreach ($relPath in @($previous.Keys)) {
         if (!$relPath.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase) -or $found.Contains($relPath)) {
@@ -296,7 +359,7 @@ function createTargetList {
     $plan = newIngestPlanRow $folder.Name $folder.Path ${planKindIngest} $scan.Files.Count $targets.Count `
         $count.New $count.Updated $count.Pending $count.Lost $failed.Count `
         $cloudCount $cloudFailedCount $cloudBytes $cloudFailedBytes
-    return @{ Rows = $rows; Targets = $targets; Failed = $failed; Cloud = $cloud; Plan = $plan; Removed = $removed.ToArray() }
+    return @{ Rows = $rows; Targets = $targets; Failed = $failed; Cloud = $cloud; Plan = $plan; Removed = $removed.ToArray(); Stopped = $false }
 }
 
 # ----------------------------------------------------------------------------
@@ -333,6 +396,8 @@ class IngestPlanner {
     [System.Collections.Generic.List[string]]$RemovedPaths
     # 前回、取り込み中に強制終了して最後に回したファイル（相対パス → 回数）
     $Carried
+    # Crawl を中止で途中で止めた（止めたフォルダ・まだのフォルダは、前回の行をそのまま Rows に入れてある）
+    [bool]$Stopped
     hidden $Kinds
 
     IngestPlanner([hashtable]$kinds) {
@@ -357,7 +422,11 @@ class IngestPlanner {
         # 設定から外れたインデックスは、ここでは消さない（確認ダイアログに「削除予定」として出す）
         $this.Folders = @(assignIndexNames $targetFolders $status.Folders)
         $this.Previous = $status.Rows
-        $this.Dropped = @(findDroppedIndexes $this.Folders $status.Folders)
+        # 名前が今の決まりに合わない前の版のインデックス（status.LegacyFolders）も、設定に無いので外れたインデックスとして出す
+        $previousFolders = New-Object System.Collections.Generic.List[object]
+        foreach ($folder in $status.Folders) { $previousFolders.Add($folder) }
+        foreach ($folder in $status.LegacyFolders) { if ($folder) { $previousFolders.Add($folder) } }
+        $this.Dropped = @(findDroppedIndexes $this.Folders $previousFolders.ToArray())
     }
 
     [void] SaveNames($targetFolders, [scriptblock]$save) {
@@ -387,13 +456,24 @@ class IngestPlanner {
     }
 
     [void] Crawl($indexCounts, [scriptblock]$onFolder) {
+        $this.Crawl($indexCounts, $onFolder, $null)
+    }
+
+    [void] Crawl($indexCounts, [scriptblock]$onFolder, [scriptblock]$shouldStop) {
         # クロール対象フォルダを順に検索して、Rows・Targets・Failed・Plan・RemovedPaths を組み立てる。
         # onFolder: フォルダを検索する直前に呼ぶ（司令が進み具合を画面に出す。$null なら何もしない）
+        # shouldStop: 中止を求められたかを返す（$null なら止めない）。フォルダごと・フォルダの中でも見て、$true なら、
+        #   止めたフォルダとまだのフォルダは「取り込まないフォルダ」と同じに前回の行をそのまま残し、Stopped を立てる（何も消さない）
         if ($null -eq $this.Folders) {
             throw "IngestPlanner: Crawl の前に AssignNames を呼んでください"
         }
         foreach ($folder in $this.Folders) {
-            if ($null -ne $this.Only -and !$this.Only.Selected.Contains([string]$folder.Name)) {
+            if (-not $this.Stopped -and $null -ne $shouldStop -and (& $shouldStop)) {
+                $this.Stopped = $true
+            }
+            if ($this.Stopped) {
+                # 中止を求められた（下で前回の結果をそのまま残す）
+            } elseif ($null -ne $this.Only -and !$this.Only.Selected.Contains([string]$folder.Name)) {
                 # 選ばなかったインデックス（下で前回の結果をそのまま残す）
             } elseif (-not $folder.Enabled) {
                 writeIndexerLog "  [$($folder.Name)] $($folder.Path) … チェックなしのため取り込みません（インデックスはそのまま残します）"
@@ -406,14 +486,18 @@ class IngestPlanner {
                 if ($null -ne $onFolder) {
                     $null = & $onFolder $folder
                 }
-                $list = createTargetList $folder $this.Previous $indexCounts
-                $this.Rows.AddRange($list.Rows)
-                $this.Targets.AddRange($list.Targets)
-                $this.Failed.AddRange($list.Failed)
-                $this.Cloud.AddRange($list.Cloud)
-                $this.Plan.Add($list.Plan)
-                $this.RemovedPaths.AddRange([string[]]@($list.Removed))
-                continue
+                $list = createTargetList $folder $this.Previous $indexCounts $shouldStop
+                if ($list.Stopped) {
+                    $this.Stopped = $true
+                } else {
+                    $this.Rows.AddRange($list.Rows)
+                    $this.Targets.AddRange($list.Targets)
+                    $this.Failed.AddRange($list.Failed)
+                    $this.Cloud.AddRange($list.Cloud)
+                    $this.Plan.Add($list.Plan)
+                    $this.RemovedPaths.AddRange([string[]]@($list.Removed))
+                    continue
+                }
             }
 
             # 取り込まないフォルダは前回の結果をそのまま残す
@@ -476,7 +560,7 @@ class IngestPlanner {
         # 前回、取り込み中に強制終了した（ウィンドウを閉じた・PCが停止した等）ファイルは、同じファイルで止まり続けないよう最後に回す。
         # 続けて interruptLimit 回強制終了したファイルは、応答しなくなるファイルとみなして失敗とする。
         # 最後に回したファイルは Carried に残す（取り込みを始めるまで記録を残し、その前にまた止まっても回数が分かるように）。
-        # entries: StatusLedger の ReadIngestingFiles（@{ RelPath; Count } の並び）
+        # entries: ジャーナルの読み取り（convertFromIngestJournal）の Resume（@{ RelPath; Count } の並び。Count は続けて取り込みを始めた回数）
         foreach ($entry in $entries) {
             $hit = @($this.Targets | Where-Object { $_.相対パス -eq $entry.RelPath }) | Select-Object -First 1
             if (!$hit) {

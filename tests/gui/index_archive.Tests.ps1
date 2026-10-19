@@ -71,7 +71,7 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             } | Out-Null
             $row = waitGui $S "一覧に戻る" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")) | Select-Object -First 1 }
             (getGuiRowTexts $row) | Should -Contain "営業"
-            Test-Path -LiteralPath "$($script:tool.Work)\content_index\営業" | Should -BeTrue
+            Test-Path -LiteralPath "$($script:tool.Work)\store\content\営業" | Should -BeTrue
 
             setGuiStep $S "同じ名前のインポート（別の名前にする → 置き換える）"
             clickGuiAction $S "ActionImport" "［インポート…］"
@@ -200,8 +200,8 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             } | Out-Null
             $row = waitGui $S "一覧に出る" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")) | Select-Object -First 1 }
             (getGuiRowTexts $row) | Should -Contain "営業"
-            Test-Path -LiteralPath "$workspaceB\content_index\営業" | Should -BeTrue -Because "切り替えた先のワークスペースに入る"
-            Test-Path -LiteralPath "$($tool2.Work)\content_index\営業" | Should -BeFalse -Because "切り替える前のワークスペースには入らない"
+            Test-Path -LiteralPath "$workspaceB\store\content\営業" | Should -BeTrue -Because "切り替えた先のワークスペースに入る"
+            Test-Path -LiteralPath "$($tool2.Work)\store\content\営業" | Should -BeFalse -Because "切り替える前のワークスペースには入らない"
 
             closeGui $S
         }

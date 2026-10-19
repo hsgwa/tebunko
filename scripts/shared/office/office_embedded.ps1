@@ -38,7 +38,7 @@ function addEmbeddedOutputChars {
     }
     $state.OutputChars += $chars
     if ($state.OutputChars -gt $script:embeddedOutputMaxChars) {
-        throw [ZipSizeLimitException]::new($script:zipTooLargeMessage, "(埋め込みから出す文字)", $state.OutputChars, "Output")
+        throw [ZipSizeLimitException]::new(${fileTooLargeMessage}, "(埋め込みから出す文字)", $state.OutputChars, "Output")
     }
 }
 
@@ -209,7 +209,7 @@ function readXlsxCellLines {
 
     $sharedStrings = $null
     foreach ($sheet in $workbook.GetElementsByTagName("sheet", $nsSheet)) {
-        if ($sheet.GetAttribute("state") -in @("hidden", "veryHidden")) {
+        if (testHiddenSheetElement $sheet) {
             continue
         }
         $rel = $workbookRels[$sheet.GetAttribute("id", ${nsRel})]
@@ -328,6 +328,11 @@ function readEmbeddedObjectLines {
         }
         $state.OutputChars = $outputBefore
         if ($isSize -and $null -ne $sizeFailures) {
+            # どの埋め込みの上限超過かが分かるよう、部品名が埋め込みそのものでなければ（出す文字の合計・埋め込みの中の部品）、
+            # 埋め込みの名前を足す（ログは部品名をそのまま書く）
+            if ($exception.PartName -ne [string]$rel.Target) {
+                $exception.PartName = "$($exception.PartName)（埋め込み: $($rel.Target)）"
+            }
             $sizeFailures.Add($exception)
         }
         if ($null -ne $failures) {

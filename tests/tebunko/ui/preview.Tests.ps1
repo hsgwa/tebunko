@@ -159,6 +159,7 @@ BeforeAll {
         $described = describePlace $book $location
         $row.PlaceText = $described.Place
         $row.Kind = $described.Kind
+        $row.IsExcel = ((getContentIndexFileKind $book) -eq "Excel")
         return $row
     }
 }
@@ -334,6 +335,7 @@ Describe "showDetail" -Tag Io {
         $lines = @("`t一", "`t二", "`t三", "`t四", "`t五")
         $first = newHitRow "見積.xlsx" "4月" 2 $lines
         $second = [HitRow]::Create("営業部", $first.Root, $first.RelPath, $first.RelDir, $first.Book, $first.Book, $first.Location, 4, $lines[3], "見積", [regex]"見積")
+        $second.IsExcel = $first.IsExcel
         $other = newHitRow "請求.xlsx" "5月" 2 $lines "経理部"
 
         $fake.Current = $first

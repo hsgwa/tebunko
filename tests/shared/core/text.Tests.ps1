@@ -114,3 +114,91 @@ Describe "testTextTrimmed" -Tag Unit {
         testTextTrimmed 100 103 2 | Should -Be $true
     }
 }
+
+Describe "formatTime" -Tag Unit {
+    # 当日かどうかで形が変わるため、入力は実行時の今日の日付（Get-Date）から It の中で作る
+    It "<name>" -TestCases @(
+        @{ name = "空なら空"; daysAgo = $null; expected = { "" } }
+        @{ name = "当日は時刻だけ"; daysAgo = 0; expected = { "9:05" } }
+        @{ name = "前の日は月日つき"; daysAgo = 1; expected = { "$((Get-Date).Date.AddDays(-1).ToString('M/d')) 9:05" } }
+        @{ name = "ずっと前の日は月日つき"; daysAgo = 3650; expected = { "$((Get-Date).Date.AddDays(-3650).ToString('M/d')) 9:05" } }
+    ) {
+        param ($name, $daysAgo, $expected)
+
+        $time = if ($null -eq $daysAgo) { $null } else { (Get-Date).Date.AddDays(-$daysAgo).AddHours(9).AddMinutes(5) }
+        formatTime $time | Should -Be (& $expected)
+    }
+}
+
+Describe "toSafeFileName" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "ファイル名に使えない文字を全角に変換する"; text = 'a<b>c\d*e:f?g|h'; expected = 'a＜b＞c￥d＊e：f？g｜h' }
+        @{ name = "スラッシュを全角に変換する"; text = 'a/b'; expected = 'a／b' }
+        @{ name = "ダブルクォートを全角に変換する"; text = 'a"b'; expected = 'a”b' }
+        @{ name = "使える文字はそのまま返す"; text = 'シート1 (2)'; expected = 'シート1 (2)' }
+    ) {
+        param($name, $text, $expected)
+        toSafeFileName $text | Should -Be $expected
+    }
+}
+
+Describe "getFolderNameProblemText" -Tag Unit {
+    It "「<name>」が使えるか: <usable>" -TestCases @(
+        @{ name = "営業部 2025"; usable = $true }
+        @{ name = "CONSOLE"; usable = $true }
+        @{ name = ("あ" * 255); usable = $true }
+        @{ name = ""; usable = $false }
+        @{ name = " 営業"; usable = $false }
+        @{ name = "営業　"; usable = $false }
+        @{ name = ("あ" * 256); usable = $false }
+        @{ name = ".."; usable = $false }
+        @{ name = "営業."; usable = $false }
+        @{ name = "a\b"; usable = $false }
+        @{ name = "a/b"; usable = $false }
+        @{ name = "a:b"; usable = $false }
+        @{ name = "con"; usable = $false }
+        @{ name = "NUL.txt"; usable = $false }
+        @{ name = "LPT1"; usable = $false }
+    ) {
+        $problem = getFolderNameProblemText $name
+        ($problem -eq "") | Should -Be $usable
+    }
+
+    It "予約名を許すとき、「<name>」が使えるか: <usable>（予約名以外は同じ決まり）" -TestCases @(
+        @{ name = "aux.backup"; usable = $true }
+        @{ name = "CON.txt"; usable = $true }
+        @{ name = "con"; usable = $true }
+        @{ name = "LPT1"; usable = $true }
+        @{ name = "営業部 2025"; usable = $true }
+        @{ name = ""; usable = $false }
+        @{ name = ".."; usable = $false }
+        @{ name = " con"; usable = $false }
+        @{ name = "con."; usable = $false }
+        @{ name = "a\b"; usable = $false }
+        @{ name = "a:b"; usable = $false }
+        @{ name = ("あ" * 256); usable = $false }
+    ) {
+        $problem = getFolderNameProblemText $name $true
+        ($problem -eq "") | Should -Be $usable
+    }
+}
+
+Describe "testPlainFolderName" -Tag Unit {
+    It "「<name>」が使えるか: <usable>" -TestCases @(
+        @{ name = "営業部"; usable = $true }
+        @{ name = "aux.backup"; usable = $true }
+        @{ name = "CON"; usable = $true }
+        @{ name = "営業."; usable = $true }
+        @{ name = "営業 "; usable = $true }
+        @{ name = ("あ" * 255); usable = $true }
+        @{ name = ""; usable = $false }
+        @{ name = "."; usable = $false }
+        @{ name = ".."; usable = $false }
+        @{ name = ("あ" * 256); usable = $false }
+        @{ name = "a\b"; usable = $false }
+        @{ name = "a/b"; usable = $false }
+        @{ name = "a:b"; usable = $false }
+    ) {
+        (testPlainFolderName $name) | Should -Be $usable
+    }
+}

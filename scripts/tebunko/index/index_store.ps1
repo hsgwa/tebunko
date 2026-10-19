@@ -11,6 +11,38 @@ function testStatusRowFailed {
     return ($state -eq ${stateFailed}) -or ($state -eq ${stateNew} -and [string]$row.エラー -ne "")
 }
 
+function getWorkspaceIndexFolders {
+    # ワークスペースに残っているインデックスを、名前と前回の元のフォルダの組（@{ Name; Path }）で集めて返す。
+    # 取り込み一覧のクロール対象フォルダの行は名前と Path を持つ。インデックスのフォルダ（store\content\・古い content_index\）の直下にだけあって
+    # 取り込み一覧に行の無いフォルダは Path を空にする（どのフォルダにも付けられない名前として扱う）。
+    # 設定から外れたあとも残してあるインデックスを含む。画面の追加・名前の変更・インポートが、その名前を別のフォルダに付けないために使う
+    param (
+        $ws
+    )
+
+    $folders = New-Object System.Collections.Generic.List[object]
+    $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($folder in (readStatusFile $ws.StatusFile).Folders.ToArray()) {
+        if ($folder.Name) {
+            $folders.Add([pscustomobject]@{ Name = [string]$folder.Name; Path = [string]$folder.Path })
+            [void]$seen.Add([string]$folder.Name)
+        }
+    }
+    # 作り直す前の形式のインデックス（古い置き場）の名前も数える
+    foreach ($root in @($ws.IndexDir, $ws.OldIndexDir)) {
+        if (Test-Path -LiteralPath (toLongPath $root) -PathType Container) {
+            foreach ($dir in [System.IO.Directory]::GetDirectories((toLongPath $root))) {
+                $name = [System.IO.Path]::GetFileName($dir)
+                if ($seen.Add($name)) {
+                    $folders.Add([pscustomobject]@{ Name = $name; Path = "" })
+                }
+            }
+        }
+    }
+    # 1 件ずつ返す（受け取る側は @(...) で包んで配列にする。, を付けて返すと配列が 1 要素の入れ子になる）
+    return $folders.ToArray()
+}
+
 function getIndexStats {
     # 取り込み一覧の行をインデックス名ごとに集計する（画面のインデックス一覧に出す件数・最終更新）:
     #   インデックス名（大文字・小文字を区別しない）→ @{ Total; Done; Pending; Failed; LastIngested（"yyyy/MM/dd HH:mm:ss"。無ければ空） }
@@ -50,17 +82,17 @@ function getIndexStats {
     return , $stats
 }
 
-function removeSystemIndexOfWorkspace {
-    # インデックスのフォルダ（dir = <ワークスペース>\index）と同じワークスペースの system_index から、インデックス name の分を消す。
-    # 消せなくても（状態ファイルがほかに開かれている等）インデックスの操作は続ける。次のインデックス作成で整理される
+function removeGramIndexOfWorkspace {
+    # インデックスのフォルダ（dir = Workspace.IndexDir）と同じワークスペースの gram 索引から、インデックス name の分を消す。
+    # 消せなくてもインデックスの操作は続ける（インデックスが無いフォルダの索引は、次のインデックス作成で消える）
     param (
         [string]$name,
         [string]$dir
     )
 
-    $owner = [Workspace]::new([System.IO.Path]::GetDirectoryName($dir.TrimEnd("\")))
+    $owner = [Workspace]::new((getWorkspaceDirOfIndexDir $dir))
     try {
-        [void](removeSystemIndexOf $name $owner.SystemIndexDir $owner.SystemIndexStateFile)
+        [void](removeGramIndexOf $name $owner.GramDir)
     } catch {
     }
 }
@@ -251,32 +283,42 @@ function publishIndexFiles {
     # 作りかけのインデックスを残さないよう、いったん stagingDir に集めてから bookDir ごと入れ替える。
     # 途中で強制終了されても、bookDir は「前回のまま」か「今回の分がそろった状態」のどちらかになる
     # （1件ずつ bookDir へ移すと、途中で止まったときに一部のシートだけのインデックスが残り、検索で気付けない）。
-    # 以前のインデックスはフォルダごと置き換える（シートの削除・名前変更に追従するため）
+    # 以前のインデックスはフォルダごと置き換える（シートの削除・名前変更に追従するため）。
+    # 消す・作る・移すのは、stagingDir は publishRoot の下、bookDir は indexRoot の下で、途中にリンクが無いときだけ
+    # （確かめが偽なら何も動かさず、例外にする）
     param (
         [string]$fromDir,
         [string]$bookDir,
-        [string]$stagingDir
+        [string]$stagingDir,
+        [string]$indexRoot,
+        [string]$publishRoot
     )
 
-    removeDirectoryRetry $stagingDir
-    [System.IO.Directory]::CreateDirectory((toLongPath $stagingDir)) | Out-Null
+    $outside = "置き場の外か、途中にリンクがあるため、インデックスを置けません: "
+    if (!(removeDirectoryUnder $stagingDir $publishRoot) -or !(newDirectoryUnder $stagingDir $publishRoot)) {
+        throw "${outside}${stagingDir}"
+    }
     foreach ($file in @(Get-ChildItem -LiteralPath (toLongPath $fromDir) -Filter "*.tsv" -File)) {
         [System.IO.File]::Move($file.FullName, (toLongPath (Join-Path $stagingDir $file.Name)))
     }
 
-    removeDirectoryRetry $bookDir
-    [System.IO.Directory]::CreateDirectory((toLongPath ([System.IO.Path]::GetDirectoryName($bookDir)))) | Out-Null
+    if (!(removeDirectoryUnder $bookDir $indexRoot) -or !(newDirectoryUnder ([System.IO.Path]::GetDirectoryName($bookDir)) $indexRoot)) {
+        throw "${outside}${bookDir}"
+    }
     try {
+        # 元と先で根が違う（publishRoot と indexRoot）ため moveDirectoryUnder でなく、それぞれの根で確かめてから移す
+        if (!(testRemovablePath $stagingDir $publishRoot) -or !(testRemovablePath $bookDir $indexRoot)) {
+            throw "${outside}${bookDir}"
+        }
         [System.IO.Directory]::Move((toLongPath $stagingDir), (toLongPath $bookDir))
     } catch [System.IO.IOException] {
         # work を別のドライブへのリンクにしている場合など、フォルダごとは移せないときは1件ずつ移す
-        [System.IO.Directory]::CreateDirectory((toLongPath $bookDir)) | Out-Null
+        if (!(newDirectoryUnder $bookDir $indexRoot)) {
+            throw "${outside}${bookDir}"
+        }
         foreach ($file in @(Get-ChildItem -LiteralPath (toLongPath $stagingDir) -Filter "*.tsv" -File)) {
             [System.IO.File]::Move($file.FullName, (toLongPath (Join-Path $bookDir $file.Name)))
         }
-        removeDirectoryRetry $stagingDir
+        [void](removeDirectoryUnder $stagingDir $publishRoot)
     }
-    # bookDir はワークスペースの中（同じドライブ）の一時フォルダから Move で入れるため、親（content_index\）の
-    # NotContentIndexed 属性を継がない。ここで、入れた分（フォルダと直下の TSV）だけに付ける
-    [void](setNotContentIndexed $bookDir)
 }

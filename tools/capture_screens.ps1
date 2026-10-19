@@ -1,4 +1,4 @@
-﻿# 現行の画面を、状態ごとに全部（37 枚）自動で撮る道具。GUI を直す前の記録として docs\images\screens\ に置き、
+﻿# 現行の画面を、状態ごとに全部（39 枚）自動で撮る道具。GUI を直す前の記録として docs\images\screens\ に置き、
 # docs\design\gui\screens\ の写真として載せる。詳しい経緯・撮る状態の一覧・撮らないものは docs\design\gui\screens\index.md。
 #
 #   .\tools\capture_screens.ps1                 すべての状態を撮り直す
@@ -33,6 +33,8 @@ if (!$OutDir) { $OutDir = Join-Path $repoRoot "docs\images\screens" }
 . ([WildcardPattern]::Escape("$PSScriptRoot\capture\capture_common.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$repoRoot\tests\helpers\load.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$repoRoot\tests\gui\gui_helpers.ps1".Replace('`', '``')))
+# ワークスペースの中の置き場の名前は、本体の定義（クラスだけのファイル）から取る
+. ([WildcardPattern]::Escape("$repoRoot\scripts\tebunko\core\workspace.ps1".Replace('`', '``')))
 
 # 状態の一覧（${captureIds}）は tools\capture\capture_common.ps1 にある（tests\meta\screens.Tests.ps1 も読むため）
 
@@ -132,9 +134,25 @@ function captureGuiState {
     }
     # 大きさが決まっても、前の窓の絵がまだ残って見えることがある（確認が続けて出るときなど）。強制的に描き直させて少し待つ
     foreach ($w in $windows) { redrawGuiWindow $w }
-    Start-Sleep -Milliseconds 300
     # 窓そのものの範囲はネイティブの GetWindowRect（UI オートメーションの BoundingRectangle は、描画前の窓で 0 x 0 になることがある）
     $rects = @($windows | ForEach-Object { getGuiWindowRect $_ })
+    # マウスの矢印が窓の上に残っていると、その下の部品のツールヒントが出て、検索対象の木などを隠したまま撮れる
+    # （このスクリプトでいう「吹き出し」の正規表現の RegexBalloon とは別のもの）。
+    # 矢印を、作業領域（WorkingArea）の中で撮る範囲の外にある点へ逃がす。画面の隅（タスクバーの端の「デスクトップの表示」）は、
+    # Peek が有効な PC ですべての窓が透けるため避ける。作業領域の四隅・各辺の中央から、撮る範囲に重ならない最初の点を選ぶ
+    $work = [Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+    $xs = @(($work.Right - 2), ($work.Left + 1), [int](($work.Left + $work.Right) / 2))
+    $ys = @(($work.Bottom - 2), ($work.Top + 1), [int](($work.Top + $work.Bottom) / 2))
+    $away = New-Object Drawing.Point(($work.Right - 2), ($work.Bottom - 2))
+    :search foreach ($y in $ys) {
+        foreach ($x in $xs) {
+            $hit = @($rects | Where-Object { $x -ge $_.Left -and $x -lt $_.Right -and $y -ge $_.Top -and $y -lt $_.Bottom }).Count -gt 0
+            if (!$hit) { $away = New-Object Drawing.Point($x, $y); break search }
+        }
+    }
+    [Windows.Forms.Cursor]::Position = $away
+    # 出ているツールヒントは、矢印が離れてから 0.5 秒ほどで消える。余裕を見て 0.8 秒待つ（短くすると消える前に撮れてしまう）
+    Start-Sleep -Milliseconds 800
     # Measure-Object の Maximum・Minimum は [double] で返るため、大きさは必ず [int] に直す
     # （[double] のまま New-Object Drawing.Bitmap に渡すと、コンストラクターの解決を誤り「パラメーターが有効ではない」で失敗する）
     $left = [int](($rects | ForEach-Object { $_.Left } | Measure-Object -Minimum).Minimum)
@@ -472,7 +490,7 @@ function captureSearchScene {
     $limitRoot = Join-Path $Root "search-limit-tsv"
     $limitLines = 1..10005 | ForEach-Object { "上限テスト" }
     newTsv "$limitRoot\大量\上限.xlsx\$(toIndexFileName "上限")" $limitLines
-    [void](newContentIndexFiles $limitRoot "$($tool.Work)\content_index")
+    [void](newContentIndexFiles $limitRoot ([Workspace]::new($tool.Work)).IndexDir)
 
     $S = startGui $tool "search"
     invokeGuiScene $S {
@@ -528,9 +546,7 @@ function captureSearchScene {
         waitGui $S "プレビューが出る" ${guiDefaultTimeout} {
             @(getGuiPreviewTexts $S.Window | Where-Object { $_.Text.Current.Name -eq "りんご" }).Count -gt 0
         } | Out-Null
-        # 行を選ぶと、部品を選ぶだけで出るツールヒント（元のファイルのパス）が重なって写ることがある。
-        # フォーカスを移す・ツールヒントの窓が消えるまで待つ、の両方を試したが消えなかった（架空の subst ドライブの
-        # パスで個人情報ではないため、写り込んだまま撮る）
+        # 行を選ぶと、ツールヒント（元のファイルのパス）が出ることがある。captureGuiState が撮る前に矢印を窓の外へ出すので写らない
         captureGuiState -S $S -Id "search-tab/results" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
 
@@ -562,6 +578,15 @@ function captureSearchScene {
         clickGuiByName $S $missing "キャンセル"
         waitGuiWindowClosed $S $missing "見つからない確認"
 
+        # 見つからない確認のあと、ステータスバーに「元のファイルが見つかりません：<パス>」が残る。検索し直して消してから撮る
+        setGuiStep $S "検索し直してステータスを戻す"
+        & $search "単価"
+        waitGui $S "ステータスが検索の結果に戻る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "StatusText")) -like "検索しました：単価*" } | Out-Null
+        clickGui $S $S.Window "ExpandAllButton" "［すべて開く］"
+        waitGui $S "結果の行が戻る" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 2 } | Out-Null
+        selectGui (@(& $hitRows) | Select-Object -Last 1)
+        waitGuiEnabled $S (findGui $S.Window -Id "OpenButton") "［開く］"
+
         setGuiStep $S "最小の大きさ"
         resizeGuiWindow $S 1024 640
         Start-Sleep -Milliseconds 300
@@ -573,10 +598,10 @@ function captureSearchScene {
 }
 
 function captureSettingsScene {
-    # settings-tab の normal・empty-confirm・nonempty-confirm・index-confirm・invalid-warning
+    # settings-tab の normal・limit-none・limit-error・empty-confirm・nonempty-confirm・index-confirm・invalid-warning
     param ($Ids, $Root, $OutDir, $UserName, $ComputerName, $UserProfile, $Sizes)
 
-    $needed = @("settings-tab/normal", "settings-tab/empty-confirm", "settings-tab/nonempty-confirm", "settings-tab/index-confirm", "settings-tab/invalid-warning")
+    $needed = @("settings-tab/normal", "settings-tab/limit-none", "settings-tab/limit-error", "settings-tab/empty-confirm", "settings-tab/nonempty-confirm", "settings-tab/index-confirm", "settings-tab/invalid-warning")
     if (@($needed | Where-Object { $Ids -contains $_ }).Count -eq 0) { return }
 
     $dir = Join-Path $Root "settings"
@@ -603,8 +628,27 @@ function captureSettingsScene {
         captureGuiState -S $S -Id "settings-tab/normal" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
 
+        setGuiStep $S "検索結果の件数の上限: 制限なし"
+        selectGui (findGui $S.Window -Id "SearchNoneRadio")
+        waitGui $S "欄が読み取り専用になる" ${guiDefaultTimeout} {
+            (findGui $S.Window -Id "SearchLimitBox").GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).Current.IsReadOnly
+        } | Out-Null
+        captureGuiState -S $S -Id "settings-tab/limit-none" -Ids $Ids -OutDir $OutDir `
+            -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
+
+        setGuiStep $S "検索結果の件数の上限: 入力エラー"
+        selectGui (findGui $S.Window -Id "SearchLimitedRadio")
+        $limitBox = findGui $S.Window -Id "SearchLimitBox"
+        $limitBox.SetFocus()
+        setGuiText $S $limitBox "abc"
+        pressGuiKey $S.Window 0x0D
+        waitGui $S "理由が出る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "SearchLimitInputError")) -like "1,000～100,000 の数で*" } | Out-Null
+        captureGuiState -S $S -Id "settings-tab/limit-error" -Ids $Ids -OutDir $OutDir `
+            -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
+        pressGuiKey $S.Window 0x1B
+
         setGuiStep $S "使えないフォルダ（今のインデックスの中）"
-        & $changeWorkspace "$($tool.Work)\content_index\営業"
+        & $changeWorkspace (Join-Path ([Workspace]::new($tool.Work)).IndexDir "営業")
         $invalid = waitGuiWindow $S "使えないフォルダの警告" -Text "インデックスのフォルダの中です"
         captureGuiState -S $S -Id "settings-tab/invalid-warning" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($invalid)

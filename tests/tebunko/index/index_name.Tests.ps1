@@ -39,16 +39,13 @@ Describe "splitObjectPlace" -Tag Unit {
         (splitObjectPlace "売上[メモ]").Kind | Should -Be ""
     }
 
-    It "種類の名前が、書き出す側（office_reader.ps1）と画面（HitRow）でも同じ" {
+    It "種類の名前が、書き出す側（office_reader.ps1）でも同じ" {
         # shared はツールの変数を使えないため、書き出す側は同じ名前を別に書いている
         $reader = [System.IO.File]::ReadAllText("${scriptsDir}\shared\office\office_reader.ps1")
-        $hitRow = [System.IO.File]::ReadAllText("${scriptsDir}\tebunko\ui\search\result_types.ps1")
         foreach ($kind in @(${placeKindShape}, ${placeKindComment}, ${placeKindHeaderFooter})) {
             $reader.Contains("[$kind]") | Should -Be $true
         }
         $reader.Contains("[${placeKindEmbed}") | Should -Be $true
-        # セル番地が無い場所（ヘッダー・フッター）の判定（IsCelllessPlace）も、同じ種類の名前で書く
-        $hitRow.Contains("CelllessPlaceRegex = [regex]::new(`"\[${placeKindHeaderFooter}\]") | Should -Be $true
     }
 }
 
@@ -330,6 +327,78 @@ Describe "newIndexName / assignIndexNames" -Tag Unit {
         $folders[0].Name | Should -Be "見積(2)"
         $folders[1].Name | Should -Be "見積"
     }
+
+    It "パスにつなげない名前（.. ・末尾の .）は名前が無いものとして割り当て直す" {
+        $targets = @(
+            [pscustomobject]@{ Name = ".."; Path = "C:\data\見積"; Enabled = $true },
+            [pscustomobject]@{ Name = "営業."; Path = "C:\data\営業"; Enabled = $true },
+            [pscustomobject]@{ Name = "a\b"; Path = "C:\data\売上"; Enabled = $true },
+            [pscustomobject]@{ Name = "経理"; Path = "C:\data\経理"; Enabled = $true }
+        )
+        $folders = @(assignIndexNames $targets @())
+        $folders[0].Name | Should -Be "見積"
+        $folders[1].Name | Should -Be "営業"
+        $folders[2].Name | Should -Be "売上"
+        $folders[3].Name | Should -Be "経理"
+    }
+
+    It "既にある予約名（<name>）は、そのまま使い続け、ほかのフォルダの名前には使わない" -TestCases @(
+        @{ name = "aux.backup" }
+        @{ name = "CON.txt" }
+        @{ name = "CON" }
+    ) {
+        param ($name)
+        $targets = @(
+            [pscustomobject]@{ Name = $name; Path = "C:\data\売上"; Enabled = $true },
+            [pscustomobject]@{ Name = ""; Path = "C:\data\$name"; Enabled = $true }
+        )
+        $folders = @(assignIndexNames $targets @())
+        $folders[0].Name | Should -Be $name
+        # 新しく付ける名前は予約名を避ける（newIndexName）ので、同じ名前にはならない
+        $folders[1].Name | Should -Not -Be $name
+        (testIndexName $folders[1].Name @()) | Should -Be ""
+    }
+}
+
+Describe "testStoredIndexName" -Tag Unit {
+    It "保存してある名前として使える: <name>" -TestCases @(
+        @{ name = "営業部 2025" }
+        @{ name = "aux.backup" }
+        @{ name = "CON.txt" }
+        @{ name = "CON" }
+        @{ name = "LPT1" }
+        @{ name = ("あ" * 255) }
+    ) {
+        param ($name)
+        testStoredIndexName $name | Should -Be ""
+    }
+
+    It "置き場の外へ出る・作れない名前は拒む: <name>" -TestCases @(
+        @{ name = "" }
+        @{ name = ".." }
+        @{ name = "." }
+        @{ name = "営業." }
+        @{ name = " 営業" }
+        @{ name = "a\b" }
+        @{ name = "C:\x" }
+        @{ name = "a/b" }
+        @{ name = ("あ" * 256) }
+    ) {
+        param ($name)
+        testStoredIndexName $name | Should -Not -BeNullOrEmpty
+    }
+
+    It "新しく付ける名前（testIndexName・newIndexName）は、予約名を拒み続ける: <name>" -TestCases @(
+        @{ name = "aux.backup" }
+        @{ name = "CON.txt" }
+        @{ name = "CON" }
+    ) {
+        param ($name)
+        testIndexName $name @() | Should -Not -BeNullOrEmpty
+        $made = newIndexName "C:\data\$name" @()
+        testIndexName $made @() | Should -Be ""
+        $made | Should -Not -Be $name
+    }
 }
 
 Describe "splitIndexRelPath" -Tag Unit {
@@ -384,6 +453,104 @@ Describe "testIndexName" -Tag Unit {
         $reason = testIndexName $value @()
         $reason | Should -Match "^名前"
         $reason | Should -Not -Match "インデックス名"
+    }
+}
+
+Describe "testIndexRelPath" -Tag Unit {
+    It "使える相対パスなら空文字列を返す: <path>" -TestCases @(
+        @{ path = "営業\a.xlsx" }
+        @{ path = "営業\2024\a.xlsx" }
+        @{ path = "営業\a b.xlsx" }
+        @{ path = "営業\末尾が点." }
+        @{ path = "営業\CON" }
+        @{ path = "CON\x" }
+        @{ path = "aux.backup\a.xlsx" }
+    ) {
+        param ($path)
+        testIndexRelPath $path | Should -Be ""
+    }
+
+    It "外へ出る・使えない相対パスは理由を返す: <path>" -TestCases @(
+        @{ path = "..\x" }
+        @{ path = "..\..\..\x" }
+        @{ path = "営業\..\..\x" }
+        @{ path = "営業\.\x" }
+        @{ path = "営業\\x" }
+        @{ path = "営業\" }
+        @{ path = "C:\x" }
+        @{ path = "\\srv\x" }
+        @{ path = "営業\a:b" }
+        @{ path = "営業/a" }
+        @{ path = "営業" }
+        @{ path = "" }
+    ) {
+        param ($path)
+        testIndexRelPath $path | Should -Not -BeNullOrEmpty
+    }
+
+    It "allowNameOnly なら、残りの無い名前だけも通し、外へ出る名前は通さない" {
+        testIndexRelPath "営業" $true | Should -Be ""
+        testIndexRelPath ".." $true | Should -Not -BeNullOrEmpty
+        testIndexRelPath "営業\..\x" $true | Should -Not -BeNullOrEmpty
+    }
+
+    It "checkedNames に通った名前を足し、あるものは調べ直さない" {
+        $checked = New-Object 'System.Collections.Generic.HashSet[string]'
+        testIndexRelPath "営業\a.xlsx" $false $checked | Should -Be ""
+        $checked.Contains("営業") | Should -BeTrue
+        testIndexRelPath "..\a.xlsx" $false $checked | Should -Not -BeNullOrEmpty
+        $checked.Contains("..") | Should -BeFalse
+    }
+}
+
+Describe "testPathSegments" -Tag Unit {
+    It "厳しい確かめは、最後の . や空白・予約語も拒む: <segments>" -TestCases @(
+        @{ segments = @("a", "b.") }
+        @{ segments = @("a ", "b") }
+        @{ segments = @("a", "NUL.txt") }
+        @{ segments = @("a", "..") }
+        @{ segments = @("a", "") }
+    ) {
+        param ($segments)
+        testPathSegments $segments | Should -Not -BeNullOrEmpty
+    }
+
+    It "ゆるい確かめ（lenient）は、最後の . や空白・予約語は通し、外へ出る区切りは拒む" {
+        testPathSegments @("a", "b.", "c ", "NUL") $true | Should -Be ""
+        testPathSegments @("a", "..") $true | Should -Not -BeNullOrEmpty
+        testPathSegments @("a", "b:c") $true | Should -Not -BeNullOrEmpty
+        testPathSegments @("あ" * 256) $true | Should -Not -BeNullOrEmpty
+    }
+}
+
+Describe "newIndexName が作る名前は testIndexName を通る" -Tag Unit {
+    It "<folder> の名前は <expected>" -TestCases @(
+        @{ folder = "C:\data\　営業　"; used = @(); expected = "営業" }
+        @{ folder = "C:\data\ 営業 "; used = @(); expected = "営業" }
+        @{ folder = "C:\data\営業."; used = @(); expected = "営業" }
+        @{ folder = "C:\data\営業 . "; used = @(); expected = "営業" }
+        @{ folder = "C:\data\　"; used = @(); expected = "フォルダ" }
+        @{ folder = "C:\data\..."; used = @(); expected = "フォルダ" }
+        @{ folder = "C:\data\CON"; used = @(); expected = "フォルダ" }
+        @{ folder = "C:\data\nul.txt"; used = @(); expected = "フォルダ" }
+        @{ folder = "C:\data\　営業　"; used = @("営業"); expected = "営業(2)" }
+        @{ folder = "C:\data\　"; used = @("フォルダ"); expected = "フォルダ(2)" }
+        @{ folder = ("C:\data\" + ("あ" * 300)); used = @(); expected = ("あ" * 255) }
+        @{ folder = ("C:\data\" + ("あ" * 300)); used = @(("あ" * 255)); expected = (("あ" * 252) + "(2)") }
+        # 255 文字に切ったあとの末尾が . や空白になる（削って 254 文字になる）
+        @{ folder = ("C:\data\" + ("あ" * 254) + ".いう"); used = @(); expected = ("あ" * 254) }
+        @{ folder = ("C:\data\" + ("あ" * 254) + " いう"); used = @(); expected = ("あ" * 254) }
+        @{ folder = ("C:\data\" + ("あ" * 254) + "　いう"); used = @(); expected = ("あ" * 254) }
+        @{ folder = ("C:\data\" + ("あ" * 253) + " .いう"); used = @(); expected = ("あ" * 253) }
+        # 切ったあとに (2) を付けて空きを作る（元の名前の途中が . や空白でも使える名前になる）
+        @{ folder = ("C:\data\" + ("あ" * 254) + ".いう"); used = @(("あ" * 254)); expected = (("あ" * 252) + "(2)") }
+        @{ folder = ("C:\data\" + ("あ" * 251) + ".いうえ"); used = @(("あ" * 251) + ".いうえ"); expected = (("あ" * 251) + ".(2)") }
+        @{ folder = ("C:\data\" + ("あ" * 251) + " いうえ"); used = @(("あ" * 251) + " いうえ"); expected = (("あ" * 251) + " (2)") }
+    ) {
+        param ($folder, $used, $expected)
+        $name = newIndexName $folder $used
+        $name | Should -Be $expected
+        testIndexName $name @() | Should -Be ""
     }
 }
 

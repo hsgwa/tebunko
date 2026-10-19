@@ -13,7 +13,7 @@ Describe "publishTsv" -Tag Io {
     It "作業フォルダのTSVを、そのファイルのインデックスのフォルダへ移す" {
         $tmpDir = "$TestDrive\publish\tmp"
         $publishDir = "$TestDrive\publish\出力"
-        $workspace = newTestWorkspace @{ PublishDir = $publishDir }
+        $workspace = newTestWorkspace @{ PublishDir = $publishDir; IndexDir = "$TestDrive\publish\index" }
         $bookDir = "$TestDrive\publish\index\営業\見積.xlsx"
         newTsv "$tmpDir\Sheet1.tsv" @("a`tb")
         newTsv "$tmpDir\Sheet2.tsv" @("c")
@@ -29,7 +29,7 @@ Describe "publishTsv" -Tag Io {
     It "ファイル名に [ ] があっても取り込み、TSV 以外のファイルは取り込まない" {
         $tmpDir = "$TestDrive\publish2\tmp"
         $publishDir = "$TestDrive\publish2\出力"
-        $workspace = newTestWorkspace @{ PublishDir = $publishDir }
+        $workspace = newTestWorkspace @{ PublishDir = $publishDir; IndexDir = "$TestDrive\publish2\index" }
         $bookDir = "$TestDrive\publish2\index\営業\[確定]見積.xlsx"
         newTsv "$tmpDir\[表]売上.tsv" @("a")
         newTsv "$tmpDir\作業.txt" @("x")
@@ -43,7 +43,7 @@ Describe "publishTsv" -Tag Io {
     It "取り込んだ TSV が 0 件なら、前回のインデックスを空にする（文字の無いファイルになった）" {
         $tmpDir = "$TestDrive\publish3\tmp"
         $publishDir = "$TestDrive\publish3\出力"
-        $workspace = newTestWorkspace @{ PublishDir = $publishDir }
+        $workspace = newTestWorkspace @{ PublishDir = $publishDir; IndexDir = "$TestDrive\publish3\index" }
         $bookDir = "$TestDrive\publish3\index\営業\空.xlsx"
         [System.IO.Directory]::CreateDirectory($tmpDir) | Out-Null
         newTsv "$bookDir\Sheet1.tsv" @("old")
@@ -57,7 +57,7 @@ Describe "publishTsv" -Tag Io {
     It "260 文字を超えるパスのインデックスにも取り込む" {
         $tmpDir = "$TestDrive\publish4\tmp"
         $publishDir = "$TestDrive\publish4\出力"
-        $workspace = newTestWorkspace @{ PublishDir = $publishDir }
+        $workspace = newTestWorkspace @{ PublishDir = $publishDir; IndexDir = "$TestDrive\publish4\index" }
         $bookDir = "$TestDrive\publish4\index\" + ("深いフォルダ" * 20) + "\" + ("もっと深いフォルダ" * 15) + "\見積.xlsx"
         newTsv "$tmpDir\Sheet1.tsv" @("a")
         try {
@@ -81,6 +81,21 @@ Describe "clearTmpDir" -Tag Io {
 
         Test-Path -LiteralPath "$tmpDir\a.tsv" | Should -Be $false
         Test-Path -LiteralPath "$tmpDir\sub\b.tsv" | Should -Be $true
+    }
+
+    It "<kind>のファイルも消える（作業フォルダ直下の 1 つだけ。中のフォルダは残る）" -TestCases @(
+        @{ kind = "隠し"; attribute = [System.IO.FileAttributes]::Hidden }
+        @{ kind = "読み取り専用"; attribute = [System.IO.FileAttributes]::ReadOnly }
+    ) {
+        $tmpDir = "$TestDrive\clear_attr_$kind"
+        newTsv "$tmpDir\a.tsv" @("a")
+        newTsv "$tmpDir\sub\b.tsv" @("b")
+        [System.IO.File]::SetAttributes("$tmpDir\a.tsv", $attribute)
+
+        clearTmpDir
+
+        [System.IO.File]::Exists("$tmpDir\a.tsv") | Should -Be $false
+        [System.IO.File]::Exists("$tmpDir\sub\b.tsv") | Should -Be $true
     }
 
     It "作業フォルダそのものがジャンクションなら、先のファイルを消さず、ログに出す" {
@@ -181,7 +196,7 @@ Describe "removeTmpDir" -Tag Io {
     It "作業フォルダと出力用のフォルダを削除する" {
         $tmpDir = "$TestDrive\remove\tmp"
         $publishDir = "$TestDrive\remove\出力"
-        $workspace = newTestWorkspace @{ PublishDir = $publishDir }
+        $workspace = newTestWorkspace @{ PublishDir = $publishDir; TmpRoot = "$TestDrive\remove" }
         newTsv "$tmpDir\a.tsv" @("a")
         newTsv "$publishDir\b.xlsx\b.tsv" @("b")
 
@@ -194,7 +209,7 @@ Describe "removeTmpDir" -Tag Io {
     It "削除できなくても止まらず、次のフォルダも削除する" {
         $tmpDir = "$TestDrive\remove_fail\tmp"
         $publishDir = "$TestDrive\remove_fail\出力"
-        $workspace = newTestWorkspace @{ PublishDir = $publishDir }
+        $workspace = newTestWorkspace @{ PublishDir = $publishDir; TmpRoot = "$TestDrive\remove_fail" }
         newTsv "$tmpDir\使用中.tsv" @("a")
         newTsv "$publishDir\b.xlsx\b.tsv" @("b")
         # 1 つ目（作業フォルダ）の中のファイルをほかから開いておき、削除に失敗させる
@@ -256,7 +271,7 @@ Describe "removeStaleProcessDirs" -Tag Io {
         }
         newTsv "$parent\$deadPid\a.tsv" @("a")
 
-        removeStaleProcessDirs $parent
+        removeStaleProcessDirs $parent $parent
 
         Test-Path -LiteralPath "$parent\$deadPid" | Should -Be $false
         Test-Path -LiteralPath "$parent\4" | Should -Be $true  # System プロセス（実行中）
@@ -271,7 +286,7 @@ Describe "removeStaleProcessDirs" -Tag Io {
         Mock writeIndexerLog {}
         $held = [System.IO.File]::Open("$parent\$deadPid\a.tsv", [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::None)
         try {
-            { removeStaleProcessDirs $parent } | Should -Not -Throw
+            { removeStaleProcessDirs $parent $parent } | Should -Not -Throw
             Test-Path -LiteralPath "$parent\$deadPid" | Should -Be $true
         } finally {
             $held.Dispose()
@@ -286,7 +301,7 @@ Describe "removeStaleProcessDirs" -Tag Io {
         Mock writeIndexerLog {}
         Mock getLinkKind { return "Unknown" } -ParameterFilter { $item.Name -eq "中" }
 
-        { removeStaleProcessDirs $parent } | Should -Not -Throw
+        { removeStaleProcessDirs $parent $parent } | Should -Not -Throw
 
         Test-Path -LiteralPath "$parent\$deadPid\中\a.tsv" | Should -Be $true
         Test-Path -LiteralPath "$parent\$deadPid\b.tsv" | Should -Be $true
@@ -303,7 +318,7 @@ Describe "removeStaleProcessDirs" -Tag Io {
             return
         }
 
-        removeStaleProcessDirs $parent
+        removeStaleProcessDirs $parent $parent
 
         Test-Path -LiteralPath "$parent\$deadPid" | Should -Be $false
         Test-Path -LiteralPath "$outside\外.tsv" | Should -Be $true
@@ -319,7 +334,7 @@ Describe "removeStaleProcessDirs" -Tag Io {
             return
         }
 
-        removeStaleProcessDirs $parent
+        removeStaleProcessDirs $parent $parent
 
         Test-Path -LiteralPath "$parent\$deadPid" | Should -Be $false
         Test-Path -LiteralPath "$outside\外.tsv" | Should -Be $true
@@ -376,6 +391,42 @@ Describe "removeStaleTmpDirs" -Tag Io {
         $log.ToString() | Should -Match "リンク"
     }
 
+    It "出力用のフォルダの親（publish）がジャンクションなら、先にある終了済みのプロセスのフォルダも消さず、ログに出す" {
+        $workspace = newTestWorkspace @{ PublishDir = "$TestDrive\stale_publink\出力\$PID"; TmpRoot = "$TestDrive\stale_publink\tmp" }
+        ${legacyTmpParent} = "$TestDrive\stale_publink\legacy"
+        $outside = "$TestDrive\stale_publink_outside"
+        [System.IO.Directory]::CreateDirectory("$outside\$deadPid") | Out-Null
+        [System.IO.Directory]::CreateDirectory("$TestDrive\stale_publink") | Out-Null
+        if (!(newTestJunction "$TestDrive\stale_publink\出力" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        Mock writeIndexerLog {}
+
+        removeStaleTmpDirs
+
+        Test-Path -LiteralPath "$outside\$deadPid" | Should -Be $true
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -ParameterFilter { $color -eq "Yellow" -and $text -like "*リンク*" }
+    }
+
+    It "前の版までの %TEMP% の親（tebunko）がジャンクションなら、先にある終了済みのプロセスのフォルダも消さず、ログに出す" {
+        $workspace = newTestWorkspace @{ PublishDir = "$TestDrive\stale_legacylink\出力\$PID"; TmpRoot = "$TestDrive\stale_legacylink\tmp" }
+        ${legacyTmpParent} = "$TestDrive\stale_legacylink\legacy"
+        $outside = "$TestDrive\stale_legacylink_outside"
+        [System.IO.Directory]::CreateDirectory("$outside\$deadPid") | Out-Null
+        [System.IO.Directory]::CreateDirectory("$TestDrive\stale_legacylink") | Out-Null
+        if (!(newTestJunction ${legacyTmpParent} $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        Mock writeIndexerLog {}
+
+        removeStaleTmpDirs
+
+        Test-Path -LiteralPath "$outside\$deadPid" | Should -Be $true
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -ParameterFilter { $color -eq "Yellow" -and $text -like "*リンク*" }
+    }
+
     It "`$tmpDir が空（決める前）でも例外にならない" {
         $tmpDir = ""
         $workspace = newTestWorkspace @{ PublishDir = "$TestDrive\stale_untouched\出力\$PID"; TmpRoot = "$TestDrive\stale_untouched\tmp" }
@@ -418,7 +469,7 @@ Describe "removeStaleTmpDirs" -Tag Io {
 }
 
 Describe "initTmpDir" -Tag Io {
-    It "ワークスペースの tmp の下にフォルダを作り、tmp・tmp\鍵・<PID> に NotContentIndexed を付ける" {
+    It "ワークスペースの tmp の下にフォルダを作り、tmp・tmp\鍵・<PID> を作る" {
         $workspace = newTestWorkspace @{ TmpRoot = "$TestDrive\init_normal\tmp" }
         ${legacyTmpParent} = "$TestDrive\init_normal\legacy"
 
@@ -428,7 +479,7 @@ Describe "initTmpDir" -Tag Io {
         $result.Reason | Should -Be ""
         Test-Path -LiteralPath $result.Dir -PathType Container | Should -Be $true
         foreach ($dir in @($workspace.TmpRoot, (Split-Path $result.Dir -Parent), $result.Dir)) {
-            ([System.IO.File]::GetAttributes($dir) -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
+            Test-Path -LiteralPath $dir -PathType Container | Should -Be $true
         }
     }
 
@@ -537,11 +588,11 @@ Describe "initTmpDir" -Tag Io {
 
 Describe "newDirectoryReplacingExisting" -Tag Io {
     It "無ければ作り、あれば中身ごと作り直して `$true を返す" {
-        newDirectoryReplacingExisting "$TestDrive\replace_new\d" | Should -Be $true
+        newDirectoryReplacingExisting "$TestDrive\replace_new\d" "$TestDrive\replace_new" | Should -Be $true
         Test-Path -LiteralPath "$TestDrive\replace_new\d" -PathType Container | Should -Be $true
 
         writeListFile "$TestDrive\replace_old\d\古.tsv" @("古")
-        newDirectoryReplacingExisting "$TestDrive\replace_old\d" | Should -Be $true
+        newDirectoryReplacingExisting "$TestDrive\replace_old\d" "$TestDrive\replace_old" | Should -Be $true
         @(Get-ChildItem -LiteralPath "$TestDrive\replace_old\d" -Force).Count | Should -Be 0
     }
 
@@ -553,7 +604,7 @@ Describe "newDirectoryReplacingExisting" -Tag Io {
             return
         }
 
-        newDirectoryReplacingExisting "$TestDrive\replace_link\d" | Should -Be $true
+        newDirectoryReplacingExisting "$TestDrive\replace_link\d" "$TestDrive\replace_link" | Should -Be $true
 
         testPathIsLink "$TestDrive\replace_link\d" | Should -Be $false
         readListFile "$TestDrive\replace_link_target\外.tsv" | Should -Be @("外")
@@ -562,39 +613,18 @@ Describe "newDirectoryReplacingExisting" -Tag Io {
     It "作り直したあともリンク（または確かめられないもの）が残っていれば、`$false を返す" {
         Mock testPathIsLink { return $true } -ParameterFilter { $path -like "*\replace_unknown\d" }
 
-        newDirectoryReplacingExisting "$TestDrive\replace_unknown\d" | Should -Be $false
+        newDirectoryReplacingExisting "$TestDrive\replace_unknown\d" "$TestDrive\replace_unknown" | Should -Be $false
     }
 }
 
 Describe "newWorkerTmpDir" -Tag Io {
-    It "親フォルダに NotContentIndexed が付いていれば、作業フォルダ（w<番号>）にも同じ属性を付ける" {
-        $parent = "$TestDrive\worker_nci\1234"
-        [System.IO.Directory]::CreateDirectory($parent) | Out-Null
-        [System.IO.File]::SetAttributes($parent, [System.IO.File]::GetAttributes($parent) -bor [System.IO.FileAttributes]::NotContentIndexed)
-
-        $dir = newWorkerTmpDir $parent 2
-
-        $dir | Should -Be "$parent\w2"
-        Test-Path -LiteralPath $dir -PathType Container | Should -Be $true
-        ([System.IO.File]::GetAttributes($dir) -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
-    }
-
-    It "親フォルダに NotContentIndexed が付いていなければ、作業フォルダにも付けない" {
-        $parent = "$TestDrive\worker_plain\5678"
-        [System.IO.Directory]::CreateDirectory($parent) | Out-Null
-
-        $dir = newWorkerTmpDir $parent 1
-
-        $dir | Should -Be "$parent\w1"
-        ([System.IO.File]::GetAttributes($dir) -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Be 0
-    }
-
     It "親フォルダが空（置けなかった）なら、何も作らず空文字を返す" {
         { newWorkerTmpDir "" 1 } | Should -Not -Throw
         newWorkerTmpDir "" 1 | Should -BeNullOrEmpty
     }
 
     It "先に置かれた w<番号> のジャンクションは、先を消さずにジャンクションだけを外し、普通のフォルダとして作り直す" {
+        $workspace = newTestWorkspace @{ TmpRoot = "$TestDrive\worker_link" }
         $parent = "$TestDrive\worker_link\1234"
         $outside = "$TestDrive\worker_link_outside"
         newTsv "$outside\外.tsv" @("外")
@@ -703,6 +733,56 @@ Describe "writeStatusKeepingDropped" -Tag Unit {
     }
 }
 
+Describe "writeStatusKeepingDropped（今の決まりに合わない前の版の名前）" -Tag Io {
+    It "取りやめた回に書き戻した <name> のフォルダの行は、読み直すと LegacyFolders に入り、各ファイルの行は残らない" -TestCases @(
+        @{ name = "営業." }
+        @{ name = "営業 " }
+    ) {
+        param ($name)
+        $path = "$TestDrive\keep\ingest_status.tsv"
+        [System.IO.Directory]::CreateDirectory("$TestDrive\keep") | Out-Null
+        $ledger = [pscustomobject]@{ StatusPath = $path }
+        $ledger | Add-Member -MemberType ScriptMethod -Name WriteStatus -Value {
+            param ($folders, $rows)
+            writeStatusFile $folders $rows $this.StatusPath
+        }
+        $folder = [pscustomobject]@{ Path = "C:\data\営業"; Name = "営業" }
+        $oldFolder = [pscustomobject]@{ Path = "C:\data\古い"; Name = $name }
+        $row = [pscustomobject]@{ 相対パス = "営業\c.docx"; 更新日時 = "2025/01/10 12:34:56"; サイズ = "1"; 状態 = $stateDone; 抽出版 = "1"; エラー = "" }
+        $oldRow = [pscustomobject]@{ 相対パス = "$name\a.docx"; 更新日時 = "2025/01/10 12:34:56"; サイズ = "1"; 状態 = $stateDone; 抽出版 = "1"; エラー = "" }
+        # 前の版が書いた取り込み一覧（前の版の名前のフォルダの行と、その各ファイルの行）を読む
+        writeStatusFile @($folder, $oldFolder) @($row, $oldRow) $path
+        $before = readStatusFile $path
+        @($before.LegacyFolders | ForEach-Object { $_.Name }) | Should -Be @($name)
+        $before.Rows.ContainsKey("$name\a.docx") | Should -Be $false
+
+        writeStatusKeepingDropped $ledger @($folder) @($row) $before.LegacyFolders.ToArray() $before.Rows
+
+        $status = readStatusFile $path
+        @($status.Folders | ForEach-Object { $_.Name }) | Should -Be @("営業")
+        @($status.LegacyFolders | ForEach-Object { $_.Name }) | Should -Be @($name)
+        @($status.Rows.Keys) | Should -Be @("営業\c.docx")
+    }
+
+    It "予約名（<name>）のフォルダの行は、前の版の名前にせず、ふつうのフォルダと各ファイルの行として読む" -TestCases @(
+        @{ name = "aux.backup" }
+        @{ name = "CON" }
+    ) {
+        param ($name)
+        $path = "$TestDrive\keep_reserved\ingest_status.tsv"
+        [System.IO.Directory]::CreateDirectory("$TestDrive\keep_reserved") | Out-Null
+        $oldFolder = [pscustomobject]@{ Path = "C:\data\古い"; Name = $name }
+        $oldRow = [pscustomobject]@{ 相対パス = "$name\a.docx"; 更新日時 = "2025/01/10 12:34:56"; サイズ = "1"; 状態 = $stateDone; 抽出版 = "1"; エラー = "" }
+        writeStatusFile @($oldFolder) @($oldRow) $path
+
+        $status = readStatusFile $path
+
+        @($status.Folders | ForEach-Object { $_.Name }) | Should -Be @($name)
+        $status.LegacyFolders.Count | Should -Be 0
+        $status.Rows.ContainsKey("$name\a.docx") | Should -Be $true
+    }
+}
+
 Describe "removeDroppedFolders" -Tag Io {
     It "クロール対象から削除されたフォルダのインデックスだけを削除する" {
         $indexDir = "$TestDrive\dropped\index"
@@ -772,6 +852,66 @@ Describe "removeDroppedFolders" -Tag Io {
         Test-Path -LiteralPath "$outside\外.tsv" | Should -Be $true
     }
 
+    It "予約名に拡張子の付いた名前（<name>）のインデックスも消し、消えてから「削除しました」を記録する" -TestCases @(
+        @{ name = "aux.backup" }
+        @{ name = "CON.txt" }
+    ) {
+        $indexDir = "$TestDrive\dropped_reserved_$name\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
+        $long = toLongPath "$indexDir\$name\見積.xlsx"
+        [System.IO.Directory]::CreateDirectory($long) | Out-Null
+        [System.IO.File]::WriteAllText("$long\Sheet1.tsv", "a")
+        Mock writeIndexerLog {}
+
+        removeDroppedFolders @(findDroppedIndexes @() @([pscustomobject]@{ Path = "C:\data\予約"; Name = $name }))
+
+        [System.IO.Directory]::Exists((toLongPath "$indexDir\$name")) | Should -Be $false
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*削除しました*" }
+    }
+
+    It "インデックスの置き場があるかどうか確かめられなければ（届かない・読めない）、例外にし、「既にありません」「削除しました」を記録しない" {
+        Mock writeIndexerLog {}
+        Mock getPathState { @{ State = "Other"; IsDirectory = $false; Message = "アクセスが拒否されました" } }
+        $workspace = newTestWorkspace @{ IndexDir = "$TestDrive\dropped_unknown\index" }
+
+        { removeDroppedFolders @(findDroppedIndexes @() @([pscustomobject]@{ Path = "C:\data\技術"; Name = "技術" })) } | Should -Throw "*アクセスが拒否されました*"
+
+        Should -Invoke writeIndexerLog -Times 0 -Exactly -Scope It -ParameterFilter { $text -like "*既にありません*" -or $text -like "*削除しました*" }
+    }
+
+    It "インデックスの置き場が無い・フォルダでない（<name>）と確かめられたときは、例外にせず、「既にありません」を記録する" -TestCases @(
+        @{ name = "置き場が無い"; asFile = $false }
+        @{ name = "置き場のパスにファイルがある"; asFile = $true }
+    ) {
+        param ($name, $asFile)
+        Mock writeIndexerLog {}
+        $indexDir = "$TestDrive\dropped_noplace_$asFile\index"
+        if ($asFile) {
+            [System.IO.Directory]::CreateDirectory("$TestDrive\dropped_noplace_$asFile") | Out-Null
+            [System.IO.File]::WriteAllText($indexDir, "a")
+        }
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
+
+        { removeDroppedFolders @(findDroppedIndexes @() @([pscustomobject]@{ Path = "C:\data\技術"; Name = "技術" })) } | Should -Not -Throw
+
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*既にありません*" }
+    }
+
+    It "フォルダが消えなければ例外にし、「削除しました」を記録しない" {
+        Mock Start-Sleep {}
+        Mock writeIndexerLog {}
+        $indexDir = "$TestDrive\dropped_locked\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
+        newTsv "$indexDir\技術\仕様.docx\ページ001.tsv" @("b")
+        $stream = [System.IO.File]::Open("$indexDir\技術\仕様.docx\ページ001.tsv", "Open", "Read", "None")
+        try {
+            { removeDroppedFolders @(findDroppedIndexes @() @([pscustomobject]@{ Path = "C:\data\技術"; Name = "技術" })) } | Should -Throw
+        } finally {
+            $stream.Dispose()
+        }
+        Should -Invoke writeIndexerLog -Times 0 -Exactly -Scope It -ParameterFilter { $text -like "*削除しました*" }
+    }
+
     It "前回のクロール対象フォルダが無ければ何も削除しない" {
         $indexDir = "$TestDrive\dropped3\index"
         $workspace = newTestWorkspace @{ IndexDir = $indexDir }
@@ -790,5 +930,52 @@ Describe "removeDroppedFolders" -Tag Io {
         removeDroppedFolders @(findDroppedIndexes @([pscustomobject]@{ Path = "C:\data\sales"; Name = "sales" }) @([pscustomobject]@{ Path = "C:\data\Sales"; Name = "Sales" }))
 
         Test-Path -LiteralPath "$indexDir\Sales\見積.xlsx\Sheet1.tsv" | Should -Be $true
+    }
+
+    It "置き場の外を指す名前は削除せず、例外にもしないで、次の名前を続ける" -TestCases @(
+        @{ badName = "..\外" }
+        @{ badName = "..\..\外" }
+        @{ badName = "営業\..\..\外" }
+        @{ badName = ".." }
+        @{ badName = "." }
+        @{ badName = "" }
+    ) {
+        $indexDir = "$TestDrive\dropped5\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
+        newTsv "$TestDrive\dropped5\外\a.tsv" @("a")
+        newTsv "$TestDrive\外\a.tsv" @("a")
+        newTsv "$indexDir\営業\見積.xlsx\Sheet1.tsv" @("b")
+        newTsv "$indexDir\技術\仕様.docx\ページ001.tsv" @("c")
+        Mock writeIndexerLog {}
+
+        { removeDroppedFolders @(
+            [pscustomobject]@{ Path = "C:\data\壊れた"; Name = $badName },
+            [pscustomobject]@{ Path = "C:\data\技術"; Name = "技術" }
+        ) } | Should -Not -Throw
+
+        Test-Path -LiteralPath "$TestDrive\dropped5\外\a.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$TestDrive\外\a.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$indexDir\営業\見積.xlsx\Sheet1.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$indexDir\技術" | Should -Be $false
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*削除しませんでした*" -and $color -eq "Yellow" }
+    }
+
+    It "前の版で作られた名前（最後の . ・前後の空白）のフォルダも、実在のフォルダを列挙して削除し、似た名前の別のインデックスは残す" -TestCases @(
+        @{ legacyName = "営業." }
+        @{ legacyName = "営業 " }
+        @{ legacyName = " 営業" }
+    ) {
+        param ($legacyName)
+        $indexDir = "$TestDrive\dropped6\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
+        newTsv (toLongPath "$indexDir\$legacyName\見積.xlsx\Sheet1.tsv") @("a")
+        newTsv "$indexDir\営業\見積.xlsx\Sheet1.tsv" @("b")   # 名前の最後の . や空白を取ると同じになる別のインデックス
+        newTsv "$TestDrive\dropped6\外\a.tsv" @("c")
+
+        removeDroppedFolders @([pscustomobject]@{ Path = "C:\data\旧営業"; Name = $legacyName })
+
+        [System.IO.Directory]::Exists((toLongPath "$indexDir\$legacyName")) | Should -Be $false
+        Test-Path -LiteralPath "$indexDir\営業\見積.xlsx\Sheet1.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$TestDrive\dropped6\外\a.tsv" | Should -Be $true
     }
 }

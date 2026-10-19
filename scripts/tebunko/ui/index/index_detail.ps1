@@ -4,7 +4,6 @@
 foreach ($detailName in @(
         "IndexDetailBody", "IndexDetailName", "IndexDetailPath", "IndexDetailPathButton", "IndexDetailEditError", "IndexDetailFolderStatus", "IndexDetailFolderIcon",
         "IndexDetailBadge", "IndexDetailBadgeText", "IndexDetailBadgeSub", "IndexErrorText", "IndexErrorHintText", "IndexDetailUpdated", "IndexDetailCount",
-        "IndexDetailFastBadge", "IndexDetailFastBadgeText", "IndexDetailFastReason", "IndexDetailFastSteps", "IndexDetailFastChecked", "IndexDetailFastNote",
         "IndexingDetailPanel", "IndexingProgressBar", "IndexingCountText", "IndexingFileText", "MultiSelectHintText")) {
     $ui[$detailName] = $ui.IndexDetailHost.Content.FindName($detailName)
 }
@@ -52,19 +51,25 @@ function setIndexingBanner {
     $ui.IndexingBannerClose.Foreground = $text
     $script:indexingBannerKind = $kind
     $script:indexingBannerDismissed = $false
-    $script:indexingBannerLevel = if ($kind -eq "running") { "run" } else { $level }
-    setIndexingBannerBehavior
+    setIndexingBannerBehavior $kind $level
 }
 
 function setIndexingBannerBehavior {
-    # 閉じるボタンと自動で消える時機（getIndexingBannerBehavior）。残りがあって更新していないときは、閉じられるが自動では消えない
-    $pending = if ($script:indexingState -and !(isIndexing)) { [int]$script:indexingState.Pending } else { 0 }
-    $behavior = getIndexingBannerBehavior $script:indexingBannerLevel $pending
-    $ui.IndexingBannerClose.Visibility = if ($behavior.Closable) { "Visible" } else { "Collapsed" }
-    $script:indexingBannerAutoClose = [int]$behavior.AutoCloseSeconds
+    # 帯の種類・閉じるボタン・自動で消える時機を、getIndexingBannerView の結果 1 回分で当てる。
+    # 渡さなければ、出ている帯の種類と level（引き直し）。判断（更新中は残りを数えない など）は判断層
+    param (
+        [string]$kind = $script:indexingBannerKind,
+        [string]$level = $script:indexingBannerLevel
+    )
+
+    $pending = if ($script:indexingState) { [int]$script:indexingState.Pending } else { 0 }
+    $view = getIndexingBannerView $kind $level $pending (isIndexing)
+    $script:indexingBannerLevel = $view.Level
+    $ui.IndexingBannerClose.Visibility = if ($view.Closable) { "Visible" } else { "Collapsed" }
+    $script:indexingBannerAutoClose = $view.AutoCloseSeconds
     $script:indexingBannerTimer.Stop()
-    if ($behavior.AutoCloseSeconds -gt 0) {
-        $script:indexingBannerTimer.Interval = [TimeSpan]::FromSeconds($behavior.AutoCloseSeconds)
+    if ($view.AutoCloseSeconds -gt 0) {
+        $script:indexingBannerTimer.Interval = [TimeSpan]::FromSeconds($view.AutoCloseSeconds)
         $script:indexingBannerTimer.Start()
     }
 }
@@ -191,9 +196,12 @@ function refreshIndexingState {
     $script:stateAgain = $false
     $script:stateJobPath = $workspace.StatusFile
     startJob {
-        param ($path)
-        getIndexingState -path $path
-    } @($script:stateJobPath) {
+        param ($path, $workspaceDir)
+        $state = getIndexingState -path $path
+        # 格納形式の状態（古い形式・作り直しの途中など）も同じ裏の仕事で調べる（置き場を数えるため）
+        $state.Format = getWorkspaceIndexFormat ([Workspace]::new($workspaceDir))
+        $state
+    } @($script:stateJobPath, [string]$workspace.Dir) {
         param ($output, $errorText)
         $script:stateRunning = $false
         if ($script:stateJobPath -ne $workspace.StatusFile) {
@@ -239,7 +247,7 @@ function applyIndexingState {
     $script:indexingState = $state
 
     # 失敗したファイルは下の一覧に原因とともに表示する
-    applyIndexStats $state.IndexStats (isIndexing)
+    applyIndexStats $state.IndexStats (isIndexing) $state.Format
     updateFailedList $state
     updateIndexSummaryText
     updateIndexingButton
@@ -381,25 +389,18 @@ function getIndexTargetItem {
 }
 
 function updateIndexDetailPanel {
-    # 選んだインデックスの値の行と、高速検索の反映の進み具合を出す（文言の組み立ては getIndexDetailView）。
-    # 選びなおしたとき・取り込みの集計や高速検索の確かめが届いたときに呼ぶ
+    # 選んだインデックスの値の行を出す（文言の組み立ては getIndexDetailView）。
+    # 選びなおしたとき・取り込みの集計が届いたときに呼ぶ
     $selected = @()
-    $entry = $null
     $checkedItems = @(getIndexCheckedItems @($script:targetItems))
     $item = getIndexDetailItem $ui.IndexGrid.SelectedItem $checkedItems
     if ($null -ne $item) {
-        $checkedText = if ($null -ne $script:fastSearchCheckedAt) { "最終確認 $($script:fastSearchCheckedAt.ToString('HH:mm'))" } else { "" }
         $selected = @(@{
             Name = $item.Name; Path = $item.Path; Enabled = $item.Enabled; FolderStatus = $item.StatusText
             FolderMissing = ($item.StatusChecked -and !$item.FolderExists); FolderChecked = [bool]$item.StatusChecked
             IndexText = $item.IndexText; IndexLevel = $item.IndexLevel; IndexSub = $item.IndexSub; FileCountText = $item.FileCountText
-            LastIngestedText = $item.LastIngestedText; FastText = $item.FastText; FastLevel = $item.FastLevel
-            FastToolTip = $item.FastToolTip; FastSteps = $item.FastSteps; FastCheckedText = $checkedText
+            LastIngestedText = $item.LastIngestedText
         })
-        $progress = $script:fastSearchProgress
-        if ($progress -and $progress.ByIndex -and $progress.ByIndex.ContainsKey($item.Name)) {
-            $entry = $progress.ByIndex[$item.Name]
-        }
     }
     # 選んだインデックスが変わったら、失敗の一覧もそのインデックスの分に書き直す（変わらないときは置き直さない）
     $failedName = if ($null -ne $item) { [string]$item.Name } else { "" }
@@ -407,7 +408,7 @@ function updateIndexDetailPanel {
         updateFailedList $script:indexingState
     }
     $multiCount = getIndexDetailMultiCount $checkedItems.Count
-    $view = getIndexDetailView $selected $entry $multiCount $script:indexingView
+    $view = getIndexDetailView $selected $multiCount $script:indexingView
 
     $ui.IndexDetailTitle.Text = $view.Title
     $ui.IndexDetailBody.Visibility = if ($view.Selected) { "Visible" } else { "Collapsed" }
@@ -460,17 +461,6 @@ function updateIndexDetailPanel {
         }
         $ui.IndexDetailRows.ItemsSource = $rows
     }
-    setIndexBadge $ui.IndexDetailFastBadge $ui.IndexDetailFastBadgeText $view.Fast.State $view.Fast.Level
-    $ui.IndexDetailFastReason.Text = $view.Fast.Reason
-    $ui.IndexDetailFastReason.Visibility = if ($view.Fast.Reason) { "Visible" } else { "Collapsed" }
-    $ui.IndexDetailFastSteps.Text = (@($view.Fast.Steps | ForEach-Object { "・$_" }) -join "`n")
-    $ui.IndexDetailFastSteps.Visibility = if (@($view.Fast.Steps).Count -gt 0) { "Visible" } else { "Collapsed" }
-    $ui.IndexDetailFastPanel.Visibility = if ($view.Fast.Shown) { "Visible" } else { "Collapsed" }
-    $ui.IndexDetailFastText.Text = $view.Fast.Text
-    $ui.IndexDetailFastBar.Value = $view.Fast.Value
-    $ui.IndexDetailFastChecked.Text = $view.Fast.Checked
-    $ui.IndexDetailFastNote.Text = $view.Fast.Note
-    $ui.IndexDetailFastNote.Visibility = if ($view.Fast.Note) { "Visible" } else { "Collapsed" }
 }
 
 function updateIndexSummaryText {

@@ -103,29 +103,6 @@ function writeTextLinesAtomic {
     }
 }
 
-function toSafeFileName {
-    # ファイル名に使えない文字を全角に変換
-    param (
-        [string]$name
-    )
-
-    $name = $name.Replace(">", "＞")
-    $name = $name.Replace("<", "＜")
-    $name = $name.Replace("\", "￥")
-    $name = $name.Replace("*", "＊")
-    $name = $name.Replace('"', '”')
-    $name = $name.Replace(":", "：")
-    $name = $name.Replace("?", "？")
-    $name = $name.Replace("|", "｜")
-    $name = $name.Replace("/", "／")
-
-    return $name
-}
-
-
-${maxFileNameLength} = 255  # Windows のファイル名（パスの区切りの間の1つ）の上限
-
-
 function toLongPath {
     # パスの先頭に \\?\ を付け、260文字を超えるパスもファイル操作（System.IO・-LiteralPath）で扱えるようにする。
     # ネットワークのパス（\\server\share\…）は \\?\UNC\server\share\… にする。付いていればそのまま返す。
@@ -171,6 +148,49 @@ function copyFileShared {
     }
 }
 
+function invokeWithSourceCopy {
+    # 元のファイルを作業領域へコピーし（copyFileShared）、コピーを読む処理（readBlock）を呼んでその戻り値を返し、最後にコピーを消す。
+    # 取り込みの入口（テキスト・PDF・Excel・Word・PowerPoint）が、元のファイルを直接開かないために使う。
+    # extraFiles は、読む処理が途中で作った作業ファイルの一覧（List[string]。読む処理の中で足してよい）。コピーと一緒に、あれば消す。
+    # 消せなかったとき: 読む処理が例外なら、その例外をそのまま通す（消せなかったことは握る）。
+    #   読む処理が成功したのに消せなかったときだけ「作業領域のコピーを消せませんでした: <元のメッセージ>」を投げる。
+    # readBlock は子のスコープで動くので、中で代入した変数は呼んだ側に残らない。要る値は出力（戻り値）で返す。
+    # 読む処理の中の COM の呼び出しなどの出力が混ざらないよう、出力は [void]・$null = で捨て、返す値は最後に 1 つだけ出す
+    param (
+        [string]$sourcePath,
+        [string]$copyPath,
+        [scriptblock]$readBlock,
+        [System.Collections.Generic.List[string]]$extraFiles = $null
+    )
+
+    $removeError = $null
+    try {
+        copyFileShared $sourcePath $copyPath
+        # 読む処理の出力は、まとめずにそのまま呼んだ側へ流す（配列・hashtable・何も出さない、のどれも、直接呼んだときと同じ形で届く）
+        & $readBlock
+    } finally {
+        $targets = New-Object System.Collections.Generic.List[string]
+        $targets.Add($copyPath)
+        if ($null -ne $extraFiles) {
+            $targets.AddRange($extraFiles)
+        }
+        foreach ($target in $targets) {
+            try {
+                if (Test-Path -LiteralPath (toLongPath $target)) {
+                    Remove-Item -LiteralPath (toLongPath $target) -Force -ErrorAction Stop
+                }
+            } catch {
+                if (!$removeError) {
+                    $removeError = $_.Exception.Message
+                }
+            }
+        }
+    }
+    if ($removeError) {
+        throw "作業領域のコピーを消せませんでした: $removeError"
+    }
+}
+
 function fromLongPath {
     # toLongPath で付けた \\?\ を外し、通常のパスに戻す（Get-ChildItem の FullName 等から相対パスを求めるため）
     param (
@@ -184,6 +204,29 @@ function fromLongPath {
         return $path.Substring(4)
     }
     return $path
+}
+
+function testPathUnder {
+    # path が root の「真下より下」（root そのものは含まない）かを返す。消す・書く直前に、
+    # 状態ファイルや設定から読んだ名前でつないだパスが、決めた置き場の外へ出ていないかを確かめるのに使う。
+    # \\?\ を外してから GetFullPath で正規化する（.. や . を解き、/ を \ にする）ため、\\?\ の有無・大文字小文字・末尾の \ に依らない。
+    # リンクは見ない（辿るかどうかは削除の部品が決める）。解けない（不正な）パスは $false
+    param (
+        [string]$path,
+        [string]$root
+    )
+
+    if (!$path -or !$root) {
+        return $false
+    }
+    try {
+        $fullPath = [System.IO.Path]::GetFullPath((fromLongPath $path))
+        $fullRoot = [System.IO.Path]::GetFullPath((fromLongPath $root)).TrimEnd("\")
+    } catch {
+        return $false
+    }
+    return $fullPath.StartsWith("$fullRoot\", [System.StringComparison]::OrdinalIgnoreCase) -and
+        $fullPath.TrimEnd("\").Length -gt $fullRoot.Length
 }
 
 function trimTrailingSeparator {
@@ -205,118 +248,6 @@ function trimTrailingSeparator {
     return $trimmed
 }
 
-function setNotContentIndexed {
-    # フォルダ（またはファイル）に「内容のインデックスを作成しない」属性（NotContentIndexed）を付ける。
-    # 既に付いているものには付け直さない（Changed に数えない）ので、ほかの属性（読み取り専用など）は変えない。
-    #   Recurse 無し: path 自身と、フォルダなら直下のファイルに付ける（下のフォルダには付けない）
-    #   Recurse あり: path 自身と、下のすべてのフォルダ・ファイルに付ける
-    # Recurse でフォルダを渡したときは、根フォルダの属性を下より先に確かめる。既に付いていれば
-    # （前回すべて付け終えて根に付けたということなので）下はたどらず、GetAttributes 1 回だけで終える。
-    # 根の属性は、下をすべて付け終えて成功したときにだけ最後に付ける（列挙・付与の途中で失敗した回は
-    # 根に付けない。次回もう一度下からたどり直せるようにするため）。
-    # 1件ずつの失敗（アクセス拒否など）も、列挙そのものの失敗（無いパス・列挙の途中で読めなくなったフォルダなど）も
-    # 例外にせず、@{ Ok; Changed; Reason }（最初に見つかった理由を Reason に）を返す。
-    # 呼び出し元（インデックス作成）は、Ok が $false でも処理を止めず、ログに 1 行残すだけにする
-    param (
-        [string]$path,
-        [switch]$Recurse
-    )
-
-    $flag = [System.IO.FileAttributes]::NotContentIndexed
-    $state = getPathState $path
-    if ($state.State -ne ${pathStateFound}) {
-        $reason = if ($state.Message) { $state.Message } else { "パスが見つかりません（${path}）" }
-        return @{ Ok = $false; Changed = 0; Reason = $reason }
-    }
-
-    $long = toLongPath $path
-    $deferRoot = [bool]($Recurse -and $state.IsDirectory)
-    if ($deferRoot) {
-        try {
-            $rootAttrs = [System.IO.File]::GetAttributes($long)
-        } catch {
-            return @{ Ok = $false; Changed = 0; Reason = $_.Exception.Message }
-        }
-        if ($rootAttrs -band $flag) {
-            return @{ Ok = $true; Changed = 0; Reason = "" }
-        }
-    }
-
-    # 先に対象（path 自身と、必要なら中身）をすべて列挙してから属性を付ける。deferRoot のときは
-    # 根自身をここでは含めず、下だけを集める（根は下がすべて終わったあとに付ける）。
-    # 列挙そのものが例外になったら（途中で消えた・読めないフォルダがあるなど）、途中まで集めた分は捨てて Ok=$false にする
-    $items = New-Object System.Collections.Generic.List[object]
-    if (!$deferRoot) {
-        $items.Add(@{ Path = $path; IsDirectory = $state.IsDirectory })
-    }
-    try {
-        if ($state.IsDirectory) {
-            $dirInfo = New-Object System.IO.DirectoryInfo $long
-            if ($Recurse) {
-                foreach ($entry in $dirInfo.EnumerateFileSystemInfos("*", [System.IO.SearchOption]::AllDirectories)) {
-                    $items.Add(@{ Path = (fromLongPath $entry.FullName); IsDirectory = ($entry -is [System.IO.DirectoryInfo]) })
-                }
-            } else {
-                foreach ($file in $dirInfo.EnumerateFiles("*", [System.IO.SearchOption]::TopDirectoryOnly)) {
-                    $items.Add(@{ Path = (fromLongPath $file.FullName); IsDirectory = $false })
-                }
-            }
-        }
-    } catch {
-        return @{ Ok = $false; Changed = 0; Reason = $_.Exception.Message }
-    }
-
-    $changed = 0
-    $ok = $true
-    $reason = ""
-    foreach ($item in $items) {
-        try {
-            # フォルダ・ファイルどちらも [System.IO.File]::Get/SetAttributes で扱う（Directory クラスには同名のメソッドが無い）
-            $itemLong = toLongPath $item.Path
-            $attrs = [System.IO.File]::GetAttributes($itemLong)
-            if ($attrs -band $flag) {
-                continue
-            }
-            [System.IO.File]::SetAttributes($itemLong, ($attrs -bor $flag))
-            $changed++
-        } catch {
-            $ok = $false
-            if (!$reason) {
-                $reason = $_.Exception.Message
-            }
-        }
-    }
-
-    if ($deferRoot -and $ok) {
-        try {
-            [System.IO.File]::SetAttributes($long, ($rootAttrs -bor $flag))
-            $changed++
-        } catch {
-            $ok = $false
-            if (!$reason) {
-                $reason = $_.Exception.Message
-            }
-        }
-    }
-
-    return @{ Ok = $ok; Changed = $changed; Reason = $reason }
-}
-
-function testNotContentIndexed {
-    # path に「内容のインデックスを作成しない」属性（NotContentIndexed）が付いているかを返す。
-    # 属性を確かめられなければ（パスが無い・アクセスできないなど）例外にせず $false を返す
-    param (
-        [string]$path
-    )
-
-    try {
-        $attrs = [System.IO.File]::GetAttributes((toLongPath $path))
-        return [bool]($attrs -band [System.IO.FileAttributes]::NotContentIndexed)
-    } catch {
-        return $false
-    }
-}
-
 function removeDirectoryRetry {
     # フォルダを中身ごと削除する。ウイルス対策ソフト・エクスプローラーが一時的に掴んでいることがあるため、少し待って数回試す
     param (
@@ -325,16 +256,39 @@ function removeDirectoryRetry {
         [int]$waitMilliseconds = 200
     )
 
+    if (!$path) {
+        return  # 空のパスは消すものが無い
+    }
     # 中に長いパス（260文字超）のファイルがあっても削除できるよう \\?\ 付きで削除する
     $longPath = toLongPath $path
     for ($i = 1; $true; $i++) {
         if (![System.IO.Directory]::Exists($longPath)) {
-            return
+            # Exists は、無いときだけでなく、届かない・読めないときも $false になる。「無い」と確かめられたときだけ成功にする
+            # （フォルダでないもの（ファイル）が同じ名前であるときも、消すフォルダは無いので成功にする）
+            $state = getPathState $path
+            if ($state.State -eq ${pathStateMissing} -or ($state.State -eq ${pathStateFound} -and !$state.IsDirectory)) {
+                return
+            }
+            if ($state.State -ne ${pathStateFound}) {
+                # 届かない・読めない（権限が無いなど）は、待っても変わらないので、試し直さずに例外にする。理由は OS の文面をそのまま添える
+                throw "フォルダがあるかどうか確かめられません: $path（$($state.Message)）"
+            }
+            # フォルダとして在るのに Exists が偽（開けない・消している途中など）。少し待って試し直す
+            if ($i -ge $tries) {
+                throw "フォルダがあるのに開けないため、消せません: $path"
+            }
+            Start-Sleep -Milliseconds $waitMilliseconds
+            continue
         }
         try {
             # リンク（ジャンクション・シンボリックリンク）は辿らず、リンクそのものだけを外す（removeTreeNoFollow）。
             # 消せなければ例外になり、catch で試し直す
             removeTreeNoFollow $longPath
+            # 例外が出なくても消えていないことがある（別のプロセスが同じ名前で作り直したとき・消す側の取りこぼしなど）。
+            # 消えたことを .NET で確かめてから成功にする（呼ぶ側は、成功を見て取り込み一覧・状態・ログに記録する）
+            if ([System.IO.Directory]::Exists($longPath)) {
+                throw "フォルダが消えていません: $(fromLongPath $longPath)"
+            }
             return
         } catch {
             if ($i -ge $tries) {
@@ -446,6 +400,25 @@ function testPathHasLink {
     return $false
 }
 
+function newDirectoryUnder {
+    # root の下に path のフォルダ（途中の階層を含む）を作り、作れたら（すでにあるときも）$true を返す。
+    # root から path までの途中の階層（path を含む）にリンクがあるとき、path が root の下でないときは、何も作らずに $false を返す。
+    # 作ったあとにもう一度確かめ、リンクに替わっていれば $false を返す（作ってしまった分は消さない。中には何も書かない）。
+    # root そのもの（とそれより上）がリンクのときは、構成を変えずに使えるよう、リンクとは見ない（testPathHasLink）。
+    # path が root と同じときは、root を（無ければ）作って $true を返す。
+    # 作れなかった理由（権限など）は例外で返る。ログは呼ぶ側が出す（shared/ はツールのログを知らない）
+    param (
+        [string]$path,
+        [string]$root
+    )
+
+    if (!$path -or !$root -or (testPathHasLink $root $path)) {
+        return $false
+    }
+    [System.IO.Directory]::CreateDirectory((toLongPath $path)) | Out-Null
+    return !(testPathHasLink $root $path)
+}
+
 function removeEntryOnly {
     # ファイル 1 つ・リンク（ジャンクション・シンボリックリンク）1 つ・空のフォルダ 1 つ（item は FileSystemInfo）を、そのものだけ消す。
     # リンクの先は消さない。読み取り専用の属性は外してから消す
@@ -528,6 +501,83 @@ function removeTreeNoFollow {
     }
 }
 
+function getFilesNoFollow {
+    # root の下のファイルとフォルダを、ジャンクション・シンボリックリンクは辿らずに列挙する。
+    # 再帰の列挙（Get-ChildItem -Recurse・AllDirectories）の代わりに使う（tests/meta/link_safety.Tests.ps1 が、それらを許した関数の外で書かせない）。
+    # root そのものがリンクかは見ない（呼ぶ側が決める）。root が作業フォルダの置き場のようにリンクでよい場所のときは、その先の中を列挙する。
+    # 戻り値: @{ Files; Directories; Links; HasError; Reason }
+    #   Files       … ファイル（FileInfo。FullName は \\?\ 付き）。リンクのファイルは入れない
+    #   Directories … フォルダ（DirectoryInfo。root は含まない）。リンクのフォルダは入れない
+    #   Links       … 飛ばしたリンク（ファイル・フォルダ）の、\\?\ の付かない通常のパス
+    #   HasError    … 読めなかったフォルダがあったか。読めたところまでは Files・Directories に入る（途中で例外にしない）
+    #   Reason      … 最初に読めなかった理由
+    #   Stopped     … shouldStop が $true を返して、途中で止めたか。フォルダ 1 つを読むごとに見て、止めたら読んだところまでを返す
+    # リンクかどうかの見分けは getLinkKind。リンクかどうか確かめられないフォルダ（ReparsePoint が付き、LinkType が取れない。
+    # OneDrive のオンデマンドのフォルダなど）は、SkipUnknown が無ければ降りる（読むだけのため）。属性を書くときは SkipUnknown を付け、降りずに Links に入れる。
+    # Hidden の付いたものは、IncludeHidden が無ければ入れない（Get-ChildItem の既定と同じ。System だけのものは入れる）。
+    # 並びは Get-ChildItem -Recurse と同じ（フォルダごとに、その中身を並べてから、サブフォルダの下へ進む）
+    param (
+        [string]$root,
+        [switch]$IncludeHidden,
+        [switch]$SkipUnknown,
+        [scriptblock]$shouldStop = $null
+    )
+
+    $files = New-Object System.Collections.Generic.List[object]
+    $directories = New-Object System.Collections.Generic.List[object]
+    $links = New-Object System.Collections.Generic.List[string]
+    $hasError = $false
+    $reason = ""
+    $stopped = $false
+    $reparseFlag = [System.IO.FileAttributes]::ReparsePoint
+    $hiddenFlag = [System.IO.FileAttributes]::Hidden
+    $pending = New-Object System.Collections.Generic.Stack[string]
+    $pending.Push((toLongPath (trimTrailingSeparator $root)))
+    while ($pending.Count -gt 0) {
+        if ($null -ne $shouldStop -and (& $shouldStop)) {
+            $stopped = $true
+            break
+        }
+        $directory = New-Object System.IO.DirectoryInfo ($pending.Pop())
+        try {
+            # 列挙の途中で読めなくなることがあるので、配列にして受ける（例外はこの try で受ける）
+            $entries = @($directory.EnumerateFileSystemInfos("*", [System.IO.SearchOption]::TopDirectoryOnly))
+        } catch {
+            $hasError = $true
+            if (!$reason) {
+                $reason = $_.Exception.Message
+            }
+            continue
+        }
+        $subDirectories = New-Object System.Collections.Generic.List[string]
+        foreach ($entry in $entries) {
+            $attributes = $entry.Attributes
+            if (!$IncludeHidden -and ($attributes -band $hiddenFlag)) {
+                continue
+            }
+            if ($attributes -band $reparseFlag) {
+                # 属性に ReparsePoint が付いているものだけ、リンクかを調べる（多くのファイルで余計な問い合わせをしない）
+                $kind = getLinkKind $entry
+                if ($kind -eq "Link" -or ($kind -eq "Unknown" -and $SkipUnknown)) {
+                    $links.Add((fromLongPath $entry.FullName))
+                    continue
+                }
+            }
+            if ($entry -is [System.IO.DirectoryInfo]) {
+                $directories.Add($entry)
+                $subDirectories.Add($entry.FullName)
+            } else {
+                $files.Add($entry)
+            }
+        }
+        # Get-ChildItem -Recurse と同じ順（そのフォルダの中身、次に先頭のサブフォルダの下すべて、…）にするため、逆から積む
+        for ($i = $subDirectories.Count - 1; $i -ge 0; $i--) {
+            $pending.Push($subDirectories[$i])
+        }
+    }
+    return @{ Files = $files.ToArray(); Directories = $directories.ToArray(); Links = $links.ToArray(); HasError = $hasError; Reason = $reason; Stopped = $stopped }
+}
+
 function moveDirectoryRetry {
     # フォルダを移動する。removeDirectoryRetry と同じ理由（ウイルス対策ソフト・エクスプローラーが、
     # 作ったばかり・書いたばかりのフォルダを一時的に掴んでいることがある）で、待つ時間を倍にしながら数回試す
@@ -554,6 +604,99 @@ function moveDirectoryRetry {
             $wait *= 2
         }
     }
+}
+
+function testRemovablePath {
+    # path を、root の下で消す・移す・作ってよいかを返す。次のすべてが成り立つときだけ $true。
+    # ・path と root が絶対パス（ドライブか UNC。\\?\ 付きも可）である（相対パスは現在の場所に依って意味が変わるため偽）
+    # ・path が root の真下より下である（root そのもの・root より上・似た名前の別のフォルダは偽。testPathUnder）
+    # ・root から path までの途中の階層にリンクが無い（testPathHasLink）。root そのものがリンクの構成は今までどおり動く。
+    #   まだ無い階層は見ない（移動の先・作る先に使うため、根の下の無いパスは真）
+    # 確かめられない（読めない・例外）ときは $false
+    # leafLinkOk を付けると、path そのものがリンクでもよい（途中の階層だけ見る）。消す・移すフォルダそのものがリンクのときは、
+    # リンクだけを外す・動かす（先は辿らない）ため、これまでどおり扱えるように、removeDirectoryUnder・moveDirectoryUnder が付ける
+    param (
+        [string]$path,
+        [string]$root,
+        [switch]$leafLinkOk
+    )
+
+    if (!$path -or !$root) {
+        return $false
+    }
+    $absolutePattern = '^(\\\\|[A-Za-z]:[\\/])'
+    if (($path -notmatch $absolutePattern) -or ($root -notmatch $absolutePattern)) {
+        return $false
+    }
+    try {
+        if (!(testPathUnder $path $root)) {
+            return $false
+        }
+        $linkFrom = $path
+        if ($leafLinkOk) {
+            $linkFrom = [System.IO.Path]::GetDirectoryName([System.IO.Path]::GetFullPath((fromLongPath $path)).TrimEnd("\"))
+        }
+        return !(testPathHasLink $root $linkFrom)
+    } catch {
+        return $false
+    }
+}
+
+function removeDirectoryUnder {
+    # path のフォルダを、root の下で途中にリンクが無いことを確かめてから、中身ごと消す（removeDirectoryRetry）。
+    # 確かめ（testRemovablePath）が偽なら何も消さずに $false、消したら（無くて消すものが無いときも）$true を返す。
+    # 消せなかった理由は例外のまま返る。ログは呼ぶ側が出す
+    param (
+        [string]$path,
+        [string]$root,
+        [int]$tries = 3
+    )
+
+    if (!(testRemovablePath $path $root -leafLinkOk)) {
+        return $false
+    }
+    removeDirectoryRetry $path $tries
+    return $true
+}
+
+function removeFileUnder {
+    # path のファイル 1 つを、root の下で途中にリンクが無いことを確かめてから消す（removeEntryOnly。path 自身がリンクなら、リンクだけを外す）。
+    # 確かめ（testRemovablePath）が偽なら何も消さずに $false、消したら（無くて消すものが無いときも）$true を返す。
+    # 消せなかった理由は例外のまま返る。ログは呼ぶ側が出す
+    param (
+        [string]$path,
+        [string]$root
+    )
+
+    if (!(testRemovablePath $path $root -leafLinkOk)) {
+        return $false
+    }
+    $long = toLongPath $path
+    if ([System.IO.File]::Exists($long)) {
+        removeEntryOnly (New-Object System.IO.FileInfo $long)
+    }
+    return $true
+}
+
+function moveDirectoryUnder {
+    # source のフォルダを destination へ、どちらも root の下で途中にリンクが無いことを確かめてから移す（moveDirectoryRetry）。
+    # 移すと元の場所から無くなるため、消すのと同じ確かめを元と先の両方に行う。偽なら何も移さずに $false、移したら $true を返す。
+    # 元と先で根が違うときは、先の根を root、元の根を sourceRoot に渡す（省略したら元も root の下で確かめる）
+    param (
+        [string]$source,
+        [string]$destination,
+        [string]$root,
+        [string]$sourceRoot = ""
+    )
+
+    if ($sourceRoot -eq "") {
+        $sourceRoot = $root
+    }
+    if (!(testRemovablePath $source $sourceRoot -leafLinkOk) -or !(testRemovablePath $destination $root -leafLinkOk)) {
+        return $false
+    }
+    moveDirectoryRetry $source $destination
+    return $true
 }
 
 function testAnyEntry {
@@ -625,14 +768,19 @@ function newAppMutex {
     # 同じツール（配置フォルダ）の処理を二重に動かさないための名前付きミューテックスを作り、@{ Mutex; Acquired } を返す。
     # Acquired が $false なら、ほかで実行中。プロセスが終われば解放されるため、強制終了されても残らない
     #   name: 処理の種類（"gui" = 画面、"indexer" = インデックス作成）
+    #   app: ツールの名前（ミューテックスの名前の先頭。呼ぶ側が渡す。空なら例外にする）
     param (
         [string]$name,
-        [string]$dir = ${rootDir}
+        [string]$dir = ${rootDir},
+        [string]$app = ""
     )
 
+    if ([string]::IsNullOrEmpty($app)) {
+        throw "newAppMutex: ツールの名前（app）が空です"
+    }
     $key = getFolderKey $dir
     $createdNew = $false
-    $mutex = New-Object System.Threading.Mutex($true, "Local\${appId}_${name}_${key}", [ref]$createdNew)
+    $mutex = New-Object System.Threading.Mutex($true, "Local\${app}_${name}_${key}", [ref]$createdNew)
     return @{ Mutex = $mutex; Acquired = $createdNew }
 }
 

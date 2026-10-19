@@ -104,15 +104,15 @@ Describe "moveSearchExcludes" -Tag Io {
     It "前のワークスペースのインデックスの下を、移した先のインデックスの下に付け替える（ほかは変えない）" {
         $settings = "$TestDrive\excludes\setting.config"
         writeSearchExcludes @(
-            [pscustomobject]@{ Path = "C:\old\content_index"; Subfolders = $true },
-            [pscustomobject]@{ Path = "C:\OLD\content_index\営業\見積"; Subfolders = $false },
+            [pscustomobject]@{ Path = "C:\old\store\content"; Subfolders = $true },
+            [pscustomobject]@{ Path = "C:\OLD\store\content\営業\見積"; Subfolders = $false },
             [pscustomobject]@{ Path = "C:\old\content_index2\技術"; Subfolders = $true }
         ) $settings
 
         moveSearchExcludes "C:\old" "D:\新しい場所" $settings | Should -Be 2
 
         $excludes = @(readSearchExcludes $settings)
-        @($excludes | ForEach-Object { $_.Path }) -join "|" | Should -Be "D:\新しい場所\content_index|D:\新しい場所\content_index\営業\見積|C:\old\content_index2\技術"
+        @($excludes | ForEach-Object { $_.Path }) -join "|" | Should -Be "D:\新しい場所\store\content|D:\新しい場所\store\content\営業\見積|C:\old\content_index2\技術"
         @($excludes | ForEach-Object { $_.Subfolders }) -join "," | Should -Be "True,False,True"
     }
 }

@@ -70,61 +70,6 @@ Describe "種類のチップ" -Tag Unit {
     }
 }
 
-Describe "getFastSearchView の GoToIndex（印を押してインデックス管理へ移るか）" -Tag Unit {
-    It "available: <available>・正規表現: <regex>・ワード: <word> のとき <expected>" -TestCases @(
-        @{ available = $false; regex = $false; word = "見積"; expected = $true }
-        @{ available = $false; regex = $true; word = "見積"; expected = $true }
-        @{ available = $true; regex = $true; word = "見積"; expected = $false }
-        @{ available = $true; regex = $false; word = "見"; expected = $false }
-        @{ available = $true; regex = $false; word = "見積"; expected = $false }
-        @{ available = $null; regex = $false; word = "見積"; expected = $false }
-    ) {
-        param ($available, $regex, $word, $expected)
-        (getFastSearchView $available $regex $word).GoToIndex | Should -Be $expected
-    }
-}
-
-Describe "getFastSearchView" -Tag Unit {
-    It "Windows Search が使え（またはまだ確かめていない）、正規表現がオフで、2 文字以上の部分があれば使用可" {
-        (getFastSearchView $true $false "見積").Text | Should -Be "高速検索：使用可"
-        (getFastSearchView $null $false "見積").Usable | Should -Be $true
-    }
-
-    It "正規表現をオンにした・1 文字・Windows Search が使えないときは使用不可" {
-        (getFastSearchView $true $true "見積").Text | Should -Be "高速検索：使用不可"
-        (getFastSearchView $true $false "見").Usable | Should -Be $false
-        (getFastSearchView $false $false "見積").Usable | Should -Be $false
-    }
-
-    It "使えない理由は、上から順に最初に当てはまるものをツールチップに出す" {
-        (getFastSearchView $false $true "見積").Tip | Should -Be "検索はできますが時間がかかります　［インデックス管理で確認］"
-        (getFastSearchView $false $false "見積").Tip | Should -Be "検索はできますが時間がかかります　［インデックス管理で確認］"
-        (getFastSearchView $true $true "見積").Tip | Should -Be "正規表現をオフにすると速く検索できます"
-    }
-
-    It "使えるときは印の意味、ワードが短い（空を含む）ときは使える条件をツールチップに出す" {
-        (getFastSearchView $true $false "見積").Tip | Should -Be "インデックスを使って速く検索します"
-        (getFastSearchView $null $false "見積").Tip | Should -Be "インデックスを使って速く検索します"
-        (getFastSearchView $true $false "見").Tip | Should -Be "空白で区切った語のどれかが 2 文字以上のときに使えます"
-        (getFastSearchView $true $false "").Tip | Should -Be "空白で区切った語のどれかが 2 文字以上のときに使えます"
-        (getFastSearchView $true $false "見 積").Tip | Should -Be "空白で区切った語のどれかが 2 文字以上のときに使えます"
-        (getFastSearchView $true $false "見 積書").Tip | Should -Be "インデックスを使って速く検索します"
-    }
-
-    It "ツールチップはどの場合も空にしない（available: <available>・正規表現: <regex>・ワード: <word>）" -TestCases @(
-        foreach ($available in @($true, $false, $null)) {
-            foreach ($regex in @($true, $false)) {
-                foreach ($word in @("", "見", "見積")) {
-                    @{ available = $available; regex = $regex; word = $word }
-                }
-            }
-        }
-    ) {
-        param ($available, $regex, $word)
-        (getFastSearchView $available $regex $word).Tip | Should -Not -BeNullOrEmpty
-    }
-}
-
 Describe "getTargetCountText" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "選んだ数 / 全部の数"; checked = 3; total = 4; expected = "検索対象 3 / 4" }
@@ -208,10 +153,6 @@ Describe "ワークスペースの読み込みの文言" -Tag Unit {
 }
 
 Describe "getSearchTargetText" -Tag Unit {
-    BeforeAll {
-        function formatTime($time) { return $time.ToString("yyyy/MM/dd HH:mm") }
-    }
-
     It "<name>" -TestCases @(
         @{ name = "読み込み中は、ほかの状態より先に読み込み中と出す"; loading = $true; error = "\\fileserver\共有\ws"; total = 0; count = 0; all = $true; summary = $null; expected = "検索対象：読み込んでいます…" }
         @{ name = "接続できないときは、ワークスペースを入れて知らせる"; loading = $false; error = "\\fileserver\共有\ws"; total = 0; count = 0; all = $true; summary = $null; expected = "検索対象：なし（ワークスペースに接続できません：\\fileserver\共有\ws）" }
@@ -227,23 +168,40 @@ Describe "getSearchTargetText" -Tag Unit {
     It "すべてで、集計があれば件数と最終更新を出す" {
         $summary = @{ Count = 12345; LastWrite = [datetime]"2026-09-20 10:30" }
 
-        getSearchTargetText $false "" 2 2 $true "" $summary | Should -Be "検索対象：すべて（集約ファイル 12,345 件 ・ 最終更新 2026/09/20 10:30）"
+        getSearchTargetText $false "" 2 2 $true "" $summary | Should -Be "検索対象：すべて（集約ファイル 12,345 件 ・ 最終更新 9/20 10:30）"
+    }
+}
+
+Describe "getOldIndexNoticeText と古い形式の 1 行" -Tag Unit {
+    It "古い形式のインデックスが <count> 件のとき、1 行は「<expected>」" -TestCases @(
+        @{ count = 0; expected = "" }
+        @{ count = 1; expected = "古い形式のインデックスは検索していません" }
+        @{ count = 5; expected = "古い形式のインデックスは検索していません" }
+    ) {
+        param ($count, $expected)
+        getOldIndexNoticeText $count | Should -Be $expected
+    }
+
+    It "検索対象の説明の最後に、古い形式の 1 行を足す。読み込み中・接続できないときは足さない" {
+        getSearchTargetText $false "" 2 1 $false "営業部" $null 1 | Should -Be "検索対象：営業部`r`n古い形式のインデックスは検索していません"
+        getSearchTargetText $false "" 0 0 $true "" $null 1 | Should -Be "［インデックス管理］で作ったインデックスの一覧です`r`n古い形式のインデックスは検索していません"
+        getSearchTargetText $true "" 2 1 $false "営業部" $null 1 | Should -Be "検索対象：読み込んでいます…"
+        getSearchTargetText $false "" 2 1 $false "営業部" $null 0 | Should -Be "検索対象：営業部"
     }
 }
 
 Describe "getConditionFlow（検索条件の行の折り返し）" -Tag Unit {
-    # 項目は 0 種類・1〜4 チップ・5 ファイル内の対象・（空き）・6 大文字小文字・7 正規表現・8 高速検索の印。幅は右の間 8 を含む
+    # 項目は 0 種類・1〜4 チップ・5 ファイル内の対象・（空き）・6 大文字小文字・7 正規表現。幅は右の間 8 を含む
     BeforeAll {
-        $script:widths = @(38, 70, 62, 100, 84, 184, 150, 70, 178)
+        $script:widths = @(38, 70, 62, 100, 84, 184, 150, 70)
     }
 
-    # 行は項目の番号を , でつなぎ、行の区切りを / で書く。936 は全部の幅の合計（ちょうど収まる）
+    # 行は項目の番号を , でつなぎ、行の区切りを / で書く。758 は全部の幅の合計（ちょうど収まる）
     It "<Case>: 使える幅 <Available> のとき <Rows>（空き <Spacer>）" -TestCases @(
-        @{ Case = "広い幅"; Available = 1100; Rows = "0,1,2,3,4,5,6,7,8"; Spacer = (1100 - 936 - 0.5) }
-        @{ Case = "ちょうど収まる幅"; Available = 936; Rows = "0,1,2,3,4,5,6,7,8"; Spacer = 0 }
-        @{ Case = "1 足りない幅（高速検索の印だけが落ちる）"; Available = 935; Rows = "0,1,2,3,4,5,6,7/8"; Spacer = (935 - 758 - 0.5) }
-        @{ Case = "狭い幅（高速検索の印だけが落ち、ファイル内の対象は残る）"; Available = 780; Rows = "0,1,2,3,4,5,6,7/8"; Spacer = (780 - 758 - 0.5) }
-        @{ Case = "もっと狭い幅（後ろから、高速検索の印・正規表現・大文字小文字の順に落ちる）"; Available = 600; Rows = "0,1,2,3,4,5/6,7,8"; Spacer = (600 - 538 - 0.5) }
+        @{ Case = "広い幅"; Available = 1100; Rows = "0,1,2,3,4,5,6,7"; Spacer = (1100 - 758 - 0.5) }
+        @{ Case = "ちょうど収まる幅"; Available = 758; Rows = "0,1,2,3,4,5,6,7"; Spacer = 0 }
+        @{ Case = "1 足りない幅（正規表現だけが落ちる）"; Available = 757; Rows = "0,1,2,3,4,5,6/7"; Spacer = (757 - 688 - 0.5) }
+        @{ Case = "狭い幅（後ろから、正規表現・大文字小文字の順に落ち、ファイル内の対象は残る）"; Available = 600; Rows = "0,1,2,3,4,5/6,7"; Spacer = (600 - 538 - 0.5) }
     ) {
         param ($Case, $Available, $Rows, $Spacer)
         $flow = getConditionFlow $widths 6 $Available
@@ -251,13 +209,13 @@ Describe "getConditionFlow（検索条件の行の折り返し）" -Tag Unit {
         $flow.SpacerWidth | Should -Be $Spacer
         # 落ちた行の先頭は行の左端（LineStarts）
         $first = @($flow.Lines | ForEach-Object { @($_)[0] })
-        for ($i = 0; $i -lt 9; $i++) { $flow.LineStarts[$i] | Should -Be ($first -contains $i) }
+        for ($i = 0; $i -lt 8; $i++) { $flow.LineStarts[$i] | Should -Be ($first -contains $i) }
     }
 
     It "出していない項目（幅 0）は数えず、行の先頭にもならない" {
-        $flow = getConditionFlow @(38, 70, 62, 100, 84, 184, 150, 70, 0) 6 780
+        $flow = getConditionFlow @(38, 70, 62, 100, 84, 184, 150, 0) 6 780
         $flow.Lines.Count | Should -Be 1
-        $flow.LineStarts[8] | Should -BeFalse
+        $flow.LineStarts[7] | Should -BeFalse
     }
 
     It "余りが 0.5 に満たないときの空きは 0" {

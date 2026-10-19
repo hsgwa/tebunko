@@ -9,8 +9,12 @@ class PendingPublish {
     # フォルダごとの、取り込み中の数（Busy）・まだ渡していない数（Pending）。どちらも 0 で書き出してよい
     hidden [System.Collections.Generic.Dictionary[string,int]]$Busy
     hidden [System.Collections.Generic.Dictionary[string,int]]$Pending
+    # フォルダ（フルパス）→ まだ本文インデックスから外し終えていない、無くなった元のファイル名の集まり。
+    # 取り出し（TakeAll・TakeFlushable）では消えず、書き出し終えた（MarkPublished）ときに外れる。司令がワークスペースの記録ファイルに残す
+    [System.Collections.Generic.Dictionary[string,object]]$Unpublished
 
     PendingPublish() {
+        $this.Unpublished = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
         $this.Folders = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
         $this.Busy = New-Object 'System.Collections.Generic.Dictionary[string,int]' ([System.StringComparer]::OrdinalIgnoreCase)
         $this.Pending = New-Object 'System.Collections.Generic.Dictionary[string,int]' ([System.StringComparer]::OrdinalIgnoreCase)
@@ -30,7 +34,36 @@ class PendingPublish {
             $this.Folders[$folder] = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
         }
         if ($removed) {
-            [void]$this.Folders[$folder].Add([System.IO.Path]::GetFileName($relPath))
+            $this.Restore($folder, [string[]]@([System.IO.Path]::GetFileName($relPath)))
+        }
+    }
+
+    [void] Restore([string]$folder, [string[]]$names) {
+        # 前の回に外し終えていなかった、無くなった元のファイル名を戻す（書き出し待ちにも、外し終えていない記録にも入れる）
+        if (!$this.Folders.ContainsKey($folder)) {
+            $this.Folders[$folder] = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+        }
+        if (!$this.Unpublished.ContainsKey($folder)) {
+            $this.Unpublished[$folder] = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+        }
+        foreach ($name in $names) {
+            [void]$this.Folders[$folder].Add($name)
+            [void]$this.Unpublished[$folder].Add($name)
+        }
+    }
+
+    [void] MarkPublished([string[]]$folders, $taken) {
+        # 本文インデックスのファイルを書き終えたフォルダの、外し終えていない記録を外す。
+        # 外すのは、そのとき書き出した名前（$taken。TakeAll・TakeFlushable の戻り値）だけ。
+        # 同じ回に書き出しを飛ばした名前は、後の書き出しが成功しても残す
+        foreach ($folder in $folders) {
+            if (!$this.Unpublished.ContainsKey($folder) -or !$taken.ContainsKey($folder)) {
+                continue
+            }
+            $this.Unpublished[$folder].ExceptWith([string[]]@($taken[$folder]))
+            if ($this.Unpublished[$folder].Count -eq 0) {
+                [void]$this.Unpublished.Remove($folder)
+            }
         }
     }
 

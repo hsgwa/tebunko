@@ -1,6 +1,6 @@
 ﻿# インデックスの改名・削除・名前の割り当て・一覧と元のフォルダの記録の保存。
-# インデックス 1 つの情報は複数の保存先に分かれて置かれている: 設定の targetFolders、取り込み一覧、インデックスのフォルダ（content_index\<名前>）と
-# 元のフォルダの記録（source_folder.txt）、設定の searchExcludes、システムインデックス（system_index）。
+# インデックス 1 つの情報は複数の保存先に分かれて置かれている: 設定の targetFolders、取り込み一覧、インデックスのフォルダ（store\content\<名前>）、目録（store\format.tsv）の行と
+# 元のフォルダの記録（source_folder.txt）、設定の searchExcludes。
 # このクラスは、改名・削除でそれらを書き換える手順と順番、途中で失敗したときの扱い（止める・残す）だけを持つ。一覧（targetFolders）と元のフォルダの記録の書き直しは、画面が SaveTargets・WriteSourceFile（改名では RenameIndexWithSource）で呼ぶ。保存先の形式は知らず、
 # 保存先ごとの読み書きは既存の関数（searchExcludes は core\search_excludes.ps1）と、作る側から渡された StatusLedger に任せる。
 # 画面は呼んで結果を出すだけにする（画面の手順をここに引き寄せる）。
@@ -28,34 +28,55 @@ class IndexCatalog {
     }
 
     [void] RenameIndex([string]$oldName, [string]$newName) {
-        # インデックス名を変える（画面の詳細の名前の欄）。インデックスのフォルダ（content_index\<名前>）を改名し、
+        # インデックス名を変える（画面の詳細の名前の欄）。インデックスのフォルダ（store\content\<名前>）を改名し、
         # 取り込み一覧の記録も書き換えるため、名前を変えてもインデックスは作り直さない。
         # インデックス作成中は呼ばない（画面はインデックス作成中この操作を無効にする）。
-        # フォルダの改名か取り込み一覧の書き換えに失敗したら例外にする（システムインデックスと searchExcludes の整理は、失敗しても止めない）
+        # フォルダの改名か取り込み一覧の書き換えに失敗したら例外にする（gram 索引と searchExcludes の整理は、失敗しても止めない）
         $dir = $this.Workspace.IndexDir
         # 大文字・小文字だけの変更も改名するため、同じ名前かは大文字・小文字を区別して比べる（-ceq）
         if ($oldName -eq "" -or $newName -eq "" -or $oldName -ceq $newName) {
             return
         }
 
+        # 移す元・先の名前は、置き場（IndexDir）の外へ出ないものだけ使う。何も動かさずに例外にする。
+        # 新しい名前は、インデックス名の決まり（testIndexName。予約名も拒む）に合うものだけ使う。
+        # 元の名前は、既にある名前なので、予約名（aux.backup など）は通す（testStoredIndexName）。
+        # 最後が . のような、決まりに合わない前の版の名前は、設定を読むときに空になって届かず、取り込み一覧の読み込み（LegacyFolders）と、
+        # 設定から外れたインデックスの削除の流れが受け持つ（最後が . のフォルダは、Test-Path とフォルダ操作で別のフォルダを見るため、ここでは扱わない）
         $from = Join-Path $dir $oldName
         $to   = Join-Path $dir $newName
-        if (Test-Path -LiteralPath $from -PathType Container) {
+        if ((testStoredIndexName $oldName) -ne "" -or !(testPathUnder $from $dir)) {
+            throw "元のインデックス名が使えないため、名前を変えられません: ${oldName}"
+        }
+        if ((testIndexName $newName @()) -ne "" -or !(testPathUnder $to $dir)) {
+            throw "新しいインデックス名が使えないため、名前を変えられません: ${newName}"
+        }
+        # 元のフォルダは Directory.Exists で見る（aux.backup のような予約名のフォルダは、Test-Path では無いことになるため）。
+        # ただし testPathUnder は GetFullPath に頼るため、最後の区切りをデバイス名として解く古い版の Windows では、
+        # 上の確かめを通らず、何も動かさずに例外になる
+        if ([System.IO.Directory]::Exists((toLongPath $from))) {
             if ([string]::Equals($oldName, $newName, [System.StringComparison]::OrdinalIgnoreCase)) {
                 # 大文字・小文字だけを変える場合は、そのままでは改名できないため一時名を経由する
                 $tmp = Join-Path $dir "${oldName}_rename_$([System.Diagnostics.Process]::GetCurrentProcess().Id)"
-                [System.IO.Directory]::Move((toLongPath $from), (toLongPath $tmp))
-                [System.IO.Directory]::Move((toLongPath $tmp), (toLongPath $to))
+                # 移すのは、置き場（IndexDir）の下で途中にリンクが無いときだけ（moveDirectoryUnder）。偽なら何も動かさずに例外にする
+                if (!(moveDirectoryUnder $from $tmp $dir) -or !(moveDirectoryUnder $tmp $to $dir)) {
+                    throw "置き場の外か、途中にリンクがあるため、名前を変えられません: ${oldName}"
+                }
             } else {
-                if (Test-Path -LiteralPath $to) {
+                if ([System.IO.Directory]::Exists((toLongPath $to)) -or [System.IO.File]::Exists((toLongPath $to))) {
                     throw "「${newName}」のフォルダが既にあるため、名前を変えられません: ${to}"
                 }
-                [System.IO.Directory]::Move((toLongPath $from), (toLongPath $to))
+                if (!(moveDirectoryUnder $from $to $dir)) {
+                    throw "置き場の外か、途中にリンクがあるため、名前を変えられません: ${oldName}"
+                }
             }
         }
         $this.Ledger.RenameIndexName($oldName, $newName)
-        # 高速検索の システムインデックス（同じワークスペースの system_index）は古い名前の分を消す。次のインデックス作成で作り直す
-        removeSystemIndexOfWorkspace $oldName $dir
+        # 古い置き場（作り直す前の形式）の同じ名前のフォルダと、目録の行も改名に合わせる。目録を書き換えられない（新しい版）ときは行を残す
+        renameOldIndexFolder $oldName $newName $this.Workspace
+        [void](renameIndexFormatRow $oldName $newName $this.Workspace.FormatFile)
+        # 検索用の索引（gram 索引）は古い名前の分を消す。次のインデックス作成で作り直す
+        removeGramIndexOfWorkspace $oldName $dir
         # 外したフォルダの記録（searchExcludes）は旧名・新名の下のものを消す（付け替えず、検索対象に戻す）
         removeSearchExcludesUnder $from $this.SettingsPath
         removeSearchExcludesUnder $to $this.SettingsPath
@@ -76,7 +97,7 @@ class IndexCatalog {
     }
 
     [void] RemoveIndex([string]$name) {
-        # インデックスを削除する（画面の［削除］）。インデックスのフォルダ（content_index\<名前>）と、取り込み一覧の記録を削除する。
+        # インデックスを削除する（画面の［削除］）。インデックスのフォルダ（store\content\<名前>）と、取り込み一覧の記録を削除する。
         # インデックス作成中は呼ばない（画面はインデックス作成中この操作を無効にする）。
         # フォルダを消せなければ例外にして、取り込み一覧の記録は残す
         $dir = $this.Workspace.IndexDir
@@ -84,13 +105,30 @@ class IndexCatalog {
             return
         }
         $target = Join-Path $dir $name
-        if (Test-Path -LiteralPath $target -PathType Container) {
+        if ((testStoredIndexName $name) -ne "" -or !(testPathUnder $target $dir)) {
+            # 名前は取り込み一覧（共有のワークスペースで書き換えられうる）から来ることもある。置き場の外は消さず、
+            # 例外にして取り込み一覧の記録を残す（フォルダを消せなかったときと同じ）
+            throw "インデックス名が使えないため、削除できません: ${name}"
+        } else {
             # 中に長いパス（260文字超）のTSVがあっても削除でき、中のリンク（ジャンクション・シンボリックリンク）の先は消さない
-            # （removeDirectoryRetry）。消せなければ例外にして、取り込み一覧の記録を残す（フォルダが残ったまま記録だけ消えないように）
-            removeDirectoryRetry $target
+            # （removeDirectoryRetry。フォルダが無ければ何もしない。aux.backup のような予約名のフォルダも、Test-Path ではなくここで見つけて消す。
+            # ただし testPathUnder は GetFullPath に頼るため、最後の区切りをデバイス名として解く古い版の Windows では、
+            # 上の確かめを通らず、何も消さずに例外になる）。
+            # 消せなければ例外にして、取り込み一覧の記録を残す（フォルダが残ったまま記録だけ消えないように）
+            if (!(removeDirectoryUnder $target $dir)) {
+                throw "置き場の外か、途中にリンクがあるため、削除できませんでした: ${name}"
+            }
         }
+        # 古い置き場（作り直す前の形式）の同じ名前のフォルダと、目録の行も消す
+        $oldTarget = Join-Path $this.Workspace.OldIndexDir $name
+        if (testPathUnder $oldTarget $this.Workspace.OldIndexDir) {
+            if (!(removeDirectoryUnder $oldTarget $this.Workspace.OldIndexDir)) {
+                throw "置き場の外か、途中にリンクがあるため、削除できませんでした: ${name}"
+            }
+        }
+        [void](removeIndexFormatRow $name $this.Workspace.FormatFile)
         $this.Ledger.RemoveIndexName($name)
-        removeSystemIndexOfWorkspace $name $dir
+        removeGramIndexOfWorkspace $name $dir
         # 外したフォルダの記録（searchExcludes）も消す
         removeSearchExcludesUnder $target $this.SettingsPath
     }

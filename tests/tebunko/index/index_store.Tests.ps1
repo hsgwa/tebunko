@@ -151,6 +151,16 @@ Describe "getIndexTsvCounts / testIndexComplete" -Tag Io {
         (getIndexTsvCounts $dir)["営業\2024\a社.XLSX"] | Should -Be 2
     }
 
+    It "番号が桁あふれした名前の本文インデックスのファイルがあっても、例外にならず数えない" {
+        $dir = "$TestDrive\index_overflow"
+        newTestIndex $dir
+        writeListFile "$dir\営業\content_index.xlsx.001.tsv" @("a")
+        writeListFile "$dir\営業\content_index.xlsx.99999999999.tsv" @("b")
+        $counts = getIndexTsvCounts $dir
+        $counts["営業\content_index.xlsx"] | Should -Be 1
+        @($counts.Keys | Where-Object { $_ -like "*99999999999*" }).Count | Should -Be 0
+    }
+
     It "インデックスのフォルダの直下のTSVは数えない" {
         $dir = "$TestDrive\index4"
         [System.IO.Directory]::CreateDirectory($dir) | Out-Null
@@ -242,13 +252,10 @@ Describe "publishIndexFiles" -Tag Io {
         writeListFile "$bookDir\前のシート.tsv" @("old")
         writeListFile "$from\新しいシート.tsv" @("new")
 
-        publishIndexFiles $from $bookDir "$TestDrive\pub2\出力\A社.xlsx"
+        publishIndexFiles $from $bookDir "$TestDrive\pub2\出力\A社.xlsx" "$TestDrive\pub2\index" "$TestDrive\pub2\出力"
 
         Test-Path -LiteralPath "$bookDir\前のシート.tsv" | Should -Be $false
         Test-Path -LiteralPath "$bookDir\新しいシート.tsv" | Should -Be $true
-        # 入れた bookDir とその TSV は、親から属性を継がないため、ここで NotContentIndexed が付く
-        ([System.IO.File]::GetAttributes($bookDir) -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
-        ([System.IO.File]::GetAttributes("$bookDir\新しいシート.tsv") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
     }
 
     It "TSVが1件も無ければ、空のフォルダにする（内容が空のファイル）" {
@@ -256,7 +263,7 @@ Describe "publishIndexFiles" -Tag Io {
         [System.IO.Directory]::CreateDirectory($from) | Out-Null
         $bookDir = "$TestDrive\pub3\index\営業\空.xlsx"
 
-        publishIndexFiles $from $bookDir "$TestDrive\pub3\出力\空.xlsx"
+        publishIndexFiles $from $bookDir "$TestDrive\pub3\出力\空.xlsx" "$TestDrive\pub3\index" "$TestDrive\pub3\出力"
 
         Test-Path -LiteralPath $bookDir -PathType Container | Should -Be $true
         @(Get-ChildItem -LiteralPath $bookDir -Filter "*.tsv").Count | Should -Be 0
@@ -271,9 +278,29 @@ Describe "publishIndexFiles" -Tag Io {
         writeListFile "$staging\前回の残り.tsv" @("old")
         $bookDir = "$TestDrive\pub4\index\営業\A社.xlsx"
 
-        publishIndexFiles $from $bookDir $staging
+        publishIndexFiles $from $bookDir $staging "$TestDrive\pub4\index" "$TestDrive\pub4\出力"
 
         @(Get-ChildItem -LiteralPath $bookDir -Filter "*.tsv" | ForEach-Object { $_.Name }) | Should -Be "明細.tsv"
+    }
+}
+
+Describe "publishIndexFiles（置き場の外・途中のリンク）" -Tag Io {
+    It "インデックスの置き場の外・途中にジャンクションがあるパスには、何も置かずに例外にする" {
+        $from = "$TestDrive\publ\tmp"
+        writeListFile "$from\明細.tsv" @("a")
+        $indexRoot = "$TestDrive\publ\index"
+        $outside = "$TestDrive\publ\outside"
+        [System.IO.Directory]::CreateDirectory($indexRoot) | Out-Null
+        $staging = "$TestDrive\publ\出力\A社.xlsx"
+        { publishIndexFiles $from "$TestDrive\publ\other\A社.xlsx" $staging $indexRoot "$TestDrive\publ\出力" } | Should -Throw "*置き場の外*"
+        Test-Path -LiteralPath "$TestDrive\publ\other" | Should -Be $false
+
+        if (!(newTestJunction "$indexRoot\営業" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        { publishIndexFiles $from "$indexRoot\営業\A社.xlsx" $staging $indexRoot "$TestDrive\publ\出力" } | Should -Throw "*置き場の外*"
+        Test-Path -LiteralPath "$outside\A社.xlsx" | Should -Be $false
     }
 }
 
@@ -298,7 +325,7 @@ Describe "publishIndexFiles / getIndexTsvCounts（まれな状況）" -Tag Io {
             [System.IO.Directory]::CreateDirectory((toLongPath $bookDir)) | Out-Null
         }
         try {
-            publishIndexFiles $from $bookDir $staging
+            publishIndexFiles $from $bookDir $staging "$TestDrive\pub\index" "$TestDrive\pub\出力"
         } finally {
             Remove-PSBreakpoint -Breakpoint $point
         }
@@ -329,5 +356,47 @@ Describe "publishIndexFiles / getIndexTsvCounts（まれな状況）" -Tag Io {
             [void]$acl.RemoveAccessRule($deny)
             $locked.SetAccessControl($acl)
         }
+    }
+}
+
+Describe "getWorkspaceIndexFolders / getImportUsedIndexNames（設定から外れて残してあるインデックス）" -Tag Io {
+    BeforeAll {
+        . "${scriptsDir}\tebunko\ui\index\index_list_view.ps1"
+        . "${scriptsDir}\tebunko\ui\index\index_edit_view.ps1"
+        $script:ws = newTestWorkspace @{} "$TestDrive\leftover_ws"
+        New-Item -ItemType Directory -Path (Split-Path $script:ws.StatusFile) -Force | Out-Null
+        # 取り込み一覧の行は「売上」（C:\共有\営業部）。置き場の直下には「売上」と、取り込み一覧に行の無い「孤立」がある
+        writeStatusFile @([pscustomobject]@{ Path = "C:\共有\営業部"; Name = "売上" }) @() $script:ws.StatusFile
+        New-Item -ItemType Directory -Path (Join-Path $script:ws.IndexDir "売上") -Force | Out-Null
+        New-Item -ItemType Directory -Path (Join-Path $script:ws.IndexDir "孤立") -Force | Out-Null
+    }
+
+    It "取り込み一覧の行は名前と Path、置き場にだけあるフォルダは Path を空にして返す" {
+        $folders = @(getWorkspaceIndexFolders $script:ws)
+        $folders.Count | Should -Be 2
+        ($folders | Where-Object { $_.Name -eq "売上" }).Path | Should -Be "C:\共有\営業部"
+        ($folders | Where-Object { $_.Name -eq "孤立" }).Path | Should -Be ""
+    }
+
+    It "何も無いワークスペースでは空の配列を返す" {
+        $empty = newTestWorkspace @{} "$TestDrive\empty_ws"
+        @(getWorkspaceIndexFolders $empty).Count | Should -Be 0
+    }
+
+    It "取り込みの名前の集合は、集めた名前と同じ（設定の名前も含む）" {
+        $names = getImportUsedIndexNames $script:ws "$TestDrive\leftover_setting.config"
+        $names.Contains("売上") | Should -BeTrue
+        $names.Contains("孤立") | Should -BeTrue
+        $names.Contains("見積") | Should -BeFalse
+    }
+
+    It "外れた「売上」を残したワークスペースで、別のフォルダへの「売上」は拒み、前回と同じフォルダへの「売上」は通す" {
+        $leftovers = @(getWorkspaceIndexFolders $script:ws)
+        $items = @()
+        (getUsedIndexNames $items $null $leftovers "C:\別の場所\売上").Contains("売上") | Should -BeTrue
+        (getUsedIndexNames $items $null $leftovers "C:\共有\営業部").Contains("売上") | Should -BeFalse
+        testIndexEditInput "C:\別の場所\売上" "売上" $items $null $leftovers | Should -Match "設定から外したインデックスが残っているため"
+        testIndexEditInput "C:\共有\営業部" "売上" $items $null $leftovers | Should -Be ""
+        testIndexEditInput "C:\共有\営業部" "孤立" $items $null $leftovers | Should -Match "作業フォルダに同じ名前のインデックスがあるため使えません"
     }
 }

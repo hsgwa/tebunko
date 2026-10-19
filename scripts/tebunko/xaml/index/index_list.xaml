@@ -186,20 +186,6 @@
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
-            <DataGridTemplateColumn Header="高速検索" Width="118">
-              <DataGridTemplateColumn.HeaderStyle>
-                <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
-                  <Setter Property="ToolTip" Value="高速検索用のインデックスが、Windows Search にどこまで反映されたかを示します。" />
-                </Style>
-              </DataGridTemplateColumn.HeaderStyle>
-              <DataGridTemplateColumn.CellTemplate>
-                <DataTemplate>
-                  <Border Style="{StaticResource LevelBadge}" Tag="{Binding FastLevel}" ToolTip="{Binding FastToolTip}">
-                    <TextBlock Style="{StaticResource LevelBadgeText}" Tag="{Binding FastLevel}" Text="{Binding FastText}" />
-                  </Border>
-                </DataTemplate>
-              </DataGridTemplateColumn.CellTemplate>
-            </DataGridTemplateColumn>
             <!-- 行の操作は［更新］［中止］だけ（状態は RowAction。エラーの行はボタンを出さず、列の幅は変えない）。
                  押したときの動きは一覧（IndexGrid）の Click で受ける（index_events.ps1） -->
             <DataGridTemplateColumn Header="操作" Width="96">

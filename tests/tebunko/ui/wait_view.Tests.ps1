@@ -6,8 +6,8 @@ BeforeAll {
 
 Describe "getWaitDialogView" -Tag Unit {
     It "<kind> の見出し・説明・ボタン" -ForEach @(
-        @{ kind = "Stopping"; heading = "中止しています…"; description = "読み取り中のファイルが終わるまでお待ちください。"; button = "" }
-        @{ kind = "CloseWait"; heading = "中止しています…"; description = "読み取り中のファイルが終わると、画面を閉じます。"; button = "閉じない" }
+        @{ kind = "Stopping"; heading = "中止しています…"; description = "取り込みを止めて、取り込めた分をまとめています。しばらくお待ちください。"; button = "" }
+        @{ kind = "CloseWait"; heading = "中止しています…"; description = "取り込めた分をまとめ終わると、画面を閉じます。"; button = "閉じない" }
         @{ kind = "Moving"; heading = "ワークスペースを移しています…"; description = "中身の量によっては時間がかかります。終わるまでお待ちください。"; button = "" }
         @{ kind = "MovingClose"; heading = "ワークスペースを移しています…"; description = "移し終わると、画面を閉じます。"; button = "" }
     ) {

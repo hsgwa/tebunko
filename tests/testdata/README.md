@@ -253,7 +253,7 @@ Word・PowerPoint のインデックス作成の確認用。
 
 | 見るところ | 動作 |
 |---|---|
-| 検索の件数 | 10,000 件（`gui.ps1` の `$searchLimit`）を超えた時点で打ち切る。`.` では 10,000 件で約 2.8 秒（上限が無ければ約 24,000 件） |
+| 検索の件数 | 設定 `searchLimit`（既定 10,000 件。0 は制限なし）を超えた時点で打ち切る。`.` では 10,000 件で約 2.8 秒（上限が無ければ約 24,000 件） |
 | 打ち切りの表示 | ステータスに「10,000 件を超えたため、ここで打ち切りました。この先のファイルは検索していないため、ワード・対象ファイル・検索対象で絞り込んでください。」と出る |
 | 結果の一覧 | 行の仮想化（`EnableRowVirtualization`）が有効なので、10,000 行でも表示は重くならない |
 | 1 行の表示 | 先頭から 600 文字まで表示し、それ以降は `…` で省略する。最初のヒットまでが長い行は、その前を 40 文字だけ残す |
@@ -300,24 +300,24 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests\testdata\text\make_tes
 
 ## 前の版のファイル（`compat\`）
 
-前の版が作った本文インデックス・システムインデックス・取り込み一覧・エクスポートの zip を、今のコードがそのまま読めることを確かめるための見本（golden）。[前の版との互換](../../docs/design/index-data/format.md#前の版との互換) も参照。
+前の版が作った本文インデックス・取り込み一覧・エクスポートの zip を、今のコードがそのまま読めることを確かめるための見本（golden）。[前の版との互換](../../docs/design/index-data/format.md#前の版との互換) も参照。
 
-一覧（`tests\testdata\compat\index\<見本の名前>\`。今は `v0.3.1+english-names`（Excel・Word・PowerPoint・テキスト）と `v0.4.0+embedded-objects`（Excel のブックを埋め込んだ Word・PowerPoint。`[埋め込みN]` の場所）と `v0.4.0+pdf`（PDF。`ページN` の場所。日本語のフォントの対応表・相互参照のストリーム・オブジェクトのストリームを使うもの。メタデータに作成者などを持たない自作）の 3 つ）:
+一覧（`tests\testdata\compat\index\<見本の名前>\`。今は `v0.3.1+english-names`（Excel・Word・PowerPoint・テキスト）と `v0.4.0+embedded-objects`（Excel のブックを埋め込んだ Word・PowerPoint。`[埋め込みN]` の場所）と `v0.4.0+pdf`（PDF。`ページN` の場所。日本語のフォントの対応表・相互参照のストリーム・オブジェクトのストリームを使うもの。メタデータに作成者などを持たない自作）と `v2+store`（版番号つきの格納形式。`ws\store\` に目録 `format.tsv`・取り込み一覧・本文インデックスを置く。Excel・Word・PowerPoint・PDF・テキスト）の 4 つ）:
 
 | 中身 | 内容 |
 |---|---|
 | `source\` | クロール対象フォルダに置くファイル（Excel・Word・PowerPoint・`.txt`・`.md`。サブフォルダ・`(株)`・`[確定]` を含むファイル名もある） |
-| `ws\` | ワークスペースのうち、版が上がっても残る部分だけ（`content_index\`・`system_index\`・`system_index_state.tsv`・`ingest_status.tsv`）。フォルダ名を `work` ではなく `ws` にしているのは、`.gitignore` の `work/` に引っかからないようにするため |
+| `ws\` | ワークスペースのうち、版が上がっても残る部分だけ（`content_index\`・`ingest_status.tsv`。`v2+store` では `content_index\`・`ingest_status.tsv` の代わりに `store\`）。フォルダ名を `work` ではなく `ws` にしているのは、`.gitignore` の `work/` に引っかからないようにするため |
 | `export.zip` | `exportIndex` で書き出したインデックスの zip |
-| `file_times.tsv` | `source\` の各ファイルの更新日時（秒まで・タイムゾーンなしの Ticks）と、`ws\` の `content_index\`・`system_index\` の各ファイルの更新日時（UTC の Ticks）。git は取り出すときにファイルの更新日時を今の日時にしてしまうため、テストがこの値で書き戻す。`ws\` の分は、システムインデックスを作り直すかの判定（`content_index` の TSV と `system_index.txt` の更新日時の前後、`system_index_state.tsv` の「反映待ち」に書いた更新日時）を再現するのに要る |
+| `file_times.tsv` | `source\` の各ファイルの更新日時（秒まで・タイムゾーンなしの Ticks）と、`ws\` の `content_index\` の各ファイルの更新日時（UTC の Ticks）。git は取り出すときにファイルの更新日時を今の日時にしてしまうため、テストがこの値で書き戻す |
 | `expected.json` | インデックス名・取り込み一覧の行・検索語ごとのヒットという、見本に対する期待（手で書く。中身は日本語のまま） |
 
-`ws\`・`export.zip` には `tmp\`・`publish\`・`ingesting.txt`・`indexing_log.txt`・`gui_error_log.txt`・`search_results.txt`・`setting.config` を含めない（取り込み中・画面の動作ログで、前の版との互換の確かめには要らないため）。
+`ws\`・`export.zip` には `tmp\`・`publish\`・`store\journal\`・`indexing_log.txt`・`gui_error_log.txt`・`search_results.txt`・`setting.config` を含めない（取り込み中・画面の動作ログで、前の版との互換の確かめには要らないため）。
 
 **作り方**（`tools\make_index_golden.ps1`）:
 
 1. `source\` に見本のファイルを手で置く（このスクリプトは触らない）。
-2. `setting.config` のクロール対象フォルダに `source\` を指したフォルダ（利用者名を含まない固定のパス）を登録し、`indexer.ps1` を 1 回動かして固定のパスのワークスペースを作る。
+2. `setting.config` のクロール対象フォルダに `source\` を指したフォルダ（利用者名を含まない固定のパス）を登録し、`indexer.ps1` を 1 回動かして固定のパスのワークスペースを作る（`v2+store` は、一時のドライブ（`subst R:`）に `source\` の写しを置き、クロール対象を `R:\資料` に固定して作った）。
 3. `exportIndex` でそのワークスペースを zip に書き出す。
 4. `tools\make_index_golden.ps1 -WorkspaceDir <ワークスペース> -ExportZip <zip> -SampleDir tests\testdata\compat\index\<見本の名前>` で、`ws\`・`export.zip`・`file_times.tsv` を見本へコピー・作成する（ワークスペースは `C:\tebunko_golden\ws`）。
 5. `expected.json` は手で書く（このスクリプトは作らない）。
@@ -330,7 +330,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests\testdata\text\make_tes
 
 前の版が作った `setting.config` を、今のコードがそのまま読めることを確かめるための見本（golden）。[前の版との互換](../../docs/design/structure/settings-file.md#前の版との互換) も参照。
 
-一覧（`tests\testdata\compat\settings\<見本の名前>\`。今は `v0.3.1` の 1 つ）:
+一覧（`tests\testdata\compat\settings\<見本の名前>\`。`v0.3.1` は、その版が作った設定ファイル。`searchLimit`（件数の上限を 20,000 にしたもの）と `searchLimitNone`（0 = 制限なし）は、`searchLimit` のキーの読み方の見本）:
 
 | 中身 | 内容 |
 |---|---|

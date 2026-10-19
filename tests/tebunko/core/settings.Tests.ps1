@@ -253,6 +253,38 @@ Describe "getTargetFolders / writeTargetFolders" -Tag Io {
             Should -Be "C:\a=見積,C:\b=,C:\c=Sales,C:\d=,C:\e=a／b"
     }
 
+    It "既にある予約名（aux.backup など）は、空にせずそのまま使い続ける" {
+        $path = "$TestDrive\targets_reserved_names.json"
+        [System.IO.File]::WriteAllText($path, @'
+{ "targetFolders": [
+    { "path": "C:\\a", "name": "aux.backup" },
+    { "path": "C:\\b", "name": "CON.txt" },
+    { "path": "C:\\c", "name": "CON" }
+] }
+'@, ${utf8Bom})
+        $folders = @(getTargetFolders $path)
+        ($folders | ForEach-Object { "$($_.Path)=$($_.Name)" }) -join "," |
+            Should -Be "C:\a=aux.backup,C:\b=CON.txt,C:\c=CON"
+    }
+
+    It "フォルダ名として使えない名前（.. ・最後が . ・長すぎる）は空にする（取り込み時に割り当て直す）" {
+        $path = "$TestDrive\targets_unsafe_names.json"
+        $long = "あ" * 256
+        [System.IO.File]::WriteAllText($path, @"
+{ "targetFolders": [
+    { "path": "C:\\a", "name": ".." },
+    { "path": "C:\\b", "name": "経理." },
+    { "path": "C:\\c", "name": "営業." },
+    { "path": "C:\\d", "name": "$long" },
+    { "path": "C:\\e", "name": "..\\..\\外" },
+    { "path": "C:\\f", "name": "経理" }
+] }
+"@, ${utf8Bom})
+        $folders = @(getTargetFolders $path)
+        ($folders | ForEach-Object { "$($_.Path)=$($_.Name)" }) -join "," |
+            Should -Be "C:\a=,C:\b=,C:\c=,C:\d=,C:\e=..￥..￥外,C:\f=経理"
+    }
+
     It "enabled に文字列の ""false"" が書かれていてもチェックなしにする" {
         $path = "$TestDrive\targets_enabled.json"
         [System.IO.File]::WriteAllText($path, '{ "targetFolders": [ { "path": "C:\\a", "enabled": "false" } ] }', ${utf8Bom})
@@ -766,5 +798,56 @@ Describe "クラウドにだけあるファイルの扱い（cloudFiles）" -Tag
         $path = "$TestDrive\クラウド2\setting.config"
         updateSettings "cloudFiles" $value $path
         readCloudFiles $path | Should -Be ${cloudFilesAsk}
+    }
+}
+
+Describe "検索結果の件数の上限（searchLimit）" {
+    It "getSearchLimit: <Value> は <Expected>" -Tag Unit -TestCases @(
+        @{ Value = $null; Expected = 10000 }
+        @{ Value = 20000; Expected = 20000 }
+        @{ Value = "20000"; Expected = 20000 }
+        @{ Value = 0; Expected = 0 }
+        @{ Value = "0"; Expected = 0 }
+        @{ Value = -1; Expected = 10000 }
+        @{ Value = -5; Expected = 10000 }
+        @{ Value = 500; Expected = 1000 }
+        @{ Value = "abc"; Expected = 10000 }
+        @{ Value = 999; Expected = 1000 }
+        @{ Value = 1000; Expected = 1000 }
+        @{ Value = 100000; Expected = 100000 }
+        @{ Value = 200000; Expected = 100000 }
+    ) {
+        getSearchLimit $Value | Should -Be $Expected
+    }
+
+    It "readSearchLimit: ファイルが無い・キーが無ければ既定、文字列で書いても数値として読む" -Tag Io {
+        $path = "$TestDrive\件数の上限\setting.config"
+        readSearchLimit $path | Should -Be ${searchLimitDefault}
+        updateSettings "useRegex" $true $path
+        readSearchLimit $path | Should -Be ${searchLimitDefault}
+        updateSettings "searchLimit" "20000" $path
+        readSearchLimit $path | Should -Be 20000
+    }
+
+    It "writeSearchLimit: 0（制限なし）と範囲の中の値を書き、ほかのキーは変えない" -Tag Io {
+        $path = "$TestDrive\件数の上限の保存\setting.config"
+        updateSettings "useRegex" $true $path
+        writeSearchLimit 0 $path
+        readSearchLimit $path | Should -Be 0
+        (readSettings $path).useRegex | Should -BeTrue
+        writeSearchLimit 20000 $path
+        readSearchLimit $path | Should -Be 20000
+        (readSettings $path).useRegex | Should -BeTrue
+    }
+
+    It "writeSearchLimit: <Value> は範囲の外なので例外にして、設定は変えない" -Tag Io -TestCases @(
+        @{ Value = 500 }
+        @{ Value = -1 }
+        @{ Value = 100001 }
+    ) {
+        $path = "$TestDrive\件数の上限の拒否\setting.config"
+        writeSearchLimit 20000 $path
+        { writeSearchLimit $Value $path } | Should -Throw
+        readSearchLimit $path | Should -Be 20000
     }
 }

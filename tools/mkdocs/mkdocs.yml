@@ -117,7 +117,6 @@ nav:
           - インデックスの作成: guide/indexing.md
           - 検索: guide/search.md
           - 元のファイルを開く: guide/open-files.md
-          - 高速検索: guide/fast-search.md
           - 設定: guide/settings.md
           - 残った Office の終了: guide/process.md
       # 安全性は、導入を審査する人（情報システム部門など）向け。ファイルは docs/safety/ に置く
@@ -170,11 +169,10 @@ nav:
       - インデックスのデータ:
           - インデックスのファイルの形: design/index-data/format.md
           - 入れ替えと書き出し: design/index-data/publish.md
-          - システムインデックス: design/index-data/system-index.md
+          - gram 索引: design/index-data/gram-index.md
       - 検索:
           - design/search/index.md
           - 検索を速くする仕組み: design/search/speed.md
-          - 高速検索（Windows Search）: design/search/fast-search.md
           - 検索結果ファイル: design/search/output.md
       - 画面:
           - design/gui/index.md

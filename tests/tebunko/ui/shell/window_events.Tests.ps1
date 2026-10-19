@@ -25,7 +25,6 @@ BeforeAll {
     function refreshFolderStatus { $global:activatedLog.Add("refreshFolderStatus") }
     function isIndexing { return $false }
     function refreshIndexingState { $global:activatedLog.Add("refreshIndexingState") }
-    function shouldRefreshFastSearchStatus { return $false }
     function updateSearchTarget { $global:activatedLog.Add("updateSearchTarget") }
 }
 

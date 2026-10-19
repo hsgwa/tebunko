@@ -190,9 +190,11 @@ Describe "getResultSaveFailedText" -Tag Unit {
     }
 }
 
-Describe "Office の種類の表（officeOpenKinds）" -Tag Unit {
-    It "取り込みの対象の拡張子（officeExtensions）と同じ並びである" {
-        @(${officeOpenKinds}.Keys | Sort-Object) | Should -Be @(${officeExtensions} | Sort-Object)
+Describe "getOfficeOpenKind と取り込みの対象の拡張子（officeExtensions）" -Tag Unit {
+    It "取り込みの対象の拡張子は、すべて Excel か Office に分かれる" {
+        foreach ($extension in ${officeExtensions}) {
+            @("Excel", "Office") -contains (getOfficeOpenKind "a$extension") | Should -Be $true
+        }
     }
 }
 
@@ -210,6 +212,9 @@ Describe "getOfficeOpenKind・testReadOnlySupported・getOpenNewMethod" -Tag Uni
         @{ book = "発表.pptm"; kind = "Office"; readOnly = $true; method = "Verb" }
         @{ book = "発表.ppt"; kind = "Office"; readOnly = $true; method = "Verb" }
         @{ book = "evil.xlsm. "; kind = "Excel"; readOnly = $true; method = "Excel" }
+        @{ book = "a.xlsxyz"; kind = ""; readOnly = $false; method = "Copy" }
+        @{ book = "a.xlsa"; kind = ""; readOnly = $false; method = "Copy" }
+        @{ book = "a.xlsx.bak"; kind = ""; readOnly = $false; method = "Copy" }
         @{ book = "ひな形.dot"; kind = ""; readOnly = $false; method = "Copy" }
         @{ book = "ひな形.dotx"; kind = ""; readOnly = $false; method = "Copy" }
         @{ book = "ひな形.xltx"; kind = ""; readOnly = $false; method = "Copy" }

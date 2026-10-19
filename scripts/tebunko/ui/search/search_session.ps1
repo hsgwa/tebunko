@@ -9,8 +9,6 @@ $script:filterText = ""
 $script:tsvCache = newTsvTextCache
 # 検索の司令のスレッド（画面を開いている間 1 つ。閉じるときに gui.ps1 が Close する）
 $script:searchService = newSearchService $script:tsvCache
-# Windows Search が使えるか（高速検索の使用可否に使う。$null はまだ確かめていない）
-$script:fastAvailable = $null
 
 function startSearch {
     if (!(testIndexReadAllowed ([bool]$script:workspaceMoving))) {
@@ -58,10 +56,12 @@ function startSearch {
     # 新しく検索を始めるため、待っている元のファイルの確認（別の行）は打ち切る
     cancelPendingSourceLookup
 
-    $useFast = (getFastSearchView $script:fastAvailable $useRegex $word).Usable
-    $shared = $script:searchService.Request((newSearchRequest $word $simpleMatch $folders ${searchLimit} $option $useFast))
+    # 件数の上限は検索ごとに控える（設定の画面で変えても、走っている検索には効かない。打ち切りの文言も、この検索の上限で出す）
+    $limit = $script:searchLimit
+    $shared = $script:searchService.Request((newSearchRequest $word $simpleMatch $folders $limit $option))
     $script:search = @{
         Shared = $shared
+        Limit = $limit
         Word = $word; Pattern = $pattern; SimpleMatch = $simpleMatch; UseRegex = $useRegex; Option = $option; Start = Get-Date
     }
 
@@ -98,7 +98,6 @@ function clearSearchView {
     }
     $script:lastSearch = $null
     $script:sourceFolderMaps = @{}
-    $script:fastAvailable = $null
     $ui.FilterBox.Text = ""
     $script:filterText = ""
     clearResults "" $null
@@ -188,15 +187,10 @@ function finishSearch {
 
     $count = $script:hitCount
     $files = $script:fileGroups
-    if ($null -ne $shared.FastAvailable) {
-        $script:fastAvailable = [bool]$shared.FastAvailable
-        updateFastSearchView
-    }
-
-    # 高速検索では、候補の無いフォルダの本文インデックスのファイルを集めないため、集めた数が 0 でも「インデックスが無い」とは限らない
-    if (!$shared.FastUsed -and $shared.IndexTotal -gt 0 -and $shared.Total -eq 0) {
+    # gram 索引では、候補の無いファイルを集めないため、集めた数が 0 でも「インデックスが無い」とは限らない（0 件は下の「一致する結果はありません」）
+    if (!$shared.GramUsed -and $shared.IndexTotal -gt 0 -and $shared.Total -eq 0) {
         $ui.SummaryText.Text = getNoKindMatchText $s.Option.FileKinds
-    } elseif (!$shared.FastUsed -and $shared.Total -eq 0) {
+    } elseif (!$shared.GramUsed -and $shared.Total -eq 0) {
         $ui.SummaryText.Text = "インデックスが未作成です"
     } elseif ($count -eq 0) {
         # 0 件は、結果欄の要約と表の空いた所に「一致する結果はありません」を出す（ステータスバーの「検索しました：… 0 件」はそのまま）
@@ -210,10 +204,12 @@ function finishSearch {
     $status = getSearchStatusText $s.Word $count (describeSearchOption $s.Option)
     if ($shared.Truncated) {
         # パスの順に検索して打ち切るため、この先のファイルのヒットは結果に出ない。そのことが分かる文面にする
-        $status = "$(${searchLimit}.ToString('N0')) 件を超えたため、ここで打ち切りました。この先のファイルは検索していないため、ワード・種類・検索対象で絞り込んでください。"
+        $status = "$($s.Limit.ToString('N0')) 件を超えたため、ここで打ち切りました。この先のファイルは検索していないため、ワード・種類・検索対象で絞り込んでください。"
     } elseif ($shared.Cancelled) {
         $status = "中止しました（$($count.ToString('N0')) 件まで表示）"
     }
+    $skippedCount = @($shared.Skipped).Count
+    $status += getSkippedContentIndexText $skippedCount
     $missing = @($shared.Folders | Where-Object { !$_.Exists } | ForEach-Object { $_.Path })
     if ($missing.Count -gt 0) {
         $status += "　見つからない検索対象フォルダ：$($missing -join '、')"

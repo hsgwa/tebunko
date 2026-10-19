@@ -6,45 +6,6 @@ BeforeAll {
     . "${scriptsDir}\shared\office\office_reader.ps1"
 }
 
-Describe "readIngestingFiles / writeIngestingFiles / removeIngestingFile" -Tag Io {
-    It "取り込み中の複数のファイルの相対パスと回数をそのまま読み込める（[ ] や空白を含むパス）" {
-        $path = "$TestDrive\ingesting[1].txt"
-        writeIngestingFiles @(@{ RelPath = "フォルダ1\a [確定]\見積.xlsx"; Count = 2 }, @{ RelPath = "b.docx"; Count = 1 }) $path
-
-        $ingesting = readIngestingFiles $path
-        $ingesting.Count | Should -Be 2
-        $ingesting[0].RelPath | Should -Be "フォルダ1\a [確定]\見積.xlsx"
-        $ingesting[0].Count | Should -Be 2
-        $ingesting[1].RelPath | Should -Be "b.docx"
-    }
-
-    It "取り込み中が無ければ記録を消す" {
-        $path = "$TestDrive\ingesting_empty.txt"
-        writeIngestingFiles @(@{ RelPath = "a.xlsx"; Count = 1 }) $path
-        writeIngestingFiles @() $path
-        Test-Path -LiteralPath $path | Should -Be $false
-        (readIngestingFiles $path).Count | Should -Be 0
-    }
-
-    It "削除すると記録なし（空）になる。ファイルが無くても削除でエラーにならない" {
-        $path = "$TestDrive\ingesting_remove.txt"
-        writeIngestingFiles @(@{ RelPath = "a.xlsx"; Count = 1 }) $path
-        removeIngestingFile $path
-        Test-Path -LiteralPath $path | Should -Be $false
-        (readIngestingFiles $path).Count | Should -Be 0
-        { removeIngestingFile "$TestDrive\none_ingesting.txt" } | Should -Not -Throw
-    }
-
-    It "壊れた行（回数が数値でない・相対パスが無い・空）は読み飛ばす" {
-        $path = "$TestDrive\ingesting_broken.txt"
-        writeListFile $path @("x`ta.xlsx", "0`ta.xlsx", "1`t", "a.xlsx", "", "3`t残る.xlsx")
-        $ingesting = readIngestingFiles $path
-        $ingesting.Count | Should -Be 1
-        $ingesting[0].RelPath | Should -Be "残る.xlsx"
-        $ingesting[0].Count | Should -Be 3
-    }
-}
-
 Describe "describeIngestError" -Tag Io {
     BeforeDiscovery {
         function newComError([string]$message, [string]$code) {
@@ -230,7 +191,7 @@ Describe "testIndexerRunning" -Tag Io {
         $work = Join-Path $TestDrive "running_work"
         testIndexerRunning $work | Should -Be $false
         testIndexerRunning $work | Should -Be $false
-        $other = newAppMutex "indexer" $work
+        $other = newAppMutex "indexer" $work "tebunko"
         try {
             # 同じスレッドが持つ鍵も「動いている」と数える（画面のインデクサのスレッドが持っているとき）
             testIndexerRunning $work | Should -Be $true
@@ -245,22 +206,22 @@ Describe "testIndexerRunning" -Tag Io {
 Describe "addStatusRow" -Tag Io {
     It "追記した行にも抽出版を書き込み、読み込める" {
         $path = "$TestDrive\status_version.tsv"
-        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "2" "" "" "2") $path
-        addStatusRow (newStatusRow "b.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "" "" "2") $path
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "data\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "2" "" "" "2") $path
+        addStatusRow (newStatusRow "data\b.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "" "" "2") $path
         $status = readStatusFile $path
-        $status.Rows["a.xlsx"].抽出版 | Should -Be "2"
-        $status.Rows["b.xlsx"].抽出版 | Should -Be "2"
+        $status.Rows["data\a.xlsx"].抽出版 | Should -Be "2"
+        $status.Rows["data\b.xlsx"].抽出版 | Should -Be "2"
     }
 
     It "追記した行が前の行より優先される。相対パスの大文字・小文字は区別しない" {
         $path = "$TestDrive\status_append.tsv"
-        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "Dir\A.xlsx" "2025/01/10 12:34:56" "1" $stateNew) $path
-        addStatusRow (newStatusRow "dir\a.xlsx" "2025/01/10 12:34:56" "1" $stateFailed "" "2026/09/19 10:00:00" "パスワードが違います") $path
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "data\Dir\A.xlsx" "2025/01/10 12:34:56" "1" $stateNew) $path
+        addStatusRow (newStatusRow "data\dir\a.xlsx" "2025/01/10 12:34:56" "1" $stateFailed "" "2026/09/19 10:00:00" "パスワードが違います") $path
 
         $status = readStatusFile $path
         $status.Rows.Count | Should -Be 1
-        $status.Rows["DIR\A.XLSX"].状態 | Should -Be $stateFailed
-        $status.Rows["DIR\A.XLSX"].エラー | Should -Be "パスワードが違います"
+        $status.Rows["DATA\DIR\A.XLSX"].状態 | Should -Be $stateFailed
+        $status.Rows["DATA\DIR\A.XLSX"].エラー | Should -Be "パスワードが違います"
     }
 }
 
@@ -278,15 +239,16 @@ Describe "writeZipSizeLimitLog" -Tag Unit {
         $script:indexerLog = $null
     }
 
-    It "<limitKind>: 部品名・大きさ・部品ごとか合計かをログに書く" -TestCases @(
-        @{ limitKind = "Part"; kindText = "部品ごと" }
-        @{ limitKind = "Total"; kindText = "1ファイルの合計" }
+    It "<limitKind>: 部品名・大きさ・上限の種類をログに書く（Output は文字数）" -TestCases @(
+        @{ limitKind = "Part"; kindText = "部品ごと"; sizeText = "123456789 バイト、約117.7MB" }
+        @{ limitKind = "Total"; kindText = "1ファイルの合計"; sizeText = "123456789 バイト、約117.7MB" }
+        @{ limitKind = "Output"; kindText = "埋め込みから出す文字の合計"; sizeText = "123456789 文字、約117.7M文字" }
     ) {
-        param ($limitKind, $kindText)
+        param ($limitKind, $kindText, $sizeText)
         $script:indexerLog = New-Object System.IO.StringWriter
         $exception = newZipSizeLimitException "ファイルサイズが大きすぎるため更新できません。" "xl/charts/chart1.xml" 123456789 $limitKind
         writeZipSizeLimitLog $exception
-        $script:indexerLog.ToString() | Should -Be "    サイズの上限（${kindText}）を超えました: xl/charts/chart1.xml（123456789 バイト、約117.7MB）`r`n"
+        $script:indexerLog.ToString() | Should -Be "    サイズの上限（${kindText}）を超えました: xl/charts/chart1.xml（${sizeText}）`r`n"
     }
 
     It "ZipSizeLimitException でなければ何もしない" {
@@ -359,7 +321,7 @@ Describe "StatusLedger" -Tag Io {
         # 場所を暗黙に使わないため、コンストラクタで渡す保存先（Workspace の代わりに、同じプロパティを持つ値で差し替える）
         function newTestWorkspace([string]$dir) {
             [System.IO.Directory]::CreateDirectory($dir) | Out-Null
-            return [pscustomobject]@{ StatusFile = "$dir\ingest_status.tsv"; IngestingFile = "$dir\ingesting.txt" }
+            return [pscustomobject]@{ StatusFile = "$dir\ingest_status.tsv" }
         }
     }
 
@@ -376,14 +338,13 @@ Describe "StatusLedger" -Tag Io {
         (readStatusFile $ws.StatusFile).Rows.Count | Should -Be 2
     }
 
-    It "ReadIngestingFiles / WriteIngestingFiles / RemoveIngestingFile は、渡した保存先（IngestingFile）を読み書きする" {
+    It "ReadRelPaths は、渡した保存先（StatusFile）のデータ行の相対パスを、追記した行も数えてファイルの順に返す" {
         $ws = newTestWorkspace "$TestDrive\ledger2"
         $ledger = [StatusLedger]::new($ws)
-        $ledger.WriteIngestingFiles(@(@{ RelPath = "a.xlsx"; Count = 1 }))
-        $ledger.ReadIngestingFiles().Count | Should -Be 1
-        $ledger.RemoveIngestingFile()
-        Test-Path -LiteralPath $ws.IngestingFile | Should -Be $false
-        $ledger.ReadIngestingFiles().Count | Should -Be 0
+        $ledger.ReadRelPaths().Count | Should -Be 0
+        $ledger.WriteStatus(@([pscustomobject]@{ Path = "C:\data"; Name = "data" }), @((newStatusRow "data\a.xlsx" "2025/01/10 12:34:56" "1" $stateNew)))
+        $ledger.AddRow((newStatusRow "data\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"))
+        @($ledger.ReadRelPaths()) | Should -Be @("data\a.xlsx", "data\a.xlsx")
     }
 
     It "RenameIndexName / RemoveIndexName は、renameStatusIndexName / removeStatusIndexName と同じ結果になる" {
@@ -440,5 +401,38 @@ Describe "newIngestPlanRow（クラウドにだけあるファイル）" -Tag Un
     It "列は ingestPlanColumns と同じ" {
         $row = newIngestPlanRow "営業" "C:\data"
         @($row.PSObject.Properties.Name) | Should -Be @(${ingestPlanColumns})
+    }
+}
+
+Describe "readPendingRemovals / writePendingRemovals" -Tag Io {
+    It "書いた記録を読み戻せる。記録が無ければ空" {
+        $path = "$TestDrive\store\pending_remove.tsv"
+        @(readPendingRemovals $path).Count | Should -Be 0
+
+        writePendingRemovals @(@{ Folder = "営業\2024"; Name = "A社 [確定].xlsx" }, @{ Folder = "経理"; Name = "b.docx" }) $path
+
+        $read = @(readPendingRemovals $path)
+        $read.Count | Should -Be 2
+        ($read | Where-Object { $_.Folder -eq "営業\2024" }).Name | Should -Be "A社 [確定].xlsx"
+        [System.IO.File]::Exists("$path.tmp") | Should -Be $false
+    }
+
+    It "0 件を書くと記録を消す（無くても失敗しない）" {
+        $path = "$TestDrive\store2\pending_remove.tsv"
+        writePendingRemovals @(@{ Folder = "営業"; Name = "a.xlsx" }) $path
+        [System.IO.File]::Exists($path) | Should -Be $true
+
+        writePendingRemovals @() $path
+        [System.IO.File]::Exists($path) | Should -Be $false
+        { writePendingRemovals @() $path } | Should -Not -Throw
+    }
+
+    It "置き場の外を指す行（..）は読み飛ばす" {
+        $path = "$TestDrive\store3\pending_remove.tsv"
+        writeListFile $path @("営業`tok.xlsx", "..\外`tx.xlsx", "営業\..\..`ty.xlsx")
+
+        $read = @(readPendingRemovals $path)
+        $read.Count | Should -Be 1
+        $read[0].Name | Should -Be "ok.xlsx"
     }
 }

@@ -124,6 +124,23 @@ function getDriveTargets {
     return $map
 }
 
+function joinSourcePath {
+    # フォルダ・相対フォルダ（空でも可）・ファイル名をつなぐ（ドライブ直下 "D:\" でも \ が重ならないようにする）
+    param (
+        [string]$folder,
+        [string]$rest,
+        [string]$name = ""
+    )
+
+    $path = $folder.TrimEnd("\")
+    foreach ($part in @($rest, $name)) {
+        if ($part) {
+            $path += "\$part"
+        }
+    }
+    return $path
+}
+
 function getFolderPathAliases {
     # 同じ場所を指す別の書き方を、path 自身を先頭にして返す（ドライブの割り当てをたどる）。
     # ファイルサーバーのフォルダは、ネットワークドライブ（Z:\…）と UNC パス（\\server\share\…）のどちらでも書けるため、
