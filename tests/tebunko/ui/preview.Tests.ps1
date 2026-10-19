@@ -45,7 +45,7 @@ BeforeAll {
     $previewScroll | Add-Member ScriptMethod Focus { $true }
     $previewScroll | Add-Member ScriptMethod ScrollToHorizontalOffset { param ($offset) $fake.Scrolls += $offset }
     $previewScroll | Add-Member ScriptMethod ScrollToVerticalOffset { param ($offset) $fake.VerticalScrolls += $offset; $this.VerticalOffset = [double]$offset }
-    $previewSplitter = newFakePart "PreviewSplitter" @{} @("DragCompleted")
+    $previewSplitter = newFakePart "PreviewSplitter" @{ IsDragging = $false } @("DragCompleted")
     $resultListHost = newFakePart "ResultListHost" @{ ActualHeight = 0.0; ActualWidth = 0.0 } @("SizeChanged")
     $headerScroll = newFakePart "PreviewHeaderScroll" @{ Visibility = "Collapsed" }
     $headerScroll | Add-Member ScriptMethod ScrollToHorizontalOffset { param ($offset) $fake.HeaderScrolls += $offset }
@@ -234,6 +234,27 @@ Describe "updateResultPaneHeight" -Tag Unit {
 
     It "利用者が境目を動かしたあとは、高さを変えない" {
         $script:previewHeightDragged = $true
+        updateResultPaneHeight 2
+        $ui.DetailRow.Height.Value | Should -Be 180
+    }
+
+    It "境目をドラッグしている最中は、大きさが変わっても高さを書き戻さない" {
+        $ui.PreviewSplitter.IsDragging = $true
+        try {
+            updateResultPaneHeight 2
+            $ui.DetailRow.Height.Value | Should -Be 180
+        }
+        finally { $ui.PreviewSplitter.IsDragging = $false }
+    }
+
+    It "境目をクリックしただけ（動かしていない）では、自動の高さ合わせを止めない" {
+        & $handlers["PreviewSplitter.DragCompleted"] $ui.PreviewSplitter ([pscustomobject]@{ Canceled = $false; VerticalChange = 0.0 })
+        updateResultPaneHeight 2
+        $ui.DetailRow.Height.Value | Should -Be 330
+    }
+
+    It "境目を動かして離したら、それ以後は自動で変えない" {
+        & $handlers["PreviewSplitter.DragCompleted"] $ui.PreviewSplitter ([pscustomobject]@{ Canceled = $false; VerticalChange = -80.0 })
         updateResultPaneHeight 2
         $ui.DetailRow.Height.Value | Should -Be 180
     }
