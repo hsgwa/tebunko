@@ -81,11 +81,11 @@ Describe "検索と pack の作成の判定（getSearchPerfProblems）" -Tag Uni
         function newFixture {
             $hits = @{ "0 件" = 0; "まれ" = 3; "大量" = 10000; "正規表現" = 10000 }
             $search = foreach ($name in $limits.Keys) {
-                [pscustomobject]@{ Name = $name; TotalMs = [pscustomobject]@{ Median = 300 } }
+                [pscustomobject]@{ Name = $name; TotalMs = [pscustomobject]@{ Median = 300 }; ShownMs = [pscustomobject]@{ Median = 300 } }
             }
             $rows = foreach ($name in $limits.Keys) {
                 foreach ($n in 1..3) {
-                    [pscustomobject]@{ Word = $name; N = $n; Hits = $hits[$name]; Truncated = $(if ($hits[$name] -eq 10000) { "True" } else { "False" }); Packs = 521 }
+                    [pscustomobject]@{ Word = $name; N = $n; Hits = $hits[$name]; HitTotal = $(if ($hits[$name] -eq 10000) { 25000 } else { $hits[$name] }); Truncated = $(if ($hits[$name] -eq 10000) { "True" } else { "False" }); Packs = 521 }
                 }
             }
             $result = [pscustomobject]@{
@@ -101,20 +101,27 @@ Describe "検索と pack の作成の判定（getSearchPerfProblems）" -Tag Uni
 
     It "上限より小さい・ちょうど上限なら合格（一覧が空）" {
         $f = newFixture
-        (getEntry $f "0 件").TotalMs.Median = 449
-        (getEntry $f "まれ").TotalMs.Median = 550
+        (getEntry $f "0 件").ShownMs.Median = 449
+        (getEntry $f "まれ").ShownMs.Median = 550
         $f.Result.Index.Pack.Seconds = 90
         getSearchPerfProblems $f.Result $f.Rows $limits $expected 90 | Should -BeNullOrEmpty
     }
 
     It "<name>" -TestCases @(
-        @{ name = "中央値が上限を超えたら、語・中央値・上限を返す"; change = { param($f) (getEntry $f "大量").TotalMs.Median = 2101 }; expect = "検索 大量: 中央値 2,101 ms（上限 2,100 ms）" }
+        @{ name = "中央値が上限を超えたら、語・中央値・上限を返す"; change = { param($f) (getEntry $f "大量").ShownMs.Median = 2101 }; expect = "検索 大量: 中央値 2,101 ms（上限 2,100 ms）" }
         @{ name = "語が結果に無ければ返す"; change = { param($f) $f.Result.Search = @($f.Result.Search | Where-Object { $_.Name -ne "まれ" }) }; expect = "検索 まれ: 結果がありません" }
         @{ name = "語の 1 回ごとの記録が無ければ返す"; change = { param($f) $f.Rows = @($f.Rows | Where-Object { $_.Word -ne "まれ" }) }; expect = "検索 まれ: 1 回ごとの記録がありません" }
         @{ name = "件数が違えば返す"; change = { param($f) (getRows $f "まれ")[0].Hits = 2 }; expect = "検索 まれ: 件数が期待の 3 と違う回が 1 回（最初は 2 件）" }
         @{ name = "2 回目以降だけ件数が違っても返す"; change = { param($f) (getRows $f "0 件")[2].Hits = 1 }; expect = "検索 0 件: 件数が期待の 0 と違う回が 1 回（最初は 1 件）" }
         @{ name = "10000+ なのに打ち切りでなければ返す"; change = { param($f) (getRows $f "大量")[1].Truncated = "False" }; expect = "検索 大量: 件数が期待の 10000+ と違う回が 1 回（最初は 10000 件）" }
         @{ name = "10000+ なのに 1 万件でなければ返す"; change = { param($f) (getRows $f "正規表現")[0].Hits = 9000 }; expect = "検索 正規表現: 件数が期待の 10000+ と違う回が 1 回（最初は 9000 件）" }
+        @{ name = "ShownMs の中央値が上限を超えたら返す（TotalMs が小さくても）"; change = { param($f) (getEntry $f "大量").ShownMs.Median = 2101; (getEntry $f "大量").TotalMs.Median = 100 }; expect = "検索 大量: 中央値 2,101 ms（上限 2,100 ms）" }
+        @{ name = "TotalMs だけが語の上限を超えても返さない（比べるのは ShownMs）"; change = { param($f) (getEntry $f "大量").TotalMs.Median = 9000 }; expect = $null }
+        @{ name = "ShownMs が無ければ TotalMs で比べる"; change = { param($f) $e = getEntry $f "大量"; $e.PSObject.Properties.Remove("ShownMs"); $e.TotalMs.Median = 2101 }; expect = "検索 大量: 中央値 2,101 ms（上限 2,100 ms）" }
+        @{ name = "10000+ で HitTotal が 1 万件以下なら返す"; change = { param($f) (getRows $f "大量")[0].HitTotal = 10000 }; expect = "検索 大量: 総数（HitTotal）が 10000 より大きくない回が 1 回（最初は 10000）" }
+        @{ name = "10000+ で HitTotal が -1（中止・時間切れ）なら返す"; change = { param($f) (getRows $f "正規表現")[2].HitTotal = -1 }; expect = "検索 正規表現: 総数（HitTotal）が 10000 より大きくない回が 1 回（最初は -1）" }
+        @{ name = "10000+ で HitTotal が回ごとに違えば返す"; change = { param($f) (getRows $f "大量")[1].HitTotal = 25001 }; expect = "検索 大量: 総数（HitTotal）が回ごとに違う（25000・25001）" }
+        @{ name = "10000+ で HitTotal の記録が無ければ返す"; change = { param($f) (getRows $f "大量")[0].HitTotal = "" }; expect = "検索 大量: 総数（HitTotal）が 10000 より大きくない回が 1 回（最初は -1）" }
         @{ name = "pack の数が少ない回があれば返す"; change = { param($f) (getRows $f "0 件")[1].Packs = 300 }; expect = "検索 0 件: 照合した pack の数が 521 と違う回が 1 回（最初は 300）" }
         @{ name = "照合した pack が 0 の回があれば返す"; change = { param($f) (getRows $f "まれ")[0].Packs = 0 }; expect = "検索 まれ: 照合した pack の数が 521 と違う回が 1 回（最初は 0）" }
         @{ name = "SearchMode が runspace なら返す"; change = { param($f) $f.Result.Run.SearchMode = "runspace" }; expect = "検索の流れが service ではありません（runspace）" }
@@ -130,7 +137,7 @@ Describe "検索と pack の作成の判定（getSearchPerfProblems）" -Tag Uni
         & $change $f
         if ($script:noExpected) { $exp.Remove("まれ") }
         $problems = getSearchPerfProblems $f.Result $f.Rows $limits $exp 90
-        $problems | Should -Contain $expect -Because ($problems -join "; ")
+        if ($null -eq $expect) { $problems | Should -BeNullOrEmpty -Because ($problems -join "; ") } else { $problems | Should -Contain $expect -Because ($problems -join "; ") }
     }
 
     It "数の書き方は、今のカルチャに左右されない（de-DE でも 2,101 のまま）" {
@@ -138,7 +145,7 @@ Describe "検索と pack の作成の判定（getSearchPerfProblems）" -Tag Uni
         try {
             [System.Threading.Thread]::CurrentThread.CurrentCulture = [System.Globalization.CultureInfo]::GetCultureInfo("de-DE")
             $f = newFixture
-            (getEntry $f "大量").TotalMs.Median = 2101
+            (getEntry $f "大量").ShownMs.Median = 2101
             $problems = getSearchPerfProblems $f.Result $f.Rows $limits $expected 90
             $problems | Should -Contain "検索 大量: 中央値 2,101 ms（上限 2,100 ms）"
         } finally {

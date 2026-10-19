@@ -29,6 +29,7 @@
 . ([WildcardPattern]::Escape("$PSScriptRoot\search\search_gram.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\search\gram_search.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\search\search_run.ps1".Replace('`', '``')))
+. ([WildcardPattern]::Escape("$PSScriptRoot\search\search_overflow.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\search\content_index_search.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\search\search_service.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\search\source_map.ps1".Replace('`', '``')))

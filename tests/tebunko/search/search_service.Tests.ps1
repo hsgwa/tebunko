@@ -189,8 +189,14 @@ Describe "invokeSearchRequest（どの段で中止されても、先の段に進
     }
 
     It "invokeSearchRequest が呼ぶ検索・インデックスの関数は、すべて段の表にあるか、止める必要の無い短い呼び出しとして許されている（段を足したとき表に足し忘れない）" -ForEach @(@{ Stages = $stages }) {
-        # 止める必要の無い短い呼び出しは、ここに名前と理由を書く（今は無い）
-        $allowed = @{}
+        # 止める必要の無い短い呼び出しは、ここに名前と理由を書く
+        $allowed = @{
+            getSearchOverflowRoot = "溢れの置き場所の名前を組み立てるだけ"
+            getSearchOverflowPidDir = "溢れの置き場所の名前を組み立てるだけ"
+            getSearchOverflowDir = "溢れの置き場所の名前を組み立てるだけ"
+            testSearchOverflowRoot = "検索の始めに 1 回、置き場所の根を確かめるだけ（検索の中身の段ではない）"
+            removeSearchOverflow = "検索の始めに 1 回、前の溢れを消すだけ（検索の中身の段ではない）"
+        }
         $parse = { param ($path) [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$null) }
         $defined = New-Object System.Collections.Generic.HashSet[string]
         foreach ($dir in @("search", "index")) {
@@ -260,6 +266,26 @@ Describe "SearchService" -Tag Io {
         $service.Close()
         $service.Close()
         $service.IsRunning() | Should -Be $false
+    }
+
+    It "ワークスペースを切り替えて検索すると、前のワークスペースの溢れを次の検索の始めに消し、閉じると今のものも消す" {
+        $wsA = Join-Path $TestDrive "ws_a"
+        $wsB = Join-Path $TestDrive "ws_b"
+        $pidA = getSearchOverflowPidDir ([Workspace]::new($wsA).TmpRoot)
+        $pidB = getSearchOverflowPidDir ([Workspace]::new($wsB).TmpRoot)
+        $service = newSearchService $null 1
+        try {
+            $first = $service.Request((newSearchRequest "単価" $true @($contentIndexRoot) 1 @{} $wsA))
+            waitRequest $first | Should -Be $true
+            [System.IO.Directory]::Exists($pidA) | Should -Be $true
+            $second = $service.Request((newSearchRequest "単価" $true @($contentIndexRoot) 1 @{} $wsB))
+            waitRequest $second | Should -Be $true
+            [System.IO.Directory]::Exists($pidA) | Should -Be $false
+            [System.IO.Directory]::Exists($pidB) | Should -Be $true
+        } finally {
+            $service.Close()
+        }
+        [System.IO.Directory]::Exists($pidB) | Should -Be $false
     }
 
     It "司令のスレッドが止まっていたら理由を返し、次の要求で作り直す（zip 版。読み込む先が無い）" {

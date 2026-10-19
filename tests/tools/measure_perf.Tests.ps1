@@ -485,6 +485,9 @@ Describe "measure_perf.ps1" -Tag Io {
             $s.ListMs.Count | Should -Be 3
             $s.MatchMs.Count | Should -Be 3
             $s.LoadMs | Should -BeNullOrEmpty
+            # 表がそろうまで（ShownMs）も集計する。上限を超えない検索では、終わった時刻と同じ（TotalMs 以下）
+            $s.ShownMs.Count | Should -Be 3
+            $s.ShownMs.Median | Should -Not -BeGreaterThan $s.TotalMs.Median
         }
     }
 
@@ -503,6 +506,7 @@ Describe "measure_perf.ps1" -Tag Io {
         $md | Should -Match "## インデックス作成"
         $md | Should -Match "## 検索"
         $md | Should -Match "検索 1 回ごとの時間"
+        $md | Should -Match "表がそろうまで（ShownMs"
         $md | Should -Match "検索 1 回ごとのワーキングセット"
         $md | Should -Match "## 入力しながらの検索"
         $md.Contains($TestDrive) | Should -Be $false
@@ -648,6 +652,33 @@ Describe "measure_perf.ps1" -Tag Io {
         $r.Run.Date | Should -Match '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$'
         $year = [int]$r.Run.Date.Substring(0, 4)
         $year | Should -BeLessThan 2400
+    }
+}
+
+Describe "measure_perf.ps1 -SearchLimit" -Tag Io {
+    # 件数の上限が検索に渡ること（既定 10000・0 は制限なし・小さい値は打ち切り）を、小さなインデックスの「数字」（3 件）で確かめる
+    BeforeAll {
+        $words = Join-Path $TestDrive "limit_words.tsv"
+        writeTsv $words @("名前`t語`t正規表現`t件数", "数字`t^\d{2}\t`ttrue`t3")
+        function measureWithLimit([string]$name, [hashtable]$limitArgs) {
+            $work = Join-Path $TestDrive $name
+            $index = Join-Path $work "index"
+            writeTsv "$index\総務\名簿.xlsx\シート1.tsv" @("10`t佐藤`t総務", "11`t鈴木`t総務", "12`t田中`t総務")
+            & $measure -Index $index -Work $work -Words $words -Count 1 -SampleMs 50 @limitArgs 6>$null | Out-Null
+            return ([System.IO.File]::ReadAllText("$work\result\result.json") | ConvertFrom-Json).Search[0]
+        }
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "指定しなければ既定の 10000 で、3 件とも出て打ち切らない"; limitArgs = @{}; hits = 3; truncated = $false }
+        @{ name = "0 は制限なしで、3 件とも出て打ち切らない"; limitArgs = @{ SearchLimit = 0 }; hits = 3; truncated = $false }
+        @{ name = "小さい値（2）を渡すと、打ち切って総数は数える"; limitArgs = @{ SearchLimit = 2 }; hits = 2; truncated = $true }
+    ) {
+        param ($name, $limitArgs, $hits, $truncated)
+        $s = measureWithLimit ("limit_" + [guid]::NewGuid().ToString("N")) $limitArgs
+        $s.Hits | Should -Be $hits
+        [bool]$s.Truncated | Should -Be $truncated
+        $s.HitTotal | Should -Be 3
     }
 }
 
