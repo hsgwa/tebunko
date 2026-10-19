@@ -4,6 +4,7 @@
 #              lib.ps1 の読み込みと照合のプールの用意は、司令のスレッドが始めに 1 回だけ行う（1 回目の検索の時間に含まれる）
 #   runspace … #102 より前。検索のたびに新しい Runspace で lib.ps1 を読み込み、列挙して照合する（newSearchService が無い版）
 # 検索のキャッシュ（newTsvTextCache）は、画面と同じくプロセスで 1 つを持ち続ける。1 回目は「画面を開き直した直後の検索」に当たる。
+# -Limit は検索結果の件数の上限（既定 10000。0 は制限なし。設定 searchLimit と同じ）。
 # 検索する語は -WordFile の JSON（Name・Word・Regex）で受け取る（日本語や正規表現を引数で渡すと崩れることがあるため）。
 # 結果（検索 1 回ごとの時間・ヒット件数・メモリと、リソースの記録）を -Out の JSON に書く。
 param (
@@ -11,6 +12,7 @@ param (
     [Parameter(Mandatory = $true)][string]$Index,
     [Parameter(Mandatory = $true)][string]$WordFile,
     [int]$Count = 20,
+    [int]$Limit = 10000,
     [Parameter(Mandatory = $true)][string]$Out,
     [int]$SampleMs = 200
 )
@@ -33,7 +35,7 @@ $mode = if (Get-Command newSearchService -CommandType Function -ErrorAction Sile
 # 待つ間隔は短くするが、Windows のタイマーの細かさ（約 15 ミリ秒）より細かくは測れない
 function invokeServiceSearch($service) {
     $watch = [System.Diagnostics.Stopwatch]::StartNew()
-    $request = $service.Request((newSearchRequest $Word (!$Regex) @($Index) 10000))
+    $request = $service.Request((newSearchRequest $Word (!$Regex) @($Index) $Limit))
     $listMs = $null
     $shownMs = $null
     while (!$request.Finished) {
@@ -66,7 +68,7 @@ $runspaceScript = {
     $filesName = $filesNames | Where-Object { $found.ContainsKey($_) } | Select-Object -First 1
     if (!$filesName) { throw "取得した本文インデックスの一覧に項目がありません" }
     $files = $found[$filesName]
-    $r = & $searchIndex $word $files $simple 10000 -cache $cache
+    $r = & $searchIndex $word $files $simple $Limit -cache $cache
     @{ LoadMs = $load; ListMs = $list; MatchMs = $step.Elapsed.TotalMilliseconds; TotalMs = $total.Elapsed.TotalMilliseconds; ShownMs = $total.Elapsed.TotalMilliseconds; HitTotal = $null; Packs = $files.Count; Hits = $r.Hits.Count; Truncated = [bool]$r.Truncated }
 }
 function invokeRunspaceSearch($cache) {

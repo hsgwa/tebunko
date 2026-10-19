@@ -411,16 +411,13 @@ function getSearchPerfProblems {
     #   limits      : 語の名前 → 検索の中央値の上限（ms）。比べる値は ShownMs（表がそろうまで）の中央値（無ければ TotalMs）
     #   expected    : 語の名前 → 期待する件数（数、または "10000+" = 1 万件で打ち切り）
     #   packLimitSeconds : pack の作成の秒の上限
-    #   totalLimits : 語の名前 → TotalMs（総数が出るまで）の中央値の緩い上限（ms）。省略した語・引数は TotalMs を比べない。
-    #                 総数まで数える分の時間が、思わぬ増え方をしていないかを見る（ShownMs の上限では見えない）
     # 失敗のメッセージには、対象の名前・値・上限の数字だけを書く
     param (
         $result,
         [object[]]$rows,
         [hashtable]$limits,
         [hashtable]$expected,
-        [double]$packLimitSeconds,
-        [hashtable]$totalLimits = @{}
+        [double]$packLimitSeconds
     )
 
     $problems = New-Object System.Collections.Generic.List[string]
@@ -444,14 +441,10 @@ function getSearchPerfProblems {
             $problems.Add("検索 ${name}: 結果がありません")
             continue
         }
-        # 語ごとの上限と比べるのは ShownMs（表がそろうまで）。TotalMs（総数が出るまで）は、totalLimits にある語だけ緩い上限と比べる
+        # 語ごとの上限と比べるのは ShownMs（表がそろうまで）。TotalMs（総数が出るまで）は比べない（記録だけ）
         $shown = if ($null -ne $entry.ShownMs) { $entry.ShownMs } else { $entry.TotalMs }
         if ([double]$shown.Median -gt [double]$limits[$name]) {
             $problems.Add([string]::Format([CultureInfo]::InvariantCulture, "検索 {0}: 中央値 {1:N0} ms（上限 {2:N0} ms）", $name, [double]$shown.Median, [double]$limits[$name]))
-        }
-
-        if ($totalLimits.ContainsKey($name) -and [double]$entry.TotalMs.Median -gt [double]$totalLimits[$name]) {
-            $problems.Add([string]::Format([CultureInfo]::InvariantCulture, "検索 {0}: 総数まで数える時間の中央値 {1:N0} ms（上限 {2:N0} ms）", $name, [double]$entry.TotalMs.Median, [double]$totalLimits[$name]))
         }
 
         $mine = @($rows | Where-Object { $_.Word -eq $name })

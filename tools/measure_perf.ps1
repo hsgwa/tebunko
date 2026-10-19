@@ -16,6 +16,7 @@
 #   -Tool     … 測る tebunko のフォルダ。既定はこのスクリプトのリポジトリ
 #   -Words    … 検索する語の表（名前・語・正規表現・件数。tebunko-perfdata の words.tsv）。省略すると、ヒットしない語 1 つだけを検索する
 #   -Count    … 語ごとに、同じプロセスで続けて検索する回数
+#   -SearchLimit … 検索結果の件数の上限（既定 10000。0 は制限なし。設定 searchLimit と同じ。上限を超えた分も数える版の、全件の時間を測るときに 0 にする）
 #   -Typing   … 入力しながらの検索を測る、語ごとの入力の繰り返し回数（既定 0 は測らない。1 は受け付けない）
 #   -TypingIntervalMs … 入力しながらの検索の、要求の間隔（ミリ秒。既定 150。画面の入力しながらの検索の待ち時間と同じ）
 #   -TypingMinLength  … 入力しながらの検索で最初に送る語の長さ（既定 3。画面と同じ。合否はこの既定で決める）
@@ -56,6 +57,7 @@ param (
     [string]$Tool = (Split-Path $PSScriptRoot -Parent),
     [string]$Words,
     [int]$Count = 20,
+    [int]$SearchLimit = 10000,
     [int]$Threads = 2,
     [int]$Repeat = 3,
     [int]$Typing = 0,
@@ -190,7 +192,7 @@ for ($w = 0; $w -lt $wordList.Count; $w++) {
     $wordFile = Join-Path $raw "word-$w.json"
     [System.IO.File]::WriteAllText($wordFile, ([pscustomobject]$spec | ConvertTo-Json), $utf8)
     $searchJson = Join-Path $raw "search-$w.json"
-    invokeChild "measure_search.ps1" @("-Tool", $Tool, "-Index", $Index, "-WordFile", $wordFile, "-Count", $Count, "-Out", $searchJson, "-SampleMs", $SampleMs)
+    invokeChild "measure_search.ps1" @("-Tool", $Tool, "-Index", $Index, "-WordFile", $wordFile, "-Count", $Count, "-Limit", $SearchLimit, "-Out", $searchJson, "-SampleMs", $SampleMs)
     $r = readJson $searchJson
     $searchRaw.Add($r)
     $rows = @($r.Searches)
