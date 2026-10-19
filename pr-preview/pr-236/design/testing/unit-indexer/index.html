@@ -564,8 +564,6 @@
       
         
       
-        
-      
     
     
     
@@ -682,34 +680,6 @@
     
   
     元のファイルを開く
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../guide/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索
   
 
     
@@ -2467,14 +2437,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../index-data/system-index/" class="md-nav__link">
+      <a href="../../index-data/gram-index/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    システムインデックス
+    gram 索引
   
 
     
@@ -2507,8 +2477,6 @@
       
         
           
-        
-      
         
       
         
@@ -2587,34 +2555,6 @@
     
   
     検索を速くする仕組み
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../search/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索（Windows Search）
   
 
     
@@ -4093,7 +4033,7 @@
 </tr>
 <tr>
 <td><code>flushPendingPublish</code>・<code>recoverIngestJournal</code>・<code>writeStatusWithJournal</code>（Io。<code>tests/tebunko/indexer/indexer</code>）</td>
-<td>書き出せたフォルダ（<code>publishIndexFolders</code> の <code>Published</code>）にだけ「出」を足す、書き出せなかったフォルダだけを返す（2 フォルダのうち 1 つが失敗したとき・置き場の外を指すパスで飛ばしたとき・例外のときは全部。システムインデックスの段で落ちても本文インデックスは書けているので「出」を足す）、始めの復旧が書き出せなかった・中止で飛ばしたフォルダを次の回へ持ち越す、ジャーナルが読めないとき（フォルダが 0 件・2 件）今ある書き出し前のフォルダだけを書き出す、前の版の <code>ingesting.txt</code> を足して重ねない、「書」と（<code>-Finish</code> のときだけ）「終」の記録</td>
+<td>書き出せたフォルダ（<code>publishIndexFolders</code> の <code>Published</code>）にだけ「出」を足す、書き出せなかったフォルダだけを返す（2 フォルダのうち 1 つが失敗したとき・置き場の外を指すパスで飛ばしたとき・例外のときは全部）、始めの復旧が書き出せなかった・中止で飛ばしたフォルダを次の回へ持ち越す、ジャーナルが読めないとき（フォルダが 0 件・2 件）今ある書き出し前のフォルダだけを書き出す、前の版の <code>ingesting.txt</code> を足して重ねない、「書」と（<code>-Finish</code> のときだけ）「終」の記録</td>
 </tr>
 <tr>
 <td><code>describeIngestError</code></td>
@@ -4161,7 +4101,7 @@
 </tr>
 <tr>
 <td><code>indexer.ps1</code>（起動口）</td>
-<td>設定とインデックスを <code>$TestDrive</code> に差し替え、<code>indexer.ps1 -Channel</code> で通しで動かす（受け渡しの口の <code>Workers</code> を 0 にし、取り込みは司令のスレッドで行う。Excel は使わず、<code>.docx</code>・<code>.pptx</code> を取り込む）。代表的な場面だけを確かめる（関数の単位で確かめられることは各モジュールのテストで確かめる）。続けられないエラーと終了コード、ほかのインデックス作成が実行中なら触らない、基本の流れ（取り込み・本文インデックス・システムインデックス）、2 回目は更新の無いファイルを取り込まない、フォルダが見つからないときは前回の結果を残す、強制終了したファイルを最後に回す・続けて強制終了したら失敗にする、画面の確認での取りやめと失敗分の取り込み直し、中止（終了コード 2。元のファイルごとのフォルダを残さず、対応済みにしない）、制限時間、取り込み中に元のファイル・フォルダが無くなった場合、名前に記号（<code>'</code>・<code>[ ]</code>・<code>&amp;</code>・バッククォート）を含むクロール対象フォルダ・ワークスペースでテキストファイルを取り込んで検索できる（ワークスペースは <code>[ ]</code> を除く。<code>indexer_path_chars.Tests.ps1</code>）、前回残った TSV を次の作成の始めに本文インデックスへ入れる、既定のワークスペースが空でなければ何も書かない。利用者の PowerPoint が起動していれば <code>.ppt</code> を取り込まず、理由付きの失敗に数え（一覧は未取り込みのまま、エラーの列に理由。実際に PowerPoint を起動して確かめる）、ほかのファイルは取り込む。閉じれば、失敗分の再取り込みを選ばなくても次回に取り込む</td>
+<td>設定とインデックスを <code>$TestDrive</code> に差し替え、<code>indexer.ps1 -Channel</code> で通しで動かす（受け渡しの口の <code>Workers</code> を 0 にし、取り込みは司令のスレッドで行う。Excel は使わず、<code>.docx</code>・<code>.pptx</code> を取り込む）。代表的な場面だけを確かめる（関数の単位で確かめられることは各モジュールのテストで確かめる）。続けられないエラーと終了コード、ほかのインデックス作成が実行中なら触らない、基本の流れ（取り込み・本文インデックス）、2 回目は更新の無いファイルを取り込まない、フォルダが見つからないときは前回の結果を残す、強制終了したファイルを最後に回す・続けて強制終了したら失敗にする、画面の確認での取りやめと失敗分の取り込み直し、中止（終了コード 2。元のファイルごとのフォルダを残さず、対応済みにしない）、制限時間、取り込み中に元のファイル・フォルダが無くなった場合、名前に記号（<code>'</code>・<code>[ ]</code>・<code>&amp;</code>・バッククォート）を含むクロール対象フォルダ・ワークスペースでテキストファイルを取り込んで検索できる（ワークスペースは <code>[ ]</code> を除く。<code>indexer_path_chars.Tests.ps1</code>）、前回残った TSV を次の作成の始めに本文インデックスへ入れる、既定のワークスペースが空でなければ何も書かない。利用者の PowerPoint が起動していれば <code>.ppt</code> を取り込まず、理由付きの失敗に数え（一覧は未取り込みのまま、エラーの列に理由。実際に PowerPoint を起動して確かめる）、ほかのファイルは取り込む。閉じれば、失敗分の再取り込みを選ばなくても次回に取り込む</td>
 </tr>
 <tr>
 <td><code>indexer.ps1</code>（取り込みのスレッド）</td>
@@ -4208,7 +4148,7 @@
 </tr>
 <tr>
 <td><code>newSearchRequest</code> / <code>invokeSearchRequest</code></td>
-<td>ヒットを列に入れて件数と終わったことを伝える、照合のプールを渡しても同じ結果、始める前に取り消されていたら検索しない、検索できなかった理由を <code>Error</code> に入れる（例外は投げない）、どの段（高速検索・列挙・照合）の途中で止めても先の段に進まず <code>Cancelled</code> にしてヒットを列に入れない、各段に要求そのものが止める合図として渡る、呼ぶ段が表に無い関数を足すと落ちる</td>
+<td>ヒットを列に入れて件数と終わったことを伝える、照合のプールを渡しても同じ結果、始める前に取り消されていたら検索しない、検索できなかった理由を <code>Error</code> に入れる（例外は投げない）、どの段（gram 索引・列挙・照合）の途中で止めても先の段に進まず <code>Cancelled</code> にしてヒットを列に入れない、各段に要求そのものが止める合図として渡る、呼ぶ段が表に無い関数を足すと落ちる</td>
 </tr>
 <tr>
 <td><code>SearchService</code></td>

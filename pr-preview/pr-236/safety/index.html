@@ -572,8 +572,6 @@
       
         
       
-        
-      
     
     
     
@@ -693,34 +691,6 @@
     
   
     元のファイルを開く
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../guide/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索
   
 
     
@@ -2471,14 +2441,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../design/index-data/system-index/" class="md-nav__link">
+      <a href="../design/index-data/gram-index/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    システムインデックス
+    gram 索引
   
 
     
@@ -2511,8 +2481,6 @@
       
         
           
-        
-      
         
       
         
@@ -2588,34 +2556,6 @@
     
   
     検索を速くする仕組み
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../design/search/fast-search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    高速検索（Windows Search）
   
 
     
@@ -4109,8 +4049,8 @@
 </tr>
 <tr>
 <td>Windows Search</td>
-<td><strong>読み取りだけ</strong>。高速検索（<a href="../design/search/">検索</a> <a href="../design/search/fast-search/">高速検索（Windows Search）</a>）で、OLE DB（<code>Search.CollatorDSO</code>）に SELECT だけを送る（<code>windows_search.ps1</code> の 1 か所。管理者権限は要らない）。Windows Search の設定（索引の対象など）もファイルのアクセス権も変えない。システムインデックスを作るスレッドの優先度を下げる（BelowNormal。プロセス全体の優先度は変えない）</td>
-<td><code>safety.Tests.ps1</code>「Windows Search への問い合わせは windows_search.ps1 だけで行い、SELECT だけを送る」</td>
+<td><strong>使わない</strong>。問い合わせも、索引の対象から外す属性の書き込みもしない。検索は自前の索引（<code>store\gram\</code>。<a href="../design/index-data/gram-index/">gram 索引</a>）で候補を絞る。索引を作るスレッドの優先度を下げる（BelowNormal。プロセス全体の優先度は変えない）</td>
+<td><code>safety.Tests.ps1</code>「Windows Search を使わない（OleDb・CommandText・NotContentIndexed がどこにも無い）」</td>
 <td><a href="checks/#検査項目と結果">検査項目と結果</a></td>
 </tr>
 <tr>
