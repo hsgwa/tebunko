@@ -4450,7 +4450,15 @@
 <td>–</td>
 <td>フォルダを移動する。<code>removeDirectoryRetry</code> と同じ理由で、待つ時間を倍にしながら数回試す</td>
 <td><a href="../../index-data/format/#インポートimportindex">インポート</a></td>
-<td>インデックスのインポート（<code>swapInImportedIndexDir</code>・<code>restoreSwappedIndexDir</code>）</td>
+<td>インデックスのインポート（<code>swapInImportedIndexDir</code>・<code>restoreSwappedIndexDir</code>）・ワークスペースの移動（<code>WorkspaceMover.MoveEntries</code>）</td>
+</tr>
+<tr>
+<td><code>testSameDriveRoot</code></td>
+<td>first, second</td>
+<td>bool</td>
+<td>2 つのパスが同じドライブ（同じ根）にあるか。同じなら <code>Directory.Move</code>、違えば写してから消す。テストが別のドライブを用意せずに差し替えられるよう関数にしてある</td>
+<td>–</td>
+<td><code>WorkspaceMover.MoveEntry</code></td>
 </tr>
 <tr>
 <td><code>testAnyEntry</code></td>
