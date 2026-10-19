@@ -95,7 +95,7 @@ jobs:
   # 1 shard が repeat / 5 回ずつ流す（全体 50 回は約 500 分で上限を超えるため分ける）。
   # 途中で落ちても続け、回ごとの結果と失敗の材料を残す。測っている間は push しない（concurrency で取り消されるため）
   gui-repeat:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' }} # TEMP-MEASURE
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: windows-latest
     timeout-minutes: 90
     strategy:
@@ -136,7 +136,7 @@ jobs:
   # 5 本の結果を集め、回数と落ちた場面の表を Summary に書く
   gui-repeat-summary:
     needs: [gui-repeat]
-    if: ${{ always() && (github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request') }} # TEMP-MEASURE
+    if: ${{ always() && github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
