@@ -273,3 +273,102 @@ Describe "getWorkspaceMoveOutcome" -Tag Unit {
         $failed.Warning | Should -Not -BeNullOrEmpty
     }
 }
+
+Describe "検索結果の件数の上限の入力" -Tag Unit {
+    It "制限あり・欄 <Text> は <Action> <Value>" -TestCases @(
+        @{ Text = "20000"; Action = "Apply"; Value = 20000 }
+        @{ Text = "10,000"; Action = "Apply"; Value = 10000 }
+        @{ Text = "１００００"; Action = "Apply"; Value = 10000 }
+        @{ Text = " 20000 "; Action = "Apply"; Value = 20000 }
+        @{ Text = "1000"; Action = "Apply"; Value = 1000 }
+        @{ Text = "100000"; Action = "Apply"; Value = 100000 }
+        @{ Text = "5000"; Action = "None"; Value = 5000 }
+        @{ Text = "5,000"; Action = "None"; Value = 5000 }
+        @{ Text = "   "; Action = "None"; Value = 5000 }
+        @{ Text = "1,0000"; Action = "Apply"; Value = 10000 }
+        @{ Text = "10,00"; Action = "Apply"; Value = 1000 }
+        @{ Text = "2,0,000"; Action = "Apply"; Value = 20000 }
+        @{ Text = "１０，０００"; Action = "Apply"; Value = 10000 }
+        @{ Text = ","; Action = "Invalid"; Value = 5000 }
+        @{ Text = ",,"; Action = "Invalid"; Value = 5000 }
+        @{ Text = "1,000,000"; Action = "Invalid"; Value = 5000 }
+        @{ Text = "99,9"; Action = "Invalid"; Value = 5000 }
+        @{ Text = "999"; Action = "Invalid"; Value = 5000 }
+        @{ Text = "９９９"; Action = "Invalid"; Value = 5000 }
+        @{ Text = "100001"; Action = "Invalid"; Value = 5000 }
+        @{ Text = "abc"; Action = "Invalid"; Value = 5000 }
+        @{ Text = "1.5"; Action = "Invalid"; Value = 5000 }
+        @{ Text = "-1"; Action = "Invalid"; Value = 5000 }
+        @{ Text = "99999999999999999999"; Action = "Invalid"; Value = 5000 }
+    ) {
+        param ($Text, $Action, $Value)
+        $decision = getSearchLimitInputDecision "Limited" $Text 5000 1000 100000 10000
+        $decision.Action | Should -Be $Action
+        $decision.Value | Should -Be $Value
+        if ($Action -eq "Invalid") {
+            $decision.Message | Should -Be "1,000～100,000 の数で入力してください。"
+        } else {
+            $decision.Message | Should -Be ""
+        }
+    }
+
+    It "<Label>" -TestCases @(
+        @{ Label = "制限なしを選ぶと、今が制限ありなら 0 を保存する"; Mode = "None"; Text = "5,000"; Current = 10000; Action = "Apply"; Value = 0 }
+        @{ Label = "制限なしを選んでも、今が制限なしなら何もしない"; Mode = "None"; Text = "5,000"; Current = 0; Action = "None"; Value = 0 }
+        @{ Label = "制限なしから制限ありに戻して欄が空なら、既定の件数にする"; Mode = "Limited"; Text = ""; Current = 0; Action = "Apply"; Value = 10000 }
+        @{ Label = "制限なしから制限ありに戻して欄に数があれば、その数にする"; Mode = "Limited"; Text = "20000"; Current = 0; Action = "Apply"; Value = 20000 }
+        @{ Label = "制限ありのまま欄が空なら、何もしない"; Mode = "Limited"; Text = ""; Current = 10000; Action = "None"; Value = 10000 }
+    ) {
+        param ($Label, $Mode, $Text, $Current, $Action, $Value)
+        $decision = getSearchLimitInputDecision $Mode $Text $Current 1000 100000 10000
+        $decision.Action | Should -Be $Action
+        $decision.Value | Should -Be $Value
+    }
+
+    It "testSearchLimitKeepText: 制限なしにしたとき、［制限あり］の入力として正しい文字だけ残す (<Text>)" -TestCases @(
+        @{ Text = "abc"; Keep = $false }
+        @{ Text = "500"; Keep = $false }
+        @{ Text = "100001"; Keep = $false }
+        @{ Text = "20,000"; Keep = $true }
+        @{ Text = "1,0000"; Keep = $true }
+        @{ Text = "２０００"; Keep = $true }
+        @{ Text = ""; Keep = $true }
+    ) {
+        param ($Text, $Keep)
+        testSearchLimitKeepText $Text 0 1000 100000 10000 | Should -Be $Keep
+    }
+
+    It "表示した上限の桁を足す・消しても、カンマを除いた数として読む (<Label>)" -TestCases @(
+        @{ Label = "末尾に 0 を足す"; Current = 10000; Edit = "Append"; Action = "Apply"; Value = 100000 }
+        @{ Label = "末尾に 0 を足して範囲外"; Current = 100000; Edit = "Append"; Action = "Invalid"; Value = 100000 }
+        @{ Label = "0 を 1 つ消す"; Current = 10000; Edit = "RemoveZero"; Action = "Apply"; Value = 1000 }
+        @{ Label = "0 を 1 つ消して範囲外"; Current = 5000; Edit = "RemoveZero"; Action = "Invalid"; Value = 5000 }
+    ) {
+        param ($Label, $Current, $Edit, $Action, $Value)
+        $shown = formatSearchLimit $Current
+        if ($Edit -eq "Append") {
+            $typed = $shown + "0"
+        } else {
+            $typed = $shown.Remove($shown.LastIndexOf("0"), 1)
+        }
+        $decision = getSearchLimitInputDecision "Limited" $typed $Current 1000 100000 10000
+        $decision.Action | Should -Be $Action
+        $decision.Value | Should -Be $Value
+    }
+
+    It "getSearchLimitView: 制限なしは既定の数を欄に残して見せ、制限ありはその数を出す" {
+        $none = getSearchLimitView 0 10000
+        $none.Mode | Should -Be "None"
+        $none.Text | Should -Be "10,000"
+        $limited = getSearchLimitView 20000 10000
+        $limited.Mode | Should -Be "Limited"
+        $limited.Text | Should -Be "20,000"
+    }
+
+    It "getSearchLimitTexts: 範囲と既定と、重さの注意を出す" {
+        $texts = getSearchLimitTexts 1000 100000 10000
+        $texts.Range | Should -Be "1,000～100,000 件の範囲で指定できます。既定は 10,000 件です。"
+        $texts.Caution | Should -Match "メモリを多く使います"
+        $texts.Error | Should -Be "1,000～100,000 の数で入力してください。"
+    }
+}

@@ -48,9 +48,54 @@ BeforeAll {
         return (@($lines | Where-Object { $_.Text -match $pattern } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ")
     }
 
+    function testSameBranch {
+        # 止める呼び出しが、compareOfficeProcess の結果が "Same" のときの枝（if の `-eq "Same"` の本体・switch の "Same" の枝。switch は対象が compareOfficeProcess の呼び出しのとき）の中にあるか。
+        # `-ne "Same"` の枝・結果を比べない呼び出し・枝の外は認めない
+        param ($kill, $owner)
+
+        if (-not $owner) { return $false }
+        $isSame = { param ($n) $n -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $n.Value -eq "Same" }
+        $unwrap = {
+            # 外側の括弧と、1 つだけの式のパイプラインを外す
+            param ($n)
+            while ($true) {
+                if ($n -is [System.Management.Automation.Language.PipelineAst] -and $n.PipelineElements.Count -eq 1) {
+                    $element = $n.PipelineElements[0]
+                    if ($element -is [System.Management.Automation.Language.CommandExpressionAst]) { $n = $element.Expression } else { $n = $element; break }
+                } elseif ($n -is [System.Management.Automation.Language.ParenExpressionAst]) { $n = $n.Pipeline } else { break }
+            }
+            return $n
+        }
+        $inside = { param ($body) $kill.Extent.StartOffset -ge $body.Extent.StartOffset -and $kill.Extent.EndOffset -le $body.Extent.EndOffset }
+        foreach ($node in @($owner.FindAll({ param ($n) $n -is [System.Management.Automation.Language.IfStatementAst] -or $n -is [System.Management.Automation.Language.SwitchStatementAst] }, $true))) {
+            if ($node -is [System.Management.Automation.Language.IfStatementAst]) {
+                foreach ($clause in $node.Clauses) {
+                    # 条件の一番上（外側の括弧を外したもの）が `-eq` の二項式そのもので、片方が "Same"、もう片方が compareOfficeProcess の呼び出しのときだけ認める。
+                    # -not や -or・-and で包んだ形は、Same 以外でも入りうる（または読みにくい）ので認めない
+                    $top = & $unwrap $clause.Item1
+                    if ($top -is [System.Management.Automation.Language.BinaryExpressionAst] -and $top.Operator -eq [System.Management.Automation.Language.TokenKind]::Ieq) {
+                        $sides = @($top.Left, $top.Right)
+                        $hasSame = @($sides | Where-Object { & $isSame $_ }).Count -eq 1
+                        $hasCompare = @($sides | Where-Object { $c = & $unwrap $_; $c -is [System.Management.Automation.Language.CommandAst] -and $c.GetCommandName() -eq "compareOfficeProcess" }).Count -eq 1
+                        if ($hasSame -and $hasCompare -and (& $inside $clause.Item2)) { return $true }
+                    }
+                }
+            } else {
+                # switch は、対象が compareOfficeProcess の呼び出しそのもの（外側の括弧を外したもの）のときだけ、"Same" の枝を認める
+                $subject = & $unwrap $node.Condition
+                if ($subject -is [System.Management.Automation.Language.CommandAst] -and $subject.GetCommandName() -eq "compareOfficeProcess") {
+                    foreach ($clause in $node.Clauses) {
+                        if ((& $isSame $clause.Item1) -and (& $inside $clause.Item2)) { return $true }
+                    }
+                }
+            }
+        }
+        return $false
+    }
+
     function getKillViolations {
         # スクリプトの文字列から、プロセスを止める呼び出しを探し、"関数（メソッド）名" の一覧と、
-        # その関数の中で、止める呼び出しより前に isSameOfficeProcess を呼んでいないものの一覧を返す。
+        # その関数の中で、止める呼び出しより前に isSameOfficeProcess を呼んでいない、または compareOfficeProcess の結果が "Same" の枝の中にないものの一覧を返す。
         # kind が Kill ならメンバー名 Kill の呼び出し（.Kill()）、StopProcess なら Stop-Process コマンド。
         # コードを文字列で渡せるので、通ってはいけない形で落ちることをテストで確かめられる
         param (
@@ -80,7 +125,7 @@ BeforeAll {
             $calls = $(if ($owner) {
                 @($owner.FindAll({ param ($node) $node -is [System.Management.Automation.Language.CommandAst] -and $node.GetCommandName() -eq "isSameOfficeProcess" -and $node.Extent.StartOffset -lt $kill.Extent.StartOffset }, $true))
             } else { @() })
-            if ($calls.Count -eq 0) { $unchecked.Add($name) }
+            if ($calls.Count -eq 0 -and -not (testSameBranch $kill $owner)) { $unchecked.Add($name) }
         }
         return @{ Places = $places.ToArray(); Unchecked = $unchecked.ToArray() }
     }
@@ -88,7 +133,7 @@ BeforeAll {
     function getSourcePathViolations {
         # 取り込みの入口の関数の中で、元のパス（変数 sourcePath）の渡し先が許した処理だけかを調べる。
         # 返す: Found = 見つけた入口の名前、Violations = 許さない渡し先の行（"関数名:行"）。コードを文字列で渡せるので、通ってはいけない形で落ちることをテストで確かめられる。
-        # 許す: copyFileShared（コピー）・getAppName・testTextExtension（拡張子の判定）・入口どうしの受け渡し・
+        # 許す: copyFileShared・invokeWithSourceCopy（コピー。1 番目の引数のときだけ）・getAppName・testTextExtension（拡張子の判定）・入口どうしの受け渡し・
         #       [System.IO.Path]::GetExtension / GetFileName・[System.IO.FileInfo]::new(toLongPath ...)（大きさをメタデータで見る。元は開かない）
         param (
             [string]$code,
@@ -112,7 +157,7 @@ BeforeAll {
                 $ok = $false
                 if ($parent -is [System.Management.Automation.Language.CommandAst]) {
                     $commandName = $parent.GetCommandName()
-                    if ($commandName -eq "copyFileShared") {
+                    if ($commandName -eq "copyFileShared" -or $commandName -eq "invokeWithSourceCopy") {
                         # 元（コピー元）になる 1 番目の引数のときだけ。2 番目（コピー先）に元を渡すと上書きする
                         $ok = [object]::ReferenceEquals($parent.CommandElements[1], $use)
                     } elseif ($allowedCommands -contains $commandName) {
@@ -300,10 +345,9 @@ Describe "危険な処理を使っていないこと（docs/safety/checks.md「�
         ($addType.Count -gt 0) | Should -Be $true
     }
 
-    It "Windows Search への問い合わせは windows_search.ps1 だけで行い、SELECT だけを送る" {
-        # 高速検索（docs/design/search/index.md）は OLE DB の Search.CollatorDSO で読み取るだけ。ほかのファイルからは DB に触らない
-        (@($code | Where-Object { $_.Text -match 'OleDb|CommandText' -and $_.File -ne "windows_search.ps1" } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
-        (@($code | Where-Object { $_.File -eq "windows_search.ps1" -and $_.Text -match '\^\\s\*SELECT' }).Count -gt 0) | Should -Be $true
+    It "Windows Search を使わない（OleDb・CommandText・NotContentIndexed がどこにも無い）" {
+        # 検索は自前の gram 索引で候補を絞る。Windows Search への問い合わせと、インデックスの対象から外す属性の書き込みはしない
+        (@($code | Where-Object { $_.Text -match 'OleDb|CommandText|NotContentIndexed|CollatorDSO' } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
     }
 
     It "レジストリを読み書きしない" {
@@ -383,7 +427,7 @@ Describe "危険な処理を使っていないこと（docs/safety/checks.md「�
         findPattern $code '\btaskkill\b|\bCloseMainWindow\b|\bTerminate\b|\bspps\b|(^|[;|&({\s])kill\s+-?\w' | Should -Be ""
     }
 
-    It "プロセスを止める .Kill() は、決まった 3 か所（quitApp・OfficeWatchdog の Start・IndexingSession の KillOffice）だけで、どれも同じ関数の中で isSameOfficeProcess を呼ぶ" {
+    It "プロセスを止める .Kill() は、決まった 3 か所（quitApp・OfficeWatchdog の Start・IndexingSession の KillOffice）だけで、どれも同じ関数の中で、止める前に照合（isSameOfficeProcess、または compareOfficeProcess の結果が Same の枝）を通す" {
         $found = New-Object System.Collections.Generic.List[string]
         $unchecked = New-Object System.Collections.Generic.List[string]
         foreach ($file in $scriptFiles) {
@@ -403,6 +447,17 @@ Describe "危険な処理を使っていないこと（docs/safety/checks.md「�
         @{ name = "クラスのメソッドの中の .Kill()"; code = 'class C { [void] M($p) { $p.Kill() } }'; places = "M"; unchecked = "M" }
         @{ name = "別の関数にある照合は数えない"; code = 'function a { isSameOfficeProcess 1 2 3 } function b { $p.Kill() }'; places = "b"; unchecked = "b" }
         @{ name = "関数の外の .Kill()"; code = '$p.Kill()'; places = "(関数の外)"; unchecked = "(関数の外)" }
+        @{ name = "switch の Same の枝の .Kill()"; code = 'function a { switch (compareOfficeProcess $p "X" 1) { "Same" { $p.Kill() } default { } } }'; places = "a"; unchecked = "" }
+        @{ name = "-eq Same の枝の .Kill()"; code = 'function a { if ((compareOfficeProcess $p "X" 1) -eq "Same") { $p.Kill() } }'; places = "a"; unchecked = "" }
+        @{ name = "switch の Same でない枝の .Kill()"; code = 'function a { switch (compareOfficeProcess $p "X" 1) { "Same" { } default { $p.Kill() } } }'; places = "a"; unchecked = "a" }
+        @{ name = "-ne Same の枝の .Kill()"; code = 'function a { if ((compareOfficeProcess $p "X" 1) -ne "Same") { $p.Kill() } }'; places = "a"; unchecked = "a" }
+        @{ name = "compareOfficeProcess を呼ぶだけで Same と比べない .Kill()"; code = 'function a { $r = compareOfficeProcess $p "X" 1; $p.Kill() }'; places = "a"; unchecked = "a" }
+        @{ name = "compareOfficeProcess の結果を .Kill() のあとで比べる"; code = 'function a { $p.Kill(); if ((compareOfficeProcess $p "X" 1) -eq "Same") { } }'; places = "a"; unchecked = "a" }
+        @{ name = "compareOfficeProcess でない比べの Same の枝の .Kill()"; code = 'function a { if ($r -eq "Same") { $p.Kill() } }'; places = "a"; unchecked = "a" }
+        @{ name = "-not で打ち消した Same の枝の .Kill()"; code = 'function a { if (-not ((compareOfficeProcess $p "X" 1) -eq "Same")) { $p.Kill() } }'; places = "a"; unchecked = "a" }
+        @{ name = "switch の対象が compareOfficeProcess の呼び出しそのものでない（配列に混ぜた）Same の枝の .Kill()"; code = 'function a { switch ((compareOfficeProcess $p "X" 1), "Same") { "Same" { $p.Kill() } } }'; places = "a"; unchecked = "a" }
+        @{ name = "左右を入れ替えた Same -eq compareOfficeProcess の枝の .Kill()"; code = 'function a { if ("Same" -eq (compareOfficeProcess $p "X" 1)) { $p.Kill() } }'; places = "a"; unchecked = "" }
+        @{ name = "-or で Same でない場合も入る枝の .Kill()"; code = 'function a { if ((compareOfficeProcess $p "X" 1) -eq "Different" -or $x -eq "Same") { $p.Kill() } }'; places = "a"; unchecked = "a" }
     ) {
         param ($name, $code, $places, $unchecked)
         $result = getKillViolations $code
@@ -496,7 +551,7 @@ Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を�
         $officeReaderLines = @($code | Where-Object { $_.File -eq "office_reader.ps1" })
         $funcStarts = @($officeReaderLines | Where-Object { $_.Text -match '^\s*function\s+\w+' } | Sort-Object Line)
         # readZipEntry のほかに、シートのヘッダー・フッターを流れで読む readXlsxSheetHeaderFooter だけは、
-        # 大きさの上限（zipSheetStreamMaxBytes。偽りの申告は MaxCharactersInDocument で打ち切る）を付けて entry.Open() してよい
+        # 1ファイルの合計の上限（zipSheetStreamMaxBytes。実際に読んだ量を LimitedReadStream で数えて打ち切る）を付けて entry.Open() してよい
         # readZipEntryBytes（埋め込んだファイルをバイト列で読む）は、readZipEntry と同じ上限の数え方（checkZipEntrySize）を通し、
         # 申告の大きさだけ確保して読む。埋め込みの Excel のシートも readZipEntryBytes で読む（office_embedded.ps1 では
         # entry.Open() を使わない）。出す文字数は addEmbeddedOutputChars で数えて上限を付ける
@@ -509,7 +564,9 @@ Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を�
             $ranges += , @($start, $end)
         }
         $streamed = @($officeReaderLines | Where-Object { $_.Line -ge $ranges[1][0] -and $_.Line -lt $ranges[1][1] })
-        (findPattern $streamed 'MaxCharactersInDocument\s*=\s*\$script:zipSheetStreamMaxBytes') | Should -Not -Be ""
+        # 流れ読みは、1ファイルの残り（zipSheetStreamMaxBytes − zipSheetStreamReadBytes）で止める包み（LimitedReadStream）を通す
+        (findPattern $streamed 'LimitedReadStream\]::new\(\$inner,\s*\$remaining\)') | Should -Not -Be ""
+        (findPattern $streamed '\$script:zipSheetStreamReadBytes\s*\+=') | Should -Not -Be ""
 
         $embeddedLines = @($code | Where-Object { $_.File -eq "office_embedded.ps1" })
         $embeddedStarts = @($embeddedLines | Where-Object { $_.Text -match '^\s*function\s+\w+' } | Sort-Object Line)
@@ -542,6 +599,59 @@ Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を�
         })
         (@($outside | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
         ($targets.Count -gt 0) | Should -Be $true  # 検査の取りこぼし（対象0件で通る）を防ぐ
+    }
+
+    It "1ファイルで読む量の合計（readZipEntry の zipTotalReadBytes と、シートの流れ読みの zipSheetStreamReadBytes）は、readXlsxObjectUnits の始めで0にし、流れ読みは数えて止める包みを通す" {
+        $officeReaderLines = @($code | Where-Object { $_.File -eq "office_reader.ps1" })
+        $funcStarts = @($officeReaderLines | Where-Object { $_.Text -match '^\s*function\s+\w+' } | Sort-Object Line)
+        function getReaderFunctionLines([string]$name) {
+            $start = ($funcStarts | Where-Object { $_.Text -match "function\s+$name\b" }).Line
+            $start | Should -Not -BeNullOrEmpty
+            $end = ($funcStarts | Where-Object { $_.Line -gt $start } | Sort-Object Line | Select-Object -First 1).Line
+            if (-not $end) { $end = [int]::MaxValue }
+            return @($officeReaderLines | Where-Object { $_.Line -ge $start -and $_.Line -lt $end })
+        }
+        # 合計を数え直さないと、2つ目以降のファイルが前のファイルの続きの量で打ち切られる（または上限が効かなくなる）
+        $units = getReaderFunctionLines "readXlsxObjectUnits"
+        (findPattern $units '\$script:zipTotalReadBytes\s*=\s*0') | Should -Not -Be ""
+        (findPattern $units '\$script:zipSheetStreamReadBytes\s*=\s*0') | Should -Not -Be ""
+        # ヘッダー・フッターの流れ読みは、同じ部品を指す <sheet> が複数あっても1回だけ（結果を使い回す）
+        (findPattern $units 'ContainsKey\(\$rel\.Target\)') | Should -Not -Be ""
+
+        # entry.Open() の結果は、数えて止める包みに入れて XmlReader に渡す（包みを通さない読み方が増えたら落ちる）
+        $header = getReaderFunctionLines "readXlsxSheetHeaderFooter"
+        $opens = @($header | Where-Object { $_.Text -match '\.Open\(\)' })
+        $opens.Count | Should -Be 1
+        $opens[0].Text | Should -Match '\$inner\s*=\s*\$entry\.Open\(\)'
+        (findPattern $header 'XmlReader\]::Create\(\$stream,') | Should -Not -Be ""
+        (findPattern $header 'XmlReader\]::Create\(\$inner') | Should -Be ""
+
+        # 包みは、読んだ量が上限を超えたら止める
+        $classStart = ($officeReaderLines | Where-Object { $_.Text -match '^class\s+LimitedReadStream\b' }).Line
+        $classStart | Should -Not -BeNullOrEmpty
+        $classLines = @($officeReaderLines | Where-Object { $_.Line -ge $classStart -and $_.Line -lt ($classStart + 30) })
+        (findPattern $classLines '\$this\.ReadBytes\s*\+=') | Should -Not -Be ""
+        (findPattern $classLines '\$this\.ReadBytes\s+-gt\s+\$this\.Limit') | Should -Not -Be ""
+    }
+
+    It "受け取る zip（index_archive.ps1）のエントリーを開く（.Open()）のは、書き込みの 2 つと上限付きの読み取りの 2 つの関数だけで、ReadToEnd は使わない" {
+        # 申告の大きさ（送り手が書ける）に頼らず、実際に読んだ大きさを数えて打ち切る関数（readArchiveEntryBytesLimited・extractArchiveEntryToFile）を通さずに
+        # 中身を全量読む処理が足されないよう、関数の行範囲で確かめる
+        $archiveLines = @($code | Where-Object { $_.File -eq "index_archive.ps1" })
+        $funcStarts = @($archiveLines | Where-Object { $_.Text -match '^\s*function\s+\w+' } | Sort-Object Line)
+        $ranges = @()
+        foreach ($fn in @("writeArchiveBytes", "writeArchiveFile", "readArchiveEntryBytesLimited", "extractArchiveEntryToFile")) {
+            $start = ($funcStarts | Where-Object { $_.Text -match "function\s+$fn\b" }).Line
+            $start | Should -Not -BeNullOrEmpty
+            $end = ($funcStarts | Where-Object { $_.Line -gt $start } | Sort-Object Line | Select-Object -First 1).Line
+            if (-not $end) { $end = [int]::MaxValue }
+            $ranges += , @($start, $end)
+        }
+        $opens = @($archiveLines | Where-Object { $_.Text -match '\.Open\(\)' })
+        ($opens.Count -gt 0) | Should -Be $true  # 対象 0 件で通ってしまうのを防ぐ
+        $outside = @($opens | Where-Object { $o = $_; @($ranges | Where-Object { $o.Line -ge $_[0] -and $o.Line -lt $_[1] }).Count -eq 0 })
+        (@($outside | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
+        (findPattern $archiveLines 'ReadToEnd') | Should -Be ""
     }
 
     It "readZipEntry の StringBuilder に容量を渡さない（申告の大きさぶんのメモリを先に確保しないため）" {
@@ -618,6 +728,8 @@ Describe "取り込み対象のファイルを書き換えないこと（docs/sa
         @{ name = "元をコピー先にした copyFileShared"; code = 'function ingestFile { param([string]$sourcePath) copyFileShared "x" $sourcePath }'; ok = $false }
         @{ name = "GetFullPath"; code = 'function ingestFile { param([string]$sourcePath) [System.IO.Path]::GetFullPath($sourcePath) }'; ok = $false }
         @{ name = "FileInfo の大きさ（許す）"; code = 'function ingestFile { param([string]$sourcePath) [System.IO.FileInfo]::new((toLongPath $sourcePath)).Length }'; ok = $true }
+        @{ name = "元をコピー先にした invokeWithSourceCopy"; code = 'function ingestFile { param([string]$sourcePath) invokeWithSourceCopy "x" $sourcePath { } }'; ok = $false }
+        @{ name = "invokeWithSourceCopy の元（許す）"; code = 'function ingestFile { param([string]$sourcePath) invokeWithSourceCopy $sourcePath "x" { } }'; ok = $true }
         @{ name = "copyFileShared と GetExtension（許す）"; code = 'function ingestFile { param([string]$sourcePath) copyFileShared $sourcePath "x"; [System.IO.Path]::GetExtension($sourcePath) }'; ok = $true }
     ) {
         $result = getSourcePathViolations $code @("ingestFile")
@@ -688,7 +800,7 @@ Describe "書き込み先が限られていること（docs/safety/file-access.m
         (findPattern $paths 'return \$fallbackDir') | Should -Not -Be ""
         # ワークスペースは設定から決め、中の場所はワークスペースのフォルダから組み立てる
         (findPattern $paths '\$\{script:workspace\}\s*=\s*\[Workspace\]::new\(\(getWorkDir\)\)') | Should -Not -Be ""
-        (findPattern $paths '\$this\.IndexDir\s*=\s*"\$dir\\content_index"') | Should -Not -Be ""
+        (findPattern $paths '\$this\.IndexDir\s*=\s*"\$dir\\store\\content"') | Should -Not -Be ""
         (findPattern $paths '\$\{legacyTmpParent\}\s*=\s*Join-Path\s*\(\[System\.IO\.Path\]::GetTempPath\(\)\)\s*"tebunko"') | Should -Not -Be ""
         (findPattern $paths '\$this\.TmpRoot\s*=\s*"\$dir\\tmp"') | Should -Not -Be ""
         (findPattern $paths '\$this\.OfficePidRoot\s*=\s*"\$dir\\office_pids"') | Should -Not -Be ""
@@ -776,42 +888,6 @@ set "PSCMD=$root=$env:TEBUNKO_ROOT;x"').Count | Should -Be 0
     It "ドライブ直下・システムフォルダを直接指す書き込み先が無い" {
         (findPattern $code '"[A-Za-z]:\\(Windows|Program Files|Users)') | Should -Be ""
         (findPattern $code 'GetFolderPath\("?(System|Windows|ProgramFiles|Startup)') | Should -Be ""
-    }
-
-    It "content_index を Windows Search の対象から外す属性は、fs.ps1 の setNotContentIndexed だけが書き、呼ぶのは決まった 6 ファイルだけ" {
-        # NotContentIndexed 属性を直接書くのは setNotContentIndexed（fs.ps1）だけ。
-        # 読むだけの testNotContentIndexed（fs.ps1。親フォルダの属性を見て引き継ぐか決める）は除く
-        $writes = @($code | Where-Object { $_.Text -match "(?<!set)(?<!test)NotContentIndexed" -and $_.File -ne "fs.ps1" })
-        (@($writes | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
-        (findPattern $code 'function setNotContentIndexed') | Should -Not -Be ""
-        (findPattern $code 'function testNotContentIndexed') | Should -Not -Be ""
-
-        # testNotContentIndexed を呼ぶのは newWorkerTmpDir（index_migrate.ps1）だけ
-        $testCallers = @($code | Where-Object { $_.Text -match "testNotContentIndexed" -and $_.Text -notmatch "function testNotContentIndexed" })
-        (@($testCallers | ForEach-Object { $_.File } | Sort-Object -Unique) -join ", ") | Should -Be "index_migrate.ps1"
-
-        # 呼ぶのは全体に付ける indexer_run.ps1・取り込みの作業フォルダに付ける index_migrate.ps1・
-        # 入れた直後に付ける index_store.ps1・content_index_store.ps1・source_map.ps1・インポートで入れたフォルダ全体に付ける index_archive.ps1 の 6 ファイルだけ
-        $callers = @($code | Where-Object { $_.Text -match "setNotContentIndexed" -and $_.Text -notmatch "function setNotContentIndexed" })
-        $callerFiles = @($callers | ForEach-Object { $_.File } | Sort-Object -Unique)
-        $callerFiles.Count | Should -Be 6
-        ($callerFiles -contains "indexer_run.ps1") | Should -Be $true
-        ($callerFiles -contains "index_migrate.ps1") | Should -Be $true
-        ($callerFiles -contains "index_store.ps1") | Should -Be $true
-        ($callerFiles -contains "content_index_store.ps1") | Should -Be $true
-        ($callerFiles -contains "source_map.ps1") | Should -Be $true
-        ($callerFiles -contains "index_archive.ps1") | Should -Be $true
-
-        # 渡す引数まで確かめる（indexer_run.ps1 は $workspace.IndexDir、index_migrate.ps1 は取り込みの作業フォルダ（$dir）、
-        # index_store.ps1 は $bookDir、content_index_store.ps1 は $folder、index_archive.ps1 は $targetIndexDir）。
-        # -Recurse で下をたどるのは indexer_run.ps1（content_index 全体）と index_archive.ps1（インポートで入れた 1 つのインデックス。Directory.Move で入るため）だけ（ほかは 1 か所ずつなので要らない）
-        (findPattern $callers 'setNotContentIndexed\s+\$workspace\.IndexDir\s+-Recurse') | Should -Not -Be ""
-        (findPattern $callers 'setNotContentIndexed\s+\$dir\)') | Should -Not -Be ""
-        (findPattern $callers 'setNotContentIndexed\s+\$bookDir\)') | Should -Not -Be ""
-        (findPattern $callers 'setNotContentIndexed\s+\$folder\)') | Should -Not -Be ""
-        (findPattern $callers 'setNotContentIndexed\s+\$targetIndexDir\s+-Recurse') | Should -Not -Be ""
-        $recurseCallers = @($callers | Where-Object { $_.Text -match "-Recurse" } | ForEach-Object { $_.File } | Sort-Object -Unique)
-        ($recurseCallers -join ", ") | Should -Be "index_archive.ps1, indexer_run.ps1"
     }
 
     It "%TEMP% を指す書き方は決めた所だけ（取り込みの作業フォルダはワークスペースの tmp\\の下を使う）" {

@@ -376,10 +376,14 @@ $ui.PreviewScroll.Add_ScrollChanged({
     }
 })
 # 結果の表とプレビューの境目。結果が少ないときは表を内容の高さまで縮めてプレビューを広げる（判断は getPreviewRowHeight）。
-# 利用者が境目をドラッグしたら、その高さを優先して、それ以後は自動で変えない
+# 利用者が境目をドラッグしている間は、自動で高さを書き戻さない（書き戻すと境目がマウスに付いて来ない）。
+# ドラッグして実際に動かしたら、その高さを優先して、それ以後は自動で変えない（クリックしただけでは止めない）
 $script:previewHeightDragged = $false
 $ui.PreviewSplitter.Add_DragCompleted({
-    $script:previewHeightDragged = $true
+    param ($sender, $e)
+    if (-not $e.Canceled -and $e.VerticalChange -ne 0) {
+        $script:previewHeightDragged = $true
+    }
 })
 
 function updateResultPaneHeight {
@@ -389,7 +393,7 @@ function updateResultPaneHeight {
         [int]$itemCount = 0
     )
 
-    if ($script:previewHeightDragged) { return }
+    if ($script:previewHeightDragged -or $ui.PreviewSplitter.IsDragging) { return }
     $available = $ui.ResultListHost.ActualHeight + $ui.DetailRow.ActualHeight
     $width = $ui.ResultListHost.ActualWidth
     if ($available -le 0 -or $width -le 0) { return }   # まだ画面に出ていない

@@ -3,18 +3,13 @@
 # 画面（ui\index_tree.ps1・ui\index\index_types.ps1 の IndexNode）は、この結果を受け取って組み立てるだけにする。
 
 function testIndexBookName {
-    # 元のファイルごとのフォルダと分かる拡張子か。Office は拡張子の形（.xls・.doc・.ppt で始まり 4～5 文字）で見分け、
-    # テキストは対象の拡張子の一覧（shared\core\text_file.ps1 の testTextExtension。一覧はそこにだけある）で見分ける
+    # 元のファイルごとのフォルダと分かる拡張子か。Office・テキスト・PDF の対象の拡張子の一覧で見分ける
+    # （一覧は indexBookDirPattern の 1 つ。Office は shared\office\office_file_kind_view.ps1、テキストは shared\core\text_file.ps1 の表にだけある）
     param (
         [string]$name
     )
 
-    $ext = [System.IO.Path]::GetExtension($name).ToLowerInvariant()
-    if ($ext.Length -ge 4 -and $ext.Length -le 5 -and
-        ($ext.StartsWith(".xls") -or $ext.StartsWith(".doc") -or $ext.StartsWith(".ppt"))) {
-        return $true
-    }
-    return ((testTextExtension $name) -or (testPdfExtension $name))
+    return ($name -match ${indexBookDirPattern})
 }
 
 function testIndexBookDirPath {
@@ -102,7 +97,8 @@ function getIndexTreeData {
     # 検索対象ツリーの材料を集める。
     #   dir: インデックスのフォルダ（work\index）  paths: 展開していたフォルダ・チェックを外したフォルダ（インデックスの根から先祖すべての子も返す）
     # 返すもの: @{ State（getPathState の State）; Message; Root; Sources（getSourceFolderMap の結果）;
-    #   Indexes = @(@{ Name; SourcePath; Exists; HasSubfolders }); Children = @{ <フォルダ> = getIndexFolderChildren の結果 } }
+    #   Indexes = @(@{ Name; SourcePath; Exists; HasSubfolders }); Children = @{ <フォルダ> = getIndexFolderChildren の結果 };
+    #   OldIndexCount = 古い形式のまま（作り直されていない）で、検索の対象に入らないインデックスの数 }
     # インデックスのフォルダに接続できない・その他のときは、列挙せずに State と文面だけを返す
     # （Test-Path が $false を返して「インデックスが無い」と取り違えないため）
     param (
@@ -112,7 +108,7 @@ function getIndexTreeData {
         [string[]]$paths = @()
     )
 
-    $result = @{ State = ${pathStateMissing}; Message = ""; Root = $dir; Sources = @{}; Indexes = @(); Children = @{} }
+    $result = @{ State = ${pathStateMissing}; Message = ""; Root = $dir; Sources = @{}; Indexes = @(); Children = @{}; OldIndexCount = 0 }
     $state = getPathState $dir
     if ($state.State -ne ${pathStateFound}) {
         $result.State = $state.State
@@ -137,6 +133,11 @@ function getIndexTreeData {
         })
     }
     $result.Indexes = $indexes.ToArray()
+    # 古い形式のインデックス（古い置き場にだけ本文インデックスがある）。調べるだけで、目録は書かない
+    $storeWorkspace = newWorkspace (getWorkspaceDirOfIndexDir $dir)
+    $currentNames = getIndexNamesWithContent $storeWorkspace.IndexDir
+    $oldNames = findOldIndexNames $storeWorkspace
+    $result.OldIndexCount = @($oldNames | Where-Object { @($currentNames) -notcontains $_ }).Count
 
     # 先祖すべての子を入れる（深い階層の展開・除外を戻すため）
     foreach ($index in $indexes) {

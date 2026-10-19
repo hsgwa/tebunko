@@ -71,10 +71,10 @@ function testWorkspaceChoice {
     if (testSameFolder $folder $current $drives) {
         return @{ Kind = "same"; Message = "" }
     }
-    # 今のインデックスの中に置くと、ワークスペースの中身がインデックスとして検索される（前の版の index\ が残っている場合も同じ）。
+    # 今のインデックスの中に置くと、ワークスペースの中身がインデックスとして検索される（前の版の content_index\・index\ が残っている場合も同じ）。
     # フォルダ名は Workspace（core\workspace.ps1）の 1 か所から取る
     $currentWorkspace = [Workspace]::new($current)
-    if ((testFolderUnder $folder $currentWorkspace.IndexDir $drives) -or (testFolderUnder $folder $currentWorkspace.LegacyIndexDir $drives)) {
+    if ((testFolderUnder $folder $currentWorkspace.StoreDir $drives) -or (testFolderUnder $folder $currentWorkspace.OldIndexDir $drives) -or (testFolderUnder $folder $currentWorkspace.LegacyIndexDir $drives)) {
         return @{ Kind = "error"; Message = "「${folder}」は今のインデックスのフォルダの中です。インデックスの外のフォルダを選んでください。" }
     }
     if (-not $writable) {
@@ -269,4 +269,100 @@ function getWorkspaceMoveOutcome {
         $status = "ワークスペースを「${folder}」に変え、中身を移しました（移す前の場所：${previous}）"
     }
     return @{ Ok = $true; Warning = ""; Status = $status; Close = $closeRequested }
+}
+
+function formatSearchLimit {
+    # 検索結果の件数の上限を、3 桁区切りの文字にする（画面の欄・文言用）
+    param (
+        [int]$value
+    )
+
+    return $value.ToString("N0", [System.Globalization.CultureInfo]::InvariantCulture)
+}
+
+function getSearchLimitTexts {
+    # 検索結果の件数の上限の説明: @{ Range（範囲と既定）; Caution（重さの注意）; Error（入力が正しくないときの理由） }
+    # 範囲・既定は呼ぶ側が渡す（設定の定数は読まない）
+    param (
+        [int]$min,
+        [int]$max,
+        [int]$default
+    )
+
+    $range = "$(formatSearchLimit $min)～$(formatSearchLimit $max)"
+    return @{
+        Range   = "${range} 件の範囲で指定できます。既定は $(formatSearchLimit $default) 件です。"
+        Caution = "制限なしや大きい件数にすると、表の表示に時間がかかり、メモリを多く使います。よく出る語では画面が長く止まることがあります。"
+        Error   = "${range} の数で入力してください。"
+    }
+}
+
+function getSearchLimitView {
+    # 検索結果の件数の上限の表示: @{ Mode（"Limited" / "None"）; Text（欄に出す数。制限なしのときは既定を残して見せる） }
+    param (
+        [int]$current,
+        [int]$default
+    )
+
+    if ($current -eq 0) {
+        return @{ Mode = "None"; Text = (formatSearchLimit $default) }
+    }
+    return @{ Mode = "Limited"; Text = (formatSearchLimit $current) }
+}
+
+function testSearchLimitKeepText {
+    # 制限なしにしたとき、欄の文字を残してよいか（［制限あり］の入力として正しいときだけ残す）
+    param (
+        [string]$text,
+        [int]$current,
+        [int]$min,
+        [int]$max,
+        [int]$default
+    )
+
+    return ((getSearchLimitInputDecision "Limited" $text $current $min $max $default).Action -ne "Invalid")
+}
+
+function getSearchLimitInputDecision {
+    # 検索結果の件数の上限を確定するときの判断。@{ Action; Value; Message }
+    #   Action: None（変わっていない。欄を今の値に戻す）/ Invalid（直してほしい。Message に理由）/ Apply（Value で保存する。0 は制限なし）
+    # mode: "Limited"（欄の数。全角の数字・前後の空白を受ける。, は表示だけなので、どこにあっても無視する）/ "None"（制限なし）
+    param (
+        [string]$mode,
+        [string]$text,
+        [int]$current,
+        [int]$min,
+        [int]$max,
+        [int]$default
+    )
+
+    if ($mode -eq "None") {
+        if ($current -eq 0) {
+            return @{ Action = "None"; Value = 0; Message = "" }
+        }
+        return @{ Action = "Apply"; Value = 0; Message = "" }
+    }
+
+    $typed = ([string]$text).Trim().Replace("，", ",")
+    $typed = [regex]::Replace($typed, "[０-９]", { param ($match) [string]([int][char]$match.Value - [int][char]"０") })
+    if ($typed -eq "") {
+        # 制限なしから［制限あり］に戻したが欄が空: 既定の件数にする。ほかは変えない
+        if ($current -eq 0) {
+            return @{ Action = "Apply"; Value = $default; Message = "" }
+        }
+        return @{ Action = "None"; Value = $current; Message = "" }
+    }
+    $invalid = @{ Action = "Invalid"; Value = $current; Message = (getSearchLimitTexts $min $max $default).Error }
+    $typed = $typed.Replace(",", "")
+    if ($typed -notmatch '^[0-9]+$') {
+        return $invalid
+    }
+    $number = 0L
+    if (![long]::TryParse($typed, [ref]$number) -or $number -lt $min -or $number -gt $max) {
+        return $invalid
+    }
+    if ($number -eq $current) {
+        return @{ Action = "None"; Value = $current; Message = "" }
+    }
+    return @{ Action = "Apply"; Value = [int]$number; Message = "" }
 }

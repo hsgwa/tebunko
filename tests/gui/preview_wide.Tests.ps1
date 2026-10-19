@@ -24,7 +24,7 @@ Describe "プレビューの全部の列と読み足し" -Tag Gui {
         newTsv "$tsvRoot\営業\広い.xlsx\$(toIndexFileName "表")" $lines.ToArray()
         # 1 列だけの Word のページ
         newTsv "$tsvRoot\営業\議事録.docx\$(toIndexFileName "ページ001")" @("前の行", "狭い語の行", "後ろの行")
-        [void](newContentIndexFiles $tsvRoot "$($script:tool.Work)\content_index")
+        [void](newContentIndexFiles $tsvRoot "$($script:tool.Work)\store\content")
         writeGuiConfig $script:tool.Dir ([ordered]@{ workspaceFolder = $script:tool.Work })
     }
 

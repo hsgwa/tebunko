@@ -60,6 +60,8 @@ Describe "testIndexArchiveEntryLocation" -Tag Unit {
         @{ path = "content_index/2024/source_folder.txt" }
         @{ path = "content_index/content.xlsx.001.tsv"; label = "前の版の名前" }
         @{ path = "content_index/content_index.xlsx.tsv"; label = "番号が無い" }
+        @{ path = "content_index/content_index.xlsx.99999999999.tsv"; label = "番号が桁あふれ" }
+        @{ path = "content_index/content_index.xlsx.００１.tsv"; label = "全角の数字" }
         @{ path = "system_index/content_index.xlsx.001.tsv" }
     ) {
         param ($path)
@@ -103,6 +105,33 @@ Describe "testIndexArchiveManifest" -Tag Unit {
         testIndexArchiveManifest $null @("tebunko-index.json") 10 | Should -Not -BeNullOrEmpty
     }
 
+    It "上限: <label>は、ちょうどなら通り、1 超えると理由を返す" -TestCases @(
+        @{ label = "エントリーの数"; kind = "entries" }
+        @{ label = "目録の files の大きさの合計"; kind = "total" }
+        @{ label = "ingest_status.tsv の大きさ"; kind = "status" }
+    ) {
+        param ($label, $kind)
+        $statusSize = 10
+        $contentSize = 10
+        $extraNames = @()
+        switch ($kind) {
+            "entries" { $extraNames = @(1..(${indexArchiveMaxEntries} - 3) | ForEach-Object { "x$_" }) }
+            "total" { $statusSize = 1; $contentSize = ${indexArchiveMaxTotalBytes} - 1 }
+            "status" { $statusSize = ${indexArchiveMaxStatusBytes} }
+        }
+        $entryNames = @("tebunko-index.json", "ingest_status.tsv", "content_index/content_index.xlsx.001.tsv") + $extraNames
+        $files = @((newManifestFile "ingest_status.tsv" $statusSize), (newManifestFile "content_index/content_index.xlsx.001.tsv" $contentSize))
+        # 上限ちょうど（エントリーは目録に無い名前が混ざるので、数の確かめだけ見る）
+        if ($kind -eq "entries") {
+            (testIndexArchiveManifest (newManifest $files) $entryNames 100) | Should -Not -BeLike "*多すぎ*"
+            (testIndexArchiveManifest (newManifest $files) ($entryNames + "x_over") 100) | Should -BeLike "*多すぎ*"
+        } else {
+            testIndexArchiveManifest (newManifest $files) $entryNames 100 | Should -Be ""
+            $over = if ($kind -eq "total") { @((newManifestFile "ingest_status.tsv" 2), (newManifestFile "content_index/content_index.xlsx.001.tsv" $contentSize)) } else { @((newManifestFile "ingest_status.tsv" ($statusSize + 1)), (newManifestFile "content_index/content_index.xlsx.001.tsv" $contentSize)) }
+            testIndexArchiveManifest (newManifest $over) $entryNames 100 | Should -BeLike "*大きすぎ*"
+        }
+    }
+
     It "format が違うと理由を返す" {
         $files = @((newManifestFile "ingest_status.tsv"))
         $manifest = newManifest $files
@@ -124,10 +153,19 @@ Describe "testIndexArchiveManifest" -Tag Unit {
 
     It "formatVersion が今の版より大きければ「新しい版」の理由を返す" {
         $files = @((newManifestFile "ingest_status.tsv"))
-        $manifest = newManifest $files -formatVersion 2
+        $manifest = newManifest $files -formatVersion (${indexArchiveFormatVersion} + 1)
 
         $reason = testIndexArchiveManifest $manifest @("tebunko-index.json", "ingest_status.tsv") 10
         $reason | Should -Match "新しい版"
+    }
+
+    It "formatVersion が今の版より小さければ、古い形式の理由（作り直しの案内つき）を返す" {
+        $files = @((newManifestFile "ingest_status.tsv"))
+        $manifest = newManifest $files -formatVersion 1
+
+        $reason = testIndexArchiveManifest $manifest @("tebunko-index.json", "ingest_status.tsv") 10
+        $reason | Should -Match "古い形式"
+        $reason | Should -Match ([regex]::Escape(${indexRebuildMessage}))
     }
 
     It "インデックス名が testIndexName を通らなければ理由を返す" {
@@ -239,6 +277,41 @@ Describe "testImportedStatusRow・testImportedStatusLines" -Tag Unit {
     It "空行は読み飛ばす" {
         $lines = @($script:header, (newRow "a.xlsx"), "")
         testImportedStatusLines $lines | Should -Be ""
+    }
+}
+
+Describe "testImportedContentIndexFile" -Tag Unit {
+    BeforeAll {
+        $script:rs = [string]${contentIndexMark}
+        $script:ver = "$($script:rs) 版=${contentIndexVersion}"
+        $script:good = "$($script:ver)`n$($script:rs) ファイル名=a.xlsx`n$($script:rs) シート=Sheet1`n品名`t数量`n鉛筆`t10`n"
+    }
+
+    It "断る（<label>）: 理由を返す" -TestCases @(
+        @{ label = "版が違う（検索・更新の両方が断る）"; text = { "$($script:rs) 版=99`n$($script:rs) ファイル名=a.xlsx`n" }; size = 100 }
+        @{ label = "版の行が無い（検索・更新の両方が断る）"; text = { "$($script:rs) ファイル名=a.xlsx`n$($script:rs) シート=Sheet1`n鉛筆`n" }; size = 100 }
+        @{ label = "2 行目以降に版の違う行がある（検索だけが断る）"; text = { "$($script:ver)`n$($script:rs) ファイル名=a.xlsx`n$($script:rs) 版=99`n" }; size = 100 }
+        @{ label = "版の行が 1 行目に無い（更新だけが断る）"; text = { "品名`n$($script:ver)`n$($script:rs) ファイル名=a.xlsx`n" }; size = 100 }
+        @{ label = "ファイル名の行で終わり改行が無い（更新だけが断る）"; text = { "$($script:ver)`n$($script:rs) ファイル名=a.xlsx" }; size = 100 }
+        @{ label = "大きさが上限を超える（大きさで断る。中身は渡さない）"; text = { $null }; size = (64MB + 1) }
+    ) {
+        param ($label, $text, $size)
+        testImportedContentIndexFile $size (& $text) | Should -Not -BeNullOrEmpty
+    }
+
+    It "受け入れる（<label>）: 空文字列を返す" -TestCases @(
+        @{ label = "正しい中身"; text = { $script:good } }
+        @{ label = "空の中身"; text = { "" } }
+        @{ label = "メタ情報の行に = が無い"; text = { $script:good.Replace("シート=Sheet1", "シート") } }
+        @{ label = "中身の行が途中で切れている"; text = { $script:good.Substring(0, $script:good.IndexOf("鉛筆") + 1) } }
+        @{ label = "メタ情報の行だけで中身が無い"; text = { $script:good.Substring(0, $script:good.IndexOf("品名")) } }
+    ) {
+        param ($label, $text)
+        testImportedContentIndexFile 100 (& $text) | Should -Be ""
+    }
+
+    It "大きさが上限ちょうどなら受け入れる" {
+        testImportedContentIndexFile 64MB $script:good | Should -Be ""
     }
 }
 

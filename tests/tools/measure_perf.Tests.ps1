@@ -233,14 +233,14 @@ Describe "perf_common.ps1 の入力しながらの検索の部品" -Tag Unit {
 
     It "1 回ごとの記録から、2 回目以降の統計・全回の統計・1 回目の値・回数の合計を作る" {
         $attempts = @(
-            @{ FirstHitMs = 50; FinishMs = 80; WaitPrevMs = 5; IntervalMs = @(140); LagMs = @(2, 10); RequestMs = @(1, 2); Hits = 1; Truncated = $false; Packs = 5; FastUsed = $false; CancelledSteps = 1 }
-            @{ FirstHitMs = $null; FinishMs = 60; WaitPrevMs = 0; IntervalMs = @(145); LagMs = @(1, 3); RequestMs = @(1, 1); Hits = 0; Truncated = $false; Packs = 5; FastUsed = $true; CancelledSteps = 0 }
-            @{ FirstHitMs = 40; FinishMs = 70; WaitPrevMs = 2; IntervalMs = @(150); LagMs = @(0, 5); RequestMs = @(1, 2); Hits = 1; Truncated = $false; Packs = 5; FastUsed = $true; CancelledSteps = 2 }
+            @{ FirstHitMs = 50; FinishMs = 80; WaitPrevMs = 5; IntervalMs = @(140); LagMs = @(2, 10); RequestMs = @(1, 2); Hits = 1; Truncated = $false; Packs = 5; GramUsed = $false; CancelledSteps = 1 }
+            @{ FirstHitMs = $null; FinishMs = 60; WaitPrevMs = 0; IntervalMs = @(145); LagMs = @(1, 3); RequestMs = @(1, 1); Hits = 0; Truncated = $false; Packs = 5; GramUsed = $true; CancelledSteps = 0 }
+            @{ FirstHitMs = 40; FinishMs = 70; WaitPrevMs = 2; IntervalMs = @(150); LagMs = @(0, 5); RequestMs = @(1, 2); Hits = 1; Truncated = $false; Packs = 5; GramUsed = $true; CancelledSteps = 2 }
         )
         $r = newTypingWordResult -name "まれ" -regex $false -steps 2 -attempts $attempts
         $r.Skipped | Should -BeNullOrEmpty
         $r.Hits | Should -Be 1   # 最後（3 回目）の要求の結果
-        $r.FastUsed | Should -Be 2   # 全回のうち高速検索を使った回数
+        $r.GramUsed | Should -Be 2   # 全回のうち gram 索引を使った回数
         $r.CancelledSteps | Should -Be 2   # 2 回目以降（0 + 2）の合計
         $r.FirstHitMs.Median | Should -Be 40   # 2 回目以降（$null を除く）
         $r.FirstHitMs.Count | Should -Be 1
@@ -256,8 +256,8 @@ Describe "perf_common.ps1 の入力しながらの検索の部品" -Tag Unit {
 
     It "ヒットの無い語（2 回目以降すべて null）は、FirstHitMs の統計が null になる" {
         $attempts = @(
-            @{ FirstHitMs = $null; FinishMs = 20; WaitPrevMs = 0; IntervalMs = @(); LagMs = @(0); RequestMs = @(1); Hits = 0; Truncated = $false; Packs = 3; FastUsed = $false; CancelledSteps = 0 }
-            @{ FirstHitMs = $null; FinishMs = 18; WaitPrevMs = 0; IntervalMs = @(); LagMs = @(0); RequestMs = @(1); Hits = 0; Truncated = $false; Packs = 3; FastUsed = $false; CancelledSteps = 0 }
+            @{ FirstHitMs = $null; FinishMs = 20; WaitPrevMs = 0; IntervalMs = @(); LagMs = @(0); RequestMs = @(1); Hits = 0; Truncated = $false; Packs = 3; GramUsed = $false; CancelledSteps = 0 }
+            @{ FirstHitMs = $null; FinishMs = 18; WaitPrevMs = 0; IntervalMs = @(); LagMs = @(0); RequestMs = @(1); Hits = 0; Truncated = $false; Packs = 3; GramUsed = $false; CancelledSteps = 0 }
         )
         $r = newTypingWordResult -name "無い" -regex $false -steps 1 -attempts $attempts
         $r.Hits | Should -Be 0
@@ -624,26 +624,12 @@ Describe "measure_perf.ps1" -Tag Io {
         @{ name = "-PreviewFullRead だけ（-Preview が無い）"; extraArgs = @{ PreviewFullRead = $true }; expectedMessage = "*-PreviewFullRead は -Preview*" }
         @{ name = "-ReadMore だけ（-Preview が無い）"; extraArgs = @{ ReadMore = $true }; expectedMessage = "*-ReadMore は -Preview*" }
         @{ name = "-Typing 1"; extraArgs = @{ Typing = 1 }; expectedMessage = "*-Typing は 0 か 2 以上*" }
-        @{ name = "-TypingFast で -Index が <Work>\content_index でないとき"; extraArgs = @{ Typing = 2; TypingFast = $true }; expectedMessage = "*content_index*" }
     ) {
         param ($extraArgs, $expectedMessage)
         $w = Join-Path $TestDrive ("typing-bad-" + [guid]::NewGuid().ToString("N"))
         { & $measure -Index $index -Work $w -Words $words -Count 1 -SampleMs 50 @extraArgs 6>$null | Out-Null } | Should -Throw -ExpectedMessage $expectedMessage
         # 始める前（インデックス作成・検索の前）に失敗するため、結果のフォルダは作られない
         (Test-Path -LiteralPath (Join-Path $w "result")) | Should -Be $false
-    }
-
-    It "-TypingFast は、-Index を <Work>\content_index にすれば最後まで動く" {
-        $w = Join-Path $TestDrive "typing-fast"
-        $fastIndex = Join-Path $w "content_index"
-        writeTsv "$fastIndex\営業\見積.xlsx\シート1.tsv" @("1`t見積書`t山田")
-        & $measure -Index $fastIndex -Work $w -Words $words -Count 1 -SampleMs 50 -Typing 2 -TypingIntervalMs 50 -TypingFast 6>$null | Out-Null
-        $r = [System.IO.File]::ReadAllText("$w\result\result.json") | ConvertFrom-Json
-        $r.Typing.Fast | Should -Be $true
-        $byName = @{}
-        foreach ($t in $r.Typing.Words) { $byName[$t.Name] = $t }
-        # ランナーには Windows Search が無いことがあるので、高速検索を使えたか（FastUsed）は比べない
-        $byName["まれ"].Hits | Should -Be 1
     }
 
     It "実行の日時は、現在のカルチャ（暦・時刻の区切り）に左右されず ISO 8601 の形で書く" {
@@ -826,6 +812,71 @@ Describe "new_ingest_data.ps1" -Tag Io {
     }
 }
 
+Describe "measure_perf.ps1 -Xlsx" -Tag Io {
+    BeforeAll {
+        $measure = "$PSScriptRoot\..\..\tools\measure_perf.ps1"
+        $repoConfig = Join-Path (Resolve-Path "$PSScriptRoot\..\..").ProviderPath "setting.config"
+        $configBefore = if (Test-Path -LiteralPath $repoConfig) { (Get-FileHash $repoConfig).Hash } else { $null }
+        $work = Join-Path $TestDrive "xlsx-work"
+        & $measure -Xlsx 2 -XlsxRows 50 -XlsxManyRows 20 -Work $work -SampleMs 20 -RunId "9" -Sha "abc1234" 6>$null | Out-Null
+        $out = Join-Path $work "result"
+        $result = [System.IO.File]::ReadAllText("$out\result.json") | ConvertFrom-Json
+    }
+
+    It "Excel の流れ読みを測り、読んだ場所の数・行の数・失敗の数・時間を書く" {
+        $result.Schema | Should -Be 5
+        $result.Xlsx.Repeat | Should -Be 2
+        $result.Xlsx.Rows | Should -Be 50
+        $result.Xlsx.ManyRows | Should -Be 20
+        $result.Xlsx.NormalUnits | Should -Be 1
+        $result.Xlsx.NormalLines | Should -Be 2
+        $result.Xlsx.ManyLines | Should -Be (2 * $result.Xlsx.ManySheets)
+        $result.Xlsx.ManyUnits | Should -Be $result.Xlsx.ManySheets
+        $result.Xlsx.NormalFailures | Should -Be 0
+        $result.Xlsx.ManyFailures | Should -Be 0
+        $result.Xlsx.NormalMs.Count | Should -Be 2
+        $result.Xlsx.ManyMs | Should -BeGreaterOrEqual 0
+        @($result.Xlsx.Resources | ForEach-Object { $_.Phase }) | Should -Contain "普通のブック"
+        @($result.Xlsx.Resources | ForEach-Object { $_.Phase }) | Should -Contain "同じ部品を指すブック"
+    }
+
+    It "-Xlsx だけのときは、Index・Search・Ingest のキーを残して null にする" {
+        $names = @($result.PSObject.Properties | ForEach-Object { $_.Name })
+        foreach ($name in @("Index", "Search", "Ingest", "Xlsx")) { $names | Should -Contain $name }
+        $result.Index | Should -BeNullOrEmpty
+        $result.Search | Should -BeNullOrEmpty
+        $result.Ingest | Should -BeNullOrEmpty
+        [System.IO.File]::Exists("$out\searches.csv") | Should -Be $false
+        [System.IO.File]::Exists("$out\resource-xlsx.csv") | Should -Be $true
+    }
+
+    It "metrics.csv に xlsx_ の行を書く" {
+        $metrics = @(Import-Csv "$out\metrics.csv")
+        foreach ($stat in @("min", "median", "mean", "max")) {
+            @($metrics | Where-Object { $_.metric -eq "xlsx_normal_ms" -and $_.stat -eq $stat }).Count | Should -Be 1
+        }
+        foreach ($name in @("xlsx_normal_units", "xlsx_normal_failures", "xlsx_many_ms", "xlsx_many_units", "xlsx_many_failures", "xlsx_peak_working_set_mb")) {
+            @($metrics | Where-Object { $_.metric -eq $name }).Count | Should -Be 1
+        }
+        @($metrics | Where-Object { $_.metric -eq "xlsx_normal_failures" }).value | Should -Be "0"
+        @($metrics | Where-Object { $_.metric -like "index_*" -or $_.metric -like "search_*" -or $_.metric -like "ingest_*" }).Count | Should -Be 0
+    }
+
+    It "summary.md に「Excel の流れ読み」の表を書き、パスを書かない" {
+        $md = [System.IO.File]::ReadAllText("$out\summary.md")
+        $md | Should -Match "## Excel の流れ読み"
+        $md | Should -Not -Match "## インデックス作成"
+        $md | Should -Not -Match "## 検索"
+        $md.Contains($TestDrive) | Should -Be $false
+        [System.IO.File]::ReadAllText("$out\result.json").Contains($TestDrive) | Should -Be $false
+        [System.IO.File]::ReadAllText("$out\metrics.csv").Contains($TestDrive) | Should -Be $false
+    }
+
+    It "リポジトリの setting.config を作らず、変えない" {
+        $after = if (Test-Path -LiteralPath $repoConfig) { (Get-FileHash $repoConfig).Hash } else { $null }
+        $after | Should -Be $configBefore
+    }
+}
 Describe "measure_perf.ps1 -Office" -Tag Io {
     BeforeAll {
         $measure = "$PSScriptRoot\..\..\tools\measure_perf.ps1"
@@ -924,6 +975,6 @@ Describe "measure_perf.ps1 -Office" -Tag Io {
     }
 
     It "-Index も -Office も無いときは失敗にする" {
-        { & $measure -Work (Join-Path $TestDrive "none") 6>$null } | Should -Throw "*-Index と -Office*"
+        { & $measure -Work (Join-Path $TestDrive "none") 6>$null } | Should -Throw "*-Index・-Office・-Xlsx*"
     }
 }

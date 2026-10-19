@@ -3,10 +3,13 @@
 
 # 目録（tebunko-index.json）の形式
 ${indexArchiveFormat}            = "tebunko-index"
-${indexArchiveFormatVersion}     = 1  # この版が読める形式の版（本文インデックスのファイルの形・zip の中の配置・目録・取り込み一覧の列を変えたら上げる）
+${indexArchiveFormatVersion}     = 2  # この版が読める形式の版（インデックスの格納形式の版 ${indexFormatVersion} と同じ番号にそろえる。本文インデックスのファイルの形・zip の中の配置・目録・取り込み一覧の列を変えたら上げる）
 ${indexArchiveManifestFileName}  = "tebunko-index.json"
 ${indexArchiveStatusEntryName}   = "ingest_status.tsv"
 ${indexArchiveMaxManifestBytes}  = 64MB   # 目録（tebunko-index.json）自体の大きさの上限（zip bomb 対策）
+${indexArchiveMaxEntries}        = 100000 # zip のエントリーの数の上限（目録自身を含む）
+${indexArchiveMaxTotalBytes}     = 10GB   # 目録の files の size の合計の上限（空き容量を調べられないときも効く）
+${indexArchiveMaxStatusBytes}    = 256MB  # 取り込み一覧（ingest_status.tsv）の大きさの上限（展開したあと全量を読むため）
 ${indexArchiveFreeSpaceMargin}   = 1GB    # インポートに求める空き容量の余裕（目録の合計 + この量）
 
 # 同じ名前のインデックスがあったときの扱い（importIndex・getImportIndexName に渡す）
@@ -101,6 +104,9 @@ function testIndexArchiveManifest {
     if ($manifestBytes -gt ${indexArchiveMaxManifestBytes}) {
         return "目録（${indexArchiveManifestFileName}）が大きすぎます。"
     }
+    if (@($entryNames).Count -gt ${indexArchiveMaxEntries}) {
+        return "zip のエントリーの数が多すぎます。"
+    }
     if ($null -eq $manifest) {
         return "tebunko のインデックスの zip ではない、または壊れています（目録を読めません）。"
     }
@@ -110,6 +116,9 @@ function testIndexArchiveManifest {
     $version = 0
     if (-not [int]::TryParse([string]$manifest.formatVersion, [ref]$version) -or $version -lt 1) {
         return "tebunko のインデックスの zip ではない、または壊れています（形式の版が読めません）。"
+    }
+    if ($version -lt ${indexArchiveFormatVersion}) {
+        return "古い形式のインデックスの zip のため、読み込めません。${indexRebuildMessage}"
     }
     if ($version -gt ${indexArchiveFormatVersion}) {
         return "新しい版の tebunko で作られたインデックスのため、この版では読み込めません。"
@@ -129,6 +138,7 @@ function testIndexArchiveManifest {
     }
 
     $fileMap = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $totalBytes = [long]0
     foreach ($file in @($manifest.files | Where-Object { $_ })) {
         $path = [string]$file.path
         $reason = testIndexArchiveEntryPath $path
@@ -147,6 +157,13 @@ function testIndexArchiveManifest {
         }
         if ([string]$file.sha256 -eq "") {
             return "目録のファイルの SHA-256 がありません: ${path}"
+        }
+        if ($path -ceq ${indexArchiveStatusEntryName} -and $size -gt ${indexArchiveMaxStatusBytes}) {
+            return "${indexArchiveStatusEntryName} が大きすぎます。"
+        }
+        $totalBytes += $size
+        if ($totalBytes -gt ${indexArchiveMaxTotalBytes}) {
+            return "インデックスの合計の大きさが大きすぎます。"
         }
         $fileMap[$path] = $file
     }
@@ -229,6 +246,32 @@ function testImportedStatusLines {
         if (!$seen.Add($relPath)) {
             return "ingest_status.tsv に同じ相対パスが 2 つあります: ${relPath}"
         }
+    }
+    return ""
+}
+
+
+function testImportedContentIndexFile {
+    # 取り込む本文インデックスのファイル 1 つを、検索と更新が読めるかで確かめ、断る理由を返す（読めれば空文字列）。
+    # 断るのは、大きさが contentIndexSearchMaxBytes を超えるもの（このときは中身を渡さなくてよい）と、
+    # 検索（readContentIndexPlaces）か更新（splitContentIndexTextByBook）が例外にするもの。
+    # 形の決まりはここに写さず、2 つの関数をそのまま呼ぶ（読み取りの側の決まりが変わっても、取り込みの判定が付いてくる）
+    param (
+        [long]$size,
+        [AllowNull()]$text   # 文字列。 大きさだけを先に確かめるときは $null（読み取りの判定は飛ばす）
+    )
+
+    if ($size -gt ${contentIndexSearchMaxBytes}) {
+        return "大きさが上限（$([long](${contentIndexSearchMaxBytes} / 1MB)) MB）を超えています"
+    }
+    if ($null -eq $text) {
+        return ""
+    }
+    try {
+        [void](readContentIndexPlaces $text)
+        [void](splitContentIndexTextByBook $text)
+    } catch {
+        return [string]$_.Exception.Message
     }
     return ""
 }

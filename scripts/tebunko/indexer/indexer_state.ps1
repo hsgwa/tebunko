@@ -1,4 +1,4 @@
-﻿# インデックス作成の状態（取り込み一覧・取り込み中のファイル）の読み書きと、画面とインデクサの受け渡しの口・ログ。
+﻿# インデックス作成の状態（取り込み一覧）の読み書きと、画面とインデクサの受け渡しの口・ログ。
 
 # 1ファイルの取り込みの制限時間（分）。超えたらOfficeアプリを強制終了し、そのファイルは失敗とする（クラウドからのダウンロードも含む。確認の文言も同じ値を使う）
 ${ingestFileTimeoutMinutes} = 10
@@ -72,54 +72,6 @@ function addStatusRow {
     [System.IO.File]::AppendAllText($path, "$(toStatusLine $row)`r`n", ${utf8Bom})
 }
 
-function readIngestingFiles {
-    # 取り込み中のファイルの記録を読み、@{ RelPath = 相対パス; Count = 続けて取り込みを始めて終わらなかった回数 } の配列を返す。
-    # 取り込みを複数のスレッドで行うため、1 行に 1 ファイル。記録が無ければ空。壊れた行と、相対パスが使えない行（testIndexRelPath）は読み飛ばす
-    param (
-        [string]$path = $workspace.IngestingFile
-    )
-
-    $result = New-Object System.Collections.Generic.List[hashtable]
-    $checkedNames = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
-    foreach ($line in @(readListFile $path)) {
-        $fields = $line.Split("`t")
-        $count = 0
-        if ($fields.Count -ne 2 -or -not [int]::TryParse($fields[0], [ref]$count) -or $count -lt 1 -or $fields[1] -eq "") {
-            continue
-        }
-        if (testIndexRelPath $fields[1] $false $checkedNames) {
-            continue
-        }
-        $result.Add(@{ RelPath = $fields[1]; Count = $count })
-    }
-    return , $result.ToArray()
-}
-
-function writeIngestingFiles {
-    # 取り込み中のファイル（@{ RelPath; Count } の並び）を "回数<TAB>相対パス" で記録する。無ければ記録を消す
-    param (
-        [object[]]$entries,
-        [string]$path = $workspace.IngestingFile
-    )
-
-    $lines = @($entries | Where-Object { $_ } | ForEach-Object { "$($_.Count)`t$($_.RelPath)" })
-    if ($lines.Count -eq 0) {
-        removeIngestingFile $path
-        return
-    }
-    writeListFile $path $lines
-}
-
-function removeIngestingFile {
-    param (
-        [string]$path = $workspace.IngestingFile
-    )
-
-    if (Test-Path -LiteralPath $path) {
-        Remove-Item -LiteralPath $path -Force
-    }
-}
-
 # ----------------------------------------------------------------------------
 # 画面（または indexer.ps1）とインデクサの受け渡しの口（docs/design/structure/threads.md「画面とインデクサの受け渡し」）
 # ----------------------------------------------------------------------------
@@ -184,7 +136,7 @@ function readIndexingProgress {
 }
 
 function requestIndexingStop {
-    # 中止を求める。取り込みはファイルの切れ目で止まる。確認を待っていれば、取りやめの返事にする
+    # 中止を求める。一覧化・取り込み中は、切れ目まで待たずにできたところまでで止まる（取り込み中の Office は止める）。確認を待っていれば、取りやめの返事にする
     param (
         $channel
     )
@@ -214,7 +166,7 @@ function testIndexerRunning {
         [string]$dir = $workspace.Dir
     )
 
-    $mutex = newAppMutex "indexer" $dir
+    $mutex = newAppMutex "indexer" $dir ${appId}
     try {
         return !$mutex.Acquired
     } finally {
@@ -241,8 +193,10 @@ function writeZipSizeLimitLog {
     }
 
     $kindText = switch ($exception.LimitKind) { "Total" { "1ファイルの合計" } "Output" { "埋め込みから出す文字の合計" } default { "部品ごと" } }
+    # Output の MeasuredBytes は、バイトでなく出す行の文字数（単位を「文字」にする）
     $mb = [math]::Round($exception.MeasuredBytes / 1MB, 1)
-    writeIndexerLog "    サイズの上限（${kindText}）を超えました: $($exception.PartName)（$($exception.MeasuredBytes) バイト、約${mb}MB）" "Yellow"
+    $sizeText = $(if ($exception.LimitKind -eq "Output") { "$($exception.MeasuredBytes) 文字、約${mb}M文字" } else { "$($exception.MeasuredBytes) バイト、約${mb}MB" })
+    writeIndexerLog "    サイズの上限（${kindText}）を超えました: $($exception.PartName)（${sizeText}）" "Yellow"
 }
 
 function newIngestPlanRow {
@@ -369,13 +323,14 @@ function removeStatusIndexName {
 function getIndexingState {
     # 取り込み一覧からインデックス作成の状態を返す:
     #   @{ Exists; Folders（クロール対象フォルダ @{ Path; Name } の配列）; Total; Pending（未取り込み）; Failed; Done; IngestedSince（since 以降に取り込んだ件数）; Updated（取り込み一覧の更新日時）;
-    #      FailedRows（失敗したファイルの行。取り込み日時の新しい順）; IndexStats（インデックス名ごとの集計。getIndexStats） }
+    #      FailedRows（失敗したファイルの行。取り込み日時の新しい順）; IndexStats（インデックス名ごとの集計。getIndexStats）;
+    #      Format（格納形式の状態。getWorkspaceIndexFormat の結果。画面の裏の仕事が入れる。ここでは $null） }
     param (
         [datetime]$since = [datetime]::MaxValue,
         [string]$path = $workspace.StatusFile
     )
 
-    $state = @{ Exists = $false; Folders = @(); Total = 0; Pending = 0; Failed = 0; Done = 0; IngestedSince = 0; Updated = $null; FailedRows = @(); IndexStats = (getIndexStats $null) }
+    $state = @{ Exists = $false; Folders = @(); Total = 0; Pending = 0; Failed = 0; Done = 0; IngestedSince = 0; Updated = $null; FailedRows = @(); IndexStats = (getIndexStats $null); Format = $null }
     if (!(Test-Path -LiteralPath $path)) {
         return $state
     }
@@ -410,11 +365,11 @@ function getIndexingState {
     return $state
 }
 
-# 取り込み一覧・取り込み中のファイルの読み書きと、今回の取り込みでの失敗・元ファイルが無くなった行の記録をまとめる（StatusLedger）。
+# 取り込み一覧の読み書きと、今回の取り込みでの失敗・元ファイルが無くなった行の記録をまとめる（StatusLedger）。
 # 列と状態の定義（core/paths.ps1 の ${statusColumns} など）は判断層（indexer_decide.ps1）・index_store.ps1 なども読むため、
 # 今の場所（paths.ps1 の変数）のまま動かさない（docs/design/structure/classes.md）。
-# 保存先（取り込み一覧・取り込み中のファイル）は、コンストラクタで受け取った $workspace（Workspace のインスタンス。
-# 場所を暗黙に使わないため、メソッドの中で ${workspace} を読まない）の StatusFile・IngestingFile から決める
+# 保存先（取り込み一覧）は、コンストラクタで受け取った $workspace（Workspace のインスタンス。
+# 場所を暗黙に使わないため、メソッドの中で ${workspace} を読まない）の StatusFile から決める
 class StatusLedger {
     hidden $Workspace
     # 今回の取り込みで失敗したファイル（@{ RelPath; Message } の並び）
@@ -443,18 +398,9 @@ class StatusLedger {
         addStatusRow $row $this.Workspace.StatusFile
     }
 
-    [object[]] ReadIngestingFiles() {
-        # 取り込み中のファイルの記録を読む（@{ RelPath; Count } の並び）
-        return readIngestingFiles $this.Workspace.IngestingFile
-    }
-
-    [void] WriteIngestingFiles([object[]]$entries) {
-        # 取り込み中のファイルの記録を書く（無ければ記録を消す）
-        writeIngestingFiles $entries $this.Workspace.IngestingFile
-    }
-
-    [void] RemoveIngestingFile() {
-        removeIngestingFile $this.Workspace.IngestingFile
+    [string[]] ReadRelPaths() {
+        # 取り込み一覧のデータ行の相対パスを、ファイルの順に返す（同じ相対パスの追記も数える。ジャーナルの「この回の行」の数え方）
+        return [string[]]@(readStatusRelPaths $this.Workspace.StatusFile)
     }
 
     [void] RenameIndexName([string]$oldName, [string]$newName) {
@@ -476,4 +422,39 @@ class StatusLedger {
         # 取り込みの直前に元のファイルが無くなっていた（取り込み一覧・インデックスから除く）ファイルを記録する
         [void]$this.DroppedRows.Add($relPath)
     }
+}
+
+function readPendingRemovals {
+    # 本文インデックスから外し終えていない、無くなった元のファイルの記録を読み、@{ Folder; Name } の配列を返す。無ければ空。
+    # 置き場の外を指す・使えない相対パスの行は読み飛ばす（testIndexRelPath）
+    param (
+        [string]$path = $workspace.PendingRemoveFile
+    )
+
+    $checkedNames = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+    $result = New-Object System.Collections.Generic.List[hashtable]
+    foreach ($entry in @(convertFromPendingRemoveLines @(readListFile $path))) {
+        if (testIndexRelPath "$($entry.Folder)\$($entry.Name)" $false $checkedNames) {
+            continue
+        }
+        $result.Add($entry)
+    }
+    return $result.ToArray()
+}
+
+function writePendingRemovals {
+    # 外し終えていない、無くなった元のファイルの記録を書く（一時ファイルに書いてから置き換える）。0 件なら記録を消す
+    param (
+        [object[]]$entries,
+        [string]$path = $workspace.PendingRemoveFile
+    )
+
+    $lines = @(convertToPendingRemoveLines $entries)
+    if ($lines.Count -eq 0) {
+        if (Test-Path -LiteralPath $path) {
+            Remove-Item -LiteralPath $path -Force
+        }
+        return
+    }
+    writeTextLinesAtomic $path $lines
 }

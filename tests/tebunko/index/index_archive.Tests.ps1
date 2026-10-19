@@ -51,7 +51,7 @@ BeforeAll {
 
         $found = getContentIndexFiles @($ws.IndexDir)
         $regex = New-Object regex ([regex]::Escape($word))
-        return @(searchContentIndexFiles $found.ContentIndexFiles 0 $found.ContentIndexFiles.Count $regex -1 $regex "lines")
+        return , @((searchContentIndexFiles $found.ContentIndexFiles 0 $found.ContentIndexFiles.Count $regex -1 $regex "lines").Hits)
     }
 }
 
@@ -78,14 +78,24 @@ Describe "exportIndex" -Tag Io {
         Set-Content -LiteralPath (Join-Path $fixture.Workspace.IndexDir "営業\見積\B社.xlsx\Sheet1.tsv") -Value "本文" -Encoding UTF8
 
         $dest = "$TestDrive\export_pending\out.zip"
-        { exportIndex "営業" $dest $fixture.Workspace $fixture.SettingsPath } | Should -Throw "*更新の途中*"
+        { exportIndex "営業" $dest $fixture.Workspace $fixture.SettingsPath } | Should -Throw "*インデックスとして扱えないファイル*"
         Test-Path -LiteralPath $dest | Should -Be $false
         Test-Path -LiteralPath "${dest}.tmp" | Should -Be $false
     }
 
+    It "止める: 番号が桁あふれした名前の本文インデックスのファイルがあれば、取り除くよう伝える例外にする" {
+        $fixture = newIndexFixture "$TestDrive\export_overflow" "営業" "C:\共有\営業部"
+        $overflow = Join-Path $fixture.Workspace.IndexDir "営業\content_index.xlsx.99999999999.tsv"
+        Set-Content -LiteralPath $overflow -Value "本文" -Encoding UTF8
+
+        $dest = "$TestDrive\export_overflow\out.zip"
+        { exportIndex "営業" $dest $fixture.Workspace $fixture.SettingsPath } | Should -Throw "*content_index.xlsx.99999999999.tsv*取り除いてからエクスポート*"
+        Test-Path -LiteralPath $dest | Should -Be $false
+    }
+
     It "止める: インデックス作成のロックを取れなければ例外にする" {
         $fixture = newIndexFixture "$TestDrive\export_locked" "営業" "C:\共有\営業部"
-        $lock = newAppMutex "indexer" $fixture.Workspace.Dir
+        $lock = newAppMutex "indexer" $fixture.Workspace.Dir "tebunko"
         $lock.Acquired | Should -Be $true
         try {
             { exportIndex "営業" "$TestDrive\export_locked\out.zip" $fixture.Workspace $fixture.SettingsPath } | Should -Throw "*更新中は*"
@@ -118,7 +128,7 @@ Describe "exportIndex" -Tag Io {
             $reader.Dispose()
             $manifest.indexName | Should -Be "営業"
             $manifest.sourceFolder | Should -Be "C:\共有\営業部"
-            $manifest.formatVersion | Should -Be 1
+            $manifest.formatVersion | Should -Be 2
 
             $statusEntry = $archive.GetEntry("ingest_status.tsv")
             $statusReader = New-Object System.IO.StreamReader($statusEntry.Open(), [System.Text.Encoding]::UTF8)
@@ -129,6 +139,59 @@ Describe "exportIndex" -Tag Io {
         } finally {
             $archive.Dispose()
         }
+    }
+}
+
+Describe "exportIndex・getIndexExportSize（リンク）" -Tag Io {
+    It "置き場の中のジャンクションの先のファイルは、zip に入れず、大きさにも数えない" {
+        $fixture = newIndexFixture "$TestDrive\export_link" "営業" "C:\共有\営業部"
+        $outside = "$TestDrive\export_link_outside"
+        [System.IO.Directory]::CreateDirectory($outside) | Out-Null
+        [System.IO.File]::WriteAllText("$outside\外.txt", "外のファイル")
+        $indexDir = Join-Path $fixture.Workspace.IndexDir "営業"
+        if (!(newTestJunction "$indexDir\リンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        $dest = "$TestDrive\export_link\out.zip"
+
+        $size = getIndexExportSize @("営業") $fixture.Workspace
+        $size.Bytes | Should -BeGreaterThan 0
+        $null = exportIndex "営業" $dest $fixture.Workspace $fixture.SettingsPath
+
+        $archive = [System.IO.Compression.ZipFile]::Open($dest, [System.IO.Compression.ZipArchiveMode]::Read, [System.Text.Encoding]::UTF8)
+        try {
+            @($archive.Entries | ForEach-Object { $_.FullName }) | Sort-Object | Should -Be @(
+                "content_index/見積/content_index.xlsx.001.tsv", "ingest_status.tsv", "tebunko-index.json"
+            )
+        } finally {
+            $archive.Dispose()
+        }
+        $size.Bytes | Should -Be ((getIndexExportSize @("営業") $fixture.Workspace).Bytes)
+    }
+
+    It "置き場の中に親を指すジャンクション（輪）があっても、止まらずに書き出せる" {
+        $fixture = newIndexFixture "$TestDrive\export_loop" "営業" "C:\共有\営業部"
+        $indexDir = Join-Path $fixture.Workspace.IndexDir "営業"
+        if (!(newTestJunction "$indexDir\見積\輪" $indexDir)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        $dest = "$TestDrive\export_loop\out.zip"
+
+        $result = exportIndex "営業" $dest $fixture.Workspace $fixture.SettingsPath
+        $result.Files | Should -Be 2
+        (getIndexExportSize @("営業") $fixture.Workspace).Bytes | Should -BeGreaterThan 0
+    }
+
+    It "置き場の中に読めないフォルダがあるときは、一部だけを書き出さず、zip を作らずに例外にする" {
+        $fixture = newIndexFixture "$TestDrive\export_unreadable" "営業" "C:\共有\営業部"
+        $dest = "$TestDrive\export_unreadable\out.zip"
+        Mock getFilesNoFollow { @{ Files = @(); Directories = @(); Links = @(); HasError = $true; Reason = "アクセスが拒否されました" } }
+
+        { exportIndex "営業" $dest $fixture.Workspace $fixture.SettingsPath } | Should -Throw "*最後まで読めませんでした*アクセスが拒否されました*"
+        { getIndexExportSize @("営業") $fixture.Workspace } | Should -Throw "*最後まで読めませんでした*"
+        Test-Path -LiteralPath $dest | Should -Be $false
     }
 }
 
@@ -229,7 +292,7 @@ Describe "readIndexArchiveInfo" -Tag Io {
         $info.SourceFolder | Should -Be "C:\共有\営業部"
         $info.Files | Should -Be 2
         $info.Bytes | Should -BeGreaterThan 0
-        $info.FormatVersion | Should -Be 1
+        $info.FormatVersion | Should -Be 2
         Test-Path -LiteralPath (Join-Path $fixture.Workspace.IndexDir "営業") | Should -Be $true
     }
 
@@ -237,6 +300,7 @@ Describe "readIndexArchiveInfo" -Tag Io {
         @{ label = "zip でないファイル" }
         @{ label = "目録が無い" }
         @{ label = "formatVersion が新しい" }
+        @{ label = "formatVersion が古い" }
     ) {
         param ($label)
         $dir = "$TestDrive\info_bad_$([Guid]::NewGuid().ToString('N'))"
@@ -250,7 +314,7 @@ Describe "readIndexArchiveInfo" -Tag Io {
                 $archive = [System.IO.Compression.ZipFile]::Open($path, [System.IO.Compression.ZipArchiveMode]::Create)
                 $archive.Dispose()
             }
-            "formatVersion が新しい" {
+            { $_ -in @("formatVersion が新しい", "formatVersion が古い") } {
                 $fixture = newIndexFixture $dir "営業" "C:\共有\営業部"
                 exportIndex "営業" $path $fixture.Workspace $fixture.SettingsPath | Out-Null
                 $newPath = "$dir\bad2.zip"
@@ -262,7 +326,7 @@ Describe "readIndexArchiveInfo" -Tag Io {
                     $manifest = ConvertFrom-Json $reader.ReadToEnd()
                     $reader.Dispose()
                     $entry.Delete()
-                    $manifest.formatVersion = 2
+                    $manifest.formatVersion = $(if ($label -eq "formatVersion が古い") { 1 } else { 3 })
                     $newEntry = $archive.CreateEntry("tebunko-index.json")
                     $writer = New-Object System.IO.StreamWriter($newEntry.Open())
                     $writer.Write((ConvertTo-Json $manifest -Depth 5))
@@ -298,27 +362,6 @@ Describe "importIndex" -Tag Io {
         $location.Known | Should -Be $true
         $location.Folder | Should -Be "D:\別の場所\営業部"
         (Join-Path $location.Folder (Join-Path $location.Rest "A社.xlsx")) | Should -Be "D:\別の場所\営業部\見積\A社.xlsx"
-    }
-
-    It "インポートしたインデックスに NotContentIndexed が付く（Directory.Move は親の属性を継がず、根に付いたあとの -Recurse は下へ降りないため）" {
-        $fixtureA = newIndexFixture "$TestDrive\attr_a" "営業" "C:\共有\営業部"
-        $dest = "$TestDrive\attr.zip"
-        exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
-
-        # 一度インデックス作成を通った作業フォルダ（content_index の根に属性が付いている）へ入れる
-        $wsB = [Workspace]::new("$TestDrive\attr_b")
-        [System.IO.Directory]::CreateDirectory($wsB.IndexDir) | Out-Null
-        (setNotContentIndexed $wsB.IndexDir -Recurse).Ok | Should -BeTrue
-        $result = importIndex $dest ${importCollisionRename} "" "D:\別の場所\営業部" $wsB "$TestDrive\attr_b\setting.config"
-
-        $flag = [System.IO.FileAttributes]::NotContentIndexed
-        $importedDir = Join-Path $wsB.IndexDir $result.Name
-        ([System.IO.File]::GetAttributes($importedDir) -band $flag) | Should -Not -Be 0
-        $files = @(Get-ChildItem -LiteralPath $importedDir -Recurse -Force)
-        $files.Count | Should -BeGreaterThan 0
-        foreach ($file in $files) {
-            ([System.IO.File]::GetAttributes($file.FullName) -band $flag) | Should -Not -Be 0
-        }
     }
 
     It "取り込み一覧の形: <label>。見出しの行があり、クロール対象フォルダの行は見出しの前にあり、getIndexNameMap が名前を返す" -TestCases @(
@@ -394,23 +437,7 @@ Describe "importIndex" -Tag Io {
         $row.エラー | Should -Be "開けません または 壊れています"
     }
 
-    It "その後 B でインデクサが動かすシステムインデックスの更新で、system_index の txt ができ、対応済みになる" {
-        $fixtureA = newIndexFixture "$TestDrive\sysidx_a" "営業" "C:\共有\営業部"
-        $dest = "$TestDrive\sysidx.zip"
-        exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
-        $wsB = [Workspace]::new("$TestDrive\sysidx_b")
-        importIndex $dest ${importCollisionRename} "" "D:\別の場所\営業部" $wsB "$($wsB.Dir)\setting.config" | Out-Null
-        Test-Path -LiteralPath $wsB.SystemIndexDir | Should -Be $false
-
-        $result = updateSystemIndexes $wsB.IndexDir $wsB.SystemIndexDir $wsB.SystemIndexStateFile { $false }
-
-        $result.Built | Should -BeGreaterThan 0
-        $result.Unfinished | Should -Be 0
-        @(Get-ChildItem -LiteralPath $wsB.SystemIndexDir -Recurse -Filter "*.txt").Count | Should -BeGreaterThan 0
-        (readSystemIndexState $wsB.SystemIndexStateFile).Covered.Contains("営業") | Should -Be $true
-    }
-
-    It "上書き: 前の行・前のシステムインデックスが残らず、設定の並びが変わらない" {
+    It "上書き: 前の行・前の gram 索引が残らず、設定の並びが変わらない" {
         $fixtureA = newIndexFixture "$TestDrive\ow_a" "営業" "C:\共有\営業部" "見積\A社.xlsx"
         $dest = "$TestDrive\ow.zip"
         exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
@@ -422,17 +449,18 @@ Describe "importIndex" -Tag Io {
             [pscustomobject]@{ Name = "営業"; Path = "C:\前の場所"; Enabled = $true }
             [pscustomobject]@{ Name = "総務"; Path = "C:\総務"; Enabled = $true }
         ) $fixtureB.SettingsPath
-        # 前のシステムインデックス（営業の txt と、対応済みの記録）
-        [void](updateSystemIndexes $wsB.IndexDir $wsB.SystemIndexDir $wsB.SystemIndexStateFile { $false })
-        Test-Path -LiteralPath (Join-Path $wsB.SystemIndexDir "営業") | Should -Be $true
+        # 前の gram 索引（営業と、頭が同じ別のインデックス）
+        [System.IO.Directory]::CreateDirectory("$($wsB.GramDir)\営業") | Out-Null
+        [System.IO.File]::WriteAllText("$($wsB.GramDir)\営業\toc.tsv", "tebunko-gram 1`r`nnext 1`r`n")
+        [System.IO.Directory]::CreateDirectory("$($wsB.GramDir)\営業部") | Out-Null
 
         importIndex $dest ${importCollisionOverwrite} "" "C:\新しい場所" $wsB $fixtureB.SettingsPath | Out-Null
 
+        [System.IO.Directory]::Exists("$($wsB.GramDir)\営業") | Should -Be $false
+        [System.IO.Directory]::Exists("$($wsB.GramDir)\営業部") | Should -Be $true
         (readStatusFile $wsB.StatusFile).Rows.ContainsKey("営業\前の資料\旧.xlsx") | Should -Be $false
         (readStatusFile $wsB.StatusFile).Rows.ContainsKey("営業\見積\A社.xlsx") | Should -Be $true
         Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業\前の資料") | Should -Be $false
-        Test-Path -LiteralPath (Join-Path $wsB.SystemIndexDir "営業") | Should -Be $false
-        (readSystemIndexState $wsB.SystemIndexStateFile).Covered.Contains("営業") | Should -Be $false
         @(getTargetFolders $fixtureB.SettingsPath | ForEach-Object { "$($_.Name)|$($_.Path)" }) | Should -Be @("経理|C:\経理", "営業|C:\新しい場所", "総務|C:\総務")
     }
 
@@ -493,51 +521,61 @@ Describe "importIndex" -Tag Io {
         @($status.Folders | Where-Object { $_.Name -eq "営業" }).Count | Should -Be 1
         $status.Rows.ContainsKey("営業\見積\A社.xlsx") | Should -Be $true
         Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業\source_folder.txt") | Should -Be $true
-        Test-Path -LiteralPath (Join-Path $wsB.SystemIndexDir "営業") | Should -Be $false
     }
 
-    It "前の版のワークスペース: content_index が空で前の版のしるしがあれば片付けてからインポートする" {
+    It "前の版のシステムインデックス（system_index と状態ファイル）があれば、インポートで消す。前の版の index には触らない" {
         $fixtureA = newIndexFixture "$TestDrive\legacy_a" "営業" "C:\共有\営業部"
         $dest = "$TestDrive\legacy.zip"
         exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
 
         $wsB = [Workspace]::new("$TestDrive\legacy_b")
         $settingsB = "$TestDrive\legacy_b\setting.config"
-        # 前の版のしるし（index\<名前>\元のフォルダ.txt）と、前の名前のシステムインデックス txt・状態ファイルのキーを作る
         New-Item -ItemType Directory -Path (Join-Path $wsB.LegacyIndexDir "旧") -Force | Out-Null
         Set-Content -LiteralPath (Join-Path $wsB.LegacyIndexDir "旧\元のフォルダ.txt") -Value "旧`tC:\旧" -Encoding UTF8
-        New-Item -ItemType Directory -Path (Join-Path $wsB.SystemIndexDir "旧") -Force | Out-Null
-        Set-Content -LiteralPath (Join-Path $wsB.SystemIndexDir "旧\システムインデックス.txt") -Value "x00000000" -Encoding UTF8
-        [void](updateSystemIndexState { param ($s) [void]$s.Covered.Add("旧") } $wsB.SystemIndexStateFile)
+        New-Item -ItemType Directory -Path (Join-Path $wsB.OldSystemIndexDir "旧") -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $wsB.OldSystemIndexDir "旧\システムインデックス.txt") -Value "x00000000" -Encoding UTF8
+        Set-Content -LiteralPath $wsB.OldSystemIndexStateFile -Value "旧" -Encoding UTF8
 
         importIndex $dest ${importCollisionRename} "" "C:\共有\営業部" $wsB $settingsB | Out-Null
 
-        Test-Path -LiteralPath $wsB.SystemIndexDir | Should -Be $false
-        (readSystemIndexState $wsB.SystemIndexStateFile).Covered.Count | Should -Be 0
+        Test-Path -LiteralPath $wsB.OldSystemIndexDir | Should -Be $false
+        Test-Path -LiteralPath $wsB.OldSystemIndexStateFile | Should -Be $false
         Test-Path -LiteralPath (Join-Path $wsB.LegacyIndexDir "旧\元のフォルダ.txt") | Should -Be $true
     }
 
-    It "前の版のワークスペース: 片付けられなければ例外にし、content_index にも設定にも足さない" {
+    It "前の版のシステムインデックスを消せなくても、インポートは続けて成功する" {
         $fixtureA = newIndexFixture "$TestDrive\legacy_fail_a" "営業" "C:\共有\営業部"
         $dest = "$TestDrive\legacy_fail.zip"
         exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
 
         $wsB = [Workspace]::new("$TestDrive\legacy_fail_b")
         $settingsB = "$TestDrive\legacy_fail_b\setting.config"
-        New-Item -ItemType Directory -Path (Join-Path $wsB.LegacyIndexDir "旧") -Force | Out-Null
-        Set-Content -LiteralPath (Join-Path $wsB.LegacyIndexDir "旧\元のフォルダ.txt") -Value "旧`tC:\旧" -Encoding UTF8
-        New-Item -ItemType Directory -Path (Join-Path $wsB.SystemIndexDir "旧") -Force | Out-Null
-        $txt = Join-Path $wsB.SystemIndexDir "旧\システムインデックス.txt"
+        New-Item -ItemType Directory -Path (Join-Path $wsB.OldSystemIndexDir "旧") -Force | Out-Null
+        $txt = Join-Path $wsB.OldSystemIndexDir "旧\システムインデックス.txt"
         Set-Content -LiteralPath $txt -Value "x00000000" -Encoding UTF8
 
         $stream = [System.IO.File]::Open($txt, "Open", "Read", "None")
         try {
-            { importIndex $dest ${importCollisionRename} "" "C:\共有\営業部" $wsB $settingsB } | Should -Throw
+            $result = importIndex $dest ${importCollisionRename} "" "C:\共有\営業部" $wsB $settingsB
         } finally {
             $stream.Dispose()
         }
-        Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業") | Should -Be $false
-        @(getTargetFolders $settingsB).Count | Should -Be 0
+        @($result.Warnings | Where-Object { $_ -like "前の版が作った検索用のファイルを消せませんでした*" }).Count | Should -Be 1
+        Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業") | Should -Be $true
+        @(getTargetFolders $settingsB).Count | Should -Be 1
+    }
+
+    It "取り込みの途中で失敗し、作業フォルダの片付けも失敗しても、元の失敗の理由が出る" {
+        $fixtureA = newIndexFixture "$TestDrive\orig_a" "営業" "C:\共有\営業部"
+        $dest = "$TestDrive\orig.zip"
+        exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
+        $wsB = [Workspace]::new("$TestDrive\orig_b")
+        $settingsB = "$TestDrive\orig_b\setting.config"
+        Mock registerImportedIndexInSettings { throw "設定を書けませんでした" }
+        Mock removeDirectoryRetry { throw "作業フォルダを消せませんでした" } -ParameterFilter { $path -like "*\import" -and [System.IO.Directory]::Exists($path) }
+
+        { importIndex $dest ${importCollisionRename} "" "C:\共有\営業部" $wsB $settingsB } | Should -Throw "*設定を書けませんでした*"
+        Should -Invoke removeDirectoryRetry -Times 1 -Exactly -Scope It -ParameterFilter { $path -like "*\import" }
     }
 
     It "同じ名前: <mode>" -TestCases @(
@@ -595,7 +633,7 @@ Describe "importIndex" -Tag Io {
 
         $wsB = [Workspace]::new("$TestDrive\import_locked_b")
         $settingsB = "$TestDrive\import_locked_b\setting.config"
-        $lock = newAppMutex "indexer" $wsB.Dir
+        $lock = newAppMutex "indexer" $wsB.Dir "tebunko"
         try {
             { importIndex $dest ${importCollisionRename} "" "C:\新しい場所" $wsB $settingsB } | Should -Throw "*更新中は*"
         } finally {
@@ -950,8 +988,7 @@ Describe "importIndex" -Tag Io {
         @{ label = "メタ情報の行だけで中身が無い"; broken = { param ($t) $t.Substring(0, $t.IndexOf("品名")) } }
     ) {
         param ($label, $broken)
-        # インポートは本文インデックスのファイルの中身の形を確かめない（大きさと SHA-256 で、作ったときのままであることだけを見る）。
-        # 壊れた行があっても、検索が例外で止まらないことをここで確かめる
+        # 検索と更新が読めるものは受け入れる（壊れた行があっても、取り込みは止まらず、検索が例外で止まらない）
         $fixtureA = newIndexFixture "$TestDrive\brokenindex_a_$([Guid]::NewGuid().ToString('N'))" "営業" "C:\共有\営業部"
         $original = [System.IO.File]::ReadAllText($fixtureA.ContentIndexPath)
         [System.IO.File]::WriteAllText($fixtureA.ContentIndexPath, (& $broken $original), (New-Object System.Text.UTF8Encoding($true)))
@@ -965,6 +1002,213 @@ Describe "importIndex" -Tag Io {
         $result.Files | Should -Be 2
         Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業\見積\content_index.xlsx.001.tsv") | Should -Be $true
         { readSearchWord $wsB "鉛筆" } | Should -Not -Throw
+    }
+
+    It "壊れた本文インデックス: <label> の zip は断り、ワークスペースが変わらず作業フォルダが残らない" -TestCases @(
+        @{ label = "版が違う"; broken = { param ($t) $t.Replace(" 版=${contentIndexVersion}", " 版=99") } }
+        @{ label = "版の行が無い"; broken = { param ($t) $t.Substring($t.IndexOf([char]10) + 1) } }
+        @{ label = "形が崩れている（ファイル名の行に改行が無い）"; broken = { param ($t) $t.Substring(0, $t.IndexOf("ファイル名=") + 8) } }
+    ) {
+        param ($label, $broken)
+        $fixtureA = newIndexFixture "$TestDrive\badcontent_a_$([Guid]::NewGuid().ToString('N'))" "営業" "C:\共有\営業部"
+        $original = [System.IO.File]::ReadAllText($fixtureA.ContentIndexPath)
+        [System.IO.File]::WriteAllText($fixtureA.ContentIndexPath, (& $broken $original), (New-Object System.Text.UTF8Encoding($true)))
+        $dest = "$($fixtureA.Workspace.Dir)\badcontent.zip"
+        exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
+
+        $fixtureB = newIndexFixture "$TestDrive\badcontent_b_$([Guid]::NewGuid().ToString('N'))" "総務" "C:\共有\総務部"
+        $wsB = $fixtureB.Workspace
+        $settingsBefore = [System.IO.File]::ReadAllText($fixtureB.SettingsPath)
+        $statusBefore = [System.IO.File]::ReadAllText($wsB.StatusFile)
+        $indexBefore = @(Get-ChildItem -LiteralPath $wsB.IndexDir -Recurse -File | ForEach-Object { $_.FullName })
+
+        $message = ""
+        try {
+            importIndex $dest ${importCollisionRename} "" "C:\新しい場所" $wsB $fixtureB.SettingsPath | Out-Null
+        } catch {
+            $message = $_.Exception.Message
+        }
+
+        $message | Should -BeLike "*content_index/見積/content_index.xlsx.001.tsv*を読み込めません*"
+        [System.IO.File]::ReadAllText($fixtureB.SettingsPath) | Should -Be $settingsBefore
+        [System.IO.File]::ReadAllText($wsB.StatusFile) | Should -Be $statusBefore
+        @(Get-ChildItem -LiteralPath $wsB.IndexDir -Recurse -File | ForEach-Object { $_.FullName }) | Should -Be $indexBefore
+        @(Get-ChildItem -LiteralPath $wsB.PublishDir -Recurse -Filter "import" -ErrorAction SilentlyContinue).Count | Should -Be 0
+    }
+}
+
+Describe "受け取る zip の大きさと件数の上限" -Tag Io {
+    BeforeAll {
+        function script:newManifestOnlyZip {
+            # 目録（tebunko-index.json）だけの zip を作る。manifestText を省くと、files に manifestFiles（path・size・sha256）を持つ正しい形の目録を書く
+            param ([string]$path, $manifestFiles = @(), [string]$manifestText = "")
+
+            if ($manifestText -eq "") {
+                $manifestText = ConvertTo-Json ([ordered]@{
+                    format = ${indexArchiveFormat}; formatVersion = ${indexArchiveFormatVersion}; appVersion = ""
+                    exportedAt = "2026-09-27T10:00:00+09:00"; indexName = "営業"; sourceFolder = "C:\共有\営業部"
+                    files = @($manifestFiles)
+                }) -Depth 5
+            }
+            $archive = [System.IO.Compression.ZipFile]::Open($path, [System.IO.Compression.ZipArchiveMode]::Create, [System.Text.Encoding]::UTF8)
+            try {
+                writeArchiveBytes $archive "tebunko-index.json" ((New-Object System.Text.UTF8Encoding($false)).GetBytes($manifestText))
+            } finally {
+                $archive.Dispose()
+            }
+        }
+
+        function script:setDeclaredSize {
+            # zip の中央ディレクトリ（と、値が入っていれば local header）の、エントリーの展開後の大きさの申告を書き換える
+            param ([string]$path, [string]$entryName, [uint32]$newSize)
+
+            $bytes = [System.IO.File]::ReadAllBytes($path)
+            $patched = $false
+            for ($i = 0; $i -le $bytes.Length - 46; $i++) {
+                if ($bytes[$i] -eq 0x50 -and $bytes[$i + 1] -eq 0x4B -and $bytes[$i + 2] -eq 0x01 -and $bytes[$i + 3] -eq 0x02) {
+                    $nameLength = [BitConverter]::ToUInt16($bytes, $i + 28)
+                    $name = [System.Text.Encoding]::UTF8.GetString($bytes, $i + 46, $nameLength)
+                    if ($name -ceq $entryName) {
+                        [Array]::Copy([BitConverter]::GetBytes($newSize), 0, $bytes, $i + 24, 4)
+                        $local = [int][BitConverter]::ToUInt32($bytes, $i + 42)
+                        if ([BitConverter]::ToUInt32($bytes, $local + 22) -ne 0) {
+                            [Array]::Copy([BitConverter]::GetBytes($newSize), 0, $bytes, $local + 22, 4)
+                        }
+                        $patched = $true
+                    }
+                }
+            }
+            $patched | Should -Be $true
+            [System.IO.File]::WriteAllBytes($path, $bytes)
+        }
+    }
+
+    It "目録の展開後の大きさを小さく偽った zip: <label> は「大きすぎます」で例外になり、ワークスペースが変わらない" -TestCases @(
+        @{ label = "openIndexArchive"; action = "open" }
+        @{ label = "readIndexArchiveInfo"; action = "info" }
+        @{ label = "importIndex"; action = "import" }
+    ) {
+        param ($label, $action)
+        # 上限を小さくして確かめる（実際の上限は 64MB。関数は呼び出し元の変数を見るので、この It の中だけで効く）
+        ${indexArchiveMaxManifestBytes} = 1MB
+        $wsB = [Workspace]::new("$TestDrive\forged_$([Guid]::NewGuid().ToString('N'))")
+        $settingsB = "$($wsB.Dir)\setting.config"
+        [System.IO.Directory]::CreateDirectory($wsB.Dir) | Out-Null
+        $path = "$($wsB.Dir)\forged.zip"
+        newManifestOnlyZip $path @() ('{"pad":"' + ("a" * 3MB) + '"}')
+        setDeclaredSize $path "tebunko-index.json" 100
+
+        # 申告が上限以下でも、実際に読んだ大きさで断る
+        switch ($action) {
+            "open" { { openIndexArchive $path } | Should -Throw "*大きすぎます*" }
+            "info" { { readIndexArchiveInfo $path } | Should -Throw "*大きすぎます*" }
+            "import" { { importIndex $path ${importCollisionRename} "" "C:\新しい場所" $wsB $settingsB } | Should -Throw "*大きすぎます*" }
+        }
+        Test-Path -LiteralPath $wsB.IndexDir | Should -Be $false
+        Test-Path -LiteralPath $wsB.StatusFile | Should -Be $false
+        Test-Path -LiteralPath $settingsB | Should -Be $false
+        Test-Path -LiteralPath $wsB.PublishDir | Should -Be $false
+        Remove-Item -LiteralPath $path -Force  # 断ったあとは zip を開いたままにしない
+    }
+
+    It "readArchiveEntryBytesLimited: <label>" -TestCases @(
+        @{ label = "ちょうど上限は読める"; size = 10; max = 10; overflow = $false }
+        @{ label = "上限を 1 超えると `$null"; size = 11; max = 10; overflow = $true }
+        @{ label = "0 バイトは空の配列"; size = 0; max = 10; overflow = $false }
+        @{ label = "読み取りの区切り（1MB）をまたいで、ちょうど上限は読める"; size = (1MB + 1); max = (1MB + 1); overflow = $false }
+        @{ label = "読み取りの区切り（1MB）をまたいで、1 超えると `$null"; size = (1MB + 2); max = (1MB + 1); overflow = $true }
+    ) {
+        param ($label, $size, $max, $overflow)
+        $path = "$TestDrive\limited_$([Guid]::NewGuid().ToString('N')).zip"
+        $content = New-Object byte[] $size
+        for ($i = 0; $i -lt $size; $i++) { $content[$i] = [byte](65 + ($i % 26)) }
+        $a = [System.IO.Compression.ZipFile]::Open($path, [System.IO.Compression.ZipArchiveMode]::Create, [System.Text.Encoding]::UTF8)
+        try {
+            writeArchiveBytes $a "a.bin" $content
+        } finally {
+            $a.Dispose()
+        }
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
+        try {
+            $result = readArchiveEntryBytesLimited ($zip.GetEntry("a.bin")) $max
+        } finally {
+            $zip.Dispose()
+        }
+
+        if ($overflow) {
+            ($null -eq $result) | Should -Be $true
+        } else {
+            ($null -eq $result) | Should -Be $false
+            $result.Length | Should -Be $size
+            if ($size -gt 0) { $result[$size - 1] | Should -Be $content[$size - 1] }
+        }
+    }
+
+    It "合計の上限: 空き容量を調べられなくても、上限を超える目録の zip は展開の前に断る" {
+        $wsB = [Workspace]::new("$TestDrive\total_$([Guid]::NewGuid().ToString('N'))")
+        $settingsB = "$($wsB.Dir)\setting.config"
+        [System.IO.Directory]::CreateDirectory($wsB.Dir) | Out-Null
+        $path = "$($wsB.Dir)\total.zip"
+        newManifestOnlyZip $path @([ordered]@{ path = "content_index/content_index.xlsx.001.tsv"; size = (${indexArchiveMaxTotalBytes} + 1); sha256 = ("a" * 64) })
+
+        { importIndex $path ${importCollisionRename} "" "C:\新しい場所" $wsB $settingsB { param ($root) $null } } | Should -Throw "*合計の大きさ*"
+        Test-Path -LiteralPath $wsB.PublishDir | Should -Be $false
+        Test-Path -LiteralPath $wsB.IndexDir | Should -Be $false
+    }
+
+    Context "検証の前に前のシステムインデックスを消さない" {
+        BeforeEach {
+            $script:wsLegacy = [Workspace]::new("$TestDrive\legacykeep_$([Guid]::NewGuid().ToString('N'))")
+            $script:settingsLegacy = "$($script:wsLegacy.Dir)\setting.config"
+            New-Item -ItemType Directory -Path (Join-Path $script:wsLegacy.LegacyIndexDir "旧") -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $script:wsLegacy.LegacyIndexDir "旧\元のフォルダ.txt") -Value "旧`tC:\旧" -Encoding UTF8
+            New-Item -ItemType Directory -Path (Join-Path $script:wsLegacy.OldSystemIndexDir "旧") -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $script:wsLegacy.OldSystemIndexDir "旧\システムインデックス.txt") -Value "x00000000" -Encoding UTF8
+        }
+
+        It "<label>のとき、system_index が残る" -TestCases @(
+            @{ label = "目録が JSON でない zip"; kind = "notjson"; message = "*目録を読めません*" }
+            @{ label = "目録の検査で断る zip（合計が大きすぎる）"; kind = "toobig"; message = "*合計の大きさ*" }
+            @{ label = "zip でないファイル"; kind = "notzip"; message = "*壊れています*" }
+            @{ label = "SHA-256 を偽った zip（展開の途中で断る）"; kind = "badsha"; message = "*大きさか内容が目録と違います*" }
+            @{ label = "空き容量が足りない正しい zip"; kind = "nospace"; message = "*空き容量*" }
+            @{ label = "元のフォルダが別のインデックスと重なる正しい zip"; kind = "overlap"; message = "*が既にあります*" }
+        ) {
+            param ($label, $kind, $message)
+            $path = "$($script:wsLegacy.Dir)\keep.zip"
+            $getFree = { param ($root) $null }
+            switch ($kind) {
+                "notjson" { newManifestOnlyZip $path @() "これは JSON ではありません" }
+                "toobig" { newManifestOnlyZip $path @([ordered]@{ path = "content_index/content_index.xlsx.001.tsv"; size = (${indexArchiveMaxTotalBytes} + 1); sha256 = ("a" * 64) }) }
+                "notzip" { Set-Content -LiteralPath $path -Value "これは zip ではありません" -Encoding UTF8 }
+                "badsha" {
+                    $a = [System.IO.Compression.ZipFile]::Open($path, [System.IO.Compression.ZipArchiveMode]::Create, [System.Text.Encoding]::UTF8)
+                    try {
+                        writeArchiveBytes $a "ingest_status.tsv" ([System.Text.Encoding]::UTF8.GetBytes("x"))
+                        $manifest = [ordered]@{
+                            format = ${indexArchiveFormat}; formatVersion = ${indexArchiveFormatVersion}; appVersion = ""
+                            exportedAt = "2026-09-27T10:00:00+09:00"; indexName = "営業"; sourceFolder = "C:\共有\営業部"
+                            files = @([ordered]@{ path = "ingest_status.tsv"; size = 1; sha256 = ("a" * 64) })
+                        }
+                        writeArchiveBytes $a "tebunko-index.json" ((New-Object System.Text.UTF8Encoding($false)).GetBytes((ConvertTo-Json $manifest -Depth 5)))
+                    } finally {
+                        $a.Dispose()
+                    }
+                }
+                default {
+                    $fixtureA = newIndexFixture "$TestDrive\legacykeep_src_$([Guid]::NewGuid().ToString('N'))" "営業" "C:\共有\営業部"
+                    exportIndex "営業" $path $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
+                    if ($kind -eq "nospace") {
+                        $getFree = { param ($root) [long]0 }
+                    } else {
+                        writeTargetFolders @([pscustomobject]@{ Name = "別"; Path = "C:\新しい場所"; Enabled = $true }) $script:settingsLegacy
+                    }
+                }
+            }
+
+            { importIndex $path ${importCollisionRename} "" "C:\新しい場所" $script:wsLegacy $script:settingsLegacy $getFree } | Should -Throw $message
+            Test-Path -LiteralPath (Join-Path $script:wsLegacy.OldSystemIndexDir "旧\システムインデックス.txt") | Should -Be $true
+        }
     }
 }
 
@@ -1034,6 +1278,67 @@ Describe "getImportArchiveInfo" -Tag Io {
         $info = getImportArchiveInfo "$TestDrive\dummy.zip"
 
         $info.SourceExists | Should -Be $exists
+    }
+
+    Context "extractArchiveEntryToFile（置き場の下に、上書きせずに書く）" {
+        BeforeAll {
+            function script:newEntryZip {
+                param ([string]$path, [string]$text)
+                Add-Type -AssemblyName System.IO.Compression
+                Add-Type -AssemblyName System.IO.Compression.FileSystem
+                [System.IO.Directory]::CreateDirectory((Split-Path $path -Parent)) | Out-Null
+                $zip = [System.IO.Compression.ZipFile]::Open($path, [System.IO.Compression.ZipArchiveMode]::Create)
+                try {
+                    $entry = $zip.CreateEntry("a.tsv")
+                    $writer = New-Object System.IO.StreamWriter($entry.Open())
+                    $writer.Write($text)
+                    $writer.Dispose()
+                } finally {
+                    $zip.Dispose()
+                }
+            }
+            function script:getEntryHash {
+                param ([string]$text)
+                $bytes = [System.Text.Encoding]::UTF8.GetBytes($text)
+                return [BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash($bytes)).Replace("-", "")
+            }
+        }
+
+        It "置き場の下に書き、同じ名前のファイルが既にあれば上書きせず例外にする" {
+            $zipPath = "$TestDrive\extract\a.zip"
+            newEntryZip $zipPath "abc"
+            $root = "$TestDrive\extract\out"
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
+            try {
+                $entry = $zip.GetEntry("a.tsv")
+                extractArchiveEntryToFile $entry 3 (getEntryHash "abc") "$root\d\a.tsv" $root
+                [System.IO.File]::ReadAllText("$root\d\a.tsv") | Should -Be "abc"
+                { extractArchiveEntryToFile $entry 3 (getEntryHash "abc") "$root\d\a.tsv" $root } | Should -Throw
+                [System.IO.File]::ReadAllText("$root\d\a.tsv") | Should -Be "abc"
+            } finally {
+                $zip.Dispose()
+            }
+        }
+
+        It "途中にジャンクションがあれば、リンクの先へ書かず例外にする" {
+            $zipPath = "$TestDrive\extract2\a.zip"
+            newEntryZip $zipPath "abc"
+            $root = "$TestDrive\extract2\out"
+            $outside = "$TestDrive\extract2\outside"
+            [System.IO.Directory]::CreateDirectory($root) | Out-Null
+            if (!(newTestJunction "$root\link" $outside)) {
+                Set-ItResult -Skipped -Because $script:linkError
+                return
+            }
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
+            try {
+                $entry = $zip.GetEntry("a.tsv")
+                { extractArchiveEntryToFile $entry 3 (getEntryHash "abc") "$root\link\a.tsv" $root } | Should -Throw "*リンク*"
+                Test-Path -LiteralPath "$outside\a.tsv" | Should -Be $false
+            } finally {
+                $zip.Dispose()
+            }
+        }
     }
 
     It "元のフォルダが空なら false" {

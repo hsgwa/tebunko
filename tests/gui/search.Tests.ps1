@@ -95,6 +95,13 @@ Describe "S4 検索の遷移" -Tag Gui {
             (findGui $S.Window -Id "PreviewSplitter").Current.BoundingRectangle.Top | Should -BeLessThan $previewTwo -Because "表が縮んだぶん、プレビューが上に広がる"
             setGuiText $S (findGui $S.Window -Id "FilterBox") ""
             waitGui $S "絞り込みを消すと 2 件に戻る" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 2 } | Out-Null
+            # 該当行の語・フォルダ名はファイル名ではないので、入れると 0 件になる。消すと戻る
+            foreach ($notName in @("単価", "営業")) {
+                setGuiText $S (findGui $S.Window -Id "FilterBox") $notName
+                waitGui $S "ファイル名に無い「$notName」では結果の行が 0 件" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 0 } | Out-Null
+                setGuiText $S (findGui $S.Window -Id "FilterBox") ""
+                waitGui $S "絞り込みを消すと 2 件に戻る（$notName の後）" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 2 } | Out-Null
+            }
 
             # 種類のチップを外すと、その種類のファイルが検索から外れる。戻すと元に戻る（全部外すこともできるが、そのままでは検索を始めない）
             setGuiStep $S "種類のチップ［Word］を外して検索"

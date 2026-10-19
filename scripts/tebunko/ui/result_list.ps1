@@ -13,8 +13,6 @@ $script:places = @{}             # 場所の表示（describePlace）を、種�
 $script:rowWord = ""             # 表の行の強調に使う検索ワードと正規表現（startSearch が setRowPattern で決める）
 $script:rowPattern = $null
 $script:expandNew = $false       # 検索中に新しく見つかったファイルを開いておくか（［すべて開く］を押したら $true）
-$script:needsRebuild = $false    # 検索中に、表の途中に見出しを差し込む必要ができた（検索の終わりに作り直す）
-$script:lastInViewOrder = -1     # 表に出ている見出しのうち、いちばん後に見つかったものの Order（新しい見出しを末尾に足せるかの判定）
 $ui.ResultGrid.ItemsSource = $script:resultItems
 
 # 見出しの下の行をこの数より多く出し入れするときは、1 件ずつ入れずに表を作り直す（1 件ずつだと画面の更新が重い）
@@ -35,7 +33,6 @@ function clearResults {
     $script:rowWord = $word
     $script:rowPattern = $pattern
     $script:expandNew = $false
-    $script:needsRebuild = $false
     foreach ($column in $ui.ResultGrid.Columns) {
         $column.SortDirection = $null
     }
@@ -55,7 +52,7 @@ function newFileGroup {
     $group.Book = $book
     $group.RelDir = $relDir
     $group.FullPath = $key
-    $group.AppKind = getAppKind $book
+    $group.AppKind = getContentIndexFileKind $book
     $group.IsExpanded = $script:expandNew
     $script:fileGroups[$key] = $group
     $script:groupList.Add($group)
@@ -66,10 +63,11 @@ function getPlace {
     # 場所の表示（describePlace の @{ Place; Kind }）。同じ種類のファイル・場所なら同じなので覚えておく
     param (
         [string]$book,
-        [string]$location
+        [string]$location,
+        [string]$fileKind    # getContentIndexFileKind $book（呼ぶ側が 1 回だけ求めた値）
     )
 
-    $key = "$([int]($book -match '\.xls[a-z]?$'))|$location"
+    $key = "$([int]($fileKind -eq "Excel"))|$location"
     $described = $script:places[$key]
     if ($null -eq $described) {
         $described = describePlace $book $location
@@ -86,7 +84,7 @@ function addFileGroupLocation {
         [string]$location
     )
 
-    if ($group.AddLabel((getPlace $book $location).Place)) {
+    if ($group.AddLabel((getPlace $book $location (getContentIndexFileKind $book)).Place)) {
         $group.SetLocationText((describeFileLocations $group.GetLocations()), (getFileHeaderLocationPrefix $group.GetLocations()))
     }
 }
@@ -105,14 +103,17 @@ function ensureRows {
         $indexName = if ($cut -lt 0) { $relDir } else { $relDir.Substring(0, $cut) }
         $row = [HitRow]::Create($indexName, $hit.Root, $hit.RelPath, $relDir, $hit.FileName,
                 $hit.Book, $hit.Location, [int]$hit.LineNumber, $hit.Line, $script:rowWord, $script:rowPattern)
-        $described = getPlace $hit.Book $hit.Location
+        $fileKind = getContentIndexFileKind $hit.Book
+        $described = getPlace $hit.Book $hit.Location $fileKind
         $row.PlaceText = $described.Place
         $row.Kind = $described.Kind
+        $row.IsExcel = ($fileKind -eq "Excel")
         $row.IsText = testTextExtension $hit.Book
+        $row.IsCellPrefixed = testCellPrefixedPlace $hit.Book (splitObjectPlace $hit.Location).Kind
         $row.Order = $i
         $row.FileGroup = $group
         $group.Rows.Add($row)
-        if ($script:filterText -eq "" -or $row.Contains($script:filterText)) {
+        if ($script:filterText -eq "" -or $row.MatchesFileName($script:filterText)) {
             $group.ShownRows.Add($row)
         }
     }
@@ -158,15 +159,9 @@ function flushResults {
             continue
         }
         if (!$group.InView) {
-            if ($group.Order -lt $script:lastInViewOrder) {
-                # 絞り込みで隠れていたファイルに、あとから合う行が来た。末尾に足すと順が崩れるため、検索の終わりに作り直す
-                $script:needsRebuild = $true
-                continue
-            }
             $script:resultItems.Add($group)
             $group.InView = $true
             $group.DisplayedCount = 0
-            $script:lastInViewOrder = $group.Order
         }
         if ($group.IsExpanded -and $group.DisplayedCount -lt $group.ShownRows.Count) {
             insertGroupRows $group
@@ -203,14 +198,12 @@ function setResultItems {
         $group.InView = $false
         $group.DisplayedCount = 0
     }
-    $script:lastInViewOrder = -1
     foreach ($item in $items) {
         if ($item -is [FileGroup]) {
             $item.InView = $true
             if ($item.IsExpanded) {
                 $item.DisplayedCount = $item.ShownRows.Count
             }
-            $script:lastInViewOrder = [Math]::Max($script:lastInViewOrder, $item.Order)
         }
     }
     $script:resultItems = New-Object 'System.Collections.ObjectModel.ObservableCollection[object]' (, [System.Collections.Generic.List[object]]$items)
@@ -223,7 +216,6 @@ function setResultItems {
 
 function rebuildResults {
     # 見出しの開閉・絞り込み・並べ替えのあとに、表の中身を作り直す（開いているファイルの行は、ここで作る）
-    $script:needsRebuild = $false
     foreach ($group in $script:groupList) {
         if ($group.IsExpanded) {
             ensureRows $group
@@ -328,14 +320,11 @@ function applySort {
 }
 
 function finishResults {
-    # 検索の終わりに、表の順を整える。検索中に並べ替えていたら、あとから来た行も含めて並べ直す。
-    # 絞り込みで隠れていたファイルに、あとから合う行が来ていたら作り直す
+    # 検索の終わりに、表の順を整える。検索中に並べ替えていたら、あとから来た行も含めて並べ直す
     flushResults -SkipPaneHeight
     $column = $ui.ResultGrid.Columns | Where-Object { $null -ne $_.SortDirection } | Select-Object -First 1
     if ($column) {
         applySort $column.SortMemberPath ($column.SortDirection -eq [System.ComponentModel.ListSortDirection]::Descending)
-    } elseif ($script:needsRebuild) {
-        rebuildResults
     } else {
         updateResultPaneHeight $script:resultItems.Count
     }

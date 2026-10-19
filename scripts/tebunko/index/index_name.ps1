@@ -103,7 +103,7 @@ function splitIndexRelPath {
 }
 
 
-# Windows で使えないファイル名の一覧（${reservedFileNames}）は shared/core/fs.ps1 にある
+# Windows で使えないファイル名の一覧（${reservedFileNames}）は shared/core/text.ps1 にある
 
 
 function testIndexName {
@@ -140,7 +140,7 @@ function testStoredIndexName {
     return (getFolderNameProblemText ([string]$name) $true)
 }
 
-# ファイル名に使えない文字の配列 ${invalidFileNameChars} は shared/core/fs.ps1 にある（getFolderNameProblemText と共通）
+# ファイル名に使えない文字の配列 ${invalidFileNameChars} は shared/core/text.ps1 にある（getFolderNameProblemText と共通）
 
 function testPathSegments {
     # 区切り文字で分けたパスの各区切り（segments）が、ファイル名として安全に使えるかを調べ、
@@ -181,7 +181,7 @@ function testIndexRelPath {
     # work\content_index の下のパスとして使えるかを調べ、使えない理由を返す（使えれば空文字列）。
     # 先頭は保存してあるインデックス名（testStoredIndexName。予約名は通す）、残りは区切りごとに空・.・..・ファイル名に使えない文字（\ / : など）を拒む
     # （残りには予約名・最後の . や空白の決まりを当てない。実在のファイル名を捨てないため）。
-    #   allowNameOnly: 残りが無く、名前だけのもの（"営業"）も通す（システムインデックスの状態のフォルダ）
+    #   allowNameOnly: 残りが無く、名前だけのもの（"営業"）も通す
     #   checkedNames : testStoredIndexName を通った名前の集合（HashSet[string]）。数万行を読むとき、同じ名前を何度も調べないために
     #                  呼び出し側が渡す（通った名前をここに足す）
     param (
@@ -414,7 +414,7 @@ function describePlace {
     $kind = $split.Kind
     if ($split.Number -gt 0) { $kind = "$kind $($split.Number)" }
 
-    if ($book -match '\.xls[a-z]?$') {
+    if ((getContentIndexFileKind $book) -eq "Excel") {
         return @{ Place = "[シート]$base"; Kind = $(if ($kind) { $kind } else { "セル" }) }
     }
     if ($base -eq "") {
@@ -467,4 +467,5 @@ function describeHitPlace {
 
 
 # インデックスの「元のファイル名のフォルダ」と分かる名前（Office・テキスト・PDF の拡張子で終わる）
-${indexBookDirPattern} = "\.(?:xls|doc|ppt)[a-z]?$|(?:$(((${textExtensions} + ${pdfExtensions}) | ForEach-Object { [regex]::Escape($_) }) -join '|'))$"
+# （testIndexBookName もこの正規表現で判定する。Office の拡張子は officeExtensions の表から作る）
+${indexBookDirPattern} = "(?:$(((${officeExtensions} + ${textExtensions} + ${pdfExtensions}) | ForEach-Object { [regex]::Escape($_) }) -join '|'))$"

@@ -46,6 +46,18 @@ function getSearchStatusText {
     return $text
 }
 
+function getSkippedContentIndexText {
+    # 検索で読めずに飛ばした本文インデックスのファイルの件数の文（ステータスバーの文の後ろに付ける。0 件は空）
+    param (
+        [int]$count
+    )
+
+    if ($count -le 0) {
+        return ""
+    }
+    return "　読めなかったインデックスのファイル：$($count.ToString('N0')) 件"
+}
+
 function getFilteredSummaryText {
     # 結果を絞り込んでいるときの要約欄（全部の件数のうち、いくつ見せているか）
     param (
@@ -54,31 +66,6 @@ function getFilteredSummaryText {
     )
 
     return "一致 $($hits.ToString('N0')) 件中 $($shown.ToString('N0')) 件を表示"
-}
-
-function getAppKind {
-    # 元のファイル名の拡張子から、アプリの種類（Excel / Word / PowerPoint / テキスト / PDF。どれでもなければ空）を返す
-    param (
-        [string]$book
-    )
-
-    $extension = [System.IO.Path]::GetExtension($book).ToLowerInvariant()
-    if ($extension -match '^\.xls') {
-        return "Excel"
-    }
-    if ($extension -match '^\.doc') {
-        return "Word"
-    }
-    if ($extension -match '^\.ppt') {
-        return "PowerPoint"
-    }
-    if (testTextExtension $book) {
-        return "テキスト"
-    }
-    if (testPdfExtension $book) {
-        return "PDF"
-    }
-    return ""
 }
 
 function describeFileLocations {
@@ -148,7 +135,7 @@ function getPreviewRowHeight {
 }
 
 function selectShownRows {
-    # 行のうち、絞り込み（空ならすべて）に合うものを、元の順のまま返す
+    # 行のうち、ファイル名の絞り込み（空ならすべて）に合うものを、元の順のまま返す
     param (
         $rows,
         [string]$filterText
@@ -156,7 +143,7 @@ function selectShownRows {
 
     $shown = New-Object 'System.Collections.Generic.List[object]'
     foreach ($row in $rows) {
-        if ($filterText -eq "" -or $row.Contains($filterText)) {
+        if ($filterText -eq "" -or $row.MatchesFileName($filterText)) {
             $shown.Add($row)
         }
     }

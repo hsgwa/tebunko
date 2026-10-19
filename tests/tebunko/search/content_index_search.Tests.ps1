@@ -196,9 +196,61 @@ Describe "本文インデックスのファイルの作成と検索" -Tag Io {
     }
 
     It "中止を求められたら止める" {
-        $result = searchContentIndex "単価" $contentIndexFiles $true -shouldStop { $true }
+        $result = searchContentIndex "単価" $contentIndexFiles $true -stopSignal @{ Stop = $true }
         $result.Cancelled | Should -Be $true
         $result.Hits.Count | Should -Be 0
+    }
+
+    It "照合は本文インデックスのファイル 1 件ごとに Stop を見て、立ったら次のファイルを読まずにここまでのヒットを返す" {
+        $search = newSearchRegex "単価" $true $false
+        $firstOnly = searchContentIndexFiles $contentIndexFiles 0 1 $search.Regex -1 $search.TextRegex $search.ScanMode
+        $firstOnly.Hits.Count | Should -BeGreaterThan 0
+        # 2 回目に読まれたときから Stop が立つ入れ物（1 件目を照合し、2 件目の前で止まる）
+        $signal = [pscustomobject]@{ Reads = 0 }
+        $signal | Add-Member -MemberType ScriptProperty -Name Stop -Value { $this.Reads++; $this.Reads -ge 2 }
+        $found = searchContentIndexFiles $contentIndexFiles 0 $contentIndexFiles.Count $search.Regex -1 $search.TextRegex $search.ScanMode $null $null $null $null $signal
+        $found.Hits.Count | Should -Be $firstOnly.Hits.Count
+        $signal.Reads | Should -Be 2
+        (searchContentIndexFiles $contentIndexFiles 0 $contentIndexFiles.Count $search.Regex -1 $search.TextRegex $search.ScanMode $null $null $null $null @{ Stop = $true }).Hits.Count | Should -Be 0
+    }
+
+    It "照合のスレッドのスクリプトも、渡された Stop を見て止まる（このスレッドで直接動かす）" {
+        $search = newSearchRegex "単価" $true $false
+        $firstOnly = searchContentIndexFiles $contentIndexFiles 0 1 $search.Regex -1 $search.TextRegex $search.ScanMode
+        $signal = [pscustomobject]@{ Reads = 0 }
+        $signal | Add-Member -MemberType ScriptProperty -Name Stop -Value { $this.Reads++; $this.Reads -ge 2 }
+        $output = & ${contentIndexWorkerScript} $contentIndexFiles 0 $contentIndexFiles.Count $search.Regex -1 $search.TextRegex $search.ScanMode $null $null $null $null $signal
+        $output.Timeout | Should -Be $false
+        @($output.Hits).Count | Should -Be $firstOnly.Hits.Count
+        $output = & ${contentIndexWorkerScript} $contentIndexFiles 0 $contentIndexFiles.Count $search.Regex -1 $search.TextRegex $search.ScanMode $null $null $null $null @{ Stop = $true }
+        @($output.Hits).Count | Should -Be 0
+    }
+
+    It "1 つのスレッドで作業が 1 つ（ファイル全部）でも、作業の途中で止まる。止めた作業の分は進み具合として知らせない" {
+        # 止めない入れ物で、Stop を見る回数を数える（最後まで照合したときの回数）
+        $counter = [pscustomobject]@{ Reads = 0 }
+        $counter | Add-Member -MemberType ScriptProperty -Name Stop -Value { $this.Reads++; $false }
+        [void](searchContentIndex "単価" $contentIndexFiles $true -workerCount 1 -stopSignal $counter)
+        # 3 回目に読まれたときから Stop が立つ。作業の途中で止まったことは、読んだ回数が最後まで照合したときより少ないことで確かめる
+        $signal = [pscustomobject]@{ Reads = 0 }
+        $signal | Add-Member -MemberType ScriptProperty -Name Stop -Value { $this.Reads++; $this.Reads -ge 3 }
+        $script:progress = 0
+        $result = searchContentIndex "単価" $contentIndexFiles $true -workerCount 1 -stopSignal $signal -onProgress { param($done, $total, $newHits) $script:progress++ }
+        $result.Cancelled | Should -Be $true
+        $signal.Reads | Should -BeLessThan $counter.Reads
+        $result.Hits.Count | Should -Be 0   # 止めた作業のヒットは、結果にも進み具合にも入れない
+        $script:progress | Should -Be 0
+    }
+
+    It "列挙は検索対象のフォルダ 1 つごとに Stop を見て、立ったら残りを列挙しない" {
+        $targets = @(@{ Root = $contentIndexRoot; RelPath = "営業"; Recurse = $false }, @{ Root = $contentIndexRoot; RelPath = "営業\2025"; Recurse = $false })
+        $stop = @{ Stop = $false }
+        $listed = getContentIndexFiles $targets { param ($count) $stop.Stop = $true } $stop
+        $listed.Folders.Count | Should -Be 1
+        $listed.ContentIndexFiles.Count | Should -Be 2
+        $none = getContentIndexFiles $targets $null @{ Stop = $true }
+        $none.Folders.Count | Should -Be 0
+        (getContentIndexFiles $targets).Folders.Count | Should -Be 2
     }
 
     It "1 行ずつ照合する検索語でも上限で打ち切る" {
@@ -217,7 +269,7 @@ Describe "本文インデックスのファイルの作成と検索" -Tag Io {
         $options = [System.Text.RegularExpressions.RegexOptions]::None
         $lineRegex = [regex]::new($pattern, $options, [timespan]::FromSeconds(5))
         $textRegex = [regex]::new($pattern, $options -bor [System.Text.RegularExpressions.RegexOptions]::Multiline, [timespan]::FromMilliseconds(1))
-        $hits = searchContentIndexFiles $slowContentIndexFiles 0 1 $lineRegex -1 $textRegex "lines"
+        $hits = (searchContentIndexFiles $slowContentIndexFiles 0 1 $lineRegex -1 $textRegex "lines").Hits
         $hits.Count | Should -Be 1
         $hits[0].LineNumber | Should -Be 3001
     }
@@ -244,7 +296,7 @@ Describe "本文インデックスのファイルの作成と検索" -Tag Io {
         @([System.IO.Directory]::GetFiles($dir) | ForEach-Object { [System.IO.Path]::GetFileName($_) }) -join "," | Should -Be "content_index.xlsx.001.tsv"
     }
 
-    It "TSV の残ったフォルダを見つけ、本文インデックスのファイルとシステムインデックスに書き出して TSV を消す" {
+    It "TSV の残ったフォルダを見つけ、本文インデックスのファイルに書き出して TSV を消す" {
         $work = Join-Path $TestDrive "publish"
         $index = "$work\index"
         newTsv "$index\人事\A.xlsx\$(toIndexFileName "S")" @("採用の計画")
@@ -257,20 +309,34 @@ Describe "本文インデックスのファイルの作成と検索" -Tag Io {
 
         $pending = New-Object 'System.Collections.Generic.Dictionary[string,object]'
         foreach ($folder in $found) { $pending[$folder] = @() }
-        $state = "$work\system_index_state.tsv"
-        publishIndexFolders $pending $index "$work\system_index" $state | Should -Be 2
+        $published = publishIndexFolders $pending $index
+        $published.Count | Should -Be 2
+        @($published.Skipped).Count | Should -Be 0
         (findIndexFoldersWithBooks $index).Count | Should -Be 0
         [System.IO.File]::Exists("$index\人事\content_index.xlsx.001.tsv") | Should -Be $true
         [System.IO.File]::Exists("$index\人事\2025\content_index.docx.001.tsv") | Should -Be $true
-        $txt = "$work\system_index\人事\2025\${systemIndexFileName}"
-        [System.IO.File]::Exists($txt) | Should -Be $true
-        (readSystemIndexState $state).Pending["人事\2025\${systemIndexFileName}"] | Should -Be ([System.IO.File]::GetLastWriteTimeUtc($txt).Ticks)
-        # 書き出したフォルダと本文インデックスのファイルに NotContentIndexed が付く（システムインデックス側には付けない）
-        ([System.IO.File]::GetAttributes("$index\人事") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
-        ([System.IO.File]::GetAttributes("$index\人事\content_index.xlsx.001.tsv") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
-        ([System.IO.File]::GetAttributes("$index\人事\2025") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
-        ([System.IO.File]::GetAttributes("$index\人事\2025\content_index.docx.001.tsv") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
-        ([System.IO.File]::GetAttributes($txt) -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Be 0
+    }
+
+    It "途中にジャンクションがあるフォルダは、リンクの先の本文インデックスのファイルを消さず・書かず、飛ばしてログに出す" {
+        Mock writeIndexerLog {}
+        $work = Join-Path $TestDrive "publink"
+        $index = "$work\index"
+        $outside = "$work\外"
+        # 外のフォルダに、前の本文インデックスのファイルだけがある（元のファイルが無くなって、中身が空になる場面）
+        [System.IO.Directory]::CreateDirectory("$outside\deep") | Out-Null
+        writeContentIndexFile "$outside\deep\content_index.xlsx.001.tsv" (convertToContentIndexText @(@{ Name = "C.xlsx"; Places = @(@{ Place = "S"; Text = "外の中身" }) }))
+        [System.IO.Directory]::CreateDirectory($index) | Out-Null
+        if (!(newTestJunction "$index\営業" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        $pending = New-Object 'System.Collections.Generic.Dictionary[string,object]'
+        $pending["$index\営業\deep"] = @("C.xlsx")
+
+        (publishIndexFolders $pending $index).Count | Should -Be 0
+
+        [System.IO.File]::Exists("$outside\deep\content_index.xlsx.001.tsv") | Should -Be $true
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*書き出しませんでした*" }
     }
 
     It "名前が .xlsx などで終わる本物のフォルダ・中身が空のファイルのフォルダは、本文インデックスにする前の TSV と取り違えない" {
@@ -299,8 +365,6 @@ Describe "本文インデックスのファイルの作成と検索" -Tag Io {
         [System.IO.Directory]::Exists("$folder\空.xlsx") | Should -Be $true
         [System.IO.Directory]::Exists("$folder\B.xlsx") | Should -Be $false
         (findIndexFoldersWithBooks $index).Count | Should -Be 0
-        # 本物のフォルダは、システムインデックスでも自分の txt を持つ（親の txt に入れない）
-        (getSystemIndexFolderTsvPaths $folder | ForEach-Object { [System.IO.Path]::GetFileName($_) }) -join "," | Should -Be "content_index.xlsx.001.tsv"
     }
 
     It "大きさの上限を超えたら次の番号の本文インデックスのファイルに分け、変わった本文インデックスのファイルだけを書き直す。検索の結果は変わらない" {
@@ -575,7 +639,8 @@ Describe "searchContentIndex（検索語・条件・上限・中止）" -Tag Io 
 
     It "進み具合（照合した本文インデックスのファイルの数）を知らせ、中止できる" {
         $script:progress = @()
-        $result = searchContentIndex "株" $contentIndexFiles $true -taskBytes 1 -workerCount 1 -onProgress { param($done, $total, $newHits) $script:progress += "$done/$total" } -shouldStop { $script:progress.Count -ge 1 }
+        $stop = @{ Stop = $false }
+        $result = searchContentIndex "株" $contentIndexFiles $true -taskBytes 1 -workerCount 1 -onProgress { param($done, $total, $newHits) $script:progress += "$done/$total"; $stop.Stop = $true } -stopSignal $stop
         $result.Cancelled | Should -Be $true
         ($script:progress -join ",") | Should -Be "1/2"
     }
@@ -669,9 +734,32 @@ Describe "searchContentIndex（並列検索・読んだ内容の使い回し）"
 
     It "並列でも中止できる" {
         $script:calls = 0
-        $result = searchContentIndex "見積" $contentIndexFiles $true -workerCount 3 -taskBytes 1 -onProgress { param($done, $total, $newHits) $script:calls++ } -shouldStop { $script:calls -ge 2 }
+        $stop = [hashtable]::Synchronized(@{ Stop = $false })
+        $result = searchContentIndex "見積" $contentIndexFiles $true -workerCount 3 -taskBytes 1 -onProgress { param($done, $total, $newHits) $script:calls++; if ($script:calls -ge 2) { $stop.Stop = $true } } -stopSignal $stop
         $result.Cancelled | Should -Be $true
         $script:calls | Should -Be 2
+        $result.Hits.Count | Should -Be 40   # 2 つの作業（本文インデックスのファイル 20 件ずつ）の分だけ。止めた後の作業のヒットは入れない
+    }
+
+    It "並列で中止したあとも、同じプールで次の検索がいつもの結果になる（残った作業を受け取って捨てる）" {
+        $pool = newContentIndexWorkerPool 3
+        try {
+            $stop = [hashtable]::Synchronized(@{ Stop = $false })
+            $result = searchContentIndex "見積" $contentIndexFiles $true -taskBytes 1 -pool $pool -onProgress { param($done, $total, $newHits) $stop.Stop = $true } -stopSignal $stop
+            $result.Cancelled | Should -Be $true
+            $expected = formatBookLines (searchContentIndex "見積" $contentIndexFiles $true -workerCount 1).Hits
+            $again = searchContentIndex "見積" $contentIndexFiles $true -taskBytes 1 -pool $pool
+            formatBookLines $again.Hits | Should -Be $expected
+            $again.Cancelled | Should -Be $false
+        } finally {
+            $pool.Close()
+        }
+    }
+
+    It "並列でも、始めから Stop が立っていれば何も照合しない" {
+        $result = searchContentIndex "見積" $contentIndexFiles $true -workerCount 3 -taskBytes 1 -stopSignal @{ Stop = $true }
+        $result.Cancelled | Should -Be $true
+        $result.Hits.Count | Should -Be 0
     }
 
     It "内容を使い回し、書き直された本文インデックスのファイルは読み直す" {
@@ -1062,5 +1150,80 @@ Describe "testCellPrefixedHit（セル番地 + 区切りのタブ + 文字の行
         @{ Name = "文字の中のタブだけに当たる語も一致"; Pattern = "`t"; Line = "C3`t`"品名`t納期`""; Expected = $true }
     ) {
         testCellPrefixedHit ([regex]::new($Pattern)) $Line | Should -Be $Expected
+    }
+}
+
+Describe "壊れた・大きすぎる本文インデックスのファイルは、そのファイルだけ飛ばす" -Tag Io {
+    BeforeAll {
+        function script:newMixedContentIndexFiles {
+            # 正しい本文インデックスのファイル（営業）に、中身 text の本文インデックスのファイル（壊れ）を混ぜた並びを返す
+            param ([string]$name, [string]$text)
+            $tsvRoot = Join-Path $TestDrive "mixed_tsv_$name"
+            newTsv "$tsvRoot\営業\見積.xlsx\Sheet1.tsv" @("単価`t105")
+            $root = Join-Path $TestDrive "mixed_content_index_$name"
+            [void](newContentIndexFiles $tsvRoot $root)
+            [void][System.IO.Directory]::CreateDirectory("$root\壊れ")
+            writeContentIndexFile "$root\壊れ\content_index.xlsx.001.tsv" $text
+            return , (getContentIndexFiles @($root)).ContentIndexFiles
+        }
+    }
+
+    It "<Name> のファイルが 1 つ混ざっても、ほかのファイルのヒットを返し、そのファイルだけを Skipped に入れる（直列・並列とも）" -TestCases @(
+        @{ Name = "版が違う"; Text = "{RS} 版=999{LF}{RS} ファイル名=a.xlsx{LF}{RS} シート=S{LF}単価{LF}" }
+        @{ Name = "版が無い"; Text = "{RS} ファイル名=a.xlsx{LF}{RS} シート=S{LF}単価{LF}" }
+        @{ Name = "ファイル名の行だけ"; Text = "{RS} ファイル名=単価.xlsx" }
+        @{ Name = "版の値が数でない"; Text = "{RS} 版=あ{LF}{RS} ファイル名=a.xlsx{LF}単価{LF}" }
+    ) {
+        $text = $Text.Replace("{RS}", [string][char]0x1E).Replace("{LF}", "`n")
+        $files = newMixedContentIndexFiles $Name $text
+        $files.Count | Should -Be 2
+        $pool = newContentIndexWorkerPool 2
+        try {
+            foreach ($usePool in @($false, $true)) {
+                $result = if ($usePool) { searchContentIndex "単価" $files $true -pool $pool -taskBytes 1 } else { searchContentIndex "単価" $files $true }
+                @($result.Hits).Count | Should -Be 1
+                $result.Hits[0].Book | Should -Be "見積.xlsx"
+                @($result.Skipped).Count | Should -Be 1
+                $result.Skipped[0] | Should -BeLike "*\壊れ\content_index.xlsx.001.tsv"
+            }
+        } finally {
+            $pool.Close()
+        }
+    }
+
+    It "大きさが上限を超える本文インデックスのファイルは、読まずに飛ばす（直列・並列とも）" {
+        $files = newMixedContentIndexFiles "large" "$([char]0x1E) 版=2`n"
+        $large = @($files | ForEach-Object { $copy = $_.Clone(); if ($copy.RelPath -like "壊れ*") { $copy.Size = ${contentIndexSearchMaxBytes} + 1 }; $copy })
+        $pool = newContentIndexWorkerPool 2
+        try {
+            foreach ($usePool in @($false, $true)) {
+                $result = if ($usePool) { searchContentIndex "単価" $large $true -pool $pool -taskBytes 1 } else { searchContentIndex "単価" $large $true }
+                @($result.Hits).Count | Should -Be 1
+                @($result.Skipped).Count | Should -Be 1
+            }
+        } finally {
+            $pool.Close()
+        }
+    }
+
+    It "場所の番号が数でなくても例外にならず、飛ばさない（場所の名前はその値のまま）" {
+        $text = "{RS} 版=2{LF}{RS} ファイル名=a.pdf{LF}{RS} ページ=あ{LF}単価{LF}".Replace("{RS}", [string][char]0x1E).Replace("{LF}", "`n")
+        $files = newMixedContentIndexFiles "page" $text
+        $result = searchContentIndex "単価" $files $true
+        @($result.Skipped).Count | Should -Be 0
+        @($result.Hits | Where-Object { $_.Book -eq "a.pdf" }).Count | Should -Be 1
+        @($result.Hits | Where-Object { $_.Book -eq "a.pdf" })[0].Location | Should -Be "あ"
+    }
+
+    It "照合の時間切れは飛ばさず、そのまま伝える（検索の全体を中止する）" {
+        $slowRoot = Join-Path $TestDrive "skip_slow"
+        newTsv "$slowRoot\idx\遅い.xlsx\Sheet1.tsv" @(("a" * 40) + "!")
+        convertFolderToContentIndex "$slowRoot\idx" "$slowRoot\content_index\idx" | Out-Null
+        $slowFiles = findContentIndexFiles "$slowRoot\content_index"
+        $lineRegex = [regex]::new("^(a|aa)+b", [System.Text.RegularExpressions.RegexOptions]::None, [timespan]::FromMilliseconds(1))
+        $thrown = $null
+        try { [void](searchContentIndexFiles $slowFiles 0 1 $lineRegex -1 $null) } catch { $thrown = $_.Exception }
+        $thrown | Should -Not -BeNullOrEmpty
+        ($thrown -is [System.Text.RegularExpressions.RegexMatchTimeoutException] -or $thrown.InnerException -is [System.Text.RegularExpressions.RegexMatchTimeoutException]) | Should -Be $true
     }
 }

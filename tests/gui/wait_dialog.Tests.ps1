@@ -10,7 +10,7 @@ BeforeAll {
     ${sharedXamlDir} = "${scriptsDir}\shared\xaml"
     ${iconFile}      = "${scriptsDir}\tebunko\tebunko.ico"
     ${themeFile}     = "${sharedXamlDir}\theme.xaml"
-    ${appTitle}      = "tebunko"
+    setShellTitle "tebunko"
 }
 
 Describe "待つ間のダイアログ" -Tag Gui {

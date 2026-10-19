@@ -15,7 +15,6 @@ tebunko は、Excel・Word・PowerPoint のファイルとテキストファイ�
 | .NET Framework | 4.x の標準アセンブリ（追加の導入は不要） |
 | Microsoft Excel | デスクトップ版が必須です。COM で自動操作し、Excel ファイルの文字の取り出しと、検索結果からセルを選んで開くのに使います |
 | Microsoft Word・PowerPoint | 旧形式（.doc・.ppt）のファイルと、中身が旧形式のファイルを更新する場合のみ必要です |
-| Windows Search | 任意です。高速検索だけが使います。無くても検索結果は同じです（[高速検索](fast-search.md)） |
 
 管理者権限、追加のソフトウェア、PowerShell の実行ポリシーの変更、ネットワーク接続は不要です。組織が PowerShell の実行を制限している PC は、[制限された環境での動作](#制限された環境での動作)を確認してください。
 

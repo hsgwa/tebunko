@@ -126,15 +126,16 @@
             $script:closeAfterIndexJob = $false
             # インデックス作成は画面のプロセスで動いているため、画面を閉じるときは止める
             if (isIndexing) {
+                $stopConfirm = getIndexingCloseConfirm
                 $answer = showConfirm `
-                    -title "更新中です" `
-                    -heading "インデックスを更新中です。中止して閉じますか？" `
-                    -hint "更新したところまでは残ります。次に起動したときに続きから再開できます。" `
-                    -choices @(@{ Text = "中止して閉じる"; Value = "stop"; Careful = $true }) `
-                    -cancelText "閉じない"
+                    -title $stopConfirm.Title `
+                    -heading $stopConfirm.Heading `
+                    -hint $stopConfirm.Hint `
+                    -choices @(@{ Text = $stopConfirm.StopText; Value = $stopConfirm.StopValue; Careful = $true }) `
+                    -cancelText $stopConfirm.CancelText
                 $e.Cancel = $true
-                if ($answer -ne "stop" -or !(isIndexing)) {
-                    if ($answer -eq "stop") {
+                if ($answer -ne $stopConfirm.StopValue -or !(isIndexing)) {
+                    if ($answer -eq $stopConfirm.StopValue) {
                         # 聞いている間に終わった
                         $script:closeReady = $true
                         $window.Dispatcher.BeginInvoke([action]{ $window.Close() }) | Out-Null

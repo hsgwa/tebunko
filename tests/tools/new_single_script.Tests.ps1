@@ -391,9 +391,9 @@ Describe "`-Part indexer`（結合した単一 .ps1）" -Tag Slow {
 
         $exitCode | Should -Be 0
         Test-Path -LiteralPath "$dir\setting.config" | Should -Be $true
-        Test-Path -LiteralPath "$dir\work\ingest_status.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$dir\work\store\ingest_status.tsv" | Should -Be $true
 
-        $state = getIndexingState -path "$dir\work\ingest_status.tsv"
+        $state = getIndexingState -path "$dir\work\store\ingest_status.tsv"
         $state.Total | Should -Be 2
         $state.Failed | Should -Be 0
         $state.Done | Should -Be 2
@@ -410,8 +410,8 @@ Describe "`-Part indexer`（結合した単一 .ps1）" -Tag Slow {
                 $search = newSearchRegex "TC21" $true $false
                 $filter = newFileFilter ""
                 $excludePlace = newPlaceExclude $true $true
-                $hits = searchContentIndexFiles $contentIndexFiles 0 $contentIndexFiles.Count $search.Regex -1 $search.TextRegex $search.ScanMode $null $filter.Include $filter.Exclude $excludePlace
-                return $hits.Count
+                $found = searchContentIndexFiles $contentIndexFiles 0 $contentIndexFiles.Count $search.Regex -1 $search.TextRegex $search.ScanMode $null $filter.Include $filter.Exclude $excludePlace
+                return $found.Hits.Count
 '@)
             $handle = $ps.BeginInvoke()
             $completed = $handle.AsyncWaitHandle.WaitOne(30000)

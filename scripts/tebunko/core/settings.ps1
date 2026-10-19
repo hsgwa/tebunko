@@ -5,7 +5,7 @@
 ${appId} = "tebunko"
 
 function getDefaultWorkDir {
-    # 既定のワークスペース（%USERPROFILE%\Documents\tebunko_ws）。高速検索のため、Windows Search の索引の対象になる場所に置く。
+    # 既定のワークスペース（%USERPROFILE%\Documents\tebunko_ws）。
     # OneDrive にリダイレクトされた「ドキュメント」ではなく、プロファイルの直下の Documents を使う（インデックスが同期でクラウドに上がらないように）
     # 環境変数 TEBUNKO_DEFAULT_WORKSPACE に絶対パスが入っていれば、それを既定のワークスペースにする（開発・確かめ用。
     # テストや実機の確かめが、利用者の既定のワークスペースに触れないようにするための差し替えの口）。入っているのに絶対パスでなければ、
@@ -66,6 +66,12 @@ ${cloudFilesAsk}      = "ask"       # ダウンロードせずに残す（確認
 ${cloudFilesDownload} = "download"  # 確認なしでダウンロードして取り込む
 ${cloudFilesModes}    = @(${cloudFilesAsk}, ${cloudFilesDownload})
 
+# 検索結果の件数の上限（設定 searchLimit。この件数に達したら照合をやめる）
+${searchLimitDefault} = 10000
+${searchLimitMin}     = 1000
+${searchLimitMax}     = 100000
+${searchLimitNone}    = 0  # 制限なし（searchContentIndex の limit の 0 と同じ）
+
 # 検索の対象にするファイルの種類（検索バーのチップ。設定ファイルの fileKinds の値）
 ${fileKindNames} = @("excel", "word", "powerpoint", "text", "pdf")
 
@@ -83,6 +89,7 @@ function newSettings {
         openMode           = ${openModeNormal}  # 検索結果の元のファイルの開き方: 通常（編集する）/ 読み取り専用 / 新規（元のファイルを基にした無題の文書。占有しない）
         workspaceFolder    = ""       # ワークスペース（インデックス・取り込み一覧・ログを置くフォルダ）。空なら既定（%USERPROFILE%\Documents\tebunko_ws。getDefaultWorkDir）
         cloudFiles         = ${cloudFilesAsk}  # クラウドにだけあるファイルの扱い: ask（ダウンロードせずに残す。確認の画面で選べる）/ download（ダウンロードして取り込む）。知らない値は ask（readCloudFiles）
+        searchLimit        = ${searchLimitDefault}  # 検索結果の件数の上限（${searchLimitMin}～${searchLimitMax}。0 は制限なし、範囲の外は近い端、数値にできない・負の数は既定。getSearchLimit）
         ingestThreads      = 0        # Office を使わずに読むファイル（.docx・.pptx など）の読み取りのスレッドの数（1～4。0 はコア数から決める。getIngestWorkerCount）。Excel・Word・PowerPoint は種類ごとに 1 つ
     }
 }
@@ -511,6 +518,44 @@ function readCloudFiles {
     return ${cloudFilesAsk}
 }
 
+function getSearchLimit {
+    # 検索結果の件数の上限として使う値を返す。0 は制限なし、数値にできない・負の数は既定、範囲の外は近い端に寄せる
+    param (
+        $value
+    )
+
+    $number = 0
+    if (!([int]::TryParse([string]$value, [ref]$number)) -or $number -lt 0) {
+        return ${searchLimitDefault}
+    }
+    if ($number -eq ${searchLimitNone}) {
+        return ${searchLimitNone}
+    }
+    return [Math]::Min([Math]::Max($number, ${searchLimitMin}), ${searchLimitMax})
+}
+
+function readSearchLimit {
+    # 検索結果の件数の上限を返す（getSearchLimit で寄せる）。設定が無ければ既定
+    param (
+        [string]$path = ${settingsFile}
+    )
+
+    return getSearchLimit (readSettings $path).searchLimit
+}
+
+function writeSearchLimit {
+    # 検索結果の件数の上限を保存する。0（制限なし）か範囲の中だけ書く。それ以外は例外にして、設定は変えない
+    param (
+        [int]$value,
+        [string]$path = ${settingsFile}
+    )
+
+    if ($value -ne ${searchLimitNone} -and ($value -lt ${searchLimitMin} -or $value -gt ${searchLimitMax})) {
+        throw "検索結果の件数の上限は、0（制限なし）か ${searchLimitMin}～${searchLimitMax} で指定してください: $value"
+    }
+    updateSettings "searchLimit" $value $path
+}
+
 function writeCloudFiles {
     param (
         [string]$mode,
@@ -531,7 +576,7 @@ function getDefaultWorkspaceError {
 
 function testDefaultWorkspace {
     # 既定のワークスペースを使えるか: @{ Usable; Folder; Message }。
-    # 使える: 無い（使うときに作る）・空（設定ファイルと、それに付いてできるファイルだけの場合を含む）・前から使っているワークスペース（content_index・前の版の index・ingest_status.tsv がある）。
+    # 使える: 無い（使うときに作る）・空（設定ファイルと、それに付いてできるファイルだけの場合を含む）・前から使っているワークスペース（store・前の版の content_index・index・ingest_status.tsv がある）。
     # それ以外（ほかのファイルが置いてある）は、インデックスのファイルと混ざるため使わせない
     param (
         [string]$folder = (getDefaultWorkDir)
@@ -551,7 +596,9 @@ function testDefaultWorkspace {
         $name = [System.IO.Path]::GetFileName($entry)
         if (-not (testSettingsFileName $name)) { $name }
     })
-    if ($names.Count -eq 0 -or ($names -contains "content_index") -or ($names -contains "index") -or ($names -contains [System.IO.Path]::GetFileName($workspace.StatusFile))) {
+    $known = [Workspace]::new($folder)
+    $knownNames = @($known.StoreDir, $known.OldIndexDir, $known.LegacyIndexDir, $known.OldStatusFile) | ForEach-Object { [System.IO.Path]::GetFileName($_) }
+    if ($names.Count -eq 0 -or @($names | Where-Object { $knownNames -contains $_ }).Count -gt 0) {
         return $result
     }
     $result.Usable = $false

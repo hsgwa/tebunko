@@ -44,8 +44,8 @@ Describe "getIndexNameMap / resolveSourcePath" -Tag Io {
     }
 
     It "既定のインデックスは取り込み一覧の記録を使う" {
-        # リポジトリの work\content_index を作らないよう、既定のインデックスの場所をテスト用のフォルダに向ける
-        $indexDir = "$TestDrive\default_work\content_index"
+        # リポジトリの work\store\content を作らないよう、既定のインデックスの場所をテスト用のフォルダに向ける
+        $indexDir = "$TestDrive\default_work\store\content"
         $workspace = newTestWorkspace @{} "$TestDrive\default_work"
         [System.IO.Directory]::CreateDirectory($indexDir) | Out-Null
         $status = "$TestDrive\status_default.tsv"
@@ -256,19 +256,6 @@ Describe "findSourceFileState" -Tag Io {
 
         findSourceFileState $location "a.xlsx" | Out-Null
         Should -Invoke getDriveTargets -Times 0 -Exactly
-    }
-}
-
-Describe "joinSourcePath" -Tag Io {
-    It "フォルダ・相対フォルダ・ファイル名をつなぐ" {
-        joinSourcePath "C:\data\" "2024\見積" "a.xlsx" | Should -Be "C:\data\2024\見積\a.xlsx"
-        joinSourcePath "D:\" "" "a.xlsx" | Should -Be "D:\a.xlsx"
-        joinSourcePath "C:\data" "2024" | Should -Be "C:\data\2024"
-    }
-
-    It "共有フォルダ直下・名前なしでもつなげる" {
-        joinSourcePath "\\server\share" "見積" "a.xlsx" | Should -Be "\\server\share\見積\a.xlsx"
-        joinSourcePath "\\server\share\" "" "" | Should -Be "\\server\share"
     }
 }
 

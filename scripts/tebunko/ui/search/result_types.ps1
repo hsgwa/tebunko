@@ -413,11 +413,9 @@ class FileGroup : NotifyBase {
 class HitRow : NotifyBase {
     static [regex] $CellRegex  = [regex]::new("\t(?:`"(?:[^`"]|`"`")*`"[^\t]*|[^\t]*)")
     static [regex] $QuoteRegex = [regex]::new("^`"((?:[^`"]|`"`")*)`"(.*)`$", [System.Text.RegularExpressions.RegexOptions]::Singleline)
-    static [regex] $ExcelRegex = [regex]::new("\.xls[a-z]?`$", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
     # 図形・コメントの場所 "<元の場所>[<種類>]"。クラスからはスクリプトの関数が見えないため、値はクラスの定義の後で入れる（newObjectPlaceKindPattern）。
     # Excel の図形・コメントの 1 行は "<セル番地><TAB><文字>"。ヘッダー・フッターの 1 行は文字だけ（セル番地が無い）
     static [regex] $ObjectPlaceRegex
-    static [regex] $CelllessPlaceRegex = [regex]::new("\[ヘッダー・フッター\]`$")
     static [char] $CellNewLine = [char]0x2028   # TSV のセル内改行（shared\core\text.ps1 の cellNewLine）
     static [int] $LeadLength = 40
     static [int] $MaxDisplay = 600
@@ -442,10 +440,10 @@ class HitRow : NotifyBase {
     [string]$Kind         # 画面の「種別」（セル・図形・コメント・本文・ノート）
     [int]$LineNumber
     [string]$Line
-    [bool]$IsExcel
+    [bool]$IsExcel         # Excel のファイルの行か（行を作る側が getContentIndexFileKind で決めて入れる）
     [bool]$IsText          # テキストの拡張子（.txt 等）の行か（describeHitPlace・open_source.ps1 が使う。呼び出し側が入れる）
     [bool]$IsObjectPlace
-    [bool]$IsCelllessPlace  # 行にセル番地が無い場所（ヘッダー・フッター）か（$IsObjectPlace の一種）
+    [bool]$IsCellPrefixed   # 行の先頭がセル番地 + タブの場所（Excel の図形・コメント）か（testCellPrefixedPlace。行を作る側が入れる。既定は $false = セル番地を出さない・選ばない）
     [string]$MatchCell
     [int]$MatchCount        # 1 行のうち一致したセルの数（Excel のセルの行だけ。図形・コメントは 0 か 1）
     [string]$DisplayLine
@@ -475,9 +473,7 @@ class HitRow : NotifyBase {
         $row.Line = $(if ($null -eq $line) { "" } else { $line })
         $row.word = $word
         $row.pattern = $pattern
-        $row.IsExcel = [HitRow]::ExcelRegex.IsMatch($(if ($null -eq $book) { "" } else { $book }))
         $row.IsObjectPlace = [HitRow]::ObjectPlaceRegex.IsMatch($(if ($null -eq $location) { "" } else { $location }))
-        $row.IsCelllessPlace = [HitRow]::CelllessPlaceRegex.IsMatch($(if ($null -eq $location) { "" } else { $location }))
         return $row
     }
 
@@ -502,7 +498,7 @@ class HitRow : NotifyBase {
             $hit = $false
             foreach ($cell in $cells) { if ([HitRow]::HasMatch($cell, $this.word, $this.pattern)) { $hit = $true; break } }
             # ヘッダー・フッターの行は文字だけでセル番地が無い（MatchCell は空のまま。場所は [シート]<名前> になる）
-            if ($hit -and $cells.Count -gt 0 -and -not $this.IsCelllessPlace) { $this.MatchCell = $cells[0] }
+            if ($hit -and $cells.Count -gt 0 -and $this.IsCellPrefixed) { $this.MatchCell = $cells[0] }
             $this.MatchCount = $(if ($hit) { 1 } else { 0 })
             return
         }
@@ -522,17 +518,10 @@ class HitRow : NotifyBase {
         $this.Raise("PlaceDisplay")
     }
 
-    # 絞り込み。生データ（相対フォルダ・元ファイル名・場所・種別・生の行）での部分一致。行番号は列に出さないため対象にしない（大文字小文字を区別しない）。
-    # ※以前は表示用（セル番地・タブ表示）も対象にしていたが、遅延生成のため生データのみを対象にした。
-    [bool] Contains([string]$text) {
+    # 絞り込み。元のファイル名（拡張子を含む。フォルダは含まない）への部分一致（大文字小文字を区別しない）。空文字は常に合う。
+    [bool] MatchesFileName([string]$text) {
         $ci = [System.StringComparison]::CurrentCultureIgnoreCase
-        if ($this.RelDir.IndexOf($text, $ci) -ge 0) { return $true }
-        if (("" + $this.Book).IndexOf($text, $ci) -ge 0) { return $true }
-        if (("" + $this.Location).IndexOf($text, $ci) -ge 0) { return $true }
-        if (("" + $this.PlaceText).IndexOf($text, $ci) -ge 0) { return $true }
-        if (("" + $this.Kind).IndexOf($text, $ci) -ge 0) { return $true }
-        if ($this.Line.IndexOf($text, $ci) -ge 0) { return $true }
-        return $false
+        return (("" + $this.Book).IndexOf($text, $ci) -ge 0)
     }
 
     static [string] ToDisplay([string]$text) {
@@ -576,7 +565,7 @@ class HitRow : NotifyBase {
     hidden [string] ShownText() {
         if (-not ($this.IsExcel -and $this.IsObjectPlace)) { return $this.Line }
         $cells = [HitRow]::SplitCells($this.Line, $true)
-        if ($this.IsCelllessPlace) { return ($cells -join "`t") }
+        if (-not $this.IsCellPrefixed) { return ($cells -join "`t") }
         if ($cells.Count -lt 2) { return $this.Line }
         return ($cells.GetRange(1, $cells.Count - 1) -join "`t")
     }
@@ -755,7 +744,7 @@ class HitRow : NotifyBase {
     }
 
     hidden [string] ColumnLabel([int]$number) {
-        if ($this.IsExcel -and $this.IsCelllessPlace -and $number -eq 1) { return "文字" }
+        if ($this.IsExcel -and $this.IsObjectPlace -and -not $this.IsCellPrefixed -and $number -eq 1) { return "文字" }
         if ($this.IsExcel -and $this.IsObjectPlace) {
             return $(switch ($number) { 1 { "セル" } 2 { "文字" } default { $number.ToString() } })
         }

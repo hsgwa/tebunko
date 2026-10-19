@@ -8,8 +8,7 @@
 #   2. setting.config のクロール対象フォルダに source/ を指したフォルダ（利用者名を含まない固定のパス）を登録し、
 #      indexer.ps1 を 1 回動かして workspaceFolder（固定のパス）にワークスペースを作る
 #   3. exportIndex でワークスペースを zip に書き出す
-#   4. このスクリプトで、ワークスペースの前の版と同じ形で残る部分（content_index\・system_index\・
-#      system_index_state.tsv・ingest_status.tsv）と zip を見本へコピーし、file_times.tsv を作る
+#   4. このスクリプトで、ワークスペースの形のまま残す部分（インデックスの置き場（store\）・取り込み一覧。置き場の名前は Workspace クラスから取る）と zip を見本へコピーし、file_times.tsv を作る
 #   5. expected.json は手で書く（このスクリプトは作らない）
 #
 # file_times.tsv: 見本のファイルの更新日時の記録。git は取り出すときにファイルの更新日時を今の日時にしてしまうため、
@@ -18,7 +17,7 @@
 #             （Ticks は DateTimeKind を持たないため、実行する PC のタイムゾーンに関わらず同じ文字列になる）。
 #             indexer が取り込み済みと判断する条件（indexer_decide.ps1 の getIngestDecision）が、記録した更新日時の文字列と
 #             実際にファイルから読んだ更新日時の文字列が等しいことのため、文字列を再現できることが要る
-#   ws/     … content_index\・system_index\ のファイルの実際の更新日時（UTC の Ticks）。File.SetLastWriteTimeUtc で戻す
+#   ws/     … 本文インデックスのフォルダのファイルの実際の更新日時（UTC の Ticks）。File.SetLastWriteTimeUtc で戻す
 param (
     [Parameter(Mandatory = $true)]
     [string]$WorkspaceDir,
@@ -30,10 +29,15 @@ param (
 
 $ErrorActionPreference = "Stop"
 
-$statusFileName = "ingest_status.tsv"
-# 見本に残す、ワークスペースの中の前の版と同じ形で残る部分（tmp\・publish\・ingesting.txt・indexing_log.txt・
-# gui_error_log.txt・search_results.txt・setting.config は見本に含めない。tests/testdata/README.md に理由を書く）
-$keepEntries = @("content_index", "system_index", "system_index_state.tsv", $statusFileName)
+# ワークスペースの中の置き場の名前は、本体の定義（クラスだけのファイル）から取る
+. ([WildcardPattern]::Escape("$PSScriptRoot\..\scripts\tebunko\core\workspace.ps1".Replace('`', '``')))
+
+function getWorkspaceRelativePath {
+    # ワークスペースの中の場所（full）の、ワークスペースからの相対パスを返す
+    param ([string]$workspaceDir, [string]$full)
+
+    return $full.Substring($workspaceDir.TrimEnd("\").Length + 1)
+}
 
 function readIngestStatusTimes {
     # ingest_status.tsv を読み、@{ 相対パス（source/ からの相対パス。/ 区切り） = 更新日時の文字列 } を返す
@@ -67,9 +71,12 @@ function readIngestStatusTimes {
 if (!(Test-Path -LiteralPath $WorkspaceDir)) {
     throw "ワークスペース ${WorkspaceDir} が見つかりません"
 }
-$statusPath = Join-Path $WorkspaceDir $statusFileName
+$sourceWorkspace = [Workspace]::new($WorkspaceDir)
+# 取り込み一覧は、今の置き場に無ければ前の版の置き場（前の版の見本を作るとき）にある
+$statusPath = $sourceWorkspace.StatusFile
+if (!(Test-Path -LiteralPath $statusPath)) { $statusPath = $sourceWorkspace.OldStatusFile }
 if (!(Test-Path -LiteralPath $statusPath)) {
-    throw "${statusPath} が見つかりません（先に indexer.ps1 を動かしてください）"
+    throw "取り込み一覧が見つかりません（先に indexer.ps1 を動かしてください）: ${WorkspaceDir}"
 }
 if (!(Test-Path -LiteralPath $ExportZip)) {
     throw "zip ${ExportZip} が見つかりません（先に exportIndex で書き出してください）"
@@ -84,6 +91,9 @@ if (Test-Path -LiteralPath $wsDest) {
 }
 [void][System.IO.Directory]::CreateDirectory($wsDest)
 
+# 見本に残す、ワークスペースの中の形のまま残る部分（tmp\・publish\・store\journal\・indexing_log.txt・
+# gui_error_log.txt・search_results.txt・setting.config は見本に含めない。tests/testdata/README.md に理由を書く）
+$keepEntries = @($sourceWorkspace.StoreDir, $sourceWorkspace.OldIndexDir, $sourceWorkspace.OldStatusFile) | ForEach-Object { getWorkspaceRelativePath $WorkspaceDir $_ }
 foreach ($entry in $keepEntries) {
     $src = Join-Path $WorkspaceDir $entry
     if (!(Test-Path -LiteralPath $src)) { continue }
@@ -93,6 +103,11 @@ foreach ($entry in $keepEntries) {
     } else {
         Copy-Item -LiteralPath $src -Destination $dest -Force
     }
+}
+# store\ ごと写した中の、取り込みのジャーナル（store\journal\）は、取り込み中の記録で、前の版との互換の確かめには要らないため消す
+$journalDest = Join-Path $wsDest (getWorkspaceRelativePath $WorkspaceDir (Split-Path -Parent $sourceWorkspace.JournalFile))
+if (Test-Path -LiteralPath $journalDest) {
+    Remove-Item -LiteralPath $journalDest -Recurse -Force
 }
 
 Copy-Item -LiteralPath $ExportZip -Destination (Join-Path $SampleDir "export.zip") -Force
@@ -104,12 +119,10 @@ foreach ($relative in $times.Keys) {
     $parsed = [datetime]::ParseExact($times[$relative], "yyyy/MM/dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture)
     $timesLines.Add("source/${relative}`t$($parsed.Ticks)")
 }
-# ws/ の content_index\・system_index\ のファイルは、実際の更新日時（UTC の Ticks）を残す。
-# システムインデックスの作り直しの判定（system_index.ps1）が、content_index の TSV と system_index.txt の更新日時の前後と、
-# system_index_state.tsv の「反映待ち」に書いた system_index.txt の更新日時（UTC の Ticks）を見るため、取り出した直後の日時のままでは
-# 「古い」と見なして作り直してしまう
+# ws/ の本文インデックスのフォルダのファイルは、実際の更新日時（UTC の Ticks）を残す（git は取り出すときに更新日時を今の日時にしてしまうため）
 $wsFileCount = 0
-foreach ($sub in @("content_index", "system_index")) {
+$timedDirs = @($sourceWorkspace.IndexDir, $sourceWorkspace.OldIndexDir) | ForEach-Object { getWorkspaceRelativePath $WorkspaceDir $_ }
+foreach ($sub in $timedDirs) {
     $subDir = Join-Path $wsDest $sub
     if (!(Test-Path -LiteralPath $subDir)) { continue }
     foreach ($file in @(Get-ChildItem -LiteralPath $subDir -Recurse -File | Sort-Object FullName)) {

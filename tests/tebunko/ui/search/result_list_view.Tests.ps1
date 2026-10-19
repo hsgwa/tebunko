@@ -8,10 +8,10 @@ BeforeAll {
 
     # 結果の表の項目のテストに使う、HitRow・FileGroup と同じ項目を持つもの
     function newTestRow {
-        param ([int]$order, [string]$line, [int]$lineNumber = 1, [string]$location = "")
+        param ([int]$order, [string]$line, [int]$lineNumber = 1, [string]$location = "", [string]$book = "")
 
-        $row = [pscustomobject]@{ Order = $order; Line = $line; LineNumber = $lineNumber; Location = $location }
-        $row | Add-Member -MemberType ScriptMethod -Name Contains -Value { param ($text) $this.Line.Contains($text) }
+        $row = [pscustomobject]@{ Order = $order; Line = $line; LineNumber = $lineNumber; Location = $location; Book = $book }
+        $row | Add-Member -MemberType ScriptMethod -Name MatchesFileName -Value { param ($text) $this.Book.Contains($text) }
         return $row
     }
 
@@ -54,31 +54,21 @@ Describe "getSearchStatusText" -Tag Unit {
     }
 }
 
-Describe "getFilteredSummaryText" -Tag Unit {
-    It "全部の件数のうち、見せている件数を出す" {
-        getFilteredSummaryText 1234 56 | Should -Be "一致 1,234 件中 56 件を表示"
+Describe "getSkippedContentIndexText" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "0 件は空"; count = 0; expected = "" }
+        @{ name = "負の件数も空"; count = -1; expected = "" }
+        @{ name = "1 件"; count = 1; expected = "　読めなかったインデックスのファイル：1 件" }
+        @{ name = "件数を 3 桁区切りで出す"; count = 1234; expected = "　読めなかったインデックスのファイル：1,234 件" }
+    ) {
+        param ($name, $count, $expected)
+        getSkippedContentIndexText $count | Should -Be $expected
     }
 }
 
-Describe "getAppKind" -Tag Unit {
-    It "拡張子からアプリの種類を返す（大文字・小文字は問わない）" {
-        getAppKind "見積.xlsx" | Should -Be "Excel"
-        getAppKind "古い見積.XLS" | Should -Be "Excel"
-        getAppKind "マクロ.xlsm" | Should -Be "Excel"
-        getAppKind "報告書.docx" | Should -Be "Word"
-        getAppKind "報告書.doc" | Should -Be "Word"
-        getAppKind "提案.pptx" | Should -Be "PowerPoint"
-        getAppKind "議事メモ.txt" | Should -Be "テキスト"
-    }
-
-    It "PDF は PDF" {
-        getAppKind "資料.pdf" | Should -Be "PDF"
-        getAppKind "資料.PDF" | Should -Be "PDF"
-    }
-
-    It "Office・テキスト・PDF のファイルでなければ空" {
-        getAppKind "資料.zip" | Should -Be ""
-        getAppKind "" | Should -Be ""
+Describe "getFilteredSummaryText" -Tag Unit {
+    It "全部の件数のうち、見せている件数を出す" {
+        getFilteredSummaryText 1234 56 | Should -Be "一致 1,234 件中 56 件を表示"
     }
 }
 
@@ -120,8 +110,8 @@ Describe "getPreviewRowHeight" -Tag Unit {
 }
 
 Describe "selectShownRows" -Tag Unit {
-    It "絞り込みが空ならすべて、あれば合う行だけを元の順で返す" {
-        $rows = @((newTestRow 1 "見積 A"), (newTestRow 2 "請求 B"), (newTestRow 3 "見積 C"))
+    It "絞り込みが空ならすべて、あれば名前が合うファイルの行だけを元の順で返す" {
+        $rows = @((newTestRow 1 "A" -book "見積.xlsx"), (newTestRow 2 "B" -book "請求.xlsx"), (newTestRow 3 "C" -book "見積.xlsx"))
         (selectShownRows $rows "").Count | Should -Be 3
         $shown = selectShownRows $rows "見積"
         $shown.Count | Should -Be 2
@@ -129,8 +119,8 @@ Describe "selectShownRows" -Tag Unit {
         $shown[1].Order | Should -Be 3
     }
 
-    It "合う行が無ければ空の一覧" {
-        (selectShownRows @((newTestRow 1 "見積")) "請求").Count | Should -Be 0
+    It "ファイル名に無い語（該当行にだけある語）では空の一覧" {
+        (selectShownRows @((newTestRow 1 "請求の行" -book "見積.xlsx")) "請求").Count | Should -Be 0
     }
 }
 

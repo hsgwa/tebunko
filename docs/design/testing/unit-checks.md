@@ -1,4 +1,4 @@
-# 単体テスト（検査と道具）
+﻿# 単体テスト（検査と道具）
 
 扱うこと: 開発用の道具（`tests/tools/`）・テストデータの個人情報の除去・安全性の検査・インストーラーの検査の単体テストが何を確かめるか。扱わないこと: インデックス・検索・Office のテスト（[単体テスト（インデックスと検索）](unit-index.md)・[単体テスト（Office）](unit-office.md)）。先に読むページ: [テスト](index.md)。
 
@@ -18,10 +18,11 @@ flowchart LR
 | `check_release_tag.ps1` | 形が合うタグを通し、形が違うもの（`v1.0`・`V1.0.0`・`v01.0.0`・全角の数字・接尾辞・末尾の改行など）を止める。指すコミットが main にあれば通し、無いときと、参照を解決できないときは、別の理由の文言で止める |
 | `check_markdown_links.ps1` | あるファイル・フォルダ・見出しへのリンクを通し、切れたリンクを止める、コードの中のリンクは調べない、1 行に複数あるリンクをそれぞれ調べる |
 | `pr_checks_comment.ps1` | 結果（`success`・`failure`・`cancelled`・`skipped` など）から表示文字への読み替え、複数のジョブの結果（カンマ区切り）から悪いほうを選ぶ（`combineJobResults`）、実行へのリンクが自分のリポジトリの形のときだけ通る、書き換える対象のコメントを作者（`github-actions[bot]`）と 1 行目のワークフローごとの目印（`<!-- pr-check:<id> -->`）で選ぶ（ほかのワークフローの目印のコメントは選ばない）。書き込みで例外が出ても投げずに警告として返すこと（`tryInvokePrCheckComment`）、コメントに head のコミットを添えること。各ワークフローの `pr-comment` ジョブが複合アクション（`.github/actions/pr-comment`）を `workflow-key` 付きで呼び、`pull-requests: write` をそのジョブだけに付け、呼ぶ前に既定のブランチを checkout していること、`release.yml` の許可、perf-check の、両方スキップのときに書かない条件は `Meta` で確かめる |
-| `measure_perf.ps1` | 統計値（最小・中央値・平均・最大）と最小二乗の傾きの計算、点の間引き、グラフの行の書き方。小さなインデックスで最後まで動かし、フォルダ・ブック・TSV・本文インデックスのファイルの数、語ごとのヒット件数と検索時間の統計値、検索の流れ（`SearchMode`）、`result.json` の形式の版と実行の情報、`metrics.csv` の列と行、`summary.md` の表とグラフ（パスを含まないこと）を確かめる。本文インデックスしか無いインデックスでは、作成を測らずに検索だけを測る。`-Office` の取り込みは、`new_ingest_data.ps1`（種類ごとの数・50 ファイルごとのフォルダ分け・同じ引数から同じ構成になること）、取り込み一覧の数え方（同じ相対パスは最後の行・成功 + 失敗がファイル数と合わなければ失敗）、段階が読めないときと知らない段階のときの失敗、記録のスレッドが受け渡しの口の段階を読むこと、小さな .docx・.pptx のデータで最後まで動かして `result.json` の `Ingest`・`metrics.csv` の `ingest_` の行・`summary.md` の「Office からの取り込み」の表（パスを含まないこと）を確かめる。`-Office` だけのときは `Index`・`Search` を、`-Index` だけのときは `Ingest` を、キーを残して `null` にする（`Schema` は 5）。`-Preview` は、1 回ごとの記録から語ごとの値を作る `newPreviewResult`（キャッシュ無し・ありの読み込みの統計、1 回あたりに残るメモリ、キャッシュを捨てた分）と、上限と比べる `getPreviewPerfProblems` を `Unit` で確かめ、小さなインデックスで `-Preview 3` を流して `result.json` の `Preview`・`preview.csv`・`metrics.csv` の `preview_` の行・`summary.md` の「プレビュー」の節を確かめる。`-Preview` を渡さないときは `Preview` のキーを残して `null` にし、`-Preview` が負のときと `-Render` だけのときは失敗にする。リポジトリの `setting.config` を作らない・変えないことも確かめる。Office を使う取り込み（.xlsx・.doc・.ppt）は CI では測れないので、手元の Windows で測る（[CI](ci.md)）。`-Typing`（入力しながらの検索）は、送る語の並びを作る `getTypingSteps`（最初に送る長さ・語より短いとき・サロゲートペアの途中で切れる長さを飛ばすこと・正規表現として不正な文字列と空の文字列に一致する文字列を飛ばすこと）と、1 回ごとの記録から語ごとの値を作る `newTypingWordResult`（統計に 1 回目が入らないこと・ヒットの無い語は `FirstHitMs` が null になること・高速検索を使った回数と取り消された要求の合計）を `Unit` で確かめる。小さなインデックスで `-Typing 2` を流し、`result.json` の `Typing`（`Mode`・`MinLength`・語ごとの値）、`typing.csv`・`metrics.csv` の `typing_` の行、`summary.md` の「入力しながらの検索」の節を確かめる。`-Typing` を渡さないときは `Typing` のキーを残して `null` にする。`-Typing 1`・`-TypingFast` で `-Index` が `<Work>\content_index` でないときは、始める前に失敗にする（[性能とリソースの計測のしかた](perf.md)） |
+| `measure_perf.ps1` | 統計値（最小・中央値・平均・最大）と最小二乗の傾きの計算、点の間引き、グラフの行の書き方。小さなインデックスで最後まで動かし、フォルダ・ブック・TSV・本文インデックスのファイルの数、語ごとのヒット件数と検索時間の統計値、検索の流れ（`SearchMode`）、`result.json` の形式の版と実行の情報、`metrics.csv` の列と行、`summary.md` の表とグラフ（パスを含まないこと）を確かめる。本文インデックスしか無いインデックスでは、作成を測らずに検索だけを測る。`-Office` の取り込みは、`new_ingest_data.ps1`（種類ごとの数・50 ファイルごとのフォルダ分け・同じ引数から同じ構成になること）、取り込み一覧の数え方（同じ相対パスは最後の行・成功 + 失敗がファイル数と合わなければ失敗）、段階が読めないときと知らない段階のときの失敗、記録のスレッドが受け渡しの口の段階を読むこと、小さな .docx・.pptx のデータで最後まで動かして `result.json` の `Ingest`・`metrics.csv` の `ingest_` の行・`summary.md` の「Office からの取り込み」の表（パスを含まないこと）を確かめる。`-Xlsx`（Excel の流れ読み）は、小さなブック（`-XlsxRows`・`-XlsxManyRows` で行の数を絞る）で `-Xlsx 2` を流し、`result.json` の `Xlsx`（読んだ場所の数・失敗の数・段階ごとのリソース）、`resource-xlsx.csv`、`metrics.csv` の `xlsx_` の行、`summary.md` の「Excel の流れ読み」の節（パスを含まないこと）を確かめる。`-Xlsx` だけのときは `Index`・`Search`・`Ingest` を、`-Office` だけのときは `Index`・`Search` を、`-Index` だけのときは `Ingest` を、キーを残して `null` にする（`Schema` は 5）。`-Preview` は、1 回ごとの記録から語ごとの値を作る `newPreviewResult`（キャッシュ無し・ありの読み込みの統計、1 回あたりに残るメモリ、キャッシュを捨てた分）と、上限と比べる `getPreviewPerfProblems` を `Unit` で確かめ、小さなインデックスで `-Preview 3` を流して `result.json` の `Preview`・`preview.csv`・`metrics.csv` の `preview_` の行・`summary.md` の「プレビュー」の節を確かめる。`-Preview` を渡さないときは `Preview` のキーを残して `null` にし、`-Preview` が負のときと `-Render` だけのときは失敗にする。リポジトリの `setting.config` を作らない・変えないことも確かめる。Office を使う取り込み（.xlsx・.doc・.ppt）は CI では測れないので、手元の Windows で測る（[CI](ci.md)）。 |
 | `perf_search.Tests.ps1`（`Slow`・`Unit`） | 検索の語ごとの中央値と本文インデックスの作成の秒を上限と比べる（`Slow`。tebunko-perfdata が要る）。比べる関数（`getSearchPerfProblems`）は、上限との境目（ちょうどなら通す）、語が欠けたとき、1 回ごとの件数（2 回目以降だけ違う場合を含む）・`10000+` の打ち切り・照合した本文インデックスのファイルの数、`SearchMode` が `runspace`、本文インデックスが無い・作成が遅いときを `Unit` で確かめる |
 | `perf_preview.Tests.ps1`（`Slow`・`Gui`） | 選択行のプレビューの、キャッシュ無しの読み込みの中央値と、プレビューのあとに残るメモリの合計を上限と比べ、測った回数と作った表のセルがあることを確かめる。大きな本文インデックスのファイル（約 10 MB。このテストの作業用の場所に作る）の語も測り、前の読み方（毎回ファイルの全体を読む）の値は出すだけで、上限とは比べない（`Slow`。tebunko-perfdata が要る。比べる関数 `getPreviewPerfProblems`・`getFullReadPathProblems` は `measure_perf.Tests.ps1` の `Unit` で確かめる）。`-Render` の値（描画の 1 回目と 2 回目以降・セル・行・列の数。表を作る時間の 1 回目と 2 回目以降も）は、同じ `Slow` の流れで語ごとに入っていることを確かめる（上限とは比べない。分け方 `newRenderResult` は `measure_perf.Tests.ps1` の `Unit` で確かめる）。小さなインデックスで描画を 5 回分書くことは `Gui` で確かめる |
 | `perf_ingest.Tests.ps1`（`Slow`・`Unit`） | 取り込み（.docx・.pptx）の 1 ファイルあたりと全体の中央値を上限と比べ、全部取り込まれ、本文インデックスができていることを確かめる（`Slow`）。比べる関数（`getIngestPerfProblems`）は、上限との境目、`Total`・`Done`・`Failed`、`Ingest` が無いとき、本文インデックスが無い・合計の大きさが 0 のときを `Unit` で確かめる |
+| `xlsx_perf_data.Tests.ps1`（`Io`） | 性能の計測で使うブック（`tools/perf/xlsx_data.ps1`。Office を使わず ZIP から作る）が、`<sheet>` を並べた数だけの場所を失敗なしで読め、ヘッダーとフッターを読めること、`sheets`・`rows` の範囲外は止めることを確かめる。`tools/perf/measure_xlsx.ps1` を小さなブックで直接流し、普通のブックの回数・読んだ場所の数・失敗の数・段階（普通のブック／同じ部品を指すブック）ごとの記録が JSON に書かれることを確かめる（[性能とリソースの計測のしかた](perf.md)） |
 
 **テストデータの個人情報の除去（`tests/testdata/scrub_personal`）**
 
@@ -29,7 +30,7 @@ flowchart LR
 
 **安全性の検査（`tests/meta/safety.Tests.ps1`）**
 
-タグ `Meta` で、[安全性の要約](../../safety/index.md) の主張を機械的に検証する。導入審査で「危険な処理・ライブラリを使っていないこと」を示すための検査であり、将来の変更でこの前提が崩れた場合に失敗する。スクリプトを読むだけで動作するため、Office もテストデータも要らない（36 件）。
+タグ `Meta` で、[安全性の要約](../../safety/index.md) の主張を機械的に検証する。導入審査で「危険な処理・ライブラリを使っていないこと」を示すための検査であり、将来の変更でこの前提が崩れた場合に失敗する。スクリプトを読むだけで動作するため、Office もテストデータも要らない。
 
 | 対象 | 主な確認内容 |
 |---|---|
@@ -45,6 +46,10 @@ flowchart LR
 PSScriptAnalyzer は Windows PowerShell 5.1 に標準では入っていないため、未導入の環境では静的解析の 3 件を自動的に飛ばす（`It -Skip`）。導入は `Install-Module PSScriptAnalyzer -Scope CurrentUser`。CI では必ず入れて実行する。安全性にかかわるルールの選定と、全ルールで出る指摘の内訳は [安全性の要約](../../safety/index.md) の [静的解析: PSScriptAnalyzer（Microsoft）](../../safety/scans.md#静的解析-psscriptanalyzermicrosoft) に記載している。
 
 `TypeNotFound`（継承元の型が別ファイルにあるための指摘）は、1 ファイルだけでは解決できないため除く。読み込む順で解決できることは `tests/meta/structure.Tests.ps1` で確かめる。あわせて同じファイルで、`scripts/` の関数・変数・ハッシュテーブルのキー・呼ぶ名前・`newWorkerState` に渡す名前に `pack` を使わないことを、AST から名前を拾って確かめる（本文インデックスのコードの名前は `contentIndex`。コメントや `package` は拾わない）。
+
+**リンクを辿る列挙の検査（`tests/meta/link_safety.Tests.ps1`）**
+
+タグ `Meta` で、`scripts/` の全体を AST で調べ、フォルダの再帰の列挙（`Get-ChildItem`・`gci`・`ls`・`dir` の `-Recurse`・`-Depth`（前方一致・スプラットを含む）、`SearchOption` の `TopDirectoryOnly` の直接の参照以外、`GetFiles`・`EnumerateFiles` などで探す範囲が `TopDirectoryOnly` でないもの、`EnumerationOptions`）と、フォルダの下をまとめて扱うコマンド・メソッド（`Copy-Item`（別名 `copy`・`cp`・`cpi`）の `-Recurse`・スプラット、`Compress-Archive`・`robocopy`・`xcopy`・`ZipFile.CreateFromDirectory`）が、許した関数の一覧（理由つき。ファイルは `scripts/` からの相対パスで照らす）の外に無いことを確かめる。一覧の関数が今も在ること、別名（`-s` を含む）・省略形・モジュール付きの名前・スプラット・変数渡しといった回避の見本を見つけられることも確かめる。見つけられないものは、人が見る（自前の再帰、つまり関数が自分を呼ぶ・`Stack` で降りるもの）。リンクを辿らずに集めるには `getFilesNoFollow` を使う。
 
 **インストーラーの検査（`tests/meta/installer.Tests.ps1`）**
 

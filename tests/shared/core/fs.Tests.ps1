@@ -3,18 +3,6 @@ BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
 }
 
-Describe "toSafeFileName" -Tag Io {
-    It "<name>" -TestCases @(
-        @{ name = "ファイル名に使えない文字を全角に変換する"; text = 'a<b>c\d*e:f?g|h'; expected = 'a＜b＞c￥d＊e：f？g｜h' }
-        @{ name = "スラッシュを全角に変換する"; text = 'a/b'; expected = 'a／b' }
-        @{ name = "ダブルクォートを全角に変換する"; text = 'a"b'; expected = 'a”b' }
-        @{ name = "使える文字はそのまま返す"; text = 'シート1 (2)'; expected = 'シート1 (2)' }
-    ) {
-        param($name, $text, $expected)
-        toSafeFileName $text | Should -Be $expected
-    }
-}
-
 Describe "toLongPath / fromLongPath" -Tag Io {
     It "<name>。外すと元に戻り、付いていればそのまま、付いていなければ外してもそのまま" -TestCases @(
         @{ name = "ドライブのパスに \\?\ を付ける"; short = "C:\data\a.xlsx"; long = "\\?\C:\data\a.xlsx" }
@@ -73,6 +61,99 @@ Describe "copyFileShared" -Tag Io {
             [System.IO.File]::ReadAllText("$TestDrive\long_copy.xlsx") | Should -Be "long"
         } finally {
             Remove-Item -LiteralPath (toLongPath "$TestDrive\copyLong") -Recurse -Force
+        }
+    }
+}
+
+Describe "invokeWithSourceCopy" -Tag Io {
+    BeforeEach {
+        $dir = Join-Path $TestDrive ("copy" + [guid]::NewGuid().ToString("N"))
+        New-Item -ItemType Directory -Path $dir | Out-Null
+        $source = Join-Path $dir "元.txt"
+        [System.IO.File]::WriteAllText($source, "あいう")
+        $copy = Join-Path $dir "source.copy"
+    }
+
+    It "読む処理の戻り値（<name>）をそのまま返し、コピーが残らない" -TestCases @(
+        @{ name = "文字列"; block = { "あいう" }; expected = "あいう" }
+        @{ name = "hashtable は 1 つで返る"; block = { @{ Count = 2; Items = @("a", "b") } }; expected = $null }
+    ) {
+        param($name, $block, $expected)
+        $result = invokeWithSourceCopy $source $copy $block
+        if ($null -ne $expected) {
+            $result | Should -Be $expected
+        } else {
+            $result | Should -BeOfType [hashtable]
+            $result.Count | Should -Be 2
+            $result.Items.Count | Should -Be 2
+        }
+        Test-Path -LiteralPath $copy | Should -BeFalse
+    }
+
+    It "読む処理の出力は、直接呼んだときと同じ形で届く（配列は配列のまま、何も出さなければ何も返らない）" {
+        $list = invokeWithSourceCopy $source $copy { , @("a", "b", "c") }
+        $list.Count | Should -Be 3
+        @(invokeWithSourceCopy $source $copy { @() }).Count | Should -Be 0
+        @(invokeWithSourceCopy $source $copy { "a" }).Count | Should -Be 1
+    }
+
+    It "読む処理がコピーを読める" {
+        invokeWithSourceCopy $source $copy { [System.IO.File]::ReadAllText($copy) } | Should -Be "あいう"
+    }
+
+    It "読む処理が投げたら、その例外が通り、コピーが残らない" {
+        { invokeWithSourceCopy $source $copy { throw "読めません" } } | Should -Throw "読めません"
+        Test-Path -LiteralPath $copy | Should -BeFalse
+    }
+
+    It "作業ファイルの一覧に足したファイルも消える（読む処理の中で足したもの）" {
+        $extra = Join-Path $dir "converted.docx"
+        $extraFiles = New-Object System.Collections.Generic.List[string]
+        invokeWithSourceCopy $source $copy {
+            [System.IO.File]::WriteAllText($extra, "x")
+            $extraFiles.Add($extra)
+        } $extraFiles | Out-Null
+        Test-Path -LiteralPath $extra | Should -BeFalse
+        Test-Path -LiteralPath $copy | Should -BeFalse
+    }
+
+    It "読む処理が途中で投げても、足した作業ファイルは消える" {
+        $extra = Join-Path $dir "converted.docx"
+        $extraFiles = New-Object System.Collections.Generic.List[string]
+        { invokeWithSourceCopy $source $copy {
+            [System.IO.File]::WriteAllText($extra, "x")
+            $extraFiles.Add($extra)
+            throw "変換に失敗"
+        } $extraFiles } | Should -Throw "変換に失敗"
+        Test-Path -LiteralPath $extra | Should -BeFalse
+    }
+
+    It "元が無ければ読む処理を呼ばずに例外にする" {
+        $called = @{ Value = $false }
+        { invokeWithSourceCopy (Join-Path $dir "無い.txt") $copy { $called.Value = $true } } | Should -Throw
+        $called.Value | Should -BeFalse
+    }
+
+    It "読む処理が成功してコピーを消せないとき、作業領域のコピーを消せませんでした で始まる例外になる" {
+        $lock = $null
+        try {
+            { invokeWithSourceCopy $source $copy {
+                $script:lock = [System.IO.File]::Open($copy, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::None)
+                "読めた"
+            } } | Should -Throw "作業領域のコピーを消せませんでした: *"
+        } finally {
+            if ($script:lock) { $script:lock.Dispose() }
+        }
+    }
+
+    It "読む処理が投げ、かつコピーを消せないとき、読む処理の例外が通る" {
+        try {
+            { invokeWithSourceCopy $source $copy {
+                $script:lock = [System.IO.File]::Open($copy, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::None)
+                throw "読めません"
+            } } | Should -Throw "読めません"
+        } finally {
+            if ($script:lock) { $script:lock.Dispose() }
         }
     }
 }
@@ -168,67 +249,6 @@ Describe "formatFileTime" -Tag Io {
     }
 }
 
-Describe "getFolderNameProblemText" -Tag Unit {
-    It "「<name>」が使えるか: <usable>" -TestCases @(
-        @{ name = "営業部 2025"; usable = $true }
-        @{ name = "CONSOLE"; usable = $true }
-        @{ name = ("あ" * 255); usable = $true }
-        @{ name = ""; usable = $false }
-        @{ name = " 営業"; usable = $false }
-        @{ name = "営業　"; usable = $false }
-        @{ name = ("あ" * 256); usable = $false }
-        @{ name = ".."; usable = $false }
-        @{ name = "営業."; usable = $false }
-        @{ name = "a\b"; usable = $false }
-        @{ name = "a/b"; usable = $false }
-        @{ name = "a:b"; usable = $false }
-        @{ name = "con"; usable = $false }
-        @{ name = "NUL.txt"; usable = $false }
-        @{ name = "LPT1"; usable = $false }
-    ) {
-        $problem = getFolderNameProblemText $name
-        ($problem -eq "") | Should -Be $usable
-    }
-
-    It "予約名を許すとき、「<name>」が使えるか: <usable>（予約名以外は同じ決まり）" -TestCases @(
-        @{ name = "aux.backup"; usable = $true }
-        @{ name = "CON.txt"; usable = $true }
-        @{ name = "con"; usable = $true }
-        @{ name = "LPT1"; usable = $true }
-        @{ name = "営業部 2025"; usable = $true }
-        @{ name = ""; usable = $false }
-        @{ name = ".."; usable = $false }
-        @{ name = " con"; usable = $false }
-        @{ name = "con."; usable = $false }
-        @{ name = "a\b"; usable = $false }
-        @{ name = "a:b"; usable = $false }
-        @{ name = ("あ" * 256); usable = $false }
-    ) {
-        $problem = getFolderNameProblemText $name $true
-        ($problem -eq "") | Should -Be $usable
-    }
-}
-
-Describe "testPlainFolderName" -Tag Unit {
-    It "「<name>」が使えるか: <usable>" -TestCases @(
-        @{ name = "営業部"; usable = $true }
-        @{ name = "aux.backup"; usable = $true }
-        @{ name = "CON"; usable = $true }
-        @{ name = "営業."; usable = $true }
-        @{ name = "営業 "; usable = $true }
-        @{ name = ("あ" * 255); usable = $true }
-        @{ name = ""; usable = $false }
-        @{ name = "."; usable = $false }
-        @{ name = ".."; usable = $false }
-        @{ name = ("あ" * 256); usable = $false }
-        @{ name = "a\b"; usable = $false }
-        @{ name = "a/b"; usable = $false }
-        @{ name = "a:b"; usable = $false }
-    ) {
-        (testPlainFolderName $name) | Should -Be $usable
-    }
-}
-
 Describe "testPathUnder" -Tag Unit {
     It "<path> は <root> の下: <expected>" -TestCases @(
         @{ path = "C:\置き場\営業"; root = "C:\置き場"; expected = $true }
@@ -315,6 +335,78 @@ Describe "removeDirectoryRetry" -Tag Io {
         Test-Path -LiteralPath "$dir\a.tsv" | Should -Be $true
     }
 
+    It "予約名に拡張子の付いた名前（<name>）のフォルダも、中身ごと消える" -TestCases @(
+        @{ name = "aux.backup" }
+        @{ name = "CON.txt" }
+        @{ name = "nul.d" }
+    ) {
+        $dir = "$TestDrive\reserved_$name"
+        $long = toLongPath "$dir\$name"
+        [System.IO.Directory]::CreateDirectory("$long\中") | Out-Null
+        [System.IO.File]::WriteAllText("$long\中\a.tsv", "a")
+        [System.IO.Directory]::Exists($long) | Should -Be $true
+        removeDirectoryRetry "$dir\$name"
+        [System.IO.Directory]::Exists($long) | Should -Be $false
+        [System.IO.Directory]::Exists((toLongPath $dir)) | Should -Be $true
+    }
+
+    It "消したはずのフォルダが残っていれば、成功にせず、決めた回数だけ試してから例外にする" {
+        Mock Start-Sleep {}
+        Mock removeTreeNoFollow {}
+        $dir = "$TestDrive\消えないフォルダ"
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        { removeDirectoryRetry $dir 3 1 } | Should -Throw "*消えていません*"
+        Should -Invoke removeTreeNoFollow -Times 3 -Exactly -Scope It
+        Should -Invoke Start-Sleep -Times 2 -Exactly -Scope It
+        [System.IO.Directory]::Exists($dir) | Should -Be $true
+    }
+
+    It "無いと確かめられたフォルダは、何もせず成功にする" {
+        Mock removeTreeNoFollow {}
+        { removeDirectoryRetry "$TestDrive\無いフォルダ_確認" } | Should -Not -Throw
+        Should -Invoke removeTreeNoFollow -Times 0 -Exactly -Scope It
+    }
+
+    It "同じ名前でフォルダでないもの（ファイル）があるときは、消すフォルダが無いので成功にする" {
+        Mock removeTreeNoFollow {}
+        $file = "$TestDrive\ファイル_確認"
+        [System.IO.File]::WriteAllText($file, "x")
+        { removeDirectoryRetry $file } | Should -Not -Throw
+        Should -Invoke removeTreeNoFollow -Times 0 -Exactly -Scope It
+        [System.IO.File]::Exists($file) | Should -Be $true
+    }
+
+    It "空のパスは、何もせず成功にする" {
+        Mock removeTreeNoFollow {}
+        Mock getPathState {}
+        { removeDirectoryRetry "" } | Should -Not -Throw
+        Should -Invoke getPathState -Times 0 -Exactly -Scope It
+        Should -Invoke removeTreeNoFollow -Times 0 -Exactly -Scope It
+    }
+
+    It "届かない・読めない（<state>）ときは、成功にも試し直しにもせず、OS の理由を添えて例外にする" -TestCases @(
+        @{ state = "Unreachable" }
+        @{ state = "Other" }
+    ) {
+        Mock Start-Sleep {}
+        Mock removeTreeNoFollow {}
+        Mock getPathState { @{ State = $state; IsDirectory = $false; Message = "アクセスが拒否されました" } }
+        { removeDirectoryRetry "$TestDrive\分からないフォルダ" 3 1 } | Should -Throw "*フォルダがあるかどうか確かめられません*アクセスが拒否されました*"
+        Should -Invoke getPathState -Times 1 -Exactly -Scope It
+        Should -Invoke removeTreeNoFollow -Times 0 -Exactly -Scope It
+        Should -Invoke Start-Sleep -Times 0 -Exactly -Scope It
+    }
+
+    It "フォルダとして在るのに Exists が偽のときは、決めた回数だけ試してから、成功にせず例外にする" {
+        Mock Start-Sleep {}
+        Mock removeTreeNoFollow {}
+        Mock getPathState { @{ State = "Found"; IsDirectory = $true; Message = "" } }
+        { removeDirectoryRetry "$TestDrive\開けないフォルダ" 3 1 } | Should -Throw "*開けないため、消せません*"
+        Should -Invoke getPathState -Times 3 -Exactly -Scope It
+        Should -Invoke removeTreeNoFollow -Times 0 -Exactly -Scope It
+        Should -Invoke Start-Sleep -Times 2 -Exactly -Scope It
+    }
+
     It "中にあるジャンクションの先は消さず、ジャンクションだけを外す" {
         $dir = "$TestDrive\消すフォルダ_リンク"
         $outside = "$TestDrive\外のフォルダ_リンク"
@@ -339,6 +431,158 @@ Describe "removeDirectoryRetry" -Tag Io {
         removeDirectoryRetry "$TestDrive\根のリンク"
         Test-Path -LiteralPath "$TestDrive\根のリンク" | Should -Be $false
         readListFile "$outside\外.tsv" | Should -Be @("外")
+    }
+}
+
+Describe "testRemovablePath" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "根の下のフォルダは真"; path = "C:\ws\store\a"; root = "C:\ws"; expected = $true }
+        @{ name = "まだ無い階層の下も真（作る先・移す先に使うため）"; path = "C:\ws\store\新しい\b"; root = "C:\ws"; expected = $true }
+        @{ name = "根そのものは偽"; path = "C:\ws"; root = "C:\ws"; expected = $false }
+        @{ name = "\\?\ 付きのパスも、根の下なら真"; path = "\\?\C:\ws\store\a"; root = "C:\ws"; expected = $true }
+        @{ name = "根の外は偽"; path = "C:\other\a"; root = "C:\ws"; expected = $false }
+        @{ name = "名前が似た別のフォルダは偽"; path = "C:\ws2\a"; root = "C:\ws"; expected = $false }
+        @{ name = ".. で根の外へ出るパスは偽"; path = "C:\ws\..\other\a"; root = "C:\ws"; expected = $false }
+        @{ name = "相対パスは偽"; path = "store\a"; root = "C:\ws"; expected = $false }
+        @{ name = "根が相対パスなら偽"; path = "C:\ws\a"; root = "ws"; expected = $false }
+        @{ name = "パスが空なら偽"; path = ""; root = "C:\ws"; expected = $false }
+        @{ name = "根が空なら偽"; path = "C:\ws\a"; root = ""; expected = $false }
+    ) {
+        testRemovablePath $path $root | Should -Be $expected
+    }
+}
+
+Describe "removeDirectoryUnder / moveDirectoryUnder（置き場の下で、途中にリンクが無いときだけ）" -Tag Io {
+    It "置き場の下のフォルダを中身ごと消し、`$true を返す" {
+        $root = "$TestDrive\under_root"
+        writeListFile "$root\a\b\x.tsv" @("x")
+        removeDirectoryUnder "$root\a" $root | Should -Be $true
+        Test-Path -LiteralPath "$root\a" | Should -Be $false
+        Test-Path -LiteralPath $root | Should -Be $true
+    }
+
+    It "置き場の外・置き場そのものは消さず、`$false を返す" {
+        $root = "$TestDrive\under_root2"
+        writeListFile "$root\a\x.tsv" @("x")
+        writeListFile "$TestDrive\under_other\y.tsv" @("y")
+        removeDirectoryUnder "$TestDrive\under_other" $root | Should -Be $false
+        removeDirectoryUnder $root $root | Should -Be $false
+        readListFile "$TestDrive\under_other\y.tsv" | Should -Be @("y")
+        readListFile "$root\a\x.tsv" | Should -Be @("x")
+    }
+
+    It "途中の階層がジャンクションのパスは、先を消さずに `$false を返す（置き場の下に見えても）" {
+        $root = "$TestDrive\under_root3"
+        $outside = "$TestDrive\under_outside3"
+        writeListFile "$outside\book\外.tsv" @("外")
+        [System.IO.Directory]::CreateDirectory($root) | Out-Null
+        if (!(newTestJunction "$root\リンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        removeDirectoryUnder "$root\リンク\book" $root | Should -Be $false
+        readListFile "$outside\book\外.tsv" | Should -Be @("外")
+    }
+
+    It "消すフォルダそのものがジャンクションなら、リンクだけを外し、先は消さない（testRemovablePath は偽、removeDirectoryUnder は途中だけ見る）" {
+        $root = "$TestDrive\under_root4"
+        $outside = "$TestDrive\under_outside4"
+        writeListFile "$outside\外.tsv" @("外")
+        [System.IO.Directory]::CreateDirectory($root) | Out-Null
+        if (!(newTestJunction "$root\リンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        testRemovablePath "$root\リンク" $root | Should -Be $false
+        testRemovablePath "$root\リンク" $root -leafLinkOk | Should -Be $true
+        removeDirectoryUnder "$root\リンク" $root | Should -Be $true
+        Test-Path -LiteralPath "$root\リンク" | Should -Be $false
+        readListFile "$outside\外.tsv" | Should -Be @("外")
+    }
+
+    It "置き場そのものがジャンクションの構成でも、その下は今までどおり消せる" {
+        $outside = "$TestDrive\under_outside5"
+        writeListFile "$outside\book\x.tsv" @("x")
+        if (!(newTestJunction "$TestDrive\under_root5" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        removeDirectoryUnder "$TestDrive\under_root5\book" "$TestDrive\under_root5" | Should -Be $true
+        Test-Path -LiteralPath "$outside\book" | Should -Be $false
+    }
+
+    It "moveDirectoryUnder は、置き場の下のフォルダを移し、`$true を返す" {
+        $root = "$TestDrive\move_root"
+        writeListFile "$root\a\x.tsv" @("x")
+        moveDirectoryUnder "$root\a" "$root\b" $root | Should -Be $true
+        Test-Path -LiteralPath "$root\a" | Should -Be $false
+        readListFile "$root\b\x.tsv" | Should -Be @("x")
+    }
+
+    It "moveDirectoryUnder は、元と先で根が違うとき、元の根を sourceRoot で渡せる" {
+        $from = "$TestDrive\move_from"
+        $to = "$TestDrive\move_to"
+        writeListFile "$from\a\x.tsv" @("x")
+        [System.IO.Directory]::CreateDirectory($to) | Out-Null
+        moveDirectoryUnder "$from\a" "$to\a" $to | Should -Be $false
+        moveDirectoryUnder "$from\a" "$to\a" $to $from | Should -Be $true
+        readListFile "$to\a\x.tsv" | Should -Be @("x")
+    }
+
+    It "moveDirectoryUnder は、先が置き場の外なら移さず `$false を返す" {
+        $root = "$TestDrive\move_root2"
+        writeListFile "$root\a\x.tsv" @("x")
+        moveDirectoryUnder "$root\a" "$TestDrive\move_outside\a" $root | Should -Be $false
+        readListFile "$root\a\x.tsv" | Should -Be @("x")
+        Test-Path -LiteralPath "$TestDrive\move_outside" | Should -Be $false
+    }
+
+    It "moveDirectoryUnder は、元か先の途中がジャンクションなら移さず `$false を返す" {
+        $root = "$TestDrive\move_root3"
+        $outside = "$TestDrive\move_outside3"
+        writeListFile "$root\a\x.tsv" @("x")
+        writeListFile "$outside\b\y.tsv" @("y")
+        if (!(newTestJunction "$root\リンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        moveDirectoryUnder "$root\a" "$root\リンク\a" $root | Should -Be $false
+        moveDirectoryUnder "$root\リンク\b" "$root\c" $root | Should -Be $false
+        readListFile "$root\a\x.tsv" | Should -Be @("x")
+        readListFile "$outside\b\y.tsv" | Should -Be @("y")
+        Test-Path -LiteralPath "$outside\a" | Should -Be $false
+    }
+}
+
+Describe "removeFileUnder（置き場の下の 1 ファイルを、途中にリンクが無いときだけ消す）" -Tag Io {
+    It "置き場の下のファイルを消し、`$true を返す。無ければ何もせず `$true" {
+        $root = "$TestDrive\file_under1"
+        writeListFile "$root\a\x.tsv" @("x")
+        removeFileUnder "$root\a\x.tsv" $root | Should -Be $true
+        Test-Path -LiteralPath "$root\a\x.tsv" | Should -Be $false
+        Test-Path -LiteralPath "$root\a" | Should -Be $true
+        removeFileUnder "$root\a\無い.tsv" $root | Should -Be $true
+    }
+
+    It "置き場の外のファイルは消さず、`$false を返す" {
+        $root = "$TestDrive\file_under2"
+        [System.IO.Directory]::CreateDirectory($root) | Out-Null
+        writeListFile "$TestDrive\file_under_other\y.tsv" @("y")
+        removeFileUnder "$TestDrive\file_under_other\y.tsv" $root | Should -Be $false
+        readListFile "$TestDrive\file_under_other\y.tsv" | Should -Be @("y")
+    }
+
+    It "途中の階層がジャンクションなら、外の中身を消さず `$false を返す" {
+        $root = "$TestDrive\file_under3"
+        $outside = "$TestDrive\file_under_outside3"
+        writeListFile "$outside\x.tsv" @("外")
+        [System.IO.Directory]::CreateDirectory($root) | Out-Null
+        if (!(newTestJunction "$root\リンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        removeFileUnder "$root\リンク\x.tsv" $root | Should -Be $false
+        readListFile "$outside\x.tsv" | Should -Be @("外")
     }
 }
 
@@ -660,6 +904,66 @@ Describe "testPathIsLink / testPathHasLink" -Tag Io {
     }
 }
 
+Describe "newDirectoryUnder" -Tag Io {
+    It "根の下に、途中の階層ごとフォルダを作って真を返し、すでにあっても真を返す: <name>" -TestCases @(
+        @{ name = "根の下の階層"; sub = "a\b" }
+        @{ name = "根と同じパス（根を作る）"; sub = "" }
+    ) {
+        param ($name, $sub)
+        $root = "$TestDrive\newdir_root_$($sub.Length)"
+        $path = if ($sub) { "$root\$sub" } else { $root }
+        newDirectoryUnder $path $root | Should -Be $true
+        [System.IO.Directory]::Exists($path) | Should -Be $true
+        newDirectoryUnder $path $root | Should -Be $true
+    }
+
+    It "途中や path そのものがジャンクションなら、何も作らずに偽を返し、リンクの先に何も書かない: <name>" -TestCases @(
+        @{ name = "途中がジャンクション"; sub = "リンク\新しい"; id = "mid" }
+        @{ name = "path そのものがジャンクション"; sub = "リンク"; id = "self" }
+    ) {
+        param ($name, $sub, $id)
+        $root = "$TestDrive\newdir_junction_root_$id"
+        [System.IO.Directory]::CreateDirectory($root) | Out-Null
+        if (!(newTestJunction "$root\リンク" "$root\外")) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        newDirectoryUnder "$root\$sub" $root | Should -Be $false
+        [System.IO.Directory]::Exists("$root\外\新しい") | Should -Be $false
+        [System.IO.Directory]::GetFileSystemEntries("$root\外").Count | Should -Be 0
+    }
+
+    It "根そのものがジャンクションでも、根の下には作れる" {
+        if (!(newTestJunction "$TestDrive\newdir_link_root" "$TestDrive\newdir_link_target\置き場")) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        newDirectoryUnder "$TestDrive\newdir_link_root\x" "$TestDrive\newdir_link_root" | Should -Be $true
+        [System.IO.Directory]::Exists("$TestDrive\newdir_link_target\置き場\x") | Should -Be $true
+    }
+
+    It "根の下でない・空のパスは、何も作らずに偽を返す: <name>" -TestCases @(
+        @{ name = "別のフォルダ"; path = "$TestDrive\newdir_other\x"; root = "$TestDrive\newdir_base" }
+        @{ name = "似た名前のフォルダ"; path = "$TestDrive\newdir_base2\x"; root = "$TestDrive\newdir_base" }
+        @{ name = "空のパス"; path = ""; root = "$TestDrive\newdir_base" }
+        @{ name = "空の根"; path = "$TestDrive\newdir_base\x"; root = "" }
+    ) {
+        param ($name, $path, $root)
+        newDirectoryUnder $path $root | Should -Be $false
+        if ($path) {
+            [System.IO.Directory]::Exists($path) | Should -Be $false
+        }
+    }
+
+    It "作ったあとに、途中がリンクに替わっていれば偽を返す" {
+        $root = "$TestDrive\newdir_after_root"
+        [System.IO.Directory]::CreateDirectory($root) | Out-Null
+        $script:newDirChecks = 0
+        Mock testPathHasLink { $script:newDirChecks++; return ($script:newDirChecks -ge 2) }
+        newDirectoryUnder "$root\x" $root | Should -Be $false
+    }
+}
+
 Describe "moveDirectoryRetry" -Tag Io {
     It "フォルダを中身ごと移動する" {
         $source = "$TestDrive\移動元フォルダ"
@@ -862,85 +1166,203 @@ Describe "getPathState" -Tag Io {
     }
 }
 
-Describe "setNotContentIndexed" -Tag Io {
-    BeforeAll {
-        function script:hasAttr {
-            param ([string]$path)
-            $attrs = [System.IO.File]::GetAttributes((toLongPath $path))
-            return [bool]($attrs -band [System.IO.FileAttributes]::NotContentIndexed)
-        }
-    }
-
-    It "-Recurse ありで、フォルダ自身・下のフォルダ・ファイル（長いパスを含む）に付く" {
-        $dir = "$TestDrive\nci\付ける"
-        $sub1 = "$dir\下"
-        $sub2 = "$sub1\" + ("永" * 200)
-        $long = "$sub2\long.tsv"
-        [void][System.IO.Directory]::CreateDirectory((toLongPath $sub2))
-        [System.IO.File]::WriteAllText((toLongPath $long), "x")
-        ($long.Length) | Should -BeGreaterThan 260
-        writeListFile "$dir\a.tsv" @("a")
-
-        try {
-            $result = setNotContentIndexed $dir -Recurse
-            $result.Ok | Should -Be $true
-            $result.Changed | Should -Be 5   # dir・a.tsv・下・長い名前のフォルダ・long.tsv
-            (hasAttr $dir) | Should -Be $true
-            (hasAttr "$dir\a.tsv") | Should -Be $true
-            (hasAttr $sub1) | Should -Be $true
-            (hasAttr $sub2) | Should -Be $true
-            (hasAttr $long) | Should -Be $true
-        } finally {
-            # Pester の TestDrive の後始末は \\?\ を付けずに消すため、260 文字超のパスを自分で先に消しておく
-            Remove-Item -LiteralPath (toLongPath $dir) -Recurse -Force
-        }
-    }
-
-    It "-Recurse なしでは、フォルダ自身と直下のファイルだけに付き、下のフォルダには付かない" {
-        $dir = "$TestDrive\nci\直下だけ"
-        [System.IO.Directory]::CreateDirectory("$dir\下") | Out-Null
+Describe "getFilesNoFollow" -Tag Io {
+    It "下のファイル・フォルダを集める（root は Directories に入れない）。Links は空、HasError は `$false" {
+        $dir = "$TestDrive\nofollow\普通"
         writeListFile "$dir\a.tsv" @("a")
         writeListFile "$dir\下\b.tsv" @("b")
+        writeListFile "$dir\下\さらに下\c.tsv" @("c")
 
-        $result = setNotContentIndexed $dir
-        $result.Ok | Should -Be $true
-        $result.Changed | Should -Be 2   # dir・a.tsv だけ
-        (hasAttr $dir) | Should -Be $true
-        (hasAttr "$dir\a.tsv") | Should -Be $true
-        (hasAttr "$dir\下") | Should -Be $false
-        (hasAttr "$dir\下\b.tsv") | Should -Be $false
+        $tree = getFilesNoFollow $dir
+        @($tree.Files | ForEach-Object { $_.Name } | Sort-Object) | Should -Be @("a.tsv", "b.tsv", "c.tsv")
+        @($tree.Directories | ForEach-Object { $_.Name } | Sort-Object) | Should -Be @("さらに下", "下")
+        @($tree.Links).Count | Should -Be 0
+        $tree.HasError | Should -Be $false
     }
 
-    It "既に付いているものは Changed に数えない（2 回目は 0）" {
-        $dir = "$TestDrive\nci\2回目"
+    It "shouldStop が真になったら、途中で止めて Stopped を立てる（それまでに集めた分は返す）。止めなければ Stopped は偽" {
+        $dir = "$TestDrive\nofollow\中止"
+        writeListFile "$dir\a.tsv" @("a")
+        writeListFile "$dir\下1\b.tsv" @("b")
+        writeListFile "$dir\下2\c.tsv" @("c")
+
+        (getFilesNoFollow $dir).Stopped | Should -Be $false
+        (getFilesNoFollow $dir -shouldStop { $false }).Stopped | Should -Be $false
+
+        # 1 つ目のフォルダを読んだあと（2 回目の確認）から真にする
+        $global:fsStopCalls = 0
+        try {
+            $tree = getFilesNoFollow $dir -shouldStop { $global:fsStopCalls++; $global:fsStopCalls -ge 2 }
+        } finally {
+            Remove-Variable -Name fsStopCalls -Scope Global -ErrorAction SilentlyContinue
+        }
+        $tree.Stopped | Should -Be $true
+        @($tree.Files | ForEach-Object { $_.Name }) | Should -Contain "a.tsv"
+        @($tree.Files).Count | Should -BeLessThan 3
+    }
+
+    It "末尾に \ を付けた root でも同じ結果になる" {
+        $dir = "$TestDrive\nofollow\末尾"
         writeListFile "$dir\a.tsv" @("a")
 
-        (setNotContentIndexed $dir -Recurse).Changed | Should -Be 2
-        (setNotContentIndexed $dir -Recurse).Changed | Should -Be 0
+        @((getFilesNoFollow "$dir\").Files).Count | Should -Be 1
     }
 
-    It "根に付いていれば、下に付いていないものがあっても変えない（下はたどらない）" {
-        $dir = "$TestDrive\nci\根に付いている"
+    It "Hidden のものは、既定では入れず、IncludeHidden を付けると入れる" {
+        $dir = "$TestDrive\nofollow\隠し"
         writeListFile "$dir\a.tsv" @("a")
-        setNotContentIndexed $dir -Recurse | Out-Null
-        (hasAttr $dir) | Should -Be $true
+        writeListFile "$dir\隠し.tsv" @("h")
+        writeListFile "$dir\隠しフォルダ\d.tsv" @("d")
+        [System.IO.File]::SetAttributes("$dir\隠し.tsv", [System.IO.FileAttributes]::Hidden)
+        [System.IO.File]::SetAttributes("$dir\隠しフォルダ", [System.IO.FileAttributes]::Directory -bor [System.IO.FileAttributes]::Hidden)
 
-        # 新しく作った（WriteAllLines で作った）ものは根の属性を継ぐため、Move で入れて属性を継がせない
-        # （実装が「入れた直後にそれぞれの場所で付ける」ことに頼らず、根の属性だけで判断することを確かめる）
-        $src = "$TestDrive\nci\移す元\b.tsv"
-        writeListFile $src @("b")
-        [System.IO.File]::Move($src, "$dir\b.tsv")
-        (hasAttr "$dir\b.tsv") | Should -Be $false
-
-        $result = setNotContentIndexed $dir -Recurse
-        $result.Ok | Should -Be $true
-        $result.Changed | Should -Be 0
-        (hasAttr "$dir\b.tsv") | Should -Be $false
+        @((getFilesNoFollow $dir).Files | ForEach-Object { $_.Name }) | Should -Be @("a.tsv")
+        @((getFilesNoFollow $dir -IncludeHidden).Files | ForEach-Object { $_.Name } | Sort-Object) | Should -Be @("a.tsv", "d.tsv", "隠し.tsv")
     }
 
-    It "途中で失敗した回は根に付けない（次回また下からたどれるようにする）" {
-        $dir = "$TestDrive\nci\失敗した回"
-        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+    It "System だけのファイル・フォルダは、既定でも入れる（Get-ChildItem -Recurse が返す範囲と同じ）" {
+        $dir = "$TestDrive\nofollow\システム"
+        writeListFile "$dir\a.tsv" @("a")
+        writeListFile "$dir\sys.tsv" @("s")
+        writeListFile "$dir\sysフォルダ\d.tsv" @("d")
+        $system = [System.IO.FileAttributes]::System
+        [System.IO.File]::SetAttributes("$dir\sys.tsv", $system)
+        [System.IO.File]::SetAttributes("$dir\sysフォルダ", [System.IO.FileAttributes]::Directory -bor $system)
+
+        $expected = @(Get-ChildItem -LiteralPath $dir -Recurse -File | ForEach-Object { $_.Name } | Sort-Object)
+        $expected | Should -Be @("a.tsv", "d.tsv", "sys.tsv")
+        @((getFilesNoFollow $dir).Files | ForEach-Object { $_.Name } | Sort-Object) | Should -Be $expected
+    }
+
+    It "並びは Get-ChildItem -Recurse と同じ（そのフォルダの中身を並べてから、サブフォルダの下へ進む）" {
+        $dir = "$TestDrive\nofollow\並び"
+        writeListFile "$dir\z.tsv" @("z")
+        writeListFile "$dir\b\b2.tsv" @("b")
+        writeListFile "$dir\b\b1\深.tsv" @("b")
+        writeListFile "$dir\b\b1\b0\最深.tsv" @("b")
+        writeListFile "$dir\a\a1.tsv" @("a")
+        writeListFile "$dir\c.tsv" @("c")
+
+        $tree = getFilesNoFollow $dir
+        @($tree.Files | ForEach-Object { fromLongPath $_.FullName }) | Should -Be @(Get-ChildItem -LiteralPath $dir -Recurse -File | ForEach-Object { $_.FullName })
+        @($tree.Directories | ForEach-Object { fromLongPath $_.FullName }) | Should -Be @(Get-ChildItem -LiteralPath $dir -Recurse -Directory | ForEach-Object { $_.FullName })
+    }
+
+    It "260 文字を超える長いパスの下も列挙する" {
+        $dir = "$TestDrive\nofollowLong"
+        $deep = "$dir\" + ("a" * 100) + "\" + ("b" * 100)
+        [void][System.IO.Directory]::CreateDirectory((toLongPath $deep))
+        [System.IO.File]::WriteAllText((toLongPath "$deep\深い.tsv"), "x`r`n", $utf8Bom)
+        writeListFile "$dir\浅い.tsv" @("y")
+        try {
+            "$deep\深い.tsv".Length | Should -BeGreaterThan 260
+            $tree = getFilesNoFollow $dir
+            $tree.HasError | Should -Be $false
+            @($tree.Files).Count | Should -Be 2
+            @($tree.Files | ForEach-Object { $_.Name }) | Should -Contain "浅い.tsv"
+            @($tree.Files | ForEach-Object { $_.Name }) | Should -Contain "深い.tsv"
+        } finally {
+            removeTreeNoFollow $dir
+        }
+    }
+
+    It "ジャンクションの先へは降りず、Links に入れる（Files・Directories には入れない）" {
+        $dir = "$TestDrive\nofollow\リンク"
+        $outside = "$TestDrive\nofollow\外のリンク"
+        writeListFile "$outside\外.tsv" @("外")
+        writeListFile "$dir\a.tsv" @("a")
+        if (!(newTestJunction "$dir\リンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $tree = getFilesNoFollow $dir
+        @($tree.Files | ForEach-Object { $_.Name }) | Should -Be @("a.tsv")
+        @($tree.Directories).Count | Should -Be 0
+        @($tree.Links) | Should -Be @("$dir\リンク")
+        $tree.HasError | Should -Be $false
+    }
+
+    It "Hidden のジャンクションは、既定では Files・Links のどちらにも入れず、IncludeHidden を付けると Links に入れる（中へは降りない）" {
+        $dir = "$TestDrive\nofollow\隠しリンク"
+        $outside = "$TestDrive\nofollow\隠しリンクの外"
+        writeListFile "$outside\外.tsv" @("外")
+        writeListFile "$dir\a.tsv" @("a")
+        if (!(newTestJunction "$dir\リンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        [System.IO.File]::SetAttributes("$dir\リンク", [System.IO.File]::GetAttributes("$dir\リンク") -bor [System.IO.FileAttributes]::Hidden)
+
+        $default = getFilesNoFollow $dir
+        @($default.Files | ForEach-Object { $_.Name }) | Should -Be @("a.tsv")
+        @($default.Links).Count | Should -Be 0
+        $all = getFilesNoFollow $dir -IncludeHidden
+        @($all.Files | ForEach-Object { $_.Name }) | Should -Be @("a.tsv")
+        @($all.Links) | Should -Be @("$dir\リンク")
+    }
+
+    It "親を指すジャンクション（輪）があっても止まらず、Links に入れる" {
+        $dir = "$TestDrive\nofollow\輪"
+        writeListFile "$dir\a\a.tsv" @("a")
+        if (!(newTestJunction "$dir\a\輪" $dir)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $tree = getFilesNoFollow $dir
+        @($tree.Files | ForEach-Object { $_.Name }) | Should -Be @("a.tsv")
+        @($tree.Links) | Should -Be @("$dir\a\輪")
+        $tree.HasError | Should -Be $false
+    }
+
+    It "ファイルのシンボリックリンクは Files に入れず、Links に入れる（作れなければ飛ばす）" {
+        $dir = "$TestDrive\nofollow\ファイルのリンク"
+        writeListFile "$dir\a.tsv" @("a")
+        writeListFile "$TestDrive\nofollow\外のファイル\外.tsv" @("外")
+        if (!(newTestSymlink "$dir\リンク.tsv" "$TestDrive\nofollow\外のファイル\外.tsv" -file)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $tree = getFilesNoFollow $dir
+        @($tree.Files | ForEach-Object { $_.Name }) | Should -Be @("a.tsv")
+        @($tree.Links) | Should -Be @("$dir\リンク.tsv")
+    }
+
+    It "root そのものがジャンクションでも見ない（先の中を列挙する）" {
+        $outside = "$TestDrive\nofollow\外の根"
+        writeListFile "$outside\外.tsv" @("外")
+        if (!(newTestJunction "$TestDrive\nofollow\根のリンク" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $tree = getFilesNoFollow "$TestDrive\nofollow\根のリンク"
+        @($tree.Files | ForEach-Object { $_.Name }) | Should -Be @("外.tsv")
+        @($tree.Links).Count | Should -Be 0
+    }
+
+    It "リンクかどうか確かめられないフォルダは、既定では降り、SkipUnknown を付けると降りずに Links に入れる" {
+        $dir = "$TestDrive\nofollow\不明"
+        $outside = "$TestDrive\nofollow\不明の中"
+        writeListFile "$outside\中.tsv" @("中")
+        if (!(newTestJunction "$dir\不明" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        # ReparsePoint が付き LinkType が取れないフォルダ（OneDrive のオンデマンドのフォルダなど）の見本として、種類を Unknown にする
+        Mock getLinkKind { return "Unknown" }
+
+        @((getFilesNoFollow $dir).Files | ForEach-Object { $_.Name }) | Should -Be @("中.tsv")
+        $skipped = getFilesNoFollow $dir -SkipUnknown
+        @($skipped.Files).Count | Should -Be 0
+        @($skipped.Links) | Should -Be @("$dir\不明")
+    }
+
+    It "読めないフォルダがあっても例外にせず、HasError と Reason を返し、読めたところは返す" {
+        $dir = "$TestDrive\nofollow\読めない親"
+        writeListFile "$dir\a.tsv" @("a")
         $locked = New-Object System.IO.DirectoryInfo "$dir\読めない"
         $locked.Create()
         $user = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
@@ -949,87 +1371,15 @@ Describe "setNotContentIndexed" -Tag Io {
         $acl.AddAccessRule($deny)
         $locked.SetAccessControl($acl)
         try {
-            $result = setNotContentIndexed $dir -Recurse
-            $result.Ok | Should -Be $false
-            (hasAttr $dir) | Should -Be $false
+            $tree = getFilesNoFollow $dir
+            $tree.HasError | Should -Be $true
+            $tree.Reason | Should -Not -BeNullOrEmpty
+            @($tree.Files | ForEach-Object { $_.Name }) | Should -Be @("a.tsv")
         } finally {
             $acl = $locked.GetAccessControl("Access")
             [void]$acl.RemoveAccessRule($deny)
             $locked.SetAccessControl($acl)
         }
-    }
-
-    It "隣のフォルダには付かない" {
-        $dir = "$TestDrive\nci\隣"
-        [System.IO.Directory]::CreateDirectory("$dir\対象") | Out-Null
-        [System.IO.Directory]::CreateDirectory("$dir\隣のフォルダ") | Out-Null
-
-        setNotContentIndexed "$dir\対象" -Recurse | Out-Null
-        (hasAttr "$dir\隣のフォルダ") | Should -Be $false
-    }
-
-    It "ほかの属性（読み取り専用など）は変えない" {
-        $dir = "$TestDrive\nci\属性"
-        $path = "$dir\a.tsv"
-        writeListFile $path @("a")
-        [System.IO.File]::SetAttributes($path, [System.IO.FileAttributes]::ReadOnly)
-        try {
-            setNotContentIndexed $dir -Recurse | Out-Null
-            $attrs = [System.IO.File]::GetAttributes($path)
-            ($attrs -band [System.IO.FileAttributes]::ReadOnly) | Should -Not -Be 0
-            ($attrs -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
-        } finally {
-            [System.IO.File]::SetAttributes($path, [System.IO.FileAttributes]::Normal)
-        }
-    }
-
-    It "無いパスは例外にならず Ok=`$false・Reason を返す" {
-        $result = setNotContentIndexed "$TestDrive\nci\無いフォルダ"
-        $result.Ok | Should -Be $false
-        $result.Changed | Should -Be 0
-        $result.Reason | Should -Not -BeNullOrEmpty
-    }
-
-    It "列挙の途中で読めなくなるフォルダがあっても例外にならず Ok=`$false・Reason を返す" {
-        $dir = "$TestDrive\nci\読めない親"
-        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
-        $locked = New-Object System.IO.DirectoryInfo "$dir\読めない"
-        $locked.Create()
-        $user = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-        $deny = New-Object System.Security.AccessControl.FileSystemAccessRule($user, "ListDirectory", "Deny")
-        $acl = $locked.GetAccessControl("Access")
-        $acl.AddAccessRule($deny)
-        $locked.SetAccessControl($acl)
-        try {
-            $result = setNotContentIndexed $dir -Recurse
-            $result.Ok | Should -Be $false
-            $result.Reason | Should -Not -BeNullOrEmpty
-        } finally {
-            $acl = $locked.GetAccessControl("Access")
-            [void]$acl.RemoveAccessRule($deny)
-            $locked.SetAccessControl($acl)
-        }
-    }
-}
-
-Describe "testNotContentIndexed" -Tag Io {
-    It "属性が付いていれば `$true" {
-        $dir = "$TestDrive\nci-test\付いている"
-        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
-        setNotContentIndexed $dir | Out-Null
-
-        testNotContentIndexed $dir | Should -Be $true
-    }
-
-    It "属性が付いていなければ `$false" {
-        $dir = "$TestDrive\nci-test\付いていない"
-        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
-
-        testNotContentIndexed $dir | Should -Be $false
-    }
-
-    It "無いパスは例外にならず `$false" {
-        testNotContentIndexed "$TestDrive\nci-test\無いフォルダ" | Should -Be $false
     }
 }
 
@@ -1042,10 +1392,10 @@ Describe "getFolderKey" -Tag Unit {
 
 Describe "newAppMutex" -Tag Io {
     It "同じ処理・同じフォルダでは2つ目を取得できない" {
-        $first = newAppMutex "test" "$TestDrive\tool"
+        $first = newAppMutex "test" "$TestDrive\tool" "tebunko"
         try {
             $first.Acquired | Should -Be $true
-            $second = newAppMutex "test" "$TestDrive\tool"
+            $second = newAppMutex "test" "$TestDrive\tool" "tebunko"
             try {
                 $second.Acquired | Should -Be $false
             } finally {
@@ -1058,9 +1408,9 @@ Describe "newAppMutex" -Tag Io {
     }
 
     It "処理の種類・フォルダが違えば同時に取得できる" {
-        $gui = newAppMutex "gui" "$TestDrive\tool"
-        $indexer = newAppMutex "indexer" "$TestDrive\tool"
-        $other = newAppMutex "indexer" "$TestDrive\tool2"
+        $gui = newAppMutex "gui" "$TestDrive\tool" "tebunko"
+        $indexer = newAppMutex "indexer" "$TestDrive\tool" "tebunko"
+        $other = newAppMutex "indexer" "$TestDrive\tool2" "tebunko"
         try {
             $gui.Acquired | Should -Be $true
             $indexer.Acquired | Should -Be $true
@@ -1071,6 +1421,39 @@ Describe "newAppMutex" -Tag Io {
                 $m.Mutex.Dispose()
             }
         }
+    }
+
+    It "ミューテックスの名前は Local\<app>_<name>_<key>（別の app の同じ名前・フォルダとは重ならず、同じ名前を直接開けば同じ鍵）" {
+        $lock = newAppMutex "test" "$TestDrive\tool" "appA"
+        try {
+            $lock.Acquired | Should -Be $true
+            $other = newAppMutex "test" "$TestDrive\tool" "appB"
+            try {
+                $other.Acquired | Should -Be $true
+            } finally {
+                $other.Mutex.ReleaseMutex()
+                $other.Mutex.Dispose()
+            }
+            $name = "Local\appA_test_$(getFolderKey "$TestDrive\tool")"
+            $opened = [System.Threading.Mutex]::OpenExisting($name)
+            $opened.Dispose()
+        } finally {
+            $lock.Mutex.ReleaseMutex()
+            $lock.Mutex.Dispose()
+        }
+    }
+
+    It "app が空なら例外にする（渡し忘れを黙って別の名前にしない）" -TestCases @(
+        @{ app = "" }
+        @{ app = $null }
+    ) {
+        param ($app)
+
+        { newAppMutex "test" "$TestDrive\tool" $app } | Should -Throw "*app*"
+    }
+
+    It "app を渡さなければ例外にする" {
+        { newAppMutex "test" "$TestDrive\tool" } | Should -Throw "*app*"
     }
 }
 

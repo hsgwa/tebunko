@@ -45,11 +45,6 @@ class FolderItem : NotifyBase {
     [string]$IndexLevel = "None"
     [double]$IndexPercent = 0   # 更新中のバッジの下の棒の長さ（0～100）
     [string]$IndexSub = ""   # ステータスのバッジの下の補足（途中で止まったときの「残り N 件」。無ければ空）
-    # 一覧の「高速検索」列（システムインデックスの反映の状態。getFastSearchRowView）
-    [string]$FastText = "確認中…"
-    [string]$FastToolTip
-    [string]$FastLevel = "None"   # Ok / Wait / Warn（使えない。注意の色）/ None
-    [string[]]$FastSteps = @()    # 使えないときの対処の手順（詳細に箇条で出す）
     # 一覧の行の右端のボタン（getIndexRowActions）。RowAction は Update / Stop / None
     [string]$RowAction = "Update"
     [bool]$RowUpdateEnabled = $false
@@ -72,13 +67,5 @@ class FolderItem : NotifyBase {
     [void] SetRowActions([string]$action, [bool]$updateEnabled) {
         $this.RowAction = $action; $this.RowUpdateEnabled = $updateEnabled
         $this.Raise("RowAction"); $this.Raise("RowUpdateEnabled")
-    }
-    [void] SetFast([string]$text, [string]$toolTip, [string]$level) {
-        $this.FastText = $text; $this.FastToolTip = $toolTip; $this.FastLevel = $level; $this.FastSteps = @()
-        $this.Raise("FastText"); $this.Raise("FastToolTip"); $this.Raise("FastLevel"); $this.Raise("FastSteps")
-    }
-    [void] SetFast([string]$text, [string]$toolTip, [string]$level, [string[]]$steps) {
-        $this.FastText = $text; $this.FastToolTip = $toolTip; $this.FastLevel = $level; $this.FastSteps = $steps
-        $this.Raise("FastText"); $this.Raise("FastToolTip"); $this.Raise("FastLevel"); $this.Raise("FastSteps")
     }
 }

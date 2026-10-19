@@ -7,7 +7,6 @@ BeforeAll {
         # content_index（今の版）と、前の版の残骸の index の両方を置いて、どちらも移す・消すことを確かめる
         newTsv "$dir\content_index\営業\見積\content_index.xlsx.001.tsv" @("a")
         newTsv "$dir\index\営業\見積\content.xlsx.001.tsv" @("a-前の版")
-        newTsv "$dir\system_index\営業\見積\system_index.txt" @("b")
         newTsv "$dir\ingest_status.tsv" @("c")
         newTsv "$dir\indexing_log.txt" @("d")
         newTsv "$dir\利用者のメモ.txt" @("e")
@@ -22,11 +21,10 @@ Describe "WorkspaceMover.MoveEntries" -Tag Io {
     It "tebunko のファイル・フォルダだけを移し、移した数を返す（利用者のファイルは残す）" {
         newWorkspaceFiles "$TestDrive\move\from"
 
-        $script:mover.MoveEntries("$TestDrive\move\from", "$TestDrive\move\to") | Should -Be 5
+        $script:mover.MoveEntries("$TestDrive\move\from", "$TestDrive\move\to") | Should -Be 4
 
         Test-Path -LiteralPath "$TestDrive\move\to\content_index\営業\見積\content_index.xlsx.001.tsv" | Should -Be $true
         Test-Path -LiteralPath "$TestDrive\move\to\index\営業\見積\content.xlsx.001.tsv" | Should -Be $true
-        Test-Path -LiteralPath "$TestDrive\move\to\system_index\営業\見積\system_index.txt" | Should -Be $true
         Test-Path -LiteralPath "$TestDrive\move\to\ingest_status.tsv" | Should -Be $true
         Test-Path -LiteralPath "$TestDrive\move\to\indexing_log.txt" | Should -Be $true
         @($script:mover.ListEntries("$TestDrive\move\from")).Count | Should -Be 0
@@ -39,20 +37,20 @@ Describe "WorkspaceMover.MoveEntries" -Tag Io {
         newTsv "$TestDrive\conflict\to\ingest_status.tsv" @("別のワークスペース")
 
         { $script:mover.MoveEntries("$TestDrive\conflict\from", "$TestDrive\conflict\to") } | Should -Throw "*すでに ingest_status.tsv があります*"
-        @($script:mover.ListEntries("$TestDrive\conflict\from")).Count | Should -Be 5
+        @($script:mover.ListEntries("$TestDrive\conflict\from")).Count | Should -Be 4
         Test-Path -LiteralPath "$TestDrive\conflict\to\content_index" | Should -Be $false
     }
 
     It "途中で移せなければ、移した分を戻して例外にする（中身が 2 つに分かれない）" {
         newWorkspaceFiles "$TestDrive\rollback\from"
-        # system_index の中のファイルを開いておき、フォルダを移せなくする（content_index・index は先に移る）
-        $stream = [System.IO.File]::Open("$TestDrive\rollback\from\system_index\営業\見積\system_index.txt", "Open", "Read", "None")
+        # content_index の中のファイルを開いておき、フォルダを移せなくする（先に並ぶ index・ingest_status.tsv は先に移る）
+        $stream = [System.IO.File]::Open("$TestDrive\rollback\from\content_index\営業\見積\content_index.xlsx.001.tsv", "Open", "Read", "None")
         try {
             { $script:mover.MoveEntries("$TestDrive\rollback\from", "$TestDrive\rollback\to") } | Should -Throw "*中身は「$TestDrive\rollback\from」に残しています*"
         } finally {
             $stream.Dispose()
         }
-        @($script:mover.ListEntries("$TestDrive\rollback\from")).Count | Should -Be 5
+        @($script:mover.ListEntries("$TestDrive\rollback\from")).Count | Should -Be 4
         @($script:mover.ListEntries("$TestDrive\rollback\to")).Count | Should -Be 0
     }
 
@@ -133,12 +131,41 @@ Describe "WorkspaceMover.UseTargets" -Tag Io {
         writeStatusFile @(
             [pscustomobject]@{ Path = "\\server\共有\営業部"; Name = "営業" },
             [pscustomobject]@{ Path = "\\server\共有\技術部"; Name = "技術" }
-        ) @() "$TestDrive\use\ws\ingest_status.tsv"
+        ) @() "$TestDrive\use\ws\store\ingest_status.tsv"
 
         ([WorkspaceMover]::new($settings)).UseTargets("$TestDrive\use\ws") | Should -Be 2
 
         $targets = @(getTargetFolders $settings)
         @($targets | ForEach-Object { "$($_.Name)=$($_.Path)=$($_.Enabled)" }) -join "|" | Should -Be "営業=\\server\共有\営業部=True|技術=\\server\共有\技術部=True"
+    }
+
+    It "前の版のワークスペース（取り込み一覧がワークスペース直下）でも、クロール対象フォルダを一覧にする" {
+        $settings = "$TestDrive\use_old\setting.config"
+        writeTargetFolders @([pscustomobject]@{ Name = "自分"; Path = "C:\自分のフォルダ"; Enabled = $true }) $settings
+        writeStatusFile @(
+            [pscustomobject]@{ Path = "\\server\共有\営業部"; Name = "営業" }
+        ) @() "$TestDrive\use_old\ws\ingest_status.tsv"
+
+        ([WorkspaceMover]::new($settings)).UseTargets("$TestDrive\use_old\ws") | Should -Be 1
+
+        @(getTargetFolders $settings)[0].Name | Should -Be "営業"
+    }
+
+    It "移行の途中（新旧の取り込み一覧の両方があり、名前が一部だけ重なる）は、新しい方を先に、無い名前を前の版から足す" {
+        $settings = "$TestDrive\use_both\setting.config"
+        writeTargetFolders @([pscustomobject]@{ Name = "自分"; Path = "C:\自分のフォルダ"; Enabled = $true }) $settings
+        writeStatusFile @(
+            [pscustomobject]@{ Path = "\\server\共有\営業部"; Name = "営業" }
+        ) @() "$TestDrive\use_both\ws\store\ingest_status.tsv"
+        writeStatusFile @(
+            [pscustomobject]@{ Path = "\\old\営業部"; Name = "営業" }
+            [pscustomobject]@{ Path = "\\server\共有\技術部"; Name = "技術" }
+        ) @() "$TestDrive\use_both\ws\ingest_status.tsv"
+
+        ([WorkspaceMover]::new($settings)).UseTargets("$TestDrive\use_both\ws") | Should -Be 2
+
+        $targets = @(getTargetFolders $settings)
+        @($targets | ForEach-Object { "$($_.Name)=$($_.Path)" }) -join "|" | Should -Be "営業=\\server\共有\営業部|技術=\\server\共有\技術部"
     }
 
     It "取り込み一覧が無ければ、一覧は変えない" {
@@ -160,14 +187,14 @@ Describe "WorkspaceMover.ChangeWorkspace（画面が呼ぶ入口）" -Tag Io {
 
     It "move: 中身を移し、searchExcludes を付け替え、ワークスペースを設定に保存する" {
         newWorkspaceFiles "$TestDrive\change\from"
-        writeSearchExcludes @([pscustomobject]@{ Path = "$TestDrive\change\from\content_index\営業"; Subfolders = $true }) $script:settings
+        writeSearchExcludes @([pscustomobject]@{ Path = "$TestDrive\change\from\store\content\営業"; Subfolders = $true }) $script:settings
 
         $result = $script:mover.ChangeWorkspace("move", "$TestDrive\change\from", "$TestDrive\change\to")
 
         $result.Ok | Should -Be $true
-        $result.Count | Should -Be 5
+        $result.Count | Should -Be 4
         Test-Path -LiteralPath "$TestDrive\change\to\ingest_status.tsv" | Should -Be $true
-        @(readSearchExcludes $script:settings)[0].Path | Should -Be "$TestDrive\change\to\content_index\営業"
+        @(readSearchExcludes $script:settings)[0].Path | Should -Be "$TestDrive\change\to\store\content\営業"
         (getWorkDir $script:settings) | Should -Be "$TestDrive\change\to"
     }
 
@@ -180,7 +207,7 @@ Describe "WorkspaceMover.ChangeWorkspace（画面が呼ぶ入口）" -Tag Io {
         $result.Ok | Should -Be $false
         $result.Stage | Should -Be "move"
         $result.Message | Should -Match "すでに ingest_status.tsv があります"
-        @($script:mover.ListEntries("$TestDrive\change\from")).Count | Should -Be 5
+        @($script:mover.ListEntries("$TestDrive\change\from")).Count | Should -Be 4
         Test-Path -LiteralPath $script:settings | Should -Be $false
     }
 
@@ -209,19 +236,19 @@ Describe "WorkspaceMover.ChangeWorkspace（画面が呼ぶ入口）" -Tag Io {
         $result.Ok | Should -Be $false
         $result.Stage | Should -Be "remove"
         $result.Message | Should -Not -BeNullOrEmpty
-        @($script:mover.ListEntries("$TestDrive\change\from")).Count | Should -Be 5
+        @($script:mover.ListEntries("$TestDrive\change\from")).Count | Should -Be 4
         Test-Path -LiteralPath $script:settings | Should -Be $false
     }
 
     It "use: 中身は移さず、選んだ先の取り込み一覧をインデックスの一覧にして、ワークスペースを保存する" {
         newWorkspaceFiles "$TestDrive\change\from"
-        writeStatusFile @([pscustomobject]@{ Path = "\\server\共有\営業部"; Name = "営業" }) @() "$TestDrive\change\to\ingest_status.tsv"
+        writeStatusFile @([pscustomobject]@{ Path = "\\server\共有\営業部"; Name = "営業" }) @() "$TestDrive\change\to\store\ingest_status.tsv"
 
         $result = $script:mover.ChangeWorkspace("use", "$TestDrive\change\from", "$TestDrive\change\to")
 
         $result.Ok | Should -Be $true
         $result.Targets | Should -Be 1
-        @($script:mover.ListEntries("$TestDrive\change\from")).Count | Should -Be 5
+        @($script:mover.ListEntries("$TestDrive\change\from")).Count | Should -Be 4
         @(getTargetFolders $script:settings)[0].Name | Should -Be "営業"
         (getWorkDir $script:settings) | Should -Be "$TestDrive\change\to"
     }

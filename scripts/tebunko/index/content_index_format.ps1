@@ -1,7 +1,7 @@
 ﻿# 検索用の本文インデックスのファイル（フォルダ 1 つ・元のファイルの拡張子 1 つにつき、大きさで分けて 1 つ以上。content_index.xlsx.001.tsv など）の形式（判断層）。
 # ファイル（元のファイル）ごと・場所（シート・ページ・スライドなど）ごとに、メタ情報の行と今の TSV の中身を並べる。
 #
-#   <RS> 版=1
+#   <RS> 版=2
 #   <RS> ファイル名=(株)山田商事_見積書.xlsx
 #   <RS> 種類=Excel
 #   <RS> シート=見積
@@ -20,10 +20,34 @@
 # 先頭の語（content_index）は 1 か所の定数にする（index_store.ps1 の getContentIndexKeyOf も使う）
 ${contentIndexFileNamePrefix} = "content_index"
 ${contentIndexFilePattern} = "${contentIndexFileNamePrefix}.*.tsv"
-${contentIndexFileNamePattern} = "^${contentIndexFileNamePrefix}\.(?<ext>[^.]+)\.(?<part>\d{3,})\.tsv$"
+${contentIndexFileNamePattern} = "^${contentIndexFileNamePrefix}\.(?<ext>[^.]+)\.(?<part>[0-9]{3,})\.tsv$"
 ${contentIndexFileMaxBytes} = 4MB
-${contentIndexVersion} = 1
+# 読む本文インデックスのファイル 1 つの大きさの上限（バイト。検索も、インデックス作成で前のファイルとまぜるときも使う）。超えるファイルは読まずに飛ばす。
+# 1 つのファイルは丸ごと読み、並列の検索は最大 4 スレッドなので、同時に持つのは最大でこの 4 倍（正しく作ったファイルは contentIndexFileMaxBytes が目安）
+${contentIndexSearchMaxBytes} = 64MB
+# インデックスの格納形式の版（本文インデックスの「版=」の行・目録の版・zip の目録の版はすべてこの 1 つの番号にそろえる）。
+# 読み飛ばしても古い版が誤らない列・キーを足すときは上げない。意味を変える・無いと古い版が誤るものを足すときは上げる（format.md「目録の版の規則」）
+${indexFormatVersion} = 2
+${contentIndexVersion} = ${indexFormatVersion}
 ${contentIndexMark} = [char]0x1E
+
+# 古い形式（前の版のインデックス）を利用者に知らせる文言。画面の一覧・インデクサのログ・取り込みの断りで同じ文言を使う
+${indexRebuildMessage} = "古い形式です。作り直してください"
+${indexRebuildingMessage} = "作り直しの途中です。［更新］で続きを作ってください"
+${indexNewerMessage} = "新しい版の tebunko で作られています"
+
+# インデックスの状態（getIndexFormatState）
+${indexStateCurrent}    = "Current"
+${indexStateBuilding}   = "Building"
+${indexStateRebuilding} = "Rebuilding"
+${indexStateOld}        = "Old"
+${indexStateEmpty}      = "Empty"
+${indexStateBroken}     = "Broken"
+${indexStateNewer}      = "Newer"
+
+# 目録（store\format.tsv）のインデックスごとの行の状態
+${catalogRowBuilding} = "作成中"
+${catalogRowFinished} = "作り終えた"
 
 # 場所のまとまりを始めるキー
 ${contentIndexPlaceKeys} = @("シート", "ページ", "スライド", "部分")
@@ -35,9 +59,8 @@ function getContentIndexFileKind {
         [string]$book
     )
 
-    if ($book -match '\.xls[a-z]?$') { return "Excel" }
-    if ($book -match '\.doc[a-z]?$') { return "Word" }
-    if ($book -match '\.ppt[a-z]?$') { return "PowerPoint" }
+    $officeKind = getOfficeFileKind $book
+    if ($officeKind) { return $officeKind }
     if (testTextExtension $book) { return "テキスト" }
     if (testPdfExtension $book) { return "PDF" }
     return ""
@@ -66,12 +89,16 @@ function getContentIndexFileName {
 
 function readContentIndexFileName {
     # 本文インデックスのファイルの名前から @{ Extension; Part } を返す。本文インデックスのファイルの名前でなければ $null
+    # （番号が大きすぎて整数にできない名前も、本文インデックスのファイルの名前とはみなさない）
     param (
         [string]$name
     )
 
     if ($name -match ${contentIndexFileNamePattern}) {
-        return @{ Extension = $Matches.ext.ToLowerInvariant(); Part = [int]$Matches.part }
+        $part = 0
+        if ([int]::TryParse($Matches.part, [ref]$part)) {
+            return @{ Extension = $Matches.ext.ToLowerInvariant(); Part = $part }
+        }
     }
     return $null
 }
@@ -190,11 +217,16 @@ function convertContentIndexMetaToPlace {
     if ($meta.Contains("シート")) {
         return [string]$meta["シート"] + $suffix
     }
+    # 番号が数でないときは、その値の文字列のまま場所に使う（壊れた本文インデックスのファイルでも例外にしない）
+    $number = 0
     if ($meta.Contains("ページ")) {
-        return ("ページ{0:D3}" -f [int]$meta["ページ"]) + $suffix
+        $pageText = [string]$meta["ページ"]
+        $pageName = if ([int]::TryParse($pageText, [ref]$number)) { "ページ{0:D3}" -f $number } else { $pageText }
+        return $pageName + $suffix
     }
     if ($meta.Contains("スライド")) {
-        $base = "スライド{0:D3}" -f [int]$meta["スライド"]
+        $slideText = [string]$meta["スライド"]
+        $base = if ([int]::TryParse($slideText, [ref]$number)) { "スライド{0:D3}" -f $number } else { $slideText }
         if ($target -eq "ノート") {
             return "${base}_ノート"
         }
@@ -360,8 +392,18 @@ function testContentIndexCellPrefixed {
         $meta
     )
 
-    $target = [string]$meta["対象"]
-    return ((getContentIndexFileKind $book) -eq "Excel") -and ($target -eq ${placeKindShape} -or $target -eq ${placeKindComment})
+    return testCellPrefixedPlace $book ([string]$meta["対象"])
+}
+
+function testCellPrefixedPlace {
+    # 場所の行が「セル番地 + 区切りのタブ + 文字」の形か（元のファイルが Excel で、場所の種類が図形・コメント）を返す。
+    # 種類はふつうの場所なら空。この判定はここだけに置き、検索結果の行（HitRow.IsCellPrefixed）もこれで決める
+    param (
+        [string]$book,
+        [string]$kind
+    )
+
+    return ((getContentIndexFileKind $book) -eq "Excel") -and ($kind -eq ${placeKindShape} -or $kind -eq ${placeKindComment})
 }
 
 
@@ -390,7 +432,7 @@ function readContentIndexPlaces {
             $value = decodeContentIndexValue $line.Substring($eq + 1)
             if ($key -eq "版") {
                 if ($value -ne [string]${contentIndexVersion}) {
-                    throw "集約ファイルの版が違います（$value）"
+                    throw (getIndexRebuildMessage)
                 }
                 $versionSeen = $true
             } elseif ($key -eq "ファイル名" -or $placeKeys -contains $key) {
@@ -421,7 +463,7 @@ function readContentIndexPlaces {
         $places.Add($current)
     }
     if (!$versionSeen -and $text.Length -gt 0) {
-        throw "集約ファイルの版がありません"
+        throw (getIndexRebuildMessage)
     }
     return , $places
 }
@@ -439,15 +481,17 @@ function splitContentIndexTextByBook {
         return , $books
     }
     $head = "$([string]${contentIndexMark}) ファイル名="
-    $versionLine = "$([string]${contentIndexMark}) 版="
     $firstEnd = $text.IndexOf([char]10)
-    if (!$text.StartsWith($versionLine, [System.StringComparison]::Ordinal) -or $firstEnd -lt 0 -or $text.Substring($versionLine.Length, $firstEnd - $versionLine.Length) -ne [string]${contentIndexVersion}) {
-        throw "集約ファイルの版が違います"
+    if ($firstEnd -lt 0 -or !(testContentIndexVersionLine $text.Substring(0, $firstEnd))) {
+        throw (getIndexRebuildMessage)
     }
     $pos = $text.IndexOf("`n$head", [System.StringComparison]::Ordinal)
     while ($pos -ge 0) {
         $start = $pos + 1
         $lineEnd = $text.IndexOf([char]10, $start)
+        if ($lineEnd -lt 0) {
+            throw "インデックスのファイルの形が崩れています（ファイル名の行に改行がありません）"
+        }
         $name = decodeContentIndexValue $text.Substring($start + $head.Length, $lineEnd - $start - $head.Length)
         $next = $text.IndexOf("`n$head", $lineEnd, [System.StringComparison]::Ordinal)
         $end = if ($next -ge 0) { $next + 1 } else { $text.Length }
@@ -459,7 +503,7 @@ function splitContentIndexTextByBook {
 
 
 function getContentIndexBodyText {
-    # 本文インデックスのファイルの文字列から、メタ情報の行（先頭が RS の行）を除いた中身だけを返す（システムインデックスの語を作るため。
+    # 本文インデックスのファイルの文字列から、メタ情報の行（先頭が RS の行）を除いた中身だけを返す（検索用の索引の gram を作るため。
     # メタ情報の「ファイル名」「シート」などの語が入ると、その語で探したときにどのフォルダも候補になってしまう）
     param (
         [string]$text
@@ -469,4 +513,116 @@ function getContentIndexBodyText {
         return $text
     }
     return [regex]::Replace($text, "(?m)^\x1E[^\n]*\n?", "")
+}
+
+
+
+function getIndexRebuildMessage {
+    # 古い形式のインデックスを知らせる文言（1 か所）。本文インデックスの版の例外・一覧のステータス・インデクサのログ・zip の取り込みの断りで使う
+    return ${indexRebuildMessage}
+}
+
+
+function getContentIndexPublishSkippedText {
+    # インデックス作成で、本文インデックスにまとめられず飛ばしたフォルダをログに出す 1 行（インデックスからの相対パス・段・理由）。
+    # 段は「本文インデックス」（理由の頭に付けて、どこで止まったかが分かるようにする）
+    param (
+        [string]$rel,
+        [string]$stage,
+        [string]$reason
+    )
+
+    $shown = if ($rel) { $rel } else { "." }
+    $oneLine = ($reason -replace "[\r\n]+", " ").Trim()
+    return "    インデックスにまとめられなかったフォルダがあります（${shown}）: ${stage}: ${oneLine}。インデックスを作り直すと直ります"
+}
+
+
+function testContentIndexVersionLine {
+    # 本文インデックスの 1 行目（RS + " 版=<値>"）が、今の版かどうか
+    param (
+        [string]$line
+    )
+
+    return ($line.TrimEnd("`r") -ceq "$([string]${contentIndexMark}) 版=${indexFormatVersion}")
+}
+
+
+function getIndexFormatState {
+    # 目録とフォルダの有無から、ワークスペースと各インデックスの状態を決める（判断層。ファイルには触らない）。
+    #   catalog        : readIndexFormat の結果 @{ Status（Ok・Missing・Broken・Newer・Older）; Indexes（名前 → 作成中・作り終えた） }
+    #   oldNames       : 古い置き場（content_index\）に本文インデックスがあるインデックスの名前
+    #   v2Names        : 今の置き場（store\content\）に本文インデックスがあるインデックスの名前
+    #   hasLegacyIndex : 前の前の版（index\）のしるしがあるか
+    # 戻り値: @{ State; Message; Indexes = 名前 → @{ State; Searchable; Message } }
+    #   State: Current・Building・Rebuilding・Old・Empty・Broken（目録だけ壊れた。各インデックスは本文インデックスから見分ける）・Newer
+    param (
+        $catalog,
+        [string[]]$oldNames = @(),
+        [string[]]$v2Names = @(),
+        [bool]$hasLegacyIndex = $false
+    )
+
+    $status = if ($catalog) { [string]$catalog.Status } else { "Missing" }
+    $rows = @{}
+    if ($status -eq "Ok" -and $catalog.Indexes) {
+        foreach ($key in $catalog.Indexes.Keys) { $rows[[string]$key] = [string]$catalog.Indexes[$key] }
+    }
+    $oldSet = @{}
+    foreach ($name in $oldNames) { $oldSet[[string]$name] = $true }
+    $v2Set = @{}
+    foreach ($name in $v2Names) { $v2Set[[string]$name] = $true }
+
+    $names = New-Object System.Collections.Generic.List[string]
+    foreach ($table in @($rows, $oldSet, $v2Set)) {
+        foreach ($key in $table.Keys) {
+            if (!$names.Contains([string]$key)) { $names.Add([string]$key) }
+        }
+    }
+
+    $indexes = [ordered]@{}
+    foreach ($name in ($names | Sort-Object)) {
+        $inOld = $oldSet.ContainsKey($name)
+        $inStore = $v2Set.ContainsKey($name)
+        $finished = ($rows.ContainsKey($name) -and $rows[$name] -eq ${catalogRowFinished})
+        $indexState = ${indexStateBuilding}
+        if ($status -eq "Newer") {
+            $indexState = ${indexStateNewer}
+        } elseif ($finished -and !$inOld) {
+            $indexState = ${indexStateCurrent}
+        } elseif ($inStore -and $inOld) {
+            $indexState = ${indexStateRebuilding}
+        } elseif ($inStore) {
+            $indexState = $(if ($finished) { ${indexStateCurrent} } else { ${indexStateBuilding} })
+        } elseif ($inOld) {
+            $indexState = ${indexStateOld}
+        }
+        $message = ""
+        if ($indexState -eq ${indexStateOld}) { $message = ${indexRebuildMessage} }
+        elseif ($indexState -eq ${indexStateRebuilding}) { $message = ${indexRebuildingMessage} }
+        elseif ($indexState -eq ${indexStateNewer}) { $message = ${indexNewerMessage} }
+        $searchable = ($indexState -eq ${indexStateCurrent} -or $indexState -eq ${indexStateBuilding} -or $indexState -eq ${indexStateRebuilding})
+        $indexes[$name] = @{ State = $indexState; Searchable = $searchable; Message = $message }
+    }
+
+    $state = ${indexStateEmpty}
+    if ($status -eq "Newer") {
+        $state = ${indexStateNewer}
+    } elseif ($status -eq "Broken") {
+        $state = ${indexStateBroken}
+    } elseif ($indexes.Count -gt 0) {
+        $states = @($indexes.Values | ForEach-Object { $_.State })
+        foreach ($candidate in @(${indexStateRebuilding}, ${indexStateOld}, ${indexStateBuilding})) {
+            if ($states -contains $candidate) { $state = $candidate; break }
+        }
+        if ($state -eq ${indexStateEmpty}) { $state = ${indexStateCurrent} }
+    } elseif ($hasLegacyIndex) {
+        $state = ${indexStateOld}
+    }
+
+    $workspaceMessage = ""
+    if ($state -eq ${indexStateOld}) { $workspaceMessage = ${indexRebuildMessage} }
+    elseif ($state -eq ${indexStateRebuilding}) { $workspaceMessage = ${indexRebuildingMessage} }
+    elseif ($state -eq ${indexStateNewer}) { $workspaceMessage = ${indexNewerMessage} }
+    return @{ State = $state; Message = $workspaceMessage; Indexes = $indexes }
 }

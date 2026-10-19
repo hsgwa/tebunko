@@ -39,6 +39,7 @@ function getGuiEnvSnapshot {
     $snapshot = [ordered]@{
         "作業ツリーの setting.config" = (& $list "$root\setting.config")
         "作業ツリーの work\content_index" = (& $list "$root\work\content_index")
+        "作業ツリーの work\store" = (& $list "$root\work\store")
         "LOCALAPPDATA\tebunko"       = (& $list (Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) "tebunko"))
         "Office のプロセスの数"       = @(Get-Process -Name EXCEL, WINWORD, POWERPNT -ErrorAction SilentlyContinue).Count
     }
@@ -917,7 +918,7 @@ function newGuiSampleIndex {
     $tsvRoot = Join-Path $Root "tsv_$Name"
     newTsv "$tsvRoot\$Name\見積.xlsx\$(toIndexFileName "見積")" @("品名`t数量`t単価", "", "りんご`t10`t100", "ABC`tabc")
     newTsv "$tsvRoot\$Name\議事録.docx\$(toIndexFileName "ページ001")" @("見積の方針", "単価は据え置き")
-    [void](newContentIndexFiles $tsvRoot "$($Tool.Work)\content_index")
+    [void](newContentIndexFiles $tsvRoot "$($Tool.Work)\store\content")
 }
 
 function findGuiAnywhere {
@@ -1032,6 +1033,8 @@ function closeGuiMessage {
     param ($S, [string]$Text, [string]$What, [string]$Kind = "警告")
     $window = waitGuiWindow $S $What -Text $Text
     $found = @(getGuiTexts $window) -join " "
+    # 窓の標題は、起動の経路（services.ps1 の setShellTitle）で渡されたツールの表示名
+    if ($window.Current.Name -ne "tebunko") { throw "${What}: 窓の標題が「tebunko」でない（$($window.Current.Name)）" }
     $mark = findGui $window -Id "HeadingIcon"
     if (!$mark -or $mark.Current.Name -ne $Kind) { throw "${What}: 見出しのアイコンが「$Kind」でない（$(if ($mark) { $mark.Current.Name } else { 'アイコンなし' })）" }
     $buttonNames = @(findAllGui $window -Type Button | ForEach-Object { $_.Current.Name })

@@ -10,7 +10,7 @@ BeforeAll {
     ${sharedXamlDir} = "${scriptsDir}\shared\xaml"
     ${iconFile}      = "${scriptsDir}\tebunko\tebunko.ico"
     ${themeFile}     = "${sharedXamlDir}\theme.xaml"
-    ${appTitle}      = "tebunko"
+    setShellTitle "tebunko"
     $window = $null
 
     # タイマーのクロージャからも書き換えられるよう、入れ物（ハッシュ表）を 1 つ共有する

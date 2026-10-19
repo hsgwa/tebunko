@@ -87,17 +87,17 @@ flowchart TD
 
 ## テキストファイルの抽出処理（`extractTextFile`）
 
-`tebunko/indexer/extract_text.ps1` の `extractTextFile` は、元のファイルに影響を出さないため、元を作業領域の `source.copy`（`.tsv` にならない固定の名前。消せずに残っても TSV として公開されない）に `copyFileShared`（読み取りだけ・`FileShare.ReadWrite | Delete`）でコピーし、コピーを `shared/core/text_file.ps1` の `readTextFile`（ファイルを開いて読む状態層の関数）で読み、TSV を書く前にコピーを消す（`finally`。消せなかったときは黙らず取り込みの失敗にする。作業領域の中身は本文インデックスに回るため、コピーを残さない）。強制終了で残ったコピーは、次のファイルの前と次のインデックス作成の始めに作業フォルダごと片付けられる。排他で開かれたファイルはコピーできず、取り込みの失敗になる。大きさの上限は、コピーの前に元の大きさで確かめる（コピーを読むときの確かめは、コピー中に大きくなった場合の保険）。書きかけのファイルをコピーしたときの中身は、直接読む場合と同じ。`readTextFile` が返す行の並びを、`tebunko/indexer/extract_text.ps1` の `extractTextFile` が場所「本文」の TSV 1 つに書き出す（`writeUnits` と違い、途中の空の行を捨てない）。取り込み（`ingestFile`。`tebunko/indexer/extract_office.ps1`）は、対象の拡張子ならここに回し、Excel・Word・PowerPoint を使わない読み取りのレーン（`Reader`）で取り込む（[取り込みのレーン](parallel.md)）。
+`tebunko/indexer/extract_text.ps1` の `extractTextFile` は、元のファイルに影響を出さないため、元を作業領域の `source.copy`（`.tsv` にならない固定の名前。消せずに残っても TSV として公開されない）に `copyFileShared`（読み取りだけ・`FileShare.ReadWrite | Delete`）でコピーし、コピーを `shared/core/text_file.ps1` の `readTextFile`（ファイルを開いて読む状態層の関数）で読み、TSV を書く前にコピーを消す（`finally`。消せなかったときは黙らず取り込みの失敗にする。作業領域の中身は本文インデックスに回るため、コピーを残さない）。強制終了で残ったコピーは、次のファイルの前と次のインデックス作成の始めに作業フォルダごと片付けられる。排他で開かれたファイルはコピーできず、取り込みの失敗になる。大きさの上限は、コピーの前に元の大きさで確かめる（コピーを読むときの確かめは、コピー中に大きくなった場合の保険）。書きかけのファイルをコピーしたときの中身は、直接読む場合と同じ。`readTextFile` が返す行の並びを、`tebunko/indexer/extract_text.ps1` の `extractTextFile` が場所「本文」の TSV 1 つに書き出す（`writeUnits` と違い、途中の空の行を捨てない）。取り込み（`ingestFile`。`tebunko/indexer/extract_office.ps1`）は、対象の拡張子ならここに回し、Office を使わずに読む仕事で取り込む（[取り込みの並列化](parallel.md)）。
 
 本文インデックスへは、今の形式（版 1）のまま、種類 `テキスト`・場所 1 つ（部分 = 本文・対象 = 本文）で入る（[本文インデックスの形式](../index-data/format.md)）。
 
 ## tebunko が作ったファイルの除外
 
-`.tsv` `.txt` などを取り込み対象にすると、tebunko 自身が作るファイル（本文インデックス・システムインデックス・取り込み一覧・ログ・検索結果ファイル）まで取り込んでしまい、すべての語が二重にヒットする。`findTargetFiles`（`tebunko/indexer/indexer_plan.ps1`）は、クロール対象の拡張子で列挙した後、次のいずれかに当たるファイルを除く。
+`.tsv` `.txt` などを取り込み対象にすると、tebunko 自身が作るファイル（本文インデックス・取り込み一覧・ログ・検索結果ファイル）まで取り込んでしまい、すべての語が二重にヒットする。`findTargetFiles`（`tebunko/indexer/indexer_plan.ps1`）は、クロール対象の拡張子で列挙した後、次のいずれかに当たるファイルを除く。
 
-1. **今のワークスペース**: `$workspace.Entries()`（`content_index`・前の版の `index`・`system_index`・取り込み一覧・ログ等）の下・そのもの。拡張子にかかわらない。
-2. **ほかの tebunko のワークスペース**: 列挙したファイルの中に取り込み一覧（`$workspace.StatusFile` と同じ名前）があれば、そのフォルダをワークスペースとみなし、`Entries()` の下も同じく除く（以前の既定の場所・切り替える前のワークスペース・ほかの人のワークスペースに対応）。
-3. **名前で分かる tebunko のファイル**: 本文インデックス（`content_index.*.tsv`）・前の版の集約ファイル（`content.*.tsv`）・システムインデックス（`system_index*.txt`・前の版の `システムインデックス*.txt`）は、どこにあっても除く。
+1. **今のワークスペース**: `$workspace.Entries()`（`store`・前の版の `content_index`・前の前の版の `index`・ログ等）の下・そのもの。拡張子にかかわらない。
+2. **ほかの tebunko のワークスペース**: 目印は次の 3 つ。前の版の取り込み一覧（ワークスペース直下の `ingest_status.tsv`）、今の版の取り込み一覧（`store\ingest_status.tsv`）、今の版の目録（`store\format.tsv`）。目録はありふれた名前なので、親が `store` で、中身が目録として読める（`readIndexFormat` が `Missing`・`Broken` でない）ときだけ目印にする。利用者のフォルダの `format.tsv` と、ロックされるなどで読めない目録は目印にしない。列挙したファイルの中に目印があれば、そのフォルダ（親が `store` なら 1 つ上）をワークスペースとみなし、`Entries()` の下も同じく除く（以前の既定の場所・切り替える前のワークスペース・ほかの人のワークスペースに対応）。
+3. **名前で分かる tebunko のファイル**: 本文インデックス（`content_index.*.tsv`）・前の版の集約ファイル（`content.*.tsv`）・前の版のシステムインデックス（`system_index*.txt`・`システムインデックス*.txt`）は、どこにあっても除く。
 4. **`~$` で始まる一時ファイル**（既存の除外をそのまま続ける）。
 
 既定でない場所のワークスペースに利用者が置いた `.xlsx`・`.txt` は、1〜3 のどれにも当たらないため今までどおり取り込む。判定はファイルごとに重くしないよう、除外するフォルダの `\\?\` 付きの前方一致の文字列を先に作ってから `StartsWith` で比べる（ファイルごとにドライブの割り当てをたどる処理は呼ばない）。

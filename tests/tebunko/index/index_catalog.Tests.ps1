@@ -9,8 +9,8 @@ BeforeAll {
         [System.IO.Directory]::CreateDirectory($dir) | Out-Null
         return @{
             Dir      = $dir
-            Index    = "$dir\content_index"
-            Status   = "$dir\ingest_status.tsv"
+            Index    = "$dir\store\content"
+            Status   = "$dir\store\ingest_status.tsv"
             Settings = "$dir\setting.config"
             Catalog  = (newIndexCatalog $dir "$dir\setting.config")
         }
@@ -60,6 +60,25 @@ Describe "IndexCatalog.RenameIndex" -Tag Io {
         (readStatusFile $ws.Status).Rows.ContainsKey("営業部\a.xlsx") | Should -Be $true
     }
 
+    It "予約名に拡張子の付いた名前（<name>）のインデックスも、フォルダを動かしてから取り込み一覧の記録を変える" -TestCases @(
+        @{ name = "aux.backup" }
+        @{ name = "CON.txt" }
+    ) {
+        $ws = newCatalogWorkspace "$TestDrive\rename_reserved_$name"
+        $long = toLongPath "$($ws.Index)\$name\a.xlsx"
+        [System.IO.Directory]::CreateDirectory($long) | Out-Null
+        [System.IO.File]::WriteAllText("$long\Sheet1.tsv", "本文")
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = $name }) @(
+            (newStatusRow "$name\a.xlsx" "2025/01/10 12:34:56" "1" $stateNew)
+        ) $ws.Status
+
+        $ws.Catalog.RenameIndex($name, "営業部")
+
+        [System.IO.Directory]::Exists((toLongPath "$($ws.Index)\$name")) | Should -Be $false
+        [System.IO.File]::ReadAllText((toLongPath "$($ws.Index)\営業部\a.xlsx\Sheet1.tsv")) | Should -Be "本文"
+        (readStatusFile $ws.Status).Rows.ContainsKey("営業部\a.xlsx") | Should -Be $true
+    }
+
     It "同じ名前のフォルダが既にあれば例外にし、取り込み一覧の記録は変えない" {
         $ws = newCatalogWorkspace "$TestDrive\rename3"
         New-Item -ItemType Directory -Path "$($ws.Index)\営業" -Force | Out-Null
@@ -71,6 +90,21 @@ Describe "IndexCatalog.RenameIndex" -Tag Io {
         { $ws.Catalog.RenameIndex("営業", "技術") } | Should -Throw
 
         Test-Path -LiteralPath "$($ws.Index)\営業" | Should -Be $true
+        (readStatusFile $ws.Status).Rows.ContainsKey("営業\a.xlsx") | Should -Be $true
+    }
+
+    It "新しい名前がファイルとして既にあっても例外にし、フォルダも取り込み一覧の記録も変えない" {
+        $ws = newCatalogWorkspace "$TestDrive\rename3file"
+        New-Item -ItemType Directory -Path "$($ws.Index)\営業" -Force | Out-Null
+        [System.IO.File]::WriteAllText("$($ws.Index)\技術", "x")
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(
+            (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateNew)
+        ) $ws.Status
+
+        { $ws.Catalog.RenameIndex("営業", "技術") } | Should -Throw "*既にあるため*"
+
+        [System.IO.Directory]::Exists("$($ws.Index)\営業") | Should -Be $true
+        [System.IO.File]::Exists("$($ws.Index)\技術") | Should -Be $true
         (readStatusFile $ws.Status).Rows.ContainsKey("営業\a.xlsx") | Should -Be $true
     }
 
@@ -136,7 +170,7 @@ Describe "IndexCatalog.RenameIndex（使えない名前）" -Tag Io {
         Test-Path -LiteralPath "$dir\経理\b.xlsx\Sheet1.tsv" | Should -Be $true
         Test-Path -LiteralPath "$($ws.Dir)\外\c.tsv" | Should -Be $true
         @(Get-ChildItem -LiteralPath $dir -Directory | ForEach-Object { $_.Name } | Sort-Object) -join "," | Should -Be "営業,経理"
-        @(Get-ChildItem -LiteralPath $ws.Dir -Directory | ForEach-Object { $_.Name } | Sort-Object) -join "," | Should -Be "content_index,外"
+        @(Get-ChildItem -LiteralPath $ws.Dir -Directory | ForEach-Object { $_.Name } | Sort-Object) -join "," | Should -Be "store,外"
         $status = readStatusFile $ws.Status
         $status.Folders[0].Name | Should -Be "営業"
         $status.Rows.ContainsKey("営業\a.xlsx") | Should -Be $true
@@ -228,6 +262,24 @@ Describe "IndexCatalog.RemoveIndex" -Tag Io {
         $status.Rows.ContainsKey("技術\d.pptx") | Should -Be $true
     }
 
+    It "予約名に拡張子の付いた名前（<name>）のインデックスも、フォルダと取り込み一覧の記録を削除する" -TestCases @(
+        @{ name = "aux.backup" }
+        @{ name = "CON.txt" }
+    ) {
+        $ws = newCatalogWorkspace "$TestDrive\remove_reserved_$name"
+        $long = toLongPath "$($ws.Index)\$name\a.xlsx"
+        [System.IO.Directory]::CreateDirectory($long) | Out-Null
+        [System.IO.File]::WriteAllText("$long\Sheet1.tsv", "本文")
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = $name }) @(
+            (newStatusRow "$name\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00")
+        ) $ws.Status
+
+        $ws.Catalog.RemoveIndex($name)
+
+        [System.IO.Directory]::Exists((toLongPath "$($ws.Index)\$name")) | Should -Be $false
+        (readStatusFile $ws.Status).Folders.Count | Should -Be 0
+    }
+
     It "名前が空なら何もしない" {
         $ws = newCatalogWorkspace "$TestDrive\remove2"
         writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(
@@ -291,6 +343,18 @@ Describe "IndexCatalog.RemoveIndex" -Tag Io {
         $status.Rows.ContainsKey("営業\a.xlsx") | Should -Be $true
     }
 
+    It "フォルダがあるかどうか確かめられなければ（届かない・読めない）、例外にし、取り込み一覧の記録は残す" {
+        $ws = newCatalogWorkspace "$TestDrive\remove_unknown"
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(
+            (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00")
+        ) $ws.Status
+        Mock getPathState { @{ State = "Other"; IsDirectory = $false; Message = "アクセスが拒否されました" } }
+
+        { $ws.Catalog.RemoveIndex("営業") } | Should -Throw "*フォルダがあるかどうか確かめられません*"
+
+        (readStatusFile $ws.Status).Rows.ContainsKey("営業\a.xlsx") | Should -Be $true
+    }
+
     It "インデックスのフォルダの中にあるジャンクションの先は消さず、ジャンクションだけを外す" {
         $ws = newCatalogWorkspace "$TestDrive\remove_junction"
         $outside = "$TestDrive\remove_junction_outside"
@@ -326,6 +390,65 @@ Describe "IndexCatalog.RemoveIndex" -Tag Io {
 
         Test-Path -LiteralPath "$($ws.Index)\営業" | Should -Be $false
         readListFile "$outside\外.tsv" | Should -Be @("外")
+    }
+
+    It "古い置き場（content_index）そのものがジャンクションでも、削除でき、取り込み一覧の記録も消える" {
+        $ws = newCatalogWorkspace "$TestDrive\remove_oldrootlink"
+        $outside = "$TestDrive\remove_oldrootlink_outside"
+        writeListFile "$outside\営業\content_index.docx.001.tsv" @("古い中身")
+        writeListFile "$outside\技術\content_index.docx.001.tsv" @("古い中身")
+        writeListFile "$($ws.Index)\営業\a.xlsx\Sheet1.tsv" @("本文")
+        if (!(newTestJunction "$($ws.Dir)\content_index" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(
+            (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00")
+        ) $ws.Status
+
+        $ws.Catalog.RemoveIndex("営業")
+
+        Test-Path -LiteralPath "$($ws.Index)\営業" | Should -Be $false
+        Test-Path -LiteralPath "$outside\営業" | Should -Be $false
+        Test-Path -LiteralPath "$outside\技術" | Should -Be $true
+        (readStatusFile $ws.Status).Rows.Count | Should -Be 0
+    }
+}
+
+Describe "IndexCatalog.RenameIndex（リンク）" -Tag Io {
+    It "インデックスのフォルダがジャンクションなら、ジャンクションの名前だけを変え、先は動かさない" {
+        # 名前は 1 階層なので、途中にリンクが挟まる形は作れない。リンクになりうるのは名前のフォルダそのものだけ
+        $ws = newCatalogWorkspace "$TestDrive\rename_link"
+        $outside = "$TestDrive\rename_link_outside"
+        writeListFile "$outside\外.tsv" @("外")
+        [System.IO.Directory]::CreateDirectory($ws.Index) | Out-Null
+        if (!(newTestJunction "$($ws.Index)\営業" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $ws.Catalog.RenameIndex("営業", "営業部")
+
+        Test-Path -LiteralPath "$($ws.Index)\営業" | Should -Be $false
+        Test-Path -LiteralPath "$($ws.Index)\営業部" | Should -Be $true
+        readListFile "$outside\外.tsv" | Should -Be @("外")
+    }
+
+    It "古い置き場（content_index）そのものがジャンクションでも、改名でき、古い置き場の同じ名前も変わる" {
+        $ws = newCatalogWorkspace "$TestDrive\rename_oldrootlink"
+        $outside = "$TestDrive\rename_oldrootlink_outside"
+        writeListFile "$outside\営業\content_index.docx.001.tsv" @("古い中身")
+        writeListFile "$($ws.Index)\営業\a.xlsx\Sheet1.tsv" @("本文")
+        if (!(newTestJunction "$($ws.Dir)\content_index" $outside)) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $ws.Catalog.RenameIndex("営業", "営業部")
+
+        Test-Path -LiteralPath "$($ws.Index)\営業部" | Should -Be $true
+        Test-Path -LiteralPath "$outside\営業部\content_index.docx.001.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$outside\営業" | Should -Be $false
     }
 }
 
@@ -425,7 +548,7 @@ Describe "IndexCatalog.RenameIndex / RemoveIndex の外したフォルダの記�
     }
 }
 
-Describe "IndexCatalog 5 つの保存先（targetFolders・取り込み一覧・元のフォルダ.txt・searchExcludes・system_index）" -Tag Io {
+Describe "IndexCatalog 5 つの保存先（targetFolders・取り込み一覧・元のフォルダ.txt・searchExcludes・gram 索引）" -Tag Io {
     BeforeEach {
         Remove-Item -LiteralPath "$TestDrive\five" -Recurse -Force -ErrorAction SilentlyContinue
         $script:ws = newCatalogWorkspace "$TestDrive\five"
@@ -446,7 +569,11 @@ Describe "IndexCatalog 5 つの保存先（targetFolders・取り込み一覧・
         writeSearchExcludes @(
             [pscustomobject]@{ Path = "$($script:dir)\営業\2024"; Subfolders = $true },
             [pscustomobject]@{ Path = "$($script:dir)\営業部\2024"; Subfolders = $true }) $script:ws.Settings
-        [void](updateSystemIndexes $script:dir "$($script:ws.Dir)\system_index" "$($script:ws.Dir)\system_index_state.tsv" { $false })
+        # gram 索引（インデックス名ごとのフォルダ）
+        foreach ($name in @("営業", "営業部")) {
+            [System.IO.Directory]::CreateDirectory("$($script:ws.Dir)\store\gram\$name") | Out-Null
+            [System.IO.File]::WriteAllText("$($script:ws.Dir)\store\gram\$name\toc.tsv", "tebunko-gram 1`r`nnext 1`r`n")
+        }
     }
 
     It "名前を変えると 5 つとも新しい名前になり、頭が同じ別のインデックスはそのまま残る" {
@@ -472,9 +599,9 @@ Describe "IndexCatalog 5 つの保存先（targetFolders・取り込み一覧・
         (Get-ChildItem -LiteralPath "$($script:dir)\第一営業" -Filter "source_folder.txt" -File).Count | Should -Be 1
         # 4. searchExcludes（旧名の下は消え、営業部の下は残る）
         @(readSearchExcludes $script:ws.Settings | ForEach-Object { $_.Path }) | Should -Be @("$($script:dir)\営業部\2024")
-        # 5. system_index（旧名の分は消え、営業部の分は残る）
-        [System.IO.Directory]::Exists("$($script:ws.Dir)\system_index\営業") | Should -Be $false
-        [System.IO.Directory]::Exists("$($script:ws.Dir)\system_index\営業部") | Should -Be $true
+        # 5. gram 索引（旧名の分は消え、営業部の分は残る）
+        [System.IO.Directory]::Exists("$($script:ws.Dir)\store\gram\営業") | Should -Be $false
+        [System.IO.Directory]::Exists("$($script:ws.Dir)\store\gram\営業部") | Should -Be $true
     }
 
     It "削除すると 5 つとも消え、頭が同じ別のインデックスはそのまま残る" {
@@ -492,8 +619,8 @@ Describe "IndexCatalog 5 つの保存先（targetFolders・取り込み一覧・
         Test-Path -LiteralPath "$($script:dir)\営業" | Should -Be $false
         Test-Path -LiteralPath "$($script:dir)\営業部\2024\A社.xlsx\明細.tsv" | Should -Be $true
         @(readSearchExcludes $script:ws.Settings | ForEach-Object { $_.Path }) | Should -Be @("$($script:dir)\営業部\2024")
-        [System.IO.Directory]::Exists("$($script:ws.Dir)\system_index\営業") | Should -Be $false
-        [System.IO.Directory]::Exists("$($script:ws.Dir)\system_index\営業部") | Should -Be $true
+        [System.IO.Directory]::Exists("$($script:ws.Dir)\store\gram\営業") | Should -Be $false
+        [System.IO.Directory]::Exists("$($script:ws.Dir)\store\gram\営業部") | Should -Be $true
     }
 }
 

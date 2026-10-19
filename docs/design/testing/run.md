@@ -18,9 +18,9 @@ flowchart LR
 | `tests/shared/office/` | `office_process`・`office_reader`・`office_embedded`・`office_app` |
 | `tests/shared/ui/` | 画面の型（`types`） |
 | `tests/tebunko/core/` | `settings`（`setting.config`）・`workspace`・`status_file`・`source_name` |
-| `tests/tebunko/index/` | `index_name`・`index_store`・`content_index_format`・`system_index` |
+| `tests/tebunko/index/` | `index_name`・`index_store`・`content_index_format`・`gram_index`・`gram_index_store` |
 | `tests/tebunko/indexer/` | `indexer_state`・`indexer_decide`・`indexer_plan`・`extract_office`・`index_migrate`・`indexing_session`、起動口の通しのテスト（`indexer`） |
-| `tests/tebunko/search/` | `search_query`・`search_run`・`content_index_search`・`search_service`・`source_map`・高速検索（`search_gram`・`fast_search`・`windows_search`） |
+| `tests/tebunko/search/` | `search_query`・`search_run`・`content_index_search`・`search_service`・`source_map`・2-gram の索引で絞る（`search_gram`・`gram_search`） |
 | `tests/tebunko/ui/` | 画面の判断層（`index\index_*_view`・`indexing_view`・`search\*_view`・`preview_view`・`settings\settings_view`）と、`$ui` を偽物にした画面の部品（`result_list`・`open_source`・`preview`・`index_tree`）・型（`search\result_types`・`search\target_types`・`index\index_types`） |
 | `tests/gui/` | 画面のスモークテスト（`gui_helpers`＝共通の関数、`smoke`・`index`・`search`・`settings`・`leftover`・`leftover_real`＝場面。タグ `Gui`。[画面のスモークテスト](gui-smoke.md)） |
 | `tests/tools/` | 開発用の道具（`run_isolated`・`check_commit_message`・`check_signoff`・`check_release_tag`・`check_markdown_links`・`measure_perf`・`run_commit_tests`・`pr_checks_comment`・`git_repo`） |
@@ -46,7 +46,7 @@ flowchart LR
 
 守りの限界: 既定のワークスペースの場所との同じ・下かどうかは、パスの文字で比べる。8.3 形式の短い名前・ジャンクション・`subst` で既定のワークスペースを指す場所は、事前の確かめでは見つけられない（流したあとの前後の比べが、書かれたことを見つける）。前後の比べはフォルダの更新時刻を比べないので、比べの間に作られて消えたもの（跡が残らないもの）は見つけられない。また `tools/perf/` など `run.ps1` や `run_isolated.ps1` を通らない道具は、この守りの外にある。
 
-入力と期待値だけが違うテストは、`-TestCases` の 1 つの `It` にまとめる（例: `tests/tebunko/ui/search/result_types.Tests.ps1` の `HitRow.Contains`）。表は `It` の中にそのまま書き、計算で作らない。キーには `input`・`args`・`_`・`Matches` など PowerShell の自動変数の名前を使わない。各行に `name` を持たせ、`It "<name>"` で失敗した行が分かるようにする。表の中で変数（`$stateDone` など）を使うときは、`BeforeDiscovery` で用意する（表はテストを探す段階で作られ、`BeforeAll` より先に評価されるため）。
+入力と期待値だけが違うテストは、`-TestCases` の 1 つの `It` にまとめる（例: `tests/tebunko/ui/search/result_types.Tests.ps1` の `HitRow.MatchesFileName`）。表は `It` の中にそのまま書き、計算で作らない。キーには `input`・`args`・`_`・`Matches` など PowerShell の自動変数の名前を使わない。各行に `name` を持たせ、`It "<name>"` で失敗した行が分かるようにする。表の中で変数（`$stateDone` など）を使うときは、`BeforeDiscovery` で用意する（表はテストを探す段階で作られ、`BeforeAll` より先に評価されるため）。
 
 Pester 5 はテストを「探す段階」と「流す段階」に分けて動かす。探す段階では `Describe` の中身がそのまま実行され、`BeforeAll` の中身は流す段階まで実行されない。そのため次のように書く。
 

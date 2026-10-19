@@ -52,7 +52,6 @@ tebunko を終了し、`.ps1` を削除します。同じフォルダの `settin
 |---|---|
 | ワークスペース（既定：`%USERPROFILE%\Documents\tebunko_ws`。変更した場合はその場所） | インデックス・取り込み一覧・ログ・一時ファイル |
 | tebunko のフォルダ内の `setting.config`・`startup_error.txt`・`startup_error_previous.txt`・`startup_error_moving.txt` | 設定ファイルと、起動が失敗したときの記録とその前回の分（書き込めない場所に配置した場合、設定ファイルは上のワークスペースの直下に置かれ、起動の記録は作られません）。アンインストーラーは、これらも消します |
-| Windows Search の「インデックスのオプション」 | 本文のインデックス（`content_index`）は、tebunko が索引付けの対象から自動で外します。ワークスペースを自分で索引付けの対象に追加していた場合だけ、対象から除外します |
 
 ## 設定ファイルの置き場所
 

@@ -379,7 +379,7 @@ function quitApp {
     # アプリを終了させる。Quit し、COM の参照を放し、控えた PID のプロセス（名前も合うもの）が終わるのを待つ。
     # GC::WaitForPendingFinalizers() は COM の解放待ちで長時間（約 60 秒）止まることがあるため使わず、
     # 待ち時間（ExitWait）を過ぎても終わらなければ PID を指定して強制終了する（名前では止めない）。終わったと確かめられたら $true。
-    # 待つ前・止める前に、控えたプロセスと同じか（名前・起動時刻）を照らす（isSameOfficeProcess）。起動時刻が違えば、控えたプロセスはもう終わっているので $true
+    # 待つ前・止める前に、控えたプロセスと同じか（名前・起動時刻）を 1 回だけ照らし（compareOfficeProcess）、Same のときだけ待って止める。起動時刻が違えば、控えたプロセスはもう終わっているので $true
     # （別のプロセスを待たず、止めない）。起動時刻が読めない・控えていないときは、止めず待たずに $false（記録を残し、次の起動の確認に任せる）
     param ([string]$name, $com, [int]$processId, $startTicks = $null)
 
@@ -392,20 +392,28 @@ function quitApp {
     if ($null -eq $process -or $process.ProcessName -ne $appInfo[$name].Process) {
         return $true
     }
-    if (-not (isSameOfficeProcess $process $appInfo[$name].Process $startTicks)) {
-        # Quit の直後に自分で終わったものは、終わったとして返す。起動時刻が違えば控えたプロセスは終わっている。分からないときは $false
-        try { if ($process.HasExited) { return $true } } catch {}
-        return ((compareOfficeProcess $process $appInfo[$name].Process $startTicks) -eq "Different")
+    switch (compareOfficeProcess $process $appInfo[$name].Process $startTicks) {
+        "Same" {
+            $wait = $appInfo[$name].ExitWait
+            if ($process.WaitForExit($wait)) {
+                return $true
+            }
+            # 終了処理中のプロセスは Kill() が「アクセス拒否」で失敗することがあるが、そのまま終了するため無視する
+            try { $process.Kill() } catch {}
+            # 強制終了は非同期のため、同じ上限で終わるのを待つ。それでも残った場合は、残ったプロセスを
+            # 記録（PID の記録）に残し、次の起動の確認に任せる（PowerPoint は、次の getApp が利用者のものとみなして後回しにもする。安全な側に倒れる）
+            return [bool]$process.WaitForExit($wait)
+        }
+        "Different" {
+            # 起動時刻が違えば、控えたプロセスはもう終わっている
+            return $true
+        }
+        default {
+            # 分からないときは止めず待たない。Quit の直後に自分で終わったものだけ、終わったとして返す
+            try { if ($process.HasExited) { return $true } } catch {}
+            return $false
+        }
     }
-    $wait = $appInfo[$name].ExitWait
-    if ($process.WaitForExit($wait)) {
-        return $true
-    }
-    # 終了処理中のプロセスは Kill() が「アクセス拒否」で失敗することがあるが、そのまま終了するため無視する
-    try { $process.Kill() } catch {}
-    # 強制終了は非同期のため、同じ上限で終わるのを待つ。それでも残った場合は、次の getApp が
-    # 利用者のものとみなして後回しにする（安全な側に倒れる）
-    return [bool]$process.WaitForExit($wait)
 }
 
 function quitKeptApp {
@@ -582,11 +590,8 @@ function getAppName {
         [string]$path
     )
 
-    switch -Regex ([System.IO.Path]::GetExtension($path).ToLower()) {
-        "^\.xls" { return "Excel" }
-        "^\.doc" { return "Word" }
-        "^\.ppt" { return "PowerPoint" }
-    }
+    $kind = getOfficeFileKind $path
+    if ($kind) { return $kind }
     return $null
 }
 
@@ -632,8 +637,11 @@ class OfficeWatchdog {
     #   Stop    : 見張りのスレッドに終わりを伝える
     #   Users   : 取り込み中に、見える窓が一度でもあったプロセス（利用者が使った印）。PID → @{ ProcessName; StartTicks }（ConcurrentDictionary）。
     #             印のあるプロセスは、制限時間を過ぎても強制終了しない。画面を閉じるときの KillOffice と共有するため、使う側が入れ替える
-    #   Abandon : 印のあるプロセスを止めずに、制限時間を過ぎたレーンを諦めたと、司令に伝える入れ物（Synchronized な @{ Abandoned }）。
+    #   Abandon : 印のあるプロセスを止めずに、制限時間を過ぎたワーカーを諦めたと、司令に伝える入れ物（Synchronized な @{ Abandoned }）。
     #             取り込みのスレッドが入れる。無ければ（司令のスレッドで取り込むとき）止めないだけにする
+    #   Cancel  : 中止を伝える入れ物（Stop を持つ Synchronized な hashtable）。取り込み中に Stop が立ったら、制限時間を過ぎたのと同じに扱う
+    #             （自分で起動したアプリを止め、利用者が使った印のあるプロセスは止めない）。無ければ中止では止めない
+    #   Cancelled: 中止を求められて、取り込み中のアプリを止めた（TimedOut は立てない）
     #   WindowProbe: 窓があるかを見分ける関数の名前（既定は testOfficeProcessHasWindow。テストで差し替える）
     [hashtable]$State
     # 強制終了してよいプロセスの名前（Officeアプリ）
@@ -644,6 +652,7 @@ class OfficeWatchdog {
         $this.State = [hashtable]::Synchronized(@{
             Deadline = [datetime]::MaxValue; Pids = @(); TimedOut = $false; Stop = $false
             Users = (New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'); Abandon = $null
+            Cancel = $null; Cancelled = $false
             WindowProbe = 'testOfficeProcessHasWindow'
         })
         $this.ProcessNames = $processNames
@@ -656,7 +665,7 @@ class OfficeWatchdog {
         $this.State.Pids = @($apps.Values | Where-Object { -not $_.Shared -and $_.Pid } |
             ForEach-Object { @{ Id = [int]$_.Pid; ProcessName = $_.ProcessName; StartTicks = $_.StartTicks; GuardWindow = [bool]$_.GuardWindow } })
         # 見張りから外れたプロセス（終わった・利用者に渡した）と、同じ PID でも起動時刻が違うもの（PID が使い回された）の「利用者が使った」印は消す
-        # （古い印で、別のプロセスを止めなくならないように）。ほかのレーンの印は、自分が見張ったことのある PID だけを対象にして消さない
+        # （古い印で、別のプロセスを止めなくならないように）。ほかのワーカーの印は、自分が見張ったことのある PID だけを対象にして消さない
         foreach ($old in $previous) {
             $now = @($this.State.Pids | Where-Object { $_.Id -eq $old.Id })
             if ($now.Count -eq 0 -or $now[0].StartTicks -ne $old.StartTicks) {
@@ -695,7 +704,9 @@ class OfficeWatchdog {
                 if ($deadline -eq [datetime]::MaxValue) {
                     continue
                 }
-                $due = ([datetime]::Now -ge $deadline)
+                # 中止を求められたときも、制限時間を過ぎたのと同じに扱う（止める理由だけ Cancelled にする）
+                $cancelled = ($null -ne $watch.Cancel -and [bool]$watch.Cancel.Stop)
+                $due = ($cancelled -or [datetime]::Now -ge $deadline)
                 # 取り込み中は毎回、窓のあるプロセスに「利用者が使った」印を残す（固まったプロセスの窓は、約 5 秒で別のプロセスのゴースト窓に差し替わって
                 # 見えなくなるので、制限時間を過ぎたときに見るだけでは足りない。固まる前に見た窓を、固まった後の判断に使う）。
                 # 制限時間を過ぎたとき、印のあるプロセスは止めず、止めた分だけを targets に集める
@@ -734,11 +745,18 @@ class OfficeWatchdog {
                 if (-not $due) {
                     continue
                 }
+                if ($cancelled -and $targets.Count -eq 0 -and -not $spared) {
+                    # 止めるアプリがまだ無い（起動する前）。取り込みが終わるか、アプリが起動するまで、次の周でまた見る
+                    continue
+                }
                 $watch.Deadline = [datetime]::MaxValue
                 if ($spared -and $null -ne $watch.Abandon) {
                     $watch.Abandon.Abandoned = $true
                 }
-                if ($targets.Count -gt 0 -or -not $spared) {
+                if ($cancelled) {
+                    # 止めたプロセスがあるときだけ Cancelled（利用者が使っているプロセスだけなら、止めずに Abandon に任せる）
+                    if ($targets.Count -gt 0) { $watch.Cancelled = $true }
+                } elseif ($targets.Count -gt 0 -or -not $spared) {
                     $watch.TimedOut = $true
                 }
                 foreach ($target in $targets) {

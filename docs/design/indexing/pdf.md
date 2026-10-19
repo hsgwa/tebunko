@@ -4,7 +4,7 @@
 
 ## 方針
 
-PDF は PowerShell だけで読む（`shared/core/pdf_file.ps1`・暗号化の復号は `shared/core/pdf_crypt.ps1`）。外の部品・ライブラリ・Office・外部プロセスは使わない。Office は起動しないので、取り込みは Office を使わない読み取りのレーン（`Reader`）で並べて行う。
+PDF は PowerShell だけで読む（`shared/core/pdf_file.ps1`・暗号化の復号は `shared/core/pdf_crypt.ps1`）。外の部品・ライブラリ・Office・外部プロセスは使わない。Office は起動しないので、取り込みは Office を使わずに読む仕事（取り込みのワーカー）で並べて行う。
 
 画面にもファイルにも触らない関数（`readPdfPages`。バイト列からページごとの文字列を作る）と、ファイルを開いて読む関数（`readPdfFile`）に分ける。取り込みは `tebunko/indexer/extract_pdf.ps1` の `extractPdfFile` が行う。
 
@@ -77,7 +77,7 @@ PDF は PowerShell だけで読む（`shared/core/pdf_file.ps1`・暗号化の�
 ## 検索・開く
 
 - 種類のチップ「PDF」（`setting.config` の `fileKinds` の値 `pdf`）で、PDF だけを絞れる。前の版の設定は、`fileKinds` のキーが無い・空ならそのまま PDF も含むすべてになり、一部の種類だけを保存していたときは PDF が選ばれていない状態から始まる（設定ファイルの形は変えない。前の版の見本 `settings/v0.3.1` の期待する値は、PDF を足したぶん変えた）。
-- 結果の見出しのアイコンは `PDF`（`getAppKind`）。場所は `ページN`。
+- 結果の見出しのアイコンは `PDF`（`getContentIndexFileKind`）。場所は `ページN`。
 - 検索結果から開くと、既定のアプリで開く（ページへは移動しない）。ステータスは `開きました：<パス>`（[検索結果からファイルを開く](../gui/open-file.md)）。
 
 ## テスト

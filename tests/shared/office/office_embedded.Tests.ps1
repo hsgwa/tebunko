@@ -347,6 +347,33 @@ Describe "Word の埋め込み" -Tag Unit {
         @($units["ページ001[埋め込み2]"]) -join "|" | Should -Be "後ろ"
     }
 
+    It "単独では上限内の埋め込みが 2 つ並び、合計が出す文字数の上限を超えるときは、2 つ目だけを読まず、どの埋め込みかをログ用の部品名に残す" {
+        $cells = (1..50 | ForEach-Object { "<c r=`"A$_`" t=`"s`"><v>0</v></c>" }) -join ""
+        $sheet = newSingleSheetEntries "<row r=`"1`">$cells</row>" @("あ" * 100)
+        $path = "$TestDrive\doc_output_sum.docx"
+        $embeddings = @{
+            rId5 = @{ Name = "first.xlsx"; Bytes = (newZipBytes $sheet) }
+            rId6 = @{ Name = "second.xlsx"; Bytes = (newZipBytes $sheet) }
+        }
+        newZipFile $path (newDocumentEntries ("<w:p><w:r><w:t>本文</w:t></w:r></w:p>" + (embedPara "rId5") + (embedPara "rId6")) $embeddings)
+
+        $orig = $script:embeddedOutputMaxChars
+        try {
+            # 1 つで約 5050 文字。1 つなら上限内、2 つで超える
+            $script:embeddedOutputMaxChars = 7000
+            $failures = New-Object System.Collections.Generic.List[string]
+            $sizeFailures = New-Object System.Collections.Generic.List[object]
+            $units = readDocxUnits $path $failures $sizeFailures
+        } finally {
+            $script:embeddedOutputMaxChars = $orig
+        }
+        @($failures) -join "|" | Should -Be "word/embeddings/second.xlsx"
+        $sizeFailures.Count | Should -Be 1
+        $sizeFailures[0].LimitKind | Should -Be "Output"
+        $sizeFailures[0].PartName | Should -Be "(埋め込みから出す文字)（埋め込み: word/embeddings/second.xlsx）"
+        @($units.Keys) -join "," | Should -Be "ページ001,ページ001[埋め込み1]"
+    }
+
     It "申告を偽ったシートを持つ埋め込みは読まず、失敗に足し（Part）、本文は出す" {
         $sheet = newSingleSheetEntries "<row r=`"1`"><c r=`"A1`" t=`"inlineStr`"><is><t>$("う" * 500)</t></is></c></row>"
         $forged = setDeclaredSize (newZipBytes $sheet) "xl/worksheets/sheet1.xml" 50
@@ -421,6 +448,41 @@ Describe "PowerPoint の埋め込み" -Tag Unit {
         @($units.Keys) -join "," | Should -Be "スライド001,スライド001[埋め込み1]"
         @($units["スライド001"]) -join "|" | Should -Be "題"
         @($units["スライド001[埋め込み1]"]) -join "|" | Should -Be "共有A`tインライン|式の文字`tリッチ文字|遠いセル"
+    }
+
+    It "スライドの埋め込みが上限（<limitKind>）を超えたら、その埋め込みだけを読まず、失敗に足してスライドの文字は出す" -TestCases @(
+        @{ limitKind = "Output" }
+        @{ limitKind = "Part" }
+    ) {
+        param($limitKind)
+        $cells = (1..50 | ForEach-Object { "<c r=`"A$_`" t=`"s`"><v>0</v></c>" }) -join ""
+        $book = newSingleSheetEntries "<row r=`"1`">$cells</row>" @("あ" * 100)
+        $slide = "<p:sld $script:pNs><p:cSld><p:spTree><p:sp><p:txBody><a:p><a:r><a:t>題</a:t></a:r></a:p></p:txBody></p:sp>" +
+            "<p:graphicFrame><a:graphic><a:graphicData><p:oleObj r:id=`"rId2`" progId=`"Excel.Sheet.12`"/></a:graphicData></a:graphic></p:graphicFrame></p:spTree></p:cSld></p:sld>"
+        $path = "$TestDrive\slide_limit_$limitKind.pptx"
+        newZipFile $path @{
+            "ppt/presentation.xml"            = "<p:presentation $script:pNs><p:sldIdLst><p:sldId id=`"256`" r:id=`"rId1`"/></p:sldIdLst></p:presentation>"
+            "ppt/_rels/presentation.xml.rels" = "<Relationships $script:relNs><Relationship Id=`"rId1`" Type=`"$script:officeRel/slide`" Target=`"slides/slide1.xml`"/></Relationships>"
+            "ppt/slides/slide1.xml"           = $slide
+            "ppt/slides/_rels/slide1.xml.rels" = "<Relationships $script:relNs><Relationship Id=`"rId2`" Type=`"$script:officeRel/package`" Target=`"../embeddings/Microsoft_Excel_Worksheet.xlsx`"/></Relationships>"
+            "ppt/embeddings/Microsoft_Excel_Worksheet.xlsx" = (newZipBytes $book)
+        }
+
+        $origOutput = $script:embeddedOutputMaxChars
+        $origPart = $script:zipPartMaxBytes
+        try {
+            if ($limitKind -eq "Output") { $script:embeddedOutputMaxChars = 1000 } else { $script:zipPartMaxBytes = 2500 }
+            $failures = New-Object System.Collections.Generic.List[string]
+            $sizeFailures = New-Object System.Collections.Generic.List[object]
+            $units = readPptxUnits $path $failures $sizeFailures
+        } finally {
+            $script:embeddedOutputMaxChars = $origOutput
+            $script:zipPartMaxBytes = $origPart
+        }
+        $sizeFailures.Count | Should -Be 1
+        $sizeFailures[0].LimitKind | Should -Be $limitKind
+        @($failures) -join "|" | Should -Be "ppt/embeddings/Microsoft_Excel_Worksheet.xlsx"
+        @($units.Keys) -join "," | Should -Be "スライド001"
     }
 
     It "スライドに埋め込んだ PowerPoint の文字を読み、その中の埋め込みは読まない（深さは 1 段まで）" {

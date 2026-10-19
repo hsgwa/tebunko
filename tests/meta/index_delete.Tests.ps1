@@ -12,16 +12,16 @@ BeforeAll {
     ${indexDeleteAllowed} = @(
         @{ File = "index_catalog.ps1"; Function = "RemoveIndex"; Reason = "画面の［削除］の流れ。確認ダイアログで利用者が選んだインデックスだけを消す" }
         @{ File = "index_migrate.ps1"; Function = "removeDroppedFolders"; Reason = "設定から外れたインデックス。インデックス更新の確認ダイアログで利用者が［更新を開始］を押した回でだけ呼ぶ（findDroppedIndexes は見つけるだけ）" }
-        @{ File = "indexer_plan.ps1"; Function = "removeBookDir"; Reason = "元のファイルが無くなった・取り込み直す 1 ファイル分のフォルダだけを消す。置き場の下かを testPathUnder `$bookDir `$workspace.IndexDir で確かめてから消す" }
+        @{ File = "indexer_plan.ps1"; Function = "removeBookDir"; Reason = "元のファイルが無くなった・取り込み直す 1 ファイル分のフォルダだけを消す。置き場の下か・途中にリンクが無いかを removeDirectoryUnder `$bookDir `$workspace.IndexDir で確かめて消す" }
         @{ File = "index_archive.ps1"; Function = "exportIndexCore"; Reason = "書き出しの途中のファイル（一時ファイル）だけを消す。インデックスのフォルダは消さない" }
         @{ File = "index_archive.ps1"; Function = "expandImportArchive"; Reason = "インポートの作業フォルダ（workDir）だけを消す。インデックスのフォルダは消さない" }
         @{ File = "index_archive.ps1"; Function = "swapInImportedIndexDir"; Reason = "消さずに移すだけ（前のフォルダは退避する）。コメントに removeDirectoryRetry の語があって拾われる" }
         @{ File = "index_archive.ps1"; Function = "restoreSwappedIndexDir"; Reason = "インポートの途中で失敗したとき、入れたばかりのフォルダを消して、退避した前のフォルダを戻す（取り消し）" }
         @{ File = "index_archive.ps1"; Function = "importIndexCore"; Reason = "作業フォルダを消す。置き換えは、インポートのダイアログで利用者が［置き換える］を選んだ回だけ" }
-        @{ File = "index_store.ps1"; Function = "publishIndexFiles"; Reason = "取り込みで作り直す元のファイル 1 つ分のフォルダを、更新の確認を経た取り込みの結果に置き換える" }
-        @{ File = "system_index.ps1"; Function = "removeSystemIndexOf"; Reason = "システムインデックス（インデックスから作り直せる派生物）だけを消す" }
+        @{ File = "index_format_store.ps1"; Function = "removeOldIndexOf"; Reason = "作り直しが終わったインデックスの、古い置き場（content_index）の分だけを消す。消す対象は古い置き場の配列と作り終えたインデックスに限り、ジャンクションは辿らない" }
+        @{ File = "gram_index_store.ps1"; Function = "updateGramIndexes"; Reason = "インデックスが無くなったあとの gram 索引（インデックスから作り直せる派生物）のフォルダだけを、置き場の下か・途中にリンクが無いかを removeDirectoryUnder で確かめて消す" }
         @{ File = "workspace_mover.ps1"; Function = "RemoveEntries"; Reason = "ワークスペースを変えるときの確認で、利用者が［消して、最初からやり直す］を選んだ回だけ、選んだフォルダの tebunko のファイル・フォルダを消す（画面は applyWorkspace が ChangeWorkspace を呼ぶ）" }
-        @{ File = "workspace.ps1"; Function = "clearLegacySystemIndex"; Reason = "前の版のシステムインデックス（作り直せる派生物）だけを消す" }
+        @{ File = "workspace.ps1"; Function = "removeOldSystemIndex"; Reason = "前の版のシステムインデックス（作り直せる派生物）だけを消す。途中のリンクは removeDirectoryUnder・removeFileUnder が止める" }
         @{ File = "content_index_store.ps1"; Function = "convertFolderToContentIndex"; Reason = "本文インデックスのファイルに入れ終えた、元のファイルごとの TSV のフォルダだけを消す（同じ内容が本文インデックスのファイルに残る）" }
     )
 
@@ -38,7 +38,7 @@ BeforeAll {
                 }, $true)
             foreach ($function in $functions) {
                 $body = $function.Extent.Text
-                if ($body -match "IndexDir|content_index|ListEntries" -and $body -match "Remove-Item|removeDirectoryRetry|Directory\]::Delete|\.Delete\(") {
+                if ($body -match "IndexDir|content_index|ListEntries" -and $body -match "Remove-Item|removeDirectoryRetry|removeDirectoryUnder|Directory\]::Delete|\.Delete\(") {
                     $found.Add(@{ File = $file.Name; Function = $function.Name })
                 }
             }
@@ -65,18 +65,19 @@ Describe "インデックスのフォルダを消す関数" -Tag Meta {
         $stale | Should -BeNullOrEmpty
     }
 
-    It "removeBookDir は、置き場の下かを testPathUnder で確かめてから消す" {
+    It "removeBookDir は、置き場の下か・途中にリンクが無いかを確かめる removeDirectoryUnder で消す" {
         $errors = $null
         $tokens = $null
         $ast = [System.Management.Automation.Language.Parser]::ParseFile("${scriptsDir}\tebunko\indexer\indexer_plan.ps1", [ref]$tokens, [ref]$errors)
         $function = $ast.Find({ param ($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq "removeBookDir" }, $true)
         $function | Should -Not -BeNullOrEmpty
         $calls = @($function.FindAll({ param ($n) $n -is [System.Management.Automation.Language.CommandAst] }, $true))
-        $check = @($calls | Where-Object { $_.GetCommandName() -eq "testPathUnder" })
-        $remove = @($calls | Where-Object { $_.GetCommandName() -eq "removeDirectoryRetry" })
-        $check.Count | Should -BeGreaterThan 0
+        $remove = @($calls | Where-Object { $_.GetCommandName() -eq "removeDirectoryUnder" })
         $remove.Count | Should -BeGreaterThan 0
-        $check[0].Extent.StartOffset | Should -BeLessThan $remove[0].Extent.StartOffset
+        # 置き場は IndexDir を渡す
+        $remove[0].Extent.Text | Should -Match 'IndexDir'
+        # 置き場の確かめを飛ばして直接消さない
+        @($calls | Where-Object { $_.GetCommandName() -eq "removeDirectoryRetry" }).Count | Should -Be 0
     }
 
     It "removeDroppedFolders は、インデクサの中で確認のあとにだけ呼ばれる" {

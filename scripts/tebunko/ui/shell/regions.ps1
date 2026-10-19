@@ -22,7 +22,7 @@
             "IndexRowMenu", "RowMenuUpdate", "RowMenuOpenFolder", "RemoveIndexButton", "ExportIndexButton") }
         @{ File = "index\index_detail.xaml"; Slot = "IndexDetailHost"; Names = @(
             "IndexDetailTitle", "IndexSummaryText",
-            "IndexDetailRows", "IndexDetailFastPanel", "IndexDetailFastText", "IndexDetailFastBar",
+            "IndexDetailRows",
             "FailedPanel", "FailedHeading", "FailedGrid") }
         @{ File = "search\search.xaml"; Slot = "ContentHost"; Screen = "SearchTab"; Names = @(
             "SearchBarHost", "ResultListHost", "PreviewHost", "DetailRow", "PreviewSplitter", "ResultEmptyState", "GoIndexTabButton",
@@ -32,8 +32,8 @@
         @{ File = "shell\notice_banner.xaml"; Slot = "WorkspaceNoticeHost"; Prefix = "Workspace"; Names = $noticeBannerNames }
         @{ File = "search\search_bar.xaml"; Slot = "SearchBarHost"; Names = @(
             "WordBox", "SearchButton", "RegexCheck", "CaseCheck", "ShapeCheck", "CommentCheck", "ScopeButton",
-            "ConditionsPanel", "ConditionsSpacer", "FastSearchSlot", "KindChipExcel", "KindChipWord", "KindChipPowerPoint", "KindChipText", "KindChipPdf",
-            "WordPlaceholder", "WordErrorRing", "FastBadge", "FastBadgeIcon", "FastBadgeInfo", "FastSearchText",
+            "ConditionsPanel", "ConditionsSpacer","KindChipExcel", "KindChipWord", "KindChipPowerPoint", "KindChipText", "KindChipPdf",
+            "WordPlaceholder", "WordErrorRing",
             "BalloonLayer", "SearchKindBalloon", "SearchKindBalloonText", "RegexBalloon", "RegexBalloonText") }
         @{ File = "search\target_tree.xaml"; Slot = "NavPaneHost"; Names = @(
             "IndexTree", "CheckAllIndexButton", "UncheckAllIndexButton", "TargetCountText") }
@@ -46,7 +46,8 @@
             "PreviewHeaderScroll", "PreviewHeaderPanel", "PreviewHeader", "PreviewRows",
             "PreviewPlaceholder", "PreviewMenu", "MenuPreviewOpen", "MenuPreviewCopy", "MenuPreviewCopyRow") }
         @{ File = "settings\settings.xaml"; Slot = "ContentHost"; Screen = "SettingsTab"; Names = @(
-            "WorkspaceBox", "WorkspaceInputError", "WorkspaceNote", "WorkspaceCaution", "WorkspaceHowTo", "ChangeWorkspaceButton", "ResetWorkspaceButton", "SettingsFileText", "SettingsFileNote") }
+            "WorkspaceBox", "WorkspaceInputError", "WorkspaceNote", "WorkspaceCaution", "WorkspaceHowTo", "ChangeWorkspaceButton", "ResetWorkspaceButton", "SettingsFileText", "SettingsFileNote",
+            "SearchLimitedRadio", "SearchNoneRadio", "SearchLimitBox", "SearchLimitInputError", "SearchLimitRange", "SearchLimitCaution") }
     )
 
     foreach ($name in @("NavHost", "ContentHost", "StatusBarHost", "ScrimOverlay",
