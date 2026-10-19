@@ -286,6 +286,7 @@ Describe "フォルダを消す・移す・作る入口" -Tag Meta {
             @{ File = "shared\core\fs.ps1"; Owner = "moveDirectoryRetry"; Call = "Directory.Move"; Reason = "移す処理の本体（呼ぶ側が moveDirectoryUnder で確かめる）" }
             @{ File = "shared\core\fs.ps1"; Owner = "writeListFile"; Call = "Directory.CreateDirectory"; Reason = "書き込む 1 ファイルの親フォルダを作るだけ（置き場は呼ぶ側が決めたファイルのパス。消さない）" }
             @{ File = "shared\core\fs.ps1"; Owner = "writeTextLinesAtomic"; Call = "Directory.CreateDirectory"; Reason = "書き込む 1 ファイルの親フォルダを作るだけ（消さない）" }
+            @{ File = "tebunko\search\search_overflow.ps1"; Owner = "newSearchOverflowWriter"; Call = "Directory.CreateDirectory"; Reason = "溢れのファイルの置き場所（検索の始めに testSearchOverflowRoot で、根が TmpRoot の search_overflow そのものでリンクでないと確かめた dir）を作るだけ。照合のスレッドが書き始めるときに作る（消さない）" }
             @{ File = "shared\office\office_process.ps1"; Owner = "addOfficeRecord"; Call = "Directory.CreateDirectory"; Reason = "Office の記録ファイルの親フォルダを作るだけ（ワークスペースの外の一時の場所。消さない）" }
             @{ File = "shared\ui\app_host.ps1"; Owner = "writeErrorLog"; Call = "Directory.CreateDirectory"; Reason = "エラーログの親フォルダを作るだけ（消さない）" }
             @{ File = "tebunko\core\workspace_mover.ps1"; Owner = "CopyTree"; Call = "Directory.CreateDirectory"; Reason = "ワークスペースを移すときの、移し先の中の複写。移し先は利用者が選んだ（検査済みの）フォルダで、リンクの先はたどらない" }

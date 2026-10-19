@@ -89,6 +89,15 @@ flowchart LR
 | `convertFolderToContentIndex` / `updateFolderContentIndex` / `findIndexFoldersWithBooks` / `publishIndexFolders` | フォルダごと・拡張子ごとに作る、元のファイルが無くなった拡張子の本文インデックスのファイルは消す、UTF-16LE（BOM 付き）で一時ファイルを残さない、置かれた TSV を入れて TSV を消し変わらない元のファイルは写す、TSV の残ったフォルダを見つけて本文インデックスに入れる、前の本文インデックスが壊れた・大きすぎるフォルダは書き換えずに飛ばして残りを書き出す（`tebunko/index/content_index_store.Tests.ps1`） |
 | `searchContentIndex` / `getContentIndexFiles` / `readContentIndexLines` | 結果が TSV を 1 行ずつ照合したときと同じ（改行の種類・照合のしかた・検索語ごと）、大文字・小文字・図形とコメントの除外・対象ファイル、上限・中止（ファイル 1 件ごとに止まる・作業スレッドの本体も止まる・列挙はフォルダ 1 つごとに止まる・並列で止めたあとも同じプールで検索できる）・並列・キャッシュ（書き直したら読み直す）、全文への照合の時間切れは 1 行ずつに切り替える、列挙（フォルダの一部・直下だけ・無いフォルダ）、プレビューの前後の行（キャッシュが無くても、あるときと同じ行を返す・同じファイルの続けての選択と、書き直したあとの選択で変わらない）。Excel の図形・コメントの行は、セル番地だけに一致する語（`C2`・`2`・`C`）ではヒットにならず、文字（文字の中のタブを含む）に一致すればヒットになる、除いた行があっても行番号がずれない、除いた行は件数・上限に数えない（1 スレッドと並列で同じ）、複数行（セル内改行）の文字は 2 行目以降の語でも一致し番地だけでは一致しない、`"` を含む文字は囲み・`""` の形のまま照合する |
 
+**上限を超えた分の数え上げと書き溜め（`tests/tebunko/search/search_overflow`）**
+
+| 対象 | 主な確認内容 |
+|---|---|
+| `searchContentIndex`（`limit`・`overflowDir`） | 上限（なし・1・途中・ちょうど・手前）× 検索語 × 1 スレッドと並列で、表 + 溢れのファイルを全件の順に並べると、上限なしの結果と同じ行・同じ順・同じ件数になる。`HitTotal`・`Truncated`・進行中の件数。正規表現（行頭・先読み・空行）でも同じ。上限に届かなければフォルダを作らない。書けない置き場所は `OverflowFailed` で表と件数はそのまま。中止は `HitTotal` が -1。上限を超えた後の時間切れは `CountTimeout`、手前なら中止 |
+| 合図つきの照合のスクリプト（`contentIndexWorkerScript`） | 時間切れでも Hits を返して時間切れの欄に 1 を書く、止める印が立てば数えている最中も止まる。Excel の図形のセル番地だけの一致・長いテキストの行は表と同じ扱い |
+| `getSearchOverflowDir` / `testSearchOverflowRoot` / `removeSearchOverflow` / `removeStaleSearchOverflow` / `readSearchOverflowLines` / `getSearchOverflowFiles` | 置き場所の組み立て、根・途中のリンクや範囲外には作らず消さない、`<PID>` のフォルダを中ごと消す、起動時は動いていないプロセスのものだけを消す（今の PID・数字でない名前・ほかの PC の鍵は残す）、行の中の CR で行を分けない、作業の番号の順（head → 作業のファイル）に並べる |
+| `invokeSearchRequest` | 上限を超えると `HitTotal`・`Truncated`・溢れの置き場所を要求に入れ、次の検索で前の溢れを消す。上限なしは置き場所を決めない |
+
 **前の版との互換（`tests/tebunko/indexer/index_compat`・`tests/tebunko/core/settings_compat`・`tests/meta/compat`）**
 
 | 対象 | 主な確認内容 |

@@ -43,6 +43,42 @@ Describe "getSearchProgressText / getSearchSummaryText" -Tag Unit {
     }
 }
 
+Describe "getSearchCountingText" -Tag Unit {
+    It "上限と、数えた件数を 3 桁区切りで出す" {
+        getSearchCountingText 10000 45678 | Should -Be "検索中…　該当 10,000 件以上（総数を数えています：45,678 件）"
+    }
+}
+
+Describe "getSearchFinishSummaryText" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "上限以下は今の文（0 件でも上限を超えていなければ）"; a = @(9999, 3, 2.3, $false, -1); expected = "一致 9,999 件（3 ファイル）・2.3 秒" }
+        @{ name = "ちょうど上限は超えていない"; a = @(10000, 3, 2.3, $false, 10000); expected = "一致 10,000 件（3 ファイル）・2.3 秒" }
+        @{ name = "上限を超えて数え終えた（10,001 件）"; a = @(10000, 1234, 2.3, $true, 10001); expected = "全 10,001 件中 10,000 件を表示（1,234 ファイル）・2.3 秒" }
+        @{ name = "上限を超えて数え終えた（234,567 件）"; a = @(10000, 1234, 2.3, $true, 234567); expected = "全 234,567 件中 10,000 件を表示（1,234 ファイル）・2.3 秒" }
+        @{ name = "絞り込みを消したときは秒を付けない"; a = @(10000, 1234, -1, $true, 234567); expected = "全 234,567 件中 10,000 件を表示（1,234 ファイル）" }
+        @{ name = "数えている間に止まった（総数 -1）"; a = @(10000, 1234, 2.3, $true, -1); expected = "該当 10,000 件以上（総数は数えていません）（1,234 ファイル）・2.3 秒" }
+        @{ name = "数えている間に止まった・秒なし"; a = @(10000, 1234, -1, $true, -1); expected = "該当 10,000 件以上（総数は数えていません）（1,234 ファイル）" }
+    ) {
+        param ($name, $a, $expected)
+        getSearchFinishSummaryText $a[0] $a[1] $a[2] $a[3] $a[4] | Should -Be $expected
+    }
+}
+
+Describe "getSearchFinishStatusText" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "上限以下は今の文"; a = @("見積", 0, "", $false, -1, $false, $false); expected = "検索しました：見積 0 件" }
+        @{ name = "上限以下は条件を後ろに付ける"; a = @("見積", 9999, "大文字・小文字を区別", $false, 9999, $false, $false); expected = "検索しました：見積 9,999 件　条件：大文字・小文字を区別" }
+        @{ name = "上限に達する前に中止した"; a = @("見積", 1234, "", $false, -1, $false, $true); expected = "中止しました（1,234 件まで表示）" }
+        @{ name = "上限を超えて数え終えた（10,001 件）"; a = @("見積", 10000, "", $true, 10001, $false, $false); expected = "検索しました：見積（全 10,001 件のうち、先頭の 10,000 件を表示）。フォルダ・ファイル名の順に先頭から表示しています。ワード・対象ファイル・検索対象で絞り込んでください。" }
+        @{ name = "上限を超えて数え終えた・条件つき（234,567 件）"; a = @("見積", 10000, "図形を除く", $true, 234567, $false, $false); expected = "検索しました：見積（全 234,567 件のうち、先頭の 10,000 件を表示）。フォルダ・ファイル名の順に先頭から表示しています。ワード・対象ファイル・検索対象で絞り込んでください。　条件：図形を除く" }
+        @{ name = "数えている間に中止した"; a = @("見積", 10000, "", $true, -1, $false, $true); expected = "中止しました（先頭の 10,000 件を表示。総数は数えていません）" }
+        @{ name = "数えている間に時間切れになった"; a = @("見積", 10000, "", $true, -1, $true, $false); expected = "正規表現の照合に時間がかかりすぎるため、総数を数えられませんでした（先頭の 10,000 件を表示）。正規表現を見直してください。" }
+    ) {
+        param ($name, $a, $expected)
+        getSearchFinishStatusText $a[0] $a[1] $a[2] $a[3] $a[4] $a[5] $a[6] | Should -Be $expected
+    }
+}
+
 Describe "getSearchStatusText" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "件数を 3 桁区切りで出す"; word = "見積"; hits = 1234; option = ""; expected = "検索しました：見積 1,234 件" }
