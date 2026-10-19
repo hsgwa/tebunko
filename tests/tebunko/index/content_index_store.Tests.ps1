@@ -16,7 +16,7 @@ BeforeAll {
 
     function script:publishTree {
         param ($pending, [string]$root)
-        return publishIndexFolders $pending "$root\index" "$root\system_index" "$root\state.tsv"
+        return publishIndexFolders $pending "$root\index"
     }
 
     function script:getFileHash {
@@ -63,44 +63,15 @@ Describe "publishIndexFolders: 1 つのフォルダが失敗しても残りを�
         $result.Count | Should -Be 2
         @($result.Skipped).Count | Should -Be 1
         $result.Skipped[0].Rel | Should -Be "B"
-        $result.Skipped[0].Stage | Should -Be "本文インデックス"
+        $result.Skipped[0].Stage | Should -Be "インデックスの書き出し"
         @($result.Published | Sort-Object) | Should -Be @("$root\index\A", "$root\index\C")
         foreach ($name in "A", "C") {
             [System.IO.File]::Exists("$root\index\$name\content_index.xlsx.001.tsv") | Should -Be $true
-            [System.IO.File]::Exists("$root\system_index\$name\${systemIndexFileName}") | Should -Be $true
             @([System.IO.Directory]::GetDirectories("$root\index\$name")).Count | Should -Be 0
         }
-        $state = readSystemIndexState "$root\state.tsv"
-        $state.Pending.ContainsKey("A\${systemIndexFileName}") | Should -Be $true
-        $state.Pending.ContainsKey("C\${systemIndexFileName}") | Should -Be $true
-        $state.Pending.ContainsKey("B\${systemIndexFileName}") | Should -Be $false
         getFileHash $broken | Should -Be $before
         [System.IO.Directory]::Exists("$root\index\B\新規.xlsx") | Should -Be $true
-        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*本文インデックスにまとめられなかったフォルダがあります（B）: 本文インデックス: *インデックスを作り直すと直ります" -and $color -eq "Yellow" }
-    }
-
-    It "システムインデックスの書き出しで落ちたフォルダは、本文インデックスを新しいまま残し、状態ファイルに入れずに飛ばす" {
-        $root = Join-Path $TestDrive "systemfail"
-        $pending = newPublishTree $root
-        Mock writeSystemIndexFolder { throw "書けません" } -ParameterFilter { $folder -like "*\index\B" }
-
-        $result = publishTree $pending $root
-
-        $result.Count | Should -Be 2
-        @($result.Skipped).Count | Should -Be 1
-        $result.Skipped[0].Rel | Should -Be "B"
-        $result.Skipped[0].Stage | Should -Be "システムインデックス"
-        # 本文インデックスは書けているので、システムインデックスの段で落ちたフォルダも書き終えたものに入る
-        @($result.Published).Count | Should -Be 3
-        (readContentIndexText "$root\index\B\content_index.xlsx.001.tsv") | Should -BeLike "*B の単価*"
-        [System.IO.Directory]::Exists("$root\index\B\新規.xlsx") | Should -Be $false
-        $state = readSystemIndexState "$root\state.tsv"
-        $state.Pending.ContainsKey("B\${systemIndexFileName}") | Should -Be $false
-        foreach ($name in "A", "C") {
-            [System.IO.File]::Exists("$root\system_index\$name\${systemIndexFileName}") | Should -Be $true
-            $state.Pending.ContainsKey("$name\${systemIndexFileName}") | Should -Be $true
-        }
-        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*（B）: システムインデックス: *" }
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*インデックスにまとめられなかったフォルダがあります（B）: インデックスの書き出し: *インデックスを作り直すと直ります" -and $color -eq "Yellow" }
     }
 }
 

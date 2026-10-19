@@ -13,7 +13,6 @@ param (
     [int]$Count = 20,
     [int]$IntervalMs = 150,
     [int]$MinLength = 3,
-    [switch]$Fast,
     [Parameter(Mandatory = $true)][string]$Work,
     [Parameter(Mandatory = $true)][string]$Out,
     [int]$SampleMs = 200
@@ -40,27 +39,17 @@ $hasService = [bool](Get-Command newSearchService -CommandType Function -ErrorAc
 $mode = if ($hasService) { "service" } else { "none" }
 if (!$hasService) {
     writeTypingOut ([ordered]@{
-        Name = $Name; Word = $Word; Regex = $Regex; Mode = $mode; Count = $Count; IntervalMs = $IntervalMs; MinLength = $MinLength; Fast = [bool]$Fast
+        Name = $Name; Word = $Word; Regex = $Regex; Mode = $mode; Count = $Count; IntervalMs = $IntervalMs; MinLength = $MinLength
         Steps = 0; Attempts = @(); Samples = @(); PeakWorkingSetMB = 0.0
         Skipped = "検索の司令のスレッド（newSearchService）が無い版のため、入力しながらの検索は測れません"
     })
     return
 }
 
-if ($Fast) {
-    $wantIndex = ([Workspace]::new($Work)).IndexDir.TrimEnd("\")
-    if (!$Index.TrimEnd("\").Equals($wantIndex, [System.StringComparison]::OrdinalIgnoreCase)) {
-        throw "-TypingFast では、-Index を <Work> の本文インデックスのフォルダ（${wantIndex}）にしてください。"
-    }
-    if (!(Get-Command newSearchRequest -CommandType Function).Parameters.ContainsKey("workDir")) {
-        throw "測る版は、高速検索のワークスペースを要求で渡せません。"
-    }
-}
-
 $steps = getTypingSteps $Word $Regex $MinLength
 if ($steps.Count -eq 0) {
     writeTypingOut ([ordered]@{
-        Name = $Name; Word = $Word; Regex = $Regex; Mode = $mode; Count = $Count; IntervalMs = $IntervalMs; MinLength = $MinLength; Fast = [bool]$Fast
+        Name = $Name; Word = $Word; Regex = $Regex; Mode = $mode; Count = $Count; IntervalMs = $IntervalMs; MinLength = $MinLength
         Steps = 0; Attempts = @(); Samples = @(); PeakWorkingSetMB = 0.0
         Skipped = "送る語がありません（すべて正規表現として不正、または空の文字列に一致する）"
     })
@@ -76,8 +65,6 @@ function invokeTypingAttempt {
         [bool]$isRegex,
         [int]$intervalMs,
         [string]$index,
-        [bool]$useFast,
-        [string]$workDir,
         [int]$n
     )
 
@@ -94,12 +81,7 @@ function invokeTypingAttempt {
         $isLast = ($k -eq $steps.Count - 1)
         if ($isLast) { $zeroMs = $watch.Elapsed.TotalMilliseconds }
         $sendWatch = [System.Diagnostics.Stopwatch]::StartNew()
-        # 古い版（#102〜#107）の newSearchRequest には workDir が無いため、-Fast でないときは今までどおり 4 引数だけで呼ぶ
-        $request = if ($useFast) {
-            newSearchRequest -word $steps[$k] -simpleMatch (!$isRegex) -folders @($index) -limit 10000 -useFast $true -workDir $workDir
-        } else {
-            newSearchRequest $steps[$k] (!$isRegex) @($index) 10000
-        }
+        $request = newSearchRequest $steps[$k] (!$isRegex) @($index) 10000
         $req = $service.Request($request)
         $reqTimes.Add($sendWatch.Elapsed.TotalMilliseconds)
         $sendMs = $watch.Elapsed.TotalMilliseconds
@@ -134,7 +116,7 @@ function invokeTypingAttempt {
         IntervalMs = @($intervals.ToArray() | ForEach-Object { roundMs $_ })
         LagMs = @($lags.ToArray() | ForEach-Object { roundMs $_ })
         RequestMs = @($reqTimes.ToArray() | ForEach-Object { roundMs $_ })
-        Hits = $hits; Truncated = [bool]$last.Truncated; Packs = [int]$last.IndexTotal; FastUsed = [bool]$last.FastUsed
+        Hits = $hits; Truncated = [bool]$last.Truncated; Packs = [int]$last.IndexTotal; GramUsed = [bool]$last.GramUsed
         CancelledSteps = $cancelledSteps
     }
     $snap = getProcessSnapshot
@@ -150,7 +132,7 @@ try {
     setMonitorPhase $monitor "入力しながらの検索"
     $service = newSearchService $cache
     for ($n = 1; $n -le $Count; $n++) {
-        $attempts.Add((invokeTypingAttempt $service $steps $Regex $IntervalMs $Index ([bool]$Fast) $Work $n))
+        $attempts.Add((invokeTypingAttempt $service $steps $Regex $IntervalMs $Index $n))
         Write-Host ("  ${Name} 入力 {0} / {1} 回目" -f $n, $Count)
     }
 } finally {
@@ -158,7 +140,7 @@ try {
     $samples = stopResourceMonitor $monitor
 }
 writeTypingOut ([ordered]@{
-    Name = $Name; Word = $Word; Regex = $Regex; Mode = $mode; Count = $Count; IntervalMs = $IntervalMs; MinLength = $MinLength; Fast = [bool]$Fast
+    Name = $Name; Word = $Word; Regex = $Regex; Mode = $mode; Count = $Count; IntervalMs = $IntervalMs; MinLength = $MinLength
     Steps = $steps.Count; Attempts = $attempts.ToArray(); Samples = $samples
     PeakWorkingSetMB = [Math]::Round([System.Diagnostics.Process]::GetCurrentProcess().PeakWorkingSet64 / 1MB, 1)
     Skipped = $null

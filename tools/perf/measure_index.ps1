@@ -1,5 +1,5 @@
 ﻿# インデックス作成（pack の作成）を測る。tools\measure_perf.ps1 が別のプロセスで起動する。
-# インデクサと同じ publishIndexFolders で、TSV があるフォルダをまとめて pack にし、システムインデックスを作る
+# インデクサと同じ publishIndexFolders で、TSV があるフォルダをまとめて pack にする
 # （Office からの取り込みを除いた、インデックス作成の後半）。TSV は pack に変換され、元の TSV は削除される。
 # 結果（件数・大きさ・時間・リソースの記録）を -Out の JSON に書く。
 param (
@@ -33,22 +33,16 @@ try {
 
         setMonitorPhase $monitor "pack の作成"
         $watch = [System.Diagnostics.Stopwatch]::StartNew()
-        [void](publishIndexFolders $pending $Index (Join-Path $Work "system_index") (Join-Path $Work "system_index_state.tsv"))
+        [void](publishIndexFolders $pending $Index)
         $seconds = $watch.Elapsed.TotalSeconds
 
         setMonitorPhase $monitor "集計"
         $packs = @(getTebunkoProperty (& $getFiles @($Index)) @("ContentIndexFiles", "Packs"))
         $packBytes = 0L
         foreach ($p in $packs) { $packBytes += $p.Size }
-        $systemBytes = 0L
-        $systemRoot = Join-Path $Work "system_index"
-        if ([System.IO.Directory]::Exists($systemRoot)) {
-            foreach ($f in [System.IO.Directory]::GetFiles($systemRoot, "*", "AllDirectories")) { $systemBytes += ([System.IO.FileInfo]$f).Length }
-        }
         $result.Pack = [ordered]@{
             Folders = $folders.Count; Books = $bookCount; Tsv = $tsvFiles.Count; TsvMB = [Math]::Round($tsvBytes / 1MB, 1)
             Seconds = [Math]::Round($seconds, 2); Packs = $packs.Count; PackMB = [Math]::Round($packBytes / 1MB, 1)
-            SystemIndexMB = [Math]::Round($systemBytes / 1MB, 1)
         }
         Write-Host ("  {0:N1} 秒" -f $seconds)
     } else {

@@ -1,6 +1,6 @@
 ﻿# インデックスの改名・削除・名前の割り当て・一覧と元のフォルダの記録の保存。
 # インデックス 1 つの情報は複数の保存先に分かれて置かれている: 設定の targetFolders、取り込み一覧、インデックスのフォルダ（store\content\<名前>）、目録（store\format.tsv）の行と
-# 元のフォルダの記録（source_folder.txt）、設定の searchExcludes、システムインデックス（system_index）。
+# 元のフォルダの記録（source_folder.txt）、設定の searchExcludes。
 # このクラスは、改名・削除でそれらを書き換える手順と順番、途中で失敗したときの扱い（止める・残す）だけを持つ。一覧（targetFolders）と元のフォルダの記録の書き直しは、画面が SaveTargets・WriteSourceFile（改名では RenameIndexWithSource）で呼ぶ。保存先の形式は知らず、
 # 保存先ごとの読み書きは既存の関数（searchExcludes は core\search_excludes.ps1）と、作る側から渡された StatusLedger に任せる。
 # 画面は呼んで結果を出すだけにする（画面の手順をここに引き寄せる）。
@@ -31,7 +31,7 @@ class IndexCatalog {
         # インデックス名を変える（画面の詳細の名前の欄）。インデックスのフォルダ（store\content\<名前>）を改名し、
         # 取り込み一覧の記録も書き換えるため、名前を変えてもインデックスは作り直さない。
         # インデックス作成中は呼ばない（画面はインデックス作成中この操作を無効にする）。
-        # フォルダの改名か取り込み一覧の書き換えに失敗したら例外にする（システムインデックスと searchExcludes の整理は、失敗しても止めない）
+        # フォルダの改名か取り込み一覧の書き換えに失敗したら例外にする（gram 索引と searchExcludes の整理は、失敗しても止めない）
         $dir = $this.Workspace.IndexDir
         # 大文字・小文字だけの変更も改名するため、同じ名前かは大文字・小文字を区別して比べる（-ceq）
         if ($oldName -eq "" -or $newName -eq "" -or $oldName -ceq $newName) {
@@ -75,8 +75,8 @@ class IndexCatalog {
         # 古い置き場（作り直す前の形式）の同じ名前のフォルダと、目録の行も改名に合わせる。目録を書き換えられない（新しい版）ときは行を残す
         renameOldIndexFolder $oldName $newName $this.Workspace
         [void](renameIndexFormatRow $oldName $newName $this.Workspace.FormatFile)
-        # 高速検索の システムインデックス（同じワークスペースの system_index）は古い名前の分を消す。次のインデックス作成で作り直す
-        removeSystemIndexOfWorkspace $oldName $dir
+        # 検索用の索引（gram 索引）は古い名前の分を消す。次のインデックス作成で作り直す
+        removeGramIndexOfWorkspace $oldName $dir
         # 外したフォルダの記録（searchExcludes）は旧名・新名の下のものを消す（付け替えず、検索対象に戻す）
         removeSearchExcludesUnder $from $this.SettingsPath
         removeSearchExcludesUnder $to $this.SettingsPath
@@ -128,7 +128,7 @@ class IndexCatalog {
         }
         [void](removeIndexFormatRow $name $this.Workspace.FormatFile)
         $this.Ledger.RemoveIndexName($name)
-        removeSystemIndexOfWorkspace $name $dir
+        removeGramIndexOfWorkspace $name $dir
         # 外したフォルダの記録（searchExcludes）も消す
         removeSearchExcludesUnder $target $this.SettingsPath
     }

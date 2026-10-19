@@ -38,26 +38,13 @@ Describe "FolderItem" -Tag Unit {
         @($names) | Should -Be @("StatusText", "StatusBrush", "FileCountText", "FileCountToolTip", "LastIngestedText")
     }
 
-    It "ステータス・高速検索の列をまとめて変えて通知する" {
+    It "ステータスの列をまとめて変えて通知する" {
         $item = [FolderItem]::new()
         $names = watchChanges $item
         $item.SetIndexState("最新", "更新済み 10 件", "Ok", "", 0)
-        $item.SetFast("可", "すぐ検索できます", "Ok")
         $item.IndexText | Should -Be "最新"
         $item.IndexToolTip | Should -Be "更新済み 10 件"
         $item.IndexLevel | Should -Be "Ok"
-        $item.FastText | Should -Be "可"
-        $item.FastToolTip | Should -Be "すぐ検索できます"
-        $item.FastLevel | Should -Be "Ok"
-        @($names) | Should -Be @("IndexText", "IndexToolTip", "IndexLevel", "IndexSub", "IndexPercent", "FastText", "FastToolTip", "FastLevel", "FastSteps")
-    }
-
-    It "高速検索の対処の手順を渡すと FastSteps に入る" {
-        $item = [FolderItem]::new()
-        $item.SetFast("不可", "対象外", "Warn", [string[]]@("手順 1", "手順 2"))
-        $item.FastLevel | Should -Be "Warn"
-        @($item.FastSteps) | Should -Be @("手順 1", "手順 2")
-        $item.SetFast("可", "", "Ok")
-        @($item.FastSteps).Count | Should -Be 0
+        @($names) | Should -Be @("IndexText", "IndexToolTip", "IndexLevel", "IndexSub", "IndexPercent")
     }
 }

@@ -548,7 +548,7 @@ Describe "IndexCatalog.RenameIndex / RemoveIndex の外したフォルダの記�
     }
 }
 
-Describe "IndexCatalog 5 つの保存先（targetFolders・取り込み一覧・元のフォルダ.txt・searchExcludes・system_index）" -Tag Io {
+Describe "IndexCatalog 5 つの保存先（targetFolders・取り込み一覧・元のフォルダ.txt・searchExcludes・gram 索引）" -Tag Io {
     BeforeEach {
         Remove-Item -LiteralPath "$TestDrive\five" -Recurse -Force -ErrorAction SilentlyContinue
         $script:ws = newCatalogWorkspace "$TestDrive\five"
@@ -569,7 +569,11 @@ Describe "IndexCatalog 5 つの保存先（targetFolders・取り込み一覧・
         writeSearchExcludes @(
             [pscustomobject]@{ Path = "$($script:dir)\営業\2024"; Subfolders = $true },
             [pscustomobject]@{ Path = "$($script:dir)\営業部\2024"; Subfolders = $true }) $script:ws.Settings
-        [void](updateSystemIndexes $script:dir "$($script:ws.Dir)\system_index" "$($script:ws.Dir)\system_index_state.tsv" { $false })
+        # gram 索引（インデックス名ごとのフォルダ）
+        foreach ($name in @("営業", "営業部")) {
+            [System.IO.Directory]::CreateDirectory("$($script:ws.Dir)\store\gram\$name") | Out-Null
+            [System.IO.File]::WriteAllText("$($script:ws.Dir)\store\gram\$name\toc.tsv", "tebunko-gram 1`r`nnext 1`r`n")
+        }
     }
 
     It "名前を変えると 5 つとも新しい名前になり、頭が同じ別のインデックスはそのまま残る" {
@@ -595,9 +599,9 @@ Describe "IndexCatalog 5 つの保存先（targetFolders・取り込み一覧・
         (Get-ChildItem -LiteralPath "$($script:dir)\第一営業" -Filter "source_folder.txt" -File).Count | Should -Be 1
         # 4. searchExcludes（旧名の下は消え、営業部の下は残る）
         @(readSearchExcludes $script:ws.Settings | ForEach-Object { $_.Path }) | Should -Be @("$($script:dir)\営業部\2024")
-        # 5. system_index（旧名の分は消え、営業部の分は残る）
-        [System.IO.Directory]::Exists("$($script:ws.Dir)\system_index\営業") | Should -Be $false
-        [System.IO.Directory]::Exists("$($script:ws.Dir)\system_index\営業部") | Should -Be $true
+        # 5. gram 索引（旧名の分は消え、営業部の分は残る）
+        [System.IO.Directory]::Exists("$($script:ws.Dir)\store\gram\営業") | Should -Be $false
+        [System.IO.Directory]::Exists("$($script:ws.Dir)\store\gram\営業部") | Should -Be $true
     }
 
     It "削除すると 5 つとも消え、頭が同じ別のインデックスはそのまま残る" {
@@ -615,8 +619,8 @@ Describe "IndexCatalog 5 つの保存先（targetFolders・取り込み一覧・
         Test-Path -LiteralPath "$($script:dir)\営業" | Should -Be $false
         Test-Path -LiteralPath "$($script:dir)\営業部\2024\A社.xlsx\明細.tsv" | Should -Be $true
         @(readSearchExcludes $script:ws.Settings | ForEach-Object { $_.Path }) | Should -Be @("$($script:dir)\営業部\2024")
-        [System.IO.Directory]::Exists("$($script:ws.Dir)\system_index\営業") | Should -Be $false
-        [System.IO.Directory]::Exists("$($script:ws.Dir)\system_index\営業部") | Should -Be $true
+        [System.IO.Directory]::Exists("$($script:ws.Dir)\store\gram\営業") | Should -Be $false
+        [System.IO.Directory]::Exists("$($script:ws.Dir)\store\gram\営業部") | Should -Be $true
     }
 }
 

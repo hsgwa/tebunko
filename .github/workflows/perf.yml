@@ -8,7 +8,7 @@
 # ランナーには Office が無いので、Excel・Word・PowerPoint を使う取り込み（.xlsx・.doc・.ppt）は測らない。
 # Excel の流れ読み（入力 xlsx が 0 でないとき）は、ブックをその場で ZIP から組み立て（Office は使わない）、readXlsxObjectUnits の時間を測る。直す前と後の ref を、同じ形で測って比べる。
 # 入力しながらの検索（入力 typing が 0 でないとき）は、語を typing_min_length 文字目から 1 文字ずつ、決まった間隔で検索の司令のスレッドへ送って測る。
-# ランナーは手元の PC と条件が違う（コア数、Defender の設定。Windows Search も無いので高速検索は使わない）。比べるときは、このワークフローで測った数字どうしで比べる。
+# ランナーは手元の PC と条件が違う（コア数、Defender の設定）。比べるときは、このワークフローで測った数字どうしで比べる。
 # run の中は ASCII だけで書く（Windows PowerShell 5.1 は BOM の無いスクリプトを ANSI として読むため。日本語は計測スクリプトの側で出力する）。
 name: perf
 

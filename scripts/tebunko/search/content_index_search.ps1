@@ -69,7 +69,7 @@ function searchContentIndexFiles {
             if ($null -eq $text) {
                 if ($contentIndexFile.Size -gt ${contentIndexSearchMaxBytes}) {
                     # 全量を読んでメモリを使い切らないよう、大きすぎるファイルは読まずに飛ばす
-                    throw "本文インデックスのファイルが大きすぎます"
+                    throw "インデックスのファイルが大きすぎます"
                 }
                 $stream = [System.IO.FileStream]::new($contentIndexFile.Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
                 $reader = [System.IO.StreamReader]::new($stream, [System.Text.Encoding]::Unicode, $true)
@@ -286,6 +286,7 @@ function searchContentIndex {
     #   onProgress   : 1 つの作業を照合するたびに呼ぶ { param($done, $total, $newHits) }（done・total は本文インデックスのファイルの数）
     #   pool         : 照合に使うプール（newContentIndexWorkerPool。検索の司令が使い回す）。$null なら、並列にするときだけ作って最後に閉じる
     # @{ Hits; SimpleMatch（実際に文字どおり検索したか）; Total（本文インデックスのファイルの数）; Truncated; Cancelled; Skipped（飛ばしたファイルのパスの一覧） } を返す。
+    # 中止（Cancelled）のとき、途中で止めたジョブのヒット・Skipped は結果にも画面にも入れない（止める前に終えたジョブの分だけを返す）。
     # Hits の各要素は PSCustomObject（Root; RelPath（本文インデックスのファイル）; RelDir; FileName; Book; Location; LineNumber; Line）
     param (
         [string]$word,
@@ -346,7 +347,7 @@ function searchContentIndex {
                 $output = $pool.Receive($received)
                 if ($output[0].Timeout) { throw $timeoutMessage }
                 $newHits = $output[0].Hits
-                $skipped.AddRange([string[]]@($output[0].Skipped))
+                $newSkipped = $output[0].Skipped
                 $done = $received.Done
             } else {
                 $task = $tasks[$next]
@@ -356,7 +357,7 @@ function searchContentIndex {
                 try {
                     $found = searchContentIndexFiles $contentIndexFiles $task.Start $task.Count $search.Regex $max $search.TextRegex $search.ScanMode $cache $filter.Include $filter.Exclude $excludePlace $stopSignal
                     $newHits = $found.Hits
-                    $skipped.AddRange([string[]]@($found.Skipped))
+                    $newSkipped = $found.Skipped
                 } catch [System.Text.RegularExpressions.RegexMatchTimeoutException] {
                     throw $timeoutMessage
                 }
@@ -367,6 +368,7 @@ function searchContentIndex {
                 $drain = $true
                 break
             }
+            $skipped.AddRange([string[]]@($newSkipped))
             $max = if ($limit -gt 0) { $limit - $hits.Count } else { -1 }
             if ($max -ge 0 -and $newHits.Count -gt $max) {
                 $newHits.RemoveRange($max, $newHits.Count - $max)
