@@ -49,12 +49,11 @@ BeforeAll {
     }
 
     function testSameBranch {
-        # 止める呼び出しが、compareOfficeProcess の結果が "Same" のときの枝（if の `-eq "Same"` の本体・switch の "Same" の枝）の中にあるか。
+        # 止める呼び出しが、compareOfficeProcess の結果が "Same" のときの枝（if の `-eq "Same"` の本体・switch の "Same" の枝。switch は対象が compareOfficeProcess の呼び出しのとき）の中にあるか。
         # `-ne "Same"` の枝・結果を比べない呼び出し・枝の外は認めない
         param ($kill, $owner)
 
         if (-not $owner) { return $false }
-        $comparesProcess = { param ($tree) @($tree.FindAll({ param ($n) $n -is [System.Management.Automation.Language.CommandAst] -and $n.GetCommandName() -eq "compareOfficeProcess" }, $true)).Count -gt 0 }
         $isSame = { param ($n) $n -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $n.Value -eq "Same" }
         $unwrap = {
             # 外側の括弧と、1 つだけの式のパイプラインを外す
@@ -81,9 +80,13 @@ BeforeAll {
                         if ($hasSame -and $hasCompare -and (& $inside $clause.Item2)) { return $true }
                     }
                 }
-            } elseif (& $comparesProcess $node.Condition) {
-                foreach ($clause in $node.Clauses) {
-                    if ((& $isSame $clause.Item1) -and (& $inside $clause.Item2)) { return $true }
+            } else {
+                # switch は、対象が compareOfficeProcess の呼び出しそのもの（外側の括弧を外したもの）のときだけ、"Same" の枝を認める
+                $subject = & $unwrap $node.Condition
+                if ($subject -is [System.Management.Automation.Language.CommandAst] -and $subject.GetCommandName() -eq "compareOfficeProcess") {
+                    foreach ($clause in $node.Clauses) {
+                        if ((& $isSame $clause.Item1) -and (& $inside $clause.Item2)) { return $true }
+                    }
                 }
             }
         }
@@ -450,6 +453,8 @@ Describe "危険な処理を使っていないこと（docs/safety/checks.md「�
         @{ name = "compareOfficeProcess の結果を .Kill() のあとで比べる"; code = 'function a { $p.Kill(); if ((compareOfficeProcess $p "X" 1) -eq "Same") { } }'; places = "a"; unchecked = "a" }
         @{ name = "compareOfficeProcess でない比べの Same の枝の .Kill()"; code = 'function a { if ($r -eq "Same") { $p.Kill() } }'; places = "a"; unchecked = "a" }
         @{ name = "-not で打ち消した Same の枝の .Kill()"; code = 'function a { if (-not ((compareOfficeProcess $p "X" 1) -eq "Same")) { $p.Kill() } }'; places = "a"; unchecked = "a" }
+        @{ name = "switch の対象が compareOfficeProcess の呼び出しそのものでない（配列に混ぜた）Same の枝の .Kill()"; code = 'function a { switch ((compareOfficeProcess $p "X" 1), "Same") { "Same" { $p.Kill() } } }'; places = "a"; unchecked = "a" }
+        @{ name = "左右を入れ替えた Same -eq compareOfficeProcess の枝の .Kill()"; code = 'function a { if ("Same" -eq (compareOfficeProcess $p "X" 1)) { $p.Kill() } }'; places = "a"; unchecked = "" }
         @{ name = "-or で Same でない場合も入る枝の .Kill()"; code = 'function a { if ((compareOfficeProcess $p "X" 1) -eq "Different" -or $x -eq "Same") { $p.Kill() } }'; places = "a"; unchecked = "a" }
     ) {
         param ($name, $code, $places, $unchecked)
