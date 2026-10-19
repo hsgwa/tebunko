@@ -285,7 +285,14 @@ Describe "検索結果の件数の上限の入力" -Tag Unit {
         @{ Text = "5000"; Action = "None"; Value = 5000 }
         @{ Text = "5,000"; Action = "None"; Value = 5000 }
         @{ Text = "   "; Action = "None"; Value = 5000 }
-        @{ Text = "1,0000"; Action = "Invalid"; Value = 5000 }
+        @{ Text = "1,0000"; Action = "Apply"; Value = 10000 }
+        @{ Text = "10,00"; Action = "Apply"; Value = 1000 }
+        @{ Text = "2,0,000"; Action = "Apply"; Value = 20000 }
+        @{ Text = "１０，０００"; Action = "Apply"; Value = 10000 }
+        @{ Text = ","; Action = "Invalid"; Value = 5000 }
+        @{ Text = ",,"; Action = "Invalid"; Value = 5000 }
+        @{ Text = "1,000,000"; Action = "Invalid"; Value = 5000 }
+        @{ Text = "99,9"; Action = "Invalid"; Value = 5000 }
         @{ Text = "999"; Action = "Invalid"; Value = 5000 }
         @{ Text = "９９９"; Action = "Invalid"; Value = 5000 }
         @{ Text = "100001"; Action = "Invalid"; Value = 5000 }
@@ -323,11 +330,30 @@ Describe "検索結果の件数の上限の入力" -Tag Unit {
         @{ Text = "500"; Keep = $false }
         @{ Text = "100001"; Keep = $false }
         @{ Text = "20,000"; Keep = $true }
+        @{ Text = "1,0000"; Keep = $true }
         @{ Text = "２０００"; Keep = $true }
         @{ Text = ""; Keep = $true }
     ) {
         param ($Text, $Keep)
         testSearchLimitKeepText $Text 0 1000 100000 10000 | Should -Be $Keep
+    }
+
+    It "表示した上限の桁を足す・消しても、カンマを除いた数として読む (<Label>)" -TestCases @(
+        @{ Label = "末尾に 0 を足す"; Current = 10000; Edit = "Append"; Action = "Apply"; Value = 100000 }
+        @{ Label = "末尾に 0 を足して範囲外"; Current = 100000; Edit = "Append"; Action = "Invalid"; Value = 100000 }
+        @{ Label = "0 を 1 つ消す"; Current = 10000; Edit = "RemoveZero"; Action = "Apply"; Value = 1000 }
+        @{ Label = "0 を 1 つ消して範囲外"; Current = 5000; Edit = "RemoveZero"; Action = "Invalid"; Value = 5000 }
+    ) {
+        param ($Label, $Current, $Edit, $Action, $Value)
+        $shown = formatSearchLimit $Current
+        if ($Edit -eq "Append") {
+            $typed = $shown + "0"
+        } else {
+            $typed = $shown.Remove($shown.LastIndexOf("0"), 1)
+        }
+        $decision = getSearchLimitInputDecision "Limited" $typed $Current 1000 100000 10000
+        $decision.Action | Should -Be $Action
+        $decision.Value | Should -Be $Value
     }
 
     It "getSearchLimitView: 制限なしは既定の数を欄に残して見せ、制限ありはその数を出す" {
