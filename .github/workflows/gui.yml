@@ -123,33 +123,7 @@ jobs:
         shell: powershell
         env:
           SHARD: ${{ matrix.shard }}
-        run: |
-          $times = [int][Math]::Ceiling([int]$env:REPEAT_TOTAL / 5)
-          $out = "repeat-results"
-          New-Item -ItemType Directory -Force -Path $out | Out-Null
-          $rows = @()
-          for ($i = 1; $i -le $times; $i++) {
-            $log = "$out\run-$env:SHARD-$i.log"
-            $watch = [System.Diagnostics.Stopwatch]::StartNew()
-            # 1 回分の出力をファイルに残し、失敗の文言から落ち方を分ける
-            & powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\run.ps1 -Tag Gui -Path $env:REPEAT_PATHS *> $log
-            $code = $LASTEXITCODE
-            $watch.Stop()
-            $seconds = [int]$watch.Elapsed.TotalSeconds
-            $text = Get-Content -LiteralPath $log -Raw
-            $kind = if ($code -eq 0) { "成功" }
-              elseif ($text -match '画面の終了コードが 0 ではない（5）') { "終了コード 5" }
-              elseif ($text -match '画面が終了する が 30 秒以内に見つからなかった') { "閉じない" }
-              elseif ($text -match '記録のファイルができなかった') { "記録の待ち切れ" }
-              else { "そのほか" }
-            $rows += "$env:SHARD,$i,$code,$kind,$seconds"
-            Write-Host "[$env:SHARD-$i] $kind（終了コード $code・$seconds 秒）"
-            if ($code -ne 0 -and (Test-Path work\test\gui)) {
-              Copy-Item -Recurse -Force work\test\gui "$out\evidence-$env:SHARD-$i"
-            }
-          }
-          $rows | Set-Content -LiteralPath "$out\result-$env:SHARD.csv" -Encoding UTF8
-          exit 0
+        run: .\tools\gui_repeat.ps1-Shard $env:SHARD -Total $env:REPEAT_TOTAL -Paths $env:REPEAT_PATHS
 
       - name: 結果の保存
         if: always()
