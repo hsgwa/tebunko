@@ -369,7 +369,7 @@ function finishWorkspaceMove {
             if ($outcome.Status -ne "") {
                 setStatus $outcome.Status
             }
-            if ($outcome.Notice -and !$outcome.Close) {
+            if ($outcome.Notice) {
                 showMessage $outcome.Notice "OK" "Warning" | Out-Null
             }
             return

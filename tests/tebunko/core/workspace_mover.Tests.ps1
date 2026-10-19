@@ -45,19 +45,15 @@ Describe "WorkspaceMover.MoveEntries" -Tag Io {
 
     It "一時的に掴まれていても、放されれば移せる（待ちながら試し直す）" {
         newWorkspaceFiles "$TestDrive\grab\from"
-        # content_index の中のファイルを開いておき、少し後に放す
-        $stream = [System.IO.File]::Open("$TestDrive\grab\from\content_index\営業\見積\content_index.xlsx.001.tsv", "Open", "Read", "None")
-        $timer = New-Object System.Timers.Timer 300
-        $timer.AutoReset = $false
-        $subscription = Register-ObjectEvent -InputObject $timer -EventName Elapsed -Action { $Event.MessageData.Dispose() } -MessageData $stream
-        $timer.Start()
+        # content_index の中のファイルを開いておき、1 回目の待ちで放す
+        $script:grabbed = [System.IO.File]::Open("$TestDrive\grab\from\content_index\営業\見積\content_index.xlsx.001.tsv", "Open", "Read", "None")
+        Mock Start-Sleep { if ($script:grabbed) { $script:grabbed.Dispose(); $script:grabbed = $null } }
         try {
             $result = $script:mover.MoveEntries("$TestDrive\grab\from", "$TestDrive\grab\to", 8, 100)
         } finally {
-            $timer.Dispose()
-            Unregister-Event -SubscriptionId $subscription.Id -ErrorAction SilentlyContinue
-            $stream.Dispose()
+            if ($script:grabbed) { $script:grabbed.Dispose(); $script:grabbed = $null }
         }
+        Should -Invoke Start-Sleep -Times 1 -Exactly -Scope It
 
         $result.Count | Should -Be 4
         Test-Path -LiteralPath "$TestDrive\grab\to\content_index\営業\見積\content_index.xlsx.001.tsv" | Should -Be $true

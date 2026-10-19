@@ -34,7 +34,7 @@ class WorkspaceMover {
         #   "use"   … to にあるインデックスを使う。from の中身は移さず、インデックスの一覧を to のものにする
         #   "move"  … from の中身を to へ移す
         #   "reset" … to の tebunko のファイル・フォルダを消してから、from の中身を移す
-        # 戻り値: @{ Ok; Stage（失敗した段階。"remove"・"move"）; Message（失敗の理由）; Targets（"use" で使うインデックスの数）; Count（"move"・"reset" で移した数）}。
+        # 戻り値: @{ Ok; Stage（失敗した段階。"remove"・"move"）; Message（失敗の理由）; Targets（"use" で使うインデックスの数）; Count（"move"・"reset" で移した数）; Leftovers（別のドライブへ写したあと元を消せずに残った項目の場所）}。
         # 失敗したときは設定を変えない（移せなかったら、移した分は from に戻してある）
         if ($mode -eq "use") {
             # 共有されたワークスペースなどを使う。今の中身は移さず、インデックスの一覧をこのワークスペースのものにする
