@@ -137,10 +137,14 @@ function startGuiProcess {
     assertNotRealWorkspace $Tool.DefaultWorkspace
     $previousWorkspace = $env:TEBUNKO_DEFAULT_WORKSPACE
     $env:TEBUNKO_DEFAULT_WORKSPACE = $Tool.DefaultWorkspace
+    # 閉じる処理の記録（本体の gui_main.ps1 が、段ごとに 1 行ずつ足す）を、場面ごとの作業フォルダに置く。失敗の材料に写す（saveGuiEvidence）
+    $previousCloseTrace = $env:TEBUNKO_CLOSE_TRACE
+    $env:TEBUNKO_CLOSE_TRACE = Join-Path $Tool.Work "close_trace.txt"
     try {
         $p = Start-Process powershell.exe -ArgumentList @("-NoProfile", "-STA", "-ExecutionPolicy", "RemoteSigned", "-Command", $command) -PassThru -WindowStyle Hidden
     } finally {
         $env:TEBUNKO_DEFAULT_WORKSPACE = $previousWorkspace
+        $env:TEBUNKO_CLOSE_TRACE = $previousCloseTrace
     }
     $null = $p.Handle   # ExitCode を取るため、起動の直後にハンドルを持つ
     return $p
@@ -205,12 +209,41 @@ function closeGui {
     $processId = $S.Process.Id
     $pattern = $S.Window.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern)
     $pattern.Close()
-    waitGui $S "画面が終了する" $Timeout -AllowExited { $S.Process.HasExited } | Out-Null
+    try {
+        waitGui $S "画面が終了する" $Timeout -AllowExited { $S.Process.HasExited } | Out-Null
+    } catch {
+        # 閉じても終わらない。止める前に、生きているプロセスの各スレッドの状態とイベントログを材料に残す（saveGuiEvidence が閉じない.txt に写す）
+        $S.StuckInfo = @(getGuiThreadInfo $processId) + @(getGuiCrashInfo $processId)
+        throw
+    }
     if ($S.Process.ExitCode -ne 0) {
         # reportStartupFailure（gui.ps1）を通らない終了（native の障害など）は原因が分からないため、Windows のイベントログを材料に残す
         $S.CrashInfo = getGuiCrashInfo $processId
         throw "画面の終了コードが 0 ではない（$($S.Process.ExitCode)）"
     }
+}
+
+function getGuiThreadInfo {
+    # 生きているプロセスの各スレッドの ThreadState と WaitReason（待ちのときだけ取れる）。閉じても終わらない原因を追う材料にする
+    param ([int]$ProcessId)
+
+    try {
+        $process = Get-Process -Id $ProcessId -ErrorAction Stop
+        return @($process.Threads | ForEach-Object {
+            $reason = ""
+            try { if ($_.ThreadState -eq "Wait") { $reason = [string]$_.WaitReason } } catch { }
+            "スレッド $($_.Id): ThreadState=$($_.ThreadState) WaitReason=$reason"
+        })
+    } catch {
+        return @("スレッドの状態を読めなかった: $($_.Exception.Message)")
+    }
+}
+
+function getGuiCrashPatterns {
+    # イベントログの本文からプロセス ID を探す文字列。本文には 10 進でも 16 進（0x 付き・無し）でも書かれるため、3 通り返す
+    # （-like は大文字と小文字を区別しないので、16 進の大小は問わない）
+    param ([int]$ProcessId)
+    return @("$ProcessId", ("0x{0:x}" -f $ProcessId), ("{0:x}" -f $ProcessId))
 }
 
 function getGuiCrashInfo {
@@ -219,8 +252,9 @@ function getGuiCrashInfo {
     param ([int]$ProcessId)
 
     try {
+        $patterns = @(getGuiCrashPatterns $ProcessId)
         $events = Get-WinEvent -FilterHashtable @{ LogName = "Application"; StartTime = (Get-Date).AddMinutes(-5) } -ErrorAction SilentlyContinue |
-            Where-Object { $_.Message -like "*$ProcessId*" } | Select-Object -First 5
+            Where-Object { $message = $_.Message; @($patterns | Where-Object { $message -like "*$_*" }).Count -gt 0 } | Select-Object -First 5
         return @($events | ForEach-Object { "[$($_.TimeCreated)] $($_.ProviderName)（ID $($_.Id)）: $($_.Message)" })
     } catch {
         return @("イベントログを読めなかった: $($_.Exception.Message)")
@@ -601,12 +635,15 @@ function saveGuiEvidence {
         } catch {
             "画像を撮れなかった: $($_.Exception.Message)" | Set-Content -LiteralPath "$dest\画像なし.txt" -Encoding UTF8
         }
-        foreach ($name in "gui_error_log.txt", "indexing_log.txt") {
+        foreach ($name in "gui_error_log.txt", "indexing_log.txt", "close_trace.txt") {
             $file = Join-Path $S.Tool.Work $name
             if (Test-Path -LiteralPath $file) { Copy-Item -LiteralPath $file -Destination $dest -Force }
         }
         if ($S.CrashInfo) {
             $S.CrashInfo | Set-Content -LiteralPath "$dest\クラッシュ情報.txt" -Encoding UTF8
+        }
+        if ($S.StuckInfo) {
+            $S.StuckInfo | Set-Content -LiteralPath "$dest\閉じない.txt" -Encoding UTF8
         }
         $tree = New-Object System.Collections.ArrayList
         foreach ($w in @(getGuiTopWindows $S)) {

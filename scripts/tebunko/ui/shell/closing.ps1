@@ -46,6 +46,7 @@
         # 取り込み中のファイルの区切りで止めるため）。closeDeadline は $null のときだけ決め、
         # 途中の失敗で入り直しても延ばし直さない。closeTimer も動いていなければ動かす（M1: ここが抜けていると、
         # 流れの途中の失敗のあとに closeTimer が動かず、外から止める以外に閉じられなくなる）
+        writeCloseTrace -Path $script:closeTracePath -Step "enterIndexingStopFlow"
         $script:closeWaiting = $true
         try { $script:indexingTimer.Stop() } catch { }
         try { $script:indexingSession.Stop() } catch { }
@@ -70,6 +71,7 @@
 
     $window.Add_Closing({
         param ($sender, $e)
+        writeCloseTrace -Path $script:closeTracePath -Step "Closing"
         if ($script:closeReady) {
             return
         }

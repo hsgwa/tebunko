@@ -151,27 +151,59 @@ Describe "reportStartupFailure（記録の経路の切り替え）" -Tag Gui {
     BeforeAll {
         function startReportStartupFailureProcess {
             param ([string[]]$setupLines, [string]$message)
-            $scriptFile = Join-Path $TestDrive "scenario_$([guid]::NewGuid().ToString('N')).ps1"
+            $id = [guid]::NewGuid().ToString('N')
+            $scriptFile = Join-Path $TestDrive "scenario_$id.ps1"
+            # 子の進み具合の印（始まった時・WPF の Add-Type の後・reportStartupFailure が戻った後）を書くファイル。
+            # 待ち切れたとき、どの段まで来たかを失敗の文言に出す。記録を書いた時刻は、記録のファイルの更新時刻で見る
+            $script:scenarioMark = Join-Path $TestDrive "scenario_$id.mark.txt"
+            $script:scenarioOut = Join-Path $TestDrive "scenario_$id.out.txt"
+            $script:scenarioErr = Join-Path $TestDrive "scenario_$id.err.txt"
+            $markFile = $script:scenarioMark
+            # 子のスクリプトに書く、印を足す 1 行（段の名前と、そのときの時刻）
+            $markCommand = { param ([string]$label) "Add-Content -LiteralPath '$markFile' -Value ('$label ' + (Get-Date -Format 'o'))" }.GetNewClosure()
             $lines = @(
+                (& $markCommand "子の開始")
                 "Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase"
+                (& $markCommand "WPF の Add-Type の後")
                 ". '$scriptsDir\tebunko\ui\startup_error_view.ps1'"
                 ". '$scriptsDir\tebunko\ui\startup_error.ps1'"
             ) + $setupLines + @(
                 "try { throw '$message' } catch { reportStartupFailure `$_ | Out-Null }"
+                (& $markCommand "reportStartupFailure の後")
             )
             Set-Content -LiteralPath $scriptFile -Value $lines -Encoding UTF8
             return Start-Process -FilePath "powershell.exe" `
                 -ArgumentList @("-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", $scriptFile) `
-                -PassThru -WindowStyle Hidden
+                -PassThru -WindowStyle Hidden -RedirectStandardOutput $script:scenarioOut -RedirectStandardError $script:scenarioErr
+        }
+
+        function getScenarioDiagnosis {
+            # 待ち切れたとき・子が記録を書かずに終わったときの失敗の文言。どの印まで来たか・子が生きているか・終了コード・出力を並べる
+            param ([System.Diagnostics.Process]$process, [string]$path)
+            $marks = if (Test-Path -LiteralPath $script:scenarioMark) { (Get-Content -LiteralPath $script:scenarioMark) -join " / " } else { "(印なし。子のスクリプトが始まっていない)" }
+            $state = if ($process.HasExited) { "終わっている（終了コード $($process.ExitCode)）" } else { "生きている" }
+            $standardOutput = if (Test-Path -LiteralPath $script:scenarioOut) { (Get-Content -LiteralPath $script:scenarioOut -Raw) } else { "" }
+            $standardError = if (Test-Path -LiteralPath $script:scenarioErr) { (Get-Content -LiteralPath $script:scenarioErr -Raw) } else { "" }
+            return "記録のファイルができなかった（$path）。子: $state。印: $marks。標準出力: [$standardOutput] 標準エラー: [$standardError]"
         }
 
         function waitForFile {
-            param ([string]$path, [int]$timeoutSeconds = 10)
+            # 記録のファイルができるか、子が終わるかの早い方まで待つ（上限は guiDefaultTimeout にそろえた 30 秒）。
+            # 子が記録を書かずに終わったときは、待たずに失敗にする。できたら $true
+            param ([string]$path, [System.Diagnostics.Process]$process, [int]$timeoutSeconds = 30)
             $watch = [System.Diagnostics.Stopwatch]::StartNew()
-            while (-not (Test-Path -LiteralPath $path) -and $watch.Elapsed.TotalSeconds -lt $timeoutSeconds) {
+            while (-not (Test-Path -LiteralPath $path) -and -not $process.HasExited -and $watch.Elapsed.TotalSeconds -lt $timeoutSeconds) {
                 Start-Sleep -Milliseconds 100
             }
-            return Test-Path -LiteralPath $path
+            if (Test-Path -LiteralPath $path) {
+                $stopwatchSeconds = [Math]::Round($watch.Elapsed.TotalSeconds, 1)
+                $startTime = $null; if (Test-Path -LiteralPath $script:scenarioMark) { $first = @(Get-Content -LiteralPath $script:scenarioMark -TotalCount 1); if ($first.Count -gt 0) { $startTime = [datetime]($first[0] -split " ")[-1] } }
+                $recordTime = (Get-Item -LiteralPath $path).LastWriteTime
+                $sinceStart = if ($startTime) { [Math]::Round(($recordTime - $startTime).TotalSeconds, 1) } else { "?" }
+                Write-Host "[記録まで] 待ち $stopwatchSeconds 秒・印のファイルができてから記録まで $sinceStart 秒"
+                return $true
+            }
+            throw (getScenarioDiagnosis $process $path)
         }
     }
 
@@ -189,7 +221,7 @@ Describe "reportStartupFailure（記録の経路の切り替え）" -Tag Gui {
         $script:scenarioProcess = startReportStartupFailureProcess $setup "読み込み前の失敗"
 
         $recordFile = Join-Path $tool "startup_error.txt"
-        (waitForFile $recordFile) | Should -Be $true
+        (waitForFile $recordFile $script:scenarioProcess) | Should -Be $true
         (Get-Content -LiteralPath $recordFile -Raw) | Should -Match "読み込み前の失敗"
     }
 
@@ -201,7 +233,7 @@ Describe "reportStartupFailure（記録の経路の切り替え）" -Tag Gui {
         )
         $script:scenarioProcess = startReportStartupFailureProcess $setup "読み込み後の失敗"
 
-        (waitForFile $logFile) | Should -Be $true
+        (waitForFile $logFile $script:scenarioProcess) | Should -Be $true
         (Get-Content -LiteralPath $logFile -Raw) | Should -Match "読み込み後の失敗"
     }
 }

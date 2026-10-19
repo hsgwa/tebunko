@@ -13,6 +13,15 @@ on:
   push:
     branches: [main]
   pull_request:
+  # 繰り返しの流し（gui-repeat）を手で呼ぶ。gui-smoke も一緒に動く
+  workflow_dispatch:
+    inputs:
+      repeat:
+        description: "流す回数の合計（5 本の shard に分ける。上限 50）"
+        default: "50"
+      paths:
+        description: "流すテストのファイル（カンマ区切り）"
+        default: 'tests\gui\smoke.Tests.ps1,tests\gui\index.Tests.ps1,tests\gui\index_archive.Tests.ps1,tests\tebunko\ui\startup_error.Tests.ps1'
 
 # 同じブランチに続けて push したときは、古い実行を取り消す
 concurrency:
@@ -80,3 +89,99 @@ jobs:
         with:
           workflow-key: gui
           result: ${{ needs['gui-smoke'].result }}
+
+  # 画面のスモークテストを繰り返し流し、稀な落ち方（閉じても終わらない・起動失敗の記録の待ち切れ・終了コード 5）の率と原因を測る
+  # （docs/design/testing/ci.md「gui.yml」・gui-smoke.md「繰り返しの流し方」）。
+  # 1 shard が repeat / 5 回ずつ流す（全体 50 回は約 500 分で上限を超えるため分ける）。
+  # 途中で落ちても続け、回ごとの結果と失敗の材料を残す。測っている間は push しない（concurrency で取り消されるため）
+  gui-repeat:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' }} # TEMP-MEASURE
+    runs-on: windows-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5]
+    env:
+      REPEAT_TOTAL: ${{ inputs.repeat || '50' }}
+      REPEAT_PATHS: ${{ inputs.paths || 'tests\gui\smoke.Tests.ps1,tests\gui\index.Tests.ps1,tests\gui\index_archive.Tests.ps1,tests\tebunko\ui\startup_error.Tests.ps1' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Pester の用意
+        shell: powershell
+        env:
+          PESTER_VERSION: 5.9.0
+        run: |
+          if (!(Get-Module Pester -ListAvailable | Where-Object { $_.Version -eq [version]$env:PESTER_VERSION })) {
+            Install-Module Pester -RequiredVersion $env:PESTER_VERSION -Force -Scope CurrentUser -SkipPublisherCheck
+          }
+
+      - name: 画面のスモークテストを繰り返す
+        shell: powershell
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          $times = [int][Math]::Ceiling([int]$env:REPEAT_TOTAL / 5)
+          $out = "repeat-results"
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          $rows = @()
+          for ($i = 1; $i -le $times; $i++) {
+            $log = "$out\run-$env:SHARD-$i.log"
+            $watch = [System.Diagnostics.Stopwatch]::StartNew()
+            # 1 回分の出力をファイルに残し、失敗の文言から落ち方を分ける
+            & powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\run.ps1 -Tag Gui -Path $env:REPEAT_PATHS *> $log
+            $code = $LASTEXITCODE
+            $watch.Stop()
+            $seconds = [int]$watch.Elapsed.TotalSeconds
+            $text = Get-Content -LiteralPath $log -Raw
+            $kind = if ($code -eq 0) { "成功" }
+              elseif ($text -match '画面の終了コードが 0 ではない（5）') { "終了コード 5" }
+              elseif ($text -match '画面が終了する が 30 秒以内に見つからなかった') { "閉じない" }
+              elseif ($text -match '記録のファイルができなかった') { "記録の待ち切れ" }
+              else { "そのほか" }
+            $rows += "$env:SHARD,$i,$code,$kind,$seconds"
+            Write-Host "[$env:SHARD-$i] $kind（終了コード $code・$seconds 秒）"
+            if ($code -ne 0 -and (Test-Path work\test\gui)) {
+              Copy-Item -Recurse -Force work\test\gui "$out\evidence-$env:SHARD-$i"
+            }
+          }
+          $rows | Set-Content -LiteralPath "$out\result-$env:SHARD.csv" -Encoding UTF8
+          exit 0
+
+      - name: 結果の保存
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: gui-repeat-${{ matrix.shard }}
+          path: repeat-results/
+          if-no-files-found: ignore
+
+  # 5 本の結果を集め、回数と落ちた場面の表を Summary に書く
+  gui-repeat-summary:
+    needs: [gui-repeat]
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request') }} # TEMP-MEASURE
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: gui-repeat-*
+          path: repeat-results
+          merge-multiple: true
+
+      - name: 表にまとめる
+        shell: pwsh
+        run: |
+          $rows = @(Get-ChildItem repeat-results -Filter 'result-*.csv' -ErrorAction SilentlyContinue |
+            ForEach-Object { Import-Csv $_.FullName -Header shard, n, code, kind, seconds })
+          $lines = @("## gui-repeat（実行番号 $env:GITHUB_RUN_ID・試行 $env:GITHUB_RUN_ATTEMPT）", "", "流した回数: $($rows.Count)", "", "| 結果 | 回数 |", "|---|---|")
+          foreach ($g in ($rows | Group-Object kind | Sort-Object Name)) { $lines += "| $($g.Name) | $($g.Count) |" }
+          $lines += ""
+          $lines += "| shard | 回 | 結果 | 秒 |"
+          $lines += "|---|---|---|---|"
+          foreach ($r in ($rows | Where-Object { $_.kind -ne '成功' })) { $lines += "| $($r.shard) | $($r.n) | $($r.kind) | $($r.seconds) |" }
+          $lines | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Encoding UTF8

@@ -2,6 +2,7 @@
 # ツール側は、このファイルを dot-source すれば共通基盤がそろう。読み込む順に意味がある。
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\paths.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\fs.ps1".Replace('`', '``')))
+. ([WildcardPattern]::Escape("$PSScriptRoot\core\close_trace.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\worker_pool.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\data_dir.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\text.ps1".Replace('`', '``')))
