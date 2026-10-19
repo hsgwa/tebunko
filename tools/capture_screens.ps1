@@ -134,9 +134,25 @@ function captureGuiState {
     }
     # 大きさが決まっても、前の窓の絵がまだ残って見えることがある（確認が続けて出るときなど）。強制的に描き直させて少し待つ
     foreach ($w in $windows) { redrawGuiWindow $w }
-    Start-Sleep -Milliseconds 300
     # 窓そのものの範囲はネイティブの GetWindowRect（UI オートメーションの BoundingRectangle は、描画前の窓で 0 x 0 になることがある）
     $rects = @($windows | ForEach-Object { getGuiWindowRect $_ })
+    # マウスの矢印が窓の上に残っていると、その下の部品のツールヒントが出て、検索対象の木などを隠したまま撮れる
+    # （このスクリプトでいう「吹き出し」の正規表現の RegexBalloon とは別のもの）。
+    # 矢印を、作業領域（WorkingArea）の中で撮る範囲の外にある点へ逃がす。画面の隅（タスクバーの端の「デスクトップの表示」）は、
+    # Peek が有効な PC ですべての窓が透けるため避ける。作業領域の四隅・各辺の中央から、撮る範囲に重ならない最初の点を選ぶ
+    $work = [Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+    $xs = @(($work.Right - 2), ($work.Left + 1), [int](($work.Left + $work.Right) / 2))
+    $ys = @(($work.Bottom - 2), ($work.Top + 1), [int](($work.Top + $work.Bottom) / 2))
+    $away = New-Object Drawing.Point(($work.Right - 2), ($work.Bottom - 2))
+    :search foreach ($y in $ys) {
+        foreach ($x in $xs) {
+            $hit = @($rects | Where-Object { $x -ge $_.Left -and $x -lt $_.Right -and $y -ge $_.Top -and $y -lt $_.Bottom }).Count -gt 0
+            if (!$hit) { $away = New-Object Drawing.Point($x, $y); break search }
+        }
+    }
+    [Windows.Forms.Cursor]::Position = $away
+    # 出ているツールヒントは、矢印が離れてから 0.5 秒ほどで消える。余裕を見て 0.8 秒待つ（短くすると消える前に撮れてしまう）
+    Start-Sleep -Milliseconds 800
     # Measure-Object の Maximum・Minimum は [double] で返るため、大きさは必ず [int] に直す
     # （[double] のまま New-Object Drawing.Bitmap に渡すと、コンストラクターの解決を誤り「パラメーターが有効ではない」で失敗する）
     $left = [int](($rects | ForEach-Object { $_.Left } | Measure-Object -Minimum).Minimum)
@@ -530,9 +546,7 @@ function captureSearchScene {
         waitGui $S "プレビューが出る" ${guiDefaultTimeout} {
             @(getGuiPreviewTexts $S.Window | Where-Object { $_.Text.Current.Name -eq "りんご" }).Count -gt 0
         } | Out-Null
-        # 行を選ぶと、部品を選ぶだけで出るツールヒント（元のファイルのパス）が重なって写ることがある。
-        # フォーカスを移す・ツールヒントの窓が消えるまで待つ、の両方を試したが消えなかった（架空の subst ドライブの
-        # パスで個人情報ではないため、写り込んだまま撮る）
+        # 行を選ぶと、ツールヒント（元のファイルのパス）が出ることがある。captureGuiState が撮る前に矢印を窓の外へ出すので写らない
         captureGuiState -S $S -Id "search-tab/results" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
 
@@ -563,6 +577,15 @@ function captureSearchScene {
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($missing)
         clickGuiByName $S $missing "キャンセル"
         waitGuiWindowClosed $S $missing "見つからない確認"
+
+        # 見つからない確認のあと、ステータスバーに「元のファイルが見つかりません：<パス>」が残る。検索し直して消してから撮る
+        setGuiStep $S "検索し直してステータスを戻す"
+        & $search "単価"
+        waitGui $S "ステータスが検索の結果に戻る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "StatusText")) -like "検索しました：単価*" } | Out-Null
+        clickGui $S $S.Window "ExpandAllButton" "［すべて開く］"
+        waitGui $S "結果の行が戻る" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 2 } | Out-Null
+        selectGui (@(& $hitRows) | Select-Object -Last 1)
+        waitGuiEnabled $S (findGui $S.Window -Id "OpenButton") "［開く］"
 
         setGuiStep $S "最小の大きさ"
         resizeGuiWindow $S 1024 640

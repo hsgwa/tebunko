@@ -82,9 +82,9 @@ function getIndexStats {
     return , $stats
 }
 
-function removeSystemIndexOfWorkspace {
-    # インデックスのフォルダ（dir = Workspace.IndexDir）と同じワークスペースの system_index から、インデックス name の分を消す。
-    # 消せなくても（状態ファイルがほかに開かれている等）インデックスの操作は続ける。次のインデックス作成で整理される
+function removeGramIndexOfWorkspace {
+    # インデックスのフォルダ（dir = Workspace.IndexDir）と同じワークスペースの gram 索引から、インデックス name の分を消す。
+    # 消せなくてもインデックスの操作は続ける（インデックスが無いフォルダの索引は、次のインデックス作成で消える）
     param (
         [string]$name,
         [string]$dir
@@ -92,7 +92,7 @@ function removeSystemIndexOfWorkspace {
 
     $owner = [Workspace]::new((getWorkspaceDirOfIndexDir $dir))
     try {
-        [void](removeSystemIndexOf $name $owner.SystemIndexDir $owner.SystemIndexStateFile)
+        [void](removeGramIndexOf $name $owner.GramDir)
     } catch {
     }
 }
@@ -321,7 +321,4 @@ function publishIndexFiles {
         }
         [void](removeDirectoryUnder $stagingDir $publishRoot)
     }
-    # bookDir はワークスペースの中（同じドライブ）の一時フォルダから Move で入れるため、親（content_index\）の
-    # NotContentIndexed 属性を継がない。ここで、入れた分（フォルダと直下の TSV）だけに付ける
-    [void](setWindowsSearchExcluded $bookDir)
 }

@@ -68,21 +68,21 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 |---|---|---|
 | `work/store/format.tsv`（一時ファイルを経由して置き換える） | 読む・書く | 目録（形式の版・各インデックスの状態。[インデックスのファイルの形](../index-data/format.md#置き場と目録store)） |
 | `work/store/content/`（`<インデックス名>/…/content_index.<拡張子>.<番号>.tsv`・`source_folder.txt`） | 読む・書く | 本文インデックス。インデックス作成が書き、検索・一覧が読む。インポートで置き換え、クロール対象から外したフォルダの分は消す。`<名前>.tmp` に書いてから置き換える（`writeContentIndexFile`）。改名のときは `<名前>_rename_<PID>` を経由する |
-| `work/system_index/<インデックス名>/…/system_index.txt` | 読む・書く | システムインデックス（2-gram の txt）。Windows Search が読む（[システムインデックス](../index-data/system-index.md)） |
-| `work/system_index_state.tsv` | 読む・書く | システムインデックスの状態。排他で開いて書き換える |
+| `work/store/gram/<インデックス名>/`（`toc.tsv`・`g<10 桁>.seg`） | 読む・書く | 2-gram の索引（検索で照合するファイルを絞る。作り直せる。[2-gram の索引](../index-data/gram-index.md)）。区画は一時ファイルに書いて置き換える |
+| `work/system_index/`・`work/system_index_state.tsv`（前の版が作った検索用のファイル） | 消す | インデックス作成の始めと、インポートの取り込む前に消す（読まず、書かない。[片付け](../index-data/format.md#前の版が作った検索用のファイルの片付けremoveoldsystemindex)） |
 | `work/store/ingest_status.tsv`（`.tmp` を経由して置き換える） | 読む・書く | 取り込み一覧 |
 | `work/store/pending_remove.tsv`（`.tmp` を経由して置き換える。0 件なら消す） | 読む・書く・消す | 本文インデックスから外し終えていない、無くなった元のファイルの記録。次のインデックス作成の始めに読み、外し終えたら消す。`work/store/` の中なので、移すときも `store\` ごと移り、作り直しで置き場ごと消える |
 | `work/content_index/`・`work/ingest_status.tsv`（前の版の置き場） | 読む（古い形式かの判定）・消す | 読まず、検索もしない。作り直しが終わったインデックスの分から消す |
 | `work/store/journal/ingest.tsv` | 読む・追記する | 取り込みのジャーナル |
 | `work/publish/<PID>/`（`import/new/`・`import/previous/` を含む） | 読む・書く | 本文インデックスに入れる直前の TSV と、インポートの展開先 |
-| `work/tmp/<PC の鍵>/<PID>/w<番号>/` | 読む・書く | 取り込みの作業領域。元のファイルのコピー・抽出途中のファイル。`NotContentIndexed` 属性を付ける（`SetAttributes`） |
+| `work/tmp/<PC の鍵>/<PID>/w<番号>/` | 読む・書く | 取り込みの作業領域。元のファイルのコピー・抽出途中のファイル |
 | `work/office_pids/<PC の鍵>/<PID>.tmp`→`<PID>.txt` | 読む・書く | このツールが起動した Office の記録（`office_process.ps1`。`.tmp` に書いてから `.txt` に改名）。起動時の確認で読む |
 | `work/indexing_log.txt` | 書く | インデクサの表示内容（実行ごとに上書き。`writeIndexerLog`）。先頭に版と環境の見出しを書く。［ログを開く］で Notepad が開く |
 | `work/indexing_log_previous.txt` | 書く | 前回のインデックス作成の記録。インデックス作成が二重起動の鍵を取った後、今の `indexing_log.txt` をここへ移す（あれば上書き） |
 | `work/gui_error_log.txt` | 書く | 画面の予期しないエラー（追記。`writeErrorLog`）。見出しを最後に書いた記録先と今の記録先が違うとき（プロセスの最初の記録・ワークスペースの切り替えの後）と、ファイルが無いとき（1 MB で移した直後を含む）に、記録の前に版と環境の見出しを書く。切り替えで記録が移るため、1 つのファイルに見出しが 2 つ入ることがある。1 MB 以上なら次の記録の前に `gui_error_log_previous.txt` へ移す。起動に失敗したときも、ここに書けるならここに書く |
 | `work/gui_error_log_previous.txt` | 書く | `gui_error_log.txt` の前回の分（移すたびに上書き） |
 | `work/search_results.txt` | 書く | 検索結果の出力 |
-| `work/index/`（過去の版が置いた本文インデックス）・`work/system_index/` の古い名前の txt | 読む・消す | 残っているかの調べ・知らせ・［設定］の「移す」「消して最初から」のときだけ。ここには書かない |
+| `work/index/`（過去の版が置いた本文インデックス） | 読む・消す | 残っているかの調べ・知らせ・［設定］の「移す」「消して最初から」のときだけ。ここには書かない |
 | `work/release/`・`work/test/`・`work/site/`・`work/cache/` | – | 開発用（`tools/` が書く。配布物には入らない）。tebunko 本体は触らない |
 
 ワークスペースを移すとき（`WorkspaceMover.MoveEntries`）は、`Workspace.Entries()` のものだけを新しい場所へ移す・写す。
@@ -128,7 +128,6 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 | `explorer.exe` | 起動する | ［フォルダを開く］・フォルダの選択・「バージョン情報」のリンク（決まった 2 つのアドレスを既定のブラウザで開く） |
 | `%SystemRoot%\System32\ntoskrnl.exe` | 読む（ファイルの版だけ） | ログの見出しの OS の版（`getEnvironmentInfo`） |
 | Windows のあるドライブの `Program Files`・`Program Files (x86)` の `Microsoft Office\root\Office16`・`Microsoft Office\Office16`・`Microsoft Office\Office15` の `EXCEL.EXE`・`WINWORD.EXE`・`POWERPNT.EXE` | 読む（有無とファイルの版だけ。起動しない） | ログの見出しの Office の版・形態・ビット数（`findOfficeApps`）。ほかのドライブや別の版の Office は `見つからない` と出る |
-| Windows Search（`Search.CollatorDSO`） | 読む（SELECT だけ） | 高速検索。システムインデックスを索引させ、問い合わせる |
 | Excel・Word・PowerPoint のプロセス | 起動・終了 | 古い形式の変換・元のファイルを開く。起動した PID は `work/office_pids/` に記録する |
 | 設定値の `%…%`（`ExpandEnvironmentVariables`） | 読む | クロール対象フォルダ・ワークスペースに環境変数があれば展開する（`folder.ps1`・`settings.ps1`） |
 | カレントドライブ | 読む | `\server\share` のように `\` ひとつで始まる、ドライブ名の無いパス（今のドライブのパスには直さず、書かれたとおりに扱う）。ドライブ名だけ（`D:`）はドライブ直下とする |
@@ -142,7 +141,7 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 | 場所 | 触り方 | 内容 |
 |---|---|---|
 | `%TEMP%\tebunko\<PID>`（`legacyTmpParent`） | 消すだけ | 過去の版が一時ファイルを置いていた場所。インデックス作成の始めに、終わったプロセスの分を消す。この場所には書かない |
-| `<ワークスペース>\index\`（過去の版が置いた本文インデックス）と、古い名前の `system_index\` の txt | 読む・消す | 上の「ワークスペース」の最後から 2 行目のとおり |
+| `<ワークスペース>\index\`（過去の版が置いた本文インデックス） | 読む・消す | 上の「ワークスペース」の最後から 2 行目のとおり |
 
 ## 配布形ごとの置き場
 
@@ -180,8 +179,7 @@ tebunko が作るファイルとフォルダが、何年使っても溜まり続
 | `store` | 元のファイルの数に比例（中の `format.tsv` は上書き、`ingest_status.tsv` は上書きで 1 つ） | `store\content` は元のファイルが無くなれば消す。外したフォルダの分は利用者が確認ダイアログで消す（利用者のデータ。自動で期間では消さない） |
 | `content_index` | 増えない（前の版が置いたもの） | 作り直しが終わったインデックスの分から消す。空になれば `content_index` ごと消す。消せなければ残し、次のインデックス作成の終わりに消す |
 | `index` | 増えない（過去の版が置いたもの） | ［設定］の「移す」「消して最初から」・インデックス作成の始めに片付ける |
-| `system_index` | 元のファイルの数に比例 | `content_index` と同じ |
-| `system_index_state.tsv` | 上書き | 1 つ |
+| `store\gram\<インデックス名>\` | 元のファイルの数に比例 | 区画（`g<10 桁>.seg`）と目録 `toc.tsv`。作り直せる |
 | `ingest_status.tsv` | 増えない（前の版が置いたもの。今の取り込み一覧は `store` の中） | 1 つ。作り直しが終われば消す |
 | `store/journal/ingest.tsv` | 追記（始めに入れ替え） | 1 つ。1 記録ごとに追記して Flush する。始めに前回の分を読んで入れ替える |
 | `search_results.txt` | 上書き | 1 つ |

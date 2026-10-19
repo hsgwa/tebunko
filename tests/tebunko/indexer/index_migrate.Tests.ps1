@@ -469,7 +469,7 @@ Describe "removeStaleTmpDirs" -Tag Io {
 }
 
 Describe "initTmpDir" -Tag Io {
-    It "ワークスペースの tmp の下にフォルダを作り、tmp・tmp\鍵・<PID> に NotContentIndexed を付ける" {
+    It "ワークスペースの tmp の下にフォルダを作り、tmp・tmp\鍵・<PID> を作る" {
         $workspace = newTestWorkspace @{ TmpRoot = "$TestDrive\init_normal\tmp" }
         ${legacyTmpParent} = "$TestDrive\init_normal\legacy"
 
@@ -479,7 +479,7 @@ Describe "initTmpDir" -Tag Io {
         $result.Reason | Should -Be ""
         Test-Path -LiteralPath $result.Dir -PathType Container | Should -Be $true
         foreach ($dir in @($workspace.TmpRoot, (Split-Path $result.Dir -Parent), $result.Dir)) {
-            ([System.IO.File]::GetAttributes($dir) -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
+            Test-Path -LiteralPath $dir -PathType Container | Should -Be $true
         }
     }
 
@@ -618,30 +618,6 @@ Describe "newDirectoryReplacingExisting" -Tag Io {
 }
 
 Describe "newWorkerTmpDir" -Tag Io {
-    It "親フォルダに NotContentIndexed が付いていれば、作業フォルダ（w<番号>）にも同じ属性を付ける" {
-        $workspace = newTestWorkspace @{ TmpRoot = "$TestDrive\worker_nci" }
-        $parent = "$TestDrive\worker_nci\1234"
-        [System.IO.Directory]::CreateDirectory($parent) | Out-Null
-        [System.IO.File]::SetAttributes($parent, [System.IO.File]::GetAttributes($parent) -bor [System.IO.FileAttributes]::NotContentIndexed)
-
-        $dir = newWorkerTmpDir $parent 2
-
-        $dir | Should -Be "$parent\w2"
-        Test-Path -LiteralPath $dir -PathType Container | Should -Be $true
-        ([System.IO.File]::GetAttributes($dir) -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
-    }
-
-    It "親フォルダに NotContentIndexed が付いていなければ、作業フォルダにも付けない" {
-        $workspace = newTestWorkspace @{ TmpRoot = "$TestDrive\worker_plain" }
-        $parent = "$TestDrive\worker_plain\5678"
-        [System.IO.Directory]::CreateDirectory($parent) | Out-Null
-
-        $dir = newWorkerTmpDir $parent 1
-
-        $dir | Should -Be "$parent\w1"
-        ([System.IO.File]::GetAttributes($dir) -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Be 0
-    }
-
     It "親フォルダが空（置けなかった）なら、何も作らず空文字を返す" {
         { newWorkerTmpDir "" 1 } | Should -Not -Throw
         newWorkerTmpDir "" 1 | Should -BeNullOrEmpty

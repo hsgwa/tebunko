@@ -78,7 +78,7 @@ Describe "exportIndex" -Tag Io {
         Set-Content -LiteralPath (Join-Path $fixture.Workspace.IndexDir "営業\見積\B社.xlsx\Sheet1.tsv") -Value "本文" -Encoding UTF8
 
         $dest = "$TestDrive\export_pending\out.zip"
-        { exportIndex "営業" $dest $fixture.Workspace $fixture.SettingsPath } | Should -Throw "*本文インデックスとして扱えないファイル*"
+        { exportIndex "営業" $dest $fixture.Workspace $fixture.SettingsPath } | Should -Throw "*インデックスとして扱えないファイル*"
         Test-Path -LiteralPath $dest | Should -Be $false
         Test-Path -LiteralPath "${dest}.tmp" | Should -Be $false
     }
@@ -364,27 +364,6 @@ Describe "importIndex" -Tag Io {
         (Join-Path $location.Folder (Join-Path $location.Rest "A社.xlsx")) | Should -Be "D:\別の場所\営業部\見積\A社.xlsx"
     }
 
-    It "インポートしたインデックスに NotContentIndexed が付く（Directory.Move は親の属性を継がず、根に付いたあとの -Recurse は下へ降りないため）" {
-        $fixtureA = newIndexFixture "$TestDrive\attr_a" "営業" "C:\共有\営業部"
-        $dest = "$TestDrive\attr.zip"
-        exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
-
-        # 一度インデックス作成を通った作業フォルダ（content_index の根に属性が付いている）へ入れる
-        $wsB = [Workspace]::new("$TestDrive\attr_b")
-        [System.IO.Directory]::CreateDirectory($wsB.IndexDir) | Out-Null
-        (setWindowsSearchExcluded $wsB.IndexDir -Recurse).Ok | Should -BeTrue
-        $result = importIndex $dest ${importCollisionRename} "" "D:\別の場所\営業部" $wsB "$TestDrive\attr_b\setting.config"
-
-        $flag = [System.IO.FileAttributes]::NotContentIndexed
-        $importedDir = Join-Path $wsB.IndexDir $result.Name
-        ([System.IO.File]::GetAttributes($importedDir) -band $flag) | Should -Not -Be 0
-        $files = @(Get-ChildItem -LiteralPath $importedDir -Recurse -Force)
-        $files.Count | Should -BeGreaterThan 0
-        foreach ($file in $files) {
-            ([System.IO.File]::GetAttributes($file.FullName) -band $flag) | Should -Not -Be 0
-        }
-    }
-
     It "取り込み一覧の形: <label>。見出しの行があり、クロール対象フォルダの行は見出しの前にあり、getIndexNameMap が名前を返す" -TestCases @(
         @{ label = "空のワークスペースへ"; others = @() }
         @{ label = "ほかのインデックスがあるワークスペースへ"; others = @("経理", "総務") }
@@ -458,23 +437,7 @@ Describe "importIndex" -Tag Io {
         $row.エラー | Should -Be "開けません または 壊れています"
     }
 
-    It "その後 B でインデクサが動かすシステムインデックスの更新で、system_index の txt ができ、対応済みになる" {
-        $fixtureA = newIndexFixture "$TestDrive\sysidx_a" "営業" "C:\共有\営業部"
-        $dest = "$TestDrive\sysidx.zip"
-        exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
-        $wsB = [Workspace]::new("$TestDrive\sysidx_b")
-        importIndex $dest ${importCollisionRename} "" "D:\別の場所\営業部" $wsB "$($wsB.Dir)\setting.config" | Out-Null
-        Test-Path -LiteralPath $wsB.SystemIndexDir | Should -Be $false
-
-        $result = updateSystemIndexes $wsB.IndexDir $wsB.SystemIndexDir $wsB.SystemIndexStateFile { $false }
-
-        $result.Built | Should -BeGreaterThan 0
-        $result.Unfinished | Should -Be 0
-        @(Get-ChildItem -LiteralPath $wsB.SystemIndexDir -Recurse -Filter "*.txt").Count | Should -BeGreaterThan 0
-        (readSystemIndexState $wsB.SystemIndexStateFile).Covered.Contains("営業") | Should -Be $true
-    }
-
-    It "上書き: 前の行・前のシステムインデックスが残らず、設定の並びが変わらない" {
+    It "上書き: 前の行・前の gram 索引が残らず、設定の並びが変わらない" {
         $fixtureA = newIndexFixture "$TestDrive\ow_a" "営業" "C:\共有\営業部" "見積\A社.xlsx"
         $dest = "$TestDrive\ow.zip"
         exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
@@ -486,17 +449,18 @@ Describe "importIndex" -Tag Io {
             [pscustomobject]@{ Name = "営業"; Path = "C:\前の場所"; Enabled = $true }
             [pscustomobject]@{ Name = "総務"; Path = "C:\総務"; Enabled = $true }
         ) $fixtureB.SettingsPath
-        # 前のシステムインデックス（営業の txt と、対応済みの記録）
-        [void](updateSystemIndexes $wsB.IndexDir $wsB.SystemIndexDir $wsB.SystemIndexStateFile { $false })
-        Test-Path -LiteralPath (Join-Path $wsB.SystemIndexDir "営業") | Should -Be $true
+        # 前の gram 索引（営業と、頭が同じ別のインデックス）
+        [System.IO.Directory]::CreateDirectory("$($wsB.GramDir)\営業") | Out-Null
+        [System.IO.File]::WriteAllText("$($wsB.GramDir)\営業\toc.tsv", "tebunko-gram 1`r`nnext 1`r`n")
+        [System.IO.Directory]::CreateDirectory("$($wsB.GramDir)\営業部") | Out-Null
 
         importIndex $dest ${importCollisionOverwrite} "" "C:\新しい場所" $wsB $fixtureB.SettingsPath | Out-Null
 
+        [System.IO.Directory]::Exists("$($wsB.GramDir)\営業") | Should -Be $false
+        [System.IO.Directory]::Exists("$($wsB.GramDir)\営業部") | Should -Be $true
         (readStatusFile $wsB.StatusFile).Rows.ContainsKey("営業\前の資料\旧.xlsx") | Should -Be $false
         (readStatusFile $wsB.StatusFile).Rows.ContainsKey("営業\見積\A社.xlsx") | Should -Be $true
         Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業\前の資料") | Should -Be $false
-        Test-Path -LiteralPath (Join-Path $wsB.SystemIndexDir "営業") | Should -Be $false
-        (readSystemIndexState $wsB.SystemIndexStateFile).Covered.Contains("営業") | Should -Be $false
         @(getTargetFolders $fixtureB.SettingsPath | ForEach-Object { "$($_.Name)|$($_.Path)" }) | Should -Be @("経理|C:\経理", "営業|C:\新しい場所", "総務|C:\総務")
     }
 
@@ -557,52 +521,48 @@ Describe "importIndex" -Tag Io {
         @($status.Folders | Where-Object { $_.Name -eq "営業" }).Count | Should -Be 1
         $status.Rows.ContainsKey("営業\見積\A社.xlsx") | Should -Be $true
         Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業\source_folder.txt") | Should -Be $true
-        Test-Path -LiteralPath (Join-Path $wsB.SystemIndexDir "営業") | Should -Be $false
     }
 
-    It "前の版のワークスペース: content_index が空で前の版のしるしがあれば片付けてからインポートする" {
+    It "前の版のシステムインデックス（system_index と状態ファイル）があれば、インポートで消す。前の版の index には触らない" {
         $fixtureA = newIndexFixture "$TestDrive\legacy_a" "営業" "C:\共有\営業部"
         $dest = "$TestDrive\legacy.zip"
         exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
 
         $wsB = [Workspace]::new("$TestDrive\legacy_b")
         $settingsB = "$TestDrive\legacy_b\setting.config"
-        # 前の版のしるし（index\<名前>\元のフォルダ.txt）と、前の名前のシステムインデックス txt・状態ファイルのキーを作る
         New-Item -ItemType Directory -Path (Join-Path $wsB.LegacyIndexDir "旧") -Force | Out-Null
         Set-Content -LiteralPath (Join-Path $wsB.LegacyIndexDir "旧\元のフォルダ.txt") -Value "旧`tC:\旧" -Encoding UTF8
-        New-Item -ItemType Directory -Path (Join-Path $wsB.SystemIndexDir "旧") -Force | Out-Null
-        Set-Content -LiteralPath (Join-Path $wsB.SystemIndexDir "旧\システムインデックス.txt") -Value "x00000000" -Encoding UTF8
-        [void](updateSystemIndexState { param ($s) [void]$s.Covered.Add("旧") } $wsB.SystemIndexStateFile)
+        New-Item -ItemType Directory -Path (Join-Path $wsB.OldSystemIndexDir "旧") -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $wsB.OldSystemIndexDir "旧\システムインデックス.txt") -Value "x00000000" -Encoding UTF8
+        Set-Content -LiteralPath $wsB.OldSystemIndexStateFile -Value "旧" -Encoding UTF8
 
         importIndex $dest ${importCollisionRename} "" "C:\共有\営業部" $wsB $settingsB | Out-Null
 
-        Test-Path -LiteralPath $wsB.SystemIndexDir | Should -Be $false
-        (readSystemIndexState $wsB.SystemIndexStateFile).Covered.Count | Should -Be 0
+        Test-Path -LiteralPath $wsB.OldSystemIndexDir | Should -Be $false
+        Test-Path -LiteralPath $wsB.OldSystemIndexStateFile | Should -Be $false
         Test-Path -LiteralPath (Join-Path $wsB.LegacyIndexDir "旧\元のフォルダ.txt") | Should -Be $true
     }
 
-    It "前の版のワークスペース: 片付けられなければ例外にし、content_index にも設定にも足さない" {
+    It "前の版のシステムインデックスを消せなくても、インポートは続けて成功する" {
         $fixtureA = newIndexFixture "$TestDrive\legacy_fail_a" "営業" "C:\共有\営業部"
         $dest = "$TestDrive\legacy_fail.zip"
         exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
 
         $wsB = [Workspace]::new("$TestDrive\legacy_fail_b")
         $settingsB = "$TestDrive\legacy_fail_b\setting.config"
-        New-Item -ItemType Directory -Path (Join-Path $wsB.LegacyIndexDir "旧") -Force | Out-Null
-        Set-Content -LiteralPath (Join-Path $wsB.LegacyIndexDir "旧\元のフォルダ.txt") -Value "旧`tC:\旧" -Encoding UTF8
-        New-Item -ItemType Directory -Path (Join-Path $wsB.SystemIndexDir "旧") -Force | Out-Null
-        $txt = Join-Path $wsB.SystemIndexDir "旧\システムインデックス.txt"
+        New-Item -ItemType Directory -Path (Join-Path $wsB.OldSystemIndexDir "旧") -Force | Out-Null
+        $txt = Join-Path $wsB.OldSystemIndexDir "旧\システムインデックス.txt"
         Set-Content -LiteralPath $txt -Value "x00000000" -Encoding UTF8
 
         $stream = [System.IO.File]::Open($txt, "Open", "Read", "None")
         try {
-            { importIndex $dest ${importCollisionRename} "" "C:\共有\営業部" $wsB $settingsB } | Should -Throw
+            $result = importIndex $dest ${importCollisionRename} "" "C:\共有\営業部" $wsB $settingsB
         } finally {
             $stream.Dispose()
         }
-        Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業") | Should -Be $false
-        Test-Path -LiteralPath (Join-Path $wsB.PublishDir "import") | Should -Be $false
-        @(getTargetFolders $settingsB).Count | Should -Be 0
+        @($result.Warnings | Where-Object { $_ -like "前の版が作った検索用のファイルを消せませんでした*" }).Count | Should -Be 1
+        Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業") | Should -Be $true
+        @(getTargetFolders $settingsB).Count | Should -Be 1
     }
 
     It "取り込みの途中で失敗し、作業フォルダの片付けも失敗しても、元の失敗の理由が出る" {
@@ -1196,14 +1156,14 @@ Describe "受け取る zip の大きさと件数の上限" -Tag Io {
         Test-Path -LiteralPath $wsB.IndexDir | Should -Be $false
     }
 
-    Context "検証の前に前の版の片付けをしない" {
+    Context "検証の前に前のシステムインデックスを消さない" {
         BeforeEach {
             $script:wsLegacy = [Workspace]::new("$TestDrive\legacykeep_$([Guid]::NewGuid().ToString('N'))")
             $script:settingsLegacy = "$($script:wsLegacy.Dir)\setting.config"
             New-Item -ItemType Directory -Path (Join-Path $script:wsLegacy.LegacyIndexDir "旧") -Force | Out-Null
             Set-Content -LiteralPath (Join-Path $script:wsLegacy.LegacyIndexDir "旧\元のフォルダ.txt") -Value "旧`tC:\旧" -Encoding UTF8
-            New-Item -ItemType Directory -Path (Join-Path $script:wsLegacy.SystemIndexDir "旧") -Force | Out-Null
-            Set-Content -LiteralPath (Join-Path $script:wsLegacy.SystemIndexDir "旧\システムインデックス.txt") -Value "x00000000" -Encoding UTF8
+            New-Item -ItemType Directory -Path (Join-Path $script:wsLegacy.OldSystemIndexDir "旧") -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $script:wsLegacy.OldSystemIndexDir "旧\システムインデックス.txt") -Value "x00000000" -Encoding UTF8
         }
 
         It "<label>のとき、system_index が残る" -TestCases @(
@@ -1247,24 +1207,7 @@ Describe "受け取る zip の大きさと件数の上限" -Tag Io {
             }
 
             { importIndex $path ${importCollisionRename} "" "C:\新しい場所" $script:wsLegacy $script:settingsLegacy $getFree } | Should -Throw $message
-            Test-Path -LiteralPath (Join-Path $script:wsLegacy.SystemIndexDir "旧\システムインデックス.txt") | Should -Be $true
-        }
-
-        It "片付けに失敗して止まっても、zip を閉じている（そのあと zip を消せる）" {
-            $fixtureA = newIndexFixture "$TestDrive\legacykeep_a_$([Guid]::NewGuid().ToString('N'))" "営業" "C:\共有\営業部"
-            $dest = "$TestDrive\legacykeep_$([Guid]::NewGuid().ToString('N')).zip"
-            exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
-            $txt = Join-Path $script:wsLegacy.SystemIndexDir "旧\システムインデックス.txt"
-
-            $stream = [System.IO.File]::Open($txt, "Open", "Read", "None")
-            try {
-                { importIndex $dest ${importCollisionRename} "" "C:\共有\営業部" $script:wsLegacy $script:settingsLegacy } | Should -Throw "*前の版のインデックス*片付けられませんでした*"
-            } finally {
-                $stream.Dispose()
-            }
-            { Remove-Item -LiteralPath $dest -Force -ErrorAction Stop } | Should -Not -Throw
-            Test-Path -LiteralPath (Join-Path $script:wsLegacy.IndexDir "営業") | Should -Be $false
-            Test-Path -LiteralPath (Join-Path $script:wsLegacy.PublishDir "import") | Should -Be $false
+            Test-Path -LiteralPath (Join-Path $script:wsLegacy.OldSystemIndexDir "旧\システムインデックス.txt") | Should -Be $true
         }
     }
 }

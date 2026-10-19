@@ -6,7 +6,7 @@
 # ui/index/index_types.ps1 の FolderItem の Set* メソッドと、プロパティへの直接の代入から集める
 BeforeAll {
     $script:uiDir = (Resolve-Path "$PSScriptRoot\..\..\scripts\tebunko\ui").Path
-    $script:refreshers = @("updateIndexDetailPanel", "updateIndexListView", "refreshIndexViews", "updateFastSearchRows", "applyIndexStats")
+    $script:refreshers = @("updateIndexDetailPanel", "updateIndexListView", "refreshIndexViews", "applyIndexStats")
 
     function getAst {
         param ([string]$path)
@@ -66,7 +66,7 @@ Describe "インデックス管理の詳細を書き直す入口" -Tag Meta {
         @{ key = "index_list.ps1:applyFolderStatus"; reason = "フォルダの有無の結果が遅れて届く" }
         @{ key = "index_list.ps1:updateFolderItemStatus"; reason = "場所の変更でフォルダの状態が「確認しています」に戻る" }
         @{ key = "index_list.ps1:updateIndexListView"; reason = "選び直し・追加・削除・読み直し" }
-        @{ key = "index_list.ps1:updateFastSearchRows"; reason = "取り込みの集計と高速検索の確かめが届く" }
+        @{ key = "index_list.ps1:applyIndexStats"; reason = "取り込みの集計が届く" }
         @{ key = "index_list.ps1:refreshIndexViews"; reason = "追加・編集・削除のあと" }
     ) {
         param ($key, $reason)

@@ -490,7 +490,7 @@ function splitContentIndexTextByBook {
         $start = $pos + 1
         $lineEnd = $text.IndexOf([char]10, $start)
         if ($lineEnd -lt 0) {
-            throw "集約ファイルの形が崩れています（ファイル名の行に改行がありません）"
+            throw "インデックスのファイルの形が崩れています（ファイル名の行に改行がありません）"
         }
         $name = decodeContentIndexValue $text.Substring($start + $head.Length, $lineEnd - $start - $head.Length)
         $next = $text.IndexOf("`n$head", $lineEnd, [System.StringComparison]::Ordinal)
@@ -503,7 +503,7 @@ function splitContentIndexTextByBook {
 
 
 function getContentIndexBodyText {
-    # 本文インデックスのファイルの文字列から、メタ情報の行（先頭が RS の行）を除いた中身だけを返す（システムインデックスの語を作るため。
+    # 本文インデックスのファイルの文字列から、メタ情報の行（先頭が RS の行）を除いた中身だけを返す（検索用の索引の gram を作るため。
     # メタ情報の「ファイル名」「シート」などの語が入ると、その語で探したときにどのフォルダも候補になってしまう）
     param (
         [string]$text
@@ -525,7 +525,7 @@ function getIndexRebuildMessage {
 
 function getContentIndexPublishSkippedText {
     # インデックス作成で、本文インデックスにまとめられず飛ばしたフォルダをログに出す 1 行（インデックスからの相対パス・段・理由）。
-    # 段は「本文インデックス」か「システムインデックス」（理由の頭に付けて、どこで止まったかが分かるようにする）
+    # 段は「本文インデックス」（理由の頭に付けて、どこで止まったかが分かるようにする）
     param (
         [string]$rel,
         [string]$stage,
@@ -534,7 +534,7 @@ function getContentIndexPublishSkippedText {
 
     $shown = if ($rel) { $rel } else { "." }
     $oneLine = ($reason -replace "[\r\n]+", " ").Trim()
-    return "    本文インデックスにまとめられなかったフォルダがあります（${shown}）: ${stage}: ${oneLine}。インデックスを作り直すと直ります"
+    return "    インデックスにまとめられなかったフォルダがあります（${shown}）: ${stage}: ${oneLine}。インデックスを作り直すと直ります"
 }
 
 

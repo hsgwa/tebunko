@@ -22,8 +22,6 @@ BeforeAll {
         @{ File = "tebunko/index/content_index_store.ps1"; Function = "findContentIndexFiles"; Reason = "本文インデックスのファイルを探す読み取りだけ（インデックスの置き場の中を探し、取り込み対象のファイルは見ない）" }
         @{ File = "tebunko/index/content_index_store.ps1"; Function = "findIndexFoldersWithBooks"; Reason = "インデックスの置き場の中で、元のファイルごとの TSV のフォルダを探す。結果は本文インデックスのファイルへのまとめ直し（書き込み）に渡るが、書くのは置き場の中のフォルダで、置き場にリンクを置かない前提" }
         @{ File = "tebunko/index/index_store.ps1"; Function = "getIndexTsvCounts"; Reason = "TSV の数を数える読み取りだけ（インデックスの置き場の中）" }
-        @{ File = "tebunko/index/system_index.ps1"; Function = "getSystemIndexStaleFolders"; Reason = "システムインデックスが古いフォルダを見つける読み取りだけ（インデックスの置き場の中）" }
-        @{ File = "tebunko/search/fast_search.ps1"; Function = "getSystemIndexProgress"; Reason = "システムインデックスの進み具合を数える読み取りだけ" }
         @{ File = "tebunko/search/search_run.ps1"; Function = "testIndexExists"; Reason = "インデックスの有無を調べる読み取りだけ" }
         @{ File = "tebunko/search/search_run.ps1"; Function = "getIndexSummary"; Reason = "インデックスの件数を数える読み取りだけ" }
     )

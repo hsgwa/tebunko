@@ -14,8 +14,8 @@ Describe "Workspace" -Tag Unit {
         $target.OldIndexDir | Should -Be "C:\Users\test\Documents\tebunko_ws\content_index"
         $target.OldStatusFile | Should -Be "C:\Users\test\Documents\tebunko_ws\ingest_status.tsv"
         $target.LegacyIndexDir | Should -Be "C:\Users\test\Documents\tebunko_ws\index"
-        $target.SystemIndexDir | Should -Be "C:\Users\test\Documents\tebunko_ws\system_index"
-        $target.SystemIndexStateFile | Should -Be "C:\Users\test\Documents\tebunko_ws\system_index_state.tsv"
+        $target.OldSystemIndexDir | Should -Be "C:\Users\test\Documents\tebunko_ws\system_index"
+        $target.OldSystemIndexStateFile | Should -Be "C:\Users\test\Documents\tebunko_ws\system_index_state.tsv"
         $target.PublishDir | Should -Be "C:\Users\test\Documents\tebunko_ws\publish\$PID"
         $target.StatusFile | Should -Be "C:\Users\test\Documents\tebunko_ws\store\ingest_status.tsv"
         $target.JournalFile | Should -Be "C:\Users\test\Documents\tebunko_ws\store\journal\ingest.tsv"
@@ -176,24 +176,18 @@ Describe "getTmpDirUnavailableMessage" -Tag Unit {
 
 Describe "getLegacyIndexState" -Tag Io {
     It "<name>" -TestCases @(
-        @{ name = "index が無い"; hasDir = $false; hasMark = $false; content = "none"; hasTxt = $false
-           hasLegacy = $false; contentEmpty = $true; hasLegacyTxt = $false }
-        @{ name = "index はあるがしるしが無い"; hasDir = $true; hasMark = $false; content = "none"; hasTxt = $false
-           hasLegacy = $false; contentEmpty = $true; hasLegacyTxt = $false }
-        @{ name = "しるしあり・content_index 無し・前の名前の txt 無し"; hasDir = $true; hasMark = $true; content = "none"; hasTxt = $false
-           hasLegacy = $true; contentEmpty = $true; hasLegacyTxt = $false }
-        @{ name = "しるしあり・content_index 無し・前の名前の txt あり"; hasDir = $true; hasMark = $true; content = "none"; hasTxt = $true
-           hasLegacy = $true; contentEmpty = $true; hasLegacyTxt = $true }
-        @{ name = "しるしあり・content_index は空のフォルダだけ・txt 無し"; hasDir = $true; hasMark = $true; content = "emptyFolder"; hasTxt = $false
-           hasLegacy = $true; contentEmpty = $true; hasLegacyTxt = $false }
-        @{ name = "しるしあり・content_index は空のフォルダだけ・txt あり"; hasDir = $true; hasMark = $true; content = "emptyFolder"; hasTxt = $true
-           hasLegacy = $true; contentEmpty = $true; hasLegacyTxt = $true }
-        @{ name = "しるしあり・content_index にファイルがある・txt 無し"; hasDir = $true; hasMark = $true; content = "hasFile"; hasTxt = $false
-           hasLegacy = $true; contentEmpty = $false; hasLegacyTxt = $false }
-        @{ name = "しるしあり・content_index にファイルがある・txt あり（空でないので調べない）"; hasDir = $true; hasMark = $true; content = "hasFile"; hasTxt = $true
-           hasLegacy = $true; contentEmpty = $false; hasLegacyTxt = $false }
+        @{ name = "index が無い"; hasDir = $false; hasMark = $false; content = "none"
+           hasLegacy = $false; contentEmpty = $true }
+        @{ name = "index はあるがしるしが無い"; hasDir = $true; hasMark = $false; content = "none"
+           hasLegacy = $false; contentEmpty = $true }
+        @{ name = "しるしあり・content_index 無し"; hasDir = $true; hasMark = $true; content = "none"
+           hasLegacy = $true; contentEmpty = $true }
+        @{ name = "しるしあり・content_index は空のフォルダだけ"; hasDir = $true; hasMark = $true; content = "emptyFolder"
+           hasLegacy = $true; contentEmpty = $true }
+        @{ name = "しるしあり・content_index にファイルがある"; hasDir = $true; hasMark = $true; content = "hasFile"
+           hasLegacy = $true; contentEmpty = $false }
     ) {
-        param ($name, $hasDir, $hasMark, $content, $hasTxt, $hasLegacy, $contentEmpty, $hasLegacyTxt)
+        param ($name, $hasDir, $hasMark, $content, $hasLegacy, $contentEmpty)
         $dir = "$TestDrive\legacy_$([Guid]::NewGuid().ToString('N'))"
         if ($hasDir) {
             [System.IO.Directory]::CreateDirectory("$dir\index\営業") | Out-Null
@@ -205,14 +199,10 @@ Describe "getLegacyIndexState" -Tag Io {
             "emptyFolder" { [System.IO.Directory]::CreateDirectory("$dir\content_index\営業") | Out-Null }
             "hasFile"     { newTsv "$dir\content_index\営業\content_index.xlsx.001.tsv" @("a") }
         }
-        if ($hasTxt) {
-            newTsv "$dir\system_index\営業\システムインデックス.txt" @("x00000000")
-        }
 
         $state = getLegacyIndexState $dir
         $state.HasLegacyIndex | Should -Be $hasLegacy
         $state.ContentEmpty | Should -Be $contentEmpty
-        $state.HasLegacySystemIndex | Should -Be $hasLegacyTxt
     }
 
     It "調べ終えたら、下のフォルダを掴んだままにしない（すぐに移動できる）" {
@@ -222,34 +212,12 @@ Describe "getLegacyIndexState" -Tag Io {
         newTsv "$dir\index\営業\元のフォルダ.txt" @("営業`tC:\元")
         newTsv "$dir\content_index\営業\見積\content_index.xlsx.001.tsv" @("a")
         newTsv "$dir\content_index\営業\見積\content_index.xlsx.002.tsv" @("b")
-        newTsv "$dir\system_index\営業\システムインデックス.txt" @("x00000000")
 
         $state = getLegacyIndexState $dir
         $state.ContentEmpty | Should -Be $false
 
         { [System.IO.Directory]::Move("$dir\content_index\営業", "$dir\moved_content") } | Should -Not -Throw
         { [System.IO.Directory]::Move("$dir\index\営業", "$dir\moved_index") } | Should -Not -Throw
-
-        # content_index が空のときに調べる system_index も同じ
-        $empty = "$TestDrive\legacy_handle_empty"
-        newTsv "$empty\system_index\営業\見積\システムインデックス.txt" @("x00000000")
-        newTsv "$empty\system_index\営業\見積\システムインデックス2.txt" @("x00000001")
-
-        (getLegacyIndexState $empty).HasLegacySystemIndex | Should -Be $true
-
-        { [System.IO.Directory]::Move("$empty\system_index\営業", "$empty\moved_system") } | Should -Not -Throw
-    }
-}
-
-Describe "testLegacyCleanupNeeded" -Tag Unit {
-    It "content_index が空で、しるしか前の名前の txt があるときだけ片付ける" -TestCases @(
-        @{ contentEmpty = $true;  hasLegacy = $true;  hasTxt = $false; expected = $true }
-        @{ contentEmpty = $true;  hasLegacy = $false; hasTxt = $true;  expected = $true }
-        @{ contentEmpty = $true;  hasLegacy = $false; hasTxt = $false; expected = $false }
-        @{ contentEmpty = $false; hasLegacy = $true;  hasTxt = $true;  expected = $false }
-    ) {
-        param ($contentEmpty, $hasLegacy, $hasTxt, $expected)
-        testLegacyCleanupNeeded @{ ContentEmpty = $contentEmpty; HasLegacyIndex = $hasLegacy; HasLegacySystemIndex = $hasTxt } | Should -Be $expected
     }
 }
 
@@ -266,45 +234,61 @@ Describe "getLegacyIndexMessage" -Tag Unit {
     }
 }
 
-Describe "clearLegacySystemIndex" -Tag Io {
-    It "system_index の txt を開いたままだと Ok=`$false` を理由付きで返すが、状態ファイルの中身は空にする。閉じてもう一度で Ok=`$true` になる" {
-        $dir = "$TestDrive\clear1"
+Describe "removeOldSystemIndex" -Tag Io {
+    It "前の版のシステムインデックスと状態ファイルがあれば消し、無くても Ok を返す" {
+        $dir = "$TestDrive\old1"
         $ws = [Workspace]::new($dir)
-        $txt = "$($ws.SystemIndexDir)\営業\システムインデックス.txt"
-        newTsv $txt @("x00000000")
-        [void](updateSystemIndexState { param ($s) [void]$s.Covered.Add("営業") } $ws.SystemIndexStateFile)
+        newTsv "$($ws.OldSystemIndexDir)\営業\システムインデックス.txt" @("x00000000")
+        newTsv $ws.OldSystemIndexStateFile @("営業")
+        newTsv "$dir\store\content\営業\a.tsv" @("a")
 
-        $stream = [System.IO.File]::Open($txt, "Open", "Read", "None")
-        try {
-            $result = clearLegacySystemIndex $dir
-            $result.Ok | Should -Be $false
-            $result.Reason | Should -Not -BeNullOrEmpty
-        } finally {
-            $stream.Dispose()
-        }
-        (readSystemIndexState $ws.SystemIndexStateFile).Covered.Count | Should -Be 0
-        Test-Path -LiteralPath $txt | Should -Be $true
-
-        $result = clearLegacySystemIndex $dir
+        $result = removeOldSystemIndex $dir
         $result.Ok | Should -Be $true
         $result.Reason | Should -Be ""
-        Test-Path -LiteralPath $ws.SystemIndexDir | Should -Be $false
+        Test-Path -LiteralPath $ws.OldSystemIndexDir | Should -Be $false
+        Test-Path -LiteralPath $ws.OldSystemIndexStateFile | Should -Be $false
+        Test-Path -LiteralPath "$dir\store\content\営業\a.tsv" | Should -Be $true
+
+        (removeOldSystemIndex $dir).Ok | Should -Be $true
     }
 
-    It "状態ファイルを開けなければ Ok=`$false` を理由付きで返し、system_index には触らない" {
-        $dir = "$TestDrive\clear2"
+    It "中にあるジャンクションの先は消さず、system_index ごと消える（system_index 自身がジャンクションでも先は残る）" -TestCases @(
+        @{ name = "system_index の中"; nested = $true }
+        @{ name = "system_index 自身"; nested = $false }
+    ) {
+        param ($name, $nested)
+        $dir = "$TestDrive\old2_$nested"
+        $outside = "$TestDrive\old2_outside_$nested"
+        newTsv "$outside\営業\システムインデックス.txt" @("x00000000")
+        $link = if ($nested) { "$dir\system_index\営業" } else { "$dir\system_index" }
+        [System.IO.Directory]::CreateDirectory((Split-Path $link -Parent)) | Out-Null
+        if (!(newTestJunction $link "$outside\営業")) {
+            Set-ItResult -Skipped -Because $script:linkError
+            return
+        }
+
+        $result = removeOldSystemIndex $dir
+        $result.Ok | Should -Be $true
+        Test-Path -LiteralPath "$dir\system_index" | Should -Be $false
+        Test-Path -LiteralPath "$outside\営業\システムインデックス.txt" | Should -Be $true
+    }
+
+    It "開いたままで消せなくても例外にせず、Ok=`$false を理由付きで返す。閉じてもう一度で消える" {
+        $dir = "$TestDrive\old3"
         $ws = [Workspace]::new($dir)
-        newTsv "$($ws.SystemIndexDir)\営業\システムインデックス.txt" @("x00000000")
-        [void](updateSystemIndexState { param ($s) } $ws.SystemIndexStateFile)
-        $stream = [System.IO.FileStream]::new($ws.SystemIndexStateFile, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+        $txt = "$($ws.OldSystemIndexDir)\営業\システムインデックス.txt"
+        newTsv $txt @("x00000000")
+        $stream = [System.IO.File]::Open($txt, "Open", "Read", "None")
         try {
-            $result = clearLegacySystemIndex $dir
+            $result = removeOldSystemIndex $dir
             $result.Ok | Should -Be $false
             $result.Reason | Should -Not -BeNullOrEmpty
         } finally {
             $stream.Dispose()
         }
-        Test-Path -LiteralPath $ws.SystemIndexDir | Should -Be $true
+
+        (removeOldSystemIndex $dir).Ok | Should -Be $true
+        Test-Path -LiteralPath $ws.OldSystemIndexDir | Should -Be $false
     }
 }
 

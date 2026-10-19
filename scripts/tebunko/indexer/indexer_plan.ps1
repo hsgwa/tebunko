@@ -6,13 +6,13 @@ $targetExtensions = @(${officeExtensions}) + @(${textExtensions}) + @(${pdfExten
 # tebunko が作ったファイルを、名前だけで見分けるパターン（テキストの拡張子のものだけに当たる。どこにあっても外す）。
 #   ・今の版の本文インデックス（content_index.xlsx.001.tsv 等。contentIndexFileNamePattern と同じ組み立て）
 #   ・前の版（名前をそろえる前）の本文インデックスのファイル（content.xlsx.001.tsv 等）
-#   ・システムインデックス（今の版 system_index*.txt・前の版 システムインデックス*.txt。search_gram.ps1 の systemIndexFileName・
-#     workspace.ps1 の legacySystemIndexPattern と同じ組み立て）
+#   ・前の版が作ったシステムインデックス（system_index*.txt・system_index_state.tsv・システムインデックス*.txt）。今の版は作らないが、残っていても取り込まない
 ${tebunkoOwnFileNamePatterns} = @(
     "${contentIndexFileNamePrefix}.*.tsv",
     "content.*.tsv",
-    "$([System.IO.Path]::GetFileNameWithoutExtension(${systemIndexFileName}))*.txt",
-    ${legacySystemIndexPattern}
+    "system_index*.txt",
+    "system_index_state.tsv",
+    "システムインデックス*.txt"
 )
 
 function testTebunkoOwnFileName {

@@ -14,7 +14,7 @@ BeforeAll {
     $tokens = $null
     $errors = $null
     $ast = [System.Management.Automation.Language.Parser]::ParseFile("${scriptsDir}\tebunko\ui\search\search_bar.ps1", [ref]$tokens, [ref]$errors)
-    foreach ($name in "updateFastSearchView", "getCurrentWordNotice") {
+    foreach ($name in "getCurrentWordNotice") {
         $definition = $ast.Find({ param ($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name }, $true)
         . ([scriptblock]::Create($definition.Extent.Text))
     }
@@ -38,28 +38,6 @@ Describe "判断層 → 状態層（状態層をスタブにする）" -Tag Unit
             Mock isValidRegex { return $false }
             getWordNotice $word $useRegex | Should -Be ""
             Should -Invoke isValidRegex -Times 0 -Exactly
-        }
-    }
-
-    Context "getFastSearchView（search_gram.ps1 の testFastSearchUsable）" {
-        It "使えるかは状態層の答えのとおりにし、使えないとき（Windows Search あり）は理由を正規表現・語の長さで分ける" -ForEach @(
-            @{ usable = $true; searchable = $true; regex = $false; goToIndex = $false; text = "高速検索：使用可" }
-            @{ usable = $false; searchable = $true; regex = $true; goToIndex = $false; text = "高速検索：使用不可" }
-            @{ usable = $false; searchable = $false; regex = $false; goToIndex = $true; text = "高速検索：使用不可" }
-        ) {
-            Mock testFastSearchUsable { return $usable }
-            $view = getFastSearchView $searchable $regex "語"
-            $view.Usable | Should -Be $usable
-            $view.Text | Should -Be $text
-            $view.GoToIndex | Should -Be $goToIndex
-            $view.Tip | Should -Not -BeNullOrEmpty
-            Should -Invoke testFastSearchUsable -Times 1 -Exactly -ParameterFilter { $available -eq $searchable -and $useRegex -eq $regex -and $word -eq "語" }
-        }
-
-        It "まだ確かめていない（`$null）ときは、使えるものとして状態層に渡す" {
-            Mock testFastSearchUsable { return $true }
-            (getFastSearchView $null $false "語").Usable | Should -Be $true
-            Should -Invoke testFastSearchUsable -Times 1 -Exactly -ParameterFilter { $available -eq $true }
         }
     }
 
@@ -106,35 +84,13 @@ Describe "画面層 → 判断層（判断層をスタブにする）" -Tag Unit
         function newFakeUi {
             return @{
                 RegexCheck = [pscustomobject]@{ IsChecked = $true }
-                FastSearchText = [pscustomobject]@{ Text = "" }
-                FastBadge = [pscustomobject]@{ Tag = ""; ToolTip = ""; Cursor = $null }
             }
         }
     }
 
     BeforeEach {
         $script:word = "語"
-        $script:fastAvailable = $null
         $ui = newFakeUi
-    }
-
-    Context "updateFastSearchView（search_bar_view.ps1 の getFastSearchView）" {
-        It "判断層の答えを、そのまま画面の部品に置く。判断層には、確かめた結果・［正規表現］・検索ワードを渡す" -ForEach @(
-            @{ usable = $true; goToIndex = $false; tag = "ok"; cursorName = "Arrow" }
-            @{ usable = $false; goToIndex = $true; tag = "off"; cursorName = "Hand" }
-        ) {
-            $script:fastAvailable = $false
-            Mock getFastSearchView { return @{ Usable = $usable; Text = "判断層の文言"; Tip = "判断層の説明"; GoToIndex = $goToIndex } }
-
-            updateFastSearchView
-
-            $ui.FastSearchText.Text | Should -Be "判断層の文言"
-            $ui.FastBadge.ToolTip | Should -Be "判断層の説明"
-            $ui.FastBadge.Tag | Should -Be $tag
-            [object]::ReferenceEquals($ui.FastBadge.Cursor, [System.Windows.Input.Cursors]::$cursorName) | Should -Be $true
-            $script:fastGoToIndex | Should -Be $goToIndex
-            Should -Invoke getFastSearchView -Times 1 -Exactly -ParameterFilter { $available -eq $false -and $useRegex -eq $true -and $word -eq "語" }
-        }
     }
 
     Context "getCurrentWordNotice（search_bar_view.ps1 の getWordNotice）" {

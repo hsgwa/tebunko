@@ -10,6 +10,7 @@ $judgmentLayerPaths = @(
     "tebunko/index/content_index_format.ps1"
     "tebunko/search/search_query.ps1"
     "tebunko/search/search_gram.ps1"
+    "tebunko/index/gram_index.ps1"
     "tebunko/indexer/indexer_decide.ps1"
     "*_view.ps1"
 )

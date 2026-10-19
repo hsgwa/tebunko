@@ -201,7 +201,7 @@ function exportIndexCore {
         $rel = (fromLongPath $tsvFile.FullName).Substring($prefixLength)
         $fileName = [System.IO.Path]::GetFileName($rel)
         if ($null -eq (readContentIndexFileName $fileName)) {
-            throw "本文インデックスとして扱えないファイルが残っています（${rel}）。更新を最後まで行うか、そのファイルを取り除いてからエクスポートしてください。"
+            throw "インデックスとして扱えないファイルが残っています（${rel}）。更新を最後まで行うか、そのファイルを取り除いてからエクスポートしてください。"
         }
         $contentIndexFiles.Add($rel)
     }
@@ -609,7 +609,7 @@ function expandImportArchive {
                     $reason = testImportedContentIndexFile $size (readContentIndexText $target)
                 }
                 if ($reason) {
-                    throw "本文インデックスのファイル「${path}」を読み込めません（${reason}）。エクスポートした側で更新し直してから、もう一度エクスポートしてください。"
+                    throw "インデックスのファイル「${path}」を読み込めません（${reason}）。エクスポートした側で更新し直してから、もう一度エクスポートしてください。"
                 }
             }
         }
@@ -855,22 +855,14 @@ function importIndexCore {
         $expanded = expandImportArchive $archive $fileEntries $workDir $finalName $folder $ws.PublishDir
         $targetIndexDir = Join-Path $ws.IndexDir $finalName
         try {
-            # 前の版のワークスペース（index\ あり・content_index\ が空）を、取り込み直しを始めるときと同じ手順で片付ける。
-            # 展開（大きさ・SHA-256・本文インデックスの確かめ）が済んでから、設定に登録する前に行う（断る zip で消さないため）。
-            # content_index\ にこのインポートの分を足す前に行う（片付けに失敗したら、以降は行わず、外側の catch が作業フォルダを消す）
-            $legacyState = getLegacyIndexState $ws.Dir
-            if (testLegacyCleanupNeeded $legacyState) {
-                $cleanup = clearLegacySystemIndex $ws.Dir
-                if (!$cleanup.Ok) {
-                    throw "前の版のインデックス（高速検索用）を片付けられませんでした（$($cleanup.Reason)）。tebunko の画面やエクスプローラーで開いていれば閉じてから、もう一度インポートしてください。"
-                }
+            # 前の版が作ったシステムインデックスは、この版では使わない。消せなくても取り込みは続け、警告に 1 行足す（次のインデックス作成でも消す）
+            $oldSearchFiles = removeOldSystemIndex $ws.Dir
+            if (!$oldSearchFiles.Ok) {
+                $warnings.Add("前の版が作った検索用のファイルを消せませんでした（$($oldSearchFiles.Reason)）。次のインデックス作成でもう一度消します。")
             }
             $before = registerImportedIndexInSettings $finalName $folder $overwrite $targetIndexDir $settingsPath
             try {
                 $swap = swapInImportedIndexDir $expanded.NewDir $targetIndexDir (Join-Path $workDir "previous") $ws.IndexDir $ws.PublishDir
-                # Directory.Move で入れたフォルダは、work\content_index の NotContentIndexed を受け継がない。
-                # 根に付いたあとの -Recurse は中へ降りないため（publish.md）、入れた直後に付ける（失敗しても止めない）
-                setWindowsSearchExcluded $targetIndexDir -Recurse | Out-Null
                 try {
                     # 取り込んだインデックスは、作り終えたものとして目録に載せる
                     if (!(setIndexFormatRow $finalName ${catalogRowFinished} $ws.FormatFile)) {
@@ -895,9 +887,9 @@ function importIndexCore {
             throw $original
         }
 
-        # 11. 上書きなら、前のシステムインデックスを消す（消せなくても続ける。次のインデックス作成で整理される）
+        # 11. 上書きなら、前の gram 索引を消す（消せなくても続ける。次のインデックス作成で整理される）
         if ($overwrite) {
-            removeSystemIndexOfWorkspace $finalName $ws.IndexDir
+            removeGramIndexOfWorkspace $finalName $ws.IndexDir
         }
         # 12. 作業フォルダを消す
         if (!(removeDirectoryUnder $workDir $ws.PublishDir)) {

@@ -19,7 +19,6 @@
 #   -Typing   … 入力しながらの検索を測る、語ごとの入力の繰り返し回数（既定 0 は測らない。1 は受け付けない）
 #   -TypingIntervalMs … 入力しながらの検索の、要求の間隔（ミリ秒。既定 150。画面の入力しながらの検索の待ち時間と同じ）
 #   -TypingMinLength  … 入力しながらの検索で最初に送る語の長さ（既定 3。画面と同じ。合否はこの既定で決める）
-#   -TypingFast … 入力しながらの検索で高速検索（Windows Search）を使う。-Index を <Work> の本文インデックスのフォルダにしておくこと
 #   -Preview  … 選択行のプレビューを測る、語ごとのプレビューの数（既定 0 は測らない）。検索のヒットの先頭から順に、キャッシュ無しとキャッシュありで 1 回ずつ読む
 #   -Render   … -Preview のとき、プレビューの表を画面の部品に入れて Measure・Arrange する時間も測る（画面は出さない）
 #   -ReadMore … -Preview のとき、セルの数が最大だった行の表に、下へ 200 行ずつ 5 回読み足す時間も測る（Preview.Words[].ReadMore）
@@ -62,7 +61,6 @@ param (
     [int]$Typing = 0,
     [int]$TypingIntervalMs = 150,
     [int]$TypingMinLength = 3,
-    [switch]$TypingFast,
     [int]$Preview = 0,
     [switch]$Render,
     [switch]$ReadMore,
@@ -92,12 +90,6 @@ if ($Index) { $Index = (Resolve-Path -LiteralPath $Index).ProviderPath.TrimEnd("
 if ($Office) { $Office = (Resolve-Path -LiteralPath $Office).ProviderPath.TrimEnd("\") }
 [void][System.IO.Directory]::CreateDirectory($Work)
 $Work = (Resolve-Path -LiteralPath $Work).ProviderPath.TrimEnd("\")
-if ($TypingFast) {
-    $wantIndex = (getToolIndexDir $Tool $Work).TrimEnd("\")
-    if (!$Index -or !$Index.Equals($wantIndex, [System.StringComparison]::OrdinalIgnoreCase)) {
-        throw "-TypingFast では、-Index を <Work> の本文インデックスのフォルダ（${wantIndex}）にしてください。"
-    }
-}
 if (!$Out) { $Out = Join-Path $Work "result" }
 [void][System.IO.Directory]::CreateDirectory($Out)
 $raw = Join-Path $Work "raw"
@@ -234,7 +226,6 @@ if ($Index -and $Typing -gt 0) {
         $typingJson = Join-Path $raw "typing-$w.json"
         $typingArgs = @("-Tool", $Tool, "-Index", $Index, "-WordFile", $wordFile, "-Count", $Typing, "-IntervalMs", $TypingIntervalMs,
             "-MinLength", $TypingMinLength, "-Work", $Work, "-Out", $typingJson, "-SampleMs", $SampleMs)
-        if ($TypingFast) { $typingArgs += "-Fast" }
         invokeChild "measure_typing.ps1" $typingArgs
         $r = readJson $typingJson
         $typingRaw.Add($r)
@@ -283,7 +274,7 @@ $run.SearchMode = (@($search | ForEach-Object { $_.Mode } | Select-Object -Uniqu
 $result = [ordered]@{ Schema = 5; Run = $run; Index = $indexResult; Search = $(if ($Index) { $search.ToArray() } else { $null }); Ingest = $ingestResult; Xlsx = $xlsxResult
     Preview = $(if ($Index -and $Preview -gt 0) { [ordered]@{ Count = $Preview; Render = [bool]$Render; Words = $previewWords.ToArray(); Skipped = $previewSkipped.ToArray() } } else { $null })
     Typing = $(if ($Index -and $Typing -gt 0) { [ordered]@{
-        Mode = [string]$typingRaw[0].Mode; Count = $Typing; IntervalMs = $TypingIntervalMs; MinLength = $TypingMinLength; Fast = [bool]$TypingFast
+        Mode = [string]$typingRaw[0].Mode; Count = $Typing; IntervalMs = $TypingIntervalMs; MinLength = $TypingMinLength
         Words = $typingWords.ToArray()
     } } else { $null })
 }
@@ -322,7 +313,6 @@ if ($indexResult -and $indexResult.Pack) {
     addMetric "index_books" "" "value" $indexResult.Pack.Books "count"
     addMetric "index_tsv_mb" "" "value" $indexResult.Pack.TsvMB "MB"
     addMetric "index_pack_mb" "" "value" $indexResult.Pack.PackMB "MB"
-    addMetric "index_system_index_mb" "" "value" $indexResult.Pack.SystemIndexMB "MB"
 }
 $packPhase = @($(if ($indexResult) { $indexResult.Resources }) | Where-Object { $_.Phase -eq "pack の作成" })
 if ($packPhase.Count) {
@@ -410,7 +400,7 @@ if ($Index -and $Typing -gt 0) {
             [pscustomobject][ordered]@{
                 Word = $r.Name; N = $a.N; Steps = $a.Steps; FirstHitMs = $a.FirstHitMs; FinishMs = $a.FinishMs; WaitPrevMs = $a.WaitPrevMs
                 IntervalMaxMs = (arrMax $a.IntervalMs); LagMaxMs = (arrMax $a.LagMs); RequestMaxMs = (arrMax $a.RequestMs)
-                Hits = $a.Hits; Truncated = $a.Truncated; Packs = $a.Packs; FastUsed = $a.FastUsed; CancelledSteps = $a.CancelledSteps
+                Hits = $a.Hits; Truncated = $a.Truncated; Packs = $a.Packs; GramUsed = $a.GramUsed; CancelledSteps = $a.CancelledSteps
                 WorkingSetMB = $a.WorkingSetMB; ManagedMB = $a.ManagedMB; Handles = $a.Handles; Threads = $a.Threads
             }
         }
@@ -504,11 +494,11 @@ add "## インデックス作成"
 add
 if ($indexResult.Pack) {
     $pk = $indexResult.Pack
-    add "インデックス作成のうち、Office からの取り込みを除いた後半の処理（pack の書き出し、TSV の削除、システムインデックスの作成）。インデクサと同じ関数を、別のプロセスで動かして測った。"
+    add "インデックス作成のうち、Office からの取り込みを除いた後半の処理（pack の書き出し、TSV の削除）。インデクサと同じ関数を、別のプロセスで動かして測った。"
     add
-    add "| フォルダ | ブック | TSV | TSV の合計 | 時間 | pack | pack の合計 | システムインデックス |"
-    add "|---|---|---|---|---|---|---|---|"
-    add ("| {0:N0} | {1:N0} | {2:N0} | {3:N1} MB | {4:N1} 秒 | {5:N0} | {6:N1} MB | {7:N1} MB |" -f $pk.Folders, $pk.Books, $pk.Tsv, $pk.TsvMB, $pk.Seconds, $pk.Packs, $pk.PackMB, $pk.SystemIndexMB)
+    add "| フォルダ | ブック | TSV | TSV の合計 | 時間 | pack | pack の合計 |"
+    add "|---|---|---|---|---|---|---|"
+    add ("| {0:N0} | {1:N0} | {2:N0} | {3:N1} MB | {4:N1} 秒 | {5:N0} | {6:N1} MB |" -f $pk.Folders, $pk.Books, $pk.Tsv, $pk.TsvMB, $pk.Seconds, $pk.Packs, $pk.PackMB)
 } else {
     add "渡したインデックスに TSV が無いため、測っていない。"
 }
@@ -593,10 +583,10 @@ $typingMode = [string]$typingRaw[0].Mode
 if ($typingMode -ne "service") {
     add "測った版には検索の司令のスレッド（SearchService）が無いため、入力しながらの検索は測っていない。"
 } else {
-    add "語を $TypingMinLength 文字目から 1 文字ずつ、$TypingIntervalMs ms おきに、画面と同じ検索の司令のスレッド（SearchService）へ要求した（新しい要求は前の要求を取り消す）。これを 1 回の入力として $Typing 回繰り返した。時間は最後の要求を渡した時点（要求を渡す時間を含む）から数え、画面に描くまでは含まない。統計は 2 回目以降（読んだ内容が残った状態）で取り、1 回目は画面を開き直した直後の入力に当たる。時刻は Windows のタイマーの細かさの分、大きく出る側に最大で約 16 ms の誤差がある。画面はヒットを 100 ms ごとに取り込むため、画面に出るまでは最大で約 100 ms 長くなる。$(if ($TypingFast) { "高速検索（Windows Search）を使った。" } else { "高速検索は使っていない。" })"
+    add "語を $TypingMinLength 文字目から 1 文字ずつ、$TypingIntervalMs ms おきに、画面と同じ検索の司令のスレッド（SearchService）へ要求した（新しい要求は前の要求を取り消す）。これを 1 回の入力として $Typing 回繰り返した。時間は最後の要求を渡した時点（要求を渡す時間を含む）から数え、画面に描くまでは含まない。統計は 2 回目以降（読んだ内容が残った状態）で取り、1 回目は画面を開き直した直後の入力に当たる。時刻は Windows のタイマーの細かさの分、大きく出る側に最大で約 16 ms の誤差がある。画面はヒットを 100 ms ごとに取り込むため、画面に出るまでは最大で約 100 ms 長くなる。"
     $skippedWords = @($typingWords | Where-Object { $_.Skipped })
     add
-    add "| 語 | 送った語の数 | ヒット件数 | 最初のヒットまで（中央値／最大） | 終わるまで（中央値／最大） | 前の検索が止まるまで（中央値／最大） | 1 回目（最初のヒット／終わり） | 照合した pack | 高速検索（使った回数／回数） |"
+    add "| 語 | 送った語の数 | ヒット件数 | 最初のヒットまで（中央値／最大） | 終わるまで（中央値／最大） | 前の検索が止まるまで（中央値／最大） | 1 回目（最初のヒット／終わり） | 照合した pack | gram 索引（使った回数／回数） |"
     add "|---|---|---|---|---|---|---|---|---|"
     foreach ($t in $typingWords) {
         if ($t.Skipped) {
@@ -606,7 +596,7 @@ if ($typingMode -ne "service") {
         add ("| {0} | {1} | {2}{3} | {4}／{5} ms | {6}／{7} ms | {8}／{9} ms | {10}／{11} ms | {12} | {13}／{14} |" -f $t.Name, $t.Steps, $t.Hits, $(if ($t.Truncated) { "+" } else { "" }),
             (msOf $t.FirstHitMs "Median"), (msOf $t.FirstHitMs "Max"), (msOf $t.FinishMs "Median"), (msOf $t.FinishMs "Max"), (msOf $t.WaitPrevMs "Median"), (msOf $t.WaitPrevMs "Max"),
             $(if ($null -ne $t.First.FirstHitMs) { "{0:N0}" -f $t.First.FirstHitMs } else { "–" }), $(if ($null -ne $t.First.FinishMs) { "{0:N0}" -f $t.First.FinishMs } else { "–" }),
-            $t.Packs, $t.FastUsed, $Typing)
+            $t.Packs, $t.GramUsed, $Typing)
     }
     add
     add "### 入力しながらの検索のリソース"

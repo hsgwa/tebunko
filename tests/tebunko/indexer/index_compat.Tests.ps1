@@ -31,7 +31,7 @@ BeforeAll {
         # file_times.tsv の記録で、コピー先のファイルの更新日時を見本の記録どおりに戻す
         # （git は取り出すときにファイルの更新日時を今の日時にしてしまうため。tools/make_index_golden.ps1 のコメントも参照）。
         #   source/<相対パス> … ローカルの Ticks（秒まで・DateTimeKind なし）。destRoot\source に戻す
-        #   ws/<相対パス>     … UTC の Ticks。destRoot\work に戻す（システムインデックスを作り直すかの判定が見る）
+        #   ws/<相対パス>     … UTC の Ticks。destRoot\work に戻す
         param ([string]$destRoot, [string]$timesPath)
         foreach ($line in @([System.IO.File]::ReadAllLines($timesPath, [System.Text.Encoding]::UTF8))) {
             if (!$line -or $line.StartsWith("#")) { continue }
@@ -130,30 +130,6 @@ BeforeAll {
         setTestExtractVersions $statusPath $versions
     }
 
-    function script:getSystemIndexTicks {
-        # システムインデックスの各フォルダの system_index.txt の更新日時（UTC の Ticks）。@{ フォルダ（インデックス名からの相対） = Ticks }
-        param ([string]$workDir)
-        $root = "$workDir\system_index"
-        $ticks = @{}
-        foreach ($file in @(Get-ChildItem -LiteralPath $root -Recurse -File -Filter ${systemIndexFileName})) {
-            $ticks[$file.DirectoryName.Substring($root.Length + 1)] = $file.LastWriteTimeUtc.Ticks
-        }
-        return $ticks
-    }
-
-    function script:assertSystemIndexNotRebuilt {
-        # 取り込みの対象でないフォルダの system_index.txt が、作り直されていない（更新日時が変わっていない）ことを確かめる。
-        # 作り直しの判定は content_index の TSV と system_index.txt の更新日時の前後なので、見本の更新日時を戻していないと、
-        # 取り出した直後の日時のせいで何も更新していなくても作り直してしまう
-        param ([hashtable]$before, [string]$workDir, [string[]]$rebuiltFolders)
-        $after = getSystemIndexTicks $workDir
-        $before.Count | Should -BeGreaterThan 0
-        foreach ($folder in $before.Keys) {
-            if ($rebuiltFolders -contains $folder) { continue }
-            $after[$folder] | Should -Be $before[$folder] -Because "$folder の system_index.txt を作り直してはいけない"
-        }
-    }
-
     function script:getFolderOfKey {
         # 取り込み一覧のキー（<インデックス名>\<相対パス>）が入っているフォルダ（インデックス名からの相対）
         param ([string]$key)
@@ -197,7 +173,7 @@ BeforeAll {
 }
 
 Describe "見本をそのまま読む（index_compat a）" -Tag Io {
-    It "<Sample>: getSearchIndexes・getLegacyIndexState・readSystemIndexState・readStatusFile が、今のコードでそのまま読める" -TestCases $samples {
+    It "<Sample>: getSearchIndexes・getLegacyIndexState・readStatusFile が、今のコードでそのまま読める" -TestCases $samples {
         $s = getSample $Sample
         $ws = [Workspace]::new($s.WsDir)
 
@@ -213,52 +189,8 @@ Describe "見本をそのまま読む（index_compat a）" -Tag Io {
         $format.Indexes[$s.IndexName].State | Should -Be "Current"
         $format.Indexes[$s.IndexName].Searchable | Should -Be $true
 
-        $state = readSystemIndexState $ws.SystemIndexStateFile
-        $state.Covered.Contains($s.IndexName) | Should -Be $true
-
         $status = readStatusFile $ws.StatusFile
         assertIngestListMatchesExpected $s $status
-    }
-}
-
-Describe "システムインデックスの語（index_compat b）" -Tag Io {
-    It "<Sample>: writeSystemIndexFolders が作る語が、見本の system_index と同じになる（convertToGramText・getContentIndexBodyText）" -TestCases $samples {
-        $s = getSample $Sample
-        $contentIndexRoot = ([Workspace]::new($s.WsDir)).IndexDir
-        $outRoot = Join-Path $TestDrive "sysidx_out_$Sample"
-        $folders = @(Get-ChildItem -LiteralPath "$contentIndexRoot\$($s.IndexName)" -Recurse -File -Filter "${contentIndexFileNamePrefix}.*.tsv" |
-            ForEach-Object { $_.DirectoryName } | Sort-Object -Unique)
-        $folders.Count | Should -BeGreaterThan 0
-
-        [void](writeSystemIndexFolders $folders $contentIndexRoot $outRoot 1)
-
-        foreach ($folder in $folders) {
-            $relative = $folder.Substring($contentIndexRoot.Length + 1)
-            $goldenPath = "$($s.WsDir)\system_index\$relative\${systemIndexFileName}"
-            $actualPath = "$outRoot\$relative\${systemIndexFileName}"
-            [System.IO.File]::Exists($actualPath) | Should -Be $true -Because $actualPath
-            [System.IO.File]::ReadAllText($actualPath, [System.Text.Encoding]::ASCII) |
-                Should -Be ([System.IO.File]::ReadAllText($goldenPath, [System.Text.Encoding]::ASCII)) -Because $relative
-        }
-    }
-
-    It "<Sample>: 検索語から getSearchGrams が作る語が、ヒットするフォルダの見本の system_index に入っている（高速検索で見落とさない）" -TestCases $samples {
-        $s = getSample $Sample
-        foreach ($search in $s.Expected.searches) {
-            $grams = getSearchGrams $search.word
-            $grams.Count | Should -BeGreaterThan 0 -Because "検索語 '$($search.word)' から語が作れない"
-            $hitFolders = @($search.hits | ForEach-Object {
-                $dir = Split-Path -Parent ($_.relativePath -replace "/", "\")
-                if ($dir) { "$($s.IndexName)\$dir" } else { $s.IndexName }
-            } | Sort-Object -Unique)
-            foreach ($folder in $hitFolders) {
-                $text = [System.IO.File]::ReadAllText("$($s.WsDir)\system_index\$folder\${systemIndexFileName}", [System.Text.Encoding]::ASCII)
-                $set = New-Object System.Collections.Generic.HashSet[string] (, [string[]]@($text -split "\s+" | Where-Object { $_ }))
-                foreach ($gram in $grams) {
-                    $set.Contains($gram) | Should -Be $true -Because "検索語 '$($search.word)' の語 $gram が $folder の system_index に無い"
-                }
-            }
-        }
     }
 }
 
@@ -270,14 +202,12 @@ Describe "検索結果（index_compat c）" -Tag Io {
 }
 
 Describe "取り込み直し（index_compat d・e・f・g）" -Tag Io {
-    It "<Sample> d: 更新の無い見本を取り込み直しても、抽出版が今より前のファイルのほかは取り込まず、システムインデックスも作り直さない" -TestCases $samples {
+    It "<Sample> d: 更新の無い見本を取り込み直しても、抽出版が今より前のファイルのほかは取り込まず" -TestCases $samples {
         $s = getSample $Sample
         $compat = newCompatRoot $s "d"
         writeTestSettings $compat.Root @(@{ name = $s.IndexName; path = $compat.SourceDir; enabled = $true })
         $before = readTestStatus $compat.Root
-        $ticksBefore = getSystemIndexTicks $compat.WorkDir
         $contentBefore = getFileHashes ([Workspace]::new($compat.WorkDir)).IndexDir
-        $stateBefore = [System.IO.File]::ReadAllText("$($compat.WorkDir)\system_index_state.tsv")
         $outdated = @(getOutdatedKeys $s)
 
         if ($outdated.Count -eq 0) {
@@ -303,12 +233,10 @@ Describe "取り込み直し（index_compat d・e・f・g）" -Tag Io {
             $after.Rows[$key].取り込み日時 | Should -Be $before.Rows[$key].取り込み日時 -Because $key
             $after.Rows[$key].抽出版 | Should -Be $before.Rows[$key].抽出版 -Because $key
         }
-        assertSystemIndexNotRebuilt $ticksBefore $compat.WorkDir @()
         assertContentIndexUnchanged $contentBefore $compat.WorkDir @()
-        [System.IO.File]::ReadAllText("$($compat.WorkDir)\system_index_state.tsv") | Should -Be $stateBefore
     }
 
-    It "<Sample> e: 1 つの docx の更新日時を進めると、その 1 件だけを取り込み直し、ほかのフォルダのシステムインデックスは作り直さない" -TestCases $samples {
+    It "<Sample> e: 1 つの docx の更新日時を進めると、その 1 件だけを取り込み直し" -TestCases $samples {
         $s = getSample $Sample
         $key = findIngestKey $s @(".docx")
         if (!$key) { Set-ItResult -Skipped -Because "この見本に docx が無い"; return }
@@ -316,7 +244,6 @@ Describe "取り込み直し（index_compat d・e・f・g）" -Tag Io {
         alignExtractVersions ([Workspace]::new($compat.WorkDir)).StatusFile
         writeTestSettings $compat.Root @(@{ name = $s.IndexName; path = $compat.SourceDir; enabled = $true })
         $before = readTestStatus $compat.Root
-        $ticksBefore = getSystemIndexTicks $compat.WorkDir
         $contentBefore = getFileHashes ([Workspace]::new($compat.WorkDir)).IndexDir
         $relative = $key.Substring($s.IndexName.Length + 1)
         (Get-Item -LiteralPath "$($compat.SourceDir)\$relative").LastWriteTime = (Get-Date).AddDays(1)
@@ -334,7 +261,6 @@ Describe "取り込み直し（index_compat d・e・f・g）" -Tag Io {
                 $after.Rows[$rowKey].取り込み日時 | Should -Be $before.Rows[$rowKey].取り込み日時 -Because $rowKey
             }
         }
-        assertSystemIndexNotRebuilt $ticksBefore $compat.WorkDir @(getFolderOfKey $key)
     }
 
     It "<Sample> f: xlsx の抽出版を 1 つ下げると、ConfirmTargets の確認で取りやめた間は Excel を起動せず取り込まない" -TestCases $samples {
@@ -348,7 +274,6 @@ Describe "取り込み直し（index_compat d・e・f・g）" -Tag Io {
         setTestExtractVersions $statusPath @{ $key = $downgraded }
         writeTestSettings $compat.Root @(@{ name = $s.IndexName; path = $compat.SourceDir; enabled = $true })
         $beforeProcesses = @(Get-Process -Name EXCEL -ErrorAction SilentlyContinue).Count
-        $ticksBefore = getSystemIndexTicks $compat.WorkDir
         $contentBefore = getFileHashes ([Workspace]::new($compat.WorkDir)).IndexDir
         $cancel = @{ Script = $reporterPath; Pattern = '^\s+if \(!\$ch\.Answered\.WaitOne'; Action = { answerIndexingPlan $channel $null } }
 
@@ -358,10 +283,9 @@ Describe "取り込み直し（index_compat d・e・f・g）" -Tag Io {
 
         (@(Get-Process -Name EXCEL -ErrorAction SilentlyContinue).Count) | Should -Be $beforeProcesses
         (readTestStatus $compat.Root).Rows[$key].抽出版 | Should -Be ([string]$downgraded)
-        assertSystemIndexNotRebuilt $ticksBefore $compat.WorkDir @()
     }
 
-    It "<Sample> g: pptx の抽出版を 1 つ下げると、Office 無しでその 1 件だけを取り込み直し、ほかのフォルダのシステムインデックスは作り直さない" -TestCases $samples {
+    It "<Sample> g: pptx の抽出版を 1 つ下げると、Office 無しでその 1 件だけを取り込み直し" -TestCases $samples {
         $s = getSample $Sample
         $key = findIngestKey $s @(".pptx")
         if (!$key) { Set-ItResult -Skipped -Because "この見本に pptx が無い"; return }
@@ -371,7 +295,6 @@ Describe "取り込み直し（index_compat d・e・f・g）" -Tag Io {
         setTestExtractVersions $statusPath @{ $key = ((getExtractVersion $key) - 1) }
         writeTestSettings $compat.Root @(@{ name = $s.IndexName; path = $compat.SourceDir; enabled = $true })
         $before = readTestStatus $compat.Root
-        $ticksBefore = getSystemIndexTicks $compat.WorkDir
         $contentBefore = getFileHashes ([Workspace]::new($compat.WorkDir)).IndexDir
 
         runIndexer $compat.Root | Should -Be 0
@@ -386,7 +309,6 @@ Describe "取り込み直し（index_compat d・e・f・g）" -Tag Io {
                 $after.Rows[$rowKey].取り込み日時 | Should -Be $before.Rows[$rowKey].取り込み日時 -Because $rowKey
             }
         }
-        assertSystemIndexNotRebuilt $ticksBefore $compat.WorkDir @(getFolderOfKey $key)
     }
 }
 

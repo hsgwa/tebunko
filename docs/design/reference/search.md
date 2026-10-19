@@ -24,7 +24,7 @@ flowchart LR
 | `newFileFilter` | filter | `@{Include; Exclude}` | 対象ファイルの指定（`*.xlsx;見積;!*old*`）を、元のファイル名に対する正規表現にする（無い側は `$null`） | [検索](../search/index.md#検索条件サクラエディタの-grep-にならう) | `searchContentIndex` |
 | `newPlaceExclude` | includeShapes, includeComments | regex / `$null` | 検索から外す図形・コメントの場所（名前の末尾 `[図形]` `[コメント]`）の正規表現。どちらも検索するなら `$null` | 同上 | `searchContentIndex` |
 | `truncateHitLine` | line, matchIndex（既定 -1） | string | 長い行（テキストのヒットの行・プレビューの前後の行）を、一致の位置（`matchIndex`。分からなければ -1 で先頭から）から前後 `hitLineMaxChars`（1,000 文字）に切る。切った側に `…` を付ける。`hitLineMaxChars` 以下ならそのまま | [長い行を切る](../search/output.md#長い行を切る) | searchContentIndexFiles, readContentIndexLines |
-| `getContentIndexFiles` | folders（既定 `$workspace.IndexDir`。フォルダの文字列、または `@{Root; RelPath; Recurse}`（画面のツリーで選んだ範囲。`Recurse` が `$false` なら直下だけ）の配列）, onProgress（フォルダを 1 つ数えるたびに `{ param($count) }` を呼ぶ） | `@{Folders; ContentIndexFiles}` | 検索対象の本文インデックスのファイルを列挙する（`findContentIndexFiles`）。結果の相対パスは `Root` から求める。Folders はフォルダごとの `@{Path; Root; Exists; Count}`、ContentIndexFiles は `findContentIndexFiles` の要素をつないだもの（フォルダの順・名前の順、重複なし） | [検索を速くする仕組み](../search/speed.md) | 検索・画面、getFastSearchContentIndexFiles |
+| `getContentIndexFiles` | folders（既定 `$workspace.IndexDir`。フォルダの文字列、または `@{Root; RelPath; Recurse}`（画面のツリーで選んだ範囲。`Recurse` が `$false` なら直下だけ）の配列）, onProgress（フォルダを 1 つ数えるたびに `{ param($count) }` を呼ぶ） | `@{Folders; ContentIndexFiles}` | 検索対象の本文インデックスのファイルを列挙する（`findContentIndexFiles`）。結果の相対パスは `Root` から求める。Folders はフォルダごとの `@{Path; Root; Exists; Count}`、ContentIndexFiles は `findContentIndexFiles` の要素をつないだもの（フォルダの順・名前の順、重複なし） | [検索を速くする仕組み](../search/speed.md) | 検索・画面、getGramContentIndexFiles |
 | `testIndexExists` | folders | bool | 本文インデックスのファイルが 1 件でもあるか（最初の 1 件で打ち切る） | – | 画面 |
 | `getIndexSummary` | folders | `@{Count; LastWrite; Missing}` | 本文インデックスのファイルの件数・最新の更新日時・存在しないフォルダ | – | 画面 |
 | `splitContentIndexTasks` | contentIndexFiles, taskBytes（既定 16MB） | `@{Start; Count}` の並び | 本文インデックスのファイルの並びを、大きさの合計がおよそ taskBytes になるまでまとめて、1 つのスレッドに渡す作業に分ける | 同上 | searchContentIndex |
@@ -34,22 +34,21 @@ flowchart LR
 | `newTsvTextCache` | maxChars（既定 6,400 万文字） | `@{Texts; Chars; MaxChars; Generation}` | 検索で読んだ本文インデックスのファイルの内容と場所の一覧を次の検索・プレビューで使い回す入れ物（パス → 更新日時・サイズ・内容・場所の一覧・最後に使った世代）。更新日時・サイズが変わった本文インデックスのファイルは読み直す。追い出しは `trimTsvTextCache` | [検索を速くする仕組み](../search/speed.md) | 画面 |
 | `newContentIndexWorkerPool` | workers（既定 `getWorkerCount`） | `WorkerPool` | 本文インデックスの照合のプールを作る（各スレッドには照合に要る関数と値だけを読み込む。`searchContentIndexFiles`・`testCellPrefixedHit`・`readContentIndexPlaces`・`testContentIndexCellPrefixed`・`testCellPrefixedPlace`・`convertContentIndexMetaToPlace`・`decodeContentIndexValue`・`getContentIndexFileKind`・`testTextExtension`・`truncateHitLine` と、`textExtensions`・`hitLineMaxChars`・`hitLineBeforeMatchChars` などの定数。優先度は Normal） | [プロセスとスレッド](../structure/threads.md#寿命) | 検索の司令（`SearchService`）、searchContentIndex |
 | `trimTsvTextCache` | cache, keepRatio（既定 0.9） | 追い出した数 | 検索 1 回の後に呼ぶ。上限の keepRatio を超えていたら、今の世代で使わなかったものを古い世代から追い出し、世代を 1 つ進める | [閉じるときの順番と GC](../structure/closing.md#gc-とメモリ) | 検索の司令 |
-| `newSearchRequest` | word, simpleMatch, folders, limit, option, useFast | 検索の要求（`[hashtable]::Synchronized`） | 検索 1 回分の要求を作る。画面が条件と `Stop`（取り消し）を書き、検索の司令がヒット（`Queue`）・進み具合・`Finished` を書く | [プロセスとスレッド](../structure/threads.md#寿命) | 画面 |
+| `newSearchRequest` | word, simpleMatch, folders, limit, option, workDir（既定 `$workspace.Dir`） | 検索の要求（`[hashtable]::Synchronized`） | 検索 1 回分の要求を作る。画面が条件と `Stop`（取り消し）を書き、検索の司令がヒット（`Queue`）・進み具合・`Finished` を書く | [プロセスとスレッド](../structure/threads.md#寿命) | 画面 |
 | `invokeSearchRequest` | request, pool, cache | – | 検索の要求を実行し、ヒットと進み具合を要求に少しずつ入れる。例外は投げずに `Error` に入れる。始める前に取り消されていたら何もせずに `Cancelled` にする | 同上 | 検索の司令 |
 | `toResultLine` | book, location, lineNumber, line | string | `ファイル名<TAB>場所<TAB>種別<TAB>行番号<TAB>該当行` を返す（場所・種別は `describePlace` の表記）。Excel はセル内改行を LF に戻し、Word・PowerPoint は `"` で始まるセルを `"` で囲む。場所のタブ・改行（Excel のシート名に付けられる）はスペースにする | [検索結果ファイル](../search/output.md#1-行の組み立て) | 検索 |
 | `toResultHeader` | columnCount | string | 見出し行 `ファイル名<TAB>場所<TAB>種別<TAB>行<TAB>A<TAB>B…` を返す | [検索結果ファイル](../search/output.md#出力フォーマットworksearch_resultstxt) | 検索 |
 | `toSearchResultLines` | hits | `@{Header; Lines}` | 検索結果ファイルの見出し行と各行（相対フォルダ付き `toResultLine`、最大セル数の `toResultHeader`） | 同上 | 検索・画面 |
 | `writeSearchResult` | writer, word, hits | – | 1 ワード分の `【検索文字列　X】 N 件`・見出し行・各行・空行を書き出す | 同上 | 検索・画面 |
 
-## 高速検索（Windows Search）の状態（`tebunko/search/windows_search.ps1`・`fast_search.ps1`）
+## gram 索引で絞る（`tebunko/search/gram_search.ps1`・`search_gram.ps1`）
 
-詳細は [高速検索（Windows Search）](../search/fast-search.md)。
+詳細は [2-gram の索引](../index-data/gram-index.md)。
 
 | 関数 | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
-| `openWindowsSearch` | – | `OleDbConnection` / `$null` | Windows Search への接続を開く（開けなければ `$null`） | getWindowsSearchState, getSystemIndexProgress, 検索（高速検索） |
-| `getWindowsSearchState` | systemRoot（既定 `$workspace.SystemIndexDir`）, workspaceDir, connection | string（`NoFolder` / `NoConnection` / `NotInScope` / `NotYet` / `Ok`） | 高速検索に使えるかと、使えない理由。`system_index` のフォルダの有無・Windows Search への接続・ワークスペースが索引の対象かを順に確かめる | 画面（一覧の「高速検索」列）、testWindowsSearch |
-| `getSystemIndexProgress` | query（既定 `$null` で自分で問い合わせる）, indexRoot, systemRoot, statePath, connection | `@{Folders; Waiting; ContentIndexed; ByIndex}` / `$null` | システムインデックスが Windows Search にどこまで反映されたかを数える。`ByIndex` はインデックス名 → `@{Folders; Waiting}` の辞書（OrdinalIgnoreCase）。状態ファイルを読めない・問い合わせられないときは `$null` | 画面（一覧の「高速検索」列） |
+| `getSearchGramValues` | word | 値の配列 | 検索語から、照合に使う 2-gram の値を作る（空白で区切った部分の隣り合う 2 文字。小文字にそろえ、多いときは 16 個に均等に間引く） | getGramContentIndexFiles |
+| `getGramContentIndexFiles` | word, simpleMatch, folders, indexRoot, gramRoot, onProgress | `@{Folders; ContentIndexFiles; Gram（@{Total; Candidates}）}` / `$null` | 検索語の 2-gram をすべて含むと分かったファイルだけに、照合する本文インデックスのファイルを絞る。正規表現・2-gram が作れない・索引の置き場が無い・1 つも外せなかったときは `$null`（呼ぶ側が `getContentIndexFiles` ですべてを集める） | 検索（`search_run.ps1`） |
 
 ## スレッドとプール（`shared/core/worker_pool.ps1`・`tebunko/search/search_service.ps1`・`tebunko/indexer/indexing_session.ps1`）
 
@@ -57,9 +56,9 @@ flowchart LR
 
 | 関数・クラス | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
-| `newWorkerState` | functions, variables | `InitialSessionState` | プールの各スレッドに読み込む関数・値だけを入れた状態を作る（lib.ps1 全体を読み込むと、スレッドを用意するだけで時間がかかるため） | newContentIndexWorkerPool, writeSystemIndexFolders |
+| `newWorkerState` | functions, variables | `InitialSessionState` | プールの各スレッドに読み込む関数・値だけを入れた状態を作る（lib.ps1 全体を読み込むと、スレッドを用意するだけで時間がかかるため） | newContentIndexWorkerPool |
 | `getWorkerCount` | max（既定 4）, processors | int | プールのスレッドの数の既定（コア数 − 1。1〜max） | 検索・インデックス作成 |
-| `WorkerPool` | size, state, host, priority | – | ランスペースと PowerShell のインスタンスを使い回すプール。`Submit`（仕事を始める）・`Receive`（終わりを待って出力を返す）・`Cancel`・`Close`。`Priority` は仕事を始めるたびにスレッドに設定する。`Prelude` は各スレッドで最初の仕事の前に 1 回だけ実行する | 照合のプール・システムインデックスのプール・BackgroundQueue |
+| `WorkerPool` | size, state, host, priority | – | ランスペースと PowerShell のインスタンスを使い回すプール。`Submit`（仕事を始める）・`Receive`（終わりを待って出力を返す）・`Cancel`・`Close`。`Priority` は仕事を始めるたびにスレッドに設定する。`Prelude` は各スレッドで最初の仕事の前に 1 回だけ実行する | 照合のプール・BackgroundQueue |
 | `BackgroundQueue` | size, prelude, host | – | 画面から頼まれる短い仕事のスレッド（画面は 2 つで作る）。`Post`（仕事を始める）・`Poll`（終わった仕事の onDone を画面のスレッドで呼び、残りの数を返す）・`Close` | startJob（`shell.ps1`） |
 | `newSearchService` / `SearchService` | libPath, cache, workers | `SearchService` | 検索の司令のスレッド（画面を開いている間 1 つ）。`Request`（前の要求を取り消して新しい要求を渡す。スレッドが止まっていれば作り直す）・`Cancel`・`IsRunning`・`GetFailure`・`Close`（5 秒待って止まらなければスレッドを止める） | 画面 |
 | `newIndexingSession` / `IndexingSession` | indexerPath, channel | `IndexingSession` | インデックス作成 1 回分のスレッド（MTA・BelowNormal）を作り、`indexer.ps1 -Channel <channel>` を実行する。`IsRunning`・`Stop`・`Wait`・`GetExitCode`（終了コードが無ければ 1）・`GetError`・`GetCloudSkipped`（クラウドにだけあるため残した件数。無ければ 0）・`KillOffice`（`OfficePids` に記録した Office だけを、プロセス名と起動時刻を確かめて止める）・`Close` | 画面 |
