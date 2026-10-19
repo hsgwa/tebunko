@@ -349,7 +349,7 @@ Describe "検索結果の件数の上限の入力" -Tag Unit {
         if ($Edit -eq "Append") {
             $typed = $shown + "0"
         } else {
-            $typed = $shown.Remove($shown.IndexOf("0"), 1)
+            $typed = $shown.Remove($shown.LastIndexOf("0"), 1)
         }
         $decision = getSearchLimitInputDecision "Limited" $typed $Current 1000 100000 10000
         $decision.Action | Should -Be $Action
