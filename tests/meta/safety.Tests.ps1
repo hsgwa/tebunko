@@ -56,13 +56,30 @@ BeforeAll {
         if (-not $owner) { return $false }
         $comparesProcess = { param ($tree) @($tree.FindAll({ param ($n) $n -is [System.Management.Automation.Language.CommandAst] -and $n.GetCommandName() -eq "compareOfficeProcess" }, $true)).Count -gt 0 }
         $isSame = { param ($n) $n -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $n.Value -eq "Same" }
+        $unwrap = {
+            # 外側の括弧と、1 つだけの式のパイプラインを外す
+            param ($n)
+            while ($true) {
+                if ($n -is [System.Management.Automation.Language.PipelineAst] -and $n.PipelineElements.Count -eq 1) {
+                    $element = $n.PipelineElements[0]
+                    if ($element -is [System.Management.Automation.Language.CommandExpressionAst]) { $n = $element.Expression } else { $n = $element; break }
+                } elseif ($n -is [System.Management.Automation.Language.ParenExpressionAst]) { $n = $n.Pipeline } else { break }
+            }
+            return $n
+        }
         $inside = { param ($body) $kill.Extent.StartOffset -ge $body.Extent.StartOffset -and $kill.Extent.EndOffset -le $body.Extent.EndOffset }
         foreach ($node in @($owner.FindAll({ param ($n) $n -is [System.Management.Automation.Language.IfStatementAst] -or $n -is [System.Management.Automation.Language.SwitchStatementAst] }, $true))) {
             if ($node -is [System.Management.Automation.Language.IfStatementAst]) {
                 foreach ($clause in $node.Clauses) {
-                    $condition = $clause.Item1
-                    $same = @($condition.FindAll({ param ($n) $n -is [System.Management.Automation.Language.BinaryExpressionAst] -and $n.Operator -eq [System.Management.Automation.Language.TokenKind]::Ieq -and ((& $isSame $n.Right) -or (& $isSame $n.Left)) }, $true))
-                    if ((& $comparesProcess $condition) -and $same.Count -gt 0 -and (& $inside $clause.Item2) -and $kill.Extent.StartOffset -gt $condition.Extent.EndOffset) { return $true }
+                    # 条件の一番上（外側の括弧を外したもの）が `-eq` の二項式そのもので、片方が "Same"、もう片方が compareOfficeProcess の呼び出しのときだけ認める。
+                    # -not や -or・-and で包んだ形は、Same 以外でも入りうる（または読みにくい）ので認めない
+                    $top = & $unwrap $clause.Item1
+                    if ($top -is [System.Management.Automation.Language.BinaryExpressionAst] -and $top.Operator -eq [System.Management.Automation.Language.TokenKind]::Ieq) {
+                        $sides = @($top.Left, $top.Right)
+                        $hasSame = @($sides | Where-Object { & $isSame $_ }).Count -eq 1
+                        $hasCompare = @($sides | Where-Object { $c = & $unwrap $_; $c -is [System.Management.Automation.Language.CommandAst] -and $c.GetCommandName() -eq "compareOfficeProcess" }).Count -eq 1
+                        if ($hasSame -and $hasCompare -and (& $inside $clause.Item2)) { return $true }
+                    }
                 }
             } elseif (& $comparesProcess $node.Condition) {
                 foreach ($clause in $node.Clauses) {
@@ -432,6 +449,8 @@ Describe "危険な処理を使っていないこと（docs/safety/checks.md「�
         @{ name = "compareOfficeProcess を呼ぶだけで Same と比べない .Kill()"; code = 'function a { $r = compareOfficeProcess $p "X" 1; $p.Kill() }'; places = "a"; unchecked = "a" }
         @{ name = "compareOfficeProcess の結果を .Kill() のあとで比べる"; code = 'function a { $p.Kill(); if ((compareOfficeProcess $p "X" 1) -eq "Same") { } }'; places = "a"; unchecked = "a" }
         @{ name = "compareOfficeProcess でない比べの Same の枝の .Kill()"; code = 'function a { if ($r -eq "Same") { $p.Kill() } }'; places = "a"; unchecked = "a" }
+        @{ name = "-not で打ち消した Same の枝の .Kill()"; code = 'function a { if (-not ((compareOfficeProcess $p "X" 1) -eq "Same")) { $p.Kill() } }'; places = "a"; unchecked = "a" }
+        @{ name = "-or で Same でない場合も入る枝の .Kill()"; code = 'function a { if ((compareOfficeProcess $p "X" 1) -eq "Different" -or $x -eq "Same") { $p.Kill() } }'; places = "a"; unchecked = "a" }
     ) {
         param ($name, $code, $places, $unchecked)
         $result = getKillViolations $code
