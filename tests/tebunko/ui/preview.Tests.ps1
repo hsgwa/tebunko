@@ -247,16 +247,15 @@ Describe "updateResultPaneHeight" -Tag Unit {
         finally { $ui.PreviewSplitter.IsDragging = $false }
     }
 
-    It "境目をクリックしただけ（動かしていない）では、自動の高さ合わせを止めない" {
-        & $handlers["PreviewSplitter.DragCompleted"] $ui.PreviewSplitter ([pscustomobject]@{ Canceled = $false; VerticalChange = 0.0 })
+    It "境目のドラッグを終えたあと、<Name>" -TestCases @(
+        @{ Name = "クリックしただけ（動かしていない）では、自動の高さ合わせを止めない"; Canceled = $false; VerticalChange = 0.0; Expected = 330 }
+        @{ Name = "取り消したドラッグでは、自動の高さ合わせを止めない"; Canceled = $true; VerticalChange = -80.0; Expected = 330 }
+        @{ Name = "動かして離したら、それ以後は自動で変えない"; Canceled = $false; VerticalChange = -80.0; Expected = 180 }
+    ) {
+        param ($Name, $Canceled, $VerticalChange, $Expected)
+        & $handlers["PreviewSplitter.DragCompleted"] $ui.PreviewSplitter ([pscustomobject]@{ Canceled = $Canceled; VerticalChange = $VerticalChange })
         updateResultPaneHeight 2
-        $ui.DetailRow.Height.Value | Should -Be 330
-    }
-
-    It "境目を動かして離したら、それ以後は自動で変えない" {
-        & $handlers["PreviewSplitter.DragCompleted"] $ui.PreviewSplitter ([pscustomobject]@{ Canceled = $false; VerticalChange = -80.0 })
-        updateResultPaneHeight 2
-        $ui.DetailRow.Height.Value | Should -Be 180
+        $ui.DetailRow.Height.Value | Should -Be $Expected
     }
 
     It "大きさがまだ取れないときは、何もしない" {
