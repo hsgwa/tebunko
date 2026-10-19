@@ -293,20 +293,17 @@ Describe "updateGroupCount" -Tag Unit {
         $group.Rows.Count | Should -Be 0
     }
 
-    It "絞り込み中は、ファイル名が合えばヒットの数、合わなければ 0" {
+    It "絞り込み中は、ファイル名が合えば<expected>（絞り込み: <text>）" -TestCases @(
+        @{ text = "見積"; expected = 2 }
+        @{ text = "山田"; expected = 0 }
+    ) {
+        param ($text, $expected)
         $group = addHit "見積.xlsx" "4月" "`t見積 山田" 1
         [void](addHit "見積.xlsx" "4月" "`t見積 佐藤" 2)
-        $script:filterText = "見積"
+        $script:filterText = $text
         ensureRows $group
         updateGroupCount $group
-        $group.ShownCount | Should -Be 2
-
-        $script:filterText = "山田"
-        $group.Rows.Clear()
-        $group.ShownRows.Clear()
-        ensureRows $group
-        updateGroupCount $group
-        $group.ShownCount | Should -Be 0
+        $group.ShownCount | Should -Be $expected
     }
 }
 
@@ -543,16 +540,19 @@ Describe "applyResultFilter（絞り込みの文字）" -Tag Unit {
         (getShownHitCount) | Should -Be 0
     }
 
-    It "場所・種別・フォルダ名では絞り込めない" {
+    It "<name>では絞り込めない" -TestCases @(
+        @{ name = "場所の種類"; text = "コメント" }
+        @{ name = "場所"; text = "4月" }
+        @{ name = "フォルダ名"; text = "営業部" }
+    ) {
+        param ($name, $text)
         [void](addHit "見積.xlsx" "4月[コメント]" "B2`t見積" 1)
         [void](addHit "見積.xlsx" "4月" "`t見積" 2)
         flushResults
 
-        foreach ($text in @("コメント", "4月", "営業部")) {
-            $script:filterText = $text
-            applyResultFilter $text
-            (getShownHitCount) | Should -Be 0
-        }
+        $script:filterText = $text
+        applyResultFilter $text
+        (getShownHitCount) | Should -Be 0
     }
 }
 

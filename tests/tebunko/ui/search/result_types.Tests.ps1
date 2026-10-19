@@ -518,11 +518,11 @@ Describe "HitRow.MatchesFileName" -Tag Unit {
         $row.Kind = "セル"
     }
 
-    It "元ファイル名の一部（大文字小文字を区別しない）で合う: <text>" -TestCases @(
-        @{ text = "見積" }
-        @{ text = "見積.XLSX" }
-        @{ text = "xlsx" }
-        @{ text = "" }
+    It "<name>で合う: '<text>'" -TestCases @(
+        @{ name = "ファイル名の一部"; text = "見積" }
+        @{ name = "拡張子を含む大文字"; text = "見積.XLSX" }
+        @{ name = "拡張子だけの小文字"; text = "xlsx" }
+        @{ name = "空文字"; text = "" }
     ) {
         param ($text)
         $row.MatchesFileName($text) | Should -Be $true
