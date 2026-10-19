@@ -540,6 +540,16 @@ Describe "applyResultFilter（絞り込みの文字）" -Tag Unit {
         (getShownHitCount) | Should -Be 0
     }
 
+    It "出力に使う行（getShownHitRows）は、絞り込み後の行だけになる" {
+        [void](addHit "見積.xlsx" "4月" "`t見積の行" 1)
+        [void](addHit "議事録.docx" "ページ001" "議事録の行" 1)
+        flushResults
+
+        $script:filterText = "議事録"
+        applyResultFilter "議事録"
+        @(getViewRows | ForEach-Object { $_.Book }) -join "," | Should -Be "議事録.docx"
+    }
+
     It "<name>では絞り込めない" -TestCases @(
         @{ name = "場所の種類"; text = "コメント" }
         @{ name = "場所"; text = "4月" }
