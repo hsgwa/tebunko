@@ -518,17 +518,10 @@ class HitRow : NotifyBase {
         $this.Raise("PlaceDisplay")
     }
 
-    # 絞り込み。生データ（相対フォルダ・元ファイル名・場所・種別・生の行）での部分一致。行番号は列に出さないため対象にしない（大文字小文字を区別しない）。
-    # ※以前は表示用（セル番地・タブ表示）も対象にしていたが、遅延生成のため生データのみを対象にした。
-    [bool] Contains([string]$text) {
+    # 絞り込み。元のファイル名（拡張子を含む。フォルダは含まない）への部分一致（大文字小文字を区別しない）。空文字は常に合う。
+    [bool] MatchesFileName([string]$text) {
         $ci = [System.StringComparison]::CurrentCultureIgnoreCase
-        if ($this.RelDir.IndexOf($text, $ci) -ge 0) { return $true }
-        if (("" + $this.Book).IndexOf($text, $ci) -ge 0) { return $true }
-        if (("" + $this.Location).IndexOf($text, $ci) -ge 0) { return $true }
-        if (("" + $this.PlaceText).IndexOf($text, $ci) -ge 0) { return $true }
-        if (("" + $this.Kind).IndexOf($text, $ci) -ge 0) { return $true }
-        if ($this.Line.IndexOf($text, $ci) -ge 0) { return $true }
-        return $false
+        return (("" + $this.Book).IndexOf($text, $ci) -ge 0)
     }
 
     static [string] ToDisplay([string]$text) {

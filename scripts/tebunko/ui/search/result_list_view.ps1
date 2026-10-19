@@ -135,7 +135,7 @@ function getPreviewRowHeight {
 }
 
 function selectShownRows {
-    # 行のうち、絞り込み（空ならすべて）に合うものを、元の順のまま返す
+    # 行のうち、ファイル名の絞り込み（空ならすべて）に合うものを、元の順のまま返す
     param (
         $rows,
         [string]$filterText
@@ -143,7 +143,7 @@ function selectShownRows {
 
     $shown = New-Object 'System.Collections.Generic.List[object]'
     foreach ($row in $rows) {
-        if ($filterText -eq "" -or $row.Contains($filterText)) {
+        if ($filterText -eq "" -or $row.MatchesFileName($filterText)) {
             $shown.Add($row)
         }
     }
