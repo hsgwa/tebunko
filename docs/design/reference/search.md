@@ -1,6 +1,6 @@
 ﻿# 部品ごとの関数（検索・スレッド・元のファイル・画面）
 
-扱うこと: 検索（`search_query.ps1`・`content_index_search.ps1`・`search_run.ps1`）、スレッドとプール（`worker_pool.ps1`・`search_service.ps1`・`indexing_session.ps1`）、元のファイルの特定（`source_map.ps1`）、画面が使う集計・設定・Office プロセスの関数一覧。扱わないこと: TSV・本文インデックスそのものの関数（[部品ごとの関数（TSV と本文インデックス）](tsv.md)）。先に読むページ: [部品から関数一覧を引く](index.md)。
+扱うこと: 検索（`search_query.ps1`・`content_index_search.ps1`・`search_overflow.ps1`・`search_run.ps1`）、スレッドとプール（`worker_pool.ps1`・`search_service.ps1`・`indexing_session.ps1`）、元のファイルの特定（`source_map.ps1`）、画面が使う集計・設定・Office プロセスの関数一覧。扱わないこと: TSV・本文インデックスそのものの関数（[部品ごとの関数（TSV と本文インデックス）](tsv.md)）。先に読むページ: [部品から関数一覧を引く](index.md)。
 
 ## 検索（`tebunko/search/search_query.ps1`・`content_index_search.ps1`・`search_run.ps1`）
 
@@ -40,6 +40,16 @@ flowchart LR
 | `toResultHeader` | columnCount | string | 見出し行 `ファイル名<TAB>場所<TAB>種別<TAB>行<TAB>A<TAB>B…` を返す | [検索結果ファイル](../search/output.md#出力フォーマットworksearch_resultstxt) | 検索 |
 | `toSearchResultLines` | hits | `@{Header; Lines}` | 検索結果ファイルの見出し行と各行（相対フォルダ付き `toResultLine`、最大セル数の `toResultHeader`） | 同上 | 検索・画面 |
 | `writeSearchResult` | writer, word, hits | – | 1 ワード分の `【検索文字列　X】 N 件`・見出し行・各行・空行を書き出す | 同上 | 検索・画面 |
+| `getSearchOverflowRoot` | tmpRoot | string | 溢れを置く根（`tmpRoot\<PC の鍵>\search_overflow`）を組み立てる（ファイルには触らない） | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | `getSearchOverflowPidDir`・`removeStaleSearchOverflow` |
+| `getSearchOverflowPidDir` | tmpRoot | string | このプロセスの溢れのフォルダ（根`\<PID>`）。次の検索の始めと閉じるときに中ごと消す | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | `invokeSearchRequest`・検索のスレッド |
+| `getSearchOverflowDir` | tmpRoot, requestNumber | string | 検索の要求 1 つの溢れのフォルダ（根`\<PID>\<要求の番号>`） | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | `invokeSearchRequest` |
+| `testSearchOverflowRoot` | root, tmpRoot | bool | 溢れの根として使ってよいか（絶対パス・`..` を含まない・`tmpRoot\<PC の鍵>\search_overflow` と一致・途中がリンクでない）。作る・消すはこれが真のときだけ | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | `removeSearchOverflow`・`removeStaleSearchOverflow` |
+| `removeSearchOverflow` | path, tmpRoot | bool | 溢れの根の下のフォルダ（`<PID>`・`<要求の番号>`）を中ごと消す。根・途中の確かめが偽なら何も消さず `$false`。消せなくても例外は投げない（残りは次の検索・起動時に消える） | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | `invokeSearchRequest`・検索のスレッド |
+| `newSearchOverflowWriter` | dir, name | StreamWriter または `$null` | 溢れのファイルを BOM なしの UTF-8・LF で作って開く。作れない・開けないときは `$null`（照合のスレッドからも呼ぶため .NET だけで書く） | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | `searchContentIndexFiles`・`searchContentIndex` |
+| `writeSearchOverflowHits` | writer, hits | bool | 司令が、表に入らなかった行を溢れの head のファイルに書き足す。書けなければ `$false` | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | `searchContentIndex` |
+| `getSearchOverflowFiles` | dir | パスの並び | 溢れのファイルを、全件の順（作業の番号の順に、head → 作業のファイル）に並べる。フォルダが無ければ空 | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | `readSearchOverflowLines`・書き出し |
+| `readSearchOverflowLines` | dir | string の並び | 溢れの全件を全件の順の行で返す（全部をメモリに読むので、テスト・小さい量向け） | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | テスト |
+| `removeStaleSearchOverflow` | tmpRoot, isAlive | int | 強制終了などで残った溢れを、起動時に消す。動いていないプロセスの `<PID>` だけ消し、消した数を返す | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | 起動（`startup.ps1` のバックグラウンドの処理） |
 
 ## gram 索引で絞る（`tebunko/search/gram_search.ps1`・`search_gram.ps1`）
 
@@ -91,3 +101,6 @@ flowchart LR
 | `testOfficeProcessHasWindow` | process | bool | プロセスが窓を持っているか。`Refresh` したあと `MainWindowHandle` が 0 でないときだけ `$true`。読めないときは `$false`（COM・P/Invoke は使わない） | [Office アプリの管理](../indexing/office-apps.md#office-アプリexcelwordpowerpointの管理) | `getOfficeProcesses`・`OfficeWatchdog`・`KillOffice` |
 | `getWatchdogVerdict` | entry, hasWindow, users, due | string | 見張りが、控えたプロセスを止めるか決める。`Skip`（何もしない）・`Spare`（期限を過ぎたが、利用者が使った印があるので止めない）・`Kill`（期限を過ぎたので止める）。窓を見張るプロセスで窓が見えたら印を入れる。印は起動時刻が同じものだけを有効とする | [Office アプリの管理](../indexing/office-apps.md#office-アプリexcelwordpowerpointの管理) | `OfficeWatchdog` |
 | `testWorkerAbandoned` / `IngestDispatcher.TakeAbandonedWorker` | – / – | bool / `@{ Worker; Entries }` または `$null` | 取り込みのスレッドが自分のワーカーが諦められたか見る / 司令がまだ後回しにしていない、諦められたワーカーと、そのワーカーで取り込み中だったファイルを、取り込み中から外して返す。諦められたワーカーのファイルは取り込まず、理由付きの失敗にする（状態は「未取り込み」のまま） | [取り込み一覧](../indexing/ingest-list.md) | `invokeIngestTask`・`IngestDispatcher`・`invokeIndexerBody` |
+| `getSearchCountingText` | limit, counted | string | 上限を超えたあと、総数を数えている間の要約欄の文（`検索中…　該当 10,000 件以上（総数を数えています：K 件）`） | [画面のメッセージ](../gui/messages.md) | 検索タブ（画面層） |
+| `getSearchFinishSummaryText` | hits, files, seconds, truncated, hitTotal | string | 検索が終わったときの要約欄の文。上限を超えたときは、数え終えていれば総数を添え（`全 N 件中 M 件を表示`）、数えている間に止まった（`hitTotal` が -1）ときは総数を数えていないと伝える。上限以下は `getSearchSummaryText` | [画面のメッセージ](../gui/messages.md) | 検索タブ（画面層） |
+| `getSearchFinishStatusText` | word, hits, optionText, truncated, hitTotal, countTimeout, cancelled | string | 検索が終わった（中止・上限を超えたを含む）ときのステータスバーの文。上限以下は `getSearchStatusText`。数えている間の中止・時間切れ・数え終えたの別に文を変える | [画面のメッセージ](../gui/messages.md) | 検索タブ（画面層） |

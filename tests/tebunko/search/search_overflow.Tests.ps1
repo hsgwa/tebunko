@@ -20,7 +20,7 @@ BeforeAll {
 
 Describe "上限を超えた分の書き溜め" -Tag Io {
     BeforeDiscovery {
-        $cases = foreach ($limit in 1, 5, 11, 12) {
+        $cases = foreach ($limit in 1, 5, 6, 7, 11, 12, 13) {
             foreach ($mode in "single", "parallel") {
                 foreach ($word in "多い", "後ろだけ", "同じ行に多い") {
                     @{ Limit = $limit; Mode = $mode; Word = $word; Name = "上限 $limit・$mode・$word" }
@@ -190,6 +190,49 @@ Describe "溢れの書き溜め（照合の細部）" -Tag Io {
         $output.Timeout | Should -BeTrue
         @($output.Hits).Count | Should -Be 2
         $gate[4] | Should -Be 1
+    }
+
+    It "全文への照合が時間切れになって 1 行ずつ照合し直しても、溢れの行が二重にならず抜けない（作業が 1 つ・2 つ）" -ForEach @(
+        @{ Slots = 1 }
+        @{ Slots = 2 }
+    ) {
+        $tsvRoot = Join-Path $TestDrive "ov8_tsv_$Slots"
+        # 先頭の数行は速く当たり、その後ろの行で全文への照合だけが時間切れになる（1 行ずつなら速い）
+        $rowsInFile = @(1..4 | ForEach-Object { "aaab $_" }) + @(1..8 | ForEach-Object { ("a" * 27) + "!" }) + @("aaab 5")
+        for ($i = 0; $i -lt $Slots; $i++) { newTsv "$tsvRoot\s$i\b$i.xlsx\S.tsv" $rowsInFile }
+        $files = newContentIndexFiles $tsvRoot (Join-Path $TestDrive "ov8_content_index_$Slots")
+        $pattern = "^(a|aa)+b"
+        $options = [System.Text.RegularExpressions.RegexOptions]::None
+        $lineRegex = [regex]::new($pattern, $options, [timespan]::FromSeconds(5))
+        $textRegex = [regex]::new($pattern, $options -bor [System.Text.RegularExpressions.RegexOptions]::Multiline, [timespan]::FromMilliseconds(1))
+        # 手前の確かめ: 4 行の当たりの後ろから、全文への照合は時間切れになる
+        $text = ($rowsInFile -join "`n")
+        { [void]$textRegex.Match($text, 4 * ("aaab 1".Length + 1)) } | Should -Throw
+
+        $tmp = newOverflowRoot "t-timeout-$Slots"
+        $dir = getSearchOverflowDir $tmp 1
+        $gate = [int[]]::new(2 + 2 * $Slots)
+        $gate[1] = 1
+        $expectedRows = @()
+        $tableRows = @()
+        for ($s = 0; $s -lt $Slots; $s++) {
+            $expected = toRows (searchContentIndexFiles $files $s 1 $lineRegex -1 $textRegex "lines").Hits
+            $found = searchContentIndexFiles $files $s 1 $lineRegex 1 $textRegex "lines" $null $null $null $null $null $gate $s 1 $dir
+            $found.Timeout | Should -BeFalse
+            $found.OverflowFailed | Should -BeFalse
+            $found.Count | Should -Be $expected.Count
+            $own = toRows $found.Hits
+            # 表は上限 + 1 件（上限を超えたと分かる 1 件）まで。残りは溢れのファイルに入る
+            # （2 つ目の作業は、前の作業の件数だけで上限を超えているので、表に行を作らず数えるだけ）
+            $tableCount = if ($s -eq 0) { 2 } else { 0 }
+            $own.Count | Should -Be $tableCount
+            ($own -join "`n") | Should -Be (@($expected | Select-Object -First $tableCount) -join "`n")
+            $tableRows += $own
+            $expectedRows += @($expected | Select-Object -Skip $tableCount)
+        }
+        $overflow = @(readSearchOverflowLines $dir)
+        $overflow.Count | Should -Be $expectedRows.Count
+        ($overflow -join "`n") | Should -Be ($expectedRows -join "`n")
     }
 
     It "合図の止める印が立っていれば、数えている最中のスクリプトも止まる" {

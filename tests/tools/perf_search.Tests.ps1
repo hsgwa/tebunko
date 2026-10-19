@@ -15,6 +15,9 @@ BeforeAll {
 
     $script:searchLimitsMs = @{ "0 件" = 550; "まれ" = 750; "大量" = 2500; "正規表現" = 2300 }
     $script:packLimitSeconds = 105
+    # 総数まで数える時間（TotalMs の中央値。ms）の緩い上限。上限を超えたあとも数え続けるため、ShownMs の上限では見えない増え方を見る。
+    # 手元（scale 0.1）の 2.5 倍以上の暫定の値。ランナーで 5 回測って決め直す
+    $script:totalLimitsMs = @{ "大量" = 20000; "正規表現" = 20000 }
 }
 
 Describe "検索と pack の作成の速さ" -Tag Slow {
@@ -67,7 +70,7 @@ Describe "検索と pack の作成の速さ" -Tag Slow {
     }
 
     It "検索の中央値と pack の作成が上限以内で、件数と pack の数が合う" {
-        $problems = getSearchPerfProblems $result $rows $searchLimitsMs $expected $packLimitSeconds
+        $problems = getSearchPerfProblems $result $rows $searchLimitsMs $expected $packLimitSeconds $totalLimitsMs
         ($problems -join "`n") | Should -BeNullOrEmpty
     }
 }
@@ -116,7 +119,7 @@ Describe "検索と pack の作成の判定（getSearchPerfProblems）" -Tag Uni
         @{ name = "10000+ なのに打ち切りでなければ返す"; change = { param($f) (getRows $f "大量")[1].Truncated = "False" }; expect = "検索 大量: 件数が期待の 10000+ と違う回が 1 回（最初は 10000 件）" }
         @{ name = "10000+ なのに 1 万件でなければ返す"; change = { param($f) (getRows $f "正規表現")[0].Hits = 9000 }; expect = "検索 正規表現: 件数が期待の 10000+ と違う回が 1 回（最初は 9000 件）" }
         @{ name = "ShownMs の中央値が上限を超えたら返す（TotalMs が小さくても）"; change = { param($f) (getEntry $f "大量").ShownMs.Median = 2101; (getEntry $f "大量").TotalMs.Median = 100 }; expect = "検索 大量: 中央値 2,101 ms（上限 2,100 ms）" }
-        @{ name = "TotalMs だけが上限を超えても返さない（ShownMs で比べる）"; change = { param($f) (getEntry $f "大量").TotalMs.Median = 9000 }; expect = $null }
+        @{ name = "TotalMs だけが語の上限を超えても返さない（totalLimits を渡さなければ ShownMs で比べる）"; change = { param($f) (getEntry $f "大量").TotalMs.Median = 9000 }; expect = $null }
         @{ name = "ShownMs が無ければ TotalMs で比べる"; change = { param($f) $e = getEntry $f "大量"; $e.PSObject.Properties.Remove("ShownMs"); $e.TotalMs.Median = 2101 }; expect = "検索 大量: 中央値 2,101 ms（上限 2,100 ms）" }
         @{ name = "10000+ で HitTotal が 1 万件以下なら返す"; change = { param($f) (getRows $f "大量")[0].HitTotal = 10000 }; expect = "検索 大量: 総数（HitTotal）が 10000 より大きくない回が 1 回（最初は 10000）" }
         @{ name = "10000+ で HitTotal が -1（中止・時間切れ）なら返す"; change = { param($f) (getRows $f "正規表現")[2].HitTotal = -1 }; expect = "検索 正規表現: 総数（HitTotal）が 10000 より大きくない回が 1 回（最初は -1）" }
@@ -138,6 +141,23 @@ Describe "検索と pack の作成の判定（getSearchPerfProblems）" -Tag Uni
         if ($script:noExpected) { $exp.Remove("まれ") }
         $problems = getSearchPerfProblems $f.Result $f.Rows $limits $exp 90
         if ($null -eq $expect) { $problems | Should -BeNullOrEmpty -Because ($problems -join "; ") } else { $problems | Should -Contain $expect -Because ($problems -join "; ") }
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "TotalMs の中央値が緩い上限を超えたら、語・中央値・上限を返す"; total = 20001; expect = "検索 大量: 総数まで数える時間の中央値 20,001 ms（上限 20,000 ms）" }
+        @{ name = "TotalMs の中央値がちょうど上限なら返さない"; total = 20000; expect = $null }
+    ) {
+        param ($name, $total, $expect)
+        $f = newFixture
+        (getEntry $f "大量").TotalMs.Median = $total
+        $problems = getSearchPerfProblems $f.Result $f.Rows $limits $expected 90 @{ "大量" = 20000 }
+        if ($null -eq $expect) { $problems | Should -BeNullOrEmpty -Because ($problems -join "; ") } else { $problems | Should -Contain $expect -Because ($problems -join "; ") }
+    }
+
+    It "緩い上限の無い語は、TotalMs が大きくても返さない" {
+        $f = newFixture
+        (getEntry $f "まれ").TotalMs.Median = 99999
+        getSearchPerfProblems $f.Result $f.Rows $limits $expected 90 @{ "大量" = 20000 } | Should -BeNullOrEmpty
     }
 
     It "数の書き方は、今のカルチャに左右されない（de-DE でも 2,101 のまま）" {

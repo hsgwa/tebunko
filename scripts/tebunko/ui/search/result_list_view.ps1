@@ -56,7 +56,7 @@ function getSearchFinishSummaryText {
         $text = "該当 $($hits.ToString('N0')) 件以上（総数は数えていません）（$($files.ToString('N0')) ファイル）"
     }
     if ($seconds -ge 0) {
-        $text += " ・ $($seconds.ToString('0.0')) 秒"
+        $text += "・$($seconds.ToString('0.0')) 秒"
     }
     return $text
 }

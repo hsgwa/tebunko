@@ -268,6 +268,26 @@ Describe "SearchService" -Tag Io {
         $service.IsRunning() | Should -Be $false
     }
 
+    It "ワークスペースを切り替えて検索すると、前のワークスペースの溢れを次の検索の始めに消し、閉じると今のものも消す" {
+        $wsA = Join-Path $TestDrive "ws_a"
+        $wsB = Join-Path $TestDrive "ws_b"
+        $pidA = getSearchOverflowPidDir ([Workspace]::new($wsA).TmpRoot)
+        $pidB = getSearchOverflowPidDir ([Workspace]::new($wsB).TmpRoot)
+        $service = newSearchService $null 1
+        try {
+            $first = $service.Request((newSearchRequest "単価" $true @($contentIndexRoot) 1 @{} $wsA))
+            waitRequest $first | Should -Be $true
+            [System.IO.Directory]::Exists($pidA) | Should -Be $true
+            $second = $service.Request((newSearchRequest "単価" $true @($contentIndexRoot) 1 @{} $wsB))
+            waitRequest $second | Should -Be $true
+            [System.IO.Directory]::Exists($pidA) | Should -Be $false
+            [System.IO.Directory]::Exists($pidB) | Should -Be $true
+        } finally {
+            $service.Close()
+        }
+        [System.IO.Directory]::Exists($pidB) | Should -Be $false
+    }
+
     It "司令のスレッドが止まっていたら理由を返し、次の要求で作り直す（zip 版。読み込む先が無い）" {
         $brokenLibLoad = @{
             State   = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault2()
