@@ -148,11 +148,21 @@ function invokeSearchRequest {
         # gram 索引で、検索語のすべての 2-gram を含むファイルだけに絞る（索引を使えなければ $null）
         $own = [Workspace]::new($request.WorkDir)
         $index = getGramContentIndexFiles $word $request.SimpleMatch $folders -indexRoot $own.IndexDir -gramRoot $own.GramDir `
-            -onProgress { param ($count) $request.Scanned = $count }
+            -onProgress { param ($count) $request.Scanned = $count } -stopSignal $request
         $request.GramUsed = ($null -ne $index)
+        # gram 索引の絞り込みの途中で止められたとき、$null を受けて全部の列挙に進まない
+        if ($request.Stop) {
+            $request.Cancelled = $true
+            return
+        }
         if ($null -eq $index) {
             # 途中の件数を画面に伝える（止まって見えないように）
-            $index = getContentIndexFiles $folders { param ($count) $request.Scanned = $count }
+            $index = getContentIndexFiles $folders { param ($count) $request.Scanned = $count } -stopSignal $request
+        }
+        # 列挙の途中で止められたとき、照合に進まない
+        if ($request.Stop) {
+            $request.Cancelled = $true
+            return
         }
         $request.Folders = $index.Folders
         $request.Total = $index.ContentIndexFiles.Count
@@ -166,7 +176,7 @@ function invokeSearchRequest {
             }
             $request.Total = $total
             $request.Done = $done
-        } -shouldStop { $request.Stop }
+        } -stopSignal $request
         $request.Total = $result.Total
         $request.Truncated = $result.Truncated
         $request.Cancelled = $result.Cancelled

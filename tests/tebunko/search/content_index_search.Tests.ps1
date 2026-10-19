@@ -196,9 +196,61 @@ Describe "本文インデックスのファイルの作成と検索" -Tag Io {
     }
 
     It "中止を求められたら止める" {
-        $result = searchContentIndex "単価" $contentIndexFiles $true -shouldStop { $true }
+        $result = searchContentIndex "単価" $contentIndexFiles $true -stopSignal @{ Stop = $true }
         $result.Cancelled | Should -Be $true
         $result.Hits.Count | Should -Be 0
+    }
+
+    It "照合は本文インデックスのファイル 1 件ごとに Stop を見て、立ったら次のファイルを読まずにここまでのヒットを返す" {
+        $search = newSearchRegex "単価" $true $false
+        $firstOnly = searchContentIndexFiles $contentIndexFiles 0 1 $search.Regex -1 $search.TextRegex $search.ScanMode
+        $firstOnly.Hits.Count | Should -BeGreaterThan 0
+        # 2 回目に読まれたときから Stop が立つ入れ物（1 件目を照合し、2 件目の前で止まる）
+        $signal = [pscustomobject]@{ Reads = 0 }
+        $signal | Add-Member -MemberType ScriptProperty -Name Stop -Value { $this.Reads++; $this.Reads -ge 2 }
+        $found = searchContentIndexFiles $contentIndexFiles 0 $contentIndexFiles.Count $search.Regex -1 $search.TextRegex $search.ScanMode $null $null $null $null $signal
+        $found.Hits.Count | Should -Be $firstOnly.Hits.Count
+        $signal.Reads | Should -Be 2
+        (searchContentIndexFiles $contentIndexFiles 0 $contentIndexFiles.Count $search.Regex -1 $search.TextRegex $search.ScanMode $null $null $null $null @{ Stop = $true }).Hits.Count | Should -Be 0
+    }
+
+    It "照合のスレッドのスクリプトも、渡された Stop を見て止まる（このスレッドで直接動かす）" {
+        $search = newSearchRegex "単価" $true $false
+        $firstOnly = searchContentIndexFiles $contentIndexFiles 0 1 $search.Regex -1 $search.TextRegex $search.ScanMode
+        $signal = [pscustomobject]@{ Reads = 0 }
+        $signal | Add-Member -MemberType ScriptProperty -Name Stop -Value { $this.Reads++; $this.Reads -ge 2 }
+        $output = & ${contentIndexWorkerScript} $contentIndexFiles 0 $contentIndexFiles.Count $search.Regex -1 $search.TextRegex $search.ScanMode $null $null $null $null $signal
+        $output.Timeout | Should -Be $false
+        @($output.Hits).Count | Should -Be $firstOnly.Hits.Count
+        $output = & ${contentIndexWorkerScript} $contentIndexFiles 0 $contentIndexFiles.Count $search.Regex -1 $search.TextRegex $search.ScanMode $null $null $null $null @{ Stop = $true }
+        @($output.Hits).Count | Should -Be 0
+    }
+
+    It "1 つのスレッドで作業が 1 つ（ファイル全部）でも、作業の途中で止まる。止めた作業の分は進み具合として知らせない" {
+        # 止めない入れ物で、Stop を見る回数を数える（最後まで照合したときの回数）
+        $counter = [pscustomobject]@{ Reads = 0 }
+        $counter | Add-Member -MemberType ScriptProperty -Name Stop -Value { $this.Reads++; $false }
+        [void](searchContentIndex "単価" $contentIndexFiles $true -workerCount 1 -stopSignal $counter)
+        # 3 回目に読まれたときから Stop が立つ。作業の途中で止まったことは、読んだ回数が最後まで照合したときより少ないことで確かめる
+        $signal = [pscustomobject]@{ Reads = 0 }
+        $signal | Add-Member -MemberType ScriptProperty -Name Stop -Value { $this.Reads++; $this.Reads -ge 3 }
+        $script:progress = 0
+        $result = searchContentIndex "単価" $contentIndexFiles $true -workerCount 1 -stopSignal $signal -onProgress { param($done, $total, $newHits) $script:progress++ }
+        $result.Cancelled | Should -Be $true
+        $signal.Reads | Should -BeLessThan $counter.Reads
+        $result.Hits.Count | Should -Be 0   # 止めた作業のヒットは、結果にも進み具合にも入れない
+        $script:progress | Should -Be 0
+    }
+
+    It "列挙は検索対象のフォルダ 1 つごとに Stop を見て、立ったら残りを列挙しない" {
+        $targets = @(@{ Root = $contentIndexRoot; RelPath = "営業"; Recurse = $false }, @{ Root = $contentIndexRoot; RelPath = "営業\2025"; Recurse = $false })
+        $stop = @{ Stop = $false }
+        $listed = getContentIndexFiles $targets { param ($count) $stop.Stop = $true } $stop
+        $listed.Folders.Count | Should -Be 1
+        $listed.ContentIndexFiles.Count | Should -Be 2
+        $none = getContentIndexFiles $targets $null @{ Stop = $true }
+        $none.Folders.Count | Should -Be 0
+        (getContentIndexFiles $targets).Folders.Count | Should -Be 2
     }
 
     It "1 行ずつ照合する検索語でも上限で打ち切る" {
@@ -587,7 +639,8 @@ Describe "searchContentIndex（検索語・条件・上限・中止）" -Tag Io 
 
     It "進み具合（照合した本文インデックスのファイルの数）を知らせ、中止できる" {
         $script:progress = @()
-        $result = searchContentIndex "株" $contentIndexFiles $true -taskBytes 1 -workerCount 1 -onProgress { param($done, $total, $newHits) $script:progress += "$done/$total" } -shouldStop { $script:progress.Count -ge 1 }
+        $stop = @{ Stop = $false }
+        $result = searchContentIndex "株" $contentIndexFiles $true -taskBytes 1 -workerCount 1 -onProgress { param($done, $total, $newHits) $script:progress += "$done/$total"; $stop.Stop = $true } -stopSignal $stop
         $result.Cancelled | Should -Be $true
         ($script:progress -join ",") | Should -Be "1/2"
     }
@@ -681,9 +734,32 @@ Describe "searchContentIndex（並列検索・読んだ内容の使い回し）"
 
     It "並列でも中止できる" {
         $script:calls = 0
-        $result = searchContentIndex "見積" $contentIndexFiles $true -workerCount 3 -taskBytes 1 -onProgress { param($done, $total, $newHits) $script:calls++ } -shouldStop { $script:calls -ge 2 }
+        $stop = [hashtable]::Synchronized(@{ Stop = $false })
+        $result = searchContentIndex "見積" $contentIndexFiles $true -workerCount 3 -taskBytes 1 -onProgress { param($done, $total, $newHits) $script:calls++; if ($script:calls -ge 2) { $stop.Stop = $true } } -stopSignal $stop
         $result.Cancelled | Should -Be $true
         $script:calls | Should -Be 2
+        $result.Hits.Count | Should -Be 40   # 2 つの作業（本文インデックスのファイル 20 件ずつ）の分だけ。止めた後の作業のヒットは入れない
+    }
+
+    It "並列で中止したあとも、同じプールで次の検索がいつもの結果になる（残った作業を受け取って捨てる）" {
+        $pool = newContentIndexWorkerPool 3
+        try {
+            $stop = [hashtable]::Synchronized(@{ Stop = $false })
+            $result = searchContentIndex "見積" $contentIndexFiles $true -taskBytes 1 -pool $pool -onProgress { param($done, $total, $newHits) $stop.Stop = $true } -stopSignal $stop
+            $result.Cancelled | Should -Be $true
+            $expected = formatBookLines (searchContentIndex "見積" $contentIndexFiles $true -workerCount 1).Hits
+            $again = searchContentIndex "見積" $contentIndexFiles $true -taskBytes 1 -pool $pool
+            formatBookLines $again.Hits | Should -Be $expected
+            $again.Cancelled | Should -Be $false
+        } finally {
+            $pool.Close()
+        }
+    }
+
+    It "並列でも、始めから Stop が立っていれば何も照合しない" {
+        $result = searchContentIndex "見積" $contentIndexFiles $true -workerCount 3 -taskBytes 1 -stopSignal @{ Stop = $true }
+        $result.Cancelled | Should -Be $true
+        $result.Hits.Count | Should -Be 0
     }
 
     It "内容を使い回し、書き直された本文インデックスのファイルは読み直す" {

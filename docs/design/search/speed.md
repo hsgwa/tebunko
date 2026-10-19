@@ -33,7 +33,7 @@ flowchart TD
 
 | しくみ | 内容 |
 |---|---|
-| 並列検索 | 本文インデックスのファイルを、大きさの合計がおよそ 16MB になるまでまとめて 1 つの作業にし（`splitContentIndexTasks`）、作業が 2 つ以上なら照合のプール（`WorkerPool`。コア数 − 1、1〜4）で並行して照合する。各スレッドには照合に要る関数（`searchContentIndexFiles`・`readContentIndexPlaces` など）と値だけを読み込む。結果は作業の順に取り込み、上限・中止・進み具合（1 つの作業を照合するたびに通知。件数は本文インデックスのファイルの数）の扱いは 1 スレッドのときと同じ |
+| 並列検索 | 本文インデックスのファイルを、大きさの合計がおよそ 16MB になるまでまとめて 1 つの作業にし（`splitContentIndexTasks`）、作業が 2 つ以上なら照合のプール（`WorkerPool`。コア数 − 1、1〜4）で並行して照合する。各スレッドには照合に要る関数（`searchContentIndexFiles`・`readContentIndexPlaces` など）と値だけを読み込む。結果は作業の順に取り込み、上限・中止・進み具合（1 つの作業を照合するたびに通知。件数は本文インデックスのファイルの数）の扱いは 1 スレッドのときと同じ。中止は要求（`Stop`）を各スレッドにそのまま渡し、本文インデックスのファイル 1 件ごとに見る。止めたあとは、残った作業を受け取って捨てる（スレッドを止めずに、プールを次の検索で使える）。時間切れ・打ち切り・例外のときだけ、残った作業を `Cancel` で捨てる |
 | スレッドの使い回し | 画面は、検索の司令のスレッド（`SearchService`）を画面を開いている間 1 つだけ動かす。lib.ps1 の読み込みと照合のプールの用意（`newContentIndexWorkerPool`）は、司令のスレッドを始めたときに 1 回だけ行い、検索のたびに行わない。検索 1 回は要求（`newSearchRequest`）として渡し、`invokeSearchRequest` が実行する。新しい要求を渡すと、前の要求の `Stop` を立てて取り消す（[寿命](../structure/threads.md#寿命)） |
 | 列挙 | 本文インデックスのファイルの列挙（`getContentIndexFiles` → `findContentIndexFiles`）は、.NET（`DirectoryInfo.GetFiles`）で `content_index.*.tsv` を 1 回で集め、更新日時・サイズも列挙のときに得る |
 | 読む大きさの上限 | 本文インデックスのファイルは丸ごと読むため、大きさが `contentIndexSearchMaxBytes`（64MB）を超えるファイルは読まずに飛ばす（検索の結果の `Skipped` に入り、画面に件数が出る）。並列の検索は最大 4 スレッドなので、同時に持つのは最大でこの 4 倍（256MB）。正しく作ったファイルは 4MB（`contentIndexFileMaxBytes`）が目安で、1 つの元のファイルで超えるときだけ大きくなる |
