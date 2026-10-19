@@ -48,9 +48,34 @@ BeforeAll {
         return (@($lines | Where-Object { $_.Text -match $pattern } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ")
     }
 
+    function testSameBranch {
+        # 止める呼び出しが、compareOfficeProcess の結果が "Same" のときの枝（if の `-eq "Same"` の本体・switch の "Same" の枝）の中にあるか。
+        # `-ne "Same"` の枝・結果を比べない呼び出し・枝の外は認めない
+        param ($kill, $owner)
+
+        if (-not $owner) { return $false }
+        $comparesProcess = { param ($tree) @($tree.FindAll({ param ($n) $n -is [System.Management.Automation.Language.CommandAst] -and $n.GetCommandName() -eq "compareOfficeProcess" }, $true)).Count -gt 0 }
+        $isSame = { param ($n) $n -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $n.Value -eq "Same" }
+        $inside = { param ($body) $kill.Extent.StartOffset -ge $body.Extent.StartOffset -and $kill.Extent.EndOffset -le $body.Extent.EndOffset }
+        foreach ($node in @($owner.FindAll({ param ($n) $n -is [System.Management.Automation.Language.IfStatementAst] -or $n -is [System.Management.Automation.Language.SwitchStatementAst] }, $true))) {
+            if ($node -is [System.Management.Automation.Language.IfStatementAst]) {
+                foreach ($clause in $node.Clauses) {
+                    $condition = $clause.Item1
+                    $same = @($condition.FindAll({ param ($n) $n -is [System.Management.Automation.Language.BinaryExpressionAst] -and $n.Operator -eq [System.Management.Automation.Language.TokenKind]::Ieq -and ((& $isSame $n.Right) -or (& $isSame $n.Left)) }, $true))
+                    if ((& $comparesProcess $condition) -and $same.Count -gt 0 -and (& $inside $clause.Item2) -and $kill.Extent.StartOffset -gt $condition.Extent.EndOffset) { return $true }
+                }
+            } elseif (& $comparesProcess $node.Condition) {
+                foreach ($clause in $node.Clauses) {
+                    if ((& $isSame $clause.Item1) -and (& $inside $clause.Item2)) { return $true }
+                }
+            }
+        }
+        return $false
+    }
+
     function getKillViolations {
         # スクリプトの文字列から、プロセスを止める呼び出しを探し、"関数（メソッド）名" の一覧と、
-        # その関数の中で、止める呼び出しより前に isSameOfficeProcess を呼んでいないものの一覧を返す。
+        # その関数の中で、止める呼び出しより前に isSameOfficeProcess を呼んでいない、または compareOfficeProcess の結果が "Same" の枝の中にないものの一覧を返す。
         # kind が Kill ならメンバー名 Kill の呼び出し（.Kill()）、StopProcess なら Stop-Process コマンド。
         # コードを文字列で渡せるので、通ってはいけない形で落ちることをテストで確かめられる
         param (
@@ -80,7 +105,7 @@ BeforeAll {
             $calls = $(if ($owner) {
                 @($owner.FindAll({ param ($node) $node -is [System.Management.Automation.Language.CommandAst] -and $node.GetCommandName() -eq "isSameOfficeProcess" -and $node.Extent.StartOffset -lt $kill.Extent.StartOffset }, $true))
             } else { @() })
-            if ($calls.Count -eq 0) { $unchecked.Add($name) }
+            if ($calls.Count -eq 0 -and -not (testSameBranch $kill $owner)) { $unchecked.Add($name) }
         }
         return @{ Places = $places.ToArray(); Unchecked = $unchecked.ToArray() }
     }
@@ -380,7 +405,7 @@ Describe "危険な処理を使っていないこと（docs/safety/checks.md「�
         findPattern $code '\btaskkill\b|\bCloseMainWindow\b|\bTerminate\b|\bspps\b|(^|[;|&({\s])kill\s+-?\w' | Should -Be ""
     }
 
-    It "プロセスを止める .Kill() は、決まった 3 か所（quitApp・OfficeWatchdog の Start・IndexingSession の KillOffice）だけで、どれも同じ関数の中で isSameOfficeProcess を呼ぶ" {
+    It "プロセスを止める .Kill() は、決まった 3 か所（quitApp・OfficeWatchdog の Start・IndexingSession の KillOffice）だけで、どれも同じ関数の中で、止める前に照合（isSameOfficeProcess、または compareOfficeProcess の結果が Same の枝）を通す" {
         $found = New-Object System.Collections.Generic.List[string]
         $unchecked = New-Object System.Collections.Generic.List[string]
         foreach ($file in $scriptFiles) {
@@ -400,6 +425,13 @@ Describe "危険な処理を使っていないこと（docs/safety/checks.md「�
         @{ name = "クラスのメソッドの中の .Kill()"; code = 'class C { [void] M($p) { $p.Kill() } }'; places = "M"; unchecked = "M" }
         @{ name = "別の関数にある照合は数えない"; code = 'function a { isSameOfficeProcess 1 2 3 } function b { $p.Kill() }'; places = "b"; unchecked = "b" }
         @{ name = "関数の外の .Kill()"; code = '$p.Kill()'; places = "(関数の外)"; unchecked = "(関数の外)" }
+        @{ name = "switch の Same の枝の .Kill()"; code = 'function a { switch (compareOfficeProcess $p "X" 1) { "Same" { $p.Kill() } default { } } }'; places = "a"; unchecked = "" }
+        @{ name = "-eq Same の枝の .Kill()"; code = 'function a { if ((compareOfficeProcess $p "X" 1) -eq "Same") { $p.Kill() } }'; places = "a"; unchecked = "" }
+        @{ name = "switch の Same でない枝の .Kill()"; code = 'function a { switch (compareOfficeProcess $p "X" 1) { "Same" { } default { $p.Kill() } } }'; places = "a"; unchecked = "a" }
+        @{ name = "-ne Same の枝の .Kill()"; code = 'function a { if ((compareOfficeProcess $p "X" 1) -ne "Same") { $p.Kill() } }'; places = "a"; unchecked = "a" }
+        @{ name = "compareOfficeProcess を呼ぶだけで Same と比べない .Kill()"; code = 'function a { $r = compareOfficeProcess $p "X" 1; $p.Kill() }'; places = "a"; unchecked = "a" }
+        @{ name = "compareOfficeProcess の結果を .Kill() のあとで比べる"; code = 'function a { $p.Kill(); if ((compareOfficeProcess $p "X" 1) -eq "Same") { } }'; places = "a"; unchecked = "a" }
+        @{ name = "compareOfficeProcess でない比べの Same の枝の .Kill()"; code = 'function a { if ($r -eq "Same") { $p.Kill() } }'; places = "a"; unchecked = "a" }
     ) {
         param ($name, $code, $places, $unchecked)
         $result = getKillViolations $code
