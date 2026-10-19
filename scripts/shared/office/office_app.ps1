@@ -379,7 +379,7 @@ function quitApp {
     # アプリを終了させる。Quit し、COM の参照を放し、控えた PID のプロセス（名前も合うもの）が終わるのを待つ。
     # GC::WaitForPendingFinalizers() は COM の解放待ちで長時間（約 60 秒）止まることがあるため使わず、
     # 待ち時間（ExitWait）を過ぎても終わらなければ PID を指定して強制終了する（名前では止めない）。終わったと確かめられたら $true。
-    # 待つ前・止める前に、控えたプロセスと同じか（名前・起動時刻）を照らす（isSameOfficeProcess）。起動時刻が違えば、控えたプロセスはもう終わっているので $true
+    # 待つ前・止める前に、控えたプロセスと同じか（名前・起動時刻）を 1 回だけ照らし（compareOfficeProcess）、Same のときだけ待って止める。起動時刻が違えば、控えたプロセスはもう終わっているので $true
     # （別のプロセスを待たず、止めない）。起動時刻が読めない・控えていないときは、止めず待たずに $false（記録を残し、次の起動の確認に任せる）
     param ([string]$name, $com, [int]$processId, $startTicks = $null)
 
@@ -392,20 +392,28 @@ function quitApp {
     if ($null -eq $process -or $process.ProcessName -ne $appInfo[$name].Process) {
         return $true
     }
-    if (-not (isSameOfficeProcess $process $appInfo[$name].Process $startTicks)) {
-        # Quit の直後に自分で終わったものは、終わったとして返す。起動時刻が違えば控えたプロセスは終わっている。分からないときは $false
-        try { if ($process.HasExited) { return $true } } catch {}
-        return ((compareOfficeProcess $process $appInfo[$name].Process $startTicks) -eq "Different")
+    switch (compareOfficeProcess $process $appInfo[$name].Process $startTicks) {
+        "Same" {
+            $wait = $appInfo[$name].ExitWait
+            if ($process.WaitForExit($wait)) {
+                return $true
+            }
+            # 終了処理中のプロセスは Kill() が「アクセス拒否」で失敗することがあるが、そのまま終了するため無視する
+            try { $process.Kill() } catch {}
+            # 強制終了は非同期のため、同じ上限で終わるのを待つ。それでも残った場合は、残ったプロセスを
+            # 記録（PID の記録）に残し、次の起動の確認に任せる（PowerPoint は、次の getApp が利用者のものとみなして後回しにもする。安全な側に倒れる）
+            return [bool]$process.WaitForExit($wait)
+        }
+        "Different" {
+            # 起動時刻が違えば、控えたプロセスはもう終わっている
+            return $true
+        }
+        default {
+            # 分からないときは止めず待たない。Quit の直後に自分で終わったものだけ、終わったとして返す
+            try { if ($process.HasExited) { return $true } } catch {}
+            return $false
+        }
     }
-    $wait = $appInfo[$name].ExitWait
-    if ($process.WaitForExit($wait)) {
-        return $true
-    }
-    # 終了処理中のプロセスは Kill() が「アクセス拒否」で失敗することがあるが、そのまま終了するため無視する
-    try { $process.Kill() } catch {}
-    # 強制終了は非同期のため、同じ上限で終わるのを待つ。それでも残った場合は、次の getApp が
-    # 利用者のものとみなして後回しにする（安全な側に倒れる）
-    return [bool]$process.WaitForExit($wait)
 }
 
 function quitKeptApp {

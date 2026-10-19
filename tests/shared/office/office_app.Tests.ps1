@@ -1307,6 +1307,29 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         @($log) | Should -Be $expectedLog
     }
 
+    It "quitApp: 照合は compareOfficeProcess の 1 回だけで、結果が <compare> なら <expected> を返す" -TestCases @(
+        @{ compare = "Same"; expected = $true; waits = @($true) }
+        @{ compare = "Different"; expected = $true; waits = @() }
+        @{ compare = "Unknown"; expected = $false; waits = @() }
+    ) {
+        param ($compare, $expected, $waits)
+        $script:waitResults = New-Object System.Collections.Queue
+        foreach ($result in $waits) { $script:waitResults.Enqueue($result) }
+        $process = [pscustomobject]@{ Id = 4242; ProcessName = "EXCEL"; HasExited = $false }
+        $process | Add-Member -MemberType ScriptMethod -Name WaitForExit -Value { [void]$log.Add("Wait:$($args[0])"); return $script:waitResults.Dequeue() }
+        $process | Add-Member -MemberType ScriptMethod -Name Kill -Value { [void]$log.Add("Kill:$($this.Id)") }
+        Mock Get-Process { $process } -ParameterFilter { $Id -eq 4242 }
+        Mock releaseComObject {}
+        Mock compareOfficeProcess { $compare }
+        Mock isSameOfficeProcess { $false }
+        $com = newHandOverApp @() "Excel"
+
+        (quitApp "Excel" $com 4242 1) | Should -Be $expected
+
+        Should -Invoke compareOfficeProcess -Times 1 -Exactly -Scope It
+        Should -Invoke isSameOfficeProcess -Times 0 -Exactly -Scope It
+    }
+
     It "quitApp: PID を控えていない（0）・プロセスがもう無いときは、Quit して待たない（<title>）" -TestCases @(
         @{ title = "PID を控えていない"; processId = 0 }
         @{ title = "プロセスがもう無い"; processId = 4242 }
