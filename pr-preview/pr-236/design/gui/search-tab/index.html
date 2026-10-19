@@ -4211,7 +4211,7 @@
 <tr>
 <td>6</td>
 <td>絞り込み</td>
-<td>欄の左に <code>結果を絞り込み</code> と出し、結果の中から文字列で絞り込む（<a href="#絞り込み">絞り込み</a>）。検索し直さずに結果を絞れる</td>
+<td>欄の左に <code>ファイル名で絞り込み</code> と出し、結果の中から元のファイル名の文字列で絞り込む（<a href="#絞り込み">絞り込み</a>）。検索し直さずに結果を絞れる</td>
 </tr>
 <tr>
 <td>7</td>
@@ -4388,7 +4388,7 @@
 <ul>
 <li>形は、白地・赤い線 1・角丸 4・影（黒 16%・下に 2・ぼかし 8）で、中は赤いアイコンと赤い文字。マウスの操作は受けない（<code>IsHitTestVisible=False</code>）。出したとき、画面の読み上げにも知らせる（<code>LiveRegionChanged</code>）。</li>
 <li>正規表現が正しくないとき、検索ワードの欄の枠も赤くする（<code>WordErrorRing</code>）。</li>
-<li>広い幅では、正規表現の吹き出しは右側の「結果を絞り込み」の欄に重なる（操作は通る。吹き出しはマウスを受けない）。正規表現の吹き出しは、最小の幅では右端が窓に収まるまで左へ寄る（左端は［正規表現］より左になる）。吹き出しを出し入れしても、位置は変わらない（<code>tests/gui/search_bar.Tests.ps1</code>）。</li>
+<li>広い幅では、正規表現の吹き出しは右側の「ファイル名で絞り込み」の欄に重なる（操作は通る。吹き出しはマウスを受けない）。正規表現の吹き出しは、最小の幅では右端が窓に収まるまで左へ寄る（左端は［正規表現］より左になる）。吹き出しを出し入れしても、位置は変わらない（<code>tests/gui/search_bar.Tests.ps1</code>）。</li>
 <li>作りは、検索バーの中の高さ 0 の <code>Canvas</code>（<code>BalloonLayer</code>）に置き、<code>search.xaml</code> で検索バーを結果の一覧より前に出して重ねる（<code>Popup</code> は別のウィンドウで、画面の読み上げ・自動操作から外れやすく、<code>Adorner</code> は置き場の層が増えるため使わない）。位置は <code>placeSearchBalloon</code>（<code>search_bar.ps1</code>）が決める。置き直すのは、吹き出しを出したときと、検索条件の並びを決め直したとき（<code>updateConditionFlow</code>）。右端からはみ出すときは <code>getBalloonLeft</code>（<code>search_bar_view.ps1</code>）で左へ寄せる。文言と可否の判断は <code>getSearchKindBalloonText</code>・<code>getWordNotice</code>・<code>newSearchButtonState</code>（<code>search_bar_view.ps1</code>）。</li>
 </ul>
 <h2 id="結果の表">結果の表<a class="headerlink" href="#結果の表" title="Permanent link">&para;</a></h2>
@@ -4429,7 +4429,7 @@
 </ul>
 <h2 id="絞り込み">絞り込み<a class="headerlink" href="#絞り込み" title="Permanent link">&para;</a></h2>
 <ul>
-<li>入力のたびに（0.3 秒待ってから）、フォルダ・ファイル名・場所・種別・該当行（インデックスの行そのまま）を対象に部分一致（大文字・小文字を区別しない）で絞り込む（<code>HitRow.Contains</code>）。行番号・セル番地は対象にしない。</li>
+<li>入力のたびに（0.3 秒待ってから）、元のファイル名（拡張子を含む。フォルダは含まない）への部分一致（大文字・小文字を区別しない）で絞り込む（<code>HitRow.MatchesFileName</code>）。フォルダ・場所・種別・該当行・行番号は対象にしない（フォルダは検索対象、本文は検索ワードで絞る）。ファイル名はファイルごとに同じなので、合うファイルの行はすべて残り、合わないファイルは見出しごと消える。</li>
 <li>絞り込み中は No.5 に <code>一致 N 件中 K 件を表示</code> と表示する。入力欄を空にすると解除する。</li>
 <li>結果の表とプレビューの境目は、結果が少なくて表が内容の高さに収まるとき（見出しと行が 40 項目以内）は、表を内容の高さまで縮めてプレビューを広げる（<code>getPreviewRowHeight</code>・<code>updateResultPaneHeight</code>）。表がいっぱいになるときと、行がまだ無いとき（起動直後・検索前・0 件）は、プレビューを既定の高さ（180。最小 120）にして、結果の側を大きく保つ。高さは保存しない（起動のたびに既定から始まる）。境目をドラッグしたら、その高さを優先して自動では変えない。</li>
 <li>新しく検索すると絞り込みは解除する。</li>
