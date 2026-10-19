@@ -266,6 +266,19 @@ Describe "getWorkspaceMoveOutcome" -Tag Unit {
         $outcome.Warning | Should -Be ""
     }
 
+    It "元を消せずに残った場所が <label>のとき、成功のまま、その場所を知らせる文（Notice）を返す" -TestCases @(
+        @{ label = "無い"; leftovers = @(); expected = "" }
+        @{ label = "Leftovers の項目が無い（旧い形）"; leftovers = $null; expected = "" }
+        @{ label = "1 つ"; leftovers = @("C:\旧\store"); expected = "移し終えましたが、元の「C:\旧\store」を消せませんでした。ほかのアプリを閉じてから手で消してください。" }
+        @{ label = "複数"; leftovers = @("C:\旧\store", "C:\旧\index"); expected = "移し終えましたが、元の「C:\旧\store」、「C:\旧\index」を消せませんでした。ほかのアプリを閉じてから手で消してください。" }
+    ) {
+        param ($label, $leftovers, $expected)
+        $outcome = getWorkspaceMoveOutcome @{ Ok = $true; Targets = 0; Count = 2; Leftovers = $leftovers } "" $false "move" "D:\新" "C:\旧"
+        $outcome.Ok | Should -Be $true
+        $outcome.Warning | Should -Be ""
+        $outcome.Notice | Should -Be $expected
+    }
+
     It "移している間に閉じようとしていたら、成功のときだけ Close を返す（失敗は閉じずに警告を出す）" {
         (getWorkspaceMoveOutcome @{ Ok = $true; Count = 1 } "" $true "move" "D:\新" "C:\旧").Close | Should -Be $true
         $failed = getWorkspaceMoveOutcome $null "失敗" $true "move" "D:\新" "C:\旧"
