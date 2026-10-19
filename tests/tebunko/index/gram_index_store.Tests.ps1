@@ -81,6 +81,31 @@ Describe "gram 索引を作って絞る" -Tag Io {
         $signal.Reads | Should -BeGreaterOrEqual 2
     }
 
+    It "インデックス名ごとの切れ目でも止まり、そのあとの名前の区画を読まない" {
+        $tree = newGramTree "$TestDrive\s2stopname"
+        putContentIndex $tree.Index "総務" "a" "A.xlsx" "モニター 総務の備品" | Out-Null
+        [void](updateGramIndexOf $tree.Index $tree.Gram "営業")
+        [void](updateGramIndexOf $tree.Index $tree.Gram "総務")
+        $script:realToc = ${function:readGramToc}
+        $script:tocCalls = 0
+        Mock readGramToc { $script:tocCalls++; & $script:realToc $dir }
+        # 読み込みの 1 回目は列挙（フォルダ 1 つ）、2 回目は 1 つ目の名前、3 回目は 2 つ目の名前。3 回目から立つ
+        $signal = [pscustomobject]@{ Reads = 0 }
+        $signal | Add-Member -MemberType ScriptProperty -Name Stop -Value { $this.Reads++; $this.Reads -ge 3 }
+        (getGramContentIndexFiles "モニター" $true @($tree.Index) $tree.Index $tree.Gram -stopSignal $signal) | Should -BeNullOrEmpty
+        $script:tocCalls | Should -Be 1
+    }
+
+    It "列挙の段にも同じ stopSignal を渡す" {
+        $tree = newGramTree "$TestDrive\s2stopenum"
+        [void](updateGramIndexOf $tree.Index $tree.Gram "営業")
+        $script:stopRequest = @{ Stop = $false }
+        $script:seenStop = $null
+        Mock getContentIndexFiles { $script:seenStop = $stopSignal; @{ ContentIndexFiles = @() } }
+        getGramContentIndexFiles "モニター" $true @($tree.Index) $tree.Index $tree.Gram -stopSignal $script:stopRequest | Out-Null
+        [object]::ReferenceEquals($script:seenStop, $script:stopRequest) | Should -BeTrue
+    }
+
     It "変わっていなければ 2 回目は何も足さない" {
         $tree = newGramTree "$TestDrive\s3"
         [void](updateGramIndexOf $tree.Index $tree.Gram "営業")

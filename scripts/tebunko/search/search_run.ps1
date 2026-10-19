@@ -145,7 +145,6 @@ function invokeSearchRequest {
         }
         $word = $request.Word
         $folders = $request.Folders
-
         # gram 索引で、検索語のすべての 2-gram を含むファイルだけに絞る（索引を使えなければ $null）
         $own = [Workspace]::new($request.WorkDir)
         $index = getGramContentIndexFiles $word $request.SimpleMatch $folders -indexRoot $own.IndexDir -gramRoot $own.GramDir `
