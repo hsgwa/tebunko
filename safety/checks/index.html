@@ -4292,7 +4292,7 @@
 <tr>
 <td>12</td>
 <td>プロセスの強制終了</td>
-<td>1 か所のみ（<a href="../disclosure/#前回残った-office-の終了起動時の確認">前回残った Office の終了（起動時の確認）</a>）。止める前に <code>isSameOfficeProcess</code> を呼ぶ。<code>taskkill</code>・<code>CloseMainWindow</code>・WMI の <code>Terminate</code> などの別の止め方は 0 件</td>
+<td>1 か所のみ（<a href="../disclosure/#前回残った-office-の終了起動時の確認">前回残った Office の終了（起動時の確認）</a>）。止める前に照合（<code>isSameOfficeProcess</code>）を通す。<code>taskkill</code>・<code>CloseMainWindow</code>・WMI の <code>Terminate</code> などの別の止め方は 0 件</td>
 <td><code>scan 'Stop-Process'</code>、<code>scan 'taskkill','CloseMainWindow','Terminate','spps'</code></td>
 </tr>
 <tr>
@@ -4310,7 +4310,7 @@
 <tr>
 <td>15</td>
 <td>プロセスの強制終了（<code>.Kill()</code>）</td>
-<td>3 か所のみ（Office の終了の <code>quitApp</code>・制限時間の見張り・画面を閉じるときの <code>KillOffice</code>）。どれも、同じ関数の中で、止める前に <code>isSameOfficeProcess</code> を呼び、控えたときと同じプロセス（名前・起動時刻）だけを止める。制限時間の見張りと <code>KillOffice</code> は、さらに、取り込み中に見える窓があった（利用者が使った）PowerPoint を止めない（<code>quitApp</code> は Office を終わらせる通常の手順のため、この印を見ない）。12 の <code>Stop-Process</code> も同じ</td>
+<td>3 か所のみ（Office の終了の <code>quitApp</code>・制限時間の見張り・画面を閉じるときの <code>KillOffice</code>）。どれも、同じ関数の中で、止める前に照合（<code>isSameOfficeProcess</code>、または <code>compareOfficeProcess</code> の結果が <code>Same</code> のときの枝）を通し、控えたときと同じプロセス（名前・起動時刻）だけを止める。制限時間の見張りと <code>KillOffice</code> は、さらに、取り込み中に見える窓があった（利用者が使った）PowerPoint を止めない（<code>quitApp</code> は Office を終わらせる通常の手順のため、この印を見ない）。12 の <code>Stop-Process</code> も同じ</td>
 <td><code>scan '\.Kill\('</code>（<code>tests/meta/safety.Tests.ps1</code> が、場所と照合を構文で確かめる）</td>
 </tr>
 </tbody>
