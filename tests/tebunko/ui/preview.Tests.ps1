@@ -45,7 +45,7 @@ BeforeAll {
     $previewScroll | Add-Member ScriptMethod Focus { $true }
     $previewScroll | Add-Member ScriptMethod ScrollToHorizontalOffset { param ($offset) $fake.Scrolls += $offset }
     $previewScroll | Add-Member ScriptMethod ScrollToVerticalOffset { param ($offset) $fake.VerticalScrolls += $offset; $this.VerticalOffset = [double]$offset }
-    $previewSplitter = newFakePart "PreviewSplitter" @{} @("DragCompleted")
+    $previewSplitter = newFakePart "PreviewSplitter" @{ IsDragging = $false } @("DragCompleted")
     $resultListHost = newFakePart "ResultListHost" @{ ActualHeight = 0.0; ActualWidth = 0.0 } @("SizeChanged")
     $headerScroll = newFakePart "PreviewHeaderScroll" @{ Visibility = "Collapsed" }
     $headerScroll | Add-Member ScriptMethod ScrollToHorizontalOffset { param ($offset) $fake.HeaderScrolls += $offset }
@@ -236,6 +236,26 @@ Describe "updateResultPaneHeight" -Tag Unit {
         $script:previewHeightDragged = $true
         updateResultPaneHeight 2
         $ui.DetailRow.Height.Value | Should -Be 180
+    }
+
+    It "境目をドラッグしている最中は、大きさが変わっても高さを書き戻さない" {
+        $ui.PreviewSplitter.IsDragging = $true
+        try {
+            updateResultPaneHeight 2
+            $ui.DetailRow.Height.Value | Should -Be 180
+        }
+        finally { $ui.PreviewSplitter.IsDragging = $false }
+    }
+
+    It "境目のドラッグを終えたあと、<Name>" -TestCases @(
+        @{ Name = "クリックしただけ（動かしていない）では、自動の高さ合わせを止めない"; Canceled = $false; VerticalChange = 0.0; Expected = 330 }
+        @{ Name = "取り消したドラッグでは、自動の高さ合わせを止めない"; Canceled = $true; VerticalChange = -80.0; Expected = 330 }
+        @{ Name = "動かして離したら、それ以後は自動で変えない"; Canceled = $false; VerticalChange = -80.0; Expected = 180 }
+    ) {
+        param ($Name, $Canceled, $VerticalChange, $Expected)
+        & $handlers["PreviewSplitter.DragCompleted"] $ui.PreviewSplitter ([pscustomobject]@{ Canceled = $Canceled; VerticalChange = $VerticalChange })
+        updateResultPaneHeight 2
+        $ui.DetailRow.Height.Value | Should -Be $Expected
     }
 
     It "大きさがまだ取れないときは、何もしない" {
