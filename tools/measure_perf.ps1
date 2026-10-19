@@ -16,6 +16,7 @@
 #   -Tool     … 測る tebunko のフォルダ。既定はこのスクリプトのリポジトリ
 #   -Words    … 検索する語の表（名前・語・正規表現・件数。tebunko-perfdata の words.tsv）。省略すると、ヒットしない語 1 つだけを検索する
 #   -Count    … 語ごとに、同じプロセスで続けて検索する回数
+#   -SearchLimit … 検索結果の件数の上限（既定 10000。0 は制限なし。設定 searchLimit と同じ。上限を超えた分も数える版の、全件の時間を測るときに 0 にする）
 #   -Typing   … 入力しながらの検索を測る、語ごとの入力の繰り返し回数（既定 0 は測らない。1 は受け付けない）
 #   -TypingIntervalMs … 入力しながらの検索の、要求の間隔（ミリ秒。既定 150。画面の入力しながらの検索の待ち時間と同じ）
 #   -TypingMinLength  … 入力しながらの検索で最初に送る語の長さ（既定 3。画面と同じ。合否はこの既定で決める）
@@ -56,6 +57,7 @@ param (
     [string]$Tool = (Split-Path $PSScriptRoot -Parent),
     [string]$Words,
     [int]$Count = 20,
+    [int]$SearchLimit = 10000,
     [int]$Threads = 2,
     [int]$Repeat = 3,
     [int]$Typing = 0,
@@ -190,7 +192,7 @@ for ($w = 0; $w -lt $wordList.Count; $w++) {
     $wordFile = Join-Path $raw "word-$w.json"
     [System.IO.File]::WriteAllText($wordFile, ([pscustomobject]$spec | ConvertTo-Json), $utf8)
     $searchJson = Join-Path $raw "search-$w.json"
-    invokeChild "measure_search.ps1" @("-Tool", $Tool, "-Index", $Index, "-WordFile", $wordFile, "-Count", $Count, "-Out", $searchJson, "-SampleMs", $SampleMs)
+    invokeChild "measure_search.ps1" @("-Tool", $Tool, "-Index", $Index, "-WordFile", $wordFile, "-Count", $Count, "-Limit", $SearchLimit, "-Out", $searchJson, "-SampleMs", $SampleMs)
     $r = readJson $searchJson
     $searchRaw.Add($r)
     $rows = @($r.Searches)
@@ -201,6 +203,8 @@ for ($w = 0; $w -lt $wordList.Count; $w++) {
     $search.Add([ordered]@{
         Name = $r.Name; Regex = [bool]$r.Regex; Mode = [string]$r.Mode; Hits = $rows[0].Hits; Truncated = [bool]$rows[0].Truncated; Packs = $rows[0].Packs
         TotalMs = getStats (valuesOf $rows "TotalMs")
+        ShownMs = getStats (valuesOf $rows "ShownMs")
+        HitTotal = $rows[0].HitTotal
         LoadMs = getStats (valuesOf $rows "LoadMs")
         ListMs = getStats (valuesOf $rows "ListMs")
         MatchMs = getStats (valuesOf $rows "MatchMs")
@@ -543,12 +547,12 @@ if ($run.SearchMode -eq "service") {
     add "語ごとに新しいプロセスを起動し、同じプロセスで $Count 回続けて検索した。測った版には検索の司令のスレッド（SearchService）が無いので、その版の画面と同じく、検索のたびに新しいスレッドで lib.ps1 を読み込み、集約ファイルを列挙して照合した（上限 1 万件）。1 回目は画面を開き直した直後の検索に当たり、たいてい最大の値になる。"
 }
 add
-add "| 語 | ヒット件数 | 最小 | 中央値 | 平均 | 最大 | lib.ps1 の読み込み（中央値／最大） | 列挙（中央値／最大） | 照合（中央値／最大） |"
-add "|---|---|---|---|---|---|---|---|---|"
+add "| 語 | ヒット件数 | 総数（HitTotal） | 最小 | 中央値 | 平均 | 最大 | 表がそろうまで（ShownMs。中央値／最大） | lib.ps1 の読み込み（中央値／最大） | 列挙（中央値／最大） | 照合（中央値／最大） |"
+add "|---|---|---|---|---|---|---|---|---|---|---|"
 foreach ($s in $search) {
-    add ("| {0} | {1}{2} | {3} ms | {4} ms | {5} ms | {6} ms | {7} | {8}／{9} ms | {10}／{11} ms |" -f $s.Name, $s.Hits, $(if ($s.Truncated) { "+" } else { "" }),
+    add ("| {0} | {1}{2} | {12} | {3} ms | {4} ms | {5} ms | {6} ms | {13}／{14} ms | {7} | {8}／{9} ms | {10}／{11} ms |" -f $s.Name, $s.Hits, $(if ($s.Truncated) { "+" } else { "" }),
         (ms $s.TotalMs "Min"), (ms $s.TotalMs "Median"), (ms $s.TotalMs "Mean"), (ms $s.TotalMs "Max"),
-        $(if ($s.LoadMs) { "{0}／{1} ms" -f (ms $s.LoadMs "Median"), (ms $s.LoadMs "Max") } else { "–" }), (ms $s.ListMs "Median"), (ms $s.ListMs "Max"), (ms $s.MatchMs "Median"), (ms $s.MatchMs "Max"))
+        $(if ($s.LoadMs) { "{0}／{1} ms" -f (ms $s.LoadMs "Median"), (ms $s.LoadMs "Max") } else { "–" }), (ms $s.ListMs "Median"), (ms $s.ListMs "Max"), (ms $s.MatchMs "Median"), (ms $s.MatchMs "Max"), $(if ($null -ne $s.HitTotal) { "{0:N0}" -f [int]$s.HitTotal } else { "–" }), (ms $s.ShownMs "Median"), (ms $s.ShownMs "Max"))
 }
 add
 add "### 検索のリソース"

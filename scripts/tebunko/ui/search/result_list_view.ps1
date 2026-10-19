@@ -25,6 +25,73 @@ function getSearchSummaryText {
     return "$text・$($seconds.ToString('0.0')) 秒"
 }
 
+function getSearchCountingText {
+    # 件数の上限を超えたあと、総数を数えている間の要約欄
+    param (
+        [int]$limit,
+        [int]$counted
+    )
+
+    return "検索中…　該当 $($limit.ToString('N0')) 件以上（総数を数えています：$($counted.ToString('N0')) 件）"
+}
+
+function getSearchFinishSummaryText {
+    # 検索が終わったときの要約欄（ヒットがあるとき）。$hits は表に出した件数。
+    # 上限を超えた（$truncated）ときは、数え終えていれば総数（$hitTotal）を添え、数えている間に止まった（-1）ときは総数を数えていないと伝える。
+    # 秒を渡さなければ時間は付けない
+    param (
+        [int]$hits,
+        [int]$files,
+        [double]$seconds = -1,
+        [bool]$truncated = $false,
+        [int]$hitTotal = -1
+    )
+
+    if (!$truncated) {
+        return getSearchSummaryText $hits $files $seconds
+    }
+    if ($hitTotal -ge 0) {
+        $text = "全 $($hitTotal.ToString('N0')) 件中 $($hits.ToString('N0')) 件を表示（$($files.ToString('N0')) ファイル）"
+    } else {
+        $text = "該当 $($hits.ToString('N0')) 件以上（総数は数えていません）（$($files.ToString('N0')) ファイル）"
+    }
+    if ($seconds -ge 0) {
+        $text += "・$($seconds.ToString('0.0')) 秒"
+    }
+    return $text
+}
+
+function getSearchFinishStatusText {
+    # 検索が終わった（中止・上限を超えたを含む）ときのステータスバーの文。条件（describeSearchOption の結果。無ければ空）は後ろに付ける
+    param (
+        [string]$word,
+        [int]$hits,
+        [string]$optionText = "",
+        [bool]$truncated = $false,
+        [int]$hitTotal = -1,
+        [bool]$countTimeout = $false,
+        [bool]$cancelled = $false
+    )
+
+    if ($truncated) {
+        if ($hitTotal -ge 0) {
+            $text = "検索しました：$word（全 $($hitTotal.ToString('N0')) 件のうち、先頭の $($hits.ToString('N0')) 件を表示）。フォルダ・ファイル名の順に先頭から表示しています。ワード・対象ファイル・検索対象で絞り込んでください。"
+        } elseif ($countTimeout) {
+            $text = "正規表現の照合に時間がかかりすぎるため、総数を数えられませんでした（先頭の $($hits.ToString('N0')) 件を表示）。正規表現を見直してください。"
+        } else {
+            $text = "中止しました（先頭の $($hits.ToString('N0')) 件を表示。総数は数えていません）"
+        }
+        if ($optionText -ne "") {
+            $text += "　条件：$optionText"
+        }
+        return $text
+    }
+    if ($cancelled) {
+        return "中止しました（$($hits.ToString('N0')) 件まで表示）"
+    }
+    return getSearchStatusText $word $hits $optionText
+}
+
 function getNoHitText {
     # 検索が 0 件で終わったときの、結果欄の要約と結果の表の空いた所の文（インデックス未作成・種類に合うファイルが無いときは別の文）
     return "一致する結果はありません"
