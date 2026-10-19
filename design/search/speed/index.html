@@ -4048,7 +4048,7 @@
 <tbody>
 <tr>
 <td>並列検索</td>
-<td>本文インデックスのファイルを、大きさの合計がおよそ 16MB になるまでまとめて 1 つの作業にし（<code>splitContentIndexTasks</code>）、作業が 2 つ以上なら照合のプール（<code>WorkerPool</code>。コア数 − 1、1〜4）で並行して照合する。各スレッドには照合に要る関数（<code>searchContentIndexFiles</code>・<code>readContentIndexPlaces</code> など）と値だけを読み込む。結果は作業の順に取り込み、上限・中止・進み具合（1 つの作業を照合するたびに通知。件数は本文インデックスのファイルの数）の扱いは 1 スレッドのときと同じ</td>
+<td>本文インデックスのファイルを、大きさの合計がおよそ 16MB になるまでまとめて 1 つの作業にし（<code>splitContentIndexTasks</code>）、作業が 2 つ以上なら照合のプール（<code>WorkerPool</code>。コア数 − 1、1〜4）で並行して照合する。各スレッドには照合に要る関数（<code>searchContentIndexFiles</code>・<code>readContentIndexPlaces</code> など）と値だけを読み込む。結果は作業の順に取り込み、上限・中止・進み具合（1 つの作業を照合するたびに通知。件数は本文インデックスのファイルの数）の扱いは 1 スレッドのときと同じ。中止は要求（<code>Stop</code>）を各スレッドにそのまま渡し、本文インデックスのファイル 1 件ごとに見る。止めたあとは、残った作業を受け取って捨てる（スレッドを止めずに、プールを次の検索で使える）。時間切れ・打ち切り・例外のときだけ、残った作業を <code>Cancel</code> で捨てる</td>
 </tr>
 <tr>
 <td>スレッドの使い回し</td>

@@ -4260,7 +4260,7 @@
 </tr>
 <tr>
 <td><code>getContentIndexFiles</code></td>
-<td>folders（既定 <code>$workspace.IndexDir</code>。フォルダの文字列、または <code>@{Root; RelPath; Recurse}</code>（画面のツリーで選んだ範囲。<code>Recurse</code> が <code>$false</code> なら直下だけ）の配列）, onProgress（フォルダを 1 つ数えるたびに <code>{ param($count) }</code> を呼ぶ）</td>
+<td>folders（既定 <code>$workspace.IndexDir</code>。フォルダの文字列、または <code>@{Root; RelPath; Recurse}</code>（画面のツリーで選んだ範囲。<code>Recurse</code> が <code>$false</code> なら直下だけ）の配列）, onProgress（フォルダを 1 つ数えるたびに <code>{ param($count) }</code> を呼ぶ）, stopSignal（<code>Stop</code> を持つもの。フォルダ 1 つごとに見て、立っていれば残りを列挙しない）</td>
 <td><code>@{Folders; ContentIndexFiles}</code></td>
 <td>検索対象の本文インデックスのファイルを列挙する（<code>findContentIndexFiles</code>）。結果の相対パスは <code>Root</code> から求める。Folders はフォルダごとの <code>@{Path; Root; Exists; Count}</code>、ContentIndexFiles は <code>findContentIndexFiles</code> の要素をつないだもの（フォルダの順・名前の順、重複なし）</td>
 <td><a href="../../search/speed/">検索を速くする仕組み</a></td>
@@ -4292,7 +4292,7 @@
 </tr>
 <tr>
 <td><code>searchContentIndexFiles</code></td>
-<td>contentIndexFiles, start, count, regex, max, textRegex, scanMode, cache, include, exclude, excludePlace</td>
+<td>contentIndexFiles, start, count, regex, max, textRegex, scanMode, cache, include, exclude, excludePlace, stopSignal（<code>Stop</code> を持つもの。ファイル 1 件ごとに見て、立っていればここまでのヒットを返す）</td>
 <td><code>@{Hits; Skipped}</code></td>
 <td>contentIndexFiles の start から count 件を読み、regex に一致する行を <code>Hits</code> に返す（1 行に複数一致しても 1 件）。読めない・形が崩れている・<code>contentIndexSearchMaxBytes</code>（64MB）より大きい本文インデックスのファイルは、そのファイルだけ飛ばしてパスを <code>Skipped</code> に入れる（時間切れだけは飛ばさず、そのまま伝える）。<code>ScanMode</code> に応じて全文に 1 回照合し、一致しない本文インデックスのファイルは飛ばす。一致の位置から場所・行を求める（<code>readContentIndexPlaces</code>）。Excel の図形・コメントの行（<code>CellPrefixed</code>）は、区切りのタブより後から始まる一致だけをヒットにする（<code>testCellPrefixedHit</code>。セル番地だけの一致は件数・上限に数えない）。元のファイルがテキストの拡張子（<code>getContentIndexFileKind</code>）なら、ヒットの行を <code>truncateHitLine</code> で切る（Excel・Word・PowerPoint は切らない）。インデックス作成中の本文インデックスのファイルも読めるよう共有して開き、読めないものは飛ばす</td>
 <td>同上</td>
@@ -4308,7 +4308,7 @@
 </tr>
 <tr>
 <td><code>searchContentIndex</code></td>
-<td>word, contentIndexFiles, simpleMatch, limit, shouldStop, caseSensitive, fileFilter, workerCount（並列のスレッド数。0 は自動で最大 4）, cache（<code>newTsvTextCache</code>）, includeShapes, includeComments（図形・コメントの場所も検索するか。<code>newPlaceExclude</code>）, taskBytes, onProgress（<code>{ param($done, $total, $newHits) }</code>。done・total は本文インデックスのファイルの数）, pool（照合のプール <code>newContentIndexWorkerPool</code>。<code>$null</code> なら並列にするときだけ作って最後に閉じる）</td>
+<td>word, contentIndexFiles, simpleMatch, limit, stopSignal（検索の要求など <code>Stop</code> を持つもの。ファイル 1 件ごとに見て、作業スレッドにも渡す。<code>$null</code> は止めない）, caseSensitive, fileFilter, workerCount（並列のスレッド数。0 は自動で最大 4）, cache（<code>newTsvTextCache</code>）, includeShapes, includeComments（図形・コメントの場所も検索するか。<code>newPlaceExclude</code>）, taskBytes, onProgress（<code>{ param($done, $total, $newHits) }</code>。done・total は本文インデックスのファイルの数）, pool（照合のプール <code>newContentIndexWorkerPool</code>。<code>$null</code> なら並列にするときだけ作って最後に閉じる）</td>
 <td><code>@{Hits; SimpleMatch; Total; Truncated; Cancelled; Skipped}</code>（<code>Skipped</code> は飛ばした本文インデックスのファイルのパスの一覧）</td>
 <td>本文インデックスを検索する（照合は <code>searchContentIndexFiles</code>＝.NET の <code>StreamReader</code>＋<code>[regex]</code>）。Hits は PSCustomObject（Root・RelPath（本文インデックスのファイル）・RelDir・FileName・Book・Location・LineNumber・Line）。Total は本文インデックスのファイルの数。作業（約 16MB）ごとに進捗を知らせ、上限・中止に対応する。作業が 2 つ以上なら複数スレッドで並行して検索する（結果の順は変わらない）。照合が時間切れになれば例外にする</td>
 <td><a href="../../search/">検索</a></td>
@@ -4350,7 +4350,7 @@
 <td><code>invokeSearchRequest</code></td>
 <td>request, pool, cache</td>
 <td>–</td>
-<td>検索の要求を実行し、ヒットと進み具合を要求に少しずつ入れる。例外は投げずに <code>Error</code> に入れる。始める前に取り消されていたら何もせずに <code>Cancelled</code> にする</td>
+<td>検索の要求を実行し、ヒットと進み具合を要求に少しずつ入れる。例外は投げずに <code>Error</code> に入れる。始める前に取り消されていたら何もせずに <code>Cancelled</code> にする。gram 索引・列挙・照合には要求そのものを <code>-stopSignal</code> として渡し、gram 索引・列挙の後に <code>Stop</code> を見て、立っていれば先の段に進まず <code>Cancelled</code> にする</td>
 <td>同上</td>
 <td>検索の司令</td>
 </tr>
@@ -4410,7 +4410,7 @@
 </tr>
 <tr>
 <td><code>getGramContentIndexFiles</code></td>
-<td>word, simpleMatch, folders, indexRoot, gramRoot, onProgress</td>
+<td>word, simpleMatch, folders, indexRoot, gramRoot, onProgress, stopSignal（<code>Stop</code> を持つもの。列挙とインデックス名ごとに見て、立っていれば <code>$null</code>）</td>
 <td><code>@{Folders; ContentIndexFiles; Gram（@{Total; Candidates}）}</code> / <code>$null</code></td>
 <td>検索語の 2-gram をすべて含むと分かったファイルだけに、照合する本文インデックスのファイルを絞る。正規表現・2-gram が作れない・索引の置き場が無い・1 つも外せなかったときは <code>$null</code>（呼ぶ側が <code>getContentIndexFiles</code> ですべてを集める）</td>
 <td>検索（<code>search_run.ps1</code>）</td>
