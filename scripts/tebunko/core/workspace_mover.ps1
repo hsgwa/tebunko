@@ -50,20 +50,27 @@ class WorkspaceMover {
             }
         }
         try {
-            $count = $this.MoveEntries($from, $to)
+            $result = $this.MoveEntries($from, $to)
         } catch {
-            return @{ Ok = $false; Stage = "move"; Message = $_.Exception.Message; Targets = 0; Count = 0 }
+            return @{ Ok = $false; Stage = "move"; Message = $_.Exception.Message; Targets = 0; Count = 0; Leftovers = @() }
         }
         # 検索対象ツリーでチェックを外したフォルダも、移した先のインデックスに付け替える
         [void](moveSearchExcludes $from $to $this.SettingsPath)
         writeWorkspaceFolder $to $this.SettingsPath
-        return @{ Ok = $true; Stage = ""; Message = ""; Targets = 0; Count = $count }
+        return @{ Ok = $true; Stage = ""; Message = ""; Targets = 0; Count = $result.Count; Leftovers = @($result.Leftovers) }
     }
 
-    [int] MoveEntries([string]$from, [string]$to) {
-        # ワークスペース from の中身（tebunko のファイル・フォルダ）を to へ移し、移した数を返す。ほかのファイルは移さない。
+    [hashtable] MoveEntries([string]$from, [string]$to) {
+        return $this.MoveEntries($from, $to, 5, 200)
+    }
+
+    [hashtable] MoveEntries([string]$from, [string]$to, [int]$tries, [int]$waitMilliseconds) {
+        # ワークスペース from の中身（tebunko のファイル・フォルダ）を to へ移す。ほかのファイルは移さない。
+        # 戻り値: @{ Count（移した数）; Leftovers（別のドライブへ写したあと、元を消せずに残った元の場所の一覧）}
+        # フォルダは、ほかの処理が一時的に掴んでいても、待つ時間を倍にしながら tries 回まで試して移す（moveDirectoryRetry）。
         # to に同じ名前があれば、何も移さずに例外にする。途中で移せなかったら、移した分を from へ戻してから例外にする
-        # （どちらかのワークスペースに中身がそろった状態にし、半分ずつに分かれたままにしない）
+        # （どちらかのワークスペースに中身がそろった状態にし、半分ずつに分かれたままにしない）。
+        # 戻せなかった項目があれば、その名前と、残っている場所（to）を例外の文に書く
         $conflicts = @($this.Conflicts($from, $to))
         if ($conflicts.Count -gt 0) {
             throw "「${to}」には、すでに $($conflicts -join '、') があります。空のフォルダを選んでください。"
@@ -71,23 +78,34 @@ class WorkspaceMover {
         $entries = @($this.ListEntries($from))
         [System.IO.Directory]::CreateDirectory((toLongPath $to)) | Out-Null
         $moved = New-Object System.Collections.Generic.List[string]
+        $leftovers = New-Object System.Collections.Generic.List[string]
         try {
             foreach ($source in $entries) {
-                $this.MoveEntry($source, (Join-Path $to ([System.IO.Path]::GetFileName($source))))
+                $left = $this.MoveEntry($source, (Join-Path $to ([System.IO.Path]::GetFileName($source))), $tries, $waitMilliseconds)
                 $moved.Add($source)
+                if ($left) {
+                    $leftovers.Add($left)
+                }
             }
         } catch {
             $reason = $_.Exception.Message
+            $unrestored = New-Object System.Collections.Generic.List[string]
             for ($i = $moved.Count - 1; $i -ge 0; $i--) {
                 try {
-                    $this.MoveEntry((Join-Path $to ([System.IO.Path]::GetFileName($moved[$i]))), $moved[$i])
+                    [void]$this.MoveEntry((Join-Path $to ([System.IO.Path]::GetFileName($moved[$i]))), $moved[$i], $tries, $waitMilliseconds)
                 } catch {
-                    # 戻せなかったものは、移した先に残る（例外のメッセージで両方の場所を伝える）
+                    # 戻せなかったものは、移した先にある。握りつぶさずに控え、例外の文で伝える
+                    $unrestored.Add([System.IO.Path]::GetFileName($moved[$i]))
                 }
             }
-            throw "ワークスペースの中身を「${to}」へ移せませんでした（${reason}）。ファイルを開いているアプリを閉じてから、もう一度変えてください。中身は「${from}」に残しています。"
+            $where = if ($unrestored.Count -gt 0) {
+                "元へ戻せなかった項目があります（$($unrestored -join '、')）。それは「${to}」にあります。ほかの中身は「${from}」にあります。"
+            } else {
+                "中身は「${from}」に残しています。"
+            }
+            throw "ワークスペースの中身を「${to}」へ移せませんでした（${reason}）。ファイルを開いているアプリを閉じてから、もう一度変えてください。${where}"
         }
-        return $moved.Count
+        return @{ Count = $moved.Count; Leftovers = @($leftovers) }
     }
 
     [int] RemoveEntries([string]$dir) {
@@ -129,19 +147,21 @@ class WorkspaceMover {
         return $map.Count
     }
 
-    hidden [void] MoveEntry([string]$source, [string]$dest) {
-        # ファイル・フォルダを 1 つ移す。同じドライブならそのまま移し、別のドライブのフォルダは写してから元を消す
-        # （Directory.Move は別のドライブへ移せないため）。写している途中で失敗したら、写した分を消して例外にする
+    hidden [string] MoveEntry([string]$source, [string]$dest, [int]$tries, [int]$waitMilliseconds) {
+        # ファイル・フォルダを 1 つ移す。同じドライブならそのまま移し（フォルダは moveDirectoryRetry で試し直す）、
+        # 別のドライブのフォルダは写してから元を消す（Directory.Move は別のドライブへ移せないため）。
+        # 写している途中で失敗したら、写した分を消して例外にする。
+        # 写し終えたあとに元を消せなければ、移し先を正として例外にせず、残った元の場所を返す（消せたら空の文字）
         $longSource = toLongPath $source
         $longDest = toLongPath $dest
         if (![System.IO.Directory]::Exists($longSource)) {
             # File.Move は別のドライブへも移せる
             [System.IO.File]::Move($longSource, $longDest)
-            return
+            return ""
         }
-        if ([System.IO.Path]::GetPathRoot($source) -eq [System.IO.Path]::GetPathRoot($dest)) {
-            [System.IO.Directory]::Move($longSource, $longDest)
-            return
+        if (testSameDriveRoot $source $dest) {
+            moveDirectoryRetry $source $dest $tries $waitMilliseconds
+            return ""
         }
         try {
             $this.CopyTree($longSource, $longDest)
@@ -154,7 +174,12 @@ class WorkspaceMover {
             }
             throw $original
         }
-        removeDirectoryRetry $source
+        try {
+            removeDirectoryRetry $source
+        } catch {
+            return $source
+        }
+        return ""
     }
 
     hidden [void] CopyTree([string]$source, [string]$dest) {

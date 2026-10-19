@@ -19,7 +19,7 @@ ${guiIndexTimeout}  = 120   # インデックスの取り込みが終わるま�
 ${guiDefaultTimeout} = 30   # ほかの待ち
 
 # 予定していない窓（本体が出す異常の窓）の文言。同じプロセスにこれらが出たら、待たずにその文言で失敗にする
-${guiErrorPatterns} = @("予期しないエラー", "エラーが発生しました", "すでに開いています", "起動できません")
+${guiErrorPatterns} = @("予期しないエラー", "エラーが発生しました", "すでに開いています", "起動できません", "移せませんでした")
 
 function getGuiRepoRoot {
     return (Resolve-Path "$PSScriptRoot\..\..").Path
