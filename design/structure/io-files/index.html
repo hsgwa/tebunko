@@ -4496,6 +4496,11 @@
 <td>［新規で開く］のコピー（Office 以外。<code>copySourceForOpen</code>）。起動時に、最後に使ってから 1 日より古いものだけを消す（<code>clearOldOpenCopies</code>）。閉じるときは消さない</td>
 </tr>
 <tr>
+<td><code>work\tmp\&lt;PC の鍵&gt;\search_overflow\&lt;PID&gt;\&lt;要求の番号&gt;\</code></td>
+<td>書く・消す</td>
+<td>検索の結果が件数の上限を超えたときの、表に入らない分（<code>&lt;作業の番号&gt;.tsv</code>・<code>&lt;作業の番号&gt;.head.tsv</code>。<a href="../../search/#上限を超えた分の数え上げと書き溜め">上限を超えた分</a>）。次の検索の始めと画面を閉じるとき（検索の司令のスレッドの終わり）に自分の <code>&lt;PID&gt;</code> のフォルダごと消し、起動時に動いていないプロセスのものを裏で消す（<code>removeStaleSearchOverflow</code>）</td>
+</tr>
+<tr>
 <td><code>setting.config</code></td>
 <td>読む・書く</td>
 <td>設定（<a href="../settings-file/">設定ファイル（setting.config）</a>）。ツールのフォルダに書けるときだけここに置く。書けないときは「既定のワークスペースの直下」</td>

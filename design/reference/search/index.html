@@ -4180,7 +4180,7 @@
 
 
 <h1 id="部品ごとの関数検索スレッド元のファイル画面">部品ごとの関数（検索・スレッド・元のファイル・画面）<a class="headerlink" href="#部品ごとの関数検索スレッド元のファイル画面" title="Permanent link">&para;</a></h1>
-<p>扱うこと: 検索（<code>search_query.ps1</code>・<code>content_index_search.ps1</code>・<code>search_run.ps1</code>）、スレッドとプール（<code>worker_pool.ps1</code>・<code>search_service.ps1</code>・<code>indexing_session.ps1</code>）、元のファイルの特定（<code>source_map.ps1</code>）、画面が使う集計・設定・Office プロセスの関数一覧。扱わないこと: TSV・本文インデックスそのものの関数（<a href="../tsv/">部品ごとの関数（TSV と本文インデックス）</a>）。先に読むページ: <a href="../">部品から関数一覧を引く</a>。</p>
+<p>扱うこと: 検索（<code>search_query.ps1</code>・<code>content_index_search.ps1</code>・<code>search_overflow.ps1</code>・<code>search_run.ps1</code>）、スレッドとプール（<code>worker_pool.ps1</code>・<code>search_service.ps1</code>・<code>indexing_session.ps1</code>）、元のファイルの特定（<code>source_map.ps1</code>）、画面が使う集計・設定・Office プロセスの関数一覧。扱わないこと: TSV・本文インデックスそのものの関数（<a href="../tsv/">部品ごとの関数（TSV と本文インデックス）</a>）。先に読むページ: <a href="../">部品から関数一覧を引く</a>。</p>
 <h2 id="検索tebunkosearchsearch_queryps1content_index_searchps1search_runps1">検索（<code>tebunko/search/search_query.ps1</code>・<code>content_index_search.ps1</code>・<code>search_run.ps1</code>）<a class="headerlink" href="#検索tebunkosearchsearch_queryps1content_index_searchps1search_runps1" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart LR
     A["getContentIndexFiles&lt;br&gt;本文インデックスのファイルを列挙"] --&gt; B["searchContentIndex"]
@@ -4284,17 +4284,17 @@
 </tr>
 <tr>
 <td><code>splitContentIndexTasks</code></td>
-<td>contentIndexFiles, taskBytes（既定 16MB）</td>
+<td>contentIndexFiles, taskBytes（既定 16MB）, headBytes（先頭の作業の大きさ。0 は使わない）</td>
 <td><code>@{Start; Count}</code> の並び</td>
-<td>本文インデックスのファイルの並びを、大きさの合計がおよそ taskBytes になるまでまとめて、1 つのスレッドに渡す作業に分ける</td>
+<td>本文インデックスのファイルの並びを、大きさの合計がおよそ taskBytes になるまでまとめて、1 つのスレッドに渡す作業に分ける。headBytes があれば、先頭の作業をその大きさにして、作業ごとに 2 倍にして taskBytes まで大きくする（上限があるとき、表に入る先頭の分を早く返すため。<code>searchContentIndex</code> は taskBytes の 1/64 を渡す）</td>
 <td>同上</td>
 <td>searchContentIndex</td>
 </tr>
 <tr>
 <td><code>searchContentIndexFiles</code></td>
-<td>contentIndexFiles, start, count, regex, max, textRegex, scanMode, cache, include, exclude, excludePlace, stopSignal（<code>Stop</code> を持つもの。ファイル 1 件ごとに見て、立っていればここまでのヒットを返す）</td>
-<td><code>@{Hits; Skipped}</code></td>
-<td>contentIndexFiles の start から count 件を読み、regex に一致する行を <code>Hits</code> に返す（1 行に複数一致しても 1 件）。読めない・形が崩れている・<code>contentIndexSearchMaxBytes</code>（64MB）より大きい本文インデックスのファイルは、そのファイルだけ飛ばしてパスを <code>Skipped</code> に入れる（時間切れだけは飛ばさず、そのまま伝える）。<code>ScanMode</code> に応じて全文に 1 回照合し、一致しない本文インデックスのファイルは飛ばす。一致の位置から場所・行を求める（<code>readContentIndexPlaces</code>）。Excel の図形・コメントの行（<code>CellPrefixed</code>）は、区切りのタブより後から始まる一致だけをヒットにする（<code>testCellPrefixedHit</code>。セル番地だけの一致は件数・上限に数えない）。元のファイルがテキストの拡張子（<code>getContentIndexFileKind</code>）なら、ヒットの行を <code>truncateHitLine</code> で切る（Excel・Word・PowerPoint は切らない）。インデックス作成中の本文インデックスのファイルも読めるよう共有して開き、読めないものは飛ばす</td>
+<td>contentIndexFiles, start, count, regex, max, textRegex, scanMode, cache, include, exclude, excludePlace, stopSignal（<code>Stop</code> を持つもの。ファイル 1 件ごとに見て、立っていればここまでのヒットを返す）, gate（照合の合図。<code>$null</code> は上限で打ち切る今までの動き）, slot（gate の自分の番号）, checkEvery（gate を見るヒットの間隔）, overflowDir（数えるだけの間のヒットを書き溜める置き場所。空は書かない）</td>
+<td><code>@{Hits; Skipped; Count; Timeout; OverflowFailed}</code></td>
+<td>contentIndexFiles の start から count 件を読み、regex に一致する行を <code>Hits</code> に返す（1 行に複数一致しても 1 件）。読めない・形が崩れている・<code>contentIndexSearchMaxBytes</code>（64MB）より大きい本文インデックスのファイルは、そのファイルだけ飛ばしてパスを <code>Skipped</code> に入れる（時間切れだけは飛ばさず、そのまま伝える）。<code>ScanMode</code> に応じて全文に 1 回照合し、一致しない本文インデックスのファイルは飛ばす。gate があると、表に入る上限を超えた時点（自分の <code>max</code> 件を超えたとき、または自分より前の作業の件数の和 + 自分の件数が上限を超えたとき）から、行を作らずに件数だけを数える（戻らない。<code>Count</code> に入れ、<code>overflowDir</code> があれば行を <code>&lt;slot&gt;.tsv</code> に書き溜める。<a href="../../search/#上限を超えた分の数え上げと書き溜め">上限を超えた分</a>）。照合の時間切れは、gate があれば投げずに <code>Timeout</code> で返す。一致の位置から場所・行を求める（<code>readContentIndexPlaces</code>）。Excel の図形・コメントの行（<code>CellPrefixed</code>）は、区切りのタブより後から始まる一致だけをヒットにする（<code>testCellPrefixedHit</code>。セル番地だけの一致は件数・上限に数えない）。元のファイルがテキストの拡張子（<code>getContentIndexFileKind</code>）なら、ヒットの行を <code>truncateHitLine</code> で切る（Excel・Word・PowerPoint は切らない）。インデックス作成中の本文インデックスのファイルも読めるよう共有して開き、読めないものは飛ばす</td>
 <td>同上</td>
 <td>searchContentIndex（並列検索のスレッドでも動く）</td>
 </tr>
@@ -4308,9 +4308,9 @@
 </tr>
 <tr>
 <td><code>searchContentIndex</code></td>
-<td>word, contentIndexFiles, simpleMatch, limit, stopSignal（検索の要求など <code>Stop</code> を持つもの。ファイル 1 件ごとに見て、作業スレッドにも渡す。<code>$null</code> は止めない）, caseSensitive, fileFilter, workerCount（並列のスレッド数。0 は自動で最大 4）, cache（<code>newTsvTextCache</code>）, includeShapes, includeComments（図形・コメントの場所も検索するか。<code>newPlaceExclude</code>）, taskBytes, onProgress（<code>{ param($done, $total, $newHits) }</code>。done・total は本文インデックスのファイルの数）, pool（照合のプール <code>newContentIndexWorkerPool</code>。<code>$null</code> なら並列にするときだけ作って最後に閉じる）</td>
-<td><code>@{Hits; SimpleMatch; Total; Truncated; Cancelled; Skipped}</code>（<code>Skipped</code> は飛ばした本文インデックスのファイルのパスの一覧）</td>
-<td>本文インデックスを検索する（照合は <code>searchContentIndexFiles</code>＝.NET の <code>StreamReader</code>＋<code>[regex]</code>）。Hits は PSCustomObject（Root・RelPath（本文インデックスのファイル）・RelDir・FileName・Book・Location・LineNumber・Line）。Total は本文インデックスのファイルの数。作業（約 16MB）ごとに進捗を知らせ、上限・中止に対応する。作業が 2 つ以上なら複数スレッドで並行して検索する（結果の順は変わらない）。照合が時間切れになれば例外にする</td>
+<td>word, contentIndexFiles, simpleMatch, limit, stopSignal（検索の要求など <code>Stop</code> を持つもの。ファイル 1 件ごとに見て、作業スレッドにも渡す。<code>$null</code> は止めない）, caseSensitive, fileFilter, workerCount（並列のスレッド数。0 は自動で最大 4）, cache（<code>newTsvTextCache</code>）, includeShapes, includeComments（図形・コメントの場所も検索するか。<code>newPlaceExclude</code>）, taskBytes, onProgress（<code>{ param($done, $total, $newHits, $hitTotal) }</code>。done・total は本文インデックスのファイルの数、hitTotal は今までの件数）, pool（照合のプール <code>newContentIndexWorkerPool</code>。<code>$null</code> なら並列にするときだけ作って最後に閉じる）, checkEvery（作業が合図を見るヒットの間隔）, overflowDir（溢れの置き場所。空は書き溜めない）</td>
+<td><code>@{Hits; SimpleMatch; Total; Truncated; HitTotal; CountTimeout; OverflowFailed; Cancelled; Skipped}</code>（<code>Truncated</code> は上限を超えたこと、<code>HitTotal</code> は上限を超えた分も含む件数で、中止・総数の時間切れは -1。<code>Skipped</code> は飛ばした本文インデックスのファイルのパスの一覧）</td>
+<td>本文インデックスを検索する（照合は <code>searchContentIndexFiles</code>＝.NET の <code>StreamReader</code>＋<code>[regex]</code>）。Hits は PSCustomObject（Root・RelPath（本文インデックスのファイル）・RelDir・FileName・Book・Location・LineNumber・Line）。Total は本文インデックスのファイルの数。作業（約 16MB）ごとに進捗を知らせ、中止に対応する。件数の上限（<code>limit</code>）を超えても打ち切らず、表（Hits）には上限までを入れ、超えた分は数え続けて <code>HitTotal</code> にする（作業の返した行のうち表に入らない分は、<code>overflowDir</code> の <code>&lt;作業の番号&gt;.head.tsv</code> に書く）。作業が 2 つ以上なら複数スレッドで並行して検索する（結果の順は変わらない）。照合が時間切れになれば例外にする</td>
 <td><a href="../../search/">検索</a></td>
 <td>検索・画面</td>
 </tr>
@@ -4326,7 +4326,7 @@
 <td><code>newContentIndexWorkerPool</code></td>
 <td>workers（既定 <code>getWorkerCount</code>）</td>
 <td><code>WorkerPool</code></td>
-<td>本文インデックスの照合のプールを作る（各スレッドには照合に要る関数と値だけを読み込む。<code>searchContentIndexFiles</code>・<code>testCellPrefixedHit</code>・<code>readContentIndexPlaces</code>・<code>testContentIndexCellPrefixed</code>・<code>testCellPrefixedPlace</code>・<code>convertContentIndexMetaToPlace</code>・<code>decodeContentIndexValue</code>・<code>getContentIndexFileKind</code>・<code>testTextExtension</code>・<code>truncateHitLine</code> と、<code>textExtensions</code>・<code>hitLineMaxChars</code>・<code>hitLineBeforeMatchChars</code> などの定数。優先度は Normal）</td>
+<td>本文インデックスの照合のプールを作る（各スレッドには照合に要る関数と値だけを読み込む。<code>searchContentIndexFiles</code>・<code>testCellPrefixedHit</code>・<code>readContentIndexPlaces</code>・<code>testContentIndexCellPrefixed</code>・<code>testCellPrefixedPlace</code>・<code>convertContentIndexMetaToPlace</code>・<code>decodeContentIndexValue</code>・<code>getContentIndexFileKind</code>・<code>testTextExtension</code>・<code>truncateHitLine</code>・<code>newSearchOverflowWriter</code> と、<code>textExtensions</code>・<code>hitLineMaxChars</code>・<code>hitLineBeforeMatchChars</code> などの定数。優先度は Normal）</td>
 <td><a href="../../structure/threads/#寿命">プロセスとスレッド</a></td>
 <td>検索の司令（<code>SearchService</code>）、searchContentIndex</td>
 </tr>
@@ -4385,6 +4385,86 @@
 <td>1 ワード分の <code>【検索文字列　X】 N 件</code>・見出し行・各行・空行を書き出す</td>
 <td>同上</td>
 <td>検索・画面</td>
+</tr>
+<tr>
+<td><code>getSearchOverflowRoot</code></td>
+<td>tmpRoot</td>
+<td>string</td>
+<td>溢れを置く根（<code>tmpRoot\&lt;PC の鍵&gt;\search_overflow</code>）を組み立てる（ファイルには触らない）</td>
+<td><a href="../../search/#上限を超えた分の数え上げと書き溜め">上限を超えた分の数え上げと書き溜め</a></td>
+<td><code>getSearchOverflowPidDir</code>・<code>removeStaleSearchOverflow</code></td>
+</tr>
+<tr>
+<td><code>getSearchOverflowPidDir</code></td>
+<td>tmpRoot</td>
+<td>string</td>
+<td>このプロセスの溢れのフォルダ（根<code>\&lt;PID&gt;</code>）。次の検索の始めと閉じるときに中ごと消す</td>
+<td><a href="../../search/#上限を超えた分の数え上げと書き溜め">上限を超えた分の数え上げと書き溜め</a></td>
+<td><code>invokeSearchRequest</code>・検索のスレッド</td>
+</tr>
+<tr>
+<td><code>getSearchOverflowDir</code></td>
+<td>tmpRoot, requestNumber</td>
+<td>string</td>
+<td>検索の要求 1 つの溢れのフォルダ（根<code>\&lt;PID&gt;\&lt;要求の番号&gt;</code>）</td>
+<td><a href="../../search/#上限を超えた分の数え上げと書き溜め">上限を超えた分の数え上げと書き溜め</a></td>
+<td><code>invokeSearchRequest</code></td>
+</tr>
+<tr>
+<td><code>testSearchOverflowRoot</code></td>
+<td>root, tmpRoot</td>
+<td>bool</td>
+<td>溢れの根として使ってよいか（絶対パス・<code>..</code> を含まない・<code>tmpRoot\&lt;PC の鍵&gt;\search_overflow</code> と一致・途中がリンクでない）。作る・消すはこれが真のときだけ</td>
+<td><a href="../../search/#上限を超えた分の数え上げと書き溜め">上限を超えた分の数え上げと書き溜め</a></td>
+<td><code>removeSearchOverflow</code>・<code>removeStaleSearchOverflow</code></td>
+</tr>
+<tr>
+<td><code>removeSearchOverflow</code></td>
+<td>path, tmpRoot</td>
+<td>bool</td>
+<td>溢れの根の下のフォルダ（<code>&lt;PID&gt;</code>・<code>&lt;要求の番号&gt;</code>）を中ごと消す。根・途中の確かめが偽なら何も消さず <code>$false</code>。消せなくても例外は投げない（残りは次の検索・起動時に消える）</td>
+<td><a href="../../search/#上限を超えた分の数え上げと書き溜め">上限を超えた分の数え上げと書き溜め</a></td>
+<td><code>invokeSearchRequest</code>・検索のスレッド</td>
+</tr>
+<tr>
+<td><code>newSearchOverflowWriter</code></td>
+<td>dir, name</td>
+<td>StreamWriter または <code>$null</code></td>
+<td>溢れのファイルを BOM なしの UTF-8・LF で作って開く。作れない・開けないときは <code>$null</code>（照合のスレッドからも呼ぶため .NET だけで書く）</td>
+<td><a href="../../search/#上限を超えた分の数え上げと書き溜め">上限を超えた分の数え上げと書き溜め</a></td>
+<td><code>searchContentIndexFiles</code>・<code>searchContentIndex</code></td>
+</tr>
+<tr>
+<td><code>writeSearchOverflowHits</code></td>
+<td>writer, hits</td>
+<td>bool</td>
+<td>司令が、表に入らなかった行を溢れの head のファイルに書き足す。書けなければ <code>$false</code></td>
+<td><a href="../../search/#上限を超えた分の数え上げと書き溜め">上限を超えた分の数え上げと書き溜め</a></td>
+<td><code>searchContentIndex</code></td>
+</tr>
+<tr>
+<td><code>getSearchOverflowFiles</code></td>
+<td>dir</td>
+<td>パスの並び</td>
+<td>溢れのファイルを、全件の順（作業の番号の順に、head → 作業のファイル）に並べる。フォルダが無ければ空</td>
+<td><a href="../../search/#上限を超えた分の数え上げと書き溜め">上限を超えた分の数え上げと書き溜め</a></td>
+<td><code>readSearchOverflowLines</code>・書き出し</td>
+</tr>
+<tr>
+<td><code>readSearchOverflowLines</code></td>
+<td>dir</td>
+<td>string の並び</td>
+<td>溢れの全件を全件の順の行で返す（全部をメモリに読むので、テスト・小さい量向け）</td>
+<td><a href="../../search/#上限を超えた分の数え上げと書き溜め">上限を超えた分の数え上げと書き溜め</a></td>
+<td>テスト</td>
+</tr>
+<tr>
+<td><code>removeStaleSearchOverflow</code></td>
+<td>tmpRoot, isAlive</td>
+<td>int</td>
+<td>強制終了などで残った溢れを、起動時に消す。動いていないプロセスの <code>&lt;PID&gt;</code> だけ消し、消した数を返す</td>
+<td><a href="../../search/#上限を超えた分の数え上げと書き溜め">上限を超えた分の数え上げと書き溜め</a></td>
+<td>起動（<code>startup.ps1</code> のバックグラウンドの処理）</td>
 </tr>
 </tbody>
 </table>
@@ -4638,6 +4718,30 @@
 <td>取り込みのスレッドが自分のワーカーが諦められたか見る / 司令がまだ後回しにしていない、諦められたワーカーと、そのワーカーで取り込み中だったファイルを、取り込み中から外して返す。諦められたワーカーのファイルは取り込まず、理由付きの失敗にする（状態は「未取り込み」のまま）</td>
 <td><a href="../../indexing/ingest-list/">取り込み一覧</a></td>
 <td><code>invokeIngestTask</code>・<code>IngestDispatcher</code>・<code>invokeIndexerBody</code></td>
+</tr>
+<tr>
+<td><code>getSearchCountingText</code></td>
+<td>limit, counted</td>
+<td>string</td>
+<td>上限を超えたあと、総数を数えている間の要約欄の文（<code>検索中…　該当 10,000 件以上（総数を数えています：K 件）</code>）</td>
+<td><a href="../../gui/messages/">画面のメッセージ</a></td>
+<td>検索タブ（画面層）</td>
+</tr>
+<tr>
+<td><code>getSearchFinishSummaryText</code></td>
+<td>hits, files, seconds, truncated, hitTotal</td>
+<td>string</td>
+<td>検索が終わったときの要約欄の文。上限を超えたときは、数え終えていれば総数を添え（<code>全 N 件中 M 件を表示</code>）、数えている間に止まった（<code>hitTotal</code> が -1）ときは総数を数えていないと伝える。上限以下は <code>getSearchSummaryText</code></td>
+<td><a href="../../gui/messages/">画面のメッセージ</a></td>
+<td>検索タブ（画面層）</td>
+</tr>
+<tr>
+<td><code>getSearchFinishStatusText</code></td>
+<td>word, hits, optionText, truncated, hitTotal, countTimeout, cancelled</td>
+<td>string</td>
+<td>検索が終わった（中止・上限を超えたを含む）ときのステータスバーの文。上限以下は <code>getSearchStatusText</code>。数えている間の中止・時間切れ・数え終えたの別に文を変える</td>
+<td><a href="../../gui/messages/">画面のメッセージ</a></td>
+<td>検索タブ（画面層）</td>
 </tr>
 </tbody>
 </table>

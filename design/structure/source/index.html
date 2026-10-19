@@ -4165,7 +4165,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/search/</code></td>
-<td>検索条件（<code>search_query.ps1</code>）・本文インデックスの検索（<code>content_index_search.ps1</code>）・検索結果の組み立てとインデックスの件数（<code>search_run.ps1</code>）・元のファイルの場所（<code>source_map.ps1</code>）・検索語の 2-gram（<code>search_gram.ps1</code>）・2-gram の索引で絞った本文インデックスの収集（<code>gram_search.ps1</code>）・検索の司令のスレッド（<code>search_service.ps1</code>。<code>SearchService</code>）</td>
+<td>検索条件（<code>search_query.ps1</code>）・本文インデックスの検索（<code>content_index_search.ps1</code>）・上限を超えた分の書き溜めと後始末（<code>search_overflow.ps1</code>）・検索結果の組み立てとインデックスの件数（<code>search_run.ps1</code>）・元のファイルの場所（<code>source_map.ps1</code>）・検索語の 2-gram（<code>search_gram.ps1</code>）・2-gram の索引で絞った本文インデックスの収集（<code>gram_search.ps1</code>）・検索の司令のスレッド（<code>search_service.ps1</code>。<code>SearchService</code>）</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/</code></td>
@@ -4190,7 +4190,7 @@
 </tr>
 <tr>
 <td>状態層（ファイル・COM を読み書きする）</td>
-<td><code>status_file.ps1</code>・<code>indexer_state.ps1</code>・<code>index_store.ps1</code>・<code>index_catalog.ps1</code>・<code>workspace_mover.ps1</code>・<code>search_excludes.ps1</code>・<code>content_index_store.ps1</code>・<code>content_index_search.ps1</code>・<code>search_run.ps1</code>・<code>gram_index_store.ps1</code>・<code>gram_search.ps1</code>・<code>version.ps1</code></td>
+<td><code>status_file.ps1</code>・<code>indexer_state.ps1</code>・<code>index_store.ps1</code>・<code>index_catalog.ps1</code>・<code>workspace_mover.ps1</code>・<code>search_excludes.ps1</code>・<code>content_index_store.ps1</code>・<code>content_index_search.ps1</code>・<code>search_overflow.ps1</code>・<code>search_run.ps1</code>・<code>gram_index_store.ps1</code>・<code>gram_search.ps1</code>・<code>version.ps1</code></td>
 <td>する（主にタグ <code>Io</code>。<code>$TestDrive</code> を使う）</td>
 </tr>
 <tr>
