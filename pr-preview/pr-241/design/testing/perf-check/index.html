@@ -4251,7 +4251,7 @@
 <td><code>tests/tools/perf_search.Tests.ps1</code>（検索と本文インデックスの作成）</td>
 <td>tebunko-perfdata の <code>new_index.ps1 -Scale 0.1</code>（種は既定の 1。ブック 5,361・TSV 16,078 → 本文インデックスのファイル 521・118MB）。語は同じリポジトリの <code>words.tsv</code></td>
 <td><code>measure_perf.ps1 -Index ... -Words ... -Count 20</code>（<code>perf.yml</code> の既定と同じ手順・同じ条件）</td>
-<td>語ごとの検索の中央値（<code>Search[].TotalMs.Median</code>）・本文インデックスの作成の秒（<code>Index.Pack.Seconds</code>。1 回の値）</td>
+<td>語ごとの検索の、表がそろうまで（上限を超えたと分かる時刻。超えなければ終わった時刻）の中央値（<code>Search[].ShownMs.Median</code>。0 件・まれでは総数が出るまでの <code>TotalMs</code> と同じ）。<code>TotalMs</code>（総数が出るまで）は判定に使わず、記録だけにする（上限を超えたあとも数え続ける分は、<code>measure_perf.ps1 -SearchLimit 0</code>（制限なし）で測った、上限を設けない版の値と、PR ごとに見比べる。目安は 1.2 倍以内）。総数（<code>HitTotal</code>）は件数の確かめにだけ使う。本文インデックスの作成の秒（<code>Index.Pack.Seconds</code>。1 回の値）</td>
 </tr>
 <tr>
 <td><code>tests/tools/perf_ingest.Tests.ps1</code>（取り込み）</td>
@@ -4271,7 +4271,7 @@
 <ul>
 <li>「速く終わっても、何もしていない」誤りを通さないため、時間のほかに次も確かめる</li>
 <li>プレビュー: 測った回数が、ヒットの数と 20 の小さいほうの 2 倍（キャッシュ無し・あり）であること、作った表のセルが 0 より多いこと。前の読み方の測定は、全部読む関数（<code>readContentIndexText</code>）がキャッシュ無しの選択のたびに呼ばれたことを数えて確かめ（時間の大小では決めない）、呼ばれていなければ失敗にする</li>
-<li>検索: <code>searches.csv</code> の 20 回すべてで、件数が <code>words.tsv</code> の「件数」と合うこと（数ならその件数、<code>10000+</code> なら 1 万件で打ち切り）、照合した本文インデックスのファイルの数（<code>Packs</code>）が本文インデックスの作成の数（521）と同じで 0 より大きいこと。件数は scale 0.1・種 1 のときの値。検索の流れ（<code>Run.SearchMode</code>）が <code>service</code> であること（<code>newSearchService</code> が無いと、<code>measure_search.ps1</code> は黙って <code>runspace</code> で測るため）</li>
+<li>検索: <code>searches.csv</code> の 20 回すべてで、件数が <code>words.tsv</code> の「件数」と合うこと（数ならその件数、<code>10000+</code> なら 1 万件で打ち切りになり、かつ総数 <code>HitTotal</code> が 1 万より大きく 20 回とも同じ）、照合した本文インデックスのファイルの数（<code>Packs</code>）が本文インデックスの作成の数（521）と同じで 0 より大きいこと。件数は scale 0.1・種 1 のときの値。検索の流れ（<code>Run.SearchMode</code>）が <code>service</code> であること（<code>newSearchService</code> が無いと、<code>measure_search.ps1</code> は黙って <code>runspace</code> で測るため）</li>
 <li>取り込み: <code>Total</code>・<code>Done</code> が 100、<code>Failed</code> が 0。最後の回のワークスペースに本文インデックスがあり、合計の大きさが 0 より大きいこと（取り込み一覧の状態だけが <code>済</code> になり、中身を書かずに終わる誤りを通さないため。この形に頼ることは、下の「計測の口」の表にある）</li>
 <li>結果（<code>summary.md</code>・<code>result.json</code> など。数字だけでパスは入らない）は <code>work\test\perf-search\</code>・<code>work\test\perf-preview\</code>・<code>work\test\perf-ingest\</code>（git 管理外）に残る。<code>summary.md</code> の見出しに、tebunko-perfdata のコミットが入る（取れなければ「不明」）</li>
 <li>tebunko-perfdata の場所は、環境変数 <code>TEBUNKO_PERFDATA</code>。無ければリポジトリと並んだ <code>tebunko-perfdata</code>（git worktree のときは、本体のチェックアウトと並んだもの）。どちらにも無いときは、<code>git clone</code> の取り方を示して失敗にする。手元の clone は、<code>PERFDATA_SHA</code> と <code>new_index.ps1</code>・<code>words.tsv</code> が同じであること（違うとデータが変わり、ランナーの数字と比べられない）</li>

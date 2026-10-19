@@ -4173,6 +4173,11 @@
 </tr>
 <tr>
 <td>件数（No.5）</td>
+<td>上限を超えて数えている / 数え終えた</td>
+<td><code>検索中…　該当 10,000 件以上（総数を数えています：K 件）</code> / <code>全 N 件中 H 件を表示（F ファイル）・X 秒</code>（数えている間に中止したときは <code>該当 H 件以上（総数は数えていません）（F ファイル）</code>。<code>getSearchCountingText</code>・<code>getSearchFinishSummaryText</code>）</td>
+</tr>
+<tr>
+<td>件数（No.5）</td>
 <td>0 件</td>
 <td>結果欄の真ん中に <code>一致する結果はありません</code>（<code>getNoHitText</code>。<code>NoHitText</code>。検索を始めたとき・結果を消したときに隠す）。ステータスバーに <code>検索しました：&lt;ワード&gt; 0 件</code>（既定から変えた検索条件があれば <code>条件：…</code> を添える）</td>
 </tr>
@@ -4203,8 +4208,8 @@
 </tr>
 <tr>
 <td>ステータス</td>
-<td>中止した / 上限に達した</td>
-<td><code>中止しました（N 件まで表示）</code> / <code>10,000 件を超えたため、ここで打ち切りました。この先のファイルは検索していないため、ワード・種類・検索対象で絞り込んでください。</code></td>
+<td>中止した / 上限を超えて数え終えた</td>
+<td><code>中止しました（N 件まで表示）</code> / <code>検索しました：&lt;ワード&gt;（全 N 件のうち、先頭の L 件を表示）。</code> に続けて既定から変えた検索条件の <code>条件：&lt;条件&gt;</code>。上限を超えて数えている間に中止したとき・正規表現の照合が時間切れになったときは、総数を数えていないことを書く（<code>getSearchFinishStatusText</code>）。</td>
 </tr>
 <tr>
 <td>ステータス</td>
