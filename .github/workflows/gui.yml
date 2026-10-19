@@ -17,7 +17,7 @@ on:
   workflow_dispatch:
     inputs:
       repeat:
-        description: "流す回数の合計（5 本の shard に分ける。上限 50）"
+        description: "流す回数の合計（5 本の shard に分ける。1〜50）"
         default: "50"
       paths:
         description: "流すテストのファイル（カンマ区切り）"
@@ -91,7 +91,7 @@ jobs:
           result: ${{ needs['gui-smoke'].result }}
 
   # 画面のスモークテストを繰り返し流し、稀な落ち方（閉じても終わらない・起動失敗の記録の待ち切れ・終了コード 5）の率と原因を測る
-  # （docs/design/testing/ci.md「gui.yml」・gui-smoke.md「繰り返しの流し方」）。
+  # （docs/design/testing/ci.md「gui.yml」）。
   # 1 shard が repeat / 5 回ずつ流す（全体 50 回は約 500 分で上限を超えるため分ける）。
   # 途中で落ちても続け、回ごとの結果と失敗の材料を残す。測っている間は push しない（concurrency で取り消されるため）
   gui-repeat:

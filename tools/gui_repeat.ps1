@@ -2,7 +2,7 @@
 # gui.yml の gui-repeat が、shard ごとに呼ぶ（docs/design/testing/ci.md「gui.yml」）。途中で落ちても続け、終了コードは常に 0。
 param (
     [Parameter(Mandatory)][int]$Shard,
-    [Parameter(Mandatory)][int]$Total,   # 全体の回数。5 本の shard で分ける
+    [Parameter(Mandatory)][ValidateRange(1, 50)][int]$Total,   # 全体の回数。5 本の shard で分ける（1 本が 10 回を超えると job の上限 90 分を超えるため 50 まで）
     [Parameter(Mandatory)][string]$Paths, # 流すテストのファイル（カンマ区切り）
     [string]$OutDir = "repeat-results"
 )
@@ -15,7 +15,7 @@ function getFailureKind {
     param ([int]$Code, [string]$Text)
     if ($Code -eq 0) { return "成功" }
     if ($Text -match '画面の終了コードが 0 ではない（5）') { return "終了コード 5" }
-    if ($Text -match '画面が終了する が 30 秒以内に見つからなかった') { return "閉じない" }
+    if ($Text -match '画面が終了する が \d+ 秒以内に見つからなかった') { return "閉じない" }
     if ($Text -match '記録のファイルができなかった') { return "記録の待ち切れ" }
     return "そのほか"
 }
@@ -24,6 +24,8 @@ $times = [int][Math]::Ceiling($Total / 5)
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 $rows = @()
 for ($i = 1; $i -le $times; $i++) {
+    # 前の回の失敗の材料が、この回の evidence に写らないよう、回ごとに消す
+    if (Test-Path "work\test\gui") { Remove-Item -Recurse -Force "work\test\gui" }
     $log = Join-Path $OutDir "run-$Shard-$i.log"
     $watch = [System.Diagnostics.Stopwatch]::StartNew()
     & powershell -NoProfile -ExecutionPolicy Bypass -File "$repoRoot\tests\run.ps1" -Tag Gui -Path $Paths *> $log
