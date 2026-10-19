@@ -175,6 +175,8 @@ Describe "reportStartupFailure（記録の経路の切り替え）" -Tag Gui {
             $process = Start-Process -FilePath "powershell.exe" `
                 -ArgumentList @("-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", $scriptFile) `
                 -PassThru -WindowStyle Hidden -RedirectStandardOutput $outFile -RedirectStandardError $errFile
+            # Windows PowerShell 5.1 は、ハンドルを持っておかないと、終わった後の ExitCode が空になる
+            $null = $process.Handle
             return [pscustomobject]@{ Process = $process; Mark = $markFile; Out = $outFile; Err = $errFile }
         }
 
