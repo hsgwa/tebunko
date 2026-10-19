@@ -189,8 +189,14 @@ Describe "invokeSearchRequest（どの段で中止されても、先の段に進
     }
 
     It "invokeSearchRequest が呼ぶ検索・インデックスの関数は、すべて段の表にあるか、止める必要の無い短い呼び出しとして許されている（段を足したとき表に足し忘れない）" -ForEach @(@{ Stages = $stages }) {
-        # 止める必要の無い短い呼び出しは、ここに名前と理由を書く（今は無い）
-        $allowed = @{}
+        # 止める必要の無い短い呼び出しは、ここに名前と理由を書く
+        $allowed = @{
+            getSearchOverflowRoot = "溢れの置き場所の名前を組み立てるだけ"
+            getSearchOverflowPidDir = "溢れの置き場所の名前を組み立てるだけ"
+            getSearchOverflowDir = "溢れの置き場所の名前を組み立てるだけ"
+            testSearchOverflowRoot = "検索の始めに 1 回、置き場所の根を確かめるだけ（検索の中身の段ではない）"
+            removeSearchOverflow = "検索の始めに 1 回、前の溢れを消すだけ（検索の中身の段ではない）"
+        }
         $parse = { param ($path) [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$null) }
         $defined = New-Object System.Collections.Generic.HashSet[string]
         foreach ($dir in @("search", "index")) {

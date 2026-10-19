@@ -25,6 +25,8 @@ ${searchServiceScript} = {
         if ($pool) {
             $pool.Close()
         }
+        # この画面の検索の溢れ（search_overflow\<PID>）を消す（照合のプールを閉じた後なので、書き手はいない。画面のスレッドでは消さない）
+        try { [void](removeSearchOverflow (getSearchOverflowPidDir $workspace.TmpRoot) $workspace.TmpRoot) } catch { }
     }
 }
 

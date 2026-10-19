@@ -201,6 +201,8 @@ for ($w = 0; $w -lt $wordList.Count; $w++) {
     $search.Add([ordered]@{
         Name = $r.Name; Regex = [bool]$r.Regex; Mode = [string]$r.Mode; Hits = $rows[0].Hits; Truncated = [bool]$rows[0].Truncated; Packs = $rows[0].Packs
         TotalMs = getStats (valuesOf $rows "TotalMs")
+        ShownMs = getStats (valuesOf $rows "ShownMs")
+        HitTotal = $rows[0].HitTotal
         LoadMs = getStats (valuesOf $rows "LoadMs")
         ListMs = getStats (valuesOf $rows "ListMs")
         MatchMs = getStats (valuesOf $rows "MatchMs")
@@ -543,12 +545,12 @@ if ($run.SearchMode -eq "service") {
     add "語ごとに新しいプロセスを起動し、同じプロセスで $Count 回続けて検索した。測った版には検索の司令のスレッド（SearchService）が無いので、その版の画面と同じく、検索のたびに新しいスレッドで lib.ps1 を読み込み、集約ファイルを列挙して照合した（上限 1 万件）。1 回目は画面を開き直した直後の検索に当たり、たいてい最大の値になる。"
 }
 add
-add "| 語 | ヒット件数 | 最小 | 中央値 | 平均 | 最大 | lib.ps1 の読み込み（中央値／最大） | 列挙（中央値／最大） | 照合（中央値／最大） |"
-add "|---|---|---|---|---|---|---|---|---|"
+add "| 語 | ヒット件数 | 総数（HitTotal） | 最小 | 中央値 | 平均 | 最大 | 表がそろうまで（ShownMs。中央値／最大） | lib.ps1 の読み込み（中央値／最大） | 列挙（中央値／最大） | 照合（中央値／最大） |"
+add "|---|---|---|---|---|---|---|---|---|---|---|"
 foreach ($s in $search) {
-    add ("| {0} | {1}{2} | {3} ms | {4} ms | {5} ms | {6} ms | {7} | {8}／{9} ms | {10}／{11} ms |" -f $s.Name, $s.Hits, $(if ($s.Truncated) { "+" } else { "" }),
+    add ("| {0} | {1}{2} | {12} | {3} ms | {4} ms | {5} ms | {6} ms | {13}／{14} ms | {7} | {8}／{9} ms | {10}／{11} ms |" -f $s.Name, $s.Hits, $(if ($s.Truncated) { "+" } else { "" }),
         (ms $s.TotalMs "Min"), (ms $s.TotalMs "Median"), (ms $s.TotalMs "Mean"), (ms $s.TotalMs "Max"),
-        $(if ($s.LoadMs) { "{0}／{1} ms" -f (ms $s.LoadMs "Median"), (ms $s.LoadMs "Max") } else { "–" }), (ms $s.ListMs "Median"), (ms $s.ListMs "Max"), (ms $s.MatchMs "Median"), (ms $s.MatchMs "Max"))
+        $(if ($s.LoadMs) { "{0}／{1} ms" -f (ms $s.LoadMs "Median"), (ms $s.LoadMs "Max") } else { "–" }), (ms $s.ListMs "Median"), (ms $s.ListMs "Max"), (ms $s.MatchMs "Median"), (ms $s.MatchMs "Max"), $(if ($null -ne $s.HitTotal) { "{0:N0}" -f [int]$s.HitTotal } else { "–" }), (ms $s.ShownMs "Median"), (ms $s.ShownMs "Max"))
 }
 add
 add "### 検索のリソース"

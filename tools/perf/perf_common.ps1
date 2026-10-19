@@ -407,8 +407,8 @@ function thinOut {
 function getSearchPerfProblems {
     # 検索と pack の作成の回帰テストの判定。合わないものの一覧（文字列の配列）を返す。空なら合格。
     #   result      : measure_perf.ps1 の result.json（ConvertFrom-Json したもの）
-    #   rows        : searches.csv の行（Word・Hits・Truncated・Packs）。1 回ごとの値
-    #   limits      : 語の名前 → 検索の中央値の上限（ms）
+    #   rows        : searches.csv の行（Word・Hits・HitTotal・Truncated・Packs）。1 回ごとの値
+    #   limits      : 語の名前 → 検索の中央値の上限（ms）。比べる値は ShownMs（表がそろうまで）の中央値（無ければ TotalMs）
     #   expected    : 語の名前 → 期待する件数（数、または "10000+" = 1 万件で打ち切り）
     #   packLimitSeconds : pack の作成の秒の上限
     # 失敗のメッセージには、対象の名前・値・上限の数字だけを書く
@@ -441,8 +441,10 @@ function getSearchPerfProblems {
             $problems.Add("検索 ${name}: 結果がありません")
             continue
         }
-        if ([double]$entry.TotalMs.Median -gt [double]$limits[$name]) {
-            $problems.Add([string]::Format([CultureInfo]::InvariantCulture, "検索 {0}: 中央値 {1:N0} ms（上限 {2:N0} ms）", $name, [double]$entry.TotalMs.Median, [double]$limits[$name]))
+        # 上限と比べるのは ShownMs（表がそろうまで）。TotalMs（総数が出るまで）は記録するだけ
+        $shown = if ($null -ne $entry.ShownMs) { $entry.ShownMs } else { $entry.TotalMs }
+        if ([double]$shown.Median -gt [double]$limits[$name]) {
+            $problems.Add([string]::Format([CultureInfo]::InvariantCulture, "検索 {0}: 中央値 {1:N0} ms（上限 {2:N0} ms）", $name, [double]$shown.Median, [double]$limits[$name]))
         }
 
         $mine = @($rows | Where-Object { $_.Word -eq $name })
@@ -462,6 +464,17 @@ function getSearchPerfProblems {
         })
         if ($bad.Count) {
             $problems.Add("検索 ${name}: 件数が期待の $want と違う回が $($bad.Count) 回（最初は $($bad[0].Hits) 件）")
+        }
+        if ($want -eq "10000+") {
+            # 総数は 1 万件より大きく、全回とも同じ（数え終えた総数）
+            $totals = @($mine | ForEach-Object { if ([string]::IsNullOrWhiteSpace([string]$_.HitTotal)) { -1 } else { [int]$_.HitTotal } })
+            $small = @($totals | Where-Object { $_ -le 10000 })
+            if ($small.Count) {
+                $problems.Add("検索 ${name}: 総数（HitTotal）が 10000 より大きくない回が $($small.Count) 回（最初は $($small[0])）")
+            }
+            if (@($totals | Select-Object -Unique).Count -gt 1) {
+                $problems.Add("検索 ${name}: 総数（HitTotal）が回ごとに違う（$((@($totals | Select-Object -Unique)) -join '・')）")
+            }
         }
         $badPacks = @($mine | Where-Object { [int]$_.Packs -le 0 -or [int]$_.Packs -ne $packCount })
         if ($badPacks.Count) {

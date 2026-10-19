@@ -35,7 +35,10 @@ function invokeServiceSearch($service) {
     $watch = [System.Diagnostics.Stopwatch]::StartNew()
     $request = $service.Request((newSearchRequest $Word (!$Regex) @($Index) 10000))
     $listMs = $null
+    $shownMs = $null
     while (!$request.Finished) {
+        # 表がそろう時刻（上限を超えたと分かった時刻。超えなければ終わった時刻）
+        if ($null -eq $shownMs -and $request.Truncated) { $shownMs = $watch.Elapsed.TotalMilliseconds }
         if ($null -eq $listMs -and $request.IndexTotal -ge 0) { $listMs = $watch.Elapsed.TotalMilliseconds }
         if (!$service.IsRunning()) { throw "検索のスレッドが止まりました: $($service.GetFailure())" }
         [System.Threading.Thread]::Sleep(5)
@@ -43,10 +46,13 @@ function invokeServiceSearch($service) {
     $totalMs = $watch.Elapsed.TotalMilliseconds
     if ($request.Error) { throw "検索に失敗しました: $($request.Error)" }
     if ($null -eq $listMs) { $listMs = $totalMs }
+    # Truncated を途中で書かない版では、終わってから立つので ShownMs = TotalMs になる
+    if ($null -eq $shownMs) { $shownMs = $totalMs }
+    $hitTotal = if ($request.ContainsKey("HitTotal")) { [int]$request.HitTotal } else { $null }
     $hits = 0
     $hit = $null
     while ($request.Queue.TryDequeue([ref]$hit)) { $hits++ }
-    return @{ TotalMs = $totalMs; LoadMs = $null; ListMs = $listMs; MatchMs = $totalMs - $listMs; Packs = [int]$request.IndexTotal; Hits = $hits; Truncated = [bool]$request.Truncated }
+    return @{ TotalMs = $totalMs; ShownMs = $shownMs; HitTotal = $hitTotal; LoadMs = $null; ListMs = $listMs; MatchMs = $totalMs - $listMs; Packs = [int]$request.IndexTotal; Hits = $hits; Truncated = [bool]$request.Truncated }
 }
 
 # runspace: #102 より前の画面の流れ（検索のたびに新しい Runspace で lib.ps1 を読み込む）
@@ -61,7 +67,7 @@ $runspaceScript = {
     if (!$filesName) { throw "取得した本文インデックスの一覧に項目がありません" }
     $files = $found[$filesName]
     $r = & $searchIndex $word $files $simple 10000 -cache $cache
-    @{ LoadMs = $load; ListMs = $list; MatchMs = $step.Elapsed.TotalMilliseconds; TotalMs = $total.Elapsed.TotalMilliseconds; Packs = $files.Count; Hits = $r.Hits.Count; Truncated = [bool]$r.Truncated }
+    @{ LoadMs = $load; ListMs = $list; MatchMs = $step.Elapsed.TotalMilliseconds; TotalMs = $total.Elapsed.TotalMilliseconds; ShownMs = $total.Elapsed.TotalMilliseconds; HitTotal = $null; Packs = $files.Count; Hits = $r.Hits.Count; Truncated = [bool]$r.Truncated }
 }
 function invokeRunspaceSearch($cache) {
     $ps = [powershell]::Create()
@@ -85,7 +91,7 @@ try {
     if ($mode -eq "service") { $service = newSearchService $cache }
     for ($i = 1; $i -le $Count; $i++) {
         $r = if ($mode -eq "service") { invokeServiceSearch $service } else { invokeRunspaceSearch $cache }
-        $row = [ordered]@{ N = $i; TotalMs = (roundMs $r.TotalMs); LoadMs = (roundMs $r.LoadMs); ListMs = (roundMs $r.ListMs)
+        $row = [ordered]@{ N = $i; TotalMs = (roundMs $r.TotalMs); ShownMs = (roundMs $r.ShownMs); HitTotal = $r.HitTotal; LoadMs = (roundMs $r.LoadMs); ListMs = (roundMs $r.ListMs)
             MatchMs = (roundMs $r.MatchMs); Packs = $r.Packs; Hits = $r.Hits; Truncated = $r.Truncated }
         $snap = getProcessSnapshot
         foreach ($k in $snap.Keys) { $row[$k] = $snap[$k] }
