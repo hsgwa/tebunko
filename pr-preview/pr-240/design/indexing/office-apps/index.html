@@ -4490,7 +4490,7 @@
 </tr>
 <tr>
 <td>終了の失敗</td>
-<td>終了処理中のプロセスへの <code>Kill()</code> は「アクセス拒否」になることがあるため無視する。1 つのアプリの終了に失敗しても残りのアプリは終了させる（<code>stopAllApps</code>）。強制終了しても待ち時間内に終わらなかったプロセスが残っていれば、次の <code>getApp</code> が利用者のアプリとみなす（下の「PowerPoint」。安全な側に倒れる）</td>
+<td>終了処理中のプロセスへの <code>Kill()</code> は「アクセス拒否」になることがあるため無視する。1 つのアプリの終了に失敗しても残りのアプリは終了させる（<code>stopAllApps</code>）。強制終了しても待ち時間内に終わらなかったプロセスが残っていれば、記録（<code>office_pids</code>）に残し、次の起動の確認に任せる。PowerPoint（SingleInstance）は、さらに次の <code>getApp</code> が利用者のアプリとみなす（下の「PowerPoint」。安全な側に倒れる）</td>
 </tr>
 <tr>
 <td>制限時間の監視</td>
