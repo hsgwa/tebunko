@@ -15,7 +15,7 @@ function isInnerException {
 }
 
 # 自分で起こした Process オブジェクト（Process.Start で起こしてハンドルを持っているもの）を止めて、終わるのを待つ。止める相手は Process オブジェクトで決め、PID から引き直さない
-# （PID の使い回しで別のプロセスを止めないため）。握るのは「Kill の間に終わった」InvalidOperationException だけ。
+# （PID の使い回しで別のプロセスを止めないため）。握るのは「Kill の間に終わった」競合（InvalidOperationException・Win32Exception の 5）だけ。
 # 止められずに残ったときは、PID と待った時間を入れた例外を投げる（取り残しを見えるようにする）。
 # 型は付けない（Kill・WaitForExit・HasExited を持つ偽の物でも確かめられるように）
 function stopStartedProcess {
