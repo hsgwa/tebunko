@@ -316,6 +316,12 @@ $x = 1 # Invoke-WebRequest も行内コメントなら見ない
         $hits | Should -Match "Network"
         (@([regex]::Matches($hits, "Network")).Count) | Should -Be 1
     }
+
+    It "findBannedCode: 小文字で書いた .NET のレジストリの型も見つける" {
+        $hits = findBannedCode "[microsoft.win32.registry]::currentuser"
+
+        $hits | Should -Match "Registry"
+    }
 }
 
 Describe "新しい runspace での部品（lib）の読み込み（結合した単一 .ps1。getPartLoad の経路）" -Tag Slow {
