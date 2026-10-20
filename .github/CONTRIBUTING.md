@@ -96,7 +96,7 @@ How the tests are organized is described in [docs/design/testing/run.md](../docs
 
 ## Coding rules
 
-The tests in `tests/meta/` and the static analysis in CI (PSScriptAnalyzer; no findings of severity Error) check these rules automatically.
+The tests in `tests/meta/` and the static analysis in CI (PSScriptAnalyzer; no more findings than the baseline) check these rules automatically.
 
 - **Save scripts and XAML as UTF-8 with BOM and CRLF line endings** (required by Windows PowerShell 5.1).
 - **`scripts/shared/` does not know about individual tools.** Tools do not load each other either.
