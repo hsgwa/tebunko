@@ -57,6 +57,11 @@ BeforeAll {
         @{ File = "startup_error.ps1"; Function = "getToolGuiErrorLogHeader"; Call = "getToolDiagnosticHeader"; Reason = "画面のエラーの記録の見出し（版と環境。ツールのフォルダの VERSION.txt と Program Files の Office の版を読むだけ。エラーの記録はまれで、プロセスごとに最初の 1 回だけ）" }
         @{ File = "startup_error.ps1"; Function = "getExistingRecordFile"; Call = "Test-Path"; Reason = "起動そのものに失敗したときの reportStartupFailure が、記録が実際に書けたかを確かめる（窓が無い・応答なしにならない起動の失敗時だけ）" }
 
+        # ---- tebunko/ui/gui_main.ps1・shell/closing.ps1（閉じる処理の記録。記録先が空なら何もしない） ----
+        @{ File = "gui_main.ps1"; Function = "startGui"; Call = "writeCloseTrace"; Count = 8; Reason = "閉じる処理の各段の前に、段の名前を 1 行足す（環境変数 TEBUNKO_CLOSE_TRACE が指すローカルのファイルへ。画面のスモークテストの失敗の調べ用で、無ければ何もしない。閉じるときだけ）" }
+        @{ File = "closing.ps1"; Function = "enterIndexingStopFlow"; Call = "writeCloseTrace"; Reason = "閉じる処理の段の名前を 1 行足す（TEBUNKO_CLOSE_TRACE が指すローカルのファイル。無ければ何もしない。閉じるときだけ）" }
+        @{ File = "closing.ps1"; Function = ""; Call = "writeCloseTrace"; Reason = "閉じる処理の段の名前を 1 行足す（Closing のハンドラ。TEBUNKO_CLOSE_TRACE が指すローカルのファイル。無ければ何もしない。閉じるときだけ）" }
+
         # ---- tebunko/ui/workspace_jobs.ps1 ----
         @{ File = "workspace_jobs.ps1"; Function = "testStartupIndexExists"; Call = "testIndexExists"; Reason = "ローカルの場所だけ（ネットワークの場所は先に真を返し、呼ばない）" }
         @{ File = "workspace_jobs.ps1"; Function = "refreshLegacyIndexMessage"; Call = "getLegacyIndexState"; Reason = "ワークスペースの場所がローカルのときに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で調べる）" }
