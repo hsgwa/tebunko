@@ -28,7 +28,7 @@ function newIndex {
     if (!(testIndexOperable "追加")) {
         return
     }
-    $path = selectFolder "インデックスにする、ファイルのあるフォルダを選んでください" "" $window $false
+    $path = selectFolder "インデックスにする、ファイル（Excel・PowerPoint・Word・PDF・テキスト）のあるフォルダを選んでください" "" $window $false
     if (!$path) {
         return
     }
@@ -195,7 +195,7 @@ function changeIndexFolder {
     $initial = normalizeFolderPath $item.Path
     # 開始フォルダの有無は、直前の refreshFolderStatus の結果がそのまま使えるときだけ調べずに使う
     $knownExisting = $item.StatusChecked -and $item.FolderExists
-    $path = selectFolder "インデックスにする、ファイルのあるフォルダを選んでください" $initial $window $knownExisting
+    $path = selectFolder "インデックスにする、ファイル（Excel・PowerPoint・Word・PDF・テキスト）のあるフォルダを選んでください" $initial $window $knownExisting
     if (!$path) {
         return
     }
