@@ -366,7 +366,7 @@ function applyFailedFileState {
     }
     if ($state.State -eq ${pathStateMissing}) {
         # フォルダが見つかったときだけ、フォルダを開く（有無は裏のスレッドで調べてある）
-        if ($dirState -and $dirState.State -eq ${pathStateFound}) {
+        if ($dirState -and $dirState.State -eq ${pathStateFound} -and $dirState.IsDirectory) {
             Start-Process -FilePath "explorer.exe" -ArgumentList "`"$(Split-Path $path -Parent)`""
             setStatus "ファイルが見つからないため、フォルダを開きました（移動・削除された可能性があります）：${path}"
             return

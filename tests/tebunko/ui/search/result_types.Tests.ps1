@@ -558,6 +558,14 @@ Describe "HitRow の静的な関数" -Tag Unit {
         [HitRow]::ToDisplay($null) | Should -Be ""
     }
 
+    It "ToDisplay は制御文字と向きを変える文字（U+202E など）を U+FFFD にする" {
+        $bad = @(0x0, 0x7, 0x1B, 0x7F, 0x9F, 0x61C, 0x200E, 0x202A, 0x202E, 0x2066, 0x2069)
+        foreach ($code in $bad) {
+            [HitRow]::ToDisplay("a$([char]$code)b") | Should -Be "a$([char]0xFFFD)b" -Because ("U+{0:X4}" -f $code)
+        }
+        [HitRow]::ToDisplay("見積 abc") | Should -Be "見積 abc"
+    }
+
     It "HasMatch は<name>" -TestCases @(
         @{ name = "語句を大文字小文字を区別せずに探す"; text = "ABC"; word = "b"; pattern = $null; expected = $true }
         @{ name = "語句が無ければ一致しない"; text = "ABC"; word = "x"; pattern = $null; expected = $false }

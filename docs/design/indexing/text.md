@@ -8,8 +8,8 @@
 
 `${textExtensions}` は次の 2 つを合わせたもの。
 
-- **`${textOpenExtensions}`（68 個。既定のアプリで開く）**: `.txt` `.csv` `.tsv` `.md` `.log` `.json` `.xml` に加え、`.c` `.h` `.cpp` `.cc` `.cxx` `.hpp` `.cs` `.java` `.kt` `.kts` `.go` `.rs` `.swift` `.scala` `.dart` `.vb` `.bas` `.pas` `.asm` `.m` `.r` `.jl` `.hs` `.ex` `.exs` `.erl` `.clj` `.groovy` `.lua` `.py` `.rb` `.pl` `.php` `.psm1` `.psd1` `.jsx` `.tsx` `.mjs` `.vue` `.sql` `.yaml` `.yml` `.toml` `.ini` `.cfg` `.conf` `.properties` `.gradle` `.cmake` `.proto` `.graphql` `.tf` `.html` `.htm` `.css` `.scss` `.less` `.rst` `.tex` `.diff` `.patch`。
-- **`${textNotepadExtensions}`（7 個。メモ帳で開く）**: `.bat` `.cmd` `.ps1` `.vbs` `.js` `.reg` `.sh`。既定のアプリで開くと実行・登録になるため、検索結果から［開く］で開くときは既定のアプリではなくメモ帳（固定のパス `%SystemRoot%\System32\notepad.exe`）で開く（[検索結果からファイルを開く](../gui/open-file.md)）。取り込み・検索の対象かどうかの判定（`testTextExtension`）はこの 7 個も含める。
+- **`${textOpenExtensions}`（60 個。既定のアプリで開く）**: `.txt` `.csv` `.tsv` `.md` `.log` `.json` `.xml` に加え、`.c` `.h` `.cpp` `.cc` `.cxx` `.hpp` `.cs` `.java` `.kt` `.kts` `.go` `.rs` `.swift` `.scala` `.dart` `.vb` `.bas` `.pas` `.asm` `.m` `.r` `.jl` `.hs` `.ex` `.exs` `.erl` `.clj` `.groovy` `.jsx` `.tsx` `.vue` `.sql` `.yaml` `.yml` `.toml` `.ini` `.cfg` `.conf` `.properties` `.gradle` `.cmake` `.proto` `.graphql` `.tf` `.html` `.htm` `.css` `.scss` `.less` `.rst` `.tex` `.diff` `.patch`。
+- **`${textNotepadExtensions}`（15 個。メモ帳で開く）**: `.bat` `.cmd` `.ps1` `.vbs` `.js` `.reg` `.sh` `.py` `.rb` `.pl` `.php` `.lua` `.mjs` `.psm1` `.psd1`。既定のアプリで開くと実行・登録になるため、検索結果から［開く］で開くときは既定のアプリではなくメモ帳（固定のパス `%SystemRoot%\System32\notepad.exe`）で開く（[検索結果からファイルを開く](../gui/open-file.md)）。取り込み・検索の対象かどうかの判定（`testTextExtension`）はこの 15 個も含める。
 
 拡張子だけが対象の判定基準で、拡張子の無いファイル・除外リストの仕組みは無い。
 

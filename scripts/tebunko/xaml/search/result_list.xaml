@@ -52,7 +52,7 @@
           <ControlTemplate x:Key="FileHeaderRow" TargetType="DataGridRow">
             <!-- クリック（・Enter）で閉じる・開く。右端はヒットした場所（2 か所以上のときだけ）と件数（件数は絞り込み後の行の数） -->
             <Border x:Name="HeaderBg" Background="{StaticResource Bg.Window}" BorderBrush="{StaticResource Border.Soft}"
-                    BorderThickness="0,0,0,1" MinHeight="36" Cursor="Hand" ToolTip="{Binding FullPath}">
+                    BorderThickness="0,0,0,1" MinHeight="36" Cursor="Hand" ToolTip="{Binding FullPathDisplay}">
               <Grid>
                 <!-- 開いている見出しの左の青い線 -->
                 <Rectangle x:Name="Bar" HorizontalAlignment="Left" Width="3" Margin="0,5" Fill="{StaticResource Accent}" Visibility="Collapsed" />
@@ -72,11 +72,11 @@
                   <!-- ファイルの種類のアイコン（Excel・Word・PowerPoint の色） -->
                   <Path x:Name="KindIcon" DockPanel.Dock="Left" Data="{StaticResource Icon.File}" Width="16" Height="16" Stretch="Uniform"
                         Stroke="{StaticResource Ink.Body}" StrokeThickness="1.33" StrokeLineJoin="Round" VerticalAlignment="Center" Margin="0,0,8,0" />
-                  <TextBlock DockPanel.Dock="Left" Text="{Binding Book}" FontWeight="SemiBold" Foreground="{StaticResource Ink.Strong}"
+                  <TextBlock DockPanel.Dock="Left" Text="{Binding BookDisplay}" FontWeight="SemiBold" Foreground="{StaticResource Ink.Strong}"
                              VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                   <Border x:Name="RelDirChip" DockPanel.Dock="Left" Background="{StaticResource Bg.Hover}" CornerRadius="4" Padding="6,1" Margin="10,0,0,0" VerticalAlignment="Center"
                           HorizontalAlignment="Left">
-                    <TextBlock Text="{Binding RelDir}" Style="{StaticResource Micro}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding RelDirDisplay}" Style="{StaticResource Micro}" TextTrimming="CharacterEllipsis" />
                   </Border>
                 </DockPanel>
               </Grid>
@@ -119,11 +119,11 @@
               <!-- 読み上げに使われるのは行の名前。見出しの行はセルが無いため、ファイル名と、フォルダ・場所・件数を行に付ける -->
               <DataTrigger Binding="{Binding IsFileHeader}" Value="True">
                 <Setter Property="Template" Value="{StaticResource FileHeaderRow}" />
-                <Setter Property="AutomationProperties.Name" Value="{Binding Book}" />
+                <Setter Property="AutomationProperties.Name" Value="{Binding BookDisplay}" />
                 <Setter Property="AutomationProperties.HelpText">
                   <Setter.Value>
                     <MultiBinding StringFormat="{}{0}　{1}　{2:N0} 件">
-                      <Binding Path="RelDir" />
+                      <Binding Path="RelDirDisplay" />
                       <Binding Path="LocationText" />
                       <Binding Path="ShownCount" />
                     </MultiBinding>
