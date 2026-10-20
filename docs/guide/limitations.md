@@ -53,9 +53,9 @@ Excel・Word・PowerPoint の図形・SmartArt・グラフの文字は、［図�
 文字コードを適切に選べれば読める、次の 75 個の拡張子が対象です（大文字・小文字を区別しない）。設定で対象の拡張子を増やすことはできません。
 
 - `.txt` `.csv` `.tsv` `.md` `.log` `.json` `.xml`
-- ソースコード: `.c` `.h` `.cpp` `.cc` `.cxx` `.hpp` `.cs` `.java` `.kt` `.kts` `.go` `.rs` `.swift` `.scala` `.dart` `.vb` `.bas` `.pas` `.asm` `.m` `.r` `.jl` `.hs` `.ex` `.exs` `.erl` `.clj` `.groovy` `.lua` `.py` `.rb` `.pl` `.php` `.psm1` `.psd1` `.jsx` `.tsx` `.mjs` `.vue`
+- ソースコード: `.c` `.h` `.cpp` `.cc` `.cxx` `.hpp` `.cs` `.java` `.kt` `.kts` `.go` `.rs` `.swift` `.scala` `.dart` `.vb` `.bas` `.pas` `.asm` `.m` `.r` `.jl` `.hs` `.ex` `.exs` `.erl` `.clj` `.groovy` `.jsx` `.tsx` `.vue`
 - 設定・マークアップ・その他: `.sql` `.yaml` `.yml` `.toml` `.ini` `.cfg` `.conf` `.properties` `.gradle` `.cmake` `.proto` `.graphql` `.tf` `.html` `.htm` `.css` `.scss` `.less` `.rst` `.tex` `.diff` `.patch`
-- 開くと実行・登録になるため、［開く］を押すと既定のアプリではなく**メモ帳**で開くもの（[ファイルを開く](open-files.md)）: `.bat` `.cmd` `.ps1` `.vbs` `.js` `.reg` `.sh`
+- 開くと実行・登録になるため、［開く］を押すと既定のアプリではなく**メモ帳**で開くもの（[ファイルを開く](open-files.md)）: `.bat` `.cmd` `.ps1` `.vbs` `.js` `.reg` `.sh` `.py` `.rb` `.pl` `.php` `.lua` `.mjs` `.psm1` `.psd1`
 
 `.exe` `.com` `.scr` `.hta` `.wsf` `.wsh` `.jse` `.vbe` `.lnk` `.url` `.msi` `.cpl` `.inf`（実行・登録に使われるファイル）・`.ts`・`.pdf` など、上に無い拡張子は対象外です。
 

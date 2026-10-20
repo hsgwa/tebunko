@@ -90,11 +90,13 @@ ZIP（`.xlsx` / `.docx` / `.pptx`）を直接読む処理は、細工したフ�
 
 ## 取り込み対象の拡張子
 
-Office に加えてテキストファイルと PDF ファイルも取り込むが、対象の拡張子は `shared/office/office_file_kind_view.ps1` の `$officeExtensions`（10 個）と `shared/core/text_file.ps1` の `$textExtensions`（75 個。既定のアプリで開く `$textOpenExtensions` 68 個 + メモ帳で開く `$textNotepadExtensions` 7 個）と `shared/core/pdf_file.ps1` の `$pdfExtensions`（`.pdf` の 1 個）を合わせた、**固定の 86 個の一覧**である（[テキストファイルの読み取り](../design/indexing/text.md)・[PDF ファイルの読み取り](../design/indexing/pdf.md)）。設定ファイルで拡張子を足す仕組みは無い。
+Office に加えてテキストファイルと PDF ファイルも取り込むが、対象の拡張子は `shared/office/office_file_kind_view.ps1` の `$officeExtensions`（10 個）と `shared/core/text_file.ps1` の `$textExtensions`（75 個。既定のアプリで開く `$textOpenExtensions` 60 個 + メモ帳で開く `$textNotepadExtensions` 15 個）と `shared/core/pdf_file.ps1` の `$pdfExtensions`（`.pdf` の 1 個）を合わせた、**固定の 86 個の一覧**である（[テキストファイルの読み取り](../design/indexing/text.md)・[PDF ファイルの読み取り](../design/indexing/pdf.md)）。設定ファイルで拡張子を足す仕組みは無い。
 
-危険な種類のファイル（実行される・既定のアプリがスクリプトを実行する `.exe` `.com` `.scr` `.hta` `.wsf` `.wsh` `.jse` `.vbe` `.lnk` `.url` `.msi` `.cpl` `.inf` 等）を、実行される種類を並べて弾く形にすると、一覧から漏れて対象に紛れ込む恐れがある。そのため `tests/meta/safety.Tests.ps1` は「対象の拡張子が固定であること」として、`$textExtensions` がちょうど 75 個（内 `$textNotepadExtensions` が 7 個）であること、`$pdfExtensions` が `.pdf` だけであること、`$officeExtensions` と `$textExtensions` と `$pdfExtensions` を合わせた一覧がこの 86 個ちょうどであること、上に挙げた危険な種類の拡張子がどちらの一覧にも含まれないことを確かめる。対象の拡張子を足す変更は必ずこのテストを落とし、この一覧の見直しを促す。
+危険な種類のファイル（実行される・既定のアプリがスクリプトを実行する `.exe` `.com` `.scr` `.hta` `.wsf` `.wsh` `.jse` `.vbe` `.lnk` `.url` `.msi` `.cpl` `.inf` 等）を、実行される種類を並べて弾く形にすると、一覧から漏れて対象に紛れ込む恐れがある。そのため `tests/meta/safety.Tests.ps1` は「対象の拡張子が固定であること」として、`$textExtensions` がちょうど 75 個（内 `$textNotepadExtensions` が 15 個、`$textOpenExtensions` が 60 個）であること、`$pdfExtensions` が `.pdf` だけであること、`$officeExtensions` と `$textExtensions` と `$pdfExtensions` を合わせた一覧がこの 86 個ちょうどであること、上に挙げた危険な種類の拡張子がどちらの一覧にも含まれないことを確かめる。対象の拡張子を足す変更は必ずこのテストを落とし、この一覧の見直しを促す。
 
-`$textNotepadExtensions`（`.bat` `.cmd` `.ps1` `.vbs` `.js` `.reg` `.sh`）は、既定のアプリで開くと実行・登録になるため取り込みの対象ではあるが、検索結果から開くときは既定のアプリではなくメモ帳で開く（下の「外部プロセスの起動」）。
+`$textNotepadExtensions`（`.bat` `.cmd` `.ps1` `.vbs` `.js` `.reg` `.sh` `.py` `.rb` `.pl` `.php` `.lua` `.mjs` `.psm1` `.psd1`）は、既定のアプリで開くと実行・登録になる（スクリプト・解釈器で動かす言語を含む）ため取り込みの対象ではあるが、検索結果から開くときは既定のアプリではなくメモ帳で開く（下の「外部プロセスの起動」）。`.hs` `.kts` `.exs` は、Windows に既定の関連付けが無く、実行される既定の登録が一般的でないため既定のアプリのままとする。
+
+開く前には、インデックスの「ファイル名」を `testSourceBookName` で確かめる（取り込み対象の拡張子であること、フォルダの区切り・`..`・`:`・制御文字・表示の向きを変える文字を含まないこと。末尾のピリオド・空白は Windows が無視するので外して見る）。書き換えたインデックスに `evil.hta` などがあっても、検索結果に出さず、開かない。
 
 ### PDF ファイルを読むときの上限
 
@@ -120,11 +122,16 @@ PDF は PowerShell だけで読み、外の部品・Office・外部プロセス�
 
 `tests/meta/safety.Tests.ps1` の「外部プロセスの起動は explorer.exe・notepad.exe だけ」が確かめる。
 
-| 場所 | 起動するもの | 用途 |
+| 関数 | 使う API | 用途 |
 |---|---|---|
-| `tebunko/ui/index/index_detail.ps1:195`・`205`、`tebunko/ui/open_source.ps1:740` | `explorer.exe` | 一覧・検索結果から元のファイルの場所を開く（利用者の操作時のみ） |
-| `tebunko/ui/about_dialog.ps1`（`openAboutLink`） | `explorer.exe`（アドレスを 1 つ渡す。既定のブラウザで開く） | 「バージョン情報」の GitHub・リリースのリンク。開くのは `getAboutLinks` に載せた 2 つのアドレス（`https://github.com/hsgwa/tebunko` と、その `/releases`）と一字一句同じものだけ（`testAboutLinkUrl`）。利用者がリンクを押したときのみ |
-| `tebunko/ui/open_source.ps1:385`（`openWithNotepad`） | `notepad.exe`（固定のパス `%SystemRoot%\System32\notepad.exe`） | 検索結果から、既定のアプリで開くと実行・登録になる拡張子（`$textNotepadExtensions`）のテキストファイルを開く（利用者の操作時のみ） |
+| `applyFailedFileState`（`tebunko/ui/index/index_detail.ps1`）・`applyIndexSourceFolderState`（`tebunko/ui/index/index_list.ps1`）・`openSourceFolder`（`tebunko/ui/open_source.ps1`） | `Start-Process`（`explorer.exe`） | 一覧・検索結果から元のファイルの場所を開く（利用者の操作時のみ）。フォルダと確かめたものだけを渡す（ファイルをフォルダとして渡すと、そのファイルが既定のアプリで実行されるため） |
+| `openAboutLink`（`tebunko/ui/about_dialog.ps1`） | `Start-Process`（`explorer.exe`。アドレスを 1 つ渡す） | 「バージョン情報」の GitHub・リリースのリンク。開くのは `getAboutLinks` に載せた 2 つのアドレス（`https://github.com/hsgwa/tebunko` と、その `/releases`）と一字一句同じものだけ（`testAboutLinkUrl`）。利用者がリンクを押したときのみ |
+| `openWithNotepad`（`tebunko/ui/open_source.ps1`） | `Start-Process`（固定のパス `%SystemRoot%\System32\notepad.exe`） | 検索結果から、既定のアプリで開くと実行・登録になる拡張子（`$textNotepadExtensions`）のテキストファイルを開く（利用者の操作時のみ） |
+| `openWithShell`（`tebunko/ui/open_source.ps1`） | `ProcessStartInfo`・`UseShellExecute`・`Process::Start`・`Invoke-Item` | 元のファイルを既定のアプリで開く。先頭で `testSourceBookName` により名前を確かめ、通らなければ何も起動しない |
+| `exportResults`（`tebunko/ui/open_source.ps1`） | `Invoke-Item` | 書き出した結果のファイル（作業フォルダの固定の場所 `search_results.txt`。利用者が選んだ名前のものではない）を既定のアプリで開く（利用者の操作時のみ） |
+| `showErrorDialog`（`shared/ui/shell.ps1`） | `Start-Process`（固定のパスの `notepad.exe`） | エラーの記録のファイルをメモ帳で開く（利用者が押したときのみ） |
+
+上の表にない関数が、シェルで開く API を書くと `tests/meta/safety.Tests.ps1` の「検索結果から開くとき、シェルで開く処理が決まった所にだけあること」が落ちる（別名・型名の書き方違いも構文木で見つける）。足すときは、表と守りを同じ変更で直す。
 
 インデックス作成は画面のプロセスの中のスレッドで動かすため、インデックス作成のために `powershell.exe` を起動することはない（[プロセス](../design/structure/threads.md#プロセス)）。
 

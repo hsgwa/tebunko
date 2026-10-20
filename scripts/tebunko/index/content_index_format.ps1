@@ -438,9 +438,12 @@ function readContentIndexPlaces {
             } elseif ($key -eq "ファイル名" -or $placeKeys -contains $key) {
                 if ($current) {
                     $current.End = $pos
-                    $current.Location = convertContentIndexMetaToPlace $meta
-                    $current.CellPrefixed = testContentIndexCellPrefixed $current.Book $meta
-                    $places.Add($current)
+                    # 開いてよい名前でない場所（書き換えたインデックスの .hta など）は、検索にもプレビューにも出さない
+                    if (testSourceBookName $current.Book) {
+                        $current.Location = convertContentIndexMetaToPlace $meta
+                        $current.CellPrefixed = testContentIndexCellPrefixed $current.Book $meta
+                        $places.Add($current)
+                    }
                     $current = $null
                 }
                 if ($key -eq "ファイル名") {
@@ -458,9 +461,11 @@ function readContentIndexPlaces {
     }
     if ($current) {
         $current.End = $text.Length
-        $current.Location = convertContentIndexMetaToPlace $meta
-        $current.CellPrefixed = testContentIndexCellPrefixed $current.Book $meta
-        $places.Add($current)
+        if (testSourceBookName $current.Book) {
+            $current.Location = convertContentIndexMetaToPlace $meta
+            $current.CellPrefixed = testContentIndexCellPrefixed $current.Book $meta
+            $places.Add($current)
+        }
     }
     if (!$versionSeen -and $text.Length -gt 0) {
         throw (getIndexRebuildMessage)
