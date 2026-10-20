@@ -981,7 +981,19 @@ Describe "ダイアログは暗幕付きで出す" -Tag Meta {
     It "gui_main.ps1 は、ShowDialog() の finally のあとで画面のスレッドの Dispatcher を止める（止めないと、閉じたあとの PowerShell の終了で、まれに終了コード 5 になる。closing.md）" {
         $here = (Resolve-Path "$PSScriptRoot\..").Path
         $text = [System.IO.File]::ReadAllText("$here\..\scripts\tebunko\ui\gui_main.ps1")
-        $text | Should -Match '\$window\.ShowDialog\(\)\r?\n    \} finally \{[\s\S]*?\r?\n    \}\r?\n(\s*#[^\r\n]*\r?\n)*\s*\[System\.Windows\.Threading\.Dispatcher\]::CurrentDispatcher\.InvokeShutdown\(\)'
+        # 間には、コメントと、閉じる処理の記録（writeCloseTrace）の行だけを許す
+        $text | Should -Match '\$window\.ShowDialog\(\)\r?\n    \} finally \{[\s\S]*?\r?\n    \}\r?\n(\s*(#|writeCloseTrace)[^\r\n]*\r?\n)*\s*\[System\.Windows\.Threading\.Dispatcher\]::CurrentDispatcher\.InvokeShutdown\(\)'
+    }
+
+    It "gui_main.ps1 は、ShowDialog() の finally の各段（Close・Abandon など）の前に、閉じる処理の記録（writeCloseTrace）を書く（止まった段を後から読めるようにする。closing.md）" {
+        $here = (Resolve-Path "$PSScriptRoot\..").Path
+        $lines = [System.IO.File]::ReadAllLines("$here\..\scripts\tebunko\ui\gui_main.ps1")
+        $stages = @('\$script:indexingSession\.Close\(\)', '\$script:searchService\.Close\(\)', '\$script:backgroundQueue\.Abandon\(\)', '\$script:networkQueue\.Abandon\(\)', '\[System\.Windows\.Threading\.Dispatcher\]::CurrentDispatcher\.InvokeShutdown\(\)')
+        foreach ($stage in $stages) {
+            $index = @(0..($lines.Count - 1) | Where-Object { $lines[$_] -match "^\s*$stage" })
+            $index.Count | Should -Be 1 -Because $stage
+            $lines[$index[0] - 1] | Should -Match '^\s*writeCloseTrace ' -Because $stage
+        }
     }
 
     It "startGui（gui_main.ps1）は 150 行以下。中身は shell\ の下のファイルに分けて読み込む" {
