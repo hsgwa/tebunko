@@ -961,7 +961,12 @@ Describe "サードパーティの静的解析（docs/safety/scans.md「静的�
 
     BeforeAll {
         if (@(Get-Module -ListAvailable PSScriptAnalyzer).Count -gt 0) {
-            Import-Module PSScriptAnalyzer -ErrorAction SilentlyContinue
+            # CI は PSSA_VERSION で版を固定している（.github\workflows\test.yml）。無ければ入っている版
+            if ($env:PSSA_VERSION) {
+                Import-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION -ErrorAction SilentlyContinue
+            } else {
+                Import-Module PSScriptAnalyzer -ErrorAction SilentlyContinue
+            }
         }
         $securitySettings = "$PSScriptRoot\PSScriptAnalyzer.security.psd1"
 

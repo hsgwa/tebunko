@@ -96,7 +96,7 @@ clone したら、コミット前の検査を有効にします（1 回だけ）
 
 ## コードの決まり
 
-`tests/meta/` のテストと、CI の静的解析（PSScriptAnalyzer。重大度 Error の指摘が 0 件であること）が機械的に確かめます。
+`tests/meta/` のテストと、CI の静的解析（PSScriptAnalyzer。指摘がベースラインより増えないこと）が機械的に確かめます。
 
 - **スクリプト・XAML は BOM 付き UTF-8・CRLF** で保存します（Windows PowerShell 5.1 の前提）。
 - **`scripts/shared/` は個々のツールを知らない**ようにします。ツール同士も互いを読み込みません。
