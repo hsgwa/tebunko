@@ -4013,6 +4013,10 @@
 <td>禁止文字の全角化、<code>/</code> → <code>／</code>、<code>"</code> → <code>”</code>、使用可能文字は不変。フォルダ名の確かめ（空・前後の空白・長すぎる・使えない文字・最後の <code>.</code>・予約名）</td>
 </tr>
 <tr>
+<td><code>testSourceBookName</code>（<code>index_name.Tests.ps1</code>）・<code>formatDisplayText</code>（<code>text.Tests.ps1</code>）</td>
+<td>取り込み対象の拡張子（Office・テキスト・PDF）だけ真、<code>.hta</code>・<code>.lnk</code>・<code>.exe</code>・拡張子なし・区切りや <code>..</code>・<code>:</code>・制御文字・向きを変える文字を含む名前・終わりの <code>.</code> や空白で拡張子を隠した名前は偽。表示用の文字列は制御文字・向きを変える文字を U+FFFD にし、タブ・改行は <code>keepLineBreaks</code> のときだけ残す</td>
+</tr>
+<tr>
 <td><code>toLongPath</code> / <code>fromLongPath</code>・長いパス</td>
 <td><code>\\?\</code>・<code>\\?\UNC\</code> の付け外し、260 文字を超えるパスの読み書き</td>
 </tr>
