@@ -132,6 +132,25 @@ Describe "filterAnalyzerBaseline" -Tag Unit {
     }
 }
 
+# -Path で絞った比べ方（check_analyzer.ps1 が使う filterAnalyzerBaseline と compareAnalyzerBaseline の組）
+Describe "-Path で絞った件数の比べ" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "件数がベースラインどおりなら何も出さない"; baseline = "scripts/a.ps1`tPSX`t1`r`ntools/b.ps1`tPSX`t2"; findings = @(, @("scripts\a.ps1", "PSX")); files = @("scripts/a.ps1"); increased = 0; decreased = 0 }
+        @{ name = "指摘が増えたら増えたとみなす"; baseline = "tools/b.ps1`tPSX`t2"; findings = @(, @("scripts\a.ps1", "PSX")); files = @("scripts/a.ps1"); increased = 1; decreased = 0 }
+        @{ name = "件数が減ったら減ったとみなす"; baseline = "scripts/a.ps1`tPSX`t2"; findings = @(, @("scripts\a.ps1", "PSX")); files = @("scripts/a.ps1"); increased = 0; decreased = 1 }
+        @{ name = "-Path に無いファイルの増減は見ない"; baseline = "scripts/a.ps1`tPSX`t1"; findings = @(, @("scripts\a.ps1", "PSX")); files = @("scripts/a.ps1"); increased = 0; decreased = 0 }
+        @{ name = "-Path に無いファイルのベースラインの行は、減ったとみなさない"; baseline = "scripts/a.ps1`tPSX`t1`r`ntools/b.ps1`tPSX`t2"; findings = @(, @("scripts\a.ps1", "PSX")); files = @("scripts/a.ps1"); increased = 0; decreased = 0 }
+        @{ name = "複数のファイルを指定したら、どちらも比べる"; baseline = "scripts/a.ps1`tPSX`t1"; findings = @(@("scripts\a.ps1", "PSX"), @("tools\b.ps1", "PSX")); files = @("scripts/a.ps1", "tools/b.ps1"); increased = 1; decreased = 0 }
+    ) {
+        param ($name, $baseline, $findings, $files, $increased, $decreased)
+        $list = @($findings | ForEach-Object { newFinding $_[0] $_[1] 5 })
+        $current = getAnalyzerCounts $list $script:root
+        $result = compareAnalyzerBaseline (filterAnalyzerBaseline (newBaseline $baseline) $files) $current
+        $result.Increased.Count | Should -Be $increased
+        $result.Decreased.Count | Should -Be $decreased
+    }
+}
+
 # check_analyzer.ps1 自身を、一時フォルダの小さなリポジトリに対して powershell.exe で流す
 Describe "check_analyzer.ps1 -Path" -Tag Io {
     BeforeAll {
@@ -156,15 +175,10 @@ Describe "check_analyzer.ps1 -Path" -Tag Io {
     }
     AfterAll { Remove-Item -LiteralPath $script:work -Recurse -Force -ErrorAction SilentlyContinue }
 
+    # 件数の比べ方は上の Unit の表で確かめる。ここは powershell.exe で通しで流す代表だけ（PSScriptAnalyzer の読み込みで 1 回 30 秒ほどかかる）
     It "<name>" -TestCases @(
-        @{ name = "-Path のファイルの件数がベースラインどおりなら 0"; baseline = "scripts/a.ps1`tPSAvoidUsingWriteHost`t1`r`ntools/b.ps1`tPSAvoidUsingWriteHost`t2`r`n"; extra = @("-Path", "scripts/a.ps1"); code = 0 }
         @{ name = "-Path のファイルの指摘が増えたら 1"; baseline = "tools/b.ps1`tPSAvoidUsingWriteHost`t2`r`n"; extra = @("-Path", "scripts/a.ps1"); code = 1 }
-        @{ name = "-Path のファイルの件数が減ったら 1"; baseline = "scripts/a.ps1`tPSAvoidUsingWriteHost`t2`r`n"; extra = @("-Path", "scripts/a.ps1"); code = 1 }
-        @{ name = "-Path に無いファイルの増減は見ない"; baseline = "scripts/a.ps1`tPSAvoidUsingWriteHost`t1`r`n"; extra = @("-Path", "scripts/a.ps1"); code = 0 }
-        @{ name = "カンマで分けた複数のファイルも検査する"; baseline = "scripts/a.ps1`tPSAvoidUsingWriteHost`t1`r`n"; extra = @("-Path", "scripts/a.ps1,tools/b.ps1"); code = 1 }
-        @{ name = "無いファイルは飛ばす"; baseline = ""; extra = @("-Path", "scripts/gone.ps1"); code = 0 }
-        @{ name = "-Path なしは全体を比べる（今までどおり）"; baseline = "scripts/a.ps1`tPSAvoidUsingWriteHost`t1`r`n"; extra = @(); code = 1 }
-        @{ name = "-Path なしで全体がベースラインどおりなら 0"; baseline = "scripts/a.ps1`tPSAvoidUsingWriteHost`t1`r`ntools/b.ps1`tPSAvoidUsingWriteHost`t2`r`n"; extra = @(); code = 0 }
+        @{ name = "-Path のファイルが合っていれば、ほかのファイルが違っても 0"; baseline = "scripts/a.ps1`tPSAvoidUsingWriteHost`t1`r`n"; extra = @("-Path", "scripts/a.ps1"); code = 0 }
     ) {
         param($name, $baseline, $extra, $code)
         if (!$script:hasAnalyzer) { Set-ItResult -Skipped -Because "PSScriptAnalyzer が入っていない"; return }
