@@ -40,15 +40,11 @@ $targets = @(
 $findings = New-Object System.Collections.Generic.List[object]
 foreach ($t in $targets) {
     foreach ($f in @(Invoke-ScriptAnalyzer -Path (Join-Path $rootDir $t.Path) -Recurse -Settings (Join-Path $rootDir $t.Settings))) {
-        # TypeNotFound は規則でなく構文解析の指摘なので ExcludeRules では除けない。
-        # 継承元の型が別ファイルにあるため 1 ファイルだけでは解決できないもの（読み込む順で解決することは tests\meta\structure.Tests.ps1 の「型の読み込み」が確かめる）
-        if ($f.RuleName -eq "TypeNotFound") { continue }
-        # tests\testdata\text\ の .ps1・.psm1・.psd1 は、テキスト抽出の見本（中身は文章）。チェックアウトの改行などで指摘が変わるため調べない
-        if ($f.ScriptPath.Replace("/", "\").ToLowerInvariant().Contains("\tests\testdata\text\")) { continue }
         $findings.Add($f)
     }
 }
-$counts = getAnalyzerCounts $findings.ToArray() $rootDir
+$findings = @(selectAnalyzerFindings $findings.ToArray())
+$counts = getAnalyzerCounts $findings $rootDir
 
 if ($UpdateBaseline) {
     [System.IO.File]::WriteAllText($baselinePath, (formatAnalyzerBaseline $counts), $utf8)

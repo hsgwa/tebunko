@@ -25,6 +25,10 @@ permissions:
 jobs:
   test:
     runs-on: windows-latest
+    env:
+      # PSScriptAnalyzer の版を固定する。新しい版でルールが増えると、コードを変えていなくても CI が落ちるため。
+      # PowerShell のモジュールは Dependabot の対象外なので、上げるときはこの 1 か所を書き換え、tools\check_analyzer.ps1 -UpdateBaseline でベースラインを直して PR で確かめる。
+      PSSA_VERSION: 1.25.0
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -58,18 +62,13 @@ jobs:
 
       - name: PSScriptAnalyzer を入れる
         shell: powershell
-        # 版を固定する。新しい版でルールが増えると、コードを変えていなくても CI が落ちるため。
-        # PowerShell のモジュールは Dependabot の対象外なので、上げるときはこの版を書き換え、tools\check_analyzer.ps1 -UpdateBaseline でベースラインを直して PR で確かめる。
+        # 版はジョブの env（PSSA_VERSION）で固定している。
         # ランナーに別の版が入っていることがあるため、読み込むときも版を指定する（tests\meta\safety.Tests.ps1 と tools\check_analyzer.ps1 が PSSA_VERSION を読む）。
         # テストの前に入れるのは、テストの中の静的解析（safety.Tests.ps1）も固定した版で動かすため
-        env:
-          PSSA_VERSION: 1.25.0
         run: Install-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION -Force -Scope CurrentUser -SkipPublisherCheck
 
       - name: テスト（Unit・Io・Meta）
         shell: powershell
-        env:
-          PSSA_VERSION: 1.25.0
         run: .\tests\run.ps1 -Ci
 
       # 送るのは work\test\coverage.xml（リポジトリからの相対パスと行ごとの実行回数）だけ。
@@ -93,8 +92,6 @@ jobs:
       # shell: powershell の run は ASCII だけにする（#143）
       - name: 静的解析（PSScriptAnalyzer）
         shell: powershell
-        env:
-          PSSA_VERSION: 1.25.0
         run: .\tools\check_analyzer.ps1
 
       - name: テスト結果の保存

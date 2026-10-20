@@ -1,5 +1,5 @@
 ﻿# PSScriptAnalyzer の全体の検査（tools\check_analyzer.ps1）の設定とベースラインの形を確かめる。
-# PSScriptAnalyzer を実際にかけるのは CI の手順だけにする（全部で 3 分ほどかかり、コミット前のフックで待たせないため）。
+# PSScriptAnalyzer を実際にかけるのは CI の手順だけにする（全部で 90 秒ほどかかり、コミット前のフックで待たせないため）。
 # ここで確かめるのは、設定から規則を消したり、プロファイルを空にしたりして「指摘 0 件」にする抜け道が無いこと。
 Describe "PSScriptAnalyzer の全体の検査の設定（docs/safety/scans.md「静的解析: PSScriptAnalyzer（Microsoft）」）" -Tag Meta {
     BeforeAll {

@@ -16,7 +16,8 @@
         "PSAvoidAssignmentToAutomaticVariable",
         # -ErrorVariable・${...} など別の構文で使う変数を見られない
         "PSUseDeclaredVarsMoreThanAssignments",
-        # 継承元の型が別ファイルにある（読み込む順で解決することは structure.Tests.ps1 が確かめる）
+        # 継承元の型が別ファイルにある（読み込む順で解決することは structure.Tests.ps1 が確かめる）。
+        # 規則でなく構文解析の指摘なのでここでは効かず、tools\analyzer_baseline.ps1 の selectAnalyzerFindings が除く。一覧をそろえるために置く
         "TypeNotFound"
     )
     Rules = @{

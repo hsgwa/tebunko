@@ -4,6 +4,19 @@
 # ベースラインは「ファイル<TAB>規則<TAB>件数」の行を、ファイル・規則の順（序数比較）に並べたもの。
 # ファイルはリポジトリの直下からの相対パスで、区切りは /。行番号は持たない（ほかの行を直すたびにずれるため）。
 
+# 指摘の一覧から、数えない指摘を除く。除くのは次の 2 つ。
+#   - TypeNotFound: 規則でなく構文解析の指摘なので ExcludeRules では除けない。継承元の型が別ファイルにあり 1 ファイルだけでは解決できないもの（読み込む順で解決することは tests\meta\structure.Tests.ps1 の「型の読み込み」が確かめる）
+#   - tests\testdata\text\ の見本: .ps1・.psm1・.psd1 の中身は文章で、チェックアウトの改行などで指摘が変わるため
+function selectAnalyzerFindings($findings) {
+    $kept = New-Object System.Collections.Generic.List[object]
+    foreach ($f in $findings) {
+        if ($f.RuleName -eq "TypeNotFound") { continue }
+        if ($f.ScriptPath.Replace("/", "\").ToLowerInvariant().Contains("\tests\testdata\text\")) { continue }
+        $kept.Add($f)
+    }
+    return $kept.ToArray()
+}
+
 # 指摘の一覧を「ファイル<TAB>規則」ごとの件数と行の一覧にまとめる。
 # 指摘は ScriptPath・RuleName・Line・Message を持つ。戻り値のキーは「ファイル<TAB>規則」
 function getAnalyzerCounts($findings, [string]$rootDir) {
@@ -48,7 +61,10 @@ function compareAnalyzerBaseline($baseline, $counts) {
     $increased = New-Object System.Collections.Generic.List[string]
     $decreased = New-Object System.Collections.Generic.List[string]
     $keys = @($counts.Keys) + @($baseline.Keys | Where-Object { !$counts.ContainsKey($_) })
-    $keys = @($keys | Sort-Object -Unique)
+    # 大文字小文字を区別して重複を除く（formatAnalyzerBaseline の並びと同じ序数比較）
+    $set = New-Object System.Collections.Generic.HashSet[string] ([System.StringComparer]::Ordinal)
+    foreach ($k in $keys) { [void]$set.Add($k) }
+    $keys = @($set)
     foreach ($key in $keys) {
         $was = if ($baseline.ContainsKey($key)) { [int]$baseline[$key] } else { 0 }
         $now = if ($counts.ContainsKey($key)) { $counts[$key].Count } else { 0 }

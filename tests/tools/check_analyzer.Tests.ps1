@@ -56,6 +56,25 @@ Describe "ベースラインの読み書き" -Tag Unit {
     }
 }
 
+Describe "selectAnalyzerFindings" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "TypeNotFound は除く"; file = "scripts\a.ps1"; rule = "TypeNotFound"; kept = 0 }
+        @{ name = "テキスト抽出の見本は除く"; file = "tests\testdata\text\TXT41.psm1"; rule = "PSX"; kept = 0 }
+        @{ name = "区切りが / のパスの見本も除く"; file = "tests/testdata/text/TXT42.psd1"; rule = "PSX"; kept = 0 }
+        @{ name = "大文字小文字が違うパスの見本も除く"; file = "Tests\TestData\Text\a.ps1"; rule = "PSX"; kept = 0 }
+        @{ name = "ほかの testdata は残す"; file = "tests\testdata\office\a.ps1"; rule = "PSX"; kept = 1 }
+        @{ name = "ふつうの指摘は残す"; file = "scripts\a.ps1"; rule = "PSX"; kept = 1 }
+    ) {
+        param ($name, $file, $rule, $kept)
+        $f = [pscustomobject]@{ ScriptPath = "$script:root\$file"; RuleName = $rule; Line = 1; Message = "内容" }
+        @(selectAnalyzerFindings @($f)).Count | Should -Be $kept
+    }
+
+    It "指摘が無ければ空の配列を返す" {
+        @(selectAnalyzerFindings @()).Count | Should -Be 0
+    }
+}
+
 Describe "compareAnalyzerBaseline" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "同じ件数なら何も出さない"; baseline = "scripts/a.ps1`tPSX`t2"; findings = @(@("scripts\a.ps1", "PSX"), @("scripts\a.ps1", "PSX")); increased = 0; decreased = 0 }
