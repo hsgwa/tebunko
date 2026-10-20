@@ -4345,6 +4345,7 @@
 <li>ファイルの先頭の読み込み（<code>. "$PSScriptRoot\..\helpers\load.ps1"</code>・<code>Add-Type</code>）と、テスト用の関数・偽物のオブジェクトは、いちばん外の <code>BeforeAll { }</code> に書く。</li>
 <li><code>Describe</code> の準備（<code>$TestDrive</code> へのファイル作成・変数・<code>Mock</code>）は、その <code>Describe</code> の <code>BeforeAll</code> / <code>BeforeEach</code> に書く。探す段階では <code>$TestDrive</code> が空のため、<code>Describe</code> の中に直接書くとドライブ直下を指してしまう。</li>
 <li><code>Mock</code> はそれを書いたブロック（<code>It</code>・<code>Describe</code>）の中だけで効く。呼ばれたかは <code>Should -Invoke</code> で確かめる。</li>
+<li>テストが自分で起こしたプロセスの後始末は、<code>tests/helpers/process.ps1</code> の <code>stopStartedProcess</code>（止める）・<code>waitProcessIdExit</code>（待つだけ）を使う。<code>HasExited</code> を見てから <code>Stop-Process</code>・<code>.Kill()</code> を呼ぶ書き方は、自分で終わるプロセスと競合して揺れる。ここ以外の <code>Stop-Process</code>・<code>Wait-Process</code>・<code>.Kill()</code>・名前で止める形は <code>tests/meta/test_process_cleanup.Tests.ps1</code> が落とす。</li>
 </ul>
 <p><code>tests/meta/</code> は、直し忘れると気づきにくい決まりごとを機械的に確かめる。</p>
 <table>
@@ -4386,6 +4387,10 @@
 <tr>
 <td><code>safety</code></td>
 <td>危険な処理を使っていない、Office をマクロ無効・読み取り専用で開く、原本を書き換えない、書き込み先が <code>work</code> 配下だけ（<code>%TEMP%</code> は前の版が残した作業フォルダの片付けだけ。<code>%LOCALAPPDATA%\tebunko</code> には書かない）、PSScriptAnalyzer の指摘が 0 件、審査用の資料がそろっている（<a href="../unit-checks/">単体テスト（検査と道具）</a>、<a href="../../../safety/">安全性の要約</a>）</td>
+</tr>
+<tr>
+<td><code>test_process_cleanup</code></td>
+<td><code>tests/</code> の中の <code>Stop-Process</code>・<code>Wait-Process</code>・<code>.Kill()</code>・名前で止める形が、<code>tests/helpers/process.ps1</code> の外に無い（例外は <code>run_isolated</code> の木ごと止める <code>taskkill /PID … /T</code> の 1 件）</td>
 </tr>
 </tbody>
 </table>
