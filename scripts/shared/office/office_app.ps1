@@ -683,6 +683,11 @@ class OfficeWatchdog {
     }
 
     [void] Start() {
+        # 動いている間（Stop するまで）は何もしない（2 本目を作らず、前のスレッドの参照を失わない）。Stop のあとは Stop の印を戻して、また始められる
+        if ($this.IsRunning()) {
+            return
+        }
+        $this.State.Stop = $false
         # 見張りは別のランスペースで動くので、照合の関数の定義を渡す（式を書き写さない。worker_pool.ps1 と同じ InitialSessionState の形）
         $sessionState = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault2()
         $functionNames = @('isSameOfficeProcess', 'compareOfficeProcess', 'getOfficeStartTicks', 'testOfficeProcessHasWindow', 'getWatchdogVerdict')
