@@ -4099,7 +4099,7 @@
 </tr>
 <tr>
 <td>失敗したとき</td>
-<td>失敗した手順の名前を文言に入れ、画面の画像・写した先の <code>gui_error_log.txt</code>・<code>indexing_log.txt</code>・窓の一覧を <code>work\test\gui\&lt;場面&gt;\</code> に置く（CI は成果物 <code>gui-smoke-results</code> に上げる）</td>
+<td>失敗した手順の名前を文言に入れ、画面の画像・写した先の <code>gui_error_log.txt</code>・<code>indexing_log.txt</code>・窓の一覧を <code>work\test\gui\&lt;場面&gt;\</code> に置く（CI は成果物 <code>gui-smoke-results</code> に上げる）。閉じる処理の記録 <code>close_trace.txt</code>（<a href="../../structure/closing/">閉じるときの順番</a>）も写す。閉じても終わらなかったときは、止める前に生きているプロセスの各スレッドの状態とイベントログを <code>閉じない.txt</code> に残す。終了コードが 0 でないときのイベントログ（<code>クラッシュ情報.txt</code>）は、プロセス ID を 10 進・16 進（<code>0x</code> 付き・無し）で探す（<code>getGuiCrashPatterns</code>）。起動失敗の記録のテスト（<code>startup_error.Tests.ps1</code>）は、子の進み具合の印と標準出力・標準エラーを失敗の文言に出す</td>
 </tr>
 </tbody>
 </table>
