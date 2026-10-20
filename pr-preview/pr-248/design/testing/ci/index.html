@@ -4059,7 +4059,7 @@
 </tr>
 <tr>
 <td><code>gui.yml</code></td>
-<td><code>gui-smoke</code>（ほか <code>pr-comment</code>）</td>
+<td><code>gui-smoke</code>（ほか <code>pr-comment</code>・手動の <code>gui-repeat</code>）</td>
 <td>PR、main への push</td>
 <td>本物の画面を windows ランナーで開き、画面遷移（<a href="../gui-smoke/">画面のスモークテスト</a>）を UI オートメーションで確かめる</td>
 <td>–（必須にしない。しばらく安定して通ることを見てから、持ち主が決める）</td>
@@ -4126,6 +4126,7 @@
 <li><code>tests\run.ps1 -Ci</code> は使わない。カバレッジの下限を確かめるが、画面は別のプロセスで動くので計測できず、<code>Gui</code> だけを流すと下限を割るため</li>
 <li>1 回に 8〜9 分ほどかかる（場面ごとの秒数は各場面の出力に出る）。<code>timeout-minutes</code> は 20。同じブランチに続けて push したときは、古い実行を取り消す（<code>concurrency</code>）</li>
 <li>落ちたときの材料（画面の画像・写した先の <code>gui_error_log.txt</code>・<code>indexing_log.txt</code>・窓の一覧）は、成否にかかわらず成果物 <code>gui-smoke-results</code>（<code>work/test/gui/&lt;場面&gt;/</code>）として保存する</li>
+<li><strong>稀な落ち方の率は <code>gui-repeat</code> で測る。</strong> <code>gui.yml</code> の <code>gui-repeat</code> は、画面を閉じる場面と起動失敗の記録のテスト（入力 <code>paths</code> の既定の 4 ファイル）を <code>repeat</code> 回（既定 50、上限 50）、5 本の matrix（<code>shard</code>）に分けて流す。1 本は <code>repeat / 5</code> 回で、<code>timeout-minutes</code> は 90。途中で落ちても続け、回ごとに「成功・終了コード 5・閉じない・記録の待ち切れ・そのほか」を数え、集計の job（<code>gui-repeat-summary</code>）が Summary に表で書く。落ちた回の材料は成果物 <code>gui-repeat-&lt;shard&gt;</code> に残る。手動（<code>workflow_dispatch</code>）のときだけ動き、PR・push の <code>gui-smoke</code> は変えない（手動で呼ぶと <code>gui-smoke</code> も一緒に動く）。測っている間に push すると <code>concurrency</code> で取り消されるので、push しない</li>
 <li><strong>落ちたときの再実行は 1 回まで。</strong> 2 回続けて同じ段階で落ちたら、偶然ではなく直すものとして扱う（画面の文言を変えたときは、探している文言のテストを直す）</li>
 <li><strong>S6 も手元で流す。</strong> 既定のワークスペースは環境変数 <code>TEBUNKO_DEFAULT_WORKSPACE</code> で差し替えた場所で画面を起動するため、利用者の既定のワークスペースには触れない</li>
 <li>ツールは <code>scripts/</code> を <code>$TestDrive</code> に写して起動し、設定ファイルもワークスペースも写した先に置く。作業ツリーの <code>setting.config</code>・<code>work\index</code>、<code>%LOCALAPPDATA%\tebunko</code>、<code>Documents\tebunko_ws</code> が、流す前後で変わらないことも各場面で確かめる</li>
