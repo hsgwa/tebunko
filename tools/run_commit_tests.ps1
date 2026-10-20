@@ -6,6 +6,8 @@
 # 選び方（パスはリポジトリからの相対パス）:
 #   - scripts/<パス>.ps1 は tests/<パス>.Tests.ps1 と、構成を守るテスト（structure・layers）
 #     scripts/tebunko/indexer.ps1 は tests/tebunko/indexer/indexer.Tests.ps1
+#   - scripts/ の .ps1 は、設計の決まりの検査（tests/meta/error_messages・function_size）も
+#   - docs/design/indexing/errors*.md・log-warnings.md と docs/design/gui/messages*.md は、links のほか error_messages
 #   - scripts/ の .xaml は structure（XML として読めるか・画面の部品の名前）と table_border（表に外枠を付けない）
 #   - tests/gui/（本物の画面を開くテスト。タグ Gui）は選ばない。CI（gui.yml）と手元の -Tag Gui で流す
 #   - tests/ の *.Tests.ps1 はそのテスト自身
@@ -37,6 +39,9 @@ function selectCommitTests([string[]]$files, [string]$root) {
     foreach ($file in @($files | Where-Object { $_ })) {
         $file = $file.Replace('\', '/')
         $exists = Test-Path -LiteralPath (Join-Path $root $file)
+        if ($file -match '(?i)^docs/design/(indexing/(errors[^/]*|log-warnings)|gui/messages[^/]*)\.md$') {
+            & $add "tests/meta/error_messages.Tests.ps1"
+        }
         if ($file -match '(?i)\.md$' -or $file -match '^docs/') {
             & $add "tests/meta/links.Tests.ps1"
             continue
@@ -55,6 +60,8 @@ function selectCommitTests([string[]]$files, [string]$root) {
             & $add $test
             & $add "tests/meta/structure.Tests.ps1"
             & $add "tests/meta/layers.Tests.ps1"
+            & $add "tests/meta/error_messages.Tests.ps1"
+            & $add "tests/meta/function_size.Tests.ps1"
             continue
         }
         if ($file -match '(?i)^tests/gui/') {

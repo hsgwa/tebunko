@@ -28,6 +28,7 @@ flowchart TB
 - [状態と操作の流れ](state-flow.md)
 - [画面の共通の決まり](common.md)
 - [画面に出すメッセージの一覧](messages.md)
+- [インデックスの書き出し・読み込み・ワークスペースのエラー](messages-index-ops.md)
 - [インデックス一覧の管理](index-tab.md)
 - [インデックス作成の実行](indexing-run.md)
 - [検索タブ](search-tab.md)
