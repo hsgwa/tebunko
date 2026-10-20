@@ -419,7 +419,7 @@ class HitRow : NotifyBase {
     # 図形・コメントの場所 "<元の場所>[<種類>]"。クラスからはスクリプトの関数が見えないため、値はクラスの定義の後で入れる（newObjectPlaceKindPattern）。
     # Excel の図形・コメントの 1 行は "<セル番地><TAB><文字>"。ヘッダー・フッターの 1 行は文字だけ（セル番地が無い）
     static [regex] $ObjectPlaceRegex
-    static [regex] $DisplayControlRegex = [regex]::new('[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]')
+    static [regex] $DisplayControlRegex
     static [char] $CellNewLine = [char]0x2028   # TSV のセル内改行（shared\core\text.ps1 の cellNewLine）
     static [int] $LeadLength = 40
     static [int] $MaxDisplay = 600
@@ -530,7 +530,7 @@ class HitRow : NotifyBase {
 
     static [string] ToDisplay([string]$text) {
         if ($null -eq $text) { return "" }
-        # タブ・改行のほかの制御文字と向きを変える文字は、置き換え文字にする（formatDisplayText -keepLineBreaks と同じ並び）
+        # タブ・改行のほかの制御文字と向きを変える文字は、置き換え文字にする（formatDisplayText -keepLineBreaks と同じ並び。末尾で displayControlChars から作る）
         return [HitRow]::DisplayControlRegex.Replace($text.Replace("`t", " │ ").Replace([HitRow]::CellNewLine, [char]0x21b5), [string][char]0xFFFD)
     }
 
@@ -778,3 +778,6 @@ class HitRow : NotifyBase {
 
 # index_name.ps1 の newObjectPlaceKindPattern を使うため、lib.ps1 を先に読み込んでおくこと
 [HitRow]::ObjectPlaceRegex = [regex]::new((newObjectPlaceKindPattern))
+
+# 制御文字・向きを変える文字の並びは shared\core\text.ps1 の displayControlChars（formatDisplayText -keepLineBreaks と同じ）
+[HitRow]::DisplayControlRegex = [regex]::new('[\x00-\x08\x0B\x0C\x0E-\x1F' + ${displayControlChars} + ']')

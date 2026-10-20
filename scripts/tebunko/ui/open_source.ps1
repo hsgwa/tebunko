@@ -728,14 +728,17 @@ function openFoundSource {
                 setStatus "メモ帳で開けませんでした：${shownPath}"
             }
         } else {
-            [void](openWithShell $path ${openModeNormal})
-            setStatus "開きました：${shownPath}"
+            # 断られたとき（取り込み対象の名前でない）は、openWithShell が知らせたステータスを残す
+            if (openWithShell $path ${openModeNormal}) {
+                setStatus "開きました：${shownPath}"
+            }
         }
     } elseif (testPdfExtension $path) {
         # PDF は既定のアプリに開き方（読み取り専用・新規）の動詞が無いことが多く、毎回「開けなかったため…」と出るのを避けるため、
         # 動詞を試さずにそのまま開く。ページへの移動はしない
-        [void](openWithShell $path ${openModeNormal})
-        setStatus "開きました：${shownPath}"
+        if (openWithShell $path ${openModeNormal}) {
+            setStatus "開きました：${shownPath}"
+        }
     } elseif (openWithShell $path $mode -noFallback:$strict) {
         setStatus "${how}：${shownPath}${notice}"
     } elseif ($strict) {

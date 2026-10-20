@@ -557,6 +557,21 @@ Describe "openWithShell" -Tag Io {
         Should -Invoke Invoke-Item -Times 1 -Exactly
     }
 
+    It "取り込み対象の名前でないものは、<mode> でも開かず、ステータスに知らせる（<name>）" -ForEach @(
+        @{ name = "hta"; leaf = "evil.hta"; mode = ${openModeNormal} }
+        @{ name = "lnk"; leaf = "a.lnk"; mode = ${openModeNormal} }
+        @{ name = "exe"; leaf = "run.exe"; mode = ${openModeReadOnly} }
+        @{ name = "向きを変える文字"; leaf = "a$([char]0x202E)b.xlsx"; mode = ${openModeNormal} }
+    ) {
+        Mock Invoke-Item { }
+        $script:statuses.Clear()
+
+        openWithShell "$TestDrive\$leaf" $mode | Should -Be $false
+        Should -Invoke Invoke-Item -Times 0 -Exactly
+        $script:statuses.Count | Should -Be 1
+        lastStatus | Should -Be (getSourceBookRejectedStatus $leaf)
+    }
+
     It "知らない開き方は、通常の開き方と同じにする" {
         Mock Invoke-Item { }
 
@@ -698,7 +713,7 @@ Describe "openSource" -Tag Unit {
     It "テキストは開き方の動詞を試さず、そのまま開いて「開きました」と出す（読み取り専用・新規を選んでいても）" {
         Mock getCurrentHitRow { newRow "議事メモ.txt" $false $true }
         Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\議事メモ.txt" }
-        Mock openWithShell { $false }
+        Mock openWithShell { $true }
 
         openSource ${openModeReadOnly}
         # 選んだ開き方（読み取り専用）ではなく、常に通常の開き方で openWithShell を呼ぶ（動詞を試さない）
@@ -709,7 +724,7 @@ Describe "openSource" -Tag Unit {
     It "PDF も開き方の動詞を試さず、そのまま開いて「開きました」と出す（読み取り専用・新規を選んでいても）" {
         Mock getCurrentHitRow { newRow "仕様書.pdf" $false $true }
         Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\仕様書.pdf" }
-        Mock openWithShell { $false }
+        Mock openWithShell { $true }
 
         openSource ${openModeReadOnly}
         Should -Invoke openWithShell -Times 1 -Exactly -ParameterFilter { $path -eq "C:\data\仕様書.pdf" -and $mode -eq ${openModeNormal} }
@@ -749,6 +764,20 @@ Describe "openSource" -Tag Unit {
         Should -Invoke openWithShell -Times 1 -Exactly -ParameterFilter { $path -eq "C:\data\解析.html" }
         Should -Invoke openWithNotepad -Times 0 -Exactly
         lastStatus | Should -Be "開きました：C:\data\解析.html"
+    }
+
+    It "既定のアプリで開くのを断られたとき（<book>）は、「開きました」で上書きしない" -ForEach @(
+        @{ book = "解析.html"; isText = $true }
+        @{ book = "資料.pdf"; isText = $false }
+    ) {
+        Mock getCurrentHitRow { newRow $book $false $isText }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\$($row.Book)" }
+        Mock openWithNotepad { }
+        Mock openWithShell { setStatus "断りました"; $false }
+
+        openSource ${openModeReadOnly}
+        Should -Invoke openWithShell -Times 1 -Exactly
+        lastStatus | Should -Be "断りました"
     }
 
     It "取り込み対象でないファイル名（<book>）は、元のファイルを探さず、何も開かない" -ForEach @(

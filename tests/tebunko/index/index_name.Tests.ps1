@@ -575,8 +575,8 @@ Describe "testSourceBookName" -Tag Unit {
         @{ name = "インターネットショートカット（.url）"; book = "a.url"; expected = $false }
         @{ name = "実行ファイル（.exe）"; book = "a.exe"; expected = $false }
         @{ name = "マクロ入りテンプレート（.dotm）は対象外"; book = "a.dotm"; expected = $false }
-        @{ name = "上の階層を指す名前"; book = "...xlsx"; expected = $false }
-        @{ name = "区切り（\）を含む名前"; book = "sub.xlsx"; expected = $false }
+        @{ name = "上の階層を指す名前"; book = '..\a.xlsx'; expected = $false }
+        @{ name = "区切り（\）を含む名前"; book = 'sub\a.xlsx'; expected = $false }
         @{ name = "区切り（/）を含む名前"; book = "a/b.txt"; expected = $false }
         @{ name = "代替データストリームの指定"; book = "a.xlsm::`$DATA"; expected = $false }
         @{ name = "表示の向きを変える文字（RLO）を含む名前"; book = "a" + [string][char]0x202E + "txt.exe"; expected = $false }

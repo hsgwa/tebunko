@@ -89,7 +89,8 @@ function addFileGroupLocation {
     )
 
     if ($group.AddLabel((getPlace $book $location (getContentIndexFileKind $book)).Place)) {
-        $group.SetLocationText((describeFileLocations $group.GetLocations()), (getFileHeaderLocationPrefix $group.GetLocations()))
+        # 場所の表記にはシート名などインデックスの文字列が入るので、表に出す値は制御文字・向きを変える文字を置き換える
+        $group.SetLocationText((formatDisplayText (describeFileLocations $group.GetLocations())), (formatDisplayText (getFileHeaderLocationPrefix $group.GetLocations())))
     }
 }
 

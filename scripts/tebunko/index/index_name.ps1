@@ -480,7 +480,7 @@ function testSourceBookName {
     )
 
     $name = [string]$book
-    if (!$name -or [regex]::IsMatch($name, '[\\/:*?"<>|\x00-\x1F\x7F-\x9F\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]')) {
+    if (!$name -or [regex]::IsMatch($name, '[\\/:*?"<>|\x00-\x1F' + ${displayControlChars} + ']')) {
         return $false
     }
     $name = $name.TrimEnd('.', ' ')

@@ -64,7 +64,7 @@ function testTextExtension {
         [string]$path
     )
 
-    $extension = [System.IO.Path]::GetExtension(([string]$path).TrimEnd('.', ' ')).ToLowerInvariant()
+    $extension = [System.IO.Path]::GetExtension($path).ToLowerInvariant()
     return (${textExtensions} -contains $extension)
 }
 

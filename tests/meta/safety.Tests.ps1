@@ -1088,11 +1088,19 @@ Invoke-Item $y
     }
 
     It "openWithShell は、開く前に testSourceBookName で名前を確かめる" {
-        $text = getFunctionText "openWithShell"
-        $text | Should -Match 'testSourceBookName'
+        # コメントや文字列に出てくる名前に惑わされないよう、構文木で「呼び出し」の位置を比べる
+        $tree = [System.Management.Automation.Language.Parser]::ParseInput((getFunctionText "openWithShell"), [ref]$null, [ref]$null)
+        $gate = @($tree.FindAll({ param ($n) $n -is [System.Management.Automation.Language.CommandAst] -and $n.GetCommandName() -eq "testSourceBookName" }, $true))
+        $gate.Count | Should -BeGreaterThan 0
+        $apis = @($tree.FindAll({ param ($n)
+            ($n -is [System.Management.Automation.Language.CommandAst] -and $n.GetCommandName() -in @("New-Object", "Invoke-Item", "Start-Process")) -or
+            ($n -is [System.Management.Automation.Language.InvokeMemberExpressionAst] -and $n.Extent.Text -match 'Process\]::Start')
+        }, $true))
+        $apis.Count | Should -BeGreaterThan 0
         # 確かめは、どの API よりも前にある
-        $text.IndexOf("testSourceBookName") | Should -BeLessThan $text.IndexOf("ProcessStartInfo")
-        $text.IndexOf("testSourceBookName") | Should -BeLessThan $text.IndexOf("Invoke-Item")
+        foreach ($api in $apis) {
+            $gate[0].Extent.StartOffset | Should -BeLessThan $api.Extent.StartOffset
+        }
     }
 
     It "openSource は、元のファイルを探す前に testSourceBookName で名前を確かめる" {
