@@ -4276,7 +4276,7 @@
 <li>フォントは Windows 標準の Segoe UI を先に使い、日本語など足りない文字は Yu Gothic UI（無ければ Meiryo UI）で表す。13 px とする（<code>scripts/shared/ui/app_host.ps1</code> の <code>newAppFontFamily</code> が作り、<code>loadXaml</code> が各画面の <code>Font.Body</code> に入れる。フォントは同梱しないので、展開した版も単一 .ps1 版も同じ見た目になる）。結果の表は 12 px とする。</li>
 <li>WPF は高 DPI に自動で対応するため、表示倍率 125 %・150 % でもぼやけない。</li>
 <li>状態は<strong>色だけで表さない</strong>。Lucide のアイコン（check・x・triangle-alert など）と文言を併記する。<code>scripts/</code> に CP932 に無い文字（記号の文字）を書かない（単一 .ps1 を Shift_JIS で保存し直しても、字が落ちたり化けたりしないため。<code>tests/meta/encoding.Tests.ps1</code> が確かめる）。一致箇所の強調は背景色に加えて太字にする。</li>
-<li>文言は「Excel」ではなく「Office ファイル」とする（対象は Excel・Word・PowerPoint）。</li>
+<li>対象を言う文言は、「Office ファイル」や「Excel」だけにせず、「Excel・PowerPoint・Word・PDF・テキスト」を並べる（Office ファイルは Excel・PowerPoint・Word）。画面・進み具合・ログ・例外の文言に「Office ファイル」と書くと <code>tests/meta/wording.Tests.ps1</code> が落ちる。</li>
 <li>ツールチップは、画面の文字だけでは分からない補足と、省略（…）で切れた文字の全文にだけ使う。切れた文字の全文は <code>addTrimmedToolTip</code>（<code>shared/ui/trimmed_tooltip.ps1</code>）で付け、切れていないときは開かない（切れているかの判定は <code>testTextTrimmed</code>）。キー操作の案内（Ctrl+C・Enter など）と、ステータスバーの文のツールチップは置かない。</li>
 <li>入力の誤りや注意は入力欄の下やステータスに表示する。ダイアログは確認が必要な操作（<a href="../index-tab/">［インデックス管理］タブ</a>の［削除］、<a href="../indexing-run/#インデックス更新の確認ダイアログ">インデックス作成の確認ダイアログ</a> のインデックス作成の確認、<a href="../indexing-run/#中止終了ログ">中止・終了・ログ</a> のインデックス作成の中止、<a href="../open-file/#元のファイルが見つからないとき元のフォルダを設定する">元のファイルが見つからないとき（元のフォルダを設定する）</a>、<a href="../leftover-office/#確認ダイアログ">前回残った Office の確認</a>）に限り、その形式は <a href="#確認ダイアログshowconfirm">確認ダイアログ</a> のとおりとする（<a href="../indexing-run/#インデックス更新の確認ダイアログ">インデックス作成の確認ダイアログ</a> だけは、インデックスごとの件数を一覧で見せるため専用のダイアログにする）。なお、インデックスの名前とフォルダパスはダイアログにせず、詳細の欄で直接直し、入力の誤りは欄の下に表示する（<a href="../index-tab/#名前とフォルダパスの編集">名前とフォルダパスの編集</a>）。確認も入力も要らない「バージョン情報」（左の欄の下の［バージョン情報］）だけは例外で、版・コミット・ライセンスを見せるだけの小さなダイアログにする（メンテナの選択。<a href="../#画面構成">画面構成</a>）。</li>
 <li>確認ダイアログの中で消す操作を選ぶボタン（［削除する］など）は、赤で塗りつぶして区別する（<a href="#確認ダイアログshowconfirm">確認ダイアログ</a>）。</li>
@@ -4442,7 +4442,7 @@
 <tbody>
 <tr>
 <td>タイトル</td>
-<td>呼び出し元が渡す文言。追加・編集は <code>インデックスにする、Office ファイルのあるフォルダを選んでください</code></td>
+<td>呼び出し元が渡す文言。追加・編集は <code>インデックスにする、ファイル（Excel・PowerPoint・Word・PDF・テキスト）のあるフォルダを選んでください</code></td>
 </tr>
 <tr>
 <td>最初に開くフォルダ</td>
