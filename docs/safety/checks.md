@@ -19,7 +19,7 @@ function scan { param([string[]]$Pattern)
 | 3 | ネットワーク通信 | 該当 0 件 | `scan 'Invoke-WebRequest','Invoke-RestMethod','WebClient','HttpClient','Net\.Sockets','Start-BitsTransfer','DownloadFile','DownloadString','System\.Net\.'` |
 | 4 | Windows API の直接呼び出し（P/Invoke） | 該当 0 件 | `scan 'DllImport','GetDelegateForFunctionPointer'` |
 | 5 | C# ソースの実行時コンパイル | 該当 0 件 | `scan 'Add-Type'` で出る行がすべて `-AssemblyName` であること（下表の 3 行） |
-| 6 | レジストリの読み書き | 該当 0 件 | `scan 'HKLM','HKCU','HKEY_','Set-ItemProperty','New-ItemProperty','Registry::'` |
+| 6 | レジストリの読み書き | 該当 0 件 | 表の下の「レジストリの確認コマンド」 |
 | 7 | 権限・サービス・自動起動の変更 | 該当 0 件 | `scan 'Set-Acl','icacls','schtasks','New-Service','Start-Service','\bsc\.exe','RunAs'` |
 | 8 | 実行ポリシーの恒久変更・`Bypass` | 該当 0 件 | `scan 'Set-ExecutionPolicy','ExecutionPolicy\s+Bypass'` と `Select-String -Path .\tebunko.bat -Pattern 'Bypass','Set-ExecutionPolicy'` |
 | 9 | 資格情報の入力要求・保存 | 該当 0 件 | `scan 'Get-Credential','ConvertTo-SecureString','PSCredential'` |
@@ -29,6 +29,12 @@ function scan { param([string[]]$Pattern)
 | 13 | 壊れたハッシュ（MD5・SHA-1）、FIPS 準拠でないハッシュの実装 | 該当 0 件 | `scan 'MD5','SHA1','RIPEMD','SHA256Managed','SHA384Managed','SHA512Managed','HashAlgorithm\]::Create'` |
 | 14 | 内部の型（`NonPublic`）のリフレクションでの呼び出し | 1 か所のみ（下） | `scan 'NonPublic','Reflection\.BindingFlags'` |
 | 15 | プロセスの強制終了（`.Kill()`） | 3 か所のみ（Office の終了の `quitApp`・制限時間の見張り・画面を閉じるときの `KillOffice`）。どれも、同じ関数の中で、止める前に照合（`isSameOfficeProcess`、または `compareOfficeProcess` の結果が `Same` のときの枝）を通し、控えたときと同じプロセス（名前・起動時刻）だけを止める。制限時間の見張りと `KillOffice` は、さらに、取り込み中に見える窓があった（利用者が使った）PowerPoint を止めない（`quitApp` は Office を終わらせる通常の手順のため、この印を見ない）。12 の `Stop-Process` も同じ | `scan '\.Kill\('`（`tests/meta/safety.Tests.ps1` が、場所と照合を構文で確かめる） |
+
+**レジストリの確認コマンド（6）**：.NET の型（`Microsoft.Win32.Registry`）・PowerShell のプロバイダー・COM（`WScript.Shell`）・WMI（`StdRegProv`）・`reg.exe` の書き方も見つける。パターンは `tools/script_rules.ps1` の `Registry` と同じ語の集まり（`|` を使わず、1 語ずつ別の文字列にして並べた）。
+
+```powershell
+scan 'HKLM','HKCU','HKEY_','HKCR','\bHKU\b','HKCC','Set-ItemProperty','New-ItemProperty','Remove-ItemProperty','Clear-ItemProperty','Rename-ItemProperty','Copy-ItemProperty','Move-ItemProperty','Registry::','Microsoft\.Win32\.Registry','Registry\]::','RegistryKey','RegistryHive','RegistryView','RegistryValueKind','RegistryRights','OpenSubKey','OpenBaseKey','OpenRemoteBaseKey','CreateSubKey','DeleteSubKey','PSProvider\s+\W?Registry','\bRegRead\b','\bRegWrite\b','\bRegDelete\b','StdRegProv','\breg(\.exe)?\s+query\b','\breg(\.exe)?\s+add\b','\breg(\.exe)?\s+delete\b','\breg(\.exe)?\s+copy\b','\breg(\.exe)?\s+save\b','\breg(\.exe)?\s+load\b','\breg(\.exe)?\s+unload\b','\breg(\.exe)?\s+restore\b','\breg(\.exe)?\s+import\b','\breg(\.exe)?\s+export\b','\breg(\.exe)?\s+compare\b','\breg(\.exe)?\s+flags\b'
+```
 
 クロール対象が共有フォルダにある場合のファイルの読み取りは、Windows のファイル共有（SMB）を通る。これは OS のファイル API によるもので、本ツールが通信処理を持つわけではない。
 
