@@ -8,6 +8,7 @@
 #   ・失敗したら、画面の画像とログを work\test\gui\<場面>\ に残す（CI は成果物に上げる）
 # 詳細は docs\design\testing\gui-smoke.md「画面のスモークテスト」。
 
+. "$PSScriptRoot\..\helpers\process.ps1"
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Drawing, System.Windows.Forms
 
 # 既定のワークスペースを求める・前後を比べる関数（tools\run_isolated.ps1・tests\run.ps1 と同じもの）
@@ -187,12 +188,11 @@ function stopGui {
     # 画面が残っていれば止め、裏の呼び出しを片づける（終了コードは、閉じる操作の側で確かめる）
     param ($S)
 
-    foreach ($extra in @($S.Extra)) {
-        if ($extra -and !$extra.HasExited) { Stop-Process -Id $extra.Id -Force -ErrorAction SilentlyContinue }
-    }
-    if ($S.Process -and !$S.Process.HasExited) {
-        Stop-Process -Id $S.Process.Id -Force -ErrorAction SilentlyContinue
-        [void]$S.Process.WaitForExit(10000)
+    # 止められずに投げられても、あとの片づけを飛ばさない（例外は控えて、片づけを終えてから最初の 1 件を投げ直す）
+    $stopErrors = New-Object System.Collections.Generic.List[object]
+    foreach ($target in @(@($S.Extra) + @($S.Process))) {
+        if (-not $target) { continue }
+        try { stopStartedProcess $target } catch { $stopErrors.Add($_) }
     }
     foreach ($item in @($S.Async)) {
         try {
@@ -200,6 +200,7 @@ function stopGui {
         } catch { }
     }
     try { $S.Pool.Close() } catch { }
+    if ($stopErrors.Count -gt 0) { throw $stopErrors[0] }
 }
 
 function closeGui {
