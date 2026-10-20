@@ -3,14 +3,18 @@
 # 他の helpers に依存しない。
 
 # メソッド呼び出しの例外は PowerShell の例外（MethodInvocationException など）に包まれて届くので、包みをはずして型を見る
-function isInnerException {
-    param($ErrorRecord, [type]$Type)
+function getUnwrappedException {
+    param($ErrorRecord)
     $e = $ErrorRecord.Exception
     while ($e -is [System.Management.Automation.RuntimeException] -and $e.InnerException) { $e = $e.InnerException }
-    return ($e -is $Type)
+    return $e
+}
+function isInnerException {
+    param($ErrorRecord, [type]$Type)
+    return ((getUnwrappedException $ErrorRecord) -is $Type)
 }
 
-# 自分で起こした Process オブジェクトを止めて、終わるのを待つ。止める相手は Process オブジェクトで決め、PID から引き直さない
+# 自分で起こした Process オブジェクト（Process.Start で起こしてハンドルを持っているもの）を止めて、終わるのを待つ。止める相手は Process オブジェクトで決め、PID から引き直さない
 # （PID の使い回しで別のプロセスを止めないため）。握るのは「Kill の間に終わった」InvalidOperationException だけ。
 # 止められずに残ったときは、PID と待った時間を入れた例外を投げる（取り残しを見えるようにする）。
 # 型は付けない（Kill・WaitForExit・HasExited を持つ偽の物でも確かめられるように）
@@ -20,7 +24,11 @@ function stopStartedProcess {
         try {
             $Process.Kill()
         } catch {
-            if (-not (isInnerException $_ ([System.InvalidOperationException])) -or -not $Process.HasExited) { throw }
+            # Kill の間に終わった競合だけを握る。.NET Framework の Kill は、終わったかを確かめてから止めるまでの間に相手が終わると
+            # InvalidOperationException でなく Win32Exception（アクセス拒否 = 5）を投げることがある。どちらも HasExited が真のときだけ握る
+            $e = getUnwrappedException $_
+            $raced = ($e -is [System.InvalidOperationException]) -or (($e -is [System.ComponentModel.Win32Exception]) -and $e.NativeErrorCode -eq 5)
+            if (-not $raced -or -not $Process.HasExited) { throw }
         }
     }
     if (-not $Process.WaitForExit($TimeoutMs)) {

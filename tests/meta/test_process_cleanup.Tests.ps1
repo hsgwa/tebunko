@@ -121,7 +121,8 @@ Describe "stopStartedProcess（偽の Process）" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "Kill の間に終わった（InvalidOperationException・HasExited が真）→ 投げない"; behavior = "Invalid"; exited = $true; wait = $true; throws = $false }
         @{ name = "Kill が InvalidOperationException で、まだ終わっていない → 投げる"; behavior = "Invalid"; exited = $false; wait = $true; throws = $true }
-        @{ name = "Kill が Win32Exception（アクセス拒否など）→ 投げる"; behavior = "Win32"; exited = $false; wait = $true; throws = $true }
+        @{ name = "Kill が Win32Exception（アクセス拒否など）で、まだ終わっていない → 投げる"; behavior = "Win32"; exited = $false; wait = $true; throws = $true }
+        @{ name = "Kill の間に終わった（Win32Exception のアクセス拒否・HasExited が真）→ 投げない"; behavior = "Win32"; exited = $true; wait = $true; throws = $false }
         @{ name = "Kill が通っても WaitForExit が偽（止められずに残った）→ 投げる"; behavior = "None"; exited = $false; wait = $false; throws = $true }
         @{ name = "普通に止まる → 投げない"; behavior = "None"; exited = $true; wait = $true; throws = $false }
     ) {
@@ -162,13 +163,14 @@ Describe "stopStartedProcess・waitProcessIdExit（本物のプロセス）" -Ta
     It "すぐ終わるプロセスを、終わった後・終わる最中に止めようとしても、例外を出さない（20 回）" {
         $failures = New-Object System.Collections.Generic.List[string]
         1..20 | ForEach-Object {
+            $i = $_
             $p = startChild $script:cmdPath "/d /c exit 0"
             try {
-                if ($_ % 2 -eq 0) { [void]$p.WaitForExit(5000) }
+                if ($i % 2 -eq 0) { [void]$p.WaitForExit(5000) }
                 stopStartedProcess $p
-                if (-not $p.HasExited) { $failures.Add("$_ 回目: 終わっていない") }
+                if (-not $p.HasExited) { $failures.Add("$i 回目: 終わっていない") }
             } catch {
-                $failures.Add("$_ 回目: $($_.Exception.Message)")
+                $failures.Add("$i 回目: $($_.Exception.Message)")
             } finally {
                 $p.Dispose()
             }

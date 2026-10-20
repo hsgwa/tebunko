@@ -184,16 +184,19 @@ function stopGui {
     # 画面が残っていれば止め、裏の呼び出しを片づける（終了コードは、閉じる操作の側で確かめる）
     param ($S)
 
-    foreach ($extra in @($S.Extra)) {
-        if ($extra) { stopStartedProcess $extra }
+    # 止められずに投げられても、あとの片づけを飛ばさない（例外は控えて、片づけを終えてから最初の 1 件を投げ直す）
+    $stopErrors = New-Object System.Collections.Generic.List[object]
+    foreach ($target in @(@($S.Extra) + @($S.Process))) {
+        if (-not $target) { continue }
+        try { stopStartedProcess $target } catch { $stopErrors.Add($_) }
     }
-    if ($S.Process) { stopStartedProcess $S.Process }
     foreach ($item in @($S.Async)) {
         try {
             if ($item.Result.IsCompleted) { $item.Shell.Dispose() } else { [void]$item.Shell.BeginStop($null, $null) }
         } catch { }
     }
     try { $S.Pool.Close() } catch { }
+    if ($stopErrors.Count -gt 0) { throw $stopErrors[0] }
 }
 
 function closeGui {
