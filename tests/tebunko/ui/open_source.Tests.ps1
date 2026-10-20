@@ -739,16 +739,33 @@ Describe "openSource" -Tag Unit {
         lastStatus | Should -Be "メモ帳で開けませんでした：C:\data\起動.bat"
     }
 
-    It "既定のアプリで開くテキスト（.py など）は、openWithNotepad を呼ばない" {
-        Mock getCurrentHitRow { newRow "解析.py" $false $true }
-        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\解析.py" }
+    It "既定のアプリで開くテキスト（.html など）は、openWithNotepad を呼ばない" {
+        Mock getCurrentHitRow { newRow "解析.html" $false $true }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\解析.html" }
         Mock openWithNotepad { }
         Mock openWithShell { $true }
 
         openSource ${openModeReadOnly}
-        Should -Invoke openWithShell -Times 1 -Exactly -ParameterFilter { $path -eq "C:\data\解析.py" }
+        Should -Invoke openWithShell -Times 1 -Exactly -ParameterFilter { $path -eq "C:\data\解析.html" }
         Should -Invoke openWithNotepad -Times 0 -Exactly
-        lastStatus | Should -Be "開きました：C:\data\解析.py"
+        lastStatus | Should -Be "開きました：C:\data\解析.html"
+    }
+
+    It "取り込み対象でないファイル名（<book>）は、元のファイルを探さず、何も開かない" -ForEach @(
+        @{ book = "evil.hta" }
+        @{ book = "..\y.xlsx" }
+        @{ book = "a.lnk" }
+    ) {
+        Mock getCurrentHitRow { newRow $book $false $true }
+        Mock findSourceFile { }
+        Mock openWithNotepad { }
+        Mock openWithShell { $true }
+
+        openSource ${openModeReadOnly}
+        Should -Invoke findSourceFile -Times 0 -Exactly
+        Should -Invoke openWithShell -Times 0 -Exactly
+        Should -Invoke openWithNotepad -Times 0 -Exactly
+        lastStatus | Should -Be "取り込み対象のファイル名ではないため、開きません：$book"
     }
 
     Context "新規で開く（「新規」の動詞が無い種類はコピーを開く）" {

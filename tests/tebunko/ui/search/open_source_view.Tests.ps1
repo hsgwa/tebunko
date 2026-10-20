@@ -257,3 +257,24 @@ Describe "getOpenCopyOpenedStatus" -Tag Unit {
     }
 }
 
+Describe "表示する名前・パスの制御文字（getSourceBookRejectedStatus ほか）" -Tag Unit {
+    BeforeAll {
+        $rlo = [string][char]0x202E
+        $repl = [string][char]0xFFFD
+    }
+
+    It "開かない理由に、ファイル名を入れる" {
+        getSourceBookRejectedStatus "evil.hta" | Should -Be "取り込み対象のファイル名ではないため、開きません：evil.hta"
+    }
+
+    It "ファイル名・パスの制御文字（RLO・C0）は U+FFFD にして出す" {
+        getSourceBookRejectedStatus ("a" + $rlo + "txt.hta") | Should -Be "取り込み対象のファイル名ではないため、開きません：a${repl}txt.hta"
+        getSourceNotFoundStatus ("C:\data\x" + [string][char]1 + ".xlsx") | Should -Be "元のファイルが見つかりません：C:\data\x${repl}.xlsx"
+    }
+
+    It "確認の画面の見出しと中身の制御文字も U+FFFD にする" {
+        $dialog = getSourceConfirmDialog ("a" + $rlo + ".xlsx") "受領" ("C:\共有" + $rlo + "x") $false $true
+        $dialog.Heading | Should -BeLike "a${repl}.xlsx *"
+        $dialog.Detail | Should -Be "C:\共有${repl}x"
+    }
+}

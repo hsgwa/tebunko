@@ -755,11 +755,12 @@ Describe "取り込み対象の拡張子が固定であること（docs/safety/c
         . "$here\helpers\load.ps1"
     }
 
-    It "テキストの拡張子がちょうど 75（既定のアプリで開く 68＋メモ帳で開く 7）で、Office と合わせて 85 ちょうどである" {
+    It "テキストの拡張子がちょうど 75（既定のアプリで開く 60＋メモ帳で開く 15）で、Office と合わせて 85 ちょうどである" {
         # 足したら必ずここが落ち、docs/safety/checks.md の見直し（開くと実行される種類を含まないか）を促す
         @(${textExtensions}).Count | Should -Be 75
-        @(${textNotepadExtensions}).Count | Should -Be 7
-        $expectedNotepad = @(".bat", ".cmd", ".ps1", ".vbs", ".js", ".reg", ".sh")
+        @(${textOpenExtensions}).Count | Should -Be 60
+        @(${textNotepadExtensions}).Count | Should -Be 15
+        $expectedNotepad = @(".bat", ".cmd", ".ps1", ".vbs", ".js", ".reg", ".sh", ".py", ".rb", ".pl", ".php", ".lua", ".mjs", ".psm1", ".psd1")
         (@(${textNotepadExtensions}) | Sort-Object) -join "," | Should -Be (($expectedNotepad | Sort-Object) -join ",")
         # メモ帳で開く拡張子はテキストの拡張子に含まれ、既定のアプリで開く拡張子とは重ならない
         (@(${textNotepadExtensions}) | Where-Object { ${textExtensions} -notcontains $_ }) | Should -BeNullOrEmpty
@@ -991,5 +992,123 @@ Describe "第三者が検証するための資料がそろっていること（d
         $sbom.PSObject.Properties.Name -contains "dependencies" | Should -Be $false
         # 前提ソフトウェア（同梱しないもの）は metadata.properties に記載する
         @($sbom.metadata.properties | Where-Object { $_.name -eq "tebunko:prerequisite" }).Count -gt 0 | Should -Be $true
+    }
+}
+
+Describe "検索結果から開くとき、シェルで開く処理が決まった所にだけあること（docs/safety/checks.md「外部プロセスの起動」）" -Tag Meta {
+    BeforeAll {
+        $rootDir = (Resolve-Path "$PSScriptRoot\..\..").Path
+
+        function getShellOpenUses {
+            # コード（文字列）の中で、プロセス・シェルで開く API を書いている所を "関数名|API" の一覧で返す。
+            # API: Invoke-Item（ii）・Start-Process（start・saps）・ProcessStartInfo・[Diagnostics.Process]::Start・UseShellExecute。
+            # 関数の外（ファイルの直下）は "(外)" とする。別名・型名の書き方違いも見る
+            param (
+                [string]$code
+            )
+
+            $tokens = $null
+            $errors = $null
+            $ast = [System.Management.Automation.Language.Parser]::ParseInput($code, [ref]$tokens, [ref]$errors)
+            $commandNames = @{ "invoke-item" = "Invoke-Item"; "ii" = "Invoke-Item"; "start-process" = "Start-Process"; "start" = "Start-Process"; "saps" = "Start-Process" }
+            $uses = New-Object System.Collections.Generic.List[string]
+            $nodes = $ast.FindAll({ param ($n) $true }, $true)
+            foreach ($node in $nodes) {
+                $api = $null
+                if ($node -is [System.Management.Automation.Language.CommandAst]) {
+                    $first = $node.CommandElements[0]
+                    if ($first -is [System.Management.Automation.Language.StringConstantExpressionAst]) {
+                        $api = $commandNames[$first.Value.ToLowerInvariant()]
+                    }
+                } elseif ($node -is [System.Management.Automation.Language.TypeExpressionAst]) {
+                    if ($node.TypeName.FullName -match '(^|\.)ProcessStartInfo$') { $api = "ProcessStartInfo" }
+                } elseif ($node -is [System.Management.Automation.Language.StringConstantExpressionAst]) {
+                    # New-Object System.Diagnostics.ProcessStartInfo(...) の型名
+                    if ($node.Value -match '(^|\.)ProcessStartInfo$') { $api = "ProcessStartInfo" }
+                } elseif ($node -is [System.Management.Automation.Language.InvokeMemberExpressionAst]) {
+                    if ($node.Static -and $node.Member.Value -eq "Start" -and $node.Expression.ToString() -match 'Process\]?$') { $api = "Process::Start" }
+                } elseif ($node -is [System.Management.Automation.Language.MemberExpressionAst]) {
+                    if ($node.Member -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $node.Member.Value -eq "UseShellExecute") { $api = "UseShellExecute" }
+                }
+                if (-not $api) { continue }
+                $owner = $node.Parent
+                while ($owner -and $owner -isnot [System.Management.Automation.Language.FunctionDefinitionAst]) { $owner = $owner.Parent }
+                $name = if ($owner) { $owner.Name } else { "(外)" }
+                $uses.Add("${name}|${api}")
+            }
+            return , @($uses | Sort-Object)
+        }
+
+        function getFunctionText {
+            param ([string]$name)
+            foreach ($file in (Get-ChildItem -LiteralPath "$rootDir\scripts" -Recurse -Filter *.ps1)) {
+                $tokens = $null; $errors = $null
+                $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors)
+                $found = $ast.Find({ param ($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }, $true)
+                if ($found) { return $found.Extent.Text }
+            }
+            return ""
+        }
+
+        # 関数 × API の表（docs/safety/checks.md「外部プロセスの起動」）。足すときは、表と守り（下の It）を同じ PR で直す
+        $allowedUses = @(
+            "applyFailedFileState|Start-Process", "applyFailedFileState|Start-Process",
+            "applyIndexSourceFolderState|Start-Process",
+            "exportResults|Invoke-Item",
+            "openAboutLink|Start-Process",
+            "openSourceFolder|Start-Process",
+            "openWithNotepad|Start-Process",
+            "openWithShell|Invoke-Item", "openWithShell|Process::Start", "openWithShell|ProcessStartInfo", "openWithShell|UseShellExecute",
+            "showErrorDialog|Start-Process"
+        ) | Sort-Object
+    }
+
+    It "見本: 別名・型名の書き方違い・関数の外の書き方も見つける" {
+        $sample = @'
+function evil1 { ii $x; saps "a"; start "b" }
+function evil2 { $i = New-Object System.Diagnostics.ProcessStartInfo($p); $i.UseShellExecute = $true; [System.Diagnostics.Process]::Start($i) }
+function evil3 { $i = [System.Diagnostics.ProcessStartInfo]::new($p) }
+function fine { Get-Item $x }
+Invoke-Item $y
+'@
+        $uses = getShellOpenUses $sample
+        ($uses -join ",") | Should -Be ((@(
+            "(外)|Invoke-Item", "evil1|Invoke-Item", "evil1|Start-Process", "evil1|Start-Process",
+            "evil2|Process::Start", "evil2|ProcessStartInfo", "evil2|UseShellExecute", "evil3|ProcessStartInfo"
+        ) | Sort-Object) -join ",")
+    }
+
+    It "scripts の中でシェルで開く API を書いているのは、表に載せた関数・API だけである" {
+        $all = New-Object System.Collections.Generic.List[string]
+        foreach ($file in (Get-ChildItem -LiteralPath "$rootDir\scripts" -Recurse -Filter *.ps1)) {
+            $code = [System.IO.File]::ReadAllText($file.FullName)
+            foreach ($use in (getShellOpenUses $code)) { $all.Add("$use") }
+        }
+        ($all | Sort-Object) -join "`n" | Should -Be ($allowedUses -join "`n")
+    }
+
+    It "openWithShell は、開く前に testSourceBookName で名前を確かめる" {
+        $text = getFunctionText "openWithShell"
+        $text | Should -Match 'testSourceBookName'
+        # 確かめは、どの API よりも前にある
+        $text.IndexOf("testSourceBookName") | Should -BeLessThan $text.IndexOf("ProcessStartInfo")
+        $text.IndexOf("testSourceBookName") | Should -BeLessThan $text.IndexOf("Invoke-Item")
+    }
+
+    It "openSource は、元のファイルを探す前に testSourceBookName で名前を確かめる" {
+        $text = getFunctionText "openSource"
+        $text.IndexOf("testSourceBookName") | Should -BeGreaterThan -1
+        $text.IndexOf("testSourceBookName") | Should -BeLessThan $text.IndexOf("findSourceFile")
+    }
+
+    It "フォルダを開く所は、フォルダとして確かめてから explorer.exe に渡す" {
+        # ファイルをフォルダとして渡すと、そのファイルが既定のアプリで実行される
+        (getFunctionText "applyIndexSourceFolderState") | Should -Match 'getIndexSourceFolderKind'
+        (getFunctionText "getIndexSourceFolderKind") | Should -Match 'IsDirectory'
+        (getFunctionText "applyFailedFileState") | Should -Match 'dirState\.IsDirectory'
+    }
+
+    It "openWithNotepad は固定の notepad.exe を起動する" {
+        (getFunctionText "openWithNotepad") | Should -Match 'System32\\notepad\.exe'
     }
 }

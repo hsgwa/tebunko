@@ -52,6 +52,10 @@ function newFileGroup {
     $group.Book = $book
     $group.RelDir = $relDir
     $group.FullPath = $key
+    # 結果の表に出す値（インデックスから来た文字列の制御文字・向きを変える文字は置き換える。開く・コピーには元の値を使う）
+    $group.BookDisplay = formatDisplayText $book
+    $group.RelDirDisplay = formatDisplayText $relDir
+    $group.FullPathDisplay = formatDisplayText $key
     $group.AppKind = getContentIndexFileKind $book
     $group.IsExpanded = $script:expandNew
     $script:fileGroups[$key] = $group

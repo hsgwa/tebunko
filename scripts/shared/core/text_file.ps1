@@ -11,8 +11,8 @@ ${textOpenExtensions} = @(
     ".txt", ".csv", ".tsv", ".md", ".log", ".json", ".xml",
     ".c", ".h", ".cpp", ".cc", ".cxx", ".hpp", ".cs", ".java", ".kt", ".kts",
     ".go", ".rs", ".swift", ".scala", ".dart", ".vb", ".bas", ".pas", ".asm",
-    ".m", ".r", ".jl", ".hs", ".ex", ".exs", ".erl", ".clj", ".groovy", ".lua",
-    ".py", ".rb", ".pl", ".php", ".psm1", ".psd1", ".jsx", ".tsx", ".mjs", ".vue",
+    ".m", ".r", ".jl", ".hs", ".ex", ".exs", ".erl", ".clj", ".groovy",
+    ".jsx", ".tsx", ".vue",
     ".sql", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf", ".properties",
     ".gradle", ".cmake", ".proto", ".graphql", ".tf",
     ".html", ".htm", ".css", ".scss", ".less", ".rst", ".tex", ".diff", ".patch"
@@ -20,7 +20,10 @@ ${textOpenExtensions} = @(
 
 # 実行・登録が既定の動作になるため、既定のアプリではなくメモ帳で開く、取り込み対象のテキストファイルの拡張子（小文字）。
 # ${textOpenExtensions} と合わせて ${textExtensions} になる。足す・減らすと tests\meta\safety.Tests.ps1 が固定の一覧で確かめる
-${textNotepadExtensions} = @(".bat", ".cmd", ".ps1", ".vbs", ".js", ".reg", ".sh")
+${textNotepadExtensions} = @(
+    ".bat", ".cmd", ".ps1", ".vbs", ".js", ".reg", ".sh",
+    ".py", ".rb", ".pl", ".php", ".lua", ".mjs", ".psm1", ".psd1"
+)
 
 # 取り込み対象にするテキストファイルの拡張子（小文字。上の 2 つを合わせたもの）
 ${textExtensions} = @(${textOpenExtensions}) + @(${textNotepadExtensions})
@@ -61,7 +64,7 @@ function testTextExtension {
         [string]$path
     )
 
-    $extension = [System.IO.Path]::GetExtension($path).ToLowerInvariant()
+    $extension = [System.IO.Path]::GetExtension(([string]$path).TrimEnd('.', ' ')).ToLowerInvariant()
     return (${textExtensions} -contains $extension)
 }
 
@@ -72,7 +75,7 @@ function testTextOpenWithNotepad {
         [string]$path
     )
 
-    $extension = [System.IO.Path]::GetExtension($path).ToLowerInvariant()
+    $extension = [System.IO.Path]::GetExtension(([string]$path).TrimEnd('.', ' ')).ToLowerInvariant()
     return (${textNotepadExtensions} -contains $extension)
 }
 

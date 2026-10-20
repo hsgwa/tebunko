@@ -357,6 +357,12 @@ function openWithShell {
         [switch]$noFallback
     )
 
+    # 最後の守り: 取り込み対象の名前でないものは、どの開き方でも開かない（書き換えたインデックスの .hta・.lnk・.exe など）
+    $leaf = $path.Substring($path.LastIndexOfAny([char[]]@([char]92, [char]47)) + 1)
+    if (!(testSourceBookName $leaf)) {
+        setStatus (getSourceBookRejectedStatus $leaf)
+        return $false
+    }
     $verb = switch ($mode) {
         ${openModeReadOnly} { "OpenAsReadOnly" }
         ${openModeNew}      { "New" }
@@ -599,6 +605,11 @@ function openSource {
     if ($null -eq $row) {
         return
     }
+    # 取り込み対象の名前でなければ、元のファイルを探す前に開かない（書き換えたインデックスで、実行になるファイルを開かせない）
+    if (!(testSourceBookName $row.Book)) {
+        setStatus (getSourceBookRejectedStatus $row.Book)
+        return
+    }
     # 呼ぶ関数は変数で捕まえてから閉じ込める（findSourceFile の $apply と同じ理由）
     $openFound = ${function:openFoundSource}
     findSourceFile $row {
@@ -646,6 +657,7 @@ function openFoundSource {
 
     # もらったインデックス（このワークスペースで自分が作ったのではないもの）のマクロを持てる形式は、読み取り専用で開く
     $received = testSourceReceived $indexName @((getConfirmedSourceNames).Crawled)
+    $shownPath = formatDisplayText $path   # ステータスに出すパス（制御文字・向きを変える文字は置き換える）
     $openMode = getSourceOpenMode $path $mode $received
     $mode = $openMode.Mode
     $strict = $openMode.Strict
@@ -675,7 +687,7 @@ function openFoundSource {
             return
         }
         $window.Cursor = [System.Windows.Input.Cursors]::AppStarting
-        setStatus "コピーを作っています：${path}"
+        setStatus "コピーを作っています：${shownPath}"
         # 呼ぶ関数は変数で捕まえてから閉じ込める（遠く離れたスレッド・タイマーから呼ばれても見つかるように）
         $finish = ${function:finishOpenCopy}
         startJob {
@@ -687,20 +699,20 @@ function openFoundSource {
             & $finish $path $isText ([string]$copied.Path) ([string]$copied.Reason)
         }.GetNewClosure() (getWorkspaceJobQueue @([System.IO.Path]::GetDirectoryName($path), $copyDir))
     } elseif ($row.IsExcel) {
-        setStatus "Excel で開いています：${path}"
+        setStatus "Excel で開いています：${shownPath}"
         $window.Cursor = [System.Windows.Input.Cursors]::Wait
         try {
             # 図形・コメントの場所（"<シート名>[図形]" 等）は、そのシートの図形の左上・コメントのセルを選ぶ
             openInExcel $path (splitObjectPlace $row.Location).Base $row.MatchCell $mode
-            setStatus "${how}：${path}${notice}"
+            setStatus "${how}：${shownPath}${notice}"
         } catch {
             # Excel を操作できない場合（ダイアログを表示中など）は、ファイルを開くだけにする
             if (openWithShell $path $mode -noFallback:$strict) {
-                setStatus "${how}（該当セルへの移動はできませんでした）：${path}${notice}"
+                setStatus "${how}（該当セルへの移動はできませんでした）：${shownPath}${notice}"
             } elseif ($strict) {
                 setStatus (getSourceReadOnlyFailedStatus $path)
             } else {
-                setStatus "${fallback}（該当セルへの移動はできませんでした）：${path}"
+                setStatus "${fallback}（該当セルへの移動はできませんでした）：${shownPath}"
             }
         } finally {
             $window.Cursor = $null
@@ -711,25 +723,25 @@ function openFoundSource {
         # .bat・.ps1・.js など、既定のアプリで開くと実行・登録になる拡張子はメモ帳で開く
         if (testTextOpenWithNotepad $path) {
             if (openWithNotepad $path) {
-                setStatus "メモ帳で開きました：${path}"
+                setStatus "メモ帳で開きました：${shownPath}"
             } else {
-                setStatus "メモ帳で開けませんでした：${path}"
+                setStatus "メモ帳で開けませんでした：${shownPath}"
             }
         } else {
             [void](openWithShell $path ${openModeNormal})
-            setStatus "開きました：${path}"
+            setStatus "開きました：${shownPath}"
         }
     } elseif (testPdfExtension $path) {
         # PDF は既定のアプリに開き方（読み取り専用・新規）の動詞が無いことが多く、毎回「開けなかったため…」と出るのを避けるため、
         # 動詞を試さずにそのまま開く。ページへの移動はしない
         [void](openWithShell $path ${openModeNormal})
-        setStatus "開きました：${path}"
+        setStatus "開きました：${shownPath}"
     } elseif (openWithShell $path $mode -noFallback:$strict) {
-        setStatus "${how}：${path}${notice}"
+        setStatus "${how}：${shownPath}${notice}"
     } elseif ($strict) {
         setStatus (getSourceReadOnlyFailedStatus $path)
     } else {
-        setStatus "${fallback}：${path}"
+        setStatus "${fallback}：${shownPath}"
     }
 }
 

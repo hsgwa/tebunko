@@ -469,3 +469,25 @@ function describeHitPlace {
 # インデックスの「元のファイル名のフォルダ」と分かる名前（Office・テキスト・PDF の拡張子で終わる）
 # （testIndexBookName もこの正規表現で判定する。Office の拡張子は officeExtensions の表から作る）
 ${indexBookDirPattern} = "(?:$(((${officeExtensions} + ${textExtensions} + ${pdfExtensions}) | ForEach-Object { [regex]::Escape($_) }) -join '|'))$"
+
+function testSourceBookName {
+    # インデックスの「ファイル名」（Book）が、開いてよい名前か。開く直前と、インデックスを読むときに使う。
+    # 区切り（\ /）・: ・無効な文字・制御文字・向きを変える文字（U+202E など）を含まない 1 つの名前で、
+    # 終わりの . と空白（Windows が無視して開く）を落とした拡張子が、取り込み対象（Office・テキスト・PDF）にあるときだけ真。
+    # 書き換えたインデックスで .hta・.lnk・.exe などを開かせない・拡張子を偽らせないための関門
+    param (
+        $book
+    )
+
+    $name = [string]$book
+    if (!$name -or [regex]::IsMatch($name, '[\\/:*?"<>|\x00-\x1F\x7F-\x9F\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]')) {
+        return $false
+    }
+    $name = $name.TrimEnd('.', ' ')
+    $dot = $name.LastIndexOf('.')
+    if ($name -eq "" -or $dot -lt 0) {
+        return $false
+    }
+    $extension = $name.Substring($dot).ToLowerInvariant()
+    return ((@(${officeExtensions}) + @(${textExtensions}) + @(${pdfExtensions})) -contains $extension)
+}

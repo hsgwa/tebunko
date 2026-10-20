@@ -840,7 +840,7 @@ Describe "結果の表の定義（search\result_list.xaml）" -Tag Unit {
 
     It "行の名前を付ける（見出しはファイル名、ヒットの行は場所）" {
         $names = @($resultGrid.SelectNodes("p:DataGrid.RowStyle//p:Setter[@Property='AutomationProperties.Name']", $ns) | ForEach-Object { $_.GetAttribute("Value") })
-        $names | Should -Be @("{Binding Book}", "{Binding PlaceDisplay}")
+        $names | Should -Be @("{Binding BookDisplay}", "{Binding PlaceDisplay}")
         $resultGrid.SelectNodes("p:DataGrid.RowStyle//p:Setter[@Property='AutomationProperties.HelpText']", $ns).Count | Should -Be 1
     }
 
