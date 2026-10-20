@@ -80,7 +80,7 @@ Invoke-ScriptAnalyzer -Path .\scripts -Recurse
 | 全ルールのうち `Error` 重大度 | **指摘 0 件**（`TypeNotFound` を除く） |
 | 全ルール | 262 件（`Warning` 219 件 / `Information` 43 件。内訳は下表） |
 
-CI（`test.yml` の `test`）は、版を 1.25.0 に固定した PSScriptAnalyzer で `Error` 重大度の指摘が 0 件であることを確かめ、1 件でもあれば失敗する（版を固定するのは、新しい版でルールが増えてもコードを変えずに CI が落ちないようにするため）。`tests/meta/safety.Tests.ps1` の「サードパーティの静的解析」は、PSScriptAnalyzer が入っている環境で、安全性の 14 ルール・`Error` 重大度・制限言語モードの指摘が 0 件であることを確かめる（入っていない環境では飛ばす）。
+CI（`test.yml` の `test`）の検査は、下の段落のとおり `tools/check_analyzer.ps1` がベースラインと比べる（版は 1.25.0 に固定する。新しい版でルールが増えてもコードを変えずに CI が落ちないようにするため）。`tests/meta/safety.Tests.ps1` の「サードパーティの静的解析」は、PSScriptAnalyzer が入っている環境で、安全性の 14 ルール・`Error` 重大度・制限言語モードの指摘が 0 件であることを確かめる（入っていない環境では飛ばす）。
 
 有効にしている安全性のルールは次の 14 件である。設定ファイルからルールを削って「0 件」にする抜け道を防ぐため、この 14 件が設定に含まれていることも `tests/meta/safety.Tests.ps1` で検査している。
 
@@ -93,7 +93,7 @@ CI（`test.yml` の `test`）は、版を 1.25.0 に固定した PSScriptAnalyze
 | 標準コマンドの上書き・別名の定義 | `PSAvoidOverwritingBuiltInCmdlets`・`PSAvoidGlobalAliases`・`PSReservedCmdletChar`・`PSReservedParams` |
 | 文字コード | `PSUseBOMForUnicodeEncodedFile` |
 
-全ルールで出る 262 件の内訳は次のとおりで、**すべて書き方（可読性・保守性）のルール**である。安全性の判断には関わらない。
+次の表は、この検査を広げる前に `scripts/` だけを測った 262 件の内訳で、件数は古い。今の件数は `tests/meta/PSScriptAnalyzer.baseline.tsv` にある（`scripts/`・`tools/`・`tests/` を Windows PowerShell 5.1 で数えたもの）。各規則の理由は今も変わらず、**すべて書き方（可読性・保守性）のルール**である。安全性の判断には関わらない。
 
 | 件数 | ルール | 内容と本ツールでの理由 |
 |---|---|---|
@@ -104,6 +104,8 @@ CI（`test.yml` の `test`）は、版を 1.25.0 に固定した PSScriptAnalyze
 | 36 | `PSAvoidUsingEmptyCatchBlock` | 権限の無いプロセスの起動時刻が取れない場合など、失敗しても処理を続けるべき箇所。理由は各 `catch` にコメントで記載している |
 | 27 | `PSAvoidAssignmentToAutomaticVariable` | WPF のイベントハンドラーの引数名 `sender` に対する指摘。PowerShell の自動変数と同名だが、ハンドラー内の引数であり影響しない |
 | 6 | `TypeNotFound` | `tebunko/ui/` の `*_types.ps1`（`search/result_types.ps1` など）が、`shared/ui/types.ps1` の型（`NotifyBase`）を継承しているため。1 ファイルだけを解析すると継承元が見つからないという指摘で、実際の読み込み順では解決する（`tests/meta/structure.Tests.ps1` の「型の読み込み」で実際に読み込んで確認している）。どのルールを指定しても出る |
+
+CI は、`scripts/`・`tools/`・`tests/` の全部に `tools/check_analyzer.ps1` で PSScriptAnalyzer をかけ、上の表のうち書き方の誤りと言えない 5 つの規則（`PSAvoidUsingPositionalParameters`・`PSReviewUnusedParameter`・`PSAvoidAssignmentToAutomaticVariable`・`PSUseDeclaredVarsMoreThanAssignments`・`TypeNotFound`）を除いた指摘を、ファイルと規則ごとの件数で `tests/meta/PSScriptAnalyzer.baseline.tsv` と比べる（増えても減っても失敗）。`tests/` にだけは、テストの補助が進み具合を出す `PSAvoidUsingWriteHost` と、Pester のモックが状態を渡す `PSAvoidGlobalVars` も除く。あわせて、Windows PowerShell 5.1 に無い構文（`PSUseCompatibleSyntax`）と、`scripts/`・`tools/` の 5.1 に無いコマンド（`PSUseCompatibleCommands`）を止める。`TypeNotFound`（構文解析の指摘で、規則では除けない）と、テキスト抽出の見本（`tests/testdata/text/`。中身が文章で、チェックアウトの改行で指摘が変わる）の指摘は、`tools/analyzer_baseline.ps1` の `selectAnalyzerFindings` が数えない。除く規則は `tests/meta/PSScriptAnalyzer.psd1`・`PSScriptAnalyzer.tests.psd1` にあり、`tests/meta/analyzer.Tests.ps1` が一覧を確かめる。
 
 なお `tests/testdata/make_testdata.ps1` には `PSAvoidUsingPlainTextForPassword` の指摘が 7 件出る。パスワード付きの Office ファイルを**テストデータとして作る**スクリプトであり、パスワードは固定のテスト用文字列である。配布 zip には含まれない。
 
