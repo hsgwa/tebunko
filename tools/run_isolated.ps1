@@ -164,11 +164,11 @@ function invokeIsolated {
         # 書く前に、書き先が使い捨ての中であることを確かめる（単一 .ps1 は読み込んで確かめる口が無いので、設定で固定した場所を出すだけ）
         if ($Legacy.Script) {
             $probe = @{ settingsFile = "$tool\setting.config"; workDir = $WorkspaceDir }
-            Write-Host "設定で固定した work の場所: $WorkspaceDir"
+            Write-Information -InformationAction Continue "設定で固定した work の場所: $WorkspaceDir"
         } else {
             $probe = getIsolatedProbeResult "$tool\scripts" $base $WorkspaceDir
-            Write-Host "設定ファイルの場所: $($probe.settingsFile)"
-            Write-Host "work の場所: $($probe.workDir)"
+            Write-Information -InformationAction Continue "設定ファイルの場所: $($probe.settingsFile)"
+            Write-Information -InformationAction Continue "work の場所: $($probe.workDir)"
         }
         $outside = @(@($probe.settingsFile, $probe.workDir) | Where-Object { !(testIsolationPathInside $_ $base) })
         if ($probe.Count -ne 2 -or $outside.Count -gt 0) {
@@ -204,7 +204,7 @@ function invokeIsolated {
                             Write-Host "使い捨てのワークスペースに、ファイルが 1 つもできていません（よそに書いた可能性があります）: $WorkspaceDir" -ForegroundColor Red
                             $exitCode = 1
                         } else {
-                            Write-Host "使い捨てのワークスペースにできたファイル: $($made -join ', ')"
+                            Write-Information -InformationAction Continue "使い捨てのワークスペースにできたファイル: $($made -join ', ')"
                         }
                     }
                 }
