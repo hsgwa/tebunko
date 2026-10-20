@@ -1,4 +1,4 @@
-# コミット前に動く検査
+﻿# コミット前に動く検査
 
 扱うこと: pre-commit・commit-msg フックの内容、変更したファイルから流すテストの選び方、公開してはいけない内容の検査（個人情報・文字コード）。先に読むページ: [CI](ci.md)。
 
@@ -31,11 +31,12 @@ clone したら 1 回だけ次を実行する。`core.hooksPath` を `tools/hook
 
 | 変更したファイル | 流すテスト |
 |---|---|
-| `scripts/<パス>.ps1` | `tests/<パス>.Tests.ps1` と `meta/structure`・`meta/layers`（`scripts/tebunko/indexer.ps1` は `tests/tebunko/indexer/indexer.Tests.ps1`） |
+| `scripts/<パス>.ps1` | `tests/<パス>.Tests.ps1` と `meta/structure`・`meta/layers`・`meta/error_messages`・`meta/function_size`（`scripts/tebunko/indexer.ps1` は `tests/tebunko/indexer/indexer.Tests.ps1`） |
 | `scripts/` の `.xaml` | `meta/structure`・`meta/table_border`（表に外枠を付けない）・`meta/settings_file_text`（設定ファイルの場所の欄の見た目） |
 | `tests/` の `*.Tests.ps1` | そのテスト |
 | `tools/<名前>.ps1` | `tests/tools/<名前>.Tests.ps1`（無ければ流さない）。`check_markdown_links.ps1` は `meta/links` も |
 | `tests/testdata/scrub_personal.ps1` | `tests/testdata/scrub_personal.Tests.ps1` |
+| `docs/design/indexing/` の `errors*.md`・`log-warnings*.md`、`docs/design/gui/` の `messages*.md` | `meta/error_messages`（利用者に出す文言が一覧にあるか）と `meta/links` |
 | `.md`・`docs/` の中 | `meta/links` |
 | `tests/gui/` の中（画面のスモークテスト） | 流さない（CI の `gui.yml` と、手元の `-Tag Gui` で流す） |
 | 対応するテストが無い・消した `scripts/` の `.ps1`、`tests/` のほかのファイル（`run.ps1`・`helpers/`・`testdata/` など） | 速いテスト（`Unit`・`Meta`）を全部 |

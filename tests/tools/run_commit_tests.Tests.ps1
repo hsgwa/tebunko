@@ -10,17 +10,18 @@ BeforeAll {
 
 Describe "run_commit_tests.ps1 の選び方" -Tag Unit {
     It "<name>" -TestCases @(
-        @{ name = "scripts の .ps1 は対応するテストと構成のテスト"; files = @("scripts/tebunko/search/search_query.ps1"); expected = @("tests/tebunko/search/search_query.Tests.ps1", "tests/meta/structure.Tests.ps1", "tests/meta/layers.Tests.ps1") }
-        @{ name = "インデクサの起動口は indexer フォルダのテスト"; files = @("scripts/tebunko/indexer.ps1"); expected = @("tests/tebunko/indexer/indexer.Tests.ps1", "tests/meta/structure.Tests.ps1", "tests/meta/layers.Tests.ps1") }
-        @{ name = "\ 区切りのパスも同じに扱う"; files = @("scripts\shared\core\fs.ps1"); expected = @("tests/shared/core/fs.Tests.ps1", "tests/meta/structure.Tests.ps1", "tests/meta/layers.Tests.ps1") }
+        @{ name = "scripts の .ps1 は対応するテストと構成のテスト"; files = @("scripts/tebunko/search/search_query.ps1"); expected = @("tests/tebunko/search/search_query.Tests.ps1", "tests/meta/structure.Tests.ps1", "tests/meta/layers.Tests.ps1", "tests/meta/error_messages.Tests.ps1", "tests/meta/function_size.Tests.ps1") }
+        @{ name = "インデクサの起動口は indexer フォルダのテスト"; files = @("scripts/tebunko/indexer.ps1"); expected = @("tests/tebunko/indexer/indexer.Tests.ps1", "tests/meta/structure.Tests.ps1", "tests/meta/layers.Tests.ps1", "tests/meta/error_messages.Tests.ps1", "tests/meta/function_size.Tests.ps1") }
+        @{ name = "\ 区切りのパスも同じに扱う"; files = @("scripts\shared\core\fs.ps1"); expected = @("tests/shared/core/fs.Tests.ps1", "tests/meta/structure.Tests.ps1", "tests/meta/layers.Tests.ps1", "tests/meta/error_messages.Tests.ps1", "tests/meta/function_size.Tests.ps1") }
         @{ name = "カンマ区切りの 1 つの文字列も分ける（powershell.exe -File の渡し方）"; files = @("tests/shared/core/text.Tests.ps1,README.md"); expected = @("tests/shared/core/text.Tests.ps1", "tests/meta/links.Tests.ps1") }
         @{ name = "XAML は構成・表の外枠・設定ファイルの欄のテスト"; files = @("scripts/tebunko/xaml/search/search.xaml"); expected = @("tests/meta/structure.Tests.ps1", "tests/meta/table_border.Tests.ps1", "tests/meta/settings_file_text.Tests.ps1") }
         @{ name = "テストを変えたらそのテスト"; files = @("tests/shared/core/text.Tests.ps1"); expected = @("tests/shared/core/text.Tests.ps1") }
         @{ name = "Markdown と docs の中は links"; files = @("README.md", "docs/images/none.png"); expected = @("tests/meta/links.Tests.ps1") }
+        @{ name = "エラー・警告の文言の一覧（errors*.md・log-warnings*.md・gui の messages*.md）は、文言の検査と links"; files = @("docs/design/indexing/errors-ingest.md", "docs/design/indexing/log-warnings-index.md", "docs/design/gui/messages-index-ops.md"); expected = @("tests/meta/error_messages.Tests.ps1", "tests/meta/links.Tests.ps1") }
         @{ name = "道具はそのテスト。リンクの検査は links も"; files = @("tools/check_signoff.ps1", "tools/check_markdown_links.ps1"); expected = @("tests/tools/check_signoff.Tests.ps1", "tests/tools/check_markdown_links.Tests.ps1", "tests/meta/links.Tests.ps1") }
         @{ name = "既定のワークスペースを守る共通の関数は run_isolated のテスト"; files = @("tools/isolation/isolation_common.ps1"); expected = @("tests/tools/run_isolated.Tests.ps1") }
         @{ name = "個人情報の除去はそのテスト"; files = @("tests/testdata/scrub_personal.ps1"); expected = @("tests/testdata/scrub_personal.Tests.ps1") }
-        @{ name = "同じテストは 1 回だけ"; files = @("scripts/shared/core/fs.ps1", "tests/shared/core/fs.Tests.ps1", "scripts/shared/core/text.ps1"); expected = @("tests/shared/core/fs.Tests.ps1", "tests/meta/structure.Tests.ps1", "tests/meta/layers.Tests.ps1", "tests/shared/core/text.Tests.ps1") }
+        @{ name = "同じテストは 1 回だけ"; files = @("scripts/shared/core/fs.ps1", "tests/shared/core/fs.Tests.ps1", "scripts/shared/core/text.ps1"); expected = @("tests/shared/core/fs.Tests.ps1", "tests/meta/structure.Tests.ps1", "tests/meta/layers.Tests.ps1", "tests/meta/error_messages.Tests.ps1", "tests/meta/function_size.Tests.ps1", "tests/shared/core/text.Tests.ps1") }
     ) {
         param($name, $files, $expected)
         (selectTests $files) -join "|" | Should -Be ($expected -join "|")

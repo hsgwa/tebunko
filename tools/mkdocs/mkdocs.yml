@@ -136,6 +136,7 @@ nav:
           - キーボード操作: guide/keyboard.md
           # 利用者が見るメッセージの一覧。ファイルはインデクサの設計書の隣に置く
           - エラーメッセージ一覧: design/indexing/errors.md
+          - エラーメッセージ一覧（ファイルごとの失敗）: design/indexing/errors-ingest.md
   - 開発者向け:
       - design/index.md
       - はじめに:
@@ -165,6 +166,9 @@ nav:
           - テキストファイルの読み取り: design/indexing/text.md
           - PDF ファイルの読み取り: design/indexing/pdf.md
           - エラーメッセージ一覧: design/indexing/errors.md
+          - インデックス作成ログの警告・お知らせ一覧: design/indexing/log-warnings.md
+          - 警告・お知らせ一覧（まとめ・置き場・後片付け）: design/indexing/log-warnings-index.md
+          - 置き場の安全確認のエラー: design/indexing/errors-store.md
           - 既知の問題: design/indexing/known-issues.md
       - インデックスのデータ:
           - インデックスのファイルの形: design/index-data/format.md
@@ -179,6 +183,7 @@ nav:
           - 状態と操作の流れ: design/gui/state-flow.md
           - 画面の共通の決まり: design/gui/common.md
           - 画面に出すメッセージの一覧: design/gui/messages.md
+          - インデックスの書き出し・読み込み・ワークスペースのエラー: design/gui/messages-index-ops.md
           - インデックス一覧の管理: design/gui/index-tab.md
           - インデックス作成の実行: design/gui/indexing-run.md
           - 検索タブ: design/gui/search-tab.md

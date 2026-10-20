@@ -78,7 +78,7 @@
 | `testTextPlausible` | text | bool | 制御文字・私用領域・U+FFFD を含まない（テキストとして自然）か | detectLegacyJapaneseEncoding |
 | `decodeTextBytes` | bytes, encodingName | string | `detectTextEncoding` が返した文字コードで、バイト列を文字列にする（BOM は取り除く） | readTextFile |
 | `splitTextLines` | text | string[] | `StreamReader.ReadLine` と同じ分け方（CRLF・LF・CR）で行に分ける。途中の空の行は残し、行末の空白は取り除き、末尾の空の行は捨てる | readTextFile |
-| `readTextFile` | path, maxBytes（既定 `$textFileMaxBytes`） | string[] | ファイルを読み取り専用の共有で開き、大きさの上限・文字コードを確かめてから行の並びにする。上限超え・バイナリは例外（[エラーメッセージ一覧](../indexing/errors.md#ファイルごとの失敗取り込み一覧のエラー列)） | extractTextFile |
+| `readTextFile` | path, maxBytes（既定 `$textFileMaxBytes`） | string[] | ファイルを読み取り専用の共有で開き、大きさの上限・文字コードを確かめてから行の並びにする。上限超え・バイナリは例外（[エラーメッセージ一覧](../indexing/errors-ingest.md#ファイルごとの失敗取り込み一覧のエラー列)） | extractTextFile |
 
 ## インデックスへの配置（`tebunko/index/index_store.ps1`）
 
