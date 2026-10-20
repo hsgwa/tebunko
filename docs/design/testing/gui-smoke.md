@@ -19,7 +19,7 @@
 | 操作 | パターン（`InvokePattern`・`ValuePattern`・`SelectionItemPattern`・`TogglePattern`・`WindowPattern.Close`）で行い、マウス・キーボードの合成は使わない（SendInput・keybd_event は使わない）。キーは、修飾キーなしのものだけ `WM_KEYDOWN`・`WM_KEYUP` のメッセージで送れる（`pressGuiKey`）。Ctrl・Shift を押した形は、ハンドラが本物のキーボードの状態を読むため送れない（その振り分けは `tests/tebunko/ui/shell/nav.Tests.ps1` の単体テストで確かめる）。モーダルを開く操作は別のスレッドから呼ぶ。Win32 のダイアログ（OS のフォルダ選択）のボタンと欄はパターンを持たないため、窓のメッセージ（`BM_CLICK`・`WM_SETTEXT`）で操作する |
 | 待つ | 100 ms ごとに状態を調べる（時間では待たない）。上限は起動 90 秒・取り込みの完了 120 秒・ほかは 30 秒。待つ間に、予定していないエラーの窓（`予期しないエラー`・`エラーが発生しました` など）が出たら、その文言で失敗にする |
 | OS のフォルダ選択 | 差し替えずに、開いて閉じるまで本物で動かす（`selectFolder` のリフレクションで開く部分を確かめるため）。ボタンと欄は言語に依らない ID（［フォルダーの選択］は `1`、［キャンセル］は `2`、フォルダ名の欄は `1152`）で探す（ランナーは英語、手元は日本語） |
-| 失敗したとき | 失敗した手順の名前を文言に入れ、画面の画像・写した先の `gui_error_log.txt`・`indexing_log.txt`・窓の一覧を `work\test\gui\<場面>\` に置く（CI は成果物 `gui-smoke-results` に上げる） |
+| 失敗したとき | 失敗した手順の名前を文言に入れ、画面の画像・写した先の `gui_error_log.txt`・`indexing_log.txt`・窓の一覧を `work\test\gui\<場面>\` に置く（CI は成果物 `gui-smoke-results` に上げる）。閉じる処理の記録 `close_trace.txt`（[閉じるときの順番](../structure/closing.md)）も写す。閉じても終わらなかったときは、止める前に生きているプロセスの各スレッドの状態とイベントログを `閉じない.txt` に残す。終了コードが 0 でないときのイベントログ（`クラッシュ情報.txt`）は、プロセス ID を 10 進・16 進（`0x` 付き・無し）で探す（`getGuiCrashPatterns`）。起動失敗の記録のテスト（`startup_error.Tests.ps1`）は、子の進み具合の印と標準出力・標準エラーを失敗の文言に出す |
 
 ```mermaid
 flowchart TD
