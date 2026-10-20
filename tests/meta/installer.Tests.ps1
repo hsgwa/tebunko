@@ -7,6 +7,7 @@ BeforeDiscovery {
 }
 
 BeforeAll {
+    . "$PSScriptRoot\..\helpers\process.ps1"
     $rootDir = (Resolve-Path "$PSScriptRoot\..\..").Path
     $launcherSource = "$rootDir\installer\tebunko.cs"
     $setupScript = "$rootDir\installer\tebunko.iss"
@@ -104,7 +105,7 @@ Describe "起動口 tebunko.exe が渡す引数（フォルダ名の文字）" -
         try {
             $process.WaitForExit(20000) | Out-Null
         } finally {
-            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+            stopStartedProcess $process
         }
 
         $marker = "$guiDir\marker.txt"
@@ -162,7 +163,7 @@ Describe "起動口 tebunko.exe の終了コード（gui.ps1 の終わり方）"
             $errorText = $process.StandardError.ReadToEnd()
             $process.WaitForExit(20000) | Out-Null
         } finally {
-            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+            stopStartedProcess $process
         }
 
         $process.ExitCode | Should -Be $code

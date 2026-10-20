@@ -44,7 +44,7 @@ BeforeAll {
             $errorText = $stderr.Result
             $exitCode = $process.ExitCode
         } finally {
-            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+            stopStartedProcess $process
             $process.Dispose()
         }
         $out = if (Test-Path -LiteralPath $outPath) { [System.IO.File]::ReadAllText($outPath) } else { "" }

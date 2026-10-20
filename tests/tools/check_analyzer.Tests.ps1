@@ -99,3 +99,95 @@ Describe "compareAnalyzerBaseline" -Tag Unit {
         $down.Decreased[0] | Should -BeLike "*-UpdateBaseline*"
     }
 }
+
+Describe "selectAnalyzerFiles" -Tag Unit {
+    BeforeAll {
+        $script:work = Join-Path ([System.IO.Path]::GetTempPath()) ("analyzer_files_" + [guid]::NewGuid().ToString("N"))
+        foreach ($d in "scripts", "tools", "tests", "docs") { New-Item -ItemType Directory -Path (Join-Path $script:work $d) -Force | Out-Null }
+        foreach ($f in "scripts\a.ps1", "tools\b.ps1", "tests\c.Tests.ps1", "scripts\x.xaml", "docs\d.ps1") { Set-Content -LiteralPath (Join-Path $script:work $f) -Value "" }
+    }
+    AfterAll { Remove-Item -LiteralPath $script:work -Recurse -Force -ErrorAction SilentlyContinue }
+
+    It "<name>" -TestCases @(
+        @{ name = "scripts・tools・tests の .ps1 を / 区切りで返す"; files = @("scripts\a.ps1", "tools/b.ps1", "tests/c.Tests.ps1"); expected = "scripts/a.ps1|tools/b.ps1|tests/c.Tests.ps1" }
+        @{ name = "ほかのフォルダ・.ps1 でないものは飛ばす"; files = @("docs/d.ps1", "scripts/x.xaml", "README.md"); expected = "" }
+        @{ name = "消した・名前を変えて無いファイルは飛ばす"; files = @("scripts/gone.ps1"); expected = "" }
+        @{ name = "同じファイルは 1 回だけ"; files = @("scripts/a.ps1", "scripts\a.ps1"); expected = "scripts/a.ps1" }
+    ) {
+        param($name, $files, $expected)
+        (@(selectAnalyzerFiles $files $script:work) -join "|") | Should -Be $expected
+    }
+}
+
+Describe "filterAnalyzerBaseline" -Tag Unit {
+    It "指定したファイルの行だけ残す（区切りと大文字小文字は問わない）" {
+        $baseline = newBaseline "scripts/a.ps1`tPSX`t2`r`nscripts/a.ps1`tPSY`t1`r`ntools/b.ps1`tPSX`t3"
+        $filtered = filterAnalyzerBaseline $baseline @("Scripts\A.ps1")
+        $filtered.Count | Should -Be 2
+        $filtered["scripts/a.ps1`tPSX"] | Should -Be 2
+    }
+
+    It "指定が無ければ空" {
+        (filterAnalyzerBaseline (newBaseline "scripts/a.ps1`tPSX`t2") @()).Count | Should -Be 0
+    }
+}
+
+# -Path で絞った比べ方（check_analyzer.ps1 が使う filterAnalyzerBaseline と compareAnalyzerBaseline の組）
+Describe "-Path で絞った件数の比べ" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "件数がベースラインどおりなら何も出さない"; baseline = "scripts/a.ps1`tPSX`t1`r`ntools/b.ps1`tPSX`t2"; findings = @(, @("scripts\a.ps1", "PSX")); files = @("scripts/a.ps1"); increased = 0; decreased = 0 }
+        @{ name = "指摘が増えたら増えたとみなす"; baseline = "tools/b.ps1`tPSX`t2"; findings = @(, @("scripts\a.ps1", "PSX")); files = @("scripts/a.ps1"); increased = 1; decreased = 0 }
+        @{ name = "件数が減ったら減ったとみなす"; baseline = "scripts/a.ps1`tPSX`t2"; findings = @(, @("scripts\a.ps1", "PSX")); files = @("scripts/a.ps1"); increased = 0; decreased = 1 }
+        @{ name = "-Path に無いファイルの増減は見ない"; baseline = "scripts/a.ps1`tPSX`t1"; findings = @(, @("scripts\a.ps1", "PSX")); files = @("scripts/a.ps1"); increased = 0; decreased = 0 }
+        @{ name = "-Path に無いファイルのベースラインの行は、減ったとみなさない"; baseline = "scripts/a.ps1`tPSX`t1`r`ntools/b.ps1`tPSX`t2"; findings = @(, @("scripts\a.ps1", "PSX")); files = @("scripts/a.ps1"); increased = 0; decreased = 0 }
+        @{ name = "複数のファイルを指定したら、どちらも比べる"; baseline = "scripts/a.ps1`tPSX`t1"; findings = @(@("scripts\a.ps1", "PSX"), @("tools\b.ps1", "PSX")); files = @("scripts/a.ps1", "tools/b.ps1"); increased = 1; decreased = 0 }
+    ) {
+        param ($name, $baseline, $findings, $files, $increased, $decreased)
+        $list = @($findings | ForEach-Object { newFinding $_[0] $_[1] 5 })
+        $current = getAnalyzerCounts $list $script:root
+        $result = compareAnalyzerBaseline (filterAnalyzerBaseline (newBaseline $baseline) $files) $current
+        $result.Increased.Count | Should -Be $increased
+        $result.Decreased.Count | Should -Be $decreased
+    }
+}
+
+# check_analyzer.ps1 自身を、一時フォルダの小さなリポジトリに対して powershell.exe で流す
+Describe "check_analyzer.ps1 -Path" -Tag Io {
+    BeforeAll {
+        $script:hasAnalyzer = [bool](Get-Module -ListAvailable -Name PSScriptAnalyzer)
+        $script:checker = (Resolve-Path "$PSScriptRoot\..\..\tools\check_analyzer.ps1").Path
+        $metaDir = (Resolve-Path "$PSScriptRoot\..\meta").Path
+        $script:work = Join-Path ([System.IO.Path]::GetTempPath()) ("analyzer_path_" + [guid]::NewGuid().ToString("N"))
+        New-Item -ItemType Directory -Path (Join-Path $script:work "tests\meta") -Force | Out-Null
+        foreach ($d in "scripts", "tools") { New-Item -ItemType Directory -Path (Join-Path $script:work $d) -Force | Out-Null }
+        Copy-Item "$metaDir\PSScriptAnalyzer.psd1", "$metaDir\PSScriptAnalyzer.tests.psd1" (Join-Path $script:work "tests\meta")
+        $script:baselinePath = Join-Path $script:work "tests\meta\PSScriptAnalyzer.baseline.tsv"
+
+        # a.ps1 は Write-Host 1 件、b.ps1 は 2 件の指摘がある
+        Set-Content -LiteralPath (Join-Path $script:work "scripts\a.ps1") -Value 'Write-Host "x"'
+        Set-Content -LiteralPath (Join-Path $script:work "tools\b.ps1") -Value "Write-Host `"x`"`r`nWrite-Host `"y`""
+
+        function runChecker([string]$baseline, [string[]]$extra) {
+            [System.IO.File]::WriteAllText($script:baselinePath, $baseline)
+            $null = & powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File $script:checker -Root $script:work @extra
+            return $LASTEXITCODE
+        }
+    }
+    AfterAll { Remove-Item -LiteralPath $script:work -Recurse -Force -ErrorAction SilentlyContinue }
+
+    # 件数の比べ方は上の Unit の表で確かめる。ここは powershell.exe で通しで流す代表だけ（PSScriptAnalyzer の読み込みで 1 回 30 秒ほどかかる）
+    It "<name>" -TestCases @(
+        @{ name = "-Path のファイルの指摘が増えたら 1"; baseline = "tools/b.ps1`tPSAvoidUsingWriteHost`t2`r`n"; extra = @("-Path", "scripts/a.ps1"); code = 1 }
+        @{ name = "-Path のファイルが合っていれば、ほかのファイルが違っても 0"; baseline = "scripts/a.ps1`tPSAvoidUsingWriteHost`t1`r`n"; extra = @("-Path", "scripts/a.ps1"); code = 0 }
+    ) {
+        param($name, $baseline, $extra, $code)
+        if (!$script:hasAnalyzer) { Set-ItResult -Skipped -Because "PSScriptAnalyzer が入っていない"; return }
+        (runChecker $baseline $extra) | Should -Be $code
+    }
+
+    It "-Path と -UpdateBaseline を一緒に渡すと 2 で、ベースラインを書き換えない" {
+        $text = "scripts/a.ps1`tPSAvoidUsingWriteHost`t9`r`n"
+        (runChecker $text @("-Path", "scripts/a.ps1", "-UpdateBaseline")) | Should -Be 2
+        [System.IO.File]::ReadAllText($script:baselinePath) | Should -Be $text
+    }
+}

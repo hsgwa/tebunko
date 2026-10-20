@@ -2,7 +2,7 @@
 # コミット前の検査（git for Windows の sh が実行する。有効にするのは tools/install_hooks.ps1）。
 #
 #   1. tools/check_commit.ps1 -Staged … ステージした内容に個人情報が無いこと、.ps1・.xaml の文字コード、作者のメールアドレス
-#   2. tools/run_commit_tests.ps1     … ステージした変更に対応するテスト（全テストと静的解析は CI で行う）
+#   2. tools/run_commit_tests.ps1     … ステージした変更に対応するテストと、ステージした .ps1 の静的解析（全テストと全体の静的解析は CI で行う）
 #
 # どうしても飛ばすときは git commit --no-verify（CI で同じ検査が走る）。
 # このファイルは sh が読むため LF で保存する（.gitattributes で固定している）。

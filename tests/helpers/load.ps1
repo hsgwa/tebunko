@@ -30,3 +30,4 @@ assertNotRealWorkspace $workspace.Dir
 . "$PSScriptRoot\tsv.ps1"
 . "$PSScriptRoot\workspace.ps1"
 . "$PSScriptRoot\cfb.ps1"
+. "$PSScriptRoot\process.ps1"

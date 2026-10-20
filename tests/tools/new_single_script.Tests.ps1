@@ -86,7 +86,7 @@ BeforeAll {
             $null = $stdout.Result
             $exitCode = $process.ExitCode
         } finally {
-            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+            stopStartedProcess $process
             $process.Dispose()
         }
         $logPath = Join-Path $workspace "indexing_log.txt"
