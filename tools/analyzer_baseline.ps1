@@ -78,3 +78,27 @@ function compareAnalyzerBaseline($baseline, $counts) {
     }
     return @{ Increased = @($increased); Decreased = @($decreased) }
 }
+
+# 指定されたファイル（リポジトリからの相対パス）のうち、検査する .ps1 だけを選ぶ。戻り値は / 区切りの相対パス。
+# 検査するのは scripts・tools・tests の下で、作業ツリーに有るもの（消した・名前を変えて元が無いものは飛ばす）。
+function selectAnalyzerFiles([string[]]$files, [string]$rootDir) {
+    $kept = New-Object System.Collections.Generic.List[string]
+    foreach ($file in @($files | Where-Object { $_ })) {
+        $rel = $file.Replace("\", "/")
+        if ($rel -notmatch '(?i)^(scripts|tools|tests)/.+\.ps1$') { continue }
+        if (!(Test-Path -LiteralPath (Join-Path $rootDir $rel) -PathType Leaf)) { continue }
+        if (!$kept.Contains($rel)) { $kept.Add($rel) }
+    }
+    return $kept.ToArray()
+}
+
+# ベースラインを、指定したファイル（リポジトリからの相対パス）の行だけに絞る。-Path で一部のファイルだけ比べるときに使う
+function filterAnalyzerBaseline($baseline, [string[]]$files) {
+    $set = New-Object System.Collections.Generic.HashSet[string] ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($file in @($files)) { [void]$set.Add($file.Replace("\", "/")) }
+    $filtered = @{}
+    foreach ($key in $baseline.Keys) {
+        if ($set.Contains($key.Split("`t")[0])) { $filtered[$key] = $baseline[$key] }
+    }
+    return $filtered
+}

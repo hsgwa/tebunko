@@ -49,3 +49,100 @@ Describe "run_commit_tests.ps1 の選び方" -Tag Unit {
         @(selectTests $files).Count | Should -Be 0
     }
 }
+
+Describe "run_commit_tests.ps1 の静的解析の対象" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "scripts・tools・tests の .ps1 だけが対象（/ 区切りにそろえる）"; files = @("tools\check_analyzer.ps1", "tests/tools/check_analyzer.Tests.ps1", "README.md", "tools/hooks/pre-commit"); expected = "tools/check_analyzer.ps1|tests/tools/check_analyzer.Tests.ps1" }
+        @{ name = ".md と docs だけなら対象なし"; files = @("README.md", "docs/design/testing/ci.md"); expected = "" }
+        @{ name = "消した・名前を変えて元が無い .ps1 は飛ばす"; files = @("tools/none.ps1"); expected = "" }
+        @{ name = "変更が無ければ対象なし"; files = @(); expected = "" }
+    ) {
+        param($name, $files, $expected)
+        $out = if ($files.Count -gt 0) { @(& $select -ListAnalyzer -Files $files) } else { @(& $select -ListAnalyzer -Files @()) }
+        ($out -join "|") | Should -Be $expected
+    }
+}
+
+# 静的解析の呼び出し。check_analyzer.ps1 の代わりに、受け取った -Path を出して終了コードを環境変数で返す偽物を使う
+Describe "run_commit_tests.ps1 の静的解析の呼び出し" -Tag Io {
+    BeforeAll {
+        $script:work = Join-Path ([System.IO.Path]::GetTempPath()) ("commit_analyzer_" + [guid]::NewGuid().ToString("N"))
+        New-Item -ItemType Directory -Path $script:work | Out-Null
+        $script:fake = Join-Path $script:work "fake_analyzer.ps1"
+        Set-Content -LiteralPath $script:fake -Value 'param([string[]]$Path)
+"CALLED:" + ($Path -join ",") + " V:" + $env:PSSA_VERSION
+exit [int]$env:FAKE_ANALYZER_EXIT'
+        $script:runner = (Resolve-Path $select).Path
+
+        # PSScriptAnalyzer の入っていない手元でも流せるよう、既定ではどの機械にも入っている Pester を「静的解析のモジュール」にする
+        $script:pesterVersion = @(Get-Module -ListAvailable -Name Pester | Select-Object -First 1)[0].Version.ToString()
+
+        function runHook([string[]]$files, [string[]]$extra, [int]$fakeExit = 0, [int]$testExit = 0) {
+            $env:FAKE_ANALYZER_EXIT = "$fakeExit"
+            $given = @($extra)
+            if ($given -notcontains "-AnalyzerModule") { $given += @("-AnalyzerModule", "Pester") }
+            if ($given -notcontains "-AnalyzerVersion") { $given += @("-AnalyzerVersion", $script:pesterVersion) }
+            try {
+                $out = & powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File $script:runner -TestExit $testExit -Files ($files -join ",") -AnalyzerScript $script:fake @given 2>&1
+                return @{ Code = $LASTEXITCODE; Text = ($out | Out-String) }
+            } finally {
+                Remove-Item Env:\FAKE_ANALYZER_EXIT -ErrorAction SilentlyContinue
+            }
+        }
+    }
+    AfterAll { Remove-Item -LiteralPath $script:work -Recurse -Force -ErrorAction SilentlyContinue }
+
+    It "ステージに .ps1 があれば、そのファイルを -Path に付けて呼ぶ" {
+        $r = runHook @("tools/check_analyzer.ps1", "README.md")
+        $r.Code | Should -Be 0
+        $r.Text | Should -Match "CALLED:tools/check_analyzer\.ps1"
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "呼んだ静的解析が失敗したら、同じ終了コードで失敗する"; testExit = 0; fakeExit = 1; code = 1 }
+        @{ name = "テストが落ちても静的解析は流し、テストの終了コードを返す"; testExit = 2; fakeExit = 0; code = 2 }
+        @{ name = "テストも静的解析も落ちたら、テストの終了コードを返す"; testExit = 2; fakeExit = 1; code = 2 }
+        @{ name = "どちらも通れば 0"; testExit = 0; fakeExit = 0; code = 0 }
+    ) {
+        param($name, $testExit, $fakeExit, $code)
+        $r = runHook @("tools/check_analyzer.ps1") @() $fakeExit $testExit
+        $r.Code | Should -Be $code
+        $r.Text | Should -Match "CALLED"
+    }
+
+    It "既定の版は CI が固定した版（test.yml の PSSA_VERSION）" {
+        $pinned = @(& powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File $script:runner -ListAnalyzerVersion -Files "README.md")[0]
+        $pinned | Should -Match '^\d+(\.\d+)+$'
+        @(Select-String -LiteralPath "$PSScriptRoot\..\..\.github\workflows\test.yml" -Pattern "PSSA_VERSION:\s*$([regex]::Escape($pinned))\s*$").Count | Should -Be 1
+    }
+
+    It "入っている版を PSSA_VERSION に入れて子に渡す" {
+        $r = runHook @("tools/check_analyzer.ps1")
+        $r.Code | Should -Be 0
+        $r.Text | Should -Match "CALLED:tools/check_analyzer\.ps1 V:$([regex]::Escape($script:pesterVersion))"
+    }
+
+    It "固定した版が手元に入っていないときは、呼ばずに注意を出して 0" {
+        $r = runHook @("tools/check_analyzer.ps1") @("-AnalyzerVersion", "0.0.1") 1
+        $r.Code | Should -Be 0
+        $r.Text | Should -Not -Match "CALLED"
+        $r.Text | Should -Match "飛ばします"
+    }
+
+    It ".md だけなら呼ばない" {
+        $r = runHook @("README.md", "docs/design/testing/ci.md") @() 1
+        $r.Code | Should -Be 0
+        $r.Text | Should -Not -Match "CALLED"
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "PSScriptAnalyzer が無いときは、呼ばずに注意を出して 0"; extra = @("-AnalyzerModule", "NoSuchModule_for_test") }
+        @{ name = "Windows PowerShell 以外で動いたときは、呼ばずに注意を出して 0"; extra = @("-Edition", "Core") }
+    ) {
+        param($name, $extra)
+        $r = runHook @("tools/check_analyzer.ps1") $extra 1
+        $r.Code | Should -Be 0
+        $r.Text | Should -Not -Match "CALLED"
+        $r.Text | Should -Match "飛ばします"
+    }
+}
