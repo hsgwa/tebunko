@@ -16,11 +16,18 @@
 #   - 次のものは、どのテストに効くか分からないため速いテスト（Unit・Meta）を全部流す
 #     対応するテストが無い・消した scripts/ の .ps1、tests/ の上のどれにも当たらないもの（run.ps1・helpers・testdata など）
 #   - それ以外（.github/・画像・設定など）はテストを流さない
-# 選んだテストファイルは既定のタグ（Unit・Io・Meta）で流す。文字コードは tools/check_commit.ps1 -Staged が、
-# 全テスト・静的解析は CI（test）が確かめる。
+# 選んだテストファイルは既定のタグ（Unit・Io・Meta）で流す。文字コードは tools/check_commit.ps1 -Staged が確かめる。
+# あわせて、ステージした scripts・tools・tests の .ps1 だけに PSScriptAnalyzer をかけ（tools/check_analyzer.ps1 -Path）、
+# ベースラインより指摘が増えたら失敗にする。PSScriptAnalyzer が無い手元・Windows PowerShell 以外で動いたときは、注意を出して飛ばす。
+# 全テストと全体の静的解析は CI（test）が確かめる。
 param (
     [string[]]$Files,  # 変更したファイル（既定はステージした変更）
-    [switch]$List      # テストを流さず、選んだテストファイル（全部なら "all"）を出す
+    [switch]$List,     # テストを流さず、選んだテストファイル（全部なら "all"）を出す
+    [switch]$ListAnalyzer,  # 静的解析をかけるファイルを出すだけ（テスト用）
+    [switch]$AnalyzerOnly,  # テストを流さず、静的解析だけを流す（テスト用）
+    [string]$AnalyzerScript = "$PSScriptRoot\check_analyzer.ps1",  # 静的解析のスクリプト（テストで差し替える）
+    [string]$AnalyzerModule = "PSScriptAnalyzer",  # 静的解析のモジュール名（テストで差し替える）
+    [string]$Edition = $PSVersionTable.PSEdition   # PowerShell の版（テストで差し替える）
 )
 
 $ErrorActionPreference = "Stop"
@@ -85,6 +92,22 @@ function selectCommitTests([string[]]$files, [string]$root) {
     return @{ All = $false; Paths = $paths.ToArray() }
 }
 
+# 選んだファイルに check_analyzer.ps1 -Path をかける。戻り値は終了コード（飛ばしたときは 0）
+function runCommitAnalyzer([string[]]$targets, [string]$script, [string]$module, [string]$edition) {
+    if ($targets.Count -eq 0) { return 0 }
+    if ($edition -ne "Desktop") {
+        Write-Warning "Windows PowerShell 以外で動いているため、静的解析を飛ばします（CI が検査します）。powershell.exe で実行してください。"
+        return 0
+    }
+    if (!(Get-Module -ListAvailable -Name $module)) {
+        Write-Warning "$module が入っていないため、静的解析を飛ばします（CI が検査します）。"
+        return 0
+    }
+    "静的解析をかけます: $($targets -join ', ')" | Out-Host
+    & powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File $script -Path ($targets -join ",") | Out-Host
+    return $LASTEXITCODE
+}
+
 if ($PSBoundParameters.ContainsKey("Files")) {
     # powershell.exe -File で呼ぶと、-Files a,b は配列にならず 1 つの文字列で渡るため、カンマで分ける
     $Files = @($Files | ForEach-Object { $_ -split "," } | ForEach-Object { $_.Trim() })
@@ -94,23 +117,36 @@ if ($PSBoundParameters.ContainsKey("Files")) {
     if ($LASTEXITCODE -ne 0) { throw "git diff --cached が失敗しました" }
 }
 
+. (Join-Path $PSScriptRoot "analyzer_baseline.ps1")
 $selected = selectCommitTests $Files $rootDir
+$analyzerTargets = @(selectAnalyzerFiles $Files $rootDir)
 
 if ($List) {
     if ($selected.All) { "all" } else { $selected.Paths }
     exit 0
 }
-
-$run = Join-Path $rootDir "tests\run.ps1"
-if ($selected.All) {
-    Write-Host "速いテスト（Unit・Meta）を全部流します。"
-    & $run -Tag Unit, Meta -Quiet
-    exit $LASTEXITCODE
-}
-if ($selected.Paths.Count -eq 0) {
-    Write-Host "ステージした変更に対応するテストはありません（テストは CI で流します）。"
+if ($ListAnalyzer) {
+    $analyzerTargets
     exit 0
 }
-Write-Host "変更に対応するテストを流します: $(($selected.Paths | ForEach-Object { $_ -replace '^tests/', '' }) -join ', ')"
-& $run -Path @($selected.Paths | ForEach-Object { Join-Path $rootDir $_ }) -Quiet
-exit $LASTEXITCODE
+
+$run = Join-Path $rootDir "tests\run.ps1"
+$testExit = 0
+if ($AnalyzerOnly) {
+    # 静的解析だけ（テスト用）
+} elseif ($selected.All) {
+    Write-Host "速いテスト（Unit・Meta）を全部流します。"
+    & $run -Tag Unit, Meta -Quiet
+    $testExit = $LASTEXITCODE
+} elseif ($selected.Paths.Count -eq 0) {
+    Write-Host "ステージした変更に対応するテストはありません（テストは CI で流します）。"
+} else {
+    Write-Host "変更に対応するテストを流します: $(($selected.Paths | ForEach-Object { $_ -replace '^tests/', '' }) -join ', ')"
+    & $run -Path @($selected.Paths | ForEach-Object { Join-Path $rootDir $_ }) -Quiet
+    $testExit = $LASTEXITCODE
+}
+
+# テストが落ちていても静的解析は流し、両方の結果を見せる
+$analyzerExit = runCommitAnalyzer $analyzerTargets $AnalyzerScript $AnalyzerModule $Edition
+if ($testExit -ne 0) { exit $testExit }
+exit $analyzerExit

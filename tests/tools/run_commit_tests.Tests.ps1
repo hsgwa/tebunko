@@ -48,3 +48,67 @@ Describe "run_commit_tests.ps1 の選び方" -Tag Unit {
         @(selectTests $files).Count | Should -Be 0
     }
 }
+
+Describe "run_commit_tests.ps1 の静的解析の対象" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "scripts・tools・tests の .ps1 だけが対象（/ 区切りにそろえる）"; files = @("tools\check_analyzer.ps1", "tests/tools/check_analyzer.Tests.ps1", "README.md", "tools/hooks/pre-commit"); expected = "tools/check_analyzer.ps1|tests/tools/check_analyzer.Tests.ps1" }
+        @{ name = ".md と docs だけなら対象なし"; files = @("README.md", "docs/design/testing/ci.md"); expected = "" }
+        @{ name = "消した・名前を変えて元が無い .ps1 は飛ばす"; files = @("tools/none.ps1"); expected = "" }
+        @{ name = "変更が無ければ対象なし"; files = @(); expected = "" }
+    ) {
+        param($name, $files, $expected)
+        $out = if ($files.Count -gt 0) { @(& $select -ListAnalyzer -Files $files) } else { @(& $select -ListAnalyzer -Files @()) }
+        ($out -join "|") | Should -Be $expected
+    }
+}
+
+# 静的解析の呼び出し。check_analyzer.ps1 の代わりに、受け取った -Path を出して終了コードを環境変数で返す偽物を使う
+Describe "run_commit_tests.ps1 の静的解析の呼び出し" -Tag Io {
+    BeforeAll {
+        $script:work = Join-Path ([System.IO.Path]::GetTempPath()) ("commit_analyzer_" + [guid]::NewGuid().ToString("N"))
+        New-Item -ItemType Directory -Path $script:work | Out-Null
+        $script:fake = Join-Path $script:work "fake_analyzer.ps1"
+        Set-Content -LiteralPath $script:fake -Value 'param([string[]]$Path)
+"CALLED:" + ($Path -join ",")
+exit [int]$env:FAKE_ANALYZER_EXIT'
+        $script:runner = (Resolve-Path $select).Path
+
+        function runHook([string[]]$files, [string[]]$extra, [int]$fakeExit = 0) {
+            $env:FAKE_ANALYZER_EXIT = "$fakeExit"
+            try {
+                $out = & powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File $script:runner -AnalyzerOnly -Files ($files -join ",") -AnalyzerScript $script:fake @extra 2>&1
+                return @{ Code = $LASTEXITCODE; Text = ($out | Out-String) }
+            } finally {
+                Remove-Item Env:\FAKE_ANALYZER_EXIT -ErrorAction SilentlyContinue
+            }
+        }
+    }
+    AfterAll { Remove-Item -LiteralPath $script:work -Recurse -Force -ErrorAction SilentlyContinue }
+
+    It "ステージに .ps1 があれば、そのファイルを -Path に付けて呼ぶ" {
+        $r = runHook @("tools/check_analyzer.ps1", "README.md")
+        $r.Code | Should -Be 0
+        $r.Text | Should -Match "CALLED:tools/check_analyzer\.ps1"
+    }
+
+    It "呼んだ静的解析が失敗したら、同じ終了コードで失敗する" {
+        (runHook @("tools/check_analyzer.ps1") @() 1).Code | Should -Be 1
+    }
+
+    It ".md だけなら呼ばない" {
+        $r = runHook @("README.md", "docs/design/testing/ci.md") @() 1
+        $r.Code | Should -Be 0
+        $r.Text | Should -Not -Match "CALLED"
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "PSScriptAnalyzer が無いときは、呼ばずに注意を出して 0"; extra = @("-AnalyzerModule", "NoSuchModule_for_test") }
+        @{ name = "Windows PowerShell 以外で動いたときは、呼ばずに注意を出して 0"; extra = @("-Edition", "Core") }
+    ) {
+        param($name, $extra)
+        $r = runHook @("tools/check_analyzer.ps1") $extra 1
+        $r.Code | Should -Be 0
+        $r.Text | Should -Not -Match "CALLED"
+        $r.Text | Should -Match "飛ばします"
+    }
+}
