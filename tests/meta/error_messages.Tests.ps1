@@ -17,7 +17,7 @@ BeforeAll {
 
     # 突き合わせる一覧（どれか 1 行に一致すれば載っているとする）
     function getListDocPaths() {
-        $paths = @("$docsRoot\indexing\log-warnings.md")
+        $paths = @(Get-ChildItem "$docsRoot\indexing" -Filter "log-warnings*.md" | ForEach-Object { $_.FullName })
         $paths += @(Get-ChildItem "$docsRoot\indexing" -Filter "errors*.md" | ForEach-Object { $_.FullName })
         $paths += @(Get-ChildItem "$docsRoot\gui" -Filter "messages*.md" | ForEach-Object { $_.FullName })
         return @($paths | Where-Object { Test-Path -LiteralPath $_ })
@@ -32,7 +32,9 @@ BeforeAll {
         @{ Text = "newAppMutex: ツールの名前（app）が空です"; Reason = "開発者向けの内部エラー（呼び出し側の書き間違いを知らせる）" }
         @{ Text = "joinWorkerScript: つなぐ本体の構文エラーです: {}"; Reason = "開発者向けの内部エラー（単一 .ps1 版を作るときの確かめ）" }
         @{ Text = "WorkerPool は閉じています。"; Reason = "開発者向けの内部エラー（閉じたあとの呼び出しを知らせる）" }
-        @{ Text = "(埋め込みから出す文字)"; Reason = "上限の種類の名前であり、メッセージではない" }
+        @{ Text = "(埋め込みから出す文字)"; Reason = "メッセージではない（サイズの上限のログに、埋め込む値として出る部品の名前 PartName。ログの行は log-warnings.md に載せている）" }
+        @{ Text = "{} が起動しているため、更新に使用できません"; Reason = "内部の合図（利用者の Office アプリが起動しているため、そのファイルを次回に回す。取り込み一覧にもログにも出ない）" }
+        @{ Pattern = '^インデックスのファイル「\{\}」を読み込めません（ingest_status\.tsv .+'; Reason = "変数をたどると、取り込み一覧の確認の原因とインデックスのファイルの確認の原因が組み合わさって出るが、実際には出ない組み合わせ（出る組み合わせは gui/messages-index-ops.md に載せている）" }
         @{ Text = "読んだ量が上限を超えました"; Reason = "読み取りの途中で投げ、呼び出し側が「ファイルサイズが大きすぎるため更新できません。」などの文言に置き換える" }
         @{ Text = "不明な文字コードです（{}）。"; Reason = "開発者向けの内部エラー（文字コードの名前の書き間違いを知らせる）" }
         @{ Text = "getGuiErrorLogHeader: setGuiErrorLogSource で登録されていない"; Reason = "開発者向けの内部エラー（起動の順番の間違いを知らせる）" }
@@ -56,7 +58,7 @@ BeforeAll {
         @{ Key = 'index_archive.ps1:importIndexCore:$original'; Reason = "捕まえた例外を、後片付けのあとで投げ直す（元の文言は、それぞれの投げ元で一覧に載せている）" }
         @{ Key = 'extract_office.ps1:throwProtectionFailure:$exception'; Reason = "保護の確認で捕まえた例外を投げ直す（元の文言は、それぞれの投げ元で一覧に載せている）" }
         @{ Key = 'indexer_run.ps1:invokeIndexer:$message'; Reason = "想定していない例外のメッセージをそのまま書く（errors.md の「例外のメッセージそのまま」の行）" }
-        @{ Key = 'indexer_run.ps1:cancelBeforeIngest:$message'; Reason = "引数で受けた文言を書く。呼び出し側が渡す文言は、それぞれの呼び出しで一覧に載せている" }
+        @{ Key = 'indexer_run.ps1:cancelBeforeIngest:$message'; Reason = "引数で受けた文言を書く。呼び出し側が渡す 2 つの文言は log-warnings.md に載せているが、引数をたどる検査はまだ無く、機械では確かめていない" }
         @{ Key = 'startup_error.ps1:reportStartupFailure:$err'; Reason = "起動の失敗の例外をそのまま画面に出す（元の文言は、それぞれの投げ元で一覧に載せている）" }
     )
 
@@ -258,12 +260,36 @@ BeforeAll {
         return @{ Name = $Name; Ast = $ast; Assigns = $assigns; ByKey = $byKey; Throws = $throws; LogCalls = $logCalls }
     }
 
+    # 展開される文字列。埋め込みの変数（$x・${x}）をたどり、固定の部分と組み合わせる。
+    # たどれない変数があり、日本語が 1 つも出なければ Opaque にする（$_ とメンバーの参照・式は、今までどおり埋め込みのまま）
+    function resolveExpandable($ast, $ctx, $state) {
+        $base = getExpandableText $ast
+        $nested = @($ast.NestedExpressions | Sort-Object { $_.Extent.StartOffset })
+        $pieces = $base.Split([char]1)
+        $results = @($pieces[0])
+        $unresolved = $false
+        for ($i = 0; $i -lt $nested.Count; $i++) {
+            $n = $nested[$i]
+            $options = @(${mark})
+            if ($n -is [System.Management.Automation.Language.VariableExpressionAst] -and (getVariableKey $n) -ne "_") {
+                $sub = @{ Opaque = $false }
+                $cands = @(resolveStrings $n $ctx $sub | Where-Object { testHasJapanese $_ } | Select-Object -First 8)
+                if ($cands.Count -gt 0) { $options = $cands } else { $unresolved = $true }
+            }
+            $next = @()
+            foreach ($r in $results) { foreach ($o in $options) { $next += ($r + $o + $pieces[$i + 1]) } }
+            $results = @($next | Select-Object -First 64)
+        }
+        if ($unresolved -and @($results | Where-Object { testHasJapanese $_ }).Count -eq 0) { $state.Opaque = $true }
+        return $results
+    }
+
     # 式から文字列の候補を取り出す。$state.Opaque は「変数・関数をたどっても取り出せなかった」印
     function resolveStrings($ast, $ctx, $state) {
         if ($null -eq $ast) { return @() }
         $T = [System.Management.Automation.Language.TokenKind]
         if ($ast -is [System.Management.Automation.Language.StringConstantExpressionAst]) { return @($ast.Value) }
-        if ($ast -is [System.Management.Automation.Language.ExpandableStringExpressionAst]) { return @(getExpandableText $ast) }
+        if ($ast -is [System.Management.Automation.Language.ExpandableStringExpressionAst]) { return @(resolveExpandable $ast $ctx $state) }
         if ($ast -is [System.Management.Automation.Language.PipelineAst]) {
             $r = @()
             foreach ($e in $ast.PipelineElements) { $r += @(resolveStrings $e $ctx $state) }
@@ -295,6 +321,7 @@ BeforeAll {
                 foreach ($l in $left) { foreach ($x in $right) { $r += ($l + $x) } }
                 return $r
             }
+            $state.Opaque = $true
             return @()
         }
         if ($ast -is [System.Management.Automation.Language.InvokeMemberExpressionAst]) {
@@ -342,6 +369,10 @@ BeforeAll {
             if (@($r | Where-Object { testHasJapanese $_ }).Count -eq 0) { $state.Opaque = $true }
             return $r
         }
+        # 例外の投げ直し（$_・$x.Exception・$x.Message など）と数値などの定数は、文言を持たない
+        if ($ast -is [System.Management.Automation.Language.MemberExpressionAst] -or
+            $ast -is [System.Management.Automation.Language.ConstantExpressionAst]) { return @() }
+        $state.Opaque = $true
         return @()
     }
 
@@ -477,7 +508,7 @@ BeforeAll {
 }
 
 Describe "利用者に出すエラー・警告の文言と設計書の一覧" -Tag Meta {
-    It "突き合わせる設計書（errors*.md・log-warnings.md・gui の messages*.md）が読めて、文言を取り出せている" {
+    It "突き合わせる設計書（errors*.md・log-warnings*.md・gui の messages*.md）が読めて、文言を取り出せている" {
         @(getListDocPaths).Count | Should -BeGreaterOrEqual 5
         ${docLinesAll}.Count | Should -BeGreaterThan 100
         @(${messagesAll} | Where-Object { $_.Kind -eq "throw" }).Count | Should -BeGreaterThan 10
@@ -561,6 +592,8 @@ Describe "文言の取り出しと突き合わせの部品（小さな例）" -T
         @{ Name = "writeIndexerLog の Red"; Code = 'function f { writeIndexerLog "あいう" "Red" }'; Expected = @("あいう") }
         @{ Name = "writeIndexerLog の Green は見ない"; Code = 'function f { writeIndexerLog "あいう" "Green" }'; Expected = @() }
         @{ Name = "writeIndexerLog の色なしは見ない"; Code = 'function f { writeIndexerLog "あいう" }'; Expected = @() }
+        @{ Name = "展開される文字列の変数をたどる"; Code = 'function f($p) { $m = "あ"; throw "${m}${p}" }'; Expected = @("あ{}") }
+        @{ Name = "展開される文字列の変数が日本語の文字列を持つ（ファイルの直下）"; Code = '$n = "が起動しています"; function f($p) { throw "${p}${n}" }'; Expected = @("{}が起動しています") }
     ) {
         param ($Name, $Code, $Expected)
         $got = @(textsOf (findMessagesIn $Code))
@@ -587,6 +620,8 @@ Describe "文言の取り出しと突き合わせの部品（小さな例）" -T
         @{ Name = "引数のまま"; Code = 'function f($reason) { throw $reason }'; Expected = "x.ps1:f:`$reason" }
         @{ Name = "例外のメッセージの代入"; Code = 'function f { $m = $_.Exception.Message; writeIndexerLog $m "Red" }'; Expected = "x.ps1:f:`$m" }
         @{ Name = "日本語の無い関数の呼び出し"; Code = 'function f { throw (g 1) }'; Expected = "x.ps1:f:(g 1)" }
+        @{ Name = "展開される文字列が引数だけ"; Code = 'function f($p) { throw "$p" }'; Expected = 'x.ps1:f:"$p"' }
+        @{ Name = "知らない式の形（-join）"; Code = 'function f($p) { throw ($p -join "x") }'; Expected = 'x.ps1:f:($p -join "x")' }
     ) {
         param ($Name, $Code, $Expected)
         $m = @(findMessagesIn ($Code + "`nfunction g { return 1 }") | Where-Object { $_.Untraceable })

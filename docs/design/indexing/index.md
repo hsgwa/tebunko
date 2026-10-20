@@ -62,7 +62,9 @@ flowchart LR
 - [Word](word.md)
 - [PowerPoint](powerpoint.md)
 - [エラーメッセージ一覧](errors.md)
+- [エラーメッセージ一覧（ファイルごとの失敗）](errors-ingest.md)
 - [インデックス作成ログの警告・お知らせ一覧](log-warnings.md)
+- [警告・お知らせ一覧（まとめ・置き場・後片付け）](log-warnings-index.md)
 - [置き場の安全確認のエラー](errors-store.md)
 - [既知の問題](known-issues.md)
 
