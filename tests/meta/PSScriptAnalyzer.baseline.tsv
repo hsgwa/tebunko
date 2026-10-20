@@ -1,3 +1,4 @@
+scripts/shared/core/close_trace.ps1	PSAvoidUsingEmptyCatchBlock	1
 scripts/shared/core/diagnostics.ps1	PSAvoidUsingEmptyCatchBlock	8
 scripts/shared/core/folder.ps1	PSAvoidUsingEmptyCatchBlock	2
 scripts/shared/core/pdf_file.ps1	PSPlaceOpenBrace	4
@@ -36,7 +37,7 @@ scripts/tebunko/ui/search/search_bar.ps1	PSAvoidUsingEmptyCatchBlock	2
 scripts/tebunko/ui/settings/settings.ps1	PSAvoidUsingEmptyCatchBlock	8
 scripts/tebunko/ui/shell/closing.ps1	PSAvoidUsingEmptyCatchBlock	14
 scripts/tebunko/ui/startup_error.ps1	PSAvoidUsingEmptyCatchBlock	1
-tests/gui/gui_helpers.ps1	PSAvoidUsingEmptyCatchBlock	7
+tests/gui/gui_helpers.ps1	PSAvoidUsingEmptyCatchBlock	8
 tests/helpers/pdf.ps1	PSAvoidUsingPlainTextForPassword	1
 tests/helpers/pdf.ps1	PSAvoidUsingUsernameAndPasswordParams	1
 tests/meta/encoding.Tests.ps1	PSUseSingularNouns	1
@@ -61,6 +62,7 @@ tools/check_release_package.ps1	PSUseSingularNouns	1
 tools/check_release_tag.ps1	PSAvoidUsingWriteHost	3
 tools/check_signoff.ps1	PSAvoidUsingWriteHost	13
 tools/convert_to_content_index.ps1	PSAvoidUsingWriteHost	2
+tools/gui_repeat.ps1	PSAvoidUsingWriteHost	1
 tools/install_hooks.ps1	PSAvoidUsingWriteHost	6
 tools/make_index_golden.ps1	PSAvoidUsingWriteHost	4
 tools/make_settings_golden.ps1	PSAvoidUsingWriteHost	3
