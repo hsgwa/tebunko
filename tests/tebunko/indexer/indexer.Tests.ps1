@@ -679,11 +679,15 @@ Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
         $root = newRoot
         writeTestSettings $root @(@{ name = "総務"; path = $source; enabled = $true })
         $cancel = $approvalLine.Clone()
-        $cancel.Action = { answerIndexingPlan $channel $null }
+        # 返事を待った時間（画面の確認待ち）が、全体に含めずに別に出ることを確かめるため、返事を少し遅らせる
+        $cancel.Action = { Start-Sleep -Milliseconds 300; answerIndexingPlan $channel $null }
 
         runIndexer $root @{ ConfirmTargets = $true } @($cancel) | Should -Be 2
-        [System.IO.File]::ReadAllText("$root\work\indexing_log.txt") | Should -Match "段階ごとの時間（秒）: "
-        $script:lastChannel.StageTimings.Stages.Wait | Should -BeGreaterOrEqual 0
+        $log = [System.IO.File]::ReadAllText("$root\work\indexing_log.txt")
+        $log | Should -Match "段階ごとの時間（秒）: "
+        $log | Should -Match "画面の確認待ち [0-9.]+（全体に含めない）"
+        $stages = $script:lastChannel.StageTimings.Stages
+        $stages.Wait | Should -BeGreaterThan 0.2
     }
 
     It "確認を待つとき（ConfirmTargets）、取りやめたら、更新されたファイルの行も前回の記録のまま残す（次回も更新ありになる）" {

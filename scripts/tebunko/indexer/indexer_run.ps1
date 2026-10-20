@@ -1164,6 +1164,10 @@ function invokeIndexerBody {
                 # 諦めたワーカーがある・回し直した。ループの先頭で続ける
                 continue
             }
+            if ($received.Kind -eq "RerouteAbandoned") {
+                # 回し直し先が諦めたワーカーだったものは、渡さずに後回しになる（種類ごとの「後回し」に数える）
+                addPostponedTiming ([string]$received.Entry.Row.相対パス)
+            }
             completeIngestJob $run $received
             if ($received.Kind -eq "Completed" -and !$dispatcher.UsesThreads -and ($received.Result.TimedOut -or (($run.SuccessCount + $ledger.Failures.Count) % $restartInterval) -eq 0)) {
                 # 制限時間を過ぎて強制終了したアプリは使えないため、すべて終了して次に必要になったときに起動し直す
