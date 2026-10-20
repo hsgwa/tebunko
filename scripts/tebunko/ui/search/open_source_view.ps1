@@ -27,13 +27,22 @@ function getSourceLookupFailedStatus {
     return "元のファイルの場所を調べられませんでした"
 }
 
+function getSourceBookRejectedStatus {
+    # インデックスの「ファイル名」が、開いてよい名前（testSourceBookName）でなかったときのステータス。開かない
+    param (
+        [string]$book
+    )
+
+    return "取り込み対象のファイル名ではないため、開きません：$(formatDisplayText $book)"
+}
+
 function getSourceNotFoundStatus {
     # 見つからない・確認で選ばなかったときのステータス
     param (
         [string]$path
     )
 
-    return "元のファイルが見つかりません：${path}"
+    return "元のファイルが見つかりません：$(formatDisplayText $path)"
 }
 
 function getSourceUnreachableStatus {
@@ -164,9 +173,9 @@ function getSourceConfirmDialog {
         $hint = "開くと、このフォルダに接続し、Windows のサインイン情報が送られることがあります。心当たりのない場所なら、［フォルダを選ぶ］で別のフォルダを選んでください。" + $hint
     }
     return @{
-        Heading  = "${book} の元のフォルダを確かめてください"
+        Heading  = "$(formatDisplayText $book) の元のフォルダを確かめてください"
         Title    = "インデックス [${name}] に書かれた元のフォルダ"
-        Detail   = $folder
+        Detail   = (formatDisplayText $folder)
         Hint     = $hint
         UseText  = "このフォルダを使う"
         PickText = "フォルダを選ぶ"

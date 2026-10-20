@@ -202,3 +202,20 @@ Describe "testPlainFolderName" -Tag Unit {
         (testPlainFolderName $name) | Should -Be $usable
     }
 }
+
+Describe "formatDisplayText" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "ふつうの文字はそのまま"; text = "見積 (2)　a-b.xlsx"; keep = $false; expected = "見積 (2)　a-b.xlsx" }
+        @{ name = "向きを変える文字（RLO）を U+FFFD にする"; text = "a" + [string][char]0x202E + "b"; keep = $false; expected = "a" + [string][char]0xFFFD + "b" }
+        @{ name = "U+061C を U+FFFD にする"; text = "a" + [string][char]0x061C + "b"; keep = $false; expected = "a" + [string][char]0xFFFD + "b" }
+        @{ name = "C0 制御文字を U+FFFD にする"; text = "a" + [string][char]1 + "b"; keep = $false; expected = "a" + [string][char]0xFFFD + "b" }
+        @{ name = "DEL を U+FFFD にする"; text = "a" + [string][char]0x7F + "b"; keep = $false; expected = "a" + [string][char]0xFFFD + "b" }
+        @{ name = "C1 制御文字（U+0085）を U+FFFD にする"; text = "a" + [string][char]0x85 + "b"; keep = $false; expected = "a" + [string][char]0xFFFD + "b" }
+        @{ name = "既定では改行・タブも置き換える"; text = "a`tb`n"; keep = $false; expected = "a" + [string][char]0xFFFD + "b" + [string][char]0xFFFD }
+        @{ name = "-keepLineBreaks なら、タブと改行は残す"; text = "a`tb`r`nc" + [string][char]1; keep = $true; expected = "a`tb`r`nc" + [string][char]0xFFFD }
+    ) {
+        param ($name, $text, $keep, $expected)
+        if ($keep) { formatDisplayText $text -keepLineBreaks | Should -BeExactly $expected }
+        else { formatDisplayText $text | Should -BeExactly $expected }
+    }
+}

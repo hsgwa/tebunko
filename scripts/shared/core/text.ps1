@@ -189,3 +189,25 @@ function testPlainFolderName {
     return !($name -eq "" -or $name -eq "." -or $name -eq ".." -or $name.Length -gt ${maxFileNameLength} -or
         $name.IndexOfAny(${invalidFileNameChars}) -ge 0)
 }
+
+# 画面に出す文字列で置き換える制御文字・向きを変える文字の並び（正規表現の [] の中。C1・DEL・U+061C・U+200E/F・U+202A-202E・U+2066-2069）。
+# C0（\x00-\x1F）は使う側が前に足す。formatDisplayText・testSourceBookName・HitRow の表示が同じ並びを使う
+${displayControlChars} = '\x7F-\x9F\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069'
+
+
+function formatDisplayText {
+    # インデックスから来た文字列を画面に出すときの表示用の文字列。制御文字（C0・C1）と向きを変える文字（U+202E など）を
+    # 置き換え文字（U+FFFD）にする。拡張子を偽って見せる・表示を崩すのを防ぐ。コピー・開くには元の値を使う。
+    # keepLineBreaks: タブ・改行は残す（本文の行の表示用）
+    param (
+        $text,
+        [switch]$keepLineBreaks
+    )
+
+    $pattern = if ($keepLineBreaks) {
+        '[\x00-\x08\x0B\x0C\x0E-\x1F' + ${displayControlChars} + ']'
+    } else {
+        '[\x00-\x1F' + ${displayControlChars} + ']'
+    }
+    return [regex]::Replace([string]$text, $pattern, [string][char]0xFFFD)
+}

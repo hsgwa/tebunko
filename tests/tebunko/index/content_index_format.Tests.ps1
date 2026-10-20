@@ -253,6 +253,20 @@ Describe "convertToContentIndexText / readContentIndexPlaces" -Tag Unit {
         $places[0].Location | Should -Be "S[図形]"
     }
 
+    It "ファイル名が取り込み対象の名前でない場所（<Book>）は返さず、前後の正しい場所は返す" -ForEach @(
+        @{ Book = "evil.hta" }
+        @{ Book = "..\x.xlsx" }
+        @{ Book = "%01a.txt" }
+        @{ Book = "a/b.txt" }
+    ) {
+        $mark = [string][char]0x1E
+        $text = "$mark 版=2`n$mark ファイル名=前.xlsx`n$mark シート=S`n$mark 対象=本文`nA`n" +
+            "$mark ファイル名=$Book`n$mark シート=T`n$mark 対象=本文`nB`n" +
+            "$mark ファイル名=後.docx`n$mark ページ=1`n$mark 対象=本文`nC`n"
+        $places = @(readContentIndexPlaces $text)
+        ($places | ForEach-Object { $_.Book }) -join "," | Should -Be "前.xlsx,後.docx"
+    }
+
     It "<Book> の <Target> の場所は、行の先頭がセル番地か（CellPrefixed）= <Expected>" -ForEach @(
         @{ Book = "a.xlsx"; Target = "図形"; Expected = $true }
         @{ Book = "a.xlsm"; Target = "図形"; Expected = $true }

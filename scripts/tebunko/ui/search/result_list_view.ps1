@@ -258,7 +258,7 @@ function prepareHitRow {
 
     $row.Prepare()
     if ($row.PlaceDisplay) { return }
-    $row.SetPlaceDisplay((describeHitPlace $row.PlaceText $row.IsExcel $row.IsObjectPlace $row.MatchCell $row.MatchCount $row.LineNumber $row.IsText))
+    $row.SetPlaceDisplay((formatDisplayText (describeHitPlace $row.PlaceText $row.IsExcel $row.IsObjectPlace $row.MatchCell $row.MatchCount $row.LineNumber $row.IsText)))
 }
 
 function sortFileGroups {
