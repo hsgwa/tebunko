@@ -43,6 +43,8 @@ class IngestDispatcher {
     hidden $Inflight
     # スレッドを使わないとき、SetInlineResult で預けた結果（Receive が取り出す）
     hidden $InlineResult
+    # 直近の Receive が受け取った取り込みの結果（諦めたワーカーが後回しにしたあとで返した結果は入れない。司令が種類ごとの時間を足すために読む）。
+    [object]$LastResult
 
     IngestDispatcher($targets, [string[]]$apps, [string[]]$bookFolders, $folderByName, $carried, [hashtable]$options) {
         # targets: 取り込む行の並び（相対パス列を持つ）。apps・bookFolders: targets と同じ並びの、最初に要る Office のアプリ（要らなければ空）・本文インデックスのフォルダ。
@@ -246,6 +248,7 @@ class IngestDispatcher {
         #   Stopped         … 中止を求められて、取り込まなかった・打ち切った（stopRequested のとき、回し直しも回さずにこれにする）。
         #                     @{ Kind; Entry; RelPath; First }。First は、今回初めて止めたとき（残りの件数は Remaining）
         # stopRequested: 画面から中止を求められているか（channel の Stop）
+        $this.LastResult = $null
         $result = $null
         if ($this.Pool) {
             $result = $this.receiveFromPool()
@@ -261,6 +264,7 @@ class IngestDispatcher {
             # 諦めたワーカーが、後回しにしたあとで返した結果。捨てる
             return $null
         }
+        $this.LastResult = $result
         if ($result.Stopped -or ($result.Reroute -and $stopRequested)) {
             # 中止を求められて、取り込まなかった・打ち切った。失敗にはしない（取り込み一覧は未取り込みのまま、インデックスは変えない）
             [void]$this.Inflight.Remove($result.RelPath)

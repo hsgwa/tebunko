@@ -102,6 +102,19 @@ function getIngestPhaseSeconds {
     return $seconds
 }
 
+function getIngestStageTimings {
+    # 受け渡しの口（channel）の StageTimings（段階ごとの時間と、種類ごとの時間。@{ Stages; Kinds }）を返す。
+    # 口に項目が無い前の版・まだ入っていないときは $null（任意のコミットを測るため、失敗にしない）
+    param (
+        $channel
+    )
+
+    if ($null -eq $channel -or !$channel.ContainsKey("StageTimings") -or $null -eq $channel["StageTimings"]) {
+        return $null
+    }
+    return $channel["StageTimings"]
+}
+
 function getOfficeVersions {
     # 入っている Office（Excel・Word・PowerPoint）のビルド番号を返す。取れないときは「不明」
     $versions = [ordered]@{}

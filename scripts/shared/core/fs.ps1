@@ -154,18 +154,29 @@ function invokeWithSourceCopy {
     # extraFiles は、読む処理が途中で作った作業ファイルの一覧（List[string]。読む処理の中で足してよい）。コピーと一緒に、あれば消す。
     # 消せなかったとき: 読む処理が例外なら、その例外をそのまま通す（消せなかったことは握る）。
     #   読む処理が成功したのに消せなかったときだけ「作業領域のコピーを消せませんでした: <元のメッセージ>」を投げる。
+    # timing（hashtable。既定 $null）を渡すと、copyFileShared にかかったミリ秒を timing['CopyMs'] に足す（無ければ作る）。性能の計測用。$null のときは何もしない。
     # readBlock は子のスコープで動くので、中で代入した変数は呼んだ側に残らない。要る値は出力（戻り値）で返す。
     # 読む処理の中の COM の呼び出しなどの出力が混ざらないよう、出力は [void]・$null = で捨て、返す値は最後に 1 つだけ出す
     param (
         [string]$sourcePath,
         [string]$copyPath,
         [scriptblock]$readBlock,
-        [System.Collections.Generic.List[string]]$extraFiles = $null
+        [System.Collections.Generic.List[string]]$extraFiles = $null,
+        [hashtable]$timing = $null
     )
 
     $removeError = $null
     try {
-        copyFileShared $sourcePath $copyPath
+        if ($null -ne $timing) {
+            $watch = [System.Diagnostics.Stopwatch]::StartNew()
+            try {
+                copyFileShared $sourcePath $copyPath
+            } finally {
+                $timing['CopyMs'] = [double]$timing['CopyMs'] + $watch.Elapsed.TotalMilliseconds
+            }
+        } else {
+            copyFileShared $sourcePath $copyPath
+        }
         # 読む処理の出力は、まとめずにそのまま呼んだ側へ流す（配列・hashtable・何も出さない、のどれも、直接呼んだときと同じ形で届く）
         & $readBlock
     } finally {

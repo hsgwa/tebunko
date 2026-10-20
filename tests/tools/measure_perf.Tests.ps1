@@ -732,6 +732,17 @@ Describe "取り込みの計測の部品（ingest_common.ps1）" -Tag Unit {
         $s["仕上げ"] | Should -Be 0.3
     }
 
+    It "受け渡しの口の StageTimings は、あれば返し、項目が無い・空なら何も返さない" -TestCases @(
+        @{ channel = @{ StageTimings = @{ Stages = @{ Total = 1.0 }; Kinds = @{} } }; has = $true }
+        @{ channel = @{ StageTimings = $null }; has = $false }
+        @{ channel = @{ Progress = 1 }; has = $false }
+        @{ channel = $null; has = $false }
+    ) {
+        param ($channel, $has)
+        $r = getIngestStageTimings $channel
+        if ($has) { $r.Stages.Total | Should -Be 1.0 } else { $r | Should -BeNullOrEmpty }
+    }
+
     It "<name>は失敗にする" -TestCases @(
         @{ name = "取り込みの段階が読めなかったとき"; phases = @(@{ Name = "クロール"; StartMs = 0; EndMs = 500 }, @{ Name = "仕上げ"; StartMs = 500; EndMs = 700 }); message = "*取り込みの段階が読めませんでした*" }
         @{ name = "段階が 1 つも読めなかったとき"; phases = @(); message = "*取り込みの段階が読めませんでした*" }
