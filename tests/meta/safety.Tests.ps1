@@ -352,6 +352,44 @@ Describe "危険な処理を使っていないこと（docs/safety/checks.md「�
         (findPattern $code $script:bannedCodePatterns.Registry) | Should -Be ""
     }
 
+    It "レジストリの検査は <label> を見つける" -TestCases @(
+        @{ label = ".NET の Registry の OpenSubKey"; line = "[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Software\x')" }
+        @{ label = ".NET の RegistryKey の OpenBaseKey"; line = "`$k = [Microsoft.Win32.RegistryKey]::OpenBaseKey('CurrentUser', 'Default')" }
+        @{ label = "using namespace の後の [Registry]"; line = "[Registry]::LocalMachine" }
+        @{ label = "Registry:: プロバイダー"; line = "Get-ChildItem 'Registry::HKEY_CURRENT_USER\Software'" }
+        @{ label = "New-PSDrive -PSProvider Registry"; line = "New-PSDrive -Name R -PSProvider Registry -Root x" }
+        @{ label = "HKCR ドライブ"; line = "Get-Item HKCR:\.txt" }
+        @{ label = "Remove-ItemProperty"; line = "Remove-ItemProperty -Path `$p -Name x" }
+        @{ label = "WScript.Shell の RegRead"; line = "(New-Object -ComObject WScript.Shell).RegRead(`$p)" }
+        @{ label = "WMI の StdRegProv"; line = "Invoke-CimMethod -ClassName StdRegProv -MethodName GetStringValue" }
+        @{ label = "reg.exe query"; line = "& reg.exe query x" }
+        @{ label = "reg add"; line = "reg add x /v y" }
+        @{ label = "CreateSubKey"; line = "`$k.CreateSubKey('x')" }
+        @{ label = "小文字の型名"; line = "[microsoft.win32.registry]::currentuser" }
+    ) {
+        param ($label, $line)
+        $file = Join-Path $TestDrive "registry_hit.ps1"
+        [System.IO.File]::WriteAllText($file, $line + "`r`n", (New-Object System.Text.UTF8Encoding($true)))
+        (findPattern (getCodeLines @($file)) $script:bannedCodePatterns.Registry) | Should -Not -Be ""
+    }
+
+    It "レジストリの検査は <label> を見つけない" -TestCases @(
+        @{ label = "コメント行"; line = "# [Microsoft.Win32.Registry] は使わない" }
+        @{ label = "行末のコメント"; line = "`$a = 1 # OpenSubKey は使わない" }
+        @{ label = "registered を含む変数名"; line = "`$registered = `$true" }
+        @{ label = "regex"; line = "`$regex = [regex]'a'" }
+        @{ label = "リフレクションの GetValue"; line = "`$field.GetValue(`$obj)" }
+        @{ label = "Get-CimInstance"; line = "Get-CimInstance -ClassName Win32_LogicalDisk" }
+        @{ label = "Get-ItemProperty"; line = "Get-ItemProperty -LiteralPath `$file" }
+        @{ label = "SaveFileDialog"; line = "[Microsoft.Win32.SaveFileDialog]::new()" }
+        @{ label = "using namespace Microsoft.Win32"; line = "using namespace Microsoft.Win32" }
+    ) {
+        param ($label, $line)
+        $file = Join-Path $TestDrive "registry_miss.ps1"
+        [System.IO.File]::WriteAllText($file, $line + "`r`n", (New-Object System.Text.UTF8Encoding($true)))
+        (findPattern (getCodeLines @($file)) $script:bannedCodePatterns.Registry) | Should -Be ""
+    }
+
     It "権限・サービス・自動起動を変更しない" {
         (findPattern $code $script:bannedCodePatterns.PrivilegeService) | Should -Be ""
     }
