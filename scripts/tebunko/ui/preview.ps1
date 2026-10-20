@@ -90,7 +90,7 @@ function applyDetail {
     $path = if ($row.RelDir) { "$($row.RelDir)\$($row.Book)" } else { $row.Book }
     $table = $row.BuildPreview([int[]]@($context | ForEach-Object { $_.LineNumber }), [string[]]@($context | ForEach-Object { $_.Line }))
 
-    $title = "${path} ・ $($row.PlaceDisplay) ・ $($row.Kind)"
+    $title = formatDisplayText "${path} ・ $($row.PlaceDisplay) ・ $($row.Kind)"
     $ui.DetailTitle.Text = $title
     $ui.DetailTitle.ToolTip = $title
 

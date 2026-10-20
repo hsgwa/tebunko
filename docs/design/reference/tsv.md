@@ -51,6 +51,7 @@
 | `toSafeFileName` | name | string | ファイル名禁止文字を全角に置換 | [インデックス作成](../indexing/index.md) | インデックス名（newIndexName・getTargetFolders）、シート名の照合（画面。元のファイルを開くとき） |
 | `getFolderNameProblemText` | name, allowReserved（既定 `$false`） | string（問題の文。使えれば空） | フォルダ名として使えるか（空・前後の空白・長すぎる・使えない文字・最後の `.`・予約名）。allowReserved が `$true` のときは予約名（`aux.backup` など）を拒まない（既にある実在のフォルダの名前を空にしないため。新しく付ける名前には使わない）。どのツールからも使う | 同上 | testIndexName, testStoredIndexName, newIndexName, getTargetFolders, readStatusFile |
 | `testPlainFolderName` | name | bool | 外へ出ず名前のとおりに作れるフォルダ名か（空・`.`・`..`・長すぎる・使えない文字だけを拒む。予約名・最後の `.` や空白は問わない） | 同上 | readStatusFile（`LegacyFolders` の判定） |
+| `formatDisplayText` | text, keepLineBreaks（スイッチ） | string | インデックスから来た文字列を画面に出すときの表示用の文字列。制御文字（C0・C1）と向きを変える文字（U+202E など。並びは `$displayControlChars`）を U+FFFD にする。`keepLineBreaks` ではタブ・改行を残す。コピー・開くには元の値を使う | [元のファイルを開く](../gui/open-file.md) | newFileGroup, addFileGroupLocation, openFoundSource ほか結果の表の表示 |
 
 日時の文字列は `formatTime`（time → string。当日なら `H:mm`、それ以前は `M/d H:mm`。`$null` は空。判断層の `search_bar_view.ps1` と画面層が使う）も `text.ps1` にある。
 
@@ -67,7 +68,7 @@
 | 関数 | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
 | `testTextExtension` | path | bool | 拡張子が対象のテキストの拡張子（`$textExtensions`。大文字・小文字を区別しない）か | ingestFile, getContentIndexFileKind, describePlace, findTargetFiles（`$targetExtensions`） |
-| `testTextOpenWithNotepad` | path | bool | 拡張子が、既定のアプリではなくメモ帳で開く拡張子（`$textNotepadExtensions`。開くと実行・登録になるもの。大文字・小文字を区別しない）か | openFoundSource（[元のファイルを開く](../gui/open-file.md)） |
+| `testTextOpenWithNotepad` | path | bool | 拡張子が、既定のアプリではなくメモ帳で開く拡張子（`$textNotepadExtensions`。開くと実行・登録になるもの。大文字・小文字を区別しない。終わりの `.` と空白は Windows が無視して開くので、落としてから見る）か | openFoundSource（[元のファイルを開く](../gui/open-file.md)） |
 | `detectTextEncoding` | bytes | string / `$null` | バイト列だけから文字コード（`UTF8` / `UTF16LE` / `UTF16BE` / `ShiftJIS` / `EUCJP` / `ISO2022JP`）を判定する。判定できない・あいまいなものは `$null`（取り込まない） | readTextFile |
 | `detectJapaneseUtf16WithoutNul` | bytes | string / `$null` | NUL の無い BOM 無し UTF-16（日本語だけの文章）を、かなの割合と日本語の文章に出る文字の割合で判定する（`UTF16LE` / `UTF16BE`） | detectTextEncoding |
 | `getIso2022JpVerdict` | bytes | string | ISO-2022-JP かの判定（`yes` / `broken`（ESC $ B があるが 8 ビット・規格外の ESC がある）/ `none`） | detectTextEncoding |

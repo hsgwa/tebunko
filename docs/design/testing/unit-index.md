@@ -15,6 +15,7 @@ flowchart LR
 | 対象 | 主な確認内容 |
 |---|---|
 | `toSafeFileName`・`getFolderNameProblemText`・`testPlainFolderName`（`text.Tests.ps1`。ファイルに触らない単体テスト） | 禁止文字の全角化、`/` → `／`、`"` → `”`、使用可能文字は不変。フォルダ名の確かめ（空・前後の空白・長すぎる・使えない文字・最後の `.`・予約名） |
+| `testSourceBookName`（`index_name.Tests.ps1`）・`formatDisplayText`（`text.Tests.ps1`） | 取り込み対象の拡張子（Office・テキスト・PDF）だけ真、`.hta`・`.lnk`・`.exe`・拡張子なし・区切りや `..`・`:`・制御文字・向きを変える文字を含む名前・終わりの `.` や空白で拡張子を隠した名前は偽。表示用の文字列は制御文字・向きを変える文字を U+FFFD にし、タブ・改行は `keepLineBreaks` のときだけ残す |
 | `toLongPath` / `fromLongPath`・長いパス | `\\?\`・`\\?\UNC\` の付け外し、260 文字を超えるパスの読み書き |
 | `copyFileShared` | ほかのアプリが書き込み用に開いているファイルもコピーでき、コピー中もほかのアプリの書き込みを妨げない |
 | `invokeWithSourceCopy` | 読む処理の戻り値・出力をそのまま返す、読む処理が失敗してもコピーと追加のファイルを消す、読めたのにコピーを消せないときは取り込みの失敗にする、元のファイルが無いときは読む処理を呼ばない |

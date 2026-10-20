@@ -148,6 +148,17 @@ Describe "newFileGroup" -Tag Unit {
         $script:fileGroups["c:\共有\MITSUMORI.XLSX"] | Should -Be $group
     }
 
+    It "表に出す値（BookDisplay・RelDirDisplay・FullPathDisplay）は、向きを変える文字・制御文字を置き換え、開く・コピー用の値は元のまま" {
+        $rlo = [string][char]0x202E
+        $group = newFileGroup "C:\共有\営業${rlo}\見積${rlo}slx.xlsx" "営業${rlo}" "見積${rlo}slx.xlsx"
+
+        $group.BookDisplay | Should -Be "見積$([char]0xFFFD)slx.xlsx"
+        $group.RelDirDisplay | Should -Be "営業$([char]0xFFFD)"
+        $group.FullPathDisplay | Should -Be "C:\共有\営業$([char]0xFFFD)\見積$([char]0xFFFD)slx.xlsx"
+        $group.Book | Should -Be "見積${rlo}slx.xlsx"
+        $group.FullPath | Should -Be "C:\共有\営業${rlo}\見積${rlo}slx.xlsx"
+    }
+
     It "［すべて開く］のあとに見つかったファイルは開いておく" {
         $script:expandNew = $true
         (newFileGroup "C:\共有\見積.xlsx" "" "見積.xlsx").IsExpanded | Should -Be $true
@@ -172,6 +183,16 @@ Describe "getPlace・addFileGroupLocation" -Tag Unit {
         addFileGroupLocation $group "見積.xlsx" "6月"
         $group.LocationText | Should -Be "[シート]4月 ほか 2 か所"
         $group.LocationPrefix | Should -Be "[シート]4月 ほか 2 か所 ・ "
+    }
+
+    It "見出しの右端の場所は、シート名の向きを変える文字を置き換える" {
+        $rlo = [string][char]0x202E
+        $group = newFileGroup "C:\共有\見積.xlsx" "" "見積.xlsx"
+        addFileGroupLocation $group "見積.xlsx" "4月${rlo}"
+        addFileGroupLocation $group "見積.xlsx" "5月"
+        $group.LocationText | Should -Be "[シート]4月$([char]0xFFFD) ほか 1 か所"
+        $group.LocationPrefix | Should -Be "[シート]4月$([char]0xFFFD) ほか 1 か所 ・ "
+        $group.LocationText | Should -Not -Match $rlo
     }
 
     It "図形の場所は元のシートと同じ表記なので増やさない" {
@@ -840,7 +861,7 @@ Describe "結果の表の定義（search\result_list.xaml）" -Tag Unit {
 
     It "行の名前を付ける（見出しはファイル名、ヒットの行は場所）" {
         $names = @($resultGrid.SelectNodes("p:DataGrid.RowStyle//p:Setter[@Property='AutomationProperties.Name']", $ns) | ForEach-Object { $_.GetAttribute("Value") })
-        $names | Should -Be @("{Binding Book}", "{Binding PlaceDisplay}")
+        $names | Should -Be @("{Binding BookDisplay}", "{Binding PlaceDisplay}")
         $resultGrid.SelectNodes("p:DataGrid.RowStyle//p:Setter[@Property='AutomationProperties.HelpText']", $ns).Count | Should -Be 1
     }
 

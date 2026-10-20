@@ -561,3 +561,33 @@ Describe "newIndexName（入れ子の集合）" -Tag Unit {
         newIndexName "C:\data\営業" @(, $set) | Should -Be "営業(2)"
     }
 }
+
+Describe "testSourceBookName" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "Office の拡張子"; book = "a.xlsx"; expected = $true }
+        @{ name = "大文字の拡張子"; book = "a.TXT"; expected = $true }
+        @{ name = "PDF"; book = "a.pdf"; expected = $true }
+        @{ name = "末尾のピリオドは Windows が無視するので、拡張子は手前で見る"; book = "a.xlsx."; expected = $true }
+        @{ name = "末尾の空白も同じ"; book = "a.txt "; expected = $true }
+        @{ name = "日本語の名前"; book = "見積（最終）.docx"; expected = $true }
+        @{ name = "取り込み対象でない拡張子（.hta）"; book = "a.hta"; expected = $false }
+        @{ name = "ショートカット（.lnk）"; book = "a.lnk"; expected = $false }
+        @{ name = "インターネットショートカット（.url）"; book = "a.url"; expected = $false }
+        @{ name = "実行ファイル（.exe）"; book = "a.exe"; expected = $false }
+        @{ name = "マクロ入りテンプレート（.dotm）は対象外"; book = "a.dotm"; expected = $false }
+        @{ name = "上の階層を指す名前"; book = '..\a.xlsx'; expected = $false }
+        @{ name = "区切り（\）を含む名前"; book = 'sub\a.xlsx'; expected = $false }
+        @{ name = "区切り（/）を含む名前"; book = "a/b.txt"; expected = $false }
+        @{ name = "代替データストリームの指定"; book = "a.xlsm::`$DATA"; expected = $false }
+        @{ name = "表示の向きを変える文字（RLO）を含む名前"; book = "a" + [string][char]0x202E + "txt.exe"; expected = $false }
+        @{ name = "制御文字（U+0001）を含む名前"; book = "a" + [string][char]1 + ".txt"; expected = $false }
+        @{ name = "C1 制御文字（U+0085）を含む名前"; book = "a" + [string][char]0x85 + ".txt"; expected = $false }
+        @{ name = "ピリオドだけ"; book = "."; expected = $false }
+        @{ name = "ピリオド 2 つ"; book = ".."; expected = $false }
+        @{ name = "拡張子が無い"; book = "readme"; expected = $false }
+        @{ name = "空"; book = ""; expected = $false }
+    ) {
+        param ($name, $book, $expected)
+        testSourceBookName $book | Should -Be $expected
+    }
+}

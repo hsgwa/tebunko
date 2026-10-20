@@ -114,13 +114,23 @@ Describe "testTextOpenWithNotepad" -Tag Unit {
         @{ name = ".js はメモ帳（実行になるため）"; path = "a.js"; expected = $true }
         @{ name = ".reg はメモ帳（登録になるため）"; path = "a.reg"; expected = $true }
         @{ name = ".sh はメモ帳（実行になるため）"; path = "a.sh"; expected = $true }
-        @{ name = ".py は既定のアプリ"; path = "a.py"; expected = $false }
+        @{ name = ".py はメモ帳（解釈器で実行になるため）"; path = "a.py"; expected = $true }
+        @{ name = ".PHP はメモ帳（大文字でも）"; path = "a.PHP"; expected = $true }
+        @{ name = ".rb・.pl・.lua はメモ帳"; path = "a.rb"; expected = $true }
+        @{ name = ".pl はメモ帳"; path = "a.pl"; expected = $true }
+        @{ name = ".lua はメモ帳"; path = "a.lua"; expected = $true }
+        @{ name = ".mjs はメモ帳"; path = "a.mjs"; expected = $true }
+        @{ name = ".psm1 はメモ帳"; path = "a.psm1"; expected = $true }
+        @{ name = ".psd1 はメモ帳"; path = "a.psd1"; expected = $true }
+        @{ name = "末尾のピリオドは Windows が無視するので、メモ帳（evil.js.）"; path = "evil.js."; expected = $true }
+        @{ name = "末尾の空白は Windows が無視するので、メモ帳（evil.ps1 ）"; path = "evil.ps1 "; expected = $true }
         @{ name = ".java は既定のアプリ"; path = "a.java"; expected = $false }
         @{ name = ".cpp は既定のアプリ"; path = "a.cpp"; expected = $false }
         @{ name = ".txt は既定のアプリ"; path = "a.txt"; expected = $false }
+        @{ name = ".html は既定のアプリ"; path = "a.html"; expected = $false }
+        @{ name = ".csv は既定のアプリ"; path = "a.csv"; expected = $false }
+        @{ name = ".md は既定のアプリ"; path = "a.md"; expected = $false }
         @{ name = ".vb（Visual Basic のソース）は既定のアプリ（.vbs と混同しない）"; path = "a.vb"; expected = $false }
-        @{ name = ".psm1（PowerShell モジュール）は既定のアプリ（.ps1 と混同しない）"; path = "a.psm1"; expected = $false }
-        @{ name = ".mjs（JavaScript モジュール）は既定のアプリ（.js と混同しない）"; path = "a.mjs"; expected = $false }
         @{ name = ".jsx は既定のアプリ（.js と混同しない）"; path = "a.jsx"; expected = $false }
     ) {
         param ($name, $path, $expected)
@@ -301,7 +311,7 @@ Describe "readTextFile" -Tag Io {
 Describe "readTextFile（対象の拡張子ごとの実ファイル。tests\testdata\text）" -Tag Io {
     BeforeDiscovery {
         ${textSampleDir} = (Resolve-Path "$PSScriptRoot\..\..\testdata\text").Path
-        ${notepadExtSet} = @(".bat", ".cmd", ".ps1", ".vbs", ".js", ".reg", ".sh")
+        ${notepadExtSet} = @(".bat", ".cmd", ".ps1", ".vbs", ".js", ".reg", ".sh", ".py", ".rb", ".pl", ".php", ".lua", ".mjs", ".psm1", ".psd1")
         ${sampleFiles} = Get-ChildItem ${textSampleDir} -File |
             Where-Object { $_.Name -notin @("make_testdata.ps1", "大きいテキスト.log") }
         ${sampleCases} = ${sampleFiles} | ForEach-Object {
