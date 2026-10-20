@@ -4312,7 +4312,7 @@
 </tr>
 </tbody>
 </table>
-<p>CI（<code>test.yml</code> の <code>test</code>）は、版を 1.25.0 に固定した PSScriptAnalyzer で <code>Error</code> 重大度の指摘が 0 件であることを確かめ、1 件でもあれば失敗する（版を固定するのは、新しい版でルールが増えてもコードを変えずに CI が落ちないようにするため）。<code>tests/meta/safety.Tests.ps1</code> の「サードパーティの静的解析」は、PSScriptAnalyzer が入っている環境で、安全性の 14 ルール・<code>Error</code> 重大度・制限言語モードの指摘が 0 件であることを確かめる（入っていない環境では飛ばす）。</p>
+<p>CI（<code>test.yml</code> の <code>test</code>）の検査は、下の段落のとおり <code>tools/check_analyzer.ps1</code> がベースラインと比べる（版は 1.25.0 に固定する。新しい版でルールが増えてもコードを変えずに CI が落ちないようにするため）。<code>tests/meta/safety.Tests.ps1</code> の「サードパーティの静的解析」は、PSScriptAnalyzer が入っている環境で、安全性の 14 ルール・<code>Error</code> 重大度・制限言語モードの指摘が 0 件であることを確かめる（入っていない環境では飛ばす）。</p>
 <p>有効にしている安全性のルールは次の 14 件である。設定ファイルからルールを削って「0 件」にする抜け道を防ぐため、この 14 件が設定に含まれていることも <code>tests/meta/safety.Tests.ps1</code> で検査している。</p>
 <table>
 <thead>
@@ -4348,7 +4348,7 @@
 </tr>
 </tbody>
 </table>
-<p>全ルールで出る 262 件の内訳は次のとおりで、<strong>すべて書き方（可読性・保守性）のルール</strong>である。安全性の判断には関わらない。</p>
+<p>次の表は、この検査を広げる前に <code>scripts/</code> だけを測った 262 件の内訳で、件数は古い。今の件数は <code>tests/meta/PSScriptAnalyzer.baseline.tsv</code> にある（<code>scripts/</code>・<code>tools/</code>・<code>tests/</code> を Windows PowerShell 5.1 で数えたもの）。各規則の理由は今も変わらず、<strong>すべて書き方（可読性・保守性）のルール</strong>である。安全性の判断には関わらない。</p>
 <table>
 <thead>
 <tr>
@@ -4395,6 +4395,7 @@
 </tr>
 </tbody>
 </table>
+<p>CI は、<code>scripts/</code>・<code>tools/</code>・<code>tests/</code> の全部に <code>tools/check_analyzer.ps1</code> で PSScriptAnalyzer をかけ、上の表のうち書き方の誤りと言えない 5 つの規則（<code>PSAvoidUsingPositionalParameters</code>・<code>PSReviewUnusedParameter</code>・<code>PSAvoidAssignmentToAutomaticVariable</code>・<code>PSUseDeclaredVarsMoreThanAssignments</code>・<code>TypeNotFound</code>）を除いた指摘を、ファイルと規則ごとの件数で <code>tests/meta/PSScriptAnalyzer.baseline.tsv</code> と比べる（増えても減っても失敗）。<code>tests/</code> にだけは、テストの補助が進み具合を出す <code>PSAvoidUsingWriteHost</code> と、Pester のモックが状態を渡す <code>PSAvoidGlobalVars</code> も除く。あわせて、Windows PowerShell 5.1 に無い構文（<code>PSUseCompatibleSyntax</code>）と、<code>scripts/</code>・<code>tools/</code> の 5.1 に無いコマンド（<code>PSUseCompatibleCommands</code>）を止める。<code>TypeNotFound</code>（構文解析の指摘で、規則では除けない）と、テキスト抽出の見本（<code>tests/testdata/text/</code>。中身が文章で、チェックアウトの改行で指摘が変わる）の指摘は、<code>tools/analyzer_baseline.ps1</code> の <code>selectAnalyzerFindings</code> が数えない。除く規則は <code>tests/meta/PSScriptAnalyzer.psd1</code>・<code>PSScriptAnalyzer.tests.psd1</code> にあり、<code>tests/meta/analyzer.Tests.ps1</code> が一覧を確かめる。</p>
 <p>なお <code>tests/testdata/make_testdata.ps1</code> には <code>PSAvoidUsingPlainTextForPassword</code> の指摘が 7 件出る。パスワード付きの Office ファイルを<strong>テストデータとして作る</strong>スクリプトであり、パスワードは固定のテスト用文字列である。配布 zip には含まれない。</p>
 <h2 id="マルウェア検査-microsoft-defender外部への送信なし">マルウェア検査: Microsoft Defender（外部への送信なし）<a class="headerlink" href="#マルウェア検査-microsoft-defender外部への送信なし" title="Permanent link">&para;</a></h2>
 <p>ローカルのウイルス対策エンジンでフォルダを検査する。ファイルを外部へ送信しないため、社内限りのコードでも実行できる。</p>
