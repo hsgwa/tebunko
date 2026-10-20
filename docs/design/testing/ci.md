@@ -24,7 +24,7 @@ GitHub Actions のワークフローは次のとおり。使うアクション�
 | `codeql.yml` | `analyze`（ほか `pr-comment`） | PR、main への push、毎週 1 回 | ワークフローの静的解析 | ○ |
 | `scorecard.yml` | `analysis` | main への push、ブランチ保護の変更、毎週 1 回 | OpenSSF Scorecard の採点 | – |
 | `release.yml` | `guard`・`test`・`release` | `v` で始まるタグの push、手動（`workflow_dispatch`。タグを打たずに配布物を作る手順だけ試す） | テストのうえ、配布 zip とインストーラーを GitHub Release に載せる | – |
-| `gui.yml` | `gui-smoke`（ほか `pr-comment`） | PR、main への push | 本物の画面を windows ランナーで開き、画面遷移（[画面のスモークテスト](gui-smoke.md)）を UI オートメーションで確かめる | –（必須にしない。しばらく安定して通ることを見てから、持ち主が決める） |
+| `gui.yml` | `gui-smoke`（ほか `pr-comment`・手動の `gui-repeat`） | PR、main への push | 本物の画面を windows ランナーで開き、画面遷移（[画面のスモークテスト](gui-smoke.md)）を UI オートメーションで確かめる | –（必須にしない。しばらく安定して通ることを見てから、持ち主が決める） |
 | `perf.yml` | `perf` | 手動（`workflow_dispatch`） | Office からの取り込み（.docx・.pptx）・本文インデックスの作成・検索の速さとリソースの推移を測る | – |
 | `gram.yml` | `gram`（perfdata・zipf の 2 つ） | 手動（`workflow_dispatch`） | 2-gram 索引の形ごとの大きさ・作成と検索の時間・最大メモリを測る（`tools/measure_gram.ps1`） | – |
 | `perf-check.yml` | `search`・`ingest`（ほか `pr-comment`） | PR にラベル `perf-check` を付けたとき（付けたあとの push でも）、main への push（速さに効くファイルが変わったとき）、手動 | 検索・本文インデックスの作成・取り込み（.docx・.pptx）の速さを上限と比べる（回帰テスト） | –（流した PR で落ちていればマージしない） |
@@ -72,6 +72,7 @@ PR と Issue のタイトルを `tools/check_commit_message.ps1 -Title` で確�
 - `tests\run.ps1 -Ci` は使わない。カバレッジの下限を確かめるが、画面は別のプロセスで動くので計測できず、`Gui` だけを流すと下限を割るため
 - 1 回に 8〜9 分ほどかかる（場面ごとの秒数は各場面の出力に出る）。`timeout-minutes` は 20。同じブランチに続けて push したときは、古い実行を取り消す（`concurrency`）
 - 落ちたときの材料（画面の画像・写した先の `gui_error_log.txt`・`indexing_log.txt`・窓の一覧）は、成否にかかわらず成果物 `gui-smoke-results`（`work/test/gui/<場面>/`）として保存する
+- **稀な落ち方の率は `gui-repeat` で測る。** `gui.yml` の `gui-repeat` は、画面を閉じる場面と起動失敗の記録のテスト（入力 `paths` の既定の 4 ファイル）を `repeat` 回（既定 50、上限 50）、5 本の matrix（`shard`）に分けて流す。1 本は `repeat / 5` 回で、`timeout-minutes` は 90。途中で落ちても続け、回ごとに「成功・終了コード 5・閉じない・記録の待ち切れ・そのほか」を数え、集計の job（`gui-repeat-summary`）が Summary に表で書く。落ちた回の材料は成果物 `gui-repeat-<shard>` に残る。手動（`workflow_dispatch`）のときだけ動き、PR・push の `gui-smoke` は変えない（手動で呼ぶと `gui-smoke` も一緒に動く）。測っている間に push すると `concurrency` で取り消されるので、push しない
 - **落ちたときの再実行は 1 回まで。** 2 回続けて同じ段階で落ちたら、偶然ではなく直すものとして扱う（画面の文言を変えたときは、探している文言のテストを直す）
 - **S6 も手元で流す。** 既定のワークスペースは環境変数 `TEBUNKO_DEFAULT_WORKSPACE` で差し替えた場所で画面を起動するため、利用者の既定のワークスペースには触れない
 - ツールは `scripts/` を `$TestDrive` に写して起動し、設定ファイルもワークスペースも写した先に置く。作業ツリーの `setting.config`・`work\index`、`%LOCALAPPDATA%\tebunko`、`Documents\tebunko_ws` が、流す前後で変わらないことも各場面で確かめる
