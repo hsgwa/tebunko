@@ -8,6 +8,7 @@
 #   ・失敗したら、画面の画像とログを work\test\gui\<場面>\ に残す（CI は成果物に上げる）
 # 詳細は docs\design\testing\gui-smoke.md「画面のスモークテスト」。
 
+. "$PSScriptRoot\..\helpers\process.ps1"
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Drawing, System.Windows.Forms
 
 # 既定のワークスペースを求める・前後を比べる関数（tools\run_isolated.ps1・tests\run.ps1 と同じもの）
@@ -184,12 +185,9 @@ function stopGui {
     param ($S)
 
     foreach ($extra in @($S.Extra)) {
-        if ($extra -and !$extra.HasExited) { Stop-Process -Id $extra.Id -Force -ErrorAction SilentlyContinue }
+        if ($extra) { stopStartedProcess $extra }
     }
-    if ($S.Process -and !$S.Process.HasExited) {
-        Stop-Process -Id $S.Process.Id -Force -ErrorAction SilentlyContinue
-        [void]$S.Process.WaitForExit(10000)
-    }
+    if ($S.Process) { stopStartedProcess $S.Process }
     foreach ($item in @($S.Async)) {
         try {
             if ($item.Result.IsCompleted) { $item.Shell.Dispose() } else { [void]$item.Shell.BeginStop($null, $null) }

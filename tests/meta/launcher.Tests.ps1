@@ -11,6 +11,7 @@ BeforeDiscovery {
 }
 
 BeforeAll {
+    . "$PSScriptRoot\..\helpers\process.ps1"
     $here = (Resolve-Path "$PSScriptRoot\..").Path
     $rootDir = (Resolve-Path "$here\..").Path
     $launcherPath = "$rootDir\tebunko.bat"
@@ -119,9 +120,7 @@ BeforeAll {
                 throw "起動が $TimeoutMs ミリ秒以内に終わらなかった"
             }
         } finally {
-            if (-not $process.HasExited) {
-                Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-            }
+            stopStartedProcess $process
         }
         return $process
     }
@@ -204,10 +203,10 @@ exit 0
                 $lines = @(Get-Content -LiteralPath $marker -Encoding UTF8)
             }
         } finally {
-            if (-not $cmdProcess.HasExited) { Stop-Process -Id $cmdProcess.Id -Force -ErrorAction SilentlyContinue }
+            stopStartedProcess $cmdProcess
             if ($lines.Count -ge 2 -and $lines[1] -match '^\d+$') {
                 # 止めずに、終わるのを待つだけ
-                Wait-Process -Id ([int]$lines[1]) -Timeout 5 -ErrorAction SilentlyContinue
+                waitProcessIdExit ([int]$lines[1]) 5000
             }
         }
         $startupError = Join-Path $Tool.Root "startup_error.txt"

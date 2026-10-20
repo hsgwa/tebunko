@@ -176,9 +176,7 @@ Describe "reportStartupFailure（記録の経路の切り替え）" -Tag Gui {
     }
 
     AfterEach {
-        if ($script:scenarioProcess -and -not $script:scenarioProcess.HasExited) {
-            Stop-Process -Id $script:scenarioProcess.Id -Force -ErrorAction SilentlyContinue
-        }
+        if ($script:scenarioProcess) { stopStartedProcess $script:scenarioProcess }
     }
 
     It "app_host.ps1 を読み込む前は、ツールのフォルダの startup_error.txt に記録する" {
