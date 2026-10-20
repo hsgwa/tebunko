@@ -5,6 +5,10 @@
 #   .\tools\run_isolated.ps1 -WaitSeconds 30     画面を 30 秒だけ開き、過ぎたら起動した PID とその子だけを止める
 #   .\tools\run_isolated.ps1 -Settings @{ ... }    写しの setting.config に書く項目（targetFolders など）
 #   .\tools\run_isolated.ps1 -Command { param ($ToolDir, $Workspace) ... }   画面を開かず、写しの場所と使い捨てのワークスペースを受け取って任意の確かめを流す
+#   .\tools\run_isolated.ps1 -ToolDir <展開した配布物の tebunko フォルダ> -Entry indexer -Settings @{ ... }   古い版（フォルダ）を隔てて動かす
+#   .\tools\run_isolated.ps1 -ToolScript <単一 .ps1> -Entry indexer -Settings @{ ... }                       古い版（単一 .ps1）を隔てて動かす
+#   -Entry gui|indexer で起動するものを選ぶ（既定 gui）。-ToolArgs は起動するものの後ろにそのまま足す。
+#   古い版・配布物は、必ずこの道具を通して起動する（TEBUNKO_DEFAULT_WORKSPACE を読まない版もあるため）。
 #
 # 流れ:
 #   1. %TEMP% の下の新しいフォルダに、ツールの写し（scripts\ と tebunko.bat。-Single なら単一 .ps1）と、使い捨てのワークスペースを作る。
@@ -13,12 +17,25 @@
 #   4. 起動の前後で、既定のワークスペースと、写し元のリポジトリの setting.config・work\ の名前・大きさ・更新時刻を比べる
 #      （中身は読まない）。違いがあれば一覧を出して終了コード 1。
 #   5. 使い捨てのフォルダは終わったら消す。起動したプロセスは PID を出す（止めるときは PID で止める）。
+#
+# -ToolDir・-ToolScript のとき（古い版）は、上に加えて次を行う。
+#   - 写しの横の setting.config の workspaceFolder に使い捨てのワークスペースを必ず入れる（環境変数を読まない版でも書き先を固定する）。
+#     -Settings に workspaceFolder があれば起動しない。
+#   - 起動する子プロセスだけ、USERPROFILE・APPDATA・LOCALAPPDATA・TEMP・TMP・TEBUNKO_DEFAULT_WORKSPACE を使い捨ての下に向ける。
+#   - -ToolDir は起動の前に、写しの lib.ps1 で設定ファイルと work の場所を求めて確かめる。-ToolScript は読み込んで確かめる口が無いので、
+#     起動後の判定で守る。
+#   - 起動後、使い捨てのワークスペースに 1 つもファイルができていなければ終了コード 1（よそに書いた合図）。
 param (
     [switch]$Single,
     [hashtable]$Settings = @{},
     [scriptblock]$Command,
     [int]$WaitSeconds = 0,     # 画面を待つ秒数（0 は閉じるまで待つ）。過ぎたら、起動した PID とその子だけを止める
-    [string]$RealWorkspace     # 既定のワークスペースの代わりに比べる場所（テスト用。既定は利用者の既定のワークスペース）
+    [string]$RealWorkspace,    # 既定のワークスペースの代わりに比べる場所（テスト用。既定は利用者の既定のワークスペース）
+    [string]$ToolDir,          # 古い版（展開した配布物の tebunko フォルダ。scripts\ と tebunko.bat がある）。元のフォルダには書かない
+    [string]$ToolScript,       # 古い版（単一 .ps1）。-ToolDir とは同時に指定できない
+    [ValidateSet("gui", "indexer")]
+    [string]$Entry = "gui",    # 起動するもの
+    [string[]]$ToolArgs = @()  # 起動するものの後ろにそのまま足す引数
 )
 
 $ErrorActionPreference = "Stop"
@@ -27,9 +44,11 @@ $repoRoot = [System.IO.Path]::GetFullPath("$PSScriptRoot\..")
 . ([WildcardPattern]::Escape("$PSScriptRoot\isolation\isolation_common.ps1".Replace('`', '``')))
 
 function getIsolatedProbeResult {
-    # 使い捨ての環境で、写しの設定ファイルの場所と work の場所を求める（子プロセス。書き込まない）
+    # 使い捨ての環境で、写しの設定ファイルの場所と work の場所を求める（子プロセス。書き込まない）。lib.ps1 が無ければ空
     param ([string]$ScriptsDir, [string]$Base, [string]$WorkspaceDir)
 
+    $lib = Join-Path $ScriptsDir "tebunko\lib.ps1"
+    if (!(Test-Path -LiteralPath $lib -PathType Leaf)) { return @{} }
     $probe = Join-Path $Base "probe.ps1"
     $text = @'
 param([string]$Lib)
@@ -41,7 +60,7 @@ param([string]$Lib)
     $previous = $env:TEBUNKO_DEFAULT_WORKSPACE
     $env:TEBUNKO_DEFAULT_WORKSPACE = $WorkspaceDir
     try {
-        $lines = @(& powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File $probe -Lib (Join-Path $ScriptsDir "tebunko\lib.ps1"))
+        $lines = @(& powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File $probe -Lib $lib)
     } finally {
         $env:TEBUNKO_DEFAULT_WORKSPACE = $previous
     }
@@ -52,15 +71,60 @@ param([string]$Lib)
     return $result
 }
 
+function getIsolatedArgumentError {
+    # 古い版の指定（-ToolDir・-ToolScript）の誤りを 1 つ返す（無ければ空）。写しを作る前に調べる
+    param ([string]$Dir, [string]$Script, [hashtable]$Config)
+
+    if (!$Dir -and !$Script) { return "" }
+    if ($Dir -and $Script) { return "-ToolDir と -ToolScript は同時に指定できません" }
+    if ($Dir -and !(Test-Path -LiteralPath (Join-Path $Dir "scripts") -PathType Container)) { return "-ToolDir に scripts\ が見つかりません: $Dir" }
+    if ($Script -and !(Test-Path -LiteralPath $Script -PathType Leaf)) { return "-ToolScript のファイルが見つかりません: $Script" }
+    if ($Config.ContainsKey("workspaceFolder")) { return "古い版は書き先を使い捨てのワークスペースに固定するため、-Settings に workspaceFolder は指定できません" }
+    return ""
+}
+
+function useIsolatedChildEnv {
+    # 子プロセスが見る環境変数を、使い捨ての下に向ける（元の値を返す。restoreIsolatedChildEnv で戻す）
+    param ([string]$Base, [string]$ProfileDir, [string]$WorkspaceDir)
+
+    $values = [ordered]@{
+        USERPROFILE               = $ProfileDir
+        APPDATA                   = "$Base\appdata\Roaming"
+        LOCALAPPDATA              = "$Base\appdata\Local"
+        TEMP                      = "$Base\temp"
+        TMP                       = "$Base\temp"
+        TEBUNKO_DEFAULT_WORKSPACE = $WorkspaceDir
+    }
+    $saved = [ordered]@{}
+    foreach ($name in $values.Keys) {
+        [void][System.IO.Directory]::CreateDirectory($values[$name])
+        $saved[$name] = [System.Environment]::GetEnvironmentVariable($name)
+        [System.Environment]::SetEnvironmentVariable($name, $values[$name])
+    }
+    return $saved
+}
+
+function restoreIsolatedChildEnv {
+    param ($Saved)
+
+    foreach ($name in $Saved.Keys) {
+        [System.Environment]::SetEnvironmentVariable($name, $Saved[$name])
+    }
+}
+
 function invokeIsolated {
-    param ([bool]$SingleScript, [hashtable]$Config, [scriptblock]$Action, [int]$Wait, [string]$RealDir)
+    param ([bool]$SingleScript, [hashtable]$Config, [scriptblock]$Action, [int]$Wait, [string]$RealDir, [hashtable]$Legacy = @{})
 
     if (!$RealDir) { $RealDir = getRealDefaultWorkspace }
     $base = newIsolatedFolder
     $tool = Join-Path $base "tool"
-    $WorkspaceDir = Join-Path $base "workspace"
+    $isLegacy = [bool]($Legacy.Dir -or $Legacy.Script)
+    $profileDir = Join-Path $base "userprofile"
+    # 古い版は、USERPROFILE を読む版もここに落ちるよう、使い捨てのプロファイルの下の既定の場所をワークスペースにする
+    $WorkspaceDir = if ($isLegacy) { Join-Path $profileDir "Documents\tebunko_ws" } else { Join-Path $base "workspace" }
     $exitCode = 0
     $watch = $null
+    $savedEnv = $null
     try {
         $watch = newIsolationWatch ([ordered]@{
             "既定のワークスペース" = $RealDir
@@ -69,16 +133,36 @@ function invokeIsolated {
         })
         Write-Host "使い捨てのフォルダ: $base"
         [void][System.IO.Directory]::CreateDirectory($tool)
-        Copy-Item -LiteralPath "$repoRoot\scripts" -Destination "$tool\scripts" -Recurse
-        Copy-Item -LiteralPath "$repoRoot\tebunko.bat" -Destination "$tool\tebunko.bat"
+        $legacyScript = $null
+        if ($Legacy.Script) {
+            $legacyScript = Join-Path $tool ([System.IO.Path]::GetFileName($Legacy.Script))
+            Copy-Item -LiteralPath $Legacy.Script -Destination $legacyScript
+        } elseif ($Legacy.Dir) {
+            Copy-Item -LiteralPath (Join-Path $Legacy.Dir "scripts") -Destination "$tool\scripts" -Recurse
+            $bat = Join-Path $Legacy.Dir "tebunko.bat"
+            if (Test-Path -LiteralPath $bat) { Copy-Item -LiteralPath $bat -Destination "$tool\tebunko.bat" }
+        } else {
+            Copy-Item -LiteralPath "$repoRoot\scripts" -Destination "$tool\scripts" -Recurse
+            Copy-Item -LiteralPath "$repoRoot\tebunko.bat" -Destination "$tool\tebunko.bat"
+        }
+        if ($isLegacy) {
+            $Config = $Config.Clone()
+            $Config["workspaceFolder"] = $WorkspaceDir
+            $savedEnv = useIsolatedChildEnv $base $profileDir $WorkspaceDir
+        }
         if ($Config.Count -gt 0) {
             [System.IO.File]::WriteAllText("$tool\setting.config", (ConvertTo-Json -InputObject $Config -Depth 5), (New-Object System.Text.UTF8Encoding($false)))
         }
 
-        # 書く前に、書き先が使い捨ての中であることを確かめる
-        $probe = getIsolatedProbeResult "$tool\scripts" $base $WorkspaceDir
-        Write-Host "設定ファイルの場所: $($probe.settingsFile)"
-        Write-Host "work の場所: $($probe.workDir)"
+        # 書く前に、書き先が使い捨ての中であることを確かめる（単一 .ps1 は読み込んで確かめる口が無いので、設定で固定した場所を出すだけ）
+        if ($Legacy.Script) {
+            $probe = @{ settingsFile = "$tool\setting.config"; workDir = $WorkspaceDir }
+            Write-Host "設定で固定した work の場所: $WorkspaceDir"
+        } else {
+            $probe = getIsolatedProbeResult "$tool\scripts" $base $WorkspaceDir
+            Write-Host "設定ファイルの場所: $($probe.settingsFile)"
+            Write-Host "work の場所: $($probe.workDir)"
+        }
         $outside = @(@($probe.settingsFile, $probe.workDir) | Where-Object { !(testIsolationPathInside $_ $base) })
         if ($probe.Count -ne 2 -or $outside.Count -gt 0) {
             Write-Host "書き込み先が使い捨てのフォルダの外を指しているため、起動しません: $($outside -join ', ')" -ForegroundColor Red
@@ -91,26 +175,42 @@ function invokeIsolated {
                 if ($Action) {
                     & $Action $tool $WorkspaceDir | Out-Host
                 } else {
-                    $gui = "$tool\scripts\tebunko\gui.ps1"
-                    if ($SingleScript) {
-                        $gui = Join-Path $tool "tebunko-isolated.ps1"
-                        & ([WildcardPattern]::Escape("$repoRoot\tools\new_single_script.ps1".Replace('`', '``'))) -Version "v0.0.0-isolated" -OutFile $gui | Out-Null
+                    $file = "$tool\scripts\tebunko\$Entry.ps1"
+                    $isSingle = $SingleScript -or [bool]$Legacy.Script
+                    if ($Legacy.Script) {
+                        $file = $legacyScript
+                    } elseif ($SingleScript) {
+                        $file = Join-Path $tool "tebunko-isolated.ps1"
+                        & ([WildcardPattern]::Escape("$repoRoot\tools\new_single_script.ps1".Replace('`', '``'))) -Version "v0.0.0-isolated" -OutFile $file | Out-Null
                     }
-                    $guiEscaped = [WildcardPattern]::Escape($gui.Replace('`', '``')).Replace("'", "''")
-                    $p = Start-Process powershell.exe -PassThru -WindowStyle Hidden -ArgumentList @(
-                        "-NoProfile", "-STA", "-ExecutionPolicy", "RemoteSigned", "-Command", "& '$guiEscaped'")
+                    if (!$isLegacy -and $Entry -eq "gui") {
+                        $fileEscaped = [WildcardPattern]::Escape($file.Replace('`', '``')).Replace("'", "''")
+                        $launchArgs = @("-NoProfile", "-STA", "-ExecutionPolicy", "RemoteSigned", "-Command", "& '$fileEscaped'")
+                    } else {
+                        $launchArgs = @("-NoProfile")
+                        if ($Entry -eq "gui") { $launchArgs += "-STA" }
+                        $launchArgs += @("-ExecutionPolicy", "RemoteSigned", "-File", "`"$file`"")
+                        if ($isSingle) { $launchArgs += @("-Part", $Entry) }
+                        $launchArgs += @($Legacy.Args)
+                    }
+                    $p = Start-Process powershell.exe -PassThru -WindowStyle Hidden -ArgumentList $launchArgs
                     $null = $p.Handle   # ExitCode を取るため、起動の直後にハンドルを持つ
                     Write-Host "起動したプロセスの PID: $($p.Id)$(if ($Wait -gt 0) { "（$Wait 秒たったら止めます。それまでに画面を閉じれば、そこで終わります）" } else { "（画面を閉じるまで待ちます）" })"
                     $waited = waitIsolationProcess $p $Wait
                     $verdict = getIsolationLaunchVerdict $waited $Wait $p.Id
                     if ($verdict.Line) { Write-Host $verdict.Line -ForegroundColor $(if ($verdict.ExitCode -ne 0) { "Red" } else { "Gray" }) }
                     if ($verdict.ExitCode -ne 0) { $exitCode = 1 }
+                    if ($isLegacy -and (getIsolationSnapshot $WorkspaceDir).Count -le 1) {
+                        Write-Host "使い捨てのワークスペースに、ファイルが 1 つもできていません（よそに書いた可能性があります）: $WorkspaceDir" -ForegroundColor Red
+                        $exitCode = 1
+                    }
                 }
             } finally {
                 $env:TEBUNKO_DEFAULT_WORKSPACE = $previous
             }
         }
     } finally {
+        if ($savedEnv) { restoreIsolatedChildEnv $savedEnv }
         # 写しの作成・事前の確かめ・確かめの途中の例外のどの道でも、既定のワークスペースを比べてから消す
         try {
             if (!$watch) {
@@ -132,4 +232,9 @@ function invokeIsolated {
     return $exitCode
 }
 
-exit (invokeIsolated $Single.IsPresent $Settings $Command $WaitSeconds $RealWorkspace)
+$argumentError = getIsolatedArgumentError $ToolDir $ToolScript $Settings
+if ($argumentError) {
+    Write-Host $argumentError -ForegroundColor Red
+    exit 1
+}
+exit (invokeIsolated $Single.IsPresent $Settings $Command $WaitSeconds $RealWorkspace @{ Dir = $ToolDir; Script = $ToolScript; Args = $ToolArgs })

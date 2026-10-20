@@ -308,3 +308,175 @@ Describe "run_isolated.ps1 の既定の経路（画面を開く）" -Tag Gui {
         $text | Should -Match "既定のワークスペースなどに違いなし"
     }
 }
+
+Describe "run_isolated.ps1 の古い版（-ToolDir・-ToolScript）" -Tag Io {
+    BeforeAll {
+        # 偽の起動口: 受けた引数と環境変数を記録し、Mode の場所に書く（ws: 渡されたワークスペース / real: 本物の代わり / none: 書かない /
+        # userprofile: $env:USERPROFILE\Documents\tebunko_ws / localappdata: $env:LOCALAPPDATA の下とワークスペース）
+        $script:launcherTemplate = @'
+$record = '@@RECORD@@'
+$mode = '@@MODE@@'
+$real = '@@REAL@@'
+$lines = @(
+    ("ENTRY=" + (Split-Path -Leaf $PSCommandPath)),
+    ("ARGS=" + ($args -join "|")),
+    ("WS=" + $env:TEBUNKO_DEFAULT_WORKSPACE),
+    ("USERPROFILE=" + $env:USERPROFILE),
+    ("LOCALAPPDATA=" + $env:LOCALAPPDATA),
+    ("TEMP=" + $env:TEMP)
+)
+[System.IO.File]::WriteAllLines($record, [string[]]$lines)
+function put($dir, $name) {
+    [void][System.IO.Directory]::CreateDirectory($dir)
+    [System.IO.File]::WriteAllText((Join-Path $dir $name), "x")
+}
+switch ($mode) {
+    "ws" { put $env:TEBUNKO_DEFAULT_WORKSPACE "indexing_log.txt" }
+    "real" { put $real "indexing_log.txt" }
+    "userprofile" { put (Join-Path $env:USERPROFILE "Documents\tebunko_ws") "indexing_log.txt" }
+    "localappdata" { put (Join-Path $env:LOCALAPPDATA "tebunko") "x.txt"; put $env:TEBUNKO_DEFAULT_WORKSPACE "indexing_log.txt" }
+}
+'@
+        $script:libTemplates = @{
+            # 環境変数を読まず、写しの横の setting.config の workspaceFolder だけを見る版
+            ws       = @'
+$rootDir = (Resolve-Path "$PSScriptRoot\..\..").Path
+${settingsFile} = Join-Path $rootDir "setting.config"
+function getWorkDir { return ([string](Get-Content -LiteralPath ${settingsFile} -Raw | ConvertFrom-Json).workspaceFolder) }
+'@
+            real     = @'
+${settingsFile} = (Join-Path (Resolve-Path "$PSScriptRoot\..\..").Path "setting.config")
+function getWorkDir { return '@@REAL@@' }
+'@
+            fallback = @'
+${settingsFile} = '@@OUTSIDE@@\setting.config'
+function getWorkDir { return ([string](Get-Content -LiteralPath (Join-Path (Resolve-Path "$PSScriptRoot\..\..").Path "setting.config") -Raw | ConvertFrom-Json).workspaceFolder) }
+'@
+        }
+
+        function newFakeLauncherText([string]$Record, [string]$Mode, [string]$Real) {
+            return $script:launcherTemplate.Replace("@@RECORD@@", $Record).Replace("@@MODE@@", $Mode).Replace("@@REAL@@", $Real)
+        }
+
+        function newFakeToolDir([string]$Name, [string]$Lib, [string]$Mode, [string]$Real, [string]$Record) {
+            # 偽の展開した配布物（scripts\tebunko\ に lib.ps1・gui.ps1・indexer.ps1、tebunko.bat）。Lib が空なら lib.ps1 を作らない
+            $dir = Join-Path $TestDrive $Name
+            [void][System.IO.Directory]::CreateDirectory("$dir\scripts\tebunko")
+            if ($Lib) {
+                $text = $script:libTemplates[$Lib].Replace("@@REAL@@", $Real).Replace("@@OUTSIDE@@", (Join-Path $TestDrive "outside"))
+                [System.IO.File]::WriteAllText("$dir\scripts\tebunko\lib.ps1", $text)
+            }
+            foreach ($entry in "gui", "indexer") {
+                [System.IO.File]::WriteAllText("$dir\scripts\tebunko\$entry.ps1", (newFakeLauncherText $Record $Mode $Real))
+            }
+            [System.IO.File]::WriteAllText("$dir\tebunko.bat", "@echo off")
+            return $dir
+        }
+
+        function newFakeToolScript([string]$Name, [string]$Mode, [string]$Real, [string]$Record) {
+            $path = Join-Path $TestDrive "$Name.ps1"
+            [System.IO.File]::WriteAllText($path, (newFakeLauncherText $Record $Mode $Real))
+            return $path
+        }
+
+        function newRealStandIn([string]$Name) {
+            $real = Join-Path $TestDrive $Name
+            [void][System.IO.Directory]::CreateDirectory($real)
+            return $real
+        }
+
+        function invokeRunIsolatedLegacy([hashtable]$arguments) {
+            $global:LASTEXITCODE = 0
+            $out = & $script:runIsolated @arguments *>&1 | Out-String
+            $script:exitCode = $LASTEXITCODE
+            return $out
+        }
+    }
+
+    It "-ToolDir: <Case>" -TestCases @(
+        @{ Case = "workspaceFolder だけを見る版は、使い捨てに向き、終了コード 0"; Lib = "ws"; Mode = "ws"; Settings = @{}; Code = 0; Launched = $true; Match = "既定のワークスペースなどに違いなし" }
+        @{ Case = "work の場所が本物の代わりを指す版は、起動せず終了コード 1"; Lib = "real"; Mode = "ws"; Settings = @{}; Code = 1; Launched = $false; Match = "起動しません" }
+        @{ Case = "lib.ps1 が無い版は、起動せず終了コード 1"; Lib = ""; Mode = "ws"; Settings = @{}; Code = 1; Launched = $false; Match = "起動しません" }
+        @{ Case = "設定ファイルが使い捨ての外に落ちる版は、起動せず終了コード 1"; Lib = "fallback"; Mode = "ws"; Settings = @{}; Code = 1; Launched = $false; Match = "起動しません" }
+        @{ Case = "-Settings に別の workspaceFolder があれば、起動せず終了コード 1"; Lib = "ws"; Mode = "ws"; Settings = @{ workspaceFolder = "C:\elsewhere" }; Code = 1; Launched = $false; Match = "workspaceFolder は指定できません" }
+    ) {
+        $real = newRealStandIn "real-$([guid]::NewGuid().ToString('N'))"
+        $record = Join-Path $TestDrive "rec-$([guid]::NewGuid().ToString('N')).txt"
+        $dir = newFakeToolDir "tool-$([guid]::NewGuid().ToString('N'))" $Lib $Mode $real $record
+        $text = invokeRunIsolatedLegacy @{ RealWorkspace = $real; ToolDir = $dir; Entry = "indexer"; Settings = $Settings }
+        $script:exitCode | Should -Be $Code -Because $text
+        (Test-Path -LiteralPath $record) | Should -Be $Launched -Because $text
+        $text | Should -Match $Match
+        if ($Launched) {
+            $rec = Get-Content -LiteralPath $record
+            $rec | Should -Contain "ENTRY=indexer.ps1"
+            ($rec | Where-Object { $_ -like "WS=*" }) | Should -Match ([regex]::Escape([System.IO.Path]::GetTempPath().TrimEnd([char]92)))
+        }
+    }
+
+    It "-ToolDir と -ToolScript を同時に指定すると、終了コード 1" {
+        $real = newRealStandIn "real-both"
+        $record = Join-Path $TestDrive "rec-both.txt"
+        $dir = newFakeToolDir "tool-both" "ws" "ws" $real $record
+        $script = newFakeToolScript "single-both" "ws" $real $record
+        $text = invokeRunIsolatedLegacy @{ RealWorkspace = $real; ToolDir = $dir; ToolScript = $script }
+        $script:exitCode | Should -Be 1
+        $text | Should -Match "同時に指定できません"
+        (Test-Path -LiteralPath $record) | Should -BeFalse
+    }
+
+    It "-Entry で起動するものが決まり、-ToolArgs が後ろに足される: <Case>" -TestCases @(
+        @{ Case = "フォルダ版 indexer"; Kind = "dir"; Entry = "indexer"; File = "indexer.ps1"; ArgText = "x|y" }
+        @{ Case = "フォルダ版 gui"; Kind = "dir"; Entry = "gui"; File = "gui.ps1"; ArgText = "x|y" }
+        @{ Case = "単一 .ps1 版 indexer"; Kind = "script"; Entry = "indexer"; File = "single-entry.ps1"; ArgText = "-Part|indexer|x|y" }
+    ) {
+        $real = newRealStandIn "real-entry-$Kind-$Entry"
+        $record = Join-Path $TestDrive "rec-entry-$Kind-$Entry.txt"
+        if ($Kind -eq "dir") {
+            $a = @{ ToolDir = (newFakeToolDir "tool-entry-$Entry" "ws" "ws" $real $record) }
+        } else {
+            $a = @{ ToolScript = (newFakeToolScript "single-entry" "ws" $real $record) }
+        }
+        $text = invokeRunIsolatedLegacy ($a + @{ RealWorkspace = $real; Entry = $Entry; ToolArgs = @("x", "y") })
+        $script:exitCode | Should -Be 0 -Because $text
+        $rec = Get-Content -LiteralPath $record
+        $rec | Should -Contain "ENTRY=$File"
+        $rec | Should -Contain "ARGS=$ArgText"
+    }
+
+    It "-ToolScript: <Case>" -TestCases @(
+        @{ Case = "本物の代わりに書く版は、終了コード 1（前後の比べ）"; Mode = "real"; Code = 1; Match = "増えた: \\indexing_log.txt" }
+        @{ Case = "どこにも書かない版は、終了コード 1（使い捨てに何もできていない）"; Mode = "none"; Code = 1; Match = "ファイルが 1 つもできていません" }
+        @{ Case = "USERPROFILE の下の既定の場所に書く版は、使い捨ての下にでき、終了コード 0"; Mode = "userprofile"; Code = 0; Match = "既定のワークスペースなどに違いなし" }
+        @{ Case = "LOCALAPPDATA の下に書く版は、使い捨ての下に落ち、本物に違いなし"; Mode = "localappdata"; Code = 0; Match = "既定のワークスペースなどに違いなし" }
+    ) {
+        $real = newRealStandIn "real-script-$Mode"
+        $record = Join-Path $TestDrive "rec-script-$Mode.txt"
+        $script = newFakeToolScript "single-$Mode" $Mode $real $record
+        $before = $env:LOCALAPPDATA
+        $text = invokeRunIsolatedLegacy @{ RealWorkspace = $real; ToolScript = $script; Entry = "indexer" }
+        $script:exitCode | Should -Be $Code -Because $text
+        $text | Should -Match $Match
+        $env:LOCALAPPDATA | Should -Be $before
+        $rec = Get-Content -LiteralPath $record
+        $tmp = [regex]::Escape([System.IO.Path]::GetTempPath().TrimEnd([char]92))
+        ($rec | Where-Object { $_ -like "LOCALAPPDATA=*" }) | Should -Match "^LOCALAPPDATA=$tmp"
+        ($rec | Where-Object { $_ -like "USERPROFILE=*" }) | Should -Match "^USERPROFILE=$tmp"
+        ($rec | Where-Object { $_ -like "LOCALAPPDATA=*" }) | Should -Not -Be "LOCALAPPDATA=$before"
+    }
+
+    It "元の -ToolDir・-ToolScript は、前後で変わらない" {
+        $real = newRealStandIn "real-orig"
+        $record = Join-Path $TestDrive "rec-orig.txt"
+        $dir = newFakeToolDir "tool-orig" "ws" "ws" $real $record
+        $script = newFakeToolScript "single-orig" "ws" $real $record
+        $beforeDir = getIsolationSnapshot $dir
+        $beforeScript = getIsolationSnapshot $script
+        invokeRunIsolatedLegacy @{ RealWorkspace = $real; ToolDir = $dir; Entry = "indexer" } | Out-Null
+        $script:exitCode | Should -Be 0
+        invokeRunIsolatedLegacy @{ RealWorkspace = $real; ToolScript = $script; Entry = "indexer" } | Out-Null
+        $script:exitCode | Should -Be 0
+        @(compareIsolationSnapshot $beforeDir (getIsolationSnapshot $dir) "x").Count | Should -Be 0
+        @(compareIsolationSnapshot $beforeScript (getIsolationSnapshot $script) "x").Count | Should -Be 0
+    }
+}
