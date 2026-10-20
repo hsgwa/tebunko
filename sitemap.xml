@@ -33,6 +33,10 @@
          <lastmod>2026-10-20</lastmod>
     </url>
     <url>
+         <loc>https://hsgwa.github.io/tebunko/design/gui/messages-index-ops/</loc>
+         <lastmod>2026-10-20</lastmod>
+    </url>
+    <url>
          <loc>https://hsgwa.github.io/tebunko/design/gui/messages/</loc>
          <lastmod>2026-10-20</lastmod>
     </url>
@@ -109,6 +113,14 @@
          <lastmod>2026-10-20</lastmod>
     </url>
     <url>
+         <loc>https://hsgwa.github.io/tebunko/design/indexing/errors-ingest/</loc>
+         <lastmod>2026-10-20</lastmod>
+    </url>
+    <url>
+         <loc>https://hsgwa.github.io/tebunko/design/indexing/errors-store/</loc>
+         <lastmod>2026-10-20</lastmod>
+    </url>
+    <url>
          <loc>https://hsgwa.github.io/tebunko/design/indexing/errors/</loc>
          <lastmod>2026-10-20</lastmod>
     </url>
@@ -126,6 +138,14 @@
     </url>
     <url>
          <loc>https://hsgwa.github.io/tebunko/design/indexing/known-issues/</loc>
+         <lastmod>2026-10-20</lastmod>
+    </url>
+    <url>
+         <loc>https://hsgwa.github.io/tebunko/design/indexing/log-warnings-index/</loc>
+         <lastmod>2026-10-20</lastmod>
+    </url>
+    <url>
+         <loc>https://hsgwa.github.io/tebunko/design/indexing/log-warnings/</loc>
          <lastmod>2026-10-20</lastmod>
     </url>
     <url>
