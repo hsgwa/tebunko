@@ -56,8 +56,20 @@ jobs:
           }
           Get-Module Pester -ListAvailable | Format-Table Name, Version, ModuleBase -AutoSize | Out-String | Write-Host
 
+      - name: PSScriptAnalyzer を入れる
+        shell: powershell
+        # 版を固定する。新しい版でルールが増えると、コードを変えていなくても CI が落ちるため。
+        # PowerShell のモジュールは Dependabot の対象外なので、上げるときはこの版を書き換え、tools\check_analyzer.ps1 -UpdateBaseline でベースラインを直して PR で確かめる。
+        # ランナーに別の版が入っていることがあるため、読み込むときも版を指定する（tests\meta\safety.Tests.ps1 と tools\check_analyzer.ps1 が PSSA_VERSION を読む）。
+        # テストの前に入れるのは、テストの中の静的解析（safety.Tests.ps1）も固定した版で動かすため
+        env:
+          PSSA_VERSION: 1.25.0
+        run: Install-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION -Force -Scope CurrentUser -SkipPublisherCheck
+
       - name: テスト（Unit・Io・Meta）
         shell: powershell
+        env:
+          PSSA_VERSION: 1.25.0
         run: .\tests\run.ps1 -Ci
 
       # 送るのは work\test\coverage.xml（リポジトリからの相対パスと行ごとの実行回数）だけ。
@@ -76,21 +88,14 @@ jobs:
           codecov_yml_path: .github/codecov.yml
           fail_ci_if_error: false
 
+      # 重大度 Error 以外も含む全規則と、5.1 に無い構文・コマンドを、ベースライン（tests\meta\PSScriptAnalyzer.baseline.tsv）と比べる。
+      # 設定は tests\meta\PSScriptAnalyzer.psd1・PSScriptAnalyzer.tests.psd1。TypeNotFound は tools\check_analyzer.ps1 が除く。
+      # shell: powershell の run は ASCII だけにする（#143）
       - name: 静的解析（PSScriptAnalyzer）
         shell: powershell
-        # 版を固定する。新しい版でルールが増えると、コードを変えていなくても CI が落ちるため。
-        # PowerShell のモジュールは Dependabot の対象外なので、上げるときはこの版を書き換え、指摘が 0 件のままか PR で確かめる。
-        # ランナーに別の版が入っていることがあるため、読み込むときも版を指定する
         env:
           PSSA_VERSION: 1.25.0
-        # TypeNotFound は、継承元の型が別ファイルにあるため 1 ファイルだけでは解決できないもの。
-        # 読み込む順で解決できることは tests\meta\structure.Tests.ps1 の「型の読み込み」で確かめている
-        run: |
-          Install-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION -Force -Scope CurrentUser -SkipPublisherCheck
-          Import-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION
-          $found = @(Invoke-ScriptAnalyzer -Path scripts -Recurse -Severity Error | Where-Object { $_.RuleName -ne "TypeNotFound" })
-          $found | Format-Table -AutoSize | Out-String | Write-Host
-          if ($found) { exit 1 }
+        run: .\tools\check_analyzer.ps1
 
       - name: テスト結果の保存
         if: always()

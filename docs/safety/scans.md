@@ -105,6 +105,8 @@ CI（`test.yml` の `test`）は、版を 1.25.0 に固定した PSScriptAnalyze
 | 27 | `PSAvoidAssignmentToAutomaticVariable` | WPF のイベントハンドラーの引数名 `sender` に対する指摘。PowerShell の自動変数と同名だが、ハンドラー内の引数であり影響しない |
 | 6 | `TypeNotFound` | `tebunko/ui/` の `*_types.ps1`（`search/result_types.ps1` など）が、`shared/ui/types.ps1` の型（`NotifyBase`）を継承しているため。1 ファイルだけを解析すると継承元が見つからないという指摘で、実際の読み込み順では解決する（`tests/meta/structure.Tests.ps1` の「型の読み込み」で実際に読み込んで確認している）。どのルールを指定しても出る |
 
+CI は、`scripts/`・`tools/`・`tests/` の全部に `tools/check_analyzer.ps1` で PSScriptAnalyzer をかけ、上の表のうち書き方の誤りと言えない 5 つの規則（`PSAvoidUsingPositionalParameters`・`PSReviewUnusedParameter`・`PSAvoidAssignmentToAutomaticVariable`・`PSUseDeclaredVarsMoreThanAssignments`・`TypeNotFound`）を除いた指摘を、ファイルと規則ごとの件数で `tests/meta/PSScriptAnalyzer.baseline.tsv` と比べる（増えても減っても失敗）。`tests/` にだけは、テストの補助が進み具合を出す `PSAvoidUsingWriteHost` と、Pester のモックが状態を渡す `PSAvoidGlobalVars` も除く。あわせて、Windows PowerShell 5.1 に無い構文（`PSUseCompatibleSyntax`）と、`scripts/`・`tools/` の 5.1 に無いコマンド（`PSUseCompatibleCommands`）を止める。除く規則は `tests/meta/PSScriptAnalyzer.psd1`・`PSScriptAnalyzer.tests.psd1` にあり、`tests/meta/analyzer.Tests.ps1` が一覧を確かめる。
+
 なお `tests/testdata/make_testdata.ps1` には `PSAvoidUsingPlainTextForPassword` の指摘が 7 件出る。パスワード付きの Office ファイルを**テストデータとして作る**スクリプトであり、パスワードは固定のテスト用文字列である。配布 zip には含まれない。
 
 ## マルウェア検査: Microsoft Defender（外部への送信なし）
