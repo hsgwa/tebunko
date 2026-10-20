@@ -4,7 +4,7 @@
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
 
-    $script:internalTerms = "集約ファイル|システムインデックス|本文インデックス|Office ファイル"
+    $script:internalTerms = "集約ファイル|システムインデックス|本文インデックス|Office\s*ファイル"
     # 許す例外。文字列からこの型に当たる所を取り除いてから探す
     $script:allowedPatterns = @(
         # 前の版のシステムインデックスの txt の名前のパターン（indexer_plan.ps1 の tebunkoOwnFileNamePatterns。今の版が自分のファイルとして外す）
@@ -52,6 +52,8 @@ Describe "文言に出さない言葉" -Tag Meta {
         @{ Case = "内部の言葉があれば見つける（システムインデックス）"; Text = "システムインデックスを作ります"; Expected = "システムインデックス" }
         @{ Case = "内部の言葉があれば見つける（本文インデックス）"; Text = "本文インデックスを読みます"; Expected = "本文インデックス" }
         @{ Case = "対象を Office だけに見せる言葉があれば見つける（Office ファイル）"; Text = "Office ファイルのあるフォルダ"; Expected = "Office ファイル" }
+        @{ Case = "空白の無い書き方・全角空白も見つける（Officeファイル）"; Text = "Officeファイル"; Expected = "Officeファイル" }
+        @{ Case = "全角空白の書き方も見つける"; Text = "Office　ファイル"; Expected = "Office　ファイル" }
         @{ Case = "「ファイル」「Office・テキスト」は見つけない"; Text = "ファイルのあるフォルダ（Office・テキスト）"; Expected = "" }
         @{ Case = "「インデックス」だけなら見つけない"; Text = "インデックスを作成しています"; Expected = "" }
         @{ Case = "許す例外（前の版の txt の名前のパターン）は見つけない"; Text = "システムインデックス*.txt"; Expected = "" }
