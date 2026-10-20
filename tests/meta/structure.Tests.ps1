@@ -1083,7 +1083,7 @@ Describe "フォルダ名に特別な文字が入っていても、本物の読�
             $outText = $process.StandardOutput.ReadToEnd()
             $process.WaitForExit(60000) | Out-Null
         } finally {
-            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+            stopStartedProcess $process
         }
         $outText.Trim() | Should -Be "loaded"
     }

@@ -53,6 +53,7 @@ Pester 5 はテストを「探す段階」と「流す段階」に分けて動�
 - ファイルの先頭の読み込み（`. "$PSScriptRoot\..\helpers\load.ps1"`・`Add-Type`）と、テスト用の関数・偽物のオブジェクトは、いちばん外の `BeforeAll { }` に書く。
 - `Describe` の準備（`$TestDrive` へのファイル作成・変数・`Mock`）は、その `Describe` の `BeforeAll` / `BeforeEach` に書く。探す段階では `$TestDrive` が空のため、`Describe` の中に直接書くとドライブ直下を指してしまう。
 - `Mock` はそれを書いたブロック（`It`・`Describe`）の中だけで効く。呼ばれたかは `Should -Invoke` で確かめる。
+- テストが自分で起こしたプロセスの後始末は、`tests/helpers/process.ps1` の `stopStartedProcess`（止める）・`waitProcessIdExit`（待つだけ）を使う。`HasExited` を見てから `Stop-Process`・`.Kill()` を呼ぶ書き方は、自分で終わるプロセスと競合して揺れる。ここ以外の `Stop-Process`・`Wait-Process`・`.Kill()`・名前で止める形は `tests/meta/test_process_cleanup.Tests.ps1` が落とす。
 
 `tests/meta/` は、直し忘れると気づきにくい決まりごとを機械的に確かめる。
 
@@ -66,6 +67,7 @@ Pester 5 はテストを「探す段階」と「流す段階」に分けて動�
 | `error_messages` | 利用者に出すエラー・警告の文言（`throw`・`writeIndexerLog` の Yellow・Red・`describeIngestError`）が、設計書の一覧（エラーメッセージ一覧・ログの警告・お知らせ一覧・置き場の安全確認のエラー・画面に出すメッセージの一覧）にあるか、除外の一覧（理由つき）にあること（[設計の決まりの検査](unit-checks.md#設計の決まりの検査)） |
 | `runner` | `tests/run.ps1` が、実行したテストが 0 件なら失敗にすること、`powershell.exe -File` で渡したカンマ区切りのタグを分けて受け取ること、`Gui` を既定では流さず `-Tag Gui` と `-All` では流すこと |
 | `safety` | 危険な処理を使っていない、Office をマクロ無効・読み取り専用で開く、原本を書き換えない、書き込み先が `work` 配下だけ（`%TEMP%` は前の版が残した作業フォルダの片付けだけ。`%LOCALAPPDATA%\tebunko` には書かない）、PSScriptAnalyzer の指摘が 0 件、審査用の資料がそろっている（[単体テスト（検査と道具）](unit-checks.md)、[安全性の要約](../../safety/index.md)） |
+| `test_process_cleanup` | `tests/` の中の `Stop-Process`・`Wait-Process`・`.Kill()`・名前で止める形が、`tests/helpers/process.ps1` の外に無い（例外は `run_isolated` の木ごと止める `taskkill /PID … /T` の 1 件） |
 
 ## タグと実行
 

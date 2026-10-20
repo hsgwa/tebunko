@@ -47,10 +47,7 @@ Describe "起動時の前回残った Office の確認（本物の道筋）" -Ta
 
     AfterAll {
         foreach ($p in @($script:recorded, $script:unrecorded)) {
-            if ($p -and !$p.HasExited) {
-                Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
-                [void]$p.WaitForExit(5000)
-            }
+            if ($p) { stopStartedProcess $p 5000 }
         }
         if ($null -ne $script:leftoverEnvBefore) { $env:TEBUNKO_GUI_LEFTOVER_FILE = $script:leftoverEnvBefore }
     }
@@ -112,10 +109,7 @@ Describe "起動時の前回残った Office の確認（本物の道筋）" -Ta
 
     It "利用者の環境に触っていない（Office のプロセスの数も変わらない）" {
         foreach ($p in @($script:recorded, $script:unrecorded)) {
-            if (!$p.HasExited) {
-                Stop-Process -Id $p.Id -Force
-                [void]$p.WaitForExit(5000)
-            }
+            stopStartedProcess $p 5000
         }
         compareGuiEnvSnapshot $script:envBefore (getGuiEnvSnapshot) | Should -BeNullOrEmpty
     }
