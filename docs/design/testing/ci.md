@@ -40,7 +40,7 @@ pull request と main への push のたびに windows ランナーで実行す�
 - ランナーには Windows に最初から入っている Pester 3.4 もある。`tests/run.ps1` は `Import-Module Pester -RequiredVersion 5.9.0` で版を指定し、CI は 5.9.0 が無ければ入れる（版は `test.yml` の `PESTER_VERSION` と `tests/run.ps1` の 2 か所で同じにする）
 - スクリプトの改行はランナーの `core.autocrlf` に左右されないよう、`.gitattributes` で `.ps1`・`.xaml`・`.bat` を CRLF に固定している
 - ランナーに Office は入っていないため、タグ `Office` のテストは既定で外れる。COM を使うインデックス作成の確認は手元で行う（[結合テスト（手動）](index.md#結合テスト手動)）
-- あわせて `tools/check_analyzer.ps1` で PSScriptAnalyzer の全規則と、5.1 に無い構文・コマンドを検査する（指摘は `tests/meta/PSScriptAnalyzer.baseline.tsv` の件数より増えても減っても失敗。Windows PowerShell 5.1 でだけ動く）。PSScriptAnalyzer の版は `test.yml` で固定する（Dependabot の対象外のため、上げるときは版を書き換えた PR で `-UpdateBaseline` してベースラインを直す）。安全性の検査（`tests/meta/safety.Tests.ps1`）はタグ `Meta` のため既定で実行される
+- あわせて `tools/check_analyzer.ps1` で PSScriptAnalyzer の全規則と、5.1 に無い構文・コマンドを検査する（指摘は `tests/meta/PSScriptAnalyzer.baseline.tsv` の件数より増えても減っても失敗。Windows PowerShell 5.1 でだけ動く。コミット前のフックは、ステージした `.ps1` だけを `-Path` で同じように検査する。[コミット前に動く検査](pre-commit.md)）。PSScriptAnalyzer の版は `test.yml` で固定する（Dependabot の対象外のため、上げるときは版を書き換えた PR で `-UpdateBaseline` してベースラインを直す）。安全性の検査（`tests/meta/safety.Tests.ps1`）はタグ `Meta` のため既定で実行される
 - テストの前に `tools/check_commit.ps1` で、追跡している全ファイルと全コミットの作者を検査する（下の「公開してはいけない内容の検査」）。作者を全履歴で調べるため `fetch-depth: 0` で取得する
 - PR では、PR のコミットに作者の `Signed-off-by` があり、作者と違うアドレスの行が無いかを `tools/check_signoff.ps1 -Range HEAD^1..HEAD^2` で確かめる。pull_request では PR をマージした形のコミットを取り出すため、1 つ目の親が main、2 つ目の親が PR の先頭になる。その間だけを調べるので、main から取り込んだコミットと、決まりを作る前の履歴（`Signed-off-by` が無い）は調べない。マージコミットと bot（作者が `...[bot]@users.noreply.github.com`）のコミットも調べない
 - 同じブランチに続けて push したときは、古い実行を取り消す（`concurrency`）
