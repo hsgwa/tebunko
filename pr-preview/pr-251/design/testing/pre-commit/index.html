@@ -4219,7 +4219,7 @@
 <li>検査するのは作業ツリーのファイルで、部分ステージの中身ではない。消した・名前を変えて元が無い <code>.ps1</code> は飛ばす。</li>
 <li>一部のファイルだけでベースラインを書き直すとほかのファイルの行が消えるため、<code>-Path</code> と <code>-UpdateBaseline</code> は一緒に使えない（終了コード 2）。</li>
 <li>ベースラインは CI が固定した版（<code>.github/workflows/test.yml</code> の <code>PSSA_VERSION</code>）の件数なので、フックもその版を読み、<code>PSSA_VERSION</code> に入れて <code>check_analyzer.ps1</code> に渡す。その版が手元に入っていないときは、注意を出して飛ばす（版が違うと件数がずれ、コードを変えなくても失敗するため）。</li>
-<li>PSScriptAnalyzer が入っていない手元と、Windows PowerShell 以外（pwsh）で動いたときは、注意を出して飛ばす（失敗にしない。全体は CI が検査する）。フックは <code>powershell.exe</code> で動く。起動に 30 秒ほどかかるが（PSScriptAnalyzer の読み込み。1 回だけ）、あとのファイルは 1 つ 1～2 秒ほど。</li>
+<li>PSScriptAnalyzer が入っていない手元と、Windows PowerShell 以外（pwsh）で動いたときは、注意を出して飛ばす（失敗にしない。全体は CI が検査する）。フックは <code>powershell.exe</code> で動く。最初のファイルの解析に 30 秒ほどかかるが（<code>Invoke-ScriptAnalyzer</code> の初回。1 回だけ。<code>Import-Module</code> は 0.5 秒ほど）、あとのファイルは 1 つ 1～2 秒ほど。</li>
 <li>「ブランチを最新にする」で main を取り込むときはフックを通らないため、main の更新で新しく当たる指摘は CI で見つかる。</li>
 </ul>
 <p>引っかかったら内容を直す。<code>git commit --no-verify</code> で飛ばしても、CI で同じ検査が走る（コミットメッセージは、squash merge で main のコミットになる PR のタイトルを CI が確かめる）。フックは git for Windows の sh が読むため LF で保存する（<code>.gitattributes</code> で固定）。</p>
