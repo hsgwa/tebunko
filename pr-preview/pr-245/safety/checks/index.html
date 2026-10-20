@@ -4257,7 +4257,7 @@
 <td>6</td>
 <td>レジストリの読み書き</td>
 <td>該当 0 件</td>
-<td><code>scan 'HKLM','HKCU','HKEY_','Set-ItemProperty','New-ItemProperty','Registry::'</code></td>
+<td>表の下の「レジストリの確認コマンド」</td>
 </tr>
 <tr>
 <td>7</td>
@@ -4315,6 +4315,9 @@
 </tr>
 </tbody>
 </table>
+<p><strong>レジストリの確認コマンド（6）</strong>：.NET の型（<code>Microsoft.Win32.Registry</code>）・PowerShell のプロバイダー・COM（<code>WScript.Shell</code>）・WMI（<code>StdRegProv</code>）・<code>reg.exe</code> の書き方も見つける。パターンは <code>tools/script_rules.ps1</code> の <code>Registry</code> と同じ語の集まり（<code>|</code> を使わず、1 語ずつ別の文字列にして並べた）。</p>
+<div class="highlight"><pre><span></span><code><span class="n">scan</span> <span class="s1">'HKLM'</span><span class="p">,</span><span class="s1">'HKCU'</span><span class="p">,</span><span class="s1">'HKEY_'</span><span class="p">,</span><span class="s1">'HKCR'</span><span class="p">,</span><span class="s1">'\bHKU\b'</span><span class="p">,</span><span class="s1">'HKCC'</span><span class="p">,</span><span class="s1">'Set-ItemProperty'</span><span class="p">,</span><span class="s1">'New-ItemProperty'</span><span class="p">,</span><span class="s1">'Remove-ItemProperty'</span><span class="p">,</span><span class="s1">'Clear-ItemProperty'</span><span class="p">,</span><span class="s1">'Rename-ItemProperty'</span><span class="p">,</span><span class="s1">'Copy-ItemProperty'</span><span class="p">,</span><span class="s1">'Move-ItemProperty'</span><span class="p">,</span><span class="s1">'Registry::'</span><span class="p">,</span><span class="s1">'Microsoft\.Win32\.Registry'</span><span class="p">,</span><span class="s1">'Registry\]::'</span><span class="p">,</span><span class="s1">'RegistryKey'</span><span class="p">,</span><span class="s1">'RegistryHive'</span><span class="p">,</span><span class="s1">'RegistryView'</span><span class="p">,</span><span class="s1">'RegistryValueKind'</span><span class="p">,</span><span class="s1">'RegistryRights'</span><span class="p">,</span><span class="s1">'OpenSubKey'</span><span class="p">,</span><span class="s1">'OpenBaseKey'</span><span class="p">,</span><span class="s1">'OpenRemoteBaseKey'</span><span class="p">,</span><span class="s1">'CreateSubKey'</span><span class="p">,</span><span class="s1">'DeleteSubKey'</span><span class="p">,</span><span class="s1">'PSProvider\s+\W?Registry'</span><span class="p">,</span><span class="s1">'\bRegRead\b'</span><span class="p">,</span><span class="s1">'\bRegWrite\b'</span><span class="p">,</span><span class="s1">'\bRegDelete\b'</span><span class="p">,</span><span class="s1">'StdRegProv'</span><span class="p">,</span><span class="s1">'\breg(\.exe)?\s+query\b'</span><span class="p">,</span><span class="s1">'\breg(\.exe)?\s+add\b'</span><span class="p">,</span><span class="s1">'\breg(\.exe)?\s+delete\b'</span><span class="p">,</span><span class="s1">'\breg(\.exe)?\s+copy\b'</span><span class="p">,</span><span class="s1">'\breg(\.exe)?\s+save\b'</span><span class="p">,</span><span class="s1">'\breg(\.exe)?\s+load\b'</span><span class="p">,</span><span class="s1">'\breg(\.exe)?\s+unload\b'</span><span class="p">,</span><span class="s1">'\breg(\.exe)?\s+restore\b'</span><span class="p">,</span><span class="s1">'\breg(\.exe)?\s+import\b'</span><span class="p">,</span><span class="s1">'\breg(\.exe)?\s+export\b'</span><span class="p">,</span><span class="s1">'\breg(\.exe)?\s+compare\b'</span><span class="p">,</span><span class="s1">'\breg(\.exe)?\s+flags\b'</span>
+</code></pre></div>
 <p>クロール対象が共有フォルダにある場合のファイルの読み取りは、Windows のファイル共有（SMB）を通る。これは OS のファイル API によるもので、本ツールが通信処理を持つわけではない。</p>
 <p><code>Add-Type</code> は 3 か所あるが、いずれも Windows 標準アセンブリの読み込み（<code>-AssemblyName</code>）であり、コードのコンパイルではない。</p>
 <table>
@@ -4467,24 +4470,14 @@
 <table>
 <thead>
 <tr>
-<th>場所</th>
-<th>起動するもの</th>
+<th>関数</th>
+<th>使う API</th>
 <th>用途</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>関数</td>
-<td>使う API</td>
-<td>用途</td>
-</tr>
-<tr>
-<td>---</td>
-<td>---</td>
-<td>---</td>
-</tr>
-<tr>
-<td><code>applyFailedFileState</code>・<code>applyIndexSourceFolderState</code>（<code>tebunko/ui/index/index_detail.ps1</code>）、<code>openSourceFolder</code>（<code>tebunko/ui/open_source.ps1</code>）</td>
+<td><code>applyFailedFileState</code>（<code>tebunko/ui/index/index_detail.ps1</code>）・<code>applyIndexSourceFolderState</code>（<code>tebunko/ui/index/index_list.ps1</code>）・<code>openSourceFolder</code>（<code>tebunko/ui/open_source.ps1</code>）</td>
 <td><code>Start-Process</code>（<code>explorer.exe</code>）</td>
 <td>一覧・検索結果から元のファイルの場所を開く（利用者の操作時のみ）。フォルダと確かめたものだけを渡す（ファイルをフォルダとして渡すと、そのファイルが既定のアプリで実行されるため）</td>
 </tr>
@@ -4495,13 +4488,8 @@
 </tr>
 <tr>
 <td><code>openWithNotepad</code>（<code>tebunko/ui/open_source.ps1</code>）</td>
-<td><code>Start-Process</code>（固定のパス `%SystemRoot%\System32</td>
-<td></td>
-</tr>
-<tr>
-<td>otepad.exe<code>） | 検索結果から、既定のアプリで開くと実行・登録になる拡張子（</code>$textNotepadExtensions`）のテキストファイルを開く（利用者の操作時のみ）</td>
-<td></td>
-<td></td>
+<td><code>Start-Process</code>（固定のパス <code>%SystemRoot%\System32\notepad.exe</code>）</td>
+<td>検索結果から、既定のアプリで開くと実行・登録になる拡張子（<code>$textNotepadExtensions</code>）のテキストファイルを開く（利用者の操作時のみ）</td>
 </tr>
 <tr>
 <td><code>openWithShell</code>（<code>tebunko/ui/open_source.ps1</code>）</td>
@@ -4511,7 +4499,7 @@
 <tr>
 <td><code>exportResults</code>（<code>tebunko/ui/open_source.ps1</code>）</td>
 <td><code>Invoke-Item</code></td>
-<td>書き出した結果のファイル（利用者が書き出し先に選んだもの）を既定のアプリで開く（利用者の操作時のみ）</td>
+<td>書き出した結果のファイル（作業フォルダの固定の場所 <code>search_results.txt</code>。利用者が選んだ名前のものではない）を既定のアプリで開く（利用者の操作時のみ）</td>
 </tr>
 <tr>
 <td><code>showErrorDialog</code>（<code>shared/ui/shell.ps1</code>）</td>

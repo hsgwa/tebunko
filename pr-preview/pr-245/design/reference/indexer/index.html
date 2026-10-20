@@ -4936,6 +4936,14 @@
 <td>testIndexRelPath, removeDroppedFolders, <code>index_archive_rules.ps1</code> の相対パスの確かめ</td>
 </tr>
 <tr>
+<td><code>testSourceBookName</code></td>
+<td>book</td>
+<td>bool</td>
+<td>インデックスの「ファイル名」（Book）が開いてよい名前か。フォルダの区切り・<code>:</code>・無効な文字・制御文字・向きを変える文字を含まない 1 つの名前で、終わりの <code>.</code> と空白を落とした拡張子が取り込み対象（Office・テキスト・PDF）にあるときだけ真</td>
+<td><a href="../../gui/open-file/">元のファイルを開く</a></td>
+<td>openSource, openWithShell, readContentIndexPlaces（検索のスレッドにも読み込む）</td>
+</tr>
+<tr>
 <td><code>testIndexRelPath</code></td>
 <td>relPath, allowNameOnly（既定 <code>$false</code>）, checkedNames</td>
 <td>string（問題の文。使えれば空）</td>
