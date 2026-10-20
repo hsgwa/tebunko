@@ -7,7 +7,7 @@
 #   .\tools\run_isolated.ps1 -Command { param ($ToolDir, $Workspace) ... }   画面を開かず、写しの場所と使い捨てのワークスペースを受け取って任意の確かめを流す
 #   .\tools\run_isolated.ps1 -ToolDir <展開した配布物の tebunko フォルダ> -Entry indexer -Settings @{ ... }   古い版（フォルダ）を隔てて動かす
 #   .\tools\run_isolated.ps1 -ToolScript <単一 .ps1> -Entry indexer -Settings @{ ... }                       古い版（単一 .ps1）を隔てて動かす
-#   -Entry gui|indexer で起動するものを選ぶ（既定 gui）。-ToolArgs は起動するものの後ろにそのまま足す。
+#   -Entry gui|indexer で起動するものを選ぶ（既定 gui）。-ToolArgs は起動するものの後ろに足す（空白を含む値は引用符でくくる。今の版の gui には渡せない）。
 #   古い版・配布物は、必ずこの道具を通して起動する（TEBUNKO_DEFAULT_WORKSPACE を読まない版もあるため）。
 #
 # 流れ:
@@ -21,10 +21,11 @@
 # -ToolDir・-ToolScript のとき（古い版）は、上に加えて次を行う。
 #   - 写しの横の setting.config の workspaceFolder に使い捨てのワークスペースを必ず入れる（環境変数を読まない版でも書き先を固定する）。
 #     -Settings に workspaceFolder があれば起動しない。
-#   - 起動する子プロセスだけ、USERPROFILE・APPDATA・LOCALAPPDATA・TEMP・TMP・TEBUNKO_DEFAULT_WORKSPACE を使い捨ての下に向ける。
+#   - 起動する子プロセスだけ、USERPROFILE・APPDATA・LOCALAPPDATA・TEMP・TMP・TEBUNKO_DEFAULT_WORKSPACE を使い捨ての下に向ける
+#     （環境変数を読む版にだけ効く。GetFolderPath を使う版を守るのは、上の workspaceFolder の固定と起動後の前後の比べ）。
 #   - -ToolDir は起動の前に、写しの lib.ps1 で設定ファイルと work の場所を求めて確かめる。-ToolScript は読み込んで確かめる口が無いので、
 #     起動後の判定で守る。
-#   - 起動後、使い捨てのワークスペースに 1 つもファイルができていなければ終了コード 1（よそに書いた合図）。
+#   - 起動後、使い捨てのワークスペースにできたファイルの名前を出す。1 つもなければ終了コード 1（よそに書いた合図）。
 param (
     [switch]$Single,
     [hashtable]$Settings = @{},
@@ -35,7 +36,7 @@ param (
     [string]$ToolScript,       # 古い版（単一 .ps1）。-ToolDir とは同時に指定できない
     [ValidateSet("gui", "indexer")]
     [string]$Entry = "gui",    # 起動するもの
-    [string[]]$ToolArgs = @()  # 起動するものの後ろにそのまま足す引数
+    [string[]]$ToolArgs = @()  # 起動するものの後ろに足す引数
 )
 
 $ErrorActionPreference = "Stop"
