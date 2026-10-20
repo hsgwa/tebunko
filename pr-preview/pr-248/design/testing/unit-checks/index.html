@@ -4087,7 +4087,7 @@
 </tr>
 <tr>
 <td>静的解析（PSScriptAnalyzer）</td>
-<td>安全性にかかわるルール（<code>tests/meta/PSScriptAnalyzer.security.psd1</code> の 14 件）・<code>Error</code> 重大度・制限言語モード（<code>PSUseConstrainedLanguageMode</code>）の指摘が 0 件、設定ファイルから当該ルールが削られていないこと</td>
+<td>全規則と 5.1 に無い構文・コマンドの指摘がベースラインより増えていない（<code>tools/check_analyzer.ps1</code>。CI の手順。設定とベースラインの形は <code>tests/meta/analyzer.Tests.ps1</code>）。安全性にかかわるルール（<code>tests/meta/PSScriptAnalyzer.security.psd1</code> の 14 件）・<code>Error</code> 重大度・制限言語モード（<code>PSUseConstrainedLanguageMode</code>）の指摘が 0 件、設定ファイルから当該ルールが削られていないこと</td>
 </tr>
 <tr>
 <td>審査用の資料</td>
