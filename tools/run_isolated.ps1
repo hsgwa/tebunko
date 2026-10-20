@@ -73,9 +73,12 @@ param([string]$Lib)
 
 function getIsolatedArgumentError {
     # 古い版の指定（-ToolDir・-ToolScript）の誤りを 1 つ返す（無ければ空）。写しを作る前に調べる
-    param ([string]$Dir, [string]$Script, [hashtable]$Config)
+    param ([string]$Dir, [string]$Script, [hashtable]$Config, [string]$EntryName = "gui", [string[]]$ArgList = @(), [bool]$HasCommand = $false)
 
-    if (!$Dir -and !$Script) { return "" }
+    if (!$Dir -and !$Script) {
+        if (!$HasCommand -and $EntryName -eq "gui" -and $ArgList.Count -gt 0) { return "今の版の gui には -ToolArgs を渡せません（-Entry indexer か -ToolDir・-ToolScript で使います）" }
+        return ""
+    }
     if ($Dir -and $Script) { return "-ToolDir と -ToolScript は同時に指定できません" }
     if ($Dir -and !(Test-Path -LiteralPath (Join-Path $Dir "scripts") -PathType Container)) { return "-ToolDir に scripts\ が見つかりません: $Dir" }
     if ($Script -and !(Test-Path -LiteralPath $Script -PathType Leaf)) { return "-ToolScript のファイルが見つかりません: $Script" }
@@ -84,8 +87,8 @@ function getIsolatedArgumentError {
 }
 
 function useIsolatedChildEnv {
-    # 子プロセスが見る環境変数を、使い捨ての下に向ける（元の値を返す。restoreIsolatedChildEnv で戻す）
-    param ([string]$Base, [string]$ProfileDir, [string]$WorkspaceDir)
+    # 子プロセスが見る環境変数を、使い捨ての下に向ける（元の値を Saved に入れる。restoreIsolatedChildEnv で戻す）
+    param ([string]$Base, [string]$ProfileDir, [string]$WorkspaceDir, [System.Collections.IDictionary]$Saved)
 
     $values = [ordered]@{
         USERPROFILE               = $ProfileDir
@@ -95,13 +98,14 @@ function useIsolatedChildEnv {
         TMP                       = "$Base\temp"
         TEBUNKO_DEFAULT_WORKSPACE = $WorkspaceDir
     }
-    $saved = [ordered]@{}
+    # 先に元の値を全部控える（途中で例外になっても、呼んだ側が Saved で戻せる）
+    foreach ($name in $values.Keys) {
+        $Saved[$name] = [System.Environment]::GetEnvironmentVariable($name)
+    }
     foreach ($name in $values.Keys) {
         [void][System.IO.Directory]::CreateDirectory($values[$name])
-        $saved[$name] = [System.Environment]::GetEnvironmentVariable($name)
         [System.Environment]::SetEnvironmentVariable($name, $values[$name])
     }
-    return $saved
 }
 
 function restoreIsolatedChildEnv {
@@ -120,11 +124,13 @@ function invokeIsolated {
     $tool = Join-Path $base "tool"
     $isLegacy = [bool]($Legacy.Dir -or $Legacy.Script)
     $profileDir = Join-Path $base "userprofile"
-    # 古い版は、USERPROFILE を読む版もここに落ちるよう、使い捨てのプロファイルの下の既定の場所をワークスペースにする
+    # 古い版は、使い捨てのプロファイルの下の既定の場所をワークスペースにする。子の USERPROFILE を向けても
+    # [Environment]::GetFolderPath("UserProfile") は変わらないので（v0.4.0 はこれで既定の場所を求める）、書き先を守るのは
+    # setting.config の workspaceFolder の固定と、起動後の前後の比べ。USERPROFILE を環境変数で読む版だけ、ここに落ちる
     $WorkspaceDir = if ($isLegacy) { Join-Path $profileDir "Documents\tebunko_ws" } else { Join-Path $base "workspace" }
     $exitCode = 0
     $watch = $null
-    $savedEnv = $null
+    $savedEnv = [ordered]@{}
     try {
         $watch = newIsolationWatch ([ordered]@{
             "既定のワークスペース" = $RealDir
@@ -148,7 +154,7 @@ function invokeIsolated {
         if ($isLegacy) {
             $Config = $Config.Clone()
             $Config["workspaceFolder"] = $WorkspaceDir
-            $savedEnv = useIsolatedChildEnv $base $profileDir $WorkspaceDir
+            useIsolatedChildEnv $base $profileDir $WorkspaceDir $savedEnv
         }
         if ($Config.Count -gt 0) {
             [System.IO.File]::WriteAllText("$tool\setting.config", (ConvertTo-Json -InputObject $Config -Depth 5), (New-Object System.Text.UTF8Encoding($false)))
@@ -183,16 +189,7 @@ function invokeIsolated {
                         $file = Join-Path $tool "tebunko-isolated.ps1"
                         & ([WildcardPattern]::Escape("$repoRoot\tools\new_single_script.ps1".Replace('`', '``'))) -Version "v0.0.0-isolated" -OutFile $file | Out-Null
                     }
-                    if (!$isLegacy -and $Entry -eq "gui") {
-                        $fileEscaped = [WildcardPattern]::Escape($file.Replace('`', '``')).Replace("'", "''")
-                        $launchArgs = @("-NoProfile", "-STA", "-ExecutionPolicy", "RemoteSigned", "-Command", "& '$fileEscaped'")
-                    } else {
-                        $launchArgs = @("-NoProfile")
-                        if ($Entry -eq "gui") { $launchArgs += "-STA" }
-                        $launchArgs += @("-ExecutionPolicy", "RemoteSigned", "-File", "`"$file`"")
-                        if ($isSingle) { $launchArgs += @("-Part", $Entry) }
-                        $launchArgs += @($Legacy.Args)
-                    }
+                    $launchArgs = getIsolatedLaunchArgs $file $Entry (!$isLegacy -and $Entry -eq "gui") $isSingle @($Legacy.Args)
                     $p = Start-Process powershell.exe -PassThru -WindowStyle Hidden -ArgumentList $launchArgs
                     $null = $p.Handle   # ExitCode を取るため、起動の直後にハンドルを持つ
                     Write-Host "起動したプロセスの PID: $($p.Id)$(if ($Wait -gt 0) { "（$Wait 秒たったら止めます。それまでに画面を閉じれば、そこで終わります）" } else { "（画面を閉じるまで待ちます）" })"
@@ -200,9 +197,14 @@ function invokeIsolated {
                     $verdict = getIsolationLaunchVerdict $waited $Wait $p.Id
                     if ($verdict.Line) { Write-Host $verdict.Line -ForegroundColor $(if ($verdict.ExitCode -ne 0) { "Red" } else { "Gray" }) }
                     if ($verdict.ExitCode -ne 0) { $exitCode = 1 }
-                    if ($isLegacy -and (getIsolationSnapshot $WorkspaceDir).Count -le 1) {
-                        Write-Host "使い捨てのワークスペースに、ファイルが 1 つもできていません（よそに書いた可能性があります）: $WorkspaceDir" -ForegroundColor Red
-                        $exitCode = 1
+                    if ($isLegacy) {
+                        $made = @(getWorkspaceFileNames $WorkspaceDir)
+                        if ($made.Count -eq 0) {
+                            Write-Host "使い捨てのワークスペースに、ファイルが 1 つもできていません（よそに書いた可能性があります）: $WorkspaceDir" -ForegroundColor Red
+                            $exitCode = 1
+                        } else {
+                            Write-Host "使い捨てのワークスペースにできたファイル: $($made -join ', ')"
+                        }
                     }
                 }
             } finally {
@@ -210,7 +212,7 @@ function invokeIsolated {
             }
         }
     } finally {
-        if ($savedEnv) { restoreIsolatedChildEnv $savedEnv }
+        if ($savedEnv.Count -gt 0) { restoreIsolatedChildEnv $savedEnv }
         # 写しの作成・事前の確かめ・確かめの途中の例外のどの道でも、既定のワークスペースを比べてから消す
         try {
             if (!$watch) {
@@ -232,7 +234,7 @@ function invokeIsolated {
     return $exitCode
 }
 
-$argumentError = getIsolatedArgumentError $ToolDir $ToolScript $Settings
+$argumentError = getIsolatedArgumentError $ToolDir $ToolScript $Settings $Entry $ToolArgs ($null -ne $Command)
 if ($argumentError) {
     Write-Host $argumentError -ForegroundColor Red
     exit 1

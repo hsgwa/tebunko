@@ -418,8 +418,8 @@ function getWorkDir { return ([string](Get-Content -LiteralPath (Join-Path (Reso
         $real = newRealStandIn "real-both"
         $record = Join-Path $TestDrive "rec-both.txt"
         $dir = newFakeToolDir "tool-both" "ws" "ws" $real $record
-        $script = newFakeToolScript "single-both" "ws" $real $record
-        $text = invokeRunIsolatedLegacy @{ RealWorkspace = $real; ToolDir = $dir; ToolScript = $script }
+        $scriptPath = newFakeToolScript "single-both" "ws" $real $record
+        $text = invokeRunIsolatedLegacy @{ RealWorkspace = $real; ToolDir = $dir; ToolScript = $scriptPath }
         $script:exitCode | Should -Be 1
         $text | Should -Match "同時に指定できません"
         (Test-Path -LiteralPath $record) | Should -BeFalse
@@ -442,22 +442,32 @@ function getWorkDir { return ([string](Get-Content -LiteralPath (Join-Path (Reso
         $rec = Get-Content -LiteralPath $record
         $rec | Should -Contain "ENTRY=$File"
         $rec | Should -Contain "ARGS=$ArgText"
+        $text | Should -Match "使い捨てのワークスペースにできたファイル: indexing_log.txt"
+    }
+
+    It "今の版の gui に -ToolArgs を渡すと、起動せず終了コード 1" {
+        $real = newRealStandIn "real-guiargs"
+        $text = invokeRunIsolatedLegacy @{ RealWorkspace = $real; ToolArgs = @("x") }
+        $script:exitCode | Should -Be 1
+        $text | Should -Match "gui には -ToolArgs を渡せません"
     }
 
     It "-ToolScript: <Case>" -TestCases @(
         @{ Case = "本物の代わりに書く版は、終了コード 1（前後の比べ）"; Mode = "real"; Code = 1; Match = "増えた: \\indexing_log.txt" }
         @{ Case = "どこにも書かない版は、終了コード 1（使い捨てに何もできていない）"; Mode = "none"; Code = 1; Match = "ファイルが 1 つもできていません" }
-        @{ Case = "USERPROFILE の下の既定の場所に書く版は、使い捨ての下にでき、終了コード 0"; Mode = "userprofile"; Code = 0; Match = "既定のワークスペースなどに違いなし" }
+        @{ Case = "環境変数 USERPROFILE を読んで既定の場所に書く偽の版は、使い捨ての下にでき、終了コード 0（GetFolderPath を使う版は workspaceFolder の固定が守る）"; Mode = "userprofile"; Code = 0; Match = "既定のワークスペースなどに違いなし" }
         @{ Case = "LOCALAPPDATA の下に書く版は、使い捨ての下に落ち、本物に違いなし"; Mode = "localappdata"; Code = 0; Match = "既定のワークスペースなどに違いなし" }
     ) {
         $real = newRealStandIn "real-script-$Mode"
         $record = Join-Path $TestDrive "rec-script-$Mode.txt"
-        $script = newFakeToolScript "single-$Mode" $Mode $real $record
-        $before = $env:LOCALAPPDATA
-        $text = invokeRunIsolatedLegacy @{ RealWorkspace = $real; ToolScript = $script; Entry = "indexer" }
+        $scriptPath = newFakeToolScript "single-$Mode" $Mode $real $record
+        $names = "USERPROFILE", "APPDATA", "LOCALAPPDATA", "TEMP", "TMP", "TEBUNKO_DEFAULT_WORKSPACE"
+        $savedValues = @{}
+        foreach ($n in $names) { $savedValues[$n] = [System.Environment]::GetEnvironmentVariable($n) }
+        $text = invokeRunIsolatedLegacy @{ RealWorkspace = $real; ToolScript = $scriptPath; Entry = "indexer" }
         $script:exitCode | Should -Be $Code -Because $text
         $text | Should -Match $Match
-        $env:LOCALAPPDATA | Should -Be $before
+        foreach ($n in $names) { [System.Environment]::GetEnvironmentVariable($n) | Should -Be $savedValues[$n] -Because $n }
         $rec = Get-Content -LiteralPath $record
         $tmp = [regex]::Escape([System.IO.Path]::GetTempPath().TrimEnd([char]92))
         ($rec | Where-Object { $_ -like "LOCALAPPDATA=*" }) | Should -Match "^LOCALAPPDATA=$tmp"
@@ -469,14 +479,37 @@ function getWorkDir { return ([string](Get-Content -LiteralPath (Join-Path (Reso
         $real = newRealStandIn "real-orig"
         $record = Join-Path $TestDrive "rec-orig.txt"
         $dir = newFakeToolDir "tool-orig" "ws" "ws" $real $record
-        $script = newFakeToolScript "single-orig" "ws" $real $record
+        $scriptPath = newFakeToolScript "single-orig" "ws" $real $record
         $beforeDir = getIsolationSnapshot $dir
-        $beforeScript = getIsolationSnapshot $script
+        $beforeScript = getIsolationSnapshot $scriptPath
         invokeRunIsolatedLegacy @{ RealWorkspace = $real; ToolDir = $dir; Entry = "indexer" } | Out-Null
         $script:exitCode | Should -Be 0
-        invokeRunIsolatedLegacy @{ RealWorkspace = $real; ToolScript = $script; Entry = "indexer" } | Out-Null
+        invokeRunIsolatedLegacy @{ RealWorkspace = $real; ToolScript = $scriptPath; Entry = "indexer" } | Out-Null
         $script:exitCode | Should -Be 0
         @(compareIsolationSnapshot $beforeDir (getIsolationSnapshot $dir) "x").Count | Should -Be 0
-        @(compareIsolationSnapshot $beforeScript (getIsolationSnapshot $script) "x").Count | Should -Be 0
+        @(compareIsolationSnapshot $beforeScript (getIsolationSnapshot $scriptPath) "x").Count | Should -Be 0
+    }
+}
+
+Describe "getIsolatedLaunchArgs" -Tag Unit {
+    It "<Case>" -TestCases @(
+        @{ Case = "今の版の gui は -STA の -Command 経路"; File = "C:\t\gui.ps1"; Entry = "gui"; Cmd = $true; Single = $false; ToolArgs = @(); Expect = "-NoProfile|-STA|-ExecutionPolicy|RemoteSigned|-Command|& 'C:\t\gui.ps1'" }
+        @{ Case = "フォルダ版 gui は -STA の -File"; File = "C:\t\gui.ps1"; Entry = "gui"; Cmd = $false; Single = $false; ToolArgs = @(); Expect = "-NoProfile|-STA|-ExecutionPolicy|RemoteSigned|-File|`"C:\t\gui.ps1`"" }
+        @{ Case = "フォルダ版 indexer は -STA なし"; File = "C:\t\indexer.ps1"; Entry = "indexer"; Cmd = $false; Single = $false; ToolArgs = @(); Expect = "-NoProfile|-ExecutionPolicy|RemoteSigned|-File|`"C:\t\indexer.ps1`"" }
+        @{ Case = "単一 .ps1 は -Part <Entry> を付ける"; File = "C:\t\a.ps1"; Entry = "indexer"; Cmd = $false; Single = $true; ToolArgs = @(); Expect = "-NoProfile|-ExecutionPolicy|RemoteSigned|-File|`"C:\t\a.ps1`"|-Part|indexer" }
+        @{ Case = "ToolArgs は後ろに足し、空白を含む値は引用符でくくる"; File = "C:\t\a.ps1"; Entry = "indexer"; Cmd = $false; Single = $true; ToolArgs = @("x", "C:\a b"); Expect = "-NoProfile|-ExecutionPolicy|RemoteSigned|-File|`"C:\t\a.ps1`"|-Part|indexer|x|`"C:\a b`"" }
+    ) {
+        (getIsolatedLaunchArgs $File $Entry $Cmd $Single $ToolArgs) -join "|" | Should -Be $Expect
+    }
+}
+
+Describe "getWorkspaceFileNames" -Tag Io {
+    It "ファイルだけを数え、空のフォルダだけなら空" {
+        $dir = Join-Path $TestDrive "wsnames"
+        New-Item -ItemType Directory -Path "$dir\sub" | Out-Null
+        @(getWorkspaceFileNames $dir).Count | Should -Be 0
+        [System.IO.File]::WriteAllText("$dir\sub\a.txt", "a")
+        [System.IO.File]::WriteAllText("$dir\b.txt", "b")
+        (getWorkspaceFileNames $dir) -join "," | Should -Be "b.txt,sub\a.txt"
     }
 }

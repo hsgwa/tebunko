@@ -203,3 +203,28 @@ function getIsolationLaunchVerdict {
     }
     return @{ ExitCode = 0; Line = "" }
 }
+
+function getWorkspaceFileNames {
+    # 使い捨てのワークスペースの下にできたファイルの相対パス（フォルダは数えない。無ければ空）
+    param ([string]$Path)
+
+    $snap = getIsolationSnapshot $Path
+    return @($snap.Keys | Where-Object { $_ -and $snap[$_] -ne "(フォルダ)" } | Sort-Object | ForEach-Object { $_.TrimStart("\") })
+}
+
+function getIsolatedLaunchArgs {
+    # powershell.exe に渡す引数の並び。CommandRoute は今の版の画面（-Command で包んで起動）。それ以外は -File で起動する
+    # （gui は -STA）。単一 .ps1 は -Part <Entry> を付ける。ToolArgs は後ろに足す（空白を含む値は引用符でくくる）
+    param ([string]$File, [string]$Entry, [bool]$CommandRoute, [bool]$IsSingle, [string[]]$ToolArgs = @())
+
+    if ($CommandRoute) {
+        $escaped = [WildcardPattern]::Escape($File.Replace('`', '``')).Replace("'", "''")
+        return @("-NoProfile", "-STA", "-ExecutionPolicy", "RemoteSigned", "-Command", "& '$escaped'")
+    }
+    $list = @("-NoProfile")
+    if ($Entry -eq "gui") { $list += "-STA" }
+    $list += @("-ExecutionPolicy", "RemoteSigned", "-File", "`"$File`"")
+    if ($IsSingle) { $list += @("-Part", $Entry) }
+    foreach ($a in @($ToolArgs)) { $list += $(if ($a -match '\s') { "`"$a`"" } else { $a }) }
+    return $list
+}
