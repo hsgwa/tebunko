@@ -1095,6 +1095,8 @@
       
         
       
+        
+      
     
     
     
@@ -1344,6 +1346,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../errors-ingest/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    エラーメッセージ一覧（ファイルごとの失敗）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1957,6 +1987,8 @@
       
         
       
+        
+      
     
     
     
@@ -2434,6 +2466,34 @@
     
   
     インデックス作成ログの警告・お知らせ一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../log-warnings-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    警告・お知らせ一覧（まとめ・置き場・後片付け）
   
 
     
@@ -4264,7 +4324,7 @@
 <td>中止する</td>
 </tr>
 <tr>
-<td>ファイルごとの失敗（<a href="#ファイルごとの失敗取り込み一覧のエラー列">ファイルごとの失敗（取り込み一覧のエラー列）</a>）</td>
+<td>ファイルごとの失敗（<a href="../errors-ingest/#ファイルごとの失敗取り込み一覧のエラー列">ファイルごとの失敗（取り込み一覧のエラー列）</a>）</td>
 <td><code>work/store/ingest_status.tsv</code> のエラー列（状態は <code>失敗</code>）</td>
 <td>［インデックス管理］タブの「取り込みに失敗したファイル」の一覧（<a href="../../gui/index-tab/">インデックス一覧の管理</a>）</td>
 <td>次のファイルへ進む</td>
@@ -4278,7 +4338,7 @@
 </tbody>
 </table>
 <p>メッセージ中の <code>&lt;…&gt;</code> は実行時に埋め込む値。</p>
-<p>利用者に出すエラー・警告の文言を足したら、この一覧・<a href="../log-warnings/">インデックス作成ログの警告・お知らせ一覧</a>・<a href="../errors-store/">置き場の安全確認のエラー</a>・<a href="../../gui/messages/">画面に出すメッセージの一覧</a>のどれかに載せる（<code>tests/meta/error_messages.Tests.ps1</code> が確かめる）。</p>
+<p>利用者に出すエラー・警告の文言を足したら、この一覧・<a href="../errors-ingest/">ファイルごとの失敗</a>・<a href="../log-warnings/">インデックス作成ログの警告・お知らせ一覧</a>（<a href="../log-warnings-index/">まとめ・置き場・後片付け</a>も）・<a href="../errors-store/">置き場の安全確認のエラー</a>・<a href="../../gui/messages/">画面に出すメッセージの一覧</a>のどれかに載せる（<code>tests/meta/error_messages.Tests.ps1</code> が確かめる）。</p>
 <h2 id="続けられないエラー">続けられないエラー<a class="headerlink" href="#続けられないエラー" title="Permanent link">&para;</a></h2>
 <p><code>invokeIndexer</code> が例外を受け、例外のメッセージをそのままログと受け渡しの口の <code>Error</code> に入れて終了コード <code>1</code> で終える（<a href="../flow/">インデックス作成のメインフロー</a>）。<code>describeIngestError</code>（<a href="../office-apps/#失敗の原因describeingesterror">失敗の原因</a>）は通さない。画面は終わったインデックス作成の <code>Error</code> を読んで表示する（<code>IndexingSession.GetError</code>）。
 インデックス作成中にクロール対象フォルダが見つからなくなった場合だけは、<code>finally</code>（アプリの終了・取り込み一覧の書き直し）を確実に通すため、例外にせずに <code>Error</code> にメッセージを入れて終了コード <code>1</code> で終わる。</p>
@@ -4358,176 +4418,7 @@
 <li>受け渡しの口はインデックス作成 1 回ごとに作るため、前回のエラーは残らない。</li>
 </ul>
 <h2 id="ファイルごとの失敗取り込み一覧のエラー列">ファイルごとの失敗（取り込み一覧のエラー列）<a class="headerlink" href="#ファイルごとの失敗取り込み一覧のエラー列" title="Permanent link">&para;</a></h2>
-<p>1 ファイルの取り込みで例外が起きたら、そのファイルの状態を <code>失敗</code> にし、エラー列にメッセージを記録して次のファイルへ進む。更新されない限り次回以降はスキップする（再取り込みは画面で「失敗分も再取り込みする」を選ぶ。<code>-RetryFailed</code>）。</p>
-<p><strong>(1) インデクサが決まった文面で記録するもの</strong></p>
-<table>
-<thead>
-<tr>
-<th>メッセージ</th>
-<th>発生条件</th>
-<th>対処</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>10 分以内に更新が終わらなかったため中止しました（Officeアプリを強制終了しました）</code></td>
-<td>1 ファイルの取り込みが制限時間（<code>$fileTimeoutMinutes</code> = 10 分）を超え、Office アプリを強制終了した</td>
-<td>ファイルを Office で開いて確認する（大きすぎる・ダイアログが出る等）</td>
-</tr>
-<tr>
-<td><code>更新中に &lt;N&gt; 回続けて強制終了されたため、更新を中止しました（Officeアプリが応答しなくなる可能性があります）</code></td>
-<td>同じファイルの取り込み中に <code>$interruptLimit</code>（2）回続けてインデクサが強制終了した（<a href="../ingest-list/">取り込み一覧</a>）</td>
-<td>同上</td>
-</tr>
-<tr>
-<td><code>ファイルが壊れているか、PowerPointのファイルではありません（新形式（ZIP）でも旧形式でもない内容です）。</code></td>
-<td>PowerPoint の拡張子で、中身が ZIP でも複合ドキュメント形式でもない（テキスト・0 バイト等）（<a href="../powerpoint/">PowerPoint</a>）</td>
-<td>正しいファイルに差し替える。不要なら削除する</td>
-</tr>
-<tr>
-<td><code>Word文書の本文（word/document.xml）がありません。</code></td>
-<td><code>.docx</code> 等の ZIP の中に本文が無い（壊れている）</td>
-<td>同上</td>
-</tr>
-<tr>
-<td><code>PowerPointのプレゼンテーション情報（ppt/presentation.xml）がありません。</code></td>
-<td><code>.pptx</code> 等の ZIP の中にプレゼンテーション情報が無い（壊れている）</td>
-<td>同上</td>
-</tr>
-<tr>
-<td><code>インデックスのファイル名が長すぎるため保存できません（&lt;N&gt; 文字。上限 255 文字）: &lt;ファイル名&gt;</code></td>
-<td>インデックスのファイル名 <code>&lt;場所&gt;.tsv</code>（場所は符号化する）が 255 文字を超える（<code>toIndexFileName</code>）</td>
-<td>シート名・スライド名を短くする</td>
-</tr>
-<tr>
-<td><code>ファイルサイズが大きすぎるため更新できません。</code></td>
-<td>テキストファイル（<code>.txt</code> 等）が大きさの上限（10MB）を超える（<code>readTextFile</code>。<a href="../text/#大きさの上限">テキストファイルの読み取り</a>）。または <code>.docx</code> <code>.pptx</code> <code>.xlsx</code> を直接読むとき（Office を使わない）、ZIP の部品 1 つ（展開後）が上限（100MB）、または 1 ファイルで読む合計が上限（300MB）を超える（<code>readZipEntry</code>。<a href="../../../safety/checks/#office-ファイルを開くときの設定">Office ファイルを開くときの設定</a>）。画面・取り込み一覧の文言はこの短いものだけで、部品ごとか合計か・部品名・大きさは出さない（悪用のヒントになるため）が、原因を調べられるよう <code>work/indexing_log.txt</code> にはその詳細を書く（<code>writeZipSizeLimitLog</code>）</td>
-<td>ファイルを分割する。取り込めなくてよいなら、そのままにする</td>
-</tr>
-<tr>
-<td><code>作業領域のコピーを消せませんでした: &lt;元のメッセージ&gt;</code></td>
-<td>ファイル（テキスト・PDF・Excel・Word・PowerPoint）を読み終えたあと、作業領域のコピーを消せなかった（ウイルス対策ソフトなどがコピーを開いている、など）。コピーが本文インデックスに混ざらないよう、取り込みの失敗にする（<code>invokeWithSourceCopy</code>。<a href="../text/#テキストファイルの抽出処理extracttextfile">テキストファイルの読み取り</a>）。残ったコピーは、次のファイルの前と次のインデックス作成の始めに片付けられる</td>
-<td>次のインデックス作成で取り込み直される。続くときは、作業領域（<code>work/tmp/</code>）をウイルス対策ソフトの対象から外す</td>
-</tr>
-<tr>
-<td><code>PDF</code> で始まる文言（<code>PDFにパスワードが必要なため読めません。</code>・<code>PDFの暗号化の方式に対応していないため読めません。</code>・<code>PDFの暗号化の情報が壊れているため読めません。</code>・<code>PDFの暗号化されたデータが壊れているため読めません。</code>・<code>PDFが壊れているため読めません。</code>・<code>PDFの文字の対応表が無いため読めません。</code>・<code>PDFの解凍後の大きさが上限を超えるため読めません。</code>・<code>PDFのページ数が上限を超えるため読めません。</code> など）。大きすぎる PDF（100MB 超）は上の <code>ファイルサイズが大きすぎるため更新できません。</code></td>
-<td>PDF を読めない（パスワードが要る・暗号化の方式が未対応（AES-256 以外。RC4・AES-128 を含む）・壊れている・対応していない圧縮・文字の対応表を持たないフォント・上限超え・参照の循環など。<code>readPdfFile</code>・<code>readPdfPages</code>。<a href="../pdf/#読めない-pdf">PDF ファイルの読み取り</a>）。そのファイルだけが失敗になり、インデックス作成は続く</td>
-<td>パスワードを解除したコピーを使う、PDF を保存し直す（フォントの文字を埋め込み直す）。読めなくてよいなら、そのままにする</td>
-</tr>
-<tr>
-<td><code>テキストファイルではないため更新できません。</code></td>
-<td>テキストの拡張子だが、文字コードを判定できない（バイナリ・UTF-32・GBK など、判定できないもの・あいまいなもの）（<code>detectTextEncoding</code>。<a href="../text/#文字コードの判定detecttextencoding">テキストファイルの読み取り</a>）</td>
-<td>拡張子を確かめる。正しいテキストファイルなら、文字コードを UTF-8・Shift_JIS・UTF-16 のどれかで保存し直す</td>
-</tr>
-<tr>
-<td><code>読み取りパスワードが設定されているため開けません（パスワード付きのファイルは更新できません）</code></td>
-<td>◎ パスワード付きの <code>.xlsx</code> <code>.docx</code> <code>.doc</code> <code>.pptx</code> <code>.ppt</code>。新形式（<code>.docx</code> <code>.pptx</code>）は Word・PowerPoint を起動せずに判定して記録する（<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>）。Excel はパスワード付きでも Office に開かせ、下の (2) の言い換えで同じ文言になる</td>
-<td>取り込めない。パスワードを外したコピーを置けば取り込める</td>
-</tr>
-<tr>
-<td><code>IRM・秘密度ラベルで暗号化されているため更新できません。</code></td>
-<td>IRM・秘密度ラベルの暗号化（<a href="https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-offcrypto/">[MS-OFFCRYPTO]</a> の IRMDS）を検出し、Officeを起動せずに判定した（<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>。ライセンス取得・サインイン画面が見えないまま出て止まりうるため開かない）</td>
-<td>取り込めない。保護を外したコピーを置けば取り込める</td>
-</tr>
-<tr>
-<td><code>暗号化されているか壊れているため更新できません。</code></td>
-<td>ZIPでもCFBでもなく、先頭4KBにNULを含む「形式の分からないバイナリ」（透過暗号化の製品の暗号文の見込み）。アプリごとの予備が無効・開けない・出力の確かめに失敗した場合</td>
-<td>透過暗号化の製品でファイルを復号してから取り込む。製品の設定でPowerShellを許可アプリにできれば取り込めることがある</td>
-</tr>
-<tr>
-<td><code>ファイルを暗号化する製品が一時ファイルを暗号化したため更新できません。</code></td>
-<td>Officeが保存した一時ファイル（変換した <code>.docx</code>・<code>.pptx</code>、<a href="../excel/">Excel</a> のテキスト保存）まで透過暗号化の製品が暗号化した（<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>の <code>testOfficeOutput</code>）</td>
-<td>同上</td>
-</tr>
-<tr>
-<td><code>ワークスペースのパスに [ ]（角かっこ）が含まれるため、更新の作業フォルダを置けません。このファイルの取り込みをスキップしました。</code></td>
-<td>ワークスペースのパス（<code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code>）に <code>[</code> <code>]</code> が含まれ、Excel が保存できない（<code>selectTmpDir</code>。<a href="../../structure/data/">データの置き場所とパスの決め方</a>）</td>
-<td>ワークスペースのフォルダ名・その親フォルダ名から <code>[</code> <code>]</code> を外す</td>
-</tr>
-<tr>
-<td><code>ワークスペースのパスが長すぎるため、更新の作業フォルダを置けません。このファイルの取り込みをスキップしました。</code></td>
-<td>ワークスペースのパスが長く、Office が開けない（<code>selectTmpDir</code>）</td>
-<td>ワークスペースをより浅い場所に移す</td>
-</tr>
-<tr>
-<td><code>PowerPoint が起動していたため取り込めませんでした。PowerPoint を閉じてから、もう一度更新してください。</code></td>
-<td>インデックス作成を始めたときから利用者の PowerPoint が起動していて、PowerPoint で読むファイル（<code>.ppt</code>・パスワード付きなど）に接続できない（<code>getApp</code> が接続せずに例外にする）。<strong>状態は <code>失敗</code> ではなく <code>未取り込み</code> のまま</strong>、このメッセージをエラー列に書く（前回の行があれば、TSV 数・取り込み日時・抽出版は前回のまま）</td>
-<td>PowerPoint を閉じてから、もう一度更新する。確認の画面の「…も更新し直す」を選ばなくても取り込む</td>
-</tr>
-<tr>
-<td><code>PowerPoint を使っている方がいたため取り込めませんでした。PowerPoint を保存して閉じてから、もう一度更新してください。</code></td>
-<td>取り込み中に利用者が PowerPoint の窓を使い始め、制限時間を過ぎても強制終了せずにワーカーを諦めた（<a href="../office-apps/#office-アプリexcelwordpowerpointの管理">Office アプリの管理</a>「利用者が使っている PowerPoint」）。取り込み中だったファイルと残りの PowerPoint のファイルが対象。状態は <code>未取り込み</code> のまま、このメッセージをエラー列に書く</td>
-<td>PowerPoint を保存して閉じてから、もう一度更新する。確認の画面の「…も更新し直す」を選ばなくても取り込む</td>
-</tr>
-</tbody>
-</table>
-<p><strong>(2) 例外から <code>describeIngestError</code> が言い換えるもの</strong>（判定条件は <a href="../office-apps/#失敗の原因describeingesterror">失敗の原因</a>）</p>
-<table>
-<thead>
-<tr>
-<th>メッセージ</th>
-<th>主な発生例（◎ はテストデータで確認済み）</th>
-<th>対処</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>読み取りパスワードが設定されているため開けません（パスワード付きのファイルは更新できません）</code></td>
-<td>◎ 読み取りパスワード付きの <code>.xlsx</code> <code>.docx</code> <code>.doc</code> <code>.pptx</code> <code>.ppt</code></td>
-<td>取り込めない。パスワードを外したコピーを置けば取り込める</td>
-</tr>
-<tr>
-<td><code>ファイルが壊れているか、拡張子と中身の形式が一致していません（詳細: &lt;元のメッセージ&gt;）</code></td>
-<td>◎ 中身がテキスト・0 バイトの <code>.xlsx</code>、中身が <code>.xls</code> の <code>.xlsx</code></td>
-<td>正しい拡張子に直すか、正しいファイルに差し替える</td>
-</tr>
-<tr>
-<td><code>ほかのアプリ・利用者がファイルを使用中のため読めません（ファイルを閉じてから再度更新してください）（詳細: &lt;元のメッセージ&gt;）</code></td>
-<td>ほかのアプリが読み取りも拒否してファイルを開いている（排他で開いている）ためコピーできない。利用者が Office で通常どおり開いて編集しているだけなら、コピーできるため発生しない</td>
-<td>ファイルを閉じてから再取り込みする</td>
-</tr>
-<tr>
-<td><code>ファイルを読むアクセス権がありません（詳細: &lt;元のメッセージ&gt;）</code></td>
-<td>読み取り権限の無いファイル</td>
-<td>権限を付けてもらう</td>
-</tr>
-<tr>
-<td><code>ファイルが見つかりません（更新中に移動・削除・名前変更された可能性があります）（詳細: &lt;元のメッセージ&gt;）</code></td>
-<td>クロールしてから取り込むまでの間にファイルが移動・削除された</td>
-<td>次のインデックス作成で自動的に一覧から除かれる</td>
-</tr>
-<tr>
-<td><code>パスが長すぎるため読めません（詳細: &lt;元のメッセージ&gt;）</code></td>
-<td>長いパスに対応していない経路でファイルを扱った</td>
-<td>クロール対象フォルダを浅い場所にする</td>
-</tr>
-<tr>
-<td><code>シート・文書が大きすぎて更新できません（メモリが不足しました）（詳細: &lt;元のメッセージ&gt;）</code></td>
-<td>◎ 1 枚のシートがテキストにして約 1GB を超える（100 万行 × 30 列など）。整形（<code>prettyTsv</code>）でシート 1 枚分を一度に読み込めない</td>
-<td>シートを分ける。PC のメモリを増やす</td>
-</tr>
-<tr>
-<td><code>Officeアプリ（Excel・Word・PowerPoint）を起動できませんでした（インストール・ライセンス認証の状態を確認してください）（詳細: &lt;元のメッセージ&gt;）</code></td>
-<td>Office が入っていない・壊れている・ライセンス認証が必要</td>
-<td>Office の状態を確認する</td>
-</tr>
-<tr>
-<td><code>Officeアプリが異常終了したか、内部でエラーが発生しました（ファイルが壊れている、または大きすぎる可能性があります）（詳細: &lt;元のメッセージ&gt;）</code></td>
-<td>取り込み中に Office アプリが落ちた・強制終了された</td>
-<td>ファイルを Office で開いて確認する。残ったアプリは、次に画面を起動したときの確認で終了する</td>
-</tr>
-<tr>
-<td><code>Officeアプリが応答しませんでした（Officeアプリでダイアログを表示中などの可能性があります）（詳細: &lt;元のメッセージ&gt;）</code></td>
-<td>Office アプリがダイアログを表示中・処理中</td>
-<td>残った Office アプリを終了してから再取り込みする</td>
-</tr>
-</tbody>
-</table>
-<p><strong>(3) その他</strong></p>
-<ul>
-<li>上記に当たらない例外は、Office・.NET の例外メッセージをそのまま記録する（改行・連続する空白は 1 つの空白にする）。メッセージが空なら <code>エラーコード 0x&lt;8 桁の 16 進&gt;</code> とする。</li>
-<li>エラー列が空の <code>失敗</code> の行は、画面の一覧では <code>（原因は記録されていません）</code> と表示する。</li>
-</ul>
+<p>1 ファイルの取り込みに失敗したときの文言は、<a href="../errors-ingest/">ファイルごとの失敗（取り込み一覧のエラー列）</a>に載せている。</p>
 
 
 

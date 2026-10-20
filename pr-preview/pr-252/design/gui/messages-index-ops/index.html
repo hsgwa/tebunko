@@ -1095,6 +1095,8 @@
       
         
       
+        
+      
     
     
     
@@ -1267,6 +1269,34 @@
     
   
     エラーメッセージ一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexing/errors-ingest/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    エラーメッセージ一覧（ファイルごとの失敗）
   
 
     
@@ -1886,6 +1916,8 @@
       
         
       
+        
+      
     
     
     
@@ -2294,6 +2326,34 @@
     
   
     インデックス作成ログの警告・お知らせ一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexing/log-warnings-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    警告・お知らせ一覧（まとめ・置き場・後片付け）
   
 
     
@@ -4342,6 +4402,31 @@
 </tr>
 <tr>
 <td>同上</td>
+<td>zip の <code>ingest_status.tsv</code> の見出しが違う</td>
+<td><code>ingest_status.tsv を読み込めません（ingest_status.tsv の見出しが違います。）</code></td>
+</tr>
+<tr>
+<td>同上</td>
+<td>zip の <code>ingest_status.tsv</code> の行が読めない</td>
+<td><code>ingest_status.tsv を読み込めません（ingest_status.tsv の &lt;行番号&gt; 行目が読めません（&lt;詳細&gt;））</code></td>
+</tr>
+<tr>
+<td>同上</td>
+<td>zip の <code>ingest_status.tsv</code> に同じ相対パスが 2 つある</td>
+<td><code>ingest_status.tsv を読み込めません（ingest_status.tsv に同じ相対パスが 2 つあります: &lt;パス&gt;）</code></td>
+</tr>
+<tr>
+<td>同上</td>
+<td>zip の <code>ingest_status.tsv</code> が大きすぎる</td>
+<td><code>ingest_status.tsv を読み込めません（大きさが上限（&lt;N&gt; MB）を超えています）</code></td>
+</tr>
+<tr>
+<td>同上</td>
+<td>zip のインデックスのファイルが大きすぎる</td>
+<td><code>インデックスのファイル「&lt;名前&gt;」を読み込めません（大きさが上限（&lt;N&gt; MB）を超えています）。エクスポートした側で更新し直してから、もう一度エクスポートしてください。</code></td>
+</tr>
+<tr>
+<td>同上</td>
 <td>名前・元のフォルダの指定が使えない</td>
 <td><code>「&lt;名前&gt;」は、ほかのインデックスが使っています。別の名前を付けてください。</code> ／ <code>元のフォルダを指定してください。</code> ／ <code>「&lt;パス&gt;」のインデックス [&lt;名前&gt;] が既にあります。</code></td>
 </tr>
@@ -4431,8 +4516,13 @@
 </tr>
 <tr>
 <td>同上</td>
-<td>中身を移せなかった（ほかのアプリが開いている等）</td>
-<td><code>ワークスペースの中身を「&lt;パス&gt;」へ移せませんでした（&lt;原因&gt;）。ファイルを開いているアプリを閉じてから、もう一度変えてください。&lt;後片付けの結果&gt;</code></td>
+<td>中身を移せなかった。元へ戻せなかった項目がある</td>
+<td><code>ワークスペースの中身を「&lt;パス&gt;」へ移せませんでした（&lt;原因&gt;）。ファイルを開いているアプリを閉じてから、もう一度変えてください。元へ戻せなかった項目があります（&lt;項目&gt;）。それは「&lt;パス&gt;」にあります。ほかの中身は「&lt;パス&gt;」にあります。</code></td>
+</tr>
+<tr>
+<td>同上</td>
+<td>中身を移せなかった（ほかのアプリが開いている等）。元へすべて戻せた</td>
+<td><code>ワークスペースの中身を「&lt;パス&gt;」へ移せませんでした（&lt;原因&gt;）。ファイルを開いているアプリを閉じてから、もう一度変えてください。中身は「&lt;パス&gt;」に残しています。</code></td>
 </tr>
 <tr>
 <td>フォルダを選ぶダイアログ</td>
