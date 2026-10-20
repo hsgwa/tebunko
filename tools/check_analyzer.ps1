@@ -43,6 +43,8 @@ foreach ($t in $targets) {
         # TypeNotFound は規則でなく構文解析の指摘なので ExcludeRules では除けない。
         # 継承元の型が別ファイルにあるため 1 ファイルだけでは解決できないもの（読み込む順で解決することは tests\meta\structure.Tests.ps1 の「型の読み込み」が確かめる）
         if ($f.RuleName -eq "TypeNotFound") { continue }
+        # tests\testdata\text\ の .ps1・.psm1・.psd1 は、テキスト抽出の見本（中身は文章）。チェックアウトの改行などで指摘が変わるため調べない
+        if ($f.ScriptPath.Replace("/", "\").ToLowerInvariant().Contains("\tests\testdata\text\")) { continue }
         $findings.Add($f)
     }
 }

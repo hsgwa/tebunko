@@ -45,8 +45,6 @@ tests/tebunko/indexer/extract_office.Tests.ps1	PSAvoidUsingEmptyCatchBlock	2
 tests/tebunko/indexer/ingest_dispatcher.Tests.ps1	PSAvoidUsingEmptyCatchBlock	2
 tests/tebunko/ui/startup_error.Tests.ps1	PSAvoidUsingEmptyCatchBlock	1
 tests/testdata/make_testdata.ps1	PSAvoidUsingPlainTextForPassword	7
-tests/testdata/text/TXT41.psm1	PSUseBOMForUnicodeEncodedFile	1
-tests/testdata/text/TXT42.psd1	PSUseBOMForUnicodeEncodedFile	1
 tests/tools/capture_screens.Tests.ps1	PSAvoidUsingComputerNameHardcoded	3
 tests/tools/measure_perf.Tests.ps1	PSPlaceOpenBrace	1
 tests/tools/new_sbom.Tests.ps1	PSUseShouldProcessForStateChangingFunctions	1
