@@ -259,11 +259,14 @@ function getTargetFolders {
     # 同じフォルダ・同じ名前は最初のものだけ使う（名前の重複は、2 つ目以降を空にして割り当て直す）。
     # フォルダ名として使えない名前（.. ・最後が . ・使えない文字など）も空にして割り当て直す（予約名の aux.backup・CON.txt は、既にある名前なのでそのまま使う）。
     # 書き方が違うだけで同じフォルダを指す場合（ネットワークドライブと UNC パスなど）も同じフォルダとみなす
+    # （書き方が違う別名があるのはネットワークのパスだけなので、ネットワークのパスどうしだけを testSameFolder で比べる。
+    # 全部の組を比べると、インデックスの数の 2 乗の回数だけ呼んで、数百件で画面が止まって見えるため）
     param (
         [string]$path = ${settingsFile}
     )
 
     $folders = New-Object System.Collections.Generic.List[object]
+    $networkFolders = New-Object System.Collections.Generic.List[string]
     $seenPath = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
     $seenName = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($item in @((readSettings $path).targetFolders)) {
@@ -271,8 +274,11 @@ function getTargetFolders {
         if ($folder -eq "" -or -not $seenPath.Add($folder)) {
             continue
         }
-        if (@($folders | Where-Object { testSameFolder $_.Path $folder }).Count -gt 0) {
-            continue
+        if (testNetworkPath $folder) {
+            if (@($networkFolders | Where-Object { testSameFolder $_ $folder }).Count -gt 0) {
+                continue
+            }
+            $networkFolders.Add($folder)
         }
         $name = toSafeFileName ([string]$item.name).Trim()
         # 既にある名前は、予約名（aux.backup など）でもそのまま使い続ける（空にして付け直すと、別の名前のフォルダになり取り込み直しになる）

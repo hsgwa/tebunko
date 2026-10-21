@@ -49,6 +49,16 @@ BeforeAll {
 
     . "${scriptsDir}\tebunko\ui\index_tree.ps1"
 
+    function loadIndexTreeNow {
+        # loadIndexTree は裏の列に仕事を出すだけなので、出された仕事をその場で流し、結果を onDone に渡して終わったことにする
+        loadIndexTree
+        $job = $fake.Jobs[$fake.Jobs.Count - 1]
+        $jobArguments = $job.Arguments
+        $output = @(& $job.ScriptBlock @jobArguments)
+        & $job.OnDone $output ""
+        [void]$fake.Jobs.Remove($job)
+    }
+
     # 設定の保存先がリポジトリの setting.config・work\ にならないよう、どこにも無い場所にしておく（各 Describe で TestDrive に向け直す）
     $safeDir = Join-Path ([System.IO.Path]::GetTempPath()) "tebunko_index_tree_test_$([guid]::NewGuid())"
     $indexDir = "$safeDir\index"
@@ -126,10 +136,11 @@ Describe "loadIndexTree" -Tag Io {
     }
 
     It "インデックスが無ければ空のまま対象を更新する" {
-        loadIndexTree
+        loadIndexTreeNow
 
         $script:indexRoots.Count | Should -Be 0
-        $fake.TargetUpdates | Should -Be 1
+        # 読み込みを始めたとき（読み込み中の表示）と、結果を反映したときの 2 回
+        $fake.TargetUpdates | Should -Be 2
         @(getSearchTargets).Count | Should -Be 0
     }
 
@@ -137,7 +148,7 @@ Describe "loadIndexTree" -Tag Io {
         newIndexFiles $indexDir
         writeSettingsJson $settingsFile '{ "targetFolders": [ { "name": "総務部", "path": "C:\\共有\\総務部", "enabled": true }, { "name": "営業部", "path": "C:\\共有\\営業部", "enabled": true } ] }'
 
-        loadIndexTree
+        loadIndexTreeNow
 
         (@($script:indexRoots | ForEach-Object { $_.Name }) -join ",") | Should -Be "総務部,営業部"
         (getRoot "営業部").SourcePath | Should -Be "C:\共有\営業部"
@@ -147,7 +158,7 @@ Describe "loadIndexTree" -Tag Io {
 
     It "すべてチェックしていれば、インデックスごとに下のフォルダも含めて検索する" {
         newIndexFiles $indexDir
-        loadIndexTree
+        loadIndexTreeNow
 
         $targets = @(getSearchTargets)
 
@@ -164,7 +175,7 @@ Describe "loadIndexTree" -Tag Io {
             [pscustomobject]@{ Path = "$root\総務部"; Subfolders = $false }
         ) $settingsFile
 
-        loadIndexTree
+        loadIndexTreeNow
 
         isAllIndexChecked | Should -Be $false
         $null -eq (getRoot "営業部").IsChecked | Should -Be $true
@@ -177,14 +188,14 @@ Describe "loadIndexTree" -Tag Io {
 
     It "読み込み直しても、展開していたフォルダは展開したままにする" {
         newIndexFiles $indexDir
-        loadIndexTree
+        loadIndexTreeNow
         $sales = getRoot "営業部"
         $sales.SetExpanded($true)
         expandIndexNode $sales
         $year = @($sales.Children | Where-Object { $_.Name -eq "2024" })[0]
         $year.SetExpanded($true)
 
-        loadIndexTree
+        loadIndexTreeNow
 
         $sales = getRoot "営業部"
         $sales.IsExpanded | Should -Be $true
@@ -195,7 +206,7 @@ Describe "loadIndexTree" -Tag Io {
         newIndexFiles $indexDir
         $root = (Resolve-Path -LiteralPath $indexDir).ProviderPath
 
-        loadIndexTree
+        loadIndexTreeNow
 
         $sales = getRoot "営業部"
         $sales.SourcePath | Should -Be ""
@@ -206,10 +217,10 @@ Describe "loadIndexTree" -Tag Io {
 
     It "インデックスのフォルダが無くなっていても読み込める" {
         newIndexFiles $indexDir
-        loadIndexTree
+        loadIndexTreeNow
         Remove-Item -LiteralPath "$indexDir\総務部" -Recurse -Force
 
-        loadIndexTree
+        loadIndexTreeNow
 
         (@($script:indexRoots | ForEach-Object { $_.Name }) -join ",") | Should -Be "営業部"
     }
@@ -228,7 +239,7 @@ Describe "saveSearchExcludes・setAllIndexChecked" -Tag Io {
         $script:indexRoots.Clear()
         $fake.TargetUpdates = 0
         newIndexFiles $indexDir
-        loadIndexTree
+        loadIndexTreeNow
         $fake.TargetUpdates = 0
     }
 
@@ -308,7 +319,7 @@ Describe "イベント" -Tag Io {
         Remove-Item -LiteralPath $indexDir, $settingsFile -Recurse -Force -ErrorAction SilentlyContinue
         $script:indexRoots.Clear()
         newIndexFiles $indexDir
-        loadIndexTree
+        loadIndexTreeNow
         $fake.TargetUpdates = 0
         $ui.IndexTree.SelectedItem = $null
     }
@@ -499,5 +510,32 @@ Describe "ネットワークのワークスペース" -Tag Unit {
         & $fake.Jobs[0].OnDone @(@{ HasFiles = $false; Folders = @(@{ Name = "設計"; HasSubfolders = $false }); Error = "" }) ""
 
         $node.Children[0].IsPlaceholder | Should -Be $true
+    }
+}
+
+Describe "ローカルのワークスペース" -Tag Unit {
+    BeforeAll {
+        $localDir = "C:\Users\test\tebunko_ws\work\index"
+        $settingsFile = "$TestDrive\setting.config"
+        $workspace = newTestWorkspace @{ IndexDir = $localDir; StatusFile = "C:\Users\test\tebunko_ws\work\ingest_status.tsv" } "C:\Users\test\tebunko_ws\work"
+    }
+
+    BeforeEach {
+        $script:indexRoots.Clear()
+        $script:indexTreeLoading = $false
+        $script:indexTreeConnectError = ""
+        $fake.Jobs.Clear()
+    }
+
+    It "ローカルも画面のスレッドでは読まず、裏の列（default）に出して、読み込み中にする（インデックスが多いと止まって見えるため）" {
+        Mock getIndexTreeData { throw "画面の流れで読んだ" }
+
+        loadIndexTree
+
+        Should -Invoke getIndexTreeData -Times 0
+        $fake.Jobs.Count | Should -Be 1
+        $fake.Jobs[0].Queue | Should -Be "default"
+        $script:indexTreeLoading | Should -Be $true
+        $script:indexRoots.Count | Should -Be 0
     }
 }

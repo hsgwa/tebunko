@@ -7,7 +7,7 @@ $script:indexRoots = New-Object 'System.Collections.ObjectModel.ObservableCollec
 $ui.IndexTree.ItemsSource = $script:indexRoots
 
 $script:indexTreeRequest = @{ Value = 0 }   # ツリーの読み込みの依頼番号（新しい依頼が出たら、前の依頼の結果は捨てる）
-$script:indexTreeLoading = $false           # 検索対象のツリーを読み込んでいる最中か（ネットワークのとき、裏で読む間）
+$script:indexTreeLoading = $false           # 検索対象のツリーを読み込んでいる最中か（裏で読む間）
 $script:indexTreeConnectError = ""          # ワークスペースに接続できなかったときの、そのワークスペース（できたなら空）
 $script:indexTreeOldCount = 0               # 古い形式のままで、検索していないインデックスの数（getIndexTreeData の OldIndexCount）
 $script:indexTreeKeepStatus = $false        # 次に届くツリーの結果で、接続できない旨をステータスに書かない（先に出した失敗の知らせを残す。1 回で戻る）
@@ -16,7 +16,8 @@ function loadIndexTree {
     # インデックスの一覧（getIndexTreeData）をツリーに読み込む。一番上の項目がインデックス 1 件で、
     # ［インデックス管理］で作ったインデックスがすべて並ぶ。
     # 保存したチェックなしのフォルダと、読み込み前の展開の状態は戻す。
-    # ワークスペースがネットワークの場所のときは、画面のスレッドで読まず、裏の列（network）で読んでから反映する
+    # インデックスの数に比例する仕事（フォルダの列挙・1 件ごとの有無の確認）なので、ローカルでもネットワークでも画面のスレッドで読まず、
+    # 裏の列（getWorkspaceJobQueue）で読んでから反映する。読む間のツリーは空で、「読み込み中」を出す
     $expanded = New-Object 'System.Collections.Generic.List[string]'
     foreach ($node in $script:indexRoots) {
         $node.AddExpanded($expanded)
@@ -30,11 +31,6 @@ function loadIndexTree {
     $statusPath = $workspace.StatusFile
     $settingsPath = ${settingsFile}
     $expandedPaths = $expanded.ToArray()
-
-    if (!(testNetworkPath $dir)) {
-        applyIndexTreeData (getIndexTreeData $dir $statusPath $settingsPath $paths) $expandedPaths
-        return
-    }
 
     $script:indexRoots.Clear()
     $script:indexTreeLoading = $true

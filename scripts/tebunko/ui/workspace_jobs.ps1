@@ -1,5 +1,5 @@
 ﻿# ワークスペースの中を調べる処理のうち、起動と切り替えで使うもの。
-# ワークスペースが届かないネットワークの場所にあっても画面が止まらないよう、ネットワークの場所なら裏の列（network）で調べる。
+# ワークスペースが届かないネットワークの場所にあっても画面が止まらないよう、裏の列で調べる（ネットワークの場所なら network の列）。
 
 $script:legacyIndexMessage = ""               # 前の版のインデックスが見つかったときの知らせ（無ければ空）
 $script:legacyIndexRequest = @{ Value = 0 }   # 調べの依頼番号（新しい依頼が出たら、前の依頼の結果は捨てる）
@@ -32,17 +32,12 @@ function applyLegacyIndexMessage {
 
 function refreshLegacyIndexMessage {
     # 今のワークスペースに前の版のインデックスがあるかを調べ、知らせを $script:legacyIndexMessage に入れる。
-    # ローカルの場所はこの場で調べる。ネットワークの場所は裏の列で調べ、分かったらステータスに出す
+    # 場所がローカルでもネットワークでも、画面のスレッドでは調べず、裏の列で調べて、分かったらステータスに出す
     $dir = [string]$workspace.Dir
     $script:legacyIndexMessage = ""
     $requestBox = $script:legacyIndexRequest
     $requestBox.Value++
     $requestId = $requestBox.Value
-
-    if (!(testNetworkPath $dir)) {
-        $script:legacyIndexMessage = getLegacyIndexMessage $dir (getLegacyIndexState $dir).HasLegacyIndex
-        return
-    }
 
     $apply = ${function:applyLegacyIndexMessage}   # 終わったときの処理は、関数を変数に取って呼ぶ（クロージャからは関数の名前を引けないため）
     startJob {

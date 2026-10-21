@@ -183,8 +183,8 @@ function loadTargets {
     # 設定のインデックス一覧を画面の一覧に読み込む。
     # 名前の決まっていないインデックス（設定ファイルを直接書き換えた場合など）には、ここで名前を割り当てて確定する。
     # 一覧・編集・削除はインデックス名で扱うため、画面に出す時点で名前があるようにする（インデクサと同じ assignIndexNames を使う）。
-    # 名前を決めるには取り込み一覧（ワークスペースの中）を読む。ワークスペースがネットワークの場所なら裏の列で読み、
-    # 終わるまで一覧は空のまま（届かない場所で画面のスレッドが止まらないように）
+    # 名前を決めるには取り込み一覧（ワークスペースの中）を読み、保存する。ローカルでもネットワークでも裏の列で行い、
+    # 終わるまで一覧は空のまま（数に比例する読み書きや、届かない場所で画面のスレッドが止まらないように）
     $requestBox = $script:targetsLoadRequest
     $requestBox.Value++
     $script:targetsNaming = $false
@@ -192,37 +192,33 @@ function loadTargets {
     $checkedNames = @(getIndexCheckedItems @($script:targetItems) | ForEach-Object { $_.Name })
     $folders = @(getTargetFolders)
     if (@($folders | Where-Object { $_ -and !$_.Name }).Count -gt 0) {
-        if ((getWorkspaceJobQueue $workspace.Dir) -eq "network") {
-            $script:targetItems.Clear()
-            # 名前が決まって一覧を読み込み直すまで、ほかの操作を止める（空の一覧に保存して、設定のほかのインデックスを消さないため）
-            $script:targetsNaming = $true
-            try {
-                updateIndexListView
-                updateIndexingButton
-                setStatus (getIndexNamingStatus)
-                $requestId = $requestBox.Value
-                $finish = ${function:finishTargetsNaming}   # 終わったときの処理は、関数を変数に取って呼ぶ（クロージャからは関数の名前を引けないため）
-                startJob {
-                    param ($folders, $workspaceDir)
-                    # インスタンスは裏のスレッドへ渡せないため、場所から作り直す
-                    [void]((newIndexCatalog $workspaceDir).AssignAndSaveNames($folders))
-                } @(,$folders + @($workspace.Dir)) {
-                    param ($output, $errorText)
-                    if ($requestId -ne $requestBox.Value) {
-                        # 待っている間にもう一度読み込んだ・ワークスペースを切り替えた。この結果は捨てる
-                        return
-                    }
-                    & $finish $errorText $checkedNames
-                }.GetNewClosure() (getWorkspaceJobQueue $workspace.Dir)
-            } catch {
-                # 裏の仕事を出せなかったときは、印を戻す（残ると、ほかの操作が止まったままになる）
-                $script:targetsNaming = $false
-                throw
-            }
-            return
+        $script:targetItems.Clear()
+        # 名前が決まって一覧を読み込み直すまで、ほかの操作を止める（空の一覧に保存して、設定のほかのインデックスを消さないため）
+        $script:targetsNaming = $true
+        try {
+            updateIndexListView
+            updateIndexingButton
+            setStatus (getIndexNamingStatus)
+            $requestId = $requestBox.Value
+            $finish = ${function:finishTargetsNaming}   # 終わったときの処理は、関数を変数に取って呼ぶ（クロージャからは関数の名前を引けないため）
+            startJob {
+                param ($folders, $workspaceDir)
+                # インスタンスは裏のスレッドへ渡せないため、場所から作り直す
+                [void]((newIndexCatalog $workspaceDir).AssignAndSaveNames($folders))
+            } @(,$folders + @($workspace.Dir)) {
+                param ($output, $errorText)
+                if ($requestId -ne $requestBox.Value) {
+                    # 待っている間にもう一度読み込んだ・ワークスペースを切り替えた。この結果は捨てる
+                    return
+                }
+                & $finish $errorText $checkedNames
+            }.GetNewClosure() (getWorkspaceJobQueue $workspace.Dir)
+        } catch {
+            # 裏の仕事を出せなかったときは、印を戻す（残ると、ほかの操作が止まったままになる）
+            $script:targetsNaming = $false
+            throw
         }
-        [void]((newIndexCatalog $workspace.Dir).AssignAndSaveNames($folders))
-        $folders = @(getTargetFolders)
+        return
     }
     fillTargetItems $folders $checkedNames
 }

@@ -236,6 +236,29 @@ Describe "getTargetFolders / writeTargetFolders" -Tag Io {
         $folders[0].Enabled | Should -Be $true
     }
 
+    It "ローカルのフォルダどうしは testSameFolder で比べない（別名があるのはネットワークのパスだけ。数百件で画面が止まって見えないため）" {
+        $path = "$TestDrive\targets_many_local.json"
+        writeTargetFolders @(1..50 | ForEach-Object { [pscustomobject]@{ Path = "C:\Data\$_"; Enabled = $true } }) $path
+        Mock testSameFolder { $false }
+
+        @(getTargetFolders $path).Count | Should -Be 50
+
+        Should -Invoke testSameFolder -Times 0 -Exactly
+    }
+
+    It "ネットワークのパスどうしは、書き方が違っても同じフォルダなら最初のものだけ使う" {
+        $path = "$TestDrive\targets_network_dup.json"
+        writeTargetFolders @(
+            [pscustomobject]@{ Path = "\fileserver\共有\営業"; Enabled = $true },
+            [pscustomobject]@{ Path = "\fileserver\共有\技術"; Enabled = $true },
+            [pscustomobject]@{ Path = "Z:\営業"; Enabled = $true }
+        ) $path
+        Mock testNetworkPath { $true }
+        Mock testSameFolder { $a -eq "\fileserver\共有\営業" -and $b -eq "Z:\営業" }
+
+        @(getTargetFolders $path | ForEach-Object { $_.Path }) -join "," | Should -Be "\fileserver\共有\営業,\fileserver\共有\技術"
+    }
+
     It "インデックス名が重なれば（大文字・小文字の違いも）2 つ目以降の名前を空にする（取り込み時に割り当て直す）" {
         $path = "$TestDrive\targets_names.json"
         [System.IO.File]::WriteAllText($path, @'

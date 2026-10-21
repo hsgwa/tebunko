@@ -41,27 +41,19 @@ Describe "refreshLegacyIndexMessage" -Tag Unit {
         $script:legacyIndexMessage = ""
     }
 
-    It "ローカルの場所は、その場で調べて知らせを覚える（ステータスには出さない）" {
-        $script:workspace = [pscustomobject]@{ Dir = "C:\Users\test\tebunko_ws" }
-        Mock getLegacyIndexState { @{ HasLegacyIndex = $true } }
-        Mock getLegacyIndexMessage { "前の版のインデックスがあります" }
-
-        refreshLegacyIndexMessage
-
-        $script:legacyIndexMessage | Should -Be "前の版のインデックスがあります"
-        $fake.Jobs.Count | Should -Be 0
-        $fake.Statuses.Count | Should -Be 0
-    }
-
-    It "ネットワークの場所は、場所に触れず、裏の列（network）に出す" {
-        $script:workspace = [pscustomobject]@{ Dir = "\\fileserver\共有\tebunko_ws" }
-        Mock getLegacyIndexState { throw "届かない場所を調べた" }
+    It "<kind>の場所は、場所に触れず、裏の列（<queue>）に出す" -TestCases @(
+        @{ kind = "ローカル"; dir = "C:\Users\test\tebunko_ws"; queue = "default" }
+        @{ kind = "ネットワーク"; dir = "\\fileserver\共有\tebunko_ws"; queue = "network" }
+    ) {
+        param ($kind, $dir, $queue)
+        $script:workspace = [pscustomobject]@{ Dir = $dir }
+        Mock getLegacyIndexState { throw "画面の流れで調べた" }
 
         refreshLegacyIndexMessage
 
         Should -Invoke getLegacyIndexState -Times 0
         $fake.Jobs.Count | Should -Be 1
-        $fake.Jobs[0].Queue | Should -Be "network"
+        $fake.Jobs[0].Queue | Should -Be $queue
         $script:legacyIndexMessage | Should -Be ""
     }
 
