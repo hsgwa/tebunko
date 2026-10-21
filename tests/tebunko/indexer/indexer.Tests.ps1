@@ -137,23 +137,39 @@ Describe "indexer.ps1（続けられないエラー）" -Tag Io {
         $log | Should -Match "クロール対象フォルダがありません"
     }
 
-    It "同じ置き場所でほかのインデックス作成が動いていれば、そのインデックス作成のログに触らずに 1 で終わる" {
+    It "ほかのインデックス作成が動いていれば（<name>）、そのインデックス作成のログに触らずに 1 で終わる" -TestCases @(
+        @{ name = "同じセッションのミューテックス"; kind = "mutex" }
+        @{ name = "別のセッション・PC・パスの書き方の代わり（ミューテックスは持たず、鍵のファイルだけ）"; kind = "file" }
+    ) {
+        param ($name, $kind)
         $root = newRoot
         writeTestSettings $root @(@{ name = "営業"; path = $TestDrive; enabled = $true })
         # 実行中のインデックス作成が画面とやり取りしているファイル
         $files = @("indexing_log.txt")
-        foreach ($name in $files) {
-            [System.IO.File]::WriteAllText("$root\work\$name", "実行中")
+        foreach ($fileName in $files) {
+            [System.IO.File]::WriteAllText("$root\work\$fileName", "実行中")
         }
-        $other = newAppMutex "indexer" "$root\work" "tebunko"
+        # ほかの PC が取り込み中の出力用のフォルダ（PID はこの PC で動いていないもの）。片付けで消さない
+        $foreign = "$root\work\publish\999999\import"
+        [System.IO.Directory]::CreateDirectory($foreign) | Out-Null
+        if ($kind -eq "mutex") {
+            $other = newAppMutex "indexer" "$root\work" "tebunko"
+        } else {
+            $other = openLockFile "$root\work\indexing.lock" 1
+        }
         try {
             runIndexer $root | Should -Be 1
         } finally {
-            $other.Mutex.Dispose()
+            if ($kind -eq "mutex") {
+                $other.Mutex.Dispose()
+            } else {
+                $other.Dispose()
+            }
         }
-        foreach ($name in $files) {
-            [System.IO.File]::ReadAllText("$root\work\$name") | Should -Be "実行中"
+        foreach ($fileName in $files) {
+            [System.IO.File]::ReadAllText("$root\work\$fileName") | Should -Be "実行中"
         }
+        [System.IO.Directory]::Exists($foreign) | Should -Be $true
         # 鍵が取れなかったときは、前回の分へ移さない
         [System.IO.File]::Exists("$root\work\indexing_log_previous.txt") | Should -Be $false
         readTestError | Should -Match "ほかのインデックス作成が実行中です"

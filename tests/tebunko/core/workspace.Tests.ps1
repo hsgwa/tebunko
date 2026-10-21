@@ -22,10 +22,19 @@ Describe "Workspace" -Tag Unit {
         $target.PendingRemoveFile | Should -Be "C:\Users\test\Documents\tebunko_ws\store\pending_remove.tsv"
         $target.ResultFile | Should -Be "C:\Users\test\Documents\tebunko_ws\search_results.txt"
         $target.IndexingLogFile | Should -Be "C:\Users\test\Documents\tebunko_ws\indexing_log.txt"
+        $target.LockFile | Should -Be "C:\Users\test\Documents\tebunko_ws\indexing.lock"
         $target.GuiErrorLogFile | Should -Be "C:\Users\test\Documents\tebunko_ws\gui_error_log.txt"
         $target.IndexingLogPreviousFile | Should -Be "C:\Users\test\Documents\tebunko_ws\indexing_log_previous.txt"
         $target.GuiErrorLogPreviousFile | Should -Be "C:\Users\test\Documents\tebunko_ws\gui_error_log_previous.txt"
         $target.TmpRoot | Should -Be "C:\Users\test\Documents\tebunko_ws\tmp"
+    }
+
+    It "鍵のファイルの場所は、ドライブの直下のワークスペースでも区切りが二重にならない（長いパスの形にしても開ける）" -TestCases @(
+        @{ dir = "Y:\"; expected = "Y:\indexing.lock" }
+        @{ dir = "Y:\ws"; expected = "Y:\ws\indexing.lock" }
+    ) {
+        param ($dir, $expected)
+        ([Workspace]::new($dir)).LockFile | Should -Be $expected
     }
 
     It "関数は呼んだときの `$workspace の場所を使う（差し替えれば、読み込み直さずに別のワークスペースを使う）" {
@@ -42,6 +51,7 @@ Describe "Workspace" -Tag Unit {
         @($target.Entries()) | Should -Contain $target.OldIndexDir
         @($target.Entries()) | Should -Contain $target.TmpRoot
         @($target.Entries()) | Should -Contain $target.OfficePidRoot
+        @($target.Entries()) | Should -Contain $target.LockFile
         @($target.Entries()) | Should -Contain $target.IndexingLogPreviousFile
         @($target.Entries()) | Should -Contain $target.GuiErrorLogPreviousFile
         # 前回の分の名前は getPreviousLogPath の結果と同じ

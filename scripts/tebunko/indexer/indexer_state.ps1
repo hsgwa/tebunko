@@ -160,20 +160,93 @@ function answerIndexingPlan {
     [void]$channel.Answered.Set()
 }
 
+function enterIndexerLock {
+    # インデックス作成の鍵を取る: @{ Mutex; Stream; Acquired }。取れなければ Acquired は $false（どちらも持たない）。
+    # 鍵は 2 つ。ミューテックス（同じセッションの重なりを、ディスクに触らずに見分ける）と、ワークスペースの鍵のファイル
+    # （別のセッション・別の PC・別のパスの書き方の重なりを防ぐ。openLockFile）。ミューテックスを先に取る。
+    # ワークスペースの共有フォルダが落ちているなどで鍵のファイルが例外になったときは、ミューテックスを放してから投げ直す。
+    # 取るときは待たない（取れなければすぐ返す）ので、デッドロックしない。放すのは exitIndexerLock
+    #   attempts: 鍵のファイルを開く回数（画面のスレッドでは 1）
+    param (
+        [string]$dir = $workspace.Dir,
+        [int]$attempts = 3
+    )
+
+    $mutex = newAppMutex "indexer" $dir ${appId}
+    if (!$mutex.Acquired) {
+        $mutex.Mutex.Dispose()
+        return @{ Mutex = $null; Stream = $null; Acquired = $false }
+    }
+    $stream = $null
+    try {
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        $stream = openLockFile ([Workspace]::new($dir).LockFile) $attempts
+    } catch {
+        $mutex.Mutex.ReleaseMutex()
+        $mutex.Mutex.Dispose()
+        throw
+    }
+    if ($null -eq $stream) {
+        $mutex.Mutex.ReleaseMutex()
+        $mutex.Mutex.Dispose()
+        return @{ Mutex = $null; Stream = $null; Acquired = $false }
+    }
+    return @{ Mutex = $mutex.Mutex; Stream = $stream; Acquired = $true }
+}
+
+function exitIndexerLock {
+    # enterIndexerLock で取った鍵を、取った順の逆（鍵のファイル → ミューテックス）に放す。
+    # 逆にすると、同じセッションの次の起動がミューテックスだけ取れて鍵のファイルで断られることがある。
+    # 片方だけ持っているときも、もう一度呼ばれたときも例外にしない
+    param (
+        $lock
+    )
+
+    if ($null -eq $lock) {
+        return
+    }
+    if ($null -ne $lock.Stream) {
+        try { $lock.Stream.Dispose() } catch {}
+        $lock.Stream = $null
+    }
+    if ($null -ne $lock.Mutex) {
+        try { $lock.Mutex.ReleaseMutex() } catch {}
+        try { $lock.Mutex.Dispose() } catch {}
+        $lock.Mutex = $null
+    }
+}
+
 function testIndexerRunning {
-    # この work でインデックス作成が動いているか（画面のスレッド・画面を使わない indexer.ps1 のどちらでも）。
-    # インデックス作成が持つ鍵（newAppMutex "indexer"）を取れるかで調べ、取れたらすぐ放す
+    # このワークスペースでインデックス作成が動いているか（画面のスレッド・画面を使わない indexer.ps1 のどちらでも）: @{ Running; Error }。
+    # インデックス作成の鍵（enterIndexerLock）を取れるかで調べ、取れたらすぐ放す。画面のスレッドから呼ぶので、やり直さず待たない。
+    # ワークスペースのフォルダが無ければ（届かない共有を含む）、鍵のファイルは見ず（作らず）、ミューテックスだけで決める。
+    # 鍵のファイルを調べて例外になったとき（アクセス拒否など）は、安全な側に倒して Running = $true・Error = 例外の文面にする
     param (
         [string]$dir = $workspace.Dir
     )
 
     $mutex = newAppMutex "indexer" $dir ${appId}
+    if (!$mutex.Acquired) {
+        $mutex.Mutex.Dispose()
+        return @{ Running = $true; Error = "" }
+    }
     try {
-        return !$mutex.Acquired
-    } finally {
-        if ($mutex.Acquired) {
-            $mutex.Mutex.ReleaseMutex()
+        if (![System.IO.Directory]::Exists((toLongPath $dir))) {
+            return @{ Running = $false; Error = "" }
         }
+        $stream = $null
+        try {
+            $stream = openLockFile ([Workspace]::new($dir).LockFile) 1
+        } catch {
+            return @{ Running = $true; Error = $_.Exception.Message }
+        }
+        if ($null -eq $stream) {
+            return @{ Running = $true; Error = "" }
+        }
+        $stream.Dispose()
+        return @{ Running = $false; Error = "" }
+    } finally {
+        $mutex.Mutex.ReleaseMutex()
         $mutex.Mutex.Dispose()
     }
 }

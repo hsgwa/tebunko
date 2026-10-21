@@ -24,7 +24,9 @@ flowchart LR
 | `getIndexingState` | 状態ごとの件数、失敗したファイルの行の並び（`未取り込み` でエラーがある行は失敗に数え、エラーが空の `未取り込み` は待ちのまま）、指定した時刻以降に取り込んだ件数 |
 | `newIndexerChannel` / `writeIndexingProgress` / `readIndexingProgress` | 画面が決めた条件を入れスレッドをまたいで使える形にする、段階・件数・内容の往復（タブ・改行はスペース）、受け渡しの口が無ければ何もしない |
 | `requestIndexingStop` / `answerIndexingPlan` | 中止を求めると確認を待っていても待つのをやめる、取り込む返事は中止にしない、取りやめの返事（`$null`）は中止にする |
-| `testIndexerRunning` | インデックス作成の鍵をほかが持っていれば `$true`、調べた後は鍵を持たない |
+| `testIndexerRunning` | ミューテックスだけ・鍵のファイルだけのどちらをほかが持っていても Running（Error 無し）、調べた後は鍵を持たない、残った鍵のファイル（誰も開いていない）だけなら Running でない、アクセス拒否は Running と Error を返し待たずに返る |
+| `enterIndexerLock` / `exitIndexerLock` | 取れれば両方持ち放すと取れる状態に戻る（2 回放しても例外にならない）、鍵のファイルを取れない・例外のときはミューテックスも放している |
+| 鍵の取り方（`tests/meta/locks.Tests.ps1`） | `newAppMutex "indexer"` を書くのは `indexer_state.ps1` だけ、`enterIndexerLock` はミューテックスの後に鍵のファイルを開く |
 | `writeIndexerLog`（`tests/tebunko/core/diagnostics`） | ログを開いていればログに書く、コンソールに出すときは色を付ける、ログに書けなくても止めない |
 | `getExtractVersion` / `getIngestDecision` | 形式ごとの抽出版、取り込むかどうかと理由（新規・更新あり・前回未完了（`未取り込み` でエラーがあっても同じ）・インデックスなし・前回失敗・前の抽出版） |
 | `getIngestApp` / `getRerouteApp` / `selectIngestWorker` | Excel はすべて Excel、旧形式の Word・PowerPoint はそのアプリ、新形式は Office が要らない（空）。回し直すときは、PowerPoint のファイルは PowerPoint、それ以外は Word。表（`$officeFileKinds`）に無い拡張子（`.pptz` など）は Office とみなさない。渡し先は、持ち主へ（満杯なら待つ・諦めていれば後回し）・持ち主がいなければ持ち主のいないいちばん空いているワーカー・Office が要らないファイルは持ち主のいないワーカーを先に・すべて諦めていれば後回し（`-TestCases` の表） |

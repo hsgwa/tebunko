@@ -16,6 +16,7 @@
 | 取り込みの記録 | `store\ingest_status.tsv`、`store\journal\ingest.tsv` |
 | ログ | `indexing_log.txt`（インデックス作成ごとに、前回の分を `indexing_log_previous.txt` に移す）、`gui_error_log.txt`（1 MB 以上で `gui_error_log_previous.txt` に移す） |
 | 出力 | `search_results.txt`（［結果をファイルに出力］） |
+| 作成中の印 | `indexing.lock`（インデックス作成の間だけある空のファイル。ほかの画面・ほかの PC と同時に作らないための印で、終わると消えます。残っていても、動いているものが無ければ次のインデックス作成を止めません） |
 
 !!! warning "インデックスには文書の本文がそのまま含まれます"
     元のファイルのアクセス権は引き継がれません。ワークスペースには、検索対象のフォルダと同等以上のアクセス制限を設定してください。

@@ -31,6 +31,16 @@ Describe "getIndexJobBlocker" -Tag Unit {
         getIndexJobBlocker $isIndexing $indexBusy $archiveBusy $true | Should -Be $expected
     }
 
+    It "ほかのインデックス作成を確かめられなかったとき（indexerUnchecked）は止める。移動中・作成中の次、名前の決定中より先" -TestCases @(
+        @{ isIndexing = $false; indexBusy = $false; archiveBusy = $false; moving = $false; expected = "インデックス作成の確認不能" }
+        @{ isIndexing = $false; indexBusy = $true;  archiveBusy = $true;  moving = $false; expected = "インデックス作成の確認不能" }
+        @{ isIndexing = $true;  indexBusy = $false; archiveBusy = $false; moving = $false; expected = "インデックス作成中" }
+        @{ isIndexing = $false; indexBusy = $false; archiveBusy = $false; moving = $true;  expected = "ワークスペースの移動中" }
+    ) {
+        param ($isIndexing, $indexBusy, $archiveBusy, $moving, $expected)
+        getIndexJobBlocker $isIndexing $indexBusy $archiveBusy $true $moving $true | Should -Be $expected
+    }
+
     It "ワークスペースを移している間（workspaceMoving）は、ほかの何が動いていても最優先で止める" -TestCases @(
         @{ isIndexing = $false; indexBusy = $false; archiveBusy = $false; naming = $false }
         @{ isIndexing = $true;  indexBusy = $true;  archiveBusy = $true;  naming = $true }
@@ -148,6 +158,11 @@ Describe "getIndexJobCloseAction" -Tag Unit {
 Describe "getIndexJobBlockedMessage" -Tag Unit {
     It "blocker が空なら空文字列" {
         getIndexJobBlockedMessage "" "エクスポート" | Should -Be ""
+    }
+
+    It "確かめられなかったときは、理由（detail）を添えた文言を返す" {
+        getIndexJobBlockedMessage "インデックス作成の確認不能" "ワークスペースの変更" "鍵のファイルを開けません" |
+            Should -Be "ほかのインデックス作成が動いていないかを確かめられませんでした（鍵のファイルを開けません）。インデックス作成が終わっていることを確かめてから、やり直してください。"
     }
 
     It "<blocker> のとき、<operation> の案内を返す" -TestCases @(

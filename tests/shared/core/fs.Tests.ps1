@@ -1467,6 +1467,110 @@ Describe "newAppMutex" -Tag Io {
     }
 }
 
+Describe "openLockFile" -Tag Io {
+    BeforeAll {
+        . "$PSScriptRoot\..\..\helpers\process.ps1"
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "1 つ目は開け、開いている間は 2 つ目が `$null"; setup = "none" }
+        @{ name = "誰も開いていない残ったファイルは開ける（残ったロックの片付けが要らない）"; setup = "leftover" }
+    ) {
+        param ($name, $setup)
+        $path = Join-Path $TestDrive "lock_$setup.lock"
+        if ($setup -eq "leftover") {
+            [System.IO.File]::WriteAllText($path, "")
+        }
+        $first = openLockFile $path 1
+        try {
+            $first | Should -Not -BeNullOrEmpty
+            openLockFile $path 1 | Should -BeNullOrEmpty
+        } finally {
+            $first.Dispose()
+        }
+    }
+
+    It "閉じるとファイルが消え、また開ける" {
+        $path = Join-Path $TestDrive "lock_close.lock"
+        $first = openLockFile $path
+        [System.IO.File]::Exists($path) | Should -Be $true
+        $first.Dispose()
+        [System.IO.File]::Exists($path) | Should -Be $false
+        $again = openLockFile $path
+        try {
+            $again | Should -Not -BeNullOrEmpty
+        } finally {
+            $again.Dispose()
+        }
+    }
+
+    It "親フォルダが無いなど、やり直しの対象でない失敗は例外になる" {
+        { openLockFile (Join-Path $TestDrive "無いフォルダ\a.lock") 1 } | Should -Throw
+    }
+
+    It "アクセス拒否（Win32 の 5。削除待ちのファイルも同じ失敗になる。ここでは読み取り専用のファイルで起こす）は、最後まで続けば鍵のファイルを開けなかった例外になる（待たずに 1 回でも同じ）" -TestCases @(
+        @{ attempts = 1 }
+        @{ attempts = 2 }
+    ) {
+        param ($attempts)
+        $path = Join-Path $TestDrive "lock_denied_$attempts.lock"
+        [System.IO.File]::WriteAllText($path, "")
+        [System.IO.File]::SetAttributes($path, [System.IO.FileAttributes]::ReadOnly)
+        try {
+            { openLockFile $path $attempts 50 } | Should -Throw "インデックス作成の鍵のファイル（*を開けませんでした。*"
+        } finally {
+            [System.IO.File]::SetAttributes($path, [System.IO.FileAttributes]::Normal)
+        }
+    }
+
+    It "やり直しの間にほかが閉じれば開ける" {
+        $path = Join-Path $TestDrive "lock_retry.lock"
+        $holder = openLockFile $path 1
+        $closer = [powershell]::Create().AddScript({ param ($h) Start-Sleep -Milliseconds 300; $h.Dispose() }).AddArgument($holder)
+        $handle = $closer.BeginInvoke()
+        try {
+            $stream = openLockFile $path 20 100
+            try {
+                $stream | Should -Not -BeNullOrEmpty
+            } finally {
+                $stream.Dispose()
+            }
+        } finally {
+            $closer.EndInvoke($handle)
+            $closer.Dispose()
+        }
+    }
+
+    It "別のプロセスが開いている間は `$null。そのプロセスを止めると開ける（強制終了で残らない）" {
+        $path = Join-Path $TestDrive "lock_child.lock"
+        $ready = Join-Path $TestDrive "lock_child.ready"
+        $scriptPath = Join-Path $TestDrive "lock_child.ps1"
+        [System.IO.File]::WriteAllText($scriptPath, @"
+`$s = New-Object System.IO.FileStream('$path', [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None, 4096, [System.IO.FileOptions]::DeleteOnClose)
+[System.IO.File]::WriteAllText('$ready', 'ok')
+Start-Sleep -Seconds 120
+"@)
+        $child = Start-Process powershell.exe -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $scriptPath) -PassThru -WindowStyle Hidden
+        $null = $child.Handle
+        try {
+            $deadline = [DateTime]::UtcNow.AddSeconds(30)
+            while (![System.IO.File]::Exists($ready) -and [DateTime]::UtcNow -lt $deadline) {
+                Start-Sleep -Milliseconds 100
+            }
+            [System.IO.File]::Exists($ready) | Should -Be $true
+            openLockFile $path 1 | Should -BeNullOrEmpty
+        } finally {
+            stopStartedProcess $child
+        }
+        $stream = openLockFile $path 5 100
+        try {
+            $stream | Should -Not -BeNullOrEmpty
+        } finally {
+            $stream.Dispose()
+        }
+    }
+}
+
 Describe "writeTextLinesAtomic（文字コード）" -Tag Io {
     It "既定は BOM 付き UTF-8、encoding を渡せば BOM なし UTF-8 で書く" {
         $path = "$TestDrive\atomic\文字コード.txt"

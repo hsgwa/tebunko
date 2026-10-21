@@ -71,11 +71,13 @@ function isIndexingOrPreparing {
 function getCurrentIndexJobBlocker {
     # いま動いている処理の名前（getIndexJobBlocker の結果。無ければ空文字列）。画面の状態から集める。
     #   extraIndexing: ほかに「インデックス作成中」とみなすもの（画面を使わずに起動したインデクサなど）
+    #   indexerUnchecked: ほかのインデックス作成が動いていないかを確かめられなかった（testIndexerRunning の Error）
     param (
-        [bool]$extraIndexing = $false
+        [bool]$extraIndexing = $false,
+        [bool]$indexerUnchecked = $false
     )
 
-    return (getIndexJobBlocker ((isIndexingOrPreparing) -or $extraIndexing) ([bool]$script:indexBusy) ([bool]$script:archiveBusy) ([bool]$script:targetsNaming) ([bool]$script:workspaceMoving))
+    return (getIndexJobBlocker ((isIndexingOrPreparing) -or $extraIndexing) ([bool]$script:indexBusy) ([bool]$script:archiveBusy) ([bool]$script:targetsNaming) ([bool]$script:workspaceMoving) $indexerUnchecked)
 }
 
 $script:folderCheckRunning = $false

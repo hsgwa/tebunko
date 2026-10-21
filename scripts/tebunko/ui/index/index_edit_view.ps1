@@ -148,7 +148,8 @@ function getIndexJobBlocker {
         [bool]$indexBusy,    # 前のインデックスの削除・名前の変更中
         [bool]$archiveBusy,  # エクスポート・インポート中
         [bool]$namingBusy = $false,  # ネットワークのワークスペースで、インデックスの名前を裏で決めている間（一覧はまだ空。この間に保存すると、ほかのインデックスが設定から消える）
-        [bool]$workspaceMoving = $false   # ワークスペースの中身を移している間（別スレッド。移動元と移動先の両方を使っている）
+        [bool]$workspaceMoving = $false,   # ワークスペースの中身を移している間（別スレッド。移動元と移動先の両方を使っている）
+        [bool]$indexerUnchecked = $false   # ほかのインデックス作成が動いていないかを確かめられなかった（鍵のファイルを調べて例外になった。安全な側に倒して止める）
     )
 
     if ($workspaceMoving) {
@@ -156,6 +157,9 @@ function getIndexJobBlocker {
     }
     if ($isIndexing) {
         return "インデックス作成中"
+    }
+    if ($indexerUnchecked) {
+        return "インデックス作成の確認不能"
     }
     if ($namingBusy) {
         return "インデックス名の決定中"
@@ -193,11 +197,15 @@ function getIndexJobBlockedMessage {
     # 排他で操作をできないときのメッセージ（blocker は getIndexJobBlocker の結果。空なら空文字列）
     param (
         [string]$blocker,
-        [string]$operation   # "追加" "編集" "削除" "エクスポート" "インポート" "ワークスペースの変更"
+        [string]$operation,  # "追加" "編集" "削除" "エクスポート" "インポート" "ワークスペースの変更"
+        [string]$detail = "" # 確認不能のときの、調べて分かった理由（例外の文面）
     )
 
     if ($blocker -eq "") {
         return ""
+    }
+    if ($blocker -eq "インデックス作成の確認不能") {
+        return "ほかのインデックス作成が動いていないかを確かめられませんでした（${detail}）。インデックス作成が終わっていることを確かめてから、やり直してください。"
     }
     if ($operation -eq "ワークスペースの変更") {
         if ($blocker -eq "ワークスペースの移動中") {

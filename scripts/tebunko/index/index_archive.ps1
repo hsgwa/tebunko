@@ -80,16 +80,14 @@ function exportIndex {
         [string]$settingsPath = ${settingsFile}
     )
 
-    $lock = newAppMutex "indexer" $ws.Dir ${appId}
+    $lock = enterIndexerLock $ws.Dir
     if (!$lock.Acquired) {
-        $lock.Mutex.Dispose()
         throw "更新中はエクスポートできません。更新が終わってからやり直してください。"
     }
     try {
         return (exportIndexCore $name $destPath $ws $settingsPath)
     } finally {
-        $lock.Mutex.ReleaseMutex()
-        $lock.Mutex.Dispose()
+        exitIndexerLock $lock
     }
 }
 
@@ -523,16 +521,14 @@ function importIndex {
         [scriptblock]$getFreeSpace = { param ($root) getWorkspaceFreeSpace $root }
     )
 
-    $lock = newAppMutex "indexer" $ws.Dir ${appId}
+    $lock = enterIndexerLock $ws.Dir
     if (!$lock.Acquired) {
-        $lock.Mutex.Dispose()
         throw "更新中はインポートできません。更新が終わってからやり直してください。"
     }
     try {
         return (importIndexCore $zipPath $collisionMode $name $sourceFolder $ws $settingsPath $getFreeSpace)
     } finally {
-        $lock.Mutex.ReleaseMutex()
-        $lock.Mutex.Dispose()
+        exitIndexerLock $lock
     }
 }
 

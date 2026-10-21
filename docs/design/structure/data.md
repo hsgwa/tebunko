@@ -22,6 +22,7 @@ tebunko が読み書きするファイルとフォルダの一覧（置き場ご
 | `work/indexing_log.txt` | インデクサの表示内容の記録（実行ごとに新しく書く。先頭に版と環境の見出し）。前回の分は `work/indexing_log_previous.txt` |
 | `work/gui_error_log.txt` | 画面で起きた予期しないエラーの記録（追記。1 MB 以上で `work/gui_error_log_previous.txt` へ移す） |
 | `work/search_results.txt` | 画面の［結果をファイルに出力］で書き出す検索結果 |
+| `work/indexing.lock` | インデックス作成の鍵のファイル（空。インデックス作成・エクスポート・インポートの間だけあり、閉じると消える。ほかのセッション・PC との重なりを防ぐ） |
 | `work/test/`・`work/release/`・`work/site/`・`work/cache/` | 開発用の出力（テスト結果とカバレッジ・配布物・設計書のサイト・サイトを作るときのキャッシュ） |
 
 取り込みの作業領域は、既定では `work/tmp/<PC の鍵>/<PID>/` に置く（`Workspace` の `TmpRoot`。`tebunko/core/workspace.ps1` の `selectTmpDir`）。`<PC の鍵>` はコンピューター名から作る 8 文字の鍵（`getMachineKey`）で、ワークスペースを複数の PC から共有しても、互いの作業フォルダを衝突・削除させない（プロセス ID だけでは PC をまたいで重なりうるため）。その下は、取り込みのスレッド（Excel・Word・PowerPoint・Office を使わずに読むワーカー）ごとに `w<番号>` のフォルダに分ける（`newWorkerTmpDir`。`work/publish/<PID>` も同じ。[取り込みの並列化](../indexing/parallel.md)）。
@@ -103,6 +104,7 @@ flowchart LR
     W --> IG["JournalFile<br>Dir\store\journal\ingest.tsv"]
     W --> OP["OfficePidRoot<br>Dir\office_pids"]
     W --> RS["ResultFile<br>Dir\search_results.txt"]
+    W --> LK["LockFile<br>Dir\indexing.lock"]
     W --> IL["IndexingLogFile<br>Dir\indexing_log.txt"]
     W --> GE["GuiErrorLogFile<br>Dir\gui_error_log.txt"]
     W --> ILP["IndexingLogPreviousFile<br>Dir\indexing_log_previous.txt"]
@@ -132,6 +134,7 @@ flowchart LR
 | `OldStatusFile` | `<Dir>\ingest_status.tsv`（前の版の取り込み一覧。作り直しが終わったら消す） |
 | `JournalFile` | `<Dir>\store\journal\ingest.tsv` |
 | `ResultFile` | `<Dir>\search_results.txt` |
+| `LockFile` | `<Dir>\indexing.lock`（インデックス作成の鍵のファイル） |
 | `IndexingLogFile` | `<Dir>\indexing_log.txt`（インデクサの表示内容の記録。実行ごとに新しく書き、前回の分は `IndexingLogPreviousFile` へ移す） |
 | `IndexingLogPreviousFile` | `<Dir>\indexing_log_previous.txt`（前回のインデックス作成の記録） |
 | `GuiErrorLogFile` | `<Dir>\gui_error_log.txt`（画面で起きた予期しないエラーの記録。追記。共通基盤の `writeErrorLog` は、画面が `setGuiErrorLogSource` で登録する `getToolGuiErrorLogFile` からこの場所を得る） |
