@@ -1093,16 +1093,17 @@ function measureGuiStall {
     # 画面を起動してから Done が真を返すまでの間に、画面が応答しなかった一番長い時間（秒）を測って返す（invokeGuiScene -NoWait の中で呼ぶ）。
     # 100ms ごとに、画面の窓を探して Done を調べる。画面のスレッドが仕事で塞がっていると、この UI オートメーションの問い合わせは
     # 返らずに待たされるため、1 回の問い合わせにかかった時間がそのまま止まって見えた時間になる。
-    # 数えるのは、画面の窓が最初に出てから（窓が出る前の待ちは起動の時間で、止まりではない）。全体は $Timeout 秒で打ち切り、例外にする。
-    # 窓が見つかったら $S.Window に入れる
+    # 数えるのは、窓が最初に出た問い合わせの次の回から（窓が出るまでの待ちと、その回の用意は起動の時間で、止まりではない）。
+    # 全体は $Timeout 秒で打ち切り、例外にする。窓が見つかったら $S.Window に入れる
     param ($S, [scriptblock]$Done, [int]$Timeout = 120)
 
     $longest = 0.0
-    $count = 0
     $seen = $false
+    $count = 0
     $total = [Diagnostics.Stopwatch]::StartNew()
     while ($true) {
         if ($S.Process.HasExited) { throw "画面が終了した（終了コード $($S.Process.ExitCode)）。止まりの測定の途中" }
+        $counted = $seen   # 窓が出た回の次の回から数える（窓が出た回は、起動と窓の用意の待ちを含むため）
         $query = [Diagnostics.Stopwatch]::StartNew()
         $tops = @(getGuiTopWindows $S)
         if ($tops.Count -gt 0) { $seen = $true }
@@ -1114,7 +1115,7 @@ function measureGuiStall {
         }
         if ($S.Window) { $finished = [bool](& $Done) }
         $query.Stop()
-        if ($seen) {
+        if ($counted) {
             $longest = [Math]::Max($longest, $query.Elapsed.TotalSeconds)
             $count++
         }

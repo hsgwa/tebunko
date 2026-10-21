@@ -11,7 +11,7 @@ BeforeAll {
     # 読み込み時に登録されるイベントの処理は $handlers に、呼ばれた操作は $fake に取っておく
     $handlers = @{}
     $script:sourceFolderMaps = @{}   # 元のフォルダの対応のキャッシュ（［検索］の画面の search_session.ps1 が持つ）
-    $fake = @{ TargetUpdates = 0; Statuses = (New-Object System.Collections.Generic.List[string]); Jobs = (New-Object System.Collections.Generic.List[object]) }
+    $fake = @{ TargetUpdates = 0; Statuses = (New-Object System.Collections.Generic.List[string]); Jobs = (New-Object System.Collections.Generic.List[object]); ErrorLogs = (New-Object System.Collections.Generic.List[string]) }
 
     function newFakeButton([string]$name) {
         $button = [pscustomobject]@{ PartName = $name }
@@ -40,6 +40,10 @@ BeforeAll {
     function setStatus {
         param ([string]$text)
         $fake.Statuses.Add($text)
+    }
+    function writeErrorLog {
+        param ([string]$context, $record)
+        $fake.ErrorLogs.Add("$context : $($record.Exception.Message)")
     }
     function startJob {
         # 裏の列には出さず、依頼を取っておく（テストが onDone を呼んで、終わったことにする）
@@ -408,6 +412,7 @@ Describe "ネットワークのワークスペース" -Tag Unit {
         $fake.TargetUpdates = 0
         $fake.Statuses.Clear()
         $fake.Jobs.Clear()
+        $fake.ErrorLogs.Clear()
     }
 
     It "画面のスレッドでは読まず、裏の列（network）に出して、読み込み中にする" {
@@ -464,6 +469,7 @@ Describe "ネットワークのワークスペース" -Tag Unit {
 
         & $fake.Jobs[0].OnDone @() "失敗しました"
 
+        $fake.ErrorLogs | Should -Be @("検索対象のツリーの読み込み : 失敗しました")
         $script:indexTreeConnectError | Should -Be $workspace.Dir
         $script:indexTreeLoading | Should -Be $false
     }

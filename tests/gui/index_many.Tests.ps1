@@ -68,7 +68,7 @@ Describe "S2c インデックスが <count> 件あるときの、起動後の止
         $script:envBefore = getGuiEnvSnapshot
         $script:indexCount = $count
         # 起動後に画面が応答しなかった一番長い時間の上限（秒）。インデックスの読み込みを画面のスレッドでしていた版は、件数に比例して長く止まった
-        $script:stallLimit = $(if ($env:TEBUNKO_GUI_STALL_LIMIT) { [double]$env:TEBUNKO_GUI_STALL_LIMIT } else { 10.0 })
+        $script:stallLimit = $(if ($env:TEBUNKO_GUI_STALL_LIMIT) { [double]$env:TEBUNKO_GUI_STALL_LIMIT } else { 8.0 })
         $script:tool = newGuiTool $TestDrive
         $utf8 = New-Object Text.UTF8Encoding($true)
         $folders = foreach ($i in 1..$script:indexCount) {

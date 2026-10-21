@@ -37,6 +37,7 @@ function loadIndexTree {
     $script:indexTreeConnectError = ""
     updateSearchTarget
     $otherState = ${pathStateOther}
+    $logError = ${function:writeErrorLog}
     $applyData = ${function:applyIndexTreeData}   # 終わったときの処理は、関数を変数に取って呼ぶ（クロージャからは関数の名前を引けないため）
     startJob {
         param ($dir, $statusPath, $settingsPath, $paths)
@@ -48,6 +49,10 @@ function loadIndexTree {
             return
         }
         if ($errorText -or !$output -or $output.Count -eq 0) {
+            if ($errorText) {
+                # 画面には「接続できません」と出るため、裏で起きた例外の文は記録に残す（ローカルでも原因が分かるように）
+                & $logError "検索対象のツリーの読み込み" (New-Object System.Management.Automation.ErrorRecord (New-Object System.Exception ([string]$errorText)), "IndexTreeLoad", ([System.Management.Automation.ErrorCategory]::NotSpecified), $null)
+            }
             & $applyData @{ State = $otherState; Message = [string]$errorText } $expandedPaths
         } else {
             & $applyData $output[0] $expandedPaths
