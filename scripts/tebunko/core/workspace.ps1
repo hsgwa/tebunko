@@ -46,6 +46,8 @@ class Workspace {
     # このツールが起動した Office の PID の記録の置き場所（下は <PC の鍵>\<PID>.txt と分かれる。getOfficePidDir・shared/office/office_process.ps1）。
     # 画面を起動したとき、前回残った Office を確認して止めるために使う。tmp の下には置かない（tmp は片付けで消える場所で、記録は画面ごと落ちた後に読むため）
     [string]$OfficePidRoot
+    # 起動の段階の記録（環境変数 TEBUNKO_STARTUP_TRACE が 1 のときだけ、画面の起動の終わりに書く。ui\startup_trace.ps1。ローカルのワークスペースだけ）
+    [string]$StartupTraceFile
 
     Workspace([string]$dir) {
         $this.Dir = $dir
@@ -69,6 +71,7 @@ class Workspace {
         $this.GuiErrorLogPreviousFile = "$dir\gui_error_log_previous.txt"
         $this.TmpRoot = "$dir\tmp"
         $this.OfficePidRoot = "$dir\office_pids"
+        $this.StartupTraceFile = "$dir\startup_trace.tsv"
     }
 
     # ワークスペースを移すときに移すもの（tebunko が作るファイル・フォルダ）。利用者のほかのファイルは含めない。
@@ -80,7 +83,7 @@ class Workspace {
     [string[]] Entries() {
         return @($this.StoreDir, $this.OldIndexDir, $this.OldStatusFile, $this.LegacyIndexDir,
             $this.ResultFile, $this.IndexingLogFile, $this.GuiErrorLogFile,
-            $this.IndexingLogPreviousFile, $this.GuiErrorLogPreviousFile, [System.IO.Path]::GetDirectoryName($this.PublishDir), $this.TmpRoot, $this.OfficePidRoot)
+            $this.IndexingLogPreviousFile, $this.GuiErrorLogPreviousFile, [System.IO.Path]::GetDirectoryName($this.PublishDir), $this.TmpRoot, $this.OfficePidRoot, $this.StartupTraceFile)
     }
 }
 

@@ -136,3 +136,4 @@ flowchart LR
 | `IndexingLogPreviousFile` | `<Dir>\indexing_log_previous.txt`（前回のインデックス作成の記録） |
 | `GuiErrorLogFile` | `<Dir>\gui_error_log.txt`（画面で起きた予期しないエラーの記録。追記。共通基盤の `writeErrorLog` は、画面が `setGuiErrorLogSource` で登録する `getToolGuiErrorLogFile` からこの場所を得る） |
 | `GuiErrorLogPreviousFile` | `<Dir>\gui_error_log_previous.txt`（`gui_error_log.txt` が 1 MB 以上になったときに移した前の分） |
+| `StartupTraceFile` | `<Dir>\startup_trace.tsv`（起動の段階ごとの経過時間。環境変数 `TEBUNKO_STARTUP_TRACE` が `1` のときだけ書く。起動の時間を測る道具が読む） |

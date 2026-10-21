@@ -82,6 +82,7 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 | `work/indexing_log_previous.txt` | 書く | 前回のインデックス作成の記録。インデックス作成が二重起動の鍵を取った後、今の `indexing_log.txt` をここへ移す（あれば上書き） |
 | `work/gui_error_log.txt` | 書く | 画面の予期しないエラー（追記。`writeErrorLog`）。見出しを最後に書いた記録先と今の記録先が違うとき（プロセスの最初の記録・ワークスペースの切り替えの後）と、ファイルが無いとき（1 MB で移した直後を含む）に、記録の前に版と環境の見出しを書く。切り替えで記録が移るため、1 つのファイルに見出しが 2 つ入ることがある。1 MB 以上なら次の記録の前に `gui_error_log_previous.txt` へ移す。起動に失敗したときも、ここに書けるならここに書く |
 | `work/gui_error_log_previous.txt` | 書く | `gui_error_log.txt` の前回の分（移すたびに上書き） |
+| `work/startup_trace.tsv` | 書く | 起動の段階ごとの経過時間（`Workspace.StartupTraceFile`）。環境変数 `TEBUNKO_STARTUP_TRACE` が `1` のときだけ、起動時の読み込み（`loadStartupData`）が済んだあとに 1 回、上書きで書く（`writeStartupTrace`）。ローカルのワークスペースだけで、共有（ネットワーク）のワークスペースには書かない。環境変数が無ければ作らない。起動の時間を測る道具（`tools/perf/measure_startup.ps1`）が読む |
 | `work/search_results.txt` | 書く | 検索結果の出力 |
 | `work/index/`（過去の版が置いた本文インデックス） | 読む・消す | 残っているかの調べ・知らせ・［設定］の「移す」「消して最初から」のときだけ。ここには書かない |
 | `work/release/`・`work/test/`・`work/site/`・`work/cache/` | – | 開発用（`tools/` が書く。配布物には入らない）。tebunko 本体は触らない |
@@ -188,6 +189,7 @@ tebunko が作るファイルとフォルダが、何年使っても溜まり続
 | `indexing_log_previous.txt` | 実行ごとに上書き | 1 回分。合わせて 2 回分で止まる |
 | `gui_error_log.txt` | 追記（同じ例外は 60 秒に 1 回） | 1 MB 以上なら、次の記録を書く前に `gui_error_log_previous.txt` へ移す |
 | `gui_error_log_previous.txt` | 移すたびに上書き | 1 つ。合わせておよそ 2 MB で止まる（移せない場面を除く。「移せないとき」を参照） |
+| `startup_trace.tsv` | 起動のたびに上書き（環境変数があるときだけ） | 1 つ。1 回の起動の分だけ。測り終えたら消してよい |
 | `publish` | 実行ごとに `<PID>` を作る | 終了時・インポートの後に消す。残りは次のインデックス作成の始めに消す |
 | `tmp` | 実行ごとに `<PC の鍵>\<PID>` を作る | 終了時に消す。強制終了の残りは次のインデックス作成の始めに、この PC の終わったプロセスの分を消す。共有のワークスペースでは、ほかの PC の残りは消えない（別に直す） |
 | `office_pids` | Office を起動するたびに `<PC の鍵>\<PID>.txt` | Office を閉じたら消す。残りは画面の起動時の確かめで消す |

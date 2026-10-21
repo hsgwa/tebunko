@@ -62,6 +62,9 @@ BeforeAll {
         @{ File = "closing.ps1"; Function = "enterIndexingStopFlow"; Call = "writeCloseTrace"; Reason = "閉じる処理の段の名前を 1 行足す（TEBUNKO_CLOSE_TRACE が指すローカルのファイル。無ければ何もしない。閉じるときだけ）" }
         @{ File = "closing.ps1"; Function = ""; Call = "writeCloseTrace"; Reason = "閉じる処理の段の名前を 1 行足す（Closing のハンドラ。TEBUNKO_CLOSE_TRACE が指すローカルのファイル。無ければ何もしない。閉じるときだけ）" }
 
+        # ---- tebunko/ui/startup_trace.ps1（起動の段階の記録。環境変数 TEBUNKO_STARTUP_TRACE が 1 のときだけ） ----
+        @{ File = "startup_trace.ps1"; Function = "writeStartupTrace"; Call = "[System.IO.File]"; Reason = "起動の段階の記録を 1 回だけ書く（環境変数 TEBUNKO_STARTUP_TRACE が 1 のときだけ。呼ぶのは起動時の読み込みの後で、ローカルのワークスペースだけ。起動の時間を測る道具が読む。無ければ何も書かない）" }
+
         # ---- tebunko/ui/workspace_jobs.ps1 ----
         @{ File = "workspace_jobs.ps1"; Function = "testStartupIndexExists"; Call = "testIndexExists"; Reason = "ローカルの場所だけ（ネットワークの場所は先に真を返し、呼ばない）" }
 

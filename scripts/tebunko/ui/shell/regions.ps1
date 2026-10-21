@@ -80,3 +80,4 @@
     [void]$ui.PreviewRows.ApplyTemplate()
     $ui.PreviewScroll = $ui.PreviewRows.Template.FindName("PreviewScroll", $ui.PreviewRows)
     $taskbar = $window.TaskbarItemInfo
+    markStartup "XAML の読み込み"

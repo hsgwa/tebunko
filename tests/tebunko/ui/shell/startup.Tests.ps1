@@ -10,6 +10,8 @@ BeforeAll {
         $definition = $ast.Find({ param ($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name }, $true)
         . ([scriptblock]::Create($definition.Extent.Text))
     }
+    # 起動の段階の記録（環境変数が無いので、何も控えず何も書かない）
+    . "${scriptsDir}\tebunko\ui\startup_trace.ps1"
 
     # 裏の仕事は、その場で（同じスレッドで）流し、終わりの処理を呼ぶ
     function startJob {

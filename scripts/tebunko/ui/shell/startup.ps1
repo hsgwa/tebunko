@@ -53,6 +53,11 @@
         } finally {
             $script:startupLoaded = $true
         }
+        # 起動の段階の記録（環境変数 TEBUNKO_STARTUP_TRACE が 1 のときだけ）を書く。ネットワークのワークスペースには書かない（画面のスレッドを止めないため）
+        markStartup "一覧が出る"
+        if (!(testNetworkPath $workspace.Dir)) {
+            writeStartupTrace $workspace.StartupTraceFile
+        }
         # 起動時に出した知らせ（既定のワークスペースが使えない・前の版のインデックスがある）は、読み込みが終わっても消さない
         setStatus $(if ($script:workspaceBlock) { $script:workspaceBlock } else { "" })
         # 前回のインデックス作成が起動したまま残った Office があれば、終了するか確認する（記録の読み取りは裏で行う）
@@ -113,3 +118,4 @@
     }
     setStatus "読み込んでいます…"
     stepSplash 95
+    markStartup "画面を出す前の読み込み"

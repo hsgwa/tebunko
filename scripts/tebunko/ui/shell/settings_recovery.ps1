@@ -7,3 +7,4 @@
     # ワークスペース（setting.config の workspaceFolder）は、壊れた設定ファイルの退避の後に決める
     initWorkspace
     stepSplash 40
+    markStartup "設定の退避・ワークスペースの決定"

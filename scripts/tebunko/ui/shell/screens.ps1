@@ -42,3 +42,4 @@
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\shell\nav.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\shell\status_bar.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\shell\notice_banner.ps1".Replace('`', '``')))
+    markStartup "画面の部品の読み込み"

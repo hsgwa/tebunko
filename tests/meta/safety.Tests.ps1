@@ -223,6 +223,10 @@ BeforeAll {
                     $workspaceEnvCount++
                 } elseif ($name -eq "tebunko_close_trace" -and $line.File -eq "gui_main.ps1") {
                     # 閉じる処理の記録先（画面のスモークテストが差し込む）。読むのは gui_main.ps1 の起動時の 1 か所
+                } elseif ($name -eq "tebunko_startup_trace" -and $line.File -eq "gui.ps1") {
+                    # 起動の段階の記録を動かす印（起動の時間を測る道具が差し込む）。読むのは gui.ps1 の起動時の 1 か所
+                } elseif ($name -eq "tebunko_startup_trace" -and $line.File -eq "gui.ps1") {
+                    # 起動の段階の記録を動かす印（起動の時間を測る道具が差し込む）。読むのは gui.ps1 の起動時の 1 か所
                 } elseif ($allowedEnv -notcontains $name) {
                     $problems.Add("環境変数: $($line.File):$($line.Line) $($match.Value)")
                 }

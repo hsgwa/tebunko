@@ -14,6 +14,10 @@
 . ([WildcardPattern]::Escape("$PSScriptRoot\ui\startup_error.ps1".Replace('`', '``')))
 
 try {
+    # 起動の段階の記録（環境変数 TEBUNKO_STARTUP_TRACE が 1 のときだけ動く。読み込みの重さを測る道具が使う。docs/design/testing/perf.md「起動の計測」）。
+    # 最上位の文を増やさないよう、try の中の先頭で読み込む（プロセスの始まりからの経過で測るので、ここからでよい）
+    . ([WildcardPattern]::Escape("$PSScriptRoot\ui\startup_trace.ps1".Replace('`', '``')))
+    startStartupTrace $env:TEBUNKO_STARTUP_TRACE
     Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms
 
     # ---- 起動中の表示 ----
@@ -22,6 +26,7 @@ try {
     . ([WildcardPattern]::Escape("$PSScriptRoot\ui\splash.ps1".Replace('`', '``')))
     $script:splash = showSplash "$PSScriptRoot\xaml\splash.xaml" "$PSScriptRoot\xaml\app_icon.xaml"
     stepSplash 5
+    markStartup "WPF の読み込みと起動中の表示"
 
     # zip 展開で付く Mark-of-the-Web（外部由来の印）を、scripts 配下から消す。印が残っていると
     # RemoteSigned でスクリプトの読み込みがブロックされるため。通常は tebunko.bat が起動前に消すが、
@@ -34,10 +39,13 @@ try {
             Get-ChildItem -LiteralPath (Split-Path $PSScriptRoot -Parent) -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue
         } catch { }
     }
+    markStartup "Mark-of-the-Web の除去"
 
     . ([WildcardPattern]::Escape("$PSScriptRoot\..\shared\shared.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$PSScriptRoot\core\settings.ps1".Replace('`', '``')))
+    markStartup "shared.ps1・settings.ps1"
     . ([WildcardPattern]::Escape("$PSScriptRoot\lib.ps1".Replace('`', '``')))
+    markStartup "lib.ps1"
     stepSplash 40
 
     . ([WildcardPattern]::Escape("$PSScriptRoot\..\shared\ui\types.ps1".Replace('`', '``')))
@@ -47,9 +55,11 @@ try {
     . ([WildcardPattern]::Escape("$PSScriptRoot\..\shared\ui\app_host.ps1".Replace('`', '``')))
     setGuiErrorLogSource { getToolGuiErrorLogFile } { getToolGuiErrorLogHeader }
     . ([WildcardPattern]::Escape("$PSScriptRoot\..\shared\ui\trimmed_tooltip.ps1".Replace('`', '``')))
+    markStartup "画面の型・app_host"
     stepSplash 50
 
     . ([WildcardPattern]::Escape("$PSScriptRoot\ui\gui_main.ps1".Replace('`', '``')))
+    markStartup "gui_main.ps1 の読み込み"
     startGui -TebunkoDir $PSScriptRoot
 } catch {
     exit (reportStartupFailure $_)

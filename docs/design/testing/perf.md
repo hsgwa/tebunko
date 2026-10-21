@@ -56,6 +56,20 @@ gh workflow run perf.yml -f ref=<測る ref> -f scale=0.1 -f ingest=200
 - リソースの表が測るのは、計測の PowerShell のプロセスだけ。EXCEL・WINWORD・POWERPNT のプロセスは含まない（「PC の CPU」には含む）
 - Office を使う取り込み（.xlsx・.doc・.ppt）の時間に固定の上限を付けた合否のテストは無い。Office の時間は機械・Defender・Office の版で大きく揺れるので、比べるのは同じ機械・同じ日・同じ引数で続けて測った数字どうしにする（Office の版は結果の実行の情報に出す）。比べ方は下の「Office を使う形式の比べ方」。Office を使わずに読む .docx・.pptx は、`perf-check.yml` が固定の上限と比べる
 
+## 起動の計測（手元の Windows）
+
+```
+.\tools\perf\measure_startup.ps1 -Workspace C:\perf\ws -Before C:\perf\before -Runs 10
+```
+
+画面が出るまでの時間を、段階ごとに測る。CI では測らない（画面を出すので、実機で測る）。
+
+- 記録（`scripts/tebunko/ui/startup_trace.ps1`）… 環境変数 `TEBUNKO_STARTUP_TRACE` が `1` のときだけ動く。段階の名前と「PowerShell のプロセスが始まってからの経過ミリ秒」の組をメモリに控え、起動時の読み込み（`loadStartupData`）が済んだあとに 1 回、ワークスペースの `startup_trace.tsv`（`Workspace.StartupTraceFile`）へ書く。共有（ネットワーク）のワークスペースには書かない。環境変数が無ければ、控えもせず、ファイルも作らない
+- 終点は 2 つ。(A) = 画面が出る（`ContentRendered`）、(B) = 一覧が出る（`loadStartupData` の画面のスレッドの部分が済む）。段階の時間は、隣り合う行の差
+- 道具（`tools/perf/measure_startup.ps1`）… 測るツールの `tebunko.bat` と `scripts\` を一時フォルダに写し、`setting.config` でワークスペースを指して `tebunko.bat` を起動する（利用者の既定のワークスペースには触らない）。最初の 1 回は温めとして捨てる。`-Before` に前の版のフォルダを渡すと、前・後を交互に起動して同じ表に並べる。外から「`tebunko.bat` を起動してから本体の窓が出るまで」も測る（記録の口が無い版でも測れる）。待っても窓が出ない回（知らせのダイアログ・多重起動・起動の失敗）は失敗として数える。止めるのは、道具が起動したプロセスだけ（親子の PID をたどる。名前で探して止めない）
+- 集計（`tools/perf/startup_common.ps1`）は起動と分けた関数にして、単体テスト（`tests/tools/perf_startup.Tests.ps1`）で確かめる。表は「最小 / 中央値 / 最大」と、前後を並べたときの中央値の差
+- 比べるときは、同じ機械・同じ日に、空のワークスペースと、インデックスのあるワークスペース（tebunko-perfdata の `new_index.ps1`）の 2 通りで測る。CPU・メモリ・Defender の状態・ローカルかどうか・回数を、結果と一緒に書く
+
 ## 計測の口（取り込みの計測が頼るもの）
 
 取り込みのコードを書き直すときは、この口を変えない。変えるときは、先に計測（`measure_ingest.ps1`）を直し、変える前の版を測り直してから比べる。

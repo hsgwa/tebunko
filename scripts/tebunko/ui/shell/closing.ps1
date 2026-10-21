@@ -169,3 +169,4 @@
             enterIndexingStopFlow
         }
     })
+    markStartup "ウィンドウのイベントの登録"
