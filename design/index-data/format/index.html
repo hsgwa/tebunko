@@ -5048,7 +5048,7 @@ content_index/&lt;相対フォルダ&gt;/content_index.&lt;拡張子&gt;.&lt;番
 <p><code>files</code> は目録以外の全エントリーの一覧で、インポートはこの一覧に無いエントリーを受け付けない。大きさと SHA-256（<code>SHA256CryptoServiceProvider</code>）で、壊れた・書き換えられたファイルを見分ける。<code>appVersion</code> は記録だけ（判定に使わない）。</p>
 <p><strong>形式の版</strong>（<code>formatVersion</code>）は、本文インデックスのファイルの形・zip の中の配置・目録と取り込み一覧の列を変えたら上げる整数。インポートは、今の版より大きければ「新しい版の tebunko で作ったため読めない」として止め、今の版より小さければ（版 1 の zip）「前の版の tebunko で書き出した zip のため取り込めない」として止め、1 未満・整数でない・<code>format</code> が <code>tebunko-index</code> でなければ「tebunko のインデックスの zip ではない、または壊れている」として止める（<code>testIndexArchiveManifest</code>）。</p>
 <h3 id="エクスポートexportindex">エクスポート（<code>exportIndex</code>）<a class="headerlink" href="#エクスポートexportindex" title="Permanent link">&para;</a></h3>
-<p>インデックス作成のロック（<code>newAppMutex "indexer"</code>）を取り、取れなければ例外にする。<strong>入れる前の TSV</strong>（本文インデックスのファイル以外の <code>*.tsv</code>）が 1 つでも残っていれば、途中で止まったインデックスとして止める（済の行の中身が zip に無くなるため）。保存先と同じフォルダの <code>&lt;保存先&gt;.tmp</code> に書いてから保存先へ置き換え、失敗したら <code>.tmp</code> を消す。本文インデックスのファイルは 1 つずつストリームで写し、写しながら SHA-256 を計算する（メモリに全体を読まない）。</p>
+<p>インデックス作成の鍵（<code>enterIndexerLock</code>。ミューテックスと鍵のファイル）を取り、取れなければ例外にする。<strong>入れる前の TSV</strong>（本文インデックスのファイル以外の <code>*.tsv</code>）が 1 つでも残っていれば、途中で止まったインデックスとして止める（済の行の中身が zip に無くなるため）。保存先と同じフォルダの <code>&lt;保存先&gt;.tmp</code> に書いてから保存先へ置き換え、失敗したら <code>.tmp</code> を消す。本文インデックスのファイルは 1 つずつストリームで写し、写しながら SHA-256 を計算する（メモリに全体を読まない）。</p>
 <h3 id="インポートimportindex">インポート（<code>importIndex</code>）<a class="headerlink" href="#インポートimportindex" title="Permanent link">&para;</a></h3>
 <p>インデックス作成のロックを取り、以下を順に行う。</p>
 <ol>

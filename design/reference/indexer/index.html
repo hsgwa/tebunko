@@ -4682,12 +4682,28 @@
 <td>画面</td>
 </tr>
 <tr>
+<td><code>enterIndexerLock</code></td>
+<td>dir（既定 <code>$workspace.Dir</code>）, attempts（既定 3。画面のスレッドでは 1）</td>
+<td><code>@{Mutex; Stream; Acquired}</code></td>
+<td>インデックス作成の鍵（ミューテックス → 鍵のファイルの順）を取る。取れなければ <code>Acquired</code> が <code>$false</code> でどちらも持たない。鍵のファイルで例外になったときはミューテックスを放して投げ直す。呼ぶのは <code>invokeIndexer</code>・<code>exportIndex</code>・<code>importIndex</code></td>
+<td><a href="../../indexing/flow/">インデックス作成のメインフロー</a></td>
+<td>インデックス作成・エクスポート・インポート</td>
+</tr>
+<tr>
+<td><code>exitIndexerLock</code></td>
+<td>lock（<code>enterIndexerLock</code> の戻り値）</td>
+<td>なし</td>
+<td>鍵を、取った順の逆（鍵のファイル → ミューテックス）に放す。2 回呼んでも例外にならない</td>
+<td><a href="../../indexing/flow/">インデックス作成のメインフロー</a></td>
+<td>同上（<code>finally</code>）</td>
+</tr>
+<tr>
 <td><code>testIndexerRunning</code></td>
 <td>dir（既定 <code>$workspace.Dir</code>）</td>
-<td>bool</td>
-<td>この <code>work</code> でインデックス作成が動いているか（インデクサのミューテックスを取れるかで調べ、取れたらすぐ放す）。画面を使わずに起動したものも分かる</td>
-<td><a href="../../structure/threads/#画面とインデクサの受け渡し">画面とインデクサの受け渡し</a></td>
+<td><code>@{Running; Error}</code></td>
+<td>この <code>work</code> でインデックス作成が動いているか（ミューテックスと鍵のファイルが取れるかで調べ、取れてもすぐ放す。待たずに 1 回）。画面を使わずに起動したもの・ほかのセッション・ほかの PC も分かる。フォルダが無ければミューテックスだけで決める。鍵のファイルを調べて例外になったときは <code>Running</code> を <code>$true</code>、<code>Error</code> に理由を入れる（始められないとして扱う） <a href="../../structure/threads/#画面とインデクサの受け渡し">画面とインデクサの受け渡し</a></td>
 <td>画面（［設定］）</td>
+<td></td>
 </tr>
 <tr>
 <td><code>writeZipSizeLimitLog</code></td>

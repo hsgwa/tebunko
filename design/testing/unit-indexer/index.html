@@ -4203,7 +4203,15 @@
 </tr>
 <tr>
 <td><code>testIndexerRunning</code></td>
-<td>インデックス作成の鍵をほかが持っていれば <code>$true</code>、調べた後は鍵を持たない</td>
+<td>ミューテックスだけ・鍵のファイルだけのどちらをほかが持っていても Running（Error 無し）、調べた後は鍵を持たない、残った鍵のファイル（誰も開いていない）だけなら Running でない、アクセス拒否は Running と Error を返し待たずに返る</td>
+</tr>
+<tr>
+<td><code>enterIndexerLock</code> / <code>exitIndexerLock</code></td>
+<td>取れれば両方持ち放すと取れる状態に戻る（2 回放しても例外にならない）、鍵のファイルを取れない・例外のときはミューテックスも放している</td>
+</tr>
+<tr>
+<td>鍵の取り方（<code>tests/meta/locks.Tests.ps1</code>）</td>
+<td><code>newAppMutex "indexer"</code> を書くのは <code>indexer_state.ps1</code> だけ、<code>enterIndexerLock</code> はミューテックスの後に鍵のファイルを開く</td>
 </tr>
 <tr>
 <td><code>writeIndexerLog</code>（<code>tests/tebunko/core/diagnostics</code>）</td>

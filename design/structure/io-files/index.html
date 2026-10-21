@@ -4812,6 +4812,11 @@
 <td>検索結果の出力</td>
 </tr>
 <tr>
+<td><code>work/indexing.lock</code></td>
+<td>作る・閉じると消える</td>
+<td>インデックス作成の鍵（空のファイル。ほかに開けない形で開いたままにする。<code>openLockFile</code>）</td>
+</tr>
+<tr>
 <td><code>work/index/</code>（過去の版が置いた本文インデックス）</td>
 <td>読む・消す</td>
 <td>残っているかの調べ・知らせ・［設定］の「移す」「消して最初から」のときだけ。ここには書かない</td>
@@ -5116,6 +5121,11 @@
 <td>1 つ</td>
 </tr>
 <tr>
+<td><code>indexing.lock</code></td>
+<td>作成（閉じると削除）</td>
+<td>1 つ</td>
+</tr>
+<tr>
 <td><code>indexing_log.txt</code></td>
 <td>実行ごとに上書き</td>
 <td>1 回分。始めるとき（二重起動の鍵を取った後）に今の分を <code>indexing_log_previous.txt</code> へ移す</td>
@@ -5322,6 +5332,14 @@
 <td>画面</td>
 <td>UTF-8（BOM 付き）、タブ区切り</td>
 <td>1 行目は説明、2 行目は <code>&lt;インデックス名&gt;&lt;TAB&gt;&lt;元のフォルダ&gt;</code>（<a href="../../indexing/crawl/#クロール対象フォルダとインデックス名">クロール対象フォルダと取り込み対象</a>）。<code>.tsv</code> にすると検索対象になるため <code>.txt</code></td>
+</tr>
+<tr>
+<td><code>work/indexing.lock</code></td>
+<td>鍵</td>
+<td>インデックス作成・エクスポート・インポート</td>
+<td>無し</td>
+<td>空（中身を読まない。開けるかで「動いている」を決める）</td>
+<td>インデックス作成の間だけある。強制終了で残っても、誰も開いていなければ次の起動を止めない</td>
 </tr>
 <tr>
 <td><code>work/search_results.txt</code></td>

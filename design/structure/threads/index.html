@@ -4585,7 +4585,7 @@
 <li><code>store\journal\ingest.tsv</code>（強制終了からの再開。取り込みのジャーナル）</li>
 <li><code>indexing_log.txt</code>（<code>writeIndexerLog</code> で書く。実行ごとに上書き）</li>
 </ul>
-<p>インデクサのミューテックス（<code>newAppMutex "indexer"</code>。画面と <code>indexer.ps1</code> が同時に作らないため）は、インデクサの司令のスレッドで取得し、同じスレッドで解放する。ログはミューテックスを取ってから開く。［設定］タブは、ワークスペースを変える前に、画面を使わずに起動したインデックス作成が動いていないかをこのミューテックスで調べる（<code>testIndexerRunning</code>）。</p>
+<p>インデクサの鍵（ミューテックス <code>newAppMutex "indexer"</code> と、ワークスペースの鍵のファイル <code>indexing.lock</code>。画面と <code>indexer.ps1</code>、ほかのセッション・ほかの PC が同時に作らないため。<code>enterIndexerLock</code>）は、インデクサの司令のスレッドで取得し、同じスレッドで解放する（<code>exitIndexerLock</code>）。ログは鍵を取ってから開く。［設定］タブは、ワークスペースを変える前に、ほかのインデックス作成が動いていないかをこの 2 つの鍵で調べる（<code>testIndexerRunning</code>。取らずに調べ、画面のスレッドなので待たずに 1 回で返す）。鍵のファイルを調べられなかったとき（アクセス拒否など）は、動いているものとして変更を断り、理由を示す。</p>
 <p>設定ファイル（<code>setting.config</code>）の「読み直す → 変える → 書く」は、画面（UI のスレッド）とインデクサ（別のプロセスの司令のスレッド）が同時に行うことがあるため、設定ファイルごとの名前付きミューテックス（<code>Local\tebunko_settings_&lt;鍵&gt;</code>。<code>invokeSettingsLocked</code>）の中で行う。時間（5 秒）を過ぎても取れなければ例外にする。前の持ち主が手放さずに終わっていた（abandoned）ときは、取れたものとして続ける。重い読み込み（取り込み一覧など）はミューテックスの外で済ませ、持つ時間を短くする。</p>
 
 
