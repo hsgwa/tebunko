@@ -266,6 +266,22 @@ Describe "IngestDispatcher（振り分け）" -Tag Io {
         $dispatcher.Stopped | Should -Be $true
         $dispatcher.Remaining | Should -Be 2
     }
+
+    It "Receive が受けた結果は LastResult に残り、受ける結果が無ければ `$null に戻る（結果: <Name>）" -TestCases @(
+        @{ Name = "取り込んだ"; Result = @{ RelPath = "資料\a.docx"; Ok = $true }; Stop = $false }
+        @{ Name = "止められた"; Result = @{ RelPath = "資料\a.docx"; Stopped = $true }; Stop = $false }
+        @{ Name = "回し直しを止めた"; Result = @{ RelPath = "資料\a.docx"; Reroute = $true }; Stop = $true }
+    ) {
+        param($Name, $Result, $Stop)
+        $dispatcher = newTestDispatcher @("a.docx", "b.docx")
+        [void](takeAllSteps $dispatcher)
+        $dispatcher.SetInlineResult($Result)
+        [void]$dispatcher.Receive($Stop)
+        $dispatcher.LastResult.RelPath | Should -Be "資料\a.docx"
+        # 次の Receive は、受ける結果が無いので、前の結果を引き継がない
+        $dispatcher.Receive($false) | Should -BeNullOrEmpty
+        $dispatcher.LastResult | Should -BeNullOrEmpty
+    }
 }
 
 Describe "IngestDispatcher（諦めたワーカー）" -Tag Io {
@@ -329,6 +345,8 @@ Describe "IngestDispatcher（諦めたワーカー）" -Tag Io {
             # そのあとでワーカーが返した結果は、反映せずに捨てる
             $dispatcher.Pool.Results.Add(@{ RelPath = "資料\a.ppt"; Ok = $true })
             $dispatcher.Receive() | Should -BeNullOrEmpty
+            # 捨てた結果は、時間にも数えない
+            $dispatcher.LastResult | Should -BeNullOrEmpty
             $dispatcher.Pool.Results.Count | Should -Be 0
         } finally {
             $dispatcher.Stop()
@@ -367,6 +385,8 @@ Describe "IngestDispatcher（諦めたワーカー）" -Tag Io {
             $received.Kind | Should -Be "RerouteAbandoned"
             $received.Reason | Should -Be "使っていた"
             $received.Entry.Number | Should -Be 1
+            # Receive が飲む回し直しの結果も、LastResult に残る（種類ごとの「回し直し」に数えるため）
+            $dispatcher.LastResult.Reroute | Should -Be $true
             $dispatcher.InflightCount() | Should -Be 0
             @($dispatcher.Pool.Slots | Where-Object { $null -ne $_.Worker }).Count | Should -Be 0
             $dispatcher.Pool.Slots[0].Busy | Should -Be 0

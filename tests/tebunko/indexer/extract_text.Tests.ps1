@@ -25,6 +25,14 @@ Describe "extractTextFile" -Tag Io {
         ($lines -join "|") | Should -Be "1行目||3行目"
     }
 
+    It "timing を渡すと、コピーの時間が足される（渡さなくても同じ結果）" {
+        $source = newSourceFile "t.txt" ([System.Text.Encoding]::UTF8.GetBytes("あ`r`n"))
+        $timing = @{ CopyMs = 0.0 }
+        (extractTextFile $source $outDir 1000 $timing) | Should -Be 1
+        $timing.CopyMs | Should -BeGreaterThan 0.0
+        (extractTextFile $source $outDir) | Should -Be 1
+    }
+
     It "<name> は、コピーが残らず（出力フォルダが空）、結果は <expected>" -TestCases @(
         @{ name = "空のファイル"; bytes = [byte[]]@(); max = 1000; message = $null; expected = "0" }
         @{ name = "空の行だけのファイル"; bytes = [System.Text.Encoding]::UTF8.GetBytes("`r`n`r`n"); max = 1000; message = $null; expected = "0" }

@@ -93,7 +93,25 @@
 | `StopIfRequested` | requested（bool） | bool | 中止を求められ、渡していないファイルがあるとき、今回初めて止めた場合だけ `$true` を返し、以後は渡さない（残りの件数は `Remaining`） |
 | `GetInflightCount` | relPath | 件数 | 取り込み中のファイルを続けて取り込みを始めた回数（今の分を含む。取り込み中でなければ 0。ジャーナルの「始」に書く） |
 | `Stop` | – | – | 列を閉じ、諦めていないワーカーが終わるのを待ってから片づける。諦めたワーカーは待たず、止める依頼だけを出す |
+| `LastResult`（プロパティ） | – | 結果 / `$null` | 直前の `Receive` が受け取った結果（回し直し・中止も含む。諦めたワーカーの結果は捨てるので `$null`）。司令が種類ごとの時間を足すのに使う |
 | `Pool`・`UsesThreads`・`Stopped`・`FolderLost`・`Remaining`・`Undispatched`（プロパティ） | – | – | プール・スレッドを使うか・中止・フォルダ消失・残り・まだ渡していないファイル |
+
+### IngestTiming（新規 `tebunko/indexer/ingest_timing.ps1`。司令のスレッドで作る）
+
+段階ごとの時間と、取り込みの種類（拡張子）ごとの時間を足し合わせるだけ（ファイルにも画面にも触らない）。書くのは司令（`writeStageTimingLog`）。時刻は Stopwatch だけ。
+
+| メソッド | 入力 | 出力 | 概要 |
+|---|---|---|---|
+| `Start` / `Mark` / `Lap` | – / – / stage | – | 全体の計りを始める / 区切りの印を今に置く（その間はどの段にも足さない） / 前の印から今までを stage に足して印を置く |
+| `AddStage` | stage, ms | – | 段階に足す（同じ段階は足し合わせる） |
+| `Finish` | [ms] | – | 全体の時間を決める（画面の返事を待った `Wait` は引く） |
+| `AddFile` | kind, outcome（Ok／Failed／Reroute／Postponed）, copyMs, extractMs, publishMs | – | 取り込みの結果 1 件の時間を種類に足す |
+| `AddPostponed` | kind | – | 結果を受け取らずに後回しにした分の件数だけを足す（時間は足さない） |
+| `GetOutcome` / `GetKind`（static） | result / relPath | string | 結果を Ok・Reroute・Postponed・Failed に分ける / 拡張子（小文字） |
+| `ToHashtable` | – | `@{ Stages; Kinds }` | 受け渡しの口の `StageTimings`。段は秒、種類ごとは件数・秒・成功の 1 件の平均 ms。その他は全体から段の合計を引いた残り |
+| `FormatLogLines` | – | string の配列 | インデックス作成ログの行（段階の 1 行と、抽出の長い順の種類ごとの行） |
+
+司令の側の関数は `indexer_run.ps1` にある。`addStageTiming`（Stopwatch の経過を段に足す）・`addIngestResultTiming`（取り込みの結果の `Timing`〔`invokeTimedIngest`・`publishTsvTimed` が測ったコピー・抽出・置き場への移し〕を種類に足す）・`addPostponedTiming`・`addReceivedTiming`（受け取った結果の時間を足す）・`postponeAbandonedEntries`・`postponeUndispatched`・`dropVanishedFile`（取り込みの司令の分け出し）・`writeStageTimingLog`（回の終わりに受け渡しの口の `StageTimings` に入れ、ログに書く）。`flushPendingPublish` は段階（既定は仕上げのまとめ。起動の中・取り込みの中は別の段）を受け取り、中身は `publishFlushable`。測る側の `getIngestStageTimings`（`tools/perf/ingest_common.ps1`）は口の `StageTimings` を読む（無い版は `$null`）。
 
 ### IngestPlanner（`tebunko/indexer/indexer_plan.ps1`。司令のスレッドで作る）
 

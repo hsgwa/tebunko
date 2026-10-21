@@ -97,6 +97,16 @@ Describe "invokeWithSourceCopy" -Tag Io {
         @(invokeWithSourceCopy $source $copy { "a" }).Count | Should -Be 1
     }
 
+    It "timing を渡すとコピーの時間が足され、渡さなければ今までと同じ" {
+        $timing = @{ CopyMs = 5.0 }
+        invokeWithSourceCopy $source $copy { "x" } $null $timing | Should -Be "x"
+        $timing.CopyMs | Should -BeGreaterThan 5.0
+        $first = $timing.CopyMs
+        invokeWithSourceCopy $source $copy { "y" } $null $timing | Should -Be "y"
+        $timing.CopyMs | Should -BeGreaterThan $first
+        invokeWithSourceCopy $source $copy { "z" } | Should -Be "z"
+    }
+
     It "読む処理がコピーを読める" {
         invokeWithSourceCopy $source $copy { [System.IO.File]::ReadAllText($copy) } | Should -Be "あいう"
     }

@@ -675,6 +675,21 @@ Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
         (readTestProgress).Detail | Should -Be "インデックス作成を取りやめました"
     }
 
+    It "取りやめても、段階ごとの時間の行がログに出る" {
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "総務"; path = $source; enabled = $true })
+        $cancel = $approvalLine.Clone()
+        # 返事を待った時間（画面の確認待ち）が、全体に含めずに別に出ることを確かめるため、返事を少し遅らせる
+        $cancel.Action = { Start-Sleep -Milliseconds 300; answerIndexingPlan $channel $null }
+
+        runIndexer $root @{ ConfirmTargets = $true } @($cancel) | Should -Be 2
+        $log = [System.IO.File]::ReadAllText("$root\work\indexing_log.txt")
+        $log | Should -Match "段階ごとの時間（秒）: "
+        $log | Should -Match "画面の確認待ち [0-9.]+（全体に含めない）"
+        $stages = $script:lastChannel.StageTimings.Stages
+        $stages.Wait | Should -BeGreaterThan 0.2
+    }
+
     It "確認を待つとき（ConfirmTargets）、取りやめたら、更新されたファイルの行も前回の記録のまま残す（次回も更新ありになる）" {
         $edited = newSourceFolder "企画"
         $root = newRoot
@@ -1063,7 +1078,7 @@ Describe "indexer.ps1（制限時間）" -Tag Io {
         $root = newRoot
         writeTestSettings $root @(@{ name = "監査"; path = $source; enabled = $true })
         # 取り込みの直前に、見張り（OfficeWatchdog）が制限時間を過ぎたと判断した状態にする
-        $timeout = @{ Script = $runPath; Pattern = '^\s+\$result\.TsvCount = ingestFile'; Action = { $officeWatchdog.State.TimedOut = $true } }
+        $timeout = @{ Script = $runPath; Pattern = '^\s+\$result\.TsvCount = invokeTimedIngest'; Action = { $officeWatchdog.State.TimedOut = $true } }
 
         runIndexer $root @{} @($timeout) | Should -Be 0
         $status = readTestStatus $root
@@ -1239,6 +1254,33 @@ Describe "indexer.ps1（取り込みのスレッド）" -Tag Io {
             }
             return , $lines.ToArray()
         }
+    }
+
+    It "段階ごとの時間と種類ごとの時間が、スレッドを使っても使わなくても、ログと受け渡しの口（StageTimings）に出る（Workers = <workers>）" -TestCases @(
+        @{ workers = 0 }
+        @{ workers = 3 }
+    ) {
+        param ($workers)
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "並列"; path = $source; enabled = $true })
+        runIndexer $root @{ Workers = $workers } | Should -Be 0
+
+        $timings = $script:lastChannel.StageTimings
+        $timings.Stages.Total | Should -BeGreaterThan 0
+        $timings.Stages.Ingest | Should -BeGreaterThan 0
+        $timings.Stages.Gram | Should -BeGreaterThan 0
+        ($timings.Stages.Startup + $timings.Stages.Crawl + $timings.Stages.Ingest + $timings.Stages.FinishFlush + $timings.Stages.Gram + $timings.Stages.Other) | Should -BeGreaterThan ($timings.Stages.Total - 0.01)
+        ($timings.Stages.Startup + $timings.Stages.Crawl + $timings.Stages.Ingest + $timings.Stages.FinishFlush + $timings.Stages.Gram + $timings.Stages.Other) | Should -BeLessThan ($timings.Stages.Total + 0.01)
+        $timings.Kinds[".docx"].Ok | Should -Be 2
+        $timings.Kinds[".docx"].Count | Should -Be 2
+        $timings.Kinds[".pptx"].Ok | Should -Be 2
+        $timings.Kinds[".pptx"].Failed | Should -Be 1
+        $timings.Kinds[".pptx"].Count | Should -Be 3
+        $timings.Kinds[".docx"].AvgMs | Should -BeGreaterThan 0
+        $log = [System.IO.File]::ReadAllText("$root\work\indexing_log.txt")
+        $log | Should -Match "段階ごとの時間（秒）: 起動 .* / クロール .* / 取り込み .*（うちまとめ .*） / 仕上げのまとめ .* / gram 索引 .* / その他 .* / 全体 "
+        $log | Should -Match "  \.docx 2 件: 抽出 "
+        $log | Should -Match "  \.pptx 3 件: 抽出 .*（失敗 1・"
     }
 
     It "取り込みのスレッドで取り込んでも、取り込み一覧・本文インデックスのファイルはスレッドを使わないときと同じになる" {

@@ -7,7 +7,7 @@
 # 計測の口（この計測が頼るもの。refactor で変えるときは、先にこの計測を直し、main で測り直す。docs/design/testing/ci.md に同じ表がある）:
 #   起動口       … scripts\tebunko\indexer.ps1 -Channel <口>。終了コード 0 = 完了
 #   読み込み口   … scripts\tebunko\lib.ps1 の newIndexerChannel（引数 retryFailed・confirmTargets・workers）
-#   受け渡しの口 … Progress.Phase と、その値 クロール・確認・取り込み・仕上げ
+#   受け渡しの口 … Progress.Phase と、その値 クロール・確認・取り込み・仕上げ。StageTimings（@{ Stages; Kinds }。段階ごと・種類ごとの時間。無い版は $null として扱う）
 #   設定         … setting.config がツールのフォルダにあること。キー targetFolders（@{ name; path; enabled } の配列）・workspaceFolder・ingestThreads
 #   取り込み一覧 … Workspace の StatusFile（ingest_status.tsv）。見出しの 相対パス・状態。状態の値 済・失敗
 param (
@@ -72,6 +72,7 @@ $phaseSeconds = getIngestPhaseSeconds $monitor.Phases.ToArray()
 $status = readIngestStatusCounts ([Workspace]::new($workspaceDir)).StatusFile
 assertIngestCounts $status $counts.Total
 $ingestSeconds = $phaseSeconds[$ingestPhaseIngest]
+$stageTimings = getIngestStageTimings $channel
 $perFileMs = if ($ingestSeconds -gt 0) { $ingestSeconds * 1000 / $counts.Total } else { $null }
 
 $result = [ordered]@{
@@ -81,6 +82,8 @@ $result = [ordered]@{
     Phases = @($phaseSeconds.Keys | ForEach-Object { [ordered]@{ Phase = $_; Seconds = [Math]::Round($phaseSeconds[$_], 2) } })
     IngestSeconds = [Math]::Round($ingestSeconds, 2)
     PerFileMs = $(if ($null -ne $perFileMs) { [Math]::Round($perFileMs, 1) } else { $null })
+    Stages = $(if ($null -ne $stageTimings) { $stageTimings.Stages } else { $null })
+    Kinds = $(if ($null -ne $stageTimings) { $stageTimings.Kinds } else { $null })
     Resources = (getPhaseResources $samples)
     PeakWorkingSetMB = [Math]::Round([System.Diagnostics.Process]::GetCurrentProcess().PeakWorkingSet64 / 1MB, 1)
     Samples = $samples
