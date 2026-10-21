@@ -21,7 +21,8 @@ scripts/tebunko/index/index_archive.ps1	PSAvoidUsingEmptyCatchBlock	4
 scripts/tebunko/index/index_format_store.ps1	PSAvoidUsingEmptyCatchBlock	1
 scripts/tebunko/index/index_store.ps1	PSAvoidUsingEmptyCatchBlock	1
 scripts/tebunko/indexer/index_migrate.ps1	PSAvoidUsingEmptyCatchBlock	2
-scripts/tebunko/indexer/indexer_run.ps1	PSAvoidUsingEmptyCatchBlock	5
+scripts/tebunko/indexer/indexer_run.ps1	PSAvoidUsingEmptyCatchBlock	4
+scripts/tebunko/indexer/indexer_state.ps1	PSAvoidUsingEmptyCatchBlock	3
 scripts/tebunko/indexer/indexing_session.ps1	PSAvoidUsingEmptyCatchBlock	2
 scripts/tebunko/indexer/ingest_dispatcher.ps1	PSAvoidUsingEmptyCatchBlock	2
 scripts/tebunko/indexer/ingest_journal.ps1	PSAvoidUsingEmptyCatchBlock	1

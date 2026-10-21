@@ -806,6 +806,50 @@ function newAppMutex {
     return @{ Mutex = $mutex; Acquired = $createdNew }
 }
 
+function openLockFile {
+    # 鍵のファイルを、ほかから開けない形（FileShare.None）で開いて返す。閉じると消える（DeleteOnClose）。
+    # ほかが持っていれば $null。持っているかどうかは「ファイルがあるか」でなく「開けるか」で決める
+    # （強制終了で残ったファイルは誰も開いていないので開ける。プロセスが終われば OS が閉じる）。
+    # ミューテックス（newAppMutex）と違い、別のセッション・別の PC・別のパスの書き方でも効く（共有フォルダでも、サーバーが開き方を守る場合）
+    # 共有違反・ロック違反（Win32 の 32・33）は「ほかが持っている」。アクセス拒否（Win32 の 5）は、前の持ち主が閉じた直後で
+    # ファイルが削除待ちのときにも起きるため、32・33 と同じく attempts の回数までやり直す。最後まで拒否なら例外にする。
+    # それ以外の失敗（親フォルダが無い・接続できないなど）は、そのまま投げる
+    #   attempts: 試す回数（1 なら待たずに 1 回だけ）。画面のスレッドでは 1 にする
+    param (
+        [string]$path,
+        [int]$attempts = 3,
+        [int]$waitMilliseconds = 200
+    )
+
+    $longPath = toLongPath $path
+    $denied = $false
+    for ($i = 1; $i -le $attempts; $i++) {
+        try {
+            return [System.IO.FileStream]::new($longPath, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite,
+                [System.IO.FileShare]::None, 4096, [System.IO.FileOptions]::DeleteOnClose)
+        } catch {
+            $inner = $_.Exception
+            while ($inner -is [System.Management.Automation.MethodInvocationException] -and $null -ne $inner.InnerException) {
+                $inner = $inner.InnerException
+            }
+            if ($inner -is [System.UnauthorizedAccessException]) {
+                $denied = $true
+            } elseif ($inner -is [System.IO.IOException] -and (($inner.HResult -band 0xFFFF) -eq 32 -or ($inner.HResult -band 0xFFFF) -eq 33)) {
+                $denied = $false
+            } else {
+                throw
+            }
+        }
+        if ($i -lt $attempts) {
+            Start-Sleep -Milliseconds $waitMilliseconds
+        }
+    }
+    if ($denied) {
+        throw "インデックス作成の鍵のファイル（${path}）を開けませんでした。ほかのインデックス作成が終わった直後か、ワークスペースに書き込む権限がありません。しばらく待ってからやり直し、続くときはワークスペースのフォルダに書き込めるかを確かめてください。"
+    }
+    return $null
+}
+
 function getPathErrorKind {
     # File.GetAttributes などが投げた例外（PowerShell から呼ぶと MethodInvocationException に包まれる）を、
     # 見つからない（FileNotFoundException・DirectoryNotFoundException）・接続できない（Win32 のエラー番号）・

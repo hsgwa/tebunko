@@ -71,6 +71,8 @@ function removeStaleTmpDirs {
     # 強制終了などで残った、ほかの（終了済みの）プロセスの作業フォルダ
     # （ワークスペースの tmp\<PC の鍵>\<PID>・work\publish\<PID>・前の版までの %TEMP%\tebunko\<PID>）を削除する。
     # 空になった親（tmp\<PC の鍵>・publish・${legacyTmpParent}。tmp\<PC の鍵> はさらに tmp 自体も）も消す
+    # work\publish\<PID> は PC ごとに分かれていない（PID が自分の PC で動いていなければ消す）。共有フォルダのワークスペースで
+    # ほかの PC が取り込み中のものを消さないのは、この関数がインデックス作成の鍵（enterIndexerLock。別の PC とも排他）の中でだけ呼ばれるため
     # 途中にリンク（ジャンクション・シンボリックリンク）があるときは、先のフォルダを消さないよう、片付けない
     # （removeStaleProcessDirs が、親ごとの根の下で途中にリンクが無いことを確かめる）
     $keyDir = Split-Path (getWorkspaceTmpDir $workspace) -Parent

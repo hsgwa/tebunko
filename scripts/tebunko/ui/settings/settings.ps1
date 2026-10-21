@@ -96,12 +96,21 @@ function testWorkspaceChangeable {
     # インデックス作成中（インデクサが今のワークスペースに書いている。画面を使わずに起動したものも含む）・
     # 前のインデックスの削除中・エクスポート・インポート中（別スレッド。今のワークスペースの content_index・取り込み一覧・設定を使っている）は、
     # ワークスペースを変えない。可否と文言は、インデックス管理の操作と同じ判断層（getIndexJobBlocker・getIndexJobBlockedMessage）で決める
-    $blocker = getCurrentIndexJobBlocker (testIndexerRunning)
-    if ($blocker -ne "") {
-        showMessage (getIndexJobBlockedMessage $blocker "ワークスペースの変更") "OK" "Warning" | Out-Null
+    $message = getWorkspaceChangeBlockedMessage
+    if ($message -ne "") {
+        showMessage $message "OK" "Warning" | Out-Null
         return $false
     }
     return $true
+}
+
+function getWorkspaceChangeBlockedMessage {
+    # ワークスペースを変えられない理由の文言（変えてよければ空文字列）。ほかのセッション・PC のインデックス作成も見る（testIndexerRunning）。
+    # 調べられなかったとき（Error あり）は、安全な側に倒して止め、理由を添える
+    $state = testIndexerRunning
+    $unchecked = [bool]$state.Error
+    $blocker = getCurrentIndexJobBlocker ([bool]$state.Running -and !$unchecked) $unchecked
+    return (getIndexJobBlockedMessage $blocker "ワークスペースの変更" ([string]$state.Error))
 }
 
 function invokeWorkspaceChange {
@@ -163,8 +172,7 @@ function commitWorkspaceInputCore {
     }
     # 更新中などは反映しない（判断層が Blocked で返す。理由は［変更…］と同じ文言）。
     # 欄から出たときは、割り込まないよう、メッセージを出さず今の場所に戻す。Enter のときは、理由を欄の下に出し、入力した文字は残す
-    $blocker = getCurrentIndexJobBlocker (testIndexerRunning)
-    $blockedMessage = if ($blocker -ne "") { getIndexJobBlockedMessage $blocker "ワークスペースの変更" } else { "" }
+    $blockedMessage = getWorkspaceChangeBlockedMessage
     $decision = getWorkspaceInputDecision $text $current $null $null $blockedMessage
     if ($decision.Action -eq "None") {
         $ui.WorkspaceBox.Text = $current

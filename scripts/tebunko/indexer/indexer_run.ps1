@@ -283,7 +283,7 @@ function invokeIndexer {
 
     $script:indexerChannel = $channel
     $exitCode = 1
-    $mutex = $null
+    $indexerLock = $null
     try {
         # 既定のワークスペースにほかのファイルが置いてあれば、インデックスのファイルと混ざるため作成しない。
         # 空でないフォルダにログを書かないよう、ログを開く前に確かめる（画面は起動する前に同じ確認をする）
@@ -298,12 +298,11 @@ function invokeIndexer {
             $exitCode = 1
         } else {
             # 同じ work に対してインデックス作成を 2 つ動かすと、取り込み一覧・インデックスが食い違うため 1 つだけ動かす。
-            # 画面と indexer.ps1 の両方から動かせるため、鍵は work のパスから作る。ログに触る前に確かめる
-            $mutex = newAppMutex "indexer" $workspace.Dir ${appId}
-            if (!$mutex.Acquired) {
-                throw "ほかのインデックス作成が実行中です。インデックス作成が終わってから実行してください。"
+            # 画面と indexer.ps1 の両方から、別のセッション・PC からも動かせるため、鍵はミューテックスとワークスペースの鍵のファイルの 2 つ（enterIndexerLock）。ログに触る前に確かめる
+            $indexerLock = enterIndexerLock $workspace.Dir
+            if (!$indexerLock.Acquired) {
+                throw "ほかのインデックス作成が実行中です（この PC のほかの画面・ほかの利用者・ほかの PC のことがあります）。インデックス作成が終わってから実行してください。"
             }
-            [System.IO.Directory]::CreateDirectory($workspace.Dir) | Out-Null
             # 鍵を取れた後にだけ、前回の記録を残す（取れなかったときはほかのインデックス作成の記録に触らない）
             [void](rotateLogFile $workspace.IndexingLogFile 0)
             $writer = New-Object System.IO.StreamWriter($workspace.IndexingLogFile, $false, ${utf8Bom})
@@ -339,12 +338,7 @@ function invokeIndexer {
             try { $script:indexerLog.Dispose() } catch {}
             $script:indexerLog = $null
         }
-        if ($mutex) {
-            if ($mutex.Acquired) {
-                try { $mutex.Mutex.ReleaseMutex() } catch {}
-            }
-            $mutex.Mutex.Dispose()
-        }
+        exitIndexerLock $indexerLock
         $script:indexerChannel = $null
         $channel.ExitCode = $exitCode
     }

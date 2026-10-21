@@ -90,6 +90,7 @@ BeforeAll {
         @{ File = "app_host.ps1"; Function = "writeErrorLog"; Call = "rotateLogFile"; Reason = "画面のエラーの記録が 1 MB 以上のとき、前回の分へ移す（まれ。ファイル 1 つの移動で、書く直前に同じスレッドで行う）" }
 
         # ---- tebunko/ui/settings/settings.ps1（［変更…］・［既定に戻す］） ----
+        @{ File = "settings.ps1"; Function = "getWorkspaceChangeBlockedMessage"; Call = "testIndexerRunning"; Reason = "いまのワークスペースの鍵のファイルを 1 回だけ（待たずに）開けるか試す。いまのワークスペースは作業の場所で、届かないときは調べられなかったとして断る（［変更…］の前）" }
         @{ File = "settings.ps1"; Function = "resetWorkspace"; Call = "[System.IO.Directory]"; Reason = "既定のワークスペース（ドキュメントの tebunko_ws。ローカル）を作る" }
         @{ File = "settings.ps1"; Function = "getFolderEntrySample"; Call = "[System.IO.Directory]"; Reason = "選んだ直後のフォルダ（［変更…］・［既定に戻す］で選んだ場所）の中身を数える" }
         @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = "Test-Path"; Count = 2; Reason = "選んだ直後のフォルダ（［変更…］・［既定に戻す］で選んだ場所）" }
