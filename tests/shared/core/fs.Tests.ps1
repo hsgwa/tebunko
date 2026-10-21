@@ -1523,7 +1523,30 @@ Describe "openLockFile" -Tag Io {
         }
     }
 
-    It "やり直しの間にほかが閉じれば開ける" {
+    It "アクセス拒否（Win32 の 5）でも、やり直しの間に開けるようになれば開ける（読み取り専用が外れるまで待つ）" {
+        # 削除待ちのファイルは、この OS（削除を名前から先に外す）では再現できない。読み取り専用のファイルを、やり直しの間に外して起こす
+        $path = Join-Path $TestDrive "lock_denied_retry.lock"
+        [System.IO.File]::WriteAllText($path, "")
+        [System.IO.File]::SetAttributes($path, [System.IO.FileAttributes]::ReadOnly)
+        $releaser = [powershell]::Create().AddScript({ param ($p) Start-Sleep -Milliseconds 300; [System.IO.File]::SetAttributes($p, [System.IO.FileAttributes]::Normal) }).AddArgument($path)
+        $handle = $releaser.BeginInvoke()
+        try {
+            $stream = openLockFile $path 20 100
+            try {
+                $stream | Should -Not -BeNullOrEmpty
+            } finally {
+                $stream.Dispose()
+            }
+        } finally {
+            $releaser.EndInvoke($handle)
+            $releaser.Dispose()
+            if ([System.IO.File]::Exists($path)) {
+                [System.IO.File]::SetAttributes($path, [System.IO.FileAttributes]::Normal)
+            }
+        }
+    }
+
+    It "共有違反（Win32 の 32）で持たれていても、やり直しの間にほかが閉じれば開ける" {
         $path = Join-Path $TestDrive "lock_retry.lock"
         $holder = openLockFile $path 1
         $closer = [powershell]::Create().AddScript({ param ($h) Start-Sleep -Milliseconds 300; $h.Dispose() }).AddArgument($holder)

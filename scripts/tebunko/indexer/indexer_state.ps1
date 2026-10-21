@@ -206,49 +206,43 @@ function exitIndexerLock {
         return
     }
     if ($null -ne $lock.Stream) {
-        try { $lock.Stream.Dispose() } catch {}
+        try { $lock.Stream.Dispose() } catch { <# 放すのは例外にしない決まり（片付けの失敗で、作成の結果を変えない） #> }
         $lock.Stream = $null
     }
     if ($null -ne $lock.Mutex) {
-        try { $lock.Mutex.ReleaseMutex() } catch {}
-        try { $lock.Mutex.Dispose() } catch {}
+        try { $lock.Mutex.ReleaseMutex() } catch { <# 取っていない・ほかのスレッドが取った場合も例外にしない #> }
+        try { $lock.Mutex.Dispose() } catch { <# 同上 #> }
         $lock.Mutex = $null
     }
 }
 
 function testIndexerRunning {
     # このワークスペースでインデックス作成が動いているか（画面のスレッド・画面を使わない indexer.ps1 のどちらでも）: @{ Running; Error }。
-    # インデックス作成の鍵（enterIndexerLock）を取れるかで調べ、取れたらすぐ放す。画面のスレッドから呼ぶので、やり直さず待たない。
+    # インデックス作成の鍵（enterIndexerLock）を 1 回だけ（待たずに）取れるかで調べ、取れたらすぐ放す。画面のスレッドから呼ぶので、やり直さない。
     # ワークスペースのフォルダが無ければ（届かない共有を含む）、鍵のファイルは見ず（作らず）、ミューテックスだけで決める。
-    # 鍵のファイルを調べて例外になったとき（アクセス拒否など）は、安全な側に倒して Running = $true・Error = 例外の文面にする
+    # 鍵を取るときに例外になったとき（アクセス拒否など）は、安全な側に倒して Running = $true・Error = 例外の文面にする
     param (
         [string]$dir = $workspace.Dir
     )
 
-    $mutex = newAppMutex "indexer" $dir ${appId}
-    if (!$mutex.Acquired) {
+    if (![System.IO.Directory]::Exists((toLongPath $dir))) {
+        $mutex = newAppMutex "indexer" $dir ${appId}
+        if ($mutex.Acquired) {
+            $mutex.Mutex.ReleaseMutex()
+        }
         $mutex.Mutex.Dispose()
-        return @{ Running = $true; Error = "" }
+        return @{ Running = !$mutex.Acquired; Error = "" }
     }
     try {
-        if (![System.IO.Directory]::Exists((toLongPath $dir))) {
-            return @{ Running = $false; Error = "" }
-        }
-        $stream = $null
-        try {
-            $stream = openLockFile ([Workspace]::new($dir).LockFile) 1
-        } catch {
-            return @{ Running = $true; Error = $_.Exception.Message }
-        }
-        if ($null -eq $stream) {
-            return @{ Running = $true; Error = "" }
-        }
-        $stream.Dispose()
-        return @{ Running = $false; Error = "" }
-    } finally {
-        $mutex.Mutex.ReleaseMutex()
-        $mutex.Mutex.Dispose()
+        $lock = enterIndexerLock $dir 1
+    } catch {
+        return @{ Running = $true; Error = $_.Exception.Message }
     }
+    if (!$lock.Acquired) {
+        return @{ Running = $true; Error = "" }
+    }
+    exitIndexerLock $lock
+    return @{ Running = $false; Error = "" }
 }
 
 function writeZipSizeLimitLog {

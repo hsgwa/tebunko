@@ -49,6 +49,18 @@ Describe "S5 ワークスペースの変更" -Tag Gui {
             @($texts | Where-Object { $_ -eq "設定" }).Count | Should -BeLessOrEqual 1 -Because "題「設定」を置かない（ナビの項目の 1 つだけ）"
             @($texts | Where-Object { $_ -like "*表示設定*" -or $_ -like "*最大並列*" -or $_ -like "*インデックスの保存先*" }) | Should -BeNullOrEmpty
 
+            # ほかのセッション・PC がインデックス作成の鍵のファイルを持っている間は、［変更…］が断られ、フォルダ選択は出ない
+            # （鍵はこのテストが持つ。画面を使わずに起動した indexer.ps1 や別の PC のインデックス作成に見立てる）
+            setGuiStep $S "別のインデックス作成が鍵を持っている間の［変更…］"
+            $foreignLock = openLockFile "$($script:tool.Work)\indexing.lock" 1
+            try {
+                clickGui $S $S.Window "ChangeWorkspaceButton" "［変更…］"
+                closeGuiMessage $S "更新中はワークスペースを変えられません" "別のインデックス作成中の警告" | Out-Null
+            } finally {
+                $foreignLock.Dispose()
+            }
+            & $workspaceText | Should -Be $script:tool.Work
+
             # ［変更…］→ OS のフォルダ選択で［キャンセル］すると変わらない（#30）
             setGuiStep $S "［変更…］→ フォルダ選択で［キャンセル］"
             & $changeWorkspace $null
