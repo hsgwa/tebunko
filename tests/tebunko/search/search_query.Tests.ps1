@@ -188,3 +188,15 @@ Describe "truncateHitLine" -Tag Unit {
         $result | Should -Be ("…" + $expectedCore)
     }
 }
+
+Describe "testHitFilter" -Tag Unit {
+    It "<Name>" -ForEach @(
+        @{ Name = "絞り込みが空なら、すべて合う"; Book = "見積.xlsx"; Filter = ""; Expected = $true }
+        @{ Name = "ファイル名の一部に合う"; Book = "見積.xlsx"; Filter = "見積"; Expected = $true }
+        @{ Name = "大文字・小文字を区別しない"; Book = "Report.XLSX"; Filter = "report"; Expected = $true }
+        @{ Name = "合わなければ除く"; Book = "見積.xlsx"; Filter = "請求"; Expected = $false }
+        @{ Name = "ファイル名が空でも、絞り込みがあれば合わない"; Book = ""; Filter = "a"; Expected = $false }
+    ) {
+        testHitFilter $Book $Filter | Should -Be $Expected
+    }
+}

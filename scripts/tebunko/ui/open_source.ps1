@@ -814,40 +814,131 @@ function completeCopySourcePath {
     setStatus "パスをコピーしました：${path}"
 }
 
+# ---- 結果をファイルに出力する ----
+# 書くのは検索の司令のスレッド（SearchService.Export。search_export.ps1）。画面は要求を渡し、タイマーで進み具合を見て、終わったらファイルを開く。
+# 出力ボタンは、待ち・書き込みの間は「出力を中止」になり、押すと止める。
+$script:exportJob = $null       # 書き込み中の出力 @{ Request; Filtered; Sorted }
+$script:exportPending = $false  # 検索が終わるのを待っている出力
+
+function updateExportButton {
+    $ui.ExportButtonText.Text = getExportButtonText ([bool]($script:exportJob -or $script:exportPending))
+}
+
+function testResultSorted {
+    # 結果の表を列見出しで並べ替えているか
+    return [bool]($ui.ResultGrid.Columns | Where-Object { $null -ne $_.SortDirection } | Select-Object -First 1)
+}
+
+function cancelExport {
+    # 出力を中止する。待っている出力はその場で取りやめ、書き込み中の出力は司令のスレッドに止めてもらう（止まったら completeExport が知らせる）
+    if ($script:exportPending) {
+        $script:exportPending = $false
+        updateExportButton
+        setStatus (getExportCancelledText)
+        return
+    }
+    if ($script:exportJob) {
+        $script:exportJob.Request.Stop = $true
+    }
+}
+
+function startExport {
+    hideNoticeBanner "SearchNotice"
+    $s = $script:lastSearch
+    $filter = $script:filterText
+    $hits = getExportHits ([bool]$s.Shared.Truncated) $filter
+    $request = newExportRequest $s.Shared $workspace.ResultFile $hits $filter $s.Word
+    $script:exportJob = @{ Request = $request; Filtered = ($filter -ne ""); Sorted = (testResultSorted) }
+    [void]$script:searchService.Export($request)
+    updateExportButton
+    setStatus (getExportWritingText 0)
+    $script:exportTimer.Start()
+}
+
 function exportResults {
+    if ($script:exportJob -or $script:exportPending) {
+        cancelExport
+        return
+    }
+    if ($script:search) {
+        # 検索の途中の出力は、検索が終わってから書く（溢れが揃うまで、全件は書けない）
+        $script:exportPending = $true
+        updateExportButton
+        setStatus (getExportWaitingText)
+        return
+    }
     if ($null -eq $script:lastSearch) {
         setStatus "先に検索してください。"
         return
     }
-    $rows = getViewRows
-    hideNoticeBanner "SearchNotice"
-    try {
-        [System.IO.Directory]::CreateDirectory($workspace.Dir) | Out-Null
-        $writer = New-Object System.IO.StreamWriter($workspace.ResultFile, $false, ${utf8Bom})
-        try {
-            writeSearchResult $writer $script:lastSearch.Word $rows
-        } finally {
-            $writer.Close()
-        }
-    } catch [System.IO.IOException] {
-        $message = getResultSaveFailedText "Locked" $workspace.ResultFile
-        setStatus $message
-        showNoticeBanner "SearchNotice" "ResultSaveFailed" $message
-        return
-    } catch [System.UnauthorizedAccessException] {
-        # 読み取り専用・書き込み権限が無いときは、アプリを閉じても直らないため別の文言にする
-        $message = getResultSaveFailedText "Denied" $workspace.ResultFile
-        setStatus $message
-        showNoticeBanner "SearchNotice" "ResultSaveFailed" $message
+    startExport
+}
+
+function startPendingExport {
+    # 検索が終わったとき、待っていた出力があれば始める
+    if (!$script:exportPending) {
         return
     }
-    Invoke-Item -LiteralPath $workspace.ResultFile
-    if ($rows.Count -lt $script:hitCount) {
-        setStatus "絞り込み後の $($rows.Count.ToString('N0')) 件を search_results.txt に出力しました"
-    } else {
-        setStatus "search_results.txt に出力しました（$($rows.Count.ToString('N0')) 件）"
+    $script:exportPending = $false
+    startExport
+}
+
+function pumpExport {
+    $job = $script:exportJob
+    if ($null -eq $job) {
+        $script:exportTimer.Stop()
+        return
+    }
+    $request = $job.Request
+    if (!$request.Finished -and !$script:searchService.IsRunning()) {
+        # 司令のスレッドが止まった。次の検索で作り直す
+        $request.Error = $script:searchService.GetFailure()
+        $request.Outcome = "Failed"
+        $request.Finished = $true
+    }
+    if ($request.Finished) {
+        completeExport
+        return
+    }
+    setStatus (getExportWritingText ([int]$request.Written))
+}
+
+function completeExport {
+    $job = $script:exportJob
+    $script:exportJob = $null
+    $script:exportTimer.Stop()
+    updateExportButton
+    $request = $job.Request
+    switch ($request.Outcome) {
+        "Done" {
+            Invoke-Item -LiteralPath $workspace.ResultFile
+            setStatus (getExportDoneText $request.Scope ([int]$request.Written) $job.Filtered $request.HeadOnlyReason $job.Sorted)
+        }
+        "Cancelled" {
+            setStatus (getExportCancelledText)
+        }
+        { $_ -in @("Locked", "Denied") } {
+            # 読み取り専用・書き込み権限が無い（Denied）ときは、アプリを閉じても直らないため別の文言にする
+            $message = getResultSaveFailedText $request.Outcome $workspace.ResultFile
+            setStatus $message
+            showNoticeBanner "SearchNotice" "ResultSaveFailed" $message
+        }
+        default {
+            setStatus (getExportFailedText $request.Error)
+        }
     }
 }
+
+function clearExport {
+    # ワークスペースを変えたとき: 待っている出力は取りやめ、書き込み中の出力は止める
+    $script:exportPending = $false
+    if ($script:exportJob) {
+        $script:exportJob.Request.Stop = $true
+    }
+    updateExportButton
+}
+
+$script:exportTimer = newTimer 200 { safe { pumpExport } }
 
 $ui.ResultGrid.Add_MouseDoubleClick({
     param ($sender, $e)

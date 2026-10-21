@@ -354,6 +354,28 @@ function getViewRows {
     return , (getShownHitRows $script:groupList).ToArray()
 }
 
+function getExportHits {
+    # 結果をファイルに出力するときの、表に出ている分（RelDir・Book・Location・LineNumber・Line を持つ並び）。
+    #   上限を超えていない: 表の順（getViewRows）
+    #   上限を超えている: 溢れの続きとして書くので、検索の順（ファイルの見つかった順 → ファイルの中の見つかった順）。
+    #                    並べ替えは当てず、行の部品（HitRow）も作らない。絞り込みはファイル名で、ファイルごとに決まる
+    param (
+        [bool]$truncated,
+        [string]$filterText
+    )
+
+    if (!$truncated) {
+        return , (getViewRows)
+    }
+    $hits = New-Object 'System.Collections.Generic.List[object]'
+    foreach ($group in ($script:groupList | Sort-Object Order)) {
+        if (testHitFilter $group.Book $filterText) {
+            $hits.AddRange($group.Hits)
+        }
+    }
+    return , $hits.ToArray()
+}
+
 function getSelectedRows {
     # 選んでいる行を表の順に返す。見出しを選んでいるときは、そのファイルの行（絞り込みに合うもの）をすべて含める
     $selected = New-Object 'System.Collections.Generic.HashSet[object]'

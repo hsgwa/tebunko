@@ -1099,7 +1099,7 @@ Describe "検索結果から開くとき、シェルで開く処理が決まっ�
         $allowedUses = @(
             "applyFailedFileState|Start-Process", "applyFailedFileState|Start-Process",
             "applyIndexSourceFolderState|Start-Process",
-            "exportResults|Invoke-Item",
+            "completeExport|Invoke-Item",
             "openAboutLink|Start-Process",
             "openSourceFolder|Start-Process",
             "openWithNotepad|Start-Process",

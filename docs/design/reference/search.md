@@ -1,6 +1,6 @@
 ﻿# 部品ごとの関数（検索・スレッド・元のファイル・画面）
 
-扱うこと: 検索（`search_query.ps1`・`content_index_search.ps1`・`search_overflow.ps1`・`search_run.ps1`）、スレッドとプール（`worker_pool.ps1`・`search_service.ps1`・`indexing_session.ps1`）、元のファイルの特定（`source_map.ps1`）、画面が使う集計・設定・Office プロセスの関数一覧。扱わないこと: TSV・本文インデックスそのものの関数（[部品ごとの関数（TSV と本文インデックス）](tsv.md)）。先に読むページ: [部品から関数一覧を引く](index.md)。
+扱うこと: 検索（`search_query.ps1`・`content_index_search.ps1`・`search_overflow.ps1`・`search_export.ps1`・`search_run.ps1`）、スレッドとプール（`worker_pool.ps1`・`search_service.ps1`・`indexing_session.ps1`）、元のファイルの特定（`source_map.ps1`）、画面が使う集計・設定・Office プロセスの関数一覧。扱わないこと: TSV・本文インデックスそのものの関数（[部品ごとの関数（TSV と本文インデックス）](tsv.md)）。先に読むページ: [部品から関数一覧を引く](index.md)。
 
 ## 検索（`tebunko/search/search_query.ps1`・`content_index_search.ps1`・`search_run.ps1`）
 
@@ -48,6 +48,9 @@ flowchart LR
 | `newSearchOverflowWriter` | dir, name | StreamWriter または `$null` | 溢れのファイルを BOM なしの UTF-8・LF で作って開く。作れない・開けないときは `$null`（照合のスレッドからも呼ぶため .NET だけで書く） | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | `searchContentIndexFiles`・`searchContentIndex` |
 | `writeSearchOverflowHits` | writer, hits | bool | 司令が、表に入らなかった行を溢れの head のファイルに書き足す。書けなければ `$false` | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | `searchContentIndex` |
 | `getSearchOverflowFiles` | dir | パスの並び | 溢れのファイルを、全件の順（作業の番号の順に、head → 作業のファイル）に並べる。フォルダが無ければ空 | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | `readSearchOverflowLines`・書き出し |
+| `invokeSearchExport` | request（`newExportRequest` の要求） | なし | ［結果をファイルに出力］の書き出し。表の分と溢れのファイルを本文の一時ファイルに書き、`.new` に見出し付きで組み、`search_results.txt` と置き換える。結果は要求の `Outcome`（Done / Cancelled / Locked / Denied / Failed）・`Written`・`Scope` に残す | [結果をファイルに出力](../gui/search-tab.md#結果をファイルに出力) | 検索の司令（`SearchService`） |
+| `getSearchExportScope` | source（検索の要求） | `@{Scope; Reason}` | 何を書くかを決める（All / Overflow / HeadOnly と、HeadOnly の理由） | [結果をファイルに出力](../gui/search-tab.md#結果をファイルに出力) | `invokeSearchExport` |
+| `testHitFilter` | book, filterText | bool | 元のファイル名が絞り込みに合うか（空は全部合う。大文字・小文字を区別しない部分一致） | [結果の絞り込み](../gui/search-tab.md#絞り込み) | `HitRow.MatchesFileName`・`invokeSearchExport` |
 | `readSearchOverflowLines` | dir | string の並び | 溢れの全件を全件の順の行で返す（全部をメモリに読むので、テスト・小さい量向け） | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | テスト |
 | `removeStaleSearchOverflow` | tmpRoot, isAlive | int | 強制終了などで残った溢れを、起動時に消す。動いていないプロセスの `<PID>` だけ消し、消した数を返す | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | 起動（`startup.ps1` のバックグラウンドの処理） |
 

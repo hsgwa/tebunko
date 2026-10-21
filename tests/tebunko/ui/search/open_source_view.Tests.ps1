@@ -278,3 +278,34 @@ Describe "表示する名前・パスの制御文字（getSourceBookRejectedStat
         $dialog.Detail | Should -Be "C:\共有${repl}x"
     }
 }
+
+Describe "結果の出力の文言" -Tag Unit {
+    It "出力ボタンの文字: 待ち・書き込み中は「出力を中止」" -ForEach @(
+        @{ Busy = $false; Expected = "保存" }
+        @{ Busy = $true; Expected = "出力を中止" }
+    ) {
+        getExportButtonText $Busy | Should -Be $Expected
+    }
+
+    It "<Name>" -ForEach @(
+        @{ Name = "表がすべて・絞り込みなし"; Params = @("All", 1234, $false); Expected = "search_results.txt に出力しました（1,234 件）" }
+        @{ Name = "表がすべて・絞り込み"; Params = @("All", 5, $true); Expected = "絞り込み後の 5 件を search_results.txt に出力しました" }
+        @{ Name = "溢れも含む"; Params = @("Overflow", 100000, $false); Expected = "表に入らなかった分も含めて、全 100,000 件を search_results.txt に出力しました" }
+        @{ Name = "溢れも含む・絞り込み"; Params = @("Overflow", 70, $true); Expected = "表に入らなかった分も含めて、絞り込み後の 70 件を search_results.txt に出力しました" }
+        @{ Name = "溢れも含む・並べ替え中"; Params = @("Overflow", 9, $false, "", $true); Expected = "表に入らなかった分も含めて、全 9 件を search_results.txt に出力しました（件数が多いため、並べ替えは当てずに検索の順で出力しました）" }
+        @{ Name = "先頭だけ（総数の時間切れ）"; Params = @("HeadOnly", 50, $false, "CountTimeout"); Expected = "表に出ている 50 件だけを search_results.txt に出力しました（総数を数える時間が切れたため、残りは出力していません）" }
+        @{ Name = "先頭だけ（溢れを書けなかった）"; Params = @("HeadOnly", 50, $false, "OverflowFailed"); Expected = "表に出ている 50 件だけを search_results.txt に出力しました（表に入らない分を一時ファイルに書けなかったため、残りは出力していません）" }
+        @{ Name = "先頭だけ（検索を止めた）"; Params = @("HeadOnly", 50, $true, "Cancelled"); Expected = "表に出ている 50 件だけを search_results.txt に出力しました（検索を途中で止めたため、残りは出力していません）" }
+        @{ Name = "先頭だけ（理由が不明）"; Params = @("HeadOnly", 1, $false, ""); Expected = "表に出ている 1 件だけを search_results.txt に出力しました（残りは出力していません）" }
+    ) {
+        getExportDoneText @Params | Should -Be $Expected
+    }
+
+    It "待ち・書き込み中・中止・失敗の文言" {
+        getExportWaitingText | Should -Be "検索が終わってから search_results.txt に出力します…"
+        getExportWritingText 12345 | Should -Be "search_results.txt に出力しています…（12,345 件）"
+        getExportCancelledText | Should -Be "出力を中止しました。search_results.txt は前のままです。"
+        getExportFailedText "ディスクが一杯です" | Should -Be "search_results.txt に出力できませんでした：ディスクが一杯です"
+        getExportFailedText "" | Should -Be "search_results.txt に出力できませんでした"
+    }
+}
