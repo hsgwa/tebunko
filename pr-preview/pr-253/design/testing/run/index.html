@@ -1095,6 +1095,8 @@
       
         
       
+        
+      
     
     
     
@@ -1267,6 +1269,34 @@
     
   
     エラーメッセージ一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexing/errors-ingest/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    エラーメッセージ一覧（ファイルごとの失敗）
   
 
     
@@ -1882,6 +1912,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -2282,6 +2318,90 @@
   
   
     <li class="md-nav__item">
+      <a href="../../indexing/log-warnings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックス作成ログの警告・お知らせ一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexing/log-warnings-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    警告・お知らせ一覧（まとめ・置き場・後片付け）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexing/errors-store/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    置き場の安全確認のエラー
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../indexing/known-issues/" class="md-nav__link">
         
   
@@ -2647,6 +2767,8 @@
       
         
       
+        
+      
     
     
     
@@ -2775,6 +2897,34 @@
     
   
     画面に出すメッセージの一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/messages-index-ops/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックスの書き出し・読み込み・ワークスペースのエラー
   
 
     
@@ -3130,7 +3280,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_16" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_17" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -3152,14 +3302,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_7_16" id="__nav_3_7_16_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_7_17" id="__nav_3_7_17_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_16_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_7_16">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_17">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4142,7 +4292,7 @@
 </tr>
 <tr>
 <td><code>tests/meta/</code></td>
-<td>構成を守るテスト（<code>structure</code>・<code>encoding</code>・<code>layers</code>・<code>links</code>・<code>runner</code>・<code>classes</code>・<code>test_isolation</code>）と安全性の検査（<code>safety</code>・<code>installer</code>）</td>
+<td>構成を守るテスト（<code>structure</code>・<code>encoding</code>・<code>layers</code>・<code>links</code>・<code>runner</code>・<code>classes</code>・<code>test_isolation</code>）と設計の決まりの検査（<code>function_size</code>・<code>error_messages</code>）と安全性の検査（<code>safety</code>・<code>installer</code>）</td>
 </tr>
 <tr>
 <td><code>tests/testdata/</code></td>
@@ -4221,6 +4371,14 @@
 <tr>
 <td><code>links</code></td>
 <td>git で管理している全 <code>.md</code> の相対リンク（画像・参照リンクの定義・HTML の <code>href</code>/<code>src</code> を含む）の先のファイルがあり（大文字・小文字も区別する）、<code>.md</code> のアンカーの見出しがある（<code>tools/check_markdown_links.ps1</code>。外部の URL は調べない）</td>
+</tr>
+<tr>
+<td><code>function_size</code></td>
+<td><code>scripts/</code> の関数・メソッドが 80 行・入れ子 4 段以内か、許可の一覧（理由つき）にあること。許可の一覧の上限を超えて長くしていないこと（<a href="../unit-checks/#設計の決まりの検査">設計の決まりの検査</a>）</td>
+</tr>
+<tr>
+<td><code>error_messages</code></td>
+<td>利用者に出すエラー・警告の文言（<code>throw</code>・<code>writeIndexerLog</code> の Yellow・Red・<code>describeIngestError</code>）が、設計書の一覧（エラーメッセージ一覧・ログの警告・お知らせ一覧・置き場の安全確認のエラー・画面に出すメッセージの一覧）にあるか、除外の一覧（理由つき）にあること（<a href="../unit-checks/#設計の決まりの検査">設計の決まりの検査</a>）</td>
 </tr>
 <tr>
 <td><code>runner</code></td>

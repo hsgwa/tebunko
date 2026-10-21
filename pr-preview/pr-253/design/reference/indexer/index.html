@@ -1095,6 +1095,8 @@
       
         
       
+        
+      
     
     
     
@@ -1267,6 +1269,34 @@
     
   
     エラーメッセージ一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexing/errors-ingest/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    エラーメッセージ一覧（ファイルごとの失敗）
   
 
     
@@ -1882,6 +1912,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -2282,6 +2318,90 @@
   
   
     <li class="md-nav__item">
+      <a href="../../indexing/log-warnings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックス作成ログの警告・お知らせ一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexing/log-warnings-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    警告・お知らせ一覧（まとめ・置き場・後片付け）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexing/errors-store/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    置き場の安全確認のエラー
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../indexing/known-issues/" class="md-nav__link">
         
   
@@ -2647,6 +2767,8 @@
       
         
       
+        
+      
     
     
     
@@ -2775,6 +2897,34 @@
     
   
     画面に出すメッセージの一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/messages-index-ops/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックスの書き出し・読み込み・ワークスペースのエラー
   
 
     
@@ -3130,7 +3280,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_16" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_17" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -3152,14 +3302,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_7_16" id="__nav_3_7_16_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_7_17" id="__nav_3_7_17_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_16_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_7_16">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_17">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4863,7 +5013,7 @@
 </tr>
 </tbody>
 </table>
-<p>司令の側の関数は <code>indexer_run.ps1</code> にある。<code>addStageTiming</code>（Stopwatch の経過を段に足す）・<code>addIngestResultTiming</code>（取り込みの結果の <code>Timing</code>〔<code>invokeIngestTask</code> が測ったコピー・抽出・置き場への移し〕を種類に足す）・<code>addPostponedTiming</code>・<code>writeStageTimingLog</code>（回の終わりに受け渡しの口の <code>StageTimings</code> に入れ、ログに書く）。<code>flushPendingPublish</code> は段階（既定は仕上げのまとめ。起動の中・取り込みの中は別の段）を受け取り、中身は <code>publishFlushable</code>。測る側の <code>getIngestStageTimings</code>（<code>tools/perf/ingest_common.ps1</code>）は口の <code>StageTimings</code> を読む（無い版は <code>$null</code>）。</p>
+<p>司令の側の関数は <code>indexer_run.ps1</code> にある。<code>addStageTiming</code>（Stopwatch の経過を段に足す）・<code>addIngestResultTiming</code>（取り込みの結果の <code>Timing</code>〔<code>invokeTimedIngest</code>・<code>publishTsvTimed</code> が測ったコピー・抽出・置き場への移し〕を種類に足す）・<code>addPostponedTiming</code>・<code>addReceivedTiming</code>（受け取った結果の時間を足す）・<code>postponeAbandonedEntries</code>・<code>postponeUndispatched</code>・<code>dropVanishedFile</code>（取り込みの司令の分け出し）・<code>writeStageTimingLog</code>（回の終わりに受け渡しの口の <code>StageTimings</code> に入れ、ログに書く）。<code>flushPendingPublish</code> は段階（既定は仕上げのまとめ。起動の中・取り込みの中は別の段）を受け取り、中身は <code>publishFlushable</code>。測る側の <code>getIngestStageTimings</code>（<code>tools/perf/ingest_common.ps1</code>）は口の <code>StageTimings</code> を読む（無い版は <code>$null</code>）。</p>
 <h3 id="ingestplannertebunkoindexerindexer_planps1司令のスレッドで作る">IngestPlanner（<code>tebunko/indexer/indexer_plan.ps1</code>。司令のスレッドで作る）<a class="headerlink" href="#ingestplannertebunkoindexerindexer_planps1司令のスレッドで作る" title="Permanent link">&para;</a></h3>
 <p>クロール対象フォルダへの名前の割り当てと、クロールの結果から取り込む順番を決める。取り込み直すかの判断は <code>indexer_decide.ps1</code> の関数を <code>createTargetList</code> 経由で呼ぶ。計画の種類・状態の値はコンストラクタの <code>kinds</code>（<code>Unchecked</code>・<code>Missing</code>・<code>Dropped</code>・<code>StateFailed</code>。足りなければ例外）で、名前の保存は、<code>SaveNames</code> に司令が渡すスクリプトブロック（中身は <code>IndexCatalog.StoreAssignedNames</code>）で行う。メソッドは次の順に呼ぶ: <code>AssignNames</code> → <code>SaveNames</code> → <code>SelectOnly</code>（選んだときだけ）→ <code>Crawl</code> → <code>KeepForCancel</code>（取りやめるとき）か <code>ApplyFailed</code> → <code>ApplyInterrupted</code> → <code>FolderByName</code>。<code>AssignNames</code> の前に <code>Crawl</code> を呼ぶと例外にする。結果は <code>Folders</code>・<code>Previous</code>・<code>Dropped</code>・<code>Only</code>・<code>Rows</code>・<code>Targets</code>・<code>Failed</code>・<code>Cloud</code>（クラウドにだけあるファイル）・<code>Plan</code>・<code>RemovedPaths</code>・<code>Carried</code> で読む。</p>
 <table>

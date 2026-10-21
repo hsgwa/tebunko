@@ -1095,6 +1095,8 @@
       
         
       
+        
+      
     
     
     
@@ -1267,6 +1269,34 @@
     
   
     エラーメッセージ一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../errors-ingest/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    エラーメッセージ一覧（ファイルごとの失敗）
   
 
     
@@ -1884,6 +1914,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -2392,6 +2428,90 @@
   
   
     <li class="md-nav__item">
+      <a href="../log-warnings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックス作成ログの警告・お知らせ一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../log-warnings-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    警告・お知らせ一覧（まとめ・置き場・後片付け）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../errors-store/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    置き場の安全確認のエラー
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../known-issues/" class="md-nav__link">
         
   
@@ -2757,6 +2877,8 @@
       
         
       
+        
+      
     
     
     
@@ -2885,6 +3007,34 @@
     
   
     画面に出すメッセージの一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/messages-index-ops/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックスの書き出し・読み込み・ワークスペースのエラー
   
 
     
@@ -3240,7 +3390,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_16" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_17" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -3262,14 +3412,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_7_16" id="__nav_3_7_16_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_7_17" id="__nav_3_7_17_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_16_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_7_16">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_17">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4227,7 +4377,7 @@
 <li><strong>使用範囲が膨らんだシートは、データの範囲だけを一時シートへコピーしてから書き出す</strong>（<code>copyDataRangeToTempSheet</code>）。最終行（1,048,576 行目）や右端（XFD 列）のセルに書式だけが残っていると使用範囲がシート全体になり、Excel のテキスト保存が空セルのタブだけを延々と書き出す（実測: 10 分で 6GB を書き出し、終わらない → 制限時間で「失敗」）。</li>
 <li>値・数式のある最後の行・列を <code>Cells.Find("*", A1, xlFormulas, , xlByRows/xlByColumns, xlPrevious)</code> で調べ、使用範囲がそれより <code>$excelExtraCells</code>（100 万）セル以上広いときだけ縮める（普通のシートはそのまま書き出す）。</li>
 <li><strong>元のシートの行・列は削除しない</strong>。削除すると、その範囲だけを参照する数式が <code>#REF!</code> になり、ほかのシートの表示値まで変わるため。同じブックに一時シートを追加し、<strong>同じ位置（行・列）に</strong>コピーするので、数式の参照先はずれない（実測: <code>=COUNTA(A200:A300)</code> は <code>0</code> のまま、別シート参照・表示形式も保たれる）。</li>
-<li>ブックの構成が保護されているなど、一時シートを作れない場合は元のシートをそのまま書き出し、<code>&lt;シート名&gt; の使用範囲を縮められませんでした: &lt;メッセージ&gt;</code> をインデックス作成ログに記録する（<a href="../errors/">エラーメッセージ一覧</a> <a href="../errors/#警告お知らせインデックス作成ログ">警告・お知らせ（インデックス作成ログ）</a>）。</li>
+<li>ブックの構成が保護されているなど、一時シートを作れない場合は元のシートをそのまま書き出し、<code>&lt;シート名&gt; の使用範囲を縮められませんでした: &lt;メッセージ&gt;</code> をインデックス作成ログに記録する（<a href="../errors/">エラーメッセージ一覧</a> <a href="../log-warnings/">警告・お知らせ（インデックス作成ログ）</a>）。</li>
 <li>一時シートは書き出した直後に削除する（次のシートの <code>Index</code> がずれないようにするため。ブックは保存せずに閉じる）。</li>
 <li>Excel のテキスト保存は A1 からではなく <strong>使用範囲（<code>UsedRange</code>）の左上のセルから</strong> 出力する（例: 使用範囲が C3 から始まるシートは、1 行目の 1 列目が C3 になる）。TSV の行・列をシートの行・列と一致させるため、保存前に <code>UsedRange.Row</code> / <code>UsedRange.Column</code> を控えて <code>prettyTsv</code> に渡す（<a href="#tsv-整形仕様prettytsv--formattsv">TSV 整形仕様</a>）。</li>
 <li><strong>保存した一時ファイルの先頭（UTF-16LEのBOM <code>FF FE</code>）も確かめる</strong>（<code>testOfficeOutput</code>。<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>）。透過暗号化の製品が、この一時ファイルまで暗号化することがあるため、シートの種類によらずすべての保存で確かめる。合わなければ <code>ファイルを暗号化する製品が一時ファイルを暗号化したため取り込めません。</code> にする。<strong>この確かめはブックを閉じた後（<code>prettyTsv</code> の直前）に行う</strong>。保存した一時ファイルはブックを閉じるまで Excel がロックしており、閉じる前に読もうとすると（開いているだけの正常なファイルでも）読めずに失敗するため（◎ 実機で確認済み）。</li>
