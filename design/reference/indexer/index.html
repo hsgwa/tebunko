@@ -4129,6 +4129,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#ingesttiming新規-tebunkoindexeringest_timingps1司令のスレッドで作る" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        IngestTiming（新規 tebunko/indexer/ingest_timing.ps1。司令のスレッドで作る）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#ingestplannertebunkoindexerindexer_planps1司令のスレッドで作る" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4361,6 +4372,17 @@
     <span class="md-ellipsis">
       
         IngestDispatcher（新規 tebunko/indexer/ingest_dispatcher.ps1。司令のスレッドで作る）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ingesttiming新規-tebunkoindexeringest_timingps1司令のスレッドで作る" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        IngestTiming（新規 tebunko/indexer/ingest_timing.ps1。司令のスレッドで作る）
       
     </span>
   </a>
@@ -4916,6 +4938,12 @@
 <td>列を閉じ、諦めていないワーカーが終わるのを待ってから片づける。諦めたワーカーは待たず、止める依頼だけを出す</td>
 </tr>
 <tr>
+<td><code>LastResult</code>（プロパティ）</td>
+<td>–</td>
+<td>結果 / <code>$null</code></td>
+<td>直前の <code>Receive</code> が受け取った結果（回し直し・中止も含む。諦めたワーカーの結果は捨てるので <code>$null</code>）。司令が種類ごとの時間を足すのに使う</td>
+</tr>
+<tr>
 <td><code>Pool</code>・<code>UsesThreads</code>・<code>Stopped</code>・<code>FolderLost</code>・<code>Remaining</code>・<code>Undispatched</code>（プロパティ）</td>
 <td>–</td>
 <td>–</td>
@@ -4923,6 +4951,69 @@
 </tr>
 </tbody>
 </table>
+<h3 id="ingesttiming新規-tebunkoindexeringest_timingps1司令のスレッドで作る">IngestTiming（新規 <code>tebunko/indexer/ingest_timing.ps1</code>。司令のスレッドで作る）<a class="headerlink" href="#ingesttiming新規-tebunkoindexeringest_timingps1司令のスレッドで作る" title="Permanent link">&para;</a></h3>
+<p>段階ごとの時間と、取り込みの種類（拡張子）ごとの時間を足し合わせるだけ（ファイルにも画面にも触らない）。書くのは司令（<code>writeStageTimingLog</code>）。時刻は Stopwatch だけ。</p>
+<table>
+<thead>
+<tr>
+<th>メソッド</th>
+<th>入力</th>
+<th>出力</th>
+<th>概要</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Start</code> / <code>Mark</code> / <code>Lap</code></td>
+<td>– / – / stage</td>
+<td>–</td>
+<td>全体の計りを始める / 区切りの印を今に置く（その間はどの段にも足さない） / 前の印から今までを stage に足して印を置く</td>
+</tr>
+<tr>
+<td><code>AddStage</code></td>
+<td>stage, ms</td>
+<td>–</td>
+<td>段階に足す（同じ段階は足し合わせる）</td>
+</tr>
+<tr>
+<td><code>Finish</code></td>
+<td>[ms]</td>
+<td>–</td>
+<td>全体の時間を決める（画面の返事を待った <code>Wait</code> は引く）</td>
+</tr>
+<tr>
+<td><code>AddFile</code></td>
+<td>kind, outcome（Ok／Failed／Reroute／Postponed）, copyMs, extractMs, publishMs</td>
+<td>–</td>
+<td>取り込みの結果 1 件の時間を種類に足す</td>
+</tr>
+<tr>
+<td><code>AddPostponed</code></td>
+<td>kind</td>
+<td>–</td>
+<td>結果を受け取らずに後回しにした分の件数だけを足す（時間は足さない）</td>
+</tr>
+<tr>
+<td><code>GetOutcome</code> / <code>GetKind</code>（static）</td>
+<td>result / relPath</td>
+<td>string</td>
+<td>結果を Ok・Reroute・Postponed・Failed に分ける / 拡張子（小文字）</td>
+</tr>
+<tr>
+<td><code>ToHashtable</code></td>
+<td>–</td>
+<td><code>@{ Stages; Kinds }</code></td>
+<td>受け渡しの口の <code>StageTimings</code>。段は秒、種類ごとは件数・秒・成功の 1 件の平均 ms。その他は全体から段の合計を引いた残り</td>
+</tr>
+<tr>
+<td><code>FormatLogLines</code></td>
+<td>–</td>
+<td>string の配列</td>
+<td>インデックス作成ログの行（段階の 1 行と、抽出の長い順の種類ごとの行）</td>
+</tr>
+</tbody>
+</table>
+<p>司令の側の関数は <code>indexer_run.ps1</code> にある。<code>addStageTiming</code>（Stopwatch の経過を段に足す）・<code>addIngestResultTiming</code>（取り込みの結果の <code>Timing</code>〔<code>invokeTimedIngest</code>・<code>publishTsvTimed</code> が測ったコピー・抽出・置き場への移し〕を種類に足す）・<code>addPostponedTiming</code>・<code>addReceivedTiming</code>（受け取った結果の時間を足す）・<code>postponeAbandonedEntries</code>・<code>postponeUndispatched</code>・<code>dropVanishedFile</code>（取り込みの司令の分け出し）・<code>writeStageTimingLog</code>（回の終わりに受け渡しの口の <code>StageTimings</code> に入れ、ログに書く）。<code>flushPendingPublish</code> は段階（既定は仕上げのまとめ。起動の中・取り込みの中は別の段）を受け取り、中身は <code>publishFlushable</code>。測る側の <code>getIngestStageTimings</code>（<code>tools/perf/ingest_common.ps1</code>）は口の <code>StageTimings</code> を読む（無い版は <code>$null</code>）。</p>
 <h3 id="ingestplannertebunkoindexerindexer_planps1司令のスレッドで作る">IngestPlanner（<code>tebunko/indexer/indexer_plan.ps1</code>。司令のスレッドで作る）<a class="headerlink" href="#ingestplannertebunkoindexerindexer_planps1司令のスレッドで作る" title="Permanent link">&para;</a></h3>
 <p>クロール対象フォルダへの名前の割り当てと、クロールの結果から取り込む順番を決める。取り込み直すかの判断は <code>indexer_decide.ps1</code> の関数を <code>createTargetList</code> 経由で呼ぶ。計画の種類・状態の値はコンストラクタの <code>kinds</code>（<code>Unchecked</code>・<code>Missing</code>・<code>Dropped</code>・<code>StateFailed</code>。足りなければ例外）で、名前の保存は、<code>SaveNames</code> に司令が渡すスクリプトブロック（中身は <code>IndexCatalog.StoreAssignedNames</code>）で行う。メソッドは次の順に呼ぶ: <code>AssignNames</code> → <code>SaveNames</code> → <code>SelectOnly</code>（選んだときだけ）→ <code>Crawl</code> → <code>KeepForCancel</code>（取りやめるとき）か <code>ApplyFailed</code> → <code>ApplyInterrupted</code> → <code>FolderByName</code>。<code>AssignNames</code> の前に <code>Crawl</code> を呼ぶと例外にする。結果は <code>Folders</code>・<code>Previous</code>・<code>Dropped</code>・<code>Only</code>・<code>Rows</code>・<code>Targets</code>・<code>Failed</code>・<code>Cloud</code>（クラウドにだけあるファイル）・<code>Plan</code>・<code>RemovedPaths</code>・<code>Carried</code> で読む。</p>
 <table>

@@ -4273,6 +4273,11 @@
 <td><a href="../indexing/crawl/">クロール対象フォルダと取り込み対象</a>、<a href="../index-data/format/#配置命名規則">インデックスのファイルの形</a></td>
 </tr>
 <tr>
+<td><code>tebunko/indexer/ingest_timing.ps1</code></td>
+<td><code>IngestTiming</code>（<code>Start</code> / <code>Mark</code> / <code>Lap</code> / <code>AddStage</code> / <code>Finish</code> / <code>AddFile</code> / <code>AddPostponed</code> / <code>ToHashtable</code> / <code>FormatLogLines</code>）</td>
+<td><a href="../indexing/parallel/">取り込みの並列化</a>、<a href="../indexing/log-warnings/">警告・お知らせ</a></td>
+</tr>
+<tr>
 <td><code>tebunko/indexer/pending_publish.ps1</code></td>
 <td><code>PendingPublish</code>（<code>Add</code> / <code>MarkFolder</code> / <code>AddPending</code> / <code>Dispatch</code> / <code>Skip</code> / <code>Complete</code> / <code>TakeFlushable</code> / <code>TakeAll</code>）</td>
 <td><a href="../index-data/publish/">入れ替えと書き出し</a>「本文インデックスへの書き出し」、<a href="../indexing/parallel/">取り込みの並列化</a></td>
@@ -4289,7 +4294,7 @@
 </tr>
 <tr>
 <td><code>tebunko/indexer/ingest_dispatcher.ps1</code></td>
-<td><code>IngestDispatcher</code>（<code>Start</code> / <code>BeginPass</code> / <code>DispatchNext</code> / <code>Submit</code> / <code>SetInlineResult</code> / <code>Receive</code> / <code>TakeAbandonedWorker</code> / <code>StopIfRequested</code> / <code>InflightCount</code> / <code>GetInflightCount</code> / <code>Stop</code>）</td>
+<td><code>IngestDispatcher</code>（<code>Start</code> / <code>BeginPass</code> / <code>DispatchNext</code> / <code>Submit</code> / <code>SetInlineResult</code> / <code>Receive</code> / <code>TakeAbandonedWorker</code> / <code>StopIfRequested</code> / <code>LastResult</code> / <code>InflightCount</code> / <code>GetInflightCount</code> / <code>Stop</code>）</td>
 <td><a href="../indexing/parallel/">取り込みの並列化</a>、<a href="../structure/classes/">クラスと関数の使い分け</a></td>
 </tr>
 <tr>
@@ -4299,7 +4304,7 @@
 </tr>
 <tr>
 <td><code>tebunko/indexer/indexer_run.ps1</code></td>
-<td><code>invokeIndexer</code> / <code>invokeIndexerBody</code> / <code>getIngestWorkerCount</code> / <code>runIngestWorker</code> / <code>invokeIngestTask</code> / <code>completeIngestJob</code> / <code>flushPendingPublish</code></td>
+<td><code>invokeIndexer</code> / <code>invokeIndexerBody</code> / <code>getIngestWorkerCount</code> / <code>runIngestWorker</code> / <code>invokeIngestTask</code> / <code>completeIngestJob</code> / <code>flushPendingPublish</code> / <code>publishFlushable</code> / <code>addStageTiming</code> / <code>addIngestResultTiming</code> / <code>addPostponedTiming</code> / <code>addReceivedTiming</code> / <code>postponeAbandonedEntries</code> / <code>postponeUndispatched</code> / <code>dropVanishedFile</code> / <code>invokeTimedIngest</code> / <code>publishTsvTimed</code> / <code>writeStageTimingLog</code></td>
 <td><a href="../indexing/flow/">インデックス作成のメインフロー</a>、<a href="../indexing/parallel/">取り込みの並列化</a></td>
 </tr>
 <tr>
