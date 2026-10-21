@@ -133,7 +133,7 @@ function testWorkerAbandoned {
 
 function invokeTimedIngest {
     # ingestFile を測って呼び、$result.Timing に @{ CopyMs; ExtractMs; PublishMs } を入れる。
-    # コピー・抽出（取り込みからコピーを引いた分）・置き場への移しのミリ秒で、司令が種類ごとに足す（IngestTiming）。置き場への移しは publishTsvTimed が足す
+    # コピー・抽出（取り込みからコピーを引いた分）・置き場への移しのミリ秒で、司令が種類ごとに足す（IngestTiming）。置き場への移しは呼び側が publishTsvTimed の返り値で足す
     param (
         [string]$sourcePath,
         [hashtable]$result
@@ -151,23 +151,19 @@ function invokeTimedIngest {
 }
 
 function publishTsvTimed {
-    # publishTsv を測って呼び、置き場への移しの時間を $result.Timing（invokeTimedIngest が入れたもの）に足す
+    # publishTsv を測って呼び、置き場への移しの時間（ミリ秒）を返す（呼び側が $result.Timing.PublishMs に入れる）
     param (
-        [string]$bookDir,
-        [hashtable]$result
+        [string]$bookDir
     )
 
     $watch = [System.Diagnostics.Stopwatch]::StartNew()
-    try {
-        publishTsv $bookDir
-    } finally {
-        $watch.Stop()
-        $result.Timing.PublishMs = $watch.Elapsed.TotalMilliseconds
-    }
+    publishTsv $bookDir
+    $watch.Stop()
+    return $watch.Elapsed.TotalMilliseconds
 }
 
 function invokeIngestTask {
-    # 1 ファイルを取り込み、結果 @{ RelPath; Ok; Reroute; Postponed; Stopped; TsvCount; Message; TimedOut; ExtractVersion; Log; Timing } を返す（例外は投げない）。
+    # 1 ファイルを取り込み、結果 @{ RelPath; Ok; Reroute; Postponed; Stopped; TsvCount; Message; TimedOut; ExtractVersion; Log; Timing } を返す（例外は投げない）。Timing は取り込みを始めなかったときは $null。
     # 取り込みのワーカー、またはワーカーの数が 0 のときは司令のスレッドで動く。表示内容は Log に貯め、司令がログに書く
     param (
         [hashtable]$task,
@@ -226,7 +222,7 @@ function invokeIngestTask {
             $result.Postponed = $true
             return $result
         }
-        publishTsvTimed (getBookDir $task.RelPath) $result
+        $result.Timing.PublishMs = publishTsvTimed (getBookDir $task.RelPath)
         $result.ExtractVersion = [string](getExtractVersion $task.RelPath)
         $result.Ok = $true
     } catch {
@@ -1184,8 +1180,6 @@ function invokeIndexerBody {
 
         $script:ingestTiming.Mark()
         while ($true) {
-            # 制限時間を過ぎても利用者が使っている PowerPoint を止めずに諦めたワーカーは、取り込み中だったファイルを後回しにする
-            # （固まった呼び出しは戻らないことがあるため、結果を待たない。戻ってきた結果は捨てる）
             postponeAbandonedEntries $dispatcher $run
             # 画面から中止を求められたら、次のファイルを渡さずに終える（残りは「未取り込み」のまま、次回取り込みする）
             if ($dispatcher.StopIfRequested([bool]$channel.Stop)) {
