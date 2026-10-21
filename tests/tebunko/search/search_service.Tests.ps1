@@ -268,6 +268,40 @@ Describe "SearchService" -Tag Io {
         $service.IsRunning() | Should -Be $false
     }
 
+    It "Deferred で作ると始めず、Prepare で始める（何度呼んでも同じスレッド）" {
+        $service = newSearchService $null 1 -Deferred
+        try {
+            $service.IsRunning() | Should -Be $false
+            $service.Prepare()
+            $service.IsRunning() | Should -Be $true
+            $thread = $service.PowerShell
+            $service.Prepare()
+            [object]::ReferenceEquals($thread, $service.PowerShell) | Should -Be $true
+        } finally {
+            $service.Close()
+        }
+    }
+
+    It "Deferred で作ったまま最初に検索しても（画面が出た直後でも）、検索の要求で始まって結果が返る" {
+        $service = newSearchService (newTsvTextCache) 2 -Deferred
+        try {
+            $service.IsRunning() | Should -Be $false
+            $request = $service.Request((newSearchRequest "単価" $true @($contentIndexRoot) 0))
+            waitRequest $request | Should -Be $true
+            (takeHits $request).Count | Should -Be 3
+            $service.IsRunning() | Should -Be $true
+        } finally {
+            $service.Close()
+        }
+    }
+
+    It "Deferred で作って始めずに閉じても、例外にならない" {
+        $service = newSearchService $null 1 -Deferred
+        { $service.Close() } | Should -Not -Throw
+        { $service.Close() } | Should -Not -Throw
+        $service.IsRunning() | Should -Be $false
+    }
+
     It "ワークスペースを切り替えて検索すると、前のワークスペースの溢れを次の検索の始めに消し、閉じると今のものも消す" {
         $wsA = Join-Path $TestDrive "ws_a"
         $wsB = Join-Path $TestDrive "ws_b"

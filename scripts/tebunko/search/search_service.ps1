@@ -70,6 +70,25 @@ class SearchService {
         $this.Start()
     }
 
+    SearchService([string]$script, [hashtable]$libLoad, $cache, [int]$workers, [int]$closeMilliseconds, [bool]$deferred) {
+        # deferred が $true のときは、スレッドを始めない（Prepare か最初の Request で始める）
+        $this.Script = $script
+        $this.LibLoad = $libLoad
+        $this.Cache = $cache
+        $this.Workers = [Math]::Max(1, $workers)
+        $this.CloseMilliseconds = $closeMilliseconds
+        if (!$deferred) {
+            $this.Start()
+        }
+    }
+
+    [void] Prepare() {
+        # まだ始めていなければ、司令のスレッドを始める（最初の検索の前に済ませておくため。始めてあれば何もしない）
+        if ($null -eq $this.PowerShell) {
+            $this.Start()
+        }
+    }
+
     hidden [void] Start() {
         $this.Requests = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
         $rs = [runspacefactory]::CreateRunspace($this.LibLoad.State)
@@ -154,9 +173,11 @@ function newSearchService {
     # 検索の司令のスレッドを始める（画面を開いたときに 1 回）。閉じるときは Close を呼ぶ
     param (
         $cache = $null,
-        [int]$workers = (getWorkerCount)
+        [int]$workers = (getWorkerCount),
+        # スレッドを始めずに作る（画面を出すまでの時間を減らすため。画面が出た後に Prepare で始める）
+        [switch]$Deferred
     )
 
     $libLoad = getPartLoad lib
-    return [SearchService]::new(${searchServiceScript}.ToString(), $libLoad, $cache, $workers, ${searchServiceCloseMilliseconds})
+    return [SearchService]::new(${searchServiceScript}.ToString(), $libLoad, $cache, $workers, ${searchServiceCloseMilliseconds}, [bool]$Deferred)
 }

@@ -7,8 +7,9 @@ $script:sourceFolderMaps = @{}  # インデックスのフォルダ → イン�
 $script:filterText = ""
 # 検索で読んだ本文インデックスのファイルの内容（画面を閉じるまで残し、次の検索では更新の無い本文インデックスのファイルをファイルから読まない）
 $script:tsvCache = newTsvTextCache
-# 検索の司令のスレッド（画面を開いている間 1 つ。閉じるときに gui.ps1 が Close する）
-$script:searchService = newSearchService $script:tsvCache
+# 検索の司令のスレッド（画面を開いている間 1 つ。閉じるときに gui.ps1 が Close する）。
+# 画面を出すまでの時間を減らすため、ここでは始めない（画面が出た後に window_events.ps1 が Prepare で始める。それより前に検索すれば、最初の Request で始まる）
+$script:searchService = newSearchService $script:tsvCache -Deferred
 
 function startSearch {
     if (!(testIndexReadAllowed ([bool]$script:workspaceMoving))) {

@@ -41,9 +41,7 @@ try {
     }
     markStartup "Mark-of-the-Web の除去"
 
-    . ([WildcardPattern]::Escape("$PSScriptRoot\..\shared\shared.ps1".Replace('`', '``')))
-    . ([WildcardPattern]::Escape("$PSScriptRoot\core\settings.ps1".Replace('`', '``')))
-    markStartup "shared.ps1・settings.ps1"
+    # 共通基盤（shared.ps1）と設定（settings.ps1）は lib.ps1 が読み込む（ここで先に読み込むと、同じものを 2 回読み込むことになる）
     . ([WildcardPattern]::Escape("$PSScriptRoot\lib.ps1".Replace('`', '``')))
     markStartup "lib.ps1"
     stepSplash 40

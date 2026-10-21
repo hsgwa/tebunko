@@ -84,4 +84,6 @@
         closeSplash
         # 描いた画面が映ってから読み込むよう、描画より優先度の低い Background で行う
         $window.Dispatcher.BeginInvoke([action]{ safe { loadStartupData } }, [System.Windows.Threading.DispatcherPriority]::Background) | Out-Null
+        # 検索の司令のスレッドは、一覧が出た後に始める（最初の検索を待たせないため。それより前に検索すれば、検索が始める）
+        $window.Dispatcher.BeginInvoke([action]{ safe { $script:searchService.Prepare() } }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
     })
