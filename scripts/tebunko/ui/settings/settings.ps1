@@ -401,13 +401,9 @@ function switchWorkspace {
     resetIndexingBanner
     updateSettingsView
     loadWorkspaceViews
-    # 前の版のインデックスの知らせ。ネットワークの場所は裏で調べるため、分かったときにステータスへ出す
+    # 前の版のインデックスの知らせ。裏で調べるため、分かったときにステータスへ出す（ここで出すのは切り替えの知らせ）
     refreshLegacyIndexMessage
-    if ($script:legacyIndexMessage) {
-        setStatus $script:legacyIndexMessage
-    } else {
-        setStatus "ワークスペースを「$($workspace.Dir)」に切り替えました"
-    }
+    setStatus "ワークスペースを「$($workspace.Dir)」に切り替えました"
 }
 
 # ---- イベント ----

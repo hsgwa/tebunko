@@ -179,14 +179,22 @@ Describe "loadTargets" -Tag Unit {
             $script:targetItems.Count | Should -Be 1
         }
 
-        It "ローカルのワークスペース: その場で名前を決めて、並べる（裏の仕事は出さない）" {
+        It "ローカルのワークスペースも、画面の流れでは名前を決めず、裏の列（default）に出す（インデックスが多いと止まって見えるため）" {
             $script:workspace = newTestWorkspace @{ Dir = "C:\Users\test\tebunko_ws" }
             Mock catalogAssignAndSaveNames { $script:namedNow = $true }
 
             loadTargets
 
-            $script:jobs.Count | Should -Be 0
-            Should -Invoke catalogAssignAndSaveNames -Times 1 -Exactly
+            Should -Invoke catalogAssignAndSaveNames -Times 0
+            $script:jobs.Count | Should -Be 1
+            $script:jobs[0].Queue | Should -Be "default"
+            $script:targetItems.Count | Should -Be 0
+            $script:targetsNaming | Should -Be $true
+
+            $script:namedNow = $true
+            & $script:jobs[0].OnDone @() ""
+
+            $script:targetsNaming | Should -Be $false
             $script:targetItems[0].Name | Should -Be "営業"
         }
     }

@@ -660,10 +660,10 @@ function invokeGuiScene {
     # 場面 1 つ分の操作（Body）を実行する。まず本体の窓を待ち（waitGuiStarted）、それから Body を実行する。
     # 失敗したら、どの手順で止まったかを文言に足し、失敗の材料を残して例外にする（起動そのものの失敗も含む）。
     # 終わったら（失敗しても）画面を止める
-    param ($S, [scriptblock]$Body)
+    param ($S, [scriptblock]$Body, [switch]$NoWait)
 
     try {
-        waitGuiStarted $S
+        if (!$NoWait) { waitGuiStarted $S }
         & $Body
     } catch {
         $message = "[$($S.Scene)・手順: $($S.Step)] $($_.Exception.Message)"
@@ -1087,4 +1087,41 @@ function testGuiIndexing {
     param ($S)
     $button = findGui $S.Window -Id "IndexingButton"
     return ($button -and $button.Current.Name -eq "更新中…")
+}
+
+function measureGuiStall {
+    # 画面を起動してから Done が真を返すまでの間に、画面が応答しなかった一番長い時間（秒）を測って返す（invokeGuiScene -NoWait の中で呼ぶ）。
+    # 100ms ごとに、画面の窓を探して Done を調べる。画面のスレッドが仕事で塞がっていると、この UI オートメーションの問い合わせは
+    # 返らずに待たされるため、1 回の問い合わせにかかった時間がそのまま止まって見えた時間になる。
+    # 数えるのは、窓が最初に出た問い合わせの次の回から（窓が出るまでの待ちと、その回の用意は起動の時間で、止まりではない）。
+    # 全体は $Timeout 秒で打ち切り、例外にする。窓が見つかったら $S.Window に入れる
+    param ($S, [scriptblock]$Done, [int]$Timeout = 120)
+
+    $longest = 0.0
+    $seen = $false
+    $count = 0
+    $total = [Diagnostics.Stopwatch]::StartNew()
+    while ($true) {
+        if ($S.Process.HasExited) { throw "画面が終了した（終了コード $($S.Process.ExitCode)）。止まりの測定の途中" }
+        $counted = $seen   # 窓が出た回の次の回から数える（窓が出た回は、起動と窓の用意の待ちを含むため）
+        $query = [Diagnostics.Stopwatch]::StartNew()
+        $tops = @(getGuiTopWindows $S)
+        if ($tops.Count -gt 0) { $seen = $true }
+        $finished = $false
+        if (!$S.Window) {
+            foreach ($w in $tops) {
+                if (findGui $w -Id "NavList") { $S.Window = $w; break }
+            }
+        }
+        if ($S.Window) { $finished = [bool](& $Done) }
+        $query.Stop()
+        if ($counted) {
+            $longest = [Math]::Max($longest, $query.Elapsed.TotalSeconds)
+            $count++
+        }
+        if ($finished) { break }
+        if ($total.Elapsed.TotalSeconds -gt $Timeout) { throw "止まりの測定の終わりの条件が $Timeout 秒以内に整わなかった" }
+        Start-Sleep -Milliseconds 100
+    }
+    return @{ Longest = [Math]::Round($longest, 2); Total = [Math]::Round($total.Elapsed.TotalSeconds, 1); Queries = $count }
 }

@@ -64,7 +64,6 @@ BeforeAll {
 
         # ---- tebunko/ui/workspace_jobs.ps1 ----
         @{ File = "workspace_jobs.ps1"; Function = "testStartupIndexExists"; Call = "testIndexExists"; Reason = "ローカルの場所だけ（ネットワークの場所は先に真を返し、呼ばない）" }
-        @{ File = "workspace_jobs.ps1"; Function = "refreshLegacyIndexMessage"; Call = "getLegacyIndexState"; Reason = "ワークスペースの場所がローカルのときに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で調べる）" }
 
         # ---- tebunko/ui/indexing_tab.ps1 ----
         @{ File = "indexing_tab.ps1"; Function = "startIndexing"; Call = "getLegacyIndexState"; Reason = "ワークスペースの場所がローカルのときに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で調べる）" }
@@ -102,8 +101,6 @@ BeforeAll {
         @{ File = "index_detail.ps1"; Function = "openFailedFileFolder"; Call = "getPathState"; Count = 2; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
         @{ File = "index_detail.ps1"; Function = "applyFailedFileState"; Call = "Start-Process"; Count = 2; Reason = "エクスプローラーで開く（プロセスの起動は待たない）" }
         @{ File = "index_list.ps1"; Function = "openIndexSourceFolder"; Call = "getPathState"; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
-        @{ File = "index_list.ps1"; Function = "loadTargets"; Call = ".AssignAndSaveNames()"; Reason = "ワークスペースの場所がローカルのときに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で名前を決める）" }
-        @{ File = "index_tree.ps1"; Function = "loadIndexTree"; Call = "getIndexTreeData"; Reason = "ワークスペースの場所がローカルのときに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で集める）" }
         @{ File = "index_tree.ps1"; Function = "expandIndexNode"; Call = "getIndexFolderChildren"; Reason = "ワークスペースの場所がローカルのときに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で読む）" }
         @{ File = "index_list.ps1"; Function = "applyIndexSourceFolderState"; Call = "Start-Process"; Reason = "エクスプローラーで開く（プロセスの起動は待たない）" }
 
