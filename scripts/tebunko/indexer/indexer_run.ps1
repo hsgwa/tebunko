@@ -131,9 +131,43 @@ function testWorkerAbandoned {
     return ($null -ne $state -and [bool]$state.Abandoned)
 }
 
+function invokeTimedIngest {
+    # ingestFile を測って呼び、$result.Timing に @{ CopyMs; ExtractMs; PublishMs } を入れる。
+    # コピー・抽出（取り込みからコピーを引いた分）・置き場への移しのミリ秒で、司令が種類ごとに足す（IngestTiming）。置き場への移しは publishTsvTimed が足す
+    param (
+        [string]$sourcePath,
+        [hashtable]$result
+    )
+
+    $timing = @{ CopyMs = 0.0 }
+    $watch = [System.Diagnostics.Stopwatch]::StartNew()
+    try {
+        return (ingestFile $sourcePath -timing $timing)
+    } finally {
+        $watch.Stop()
+        $copyMs = [double]$timing.CopyMs
+        $result.Timing = @{ CopyMs = $copyMs; ExtractMs = [Math]::Max(0.0, $watch.Elapsed.TotalMilliseconds - $copyMs); PublishMs = 0.0 }
+    }
+}
+
+function publishTsvTimed {
+    # publishTsv を測って呼び、置き場への移しの時間を $result.Timing（invokeTimedIngest が入れたもの）に足す
+    param (
+        [string]$bookDir,
+        [hashtable]$result
+    )
+
+    $watch = [System.Diagnostics.Stopwatch]::StartNew()
+    try {
+        publishTsv $bookDir
+    } finally {
+        $watch.Stop()
+        $result.Timing.PublishMs = $watch.Elapsed.TotalMilliseconds
+    }
+}
+
 function invokeIngestTask {
     # 1 ファイルを取り込み、結果 @{ RelPath; Ok; Reroute; Postponed; Stopped; TsvCount; Message; TimedOut; ExtractVersion; Log; Timing } を返す（例外は投げない）。
-    # Timing は @{ CopyMs; ExtractMs; PublishMs }（コピー・抽出（取り込みからコピーを引いた分）・置き場への移しのミリ秒。取り込みを始めなかったときは $null）。司令が種類ごとに足す（IngestTiming）
     # 取り込みのワーカー、またはワーカーの数が 0 のときは司令のスレッドで動く。表示内容は Log に貯め、司令がログに書く
     param (
         [hashtable]$task,
@@ -165,9 +199,6 @@ function invokeIngestTask {
         return $result
     }
     $log = New-Object System.IO.StringWriter
-    $timing = @{ CopyMs = 0.0 }
-    $ingestWatch = [System.Diagnostics.Stopwatch]::new()
-    $publishWatch = [System.Diagnostics.Stopwatch]::new()
     $previousLog = $script:indexerLog
     $script:indexerLog = $log
     try {
@@ -180,10 +211,8 @@ function invokeIngestTask {
             $script:officeWatchdog.State.Deadline = (Get-Date).AddMinutes($fileTimeoutMinutes)
         }
         try {
-            $ingestWatch.Start()
-            $result.TsvCount = ingestFile $task.SourcePath -timing $timing
+            $result.TsvCount = invokeTimedIngest $task.SourcePath $result
         } finally {
-            $ingestWatch.Stop()
             $script:officeWatchdog.State.Deadline = [datetime]::MaxValue
         }
         if ($script:officeWatchdog.State.Cancelled) {
@@ -197,12 +226,7 @@ function invokeIngestTask {
             $result.Postponed = $true
             return $result
         }
-        $publishWatch.Start()
-        try {
-            publishTsv (getBookDir $task.RelPath)
-        } finally {
-            $publishWatch.Stop()
-        }
+        publishTsvTimed (getBookDir $task.RelPath) $result
         $result.ExtractVersion = [string](getExtractVersion $task.RelPath)
         $result.Ok = $true
     } catch {
@@ -248,12 +272,6 @@ function invokeIngestTask {
             try { [void](handOverForeignApp $appName) } catch {}
         }
         $result.TimedOut = [bool]$script:officeWatchdog.State.TimedOut
-        if ($ingestWatch.ElapsedTicks -gt 0) {
-            $copyMs = [double]$timing.CopyMs
-            $result.Timing = @{
-                CopyMs = $copyMs; ExtractMs = [Math]::Max(0.0, $ingestWatch.Elapsed.TotalMilliseconds - $copyMs); PublishMs = $publishWatch.Elapsed.TotalMilliseconds
-            }
-        }
         $script:indexerLog = $previousLog
         $result.Log = $log.ToString()
     }
@@ -391,6 +409,67 @@ function addPostponedTiming {
     if ($null -ne $script:ingestTiming) {
         $script:ingestTiming.AddPostponed([IngestTiming]::GetKind($relPath))
     }
+}
+
+function addReceivedTiming {
+    # 受け取った結果（dispatcher.LastResult）の時間を種類ごとに足す。回し直し先が諦めたワーカーだったもの（RerouteAbandoned）は、渡さずに後回しになるので「後回し」にも数える
+    param (
+        $lastResult,
+        $received
+    )
+
+    addIngestResultTiming $lastResult
+    if ($null -ne $received -and $received.Kind -eq "RerouteAbandoned") {
+        addPostponedTiming ([string]$received.Entry.Row.相対パス)
+    }
+}
+
+function postponeAbandonedEntries {
+    # 制限時間を過ぎても利用者が使っている PowerPoint を止めずに諦めたワーカーは、取り込み中だったファイルを後回しにする
+    # （固まった呼び出しは戻らないことがあるため、結果を待たない。戻ってきた結果は捨てる）
+    param (
+        $dispatcher,
+        $run
+    )
+
+    while ($null -ne ($abandoned = $dispatcher.TakeAbandonedWorker())) {
+        foreach ($lost in $abandoned.Entries) {
+            addPostponedTiming ([string]$lost.Row.相対パス)
+            completeIngestJob $run @{ Kind = "Postponed"; Entry = $lost; Reason = ${postponedReasonInUse} }
+        }
+    }
+}
+
+function postponeUndispatched {
+    # 諦めたワーカーのアプリのファイルは、渡さずに「未取り込み」のまま残す
+    param (
+        $step,
+        $run
+    )
+
+    addPostponedTiming ([string]$step.RelPath)
+    completeIngestJob $run @{
+        Kind = "Postponed"; Entry = @{ Row = $step.Row; Number = $step.Number; Folder = $step.BookFolder }
+        Reason = ${postponedReasonInUse}; Undispatched = $true
+    }
+}
+
+function dropVanishedFile {
+    # 取り込み対象を調べてから取り込むまでの間に、元のファイルが移動・削除されたもの。
+    # 「失敗」として記録すると、再取り込みを選ぶまで残ってしまうため、一覧・インデックスから除く
+    param (
+        $step,
+        [int]$total,
+        $pending,
+        $ledger
+    )
+
+    $pending.Skip($step.BookFolder)
+    writeIndexerLog ("[{0}/{1}] {2}" -f $step.Number, $total, $step.RelPath)
+    writeIndexerLog "    元のファイルが無くなったため、取り込まずに一覧から除きます。（移動・削除・名前変更された）" "Yellow"
+    removeBookDir (getBookDir $step.RelPath)
+    $pending.Add($step.RelPath, $true)
+    $ledger.AddDropped($step.RelPath)
 }
 
 function writeStageTimingLog {
@@ -1107,12 +1186,7 @@ function invokeIndexerBody {
         while ($true) {
             # 制限時間を過ぎても利用者が使っている PowerPoint を止めずに諦めたワーカーは、取り込み中だったファイルを後回しにする
             # （固まった呼び出しは戻らないことがあるため、結果を待たない。戻ってきた結果は捨てる）
-            while ($null -ne ($abandoned = $dispatcher.TakeAbandonedWorker())) {
-                foreach ($lost in $abandoned.Entries) {
-                    addPostponedTiming ([string]$lost.Row.相対パス)
-                    completeIngestJob $run @{ Kind = "Postponed"; Entry = $lost; Reason = ${postponedReasonInUse} }
-                }
-            }
+            postponeAbandonedEntries $dispatcher $run
             # 画面から中止を求められたら、次のファイルを渡さずに終える（残りは「未取り込み」のまま、次回取り込みする）
             if ($dispatcher.StopIfRequested([bool]$channel.Stop)) {
                 writeIndexerLog ""
@@ -1122,21 +1196,9 @@ function invokeIndexerBody {
             $dispatcher.BeginPass()
             while ($null -ne ($step = $dispatcher.DispatchNext())) {
                 if ($step.Kind -eq "Abandoned") {
-                    addPostponedTiming ([string]$step.RelPath)
-                    # 諦めたワーカーのアプリのファイルは、渡さずに「未取り込み」のまま残す
-                    completeIngestJob $run @{
-                        Kind = "Postponed"; Entry = @{ Row = $step.Row; Number = $step.Number; Folder = $step.BookFolder }
-                        Reason = ${postponedReasonInUse}; Undispatched = $true
-                    }
+                    postponeUndispatched $step $run
                 } elseif ($step.Kind -eq "Vanished") {
-                    # 取り込み対象を調べてから取り込むまでの間に、元のファイルが移動・削除されたもの。
-                    # 「失敗」として記録すると、再取り込みを選ぶまで残ってしまうため、一覧・インデックスから除く
-                    $pending.Skip($step.BookFolder)
-                    writeIndexerLog ("[{0}/{1}] {2}" -f $step.Number, $total, $step.RelPath)
-                    writeIndexerLog "    元のファイルが無くなったため、取り込まずに一覧から除きます。（移動・削除・名前変更された）" "Yellow"
-                    removeBookDir (getBookDir $step.RelPath)
-                    $pending.Add($step.RelPath, $true)
-                    $ledger.AddDropped($step.RelPath)
+                    dropVanishedFile $step $total $pending $ledger
                 } else {
                     # 強制終了したときに、どのファイルの取り込み中に止まったか次回分かるよう記録する
                     $pending.Dispatch($step.BookFolder)
@@ -1159,14 +1221,10 @@ function invokeIndexerBody {
 
             # 取り込みの結果を 1 つ受け取って記録する
             $received = $dispatcher.Receive([bool]$channel.Stop)
-            addIngestResultTiming $dispatcher.LastResult
+            addReceivedTiming $dispatcher.LastResult $received
             if ($null -eq $received) {
                 # 諦めたワーカーがある・回し直した。ループの先頭で続ける
                 continue
-            }
-            if ($received.Kind -eq "RerouteAbandoned") {
-                # 回し直し先が諦めたワーカーだったものは、渡さずに後回しになる（種類ごとの「後回し」に数える）
-                addPostponedTiming ([string]$received.Entry.Row.相対パス)
             }
             completeIngestJob $run $received
             if ($received.Kind -eq "Completed" -and !$dispatcher.UsesThreads -and ($received.Result.TimedOut -or (($run.SuccessCount + $ledger.Failures.Count) % $restartInterval) -eq 0)) {

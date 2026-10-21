@@ -192,8 +192,7 @@ function copyDataRangeToTempSheet {
 function extractWorkbook {
     # Excelファイルをシートごとに作業フォルダへTSV出力し、出力したシート数を返す。timing はコピーの時間を足す入れ物（invokeWithSourceCopy）
     param (
-        [string]$sourcePath,
-        [hashtable]$timing = $null
+        [string]$sourcePath, [hashtable]$timing = $null
     )
 
     $bookName = [System.IO.Path]::GetFileName($sourcePath)
@@ -438,8 +437,7 @@ function verifyOfficeOutputIsZip {
 function extractDocument {
     # Word・PowerPointのファイルを場所（ページ・スライド）ごとに作業フォルダへTSV出力し、出力した数を返す。timing はコピーの時間を足す入れ物（invokeWithSourceCopy）
     param (
-        [string]$sourcePath,
-        [hashtable]$timing = $null
+        [string]$sourcePath, [hashtable]$timing = $null
     )
 
     $isWord = ((getAppName $sourcePath) -eq "Word")

@@ -111,7 +111,7 @@
 | `ToHashtable` | – | `@{ Stages; Kinds }` | 受け渡しの口の `StageTimings`。段は秒、種類ごとは件数・秒・成功の 1 件の平均 ms。その他は全体から段の合計を引いた残り |
 | `FormatLogLines` | – | string の配列 | インデックス作成ログの行（段階の 1 行と、抽出の長い順の種類ごとの行） |
 
-司令の側の関数は `indexer_run.ps1` にある。`addStageTiming`（Stopwatch の経過を段に足す）・`addIngestResultTiming`（取り込みの結果の `Timing`〔`invokeIngestTask` が測ったコピー・抽出・置き場への移し〕を種類に足す）・`addPostponedTiming`・`writeStageTimingLog`（回の終わりに受け渡しの口の `StageTimings` に入れ、ログに書く）。`flushPendingPublish` は段階（既定は仕上げのまとめ。起動の中・取り込みの中は別の段）を受け取り、中身は `publishFlushable`。測る側の `getIngestStageTimings`（`tools/perf/ingest_common.ps1`）は口の `StageTimings` を読む（無い版は `$null`）。
+司令の側の関数は `indexer_run.ps1` にある。`addStageTiming`（Stopwatch の経過を段に足す）・`addIngestResultTiming`（取り込みの結果の `Timing`〔`invokeTimedIngest`・`publishTsvTimed` が測ったコピー・抽出・置き場への移し〕を種類に足す）・`addPostponedTiming`・`addReceivedTiming`（受け取った結果の時間を足す）・`postponeAbandonedEntries`・`postponeUndispatched`・`dropVanishedFile`（取り込みの司令の分け出し）・`writeStageTimingLog`（回の終わりに受け渡しの口の `StageTimings` に入れ、ログに書く）。`flushPendingPublish` は段階（既定は仕上げのまとめ。起動の中・取り込みの中は別の段）を受け取り、中身は `publishFlushable`。測る側の `getIngestStageTimings`（`tools/perf/ingest_common.ps1`）は口の `StageTimings` を読む（無い版は `$null`）。
 
 ### IngestPlanner（`tebunko/indexer/indexer_plan.ps1`。司令のスレッドで作る）
 
