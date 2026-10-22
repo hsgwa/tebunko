@@ -4592,7 +4592,7 @@
 <li>書いている間、ボタンの文字は <code>出力を中止</code> になり、押すと中止する。中止・失敗のときは前の <code>search_results.txt</code> をそのまま残す（一時ファイルに書き終えてから置き換える）。</li>
 <li>検索の途中で押したときは、検索が終わってから書く（もう一度押すと取り消す）。新しく検索したときと、検索結果を消したときは、出力も止める。</li>
 <li>溢れが使えないとき（総数を数える時間切れ・溢れを書けなかった・検索を途中で止めた）は、表に出ている分だけを書き、ステータスにその理由を添える。</li>
-<li>形式は <a href="../../search/output/">検索結果ファイル</a> のとおり。出力は <code>tebunko/search/search_run.ps1</code> の関数（<code>toSearchResultLines</code> / <code>writeSearchResult</code>、<a href="../implementation/#実装構成">実装構成</a>）で行う。</li>
+<li>形式は <a href="../../search/output/">検索結果ファイル</a> のとおり。出力は <code>tebunko/search/search_export.ps1</code> の <code>invokeSearchExport</code> が司令のスレッドで行う（表の分と溢れを同じ形で書く。1 行・件数の行の組み立ては <code>search_run.ps1</code> の <code>getSearchResultLine</code> / <code>getSearchResultColumnCount</code> / <code>getSearchResultCountLine</code>、画面のコピーと共通。<a href="../implementation/#実装構成">実装構成</a>）。</li>
 <li>絞り込み中は、見出しの件数を表示中の件数とし、ステータスに <code>絞り込み後の K 件を search_results.txt に出力しました</code> と表示する（U7）。</li>
 <li>書き込めないときは、検索画面の上の橙の帯に出す（閉じられる。<a href="../indexing-run/#帯とステータスバー">帯とステータスバー</a>）。ファイルが開かれているときは <code>search_results.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。</code>、読み取り専用・権限が無いときは <code>search_results.txt に書き込む権限がありません（読み取り専用など）。&lt;パス&gt; を確かめてから、もう一度出力してください。</code>。</li>
 <li>まだ検索していなければ <code>先に検索してください。</code> と表示する。</li>

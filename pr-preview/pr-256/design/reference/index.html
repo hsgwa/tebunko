@@ -4351,8 +4351,9 @@
     GR --&gt; SI["searchContentIndex"]
     SI --&gt; NSR["newSearchRegex / newFileFilter / newPlaceExclude"]
     SI --&gt; STF["searchContentIndexFiles&lt;br&gt;（.NET の StreamReader＋regex）"] --&gt; RPP
-    GR --&gt; WSR["writeSearchResult"] --&gt; TSR["toSearchResultLines"]
-    TSR --&gt; TRL
+    GR --&gt; WSR["invokeSearchExport"] --&gt; GSL["getSearchResultLine"]
+    GR --&gt; TSR["toSearchResultLines"] --&gt; GSL
+    GSL --&gt; TRL
     TSR --&gt; CTF
     TSR --&gt; TRH --&gt; TCN</code></pre>
 <p>画面（<code>tebunko/gui.ps1</code>）は、ほかに次の関数を使う。</p>
@@ -4364,7 +4365,7 @@
         TF["getTargetFolders / writeTargetFolders"]
         CS["getIndexingState"] --&gt; RSF2["readStatusFile"]
         SUM["getIndexSummary / testIndexExists"]
-        SI2["searchContentIndex / toSearchResultLines / writeSearchResult"]
+        SI2["searchContentIndex / toSearchResultLines / invokeSearchExport"]
         RPC["readContentIndexLines（選択行のプレビュー）"]
         RSP["resolveSourcePath"] --&gt; SL["getSourceLocation"] --&gt; SFM["getSourceFolderMap"] --&gt; INM["getIndexNameMap"] --&gt; RSF2
         SFM --&gt; RSFF["readSourceFolderFile"]

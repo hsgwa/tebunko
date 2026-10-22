@@ -4521,20 +4521,52 @@
 <td>検索</td>
 </tr>
 <tr>
+<td><code>getSearchResultLine</code></td>
+<td>relDir, book, location, lineNumber, line</td>
+<td>string</td>
+<td>結果の 1 行（相対フォルダ付き <code>toResultLine</code>）。コピーとファイル出力で共通</td>
+<td>同上</td>
+<td><code>toSearchResultLines</code>・<code>invokeSearchExport</code></td>
+</tr>
+<tr>
+<td><code>getSearchResultColumnCount</code></td>
+<td>line</td>
+<td>int</td>
+<td>1 行の見出しに要る列の数（ファイル名・場所・種別・行番号の 4 列を除いたセルの数）</td>
+<td>同上</td>
+<td><code>toSearchResultLines</code>・<code>invokeSearchExport</code></td>
+</tr>
+<tr>
+<td><code>getSearchResultCountLine</code></td>
+<td>word, count</td>
+<td>string</td>
+<td><code>【検索文字列　X】 N 件</code> の行</td>
+<td>同上</td>
+<td><code>writeSearchResult</code>・<code>invokeSearchExport</code></td>
+</tr>
+<tr>
 <td><code>toSearchResultLines</code></td>
 <td>hits</td>
 <td><code>@{Header; Lines}</code></td>
-<td>検索結果ファイルの見出し行と各行（相対フォルダ付き <code>toResultLine</code>、最大セル数の <code>toResultHeader</code>）</td>
+<td>検索結果ファイルの見出し行と各行（<code>getSearchResultLine</code>、最大セル数の <code>toResultHeader</code>）</td>
 <td>同上</td>
-<td>検索・画面</td>
+<td>画面（コピー）</td>
 </tr>
 <tr>
 <td><code>writeSearchResult</code></td>
 <td>writer, word, hits</td>
 <td>–</td>
-<td>1 ワード分の <code>【検索文字列　X】 N 件</code>・見出し行・各行・空行を書き出す</td>
+<td>1 ワード分の <code>【検索文字列　X】 N 件</code>・見出し行・各行・空行を、メモリ上の全件から書き出す。画面の［結果をファイルに出力］は全件をメモリに持たないので <code>invokeSearchExport</code> を使い、同じ形になることをテストで確かめる</td>
 <td>同上</td>
-<td>検索・画面</td>
+<td>テスト（書き出しの基準）</td>
+</tr>
+<tr>
+<td><code>newExportRequest</code></td>
+<td>source, outputPath, shownHits, filterText, word</td>
+<td>hashtable（Synchronized）</td>
+<td>書き出しの要求（<code>Kind = "Export"</code>）。表の分（値だけ）・絞り込みの文字列・元の検索の要求を持つ。<code>Outcome</code>・<code>Written</code>・<code>Scope</code>・<code>HeadOnlyReason</code>・<code>Error</code>・<code>Finished</code> を司令が書く</td>
+<td><a href="../../gui/search-tab/#結果をファイルに出力">結果をファイルに出力</a></td>
+<td><code>startExport</code>（画面）・<code>SearchService.Export</code></td>
 </tr>
 <tr>
 <td><code>getSearchOverflowRoot</code></td>
@@ -4716,7 +4748,7 @@
 <td><code>newSearchService</code> / <code>SearchService</code></td>
 <td>libPath, cache, workers</td>
 <td><code>SearchService</code></td>
-<td>検索の司令のスレッド（画面を開いている間 1 つ）。<code>Request</code>（前の要求を取り消して新しい要求を渡す。スレッドが止まっていれば作り直す）・<code>Cancel</code>・<code>IsRunning</code>・<code>GetFailure</code>・<code>Close</code>（5 秒待って止まらなければスレッドを止める）</td>
+<td>検索の司令のスレッド（画面を開いている間 1 つ）。<code>Request</code>（前の要求を取り消して新しい要求を渡す。スレッドが止まっていれば作り直す）・<code>Export</code>（書き出しの要求を渡す。実行中の検索は取り消さない。作り直したときは溢れが消えているので表の分だけになる）・<code>Cancel</code>・<code>IsRunning</code>・<code>GetFailure</code>・<code>Close</code>（5 秒待って止まらなければスレッドを止める）</td>
 <td>画面</td>
 </tr>
 <tr>
