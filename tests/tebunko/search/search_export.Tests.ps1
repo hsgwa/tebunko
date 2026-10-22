@@ -188,6 +188,28 @@ Describe "結果のファイル出力" -Tag Io {
             [System.IO.File]::ReadAllText($out, [System.Text.Encoding]::UTF8) | Should -Be "前の結果"
         }
 
+        It "出力先のフォルダを作れないとき（ファイルの下・届かない共有）は、Locked ではなく Failed にして、理由を残す" {
+            $blocked = Join-Path $out "sub\a.csv"
+            $request = newExportRequest (newSource $own $result $dir) $blocked @($result.Hits) "" "多い" "csv" $true
+            invokeSearchExport $request
+            $request.Outcome | Should -Be "Failed"
+            $request.Error | Should -Not -BeNullOrEmpty
+            $request.Finished | Should -BeTrue
+            [System.IO.File]::ReadAllText($out, [System.Text.Encoding]::UTF8) | Should -Be "前の結果"
+        }
+
+        It "getSearchExportIoOutcome: 共有違反（32）・ロック違反（33）だけ Locked、そのほかの IOException は Failed" -TestCases @(
+            @{ Code = 32; Expected = "Locked" }
+            @{ Code = 33; Expected = "Locked" }
+            @{ Code = 3; Expected = "Failed" }
+            @{ Code = 53; Expected = "Failed" }
+            @{ Code = 112; Expected = "Failed" }
+        ) {
+            param ($Code, $Expected)
+            $ex = [System.IO.IOException]::new("x", (0x80070000 -bor $Code))
+            getSearchExportIoOutcome $ex | Should -Be $Expected
+        }
+
         It "読み取り専用のときは Denied にして、書き始めない" {
             $request = newExportRequest (newSource $own $result $dir) $out @($result.Hits) "" "多い" "csv" $true
             [System.IO.File]::SetAttributes($out, [System.IO.FileAttributes]::ReadOnly)

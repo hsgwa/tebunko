@@ -1213,6 +1213,31 @@ Describe "openSourceFolder" -Tag Unit {
     }
 }
 
+Describe "showInExplorer" -Tag Unit {
+    BeforeAll {
+        function writeErrorLog { param ([string]$context, $record) }
+    }
+
+    BeforeEach {
+        Mock writeErrorLog {}
+    }
+
+    It "explorer.exe に /select, とパスを渡し、終了コードは見ない（起動できれば true）" {
+        Mock Start-Process { $global:LASTEXITCODE = 1 }
+
+        showInExplorer "C:\w\a b.xlsx" | Should -Be $true
+        Should -Invoke Start-Process -Times 1 -Exactly -ParameterFilter { $FilePath -eq "explorer.exe" -and $ArgumentList -eq '/select,"C:\w\a b.xlsx"' }
+        Should -Invoke writeErrorLog -Times 0 -Exactly
+    }
+
+    It "起動で例外になれば false を返し、ログに残す" {
+        Mock Start-Process { throw "起動できません" }
+
+        showInExplorer "C:\w\a.xlsx" | Should -Be $false
+        Should -Invoke writeErrorLog -Times 1 -Exactly
+    }
+}
+
 Describe "exportResults" -Tag Io {
     BeforeAll {
         $hits = @(
@@ -1385,6 +1410,65 @@ Describe "exportResults" -Tag Io {
         exportResults
         pumpExport
         lastStatus | Should -Be "結果.csv に 2 件を出力しました。フォルダを開けなかったため、${out} を開いてください"
+    }
+
+    It "届かない共有を保存先に選んでも、画面はすぐ戻り（確かめない）、司令の失敗がステータスの文になる" {
+        $workDir = "$TestDrive\export_unc\work"
+        $workspace = newTestWorkspace @{} $workDir
+        $script:lastSearch = newExportSearch $workDir
+        Mock getExportHits { , $hits }
+        Mock selectSaveFile { @{ Path = "\\nohost.invalid\share\a.xlsx"; FilterIndex = 1 } }
+        Mock Test-Path { throw "画面のスレッドでは確かめない" }
+        Mock getPathState { throw "画面のスレッドでは確かめない" }
+        $script:searchService = newFakeService $false
+
+        $watch = [System.Diagnostics.Stopwatch]::StartNew()
+        exportResults
+        $watch.Stop()
+        $watch.ElapsedMilliseconds | Should -BeLessThan 3000
+        $script:searchService.Requests.Count | Should -Be 1
+        $script:searchService.Requests[0].OutputPath | Should -Be "\\nohost.invalid\share\a.xlsx"
+
+        invokeSearchExport $script:searchService.Requests[0]
+        $script:searchService.Requests[0].Outcome | Should -Be "Failed"
+        pumpExport
+        lastStatus | Should -BeLike "検索結果を出力できませんでした*"
+        $script:exportJob | Should -BeNullOrEmpty
+    }
+
+    It "保存のダイアログの確定（FileOk）は、ファイルの有無を確かめない（File.Exists・Test-Path・getPathState を呼ばない）" {
+        $workDir = "$TestDrive\export_fileok\work"
+        $workspace = newTestWorkspace @{} $workDir
+        $script:lastSearch = newExportSearch $workDir
+        Mock Test-Path { throw "確定のときは確かめない" }
+        Mock getPathState { throw "確定のときは確かめない" }
+        Mock selectSaveFile {
+            $watch = [System.Diagnostics.Stopwatch]::StartNew()
+            $script:validatedUnc = & $validate "\\nohost.invalid\share\a.xlsx" 1
+            $watch.Stop()
+            $script:validateMs = $watch.ElapsedMilliseconds
+            $null
+        }
+
+        exportResults
+        $script:validatedUnc | Should -Be ""
+        $script:validateMs | Should -BeLessThan 3000
+    }
+
+    It "名前の拡張子が先: Excel の種類のまま a.csv と打つと CSV で書く（種類の記憶も CSV になる）" {
+        $workDir = "$TestDrive\export_ext_first\work"
+        $out = "$TestDrive\export_ext_first\a.csv"
+        [System.IO.Directory]::CreateDirectory("$TestDrive\export_ext_first") | Out-Null
+        $workspace = newTestWorkspace @{} $workDir
+        $script:lastSearch = newExportSearch $workDir
+        Mock getExportHits { , $hits }
+        Mock selectSaveFile { @{ Path = $out; FilterIndex = 1 } }
+
+        exportResults
+        pumpExport
+        $script:searchService.Requests[0].Format | Should -Be "csv"
+        [System.IO.File]::ReadAllText($out) | Should -BeLike "*ファイル名,場所,種別,行,A,B*"
+        $script:lastExportFormat | Should -Be "csv"
     }
 
     It "保存のダイアログの確定では、クロール対象・インデックスのフォルダと空の名前を断る（文字列だけで判定する）" {

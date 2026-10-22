@@ -369,6 +369,7 @@ Describe "resolveExportTarget・getDefaultExportName・testExportForbiddenPath" 
         @{ path = "C:\w\a"; index = 2; expected = "C:\w\a.csv"; format = "csv"; added = $true }
         @{ path = "C:\w\a"; index = 3; expected = "C:\w\a.tsv"; format = "tsv"; added = $true }
         @{ path = "C:\w\a.txt"; index = 2; expected = "C:\w\a.txt.csv"; format = "csv"; added = $true }
+        @{ path = "C:\w\a."; index = 1; expected = "C:\w\a.xlsx"; format = "xlsx"; added = $true }
     ) {
         $target = resolveExportTarget $path $index
         $target.Path | Should -Be $expected

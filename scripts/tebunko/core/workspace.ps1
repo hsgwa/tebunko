@@ -34,8 +34,6 @@ class Workspace {
     [string]$JournalFile
     # 本文インデックスから外し終えていない、無くなった元のファイルの記録（書き出しを飛ばした・落ちた・強制終了した回の次の回に外し直す）
     [string]$PendingRemoveFile
-    # 前の版が検索結果を書いたファイル。今の版は書かない（保存はダイアログで選んだ場所）が、あれば tebunko のものとして扱う（検索の対象にしない・ワークスペースと一緒に移す）
-    [string]$ResultFile
     # インデックス作成の記録。画面とインデクサの受け渡しはメモリ上で行う（indexer_state.ps1 の newIndexerChannel）
     # インデックス作成の間だけ開いておく鍵のファイル（空。別のセッション・PC・パスの書き方からの同時のインデックス作成を防ぐ。openLockFile）
     [string]$LockFile
@@ -65,7 +63,6 @@ class Workspace {
         $this.StatusFile = "$dir\store\ingest_status.tsv"
         $this.JournalFile = "$dir\store\journal\ingest.tsv"
         $this.PendingRemoveFile = "$dir\store\pending_remove.tsv"
-        $this.ResultFile = "$dir\search_results.txt"
         # ドライブの直下（Y: の根）でも区切りを二重にしない（長いパスの形にしたとき、区切りが二重のパスは開けない）
         $this.LockFile = $dir.TrimEnd("\") + "\indexing.lock"
         $this.IndexingLogFile = "$dir\indexing_log.txt"
@@ -84,7 +81,7 @@ class Workspace {
     # 移すときに残っても取り込み直しが増えるだけ（取り込み一覧が前回のままなので、止まったファイルは更新ありのまま次の回で取り込まれる）
     [string[]] Entries() {
         return @($this.StoreDir, $this.OldIndexDir, $this.OldStatusFile, $this.LegacyIndexDir,
-            $this.ResultFile, $this.LockFile, $this.IndexingLogFile, $this.GuiErrorLogFile,
+            $this.LockFile, $this.IndexingLogFile, $this.GuiErrorLogFile,
             $this.IndexingLogPreviousFile, $this.GuiErrorLogPreviousFile, [System.IO.Path]::GetDirectoryName($this.PublishDir), $this.TmpRoot, $this.OfficePidRoot)
     }
 }

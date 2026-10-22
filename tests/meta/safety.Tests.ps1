@@ -634,7 +634,10 @@ Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を�
                 return $true  # 埋め込みを読むファイルは、部品を直接開かない（readZipEntry・readZipEntryBytes を通す）
             }
             if ($t.File -eq "xlsx_writer.ps1") {
-                return $false  # 検索結果を書き出す側（書き込み専用の entry.Open()）。読む側ではない
+                # 検索結果を書き出す側（書き込み専用の entry.Open()）。読む側ではない。外すのは書き込みの関数 2 つの中だけ
+                $ast = [System.Management.Automation.Language.Parser]::ParseFile($t.Path, [ref]$null, [ref]$null)
+                $writers = @($ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -in @("addXlsxEntry", "newXlsxWriter") }, $true))
+                return @($writers | Where-Object { $t.Line -ge $_.Extent.StartLineNumber -and $t.Line -le $_.Extent.EndLineNumber }).Count -eq 0
             }
             $t.File -ne "office_reader.ps1" -or @($ranges | Where-Object { $t.Line -ge $_[0] -and $t.Line -lt $_[1] }).Count -eq 0
         })
@@ -731,9 +734,22 @@ Describe "取り込み対象のファイルを書き換えないこと（docs/sa
         # 書き込み・削除の呼び出し行に、取り込み対象（原本）を指す変数が現れないこと。
         # 原本は作業フォルダへコピーしてから開くため、書き込み先は常にコピー側（$tmpPath・$destPath・$copyPath 等）になる。
         # $targetFolder・$folder.Path = クロール対象フォルダ、$row.SourcePath = 検索結果の元のファイル
-        $writes = @($code | Where-Object { $_.Text -match 'Remove-Item|WriteAllText|WriteAllLines|StreamWriter|\.SaveAs|\[System\.IO\.(File|Directory)\]::Move|Move-Item' })
+        $writes = @($code | Where-Object { $_.Text -match 'Remove-Item|WriteAllText|WriteAllLines|StreamWriter|ZipArchive|FileStream|\.SaveAs|\[System\.IO\.(File|Directory)\]::Move|Move-Item' })
         ($writes.Count -gt 0) | Should -Be $true
         (@($writes | Where-Object { $_.Text -match '\$targetFolder|\$row\.SourcePath|\$folder\.Path' } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
+    }
+
+    It "検索結果の保存先（OutputPath）は、保存のダイアログの結果（resolveExportTarget の Path）からだけ作る" {
+        $requests = @($code | Where-Object { $_.Text -match 'newExportRequest\s+\$' })
+        ($requests.Count -gt 0) | Should -Be $true
+        (@($requests | Where-Object { $_.File -ne "open_source.ps1" -or $_.Text -notmatch 'newExportRequest\s+\$snapshot\.Shared\s+\$target\.Path\s' } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
+        # $target は、保存のダイアログの結果を resolveExportTarget に通したものだけ
+        $resolves = @($code | Where-Object { $_.Text -match 'resolveExportTarget\s+\$path\s+\$filterIndex' })
+        $resolves.Count | Should -Be 1
+        $resolves[0].File | Should -Be "open_source.ps1"
+        (findPattern @($code | Where-Object { $_.File -eq "open_source.ps1" }) 'selectSaveFile') | Should -Not -Be ""
+        # ほかの所で OutputPath に値を入れない（要求の作り方は newExportRequest の 1 か所）
+        (@($code | Where-Object { $_.Text -match '\.OutputPath\s*=[^=]' } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
     }
 
     It "原本を読むのはコピーを作る処理（copyFileShared）だけ" {
@@ -1100,7 +1116,7 @@ Describe "検索結果から開くとき、シェルで開く処理が決まっ�
 
         # 関数 × API の表（docs/safety/checks.md「外部プロセスの起動」）。足すときは、表と守り（下の It）を同じ PR で直す
         $allowedUses = @(
-            "applyFailedFileState|Start-Process", "applyFailedFileState|Start-Process",
+            "applyFailedFileState|Start-Process",
             "applyIndexSourceFolderState|Start-Process",
             "openAboutLink|Start-Process",
             "openWithNotepad|Start-Process",

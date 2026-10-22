@@ -69,9 +69,22 @@ function getSearchExportScope {
     return @{ Scope = "Overflow"; Reason = "" }
 }
 
+function getSearchExportIoOutcome {
+    # IOException の種類を分ける。ほかのアプリが開いている（共有違反・ロック違反）なら Locked、それ以外（フォルダが無い・届かない共有・ディスクの空きなど）は Failed
+    param (
+        $exception
+    )
+
+    $code = $exception.GetBaseException().HResult -band 0xFFFF
+    if ($code -eq 32 -or $code -eq 33) {
+        return "Locked"
+    }
+    return "Failed"
+}
+
 function testSearchExportTarget {
     # 出力先に書けるかを、書き始める前に調べる。出力先のフォルダを作り、ファイルがあれば共有なしで開いて閉じる。
-    # 返すもの: 空文字（書ける）/ Locked（ほかのアプリが開いている）/ Denied（読み取り専用・権限が無い。アプリを閉じても直らない）
+    # 返すもの: 空文字（書ける）/ Locked（ほかのアプリが開いている）/ Denied（読み取り専用・権限が無い。アプリを閉じても直らない）/ Failed（フォルダを作れない・届かないなど）
     param (
         [string]$path
     )
@@ -85,7 +98,7 @@ function testSearchExportTarget {
     } catch [System.UnauthorizedAccessException] {
         return "Denied"
     } catch [System.IO.IOException] {
-        return "Locked"
+        return getSearchExportIoOutcome $_.Exception
     }
 }
 
@@ -343,6 +356,9 @@ function invokeSearchExport {
         $blocked = testSearchExportTarget $target
         if ($blocked) {
             $request.Outcome = $blocked
+            if ($blocked -eq "Failed") {
+                $request.Error = "出力先のフォルダを作れないか、届きません"
+            }
             return
         }
         # 強制終了などで残った .new・.part（溢れの置き場所が使えないときの本文の一時ファイル）は、置き換える前なので、ここで消してよい
@@ -371,7 +387,10 @@ function invokeSearchExport {
     } catch [System.UnauthorizedAccessException] {
         $request.Outcome = "Denied"
     } catch [System.IO.IOException] {
-        $request.Outcome = "Locked"
+        $request.Outcome = getSearchExportIoOutcome $_.Exception
+        if ($request.Outcome -eq "Failed") {
+            $request.Error = $_.Exception.Message
+        }
     } catch {
         $request.Error = $_.Exception.Message
         $request.Outcome = "Failed"

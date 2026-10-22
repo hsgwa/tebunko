@@ -543,7 +543,8 @@ function resolveExportTarget {
         ".tsv" { return @{ Path = $path; Format = "tsv"; Added = $false } }
     }
     $format = switch ($filterIndex) { 2 { "csv" } 3 { "tsv" } default { "xlsx" } }
-    return @{ Path = "${path}.${format}"; Format = $format; Added = $true }
+    # 名前の終わりの「.」は、拡張子の前に重ねない（a. → a.xlsx）
+    return @{ Path = "$($path.TrimEnd('.')).${format}"; Format = $format; Added = $true }
 }
 
 function getDefaultExportName {
