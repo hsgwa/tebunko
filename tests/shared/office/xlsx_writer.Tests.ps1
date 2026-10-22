@@ -232,3 +232,42 @@ Describe "xlsx の書き手" -Tag Io {
         Test-Path -LiteralPath $p | Should -BeFalse
     }
 }
+
+Describe "xlsx の部品の組み立て" -Tag Unit {
+    It "getXlsxColumnName は列番号を A, B, ..., Z, AA の形にする" -TestCases @(
+        @{ index = 1; expected = "A" }
+        @{ index = 5; expected = "E" }
+        @{ index = 26; expected = "Z" }
+        @{ index = 27; expected = "AA" }
+        @{ index = 52; expected = "AZ" }
+        @{ index = 703; expected = "AAA" }
+    ) {
+        getXlsxColumnName $index | Should -Be $expected
+    }
+
+    It "escapeXlsxText は XML の特別な文字だけを置き換える" {
+        escapeXlsxText "a&b<c>d`"e" | Should -Be "a&amp;b&lt;c&gt;d`"e"
+    }
+
+    It "addXlsxEntry は ZIP に UTF-8 の部品を 1 つ書く" {
+        $stream = New-Object System.IO.MemoryStream
+        $zip = New-Object System.IO.Compression.ZipArchive($stream, [System.IO.Compression.ZipArchiveMode]::Create, $true)
+        addXlsxEntry $zip "xl/a.xml" "あ<x/>"
+        $zip.Dispose()
+        $read = New-Object System.IO.Compression.ZipArchive((New-Object System.IO.MemoryStream(, $stream.ToArray())), [System.IO.Compression.ZipArchiveMode]::Read)
+        $reader = New-Object System.IO.StreamReader($read.GetEntry("xl/a.xml").Open(), (New-Object System.Text.UTF8Encoding($false)))
+        try { $reader.ReadToEnd() | Should -Be "あ<x/>" } finally { $reader.Dispose(); $read.Dispose() }
+    }
+
+    It "writeXlsxRowXml は見出しに見出しのスタイル、改行を含むセルに折り返しのスタイルを当て、足りない列は空にする" {
+        $sheet = New-Object System.IO.StringWriter
+        $writer = @{ Headers = @("a", "b", "c"); Columns = @("A", "B", "C"); Sheet = $sheet; TruncatedCells = 0 }
+        writeXlsxRowXml $writer @("x", "1`n2") 1 $true
+        writeXlsxRowXml $writer @("x&", "1`n2") 2 $false
+        $xml = $sheet.ToString()
+        $xml | Should -Match '<row r="1"><c r="A1" t="inlineStr" s="1">'
+        $xml | Should -Match '<row r="2"><c r="A2" t="inlineStr"><is><t xml:space="preserve">x&amp;</t>'
+        $xml | Should -Match '<c r="B2" t="inlineStr" s="2">'
+        $xml | Should -Match '<c r="C2" t="inlineStr"><is><t xml:space="preserve"></t>'
+    }
+}

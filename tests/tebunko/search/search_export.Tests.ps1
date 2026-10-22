@@ -332,3 +332,43 @@ Describe "getSearchExportScope" -Tag Unit {
         $actual.Reason | Should -Be $Reason
     }
 }
+
+Describe "書き手(sink)の開閉" -Tag Io {
+    It "getSearchExportDelimiter は csv にコンマ、tsv にタブを返す" -TestCases @(
+        @{ format = "csv"; expected = "," }
+        @{ format = "tsv"; expected = "`t" }
+    ) {
+        getSearchExportDelimiter $format | Should -Be $expected
+    }
+
+    It "<format> は newSearchExportSink で開き、addSearchExportRow で書き、closeSearchExportSink で完成させる" -TestCases @(
+        @{ format = "csv" }
+        @{ format = "tsv" }
+        @{ format = "xlsx" }
+    ) {
+        $body = Join-Path $TestDrive "$format.body.tmp"
+        $out = Join-Path $TestDrive "$format.out"
+        $state = newSearchExportSink $format $body $out
+        addSearchExportRow $state @("a", "b", "c", "1", "該当行")
+        addSearchExportRow $state @("d", "e", "f", "2", "別の行")
+        $state.Count | Should -Be 2
+        $done = closeSearchExportSink $state $body $out
+        $done.DroppedRows | Should -Be 0
+        [System.IO.File]::Exists($out) | Should -BeTrue
+        (Get-Item -LiteralPath $out).Length | Should -BeGreaterThan 0
+    }
+
+    It "abortSearchExportSink は書き手を閉じ、書きかけのファイルを消せる状態にする（null も受ける）" -TestCases @(
+        @{ format = "csv" }
+        @{ format = "xlsx" }
+    ) {
+        $body = Join-Path $TestDrive "abort.$format.body.tmp"
+        $out = Join-Path $TestDrive "abort.$format.out"
+        $state = newSearchExportSink $format $body $out
+        addSearchExportRow $state @("a", "b", "c", "1", "x")
+        abortSearchExportSink $state
+        { Remove-Item -LiteralPath $out, $body -Force -ErrorAction SilentlyContinue } | Should -Not -Throw
+        [System.IO.File]::Exists($out) | Should -BeFalse
+        { abortSearchExportSink $null } | Should -Not -Throw
+    }
+}

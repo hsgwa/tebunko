@@ -1082,3 +1082,17 @@ Describe "measure_perf.ps1 -Office" -Tag Io {
         { & $measure -Work (Join-Path $TestDrive "none") 6>$null } | Should -Throw "*-Index・-Office・-Xlsx・-Export*"
     }
 }
+
+Describe "measure_export.ps1 の newExportPerfHits" -Tag Unit {
+    It "指定した件数の合成のヒットを返し、4 種類のセルを混ぜる" {
+        $script = "$PSScriptRoot\..\..\tools\perf\measure_export.ps1"
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $script).ProviderPath, [ref]$null, [ref]$null)
+        $fn = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq "newExportPerfHits" }, $true)
+        . ([scriptblock]::Create($fn.Extent.Text))
+        $hits = @(newExportPerfHits 8)
+        $hits.Count | Should -Be 8
+        @($hits | Where-Object { $_.Line.Contains("`t") }).Count | Should -BeGreaterThan 0
+        @($hits | Where-Object { $_.Line.Contains("`n") }).Count | Should -BeGreaterThan 0
+        @($hits | Where-Object { $_.Location -eq "" }).Count | Should -BeGreaterThan 0
+    }
+}
