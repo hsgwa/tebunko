@@ -292,7 +292,7 @@ function getSourceReadOnlyFailedStatus {
     return "もらったインデックスのファイルは読み取り専用で開けなかったため、開きませんでした。［ファイルのパスをコピー］で場所を調べ、確かめてから開いてください：${path}"
 }
 function getSavedFileName {
-    # 出力のメッセージに出す、保存したファイルの名前（パスの最後）
+    # 出力のメッセージに出す、出力したファイルの名前（パスの最後）
     param (
         [string]$path
     )
@@ -304,7 +304,7 @@ function getSavedFileName {
 }
 
 function getResultSaveFailedText {
-    # 検索結果を保存先に書けなかったときの文（ステータスと検索画面の上の帯に同じ文を出す）
+    # 検索結果を出力先に書けなかったときの文（ステータスと検索画面の上の帯に同じ文を出す）
     #   kind: Locked（ほかのアプリが開いている）/ Denied（読み取り専用・書き込み権限が無い。アプリを閉じても直らない）
     param (
         [string]$kind,
@@ -341,11 +341,11 @@ function getExportWritingText {
         [int]$written
     )
 
-    return "検索結果を出力しています…（$($written.ToString('N0')) 件）"
+    return "検索結果を出力中…（$($written.ToString('N0')) 件）"
 }
 
 function getExportCancelledText {
-    return "出力を中止しました。保存先のファイルは変えていません。"
+    return "出力を中止しました。出力先のファイルは変えていません。"
 }
 
 function getExportStoppedText {
@@ -363,8 +363,8 @@ function getExportExistsPrompt {
 }
 
 function getExportForbiddenText {
-    # 保存先に選べない場所（クロール対象のフォルダ・インデックスのフォルダ）を選んだときの文
-    return "クロール対象のフォルダ（またはインデックスのフォルダ）には保存できません。別の場所を選んでください。"
+    # 出力先に選べない場所（クロール対象のフォルダ・インデックスのフォルダ）を選んだときの文
+    return "クロール対象のフォルダ（またはインデックスのフォルダ）には出力できません。別の場所を選んでください。"
 }
 
 function getExportFailedText {
@@ -380,7 +380,7 @@ function getExportFailedText {
 }
 
 function getExportFolderOpenFailedText {
-    # 書き終わったが、保存したフォルダを開けなかったときのステータス
+    # 書き終わったが、出力したフォルダを開けなかったときのステータス
     param (
         [string]$name,
         [int]$count,
@@ -405,7 +405,7 @@ function getExportHeadOnlyReasonText {
 }
 
 function getExportDoneText {
-    # 書き終わったときのステータス（name は保存したファイルの名前）
+    # 書き終わったときのステータス（name は出力したファイルの名前）
     #   scope: All（表がすべて）/ Overflow（表に入らなかった分も書いた）/ HeadOnly（表に出ている分だけ。reason が理由）
     #   filtered: 絞り込み中か。sorted: 並べ替え中か（Overflow のときだけ、並べ替えは当てないと添える）
     #   droppedRows: Excel の行の上限で書かなかった件数。truncatedCells: 長すぎて途中で切ったセルの数
@@ -435,7 +435,7 @@ function getExportDoneText {
             if ($filtered) {
                 $text = "絞り込み後の ${number} 件を ${name} に出力しました"
             } else {
-                $text = "${name} に ${number} 件を出力しました（保存したフォルダを開きます）"
+                $text = "${name} に ${number} 件を出力しました（出力したフォルダを開きます）"
             }
         }
     }
@@ -457,7 +457,7 @@ function testExportFormat {
 }
 
 function getExportMenuItems {
-    # ［保存 ▼］のメニュー（最後に選んだ種類に印を付ける。分からない種類は Excel ブック）
+    # ［出力 ▼］のメニュー（最後に選んだ種類に印を付ける。分からない種類は Excel ブック）
     param (
         [string]$lastFormat
     )
@@ -473,7 +473,7 @@ function getExportMenuItems {
 }
 
 function getExportFilter {
-    # 保存のダイアログの「ファイルの種類」（この順に FilterIndex が 1・2・3）
+    # 出力先のダイアログの「ファイルの種類」（この順に FilterIndex が 1・2・3）
     return "Excel ブック (*.xlsx)|*.xlsx|CSV (*.csv)|*.csv|TSV (*.tsv)|*.tsv"
 }
 
@@ -491,7 +491,7 @@ function getExportFilterIndex {
 }
 
 function getLastExportFormat {
-    # 次の［保存］で使う種類。書けたときだけ、書いた種類に替える
+    # 次の［出力］で使う種類。書けたときだけ、書いた種類に替える
     param (
         [string]$current,
         [string]$written
@@ -507,7 +507,7 @@ function getLastExportFormat {
 }
 
 function getExportButtonToolTip {
-    # ［保存］の吹き出し。出力の待ち・書き込み中は、押すと中止になる
+    # ［出力］の吹き出し。出力の待ち・書き込み中は、押すと中止になる
     param (
         [string]$format,
         [bool]$busy
@@ -521,11 +521,11 @@ function getExportButtonToolTip {
         "tsv" { "TSV (.tsv)" }
         default { "Excel ブック (.xlsx)" }
     }
-    return "${label} で保存します"
+    return "${label} で出力します"
 }
 
 function resolveExportTarget {
-    # 保存のダイアログで決まった名前から、書く種類を決める。名前の拡張子（.xlsx・.csv・.tsv）が先で、
+    # 出力先のダイアログで決まった名前から、書く種類を決める。名前の拡張子（.xlsx・.csv・.tsv）が先で、
     # 無ければ「ファイルの種類」の拡張子を付け足す（Added。付け足したときだけ、既にあるかをこちらで確かめる）。
     # 空の名前は $null。ファイルには触れない
     param (
@@ -548,7 +548,7 @@ function resolveExportTarget {
 }
 
 function getDefaultExportName {
-    # 保存のダイアログの既定のファイル名（拡張子なし）: 検索結果_<語>_<日時>。ファイル名に使えない文字は _、語は 30 文字まで
+    # 出力先のダイアログの既定のファイル名（拡張子なし）: 検索結果_<語>_<日時>。ファイル名に使えない文字は _、語は 30 文字まで
     param (
         [string]$word,
         [datetime]$now
@@ -569,7 +569,7 @@ function getDefaultExportName {
 }
 
 function toExportComparePath {
-    # 保存先の比べ用のパス: \\?\ と \\?\UNC\ を外し、絶対パスにし、末尾の \ を除く。パスの形が不正なら $null。ファイルには触れない
+    # 出力先の比べ用のパス: \\?\ と \\?\UNC\ を外し、絶対パスにし、末尾の \ を除く。パスの形が不正なら $null。ファイルには触れない
     param (
         [string]$path
     )
@@ -590,8 +590,8 @@ function toExportComparePath {
 }
 
 function testExportForbiddenPath {
-    # 保存先がクロール対象のフォルダ・インデックスのフォルダの中か（区切りを境にした前方一致。大文字小文字・末尾の \ は区別しない）。
-    # 保存したファイルが次の取り込みで対象になるのを防ぐ。文字列だけで判定し、ファイルには触れない（保存のダイアログの確定の中で呼ぶため）
+    # 出力先がクロール対象のフォルダ・インデックスのフォルダの中か（区切りを境にした前方一致。大文字小文字・末尾の \ は区別しない）。
+    # 出力したファイルが次の取り込みで対象になるのを防ぐ。文字列だけで判定し、ファイルには触れない（出力先のダイアログの確定の中で呼ぶため）
     param (
         [string]$path,
         [string[]]$folders

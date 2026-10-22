@@ -1285,7 +1285,7 @@ Describe "exportResults" -Tag Io {
         Mock selectSaveFile { $null }
     }
 
-    It "検索する前は保存先を尋ねず、出力もしない" {
+    It "検索する前は出力先を尋ねず、出力もしない" {
         $script:lastSearch = $null
 
         exportResults
@@ -1296,7 +1296,7 @@ Describe "exportResults" -Tag Io {
         $script:searchService.Requests.Count | Should -Be 0
     }
 
-    It "保存のダイアログをやめれば、何も書かず、種類も変わらない" {
+    It "出力先のダイアログをやめれば、何も書かず、種類も変わらない" {
         $workDir = "$TestDrive\export_dialog_cancel\work"
         $workspace = newTestWorkspace @{} $workDir
         $script:lastSearch = newExportSearch $workDir
@@ -1309,7 +1309,7 @@ Describe "exportResults" -Tag Io {
         $ui.MenuExportCsv.IsChecked | Should -Be $false
     }
 
-    It "名前に拡張子を付けずに決めると、ファイルの種類（Excel）の拡張子を付けて書き、保存したフォルダを開く" {
+    It "名前に拡張子を付けずに決めると、ファイルの種類（Excel）の拡張子を付けて書き、出力したフォルダを開く" {
         $workDir = "$TestDrive\export_xlsx\work"
         $out = "$TestDrive\export_xlsx\検索結果"
         [System.IO.Directory]::CreateDirectory("$TestDrive\export_xlsx") | Out-Null
@@ -1323,7 +1323,7 @@ Describe "exportResults" -Tag Io {
         $ui.ExportButtonText.Text | Should -Be "出力を中止"
         $ui.ExportMenuButton.IsEnabled | Should -Be $false
         $ui.ExportButton.ToolTip | Should -Be "出力を中止します"
-        lastStatus | Should -Be "検索結果を出力しています…（0 件）"
+        lastStatus | Should -Be "検索結果を出力中…（0 件）"
         $script:searchService.Requests.Count | Should -Be 1
         $script:searchService.Requests[0].Format | Should -Be "xlsx"
         $script:searchService.Requests[0].Overwrite | Should -Be $false
@@ -1332,14 +1332,14 @@ Describe "exportResults" -Tag Io {
 
         "${out}.xlsx" | Should -Exist
         readZipEntryNames "${out}.xlsx" | Should -Contain "xl/worksheets/sheet1.xml"
-        lastStatus | Should -Be "検索結果.xlsx に 2 件を出力しました（保存したフォルダを開きます）"
+        lastStatus | Should -Be "検索結果.xlsx に 2 件を出力しました（出力したフォルダを開きます）"
         ($script:opened -join "|") | Should -Be "${out}.xlsx"
         $ui.ExportButtonText.Text | Should -Be "保存"
         $ui.ExportMenuButton.IsEnabled | Should -Be $true
         $script:exportJob | Should -BeNullOrEmpty
     }
 
-    It "▼ から CSV を選んで書けると、次の［保存］も CSV になり、メニューの印が移る（名前を打ちきれば上書きの確認はダイアログが済ませている）" {
+    It "▼ から CSV を選んで書けると、次の［出力］も CSV になり、メニューの印が移る（名前を打ちきれば上書きの確認はダイアログが済ませている）" {
         $workDir = "$TestDrive\export_csv\work"
         $out = "$TestDrive\export_csv\結果.csv"
         [System.IO.Directory]::CreateDirectory("$TestDrive\export_csv") | Out-Null
@@ -1358,7 +1358,7 @@ Describe "exportResults" -Tag Io {
         $script:lastExportFormat | Should -Be "csv"
         $ui.MenuExportCsv.IsChecked | Should -Be $true
         $ui.MenuExportXlsx.IsChecked | Should -Be $false
-        $ui.ExportButton.ToolTip | Should -Be "CSV (.csv) で保存します"
+        $ui.ExportButton.ToolTip | Should -Be "CSV (.csv) で出力します"
 
         exportResults
         Should -Invoke selectSaveFile -Times 2 -Exactly -ParameterFilter { $filterIndex -eq 2 -and $fileName -like "検索結果_りんご_*" }
@@ -1391,7 +1391,7 @@ Describe "exportResults" -Tag Io {
         pumpExport
         pumpExport
         [System.IO.File]::ReadAllText("${out}.tsv") | Should -BeLike "*ファイル名`t場所*"
-        lastStatus | Should -Be "結果.tsv に 2 件を出力しました（保存したフォルダを開きます）"
+        lastStatus | Should -Be "結果.tsv に 2 件を出力しました（出力したフォルダを開きます）"
         $script:lastExportFormat | Should -Be "tsv"
         $script:searchService.Requests[2].Overwrite | Should -Be $true
         Should -Invoke selectSaveFile -Times 2 -Exactly
@@ -1412,7 +1412,7 @@ Describe "exportResults" -Tag Io {
         lastStatus | Should -Be "結果.csv に 2 件を出力しました。フォルダを開けなかったため、${out} を開いてください"
     }
 
-    It "届かない共有を保存先に選んでも、画面はすぐ戻り（確かめない）、司令の失敗がステータスの文になる" {
+    It "届かない共有を出力先に選んでも、画面はすぐ戻り（確かめない）、司令の失敗がステータスの文になる" {
         $workDir = "$TestDrive\export_unc\work"
         $workspace = newTestWorkspace @{} $workDir
         $script:lastSearch = newExportSearch $workDir
@@ -1436,7 +1436,7 @@ Describe "exportResults" -Tag Io {
         $script:exportJob | Should -BeNullOrEmpty
     }
 
-    It "保存のダイアログの確定（FileOk）は、ファイルの有無を確かめない（File.Exists・Test-Path・getPathState を呼ばない）" {
+    It "出力先のダイアログの確定（FileOk）は、ファイルの有無を確かめない（File.Exists・Test-Path・getPathState を呼ばない）" {
         $workDir = "$TestDrive\export_fileok\work"
         $workspace = newTestWorkspace @{} $workDir
         $script:lastSearch = newExportSearch $workDir
@@ -1471,7 +1471,7 @@ Describe "exportResults" -Tag Io {
         $script:lastExportFormat | Should -Be "csv"
     }
 
-    It "保存のダイアログの確定では、クロール対象・インデックスのフォルダと空の名前を断る（文字列だけで判定する）" {
+    It "出力先のダイアログの確定では、クロール対象・インデックスのフォルダと空の名前を断る（文字列だけで判定する）" {
         $workDir = "$TestDrive\export_forbidden\work"
         $workspace = newTestWorkspace @{} $workDir
         $script:lastSearch = newExportSearch $workDir
@@ -1487,8 +1487,8 @@ Describe "exportResults" -Tag Io {
         }
 
         exportResults
-        $script:validated[0] | Should -BeLike "クロール対象のフォルダ*には保存できません。*"
-        $script:validated[1] | Should -BeLike "クロール対象のフォルダ*には保存できません。*"
+        $script:validated[0] | Should -BeLike "クロール対象のフォルダ*には出力できません。*"
+        $script:validated[1] | Should -BeLike "クロール対象のフォルダ*には出力できません。*"
         $script:validated[2] | Should -Be ""
         $script:validated[3] | Should -Be "ファイル名を入力してください。"
     }
@@ -1527,7 +1527,7 @@ Describe "exportResults" -Tag Io {
         Should -Invoke getExportHits -Times 1 -Exactly -ParameterFilter { $truncated -eq $true }
     }
 
-    It "検索の途中で押すと、保存先を決めて、終わるのを待って書く。待っている間にもう一度押すと取りやめる" {
+    It "検索の途中で押すと、出力先を決めて、終わるのを待って書く。待っている間にもう一度押すと取りやめる" {
         $workDir = "$TestDrive\export_wait\work"
         $workspace = newTestWorkspace @{} $workDir
         [System.IO.Directory]::CreateDirectory("$TestDrive\export_wait") | Out-Null
@@ -1546,12 +1546,12 @@ Describe "exportResults" -Tag Io {
         startPendingExport
         $script:searchService.Requests.Count | Should -Be 1
         pumpExport
-        lastStatus | Should -Be "w.csv に 2 件を出力しました（保存したフォルダを開きます）"
+        lastStatus | Should -Be "w.csv に 2 件を出力しました（出力したフォルダを開きます）"
 
         $script:search = @{ Shared = @{} }
         exportResults
         exportResults
-        lastStatus | Should -Be "出力を中止しました。保存先のファイルは変えていません。"
+        lastStatus | Should -Be "出力を中止しました。出力先のファイルは変えていません。"
         $ui.ExportButtonText.Text | Should -Be "保存"
         $script:exportPending | Should -BeNullOrEmpty
         $script:search = $null
@@ -1578,7 +1578,7 @@ Describe "exportResults" -Tag Io {
         invokeSearchExport $request
         pumpExport
 
-        lastStatus | Should -Be "出力を中止しました。保存先のファイルは変えていません。"
+        lastStatus | Should -Be "出力を中止しました。出力先のファイルは変えていません。"
         $ui.ExportButtonText.Text | Should -Be "保存"
         [System.IO.File]::ReadAllText($out) | Should -Be "前回の結果"
         Should -Invoke showInExplorer -Times 0 -Exactly
@@ -1596,11 +1596,11 @@ Describe "exportResults" -Tag Io {
         exportResults
         $script:searchService.Requests[0].Written = 1500
         pumpExport
-        lastStatus | Should -Be "検索結果を出力しています…（1,500 件）"
+        lastStatus | Should -Be "検索結果を出力中…（1,500 件）"
         $script:exportJob | Should -Not -BeNullOrEmpty
     }
 
-    It "保存先をほかのアプリが開いていれば、閉じるよう知らせる" {
+    It "出力先をほかのアプリが開いていれば、閉じるよう知らせる" {
         $workDir = "$TestDrive\export_locked\work"
         $out = "$TestDrive\export_locked\l.xlsx"
         [System.IO.Directory]::CreateDirectory("$TestDrive\export_locked") | Out-Null
@@ -1624,7 +1624,7 @@ Describe "exportResults" -Tag Io {
         Should -Invoke showInExplorer -Times 0 -Exactly
     }
 
-    It "保存先が読み取り専用なら、予期しないエラーにせず、読み取り専用を外すよう知らせる" {
+    It "出力先が読み取り専用なら、予期しないエラーにせず、読み取り専用を外すよう知らせる" {
         $workDir = "$TestDrive\export_readonly\work"
         $out = "$TestDrive\export_readonly\r.csv"
         [System.IO.Directory]::CreateDirectory("$TestDrive\export_readonly") | Out-Null

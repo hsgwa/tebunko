@@ -202,7 +202,7 @@ Describe "xlsx の書き手" -Tag Io {
         $s.worksheet.autoFilter.ref | Should -Be "A1:B3"
     }
 
-    It "保存先が共有なしで開かれていると IOException" {
+    It "出力先が共有なしで開かれていると IOException" {
         $p = Join-Path $TestDrive "locked.xlsx"
         $fs = New-Object System.IO.FileStream($p, [System.IO.FileMode]::Create, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
         try {

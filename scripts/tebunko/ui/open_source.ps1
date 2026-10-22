@@ -830,12 +830,12 @@ function completeCopySourcePath {
 }
 
 # ---- 結果をファイルに出力する ----
-# 書くのは検索の司令のスレッド（SearchService.Export。search_export.ps1）。画面は保存先を選んでもらい、要求を渡し、タイマーで進み具合を見て、
-# 終わったら保存したフォルダをエクスプローラーで開く（Excel などでファイルを開くことはしない）。
+# 書くのは検索の司令のスレッド（SearchService.Export。search_export.ps1）。画面は出力先を選んでもらい、要求を渡し、タイマーで進み具合を見て、
+# 終わったら出力したフォルダをエクスプローラーで開く（Excel などでファイルを開くことはしない）。
 # 出力ボタンは、待ち・書き込みの間は「出力を中止」になり、押すと止める。
 $script:exportJob = $null       # 書き込み中の出力 @{ Request; Filtered; Sorted; Target; Snapshot }
-$script:exportPending = $null   # 検索が終わるのを待っている出力の保存先（@{ Path; Format; Added }）。無ければ $null
-$script:lastExportFormat = "xlsx"  # 次の［保存］で使う種類。画面を開くたびに Excel ブックに戻る（setting.config には残さない）
+$script:exportPending = $null   # 検索が終わるのを待っている出力の出力先（@{ Path; Format; Added }）。無ければ $null
+$script:lastExportFormat = "xlsx"  # 次の［出力］で使う種類。画面を開くたびに Excel ブックに戻る（setting.config には残さない）
 
 function updateExportButton {
     $busy = [bool]($script:exportJob -or $script:exportPending)
@@ -875,7 +875,7 @@ function cancelExport {
 }
 
 function getExportForbiddenFolders {
-    # 保存先にできないフォルダ（クロール対象のフォルダと、インデックスの置き場）。保存したファイルが次の取り込みの対象にならないように
+    # 出力先にできないフォルダ（クロール対象のフォルダと、インデックスの置き場）。出力したファイルが次の取り込みの対象にならないように
     $folders = New-Object System.Collections.Generic.List[string]
     foreach ($folder in @(getTargetFolders ${settingsFile})) {
         $folders.Add([string]$folder.Path)
@@ -889,8 +889,8 @@ function getExportForbiddenFolders {
 }
 
 function chooseExportTarget {
-    # 保存のダイアログで保存先を選んでもらう。決まれば @{ Path; Format; Added }、やめたら $null。
-    # ［保存］を押した時点で、クロール対象・インデックスのフォルダは選べない（文字列だけで判定する。ダイアログの確定の中で呼ぶため）
+    # 出力先のダイアログで出力先を選んでもらう。決まれば @{ Path; Format; Added }、やめたら $null。
+    # ［出力］を押した時点で、クロール対象・インデックスのフォルダは選べない（文字列だけで判定する。ダイアログの確定の中で呼ぶため）
     param (
         [string]$format
     )
@@ -909,7 +909,7 @@ function chooseExportTarget {
         }
         return ""
     }
-    $picked = selectSaveFile "検索結果を保存" (getExportFilter) (getExportFilterIndex $format) (getDefaultExportName $word (Get-Date)) $validate
+    $picked = selectSaveFile "検索結果を出力" (getExportFilter) (getExportFilterIndex $format) (getDefaultExportName $word (Get-Date)) $validate
     if ($null -eq $picked) {
         return $null
     }
@@ -917,7 +917,7 @@ function chooseExportTarget {
 }
 
 function startExport {
-    # target: 保存先。forceOverwrite: 既にある名前への上書きを確かめ済み（拡張子を付け足した名前のとき、司令は既にあれば Exists を返す）。
+    # target: 出力先。forceOverwrite: 既にある名前への上書きを確かめ済み（拡張子を付け足した名前のとき、司令は既にあれば Exists を返す）。
     # snapshot: 上書きの確認のあとにやり直すとき、前の要求と同じ内容（表の中身・絞り込み）で書く
     param (
         $target,
@@ -948,7 +948,7 @@ function startExport {
 }
 
 function exportResults {
-    # ［保存］（format なし。最後に選んだ種類）と ▼ のメニュー（format あり）の入り口
+    # ［出力］（format なし。最後に選んだ種類）と ▼ のメニュー（format あり）の入り口
     param (
         [string]$format = ""
     )

@@ -155,9 +155,9 @@ function selectZipFile {
 }
 
 function selectSaveFile {
-    # 保存先のファイルを選んでもらう（Windows 標準のファイルを保存するダイアログ）。選んだ @{ Path; FilterIndex } を返す（キャンセルは $null）。
+    # 出力先のファイルを選んでもらう（Windows 標準のファイルを出力するダイアログ）。選んだ @{ Path; FilterIndex } を返す（キャンセルは $null）。
     #   拡張子はダイアログに付けさせない（AddExtension を使わない）。名前に拡張子が無いときに何を付けるかは呼ぶ側が決める（resolveExportTarget）。
-    #   validate は、［保存］を押したときに UI のスレッドで呼ぶ。引数は (名前, FilterIndex)。文が返れば、その文を出して閉じずにやり直してもらう。
+    #   validate は、［出力］を押したときに UI のスレッドで呼ぶ。引数は (名前, FilterIndex)。文が返れば、その文を出して閉じずにやり直してもらう。
     #   中ではファイルに触れない（共有フォルダなどで画面が止まらないよう、文字列だけで判定する）。
     #   既にある名前を打った場合の上書きの確認は、ダイアログの OverwritePrompt が行う
     param (
@@ -183,7 +183,7 @@ function selectSaveFile {
             param ($sender, $e)
             $message = & $validate $sender.FileName $sender.FilterIndex
             if ($message) {
-                [void][System.Windows.MessageBox]::Show([string]$message, "保存先", "OK", "Warning")
+                [void][System.Windows.MessageBox]::Show([string]$message, "出力先", "OK", "Warning")
                 $e.Cancel = $true
             }
         }.GetNewClosure())

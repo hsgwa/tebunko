@@ -1,11 +1,11 @@
-﻿# 画面のスモークテスト: 検索結果の［保存 ▼］のメニュー（共通の関数は gui_helpers.ps1）。
-# ▼ を押すと、Excel・CSV・TSV の 3 項目が開き、既定の種類（Excel）に印が付く。ファイルは保存しない。
+﻿# 画面のスモークテスト: 検索結果の［出力 ▼］のメニュー（共通の関数は gui_helpers.ps1）。
+# ▼ を押すと、Excel・CSV・TSV の 3 項目が開き、既定の種類（Excel）に印が付く。ファイルは出力しない。
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
     . "$PSScriptRoot\gui_helpers.ps1"
 }
 
-Describe "検索結果の［保存 ▼］のメニュー" -Tag Gui {
+Describe "検索結果の［出力 ▼］のメニュー" -Tag Gui {
     BeforeAll {
         $script:envBefore = getGuiEnvSnapshot
         $script:tool = newGuiTool $TestDrive
@@ -22,7 +22,7 @@ Describe "検索結果の［保存 ▼］のメニュー" -Tag Gui {
             clickGui $S $S.Window "SearchButton" "［検索］"
             waitGui $S "該当 2 件" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "SummaryText")) -like "一致 2 件（*" } | Out-Null
 
-            clickGui $S $S.Window "ExportMenuButton" "［保存］の［▼］"
+            clickGui $S $S.Window "ExportMenuButton" "［出力］の［▼］"
             $items = waitGui $S "メニューが開く" ${guiDefaultTimeout} {
                 $found = @(getGuiOtherWindows $S | ForEach-Object { findAllGui $_ -Type MenuItem })
                 if ($found.Count -ge 3) { , $found }

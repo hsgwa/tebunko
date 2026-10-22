@@ -79,7 +79,7 @@ Describe "writeCsvFile" -Tag Io {
         $text | Should -BeExactly "名前,メモ,値`r`n"
     }
 
-    It "保存先が共有なしで開かれていると IOException になる" {
+    It "出力先が共有なしで開かれていると IOException になる" {
         writeBody $script:body $script:rows ","
         $lock = New-Object System.IO.FileStream($script:out, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
         try {

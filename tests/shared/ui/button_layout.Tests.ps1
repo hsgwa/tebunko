@@ -51,7 +51,7 @@ Describe "ボタンの中身の位置（描いた画素で測る）" -Tag Unit {
         @{ Kind = "主ボタン"; Name = "SearchButton"; File = "search\search_bar.xaml"; Horizontal = "・左右"; CheckX = $true }
         @{ Kind = "メニューを開くボタン（字と▾）"; Name = "ScopeButton"; File = "search\search_bar.xaml"; Horizontal = ""; CheckX = $false }
         @{ Kind = "種類のチップ"; Name = "KindChipExcel"; File = "search\search_bar.xaml"; Horizontal = ""; CheckX = $false }
-        @{ Kind = "分割ボタンの［保存］"; Name = "ExportButton"; File = "search\result_list.xaml"; Horizontal = "・左右"; CheckX = $true }
+        @{ Kind = "分割ボタンの［出力］"; Name = "ExportButton"; File = "search\result_list.xaml"; Horizontal = "・左右"; CheckX = $true }
         @{ Kind = "分割ボタンの▾"; Name = "ExportMenuButton"; File = "search\result_list.xaml"; Horizontal = "・左右"; CheckX = $true }
         @{ Kind = "字と▾のボタン"; Name = "ActionsButton"; File = "index\index_list.xaml"; Horizontal = "・左右"; CheckX = $true }
         @{ Kind = "ふつうのボタン"; Name = "IndexingButton"; File = "index\index_list.xaml"; Horizontal = "・左右"; CheckX = $true }

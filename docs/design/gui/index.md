@@ -84,7 +84,7 @@ flowchart TB
 | 機能 | 実行場所 | 備考 |
 |---|---|---|
 | インデックス作成 | **画面のプロセスの中のスレッド**（`IndexingSession` が `tebunko/indexer.ps1 -Channel` を実行する） | 時間がかかるため、画面のスレッドとは別のスレッド（優先度 BelowNormal）で実行する。1 ファイルの更新は取り込みのスレッドで並べて行う。進み具合・［中止］・ログは画面に表示する（[［インデックス管理］タブ](index-tab.md)）。スレッドの分け方は [プロセスとスレッド](../structure/threads.md) |
-| 検索 | **画面内**（検索の司令のスレッド `SearchService` と照合のプール） | `tebunko/lib.ps1` の検索関数を使う（[検索の実行](search-tab.md#検索の実行)）。スレッドは画面を開いている間使い回す。結果ファイルへの出力は必要なときだけ行う（[結果をファイルに保存](search-tab.md#結果をファイルに保存)） |
+| 検索 | **画面内**（検索の司令のスレッド `SearchService` と照合のプール） | `tebunko/lib.ps1` の検索関数を使う（[検索の実行](search-tab.md#検索の実行)）。スレッドは画面を開いている間使い回す。結果ファイルへの出力は必要なときだけ行う（[結果をファイルに出力](search-tab.md#結果をファイルに出力)） |
 | 残った Office の終了 | **画面内** | `shared/office/office_process.ps1` の関数（`tebunko/lib.ps1` から読み込む）で、記録のある Office を取得・終了する。記録の読み取りは画面の裏の仕事で行う（[前回残った Office の確認](leftover-office.md)） |
 
 ## 画面構成

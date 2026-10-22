@@ -124,7 +124,7 @@ PDF は PowerShell だけで読み、外の部品・Office・外部プロセス�
 
 | 関数 | 使う API | 用途 |
 |---|---|---|
-| `applyFailedFileState`（`tebunko/ui/index/index_detail.ps1`。フォルダを開く 1 か所。ファイルを選んで見せるときは `showInExplorer` を使う）・`applyIndexSourceFolderState`（`tebunko/ui/index/index_list.ps1`）・`showInExplorer`（`tebunko/ui/open_source.ps1`。元のファイルの場所と、保存した検索結果のファイルを、エクスプローラーで選んで見せる） | `Start-Process`（`explorer.exe`） | 一覧・検索結果から元のファイルの場所を開く（利用者の操作時のみ）。フォルダと確かめたものだけを渡す（ファイルをフォルダとして渡すと、そのファイルが既定のアプリで実行されるため） |
+| `applyFailedFileState`（`tebunko/ui/index/index_detail.ps1`。フォルダを開く 1 か所。ファイルを選んで見せるときは `showInExplorer` を使う）・`applyIndexSourceFolderState`（`tebunko/ui/index/index_list.ps1`）・`showInExplorer`（`tebunko/ui/open_source.ps1`。元のファイルの場所と、出力した検索結果のファイルを、エクスプローラーで選んで見せる） | `Start-Process`（`explorer.exe`） | 一覧・検索結果から元のファイルの場所を開く（利用者の操作時のみ）。フォルダと確かめたものだけを渡す（ファイルをフォルダとして渡すと、そのファイルが既定のアプリで実行されるため） |
 | `openAboutLink`（`tebunko/ui/about_dialog.ps1`） | `Start-Process`（`explorer.exe`。アドレスを 1 つ渡す） | 「バージョン情報」の GitHub・リリースのリンク。開くのは `getAboutLinks` に載せた 2 つのアドレス（`https://github.com/hsgwa/tebunko` と、その `/releases`）と一字一句同じものだけ（`testAboutLinkUrl`）。利用者がリンクを押したときのみ |
 | `openWithNotepad`（`tebunko/ui/open_source.ps1`） | `Start-Process`（固定のパス `%SystemRoot%\System32\notepad.exe`） | 検索結果から、既定のアプリで開くと実行・登録になる拡張子（`$textNotepadExtensions`）のテキストファイルを開く（利用者の操作時のみ） |
 | `openWithShell`（`tebunko/ui/open_source.ps1`） | `ProcessStartInfo`・`UseShellExecute`・`Process::Start`・`Invoke-Item` | 元のファイルを既定のアプリで開く。先頭で `testSourceBookName` により名前を確かめ、通らなければ何も起動しない |

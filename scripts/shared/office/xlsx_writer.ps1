@@ -1,7 +1,7 @@
 ﻿# 最小の .xlsx（Office Open XML）を、行ごとに書き出す。Excel は使わない。
 # ZIP（System.IO.Compression）に部品を直接書く。シートの行は 1 行ずつ ZIP のエントリーへ流し、全件を文字列に溜めない。
 # ツールを知らない部品: 見出しと行（文字列の配列）を受け取るだけで、列の意味は知らない。
-#   newXlsxWriter   … 保存先を開き、書き手（状態）を返す
+#   newXlsxWriter   … 出力先を開き、書き手（状態）を返す
 #   addXlsxRow      … 1 行足す（行の上限を超える分は書かず $false）
 #   closeXlsxWriter … 完成させて閉じる（書いた行数・切り詰めたセルの数・落とした行数を返す）
 #   abortXlsxWriter … 完成させずに閉じる（失敗・中止のとき。ファイルを消すのは呼ぶ側）
@@ -111,7 +111,7 @@ function writeXlsxRowXml {
 }
 
 function newXlsxWriter {
-    # 保存先を開く（FileMode.Create・FileShare.None）。開かれていれば IOException、読み取り専用なら UnauthorizedAccessException をそのまま投げる。
+    # 出力先を開く（FileMode.Create・FileShare.None）。開かれていれば IOException、読み取り専用なら UnauthorizedAccessException をそのまま投げる。
     # maxRows は見出しを含む行の上限
     param (
         [string]$path,

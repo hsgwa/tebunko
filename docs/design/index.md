@@ -57,7 +57,7 @@ flowchart TB
 1. **インデックス作成**（[インデックス作成](indexing/index.md)）
    各ファイルを取り込み、「場所」（Excel のシート、Word のページ、PowerPoint のスライド、PDF のページ、テキストは「本文」の 1 つ）ごとの TSV（UTF-8）に書き出し、フォルダの取り込みが終わるとフォルダ・拡張子ごとの本文インデックスにまとめて `work/store/content/` に蓄積する。Excel のセルは COM で操作してテキストを抽出し、Excel の図形・コメントと Word・PowerPoint はファイル（ZIP 内の XML）を直接読む（Word・PowerPoint の旧形式は Word・PowerPoint で新形式に変換してから読む）。テキストファイルは文字コードを判定してから行に分けて読む（[テキストファイルの読み取り](indexing/text.md)）。PDF は PowerShell だけでページごとの文字を読む（[PDF ファイルの読み取り](indexing/pdf.md)）。2 回目以降は、取り込み済みで更新の無いファイルをスキップする（差分取り込み）。
 2. **検索**（[検索](search/index.md)）
-   本文インデックスを検索し（大文字と小文字の区別・正規表現・ファイルの種類の条件はサクラエディタの Grep にならう）、ヒットした「ファイル名（相対フォルダ付き）・場所・該当行」を、元のファイルごとの見出しにまとめて画面の表に表示する。必要なときは Excel ブック・CSV・TSV のファイルに保存する。
+   本文インデックスを検索し（大文字と小文字の区別・正規表現・ファイルの種類の条件はサクラエディタの Grep にならう）、ヒットした「ファイル名（相対フォルダ付き）・場所・該当行」を、元のファイルごとの見出しにまとめて画面の表に表示する。必要なときは Excel ブック・CSV・TSV のファイルに出力する。
 
 どちらも画面（[画面](gui/index.md)）から行う。インデックス作成は画面のプロセスの中のスレッドで動き、進み具合を画面に表示する（[プロセスとスレッド](structure/threads.md)）。画面には、インデックス作成を異常終了させた際に残る Excel・Word・PowerPoint のプロセスを強制終了する機能もある。
 
@@ -109,7 +109,7 @@ flowchart LR
         idx[("store/content/<br>本文インデックス")]
         status["store/ingest_status.tsv<br>（更新日時・状態）"]
         ctl["indexing_log.txt<br>store/journal/ingest.tsv"]
-        out["保存先のファイル（.xlsx・.csv・.tsv）<br>（［保存 ▼］）"]
+        out["出力先のファイル（.xlsx・.csv・.tsv）<br>（［出力 ▼］）"]
     end
 
     tmp[("work/tmp/#lt;PC の鍵#gt;/#lt;PID#gt;<br>取り込みの作業領域<br>（置けないときはスキップ）")]
