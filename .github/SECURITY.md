@@ -44,10 +44,26 @@ Security fixes are made for the latest minor version (the latest `v<major>.<mino
 
 ## How reports are handled
 
-- We acknowledge a report within 7 days.
-- We check the report and try to reproduce the problem.
-- If we fix it, we describe the cause and the impact in [docs/safety/index.md](../docs/safety/index.md) (Japanese) and the related design documents, and add tests to `tests/` to prevent it from happening again.
-- The fix is released with the catalog and hash list made by `tools\new_release_files.ps1`, and the provenance of the zip is signed with Sigstore. Anyone who receives it can check that the release has not been altered (see the "安全性" (safety) section of the [README](../README.md#安全性), Japanese).
+The maintainer handles reports alone, so the deadlines below are counted in days from the day we receive the report.
+
+**Deadlines**
+
+- We acknowledge a report within 7 days of receiving it.
+- We reply with the result of reproducing the problem and our assessment of its impact within 30 days of receiving it.
+- We publish the advisory after the fixed version is released. As a guide, this is within 90 days of receiving the report. If more time is needed, we discuss it with the reporter first.
+
+**Steps**
+
+1. Receive: we receive the report through GitHub's private vulnerability reporting.
+2. Reproduce and assess: we try to reproduce the problem and decide whether to treat it as a security problem and how far it reaches.
+3. Draft an advisory: we write a draft GitHub Security Advisory with the cause, the impact and the affected versions.
+4. Fix in a private fork: we make the fix in the temporary private fork of the advisory. We describe the cause and the impact in [docs/safety/index.md](../docs/safety/index.md) (Japanese) and the related design documents, and add tests to `tests/` to prevent it from happening again.
+5. Release: we release the fix as a patch version of the latest minor version (see [Supported versions](#supported-versions)). The release comes with the catalog and hash list made by `tools\new_release_files.ps1`, and the provenance of the zip is signed with Sigstore. Anyone who receives it can check that the release has not been altered (see the "安全性" (safety) section of the [README](../README.md#安全性), Japanese).
+6. Publish the advisory: we publish the advisory. The reporter's name is credited or not as the reporter wishes.
+
+**CVE**
+
+- If the problem affects a released version and users need to take action, we request a CVE through the advisory (GitHub assigns it). If it affects only the development `main` branch, or is not a security problem, we do not request one.
 
 ## What we ask of users
 
