@@ -4,9 +4,10 @@
 # -contains・foreach・Count が中身ではなく集合そのものに当たる（インポートの名前の重なりを見落とし、常に別名になった）。
 # 変数に受けてから使う（$set = 関数名 ...; @($set)）。
 #
-# 見つけるもの: `return , ...` を持つ関数（scripts の全体で集める）を、単独のコマンドとして @(...) の中で呼ぶ書き方。
-# パイプラインに流す `@(関数名 ... | Where-Object ...)` も、集合が 1 つのまま渡るため同じ問題を持つが、今は対象にしない
-# （既にある書き方まで広げると落ちる箇所があり、別の起票で直してから対象に加える）。
+# 見つけるもの: `return , ...` を持つ関数（scripts の全体で集める）を、@(...) の中の先頭のコマンドとして呼ぶ書き方
+# （単独の `@(関数名 ...)` と、パイプラインに流す `@(関数名 ... | Where-Object ...)` の両方。集合が 1 つのまま渡るため同じ問題を持つ）。
+# 見つけないもの: @() で包まずにパイプラインへ流す `関数名 ... | Sort-Object`。同じ問題を持つが、今の scripts に当たる箇所が無く、
+# 対象にすると @() の外の文全体まで調べ方を広げることになる。広げるかは、当たる箇所が出たときに別の起票で決める。
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
 
@@ -49,7 +50,7 @@ BeforeAll {
                 continue
             }
             $elements = @($statements[0].PipelineElements)
-            if ($elements.Count -ne 1 -or $elements[0] -isnot [System.Management.Automation.Language.CommandAst]) {
+            if ($elements.Count -lt 1 -or $elements[0] -isnot [System.Management.Automation.Language.CommandAst]) {
                 continue
             }
             $command = $elements[0].GetCommandName()
@@ -79,6 +80,8 @@ Describe "return , で返す関数を @() で包まない" -Tag Meta {
         @{ name = "単独の呼び出し"; code = 'function f { return , $s }; $u = @(f $x)' }
         @{ name = "引数なし"; code = 'function f { return , $s }; $u = @(f)' }
         @{ name = "-contains の左"; code = 'function f { return , $s }; if (@(f $x) -contains "a") { }' }
+        @{ name = "パイプラインの先頭（Where-Object）"; code = 'function f { return , $s }; $u = @(f $x | Where-Object { $_ })' }
+        @{ name = "パイプラインの先頭（Sort-Object と添字）"; code = 'function f { return , $s }; $u = @(f $x | Sort-Object Length)[0]' }
     ) {
         param ($name, $code)
         $path = "$TestDrive\found.ps1"
@@ -90,9 +93,10 @@ Describe "return , で返す関数を @() で包まない" -Tag Meta {
 
     It "見つけない: <name>" -TestCases @(
         @{ name = "変数に受ける"; code = 'function f { return , $s }; $set = f $x; $u = @($set)' }
-        @{ name = "パイプラインに流す（今は対象外。広げるのは別の起票）"; code = 'function f { return , $s }; $u = @(f $x | Where-Object { $_ })' }
         @{ name = "return , の無い関数"; code = 'function f { return $s }; $u = @(f $x)' }
         @{ name = "別の関数"; code = 'function f { return , $s }; $u = @(g $x)' }
+        @{ name = "別の関数のパイプライン"; code = 'function f { return , $s }; $u = @(g $x | Where-Object { $_ })' }
+        @{ name = "変数に受けてパイプラインに流す"; code = 'function f { return , $s }; $s = f $x; $u = @($s | Where-Object { $_ })' }
     ) {
         param ($name, $code)
         $path = "$TestDrive\notfound.ps1"
