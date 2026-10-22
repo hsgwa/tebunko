@@ -4651,6 +4651,11 @@
 <td>検索の結果が件数の上限を超えたときの、表に入らない分（<code>&lt;作業の番号&gt;.tsv</code>・<code>&lt;作業の番号&gt;.head.tsv</code>。<a href="../../search/#上限を超えた分の数え上げと書き溜め">上限を超えた分</a>）。次の検索の始めと画面を閉じるとき（検索の司令のスレッドの終わり）に自分の <code>&lt;PID&gt;</code> のフォルダごと消し、起動時に動いていないプロセスのものを裏で消す（<code>removeStaleSearchOverflow</code>）</td>
 </tr>
 <tr>
+<td><code>work\tmp\&lt;PC の鍵&gt;\search_overflow\&lt;PID&gt;\export\body.tmp</code></td>
+<td>書く・消す</td>
+<td>［結果をファイルに出力］で、結果の本文を先に書く一時ファイル（出力の終わり・中止・失敗のときに消す。溢れの根が使えないときは <code>search_results.txt.body</code>）。続けて <code>search_results.txt.new</code> に書き、書き終えてから <code>search_results.txt</code> と置き換える（途中で止まっても前のファイルを残す）</td>
+</tr>
+<tr>
 <td><code>setting.config</code></td>
 <td>読む・書く</td>
 <td>設定（<a href="../settings-file/">設定ファイル（setting.config）</a>）。ツールのフォルダに書けるときだけここに置く。書けないときは「既定のワークスペースの直下」</td>

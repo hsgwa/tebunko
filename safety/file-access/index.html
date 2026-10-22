@@ -4383,6 +4383,11 @@
 <td><code>tebunko/indexer/index_migrate.ps1</code> の <code>initTmpDir</code></td>
 </tr>
 <tr>
+<td><code>work/tmp/&lt;PC の鍵&gt;/search_overflow/&lt;PID&gt;/</code>（<code>&lt;PID&gt;</code> の下に検索の要求ごとの <code>&lt;要求の番号&gt;\*.tsv</code> と、［結果をファイルに出力］の本文の一時ファイル <code>export\body.tmp</code>。根が <code>tmpRoot\&lt;PC の鍵&gt;\search_overflow</code> そのものでリンクでないときだけ作る）</td>
+<td>上限を超えた検索結果の溢れ（検索の続きの置き場所）と、その書き出しの途中の本文。次の検索の始め・画面を閉じるときに中ごと消す。強制終了で残ったものは、次の起動時に、動いていないプロセスの <code>&lt;PID&gt;</code> のものだけを消す</td>
+<td><code>tebunko/search/search_overflow.ps1</code>、<code>tebunko/search/search_export.ps1</code> の <code>getSearchExportBodyPath</code></td>
+</tr>
+<tr>
 <td><code>work/tmp/&lt;PC の鍵&gt;/open_copy/&lt;12 桁の英数字&gt;/&lt;ファイル名&gt;</code>（<code>&lt;PID&gt;</code> の下ではない。強制終了の片付けは数字の名前のフォルダだけを消すので残る）</td>
 <td>［新規で開く］のコピー（Office 以外の元のファイルを共有で読んで写したもの。開いたアプリが使う間は消さない）。起動のたびに 1 回、最後に使ってから 1 日より古いものだけを消す</td>
 <td><code>tebunko/core/open_copy.ps1</code> の <code>copySourceForOpen</code>・<code>clearOldOpenCopies</code></td>
@@ -4399,7 +4404,7 @@
 </tr>
 <tr>
 <td>利用者が指定した出力先</td>
-<td>［結果をファイルに出力］の保存先（既定は <code>work\search_results.txt</code>）</td>
+<td>［結果をファイルに出力］の保存先（既定は <code>work\search_results.txt</code>）と、書き終えてから置き換えるまでの間だけ残る <code>&lt;保存先&gt;.new</code>、溢れの置き場所が使えないときだけ作る本文の一時ファイル <code>&lt;保存先&gt;.body</code>（どちらも強制終了すると残ることがある。次の出力の始めに消す）</td>
 <td>画面のダイアログで利用者が指定</td>
 </tr>
 <tr>
@@ -4501,7 +4506,7 @@
 </tr>
 <tr>
 <td>書き込み中の一時ファイル（<code>&lt;保存先&gt;.tmp</code>。置き換えたら消える）</td>
-<td>書く先のすぐ隣（<code>setting.config.tmp</code>・<code>store\ingest_status.tsv.tmp</code>・<code>store\format.tsv.tmp</code> などの TSV の隣・利用者が指定したエクスポート/インポート先の隣 など）</td>
+<td>書く先のすぐ隣（<code>setting.config.tmp</code>・<code>store\ingest_status.tsv.tmp</code>・<code>store\format.tsv.tmp</code> などの TSV の隣・利用者が指定したエクスポート/インポート先の隣・［結果をファイルに出力］の保存先の隣の <code>search_results.txt.new</code> など）</td>
 <td>書き込み中の内容</td>
 <td>途中で強制終了してもファイルが壊れないよう、一時ファイルに書いてから置き換える（<code>writeTextLinesAtomic</code> など）。置き換え（<code>File.Replace</code>）は同じフォルダ内でしか使えない</td>
 </tr>

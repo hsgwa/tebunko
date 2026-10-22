@@ -4330,7 +4330,7 @@
 
 
 <h1 id="部品ごとの関数検索スレッド元のファイル画面">部品ごとの関数（検索・スレッド・元のファイル・画面）<a class="headerlink" href="#部品ごとの関数検索スレッド元のファイル画面" title="Permanent link">&para;</a></h1>
-<p>扱うこと: 検索（<code>search_query.ps1</code>・<code>content_index_search.ps1</code>・<code>search_overflow.ps1</code>・<code>search_run.ps1</code>）、スレッドとプール（<code>worker_pool.ps1</code>・<code>search_service.ps1</code>・<code>indexing_session.ps1</code>）、元のファイルの特定（<code>source_map.ps1</code>）、画面が使う集計・設定・Office プロセスの関数一覧。扱わないこと: TSV・本文インデックスそのものの関数（<a href="../tsv/">部品ごとの関数（TSV と本文インデックス）</a>）。先に読むページ: <a href="../">部品から関数一覧を引く</a>。</p>
+<p>扱うこと: 検索（<code>search_query.ps1</code>・<code>content_index_search.ps1</code>・<code>search_overflow.ps1</code>・<code>search_export.ps1</code>・<code>search_run.ps1</code>）、スレッドとプール（<code>worker_pool.ps1</code>・<code>search_service.ps1</code>・<code>indexing_session.ps1</code>）、元のファイルの特定（<code>source_map.ps1</code>）、画面が使う集計・設定・Office プロセスの関数一覧。扱わないこと: TSV・本文インデックスそのものの関数（<a href="../tsv/">部品ごとの関数（TSV と本文インデックス）</a>）。先に読むページ: <a href="../">部品から関数一覧を引く</a>。</p>
 <h2 id="検索tebunkosearchsearch_queryps1content_index_searchps1search_runps1">検索（<code>tebunko/search/search_query.ps1</code>・<code>content_index_search.ps1</code>・<code>search_run.ps1</code>）<a class="headerlink" href="#検索tebunkosearchsearch_queryps1content_index_searchps1search_runps1" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart LR
     A["getContentIndexFiles&lt;br&gt;本文インデックスのファイルを列挙"] --&gt; B["searchContentIndex"]
@@ -4521,20 +4521,52 @@
 <td>検索</td>
 </tr>
 <tr>
+<td><code>getSearchResultLine</code></td>
+<td>relDir, book, location, lineNumber, line</td>
+<td>string</td>
+<td>結果の 1 行（相対フォルダ付き <code>toResultLine</code>）。コピーとファイル出力で共通</td>
+<td>同上</td>
+<td><code>toSearchResultLines</code>・<code>invokeSearchExport</code></td>
+</tr>
+<tr>
+<td><code>getSearchResultColumnCount</code></td>
+<td>line</td>
+<td>int</td>
+<td>1 行の見出しに要る列の数（ファイル名・場所・種別・行番号の 4 列を除いたセルの数）</td>
+<td>同上</td>
+<td><code>toSearchResultLines</code>・<code>invokeSearchExport</code></td>
+</tr>
+<tr>
+<td><code>getSearchResultCountLine</code></td>
+<td>word, count</td>
+<td>string</td>
+<td><code>【検索文字列　X】 N 件</code> の行</td>
+<td>同上</td>
+<td><code>writeSearchResult</code>・<code>invokeSearchExport</code></td>
+</tr>
+<tr>
 <td><code>toSearchResultLines</code></td>
 <td>hits</td>
 <td><code>@{Header; Lines}</code></td>
-<td>検索結果ファイルの見出し行と各行（相対フォルダ付き <code>toResultLine</code>、最大セル数の <code>toResultHeader</code>）</td>
+<td>検索結果ファイルの見出し行と各行（<code>getSearchResultLine</code>、最大セル数の <code>toResultHeader</code>）</td>
 <td>同上</td>
-<td>検索・画面</td>
+<td>画面（コピー）</td>
 </tr>
 <tr>
 <td><code>writeSearchResult</code></td>
 <td>writer, word, hits</td>
 <td>–</td>
-<td>1 ワード分の <code>【検索文字列　X】 N 件</code>・見出し行・各行・空行を書き出す</td>
+<td>1 ワード分の <code>【検索文字列　X】 N 件</code>・見出し行・各行・空行を、メモリ上の全件から書き出す。画面の［結果をファイルに出力］は全件をメモリに持たないので <code>invokeSearchExport</code> を使い、同じ形になることをテストで確かめる</td>
 <td>同上</td>
-<td>検索・画面</td>
+<td>テスト（書き出しの基準）</td>
+</tr>
+<tr>
+<td><code>newExportRequest</code></td>
+<td>source, outputPath, shownHits, filterText, word</td>
+<td>hashtable（Synchronized）</td>
+<td>書き出しの要求（<code>Kind = "Export"</code>）。表の分（値だけ）・絞り込みの文字列・元の検索の要求を持つ。<code>Outcome</code>・<code>Written</code>・<code>Scope</code>・<code>HeadOnlyReason</code>・<code>Error</code>・<code>Finished</code> を司令が書く</td>
+<td><a href="../../gui/search-tab/#結果をファイルに出力">結果をファイルに出力</a></td>
+<td><code>startExport</code>（画面）・<code>SearchService.Export</code></td>
 </tr>
 <tr>
 <td><code>getSearchOverflowRoot</code></td>
@@ -4599,6 +4631,30 @@
 <td>溢れのファイルを、全件の順（作業の番号の順に、head → 作業のファイル）に並べる。フォルダが無ければ空</td>
 <td><a href="../../search/#上限を超えた分の数え上げと書き溜め">上限を超えた分の数え上げと書き溜め</a></td>
 <td><code>readSearchOverflowLines</code>・書き出し</td>
+</tr>
+<tr>
+<td><code>invokeSearchExport</code></td>
+<td>request（<code>newExportRequest</code> の要求）</td>
+<td>なし</td>
+<td>［結果をファイルに出力］の書き出し。表の分と溢れのファイルを本文の一時ファイルに書き、<code>.new</code> に見出し付きで組み、<code>search_results.txt</code> と置き換える。結果は要求の <code>Outcome</code>（Done / Cancelled / Locked / Denied / Failed）・<code>Written</code>・<code>Scope</code> に残す</td>
+<td><a href="../../gui/search-tab/#結果をファイルに出力">結果をファイルに出力</a></td>
+<td>検索の司令（<code>SearchService</code>）</td>
+</tr>
+<tr>
+<td><code>getSearchExportScope</code></td>
+<td>source（検索の要求）</td>
+<td><code>@{Scope; Reason}</code></td>
+<td>何を書くかを決める（All / Overflow / HeadOnly と、HeadOnly の理由）</td>
+<td><a href="../../gui/search-tab/#結果をファイルに出力">結果をファイルに出力</a></td>
+<td><code>invokeSearchExport</code></td>
+</tr>
+<tr>
+<td><code>testHitFilter</code></td>
+<td>book, filterText</td>
+<td>bool</td>
+<td>元のファイル名が絞り込みに合うか（空は全部合う。大文字・小文字を区別しない部分一致）</td>
+<td><a href="../../gui/search-tab/#絞り込み">結果の絞り込み</a></td>
+<td><code>HitRow.MatchesFileName</code>・<code>invokeSearchExport</code></td>
 </tr>
 <tr>
 <td><code>readSearchOverflowLines</code></td>
@@ -4692,7 +4748,7 @@
 <td><code>newSearchService</code> / <code>SearchService</code></td>
 <td>libPath, cache, workers</td>
 <td><code>SearchService</code></td>
-<td>検索の司令のスレッド（画面を開いている間 1 つ）。<code>Request</code>（前の要求を取り消して新しい要求を渡す。スレッドが止まっていれば作り直す）・<code>Cancel</code>・<code>IsRunning</code>・<code>GetFailure</code>・<code>Close</code>（5 秒待って止まらなければスレッドを止める）</td>
+<td>検索の司令のスレッド（画面を開いている間 1 つ）。<code>Request</code>（前の要求を取り消して新しい要求を渡す。スレッドが止まっていれば作り直す）・<code>Export</code>（書き出しの要求を渡す。実行中の検索は取り消さない。作り直したときは溢れが消えているので表の分だけになる）・<code>Cancel</code>・<code>IsRunning</code>・<code>GetFailure</code>・<code>Close</code>（5 秒待って止まらなければスレッドを止める）</td>
 <td>画面</td>
 </tr>
 <tr>

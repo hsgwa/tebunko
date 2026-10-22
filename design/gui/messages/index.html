@@ -4412,6 +4412,16 @@
 <td><code>search_results.txt に出力しました（N 件）</code>（絞り込み中は <code>絞り込み後の N 件を search_results.txt に出力しました</code>） / <code>search_results.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。</code> / <code>search_results.txt に書き込む権限がありません（読み取り専用など）。&lt;パス&gt; を確かめてから、もう一度出力してください。</code>（<a href="../search-tab/#結果をファイルに出力">結果をファイルに出力</a>）</td>
 </tr>
 <tr>
+<td>ステータス・ボタン</td>
+<td>結果を出力している間</td>
+<td>ボタン <code>出力を中止</code>（ふだんは <code>保存</code>）。検索の途中で押したとき <code>検索が終わってから search_results.txt に出力します…</code>、書き込み中 <code>search_results.txt に出力しています…（N 件）</code>、中止 <code>出力を中止しました。search_results.txt は前のままです。</code>、失敗 <code>search_results.txt に出力できませんでした：&lt;理由&gt;</code></td>
+</tr>
+<tr>
+<td>ステータス</td>
+<td>上限を超えた分も出力した</td>
+<td><code>表に入らなかった分も含めて、全 N 件を search_results.txt に出力しました</code>（絞り込み中は <code>…含めて、絞り込み後の N 件を…</code>。並べ替え中は末尾に <code>（件数が多いため、並べ替えは当てずに検索の順で出力しました）</code>） / 表の分だけのとき <code>表に出ている N 件だけを search_results.txt に出力しました（&lt;理由&gt;）</code>（理由: <code>総数を数える時間が切れたため、残りは出力していません</code> / <code>表に入らない分を一時ファイルに書けなかったため、残りは出力していません</code> / <code>検索を途中で止めたため、残りは出力していません</code>）</td>
+</tr>
+<tr>
 <td>ステータス</td>
 <td>残った Office を終了した / 変わっていて止めなかった / できなかった</td>
 <td><code>Office を N 件終了しました。</code> / <code>PID &lt;N&gt; は確認の後に別のプロセスに変わったため、終了しませんでした。</code> / <code>PID &lt;N&gt; を終了できませんでした：&lt;理由&gt;</code>（<a href="../leftover-office/">起動時の確認</a>）</td>
