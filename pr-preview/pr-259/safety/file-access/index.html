@@ -1038,6 +1038,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#検索結果の保存先の確かめ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        検索結果の保存先の確かめ
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4280,6 +4291,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#検索結果の保存先の確かめ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        検索結果の保存先の確かめ
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4530,6 +4552,17 @@
 </tr>
 </tbody>
 </table>
+<h3 id="検索結果の保存先の確かめ">検索結果の保存先の確かめ<a class="headerlink" href="#検索結果の保存先の確かめ" title="Permanent link">&para;</a></h3>
+<p>［保存 ▼］の保存先は、利用者が保存のダイアログで選んだ名前だけから決める（<code>resolveExportTarget</code>。ほかのパスから保存先を作らない。<code>tests/meta/safety.Tests.ps1</code> が確かめる）。書く前に、次の 2 つを確かめる。</p>
+<ul>
+<li>保存のダイアログの確定のとき、保存先がクロール対象のフォルダ・インデックスのフォルダの中なら断る（<code>testExportForbiddenPath</code>）。保存したファイルが次の取り込みの対象になるのを防ぐため。確かめるのは文字列の比べだけで、ファイルには触れない。</li>
+<li>書く直前に、司令のスレッドで出力先のフォルダを作れるか・同じ名前のファイルが開かれていないかを調べる（<code>testSearchExportTarget</code>）。</li>
+</ul>
+<p>この確かめには限りがある。</p>
+<ul>
+<li>文字列の比べのため、ドライブの割り当て（<code>subst</code>・割り当てたネットワークドライブ）、UNC パスとドライブ文字の別の書き方、ジャンクション（フォルダのリンク）、8.3 形式の短い名前を通した書き方では、同じ場所を指していても見抜けない。見抜けないときは、保存したファイルが次の取り込みの対象になることがある（取り込みでは、ほかのファイルと同じく、読み取りだけを行う）。</li>
+<li>保存のダイアログは OS のものなので、届かない共有を選ぶと、OS のダイアログが応答を待つ間、画面が止まることがある。tebunko は、ダイアログが閉じたあとの保存先に、画面のスレッドでは触れない（有無の確かめも書き込みも、司令のスレッドで行う）。</li>
+</ul>
 <h2 id="取り込み対象のファイルは書き換えない">取り込み対象のファイルは書き換えない<a class="headerlink" href="#取り込み対象のファイルは書き換えない" title="Permanent link">&para;</a></h2>
 <p>本ツールは、クロール対象フォルダのファイルを<strong>直接開かない</strong>。作業フォルダへコピーし、そのコピーだけを開く（<code>tebunko/indexer/extract_office.ps1:192</code>・<code>434</code> と <code>tebunko/indexer/extract_text.ps1</code>（<code>extractTextFile</code>）の <code>invokeWithSourceCopy</code>。中で <code>copyFileShared</code> を呼ぶ）。コピー元は読み取り専用で開く（<code>shared/core/fs.ps1:140</code>。<code>FileAccess::Read</code> で開き、ほかのアプリの読み書き・削除を妨げない）。</p>
 <p>この設計は、原本に絶対に影響を出さないために入れたもので（効果として、インデックス作成中も利用者が原本を上書き保存・移動できる）、結果として原本への書き込み経路そのものが存在しない。</p>

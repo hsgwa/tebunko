@@ -4282,7 +4282,7 @@
 <ul>
 <li><strong>Excel ブック（.xlsx）</strong>: 1 シート。1 行目が見出し <code>ファイル名</code>・<code>場所</code>・<code>種別</code>・<code>行</code>・<code>該当行</code> の 5 列で、ヒット 1 件が 1 行。該当行は、元の列のセルを <code>│</code> でつないで 1 セルに入れる（画面の表と同じ）。セルは文字列として書く（数式として解釈しない）。1 シートの行の上限は 1,048,576 行（見出しを含む）で、超えた分は書かず、ステータスに件数を添える。</li>
 <li><strong>CSV・TSV</strong>: 1 行目が見出し <code>ファイル名</code>・<code>場所</code>・<code>種別</code>・<code>行</code>・<code>A</code>・<code>B</code>…（該当行の最大セル数分の列名）。ヒット 1 件が 1 行で、該当行は元の列ごとに 1 列に分ける。UTF-8（BOM 付き）、改行は CRLF。CSV はコンマ区切りで、RFC 4180 のとおりコンマ・改行・<code>"</code> を含むセルを <code>"</code> で囲む。TSV はタブ区切りで、同じく囲む。</li>
-<li>どの形式でも、1 つのセルは 32,767 文字までで、超えた分は切る（Excel のセルの上限。切ったセルの数をステータスに添える）。</li>
+<li><strong>Excel ブックだけ</strong>、1 つのセルは 32,767 文字までで、超えた分は切る（Excel のセルの上限。切ったセルの数をステータスに添える）。CSV・TSV のセルの長さには上限を設けない。</li>
 <li>旧版の <code>work/search_results.txt</code>（検索文字列と件数の行から始まるタブ区切り）は書かなくなった。前の版が残したファイルは消さない。</li>
 <li>画面の［コピー］（選択行をクリップボードに入れる）は、これまでと同じタブ区切りの形式（<code>toSearchResultLines</code>）のまま。</li>
 </ul>
@@ -4369,7 +4369,7 @@
 <li><strong>該当行</strong> は、CSV・TSV では 5 列目以降に元の列の順（5 列目 = A 列）でセルが並ぶように出力する（Excel ブックでは 1 セルにつなぐ）。見出しの列名（A, B, C…）と行番号で、元のセル位置が分かる。</li>
 <li>Excel: TSV の行をそのまま出力し、セル内改行（U+2028）だけを LF に戻す。改行を含むセルは Excel の出力時点で <code>"</code> で囲まれているため、貼り付けても 1 セル内の改行となり、右隣のセル・後続の行はずれない。このため結果ファイルをテキストエディタで開くと、改行を含むセルは複数行に見える。</li>
 <li>Word・PowerPoint: 行（段落、または表の 1 行をタブ区切りにしたもの）は <code>"</code> で囲まれていない。Excel は <code>"</code> で始まるセルを囲みの <code>"</code> と解釈して後続がずれるため、<code>"</code> で始まるセルだけを <code>"</code> で囲み、中の <code>"</code> を <code>""</code> にする。途中に <code>"</code> を含むセルはそのままで、貼り付けても文字どおりになる。</li>
-<li>CSV・TSV の見出しの列名の数は、ヒット行の最大セル数（<code>countTsvFields</code>。<code>"</code> で始まるセルは閉じる <code>"</code> までを 1 セルとする）。ヒットが 0 件のときは <code>ファイル名&lt;TAB&gt;場所&lt;TAB&gt;種別&lt;TAB&gt;行</code> と件数の見出し 2 行のみとなる。</li>
+<li>CSV・TSV の見出しの列名の数は、ヒット行の最大セル数（<code>countTsvFields</code>。<code>"</code> で始まるセルは閉じる <code>"</code> までを 1 セルとする）。ヒットが 0 件のときは、見出しの <code>ファイル名</code>・<code>場所</code>・<code>種別</code>・<code>行</code> の 4 列だけの 1 行（CSV はコンマ区切り、TSV はタブ区切り）になる。件数の行は書かない。</li>
 </ul>
 <p>出力例（CSV。<code>⏎</code> はセル内改行の LF）:</p>
 <div class="highlight"><pre><span></span><code>ファイル名,場所,種別,行,A,B,C,D
