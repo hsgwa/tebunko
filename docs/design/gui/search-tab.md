@@ -125,7 +125,7 @@ flowchart TD
 - 書いている間、ボタンの文字は `出力を中止` になり、押すと中止する。中止・失敗のときは前の `search_results.txt` をそのまま残す（一時ファイルに書き終えてから置き換える）。
 - 検索の途中で押したときは、検索が終わってから書く（もう一度押すと取り消す）。新しく検索したときと、検索結果を消したときは、出力も止める。
 - 溢れが使えないとき（総数を数える時間切れ・溢れを書けなかった・検索を途中で止めた）は、表に出ている分だけを書き、ステータスにその理由を添える。
-- 形式は [検索結果ファイル](../search/output.md) のとおり。出力は `tebunko/search/search_run.ps1` の関数（`toSearchResultLines` / `writeSearchResult`、[実装構成](implementation.md#実装構成)）で行う。
+- 形式は [検索結果ファイル](../search/output.md) のとおり。出力は `tebunko/search/search_export.ps1` の `invokeSearchExport` が司令のスレッドで行う（表の分と溢れを同じ形で書く。1 行・件数の行の組み立ては `search_run.ps1` の `getSearchResultLine` / `getSearchResultColumnCount` / `getSearchResultCountLine`、画面のコピーと共通。[実装構成](implementation.md#実装構成)）。
 - 絞り込み中は、見出しの件数を表示中の件数とし、ステータスに `絞り込み後の K 件を search_results.txt に出力しました` と表示する（U7）。
 - 書き込めないときは、検索画面の上の橙の帯に出す（閉じられる。[帯とステータスバー](indexing-run.md#帯とステータスバー)）。ファイルが開かれているときは `search_results.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。`、読み取り専用・権限が無いときは `search_results.txt に書き込む権限がありません（読み取り専用など）。<パス> を確かめてから、もう一度出力してください。`。
 - まだ検索していなければ `先に検索してください。` と表示する。

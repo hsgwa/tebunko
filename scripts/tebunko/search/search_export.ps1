@@ -38,8 +38,8 @@ function newExportRequest {
 function getSearchExportScope {
     # 元の検索 source から、何を書き出すかを決める: @{ Scope; Reason }
     #   All     … 上限を超えていない（表がすべて）
-    #   Overflow … 上限を超えていて、溢れも書ける
-    #   HeadOnly … 上限を超えているが溢れは書けない。Reason は CountTimeout（総数の時間切れ）/ OverflowFailed（溢れを書けなかった）/ Cancelled（検索を止めた）
+    #   Overflow … 上限を超えていて、溢れも書ける（溢れの置き場所 OverflowDir がある）
+    #   HeadOnly … 上限を超えているが溢れは書けない。Reason は CountTimeout（総数の時間切れ）/ OverflowFailed（溢れを書けなかった・置き場所が消えている）/ Cancelled（検索を止めた）
     param (
         $source
     )
@@ -51,6 +51,10 @@ function getSearchExportScope {
         if ($source.$reason) {
             return @{ Scope = "HeadOnly"; Reason = $reason }
         }
+    }
+    # 司令のスレッドを作り直したあとなど、溢れの置き場所がもう無いときは、表の分だけ（書けなかったのと同じ扱い）
+    if (!$source.OverflowDir -or ![System.IO.Directory]::Exists($source.OverflowDir)) {
+        return @{ Scope = "HeadOnly"; Reason = "OverflowFailed" }
     }
     return @{ Scope = "Overflow"; Reason = "" }
 }
@@ -75,22 +79,6 @@ function testSearchExportTarget {
     }
 }
 
-function getSearchExportLine {
-    # 結果の 1 行（今の search_results.txt と同じ形。toSearchResultLines と同じく、ファイル名の前に相対フォルダを付ける）
-    param (
-        [string]$relDir,
-        [string]$book,
-        [string]$location,
-        [int]$lineNumber,
-        [string]$line
-    )
-
-    $text = toResultLine $book $location $lineNumber $line
-    if ($relDir) {
-        return "${relDir}\${text}"
-    }
-    return $text
-}
 
 function addSearchExportLine {
     # 本文の一時ファイルに 1 行書き、件数と、見出しに要る最大のセルの数（ファイル名・場所・種別・行番号の 4 列を除く）を state に反映する
@@ -102,7 +90,7 @@ function addSearchExportLine {
 
     $writer.WriteLine($line)
     $state.Count++
-    $cells = (countTsvFields $line) - 4
+    $cells = getSearchResultColumnCount $line
     if ($cells -gt $state.Columns) {
         $state.Columns = $cells
     }
@@ -135,7 +123,7 @@ function writeSearchExportShown {
         if (stepSearchExport $request $state) {
             return $false
         }
-        addSearchExportLine $writer $state (getSearchExportLine $hit.RelDir $hit.Book $hit.Location ([int]$hit.LineNumber) $hit.Line)
+        addSearchExportLine $writer $state (getSearchResultLine $hit.RelDir $hit.Book $hit.Location ([int]$hit.LineNumber) $hit.Line)
     }
     return $true
 }
@@ -156,7 +144,7 @@ function writeSearchExportOverflowLine {
     if ($parts.Length -lt 5 -or !(testHitFilter $parts[1] $request.FilterText)) {
         return $true
     }
-    addSearchExportLine $writer $state (getSearchExportLine $parts[0] $parts[1] $parts[2] ([int]$parts[3]) $parts[4])
+    addSearchExportLine $writer $state (getSearchResultLine $parts[0] $parts[1] $parts[2] ([int]$parts[3]) $parts[4])
     return $true
 }
 
@@ -248,7 +236,7 @@ function writeSearchExportFile {
     $stream = [System.IO.FileStream]::new($newPath, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
     $writer = [System.IO.StreamWriter]::new($stream, [System.Text.UTF8Encoding]::new($true))
     try {
-        $writer.WriteLine("【検索文字列　${word}】 $($state.Count) 件")
+        $writer.WriteLine((getSearchResultCountLine $word $state.Count))
         $writer.WriteLine((toResultHeader $state.Columns))
         $writer.Flush()
         $body = [System.IO.FileStream]::new($bodyPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)
@@ -299,8 +287,8 @@ function invokeSearchExport {
             $request.Outcome = $blocked
             return
         }
-        # 閉じるときに止められて残った .new は、置き換える前なので、ここで消してよい
-        removeSearchExportTemp @($newPath)
+        # 強制終了などで残った .new・.body（溢れの置き場所が使えないときの本文の一時ファイル）は、置き換える前なので、ここで消してよい
+        removeSearchExportTemp @($newPath, "${target}.body")
         $scope = getSearchExportScope $request.Source
         $request.Scope = $scope.Scope
         $request.HeadOnlyReason = $scope.Reason

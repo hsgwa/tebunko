@@ -97,6 +97,26 @@ Describe "検索結果の行（本文インデックスのファイルのヒッ�
         (toSearchResultLines @($hit)).Lines[0] | Should -Be "[確定]見積.xlsx`t[シート]見積`t図形`t1`tF2`t`"納期は`n別途`""
     }
 }
+Describe "getSearchResultLine / getSearchResultColumnCount / getSearchResultCountLine" -Tag Unit {
+    It "相対フォルダがあればファイル名の前に付け、無ければ付けない" -ForEach @(
+        @{ RelDir = ""; Expected = "A社.xlsx`t[シート]Sheet1`tセル`t3`tりんご" }
+        @{ RelDir = "営業部\2024"; Expected = "営業部\2024\A社.xlsx`t[シート]Sheet1`tセル`t3`tりんご" }
+    ) {
+        getSearchResultLine $RelDir "A社.xlsx" "Sheet1" 3 "りんご" | Should -Be $Expected
+    }
+
+    It "列の数は、ファイル名・場所・種別・行番号の 4 列を除いたセルの数" -ForEach @(
+        @{ Line = "a`tb`tセル`t1`tx"; Expected = 1 }
+        @{ Line = "a`tb`tセル`t1`tx`ty`tz"; Expected = 3 }
+    ) {
+        getSearchResultColumnCount $Line | Should -Be $Expected
+    }
+
+    It "件数の行" {
+        getSearchResultCountLine "りんご" 12 | Should -Be "【検索文字列　りんご】 12 件"
+    }
+}
+
 Describe "toSearchResultLines / writeSearchResult" -Tag Io {
     BeforeAll {
         $index = Join-Path $TestDrive "result"

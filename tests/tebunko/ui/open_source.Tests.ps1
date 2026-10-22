@@ -58,7 +58,7 @@ BeforeAll {
     function getCurrentHitRow { }
     function getSelectedRows { }
     function getViewRows { }
-    function getExportHits { param([bool]$truncated, [string]$filterText) }
+    function getExportHits { param([bool]$truncated, [string]$filterText, [bool]$sorted) }
     function newTimer {
         # 画面のタイマーの代わり（開始・停止を受けるだけ。進めるのはテストが pumpExport を呼ぶ）
         param ([int]$milliseconds, [scriptblock]$block)
@@ -1275,6 +1275,21 @@ Describe "exportResults" -Tag Io {
         $script:exportJob | Should -BeNullOrEmpty
     }
 
+    It "書いている途中にワークスペースを変えても、開くのは出力を始めたときの出力先" {
+        $workDir = "$TestDrive\export_moved\work"
+        $resultFile = "$workDir\search_results.txt"
+        $workspace = newTestWorkspace @{} $workDir
+        $script:lastSearch = newExportSearch $workDir
+        Mock getExportHits { , $hits }
+        $script:searchService = newFakeService $false
+
+        exportResults
+        $workspace = newTestWorkspace @{} "$TestDrive\export_moved\other"
+        invokeSearchExport $script:searchService.Requests[0]
+        pumpExport
+
+        Should -Invoke Invoke-Item -Times 1 -Exactly -ParameterFilter { $LiteralPath -eq $resultFile }
+    }
     It "前回の search_results.txt は追記せずに置き換え、BOM 付き UTF-8 で書く（0 件でも書き出す）" {
         $workDir = "$TestDrive\export_empty\work"
         $resultFile = "$workDir\search_results.txt"
@@ -1315,6 +1330,7 @@ Describe "exportResults" -Tag Io {
         $script:lastSearch.Shared.CountTimeout = $false
         $script:lastSearch.Shared.OverflowFailed = $false
         $script:lastSearch.Shared.Cancelled = $false
+        $script:lastSearch.Shared.OverflowDir = $TestDrive
         Mock getExportHits { , $hits }
 
         exportResults

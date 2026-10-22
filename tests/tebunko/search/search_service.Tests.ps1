@@ -337,6 +337,38 @@ Describe "SearchService" -Tag Io {
         }
     }
 
+    It "司令のスレッドが止まっているときの Export は、スレッドを作り直し、溢れは消えているので表の分だけを書く" {
+        $ws = Join-Path $TestDrive "ws_export_rebuild"
+        $out = Join-Path $ws "search_results.txt"
+        $brokenLibLoad = @{
+            State   = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault2()
+            Prelude = ". '$(Join-Path $TestDrive "無い.ps1")'"
+        }
+        $service = [SearchService]::new(${searchServiceScript}.ToString(), $brokenLibLoad, $null, 1, ${searchServiceCloseMilliseconds})
+        try {
+            $watch = [System.Diagnostics.Stopwatch]::StartNew()
+            while ($service.IsRunning() -and $watch.Elapsed.TotalSeconds -lt 30) {
+                Start-Sleep -Milliseconds 20
+            }
+            $service.IsRunning() | Should -Be $false
+            $service.LibLoad = $libLoad
+            $source = @{
+                WorkDir = $ws; Truncated = $true; CountTimeout = $false; OverflowFailed = $false; Cancelled = $false
+                OverflowDir = (Join-Path $TestDrive "消えた溢れ")
+            }
+            $shown = @([pscustomobject]@{ RelDir = ""; Book = "A社.xlsx"; Location = "Sheet1"; LineNumber = 1; Line = "単価`t105" })
+            $export = $service.Export((newExportRequest $source $out $shown "" "単価"))
+            $service.IsRunning() | Should -Be $true
+            waitRequest $export | Should -Be $true
+            $export.Outcome | Should -Be "Done"
+            $export.Scope | Should -Be "HeadOnly"
+            $export.HeadOnlyReason | Should -Be "OverflowFailed"
+            $export.Written | Should -Be 1
+        } finally {
+            $service.Close()
+        }
+    }
+
     It "司令のスレッドが止まっていたら理由を返す（単一 .ps1 版。部品を読み込む関数が失敗する）" {
         $brokenState = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault2()
         $brokenEntry = New-Object System.Management.Automation.Runspaces.SessionStateFunctionEntry("importTebunkoPart", 'throw "部品を読み込めません"')

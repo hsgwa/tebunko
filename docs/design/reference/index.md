@@ -89,8 +89,9 @@ flowchart LR
     GR --> SI["searchContentIndex"]
     SI --> NSR["newSearchRegex / newFileFilter / newPlaceExclude"]
     SI --> STF["searchContentIndexFiles<br>（.NET の StreamReader＋regex）"] --> RPP
-    GR --> WSR["writeSearchResult"] --> TSR["toSearchResultLines"]
-    TSR --> TRL
+    GR --> WSR["invokeSearchExport"] --> GSL["getSearchResultLine"]
+    GR --> TSR["toSearchResultLines"] --> GSL
+    GSL --> TRL
     TSR --> CTF
     TSR --> TRH --> TCN
 ```
@@ -106,7 +107,7 @@ flowchart LR
         TF["getTargetFolders / writeTargetFolders"]
         CS["getIndexingState"] --> RSF2["readStatusFile"]
         SUM["getIndexSummary / testIndexExists"]
-        SI2["searchContentIndex / toSearchResultLines / writeSearchResult"]
+        SI2["searchContentIndex / toSearchResultLines / invokeSearchExport"]
         RPC["readContentIndexLines（選択行のプレビュー）"]
         RSP["resolveSourcePath"] --> SL["getSourceLocation"] --> SFM["getSourceFolderMap"] --> INM["getIndexNameMap"] --> RSF2
         SFM --> RSFF["readSourceFolderFile"]

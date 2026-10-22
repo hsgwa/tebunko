@@ -846,9 +846,10 @@ function startExport {
     hideNoticeBanner "SearchNotice"
     $s = $script:lastSearch
     $filter = $script:filterText
-    $hits = getExportHits ([bool]$s.Shared.Truncated) $filter
+    $sorted = testResultSorted
+    $hits = getExportHits ([bool]$s.Shared.Truncated) $filter $sorted
     $request = newExportRequest $s.Shared $workspace.ResultFile $hits $filter $s.Word
-    $script:exportJob = @{ Request = $request; Filtered = ($filter -ne ""); Sorted = (testResultSorted) }
+    $script:exportJob = @{ Request = $request; Filtered = ($filter -ne ""); Sorted = $sorted }
     [void]$script:searchService.Export($request)
     updateExportButton
     setStatus (getExportWritingText 0)
@@ -911,7 +912,7 @@ function completeExport {
     $request = $job.Request
     switch ($request.Outcome) {
         "Done" {
-            Invoke-Item -LiteralPath $workspace.ResultFile
+            Invoke-Item -LiteralPath $request.OutputPath
             setStatus (getExportDoneText $request.Scope ([int]$request.Written) $job.Filtered $request.HeadOnlyReason $job.Sorted)
         }
         "Cancelled" {
@@ -919,7 +920,7 @@ function completeExport {
         }
         { $_ -in @("Locked", "Denied") } {
             # 読み取り専用・書き込み権限が無い（Denied）ときは、アプリを閉じても直らないため別の文言にする
-            $message = getResultSaveFailedText $request.Outcome $workspace.ResultFile
+            $message = getResultSaveFailedText $request.Outcome $request.OutputPath
             setStatus $message
             showNoticeBanner "SearchNotice" "ResultSaveFailed" $message
         }

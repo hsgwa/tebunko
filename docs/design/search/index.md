@@ -6,7 +6,7 @@
 |---|---|
 | 画面 | ［検索］タブ（[検索タブ](../gui/search-tab.md)） |
 | スクリプト | `scripts/tebunko/search/search_query.ps1`（検索条件）・`content_index_search.ps1`（本文インデックスの列挙と検索）・`search_run.ps1`（結果の組み立て）。`scripts/tebunko/lib.ps1` から読み込み、画面 `scripts/tebunko/gui.ps1` から呼ぶ |
-| 使用する共通関数 | `getGramContentIndexFiles`（2-gram の索引で絞る。[2-gram の索引](../index-data/gram-index.md)）/ `getContentIndexFiles` / `getSearchIndexes` / `searchContentIndex` / `writeSearchResult`（→ `toSearchResultLines` → `toResultLine` / `toResultHeader`）（[部品ごとの関数](../reference/search.md)） |
+| 使用する共通関数 | `getGramContentIndexFiles`（2-gram の索引で絞る。[2-gram の索引](../index-data/gram-index.md)）/ `getContentIndexFiles` / `getSearchIndexes` / `searchContentIndex` / `invokeSearchExport`（→ `getSearchResultLine` → `toResultLine`、`toResultHeader`。画面のコピーは `toSearchResultLines`）（[部品ごとの関数](../reference/search.md)） |
 
 全体構成・動作環境・フォルダ構成は [設計の概要](../index.md) を参照。インデックス（本文インデックス）の作り方は [インデックス作成](../indexing/index.md) を参照。画面の操作・表示は [検索タブ](../gui/search-tab.md) を参照。
 
@@ -53,7 +53,7 @@ flowchart TD
     F --> SS["searchContentIndex<br>本文インデックスを約 16MB ずつ .NET（StreamReader＋regex）で照合<br>（進捗を画面に通知、上限・中止を確認）"]
     SS --> R["ヒット: Root・RelPath・RelDir・FileName・<br>Book・Location・LineNumber・Line"]
     R --> G["画面の表に表示"]
-    G -- "［結果をファイルに出力］" --> W["writeSearchResult<br>work/search_results.txt に書き出して開く"]
+    G -- "［結果をファイルに出力］" --> W["invokeSearchExport<br>司令のスレッドで work/search_results.txt に書き出し、終わったら開く"]
 ```
 
 - 本文インデックスのファイルはフルパスをキーにまとめるため、入れ子のフォルダを指定しても同じ本文インデックスのファイルを二重に検索しない。

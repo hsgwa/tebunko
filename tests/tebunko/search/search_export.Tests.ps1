@@ -177,6 +177,44 @@ Describe "結果のファイル出力" -Tag Io {
             [System.IO.File]::ReadAllText($out, [System.Text.Encoding]::UTF8) | Should -Not -Be "前の結果"
         }
 
+        It "前の出力が強制終了で残した .body も、次の出力の始めに消える" {
+            [System.IO.File]::WriteAllText("$out.body", "古い", ${utf8Bom})
+            $request = newExportRequest (newSource $own $result $dir) $out @($result.Hits) "" "多い"
+            invokeSearchExport $request
+            $request.Outcome | Should -Be "Done"
+            [System.IO.File]::Exists("$out.body") | Should -BeFalse
+        }
+
+        It "溢れの置き場所が使えないときは、本文の一時ファイルを出力先の横に作り、終わりに消す" {
+            Mock testSearchOverflowRoot { return $false }
+            $request = newExportRequest (newSource $own $result $dir) $out @($result.Hits) "" "多い"
+            invokeSearchExport $request
+            $request.Outcome | Should -Be "Done"
+            [System.IO.File]::Exists("$out.body") | Should -BeFalse
+            [System.IO.File]::ReadAllText($out, [System.Text.Encoding]::UTF8) | Should -Not -Be "前の結果"
+        }
+
+        It "書いている途中で想定外の例外が出たら Failed にして、理由を残し、前のファイルを残す" {
+            Mock writeSearchExportBody { throw "壊れた" }
+            $request = newExportRequest (newSource $own $result $dir) $out @($result.Hits) "" "多い"
+            invokeSearchExport $request
+            $request.Outcome | Should -Be "Failed"
+            $request.Error | Should -Be "壊れた"
+            $request.Finished | Should -BeTrue
+            [System.IO.File]::ReadAllText($out, [System.Text.Encoding]::UTF8) | Should -Be "前の結果"
+        }
+
+        It "溢れの置き場所が消えているときは、表の分だけを書き、理由は OverflowFailed" {
+            $source = newSource $own $result ""
+            $source.Truncated = $true
+            $request = newExportRequest $source $out @($result.Hits) "" "多い"
+            invokeSearchExport $request
+            $request.Outcome | Should -Be "Done"
+            $request.Scope | Should -Be "HeadOnly"
+            $request.HeadOnlyReason | Should -Be "OverflowFailed"
+            $request.Written | Should -Be 3
+        }
+
         It "出力先がまだ無くても書ける" {
             [System.IO.File]::Delete($out)
             $request = newExportRequest (newSource $own $result $dir) $out @($result.Hits) "" "多い"
@@ -190,7 +228,9 @@ Describe "結果のファイル出力" -Tag Io {
 Describe "getSearchExportScope" -Tag Unit {
     It "<Name>" -ForEach @(
         @{ Name = "上限を超えていない"; Source = @{ Truncated = $false }; Scope = "All"; Reason = "" }
-        @{ Name = "上限を超え、溢れが書ける"; Source = @{ Truncated = $true; CountTimeout = $false; OverflowFailed = $false; Cancelled = $false }; Scope = "Overflow"; Reason = "" }
+        @{ Name = "上限を超え、溢れが書ける"; Source = @{ Truncated = $true; CountTimeout = $false; OverflowFailed = $false; Cancelled = $false; OverflowDir = $env:TEMP }; Scope = "Overflow"; Reason = "" }
+        @{ Name = "上限を超え、溢れの置き場所が消えている"; Source = @{ Truncated = $true; CountTimeout = $false; OverflowFailed = $false; Cancelled = $false; OverflowDir = "$env:TEMP\tebunko-無い-dir" }; Scope = "HeadOnly"; Reason = "OverflowFailed" }
+        @{ Name = "上限を超え、溢れの置き場所が空"; Source = @{ Truncated = $true; CountTimeout = $false; OverflowFailed = $false; Cancelled = $false; OverflowDir = "" }; Scope = "HeadOnly"; Reason = "OverflowFailed" }
         @{ Name = "総数の時間切れ"; Source = @{ Truncated = $true; CountTimeout = $true; OverflowFailed = $false; Cancelled = $false }; Scope = "HeadOnly"; Reason = "CountTimeout" }
         @{ Name = "溢れを書けなかった"; Source = @{ Truncated = $true; CountTimeout = $false; OverflowFailed = $true; Cancelled = $false }; Scope = "HeadOnly"; Reason = "OverflowFailed" }
         @{ Name = "検索を止めた"; Source = @{ Truncated = $true; CountTimeout = $false; OverflowFailed = $false; Cancelled = $true }; Scope = "HeadOnly"; Reason = "Cancelled" }

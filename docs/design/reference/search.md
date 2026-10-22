@@ -38,8 +38,12 @@ flowchart LR
 | `invokeSearchRequest` | request, pool, cache | – | 検索の要求を実行し、ヒットと進み具合を要求に少しずつ入れる。例外は投げずに `Error` に入れる。始める前に取り消されていたら何もせずに `Cancelled` にする。gram 索引・列挙・照合には要求そのものを `-stopSignal` として渡し、gram 索引・列挙の後に `Stop` を見て、立っていれば先の段に進まず `Cancelled` にする | 同上 | 検索の司令 |
 | `toResultLine` | book, location, lineNumber, line | string | `ファイル名<TAB>場所<TAB>種別<TAB>行番号<TAB>該当行` を返す（場所・種別は `describePlace` の表記）。Excel はセル内改行を LF に戻し、Word・PowerPoint は `"` で始まるセルを `"` で囲む。場所のタブ・改行（Excel のシート名に付けられる）はスペースにする | [検索結果ファイル](../search/output.md#1-行の組み立て) | 検索 |
 | `toResultHeader` | columnCount | string | 見出し行 `ファイル名<TAB>場所<TAB>種別<TAB>行<TAB>A<TAB>B…` を返す | [検索結果ファイル](../search/output.md#出力フォーマットworksearch_resultstxt) | 検索 |
-| `toSearchResultLines` | hits | `@{Header; Lines}` | 検索結果ファイルの見出し行と各行（相対フォルダ付き `toResultLine`、最大セル数の `toResultHeader`） | 同上 | 検索・画面 |
-| `writeSearchResult` | writer, word, hits | – | 1 ワード分の `【検索文字列　X】 N 件`・見出し行・各行・空行を書き出す | 同上 | 検索・画面 |
+| `getSearchResultLine` | relDir, book, location, lineNumber, line | string | 結果の 1 行（相対フォルダ付き `toResultLine`）。コピーとファイル出力で共通 | 同上 | `toSearchResultLines`・`invokeSearchExport` |
+| `getSearchResultColumnCount` | line | int | 1 行の見出しに要る列の数（ファイル名・場所・種別・行番号の 4 列を除いたセルの数） | 同上 | `toSearchResultLines`・`invokeSearchExport` |
+| `getSearchResultCountLine` | word, count | string | `【検索文字列　X】 N 件` の行 | 同上 | `writeSearchResult`・`invokeSearchExport` |
+| `toSearchResultLines` | hits | `@{Header; Lines}` | 検索結果ファイルの見出し行と各行（`getSearchResultLine`、最大セル数の `toResultHeader`） | 同上 | 画面（コピー） |
+| `writeSearchResult` | writer, word, hits | – | 1 ワード分の `【検索文字列　X】 N 件`・見出し行・各行・空行を、メモリ上の全件から書き出す。画面の［結果をファイルに出力］は全件をメモリに持たないので `invokeSearchExport` を使い、同じ形になることをテストで確かめる | 同上 | テスト（書き出しの基準） |
+| `newExportRequest` | source, outputPath, shownHits, filterText, word | hashtable（Synchronized） | 書き出しの要求（`Kind = "Export"`）。表の分（値だけ）・絞り込みの文字列・元の検索の要求を持つ。`Outcome`・`Written`・`Scope`・`HeadOnlyReason`・`Error`・`Finished` を司令が書く | [結果をファイルに出力](../gui/search-tab.md#結果をファイルに出力) | `startExport`（画面）・`SearchService.Export` |
 | `getSearchOverflowRoot` | tmpRoot | string | 溢れを置く根（`tmpRoot\<PC の鍵>\search_overflow`）を組み立てる（ファイルには触らない） | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | `getSearchOverflowPidDir`・`removeStaleSearchOverflow` |
 | `getSearchOverflowPidDir` | tmpRoot | string | このプロセスの溢れのフォルダ（根`\<PID>`）。次の検索の始めと閉じるときに中ごと消す | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | `invokeSearchRequest`・検索のスレッド |
 | `getSearchOverflowDir` | tmpRoot, requestNumber | string | 検索の要求 1 つの溢れのフォルダ（根`\<PID>\<要求の番号>`） | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | `invokeSearchRequest` |
@@ -73,7 +77,7 @@ flowchart LR
 | `getWorkerCount` | max（既定 4）, processors | int | プールのスレッドの数の既定（コア数 − 1。1〜max） | 検索・インデックス作成 |
 | `WorkerPool` | size, state, host, priority | – | ランスペースと PowerShell のインスタンスを使い回すプール。`Submit`（仕事を始める）・`Receive`（終わりを待って出力を返す）・`Cancel`・`Close`。`Priority` は仕事を始めるたびにスレッドに設定する。`Prelude` は各スレッドで最初の仕事の前に 1 回だけ実行する | 照合のプール・BackgroundQueue |
 | `BackgroundQueue` | size, prelude, host | – | 画面から頼まれる短い仕事のスレッド（画面は 2 つで作る）。`Post`（仕事を始める）・`Poll`（終わった仕事の onDone を画面のスレッドで呼び、残りの数を返す）・`Close` | startJob（`shell.ps1`） |
-| `newSearchService` / `SearchService` | libPath, cache, workers | `SearchService` | 検索の司令のスレッド（画面を開いている間 1 つ）。`Request`（前の要求を取り消して新しい要求を渡す。スレッドが止まっていれば作り直す）・`Cancel`・`IsRunning`・`GetFailure`・`Close`（5 秒待って止まらなければスレッドを止める） | 画面 |
+| `newSearchService` / `SearchService` | libPath, cache, workers | `SearchService` | 検索の司令のスレッド（画面を開いている間 1 つ）。`Request`（前の要求を取り消して新しい要求を渡す。スレッドが止まっていれば作り直す）・`Export`（書き出しの要求を渡す。実行中の検索は取り消さない。作り直したときは溢れが消えているので表の分だけになる）・`Cancel`・`IsRunning`・`GetFailure`・`Close`（5 秒待って止まらなければスレッドを止める） | 画面 |
 | `newIndexingSession` / `IndexingSession` | indexerPath, channel | `IndexingSession` | インデックス作成 1 回分のスレッド（MTA・BelowNormal）を作り、`indexer.ps1 -Channel <channel>` を実行する。`IsRunning`・`Stop`・`Wait`・`GetExitCode`（終了コードが無ければ 1）・`GetError`・`GetCloudSkipped`（クラウドにだけあるため残した件数。無ければ 0）・`KillOffice`（`OfficePids` に記録した Office だけを、プロセス名と起動時刻を確かめて止める）・`Close` | 画面 |
 
 ### 元のファイルの特定・画面
