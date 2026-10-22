@@ -12,7 +12,7 @@ flowchart LR
     T --> E["searchContentIndexFiles<br>読み込みと照合（作業が 2 つ以上なら並列）"]
     E --> P["readContentIndexPlaces<br>一致の位置から元のファイル・場所・行"]
     E --> F["Hits"]
-    F --> G["toSearchResultLines / writeSearchResult<br>検索結果ファイル"]
+    F --> G["toSearchResultLines<br>コピー用の行"]
 ```
 
 | 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |
@@ -37,13 +37,11 @@ flowchart LR
 | `newSearchRequest` | word, simpleMatch, folders, limit, option, workDir（既定 `$workspace.Dir`） | 検索の要求（`[hashtable]::Synchronized`） | 検索 1 回分の要求を作る。画面が条件と `Stop`（取り消し）を書き、検索の司令がヒット（`Queue`）・進み具合・`Finished` を書く | [プロセスとスレッド](../structure/threads.md#寿命) | 画面 |
 | `invokeSearchRequest` | request, pool, cache | – | 検索の要求を実行し、ヒットと進み具合を要求に少しずつ入れる。例外は投げずに `Error` に入れる。始める前に取り消されていたら何もせずに `Cancelled` にする。gram 索引・列挙・照合には要求そのものを `-stopSignal` として渡し、gram 索引・列挙の後に `Stop` を見て、立っていれば先の段に進まず `Cancelled` にする | 同上 | 検索の司令 |
 | `toResultLine` | book, location, lineNumber, line | string | `ファイル名<TAB>場所<TAB>種別<TAB>行番号<TAB>該当行` を返す（場所・種別は `describePlace` の表記）。Excel はセル内改行を LF に戻し、Word・PowerPoint は `"` で始まるセルを `"` で囲む。場所のタブ・改行（Excel のシート名に付けられる）はスペースにする | [検索結果ファイル](../search/output.md#1-行の組み立て) | 検索 |
-| `toResultHeader` | columnCount | string | 見出し行 `ファイル名<TAB>場所<TAB>種別<TAB>行<TAB>A<TAB>B…` を返す | [検索結果ファイル](../search/output.md#出力フォーマットworksearch_resultstxt) | 検索 |
-| `getSearchResultLine` | relDir, book, location, lineNumber, line | string | 結果の 1 行（相対フォルダ付き `toResultLine`）。コピーとファイル出力で共通 | 同上 | `toSearchResultLines`・`invokeSearchExport` |
-| `getSearchResultColumnCount` | line | int | 1 行の見出しに要る列の数（ファイル名・場所・種別・行番号の 4 列を除いたセルの数） | 同上 | `toSearchResultLines`・`invokeSearchExport` |
-| `getSearchResultCountLine` | word, count | string | `【検索文字列　X】 N 件` の行 | 同上 | `writeSearchResult`・`invokeSearchExport` |
-| `toSearchResultLines` | hits | `@{Header; Lines}` | 検索結果ファイルの見出し行と各行（`getSearchResultLine`、最大セル数の `toResultHeader`） | 同上 | 画面（コピー） |
-| `writeSearchResult` | writer, word, hits | – | 1 ワード分の `【検索文字列　X】 N 件`・見出し行・各行・空行を、メモリ上の全件から書き出す。画面の［結果をファイルに出力］は全件をメモリに持たないので `invokeSearchExport` を使い、同じ形になることをテストで確かめる | 同上 | テスト（書き出しの基準） |
-| `newExportRequest` | source, outputPath, shownHits, filterText, word | hashtable（Synchronized） | 書き出しの要求（`Kind = "Export"`）。表の分（値だけ）・絞り込みの文字列・元の検索の要求を持つ。`Outcome`・`Written`・`Scope`・`HeadOnlyReason`・`Error`・`Finished` を司令が書く | [結果をファイルに出力](../gui/search-tab.md#結果をファイルに出力) | `startExport`（画面）・`SearchService.Export` |
+| `toResultHeader` | columnCount | string | 見出し行 `ファイル名<TAB>場所<TAB>種別<TAB>行<TAB>A<TAB>B…` を返す | [検索結果ファイル](../search/output.md#出力フォーマットexcel-ブックcsvtsv) | 検索 |
+| `getSearchResultLine` | relDir, book, location, lineNumber, line | string | 結果の 1 行（相対フォルダ付き `toResultLine`）。コピーで使う | 同上 | `toSearchResultLines` |
+| `getSearchResultColumnCount` | line | int | 1 行の見出しに要る列の数（ファイル名・場所・種別・行番号の 4 列を除いたセルの数） | 同上 | `toSearchResultLines` |
+| `toSearchResultLines` | hits | `@{Header; Lines}` | コピー用の見出し行と各行（`getSearchResultLine`、最大セル数の `toResultHeader`） | 同上 | 画面（コピー） |
+| `newExportRequest` | source, outputPath, shownHits, filterText, word, format（既定 `xlsx`）, overwrite（既定 `$false`） | hashtable（Synchronized） | 書き出しの要求（`Kind = "Export"`）。表の分（値だけ）・絞り込みの文字列・書く形式（xlsx / csv / tsv）・元の検索の要求を持つ。`Outcome`（Done / Cancelled / Exists / Locked / Denied / Failed）・`Written`・`Scope`・`HeadOnlyReason`・`TruncatedCells`・`DroppedRows`・`Error`・`Finished` を司令が書く | [結果をファイルに保存](../gui/search-tab.md#結果をファイルに保存) | `startExport`（画面）・`SearchService.Export` |
 | `getSearchOverflowRoot` | tmpRoot | string | 溢れを置く根（`tmpRoot\<PC の鍵>\search_overflow`）を組み立てる（ファイルには触らない） | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | `getSearchOverflowPidDir`・`removeStaleSearchOverflow` |
 | `getSearchOverflowPidDir` | tmpRoot | string | このプロセスの溢れのフォルダ（根`\<PID>`）。次の検索の始めと閉じるときに中ごと消す | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | `invokeSearchRequest`・検索のスレッド |
 | `getSearchOverflowDir` | tmpRoot, requestNumber | string | 検索の要求 1 つの溢れのフォルダ（根`\<PID>\<要求の番号>`） | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | `invokeSearchRequest` |
@@ -52,8 +50,8 @@ flowchart LR
 | `newSearchOverflowWriter` | dir, name | StreamWriter または `$null` | 溢れのファイルを BOM なしの UTF-8・LF で作って開く。作れない・開けないときは `$null`（照合のスレッドからも呼ぶため .NET だけで書く） | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | `searchContentIndexFiles`・`searchContentIndex` |
 | `writeSearchOverflowHits` | writer, hits | bool | 司令が、表に入らなかった行を溢れの head のファイルに書き足す。書けなければ `$false` | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | `searchContentIndex` |
 | `getSearchOverflowFiles` | dir | パスの並び | 溢れのファイルを、全件の順（作業の番号の順に、head → 作業のファイル）に並べる。フォルダが無ければ空 | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | `readSearchOverflowLines`・書き出し |
-| `invokeSearchExport` | request（`newExportRequest` の要求） | なし | ［結果をファイルに出力］の書き出し。表の分と溢れのファイルを本文の一時ファイルに書き、`.new` に見出し付きで組み、`search_results.txt` と置き換える。結果は要求の `Outcome`（Done / Cancelled / Locked / Denied / Failed）・`Written`・`Scope` に残す | [結果をファイルに出力](../gui/search-tab.md#結果をファイルに出力) | 検索の司令（`SearchService`） |
-| `getSearchExportScope` | source（検索の要求） | `@{Scope; Reason}` | 何を書くかを決める（All / Overflow / HeadOnly と、HeadOnly の理由） | [結果をファイルに出力](../gui/search-tab.md#結果をファイルに出力) | `invokeSearchExport` |
+| `invokeSearchExport` | request（`newExportRequest` の要求） | なし | ［保存 ▼］の書き出し。xlsx は `.new` にストリームで直接書き、csv・tsv は本文を一時ファイルに書いてから `.new` に見出し付きで組み、出力先と置き換える。上書きを許していない出力先が既にあれば `Exists` を返して書かない。結果は要求の `Outcome`・`Written`・`Scope` に残す | [結果をファイルに保存](../gui/search-tab.md#結果をファイルに保存) | 検索の司令（`SearchService`） |
+| `getSearchExportScope` | source（検索の要求） | `@{Scope; Reason}` | 何を書くかを決める（All / Overflow / HeadOnly と、HeadOnly の理由） | [結果をファイルに保存](../gui/search-tab.md#結果をファイルに保存) | `invokeSearchExport` |
 | `testHitFilter` | book, filterText | bool | 元のファイル名が絞り込みに合うか（空は全部合う。大文字・小文字を区別しない部分一致） | [結果の絞り込み](../gui/search-tab.md#絞り込み) | `HitRow.MatchesFileName`・`invokeSearchExport` |
 | `readSearchOverflowLines` | dir | string の並び | 溢れの全件を全件の順の行で返す（全部をメモリに読むので、テスト・小さい量向け） | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | テスト |
 | `removeStaleSearchOverflow` | tmpRoot, isAlive | int | 強制終了などで残った溢れを、起動時に消す。動いていないプロセスの `<PID>` だけ消し、消した数を返す | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | 起動（`startup.ps1` のバックグラウンドの処理） |

@@ -74,9 +74,8 @@ BeforeAll {
         @{ File = "open_source.ps1"; Function = "promptSourceMissing"; Call = "findMovedSource"; Reason = "選んだ直後のフォルダの中から、移された元のファイルを探す（フォルダ選択で選んだ場所）" }
         @{ File = "open_source.ps1"; Function = "openWithShell"; Call = "[System.Diagnostics.Process]"; Reason = "既定のアプリで開く（元のファイルは確かめ済み。プロセスの起動は待たない）" }
         @{ File = "open_source.ps1"; Function = "openWithShell"; Call = "Invoke-Item"; Reason = "既定のアプリで開く（元のファイルは確かめ済み。プロセスの起動は待たない）" }
-        @{ File = "open_source.ps1"; Function = "openSourceFolder"; Call = "Start-Process"; Reason = "エクスプローラーで選ぶ（元のファイルは確かめ済み。プロセスの起動は待たない）" }
+        @{ File = "open_source.ps1"; Function = "showInExplorer"; Call = "Start-Process"; Reason = "エクスプローラーで選ぶ（開く対象は確かめ済み。プロセスの起動は待たない）" }
         @{ File = "open_source.ps1"; Function = "openWithNotepad"; Call = "Start-Process"; Reason = "固定のパスのメモ帳で開く（実行・登録になる拡張子。元のファイルは確かめ済み。プロセスの起動は待たない）" }
-        @{ File = "open_source.ps1"; Function = "completeExport"; Call = "Invoke-Item"; Reason = "search_results.txt を開く（プロセスの起動は待たない）" }
 
         @{ File = "about_dialog.ps1"; Function = "openAboutLink"; Call = "Start-Process"; Reason = "エクスプローラーで既定のブラウザを開く（getAboutLinks に載せた 2 つのアドレスだけ。プロセスの起動は待たない）" }
 

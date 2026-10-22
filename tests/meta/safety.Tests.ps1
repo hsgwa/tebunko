@@ -633,6 +633,9 @@ Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を�
             if ($t.File -eq "office_embedded.ps1") {
                 return $true  # 埋め込みを読むファイルは、部品を直接開かない（readZipEntry・readZipEntryBytes を通す）
             }
+            if ($t.File -eq "xlsx_writer.ps1") {
+                return $false  # 検索結果を書き出す側（書き込み専用の entry.Open()）。読む側ではない
+            }
             $t.File -ne "office_reader.ps1" -or @($ranges | Where-Object { $t.Line -ge $_[0] -and $t.Line -lt $_[1] }).Count -eq 0
         })
         (@($outside | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
@@ -1099,12 +1102,11 @@ Describe "検索結果から開くとき、シェルで開く処理が決まっ�
         $allowedUses = @(
             "applyFailedFileState|Start-Process", "applyFailedFileState|Start-Process",
             "applyIndexSourceFolderState|Start-Process",
-            "completeExport|Invoke-Item",
             "openAboutLink|Start-Process",
-            "openSourceFolder|Start-Process",
             "openWithNotepad|Start-Process",
             "openWithShell|Invoke-Item", "openWithShell|Process::Start", "openWithShell|ProcessStartInfo", "openWithShell|UseShellExecute",
-            "showErrorDialog|Start-Process"
+            "showErrorDialog|Start-Process",
+            "showInExplorer|Start-Process"
         ) | Sort-Object
     }
 

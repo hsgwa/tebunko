@@ -180,16 +180,6 @@ Describe "getSourceOpenMode / getSourceReadOnlyFailedStatus" -Tag Unit {
     }
 }
 
-Describe "getResultSaveFailedText" -Tag Unit {
-    It "<kind> の文" -TestCases @(
-        @{ kind = "Locked"; expected = "search_results.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。" }
-        @{ kind = "Denied"; expected = "search_results.txt に書き込む権限がありません（読み取り専用など）。C:\w\search_results.txt を確かめてから、もう一度出力してください。" }
-    ) {
-        param ($kind, $expected)
-        getResultSaveFailedText $kind "C:\w\search_results.txt" | Should -Be $expected
-    }
-}
-
 Describe "getOfficeOpenKind と取り込みの対象の拡張子（officeExtensions）" -Tag Unit {
     It "取り込みの対象の拡張子は、すべて Excel か Office に分かれる" {
         foreach ($extension in ${officeExtensions}) {
@@ -280,6 +270,13 @@ Describe "表示する名前・パスの制御文字（getSourceBookRejectedStat
 }
 
 Describe "結果の出力の文言" -Tag Unit {
+    It "保存に失敗した文（<kind>）" -ForEach @(
+        @{ kind = "Locked"; expected = "結果.xlsx に書き込めません。開いているアプリを閉じてから、もう一度出力してください。" }
+        @{ kind = "Denied"; expected = "結果.xlsx に書き込む権限がありません（読み取り専用など）。C:\w\結果.xlsx を確かめてから、もう一度出力してください。" }
+    ) {
+        getResultSaveFailedText $kind "C:\w\結果.xlsx" | Should -Be $expected
+    }
+
     It "出力ボタンの文字: 待ち・書き込み中は「出力を中止」" -ForEach @(
         @{ Busy = $false; Expected = "保存" }
         @{ Busy = $true; Expected = "出力を中止" }
@@ -288,24 +285,124 @@ Describe "結果の出力の文言" -Tag Unit {
     }
 
     It "<Name>" -ForEach @(
-        @{ Name = "表がすべて・絞り込みなし"; Params = @("All", 1234, $false); Expected = "search_results.txt に出力しました（1,234 件）" }
-        @{ Name = "表がすべて・絞り込み"; Params = @("All", 5, $true); Expected = "絞り込み後の 5 件を search_results.txt に出力しました" }
-        @{ Name = "溢れも含む"; Params = @("Overflow", 100000, $false); Expected = "表に入らなかった分も含めて、全 100,000 件を search_results.txt に出力しました" }
-        @{ Name = "溢れも含む・絞り込み"; Params = @("Overflow", 70, $true); Expected = "表に入らなかった分も含めて、絞り込み後の 70 件を search_results.txt に出力しました" }
-        @{ Name = "溢れも含む・並べ替え中"; Params = @("Overflow", 9, $false, "", $true); Expected = "表に入らなかった分も含めて、全 9 件を search_results.txt に出力しました（件数が多いため、並べ替えは当てずに検索の順で出力しました）" }
-        @{ Name = "先頭だけ（総数の時間切れ）"; Params = @("HeadOnly", 50, $false, "CountTimeout"); Expected = "表に出ている 50 件だけを search_results.txt に出力しました（総数を数える時間が切れたため、残りは出力していません）" }
-        @{ Name = "先頭だけ（溢れを書けなかった）"; Params = @("HeadOnly", 50, $false, "OverflowFailed"); Expected = "表に出ている 50 件だけを search_results.txt に出力しました（表に入らない分を一時ファイルに書けなかったため、残りは出力していません）" }
-        @{ Name = "先頭だけ（検索を止めた）"; Params = @("HeadOnly", 50, $true, "Cancelled"); Expected = "表に出ている 50 件だけを search_results.txt に出力しました（検索を途中で止めたため、残りは出力していません）" }
-        @{ Name = "先頭だけ（理由が不明）"; Params = @("HeadOnly", 1, $false, ""); Expected = "表に出ている 1 件だけを search_results.txt に出力しました（残りは出力していません）" }
+        @{ Name = "表がすべて・絞り込みなし"; Params = @("a.xlsx", "All", 1234, $false); Expected = "a.xlsx に 1,234 件を出力しました（保存したフォルダを開きます）" }
+        @{ Name = "表がすべて・絞り込み"; Params = @("a.csv", "All", 5, $true); Expected = "絞り込み後の 5 件を a.csv に出力しました" }
+        @{ Name = "溢れも含む"; Params = @("a.tsv", "Overflow", 100000, $false); Expected = "表に入らなかった分も含めて、全 100,000 件を a.tsv に出力しました" }
+        @{ Name = "溢れも含む・絞り込み"; Params = @("a.tsv", "Overflow", 70, $true); Expected = "表に入らなかった分も含めて、絞り込み後の 70 件を a.tsv に出力しました" }
+        @{ Name = "溢れも含む・並べ替え中"; Params = @("a.tsv", "Overflow", 9, $false, "", $true); Expected = "表に入らなかった分も含めて、全 9 件を a.tsv に出力しました（件数が多いため、並べ替えは当てずに検索の順で出力しました）" }
+        @{ Name = "先頭だけ（総数の時間切れ）"; Params = @("a.csv", "HeadOnly", 50, $false, "CountTimeout"); Expected = "表に出ている 50 件だけを a.csv に出力しました（総数を数える時間が切れたため、残りは出力していません）" }
+        @{ Name = "先頭だけ（溢れを書けなかった）"; Params = @("a.csv", "HeadOnly", 50, $false, "OverflowFailed"); Expected = "表に出ている 50 件だけを a.csv に出力しました（表に入らない分を一時ファイルに書けなかったため、残りは出力していません）" }
+        @{ Name = "先頭だけ（検索を止めた）"; Params = @("a.csv", "HeadOnly", 50, $true, "Cancelled"); Expected = "表に出ている 50 件だけを a.csv に出力しました（検索を途中で止めたため、残りは出力していません）" }
+        @{ Name = "先頭だけ（理由が不明）"; Params = @("a.csv", "HeadOnly", 1, $false, ""); Expected = "表に出ている 1 件だけを a.csv に出力しました（残りは出力していません）" }
+        @{ Name = "Excel の行の上限で書かなかった分"; Params = @("a.xlsx", "All", 1048575, $false, "", $false, 1500, 0); Expected = "a.xlsx に 1,048,575 件を出力しました（保存したフォルダを開きます）（1,500 件は Excel の行の上限を超えたため書いていません。全件は CSV か TSV で出力してください）" }
+        @{ Name = "長すぎて切ったセル"; Params = @("a.xlsx", "All", 3, $false, "", $false, 0, 2); Expected = "a.xlsx に 3 件を出力しました（保存したフォルダを開きます）（2 個のセルは長すぎるため、途中で切りました）" }
     ) {
         getExportDoneText @Params | Should -Be $Expected
     }
 
-    It "待ち・書き込み中・中止・失敗の文言" {
-        getExportWaitingText | Should -Be "検索が終わってから search_results.txt に出力します…"
-        getExportWritingText 12345 | Should -Be "search_results.txt に出力しています…（12,345 件）"
-        getExportCancelledText | Should -Be "出力を中止しました。search_results.txt は前のままです。"
-        getExportFailedText "ディスクが一杯です" | Should -Be "search_results.txt に出力できませんでした：ディスクが一杯です"
-        getExportFailedText "" | Should -Be "search_results.txt に出力できませんでした"
+    It "待ち・書き込み中・中止・失敗・確認などの文言" {
+        getExportWaitingText | Should -Be "検索が終わってから出力します…"
+        getExportWritingText 12345 | Should -Be "検索結果を出力しています…（12,345 件）"
+        getExportCancelledText | Should -Be "出力を中止しました。保存先のファイルは変えていません。"
+        getExportStoppedText | Should -Be "出力をやめました。"
+        getExportExistsPrompt "a.xlsx" | Should -Be "a.xlsx は既にあります。上書きしますか？"
+        getExportForbiddenText | Should -BeLike "クロール対象のフォルダ*には保存できません。*"
+        getExportFailedText "ディスクが一杯です" | Should -Be "検索結果を出力できませんでした：ディスクが一杯です"
+        getExportFailedText "" | Should -Be "検索結果を出力できませんでした"
+        getExportFolderOpenFailedText "a.xlsx" 1234 "C:\w\a.xlsx" | Should -Be "a.xlsx に 1,234 件を出力しました。フォルダを開けなかったため、C:\w\a.xlsx を開いてください"
+        getSavedFileName "" | Should -Be ""
+        getSavedFileName "C:\w\x\" | Should -Be "x"
+    }
+}
+
+Describe "保存の種類（メニュー・ダイアログ・吹き出し）" -Tag Unit {
+    It "メニューは 3 つで、最後に選んだ種類（<last>）に印を付ける。分からなければ Excel" -ForEach @(
+        @{ last = "xlsx"; checked = "xlsx" }
+        @{ last = "csv"; checked = "csv" }
+        @{ last = "tsv"; checked = "tsv" }
+        @{ last = ""; checked = "xlsx" }
+        @{ last = "txt"; checked = "xlsx" }
+    ) {
+        $items = @(getExportMenuItems $last)
+        $items.Count | Should -Be 3
+        ($items | ForEach-Object { $_.Header }) -join "|" | Should -Be "Excel ブック (.xlsx)|CSV (.csv)|TSV (.tsv)"
+        @($items | Where-Object { $_.Checked }).Count | Should -Be 1
+        ($items | Where-Object { $_.Checked }).Format | Should -Be $checked
+    }
+
+    It "種類 <format> の FilterIndex は <index>" -ForEach @(
+        @{ format = "xlsx"; index = 1 }
+        @{ format = "csv"; index = 2 }
+        @{ format = "tsv"; index = 3 }
+        @{ format = "x"; index = 1 }
+    ) {
+        getExportFilterIndex $format | Should -Be $index
+        getExportFilter | Should -Be "Excel ブック (*.xlsx)|*.xlsx|CSV (*.csv)|*.csv|TSV (*.tsv)|*.tsv"
+    }
+
+    It "最後の種類は、書けたときだけ替わる（現在 <current>・書いた <written> → <expected>）" -ForEach @(
+        @{ current = "xlsx"; written = "csv"; expected = "csv" }
+        @{ current = "csv"; written = ""; expected = "csv" }
+        @{ current = ""; written = ""; expected = "xlsx" }
+        @{ current = "tsv"; written = "x"; expected = "tsv" }
+    ) {
+        getLastExportFormat $current $written | Should -Be $expected
+    }
+
+    It "吹き出し（<format>・待ち中 <busy>）" -ForEach @(
+        @{ format = "xlsx"; busy = $false; expected = "Excel ブック (.xlsx) で保存します" }
+        @{ format = "csv"; busy = $false; expected = "CSV (.csv) で保存します" }
+        @{ format = "tsv"; busy = $false; expected = "TSV (.tsv) で保存します" }
+        @{ format = ""; busy = $false; expected = "Excel ブック (.xlsx) で保存します" }
+        @{ format = "csv"; busy = $true; expected = "出力を中止します" }
+    ) {
+        getExportButtonToolTip $format $busy | Should -Be $expected
+    }
+}
+
+Describe "resolveExportTarget・getDefaultExportName・testExportForbiddenPath" -Tag Unit {
+    It "<path>（FilterIndex <index>）→ <expected>・付け足し <added>" -ForEach @(
+        @{ path = "C:\w\a.xlsx"; index = 2; expected = "C:\w\a.xlsx"; format = "xlsx"; added = $false }
+        @{ path = "C:\w\a.CSV"; index = 1; expected = "C:\w\a.CSV"; format = "csv"; added = $false }
+        @{ path = "C:\w\a.tsv"; index = 1; expected = "C:\w\a.tsv"; format = "tsv"; added = $false }
+        @{ path = "C:\w\a"; index = 1; expected = "C:\w\a.xlsx"; format = "xlsx"; added = $true }
+        @{ path = "C:\w\a"; index = 2; expected = "C:\w\a.csv"; format = "csv"; added = $true }
+        @{ path = "C:\w\a"; index = 3; expected = "C:\w\a.tsv"; format = "tsv"; added = $true }
+        @{ path = "C:\w\a.txt"; index = 2; expected = "C:\w\a.txt.csv"; format = "csv"; added = $true }
+    ) {
+        $target = resolveExportTarget $path $index
+        $target.Path | Should -Be $expected
+        $target.Format | Should -Be $format
+        $target.Added | Should -Be $added
+    }
+
+    It "空の名前は null" {
+        resolveExportTarget "" 1 | Should -Be $null
+        resolveExportTarget "  " 1 | Should -Be $null
+    }
+
+    It "既定の名前: <word> → <expected>" -ForEach @(
+        @{ word = "りんご"; expected = "検索結果_りんご_20261022_103005" }
+        @{ word = 'a/b:c*"d'; expected = "検索結果_a_b_c__d_20261022_103005" }
+        @{ word = ""; expected = "検索結果_20261022_103005" }
+        @{ word = ("あ" * 40); expected = "検索結果_" + ("あ" * 30) + "_20261022_103005" }
+        @{ word = ("あ" * 29 + [char]::ConvertFromUtf32(0x20BB7) + "い"); expected = "検索結果_" + ("あ" * 29) + "_20261022_103005" }
+    ) {
+        getDefaultExportName $word ([datetime]"2026-10-22 10:30:05") | Should -Be $expected
+    }
+
+    It "保存先が禁止の場所か: <name>" -ForEach @(
+        @{ name = "対象フォルダの中"; path = "C:\共有\営業\a.xlsx"; expected = $true }
+        @{ name = "対象フォルダそのもの"; path = "C:\共有\営業"; expected = $true }
+        @{ name = "大文字小文字違い・末尾の区切り"; path = "c:\共有\営業\sub\a.csv"; expected = $true }
+        @{ name = "名前が似ているだけの別のフォルダ"; path = "C:\共有\営業部\a.xlsx"; expected = $false }
+        @{ name = "別の場所"; path = "C:\Users\test\a.xlsx"; expected = $false }
+        @{ name = "長いパスの形"; path = "\\?\C:\共有\営業\a.xlsx"; expected = $true }
+        @{ name = "UNC の長い形"; path = "\\?\UNC\srv\share\x\a.csv"; expected = $true }
+        @{ name = "インデックスのフォルダ"; path = "C:\w\store\content\a.tsv"; expected = $true }
+        @{ name = "不正な形"; path = "C:\a|b"; expected = $false }
+        @{ name = "空"; path = ""; expected = $false }
+    ) {
+        testExportForbiddenPath $path @("C:\共有\営業\", "\\srv\share\x", "C:\w\store\content", "", "C:\a|b") | Should -Be $expected
     }
 }

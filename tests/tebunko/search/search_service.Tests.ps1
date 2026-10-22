@@ -263,14 +263,14 @@ Describe "SearchService" -Tag Io {
     It "Export は、実行中の検索を取り消さず、溢れを残したまま書き出し、Cancel は書き出しも止める" {
         $ws = Join-Path $TestDrive "ws_export"
         $own = [Workspace]::new($ws)
-        $out = Join-Path $ws "search_results.txt"
+        $out = Join-Path $ws "export_result.xlsx"
         $service = newSearchService (newTsvTextCache) 1
         try {
             $search = $service.Request((newSearchRequest "単価" $true @($contentIndexRoot) 1 @{} $ws))
             waitRequest $search | Should -Be $true
             $search.Truncated | Should -Be $true
             $shown = @(takeHits $search)
-            $export = $service.Export((newExportRequest $search $out $shown "" "単価"))
+            $export = $service.Export((newExportRequest $search $out $shown "" "単価" "xlsx" $true))
             $search.Stop | Should -Not -Be $true
             waitRequest $export | Should -Be $true
             $export.Outcome | Should -Be "Done"
@@ -278,7 +278,7 @@ Describe "SearchService" -Tag Io {
             # 溢れ（検索の続きの置き場所）は書き出しのあとも残る
             [System.IO.Directory]::Exists($search.OverflowDir) | Should -Be $true
             # 書き出しも Cancel で止まる
-            $next = $service.Export((newExportRequest $search $out $shown "" "単価"))
+            $next = $service.Export((newExportRequest $search $out $shown "" "単価" "xlsx" $true))
             $service.Cancel()
             $next.Stop | Should -Be $true
             waitRequest $next | Should -Be $true
@@ -339,7 +339,7 @@ Describe "SearchService" -Tag Io {
 
     It "司令のスレッドが止まっているときの Export は、スレッドを作り直し、溢れは消えているので表の分だけを書く" {
         $ws = Join-Path $TestDrive "ws_export_rebuild"
-        $out = Join-Path $ws "search_results.txt"
+        $out = Join-Path $ws "export_result.xlsx"
         $brokenLibLoad = @{
             State   = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault2()
             Prelude = ". '$(Join-Path $TestDrive "無い.ps1")'"
@@ -357,7 +357,7 @@ Describe "SearchService" -Tag Io {
                 OverflowDir = (Join-Path $TestDrive "消えた溢れ")
             }
             $shown = @([pscustomobject]@{ RelDir = ""; Book = "A社.xlsx"; Location = "Sheet1"; LineNumber = 1; Line = "単価`t105" })
-            $export = $service.Export((newExportRequest $source $out $shown "" "単価"))
+            $export = $service.Export((newExportRequest $source $out $shown "" "単価" "xlsx" $true))
             $service.IsRunning() | Should -Be $true
             waitRequest $export | Should -Be $true
             $export.Outcome | Should -Be "Done"
@@ -509,12 +509,12 @@ Describe "検索の司令のスクリプト（searchServiceScript）" -Tag Io {
 
     It "書き出しの要求は invokeSearchExport で実行し、検索の世代は進めない" {
         $ws = Join-Path $TestDrive "script_export_ws"
-        $out = Join-Path $ws "search_results.txt"
+        $out = Join-Path $ws "export_result.xlsx"
         $search = newSearchRequest "単価" $true @($contentIndexRoot) 0 @{} $ws
         $requests = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
         $requests.Add($search)
         $cache = newTsvTextCache
-        $export = newExportRequest $search $out @() "" "単価"
+        $export = newExportRequest $search $out @() "" "単価" "xlsx" $true
         $requests.Add($export)
         $requests.CompleteAdding()
 

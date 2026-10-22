@@ -17,14 +17,78 @@
   <!-- 件数・すべて開く／閉じる・進捗・絞り込み・保存 -->
   <Border Grid.Row="0" Background="{StaticResource Bg.Subtle}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,0,1">
     <DockPanel Margin="0">
-      <Button x:Name="ExportButton" DockPanel.Dock="Right" Margin="10,0,0,0" Padding="10,0" MinWidth="0" Height="26" FontSize="11"
-              ToolTip="結果をファイルに出力します">
+      <!-- ［保存 ▼］。［保存］は最後に選んだ種類（画面を開いたときは Excel ブック）で保存のダイアログを開き、▼ から種類を選ぶ（［開く ▼］と同じ作り） -->
+      <Border DockPanel.Dock="Right" Margin="10,0,0,0" CornerRadius="6" BorderThickness="1"
+              Background="{StaticResource Bg.Surface}" VerticalAlignment="Center" Height="26">
+        <!-- 使えないときは、枠・仕切り・文字・▼ をそろえて Ink.Disabled にする（枠だけ Accent のまま残さない） -->
+        <Border.Style>
+          <Style TargetType="Border">
+            <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding ElementName=ExportButton, Path=IsEnabled}" Value="False">
+                <Setter Property="BorderBrush" Value="{StaticResource Ink.Disabled}" />
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Border.Style>
         <StackPanel Orientation="Horizontal">
-          <Path Data="{StaticResource Icon.Save}" Width="13" Height="13" Stretch="Uniform" Stroke="{StaticResource Ink.Body}"
-                StrokeThickness="1.08" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,6,0" />
-          <TextBlock x:Name="ExportButtonText" Text="保存" VerticalAlignment="Center" />
+          <Button x:Name="ExportButton" Cursor="Hand" FontSize="11" Padding="10,0" MinWidth="0" Height="Auto"
+                  Foreground="{StaticResource Accent.Hover}" Background="Transparent" BorderThickness="0"
+                  ToolTip="Excel ブック (.xlsx) で保存します">
+            <Button.Template>
+              <ControlTemplate TargetType="Button">
+                <Border x:Name="Bg" Background="Transparent" CornerRadius="5,0,0,5" Padding="{TemplateBinding Padding}">
+                  <ContentPresenter VerticalAlignment="Center" />
+                </Border>
+                <ControlTemplate.Triggers>
+                  <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bg" Property="Background" Value="{StaticResource Select.Soft}" /></Trigger>
+                  <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.5" /></Trigger>
+                </ControlTemplate.Triggers>
+              </ControlTemplate>
+            </Button.Template>
+            <StackPanel Orientation="Horizontal">
+              <Path Data="{StaticResource Icon.Save}" Width="13" Height="13" Stretch="Uniform" Stroke="{StaticResource Accent.Hover}"
+                    StrokeThickness="1.08" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,6,0" />
+              <TextBlock x:Name="ExportButtonText" Text="保存" FontWeight="SemiBold" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+          <Rectangle Width="1">
+            <Rectangle.Style>
+              <Style TargetType="Rectangle">
+                <Setter Property="Fill" Value="{StaticResource Accent}" />
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding ElementName=ExportButton, Path=IsEnabled}" Value="False">
+                    <Setter Property="Fill" Value="{StaticResource Ink.Disabled}" />
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </Rectangle.Style>
+          </Rectangle>
+          <Button x:Name="ExportMenuButton" Cursor="Hand" Padding="6,0" MinWidth="0" Height="Auto" Background="Transparent" BorderThickness="0"
+                  AutomationProperties.Name="保存の種類を選ぶ" ToolTip="保存の種類を選びます">
+            <Button.Template>
+              <ControlTemplate TargetType="Button">
+                <Border x:Name="Bg" Background="Transparent" CornerRadius="0,5,5,0" Padding="{TemplateBinding Padding}">
+                  <Path x:Name="Arrow" Data="{StaticResource Icon.ChevronDown}" Width="11" Height="11" Stretch="Uniform"
+                        Stroke="{StaticResource Accent.Hover}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                        StrokeLineJoin="Round" VerticalAlignment="Center" />
+                </Border>
+                <ControlTemplate.Triggers>
+                  <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bg" Property="Background" Value="{StaticResource Select.Soft}" /></Trigger>
+                  <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Arrow" Property="Stroke" Value="{StaticResource Ink.Disabled}" /></Trigger>
+                </ControlTemplate.Triggers>
+              </ControlTemplate>
+            </Button.Template>
+            <Button.ContextMenu>
+              <ContextMenu>
+                <MenuItem x:Name="MenuExportXlsx" Header="Excel ブック (.xlsx)" IsCheckable="True" />
+                <MenuItem x:Name="MenuExportCsv" Header="CSV (.csv)" IsCheckable="True" />
+                <MenuItem x:Name="MenuExportTsv" Header="TSV (.tsv)" IsCheckable="True" />
+              </ContextMenu>
+            </Button.ContextMenu>
+          </Button>
         </StackPanel>
-      </Button>
+      </Border>
       <Grid DockPanel.Dock="Right" Width="220">
         <TextBox x:Name="FilterBox" FontSize="11" Height="26" />
         <TextBlock x:Name="FilterPlaceholder" Style="{StaticResource Placeholder}" FontSize="11" Text="ファイル名で絞り込む" />

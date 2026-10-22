@@ -291,18 +291,31 @@ function getSourceReadOnlyFailedStatus {
 
     return "もらったインデックスのファイルは読み取り専用で開けなかったため、開きませんでした。［ファイルのパスをコピー］で場所を調べ、確かめてから開いてください：${path}"
 }
+function getSavedFileName {
+    # 出力のメッセージに出す、保存したファイルの名前（パスの最後）
+    param (
+        [string]$path
+    )
+
+    if (!$path) {
+        return ""
+    }
+    return [System.IO.Path]::GetFileName($path.TrimEnd("\"))
+}
+
 function getResultSaveFailedText {
-    # 検索結果を search_results.txt に書けなかったときの文（ステータスと検索画面の上の帯に同じ文を出す）
+    # 検索結果を保存先に書けなかったときの文（ステータスと検索画面の上の帯に同じ文を出す）
     #   kind: Locked（ほかのアプリが開いている）/ Denied（読み取り専用・書き込み権限が無い。アプリを閉じても直らない）
     param (
         [string]$kind,
-        [string]$resultFile
+        [string]$outputPath
     )
 
+    $name = getSavedFileName $outputPath
     if ($kind -eq "Denied") {
-        return "search_results.txt に書き込む権限がありません（読み取り専用など）。${resultFile} を確かめてから、もう一度出力してください。"
+        return "${name} に書き込む権限がありません（読み取り専用など）。${outputPath} を確かめてから、もう一度出力してください。"
     }
-    return "search_results.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。"
+    return "${name} に書き込めません。開いているアプリを閉じてから、もう一度出力してください。"
 }
 
 function getExportButtonText {
@@ -319,7 +332,7 @@ function getExportButtonText {
 
 function getExportWaitingText {
     # 検索の途中で出力を押したとき（検索が終わってから書く）のステータス
-    return "検索が終わってから search_results.txt に出力します…"
+    return "検索が終わってから出力します…"
 }
 
 function getExportWritingText {
@@ -328,11 +341,30 @@ function getExportWritingText {
         [int]$written
     )
 
-    return "search_results.txt に出力しています…（$($written.ToString('N0')) 件）"
+    return "検索結果を出力しています…（$($written.ToString('N0')) 件）"
 }
 
 function getExportCancelledText {
-    return "出力を中止しました。search_results.txt は前のままです。"
+    return "出力を中止しました。保存先のファイルは変えていません。"
+}
+
+function getExportStoppedText {
+    # 既にあるファイルを上書きしないことにしたときのステータス
+    return "出力をやめました。"
+}
+
+function getExportExistsPrompt {
+    # 拡張子を付け足した名前が既にあるときの確認の文
+    param (
+        [string]$name
+    )
+
+    return "${name} は既にあります。上書きしますか？"
+}
+
+function getExportForbiddenText {
+    # 保存先に選べない場所（クロール対象のフォルダ・インデックスのフォルダ）を選んだときの文
+    return "クロール対象のフォルダ（またはインデックスのフォルダ）には保存できません。別の場所を選んでください。"
 }
 
 function getExportFailedText {
@@ -342,9 +374,20 @@ function getExportFailedText {
     )
 
     if ($message) {
-        return "search_results.txt に出力できませんでした：${message}"
+        return "検索結果を出力できませんでした：${message}"
     }
-    return "search_results.txt に出力できませんでした"
+    return "検索結果を出力できませんでした"
+}
+
+function getExportFolderOpenFailedText {
+    # 書き終わったが、保存したフォルダを開けなかったときのステータス
+    param (
+        [string]$name,
+        [int]$count,
+        [string]$path
+    )
+
+    return "${name} に $($count.ToString('N0')) 件を出力しました。フォルダを開けなかったため、${path} を開いてください"
 }
 
 function getExportHeadOnlyReasonText {
@@ -362,30 +405,210 @@ function getExportHeadOnlyReasonText {
 }
 
 function getExportDoneText {
-    # 書き終わったときのステータス
+    # 書き終わったときのステータス（name は保存したファイルの名前）
     #   scope: All（表がすべて）/ Overflow（表に入らなかった分も書いた）/ HeadOnly（表に出ている分だけ。reason が理由）
     #   filtered: 絞り込み中か。sorted: 並べ替え中か（Overflow のときだけ、並べ替えは当てないと添える）
+    #   droppedRows: Excel の行の上限で書かなかった件数。truncatedCells: 長すぎて途中で切ったセルの数
     param (
+        [string]$name,
         [string]$scope,
         [int]$count,
         [bool]$filtered,
         [string]$reason = "",
-        [bool]$sorted = $false
+        [bool]$sorted = $false,
+        [int]$droppedRows = 0,
+        [int]$truncatedCells = 0
     )
 
     $number = $count.ToString('N0')
+    $text = ""
     switch ($scope) {
         "HeadOnly" {
-            return "表に出ている ${number} 件だけを search_results.txt に出力しました（$(getExportHeadOnlyReasonText $reason)）"
+            $text = "表に出ている ${number} 件だけを ${name} に出力しました（$(getExportHeadOnlyReasonText $reason)）"
         }
         "Overflow" {
             $head = if ($filtered) { "表に入らなかった分も含めて、絞り込み後の ${number} 件" } else { "表に入らなかった分も含めて、全 ${number} 件" }
             $tail = if ($sorted) { "（件数が多いため、並べ替えは当てずに検索の順で出力しました）" } else { "" }
-            return "${head}を search_results.txt に出力しました${tail}"
+            $text = "${head}を ${name} に出力しました${tail}"
+        }
+        default {
+            if ($filtered) {
+                $text = "絞り込み後の ${number} 件を ${name} に出力しました"
+            } else {
+                $text = "${name} に ${number} 件を出力しました（保存したフォルダを開きます）"
+            }
         }
     }
-    if ($filtered) {
-        return "絞り込み後の ${number} 件を search_results.txt に出力しました"
+    if ($droppedRows -gt 0) {
+        $text += "（$($droppedRows.ToString('N0')) 件は Excel の行の上限を超えたため書いていません。全件は CSV か TSV で出力してください）"
     }
-    return "search_results.txt に出力しました（${number} 件）"
+    if ($truncatedCells -gt 0) {
+        $text += "（$($truncatedCells.ToString('N0')) 個のセルは長すぎるため、途中で切りました）"
+    }
+    return $text
+}
+
+function testExportFormat {
+    param (
+        [string]$format
+    )
+
+    return $format -in @("xlsx", "csv", "tsv")
+}
+
+function getExportMenuItems {
+    # ［保存 ▼］のメニュー（最後に選んだ種類に印を付ける。分からない種類は Excel ブック）
+    param (
+        [string]$lastFormat
+    )
+
+    if (!(testExportFormat $lastFormat)) {
+        $lastFormat = "xlsx"
+    }
+    return @(
+        @{ Format = "xlsx"; Header = "Excel ブック (.xlsx)"; Checked = ($lastFormat -eq "xlsx") }
+        @{ Format = "csv"; Header = "CSV (.csv)"; Checked = ($lastFormat -eq "csv") }
+        @{ Format = "tsv"; Header = "TSV (.tsv)"; Checked = ($lastFormat -eq "tsv") }
+    )
+}
+
+function getExportFilter {
+    # 保存のダイアログの「ファイルの種類」（この順に FilterIndex が 1・2・3）
+    return "Excel ブック (*.xlsx)|*.xlsx|CSV (*.csv)|*.csv|TSV (*.tsv)|*.tsv"
+}
+
+function getExportFilterIndex {
+    # 種類に対応する、ダイアログの FilterIndex（1 始まり）。分からない種類は Excel ブック
+    param (
+        [string]$format
+    )
+
+    switch ($format) {
+        "csv" { return 2 }
+        "tsv" { return 3 }
+    }
+    return 1
+}
+
+function getLastExportFormat {
+    # 次の［保存］で使う種類。書けたときだけ、書いた種類に替える
+    param (
+        [string]$current,
+        [string]$written
+    )
+
+    if (testExportFormat $written) {
+        return $written
+    }
+    if (testExportFormat $current) {
+        return $current
+    }
+    return "xlsx"
+}
+
+function getExportButtonToolTip {
+    # ［保存］の吹き出し。出力の待ち・書き込み中は、押すと中止になる
+    param (
+        [string]$format,
+        [bool]$busy
+    )
+
+    if ($busy) {
+        return "出力を中止します"
+    }
+    $label = switch ($format) {
+        "csv" { "CSV (.csv)" }
+        "tsv" { "TSV (.tsv)" }
+        default { "Excel ブック (.xlsx)" }
+    }
+    return "${label} で保存します"
+}
+
+function resolveExportTarget {
+    # 保存のダイアログで決まった名前から、書く種類を決める。名前の拡張子（.xlsx・.csv・.tsv）が先で、
+    # 無ければ「ファイルの種類」の拡張子を付け足す（Added。付け足したときだけ、既にあるかをこちらで確かめる）。
+    # 空の名前は $null。ファイルには触れない
+    param (
+        [string]$path,
+        [int]$filterIndex
+    )
+
+    if (!$path -or !$path.Trim()) {
+        return $null
+    }
+    $extension = [System.IO.Path]::GetExtension($path).ToLowerInvariant()
+    switch ($extension) {
+        ".xlsx" { return @{ Path = $path; Format = "xlsx"; Added = $false } }
+        ".csv" { return @{ Path = $path; Format = "csv"; Added = $false } }
+        ".tsv" { return @{ Path = $path; Format = "tsv"; Added = $false } }
+    }
+    $format = switch ($filterIndex) { 2 { "csv" } 3 { "tsv" } default { "xlsx" } }
+    return @{ Path = "${path}.${format}"; Format = $format; Added = $true }
+}
+
+function getDefaultExportName {
+    # 保存のダイアログの既定のファイル名（拡張子なし）: 検索結果_<語>_<日時>。ファイル名に使えない文字は _、語は 30 文字まで
+    param (
+        [string]$word,
+        [datetime]$now
+    )
+
+    $safe = [regex]::Replace([string]$word, '[\\/:*?"<>|\x00-\x1F]', "_")
+    if ($safe.Length -gt 30) {
+        $safe = $safe.Substring(0, 30)
+        if ([char]::IsHighSurrogate($safe[29])) {
+            $safe = $safe.Substring(0, 29)
+        }
+    }
+    $stamp = $now.ToString("yyyyMMdd_HHmmss")
+    if ($safe.Trim()) {
+        return "検索結果_${safe}_${stamp}"
+    }
+    return "検索結果_${stamp}"
+}
+
+function toExportComparePath {
+    # 保存先の比べ用のパス: \\?\ と \\?\UNC\ を外し、絶対パスにし、末尾の \ を除く。パスの形が不正なら $null。ファイルには触れない
+    param (
+        [string]$path
+    )
+
+    if (!$path) {
+        return $null
+    }
+    if ($path.StartsWith("\\?\UNC\", [System.StringComparison]::OrdinalIgnoreCase)) {
+        $path = "\\" + $path.Substring(8)
+    } elseif ($path.StartsWith("\\?\")) {
+        $path = $path.Substring(4)
+    }
+    try {
+        return [System.IO.Path]::GetFullPath($path).TrimEnd("\")
+    } catch {
+        return $null
+    }
+}
+
+function testExportForbiddenPath {
+    # 保存先がクロール対象のフォルダ・インデックスのフォルダの中か（区切りを境にした前方一致。大文字小文字・末尾の \ は区別しない）。
+    # 保存したファイルが次の取り込みで対象になるのを防ぐ。文字列だけで判定し、ファイルには触れない（保存のダイアログの確定の中で呼ぶため）
+    param (
+        [string]$path,
+        [string[]]$folders
+    )
+
+    $target = toExportComparePath $path
+    if ($null -eq $target) {
+        return $false
+    }
+    foreach ($folder in @($folders)) {
+        $root = toExportComparePath $folder
+        if (!$root) {
+            continue
+        }
+        if ($target.Equals($root, [System.StringComparison]::OrdinalIgnoreCase) -or
+            $target.StartsWith($root + "\", [System.StringComparison]::OrdinalIgnoreCase)) {
+            return $true
+        }
+    }
+    return $false
 }

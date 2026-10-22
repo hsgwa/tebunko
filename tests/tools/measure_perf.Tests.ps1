@@ -919,6 +919,68 @@ Describe "measure_perf.ps1 -Xlsx" -Tag Io {
         $after | Should -Be $configBefore
     }
 }
+Describe "measure_perf.ps1 -Export" -Tag Io {
+    BeforeAll {
+        $measure = "$PSScriptRoot\..\..\tools\measure_perf.ps1"
+        $repoConfig = Join-Path (Resolve-Path "$PSScriptRoot\..\..").ProviderPath "setting.config"
+        $configBefore = if (Test-Path -LiteralPath $repoConfig) { (Get-FileHash $repoConfig).Hash } else { $null }
+        $work = Join-Path $TestDrive "export-work"
+        & $measure -Export 2 -ExportHits 40 -Work $work -SampleMs 20 -RunId "9" -Sha "abc1234" 6>$null | Out-Null
+        $out = Join-Path $work "result"
+        $result = [System.IO.File]::ReadAllText("$out\result.json") | ConvertFrom-Json
+    }
+
+    It "形式ごとに書き出しを測り、書いた件数・失敗の数・時間を書く" {
+        $result.Export.Repeat | Should -Be 2
+        $result.Export.Hits | Should -Be 40
+        @($result.Export.Formats | ForEach-Object { $_.Format }) -join "," | Should -Be "xlsx,csv,tsv"
+        foreach ($f in @($result.Export.Formats)) {
+            $f.Written | Should -Be 40
+            $f.Failures | Should -Be 0
+            $f.Ms.Count | Should -Be 2
+            $f.SizeMB | Should -BeGreaterOrEqual 0
+        }
+        @($result.Export.Resources | ForEach-Object { $_.Phase }) | Should -Contain "xlsx"
+        @($result.Export.Resources | ForEach-Object { $_.Phase }) | Should -Contain "tsv"
+    }
+
+    It "-Export だけのときは、Index・Search・Ingest・Xlsx を null にする" {
+        $result.Index | Should -BeNullOrEmpty
+        $result.Search | Should -BeNullOrEmpty
+        $result.Ingest | Should -BeNullOrEmpty
+        $result.Xlsx | Should -BeNullOrEmpty
+        [System.IO.File]::Exists("$out\resource-export.csv") | Should -Be $true
+    }
+
+    It "metrics.csv に export_ の行を書く" {
+        $metrics = @(Import-Csv "$out\metrics.csv")
+        foreach ($format in @("xlsx", "csv", "tsv")) {
+            foreach ($stat in @("min", "median", "mean", "max")) {
+                @($metrics | Where-Object { $_.metric -eq "export_${format}_ms" -and $_.stat -eq $stat }).Count | Should -Be 1
+            }
+            @($metrics | Where-Object { $_.metric -eq "export_${format}_written" }).value | Should -Be "40"
+            @($metrics | Where-Object { $_.metric -eq "export_${format}_failures" }).value | Should -Be "0"
+        }
+        @($metrics | Where-Object { $_.metric -eq "export_peak_working_set_mb" }).Count | Should -Be 1
+    }
+
+    It "summary.md に「検索結果の書き出し」の表を書き、パスを書かない" {
+        $md = [System.IO.File]::ReadAllText("$out\summary.md")
+        $md | Should -Match "## 検索結果の書き出し"
+        $md.Contains($TestDrive) | Should -Be $false
+        [System.IO.File]::ReadAllText("$out\result.json").Contains($TestDrive) | Should -Be $false
+    }
+
+    It "-ExportHits が 0 以下なら止める" {
+        { & $measure -Export 1 -ExportHits 0 -Work (Join-Path $TestDrive "bad") 6>$null } | Should -Throw "*-ExportHits*"
+    }
+
+    It "リポジトリの setting.config を作らず、変えない" {
+        $after = if (Test-Path -LiteralPath $repoConfig) { (Get-FileHash $repoConfig).Hash } else { $null }
+        $after | Should -Be $configBefore
+    }
+}
+
 Describe "measure_perf.ps1 -Office" -Tag Io {
     BeforeAll {
         $measure = "$PSScriptRoot\..\..\tools\measure_perf.ps1"
@@ -1017,6 +1079,6 @@ Describe "measure_perf.ps1 -Office" -Tag Io {
     }
 
     It "-Index も -Office も無いときは失敗にする" {
-        { & $measure -Work (Join-Path $TestDrive "none") 6>$null } | Should -Throw "*-Index・-Office・-Xlsx*"
+        { & $measure -Work (Join-Path $TestDrive "none") 6>$null } | Should -Throw "*-Index・-Office・-Xlsx・-Export*"
     }
 }
