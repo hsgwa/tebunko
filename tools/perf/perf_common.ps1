@@ -529,7 +529,7 @@ function getIngestPerfProblems {
 function newRenderResult {
     # measure_preview.ps1 の Render（-Render の結果）から、result.json の Render を作る。
     #   RenderMs … 描画（Measure・Arrange・UpdateLayout）の時間を測った順に並べたもの
-    #   Elements … できた部品の数。ScrollMs … 下と右へスクロールして見える範囲を作り直す時間。RenderRetainedMB … 描画のあとに残るマネージドヒープの増え
+    #   Elements … できた部品の数。ScrollMs … 下と右へスクロールして見える範囲を作り直す時間。HScrollMs … 30 px 刻みで続けて 1 画面ぶん右へ動かす時間（HScrollChanges はそのとき範囲を決め直した回数）。RenderRetainedMB … 描画のあとに残るマネージドヒープの増え
     #   （この 3 つは、測った版が記録していなければ $null）
     #   FirstMs … 1 回目（部品の初期化が入る）。RestMs … 2 回目以降の統計（1 回だけのときは $null）
     param (
@@ -541,7 +541,7 @@ function newRenderResult {
     if ($times.Count -gt 1) { $rest = getStats ([double[]]@($times[1..($times.Count - 1)])) }
     return [ordered]@{
         Cells = $render.Cells; Rows = $render.Rows; Columns = $render.Columns
-        Elements = $render.Elements; ScrollMs = $render.ScrollMs; RenderRetainedMB = $render.RenderRetainedMB
+        Elements = $render.Elements; ScrollMs = $render.ScrollMs; HScrollMs = $render.HScrollMs; HScrollChanges = $render.HScrollChanges; RenderRetainedMB = $render.RenderRetainedMB
         RenderMs = $times
         FirstMs = $(if ($times.Count) { $times[0] } else { $null })
         RestMs = $rest

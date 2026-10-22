@@ -652,9 +652,9 @@ Describe "イベント" -Tag Unit {
 
         $handlers["PreviewHeader.DragCompleted"].Invoke($ui.PreviewHeader, (New-Object System.Windows.Controls.Primitives.DragCompletedEventArgs 0.0, 0.0, $false))
 
-        $table.Window.Last | Should -BeLessThan $lastBefore
-        $table.WindowVersion | Should -BeGreaterThan $versionBefore
-        [object]::ReferenceEquals($ui.PreviewHeader.ItemsSource, $headerBefore) | Should -Be $false
+        # 終わったら、変わった幅で範囲と左右の空きを決め直す（見えている列が今の範囲の中にあれば、範囲そのものは替えない）
+        $table.Window.Last | Should -BeLessOrEqual $lastBefore
+        $table.Window.RightSpace | Should -Be ($table.Prefix()[$table.Columns.Count] - $table.Prefix()[$table.Window.Last + 1])
     }
 
     It "見出しをドラッグしている間に別の行の表に替わっても、新しい表の見出しとセルの範囲が決まる" {

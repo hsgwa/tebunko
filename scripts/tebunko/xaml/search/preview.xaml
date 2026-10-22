@@ -165,7 +165,7 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                       <DataTemplate>
-                        <StackPanel x:Name="RowPanel" Orientation="Horizontal">
+                        <StackPanel x:Name="RowPanel" Orientation="Horizontal" Width="{Binding Window.RowWidth, FallbackValue=NaN}">
                           <Border Width="44" Background="{StaticResource Bg.Hover}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,1,1">
                             <TextBlock x:Name="Num" Text="{Binding Number}" Padding="4,2,6,2" FontSize="11" TextAlignment="Right"
                                        Foreground="{StaticResource Ink.Faint}" />

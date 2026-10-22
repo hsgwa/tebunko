@@ -58,10 +58,14 @@ class PreviewWindow : NotifyBase {
     [int]$Last = -1
     [double]$LeftSpace
     [double]$RightSpace
+    [double]$RowWidth   # 行の幅（行番号 + 全部の列の幅）。セルの作り直しの途中で行が測られても、横にスクロールできる広さが変わらないよう、行の幅に束ねる
     PreviewWindow() {}   # 既定のコンストラクタを明示する（理由は shared\ui\types.ps1 の NotifyBase）
     [void] SetSpaces([double]$left, [double]$right) {
         if ($this.LeftSpace -ne $left) { $this.LeftSpace = $left; $this.Raise("LeftSpace") }
         if ($this.RightSpace -ne $right) { $this.RightSpace = $right; $this.Raise("RightSpace") }
+    }
+    [void] SetRowWidth([double]$width) {
+        if ($this.RowWidth -ne $width) { $this.RowWidth = $width; $this.Raise("RowWidth") }
     }
 }
 
@@ -260,6 +264,7 @@ class PreviewTable {
     # （EnsureCells が、見えている行について今の範囲で作り直す）。範囲が変わったら $true
     [bool] SetWindow([int]$first, [int]$last, [double]$left, [double]$right) {
         $this.Window.SetSpaces($left, $right)
+        $this.Window.SetRowWidth([HitRow]::NumberWidth + $this.Prefix()[$this.Columns.Count])
         if ($first -eq $this.Window.First -and $last -eq $this.Window.Last) { return $false }
         $this.Window.First = $first
         $this.Window.Last = $last
@@ -661,6 +666,7 @@ class HitRow : NotifyBase {
         $total = 0.0
         foreach ($column in $table.Columns) { $total += $column.Width }
         $table.Window.SetSpaces(0, $total)
+        $table.Window.SetRowWidth([HitRow]::NumberWidth + $total)
         return $table
     }
 

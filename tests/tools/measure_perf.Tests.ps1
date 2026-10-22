@@ -391,8 +391,9 @@ Describe "perf_common.ps1 のプレビューの部品" -Tag Unit {
     }
 
     It "描画の結果は、部品の数・スクロールの時間・残るメモリを引き継ぐ" {
-        $r = newRenderResult ([pscustomobject]@{ Cells = 1; Rows = 1; Columns = 1; Elements = 321; ScrollMs = 12.5; RenderRetainedMB = 3.2; RenderMs = @(5.0); WorkingSetBeforeMB = 1.0; WorkingSetAfterMB = 1.0 })
+        $r = newRenderResult ([pscustomobject]@{ Cells = 1; Rows = 1; Columns = 1; Elements = 321; ScrollMs = 12.5; HScrollMs = 8.5; HScrollChanges = 2; RenderRetainedMB = 3.2; RenderMs = @(5.0); WorkingSetBeforeMB = 1.0; WorkingSetAfterMB = 1.0 })
         ($r.Elements, $r.ScrollMs, $r.RenderRetainedMB) | Should -Be @(321, 12.5, 3.2)
+        ($r.HScrollMs, $r.HScrollChanges) | Should -Be @(8.5, 2)
     }
 
     It "<name>" -TestCases @(

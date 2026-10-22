@@ -148,7 +148,7 @@ function updatePreviewWindow {
         return
     }
     if ($null -eq $offset) { $offset = $ui.PreviewScroll.HorizontalOffset }
-    $window = getPreviewColumnWindow $table.Prefix() $offset $ui.PreviewScroll.ViewportWidth ([HitRow]::NumberWidth) ${previewColumnMargin}
+    $window = getPreviewColumnWindow $table.Prefix() $offset $ui.PreviewScroll.ViewportWidth ([HitRow]::NumberWidth) ${previewColumnMargin} $table.Window.First $table.Window.Last ${previewColumnSpread}
     if ($table.SetWindow($window.First, $window.Last, $window.Left, $window.Right)) {
         $ui.PreviewHeader.ItemsSource = $table.WindowColumns()
     }

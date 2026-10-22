@@ -24,7 +24,7 @@ function startGui {
     ${previewReadAheadLines} = 20  # 見えている行が、読んである範囲の端からこの行数以内に近づいたら、その向きに読み足す
     ${previewChunkLines}    = 200  # 1 回に読み足す行数（持つ行が上限を超えたとき、遠い側から捨てる行数も同じ）
     ${previewMaxRows}       = 3000 # プレビューに持つ行の上限（超えたら、見ている所から遠い側を捨てる）
-    ${previewColumnMargin}  = 3    # 見えている列の左右に、先に作っておく列の数（横にスクロールするたびにセルを作り直さないため）
+    ${previewColumnSpread}  = 1; ${previewColumnMargin} = 3   # 見えている幅の左右に先に作る列を、見える幅の何倍ぶん（Spread）と何列（Margin）にするか。見えている列が作った範囲の中にある間は、範囲を決め直さない（横にスクロールするたびにセルを作り直さないため）
     ${previewCellRowMargin} = 10   # 見えている行の上下に、先にセルを作っておく行の数
     ${backgroundWorkers} = 2  # startJob のスレッドの数
 

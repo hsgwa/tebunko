@@ -41,7 +41,7 @@ Describe "プレビューの全部の列と読み足し" -Tag Gui {
             }
             $horizontalPercent = { (waitGuiPreviewScroll $S).GetCurrentPattern([Windows.Automation.ScrollPattern]::Pattern).Current.HorizontalScrollPercent }
             $cellCount = {
-                # 作ってあるセルの数と、見えている範囲から決まる上限。上限は（見えている列 + 左右に 3 列ずつ）×（見えている行 + 上下に 10 行ずつ）
+                # 作ってあるセルの数と、見えている範囲から決まる上限。上限は（見えている列 + 左右に 1 画面ぶんと 3 列ずつ）×（見えている行 + 上下に 10 行ずつ）
                 # （前の 3 と 10 は、作る範囲に足す余白の列・行の数）。見えているセルは、スクロールの枠と重なるもの
                 $scrollRect = (waitGuiPreviewScroll $S).Current.BoundingRectangle
                 $texts = @(getGuiPreviewTexts $S.Window)
@@ -49,7 +49,7 @@ Describe "プレビューの全部の列と読み足し" -Tag Gui {
                         $_.Right -gt $scrollRect.Left -and $_.Left -lt $scrollRect.Right -and $_.Bottom -gt $scrollRect.Top -and $_.Top -lt $scrollRect.Bottom })
                 $visibleColumns = @($visible | ForEach-Object { [Math]::Round($_.Left) } | Sort-Object -Unique).Count
                 $visibleRows = @($visible | ForEach-Object { [Math]::Round($_.Top) } | Sort-Object -Unique).Count
-                @{ Count = $texts.Count; Limit = ($visibleColumns + 6) * ($visibleRows + 20); Columns = $visibleColumns; Rows = $visibleRows }
+                @{ Count = $texts.Count; Limit = (3 * $visibleColumns + 6) * ($visibleRows + 20); Columns = $visibleColumns; Rows = $visibleRows }
             }
             $search = {
                 param ($word)
@@ -83,7 +83,7 @@ Describe "プレビューの全部の列と読み足し" -Tag Gui {
             & $scrollTo 100 -1
             waitGui $S "右端の列（2000 列目）のセルが出る" ${guiDefaultTimeout} { & $hasCell 'c2000$' } | Out-Null
             (& $hasCell '^r\d+c1$') | Should -Be $false -Because "左端の列は作り直されて消える"
-            $made = & $cellCount
+            $made = waitGui $S "右端で見えているセルの数が測れる" ${guiDefaultTimeout} { $m = & $cellCount; if ($m.Columns -gt 0 -and $m.Rows -gt 0) { $m } }
             $made.Count | Should -BeLessOrEqual $made.Limit -Because "右端へ動かしても、見えている範囲と余白の分だけを作る"
 
             setGuiStep $S "右端のまま下へスクロールして、最後の行まで読み足す"
