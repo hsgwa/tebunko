@@ -770,6 +770,16 @@ Describe "HitRow.BuildPreview" -Tag Unit {
             $table.Window.RowWidth | Should -Be ($total + 50)
         }
 
+        It "UpdateRowWidth は、範囲を決め直さなくても、行の幅を今の列の幅に合わせる（見出しをドラッグしている間）" {
+            $table = newWideTable
+            $total = $table.Window.RowWidth
+            $versionBefore = $table.WindowVersion
+            $table.Columns[0].SetWidth($table.Columns[0].Width + 50)
+            $table.UpdateRowWidth()
+            $table.Window.RowWidth | Should -Be ($total + 50)
+            $table.WindowVersion | Should -Be $versionBefore
+        }
+
         It "セルは、見えている行の、見えている列の範囲の分だけ作る" {
             $table = newWideTable
             @($table.Rows | ForEach-Object { $_.Cells.Count } | Measure-Object -Sum).Sum | Should -Be 0

@@ -17,6 +17,7 @@ BeforeAll {
     ${previewChunkLines}    = 200
     ${previewMaxRows}       = 3000
     ${previewColumnMargin}  = 3
+    ${previewColumnSpread}  = 1
     ${previewCellRowMargin} = 10
 
     # ---- 画面の偽物 ----
@@ -589,6 +590,21 @@ Describe "イベント" -Tag Unit {
         $column.Width | Should -Be 100
     }
 
+    It "列が多い表を 30 px ずつ 1 画面ぶん横にスクロールしても、見えている列の範囲を決め直すのは 2 回以下" {
+        $cells = @(1..2000 | ForEach-Object { "列$_" }) -join "`t"
+        $fake.Current = newHitRow "見積.xlsx" "4月" 1 @("`t$cells")
+        showDetail
+        $versionBefore = $script:previewTable.WindowVersion
+
+        $viewport = $ui.PreviewScroll.ViewportWidth
+        for ($offset = 30.0; $offset -le $viewport; $offset += 30.0) {
+            $ui.PreviewScroll.HorizontalOffset = $offset
+            & $handlers["PreviewScroll.ScrollChanged"] $ui.PreviewScroll ([pscustomobject]@{ HorizontalChange = 30.0; ViewportWidthChange = 0.0; ExtentWidthChange = 0.0; VerticalChange = 0.0; ExtentHeightChange = 0.0; ViewportHeightChange = 0.0 })
+        }
+
+        ($script:previewTable.WindowVersion - $versionBefore) | Should -BeLessOrEqual 2 -Because "見えている列が作ってある範囲の中にある間は、範囲を決め直さない"
+    }
+
     It "行を横にスクロールしたら、列見出しも同じ位置にする" {
         $ui.PreviewScroll.HorizontalOffset = 150.0
 
@@ -646,6 +662,7 @@ Describe "イベント" -Tag Unit {
         $handlers["PreviewHeader.DragDelta"].Invoke($ui.PreviewHeader, $e)
 
         $table.Columns[0].Width | Should -BeGreaterThan 2000
+        $table.Window.RowWidth | Should -Be ([HitRow]::NumberWidth + $table.Prefix()[$table.Columns.Count]) -Because "ドラッグ中も行の幅は広げた列に合わせる（右側が切れない）"
         $table.Window.Last | Should -Be $lastBefore
         $table.WindowVersion | Should -Be $versionBefore
         [object]::ReferenceEquals($ui.PreviewHeader.ItemsSource, $headerBefore) | Should -Be $true
@@ -653,7 +670,8 @@ Describe "イベント" -Tag Unit {
         $handlers["PreviewHeader.DragCompleted"].Invoke($ui.PreviewHeader, (New-Object System.Windows.Controls.Primitives.DragCompletedEventArgs 0.0, 0.0, $false))
 
         # 終わったら、変わった幅で範囲と左右の空きを決め直す（見えている列が今の範囲の中にあれば、範囲そのものは替えない）
-        $table.Window.Last | Should -BeLessOrEqual $lastBefore
+        $table.Window.Last | Should -Be $lastBefore
+        $table.WindowVersion | Should -Be $versionBefore
         $table.Window.RightSpace | Should -Be ($table.Prefix()[$table.Columns.Count] - $table.Prefix()[$table.Window.Last + 1])
     }
 
