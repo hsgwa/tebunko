@@ -304,3 +304,88 @@ function getResultSaveFailedText {
     }
     return "search_results.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。"
 }
+
+function getExportButtonText {
+    # 出力ボタンの文字。出力の待ち・書き込み中は押すと中止になるので、そう読めるようにする
+    param (
+        [bool]$busy
+    )
+
+    if ($busy) {
+        return "出力を中止"
+    }
+    return "保存"
+}
+
+function getExportWaitingText {
+    # 検索の途中で出力を押したとき（検索が終わってから書く）のステータス
+    return "検索が終わってから search_results.txt に出力します…"
+}
+
+function getExportWritingText {
+    # 書き込み中のステータス（written は書いた件数）
+    param (
+        [int]$written
+    )
+
+    return "search_results.txt に出力しています…（$($written.ToString('N0')) 件）"
+}
+
+function getExportCancelledText {
+    return "出力を中止しました。search_results.txt は前のままです。"
+}
+
+function getExportFailedText {
+    # 書き込みに失敗した（ロック・権限以外）ときのステータス
+    param (
+        [string]$message
+    )
+
+    if ($message) {
+        return "search_results.txt に出力できませんでした：${message}"
+    }
+    return "search_results.txt に出力できませんでした"
+}
+
+function getExportHeadOnlyReasonText {
+    # 表に出ている分だけを書いた理由（reason は検索の終わりの状態。CountTimeout / OverflowFailed / Cancelled）
+    param (
+        [string]$reason
+    )
+
+    switch ($reason) {
+        "CountTimeout" { return "総数を数える時間が切れたため、残りは出力していません" }
+        "OverflowFailed" { return "表に入らない分を一時ファイルに書けなかったため、残りは出力していません" }
+        "Cancelled" { return "検索を途中で止めたため、残りは出力していません" }
+    }
+    return "残りは出力していません"
+}
+
+function getExportDoneText {
+    # 書き終わったときのステータス
+    #   scope: All（表がすべて）/ Overflow（表に入らなかった分も書いた）/ HeadOnly（表に出ている分だけ。reason が理由）
+    #   filtered: 絞り込み中か。sorted: 並べ替え中か（Overflow のときだけ、並べ替えは当てないと添える）
+    param (
+        [string]$scope,
+        [int]$count,
+        [bool]$filtered,
+        [string]$reason = "",
+        [bool]$sorted = $false
+    )
+
+    $number = $count.ToString('N0')
+    switch ($scope) {
+        "HeadOnly" {
+            return "表に出ている ${number} 件だけを search_results.txt に出力しました（$(getExportHeadOnlyReasonText $reason)）"
+        }
+        "Overflow" {
+            $head = if ($filtered) { "表に入らなかった分も含めて、絞り込み後の ${number} 件" } else { "表に入らなかった分も含めて、全 ${number} 件" }
+            $tail = if ($sorted) { "（件数が多いため、並べ替えは当てずに検索の順で出力しました）" } else { "" }
+            return "${head}を search_results.txt に出力しました${tail}"
+        }
+    }
+    if ($filtered) {
+        return "絞り込み後の ${number} 件を search_results.txt に出力しました"
+    }
+    return "search_results.txt に出力しました（${number} 件）"
+}

@@ -529,8 +529,7 @@ class HitRow : NotifyBase {
 
     # 絞り込み。元のファイル名（拡張子を含む。フォルダは含まない）への部分一致（大文字小文字を区別しない）。空文字は常に合う。
     [bool] MatchesFileName([string]$text) {
-        $ci = [System.StringComparison]::CurrentCultureIgnoreCase
-        return (("" + $this.Book).IndexOf($text, $ci) -ge 0)
+        return (testHitFilter $this.Book $text)
     }
 
     static [string] ToDisplay([string]$text) {

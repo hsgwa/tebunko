@@ -233,3 +233,17 @@ function newFileFilter {
     }
     return $result
 }
+
+function testHitFilter {
+    # 結果の絞り込み（ファイル名の一部）に、元のファイル名が合うか。空の絞り込みは常に合う。大文字小文字は区別しない。
+    # 表（HitRow.MatchesFileName）と、結果の出力（溢れの行。search_export.ps1）で同じ判定を使う
+    param (
+        [string]$book,
+        [string]$filterText
+    )
+
+    if ($filterText -eq "") {
+        return $true
+    }
+    return (("" + $book).IndexOf($filterText, [System.StringComparison]::CurrentCultureIgnoreCase) -ge 0)
+}

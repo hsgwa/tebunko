@@ -42,6 +42,7 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 | `VERSION.txt` | 読む | 版とコミット（画面の［バージョン情報］・エクスポートの目録）。配布物にだけある。単一 `.ps1` 版は埋め込み、開発中は無く「開発版」になる（作業ツリーの `.git` の `HEAD`・`packed-refs`・`refs\tags` などを読むだけで、タグとコミットを添える。`readDevVersion`。外部のコマンドは起動しない） |
 | `work\tmp\<PC の鍵>\open_copy\` | 書く・消す | ［新規で開く］のコピー（Office 以外。`copySourceForOpen`）。起動時に、最後に使ってから 1 日より古いものだけを消す（`clearOldOpenCopies`）。閉じるときは消さない |
 | `work\tmp\<PC の鍵>\search_overflow\<PID>\<要求の番号>\` | 書く・消す | 検索の結果が件数の上限を超えたときの、表に入らない分（`<作業の番号>.tsv`・`<作業の番号>.head.tsv`。[上限を超えた分](../search/index.md#上限を超えた分の数え上げと書き溜め)）。次の検索の始めと画面を閉じるとき（検索の司令のスレッドの終わり）に自分の `<PID>` のフォルダごと消し、起動時に動いていないプロセスのものを裏で消す（`removeStaleSearchOverflow`） |
+| `work\tmp\<PC の鍵>\search_overflow\<PID>\export\body.tmp` | 書く・消す | ［結果をファイルに出力］で、結果の本文を先に書く一時ファイル（出力の終わり・中止・失敗のときに消す。溢れの根が使えないときは `search_results.txt.body`）。続けて `search_results.txt.new` に書き、書き終えてから `search_results.txt` と置き換える（途中で止まっても前のファイルを残す） |
 | `setting.config` | 読む・書く | 設定（[設定ファイル（setting.config）](settings-file.md)）。ツールのフォルダに書けるときだけここに置く。書けないときは「既定のワークスペースの直下」 |
 | `setting.config.tmp` | 書く | 設定を保存する途中の一時ファイル。書き終えたら `setting.config` に置き換える（`writeTextLinesAtomic`） |
 | `setting.config.broken-<日時>[-<番号>]` | 書く | JSON として読めない設定の退避（`repairBrokenSettings`。起動のとき 1 回だけ） |

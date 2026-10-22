@@ -22,7 +22,7 @@
         <StackPanel Orientation="Horizontal">
           <Path Data="{StaticResource Icon.Save}" Width="13" Height="13" Stretch="Uniform" Stroke="{StaticResource Ink.Body}"
                 StrokeThickness="1.08" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,6,0" />
-          <TextBlock Text="保存" VerticalAlignment="Center" />
+          <TextBlock x:Name="ExportButtonText" Text="保存" VerticalAlignment="Center" />
         </StackPanel>
       </Button>
       <Grid DockPanel.Dock="Right" Width="220">
