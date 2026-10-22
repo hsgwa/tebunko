@@ -18,6 +18,11 @@ ${searchServiceScript} = {
     $overflowRoots = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     try {
         foreach ($request in $requests.GetConsumingEnumerable()) {
+            if ($request.Kind -eq "Export") {
+                # 結果の書き出し。溢れ（検索の続きの置き場所）には触らず、キャッシュも縮めない
+                invokeSearchExport $request
+                continue
+            }
             $requestRoot = try { [Workspace]::new($request.WorkDir).TmpRoot } catch { $null }
             # 前の検索で使った別のワークスペースの溢れは、この検索の始めに消す（今の要求の根は invokeSearchRequest が消す）
             foreach ($root in @($overflowRoots)) {
@@ -60,6 +65,8 @@ class SearchService {
     hidden [System.IAsyncResult]$Handle
     # いま実行している（最後に渡した）要求
     hidden [hashtable]$Current
+    # いま実行している（最後に渡した）書き出しの要求
+    hidden [hashtable]$CurrentExport
 
     SearchService([string]$script, [hashtable]$libLoad, $cache, [int]$workers, [int]$closeMilliseconds) {
         $this.Script = $script
@@ -111,10 +118,25 @@ class SearchService {
         return $request
     }
 
+    [hashtable] Export([hashtable]$request) {
+        # 結果の書き出しの要求（newExportRequest）を渡す。実行中の検索は取り消さない（溢れは検索の続きの置き場所なので残す）。
+        # 司令のスレッドが止まっていれば作り直す（溢れは前のスレッドの終わりに消えているので、書き出しは表の分だけになる）
+        if (!$this.IsRunning()) {
+            $this.Shutdown()
+            $this.Start()
+        }
+        $this.CurrentExport = $request
+        $this.Requests.Add($request)
+        return $request
+    }
+
     [void] Cancel() {
-        # 実行中の要求を取り消す（照合の作業の切れ目で止まる）
+        # 実行中の要求（検索・書き出し）を取り消す（照合の作業の切れ目で止まる）
         if ($this.Current) {
             $this.Current.Stop = $true
+        }
+        if ($this.CurrentExport) {
+            $this.CurrentExport.Stop = $true
         }
     }
 
@@ -123,6 +145,7 @@ class SearchService {
         $this.Cancel()
         $this.Shutdown()
         $this.Current = $null
+        $this.CurrentExport = $null
     }
 
     hidden [void] Shutdown() {

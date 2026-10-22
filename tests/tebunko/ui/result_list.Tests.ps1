@@ -869,3 +869,37 @@ Describe "結果の表の定義（search\result_list.xaml）" -Tag Unit {
         @(Get-ChildItem -LiteralPath $scriptsDir -Recurse -Include *.ps1, *.xaml | Select-String -SimpleMatch "IndexColumn").Count | Should -Be 0
     }
 }
+
+Describe "getExportHits" -Tag Unit {
+    BeforeEach {
+        resetResults
+        [void](addHit "b.docx" "ページ001" "見積" 1)
+        [void](addHit "b.docx" "ページ001" "見積" 2)
+        [void](addHit "a.docx" "ページ001" "見積" 3)
+        [void](addHit "c.xlsx" "4月" "`t見積" 4)
+        flushResults
+        $column = newSortColumn "Book"
+        $ui.ResultGrid.Columns.Add($column)
+        sortResults $column
+    }
+
+    It "<Name>" -ForEach @(
+        @{ Name = "上限を超えていない・並べ替えている: 表の順"; Truncated = $false; Filter = ""; Sorted = $true; Expected = "3,1,2,4" }
+        @{ Name = "上限を超えていない・並べ替えていない: 検索の順（行の部品を作らない）"; Truncated = $false; Filter = ""; Sorted = $false; Expected = "1,2,3,4" }
+        @{ Name = "上限を超えていない・絞り込みあり: 検索の順で、合うファイルだけ"; Truncated = $false; Filter = "docx"; Sorted = $false; Expected = "1,2,3" }
+        @{ Name = "上限を超えている: 並べ替えは当てず、検索の順（ファイルの見つかった順 → ファイルの中の順）"; Truncated = $true; Filter = ""; Expected = "1,2,3,4" }
+        @{ Name = "上限を超えている: ファイル名の絞り込み（大文字・小文字を区別しない）"; Truncated = $true; Filter = "DOCX"; Expected = "1,2,3" }
+        @{ Name = "上限を超えている: 合うファイルが無い"; Truncated = $true; Filter = "存在しない"; Expected = "" }
+    ) {
+        $hits = getExportHits $Truncated $Filter ([bool]$Sorted)
+
+        (@($hits | ForEach-Object { $_.LineNumber }) -join ",") | Should -Be $Expected
+    }
+
+    It "上限を超えているときは、行の部品（HitRow）を作らず、検索の素の値を返す" {
+        $hits = getExportHits $true ""
+
+        $hits[0].GetType().Name | Should -Not -Be "HitRow"
+        $hits[0].Book | Should -Be "b.docx"
+    }
+}

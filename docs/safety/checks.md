@@ -128,7 +128,7 @@ PDF は PowerShell だけで読み、外の部品・Office・外部プロセス�
 | `openAboutLink`（`tebunko/ui/about_dialog.ps1`） | `Start-Process`（`explorer.exe`。アドレスを 1 つ渡す） | 「バージョン情報」の GitHub・リリースのリンク。開くのは `getAboutLinks` に載せた 2 つのアドレス（`https://github.com/hsgwa/tebunko` と、その `/releases`）と一字一句同じものだけ（`testAboutLinkUrl`）。利用者がリンクを押したときのみ |
 | `openWithNotepad`（`tebunko/ui/open_source.ps1`） | `Start-Process`（固定のパス `%SystemRoot%\System32\notepad.exe`） | 検索結果から、既定のアプリで開くと実行・登録になる拡張子（`$textNotepadExtensions`）のテキストファイルを開く（利用者の操作時のみ） |
 | `openWithShell`（`tebunko/ui/open_source.ps1`） | `ProcessStartInfo`・`UseShellExecute`・`Process::Start`・`Invoke-Item` | 元のファイルを既定のアプリで開く。先頭で `testSourceBookName` により名前を確かめ、通らなければ何も起動しない |
-| `exportResults`（`tebunko/ui/open_source.ps1`） | `Invoke-Item` | 書き出した結果のファイル（作業フォルダの固定の場所 `search_results.txt`。利用者が選んだ名前のものではない）を既定のアプリで開く（利用者の操作時のみ） |
+| `completeExport`（`tebunko/ui/open_source.ps1`） | `Invoke-Item` | 書き出した結果のファイル（作業フォルダの固定の場所 `search_results.txt`。利用者が選んだ名前のものではない）を既定のアプリで開く（利用者の操作時のみ） |
 | `showErrorDialog`（`shared/ui/shell.ps1`） | `Start-Process`（固定のパスの `notepad.exe`） | エラーの記録のファイルをメモ帳で開く（利用者が押したときのみ） |
 
 上の表にない関数が、シェルで開く API を書くと `tests/meta/safety.Tests.ps1` の「検索結果から開くとき、シェルで開く処理が決まった所にだけあること」が落ちる（別名・型名の書き方違いも構文木で見つける）。足すときは、表と守りを同じ変更で直す。

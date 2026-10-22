@@ -268,6 +268,42 @@ function getIndexSummary {
     return $summary
 }
 
+function getSearchResultLine {
+    # 検索結果の 1 行（TSV）。ファイル名の前に、クロール対象フォルダからの相対フォルダを付ける（toSearchResultLines・画面のファイル出力で共通）
+    param (
+        [string]$relDir,
+        [string]$book,
+        [string]$location,
+        [int]$lineNumber,
+        [string]$line
+    )
+
+    $text = toResultLine $book $location $lineNumber $line
+    if ($relDir) {
+        return "${relDir}\${text}"
+    }
+    return $text
+}
+
+function getSearchResultColumnCount {
+    # 結果の 1 行の、見出しに要る列の数（ファイル名・場所・種別・行番号の 4 列を除いたセルの数）
+    param (
+        [string]$line
+    )
+
+    return (countTsvFields $line) - 4
+}
+
+function getSearchResultCountLine {
+    # 検索結果ファイルの 1 ワード分の先頭の行（件数の行）
+    param (
+        [string]$word,
+        [int]$count
+    )
+
+    return "【検索文字列　${word}】 ${count} 件"
+}
+
 function toSearchResultLines {
     # 検索結果を検索結果ファイルの形式にし、@{ Header（見出し行）; Lines } を返す（画面のファイル出力・コピーで共通）。
     # Excelに貼り付けたときに元のセル位置が分かるよう、行番号（TSVの行番号 = Excelの行番号）を付け、
@@ -279,19 +315,15 @@ function toSearchResultLines {
     $lines = New-Object System.Collections.Generic.List[string]
     $columnCount = 0
     foreach ($hit in $hits) {
-        # ファイル名の前に、クロール対象フォルダからの相対フォルダを付ける
-        $line = toResultLine $hit.Book $hit.Location $hit.LineNumber $hit.Line
-        if ($hit.RelDir) {
-            $line = "$($hit.RelDir)\${line}"
-        }
+        $line = getSearchResultLine $hit.RelDir $hit.Book $hit.Location $hit.LineNumber $hit.Line
         $lines.Add($line)
-        $columnCount = [math]::Max($columnCount, (countTsvFields $line) - 4)  # ファイル名・場所・種別・行番号の4列を除く
+        $columnCount = [math]::Max($columnCount, (getSearchResultColumnCount $line))
     }
     return @{ Header = (toResultHeader $columnCount); Lines = $lines }
 }
 
 function writeSearchResult {
-    # 1ワード分の検索結果を検索結果ファイルに書き出す
+    # 1ワード分の検索結果（メモリ上の全件）を検索結果ファイルの形式で書き出す。画面の［結果をファイルに出力］は、全件をメモリに持たない書き方（search_export.ps1）で、同じ部品（getSearchResult*）から同じ形を作る
     param (
         [System.IO.TextWriter]$writer,
         [string]$word,
@@ -299,7 +331,7 @@ function writeSearchResult {
     )
 
     $result = toSearchResultLines $hits
-    $writer.WriteLine("【検索文字列　${word}】 $($result.Lines.Count) 件")
+    $writer.WriteLine((getSearchResultCountLine $word $result.Lines.Count))
     $writer.WriteLine($result.Header)
     foreach ($line in $result.Lines) {
         $writer.WriteLine($line)
