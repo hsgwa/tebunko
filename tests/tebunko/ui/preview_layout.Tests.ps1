@@ -25,7 +25,7 @@ BeforeAll {
     }
 }
 
-Describe "プレビューの表の左端" {
+Describe "プレビューの表の左端" -Tag Unit {
     It "表が見える幅より狭いとき（<Columns> 列）も、行は左端から並ぶ" -TestCases @(
         @{ Columns = 2 }
         @{ Columns = 2000 }
@@ -40,6 +40,7 @@ Describe "プレビューの表の左端" {
         $rowsControl = $content.FindName("PreviewRows")
         $content.FindName("PreviewHeaderPanel").DataContext = $table.Window
         $rowsControl.ItemsSource = $table.Rows
+        $content.FindName("PreviewHeaderScroll").Visibility = "Visible"
         $content.Measure([System.Windows.Size]::new(1400, 700))
         $content.Arrange([System.Windows.Rect]::new(0, 0, 1400, 700))
         $content.UpdateLayout()
@@ -48,9 +49,11 @@ Describe "プレビューの表の左端" {
 
         $panels = findRowPanels $rowsControl
         $panels.Count | Should -BeGreaterThan 0
+        $origin = [System.Windows.Point]::new(0, 0)
+        $headerX = $content.FindName("PreviewHeaderPanel").TransformToAncestor($content).Transform($origin).X
         foreach ($panel in $panels) {
-            $x = $panel.TransformToAncestor($rowsControl).Transform([System.Windows.Point]::new(0, 0)).X
-            $x | Should -BeLessOrEqual 1 -Because "行の左端が、見出しの左端（0）からずれない"
+            $x = $panel.TransformToAncestor($content).Transform($origin).X
+            [math]::Abs($x - $headerX) | Should -BeLessOrEqual 1 -Because "行の左端が、見出しの左端からずれない"
         }
     }
 }
