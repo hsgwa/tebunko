@@ -105,9 +105,9 @@
               </Button.Template>
               <Button.ContextMenu>
                 <ContextMenu MinWidth="216">
-                  <MenuItem x:Name="MenuExportXlsx" Header="Excel ブック (.xlsx)" IsCheckable="True" />
-                  <MenuItem x:Name="MenuExportCsv" Header="CSV (.csv)" IsCheckable="True" />
-                  <MenuItem x:Name="MenuExportTsv" Header="TSV (.tsv)" IsCheckable="True" />
+                  <MenuItem x:Name="MenuExportXlsx" Style="{StaticResource MenuItemCheckable}" Header="Excel ブック (.xlsx)" IsCheckable="True" />
+                  <MenuItem x:Name="MenuExportCsv" Style="{StaticResource MenuItemCheckable}" Header="CSV (.csv)" IsCheckable="True" />
+                  <MenuItem x:Name="MenuExportTsv" Style="{StaticResource MenuItemCheckable}" Header="TSV (.tsv)" IsCheckable="True" />
                 </ContextMenu>
               </Button.ContextMenu>
             </Button>

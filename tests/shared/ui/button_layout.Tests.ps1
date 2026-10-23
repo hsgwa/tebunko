@@ -107,6 +107,28 @@ Describe "ボタンの中身の位置（描いた画素で測る）" -Tag Unit {
     }
 }
 
+# 出力の形式のメニュー: 選んだ種類の左にチェックの絵が出る（IsChecked を立てるだけで、見た目に何も出ない作りに戻らないこと）
+Describe "出力の形式のメニューのチェック" -Tag Unit {
+    It "<Name>: 選ぶとチェックの絵が出て、選んでいないと出ない" -TestCases @(
+        @{ Name = "MenuExportXlsx" }
+        @{ Name = "MenuExportCsv" }
+        @{ Name = "MenuExportTsv" }
+    ) {
+        param ($Name)
+        $root = loadXaml "${scriptsDir}\tebunko\xaml\search\result_list.xaml"
+        $item = $root.FindName($Name)
+        $item.Style | Should -Not -BeNullOrEmpty
+        $item.IsChecked = $false
+        [void]$item.ApplyTemplate()
+        $mark = $item.Template.FindName("CheckMark", $item)
+        $mark | Should -Not -BeNullOrEmpty
+        $mark.Visibility | Should -Be "Collapsed"
+        $item.IsChecked = $true
+        [void]$item.ApplyTemplate()
+        $item.Template.FindName("CheckMark", $item).Visibility | Should -Be "Visible"
+    }
+}
+
 # 帯のボタンの見える枠（Bd）の高さ。Height（24）はボタン全体で、フォーカスの輪が内側から取ると見える枠が 22 に縮む（Margin=-1 で外へ出してある）。
 Describe "帯のボタンの見える枠の大きさ" -Tag Unit {
     It "<Name>: 見える枠の高さが 24" -TestCases @(

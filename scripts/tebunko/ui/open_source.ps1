@@ -964,6 +964,7 @@ function openExportMenu {
     $menu = $ui.ExportMenuButton.ContextMenu
     $menu.PlacementTarget = $ui.ExportGroup
     $menu.Placement = [System.Windows.Controls.Primitives.PlacementMode]::Bottom
+    # 見た目（theme.xaml の ContextMenu）の枠の幅は 216 なので、右端をボタンにそろえるには 216 を引く。幅を変えたらここも直す
     $menu.HorizontalOffset = $ui.ExportGroup.ActualWidth - $menu.MinWidth
     $menu.VerticalOffset = 4
     $menu.IsOpen = $true
