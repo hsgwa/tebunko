@@ -560,7 +560,7 @@ function openIndexLocation {
         & $apply (getPathState $path)
         return
     }
-    & $showMessage "保存先のフォルダを確かめています…：${path}"
+    & $showMessage (getIndexLocationOpenStatus "Checking" $path)
     $otherState = ${pathStateOther}
     startJob {
         param ($path)

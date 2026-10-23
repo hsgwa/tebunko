@@ -434,6 +434,7 @@ Describe "getIndexLocationView（インデックスの保存先の表示）" -Ta
 
 Describe "getIndexLocationOpenStatus（保存先を開くときの文言）" -Tag Unit {
     It "<kind> の文言" -TestCases @(
+        @{ kind = "Checking"; message = ""; expected = "保存先のフォルダを確かめています…：C:\ws" }
         @{ kind = "Missing"; message = ""; expected = "保存先のフォルダはまだありません（インデックスを作ると作られます）：C:\ws" }
         @{ kind = "Unreachable"; message = ""; expected = "保存先のフォルダに接続できません：C:\ws" }
         @{ kind = "Other"; message = "アクセスが拒否されました"; expected = "保存先のフォルダを開けません：C:\ws（アクセスが拒否されました）" }

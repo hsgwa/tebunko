@@ -102,7 +102,11 @@ function initIndexingConfirmLocation {
         $statusText.Text = $text
         $statusText.Visibility = if ($text) { "Visible" } else { "Collapsed" }
     }.GetNewClosure()
-    $ctrl.OpenIndexLocationButton.Add_Click({ safe { openIndexLocation $showMessage } }.GetNewClosure())
+    # GetNewClosure したブロックの中では関数を名前で探せないことがあるため、関数は先に変数へ入れて & で呼ぶ
+    $open = ${function:openIndexLocation}
+    $safeCall = ${function:safe}
+    $openBlock = { & $open $showMessage }.GetNewClosure()
+    $ctrl.OpenIndexLocationButton.Add_Click({ & $safeCall $openBlock }.GetNewClosure())
 }
 
 function showIndexingConfirmDialog {

@@ -344,6 +344,7 @@ function addIndexRowNotice {
     }
     return "${text}`n${notice}"
 }
+
 function getIndexLocationView {
     # インデックスの保存先（ワークスペースのフォルダ）の表示。@{ Heading; Path; Note; Warning }
     # ［インデックス管理］の一覧の上と、インデックス更新の確認で同じものを使う。
@@ -375,6 +376,7 @@ function getIndexLocationOpenStatus {
     )
 
     switch ($kind) {
+        "Checking" { return "保存先のフォルダを確かめています…：${path}" }
         "Missing" { return "保存先のフォルダはまだありません（インデックスを作ると作られます）：${path}" }
         "Unreachable" { return "保存先のフォルダに接続できません：${path}" }
         default { return "保存先のフォルダを開けません：${path}（${message}）" }
