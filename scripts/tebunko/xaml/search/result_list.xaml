@@ -17,44 +17,103 @@
   <!-- 件数・すべて開く／閉じる・進捗・絞り込み・出力 -->
   <Border Grid.Row="0" Background="{StaticResource Bg.Subtle}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,0,1">
     <DockPanel Margin="0">
-      <!-- ［出力 ▼］。1 つのボタン。押すと Excel・CSV・TSV のメニューが開き、選んだ種類で出力先のダイアログを開く。
-           見た目は補助のボタン（隣の絞り込み欄と同じ枠・角丸・文字。青は hover のときだけ）。待ち・書き込み中は［出力を中止］になり、押すと止める -->
-      <Button x:Name="ExportButton" DockPanel.Dock="Right" Margin="10,0,0,0" Cursor="Hand" FontSize="11" VerticalAlignment="Center"
-              AutomationProperties.Name="出力" ToolTip="出力の形式（Excel・CSV・TSV）を選びます">
-        <Button.Template>
-          <ControlTemplate TargetType="Button">
-            <Border x:Name="Box" CornerRadius="{StaticResource Radius.Control}" Padding="10,0" Height="26" BorderThickness="1"
-                    Background="{StaticResource Bg.Surface}" BorderBrush="{StaticResource Border.Normal}">
-              <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center" />
-            </Border>
-            <ControlTemplate.Triggers>
+      <!-- ［出力 ▼］。本体（アイコン + 出力）と ▼ を 1 つの枠にまとめた分割ボタン。見た目は補助のボタン（地なし・枠 Border.Input・角丸・文字 11）で、青は hover のときだけ。
+           本体は最後に出力できた種類で出力先のダイアログを開き、▼ は Excel・CSV・TSV のメニューを開く。待ち・書き込み中は本体だけの［出力を中止］になる -->
+      <Border x:Name="ExportGroup" DockPanel.Dock="Right" Margin="10,0,0,0" CornerRadius="4" BorderThickness="1" Height="24"
+              VerticalAlignment="Center" Background="Transparent">
+        <Border.Style>
+          <Style TargetType="Border">
+            <Setter Property="BorderBrush" Value="{StaticResource Border.Input}" />
+            <Style.Triggers>
               <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Accent}" />
-                <Setter TargetName="Box" Property="Background" Value="{StaticResource Bg.Hover}" />
+                <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
               </Trigger>
-              <Trigger Property="IsPressed" Value="True">
-                <Setter TargetName="Box" Property="Background" Value="{StaticResource Bg.Pressed}" />
-              </Trigger>
-              <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Box" Property="Opacity" Value="0.5" /></Trigger>
-            </ControlTemplate.Triggers>
-          </ControlTemplate>
-        </Button.Template>
+            </Style.Triggers>
+          </Style>
+        </Border.Style>
         <StackPanel Orientation="Horizontal">
-          <Path Data="{StaticResource Icon.Save}" Width="13" Height="13" Stretch="Uniform" Stroke="{StaticResource Ink.Muted}"
-                StrokeThickness="1.08" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,6,0" />
-          <TextBlock x:Name="ExportButtonText" Text="出力" Foreground="{StaticResource Ink.Strong}" VerticalAlignment="Center" />
-          <Path x:Name="ExportChevron" Data="{StaticResource Icon.ChevronDown}" Width="10" Height="10" Stretch="Uniform" Margin="6,1,0,0"
-                Stroke="{StaticResource Ink.Muted}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                StrokeLineJoin="Round" VerticalAlignment="Center" />
+          <Button x:Name="ExportButton" Cursor="Hand" FontSize="11" Padding="9,0" MinWidth="0" Height="Auto"
+                  Background="Transparent" BorderThickness="0" ToolTip="Excel ブック (.xlsx) で出力します">
+            <Button.Template>
+              <ControlTemplate TargetType="Button">
+                <Border Background="Transparent" Padding="{TemplateBinding Padding}">
+                  <ContentPresenter VerticalAlignment="Center" />
+                </Border>
+              </ControlTemplate>
+            </Button.Template>
+            <StackPanel Orientation="Horizontal">
+              <Path x:Name="ExportIcon" Data="{StaticResource Icon.Save}" Width="12" Height="12" Stretch="Uniform"
+                    StrokeThickness="1.08" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,5,0">
+                <Path.Style>
+                  <Style TargetType="Path">
+                    <Setter Property="Stroke" Value="{StaticResource Button.Icon}" />
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding ElementName=ExportGroup, Path=IsMouseOver}" Value="True">
+                        <Setter Property="Stroke" Value="{StaticResource Accent}" />
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </Path.Style>
+              </Path>
+              <TextBlock x:Name="ExportButtonText" Text="出力" VerticalAlignment="Center">
+                <TextBlock.Style>
+                  <Style TargetType="TextBlock">
+                    <Setter Property="Foreground" Value="{StaticResource Button.Text}" />
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding ElementName=ExportGroup, Path=IsMouseOver}" Value="True">
+                        <Setter Property="Foreground" Value="{StaticResource Accent}" />
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </TextBlock.Style>
+              </TextBlock>
+            </StackPanel>
+          </Button>
+          <StackPanel x:Name="ExportMenuPart" Orientation="Horizontal">
+            <Rectangle Width="1">
+              <Rectangle.Style>
+                <Style TargetType="Rectangle">
+                  <Setter Property="Fill" Value="{StaticResource Border.Input}" />
+                  <Style.Triggers>
+                    <DataTrigger Binding="{Binding ElementName=ExportGroup, Path=IsMouseOver}" Value="True">
+                      <Setter Property="Fill" Value="{StaticResource Accent}" />
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </Rectangle.Style>
+            </Rectangle>
+            <Button x:Name="ExportMenuButton" Cursor="Hand" Padding="6,0" MinWidth="0" Height="Auto" Background="Transparent" BorderThickness="0"
+                    AutomationProperties.Name="出力の種類を選ぶ" ToolTip="出力の種類を選びます">
+              <Button.Template>
+                <ControlTemplate TargetType="Button">
+                  <Border Background="Transparent" Padding="{TemplateBinding Padding}">
+                    <Path Data="{StaticResource Icon.ChevronDown}" Width="10" Height="10" Stretch="Uniform"
+                          StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" VerticalAlignment="Center">
+                      <Path.Style>
+                        <Style TargetType="Path">
+                          <Setter Property="Stroke" Value="{StaticResource Ink.Muted}" />
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding ElementName=ExportGroup, Path=IsMouseOver}" Value="True">
+                              <Setter Property="Stroke" Value="{StaticResource Accent}" />
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </Path.Style>
+                    </Path>
+                  </Border>
+                </ControlTemplate>
+              </Button.Template>
+              <Button.ContextMenu>
+                <ContextMenu MinWidth="216">
+                  <MenuItem x:Name="MenuExportXlsx" Header="Excel ブック (.xlsx)" IsCheckable="True" />
+                  <MenuItem x:Name="MenuExportCsv" Header="CSV (.csv)" IsCheckable="True" />
+                  <MenuItem x:Name="MenuExportTsv" Header="TSV (.tsv)" IsCheckable="True" />
+                </ContextMenu>
+              </Button.ContextMenu>
+            </Button>
+          </StackPanel>
         </StackPanel>
-        <Button.ContextMenu>
-          <ContextMenu>
-            <MenuItem x:Name="MenuExportXlsx" Header="Excel ブック (.xlsx)" IsCheckable="True" />
-            <MenuItem x:Name="MenuExportCsv" Header="CSV (.csv)" IsCheckable="True" />
-            <MenuItem x:Name="MenuExportTsv" Header="TSV (.tsv)" IsCheckable="True" />
-          </ContextMenu>
-        </Button.ContextMenu>
-      </Button>
+      </Border>
       <Grid DockPanel.Dock="Right" Width="220">
         <TextBox x:Name="FilterBox" FontSize="11" Height="26" />
         <TextBlock x:Name="FilterPlaceholder" Style="{StaticResource Placeholder}" FontSize="11" Text="ファイル名で絞り込む" />

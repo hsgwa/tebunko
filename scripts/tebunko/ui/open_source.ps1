@@ -840,8 +840,8 @@ $script:lastExportFormat = "xlsx"  # メニューの印に使う種類（最後�
 function updateExportButton {
     $busy = [bool]($script:exportJob -or $script:exportPending)
     $ui.ExportButtonText.Text = getExportButtonText $busy
-    $ui.ExportButton.ToolTip = getExportButtonToolTip $busy
-    $ui.ExportChevron.Visibility = if ($busy) { "Collapsed" } else { "Visible" }
+    $ui.ExportButton.ToolTip = getExportButtonToolTip $script:lastExportFormat $busy
+    $ui.ExportMenuPart.Visibility = if ($busy) { "Collapsed" } else { "Visible" }
 }
 
 function updateExportMenu {
@@ -948,14 +948,24 @@ function startExport {
 }
 
 function clickExportButton {
-    # 1 つの［出力 ▼］を押したとき。待ち・書き込み中は中止、ふだんは形式のメニューを開く（選ぶと exportResultsAs が出力先を尋ねる）
+    # ［出力］（本体）を押したとき。待ち・書き込み中は中止、ふだんは最後に出力できた種類で出力先を尋ねる
     if ($script:exportJob -or $script:exportPending) {
         cancelExport
         return
     }
-    $menu = $ui.ExportButton.ContextMenu
-    $menu.PlacementTarget = $ui.ExportButton
+    exportResults $script:lastExportFormat
+}
+
+function openExportMenu {
+    # ［▼］を押したとき。形式のメニューを、ボタンの右端にそろえて開く（待ち・書き込み中は ▼ が隠れていて押せない）
+    if ($script:exportJob -or $script:exportPending) {
+        return
+    }
+    $menu = $ui.ExportMenuButton.ContextMenu
+    $menu.PlacementTarget = $ui.ExportGroup
     $menu.Placement = [System.Windows.Controls.Primitives.PlacementMode]::Bottom
+    $menu.HorizontalOffset = $ui.ExportGroup.ActualWidth - $menu.MinWidth
+    $menu.VerticalOffset = 4
     $menu.IsOpen = $true
 }
 
@@ -1164,6 +1174,7 @@ $ui.MenuToggleGroup.Add_Click({
 $ui.MenuCopy.Add_Click({ safe { copySelectedRows } })
 $ui.MenuCopyPath.Add_Click({ safe { copySourcePath } })
 $ui.ExportButton.Add_Click({ safe { clickExportButton } })
+$ui.ExportMenuButton.Add_Click({ safe { openExportMenu } })
 $ui.MenuExportXlsx.Add_Click({ safe { exportResultsAs "xlsx" } })
 $ui.MenuExportCsv.Add_Click({ safe { exportResultsAs "csv" } })
 $ui.MenuExportTsv.Add_Click({ safe { exportResultsAs "tsv" } })

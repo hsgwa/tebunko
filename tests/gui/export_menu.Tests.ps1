@@ -22,7 +22,7 @@ Describe "検索結果の［出力 ▾］のメニュー" -Tag Gui {
             clickGui $S $S.Window "SearchButton" "［検索］"
             waitGui $S "該当 2 件" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "SummaryText")) -like "一致 2 件（*" } | Out-Null
 
-            clickGui $S $S.Window "ExportButton" "［出力 ▾］"
+            clickGui $S $S.Window "ExportMenuButton" "［出力］の［▾］"
             $items = waitGui $S "メニューが開く" ${guiDefaultTimeout} {
                 $found = @(getGuiOtherWindows $S | ForEach-Object { findAllGui $_ -Type MenuItem })
                 if ($found.Count -ge 3) { , $found }

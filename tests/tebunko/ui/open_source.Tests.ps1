@@ -45,8 +45,10 @@ BeforeAll {
             OpenFolderButton = newFakeControl @("Click")
             MenuCopy         = & $menu
             MenuCopyPath     = & $menu
-            ExportButton     = newFakeControl @("Click") @{ ToolTip = ""; ContextMenu = (New-Object PSObject -Property @{ PlacementTarget = $null; Placement = $null; IsOpen = $false }) }
-            ExportChevron    = New-Object PSObject -Property @{ Visibility = "Visible" }
+            ExportButton     = newFakeControl @("Click") @{ ToolTip = "" }
+            ExportMenuPart   = New-Object PSObject -Property @{ Visibility = "Visible" }
+            ExportGroup      = New-Object PSObject -Property @{ ActualWidth = 100 }
+            ExportMenuButton = newFakeControl @("Click") @{ ContextMenu = (New-Object PSObject -Property @{ MinWidth = 216; PlacementTarget = $null; Placement = $null; HorizontalOffset = 0; VerticalOffset = 0; IsOpen = $false }) }
             ExportButtonText = New-Object PSObject -Property @{ Text = "出力" }
             MenuExportXlsx   = newFakeControl @("Click") @{ IsChecked = $true }
             MenuExportCsv    = newFakeControl @("Click") @{ IsChecked = $false }
@@ -1277,8 +1279,8 @@ Describe "exportResults" -Tag Io {
         $script:exportPending = $null
         $script:lastExportFormat = "xlsx"
         $ui.ExportButtonText.Text = "出力"
-        $ui.ExportChevron.Visibility = "Visible"
-        $ui.ExportButton.ContextMenu.IsOpen = $false
+        $ui.ExportMenuPart.Visibility = "Visible"
+        $ui.ExportMenuButton.ContextMenu.IsOpen = $false
         $script:searchService = newFakeService
         $script:opened = New-Object System.Collections.Generic.List[string]
         Mock showInExplorer { $script:opened.Add($path); $true }
@@ -1322,7 +1324,7 @@ Describe "exportResults" -Tag Io {
 
         exportResults "xlsx"
         $ui.ExportButtonText.Text | Should -Be "出力を中止"
-        $ui.ExportChevron.Visibility | Should -Be "Collapsed"
+        $ui.ExportMenuPart.Visibility | Should -Be "Collapsed"
         $ui.ExportButton.ToolTip | Should -Be "出力を中止します"
         lastStatus | Should -Be "検索結果を出力中…（0 件）"
         $script:searchService.Requests.Count | Should -Be 1
@@ -1336,15 +1338,30 @@ Describe "exportResults" -Tag Io {
         lastStatus | Should -Be "検索結果.xlsx に 2 件を出力しました（出力したフォルダを開きます）"
         ($script:opened -join "|") | Should -Be "${out}.xlsx"
         $ui.ExportButtonText.Text | Should -Be "出力"
-        $ui.ExportChevron.Visibility | Should -Be "Visible"
+        $ui.ExportMenuPart.Visibility | Should -Be "Visible"
         $script:exportJob | Should -BeNullOrEmpty
     }
 
-    It "［出力 ▾］を押すと、ふだんは形式のメニューが開く" {
+    It "［▾］を押すと、形式のメニューがボタンの右端にそろえて開く" {
+        openExportMenu
+
+        $menu = $ui.ExportMenuButton.ContextMenu
+        $menu.IsOpen | Should -Be $true
+        $menu.PlacementTarget | Should -Be $ui.ExportGroup
+        $menu.HorizontalOffset | Should -Be (100 - 216)
+    }
+
+    It "［出力］（本体）を押すと、最後に出力できた種類で出力先を尋ねる" {
+        $workDir = "$TestDrive/export_body/work"
+        [System.IO.Directory]::CreateDirectory("$TestDrive/export_body") | Out-Null
+        $workspace = newTestWorkspace @{} $workDir
+        $script:lastSearch = newExportSearch $workDir
+        $script:lastExportFormat = "tsv"
+        Mock selectSaveFile { $null }
+
         clickExportButton
 
-        $ui.ExportButton.ContextMenu.IsOpen | Should -Be $true
-        $ui.ExportButton.ContextMenu.PlacementTarget | Should -Be $ui.ExportButton
+        Should -Invoke selectSaveFile -Times 1 -Exactly -ParameterFilter { $filterIndex -eq 3 }
     }
 
     It "待ち・書き込み中にメニューの種類を選んでも、中止せず、新しい要求も出さない（右クリックなどでメニューが開いたとき）" {
@@ -1367,12 +1384,15 @@ Describe "exportResults" -Tag Io {
         $script:exportPending = $null
     }
 
-    It "待っている出力があるときに［出力を中止］を押すと、メニューは開かず取りやめる" {
+    It "待っている出力があるときに［出力を中止］を押すと取りやめ、▾ を押してもメニューは開かない" {
         $script:exportPending = @{ Path = "$TestDrive/x.xlsx"; Format = "xlsx"; Added = $false }
+
+        openExportMenu
+        $ui.ExportMenuButton.ContextMenu.IsOpen | Should -Be $false
 
         clickExportButton
 
-        $ui.ExportButton.ContextMenu.IsOpen | Should -Be $false
+        $ui.ExportMenuButton.ContextMenu.IsOpen | Should -Be $false
         $script:exportPending | Should -BeNullOrEmpty
         lastStatus | Should -Be (getExportCancelledText)
     }
@@ -1396,7 +1416,7 @@ Describe "exportResults" -Tag Io {
         $script:lastExportFormat | Should -Be "csv"
         $ui.MenuExportCsv.IsChecked | Should -Be $true
         $ui.MenuExportXlsx.IsChecked | Should -Be $false
-        $ui.ExportButton.ToolTip | Should -Be "出力の形式（Excel・CSV・TSV）を選びます"
+        $ui.ExportButton.ToolTip | Should -Be "CSV (.csv) で出力します"
     }
 
     It "拡張子を付け足した名前が既にあれば、上書きするか尋ねる。はいなら上書き、いいえならやめる（ダイアログには戻らない）" {
@@ -1574,7 +1594,7 @@ Describe "exportResults" -Tag Io {
         exportResults "xlsx"
         lastStatus | Should -Be "検索が終わってから出力します…"
         $ui.ExportButtonText.Text | Should -Be "出力を中止"
-        $ui.ExportChevron.Visibility | Should -Be "Collapsed"
+        $ui.ExportMenuPart.Visibility | Should -Be "Collapsed"
         $script:searchService.Requests.Count | Should -Be 0
 
         $script:search = $null
@@ -1731,6 +1751,7 @@ Describe "画面の操作" -Tag Unit {
         Mock copySelectedRows { }
         Mock copySourcePath { }
         Mock clickExportButton { }
+        Mock openExportMenu { }
         Mock exportResultsAs { }
 
         & $ui.MenuOpen.Handlers["Click"]
@@ -1742,6 +1763,7 @@ Describe "画面の操作" -Tag Unit {
         & $ui.MenuCopy.Handlers["Click"]
         & $ui.MenuCopyPath.Handlers["Click"]
         & $ui.ExportButton.Handlers["Click"]
+        & $ui.ExportMenuButton.Handlers["Click"]
         & $ui.MenuExportXlsx.Handlers["Click"]
         & $ui.MenuExportCsv.Handlers["Click"]
         & $ui.MenuExportTsv.Handlers["Click"]
@@ -1754,6 +1776,7 @@ Describe "画面の操作" -Tag Unit {
         Should -Invoke copySelectedRows -Times 1 -Exactly
         Should -Invoke copySourcePath -Times 1 -Exactly
         Should -Invoke clickExportButton -Times 1 -Exactly
+        Should -Invoke openExportMenu -Times 1 -Exactly
         Should -Invoke exportResultsAs -Times 1 -Exactly -ParameterFilter { $format -eq "xlsx" }
         Should -Invoke exportResultsAs -Times 1 -Exactly -ParameterFilter { $format -eq "csv" }
         Should -Invoke exportResultsAs -Times 1 -Exactly -ParameterFilter { $format -eq "tsv" }
