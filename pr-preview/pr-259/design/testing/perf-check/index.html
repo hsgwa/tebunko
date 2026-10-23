@@ -4357,8 +4357,8 @@
 <td><code>.\tests\run.ps1 -Tag Slow -ExcludeTag Manual -Path tests\tools\perf_preview.Tests.ps1</code></td>
 </tr>
 <tr>
-<td>プレビューの表の描画（<code>-Render</code>。部品の数・スクロールの時間・残るメモリを含む）、読み足し（<code>-ReadMore</code>）、作ったセルの数、表を作る時間の 1 回目・2 回目以降</td>
-<td>値を出すだけで、上限は置かない（選択行のプレビューと同じテストで測る。<code>powershell.exe</code> の子プロセスは既定で STA なので、画面を出さずに Measure・Arrange できる）</td>
+<td>プレビューの表の描画（<code>-Render</code>。部品の数・スクロールの時間・横に 30 px 刻みで 1 画面ぶん動かす時間と範囲を決め直した回数・残るメモリを含む）、読み足し（<code>-ReadMore</code>）、作ったセルの数、表を作る時間の 1 回目・2 回目以降</td>
+<td>値を出すだけで、上限は置かない。ただし横に動かしたときの範囲を決め直した回数（<code>HScrollChanges</code>）だけは、速さではなく数なので 2 回以下の上限を置く（<code>perf_preview.Tests.ps1</code>）。横スクロールの時間（<code>HScrollMs</code>）の上限は、CI の測りの数値が出てから決める（選択行のプレビューと同じテストで測る。<code>powershell.exe</code> の子プロセスは既定で STA なので、画面を出さずに Measure・Arrange できる）</td>
 <td>上と同じ。小さなインデックスでの動作確認は <code>.\tests\run.ps1 -Tag Gui -Path tests\tools\perf_preview.Tests.ps1</code></td>
 </tr>
 <tr>
