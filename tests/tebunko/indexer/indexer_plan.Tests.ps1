@@ -637,6 +637,8 @@ Describe "IngestPlanner" -Tag Io {
         [System.IO.File]::WriteAllText((Join-Path $textSource "a.log"), "ログ")
         [System.IO.File]::WriteAllText((Join-Path $textSource "b.txt"), "メモ")
         $folders = @([pscustomobject]@{ Path = $textSource; Name = "拡張子"; Enabled = $true })
+        $before = $null
+        if (Test-Path -LiteralPath $settingsFile) { $before = [System.IO.File]::ReadAllBytes($settingsFile) }
         writeTextExtensionSettings @(".log") @() $settingsFile
         try {
             $planner = newPlanner $folders @()
@@ -645,7 +647,8 @@ Describe "IngestPlanner" -Tag Io {
             @($planner.Extensions) | Should -Not -Contain ".log"
             @($planner.Extensions) | Should -Contain ".txt"
         } finally {
-            Remove-Item -LiteralPath $settingsFile -Force -ErrorAction SilentlyContinue
+            # 前の中身に戻す（ほかの It も同じファイルを使うため、消さない。もともと無ければ消す）
+            if ($null -ne $before) { [System.IO.File]::WriteAllBytes($settingsFile, $before) } else { Remove-Item -LiteralPath $settingsFile -Force -ErrorAction SilentlyContinue }
         }
     }
 
