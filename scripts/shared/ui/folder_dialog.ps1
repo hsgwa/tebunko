@@ -154,60 +154,6 @@ function selectZipFile {
     return $dialog.FileName
 }
 
-function selectSaveFile {
-    # 出力先のファイルを選んでもらう（Windows 標準の名前を付けて保存するダイアログ）。選んだ @{ Path; FilterIndex } を返す（キャンセルは $null）。
-    #   拡張子はダイアログに付けさせない（AddExtension を使わない）。名前に拡張子が無いときに何を付けるかは呼ぶ側が決める（resolveExportTarget）。
-    #   validate は、保存のダイアログの［保存］（OS のボタン）を押したときに UI のスレッドで呼ぶ。引数は (名前, FilterIndex)。文が返れば、その文を出して閉じずにやり直してもらう。
-    #   中ではファイルに触れない（共有フォルダなどで画面が止まらないよう、文字列だけで判定する）。
-    #   既にある名前を打った場合の上書きの確認は、ダイアログの OverwritePrompt が行う
-    param (
-        [string]$title,
-        [string]$filter,
-        [int]$filterIndex,
-        [string]$fileName,
-        [scriptblock]$validate = $null,
-        [System.Windows.Window]$owner = $window
-    )
-
-    $dialog = New-Object System.Windows.Forms.SaveFileDialog
-    $dialog.Title = $title
-    $dialog.Filter = $filter
-    $dialog.FilterIndex = $filterIndex
-    $dialog.FileName = $fileName
-    $dialog.AddExtension = $false
-    $dialog.OverwritePrompt = $true
-    $dialog.CheckPathExists = $true
-    $dialog.RestoreDirectory = $true
-    if ($validate) {
-        $dialog.Add_FileOk({
-            param ($sender, $e)
-            $message = & $validate $sender.FileName $sender.FilterIndex
-            if ($message) {
-                [void][System.Windows.MessageBox]::Show([string]$message, "出力先", "OK", "Warning")
-                $e.Cancel = $true
-            }
-        }.GetNewClosure())
-    }
-    $hwnd = [IntPtr]::Zero
-    if ($owner) {
-        $hwnd = (New-Object System.Windows.Interop.WindowInteropHelper $owner).Handle
-    }
-    $ownerWindow = New-Object System.Windows.Forms.NativeWindow
-    if ($hwnd -ne [IntPtr]::Zero) {
-        $ownerWindow.AssignHandle($hwnd)
-    }
-    try {
-        $result = $dialog.ShowDialog($ownerWindow)
-        if ($result -ne [System.Windows.Forms.DialogResult]::OK) {
-            return $null
-        }
-        return @{ Path = $dialog.FileName; FilterIndex = $dialog.FilterIndex }
-    } finally {
-        $ownerWindow.ReleaseHandle()
-        $dialog.Dispose()
-    }
-}
-
 function getDroppedFolders {
     param (
         [System.Windows.DragEventArgs]$e

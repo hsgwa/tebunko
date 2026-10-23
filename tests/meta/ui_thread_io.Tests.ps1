@@ -74,6 +74,7 @@ BeforeAll {
         @{ File = "open_source.ps1"; Function = "promptSourceMissing"; Call = "findMovedSource"; Reason = "選んだ直後のフォルダの中から、移された元のファイルを探す（フォルダ選択で選んだ場所）" }
         @{ File = "open_source.ps1"; Function = "openWithShell"; Call = "[System.Diagnostics.Process]"; Reason = "既定のアプリで開く（元のファイルは確かめ済み。プロセスの起動は待たない）" }
         @{ File = "open_source.ps1"; Function = "openWithShell"; Call = "Invoke-Item"; Reason = "既定のアプリで開く（元のファイルは確かめ済み。プロセスの起動は待たない）" }
+        @{ File = "open_source.ps1"; Function = "openExportedFile"; Call = "Invoke-Item"; Reason = "出力したファイル（このツールが今書いた .xlsx・.csv・.tsv）を既定のアプリで開く。プロセスの起動は待たない" }
         @{ File = "open_source.ps1"; Function = "showInExplorer"; Call = "Start-Process"; Reason = "エクスプローラーで選ぶ（開く対象は確かめ済み。プロセスの起動は待たない）" }
         @{ File = "open_source.ps1"; Function = "openWithNotepad"; Call = "Start-Process"; Reason = "固定のパスのメモ帳で開く（実行・登録になる拡張子。元のファイルは確かめ済み。プロセスの起動は待たない）" }
 

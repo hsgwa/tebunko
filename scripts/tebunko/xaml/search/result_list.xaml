@@ -18,7 +18,7 @@
   <Border Grid.Row="0" Background="{StaticResource Bg.Subtle}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,0,1">
     <DockPanel Margin="0">
       <!-- ［出力 ▼］。本体（アイコン + 出力）と ▼ を 1 つの枠にまとめた分割ボタン。見た目は補助のボタン（地なし・枠 Border.Input・角丸・文字 11）で、青は hover のときだけ。
-           本体は最後に出力できた種類で出力先のダイアログを開き、▼ は Excel・CSV・TSV のメニューを開く。待ち・書き込み中は本体だけの［出力を中止］になる -->
+           本体は最後に出力できた種類でそのまま出力し、▼ は Excel・CSV・TSV のメニューを開く（選ぶと、その形式で出力する）。待ち・書き込み中は本体だけの［出力を中止］になる -->
       <Border x:Name="ExportGroup" DockPanel.Dock="Right" Margin="10,0,0,0" CornerRadius="4" BorderThickness="1" Height="24"
               VerticalAlignment="Center" Background="Transparent">
         <Border.Style>

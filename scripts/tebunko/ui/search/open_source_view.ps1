@@ -348,25 +348,6 @@ function getExportCancelledText {
     return "出力を中止しました。出力先のファイルは変えていません。"
 }
 
-function getExportStoppedText {
-    # 既にあるファイルを上書きしないことにしたときのステータス
-    return "出力をやめました。"
-}
-
-function getExportExistsPrompt {
-    # 拡張子を付け足した名前が既にあるときの確認の文
-    param (
-        [string]$name
-    )
-
-    return "${name} は既にあります。上書きしますか？"
-}
-
-function getExportForbiddenText {
-    # 出力先に選べない場所（クロール対象のフォルダ・インデックスのフォルダ）を選んだときの文
-    return "クロール対象のフォルダ（またはインデックスのフォルダ）には出力できません。別の場所を選んでください。"
-}
-
 function getExportFailedText {
     # 書き込みに失敗した（ロック・権限以外）ときのステータス
     param (
@@ -379,15 +360,15 @@ function getExportFailedText {
     return "検索結果を出力できませんでした"
 }
 
-function getExportFolderOpenFailedText {
-    # 書き終わったが、出力したフォルダを開けなかったときのステータス
+function getExportOpenFailedText {
+    # 書き終わったが、出力したファイルを開けなかったときのステータス
     param (
         [string]$name,
         [int]$count,
         [string]$path
     )
 
-    return "${name} に $($count.ToString('N0')) 件を出力しました。フォルダを開けなかったため、${path} を開いてください"
+    return "${name} に $($count.ToString('N0')) 件を出力しました。ファイルを開けなかったため、${path} を開いてください"
 }
 
 function getExportHeadOnlyReasonText {
@@ -435,7 +416,7 @@ function getExportDoneText {
             if ($filtered) {
                 $text = "絞り込み後の ${number} 件を ${name} に出力しました"
             } else {
-                $text = "${name} に ${number} 件を出力しました（出力したフォルダを開きます）"
+                $text = "${name} に ${number} 件を出力しました（出力したファイルを開きます）"
             }
         }
     }
@@ -454,24 +435,6 @@ function testExportFormat {
     )
 
     return $format -in @("xlsx", "csv", "tsv")
-}
-
-function getExportFilter {
-    # 出力先のダイアログの「ファイルの種類」（この順に FilterIndex が 1・2・3）
-    return "Excel ブック (*.xlsx)|*.xlsx|CSV (*.csv)|*.csv|TSV (*.tsv)|*.tsv"
-}
-
-function getExportFilterIndex {
-    # 種類に対応する、ダイアログの FilterIndex（1 始まり）。分からない種類は Excel ブック
-    param (
-        [string]$format
-    )
-
-    switch ($format) {
-        "csv" { return 2 }
-        "tsv" { return 3 }
-    }
-    return 1
 }
 
 function getLastExportFormat {
@@ -508,31 +471,8 @@ function getExportButtonToolTip {
     return "${label} で出力します"
 }
 
-function resolveExportTarget {
-    # 出力先のダイアログで決まった名前から、書く種類を決める。名前の拡張子（.xlsx・.csv・.tsv）が先で、
-    # 無ければ「ファイルの種類」の拡張子を付け足す（Added。付け足したときだけ、既にあるかをこちらで確かめる）。
-    # 空の名前は $null。ファイルには触れない
-    param (
-        [string]$path,
-        [int]$filterIndex
-    )
-
-    if (!$path -or !$path.Trim()) {
-        return $null
-    }
-    $extension = [System.IO.Path]::GetExtension($path).ToLowerInvariant()
-    switch ($extension) {
-        ".xlsx" { return @{ Path = $path; Format = "xlsx"; Added = $false } }
-        ".csv" { return @{ Path = $path; Format = "csv"; Added = $false } }
-        ".tsv" { return @{ Path = $path; Format = "tsv"; Added = $false } }
-    }
-    $format = switch ($filterIndex) { 2 { "csv" } 3 { "tsv" } default { "xlsx" } }
-    # 名前の終わりの「.」は、拡張子の前に重ねない（a. → a.xlsx）
-    return @{ Path = "$($path.TrimEnd('.')).${format}"; Format = $format; Added = $true }
-}
-
 function getDefaultExportName {
-    # 出力先のダイアログの既定のファイル名（拡張子なし）: 検索結果_<語>_<日時>。ファイル名に使えない文字は _、語は 30 文字まで
+    # 出力先のファイル名（拡張子なし）: 検索結果_<語>_<日時>。ファイル名に使えない文字は _、語は 30 文字まで
     param (
         [string]$word,
         [datetime]$now
@@ -573,27 +513,3 @@ function toExportComparePath {
     }
 }
 
-function testExportForbiddenPath {
-    # 出力先がクロール対象のフォルダ・インデックスのフォルダの中か（区切りを境にした前方一致。大文字小文字・末尾の \ は区別しない）。
-    # 出力したファイルが次の取り込みで対象になるのを防ぐ。文字列だけで判定し、ファイルには触れない（出力先のダイアログの確定の中で呼ぶため）
-    param (
-        [string]$path,
-        [string[]]$folders
-    )
-
-    $target = toExportComparePath $path
-    if ($null -eq $target) {
-        return $false
-    }
-    foreach ($folder in @($folders)) {
-        $root = toExportComparePath $folder
-        if (!$root) {
-            continue
-        }
-        if ($target.Equals($root, [System.StringComparison]::OrdinalIgnoreCase) -or
-            $target.StartsWith($root + "\", [System.StringComparison]::OrdinalIgnoreCase)) {
-            return $true
-        }
-    }
-    return $false
-}

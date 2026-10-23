@@ -831,7 +831,7 @@ function completeCopySourcePath {
 
 # ---- 結果をファイルに出力する ----
 # 書くのは検索の司令のスレッド（SearchService.Export。search_export.ps1）。画面は出力先を選んでもらい、要求を渡し、タイマーで進み具合を見て、
-# 終わったら出力したフォルダをエクスプローラーで開く（Excel などでファイルを開くことはしない）。
+# 終わったら出力したファイルを既定のアプリで開く（出力先はダイアログで選ばず、作業フォルダの一時の置き場に書く）。
 # 出力ボタンは、待ち・書き込みの間は「出力を中止」になり、押すと止める。
 $script:exportJob = $null       # 書き込み中の出力 @{ Request; Filtered; Sorted; Target; Snapshot }
 $script:exportPending = $null   # 検索が終わるのを待っている出力の出力先（@{ Path; Format; Added }）。無ければ $null
@@ -862,73 +862,58 @@ function cancelExport {
     }
 }
 
-function getExportForbiddenFolders {
-    # 出力先にできないフォルダ（クロール対象のフォルダと、インデックスの置き場）。出力したファイルが次の取り込みの対象にならないように
-    $folders = New-Object System.Collections.Generic.List[string]
-    foreach ($folder in @(getTargetFolders ${settingsFile})) {
-        $folders.Add([string]$folder.Path)
-    }
-    foreach ($dir in @($workspace.IndexDir, $workspace.GramDir, $workspace.OldIndexDir, $workspace.LegacyIndexDir, $workspace.OldSystemIndexDir)) {
-        if ($dir) {
-            $folders.Add([string]$dir)
-        }
-    }
-    return $folders.ToArray()
-}
-
-function chooseExportTarget {
-    # 出力先のダイアログで出力先を選んでもらう。決まれば @{ Path; Format; Added }、やめたら $null。
-    # ［出力］を押した時点で、クロール対象・インデックスのフォルダは選べない（文字列だけで判定する。ダイアログの確定の中で呼ぶため）
+function newExportTarget {
+    # 出力先を、ダイアログを出さずに決める。作業フォルダの TmpRoot\<PC の鍵>\open_copy\<12 桁の文字>\検索結果_<語>_<日時>.<拡張子>（文字列を組み立てるだけで、ファイルには触れない）。
+    # 1 回ごとに別のフォルダにするので、同じ名前が重ならない（開いたままのファイルがあっても上書きしない）。フォルダは書く側（司令のスレッド）が作る。
+    # 古いものは、起動時の片付け（clearOldOpenCopies）が 1 日たってから消す。format が分からなければ Excel ブック。@{ Path; Format } を返す
     param (
         [string]$format
     )
 
+    if (!(testExportFormat $format)) {
+        $format = "xlsx"
+    }
     $word = if ($null -ne $script:lastSearch) { [string]$script:lastSearch.Word } else { "" }
-    # GetNewClosure にすると、スクリプトの関数が見えなくなる。禁止のフォルダはスクリプトの変数に置いて渡す
-    $script:exportForbiddenFolders = getExportForbiddenFolders
-    $validate = {
-        param ($path, $filterIndex)
-        $target = resolveExportTarget $path $filterIndex
-        if ($null -eq $target) {
-            return "ファイル名を入力してください。"
-        }
-        if (testExportForbiddenPath $target.Path $script:exportForbiddenFolders) {
-            return (getExportForbiddenText)
-        }
-        return ""
+    $dir = Join-Path (getOpenCopyDir $workspace) ([guid]::NewGuid().ToString("N").Substring(0, 12))
+    return @{ Path = (Join-Path $dir "$(getDefaultExportName $word (Get-Date)).${format}"); Format = $format }
+}
+
+function openExportedFile {
+    # 出力したファイルを、既定のアプリで開く（Excel ブックは Excel、CSV・TSV は既定のアプリ）。開けなければ $false（プロセスの起動は待たない）。
+    # 開くのは、このツールが今書いた .xlsx・.csv・.tsv だけ（名前は newExportTarget が決める）。[ ] をワイルドカードにしないよう -LiteralPath
+    param (
+        [string]$path
+    )
+
+    try {
+        Invoke-Item -LiteralPath $path -ErrorAction Stop
+        return $true
+    } catch {
+        writeErrorLog "出力したファイルを開けませんでした" $_
+        return $false
     }
-    $picked = selectSaveFile "検索結果を出力" (getExportFilter) (getExportFilterIndex $format) (getDefaultExportName $word (Get-Date)) $validate
-    if ($null -eq $picked) {
-        return $null
-    }
-    return resolveExportTarget $picked.Path $picked.FilterIndex
 }
 
 function startExport {
-    # target: 出力先。forceOverwrite: 既にある名前への上書きを確かめ済み（拡張子を付け足した名前のとき、司令は既にあれば Exists を返す）。
-    # snapshot: 上書きの確認のあとにやり直すとき、前の要求と同じ内容（表の中身・絞り込み）で書く
+    # target: 出力先（newExportTarget の結果）
     param (
-        $target,
-        [bool]$forceOverwrite = $false,
-        $snapshot = $null
+        $target
     )
 
     hideNoticeBanner "SearchNotice"
-    if ($null -eq $snapshot) {
-        $s = $script:lastSearch
-        $filter = $script:filterText
-        $sorted = testResultSorted
-        $snapshot = @{
-            Shared = $s.Shared
-            Word   = $s.Word
-            Filter = $filter
-            Sorted = $sorted
-            Hits   = (getExportHits ([bool]$s.Shared.Truncated) $filter $sorted)
-        }
+    $s = $script:lastSearch
+    $filter = $script:filterText
+    $sorted = testResultSorted
+    $snapshot = @{
+        Shared = $s.Shared
+        Word   = $s.Word
+        Filter = $filter
+        Sorted = $sorted
+        Hits   = (getExportHits ([bool]$s.Shared.Truncated) $filter $sorted)
     }
-    # ダイアログで名前を打ちきったとき（付け足していないとき）は、ダイアログが上書きの確認を済ませている
-    $request = newExportRequest $snapshot.Shared $target.Path $snapshot.Hits $snapshot.Filter $snapshot.Word $target.Format ($forceOverwrite -or !$target.Added)
-    $script:exportJob = @{ Request = $request; Filtered = ($snapshot.Filter -ne ""); Sorted = $snapshot.Sorted; Target = $target; Snapshot = $snapshot }
+    # 出力先は毎回新しい名前なので、上書きの確かめは要らない
+    $request = newExportRequest $snapshot.Shared $target.Path $snapshot.Hits $snapshot.Filter $snapshot.Word $target.Format $true
+    $script:exportJob = @{ Request = $request; Filtered = ($snapshot.Filter -ne ""); Sorted = $snapshot.Sorted; Target = $target }
     [void]$script:searchService.Export($request)
     updateExportButton
     setStatus (getExportWritingText 0)
@@ -936,7 +921,7 @@ function startExport {
 }
 
 function clickExportButton {
-    # ［出力］（本体）を押したとき。待ち・書き込み中は中止、ふだんは最後に出力できた種類で出力先を尋ねる
+    # ［出力］（本体）を押したとき。待ち・書き込み中は中止、ふだんは最後に出力できた種類で出力する
     if ($script:exportJob -or $script:exportPending) {
         cancelExport
         return
@@ -972,10 +957,7 @@ function exportResults {
         setStatus "先に検索してください。"
         return
     }
-    $target = chooseExportTarget $format
-    if ($null -eq $target) {
-        return
-    }
+    $target = newExportTarget $format
     if ($script:search) {
         # 検索の途中の出力は、検索が終わってから書く（溢れが揃うまで、全件は書けない）
         $script:exportPending = $target
@@ -1038,16 +1020,8 @@ function completeExport {
             updateExportButton
             $written = [int]$request.Written
             setStatus (getExportDoneText $name $request.Scope $written $job.Filtered $request.HeadOnlyReason $job.Sorted ([int]$request.DroppedRows) ([int]$request.TruncatedCells))
-            if (!(showInExplorer $request.OutputPath)) {
-                setStatus (getExportFolderOpenFailedText $name $written $request.OutputPath)
-            }
-        }
-        "Exists" {
-            # 拡張子を付け足した名前が既にある。上書きしてよいか尋ねる（やめたらダイアログには戻らない）
-            if ((showMessage (getExportExistsPrompt $name) "YesNo" "Question" "No") -eq "Yes") {
-                startExport $job.Target $true $job.Snapshot
-            } else {
-                setStatus (getExportStoppedText)
+            if (!(openExportedFile $request.OutputPath)) {
+                setStatus (getExportOpenFailedText $name $written $request.OutputPath)
             }
         }
         "Cancelled" {

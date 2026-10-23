@@ -733,15 +733,14 @@ Describe "取り込み対象のファイルを書き換えないこと（docs/sa
     # 書き込み・削除の API に元のパスを渡さないことは、変数の名前でなく書く API そのものを見る
     # tests/meta/source_write.Tests.ps1（書く API の許可リスト）と remove_entry.Tests.ps1（消す入口）が守る
 
-    It "検索結果の出力先（OutputPath）は、出力先のダイアログの結果（resolveExportTarget の Path）からだけ作る" {
+    It "検索結果の出力先（OutputPath）は、作業フォルダの一時の置き場の名前（newExportTarget の Path）からだけ作る" {
         $requests = @($code | Where-Object { $_.Text -match 'newExportRequest\s+\$' })
         ($requests.Count -gt 0) | Should -Be $true
         (@($requests | Where-Object { $_.File -ne "open_source.ps1" -or $_.Text -notmatch 'newExportRequest\s+\$snapshot\.Shared\s+\$target\.Path\s' } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
-        # $target は、出力先のダイアログの結果を resolveExportTarget に通したものだけ
-        $resolves = @($code | Where-Object { $_.Text -match 'resolveExportTarget\s+\$path\s+\$filterIndex' })
-        $resolves.Count | Should -Be 1
-        $resolves[0].File | Should -Be "open_source.ps1"
-        (findPattern @($code | Where-Object { $_.File -eq "open_source.ps1" }) 'selectSaveFile') | Should -Not -Be ""
+        # $target は newExportTarget の結果だけ（出力先を利用者の入力や元のファイルのパスから作らない）
+        $targets = @($code | Where-Object { $_.Text -match 'newExportTarget\s+\$format' })
+        $targets.Count | Should -Be 1
+        $targets[0].File | Should -Be "open_source.ps1"
         # ほかの所で OutputPath に値を入れない（要求の作り方は newExportRequest の 1 か所）
         (@($code | Where-Object { $_.Text -match '\.OutputPath\s*=[^=]' } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
     }
@@ -1114,6 +1113,7 @@ Describe "検索結果から開くとき、シェルで開く処理が決まっ�
             "applyIndexSourceFolderState|Start-Process",
             "openAboutLink|Start-Process",
             "openWithNotepad|Start-Process",
+            "openExportedFile|Invoke-Item",
             "openWithShell|Invoke-Item", "openWithShell|Process::Start", "openWithShell|ProcessStartInfo", "openWithShell|UseShellExecute",
             "showErrorDialog|Start-Process",
             "showInExplorer|Start-Process"
