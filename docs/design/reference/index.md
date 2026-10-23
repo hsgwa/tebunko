@@ -6,7 +6,7 @@
 
 - [部品ごとの関数（設定・ファイル）](settings.md)（設定ファイル・ワークスペース・ファイルとフォルダの操作）
 - [部品ごとの関数（インデックス作成）](indexer.md)（取り込み一覧・状態ファイル・取り込み直すかの判断・インデックス名とインデックスの管理）
-- [部品ごとの関数（TSV と本文インデックス）](tsv.md)（インデックスの TSV の名前・作成・配置、本文インデックスの形式・読み書き、テキストファイルの読み取り。fshared/core/fs.ps1f・`text.ps1`・`text_file.ps1`、`tebunko/index/`）
+- [部品ごとの関数（TSV と本文インデックス）](tsv.md)（インデックスの TSV の名前・作成・配置、本文インデックスの形式・読み書き、テキストファイルの読み取り。`shared/core/fs.ps1`・`text.ps1`・`text_file.ps1`、`tebunko/index/`）
 - [部品ごとの関数（検索・スレッド・元のファイル・画面）](search.md)（検索、スレッドとプール、検索結果から元のファイルを特定する処理、画面が使う集計・設定・Office プロセスの関数。`tebunko/search/`）
 
 ```mermaid
@@ -33,7 +33,7 @@ flowchart LR
 | `shared/office/office_protection_view.ps1`（判断層） | `getOfficeProtectionKind` / `getProtectionFailureText` / `testOfficeOutput` / `testWorkbookFormat` / `getWordOpenFormat` | [暗号化されたファイルの判定](../indexing/office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1) |
 | `shared/office/office_protection.ps1` | `readFileHead` / `readCompoundEntryNames` / `getOfficeFileProtection` | [暗号化されたファイルの判定](../indexing/office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1) |
 | `shared/office/office_app.ps1` | `getApp` / `getOwnSessionProcessIds` / `resolveLongName` / `resolveOwnDir` / `isUnderDir` / `getWorkbookSplit` / `releaseWorkbookSplit` / `getForeignWorkbookCount` / `testProcessHasWindow` / `handOverForeignApp` / `untrackApp` / `keepUndecidedApp` / `quitApp` / `quitKeptApp` / `restoreHandedOverApp` / `releaseHandedOverApp` / `handOverApp` / `retryKeptApps` / `testProcessExists` / `getMonotonicMilliseconds` / `waitKeptApps` / `stopApp` / `stopAllApps` / `getWatchdogVerdict` / `OfficeWatchdog`（クラス） | [Word・PowerPoint の共通処理と Office アプリの管理](../indexing/office-apps.md#office-アプリexcelwordpowerpointの管理) |
-| `tebunko/indexer/indexer_plan.ps1` | `findTargetFiles` / `createTargetList` / `selectOnlyNames`（選んだインデックス名を、更新できるものとできないものに分ける） | [取り込み対象の決定](../indexing/target-decision.md#取り込み対象の決定createtargetlist)、[インデックス作成のメインフロー](../indexing/flow.md) |
+| `tebunko/indexer/indexer_plan.ps1` | `findTargetFiles`（`-TopOnly` で直下だけ） / `createTargetList` / `selectOnlyNames`（選んだインデックス名を、更新できるものとできないものに分ける） | [取り込み対象の決定](../indexing/target-decision.md#取り込み対象の決定createtargetlist)、[インデックス作成のメインフロー](../indexing/flow.md) |
 | `tebunko/indexer/extract_office.ps1` | `ingestFile` / `extractWorkbook` / `extractDocument` / `writeUnits` | [Excel](../indexing/excel.md)、[Word・PowerPoint の共通処理と Office アプリの管理](../indexing/office-apps.md#wordpowerpoint-の抽出処理extractdocument) |
 | `tebunko/indexer/extract_text.ps1` | `extractTextFile` | [テキストファイルの読み取り](../indexing/text.md#テキストファイルの抽出処理extracttextfile) |
 | `tebunko/indexer/extract_pdf.ps1` | `extractPdfFile` | [PDF ファイルの読み取り](../indexing/pdf.md#取り込みの流れ) |
