@@ -3,10 +3,10 @@
 # 動かして確かめる。書く API の許可リスト（tests/meta/source_write.Tests.ps1）は書き方を見るのに対し、こちらは結果を見る。
 # 使い捨てのクロール対象フォルダに、テキスト・PDF・Word・PowerPoint・読み取り専用属性・パスワード付き・
 # 外のフォルダを指すジャンクションを置き、操作の前後で次を比べる（元のフォルダと、ジャンクションの先の外のフォルダの両方）。
-#   ファイルの数・種類・ハッシュ・属性・作成日時（UTC）・更新日時（UTC）（フォルダは更新日時を除く。getTreeSnapshot）
+#   ファイルの数・種類・ハッシュ・属性・作成日時（UTC）・更新日時（UTC）
 # 最終アクセス日時は OS が読むたびに記録しうるので比べない（tebunko の書き込みではない）。
 # Io は Office が無くても流れる（Word・PowerPoint の新形式はファイルを直接読む）。Excel と旧形式（.ppt）は COM が要るので Office。
-# Office は CI のランナーに無く既定で外れるため、リリース前に `.\tests\run.ps1 -All` で流す（docs/design/testing/ci.md）。
+# Office は CI のランナーに無く既定で外れる。Office の入った機械で、リリース前に `.\tests\run.ps1 -Tag Office` を流す（docs/design/testing/ci.md）。
 BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
     . "$PSScriptRoot\..\..\helpers\indexer.ps1"
@@ -32,9 +32,9 @@ BeforeAll {
                 } elseif ($kind -eq "フォルダ") {
                     $stack.Push($item.FullName)
                 }
-                # フォルダの更新日時は比べない（NTFS は、フォルダ自身の更新日時を親の一覧へ遅れて反映するため、何も書かなくても揺れる）。
-                # フォルダの中でファイルが増えた・消えたことは、中の項目の行で分かる
-                $written = if ($kind -eq "フォルダ") { "-" } else { "$($item.LastWriteTimeUtc.Ticks)" }
+                # フォルダの更新日時は、親の一覧の情報でなくフォルダ自身から直接読む（NTFS は、フォルダ自身の更新日時を親の一覧へ遅れて反映するため、
+                # 一覧の値は何も書かなくても揺れる）。元の横に一時ファイル（~$ のロックなど）を作って消す退行は、この日時で見つける
+                $written = if ($kind -eq "フォルダ") { "$([System.IO.Directory]::GetLastWriteTimeUtc($item.FullName).Ticks)" } else { "$($item.LastWriteTimeUtc.Ticks)" }
                 $rows.Add("$relative | $kind | $([int]$item.Attributes) | $($item.CreationTimeUtc.Ticks) | $written | $hash")
             }
         }
@@ -163,6 +163,7 @@ Describe "元のファイルの前後の比べ方（自己テスト）" -Tag Io 
         @{ name = "作成日時だけの変更"; change = { param ($dir) [System.IO.File]::SetCreationTimeUtc("$dir\メモ.txt", [datetime]"2001-01-01") } }
         @{ name = "属性だけの変更（読み取り専用を外す）"; change = { param ($dir) [System.IO.File]::SetAttributes("$dir\読み取り専用.txt", [System.IO.FileAttributes]::Normal) } }
         @{ name = "ファイルの削除"; change = { param ($dir) [System.IO.File]::SetAttributes("$dir\読み取り専用.txt", [System.IO.FileAttributes]::Normal); [System.IO.File]::Delete("$dir\読み取り専用.txt") } }
+        @{ name = "元の横に一時ファイルを作って消す（フォルダの更新日時が変わる）"; change = { param ($dir) Start-Sleep -Milliseconds 50; [System.IO.File]::WriteAllText("$dir\資料\~lock.txt", "x"); [System.IO.File]::Delete("$dir\資料\~lock.txt") } }
         @{ name = "ファイルの追加"; change = { param ($dir) [System.IO.File]::WriteAllText("$dir\資料\増えた.txt", "x") } }
     ) {
         param ($name, $change)

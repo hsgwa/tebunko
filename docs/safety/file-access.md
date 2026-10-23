@@ -105,7 +105,7 @@ PDF ファイルもテキストファイルと同じく、作業フォルダの 
 
 `tests/meta/safety.Tests.ps1` の「取り込み対象のファイルを書き換えないこと」が、原本を読むのは `copyFileShared` の読み取りだけであること、`SaveAs` の保存先が作業フォルダだけであること、Word・PowerPoint を読み取り専用で開くことを確かめる（Excel を読み取り専用で開くことは「Office ファイルを安全に開くこと」が確かめる）。
 
-書く API は、変数の名前でなく呼び出しそのものを見る許可リストで守る。ファイルに書く・属性や日時を変える・ファイルを作る呼び出し（`SetAttributes`・`Set*Time`・`WriteAll*`・`FileMode`・`FileAccess`・`FileStream`・`StreamWriter`・`Set-Content`・`Out-File`・`Copy-Item` など）は、書き先がワークスペースの置き場か利用者が選んだ出力先だと確かめた関数の中だけに置く。一覧は `tests/meta/source_write.Tests.ps1` にあり、一覧に無い関数に足すと CI の `test` が落ちる。動かして確かめるのは `tests/tebunko/indexer/source_unchanged.Tests.ps1` で、テキスト・PDF・Word・PowerPoint・読み取り専用・パスワード付きのファイルと、外のフォルダを指すジャンクションを置いたフォルダで、インデックスの作成・更新・エクスポート・削除の前後に、元のフォルダと外のフォルダのファイルの数・ハッシュ・属性・作成日時・更新日時が変わらないことを比べる（Excel と旧形式を含む分はタグ `Office` で、リリース前に `.\tests\run.ps1 -All` で流す）。
+書く API は、変数の名前でなく呼び出しそのものを見る許可リストで守る。ファイルに書く・属性や日時を変える・ファイルを作る呼び出し（`SetAttributes`・`Set*Time`・`WriteAll*`・`FileMode`・`FileAccess`・`FileStream`・`StreamWriter`・`Set-Content`・`Out-File`・`Copy-Item` など）は、書き先がワークスペースの置き場か利用者が選んだ出力先だと確かめた関数の中だけに置く。一覧は `tests/meta/source_write.Tests.ps1` にあり、一覧に無い関数に足すと CI の `test` が落ちる。動かして確かめるのは `tests/tebunko/indexer/source_unchanged.Tests.ps1` で、テキスト・PDF・Word・PowerPoint・読み取り専用・パスワード付きのファイルと、外のフォルダを指すジャンクションを置いたフォルダで、インデックスの作成・更新・エクスポート・削除の前後に、元のフォルダと外のフォルダのファイルの数・ハッシュ・属性・作成日時・更新日時が変わらないことを比べる（Excel と旧形式を含む分はタグ `Office` で CI では流れない。Office の入った機械で、リリース前に `.\tests\run.ps1 -Tag Office` を流す。[CI](../design/testing/ci.md)）。
 
 ### リンクは辿らない
 

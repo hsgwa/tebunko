@@ -4,13 +4,20 @@
 # 理由つきの一覧（${writeAllowed}）にある関数の中だけにする。一覧に無い関数に足すと落ちるので、書き先が
 # ワークスペースの置き場（インデックス・作業フォルダ・設定・ログ）であることを確かめて、Reason を書いて足す。
 # 見張るもの（構文木で見つける。フォルダを消す・移す・作るは remove_entry.Tests.ps1 の担当で、ここでは見ない）:
-#   - コマンド: Set-Content・Add-Content・Out-File・Copy-Item・Move-Item・Rename-Item・New-Item・Set-ItemProperty・Clear-Content とその別名、
+#   - コマンド: Set-Content・Add-Content・Out-File・Export-Csv・Export-Clixml・Tee-Object・Start-Transcript・Copy-Item・Move-Item・Rename-Item・
+#     New-Item・Set-ItemProperty・Clear-Content・Set-Acl、ファイルを消す Remove-Item（再帰でない形も）とその別名（del・erase・rm・ri・rd・rmdir）、
 #     New-Object の StreamWriter・FileStream・BinaryWriter、リダイレクト（> >>。$null への捨て先を除く）
-#   - メソッド: SetAttributes・Set*Time・WriteAll*・AppendAll*・AppendText・CreateText・Create・OpenWrite・Copy・Move・Replace・
-#     ExtractToFile・Save・SaveAs・SaveAs2・SaveCopyAs・SetAccessControl、Open（FileAccess.Read と FileMode.Open を両方書いた形を除く）、
-#     StreamWriter・FileStream・BinaryWriter の生成（[型]::new も）
+#   - メソッド: SetAttributes・Set*Time・WriteAll*・AppendAll*・AppendText・CreateText・Create・OpenWrite・Copy・Move・Replace・Delete（File・FileInfo・
+#     型が読めない静的な呼び出しと、インスタンスの .Delete()）・ExtractToFile・ExtractToDirectory・Save・SaveAs・SaveAs2・SaveCopyAs・SetAccessControl・
+#     Close($false でない値)（Office の保存して閉じる）、Open（FileAccess.Read と FileMode.Open を両方書いた形を除く）、
+#     StreamWriter・FileStream・BinaryWriter の生成（[型]::new も）。FileInfo のインスタンスの .Create()（引数なし）・
+#     .Replace()（引数が 3 つ、または 2 つ目が $null・NullString）も拾う
+#   - フォルダを再帰で消す書き方は remove_entry.Tests.ps1 が見る。ここでは Remove-Item を再帰かどうかを問わず、1 つのファイルの削除も含めて、関数ごとの一覧で見る
 #   - 型: FileMode（Open 以外）・FileAccess（Read 以外）を書いた所。型を変数に入れて渡す書き方（[System.IO.FileMode] そのもの・キャスト）も拾う
 # 守れない範囲（構文木で見つけられない書き方）:
+#   - 一覧にある関数の中で、あとから増えた同じ種類の呼び出し（関数ごとに許すので、同じ関数の中の呼び出しが増えても落ちない。
+#     書き先の確かめはその関数のテストが守る）。違う種類の呼び出し（Calls に無いもの）を足したときは落ちる
+#   - string.Replace と区別がつかない、引数が 2 つの FileInfo.Replace
 #   - コマンド名・メソッド名を変数や文字列の組み立てで作る呼び出し（& $name ... や $obj.$member(...)）
 #   - 外のプログラムに書かせる書き方（cmd /c copy・robocopy・Excel の COM を除く）
 #   - 一覧にある関数の中で、書き先を取り込み対象のフォルダにしてしまうこと。書き先の確かめは各関数のテストが守る
@@ -28,11 +35,14 @@ BeforeAll {
         "new-item" = "New-Item"; "ni" = "New-Item"
         "set-itemproperty" = "Set-ItemProperty"; "sp" = "Set-ItemProperty"
         "clear-content" = "Clear-Content"; "clc" = "Clear-Content"
+        "remove-item" = "Remove-Item"; "ri" = "Remove-Item"; "rm" = "Remove-Item"; "rmdir" = "Remove-Item"; "rd" = "Remove-Item"; "del" = "Remove-Item"; "erase" = "Remove-Item"
+        "export-csv" = "Export-Csv"; "export-clixml" = "Export-Clixml"; "tee-object" = "Tee-Object"; "tee" = "Tee-Object"
+        "start-transcript" = "Start-Transcript"; "set-acl" = "Set-Acl"
     }
     ${writeMembers} = @("SetAttributes", "SetLastWriteTime", "SetLastWriteTimeUtc", "SetCreationTime", "SetCreationTimeUtc",
         "SetLastAccessTime", "SetLastAccessTimeUtc", "SetAccessControl", "WriteAllText", "WriteAllLines", "WriteAllBytes",
         "AppendAllText", "AppendAllLines", "AppendText", "CreateText", "Create", "CreateNew", "OpenWrite", "Copy", "CopyTo", "Move", "MoveTo",
-        "Replace", "ExtractToFile", "Save", "SaveAs", "SaveAs2", "SaveCopyAs")
+        "Replace", "Delete", "ExtractToFile", "ExtractToDirectory", "Save", "SaveAs", "SaveAs2", "SaveCopyAs")
     ${writerTypes} = @("StreamWriter", "FileStream", "BinaryWriter")
     ${writeProperties} = @("Attributes", "IsReadOnly", "LastWriteTime", "LastWriteTimeUtc", "CreationTime", "CreationTimeUtc", "LastAccessTime", "LastAccessTimeUtc")
 
@@ -62,19 +72,35 @@ BeforeAll {
     }
 
     function testWriteMemberGate {
-        # 名前が紛らわしいメンバー（Copy・Move・Replace・Create・CreateNew。string.Replace・Array.Copy・[powershell]::Create() など）は、
-        # ファイルを扱う型の静的な呼び出し（型が変数で読めない場合も含む）だけを見る。ほかのメンバーは型を問わず見る
+        # 名前が紛らわしいメンバー（Copy・Move・Replace・Create・CreateNew・Delete。string.Replace・Array.Copy・[powershell]::Create() など）は、
+        # ファイルを扱う型の静的な呼び出し（型が変数で読めない場合も含む）と、FileInfo のインスタンスの形だけを見る。ほかのメンバーは型を問わず見る
         param ($node, [string]$member)
-        if (@("Copy", "Move", "Replace", "Create", "CreateNew") -notcontains $member) {
+        if (@("Copy", "Move", "Replace", "Create", "CreateNew", "Delete") -notcontains $member) {
             return $true
         }
+        $arguments = if ($null -eq $node.Arguments) { @() } else { @($node.Arguments) }
         if (!$node.Static) {
+            if ($member -eq "Delete") {
+                return $true
+            }
+            if ($member -eq "Create") {
+                return ($arguments.Count -eq 0)
+            }
+            if ($member -eq "Replace") {
+                # FileInfo.Replace(dest, backup[, ignoreErrors])。string.Replace(old, new) と区別できる形（引数が 3 つ、または 2 つ目が $null・NullString）だけ
+                return ($arguments.Count -eq 3 -or ($arguments.Count -eq 2 -and $arguments[1].Extent.Text -match '^\$null$|NullString'))
+            }
             return $false
         }
         if ($node.Expression -isnot [System.Management.Automation.Language.TypeExpressionAst]) {
             return $true
         }
         return (@("File", "FileInfo", "ZipFile", "ZipFileExtensions", "FileSystem") -contains (getLastName $node.Expression.TypeName.Name))
+    }
+
+    function testFalseLiteral {
+        param ($ast)
+        return ($ast -is [System.Management.Automation.Language.VariableExpressionAst]) -and ($ast.VariablePath.UserPath -eq "false")
     }
 
     function findOwner {
@@ -141,6 +167,9 @@ BeforeAll {
                 } elseif ($isInvoke -and $member -eq "Open") {
                     # 引数なしの .Open()（runspace・COM のアプリなど）は、ファイルを開くものではない
                     if ($arguments.Count -gt 0 -and !(testReadOnlyOpen $arguments)) { $call = @("Open") }
+                } elseif ($isInvoke -and $member -eq "Close") {
+                    # Office の Close($true)・Close(-1) は保存して閉じる。引数なし・$false・0（Word の wdDoNotSaveChanges）は保存しない
+                    if ($arguments.Count -gt 0 -and !(testFalseLiteral $arguments[0]) -and $arguments[0].Extent.Text -ne "0") { $call = @("Close（保存の指定）") }
                 } elseif ($isInvoke -and ${writeMembers} -contains $member) {
                     if (testWriteMemberGate $node $member) { $call = @($member) }
                 }
@@ -181,6 +210,14 @@ BeforeAll {
         return $file.FullName.Substring(${scriptsDir}.Length).TrimStart("\")
     }
 
+    function expandAllowed {
+        # 関数ごとの一覧（Calls に呼び出しの配列）を、"ファイル|関数|呼び出し" の配列にする
+        return @(${writeAllowed} | ForEach-Object {
+                $entry = $_
+                foreach ($call in @($entry.Calls)) { "$($entry.File)|$($entry.Owner)|$call" }
+            })
+    }
+
     function getAllWriteCalls {
         # scripts の下の全部の書く呼び出しを "ファイル|関数|呼び出し" の配列で返す
         $found = New-Object System.Collections.Generic.List[string]
@@ -197,118 +234,89 @@ BeforeAll {
     }
 
     # 書く API を使ってよい関数。足すときは Reason に、書き先が取り込み対象でなく、ワークスペースの置き場か利用者が選んだ出力先であることを書く。
-    # File = scripts からの相対パス、Owner = 関数（クラスのメソッドを含む）の名前、Call = 呼び出し
+    # File = scripts からの相対パス、Owner = 関数（クラスのメソッドを含む）の名前、Calls = その関数が使う呼び出し（関数ごとに 1 行）
     ${writeAllowed} = @(
-        @{ File = "shared\core\close_trace.ps1"; Owner = "writeCloseTrace"; Call = "AppendAllText"; Reason = "閉じる処理の診断記録に追記する（ログの置き場）" }
-        @{ File = "shared\core\data_dir.ps1"; Owner = "testWritableFolder"; Call = "FileAccess.Write"; Reason = "設定の置き場に書けるかを、使い捨てのファイル（その場で消す）で確かめる。置き場は呼ぶ側が決めたツールのフォルダ" }
-        @{ File = "shared\core\data_dir.ps1"; Owner = "testWritableFolder"; Call = "FileMode.CreateNew"; Reason = "設定の置き場に書けるかを、使い捨てのファイル（その場で消す）で確かめる。置き場は呼ぶ側が決めたツールのフォルダ" }
-        @{ File = "shared\core\data_dir.ps1"; Owner = "testWritableFolder"; Call = "New-Object FileStream"; Reason = "設定の置き場に書けるかを、使い捨てのファイル（その場で消す）で確かめる。置き場は呼ぶ側が決めたツールのフォルダ" }
-        @{ File = "shared\core\diagnostics.ps1"; Owner = "rotateLogFile"; Call = "Move"; Reason = "診断ログの世代を入れ替える（ログの置き場の中）" }
-        @{ File = "shared\core\diagnostics.ps1"; Owner = "rotateLogFile"; Call = "Replace"; Reason = "診断ログの世代を入れ替える（ログの置き場の中）" }
-        @{ File = "shared\core\fs.ps1"; Owner = "copyFileShared"; Call = "CopyTo"; Reason = "元のファイルは読み取りだけで開き、書くのは作業フォルダの写し（書き先は呼ぶ側が作業フォルダから組み立てる）" }
-        @{ File = "shared\core\fs.ps1"; Owner = "copyFileShared"; Call = "FileAccess.Write"; Reason = "元のファイルは読み取りだけで開き、書くのは作業フォルダの写し（書き先は呼ぶ側が作業フォルダから組み立てる）" }
-        @{ File = "shared\core\fs.ps1"; Owner = "copyFileShared"; Call = "FileMode.Create"; Reason = "元のファイルは読み取りだけで開き、書くのは作業フォルダの写し（書き先は呼ぶ側が作業フォルダから組み立てる）" }
-        @{ File = "shared\core\fs.ps1"; Owner = "copyFileShared"; Call = "New-Object FileStream"; Reason = "元のファイルは読み取りだけで開き、書くのは作業フォルダの写し（書き先は呼ぶ側が作業フォルダから組み立てる）" }
-        @{ File = "shared\core\fs.ps1"; Owner = "openLockFile"; Call = "FileAccess.ReadWrite"; Reason = "ワークスペースのロックファイルを作って開く（元のファイルではない）" }
-        @{ File = "shared\core\fs.ps1"; Owner = "openLockFile"; Call = "FileMode.OpenOrCreate"; Reason = "ワークスペースのロックファイルを作って開く（元のファイルではない）" }
-        @{ File = "shared\core\fs.ps1"; Owner = "openLockFile"; Call = "FileStream::new"; Reason = "ワークスペースのロックファイルを作って開く（元のファイルではない）" }
-        @{ File = "shared\core\fs.ps1"; Owner = "removeEntryOnly"; Call = "SetAttributes"; Reason = "消す前に読み取り専用の属性を外す。呼ぶのは、置き場の下かを確かめる入口を通った削除だけ（remove_entry.Tests.ps1 が守る）" }
-        @{ File = "shared\core\fs.ps1"; Owner = "writeListFile"; Call = "WriteAllLines"; Reason = "一覧・設定のファイルを書く。書き先は呼ぶ側がワークスペースか設定の置き場から決める" }
-        @{ File = "shared\core\fs.ps1"; Owner = "writeTextLinesAtomic"; Call = "Move"; Reason = "一時ファイルに書いて置き換える。書き先は呼ぶ側がワークスペースか設定の置き場から決める" }
-        @{ File = "shared\core\fs.ps1"; Owner = "writeTextLinesAtomic"; Call = "Replace"; Reason = "一時ファイルに書いて置き換える。書き先は呼ぶ側がワークスペースか設定の置き場から決める" }
-        @{ File = "shared\core\fs.ps1"; Owner = "writeTextLinesAtomic"; Call = "WriteAllLines"; Reason = "一時ファイルに書いて置き換える。書き先は呼ぶ側がワークスペースか設定の置き場から決める" }
-        @{ File = "shared\core\tsv_file.ps1"; Owner = "prettyTsv"; Call = "WriteAllText"; Reason = "Excel が出した作業フォルダの TSV（UTF-16）を整形して UTF-8 で書き直す" }
-        @{ File = "shared\office\office_process.ps1"; Owner = "addOfficeRecord"; Call = "Move"; Reason = "起こした Office のプロセスの記録を書く（ワークスペースの外の一時の場所）" }
-        @{ File = "shared\office\office_process.ps1"; Owner = "addOfficeRecord"; Call = "WriteAllText"; Reason = "起こした Office のプロセスの記録を書く（ワークスペースの外の一時の場所）" }
-        @{ File = "shared\ui\app_host.ps1"; Owner = "loadXaml"; Call = "Save"; Reason = "XAML をメモリのストリームへ書く（ファイルではない）" }
-        @{ File = "shared\ui\app_host.ps1"; Owner = "writeErrorLog"; Call = "AppendAllText"; Reason = "画面のエラーログに追記する（ログの置き場）" }
-        @{ File = "tebunko\core\open_copy.ps1"; Owner = "clearOldOpenCopies"; Call = "SetAttributes"; Reason = "古い写し（開くための写しの置き場）を消す前に読み取り専用を外す。置き場の下かを確かめてから" }
-        @{ File = "tebunko\core\settings.ps1"; Owner = "repairBrokenSettings"; Call = "Move"; Reason = "壊れた設定ファイル（setting.config）を別の名前へ退避する" }
-        @{ File = "tebunko\core\workspace_mover.ps1"; Owner = "CopyTree"; Call = "Copy"; Reason = "ワークスペースを、利用者が選んだ移し先へ複写する（元のファイルではなくワークスペースの中身）" }
-        @{ File = "tebunko\core\workspace_mover.ps1"; Owner = "MoveEntry"; Call = "Move"; Reason = "ワークスペースを、利用者が選んだ移し先へ移す（元のファイルではなくワークスペースの中身）" }
-        @{ File = "tebunko\index\content_index_store.ps1"; Owner = "writeContentIndexFile"; Call = "Move"; Reason = "本文インデックスのファイルを書く（インデックスの置き場）" }
-        @{ File = "tebunko\index\content_index_store.ps1"; Owner = "writeContentIndexFile"; Call = "Replace"; Reason = "本文インデックスのファイルを書く（インデックスの置き場）" }
-        @{ File = "tebunko\index\content_index_store.ps1"; Owner = "writeContentIndexFile"; Call = "WriteAllText"; Reason = "本文インデックスのファイルを書く（インデックスの置き場）" }
-        @{ File = "tebunko\index\gram_index_store.ps1"; Owner = "getFileGramValues"; Call = "CopyTo"; Reason = "メモリの集合を配列へ写す（ファイルではない）" }
-        @{ File = "tebunko\index\gram_index_store.ps1"; Owner = "writeGramSegment"; Call = "FileAccess.Write"; Reason = "gram 索引の部分を書く（インデックスの置き場）" }
-        @{ File = "tebunko\index\gram_index_store.ps1"; Owner = "writeGramSegment"; Call = "FileMode.Create"; Reason = "gram 索引の部分を書く（インデックスの置き場）" }
-        @{ File = "tebunko\index\gram_index_store.ps1"; Owner = "writeGramSegment"; Call = "FileStream::new"; Reason = "gram 索引の部分を書く（インデックスの置き場）" }
-        @{ File = "tebunko\index\gram_index_store.ps1"; Owner = "writeGramSegment"; Call = "Move"; Reason = "gram 索引の部分を書く（インデックスの置き場）" }
-        @{ File = "tebunko\index\gram_index_store.ps1"; Owner = "writeGramToc"; Call = "Move"; Reason = "gram 索引の目次を書く（インデックスの置き場）" }
-        @{ File = "tebunko\index\gram_index_store.ps1"; Owner = "writeGramToc"; Call = "Replace"; Reason = "gram 索引の目次を書く（インデックスの置き場）" }
-        @{ File = "tebunko\index\gram_index_store.ps1"; Owner = "writeGramToc"; Call = "WriteAllText"; Reason = "gram 索引の目次を書く（インデックスの置き場）" }
-        @{ File = "tebunko\index\index_archive.ps1"; Owner = "exportIndexCore"; Call = "Move"; Reason = "エクスポートの zip を、利用者が選んだ出力先へ書く（一時ファイルに書いてから移す）" }
-        @{ File = "tebunko\index\index_archive.ps1"; Owner = "exportIndexCore"; Call = "Open"; Reason = "エクスポートの zip を、利用者が選んだ出力先へ書く（一時ファイルに書いてから移す）" }
-        @{ File = "tebunko\index\index_archive.ps1"; Owner = "extractArchiveEntryToFile"; Call = "FileAccess.Write"; Reason = "インポートする zip の部品を、作業フォルダへ展開する" }
-        @{ File = "tebunko\index\index_archive.ps1"; Owner = "extractArchiveEntryToFile"; Call = "FileMode.CreateNew"; Reason = "インポートする zip の部品を、作業フォルダへ展開する" }
-        @{ File = "tebunko\index\index_archive.ps1"; Owner = "extractArchiveEntryToFile"; Call = "New-Object FileStream"; Reason = "インポートする zip の部品を、作業フォルダへ展開する" }
-        @{ File = "tebunko\index\index_archive.ps1"; Owner = "openIndexArchive"; Call = "Open"; Reason = "インポートする zip を読み取りで開く" }
-        @{ File = "tebunko\index\index_archive.ps1"; Owner = "writeArchiveFile"; Call = "CopyTo"; Reason = "エクスポートの zip の部品を書く（作業フォルダの一時ファイル）" }
-        @{ File = "tebunko\index\index_format_store.ps1"; Owner = "updateIndexFormat"; Call = "FileAccess.ReadWrite"; Reason = "インデックスの目録ファイルを書き換える（ワークスペース）" }
-        @{ File = "tebunko\index\index_format_store.ps1"; Owner = "updateIndexFormat"; Call = "FileMode.OpenOrCreate"; Reason = "インデックスの目録ファイルを書き換える（ワークスペース）" }
-        @{ File = "tebunko\index\index_format_store.ps1"; Owner = "updateIndexFormat"; Call = "New-Object FileStream"; Reason = "インデックスの目録ファイルを書き換える（ワークスペース）" }
-        @{ File = "tebunko\index\index_store.ps1"; Owner = "publishIndexFiles"; Call = "Move"; Reason = "作ったインデックスを置き場へ移す。移す前に両側が置き場の下かを確かめる" }
-        @{ File = "tebunko\indexer\extract_office.ps1"; Owner = "extractDocument"; Call = "Move"; Reason = "作業フォルダの写しを、旧形式の名前へ移す（元のファイルではない）" }
-        @{ File = "tebunko\indexer\extract_office.ps1"; Owner = "extractWithPowerPoint"; Call = "Open"; Reason = "作業フォルダの写しを開き、作業フォルダへ保存する（元は開かない）" }
-        @{ File = "tebunko\indexer\extract_office.ps1"; Owner = "extractWithPowerPoint"; Call = "SaveAs"; Reason = "作業フォルダの写しを開き、作業フォルダへ保存する（元は開かない）" }
-        @{ File = "tebunko\indexer\extract_office.ps1"; Owner = "extractWithWord"; Call = "Open"; Reason = "作業フォルダの写しを開き、作業フォルダへ保存する（元は開かない）" }
-        @{ File = "tebunko\indexer\extract_office.ps1"; Owner = "extractWithWord"; Call = "SaveAs2"; Reason = "作業フォルダの写しを開き、作業フォルダへ保存する（元は開かない）" }
-        @{ File = "tebunko\indexer\extract_office.ps1"; Owner = "extractWorkbook"; Call = "Open"; Reason = "作業フォルダの写しを開き、作業フォルダへ保存する（元は開かない）" }
-        @{ File = "tebunko\indexer\extract_office.ps1"; Owner = "extractWorkbook"; Call = "SaveAs"; Reason = "作業フォルダの写しを開き、作業フォルダへ保存する（元は開かない）" }
-        @{ File = "tebunko\indexer\extract_office.ps1"; Owner = "writeUnits"; Call = "WriteAllLines"; Reason = "取り出した本文を作業フォルダへ書く" }
-        @{ File = "tebunko\indexer\extract_text.ps1"; Owner = "extractTextFile"; Call = "WriteAllLines"; Reason = "取り出した本文を作業フォルダへ書く（元は copyFileShared の写しから読む）" }
-        @{ File = "tebunko\indexer\indexer_run.ps1"; Owner = "invokeIndexer"; Call = "New-Object StreamWriter"; Reason = "インデックス作成のログを書く（ワークスペース）" }
-        @{ File = "tebunko\indexer\indexer_state.ps1"; Owner = "addStatusRow"; Call = "AppendAllText"; Reason = "取り込み一覧（ingest_status.tsv）に追記する（ワークスペース）" }
-        @{ File = "tebunko\indexer\ingest_journal.ps1"; Owner = "AddRecord"; Call = "FileAccess.Write"; Reason = "取り込みのジャーナルに追記する（ワークスペース）" }
-        @{ File = "tebunko\indexer\ingest_journal.ps1"; Owner = "AddRecord"; Call = "FileMode.Append"; Reason = "取り込みのジャーナルに追記する（ワークスペース）" }
-        @{ File = "tebunko\indexer\ingest_journal.ps1"; Owner = "AddRecord"; Call = "New-Object FileStream"; Reason = "取り込みのジャーナルに追記する（ワークスペース）" }
-        @{ File = "tebunko\indexer\ingest_journal.ps1"; Owner = "AddRecord"; Call = "New-Object StreamWriter"; Reason = "取り込みのジャーナルに追記する（ワークスペース）" }
-        @{ File = "tebunko\search\search_export.ps1"; Owner = "invokeSearchExport"; Call = "Move"; Reason = "検索結果の出力ファイルを、利用者が選んだ出力先へ移す" }
-        @{ File = "tebunko\search\search_export.ps1"; Owner = "invokeSearchExport"; Call = "Replace"; Reason = "検索結果の出力ファイルを、利用者が選んだ出力先へ移す" }
-        @{ File = "tebunko\search\search_export.ps1"; Owner = "testSearchExportTarget"; Call = "FileAccess.ReadWrite"; Reason = "出力先に書けるかを、開くだけで確かめる（書き込まない。出力先は利用者が選んだ場所）" }
-        @{ File = "tebunko\search\search_export.ps1"; Owner = "testSearchExportTarget"; Call = "Open"; Reason = "出力先に書けるかを、開くだけで確かめる（書き込まない。出力先は利用者が選んだ場所）" }
-        @{ File = "tebunko\search\search_export.ps1"; Owner = "writeSearchExportBody"; Call = "FileAccess.Write"; Reason = "検索結果の本体を作業フォルダの一時ファイルへ書く" }
-        @{ File = "tebunko\search\search_export.ps1"; Owner = "writeSearchExportBody"; Call = "FileMode.Create"; Reason = "検索結果の本体を作業フォルダの一時ファイルへ書く" }
-        @{ File = "tebunko\search\search_export.ps1"; Owner = "writeSearchExportBody"; Call = "FileStream::new"; Reason = "検索結果の本体を作業フォルダの一時ファイルへ書く" }
-        @{ File = "tebunko\search\search_export.ps1"; Owner = "writeSearchExportBody"; Call = "StreamWriter::new"; Reason = "検索結果の本体を作業フォルダの一時ファイルへ書く" }
-        @{ File = "tebunko\search\search_export.ps1"; Owner = "writeSearchExportFile"; Call = "CopyTo"; Reason = "検索結果を出力ファイルへ書く（利用者が選んだ出力先）" }
-        @{ File = "tebunko\search\search_export.ps1"; Owner = "writeSearchExportFile"; Call = "FileAccess.Write"; Reason = "検索結果を出力ファイルへ書く（利用者が選んだ出力先）" }
-        @{ File = "tebunko\search\search_export.ps1"; Owner = "writeSearchExportFile"; Call = "FileMode.Create"; Reason = "検索結果を出力ファイルへ書く（利用者が選んだ出力先）" }
-        @{ File = "tebunko\search\search_export.ps1"; Owner = "writeSearchExportFile"; Call = "FileStream::new"; Reason = "検索結果を出力ファイルへ書く（利用者が選んだ出力先）" }
-        @{ File = "tebunko\search\search_export.ps1"; Owner = "writeSearchExportFile"; Call = "StreamWriter::new"; Reason = "検索結果を出力ファイルへ書く（利用者が選んだ出力先）" }
-        @{ File = "tebunko\search\search_overflow.ps1"; Owner = "newSearchOverflowWriter"; Call = "FileAccess.Write"; Reason = "検索結果の溢れを作業フォルダへ書く（根は TmpRoot の search_overflow）" }
-        @{ File = "tebunko\search\search_overflow.ps1"; Owner = "newSearchOverflowWriter"; Call = "FileMode.Create"; Reason = "検索結果の溢れを作業フォルダへ書く（根は TmpRoot の search_overflow）" }
-        @{ File = "tebunko\search\search_overflow.ps1"; Owner = "newSearchOverflowWriter"; Call = "FileStream::new"; Reason = "検索結果の溢れを作業フォルダへ書く（根は TmpRoot の search_overflow）" }
-        @{ File = "tebunko\search\search_overflow.ps1"; Owner = "newSearchOverflowWriter"; Call = "StreamWriter::new"; Reason = "検索結果の溢れを作業フォルダへ書く（根は TmpRoot の search_overflow）" }
-        @{ File = "tebunko\ui\open_source.ps1"; Owner = "openInExcel"; Call = "Open"; Reason = "利用者が選んだ開き方で元を開く（tebunko は書かない。「通常」で開いたあとの保存は利用者の操作）" }
-        @{ File = "tebunko\ui\settings\settings.ps1"; Owner = "updateSearchLimitView"; Call = "IsReadOnly ="; Reason = "画面の入力欄の IsReadOnly（ファイルではない）" }
-        @{ File = "tebunko\ui\startup_error.ps1"; Owner = "writeStartupErrorFile"; Call = "Add-Content"; Reason = "起動できなかったときのエラーの記録を、ツールのフォルダへ書く" }
-        @{ File = "tebunko\ui\startup_error.ps1"; Owner = "writeStartupErrorFile"; Call = "Move-Item"; Reason = "起動できなかったときのエラーの記録を、ツールのフォルダへ書く" }
+        @{ File = "shared\core\close_trace.ps1"; Owner = "writeCloseTrace"; Calls = @("AppendAllText"); Reason = "閉じる処理の診断記録に追記する（ログの置き場）" }
+        @{ File = "shared\core\data_dir.ps1"; Owner = "testWritableFolder"; Calls = @("FileAccess.Write", "FileMode.CreateNew", "New-Object FileStream"); Reason = "設定の置き場に書けるかを、使い捨てのファイル（その場で消す）で確かめる。置き場は呼ぶ側が決めたツールのフォルダ" }
+        @{ File = "shared\core\diagnostics.ps1"; Owner = "rotateLogFile"; Calls = @("Move", "Replace"); Reason = "診断ログの世代を入れ替える（ログの置き場の中）" }
+        @{ File = "shared\core\fs.ps1"; Owner = "copyFileShared"; Calls = @("CopyTo", "FileAccess.Write", "FileMode.Create", "New-Object FileStream"); Reason = "元のファイルは読み取りだけで開き、書くのは作業フォルダの写し（書き先は呼ぶ側が作業フォルダから組み立てる）" }
+        @{ File = "shared\core\fs.ps1"; Owner = "invokeWithSourceCopy"; Calls = @("Remove-Item"); Reason = "読み終えた作業フォルダの写し（と、読む処理が作った作業ファイル）を消す。元のファイルではない" }
+        @{ File = "shared\core\fs.ps1"; Owner = "openLockFile"; Calls = @("FileAccess.ReadWrite", "FileMode.OpenOrCreate", "FileStream::new"); Reason = "ワークスペースのロックファイルを作って開く（元のファイルではない）" }
+        @{ File = "shared\core\fs.ps1"; Owner = "removeEntryOnly"; Calls = @("Delete", "SetAttributes"); Reason = "消す前に読み取り専用の属性を外し、ファイル・空のフォルダを 1 つ消す。呼ぶのは、置き場の下かを確かめる入口を通った削除だけ（remove_entry.Tests.ps1 が守る）" }
+        @{ File = "shared\core\fs.ps1"; Owner = "writeListFile"; Calls = @("WriteAllLines"); Reason = "一覧・設定のファイルを書く。書き先は呼ぶ側がワークスペースか設定の置き場から決める" }
+        @{ File = "shared\core\fs.ps1"; Owner = "writeTextLinesAtomic"; Calls = @("Move", "Replace", "WriteAllLines"); Reason = "一時ファイルに書いて置き換える。書き先は呼ぶ側がワークスペースか設定の置き場から決める" }
+        @{ File = "shared\core\tsv_file.ps1"; Owner = "prettyTsv"; Calls = @("WriteAllText"); Reason = "Excel が出した作業フォルダの TSV（UTF-16）を整形して UTF-8 で書き直す" }
+        @{ File = "shared\office\office_process.ps1"; Owner = "addOfficeRecord"; Calls = @("Delete", "Move", "WriteAllText"); Reason = "起こした Office のプロセスの記録を書く・置き換える（ワークスペースの外の一時の場所）" }
+        @{ File = "shared\office\office_process.ps1"; Owner = "readOfficeRecords"; Calls = @("Delete"); Reason = "起こした Office のプロセスの記録を読んだあと、壊れた記録を消す（ワークスペースの外の一時の場所）" }
+        @{ File = "shared\office\office_process.ps1"; Owner = "removeOfficeRecord"; Calls = @("Delete"); Reason = "起こした Office のプロセスの記録を消す（ワークスペースの外の一時の場所）" }
+        @{ File = "shared\ui\app_host.ps1"; Owner = "loadXaml"; Calls = @("Save"); Reason = "XAML をメモリのストリームへ書く（ファイルではない）" }
+        @{ File = "shared\ui\app_host.ps1"; Owner = "writeErrorLog"; Calls = @("AppendAllText"); Reason = "画面のエラーログに追記する（ログの置き場）" }
+        @{ File = "tebunko\core\open_copy.ps1"; Owner = "clearOldOpenCopies"; Calls = @("Delete", "SetAttributes"); Reason = "古い写し（開くための写しの置き場）を、読み取り専用を外してから消す。置き場の下かを確かめてから" }
+        @{ File = "tebunko\core\settings.ps1"; Owner = "repairBrokenSettings"; Calls = @("Move"); Reason = "壊れた設定ファイル（setting.config）を別の名前へ退避する" }
+        @{ File = "tebunko\core\workspace_mover.ps1"; Owner = "CopyTree"; Calls = @("Copy"); Reason = "ワークスペースを、利用者が選んだ移し先へ複写する（元のファイルではなくワークスペースの中身）" }
+        @{ File = "tebunko\core\workspace_mover.ps1"; Owner = "MoveEntry"; Calls = @("Move"); Reason = "ワークスペースを、利用者が選んだ移し先へ移す（元のファイルではなくワークスペースの中身）" }
+        @{ File = "tebunko\core\workspace_mover.ps1"; Owner = "RemoveEntries"; Calls = @("Delete"); Reason = "利用者が［消して、最初からやり直す］を選んだ回だけ、選んだフォルダの tebunko のファイルを消す" }
+        @{ File = "tebunko\index\content_index_store.ps1"; Owner = "convertFolderToContentIndex"; Calls = @("Delete"); Reason = "本文インデックスへ書き出したあとの TSV を消す（インデックスの置き場。元のファイルではない）" }
+        @{ File = "tebunko\index\content_index_store.ps1"; Owner = "writeContentIndexFile"; Calls = @("Move", "Replace", "WriteAllText"); Reason = "本文インデックスのファイルを書く（インデックスの置き場）" }
+        @{ File = "tebunko\index\gram_index_store.ps1"; Owner = "getFileGramValues"; Calls = @("CopyTo"); Reason = "メモリの集合を配列へ写す（ファイルではない）" }
+        @{ File = "tebunko\index\gram_index_store.ps1"; Owner = "removeGramFilesNotInToc"; Calls = @("Delete"); Reason = "目次に無い gram 索引のファイルを消す（インデックスの置き場）" }
+        @{ File = "tebunko\index\gram_index_store.ps1"; Owner = "writeGramSegment"; Calls = @("FileAccess.Write", "FileMode.Create", "FileStream::new", "Move"); Reason = "gram 索引の部分を書く（インデックスの置き場）" }
+        @{ File = "tebunko\index\gram_index_store.ps1"; Owner = "writeGramToc"; Calls = @("Move", "Replace", "WriteAllText"); Reason = "gram 索引の目次を書く（インデックスの置き場）" }
+        @{ File = "tebunko\index\index_archive.ps1"; Owner = "exportIndexCore"; Calls = @("Move", "Open", "Remove-Item"); Reason = "エクスポートの zip を、利用者が選んだ出力先へ書く（一時ファイルに書いてから移し、同名の前のファイルと一時ファイルを消す）" }
+        @{ File = "tebunko\index\index_archive.ps1"; Owner = "extractArchiveEntryToFile"; Calls = @("FileAccess.Write", "FileMode.CreateNew", "New-Object FileStream"); Reason = "インポートする zip の部品を、作業フォルダへ展開する" }
+        @{ File = "tebunko\index\index_archive.ps1"; Owner = "openIndexArchive"; Calls = @("Open"); Reason = "インポートする zip を読み取りで開く" }
+        @{ File = "tebunko\index\index_archive.ps1"; Owner = "writeArchiveFile"; Calls = @("CopyTo"); Reason = "エクスポートの zip の部品を書く（作業フォルダの一時ファイル）" }
+        @{ File = "tebunko\index\index_format_store.ps1"; Owner = "removeOldIndexOf"; Calls = @("Delete"); Reason = "古い形式のインデックスのファイルを消す（インデックスの置き場。元のファイルではない）" }
+        @{ File = "tebunko\index\index_format_store.ps1"; Owner = "updateIndexFormat"; Calls = @("FileAccess.ReadWrite", "FileMode.OpenOrCreate", "New-Object FileStream"); Reason = "インデックスの目録ファイルを書き換える（ワークスペース）" }
+        @{ File = "tebunko\index\index_store.ps1"; Owner = "publishIndexFiles"; Calls = @("Move"); Reason = "作ったインデックスを置き場へ移す。移す前に両側が置き場の下かを確かめる" }
+        @{ File = "tebunko\indexer\extract_office.ps1"; Owner = "copyDataRangeToTempSheet"; Calls = @("Delete"); Reason = "Excel の作業用シート（作業フォルダの写しのブックの中）を消す。ファイルではない" }
+        @{ File = "tebunko\indexer\extract_office.ps1"; Owner = "extractDocument"; Calls = @("Move"); Reason = "作業フォルダの写しを、旧形式の名前へ移す（元のファイルではない）" }
+        @{ File = "tebunko\indexer\extract_office.ps1"; Owner = "extractWithPowerPoint"; Calls = @("Open", "SaveAs"); Reason = "作業フォルダの写しを開き、作業フォルダへ保存する（元は開かない）" }
+        @{ File = "tebunko\indexer\extract_office.ps1"; Owner = "extractWithWord"; Calls = @("Open", "SaveAs2"); Reason = "作業フォルダの写しを開き、作業フォルダへ保存する（元は開かない）" }
+        @{ File = "tebunko\indexer\extract_office.ps1"; Owner = "extractWorkbook"; Calls = @("Delete", "Open", "Remove-Item", "SaveAs"); Reason = "作業フォルダの写しを開き、作業フォルダへ保存する（元は開かない）。作業用シートと作業フォルダの TSV を消す" }
+        @{ File = "tebunko\indexer\extract_office.ps1"; Owner = "writeUnits"; Calls = @("WriteAllLines"); Reason = "取り出した本文を作業フォルダへ書く" }
+        @{ File = "tebunko\indexer\extract_text.ps1"; Owner = "extractTextFile"; Calls = @("WriteAllLines"); Reason = "取り出した本文を作業フォルダへ書く（元は copyFileShared の写しから読む）" }
+        @{ File = "tebunko\indexer\indexer_run.ps1"; Owner = "invokeIndexer"; Calls = @("New-Object StreamWriter"); Reason = "インデックス作成のログを書く（ワークスペース）" }
+        @{ File = "tebunko\indexer\indexer_state.ps1"; Owner = "addStatusRow"; Calls = @("AppendAllText"); Reason = "取り込み一覧（ingest_status.tsv）に追記する（ワークスペース）" }
+        @{ File = "tebunko\indexer\indexer_state.ps1"; Owner = "writePendingRemovals"; Calls = @("Remove-Item"); Reason = "取り込み一覧の消し待ちの記録を消す（ワークスペース）" }
+        @{ File = "tebunko\indexer\ingest_journal.ps1"; Owner = "AddRecord"; Calls = @("FileAccess.Write", "FileMode.Append", "New-Object FileStream", "New-Object StreamWriter"); Reason = "取り込みのジャーナルに追記する（ワークスペース）" }
+        @{ File = "tebunko\indexer\ingest_journal.ps1"; Owner = "removeLegacyIngesting"; Calls = @("Remove-Item"); Reason = "前の版が残した取り込み中の記録（ワークスペース）を消す" }
+        @{ File = "tebunko\search\search_export.ps1"; Owner = "invokeSearchExport"; Calls = @("Move", "Replace"); Reason = "検索結果の出力ファイルを、利用者が選んだ出力先へ移す（同名のファイルを置き換える）" }
+        @{ File = "tebunko\search\search_export.ps1"; Owner = "removeSearchExportTemp"; Calls = @("Delete"); Reason = "検索結果の出力の一時ファイルを消す（作業フォルダ）" }
+        @{ File = "tebunko\search\search_export.ps1"; Owner = "testSearchExportTarget"; Calls = @("FileAccess.ReadWrite", "Open"); Reason = "出力先に書けるかを、開くだけで確かめる（書き込まない。出力先は利用者が選んだ場所）" }
+        @{ File = "tebunko\search\search_export.ps1"; Owner = "writeSearchExportBody"; Calls = @("FileAccess.Write", "FileMode.Create", "FileStream::new", "StreamWriter::new"); Reason = "検索結果の本体を作業フォルダの一時ファイルへ書く" }
+        @{ File = "tebunko\search\search_export.ps1"; Owner = "writeSearchExportFile"; Calls = @("CopyTo", "FileAccess.Write", "FileMode.Create", "FileStream::new", "StreamWriter::new"); Reason = "検索結果を出力ファイルへ書く（利用者が選んだ出力先）" }
+        @{ File = "tebunko\search\search_overflow.ps1"; Owner = "newSearchOverflowWriter"; Calls = @("FileAccess.Write", "FileMode.Create", "FileStream::new", "StreamWriter::new"); Reason = "検索結果の溢れを作業フォルダへ書く（根は TmpRoot の search_overflow）" }
+        @{ File = "tebunko\ui\open_source.ps1"; Owner = "openInExcel"; Calls = @("Open"); Reason = "利用者が選んだ開き方で元を開く（tebunko は書かない。「通常」で開いたあとの保存は利用者の操作）" }
+        @{ File = "tebunko\ui\settings\settings.ps1"; Owner = "updateSearchLimitView"; Calls = @("IsReadOnly ="); Reason = "画面の入力欄の IsReadOnly（ファイルではない）" }
+        @{ File = "tebunko\ui\startup_error.ps1"; Owner = "writeStartupErrorFile"; Calls = @("Add-Content", "Move-Item"); Reason = "起動できなかったときのエラーの記録を、ツールのフォルダへ書く" }
     )
 }
 
 Describe "ファイルに書く API の許可リスト" -Tag Meta {
-    It "書く・属性や日時を変える・ファイルを作る呼び出しは、理由つきの一覧にある関数の中だけにある" {
-        $unknown = @(getAllWriteCalls | Where-Object {
-                $key = $_
-                @(${writeAllowed} | Where-Object { "$($_.File)|$($_.Owner)|$($_.Call)" -eq $key }).Count -eq 0
-            })
+    It "書く・属性や日時を変える・ファイルを作る・消す呼び出しは、理由つきの一覧にある関数の中だけにある" {
+        $allowed = expandAllowed
+        $unknown = @(getAllWriteCalls | Where-Object { $allowed -notcontains $_ })
         $unknown | Should -BeNullOrEmpty -Because "元のファイルに書かないため、書く API は一覧の関数だけに置く。書き先がワークスペースの置き場だと確かめて、Reason を書いて足す"
     }
 
     It "一覧の呼び出しは、いまも存在する（消した・名前を変えた呼び出しを一覧に残さない）" {
         $current = getAllWriteCalls
-        $stale = @(${writeAllowed} | Where-Object { $current -notcontains "$($_.File)|$($_.Owner)|$($_.Call)" } |
-                ForEach-Object { "$($_.File) › $($_.Owner) › $($_.Call)" })
+        $stale = @(expandAllowed | Where-Object { $current -notcontains $_ })
         $stale | Should -BeNullOrEmpty
     }
 
-    It "一覧の行には、理由が書いてある" {
-        @(${writeAllowed} | Where-Object { [string]::IsNullOrWhiteSpace($_.Reason) } | ForEach-Object { "$($_.File) › $($_.Owner) › $($_.Call)" }) | Should -BeNullOrEmpty
+    It "一覧の行には、理由と呼び出しが書いてある" {
+        @(${writeAllowed} | Where-Object { [string]::IsNullOrWhiteSpace($_.Reason) -or @($_.Calls).Count -eq 0 } | ForEach-Object { "$($_.File) › $($_.Owner)" }) | Should -BeNullOrEmpty
     }
 
-    It "一覧に同じ行が 2 つない" {
-        $keys = @(${writeAllowed} | ForEach-Object { "$($_.File)|$($_.Owner)|$($_.Call)" })
+    It "一覧に同じ関数の行が 2 つない" {
+        $keys = @(${writeAllowed} | ForEach-Object { "$($_.File)|$($_.Owner)" })
+        @($keys | Group-Object | Where-Object { $_.Count -gt 1 } | ForEach-Object { $_.Name }) | Should -BeNullOrEmpty
+    }
+
+    It "一覧の呼び出しに重なりがない" {
+        $keys = expandAllowed
         @($keys | Group-Object | Where-Object { $_.Count -gt 1 } | ForEach-Object { $_.Name }) | Should -BeNullOrEmpty
     }
 }
@@ -330,6 +338,29 @@ Describe "書く API の見つけ方（自己テスト）" -Tag Meta {
         @{ code = '$type::Copy($a, $b)'; call = "Copy" }
         @{ code = '$wb.SaveAs($p)'; call = "SaveAs" }
         @{ code = '$doc.Save($p)'; call = "Save" }
+        @{ code = 'Remove-Item -LiteralPath $row.SourcePath -Force'; call = "Remove-Item" }
+        @{ code = 'Remove-Item $p'; call = "Remove-Item" }
+        @{ code = 'del $p'; call = "Remove-Item" }
+        @{ code = 'erase $p'; call = "Remove-Item" }
+        @{ code = 'rm $p'; call = "Remove-Item" }
+        @{ code = 'ri $p'; call = "Remove-Item" }
+        @{ code = 'rd $p'; call = "Remove-Item" }
+        @{ code = 'Microsoft.PowerShell.Management\Remove-Item $p'; call = "Remove-Item" }
+        @{ code = '[System.IO.File]::Delete($row.SourcePath)'; call = "Delete" }
+        @{ code = '[IO.FileInfo]::new($p).Delete()'; call = "Delete" }
+        @{ code = '$info.Delete()'; call = "Delete" }
+        @{ code = '$type::Delete($p)'; call = "Delete" }
+        @{ code = '$rows | Export-Csv $p'; call = "Export-Csv" }
+        @{ code = '$rows | Export-Clixml $p'; call = "Export-Clixml" }
+        @{ code = '$x | Tee-Object -FilePath $p'; call = "Tee-Object" }
+        @{ code = 'Start-Transcript -Path $p'; call = "Start-Transcript" }
+        @{ code = 'Set-Acl $p $acl'; call = "Set-Acl" }
+        @{ code = '[System.IO.Compression.ZipFile]::ExtractToDirectory($z, $d)'; call = "ExtractToDirectory" }
+        @{ code = '$book.Close($true)'; call = "Close（保存の指定）" }
+        @{ code = '$book.Close(-1)'; call = "Close（保存の指定）" }
+        @{ code = '$info.Create()'; call = "Create" }
+        @{ code = '$info.Replace($dest, $backup, $true)'; call = "Replace" }
+        @{ code = '$info.Replace($dest, [NullString]::Value)'; call = "Replace" }
         @{ code = 'Set-Content -LiteralPath $p -Value "x"'; call = "Set-Content" }
         @{ code = 'sc $p "x"'; call = "Set-Content" }
         @{ code = 'Microsoft.PowerShell.Management\Set-Content $p "x"'; call = "Set-Content" }
@@ -380,7 +411,10 @@ Describe "書く API の見つけ方（自己テスト）" -Tag Meta {
         @{ code = '[Array]::Copy($a, $b, 3)' }
         @{ code = '$ps = [powershell]::Create()' }
         @{ code = '$runspace.Open()' }
-        @{ code = 'Remove-Item $p -Force' }
+        @{ code = '$book.Close($false)' }
+        @{ code = '$doc.Close(0)' }
+        @{ code = '$book.Close()' }
+        @{ code = '[System.IO.Directory]::Delete($d)' }
     ) {
         @(findWriteCalls (parseCode $code)).Count | Should -Be 0
     }

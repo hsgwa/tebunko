@@ -50,7 +50,7 @@ flowchart LR
 | テスト | 確かめること |
 |---|---|
 | `source_unchanged`（`-Tag Io`） | テキスト・PDF・Word・PowerPoint・読み取り専用・パスワード付きのファイルと、外のフォルダを指すジャンクションを置いたフォルダで、インデックスの作成・更新・エクスポート・削除の前後に、元のフォルダと外のフォルダのファイルの数・種類・ハッシュ・属性・作成日時・更新日時（ファイルのみ）が変わらない。ジャンクションの先は取り込まれない。ジャンクションを作れない環境ではジャンクションの分を飛ばし、ジャンクションの無い場面だけで確かめる |
-| `source_unchanged`（`-Tag Office`） | 上に Excel（パスワード付きを含む）と旧形式の PowerPoint を足した場面。Office がある機械でだけ流れ、CI の既定では外れる（リリース前に `.\tests\run.ps1 -All`） |
+| `source_unchanged`（`-Tag Office`） | 上に Excel（パスワード付きを含む）と旧形式の PowerPoint を足した場面。Office がある機械でだけ流れ、CI の既定では外れる（Office の入った機械で、リリース前に `.\tests\run.ps1 -Tag Office` を流す。[CI](ci.md)） |
 | 比べ方の自己テスト（`-Tag Io`） | 中身の書き換え（日時を戻した場合も）・更新日時だけ・作成日時だけ・属性だけ・削除・追加のどれも、前後の比べが見逃さない |
 
 **スレッドとプール（`tests/shared/core/worker_pool`・`tests/tebunko/search/search_service`）**
