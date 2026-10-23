@@ -76,6 +76,16 @@
           </StackPanel>
         </Grid>
         <TextBlock x:Name="IndexingHint" Style="{StaticResource Meta}" Margin="16,0,16,0" TextWrapping="Wrap" TextAlignment="Right" />
+        <!-- インデックスの保存先（ワークスペースのフォルダ）。入りきらないパスは … で省略し、ツールチップに全体と注意を出す。警告は保存先が共有のときだけ（updateIndexLocationView） -->
+        <Grid Margin="16,0,16,4">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <TextBlock x:Name="IndexLocationText" Style="{StaticResource Meta}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,12,0" />
+          <Button x:Name="OpenIndexLocationButton" Grid.Column="1" Content="フォルダを開く" Height="28" VerticalAlignment="Center" />
+        </Grid>
+        <TextBlock x:Name="IndexLocationWarning" Style="{StaticResource WarnText}" Margin="16,0,16,6" Visibility="Collapsed" />
       </StackPanel>
 
       <!-- 表は左右いっぱい。上辺だけ細い線を引く（左右と下の外枠は付けない。DataGrid 自身の枠は 0 のまま） -->

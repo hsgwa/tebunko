@@ -407,3 +407,37 @@ Describe "getIndexNavBadge" -Tag Unit {
         $badge.Kind | Should -Be $kind
     }
 }
+
+Describe "getIndexLocationView（インデックスの保存先の表示）" -Tag Unit {
+    It "パス <name> はそのまま返り、注意は常にあり、警告はネットワークのときだけある（ネットワーク=<net>）" -TestCases @(
+        @{ name = "ふつう"; path = "C:\Users\test\Documents\tebunko_ws"; net = $false }
+        @{ name = "ふつう"; path = "C:\Users\test\Documents\tebunko_ws"; net = $true }
+        @{ name = "UNC"; path = "\\server\share\ws"; net = $true }
+        @{ name = "日本語と角括弧の長いパス"; path = "D:\共有\営業部\[2026]\とても長い名前のフォルダ\さらに深い階層\tebunko_ws"; net = $false }
+    ) {
+        $view = getIndexLocationView $path $net
+        $view.Path | Should -BeExactly $path
+        $view.Heading | Should -Be "インデックスの保存先"
+        $view.Note | Should -BeLike "*本文がそのまま入り*アクセス権は引き継がれません*［設定］*"
+        if ($net) {
+            $view.Warning | Should -BeLike "注意：保存先は共有フォルダにあります*"
+        } else {
+            $view.Warning | Should -BeExactly ""
+        }
+    }
+
+    It "内部の言葉を画面の文言に書かない" {
+        $view = getIndexLocationView "C:\ws" $true
+        ($view.Note + $view.Warning) | Should -Not -Match "content_index|system_index|TSV"
+    }
+}
+
+Describe "getIndexLocationOpenStatus（保存先を開くときの文言）" -Tag Unit {
+    It "<kind> の文言" -TestCases @(
+        @{ kind = "Missing"; message = ""; expected = "保存先のフォルダはまだありません（インデックスを作ると作られます）：C:\ws" }
+        @{ kind = "Unreachable"; message = ""; expected = "保存先のフォルダに接続できません：C:\ws" }
+        @{ kind = "Other"; message = "アクセスが拒否されました"; expected = "保存先のフォルダを開けません：C:\ws（アクセスが拒否されました）" }
+    ) {
+        getIndexLocationOpenStatus $kind "C:\ws" $message | Should -Be $expected
+    }
+}

@@ -82,6 +82,29 @@ function updateIndexingConfirmTotal {
     # 「次から確認を出さない」は、ダウンロードして取り込むを選んだときだけ選べる
     $d.Ctrl.CloudRememberCheck.IsEnabled = $view.Include
 }
+function initIndexingConfirmLocation {
+    # 確認のダイアログに、インデックスの保存先と注意（共有のときは警告も）を出し、［フォルダを開く］をつなぐ。タブと同じ文言（getIndexLocationView）。
+    # ［フォルダを開く］の結果の文言は、ダイアログの中に出す（モーダルの間は本体のステータスバーが見えにくいため）
+    param (
+        $ctrl  # ダイアログの部品（IndexLocation… と OpenIndexLocationButton）
+    )
+
+    $dir = [string]$workspace.Dir
+    $location = getIndexLocationView $dir (testNetworkPath $dir)
+    $ctrl.IndexLocationText.Text = "$($location.Heading)：$($location.Path)"
+    $ctrl.IndexLocationText.ToolTip = $location.Path
+    $ctrl.IndexLocationNote.Text = $location.Note
+    $ctrl.IndexLocationWarning.Text = $location.Warning
+    $ctrl.IndexLocationWarning.Visibility = if ($location.Warning) { "Visible" } else { "Collapsed" }
+    $statusText = $ctrl.IndexLocationStatus
+    $showMessage = {
+        param ($text)
+        $statusText.Text = $text
+        $statusText.Visibility = if ($text) { "Visible" } else { "Collapsed" }
+    }.GetNewClosure()
+    $ctrl.OpenIndexLocationButton.Add_Click({ safe { openIndexLocation $showMessage } }.GetNewClosure())
+}
+
 function showIndexingConfirmDialog {
     # インデックス作成の確認。インデクサが数えた結果（インデックスごとの取り込み対象の件数）を出して、取り込むかどうかを選んでもらう。
     #   取り込む → @{ RetryFailed; IncludeCloud } ／ 取りやめ → $null
@@ -92,7 +115,7 @@ function showIndexingConfirmDialog {
     $dialog = loadWindow "${xamlDir}\dialog_indexing_confirm.xaml"
     $dialog.Owner = $window
     $ctrl = @{}
-    foreach ($name in @("StartButton", "CancelButton", "RetryCheck", "CloudWarnText", "CloudCheck", "CloudRememberCheck", "TotalText", "NoteText", "IntroText", "PlanGrid")) {
+    foreach ($name in @("StartButton", "CancelButton", "RetryCheck", "CloudWarnText", "CloudCheck", "CloudRememberCheck", "TotalText", "NoteText", "IntroText", "PlanGrid", "IndexLocationText", "IndexLocationNote", "IndexLocationWarning", "IndexLocationStatus", "OpenIndexLocationButton")) {
         $ctrl[$name] = $dialog.FindName($name)
     }
     # 設定の cloudFiles は開くときに 1 回だけ読む（開始するとき、変わったときだけ書き戻す）
@@ -108,6 +131,7 @@ function showIndexingConfirmDialog {
         $ctrl.CloudCheck.IsChecked = $true
         $ctrl.CloudRememberCheck.IsChecked = $true
     }
+    initIndexingConfirmLocation $ctrl
     updateIndexingConfirmTotal
     # 削除予定があるときは、取りやめと［更新を開始］を選べるままにする（閉じるだけにすると、見せたまま消してしまう）
     $nothing = [bool]$script:confirmDialog.View.Nothing

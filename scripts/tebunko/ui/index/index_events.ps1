@@ -38,6 +38,7 @@ $ui.RowMenuUpdate.Add_Click({
     }
 })
 $ui.RowMenuOpenFolder.Add_Click({ safe { openIndexSourceFolder } })
+$ui.OpenIndexLocationButton.Add_Click({ safe { openIndexLocation { param ($text) setStatus $text } } })
 $ui.IndexDetailPathButton.Add_Click({ safe { changeIndexFolder } })
 $ui.RemoveIndexButton.Add_Click({ safe { deleteIndex } })
 $ui.ExportIndexButton.Add_Click({ safe { newExportIndex } })
