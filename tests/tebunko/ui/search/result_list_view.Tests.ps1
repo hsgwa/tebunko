@@ -306,6 +306,15 @@ Describe "sortFileGroups（ヒットが多いファイル）" -Tag Unit {
     }
 }
 
+Describe "sortFileGroups（先頭の分の戻し）" -Tag Unit {
+    It "ヒットが上限以下のうちに並べ替えた行が先頭に残っていれば、先頭の分だけ見つかった順に戻す" {
+        $big = newTestGroup 1 @((newTestRow 1 "x" 9), (newTestRow 0 "x" 30), (newTestRow 2 "x" 1), (newTestRow 3 "x" 5))
+        $big | Add-Member -NotePropertyName Hits -NotePropertyValue (1..6)
+        sortFileGroups @($big) "LineNumber" $false 3 | Out-Null
+        @($big.Rows | ForEach-Object { $_.Order }) -join "," | Should -Be "0,1,2,3"
+    }
+}
+
 Describe "getResultMenuItems" -Tag Unit {
     BeforeAll {
         function menuText {

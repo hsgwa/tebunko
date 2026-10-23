@@ -434,6 +434,7 @@ class MoreRowsItem : NotifyBase {
     [FileGroup]$Group
     [string]$Text                 # 行に出す文言（getMoreRowsText）
     [string]$Note                 # 文言の右に添える注記（getMoreRowsNote。無ければ空）
+    [string]$AutomationName       # 読み上げ・画面の確かめに使う行の名前（文言と注記をつないだもの）
 
     MoreRowsItem() {}   # 既定のコンストラクタを明示する（理由は shared\ui\types.ps1 の NotifyBase）
 
@@ -445,6 +446,11 @@ class MoreRowsItem : NotifyBase {
         if ($this.Note -ne $note) {
             $this.Note = $note
             $this.Raise("Note")
+        }
+        $name = $text + $note
+        if ($this.AutomationName -ne $name) {
+            $this.AutomationName = $name
+            $this.Raise("AutomationName")
         }
     }
 }

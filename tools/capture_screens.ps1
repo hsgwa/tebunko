@@ -552,7 +552,7 @@ function captureSearchScene {
         waitGui $S "注記が出る" ${guiDefaultTimeout} {
             $grid = findGui $S.Window -Id "ResultGrid"
             $grid.GetCurrentPattern([Windows.Automation.ScrollPattern]::Pattern).SetScrollPercent(-1, 100)
-            @(getGuiGridRows $grid | Where-Object { $_.Current.Name -like "続きの 1,000 件を表示*" }).Count -gt 0
+            @(getGuiGridRows $grid | Where-Object { $_.Current.Name -like "続きの 1,000 件を表示*・件数が多いため並べ替えていません" }).Count -gt 0
         } | Out-Null
         captureGuiState -S $S -Id "search-tab/many-hits-sorted" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes

@@ -158,7 +158,7 @@
               </DataTrigger>
               <DataTrigger Binding="{Binding IsMoreRow}" Value="True">
                 <Setter Property="Template" Value="{StaticResource MoreRow}" />
-                <Setter Property="AutomationProperties.Name" Value="{Binding Text}" />
+                <Setter Property="AutomationProperties.Name" Value="{Binding AutomationName}" />
               </DataTrigger>
             </Style.Triggers>
           </Style>
