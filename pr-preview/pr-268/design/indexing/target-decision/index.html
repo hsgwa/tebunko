@@ -4330,7 +4330,7 @@
 <p>クロールで列挙するファイルの条件（<code>findTargetFiles</code>）:</p>
 <ul>
 <li>拡張子が <code>.xlsx</code> <code>.xlsm</code> <code>.xls</code> <code>.xlsb</code> <code>.docx</code> <code>.docm</code> <code>.doc</code> <code>.pptx</code> <code>.pptm</code> <code>.ppt</code>（Office、10 個）または <a href="../text/#対象の拡張子">対象の拡張子</a>（テキスト、75 個）（大文字・小文字を区別しない）。テンプレート（<code>.xltx</code> <code>.dotx</code> <code>.potx</code> 等）は対象外</li>
-<li>取り込む拡張子の一覧は、既定では上の固定の一覧のすべて。呼び出し元（<code>createTargetList</code> の <code>extensions</code>）が設定で取り込まないにしたテキストの拡張子を除いた一覧（<code>getTargetExtensionList</code>）を渡す。インデックス作成は始めに 1 回だけ設定を読んで <code>IngestPlanner.Extensions</code> に入れる</li>
+<li>取り込む拡張子の一覧は、既定では上の固定の一覧のすべて。呼び出し元（<code>createTargetList</code> の <code>extensions</code>）が設定で取り込まないにしたテキストの拡張子を除いた一覧（<code>getTargetExtensionList</code>）を渡す。<code>IngestPlanner.Crawl</code> が始めに 1 回だけ設定を読んで <code>IngestPlanner.Extensions</code> に入れる</li>
 <li>ファイル名が <code>~$</code> で始まるもの（Office のロックファイル）は除外</li>
 <li>アクセスできないサブフォルダは無視して続行（元ファイルが無くなったかどうかの確認は行わない）</li>
 <li>ジャンクション・シンボリックリンクは辿らず、取り込まない（<code>getFilesNoFollow</code>。リンクの先のフォルダへは降りず、ファイルのリンクも対象にしない）。飛ばしたリンクは 1 件 1 行でログに出す。クロール対象フォルダそのものがリンクのときは、これまでどおりその先の中を読む（中のリンクだけを辿らない）。OneDrive のオンデマンドのように、<code>ReparsePoint</code> が付いていてもリンクと確かめられないものは、これまでどおり取り込む</li>

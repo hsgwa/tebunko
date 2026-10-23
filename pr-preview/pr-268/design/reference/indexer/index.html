@@ -5064,7 +5064,7 @@
 <td><code>Extensions</code>（プロパティ）</td>
 <td>–</td>
 <td>string[]</td>
-<td><code>Crawl</code> が <code>createTargetList</code> に渡す、取り込む拡張子の一覧。司令が設定から <code>getTargetExtensionList</code> で作って <code>Crawl</code> の前に入れる（<code>$null</code> なら固定の一覧のすべて）</td>
+<td><code>Crawl</code> が <code>createTargetList</code> に渡す、取り込む拡張子の一覧。<code>$null</code> のまま <code>Crawl</code> を呼ぶと、<code>Crawl</code> の始めに 1 回だけ設定を読み、<code>getTargetExtensionList</code> で取り込まない拡張子を除いた一覧を入れる（先に入れておけば設定は読まない）</td>
 </tr>
 <tr>
 <td><code>Crawl</code></td>
