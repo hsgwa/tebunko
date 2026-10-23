@@ -548,6 +548,22 @@ $ui.FailedGrid.Add_MouseDoubleClick({
         safe { openFailedFileFolder }
     }
 })
+$ui.IndexFilesGrid.Add_MouseDoubleClick({
+    param ($sender, $e)
+    # 行の上でのダブルクリックだけを対象にする（列見出し・スクロールバーは除く）
+    $element = $e.OriginalSource
+    while ($element -and !($element -is [System.Windows.Controls.DataGridRow])) {
+        if ($element -is [System.Windows.Controls.Primitives.DataGridColumnHeader] -or $element -is [System.Windows.Controls.Primitives.ScrollBar]) {
+            return
+        }
+        $element = [System.Windows.Media.VisualTreeHelper]::GetParent($element)
+    }
+    if ($element) {
+        safe { openIndexFileFolder }
+    }
+})
+$ui.IndexFilesButton.Add_Click({ safe { toggleIndexFiles } })
+$ui.IndexFilesCloseButton.Add_Click({ safe { closeIndexFiles } })
 $ui.IndexingButton.Add_Click({ safe { startIndexing } })
 $ui.IndexingStopButton.Add_Click({ safe { stopIndexing } })
 $ui.IndexingResumeButton.Add_Click({ safe { startIndexing } })

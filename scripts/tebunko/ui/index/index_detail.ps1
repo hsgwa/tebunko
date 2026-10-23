@@ -4,7 +4,8 @@
 foreach ($detailName in @(
         "IndexDetailBody", "IndexDetailName", "IndexDetailPath", "IndexDetailPathButton", "IndexDetailEditError", "IndexDetailFolderStatus", "IndexDetailFolderIcon",
         "IndexDetailBadge", "IndexDetailBadgeText", "IndexDetailBadgeSub", "IndexErrorText", "IndexErrorHintText", "IndexDetailUpdated", "IndexDetailCount",
-        "IndexingDetailPanel", "IndexingProgressBar", "IndexingCountText", "IndexingFileText", "MultiSelectHintText")) {
+        "IndexingDetailPanel", "IndexingProgressBar", "IndexingCountText", "IndexingFileText", "MultiSelectHintText",
+        "IndexFilesButton", "IndexFilesPanel", "IndexFilesCloseButton", "IndexFilesHeading", "IndexFilesGrid")) {
     $ui[$detailName] = $ui.IndexDetailHost.Content.FindName($detailName)
 }
 # 読み取り中のファイルは、「…」で切れているときだけ全文をツールチップで見せる（名前とフォルダパスは入力欄で、欄の中で読める）
@@ -293,12 +294,83 @@ function updateFailedList {
     $ui.FailedPanel.Visibility = if ($rows.Count -gt 0) { "Visible" } else { "Collapsed" }
 }
 
+$script:indexFilesFolderPath = ""   # 一覧を開いているインデックスの元のフォルダ
+$script:indexFilesName = ""      # 取り込んだファイルの一覧を開いているインデックスの名前（空は閉じている）
+$script:indexFilesRequest = [ref]0   # 一覧を読む依頼の番号（古い依頼の結果は捨てる。[ref] のまま閉じ込める）
+
+function closeIndexFiles {
+    # 取り込んだファイルの一覧を閉じる（表の行も手放す）
+    $script:indexFilesName = ""
+    $script:indexFilesRequest.Value++
+    $ui.IndexFilesPanel.Visibility = "Collapsed"
+    $ui.IndexFilesGrid.ItemsSource = $null
+}
+
+function toggleIndexFiles {
+    # ［ファイルの一覧］: 詳細に出しているインデックスの、取り込んだファイルの一覧を開く（開いていれば読み直す）。
+    # 取り込み一覧は数万行になることがあるため、読み込みと整形は裏のスレッドで行い、届いたら表に渡すだけにする
+    $item = getIndexTargetItem
+    if ($null -eq $item) {
+        return
+    }
+    $name = [string]$item.Name
+    $folderPath = [string]$item.Path
+    $script:indexFilesName = $name
+    $script:indexFilesFolderPath = $folderPath
+    $requestBox = $script:indexFilesRequest
+    $requestBox.Value++
+    $requestId = $requestBox.Value
+    $ui.IndexFilesPanel.Visibility = "Visible"
+    $ui.IndexFilesGrid.ItemsSource = $null
+    $ui.IndexFilesHeading.Text = "読み込み中…"
+    $labels = getIndexFileStateLabels
+    # 呼ぶ関数は変数で捕まえてから閉じ込める（裏の仕事の結果を受けるところからは、関数の名前が見つからないため。openFailedFileFolder と同じ）
+    $makeHeading = ${function:getIndexFilesHeading}
+    $grid = $ui.IndexFilesGrid
+    $heading = $ui.IndexFilesHeading
+    startJob {
+        param ($path, $indexName, $labels)
+        getIndexFileEntries -indexName $indexName -labels $labels -path $path
+    } @($workspace.StatusFile, $name, $labels) {
+        param ($output, $errorText)
+        if ($requestId -ne $requestBox.Value) {
+            # 待っている間に別のインデックスを選んだ・閉じた。前の依頼は捨てる
+            return
+        }
+        if ($errorText -or !$output -or $output.Count -eq 0) {
+            $heading.Text = "ファイルの一覧を読み込めませんでした"
+            return
+        }
+        $entries = $output[0]
+        $heading.Text = & $makeHeading ($entries.Rows.Count) ($entries.Failed)
+        $grid.ItemsSource = $entries.Rows
+    }.GetNewClosure() (getWorkspaceJobQueue $workspace.StatusFile)
+}
+
+function openIndexFileFolder {
+    # 一覧で選んだファイルの場所を開く。元のファイルのパスは、開くときに、一覧を開いているインデックスのフォルダと相対パスから組む
+    $row = $ui.IndexFilesGrid.SelectedItem
+    if ($null -eq $row -or !$script:indexFilesFolderPath) {
+        return
+    }
+    $row.SourcePath = Join-Path $script:indexFilesFolderPath $row.RelPath
+    openListedFileFolder $row
+}
+
 $script:failedFileRequest = [ref]0  # 失敗したファイルを確かめる依頼の番号（find SourceFile の $script:openSourceRequest と同じ理由で [ref] のまま閉じ込める）
 
 function openFailedFileFolder {
-    # 失敗したファイルの場所をエクスプローラーで開く（ファイルを選択した状態）。
+    # 失敗したファイルの場所をエクスプローラーで開く（ファイルを選択した状態）
+    openListedFileFolder $ui.FailedGrid.SelectedItem
+}
+
+function openListedFileFolder {
+    # 一覧の行（RelPath・SourcePath を持つ）のファイルの場所をエクスプローラーで開く（ファイルを選択した状態）。
     # ネットワークにあれば裏のスレッドで確かめ、画面のスレッドは待たない
-    $row = $ui.FailedGrid.SelectedItem
+    param (
+        $row
+    )
+
     if ($null -eq $row) {
         return
     }
@@ -404,6 +476,9 @@ function updateIndexDetailPanel {
     }
     # 選んだインデックスが変わったら、失敗の一覧もそのインデックスの分に書き直す（変わらないときは置き直さない）
     $failedName = if ($null -ne $item) { [string]$item.Name } else { "" }
+    if ($script:indexFilesName -and $failedName -ne $script:indexFilesName) {
+        closeIndexFiles
+    }
     if ($null -ne $script:indexingState -and $failedName -ne [string]$script:failedFilterName) {
         updateFailedList $script:indexingState
     }

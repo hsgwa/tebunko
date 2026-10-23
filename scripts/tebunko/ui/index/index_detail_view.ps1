@@ -15,6 +15,24 @@ function getIndexDetailItem {
     return $null
 }
 
+function getIndexFileStateLabels {
+    # 取り込んだファイルの一覧の「状態」の文言（Kind → 文言）。Kind は getIndexFileEntries と同じ（Done / Failed / Pending）
+    return @{ Done = "取り込み済み"; Failed = "失敗"; Pending = "未取り込み" }
+}
+
+function getIndexFilesHeading {
+    # 取り込んだファイルの一覧の見出し。total が 0 のときは「まだ取り込んだファイルはありません」
+    param (
+        [int]$total,
+        [int]$failed = 0
+    )
+
+    if ($total -le 0) { return "まだ取り込んだファイルはありません" }
+    $text = "取り込んだファイル {0:#,0} 件" -f $total
+    if ($failed -gt 0) { $text += "（うち失敗 {0:#,0} 件）" -f $failed }
+    return $text
+}
+
 function getIndexDetailMultiCount {
     # 詳細欄を「N 件を選択中」にするときの N（そうしないときは 0）。2 件以上チェックしているときだけ、その件数を返す。
     # 0 件・1 件のときは 0（詳細欄は押した行のまま）

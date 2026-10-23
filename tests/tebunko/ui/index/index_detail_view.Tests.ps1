@@ -267,3 +267,21 @@ Describe "getIndexDetailEditDecision（詳細の名前・フォルダパスの�
         $result.Message | Should -BeLike $message
     }
 }
+
+Describe "getIndexFileStateLabels / getIndexFilesHeading（取り込んだファイルの一覧）" -Tag Unit {
+    It "状態の文言は 3 つの種類にそろっている" {
+        $labels = getIndexFileStateLabels
+        $labels.Done | Should -Be "取り込み済み"
+        $labels.Failed | Should -Be "失敗"
+        $labels.Pending | Should -Be "未取り込み"
+    }
+
+    It "<label>" -TestCases @(
+        @{ label = "0 件"; total = 0; failed = 0; expected = "まだ取り込んだファイルはありません" }
+        @{ label = "失敗なし"; total = 1234; failed = 0; expected = "取り込んだファイル 1,234 件" }
+        @{ label = "失敗あり"; total = 1234; failed = 5; expected = "取り込んだファイル 1,234 件（うち失敗 5 件）" }
+    ) {
+        param ($label, $total, $failed, $expected)
+        getIndexFilesHeading $total $failed | Should -Be $expected
+    }
+}

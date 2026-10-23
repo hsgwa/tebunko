@@ -185,6 +185,18 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             $rowUpdate.Current.IsEnabled | Should -BeTrue
             Test-Path -LiteralPath "$($script:tool.Work)\store\content\資料" | Should -BeTrue
 
+            # ［ファイルの一覧］: 取り込んだファイルが並び、失敗したものが分かる。［閉じる］で閉じる
+            setGuiStep $S "［ファイルの一覧］"
+            clickGui $S $S.Window "IndexFilesButton" "詳細の［ファイルの一覧］"
+            waitGui $S "取り込んだファイルが並ぶ" ${guiDefaultTimeout} {
+                (getGuiText (findGui $S.Window -Id "IndexFilesHeading")) -like "取り込んだファイル * 件*"
+            } | Out-Null
+            $fileRows = @(getGuiGridRows (findGui $S.Window -Id "IndexFilesGrid"))
+            $fileRows.Count | Should -BeGreaterThan 1
+            ($fileRows | ForEach-Object { (getGuiRowTexts $_) -join " " }) -join "`n" | Should -BeLike "*壊れた文書.docx*失敗*"
+            clickGui $S $S.Window "IndexFilesCloseButton" "［閉じる］"
+            waitGui $S "一覧が閉じる" ${guiDefaultTimeout} { !(testGuiVisible (findGui $S.Window -Id "IndexFilesGrid")) } | Out-Null
+
             # 更新が終わった帯には［検索する］が出る。押すと検索の画面に切り替わる
             setGuiStep $S "帯の［検索する］"
             $searchButton = findGui $S.Window -Id "IndexingSearchButton"
