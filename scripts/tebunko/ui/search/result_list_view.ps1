@@ -1,6 +1,10 @@
 ﻿# 結果の一覧（件数の行・ファイルごとにまとめた表）の判断（判断層）。
 # 画面に触らないため、そのままテストできる（tests\tebunko\ui\search\result_list_view.Tests.ps1）。
 
+# 1 つのファイルの下に、一度に出す行の数（続きを出すたびに、この数ずつ増やす）。1 万行を作るのに 1 秒を超えるので、
+# 何万件もヒットするファイルを開いたときに画面が固まらないよう、先頭からこの数までにする
+${groupRowLimit} = 1000
+
 function getSearchProgressText {
     # 検索中の要約欄
     param (
@@ -201,24 +205,59 @@ function getPreviewRowHeight {
     return [Math]::Min($height, [Math]::Max($available - $minResultHeight, $defaultHeight))
 }
 
-function selectShownRows {
-    # 行のうち、ファイル名の絞り込み（空ならすべて）に合うものを、元の順のまま返す
+function getGroupRowTarget {
+    # 開いたファイルの下に出す行の数（行を作る数）。ヒットの数が rowLimit（0 は既定の groupRowLimit）を超えるなら rowLimit
     param (
-        $rows,
-        [string]$filterText
+        [int]$hitCount,
+        [int]$rowLimit = 0
     )
 
-    $shown = New-Object 'System.Collections.Generic.List[object]'
-    foreach ($row in $rows) {
-        if ($filterText -eq "" -or $row.MatchesFileName($filterText)) {
-            $shown.Add($row)
-        }
-    }
-    return , $shown
+    $limit = $(if ($rowLimit -gt 0) { $rowLimit } else { ${groupRowLimit} })
+    return [Math]::Min($hitCount, $limit)
+}
+
+function getNextRowLimit {
+    # 「続き」を出したあとの、行を作る件数の上限（今の上限 rowLimit に groupRowLimit を足す。0 は既定の groupRowLimit）
+    param (
+        [int]$rowLimit = 0
+    )
+
+    return $(if ($rowLimit -gt 0) { $rowLimit } else { ${groupRowLimit} }) + ${groupRowLimit}
+}
+
+function getSortRowTarget {
+    # 並べ替えの前に、ファイルごとに作る行の数。ヒットが limit 以下なら全件（並べ替えるため）、超えるなら 1 件
+    # （並べ替えないので、ファイルの順を決める先頭の行だけあればよい。sortFileGroups）
+    param (
+        [int]$hitCount,
+        [int]$limit = ${groupRowLimit}
+    )
+
+    return $(if ($hitCount -gt $limit) { 1 } else { $hitCount })
+}
+
+function getMoreRowsText {
+    # 上限を超えたファイルの末尾に出す「続き」の行の文言。remaining は、まだ行にしていないヒットの数
+    param (
+        [int]$remaining,
+        [int]$step = ${groupRowLimit}
+    )
+
+    return "続きの $([Math]::Min($remaining, $step).ToString('N0')) 件を表示（残り $($remaining.ToString('N0')) 件）"
+}
+
+function getMoreRowsNote {
+    # 「続き」の行の文言の右に添える注記。結果を並べ替えているときだけ（件数が多いファイルの行は並べ替えず、見つかった順のままのため）。無ければ空
+    param (
+        [bool]$sorted
+    )
+
+    return $(if ($sorted) { "・件数が多いため並べ替えていません" } else { "" })
 }
 
 function getResultItems {
-    # 結果の表に並べる項目。ファイルごとに見出しを 1 つ置き、開いているファイルだけ、その下に行を並べる。
+    # 結果の表に並べる項目。ファイルごとに見出しを 1 つ置き、開いているファイルだけ、その下に行を並べる
+    # （まだ行にしていないヒットが残るファイルは、行の末尾に「続き」の行 MoreRow を置く）。
     # 絞り込みで行が 1 つも残らないファイル（ShownCount が 0）は、見出しも出さない。開いているファイルの行は作ってあること
     param (
         $groups
@@ -232,6 +271,9 @@ function getResultItems {
         $items.Add($group)
         if ($group.IsExpanded) {
             $items.AddRange($group.ShownRows)
+            if ($null -ne $group.MoreRow) {
+                $items.Add($group.MoreRow)
+            }
         }
     }
     return , $items
@@ -263,11 +305,14 @@ function prepareHitRow {
 
 function sortFileGroups {
     # 列見出しのクリックでの並べ替え。各ファイルの中の行を property の順に並べ替え、
-    # ファイルの順は、並べ替えた後の先頭の行の順にする。同じ値のときは見つかった順（Order）
+    # ファイルの順は、並べ替えた後の先頭の行の順にする。同じ値のときは見つかった順（Order）。
+    # ヒットが limit を超えるファイルは、全件の行を作らない（先頭の分しか無い）ので並べ替えず、見つかった順のままにする
+    # （作った行だけを並べ替えると、先頭の分の中だけの順になり誤解を招く）。ファイルの順は、その先頭の行（見つかった順の先頭）の値で決める
     param (
         $groups,
         [string]$property,
-        [bool]$descending
+        [bool]$descending,
+        [int]$limit = ${groupRowLimit}
     )
 
     # 鍵は項目の名前で渡す（スクリプトブロックより速い）。「場所」（Location）は同じ場所の中を行番号の順にする
@@ -276,7 +321,7 @@ function sortFileGroups {
     $byOrder = @{ Expression = "Order"; Descending = $false }
     $rowKeys = if ($property -eq "Location") { @($byValue, @{ Expression = "LineNumber"; Descending = $descending }, $byOrder) } else { @($byValue, $byOrder) }
     foreach ($group in $groups) {
-        $sorted = @($group.Rows | Sort-Object $rowKeys)
+        $sorted = $(if ($group.Hits.Count -gt $limit) { @($group.Rows | Sort-Object $byOrder) } else { @($group.Rows | Sort-Object $rowKeys) })
         $group.Rows.Clear()
         $group.Rows.AddRange([object[]]$sorted)
     }

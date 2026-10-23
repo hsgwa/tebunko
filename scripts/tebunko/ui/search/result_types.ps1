@@ -377,6 +377,12 @@ class FileGroup : NotifyBase {
     # 結果の表での状態（result_list.ps1 が使う）。InView は見出しを表に入れたか、DisplayedCount は見出しの下に入れた行の数
     [bool]$InView
     [int]$DisplayedCount
+    # 行を作る件数の上限（0 は既定の groupRowLimit）。「続き」を出すたびに増やす。上限を超えたヒットは、続きを出すまで行にしない
+    [int]$RowLimit
+    # 見出しの下の行の末尾に出す「続き」の行（残りのヒットがあるとき。無ければ $null）と、それを表に入れているか
+    [object]$MoreRow
+    [bool]$MoreInView
+    [bool]$IsMoreRow = $false   # 常に $false（結果の表で、「続き」の行と区別する）
     hidden [System.Collections.Generic.HashSet[string]]$locations = [System.Collections.Generic.HashSet[string]]::new()
     hidden [System.Collections.Generic.List[string]]$labels = [System.Collections.Generic.List[string]]::new()
 
@@ -418,6 +424,28 @@ class FileGroup : NotifyBase {
         if ($this.ShownCount -eq $count) { return }
         $this.ShownCount = $count
         $this.Raise("ShownCount")
+    }
+}
+
+# 結果の表で、開いているファイルの行の末尾に出す「続き」の行（ヒットが上限を超えたファイル）。選ぶ・Enter・クリックで、次の分の行を足す（result_list.ps1 の showMoreGroupRows）
+class MoreRowsItem : NotifyBase {
+    [bool]$IsMoreRow = $true      # 結果の表で「続き」の行の形にする（search/result_list.xaml の MoreRow）
+    [bool]$IsFileHeader = $false
+    [FileGroup]$Group
+    [string]$Text                 # 行に出す文言（getMoreRowsText）
+    [string]$Note                 # 文言の右に添える注記（getMoreRowsNote。無ければ空）
+
+    MoreRowsItem() {}   # 既定のコンストラクタを明示する（理由は shared\ui\types.ps1 の NotifyBase）
+
+    [void] SetText([string]$text, [string]$note) {
+        if ($this.Text -ne $text) {
+            $this.Text = $text
+            $this.Raise("Text")
+        }
+        if ($this.Note -ne $note) {
+            $this.Note = $note
+            $this.Raise("Note")
+        }
     }
 }
 
@@ -464,6 +492,7 @@ class HitRow : NotifyBase {
     [System.Collections.Generic.List[Segment]]$Segments
     [bool]$Prepared
     [bool]$IsFileHeader     # 常に $false（結果の表で、見出しの行と区別する）
+    [bool]$IsMoreRow        # 常に $false（結果の表で、「続き」の行と区別する）
     [int]$Order             # そのファイルの中で見つかった順（並べ替えで同じ値のときの順）
     [FileGroup]$FileGroup   # 元のファイルの見出し（同じファイルの行で共有する）
 

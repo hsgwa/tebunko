@@ -2,7 +2,8 @@
 # 検索のヒットは生のまま、元のファイルの見出し（FileGroup）の Hits に持つ。表の行（HitRow）は、開いたとき・絞り込み・
 # 並べ替え・出力・コピーのときに、必要なファイルの分だけ作る（ensureRows）。表（ResultGrid）には見出しと、開いているファイルの行だけを入れる。
 # 検索した直後はすべて閉じているので、検索中の処理はヒットをファイルごとに分けるだけで済み、ヒットが多くても速い。
-# 並べる項目・絞り込み・並べ替えの判断は search\result_list_view.ps1（getResultItems・selectShownRows・sortFileGroups）。
+# 1 つのファイルの行は、先頭から groupRowLimit 件まで（続きの行で次の分を足す。ヒットが何万件でも固まらない）。
+# 並べる項目・絞り込み・並べ替えの判断は search\result_list_view.ps1（getResultItems・getGroupRowTarget・sortFileGroups）。
 
 $script:hitCount = 0             # すべてのヒットの数
 $script:fileGroups = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)  # 元のファイルのフルパス → FileGroup
@@ -94,13 +95,26 @@ function addFileGroupLocation {
     }
 }
 
-function ensureRows {
-    # ファイルのヒットのうち、まだ表の行（HitRow）にしていないものを行にする（絞り込みに合うものは ShownRows にも入れる）
+function testGroupShown {
+    # ファイルが絞り込み（ファイル名。空なら全部）に合うか。ファイルごとに決まるので、行を作らなくても分かる
     param (
         [FileGroup]$group
     )
 
-    for ($i = $group.Rows.Count; $i -lt $group.Hits.Count; $i++) {
+    return ($script:filterText -eq "" -or (testHitFilter $group.Book $script:filterText))
+}
+
+function ensureRows {
+    # ファイルのヒットのうち、まだ表の行（HitRow）にしていないものを、先頭から target 件目まで行にする（既定は全部。
+    # 絞り込みに合うものは ShownRows にも入れる）。行を作るのは重い（1 万行で 1 秒を超える）ので、画面に出す分だけを渡す
+    param (
+        [FileGroup]$group,
+        [int]$target = -1
+    )
+
+    $end = $(if ($target -lt 0 -or $target -gt $group.Hits.Count) { $group.Hits.Count } else { $target })
+    $shown = testGroupShown $group
+    for ($i = $group.Rows.Count; $i -lt $end; $i++) {
         $hit = $group.Hits[$i]
         # インデックスのフォルダ（work\index）からの相対パスの先頭がインデックス名（splitIndexRelPath と同じ）
         $relDir = [string]$hit.RelDir
@@ -118,29 +132,75 @@ function ensureRows {
         $row.Order = $i
         $row.FileGroup = $group
         $group.Rows.Add($row)
-        if ($script:filterText -eq "" -or $row.MatchesFileName($script:filterText)) {
+        if ($shown) {
             $group.ShownRows.Add($row)
         }
     }
 }
 
+function ensureDisplayRows {
+    # ファイルを開いたときに表に出す分（先頭から、そのファイルの行の上限まで）の行を作る
+    param (
+        [FileGroup]$group
+    )
+
+    ensureRows $group (getGroupRowTarget $group.Hits.Count $group.RowLimit)
+}
+
+function resetShownRows {
+    # 作った行のうち絞り込みに合うもの（ShownRows）を作り直す。絞り込みはファイルごとに決まるので、合うファイルは全部の行、合わなければ 0 件
+    param (
+        [FileGroup]$group
+    )
+
+    $group.ShownRows = $(if (testGroupShown $group) {
+        New-Object 'System.Collections.Generic.List[object]' (, $group.Rows)
+    } else {
+        New-Object 'System.Collections.Generic.List[object]'
+    })
+}
+
 function ensureAllRows {
-    # すべてのファイルのヒットを表の行にする（絞り込み・並べ替え・出力の前）
+    # すべてのファイルのヒットを、全部表の行にする（出力の前。ヒットが多いファイルは重い）
     foreach ($group in $script:groupList) {
         ensureRows $group
     }
 }
 
 function updateGroupCount {
-    # 見出しの件数。絞り込んでいなければヒットの数（行を作っていなくても分かる）、絞り込み中は合う行の数
+    # 見出しの件数。絞り込みに合うファイルはヒットの数（行を作っていなくても分かる）、合わないファイルは 0
     param (
         [FileGroup]$group
     )
 
-    if ($script:filterText -eq "") {
-        $group.SetCount($group.Hits.Count)
-    } else {
-        $group.SetCount($group.ShownRows.Count)
+    $group.SetCount($(if (testGroupShown $group) { $group.Hits.Count } else { 0 }))
+}
+
+function testResultSorted {
+    # 結果の表を列見出しで並べ替えているか
+    return [bool]($ui.ResultGrid.Columns | Where-Object { $null -ne $_.SortDirection } | Select-Object -First 1)
+}
+
+function updateMoreRow {
+    # 見出しの下の行の末尾の「続き」の行（MoreRow）を、まだ行にしていないヒットに合わせる。
+    # 開いていて、残りがあり、絞り込みに合うときだけ置き、そうでなければ（表に入っていれば出して）無くす
+    param (
+        [FileGroup]$group
+    )
+
+    $remaining = $group.Hits.Count - $group.Rows.Count
+    if ($group.IsExpanded -and $remaining -gt 0 -and $group.ShownCount -gt 0) {
+        if ($null -eq $group.MoreRow) {
+            $group.MoreRow = [MoreRowsItem]::new()
+            $group.MoreRow.Group = $group
+        }
+        $group.MoreRow.SetText((getMoreRowsText $remaining), (getMoreRowsNote (testResultSorted)))
+    } elseif ($null -ne $group.MoreRow) {
+        if ($group.MoreInView) {
+            [void]$script:resultItems.Remove($group.MoreRow)
+            $group.MoreInView = $false
+        }
+        $group.MoreRow = $null
     }
 }
 
@@ -156,8 +216,8 @@ function flushResults {
         return
     }
     foreach ($group in $script:dirtyGroups) {
-        if ($script:filterText -ne "" -or $group.IsExpanded) {
-            ensureRows $group
+        if ($group.IsExpanded) {
+            ensureDisplayRows $group
         }
         updateGroupCount $group
         if ($group.ShownCount -eq 0) {
@@ -168,7 +228,7 @@ function flushResults {
             $group.InView = $true
             $group.DisplayedCount = 0
         }
-        if ($group.IsExpanded -and $group.DisplayedCount -lt $group.ShownRows.Count) {
+        if ($group.IsExpanded -and ($group.DisplayedCount -lt $group.ShownRows.Count -or $group.Hits.Count -gt $group.Rows.Count)) {
             insertGroupRows $group
         }
     }
@@ -190,6 +250,11 @@ function insertGroupRows {
         $index++
     }
     $group.DisplayedCount = $group.ShownRows.Count
+    updateMoreRow $group
+    if ($null -ne $group.MoreRow -and !$group.MoreInView) {
+        $script:resultItems.Insert($index, $group.MoreRow)
+        $group.MoreInView = $true
+    }
 }
 
 function setResultItems {
@@ -202,6 +267,7 @@ function setResultItems {
     foreach ($group in $script:groupList) {
         $group.InView = $false
         $group.DisplayedCount = 0
+        $group.MoreInView = $false
     }
     foreach ($item in $items) {
         if ($item -is [FileGroup]) {
@@ -209,6 +275,8 @@ function setResultItems {
             if ($item.IsExpanded) {
                 $item.DisplayedCount = $item.ShownRows.Count
             }
+        } elseif ($item -is [MoreRowsItem]) {
+            $item.Group.MoreInView = $true
         }
     }
     $script:resultItems = New-Object 'System.Collections.ObjectModel.ObservableCollection[object]' (, [System.Collections.Generic.List[object]]$items)
@@ -220,11 +288,12 @@ function setResultItems {
 }
 
 function rebuildResults {
-    # 見出しの開閉・絞り込み・並べ替えのあとに、表の中身を作り直す（開いているファイルの行は、ここで作る）
+    # 見出しの開閉・絞り込み・並べ替えのあとに、表の中身を作り直す（開いているファイルの行は、ここで作る。上限を超えた分は「続き」の行にする）
     foreach ($group in $script:groupList) {
         if ($group.IsExpanded) {
-            ensureRows $group
+            ensureDisplayRows $group
         }
+        updateMoreRow $group
     }
     setResultItems (getResultItems $script:groupList)
     updateResultPaneHeight $script:resultItems.Count
@@ -238,6 +307,7 @@ function toggleFileGroup {
 
     if ($group.IsExpanded) {
         $group.SetExpanded($false)
+        updateMoreRow $group
         if ($group.DisplayedCount -gt ${rebuildThreshold}) {
             rebuildResults
             return
@@ -250,7 +320,7 @@ function toggleFileGroup {
         updateResultPaneHeight $script:resultItems.Count
     } else {
         $group.SetExpanded($true)
-        ensureRows $group
+        ensureDisplayRows $group
         if ($group.ShownRows.Count -gt ${rebuildThreshold}) {
             rebuildResults
             return
@@ -258,6 +328,46 @@ function toggleFileGroup {
         insertGroupRows $group
         updateResultPaneHeight $script:resultItems.Count
     }
+}
+
+function showMoreGroupRows {
+    # 「続き」の行を選んだとき、そのファイルの次の分（groupRowLimit 件）の行を作って、見出しの下に足す
+    param (
+        [FileGroup]$group
+    )
+
+    $group.RowLimit = getNextRowLimit $group.RowLimit
+    $first = $group.DisplayedCount
+    ensureDisplayRows $group
+    if (!$group.InView -or !$group.IsExpanded) {
+        return
+    }
+    if ($group.ShownRows.Count - $first -gt ${rebuildThreshold}) {
+        rebuildResults
+    } else {
+        insertGroupRows $group
+        updateResultPaneHeight $script:resultItems.Count
+    }
+    if ($first -lt $group.ShownRows.Count) {
+        $ui.ResultGrid.ScrollIntoView($group.ShownRows[$first])
+    }
+}
+
+function activateResultItem {
+    # Enter・クリックで、見出しなら開閉、「続き」の行なら次の分を出す。どちらでもなければ $false（行は元のファイルを開く）
+    param (
+        $item
+    )
+
+    if ($item -is [FileGroup]) {
+        toggleFileGroup $item
+        return $true
+    }
+    if ($item -is [MoreRowsItem]) {
+        showMoreGroupRows $item.Group
+        return $true
+    }
+    return $false
 }
 
 function setAllFileGroupsExpanded {
@@ -274,16 +384,13 @@ function setAllFileGroupsExpanded {
 }
 
 function applyResultFilter {
-    # 絞り込み（空なら解除）を当てて表を作り直す。絞り込むときは、合う行を数えるためにすべての行を作る
+    # 絞り込み（空なら解除）を当てて表を作り直す。絞り込みはファイル名に当てるのでファイルごとに決まり、行は作らない
     param (
         [string]$filterText
     )
 
-    if ($filterText -ne "") {
-        ensureAllRows
-    }
     foreach ($group in $script:groupList) {
-        $group.ShownRows = selectShownRows $group.Rows $filterText
+        resetShownRows $group
         updateGroupCount $group
     }
     rebuildResults
@@ -308,18 +415,21 @@ function sortResults {
 }
 
 function applySort {
-    # ファイルの中の行とファイルの順を並べ替え、絞り込みを当て直して表を作り直す（並べ替えには、すべての行を作る）
+    # ファイルの中の行とファイルの順を並べ替え、絞り込みを当て直して表を作り直す。
+    # 並べ替えには全件の行を作る。ただしヒットが多いファイル（groupRowLimit 件を超える）は並べ替えないので、先頭の 1 件だけ作る
     param (
         [string]$property,
         [bool]$descending
     )
 
-    ensureAllRows
+    foreach ($group in $script:groupList) {
+        ensureRows $group (getSortRowTarget $group.Hits.Count)
+    }
     $sorted = sortFileGroups $script:groupList $property $descending
     $script:groupList.Clear()
     $script:groupList.AddRange($sorted)
     foreach ($group in $script:groupList) {
-        $group.ShownRows = selectShownRows $group.Rows $script:filterText
+        resetShownRows $group
     }
     rebuildResults
 }
@@ -336,10 +446,14 @@ function finishResults {
 }
 
 function getCurrentHitRow {
-    # 選んでいる行。見出しを選んでいるときは、そのファイルの先頭の行（プレビュー・元のファイルを開く・パスのコピーに使う）
+    # 選んでいる行。見出しを選んでいるときは、そのファイルの先頭の行（プレビュー・元のファイルを開く・パスのコピーに使う）。
+    # 「続き」の行を選んでいるときは、行が無い
     $item = $ui.ResultGrid.SelectedItem
+    if ($item -is [MoreRowsItem]) {
+        return $null
+    }
     if ($item -is [FileGroup]) {
-        ensureRows $item
+        ensureRows $item 1
         if ($item.ShownRows.Count -gt 0) {
             return $item.ShownRows[0]
         }
@@ -436,10 +550,10 @@ $ui.ResultGrid.AddHandler([System.Windows.UIElement]::PreviewMouseUpEvent, [Syst
     while ($element -and !($element -is [System.Windows.Controls.DataGridRow])) {
         $element = [System.Windows.Media.VisualTreeHelper]::GetParent($element)
     }
-    if ($element -and $element.Item -is [FileGroup]) {
-        $script:clickedGroup = $element.Item
+    if ($element -and ($element.Item -is [FileGroup] -or $element.Item -is [MoreRowsItem])) {
+        $script:clickedItem = $element.Item
         [void]$ui.ResultGrid.Dispatcher.BeginInvoke([System.Windows.Threading.DispatcherPriority]::Input, [Action]{
-            safe { toggleFileGroup $script:clickedGroup }
+            safe { [void](activateResultItem $script:clickedItem) }
         })
     }
 }, $true)

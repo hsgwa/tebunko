@@ -145,18 +145,50 @@ Describe "getPreviewRowHeight" -Tag Unit {
     }
 }
 
-Describe "selectShownRows" -Tag Unit {
-    It "絞り込みが空ならすべて、あれば名前が合うファイルの行だけを元の順で返す" {
-        $rows = @((newTestRow 1 "A" -book "見積.xlsx"), (newTestRow 2 "B" -book "請求.xlsx"), (newTestRow 3 "C" -book "見積.xlsx"))
-        (selectShownRows $rows "").Count | Should -Be 3
-        $shown = selectShownRows $rows "見積"
-        $shown.Count | Should -Be 2
-        $shown[0].Order | Should -Be 1
-        $shown[1].Order | Should -Be 3
+Describe "getGroupRowTarget" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "ヒットが上限以下なら全件"; hits = 800; limit = 0; expected = 800 }
+        @{ name = "ヒットが多いなら既定の上限（1,000）まで"; hits = 100000; limit = 0; expected = 1000 }
+        @{ name = "続きを出したあとは、増えた上限まで"; hits = 100000; limit = 3000; expected = 3000 }
+        @{ name = "増えた上限よりヒットが少なければ全件"; hits = 2500; limit = 3000; expected = 2500 }
+    ) {
+        param ($name, $hits, $limit, $expected)
+        getGroupRowTarget $hits $limit | Should -Be $expected
+    }
+}
+
+Describe "getNextRowLimit" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "最初（0）は上限の次"; limit = 0; expected = 2000 }
+        @{ name = "続きを出すたびに、上限の分ずつ増える"; limit = 2000; expected = 3000 }
+    ) {
+        param ($name, $limit, $expected)
+        getNextRowLimit $limit | Should -Be $expected
+    }
+}
+
+Describe "getSortRowTarget" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "上限以下なら並べ替えるので全件"; hits = 1000; expected = 1000 }
+        @{ name = "上限を超えるなら並べ替えないので 1 件"; hits = 1001; expected = 1 }
+    ) {
+        param ($name, $hits, $expected)
+        getSortRowTarget $hits | Should -Be $expected
+    }
+}
+
+Describe "getMoreRowsText / getMoreRowsNote" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "残りが多いときは上限の件数ずつ"; remaining = 99000; expected = "続きの 1,000 件を表示（残り 99,000 件）" }
+        @{ name = "残りが上限より少ないときは残りの件数"; remaining = 250; expected = "続きの 250 件を表示（残り 250 件）" }
+    ) {
+        param ($name, $remaining, $expected)
+        getMoreRowsText $remaining | Should -Be $expected
     }
 
-    It "ファイル名に無い語（該当行にだけある語）では空の一覧" {
-        (selectShownRows @((newTestRow 1 "請求の行" -book "見積.xlsx")) "請求").Count | Should -Be 0
+    It "注記は、並べ替えているときだけ付ける" {
+        getMoreRowsNote $true | Should -Be "・件数が多いため並べ替えていません"
+        getMoreRowsNote $false | Should -Be ""
     }
 }
 
@@ -179,6 +211,18 @@ Describe "getResultItems" -Tag Unit {
         $items = getResultItems @($a, $b)
         $items.Count | Should -Be 1
         [object]::ReferenceEquals($items[0], $b) | Should -Be $true
+    }
+}
+
+Describe "getResultItems（続きの行）" -Tag Unit {
+    It "開いているファイルだけ、行の末尾に続きの行を並べる" {
+        $a = newTestGroup 1 @((newTestRow 1 "a1")) $true
+        $a | Add-Member -NotePropertyName MoreRow -NotePropertyValue "続き A"
+        $b = newTestGroup 2 @((newTestRow 2 "b1"))
+        $b | Add-Member -NotePropertyName MoreRow -NotePropertyValue "続き B"
+        $items = getResultItems @($a, $b)
+        $items.Count | Should -Be 4
+        $items[2] | Should -Be "続き A"
     }
 }
 
@@ -223,6 +267,20 @@ Describe "sortFileGroups" -Tag Unit {
         $sorted = sortFileGroups @($b, $a) "LineNumber" $false
         [object]::ReferenceEquals($sorted[0], $a) | Should -Be $true
         @($a.Rows | ForEach-Object { $_.Order }) -join "," | Should -Be "1,2"
+    }
+}
+
+Describe "sortFileGroups（ヒットが多いファイル）" -Tag Unit {
+    It "上限を超えるファイルは並べ替えず見つかった順のまま、ファイルの順は先頭の行の値で決める" {
+        $big = newTestGroup 1 @((newTestRow 2 "x" 9), (newTestRow 0 "x" 30), (newTestRow 1 "x" 1))
+        $big | Add-Member -NotePropertyName Hits -NotePropertyValue (1..5)
+        $small = newTestGroup 2 @((newTestRow 5 "y" 20), (newTestRow 6 "y" 10))
+        $sorted = sortFileGroups @($big, $small) "LineNumber" $false 3
+        @($big.Rows | ForEach-Object { $_.Order }) -join "," | Should -Be "0,1,2"
+        @($small.Rows | ForEach-Object { $_.LineNumber }) -join "," | Should -Be "10,20"
+        # 先頭の行の値: small は 10、big は見つかった順の先頭（30）
+        [object]::ReferenceEquals($sorted[0], $small) | Should -Be $true
+        [object]::ReferenceEquals($sorted[1], $big) | Should -Be $true
     }
 }
 

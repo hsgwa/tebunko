@@ -861,12 +861,123 @@ Describe "結果の表の定義（search\result_list.xaml）" -Tag Unit {
 
     It "行の名前を付ける（見出しはファイル名、ヒットの行は場所）" {
         $names = @($resultGrid.SelectNodes("p:DataGrid.RowStyle//p:Setter[@Property='AutomationProperties.Name']", $ns) | ForEach-Object { $_.GetAttribute("Value") })
-        $names | Should -Be @("{Binding BookDisplay}", "{Binding PlaceDisplay}")
+        $names | Should -Be @("{Binding BookDisplay}", "{Binding PlaceDisplay}", "{Binding Text}")
         $resultGrid.SelectNodes("p:DataGrid.RowStyle//p:Setter[@Property='AutomationProperties.HelpText']", $ns).Count | Should -Be 1
     }
 
     It "使わなくなった列（IndexColumn）を参照するコードが無い" {
         @(Get-ChildItem -LiteralPath $scriptsDir -Recurse -Include *.ps1, *.xaml | Select-String -SimpleMatch "IndexColumn").Count | Should -Be 0
+    }
+}
+
+Describe "1 ファイルのヒットが多いとき" -Tag Unit {
+    BeforeEach {
+        resetResults
+        # 1 ファイルに 5,000 件（上限の 1,000 件を超える）。LineNumber は見つかった順に 5000 → 1
+        $script:big = $null
+        foreach ($n in 5000..1) {
+            $script:big = addHit "多.txt" "本文" "見積 $n" $n
+        }
+        flushResults
+    }
+
+    It "開くと行は上限（1,000）までで、表の項目は見出し・行・続きの行" {
+        toggleFileGroup $script:big
+
+        $script:big.Rows.Count | Should -Be 1000
+        $script:resultItems.Count | Should -Be 1002
+        $script:resultItems[1001] -is [MoreRowsItem] | Should -Be $true
+        $script:resultItems[1001].Text | Should -Be "続きの 1,000 件を表示（残り 4,000 件）"
+        $script:big.ShownCount | Should -Be 5000
+    }
+
+    It "続きを出すと 1,000 件ずつ増え、最後まで出すと続きの行が消える" {
+        toggleFileGroup $script:big
+
+        showMoreGroupRows $script:big
+        $script:big.Rows.Count | Should -Be 2000
+        $script:resultItems.Count | Should -Be 2002
+        $script:resultItems[2001].Text | Should -Be "続きの 1,000 件を表示（残り 3,000 件）"
+        $ui.ResultGrid.Scrolled[$ui.ResultGrid.Scrolled.Count - 1] | Should -Be $script:big.Rows[1000]
+
+        foreach ($i in 1..3) { showMoreGroupRows $script:big }
+        $script:big.Rows.Count | Should -Be 5000
+        $script:resultItems.Count | Should -Be 5001
+        $null -eq $script:big.MoreRow | Should -Be $true
+        ($script:resultItems[5000] -is [HitRow]) | Should -Be $true
+    }
+
+    It "閉じると続きの行も無くなる" {
+        toggleFileGroup $script:big
+        toggleFileGroup $script:big
+
+        $script:resultItems.Count | Should -Be 1
+        $script:big.MoreInView | Should -Be $false
+    }
+
+    It "［すべて開く］でも、作る行は上限まで" {
+        setAllFileGroupsExpanded $true
+
+        $script:big.Rows.Count | Should -Be 1000
+        $script:resultItems.Count | Should -Be 1002
+    }
+
+    It "絞り込みは行を作らず、ファイルごとに決める" {
+        $script:filterText = "存在しない"
+        applyResultFilter "存在しない"
+        $script:big.Rows.Count | Should -Be 0
+        $script:big.ShownCount | Should -Be 0
+        $script:resultItems.Count | Should -Be 0
+
+        $script:filterText = "多"
+        applyResultFilter "多"
+        $script:big.Rows.Count | Should -Be 0
+        $script:big.ShownCount | Should -Be 5000
+        $script:resultItems.Count | Should -Be 1
+    }
+
+    It "並べ替えると、上限を超えたファイルは見つかった順のまま、上限以下のファイルは並べ替える" {
+        [void](addHit "少.txt" "本文" "見積" 20)
+        [void](addHit "少.txt" "本文" "見積" 10)
+        flushResults
+        $script:fileGroups.Values | Where-Object { $_.Book -eq "少.txt" } | ForEach-Object { $small = $_ }
+        $script:big.SetExpanded($true)
+        $column = newSortColumn "LineNumber"
+        $ui.ResultGrid.Columns.Add($column)
+
+        sortResults $column
+
+        $script:big.Rows.Count | Should -Be 1000
+        @($script:big.Rows[0..2] | ForEach-Object { $_.LineNumber }) -join "," | Should -Be "5000,4999,4998"
+        @($small.Rows | ForEach-Object { $_.LineNumber }) -join "," | Should -Be "10,20"
+        # ファイルの順は先頭の行の値（少: 10、多: 見つかった順の先頭の 5000）
+        @($script:groupList | ForEach-Object { $_.Book }) -join "," | Should -Be "少.txt,多.txt"
+        $script:big.MoreRow.Note | Should -Be "・件数が多いため並べ替えていません"
+    }
+
+    It "続きの行を選んで Enter / クリックすると続きが出る。見出しは開閉する。行は対象外" {
+        toggleFileGroup $script:big
+        activateResultItem $script:big.MoreRow | Should -Be $true
+        $script:big.Rows.Count | Should -Be 2000
+
+        activateResultItem $script:big | Should -Be $true
+        $script:big.IsExpanded | Should -Be $false
+        activateResultItem $script:big.Rows[0] | Should -Be $false
+    }
+
+    It "見出しを選ぶと先頭の 1 件だけ作り、続きの行を選んでも行は無い" {
+        $ui.ResultGrid.SelectedItem = $script:big
+        (getCurrentHitRow).LineNumber | Should -Be 5000
+        $script:big.Rows.Count | Should -Be 1
+
+        toggleFileGroup $script:big
+        $ui.ResultGrid.SelectedItem = $script:big.MoreRow
+        $null -eq (getCurrentHitRow) | Should -Be $true
+    }
+
+    It "見出しを選んでコピーするときは、全件の行になる" {
+        $ui.ResultGrid.SelectedItems = @($script:big)
+        (getSelectedRows).Count | Should -Be 5000
     }
 }
 
