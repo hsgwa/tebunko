@@ -4,7 +4,7 @@
 
 ## 対象の拡張子
 
-`${textExtensions}`（`shared/core/text_file.ps1`）に固定する 75 個。大文字・小文字は区別しない。ソースコード・設定ファイルなど、文字コードを適切に選べれば読めるものを広く含む。`setting.config` で拡張子を足す仕組みは無い（`tests/meta/safety.Tests.ps1` が、Office の拡張子・PDF の拡張子（[PDF ファイルの読み取り](pdf.md)）と合わせて 86 個の固定の一覧ちょうどであることを確かめる）。RTF（表示用の解釈が要る形式）など読み方が別に要る形式、`.exe` `.com` `.scr` `.hta` `.wsf` `.wsh` `.jse` `.vbe` `.lnk` `.url` `.msi` `.cpl` `.inf`（実行・登録に使われるファイル）・`.ts` は対象外。`.html` `.htm` は対象（下の `${textOpenExtensions}`。表示用の解釈が要る形式だが、タグを含めたテキストとして検索できるほうが有用なため対象に含めた）。
+`${textExtensions}`（`shared/core/text_file.ps1`）に固定する 75 個。大文字・小文字は区別しない。ソースコード・設定ファイルなど、文字コードを適切に選べれば読めるものを広く含む。`setting.config` で拡張子を足す仕組みは無い（設定で選べるのはこの 75 個の中だけで、取り込まないものを外す・メモ帳で開くものを増やす方向だけ。下の「設定で選ぶ」。`tests/meta/safety.Tests.ps1` が、Office の拡張子・PDF の拡張子（[PDF ファイルの読み取り](pdf.md)）と合わせて 86 個の固定の一覧ちょうどであることを確かめる）。RTF（表示用の解釈が要る形式）など読み方が別に要る形式、`.exe` `.com` `.scr` `.hta` `.wsf` `.wsh` `.jse` `.vbe` `.lnk` `.url` `.msi` `.cpl` `.inf`（実行・登録に使われるファイル）・`.ts` は対象外。`.html` `.htm` は対象（下の `${textOpenExtensions}`。表示用の解釈が要る形式だが、タグを含めたテキストとして検索できるほうが有用なため対象に含めた）。
 
 `${textExtensions}` は次の 2 つを合わせたもの。
 
@@ -12,6 +12,14 @@
 - **`${textNotepadExtensions}`（15 個。メモ帳で開く）**: `.bat` `.cmd` `.ps1` `.vbs` `.js` `.reg` `.sh` `.py` `.rb` `.pl` `.php` `.lua` `.mjs` `.psm1` `.psd1`。既定のアプリで開くと実行・登録になるため、検索結果から［開く］で開くときは既定のアプリではなくメモ帳（固定のパス `%SystemRoot%\System32\notepad.exe`）で開く（[検索結果からファイルを開く](../gui/open-file.md)）。取り込み・検索の対象かどうかの判定（`testTextExtension`）はこの 15 個も含める。
 
 拡張子だけが対象の判定基準で、拡張子の無いファイル・除外リストの仕組みは無い。
+
+### 設定で選ぶ
+
+利用者は、拡張子ごとに「既定のアプリで開く」「メモ帳で開く」「取り込まない」を選べる（設定の画面の「テキストファイル」の［変更…］と、［インデックス管理］の［アクション］メニューの［テキストの拡張子…］から同じダイアログを開く。仕様は[設定タブ](../gui/settings-tab.md)）。選べるのはこの 75 個だけで、足せない。`${textNotepadExtensions}` の 15 個は「既定のアプリで開く」を選べない（「メモ帳で開く」か「取り込まない」）。既定は今までどおり（60 個は既定のアプリ、15 個はメモ帳、取り込まないものは無し）。
+
+- 設定は `setting.config` の `excludedTextExtensions`（取り込まない）・`notepadTextExtensions`（メモ帳で開く）に、既定からの差だけを持つ（[設定ファイル](../structure/settings-file.md)）。全インデックスで 1 つの設定で、インデックスごとには選べない。
+- 取り込む一覧は `getTextTargetExtensions`（75 個から取り込まないものを除く）で作り、インデックス作成は始めに 1 回だけ設定を読む（途中で変えても次の回から効く）。開き方は `getTextOpenWay`（15 個は常に `notepad`、そのほかは設定の `notepadTextExtensions` に入っていれば `notepad`）で決め、開くたびに設定を読む。
+- 検索側の「テキストかどうかの見分け」（`testTextExtension`）と、インデックスの中のフォルダの見分け（`${indexBookDirPattern}`）は 75 個のまま。取り込まないにした拡張子のインデックスも、外すまでは正しく読める。
 
 ## 文字コードの判定（`detectTextEncoding`）
 

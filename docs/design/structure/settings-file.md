@@ -25,6 +25,8 @@
     "cloudFiles": "ask",
     "workspaceFolder": "",
     "searchLimit": 10000,
+    "excludedTextExtensions": [],
+    "notepadTextExtensions": [],
     "ingestThreads": 0
 }
 ```
@@ -43,6 +45,8 @@
 | `cloudFiles` | `ask` / `download` | `ask` | クラウドにだけあるファイル（OneDrive・SharePoint のオンデマンド）の扱い。`ask` はダウンロードせずに残し、確認のダイアログで取り込むかを選ばせる。`download` は確認を出さずにダウンロードして取り込む（ダイアログの「次からこの確認を出さずにダウンロードする」で保存する）。ヘッドレスのインデクサは `download` のときだけダウンロードして取り込む。知らない値は `ask` とする（[取り込み対象の決定](../indexing/target-decision.md#クラウドにだけあるファイル)） | `readCloudFiles` / `writeCloudFiles` |
 | `workspaceFolder` | 文字列 | 空 | ワークスペース（インデックス・取り込み一覧・ログを置くフォルダ）。空なら既定の `%USERPROFILE%\Documents\tebunko_ws`（[データの置き場所とパスの決め方](data.md)）。既定の場所を選んだときも空で保存する。手で書いた相対パスは設定ファイルのフォルダから、`%変数%` は展開して読む | `getWorkDir` / `writeWorkspaceFolder` |
 | `searchLimit` | 数値 | 10000 | 画面の検索結果の件数の上限。この件数に達したら検索を打ち切る（[検索タブ](../gui/search-tab.md)）。範囲は 1,000〜100,000 で、範囲の外は近い端（999 は 1,000、200,000 は 100,000）にする。0 は制限なし（打ち切らない）。負の数・数値にできない値は既定値にする。設定の画面の「検索結果」で変えられ、確定すると書き、次の検索から効く（手で書き換えたときは起動し直す） | `readSearchLimit`（`getSearchLimit`） |
+| `excludedTextExtensions` | 文字列の配列 | 空 | 取り込まないテキストの拡張子（`.log` など。[対象の拡張子](../indexing/text.md#対象の拡張子)の 75 個の中のもの）。既定の空は、75 個すべてを取り込む。読むときは小文字にそろえ、75 個に無いもの（`.exe` など）・文字列でないもの・重複は捨てる。1 件だけの値（`".log"`）も 1 件の配列として読む。設定の画面の「テキストファイル」（と［インデックス管理］の［アクション］メニューの［テキストの拡張子…］）で変え、［OK］で書く。次のインデックス作成で効く（[取り込み対象の決定](../indexing/target-decision.md)） | `readTextExtensionSettings` / `writeTextExtensionSettings` |
+| `notepadTextExtensions` | 文字列の配列 | 空 | 検索結果から開くとき、既定のアプリの代わりにメモ帳で開くテキストの拡張子（既定のアプリで開く 60 個の中のもの）。既定の空は、60 個を既定のアプリで開く。メモ帳で開く 15 個（`.bat` など）は書かなくても常にメモ帳なので、ここには書かない。読み方は `excludedTextExtensions` と同じ。開くたびに読む | `readTextExtensionSettings` / `writeTextExtensionSettings` |
 | `ingestThreads` | 数値 | 0 | インデックス作成で、Office を使わずに読むファイル（`.docx`・`.pptx` など）を並べて取り込む読み取りのスレッドの数（1〜4。4 より大きい値は 4 にする）。0 はコア数 − 1（1〜4）にする。取り込むファイルの数より多くはしない。Excel・Word・PowerPoint のファイルは、この値にかかわらず種類ごとにスレッド 1 つ・Office 1 つで取り込む。画面には出さない（手で書き換える）（[取り込みの並列化](../indexing/parallel.md)） | `readSettings`（インデクサの `getIngestWorkerCount`） |
 
 ## 読み込み・保存
@@ -62,6 +66,7 @@ flowchart TD
 - 記載の無いキー・未知のキー・値が `null` のキーは無視する（キーが増えても古い設定ファイルをそのまま読める）。
 - 真偽値のキーは、手で `"false"` のような文字列に書き換えても `true` / `false` として読む（`toSettingBool`）。読めない値は既定値にする。
 - 数値のキー（`ingestThreads`・`searchLimit`）は、手で `"2"` のような文字列に書き換えても数値として読む。数値にできない値は既定値にする。
+- テキストの拡張子のキー（`excludedTextExtensions`・`notepadTextExtensions`）は、既定からの差だけを持つ（後の版でテキストの拡張子が増えても、その拡張子は既定の扱いになる）。前の版はこの 2 つのキーを知らないので無視する（前の版に戻して設定を 1 つでも保存すると、前の版は知っているキーだけを書くので 2 つのキーは消え、拡張子の選択が既定に戻る。壊れはしない）。
 - 保存（`updateSettings`）は、保存のたびにファイルを読み直し、変えたキーだけを書き換える。ほかのキーは、ほかの画面・処理が保存した内容を保つ。UTF-8（BOM なし）。
 - 保存は、書き込みの途中で止まっても設定ファイルが壊れないよう、一時ファイル（`setting.config.tmp`）に書いてから置き換える（`writeTextLinesAtomic`）。
 - 「読み直す → 変える → 書く」の一続きは、設定ファイルごとの名前付きミューテックス（`Local\tebunko_settings_<getFolderKey 設定ファイルのパス>`。`invokeSettingsLocked`）の中で行う。画面・インデクサ（別のプロセスも）が同時に保存しても、互いの変更を消さない。待つのは 5 秒で、過ぎたら例外にする。同じ Windows のセッションの中だけの排他（別のセッションからは排他しない）。

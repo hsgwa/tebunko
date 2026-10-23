@@ -67,6 +67,7 @@
                   <MenuItem x:Name="ActionUpdate" Header="更新" />
                   <MenuItem x:Name="ActionExport" Header="エクスポート…" />
                   <MenuItem x:Name="ActionImport" Header="インポート…" />
+                  <MenuItem x:Name="ActionTextExtensions" Header="テキストの拡張子…" />
                   <Separator />
                   <MenuItem x:Name="ActionDelete" Header="削除…" Style="{StaticResource MenuItemDanger}" />
                 </ContextMenu>

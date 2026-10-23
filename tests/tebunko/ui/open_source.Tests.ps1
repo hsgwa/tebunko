@@ -776,6 +776,48 @@ Describe "openSource" -Tag Unit {
         lastStatus | Should -Be "開きました：C:\data\解析.html"
     }
 
+    It "設定でメモ帳にした拡張子（.html）のテキストは、メモ帳で開く" {
+        Mock getCurrentHitRow { newRow "解析.html" $false $true }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\解析.html" }
+        Mock readTextExtensionSettings { @{ Excluded = @(); Notepad = @(".html") } }
+        Mock openWithNotepad { $true }
+        Mock openWithShell { $true }
+
+        openSource ${openModeNormal}
+        Should -Invoke openWithNotepad -Times 1 -Exactly -ParameterFilter { $path -eq "C:\data\解析.html" }
+        Should -Invoke openWithShell -Times 0 -Exactly
+        lastStatus | Should -Be "メモ帳で開きました：C:\data\解析.html"
+    }
+
+    It "設定を読めないときは、設定なしと同じに開く（.html は既定のアプリ、.bat はメモ帳）" -TestCases @(
+        @{ name = "解析.html"; notepad = $false }
+        @{ name = "起動.bat"; notepad = $true }
+    ) {
+        param ($name, $notepad)
+        Mock getCurrentHitRow { newRow $name $false $true }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\$name" }
+        Mock readTextExtensionSettings { throw "読めない" }
+        Mock openWithNotepad { $true }
+        Mock openWithShell { $true }
+
+        openSource ${openModeNormal}
+        Should -Invoke openWithNotepad -Times ([int]$notepad) -Exactly
+        Should -Invoke openWithShell -Times ([int](-not $notepad)) -Exactly
+    }
+
+    It "設定に何を書いても、.bat は既定のアプリで開かない" {
+        Mock getCurrentHitRow { newRow "起動.bat" $false $true }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\起動.bat" }
+        Mock readTextExtensionSettings { @{ Excluded = @(); Notepad = @() } }
+        Mock openWithNotepad { $true }
+        Mock openWithShell { $true }
+
+        openSource ${openModeNormal}
+        Should -Invoke openWithNotepad -Times 1 -Exactly
+        Should -Invoke openWithShell -Times 0 -Exactly
+    }
+
+
     It "既定のアプリで開くのを断られたとき（<book>）は、「開きました」で上書きしない" -ForEach @(
         @{ book = "解析.html"; isText = $true }
         @{ book = "資料.pdf"; isText = $false }

@@ -1,7 +1,17 @@
 ﻿# クロール（どのファイルを取り込むかを数え、画面の返事を待つ）。
 
 # 取り込み対象の拡張子（Office は shared\office\office_file_kind_view.ps1、テキストは shared\core\text_file.ps1、PDF は shared\core\pdf_file.ps1）
+# （設定で取り込まないと選んだテキストの拡張子を除いた一覧は getTargetExtensionList。ここは選べる範囲の上限）
 $targetExtensions = @(${officeExtensions}) + @(${textExtensions}) + @(${pdfExtensions})
+
+function getTargetExtensionList {
+    # 今回のインデックス作成で取り込む拡張子の一覧（Office・テキスト・PDF）。excluded は設定で取り込まないと選んだテキストの拡張子
+    param (
+        [object[]]$excluded = @()
+    )
+
+    return @(@(${officeExtensions}) + @(getTextTargetExtensions $excluded) + @(${pdfExtensions}))
+}
 
 # tebunko が作ったファイルを、名前だけで見分けるパターン（テキストの拡張子のものだけに当たる。どこにあっても外す）。
 #   ・今の版の本文インデックス（content_index.xlsx.001.tsv 等。contentIndexFileNamePattern と同じ組み立て）
@@ -159,10 +169,16 @@ function findTargetFiles {
     # （設定に書かれたパスは、末尾の \ ・ドライブ文字と UNC パスなど書き方が違うことがあるため、文字数で切り出さない）。
     # tebunko が作ったファイル（getTebunkoExcludeDirs のフォルダの下・名前で分かるファイル）は対象に含めない
     # shouldStop: 省略できる。フォルダ 1 つを読むごとに見て、$true を返したら読むのをやめる（中止を求められたとき）
+    # extensions: 省略できる。取り込む拡張子の一覧（小文字）。省略すると $targetExtensions（選べる範囲の上限）
     param (
         [string]$targetFolder,
-        [scriptblock]$shouldStop = $null
+        [scriptblock]$shouldStop = $null,
+        [string[]]$extensions = $null
     )
+
+    if ($null -eq $extensions) {
+        $extensions = $targetExtensions
+    }
 
     # \\?\ を付けないと、パスが約248文字を超えるフォルダの中を検索できない（アクセスできないフォルダ扱いになる）。
     # 見つかったファイルの FullName は \\?\ 付きになる（fromLongPath で戻す）
@@ -173,7 +189,7 @@ function findTargetFiles {
     if ($tree.Stopped) {
         return @{ Root = $root; Files = @(); Links = @($tree.Links); HasError = $tree.HasError; Stopped = $true }
     }
-    $scanned = @($tree.Files | Where-Object { ($targetExtensions -contains $_.Extension.ToLower()) -and -not $_.Name.StartsWith('~$') })
+    $scanned = @($tree.Files | Where-Object { ($extensions -contains $_.Extension.ToLower()) -and -not $_.Name.StartsWith('~$') })
 
     # 除外するフォルダの \\?\ 付きの前方一致の文字列を先に作る（ファイルごとにドライブの割り当てをたどる処理は呼ばない）。
     # このクロール対象フォルダの外にあるものは、どのファイルにも当たらないため先に落とす（比べる数を減らす）
@@ -191,6 +207,26 @@ function findTargetFiles {
     return @{ Root = $root; Files = $files; Links = @($tree.Links); HasError = $tree.HasError; Stopped = $false }
 }
 
+function writeRemovedTargetLog {
+    # インデックスから除くファイルの件数をログに出す。前に取り込んだ行の拡張子が extensions に無いものは「取り込まないにした」と数え
+    # （元のファイルの有無は調べない。どちらも外す）、そのほか（元ファイルが無くなった）と分ける。extensions が $null なら、すべて「無くなった」
+    param (
+        [string[]]$removed,
+        [string[]]$extensions
+    )
+
+    $excludedCount = 0
+    if ($null -ne $extensions) {
+        $excludedCount = @($removed | Where-Object { $extensions -notcontains [System.IO.Path]::GetExtension($_).ToLowerInvariant() }).Count
+    }
+    if ($excludedCount -gt 0) {
+        writeIndexerLog "    取り込まないにした拡張子のファイル $excludedCount 件は、インデックスから除きます。"
+    }
+    if (@($removed).Count -gt $excludedCount) {
+        writeIndexerLog "    元ファイルが無くなった $(@($removed).Count - $excludedCount) 件は、インデックスから除きます。"
+    }
+}
+
 function createTargetList {
     # クロール対象フォルダを1つ検索して取り込み一覧の行を作り直し、次を返す。
     #   Rows   : 全ファイルの行 / Targets: 取り込む行 / Failed: 前回失敗し、更新の無い行
@@ -199,7 +235,7 @@ function createTargetList {
     #            各要素は @{ RelPath; Row（取り込むときの行）; Old; Failed; Length; PendingOld }。
     #            Rows には前回の行をそのまま入れる（前回の行が無い・前回未完了のときは入れない）
     #   Plan   : 画面の確認に出す件数（newIngestPlanRow。取り込み予定.tsv の1行）
-    #   Removed: 元のファイルが無くなったファイルの相対パス（呼び出し元が本文インデックスのファイルから外す）
+    #   Removed: 元のファイルが無くなったファイル・取り込まないにした拡張子のファイルの相対パス（呼び出し元が本文インデックスのファイルから外す）
     #   Stopped: shouldStop が $true を返して途中で止めた。このときほかの値は空で、何も消していない（呼び出し元は前回の行をそのまま残す）
     # 行の相対パスは "インデックス名\フォルダからの相対パス"（= work\index からの相対パス）とする。
     # ・前回の一覧と更新日時・サイズが同じで取り込み済み（済）のファイルは取り込まない
@@ -209,14 +245,15 @@ function createTargetList {
         $folder,   # @{ Path; Name }
         $previous, # readStatusFile の Rows（相対パス → 行）
         $counts,   # getIndexTsvCounts の結果（インデックスの実体。$null なら確認しない）
-        [scriptblock]$shouldStop = $null # 省略できる。フォルダを読むごと・ファイルを調べる途中で見て、$true なら途中で止める
+        [scriptblock]$shouldStop = $null, # 省略できる。フォルダを読むごと・ファイルを調べる途中で見て、$true なら途中で止める
+        [string[]]$extensions = $null # 省略できる。取り込む拡張子の一覧（findTargetFiles の extensions）。前に取り込んだ行の拡張子が一覧に無ければ「取り込まないにした」ものとして外す
     )
 
     $prefix = "$($folder.Name)\"
     $stoppedResult = @{
         Rows = @(); Targets = @(); Failed = @(); Cloud = @(); Plan = $null; Removed = @(); Stopped = $true
     }
-    $scan = findTargetFiles $folder.Path $shouldStop
+    $scan = findTargetFiles $folder.Path $shouldStop $extensions
     if ($scan.Stopped) {
         return $stoppedResult
     }
@@ -349,9 +386,7 @@ function createTargetList {
     if ($count.Lost -gt 0) {
         writeIndexerLog "    インデックス（TSV）が無くなった・壊れている $($count.Lost) 件は取り込み直します。（インデックスを直接削除した・0 バイトのTSVが残っている）" "Yellow"
     }
-    if ($removed.Count -gt 0) {
-        writeIndexerLog "    元ファイルが無くなった $($removed.Count) 件は、インデックスから除きます。"
-    }
+    writeRemovedTargetLog $removed.ToArray() $extensions
     if ($scan.HasError) {
         writeIndexerLog "    アクセスできないフォルダがあったため、元ファイルが無くなったかどうかの確認は行いませんでした。" "Yellow"
     }
@@ -398,6 +433,8 @@ class IngestPlanner {
     $Carried
     # Crawl を中止で途中で止めた（止めたフォルダ・まだのフォルダは、前回の行をそのまま Rows に入れてある）
     [bool]$Stopped
+    # 取り込む拡張子の一覧（Crawl が createTargetList に渡す。$null なら選べる範囲の上限。司令が設定から作って Crawl の前に入れる）
+    [string[]]$Extensions
     hidden $Kinds
 
     IngestPlanner([hashtable]$kinds) {
@@ -486,7 +523,7 @@ class IngestPlanner {
                 if ($null -ne $onFolder) {
                     $null = & $onFolder $folder
                 }
-                $list = createTargetList $folder $this.Previous $indexCounts $shouldStop
+                $list = createTargetList $folder $this.Previous $indexCounts $shouldStop $this.Extensions
                 if ($list.Stopped) {
                     $this.Stopped = $true
                 } else {

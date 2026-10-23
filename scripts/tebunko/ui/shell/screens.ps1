@@ -13,6 +13,7 @@
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\search\open_source_view.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\preview_view.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\settings\settings_view.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\settings\text_ext_view.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\leftover_view.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\about_view.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\shell\nav_view.ps1".Replace('`', '``')))
@@ -34,6 +35,7 @@
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\index_tree.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\workspace_jobs.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\settings\settings.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\settings\text_ext_dialog.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\about_dialog.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\leftover_dialog.ps1".Replace('`', '``')))
     stepSplash 90

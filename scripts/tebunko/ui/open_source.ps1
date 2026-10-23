@@ -618,6 +618,22 @@ function openSource {
     }.GetNewClosure()
 }
 
+function testTextOpenWithNotepadBySettings {
+    # テキストのパスをメモ帳で開くか。7 個の実行・登録になる拡張子などは常にメモ帳、そのほかは設定のメモ帳で開く拡張子に入っているとき。
+    # 開くたびに設定を読む（読めなければ設定なしと同じ）
+    param (
+        [string]$path
+    )
+
+    $extra = @()
+    try {
+        $extra = @((readTextExtensionSettings).Notepad)
+    } catch {
+        $extra = @()
+    }
+    return (testTextOpenWithNotepad $path $extra)
+}
+
 function finishOpenCopy {
     # 裏の仕事で作った、新規で開くためのコピーを開く（openFoundSource の続き。画面のスレッドで動く）
     #   copyPath: コピーのパス（作れなかったときは空）
@@ -634,7 +650,7 @@ function finishOpenCopy {
         setStatus (getOpenCopyFailedStatus $path $reason)
         return
     }
-    if ($isText -and (testTextOpenWithNotepad $copyPath)) {
+    if ($isText -and (testTextOpenWithNotepadBySettings $copyPath)) {
         if (openWithNotepad $copyPath) {
             setStatus (getOpenCopyOpenedStatus $path $copyPath "メモ帳")
         } else {
@@ -720,8 +736,8 @@ function openFoundSource {
     } elseif ($row.IsText) {
         # テキストは既定のアプリに開き方（読み取り専用・新規）の動詞が無いことが多く、毎回「開けなかったため…」と出るのを避けるため、
         # 動詞を試さずにそのまま開く（openWithShell に通常の開き方を渡すと動詞を試さない）。行への移動はしない。
-        # .bat・.ps1・.js など、既定のアプリで開くと実行・登録になる拡張子はメモ帳で開く
-        if (testTextOpenWithNotepad $path) {
+        # .bat・.ps1・.js など、既定のアプリで開くと実行・登録になる拡張子と、設定でメモ帳にした拡張子はメモ帳で開く
+        if (testTextOpenWithNotepadBySettings $path) {
             if (openWithNotepad $path) {
                 setStatus "メモ帳で開きました：${shownPath}"
             } else {

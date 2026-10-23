@@ -90,6 +90,8 @@ function newSettings {
         workspaceFolder    = ""       # ワークスペース（インデックス・取り込み一覧・ログを置くフォルダ）。空なら既定（%USERPROFILE%\Documents\tebunko_ws。getDefaultWorkDir）
         cloudFiles         = ${cloudFilesAsk}  # クラウドにだけあるファイルの扱い: ask（ダウンロードせずに残す。確認の画面で選べる）/ download（ダウンロードして取り込む）。知らない値は ask（readCloudFiles）
         searchLimit        = ${searchLimitDefault}  # 検索結果の件数の上限（${searchLimitMin}～${searchLimitMax}。0 は制限なし、範囲の外は近い端、数値にできない・負の数は既定。getSearchLimit）
+        excludedTextExtensions = @()  # 取り込まないテキストの拡張子（${textExtensions} の中から。既定は空。readTextExtensionSettings）
+        notepadTextExtensions  = @()  # 既定のアプリの代わりにメモ帳で開くテキストの拡張子（${textOpenExtensions} の中から。既定は空。readTextExtensionSettings）
         ingestThreads      = 0        # Office を使わずに読むファイル（.docx・.pptx など）の読み取りのスレッドの数（1～4。0 はコア数から決める。getIngestWorkerCount）。Excel・Word・PowerPoint は種類ごとに 1 つ
     }
 }
@@ -487,6 +489,57 @@ function writeFileKinds {
         $chosen = @()
     }
     updateSettings "fileKinds" ([object[]]$chosen) $path
+}
+
+function normalizeTextExtensions {
+    # 設定から読んだテキストの拡張子の値を、小文字にそろえた ${textExtensions} の中のものだけにして返す（重複・文字列でないもの・一覧に無いもの（.exe など）は捨てる）
+    param (
+        $values
+    )
+
+    $result = New-Object System.Collections.Generic.List[string]
+    foreach ($value in @($values)) {
+        if ($value -isnot [string]) {
+            continue
+        }
+        $extension = $value.Trim().ToLowerInvariant()
+        if (${textExtensions} -contains $extension -and -not $result.Contains($extension)) {
+            $result.Add($extension)
+        }
+    }
+    return @($result.ToArray())
+}
+
+function readTextExtensionSettings {
+    # テキストの拡張子の扱いの設定を @{ Excluded（取り込まない）; Notepad（既定のアプリの代わりにメモ帳で開く） } で返す。
+    # どちらも ${textExtensions} の中のものだけ（キーが無ければ空）
+    param (
+        [string]$path = ${settingsFile}
+    )
+
+    $settings = readSettings $path
+    return @{
+        Excluded = @(normalizeTextExtensions $settings.excludedTextExtensions)
+        Notepad  = @(normalizeTextExtensions $settings.notepadTextExtensions)
+    }
+}
+
+function writeTextExtensionSettings {
+    # テキストの拡張子の扱いを保存する。ほかの項目は、読み直した今の設定のまま保つ（読む → 書くを 1 回の鍵の中で行う）
+    param (
+        [object[]]$excluded,
+        [object[]]$notepad,
+        [string]$path = ${settingsFile}
+    )
+
+    $excludedValue = @(normalizeTextExtensions $excluded)
+    $notepadValue = @(normalizeTextExtensions $notepad)
+    invokeSettingsLocked -path $path -action {
+        $settings = readSettings $path
+        $settings.excludedTextExtensions = $excludedValue
+        $settings.notepadTextExtensions = $notepadValue
+        writeSettings $settings $path
+    }
 }
 
 function readOpenMode {

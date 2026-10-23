@@ -305,7 +305,36 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         (Get-Content -LiteralPath "$root\work\indexing_log.txt" -Raw) | Should -Match "スキップ"
     }
 
-    It "前回取り込み中に強制終了したファイルは最後に回して取り込む" {
+    It "設定で取り込まないにしたテキストの拡張子は取り込まず、前に取り込んだものはインデックスから外す（戻すと取り込む）" {
+$textSource = Join-Path $TestDrive "取り込まない拡張子"
+[System.IO.Directory]::CreateDirectory($textSource) | Out-Null
+[System.IO.File]::WriteAllText("$textSource\メモ.txt", "メモの内容", [System.Text.Encoding]::UTF8)
+[System.IO.File]::WriteAllText("$textSource\記録.log", "記録の内容", [System.Text.Encoding]::UTF8)
+$root = Join-Path $TestDrive "取り込まない拡張子用"
+[System.IO.Directory]::CreateDirectory("$root\work") | Out-Null
+$folders = @(@{ name = "資料"; path = $textSource; enabled = $true })
+$settingsPath = "$root\setting.config"
+
+# .log を取り込まない: メモ.txt だけ取り込む
+writeTestSettings $root $folders
+writeTextExtensionSettings @(".log") @() $settingsPath
+runIndexer $root | Should -Be 0
+@((readTestStatus $root).Rows.Keys | ForEach-Object { [System.IO.Path]::GetFileName($_) }) | Should -Be @("メモ.txt")
+
+# 取り込むに戻す: .log を新しく取り込む
+writeTextExtensionSettings @() @() $settingsPath
+runIndexer $root | Should -Be 0
+@((readTestStatus $root).Rows.Keys | ForEach-Object { [System.IO.Path]::GetFileName($_) } | Sort-Object).Count | Should -Be 2
+
+# また取り込まないにする: 取り込み一覧とインデックスから外れ、ログが「取り込まないにした拡張子」になる
+writeTextExtensionSettings @(".log") @() $settingsPath
+runIndexer $root | Should -Be 0
+@((readTestStatus $root).Rows.Keys | ForEach-Object { [System.IO.Path]::GetFileName($_) }) | Should -Be @("メモ.txt")
+(Get-Content -LiteralPath "$root\work\indexing_log.txt" -Raw) | Should -Match "取り込まないにした拡張子のファイル 1 件は、インデックスから除きます"
+}
+
+
+It "前回取り込み中に強制終了したファイルは最後に回して取り込む" {
         $root = newRoot
         writeTestSettings $root @(@{ name = "営業"; path = $source; enabled = $true })
         # 「始」だけで「終」の無いジャーナル（取り込みの途中で強制終了した跡）

@@ -124,6 +124,7 @@
 | `AssignNames` | targetFolders, status（`@{Folders; Rows; Rejected; LegacyFolders}`） | – | インデックス名を割り当て、前回の一覧と外れたインデックスを覚える（前回の名前に `LegacyFolders` も足して、外れたインデックスを調べる） |
 | `SaveNames` | targetFolders, save（割り当てた名前を受け取って保存し、保存した一覧を返すスクリプトブロック） | – | 名前の無いフォルダがあったときだけ `save` を呼び、`Folders` を保存した一覧にする（保存の間に設定から外れた・名前を付けられなかったフォルダは落とす。司令は `IndexCatalog.StoreAssignedNames` を呼ぶ `save` を渡す） |
 | `SelectOnly` | onlyNames | 更新できない名前（`@{Name; Reason}` の並び） | 選んだインデックスだけを更新する場合の当てはめ |
+| `Extensions`（プロパティ） | – | string[] | `Crawl` が `createTargetList` に渡す、取り込む拡張子の一覧。司令が設定から `getTargetExtensionList` で作って `Crawl` の前に入れる（`$null` なら固定の一覧のすべて） |
 | `Crawl` | indexCounts, onFolder | – | フォルダごとに取り込み対象・チェックなし・フォルダなしに分け、`Rows`・`Targets`・`Failed`・`Plan` を組み立てる。`onFolder` は検索の直前に呼ぶ（進み具合を出す。例外は包まずにそのまま伝える） |
 | `KeepForCancel` | – | 取り込み一覧に書く行 | 取りやめるとき、取り込み対象の行（とクラウドにだけあって前回未完了の行）を前回の記録のままにする |
 | `ApplyFailed` | retry | – | 前回失敗した行を、再取り込みする（`Targets` に足す）かスキップするか |

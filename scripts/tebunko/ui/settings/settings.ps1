@@ -23,6 +23,7 @@ function updateSettingsView {
     $ui.SearchLimitRange.Text = $texts.Range
     $ui.SearchLimitCaution.Text = $texts.Caution
     updateSearchLimitView
+    updateTextExtensionSummary
 }
 
 function setSearchLimitInputError {
@@ -447,3 +448,4 @@ $ui.SearchLimitedRadio.Add_Checked({ if (!$script:searchLimitSyncing) { safe { c
 $ui.SearchNoneRadio.Add_Checked({ if (!$script:searchLimitSyncing) { safe { commitSearchLimit "None" $true } } })
 $ui.ChangeWorkspaceButton.Add_Click({ safe { chooseWorkspace } })
 $ui.ResetWorkspaceButton.Add_Click({ safe { resetWorkspace } })
+$ui.ChangeTextExtensionsButton.Add_Click({ safe { showTextExtensionDialog } })

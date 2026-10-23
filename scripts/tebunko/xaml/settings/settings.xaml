@@ -159,6 +159,28 @@
           </Border>
         </StackPanel>
       </Border>
+
+      <!-- テキストファイルの拡張子の扱い（取り込むか・開き方。設定 excludedTextExtensions・notepadTextExtensions）。選ぶのはダイアログ（text_ext_dialog.ps1）。要約の文言は text_ext_view.ps1 -->
+      <Border Style="{StaticResource Section.Card}" Margin="0,16,0,0">
+        <StackPanel>
+          <Border Style="{StaticResource Section.Header}">
+            <TextBlock Style="{StaticResource Label.Strong}" VerticalAlignment="Center" Text="テキストファイル" />
+          </Border>
+
+          <Border Style="{StaticResource Section.Row}" BorderThickness="0">
+            <DockPanel>
+              <Button x:Name="ChangeTextExtensionsButton" DockPanel.Dock="Right" Content="変更…" MinWidth="64" Margin="12,0,0,0" VerticalAlignment="Top"
+                      AutomationProperties.AutomationId="ChangeTextExtensionsButton"
+                      ToolTip="拡張子ごとに、取り込むか・検索結果から開くときの開き方を選びます" />
+              <StackPanel>
+                <TextBlock Style="{StaticResource Body}" FontWeight="SemiBold" Foreground="{StaticResource Ink.Strong}" Text="テキストの拡張子" />
+                <TextBlock x:Name="TextExtensionSummary" Style="{StaticResource Meta}" Margin="0,2,0,0" TextWrapping="Wrap"
+                           AutomationProperties.AutomationId="TextExtensionSummary" />
+              </StackPanel>
+            </DockPanel>
+          </Border>
+        </StackPanel>
+      </Border>
     </StackPanel>
   </Grid>
 </ScrollViewer>

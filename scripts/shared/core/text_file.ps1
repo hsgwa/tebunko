@@ -68,15 +68,45 @@ function testTextExtension {
     return (${textExtensions} -contains $extension)
 }
 
-function testTextOpenWithNotepad {
-    # ファイル名（またはパス）の拡張子が、既定のアプリではなくメモ帳で開くテキストの拡張子か（大文字・小文字を区別しない）。
-    # .bat・.ps1・.js など、既定のアプリで開くと実行・登録になる拡張子がこちら
+function getTextTargetExtensions {
+    # 取り込み対象のテキストの拡張子（${textExtensions} の順）から、取り込まないと選んだ拡張子を除いた一覧を返す。
+    # excluded のうち ${textExtensions} に無いものは無視する（固定の一覧の外は増えない）。大文字・小文字を区別しない
     param (
-        [string]$path
+        [object[]]$excluded = @()
+    )
+
+    $skip = @(@($excluded) | ForEach-Object { ([string]$_).ToLowerInvariant() })
+    return @(${textExtensions} | Where-Object { $skip -notcontains $_ })
+}
+
+function getTextOpenWay {
+    # テキストの検索結果を開く方法を "notepad"（メモ帳）か "default"（既定のアプリ）で返す。
+    # ${textNotepadExtensions} は常にメモ帳（実行・登録になるため）。notepadExtra に入る ${textExtensions} の拡張子もメモ帳
+    param (
+        [string]$path,
+        [object[]]$notepadExtra = @()
     )
 
     $extension = [System.IO.Path]::GetExtension(([string]$path).TrimEnd('.', ' ')).ToLowerInvariant()
-    return (${textNotepadExtensions} -contains $extension)
+    if (${textNotepadExtensions} -contains $extension) {
+        return "notepad"
+    }
+    $extra = @(@($notepadExtra) | ForEach-Object { ([string]$_).ToLowerInvariant() })
+    if (${textExtensions} -contains $extension -and $extra -contains $extension) {
+        return "notepad"
+    }
+    return "default"
+}
+
+function testTextOpenWithNotepad {
+    # ファイル名（またはパス）の拡張子が、既定のアプリではなくメモ帳で開くテキストの拡張子か（大文字・小文字を区別しない）。
+    # .bat・.ps1・.js など、既定のアプリで開くと実行・登録になる拡張子は常にこちら。notepadExtra は利用者が選んだ追加分
+    param (
+        [string]$path,
+        [object[]]$notepadExtra = @()
+    )
+
+    return ((getTextOpenWay $path $notepadExtra) -eq "notepad")
 }
 
 function getStrictUtf8Encoding {

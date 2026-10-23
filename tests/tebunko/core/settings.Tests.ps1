@@ -473,6 +473,48 @@ Describe "readFileKinds / writeFileKinds" -Tag Io {
     }
 }
 
+Describe "readTextExtensionSettings / writeTextExtensionSettings" -Tag Io {
+    It "キーが無ければ 2 つとも空（既定）" {
+        $path = "$TestDrive\textext_none.config"
+        $read = readTextExtensionSettings $path
+        @($read.Excluded).Count | Should -Be 0
+        @($read.Notepad).Count | Should -Be 0
+        @((newSettings).excludedTextExtensions).Count | Should -Be 0
+        @((newSettings).notepadTextExtensions).Count | Should -Be 0
+    }
+
+    It "書いて読み直すと同じ。ほかの設定は変えない" {
+        $path = "$TestDrive\textext_write.config"
+        writeSearchOption @{ UseRegex = $true } $path
+        writeTextExtensionSettings @(".log", ".csv") @(".html") $path
+        $read = readTextExtensionSettings $path
+        ($read.Excluded -join ",") | Should -Be ".log,.csv"
+        ($read.Notepad -join ",") | Should -Be ".html"
+        (readSearchOption $path).UseRegex | Should -Be $true
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "大文字は小文字にそろえ、一覧に無いもの（.exe）・文字列でないもの・重複は捨てる"; json = '{ "excludedTextExtensions": [".EXE", ".Log", 1, ".log", null] }'; expected = ".log" }
+        @{ name = "配列でない 1 つの値も 1 件として読む"; json = '{ "excludedTextExtensions": ".log" }'; expected = ".log" }
+        @{ name = "一覧に無いものだけなら空"; json = '{ "excludedTextExtensions": [".exe", ".bat.exe"] }'; expected = "" }
+        @{ name = "前後の空白は取る"; json = '{ "excludedTextExtensions": [" .txt "] }'; expected = ".txt" }
+    ) {
+        param ($name, $json, $expected)
+        $path = Join-Path $TestDrive "textext_$([guid]::NewGuid()).config"
+        [System.IO.File]::WriteAllText($path, $json, ${utf8Bom})
+        (@((readTextExtensionSettings $path).Excluded) -join ",") | Should -Be $expected
+    }
+
+    It "書くときも一覧に無いものは捨てる" {
+        $path = "$TestDrive\textext_filter.config"
+        writeTextExtensionSettings @(".exe", ".log") @(".com") $path
+        $raw = readSettings $path
+        (@($raw.excludedTextExtensions) -join ",") | Should -Be ".log"
+        @($raw.notepadTextExtensions).Count | Should -Be 0
+    }
+}
+
+
 Describe "readSearchOption / writeSearchOption" -Tag Io {
     # writes: 順に保存する項目、expected: 読み込んだときの値
     It "<name>" -TestCases @(

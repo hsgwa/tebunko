@@ -47,4 +47,8 @@ function writeGoldenSettings {
     if ((newSettings).Contains("searchLimit")) {
         updateSettings "searchLimit" 20000 $path
     }
+    # テキストの拡張子の扱い（この版より前の版には無いので、関数があるときだけ書く）
+    if (Get-Command writeTextExtensionSettings -ErrorAction SilentlyContinue) {
+        writeTextExtensionSettings @(".log") @(".html") $path
+    }
 }

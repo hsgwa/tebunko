@@ -50,6 +50,8 @@ $ui.ActionsButton.Add_Click({
     }
 })
 $ui.ActionImport.Add_Click({ safe { newImportIndex } })
+# ［テキストの拡張子…］: インデックス作成中も開ける（インデックス作成は始めに 1 回だけ設定を読むため、途中で変えても次の回から効くだけ）
+$ui.ActionTextExtensions.Add_Click({ safe { showTextExtensionDialog } })
 # ［エクスポート…］［削除…］は、チェックを付けた行に対して動く。1 件なら既存の 1 件ずつの処理（一覧で選んでいる行に効くため、
 # その行を選んでから呼ぶ）、2 件以上ならまとめての処理（書き出し先・削除の確認は 1 回）
 $ui.ActionExport.Add_Click({

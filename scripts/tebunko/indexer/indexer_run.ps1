@@ -958,6 +958,8 @@ function invokeIndexerBody {
     # クロールして、取り込む順番・画面の確認に出す件数・取り込み一覧に書く行を組み立てる
     $crawlPhase = ${indexingPhaseCrawl}
     $onCrawlFolder = { param ($target) $reporter.Progress($crawlPhase, 0, 0, 0, "[$($target.Name)] の対象ファイルを探しています… $($target.Path)") }.GetNewClosure()
+    # 取り込むテキストの拡張子は、設定で取り込まないと選んだものを除く（始めに 1 回だけ読む。途中で設定を変えても次の回から効く）
+    $planner.Extensions = @(getTargetExtensionList @((readTextExtensionSettings).Excluded))
     # フォルダを読むごと・ファイルを調べる途中で中止を見る（中止を求められたら読んだところまでで止める）
     $planner.Crawl($indexCounts, $onCrawlFolder, { [bool]$channel.Stop }.GetNewClosure())
     $script:ingestTiming.Lap("Crawl")

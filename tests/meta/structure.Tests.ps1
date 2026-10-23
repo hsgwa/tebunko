@@ -86,6 +86,7 @@ Describe "カバレッジの計測の対象（画面層だけを分母から外�
         @{ file = "tebunko\ui\index\index_detail.ps1" }
         @{ file = "tebunko\ui\index\index_events.ps1" }
         @{ file = "tebunko\ui\settings\settings.ps1" }
+        @{ file = "tebunko\ui\settings\text_ext_dialog.ps1" }
         @{ file = "tebunko\ui\about_dialog.ps1" }
         @{ file = "tebunko\ui\leftover_dialog.ps1" }
         @{ file = "shared\ui\shell.ps1" }

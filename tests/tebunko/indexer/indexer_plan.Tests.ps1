@@ -881,3 +881,67 @@ Describe "IngestPlanner（クラウドにだけあるファイル）" -Tag Io {
         [object]::ReferenceEquals($keep[0], $pendingRow) | Should -Be $true
     }
 }
+
+Describe "getTargetExtensionList / 取り込まない拡張子（createTargetList・findTargetFiles）" -Tag Io {
+    BeforeAll {
+        $source = Join-Path $TestDrive "src_ext"
+        [System.IO.Directory]::CreateDirectory($source) | Out-Null
+        [System.IO.File]::WriteAllText((Join-Path $source "a.log"), "ログ")
+        [System.IO.File]::WriteAllText((Join-Path $source "b.txt"), "メモ")
+        [System.IO.File]::WriteAllText((Join-Path $source "c.xlsx"), "dummy")
+        $folder = @{ Path = $source; Name = "拡張子" }
+        ${indexDir} = Join-Path $TestDrive "index_ext"
+        $workspace = newTestWorkspace @{ IndexDir = ${indexDir} }
+    }
+
+    BeforeEach {
+        Mock writeIndexerLog {}
+    }
+
+    AfterEach {
+        if (Test-Path -LiteralPath ${indexDir}) { Remove-Item -LiteralPath ${indexDir} -Recurse -Force }
+    }
+
+    It "getTargetExtensionList は、Office・PDF とテキスト（取り込まないものを除く）を返す" {
+        @(getTargetExtensionList).Count | Should -Be 86
+        $some = @(getTargetExtensionList @(".log"))
+        $some.Count | Should -Be 85
+        $some | Should -Not -Contain ".log"
+        $some | Should -Contain ".txt"
+        $some | Should -Contain ".xlsx"
+        $some | Should -Contain ".pdf"
+    }
+
+    It "一覧を渡さなければ今までどおり（.log も対象）、.log を除いた一覧を渡すと .log を返さない" {
+        ((@((findTargetFiles $source).Files | ForEach-Object { $_.Name }) | Sort-Object) -join ",") | Should -Be "a.log,b.txt,c.xlsx"
+        $result = findTargetFiles $source $null (getTargetExtensionList @(".log"))
+        ((@($result.Files | ForEach-Object { $_.Name }) | Sort-Object) -join ",") | Should -Be "b.txt,c.xlsx"
+    }
+
+    It "前に取り込んだ .log は、取り込まないにすると Removed に入り、インデックスから外れて、ログが分かれる" {
+        $logBook = Join-Path ${indexDir} "拡張子\a.log"
+        [System.IO.Directory]::CreateDirectory($logBook) | Out-Null
+        [System.IO.File]::WriteAllText("$logBook\1.tsv", "1`t見積")
+        $previous = newPrevious @((newStatusRow "拡張子\a.log" "2024/01/01 00:00:00" "10" ${stateDone} 1 "2024/01/01 00:00:00"))
+        $result = createTargetList $folder $previous $null $null (getTargetExtensionList @(".log"))
+        @($result.Removed) | Should -Be @("拡張子\a.log")
+        @($result.Rows | Where-Object { $_.相対パス -eq "拡張子\a.log" }).Count | Should -Be 0
+        Test-Path -LiteralPath $logBook | Should -Be $false
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -ParameterFilter { $text -like "*取り込まないにした拡張子のファイル 1 件は、インデックスから除きます*" }
+        Should -Invoke writeIndexerLog -Times 0 -Exactly -ParameterFilter { $text -like "*元ファイルが無くなった*" }
+    }
+
+    It "元のファイルが無くなったものは、これまでの文言のまま（取り込まないにした件数に数えない）" {
+        $previous = newPrevious @((newStatusRow "拡張子\消えた.txt" "2024/01/01 00:00:00" "10" ${stateDone} 1 "2024/01/01 00:00:00"))
+        $result = createTargetList $folder $previous $null $null (getTargetExtensionList @(".log"))
+        @($result.Removed) | Should -Be @("拡張子\消えた.txt")
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -ParameterFilter { $text -like "*元ファイルが無くなった 1 件は、インデックスから除きます*" }
+        Should -Invoke writeIndexerLog -Times 0 -Exactly -ParameterFilter { $text -like "*取り込まないにした拡張子*" }
+    }
+
+    It "取り込むに戻す（一覧に .log を入れる）と、.log は新規として数える" {
+        $result = createTargetList $folder (newPrevious) $null $null (getTargetExtensionList @())
+        @($result.Targets | Where-Object { $_.相対パス -eq "拡張子\a.log" }).Count | Should -Be 1
+        @($result.Removed).Count | Should -Be 0
+    }
+}

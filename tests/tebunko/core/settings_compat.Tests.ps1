@@ -84,6 +84,7 @@ BeforeAll {
         readOpenMode       = $false
         readCloudFiles     = $false
         readSearchLimit    = $false
+        readTextExtensionSettings = $false
         getWorkDir         = $false
     }
 }

@@ -828,6 +828,37 @@ Describe "取り込み対象の拡張子が固定であること（docs/safety/c
         }
         (@(${textNotepadExtensions}) | Where-Object { ${textOpenExtensions} -contains $_ }) | Should -BeNullOrEmpty
     }
+
+    It "設定で取り込む・開き方を変えても、固定の一覧の外を取り込まず、実行されうる拡張子を既定のアプリで開かない" {
+        # 設定ファイルに危険な拡張子や、実行されうる拡張子を含む指定を書いても、設定を読む関数と一覧を作る関数を通すと固定の一覧の外に出ない
+        $config = Join-Path $TestDrive "safety_text_ext.config"
+        $dangerous = @(".exe", ".com", ".scr", ".hta", ".lnk", ".msi", ".ts")
+        $json = ConvertTo-Json @{ excludedTextExtensions = $dangerous; notepadTextExtensions = @($dangerous + ${textNotepadExtensions}) }
+        [System.IO.File]::WriteAllText($config, $json, (New-Object System.Text.UTF8Encoding($false)))
+        $read = readTextExtensionSettings $config
+        @($read.Excluded | Where-Object { ${textExtensions} -notcontains $_ }).Count | Should -Be 0
+        @($read.Notepad | Where-Object { ${textExtensions} -notcontains $_ }).Count | Should -Be 0
+
+        # 取り込む一覧は、固定の一覧の部分集合（どんな設定でも増えない）
+        foreach ($excluded in @(@(), $dangerous, @(".txt", ".log"), @(${textExtensions}))) {
+            $targets = @(getTextTargetExtensions $excluded)
+            @($targets | Where-Object { ${textExtensions} -notcontains $_ }).Count | Should -Be 0
+            foreach ($ext in $dangerous) {
+                $targets | Should -Not -Contain $ext
+            }
+        }
+
+        # 実行・登録になる拡張子は、設定が空でも、すべての拡張子を追加にしても、メモ帳で開く（"default" にならない）
+        foreach ($extra in @(@(), @(${textOpenExtensions}), @(${textExtensions}), $dangerous)) {
+            foreach ($ext in @(${textNotepadExtensions})) {
+                (getTextOpenWay "a${ext}" $extra) | Should -Be "notepad" -Because "拡張子 ${ext} は追加の指定にかかわらずメモ帳のはず"
+            }
+        }
+        # 固定の一覧の外（.exe など）は、追加にしてもメモ帳の対象にならない
+        foreach ($ext in $dangerous) {
+            (getTextOpenWay "a${ext}" @($dangerous)) | Should -Be "default"
+        }
+    }
 }
 
 Describe "書き込み先が限られていること（docs/safety/file-access.md「書き込み・削除する場所」）" -Tag Meta {
