@@ -271,7 +271,7 @@ Describe "getIndexDetailEditDecision（詳細の名前・フォルダパスの�
 Describe "getIndexFileStateLabels / getIndexFilesHeading（取り込んだファイルの一覧）" -Tag Unit {
     It "状態の文言は 3 つの種類にそろっている" {
         $labels = getIndexFileStateLabels
-        $labels.Done | Should -Be "取り込み済み"
+        $labels.Done | Should -Be "取り込み済"
         $labels.Failed | Should -Be "失敗"
         $labels.Pending | Should -Be "未取り込み"
     }

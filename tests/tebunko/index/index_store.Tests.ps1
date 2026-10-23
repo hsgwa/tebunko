@@ -403,7 +403,7 @@ Describe "getWorkspaceIndexFolders / getImportUsedIndexNames（設定から外�
 
 Describe "getIndexFileEntries（インデックスに取り込んだファイルの一覧）" -Tag Io {
     BeforeAll {
-        $script:labels = @{ Done = "取り込み済み"; Failed = "失敗"; Pending = "未取り込み" }
+        $script:labels = @{ Done = "取り込み済"; Failed = "失敗"; Pending = "未取り込み" }
     }
 
     It "そのインデックスの行だけを、相対パスの順に、状態の文言と件数つきで返す" {
@@ -429,7 +429,7 @@ Describe "getIndexFileEntries（インデックスに取り込んだファイル
         $result.Rows[0].StateText | Should -Be "失敗"
         $result.Rows[0].Reason | Should -Be "壊れている"
         $result.Rows[0].UpdatedText | Should -Be "2025/01/11 08:00:00"
-        $result.Rows[1].StateText | Should -Be "取り込み済み"
+        $result.Rows[1].StateText | Should -Be "取り込み済"
         $result.Rows[1].Reason | Should -Be ""
         $result.Rows[3].Kind | Should -Be "Failed"
         # 元のファイルのパスは、取り込み一覧に記録した元のフォルダ（営業 → C:\data）と相対パスから組む

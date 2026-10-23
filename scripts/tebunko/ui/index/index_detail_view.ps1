@@ -17,7 +17,7 @@ function getIndexDetailItem {
 
 function getIndexFileStateLabels {
     # 取り込んだファイルの一覧の「状態」の文言（Kind → 文言）。Kind は getIndexFileEntries と同じ（Done / Failed / Pending）
-    return @{ Done = "取り込み済み"; Failed = "失敗"; Pending = "未取り込み" }
+    return @{ Done = "取り込み済"; Failed = "失敗"; Pending = "未取り込み" }
 }
 
 function getIndexFilesHeading {
