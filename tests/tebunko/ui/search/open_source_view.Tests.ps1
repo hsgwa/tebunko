@@ -278,10 +278,15 @@ Describe "結果の出力の文言" -Tag Unit {
     }
 
     It "出力ボタンの文字: 待ち・書き込み中は「出力を中止」" -ForEach @(
-        @{ Busy = $false; Expected = "保存" }
+        @{ Busy = $false; Expected = "出力" }
         @{ Busy = $true; Expected = "出力を中止" }
     ) {
         getExportButtonText $Busy | Should -Be $Expected
+    }
+
+    It "XAML の ExportButtonText の初期値は、ふだんの文字（getExportButtonText $false）と同じ" {
+        $xaml = Get-Content -LiteralPath "${scriptsDir}\tebunko\xaml\search\result_list.xaml" -Raw -Encoding UTF8
+        $xaml | Should -Match ([regex]::Escape('x:Name="ExportButtonText" Text="' + (getExportButtonText $false) + '"'))
     }
 
     It "<Name>" -ForEach @(

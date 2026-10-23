@@ -1,4 +1,4 @@
-﻿<!-- 結果の一覧（件数・進捗・保存・絞り込みの行と、ファイルごとに畳める結果の表）。search.xaml の ResultListHost に入れる（gui_main.ps1）。
+﻿<!-- 結果の一覧（件数・進捗・出力・絞り込みの行と、ファイルごとに畳める結果の表）。search.xaml の ResultListHost に入れる（gui_main.ps1）。
  -->
 <Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
@@ -14,7 +14,7 @@
     <RowDefinition Height="*" />
   </Grid.RowDefinitions>
 
-  <!-- 件数・すべて開く／閉じる・進捗・絞り込み・保存 -->
+  <!-- 件数・すべて開く／閉じる・進捗・絞り込み・出力 -->
   <Border Grid.Row="0" Background="{StaticResource Bg.Subtle}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,0,1">
     <DockPanel Margin="0">
       <!-- ［出力 ▼］。［出力］は最後に選んだ種類（画面を開いたときは Excel ブック）で出力先のダイアログを開き、▼ から種類を選ぶ（［開く ▼］と同じ作り） -->

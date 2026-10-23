@@ -533,7 +533,7 @@ function captureSearchScene {
 
         setGuiStep $S "件数の上限で打ち切り"
         & $search "上限テスト"
-        waitGui $S "上限で打ち切り" ${guiIndexTimeout} { (getGuiText (findGui $S.Window -Id "StatusText")) -like "*件を超えたため、ここで打ち切りました*" } | Out-Null
+        waitGui $S "上限で打ち切り" ${guiIndexTimeout} { (getGuiText (findGui $S.Window -Id "StatusText")) -like "*件のうち、先頭の*" } | Out-Null
         captureGuiState -S $S -Id "search-tab/limit" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
 

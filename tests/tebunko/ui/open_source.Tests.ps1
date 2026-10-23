@@ -46,7 +46,7 @@ BeforeAll {
             MenuCopy         = & $menu
             MenuCopyPath     = & $menu
             ExportButton     = newFakeControl @("Click") @{ ToolTip = "" }
-            ExportButtonText = New-Object PSObject -Property @{ Text = "保存" }
+            ExportButtonText = New-Object PSObject -Property @{ Text = "出力" }
             ExportMenuButton = newFakeControl @("Click") @{ IsEnabled = $true; ContextMenu = $null }
             MenuExportXlsx   = newFakeControl @("Click") @{ IsChecked = $true }
             MenuExportCsv    = newFakeControl @("Click") @{ IsChecked = $false }
@@ -1276,7 +1276,7 @@ Describe "exportResults" -Tag Io {
         $script:exportJob = $null
         $script:exportPending = $null
         $script:lastExportFormat = "xlsx"
-        $ui.ExportButtonText.Text = "保存"
+        $ui.ExportButtonText.Text = "出力"
         $ui.ExportMenuButton.IsEnabled = $true
         $script:searchService = newFakeService
         $script:opened = New-Object System.Collections.Generic.List[string]
@@ -1334,7 +1334,7 @@ Describe "exportResults" -Tag Io {
         readZipEntryNames "${out}.xlsx" | Should -Contain "xl/worksheets/sheet1.xml"
         lastStatus | Should -Be "検索結果.xlsx に 2 件を出力しました（出力したフォルダを開きます）"
         ($script:opened -join "|") | Should -Be "${out}.xlsx"
-        $ui.ExportButtonText.Text | Should -Be "保存"
+        $ui.ExportButtonText.Text | Should -Be "出力"
         $ui.ExportMenuButton.IsEnabled | Should -Be $true
         $script:exportJob | Should -BeNullOrEmpty
     }
@@ -1552,7 +1552,7 @@ Describe "exportResults" -Tag Io {
         exportResults
         exportResults
         lastStatus | Should -Be "出力を中止しました。出力先のファイルは変えていません。"
-        $ui.ExportButtonText.Text | Should -Be "保存"
+        $ui.ExportButtonText.Text | Should -Be "出力"
         $script:exportPending | Should -BeNullOrEmpty
         $script:search = $null
         startPendingExport
@@ -1579,7 +1579,7 @@ Describe "exportResults" -Tag Io {
         pumpExport
 
         lastStatus | Should -Be "出力を中止しました。出力先のファイルは変えていません。"
-        $ui.ExportButtonText.Text | Should -Be "保存"
+        $ui.ExportButtonText.Text | Should -Be "出力"
         [System.IO.File]::ReadAllText($out) | Should -Be "前回の結果"
         Should -Invoke showInExplorer -Times 0 -Exactly
         $script:lastExportFormat | Should -Be "xlsx"
@@ -1620,7 +1620,7 @@ Describe "exportResults" -Tag Io {
         $message = "l.xlsx に書き込めません。開いているアプリを閉じてから、もう一度出力してください。"
         lastStatus | Should -Be $message
         $script:banners[$script:banners.Count - 1] | Should -Be "SearchNotice|ResultSaveFailed|${message}"
-        $ui.ExportButtonText.Text | Should -Be "保存"
+        $ui.ExportButtonText.Text | Should -Be "出力"
         Should -Invoke showInExplorer -Times 0 -Exactly
     }
 
@@ -1661,7 +1661,7 @@ Describe "exportResults" -Tag Io {
         exportResults
         pumpExport
         lastStatus | Should -Be "検索結果を出力できませんでした：検索のスレッドが止まりました。"
-        $ui.ExportButtonText.Text | Should -Be "保存"
+        $ui.ExportButtonText.Text | Should -Be "出力"
         $script:exportJob | Should -BeNullOrEmpty
     }
 
@@ -1681,7 +1681,7 @@ Describe "exportResults" -Tag Io {
         $script:exportPending = @{ Path = "x.csv"; Format = "csv"; Added = $false }
         clearExport
         $script:exportPending | Should -BeNullOrEmpty
-        $ui.ExportButtonText.Text | Should -Be "保存"
+        $ui.ExportButtonText.Text | Should -Be "出力"
     }
 }
 

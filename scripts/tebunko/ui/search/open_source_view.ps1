@@ -327,7 +327,7 @@ function getExportButtonText {
     if ($busy) {
         return "出力を中止"
     }
-    return "保存"
+    return "出力"
 }
 
 function getExportWaitingText {
