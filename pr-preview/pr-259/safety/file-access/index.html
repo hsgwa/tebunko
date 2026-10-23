@@ -4405,7 +4405,7 @@
 <td><code>tebunko/indexer/index_migrate.ps1</code> の <code>initTmpDir</code></td>
 </tr>
 <tr>
-<td><code>work/tmp/&lt;PC の鍵&gt;/search_overflow/&lt;PID&gt;/</code>（<code>&lt;PID&gt;</code> の下に検索の要求ごとの <code>&lt;要求の番号&gt;\*.tsv</code> と、［出力 ▼］の本文の一時ファイル <code>export\body.tmp</code>。根が <code>tmpRoot\&lt;PC の鍵&gt;\search_overflow</code> そのものでリンクでないときだけ作る）</td>
+<td><code>work/tmp/&lt;PC の鍵&gt;/search_overflow/&lt;PID&gt;/</code>（<code>&lt;PID&gt;</code> の下に検索の要求ごとの <code>&lt;要求の番号&gt;\*.tsv</code> と、［出力 ▾］の本文の一時ファイル <code>export\body.tmp</code>。根が <code>tmpRoot\&lt;PC の鍵&gt;\search_overflow</code> そのものでリンクでないときだけ作る）</td>
 <td>上限を超えた検索結果の溢れ（検索の続きの置き場所）と、その書き出しの途中の本文。次の検索の始め・画面を閉じるときに中ごと消す。強制終了で残ったものは、次の起動時に、動いていないプロセスの <code>&lt;PID&gt;</code> のものだけを消す</td>
 <td><code>tebunko/search/search_overflow.ps1</code>、<code>tebunko/search/search_export.ps1</code> の <code>getSearchExportBodyPath</code></td>
 </tr>
@@ -4426,7 +4426,7 @@
 </tr>
 <tr>
 <td>利用者が指定した出力先</td>
-<td>［出力 ▼］の出力先（.xlsx・.csv・.tsv。出力先のダイアログで選ぶ。クロール対象のフォルダ・インデックスのフォルダの中は選べない）と、書き終えてから置き換えるまでの間だけ残る <code>&lt;出力先&gt;.new</code>、溢れの置き場所が使えない CSV・TSV のときだけ作る本文の一時ファイル <code>&lt;出力先&gt;.part</code>（どちらも強制終了すると残ることがある。次の出力の始めに消す）</td>
+<td>［出力 ▾］の出力先（.xlsx・.csv・.tsv。出力先のダイアログで選ぶ。クロール対象のフォルダ・インデックスのフォルダの中は選べない）と、書き終えてから置き換えるまでの間だけ残る <code>&lt;出力先&gt;.new</code>、溢れの置き場所が使えない CSV・TSV のときだけ作る本文の一時ファイル <code>&lt;出力先&gt;.part</code>（どちらも強制終了すると残ることがある。次の出力の始めに消す）</td>
 <td>画面のダイアログで利用者が指定</td>
 </tr>
 <tr>
@@ -4528,7 +4528,7 @@
 </tr>
 <tr>
 <td>書き込み中の一時ファイル（<code>&lt;出力先&gt;.tmp</code>。置き換えたら消える）</td>
-<td>書く先のすぐ隣（<code>setting.config.tmp</code>・<code>store\ingest_status.tsv.tmp</code>・<code>store\format.tsv.tmp</code> などの TSV の隣・利用者が指定したエクスポート/インポート先の隣・［出力 ▼］の出力先の隣の <code>&lt;出力先&gt;.new</code> など）</td>
+<td>書く先のすぐ隣（<code>setting.config.tmp</code>・<code>store\ingest_status.tsv.tmp</code>・<code>store\format.tsv.tmp</code> などの TSV の隣・利用者が指定したエクスポート/インポート先の隣・［出力 ▾］の出力先の隣の <code>&lt;出力先&gt;.new</code> など）</td>
 <td>書き込み中の内容</td>
 <td>途中で強制終了してもファイルが壊れないよう、一時ファイルに書いてから置き換える（<code>writeTextLinesAtomic</code> など）。置き換え（<code>File.Replace</code>）は同じフォルダ内でしか使えない</td>
 </tr>
@@ -4553,7 +4553,7 @@
 </tbody>
 </table>
 <h3 id="検索結果の出力先の確かめ">検索結果の出力先の確かめ<a class="headerlink" href="#検索結果の出力先の確かめ" title="Permanent link">&para;</a></h3>
-<p>［出力 ▼］の出力先は、利用者が出力先のダイアログで選んだ名前だけから決める（<code>resolveExportTarget</code>。ほかのパスから出力先を作らない。<code>tests/meta/safety.Tests.ps1</code> が確かめる）。書く前に、次の 2 つを確かめる。</p>
+<p>［出力 ▾］の出力先は、利用者が出力先のダイアログで選んだ名前だけから決める（<code>resolveExportTarget</code>。ほかのパスから出力先を作らない。<code>tests/meta/safety.Tests.ps1</code> が確かめる）。書く前に、次の 2 つを確かめる。</p>
 <ul>
 <li>出力先のダイアログの確定のとき、出力先がクロール対象のフォルダ・インデックスのフォルダの中なら断る（<code>testExportForbiddenPath</code>）。出力したファイルが次の取り込みの対象になるのを防ぐため。確かめるのは文字列の比べだけで、ファイルには触れない。</li>
 <li>書く直前に、司令のスレッドで出力先のフォルダを作れるか・同じ名前のファイルが開かれていないかを調べる（<code>testSearchExportTarget</code>）。</li>
