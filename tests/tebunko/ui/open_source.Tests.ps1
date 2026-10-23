@@ -1289,7 +1289,7 @@ Describe "exportResults" -Tag Io {
     It "検索する前は出力先を尋ねず、出力もしない" {
         $script:lastSearch = $null
 
-        exportResults
+        exportResults "xlsx"
         exportResultsAs "csv"
         lastStatus | Should -Be "先に検索してください。"
         Should -Invoke selectSaveFile -Times 0 -Exactly
@@ -1320,7 +1320,7 @@ Describe "exportResults" -Tag Io {
         Mock selectSaveFile { @{ Path = $out; FilterIndex = 1 } }
         $script:searchService = newFakeService $false
 
-        exportResults
+        exportResults "xlsx"
         $ui.ExportButtonText.Text | Should -Be "出力を中止"
         $ui.ExportChevron.Visibility | Should -Be "Collapsed"
         $ui.ExportButton.ToolTip | Should -Be "出力を中止します"
@@ -1347,6 +1347,26 @@ Describe "exportResults" -Tag Io {
         $ui.ExportButton.ContextMenu.PlacementTarget | Should -Be $ui.ExportButton
     }
 
+    It "待ち・書き込み中にメニューの種類を選んでも、中止せず、新しい要求も出さない（右クリックなどでメニューが開いたとき）" {
+        $workDir = "$TestDrive/export_busy/work"
+        [System.IO.Directory]::CreateDirectory("$TestDrive/export_busy") | Out-Null
+        $workspace = newTestWorkspace @{} $workDir
+        $script:lastSearch = newExportSearch $workDir
+        Mock selectSaveFile { @{ Path = "$TestDrive/export_busy/a.xlsx"; FilterIndex = 1 } }
+        $script:search = @{ Shared = @{} }
+        exportResultsAs "xlsx"
+        $pending = $script:exportPending
+        $pending | Should -Not -BeNullOrEmpty
+
+        exportResultsAs "csv"
+
+        Should -Invoke selectSaveFile -Times 1 -Exactly
+        $script:exportPending | Should -Be $pending
+        $ui.ExportButtonText.Text | Should -Be "出力を中止"
+        $script:search = $null
+        $script:exportPending = $null
+    }
+
     It "待っている出力があるときに［出力を中止］を押すと、メニューは開かず取りやめる" {
         $script:exportPending = @{ Path = "$TestDrive/x.xlsx"; Format = "xlsx"; Added = $false }
 
@@ -1357,7 +1377,7 @@ Describe "exportResults" -Tag Io {
         lastStatus | Should -Be (getExportCancelledText)
     }
 
-    It "メニューから CSV を選んで書けると、次の［出力］も CSV になり、メニューの印が移る（名前を打ちきれば上書きの確認はダイアログが済ませている）" {
+    It "メニューから CSV を選んで書けると、メニューの印が CSV に移る（名前を打ちきれば上書きの確認はダイアログが済ませている）" {
         $workDir = "$TestDrive\export_csv\work"
         $out = "$TestDrive\export_csv\結果.csv"
         [System.IO.Directory]::CreateDirectory("$TestDrive\export_csv") | Out-Null
@@ -1377,9 +1397,6 @@ Describe "exportResults" -Tag Io {
         $ui.MenuExportCsv.IsChecked | Should -Be $true
         $ui.MenuExportXlsx.IsChecked | Should -Be $false
         $ui.ExportButton.ToolTip | Should -Be "出力の形式（Excel・CSV・TSV）を選びます"
-
-        exportResults
-        Should -Invoke selectSaveFile -Times 2 -Exactly -ParameterFilter { $filterIndex -eq 2 -and $fileName -like "検索結果_りんご_*" }
     }
 
     It "拡張子を付け足した名前が既にあれば、上書きするか尋ねる。はいなら上書き、いいえならやめる（ダイアログには戻らない）" {
@@ -1395,7 +1412,7 @@ Describe "exportResults" -Tag Io {
         Mock showMessage { $script:answers.Add($message); $script:answer }
 
         $script:answer = "No"
-        exportResults
+        exportResults "xlsx"
         pumpExport
         $script:answers[0] | Should -Be "結果.tsv は既にあります。上書きしますか？"
         lastStatus | Should -Be "出力をやめました。"
@@ -1405,7 +1422,7 @@ Describe "exportResults" -Tag Io {
         Should -Invoke selectSaveFile -Times 1 -Exactly
 
         $script:answer = "Yes"
-        exportResults
+        exportResults "xlsx"
         pumpExport
         pumpExport
         [System.IO.File]::ReadAllText("${out}.tsv") | Should -BeLike "*ファイル名`t場所*"
@@ -1425,7 +1442,7 @@ Describe "exportResults" -Tag Io {
         Mock selectSaveFile { @{ Path = $out; FilterIndex = 2 } }
         Mock showInExplorer { $false }
 
-        exportResults
+        exportResults "xlsx"
         pumpExport
         lastStatus | Should -Be "結果.csv に 2 件を出力しました。フォルダを開けなかったため、${out} を開いてください"
     }
@@ -1441,7 +1458,7 @@ Describe "exportResults" -Tag Io {
         $script:searchService = newFakeService $false
 
         $watch = [System.Diagnostics.Stopwatch]::StartNew()
-        exportResults
+        exportResults "xlsx"
         $watch.Stop()
         $watch.ElapsedMilliseconds | Should -BeLessThan 3000
         $script:searchService.Requests.Count | Should -Be 1
@@ -1468,7 +1485,7 @@ Describe "exportResults" -Tag Io {
             $null
         }
 
-        exportResults
+        exportResults "xlsx"
         $script:validatedUnc | Should -Be ""
         $script:validateMs | Should -BeLessThan 3000
     }
@@ -1482,7 +1499,7 @@ Describe "exportResults" -Tag Io {
         Mock getExportHits { , $hits }
         Mock selectSaveFile { @{ Path = $out; FilterIndex = 1 } }
 
-        exportResults
+        exportResults "xlsx"
         pumpExport
         $script:searchService.Requests[0].Format | Should -Be "csv"
         [System.IO.File]::ReadAllText($out) | Should -BeLike "*ファイル名,場所,種別,行,A,B*"
@@ -1504,7 +1521,7 @@ Describe "exportResults" -Tag Io {
             $null
         }
 
-        exportResults
+        exportResults "xlsx"
         $script:validated[0] | Should -BeLike "クロール対象のフォルダ*には出力できません。*"
         $script:validated[1] | Should -BeLike "クロール対象のフォルダ*には出力できません。*"
         $script:validated[2] | Should -Be ""
@@ -1520,7 +1537,7 @@ Describe "exportResults" -Tag Io {
         Mock selectSaveFile { @{ Path = "$TestDrive\export_filtered\f.csv"; FilterIndex = 2 } }
         [System.IO.Directory]::CreateDirectory("$TestDrive\export_filtered") | Out-Null
 
-        exportResults
+        exportResults "xlsx"
         pumpExport
         lastStatus | Should -Be "絞り込み後の 1 件を f.csv に出力しました"
         $script:searchService.Requests[0].FilterText | Should -Be "見積"
@@ -1539,7 +1556,7 @@ Describe "exportResults" -Tag Io {
         Mock selectSaveFile { @{ Path = "$TestDrive\export_overflow\o.csv"; FilterIndex = 2 } }
         [System.IO.Directory]::CreateDirectory("$TestDrive\export_overflow") | Out-Null
 
-        exportResults
+        exportResults "xlsx"
         pumpExport
         lastStatus | Should -Be "表に入らなかった分も含めて、全 2 件を o.csv に出力しました"
         Should -Invoke getExportHits -Times 1 -Exactly -ParameterFilter { $truncated -eq $true }
@@ -1554,7 +1571,7 @@ Describe "exportResults" -Tag Io {
         Mock getExportHits { , $hits }
         Mock selectSaveFile { @{ Path = "$TestDrive\export_wait\w.csv"; FilterIndex = 2 } }
 
-        exportResults
+        exportResults "xlsx"
         lastStatus | Should -Be "検索が終わってから出力します…"
         $ui.ExportButtonText.Text | Should -Be "出力を中止"
         $ui.ExportChevron.Visibility | Should -Be "Collapsed"
@@ -1567,8 +1584,8 @@ Describe "exportResults" -Tag Io {
         lastStatus | Should -Be "w.csv に 2 件を出力しました（出力したフォルダを開きます）"
 
         $script:search = @{ Shared = @{} }
-        exportResults
-        exportResults
+        exportResults "xlsx"
+        clickExportButton
         lastStatus | Should -Be "出力を中止しました。出力先のファイルは変えていません。"
         $ui.ExportButtonText.Text | Should -Be "出力"
         $script:exportPending | Should -BeNullOrEmpty
@@ -1588,8 +1605,8 @@ Describe "exportResults" -Tag Io {
         Mock selectSaveFile { @{ Path = $out; FilterIndex = 2 } }
         $script:searchService = newFakeService $false
 
-        exportResults
-        exportResults
+        exportResults "xlsx"
+        clickExportButton
         $request = $script:searchService.Requests[0]
         $request.Stop | Should -Be $true
         $ui.ExportButtonText.Text | Should -Be "出力を中止"
@@ -1611,7 +1628,7 @@ Describe "exportResults" -Tag Io {
         Mock selectSaveFile { @{ Path = "$TestDrive\export_progress\p.csv"; FilterIndex = 2 } }
         $script:searchService = newFakeService $false
 
-        exportResults
+        exportResults "xlsx"
         $script:searchService.Requests[0].Written = 1500
         pumpExport
         lastStatus | Should -Be "検索結果を出力中…（1,500 件）"
@@ -1630,7 +1647,7 @@ Describe "exportResults" -Tag Io {
 
         $lock = [System.IO.File]::Open($out, "Open", "ReadWrite", "None")
         try {
-            exportResults
+            exportResults "xlsx"
         } finally {
             $lock.Dispose()
         }
@@ -1654,7 +1671,7 @@ Describe "exportResults" -Tag Io {
         Mock selectSaveFile { @{ Path = $out; FilterIndex = 2 } }
 
         try {
-            exportResults
+            exportResults "xlsx"
             pumpExport
         } finally {
             [System.IO.File]::SetAttributes($out, "Normal")
@@ -1676,7 +1693,7 @@ Describe "exportResults" -Tag Io {
         $script:searchService.Running = $false
         $script:searchService.Failure = "検索のスレッドが止まりました。"
 
-        exportResults
+        exportResults "xlsx"
         pumpExport
         lastStatus | Should -Be "検索結果を出力できませんでした：検索のスレッドが止まりました。"
         $ui.ExportButtonText.Text | Should -Be "出力"
@@ -1691,7 +1708,7 @@ Describe "exportResults" -Tag Io {
         Mock selectSaveFile { @{ Path = "$TestDrive\export_clear\c.csv"; FilterIndex = 2 } }
         $script:searchService = newFakeService $false
 
-        exportResults
+        exportResults "xlsx"
         clearExport
         $script:searchService.Requests[0].Stop | Should -Be $true
 

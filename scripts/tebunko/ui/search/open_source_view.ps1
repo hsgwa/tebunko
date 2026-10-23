@@ -457,7 +457,7 @@ function testExportFormat {
 }
 
 function getExportMenuItems {
-    # ［出力 ▼］のメニュー（最後に選んだ種類に印を付ける。分からない種類は Excel ブック）
+    # ［出力 ▼］のメニュー（最後に出力できた種類に印を付ける。分からない種類は Excel ブック）
     param (
         [string]$lastFormat
     )
@@ -491,7 +491,7 @@ function getExportFilterIndex {
 }
 
 function getLastExportFormat {
-    # 次の［出力］で使う種類。書けたときだけ、書いた種類に替える
+    # メニューの印に使う種類。書けたときだけ、書いた種類に替える
     param (
         [string]$current,
         [string]$written
