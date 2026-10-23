@@ -43,7 +43,7 @@ $ui.OpenIndexLocationButton.Add_Click({
         openIndexLocation {
             param ($text)
             # 開けたときの空の文言は、確かめている間の文言だけを消す（ほかの処理のステータスは消さない）
-            if ($text -ne "" -or ([string]$ui.StatusText.Text).StartsWith("保存先のフォルダを確かめています")) {
+            if ($text -ne "" -or ([string]$ui.StatusText.Text).StartsWith((getIndexLocationOpenStatus "Checking" ""))) {
                 setStatus $text
             }
         }
