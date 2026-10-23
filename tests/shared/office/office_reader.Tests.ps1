@@ -401,6 +401,7 @@ Describe "readPptxUnits（スライドマスター・レイアウト・ノート
         @{ name = "レイアウトの XML が壊れている" }
         @{ name = "レイアウトの部品が無い" }
         @{ name = "レイアウトのリレーションシップが無い" }
+        @{ name = "レイアウトのリレーションシップの XML が壊れている" }
         @{ name = "スライドマスターの XML が壊れている" }
         @{ name = "スライドマスターの部品が無い" }
         @{ name = "ノートマスターの XML が壊れている" }
@@ -414,6 +415,7 @@ Describe "readPptxUnits（スライドマスター・レイアウト・ノート
             "レイアウトの XML が壊れている"             = @{ override = @{ "ppt/slideLayouts/slideLayout1.xml" = "<p:sldLayout ${pNs}><p:cSld><p:spTree>$(pShape '途中まで')" }; master = "社外秘 営業部|ロゴ|項目`t値|レイアウト2の文字"; notes = $notesOnly }
             "レイアウトの部品が無い"                       = @{ override = @{ "ppt/slideLayouts/slideLayout1.xml" = $null }; master = "社外秘 営業部|ロゴ|項目`t値|レイアウト2の文字"; notes = $notesOnly }
             "レイアウトのリレーションシップが無い"         = @{ override = @{ "ppt/slideLayouts/_rels/slideLayout1.xml.rels" = $null; "ppt/slideLayouts/_rels/slideLayout2.xml.rels" = $null }; master = "レイアウト1の文字|社外秘 営業部|レイアウト2の文字"; notes = $notesOnly }
+            "レイアウトのリレーションシップの XML が壊れている" = @{ override = @{ "ppt/slideLayouts/_rels/slideLayout1.xml.rels" = "<Relationships ${relNs}><Relationship" }; master = "レイアウト1の文字|社外秘 営業部|ロゴ|項目`t値|レイアウト2の文字"; notes = $notesOnly }
             "スライドマスターの XML が壊れている"         = @{ override = @{ "ppt/slideMasters/slideMaster1.xml" = "<p:sldMaster ${pNs}><p:cSld>" }; master = "レイアウト1の文字|社外秘 営業部|レイアウト2の文字"; notes = $notesOnly }
             "スライドマスターの部品が無い"                 = @{ override = @{ "ppt/slideMasters/slideMaster1.xml" = $null }; master = "レイアウト1の文字|社外秘 営業部|レイアウト2の文字"; notes = $notesOnly }
             "ノートマスターの XML が壊れている"           = @{ override = @{ "ppt/notesMasters/notesMaster1.xml" = "<p:notesMaster ${pNs}><p:cSld><p:spTree>" }; master = $expectedMaster; notes = "" }
@@ -429,6 +431,30 @@ Describe "readPptxUnits（スライドマスター・レイアウト・ノート
         @($units["スライド003"]) -join "|" | Should -Be "本文3"
         @($units["スライドマスター"]) -join "|" | Should -Be $case.master
         @($units["ノートマスター"]) -join "|" | Should -Be $case.notes
+    }
+
+    It "埋め込みの中の PowerPoint（readEmbeds が false）では、マスターもノートマスターも読まない" {
+        $path = "$TestDrive\埋め込み内.pptx"
+        newMasterPptx $path
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
+        try {
+            $units = readPptxUnitsFromZip $zip $false
+            @($units.Keys) -join "|" | Should -Be "スライド001|スライド002|スライド003"
+        } finally {
+            $zip.Dispose()
+        }
+    }
+
+    It "マスターの部品がサイズの上限を超えたときは、握りつぶさずファイルの失敗にする" {
+        $orig = $script:zipPartMaxBytes
+        $script:zipPartMaxBytes = 10000
+        try {
+            $path = "$TestDrive\上限.pptx"
+            newMasterPptx $path @{ "ppt/slideLayouts/slideLayout1.xml" = "<p:sldLayout ${pNs}><p:cSld><p:spTree></p:spTree></p:cSld><!-- $('x' * 20000) --></p:sldLayout>" }
+            { readPptxUnits $path } | Should -Throw -ExpectedMessage "*大きすぎるため更新できません*"
+        } finally {
+            $script:zipPartMaxBytes = $orig
+        }
     }
 
     It "addPptxLayoutPart は、レイアウトの部品だけを使われた順に、重複なく集める" {

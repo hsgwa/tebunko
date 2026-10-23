@@ -388,9 +388,6 @@ function readRelationships {
     return $result
 }
 
-# readXmlLines の $skipAllPlaceholders を指定すると、種類を問わずすべてのプレースホルダー（p:ph のある p:sp）の
-# テキストを読まない（スライドマスター・レイアウト・ノートマスターの見本の文字を除く。効くのは p:sp のテキストだけで、
-# プレースホルダーに入れた表 p:graphicFrame は対象外）。$onlyPlaceholders とは一緒に使わない
 function readXmlLines {
     # WordprocessingML / DrawingML のXMLから、段落・表の行ごとのテキストを文書順に返す。
     # 戻り値: @{ Page = ページ番号; Text = テキスト } の配列
@@ -403,6 +400,8 @@ function readXmlLines {
     #   ただし手動の改ページ等の直後（本文が出る前）の lastRenderedPageBreak は同じ区切りなので数えない
     #   （Wordは手動の改ページの後に lastRenderedPageBreak を記録する場合としない場合がある）
     #   $pageMode = "none" の場合はページを数えない（PowerPoint）
+    # ・PowerPoint: $skipAllPlaceholders を指定すると、種類を問わずプレースホルダー（p:ph のある p:sp）の文字を読まない
+    #   （マスター・レイアウト・ノートマスターの見本の文字を除く。表 p:graphicFrame は対象外。$onlyPlaceholders とは併用しない）
     # ・PowerPoint: $onlyPlaceholders を指定すると、その種類のプレースホルダー（例: "ftr"）のテキストだけを読む。
     #   指定しない場合は、スライド番号・日付・ヘッダー・フッター・スライド画像のプレースホルダーを読まない
     # ・$objects（リスト）を渡すと、本文以外の文字の在りかを、ページ付きでそこに集める（渡さなければ今までどおり）:
@@ -417,7 +416,8 @@ function readXmlLines {
         [string]$ns,
         [string]$pageMode = "none",
         [string[]]$onlyPlaceholders = $null,
-        [System.Collections.Generic.List[object]]$objects = $null, [bool]$skipAllPlaceholders = $false
+        [System.Collections.Generic.List[object]]$objects = $null,
+        [bool]$skipAllPlaceholders = $false
     )
 
     # 要素・テキストごとに呼ぶため、PowerShell で遅い書き方（スクリプトブロックの呼び出し・switch・型名の解決・
@@ -551,11 +551,8 @@ function readXmlLines {
                     if ($name -eq "sp") {
                         $skipShapeText = $onlyMode
                     } elseif ($name -eq "ph") {
-                        if ($onlyMode) {
-                            $skipShapeText = ($reader.GetAttribute("type") -notin $onlyPlaceholders)
-                        } else {
-                            $skipShapeText = ($skipAllPlaceholders -or ($reader.GetAttribute("type") -in ${skipPlaceholderTypes}))
-                        }
+                        $phType = $reader.GetAttribute("type")
+                        $skipShapeText = $(if ($onlyMode) { $phType -notin $onlyPlaceholders } else { $skipAllPlaceholders -or ($phType -in ${skipPlaceholderTypes}) })
                     } elseif ($collect -and $name -eq "oleObj") {
                         $objects.Add(@{ Kind = "embed"; Page = $page; RelId = $reader.GetAttribute("id", ${nsRel}) })
                     }
@@ -1007,6 +1004,28 @@ function addPptxLayoutPart {
     }
 }
 
+function addPptxSharedUnits {
+    # 全スライドに共通する場所を units に足す: スライドのフッター（"ヘッダー・フッター"）と、$readMasters が $true のときだけ
+    # スライドマスター・レイアウト・ノートマスター（readPptxMasterUnits）。埋め込みの中の PowerPoint では読まない
+    # （埋め込みを読む Word・Excel の抽出版は、マスターを読むことでは上げないため）
+    param (
+        [System.IO.Compression.ZipArchive]$zip,
+        $presentation,
+        [hashtable]$presentationRels,
+        [System.Collections.Generic.List[string]]$layoutParts,
+        [System.Collections.Generic.List[string]]$footers,
+        [bool]$readMasters,
+        [System.Collections.Specialized.OrderedDictionary]$units
+    )
+
+    if ($footers.Count -gt 0) {
+        addUnitLines $units "ヘッダー・フッター" $footers.ToArray()
+    }
+    if ($readMasters) {
+        readPptxMasterUnits $zip $presentation $presentationRels $layoutParts $units
+    }
+}
+
 function readPptxMasterUnits {
     # スライドマスター・レイアウト（スライドが使うものだけ。スライドで最初に使われた順に、親のマスター → レイアウト）と
     # ノートマスターの、プレースホルダー以外の文字を、場所 "スライドマスター"・"ノートマスター" として $units に足す。
@@ -1049,7 +1068,8 @@ function readPptxMasterUnits {
 
 function readPptxUnitsFromZip {
     # 開いた PowerPoint の ZipArchive から、readPptxUnits と同じユニットを返す（開く・閉じる・合計の数え直しはしない）。
-    # $readEmbeds が $false なら埋め込みは読まない（埋め込みの中の PowerPoint を読むとき。深さは 1 段まで）
+    # $readEmbeds が $false なら埋め込みは読まない（埋め込みの中の PowerPoint を読むとき。深さは 1 段まで）。
+    # このときはスライドマスター・レイアウト・ノートマスターも読まない（埋め込みを読む Word・Excel の抽出版を変えないため）
     param (
         [System.IO.Compression.ZipArchive]$zip,
         [bool]$readEmbeds,
@@ -1087,7 +1107,8 @@ function readPptxUnitsFromZip {
         if ($slideXml -match '^[\s\S]{0,2000}?<p:sld\b[^>]*\sshow="(0|false)"') {
             $unitName += "（非表示）"
         }
-        # テキストボックス・図形の文字は本文にする（ほとんどが図形のため）。SmartArt・グラフは "[図形]"、コメントは "[コメント]" に分ける
+        # テキストボックス・図形の文字はスライドの本文にする（スライドの文字はほとんどが図形のため）。
+        # SmartArt・グラフの文字は "スライドNNN[図形]"、コメントは "スライドNNN[コメント]" に分ける
         $objects = New-Object System.Collections.Generic.List[object]
         addUnitLines $units $unitName @(readXmlLines $slideXml ${nsDrawing} "none" $null $objects | ForEach-Object { $_.Text })
         $slideRels = readRelationships $zip $rel.Target
@@ -1127,8 +1148,7 @@ function readPptxUnitsFromZip {
             }
         }
 
-        # 埋め込んだファイル（スライドの中の XML の順）。スライドの XML の文字列は、ここから先で使わない
-        # ので、埋め込みを読む前に放す（同時に持つメモリを抑える）
+        # 埋め込んだファイル（スライドの中の XML の順）。スライドの XML の文字列は、ここから先で使わないので放す（メモリを抑える）
         $slideXml = $null
         if ($readEmbeds) {
             foreach ($object in @($objects | Where-Object { $_.Kind -eq "embed" })) {
@@ -1140,8 +1160,7 @@ function readPptxUnitsFromZip {
         }
     }
 
-    if ($footers.Count -gt 0) { addUnitLines $units "ヘッダー・フッター" $footers.ToArray() }
-    readPptxMasterUnits $zip $presentation $presentationRels $layoutParts $units
+    addPptxSharedUnits $zip $presentation $presentationRels $layoutParts $footers $readEmbeds $units
 
     return $units
 }
