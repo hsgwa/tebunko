@@ -725,14 +725,8 @@ Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を�
 }
 
 Describe "取り込み対象のファイルを書き換えないこと（docs/safety/file-access.md「取り込み対象のファイルは書き換えない」）" -Tag Meta {
-    It "元のファイルのパスを書き込み・削除の API に渡さない" {
-        # 書き込み・削除の呼び出し行に、取り込み対象（原本）を指す変数が現れないこと。
-        # 原本は作業フォルダへコピーしてから開くため、書き込み先は常にコピー側（$tmpPath・$destPath・$copyPath 等）になる。
-        # $targetFolder・$folder.Path = クロール対象フォルダ、$row.SourcePath = 検索結果の元のファイル
-        $writes = @($code | Where-Object { $_.Text -match 'Remove-Item|WriteAllText|WriteAllLines|StreamWriter|\.SaveAs|\[System\.IO\.(File|Directory)\]::Move|Move-Item' })
-        ($writes.Count -gt 0) | Should -Be $true
-        (@($writes | Where-Object { $_.Text -match '\$targetFolder|\$row\.SourcePath|\$folder\.Path' } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
-    }
+    # 書き込み・削除の API に元のパスを渡さないことは、変数の名前でなく書く API そのものを見る
+    # tests/meta/source_write.Tests.ps1（書く API の許可リスト）と remove_entry.Tests.ps1（消す入口）が守る
 
     It "原本を読むのはコピーを作る処理（copyFileShared）だけ" {
         # copyFileShared は読み取りだけで開き、コピー先（作業フォルダ）へ書く
