@@ -58,10 +58,14 @@ class PreviewWindow : NotifyBase {
     [int]$Last = -1
     [double]$LeftSpace
     [double]$RightSpace
+    [double]$RowWidth   # 行の幅（行番号 + 全部の列の幅）。セルの作り直しの途中で行が測られても、横にスクロールできる広さが変わらないよう、行の幅に束ねる
     PreviewWindow() {}   # 既定のコンストラクタを明示する（理由は shared\ui\types.ps1 の NotifyBase）
     [void] SetSpaces([double]$left, [double]$right) {
         if ($this.LeftSpace -ne $left) { $this.LeftSpace = $left; $this.Raise("LeftSpace") }
         if ($this.RightSpace -ne $right) { $this.RightSpace = $right; $this.Raise("RightSpace") }
+    }
+    [void] SetRowWidth([double]$width) {
+        if ($this.RowWidth -ne $width) { $this.RowWidth = $width; $this.Raise("RowWidth") }
     }
 }
 
@@ -258,8 +262,14 @@ class PreviewTable {
 
     # 見えている列の範囲（first～last）と、その左右の空きの幅を決める。範囲が変わったら、作ってあるセルは古い範囲のものなので捨てる
     # （EnsureCells が、見えている行について今の範囲で作り直す）。範囲が変わったら $true
+    # 行の幅（行番号 + 全列の幅の合計）を今の列の幅で決め直す。列の幅が変わったとき（範囲は決め直さないドラッグ中も）に呼ぶ
+    [void] UpdateRowWidth() {
+        $this.Window.SetRowWidth([HitRow]::NumberWidth + $this.Prefix()[$this.Columns.Count])
+    }
+
     [bool] SetWindow([int]$first, [int]$last, [double]$left, [double]$right) {
         $this.Window.SetSpaces($left, $right)
+        $this.UpdateRowWidth()
         if ($first -eq $this.Window.First -and $last -eq $this.Window.Last) { return $false }
         $this.Window.First = $first
         $this.Window.Last = $last
@@ -660,6 +670,7 @@ class HitRow : NotifyBase {
         $total = 0.0
         foreach ($column in $table.Columns) { $total += $column.Width }
         $table.Window.SetSpaces(0, $total)
+        $table.Window.SetRowWidth([HitRow]::NumberWidth + $total)
         return $table
     }
 

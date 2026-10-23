@@ -85,6 +85,9 @@ function readPreviewFirst($hit, [string]$path, $cacheArg) {
 $viewWidth = 1400.0
 $viewRows = 30
 $columnMargin = 3
+$columnSpread = 1   # 画面（gui_main.ps1 の previewColumnSpread）と同じ
+# 今の範囲を渡して決め直しを抑えられる版か（前の版は引数が無い）
+$canKeepWindow = $canWindow -and (Get-Command getPreviewColumnWindow -CommandType Function).Parameters.ContainsKey("currentFirst")
 $cellRowMargin = 10
 
 function hasMember($target, [string]$name) { return $null -ne ($target | Get-Member -Name $name) }
@@ -101,7 +104,11 @@ function setWindowFor($table, [double]$offset, [double]$width) {
     # 横の位置 offset・見える幅 width の、見えている列の範囲に決め直す。範囲が変わったら $true（前の版・範囲を決める判断が無い版は $false）
     if (-not $canWindow -or -not (hasMember $table "EnsureCells")) { return $false }
     # 画面と同じく、列の幅の累積を渡す
-    $w = getPreviewColumnWindow $table.Prefix() $offset $width ([HitRow]::NumberWidth) $columnMargin
+    if ($canKeepWindow) {
+        $w = getPreviewColumnWindow $table.Prefix() $offset $width ([HitRow]::NumberWidth) $columnMargin $table.Window.First $table.Window.Last $columnSpread
+    } else {
+        $w = getPreviewColumnWindow $table.Prefix() $offset $width ([HitRow]::NumberWidth) $columnMargin
+    }
     return $table.SetWindow($w.First, $w.Last, $w.Left, $w.Right)
 }
 
@@ -308,7 +315,7 @@ try {
         }
         $elements = countVisuals $content
         # 下と右へスクロールし、見えている範囲を作り直す時間（最後の行・最後の列まで 4 段階で動かして、合計を測る）
-        $scrollMs = $null
+        $scrollMs = $null; $hScrollMs = $null; $hScrollChanges = $null
         $scroll = $rowsControl.Template.FindName("PreviewScroll", $rowsControl)
         if ($null -ne $scroll) {
             $watch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -323,6 +330,21 @@ try {
                 }
             }
             $scrollMs = $watch.Elapsed.TotalMilliseconds
+            # 左端に戻り、30 px 刻みで続けて 1 画面ぶん右へ動かす時間と、見えている列の範囲を決め直した回数（Shift+ホイール・ドラッグ相当）
+            $scroll.ScrollToVerticalOffset(0); $scroll.ScrollToHorizontalOffset(0); $content.UpdateLayout()
+            if ($windowed) { [void](setWindowFor $table 0 $scroll.ViewportWidth); $headerControl.ItemsSource = $table.WindowColumns(); showCellsFrom $table 0; $content.UpdateLayout() }
+            $hScrollChanges = 0
+            $watch = [System.Diagnostics.Stopwatch]::StartNew()
+            for ($x = 30; $x -le [Math]::Max(30, $scroll.ViewportWidth); $x += 30) {
+                $scroll.ScrollToHorizontalOffset($x)
+                $content.UpdateLayout()
+                if ($windowed) {
+                    if (setWindowFor $table $scroll.HorizontalOffset $scroll.ViewportWidth) { $headerControl.ItemsSource = $table.WindowColumns(); $hScrollChanges++ }
+                    showCellsFrom $table 0
+                    $content.UpdateLayout()
+                }
+            }
+            $hScrollMs = $watch.Elapsed.TotalMilliseconds
         }
         collectAll
         $afterRender = getMemory
@@ -330,6 +352,7 @@ try {
             Cells = $wide.Cells; Rows = $table.Rows.Count; Columns = $table.Columns.Count
             RenderMs = @($times | ForEach-Object { roundMs $_ }); WorkingSetBeforeMB = $before.WorkingSetMB; WorkingSetAfterMB = $afterRender.WorkingSetMB
             Elements = $elements; ScrollMs = $(if ($null -ne $scrollMs) { roundMs $scrollMs } else { $null })
+            HScrollMs = $(if ($null -ne $hScrollMs) { roundMs $hScrollMs } else { $null }); HScrollChanges = $hScrollChanges
             RenderRetainedMB = [Math]::Round([double]$afterRender.ManagedMB - [double]$before.ManagedMB, 1)
         }
         $headerControl.ItemsSource = $null; $rowsControl.ItemsSource = $null

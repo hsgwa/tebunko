@@ -56,6 +56,35 @@ Describe "getPreviewColumnWindow" -Tag Unit {
     }
 }
 
+Describe "getPreviewColumnWindow 今の範囲と先読み" -Tag Unit {
+    BeforeAll {
+        $script:prefix = New-Object 'double[]' 101
+        for ($i = 0; $i -lt 100; $i++) { $script:prefix[$i + 1] = $script:prefix[$i] + 100.0 }
+    }
+    It "<name>" -TestCases @(
+        @{ name = "見えている列が今の範囲の中なら、今の範囲のまま"; offset = 1044; current = @(5, 20); first = 5; last = 20 }
+        @{ name = "見えている列が今の範囲の左端を外れたら、決め直す（見える幅 300 の 1 画面ぶんを左右に先読み: 3 列 + 余白 1）"; offset = 444; current = @(5, 20); first = 0; last = 10 }
+        @{ name = "見えている列が今の範囲の右端を外れたら、決め直す"; offset = 2044; current = @(5, 20); first = 16; last = 26 }
+        @{ name = "今の範囲が無い（-1）ときは決め直す"; offset = 1044; current = @(-1, -1); first = 6; last = 16 }
+        @{ name = "今の範囲が列の数を超えているときは決め直す"; offset = 1044; current = @(5, 500); first = 6; last = 16 }
+    ) {
+        param ($name, $offset, $current, $first, $last)
+        $window = getPreviewColumnWindow $script:prefix $offset 300 44 1 $current[0] $current[1] 1.0
+        $window.First | Should -Be $first
+        $window.Last | Should -Be $last
+        $window.Left | Should -Be ($first * 100)
+    }
+    It "30 px 刻みで 1 画面ぶん動かしても、決め直しは数回（今の範囲を渡し続ける）" {
+        $first = -1; $last = -1; $changes = 0
+        for ($offset = 1044; $offset -le 1044 + 1000; $offset += 30) {
+            $window = getPreviewColumnWindow $script:prefix $offset 1000 44 3 $first $last 1.0
+            if ($window.First -ne $first -or $window.Last -ne $last) { $changes++ }
+            $first = $window.First; $last = $window.Last
+        }
+        $changes | Should -BeLessOrEqual 2
+    }
+}
+
 Describe "toStatusText" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "短い文字列はそのまま"; text = "見積書"; expected = "見積書" }

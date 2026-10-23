@@ -377,6 +377,8 @@ foreach ($p in $previewWords) {
         addMetric "preview_render_rows" $p.Name "value" $p.Render.Rows "count"
         addMetric "preview_render_elements" $p.Name "value" $p.Render.Elements "count"
         addMetric "preview_render_scroll_ms" $p.Name "value" $p.Render.ScrollMs "ms"
+        addMetric "preview_render_hscroll_ms" $p.Name "value" $p.Render.HScrollMs "ms"
+        addMetric "preview_render_hscroll_changes" $p.Name "value" $p.Render.HScrollChanges "count"
         addMetric "preview_render_retained_mb" $p.Name "value" $p.Render.RenderRetainedMB "MB"
     }
 }
@@ -693,15 +695,16 @@ if ($renderWords.Count -gt 0) {
     add
     add "### プレビューの描画"
     add
-    add "セルの数が最大だったプレビューの表を、画面を出さずに preview.xaml の部品へ入れ、Measure・Arrange・UpdateLayout までにかかった時間（$(@($renderWords[0].Render.RenderMs).Count) 回。値は出すだけで、上限と比べない）。表の行と列は、見えている範囲だけ部品ができる。1 回目は部品の初期化が入るので、2 回目以降と分けて出す。「部品の数」は部品の木にある部品の数、「スクロール」は下と右の端へ 4 段階で動かして見える範囲を作り直した合計、「残った増え」（RenderRetainedMB）は、表を持ったまま描画を繰り返し、GC をしたあとのマネージドヒープの、描画の前からの増え（表と部品を保持している間の値。手放したあとの値ではない）。"
+    add "セルの数が最大だったプレビューの表を、画面を出さずに preview.xaml の部品へ入れ、Measure・Arrange・UpdateLayout までにかかった時間（$(@($renderWords[0].Render.RenderMs).Count) 回。値は出すだけで、上限と比べない）。表の行と列は、見えている範囲だけ部品ができる。1 回目は部品の初期化が入るので、2 回目以降と分けて出す。「部品の数」は部品の木にある部品の数、「スクロール」は下と右の端へ 4 段階で動かして見える範囲を作り直した合計、「横スクロール」は左端から 30 px 刻みで続けて 1 画面ぶん右へ動かした合計（括弧は、その間に見えている列の範囲を決め直した回数）、「残った増え」（RenderRetainedMB）は、表を持ったまま描画を繰り返し、GC をしたあとのマネージドヒープの、描画の前からの増え（表と部品を保持している間の値。手放したあとの値ではない）。"
     add
-    add "| 語 | 行 | 列 | セルの数 | 描画 1 回目 | 描画 2 回目以降（中央値／最大） | ワーキングセット（前／後） | 部品の数 | スクロール | 残った増え |"
-    add "|---|---|---|---|---|---|---|---|---|---|"
+    add "| 語 | 行 | 列 | セルの数 | 描画 1 回目 | 描画 2 回目以降（中央値／最大） | ワーキングセット（前／後） | 部品の数 | スクロール | 横スクロール | 残った増え |"
+    add "|---|---|---|---|---|---|---|---|---|---|---|"
     foreach ($p in $renderWords) {
-        add ("| {0} | {1} | {2} | {3:N0} | {4:N1} ms | {5}／{6} ms | {7:N0}／{8:N0} MB | {9} | {10} | {11} |" -f $p.Name, $p.Render.Rows, $p.Render.Columns, $p.Render.Cells, $p.Render.FirstMs,
+        add ("| {0} | {1} | {2} | {3:N0} | {4:N1} ms | {5}／{6} ms | {7:N0}／{8:N0} MB | {9} | {10} | {11} | {12} |" -f $p.Name, $p.Render.Rows, $p.Render.Columns, $p.Render.Cells, $p.Render.FirstMs,
             (msDecimal $p.Render.RestMs "Median"), (msDecimal $p.Render.RestMs "Max"), $p.Render.WorkingSetBeforeMB, $p.Render.WorkingSetAfterMB,
             $(if ($null -ne $p.Render.Elements) { "{0:N0}" -f $p.Render.Elements } else { "-" }),
             $(if ($null -ne $p.Render.ScrollMs) { "{0:N1} ms" -f $p.Render.ScrollMs } else { "-" }),
+            $(if ($null -ne $p.Render.HScrollMs) { "{0:N1} ms（{1} 回）" -f $p.Render.HScrollMs, $p.Render.HScrollChanges } else { "-" }),
             $(if ($null -ne $p.Render.RenderRetainedMB) { "{0:N1} MB" -f $p.Render.RenderRetainedMB } else { "-" }))
     }
 }

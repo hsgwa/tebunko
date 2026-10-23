@@ -37,7 +37,7 @@ flowchart LR
 | 禁止する処理 | 動的なコード実行（`Invoke-Expression` 等）・難読化（Base64）・ネットワーク通信・P/Invoke・実行時コンパイル・レジストリ・権限やサービスの変更・`Set-ExecutionPolicy` と `Bypass`・資格情報・リモート実行が 0 件 |
 | 許す処理の限定 | `Add-Type` は `-AssemblyName` だけ、`Start-Process` は `explorer.exe` だけ、`Stop-Process` は `shared/office/office_process.ps1` の 1 か所だけ |
 | Office の開き方 | マクロ無効（`AutomationSecurity = 3`）・`EnableEvents = $false`・外部リンクを更新しない・インデクサでは不可視・Excel / Word / PowerPoint いずれも読み取り専用で開く |
-| 原本の保護 | 原本のパスを書き込み・削除の API に渡さない、`SaveAs` の保存先は作業フォルダのパスだけ、原本を読むのは `copyFileShared`（`FileAccess::Read`）だけ |
+| 原本の保護 | `SaveAs` の保存先は作業フォルダのパスだけ、原本を読むのは `copyFileShared`（`FileAccess::Read`）だけ。書く API は下の許可リスト（`source_write.Tests.ps1`）が守る |
 | 書き込み先 | `$workspace`（`Workspace` の `IndexDir`・`TmpRoot`・`PublishDir`）・`${settingsFile}` の定義が `work` 配下・`setting.config`（ツールのフォルダか既定のワークスペースの直下）だけ、起動に失敗したときの記録の置き場所がツールのフォルダの `startup_error.txt` だけ、スクリプトに `%LOCALAPPDATA%` を指す書き方が無い、ドライブ直下やシステムフォルダを直接指す書き込み先が無い、異常終了で残った作業フォルダを次回起動時に回収する（`removeStaleTmpDirs`） |
 | `%TEMP%` を指す書き方 | 直接指すのは、取り込みの作業フォルダの前の版の置き場所（`${legacyTmpParent}`。片付けの対象としてだけ使う。`paths.ps1`）の 1 か所だけ（起動失敗の記録は `%TEMP%` に書かない）で、取り込みの作業フォルダ自体はワークスペースの `tmp\` の下（`${tmpDir}`）を使う |
 | 静的解析（PSScriptAnalyzer） | 全規則と 5.1 に無い構文・コマンドの指摘がベースラインより増えていない（`tools/check_analyzer.ps1`。CI の手順。設定とベースラインの形は `tests/meta/analyzer.Tests.ps1`）。安全性にかかわるルール（`tests/meta/PSScriptAnalyzer.security.psd1` の 14 件）・`Error` 重大度・制限言語モード（`PSUseConstrainedLanguageMode`）の指摘が 0 件、設定ファイルから当該ルールが削られていないこと |
@@ -46,6 +46,10 @@ flowchart LR
 PSScriptAnalyzer は Windows PowerShell 5.1 に標準では入っていないため、未導入の環境では静的解析の 3 件を自動的に飛ばす（`It -Skip`）。導入は `Install-Module PSScriptAnalyzer -Scope CurrentUser`。CI では必ず入れて実行する。安全性にかかわるルールの選定と、全ルールで出る指摘の内訳は [安全性の要約](../../safety/index.md) の [静的解析: PSScriptAnalyzer（Microsoft）](../../safety/scans.md#静的解析-psscriptanalyzermicrosoft) に記載している。
 
 `TypeNotFound`（継承元の型が別ファイルにあるための指摘）は、1 ファイルだけでは解決できないため除く。読み込む順で解決できることは `tests/meta/structure.Tests.ps1` で確かめる。あわせて同じファイルで、`scripts/` の関数・変数・ハッシュテーブルのキー・呼ぶ名前・`newWorkerState` に渡す名前に `pack` を使わないことを、AST から名前を拾って確かめる（本文インデックスのコードの名前は `contentIndex`。コメントや `package` は拾わない）。
+
+**書く API の許可リスト（`tests/meta/source_write.Tests.ps1`）**
+
+タグ `Meta` で、`scripts/` の全体を AST で調べ、ファイルに書く・属性や日時を変える・ファイルを作る呼び出し（`SetAttributes`・`Set*Time`・`WriteAll*`・`AppendAll*`・`Create`・`Copy`・`Move`・`Replace`・`Save`・`SaveAs`・`ExtractToFile`・`Delete`（ファイルの削除）・`ExtractToDirectory`・`Close` の保存の指定・`FileAccess` が `Read` 以外・`FileMode` が `Open` 以外・`FileStream`・`StreamWriter`・`BinaryWriter` の生成、`Set-Content`・`Add-Content`・`Out-File`・`Export-Csv`・`Export-Clixml`・`Tee-Object`・`Start-Transcript`・`Copy-Item`・`Move-Item`・`New-Item`・`Set-ItemProperty`・`Set-Acl`・`Remove-Item`（再帰かどうかを問わず）とその別名、リダイレクト、`.Attributes =` などのプロパティへの代入。型を変数に入れて渡す書き方も、`FileMode`・`FileAccess` の型を書いた所で拾う）が、理由つきの許可リスト（ファイル・関数・呼び出しの組・理由。関数ごとに 1 行）にある関数の中だけであることを確かめる。同じ関数の中で同じ種類の呼び出しが増えても落ちない（関数ごとに許すため）。一覧に無い関数に書く呼び出しを足すと落ちる。直し方は、書き先がワークスペースの置き場か利用者が選んだ出力先だと確かめて、一覧に理由を書いて足す。消した・名前を変えた呼び出しが一覧に残っていても落ちる。フォルダを再帰で消す・移す・作る入口は `remove_entry.Tests.ps1` が見る（ここでは 1 つのファイルの削除と、再帰でない `Remove-Item` を見る）。見つけ方の自己テストは、書き方の表（見つけるもの・見つけないもの）を `-TestCases` で持つ。
 
 **リンクを辿る列挙の検査（`tests/meta/link_safety.Tests.ps1`）**
 
