@@ -144,11 +144,12 @@ function updatePreviewWindow {
     # 列見出しをドラッグしている間は、範囲を決め直さない（見出しを入れ替えると、ドラッグしている見出しの部品が作り直されて途切れる）。
     # 縦にスクロールして見えた行のセルだけ作り、ドラッグが終わったら決め直す
     if ($script:previewDragging) {
+        $table.UpdateRowWidth()   # 行の幅は、広げた列の分だけ今のうちに合わせる（右側が切れないように）
         updatePreviewCells
         return
     }
     if ($null -eq $offset) { $offset = $ui.PreviewScroll.HorizontalOffset }
-    $window = getPreviewColumnWindow $table.Prefix() $offset $ui.PreviewScroll.ViewportWidth ([HitRow]::NumberWidth) ${previewColumnMargin}
+    $window = getPreviewColumnWindow $table.Prefix() $offset $ui.PreviewScroll.ViewportWidth ([HitRow]::NumberWidth) ${previewColumnMargin} $table.Window.First $table.Window.Last ${previewColumnSpread}
     if ($table.SetWindow($window.First, $window.Last, $window.Left, $window.Right)) {
         $ui.PreviewHeader.ItemsSource = $table.WindowColumns()
     }

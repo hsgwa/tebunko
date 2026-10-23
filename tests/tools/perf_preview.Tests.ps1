@@ -122,6 +122,8 @@ Describe "選択行のプレビューの速さとメモリ" -Tag Slow {
         $entry.CreatedCells.Max | Should -BeLessThan ($entry.Render.Rows * $entry.Render.Columns)
         $entry.Render.Elements | Should -BeGreaterThan 0
         $entry.Render.ScrollMs | Should -BeGreaterThan 0
+        $entry.Render.HScrollMs | Should -BeGreaterThan 0
+        $entry.Render.HScrollChanges | Should -BeLessOrEqual 2 -Because "30 px 刻みで 1 画面ぶん動かしても、見えている列の範囲の決め直しは 2 回以下（先読みで、範囲の中にある間は決め直さない）"
         $entry.ReadMore | Should -Not -BeNullOrEmpty
         $entry.ReadMore.Runs | Should -Be 5
         $entry.ReadMore.Complete | Should -Be $true
