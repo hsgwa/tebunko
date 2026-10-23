@@ -343,7 +343,7 @@ Describe "readIndexArchiveInfo" -Tag Io {
 }
 
 Describe "importIndex" -Tag Io {
-    It "進み具合: -progress を渡すと、終わったとき Done が Total（目録の大きさの合計）と等しい。省いても同じに取り込める" {
+    It "進み具合: -progress を渡すと、終わったとき Done が Total（目録の大きさの合計）と等しい" {
         $fixtureA = newIndexFixture "$TestDrive\progress_a" "営業" "C:\共有\営業部"
         $dest = "$TestDrive\progress.zip"
         exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null

@@ -434,7 +434,7 @@ function continueImportIndex {
         loadTargets
         refreshIndexViews
         setStatus (getImportSkippedIndexingStatus $result)
-        # 続けて更新するかを尋ねる（高速検索はシステムインデックスができてから効く）。名前は importIndex が返した最終の名前
+        # 続けて更新するかを尋ねる（更新すると 2-gram の索引ができ、検索が速くなる）。名前は importIndex が返した最終の名前
         $confirm = getImportIndexingConfirm $result
         if ($null -ne $confirm) {
             $answer = showConfirm $confirm.Heading @(@{ Text = "更新する"; Value = "update" }) -hint $confirm.Hint
