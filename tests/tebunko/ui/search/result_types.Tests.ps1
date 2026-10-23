@@ -757,6 +757,29 @@ Describe "HitRow.BuildPreview" -Tag Unit {
             $second[$table.Columns.Count] | Should -Be ($first[$table.Columns.Count] + 50)
         }
 
+        It "行の幅（RowWidth）は、行番号と全部の列の幅の合計で、範囲を決め直しても変わらない。列の幅が変わったら変わる" {
+            $table = newWideTable
+            $total = [HitRow]::NumberWidth + $table.Prefix()[$table.Columns.Count]
+            $table.Window.RowWidth | Should -Be $total
+            [void]$table.SetWindow(1495, 1499, 100, 200)
+            $table.Window.RowWidth | Should -Be $total
+            [void]$table.SetWindow(0, 40, 0, 300)
+            $table.Window.RowWidth | Should -Be $total
+            $table.Columns[0].SetWidth($table.Columns[0].Width + 50)
+            [void]$table.SetWindow(0, 40, 0, 300)
+            $table.Window.RowWidth | Should -Be ($total + 50)
+        }
+
+        It "UpdateRowWidth は、範囲を決め直さなくても、行の幅を今の列の幅に合わせる（見出しをドラッグしている間）" {
+            $table = newWideTable
+            $total = $table.Window.RowWidth
+            $versionBefore = $table.WindowVersion
+            $table.Columns[0].SetWidth($table.Columns[0].Width + 50)
+            $table.UpdateRowWidth()
+            $table.Window.RowWidth | Should -Be ($total + 50)
+            $table.WindowVersion | Should -Be $versionBefore
+        }
+
         It "セルは、見えている行の、見えている列の範囲の分だけ作る" {
             $table = newWideTable
             @($table.Rows | ForEach-Object { $_.Cells.Count } | Measure-Object -Sum).Sum | Should -Be 0
