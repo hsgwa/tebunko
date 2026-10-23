@@ -527,10 +527,12 @@ function getFilesNoFollow {
     # OneDrive のオンデマンドのフォルダなど）は、SkipUnknown が無ければ降りる（読むだけのため）。属性を書くときは SkipUnknown を付け、降りずに Links に入れる。
     # Hidden の付いたものは、IncludeHidden が無ければ入れない（Get-ChildItem の既定と同じ。System だけのものは入れる）。
     # 並びは Get-ChildItem -Recurse と同じ（フォルダごとに、その中身を並べてから、サブフォルダの下へ進む）
+    # TopOnly を付けると root の直下だけを読み、サブフォルダの下へは進まない（直下のフォルダは Directories に入る。直下のリンクは Links に入る）
     param (
         [string]$root,
         [switch]$IncludeHidden,
         [switch]$SkipUnknown,
+        [switch]$TopOnly,
         [scriptblock]$shouldStop = $null
     )
 
@@ -576,7 +578,7 @@ function getFilesNoFollow {
             }
             if ($entry -is [System.IO.DirectoryInfo]) {
                 $directories.Add($entry)
-                $subDirectories.Add($entry.FullName)
+                if (!$TopOnly) { $subDirectories.Add($entry.FullName) }
             } else {
                 $files.Add($entry)
             }

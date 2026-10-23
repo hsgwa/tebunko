@@ -127,6 +127,15 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             waitGui $S "フォルダパスが元に戻る" ${guiDefaultTimeout} { (& $pathText) -eq $script:source } | Out-Null
 
             (findGui $S.Window -Id "IndexDetailPathButton").Current.Name | Should -Be "フォルダの場所を変える"
+
+            # 詳細の「サブフォルダを含める」: 外すと設定に subfolders: false が書かれ、戻すと true に戻る（既定は付いている）
+            setGuiStep $S "詳細の「サブフォルダを含める」の切り替え"
+            $subfolders = findGui $S.Window -Id "IndexDetailSubfolders"
+            getGuiToggleState $subfolders | Should -Be "On"
+            toggleGui $subfolders
+            waitGui $S "subfolders: false が設定に書かれる" ${guiDefaultTimeout} { [System.IO.File]::ReadAllText($script:tool.Config) -match '"subfolders":\s*false' } | Out-Null
+            toggleGui (findGui $S.Window -Id "IndexDetailSubfolders")
+            waitGui $S "subfolders が true に戻る" ${guiDefaultTimeout} { [System.IO.File]::ReadAllText($script:tool.Config) -notmatch '"subfolders":\s*false' } | Out-Null
             # チェックは、保存しないその場の選び。初めは付いておらず、付けても設定は書き換わず、［すべて更新］の可否も変わらない（#16）
             setGuiStep $S "行のチェックの切り替え"
             $check = findGui $row -Type CheckBox

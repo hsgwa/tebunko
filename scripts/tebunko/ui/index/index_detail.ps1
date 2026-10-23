@@ -2,7 +2,7 @@
 
 # 詳細の左右の部品。名前の一覧（shell\regions.ps1）に足さず、読み込んだ中身から取る
 foreach ($detailName in @(
-        "IndexDetailBody", "IndexDetailName", "IndexDetailPath", "IndexDetailPathButton", "IndexDetailEditError", "IndexDetailFolderStatus", "IndexDetailFolderIcon",
+        "IndexDetailBody", "IndexDetailName", "IndexDetailPath", "IndexDetailPathButton", "IndexDetailSubfolders", "IndexDetailEditError", "IndexDetailFolderStatus", "IndexDetailFolderIcon",
         "IndexDetailBadge", "IndexDetailBadgeText", "IndexDetailBadgeSub", "IndexErrorText", "IndexErrorHintText", "IndexDetailUpdated", "IndexDetailCount",
         "IndexingDetailPanel", "IndexingProgressBar", "IndexingCountText", "IndexingFileText", "MultiSelectHintText")) {
     $ui[$detailName] = $ui.IndexDetailHost.Content.FindName($detailName)
@@ -166,6 +166,7 @@ function updateIndexingButton {
     # 名前とフォルダパスの欄は、動いている処理が無く、1 件選んでいるときだけ直せる
     $ui.IndexDetailName.IsEnabled = $buttons.Edit
     $ui.IndexDetailPath.IsEnabled = $buttons.Edit
+    $ui.IndexDetailSubfolders.IsEnabled = $buttons.Edit
     # 行の右クリックのメニュー（対象は押した行。可否は getIndexRowMenuEnabled）
     $pressed = $ui.IndexGrid.SelectedItem
     $menu = getIndexRowMenuEnabled $blocker ($null -ne $pressed) $(if ($pressed) { $pressed.IndexLevel } else { "None" }) ($null -ne $pressed -and [bool]$pressed.Path)
@@ -430,6 +431,7 @@ function updateIndexDetailPanel {
         $ui.IndexDetailName.Text = $view.Name
         $ui.IndexDetailPath.Text = $view.Path
     }
+    $ui.IndexDetailSubfolders.IsChecked = if ($null -ne $item) { [bool]$item.Subfolders } else { $true }
     $ui.IndexDetailFolderStatus.Text = $view.FolderStatus
     $ui.IndexDetailFolderStatus.Foreground = themeBrush $view.FolderBrush
     # 文の左のアイコン（Lucide の check・x）。空なら隠す

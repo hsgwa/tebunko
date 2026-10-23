@@ -39,6 +39,10 @@ $ui.RowMenuUpdate.Add_Click({
 })
 $ui.RowMenuOpenFolder.Add_Click({ safe { openIndexSourceFolder } })
 $ui.IndexDetailPathButton.Add_Click({ safe { changeIndexFolder } })
+# 「サブフォルダを含める」: 付け外しで、選んでいる行の設定へ保存する（UI オートメーションの切り替えは Click を起こさないので Checked・Unchecked で受ける。
+# 詳細を描き直してコードから値を置いたときも起きるが、行の値と同じなので commitIndexSubfolders は何もしない）
+$ui.IndexDetailSubfolders.Add_Checked({ safe { commitIndexSubfolders } })
+$ui.IndexDetailSubfolders.Add_Unchecked({ safe { commitIndexSubfolders } })
 $ui.RemoveIndexButton.Add_Click({ safe { deleteIndex } })
 $ui.ExportIndexButton.Add_Click({ safe { newExportIndex } })
 # ［アクション ▼］: 押したら、ボタンの下にメニューを開く（項目の可否は updateIndexingButton が決める）

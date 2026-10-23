@@ -30,6 +30,7 @@ class PlanRow {
 class FolderItem : NotifyBase {
     [string]$Name          # インデックス名（work\index 直下のフォルダ名）
     [string]$Path
+    [bool]$Subfolders = $true   # 設定の subfolders（false は元のフォルダの直下のファイルだけを取り込む）
     [bool]$Enabled         # 設定の enabled（［すべて更新］で更新する対象か。画面にチェックは出さない）
     [bool]$Checked         # 一覧のチェック（一時の選択。保存しない。［アクション ▼］・行の操作の対象）
     [string]$StatusText

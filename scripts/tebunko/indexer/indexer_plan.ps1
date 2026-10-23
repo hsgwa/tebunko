@@ -159,9 +159,11 @@ function findTargetFiles {
     # （設定に書かれたパスは、末尾の \ ・ドライブ文字と UNC パスなど書き方が違うことがあるため、文字数で切り出さない）。
     # tebunko が作ったファイル（getTebunkoExcludeDirs のフォルダの下・名前で分かるファイル）は対象に含めない
     # shouldStop: 省略できる。フォルダ 1 つを読むごとに見て、$true を返したら読むのをやめる（中止を求められたとき）
+    # TopOnly: 対象フォルダの直下のファイルだけを探す（サブフォルダの中は読まない。設定の subfolders が false のとき）
     param (
         [string]$targetFolder,
-        [scriptblock]$shouldStop = $null
+        [scriptblock]$shouldStop = $null,
+        [switch]$TopOnly
     )
 
     # \\?\ を付けないと、パスが約248文字を超えるフォルダの中を検索できない（アクセスできないフォルダ扱いになる）。
@@ -169,7 +171,7 @@ function findTargetFiles {
     $root = (Resolve-Path -LiteralPath $targetFolder).ProviderPath
     # 中のリンクは辿らず、飛ばしたものは Links に入れる（先の、対象の外のファイルを読まないため）。
     # クロール対象フォルダそのものはリンクでもよい（利用者が選んだ場所のため、その先の中を読む）
-    $tree = getFilesNoFollow $root -shouldStop $shouldStop
+    $tree = getFilesNoFollow $root -shouldStop $shouldStop -TopOnly:$TopOnly
     if ($tree.Stopped) {
         return @{ Root = $root; Files = @(); Links = @($tree.Links); HasError = $tree.HasError; Stopped = $true }
     }
@@ -206,7 +208,7 @@ function createTargetList {
     # ・取り込み済みでも、インデックス（TSV）が無くなっていれば取り込み直す（利用者が work\index を直接削除した場合など）
     # ・元ファイルが無くなったファイルは、インデックスを削除して一覧から除く（アクセスできないフォルダがあった場合は除かない）
     param (
-        $folder,   # @{ Path; Name }
+        $folder,   # @{ Path; Name; Subfolders }（Subfolders が $false のときは直下のファイルだけを取り込む）
         $previous, # readStatusFile の Rows（相対パス → 行）
         $counts,   # getIndexTsvCounts の結果（インデックスの実体。$null なら確認しない）
         [scriptblock]$shouldStop = $null # 省略できる。フォルダを読むごと・ファイルを調べる途中で見て、$true なら途中で止める
@@ -216,7 +218,7 @@ function createTargetList {
     $stoppedResult = @{
         Rows = @(); Targets = @(); Failed = @(); Cloud = @(); Plan = $null; Removed = @(); Stopped = $true
     }
-    $scan = findTargetFiles $folder.Path $shouldStop
+    $scan = findTargetFiles $folder.Path $shouldStop -TopOnly:($folder.Subfolders -eq $false)
     if ($scan.Stopped) {
         return $stoppedResult
     }
@@ -377,7 +379,7 @@ function createTargetList {
 #   KeepForCancel（取りやめるとき）か ApplyFailed → ApplyInterrupted → FolderByName。Crawl は AssignNames より前なら例外にする。
 # メソッドの中のローカル変数は、プロパティと大文字・小文字だけの違いにしない
 class IngestPlanner {
-    # 名前を割り当てたクロール対象フォルダ（@{ Path; Name; Enabled } の並び）
+    # 名前を割り当てたクロール対象フォルダ（@{ Path; Name; Enabled; Subfolders } の並び）
     [object[]]$Folders
     # 前回の取り込み一覧の行（相対パス → 行）
     $Previous

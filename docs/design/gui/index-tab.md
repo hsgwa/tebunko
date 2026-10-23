@@ -55,7 +55,7 @@
 
 ## 名前とフォルダパスの編集
 
-追加・編集のダイアログは無い。名前とフォルダパスは、詳細の「基本設定」の欄（`IndexDetailName`・`IndexDetailPath`）で直接直す。
+追加・編集のダイアログは無い。名前とフォルダパスは、詳細の「基本設定」の欄（`IndexDetailName`・`IndexDetailPath`）で直接直す。フォルダパスの下の「サブフォルダを含める」（`IndexDetailSubfolders`。既定は付いている）を外すと、そのフォルダの直下のファイルだけを取り込む（押したときに設定の `subfolders` へ保存する。次の更新から効き、サブフォルダにあったファイルはインデックスから外れる）。
 
 ```mermaid
 stateDiagram-v2

@@ -1,12 +1,12 @@
 ﻿# インデックス管理の画面の一覧（状態の保持・フォルダの状態の調べ・一覧の読み込みと更新）。
 
 function getTargetsKey {
-    # クロール対象フォルダの一覧（@{ Path; Enabled } の配列）を比べるための文字列
+    # クロール対象フォルダの一覧（@{ Path; Enabled; Subfolders } の配列）を比べるための文字列
     param (
         [object[]]$folders
     )
 
-    return (@($folders | Where-Object { $_ } | ForEach-Object { "$($_.Enabled)`t$($_.Path)" }) -join "`n")
+    return (@($folders | Where-Object { $_ } | ForEach-Object { "$($_.Enabled)`t$($_.Subfolders -ne $false)`t$($_.Path)" }) -join "`n")
 }
 
 $script:targetItems = New-Object 'System.Collections.ObjectModel.ObservableCollection[object]'
@@ -165,13 +165,15 @@ function newFolderItem {
     param (
         [string]$path,
         [bool]$enabled,
-        [string]$name = ""
+        [string]$name = "",
+        [bool]$subfolders = $true
     )
 
     $item = New-Object FolderItem
     $item.Name = $name
     $item.Path = $path
     $item.Enabled = $enabled
+    $item.Subfolders = $subfolders
     $item.FileCountText = "－"
     $item.LastIngestedText = ""
     # フォルダの有無は一覧に加えた後にまとめて調べる（refreshFolderStatus）
@@ -268,7 +270,7 @@ function finishTargetsNaming {
 }
 
 function fillTargetItems {
-    # 画面の一覧を folders（@{ Name; Path; Enabled }）の内容に置き換える。checkedNames の名前の行はチェックを付ける
+    # 画面の一覧を folders（@{ Name; Path; Enabled; Subfolders }）の内容に置き換える。checkedNames の名前の行はチェックを付ける
     param (
         [object[]]$folders,
         [string[]]$checkedNames
@@ -278,7 +280,7 @@ function fillTargetItems {
     try {
         $script:targetItems.Clear()
         foreach ($folder in $folders) {
-            $newItem = newFolderItem $folder.Path $folder.Enabled $folder.Name
+            $newItem = newFolderItem $folder.Path $folder.Enabled $folder.Name ($folder.Subfolders -ne $false)
             $newItem.Checked = ($folder.Name -and $checkedNames -contains $folder.Name)
             $script:targetItems.Add($newItem)
         }
@@ -295,7 +297,7 @@ function saveTargets {
     # 一覧を設定に書く。保存した旨のステータスは出す。-Quiet のときは出さない（更新を始めるときの保存は、更新を始めるか確認で決まるため、文を出さない）
     param ([switch]$Quiet)
 
-    (newIndexCatalog $workspace.Dir).SaveTargets(@($script:targetItems | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Path = $_.Path; Enabled = $_.Enabled } }))
+    (newIndexCatalog $workspace.Dir).SaveTargets(@($script:targetItems | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Path = $_.Path; Enabled = $_.Enabled; Subfolders = $_.Subfolders } }))
     $script:savedTargets = getTargetsKey @(getTargetFolders)
     if (!$Quiet) {
         setStatus "インデックス一覧を保存しました（$(Get-Date -Format 'H:mm')）"

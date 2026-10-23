@@ -251,11 +251,12 @@ function updateSettings {
 }
 
 function getTargetFolders {
-    # クロール対象フォルダの一覧（記載順）を返す: @{ Name; Path; Enabled }。
+    # クロール対象フォルダの一覧（記載順）を返す: @{ Name; Path; Enabled; Subfolders }。
     #   Name   : インデックス名（work\index 直下のフォルダ名）。インデックスの「名前」で、フォルダの置き場所（Path）とは分けて持つ。
     #            Path を書き換えても Name が同じなら同じインデックスとして扱う（取り込み直さない）。空なら取り込み時に割り当てる（assignIndexNames）
     #   Path   : そのフォルダが今置かれている場所
     #   Enabled: false はチェックなし（登録のみで取り込まない）
+    #   Subfolders: false は直下のファイルだけを取り込む（キーが無ければ true = サブフォルダも含める）
     # 同じフォルダ・同じ名前は最初のものだけ使う（名前の重複は、2 つ目以降を空にして割り当て直す）。
     # フォルダ名として使えない名前（.. ・最後が . ・使えない文字など）も空にして割り当て直す（予約名の aux.backup・CON.txt は、既にある名前なのでそのまま使う）。
     # 書き方が違うだけで同じフォルダを指す場合（ネットワークドライブと UNC パスなど）も同じフォルダとみなす
@@ -288,20 +289,20 @@ function getTargetFolders {
         if ($name -ne "" -and -not $seenName.Add($name)) {
             $name = ""
         }
-        $folders.Add([pscustomobject]@{ Name = $name; Path = $folder; Enabled = ($item.enabled -ne $false) })
+        $folders.Add([pscustomobject]@{ Name = $name; Path = $folder; Enabled = ($item.enabled -ne $false); Subfolders = ($item.subfolders -ne $false) })
     }
     return $folders.ToArray()
 }
 
 function writeTargetFolders {
-    # クロール対象フォルダの一覧（@{ Name; Path; Enabled } の配列）を保存する
+    # クロール対象フォルダの一覧（@{ Name; Path; Enabled; Subfolders } の配列）を保存する
     param (
         [object[]]$folders,
         [string]$path = ${settingsFile}
     )
 
     updateSettings "targetFolders" ([object[]]@($folders | Where-Object { $_ } | ForEach-Object {
-        [pscustomobject]@{ name = [string]$_.Name; path = $_.Path; enabled = [bool]$_.Enabled }
+        [pscustomobject]@{ name = [string]$_.Name; path = $_.Path; enabled = [bool]$_.Enabled; subfolders = ($_.Subfolders -ne $false) }
     })) $path
 }
 
@@ -331,7 +332,7 @@ function mergeAssignedIndexNames {
         if ($name -eq "" -and $assignedNames.ContainsKey([string]$item.Path) -and $used.Add($assignedNames[[string]$item.Path])) {
             $name = $assignedNames[[string]$item.Path]
         }
-        $result.Add([pscustomobject]@{ Name = $name; Path = $item.Path; Enabled = $item.Enabled })
+        $result.Add([pscustomobject]@{ Name = $name; Path = $item.Path; Enabled = $item.Enabled; Subfolders = $item.Subfolders })
     }
     return $result.ToArray()
 }
@@ -407,7 +408,7 @@ function setIndexSourceFolder {
         $targets = @(getTargetFolders $path)
         if (@($targets | Where-Object { & $same $_.Name }).Count -gt 0) {
             writeTargetFolders @($targets | ForEach-Object {
-                if (& $same $_.Name) { [pscustomobject]@{ Name = $_.Name; Path = $folder; Enabled = $_.Enabled } } else { $_ }
+                if (& $same $_.Name) { [pscustomobject]@{ Name = $_.Name; Path = $folder; Enabled = $_.Enabled; Subfolders = $_.Subfolders } } else { $_ }
             }) $path
             return
         }
