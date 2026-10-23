@@ -433,7 +433,8 @@ class IngestPlanner {
     $Carried
     # Crawl を中止で途中で止めた（止めたフォルダ・まだのフォルダは、前回の行をそのまま Rows に入れてある）
     [bool]$Stopped
-    # 取り込む拡張子の一覧（Crawl が createTargetList に渡す。$null なら選べる範囲の上限。司令が設定から作って Crawl の前に入れる）
+    # 取り込む拡張子の一覧（Crawl が createTargetList に渡す）。$null のまま Crawl を呼ぶと、設定で取り込まないと選んだ拡張子を除いた一覧
+    # （getTargetExtensionList。設定は Crawl の始めに 1 回だけ読む。途中で設定を変えても次の回から効く）を入れる
     [string[]]$Extensions
     hidden $Kinds
 
@@ -503,6 +504,9 @@ class IngestPlanner {
         #   止めたフォルダとまだのフォルダは「取り込まないフォルダ」と同じに前回の行をそのまま残し、Stopped を立てる（何も消さない）
         if ($null -eq $this.Folders) {
             throw "IngestPlanner: Crawl の前に AssignNames を呼んでください"
+        }
+        if ($null -eq $this.Extensions) {
+            $this.Extensions = @(getTargetExtensionList @((readTextExtensionSettings).Excluded))
         }
         foreach ($folder in $this.Folders) {
             if (-not $this.Stopped -and $null -ne $shouldStop -and (& $shouldStop)) {

@@ -473,6 +473,27 @@ Describe "readFileKinds / writeFileKinds" -Tag Io {
     }
 }
 
+Describe "normalizeTextExtensions" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "null は空"; values = $null; expected = "" }
+        @{ name = "空の配列は空"; values = @(); expected = "" }
+        @{ name = "点のある拡張子はそのまま"; values = @(".log"); expected = ".log" }
+        @{ name = "点の無いもの（log）は、固定の一覧に無いので捨てる"; values = @("log"); expected = "" }
+        @{ name = "大文字は小文字にそろえる"; values = @(".LOG", ".Txt"); expected = ".log,.txt" }
+        @{ name = "重複は 1 つにする（大文字・小文字の違いも）"; values = @(".log", ".LOG", ".log"); expected = ".log" }
+        @{ name = "前後の空白は取る"; values = @("  .log  "); expected = ".log" }
+        @{ name = "空の文字列・空白だけは捨てる"; values = @("", "   "); expected = "" }
+        @{ name = "文字列 1 個（配列でない）も 1 件として読む"; values = ".log"; expected = ".log" }
+        @{ name = "文字列でない値は捨てる"; values = @(1, $true, $null, ".csv"); expected = ".csv" }
+        @{ name = "固定の一覧に無い拡張子（.exe）は捨てる。実行されうる .bat は固定の一覧にあるので残す"; values = @(".exe", ".bat"); expected = ".bat" }
+        @{ name = "入力の順を保つ"; values = @(".md", ".csv", ".log"); expected = ".md,.csv,.log" }
+    ) {
+        param ($name, $values, $expected)
+        (@(normalizeTextExtensions $values) -join ",") | Should -Be $expected
+    }
+}
+
+
 Describe "readTextExtensionSettings / writeTextExtensionSettings" -Tag Io {
     It "キーが無ければ 2 つとも空（既定）" {
         $path = "$TestDrive\textext_none.config"

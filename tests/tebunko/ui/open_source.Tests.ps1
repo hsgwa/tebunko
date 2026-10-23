@@ -776,6 +776,17 @@ Describe "openSource" -Tag Unit {
         lastStatus | Should -Be "開きました：C:\data\解析.html"
     }
 
+    It "testTextOpenWithNotepadBySettings: <name>" -TestCases @(
+        @{ name = "設定が空なら .txt は既定のアプリ"; path = "a.txt"; notepad = @(); expected = $false }
+        @{ name = "設定に .txt があればメモ帳"; path = "a.txt"; notepad = @(".txt"); expected = $true }
+        @{ name = ".bat は設定が空でもメモ帳"; path = "a.bat"; notepad = @(); expected = $true }
+    ) {
+        param ($name, $path, $notepad, $expected)
+        Mock readTextExtensionSettings { @{ Excluded = @(); Notepad = $notepad } }.GetNewClosure()
+        testTextOpenWithNotepadBySettings $path | Should -Be $expected
+    }
+
+
     It "設定でメモ帳にした拡張子（.html）のテキストは、メモ帳で開く" {
         Mock getCurrentHitRow { newRow "解析.html" $false $true }
         Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\解析.html" }

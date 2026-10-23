@@ -88,7 +88,7 @@ stateDiagram-v2
 クロールで列挙するファイルの条件（`findTargetFiles`）:
 
 - 拡張子が `.xlsx` `.xlsm` `.xls` `.xlsb` `.docx` `.docm` `.doc` `.pptx` `.pptm` `.ppt`（Office、10 個）または [対象の拡張子](text.md#対象の拡張子)（テキスト、75 個）（大文字・小文字を区別しない）。テンプレート（`.xltx` `.dotx` `.potx` 等）は対象外
-- 取り込む拡張子の一覧は、既定では上の固定の一覧のすべて。呼び出し元（`createTargetList` の `extensions`）が設定で取り込まないにしたテキストの拡張子を除いた一覧（`getTargetExtensionList`）を渡す。インデックス作成は始めに 1 回だけ設定を読んで `IngestPlanner.Extensions` に入れる
+- 取り込む拡張子の一覧は、既定では上の固定の一覧のすべて。呼び出し元（`createTargetList` の `extensions`）が設定で取り込まないにしたテキストの拡張子を除いた一覧（`getTargetExtensionList`）を渡す。`IngestPlanner.Crawl` が始めに 1 回だけ設定を読んで `IngestPlanner.Extensions` に入れる
 - ファイル名が `~$` で始まるもの（Office のロックファイル）は除外
 - アクセスできないサブフォルダは無視して続行（元ファイルが無くなったかどうかの確認は行わない）
 - ジャンクション・シンボリックリンクは辿らず、取り込まない（`getFilesNoFollow`。リンクの先のフォルダへは降りず、ファイルのリンクも対象にしない）。飛ばしたリンクは 1 件 1 行でログに出す。クロール対象フォルダそのものがリンクのときは、これまでどおりその先の中を読む（中のリンクだけを辿らない）。OneDrive のオンデマンドのように、`ReparsePoint` が付いていてもリンクと確かめられないものは、これまでどおり取り込む

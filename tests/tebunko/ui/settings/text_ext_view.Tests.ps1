@@ -39,6 +39,19 @@ Describe "getTextExtensionRows" -Tag Unit {
     }
 }
 
+Describe "getTextExtensionOptions" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "ふつうの拡張子は 3 つ（既定のアプリ・メモ帳・取り込まない）"; extension = ".txt"; values = "default,notepad,exclude"; texts = "既定のアプリで開く,メモ帳で開く,取り込まない" }
+        @{ name = "実行・登録になる拡張子は「既定のアプリ」を選べない"; extension = ".bat"; values = "notepad,exclude"; texts = "メモ帳で開く,取り込まない" }
+        @{ name = "メモ帳で開く 15 個の 1 つ（.py）も同じ"; extension = ".py"; values = "notepad,exclude"; texts = "メモ帳で開く,取り込まない" }
+    ) {
+        param ($name, $extension, $values, $texts)
+        $options = @(getTextExtensionOptions $extension)
+        (($options | ForEach-Object { $_.Value }) -join ",") | Should -Be $values
+        (($options | ForEach-Object { $_.Text }) -join ",") | Should -Be $texts
+    }
+}
+
 Describe "convertTextExtensionRows" -Tag Unit {
     It "選んだ行から設定の 2 つの配列を作る。実行・登録になる拡張子の「メモ帳」は Notepad に書かない" {
         $rows = @(
