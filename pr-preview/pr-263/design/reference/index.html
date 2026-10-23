@@ -4168,7 +4168,7 @@
 <ul>
 <li><a href="settings/">部品ごとの関数（設定・ファイル）</a>（設定ファイル・ワークスペース・ファイルとフォルダの操作）</li>
 <li><a href="indexer/">部品ごとの関数（インデックス作成）</a>（取り込み一覧・状態ファイル・取り込み直すかの判断・インデックス名とインデックスの管理）</li>
-<li><a href="tsv/">部品ごとの関数（TSV と本文インデックス）</a>（インデックスの TSV の名前・作成・配置、本文インデックスの形式・読み書き、テキストファイルの読み取り。fshared/core/fs.ps1f・<code>text.ps1</code>・<code>text_file.ps1</code>、<code>tebunko/index/</code>）</li>
+<li><a href="tsv/">部品ごとの関数（TSV と本文インデックス）</a>（インデックスの TSV の名前・作成・配置、本文インデックスの形式・読み書き、テキストファイルの読み取り。<code>shared/core/fs.ps1</code>・<code>text.ps1</code>・<code>text_file.ps1</code>、<code>tebunko/index/</code>）</li>
 <li><a href="search/">部品ごとの関数（検索・スレッド・元のファイル・画面）</a>（検索、スレッドとプール、検索結果から元のファイルを特定する処理、画面が使う集計・設定・Office プロセスの関数。<code>tebunko/search/</code>）</li>
 </ul>
 <pre class="mermaid"><code>flowchart LR
@@ -4239,7 +4239,7 @@
 </tr>
 <tr>
 <td><code>tebunko/indexer/indexer_plan.ps1</code></td>
-<td><code>findTargetFiles</code> / <code>createTargetList</code> / <code>selectOnlyNames</code>（選んだインデックス名を、更新できるものとできないものに分ける）</td>
+<td><code>findTargetFiles</code>（<code>-TopOnly</code> で直下だけ） / <code>createTargetList</code> / <code>selectOnlyNames</code>（選んだインデックス名を、更新できるものとできないものに分ける）</td>
 <td><a href="../indexing/target-decision/#取り込み対象の決定createtargetlist">取り込み対象の決定</a>、<a href="../indexing/flow/">インデックス作成のメインフロー</a></td>
 </tr>
 <tr>
