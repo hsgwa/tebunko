@@ -214,7 +214,29 @@ Describe "getResultItems" -Tag Unit {
     }
 }
 
+Describe "getGroupDisplayCount" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "ヒットを持たなければ、作ってある行すべて"; shown = 7; hits = 0; limit = 0; expected = 7 }
+        @{ name = "上限を超えるファイルは、全件の行を作ってあっても上限まで"; shown = 5000; hits = 5000; limit = 0; expected = 1000 }
+        @{ name = "続きを出したあとは、増えた上限まで"; shown = 5000; hits = 5000; limit = 2000; expected = 2000 }
+        @{ name = "作ってある行が上限より少なければ、その数"; shown = 300; hits = 5000; limit = 0; expected = 300 }
+    ) {
+        param ($name, $shown, $hits, $limit, $expected)
+        getGroupDisplayCount $shown $hits $limit | Should -Be $expected
+    }
+}
+
 Describe "getResultItems（続きの行）" -Tag Unit {
+    It "全件の行を作ってあっても、上限までの行だけ並べる" {
+        $rows = 1..5 | ForEach-Object { newTestRow $_ "a$_" }
+        $a = newTestGroup 1 $rows $true
+        $a | Add-Member -NotePropertyName Hits -NotePropertyValue (1..2000)
+        $a | Add-Member -NotePropertyName RowLimit -NotePropertyValue 3
+        $items = getResultItems @($a)
+        $items.Count | Should -Be 4
+        $items[3].Line | Should -Be "a3"
+    }
+
     It "開いているファイルだけ、行の末尾に続きの行を並べる" {
         $a = newTestGroup 1 @((newTestRow 1 "a1")) $true
         $a | Add-Member -NotePropertyName MoreRow -NotePropertyValue "続き A"

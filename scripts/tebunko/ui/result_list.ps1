@@ -188,7 +188,7 @@ function updateMoreRow {
         [FileGroup]$group
     )
 
-    $remaining = $group.Hits.Count - $group.Rows.Count
+    $remaining = $group.Hits.Count - (getGroupRowTarget $group.Hits.Count $group.RowLimit)
     if ($group.IsExpanded -and $remaining -gt 0 -and $group.ShownCount -gt 0) {
         if ($null -eq $group.MoreRow) {
             $group.MoreRow = [MoreRowsItem]::new()
@@ -228,7 +228,7 @@ function flushResults {
             $group.InView = $true
             $group.DisplayedCount = 0
         }
-        if ($group.IsExpanded -and ($group.DisplayedCount -lt $group.ShownRows.Count -or $group.Hits.Count -gt $group.Rows.Count)) {
+        if ($group.IsExpanded -and ($group.DisplayedCount -lt (getGroupDisplayCount $group.ShownRows.Count $group.Hits.Count $group.RowLimit) -or $group.MoreInView -or $group.Hits.Count -gt (getGroupRowTarget $group.Hits.Count $group.RowLimit))) {
             insertGroupRows $group
         }
     }
@@ -245,11 +245,12 @@ function insertGroupRows {
     )
 
     $index = $script:resultItems.IndexOf($group) + 1 + $group.DisplayedCount
-    for ($i = $group.DisplayedCount; $i -lt $group.ShownRows.Count; $i++) {
+    $end = getGroupDisplayCount $group.ShownRows.Count $group.Hits.Count $group.RowLimit
+    for ($i = $group.DisplayedCount; $i -lt $end; $i++) {
         $script:resultItems.Insert($index, $group.ShownRows[$i])
         $index++
     }
-    $group.DisplayedCount = $group.ShownRows.Count
+    $group.DisplayedCount = $end
     updateMoreRow $group
     if ($null -ne $group.MoreRow -and !$group.MoreInView) {
         $script:resultItems.Insert($index, $group.MoreRow)
@@ -273,7 +274,7 @@ function setResultItems {
         if ($item -is [FileGroup]) {
             $item.InView = $true
             if ($item.IsExpanded) {
-                $item.DisplayedCount = $item.ShownRows.Count
+                $item.DisplayedCount = getGroupDisplayCount $item.ShownRows.Count $item.Hits.Count $item.RowLimit
             }
         } elseif ($item -is [MoreRowsItem]) {
             $item.Group.MoreInView = $true
@@ -321,7 +322,7 @@ function toggleFileGroup {
     } else {
         $group.SetExpanded($true)
         ensureDisplayRows $group
-        if ($group.ShownRows.Count -gt ${rebuildThreshold}) {
+        if ((getGroupDisplayCount $group.ShownRows.Count $group.Hits.Count $group.RowLimit) -gt ${rebuildThreshold}) {
             rebuildResults
             return
         }
@@ -342,13 +343,14 @@ function showMoreGroupRows {
     if (!$group.InView -or !$group.IsExpanded) {
         return
     }
-    if ($group.ShownRows.Count - $first -gt ${rebuildThreshold}) {
+    $end = getGroupDisplayCount $group.ShownRows.Count $group.Hits.Count $group.RowLimit
+    if ($end - $first -gt ${rebuildThreshold}) {
         rebuildResults
     } else {
         insertGroupRows $group
         updateResultPaneHeight $script:resultItems.Count
     }
-    if ($first -lt $group.ShownRows.Count) {
+    if ($first -lt $end) {
         $ui.ResultGrid.ScrollIntoView($group.ShownRows[$first])
     }
 }

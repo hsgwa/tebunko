@@ -979,6 +979,68 @@ Describe "1 ファイルのヒットが多いとき" -Tag Unit {
         $ui.ResultGrid.SelectedItems = @($script:big)
         (getSelectedRows).Count | Should -Be 5000
     }
+
+    It "全件の行を作った（コピー・並べ替えての出力）あとも、表に出す行は上限と続きの行のまま" {
+        $ui.ResultGrid.SelectedItems = @($script:big)
+        (getSelectedRows).Count | Should -Be 5000
+        $script:big.Rows.Count | Should -Be 5000
+
+        toggleFileGroup $script:big
+        $script:resultItems.Count | Should -Be 1002
+        $script:resultItems[1001].Text | Should -Be "続きの 1,000 件を表示（残り 4,000 件）"
+
+        showMoreGroupRows $script:big
+        $script:resultItems.Count | Should -Be 2002
+        $script:resultItems[2001].Text | Should -Be "続きの 1,000 件を表示（残り 3,000 件）"
+
+        $column = newSortColumn "LineNumber"
+        $ui.ResultGrid.Columns.Add($column)
+        sortResults $column
+        $script:resultItems.Count | Should -Be 2002
+        @($script:big.Rows[0..2] | ForEach-Object { $_.LineNumber }) -join "," | Should -Be "5000,4999,4998"
+    }
+
+    It "開いたあとにコピーしても、続きの行の残りの件数は変わらない" {
+        toggleFileGroup $script:big
+        $ui.ResultGrid.SelectedItems = @($script:big)
+        (getSelectedRows).Count | Should -Be 5000
+
+        updateMoreRow $script:big
+        $script:big.MoreRow.Text | Should -Be "続きの 1,000 件を表示（残り 4,000 件）"
+        $script:resultItems.Count | Should -Be 1002
+    }
+
+    It "検索中に、開いているファイルにヒットが届くと、続きの行の残りの件数を更新する" {
+        toggleFileGroup $script:big
+        foreach ($n in 1..10) {
+            [void](addHit "多.txt" "本文" "見積 追加$n" (6000 + $n))
+        }
+
+        flushResults
+
+        $script:big.Rows.Count | Should -Be 1000
+        $script:resultItems.Count | Should -Be 1002
+        $script:resultItems[1001].Text | Should -Be "続きの 1,000 件を表示（残り 4,010 件）"
+        $script:big.ShownCount | Should -Be 5010
+    }
+
+    It "最後の続きが少ないとき（200 件以下）は、表に 1 件ずつ足し、続きの行が消える" {
+        foreach ($n in 1..1150) {
+            $script:mid = addHit "中.txt" "本文" "見積 $n" $n
+        }
+        flushResults
+        toggleFileGroup $script:mid
+        $script:mid.Rows.Count | Should -Be 1000
+        $before = $script:resultItems.Count
+
+        showMoreGroupRows $script:mid
+
+        $script:mid.Rows.Count | Should -Be 1150
+        $script:resultItems.Count | Should -Be ($before + 150 - 1)
+        $null -eq $script:mid.MoreRow | Should -Be $true
+        $script:mid.MoreInView | Should -Be $false
+        ($script:resultItems[$script:resultItems.Count - 1] -is [HitRow]) | Should -Be $true
+    }
 }
 
 Describe "getExportHits" -Tag Unit {

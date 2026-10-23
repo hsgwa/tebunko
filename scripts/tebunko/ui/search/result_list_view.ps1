@@ -216,6 +216,21 @@ function getGroupRowTarget {
     return [Math]::Min($hitCount, $limit)
 }
 
+function getGroupDisplayCount {
+    # 開いたファイルの下に表に出す行の数。作ってある行（shownCount。出力・コピーで全件を作ることがある）のうち、
+    # 先頭から getGroupRowTarget まで。ヒットを持たない（hitCount が 0）ときは、作ってある行すべて
+    param (
+        [int]$shownCount,
+        [int]$hitCount,
+        [int]$rowLimit = 0
+    )
+
+    if ($hitCount -le 0) {
+        return $shownCount
+    }
+    return [Math]::Min($shownCount, (getGroupRowTarget $hitCount $rowLimit))
+}
+
 function getNextRowLimit {
     # 「続き」を出したあとの、行を作る件数の上限（今の上限 rowLimit に groupRowLimit を足す。0 は既定の groupRowLimit）
     param (
@@ -270,7 +285,7 @@ function getResultItems {
         }
         $items.Add($group)
         if ($group.IsExpanded) {
-            $items.AddRange($group.ShownRows)
+            $items.AddRange($group.ShownRows.GetRange(0, (getGroupDisplayCount $group.ShownRows.Count $group.Hits.Count $group.RowLimit)))
             if ($null -ne $group.MoreRow) {
                 $items.Add($group.MoreRow)
             }
@@ -307,7 +322,8 @@ function sortFileGroups {
     # 列見出しのクリックでの並べ替え。各ファイルの中の行を property の順に並べ替え、
     # ファイルの順は、並べ替えた後の先頭の行の順にする。同じ値のときは見つかった順（Order）。
     # ヒットが limit を超えるファイルは、全件の行を作らない（先頭の分しか無い）ので並べ替えず、見つかった順のままにする
-    # （作った行だけを並べ替えると、先頭の分の中だけの順になり誤解を招く）。ファイルの順は、その先頭の行（見つかった順の先頭）の値で決める
+    # （作った行だけを並べ替えると、先頭の分の中だけの順になり誤解を招く）。ファイルの順は、その先頭の行（見つかった順の先頭）の値で決める。
+    # 行はいつも見つかった順に作る（ヒットが limit 以下のうちに並べ替えた行が先頭に残っているときだけ、その先頭の分を見つかった順に戻す）
     param (
         $groups,
         [string]$property,
@@ -321,7 +337,20 @@ function sortFileGroups {
     $byOrder = @{ Expression = "Order"; Descending = $false }
     $rowKeys = if ($property -eq "Location") { @($byValue, @{ Expression = "LineNumber"; Descending = $descending }, $byOrder) } else { @($byValue, $byOrder) }
     foreach ($group in $groups) {
-        $sorted = $(if ($group.Hits.Count -gt $limit) { @($group.Rows | Sort-Object $byOrder) } else { @($group.Rows | Sort-Object $rowKeys) })
+        if ($group.Hits.Count -gt $limit) {
+            $head = [Math]::Min($group.Rows.Count, $limit)
+            $inOrder = $true
+            for ($i = 0; $i -lt $head; $i++) {
+                if ($group.Rows[$i].Order -ne $i) { $inOrder = $false; break }
+            }
+            if (!$inOrder) {
+                $first = @($group.Rows.GetRange(0, $head) | Sort-Object $byOrder)
+                $group.Rows.RemoveRange(0, $head)
+                $group.Rows.InsertRange(0, [object[]]$first)
+            }
+            continue
+        }
+        $sorted = @($group.Rows | Sort-Object $rowKeys)
         $group.Rows.Clear()
         $group.Rows.AddRange([object[]]$sorted)
     }

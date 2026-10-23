@@ -1,4 +1,4 @@
-﻿# 現行の画面を、状態ごとに全部（40 枚）自動で撮る道具。GUI を直す前の記録として docs\images\screens\ に置き、
+﻿# 現行の画面を、状態ごとに全部（41 枚）自動で撮る道具。GUI を直す前の記録として docs\images\screens\ に置き、
 # docs\design\gui\screens\ の写真として載せる。詳しい経緯・撮る状態の一覧・撮らないものは docs\design\gui\screens\index.md。
 #
 #   .\tools\capture_screens.ps1                 すべての状態を撮り直す
@@ -545,6 +545,16 @@ function captureSearchScene {
             @(getGuiGridRows $grid | Where-Object { $_.Current.Name -like "続きの 1,000 件を表示*" }).Count -gt 0
         } | Out-Null
         captureGuiState -S $S -Id "search-tab/many-hits" -Ids $Ids -OutDir $OutDir `
+            -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
+
+        setGuiStep $S "列見出しで並べ替える（ヒットが多いファイルは並べ替えない注記）"
+        invokeGui $S (waitGui $S "列見出し「該当行」" ${guiDefaultTimeout} { findGui $S.Window -Name "該当行" -Type HeaderItem }) "［該当行］の列見出し"
+        waitGui $S "注記が出る" ${guiDefaultTimeout} {
+            $grid = findGui $S.Window -Id "ResultGrid"
+            $grid.GetCurrentPattern([Windows.Automation.ScrollPattern]::Pattern).SetScrollPercent(-1, 100)
+            @(getGuiGridRows $grid | Where-Object { $_.Current.Name -like "続きの 1,000 件を表示*" }).Count -gt 0
+        } | Out-Null
+        captureGuiState -S $S -Id "search-tab/many-hits-sorted" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
 
         setGuiStep $S "検索して結果を選ぶ"
