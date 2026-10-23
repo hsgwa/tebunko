@@ -13,7 +13,7 @@ function testStatusRowFailed {
 
 function getIndexFileEntries {
     # あるインデックスに取り込んだファイルの一覧（取り込み一覧のそのインデックスの行）を、画面の表に出す形で返す。画面の裏の仕事で動く（数万行を読むため）。
-    # 戻り値: @{ Rows（@{ RelPath（インデックス名を除いたフォルダからの相対パス）; UpdatedText; Kind（Done / Failed / Pending）; StateText; Reason; SourcePath（画面が開くときに入れる）} の配列。相対パスの順）; Done; Failed; Pending }
+    # 戻り値: @{ Rows（@{ RelPath（インデックス名を除いたフォルダからの相対パス）; UpdatedText; Kind（Done / Failed / Pending）; StateText; Reason; SourcePath（取り込み一覧に記録した元のフォルダと相対パスから組んだ元のファイルのパス。フォルダの記録が無ければ空）} の配列。相対パスの順）; Done; Failed; Pending }
     # 失敗の数え方は testStatusRowFailed と同じ。状態の文言は labels（Kind → 文言。判断層の getIndexFileStateLabels）から取る
     param (
         [string]$indexName,
@@ -28,7 +28,15 @@ function getIndexFileEntries {
     $prefix = $indexName + "\"
     $items = New-Object System.Collections.Generic.List[object]
     $keys = New-Object System.Collections.Generic.List[string]
-    foreach ($row in (readStatusFile $path).Rows.Values) {
+    $status = readStatusFile $path
+    $base = ""
+    foreach ($folder in $status.Folders) {
+        if ([string]::Equals([string]$folder.Name, $indexName, [System.StringComparison]::OrdinalIgnoreCase)) {
+            $base = ([string]$folder.Path).TrimEnd([char]92)
+            break
+        }
+    }
+    foreach ($row in $status.Rows.Values) {
         $relPath = [string]$row.相対パス
         if (!$relPath.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
             continue
@@ -38,7 +46,7 @@ function getIndexFileEntries {
         $rest = $relPath.Substring($prefix.Length)
         $keys.Add($rest)
         $items.Add([pscustomobject]@{
-            RelPath = $rest; UpdatedText = [string]$row.更新日時; Kind = $kind; StateText = [string]$labels[$kind]; SourcePath = ""
+            RelPath = $rest; UpdatedText = [string]$row.更新日時; Kind = $kind; StateText = [string]$labels[$kind]; SourcePath = $(if ($base) { $base + "\" + $rest } else { "" })
             Reason = $(if ($kind -eq "Failed") { [string]$row.エラー } else { "" })
         })
     }

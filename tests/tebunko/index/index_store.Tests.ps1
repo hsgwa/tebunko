@@ -432,6 +432,14 @@ Describe "getIndexFileEntries（インデックスに取り込んだファイル
         $result.Rows[1].StateText | Should -Be "取り込み済み"
         $result.Rows[1].Reason | Should -Be ""
         $result.Rows[3].Kind | Should -Be "Failed"
+        # 元のファイルのパスは、取り込み一覧に記録した元のフォルダ（営業 → C:\data）と相対パスから組む
+        $result.Rows[1].SourcePath | Should -Be "C:\data\b\z.xlsx"
+    }
+
+    It "元のフォルダの記録が無いインデックスは、元のファイルのパスを空にする" {
+        $path = "$TestDrive\nofolder.tsv"
+        writeStatusFile @() @((newStatusRow "営業\a.docx" "2025/01/11 08:00:00" "1" $stateDone "1" "2026/09/19 11:00:00")) $path
+        (getIndexFileEntries -indexName "営業" -labels $labels -path $path).Rows[0].SourcePath | Should -Be ""
     }
 
     It "取り込み一覧が無い・名前が空のときは空の一覧" {

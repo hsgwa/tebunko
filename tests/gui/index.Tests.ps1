@@ -189,7 +189,7 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             setGuiStep $S "［ファイルの一覧］"
             clickGui $S $S.Window "IndexFilesButton" "詳細の［ファイルの一覧］"
             waitGui $S "取り込んだファイルが並ぶ" ${guiDefaultTimeout} {
-                (getGuiText (findGui $S.Window -Id "IndexFilesHeading")) -like "取り込んだファイル * 件*"
+                (getGuiText (findGui $S.Window -Id "IndexFilesHeading")) -like "ファイル * 件*"
             } | Out-Null
             $fileRows = @(getGuiGridRows (findGui $S.Window -Id "IndexFilesGrid"))
             $fileRows.Count | Should -BeGreaterThan 1

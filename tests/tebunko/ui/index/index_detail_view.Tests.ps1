@@ -277,11 +277,13 @@ Describe "getIndexFileStateLabels / getIndexFilesHeading（取り込んだファ
     }
 
     It "<label>" -TestCases @(
-        @{ label = "0 件"; total = 0; failed = 0; expected = "まだ取り込んだファイルはありません" }
-        @{ label = "失敗なし"; total = 1234; failed = 0; expected = "取り込んだファイル 1,234 件" }
-        @{ label = "失敗あり"; total = 1234; failed = 5; expected = "取り込んだファイル 1,234 件（うち失敗 5 件）" }
+        @{ label = "0 件"; total = 0; failed = 0; pending = 0; expected = "まだ取り込んだファイルはありません" }
+        @{ label = "失敗・未取り込みなし"; total = 1234; failed = 0; pending = 0; expected = "ファイル 1,234 件" }
+        @{ label = "失敗あり"; total = 1234; failed = 5; pending = 0; expected = "ファイル 1,234 件（うち失敗 5 件）" }
+        @{ label = "未取り込みあり"; total = 1234; failed = 0; pending = 7; expected = "ファイル 1,234 件（うち未取り込み 7 件）" }
+        @{ label = "失敗も未取り込みもあり"; total = 1234; failed = 5; pending = 7; expected = "ファイル 1,234 件（うち失敗 5 件・未取り込み 7 件）" }
     ) {
-        param ($label, $total, $failed, $expected)
-        getIndexFilesHeading $total $failed | Should -Be $expected
+        param ($label, $total, $failed, $pending, $expected)
+        getIndexFilesHeading $total $failed $pending | Should -Be $expected
     }
 }

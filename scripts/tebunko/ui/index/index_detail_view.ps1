@@ -21,15 +21,19 @@ function getIndexFileStateLabels {
 }
 
 function getIndexFilesHeading {
-    # 取り込んだファイルの一覧の見出し。total が 0 のときは「まだ取り込んだファイルはありません」
+    # 取り込んだファイルの一覧の見出し（total は一覧の行の数。済・失敗・未取り込みの全部）。total が 0 のときは「まだ取り込んだファイルはありません」
     param (
         [int]$total,
-        [int]$failed = 0
+        [int]$failed = 0,
+        [int]$pending = 0
     )
 
     if ($total -le 0) { return "まだ取り込んだファイルはありません" }
-    $text = "取り込んだファイル {0:#,0} 件" -f $total
-    if ($failed -gt 0) { $text += "（うち失敗 {0:#,0} 件）" -f $failed }
+    $text = "ファイル {0:#,0} 件" -f $total
+    $notes = New-Object 'System.Collections.Generic.List[string]'
+    if ($failed -gt 0) { $notes.Add(("失敗 {0:#,0} 件" -f $failed)) }
+    if ($pending -gt 0) { $notes.Add(("未取り込み {0:#,0} 件" -f $pending)) }
+    if ($notes.Count -gt 0) { $text += "（うち" + ($notes -join "・") + "）" }
     return $text
 }
 

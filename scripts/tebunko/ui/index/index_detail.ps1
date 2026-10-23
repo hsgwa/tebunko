@@ -294,7 +294,6 @@ function updateFailedList {
     $ui.FailedPanel.Visibility = if ($rows.Count -gt 0) { "Visible" } else { "Collapsed" }
 }
 
-$script:indexFilesFolderPath = ""   # 一覧を開いているインデックスの元のフォルダ
 $script:indexFilesName = ""      # 取り込んだファイルの一覧を開いているインデックスの名前（空は閉じている）
 $script:indexFilesRequest = [ref]0   # 一覧を読む依頼の番号（古い依頼の結果は捨てる。[ref] のまま閉じ込める）
 
@@ -314,9 +313,7 @@ function toggleIndexFiles {
         return
     }
     $name = [string]$item.Name
-    $folderPath = [string]$item.Path
     $script:indexFilesName = $name
-    $script:indexFilesFolderPath = $folderPath
     $requestBox = $script:indexFilesRequest
     $requestBox.Value++
     $requestId = $requestBox.Value
@@ -342,19 +339,14 @@ function toggleIndexFiles {
             return
         }
         $entries = $output[0]
-        $heading.Text = & $makeHeading ($entries.Rows.Count) ($entries.Failed)
+        $heading.Text = & $makeHeading ($entries.Rows.Count) ($entries.Failed) ($entries.Pending)
         $grid.ItemsSource = $entries.Rows
     }.GetNewClosure() (getWorkspaceJobQueue $workspace.StatusFile)
 }
 
 function openIndexFileFolder {
-    # 一覧で選んだファイルの場所を開く。元のファイルのパスは、開くときに、一覧を開いているインデックスのフォルダと相対パスから組む
-    $row = $ui.IndexFilesGrid.SelectedItem
-    if ($null -eq $row -or !$script:indexFilesFolderPath) {
-        return
-    }
-    $row.SourcePath = Join-Path $script:indexFilesFolderPath $row.RelPath
-    openListedFileFolder $row
+    # 一覧で選んだファイルの場所を開く（元のファイルのパスは、一覧を読んだときに、取り込み一覧に記録した元のフォルダから組んである。失敗の一覧と同じ）
+    openListedFileFolder $ui.IndexFilesGrid.SelectedItem
 }
 
 $script:failedFileRequest = [ref]0  # 失敗したファイルを確かめる依頼の番号（find SourceFile の $script:openSourceRequest と同じ理由で [ref] のまま閉じ込める）
