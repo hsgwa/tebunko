@@ -4653,7 +4653,7 @@
 <tr>
 <td><code>work\tmp\&lt;PC の鍵&gt;\search_overflow\&lt;PID&gt;\export\body.tmp</code></td>
 <td>書く・消す</td>
-<td>［保存 ▼］の CSV・TSV で、結果の本文を先に書く一時ファイル（出力の終わり・中止・失敗のときに消す。溢れの根が使えないときは保存先の隣の <code>&lt;保存先&gt;.part</code>）。続けて <code>&lt;保存先&gt;.new</code> に書き、書き終えてから保存先と置き換える（途中で止まっても前のファイルを残す）。Excel ブックは本文の一時ファイルを使わず、<code>&lt;保存先&gt;.new</code> に直接書く</td>
+<td>［出力 ▼］の CSV・TSV で、結果の本文を先に書く一時ファイル（出力の終わり・中止・失敗のときに消す。溢れの根が使えないときは出力先の隣の <code>&lt;出力先&gt;.part</code>）。続けて <code>&lt;出力先&gt;.new</code> に書き、書き終えてから出力先と置き換える（途中で止まっても前のファイルを残す）。Excel ブックは本文の一時ファイルを使わず、<code>&lt;出力先&gt;.new</code> に直接書く</td>
 </tr>
 <tr>
 <td><code>setting.config</code></td>
@@ -4812,9 +4812,9 @@
 <td><code>gui_error_log.txt</code> の前回の分（移すたびに上書き）</td>
 </tr>
 <tr>
-<td>利用者が選んだ保存先（<code>.xlsx</code>・<code>.csv</code>・<code>.tsv</code>）</td>
+<td>利用者が選んだ出力先（<code>.xlsx</code>・<code>.csv</code>・<code>.tsv</code>）</td>
 <td>書く</td>
-<td>検索結果の出力（<code>&lt;保存先&gt;.new</code> に書いてから置き換える）</td>
+<td>検索結果の出力（<code>&lt;出力先&gt;.new</code> に書いてから置き換える）</td>
 </tr>
 <tr>
 <td><code>work/indexing.lock</code></td>
@@ -5347,7 +5347,7 @@
 <td>インデックス作成の間だけある。強制終了で残っても、誰も開いていなければ次の起動を止めない</td>
 </tr>
 <tr>
-<td>利用者が選んだ保存先</td>
+<td>利用者が選んだ出力先</td>
 <td>出力</td>
 <td>画面</td>
 <td>利用者</td>

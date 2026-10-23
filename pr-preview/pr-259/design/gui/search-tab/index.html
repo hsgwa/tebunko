@@ -3118,10 +3118,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#結果をファイルに保存" class="md-nav__link">
+  <a href="#結果をファイルに出力" class="md-nav__link">
     <span class="md-ellipsis">
       
-        結果をファイルに保存
+        結果をファイルに出力
       
     </span>
   </a>
@@ -4289,10 +4289,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#結果をファイルに保存" class="md-nav__link">
+  <a href="#結果をファイルに出力" class="md-nav__link">
     <span class="md-ellipsis">
       
-        結果をファイルに保存
+        結果をファイルに出力
       
     </span>
   </a>
@@ -4380,8 +4380,8 @@
 </tr>
 <tr>
 <td>10</td>
-<td>［保存 ▼］</td>
-<td>表示中の結果を Excel ブック・CSV・TSV のファイルに保存する。本体を押すと最後に選んだ種類で保存先を尋ね、▼ のメニューから種類を選べる。書けたら保存したフォルダをエクスプローラーで開く（<a href="#結果をファイルに保存">結果をファイルに保存</a>）</td>
+<td>［出力 ▼］</td>
+<td>表示中の結果を Excel ブック・CSV・TSV のファイルに出力する。本体を押すと最後に選んだ種類で出力先を尋ね、▼ のメニューから種類を選べる。書けたら出力したフォルダをエクスプローラーで開く（<a href="#結果をファイルに出力">結果をファイルに出力</a>）</td>
 </tr>
 <tr>
 <td>11</td>
@@ -4584,17 +4584,17 @@
 <li>結果の表とプレビューの境目は、結果が少なくて表が内容の高さに収まるとき（見出しと行が 40 項目以内）は、表を内容の高さまで縮めてプレビューを広げる（<code>getPreviewRowHeight</code>・<code>updateResultPaneHeight</code>）。表がいっぱいになるときと、行がまだ無いとき（起動直後・検索前・0 件）は、プレビューを既定の高さ（180。最小 120）にして、結果の側を大きく保つ。高さは保存しない（起動のたびに既定から始まる）。境目をドラッグしている間は、ドラッグを始めた時点から高さを書き戻さない（1 回目のドラッグでもマウスに付いて動く）。動かして離したら、その高さを優先して自動では変えない（クリックしただけでは止めない）。</li>
 <li>新しく検索すると絞り込みは解除する。</li>
 </ul>
-<h2 id="結果をファイルに保存">結果をファイルに保存<a class="headerlink" href="#結果をファイルに保存" title="Permanent link">&para;</a></h2>
+<h2 id="結果をファイルに出力">結果をファイルに出力<a class="headerlink" href="#結果をファイルに出力" title="Permanent link">&para;</a></h2>
 <ul>
-<li>ボタンは分割ボタン［保存 ▼］。本体を押すと、最後に選んだ種類（初めは Excel ブック）で保存先を尋ねる。▼ のメニューには <code>Excel ブック (.xlsx)</code>・<code>CSV (.csv)</code>・<code>TSV (.tsv)</code> があり、書けた種類に印が付く（画面を開くたびに Excel ブックに戻る。<code>setting.config</code> には残さない）。検索する前に▼を押しても、ダイアログは開かず、<code>先に検索してください。</code> と表示する。</li>
-<li>保存先は保存のダイアログ（<code>selectSaveFile</code>）で選ぶ。既定の名前は <code>検索結果_&lt;ワード&gt;_&lt;日時&gt;</code>。ファイルの種類の既定は選んだ種類。書く種類は、名前の拡張子（<code>.xlsx</code>・<code>.csv</code>・<code>.tsv</code>）が先で、無ければ「ファイルの種類」の拡張子を付け足す（<code>resolveExportTarget</code>）。クロール対象のフォルダ・インデックスのフォルダの中は選べない（ダイアログの確定で、文字列だけで判定する）。</li>
+<li>ボタンは分割ボタン［出力 ▼］。本体を押すと、最後に選んだ種類（初めは Excel ブック）で出力先を尋ねる。▼ のメニューには <code>Excel ブック (.xlsx)</code>・<code>CSV (.csv)</code>・<code>TSV (.tsv)</code> があり、書けた種類に印が付く（画面を開くたびに Excel ブックに戻る。<code>setting.config</code> には残さない）。検索する前に▼を押しても、ダイアログは開かず、<code>先に検索してください。</code> と表示する。</li>
+<li>出力先は出力先のダイアログ（<code>selectSaveFile</code>）で選ぶ。既定の名前は <code>検索結果_&lt;ワード&gt;_&lt;日時&gt;</code>。ファイルの種類の既定は選んだ種類。書く種類は、名前の拡張子（<code>.xlsx</code>・<code>.csv</code>・<code>.tsv</code>）が先で、無ければ「ファイルの種類」の拡張子を付け足す（<code>resolveExportTarget</code>）。クロール対象のフォルダ・インデックスのフォルダの中は選べない（ダイアログの確定で、文字列だけで判定する）。</li>
 <li>拡張子を付け足した名前が既にあるときは、司令のスレッドが <code>Exists</code> を返し、<code>&lt;名前&gt; は既にあります。上書きしますか？</code> と尋ねる。はいなら上書きし、いいえなら <code>出力をやめました。</code> で止める（ダイアログには戻らない）。名前を打ちきった場合の上書きの確認は、ダイアログが済ませている。</li>
 <li>表示中の結果（絞り込み後。閉じているファイルの行も含む）を書く。件数の上限を超えて表に入らなかった分（<a href="#検索の実行">検索の実行</a>で一時ファイルに溜めた溢れ）も書く。表の分に続けて溢れを検索の順に書き、絞り込み中は溢れの分も同じ絞り込み（<code>testHitFilter</code>）にかける。書く処理は検索の司令のスレッド（<code>SearchService.Export</code>）が行い、画面のスレッドは 200 ミリ秒ごとに進み具合を見るだけにする（<code>tebunko/search/search_export.ps1</code>）。</li>
 <li>溢れを書いた出力では、並べ替えは当てず、検索の順で書く（並べ替え中なら、ステータスにそう添える）。</li>
 <li>書いている間、ボタンの文字は <code>出力を中止</code> になり、▼ は押せなくなる。押すと中止する。中止・失敗のときは前のファイルをそのまま残す（一時ファイルに書き終えてから置き換える）。</li>
-<li>検索の途中で押したときは、保存先を決めたうえで、検索が終わってから書く（もう一度押すと取り消す）。新しく検索したときと、検索結果を消したときは、出力も止める。</li>
+<li>検索の途中で押したときは、出力先を決めたうえで、検索が終わってから書く（もう一度押すと取り消す）。新しく検索したときと、検索結果を消したときは、出力も止める。</li>
 <li>溢れが使えないとき（総数を数える時間切れ・溢れを書けなかった・検索を途中で止めた）は、表に出ている分だけを書き、ステータスにその理由を添える。</li>
-<li>形式は <a href="../../search/output/">検索結果ファイル</a> のとおり。Excel ブックは 5 列（ファイル名・場所・種別・行・該当行）、CSV・TSV は該当行をタブで列に分ける。Excel ブックは 1 シート 1,048,576 行（見出しを含む）までで、超えた分は書かず、ステータスに件数を添える。セルは 32,767 文字までで、超えた分は切る。出力は <code>tebunko/search/search_export.ps1</code> の <code>invokeSearchExport</code> が司令のスレッドで行う（Excel ブックは <code>shared/office/xlsx_writer.ps1</code>、CSV・TSV は <code>shared/core/csv_writer.ps1</code>。1 行の組み立ては <code>search_run.ps1</code> の <code>toResultCells</code>。<a href="../implementation/#実装構成">実装構成</a>）。書き終えたら、保存したフォルダをエクスプローラーで開く（<code>showInExplorer</code>。Excel などでファイルは開かない）。</li>
+<li>形式は <a href="../../search/output/">検索結果ファイル</a> のとおり。Excel ブックは 5 列（ファイル名・場所・種別・行・該当行）、CSV・TSV は該当行をタブで列に分ける。Excel ブックは 1 シート 1,048,576 行（見出しを含む）までで、超えた分は書かず、ステータスに件数を添える。セルは 32,767 文字までで、超えた分は切る。出力は <code>tebunko/search/search_export.ps1</code> の <code>invokeSearchExport</code> が司令のスレッドで行う（Excel ブックは <code>shared/office/xlsx_writer.ps1</code>、CSV・TSV は <code>shared/core/csv_writer.ps1</code>。1 行の組み立ては <code>search_run.ps1</code> の <code>toResultCells</code>。<a href="../implementation/#実装構成">実装構成</a>）。書き終えたら、出力したフォルダをエクスプローラーで開く（<code>showInExplorer</code>。Excel などでファイルは開かない）。</li>
 <li>絞り込み中は、見出しの件数を表示中の件数とし、ステータスに <code>絞り込み後の K 件を &lt;名前&gt; に出力しました</code> と表示する（U7）。</li>
 <li>書き込めないときは、検索画面の上の橙の帯に出す（閉じられる。<a href="../indexing-run/#帯とステータスバー">帯とステータスバー</a>）。ファイルが開かれているときは <code>&lt;名前&gt; に書き込めません。開いているアプリを閉じてから、もう一度出力してください。</code>、読み取り専用・権限が無いときは <code>&lt;名前&gt; に書き込む権限がありません（読み取り専用など）。&lt;パス&gt; を確かめてから、もう一度出力してください。</code>。</li>
 <li>まだ検索していなければ <code>先に検索してください。</code> と表示する。</li>
