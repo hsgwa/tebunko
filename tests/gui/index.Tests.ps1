@@ -187,6 +187,10 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
 
             # ［ファイルの一覧］: 取り込んだファイルが並び、失敗したものが分かる。［閉じる］で閉じる
             setGuiStep $S "［ファイルの一覧］"
+            # 入口は右の列「インデックス情報」の見出しの右端（見本どおり。窓の右半分にあり、情報の欄に「うち失敗」「うち未取り込み」が出る）
+            $winRect = $S.Window.Current.BoundingRectangle
+            (findGui $S.Window -Id "IndexFilesButton").Current.BoundingRectangle.Left | Should -BeGreaterThan ($winRect.Left + $winRect.Width / 2)
+            (getGuiTexts $S.Window) -join "`n" | Should -BeLike "*うち失敗*うち未取り込み*"
             clickGui $S $S.Window "IndexFilesButton" "詳細の［ファイルの一覧］"
             waitGui $S "取り込んだファイルが並ぶ" ${guiDefaultTimeout} {
                 (getGuiText (findGui $S.Window -Id "IndexFilesHeading")) -like "ファイル * 件*"

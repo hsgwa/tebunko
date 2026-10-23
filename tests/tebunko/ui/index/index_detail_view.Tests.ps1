@@ -55,10 +55,10 @@ Describe "getIndexDetailRowPlan" -Tag Unit {
 Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
     BeforeAll {
         function newDetailItem {
-            param ($name = "営業", $enabled = $true, $fileCount = "1,234", $last = "09/30 10:00", $folderStatus = "フォルダがあります")
+            param ($name = "営業", $enabled = $true, $fileCount = "1,234", $last = "09/30 10:00", $folderStatus = "フォルダがあります", $failed = 2, $pending = 3)
             return @{
                 Name = $name; Path = "C:\共有\営業部"; Enabled = $enabled; FolderStatus = $folderStatus
-                IndexText = "最新"; IndexLevel = "Ok"; IndexSub = ""; FileCountText = $fileCount; LastIngestedText = $last
+                IndexText = "最新"; IndexLevel = "Ok"; IndexSub = ""; FileCountText = $fileCount; LastIngestedText = $last; FailedCount = $failed; PendingCount = $pending
             }
         }
     }
@@ -185,8 +185,10 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         $view.Badge.Level | Should -Be "Ok"
         $view.Updated | Should -Be "最終更新 09/30 10:00"
         $view.Count | Should -Be "1,234 ファイル"
-        ($view.Rows | ForEach-Object { $_.Label }) -join "," | Should -Be "対象ファイル数,最終更新"
+        ($view.Rows | ForEach-Object { $_.Label }) -join "," | Should -Be "対象ファイル数,最終更新,うち失敗,うち未取り込み"
         $view.Rows[0].Value | Should -Be "1,234 ファイル"
+        $view.Rows[2].Value | Should -Be "2 件"
+        $view.Rows[3].Value | Should -Be "3 件"
     }
 
     It "<label>: 出せない値は空にするか、言い換える" -TestCases @(
@@ -206,6 +208,8 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         @{ label = "値が変わると変わる"; changed = @{ fileCount = "99" } }
         @{ label = "日時が変わると変わる"; changed = @{ last = "" } }
         @{ label = "フォルダの状態が変わると変わる"; changed = @{ folderStatus = "" } }
+        @{ label = "失敗の件数が変わると変わる"; changed = @{ failed = 5 } }
+        @{ label = "未取り込みの件数が変わると変わる"; changed = @{ pending = 9 } }
     ) {
         param ($label, $changed)
         $base = (getIndexDetailView @(newDetailItem)).RowsKey
@@ -285,5 +289,18 @@ Describe "getIndexFileStateLabels / getIndexFilesHeading（取り込んだファ
     ) {
         param ($label, $total, $failed, $pending, $expected)
         getIndexFilesHeading $total $failed $pending | Should -Be $expected
+    }
+}
+
+Describe "getIndexDetailInfoRows（インデックス情報の行）" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "取り込んだ件数があれば、失敗・未取り込みの行も出す"; has = $true; labels = "対象ファイル数,最終更新,うち失敗,うち未取り込み" }
+        @{ label = "まだ取り込んでいなければ、2 行だけ"; has = $false; labels = "対象ファイル数,最終更新" }
+    ) {
+        param ($label, $has, $labels)
+        $item = @{ FileCountText = "10"; LastIngestedText = ""; FailedCount = 1; PendingCount = 0 }
+        $rows = getIndexDetailInfoRows $item $has
+        ($rows | ForEach-Object { $_.Label }) -join "," | Should -Be $labels
+        $rows[1].Value | Should -Be "－"
     }
 }

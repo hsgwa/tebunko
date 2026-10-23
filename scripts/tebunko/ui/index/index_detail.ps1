@@ -463,7 +463,7 @@ function updateIndexDetailPanel {
             Name = $item.Name; Path = $item.Path; Enabled = $item.Enabled; FolderStatus = $item.StatusText
             FolderMissing = ($item.StatusChecked -and !$item.FolderExists); FolderChecked = [bool]$item.StatusChecked
             IndexText = $item.IndexText; IndexLevel = $item.IndexLevel; IndexSub = $item.IndexSub; FileCountText = $item.FileCountText
-            LastIngestedText = $item.LastIngestedText
+            LastIngestedText = $item.LastIngestedText; FailedCount = $item.FailedCount; PendingCount = $item.PendingCount
         })
     }
     # 選んだインデックスが変わったら、失敗の一覧もそのインデックスの分に書き直す（変わらないときは置き直さない）

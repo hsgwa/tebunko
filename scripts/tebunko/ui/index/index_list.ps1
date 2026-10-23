@@ -364,6 +364,8 @@ function applyIndexStats {
         }
         if ($null -eq $stat) {
             $item.SetStats("－", "まだ更新していません", "")
+            $item.FailedCount = 0
+            $item.PendingCount = 0
         } else {
             $ingested = [datetime]::MinValue
             $lastText = if ($stat.LastIngested -and [datetime]::TryParseExact($stat.LastIngested, "yyyy/MM/dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$ingested)) {
@@ -371,6 +373,8 @@ function applyIndexStats {
             } else {
                 ""
             }
+            $item.FailedCount = [int]$stat.Failed
+            $item.PendingCount = [int]$stat.Pending
             $item.SetStats(("{0:#,0}" -f $stat.Total), ("更新済み {0:#,0} 件 ・ 未更新 {1:#,0} 件 ・ 失敗 {2:#,0} 件" -f $stat.Done, $stat.Pending, $stat.Failed), $lastText)
         }
         $row = getIndexRowView $stat $indexing $item.Enabled (getIndexingRatio) (testIndexInRound $item) (testIndexExporting $item) $formatEntry

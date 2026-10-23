@@ -37,6 +37,8 @@ class FolderItem : NotifyBase {
     [string]$FileCountText
     [string]$FileCountToolTip
     [string]$LastIngestedText
+    [int]$FailedCount      # 取り込み一覧のそのインデックスの失敗の件数（詳細の「うち失敗」。applyIndexStats が置く）
+    [int]$PendingCount     # 同じく未取り込みの件数（詳細の「うち未取り込み」）
     [bool]$StatusChecked   # フォルダの有無を調べ終えたか（別スレッドで調べる。refreshFolderStatus）
     [bool]$FolderExists    # 調べた結果、フォルダがあったか
     # 一覧の「ステータス」列（本文の取り込みの状態。getIndexRowView）。色は XAML で Level から選ぶ（Ok/Wait/Ng/Run/None）

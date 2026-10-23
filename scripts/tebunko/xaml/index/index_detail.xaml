@@ -110,14 +110,16 @@
                   <TextBlock x:Name="IndexDetailCount" Style="{StaticResource Meta}" Margin="0,2,0,0" />
                 </StackPanel>
               </Border>
-              <!-- 取り込んだファイルの一覧を下に開く／閉じる（index_detail.ps1・toggleIndexFiles） -->
-              <Button x:Name="IndexFilesButton" Content="ファイルの一覧" HorizontalAlignment="Left" MinWidth="96" Margin="0,10,0,0"
-                      AutomationProperties.AutomationId="IndexFilesButton" AutomationProperties.Name="取り込んだファイルの一覧を開く"
-                      ToolTip="このインデックスに取り込んだファイルを一覧で見ます" />
             </StackPanel>
 
             <StackPanel Grid.Column="2" Margin="16,0,0,0">
-              <TextBlock Style="{StaticResource Label.Strong}" Text="インデックス情報" Margin="0,0,0,8" />
+              <DockPanel Margin="0,0,0,8">
+                <!-- 取り込んだファイルの一覧を下に開く（index_detail.ps1・toggleIndexFiles）。見出しの右端に置く -->
+                <Button x:Name="IndexFilesButton" DockPanel.Dock="Right" Content="ファイルの一覧" MinWidth="96"
+                        AutomationProperties.AutomationId="IndexFilesButton" AutomationProperties.Name="取り込んだファイルの一覧を開く"
+                        ToolTip="このインデックスに取り込んだファイルを一覧で見ます" />
+                <TextBlock Style="{StaticResource Label.Strong}" Text="インデックス情報" VerticalAlignment="Center" />
+              </DockPanel>
               <!-- 項目と値の表（見出しの行つき）。値は右に寄せ、1 行で、あふれたら「…」 -->
               <Border BorderBrush="{StaticResource Border.Soft}" BorderThickness="1" CornerRadius="6" ClipToBounds="True">
                 <StackPanel>
