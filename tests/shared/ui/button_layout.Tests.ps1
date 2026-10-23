@@ -51,8 +51,7 @@ Describe "ボタンの中身の位置（描いた画素で測る）" -Tag Unit {
         @{ Kind = "主ボタン"; Name = "SearchButton"; File = "search\search_bar.xaml"; Horizontal = "・左右"; CheckX = $true }
         @{ Kind = "メニューを開くボタン（字と▾）"; Name = "ScopeButton"; File = "search\search_bar.xaml"; Horizontal = ""; CheckX = $false }
         @{ Kind = "種類のチップ"; Name = "KindChipExcel"; File = "search\search_bar.xaml"; Horizontal = ""; CheckX = $false }
-        @{ Kind = "分割ボタンの［出力］"; Name = "ExportButton"; File = "search\result_list.xaml"; Horizontal = "・左右"; CheckX = $true }
-        @{ Kind = "分割ボタンの▾"; Name = "ExportMenuButton"; File = "search\result_list.xaml"; Horizontal = "・左右"; CheckX = $true }
+        @{ Kind = "アイコンと字と▾のボタン［出力 ▾］"; Name = "ExportButton"; File = "search\result_list.xaml"; Horizontal = "・左右"; CheckX = $true }
         @{ Kind = "字と▾のボタン"; Name = "ActionsButton"; File = "index\index_list.xaml"; Horizontal = "・左右"; CheckX = $true }
         @{ Kind = "ふつうのボタン"; Name = "IndexingButton"; File = "index\index_list.xaml"; Horizontal = "・左右"; CheckX = $true }
         @{ Kind = "アイコンと字のボタン"; Name = "NewIndexButton"; File = "index\index_list.xaml"; Horizontal = "・左右"; CheckX = $true }
@@ -73,7 +72,6 @@ Describe "ボタンの中身の位置（描いた画素で測る）" -Tag Unit {
     }
 
     It "<Name>: アイコンと字の縦の中心がそろっている（1 画素以内）" -TestCases @(
-        @{ Name = "ExportButton"; File = "search\result_list.xaml" }
         @{ Name = "NewIndexButton"; File = "index\index_list.xaml" }
         @{ Name = "ActionsButton"; File = "index\index_list.xaml" }
         @{ Name = "ScopeButton"; File = "search\search_bar.xaml" }
@@ -85,6 +83,14 @@ Describe "ボタンの中身の位置（描いた画素で測る）" -Tag Unit {
         $m = measureInk $f.Root $f.Button
         $m.Groups.Count | Should -Be 2
         [Math]::Abs($m.Groups[0].Dy - $m.Groups[1].Dy) | Should -BeLessOrEqual 1
+    }
+
+    It "ExportButton: アイコン・字・▾ の縦の中心がそろっている（1 画素以内）" {
+        $f = findButton (getRoot "search\result_list.xaml") "ExportButton"
+        $m = measureInk $f.Root $f.Button
+        $m.Groups.Count | Should -Be 3
+        [Math]::Abs($m.Groups[0].Dy - $m.Groups[1].Dy) | Should -BeLessOrEqual 1
+        [Math]::Abs($m.Groups[0].Dy - $m.Groups[2].Dy) | Should -BeLessOrEqual 1
     }
 
     # 無効の［検索］: 字が薄く、面の色の取り違えで大きくずれたように見えやすい。実際には有効のときと同じ位置にある。

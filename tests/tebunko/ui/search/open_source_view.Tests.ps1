@@ -354,14 +354,11 @@ Describe "出力の種類（メニュー・ダイアログ・吹き出し）" -T
         getLastExportFormat $current $written | Should -Be $expected
     }
 
-    It "吹き出し（<format>・待ち中 <busy>）" -ForEach @(
-        @{ format = "xlsx"; busy = $false; expected = "Excel ブック (.xlsx) で出力します" }
-        @{ format = "csv"; busy = $false; expected = "CSV (.csv) で出力します" }
-        @{ format = "tsv"; busy = $false; expected = "TSV (.tsv) で出力します" }
-        @{ format = ""; busy = $false; expected = "Excel ブック (.xlsx) で出力します" }
-        @{ format = "csv"; busy = $true; expected = "出力を中止します" }
+    It "吹き出し（待ち中 <busy>）" -ForEach @(
+        @{ busy = $false; expected = "出力の形式（Excel・CSV・TSV）を選びます" }
+        @{ busy = $true; expected = "出力を中止します" }
     ) {
-        getExportButtonToolTip $format $busy | Should -Be $expected
+        getExportButtonToolTip $busy | Should -Be $expected
     }
 }
 

@@ -507,21 +507,15 @@ function getLastExportFormat {
 }
 
 function getExportButtonToolTip {
-    # ［出力］の吹き出し。出力の待ち・書き込み中は、押すと中止になる
+    # ［出力 ▼］の吹き出し。ふだんは形式のメニューを開く。出力の待ち・書き込み中は、押すと中止になる
     param (
-        [string]$format,
         [bool]$busy
     )
 
     if ($busy) {
         return "出力を中止します"
     }
-    $label = switch ($format) {
-        "csv" { "CSV (.csv)" }
-        "tsv" { "TSV (.tsv)" }
-        default { "Excel ブック (.xlsx)" }
-    }
-    return "${label} で出力します"
+    return "出力の形式（Excel・CSV・TSV）を選びます"
 }
 
 function resolveExportTarget {

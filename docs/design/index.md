@@ -109,7 +109,7 @@ flowchart LR
         idx[("store/content/<br>本文インデックス")]
         status["store/ingest_status.tsv<br>（更新日時・状態）"]
         ctl["indexing_log.txt<br>store/journal/ingest.tsv"]
-        out["出力先のファイル（.xlsx・.csv・.tsv）<br>（［出力 ▼］）"]
+        out["出力先のファイル（.xlsx・.csv・.tsv）<br>（［出力 ▾］）"]
     end
 
     tmp[("work/tmp/#lt;PC の鍵#gt;/#lt;PID#gt;<br>取り込みの作業領域<br>（置けないときはスキップ）")]

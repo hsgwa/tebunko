@@ -840,8 +840,8 @@ $script:lastExportFormat = "xlsx"  # 次の［出力］で使う種類。画面�
 function updateExportButton {
     $busy = [bool]($script:exportJob -or $script:exportPending)
     $ui.ExportButtonText.Text = getExportButtonText $busy
-    $ui.ExportButton.ToolTip = getExportButtonToolTip $script:lastExportFormat $busy
-    $ui.ExportMenuButton.IsEnabled = !$busy
+    $ui.ExportButton.ToolTip = getExportButtonToolTip $busy
+    $ui.ExportChevron.Visibility = if ($busy) { "Collapsed" } else { "Visible" }
 }
 
 function updateExportMenu {
@@ -947,8 +947,20 @@ function startExport {
     $script:exportTimer.Start()
 }
 
+function clickExportButton {
+    # 1 つの［出力 ▼］を押したとき。待ち・書き込み中は中止、ふだんは形式のメニューを開く（選ぶと exportResultsAs が出力先を尋ねる）
+    if ($script:exportJob -or $script:exportPending) {
+        cancelExport
+        return
+    }
+    $menu = $ui.ExportButton.ContextMenu
+    $menu.PlacementTarget = $ui.ExportButton
+    $menu.Placement = [System.Windows.Controls.Primitives.PlacementMode]::Bottom
+    $menu.IsOpen = $true
+}
+
 function exportResults {
-    # ［出力］（format なし。最後に選んだ種類）と ▼ のメニュー（format あり）の入り口
+    # ［出力 ▼］のメニュー（format あり）の入り口。format なしは最後に選んだ種類
     param (
         [string]$format = ""
     )
@@ -1151,13 +1163,7 @@ $ui.MenuToggleGroup.Add_Click({
 })
 $ui.MenuCopy.Add_Click({ safe { copySelectedRows } })
 $ui.MenuCopyPath.Add_Click({ safe { copySourcePath } })
-$ui.ExportButton.Add_Click({ safe { exportResults } })
-$ui.ExportMenuButton.Add_Click({
-    $menu = $ui.ExportMenuButton.ContextMenu
-    $menu.PlacementTarget = $ui.ExportMenuButton
-    $menu.Placement = [System.Windows.Controls.Primitives.PlacementMode]::Bottom
-    $menu.IsOpen = $true
-})
+$ui.ExportButton.Add_Click({ safe { clickExportButton } })
 $ui.MenuExportXlsx.Add_Click({ safe { exportResultsAs "xlsx" } })
 $ui.MenuExportCsv.Add_Click({ safe { exportResultsAs "csv" } })
 $ui.MenuExportTsv.Add_Click({ safe { exportResultsAs "tsv" } })
