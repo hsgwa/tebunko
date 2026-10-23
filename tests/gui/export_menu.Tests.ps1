@@ -1,5 +1,5 @@
 ﻿# 画面のスモークテスト: 検索結果の［出力 ▾］のメニュー（共通の関数は gui_helpers.ps1）。
-# ［出力 ▾］を押すと、Excel・CSV・TSV の 3 項目が開き、既定の種類（Excel）に印が付く。ファイルは出力しない。
+# ［出力 ▾］を押すと、Excel・CSV・TSV の 3 項目が開き、印は付けない。ファイルは出力しない。
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
     . "$PSScriptRoot\gui_helpers.ps1"
@@ -12,9 +12,8 @@ Describe "検索結果の［出力 ▾］のメニュー" -Tag Gui {
         newGuiSampleIndex $script:tool $TestDrive
     }
 
-    It "［出力 ▾］を押すと 3 つの種類が並び、Excel に印が付いている" {
+    It "［▾］を押すと 3 つの種類が並ぶ（印は付かない）" {
         $S = startGui $script:tool "ExportMenu1"
-        $script:states = $null
         $script:names = $null
         invokeGuiScene $S {
             setGuiText $S (findGui $S.Window -Id "WordBox") "単価"
@@ -28,10 +27,6 @@ Describe "検索結果の［出力 ▾］のメニュー" -Tag Gui {
                 if ($found.Count -ge 3) { , $found }
             }
             $script:names = @($items | ForEach-Object { $_.Current.Name })
-            $script:states = [ordered]@{}
-            foreach ($item in $items) {
-                $script:states[$item.Current.Name] = getGuiToggleState $item
-            }
 
             # メニューを閉じる（Esc）。閉じないと、画面を閉じる手順が進まない
             foreach ($window in @(getGuiOtherWindows $S)) {
@@ -41,9 +36,6 @@ Describe "検索結果の［出力 ▾］のメニュー" -Tag Gui {
             closeGui $S
         }
         ($script:names -join "/") | Should -Be "Excel ブック (.xlsx)/CSV (.csv)/TSV (.tsv)"
-        $script:states["Excel ブック (.xlsx)"] | Should -Be "On"
-        $script:states["CSV (.csv)"] | Should -Be "Off"
-        $script:states["TSV (.tsv)"] | Should -Be "Off"
     }
 
     It "利用者の環境に触っていない" {

@@ -1233,37 +1233,6 @@
       </Setter.Value>
     </Setter>
   </Style>
-  <!-- 選んだ項目の左にチェックを描く MenuItem（IsCheckable・IsChecked を使う項目だけに Style で付ける。ほかのメニューの見た目は変えない） -->
-  <Style x:Key="MenuItemCheckable" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
-    <Setter Property="Template">
-      <Setter.Value>
-        <ControlTemplate TargetType="MenuItem">
-          <Border x:Name="Bd" Height="31" Background="Transparent" CornerRadius="4" Padding="12,7">
-            <DockPanel>
-              <Grid DockPanel.Dock="Left" Width="22">
-                <Path x:Name="CheckMark" Data="{StaticResource Icon.Check}" Width="12" Height="12" Stretch="Uniform" Visibility="Collapsed"
-                      Stroke="{TemplateBinding Foreground}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                      StrokeLineJoin="Round" HorizontalAlignment="Left" VerticalAlignment="Center" />
-              </Grid>
-              <ContentPresenter ContentSource="Header" VerticalAlignment="Center" RecognizesAccessKey="True" />
-            </DockPanel>
-          </Border>
-          <ControlTemplate.Triggers>
-            <Trigger Property="IsChecked" Value="True">
-              <Setter TargetName="CheckMark" Property="Visibility" Value="Visible" />
-            </Trigger>
-            <Trigger Property="IsHighlighted" Value="True">
-              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Accent.Soft}" />
-            </Trigger>
-            <Trigger Property="IsEnabled" Value="False">
-              <Setter Property="Foreground" Value="{StaticResource Ink.Disabled}" />
-              <Setter TargetName="Bd" Property="Background" Value="Transparent" />
-            </Trigger>
-          </ControlTemplate.Triggers>
-        </ControlTemplate>
-      </Setter.Value>
-    </Setter>
-  </Style>
   <!-- 削除のような、取り消せない項目。MenuItem の見た目のまま、文字だけ赤にする -->
   <Style x:Key="MenuItemDanger" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
     <Setter Property="Foreground" Value="{StaticResource Danger.Text}" />

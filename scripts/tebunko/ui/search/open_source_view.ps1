@@ -456,22 +456,6 @@ function testExportFormat {
     return $format -in @("xlsx", "csv", "tsv")
 }
 
-function getExportMenuItems {
-    # ［出力 ▼］のメニュー（最後に出力できた種類に印を付ける。分からない種類は Excel ブック）
-    param (
-        [string]$lastFormat
-    )
-
-    if (!(testExportFormat $lastFormat)) {
-        $lastFormat = "xlsx"
-    }
-    return @(
-        @{ Format = "xlsx"; Header = "Excel ブック (.xlsx)"; Checked = ($lastFormat -eq "xlsx") }
-        @{ Format = "csv"; Header = "CSV (.csv)"; Checked = ($lastFormat -eq "csv") }
-        @{ Format = "tsv"; Header = "TSV (.tsv)"; Checked = ($lastFormat -eq "tsv") }
-    )
-}
-
 function getExportFilter {
     # 出力先のダイアログの「ファイルの種類」（この順に FilterIndex が 1・2・3）
     return "Excel ブック (*.xlsx)|*.xlsx|CSV (*.csv)|*.csv|TSV (*.tsv)|*.tsv"
@@ -491,7 +475,7 @@ function getExportFilterIndex {
 }
 
 function getLastExportFormat {
-    # メニューの印に使う種類。書けたときだけ、書いた種類に替える
+    # 本体の［出力］で使う種類。書けたときだけ、書いた種類に替える
     param (
         [string]$current,
         [string]$written

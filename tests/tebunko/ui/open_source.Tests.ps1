@@ -50,9 +50,9 @@ BeforeAll {
             ExportGroup      = New-Object PSObject -Property @{ ActualWidth = 100 }
             ExportMenuButton = newFakeControl @("Click") @{ ContextMenu = (New-Object PSObject -Property @{ MinWidth = 216; PlacementTarget = $null; Placement = $null; HorizontalOffset = 0; VerticalOffset = 0; IsOpen = $false }) }
             ExportButtonText = New-Object PSObject -Property @{ Text = "出力" }
-            MenuExportXlsx   = newFakeControl @("Click") @{ IsChecked = $true }
-            MenuExportCsv    = newFakeControl @("Click") @{ IsChecked = $false }
-            MenuExportTsv    = newFakeControl @("Click") @{ IsChecked = $false }
+            MenuExportXlsx   = newFakeControl @("Click")
+            MenuExportCsv    = newFakeControl @("Click")
+            MenuExportTsv    = newFakeControl @("Click")
         }
     }
 
@@ -1308,8 +1308,6 @@ Describe "exportResults" -Tag Io {
         Should -Invoke selectSaveFile -Times 1 -Exactly
         $script:searchService.Requests.Count | Should -Be 0
         $script:lastExportFormat | Should -Be "xlsx"
-        $ui.MenuExportXlsx.IsChecked | Should -Be $true
-        $ui.MenuExportCsv.IsChecked | Should -Be $false
     }
 
     It "名前に拡張子を付けずに決めると、ファイルの種類（Excel）の拡張子を付けて書き、出力したフォルダを開く" {
@@ -1397,7 +1395,7 @@ Describe "exportResults" -Tag Io {
         lastStatus | Should -Be (getExportCancelledText)
     }
 
-    It "メニューから CSV を選んで書けると、メニューの印が CSV に移る（名前を打ちきれば上書きの確認はダイアログが済ませている）" {
+    It "メニューから CSV を選んで書けると、本体の［出力］が CSV で出力する（名前を打ちきれば上書きの確認はダイアログが済ませている）" {
         $workDir = "$TestDrive\export_csv\work"
         $out = "$TestDrive\export_csv\結果.csv"
         [System.IO.Directory]::CreateDirectory("$TestDrive\export_csv") | Out-Null
@@ -1414,8 +1412,6 @@ Describe "exportResults" -Tag Io {
         $text | Should -BeLike "*ファイル名,場所,種別,行,A,B*"
         $text | Should -Not -BeLike "*前回*"
         $script:lastExportFormat | Should -Be "csv"
-        $ui.MenuExportCsv.IsChecked | Should -Be $true
-        $ui.MenuExportXlsx.IsChecked | Should -Be $false
         $ui.ExportButton.ToolTip | Should -Be "CSV (.csv) で出力します"
     }
 

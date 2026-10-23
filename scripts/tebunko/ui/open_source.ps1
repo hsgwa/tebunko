@@ -835,25 +835,13 @@ function completeCopySourcePath {
 # 出力ボタンは、待ち・書き込みの間は「出力を中止」になり、押すと止める。
 $script:exportJob = $null       # 書き込み中の出力 @{ Request; Filtered; Sorted; Target; Snapshot }
 $script:exportPending = $null   # 検索が終わるのを待っている出力の出力先（@{ Path; Format; Added }）。無ければ $null
-$script:lastExportFormat = "xlsx"  # メニューの印に使う種類（最後に出力できた種類）。画面を開くたびに Excel ブックに戻る（setting.config には残さない）
+$script:lastExportFormat = "xlsx"  # 本体の［出力］で使う種類（最後に出力できた種類）。画面を開くたびに Excel ブックに戻る（setting.config には残さない）
 
 function updateExportButton {
     $busy = [bool]($script:exportJob -or $script:exportPending)
     $ui.ExportButtonText.Text = getExportButtonText $busy
     $ui.ExportButton.ToolTip = getExportButtonToolTip $script:lastExportFormat $busy
     $ui.ExportMenuPart.Visibility = if ($busy) { "Collapsed" } else { "Visible" }
-}
-
-function updateExportMenu {
-    # ［出力 ▼］のメニューの印を、最後に出力できた種類にそろえる（項目は押すたびに印が入れ替わるので、押したあとに必ず呼ぶ）
-    foreach ($item in (getExportMenuItems $script:lastExportFormat)) {
-        $control = switch ($item.Format) {
-            "csv" { $ui.MenuExportCsv }
-            "tsv" { $ui.MenuExportTsv }
-            default { $ui.MenuExportXlsx }
-        }
-        $control.IsChecked = $item.Checked
-    }
 }
 
 function testResultSorted {
@@ -999,16 +987,12 @@ function exportResults {
 }
 
 function exportResultsAs {
-    # ［出力 ▼］のメニューから種類を選んだとき。メニューの印は、書けたときだけ替える（やめたときは元に戻す）
+    # ［出力 ▼］のメニューから種類を選んだとき。選んだ種類で出力先を尋ねて出力する（メニューに印は付けない）
     param (
         [string]$format
     )
 
-    try {
-        exportResults $format
-    } finally {
-        updateExportMenu
-    }
+    exportResults $format
 }
 
 function startPendingExport {
@@ -1051,7 +1035,6 @@ function completeExport {
     switch ($request.Outcome) {
         "Done" {
             $script:lastExportFormat = getLastExportFormat $script:lastExportFormat $request.Format
-            updateExportMenu
             updateExportButton
             $written = [int]$request.Written
             setStatus (getExportDoneText $name $request.Scope $written $job.Filtered $request.HeadOnlyReason $job.Sorted ([int]$request.DroppedRows) ([int]$request.TruncatedCells))
@@ -1179,5 +1162,4 @@ $ui.ExportMenuButton.Add_Click({ safe { openExportMenu } })
 $ui.MenuExportXlsx.Add_Click({ safe { exportResultsAs "xlsx" } })
 $ui.MenuExportCsv.Add_Click({ safe { exportResultsAs "csv" } })
 $ui.MenuExportTsv.Add_Click({ safe { exportResultsAs "tsv" } })
-updateExportMenu
 updateExportButton

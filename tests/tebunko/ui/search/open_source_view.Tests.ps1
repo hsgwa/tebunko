@@ -321,20 +321,6 @@ Describe "結果の出力の文言" -Tag Unit {
 }
 
 Describe "出力の種類（メニュー・ダイアログ・吹き出し）" -Tag Unit {
-    It "メニューは 3 つで、最後に選んだ種類（<last>）に印を付ける。分からなければ Excel" -ForEach @(
-        @{ last = "xlsx"; checked = "xlsx" }
-        @{ last = "csv"; checked = "csv" }
-        @{ last = "tsv"; checked = "tsv" }
-        @{ last = ""; checked = "xlsx" }
-        @{ last = "txt"; checked = "xlsx" }
-    ) {
-        $items = @(getExportMenuItems $last)
-        $items.Count | Should -Be 3
-        ($items | ForEach-Object { $_.Header }) -join "|" | Should -Be "Excel ブック (.xlsx)|CSV (.csv)|TSV (.tsv)"
-        @($items | Where-Object { $_.Checked }).Count | Should -Be 1
-        ($items | Where-Object { $_.Checked }).Format | Should -Be $checked
-    }
-
     It "種類 <format> の FilterIndex は <index>" -ForEach @(
         @{ format = "xlsx"; index = 1 }
         @{ format = "csv"; index = 2 }

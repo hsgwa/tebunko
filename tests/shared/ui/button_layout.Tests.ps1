@@ -107,9 +107,9 @@ Describe "ボタンの中身の位置（描いた画素で測る）" -Tag Unit {
     }
 }
 
-# 出力の形式のメニュー: 選んだ種類の左にチェックの絵が出る（IsChecked を立てるだけで、見た目に何も出ない作りに戻らないこと）
-Describe "出力の形式のメニューのチェック" -Tag Unit {
-    It "<Name>: 選ぶとチェックの絵が出て、選んでいないと出ない" -TestCases @(
+# 出力の形式のメニュー: 項目を選ぶと、その形式でそのまま出力する。種類の切り替え（チェックの項目）にしない
+Describe "出力の形式のメニュー" -Tag Unit {
+    It "<Name>: チェックの項目にしない（選んだ形式で出力する項目）" -TestCases @(
         @{ Name = "MenuExportXlsx" }
         @{ Name = "MenuExportCsv" }
         @{ Name = "MenuExportTsv" }
@@ -117,15 +117,8 @@ Describe "出力の形式のメニューのチェック" -Tag Unit {
         param ($Name)
         $root = loadXaml "${scriptsDir}\tebunko\xaml\search\result_list.xaml"
         $item = $root.FindName($Name)
-        $item.Style | Should -Not -BeNullOrEmpty
-        $item.IsChecked = $false
-        [void]$item.ApplyTemplate()
-        $mark = $item.Template.FindName("CheckMark", $item)
-        $mark | Should -Not -BeNullOrEmpty
-        $mark.Visibility | Should -Be "Collapsed"
-        $item.IsChecked = $true
-        [void]$item.ApplyTemplate()
-        $item.Template.FindName("CheckMark", $item).Visibility | Should -Be "Visible"
+        $item | Should -Not -BeNullOrEmpty
+        $item.IsCheckable | Should -Be $false
     }
 }
 
