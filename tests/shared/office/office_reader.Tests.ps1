@@ -302,6 +302,242 @@ Describe "readPptxUnits" -Tag Io {
     }
 }
 
+Describe "readXmlLines（すべてのプレースホルダーを読まない）" -Tag Unit {
+    BeforeAll {
+        $spTree = "<p:spTree>$(pShape 'タイトル見本' 'title')$(pShape '本文見本' 'body')<p:sp><p:nvSpPr><p:cNvPr id=`"3`" name=`"s`"/><p:cNvSpPr/><p:nvPr><p:ph/></p:nvPr></p:nvSpPr><p:txBody><a:bodyPr/><a:p><a:r><a:t>種類なし見本</a:t></a:r></a:p></p:txBody></p:sp>$(pShape '会社名')$(pShape '社外秘' 'ftr')</p:spTree>"
+        $xml = "<p:sldMaster ${pNs}><p:cSld>${spTree}</p:cSld></p:sldMaster>"
+    }
+
+    It "引数を渡さなければ、今までどおり本文のプレースホルダーも読む（フッターは読まない）" {
+        @(readXmlLines $xml ${nsDrawing} "none" | ForEach-Object { $_.Text }) -join "|" | Should -Be "タイトル見本|本文見本|種類なし見本|会社名"
+    }
+
+    It "渡すと、種類を問わずプレースホルダーの文字だけが消える（種類の無い p:ph も）" {
+        @(readXmlLines $xml ${nsDrawing} "none" $null $null $true | ForEach-Object { $_.Text }) -join "|" | Should -Be "会社名"
+    }
+}
+
+Describe "readPptxUnits（スライドマスター・レイアウト・ノートマスター）" -Tag Io {
+    BeforeAll {
+        $slideRel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide"
+        $layoutRel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout"
+        $masterRel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster"
+        $notesMasterRel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster"
+
+        function relsOf([string]$id, [string]$type, [string]$target) {
+            return "<Relationships ${relNs}><Relationship Id=`"${id}`" Type=`"${type}`" Target=`"${target}`"/></Relationships>"
+        }
+
+        function newMasterPptx {
+            # 3 枚のスライド（1・2 枚目はレイアウト 1、3 枚目はレイアウト 2。レイアウト 3 はどのスライドも使わない）と
+            # スライドマスター・ノートマスターを持つ .pptx を作る。$override は部品の名前 → 内容（$null なら部品を作らない）
+            param (
+                [string]$path,
+                [hashtable]$override = @{}
+            )
+
+            $table = '<p:graphicFrame><a:graphic><a:graphicData><a:tbl><a:tr><a:tc><a:txBody><a:p><a:r><a:t>項目</a:t></a:r></a:p></a:txBody></a:tc><a:tc><a:txBody><a:p><a:r><a:t>値</a:t></a:r></a:p></a:txBody></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>'
+            $emptyPh = '<p:sp><p:nvSpPr><p:cNvPr id="3" name="s"/><p:cNvSpPr/><p:nvPr><p:ph/></p:nvPr></p:nvSpPr><p:txBody><a:bodyPr/><a:p><a:r><a:t>種類なし見本</a:t></a:r></a:p></p:txBody></p:sp>'
+            $entries = @{
+                "ppt/presentation.xml"                       = "<p:presentation ${pNs}><p:notesMasterIdLst><p:notesMasterId r:id=`"rId20`"/></p:notesMasterIdLst><p:sldIdLst><p:sldId id=`"256`" r:id=`"rId11`"/><p:sldId id=`"257`" r:id=`"rId12`"/><p:sldId id=`"258`" r:id=`"rId13`"/></p:sldIdLst></p:presentation>"
+                "ppt/_rels/presentation.xml.rels"            = "<Relationships ${relNs}><Relationship Id=`"rId11`" Type=`"${slideRel}`" Target=`"slides/slide1.xml`"/><Relationship Id=`"rId12`" Type=`"${slideRel}`" Target=`"slides/slide2.xml`"/><Relationship Id=`"rId13`" Type=`"${slideRel}`" Target=`"slides/slide3.xml`"/><Relationship Id=`"rId20`" Type=`"${notesMasterRel}`" Target=`"notesMasters/notesMaster1.xml`"/></Relationships>"
+                "ppt/slides/slide1.xml"                      = "<p:sld ${pNs}><p:cSld><p:spTree>$(pShape '本文1')</p:spTree></p:cSld></p:sld>"
+                "ppt/slides/slide2.xml"                      = "<p:sld ${pNs}><p:cSld><p:spTree>$(pShape '本文2')</p:spTree></p:cSld></p:sld>"
+                "ppt/slides/slide3.xml"                      = "<p:sld ${pNs}><p:cSld><p:spTree>$(pShape '本文3')</p:spTree></p:cSld></p:sld>"
+                "ppt/slides/_rels/slide1.xml.rels"           = (relsOf "rId1" $layoutRel "../slideLayouts/slideLayout1.xml")
+                "ppt/slides/_rels/slide2.xml.rels"           = (relsOf "rId1" $layoutRel "../slideLayouts/slideLayout1.xml")
+                "ppt/slides/_rels/slide3.xml.rels"           = (relsOf "rId1" $layoutRel "../slideLayouts/slideLayout2.xml")
+                "ppt/slideLayouts/slideLayout1.xml"          = "<p:sldLayout ${pNs}><p:cSld><p:spTree>$(pShape 'レイアウト見本' 'body')$(pShape 'レイアウト1の文字')$(pShape '社外秘 営業部')</p:spTree></p:cSld></p:sldLayout>"
+                "ppt/slideLayouts/slideLayout2.xml"          = "<p:sldLayout ${pNs}><p:cSld><p:spTree>$(pShape 'レイアウト2の文字')</p:spTree></p:cSld></p:sldLayout>"
+                "ppt/slideLayouts/slideLayout3.xml"          = "<p:sldLayout ${pNs}><p:cSld><p:spTree>$(pShape '使っていないレイアウト')</p:spTree></p:cSld></p:sldLayout>"
+                "ppt/slideLayouts/_rels/slideLayout1.xml.rels" = (relsOf "rId1" $masterRel "../slideMasters/slideMaster1.xml")
+                "ppt/slideLayouts/_rels/slideLayout2.xml.rels" = (relsOf "rId1" $masterRel "../slideMasters/slideMaster1.xml")
+                "ppt/slideLayouts/_rels/slideLayout3.xml.rels" = (relsOf "rId1" $masterRel "../slideMasters/slideMaster1.xml")
+                "ppt/slideMasters/slideMaster1.xml"          = "<p:sldMaster ${pNs}><p:cSld><p:spTree>$(pShape 'マスター見本' 'title')${emptyPh}$(pShape '社外秘 営業部')<p:grpSp>$(pShape 'ロゴ')</p:grpSp>${table}$(pShape '1' 'sldNum')$(pShape '社外秘' 'ftr')</p:spTree></p:cSld></p:sldMaster>"
+                "ppt/notesMasters/notesMaster1.xml"          = "<p:notesMaster ${pNs}><p:cSld><p:spTree>$(pShape 'ノート見本' 'body')$(pShape '2026/9/20' 'dt')$(pShape 'ノートマスターの文字')<p:grpSp>$(pShape 'ノートのロゴ')</p:grpSp>$(pShape '社外秘 営業部')</p:spTree></p:cSld></p:notesMaster>"
+            }
+            foreach ($name in $override.Keys) {
+                if ($null -eq $override[$name]) { $entries.Remove($name) } else { $entries[$name] = $override[$name] }
+            }
+            newZip $path $entries
+        }
+
+        $expectedMaster = "社外秘 営業部|ロゴ|項目`t値|レイアウト1の文字|レイアウト2の文字"
+    }
+
+    It "使われているマスター・レイアウトとノートマスターの、プレースホルダー以外の文字を重複なく場所ごとに読む" {
+        $path = "$TestDrive\正常.pptx"
+        newMasterPptx $path
+        $units = readPptxUnits $path
+        @($units.Keys) -join "|" | Should -Be "スライド001|スライド002|スライド003|スライドマスター|ノートマスター"
+        @($units["スライドマスター"]) -join "|" | Should -Be $expectedMaster
+        @($units["ノートマスター"]) -join "|" | Should -Be "ノートマスターの文字|ノートのロゴ|社外秘 営業部"
+        # スライドの場所には入れない（全スライドに重複して一致しない）
+        @($units["スライド001"]) -join "|" | Should -Be "本文1"
+    }
+
+    It "読む順は、スライドで最初に使われた順（マスター → レイアウト）で、どのスライドも使わないレイアウトは読まない" {
+        $path = "$TestDrive\順.pptx"
+        # 3 枚目のスライドだけがレイアウト 2、1・2 枚目がレイアウト 3 を使う（レイアウト 1 は使われない）
+        newMasterPptx $path @{
+            "ppt/slides/_rels/slide1.xml.rels" = (relsOf "rId1" $layoutRel "../slideLayouts/slideLayout3.xml")
+            "ppt/slides/_rels/slide2.xml.rels" = (relsOf "rId1" $layoutRel "../slideLayouts/slideLayout3.xml")
+        }
+        $units = readPptxUnits $path
+        @($units["スライドマスター"]) -join "|" | Should -Be "社外秘 営業部|ロゴ|項目`t値|使っていないレイアウト|レイアウト2の文字"
+    }
+
+    It "ノートの部品が 1 つも無くても、ノートマスターの部品があれば読む。スライドのノート・フッターは今までどおり" {
+        $path = "$TestDrive\ノート.pptx"
+        newMasterPptx $path @{
+            "ppt/slides/slide1.xml" = "<p:sld ${pNs}><p:cSld><p:spTree>$(pShape '本文1')$(pShape '社外秘' 'ftr')</p:spTree></p:cSld></p:sld>"
+        }
+        $units = readPptxUnits $path
+        @($units.Keys) -join "|" | Should -Be "スライド001|スライド002|スライド003|ヘッダー・フッター|スライドマスター|ノートマスター"
+        @($units["ヘッダー・フッター"]) -join "|" | Should -Be "社外秘"
+    }
+
+    It "<name>は、その部品だけを飛ばし、ほかの場所は今までどおり出す" -TestCases @(
+        @{ name = "レイアウトの XML が壊れている" }
+        @{ name = "レイアウトの部品が無い" }
+        @{ name = "レイアウトのリレーションシップが無い" }
+        @{ name = "スライドマスターの XML が壊れている" }
+        @{ name = "スライドマスターの部品が無い" }
+        @{ name = "ノートマスターの XML が壊れている" }
+        @{ name = "ノートマスターの部品が無い" }
+        @{ name = "ノートマスターの参照の先がリレーションシップに無い" }
+        @{ name = "ノートマスターの参照が無い" }
+    ) {
+        $presentationNoNotes = "<p:presentation ${pNs}><p:sldIdLst><p:sldId id=`"256`" r:id=`"rId11`"/><p:sldId id=`"257`" r:id=`"rId12`"/><p:sldId id=`"258`" r:id=`"rId13`"/></p:sldIdLst></p:presentation>"
+        $notesOnly = "ノートマスターの文字|ノートのロゴ|社外秘 営業部"
+        $brokenCases = @{
+            "レイアウトの XML が壊れている"             = @{ override = @{ "ppt/slideLayouts/slideLayout1.xml" = "<p:sldLayout ${pNs}><p:cSld><p:spTree>$(pShape '途中まで')" }; master = "社外秘 営業部|ロゴ|項目`t値|レイアウト2の文字"; notes = $notesOnly }
+            "レイアウトの部品が無い"                       = @{ override = @{ "ppt/slideLayouts/slideLayout1.xml" = $null }; master = "社外秘 営業部|ロゴ|項目`t値|レイアウト2の文字"; notes = $notesOnly }
+            "レイアウトのリレーションシップが無い"         = @{ override = @{ "ppt/slideLayouts/_rels/slideLayout1.xml.rels" = $null; "ppt/slideLayouts/_rels/slideLayout2.xml.rels" = $null }; master = "レイアウト1の文字|社外秘 営業部|レイアウト2の文字"; notes = $notesOnly }
+            "スライドマスターの XML が壊れている"         = @{ override = @{ "ppt/slideMasters/slideMaster1.xml" = "<p:sldMaster ${pNs}><p:cSld>" }; master = "レイアウト1の文字|社外秘 営業部|レイアウト2の文字"; notes = $notesOnly }
+            "スライドマスターの部品が無い"                 = @{ override = @{ "ppt/slideMasters/slideMaster1.xml" = $null }; master = "レイアウト1の文字|社外秘 営業部|レイアウト2の文字"; notes = $notesOnly }
+            "ノートマスターの XML が壊れている"           = @{ override = @{ "ppt/notesMasters/notesMaster1.xml" = "<p:notesMaster ${pNs}><p:cSld><p:spTree>" }; master = $expectedMaster; notes = "" }
+            "ノートマスターの部品が無い"                   = @{ override = @{ "ppt/notesMasters/notesMaster1.xml" = $null }; master = $expectedMaster; notes = "" }
+            "ノートマスターの参照の先がリレーションシップに無い" = @{ override = @{ "ppt/presentation.xml" = $presentationNoNotes.Replace("<p:sldIdLst>", "<p:notesMasterIdLst><p:notesMasterId r:id=`"rId99`"/></p:notesMasterIdLst><p:sldIdLst>") }; master = $expectedMaster; notes = "" }
+            "ノートマスターの参照が無い"                   = @{ override = @{ "ppt/presentation.xml" = $presentationNoNotes }; master = $expectedMaster; notes = "" }
+        }
+        $case = $brokenCases[$name]
+        $path = "$TestDrive\壊れ.pptx"
+        newMasterPptx $path $case.override
+        $units = readPptxUnits $path
+        @($units["スライド001"]) -join "|" | Should -Be "本文1"
+        @($units["スライド003"]) -join "|" | Should -Be "本文3"
+        @($units["スライドマスター"]) -join "|" | Should -Be $case.master
+        @($units["ノートマスター"]) -join "|" | Should -Be $case.notes
+    }
+
+    It "addPptxLayoutPart は、レイアウトの部品だけを使われた順に、重複なく集める" {
+        $layouts = New-Object System.Collections.Generic.List[string]
+        addPptxLayoutPart @{ rId1 = @{ Type = $layoutRel; Target = "ppt/slideLayouts/slideLayout2.xml" }; rId2 = @{ Type = $slideRel; Target = "ppt/slides/slide9.xml" } } $layouts
+        addPptxLayoutPart @{ rId1 = @{ Type = $layoutRel; Target = "ppt/slideLayouts/slideLayout1.xml" } } $layouts
+        addPptxLayoutPart @{ rId1 = @{ Type = $layoutRel; Target = "ppt/slideLayouts/slideLayout2.xml" } } $layouts
+        $layouts -join "|" | Should -Be "ppt/slideLayouts/slideLayout2.xml|ppt/slideLayouts/slideLayout1.xml"
+    }
+
+    It "getPptxLayoutMasterPart は親のマスターの部品の名前を返し、リレーションシップが無ければ `$null" {
+        $path = "$TestDrive\親.pptx"
+        newMasterPptx $path @{ "ppt/slideLayouts/_rels/slideLayout3.xml.rels" = $null }
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
+        try {
+            getPptxLayoutMasterPart $zip "ppt/slideLayouts/slideLayout1.xml" | Should -Be "ppt/slideMasters/slideMaster1.xml"
+            getPptxLayoutMasterPart $zip "ppt/slideLayouts/slideLayout3.xml" | Should -BeNullOrEmpty
+        } finally {
+            $zip.Dispose()
+        }
+    }
+
+    It "readPptxMasterPartLines は、読んだ部品を読み直さず、同じ文字の行を足さない" {
+        $path = "$TestDrive\部品.pptx"
+        newMasterPptx $path
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
+        try {
+            $done = New-Object System.Collections.Generic.HashSet[string]
+            $seen = New-Object System.Collections.Generic.HashSet[string]
+            $lines = New-Object System.Collections.Generic.List[string]
+            readPptxMasterPartLines $zip "ppt/slideLayouts/slideLayout1.xml" $done $seen $lines
+            readPptxMasterPartLines $zip "ppt/slideLayouts/slideLayout1.xml" $done $seen $lines
+            readPptxMasterPartLines $zip "ppt/slideMasters/slideMaster1.xml" $done $seen $lines
+            $lines -join "|" | Should -Be "レイアウト1の文字|社外秘 営業部|ロゴ|項目`t値"
+        } finally {
+            $zip.Dispose()
+        }
+    }
+
+    It "readPptxMasterUnits は、場所 スライドマスター・ノートマスターを units に足す" {
+        $path = "$TestDrive\まとめ.pptx"
+        newMasterPptx $path
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
+        try {
+            $presentation = newXmlDocument (readZipEntry $zip "ppt/presentation.xml")
+            $units = New-Object System.Collections.Specialized.OrderedDictionary
+            $layouts = New-Object System.Collections.Generic.List[string]
+            $layouts.Add("ppt/slideLayouts/slideLayout2.xml")
+            readPptxMasterUnits $zip $presentation (readRelationships $zip "ppt/presentation.xml") $layouts $units
+            @($units.Keys) -join "|" | Should -Be "スライドマスター|ノートマスター"
+            @($units["スライドマスター"]) -join "|" | Should -Be "社外秘 営業部|ロゴ|項目`t値|レイアウト2の文字"
+        } finally {
+            $zip.Dispose()
+        }
+    }
+
+    It "ZIP の項目の展開に失敗するレイアウトがあっても、その部品だけを飛ばす" {
+        $path = "$TestDrive\展開失敗.pptx"
+        $layoutName = "ppt/slideLayouts/slideLayout1.xml"
+        $filler = "<!-- " + ("x" * 4000) + " -->"
+        $entries = @{
+            "ppt/presentation.xml"             = @{ bytes = [System.Text.Encoding]::UTF8.GetBytes("<p:presentation ${pNs}><p:sldIdLst><p:sldId id=`"256`" r:id=`"rId11`"/></p:sldIdLst></p:presentation>") }
+            "ppt/_rels/presentation.xml.rels"  = @{ bytes = [System.Text.Encoding]::UTF8.GetBytes((relsOf "rId11" $slideRel "slides/slide1.xml")) }
+            "ppt/slides/slide1.xml"            = @{ bytes = [System.Text.Encoding]::UTF8.GetBytes("<p:sld ${pNs}><p:cSld><p:spTree>$(pShape '本文1')</p:spTree></p:cSld></p:sld>") }
+            "ppt/slides/_rels/slide1.xml.rels" = @{ bytes = [System.Text.Encoding]::UTF8.GetBytes((relsOf "rId1" $layoutRel "../slideLayouts/slideLayout1.xml")) }
+            $layoutName                        = @{ bytes = [System.Text.Encoding]::UTF8.GetBytes("<p:sldLayout ${pNs}><p:cSld><p:spTree>$(pShape 'レイアウトの文字')</p:spTree></p:cSld>${filler}</p:sldLayout>"); compress = $true }
+        }
+        newRawZip $path $entries
+        # レイアウトの圧縮データの先頭（ローカルヘッダーの後）を、不正なブロックの種類（BFINAL=1・BTYPE=11）で壊す
+        $raw = [System.IO.File]::ReadAllBytes($path)
+        $nameBytes = [System.Text.Encoding]::UTF8.GetBytes($layoutName)
+        $start = -1
+        for ($i = 0; $i -le $raw.Length - $nameBytes.Length; $i++) {
+            if ($raw[$i] -eq $nameBytes[0] -and $raw[$i + $nameBytes.Length - 1] -eq $nameBytes[-1] -and
+                [System.Text.Encoding]::UTF8.GetString($raw, $i, $nameBytes.Length) -eq $layoutName) {
+                $start = $i + $nameBytes.Length
+                break
+            }
+        }
+        $start | Should -BeGreaterThan 0
+        $raw[$start] = 0xFF
+        $raw[$start + 1] = 0xFF
+        [System.IO.File]::WriteAllBytes($path, $raw)
+
+        $units = readPptxUnits $path
+        @($units["スライド001"]) -join "|" | Should -Be "本文1"
+        $units.Contains("スライドマスター") | Should -BeFalse
+    }
+}
+
+Describe "readPptxUnits（実物の PowerPoint のファイル）" -Tag Io {
+    It "<file> の <place> は「<expected>」になる" -TestCases @(
+        @{ file = "マスターとレイアウト.pptx"; place = "スライドマスター"; expected = "TC31 マスターのテキスト|TC31 レイアウトのテキスト" }
+        @{ file = "マスターとレイアウト.pptx"; place = "ノートマスター"; expected = "TC31 ノートマスターのテキスト" }
+        @{ file = "高度.pptx"; place = "スライドマスター"; expected = "TC28 スライドマスターのテキスト|TC28 レイアウトのテキスト" }
+        @{ file = "高度.pptx"; place = "ノートマスター"; expected = "" }
+        @{ file = "基本.pptx"; place = "スライドマスター"; expected = "" }
+        @{ file = "基本.pptx"; place = "ノートマスター"; expected = "" }
+        @{ file = "並べ替え（XML編集）.pptx"; place = "スライドマスター"; expected = "" }
+        @{ file = "並べ替え（XML編集）.pptx"; place = "ノートマスター"; expected = "" }
+    ) {
+        $units = readPptxUnits (Join-Path "${testDataDir}\office\PowerPoint" $file)
+        $lines = $(if ($units.Contains($place)) { @($units[$place]) -join "|" } else { "" })
+        $lines | Should -Be $expected
+        # プレースホルダーの見本の文字は、どのファイルでも出ない
+        @($units.Values | ForEach-Object { $_ }) -contains "マスター タイトルの書式設定" | Should -BeFalse
+    }
+}
+
 Describe "readXlsxObjectUnits" -Tag Io {
     BeforeAll {
         $path = "$TestDrive\objects.xlsx"

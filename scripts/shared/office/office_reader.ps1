@@ -4,7 +4,7 @@
 #
 # 読み出した結果は「場所 → 行の一覧」の順序付き辞書（ユニット）で返す。
 #   Word      : ページ001, ページ001[図形], ページ001[コメント], ページ001[埋め込み1], ページ002, ..., ヘッダー・フッター, 脚注
-#   PowerPoint: スライド001, スライド001[図形], スライド001[コメント], スライド001[埋め込み1], スライド001_ノート, スライド002（非表示）, ..., ヘッダー・フッター
+#   PowerPoint: スライド001, スライド001[図形], スライド001[コメント], スライド001[埋め込み1], スライド001_ノート, スライド002（非表示）, ..., ヘッダー・フッター, スライドマスター, ノートマスター
 #   Excel     : <シート名>[図形]（グラフ・SmartArt の文字を含む。表示のグラフシートも含む）, <シート名>[コメント],
 #              <シート名>[ヘッダー・フッター]（セルの値はインデクサが Excel で読む）
 # 1行は段落1つ、または表の1行（セルをタブ区切り）。図形・コメントの場所は図形・コメント1つ
@@ -388,6 +388,9 @@ function readRelationships {
     return $result
 }
 
+# readXmlLines の $skipAllPlaceholders を指定すると、種類を問わずすべてのプレースホルダー（p:ph のある p:sp）の
+# テキストを読まない（スライドマスター・レイアウト・ノートマスターの見本の文字を除く。効くのは p:sp のテキストだけで、
+# プレースホルダーに入れた表 p:graphicFrame は対象外）。$onlyPlaceholders とは一緒に使わない
 function readXmlLines {
     # WordprocessingML / DrawingML のXMLから、段落・表の行ごとのテキストを文書順に返す。
     # 戻り値: @{ Page = ページ番号; Text = テキスト } の配列
@@ -414,7 +417,7 @@ function readXmlLines {
         [string]$ns,
         [string]$pageMode = "none",
         [string[]]$onlyPlaceholders = $null,
-        [System.Collections.Generic.List[object]]$objects = $null
+        [System.Collections.Generic.List[object]]$objects = $null, [bool]$skipAllPlaceholders = $false
     )
 
     # 要素・テキストごとに呼ぶため、PowerShell で遅い書き方（スクリプトブロックの呼び出し・switch・型名の解決・
@@ -551,7 +554,7 @@ function readXmlLines {
                         if ($onlyMode) {
                             $skipShapeText = ($reader.GetAttribute("type") -notin $onlyPlaceholders)
                         } else {
-                            $skipShapeText = ($reader.GetAttribute("type") -in ${skipPlaceholderTypes})
+                            $skipShapeText = ($skipAllPlaceholders -or ($reader.GetAttribute("type") -in ${skipPlaceholderTypes}))
                         }
                     } elseif ($collect -and $name -eq "oleObj") {
                         $objects.Add(@{ Kind = "embed"; Page = $page; RelId = $reader.GetAttribute("id", ${nsRel}) })
@@ -937,6 +940,113 @@ function readPptxUnits {
     }
 }
 
+function readPptxMasterPartLines {
+    # スライドマスター・レイアウト・ノートマスターの部品 1 つから、プレースホルダー以外の文字の行を読み、
+    # $seen（場所ごとの重複除き）に無いものだけを $lines に足す。部品が無い・読めない（XML が壊れている
+    # XmlException・ZIP の項目の展開に失敗した InvalidDataException）ときは、その部品だけを飛ばす
+    # （サイズの上限の例外は受け止めず、呼び出し元までそのまま投げる）。行は読み終えてから足すので、
+    # 途中で読めなくなった部品の行は混ざらない。$done（読んだ部品の名前）にある部品は読み直さない
+    param (
+        [System.IO.Compression.ZipArchive]$zip,
+        [string]$partName,
+        [System.Collections.Generic.HashSet[string]]$done,
+        [System.Collections.Generic.HashSet[string]]$seen,
+        [System.Collections.Generic.List[string]]$lines
+    )
+
+    if (-not $done.Add($partName)) {
+        return
+    }
+    $texts = $null
+    try {
+        $xml = readZipEntry $zip $partName
+        if ($null -eq $xml) {
+            return
+        }
+        $texts = @(readXmlLines $xml ${nsDrawing} "none" $null $null $true | ForEach-Object { $_.Text })
+    } catch [System.Xml.XmlException], [System.IO.InvalidDataException] {
+        return
+    }
+    foreach ($text in $texts) {
+        if ($seen.Add($text)) {
+            $lines.Add($text)
+        }
+    }
+}
+
+function getPptxLayoutMasterPart {
+    # レイアウトの親のスライドマスターの部品の名前を返す。リレーションシップが無い・読めないときは $null
+    param (
+        [System.IO.Compression.ZipArchive]$zip,
+        [string]$layoutPart
+    )
+
+    try {
+        foreach ($rel in (readRelationships $zip $layoutPart).Values) {
+            if ($rel.Type -like "*/slideMaster") {
+                return $rel.Target
+            }
+        }
+    } catch [System.Xml.XmlException], [System.IO.InvalidDataException] {
+        return $null
+    }
+    return $null
+}
+
+function addPptxLayoutPart {
+    # スライドのリレーションシップが指すレイアウト（種類 slideLayout）の部品の名前を、まだ無ければ $layoutParts に足す（使われた順）
+    param (
+        [hashtable]$slideRels,
+        [System.Collections.Generic.List[string]]$layoutParts
+    )
+
+    foreach ($slideRel in $slideRels.Values) {
+        if ($slideRel.Type -like "*/slideLayout" -and -not $layoutParts.Contains($slideRel.Target)) {
+            $layoutParts.Add($slideRel.Target)
+        }
+    }
+}
+
+function readPptxMasterUnits {
+    # スライドマスター・レイアウト（スライドが使うものだけ。スライドで最初に使われた順に、親のマスター → レイアウト）と
+    # ノートマスターの、プレースホルダー以外の文字を、場所 "スライドマスター"・"ノートマスター" として $units に足す。
+    # どちらも同じ文字の行は 1 回だけにする（場所ごとに数える）
+    param (
+        [System.IO.Compression.ZipArchive]$zip,
+        $presentation,
+        [hashtable]$presentationRels,
+        [System.Collections.Generic.List[string]]$layoutParts,
+        [System.Collections.Specialized.OrderedDictionary]$units
+    )
+
+    $masterLines = New-Object System.Collections.Generic.List[string]
+    $seenMaster = New-Object System.Collections.Generic.HashSet[string]
+    $donePart = New-Object System.Collections.Generic.HashSet[string]
+    foreach ($layoutPart in $layoutParts) {
+        $masterPart = getPptxLayoutMasterPart $zip $layoutPart
+        if ($masterPart) {
+            readPptxMasterPartLines $zip $masterPart $donePart $seenMaster $masterLines
+        }
+        readPptxMasterPartLines $zip $layoutPart $donePart $seenMaster $masterLines
+    }
+    if ($masterLines.Count -gt 0) {
+        addUnitLines $units "スライドマスター" $masterLines.ToArray()
+    }
+
+    # ノートマスターは presentation.xml の notesMasterIdLst の最初の 1 つ（ノートの部品が無いスライドにも印刷では出るため、notesSlide の有無では絞らない）
+    $notesMasterLines = New-Object System.Collections.Generic.List[string]
+    $notesMasterId = $presentation.GetElementsByTagName("notesMasterId", ${nsPresent}) | Select-Object -First 1
+    if ($null -ne $notesMasterId) {
+        $notesMasterRel = $presentationRels[$notesMasterId.GetAttribute("id", ${nsRel})]
+        if ($null -ne $notesMasterRel) {
+            readPptxMasterPartLines $zip $notesMasterRel.Target $donePart (New-Object System.Collections.Generic.HashSet[string]) $notesMasterLines
+        }
+    }
+    if ($notesMasterLines.Count -gt 0) {
+        addUnitLines $units "ノートマスター" $notesMasterLines.ToArray()
+    }
+}
+
 function readPptxUnitsFromZip {
     # 開いた PowerPoint の ZipArchive から、readPptxUnits と同じユニットを返す（開く・閉じる・合計の数え直しはしない）。
     # $readEmbeds が $false なら埋め込みは読まない（埋め込みの中の PowerPoint を読むとき。深さは 1 段まで）
@@ -950,6 +1060,7 @@ function readPptxUnitsFromZip {
     $units = New-Object System.Collections.Specialized.OrderedDictionary
     $footers = New-Object System.Collections.Generic.List[string]
     $seenFooters = New-Object System.Collections.Generic.HashSet[string]
+    $layoutParts = New-Object System.Collections.Generic.List[string]  # スライドが使うレイアウト（最初に使われた順）
     $embedState = newEmbeddedState
     $presentationXml = readZipEntry $zip "ppt/presentation.xml"
     if ($null -eq $presentationXml) {
@@ -976,11 +1087,11 @@ function readPptxUnitsFromZip {
         if ($slideXml -match '^[\s\S]{0,2000}?<p:sld\b[^>]*\sshow="(0|false)"') {
             $unitName += "（非表示）"
         }
-        # テキストボックス・図形の文字はスライドの本文にする（スライドの文字はほとんどが図形のため）。
-        # SmartArt・グラフの文字は "スライドNNN[図形]"、コメントは "スライドNNN[コメント]" に分ける
+        # テキストボックス・図形の文字は本文にする（ほとんどが図形のため）。SmartArt・グラフは "[図形]"、コメントは "[コメント]" に分ける
         $objects = New-Object System.Collections.Generic.List[object]
         addUnitLines $units $unitName @(readXmlLines $slideXml ${nsDrawing} "none" $null $objects | ForEach-Object { $_.Text })
         $slideRels = readRelationships $zip $rel.Target
+        addPptxLayoutPart $slideRels $layoutParts
         foreach ($object in $objects) {
             if ($object.Kind -eq "embed") {
                 continue  # 埋め込みは、スライドの文字をすべて読んだあとに読む（下）
@@ -1029,9 +1140,8 @@ function readPptxUnitsFromZip {
         }
     }
 
-    if ($footers.Count -gt 0) {
-        addUnitLines $units "ヘッダー・フッター" $footers.ToArray()
-    }
+    if ($footers.Count -gt 0) { addUnitLines $units "ヘッダー・フッター" $footers.ToArray() }
+    readPptxMasterUnits $zip $presentation $presentationRels $layoutParts $units
 
     return $units
 }

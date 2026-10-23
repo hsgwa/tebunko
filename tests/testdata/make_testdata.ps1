@@ -1803,6 +1803,55 @@ if (@(Get-Process powerpnt -ErrorAction SilentlyContinue).Count -gt 0) {
             savePres $pres "PowerPoint\高度.pptx"
         }
 
+        runCase "TC31 PowerPoint スライドマスター・レイアウト・ノートマスター" {
+            $pres = $ppt.Presentations.Add(0)
+            # スライドは 3 枚。1・2 枚目は同じレイアウト、3 枚目は別のレイアウト
+            $slide1 = addSlide $pres $ppLayoutText "TC31-01 1枚目のスライド"
+            [void](addSlide $pres $ppLayoutText "TC31-02 2枚目のスライド（1枚目と同じレイアウト）")
+            [void](addSlide $pres $ppLayoutTitleOnly "TC31-03 3枚目のスライド（別のレイアウト）")
+            # ノートを書く（ノートマスターの部品が保存されるように）
+            $slide1.NotesPage.Shapes.Placeholders.Item(2).TextFrame.TextRange.Text = "TC31 ノートのテキスト"
+
+            # スライドマスターと、1 枚目が使うレイアウトに置いた文字。同じ文字をマスターとレイアウトの両方に置く（重複を除くことの確かめ）
+            $master = $pres.SlideMaster
+            $box = $master.Shapes.AddTextbox(1, 20, 20, 400, 30)
+            $box.TextFrame.TextRange.Text = "TC31 マスターのテキスト"
+            $layout = $slide1.CustomLayout
+            $box = $layout.Shapes.AddTextbox(1, 20, 60, 400, 30)
+            $box.TextFrame.TextRange.Text = "TC31 レイアウトのテキスト"
+            $box = $layout.Shapes.AddTextbox(1, 20, 100, 400, 30)
+            $box.TextFrame.TextRange.Text = "TC31 マスターのテキスト"
+            # プレースホルダーの見本の文字を書き換える（読まないことの確かめ）
+            foreach ($shape in @($layout.Shapes)) {
+                # msoPlaceholder（14）の、タイトル・本文・オブジェクト
+                if ($shape.Type -eq 14 -and $shape.PlaceholderFormat.Type -in @(1, 2, 7)) {
+                    $shape.TextFrame.TextRange.Text = "TC31 見本の文字"
+                }
+            }
+            # どのスライドも使わないレイアウトに置いた文字（読まないことの確かめ）
+            $usedLayouts = @($pres.Slides | ForEach-Object { $_.CustomLayout.Index })
+            foreach ($candidate in @($master.CustomLayouts)) {
+                if ($candidate.Index -notin $usedLayouts) {
+                    $box = $candidate.Shapes.AddTextbox(1, 20, 60, 400, 30)
+                    $box.TextFrame.TextRange.Text = "TC31 使っていないレイアウト"
+                    break
+                }
+            }
+
+            # ノートマスターに置いた文字と、本文の見本の文字の書き換え
+            $notesMaster = $pres.NotesMaster
+            $box = $notesMaster.Shapes.AddTextbox(1, 20, 20, 300, 30)
+            $box.TextFrame.TextRange.Text = "TC31 ノートマスターのテキスト"
+            foreach ($shape in @($notesMaster.Shapes)) {
+                # msoPlaceholder（14）の、本文（ppPlaceholderBody）
+                if ($shape.Type -eq 14 -and $shape.PlaceholderFormat.Type -eq 2) {
+                    $shape.TextFrame.TextRange.Text = "TC31 ノートの見本の文字"
+                }
+            }
+
+            savePres $pres "PowerPoint\マスターとレイアウト.pptx"
+        }
+
         runCase "TC22 同名で種類違い（PowerPoint）" {
             simplePres "混在\同名.pptx" "TC22-pptx"
         }
