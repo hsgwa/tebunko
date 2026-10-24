@@ -14,10 +14,12 @@
 #   4（.docx / .docm / .doc / .pptx / .pptm）: Word・PowerPoint に埋め込んだ Office のファイル（Word 文書・Excel ブック・
 #      PowerPoint）の中の文字を、"ページNNN[埋め込みN]"・"スライドNNN[埋め込みN]" として読む
 #      （.doc は Word が新形式に変換した後も埋め込みが残るため上げる。.ppt は変換後に埋め込みが残らないため上げない）。
+#   5（.pptx / .pptm / .ppt）: PowerPoint のスライドマスター・レイアウト・ノートマスターの、プレースホルダー以外の文字を
+#      "スライドマスター"・"ノートマスター" として読む（.ppt も .pptx に変換してから読むため、ここで上げる）。
 ${extractVersions} = @{
     ".xlsx" = 4; ".xlsm" = 4
     ".docx" = 4; ".docm" = 4; ".doc" = 4
-    ".pptx" = 4; ".pptm" = 4; ".ppt" = 2
+    ".pptx" = 5; ".pptm" = 5; ".ppt" = 5
 }
 
 function getExtractVersion {
