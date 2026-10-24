@@ -418,7 +418,7 @@ Describe "getIndexLocationView（インデックスの保存先の表示）" -Ta
         $view = getIndexLocationView $path $net
         $view.Path | Should -BeExactly $path
         $view.Heading | Should -Be "インデックスの保存先"
-        $view.Note | Should -BeLike "*本文がそのまま入り*アクセス権は引き継がれません*［設定］*"
+        $view.Note | Should -BeLike "*本文がそのまま入り*アクセス権は引き継がれません*基本は自分の PC*共有フォルダでもよい*［設定］*権限の違う人が読める場所には置かないでください*"
         if ($net) {
             $view.Warning | Should -BeLike "注意：保存先は共有フォルダにあります*"
         } else {
