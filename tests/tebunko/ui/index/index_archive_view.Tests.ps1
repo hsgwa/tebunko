@@ -308,8 +308,11 @@ Describe "getImportProgressView" -Tag Unit {
 Describe "getImportIndexingConfirm" -Tag Unit {
     It "元のフォルダがあれば、importIndex が返した名前で尋ね、2-gram の索引のことを添える" {
         $confirm = getImportIndexingConfirm @{ Name = "営業(2)"; Enabled = $true }
-        $confirm.Heading | Should -Be "続けて [営業(2)] を更新しますか？"
-        $confirm.Hint | Should -BeLike "*2-gram の索引*更新しなくても検索はできます*"
+        $confirm.Title | Should -Be "営業(2) をインポートしました"
+        $confirm.Heading | Should -Be "高速化のためのインデックスを作成しますか？"
+        $confirm.CreateText | Should -Be "作成する"
+        $confirm.CancelText | Should -Be "あとで"
+        $confirm.Hint | Should -Be "作成すると検索が速くなります。作成しなくても検索はできます（結果は同じ）。"
     }
 
     It "元のフォルダがこの PC に無ければ尋ねない" {
@@ -327,3 +330,16 @@ Describe "getImportSkippedIndexingStatus" -Tag Unit {
     }
 }
 
+Describe "インポート後の画面に出す文言" -Tag Unit {
+    It "内部の言葉（2-gram・索引）と、前の言い方（更新しますか・更新する）を画面に出さない" {
+        $result = @{ Name = "営業"; Files = 1; Warnings = @(); Enabled = $true }
+        $confirm = getImportIndexingConfirm $result
+        $texts = @(
+            (getImportProgressView 1MB 4MB).Text, (getImportProgressView 1MB 4MB).Detail, (getImportProgressView 4MB 4MB).Text,
+            $confirm.Title, $confirm.Heading, $confirm.Hint, $confirm.CreateText, $confirm.CancelText, (getImportSkippedIndexingStatus $result)
+        )
+        foreach ($text in $texts) {
+            $text | Should -Not -Match "2-gram|索引|更新しますか|更新する"
+        }
+    }
+}

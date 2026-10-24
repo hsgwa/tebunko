@@ -66,7 +66,7 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             waitGuiWindowClosed $S $dialog "インポートのダイアログ"
 
             setGuiStep $S "インポートの完了 → 続けて更新するかの確認（取りやめる）"
-            answerGuiConfirm $S "インポート後の更新の確認" "を更新しますか" "キャンセル"
+            answerGuiConfirm $S "インポート後の更新の確認" "インデックスを作成しますか" "あとで"
             waitGui $S "インポートの完了" ${guiDefaultTimeout} {
                 (getGuiText (findGui $S.Window -Id "StatusText")) -like "*インポートしました*次の更新までは、検索が遅くなることがあります。"
             } | Out-Null
@@ -89,7 +89,7 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             clickGui $S $dialog "ImportButton" "［インポート］"
             waitGuiWindowClosed $S $dialog "インポートのダイアログ"
             setGuiStep $S "置き換えの完了 → 続けて更新する"
-            answerGuiConfirm $S "インポート後の更新の確認" "を更新しますか" "更新する"
+            answerGuiConfirm $S "インポート後の更新の確認" "インデックスを作成しますか" "作成する"
             $confirm = waitGuiWindow $S "取り込みの確認のダイアログ" -Id "StartButton" -Timeout ${guiIndexTimeout}
             clickGui $S $confirm "StartButton" "確認の［更新を開始］"
             waitGuiWindowClosed $S $confirm "取り込みの確認"
@@ -203,7 +203,7 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             clickGui $S $dialog "ImportButton" "［インポート］"
             waitGuiWindowClosed $S $dialog "インポートのダイアログ"
 
-            answerGuiConfirm $S "インポート後の更新の確認" "を更新しますか" "キャンセル"
+            answerGuiConfirm $S "インポート後の更新の確認" "インデックスを作成しますか" "あとで"
             waitGui $S "インポートの完了" ${guiDefaultTimeout} {
                 (getGuiText (findGui $S.Window -Id "StatusText")).Contains("インデックス [営業] をインポートしました")
             } | Out-Null

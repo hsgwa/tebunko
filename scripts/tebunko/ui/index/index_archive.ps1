@@ -46,6 +46,7 @@ function startImportProgress {
 
     $script:importProgress = $progress
     setIndexingBanner "info" "importing"
+    $ui.IndexingBannerClose.Visibility = "Collapsed"   # 閉じるは出さない（中止のボタンも出さない。設計どおり）
     $ui.IndexingProgressPanel.Visibility = "Visible"
     $ui.IndexingProgress.Visibility = "Visible"
     $ui.IndexingResumeButton.Visibility = "Collapsed"
@@ -434,10 +435,10 @@ function continueImportIndex {
         loadTargets
         refreshIndexViews
         setStatus (getImportSkippedIndexingStatus $result)
-        # 続けて更新するかを尋ねる（更新すると 2-gram の索引ができ、検索が速くなる）。名前は importIndex が返した最終の名前
+        # 続けて更新するかを尋ねる（作成すると検索が速くなる（内部では更新で 2-gram の索引ができる））。名前は importIndex が返した最終の名前
         $confirm = getImportIndexingConfirm $result
         if ($null -ne $confirm) {
-            $answer = showConfirm $confirm.Heading @(@{ Text = "更新する"; Value = "update" }) -hint $confirm.Hint
+            $answer = showConfirm $confirm.Heading @(@{ Text = $confirm.CreateText; Value = "update" }) -hint $confirm.Hint -title $confirm.Title -cancelText $confirm.CancelText
             if ($answer -eq "update") {
                 setStatus (getImportResultStatus $result)
                 startIndexing @($result.Name)

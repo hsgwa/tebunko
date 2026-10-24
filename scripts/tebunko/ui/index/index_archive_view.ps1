@@ -276,7 +276,7 @@ function getImportProgressView {
 }
 
 function getImportIndexingConfirm {
-    # インポートが終わった後に、続けて更新するかを尋ねる文（importIndex の戻り値から）。戻り値: @{ Heading; Hint }。
+    # インポートが終わった後に、続けて更新するかを尋ねる文（importIndex の戻り値から）。戻り値: @{ Title（窓の題。インポートが終わったことを伝える）; Heading; Hint; CreateText; CancelText }。
     # 元のフォルダがこの PC に無いとき（Enabled が偽）は $null（更新を始めると、設定の enabled が真に書き換わってしまうため尋ねない）
     param (
         $result
@@ -286,14 +286,17 @@ function getImportIndexingConfirm {
         return $null
     }
     return @{
-        Heading = "続けて [$($result.Name)] を更新しますか？"
-        Hint = "更新すると 2-gram の索引ができ、検索が速くなります。更新しなくても検索はできます（結果は同じ）。"
+        Title = "$($result.Name) をインポートしました"
+        Heading = "高速化のためのインデックスを作成しますか？"
+        Hint = "作成すると検索が速くなります。作成しなくても検索はできます（結果は同じ）。"
+        CreateText = "作成する"
+        CancelText = "あとで"
     }
 }
 
 function getImportSkippedIndexingStatus {
     # 続けて更新しなかったとき（確認を取りやめた・元のフォルダが無くて尋ねなかった）のステータス。
-    # getImportResultStatus の文に、2-gram の索引が次の更新までは無いことを足す
+    # getImportResultStatus の文に、高速化のためのインデックスが、次に更新するまでは無いことを足す
     param (
         $result
     )
