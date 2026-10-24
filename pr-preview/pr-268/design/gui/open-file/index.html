@@ -4313,7 +4313,7 @@
 </tr>
 <tr>
 <td>テキスト（対象の拡張子は <a href="../../indexing/text/#対象の拡張子">対応するテキストの拡張子</a>）</td>
-<td><code>.bat</code> <code>.cmd</code> <code>.ps1</code> <code>.vbs</code> <code>.js</code> <code>.reg</code> <code>.sh</code> <code>.py</code> <code>.rb</code> <code>.pl</code> <code>.php</code> <code>.lua</code> <code>.mjs</code> <code>.psm1</code> <code>.psd1</code>（解釈器やシェルで実行・登録になる拡張子）以外は、ファイルを既定のアプリで開く。動詞は試さず、常にそのまま開く（開き方の指定にかかわらない）。テキストの既定のアプリの多くには「読み取り専用」「新規」の動詞が無く、毎回「開けなかったため元のファイルを開きました」と出るのを避けるため。上記の 15 個の拡張子と、設定（<code>notepadTextExtensions</code>。設定の画面で選ぶ）でメモ帳にした拡張子は、開くたびに設定を読み（読めなければ設定なしと同じ）、既定のアプリではなく固定のパス（<code>%SystemRoot%\System32\notepad.exe</code>）のメモ帳で開く（<code>openWithNotepad</code>。既定のアプリの登録に関わらず実行されない）。いずれも該当行への移動はしない</td>
+<td><code>.bat</code> <code>.cmd</code> <code>.ps1</code> <code>.vbs</code> <code>.js</code> <code>.reg</code> <code>.sh</code> <code>.py</code> <code>.rb</code> <code>.pl</code> <code>.php</code> <code>.lua</code> <code>.mjs</code> <code>.psm1</code> <code>.psd1</code>（解釈器やシェルで実行・登録になる拡張子）以外は、ファイルを既定のアプリで開く。動詞は試さず、常にそのまま開く（開き方の指定にかかわらない）。テキストの既定のアプリの多くには「読み取り専用」「新規」の動詞が無く、毎回「開けなかったため元のファイルを開きました」と出るのを避けるため。上記の 15 個の拡張子と、設定（<code>notepadTextExtensions</code>。設定の画面で選ぶ）でエディタにした拡張子は、開くたびに設定を読み（読めなければ設定なしと同じ）、既定のアプリではなくエディタで開く（<code>openWithEditor</code>。エディタの既定は固定のパス（<code>%SystemRoot%\System32\notepad.exe</code>）のメモ帳で開く（<code>openWithNotepad</code>。既定のアプリの登録に関わらず実行されない）。いずれも該当行への移動はしない</td>
 </tr>
 <tr>
 <td>ファイルが無い・元の場所が分からない</td>

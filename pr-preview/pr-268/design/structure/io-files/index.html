@@ -4940,7 +4940,12 @@
 <tr>
 <td><code>%SystemRoot%\System32\notepad.exe</code></td>
 <td>起動する</td>
-<td>ログ・拡張子が危ないファイルを開く（<code>openWithNotepad</code>・［ログを開く］）</td>
+<td>ログ・拡張子が危ないファイルを開く（<code>openWithEditor</code> の既定のエディタ・［ログを開く］）</td>
+</tr>
+<tr>
+<td>設定 <code>textEditorPath</code> のプログラム（<code>.exe</code>）</td>
+<td>起動する（あるときだけ）</td>
+<td>「エディタで開く」に使う。利用者が自分の設定ファイルに書いた絶対パスで、<code>testTextEditorPath</code> を通り、ファイルがあるときだけ。通らなければメモ帳（<code>openWithEditor</code>）</td>
 </tr>
 <tr>
 <td><code>%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe</code></td>

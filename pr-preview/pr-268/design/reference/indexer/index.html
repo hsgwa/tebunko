@@ -5061,10 +5061,16 @@
 <td>選んだインデックスだけを更新する場合の当てはめ</td>
 </tr>
 <tr>
-<td><code>Extensions</code>（プロパティ）</td>
+<td><code>TextExcludes</code>（プロパティ）</td>
 <td>–</td>
-<td>string[]</td>
-<td><code>Crawl</code> が <code>createTargetList</code> に渡す、取り込む拡張子の一覧。<code>$null</code> のまま <code>Crawl</code> を呼ぶと、<code>Crawl</code> の始めに 1 回だけ設定を読み、<code>getTargetExtensionList</code> で取り込まない拡張子を除いた一覧を入れる（先に入れておけば設定は読まない）</td>
+<td>hashtable</td>
+<td>インデックスごとの、取り込まないテキストの拡張子（インデックス名 → 拡張子の配列）。<code>Crawl</code> が、フォルダのインデックス名で <code>getTargetExtensionList</code> を作って <code>createTargetList</code> に渡す。<code>$null</code> のまま <code>Crawl</code> を呼ぶと、始めに 1 回だけ設定（<code>indexTextExcludes</code>）を読む</td>
+</tr>
+<tr>
+<td><code>TextCountsByIndex</code>（プロパティ）</td>
+<td>–</td>
+<td>hashtable</td>
+<td>インデックス名 → 拡張子 → 件数（テキストの拡張子ごとの件数。取り込まない拡張子の分も。同じ名前の複数のフォルダは合計）。<code>Crawl</code> が <code>createTargetList</code> の <code>TextCounts</code> から足す</td>
 </tr>
 <tr>
 <td><code>Crawl</code></td>
@@ -5115,7 +5121,7 @@
 <td><code>getExtractVersion</code></td>
 <td>path</td>
 <td>int</td>
-<td>ファイルの形式（拡張子）の今の抽出版（読み取る内容の版。<code>.xlsx</code> <code>.xlsm</code> はグラフの項目名を読まず、グラフ・SmartArt・ヘッダー・フッターを読む 4、<code>.docx</code> <code>.docm</code> <code>.pptx</code> <code>.pptm</code> はグラフの項目名を読まない 3、旧形式（<code>.doc</code> <code>.ppt</code>）など図形・コメントを読む形式は 2、ほかは 1）</td>
+<td>ファイルの形式（拡張子）の今の抽出版（読み取る内容の版。<code>.xlsx</code> <code>.xlsm</code> はグラフの項目名を読まず、グラフ・SmartArt・ヘッダー・フッターを読む 4、<code>.docx</code> <code>.docm</code> <code>.doc</code> は埋め込みを読む 4、<code>.pptx</code> <code>.pptm</code> <code>.ppt</code> はスライドマスター・ノートマスターを読む 5、ほかは 1）</td>
 <td><a href="../../indexing/target-decision/#取り込み対象の決定createtargetlist">取り込み対象の決定</a></td>
 <td>testExtractOutdated、インデックス作成（取り込み一覧の抽出版の列）</td>
 </tr>

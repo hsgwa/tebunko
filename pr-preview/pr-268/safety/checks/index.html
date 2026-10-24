@@ -1063,6 +1063,51 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="外部プロセスの起動">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#エディタの差し替えtexteditorpath" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        エディタの差し替え（textEditorPath）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ウイルス対策ソフトedr-での確かめ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ウイルス対策ソフト・EDR での確かめ
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ウイルス対策ソフト・EDR での確かめ">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#組織が許可するとき" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        組織が許可するとき
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -4333,6 +4378,51 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="外部プロセスの起動">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#エディタの差し替えtexteditorpath" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        エディタの差し替え（textEditorPath）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ウイルス対策ソフトedr-での確かめ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ウイルス対策ソフト・EDR での確かめ
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ウイルス対策ソフト・EDR での確かめ">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#組織が許可するとき" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        組織が許可するとき
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -4499,7 +4589,7 @@
 <li><strong>理由</strong>: Windows PowerShell 5.1 は、BOM の無い UTF-8 のファイルを CP932 で読み、日本語の文字の最後のバイトが次の記号を飲み込んで構文が壊れる。日本語の本体をヒアストリング（データ）に入れ、ScriptBlock にして実行することで、BOM が落ちても動かす（<a href="../../design/structure/single-script/">単一 .ps1 の包み</a>）。</li>
 <li><strong>範囲</strong>: 作った単一 .ps1 の最後の文の 1 行だけ。本体は、包む前に禁止の語の検査（<code>tools/script_rules.ps1</code>）を通っている。</li>
 <li><strong>検査</strong>: 包んだ結果の全体を、構文木で確かめる。ScriptBlock の Create・<code>Invoke-Expression</code>・<code>iex</code> の呼び出しが 1 件だけで、ファイルの最後の文であり、その文の全文が決めた 1 行と一字一句同じであること（同じ文に別の式を足したら止まる）。その文を除いた全体（頭・尾・本体の文字列）に、禁止の語（<code>tools/script_rules.ps1</code> の一覧の全分類）が無いこと。1 つでも外れると、包む道具が何も書き出さずに止まる（<code>tests/tools/single_script_guard.Tests.ps1</code> が、足した Create・<code>iex</code>・引数の違い・2 行目・本体の中の語を止めることを表で確かめる）。</li>
-<li><strong>実機で確かめること</strong>: ウイルス対策ソフト（EDR）がこの形を疑うかどうかは、実機でしか確かめられない。検知されたら、方式を決め直す。</li>
+<li><strong>実機で確かめた結果</strong>: Windows 11 の Microsoft Defender ウイルス対策（既定の設定。リアルタイム保護・振る舞い監視・AMSI が有効）で、この形を含む起動を動かして確かめた（下の「<a href="#ウイルス対策ソフトedr-での確かめ">ウイルス対策ソフト・EDR での確かめ</a>」）。単一 .ps1 版の起動とインデックス作成で、Defender の検知・隔離は出なかった。PowerShell 自身が残す 4104（警告レベル）の自動の記録は、この行の <code>[scriptblock]::Create</code> を含めて出る（件数は下の表の下のとおり）。Microsoft Defender for Endpoint（EDR 本体）では未確認。検知されたら、方式を決め直す。</li>
 </ul>
 <h2 id="office-ファイルを開くときの設定">Office ファイルを開くときの設定<a class="headerlink" href="#office-ファイルを開くときの設定" title="Permanent link">&para;</a></h2>
 <p>インデックス作成のために Excel・Word・PowerPoint を COM で操作するが、アプリを起動したときに次の設定を行う（<code>shared/office/office_app.ps1:79-96</code>）。<code>tests/meta/safety.Tests.ps1</code> の「Office ファイルを安全に開くこと」がこれを確かめる。<strong>利用者の PowerPoint には接続しない</strong>（1 つのセッションに 1 つのプロセスしか持てず、接続すると下の設定を利用者のアプリまで書き換えてしまうため）。起動する前に自分のセッションに <code>POWERPNT</code> が無いかを確かめ、あれば設定を行わずに例外にする（<a href="../../design/indexing/office-apps/#office-アプリexcelwordpowerpointの管理">Office アプリ（Excel・Word・PowerPoint）の管理</a>「PowerPoint」）。</p>
@@ -4563,7 +4653,7 @@
 <h2 id="取り込み対象の拡張子">取り込み対象の拡張子<a class="headerlink" href="#取り込み対象の拡張子" title="Permanent link">&para;</a></h2>
 <p>Office に加えてテキストファイルと PDF ファイルも取り込むが、対象の拡張子は <code>shared/office/office_file_kind_view.ps1</code> の <code>$officeExtensions</code>（10 個）と <code>shared/core/text_file.ps1</code> の <code>$textExtensions</code>（75 個。既定のアプリで開く <code>$textOpenExtensions</code> 60 個 + メモ帳で開く <code>$textNotepadExtensions</code> 15 個）と <code>shared/core/pdf_file.ps1</code> の <code>$pdfExtensions</code>（<code>.pdf</code> の 1 個）を合わせた、<strong>固定の 86 個の一覧</strong>である（<a href="../../design/indexing/text/">テキストファイルの読み取り</a>・<a href="../../design/indexing/pdf/">PDF ファイルの読み取り</a>）。設定ファイルで拡張子を足す仕組みは無い（設定で選べるのは、この固定の 75 個の中で、取り込まない・メモ帳で開く、の 2 方向だけ。設定を読む <code>readTextExtensionSettings</code> は 75 個に無いものを捨て、実行・登録になる <code>$textNotepadExtensions</code> は設定にかかわらずメモ帳で開く。<code>tests/meta/safety.Tests.ps1</code> が確かめる）。</p>
 <p>危険な種類のファイル（実行される・既定のアプリがスクリプトを実行する <code>.exe</code> <code>.com</code> <code>.scr</code> <code>.hta</code> <code>.wsf</code> <code>.wsh</code> <code>.jse</code> <code>.vbe</code> <code>.lnk</code> <code>.url</code> <code>.msi</code> <code>.cpl</code> <code>.inf</code> 等）を、実行される種類を並べて弾く形にすると、一覧から漏れて対象に紛れ込む恐れがある。そのため <code>tests/meta/safety.Tests.ps1</code> は「対象の拡張子が固定であること」として、<code>$textExtensions</code> がちょうど 75 個（内 <code>$textNotepadExtensions</code> が 15 個、<code>$textOpenExtensions</code> が 60 個）であること、<code>$pdfExtensions</code> が <code>.pdf</code> だけであること、<code>$officeExtensions</code> と <code>$textExtensions</code> と <code>$pdfExtensions</code> を合わせた一覧がこの 86 個ちょうどであること、上に挙げた危険な種類の拡張子がどちらの一覧にも含まれないことを確かめる。対象の拡張子を足す変更は必ずこのテストを落とし、この一覧の見直しを促す。</p>
-<p><code>$textNotepadExtensions</code>（<code>.bat</code> <code>.cmd</code> <code>.ps1</code> <code>.vbs</code> <code>.js</code> <code>.reg</code> <code>.sh</code> <code>.py</code> <code>.rb</code> <code>.pl</code> <code>.php</code> <code>.lua</code> <code>.mjs</code> <code>.psm1</code> <code>.psd1</code>）は、既定のアプリで開くと実行・登録になる（スクリプト・解釈器で動かす言語を含む）ため取り込みの対象ではあるが、検索結果から開くときは既定のアプリではなくメモ帳で開く（下の「外部プロセスの起動」）。<code>.hs</code> <code>.kts</code> <code>.exs</code> は、Windows に既定の関連付けが無く、実行される既定の登録が一般的でないため既定のアプリのままとする。</p>
+<p><code>$textNotepadExtensions</code>（<code>.bat</code> <code>.cmd</code> <code>.ps1</code> <code>.vbs</code> <code>.js</code> <code>.reg</code> <code>.sh</code> <code>.py</code> <code>.rb</code> <code>.pl</code> <code>.php</code> <code>.lua</code> <code>.mjs</code> <code>.psm1</code> <code>.psd1</code>）は、既定のアプリで開くと実行・登録になる（スクリプト・解釈器で動かす言語を含む）ため取り込みの対象ではあるが、検索結果から開くときは既定のアプリではなくエディタ（既定はメモ帳）で開く（下の「外部プロセスの起動」）。取り込むかどうかはインデックスごとに、開き方は全体で選べるが、選べるのは固定の 75 個の中だけで、実行・登録になる 15 個は設定にかかわらずエディタで開く。<code>.hs</code> <code>.kts</code> <code>.exs</code> は、Windows に既定の関連付けが無く、実行される既定の登録が一般的でないため既定のアプリのままとする。</p>
 <p>開く前には、インデックスの「ファイル名」を <code>testSourceBookName</code> で確かめる（取り込み対象の拡張子であること、フォルダの区切り・<code>..</code>・<code>:</code>・制御文字・表示の向きを変える文字を含まないこと。末尾のピリオド・空白は Windows が無視するので外して見る）。書き換えたインデックスに <code>evil.hta</code> などがあっても、検索結果に出さず、開かない。</p>
 <h3 id="pdf-ファイルを読むときの上限">PDF ファイルを読むときの上限<a class="headerlink" href="#pdf-ファイルを読むときの上限" title="Permanent link">&para;</a></h3>
 <p>PDF は PowerShell だけで読み、外の部品・Office・外部プロセスを使わない。細工した PDF で固まる・メモリを使い切ることを防ぐため、<code>shared/core/pdf_file.ps1</code> は次の上限を持ち、超えたら取り込みの失敗にする（<code>tests/shared/core/pdf_file.Tests.ps1</code> が、上限を小さく差し替えて確かめる）。</p>
@@ -4616,7 +4706,7 @@
 <p>参照の循環（<code>Prev</code> のつながりを含む）とファイルの外を指す位置は例外にする。<code>Prev</code> は呼び出しの入れ子にせず、順に読む。暗号化された PDF は、空の利用者パスワードで開ける AES-256（V5 の R5・R6）だけ復号して読む。パスワードが要るもの・未対応の方式（RC4 40・128、AES-128 など）は、そのファイルだけ失敗にする（パスワードを探さない）。壊れた暗号化の辞書（短い <code>/U</code> <code>/UE</code>）は決まった長さの確かめで断り、AES-256 R6 の鍵の計算の繰り返しは 300 回で止める。鍵・途中の値は例外の文にも記録にも出さない。PDF の中のスクリプト・リンク・添付ファイル・外部の参照は、実行も取得もしない（文字の命令だけを読む）。</p>
 <p><code>.xml</code> は、既定のアプリ（Windows の「XML エディター」）が先頭の <code>&lt;?mso-application progid=…?&gt;</code> を見て Excel・Word で開くことがあるが、マクロは既定で無効（上の「Office ファイルを開くときの設定」）であるため、開くこと自体の害は小さい。</p>
 <h2 id="外部プロセスの起動">外部プロセスの起動<a class="headerlink" href="#外部プロセスの起動" title="Permanent link">&para;</a></h2>
-<p><code>tests/meta/safety.Tests.ps1</code> の「外部プロセスの起動は explorer.exe・notepad.exe だけ」が確かめる。</p>
+<p><code>tests/meta/safety.Tests.ps1</code> の「外部プロセスの起動は explorer.exe・固定のメモ帳（エラー記録）と、openWithEditor が … 選んだエディタ … だけ」が確かめる。</p>
 <table>
 <thead>
 <tr>
@@ -4637,9 +4727,9 @@
 <td>「バージョン情報」の GitHub・リリースのリンク。開くのは <code>getAboutLinks</code> に載せた 2 つのアドレス（<code>https://github.com/hsgwa/tebunko</code> と、その <code>/releases</code>）と一字一句同じものだけ（<code>testAboutLinkUrl</code>）。利用者がリンクを押したときのみ</td>
 </tr>
 <tr>
-<td><code>openWithNotepad</code>（<code>tebunko/ui/open_source.ps1</code>）</td>
-<td><code>Start-Process</code>（固定のパス <code>%SystemRoot%\System32\notepad.exe</code>）</td>
-<td>検索結果から、既定のアプリで開くと実行・登録になる拡張子（<code>$textNotepadExtensions</code>）のテキストファイルを開く（利用者の操作時のみ）</td>
+<td><code>openWithEditor</code>（<code>tebunko/ui/open_source.ps1</code>）</td>
+<td><code>Start-Process</code>（<code>getTextEditorChoice</code> が選んだプログラム。既定は固定のパス <code>%SystemRoot%\System32\notepad.exe</code>）</td>
+<td>検索結果から、既定のアプリで開くと実行・登録になる拡張子（<code>$textNotepadExtensions</code>）と、設定でエディタにした拡張子のテキストファイルを開く（利用者の操作時のみ）。エディタを差し替えられるのは、利用者が自分の設定ファイル <code>setting.config</code> の <code>textEditorPath</code> に書いたときだけ（下の「エディタの差し替え」）</td>
 </tr>
 <tr>
 <td><code>openWithShell</code>（<code>tebunko/ui/open_source.ps1</code>）</td>
@@ -4658,10 +4748,95 @@
 </tr>
 </tbody>
 </table>
+<h3 id="エディタの差し替えtexteditorpath">エディタの差し替え（<code>textEditorPath</code>）<a class="headerlink" href="#エディタの差し替えtexteditorpath" title="Permanent link">&para;</a></h3>
+<p>「エディタで開く」のエディタは、既定は固定のパスのメモ帳。利用者が自分の <code>setting.config</code> に <code>textEditorPath</code> を書くと、そのプログラムで開く。守りは次のとおり（<code>tests/meta/safety.Tests.ps1</code> の「外部プロセスの起動は …」「openWithEditor は …」と、<code>text_open_view.Tests.ps1</code> の <code>testTextEditorPath</code> の表が確かめる）。</p>
+<ul>
+<li><strong>指定できるのは利用者本人だけ</strong>: 値は利用者の <code>setting.config</code>（ワークスペースの外。ツールのフォルダか既定のワークスペース）にだけある。インデックス・取り込み一覧・共有のワークスペースからは読まない。この版では設定の画面から変えられない。</li>
+<li><strong>パスの検証（<code>testTextEditorPath</code>）</strong>: ドライブ文字から始まる絶対パスで、拡張子が <code>.exe</code>。UNC・相対パス・環境変数（<code>%</code>）・引用符・引数付き・<code>..</code>・<code>[</code> <code>]</code> <code>*</code> <code>?</code>（<code>Start-Process</code> がワイルドカードとして扱う）・ファイル名に使えない文字は不可。通らなければ、既定のアプリには戻さずメモ帳で開き、<code>設定のエディタ（textEditorPath）が使えないため、メモ帳で開きます。</code> と知らせる。</li>
+<li><strong>ファイルの有無</strong>: <code>openWithEditor</code> が <code>Test-Path -LiteralPath -PathType Leaf</code> で確かめる。無ければメモ帳で開き、同じ知らせを出す。</li>
+<li><strong>起動の形</strong>: <code>Start-Process -FilePath</code>（エディタ）<code>-ArgumentList</code>（引用した 1 つのパス）。シェル・関連付け（<code>openWithShell</code>・<code>Invoke-Item</code>）は通さない。実行・登録になる拡張子（<code>$textNotepadExtensions</code>）は、設定にかかわらず常にエディタで開き、既定のアプリには戻さない。</li>
+<li><strong>開く対象</strong>: 開くファイルは、これまでどおり取り込み対象の名前（<code>testSourceBookName</code>）を通ったものだけ。</li>
+</ul>
 <p>上の表にない関数が、シェルで開く API を書くと <code>tests/meta/safety.Tests.ps1</code> の「検索結果から開くとき、シェルで開く処理が決まった所にだけあること」が落ちる（別名・型名の書き方違いも構文木で見つける）。足すときは、表と守りを同じ変更で直す。</p>
 <p>インデックス作成は画面のプロセスの中のスレッドで動かすため、インデックス作成のために <code>powershell.exe</code> を起動することはない（<a href="../../design/structure/threads/#プロセス">プロセス</a>）。</p>
 <p>元のファイルを既定のアプリで開く操作（<code>tebunko/ui/open_source.ps1</code> の <code>openWithShell</code>）では、<code>Start-Process</code> ではなく <code>ProcessStartInfo</code> を使う（<code>Start-Process</code> は <code>[</code> <code>]</code> を含むパスをワイルドカードとして解釈するため）。起動対象は、利用者が選んだ行のファイルと、それに関連付けられたアプリケーションである。<code>ProcessStartInfo</code>・<code>[System.Diagnostics.Process]::Start</code> を使うのはこの 1 か所だけであることを <code>tests/meta/safety.Tests.ps1</code> が確かめる。</p>
 <p><code>tebunko.bat</code> は、上の起動とは別に、<strong>起動そのものに失敗したとき（画面が開く前）だけ</strong> <code>notepad.exe</code> を開く（<a href="../disclosure/#起動に失敗したときの知らせtebunkobat">起動に失敗したときの知らせ</a>）。制限言語モード・実行ポリシーでスクリプトの読み込みが止まる場面では WPF・WinForms のメッセージボックスを出せないため、失敗の理由と記録のファイルの名前をメモ帳で示す。<code>tests/meta/safety.Tests.ps1</code> の「tebunko.bat が起動する外部のプログラムは conhost.exe・powershell.exe・notepad.exe だけ」が、<code>tebunko.bat</code> が起動する外部のプログラムをこの 3 つに限る。</p>
+<p>起動するプロセスは、この表のほかに次の 2 つがある。どちらも利用者の操作や取り込みに伴うものである。</p>
+<ul>
+<li><strong>Office（<code>EXCEL.EXE</code>・<code>WINWORD.EXE</code>・<code>POWERPNT.EXE</code>）</strong>: 旧形式（<code>.xls</code> <code>.doc</code> <code>.ppt</code>）やパスワード付きのファイルを COM で開くときだけ起動する。画面のプロセスが COM で頼み、Windows（DCOM）が起動するため、プロセスの親は <code>powershell.exe</code> ではなく <code>svchost.exe</code>（DcomLaunch）になる（<a href="#office-ファイルを開くときの設定">Office ファイルを開くときの設定</a>）。<code>Start-Process</code> は使わない。</li>
+<li><strong><code>conhost.exe</code> と <code>powershell.exe</code></strong>: <code>tebunko.bat</code> が 1 回だけ起動する（<a href="../disclosure/#起動に失敗したときの知らせtebunkobat">起動口</a>）。<code>-Command</code> に渡す文字列は <code>tebunko.bat</code> の中に固定で書いた内容だけで、利用者の入力や外からの値を混ぜない（ツールのフォルダだけを環境変数で渡し、コードとして解釈しない）。<code>-EncodedCommand</code>・<code>-ExecutionPolicy Bypass</code>・<code>Invoke-Expression</code> の形は使わない。</li>
+</ul>
+<h2 id="ウイルス対策ソフトedr-での確かめ">ウイルス対策ソフト・EDR での確かめ<a class="headerlink" href="#ウイルス対策ソフトedr-での確かめ" title="Permanent link">&para;</a></h2>
+<p>非表示の PowerShell（<code>-WindowStyle Hidden</code>）での起動と、上の外部プロセスが、ウイルス対策ソフトや EDR に検知されないかを、実機で確かめた。</p>
+<ul>
+<li><strong>環境</strong>: Windows 11、Microsoft Defender ウイルス対策（既定の設定。リアルタイム保護・振る舞い監視・AMSI が有効）。</li>
+<li><strong>Microsoft Defender for Endpoint（EDR 本体）は未確認。</strong> 同じエンジンと AMSI を使うため手がかりにはなるが、MDE の検知の規則は別である。MDE の機械で確かめるときは、下の場面を同じ手順で流し、「前後で増えない」を比べる。</li>
+<li>
+<p><strong>見たもの</strong>: <code>Get-MpThreatDetection</code> の件数、イベントログ <code>Microsoft-Windows-Windows Defender/Operational</code> の 1006〜1008・1015・1116〜1119、<code>Microsoft-Windows-PowerShell/Operational</code> の 4104（警告レベル）。</p>
+</li>
+<li>
+<p><strong>前後の数え方</strong>: 場面ごとの前後で、次を管理者でない PowerShell で流して件数を比べる。MDE の機械では、これに加えて MDE のポータルのアラートも見る。第二段（Azure の MDE で流す）は別の作業で行う。</p>
+</li>
+</ul>
+<div class="highlight"><pre><span></span><code># 数える前に、ログが読めることを確かめる（読めないと下の 2 本は黙って 0 になる）。エラーが出たら管理者の PowerShell で流す
+(Get-WinEvent -ListLog 'Microsoft-Windows-Windows Defender/Operational','Microsoft-Windows-PowerShell/Operational').RecordCount
+@(Get-MpThreatDetection).Count
+@(Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-Windows Defender/Operational'; Id=1006,1007,1008,1015,1116,1117,1118,1119} -ErrorAction SilentlyContinue).Count
+@(Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-PowerShell/Operational'; Id=4104; Level=3} -ErrorAction SilentlyContinue).Count
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>場面</th>
+<th>操作</th>
+<th>検知の件数（前 → 後）</th>
+<th>Defender のイベント（前 → 後）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Mark-of-the-Web を付けた展開済みのフォルダの <code>tebunko.bat</code> から起動（画面が開くまで 15 秒待つ）</td>
+<td>0 → 0</td>
+<td>0 → 0</td>
+</tr>
+<tr>
+<td>2</td>
+<td>インデックス作成（<code>.docx</code> <code>.pptx</code> <code>.xlsx</code> のほか、旧形式の <code>.xls</code> <code>.doc</code> <code>.ppt</code> を COM で 5 ファイル。失敗 0 件）</td>
+<td>0 → 0</td>
+<td>0 → 0</td>
+</tr>
+<tr>
+<td>3</td>
+<td>結果からフォルダを開く（<code>explorer.exe</code>）、<code>.ps1</code> をメモ帳で開く（<code>notepad.exe</code>）</td>
+<td>0 → 0</td>
+<td>0 → 0</td>
+</tr>
+<tr>
+<td>4</td>
+<td>単一 .ps1 版の起動とインデックス作成（<code>[scriptblock]::Create</code>・<code>[char]0xNNNN</code> の組み立てを含む）</td>
+<td>0 → 0</td>
+<td>0 → 0</td>
+</tr>
+<tr>
+<td>5</td>
+<td>［参照…］のフォルダ選択（<code>NonPublic</code> のリフレクション）を開く、キャンセルする、フォルダを選ぶ</td>
+<td>0 → 0</td>
+<td>0 → 0</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>4104（警告レベル）</strong>: 場面 1 では、起動のたびに画面のプロセスが読み込んだスクリプト 28 件が記録された。画面を開くテストの一式（場面 2・5 を含む）でも、<code>scripts</code> のスクリプトの読み込みで 21 ファイル分が記録された。場面 4（単一 .ps1 版）は、起動から 20 秒で 350 件が警告レベルで記録された。うち 1 件が末尾の <code>[scriptblock]::Create</code> の行（2,277 文字）で、残りは本体のスクリプトの塊の記録である。Windows PowerShell 5.1 が <code>Add-Type</code>・<code>BindingFlags</code>・<code>NonPublic</code> などの語や、スクリプトブロックの生成を含むスクリプトを自動で記録するもので、検知や隔離ではない。<code>-EncodedCommand</code> の形の記録は出なかった。MDE の機械では、この記録を EDR が取り込んで警告にするかを比べる。</li>
+<li><strong>結論</strong>: 今の起動のしかたは変えない。検知は出なかった。</li>
+</ul>
+<h3 id="組織が許可するとき">組織が許可するとき<a class="headerlink" href="#組織が許可するとき" title="Permanent link">&para;</a></h3>
+<p>EDR で検知されたときは、次の順で許可を求める。</p>
+<ol>
+<li><strong>発行元（署名）で許可する。</strong> 配布物にコード署名をして、その発行元（証明書）で許可するのが最も確実である（コード署名は今後対応する予定）。ファイルのハッシュでの除外は、版が変わるたびに作り直しになるため勧めない。</li>
+<li><strong>署名が使えないときだけ、フォルダで許可する。</strong> <code>tebunko.bat</code> と <code>scripts</code> のあるフォルダ（展開先）だけを、スクリプトの実行を許すフォルダにする。利用者が書き換えられない場所（管理者だけが書き込める場所）に置いたときに限る。利用者が書き込めるフォルダをパスで許可すると、そこに置いた別のスクリプトも通してしまう。ユーザー全体や一時フォルダは許可しない。</li>
+<li><strong>許可の対象は 1 つの起動の形だけに絞る。</strong> <code>conhost.exe</code> から <code>powershell.exe -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -Command …</code> を起動する形（<code>tebunko.bat</code> の 1 行）である。<code>-ExecutionPolicy Bypass</code> など、ほかの形の許可は要らない。</li>
+</ol>
 
 
 

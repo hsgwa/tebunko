@@ -4768,6 +4768,13 @@
 <td>ingestFile, getContentIndexFileKind, describePlace, findTargetFiles（<code>$targetExtensions</code>）</td>
 </tr>
 <tr>
+<td><code>getTextExtensionCounts</code></td>
+<td>names（ファイル名・パスの並び）</td>
+<td>ハッシュテーブル（拡張子 → 件数）</td>
+<td><code>$textExtensions</code> の拡張子ごとの件数（小文字。Office・PDF・一覧に無い拡張子は数えない）</td>
+<td><code>findTargetFiles</code>（<code>TextCounts</code>）</td>
+</tr>
+<tr>
 <td><code>getTextTargetExtensions</code></td>
 <td>excluded（省略可）</td>
 <td>string[]</td>

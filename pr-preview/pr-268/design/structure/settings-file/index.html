@@ -4319,8 +4319,9 @@
 <span class="w">    </span><span class="nt">"cloudFiles"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ask"</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"workspaceFolder"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"searchLimit"</span><span class="p">:</span><span class="w"> </span><span class="mi">10000</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">"excludedTextExtensions"</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+<span class="w">    </span><span class="nt">"indexTextExcludes"</span><span class="p">:</span><span class="w"> </span><span class="p">{},</span>
 <span class="w">    </span><span class="nt">"notepadTextExtensions"</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+<span class="w">    </span><span class="nt">"textEditorPath"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"ingestThreads"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
 <span class="p">}</span>
 </code></pre></div>
@@ -4420,18 +4421,25 @@
 <td><code>readSearchLimit</code>（<code>getSearchLimit</code>）</td>
 </tr>
 <tr>
-<td><code>excludedTextExtensions</code></td>
-<td>文字列の配列</td>
-<td>空</td>
-<td>取り込まないテキストの拡張子（<code>.log</code> など。<a href="../../indexing/text/#対象の拡張子">対象の拡張子</a>の 75 個の中のもの）。既定の空は、75 個すべてを取り込む。読むときは小文字にそろえ、75 個に無いもの（<code>.exe</code> など）・文字列でないもの・重複は捨てる。1 件だけの値（<code>".log"</code>）も 1 件の配列として読む。設定の画面の「テキストファイル」（と［インデックス管理］の［アクション］メニューの［テキストの拡張子…］）で変え、［OK］で書く。次のインデックス作成で効く（<a href="../../indexing/target-decision/">取り込み対象の決定</a>）</td>
-<td><code>readTextExtensionSettings</code> / <code>writeTextExtensionSettings</code></td>
+<td><code>indexTextExcludes</code></td>
+<td>オブジェクト（インデックス名 → 文字列の配列）</td>
+<td>空のオブジェクト</td>
+<td>インデックスごとの、取り込まないテキストの拡張子（<code>.log</code> など。<a href="../../indexing/text/#対象の拡張子">対象の拡張子</a>の 75 個の中のもの）。キーはインデックスの名前（<code>targetFolders[].name</code> と同じ。同じ名前のフォルダが複数あっても 1 か所で決める）。項目が無い名前は 75 個すべて取り込む。読むときは小文字にそろえ、75 個に無いもの（<code>.exe</code> など）・文字列でないもの・重複を捨て、オブジェクトでない値・配列が空になる名前は項目を作らない。1 件だけの値（<code>".log"</code>）も 1 件の配列として読む。インデックス作成の確認で選び（［更新を開始］で書く）、次のインデックス作成から効く（<a href="../../indexing/target-decision/">取り込み対象の決定</a>）。インデックスを削除したときは項目を消し、名前を変えたときはキーを付け替える（<code>IndexCatalog</code>）。エクスポートの zip を取り込んだインデックスには付いてこない（既定で取り込む）</td>
+<td><code>readTextExtensionSettings</code> / <code>writeIndexTextExcludes</code>・<code>renameIndexTextExcludes</code></td>
 </tr>
 <tr>
 <td><code>notepadTextExtensions</code></td>
 <td>文字列の配列</td>
 <td>空</td>
-<td>検索結果から開くとき、既定のアプリの代わりにメモ帳で開くテキストの拡張子（既定のアプリで開く 60 個の中のもの）。既定の空は、60 個を既定のアプリで開く。メモ帳で開く 15 個（<code>.bat</code> など）は書かなくても常にメモ帳なので、ここには書かない。読み方は <code>excludedTextExtensions</code> と同じ。開くたびに読む</td>
-<td><code>readTextExtensionSettings</code> / <code>writeTextExtensionSettings</code></td>
+<td>検索結果から開くとき、既定のアプリの代わりにエディタで開くテキストの拡張子（既定のアプリで開く 60 個の中のもの）。既定の空は、60 個を既定のアプリで開く。エディタ固定の 15 個（<code>.bat</code> など）は書かなくても常にエディタなので、ここには書かない（書いてあっても無視する）。読み方は <code>indexTextExcludes</code> の配列と同じ。全体で 1 つ（インデックスごとには持たない）。開くたびに読む</td>
+<td><code>readTextExtensionSettings</code> / <code>writeTextOpenSettings</code></td>
+</tr>
+<tr>
+<td><code>textEditorPath</code></td>
+<td>文字列</td>
+<td>空</td>
+<td>「エディタで開く」に使うプログラムのパス。空はメモ帳（固定のパス <code>%SystemRoot%\System32\notepad.exe</code>）。値があるときは、ドライブ文字から始まる絶対パスの <code>.exe</code>（UNC・相対・環境変数・引数・引用符・<code>[</code> <code>]</code> <code>*</code> <code>?</code> は不可。<code>testTextEditorPath</code>）で、ファイルがあるときだけ使う。通らなければ既定のアプリには戻さずメモ帳で開き、知らせる。この版では設定の画面から変えない（設定ファイルを手で書き換える。画面で選べるのは将来の対応）</td>
+<td><code>readTextExtensionSettings</code>（<code>openWithEditor</code> が使う）</td>
 </tr>
 <tr>
 <td><code>ingestThreads</code></td>
@@ -4456,7 +4464,7 @@
 <li>記載の無いキー・未知のキー・値が <code>null</code> のキーは無視する（キーが増えても古い設定ファイルをそのまま読める）。</li>
 <li>真偽値のキーは、手で <code>"false"</code> のような文字列に書き換えても <code>true</code> / <code>false</code> として読む（<code>toSettingBool</code>）。読めない値は既定値にする。</li>
 <li>数値のキー（<code>ingestThreads</code>・<code>searchLimit</code>）は、手で <code>"2"</code> のような文字列に書き換えても数値として読む。数値にできない値は既定値にする。</li>
-<li>テキストの拡張子のキー（<code>excludedTextExtensions</code>・<code>notepadTextExtensions</code>）は、既定からの差だけを持つ（後の版でテキストの拡張子が増えても、その拡張子は既定の扱いになる）。前の版はこの 2 つのキーを知らないので無視する（前の版に戻して設定を 1 つでも保存すると、前の版は知っているキーだけを書くので 2 つのキーは消え、拡張子の選択が既定に戻る。壊れはしない）。</li>
+<li>テキストの拡張子のキー（<code>indexTextExcludes</code>・<code>notepadTextExtensions</code>）は、既定からの差だけを持つ（後の版でテキストの拡張子が増えても、その拡張子は既定の扱いになる）。前の版はこの 3 つのキーを知らないので無視する（前の版に戻して設定を 1 つでも保存すると、前の版は知っているキーだけを書くので 3 つのキーは消え、取り込む拡張子・開き方・エディタが既定に戻る。壊れはしない）。</li>
 <li>保存（<code>updateSettings</code>）は、保存のたびにファイルを読み直し、変えたキーだけを書き換える。ほかのキーは、ほかの画面・処理が保存した内容を保つ。UTF-8（BOM なし）。</li>
 <li>保存は、書き込みの途中で止まっても設定ファイルが壊れないよう、一時ファイル（<code>setting.config.tmp</code>）に書いてから置き換える（<code>writeTextLinesAtomic</code>）。</li>
 <li>「読み直す → 変える → 書く」の一続きは、設定ファイルごとの名前付きミューテックス（<code>Local\tebunko_settings_&lt;getFolderKey 設定ファイルのパス&gt;</code>。<code>invokeSettingsLocked</code>）の中で行う。画面・インデクサ（別のプロセスも）が同時に保存しても、互いの変更を消さない。待つのは 5 秒で、過ぎたら例外にする。同じ Windows のセッションの中だけの排他（別のセッションからは排他しない）。</li>
