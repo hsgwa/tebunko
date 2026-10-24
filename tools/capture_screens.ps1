@@ -1,4 +1,4 @@
-﻿# 現行の画面を、状態ごとに全部（40 枚）自動で撮る道具。GUI を直す前の記録として docs\images\screens\ に置き、
+﻿# 現行の画面を、状態ごとに全部（41 枚）自動で撮る道具。GUI を直す前の記録として docs\images\screens\ に置き、
 # docs\design\gui\screens\ の写真として載せる。詳しい経緯・撮る状態の一覧・撮らないものは docs\design\gui\screens\index.md。
 #
 #   .\tools\capture_screens.ps1                 すべての状態を撮り直す
@@ -323,7 +323,7 @@ function captureStarterScene {
 function captureFailedScene {
     # index-tab/failed（失敗したファイルの一覧があり、タブに ⚠）
     param ($Ids, $Root, $OutDir, $UserName, $ComputerName, $UserProfile, $Sizes)
-    if ($Ids -notcontains "index-tab/failed") { return }
+    if ($Ids -notcontains "index-tab/failed" -and $Ids -notcontains "index-tab/files") { return }
 
     $dir = Join-Path $Root "failed"
     $tool = newGuiTool $dir
@@ -336,15 +336,35 @@ function captureFailedScene {
     $S = startGui $tool "failed"
     invokeGuiScene $S {
         selectGuiTab $S "IndexTab" "IndexingButton"
+        # 失敗の入口は、選んだインデックスの詳細に出るため、行を選んでおく
+        selectGui @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
         setGuiStep $S "取り込みの完了（失敗あり）"
         startGuiIndexing $S
         waitGui $S "取り込みの完了・失敗 1 件" ${guiIndexTimeout} {
             (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*" -and
-                (getGuiText (findGui $S.Window -Id "FailedHeading")) -like "*失敗したファイル 1 件*" -and
+                (getGuiText (findGui $S.Window -Id "FailedFilesHeading")) -like "*失敗したファイル 1 件*" -and
                 (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
         } | Out-Null
+        # 詳細欄は縦にスクロールし、失敗の入口（1 行）は情報の表の下にあるため、見える所まで送ってから撮る
+        try {
+            $entry = findGui $S.Window -Id "ShowFailedFilesButton"
+            $entry.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView()
+        } catch {
+            # 送れなくても撮れる（入口が見えない写真になるだけ）
+            Write-Verbose "入口まで送れなかった: $($_.Exception.Message)"
+        }
         captureGuiState -S $S -Id "index-tab/failed" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
+        # index-tab/files（失敗の入口の［一覧で見る］で、［ファイルの一覧］が失敗のみで開いた）
+        if ($Ids -contains "index-tab/files") {
+            clickGui $S $S.Window "ShowFailedFilesButton" "失敗の入口の［一覧で見る］"
+            waitGui $S "ファイルの一覧が出る" ${guiDefaultTimeout} {
+                (getGuiText (findGui $S.Window -Id "IndexFilesHeading")) -like "ファイル * 件*" -and
+                    @(getGuiGridRows (findGui $S.Window -Id "IndexFilesGrid")).Count -ge 1
+            } | Out-Null
+            captureGuiState -S $S -Id "index-tab/files" -Ids $Ids -OutDir $OutDir `
+                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
+        }
         closeGui $S
     }
 }

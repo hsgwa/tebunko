@@ -66,7 +66,7 @@ Describe "describeIngestError" -Tag Io {
 }
 
 Describe "getIndexingState" -Tag Io {
-    It "失敗したファイルの行を、取り込み日時の新しい順で FailedRows に返す" {
+    It "状態ごとの件数を数える（失敗はインデックスごとの集計にも入る）" {
         $path = "$TestDrive\status_state.tsv"
         writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(
             (newStatusRow "data\済.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/19 10:00:00"),
@@ -79,13 +79,10 @@ Describe "getIndexingState" -Tag Io {
         $state.Done | Should -Be 1
         $state.Pending | Should -Be 1
         $state.Failed | Should -Be 2
-        $state.FailedRows.Count | Should -Be 2
-        $state.FailedRows[0].相対パス | Should -Be "data\新しい失敗.docx"
-        $state.FailedRows[0].エラー | Should -Be "原因B"
-        $state.FailedRows[1].相対パス | Should -Be "data\古い失敗.xlsx"
+        $state.IndexStats["data"].Failed | Should -Be 2
     }
 
-    It "「未取り込み」でエラー（理由）が書いてある行（利用者のPowerPointのために取り込めなかったファイル）は、待ちではなく失敗に数え、FailedRows に理由付きで返す。エラーが空の「未取り込み」は待ちのまま" {
+    It "「未取り込み」でエラー（理由）が書いてある行（利用者のPowerPointのために取り込めなかったファイル）は、待ちではなく失敗に数える。エラーが空の「未取り込み」は待ちのまま" {
         $path = "$TestDrive\status_state_postponed.tsv"
         writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(
             (newStatusRow "data\済.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/19 10:00:00"),
@@ -97,17 +94,14 @@ Describe "getIndexingState" -Tag Io {
         $state.Done | Should -Be 1
         $state.Pending | Should -Be 1
         $state.Failed | Should -Be 1
-        $state.FailedRows.Count | Should -Be 1
-        $state.FailedRows[0].相対パス | Should -Be "data\PowerPoint.ppt"
-        $state.FailedRows[0].エラー | Should -Be ${postponedReasonRunning}
         $state.IndexStats["data"].Failed | Should -Be 1
         $state.IndexStats["data"].Pending | Should -Be 1
     }
 
-    It "取り込み一覧が無ければ FailedRows は空" {
+    It "取り込み一覧が無ければ件数は 0" {
         $state = getIndexingState -path "$TestDrive\none.tsv"
         $state.Exists | Should -Be $false
-        @($state.FailedRows).Count | Should -Be 0
+        $state.Failed | Should -Be 0
     }
 }
 
