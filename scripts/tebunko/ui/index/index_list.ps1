@@ -174,6 +174,7 @@ function newFolderItem {
     $item.Path = $path
     $item.Enabled = $enabled
     $item.Subfolders = $subfolders
+    $item.TopOnlyText = getIndexTopOnlyTagText $subfolders
     $item.FileCountText = "－"
     $item.LastIngestedText = ""
     # フォルダの有無は一覧に加えた後にまとめて調べる（refreshFolderStatus）
@@ -373,9 +374,15 @@ function applyIndexStats {
             } else {
                 ""
             }
+            if ($item.SubfoldersChanged -and $ingested -gt $item.SubfoldersChangedAt) {
+                $item.SubfoldersChanged = $false   # 設定を変えたあとに更新済み
+            }
             $item.SetStats(("{0:#,0}" -f $stat.Total), ("更新済み {0:#,0} 件 ・ 未更新 {1:#,0} 件 ・ 失敗 {2:#,0} 件" -f $stat.Done, $stat.Pending, $stat.Failed), $lastText)
         }
-        $row = getIndexRowView $stat $indexing $item.Enabled (getIndexingRatio) (testIndexInRound $item) (testIndexExporting $item) $formatEntry
+        if ($indexing -and $item.Enabled -and (testIndexInRound $item)) {
+            $item.SubfoldersChanged = $false   # 更新が始まった。この更新で設定の変更が反映される
+        }
+        $row = getIndexRowView $stat $indexing $item.Enabled (getIndexingRatio) (testIndexInRound $item) (testIndexExporting $item) $formatEntry $item.SubfoldersChanged
         $item.SetIndexState($row.Text, $row.ToolTip, $row.Level, $row.Sub, [double]$row.Percent)
         setIndexRowActions $item
     }

@@ -132,10 +132,15 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             setGuiStep $S "詳細の「サブフォルダを含める」の切り替え"
             $subfolders = findGui $S.Window -Id "IndexDetailSubfolders"
             getGuiToggleState $subfolders | Should -Be "On"
+            # 一覧の札「直下のみ」は、外した行にだけ出る（隠れている札は、画面に出ていないものとして数えない）
+            $tagShown = { @(findAllGui $S.Window -Name "直下のみ" -Type Text | Where-Object { -not $_.Current.IsOffscreen }).Count -gt 0 }
+            (& $tagShown) | Should -BeFalse
             toggleGui $subfolders
+            waitGui $S "一覧の札「直下のみ」が出る" ${guiDefaultTimeout} { & $tagShown } | Out-Null
             waitGui $S "subfolders: false が設定に書かれる" ${guiDefaultTimeout} { [System.IO.File]::ReadAllText($script:tool.Config) -match '"subfolders":\s*false' } | Out-Null
             toggleGui (findGui $S.Window -Id "IndexDetailSubfolders")
             waitGui $S "subfolders が true に戻る" ${guiDefaultTimeout} { [System.IO.File]::ReadAllText($script:tool.Config) -notmatch '"subfolders":\s*false' } | Out-Null
+            waitGui $S "札が消える" ${guiDefaultTimeout} { -not (& $tagShown) } | Out-Null
             # チェックは、保存しないその場の選び。初めは付いておらず、付けても設定は書き換わず、［すべて更新］の可否も変わらない（#16）
             setGuiStep $S "行のチェックの切り替え"
             $check = findGui $row -Type CheckBox

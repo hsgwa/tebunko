@@ -7,9 +7,11 @@ function newPlanViewRows {
     # 更新の予定（取り込み予定.tsv の行）を、確認のダイアログに出す形にする。
     # 行は Name・Path・TotalText（対象ファイル数）・StatusText（バッジの文言）・Level（バッジの色。Wait / Ok / None / Ng）・DetailText（バッジの ToolTip）
     #   onlyNames: 選んだものだけの回のインデックス名（空なら全部）。選ばなかったものは出さない（「対象外」とも出さない）
+    #   subfolders: インデックス名 → 設定の subfolders（$false は直下のファイルだけを取り込む）。行の Subfolders になる。無い名前は $true（サブフォルダも含める）
     param (
         $plan,  # readIngestPlan の結果
-        [string[]]$onlyNames = @()
+        [string[]]$onlyNames = @(),
+        [hashtable]$subfolders = @{}
     )
 
     $rows = New-Object System.Collections.Generic.List[object]
@@ -17,7 +19,7 @@ function newPlanViewRows {
         # 空の配列を渡すと @($plan) に $null が 1 つ入るため、ここで外す
         if ($null -eq $item) { continue }
         if (@($onlyNames).Count -gt 0 -and $item.区分 -ne ${planKindDropped} -and @($onlyNames) -notcontains [string]$item.インデックス名) { continue }
-        $row = @{ Name = $item.インデックス名; Path = $item.元のフォルダ }
+        $row = @{ Name = $item.インデックス名; Path = $item.元のフォルダ; Subfolders = ($subfolders[[string]$item.インデックス名] -ne $false) }
         if ($item.区分 -eq ${planKindDropped}) {
             # 選んだものだけの回でも出す（［更新を開始］で消えるため、利用者に見せずに消さない）
             $row.TotalText = "－"
@@ -68,6 +70,49 @@ function newPlanViewRows {
         $rows.Add($row)
     }
     return , $rows.ToArray()
+}
+
+function getIndexingConfirmChoiceChanges {
+    # 確認ダイアログで、元の選びから変えた行を返す（［更新を開始］を押したとき、差があれば数え直しにする）。
+    # 行は @{ Name; Subfolders } の配列（元は newPlanViewRows の行、今はダイアログで選び直したあとの行）。
+    # 戻り値: 変えた行の @{ Name; Subfolders }（今の値）の配列。差が無ければ空
+    param (
+        [object[]]$original,
+        [object[]]$current
+    )
+
+    $before = @{}
+    foreach ($row in @($original | Where-Object { $null -ne $_ })) {
+        $before[[string]$row.Name] = ($row.Subfolders -ne $false)
+    }
+    $changes = New-Object System.Collections.Generic.List[object]
+    foreach ($row in @($current | Where-Object { $null -ne $_ })) {
+        $name = [string]$row.Name
+        $now = ($row.Subfolders -ne $false)
+        if ($before.ContainsKey($name) -and $before[$name] -ne $now) {
+            $changes.Add(@{ Name = $name; Subfolders = $now })
+        }
+    }
+    return , $changes.ToArray()
+}
+
+function getIndexingRecountPlan {
+    # ［更新を開始］で、数え直しにするかと、数え直した後にやり直す対象を決める。
+    #   changes   : getIndexingConfirmChoiceChanges の結果
+    #   onlyNames : 今の回の選んだインデックス名（［すべて更新］なら空。やり直しでもそのまま使う）
+    #   canceled  : ［キャンセル］で取りやめたか（取りやめのときは何も書かず、数え直しにもしない）
+    # 戻り値: @{ Recount（数え直すか）; OnlyNames; Changes（設定に書く選び。数え直さないときは空） }
+    param (
+        [object[]]$changes,
+        [string[]]$onlyNames = @(),
+        [bool]$canceled = $false
+    )
+
+    $changes = @($changes | Where-Object { $null -ne $_ })
+    if ($canceled -or $changes.Count -eq 0) {
+        return @{ Recount = $false; OnlyNames = @($onlyNames); Changes = @() }
+    }
+    return @{ Recount = $true; OnlyNames = @($onlyNames); Changes = $changes }
 }
 
 function getIndexingSkippedView {

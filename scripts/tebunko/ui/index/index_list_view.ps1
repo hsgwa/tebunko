@@ -124,6 +124,15 @@ function getIndexTabButtonsEnabled {
     }
 }
 
+function getIndexTopOnlyTagText {
+    # 一覧のパスの右に出す札の文言。「サブフォルダを含める」を外した（直下のファイルだけを取り込む）行だけに出し、含める行は空（札を出さない）
+    param (
+        $subfolders
+    )
+
+    return $(if ($subfolders -eq $false) { "直下のみ" } else { "" })
+}
+
 function getIndexStatusHelpText {
     # 一覧の「ステータス」列の見出しのツールヒント（状態の名前と意味。行のバッジの名前と同じ言葉を使う）
     return @(
@@ -277,6 +286,7 @@ function getIndexRowView {
     #   ratio    : 更新全体の進み（0～1。分からないときは負の値）。更新中の補足に「45%」と出し、棒の長さにする
     #   inRound  : 今の回で更新するインデックスか（選んだものだけの回では、選ばなかった行は $false）
     #   exporting: エクスポートで書き出している最中の行か（バッジは「エクスポート中」。更新中と同じ Run の色。棒は出さない）
+    #   subfoldersChanged: 画面で「サブフォルダを含める」を変えたあと、まだ更新していないか（取り込み済みでも［要更新］にする）
     #   formatEntry: getIndexFormatState のそのインデックスの値（State; Searchable; Message）。無ければ $null。
     #                古い形式・作り直しの途中・新しい版のときは、本文の状態の代わりにその旨を出す
     # 返す値の Percent は棒の長さ（0～100）。更新中でなければ 0
@@ -287,7 +297,8 @@ function getIndexRowView {
         [double]$ratio = -1.0,
         [bool]$inRound = $true,
         [bool]$exporting = $false,
-        $formatEntry = $null
+        $formatEntry = $null,
+        [bool]$subfoldersChanged = $false
     )
 
     if ($exporting) {
@@ -312,6 +323,9 @@ function getIndexRowView {
     }
     if ($null -eq $stat -or $stat.Total -eq 0) {
         return @{ Text = "未作成"; Sub = ""; Level = "None"; ToolTip = addIndexRowNotice "まだ更新していません。［すべて更新］か、行の［更新］で作ります。" $notice }
+    }
+    if ($subfoldersChanged) {
+        return @{ Text = "要更新"; Sub = ""; Level = "Wait"; ToolTip = addIndexRowNotice "サブフォルダを含めるかの設定を変えました。次の更新で反映します（直下だけにしたときは、サブフォルダにあったファイルをインデックスから外します）。" $notice }
     }
     if ($stat.Pending -ge 1) {
         return @{ Text = "要更新"; Sub = "残り $($stat.Pending) 件"; Level = "Wait"; ToolTip = addIndexRowNotice "未更新 $($stat.Pending) 件です。次の更新で続きから更新します。" $notice }

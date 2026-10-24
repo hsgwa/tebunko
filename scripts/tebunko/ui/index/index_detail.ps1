@@ -397,7 +397,7 @@ function updateIndexDetailPanel {
     $item = getIndexDetailItem $ui.IndexGrid.SelectedItem $checkedItems
     if ($null -ne $item) {
         $selected = @(@{
-            Name = $item.Name; Path = $item.Path; Enabled = $item.Enabled; FolderStatus = $item.StatusText
+            Name = $item.Name; Path = $item.Path; Enabled = $item.Enabled; Subfolders = $item.Subfolders; FolderStatus = $item.StatusText
             FolderMissing = ($item.StatusChecked -and !$item.FolderExists); FolderChecked = [bool]$item.StatusChecked
             IndexText = $item.IndexText; IndexLevel = $item.IndexLevel; IndexSub = $item.IndexSub; FileCountText = $item.FileCountText
             LastIngestedText = $item.LastIngestedText

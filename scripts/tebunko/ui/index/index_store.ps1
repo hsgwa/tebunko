@@ -31,8 +31,9 @@ function commitIndexSubfolders {
     if ([bool]$item.Subfolders -eq [bool]$ui.IndexDetailSubfolders.IsChecked) {
         return   # 詳細を描き直して値を置いただけ（行の値と同じ）のときは保存しない
     }
-    $item.Subfolders = [bool]$ui.IndexDetailSubfolders.IsChecked
+    $item.SetSubfolders([bool]$ui.IndexDetailSubfolders.IsChecked, (getIndexTopOnlyTagText ([bool]$ui.IndexDetailSubfolders.IsChecked)))
     saveTargets
+    refreshIndexingState   # 一覧のステータスを［要更新］に置き直す（詳細も続けて描き直される）
     updateIndexDetailPanel
 }
 

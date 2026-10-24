@@ -71,7 +71,7 @@ function getIndexDetailView {
     #                   LastIngestedText }
     #   multiCount    : 2 以上なら、詳細は出さず「N 件を選択中」と案内だけにする（getIndexDetailMultiCount）
     #   running       : 更新の進み具合（@{ Ratio; Processed; Total; Failed; Eta; Current }）。更新中の行の「インデックス」の箱に出す。無ければ $null
-    # 戻り値: @{ Title; Selected; Name; Path; FolderStatus; FolderBrush（フォルダの状態の文の色のキー。ある = Ok／無い = Danger.Text／確認中・何も出さない = Ink.Muted）;
+    # 戻り値: @{ Title; Selected; Name; Path;  FolderStatus; FolderBrush（フォルダの状態の文の色のキー。ある = Ok／無い = Danger.Text／確認中・何も出さない = Ink.Muted）;
     #            FolderIcon（文の左に出すアイコン。ある = Check／無い = Close／確認中・何も出さない = 空。theme.xaml の Icon.<名前>）; Badge（@{ Text; Level }）; Updated; Count;
     #            Rows（右の「インデックス情報」の @{ Label; Value } の配列）; RowsKey;
     #            Multi（複数を選んでいるか）; Hint（Multi のときの案内）;

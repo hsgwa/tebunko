@@ -294,6 +294,17 @@ Describe "getIndexRowActions（行の右端のボタン）" -Tag Unit {
     }
 }
 
+Describe "getIndexTopOnlyTagText（一覧の札）" -Tag Unit {
+    It "Subfolders が <label> のとき、札の文言は「<text>」" -TestCases @(
+        @{ label = "false（直下だけ）"; value = $false; text = "直下のみ" }
+        @{ label = "true"; value = $true; text = "" }
+        @{ label = "無い（既定）"; value = $null; text = "" }
+    ) {
+        param ($label, $value, $text)
+        getIndexTopOnlyTagText $value | Should -Be $text
+    }
+}
+
 Describe "getIndexRowView" -Tag Unit {
     It "<label>" -TestCases @(
         @{ label = "更新中・チェックあり: 更新中（Pending があっても優先）"
@@ -320,6 +331,16 @@ Describe "getIndexRowView" -Tag Unit {
         $view.Text | Should -Be $text
         $view.Sub | Should -Be $sub
         $view.Level | Should -Be $level
+    }
+
+    It "サブフォルダの設定を変えたあと（subfoldersChanged）は、取り込み済みでも要更新。更新中・未作成はそちらを優先する" -TestCases @(
+        @{ stat = @{ Total = 10; Done = 10; Pending = 0; Failed = 0 }; indexing = $false; text = "要更新" }
+        @{ stat = @{ Total = 10; Done = 10; Pending = 0; Failed = 1 }; indexing = $false; text = "要更新" }
+        @{ stat = @{ Total = 10; Done = 3; Pending = 7; Failed = 0 }; indexing = $true; text = "更新中" }
+        @{ stat = $null; indexing = $false; text = "未作成" }
+    ) {
+        param ($stat, $indexing, $text)
+        (getIndexRowView $stat $indexing $true -1.0 $true $false $null $true).Text | Should -Be $text
     }
 
     It "更新中の行は、進みの割合（0〜1）から「更新中 N%」と棒の長さ（Percent）を出す。割合が分からなければ割合なし" -TestCases @(
