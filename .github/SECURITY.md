@@ -44,10 +44,12 @@ Security fixes are made for the latest minor version (the latest `v<major>.<mino
 
 ## How reports are handled
 
-- We acknowledge a report within 7 days.
-- We check the report and try to reproduce the problem.
-- If we fix it, we describe the cause and the impact in [docs/safety/index.md](../docs/safety/index.md) (Japanese) and the related design documents, and add tests to `tests/` to prevent it from happening again.
-- The fix is released with the catalog and hash list made by `tools\new_release_files.ps1`, and the provenance of the zip is signed with Sigstore. Anyone who receives it can check that the release has not been altered (see the "安全性" (safety) section of the [README](../README.md#安全性), Japanese).
+This is a personal project, so we cannot guarantee any deadline. As a guide, we acknowledge a report within 14 days of receiving it.
+
+1. Receive: we receive the report through GitHub's private vulnerability reporting ([Report privately](https://github.com/hsgwa/tebunko/security/advisories/new)).
+2. Check and fix: we check whether to treat it as a security problem, and fix it. We describe the cause and the impact in [docs/safety/index.md](../docs/safety/index.md) (Japanese) and the related design documents, and add tests to `tests/` to prevent it from happening again.
+3. Release: we release the fix as a patch version of the latest minor version (see [Supported versions](#supported-versions)). The release comes with the catalog and hash list made by `tools\new_release_files.ps1`, and the provenance of the zip is signed with Sigstore (see the "安全性" (safety) section of the [README](../README.md#安全性), Japanese).
+4. Publish: we publish the advisory after the fixed version is released.
 
 ## What we ask of users
 
