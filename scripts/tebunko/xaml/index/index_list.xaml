@@ -85,18 +85,18 @@
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
-          <TextBlock x:Name="IndexLocationLabel" Style="{StaticResource Meta}" FontSize="11" VerticalAlignment="Center" Text="インデックスの保存先" />
+          <TextBlock x:Name="IndexLocationLabel" Style="{StaticResource Meta}" FontSize="11" Width="110" VerticalAlignment="Center" Text="インデックスの保存先" />
           <Path x:Name="IndexLocationInfo" Grid.Column="1" Data="{StaticResource Icon.Info}" Width="13" Height="13" Stretch="Uniform" Stroke="{StaticResource Ink.Muted}"
-                StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" VerticalAlignment="Center" Margin="6,0,8,0" Fill="Transparent" />
+                StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" VerticalAlignment="Center" Margin="8,0,8,0" Fill="Transparent" />
           <TextBlock x:Name="IndexLocationText" Grid.Column="2" Style="{StaticResource Meta}" FontSize="12" Foreground="{StaticResource Ink.Value}"
                      VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Margin="0,0,12,0" />
           <Button x:Name="OpenIndexLocationButton" Grid.Column="3" Content="フォルダを開く" Height="24" Padding="8,0" VerticalAlignment="Center" />
         </Grid>
-        <Border Style="{StaticResource Banner}" MinHeight="33" Padding="13,6,12,6" Background="{StaticResource Warn.Soft}" BorderBrush="{StaticResource Warn}"
+        <Border Style="{StaticResource Banner}" MinHeight="33" Padding="16,8,12,8" Background="{StaticResource Warn.Soft}" BorderBrush="{StaticResource Warn}"
                 Visibility="{Binding Visibility, ElementName=IndexLocationWarning}">
           <DockPanel>
             <Path DockPanel.Dock="Left" Data="{StaticResource Icon.TriangleAlert}" Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource Warn}"
-                  StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent" VerticalAlignment="Center" Margin="0,0,10,0" />
+                  StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent" VerticalAlignment="Center" Margin="0,0,8,0" />
             <TextBlock x:Name="IndexLocationWarning" FontSize="12" Foreground="{StaticResource Banner.Warn.Text}" VerticalAlignment="Center"
                        TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Visibility="Collapsed" />
           </DockPanel>

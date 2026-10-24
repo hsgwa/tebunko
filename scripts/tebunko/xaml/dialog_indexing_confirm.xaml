@@ -37,7 +37,7 @@
 
     <!-- インデックスの保存先のカード（getIndexLocationView）。見出し・パス・［フォルダを開く］を 1 組にし、その下に注意書き・警告の帯（共有のときだけ）・
          ［フォルダを開く］の結果（開けなかったときだけ。モーダルの間は本体のステータスバーが見えにくいため、ここに出す）を並べる -->
-    <Border x:Name="IndexLocationCard" DockPanel.Dock="Bottom" Margin="0,10,0,0" Padding="12,10" CornerRadius="6"
+    <Border x:Name="IndexLocationCard" DockPanel.Dock="Bottom" Margin="0,10,0,0" Padding="15,11" CornerRadius="6"
             Background="{StaticResource Bg.Subtle}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="1">
       <StackPanel>
         <DockPanel>
@@ -47,12 +47,12 @@
             <TextBlock x:Name="IndexLocationText" FontSize="12" FontWeight="Medium" Foreground="{StaticResource Ink.Value}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
           </StackPanel>
         </DockPanel>
-        <TextBlock x:Name="IndexLocationNote" FontSize="12" Foreground="{StaticResource Ink.Body}" TextWrapping="Wrap" Margin="0,6,0,0" />
-        <Border Style="{StaticResource Banner}" MinHeight="30" Padding="10,6,10,6" Margin="0,8,0,0" Background="{StaticResource Warn.Soft}" BorderBrush="{StaticResource Warn}"
+        <TextBlock x:Name="IndexLocationNote" FontSize="12" Foreground="{StaticResource Ink.Body}" TextWrapping="Wrap" Margin="0,8,0,0" />
+        <Border Style="{StaticResource Banner}" MinHeight="33" Padding="12,8,12,8" Margin="0,8,0,0" Background="{StaticResource Warn.Soft}" BorderBrush="{StaticResource Warn}"
                 Visibility="{Binding Visibility, ElementName=IndexLocationWarning}">
           <DockPanel>
             <Path DockPanel.Dock="Left" Data="{StaticResource Icon.TriangleAlert}" Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource Warn}"
-                  StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent" VerticalAlignment="Top" Margin="0,1,10,0" />
+                  StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent" VerticalAlignment="Top" Margin="0,1,8,0" />
             <TextBlock x:Name="IndexLocationWarning" FontSize="12" Foreground="{StaticResource Banner.Warn.Text}" TextWrapping="Wrap" Visibility="Collapsed" />
           </DockPanel>
         </Border>
