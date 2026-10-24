@@ -266,7 +266,7 @@ function applyWorkspace {
         ((Test-Path -LiteralPath $sub -PathType Container) -and (getFolderEntrySample $sub).Count -eq 0)
     $mover = [WorkspaceMover]::new(${settingsFile})
     $workspaceNames = @($mover.ListEntries($folder) | ForEach-Object { [System.IO.Path]::GetFileName($_) })
-    $confirm = newWorkspaceConfirm $folder $workspace.Dir $entries.Count $entries.Names $entries.Capped $workspaceNames $canMakeSub (!$requireEmpty)
+    $confirm = newWorkspaceConfirm $folder $workspace.Dir $entries.Count $entries.Names $entries.Capped $workspaceNames $canMakeSub (!$requireEmpty) (testNetworkPath $folder)
     # switch の中の $_ は switch の値になるため、行を変数に受けてから使う
     $facts = @($confirm.Facts | ForEach-Object {
         $fact = $_
