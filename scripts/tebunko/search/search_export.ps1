@@ -13,7 +13,7 @@
 # 溢れの置き場所（根\<PID>）の下の、書き出しの一時ファイルのフォルダ。次の検索の始めと画面を閉じるときに、溢れごと消える
 ${searchExportDirName} = "export"
 
-# 何行ごとに中止（Stop）を見て、書いた件数（Written）を更新するか
+# 何行ごとに、書いた件数（Written）を更新するか（中止（Stop）は 1 行ごとに見る）
 ${searchExportCheckLines} = 1000
 
 # .xlsx の見出し（ヒットした行は 1 セルに入れるので 5 列）
@@ -158,18 +158,21 @@ function addSearchExportRow {
 }
 
 function stepSearchExport {
-    # 1 行（読んだ行・表の行）進むたびに呼ぶ。一定の行ごとに書いた件数を要求に出し、中止されていたら $true
+    # 1 行（読んだ行・表の行）進むたびに呼ぶ。中止（Stop）は 1 行ごとに見る（1 行の組み立ては遅く、数百行ごとでは中止から止まるまで数秒かかるため）。
+    # 書いた件数（Written）は一定の行ごとに要求に出す。中止されていたら $true
     param (
         [hashtable]$request,
         [hashtable]$state
     )
 
-    $state.Seen++
-    if (($state.Seen % ${searchExportCheckLines}) -ne 0) {
-        return $false
+    if ($request.Stop) {
+        return $true
     }
-    $request.Written = $state.Count
-    return [bool]$request.Stop
+    $state.Seen++
+    if (($state.Seen % ${searchExportCheckLines}) -eq 0) {
+        $request.Written = $state.Count
+    }
+    return $false
 }
 
 function writeSearchExportShown {

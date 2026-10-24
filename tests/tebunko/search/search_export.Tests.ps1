@@ -164,7 +164,7 @@ Describe "結果のファイル出力" -Tag Io {
         It "書いている途中で中止されたら、一時ファイルと .new を消し、前のファイルを残す" {
             $many = 1..3000 | ForEach-Object { [pscustomobject]@{ RelDir = ""; Book = "b.txt"; Location = "p"; LineNumber = $_; Line = "行 $_" } }
             $request = newExportRequest (newSource $own $result $dir) $out $many "" "多い" "csv"
-            # 出力先の確かめを通ったあと（書き始める前）に中止を立てる。書いている途中の確かめ（1000 行ごと）で止まる
+            # 出力先の確かめを通ったあと（書き始める前）に中止を立てる。書いている途中の確かめ（1 行ごと）で止まる
             $script:exportRequest = $request
             Mock testSearchExportTarget { $script:exportRequest.Stop = $true; return "" }
             invokeSearchExport $request
@@ -172,6 +172,22 @@ Describe "結果のファイル出力" -Tag Io {
             [System.IO.File]::ReadAllText($out, [System.Text.Encoding]::UTF8) | Should -Be "前の結果"
             [System.IO.File]::Exists("$out.new") | Should -BeFalse
             @(Get-ChildItem -LiteralPath (Join-Path (getSearchOverflowPidDir $own.TmpRoot) "export") -ErrorAction SilentlyContinue).Count | Should -Be 0
+        }
+
+        It "書いている途中の中止は、次の 1 行で見つける（数百行ごとにしか見ないと、中止を押してから止まるまで数秒かかる）" {
+            $many = 1..3000 | ForEach-Object { [pscustomobject]@{ RelDir = ""; Book = "b.txt"; Location = "p"; LineNumber = $_; Line = "行 $_" } }
+            $request = newExportRequest (newSource $own $result $dir) $out $many "" "多い" "csv"
+            $script:exportRequest = $request
+            $script:rowsWritten = 0
+            Mock addSearchExportRow { $script:rowsWritten++; if ($script:rowsWritten -eq 7) { $script:exportRequest.Stop = $true } }
+            $watch = [System.Diagnostics.Stopwatch]::StartNew()
+            invokeSearchExport $request
+            $watch.Stop()
+            $request.Outcome | Should -Be "Cancelled"
+            $script:rowsWritten | Should -Be 7
+            $watch.ElapsedMilliseconds | Should -BeLessThan 1000
+            [System.IO.File]::Exists("$out.new") | Should -BeFalse
+            [System.IO.File]::ReadAllText($out, [System.Text.Encoding]::UTF8) | Should -Be "前の結果"
         }
 
         It "ほかのアプリが開いているときは Locked にして、書き始めない" {
