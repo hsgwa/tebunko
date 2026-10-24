@@ -601,7 +601,7 @@ function showResultMenu {
         return $false
     }
     $item = $ui.ResultGrid.SelectedItem
-    if ($null -eq $item) {
+    if ($null -eq $item -or $item -is [MoreRowsItem]) {
         return $false
     }
 
@@ -861,11 +861,6 @@ function updateExportButton {
     $ui.ExportButtonText.Text = getExportButtonText ([bool]($script:exportJob -or $script:exportPending))
 }
 
-function testResultSorted {
-    # 結果の表を列見出しで並べ替えているか
-    return [bool]($ui.ResultGrid.Columns | Where-Object { $null -ne $_.SortDirection } | Select-Object -First 1)
-}
-
 function cancelExport {
     # 出力を中止する。待っている出力はその場で取りやめ、書き込み中の出力は司令のスレッドに止めてもらう（止まったら completeExport が知らせる）
     if ($script:exportPending) {
@@ -990,11 +985,9 @@ $ui.ResultGrid.Add_MouseDoubleClick({
 $ui.ResultGrid.Add_PreviewKeyDown({
     param ($sender, $e)
     if ($e.Key -eq "Return") {
-        # 見出しの行では閉じる・開く。行では元のファイルを開く
+        # 見出しの行では閉じる・開く。「続き」の行では次の分を出す。行では元のファイルを開く
         safe {
-            if ($ui.ResultGrid.SelectedItem -is [FileGroup]) {
-                toggleFileGroup $ui.ResultGrid.SelectedItem
-            } else {
+            if (!(activateResultItem $ui.ResultGrid.SelectedItem)) {
                 openSource
             }
         }

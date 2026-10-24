@@ -56,7 +56,7 @@ scan 'HKLM','HKCU','HKEY_','HKCR','\bHKU\b','HKCC','Set-ItemProperty','New-ItemP
 - **理由**: Windows PowerShell 5.1 は、BOM の無い UTF-8 のファイルを CP932 で読み、日本語の文字の最後のバイトが次の記号を飲み込んで構文が壊れる。日本語の本体をヒアストリング（データ）に入れ、ScriptBlock にして実行することで、BOM が落ちても動かす（[単一 .ps1 の包み](../design/structure/single-script.md)）。
 - **範囲**: 作った単一 .ps1 の最後の文の 1 行だけ。本体は、包む前に禁止の語の検査（`tools/script_rules.ps1`）を通っている。
 - **検査**: 包んだ結果の全体を、構文木で確かめる。ScriptBlock の Create・`Invoke-Expression`・`iex` の呼び出しが 1 件だけで、ファイルの最後の文であり、その文の全文が決めた 1 行と一字一句同じであること（同じ文に別の式を足したら止まる）。その文を除いた全体（頭・尾・本体の文字列）に、禁止の語（`tools/script_rules.ps1` の一覧の全分類）が無いこと。1 つでも外れると、包む道具が何も書き出さずに止まる（`tests/tools/single_script_guard.Tests.ps1` が、足した Create・`iex`・引数の違い・2 行目・本体の中の語を止めることを表で確かめる）。
-- **実機で確かめること**: ウイルス対策ソフト（EDR）がこの形を疑うかどうかは、実機でしか確かめられない。検知されたら、方式を決め直す。
+- **実機で確かめた結果**: Windows 11 の Microsoft Defender ウイルス対策（既定の設定。リアルタイム保護・振る舞い監視・AMSI が有効）で、この形を含む起動を動かして確かめた（下の「[ウイルス対策ソフト・EDR での確かめ](#ウイルス対策ソフトedr-での確かめ)」）。単一 .ps1 版の起動とインデックス作成で、Defender の検知・隔離は出なかった。PowerShell 自身が残す 4104（警告レベル）の自動の記録は、この行の `[scriptblock]::Create` を含めて出る（件数は下の表の下のとおり）。Microsoft Defender for Endpoint（EDR 本体）では未確認。検知されたら、方式を決め直す。
 
 ## Office ファイルを開くときの設定
 
@@ -149,3 +149,45 @@ PDF は PowerShell だけで読み、外の部品・Office・外部プロセス�
 元のファイルを既定のアプリで開く操作（`tebunko/ui/open_source.ps1` の `openWithShell`）では、`Start-Process` ではなく `ProcessStartInfo` を使う（`Start-Process` は `[` `]` を含むパスをワイルドカードとして解釈するため）。起動対象は、利用者が選んだ行のファイルと、それに関連付けられたアプリケーションである。`ProcessStartInfo`・`[System.Diagnostics.Process]::Start` を使うのはこの 1 か所だけであることを `tests/meta/safety.Tests.ps1` が確かめる。
 
 `tebunko.bat` は、上の起動とは別に、**起動そのものに失敗したとき（画面が開く前）だけ** `notepad.exe` を開く（[起動に失敗したときの知らせ](disclosure.md#起動に失敗したときの知らせtebunkobat)）。制限言語モード・実行ポリシーでスクリプトの読み込みが止まる場面では WPF・WinForms のメッセージボックスを出せないため、失敗の理由と記録のファイルの名前をメモ帳で示す。`tests/meta/safety.Tests.ps1` の「tebunko.bat が起動する外部のプログラムは conhost.exe・powershell.exe・notepad.exe だけ」が、`tebunko.bat` が起動する外部のプログラムをこの 3 つに限る。
+
+起動するプロセスは、この表のほかに次の 2 つがある。どちらも利用者の操作や取り込みに伴うものである。
+
+- **Office（`EXCEL.EXE`・`WINWORD.EXE`・`POWERPNT.EXE`）**: 旧形式（`.xls` `.doc` `.ppt`）やパスワード付きのファイルを COM で開くときだけ起動する。画面のプロセスが COM で頼み、Windows（DCOM）が起動するため、プロセスの親は `powershell.exe` ではなく `svchost.exe`（DcomLaunch）になる（[Office ファイルを開くときの設定](#office-ファイルを開くときの設定)）。`Start-Process` は使わない。
+- **`conhost.exe` と `powershell.exe`**: `tebunko.bat` が 1 回だけ起動する（[起動口](disclosure.md#起動に失敗したときの知らせtebunkobat)）。`-Command` に渡す文字列は `tebunko.bat` の中に固定で書いた内容だけで、利用者の入力や外からの値を混ぜない（ツールのフォルダだけを環境変数で渡し、コードとして解釈しない）。`-EncodedCommand`・`-ExecutionPolicy Bypass`・`Invoke-Expression` の形は使わない。
+
+## ウイルス対策ソフト・EDR での確かめ
+
+非表示の PowerShell（`-WindowStyle Hidden`）での起動と、上の外部プロセスが、ウイルス対策ソフトや EDR に検知されないかを、実機で確かめた。
+
+- **環境**: Windows 11、Microsoft Defender ウイルス対策（既定の設定。リアルタイム保護・振る舞い監視・AMSI が有効）。
+- **Microsoft Defender for Endpoint（EDR 本体）は未確認。** 同じエンジンと AMSI を使うため手がかりにはなるが、MDE の検知の規則は別である。MDE の機械で確かめるときは、下の場面を同じ手順で流し、「前後で増えない」を比べる。
+- **見たもの**: `Get-MpThreatDetection` の件数、イベントログ `Microsoft-Windows-Windows Defender/Operational` の 1006〜1008・1015・1116〜1119、`Microsoft-Windows-PowerShell/Operational` の 4104（警告レベル）。
+
+- **前後の数え方**: 場面ごとの前後で、次を管理者でない PowerShell で流して件数を比べる。MDE の機械では、これに加えて MDE のポータルのアラートも見る。第二段（Azure の MDE で流す）は別の作業で行う。
+
+```
+# 数える前に、ログが読めることを確かめる（読めないと下の 2 本は黙って 0 になる）。エラーが出たら管理者の PowerShell で流す
+(Get-WinEvent -ListLog 'Microsoft-Windows-Windows Defender/Operational','Microsoft-Windows-PowerShell/Operational').RecordCount
+@(Get-MpThreatDetection).Count
+@(Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-Windows Defender/Operational'; Id=1006,1007,1008,1015,1116,1117,1118,1119} -ErrorAction SilentlyContinue).Count
+@(Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-PowerShell/Operational'; Id=4104; Level=3} -ErrorAction SilentlyContinue).Count
+```
+
+| 場面 | 操作 | 検知の件数（前 → 後） | Defender のイベント（前 → 後） |
+|---|---|---|---|
+| 1 | Mark-of-the-Web を付けた展開済みのフォルダの `tebunko.bat` から起動（画面が開くまで 15 秒待つ） | 0 → 0 | 0 → 0 |
+| 2 | インデックス作成（`.docx` `.pptx` `.xlsx` のほか、旧形式の `.xls` `.doc` `.ppt` を COM で 5 ファイル。失敗 0 件） | 0 → 0 | 0 → 0 |
+| 3 | 結果からフォルダを開く（`explorer.exe`）、`.ps1` をメモ帳で開く（`notepad.exe`） | 0 → 0 | 0 → 0 |
+| 4 | 単一 .ps1 版の起動とインデックス作成（`[scriptblock]::Create`・`[char]0xNNNN` の組み立てを含む） | 0 → 0 | 0 → 0 |
+| 5 | ［参照…］のフォルダ選択（`NonPublic` のリフレクション）を開く、キャンセルする、フォルダを選ぶ | 0 → 0 | 0 → 0 |
+
+- **4104（警告レベル）**: 場面 1 では、起動のたびに画面のプロセスが読み込んだスクリプト 28 件が記録された。画面を開くテストの一式（場面 2・5 を含む）でも、`scripts` のスクリプトの読み込みで 21 ファイル分が記録された。場面 4（単一 .ps1 版）は、起動から 20 秒で 350 件が警告レベルで記録された。うち 1 件が末尾の `[scriptblock]::Create` の行（2,277 文字）で、残りは本体のスクリプトの塊の記録である。Windows PowerShell 5.1 が `Add-Type`・`BindingFlags`・`NonPublic` などの語や、スクリプトブロックの生成を含むスクリプトを自動で記録するもので、検知や隔離ではない。`-EncodedCommand` の形の記録は出なかった。MDE の機械では、この記録を EDR が取り込んで警告にするかを比べる。
+- **結論**: 今の起動のしかたは変えない。検知は出なかった。
+
+### 組織が許可するとき
+
+EDR で検知されたときは、次の順で許可を求める。
+
+1. **発行元（署名）で許可する。** 配布物にコード署名をして、その発行元（証明書）で許可するのが最も確実である（コード署名は今後対応する予定）。ファイルのハッシュでの除外は、版が変わるたびに作り直しになるため勧めない。
+2. **署名が使えないときだけ、フォルダで許可する。** `tebunko.bat` と `scripts` のあるフォルダ（展開先）だけを、スクリプトの実行を許すフォルダにする。利用者が書き換えられない場所（管理者だけが書き込める場所）に置いたときに限る。利用者が書き込めるフォルダをパスで許可すると、そこに置いた別のスクリプトも通してしまう。ユーザー全体や一時フォルダは許可しない。
+3. **許可の対象は 1 つの起動の形だけに絞る。** `conhost.exe` から `powershell.exe -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -Command …` を起動する形（`tebunko.bat` の 1 行）である。`-ExecutionPolicy Bypass` など、ほかの形の許可は要らない。
