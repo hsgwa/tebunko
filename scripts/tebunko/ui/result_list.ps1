@@ -114,8 +114,10 @@ function ensureRows {
 
     $end = $(if ($target -lt 0 -or $target -gt $group.Hits.Count) { $group.Hits.Count } else { $target })
     $shown = testGroupShown $group
+    $order = $group.HitOrder
     for ($i = $group.Rows.Count; $i -lt $end; $i++) {
-        $hit = $group.Hits[$i]
+        $hitIndex = $(if ($null -ne $order -and $i -lt $order.Length) { $order[$i] } else { $i })
+        $hit = $group.Hits[$hitIndex]
         # インデックスのフォルダ（work\index）からの相対パスの先頭がインデックス名（splitIndexRelPath と同じ）
         $relDir = [string]$hit.RelDir
         $cut = $relDir.IndexOf("\")
@@ -129,7 +131,7 @@ function ensureRows {
         $row.IsExcel = ($fileKind -eq "Excel")
         $row.IsText = testTextExtension $hit.Book
         $row.IsCellPrefixed = testCellPrefixedPlace $hit.Book (splitObjectPlace $hit.Location).Kind
-        $row.Order = $i
+        $row.Order = $hitIndex
         $row.FileGroup = $group
         $group.Rows.Add($row)
         if ($shown) {
@@ -194,7 +196,7 @@ function updateMoreRow {
             $group.MoreRow = [MoreRowsItem]::new()
             $group.MoreRow.Group = $group
         }
-        $group.MoreRow.SetText((getMoreRowsText $remaining), (getMoreRowsNote (testResultSorted)))
+        $group.MoreRow.SetText((getMoreRowsText $remaining))
     } elseif ($null -ne $group.MoreRow) {
         if ($group.MoreInView) {
             [void]$script:resultItems.Remove($group.MoreRow)
@@ -418,13 +420,21 @@ function sortResults {
 
 function applySort {
     # ファイルの中の行とファイルの順を並べ替え、絞り込みを当て直して表を作り直す。
-    # 並べ替えには全件の行を作る。ただしヒットが多いファイル（groupRowLimit 件を超える）は並べ替えないので、先頭の 1 件だけ作る
+    # 並べ替えには全件の行を作る。ただしヒットが多いファイル（groupRowLimit 件を超える）は、行を作らずに生のヒットを並べ替えて
+    # （getSortedHitOrder）、その順に先頭の 1 件だけ作る（続きの分は、開くときと続きを出すときに同じ順で作る）
     param (
         [string]$property,
         [bool]$descending
     )
 
     foreach ($group in $script:groupList) {
+        if ($group.Hits.Count -gt ${groupRowLimit}) {
+            $group.HitOrder = getSortedHitOrder $group.Hits $property $descending
+            $group.Rows.Clear()
+            $group.RowLimit = 0
+        } else {
+            $group.HitOrder = $null
+        }
         ensureRows $group (getSortRowTarget $group.Hits.Count)
     }
     $sorted = sortFileGroups $script:groupList $property $descending

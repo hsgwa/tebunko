@@ -379,6 +379,9 @@ class FileGroup : NotifyBase {
     [int]$DisplayedCount
     # 行を作る件数の上限（0 は既定の groupRowLimit）。「続き」を出すたびに増やす。上限を超えたヒットは、続きを出すまで行にしない
     [int]$RowLimit
+    # 並べ替えているときの、ヒット（Hits）の並び順（見つかった順の番号。表の行はこの順に作る）。ヒットが上限を超えるファイルだけ
+    # （全件の行は作らないので、生のヒットを並べ替えておく）。無ければ見つかった順
+    [int[]]$HitOrder
     # 見出しの下の行の末尾に出す「続き」の行（残りのヒットがあるとき。無ければ $null）と、それを表に入れているか
     [object]$MoreRow
     [bool]$MoreInView
@@ -433,25 +436,13 @@ class MoreRowsItem : NotifyBase {
     [bool]$IsFileHeader = $false
     [FileGroup]$Group
     [string]$Text                 # 行に出す文言（getMoreRowsText）
-    [string]$Note                 # 文言の右に添える注記（getMoreRowsNote。無ければ空）
-    [string]$AutomationName       # 読み上げ・画面の確かめに使う行の名前（文言と注記をつないだもの）
 
     MoreRowsItem() {}   # 既定のコンストラクタを明示する（理由は shared\ui\types.ps1 の NotifyBase）
 
-    [void] SetText([string]$text, [string]$note) {
-        if ($this.Text -ne $text) {
-            $this.Text = $text
-            $this.Raise("Text")
-        }
-        if ($this.Note -ne $note) {
-            $this.Note = $note
-            $this.Raise("Note")
-        }
-        $name = $text + $note
-        if ($this.AutomationName -ne $name) {
-            $this.AutomationName = $name
-            $this.Raise("AutomationName")
-        }
+    [void] SetText([string]$text) {
+        if ($this.Text -eq $text) { return }
+        $this.Text = $text
+        $this.Raise("Text")
     }
 }
 

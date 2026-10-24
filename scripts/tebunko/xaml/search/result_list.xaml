@@ -122,8 +122,6 @@
                       VerticalAlignment="Center" Margin="0,0,8,0" />
                 <TextBlock Text="{Binding Text}" Style="{StaticResource Meta}" FontSize="11"
                            Foreground="{StaticResource Accent}" VerticalAlignment="Center" />
-                <TextBlock Text="{Binding Note}" Style="{StaticResource Meta}" FontSize="11" Foreground="{StaticResource Ink.Body}"
-                           VerticalAlignment="Center" Margin="8,0,0,0" />
               </StackPanel>
             </Border>
             <ControlTemplate.Triggers>
@@ -158,7 +156,7 @@
               </DataTrigger>
               <DataTrigger Binding="{Binding IsMoreRow}" Value="True">
                 <Setter Property="Template" Value="{StaticResource MoreRow}" />
-                <Setter Property="AutomationProperties.Name" Value="{Binding AutomationName}" />
+                <Setter Property="AutomationProperties.Name" Value="{Binding Text}" />
               </DataTrigger>
             </Style.Triggers>
           </Style>

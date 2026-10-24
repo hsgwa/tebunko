@@ -177,7 +177,7 @@ Describe "getSortRowTarget" -Tag Unit {
     }
 }
 
-Describe "getMoreRowsText / getMoreRowsNote" -Tag Unit {
+Describe "getMoreRowsText" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "残りが多いときは上限の件数ずつ"; remaining = 99000; expected = "続きの 1,000 件を表示（残り 99,000 件）" }
         @{ name = "残りが上限より少ないときは残りの件数"; remaining = 250; expected = "続きの 250 件を表示（残り 250 件）" }
@@ -185,10 +185,44 @@ Describe "getMoreRowsText / getMoreRowsNote" -Tag Unit {
         param ($name, $remaining, $expected)
         getMoreRowsText $remaining | Should -Be $expected
     }
+}
 
-    It "注記は、並べ替えているときだけ付ける" {
-        getMoreRowsNote $true | Should -Be "・件数が多いため並べ替えていません"
-        getMoreRowsNote $false | Should -Be ""
+Describe "getSortedHitOrder（getHitOrderByLine・getHitOrderByNumber）" -Tag Unit {
+    BeforeAll {
+        function newHit([string]$location, [int]$lineNumber, [string]$line) {
+            return [pscustomobject]@{ Location = $location; LineNumber = $lineNumber; Line = $line }
+        }
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "行（該当行）の昇順。大文字・小文字は区別せず、同じ値は見つかった順"; property = "Line"; descending = $false; expected = "1,3,0,2" }
+        @{ name = "行（該当行）の降順。同じ値は見つかった順のまま"; property = "Line"; descending = $true; expected = "0,2,1,3" }
+        @{ name = "行番号の昇順。同じ値は見つかった順"; property = "LineNumber"; descending = $false; expected = "1,3,0,2" }
+        @{ name = "行番号の降順。同じ値は見つかった順のまま"; property = "LineNumber"; descending = $true; expected = "0,2,1,3" }
+    ) {
+        param ($name, $property, $descending, $expected)
+        # 該当行と行番号の順位が同じになるように作る（0: b・5 / 1: A・1 / 2: B・5 / 3: a・1）
+        $hits = @((newHit "シート" 5 "b"), (newHit "シート" 1 "A"), (newHit "シート" 5 "B"), (newHit "シート" 1 "a"))
+        (getSortedHitOrder $hits $property $descending) -join "," | Should -Be $expected
+    }
+
+    It "場所の順 → 行番号の順（A10 が A9 の前に来ない）。降順はその逆で、同じ値は見つかった順" {
+        $hits = @((newHit "売上" 10 "x"), (newHit "売上" 9 "x"), (newHit "仕入" 1 "x"), (newHit "売上" 9 "x"))
+        (getSortedHitOrder $hits "Location" $false) -join "," | Should -Be "2,1,3,0"
+        (getSortedHitOrder $hits "Location" $true) -join "," | Should -Be "0,1,3,2"
+    }
+
+    It "該当行が無い（null）ヒットは空として扱う" {
+        $hits = @((newHit "シート" 1 "b"), (newHit "シート" 2 $null), (newHit "シート" 3 "a"))
+        (getSortedHitOrder $hits "Line" $false) -join "," | Should -Be "1,2,0"
+    }
+
+    It "並べ替えない項目（種別など）は null" {
+        $null -eq (getSortedHitOrder @((newHit "シート" 1 "a")) "Kind" $false) | Should -Be $true
+    }
+
+    It "ヒットが 0 件でも落ちない" {
+        (getSortedHitOrder @() "Line" $false).Count | Should -Be 0
     }
 }
 
@@ -293,25 +327,16 @@ Describe "sortFileGroups" -Tag Unit {
 }
 
 Describe "sortFileGroups（ヒットが多いファイル）" -Tag Unit {
-    It "上限を超えるファイルは並べ替えず見つかった順のまま、ファイルの順は先頭の行の値で決める" {
-        $big = newTestGroup 1 @((newTestRow 2 "x" 9), (newTestRow 0 "x" 30), (newTestRow 1 "x" 1))
+    It "上限を超えるファイルの行は並べ替えず（先に並べ替えたヒットの順に作ってある）、ファイルの順は先頭の行の値で決める" {
+        # big は先頭の行が最小（1）になるよう、並べ替えたヒットの順に作ってある行
+        $big = newTestGroup 1 @((newTestRow 9 "x" 1), (newTestRow 0 "x" 30), (newTestRow 3 "x" 4))
         $big | Add-Member -NotePropertyName Hits -NotePropertyValue (1..5)
         $small = newTestGroup 2 @((newTestRow 5 "y" 20), (newTestRow 6 "y" 10))
-        $sorted = sortFileGroups @($big, $small) "LineNumber" $false 3
-        @($big.Rows | ForEach-Object { $_.Order }) -join "," | Should -Be "0,1,2"
+        $sorted = sortFileGroups @($small, $big) "LineNumber" $false 3
+        @($big.Rows | ForEach-Object { $_.LineNumber }) -join "," | Should -Be "1,30,4"
         @($small.Rows | ForEach-Object { $_.LineNumber }) -join "," | Should -Be "10,20"
-        # 先頭の行の値: small は 10、big は見つかった順の先頭（30）
-        [object]::ReferenceEquals($sorted[0], $small) | Should -Be $true
-        [object]::ReferenceEquals($sorted[1], $big) | Should -Be $true
-    }
-}
-
-Describe "sortFileGroups（先頭の分の戻し）" -Tag Unit {
-    It "ヒットが上限以下のうちに並べ替えた行が先頭に残っていれば、先頭の分だけ見つかった順に戻す" {
-        $big = newTestGroup 1 @((newTestRow 1 "x" 9), (newTestRow 0 "x" 30), (newTestRow 2 "x" 1), (newTestRow 3 "x" 5))
-        $big | Add-Member -NotePropertyName Hits -NotePropertyValue (1..6)
-        sortFileGroups @($big) "LineNumber" $false 3 | Out-Null
-        @($big.Rows | ForEach-Object { $_.Order }) -join "," | Should -Be "0,1,2,3"
+        [object]::ReferenceEquals($sorted[0], $big) | Should -Be $true
+        [object]::ReferenceEquals($sorted[1], $small) | Should -Be $true
     }
 }
 

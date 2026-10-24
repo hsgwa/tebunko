@@ -861,7 +861,7 @@ Describe "結果の表の定義（search\result_list.xaml）" -Tag Unit {
 
     It "行の名前を付ける（見出しはファイル名、ヒットの行は場所）" {
         $names = @($resultGrid.SelectNodes("p:DataGrid.RowStyle//p:Setter[@Property='AutomationProperties.Name']", $ns) | ForEach-Object { $_.GetAttribute("Value") })
-        $names | Should -Be @("{Binding BookDisplay}", "{Binding PlaceDisplay}", "{Binding AutomationName}")
+        $names | Should -Be @("{Binding BookDisplay}", "{Binding PlaceDisplay}", "{Binding Text}")
         $resultGrid.SelectNodes("p:DataGrid.RowStyle//p:Setter[@Property='AutomationProperties.HelpText']", $ns).Count | Should -Be 1
     }
 
@@ -936,7 +936,7 @@ Describe "1 ファイルのヒットが多いとき" -Tag Unit {
         $script:resultItems.Count | Should -Be 1
     }
 
-    It "並べ替えると、上限を超えたファイルは見つかった順のまま、上限以下のファイルは並べ替える" {
+    It "並べ替えると、上限を超えたファイルは生のヒットを並べ替えて先頭の行を作り、続きも並べ替えた順" {
         [void](addHit "少.txt" "本文" "見積" 20)
         [void](addHit "少.txt" "本文" "見積" 10)
         flushResults
@@ -948,11 +948,15 @@ Describe "1 ファイルのヒットが多いとき" -Tag Unit {
         sortResults $column
 
         $script:big.Rows.Count | Should -Be 1000
-        @($script:big.Rows[0..2] | ForEach-Object { $_.LineNumber }) -join "," | Should -Be "5000,4999,4998"
+        @($script:big.Rows[0..2] | ForEach-Object { $_.LineNumber }) -join "," | Should -Be "1,2,3"
         @($small.Rows | ForEach-Object { $_.LineNumber }) -join "," | Should -Be "10,20"
-        # ファイルの順は先頭の行の値（少: 10、多: 見つかった順の先頭の 5000）
-        @($script:groupList | ForEach-Object { $_.Book }) -join "," | Should -Be "少.txt,多.txt"
-        $script:big.MoreRow.Note | Should -Be "・件数が多いため並べ替えていません"
+        # ファイルの順は先頭の行の値（多: 1、少: 10）
+        @($script:groupList | ForEach-Object { $_.Book }) -join "," | Should -Be "多.txt,少.txt"
+
+        showMoreGroupRows $script:big
+        $script:big.Rows.Count | Should -Be 2000
+        $script:big.Rows[1000].LineNumber | Should -Be 1001
+        $script:big.Rows[1999].LineNumber | Should -Be 2000
     }
 
     It "続きの行を選んで Enter / クリックすると続きが出る。見出しは開閉する。行は対象外" {
@@ -996,8 +1000,9 @@ Describe "1 ファイルのヒットが多いとき" -Tag Unit {
         $column = newSortColumn "LineNumber"
         $ui.ResultGrid.Columns.Add($column)
         sortResults $column
-        $script:resultItems.Count | Should -Be 2002
-        @($script:big.Rows[0..2] | ForEach-Object { $_.LineNumber }) -join "," | Should -Be "5000,4999,4998"
+        $script:resultItems.Count | Should -Be 1002
+        $script:big.Rows.Count | Should -Be 1000
+        @($script:big.Rows[0..2] | ForEach-Object { $_.LineNumber }) -join "," | Should -Be "1,2,3"
     }
 
     It "開いたあとにコピーしても、続きの行の残りの件数は変わらない" {

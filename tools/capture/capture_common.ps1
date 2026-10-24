@@ -12,7 +12,7 @@ ${captureIds} = @(
     "index-tab/empty", "index-tab/normal", "index-tab/interrupted",
     "index-tab/delete-confirm", "index-tab/checked", "index-tab/start-confirm", "index-tab/cloud-confirm",
     "index-tab/running", "index-tab/stop-confirm", "index-tab/done", "index-tab/failed",
-    "search-tab/no-index", "search-tab/initial", "search-tab/results", "search-tab/no-results", "search-tab/limit", "search-tab/many-hits", "search-tab/many-hits-sorted",
+    "search-tab/no-index", "search-tab/initial", "search-tab/results", "search-tab/no-results", "search-tab/limit", "search-tab/many-hits",
     "search-tab/regex-error", "search-tab/tree-none", "search-tab/collapsed", "search-tab/filtered",
     "search-tab/missing-source", "search-tab/min-width",
     "settings-tab/normal", "settings-tab/limit-none", "settings-tab/limit-error", "settings-tab/running-warning", "settings-tab/empty-confirm", "settings-tab/nonempty-confirm",

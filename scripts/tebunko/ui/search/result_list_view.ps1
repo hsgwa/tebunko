@@ -241,14 +241,124 @@ function getNextRowLimit {
 }
 
 function getSortRowTarget {
-    # 並べ替えの前に、ファイルごとに作る行の数。ヒットが limit 以下なら全件（並べ替えるため）、超えるなら 1 件
-    # （並べ替えないので、ファイルの順を決める先頭の行だけあればよい。sortFileGroups）
+    # 並べ替えの前に、ファイルごとに作る行の数。ヒットが limit 以下なら全件（行を並べ替えるため）、超えるなら 1 件
+    # （生のヒットを先に並べ替えてあるので、ファイルの順を決める先頭の行だけあればよい。getSortedHitOrder・sortFileGroups）
     param (
         [int]$hitCount,
         [int]$limit = ${groupRowLimit}
     )
 
     return $(if ($hitCount -gt $limit) { 1 } else { $hitCount })
+}
+
+function getSortedHitOrder {
+    # 生のヒットを property（Location・LineNumber・Line）の順に並べ替えた、ヒットの番号（見つかった順の 0 始まり）の並びを返す。
+    # 同じ値のときは見つかった順。行を作らずに並べ替えるので、ヒットが何万件あっても速い（10 万件で 1 秒ほど）。
+    # 文字は Sort-Object と同じ（現在のカルチャーで大文字・小文字を区別しない）。「場所」は同じ場所の中を行番号の順にする。
+    # property が上のどれでもなければ $null（並べ替えない）
+    param (
+        $hits,
+        [string]$property,
+        [bool]$descending
+    )
+
+    if ($property -eq "Line") {
+        return , (getHitOrderByLine $hits $descending)
+    }
+    if ($property -eq "Location" -or $property -eq "LineNumber") {
+        return , (getHitOrderByNumber $hits ($property -eq "Location") $descending)
+    }
+    return $null
+}
+
+function getHitOrderByLine {
+    # 該当行（Line）の順（getSortedHitOrder）
+    param (
+        $hits,
+        [bool]$descending
+    )
+
+    $n = $hits.Count
+    $keys = New-Object 'string[]' $n
+    $items = New-Object 'int[]' $n
+    $i = 0
+    foreach ($hit in $hits) {
+        $line = $hit.Line
+        $keys[$i] = $(if ($null -eq $line) { "" } else { [string]$line })
+        $items[$i] = $i
+        $i++
+    }
+    $comparer = [System.StringComparer]::CurrentCultureIgnoreCase
+    [Array]::Sort($keys, $items, $comparer)
+    if ($descending) {
+        [Array]::Reverse($keys)
+        [Array]::Reverse($items)
+    }
+    # 同じ値の並びは、見つかった順に戻す（[Array]::Sort は同じ値の順を保たない）
+    $start = 0
+    for ($i = 1; $i -le $n; $i++) {
+        if ($i -lt $n -and $comparer.Compare($keys[$i - 1], $keys[$i]) -eq 0) {
+            continue
+        }
+        if ($i - $start -gt 1) {
+            [Array]::Sort($items, $start, $i - $start)
+        }
+        $start = $i
+    }
+    return $items
+}
+
+function getHitOrderByNumber {
+    # 場所（byLocation。同じ場所の中は行番号の順）か行番号（LineNumber）の順（getSortedHitOrder）。
+    # 数だけの鍵にして並べ替える: （場所の順位 × (最大の行番号 + 1) + 行番号）× 件数 + 見つかった順。
+    # ヒットの値は 1 回だけ読む（PowerShell のオブジェクトの項目の読み出しが、並べ替えの時間の大半を占めるため）
+    param (
+        $hits,
+        [bool]$byLocation,
+        [bool]$descending
+    )
+
+    $n = $hits.Count
+    $ranks = @{}
+    $locations = New-Object 'System.Collections.Generic.List[string]'
+    $locationOf = New-Object 'string[]' $n
+    $lineOf = New-Object 'long[]' $n
+    [long]$maxLine = 0
+    $i = 0
+    foreach ($hit in $hits) {
+        [long]$number = $hit.LineNumber
+        $lineOf[$i] = $number
+        if ($number -gt $maxLine) { $maxLine = $number }
+        if ($byLocation) {
+            $location = [string]$hit.Location
+            $locationOf[$i] = $location
+            if (!$ranks.ContainsKey($location)) {
+                $ranks[$location] = 0
+                $locations.Add($location)
+            }
+        }
+        $i++
+    }
+    $sortedLocations = @($locations | Sort-Object)
+    for ($r = 0; $r -lt $sortedLocations.Count; $r++) {
+        $ranks[$sortedLocations[$r]] = $r
+    }
+    [long]$span = $maxLine + 1
+    $keys = New-Object 'long[]' $n
+    $items = New-Object 'int[]' $n
+    for ($i = 0; $i -lt $n; $i++) {
+        [long]$rank = 0
+        if ($byLocation) {
+            $rank = $ranks[$locationOf[$i]]
+            if ($descending) { $rank = $sortedLocations.Count - 1 - $rank }
+        }
+        [long]$line = $lineOf[$i]
+        if ($descending) { $line = $maxLine - $line }
+        $keys[$i] = ($rank * $span + $line) * $n + $i
+        $items[$i] = $i
+    }
+    [Array]::Sort($keys, $items)
+    return $items
 }
 
 function getMoreRowsText {
@@ -259,15 +369,6 @@ function getMoreRowsText {
     )
 
     return "続きの $([Math]::Min($remaining, $step).ToString('N0')) 件を表示（残り $($remaining.ToString('N0')) 件）"
-}
-
-function getMoreRowsNote {
-    # 「続き」の行の文言の右に添える注記。結果を並べ替えているときだけ（件数が多いファイルの行は並べ替えず、見つかった順のままのため）。無ければ空
-    param (
-        [bool]$sorted
-    )
-
-    return $(if ($sorted) { "・件数が多いため並べ替えていません" } else { "" })
 }
 
 function getResultItems {
@@ -321,9 +422,8 @@ function prepareHitRow {
 function sortFileGroups {
     # 列見出しのクリックでの並べ替え。各ファイルの中の行を property の順に並べ替え、
     # ファイルの順は、並べ替えた後の先頭の行の順にする。同じ値のときは見つかった順（Order）。
-    # ヒットが limit を超えるファイルは、全件の行を作らない（先頭の分しか無い）ので並べ替えず、見つかった順のままにする
-    # （作った行だけを並べ替えると、先頭の分の中だけの順になり誤解を招く）。ファイルの順は、その先頭の行（見つかった順の先頭）の値で決める。
-    # 行はいつも見つかった順に作る（ヒットが limit 以下のうちに並べ替えた行が先頭に残っているときだけ、その先頭の分を見つかった順に戻す）
+    # ヒットが limit を超えるファイルは、全件の行を作らないので、行は並べ替えない（生のヒットを getSortedHitOrder で先に並べ替え、
+    # その順に作ってある）。ファイルの順は、どのファイルも並べ替えた後の先頭の行の値で決める
     param (
         $groups,
         [string]$property,
@@ -338,16 +438,6 @@ function sortFileGroups {
     $rowKeys = if ($property -eq "Location") { @($byValue, @{ Expression = "LineNumber"; Descending = $descending }, $byOrder) } else { @($byValue, $byOrder) }
     foreach ($group in $groups) {
         if ($group.Hits.Count -gt $limit) {
-            $head = [Math]::Min($group.Rows.Count, $limit)
-            $inOrder = $true
-            for ($i = 0; $i -lt $head; $i++) {
-                if ($group.Rows[$i].Order -ne $i) { $inOrder = $false; break }
-            }
-            if (!$inOrder) {
-                $first = @($group.Rows.GetRange(0, $head) | Sort-Object $byOrder)
-                $group.Rows.RemoveRange(0, $head)
-                $group.Rows.InsertRange(0, [object[]]$first)
-            }
             continue
         }
         $sorted = @($group.Rows | Sort-Object $rowKeys)
