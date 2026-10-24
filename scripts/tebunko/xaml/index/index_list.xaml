@@ -149,7 +149,25 @@
             <DataGridTemplateColumn Header="パス" Width="*">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
-                  <TextBlock Style="{StaticResource Cell.Meta}" Text="{Binding Path}" Tag="TrimTip" />
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*" />
+                      <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource Cell.Meta}" Text="{Binding Path}" Tag="TrimTip" />
+                    <!-- 設定で「サブフォルダを含める」を外した行だけに出す札（既定の行には何も出さない） -->
+                    <Border x:Name="TopOnlyTag" Grid.Column="1" Background="{StaticResource Bg.Tag}" CornerRadius="3" Padding="6,1" Margin="8,0,0,0"
+                            VerticalAlignment="Center" ToolTip="サブフォルダは含めず、直下のファイルだけを取り込みます">
+                      <TextBlock Text="{Binding TopOnlyText}" FontSize="10" FontWeight="Medium" Foreground="{StaticResource Ink.Muted}" />
+                      <Border.Style>
+                        <Style TargetType="Border">
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding TopOnlyText}" Value=""><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </Border.Style>
+                    </Border>
+                  </Grid>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>

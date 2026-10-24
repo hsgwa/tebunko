@@ -4,13 +4,15 @@
 
 ## 取り込み対象の決定（`createTargetList`）
 
+クロール対象フォルダの設定 `subfolders` が `false` のフォルダは、直下のファイルだけを探す（`findTargetFiles -TopOnly`）。サブフォルダ側に取り込み済みのファイルがあれば、次の更新で「元のファイルが無くなった」ものと同じに扱い、`Removed` で返して外す。
+
 ```mermaid
 flowchart TD
     A["取り込み一覧を読む（readStatusFile）"] --> N["インデックス名の割り当て（assignIndexNames）<br>設定から外れたインデックスを見つける（findDroppedIndexes。削除は確認で［更新を開始］が押された後）<br>本文インデックスに入れていない TSV を本文インデックスに書き出す"]
     N --> C["インデックスにある本文インデックスのファイル・TSV の数を数える（getIndexTsvCounts）"]
     C --> FOLDER{"クロール対象フォルダごと（設定の順）"}
     FOLDER -- "チェックなし・フォルダが見つからない" --> KEEP["取り込まない<br>前回の行をそのまま残す"]
-    FOLDER -- チェックあり --> SCAN["フォルダを再帰検索"]
+    FOLDER -- チェックあり --> SCAN["フォルダを再帰検索<br>（設定の subfolders が false なら直下だけ）"]
     SCAN --> EACH{"各ファイルの判定"}
     EACH -- "一覧と更新日時・サイズが同じで『済』<br>かつインデックスがそろっている" --> DONE["取り込まない"]
     EACH -- "『済』だが本文インデックスのファイルも TSV も無い・足りない・0 バイト<br>（testIndexComplete）" --> TARGET

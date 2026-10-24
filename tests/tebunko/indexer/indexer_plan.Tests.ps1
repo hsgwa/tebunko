@@ -883,3 +883,43 @@ Describe "IngestPlanner（クラウドにだけあるファイル）" -Tag Io {
         [object]::ReferenceEquals($keep[0], $pendingRow) | Should -Be $true
     }
 }
+
+Describe "createTargetList（直下だけ）" -Tag Io {
+    BeforeAll {
+        $source = Join-Path $TestDrive "top"
+        [System.IO.Directory]::CreateDirectory("$source\2024") | Out-Null
+        [System.IO.File]::WriteAllText("$source\直下.docx", "dummy")
+        [System.IO.File]::WriteAllText("$source\2024\下.docx", "dummy")
+        ${indexDir} = Join-Path $TestDrive "index_top"
+        $workspace = newTestWorkspace @{ IndexDir = ${indexDir} }
+        $settings = Join-Path $TestDrive "top_setting.json"
+        # 設定から読み、名前を割り当てた形（インデクサが createTargetList に渡す形）で組む
+        function newTopFolder([bool]$subfolders) {
+            writeTargetFolders @([pscustomobject]@{ Name = "経理"; Path = $source; Enabled = $true; Subfolders = $subfolders }) $settings
+            return @(assignIndexNames @(getTargetFolders $settings) @())[0]
+        }
+    }
+
+    It "findTargetFiles -TopOnly は、サブフォルダのファイルを入れない" {
+        @((findTargetFiles $source).Files | ForEach-Object { $_.Name } | Sort-Object) | Should -Be @("下.docx", "直下.docx")
+        @((findTargetFiles $source -TopOnly).Files | ForEach-Object { $_.Name }) | Should -Be @("直下.docx")
+    }
+
+    It "Subfolders が <label> のとき、Files に入るのは <count> 件" -TestCases @(
+        @{ label = "true"; value = $true; count = 2 }
+        @{ label = "false"; value = $false; count = 1 }
+    ) {
+        param ($label, $value, $count)
+        $result = createTargetList (newTopFolder $value) (newPrevious) $null
+        $result.Rows.Count | Should -Be $count
+        $result.Targets.Count | Should -Be $count
+    }
+
+    It "直下だけに変えると、前回取り込んだサブフォルダ側のファイルは Removed になる" {
+        $before = createTargetList (newTopFolder $true) (newPrevious) $null
+        $previous = newPrevious $before.Rows
+        $result = createTargetList (newTopFolder $false) $previous $null
+        @($result.Removed) | Should -Be @("経理\2024\下.docx")
+        @($result.Rows | ForEach-Object { $_.相対パス }) | Should -Be @("経理\直下.docx")
+    }
+}

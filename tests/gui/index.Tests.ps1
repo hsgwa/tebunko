@@ -157,6 +157,8 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             testGuiVisible (findGui $confirm -Id "OpenIndexLocationButton") | Should -BeTrue
             (getGuiText (findGui $S.Window -Id "IndexLocationText")) | Should -BeLike "$($script:tool.Work)*"
             testGuiVisible (findGui $S.Window -Id "OpenIndexLocationButton") | Should -BeTrue
+            # 確認の一覧の行は UI オートメーションに出ないため、行ごとの「サブフォルダを含める」の切り替えは、判断層の単体テストと撮影（index-tab/start-confirm）で確かめる
+            @(getGuiTexts $confirm) | Should -Contain "サブフォルダを含める"
             clickGui $S $confirm "CancelButton" "［キャンセル］"
             waitGuiWindowClosed $S $confirm "取り込みの確認"
             waitGui $S "取りやめて［すべて更新］に戻る" ${guiDefaultTimeout} {

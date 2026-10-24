@@ -49,6 +49,24 @@ BeforeAll {
         return "$($value.GetType().Name):$value"
     }
 
+    function script:selectExpectedShape {
+        # 関数の戻り値のうち、見本の expected.json に書いてあるプロパティだけを残す。後の版で足したプロパティ（getTargetFolders の Subfolders など）が、
+        # 足す前の見本を変えずに済むようにするため。足したプロパティの値は、足した版の見本（subfolders など）で確かめる
+        param ($actual, $expected)
+        if ($actual -is [System.Management.Automation.PSCustomObject] -and $expected -is [System.Management.Automation.PSCustomObject]) {
+            $shaped = [ordered]@{}
+            foreach ($name in @($expected.PSObject.Properties.Name)) {
+                if ($actual.PSObject.Properties[$name]) { $shaped[$name] = selectExpectedShape $actual.$name $expected.$name }
+            }
+            return [pscustomobject]$shaped
+        }
+        if ($actual -is [array] -and $expected -is [array]) {
+            $items = @(for ($i = 0; $i -lt $actual.Count; $i++) { if ($i -lt $expected.Count) { ,(selectExpectedShape $actual[$i] $expected[$i]) } else { ,$actual[$i] } })
+            return ,$items
+        }
+        return $actual
+    }
+
     function script:walkJsonNode {
         # getJsonPropertyPaths から呼ぶ再帰（配列の添字は付けない。targetFolders[].name のように、要素の形だけを見る）
         param ([System.Collections.Generic.List[string]]$paths, [string]$prefix, $node)
@@ -153,7 +171,7 @@ Describe "今のコードの関数が返す値も変わっていない（setting
             } else {
                 $actual = & $functionName $path
             }
-            (toCanonicalText $actual) | Should -Be (toCanonicalText $sample.Expected.functions.$functionName) -Because "関数 ${functionName}"
+            (toCanonicalText (selectExpectedShape $actual $sample.Expected.functions.$functionName)) | Should -Be (toCanonicalText $sample.Expected.functions.$functionName) -Because "関数 ${functionName}"
         }
     }
 }

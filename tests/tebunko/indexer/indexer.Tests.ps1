@@ -231,6 +231,29 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         }
     }
 
+    It "subfolders を false にして更新すると、サブフォルダのファイルが取り込み一覧と本文インデックスから外れ、true に戻すと取り込み直す" {
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "営業"; path = $source; enabled = $true })
+        runIndexer $root | Should -Be 0
+        (readTestStatus $root).Rows.ContainsKey("営業\資料\提案.pptx") | Should -Be $true
+        $contentText = { (@(Get-ChildItem -LiteralPath "$root\work\store\content\営業" -Recurse -Filter "content_index.*.tsv" | ForEach-Object { Get-Content -Raw -LiteralPath $_.FullName }) -join "") }
+        # 提案.pptx の中の語（TC21-01）が、サブフォルダ側のファイルの目印
+        (& $contentText) | Should -Match "TC21-01"
+
+        writeTestSettings $root @(@{ name = "営業"; path = $source; enabled = $true; subfolders = $false })
+        runIndexer $root | Should -Be 0
+        $rows = (readTestStatus $root).Rows
+        $rows.ContainsKey("営業\資料\提案.pptx") | Should -Be $false
+        $rows["営業\議事録.docx"].状態 | Should -Be ${stateDone}
+        (& $contentText) | Should -Match "議事録"
+        (& $contentText) | Should -Not -Match "TC21-01"
+
+        writeTestSettings $root @(@{ name = "営業"; path = $source; enabled = $true; subfolders = $true })
+        runIndexer $root | Should -Be 0
+        (readTestStatus $root).Rows["営業\資料\提案.pptx"].状態 | Should -Be ${stateDone}
+        (& $contentText) | Should -Match "TC21-01"
+    }
+
     It "作成中は、取り込み一覧に 1 件ごとに結果が追記され、画面が読む「取り込み済み＋失敗」の件数が途中で増える" {
         $root = newRoot
         writeTestSettings $root @(@{ name = "営業"; path = $source; enabled = $true })

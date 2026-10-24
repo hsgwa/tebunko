@@ -874,3 +874,48 @@ Describe "検索結果の件数の上限（searchLimit）" {
         readSearchLimit $path | Should -Be 20000
     }
 }
+
+Describe "targetFolders の subfolders（直下だけ）" -Tag Io {
+    It "subfolders が <label> のとき Subfolders は <expected>" -TestCases @(
+        @{ label = "無い"; json = '{ "path": "C:\\data\\a" }'; expected = $true }
+        @{ label = "true"; json = '{ "path": "C:\\data\\a", "subfolders": true }'; expected = $true }
+        @{ label = "false"; json = '{ "path": "C:\\data\\a", "subfolders": false }'; expected = $false }
+    ) {
+        param ($label, $json, $expected)
+        $path = "$TestDrive\subfolders_read_$label.json"
+        [System.IO.File]::WriteAllText($path, "{ `"targetFolders`": [ $json ] }", ${utf8Bom})
+        @(getTargetFolders $path)[0].Subfolders | Should -Be $expected
+    }
+
+    It "書いて読み直すと、フォルダごとの Subfolders が保たれる（Subfolders を持たない項目は true で書く）" {
+        $path = "$TestDrive\subfolders_roundtrip.json"
+        writeTargetFolders @(
+            [pscustomobject]@{ Name = "見積"; Path = "C:\data\見積"; Enabled = $true; Subfolders = $false },
+            [pscustomobject]@{ Name = "営業"; Path = "C:\data\営業"; Enabled = $true; Subfolders = $true },
+            [pscustomobject]@{ Name = "経理"; Path = "C:\data\経理"; Enabled = $true }
+        ) $path
+        $folders = @(getTargetFolders $path)
+        @($folders | ForEach-Object { $_.Subfolders }) | Should -Be @($false, $true, $true)
+    }
+
+    It "名前の割り当て（saveAssignedIndexNames）のあとも subfolders: false が保たれる" {
+        $path = "$TestDrive\subfolders_assign.json"
+        writeTargetFolders @([pscustomobject]@{ Name = ""; Path = "C:\data\見積"; Enabled = $true; Subfolders = $false }) $path
+        $assigned = @([pscustomobject]@{ Name = "見積"; Path = "C:\data\見積"; Enabled = $true; Subfolders = $true })
+        $saved = @(saveAssignedIndexNames $assigned $path)
+        $saved[0].Name | Should -Be "見積"
+        $saved[0].Subfolders | Should -Be $false
+        $again = @(getTargetFolders $path)
+        $again[0].Name | Should -Be "見積"
+        $again[0].Subfolders | Should -Be $false
+    }
+
+    It "パスの付け替え（setIndexSourceFolder）のあとも subfolders: false が保たれる" {
+        $path = "$TestDrive\subfolders_move.json"
+        writeTargetFolders @([pscustomobject]@{ Name = "見積"; Path = "C:\data\見積"; Enabled = $true; Subfolders = $false }) $path
+        setIndexSourceFolder "見積" "D:\新\見積" $path
+        $folders = @(getTargetFolders $path)
+        $folders[0].Path | Should -Be "D:\新\見積"
+        $folders[0].Subfolders | Should -Be $false
+    }
+}

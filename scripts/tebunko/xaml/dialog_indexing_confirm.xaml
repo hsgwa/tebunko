@@ -60,6 +60,13 @@
       </StackPanel>
     </Border>
 
+    <!-- 選びを変えたときの 1 行（件数を数え直すこと。getIndexingRecountView）。表のすぐ下に出す -->
+    <StackPanel x:Name="RecountHint" DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="2,10,0,0" Visibility="Collapsed">
+      <Path Data="{StaticResource Icon.RefreshCw}" Width="13" Height="13" Stretch="Uniform" Stroke="{StaticResource Accent}" StrokeThickness="2"
+            StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" VerticalAlignment="Center" Margin="0,0,6,0" />
+      <TextBlock x:Name="RecountHintText" Style="{StaticResource Meta}" FontSize="12" VerticalAlignment="Center" />
+    </StackPanel>
+
     <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
       <!-- 見出し。左のアイコンは、確認のメッセージ（dialog_confirm.xaml）と同じ「?」 -->
       <DockPanel>
@@ -83,14 +90,45 @@
           <DataGridTemplateColumn Header="フォルダ名" Width="*">
             <DataGridTemplateColumn.CellTemplate>
               <DataTemplate>
-                <TextBlock Style="{StaticResource Cell.Key}" Text="{Binding Name}" ToolTip="{Binding Path}" />
+                <StackPanel Orientation="Horizontal" ToolTip="{Binding Path}">
+                  <TextBlock Style="{StaticResource Cell.Key}" Text="{Binding Name}" />
+                  <!-- 今の選びが「サブフォルダを含めない」の行だけに出す札（TopOnlyText が空なら隠す） -->
+                  <Border Background="{StaticResource Bg.Tag}" CornerRadius="3" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding TopOnlyText}" FontSize="10" FontWeight="Medium" Foreground="{StaticResource Ink.Muted}" />
+                    <Border.Style>
+                      <Style TargetType="Border">
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding TopOnlyText}" Value=""><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </Border.Style>
+                  </Border>
+                </StackPanel>
               </DataTemplate>
             </DataGridTemplateColumn.CellTemplate>
           </DataGridTemplateColumn>
           <DataGridTemplateColumn Header="対象ファイル数" Width="120">
             <DataGridTemplateColumn.CellTemplate>
               <DataTemplate>
-                <TextBlock Style="{StaticResource Cell.Number}" HorizontalAlignment="Stretch" Text="{Binding TotalText}" />
+                <TextBlock HorizontalAlignment="Stretch">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock" BasedOn="{StaticResource Cell.Number}">
+                      <Setter Property="Text" Value="{Binding TotalText}" />
+                      <Style.Triggers>
+                        <!-- 選びを変えた行は、件数が古いので灰色にする（数え直したあとに出直す） -->
+                        <DataTrigger Binding="{Binding Changed}" Value="True"><Setter Property="Foreground" Value="{StaticResource Ink.Muted}" /></DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="サブフォルダを含める" Width="150">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate>
+                <CheckBox IsChecked="{Binding Subfolders, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding Choosable}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                          AutomationProperties.Name="サブフォルダを含める" ToolTip="外すと、この行の元のフォルダの直下のファイルだけを取り込みます" />
               </DataTemplate>
             </DataGridTemplateColumn.CellTemplate>
           </DataGridTemplateColumn>
