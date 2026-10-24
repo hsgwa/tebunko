@@ -453,7 +453,8 @@ function extractArchiveEntryToFile {
         [long]$expectedSize,
         [string]$expectedSha256,
         [string]$destPath,
-        [string]$root
+        [string]$root,
+        $progress = $null
     )
 
     # 書き出すのは、root の下で途中にリンクが無いときだけ。同じ名前のファイルが既にあれば上書きせず、例外にする（CreateNew）
@@ -478,6 +479,9 @@ function extractArchiveEntryToFile {
                 }
                 [void]$sha.TransformBlock($buffer, 0, $read, $buffer, 0)
                 $dest.Write($buffer, 0, $read)
+                if ($null -ne $progress) {
+                    $progress.Done = [long]$progress.Done + $read
+                }
             }
         } finally {
             $dest.Dispose()
@@ -509,6 +513,7 @@ function getWorkspaceFreeSpace {
 
 function importIndex {
     # zip から 1 つのインデックスをインポートする: @{ Name; SourcePath; Enabled; Files; Bytes; Warnings }。
+    # progress は省ける: [hashtable]::Synchronized(@{ Done = 0L; Total = 0L })。展開の前に Total を目録の大きさの合計にし、展開するたびに Done を足す（画面が別スレッドから読む）。
     # collisionMode（Rename・Overwrite・Cancel）が Cancel なら $null を返す（ワークスペースは変えない）。
     # name・sourceFolder を省くと目録の値を使う。インデックス作成のロックを取れなければ例外
     param (
@@ -518,7 +523,8 @@ function importIndex {
         [string]$sourceFolder = "",
         $ws = $workspace,
         [string]$settingsPath = ${settingsFile},
-        [scriptblock]$getFreeSpace = { param ($root) getWorkspaceFreeSpace $root }
+        [scriptblock]$getFreeSpace = { param ($root) getWorkspaceFreeSpace $root },
+        $progress = $null
     )
 
     $lock = enterIndexerLock $ws.Dir
@@ -526,7 +532,7 @@ function importIndex {
         throw "更新中はインポートできません。更新が終わってからやり直してください。"
     }
     try {
-        return (importIndexCore $zipPath $collisionMode $name $sourceFolder $ws $settingsPath $getFreeSpace)
+        return (importIndexCore $zipPath $collisionMode $name $sourceFolder $ws $settingsPath $getFreeSpace $progress)
     } finally {
         exitIndexerLock $lock
     }
@@ -567,7 +573,8 @@ function expandImportArchive {
         [string]$workDir,
         [string]$finalName,
         [string]$folder,
-        [string]$workRoot
+        [string]$workRoot,
+        $progress = $null
     )
 
     $newDir = Join-Path $workDir "new"
@@ -587,7 +594,7 @@ function expandImportArchive {
             $size = [long]$file.size
             $sha256 = [string]$file.sha256
             if ($path -ceq ${indexArchiveStatusEntryName}) {
-                extractArchiveEntryToFile $entry $size $sha256 $statusTmpPath $workDir
+                extractArchiveEntryToFile $entry $size $sha256 $statusTmpPath $workDir $progress
                 $bytes = [System.IO.File]::ReadAllBytes((toLongPath $statusTmpPath))
                 $text = ${utf8Bom}.GetString($bytes)
                 $statusLines = @($text -split "\r?\n" | Where-Object { $_ -ne "" })
@@ -601,7 +608,7 @@ function expandImportArchive {
                 if (!$reason) {
                     $rel = $path.Substring("content_index/".Length).Replace("/", "\")
                     $target = Join-Path $newDir $rel
-                    extractArchiveEntryToFile $entry $size $sha256 $target $workDir
+                    extractArchiveEntryToFile $entry $size $sha256 $target $workDir $progress
                     $reason = testImportedContentIndexFile $size (readContentIndexText $target)
                 }
                 if ($reason) {
@@ -796,7 +803,8 @@ function importIndexCore {
         [string]$sourceFolder,
         $ws,
         [string]$settingsPath,
-        [scriptblock]$getFreeSpace
+        [scriptblock]$getFreeSpace,
+        $progress = $null
     )
 
     $opened = openIndexArchive $zipPath
@@ -822,11 +830,9 @@ function importIndexCore {
             throw "元のフォルダを指定してください。"
         }
 
-        $totalBytes = [long]0
         $fileEntries = @($manifest.files)
-        foreach ($file in $fileEntries) {
-            $totalBytes += [long]$file.size
-        }
+        $totalBytes = [long](($fileEntries | ForEach-Object { [long]$_.size } | Measure-Object -Sum).Sum)
+        if ($null -ne $progress) { $progress.Total = $totalBytes }
         $spaceReason = testImportFreeSpace $totalBytes ([System.IO.Path]::GetPathRoot($ws.Dir)) $getFreeSpace
         if ($spaceReason) {
             throw $spaceReason
@@ -848,7 +854,7 @@ function importIndexCore {
         }
 
         $workDir = Join-Path $ws.PublishDir "import"
-        $expanded = expandImportArchive $archive $fileEntries $workDir $finalName $folder $ws.PublishDir
+        $expanded = expandImportArchive $archive $fileEntries $workDir $finalName $folder $ws.PublishDir $progress
         $targetIndexDir = Join-Path $ws.IndexDir $finalName
         try {
             # 前の版が作ったシステムインデックスは、この版では使わない。消せなくても取り込みは続け、警告に 1 行足す（次のインデックス作成でも消す）

@@ -65,10 +65,13 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             clickGui $S $dialog "ImportButton" "［インポート］"
             waitGuiWindowClosed $S $dialog "インポートのダイアログ"
 
-            setGuiStep $S "インポートの完了"
+            setGuiStep $S "インポートの完了 → 続けて更新するかの確認（取りやめる）"
+            answerGuiConfirm $S "インポート後の更新の確認" "インデックスを作成しますか" "あとで"
             waitGui $S "インポートの完了" ${guiDefaultTimeout} {
-                (getGuiText (findGui $S.Window -Id "StatusText")) -like "*インポートしました*"
+                (getGuiText (findGui $S.Window -Id "StatusText")) -like "*インポートしました*次の更新までは、検索が遅くなることがあります。"
             } | Out-Null
+            Test-Path -LiteralPath "$($script:tool.Work)\store\gram\営業\toc.tsv" | Should -BeFalse -Because "取りやめたので、2-gram の索引は作らない"
+            testGuiIndexing $S | Should -BeFalse -Because "取りやめたのでインデックス作成は始まらない"
             $row = waitGui $S "一覧に戻る" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")) | Select-Object -First 1 }
             (getGuiRowTexts $row) | Should -Contain "営業"
             Test-Path -LiteralPath "$($script:tool.Work)\store\content\営業" | Should -BeTrue
@@ -85,8 +88,13 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             getGuiText (findGui $dialog -Id "CollisionNotice") | Should -Be "今のインデックス [営業] は、インポートするもので置き換わります。"
             clickGui $S $dialog "ImportButton" "［インポート］"
             waitGuiWindowClosed $S $dialog "インポートのダイアログ"
-            waitGui $S "置き換えの完了" ${guiDefaultTimeout} {
-                (getGuiText (findGui $S.Window -Id "StatusText")) -like "*インポートしました*"
+            setGuiStep $S "置き換えの完了 → 続けて更新する"
+            answerGuiConfirm $S "インポート後の更新の確認" "インデックスを作成しますか" "作成する"
+            $confirm = waitGuiWindow $S "取り込みの確認のダイアログ" -Id "StartButton" -Timeout ${guiIndexTimeout}
+            clickGui $S $confirm "StartButton" "確認の［更新を開始］"
+            waitGuiWindowClosed $S $confirm "取り込みの確認"
+            waitGui $S "更新の完了で 2-gram の索引ができる" ${guiIndexTimeout} {
+                Test-Path -LiteralPath "$($script:tool.Work)\store\gram\営業\toc.tsv"
             } | Out-Null
             @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count | Should -Be 1 -Because "置き換えたので増えない"
 
@@ -195,6 +203,7 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             clickGui $S $dialog "ImportButton" "［インポート］"
             waitGuiWindowClosed $S $dialog "インポートのダイアログ"
 
+            answerGuiConfirm $S "インポート後の更新の確認" "インデックスを作成しますか" "あとで"
             waitGui $S "インポートの完了" ${guiDefaultTimeout} {
                 (getGuiText (findGui $S.Window -Id "StatusText")).Contains("インデックス [営業] をインポートしました")
             } | Out-Null

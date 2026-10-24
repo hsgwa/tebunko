@@ -289,3 +289,57 @@ Describe "testIndexImportInput（元のフォルダの重なり）" -Tag Unit {
         testIndexImportInput "C:\data\売上" "売上" $items | Should -Be ""
     }
 }
+
+Describe "getImportProgressView" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "全体が分からない間は割合の分からない表示"; done = 0; total = 0; text = "インポートしています…"; detail = ""; indeterminate = $true; value = 0.0 }
+        @{ label = "途中は割合と大きさ"; done = 1MB; total = 4MB; text = "インポートしています（25%）"; detail = "1.0 MB / 4.0 MB"; indeterminate = $false; value = 0.25 }
+        @{ label = "展開が終わった後は割合の分からない表示"; done = 4MB; total = 4MB; text = "インポートを仕上げています…"; detail = ""; indeterminate = $true; value = 1.0 }
+    ) {
+        param ($label, $done, $total, $text, $detail, $indeterminate, $value)
+        $view = getImportProgressView $done $total
+        $view.Text | Should -Be $text
+        $view.Detail | Should -Be $detail
+        $view.Indeterminate | Should -Be $indeterminate
+        $view.Value | Should -Be $value
+    }
+}
+
+Describe "getImportIndexingConfirm" -Tag Unit {
+    It "元のフォルダがあれば、importIndex が返した名前で尋ね、2-gram の索引のことを添える" {
+        $confirm = getImportIndexingConfirm @{ Name = "営業(2)"; Enabled = $true }
+        $confirm.Title | Should -Be "営業(2) をインポートしました"
+        $confirm.Heading | Should -Be "高速化のためのインデックスを作成しますか？"
+        $confirm.CreateText | Should -Be "作成する"
+        $confirm.CancelText | Should -Be "あとで"
+        $confirm.Hint | Should -Be "作成すると検索が速くなります。作成しなくても検索はできます（結果は同じ）。"
+    }
+
+    It "元のフォルダがこの PC に無ければ尋ねない" {
+        getImportIndexingConfirm @{ Name = "営業"; Enabled = $false } | Should -BeNullOrEmpty
+    }
+}
+
+Describe "getImportSkippedIndexingStatus" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "Warnings が無い"; warnings = @(); expected = "インデックス [営業] をインポートしました（3 ファイル）。 次の更新までは、検索が遅くなることがあります。" }
+        @{ label = "Warnings があれば間に入る"; warnings = @("注意です。"); expected = "インデックス [営業] をインポートしました（3 ファイル）。 注意です。 次の更新までは、検索が遅くなることがあります。" }
+    ) {
+        param ($label, $warnings, $expected)
+        getImportSkippedIndexingStatus @{ Name = "営業"; Files = 3; Warnings = $warnings } | Should -Be $expected
+    }
+}
+
+Describe "インポート後の画面に出す文言" -Tag Unit {
+    It "内部の言葉（2-gram・索引）と、前の言い方（更新しますか・更新する）を画面に出さない" {
+        $result = @{ Name = "営業"; Files = 1; Warnings = @(); Enabled = $true }
+        $confirm = getImportIndexingConfirm $result
+        $texts = @(
+            (getImportProgressView 1MB 4MB).Text, (getImportProgressView 1MB 4MB).Detail, (getImportProgressView 4MB 4MB).Text,
+            $confirm.Title, $confirm.Heading, $confirm.Hint, $confirm.CreateText, $confirm.CancelText, (getImportSkippedIndexingStatus $result)
+        )
+        foreach ($text in $texts) {
+            $text | Should -Not -Match "2-gram|索引|更新しますか|更新する"
+        }
+    }
+}
