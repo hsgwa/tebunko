@@ -56,7 +56,7 @@ scan 'HKLM','HKCU','HKEY_','HKCR','\bHKU\b','HKCC','Set-ItemProperty','New-ItemP
 - **理由**: Windows PowerShell 5.1 は、BOM の無い UTF-8 のファイルを CP932 で読み、日本語の文字の最後のバイトが次の記号を飲み込んで構文が壊れる。日本語の本体をヒアストリング（データ）に入れ、ScriptBlock にして実行することで、BOM が落ちても動かす（[単一 .ps1 の包み](../design/structure/single-script.md)）。
 - **範囲**: 作った単一 .ps1 の最後の文の 1 行だけ。本体は、包む前に禁止の語の検査（`tools/script_rules.ps1`）を通っている。
 - **検査**: 包んだ結果の全体を、構文木で確かめる。ScriptBlock の Create・`Invoke-Expression`・`iex` の呼び出しが 1 件だけで、ファイルの最後の文であり、その文の全文が決めた 1 行と一字一句同じであること（同じ文に別の式を足したら止まる）。その文を除いた全体（頭・尾・本体の文字列）に、禁止の語（`tools/script_rules.ps1` の一覧の全分類）が無いこと。1 つでも外れると、包む道具が何も書き出さずに止まる（`tests/tools/single_script_guard.Tests.ps1` が、足した Create・`iex`・引数の違い・2 行目・本体の中の語を止めることを表で確かめる）。
-- **実機で確かめること**: ウイルス対策ソフト（EDR）がこの形を疑うかどうかは、実機でしか確かめられない。検知されたら、方式を決め直す。
+- **実機で確かめた結果**: Windows 11 の Microsoft Defender ウイルス対策（既定の設定。リアルタイム保護・振る舞い監視・AMSI が有効）で、この形を含む起動を動かして確かめた（下の「[ウイルス対策ソフト・EDR での確かめ](#ウイルス対策ソフトedr-での確かめ)」）。単一 .ps1 版の起動とインデックス作成で、Defender の検知・隔離は出なかった。PowerShell 自身が残す 4104（警告レベル）の自動の記録は、この行の `[scriptblock]::Create` を含めて出る（件数は下の表の下のとおり）。Microsoft Defender for Endpoint（EDR 本体）では未確認。検知されたら、方式を決め直す。
 
 ## Office ファイルを開くときの設定
 
@@ -82,7 +82,7 @@ Excel は、セルの値をテキストに書き出すために、すべての�
 
 ZIP（`.xlsx` / `.docx` / `.pptx`）を直接読む処理は、細工したファイルで時間・メモリを使い切らせる攻撃（ZIP 爆弾・DTD の実体参照を入れ子にして膨張させる攻撃 等）を想定し、次の 2 つを行う。`tests/meta/safety.Tests.ps1` の「細工したOfficeファイル（.docx・.pptx・.xlsx）から身を守ること」がこれを確かめる。
 
-- **ZIP の部品のサイズの上限**: ZIP 内の 1 部品を読む `readZipEntry`（`shared/office/office_reader.ps1`）が ZIP の中身を読み、展開後の大きさに**部品 1 つにつき 100MB**・**1 ファイルで読む合計 300MB** の上限を設ける。超えたら、部品名・大きさ・部品ごとか合計かの区別を出さない簡潔な文言（`ファイルサイズが大きすぎるため更新できません。`。画面・取り込み一覧向け。区別を出すと悪用のヒントになるため）の `ZipSizeLimitException` で例外にする。原因を調べられるよう、部品名・大きさ・部品ごとか合計かは `work/indexing_log.txt` にだけ書く（`writeZipSizeLimitLog`。`tebunko/indexer/indexer_state.ps1`）。ZIP のヘッダー（中央ディレクトリ）が実際より小さい大きさを偽って書いてあるものも、読む量を `Length + 1` バイトまでに絞り、`Length` を超えて読めたら例外にすることで検知する（大きな配列は作らず、小さな入れ物を使い回して読む）。**例外が 1 つある**: シートのヘッダー・フッターを読む `readXlsxSheetHeaderFooter` は、シートの部品が大きい（`sheetData`）ため、文字列にせず流れ（`XmlReader`）で読む。`readZipEntry` は通らないので、代わりに別の上限（1000MB。`$script:zipSheetStreamMaxBytes`。流れ読みはメモリを使わず、かかるのは時間だけなので、部品の上限より大きくしてある）を、**1 ファイルの流れ読みが実際に読んだ合計**（`$script:zipSheetStreamReadBytes`。`readXlsxObjectUnits` が呼ぶたびに 0 から数え直す）に設ける。展開後の大きさの申告（中央ディレクトリ）が残り（上限 − 既に読んだ合計）を超える部品は開かない。申告を偽ったもの（実際は大きいのに小さく申告）は、`XmlReader` に渡す流れを、読んだバイト数を数えて残りを超えたら止める包み（`LimitedReadStream`）にして、読む途中に打ち切る。読み終えたら読んだ量を合計に足す。`workbook.xml` の複数の `<sheet>` が同じシートの部品を指すときは、流れ読みを最初の 1 回だけにして結果を使い回す（同じ部品を何度も読ませて長引かせられないようにする）。この合計は `readZipEntry` の合計（300MB）には数えない。超えたときは、そのシートのヘッダー・フッターだけを読めなかった扱いにし（セルの値・図形・コメントは出す）、理由（流れ読みの上限）をインデックス作成のログに書く。この例外が増えないよう、`entry.Open()`・`ReadToEnd`・`ExtractToFile`・`ExtractToDirectory`・`Expand-Archive`・`CopyTo` を使う場所は `tests/meta/safety.Tests.ps1` が機械的に確かめる。上限の値は `setting.config` に出しておらず、変えるには `shared/office/office_reader.ps1` の `$script:zipPartMaxBytes`・`$script:zipTotalMaxBytes`・`$script:zipSheetStreamMaxBytes` を直す（[既知の問題](../design/indexing/known-issues.md#共通)）。
+- **ZIP の部品のサイズの上限**: ZIP 内の 1 部品を読む `readZipEntry`（`shared/office/office_reader.ps1`）が ZIP の中身を読み、展開後の大きさに**部品 1 つにつき 100MB**・**1 ファイルで読む合計 300MB** の上限を設ける。超えたら、部品名・大きさ・部品ごとか合計かの区別を出さない簡潔な文言（`ファイルサイズが大きすぎるため更新できません。`。画面・取り込み一覧向け。区別を出すと悪用のヒントになるため）の `ZipSizeLimitException` で例外にする。原因を調べられるよう、部品名・大きさ・部品ごとか合計かは `work/indexing_log.txt` にだけ書く（`writeZipSizeLimitLog`。`tebunko/indexer/indexer_state.ps1`）。ZIP のヘッダー（中央ディレクトリ）が実際より小さい大きさを偽って書いてあるものも、読む量を `Length + 1` バイトまでに絞り、`Length` を超えて読めたら例外にすることで検知する（大きな配列は作らず、小さな入れ物を使い回して読む）。**例外が 1 つある**: シートのヘッダー・フッターを読む `readXlsxSheetHeaderFooter` は、シートの部品が大きい（`sheetData`）ため、文字列にせず流れ（`XmlReader`）で読む。`readZipEntry` は通らないので、代わりに別の上限（1000MB。`$script:zipSheetStreamMaxBytes`。流れ読みはメモリを使わず、かかるのは時間だけなので、部品の上限より大きくしてある）を、**1 ファイルの流れ読みが実際に読んだ合計**（`$script:zipSheetStreamReadBytes`。`readXlsxObjectUnits` が呼ぶたびに 0 から数え直す）に設ける。展開後の大きさの申告（中央ディレクトリ）が残り（上限 − 既に読んだ合計）を超える部品は開かない。申告を偽ったもの（実際は大きいのに小さく申告）は、`XmlReader` に渡す流れを、読んだバイト数を数えて残りを超えたら止める包み（`LimitedReadStream`）にして、読む途中に打ち切る。読み終えたら読んだ量を合計に足す。`workbook.xml` の複数の `<sheet>` が同じシートの部品を指すときは、流れ読みを最初の 1 回だけにして結果を使い回す（同じ部品を何度も読ませて長引かせられないようにする）。この合計は `readZipEntry` の合計（300MB）には数えない。超えたときは、そのシートのヘッダー・フッターだけを読めなかった扱いにし（セルの値・図形・コメントは出す）、理由（流れ読みの上限）をインデックス作成のログに書く。検索結果を .xlsx に書き出す `shared/office/xlsx_writer.ps1` の `entry.Open()` は書き込み専用（読まない）なので、この検査の対象から外している。この例外が増えないよう、`entry.Open()`・`ReadToEnd`・`ExtractToFile`・`ExtractToDirectory`・`Expand-Archive`・`CopyTo` を使う場所は `tests/meta/safety.Tests.ps1` が機械的に確かめる。上限の値は `setting.config` に出しておらず、変えるには `shared/office/office_reader.ps1` の `$script:zipPartMaxBytes`・`$script:zipTotalMaxBytes`・`$script:zipSheetStreamMaxBytes` を直す（[既知の問題](../design/indexing/known-issues.md#共通)）。
 - **埋め込んだファイルの読み取り**: Word・PowerPoint に埋め込んだ Office のファイルは、`readZipEntryBytes`（`office_reader.ps1`）が中身を読む。申告の大きさ（`Length`）の分だけの配列を、部品の上限（100MB）と合計の上限（300MB）を確かめたあとに作り、`Length` を超えて読めたら例外にする。埋め込んだファイルを開いた先の部品（Excel のシートを含む）も、同じ `readZipEntry`・`readZipEntryBytes` で読み、部品ごと・合計の上限に数える（埋め込みのシートには、親の Excel のシートのような流れ読みの緩い上限は使わない）。シートの XML を読む `MaxCharactersInDocument` は部品の上限（100MB）にする。さらに、共有文字列を多数のセルが参照すると小さな埋め込みから巨大な行ができるため、埋め込みから出す行の文字数を、親の 1 ファイルの全埋め込みで合計して数え（`addEmbeddedOutputChars`）、上限（`embeddedOutputMaxChars`、32M 文字）を超えたらその埋め込みを読まない（`ZipSizeLimitException` の `LimitKind` が `Output`）。さらに中に埋め込んだものは読まない（深さは 1 段まで）。
 - **DTD（`<!DOCTYPE>`）の処理を禁止**: `XmlDocument` を作るところ（`LoadXml` を直接呼ばず、すべて `newXmlDocument` を通す）は `XmlReaderSettings.DtdProcessing` を `Prohibit` にし、DTD 宣言を含む XML を例外にする。
 
@@ -124,17 +124,58 @@ PDF は PowerShell だけで読み、外の部品・Office・外部プロセス�
 
 | 関数 | 使う API | 用途 |
 |---|---|---|
-| `applyFailedFileState`（`tebunko/ui/index/index_detail.ps1`）・`applyIndexSourceFolderState`（`tebunko/ui/index/index_list.ps1`）・`openSourceFolder`（`tebunko/ui/open_source.ps1`） | `Start-Process`（`explorer.exe`） | 一覧・検索結果から元のファイルの場所を開く（利用者の操作時のみ）。フォルダと確かめたものだけを渡す（ファイルをフォルダとして渡すと、そのファイルが既定のアプリで実行されるため） |
+| `applyFailedFileState`（`tebunko/ui/index/index_detail.ps1`。フォルダを開く 1 か所。ファイルを選んで見せるときは `showInExplorer` を使う）・`applyIndexSourceFolderState`（`tebunko/ui/index/index_list.ps1`）・`showInExplorer`（`tebunko/ui/open_source.ps1`。元のファイルの場所と、出力した検索結果のファイルを、エクスプローラーで選んで見せる） | `Start-Process`（`explorer.exe`） | 一覧・検索結果から元のファイルの場所を開く（利用者の操作時のみ）。フォルダと確かめたものだけを渡す（ファイルをフォルダとして渡すと、そのファイルが既定のアプリで実行されるため） |
 | `openAboutLink`（`tebunko/ui/about_dialog.ps1`） | `Start-Process`（`explorer.exe`。アドレスを 1 つ渡す） | 「バージョン情報」の GitHub・リリースのリンク。開くのは `getAboutLinks` に載せた 2 つのアドレス（`https://github.com/hsgwa/tebunko` と、その `/releases`）と一字一句同じものだけ（`testAboutLinkUrl`）。利用者がリンクを押したときのみ |
 | `openWithNotepad`（`tebunko/ui/open_source.ps1`） | `Start-Process`（固定のパス `%SystemRoot%\System32\notepad.exe`） | 検索結果から、既定のアプリで開くと実行・登録になる拡張子（`$textNotepadExtensions`）のテキストファイルを開く（利用者の操作時のみ） |
 | `openWithShell`（`tebunko/ui/open_source.ps1`） | `ProcessStartInfo`・`UseShellExecute`・`Process::Start`・`Invoke-Item` | 元のファイルを既定のアプリで開く。先頭で `testSourceBookName` により名前を確かめ、通らなければ何も起動しない |
-| `completeExport`（`tebunko/ui/open_source.ps1`） | `Invoke-Item` | 書き出した結果のファイル（作業フォルダの固定の場所 `search_results.txt`。利用者が選んだ名前のものではない）を既定のアプリで開く（利用者の操作時のみ） |
 | `showErrorDialog`（`shared/ui/shell.ps1`） | `Start-Process`（固定のパスの `notepad.exe`） | エラーの記録のファイルをメモ帳で開く（利用者が押したときのみ） |
 
 上の表にない関数が、シェルで開く API を書くと `tests/meta/safety.Tests.ps1` の「検索結果から開くとき、シェルで開く処理が決まった所にだけあること」が落ちる（別名・型名の書き方違いも構文木で見つける）。足すときは、表と守りを同じ変更で直す。
 
 インデックス作成は画面のプロセスの中のスレッドで動かすため、インデックス作成のために `powershell.exe` を起動することはない（[プロセス](../design/structure/threads.md#プロセス)）。
 
-元のファイルを既定のアプリで開く操作（`tebunko/ui/open_source.ps1` の `openWithShell`）では、`Start-Process` ではなく `ProcessStartInfo` を使う（`Start-Process` は `[` `]` を含むパスをワイルドカードとして解釈するため）。起動対象は、利用者が選んだ行のファイルと、それに関連付けられたアプリケーションである。`ProcessStartInfo`・`[System.Diagnostics.Process]::Start` を使うのはこの 1 か所だけであることを `tests/meta/safety.Tests.ps1` が確かめる。
+元のファイルを既定のアプリで開く操作（`tebunko/ui/open_source.ps1` の `openWithShell`）では、`Start-Process` ではなく `ProcessStartInfo` を使う（`Start-Process` は `[` `]` を含むパスをワイルドカードとして解釈するため）。起動対象は、利用者が選んだ行のファイルと、それに関連付けられたアプリケーションである。検索結果の出力を開く操作（`openExportedFile`）は、このツールが今書いた .xlsx・.csv・.tsv だけを開く。.xlsx は `Invoke-Item -LiteralPath`（既定のアプリ）、.csv・.tsv は固定のパスのメモ帳（`openWithNotepad`。値を加工しないので、表計算アプリが数式として解釈する開き方を避ける）。`ProcessStartInfo`・`[System.Diagnostics.Process]::Start` を使うのは `openWithShell` の 1 か所だけであることを `tests/meta/safety.Tests.ps1` が確かめる。
 
 `tebunko.bat` は、上の起動とは別に、**起動そのものに失敗したとき（画面が開く前）だけ** `notepad.exe` を開く（[起動に失敗したときの知らせ](disclosure.md#起動に失敗したときの知らせtebunkobat)）。制限言語モード・実行ポリシーでスクリプトの読み込みが止まる場面では WPF・WinForms のメッセージボックスを出せないため、失敗の理由と記録のファイルの名前をメモ帳で示す。`tests/meta/safety.Tests.ps1` の「tebunko.bat が起動する外部のプログラムは conhost.exe・powershell.exe・notepad.exe だけ」が、`tebunko.bat` が起動する外部のプログラムをこの 3 つに限る。
+
+起動するプロセスは、この表のほかに次の 2 つがある。どちらも利用者の操作や取り込みに伴うものである。
+
+- **Office（`EXCEL.EXE`・`WINWORD.EXE`・`POWERPNT.EXE`）**: 旧形式（`.xls` `.doc` `.ppt`）やパスワード付きのファイルを COM で開くときだけ起動する。画面のプロセスが COM で頼み、Windows（DCOM）が起動するため、プロセスの親は `powershell.exe` ではなく `svchost.exe`（DcomLaunch）になる（[Office ファイルを開くときの設定](#office-ファイルを開くときの設定)）。`Start-Process` は使わない。
+- **`conhost.exe` と `powershell.exe`**: `tebunko.bat` が 1 回だけ起動する（[起動口](disclosure.md#起動に失敗したときの知らせtebunkobat)）。`-Command` に渡す文字列は `tebunko.bat` の中に固定で書いた内容だけで、利用者の入力や外からの値を混ぜない（ツールのフォルダだけを環境変数で渡し、コードとして解釈しない）。`-EncodedCommand`・`-ExecutionPolicy Bypass`・`Invoke-Expression` の形は使わない。
+
+## ウイルス対策ソフト・EDR での確かめ
+
+非表示の PowerShell（`-WindowStyle Hidden`）での起動と、上の外部プロセスが、ウイルス対策ソフトや EDR に検知されないかを、実機で確かめた。
+
+- **環境**: Windows 11、Microsoft Defender ウイルス対策（既定の設定。リアルタイム保護・振る舞い監視・AMSI が有効）。
+- **Microsoft Defender for Endpoint（EDR 本体）は未確認。** 同じエンジンと AMSI を使うため手がかりにはなるが、MDE の検知の規則は別である。MDE の機械で確かめるときは、下の場面を同じ手順で流し、「前後で増えない」を比べる。
+- **見たもの**: `Get-MpThreatDetection` の件数、イベントログ `Microsoft-Windows-Windows Defender/Operational` の 1006〜1008・1015・1116〜1119、`Microsoft-Windows-PowerShell/Operational` の 4104（警告レベル）。
+
+- **前後の数え方**: 場面ごとの前後で、次を管理者でない PowerShell で流して件数を比べる。MDE の機械では、これに加えて MDE のポータルのアラートも見る。第二段（Azure の MDE で流す）は別の作業で行う。
+
+```
+# 数える前に、ログが読めることを確かめる（読めないと下の 2 本は黙って 0 になる）。エラーが出たら管理者の PowerShell で流す
+(Get-WinEvent -ListLog 'Microsoft-Windows-Windows Defender/Operational','Microsoft-Windows-PowerShell/Operational').RecordCount
+@(Get-MpThreatDetection).Count
+@(Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-Windows Defender/Operational'; Id=1006,1007,1008,1015,1116,1117,1118,1119} -ErrorAction SilentlyContinue).Count
+@(Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-PowerShell/Operational'; Id=4104; Level=3} -ErrorAction SilentlyContinue).Count
+```
+
+| 場面 | 操作 | 検知の件数（前 → 後） | Defender のイベント（前 → 後） |
+|---|---|---|---|
+| 1 | Mark-of-the-Web を付けた展開済みのフォルダの `tebunko.bat` から起動（画面が開くまで 15 秒待つ） | 0 → 0 | 0 → 0 |
+| 2 | インデックス作成（`.docx` `.pptx` `.xlsx` のほか、旧形式の `.xls` `.doc` `.ppt` を COM で 5 ファイル。失敗 0 件） | 0 → 0 | 0 → 0 |
+| 3 | 結果からフォルダを開く（`explorer.exe`）、`.ps1` をメモ帳で開く（`notepad.exe`） | 0 → 0 | 0 → 0 |
+| 4 | 単一 .ps1 版の起動とインデックス作成（`[scriptblock]::Create`・`[char]0xNNNN` の組み立てを含む） | 0 → 0 | 0 → 0 |
+| 5 | ［参照…］のフォルダ選択（`NonPublic` のリフレクション）を開く、キャンセルする、フォルダを選ぶ | 0 → 0 | 0 → 0 |
+
+- **4104（警告レベル）**: 場面 1 では、起動のたびに画面のプロセスが読み込んだスクリプト 28 件が記録された。画面を開くテストの一式（場面 2・5 を含む）でも、`scripts` のスクリプトの読み込みで 21 ファイル分が記録された。場面 4（単一 .ps1 版）は、起動から 20 秒で 350 件が警告レベルで記録された。うち 1 件が末尾の `[scriptblock]::Create` の行（2,277 文字）で、残りは本体のスクリプトの塊の記録である。Windows PowerShell 5.1 が `Add-Type`・`BindingFlags`・`NonPublic` などの語や、スクリプトブロックの生成を含むスクリプトを自動で記録するもので、検知や隔離ではない。`-EncodedCommand` の形の記録は出なかった。MDE の機械では、この記録を EDR が取り込んで警告にするかを比べる。
+- **結論**: 今の起動のしかたは変えない。検知は出なかった。
+
+### 組織が許可するとき
+
+EDR で検知されたときは、次の順で許可を求める。
+
+1. **発行元（署名）で許可する。** 配布物にコード署名をして、その発行元（証明書）で許可するのが最も確実である（コード署名は今後対応する予定）。ファイルのハッシュでの除外は、版が変わるたびに作り直しになるため勧めない。
+2. **署名が使えないときだけ、フォルダで許可する。** `tebunko.bat` と `scripts` のあるフォルダ（展開先）だけを、スクリプトの実行を許すフォルダにする。利用者が書き換えられない場所（管理者だけが書き込める場所）に置いたときに限る。利用者が書き込めるフォルダをパスで許可すると、そこに置いた別のスクリプトも通してしまう。ユーザー全体や一時フォルダは許可しない。
+3. **許可の対象は 1 つの起動の形だけに絞る。** `conhost.exe` から `powershell.exe -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -Command …` を起動する形（`tebunko.bat` の 1 行）である。`-ExecutionPolicy Bypass` など、ほかの形の許可は要らない。

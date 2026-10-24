@@ -38,6 +38,17 @@ $ui.RowMenuUpdate.Add_Click({
     }
 })
 $ui.RowMenuOpenFolder.Add_Click({ safe { openIndexSourceFolder } })
+$ui.OpenIndexLocationButton.Add_Click({
+    safe {
+        openIndexLocation {
+            param ($text)
+            # 開けたときの空の文言は、確かめている間の文言だけを消す（ほかの処理のステータスは消さない）
+            if ($text -ne "" -or ([string]$ui.StatusText.Text).StartsWith((getIndexLocationOpenStatus "Checking" ""))) {
+                setStatus $text
+            }
+        }
+    }
+})
 $ui.IndexDetailPathButton.Add_Click({ safe { changeIndexFolder } })
 # 「サブフォルダを含める」: 付け外しで、選んでいる行の設定へ保存する（UI オートメーションの切り替えは Click を起こさないので Checked・Unchecked で受ける。
 # 詳細を描き直してコードから値を置いたときも起きるが、行の値と同じなので commitIndexSubfolders は何もしない）

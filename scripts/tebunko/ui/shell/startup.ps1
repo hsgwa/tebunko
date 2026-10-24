@@ -9,6 +9,7 @@
         # 検索対象のツリーの読み込みを始めたので、［検索］の可否（読み込み中は検索できない）を決め直す
         updateSearchButton
         refreshIndexSummary
+        updateIndexLocationView
     }
 
     function ensureNetworkDriveCache {

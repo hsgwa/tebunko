@@ -307,7 +307,9 @@ Describe "findTargetFiles（tebunko が作ったものの除外）" -Tag Io {
         $scan = findTargetFiles $source
         $names = @($scan.Files | ForEach-Object { $_.Name })
         $names | Should -Contain "my-file.txt"
-        foreach ($excluded in "source_folder.txt", "sheet.tsv", "search_results.txt", "indexing_log.txt", "system_index_state.tsv") {
+        # 前の版が書いた search_results.txt は、今の版は書かないので、利用者のファイルとして扱う
+        $names | Should -Contain "search_results.txt"
+        foreach ($excluded in "source_folder.txt", "sheet.tsv", "indexing_log.txt", "system_index_state.tsv") {
             $names | Should -Not -Contain $excluded
         }
     }
