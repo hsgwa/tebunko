@@ -391,14 +391,14 @@ function removeStatusIndexName {
 function getIndexingState {
     # 取り込み一覧からインデックス作成の状態を返す:
     #   @{ Exists; Folders（クロール対象フォルダ @{ Path; Name } の配列）; Total; Pending（未取り込み）; Failed; Done; IngestedSince（since 以降に取り込んだ件数）; Updated（取り込み一覧の更新日時）;
-    #      FailedRows（失敗したファイルの行。取り込み日時の新しい順）; IndexStats（インデックス名ごとの集計。getIndexStats）;
+    #      IndexStats（インデックス名ごとの集計。getIndexStats）;
     #      Format（格納形式の状態。getWorkspaceIndexFormat の結果。画面の裏の仕事が入れる。ここでは $null） }
     param (
         [datetime]$since = [datetime]::MaxValue,
         [string]$path = $workspace.StatusFile
     )
 
-    $state = @{ Exists = $false; Folders = @(); Total = 0; Pending = 0; Failed = 0; Done = 0; IngestedSince = 0; Updated = $null; FailedRows = @(); IndexStats = (getIndexStats $null); Format = $null }
+    $state = @{ Exists = $false; Folders = @(); Total = 0; Pending = 0; Failed = 0; Done = 0; IngestedSince = 0; Updated = $null; IndexStats = (getIndexStats $null); Format = $null }
     if (!(Test-Path -LiteralPath $path)) {
         return $state
     }
@@ -412,11 +412,9 @@ function getIndexingState {
     # since を指定しないとき（画面の集計）は、行ごとの日時の解析（数万行では数秒かかる）を省く
     $countSince = ($since -ne [datetime]::MaxValue)
     $sinceSecond = if ($countSince) { $since.AddTicks(-($since.Ticks % [timespan]::TicksPerSecond)) } else { $since }
-    $failedRows = New-Object System.Collections.Generic.List[object]
     foreach ($row in $status.Rows.Values) {
         if (testStatusRowFailed $row) {
             $state.Failed++
-            $failedRows.Add($row)
         } elseif ($row.状態 -eq ${stateNew}) {
             $state.Pending++
         } elseif ($row.状態 -eq ${stateDone}) {
@@ -428,8 +426,6 @@ function getIndexingState {
             $state.IngestedSince++
         }
     }
-    # 取り込み日時は "yyyy/MM/dd HH:mm:ss" のため、文字列の順で新しい順に並ぶ
-    $state.FailedRows = @($failedRows | Sort-Object -Property @{ Expression = { [string]$_.取り込み日時 }; Descending = $true }, @{ Expression = { $_.相対パス } })
     return $state
 }
 

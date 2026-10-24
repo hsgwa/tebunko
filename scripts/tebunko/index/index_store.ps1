@@ -11,6 +11,53 @@ function testStatusRowFailed {
     return ($state -eq ${stateFailed}) -or ($state -eq ${stateNew} -and [string]$row.エラー -ne "")
 }
 
+function getIndexFileEntries {
+    # あるインデックスに取り込んだファイルの一覧（取り込み一覧のそのインデックスの行）を、画面の表に出す形で返す。画面の裏の仕事で動く（数万行を読むため）。
+    # 戻り値: @{ Rows（@{ RelPath（インデックス名を除いたフォルダからの相対パス）; UpdatedText; Kind（Done / Failed / Pending）; StateText; Reason; SourcePath（取り込み一覧に記録した元のフォルダと相対パスから組んだ元のファイルのパス。フォルダの記録が無ければ空）} の配列。相対パスの順）; Done; Failed; Pending }
+    # 失敗の数え方は testStatusRowFailed と同じ。状態の文言は labels（Kind → 文言。判断層の getIndexFileStateLabels。失敗で原因が空の行の言い換え NoReason を含む）から取る
+    param (
+        [string]$indexName,
+        [hashtable]$labels,
+        [string]$path = $workspace.StatusFile
+    )
+
+    $result = @{ Rows = @(); Done = 0; Failed = 0; Pending = 0 }
+    if (!$indexName) {
+        return $result
+    }
+    $prefix = $indexName + "\"
+    $items = New-Object System.Collections.Generic.List[object]
+    $keys = New-Object System.Collections.Generic.List[string]
+    $status = readStatusFile $path
+    $base = ""
+    foreach ($folder in $status.Folders) {
+        if ([string]::Equals([string]$folder.Name, $indexName, [System.StringComparison]::OrdinalIgnoreCase)) {
+            $base = ([string]$folder.Path).TrimEnd([char]92)
+            break
+        }
+    }
+    foreach ($row in $status.Rows.Values) {
+        $relPath = [string]$row.相対パス
+        if (!$relPath.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+            continue
+        }
+        $kind = if (testStatusRowFailed $row) { "Failed" } elseif ($row.状態 -eq ${stateDone}) { "Done" } else { "Pending" }
+        $result[$kind]++
+        $rest = $relPath.Substring($prefix.Length)
+        $keys.Add($rest)
+        $items.Add([pscustomobject]@{
+            RelPath = $rest; UpdatedText = $(if ($row.更新日時.Length -ge 16) { $row.更新日時.Substring(0, 16) } else { [string]$row.更新日時 }); Kind = $kind; StateText = [string]$labels[$kind]; SourcePath = $(if ($base) { $base + "\" + $rest } else { "" })
+            Reason = $(if ($kind -ne "Failed") { "" } elseif ($row.エラー) { [string]$row.エラー } else { [string]$labels.NoReason })
+        })
+    }
+    # 型を明示する（引数の型が曖昧だと、並べ替えが別の（並べ替えた結果を返さない）呼び方になる）
+    [string[]]$keyArray = $keys.ToArray()
+    [object[]]$array = $items.ToArray()
+    [Array]::Sort([Array]$keyArray, [Array]$array, [System.Collections.IComparer][System.StringComparer]::OrdinalIgnoreCase)
+    $result.Rows = $array
+    return $result
+}
+
 function getWorkspaceIndexFolders {
     # ワークスペースに残っているインデックスを、名前と前回の元のフォルダの組（@{ Name; Path }）で集めて返す。
     # 取り込み一覧のクロール対象フォルダの行は名前と Path を持つ。インデックスのフォルダ（store\content\・古い content_index\）の直下にだけあって

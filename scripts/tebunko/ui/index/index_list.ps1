@@ -367,6 +367,8 @@ function applyIndexStats {
         }
         if ($null -eq $stat) {
             $item.SetStats("－", "まだ更新していません", "")
+            $item.FailedCount = 0
+            $item.PendingCount = 0
         } else {
             $ingested = [datetime]::MinValue
             $lastText = if ($stat.LastIngested -and [datetime]::TryParseExact($stat.LastIngested, "yyyy/MM/dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$ingested)) {
@@ -377,6 +379,8 @@ function applyIndexStats {
             if ($item.SubfoldersChanged -and $ingested -gt $item.SubfoldersChangedAt) {
                 $item.SubfoldersChanged = $false   # 設定を変えたあとに更新済み
             }
+            $item.FailedCount = [int]$stat.Failed
+            $item.PendingCount = [int]$stat.Pending
             $item.SetStats(("{0:#,0}" -f $stat.Total), ("更新済み {0:#,0} 件 ・ 未更新 {1:#,0} 件 ・ 失敗 {2:#,0} 件" -f $stat.Done, $stat.Pending, $stat.Failed), $lastText)
         }
         $row = getIndexRowView $stat $indexing $item.Enabled (getIndexingRatio) (testIndexInRound $item) (testIndexExporting $item) $formatEntry $item.SubfoldersChanged
@@ -447,7 +451,7 @@ function updateSelectedIndexes {
     startIndexing $names
 }
 
-$script:indexSourceRequest = [ref]0  # ［元のフォルダを開く］の確かめの依頼の番号（openFailedFileFolder と同じ理由で [ref] のまま閉じ込める）
+$script:indexSourceRequest = [ref]0  # ［元のフォルダを開く］の確かめの依頼の番号（openListedFileFolder と同じ理由で [ref] のまま閉じ込める）
 
 function applyIndexSourceFolderState {
     # openIndexSourceFolder の続き（getPathState の結果を画面に反映する）。フォルダが見つかれば、エクスプローラーで開く

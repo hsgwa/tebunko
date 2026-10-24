@@ -261,22 +261,6 @@ function getIndexRowActions {
     return @{ Action = $action; UpdateEnabled = ($blocker -eq "") }
 }
 
-function selectFailedRowsForIndex {
-    # 「更新に失敗したファイル」に出す行を、詳細に出しているインデックスの分だけにする。
-    # indexName が空（行を選んでいない・2 件以上にチェックしている）ときは、全部をそのまま返す。
-    # 失敗の行の相対パス（work\index からの相対）の先頭の名前が、indexName と同じ（大文字・小文字は区別しない）ものだけを残す。
-    # 前方一致では絞らない（「営業」で「営業部」の行を拾わない）
-    param (
-        [object[]]$failedRows,  # getIndexingState の FailedRows（相対パスを持つ行）
-        [string]$indexName
-    )
-
-    $rows = @($failedRows | Where-Object { $null -ne $_ })
-    if (!$indexName) { return $rows }
-    $prefix = $indexName + "\"
-    return @($rows | Where-Object { ([string]$_.相対パス).StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase) })
-}
-
 function getIndexRowView {
     # 一覧の「ステータス」列（本文の更新の状態）の文言・補足・ツールヒント・色の区分を返す。@{ Text; Sub; ToolTip; Level }
     #   Text は状態の名前だけ（数字を含めない）。Sub は、バッジの右に小さく出す補足（更新中の「45%」、途中で止まったときの「残り N 件」。無ければ空文字列）
@@ -331,7 +315,7 @@ function getIndexRowView {
         return @{ Text = "要更新"; Sub = "残り $($stat.Pending) 件"; Level = "Wait"; ToolTip = addIndexRowNotice "未更新 $($stat.Pending) 件です。次の更新で続きから更新します。" $notice }
     }
     if ($stat.Failed -ge 1) {
-        return @{ Text = "警告"; Sub = ""; Level = "Warn"; ToolTip = addIndexRowNotice "失敗 $($stat.Failed) 件です。原因は下の「更新に失敗したファイル」で見られます。失敗したファイル以外は検索できます。" $notice }
+        return @{ Text = "警告"; Sub = ""; Level = "Warn"; ToolTip = addIndexRowNotice "失敗 $($stat.Failed) 件です。原因は詳細の［ファイルの一覧］（失敗のみ）で見られます。失敗したファイル以外は検索できます。" $notice }
     }
     return @{ Text = "最新"; Sub = ""; Level = "Ok"; ToolTip = addIndexRowNotice "更新済み $($stat.Total) 件です。" $notice }
 }

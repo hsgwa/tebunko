@@ -20,6 +20,12 @@ BeforeAll {
     if ([System.Threading.Thread]::CurrentThread.GetApartmentState() -eq "STA") {
         $ui = @{
             FailedGrid = New-Object System.Windows.Controls.DataGrid
+            IndexFilesGrid = New-Object System.Windows.Controls.DataGrid
+            IndexFilesButton = New-Object System.Windows.Controls.Button
+            ShowFailedFilesButton = New-Object System.Windows.Controls.Button
+            IndexFilesAllRadio = New-Object System.Windows.Controls.RadioButton
+            IndexFilesFailedRadio = New-Object System.Windows.Controls.RadioButton
+            IndexFilesCloseButton = New-Object System.Windows.Controls.Button
             IndexingButton = New-Object System.Windows.Controls.Button
             IndexingStopButton = New-Object System.Windows.Controls.Button
             IndexingResumeButton = New-Object System.Windows.Controls.Button
