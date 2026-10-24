@@ -270,7 +270,7 @@ Describe "SearchService" -Tag Io {
             waitRequest $search | Should -Be $true
             $search.Truncated | Should -Be $true
             $shown = @(takeHits $search)
-            $export = $service.Export((newExportRequest $search $out $shown "" "単価" "xlsx" $true))
+            $export = $service.Export((newExportRequest $search $out $shown "" "単価" "xlsx"))
             $search.Stop | Should -Not -Be $true
             waitRequest $export | Should -Be $true
             $export.Outcome | Should -Be "Done"
@@ -278,7 +278,7 @@ Describe "SearchService" -Tag Io {
             # 溢れ（検索の続きの置き場所）は書き出しのあとも残る
             [System.IO.Directory]::Exists($search.OverflowDir) | Should -Be $true
             # 書き出しも Cancel で止まる
-            $next = $service.Export((newExportRequest $search $out $shown "" "単価" "xlsx" $true))
+            $next = $service.Export((newExportRequest $search $out $shown "" "単価" "xlsx"))
             $service.Cancel()
             $next.Stop | Should -Be $true
             waitRequest $next | Should -Be $true
@@ -357,7 +357,7 @@ Describe "SearchService" -Tag Io {
                 OverflowDir = (Join-Path $TestDrive "消えた溢れ")
             }
             $shown = @([pscustomobject]@{ RelDir = ""; Book = "A社.xlsx"; Location = "Sheet1"; LineNumber = 1; Line = "単価`t105" })
-            $export = $service.Export((newExportRequest $source $out $shown "" "単価" "xlsx" $true))
+            $export = $service.Export((newExportRequest $source $out $shown "" "単価" "xlsx"))
             $service.IsRunning() | Should -Be $true
             waitRequest $export | Should -Be $true
             $export.Outcome | Should -Be "Done"
@@ -514,7 +514,7 @@ Describe "検索の司令のスクリプト（searchServiceScript）" -Tag Io {
         $requests = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
         $requests.Add($search)
         $cache = newTsvTextCache
-        $export = newExportRequest $search $out @() "" "単価" "xlsx" $true
+        $export = newExportRequest $search $out @() "" "単価" "xlsx"
         $requests.Add($export)
         $requests.CompleteAdding()
 

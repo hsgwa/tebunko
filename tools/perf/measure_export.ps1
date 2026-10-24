@@ -46,7 +46,7 @@ try {
         $path = Join-Path $dir "result.$format"
         $runs = New-Object System.Collections.Generic.List[object]
         for ($i = 1; $i -le $Repeat; $i++) {
-            $request = newExportRequest $source $path $shown "" "測る語" $format $true
+            $request = newExportRequest $source $path $shown "" "測る語" $format
             $watch = [System.Diagnostics.Stopwatch]::StartNew()
             invokeSearchExport $request
             $ms = $watch.Elapsed.TotalMilliseconds

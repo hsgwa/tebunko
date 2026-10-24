@@ -492,24 +492,3 @@ function getDefaultExportName {
     return "検索結果_${stamp}"
 }
 
-function toExportComparePath {
-    # 出力先の比べ用のパス: \\?\ と \\?\UNC\ を外し、絶対パスにし、末尾の \ を除く。パスの形が不正なら $null。ファイルには触れない
-    param (
-        [string]$path
-    )
-
-    if (!$path) {
-        return $null
-    }
-    if ($path.StartsWith("\\?\UNC\", [System.StringComparison]::OrdinalIgnoreCase)) {
-        $path = "\\" + $path.Substring(8)
-    } elseif ($path.StartsWith("\\?\")) {
-        $path = $path.Substring(4)
-    }
-    try {
-        return [System.IO.Path]::GetFullPath($path).TrimEnd("\")
-    } catch {
-        return $null
-    }
-}
-

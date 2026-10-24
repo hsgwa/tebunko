@@ -1303,6 +1303,8 @@ Describe "exportResults" -Tag Io {
         $script:searchService = newFakeService
         $script:opened = New-Object System.Collections.Generic.List[string]
         Mock getTargetFolders { @() }
+        # 出力先の置き場の確かめ（リンクでないこと）は search_export.Tests で確かめる。ここでは、テストが決めた出力先に書かせる
+        Mock testOpenCopyDir { $true }
         Mock openExportedFile { $script:opened.Add($path); $true }
     }
 
@@ -1336,7 +1338,7 @@ one.xlsx"; Format = $format } }
         lastStatus | Should -Be "検索結果を出力中…（0 件）"
         $script:searchService.Requests.Count | Should -Be 1
         $script:searchService.Requests[0].Format | Should -Be "xlsx"
-        $script:searchService.Requests[0].Overwrite | Should -Be $true
+        $script:searchService.Requests[0].TmpRoot | Should -Be $workspace.TmpRoot
         invokeSearchExport $script:searchService.Requests[0]
         pumpExport
 

@@ -911,8 +911,8 @@ function startExport {
         Sorted = $sorted
         Hits   = (getExportHits ([bool]$s.Shared.Truncated) $filter $sorted)
     }
-    # 出力先は毎回新しい名前なので、上書きの確かめは要らない
-    $request = newExportRequest $snapshot.Shared $target.Path $snapshot.Hits $snapshot.Filter $snapshot.Word $target.Format $true
+    # 出力先は毎回新しい名前なので、既にあるかの確かめも上書きの確認も要らない。置き場の確かめは、書く側（司令のスレッド）が行う
+    $request = newExportRequest $snapshot.Shared $target.Path $snapshot.Hits $snapshot.Filter $snapshot.Word $target.Format $workspace.TmpRoot
     $script:exportJob = @{ Request = $request; Filtered = ($snapshot.Filter -ne ""); Sorted = $snapshot.Sorted; Target = $target }
     [void]$script:searchService.Export($request)
     updateExportButton

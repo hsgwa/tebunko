@@ -23,8 +23,8 @@ function newExportRequest {
     # 書き出しの要求を作る（画面が作り、SearchService.Export で渡す）。検索の要求と同じく Synchronized の hashtable。
     #   画面が書く: Source（出力する元の検索の要求）・OutputPath（出力先）・ShownHits（表に出ている分の素の値。RelDir・Book・Location・LineNumber・Line）・
     #              FilterText（絞り込み）・Word（検索ワード。状態の文言用）・Format（xlsx / csv / tsv）・
-    #              Overwrite（既にある出力先に上書きしてよいか。$false で既にあれば、書かずに Exists を返す）・Stop（中止）
-    #   司令が書く: Written（書いた件数。途中も増える）・Outcome（Done / Cancelled / Exists / Locked / Denied / Failed）・Scope（All / Overflow / HeadOnly）・
+    #              TmpRoot（出力先の置き場 open_copy を持つ作業フォルダの tmp。空でなければ、置き場がリンクでないことを書く前に確かめる）・Stop（中止）
+    #   司令が書く: Written（書いた件数。途中も増える）・Outcome（Done / Cancelled / Locked / Denied / Failed）・Scope（All / Overflow / HeadOnly）・
     #              HeadOnlyReason（先頭だけになった理由 CountTimeout / OverflowFailed / Cancelled）・TruncatedCells（.xlsx で切ったセルの数）・
     #              DroppedRows（.xlsx の行の上限で書かなかった件数）・Error・Finished
     param (
@@ -34,13 +34,13 @@ function newExportRequest {
         [string]$filterText,
         [string]$word,
         [string]$format = "xlsx",
-        [bool]$overwrite = $false
+        [string]$tmpRoot = ""
     )
 
     return [hashtable]::Synchronized(@{
         Kind = "Export"; Number = 0; WorkDir = $source.WorkDir; Word = $word
         Source = $source; OutputPath = $outputPath; ShownHits = $shownHits; FilterText = $filterText
-        Format = $format; Overwrite = $overwrite
+        Format = $format; TmpRoot = $tmpRoot
         Stop = $false; Finished = $false; Written = 0; Outcome = ""; Scope = ""; HeadOnlyReason = ""; TruncatedCells = 0; DroppedRows = 0; Error = $null
     })
 }
@@ -348,10 +348,15 @@ function invokeSearchExport {
             $request.Outcome = "Cancelled"
             return
         }
-        # 画面のスレッドでは確かめない（届かない共有を選んでも画面が止まらないように）。拡張子を足した名前が既にあれば、書かずに画面に尋ねさせる
-        if (!$request.Overwrite -and [System.IO.File]::Exists($target)) {
-            $request.Outcome = "Exists"
-            return
+        # 画面のスレッドでは確かめない（届かない場所でも画面が止まらないように）。出力先の置き場（open_copy）が、ワークスペースの tmp の中の本物のフォルダで、
+        # リンク（ジャンクション）で外につながっていないことを、書く前に確かめる（［新規で開く］のコピーと同じ確かめ。出力先は <open_copy>\<12 桁>\<名前>）
+        if ($request.TmpRoot) {
+            $copyDir = [System.IO.Path]::GetDirectoryName([System.IO.Path]::GetDirectoryName($request.OutputPath))
+            if (!(testOpenCopyDir $copyDir $request.TmpRoot)) {
+                $request.Outcome = "Failed"
+                $request.Error = "出力先の置き場が使えません（作業フォルダの tmp の中の open_copy ではないか、リンクになっています）"
+                return
+            }
         }
         $blocked = testSearchExportTarget $target
         if ($blocked) {
