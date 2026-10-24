@@ -494,6 +494,32 @@ Describe "normalizeTextExtensions" -Tag Unit {
 }
 
 
+Describe "normalizeIndexTextExcludes" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "null は項目なし"; value = $null; expected = "" }
+        @{ name = "オブジェクトでない値（文字列）は項目なし"; value = ".log"; expected = "" }
+        @{ name = "オブジェクトでない値（数）は項目なし"; value = 5; expected = "" }
+        @{ name = "オブジェクトでない値（配列）は項目なし"; value = @(".log"); expected = "" }
+        @{ name = "空のオブジェクトは項目なし"; value = ([pscustomobject]@{}); expected = "" }
+        @{ name = "ふつうの項目（PSCustomObject。JSON から読んだ形）"; value = ([pscustomobject]@{ "営業" = @(".log", ".md") }); expected = "営業=.log,.md" }
+        @{ name = "ふつうの項目（Hashtable）"; value = @{ "営業" = @(".log") }; expected = "営業=.log" }
+        @{ name = "名前の値が配列でない（1 件の文字列）も 1 件として読む"; value = ([pscustomobject]@{ "営業" = ".log" }); expected = "営業=.log" }
+        @{ name = "大文字は小文字にそろえる"; value = ([pscustomobject]@{ "営業" = @(".LOG", ".Md") }); expected = "営業=.log,.md" }
+        @{ name = "75 個に無い拡張子（.exe）は捨てる"; value = ([pscustomobject]@{ "営業" = @(".exe", ".log") }); expected = "営業=.log" }
+        @{ name = "75 個に無い拡張子だけの名前は項目にしない"; value = ([pscustomobject]@{ "営業" = @(".exe", ".com") }); expected = "" }
+        @{ name = "重複は 1 つにする"; value = ([pscustomobject]@{ "営業" = @(".log", ".LOG", ".log") }); expected = "営業=.log" }
+        @{ name = "空の配列の名前は項目にしない（ほかの名前は残す）"; value = ([pscustomobject]@{ "営業" = @(); "経理" = @(".md") }); expected = "経理=.md" }
+        @{ name = "文字列でない要素は捨てる"; value = ([pscustomobject]@{ "営業" = @(1, $true, ".log") }); expected = "営業=.log" }
+        @{ name = "複数のインデックス（名前順に並べて確かめる）"; value = ([pscustomobject]@{ "経理" = @(".md"); "営業" = @(".log") }); expected = "営業=.log;経理=.md" }
+    ) {
+        param ($name, $value, $expected)
+        $result = normalizeIndexTextExcludes $value
+        $result -is [hashtable] | Should -BeTrue
+        (($result.Keys | Sort-Object | ForEach-Object { "$_=$(@($result[$_]) -join ',')" }) -join ";") | Should -Be $expected
+    }
+}
+
+
 Describe "readTextExtensionSettings / writeIndexTextExcludes / writeTextOpenSettings" -Tag Io {
     It "キーが無ければ既定（取り込まないものは無し・エディタにするものは無し・エディタはメモ帳）" {
         $path = "$TestDrive\textext_none.config"

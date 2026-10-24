@@ -36,6 +36,21 @@ Describe "getTextOpenRows / getTextOpenOptions" -Tag Unit {
     }
 }
 
+Describe "getTextOpenDefaultWay" -Tag Unit {
+    It "<extension> の既定は <expected>" -TestCases @(
+        @{ extension = ".txt"; expected = "default" }
+        @{ extension = ".html"; expected = "default" }
+        @{ extension = ".bat"; expected = "editor" }
+        @{ extension = ".py"; expected = "editor" }
+        @{ extension = ".psd1"; expected = "editor" }
+        @{ extension = ".exe"; expected = "default" }
+    ) {
+        param ($extension, $expected)
+        getTextOpenDefaultWay $extension | Should -Be $expected
+    }
+}
+
+
 Describe "convertTextOpenRows" -Tag Unit {
     It "選んだ行から、設定に書く配列を作る。実行・登録になる拡張子（常にエディタ）は書かない" {
         $rows = @(
