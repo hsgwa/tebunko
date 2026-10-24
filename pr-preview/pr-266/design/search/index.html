@@ -4243,7 +4243,7 @@
 </table>
 <p>全体構成・動作環境・フォルダ構成は <a href="../">設計の概要</a> を参照。インデックス（本文インデックス）の作り方は <a href="../indexing/">インデックス作成</a> を参照。画面の操作・表示は <a href="../gui/search-tab/">検索タブ</a> を参照。</p>
 <h2 id="概要">概要<a class="headerlink" href="#概要" title="Permanent link">&para;</a></h2>
-<p>画面の［検索］タブで入力したワードで、<code>work/store/content/</code> 配下のうち、画面の検索対象のツリーでチェックしたインデックス・フォルダの本文インデックス（<a href="../index-data/format/#配置命名規則">インデックスのファイルの形</a>）を検索する処理と、［結果をファイルに出力］で書き出す <code>work/search_results.txt</code> の形式を定める。</p>
+<p>画面の［検索］タブで入力したワードで、<code>work/store/content/</code> 配下のうち、画面の検索対象のツリーでチェックしたインデックス・フォルダの本文インデックス（<a href="../index-data/format/#配置命名規則">インデックスのファイルの形</a>）を検索する処理と、［出力 ▾］で書き出すファイル（Excel ブック・CSV・TSV）の形式を定める。</p>
 <h2 id="入出力">入出力<a class="headerlink" href="#入出力" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4276,8 +4276,8 @@
 </tr>
 <tr>
 <td>出力</td>
-<td><code>work/search_results.txt</code></td>
-<td>画面の［結果をファイルに出力］で書き出す検索結果（<a href="output/">検索結果ファイル</a>）。出力ごとに上書き</td>
+<td>作業フォルダの一時の置き場（<code>work/tmp/&lt;PC の鍵&gt;/open_copy/…</code>。<code>.xlsx</code>・<code>.csv</code>・<code>.tsv</code>）</td>
+<td>画面の［出力 ▾］で書き出す検索結果（<a href="output/">検索結果ファイル</a>）</td>
 </tr>
 </tbody>
 </table>
@@ -4305,7 +4305,7 @@
     F --&gt; SS["searchContentIndex&lt;br&gt;本文インデックスを約 16MB ずつ .NET（StreamReader＋regex）で照合&lt;br&gt;（進捗を画面に通知、上限・中止を確認）"]
     SS --&gt; R["ヒット: Root・RelPath・RelDir・FileName・&lt;br&gt;Book・Location・LineNumber・Line"]
     R --&gt; G["画面の表に表示"]
-    G -- "［結果をファイルに出力］" --&gt; W["invokeSearchExport&lt;br&gt;司令のスレッドで work/search_results.txt に書き出し、終わったら開く"]</code></pre>
+    G -- "［出力 ▾］" --&gt; W["invokeSearchExport&lt;br&gt;司令のスレッドで一時の置き場に書き出し、終わったら出力したファイルを開く"]</code></pre>
 <ul>
 <li>本文インデックスのファイルはフルパスをキーにまとめるため、入れ子のフォルダを指定しても同じ本文インデックスのファイルを二重に検索しない。</li>
 <li>検索は画面の別スレッドで行い、1 つの作業（本文インデックス約 16MB 分。<a href="speed/">検索を速くする仕組み</a>）を照合するたびに進捗を通知する。画面の中止ボタン（要求の <code>Stop</code>。<code>-stopSignal</code> として gram 索引・列挙・照合に渡す）で中止できる。<code>Stop</code> は本文インデックスのファイル 1 件ごと・列挙の検索対象のフォルダ 1 つごと・gram 索引の絞り込みのインデックス名ごとに見る（1 件の途中では見ない）ため、作業（約 16MB）の途中でも止まり、途中で止めたジョブのヒットは結果にも画面にも入れない。件数の上限（<code>limit</code>）を超えても検索は打ち切らず、表に入らない分を数え続ける（<a href="#上限を超えた分の数え上げと書き溜め">上限を超えた分の数え上げと書き溜め</a>。上限・表示は <a href="../gui/search-tab/">［検索］タブ</a>）。</li>
@@ -4448,7 +4448,7 @@
 </tr>
 <tr>
 <td>2</td>
-<td>結果ファイルを Excel で開いたまま［結果をファイルに出力］すると、ファイルがロックされて書き込めない（画面に <code>search_results.txt に書き込めません。…</code> と表示する）</td>
+<td>出力するたびに別のフォルダの新しい名前に書くので、開いたままのファイルがあっても衝突しない。書けないとき（権限・ディスクの空き）は <code>&lt;名前&gt; に書き込めません。…</code> と表示する</td>
 <td>◎</td>
 </tr>
 <tr>

@@ -4333,7 +4333,7 @@
 </tr>
 <tr>
 <td><code>work/search_results.txt</code></td>
-<td>画面の［結果をファイルに出力］で書き出す検索結果</td>
+<td>前の版が［結果をファイルに出力］で書き出した検索結果（今の版は書かない。消さない）</td>
 </tr>
 <tr>
 <td><code>work/indexing.lock</code></td>
@@ -4527,7 +4527,6 @@
     W --&gt; ST["StatusFile&lt;br&gt;Dir\store\ingest_status.tsv"]
     W --&gt; IG["JournalFile&lt;br&gt;Dir\store\journal\ingest.tsv"]
     W --&gt; OP["OfficePidRoot&lt;br&gt;Dir\office_pids"]
-    W --&gt; RS["ResultFile&lt;br&gt;Dir\search_results.txt"]
     W --&gt; LK["LockFile&lt;br&gt;Dir\indexing.lock"]
     W --&gt; IL["IndexingLogFile&lt;br&gt;Dir\indexing_log.txt"]
     W --&gt; GE["GuiErrorLogFile&lt;br&gt;Dir\gui_error_log.txt"]
@@ -4600,10 +4599,6 @@
 <tr>
 <td><code>JournalFile</code></td>
 <td><code>&lt;Dir&gt;\store\journal\ingest.tsv</code></td>
-</tr>
-<tr>
-<td><code>ResultFile</code></td>
-<td><code>&lt;Dir&gt;\search_results.txt</code></td>
 </tr>
 <tr>
 <td><code>LockFile</code></td>
