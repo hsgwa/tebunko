@@ -984,6 +984,25 @@ Describe "1 ファイルのヒットが多いとき" -Tag Unit {
         $script:big.Rows[1999].LineNumber | Should -Be 2000
     }
 
+    It "種別で並べ替えると、上限を超えたファイルも種別の順に行を作る（昇順と降順で先頭の種別が入れ替わる）" {
+        foreach ($n in 1..1200) { $script:xl = addHit "見積.xlsx" "4月" "`t見積" $n }
+        foreach ($n in 1..1200) { [void](addHit "見積.xlsx" "4月[図形]" "A1`t見積" $n) }
+        flushResults
+        toggleFileGroup $script:xl
+        $column = newSortColumn "Kind"
+        $ui.ResultGrid.Columns.Add($column)
+        $firstKinds = @()
+
+        foreach ($i in 1..2) {
+            sortResults $column
+            $script:xl.Rows.Count | Should -Be 1000
+            @($script:xl.Rows | ForEach-Object { $_.Kind } | Select-Object -Unique).Count | Should -Be 1
+            $firstKinds += $script:xl.Rows[0].Kind
+        }
+
+        @($firstKinds | Select-Object -Unique).Count | Should -Be 2
+    }
+
     It "続きの行を選んで Enter / クリックすると続きが出る。見出しは開閉する。行は対象外" {
         toggleFileGroup $script:big
         activateResultItem $script:big.MoreRow | Should -Be $true

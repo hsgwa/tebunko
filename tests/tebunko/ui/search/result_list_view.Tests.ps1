@@ -217,8 +217,22 @@ Describe "getSortedHitOrder（getHitOrderByLine・getHitOrderByNumber）" -Tag U
         (getSortedHitOrder $hits "Line" $false) -join "," | Should -Be "1,2,0"
     }
 
-    It "並べ替えない項目（種別など）は null" {
-        $null -eq (getSortedHitOrder @((newHit "シート" 1 "a")) "Kind" $false) | Should -Be $true
+    It "種別（Kind）は、場所ごとの種別の順。同じ種別の中は見つかった順（降順も同じ）" {
+        $hits = @((newHit "売上" 1 "x"), (newHit "売上[図形]" 1 "x"), (newHit "仕入" 1 "x"), (newHit "売上[コメント]" 1 "x"))
+        $kinds = @{ "売上" = "セル"; "仕入" = "セル"; "売上[図形]" = "図形"; "売上[コメント]" = "コメント" }
+        $asc = getSortedHitOrder $hits "Kind" $false $kinds
+        # カルチャーの順は Sort-Object と同じ
+        $expected = @($hits | ForEach-Object { $kinds[$_.Location] } | Sort-Object -Unique)
+        (@($asc | ForEach-Object { $kinds[$hits[$_].Location] } | Select-Object -Unique)) -join "," | Should -Be ($expected -join ",")
+        $ties = @($asc | Where-Object { $kinds[$hits[$_].Location] -eq "セル" })
+        $ties -join "," | Should -Be "0,2"
+        $desc = getSortedHitOrder $hits "Kind" $true $kinds
+        (@($desc | ForEach-Object { $kinds[$hits[$_].Location] } | Select-Object -Unique)) -join "," | Should -Be ((@($expected)[($expected.Count - 1)..0]) -join ",")
+        @($desc | Where-Object { $kinds[$hits[$_].Location] -eq "セル" }) -join "," | Should -Be "0,2"
+    }
+
+    It "並べ替えない項目は null" {
+        $null -eq (getSortedHitOrder @((newHit "シート" 1 "a")) "Order" $false) | Should -Be $true
     }
 
     It "ヒットが 0 件でも落ちない" {

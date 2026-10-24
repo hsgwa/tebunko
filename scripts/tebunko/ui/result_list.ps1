@@ -441,6 +441,22 @@ function sortResults {
     applySort $property $descending
 }
 
+function getKindByLocation {
+    # ファイルのヒットの場所ごとの「種別」（場所 → セル・図形・本文など。行の Kind と同じ値）。種別で並べ替えるときに使う
+    param (
+        [FileGroup]$group
+    )
+
+    $kinds = @{}
+    foreach ($hit in $group.Hits) {
+        $location = [string]$hit.Location
+        if (!$kinds.ContainsKey($location)) {
+            $kinds[$location] = (getPlace $hit.Book $location (getRowTraits $hit.Book $location).FileKind).Kind
+        }
+    }
+    return $kinds
+}
+
 function applySort {
     # ファイルの中の行とファイルの順を並べ替え、絞り込みを当て直して表を作り直す。
     # 並べ替えには全件の行を作る。ただしヒットが多いファイル（groupRowLimit 件を超える）は、行を作らずに生のヒットを並べ替えて
@@ -452,7 +468,7 @@ function applySort {
 
     foreach ($group in $script:groupList) {
         if ($group.Hits.Count -gt ${groupRowLimit}) {
-            $group.HitOrder = getSortedHitOrder $group.Hits $property $descending
+            $group.HitOrder = getSortedHitOrder $group.Hits $property $descending (getKindByLocation $group)
             $group.Rows.Clear()
             $group.RowLimit = 0
         } else {

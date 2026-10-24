@@ -252,21 +252,23 @@ function getSortRowTarget {
 }
 
 function getSortedHitOrder {
-    # 生のヒットを property（Location・LineNumber・Line）の順に並べ替えた、ヒットの番号（見つかった順の 0 始まり）の並びを返す。
+    # 生のヒットを property（Location・Kind・LineNumber・Line）の順に並べ替えた、ヒットの番号（見つかった順の 0 始まり）の並びを返す。
     # 同じ値のときは見つかった順。行を作らずに並べ替えるので、ヒットが何万件あっても速い（10 万件で 1 秒ほど）。
     # 文字は Sort-Object と同じ（現在のカルチャーで大文字・小文字を区別しない）。「場所」は同じ場所の中を行番号の順にする。
+    # 「種別」（Kind）は場所から決まるので、場所ごとの種別を kindByLocation（場所 → 種別）で渡す。
     # property が上のどれでもなければ $null（並べ替えない）
     param (
         $hits,
         [string]$property,
-        [bool]$descending
+        [bool]$descending,
+        $kindByLocation = @{}
     )
 
     if ($property -eq "Line") {
         return , (getHitOrderByLine $hits $descending)
     }
-    if ($property -eq "Location" -or $property -eq "LineNumber") {
-        return , (getHitOrderByNumber $hits ($property -eq "Location") $descending)
+    if ($property -eq "Location" -or $property -eq "Kind" -or $property -eq "LineNumber") {
+        return , (getHitOrderByNumber $hits $property $descending $kindByLocation)
     }
     return $null
 }
@@ -309,16 +311,19 @@ function getHitOrderByLine {
 }
 
 function getHitOrderByNumber {
-    # 場所（byLocation。同じ場所の中は行番号の順）か行番号（LineNumber）の順（getSortedHitOrder）。
-    # 数だけの鍵にして並べ替える: （場所の順位 × (最大の行番号 + 1) + 行番号）× 件数 + 見つかった順。
+    # 場所（Location。同じ場所の中は行番号の順）・種別（Kind。同じ種別の中は見つかった順）・行番号（LineNumber）の順（getSortedHitOrder）。
+    # 数だけの鍵にして並べ替える: （文字の順位 × (最大の行番号 + 1) + 行番号）× 件数 + 見つかった順。
     # ヒットの値は 1 回だけ読む（PowerShell のオブジェクトの項目の読み出しが、並べ替えの時間の大半を占めるため）
     param (
         $hits,
-        [bool]$byLocation,
-        [bool]$descending
+        [string]$property,
+        [bool]$descending,
+        $kindByLocation
     )
 
     $n = $hits.Count
+    $byLocation = ($property -eq "Location")
+    $byText = ($property -ne "LineNumber")
     $ranks = @{}
     $locations = New-Object 'System.Collections.Generic.List[string]'
     $locationOf = New-Object 'string[]' $n
@@ -326,15 +331,18 @@ function getHitOrderByNumber {
     [long]$maxLine = 0
     $i = 0
     foreach ($hit in $hits) {
-        [long]$number = $hit.LineNumber
-        $lineOf[$i] = $number
-        if ($number -gt $maxLine) { $maxLine = $number }
-        if ($byLocation) {
+        if ($byLocation -or !$byText) {
+            [long]$number = $hit.LineNumber
+            $lineOf[$i] = $number
+            if ($number -gt $maxLine) { $maxLine = $number }
+        }
+        if ($byText) {
             $location = [string]$hit.Location
-            $locationOf[$i] = $location
-            if (!$ranks.ContainsKey($location)) {
-                $ranks[$location] = 0
-                $locations.Add($location)
+            $text = $(if ($byLocation) { $location } else { [string]$kindByLocation[$location] })
+            $locationOf[$i] = $text
+            if (!$ranks.ContainsKey($text)) {
+                $ranks[$text] = 0
+                $locations.Add($text)
             }
         }
         $i++
@@ -348,7 +356,7 @@ function getHitOrderByNumber {
     $items = New-Object 'int[]' $n
     for ($i = 0; $i -lt $n; $i++) {
         [long]$rank = 0
-        if ($byLocation) {
+        if ($byText) {
             $rank = $ranks[$locationOf[$i]]
             if ($descending) { $rank = $sortedLocations.Count - 1 - $rank }
         }
