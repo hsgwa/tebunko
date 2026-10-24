@@ -42,7 +42,7 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 | `VERSION.txt` | 読む | 版とコミット（画面の［バージョン情報］・エクスポートの目録）。配布物にだけある。単一 `.ps1` 版は埋め込み、開発中は無く「開発版」になる（作業ツリーの `.git` の `HEAD`・`packed-refs`・`refs\tags` などを読むだけで、タグとコミットを添える。`readDevVersion`。外部のコマンドは起動しない） |
 | `work\tmp\<PC の鍵>\open_copy\` | 書く・消す | ［新規で開く］のコピー（Office 以外。`copySourceForOpen`）。起動時に、最後に使ってから 1 日より古いものだけを消す（`clearOldOpenCopies`）。閉じるときは消さない |
 | `work\tmp\<PC の鍵>\search_overflow\<PID>\<要求の番号>\` | 書く・消す | 検索の結果が件数の上限を超えたときの、表に入らない分（`<作業の番号>.tsv`・`<作業の番号>.head.tsv`。[上限を超えた分](../search/index.md#上限を超えた分の数え上げと書き溜め)）。次の検索の始めと画面を閉じるとき（検索の司令のスレッドの終わり）に自分の `<PID>` のフォルダごと消し、起動時に動いていないプロセスのものを裏で消す（`removeStaleSearchOverflow`） |
-| `work\tmp\<PC の鍵>\search_overflow\<PID>\export\body.tmp` | 書く・消す | ［結果をファイルに出力］で、結果の本文を先に書く一時ファイル（出力の終わり・中止・失敗のときに消す。溢れの根が使えないときは `search_results.txt.body`）。続けて `search_results.txt.new` に書き、書き終えてから `search_results.txt` と置き換える（途中で止まっても前のファイルを残す） |
+| `work\tmp\<PC の鍵>\search_overflow\<PID>\export\body.tmp` | 書く・消す | ［出力 ▾］の CSV・TSV で、結果の本文を先に書く一時ファイル（出力の終わり・中止・失敗のときに消す。溢れの根が使えないときは出力先の隣の `<出力先>.part`）。続けて `<出力先>.new` に書き、書き終えてから出力先と置き換える（途中で止まっても前のファイルを残す）。Excel ブックは本文の一時ファイルを使わず、`<出力先>.new` に直接書く |
 | `setting.config` | 読む・書く | 設定（[設定ファイル（setting.config）](settings-file.md)）。ツールのフォルダに書けるときだけここに置く。書けないときは「既定のワークスペースの直下」 |
 | `setting.config.tmp` | 書く | 設定を保存する途中の一時ファイル。書き終えたら `setting.config` に置き換える（`writeTextLinesAtomic`） |
 | `setting.config.broken-<日時>[-<番号>]` | 書く | JSON として読めない設定の退避（`repairBrokenSettings`。起動のとき 1 回だけ） |
@@ -83,7 +83,7 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 | `work/indexing_log_previous.txt` | 書く | 前回のインデックス作成の記録。インデックス作成が二重起動の鍵を取った後、今の `indexing_log.txt` をここへ移す（あれば上書き） |
 | `work/gui_error_log.txt` | 書く | 画面の予期しないエラー（追記。`writeErrorLog`）。見出しを最後に書いた記録先と今の記録先が違うとき（プロセスの最初の記録・ワークスペースの切り替えの後）と、ファイルが無いとき（1 MB で移した直後を含む）に、記録の前に版と環境の見出しを書く。切り替えで記録が移るため、1 つのファイルに見出しが 2 つ入ることがある。1 MB 以上なら次の記録の前に `gui_error_log_previous.txt` へ移す。起動に失敗したときも、ここに書けるならここに書く |
 | `work/gui_error_log_previous.txt` | 書く | `gui_error_log.txt` の前回の分（移すたびに上書き） |
-| `work/search_results.txt` | 書く | 検索結果の出力 |
+| `work\tmp\<PC の鍵>\open_copy\<12 桁>\検索結果_<ワード>_<日時>.<拡張子>`（`.xlsx`・`.csv`・`.tsv`） | 書く・開く・消す | 検索結果の出力（`<出力先>.new` に書いてから置き換える）。書けたら開く（.xlsx は既定のアプリ、.csv・.tsv はメモ帳）。古いものは起動時の片付け（`clearOldOpenCopies`）が消す |
 | `work/indexing.lock` | 作る・閉じると消える | インデックス作成の鍵（空のファイル。ほかに開けない形で開いたままにする。`openLockFile`） |
 | `work/index/`（過去の版が置いた本文インデックス） | 読む・消す | 残っているかの調べ・知らせ・［設定］の「移す」「消して最初から」のときだけ。ここには書かない |
 | `work/release/`・`work/test/`・`work/site/`・`work/cache/` | – | 開発用（`tools/` が書く。配布物には入らない）。tebunko 本体は触らない |
@@ -185,7 +185,7 @@ tebunko が作るファイルとフォルダが、何年使っても溜まり続
 | `store\gram\<インデックス名>\` | 元のファイルの数に比例 | 区画（`g<10 桁>.seg`）と目録 `toc.tsv`。作り直せる |
 | `ingest_status.tsv` | 増えない（前の版が置いたもの。今の取り込み一覧は `store` の中） | 1 つ。作り直しが終われば消す |
 | `store/journal/ingest.tsv` | 追記（始めに入れ替え） | 1 つ。1 記録ごとに追記して Flush する。始めに前回の分を読んで入れ替える |
-| `search_results.txt` | 上書き | 1 つ |
+| `search_results.txt` | 増えない（前の版が置いたもの） | 1 つ。今の版は書かず、消さない |
 | `indexing.lock` | 作成（閉じると削除） | 1 つ |
 | `indexing_log.txt` | 実行ごとに上書き | 1 回分。始めるとき（二重起動の鍵を取った後）に今の分を `indexing_log_previous.txt` へ移す |
 | `indexing_log_previous.txt` | 実行ごとに上書き | 1 回分。合わせて 2 回分で止まる |
@@ -250,7 +250,7 @@ flowchart LR
 | `work/store/content/` | インデックス | インデックス作成 | 検索 | 本文インデックスは UTF-16LE（BOM 付き）、LF。本文インデックスに入れる前の TSV は UTF-8（BOM 付き）、CRLF | フォルダ・拡張子ごとの本文インデックス（`content_index.<拡張子>.<番号>.tsv`。元のファイルごと・場所（シート・ページ・スライド、図形・コメント・ヘッダー・フッター）ごとに、メタ情報の行と TSV の中身を並べる）。取り込み中だけ、シート・ページ・スライドごとの TSV と図形・コメント・ヘッダー・フッターの TSV（`<元の場所>[shape]`・`<元の場所>[comment]`・`<元の場所>[header_footer]`） |
 | `work/store/content/<インデックス名>/source_folder.txt` | インデックス | インデックス作成 | 画面 | UTF-8（BOM 付き）、タブ区切り | 1 行目は説明、2 行目は `<インデックス名><TAB><元のフォルダ>`（[クロール対象フォルダと取り込み対象](../indexing/crawl.md#クロール対象フォルダとインデックス名)）。`.tsv` にすると検索対象になるため `.txt` |
 | `work/indexing.lock` | 鍵 | インデックス作成・エクスポート・インポート | 無し | 空（中身を読まない。開けるかで「動いている」を決める） | インデックス作成の間だけある。強制終了で残っても、誰も開いていなければ次の起動を止めない |
-| `work/search_results.txt` | 出力 | 画面 | 利用者 | UTF-8（BOM 付き）、CRLF | 検索結果（[検索結果ファイル](../search/output.md)） |
+| 一時の置き場の出力ファイル | 出力 | 画面 | 画面が決める | Excel ブック、または UTF-8（BOM 付き）・CRLF の CSV・TSV | 検索結果（[検索結果ファイル](../search/output.md)） |
 | 利用者が選んだ保存先（既定 `<インデックス名>_インデックス_<yyyyMMdd>.zip`）と `<保存先>.tmp` | 出力 | 画面（`exportIndex`） | 利用者 | zip（エントリー名は UTF-8） | 1 つのインデックスの目録（`tebunko-index.json`）・取り込み一覧の行・本文インデックスのファイル（[インデックスのエクスポート・インポート](../index-data/format.md#インデックスのエクスポートインポート)） |
 | `work/publish/<PID>/import/` | 作業領域 | 画面（`importIndex`） | 画面 | – | インポートで zip を展開する作業フォルダ（`new/`）と、上書きのとき前のインデックスを一時的に退避する `previous/`。インポートが終われば消す |
 
