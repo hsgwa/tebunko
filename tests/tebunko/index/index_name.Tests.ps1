@@ -125,6 +125,12 @@ Describe "describePlace" -Tag Unit {
         described "提案.pptx" "スライド002[図形]" | Should -Be "スライド 2|図形"
     }
 
+    It "PowerPoint のスライドマスターは本文、ノートマスターはノート（図形の種類が付けば、その種別）" {
+        described "提案.pptx" "スライドマスター" | Should -Be "スライドマスター|本文"
+        described "提案.pptx" "ノートマスター" | Should -Be "ノートマスター|ノート"
+        described "提案.pptx" "ノートマスター[図形]" | Should -Be "ノートマスター|図形"
+    }
+
     It "場所が空なら空" {
         described "a.docx" "" | Should -Be "|本文"
     }
@@ -175,6 +181,9 @@ Describe "toIndexFileName" -Tag Unit {
         @{ name = "非表示のスライドは slide_<番号>_hidden"; place = "スライド002（非表示）"; fileName = "slide_002_hidden.tsv"; ascii = $true }
         @{ name = "スライドのノートは slide_<番号>_notes"; place = "スライド002_ノート"; fileName = "slide_002_notes.tsv"; ascii = $true }
         @{ name = "ふつうのスライドは slide_<番号>"; place = "スライド002"; fileName = "slide_002.tsv"; ascii = $true }
+        @{ name = "スライドマスターは slide_master"; place = "スライドマスター"; fileName = "slide_master.tsv"; ascii = $true }
+        @{ name = "ノートマスターは notes_master"; place = "ノートマスター"; fileName = "notes_master.tsv"; ascii = $true }
+        @{ name = "ノートマスターの図形は末尾に [shape]"; place = "ノートマスター[図形]"; fileName = "notes_master[shape].tsv"; ascii = $true }
         @{ name = "ヘッダー・フッターは header_footer"; place = "ヘッダー・フッター"; fileName = "header_footer.tsv"; ascii = $true }
         @{ name = "脚注は doc_footnotes"; place = "脚注"; fileName = "doc_footnotes.tsv"; ascii = $true }
         @{ name = "文書は doc_whole"; place = "文書"; fileName = "doc_whole.tsv"; ascii = $true }
