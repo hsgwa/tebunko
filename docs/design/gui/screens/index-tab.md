@@ -28,6 +28,7 @@ stateDiagram-v2
     state "index-tab/interrupted" as interrupted
     state "index-tab/done" as done
     state "index-tab/failed" as failed
+    state "index-tab/files" as files
     empty --> normal: ［＋ フォルダを追加］→ フォルダを選ぶ（11）
     normal --> del: ［削除］（15）
     del --> normal: ［削除する］
@@ -41,6 +42,7 @@ stateDiagram-v2
     interrupted --> start: 続きから再開
     running --> done: 失敗なし（18）
     running --> failed: 失敗あり（18）
+    failed --> files: 失敗の入口の［一覧で見る］（18）
 ```
 
 - 名前の欄に使えない名前を入れて欄から出ると、欄の下に注意が出て、欄は元の名前に戻る（12）。名前とフォルダパスの編集は、詳細の欄で行う（編集のダイアログは無い）。
@@ -106,6 +108,10 @@ stateDiagram-v2
 
 ![更新が終わった](../../../images/screens/index-tab/done.png)
 
-### index-tab/failed（失敗したファイルの一覧がある。遷移 18）
+### index-tab/failed（失敗したファイルがある。遷移 18）
 
-![失敗したファイルの一覧がある](../../../images/screens/index-tab/failed.png)
+![失敗したファイルがある](../../../images/screens/index-tab/failed.png)
+
+### index-tab/files（失敗の入口の［一覧で見る］で、［ファイルの一覧］が失敗のみで開いた。遷移 18）
+
+![ファイルの一覧が失敗のみで開いた](../../../images/screens/index-tab/files.png)

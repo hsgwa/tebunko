@@ -3,12 +3,15 @@
 #
 #   .\tools\measure_perf.ps1 -Index <TSV のインデックス> -Work <作業フォルダ> -Words <words.tsv>
 #   .\tools\measure_perf.ps1 -Office <Office ファイルのフォルダ> -Work <作業フォルダ>
-#   -Index・-Office・-Xlsx は、少なくとも 1 つを指定する（いくつでもよい）。指定しなかった側は測らず、result.json の Index・Search・Ingest は null になる
+#   -Index・-Office・-Xlsx・-Export は、少なくとも 1 つを指定する（いくつでもよい）。指定しなかった側は測らず、result.json の Index・Search・Ingest は null になる
 #   -Office   … Office からの取り込みを測る。取り込む Office ファイルのフォルダ（tools\perf\new_ingest_data.ps1 で作る）。
 #                測る tebunko の scripts を写して取り込むので、利用者の設定・既定のワークスペースには触らない。Excel・Word・PowerPoint の実機が要る種類は、データにあるときだけ使う
 #   -Xlsx     … Excel のブックを Office を使わずに ZIP から読む部分（readXlsxObjectUnits。シートの流れ読み）を測る、普通のブックを読む回数（既定 0 は測らない）。
 #                ブックはその場で作る（tools\perf\xlsx_data.ps1）。普通のブック（シート 1 枚）を -Xlsx 回、同じシートの部品を指す <sheet> を並べたブックを 1 回読む
 #   -XlsxRows・-XlsxManyRows … -Xlsx で作るブックの行の数（普通のブック／<sheet> を並べたブック）。指定しないと measure_xlsx.ps1 の既定（200000／50000）。小さくして動きの確かめに使える
+#   -Export   … 検索結果をファイルに書き出す部分（invokeSearchExport。Excel ブック・CSV・TSV）を測る、形式ごとの書き出しの回数（既定 0 は測らない）。
+#                測る元は、その場で作る合成のヒット（Excel・Word・複数行・タブを含むセルを混ぜる）。tools\perf\measure_export.ps1 を起動する
+#   -ExportHits … -Export で書き出すヒットの件数（既定 10000）
 #   -Threads  … 取り込みの、Office を使わずに読むファイル（.docx・.pptx）の読み取りのスレッドの数（既定 2）
 #   -Repeat   … 取り込みを測る回数（既定 3）。1 回ごとに新しいプロセス・空のワークスペースで流す（Office の起動を含む、初めての取り込みの時間）
 #   -Index    … 場所ごとの TSV（取り込みの一時置き場の形。tebunko-perfdata の new_index.ps1 で作る）。
@@ -31,6 +34,7 @@
 #
 # 流れ（それぞれ別のプロセスで動かし、リソースが混ざらないようにする）:
 #   0. Excel の流れ読み … -Xlsx が 0 でないときだけ。tools\perf\measure_xlsx.ps1 を起動する
+#   0b. 書き出し       … -Export が 0 でないときだけ。tools\perf\measure_export.ps1 を起動する
 #   1. 取り込み        … tools\perf\measure_ingest.ps1（起動口の indexer.ps1 で Office ファイルを取り込む。-Repeat 回）
 #   2. インデックス作成 … tools\perf\measure_index.ps1（インデクサと同じ publishIndexFolders。Office からの取り込みは含まない）
 #   3. 検索            … 語ごとに tools\perf\measure_search.ps1 を起動し、同じプロセスで -Count 回続けて検索する
@@ -45,6 +49,7 @@
 #   searches.csv        … 検索 1 回ごとの時間・ヒット件数・メモリ
 #   typing.csv          … 入力しながらの検索の、1 回の入力ごとの時間・ヒット件数・メモリ（-Typing のときだけ）
 #   resource-xlsx.csv   … Excel の流れ読みのリソースの記録（-Xlsx のときだけ）
+#   resource-export.csv … 書き出しのリソースの記録（-Export のときだけ）
 #   preview.csv         … プレビュー 1 回ごとの読み込み・表を作る時間・セルの数・メモリ（-Preview のときだけ）
 #   resource-ingest.csv・resource-index.csv・resource-search.csv・resource-typing.csv … リソースの記録（-SampleMs ごと。取り込みは段階が変わるたびにも記録する）
 param (
@@ -53,6 +58,8 @@ param (
     [int]$Xlsx = 0,
     [int]$XlsxRows,
     [int]$XlsxManyRows,
+    [int]$Export = 0,
+    [int]$ExportHits = 10000,
     [Parameter(Mandatory = $true)][string]$Work,
     [string]$Tool = (Split-Path $PSScriptRoot -Parent),
     [string]$Words,
@@ -80,7 +87,8 @@ param (
 $ErrorActionPreference = "Stop"
 . ([WildcardPattern]::Escape("$PSScriptRoot\perf\perf_common.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\perf\ingest_common.ps1".Replace('`', '``')))
-if (!$Index -and !$Office -and $Xlsx -le 0) { throw "-Index・-Office・-Xlsx の少なくとも 1 つを指定してください。" }
+if (!$Index -and !$Office -and $Xlsx -le 0 -and $Export -le 0) { throw "-Index・-Office・-Xlsx・-Export の少なくとも 1 つを指定してください。" }
+if ($Export -gt 0 -and $ExportHits -le 0) { throw "-ExportHits は 1 以上にしてください。" }
 if ($Typing -eq 1) { throw "-Typing は 0 か 2 以上にしてください。" }
 if ($Preview -lt 0) { throw "-Preview は 0 以上にしてください。" }
 if ($Render -and $Preview -le 0) { throw "-Render は -Preview と一緒に指定してください。" }
@@ -151,6 +159,29 @@ if ($Xlsx -gt 0) {
         NormalFailures = (@($xlsxRaw.Normal | ForEach-Object { $_.Failures }) | Measure-Object -Maximum).Maximum
         ManyMs = [double]$xlsxRaw.Many.Ms; ManyUnits = $xlsxRaw.Many.Units; ManyLines = $xlsxRaw.Many.Lines; ManyFailures = $xlsxRaw.Many.Failures
         Resources = (getPhaseResources @($xlsxRaw.Samples) $cores); PeakWorkingSetMB = $xlsxRaw.PeakWorkingSetMB
+    }
+}
+
+# 0b. 検索結果の書き出し（別のプロセス）。-Export が 0 のときは測らない
+$exportResult = $null
+$exportRaw = $null
+if ($Export -gt 0) {
+    Write-Information "検索結果の書き出しを測ります。" -InformationAction Continue
+    $exportJson = Join-Path $raw "export.json"
+    invokeChild "measure_export.ps1" @("-Tool", $Tool, "-Work", $Work, "-Out", $exportJson, "-Repeat", $Export, "-Hits", $ExportHits, "-SampleMs", $SampleMs)
+    $exportRaw = readJson $exportJson
+    $exportFormats = New-Object System.Collections.Generic.List[object]
+    foreach ($f in @($exportRaw.Formats)) {
+        $exportFormats.Add([ordered]@{
+            Format = [string]$f.Format; SizeMB = $f.SizeMB
+            Ms = getStats ([double[]]@(@($f.Runs) | ForEach-Object { $_.Ms }))
+            Written = $f.Runs[0].Written
+            Failures = @(@($f.Runs) | Where-Object { $_.Outcome -ne "Done" }).Count
+        })
+    }
+    $exportResult = [ordered]@{
+        Repeat = $Export; Hits = $exportRaw.Hits; Formats = $exportFormats.ToArray()
+        Resources = (getPhaseResources @($exportRaw.Samples) $cores); PeakWorkingSetMB = $exportRaw.PeakWorkingSetMB
     }
 }
 
@@ -275,7 +306,7 @@ if ($Index -and $Preview -gt 0) {
 
 # result.json（形式の版 5。版 2 で Preview を足し、版 3 で Preview.Words[].FullRead・ReadTextCallsUncached を足し、版 4 で Preview.Words[].BuildFirstMs・BuildRestMs と Render.FirstMs・RestMs を足し、版 5 で Preview.Words[].CreatedCells・ReadMore と Render.Elements・ScrollMs・RenderRetainedMB を足した）
 $run.SearchMode = (@($search | ForEach-Object { $_.Mode } | Select-Object -Unique) -join ",")
-$result = [ordered]@{ Schema = 5; Run = $run; Index = $indexResult; Search = $(if ($Index) { $search.ToArray() } else { $null }); Ingest = $ingestResult; Xlsx = $xlsxResult
+$result = [ordered]@{ Schema = 5; Run = $run; Index = $indexResult; Search = $(if ($Index) { $search.ToArray() } else { $null }); Ingest = $ingestResult; Xlsx = $xlsxResult; Export = $exportResult
     Preview = $(if ($Index -and $Preview -gt 0) { [ordered]@{ Count = $Preview; Render = [bool]$Render; Words = $previewWords.ToArray(); Skipped = $previewSkipped.ToArray() } } else { $null })
     Typing = $(if ($Index -and $Typing -gt 0) { [ordered]@{
         Mode = [string]$typingRaw[0].Mode; Count = $Typing; IntervalMs = $TypingIntervalMs; MinLength = $TypingMinLength
@@ -302,6 +333,15 @@ if ($xlsxResult) {
     $xlsxPhases = @($xlsxResult.Resources | Where-Object { $_.Phase -eq "同じ部品を指すブック" })
     if ($xlsxPhases.Count) { addMetric "xlsx_many_working_set_mb" "" "max" $xlsxPhases[0].WorkingSetMaxMB "MB" }
     addMetric "xlsx_peak_working_set_mb" "" "max" $xlsxResult.PeakWorkingSetMB "MB"
+}
+if ($exportResult) {
+    foreach ($f in $exportResult.Formats) {
+        foreach ($stat in @("Min", "Median", "Mean", "Max")) { addMetric "export_$($f.Format)_ms" "" $stat.ToLower() $f.Ms[$stat] "ms" }
+        addMetric "export_$($f.Format)_written" "" "value" $f.Written "count"
+        addMetric "export_$($f.Format)_failures" "" "max" $f.Failures "count"
+        addMetric "export_$($f.Format)_size_mb" "" "value" $f.SizeMB "MB"
+    }
+    addMetric "export_peak_working_set_mb" "" "max" $exportResult.PeakWorkingSetMB "MB"
 }
 if ($ingestResult) {
     addMetric "ingest_files" "" "value" $ingestResult.Total "count"
@@ -388,6 +428,9 @@ foreach ($p in $previewWords) {
 if ($xlsxRaw) {
     [System.IO.File]::WriteAllLines((Join-Path $Out "resource-xlsx.csv"), [string[]]@(@($xlsxRaw.Samples) | ConvertTo-Csv -NoTypeInformation), $utf8Bom)
 }
+if ($exportRaw) {
+    [System.IO.File]::WriteAllLines((Join-Path $Out "resource-export.csv"), [string[]]@(@($exportRaw.Samples) | ConvertTo-Csv -NoTypeInformation), $utf8Bom)
+}
 if ($ingestRuns.Count) {
     $ingestSampleRows = for ($i = 0; $i -lt $ingestRuns.Count; $i++) { foreach ($sm in @($ingestRuns[$i].Samples)) { $o = [ordered]@{ Run = $i + 1 }; foreach ($p in $sm.PSObject.Properties) { $o[$p.Name] = $p.Value }; [pscustomobject]$o } }
     [System.IO.File]::WriteAllLines((Join-Path $Out "resource-ingest.csv"), [string[]]@($ingestSampleRows | ConvertTo-Csv -NoTypeInformation), $utf8Bom)
@@ -458,6 +501,27 @@ if ($xlsxResult) {
     add "| 段階 | 時間 | CPU 時間 | CPU | ワーキングセット | マネージドヒープ | GC 回数（0/1/2 世代） |"
     add "|---|---|---|---|---|---|---|"
     foreach ($p in $xr.Resources) {
+        add ("| {0} | {1:N1} 秒 | {2:N1} 秒 | {3}% | {4:N0} MB | {5:N0} MB | {6}/{7}/{8} |" -f $p.Phase, $p.Seconds, $p.CpuSeconds, $p.CpuPercent, $p.WorkingSetMaxMB, $p.ManagedMaxMB, $p.Gc0, $p.Gc1, $p.Gc2)
+    }
+}
+if ($exportResult) {
+    $er = $exportResult
+    add
+    add "## 検索結果の書き出し"
+    add
+    add "検索結果をファイルに書き出す部分（invokeSearchExport）の時間。元は、その場で作った合成のヒット $($er.Hits) 件（Excel・Word・複数行・タブを含むセルを混ぜた。表に出ている分だけで、上限を超えた分は無い）。形式ごとに $($er.Repeat) 回書いた。同じ ref の数字どうし、または測る版どうしで比べる。"
+    add
+    add "| 形式 | 書いた件数 | 書けなかった回数 | ファイルの大きさ | 最小 | 中央値 | 平均 | 最大 |"
+    add "|---|---|---|---|---|---|---|---|"
+    foreach ($f in $er.Formats) {
+        add ("| {0} | {1} | {2} | {3} MB | {4:N0} ms | {5:N0} ms | {6:N0} ms | {7:N0} ms |" -f $f.Format, $f.Written, $f.Failures, $f.SizeMB, $f.Ms.Min, $f.Ms.Median, $f.Ms.Mean, $f.Ms.Max)
+    }
+    add
+    add "ワーキングセットのピークは $($er.PeakWorkingSetMB) MB。"
+    add
+    add "| 段階 | 時間 | CPU 時間 | CPU | ワーキングセット | マネージドヒープ | GC 回数（0/1/2 世代） |"
+    add "|---|---|---|---|---|---|---|"
+    foreach ($p in $er.Resources) {
         add ("| {0} | {1:N1} 秒 | {2:N1} 秒 | {3}% | {4:N0} MB | {5:N0} MB | {6}/{7}/{8} |" -f $p.Phase, $p.Seconds, $p.CpuSeconds, $p.CpuPercent, $p.WorkingSetMaxMB, $p.ManagedMaxMB, $p.Gc0, $p.Gc1, $p.Gc2)
     }
 }

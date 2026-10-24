@@ -755,7 +755,22 @@ function openSourceFolder {
     }
     findSourceFile $row {
         param ($path)
+        [void](showInExplorer $path)
+    }
+}
+
+function showInExplorer {
+    # エクスプローラーでファイルを選んで見せる。開けなければ $false（プロセスの起動は待たない。Excel などでファイルを開くことはしない）
+    param (
+        [string]$path
+    )
+
+    try {
         Start-Process -FilePath "explorer.exe" -ArgumentList "/select,`"${path}`""
+        return $true
+    } catch {
+        writeErrorLog "エクスプローラーでファイルを見せられませんでした" $_
+        return $false
     }
 }
 
@@ -815,19 +830,26 @@ function completeCopySourcePath {
 }
 
 # ---- 結果をファイルに出力する ----
-# 書くのは検索の司令のスレッド（SearchService.Export。search_export.ps1）。画面は要求を渡し、タイマーで進み具合を見て、終わったらファイルを開く。
+# 書くのは検索の司令のスレッド（SearchService.Export。search_export.ps1）。画面は出力先を選んでもらい、要求を渡し、タイマーで進み具合を見て、
+# 終わったら出力したファイルを既定のアプリで開く（出力先はダイアログで選ばず、作業フォルダの一時の置き場に書く）。
 # 出力ボタンは、待ち・書き込みの間は「出力を中止」になり、押すと止める。
-$script:exportJob = $null       # 書き込み中の出力 @{ Request; Filtered; Sorted }
-$script:exportPending = $false  # 検索が終わるのを待っている出力
+$script:exportJob = $null       # 書き込み中の出力 @{ Request; Filtered; Sorted; Target; Snapshot }
+$script:exportPending = $null   # 検索が終わるのを待っている出力の出力先（@{ Path; Format; Added }）。無ければ $null
+$script:lastExportFormat = "xlsx"  # 本体の［出力］で使う種類（最後に出力できた種類）。画面を開くたびに Excel ブックに戻る（setting.config には残さない）
 
 function updateExportButton {
-    $ui.ExportButtonText.Text = getExportButtonText ([bool]($script:exportJob -or $script:exportPending))
+    $busy = [bool]($script:exportJob -or $script:exportPending)
+    $ui.ExportButtonText.Text = getExportButtonText $busy
+    $ui.ExportButton.ToolTip = getExportButtonToolTip $script:lastExportFormat $busy
+    $ui.ExportMenuPart.Visibility = if ($busy) { "Collapsed" } else { "Visible" }
+    # 出力中は、本体だけの［出力を中止］（アイコンも隠す）
+    $ui.ExportIcon.Visibility = if ($busy) { "Collapsed" } else { "Visible" }
 }
 
 function cancelExport {
     # 出力を中止する。待っている出力はその場で取りやめ、書き込み中の出力は司令のスレッドに止めてもらう（止まったら completeExport が知らせる）
     if ($script:exportPending) {
-        $script:exportPending = $false
+        $script:exportPending = $null
         updateExportButton
         setStatus (getExportCancelledText)
         return
@@ -837,46 +859,133 @@ function cancelExport {
     }
 }
 
+function newExportTarget {
+    # 出力先を、ダイアログを出さずに決める。作業フォルダの TmpRoot\<PC の鍵>\open_copy\<12 桁の文字>\検索結果_<語>_<日時>.<拡張子>（文字列を組み立てるだけで、ファイルには触れない）。
+    # 1 回ごとに別のフォルダにするので、同じ名前が重ならない（開いたままのファイルがあっても上書きしない）。フォルダは書く側（司令のスレッド）が作る。
+    # 古いものは、起動時の片付け（clearOldOpenCopies）が 1 日たってから消す。format が分からなければ Excel ブック。@{ Path; Format } を返す
+    param (
+        [string]$format
+    )
+
+    if (!(testExportFormat $format)) {
+        $format = "xlsx"
+    }
+    $word = if ($null -ne $script:lastSearch) { [string]$script:lastSearch.Word } else { "" }
+    $dir = Join-Path (getOpenCopyDir $workspace) ([guid]::NewGuid().ToString("N").Substring(0, 12))
+    return @{ Path = (Join-Path $dir "$(getDefaultExportName $word (Get-Date)).${format}"); Format = $format }
+}
+
+function openExportedFile {
+    # 出力したファイルを開く。Excel ブック（.xlsx）は既定のアプリ（Excel）で、CSV・TSV はメモ帳で開く（Excel などの表計算アプリで開くと、
+    # 先頭が = + - @ のセルが数式として動くことがあるため。値は加工しない）。開けなければ $false（プロセスの起動は待たない）。
+    # 開くのは、このツールが今書いた .xlsx・.csv・.tsv だけ（名前は newExportTarget が決める）。[ ] をワイルドカードにしないよう -LiteralPath
+    param (
+        [string]$path
+    )
+
+    if ($path -match '\.(csv|tsv)$') {
+        return (openWithNotepad $path)
+    }
+    try {
+        Invoke-Item -LiteralPath $path -ErrorAction Stop
+        return $true
+    } catch {
+        writeErrorLog "出力したファイルを開けませんでした" $_
+        return $false
+    }
+}
+
 function startExport {
+    # target: 出力先（newExportTarget の結果）
+    param (
+        $target
+    )
+
     hideNoticeBanner "SearchNotice"
     $s = $script:lastSearch
     $filter = $script:filterText
     $sorted = testResultSorted
-    $hits = getExportHits ([bool]$s.Shared.Truncated) $filter $sorted
-    $request = newExportRequest $s.Shared $workspace.ResultFile $hits $filter $s.Word
-    $script:exportJob = @{ Request = $request; Filtered = ($filter -ne ""); Sorted = $sorted }
+    $snapshot = @{
+        Shared = $s.Shared
+        Word   = $s.Word
+        Filter = $filter
+        Sorted = $sorted
+        Hits   = (getExportHits ([bool]$s.Shared.Truncated) $filter $sorted)
+    }
+    # 出力先は毎回新しい名前なので、既にあるかの確かめも上書きの確認も要らない。置き場の確かめは、書く側（司令のスレッド）が行う
+    $request = newExportRequest $snapshot.Shared $target.Path $snapshot.Hits $snapshot.Filter $snapshot.Word $target.Format $workspace.TmpRoot
+    $script:exportJob = @{ Request = $request; Filtered = ($snapshot.Filter -ne ""); Sorted = $snapshot.Sorted; Target = $target }
     [void]$script:searchService.Export($request)
     updateExportButton
     setStatus (getExportWritingText 0)
     $script:exportTimer.Start()
 }
 
-function exportResults {
+function clickExportButton {
+    # ［出力］（本体）を押したとき。待ち・書き込み中は中止、ふだんは最後に出力できた種類で出力する
     if ($script:exportJob -or $script:exportPending) {
         cancelExport
         return
     }
+    exportResults $script:lastExportFormat
+}
+
+function openExportMenu {
+    # ［▼］を押したとき。形式のメニューを、ボタンの右端にそろえて開く（待ち・書き込み中は ▼ が隠れていて押せない）
+    if ($script:exportJob -or $script:exportPending) {
+        return
+    }
+    $menu = $ui.ExportMenuButton.ContextMenu
+    $menu.PlacementTarget = $ui.ExportGroup
+    $menu.Placement = [System.Windows.Controls.Primitives.PlacementMode]::Bottom
+    # 見た目（theme.xaml の ContextMenu）の枠の幅は 216 なので、右端をボタンにそろえるには 216 を引く。幅を変えたらここも直す
+    $menu.HorizontalOffset = $ui.ExportGroup.ActualWidth - $menu.MinWidth
+    $menu.VerticalOffset = 4
+    $menu.IsOpen = $true
+}
+
+function exportResults {
+    # ［出力 ▼］のメニューの入り口。種類（xlsx・csv・tsv）を必ず受け取る。待ち・書き込み中は何もしない（右クリックなどでメニューが開いても、選んだだけで中止や新しい要求にならない。中止は clickExportButton）
+    param (
+        [Parameter(Mandatory)]
+        [string]$format
+    )
+
+    if ($script:exportJob -or $script:exportPending) {
+        return
+    }
+    if ($null -eq $script:lastSearch -and !$script:search) {
+        setStatus "先に検索してください。"
+        return
+    }
+    $target = newExportTarget $format
     if ($script:search) {
         # 検索の途中の出力は、検索が終わってから書く（溢れが揃うまで、全件は書けない）
-        $script:exportPending = $true
+        $script:exportPending = $target
         updateExportButton
         setStatus (getExportWaitingText)
         return
     }
-    if ($null -eq $script:lastSearch) {
-        setStatus "先に検索してください。"
-        return
-    }
-    startExport
+    startExport $target
+}
+
+function exportResultsAs {
+    # ［出力 ▼］のメニューから種類を選んだとき。選んだ種類で出力先を尋ねて出力する（メニューに印は付けない）
+    param (
+        [string]$format
+    )
+
+    exportResults $format
 }
 
 function startPendingExport {
     # 検索が終わったとき、待っていた出力があれば始める
-    if (!$script:exportPending) {
+    $target = $script:exportPending
+    if (!$target) {
         return
     }
-    $script:exportPending = $false
-    startExport
+    $script:exportPending = $null
+    startExport $target
 }
 
 function pumpExport {
@@ -905,10 +1014,16 @@ function completeExport {
     $script:exportTimer.Stop()
     updateExportButton
     $request = $job.Request
+    $name = getSavedFileName $request.OutputPath
     switch ($request.Outcome) {
         "Done" {
-            Invoke-Item -LiteralPath $request.OutputPath
-            setStatus (getExportDoneText $request.Scope ([int]$request.Written) $job.Filtered $request.HeadOnlyReason $job.Sorted)
+            $script:lastExportFormat = getLastExportFormat $script:lastExportFormat $request.Format
+            updateExportButton
+            $written = [int]$request.Written
+            setStatus (getExportDoneText $name $request.Scope $written $job.Filtered $request.HeadOnlyReason $job.Sorted ([int]$request.DroppedRows) ([int]$request.TruncatedCells))
+            if (!(openExportedFile $request.OutputPath)) {
+                setStatus (getExportOpenFailedText $name $written $request.OutputPath)
+            }
         }
         "Cancelled" {
             setStatus (getExportCancelledText)
@@ -927,7 +1042,7 @@ function completeExport {
 
 function clearExport {
     # ワークスペースを変えたとき: 待っている出力は取りやめ、書き込み中の出力は止める
-    $script:exportPending = $false
+    $script:exportPending = $null
     if ($script:exportJob) {
         $script:exportJob.Request.Stop = $true
     }
@@ -1015,4 +1130,9 @@ $ui.MenuToggleGroup.Add_Click({
 })
 $ui.MenuCopy.Add_Click({ safe { copySelectedRows } })
 $ui.MenuCopyPath.Add_Click({ safe { copySourcePath } })
-$ui.ExportButton.Add_Click({ safe { exportResults } })
+$ui.ExportButton.Add_Click({ safe { clickExportButton } })
+$ui.ExportMenuButton.Add_Click({ safe { openExportMenu } })
+$ui.MenuExportXlsx.Add_Click({ safe { exportResultsAs "xlsx" } })
+$ui.MenuExportCsv.Add_Click({ safe { exportResultsAs "csv" } })
+$ui.MenuExportTsv.Add_Click({ safe { exportResultsAs "tsv" } })
+updateExportButton

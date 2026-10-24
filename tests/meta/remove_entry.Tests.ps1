@@ -302,7 +302,7 @@ Describe "フォルダを消す・移す・作る入口" -Tag Meta {
             @{ File = "tebunko\indexer\indexer_run.ps1"; Owner = "invokeIndexerBody"; Call = "Directory.CreateDirectory"; Reason = "ワークスペースの根（PublishDir・IndexDir・Dir）そのものを作る（置き場自身。消さない）" }
             @{ File = "tebunko\indexer\indexer_state.ps1"; Owner = "enterIndexerLock"; Call = "Directory.CreateDirectory"; Reason = "ワークスペースの根そのものを作る（鍵のファイルを置く置き場自身。消さない）" }
             @{ File = "tebunko\indexer\indexer_run.ps1"; Owner = "(スクリプト直下)"; Call = "Directory.CreateDirectory"; Reason = "ワークスペースの根そのものを作る（置き場自身。消さない）" }
-            @{ File = "tebunko\search\search_export.ps1"; Owner = "testSearchExportTarget"; Call = "Directory.CreateDirectory"; Reason = "search_results.txt を置くワークスペースの根そのものを作る（置き場自身。消さない）" }
+            @{ File = "tebunko\search\search_export.ps1"; Owner = "testSearchExportTarget"; Call = "Directory.CreateDirectory"; Reason = "利用者が選んだ出力先のフォルダが無ければ作る（置き場自身。消さない）" }
             @{ File = "tebunko\ui\settings\settings.ps1"; Owner = "applyWorkspace"; Call = "Directory.CreateDirectory"; Reason = "利用者が設定画面で選んだワークスペースの根を作る（置き場自身。消さない）" }
             @{ File = "tebunko\ui\settings\settings.ps1"; Owner = "resetWorkspace"; Call = "Directory.CreateDirectory"; Reason = "利用者が選んだワークスペースの根の下のフォルダを作る（消さない）" }
         )

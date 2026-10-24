@@ -14,7 +14,7 @@ function testStatusRowFailed {
 function getIndexFileEntries {
     # あるインデックスに取り込んだファイルの一覧（取り込み一覧のそのインデックスの行）を、画面の表に出す形で返す。画面の裏の仕事で動く（数万行を読むため）。
     # 戻り値: @{ Rows（@{ RelPath（インデックス名を除いたフォルダからの相対パス）; UpdatedText; Kind（Done / Failed / Pending）; StateText; Reason; SourcePath（取り込み一覧に記録した元のフォルダと相対パスから組んだ元のファイルのパス。フォルダの記録が無ければ空）} の配列。相対パスの順）; Done; Failed; Pending }
-    # 失敗の数え方は testStatusRowFailed と同じ。状態の文言は labels（Kind → 文言。判断層の getIndexFileStateLabels）から取る
+    # 失敗の数え方は testStatusRowFailed と同じ。状態の文言は labels（Kind → 文言。判断層の getIndexFileStateLabels。失敗で原因が空の行の言い換え NoReason を含む）から取る
     param (
         [string]$indexName,
         [hashtable]$labels,
