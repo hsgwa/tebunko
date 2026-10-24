@@ -879,12 +879,16 @@ function newExportTarget {
 }
 
 function openExportedFile {
-    # 出力したファイルを、既定のアプリで開く（Excel ブックは Excel、CSV・TSV は既定のアプリ）。開けなければ $false（プロセスの起動は待たない）。
+    # 出力したファイルを開く。Excel ブック（.xlsx）は既定のアプリ（Excel）で、CSV・TSV はメモ帳で開く（Excel などの表計算アプリで開くと、
+    # 先頭が = + - @ のセルが数式として動くことがあるため。値は加工しない）。開けなければ $false（プロセスの起動は待たない）。
     # 開くのは、このツールが今書いた .xlsx・.csv・.tsv だけ（名前は newExportTarget が決める）。[ ] をワイルドカードにしないよう -LiteralPath
     param (
         [string]$path
     )
 
+    if ($path -match '\.(csv|tsv)$') {
+        return (openWithNotepad $path)
+    }
     try {
         Invoke-Item -LiteralPath $path -ErrorAction Stop
         return $true

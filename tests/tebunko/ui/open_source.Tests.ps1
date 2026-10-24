@@ -1244,18 +1244,39 @@ Describe "openExportedFile" -Tag Unit {
         function writeErrorLog { param ([string]$context, $record) }
     }
 
-    It "出力したファイルを、そのパスのまま（[ ] をワイルドカードにせず）既定のアプリで開く" {
+    It "Excel ブックは、そのパスのまま（[ ] をワイルドカードにせず）既定のアプリで開く" {
         Mock Invoke-Item { }
 
         openExportedFile "C:\w\検索結果[1].xlsx" | Should -Be $true
         Should -Invoke Invoke-Item -Times 1 -Exactly -ParameterFilter { $LiteralPath -eq "C:\w\検索結果[1].xlsx" }
     }
 
-    It "開けなければ、$false を返し、例外にしない（既定のアプリが無いときなど）" {
+    It "<name>: CSV・TSV はメモ帳で開く（表計算アプリで数式として動かさない）。既定のアプリでは開かない" -ForEach @(
+        @{ name = "csv"; path = "C:\w\検索結果.csv" }
+        @{ name = "tsv"; path = "C:\w\検索結果.TSV" }
+    ) {
+        Mock Invoke-Item { }
+        Mock openWithNotepad { $true }
+        $script:wanted = $path
+
+        openExportedFile $path | Should -Be $true
+        Should -Invoke openWithNotepad -Times 1 -Exactly -ParameterFilter { $path -eq $script:wanted }
+        Should -Invoke Invoke-Item -Times 0 -Exactly
+    }
+
+    It "メモ帳が使えないとき（CSV・TSV）は false を返す（既定のアプリには戻さない）" {
+        Mock Invoke-Item { }
+        Mock openWithNotepad { $false }
+
+        openExportedFile "C:\w\a.csv" | Should -Be $false
+        Should -Invoke Invoke-Item -Times 0 -Exactly
+    }
+
+    It "開けなければ、false を返し、例外にしない（既定のアプリが無いときなど）" {
         Mock Invoke-Item { throw "アプリが関連付けられていません" }
         Mock writeErrorLog { }
 
-        openExportedFile "C:\w\a.csv" | Should -Be $false
+        openExportedFile "C:\w\a.xlsx" | Should -Be $false
     }
 }
 
