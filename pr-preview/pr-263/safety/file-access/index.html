@@ -1038,6 +1038,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#検索結果の出力先の確かめ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        検索結果の出力先の確かめ
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4280,6 +4291,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#検索結果の出力先の確かめ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        検索結果の出力先の確かめ
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4383,7 +4405,7 @@
 <td><code>tebunko/indexer/index_migrate.ps1</code> の <code>initTmpDir</code></td>
 </tr>
 <tr>
-<td><code>work/tmp/&lt;PC の鍵&gt;/search_overflow/&lt;PID&gt;/</code>（<code>&lt;PID&gt;</code> の下に検索の要求ごとの <code>&lt;要求の番号&gt;\*.tsv</code> と、［結果をファイルに出力］の本文の一時ファイル <code>export\body.tmp</code>。根が <code>tmpRoot\&lt;PC の鍵&gt;\search_overflow</code> そのものでリンクでないときだけ作る）</td>
+<td><code>work/tmp/&lt;PC の鍵&gt;/search_overflow/&lt;PID&gt;/</code>（<code>&lt;PID&gt;</code> の下に検索の要求ごとの <code>&lt;要求の番号&gt;\*.tsv</code> と、［出力 ▾］の本文の一時ファイル <code>export\body.tmp</code>。根が <code>tmpRoot\&lt;PC の鍵&gt;\search_overflow</code> そのものでリンクでないときだけ作る）</td>
 <td>上限を超えた検索結果の溢れ（検索の続きの置き場所）と、その書き出しの途中の本文。次の検索の始め・画面を閉じるときに中ごと消す。強制終了で残ったものは、次の起動時に、動いていないプロセスの <code>&lt;PID&gt;</code> のものだけを消す</td>
 <td><code>tebunko/search/search_overflow.ps1</code>、<code>tebunko/search/search_export.ps1</code> の <code>getSearchExportBodyPath</code></td>
 </tr>
@@ -4403,9 +4425,9 @@
 <td><code>tebunko.bat</code>、<code>tebunko/ui/startup_error.ps1</code> の <code>writeStartupErrorFile</code></td>
 </tr>
 <tr>
-<td>利用者が指定した出力先</td>
-<td>［結果をファイルに出力］の保存先（既定は <code>work\search_results.txt</code>）と、書き終えてから置き換えるまでの間だけ残る <code>&lt;保存先&gt;.new</code>、溢れの置き場所が使えないときだけ作る本文の一時ファイル <code>&lt;保存先&gt;.body</code>（どちらも強制終了すると残ることがある。次の出力の始めに消す）</td>
-<td>画面のダイアログで利用者が指定</td>
+<td>検索結果の出力先</td>
+<td>［出力 ▾］の出力先（.xlsx・.csv・.tsv）。保存のダイアログは出さず、<code>work/tmp/&lt;PC の鍵&gt;/open_copy/&lt;12 桁の文字&gt;/検索結果_&lt;ワード&gt;_&lt;日時&gt;.&lt;拡張子&gt;</code> に決める（［新規で開く］のコピーと同じ置き場。起動のたびに、最後に使ってから 1 日より古いものを消す）。書き終えてから置き換えるまでの間だけ残る <code>&lt;出力先&gt;.new</code>、溢れの置き場所が使えない CSV・TSV のときだけ作る本文の一時ファイル <code>&lt;出力先&gt;.part</code>（どちらも強制終了すると残ることがある）</td>
+<td>画面の［出力 ▾］（利用者が押す）</td>
 </tr>
 <tr>
 <td>利用者が指定したエクスポート先</td>
@@ -4505,8 +4527,8 @@
 <td>画面を閉じるときは、応答の無い Office だけを、PID とプロセス名・起動時刻が控えたものと同じときに止める。強制終了などで残ったものは、次の起動時に記録のあるものだけを確認して止めるため、ファイルに残す</td>
 </tr>
 <tr>
-<td>書き込み中の一時ファイル（<code>&lt;保存先&gt;.tmp</code>。置き換えたら消える）</td>
-<td>書く先のすぐ隣（<code>setting.config.tmp</code>・<code>store\ingest_status.tsv.tmp</code>・<code>store\format.tsv.tmp</code> などの TSV の隣・利用者が指定したエクスポート/インポート先の隣・［結果をファイルに出力］の保存先の隣の <code>search_results.txt.new</code> など）</td>
+<td>書き込み中の一時ファイル（<code>&lt;出力先&gt;.tmp</code>。置き換えたら消える）</td>
+<td>書く先のすぐ隣（<code>setting.config.tmp</code>・<code>store\ingest_status.tsv.tmp</code>・<code>store\format.tsv.tmp</code> などの TSV の隣・利用者が指定したエクスポート/インポート先の隣・［出力 ▾］の出力先の隣の <code>&lt;出力先&gt;.new</code> など）</td>
 <td>書き込み中の内容</td>
 <td>途中で強制終了してもファイルが壊れないよう、一時ファイルに書いてから置き換える（<code>writeTextLinesAtomic</code> など）。置き換え（<code>File.Replace</code>）は同じフォルダ内でしか使えない</td>
 </tr>
@@ -4530,6 +4552,17 @@
 </tr>
 </tbody>
 </table>
+<h3 id="検索結果の出力先の確かめ">検索結果の出力先の確かめ<a class="headerlink" href="#検索結果の出力先の確かめ" title="Permanent link">&para;</a></h3>
+<p>［出力 ▾］の出力先は、画面が決める名前（<code>newExportTarget</code>。作業フォルダの一時の置き場の中だけ）から作り、利用者の入力や元のファイルのパスからは作らない（<code>tests/meta/safety.Tests.ps1</code> が確かめる）。書く前後に、次のことをする。</p>
+<ul>
+<li>出力先は 1 回ごとに別のフォルダなので、既にあるファイルを上書きしない。置き場はワークスペースの一時の置き場で、クロール対象のフォルダ・インデックスのフォルダの外にあるため、出力したファイルが次の取り込みの対象にならない。</li>
+<li>書く直前に、司令のスレッドで、置き場（<code>open_copy</code>）がワークスペースの <code>tmp</code> の中にあり、リンク（ジャンクション）で外につながっていないことを確かめ（<code>testOpenCopyDir</code>。［新規で開く］のコピーと同じ確かめ）、出力先のフォルダを作れるか・同じ名前のファイルが開かれていないかを調べる（<code>testSearchExportTarget</code>）。画面のスレッドは、出力先の文字列を組み立てるだけで、ファイルに触れない。</li>
+<li>書き終えたら、出力したファイルを開く（<code>openExportedFile</code>。このツールが今書いた .xlsx・.csv・.tsv だけを開く。.xlsx は <code>Invoke-Item -LiteralPath</code> で既定のアプリ、.csv・.tsv は固定のパスのメモ帳（<code>openWithNotepad</code>））。CSV・TSV を Excel などで自動では開かないのは、検索結果の文字（クロール対象の文書の中身）の先頭が <code>=</code>・<code>+</code>・<code>-</code>・<code>@</code> のとき、表計算アプリが数式として解釈する（<code>=HYPERLINK(…)</code>・DDE）ことがあるため。値は加工しない。</li>
+</ul>
+<p>この確かめには限りがある。</p>
+<ul>
+<li>一時の置き場のファイルは、起動のたびに 1 日より古いものを消す。残したいときは、開いたアプリで［名前を付けて保存］する。開いたままのファイルは消せずに残り、次の起動で消す。</li>
+</ul>
 <h2 id="取り込み対象のファイルは書き換えない">取り込み対象のファイルは書き換えない<a class="headerlink" href="#取り込み対象のファイルは書き換えない" title="Permanent link">&para;</a></h2>
 <p>本ツールは、クロール対象フォルダのファイルを<strong>直接開かない</strong>。作業フォルダへコピーし、そのコピーだけを開く（<code>tebunko/indexer/extract_office.ps1:192</code>・<code>434</code> と <code>tebunko/indexer/extract_text.ps1</code>（<code>extractTextFile</code>）の <code>invokeWithSourceCopy</code>。中で <code>copyFileShared</code> を呼ぶ）。コピー元は読み取り専用で開く（<code>shared/core/fs.ps1:140</code>。<code>FileAccess::Read</code> で開き、ほかのアプリの読み書き・削除を妨げない）。</p>
 <p>この設計は、原本に絶対に影響を出さないために入れたもので（効果として、インデックス作成中も利用者が原本を上書き保存・移動できる）、結果として原本への書き込み経路そのものが存在しない。</p>
