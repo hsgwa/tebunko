@@ -23,6 +23,7 @@ stateDiagram-v2
     state "search-tab/results" as results
     state "search-tab/no-results" as noresults
     state "search-tab/limit" as limit
+    state "search-tab/many-hits" as manyhits
     state "search-tab/regex-error" as regex
     state "search-tab/tree-none" as tree
     state "search-tab/collapsed" as collapsed
@@ -32,6 +33,7 @@ stateDiagram-v2
     initial --> results: ［検索］（23）
     initial --> noresults: ［検索］（23）
     initial --> limit: ［検索］（23）
+    limit --> manyhits: すべて開く（23）
     initial --> regex: 不正な正規表現（24）
     initial --> tree: すべて解除（25）
     results --> collapsed: すべて折りたたむ（27）
@@ -77,6 +79,10 @@ stateDiagram-v2
 ### search-tab/limit（件数の上限で打ち切った。遷移 23）
 
 ![件数の上限で打ち切った](../../../images/screens/search-tab/limit.png)
+
+### search-tab/many-hits（1 つのファイルのヒットが多く、末尾に続きの行が出た。遷移 23）
+
+![1 つのファイルのヒットが多く、末尾に続きの行が出た](../../../images/screens/search-tab/many-hits.png)
 
 ### search-tab/regex-error（不正な正規表現の吹き出し。遷移 24）
 
