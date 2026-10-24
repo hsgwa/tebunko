@@ -46,7 +46,7 @@ function getIndexFileEntries {
         $rest = $relPath.Substring($prefix.Length)
         $keys.Add($rest)
         $items.Add([pscustomobject]@{
-            RelPath = $rest; UpdatedText = [string]$row.更新日時; Kind = $kind; StateText = [string]$labels[$kind]; SourcePath = $(if ($base) { $base + "\" + $rest } else { "" })
+            RelPath = $rest; UpdatedText = $(if ($row.更新日時.Length -ge 16) { $row.更新日時.Substring(0, 16) } else { [string]$row.更新日時 }); Kind = $kind; StateText = [string]$labels[$kind]; SourcePath = $(if ($base) { $base + "\" + $rest } else { "" })
             Reason = $(if ($kind -eq "Failed") { [string]$row.エラー } else { "" })
         })
     }

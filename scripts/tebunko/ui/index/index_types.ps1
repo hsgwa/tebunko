@@ -1,13 +1,5 @@
-﻿# tebunko の画面で使う型: ［インデックス管理］の一覧・詳細・失敗した行。
+﻿# tebunko の画面で使う型: ［インデックス管理］の一覧・詳細。
 # shared\ui\types.ps1 を先に読み込んでおくこと（NotifyBase を継承する）。
-
-# ［インデックス管理］の取り込みに失敗したファイル1件
-class FailRow {
-    [string]$RelPath
-    [string]$Reason
-    [string]$IngestedText
-    [string]$SourcePath
-}
 
 # インデックスの詳細のパネルの値の 1 行（getIndexDetailView）
 class DetailRow {

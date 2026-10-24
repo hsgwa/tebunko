@@ -445,7 +445,7 @@ function updateSelectedIndexes {
     startIndexing $names
 }
 
-$script:indexSourceRequest = [ref]0  # ［元のフォルダを開く］の確かめの依頼の番号（openFailedFileFolder と同じ理由で [ref] のまま閉じ込める）
+$script:indexSourceRequest = [ref]0  # ［元のフォルダを開く］の確かめの依頼の番号（openListedFileFolder と同じ理由で [ref] のまま閉じ込める）
 
 function applyIndexSourceFolderState {
     # openIndexSourceFolder の続き（getPathState の結果を画面に反映する）。フォルダが見つかれば、エクスプローラーで開く

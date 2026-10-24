@@ -5,7 +5,8 @@ foreach ($detailName in @(
         "IndexDetailBody", "IndexDetailName", "IndexDetailPath", "IndexDetailPathButton", "IndexDetailEditError", "IndexDetailFolderStatus", "IndexDetailFolderIcon",
         "IndexDetailBadge", "IndexDetailBadgeText", "IndexDetailBadgeSub", "IndexErrorText", "IndexErrorHintText", "IndexDetailUpdated", "IndexDetailCount",
         "IndexingDetailPanel", "IndexingProgressBar", "IndexingCountText", "IndexingFileText", "MultiSelectHintText",
-        "IndexFilesButton", "IndexFilesPanel", "IndexFilesCloseButton", "IndexFilesHeading", "IndexFilesGrid")) {
+        "IndexFilesButton", "IndexFilesPanel", "IndexFilesCloseButton", "IndexFilesHeading", "IndexFilesGrid",
+        "FailedFilesEntry", "FailedFilesHeading", "ShowFailedFilesButton", "IndexFilesFilter", "IndexFilesAllRadio", "IndexFilesFailedRadio")) {
     $ui[$detailName] = $ui.IndexDetailHost.Content.FindName($detailName)
 }
 # 読み取り中のファイルは、「…」で切れているときだけ全文をツールチップで見せる（名前とフォルダパスは入力欄で、欄の中で読める）
@@ -152,7 +153,7 @@ function updateIndexingButton {
     if (!$ready -and !(isIndexing)) {
         $hint = if ($script:targetItems.Count -eq 0) { "フォルダを追加すると更新できます" } else { "更新できるインデックスがありません（行の［更新］で更新できます）。" }
     } elseif ($state -and $state.Failed -gt 0 -and !(isIndexing)) {
-        $hint = "前回うまく更新できなかったファイルがあります（原因は、下の「更新に失敗したファイル」で確かめられます）。"
+        $hint = "前回うまく更新できなかったファイルがあります（詳細の［ファイルの一覧］を「失敗のみ」で開くと確かめられます）。"
     }
     $ui.IndexingHint.Text = $hint
     $ui.IndexingHint.Visibility = if ($hint) { "Visible" } else { "Collapsed" }
@@ -247,73 +248,74 @@ function applyIndexingState {
 
     $script:indexingState = $state
 
-    # 失敗したファイルは下の一覧に原因とともに表示する
+    # 失敗したファイルは、詳細の入口（FailedFilesEntry）から［ファイルの一覧］を「失敗のみ」で開いて見る（applyIndexStats が詳細も更新する）
     applyIndexStats $state.IndexStats (isIndexing) $state.Format
-    updateFailedList $state
     updateIndexSummaryText
     updateIndexingButton
     updateIndexingResume
     updateIndexTabBadge
 }
 
-function updateFailedList {
-    # 取り込みに失敗したファイルと原因（取り込み一覧のエラー列）を一覧に表示する
-    # 詳細に出している行（getIndexTargetItem）があれば、その行のインデックスの失敗だけを出す（無ければ全部）
-    param (
-        $state  # getIndexingState の結果
-    )
-
-    $detailItem = getIndexTargetItem
-    $filterName = if ($null -ne $detailItem) { [string]$detailItem.Name } else { "" }
-    $script:failedFilterName = $filterName
-    $folderPaths = @{}  # インデックス名 → クロール対象フォルダ（大文字・小文字を区別しない）
-    foreach ($folder in $state.Folders) {
-        if ($folder.Name) {
-            $folderPaths[$folder.Name] = $folder.Path
-        }
-    }
-
-    $rows = New-Object System.Collections.ArrayList
-    foreach ($status in (selectFailedRowsForIndex $state.FailedRows $filterName)) {
-        $row = New-Object FailRow
-        $row.RelPath = $status.相対パス
-        $row.Reason = if ($status.エラー) { $status.エラー } else { "（原因は記録されていません）" }
-        $ingested = [datetime]::MinValue
-        if ([datetime]::TryParseExact([string]$status.取り込み日時, "yyyy/MM/dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$ingested)) {
-            $row.IngestedText = formatTime $ingested
-        }
-        $parts = splitIndexRelPath $status.相対パス
-        if ($folderPaths.ContainsKey($parts.Name)) {
-            $row.SourcePath = Join-Path $folderPaths[$parts.Name] $parts.Rest
-        }
-        [void]$rows.Add($row)
-    }
-
-    $ui.FailedGrid.ItemsSource = $rows
-    $ui.FailedHeading.Text = "更新に失敗したファイル $($rows.Count) 件"
-    $ui.FailedPanel.Visibility = if ($rows.Count -gt 0) { "Visible" } else { "Collapsed" }
-}
-
+$script:indexFilesEntries = $null   # 開いている一覧の中身（getIndexFileEntries の結果。「すべて」「失敗のみ」の切り替えで読み直さないため）
+$script:indexFilesFilter = "All"    # 一覧の絞り込み（All / Failed）
 $script:indexFilesName = ""      # 取り込んだファイルの一覧を開いているインデックスの名前（空は閉じている）
 $script:indexFilesRequest = [ref]0   # 一覧を読む依頼の番号（古い依頼の結果は捨てる。[ref] のまま閉じ込める）
 
 function closeIndexFiles {
     # 取り込んだファイルの一覧を閉じる（表の行も手放す）
     $script:indexFilesName = ""
+    $script:indexFilesEntries = $null
     $script:indexFilesRequest.Value++
     $ui.IndexFilesPanel.Visibility = "Collapsed"
     $ui.IndexFilesGrid.ItemsSource = $null
 }
 
+function setIndexFilesFilter {
+    # 開いている一覧を「すべて」「失敗のみ」に絞る（読み直さない。filter は All / Failed）。まだ読み込めていなければ、あとで読めたときに使う
+    param (
+        [string]$filter
+    )
+
+    $script:indexFilesFilter = if ($filter -eq "Failed") { "Failed" } else { "All" }
+    $ui.IndexFilesAllRadio.IsChecked = ($script:indexFilesFilter -eq "All")
+    $ui.IndexFilesFailedRadio.IsChecked = ($script:indexFilesFilter -eq "Failed")
+    if ($null -ne $script:indexFilesEntries) {
+        $ui.IndexFilesGrid.ItemsSource = @(selectIndexFileRows $script:indexFilesEntries.Rows $script:indexFilesFilter)
+    }
+}
+
+function applyIndexFileEntries {
+    # 読み込めた一覧（getIndexFileEntries の結果）を画面に出す。見出し・絞り込みどおりの行・見える所までの送り
+    param (
+        $entries
+    )
+
+    $script:indexFilesEntries = $entries
+    $ui.IndexFilesHeading.Text = getIndexFilesHeading ($entries.Rows.Count) ($entries.Failed) ($entries.Pending)
+    setIndexFilesFilter $script:indexFilesFilter
+    # 行ができて一覧が伸びたあとの高さで送る（配置を決めてから）
+    $ui.IndexFilesPanel.UpdateLayout()
+    $ui.IndexFilesPanel.BringIntoView()
+}
+
 function toggleIndexFiles {
     # ［ファイルの一覧］: 詳細に出しているインデックスの、取り込んだファイルの一覧を開く（開いていれば読み直す）。
+    # filter が Failed なら「失敗のみ」で開く（失敗の入口の［一覧で見る］）
     # 取り込み一覧は数万行になることがあるため、読み込みと整形は裏のスレッドで行い、届いたら表に渡すだけにする
+    param (
+        [string]$filter = "All"
+    )
+
     $item = getIndexTargetItem
     if ($null -eq $item) {
         return
     }
     $name = [string]$item.Name
     $script:indexFilesName = $name
+    $script:indexFilesEntries = $null
+    $script:indexFilesFilter = if ($filter -eq "Failed") { "Failed" } else { "All" }
+    $ui.IndexFilesAllRadio.IsChecked = ($script:indexFilesFilter -eq "All")
+    $ui.IndexFilesFailedRadio.IsChecked = ($script:indexFilesFilter -eq "Failed")
     $requestBox = $script:indexFilesRequest
     $requestBox.Value++
     $requestId = $requestBox.Value
@@ -322,11 +324,11 @@ function toggleIndexFiles {
     $ui.IndexFilesGrid.ItemsSource = $null
     $ui.IndexFilesHeading.Text = "読み込み中…"
     # 詳細欄は縦にスクロールし、一覧は一番下にある。開いても見えない（何も出ないように見える）ため、見える所まで送る
+    $panel.UpdateLayout()
     $panel.BringIntoView()
     $labels = getIndexFileStateLabels
     # 呼ぶ関数は変数で捕まえてから閉じ込める（裏の仕事の結果を受けるところからは、関数の名前が見つからないため。openFailedFileFolder と同じ）
-    $makeHeading = ${function:getIndexFilesHeading}
-    $grid = $ui.IndexFilesGrid
+    $applyEntries = ${function:applyIndexFileEntries}
     $heading = $ui.IndexFilesHeading
     startJob {
         param ($path, $indexName, $labels)
@@ -341,10 +343,8 @@ function toggleIndexFiles {
             $heading.Text = "ファイルの一覧を読み込めませんでした"
             return
         }
-        $entries = $output[0]
-        $heading.Text = & $makeHeading ($entries.Rows.Count) ($entries.Failed) ($entries.Pending)
-        $grid.ItemsSource = $entries.Rows
-        $panel.BringIntoView()
+        # 閉じ込めたブロックの中では $script: が本物のスクリプトのスコープでないため、状態に触る処理は関数（applyIndexFileEntries）に任せる
+        & $applyEntries $output[0]
     }.GetNewClosure() (getWorkspaceJobQueue $workspace.StatusFile)
 }
 
@@ -353,12 +353,7 @@ function openIndexFileFolder {
     openListedFileFolder $ui.IndexFilesGrid.SelectedItem
 }
 
-$script:failedFileRequest = [ref]0  # 失敗したファイルを確かめる依頼の番号（find SourceFile の $script:openSourceRequest と同じ理由で [ref] のまま閉じ込める）
-
-function openFailedFileFolder {
-    # 失敗したファイルの場所をエクスプローラーで開く（ファイルを選択した状態）
-    openListedFileFolder $ui.FailedGrid.SelectedItem
-}
+$script:failedFileRequest = [ref]0  # 失敗したファイルを確かめる依頼の番号（findSourceFile の $script:openSourceRequest と同じ理由で [ref] のまま閉じ込める）
 
 function openListedFileFolder {
     # 一覧の行（RelPath・SourcePath を持つ）のファイルの場所をエクスプローラーで開く（ファイルを選択した状態）。
@@ -416,7 +411,7 @@ function openListedFileFolder {
 }
 
 function applyFailedFileState {
-    # openFailedFileFolder の続き（getPathState の結果を画面に反映する）。
+    # openListedFileFolder の続き（getPathState の結果を画面に反映する）。
     #   dirState: ファイルが無い（Missing）ときだけ渡す、フォルダの getPathState の結果。それ以外は $null
     param (
         $state,
@@ -448,7 +443,6 @@ function applyFailedFileState {
 
 # 詳細の値の行を最後に置いたときの getIndexDetailView の RowsKey（同じ中身なら行を置き直さない）
 $script:detailRowsKey = $null
-$script:failedFilterName = ""  # 失敗の一覧を絞っているインデックスの名前（空は全部。updateFailedList が置く）
 $script:indexingView = $null  # 詳細の「インデックス」の箱に出す、全体の進み具合（updateIndexingProgress が置く。更新中でなければ $null）
 
 function getIndexTargetItem {
@@ -470,14 +464,15 @@ function updateIndexDetailPanel {
             LastIngestedText = $item.LastIngestedText; FailedCount = $item.FailedCount; PendingCount = $item.PendingCount
         })
     }
-    # 選んだインデックスが変わったら、失敗の一覧もそのインデックスの分に書き直す（変わらないときは置き直さない）
-    $failedName = if ($null -ne $item) { [string]$item.Name } else { "" }
-    if ($script:indexFilesName -and $failedName -ne $script:indexFilesName) {
+    # 選んだインデックスが変わったら、開いている一覧は閉じる（別のインデックスの一覧を見せない）
+    $listName = if ($null -ne $item) { [string]$item.Name } else { "" }
+    if ($script:indexFilesName -and $listName -ne $script:indexFilesName) {
         closeIndexFiles
     }
-    if ($null -ne $script:indexingState -and $failedName -ne [string]$script:failedFilterName) {
-        updateFailedList $script:indexingState
-    }
+    # 更新に失敗したファイルの入口（1 行）。選んでいるインデックスの失敗の件数を出す
+    $entry = getIndexFailedEntryView $(if ($null -ne $item) { [int]$item.FailedCount } else { 0 })
+    $ui.FailedFilesEntry.Visibility = if ($entry.Shown) { "Visible" } else { "Collapsed" }
+    $ui.FailedFilesHeading.Text = $entry.Text
     $multiCount = getIndexDetailMultiCount $checkedItems.Count
     $view = getIndexDetailView $selected $multiCount $script:indexingView
 

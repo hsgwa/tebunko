@@ -242,33 +242,6 @@ Describe "getIndexSourceFolderKind" -Tag Unit {
     }
 }
 
-Describe "selectFailedRowsForIndex（失敗の一覧をインデックスごとに）" -Tag Unit {
-    BeforeAll {
-        $rows = @(
-            [pscustomobject]@{ 相対パス = "営業\a.xlsx" }
-            [pscustomobject]@{ 相対パス = "営業部\b.xlsx" }
-            [pscustomobject]@{ 相対パス = "Sales\sub\c.xlsx" }
-            [pscustomobject]@{ 相対パス = "経理\d.xlsx" }
-        )
-    }
-
-    It "<label>" -TestCases @(
-        @{ label = "選んだ名前だけ"; name = "経理"; expected = @("経理\d.xlsx") }
-        @{ label = "別の名前の前方一致を拾わない"; name = "営業"; expected = @("営業\a.xlsx") }
-        @{ label = "大文字小文字の違いは同じ名前"; name = "sales"; expected = @("Sales\sub\c.xlsx") }
-        @{ label = "選んでいない（空）と全部"; name = ""; expected = @("営業\a.xlsx", "営業部\b.xlsx", "Sales\sub\c.xlsx", "経理\d.xlsx") }
-        @{ label = "失敗の無いインデックスは 0 件"; name = "人事"; expected = @() }
-    ) {
-        param ($label, $name, $expected)
-        @(selectFailedRowsForIndex $rows $name | ForEach-Object { $_.相対パス }) | Should -Be $expected
-    }
-
-    It "行が無くても空を返す" {
-        @(selectFailedRowsForIndex @() "営業").Count | Should -Be 0
-        @(selectFailedRowsForIndex $null "").Count | Should -Be 0
-    }
-}
-
 Describe "getIndexRowActions（行の右端のボタン）" -Tag Unit {
     It "<level>・blocker=<blocker>: <action>" -TestCases @(
         @{ level = "Ok"; blocker = ""; action = "Update"; enabled = $true }

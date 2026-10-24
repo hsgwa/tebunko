@@ -304,3 +304,39 @@ Describe "getIndexDetailInfoRows（インデックス情報の行）" -Tag Unit 
         $rows[1].Value | Should -Be "－"
     }
 }
+
+Describe "selectIndexFileRows / getIndexFailedEntryView（失敗の絞り込みと入口）" -Tag Unit {
+    BeforeAll {
+        $script:rows = @(
+            [pscustomobject]@{ RelPath = "a.docx"; Kind = "Failed" }
+            [pscustomobject]@{ RelPath = "b.xlsx"; Kind = "Done" }
+            [pscustomobject]@{ RelPath = "c.pptx"; Kind = "Pending" }
+            [pscustomobject]@{ RelPath = "d.ppt"; Kind = "Failed" }
+        )
+    }
+
+    It "<label>" -TestCases @(
+        @{ label = "すべては全部を元の順で返す"; filter = "All"; expected = "a.docx,b.xlsx,c.pptx,d.ppt" }
+        @{ label = "失敗のみは失敗の行だけを元の順で返す"; filter = "Failed"; expected = "a.docx,d.ppt" }
+        @{ label = "分からない名前はすべて扱い"; filter = ""; expected = "a.docx,b.xlsx,c.pptx,d.ppt" }
+    ) {
+        param ($label, $filter, $expected)
+        (@(selectIndexFileRows $rows $filter | ForEach-Object { $_.RelPath })) -join "," | Should -Be $expected
+    }
+
+    It "行が無い・null でも空を返す" {
+        @(selectIndexFileRows @() "Failed").Count | Should -Be 0
+        @(selectIndexFileRows $null "All").Count | Should -Be 0
+    }
+
+    It "<label>" -TestCases @(
+        @{ label = "失敗が 0 件なら入口を出さない"; count = 0; shown = $false; text = "" }
+        @{ label = "失敗があれば件数つきで出す"; count = 2; shown = $true; text = "更新に失敗したファイル 2 件" }
+        @{ label = "千の位は区切る"; count = 1234; shown = $true; text = "更新に失敗したファイル 1,234 件" }
+    ) {
+        param ($label, $count, $shown, $text)
+        $view = getIndexFailedEntryView $count
+        $view.Shown | Should -Be $shown
+        $view.Text | Should -Be $text
+    }
+}

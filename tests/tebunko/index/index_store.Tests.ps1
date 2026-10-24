@@ -428,7 +428,7 @@ Describe "getIndexFileEntries（インデックスに取り込んだファイル
         $result.Rows[0].Kind | Should -Be "Failed"
         $result.Rows[0].StateText | Should -Be "失敗"
         $result.Rows[0].Reason | Should -Be "壊れている"
-        $result.Rows[0].UpdatedText | Should -Be "2025/01/11 08:00:00"
+        $result.Rows[0].UpdatedText | Should -Be "2025/01/11 08:00"
         $result.Rows[1].StateText | Should -Be "取り込み済"
         $result.Rows[1].Reason | Should -Be ""
         $result.Rows[3].Kind | Should -Be "Failed"

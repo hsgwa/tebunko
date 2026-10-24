@@ -20,6 +20,29 @@ function getIndexFileStateLabels {
     return @{ Done = "取り込み済"; Failed = "失敗"; Pending = "未取り込み" }
 }
 
+function selectIndexFileRows {
+    # 一覧に出す行を、絞り込みで選ぶ。filter が Failed なら失敗の行（Kind が Failed）だけ、それ以外は全部。行は元の順のまま
+    param (
+        [object[]]$rows,
+        [string]$filter = "All"
+    )
+
+    $all = @($rows | Where-Object { $null -ne $_ })
+    # 呼ぶ側は @() で受ける（1 件でも空でも配列にするため）
+    if ($filter -ne "Failed") { return $all }
+    return @($all | Where-Object { $_.Kind -eq "Failed" })
+}
+
+function getIndexFailedEntryView {
+    # 詳細の「更新に失敗したファイル N 件［一覧で見る］」の 1 行。失敗が 1 件以上あるときだけ出す
+    param (
+        [int]$failedCount
+    )
+
+    if ($failedCount -le 0) { return @{ Shown = $false; Text = "" } }
+    return @{ Shown = $true; Text = ("更新に失敗したファイル {0:#,0} 件" -f $failedCount) }
+}
+
 function getIndexFilesHeading {
     # 取り込んだファイルの一覧の見出し（total は一覧の行の数。済・失敗・未取り込みの全部）。total が 0 のときは「まだ取り込んだファイルはありません」
     param (

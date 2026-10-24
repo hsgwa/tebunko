@@ -340,7 +340,7 @@ function captureFailedScene {
         startGuiIndexing $S
         waitGui $S "取り込みの完了・失敗 1 件" ${guiIndexTimeout} {
             (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*" -and
-                (getGuiText (findGui $S.Window -Id "FailedHeading")) -like "*失敗したファイル 1 件*" -and
+                (getGuiText (findGui $S.Window -Id "FailedFilesHeading")) -like "*失敗したファイル 1 件*" -and
                 (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
         } | Out-Null
         captureGuiState -S $S -Id "index-tab/failed" -Ids $Ids -OutDir $OutDir `
