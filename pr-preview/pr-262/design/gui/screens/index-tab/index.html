@@ -3586,10 +3586,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#index-tabfailed失敗したファイルの一覧がある遷移-18" class="md-nav__link">
+  <a href="#index-tabfailed失敗したファイルがある遷移-18" class="md-nav__link">
     <span class="md-ellipsis">
       
-        index-tab/failed（失敗したファイルの一覧がある。遷移 18）
+        index-tab/failed（失敗したファイルがある。遷移 18）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#index-tabfiles失敗の入口の一覧で見るでファイルの一覧が失敗のみで開いた遷移-18" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        index-tab/files（失敗の入口の［一覧で見る］で、［ファイルの一覧］が失敗のみで開いた。遷移 18）
       
     </span>
   </a>
@@ -4518,10 +4529,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#index-tabfailed失敗したファイルの一覧がある遷移-18" class="md-nav__link">
+  <a href="#index-tabfailed失敗したファイルがある遷移-18" class="md-nav__link">
     <span class="md-ellipsis">
       
-        index-tab/failed（失敗したファイルの一覧がある。遷移 18）
+        index-tab/failed（失敗したファイルがある。遷移 18）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#index-tabfiles失敗の入口の一覧で見るでファイルの一覧が失敗のみで開いた遷移-18" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        index-tab/files（失敗の入口の［一覧で見る］で、［ファイルの一覧］が失敗のみで開いた。遷移 18）
       
     </span>
   </a>
@@ -4561,7 +4583,7 @@
 <ul>
 <li>上に「更新の帯」。右の領域の上端いっぱいの高さ 40 の 1 行で、左端に状態の色の太い線とアイコンを置く。更新中（青）・中断（橙）・終わった（失敗なく終わったときは緑、注意が要る終わり方は橙）を 1 枚で出す。更新中は進み具合と［中止］、中断は［続きから再開］、終わったは［検索する］を右に置く。帯が無いときは場所を取らない。</li>
 <li>その下に「インデックス一覧」。行のチェックは［アクション ▾］で操作する行を選ぶ一時の選び（保存しない。初めは全部外れている）。列は チェック・名前・パス・ファイル数・最終更新・ステータス・操作。表の下に <code>登録済み: N フォルダ</code> と <code>合計: N ファイル</code>。</li>
-<li>頭は見出し・説明を置かず、高さ 56 の操作の行にする。右から［＋ フォルダを追加］［アクション ▾］［すべて更新］、左に <code>N / M 件を選択中</code>。［アクション ▾］のメニューは［更新］［エクスポート…］［インポート…］と、区切りの下に［削除…］。表の見出し行の左端に全選択のチェック。［更新］［エクスポート…］［削除…］はチェックを付けた行に対して動く。インデックスが 1 件も無いときは、表の中の案内にも同じ動きの［＋ フォルダを追加］を置く。行の右端のボタンは［更新］［中止］だけ。行の右クリックのメニューに［エクスポート…］［削除…］。一覧へのドラッグ＆ドロップでも追加できる。</li>
+<li>頭は見出し・説明を置かず、高さ 56 の操作の行にする。その下に、保存先の行（パスと［フォルダを開く］。共有のときは警告）を 1 行置く。右から［＋ フォルダを追加］［アクション ▾］［すべて更新］、左に <code>N / M 件を選択中</code>。［アクション ▾］のメニューは［更新］［エクスポート…］［インポート…］と、区切りの下に［削除…］。表の見出し行の左端に全選択のチェック。［更新］［エクスポート…］［削除…］はチェックを付けた行に対して動く。インデックスが 1 件も無いときは、表の中の案内にも同じ動きの［＋ フォルダを追加］を置く。行の右端のボタンは［更新］［中止］だけ。行の右クリックのメニューに［エクスポート…］［削除…］。一覧へのドラッグ＆ドロップでも追加できる。</li>
 <li>下に「インデックスの状態」（選んだ行の詳細。選んでいなければ、すべてのインデックスの合計）。</li>
 <li>ナビの［インデックス管理］の横に、更新中は <code>● 66%</code>、中断中は <code>中断</code>、失敗があるだけなら <code>失敗</code>。失敗があると、失敗したファイルの一覧と「失敗の原因」の列が出る。</li>
 </ul>
@@ -4577,6 +4599,7 @@
     state "index-tab/interrupted" as interrupted
     state "index-tab/done" as done
     state "index-tab/failed" as failed
+    state "index-tab/files" as files
     empty --&gt; normal: ［＋ フォルダを追加］→ フォルダを選ぶ（11）
     normal --&gt; del: ［削除］（15）
     del --&gt; normal: ［削除する］
@@ -4589,7 +4612,8 @@
     stop --&gt; interrupted: ［中止する］
     interrupted --&gt; start: 続きから再開
     running --&gt; done: 失敗なし（18）
-    running --&gt; failed: 失敗あり（18）</code></pre>
+    running --&gt; failed: 失敗あり（18）
+    failed --&gt; files: 失敗の入口の［一覧で見る］（18）</code></pre>
 <ul>
 <li>名前の欄に使えない名前を入れて欄から出ると、欄の下に注意が出て、欄は元の名前に戻る（12）。名前とフォルダパスの編集は、詳細の欄で行う（編集のダイアログは無い）。</li>
 <li>行のチェックを付けると、［アクション ▾］の［更新］［エクスポート…］［削除…］がその行に動く（<code>index-tab/checked</code>。16）。［すべて更新］はチェックと関係なく全部を更新する。</li>
@@ -4666,8 +4690,10 @@
 <p><img alt="中止の確認" src="../../../../images/screens/index-tab/stop-confirm.png" /></p>
 <h3 id="index-tabdone更新が終わった遷移-18">index-tab/done（更新が終わった。遷移 18）<a class="headerlink" href="#index-tabdone更新が終わった遷移-18" title="Permanent link">&para;</a></h3>
 <p><img alt="更新が終わった" src="../../../../images/screens/index-tab/done.png" /></p>
-<h3 id="index-tabfailed失敗したファイルの一覧がある遷移-18">index-tab/failed（失敗したファイルの一覧がある。遷移 18）<a class="headerlink" href="#index-tabfailed失敗したファイルの一覧がある遷移-18" title="Permanent link">&para;</a></h3>
-<p><img alt="失敗したファイルの一覧がある" src="../../../../images/screens/index-tab/failed.png" /></p>
+<h3 id="index-tabfailed失敗したファイルがある遷移-18">index-tab/failed（失敗したファイルがある。遷移 18）<a class="headerlink" href="#index-tabfailed失敗したファイルがある遷移-18" title="Permanent link">&para;</a></h3>
+<p><img alt="失敗したファイルがある" src="../../../../images/screens/index-tab/failed.png" /></p>
+<h3 id="index-tabfiles失敗の入口の一覧で見るでファイルの一覧が失敗のみで開いた遷移-18">index-tab/files（失敗の入口の［一覧で見る］で、［ファイルの一覧］が失敗のみで開いた。遷移 18）<a class="headerlink" href="#index-tabfiles失敗の入口の一覧で見るでファイルの一覧が失敗のみで開いた遷移-18" title="Permanent link">&para;</a></h3>
+<p><img alt="ファイルの一覧が失敗のみで開いた" src="../../../../images/screens/index-tab/files.png" /></p>
 
 
 
