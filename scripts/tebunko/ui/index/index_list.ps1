@@ -507,6 +507,82 @@ function openIndexSourceFolder {
     }.GetNewClosure() (getWorkspaceJobQueue $path)
 }
 
+$script:indexLocationRequest = [ref]0  # 保存先の［フォルダを開く］の確かめの依頼の番号（openIndexSourceFolder と同じ理由で [ref] のまま閉じ込める）
+
+function updateIndexLocationView {
+    # ［インデックス管理］の保存先の行（ワークスペースのフォルダ。共有のときは警告も）を、今のワークスペースに合わせる。
+    # 文言は判断層（getIndexLocationView）。ネットワークかどうかは共有に接続せずに見分ける（testNetworkPath）
+    $dir = [string]$workspace.Dir
+    $view = getIndexLocationView $dir (testNetworkPath $dir)
+    $ui.IndexLocationLabel.Text = $view.Heading
+    $ui.IndexLocationText.Text = $view.Path
+    # パスと注意書きは、情報の印とパスのツールチップで読める（一覧の邪魔をしない）
+    $tip = "$($view.Path)`n$($view.Note)"
+    $ui.IndexLocationText.ToolTip = $tip
+    $ui.IndexLocationInfo.ToolTip = $tip
+    $ui.IndexLocationWarning.Text = $view.Warning
+    $ui.IndexLocationWarning.Visibility = if ($view.Warning) { "Visible" } else { "Collapsed" }
+}
+
+function applyIndexLocationState {
+    # openIndexLocation の続き（getPathState の結果を画面に反映する）。フォルダが見つかれば、エクスプローラーで開く。
+    # 開けないときの文言は showMessage に渡す（タブはステータス、確認のダイアログはダイアログの中）
+    param (
+        $state,
+        [string]$path,
+        [scriptblock]$showMessage
+    )
+
+    $kind = getIndexSourceFolderKind $state
+    if ($kind -eq "Open") {
+        Start-Process -FilePath "explorer.exe" -ArgumentList "`"${path}`""
+        & $showMessage ""
+        return
+    }
+    & $showMessage (getIndexLocationOpenStatus $kind $path $state.Message)
+}
+
+function openIndexLocation {
+    # 保存先（ワークスペースのフォルダ）をエクスプローラーで開く。タブと確認のダイアログの［フォルダを開く］の共通の入口。
+    # 無い・つながらない・開けないときの文言は showMessage（文字を受け取る処理）に渡す。
+    # ネットワークにあれば裏のスレッドで確かめ、画面のスレッドは待たない
+    param (
+        [scriptblock]$showMessage
+    )
+
+    $path = [string]$workspace.Dir
+    $requestBox = $script:indexLocationRequest
+    $requestBox.Value++
+    $requestId = $requestBox.Value
+    $applyState = ${function:applyIndexLocationState}
+    $apply = {
+        param ($state)
+        if ($requestId -ne $requestBox.Value) {
+            # 待っている間にもう一度押した。前の依頼は捨てる
+            return
+        }
+        & $applyState $state $path $showMessage
+    }.GetNewClosure()
+
+    if (!(testNetworkPath $path)) {
+        & $apply (getPathState $path)
+        return
+    }
+    & $showMessage (getIndexLocationOpenStatus "Checking" $path)
+    $otherState = ${pathStateOther}
+    startJob {
+        param ($path)
+        getPathState $path
+    } @($path) {
+        param ($output, $errorText)
+        if ($errorText) {
+            & $apply @{ State = $otherState; IsDirectory = $false; Message = $errorText }
+        } else {
+            & $apply $output[0]
+        }
+    }.GetNewClosure() (getWorkspaceJobQueue $path)
+}
+
 function updateIndexSelectionView {
     # 見出しの全選択（一部だけなら横棒）と、見出しの横の「N / M 件を選択中」。判断は getIndexSelectionView
     $view = getIndexSelectionView $script:targetItems.Count @(getIndexCheckedItems @($script:targetItems)).Count

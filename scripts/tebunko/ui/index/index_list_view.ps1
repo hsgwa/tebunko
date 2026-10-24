@@ -328,3 +328,41 @@ function addIndexRowNotice {
     }
     return "${text}`n${notice}"
 }
+
+function getIndexLocationView {
+    # インデックスの保存先（ワークスペースのフォルダ）の表示。@{ Heading; Path; Note; Warning }
+    # ［インデックス管理］の一覧の上と、インデックス更新の確認で同じものを使う。
+    # Note は常に出す注意（本文がそのまま入る・アクセス権は引き継がれない・［設定］で変えられる）。
+    # Warning は保存先がネットワーク（共有）のときだけ（無ければ空文字）。ネットワークかどうかは画面層が testNetworkPath で求めて渡す
+    param (
+        [string]$workDir,
+        [bool]$isNetwork
+    )
+
+    $warning = ""
+    if ($isNetwork) {
+        $warning = getSharedFolderWarningText
+    }
+    return @{
+        Heading = "インデックスの保存先"
+        Path = $workDir
+        Note = "インデックスには本文がそのまま入り、元のアクセス権は引き継がれません。保存先は設定画面で変更可能です。"
+        Warning = $warning
+    }
+}
+
+function getIndexLocationOpenStatus {
+    # ［フォルダを開く］（保存先）で、場所を確かめた結果の文言。kind は getIndexSourceFolderKind の値のうち Missing / Unreachable / Other
+    param (
+        [string]$kind,
+        [string]$path,
+        [string]$message = ""
+    )
+
+    switch ($kind) {
+        "Checking" { return "保存先のフォルダを確かめています…：${path}" }
+        "Missing" { return "保存先のフォルダはまだありません（インデックスを作ると作られます）：${path}" }
+        "Unreachable" { return "保存先のフォルダに接続できません：${path}" }
+        default { return "保存先のフォルダを開けません：${path}（${message}）" }
+    }
+}

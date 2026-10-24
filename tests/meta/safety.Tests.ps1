@@ -1110,6 +1110,7 @@ Describe "検索結果から開くとき、シェルで開く処理が決まっ�
         # 関数 × API の表（docs/safety/checks.md「外部プロセスの起動」）。足すときは、表と守り（下の It）を同じ PR で直す
         $allowedUses = @(
             "applyFailedFileState|Start-Process",
+            "applyIndexLocationState|Start-Process",
             "applyIndexSourceFolderState|Start-Process",
             "openAboutLink|Start-Process",
             "openWithNotepad|Start-Process",
@@ -1169,6 +1170,7 @@ Invoke-Item $y
     It "フォルダを開く所は、フォルダとして確かめてから explorer.exe に渡す" {
         # ファイルをフォルダとして渡すと、そのファイルが既定のアプリで実行される
         (getFunctionText "applyIndexSourceFolderState") | Should -Match 'getIndexSourceFolderKind'
+        (getFunctionText "applyIndexLocationState") | Should -Match 'getIndexSourceFolderKind'
         (getFunctionText "getIndexSourceFolderKind") | Should -Match 'IsDirectory'
         (getFunctionText "applyFailedFileState") | Should -Match 'dirState\.IsDirectory'
     }
