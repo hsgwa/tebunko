@@ -494,47 +494,93 @@ Describe "normalizeTextExtensions" -Tag Unit {
 }
 
 
-Describe "readTextExtensionSettings / writeTextExtensionSettings" -Tag Io {
-    It "キーが無ければ 2 つとも空（既定）" {
+Describe "readTextExtensionSettings / writeIndexTextExcludes / writeTextOpenSettings" -Tag Io {
+    It "キーが無ければ既定（取り込まないものは無し・エディタにするものは無し・エディタはメモ帳）" {
         $path = "$TestDrive\textext_none.config"
         $read = readTextExtensionSettings $path
-        @($read.Excluded).Count | Should -Be 0
+        $read.IndexExcludes.Count | Should -Be 0
         @($read.Notepad).Count | Should -Be 0
-        @((newSettings).excludedTextExtensions).Count | Should -Be 0
+        $read.EditorPath | Should -Be ""
         @((newSettings).notepadTextExtensions).Count | Should -Be 0
+        (newSettings).indexTextExcludes.Count | Should -Be 0
+        (newSettings).textEditorPath | Should -Be ""
+        (newSettings).Contains("excludedTextExtensions") | Should -BeFalse
     }
 
-    It "書いて読み直すと同じ。ほかの設定は変えない" {
+    It "インデックスごとに書いて読み直すと同じ。ほかのインデックス・ほかの設定は変えない" {
         $path = "$TestDrive\textext_write.config"
         writeSearchOption @{ UseRegex = $true } $path
-        writeTextExtensionSettings @(".log", ".csv") @(".html") $path
+        writeIndexTextExcludes "営業" @(".log", ".csv") $path
+        writeIndexTextExcludes "経理" @(".md") $path
         $read = readTextExtensionSettings $path
-        ($read.Excluded -join ",") | Should -Be ".log,.csv"
-        ($read.Notepad -join ",") | Should -Be ".html"
+        ($read.IndexExcludes["営業"] -join ",") | Should -Be ".log,.csv"
+        ($read.IndexExcludes["経理"] -join ",") | Should -Be ".md"
         (readSearchOption $path).UseRegex | Should -Be $true
+        # 営業だけ書き換えても、経理は残る
+        writeIndexTextExcludes "営業" @(".txt") $path
+        $read = readTextExtensionSettings $path
+        ($read.IndexExcludes["営業"] -join ",") | Should -Be ".txt"
+        ($read.IndexExcludes["経理"] -join ",") | Should -Be ".md"
+    }
+
+    It "空を書くと、そのインデックスの項目を消す（ほかは残す）" {
+        $path = "$TestDrive\textext_clear.config"
+        writeIndexTextExcludes "営業" @(".log") $path
+        writeIndexTextExcludes "経理" @(".md") $path
+        writeIndexTextExcludes "営業" @() $path
+        $read = readTextExtensionSettings $path
+        $read.IndexExcludes.ContainsKey("営業") | Should -BeFalse
+        $read.IndexExcludes.ContainsKey("経理") | Should -BeTrue
+        writeIndexTextExcludes "経理" @() $path
+        (readTextExtensionSettings $path).IndexExcludes.Count | Should -Be 0
+        # 設定ファイルには空のオブジェクトで残る
+        [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8) | Should -Match '"indexTextExcludes":\s*\{\s*\}'
+    }
+
+    It "改名で項目のキーを付け替える。古い名前の項目が無ければ何もしない。新しい名前の項目があれば置き換える" {
+        $path = "$TestDrive\textext_rename.config"
+        writeIndexTextExcludes "営業" @(".log") $path
+        writeIndexTextExcludes "新営業" @(".md") $path
+        renameIndexTextExcludes "営業" "新営業" $path
+        $read = readTextExtensionSettings $path
+        $read.IndexExcludes.ContainsKey("営業") | Should -BeFalse
+        ($read.IndexExcludes["新営業"] -join ",") | Should -Be ".log"
+        $before = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
+        renameIndexTextExcludes "無い" "別の名前" $path
+        [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8) | Should -Be $before
     }
 
     It "<name>" -TestCases @(
-        @{ name = "大文字は小文字にそろえ、一覧に無いもの（.exe）・文字列でないもの・重複は捨てる"; json = '{ "excludedTextExtensions": [".EXE", ".Log", 1, ".log", null] }'; expected = ".log" }
-        @{ name = "配列でない 1 つの値も 1 件として読む"; json = '{ "excludedTextExtensions": ".log" }'; expected = ".log" }
-        @{ name = "一覧に無いものだけなら空"; json = '{ "excludedTextExtensions": [".exe", ".bat.exe"] }'; expected = "" }
-        @{ name = "前後の空白は取る"; json = '{ "excludedTextExtensions": [" .txt "] }'; expected = ".txt" }
+        @{ name = "大文字は小文字にそろえ、一覧に無いもの（.exe）・文字列でないもの・重複は捨てる"; json = '{ "indexTextExcludes": { "営業": [".EXE", ".Log", 1, ".log", null] } }'; expected = ".log" }
+        @{ name = "配列でない 1 つの値も 1 件として読む"; json = '{ "indexTextExcludes": { "営業": ".log" } }'; expected = ".log" }
+        @{ name = "一覧に無いものだけなら、項目は無い（全部取り込む）"; json = '{ "indexTextExcludes": { "営業": [".exe", ".bat.exe"] } }'; expected = "" }
+        @{ name = "オブジェクトでない値（配列・文字列・数）は無いものとして読む"; json = '{ "indexTextExcludes": [".log"] }'; expected = "" }
+        @{ name = "文字列の値も無いものとして読む"; json = '{ "indexTextExcludes": ".log" }'; expected = "" }
+        @{ name = "数の値も無いものとして読む"; json = '{ "indexTextExcludes": 5 }'; expected = "" }
     ) {
         param ($name, $json, $expected)
         $path = Join-Path $TestDrive "textext_$([guid]::NewGuid()).config"
         [System.IO.File]::WriteAllText($path, $json, ${utf8Bom})
-        (@((readTextExtensionSettings $path).Excluded) -join ",") | Should -Be $expected
+        $read = readTextExtensionSettings $path
+        $actual = $(if ($read.IndexExcludes.ContainsKey("営業")) { @($read.IndexExcludes["営業"]) -join "," } else { "" })
+        $actual | Should -Be $expected
     }
 
-    It "書くときも一覧に無いものは捨てる" {
-        $path = "$TestDrive\textext_filter.config"
-        writeTextExtensionSettings @(".exe", ".log") @(".com") $path
-        $raw = readSettings $path
-        (@($raw.excludedTextExtensions) -join ",") | Should -Be ".log"
-        @($raw.notepadTextExtensions).Count | Should -Be 0
+    It "開き方は、実行・登録になる拡張子（常にエディタ）を書かず、一覧に無いものは捨てる。ほかのキーは保つ" {
+        $path = "$TestDrive\textext_open.config"
+        writeIndexTextExcludes "営業" @(".log") $path
+        writeTextOpenSettings @(".html", ".BAT", ".exe", ".css") $path
+        $read = readTextExtensionSettings $path
+        (@($read.Notepad) -join ",") | Should -Be ".html,.css"
+        ($read.IndexExcludes["営業"] -join ",") | Should -Be ".log"
+    }
+
+    It "エディタのパスは、設定にある文字列をそのまま返す（使えるかは testTextEditorPath）" {
+        $path = "$TestDrive\textext_editor.config"
+        [System.IO.File]::WriteAllText($path, '{ "textEditorPath": "D:\\tools\\editor.exe" }', ${utf8Bom})
+        (readTextExtensionSettings $path).EditorPath | Should -Be "D:\tools\editor.exe"
     }
 }
-
 
 Describe "readSearchOption / writeSearchOption" -Tag Io {
     # writes: 順に保存する項目、expected: 読み込んだときの値

@@ -407,3 +407,21 @@ Describe "getTextOpenWay / testTextOpenWithNotepad の追加分" -Tag Unit {
         testTextOpenWithNotepad $path $extra | Should -Be ($expected -eq "notepad")
     }
 }
+
+Describe "getTextExtensionCounts" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "空・引数なしは空"; names = @(); expected = "" }
+        @{ name = "拡張子ごとに数える（大文字・小文字は同じ）"; names = @("a.txt", "b.TXT", "c.log", "d.Log", "e.log"); expected = ".log=3,.txt=2" }
+        @{ name = "パスでも拡張子だけを見る"; names = @("C:\data\営業\a.csv", "b\c.d\e.csv"); expected = ".csv=2" }
+        @{ name = "固定の一覧に無い拡張子（Office・PDF・.exe）は数えない"; names = @("a.xlsx", "b.pdf", "c.exe", "d.zip", "e.txt"); expected = ".txt=1" }
+        @{ name = "拡張子の無い名前は数えない"; names = @("README", ".gitignore2"); expected = "" }
+    ) {
+        param ($name, $names, $expected)
+        $counts = getTextExtensionCounts $names
+        (($counts.Keys | Sort-Object | ForEach-Object { "$_=$($counts[$_])" }) -join ",") | Should -Be $expected
+    }
+
+    It "引数なしでも例外にならず、空のハッシュテーブルを返す" {
+        (getTextExtensionCounts).Count | Should -Be 0
+    }
+}

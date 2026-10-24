@@ -631,34 +631,57 @@ Describe "IngestPlanner" -Tag Io {
         @($planner.RemovedPaths) | Should -Be @("売上\消えた.xlsx")
     }
 
-    It "Extensions を渡さなければ、Crawl は設定で取り込まないと選んだ拡張子を除いた一覧を使う（始めに 1 回だけ読む）" {
-        $textSource = Join-Path $TestDrive "planner-ext-src"
-        [System.IO.Directory]::CreateDirectory($textSource) | Out-Null
-        [System.IO.File]::WriteAllText((Join-Path $textSource "a.log"), "ログ")
-        [System.IO.File]::WriteAllText((Join-Path $textSource "b.txt"), "メモ")
-        $folders = @([pscustomobject]@{ Path = $textSource; Name = "拡張子"; Enabled = $true })
+    It "TextExcludes を入れなければ、Crawl は設定の indexTextExcludes（インデックスごと）を始めに 1 回だけ読んで使う。ほかのインデックスには効かない" {
+        $dirA = Join-Path $TestDrive "planner-ext-a"
+        $dirB = Join-Path $TestDrive "planner-ext-b"
+        foreach ($dir in @($dirA, $dirB)) {
+            [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+            [System.IO.File]::WriteAllText((Join-Path $dir "a.log"), "ログ")
+            [System.IO.File]::WriteAllText((Join-Path $dir "b.txt"), "メモ")
+        }
+        $folders = @(
+            [pscustomobject]@{ Path = $dirA; Name = "営業"; Enabled = $true }
+            [pscustomobject]@{ Path = $dirB; Name = "経理"; Enabled = $true }
+        )
         $before = $null
         if (Test-Path -LiteralPath $settingsFile) { $before = [System.IO.File]::ReadAllBytes($settingsFile) }
-        writeTextExtensionSettings @(".log") @() $settingsFile
+        writeIndexTextExcludes "営業" @(".log") $settingsFile
         try {
             $planner = newPlanner $folders @()
             $planner.Crawl((newCounts), $null)
-            @($planner.Targets | ForEach-Object { [System.IO.Path]::GetFileName($_.相対パス) }) | Should -Be @("b.txt")
-            @($planner.Extensions) | Should -Not -Contain ".log"
-            @($planner.Extensions) | Should -Contain ".txt"
+            @($planner.Targets | ForEach-Object { $_.相対パス } | Sort-Object) | Should -Be @("営業\b.txt", "経理\a.log", "経理\b.txt")
+            $planner.TextExcludes["営業"] | Should -Be @(".log")
         } finally {
             # 前の中身に戻す（ほかの It も同じファイルを使うため、消さない。もともと無ければ消す）
             if ($null -ne $before) { [System.IO.File]::WriteAllBytes($settingsFile, $before) } else { Remove-Item -LiteralPath $settingsFile -Force -ErrorAction SilentlyContinue }
         }
     }
 
-    It "Extensions を先に入れたときは、設定を読まずにそれを使う" {
-        $textSource = Join-Path $TestDrive "planner-ext-src"
-        $folders = @([pscustomobject]@{ Path = $textSource; Name = "拡張子"; Enabled = $true })
+    It "TextExcludes を先に入れたときは、設定を読まずにそれを使う（同じ名前の複数のフォルダは同じ一覧になる）" {
+        $dirA = Join-Path $TestDrive "planner-ext-a"
+        $dirB = Join-Path $TestDrive "planner-ext-b"
+        $folders = @(
+            [pscustomobject]@{ Path = $dirA; Name = "営業"; Enabled = $true }
+            [pscustomobject]@{ Path = $dirB; Name = "営業"; Enabled = $true }
+        )
         $planner = newPlanner $folders @()
-        $planner.Extensions = @(getTargetExtensionList @(".txt"))
+        $planner.TextExcludes = @{ "営業" = @(".txt") }
         $planner.Crawl((newCounts), $null)
-        @($planner.Targets | ForEach-Object { [System.IO.Path]::GetFileName($_.相対パス) }) | Should -Be @("a.log")
+        @($planner.Targets | ForEach-Object { [System.IO.Path]::GetFileName($_.相対パス) }) | Should -Be @("a.log", "a.log")
+    }
+
+    It "インデックス名ごとの拡張子ごとの件数（取り込まない拡張子の分も。同じ名前の複数のフォルダは合計）を持つ" {
+        $dirA = Join-Path $TestDrive "planner-ext-a"
+        $folders = @([pscustomobject]@{ Path = $dirA; Name = "営業"; Enabled = $true })
+        $folders += [pscustomobject]@{ Path = (Join-Path $TestDrive "planner-ext-b"); Name = "営業"; Enabled = $true }
+        $planner = newPlanner $folders @()
+        $planner.TextExcludes = @{ "営業" = @(".txt") }
+        $planner.Crawl((newCounts), $null)
+        $counts = $planner.TextCountsByIndex["営業"]
+        $counts[".txt"] | Should -Be 2
+        $counts[".log"] | Should -Be 2
+        $counts.Count | Should -Be 2
+        $planner.TextCountsByIndex.Count | Should -Be 1
     }
 
     It "クロールで、取り込み対象・チェックなし・フォルダなし・外れたインデックスを画面に出す件数に分ける" {
@@ -969,6 +992,24 @@ Describe "getTargetExtensionList / 取り込まない拡張子（createTargetLis
         @($result.Removed) | Should -Be @("拡張子\消えた.txt")
         Should -Invoke writeIndexerLog -Times 1 -Exactly -ParameterFilter { $text -like "*元ファイルが無くなった 1 件は、インデックスから除きます*" }
         Should -Invoke writeIndexerLog -Times 0 -Exactly -ParameterFilter { $text -like "*取り込まないにした拡張子*" }
+    }
+
+    It "拡張子ごとの件数は、取り込まない拡張子の分も数え、Office・PDF・tebunko が作ったファイルは数えない" {
+        $countSource = Join-Path $TestDrive "src_counts"
+        [System.IO.Directory]::CreateDirectory($countSource) | Out-Null
+        foreach ($name in @("a.log", "b.LOG", "c.txt", "d.xlsx", "e.pdf", "f.zip", "content_index.xlsx.001.tsv", "system_index_state.tsv")) {
+            [System.IO.File]::WriteAllText((Join-Path $countSource $name), "x")
+        }
+        $result = findTargetFiles $countSource $null (getTargetExtensionList @(".log"))
+        $result.TextCounts[".log"] | Should -Be 2
+        $result.TextCounts[".txt"] | Should -Be 1
+        $result.TextCounts.ContainsKey(".xlsx") | Should -BeFalse
+        $result.TextCounts.ContainsKey(".pdf") | Should -BeFalse
+        $result.TextCounts.ContainsKey(".zip") | Should -BeFalse
+        # tebunko が作った TSV は、拡張子 .tsv の件数に入らない
+        $result.TextCounts.ContainsKey(".tsv") | Should -BeFalse
+        # 取り込む一覧で絞るので、取り込まない .log は Files に出ない
+        (@($result.Files | ForEach-Object { $_.Name } | Sort-Object) -join ",") | Should -Be "c.txt,d.xlsx,e.pdf"
     }
 
     It "取り込むに戻す（一覧に .log を入れる）と、.log は新規として数える" {

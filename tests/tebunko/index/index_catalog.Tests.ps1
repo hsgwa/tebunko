@@ -537,6 +537,27 @@ Describe "IndexCatalog.RenameIndex / RemoveIndex の外したフォルダの記�
         $paths | Should -Be @("$($script:dir)\Sales2\見積", "$($script:dir)\技術\図面")
     }
 
+    It "名前を変えると、取り込まない拡張子の項目のキーを新しい名前に付け替える。ほかのインデックスの項目は残す" {
+        writeIndexTextExcludes "Sales" @(".log") $script:settings
+        writeIndexTextExcludes "技術" @(".md") $script:settings
+        $script:ws.Catalog.RenameIndex("Sales", "営業")
+
+        $read = (readTextExtensionSettings $script:settings).IndexExcludes
+        $read.ContainsKey("Sales") | Should -BeFalse
+        ($read["営業"] -join ",") | Should -Be ".log"
+        ($read["技術"] -join ",") | Should -Be ".md"
+    }
+
+    It "インデックスを削除すると、取り込まない拡張子の項目を消し、ほかのインデックスの項目は残す" {
+        writeIndexTextExcludes "Sales" @(".log") $script:settings
+        writeIndexTextExcludes "技術" @(".md") $script:settings
+        $script:ws.Catalog.RemoveIndex("Sales")
+
+        $read = (readTextExtensionSettings $script:settings).IndexExcludes
+        $read.ContainsKey("Sales") | Should -BeFalse
+        ($read["技術"] -join ",") | Should -Be ".md"
+    }
+
     It "記録を消せなくても、名前の変更・削除は例外にならない" {
         # 設定ファイルの場所をフォルダにして、読み書きを失敗させる
         $bad = "$TestDrive\excl\badsetting"

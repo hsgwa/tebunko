@@ -68,6 +68,23 @@ function testTextExtension {
     return (${textExtensions} -contains $extension)
 }
 
+function getTextExtensionCounts {
+    # ファイル名（またはパス）の一覧から、テキストの拡張子（${textExtensions}）ごとの件数を返す: 拡張子（小文字）→ 件数。
+    # ${textExtensions} に無い拡張子（Office・PDF・そのほか）は数えない
+    param (
+        [string[]]$names = @()
+    )
+
+    $counts = @{}
+    foreach ($name in @($names)) {
+        $extension = [System.IO.Path]::GetExtension([string]$name).ToLowerInvariant()
+        if (${textExtensions} -contains $extension) {
+            $counts[$extension] = 1 + [int]$counts[$extension]
+        }
+    }
+    return $counts
+}
+
 function getTextTargetExtensions {
     # 取り込み対象のテキストの拡張子（${textExtensions} の順）から、取り込まないと選んだ拡張子を除いた一覧を返す。
     # excluded のうち ${textExtensions} に無いものは無視する（固定の一覧の外は増えない）。大文字・小文字を区別しない

@@ -12,6 +12,7 @@ BeforeAll {
     . "${scriptsDir}\shared\ui\types.ps1"
     . "${scriptsDir}\tebunko\ui\search\result_types.ps1"
     . "${scriptsDir}\shared\ui\data_grid.ps1"
+    . "${scriptsDir}\tebunko\ui\settings\text_open_view.ps1"
 
     function newFakeControl {
         # イベントの登録（Add_<イベント>）を Handlers に記録するだけの偽のコントロール
@@ -599,11 +600,16 @@ Describe "openWithShell（-noFallback）" -Tag Io {
     }
 }
 
-Describe "openWithNotepad" -Tag Io {
+Describe "openWithEditor" -Tag Io {
+    BeforeEach {
+        # 設定は読まない（利用者の設定ファイルを見ない）。エディタは空＝メモ帳
+        Mock readTextExtensionSettings { @{ IndexExcludes = @{}; Notepad = @(); EditorPath = "" } }
+    }
+
     It "固定のパス（%SystemRoot%\System32\notepad.exe）で、対象のパスを引数にして開く" {
         Mock Start-Process { }
 
-        openWithNotepad "$TestDrive\起動.bat"
+        openWithEditor "$TestDrive\起動.bat"
         Should -Invoke Start-Process -Times 1 -Exactly -ParameterFilter {
             $FilePath -eq "$env:SystemRoot\System32\notepad.exe" -and $ArgumentList -eq "`"$TestDrive\起動.bat`""
         }
@@ -612,7 +618,7 @@ Describe "openWithNotepad" -Tag Io {
     It "[ ] や空白を含むパスも、引用符で囲んだ 1 つの引数として渡す" {
         Mock Start-Process { }
 
-        openWithNotepad "$TestDrive\[確定] 起動 スクリプト.js"
+        openWithEditor "$TestDrive\[確定] 起動 スクリプト.js"
         Should -Invoke Start-Process -Times 1 -Exactly -ParameterFilter {
             $ArgumentList -eq "`"$TestDrive\[確定] 起動 スクリプト.js`""
         }
@@ -621,13 +627,56 @@ Describe "openWithNotepad" -Tag Io {
     It "開けたときは true を返す" {
         Mock Start-Process { }
 
-        openWithNotepad "$TestDrive\起動.bat" | Should -Be $true
+        openWithEditor "$TestDrive\起動.bat" | Should -Be $true
     }
 
     It "メモ帳が無い等で起動できないときは、例外を投げずに false を返す（既定のアプリには戻さない）" {
         Mock Start-Process { throw "指定されたファイルが見つかりません。" }
 
-        openWithNotepad "$TestDrive\起動.bat" | Should -Be $false
+        openWithEditor "$TestDrive\起動.bat" | Should -Be $false
+    }
+
+    It "設定のエディタが空なら知らせは空" {
+        Mock Start-Process { }
+
+        [void](openWithEditor "$TestDrive\起動.bat")
+        getTextEditorNotice | Should -Be ""
+    }
+
+    It "設定のエディタ（形が正しく、ファイルがある .exe）があれば、そのプログラムで開く" {
+        $editor = Join-Path $TestDrive "マイエディタ.exe"
+        [System.IO.File]::WriteAllText($editor, "dummy")
+        Mock readTextExtensionSettings { @{ IndexExcludes = @{}; Notepad = @(); EditorPath = $editor } }.GetNewClosure()
+        Mock Start-Process { }
+
+        openWithEditor "$TestDrive\起動.bat" | Should -Be $true
+        Should -Invoke Start-Process -Times 1 -Exactly -ParameterFilter {
+            $FilePath -eq $editor -and $ArgumentList -eq "`"$TestDrive\起動.bat`""
+        }
+        getTextEditorNotice | Should -Be ""
+    }
+
+    It "設定のエディタが使えないとき（<name>）は、既定のアプリには戻さず、メモ帳で開いて知らせる" -TestCases @(
+        @{ name = "ファイルが無い"; configured = "C:\存在しない\エディタ.exe" }
+        @{ name = "形が正しくない（.bat）"; configured = "C:\tools\editor.bat" }
+        @{ name = "引数付き"; configured = "C:\tools\editor.exe /a" }
+        @{ name = "[ ] を含む"; configured = "C:\tools[1]\editor.exe" }
+    ) {
+        param ($name, $configured)
+        Mock readTextExtensionSettings { @{ IndexExcludes = @{}; Notepad = @(); EditorPath = $configured } }.GetNewClosure()
+        Mock Start-Process { }
+
+        openWithEditor "$TestDrive\起動.bat" | Should -Be $true
+        Should -Invoke Start-Process -Times 1 -Exactly -ParameterFilter { $FilePath -eq "$env:SystemRoot\System32\notepad.exe" }
+        getTextEditorNotice | Should -Be "設定のエディタ（textEditorPath）が使えないため、メモ帳で開きます。"
+    }
+
+    It "設定を読めないときは、設定なしと同じにメモ帳で開く" {
+        Mock readTextExtensionSettings { throw "読めない" }
+        Mock Start-Process { }
+
+        openWithEditor "$TestDrive\起動.bat" | Should -Be $true
+        Should -Invoke Start-Process -Times 1 -Exactly -ParameterFilter { $FilePath -eq "$env:SystemRoot\System32\notepad.exe" }
     }
 }
 
@@ -744,35 +793,35 @@ Describe "openSource" -Tag Unit {
     It "開くと実行・登録になる拡張子（.bat など）のテキストは、既定のアプリではなくメモ帳で開く" {
         Mock getCurrentHitRow { newRow "起動.bat" $false $true }
         Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\起動.bat" }
-        Mock openWithNotepad { $true }
+        Mock openWithEditor { $true }
         Mock openWithShell { $true }
 
         openSource ${openModeReadOnly}
-        Should -Invoke openWithNotepad -Times 1 -Exactly -ParameterFilter { $path -eq "C:\data\起動.bat" }
+        Should -Invoke openWithEditor -Times 1 -Exactly -ParameterFilter { $path -eq "C:\data\起動.bat" }
         Should -Invoke openWithShell -Times 0 -Exactly
-        lastStatus | Should -Be "メモ帳で開きました：C:\data\起動.bat"
+        lastStatus | Should -Be "エディタで開きました：C:\data\起動.bat"
     }
 
     It "メモ帳で開けなかったときは、既定のアプリには戻さず失敗を伝える" {
         Mock getCurrentHitRow { newRow "起動.bat" $false $true }
         Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\起動.bat" }
-        Mock openWithNotepad { $false }
+        Mock openWithEditor { $false }
         Mock openWithShell { $true }
 
         openSource ${openModeReadOnly}
         Should -Invoke openWithShell -Times 0 -Exactly
-        lastStatus | Should -Be "メモ帳で開けませんでした：C:\data\起動.bat"
+        lastStatus | Should -Be "エディタで開けませんでした：C:\data\起動.bat"
     }
 
-    It "既定のアプリで開くテキスト（.html など）は、openWithNotepad を呼ばない" {
+    It "既定のアプリで開くテキスト（.html など）は、openWithEditor を呼ばない" {
         Mock getCurrentHitRow { newRow "解析.html" $false $true }
         Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\解析.html" }
-        Mock openWithNotepad { }
+        Mock openWithEditor { }
         Mock openWithShell { $true }
 
         openSource ${openModeReadOnly}
         Should -Invoke openWithShell -Times 1 -Exactly -ParameterFilter { $path -eq "C:\data\解析.html" }
-        Should -Invoke openWithNotepad -Times 0 -Exactly
+        Should -Invoke openWithEditor -Times 0 -Exactly
         lastStatus | Should -Be "開きました：C:\data\解析.html"
     }
 
@@ -791,13 +840,13 @@ Describe "openSource" -Tag Unit {
         Mock getCurrentHitRow { newRow "解析.html" $false $true }
         Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\解析.html" }
         Mock readTextExtensionSettings { @{ Excluded = @(); Notepad = @(".html") } }
-        Mock openWithNotepad { $true }
+        Mock openWithEditor { $true }
         Mock openWithShell { $true }
 
         openSource ${openModeNormal}
-        Should -Invoke openWithNotepad -Times 1 -Exactly -ParameterFilter { $path -eq "C:\data\解析.html" }
+        Should -Invoke openWithEditor -Times 1 -Exactly -ParameterFilter { $path -eq "C:\data\解析.html" }
         Should -Invoke openWithShell -Times 0 -Exactly
-        lastStatus | Should -Be "メモ帳で開きました：C:\data\解析.html"
+        lastStatus | Should -Be "エディタで開きました：C:\data\解析.html"
     }
 
     It "設定を読めないときは、設定なしと同じに開く（.html は既定のアプリ、.bat はメモ帳）" -TestCases @(
@@ -808,11 +857,11 @@ Describe "openSource" -Tag Unit {
         Mock getCurrentHitRow { newRow $name $false $true }
         Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\$name" }
         Mock readTextExtensionSettings { throw "読めない" }
-        Mock openWithNotepad { $true }
+        Mock openWithEditor { $true }
         Mock openWithShell { $true }
 
         openSource ${openModeNormal}
-        Should -Invoke openWithNotepad -Times ([int]$notepad) -Exactly
+        Should -Invoke openWithEditor -Times ([int]$notepad) -Exactly
         Should -Invoke openWithShell -Times ([int](-not $notepad)) -Exactly
     }
 
@@ -820,11 +869,11 @@ Describe "openSource" -Tag Unit {
         Mock getCurrentHitRow { newRow "起動.bat" $false $true }
         Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\起動.bat" }
         Mock readTextExtensionSettings { @{ Excluded = @(); Notepad = @() } }
-        Mock openWithNotepad { $true }
+        Mock openWithEditor { $true }
         Mock openWithShell { $true }
 
         openSource ${openModeNormal}
-        Should -Invoke openWithNotepad -Times 1 -Exactly
+        Should -Invoke openWithEditor -Times 1 -Exactly
         Should -Invoke openWithShell -Times 0 -Exactly
     }
 
@@ -835,7 +884,7 @@ Describe "openSource" -Tag Unit {
     ) {
         Mock getCurrentHitRow { newRow $book $false $isText }
         Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\$($row.Book)" }
-        Mock openWithNotepad { }
+        Mock openWithEditor { }
         Mock openWithShell { setStatus "断りました"; $false }
 
         openSource ${openModeReadOnly}
@@ -850,20 +899,20 @@ Describe "openSource" -Tag Unit {
     ) {
         Mock getCurrentHitRow { newRow $book $false $true }
         Mock findSourceFile { }
-        Mock openWithNotepad { }
+        Mock openWithEditor { }
         Mock openWithShell { $true }
 
         openSource ${openModeReadOnly}
         Should -Invoke findSourceFile -Times 0 -Exactly
         Should -Invoke openWithShell -Times 0 -Exactly
-        Should -Invoke openWithNotepad -Times 0 -Exactly
+        Should -Invoke openWithEditor -Times 0 -Exactly
         lastStatus | Should -Be "取り込み対象のファイル名ではないため、開きません：$book"
     }
 
     Context "新規で開く（「新規」の動詞が無い種類はコピーを開く）" {
         BeforeEach {
             Mock getOpenCopyDir { "C:\work\tmp\key\open_copy" }
-            Mock openWithNotepad { $true }
+            Mock openWithEditor { $true }
             Mock openWithShell { $true }
             Mock openInExcel { }
             Mock getWorkspaceJobQueue { "default" }
@@ -893,9 +942,9 @@ Describe "openSource" -Tag Unit {
             Mock copySourceForOpen { @{ Path = "C:\work\tmp\key\open_copy\abc\起動.bat"; Reason = "" } }
 
             openSource ${openModeNew}
-            Should -Invoke openWithNotepad -Times 1 -Exactly -ParameterFilter { $path -eq "C:\work\tmp\key\open_copy\abc\起動.bat" }
+            Should -Invoke openWithEditor -Times 1 -Exactly -ParameterFilter { $path -eq "C:\work\tmp\key\open_copy\abc\起動.bat" }
             Should -Invoke openWithShell -Times 0 -Exactly
-            lastStatus | Should -Be (getOpenCopyOpenedStatus "C:\data\起動.bat" "C:\work\tmp\key\open_copy\abc\起動.bat" "メモ帳")
+            lastStatus | Should -Be (getOpenCopyOpenedStatus "C:\data\起動.bat" "C:\work\tmp\key\open_copy\abc\起動.bat" "エディタ")
         }
 
         It "コピーを作れなければ、何も開かず、理由（<reason>）に合わせて［開く］を使うよう伝える" -TestCases @(
@@ -909,7 +958,7 @@ Describe "openSource" -Tag Unit {
 
             openSource ${openModeNew}
             Should -Invoke openWithShell -Times 0 -Exactly
-            Should -Invoke openWithNotepad -Times 0 -Exactly
+            Should -Invoke openWithEditor -Times 0 -Exactly
             lastStatus | Should -Be (getOpenCopyFailedStatus "C:\data\仕様書.pdf" $reason)
         }
 

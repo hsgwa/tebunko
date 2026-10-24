@@ -68,6 +68,7 @@
 | 関数 | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
 | `testTextExtension` | path | bool | 拡張子が対象のテキストの拡張子（`$textExtensions`。大文字・小文字を区別しない）か | ingestFile, getContentIndexFileKind, describePlace, findTargetFiles（`$targetExtensions`） |
+| `getTextExtensionCounts` | names（ファイル名・パスの並び） | ハッシュテーブル（拡張子 → 件数） | `$textExtensions` の拡張子ごとの件数（小文字。Office・PDF・一覧に無い拡張子は数えない） | `findTargetFiles`（`TextCounts`） |
 | `getTextTargetExtensions` | excluded（省略可） | string[] | `$textExtensions` から excluded（取り込まないと選んだ拡張子。大文字・小文字を区別せず、一覧に無いものは無視）を除いた一覧（`$textExtensions` の順） | `getTargetExtensionList` |
 | `getTextOpenWay` | path, notepadExtra（省略可） | `"notepad"` / `"default"` | テキストの開き方。`$textNotepadExtensions` は常に `notepad`、notepadExtra に入る `$textExtensions` の拡張子も `notepad`。終わりの `.` と空白は落としてから見る | `testTextOpenWithNotepad` |
 | `testTextOpenWithNotepad` | path, notepadExtra（省略可） | bool | 拡張子が、既定のアプリではなくメモ帳で開く拡張子（`$textNotepadExtensions`。開くと実行・登録になるもの。notepadExtra は設定でメモ帳にした拡張子。大文字・小文字を区別しない。終わりの `.` と空白は Windows が無視して開くので、落としてから見る）か | openFoundSource（[元のファイルを開く](../gui/open-file.md)） |

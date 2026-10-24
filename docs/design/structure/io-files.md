@@ -126,7 +126,8 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 | 場所 | 読む／書く | 使うところ |
 |---|---|---|
 | `%USERPROFILE%`（`GetFolderPath("UserProfile")`） | 読む（パスを組み立てる） | 既定のワークスペースの場所（`getDefaultWorkDir`） |
-| `%SystemRoot%\System32\notepad.exe` | 起動する | ログ・拡張子が危ないファイルを開く（`openWithNotepad`・［ログを開く］） |
+| `%SystemRoot%\System32\notepad.exe` | 起動する | ログ・拡張子が危ないファイルを開く（`openWithEditor` の既定のエディタ・［ログを開く］） |
+| 設定 `textEditorPath` のプログラム（`.exe`） | 起動する（あるときだけ） | 「エディタで開く」に使う。利用者が自分の設定ファイルに書いた絶対パスで、`testTextEditorPath` を通り、ファイルがあるときだけ。通らなければメモ帳（`openWithEditor`） |
 | `%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe` | 起動する | 起動口（`tebunko.bat`・`tebunko.exe`）。PATH からは探さない |
 | `explorer.exe` | 起動する | ［フォルダを開く］・フォルダの選択・「バージョン情報」のリンク（決まった 2 つのアドレスを既定のブラウザで開く） |
 | `%SystemRoot%\System32\ntoskrnl.exe` | 読む（ファイルの版だけ） | ログの見出しの OS の版（`getEnvironmentInfo`） |

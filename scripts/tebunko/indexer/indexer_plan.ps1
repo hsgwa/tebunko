@@ -169,6 +169,7 @@ function findTargetFiles {
     # （設定に書かれたパスは、末尾の \ ・ドライブ文字と UNC パスなど書き方が違うことがあるため、文字数で切り出さない）。
     # tebunko が作ったファイル（getTebunkoExcludeDirs のフォルダの下・名前で分かるファイル）は対象に含めない
     # shouldStop: 省略できる。フォルダ 1 つを読むごとに見て、$true を返したら読むのをやめる（中止を求められたとき）
+    # TextCounts（戻り値）: テキストの拡張子ごとの件数（拡張子 → 件数。取り込まない拡張子の分も含む）
     # extensions: 省略できる。取り込む拡張子の一覧（小文字）。省略すると $targetExtensions（選べる範囲の上限）
     param (
         [string]$targetFolder,
@@ -189,7 +190,8 @@ function findTargetFiles {
     if ($tree.Stopped) {
         return @{ Root = $root; Files = @(); Links = @($tree.Links); HasError = $tree.HasError; Stopped = $true }
     }
-    $scanned = @($tree.Files | Where-Object { ($extensions -contains $_.Extension.ToLower()) -and -not $_.Name.StartsWith('~$') })
+    # 列挙は選べる上限（$targetExtensions）で 1 回だけ行い、拡張子ごとの件数を数えてから、取り込む一覧（extensions）で絞る
+    $scanned = @($tree.Files | Where-Object { ($targetExtensions -contains $_.Extension.ToLower()) -and -not $_.Name.StartsWith('~$') })
 
     # 除外するフォルダの \\?\ 付きの前方一致の文字列を先に作る（ファイルごとにドライブの割り当てをたどる処理は呼ばない）。
     # このクロール対象フォルダの外にあるものは、どのファイルにも当たらないため先に落とす（比べる数を減らす）
@@ -197,14 +199,17 @@ function findTargetFiles {
     $excludeDirPrefixes = @(getTebunkoExcludeDirs $scanned | ForEach-Object { (toLongPath $_).TrimEnd("\") } | Where-Object {
         $_.Equals($longRootPrefix, [System.StringComparison]::OrdinalIgnoreCase) -or $_.StartsWith("$longRootPrefix\", [System.StringComparison]::OrdinalIgnoreCase)
     })
-    $files = @($scanned | Where-Object {
+    $candidates = @($scanned | Where-Object {
         if ($excludeDirPrefixes.Count -gt 0 -and (testUnderAnyDir $_.FullName $excludeDirPrefixes)) { return $false }
         # 名前で分かる tebunko のファイル（content_index.*.tsv 等）は、テキストの拡張子にしか当たらないため、それだけ調べる
         if ((testTextExtension $_.Name) -and (testTebunkoOwnFileName $_.Name)) { return $false }
         return $true
     })
+    # テキストの拡張子ごとの件数（tebunko が作ったファイルを除いた後。取り込まないにした拡張子の分も数える）
+    $textCounts = getTextExtensionCounts @($candidates | ForEach-Object { $_.Name })
+    $files = @($candidates | Where-Object { $extensions -contains $_.Extension.ToLower() })
 
-    return @{ Root = $root; Files = $files; Links = @($tree.Links); HasError = $tree.HasError; Stopped = $false }
+    return @{ Root = $root; Files = $files; Links = @($tree.Links); HasError = $tree.HasError; Stopped = $false; TextCounts = $textCounts }
 }
 
 function writeRemovedTargetLog {
@@ -236,6 +241,7 @@ function createTargetList {
     #            Rows には前回の行をそのまま入れる（前回の行が無い・前回未完了のときは入れない）
     #   Plan   : 画面の確認に出す件数（newIngestPlanRow。取り込み予定.tsv の1行）
     #   Removed: 元のファイルが無くなったファイル・取り込まないにした拡張子のファイルの相対パス（呼び出し元が本文インデックスのファイルから外す）
+    #   TextCounts: テキストの拡張子ごとの件数（拡張子 → 件数。取り込まない拡張子の分も含む。findTargetFiles の TextCounts）
     #   Stopped: shouldStop が $true を返して途中で止めた。このときほかの値は空で、何も消していない（呼び出し元は前回の行をそのまま残す）
     # 行の相対パスは "インデックス名\フォルダからの相対パス"（= work\index からの相対パス）とする。
     # ・前回の一覧と更新日時・サイズが同じで取り込み済み（済）のファイルは取り込まない
@@ -394,7 +400,7 @@ function createTargetList {
     $plan = newIngestPlanRow $folder.Name $folder.Path ${planKindIngest} $scan.Files.Count $targets.Count `
         $count.New $count.Updated $count.Pending $count.Lost $failed.Count `
         $cloudCount $cloudFailedCount $cloudBytes $cloudFailedBytes
-    return @{ Rows = $rows; Targets = $targets; Failed = $failed; Cloud = $cloud; Plan = $plan; Removed = $removed.ToArray(); Stopped = $false }
+    return @{ Rows = $rows; Targets = $targets; Failed = $failed; Cloud = $cloud; Plan = $plan; Removed = $removed.ToArray(); Stopped = $false; TextCounts = $scan.TextCounts }
 }
 
 # ----------------------------------------------------------------------------
@@ -433,9 +439,12 @@ class IngestPlanner {
     $Carried
     # Crawl を中止で途中で止めた（止めたフォルダ・まだのフォルダは、前回の行をそのまま Rows に入れてある）
     [bool]$Stopped
-    # 取り込む拡張子の一覧（Crawl が createTargetList に渡す）。$null のまま Crawl を呼ぶと、設定で取り込まないと選んだ拡張子を除いた一覧
-    # （getTargetExtensionList。設定は Crawl の始めに 1 回だけ読む。途中で設定を変えても次の回から効く）を入れる
-    [string[]]$Extensions
+    # インデックスごとの、取り込まないテキストの拡張子（インデックス名 → 拡張子の配列）。Crawl が、フォルダのインデックス名で
+    # 取り込む拡張子の一覧（getTargetExtensionList）を作って createTargetList に渡す。$null のまま Crawl を呼ぶと、設定（indexTextExcludes）を
+    # Crawl の始めに 1 回だけ読む（途中で設定を変えても次の回から効く）
+    [hashtable]$TextExcludes
+    # インデックス名ごとの、テキストの拡張子ごとの件数（インデックス名 → 拡張子 → 件数。同じ名前の複数のフォルダは合計）。確認ダイアログの「取り込む拡張子」が使う
+    [hashtable]$TextCountsByIndex
     hidden $Kinds
 
     IngestPlanner([hashtable]$kinds) {
@@ -451,6 +460,7 @@ class IngestPlanner {
         $this.Cloud = New-Object System.Collections.Generic.List[object]
         $this.Plan = New-Object System.Collections.Generic.List[object]
         $this.RemovedPaths = New-Object System.Collections.Generic.List[string]
+        $this.TextCountsByIndex = @{}
         $this.Carried = New-Object 'System.Collections.Generic.Dictionary[string,int]' ([System.StringComparer]::OrdinalIgnoreCase)
     }
 
@@ -505,8 +515,8 @@ class IngestPlanner {
         if ($null -eq $this.Folders) {
             throw "IngestPlanner: Crawl の前に AssignNames を呼んでください"
         }
-        if ($null -eq $this.Extensions) {
-            $this.Extensions = @(getTargetExtensionList @((readTextExtensionSettings).Excluded))
+        if ($null -eq $this.TextExcludes) {
+            $this.TextExcludes = (readTextExtensionSettings).IndexExcludes
         }
         foreach ($folder in $this.Folders) {
             if (-not $this.Stopped -and $null -ne $shouldStop -and (& $shouldStop)) {
@@ -527,7 +537,7 @@ class IngestPlanner {
                 if ($null -ne $onFolder) {
                     $null = & $onFolder $folder
                 }
-                $list = createTargetList $folder $this.Previous $indexCounts $shouldStop $this.Extensions
+                $list = createTargetList $folder $this.Previous $indexCounts $shouldStop @(getTargetExtensionList @($this.TextExcludes[[string]$folder.Name]))
                 if ($list.Stopped) {
                     $this.Stopped = $true
                 } else {
@@ -537,6 +547,7 @@ class IngestPlanner {
                     $this.Cloud.AddRange($list.Cloud)
                     $this.Plan.Add($list.Plan)
                     $this.RemovedPaths.AddRange([string[]]@($list.Removed))
+                    $this.AddTextCounts([string]$folder.Name, $list.TextCounts)
                     continue
                 }
             }
@@ -552,6 +563,16 @@ class IngestPlanner {
 
         foreach ($item in $this.Dropped) {
             $this.Plan.Add((newIngestPlanRow $item.Name $item.Path $this.Kinds.Dropped))
+        }
+    }
+
+    [void] AddTextCounts([string]$name, $counts) {
+        # インデックス名ごとの件数に、このフォルダの件数を足す
+        if (-not $this.TextCountsByIndex.ContainsKey($name)) {
+            $this.TextCountsByIndex[$name] = @{}
+        }
+        foreach ($extension in @($counts.Keys)) {
+            $this.TextCountsByIndex[$name][$extension] = [int]$this.TextCountsByIndex[$name][$extension] + [int]$counts[$extension]
         }
     }
 

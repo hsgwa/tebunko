@@ -18,7 +18,7 @@
             "IndexingProgressDetail", "IndexingStopButton", "IndexingResumeButton", "IndexingSearchButton", "IndexingBannerClose",
             "IndexNoticeHost") }
         @{ File = "index\index_list.xaml"; Slot = "IndexListHost"; Names = @(
-            "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "ActionsButton", "ActionsMenu", "ActionUpdate", "ActionExport", "ActionImport", "ActionTextExtensions", "ActionDelete", "SelectionCountText", "SelectAllCheckBox", "IndexingButton", "IndexingHint", "StatusColumnHeader",
+            "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "ActionsButton", "ActionsMenu", "ActionUpdate", "ActionExport", "ActionImport", "ActionDelete", "SelectionCountText", "SelectAllCheckBox", "IndexingButton", "IndexingHint", "StatusColumnHeader",
             "IndexRowMenu", "RowMenuUpdate", "RowMenuOpenFolder", "RemoveIndexButton", "ExportIndexButton") }
         @{ File = "index\index_detail.xaml"; Slot = "IndexDetailHost"; Names = @(
             "IndexDetailTitle", "IndexSummaryText",
@@ -47,7 +47,7 @@
             "PreviewPlaceholder", "PreviewMenu", "MenuPreviewOpen", "MenuPreviewCopy", "MenuPreviewCopyRow") }
         @{ File = "settings\settings.xaml"; Slot = "ContentHost"; Screen = "SettingsTab"; Names = @(
             "WorkspaceBox", "WorkspaceInputError", "WorkspaceNote", "WorkspaceCaution", "WorkspaceHowTo", "ChangeWorkspaceButton", "ResetWorkspaceButton", "SettingsFileText", "SettingsFileNote",
-            "SearchLimitedRadio", "SearchNoneRadio", "SearchLimitBox", "SearchLimitInputError", "SearchLimitRange", "SearchLimitCaution", "TextExtensionSummary", "ChangeTextExtensionsButton") }
+            "SearchLimitedRadio", "SearchNoneRadio", "SearchLimitBox", "SearchLimitInputError", "SearchLimitRange", "SearchLimitCaution", "TextExtensionHint", "TextExtensionSummary", "ChangeTextExtensionsButton", "EditorHint", "ChangeEditorButton") }
     )
 
     foreach ($name in @("NavHost", "ContentHost", "StatusBarHost", "ScrimOverlay",

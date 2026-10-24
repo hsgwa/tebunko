@@ -19,8 +19,9 @@
     "cloudFiles": "download",
     "workspaceFolder": "C:\\tebunko_golden\\ws",
     "searchLimit": 20000,
-    "excludedTextExtensions": [".log"],
+    "indexTextExcludes": { "資料": [".log"], "(株)山田商事": [".md", ".csv"] },
     "notepadTextExtensions": [".html"],
+    "textEditorPath": "D:\\golden\\editor.exe",
     "ingestThreads": 2,
     "functions": {
         "getTargetFolders": [
@@ -44,7 +45,7 @@
         "readOpenMode": "readOnly",
         "readCloudFiles": "download",
         "readSearchLimit": 20000,
-        "readTextExtensionSettings": { "Excluded": [".log"], "Notepad": [".html"] },
+        "readTextExtensionSettings": { "IndexExcludes": { "資料": [".log"], "(株)山田商事": [".md", ".csv"] }, "Notepad": [".html"], "EditorPath": "D:\\golden\\editor.exe" },
         "getWorkDir": "C:\\tebunko_golden\\ws"
     }
 }
