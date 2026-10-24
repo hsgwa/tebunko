@@ -4728,8 +4728,17 @@
 <ul>
 <li><strong>環境</strong>: Windows 11、Microsoft Defender ウイルス対策（既定の設定。リアルタイム保護・振る舞い監視・AMSI が有効）。</li>
 <li><strong>Microsoft Defender for Endpoint（EDR 本体）は未確認。</strong> 同じエンジンと AMSI を使うため手がかりにはなるが、MDE の検知の規則は別である。MDE の機械で確かめるときは、下の場面を同じ手順で流し、「前後で増えない」を比べる。</li>
-<li><strong>見たもの</strong>: <code>Get-MpThreatDetection</code> の件数、イベントログ <code>Microsoft-Windows-Windows Defender/Operational</code> の 1006〜1008・1015・1116〜1119、<code>Microsoft-Windows-PowerShell/Operational</code> の 4104（警告レベル）。</li>
+<li>
+<p><strong>見たもの</strong>: <code>Get-MpThreatDetection</code> の件数、イベントログ <code>Microsoft-Windows-Windows Defender/Operational</code> の 1006〜1008・1015・1116〜1119、<code>Microsoft-Windows-PowerShell/Operational</code> の 4104（警告レベル）。</p>
+</li>
+<li>
+<p><strong>前後の数え方</strong>: 場面ごとの前後で、次を管理者でない PowerShell で流して件数を比べる。MDE の機械では、これに加えて MDE のポータルのアラートも見る。第二段（Azure の MDE で流す）は別の作業で行う。</p>
+</li>
 </ul>
+<div class="highlight"><pre><span></span><code>@(Get-MpThreatDetection).Count
+@(Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-Windows Defender/Operational'; Id=1006,1007,1008,1015,1116,1117,1118,1119} -ErrorAction SilentlyContinue).Count
+@(Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-PowerShell/Operational'; Id=4104; Level=3} -ErrorAction SilentlyContinue).Count
+</code></pre></div>
 <table>
 <thead>
 <tr>
