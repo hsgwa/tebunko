@@ -81,7 +81,8 @@ stateDiagram-v2
 | `index-tab/running` | 更新中（更新の帯・行の［中止］・全体の進み・ステータスバーの 1 行。［＋ フォルダを追加］と［アクション ▾］の項目が押せない） | 17・20 |
 | `index-tab/stop-confirm` | 中止の確認 | 19 |
 | `index-tab/done` | 更新が終わった（失敗なし） | 18 |
-| `index-tab/failed` | 失敗したファイルの一覧があり、タブに ⚠ | 18 |
+| `index-tab/failed` | 失敗したファイルがあり（詳細に入口の 1 行）、タブに ⚠ | 18 |
+| `index-tab/files` | 失敗の入口の［一覧で見る］で、［ファイルの一覧］が失敗のみで開いた | 18 |
 
 **［検索］（`search-tab`）**
 

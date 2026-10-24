@@ -177,12 +177,22 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             setGuiStep $S "取り込みの完了・失敗したファイルの一覧"
             waitGui $S "取り込みの完了（集約ファイルができ、失敗 1 件が出る）" ${guiIndexTimeout} {
                 (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*" -and
-                    (getGuiText (findGui $S.Window -Id "FailedHeading")) -like "*失敗したファイル 1 件*" -and
+                    (getGuiText (findGui $S.Window -Id "FailedFilesHeading")) -like "*失敗したファイル 1 件*" -and
                     (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
             } | Out-Null
             $S.Timing["取り込み"] = [Math]::Round($sw.Elapsed.TotalSeconds, 1)
-            @(getGuiGridRows (findGui $S.Window -Id "FailedGrid")).Count | Should -Be 1
-            (getGuiRowTexts @(getGuiGridRows (findGui $S.Window -Id "FailedGrid"))[0]) -join " " | Should -BeLike "*壊れた文書.docx*"
+            # 失敗は 1 行の入口になり、［一覧で見る］で［ファイルの一覧］が「失敗のみ」で開く
+            testGuiVisible (findGui $S.Window -Id "ShowFailedFilesButton") | Should -BeTrue
+            clickGui $S $S.Window "ShowFailedFilesButton" "失敗の入口の［一覧で見る］"
+            waitGui $S "失敗のみの一覧が出る" ${guiDefaultTimeout} {
+                (getGuiText (findGui $S.Window -Id "IndexFilesHeading")) -like "ファイル * 件*" -and
+                    @(getGuiGridRows (findGui $S.Window -Id "IndexFilesGrid")).Count -ge 1
+            } | Out-Null
+            $failedOnly = @(getGuiGridRows (findGui $S.Window -Id "IndexFilesGrid"))
+            $failedOnly.Count | Should -Be 1 -Because "失敗のみなので、失敗の 1 件だけ並ぶ"
+            (getGuiRowTexts $failedOnly[0]) -join " " | Should -BeLike "*壊れた文書.docx*失敗*"
+            clickGui $S $S.Window "IndexFilesCloseButton" "［閉じる］"
+            waitGui $S "一覧が閉じる" ${guiDefaultTimeout} { !(testGuiVisible (findGui $S.Window -Id "IndexFilesGrid")) } | Out-Null
             # 失敗のあるだけの行は、エラーでなく警告の表示で、行の［更新］が使える
             $failRow = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
             $failRowTexts = (getGuiRowTexts $failRow) -join " "
@@ -192,6 +202,33 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             testGuiVisible $rowUpdate | Should -BeTrue
             $rowUpdate.Current.IsEnabled | Should -BeTrue
             Test-Path -LiteralPath "$($script:tool.Work)\store\content\資料" | Should -BeTrue
+
+            # ［ファイルの一覧］: 取り込んだファイルが並び、失敗したものが分かる。［閉じる］で閉じる
+            setGuiStep $S "［ファイルの一覧］"
+            # 入口は右の列「インデックス情報」の見出しの右端（見本どおり。窓の右半分にあり、情報の欄に「うち失敗」「うち未取り込み」が出る）
+            $winRect = $S.Window.Current.BoundingRectangle
+            (findGui $S.Window -Id "IndexFilesButton").Current.BoundingRectangle.Left | Should -BeGreaterThan ($winRect.Left + $winRect.Width / 2)
+            (getGuiTexts $S.Window) -join "`n" | Should -BeLike "*うち失敗*うち未取り込み*"
+            clickGui $S $S.Window "IndexFilesButton" "詳細の［ファイルの一覧］"
+            waitGui $S "取り込んだファイルが並ぶ" ${guiDefaultTimeout} {
+                (getGuiText (findGui $S.Window -Id "IndexFilesHeading")) -like "ファイル * 件*"
+            } | Out-Null
+            # 押したら、一覧の見出しが窓の中に見える（詳細欄をスクロールしないと見えない所に開いて、何も出ないように見えるのを防ぐ）
+            $headingRect = (findGui $S.Window -Id "IndexFilesHeading").Current.BoundingRectangle
+            $paneRect = (findGui $S.Window -Id "IndexDetailTitle").Current.BoundingRectangle
+            $winRect = $S.Window.Current.BoundingRectangle
+            $headingRect.Top | Should -BeGreaterThan $paneRect.Bottom -Because "一覧の見出しが詳細の見出しの下にある"
+            $headingRect.Bottom | Should -BeLessThan $winRect.Bottom -Because "一覧の見出しが窓の中に見える"
+            # 表の最初の行まで見える（見出しだけが端に見えている状態にしない）
+            waitGui $S "一覧の最初の行が見える所まで送られる" ${guiDefaultTimeout} {
+                $rows = @(getGuiGridRows (findGui $S.Window -Id "IndexFilesGrid"))
+                $rows.Count -gt 0 -and !$rows[0].Current.IsOffscreen
+            } | Out-Null
+            $fileRows = @(getGuiGridRows (findGui $S.Window -Id "IndexFilesGrid"))
+            $fileRows.Count | Should -BeGreaterThan 1
+            ($fileRows | ForEach-Object { (getGuiRowTexts $_) -join " " }) -join "`n" | Should -BeLike "*壊れた文書.docx*失敗*"
+            clickGui $S $S.Window "IndexFilesCloseButton" "［閉じる］"
+            waitGui $S "一覧が閉じる" ${guiDefaultTimeout} { !(testGuiVisible (findGui $S.Window -Id "IndexFilesGrid")) } | Out-Null
 
             # 更新が終わった帯には［検索する］が出る。押すと検索の画面に切り替わる
             setGuiStep $S "帯の［検索する］"

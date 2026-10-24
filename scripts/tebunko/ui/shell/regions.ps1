@@ -22,8 +22,7 @@
             "IndexRowMenu", "RowMenuUpdate", "RowMenuOpenFolder", "RemoveIndexButton", "ExportIndexButton") }
         @{ File = "index\index_detail.xaml"; Slot = "IndexDetailHost"; Names = @(
             "IndexDetailTitle", "IndexSummaryText",
-            "IndexDetailRows",
-            "FailedPanel", "FailedHeading", "FailedGrid") }
+            "IndexDetailRows") }
         @{ File = "search\search.xaml"; Slot = "ContentHost"; Screen = "SearchTab"; Names = @(
             "SearchBarHost", "ResultListHost", "PreviewHost", "DetailRow", "PreviewSplitter", "ResultEmptyState", "GoIndexTabButton",
             "SearchNoticeHost") }

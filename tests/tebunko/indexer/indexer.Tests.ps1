@@ -483,12 +483,11 @@ Describe "indexer.ps1（後回しの司令の流れ。実際のPowerPointは使�
             $progress = readTestProgress
             $progress.Failed | Should -Be 1
             $progress.Remaining | Should -Be 0
-            # 画面の「更新に失敗したファイル」の一覧（getIndexingState）に理由付きで出る。待ちの件数には入らない
+            # 失敗の件数（getIndexingState）に入る。待ちの件数には入らない
             $indexingState = getIndexingState ([datetime]::MaxValue) "$root\work\store\ingest_status.tsv"
             $indexingState.Failed | Should -Be 1
             $indexingState.Pending | Should -Be 0
-            @($indexingState.FailedRows).Count | Should -Be 1
-            $indexingState.FailedRows[0].エラー | Should -Be ${postponedReasonRunning}
+            (readStatusFile "$root\work\store\ingest_status.tsv").Rows.Values | Where-Object { $_.エラー } | ForEach-Object { $_.エラー } | Should -Be ${postponedReasonRunning}
             (Get-Content -LiteralPath "$root\work\indexing_log.txt" -Raw) | Should -Match "PowerPoint を閉じてからもう一度更新すると、そのまま取り込みます"
             (Get-Content -LiteralPath "$root\work\indexing_log.txt" -Raw) | Should -Not -Match "失敗分も再取り込みする"
             # stopAllApps は後片付け（finally）で 1 回だけ呼ばれる。後回しを取り込んだ件数に数えると

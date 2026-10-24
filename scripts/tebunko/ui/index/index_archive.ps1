@@ -337,7 +337,7 @@ function newImportIndex {
 
     # onSuccess は別のスレッドの完了を受けて、あとから（別の呼び出しの流れで）実行される。
     # $zipPath（この関数のローカル変数）を参照するため、GetNewClosure() で今の値を取り込む。
-    # continueImportIndex は名前のまま呼ばず、openFailedFileFolder と同じく ${function:...} で先に
+    # continueImportIndex は名前のまま呼ばず、openListedFileFolder と同じく ${function:...} で先に
     # 関数の実体を変数に取り込んでから & で呼ぶ（GetNewClosure() したスクリプトブロックは、
     # tebunko.bat の起動（powershell -Command "...; & gui.ps1"）のように呼び出しが入れ子になっていると、
     # 名前による関数の解決ができないため）

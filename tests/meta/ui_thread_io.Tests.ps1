@@ -98,7 +98,7 @@ BeforeAll {
         @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = "testWritableFolder"; Count = 2; Reason = "選んだ直後のフォルダ（［変更…］・［既定に戻す］で選んだ場所）に書き込めるか" }
 
         # ---- tebunko/ui/index/ ----
-        @{ File = "index_detail.ps1"; Function = "openFailedFileFolder"; Call = "getPathState"; Count = 2; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
+        @{ File = "index_detail.ps1"; Function = "openListedFileFolder"; Call = "getPathState"; Count = 2; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
         @{ File = "index_detail.ps1"; Function = "applyFailedFileState"; Call = "Start-Process"; Reason = "エクスプローラーで開く（プロセスの起動は待たない）" }
         @{ File = "index_list.ps1"; Function = "openIndexSourceFolder"; Call = "getPathState"; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
         @{ File = "index_list.ps1"; Function = "openIndexLocation"; Call = "getPathState"; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }

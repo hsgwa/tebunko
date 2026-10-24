@@ -400,3 +400,73 @@ Describe "getWorkspaceIndexFolders / getImportUsedIndexNames（設定から外�
         testIndexEditInput "C:\共有\営業部" "孤立" $items $null $leftovers | Should -Match "作業フォルダに同じ名前のインデックスがあるため使えません"
     }
 }
+
+Describe "getIndexFileEntries（インデックスに取り込んだファイルの一覧）" -Tag Io {
+    BeforeAll {
+        $script:labels = @{ Done = "取り込み済"; Failed = "失敗"; Pending = "未取り込み"; NoReason = "（原因は記録されていません）" }
+    }
+
+    It "そのインデックスの行だけを、相対パスの順に、状態の文言と件数つきで返す" {
+        $path = "$TestDrive\files.tsv"
+        writeStatusFile @(
+            [pscustomobject]@{ Path = "C:\data"; Name = "営業" },
+            [pscustomobject]@{ Path = "D:\tech"; Name = "営業部" }
+        ) @(
+            (newStatusRow "営業\b\z.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00"),
+            (newStatusRow "営業\a.docx" "2025/01/11 08:00:00" "1" $stateFailed "" "2026/09/19 11:00:00" "壊れている"),
+            (newStatusRow "営業\c.pptx" "2025/01/12 08:00:00" "1" $stateNew),
+            (newStatusRow "営業\d.ppt" "2025/01/12 08:00:00" "1" $stateNew "" "" "PowerPoint が使えなかった"),
+            (newStatusRow "営業部\x.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00")
+        ) $path
+
+        $result = getIndexFileEntries -indexName "営業" -labels $labels -path $path
+
+        @($result.Rows | ForEach-Object { $_.RelPath }) | Should -Be @("a.docx", "b\z.xlsx", "c.pptx", "d.ppt")
+        $result.Done | Should -Be 1
+        $result.Failed | Should -Be 2
+        $result.Pending | Should -Be 1
+        $result.Rows[0].Kind | Should -Be "Failed"
+        $result.Rows[0].StateText | Should -Be "失敗"
+        $result.Rows[0].Reason | Should -Be "壊れている"
+        $result.Rows[0].UpdatedText | Should -Be "2025/01/11 08:00"
+        $result.Rows[1].StateText | Should -Be "取り込み済"
+        $result.Rows[1].Reason | Should -Be ""
+        $result.Rows[3].Kind | Should -Be "Failed"
+        # 失敗で原因が空の行は、同じ言い換えを入れる（ToolTip を空にしない）
+        $path2 = "$TestDrive\noreason.tsv"
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @((newStatusRow "営業\e.docx" "2025/01/11 08:00:00" "1" $stateFailed "" "2026/09/19 11:00:00" "")) $path2
+        (getIndexFileEntries -indexName "営業" -labels $labels -path $path2).Rows[0].Reason | Should -Be "（原因は記録されていません）"
+        # 元のファイルのパスは、取り込み一覧に記録した元のフォルダ（営業 → C:\data）と相対パスから組む
+        $result.Rows[1].SourcePath | Should -Be "C:\data\b\z.xlsx"
+    }
+
+    It "元のフォルダの記録が無いインデックスは、元のファイルのパスを空にする" {
+        $path = "$TestDrive\nofolder.tsv"
+        writeStatusFile @() @((newStatusRow "営業\a.docx" "2025/01/11 08:00:00" "1" $stateDone "1" "2026/09/19 11:00:00")) $path
+        (getIndexFileEntries -indexName "営業" -labels $labels -path $path).Rows[0].SourcePath | Should -Be ""
+    }
+
+    It "取り込み一覧が無い・名前が空のときは空の一覧" {
+        (getIndexFileEntries -indexName "営業" -labels $labels -path "$TestDrive\none.tsv").Rows.Count | Should -Be 0
+        (getIndexFileEntries -indexName "" -labels $labels -path "$TestDrive\none.tsv").Rows.Count | Should -Be 0
+    }
+
+    It "見本（前の版が書いた取り込み一覧）を読める" {
+        $sample = "$PSScriptRoot\..\..\testdata\compat\index\v2+store\ws\store\ingest_status.tsv"
+        $name = (readStatusFile $sample).Folders[0].Name
+        $result = getIndexFileEntries -indexName $name -labels $labels -path $sample
+        $result.Rows.Count | Should -BeGreaterThan 0
+        ($result.Done + $result.Failed + $result.Pending) | Should -Be $result.Rows.Count
+    }
+
+    It "1 万件でも決めた秒数（5 秒）以内に返す" {
+        $path = "$TestDrive\big.tsv"
+        $rows = 1..10000 | ForEach-Object { newStatusRow ("営業\d{0:D2}\f{1:D5}.xlsx" -f ($_ % 50), $_) "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00" }
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) $rows $path
+        $watch = [System.Diagnostics.Stopwatch]::StartNew()
+        $result = getIndexFileEntries -indexName "営業" -labels $labels -path $path
+        $watch.Stop()
+        $result.Rows.Count | Should -Be 10000
+        $watch.Elapsed.TotalSeconds | Should -BeLessThan 5
+    }
+}
