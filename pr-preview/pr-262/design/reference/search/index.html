@@ -4864,8 +4864,8 @@
 <tr>
 <td><code>getIndexingState</code></td>
 <td>since, path</td>
-<td><code>@{Exists; Folders; Total; Pending; Failed; Done; IngestedSince; Updated; FailedRows; IndexStats}</code></td>
-<td>取り込み一覧の状態ごとの件数、since 以降に取り込んだ件数、失敗したファイルの行（FailedRows。取り込み日時の新しい順。<code>未取り込み</code> でエラーの列に理由がある行も入る。<code>testStatusRowFailed</code>）、インデックス名ごとの集計（IndexStats。<code>getIndexStats</code>。取り込み一覧を読み直さずに済むよう同じ読み込みから作る）</td>
+<td><code>@{Exists; Folders; Total; Pending; Failed; Done; IngestedSince; Updated; IndexStats}</code></td>
+<td>取り込み一覧の状態ごとの件数、since 以降に取り込んだ件数、失敗の件数（<code>未取り込み</code> でエラーの列に理由がある行も入る。<code>testStatusRowFailed</code>）、インデックス名ごとの集計（IndexStats。<code>getIndexStats</code>。取り込み一覧を読み直さずに済むよう同じ読み込みから作る）</td>
 <td><a href="../../gui/state-flow/">状態と操作の流れ</a></td>
 <td>画面</td>
 </tr>
