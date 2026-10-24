@@ -4232,6 +4232,16 @@
 <td><code>フォルダがあります</code>（緑のチェックのアイコン付き） / <code>フォルダが見つかりません</code>（赤の × のアイコン付き） / <code>… フォルダを確認しています</code></td>
 </tr>
 <tr>
+<td>保存先の行（一覧の上）・インデックス更新の確認</td>
+<td>いつも / 保存先が共有のとき</td>
+<td>見出し <code>インデックスの保存先</code> とパス（注意はⓘ・パスのツールチップと確認のカードの中: <code>インデックスには本文がそのまま入り、元のアクセス権は引き継がれません。保存先は設定画面で変更可能です。</code>）/ 警告の帯 <code>共有フォルダを選択しています。他のユーザーが閲覧できる可能性があります。</code>（<code>getSharedFolderWarningText</code>。<code>getIndexLocationView</code> から。［設定］のワークスペース変更の確認でも、選んだ場所が共有のとき warn の行（先頭）に同じ文を出す: <code>newWorkspaceConfirm</code> の <code>isNetwork</code>）</td>
+</tr>
+<tr>
+<td>ステータス（確認では確認の中）</td>
+<td>保存先の［フォルダを開く］で開けない</td>
+<td><code>保存先のフォルダを確かめています…：&lt;パス&gt;</code>（共有のとき確かめる間）/ <code>保存先のフォルダはまだありません（インデックスを作ると作られます）：&lt;パス&gt;</code> / <code>保存先のフォルダに接続できません：&lt;パス&gt;</code> / <code>保存先のフォルダを開けません：&lt;パス&gt;（&lt;理由&gt;）</code>（<code>getIndexLocationOpenStatus</code>）</td>
+</tr>
+<tr>
 <td>一覧の「ステータス」</td>
 <td>本文の更新の状態（バッジの文言）</td>
 <td><code>未作成</code> / <code>更新中</code> / <code>要更新</code> / <code>エラー</code> / <code>最新</code>（<a href="../index-tab/#一覧の列">一覧の列</a>）</td>
