@@ -10,6 +10,7 @@ $script:fileGroups = New-Object 'System.Collections.Generic.Dictionary[string,ob
 $script:groupList = New-Object 'System.Collections.Generic.List[object]'    # FileGroup（表の順）
 $script:dirtyGroups = New-Object 'System.Collections.Generic.HashSet[object]'  # 検索中にヒットが増えた FileGroup（flushResults で表に反映する）
 $script:resultItems = New-Object 'System.Collections.ObjectModel.ObservableCollection[object]'
+$script:traits = @{}             # 行の種類の判定（ファイルの種類・テキストか・セル番地つきの場所か）を、ファイルと場所ごとに覚えておく
 $script:places = @{}             # 場所の表示（describePlace）を、種類（Excel か）と場所ごとに覚えておく
 $script:rowWord = ""             # 表の行の強調に使う検索ワードと正規表現（startSearch が setRowPattern で決める）
 $script:rowPattern = $null
@@ -31,6 +32,7 @@ function clearResults {
     $script:groupList.Clear()
     $script:dirtyGroups.Clear()
     $script:places = @{}
+    $script:traits = @{}
     $script:rowWord = $word
     $script:rowPattern = $pattern
     $script:expandNew = $false
@@ -81,6 +83,27 @@ function getPlace {
     return $described
 }
 
+function getRowTraits {
+    # 行（HitRow）に入れる判定（ファイルの種類 FileKind・テキストか IsText・セル番地つきの場所か IsCellPrefixed）。
+    # ファイルと場所が同じなら同じなので覚えておく（判定は 1 回 0.5 ミリ秒ほどかかり、同じファイルの行ごとに繰り返すと、1,000 行で 1 秒ほど余計にかかる）
+    param (
+        [string]$book,
+        [string]$location
+    )
+
+    $key = "$book|$location"
+    $traits = $script:traits[$key]
+    if ($null -eq $traits) {
+        $traits = @{
+            FileKind = getContentIndexFileKind $book
+            IsText = testTextExtension $book
+            IsCellPrefixed = testCellPrefixedPlace $book (splitObjectPlace $location).Kind
+        }
+        $script:traits[$key] = $traits
+    }
+    return $traits
+}
+
 function addFileGroupLocation {
     # 見出しに、そのファイルで初めてヒットした場所（表の「場所」と同じ表記。describePlace）を足し、右端の表記を作り直す
     param (
@@ -124,13 +147,13 @@ function ensureRows {
         $indexName = if ($cut -lt 0) { $relDir } else { $relDir.Substring(0, $cut) }
         $row = [HitRow]::Create($indexName, $hit.Root, $hit.RelPath, $relDir, $hit.FileName,
                 $hit.Book, $hit.Location, [int]$hit.LineNumber, $hit.Line, $script:rowWord, $script:rowPattern)
-        $fileKind = getContentIndexFileKind $hit.Book
-        $described = getPlace $hit.Book $hit.Location $fileKind
+        $traits = getRowTraits $hit.Book $hit.Location
+        $described = getPlace $hit.Book $hit.Location $traits.FileKind
         $row.PlaceText = $described.Place
         $row.Kind = $described.Kind
-        $row.IsExcel = ($fileKind -eq "Excel")
-        $row.IsText = testTextExtension $hit.Book
-        $row.IsCellPrefixed = testCellPrefixedPlace $hit.Book (splitObjectPlace $hit.Location).Kind
+        $row.IsExcel = ($traits.FileKind -eq "Excel")
+        $row.IsText = $traits.IsText
+        $row.IsCellPrefixed = $traits.IsCellPrefixed
         $row.Order = $hitIndex
         $row.FileGroup = $group
         $group.Rows.Add($row)

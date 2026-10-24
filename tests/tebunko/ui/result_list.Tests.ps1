@@ -870,6 +870,31 @@ Describe "結果の表の定義（search\result_list.xaml）" -Tag Unit {
     }
 }
 
+Describe "getRowTraits" -Tag Unit {
+    BeforeEach { resetResults }
+
+    It "<name>" -TestCases @(
+        @{ name = "Excel のセル"; book = "見積.xlsx"; location = "4月"; kind = "Excel"; isText = $false; prefixed = $false }
+        @{ name = "Excel の図形（セル番地つきの場所）"; book = "見積.xlsx"; location = "4月[図形]"; kind = "Excel"; isText = $false; prefixed = $true }
+        @{ name = "テキストファイル"; book = "メモ.txt"; location = "本文"; kind = "テキスト"; isText = $true; prefixed = $false }
+    ) {
+        param ($name, $book, $location, $kind, $isText, $prefixed)
+        $traits = getRowTraits $book $location
+        $traits.FileKind | Should -Be $kind
+        $traits.IsText | Should -Be $isText
+        $traits.IsCellPrefixed | Should -Be $prefixed
+    }
+
+    It "同じファイル・場所なら覚えた判定を返し、新しく検索すると忘れる" {
+        $first = getRowTraits "見積.xlsx" "4月"
+        [object]::ReferenceEquals((getRowTraits "見積.xlsx" "4月"), $first) | Should -Be $true
+        [object]::ReferenceEquals((getRowTraits "見積.xlsx" "5月"), $first) | Should -Be $false
+
+        resetResults
+        [object]::ReferenceEquals((getRowTraits "見積.xlsx" "4月"), $first) | Should -Be $false
+    }
+}
+
 Describe "1 ファイルのヒットが多いとき" -Tag Unit {
     BeforeEach {
         resetResults
