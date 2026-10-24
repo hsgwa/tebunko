@@ -842,6 +842,8 @@ function updateExportButton {
     $ui.ExportButtonText.Text = getExportButtonText $busy
     $ui.ExportButton.ToolTip = getExportButtonToolTip $script:lastExportFormat $busy
     $ui.ExportMenuPart.Visibility = if ($busy) { "Collapsed" } else { "Visible" }
+    # 出力中は、本体だけの［出力を中止］（アイコンも隠す）
+    $ui.ExportIcon.Visibility = if ($busy) { "Collapsed" } else { "Visible" }
 }
 
 function cancelExport {

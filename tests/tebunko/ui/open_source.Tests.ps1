@@ -47,6 +47,7 @@ BeforeAll {
             MenuCopyPath     = & $menu
             ExportButton     = newFakeControl @("Click") @{ ToolTip = "" }
             ExportMenuPart   = New-Object PSObject -Property @{ Visibility = "Visible" }
+            ExportIcon       = New-Object PSObject -Property @{ Visibility = "Visible" }
             ExportGroup      = New-Object PSObject -Property @{ ActualWidth = 100 }
             ExportMenuButton = newFakeControl @("Click") @{ ContextMenu = (New-Object PSObject -Property @{ MinWidth = 216; PlacementTarget = $null; Placement = $null; HorizontalOffset = 0; VerticalOffset = 0; IsOpen = $false }) }
             ExportButtonText = New-Object PSObject -Property @{ Text = "出力" }
@@ -1322,6 +1323,7 @@ Describe "exportResults" -Tag Io {
         $script:lastExportFormat = "xlsx"
         $ui.ExportButtonText.Text = "出力"
         $ui.ExportMenuPart.Visibility = "Visible"
+        $ui.ExportIcon.Visibility = "Visible"
         $ui.ExportMenuButton.ContextMenu.IsOpen = $false
         $script:searchService = newFakeService
         $script:opened = New-Object System.Collections.Generic.List[string]
@@ -1358,6 +1360,7 @@ one.xlsx"; Format = $format } }
         $ui.ExportButtonText.Text | Should -Be "出力を中止"
         $ui.ExportMenuPart.Visibility | Should -Be "Collapsed"
         $ui.ExportButton.ToolTip | Should -Be "出力を中止します"
+        $ui.ExportIcon.Visibility | Should -Be "Collapsed"
         lastStatus | Should -Be "検索結果を出力中…（0 件）"
         $script:searchService.Requests.Count | Should -Be 1
         $script:searchService.Requests[0].Format | Should -Be "xlsx"

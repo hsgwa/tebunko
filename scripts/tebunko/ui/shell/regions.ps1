@@ -38,7 +38,7 @@
         @{ File = "search\target_tree.xaml"; Slot = "NavPaneHost"; Names = @(
             "IndexTree", "CheckAllIndexButton", "UncheckAllIndexButton", "TargetCountText") }
         @{ File = "search\result_list.xaml"; Slot = "ResultListHost"; Names = @(
-            "SummaryText", "SearchProgress", "FilterBox", "FilterPlaceholder", "ExpandAllButton", "CollapseAllButton", "ExportButton", "ExportButtonText", "ExportGroup", "ExportMenuPart", "ExportMenuButton", "MenuExportXlsx", "MenuExportCsv", "MenuExportTsv",
+            "SummaryText", "SearchProgress", "FilterBox", "FilterPlaceholder", "ExpandAllButton", "CollapseAllButton", "ExportButton", "ExportButtonText", "ExportGroup", "ExportIcon", "ExportMenuPart", "ExportMenuButton", "MenuExportXlsx", "MenuExportCsv", "MenuExportTsv",
             "ResultGrid", "NoHitText",
             "ResultMenu", "MenuOpen", "MenuOpenReadOnly", "MenuOpenNew", "MenuOpenFolder", "MenuCopy", "MenuCopyPath", "MenuToggleGroup") }
         @{ File = "search\preview.xaml"; Slot = "PreviewHost"; Names = @(
