@@ -510,8 +510,12 @@ function updateIndexLocationView {
     # 文言は判断層（getIndexLocationView）。ネットワークかどうかは共有に接続せずに見分ける（testNetworkPath）
     $dir = [string]$workspace.Dir
     $view = getIndexLocationView $dir (testNetworkPath $dir)
-    $ui.IndexLocationText.Text = "$($view.Heading)：$($view.Path)"
-    $ui.IndexLocationText.ToolTip = "$($view.Path)`n$($view.Note)"
+    $ui.IndexLocationLabel.Text = $view.Heading
+    $ui.IndexLocationText.Text = $view.Path
+    # パスと注意書きは、情報の印とパスのツールチップで読める（一覧の邪魔をしない）
+    $tip = "$($view.Path)`n$($view.Note)"
+    $ui.IndexLocationText.ToolTip = $tip
+    $ui.IndexLocationInfo.ToolTip = $tip
     $ui.IndexLocationWarning.Text = $view.Warning
     $ui.IndexLocationWarning.Visibility = if ($view.Warning) { "Visible" } else { "Collapsed" }
 }

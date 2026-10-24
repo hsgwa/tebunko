@@ -3,6 +3,7 @@ BeforeAll {
     . "$PSScriptRoot\..\..\..\helpers\load.ps1"
     . "${scriptsDir}\tebunko\ui\index\index_list_view.ps1"
     . "${scriptsDir}\tebunko\ui\index\index_edit_view.ps1"
+    . "${scriptsDir}\tebunko\ui\settings\settings_view.ps1"
 
     function newItem {
         param ([string]$name, [string]$path)
@@ -418,9 +419,12 @@ Describe "getIndexLocationView（インデックスの保存先の表示）" -Ta
         $view = getIndexLocationView $path $net
         $view.Path | Should -BeExactly $path
         $view.Heading | Should -Be "インデックスの保存先"
-        $view.Note | Should -BeLike "*本文がそのまま入り*アクセス権は引き継がれません*基本は自分の PC*共有フォルダでもよい*［設定］*権限の違う人が読める場所には置かないでください*"
+        $view.Note | Should -BeLike "*本文がそのまま入り*アクセス権は引き継がれません*保存先は設定画面で変更可能です。"
+        $view.Note | Should -Not -Match "基本は自分の PC"
+        $view.Warning.Length | Should -BeLessOrEqual 45
         if ($net) {
-            $view.Warning | Should -BeLike "注意：保存先は共有フォルダにあります*"
+            $view.Warning | Should -BeExactly (getSharedFolderWarningText)
+            $view.Warning | Should -Not -Match "確かめてください|同じか"
         } else {
             $view.Warning | Should -BeExactly ""
         }

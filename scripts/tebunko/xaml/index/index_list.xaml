@@ -76,16 +76,31 @@
           </StackPanel>
         </Grid>
         <TextBlock x:Name="IndexingHint" Style="{StaticResource Meta}" Margin="16,0,16,0" TextWrapping="Wrap" TextAlignment="Right" />
-        <!-- インデックスの保存先（ワークスペースのフォルダ）。入りきらないパスは … で省略し、ツールチップに全体と注意を出す。警告は保存先が共有のときだけ（updateIndexLocationView） -->
-        <Grid Margin="16,0,16,4">
+        <!-- インデックスの保存先（ワークスペースのフォルダ）。高さ 36 の 1 行（見出し・情報の印・パス・［フォルダを開く］）。入りきらないパスは … で省略し、情報の印とパスのツールチップに全体と注意を出す。
+             保存先が共有のときだけ、行の下に警告の帯を出す（updateIndexLocationView） -->
+        <Grid Height="36" Margin="16,0">
           <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
-          <TextBlock x:Name="IndexLocationText" Style="{StaticResource Meta}" VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Margin="0,0,12,0" />
-          <Button x:Name="OpenIndexLocationButton" Grid.Column="1" Content="フォルダを開く" Height="28" VerticalAlignment="Center" />
+          <TextBlock x:Name="IndexLocationLabel" Style="{StaticResource Meta}" FontSize="11" VerticalAlignment="Center" Text="インデックスの保存先" />
+          <Path x:Name="IndexLocationInfo" Grid.Column="1" Data="{StaticResource Icon.Info}" Width="13" Height="13" Stretch="Uniform" Stroke="{StaticResource Ink.Muted}"
+                StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" VerticalAlignment="Center" Margin="6,0,8,0" Fill="Transparent" />
+          <TextBlock x:Name="IndexLocationText" Grid.Column="2" Style="{StaticResource Meta}" FontSize="12" Foreground="{StaticResource Ink.Value}"
+                     VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Margin="0,0,12,0" />
+          <Button x:Name="OpenIndexLocationButton" Grid.Column="3" Content="フォルダを開く" Height="24" Padding="8,0" VerticalAlignment="Center" />
         </Grid>
-        <TextBlock x:Name="IndexLocationWarning" Style="{StaticResource WarnText}" Margin="16,0,16,6" Visibility="Collapsed" />
+        <Border Style="{StaticResource Banner}" MinHeight="33" Padding="13,6,12,6" Background="{StaticResource Warn.Soft}" BorderBrush="{StaticResource Warn}"
+                Visibility="{Binding Visibility, ElementName=IndexLocationWarning}">
+          <DockPanel>
+            <Path DockPanel.Dock="Left" Data="{StaticResource Icon.TriangleAlert}" Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource Warn}"
+                  StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent" VerticalAlignment="Center" Margin="0,0,10,0" />
+            <TextBlock x:Name="IndexLocationWarning" FontSize="12" Foreground="{StaticResource Banner.Warn.Text}" VerticalAlignment="Center"
+                       TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Visibility="Collapsed" />
+          </DockPanel>
+        </Border>
       </StackPanel>
 
       <!-- 表は左右いっぱい。上辺だけ細い線を引く（左右と下の外枠は付けない。DataGrid 自身の枠は 0 のまま） -->

@@ -1,6 +1,7 @@
 ﻿# 設定の画面の判断（tebunko\ui\settings\settings_view.ps1）のテスト。
 BeforeAll {
     . "$PSScriptRoot\..\..\..\helpers\load.ps1"
+    . "${scriptsDir}\tebunko\ui\index\index_list_view.ps1"
     . "${scriptsDir}\tebunko\ui\settings\settings_view.ps1"
 }
 
@@ -169,6 +170,24 @@ Describe "testWorkspaceChoice" -Tag Unit {
     }
 }
 
+Describe "getSharedFolderWarningText・newWorkspaceConfirm（共有フォルダの警告）" -Tag Unit {
+    It "警告の文は短い 1 文で、確かめさせる言い方をしない" {
+        getSharedFolderWarningText | Should -Be "共有フォルダを選択しています。他のユーザーが閲覧できる可能性があります。"
+        getSharedFolderWarningText | Should -Not -Match "確かめてください|同じか"
+    }
+
+    It "共有フォルダを選んだときだけ、warn の行を先頭に足す（isNetwork=<net>）" -TestCases @(
+        @{ net = $true; count = 1 }
+        @{ net = $false; count = 0 }
+    ) {
+        $confirm = newWorkspaceConfirm "\\server\share\ws" "C:\old" 0 @() $false @() $true $false $net
+        $warns = @($confirm.Facts | Where-Object { $_.Title -eq (getSharedFolderWarningText) })
+        $warns.Count | Should -Be $count
+        if ($net) {
+            $confirm.Facts[0].Kind | Should -Be "warn"
+        }
+    }
+}
 Describe "newWorkspaceConfirm" -Tag Unit {
     It "空のフォルダなら、移す先を見出しに、移動中は使えないことを補足に出し、移動するボタンを 1 つ出す" {
         $confirm = newWorkspaceConfirm "D:\データ" "C:\tool\work" 0

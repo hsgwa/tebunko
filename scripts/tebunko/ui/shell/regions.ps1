@@ -18,7 +18,7 @@
             "IndexingProgressDetail", "IndexingStopButton", "IndexingResumeButton", "IndexingSearchButton", "IndexingBannerClose",
             "IndexNoticeHost") }
         @{ File = "index\index_list.xaml"; Slot = "IndexListHost"; Names = @(
-            "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "ActionsButton", "ActionsMenu", "ActionUpdate", "ActionExport", "ActionImport", "ActionDelete", "SelectionCountText", "SelectAllCheckBox", "IndexingButton", "IndexingHint", "StatusColumnHeader", "IndexLocationText", "IndexLocationWarning", "OpenIndexLocationButton",
+            "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "ActionsButton", "ActionsMenu", "ActionUpdate", "ActionExport", "ActionImport", "ActionDelete", "SelectionCountText", "SelectAllCheckBox", "IndexingButton", "IndexingHint", "StatusColumnHeader", "IndexLocationLabel", "IndexLocationInfo", "IndexLocationText", "IndexLocationWarning", "OpenIndexLocationButton",
             "IndexRowMenu", "RowMenuUpdate", "RowMenuOpenFolder", "RemoveIndexButton", "ExportIndexButton") }
         @{ File = "index\index_detail.xaml"; Slot = "IndexDetailHost"; Names = @(
             "IndexDetailTitle", "IndexSummaryText",

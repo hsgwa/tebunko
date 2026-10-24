@@ -91,7 +91,7 @@ function initIndexingConfirmLocation {
 
     $dir = [string]$workspace.Dir
     $location = getIndexLocationView $dir (testNetworkPath $dir)
-    $ctrl.IndexLocationText.Text = "$($location.Heading)：$($location.Path)"
+    $ctrl.IndexLocationText.Text = $location.Path
     $ctrl.IndexLocationText.ToolTip = $location.Path
     $ctrl.IndexLocationNote.Text = $location.Note
     $ctrl.IndexLocationWarning.Text = $location.Warning
