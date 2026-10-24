@@ -4438,7 +4438,7 @@
 <td><code>textEditorPath</code></td>
 <td>文字列</td>
 <td>空</td>
-<td>「エディタで開く」に使うプログラムのパス。空はメモ帳（固定のパス <code>%SystemRoot%\System32\notepad.exe</code>）。値があるときは、ドライブ文字から始まる絶対パスの <code>.exe</code>（UNC・相対・環境変数・引数・引用符・<code>[</code> <code>]</code> <code>*</code> <code>?</code> は不可。<code>testTextEditorPath</code>）で、ファイルがあるときだけ使う。通らなければ既定のアプリには戻さずメモ帳で開き、知らせる。この版では設定の画面から変えない（設定ファイルを手で書き換える。画面で選べるのは将来の対応）</td>
+<td>「エディタで開く」に使うプログラムのパス。空はメモ帳（固定のパス <code>%SystemRoot%\System32\notepad.exe</code>）。値があるときは、ドライブ文字から始まる絶対パスの <code>.exe</code>（UNC・相対・環境変数・引数・引用符・<code>[</code> <code>]</code> <code>*</code> <code>?</code> は不可。<code>testTextEditorPath</code>）で、スクリプトや命令を動かすプログラム（<code>powershell.exe</code>・<code>python.exe</code> など。表は<a href="../../../safety/checks/">エディタの差し替え</a>）でなく、ファイルがあるときだけ使う。通らなければ既定のアプリには戻さずメモ帳で開き、知らせる。この版では設定の画面から変えない（設定ファイルを手で書き換える。画面で選べるのは将来の対応）</td>
 <td><code>readTextExtensionSettings</code>（<code>openWithEditor</code> が使う）</td>
 </tr>
 <tr>
