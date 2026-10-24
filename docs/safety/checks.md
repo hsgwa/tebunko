@@ -152,6 +152,14 @@ PDF は PowerShell だけで読み、外の部品・Office・外部プロセス�
 - **Microsoft Defender for Endpoint（EDR 本体）は未確認。** 同じエンジンと AMSI を使うため手がかりにはなるが、MDE の検知の規則は別である。MDE の機械で確かめるときは、下の場面を同じ手順で流し、「前後で増えない」を比べる。
 - **見たもの**: `Get-MpThreatDetection` の件数、イベントログ `Microsoft-Windows-Windows Defender/Operational` の 1006〜1008・1015・1116〜1119、`Microsoft-Windows-PowerShell/Operational` の 4104（警告レベル）。
 
+- **前後の数え方**: 場面ごとの前後で、次を管理者でない PowerShell で流して件数を比べる。MDE の機械では、これに加えて MDE のポータルのアラートも見る。第二段（Azure の MDE で流す）は別の作業で行う。
+
+```
+@(Get-MpThreatDetection).Count
+@(Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-Windows Defender/Operational'; Id=1006,1007,1008,1015,1116,1117,1118,1119} -ErrorAction SilentlyContinue).Count
+@(Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-PowerShell/Operational'; Id=4104; Level=3} -ErrorAction SilentlyContinue).Count
+```
+
 | 場面 | 操作 | 検知の件数（前 → 後） | Defender のイベント（前 → 後） |
 |---|---|---|---|
 | 1 | Mark-of-the-Web を付けた展開済みのフォルダの `tebunko.bat` から起動（画面が開くまで 15 秒待つ） | 0 → 0 | 0 → 0 |
