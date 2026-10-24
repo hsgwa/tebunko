@@ -317,17 +317,17 @@ $settingsPath = "$root\setting.config"
 
 # .log を取り込まない: メモ.txt だけ取り込む
 writeTestSettings $root $folders
-writeTextExtensionSettings @(".log") @() $settingsPath
+writeIndexTextExcludes "資料" @(".log") $settingsPath
 runIndexer $root | Should -Be 0
 @((readTestStatus $root).Rows.Keys | ForEach-Object { [System.IO.Path]::GetFileName($_) }) | Should -Be @("メモ.txt")
 
 # 取り込むに戻す: .log を新しく取り込む
-writeTextExtensionSettings @() @() $settingsPath
+writeIndexTextExcludes "資料" @() $settingsPath
 runIndexer $root | Should -Be 0
 @((readTestStatus $root).Rows.Keys | ForEach-Object { [System.IO.Path]::GetFileName($_) } | Sort-Object).Count | Should -Be 2
 
 # また取り込まないにする: 取り込み一覧とインデックスから外れ、ログが「取り込まないにした拡張子」になる
-writeTextExtensionSettings @(".log") @() $settingsPath
+writeIndexTextExcludes "資料" @(".log") $settingsPath
 runIndexer $root | Should -Be 0
 @((readTestStatus $root).Rows.Keys | ForEach-Object { [System.IO.Path]::GetFileName($_) }) | Should -Be @("メモ.txt")
 (Get-Content -LiteralPath "$root\work\indexing_log.txt" -Raw) | Should -Match "取り込まないにした拡張子のファイル 1 件は、インデックスから除きます"
