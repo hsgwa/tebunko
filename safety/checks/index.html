@@ -1065,6 +1065,34 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#ウイルス対策ソフトedr-での確かめ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ウイルス対策ソフト・EDR での確かめ
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ウイルス対策ソフト・EDR での確かめ">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#組織が許可するとき" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        組織が許可するとき
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -4335,6 +4363,34 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#ウイルス対策ソフトedr-での確かめ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ウイルス対策ソフト・EDR での確かめ
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ウイルス対策ソフト・EDR での確かめ">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#組織が許可するとき" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        組織が許可するとき
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -4499,7 +4555,7 @@
 <li><strong>理由</strong>: Windows PowerShell 5.1 は、BOM の無い UTF-8 のファイルを CP932 で読み、日本語の文字の最後のバイトが次の記号を飲み込んで構文が壊れる。日本語の本体をヒアストリング（データ）に入れ、ScriptBlock にして実行することで、BOM が落ちても動かす（<a href="../../design/structure/single-script/">単一 .ps1 の包み</a>）。</li>
 <li><strong>範囲</strong>: 作った単一 .ps1 の最後の文の 1 行だけ。本体は、包む前に禁止の語の検査（<code>tools/script_rules.ps1</code>）を通っている。</li>
 <li><strong>検査</strong>: 包んだ結果の全体を、構文木で確かめる。ScriptBlock の Create・<code>Invoke-Expression</code>・<code>iex</code> の呼び出しが 1 件だけで、ファイルの最後の文であり、その文の全文が決めた 1 行と一字一句同じであること（同じ文に別の式を足したら止まる）。その文を除いた全体（頭・尾・本体の文字列）に、禁止の語（<code>tools/script_rules.ps1</code> の一覧の全分類）が無いこと。1 つでも外れると、包む道具が何も書き出さずに止まる（<code>tests/tools/single_script_guard.Tests.ps1</code> が、足した Create・<code>iex</code>・引数の違い・2 行目・本体の中の語を止めることを表で確かめる）。</li>
-<li><strong>実機で確かめること</strong>: ウイルス対策ソフト（EDR）がこの形を疑うかどうかは、実機でしか確かめられない。検知されたら、方式を決め直す。</li>
+<li><strong>実機で確かめた結果</strong>: Windows 11 の Microsoft Defender ウイルス対策（既定の設定。リアルタイム保護・振る舞い監視・AMSI が有効）で、この形を含む起動を動かして確かめた（下の「<a href="#ウイルス対策ソフトedr-での確かめ">ウイルス対策ソフト・EDR での確かめ</a>」）。単一 .ps1 版の起動とインデックス作成で、Defender の検知・隔離は出なかった。PowerShell 自身が残す 4104（警告レベル）の自動の記録は、この行の <code>[scriptblock]::Create</code> を含めて出る（件数は下の表の下のとおり）。Microsoft Defender for Endpoint（EDR 本体）では未確認。検知されたら、方式を決め直す。</li>
 </ul>
 <h2 id="office-ファイルを開くときの設定">Office ファイルを開くときの設定<a class="headerlink" href="#office-ファイルを開くときの設定" title="Permanent link">&para;</a></h2>
 <p>インデックス作成のために Excel・Word・PowerPoint を COM で操作するが、アプリを起動したときに次の設定を行う（<code>shared/office/office_app.ps1:79-96</code>）。<code>tests/meta/safety.Tests.ps1</code> の「Office ファイルを安全に開くこと」がこれを確かめる。<strong>利用者の PowerPoint には接続しない</strong>（1 つのセッションに 1 つのプロセスしか持てず、接続すると下の設定を利用者のアプリまで書き換えてしまうため）。起動する前に自分のセッションに <code>POWERPNT</code> が無いかを確かめ、あれば設定を行わずに例外にする（<a href="../../design/indexing/office-apps/#office-アプリexcelwordpowerpointの管理">Office アプリ（Excel・Word・PowerPoint）の管理</a>「PowerPoint」）。</p>
@@ -4662,6 +4718,82 @@
 <p>インデックス作成は画面のプロセスの中のスレッドで動かすため、インデックス作成のために <code>powershell.exe</code> を起動することはない（<a href="../../design/structure/threads/#プロセス">プロセス</a>）。</p>
 <p>元のファイルを既定のアプリで開く操作（<code>tebunko/ui/open_source.ps1</code> の <code>openWithShell</code>）では、<code>Start-Process</code> ではなく <code>ProcessStartInfo</code> を使う（<code>Start-Process</code> は <code>[</code> <code>]</code> を含むパスをワイルドカードとして解釈するため）。起動対象は、利用者が選んだ行のファイルと、それに関連付けられたアプリケーションである。<code>ProcessStartInfo</code>・<code>[System.Diagnostics.Process]::Start</code> を使うのはこの 1 か所だけであることを <code>tests/meta/safety.Tests.ps1</code> が確かめる。</p>
 <p><code>tebunko.bat</code> は、上の起動とは別に、<strong>起動そのものに失敗したとき（画面が開く前）だけ</strong> <code>notepad.exe</code> を開く（<a href="../disclosure/#起動に失敗したときの知らせtebunkobat">起動に失敗したときの知らせ</a>）。制限言語モード・実行ポリシーでスクリプトの読み込みが止まる場面では WPF・WinForms のメッセージボックスを出せないため、失敗の理由と記録のファイルの名前をメモ帳で示す。<code>tests/meta/safety.Tests.ps1</code> の「tebunko.bat が起動する外部のプログラムは conhost.exe・powershell.exe・notepad.exe だけ」が、<code>tebunko.bat</code> が起動する外部のプログラムをこの 3 つに限る。</p>
+<p>起動するプロセスは、この表のほかに次の 2 つがある。どちらも利用者の操作や取り込みに伴うものである。</p>
+<ul>
+<li><strong>Office（<code>EXCEL.EXE</code>・<code>WINWORD.EXE</code>・<code>POWERPNT.EXE</code>）</strong>: 旧形式（<code>.xls</code> <code>.doc</code> <code>.ppt</code>）やパスワード付きのファイルを COM で開くときだけ起動する。画面のプロセスが COM で頼み、Windows（DCOM）が起動するため、プロセスの親は <code>powershell.exe</code> ではなく <code>svchost.exe</code>（DcomLaunch）になる（<a href="#office-ファイルを開くときの設定">Office ファイルを開くときの設定</a>）。<code>Start-Process</code> は使わない。</li>
+<li><strong><code>conhost.exe</code> と <code>powershell.exe</code></strong>: <code>tebunko.bat</code> が 1 回だけ起動する（<a href="../disclosure/#起動に失敗したときの知らせtebunkobat">起動口</a>）。<code>-Command</code> に渡す文字列は <code>tebunko.bat</code> の中に固定で書いた内容だけで、利用者の入力や外からの値を混ぜない（ツールのフォルダだけを環境変数で渡し、コードとして解釈しない）。<code>-EncodedCommand</code>・<code>-ExecutionPolicy Bypass</code>・<code>Invoke-Expression</code> の形は使わない。</li>
+</ul>
+<h2 id="ウイルス対策ソフトedr-での確かめ">ウイルス対策ソフト・EDR での確かめ<a class="headerlink" href="#ウイルス対策ソフトedr-での確かめ" title="Permanent link">&para;</a></h2>
+<p>非表示の PowerShell（<code>-WindowStyle Hidden</code>）での起動と、上の外部プロセスが、ウイルス対策ソフトや EDR に検知されないかを、実機で確かめた。</p>
+<ul>
+<li><strong>環境</strong>: Windows 11、Microsoft Defender ウイルス対策（既定の設定。リアルタイム保護・振る舞い監視・AMSI が有効）。</li>
+<li><strong>Microsoft Defender for Endpoint（EDR 本体）は未確認。</strong> 同じエンジンと AMSI を使うため手がかりにはなるが、MDE の検知の規則は別である。MDE の機械で確かめるときは、下の場面を同じ手順で流し、「前後で増えない」を比べる。</li>
+<li>
+<p><strong>見たもの</strong>: <code>Get-MpThreatDetection</code> の件数、イベントログ <code>Microsoft-Windows-Windows Defender/Operational</code> の 1006〜1008・1015・1116〜1119、<code>Microsoft-Windows-PowerShell/Operational</code> の 4104（警告レベル）。</p>
+</li>
+<li>
+<p><strong>前後の数え方</strong>: 場面ごとの前後で、次を管理者でない PowerShell で流して件数を比べる。MDE の機械では、これに加えて MDE のポータルのアラートも見る。第二段（Azure の MDE で流す）は別の作業で行う。</p>
+</li>
+</ul>
+<div class="highlight"><pre><span></span><code># 数える前に、ログが読めることを確かめる（読めないと下の 2 本は黙って 0 になる）。エラーが出たら管理者の PowerShell で流す
+(Get-WinEvent -ListLog 'Microsoft-Windows-Windows Defender/Operational','Microsoft-Windows-PowerShell/Operational').RecordCount
+@(Get-MpThreatDetection).Count
+@(Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-Windows Defender/Operational'; Id=1006,1007,1008,1015,1116,1117,1118,1119} -ErrorAction SilentlyContinue).Count
+@(Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-PowerShell/Operational'; Id=4104; Level=3} -ErrorAction SilentlyContinue).Count
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>場面</th>
+<th>操作</th>
+<th>検知の件数（前 → 後）</th>
+<th>Defender のイベント（前 → 後）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Mark-of-the-Web を付けた展開済みのフォルダの <code>tebunko.bat</code> から起動（画面が開くまで 15 秒待つ）</td>
+<td>0 → 0</td>
+<td>0 → 0</td>
+</tr>
+<tr>
+<td>2</td>
+<td>インデックス作成（<code>.docx</code> <code>.pptx</code> <code>.xlsx</code> のほか、旧形式の <code>.xls</code> <code>.doc</code> <code>.ppt</code> を COM で 5 ファイル。失敗 0 件）</td>
+<td>0 → 0</td>
+<td>0 → 0</td>
+</tr>
+<tr>
+<td>3</td>
+<td>結果からフォルダを開く（<code>explorer.exe</code>）、<code>.ps1</code> をメモ帳で開く（<code>notepad.exe</code>）</td>
+<td>0 → 0</td>
+<td>0 → 0</td>
+</tr>
+<tr>
+<td>4</td>
+<td>単一 .ps1 版の起動とインデックス作成（<code>[scriptblock]::Create</code>・<code>[char]0xNNNN</code> の組み立てを含む）</td>
+<td>0 → 0</td>
+<td>0 → 0</td>
+</tr>
+<tr>
+<td>5</td>
+<td>［参照…］のフォルダ選択（<code>NonPublic</code> のリフレクション）を開く、キャンセルする、フォルダを選ぶ</td>
+<td>0 → 0</td>
+<td>0 → 0</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>4104（警告レベル）</strong>: 場面 1 では、起動のたびに画面のプロセスが読み込んだスクリプト 28 件が記録された。画面を開くテストの一式（場面 2・5 を含む）でも、<code>scripts</code> のスクリプトの読み込みで 21 ファイル分が記録された。場面 4（単一 .ps1 版）は、起動から 20 秒で 350 件が警告レベルで記録された。うち 1 件が末尾の <code>[scriptblock]::Create</code> の行（2,277 文字）で、残りは本体のスクリプトの塊の記録である。Windows PowerShell 5.1 が <code>Add-Type</code>・<code>BindingFlags</code>・<code>NonPublic</code> などの語や、スクリプトブロックの生成を含むスクリプトを自動で記録するもので、検知や隔離ではない。<code>-EncodedCommand</code> の形の記録は出なかった。MDE の機械では、この記録を EDR が取り込んで警告にするかを比べる。</li>
+<li><strong>結論</strong>: 今の起動のしかたは変えない。検知は出なかった。</li>
+</ul>
+<h3 id="組織が許可するとき">組織が許可するとき<a class="headerlink" href="#組織が許可するとき" title="Permanent link">&para;</a></h3>
+<p>EDR で検知されたときは、次の順で許可を求める。</p>
+<ol>
+<li><strong>発行元（署名）で許可する。</strong> 配布物にコード署名をして、その発行元（証明書）で許可するのが最も確実である（コード署名は今後対応する予定）。ファイルのハッシュでの除外は、版が変わるたびに作り直しになるため勧めない。</li>
+<li><strong>署名が使えないときだけ、フォルダで許可する。</strong> <code>tebunko.bat</code> と <code>scripts</code> のあるフォルダ（展開先）だけを、スクリプトの実行を許すフォルダにする。利用者が書き換えられない場所（管理者だけが書き込める場所）に置いたときに限る。利用者が書き込めるフォルダをパスで許可すると、そこに置いた別のスクリプトも通してしまう。ユーザー全体や一時フォルダは許可しない。</li>
+<li><strong>許可の対象は 1 つの起動の形だけに絞る。</strong> <code>conhost.exe</code> から <code>powershell.exe -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -Command …</code> を起動する形（<code>tebunko.bat</code> の 1 行）である。<code>-ExecutionPolicy Bypass</code> など、ほかの形の許可は要らない。</li>
+</ol>
 
 
 
