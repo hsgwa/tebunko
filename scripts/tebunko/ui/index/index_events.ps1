@@ -38,6 +38,17 @@ $ui.RowMenuUpdate.Add_Click({
     }
 })
 $ui.RowMenuOpenFolder.Add_Click({ safe { openIndexSourceFolder } })
+$ui.OpenIndexLocationButton.Add_Click({
+    safe {
+        openIndexLocation {
+            param ($text)
+            # 開けたときの空の文言は、確かめている間の文言だけを消す（ほかの処理のステータスは消さない）
+            if ($text -ne "" -or ([string]$ui.StatusText.Text).StartsWith((getIndexLocationOpenStatus "Checking" ""))) {
+                setStatus $text
+            }
+        }
+    }
+})
 $ui.IndexDetailPathButton.Add_Click({ safe { changeIndexFolder } })
 $ui.RemoveIndexButton.Add_Click({ safe { deleteIndex } })
 $ui.ExportIndexButton.Add_Click({ safe { newExportIndex } })
