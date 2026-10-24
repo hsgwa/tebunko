@@ -23,6 +23,12 @@ class PlanRow {
     [string]$StatusText   # ステータスのバッジの文言（"要更新" / "最新" / "対象外" / "フォルダなし"）
     [string]$Level        # バッジの色（Wait / Ok / None / Ng）
     [string]$DetailText   # バッジの ToolTip（更新するファイルの内訳）
+    [bool]$Subfolders = $true   # 「サブフォルダを含める」の今の選び（ダイアログのチェック。TwoWay）
+    [bool]$OriginalSubfolders = $true   # ダイアログを開いたときの選び（設定の値）。違えば数え直しになる
+    [bool]$Changed = $false   # 選びを元から変えたか（変えた行は件数を灰色にして［取り込み直し］と出す）
+    [string]$TopOnlyText = ""   # 名前の右の札の文言（今の選びが直下だけのときだけ。getIndexTopOnlyTagText）
+    [string]$PlannedStatusText   # 数え直しの前に出していたバッジ（選びを元に戻すと復元する）
+    [string]$PlannedLevel
 }
 
 # ［インデックス管理］のインデックス一覧 1 件。プログラムから変えたときに画面へ反映するため通知する。

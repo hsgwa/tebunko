@@ -72,6 +72,28 @@ function newPlanViewRows {
     return , $rows.ToArray()
 }
 
+function getIndexingRecountView {
+    # 確認ダイアログで選びを変えたときの見せ方。変えた行があれば、合計・説明・主ボタンを数え直しの文言にする。
+    #   rowCount: 一覧の行の数 / changedCount: 選びを変えた行の数
+    # 戻り値: @{ Changed; TotalText; HintText; ButtonText; RowStatusText; RowLevel }（Changed が $false のときほかは空。今までの文言のまま）
+    param (
+        [int]$rowCount,
+        [int]$changedCount
+    )
+
+    if ($changedCount -le 0) {
+        return @{ Changed = $false; TotalText = ""; HintText = ""; ButtonText = ""; RowStatusText = ""; RowLevel = "" }
+    }
+    return @{
+        Changed = $true
+        TotalText = "更新対象: {0:#,0} フォルダ（件数は数え直したあとに出ます）" -f $rowCount
+        HintText = "選びを変えたので、件数を数え直します"
+        ButtonText = "数え直して続ける"
+        RowStatusText = "取り込み直し"
+        RowLevel = "Wait"
+    }
+}
+
 function getIndexingConfirmChoiceChanges {
     # 確認ダイアログで、元の選びから変えた行を返す（［更新を開始］を押したとき、差があれば数え直しにする）。
     # 行は @{ Name; Subfolders } の配列（元は newPlanViewRows の行、今はダイアログで選び直したあとの行）。

@@ -22,21 +22,6 @@ function addIndexItem {
     setStatus (getIndexAddedStatus $name)
 }
 
-function commitIndexSubfolders {
-    # 詳細の「サブフォルダを含める」を、選んでいる行に反映して設定に保存する（次の更新から、直下だけ／サブフォルダも、が変わる）
-    $item = getIndexTargetItem
-    if ($null -eq $item -or !$ui.IndexDetailSubfolders.IsEnabled) {
-        return
-    }
-    if ([bool]$item.Subfolders -eq [bool]$ui.IndexDetailSubfolders.IsChecked) {
-        return   # 詳細を描き直して値を置いただけ（行の値と同じ）のときは保存しない
-    }
-    $item.SetSubfolders([bool]$ui.IndexDetailSubfolders.IsChecked, (getIndexTopOnlyTagText ([bool]$ui.IndexDetailSubfolders.IsChecked)))
-    saveTargets
-    refreshIndexingState   # 一覧のステータスを［要更新］に置き直す（詳細も続けて描き直される）
-    updateIndexDetailPanel
-}
-
 function newIndex {
     # ［＋ フォルダを追加］。フォルダを選び、フォルダ名からインデックス名を決めて一覧に加える（インデックス作成はしない）。
     # 名前は、加えたあとに詳細欄で直せる

@@ -51,7 +51,11 @@ function buildPlanRows {
 
     $rows = New-Object System.Collections.Generic.List[PlanRow]
     # , で包んだ戻り値は、そのまま foreach に渡すと空のときも 1 回まわるため、変数に受けてから回す
-    $views = newPlanViewRows $plan $script:indexingOnlyNames
+    $subfolders = @{}
+    foreach ($item in $script:targetItems) {
+        if ($item.Name) { $subfolders[[string]$item.Name] = [bool]$item.Subfolders }
+    }
+    $views = newPlanViewRows $plan $script:indexingOnlyNames $subfolders
     foreach ($view in $views) {
         $row = [PlanRow]::new()
         $row.Name = $view.Name
@@ -60,6 +64,11 @@ function buildPlanRows {
         $row.StatusText = $view.StatusText
         $row.Level = $view.Level
         $row.DetailText = $view.DetailText
+        $row.Subfolders = [bool]$view.Subfolders
+        $row.OriginalSubfolders = [bool]$view.Subfolders
+        $row.TopOnlyText = getIndexTopOnlyTagText $row.Subfolders
+        $row.PlannedStatusText = $view.StatusText
+        $row.PlannedLevel = $view.Level
         $rows.Add($row)
     }
     return , $rows.ToArray()
@@ -81,6 +90,39 @@ function updateIndexingConfirmTotal {
     $d.Ctrl.CloudCheck.Content = $view.CloudCheckText
     # 「次から確認を出さない」は、ダウンロードして取り込むを選んだときだけ選べる
     $d.Ctrl.CloudRememberCheck.IsEnabled = $view.Include
+    updateIndexingRecountView
+}
+
+function updateIndexingRecountView {
+    # 「サブフォルダを含める」の選びを変えた行があれば、行・合計・説明・主ボタンを数え直しの見せ方にする（文言は getIndexingRecountView）
+    $d = $script:confirmDialog
+    $rows = @($d.Ctrl.PlanGrid.ItemsSource)
+    $changed = 0
+    foreach ($row in $rows) {
+        $row.Changed = ($row.Subfolders -ne $row.OriginalSubfolders)
+        $row.TopOnlyText = getIndexTopOnlyTagText $row.Subfolders
+        if ($row.Changed) { $changed++ }
+    }
+    $recount = getIndexingRecountView $rows.Count $changed
+    foreach ($row in $rows) {
+        if ($row.Changed) {
+            $row.StatusText = $recount.RowStatusText
+            $row.Level = $recount.RowLevel
+        } else {
+            $row.StatusText = $row.PlannedStatusText
+            $row.Level = $row.PlannedLevel
+        }
+    }
+    if ($d.Window.IsLoaded) {
+        $d.Ctrl.PlanGrid.Items.Refresh()   # 開く前（読み込み前）は、まだ描いていないので要らない
+    }
+    $d.Ctrl.RecountHint.Visibility = if ($recount.Changed) { "Visible" } else { "Collapsed" }
+    $d.Ctrl.RecountHintText.Text = $recount.HintText
+    if ($recount.Changed) {
+        $d.Ctrl.TotalText.Text = $recount.TotalText
+        $d.Ctrl.StartButton.Content = $recount.ButtonText
+    }
+    $d.Recount = $recount.Changed
 }
 function initIndexingConfirmLocation {
     # 確認のダイアログに、インデックスの保存先と注意（共有のときは警告も）を出し、［フォルダを開く］をつなぐ。タブと同じ文言（getIndexLocationView）。
@@ -109,6 +151,30 @@ function initIndexingConfirmLocation {
     $ctrl.OpenIndexLocationButton.Add_Click({ & $safeCall $openBlock }.GetNewClosure())
 }
 
+function showIndexingNothingNote {
+    # 取り込むものが無いときは、閉じるだけ（［キャンセル］との違いが無い）にして、案内を出す
+    param (
+        $ctrl  # ダイアログの部品
+    )
+
+    $ctrl.CancelButton.Visibility = "Collapsed"
+    $ctrl.NoteText.Visibility = "Visible"
+    $ctrl.NoteText.Text = "更新日時が変わらないまま中身が変わったファイルは、更新の対象になりません。" +
+        "そのインデックスを一から作り直すときは、［削除］してから追加し直してください。"
+}
+
+function getIndexingDialogRecountPlan {
+    # 確認ダイアログの一覧で、元の選びから変えた行があるか（数え直すか）を返す（判断は getIndexingConfirmChoiceChanges・getIndexingRecountPlan）
+    param (
+        $grid  # PlanGrid
+    )
+
+    $rows = @($grid.ItemsSource)
+    $original = @($rows | ForEach-Object { @{ Name = $_.Name; Subfolders = $_.OriginalSubfolders } })
+    $current = @($rows | ForEach-Object { @{ Name = $_.Name; Subfolders = $_.Subfolders } })
+    return getIndexingRecountPlan (getIndexingConfirmChoiceChanges $original $current) @($script:indexingOnlyNames)
+}
+
 function showIndexingConfirmDialog {
     # インデックス作成の確認。インデクサが数えた結果（インデックスごとの取り込み対象の件数）を出して、取り込むかどうかを選んでもらう。
     #   取り込む → @{ RetryFailed; IncludeCloud } ／ 取りやめ → $null
@@ -119,7 +185,7 @@ function showIndexingConfirmDialog {
     $dialog = loadWindow "${xamlDir}\dialog_indexing_confirm.xaml"
     $dialog.Owner = $window
     $ctrl = @{}
-    foreach ($name in @("StartButton", "CancelButton", "RetryCheck", "CloudWarnText", "CloudCheck", "CloudRememberCheck", "TotalText", "NoteText", "IntroText", "PlanGrid", "IndexLocationText", "IndexLocationNote", "IndexLocationWarning", "IndexLocationStatus", "OpenIndexLocationButton")) {
+    foreach ($name in @("StartButton", "CancelButton", "RetryCheck", "CloudWarnText", "CloudCheck", "CloudRememberCheck", "TotalText", "NoteText", "IntroText", "PlanGrid", "RecountHint", "RecountHintText", "IndexLocationText", "IndexLocationNote", "IndexLocationWarning", "IndexLocationStatus", "OpenIndexLocationButton")) {
         $ctrl[$name] = $dialog.FindName($name)
     }
     # 設定の cloudFiles は開くときに 1 回だけ読む（開始するとき、変わったときだけ書き戻す）
@@ -140,20 +206,27 @@ function showIndexingConfirmDialog {
     # 削除予定があるときは、取りやめと［更新を開始］を選べるままにする（閉じるだけにすると、見せたまま消してしまう）
     $nothing = [bool]$script:confirmDialog.View.Nothing
     if ($nothing) {
-        # 取り込むものが無いときは、閉じるだけ（［キャンセル］との違いが無い）
-        $ctrl.CancelButton.Visibility = "Collapsed"
-        $ctrl.NoteText.Visibility = "Visible"
-        $ctrl.NoteText.Text = "更新日時が変わらないまま中身が変わったファイルは、更新の対象になりません。" +
-            "そのインデックスを一から作り直すときは、［削除］してから追加し直してください。"
+        showIndexingNothingNote $ctrl
     }
 
     $ctrl.RetryCheck.Add_Click({ safe { updateIndexingConfirmTotal } })
     $ctrl.CloudCheck.Add_Click({ safe { updateIndexingConfirmTotal } })
+    # 「サブフォルダを含める」のチェック（行ごと）。付け外しは DataGrid の中のチェックから上がってくる（UI オートメーションの切り替えは Click を起こさないため Checked・Unchecked で受ける）
+    $onToggle = [System.Windows.RoutedEventHandler]{ safe { updateIndexingConfirmTotal } }
+    $ctrl.PlanGrid.AddHandler([System.Windows.Controls.Primitives.ToggleButton]::CheckedEvent, $onToggle)
+    $ctrl.PlanGrid.AddHandler([System.Windows.Controls.Primitives.ToggleButton]::UncheckedEvent, $onToggle)
     $ctrl.StartButton.Add_Click({
         safe {
             $d = $script:confirmDialog
             updateIndexingConfirmTotal
             $view = $d.View
+            $recountPlan = getIndexingDialogRecountPlan $d.Ctrl.PlanGrid
+            if ($recountPlan.Recount) {
+                # 選びを変えた。件数が変わるので、この確認は閉じて数え直す（クラウドの確認・設定の書き込みは、数え直したあとの確認で行う）
+                $d.Answer = @{ Recount = $true; Changes = $recountPlan.Changes }
+                $d.Window.DialogResult = $true
+                return
+            }
             if (testIndexingCloudNeedsConfirm $view.Include $d.SavedCloud) {
                 # ダウンロードして取り込む前に、もう一度確かめる。キャンセルなら、この確認に戻る（閉じない）
                 $text = getIndexingCloudConfirmView $view.Cloud.Count $view.Cloud.Bytes ${ingestFileTimeoutMinutes}
@@ -205,6 +278,15 @@ function confirmIndexingTargets {
         $script:indexingCanceledAtConfirm = $true
         $ui.IndexingStopButton.IsEnabled = $false
         $ui.IndexingProgressText.Text = "更新を取りやめています…"
+        $ui.IndexingProgressDetail.Text = ""
+        answerIndexingPlan $channel $null
+        return
+    }
+    if ($answer.Recount) {
+        # 選びを変えた。インデクサは取りやめで終わらせ、終わったあと（finishIndexing）に選びを書いて、同じ対象でやり直す
+        $script:indexingRecount = @{ OnlyNames = @($script:indexingOnlyNames); Changes = @($answer.Changes) }
+        $ui.IndexingStopButton.IsEnabled = $false
+        $ui.IndexingProgressText.Text = "数え直しています…"
         $ui.IndexingProgressDetail.Text = ""
         answerIndexingPlan $channel $null
         return
@@ -476,6 +558,41 @@ function updateIndexingProgress {
     updateIndexDetailPanel
 }
 
+function getIndexingFinishCounts {
+    # 終わり・中止の帯に添える件数の文（成功・失敗・残り）。1 件も処理していなければ空
+    param (
+        $progress
+    )
+
+    if (-not ($progress -and $progress.Processed -gt 0)) {
+        return ""
+    }
+    $counts = "成功 $($progress.Processed - $progress.Failed) 件 / 失敗 $($progress.Failed) 件"
+    if ($progress.Remaining -gt 0) {
+        $counts += " / 残り $($progress.Remaining) 件"
+    }
+    return $counts
+}
+
+function applyIndexingRecount {
+    # 確認で選びを変えたときの数え直し。インデクサが終わったあと（鍵が外れたあと）に、選びを一覧の行に入れて設定へ書き、同じ対象で始め直す
+    param (
+        $recount  # @{ OnlyNames; Changes（@{ Name; Subfolders } の配列） }
+    )
+
+    foreach ($change in @($recount.Changes)) {
+        foreach ($item in $script:targetItems) {
+            if ([string]$item.Name -eq [string]$change.Name) {
+                $item.SetSubfolders([bool]$change.Subfolders, (getIndexTopOnlyTagText ([bool]$change.Subfolders)))
+            }
+        }
+    }
+    saveTargets -Quiet
+    updateIndexDetailPanel
+    updateIndexingButton
+    startIndexing @($recount.OnlyNames)
+}
+
 function finishIndexing {
     $script:indexingTimer.Stop()
     closeIndexingWait
@@ -497,19 +614,16 @@ function finishIndexing {
     $script:indexingSession = $null
     $script:indexingOnlyNames = @()
     $script:indexingEta = ""
-
-    $counts = ""
-    if ($progress -and $progress.Processed -gt 0) {
-        $counts = "成功 $($progress.Processed - $progress.Failed) 件 / 失敗 $($progress.Failed) 件"
-        if ($progress.Remaining -gt 0) {
-            $counts += " / 残り $($progress.Remaining) 件"
-        }
-        $ui.IndexingProgress.IsIndeterminate = $false
-        $ui.IndexingProgress.Value = $progress.Processed / ($progress.Processed + $progress.Remaining)
-    } else {
-        $ui.IndexingProgress.IsIndeterminate = $false
-        $ui.IndexingProgress.Value = 0
+    $recount = $script:indexingRecount   # 確認で選びを変えた（印は confirmIndexingTargets が立てる）
+    $script:indexingRecount = $null
+    if ($null -ne $recount -and $exitCode -eq 2) {
+        applyIndexingRecount $recount
+        return
     }
+
+    $counts = getIndexingFinishCounts $progress
+    $ui.IndexingProgress.IsIndeterminate = $false
+    $ui.IndexingProgress.Value = if ($progress -and $progress.Processed -gt 0) { $progress.Processed / ($progress.Processed + $progress.Remaining) } else { 0 }
 
     if ($exitCode -eq 1) {
         # インデックス作成を続けられないエラー（クロール対象フォルダが無い など）

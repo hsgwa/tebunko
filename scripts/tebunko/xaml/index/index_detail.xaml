@@ -82,10 +82,6 @@
               </Grid>
               <!-- 名前・フォルダパスを確定できなかったときの理由（commitIndexDetailEdit） -->
               <TextBlock x:Name="IndexDetailEditError" Style="{StaticResource ErrorText}" Margin="98,4,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
-              <!-- サブフォルダの中も取り込むか。外すと元のフォルダの直下のファイルだけを取り込む（設定の subfolders。index_events.ps1 の Checked・Unchecked で保存する） -->
-              <CheckBox x:Name="IndexDetailSubfolders" Content="サブフォルダを含める" Margin="98,6,0,0" IsChecked="True"
-                        AutomationProperties.AutomationId="IndexDetailSubfolders" AutomationProperties.Name="サブフォルダを含める"
-                        ToolTip="外すと、元のフォルダの直下のファイルだけを取り込みます（次の更新で、サブフォルダにあったファイルはインデックスから外れます）" />
               <!-- 文字と左のアイコンの色は updateIndexDetailPanel が getIndexDetailView の FolderBrush で当て、アイコンの形は FolderIcon（Icon.Check・Icon.Close）で替える -->
               <StackPanel Orientation="Horizontal" Margin="98,4,0,0">
                 <Path x:Name="IndexDetailFolderIcon" Width="12" Height="12" Margin="0,0,5,0" VerticalAlignment="Center" Stretch="Uniform"

@@ -631,3 +631,19 @@ Describe "getIndexingRecountPlan" -Tag Unit {
         @($plan.Changes).Count | Should -Be $count
     }
 }
+
+Describe "getIndexingRecountView" -Tag Unit {
+    It "選びを変えた行が 0 のとき: 今までの文言のまま（Changed は偽）" {
+        (getIndexingRecountView 3 0).Changed | Should -BeFalse
+    }
+
+    It "選びを変えた行があるとき: 合計・説明・主ボタン・行の状態を数え直しの文言にする" {
+        $view = getIndexingRecountView 2 1
+        $view.Changed | Should -BeTrue
+        $view.TotalText | Should -Be "更新対象: 2 フォルダ（件数は数え直したあとに出ます）"
+        $view.HintText | Should -Be "選びを変えたので、件数を数え直します"
+        $view.ButtonText | Should -Be "数え直して続ける"
+        $view.RowStatusText | Should -Be "取り込み直し"
+        $view.RowLevel | Should -Be "Wait"
+    }
+}
