@@ -20,7 +20,9 @@ Describe "convertPlaceToContentIndexMeta / convertContentIndexMetaToPlace" -Tag 
             @("提案.pptx", "スライド001_ノート", "スライド=1|対象=ノート"),
             @("提案.pptx", "スライド002（非表示）", "スライド=2|対象=本文|非表示=はい"),
             @("提案.pptx", "スライド002（非表示）[図形]", "スライド=2|対象=図形|非表示=はい"),
-            @("提案.pptx", "ヘッダー・フッター", "部分=ヘッダー・フッター|対象=本文")
+            @("提案.pptx", "ヘッダー・フッター", "部分=ヘッダー・フッター|対象=本文"),
+            @("提案.pptx", "スライドマスター", "部分=スライドマスター|対象=本文"),
+            @("提案.pptx", "ノートマスター", "部分=ノートマスター|対象=本文")
         )
         foreach ($c in $cases) {
             $meta = convertPlaceToContentIndexMeta $c[0] $c[1]
