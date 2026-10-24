@@ -46,8 +46,15 @@ BeforeAll {
             OpenFolderButton = newFakeControl @("Click")
             MenuCopy         = & $menu
             MenuCopyPath     = & $menu
-            ExportButton     = newFakeControl @("Click")
-            ExportButtonText = New-Object PSObject -Property @{ Text = "保存" }
+            ExportButton     = newFakeControl @("Click") @{ ToolTip = "" }
+            ExportMenuPart   = New-Object PSObject -Property @{ Visibility = "Visible" }
+            ExportIcon       = New-Object PSObject -Property @{ Visibility = "Visible" }
+            ExportGroup      = New-Object PSObject -Property @{ ActualWidth = 100 }
+            ExportMenuButton = newFakeControl @("Click") @{ ContextMenu = (New-Object PSObject -Property @{ MinWidth = 216; PlacementTarget = $null; Placement = $null; HorizontalOffset = 0; VerticalOffset = 0; IsOpen = $false }) }
+            ExportButtonText = New-Object PSObject -Property @{ Text = "出力" }
+            MenuExportXlsx   = newFakeControl @("Click")
+            MenuExportCsv    = newFakeControl @("Click")
+            MenuExportTsv    = newFakeControl @("Click")
         }
     }
 
@@ -72,6 +79,7 @@ BeforeAll {
     function activateResultItem { param($item) }
     function testResultSorted { return $false }
     function showConfirm { param([string]$title, [string]$heading, [string]$hint, [object[]]$facts, [object[]]$choices) }
+    function showMessage { param([string]$message, [string]$buttons, [string]$icon, [string]$default) }
     function selectFolder { param([string]$description, [string]$initial, $owner, [bool]$knownExisting) }
     function factGone { param([string]$title, [string]$detail) "Gone ${title}" }
     function factNext { param([string]$title, [string]$detail) "Next ${title}" }
@@ -671,6 +679,18 @@ Describe "openWithEditor" -Tag Io {
         openWithEditor "$TestDrive\起動.bat" | Should -Be $true
         Should -Invoke Start-Process -Times 1 -Exactly -ParameterFilter { $FilePath -eq "$env:SystemRoot\System32\notepad.exe" }
         getTextEditorNotice | Should -Be "設定のエディタ（textEditorPath）が使えないため、メモ帳で開きます。"
+    }
+
+    It "notepadOnly のときは、設定のエディタが使える値でも使わず、固定のメモ帳で開き、知らせも出さない（出力した CSV・TSV 用）" {
+        $editor = Join-Path $TestDrive "表計算.exe"
+        [System.IO.File]::WriteAllText($editor, "dummy")
+        Mock readTextExtensionSettings { @{ IndexExcludes = @{}; Notepad = @(); EditorPath = $editor } }.GetNewClosure()
+        Mock Start-Process { }
+
+        openWithEditor "$TestDrive\検索結果.csv" -notepadOnly | Should -Be $true
+        Should -Invoke Start-Process -Times 1 -Exactly -ParameterFilter { $FilePath -eq "$env:SystemRoot\System32\notepad.exe" }
+        Should -Invoke readTextExtensionSettings -Times 0 -Exactly
+        getTextEditorNotice | Should -Be ""
     }
 
     It "設定を読めないときは、設定なしと同じにメモ帳で開く" {
@@ -1311,6 +1331,72 @@ Describe "openSourceFolder" -Tag Unit {
     }
 }
 
+Describe "showInExplorer" -Tag Unit {
+    BeforeAll {
+        function writeErrorLog { param ([string]$context, $record) }
+    }
+
+    BeforeEach {
+        Mock writeErrorLog {}
+    }
+
+    It "explorer.exe に /select, とパスを渡し、終了コードは見ない（起動できれば true）" {
+        Mock Start-Process { $global:LASTEXITCODE = 1 }
+
+        showInExplorer "C:\w\a b.xlsx" | Should -Be $true
+        Should -Invoke Start-Process -Times 1 -Exactly -ParameterFilter { $FilePath -eq "explorer.exe" -and $ArgumentList -eq '/select,"C:\w\a b.xlsx"' }
+        Should -Invoke writeErrorLog -Times 0 -Exactly
+    }
+
+    It "起動で例外になれば false を返し、ログに残す" {
+        Mock Start-Process { throw "起動できません" }
+
+        showInExplorer "C:\w\a.xlsx" | Should -Be $false
+        Should -Invoke writeErrorLog -Times 1 -Exactly
+    }
+}
+
+Describe "openExportedFile" -Tag Unit {
+    BeforeAll {
+        function writeErrorLog { param ([string]$context, $record) }
+    }
+
+    It "Excel ブックは、そのパスのまま（[ ] をワイルドカードにせず）既定のアプリで開く" {
+        Mock Invoke-Item { }
+
+        openExportedFile "C:\w\検索結果[1].xlsx" | Should -Be $true
+        Should -Invoke Invoke-Item -Times 1 -Exactly -ParameterFilter { $LiteralPath -eq "C:\w\検索結果[1].xlsx" }
+    }
+
+    It "<name>: CSV・TSV はメモ帳で開く（表計算アプリで数式として動かさない）。既定のアプリでは開かない" -ForEach @(
+        @{ name = "csv"; path = "C:\w\検索結果.csv" }
+        @{ name = "tsv"; path = "C:\w\検索結果.TSV" }
+    ) {
+        Mock Invoke-Item { }
+        Mock openWithEditor { $true }
+        $script:wanted = $path
+
+        openExportedFile $path | Should -Be $true
+        Should -Invoke openWithEditor -Times 1 -Exactly -ParameterFilter { $path -eq $script:wanted -and $notepadOnly }
+        Should -Invoke Invoke-Item -Times 0 -Exactly
+    }
+
+    It "メモ帳が使えないとき（CSV・TSV）は false を返す（既定のアプリには戻さない）" {
+        Mock Invoke-Item { }
+        Mock openWithEditor { $false }
+
+        openExportedFile "C:\w\a.csv" | Should -Be $false
+        Should -Invoke Invoke-Item -Times 0 -Exactly
+    }
+
+    It "開けなければ、false を返し、例外にしない（既定のアプリが無いときなど）" {
+        Mock Invoke-Item { throw "アプリが関連付けられていません" }
+        Mock writeErrorLog { }
+
+        openExportedFile "C:\w\a.xlsx" | Should -Be $false
+    }
+}
+
 Describe "exportResults" -Tag Io {
     BeforeAll {
         $hits = @(
@@ -1332,85 +1418,222 @@ Describe "exportResults" -Tag Io {
             param ([string]$workDir, [string]$word = "りんご", [bool]$truncated = $false)
             return @{ Word = $word; Shared = @{ WorkDir = $workDir; Truncated = $truncated } }
         }
+
+        function readZipEntryNames {
+            param ([string]$path)
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
+            try { return @($zip.Entries | ForEach-Object { $_.FullName }) } finally { $zip.Dispose() }
+        }
     }
 
     BeforeEach {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
         $script:statuses = New-Object System.Collections.Generic.List[string]
         $script:banners = New-Object System.Collections.Generic.List[string]
         $script:search = $null
         $script:filterText = ""
         $script:exportJob = $null
-        $script:exportPending = $false
-        $ui.ExportButtonText.Text = "保存"
+        $script:exportPending = $null
+        $script:lastExportFormat = "xlsx"
+        $ui.ExportButtonText.Text = "出力"
+        $ui.ExportMenuPart.Visibility = "Visible"
+        $ui.ExportIcon.Visibility = "Visible"
+        $ui.ExportMenuButton.ContextMenu.IsOpen = $false
         $script:searchService = newFakeService
-        Mock Invoke-Item { }
+        $script:opened = New-Object System.Collections.Generic.List[string]
+        Mock getTargetFolders { @() }
+        # 出力先の置き場の確かめ（リンクでないこと）は search_export.Tests で確かめる。ここでは、テストが決めた出力先に書かせる
+        Mock testOpenCopyDir { $true }
+        Mock openExportedFile { $script:opened.Add($path); $true }
     }
 
-    It "検索する前は出力しない" {
+    It "検索する前は出力先を決めず、出力もしない" {
         $script:lastSearch = $null
+        Mock newExportTarget { @{ Path = "$TestDrive
+one.xlsx"; Format = $format } }
 
-        exportResults
+        exportResults "xlsx"
+        exportResultsAs "csv"
         lastStatus | Should -Be "先に検索してください。"
-        Should -Invoke Invoke-Item -Times 0 -Exactly
+        Should -Invoke newExportTarget -Times 0 -Exactly
+        $script:lastExportFormat | Should -Be "xlsx"
         $script:searchService.Requests.Count | Should -Be 0
     }
 
-    It "表に出ている分を search_results.txt に書き出して開く。書いている間は出力ボタンが「出力を中止」になる" {
-        $workDir = "$TestDrive\export\work"
-        $resultFile = "$workDir\search_results.txt"
+    It "出力すると、出力先をダイアログなしで決めて書き、書けたファイルを開く" {
+        $workDir = "$TestDrive\export_xlsx\work"
+        $out = "$TestDrive\export_xlsx\検索結果.xlsx"
+        [System.IO.Directory]::CreateDirectory("$TestDrive\export_xlsx") | Out-Null
         $workspace = newTestWorkspace @{} $workDir
         $script:lastSearch = newExportSearch $workDir
         Mock getExportHits { , $hits }
+        Mock newExportTarget { @{ Path = $out; Format = $format } }
         $script:searchService = newFakeService $false
 
-        exportResults
+        exportResults "xlsx"
         $ui.ExportButtonText.Text | Should -Be "出力を中止"
-        lastStatus | Should -Be "search_results.txt に出力しています…（0 件）"
+        $ui.ExportMenuPart.Visibility | Should -Be "Collapsed"
+        $ui.ExportButton.ToolTip | Should -Be "出力を中止します"
+        $ui.ExportIcon.Visibility | Should -Be "Collapsed"
+        lastStatus | Should -Be "検索結果を出力中…（0 件）"
         $script:searchService.Requests.Count | Should -Be 1
+        $script:searchService.Requests[0].Format | Should -Be "xlsx"
+        $script:searchService.Requests[0].TmpRoot | Should -Be $workspace.TmpRoot
         invokeSearchExport $script:searchService.Requests[0]
         pumpExport
 
-        $lines = [System.IO.File]::ReadAllLines($resultFile)
-        $lines[0] | Should -Be "【検索文字列　りんご】 2 件"
-        $lines[2] | Should -Be "sub\見積.xlsx`t[シート]Sheet1`tセル`t3`tりんご`t100"
-        Should -Invoke Invoke-Item -Times 1 -Exactly -ParameterFilter { $LiteralPath -eq $resultFile }
-        lastStatus | Should -Be "search_results.txt に出力しました（2 件）"
-        $ui.ExportButtonText.Text | Should -Be "保存"
+        $out | Should -Exist
+        readZipEntryNames $out | Should -Contain "xl/worksheets/sheet1.xml"
+        lastStatus | Should -Be "検索結果.xlsx に 2 件を出力しました（出力したファイルを開きます）"
+        ($script:opened -join "|") | Should -Be $out
+        $ui.ExportButtonText.Text | Should -Be "出力"
+        $ui.ExportMenuPart.Visibility | Should -Be "Visible"
+        $ui.ExportIcon.Visibility | Should -Be "Visible"
         $script:exportJob | Should -BeNullOrEmpty
     }
 
-    It "書いている途中にワークスペースを変えても、開くのは出力を始めたときの出力先" {
-        $workDir = "$TestDrive\export_moved\work"
-        $resultFile = "$workDir\search_results.txt"
+    It "［▾］を押すと、形式のメニューがボタンの右端にそろえて開く" {
+        openExportMenu
+
+        $menu = $ui.ExportMenuButton.ContextMenu
+        $menu.IsOpen | Should -Be $true
+        $menu.PlacementTarget | Should -Be $ui.ExportGroup
+        $menu.HorizontalOffset | Should -Be (100 - 216)
+    }
+
+    It "［出力］（本体）を押すと、最後に出力できた種類で出力先を尋ねる" {
+        $workDir = "$TestDrive/export_body/work"
+        [System.IO.Directory]::CreateDirectory("$TestDrive/export_body") | Out-Null
+        $workspace = newTestWorkspace @{} $workDir
+        $script:lastSearch = newExportSearch $workDir
+        $script:lastExportFormat = "tsv"
+        Mock newExportTarget { @{ Path = "$TestDrive/b.tsv"; Format = $format } }
+        $script:searchService = newFakeService $false
+
+        clickExportButton
+
+        Should -Invoke newExportTarget -Times 1 -Exactly -ParameterFilter { $format -eq "tsv" }
+    }
+
+    It "待ち・書き込み中にメニューの種類を選んでも、中止せず、新しい要求も出さない（右クリックなどでメニューが開いたとき）" {
+        $workDir = "$TestDrive/export_busy/work"
+        [System.IO.Directory]::CreateDirectory("$TestDrive/export_busy") | Out-Null
+        $workspace = newTestWorkspace @{} $workDir
+        $script:lastSearch = newExportSearch $workDir
+        Mock newExportTarget { @{ Path = "$TestDrive/export_busy/a.xlsx"; Format = $format } }
+        $script:search = @{ Shared = @{} }
+        exportResultsAs "xlsx"
+        $pending = $script:exportPending
+        $pending | Should -Not -BeNullOrEmpty
+
+        exportResultsAs "csv"
+
+        Should -Invoke newExportTarget -Times 1 -Exactly
+        $script:exportPending | Should -Be $pending
+        $ui.ExportButtonText.Text | Should -Be "出力を中止"
+        $script:search = $null
+        $script:exportPending = $null
+    }
+
+    It "待っている出力があるときに［出力を中止］を押すと取りやめ、▾ を押してもメニューは開かない" {
+        $script:exportPending = @{ Path = "$TestDrive/x.xlsx"; Format = "xlsx" }
+
+        openExportMenu
+        $ui.ExportMenuButton.ContextMenu.IsOpen | Should -Be $false
+
+        clickExportButton
+
+        $ui.ExportMenuButton.ContextMenu.IsOpen | Should -Be $false
+        $script:exportPending | Should -BeNullOrEmpty
+        lastStatus | Should -Be (getExportCancelledText)
+    }
+
+    It "メニューから CSV を選んで書けると、その形式で出力し、本体の［出力］も CSV で出力する" {
+        $workDir = "$TestDrive\export_csv\work"
+        $out = "$TestDrive\export_csv\結果.csv"
+        [System.IO.Directory]::CreateDirectory("$TestDrive\export_csv") | Out-Null
         $workspace = newTestWorkspace @{} $workDir
         $script:lastSearch = newExportSearch $workDir
         Mock getExportHits { , $hits }
+        Mock newExportTarget { @{ Path = $out; Format = $format } }
+
+        exportResultsAs "csv"
+        pumpExport
+        Should -Invoke newExportTarget -Times 1 -Exactly -ParameterFilter { $format -eq "csv" }
+        $text = [System.IO.File]::ReadAllText($out)
+        $text | Should -BeLike "*ファイル名,場所,種別,行,A,B*"
+        $script:lastExportFormat | Should -Be "csv"
+        $ui.ExportButton.ToolTip | Should -Be "CSV (.csv) で出力します"
+    }
+
+    It "出力先は、ダイアログなしで、作業フォルダの open_copy の下に決める（文字列だけで、ファイルには触れない）" {
+        $workDir = "$TestDrive\export_target\work"
+        $workspace = newTestWorkspace @{} $workDir
+        $script:lastSearch = newExportSearch $workDir "りんご"
+        Mock Test-Path { throw "出力先を決めるときは確かめない" }
+
+        $a = newExportTarget "csv"
+        $b = newExportTarget "csv"
+
+        $root = (getOpenCopyDir $workspace).TrimEnd("\") + "\"
+        $a.Path | Should -BeLike "${root}*\検索結果_りんご_*.csv"
+        $a.Format | Should -Be "csv"
+        $a.Path | Should -Not -Be $b.Path
+        (Split-Path (Split-Path $a.Path -Parent) -Leaf).Length | Should -Be 12
+        (newExportTarget "x").Format | Should -Be "xlsx"
+        (newExportTarget "tsv").Path | Should -BeLike "*.tsv"
+    }
+
+    It "出力を始めても、保存のダイアログは出さない" {
+        $workDir = "$TestDrive\export_nodialog\work"
+        $workspace = newTestWorkspace @{} $workDir
+        $script:lastSearch = newExportSearch $workDir
+        $script:searchService = newFakeService $false
+        Mock getExportHits { , $hits }
+
+        exportResults "xlsx"
+
+        $script:searchService.Requests.Count | Should -Be 1
+        $script:searchService.Requests[0].OutputPath | Should -BeLike "$($workspace.TmpRoot)\*\open_copy\*\検索結果_りんご_*.xlsx"
+    }
+
+    It "ファイルを開けなければ、そのパスを知らせる" {
+        $workDir = "$TestDrive\export_noexplorer\work"
+        $out = "$TestDrive\export_noexplorer\結果.csv"
+        [System.IO.Directory]::CreateDirectory("$TestDrive\export_noexplorer") | Out-Null
+        $workspace = newTestWorkspace @{} $workDir
+        $script:lastSearch = newExportSearch $workDir
+        Mock getExportHits { , $hits }
+        Mock newExportTarget { @{ Path = $out; Format = $format } }
+        Mock openExportedFile { $false }
+
+        exportResults "xlsx"
+        pumpExport
+        lastStatus | Should -Be "結果.csv に 2 件を出力しました。ファイルを開けなかったため、${out} を開いてください"
+    }
+
+    It "届かない共有を出力先に選んでも、画面はすぐ戻り（確かめない）、司令の失敗がステータスの文になる" {
+        $workDir = "$TestDrive\export_unc\work"
+        $workspace = newTestWorkspace @{} $workDir
+        $script:lastSearch = newExportSearch $workDir
+        Mock getExportHits { , $hits }
+        Mock newExportTarget { @{ Path = "\\nohost.invalid\share\a.xlsx"; Format = $format } }
+        Mock Test-Path { throw "画面のスレッドでは確かめない" }
+        Mock getPathState { throw "画面のスレッドでは確かめない" }
         $script:searchService = newFakeService $false
 
-        exportResults
-        $workspace = newTestWorkspace @{} "$TestDrive\export_moved\other"
+        $watch = [System.Diagnostics.Stopwatch]::StartNew()
+        exportResults "xlsx"
+        $watch.Stop()
+        $watch.ElapsedMilliseconds | Should -BeLessThan 3000
+        $script:searchService.Requests.Count | Should -Be 1
+        $script:searchService.Requests[0].OutputPath | Should -Be "\\nohost.invalid\share\a.xlsx"
+
         invokeSearchExport $script:searchService.Requests[0]
+        $script:searchService.Requests[0].Outcome | Should -Be "Failed"
         pumpExport
-
-        Should -Invoke Invoke-Item -Times 1 -Exactly -ParameterFilter { $LiteralPath -eq $resultFile }
-    }
-    It "前回の search_results.txt は追記せずに置き換え、BOM 付き UTF-8 で書く（0 件でも書き出す）" {
-        $workDir = "$TestDrive\export_empty\work"
-        $resultFile = "$workDir\search_results.txt"
-        $workspace = newTestWorkspace @{} $workDir
-        [System.IO.Directory]::CreateDirectory($workDir) | Out-Null
-        [System.IO.File]::WriteAllText($resultFile, "前回の結果`r`n前回の結果`r`n前回の結果`r`n前回の結果`r`n")
-        $script:lastSearch = newExportSearch $workDir "無い言葉"
-        Mock getExportHits { , @() }
-
-        exportResults
-        pumpExport
-        $bytes = [System.IO.File]::ReadAllBytes($resultFile)
-        @($bytes[0..2]) | Should -Be @(0xEF, 0xBB, 0xBF)
-        $lines = [System.IO.File]::ReadAllLines($resultFile)
-        $lines[0] | Should -Be "【検索文字列　無い言葉】 0 件"
-        $lines -contains "前回の結果" | Should -Be $false
-        lastStatus | Should -Be "search_results.txt に出力しました（0 件）"
+        lastStatus | Should -BeLike "検索結果を出力できませんでした*"
+        $script:exportJob | Should -BeNullOrEmpty
     }
 
     It "絞り込んでいれば、絞り込み後の件数を知らせ、絞り込みを書き出しの要求に渡す" {
@@ -1419,10 +1642,12 @@ Describe "exportResults" -Tag Io {
         $script:lastSearch = newExportSearch $workDir
         $script:filterText = "見積"
         Mock getExportHits { , @($hits[0]) }
+        Mock newExportTarget { @{ Path = "$TestDrive\export_filtered\f.csv"; Format = $format } }
+        [System.IO.Directory]::CreateDirectory("$TestDrive\export_filtered") | Out-Null
 
-        exportResults
+        exportResults "xlsx"
         pumpExport
-        lastStatus | Should -Be "絞り込み後の 1 件を search_results.txt に出力しました"
+        lastStatus | Should -Be "絞り込み後の 1 件を f.csv に出力しました"
         $script:searchService.Requests[0].FilterText | Should -Be "見積"
         Should -Invoke getExportHits -Times 1 -Exactly -ParameterFilter { $truncated -eq $false -and $filterText -eq "見積" }
     }
@@ -1436,37 +1661,42 @@ Describe "exportResults" -Tag Io {
         $script:lastSearch.Shared.Cancelled = $false
         $script:lastSearch.Shared.OverflowDir = $TestDrive
         Mock getExportHits { , $hits }
+        Mock newExportTarget { @{ Path = "$TestDrive\export_overflow\o.csv"; Format = $format } }
+        [System.IO.Directory]::CreateDirectory("$TestDrive\export_overflow") | Out-Null
 
-        exportResults
+        exportResults "xlsx"
         pumpExport
-        lastStatus | Should -Be "表に入らなかった分も含めて、全 2 件を search_results.txt に出力しました"
+        lastStatus | Should -Be "表に入らなかった分も含めて、全 2 件を o.csv に出力しました"
         Should -Invoke getExportHits -Times 1 -Exactly -ParameterFilter { $truncated -eq $true }
     }
 
-    It "検索の途中で押すと、終わるのを待って書く。待っている間にもう一度押すと取りやめる" {
+    It "検索の途中で押すと、出力先を決めて、終わるのを待って書く。待っている間にもう一度押すと取りやめる" {
         $workDir = "$TestDrive\export_wait\work"
         $workspace = newTestWorkspace @{} $workDir
+        [System.IO.Directory]::CreateDirectory("$TestDrive\export_wait") | Out-Null
         $script:lastSearch = newExportSearch $workDir
         $script:search = @{ Shared = @{} }
         Mock getExportHits { , $hits }
+        Mock newExportTarget { @{ Path = "$TestDrive\export_wait\w.csv"; Format = $format } }
 
-        exportResults
-        lastStatus | Should -Be "検索が終わってから search_results.txt に出力します…"
+        exportResults "xlsx"
+        lastStatus | Should -Be "検索が終わってから出力します…"
         $ui.ExportButtonText.Text | Should -Be "出力を中止"
+        $ui.ExportMenuPart.Visibility | Should -Be "Collapsed"
         $script:searchService.Requests.Count | Should -Be 0
 
         $script:search = $null
         startPendingExport
         $script:searchService.Requests.Count | Should -Be 1
         pumpExport
-        lastStatus | Should -Be "search_results.txt に出力しました（2 件）"
+        lastStatus | Should -Be "w.csv に 2 件を出力しました（出力したファイルを開きます）"
 
         $script:search = @{ Shared = @{} }
-        exportResults
-        exportResults
-        lastStatus | Should -Be "出力を中止しました。search_results.txt は前のままです。"
-        $ui.ExportButtonText.Text | Should -Be "保存"
-        $script:exportPending | Should -Be $false
+        exportResults "xlsx"
+        clickExportButton
+        lastStatus | Should -Be "出力を中止しました。出力先のファイルは変えていません。"
+        $ui.ExportButtonText.Text | Should -Be "出力"
+        $script:exportPending | Should -BeNullOrEmpty
         $script:search = $null
         startPendingExport
         $script:searchService.Requests.Count | Should -Be 1
@@ -1474,26 +1704,28 @@ Describe "exportResults" -Tag Io {
 
     It "書いている間に押すと中止を伝え、止まったら前のファイルは残して知らせる" {
         $workDir = "$TestDrive\export_cancel\work"
-        $resultFile = "$workDir\search_results.txt"
+        $out = "$TestDrive\export_cancel\c.csv"
+        [System.IO.Directory]::CreateDirectory("$TestDrive\export_cancel") | Out-Null
+        [System.IO.File]::WriteAllText($out, "前回の結果")
         $workspace = newTestWorkspace @{} $workDir
-        [System.IO.Directory]::CreateDirectory($workDir) | Out-Null
-        [System.IO.File]::WriteAllText($resultFile, "前回の結果")
         $script:lastSearch = newExportSearch $workDir
         Mock getExportHits { , $hits }
+        Mock newExportTarget { @{ Path = $out; Format = $format } }
         $script:searchService = newFakeService $false
 
-        exportResults
-        exportResults
+        exportResults "xlsx"
+        clickExportButton
         $request = $script:searchService.Requests[0]
         $request.Stop | Should -Be $true
         $ui.ExportButtonText.Text | Should -Be "出力を中止"
         invokeSearchExport $request
         pumpExport
 
-        lastStatus | Should -Be "出力を中止しました。search_results.txt は前のままです。"
-        $ui.ExportButtonText.Text | Should -Be "保存"
-        [System.IO.File]::ReadAllText($resultFile) | Should -Be "前回の結果"
-        Should -Invoke Invoke-Item -Times 0 -Exactly
+        lastStatus | Should -Be "出力を中止しました。出力先のファイルは変えていません。"
+        $ui.ExportButtonText.Text | Should -Be "出力"
+        [System.IO.File]::ReadAllText($out) | Should -Be "前回の結果"
+        Should -Invoke openExportedFile -Times 0 -Exactly
+        $script:lastExportFormat | Should -Be "xlsx"
     }
 
     It "書いている途中は、書いた件数を知らせる" {
@@ -1501,59 +1733,62 @@ Describe "exportResults" -Tag Io {
         $workspace = newTestWorkspace @{} $workDir
         $script:lastSearch = newExportSearch $workDir
         Mock getExportHits { , $hits }
+        Mock newExportTarget { @{ Path = "$TestDrive\export_progress\p.csv"; Format = $format } }
         $script:searchService = newFakeService $false
 
-        exportResults
+        exportResults "xlsx"
         $script:searchService.Requests[0].Written = 1500
         pumpExport
-        lastStatus | Should -Be "search_results.txt に出力しています…（1,500 件）"
+        lastStatus | Should -Be "検索結果を出力中…（1,500 件）"
         $script:exportJob | Should -Not -BeNullOrEmpty
     }
 
-    It "search_results.txt をほかのアプリが開いていれば、閉じるよう知らせる" {
+    It "出力先をほかのアプリが開いていれば、閉じるよう知らせる" {
         $workDir = "$TestDrive\export_locked\work"
-        $resultFile = "$workDir\search_results.txt"
+        $out = "$TestDrive\export_locked\l.xlsx"
+        [System.IO.Directory]::CreateDirectory("$TestDrive\export_locked") | Out-Null
+        [System.IO.File]::WriteAllText($out, "前回の結果")
         $workspace = newTestWorkspace @{} $workDir
-        [System.IO.Directory]::CreateDirectory($workDir) | Out-Null
-        [System.IO.File]::WriteAllText($resultFile, "前回の結果")
         $script:lastSearch = newExportSearch $workDir
         Mock getExportHits { , $hits }
+        Mock newExportTarget { @{ Path = $out; Format = $format } }
 
-        $lock = [System.IO.File]::Open($resultFile, "Open", "ReadWrite", "None")
+        $lock = [System.IO.File]::Open($out, "Open", "ReadWrite", "None")
         try {
-            exportResults
+            exportResults "xlsx"
         } finally {
             $lock.Dispose()
         }
         pumpExport
-        $message = "search_results.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。"
+        $message = "l.xlsx に書き込めません。開いているアプリを閉じてから、もう一度出力してください。"
         lastStatus | Should -Be $message
         $script:banners[$script:banners.Count - 1] | Should -Be "SearchNotice|ResultSaveFailed|${message}"
-        $ui.ExportButtonText.Text | Should -Be "保存"
-        Should -Invoke Invoke-Item -Times 0 -Exactly
+        $ui.ExportButtonText.Text | Should -Be "出力"
+        Should -Invoke openExportedFile -Times 0 -Exactly
     }
 
-    It "search_results.txt が読み取り専用なら、予期しないエラーにせず、読み取り専用を外すよう知らせる" {
+    It "出力先が読み取り専用なら、予期しないエラーにせず、読み取り専用を外すよう知らせる" {
         $workDir = "$TestDrive\export_readonly\work"
-        $resultFile = "$workDir\search_results.txt"
+        $out = "$TestDrive\export_readonly\r.csv"
+        [System.IO.Directory]::CreateDirectory("$TestDrive\export_readonly") | Out-Null
+        [System.IO.File]::WriteAllText($out, "前回の結果")
+        [System.IO.File]::SetAttributes($out, "ReadOnly")
         $workspace = newTestWorkspace @{} $workDir
-        [System.IO.Directory]::CreateDirectory($workDir) | Out-Null
-        [System.IO.File]::WriteAllText($resultFile, "前回の結果")
-        [System.IO.File]::SetAttributes($resultFile, "ReadOnly")
         $script:lastSearch = newExportSearch $workDir
         Mock getExportHits { , $hits }
+        Mock newExportTarget { @{ Path = $out; Format = $format } }
 
         try {
-            exportResults
+            exportResults "xlsx"
             pumpExport
         } finally {
-            [System.IO.File]::SetAttributes($resultFile, "Normal")
+            [System.IO.File]::SetAttributes($out, "Normal")
         }
-        $message = "search_results.txt に書き込む権限がありません（読み取り専用など）。$resultFile を確かめてから、もう一度出力してください。"
+        $message = "r.csv に書き込む権限がありません（読み取り専用など）。$out を確かめてから、もう一度出力してください。"
         lastStatus | Should -Be $message
         $script:banners[$script:banners.Count - 1] | Should -Be "SearchNotice|ResultSaveFailed|${message}"
-        [System.IO.File]::ReadAllText($resultFile) | Should -Be "前回の結果"
-        Should -Invoke Invoke-Item -Times 0 -Exactly
+        [System.IO.File]::ReadAllText($out) | Should -Be "前回の結果"
+        Should -Invoke openExportedFile -Times 0 -Exactly
     }
 
     It "司令のスレッドが止まっていたら、理由を知らせて出力を終える" {
@@ -1561,14 +1796,15 @@ Describe "exportResults" -Tag Io {
         $workspace = newTestWorkspace @{} $workDir
         $script:lastSearch = newExportSearch $workDir
         Mock getExportHits { , $hits }
+        Mock newExportTarget { @{ Path = "$TestDrive\export_dead\d.csv"; Format = $format } }
         $script:searchService = newFakeService $false
         $script:searchService.Running = $false
         $script:searchService.Failure = "検索のスレッドが止まりました。"
 
-        exportResults
+        exportResults "xlsx"
         pumpExport
-        lastStatus | Should -Be "search_results.txt に出力できませんでした：検索のスレッドが止まりました。"
-        $ui.ExportButtonText.Text | Should -Be "保存"
+        lastStatus | Should -Be "検索結果を出力できませんでした：検索のスレッドが止まりました。"
+        $ui.ExportButtonText.Text | Should -Be "出力"
         $script:exportJob | Should -BeNullOrEmpty
     }
 
@@ -1577,17 +1813,18 @@ Describe "exportResults" -Tag Io {
         $workspace = newTestWorkspace @{} $workDir
         $script:lastSearch = newExportSearch $workDir
         Mock getExportHits { , $hits }
+        Mock newExportTarget { @{ Path = "$TestDrive\export_clear\c.csv"; Format = $format } }
         $script:searchService = newFakeService $false
 
-        exportResults
+        exportResults "xlsx"
         clearExport
         $script:searchService.Requests[0].Stop | Should -Be $true
 
         $script:exportJob = $null
-        $script:exportPending = $true
+        $script:exportPending = @{ Path = "x.csv"; Format = "csv" }
         clearExport
-        $script:exportPending | Should -Be $false
-        $ui.ExportButtonText.Text | Should -Be "保存"
+        $script:exportPending | Should -BeNullOrEmpty
+        $ui.ExportButtonText.Text | Should -Be "出力"
     }
 }
 
@@ -1601,7 +1838,9 @@ Describe "画面の操作" -Tag Unit {
         Mock openSourceFolder { }
         Mock copySelectedRows { }
         Mock copySourcePath { }
-        Mock exportResults { }
+        Mock clickExportButton { }
+        Mock openExportMenu { }
+        Mock exportResultsAs { }
 
         & $ui.MenuOpen.Handlers["Click"]
         & $ui.MenuOpenReadOnly.Handlers["Click"]
@@ -1612,6 +1851,10 @@ Describe "画面の操作" -Tag Unit {
         & $ui.MenuCopy.Handlers["Click"]
         & $ui.MenuCopyPath.Handlers["Click"]
         & $ui.ExportButton.Handlers["Click"]
+        & $ui.ExportMenuButton.Handlers["Click"]
+        & $ui.MenuExportXlsx.Handlers["Click"]
+        & $ui.MenuExportCsv.Handlers["Click"]
+        & $ui.MenuExportTsv.Handlers["Click"]
 
         Should -Invoke openSource -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeNormal} }
         Should -Invoke openSource -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeReadOnly} }
@@ -1620,7 +1863,11 @@ Describe "画面の操作" -Tag Unit {
         Should -Invoke openSourceFolder -Times 2 -Exactly
         Should -Invoke copySelectedRows -Times 1 -Exactly
         Should -Invoke copySourcePath -Times 1 -Exactly
-        Should -Invoke exportResults -Times 1 -Exactly
+        Should -Invoke clickExportButton -Times 1 -Exactly
+        Should -Invoke openExportMenu -Times 1 -Exactly
+        Should -Invoke exportResultsAs -Times 1 -Exactly -ParameterFilter { $format -eq "xlsx" }
+        Should -Invoke exportResultsAs -Times 1 -Exactly -ParameterFilter { $format -eq "csv" }
+        Should -Invoke exportResultsAs -Times 1 -Exactly -ParameterFilter { $format -eq "tsv" }
     }
 
     It "［開く］の［▾］のメニューで選ぶと、その開き方を既定にして保存し、開く" {

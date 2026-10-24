@@ -74,10 +74,10 @@ BeforeAll {
         @{ File = "open_source.ps1"; Function = "promptSourceMissing"; Call = "findMovedSource"; Reason = "選んだ直後のフォルダの中から、移された元のファイルを探す（フォルダ選択で選んだ場所）" }
         @{ File = "open_source.ps1"; Function = "openWithShell"; Call = "[System.Diagnostics.Process]"; Reason = "既定のアプリで開く（元のファイルは確かめ済み。プロセスの起動は待たない）" }
         @{ File = "open_source.ps1"; Function = "openWithShell"; Call = "Invoke-Item"; Reason = "既定のアプリで開く（元のファイルは確かめ済み。プロセスの起動は待たない）" }
-        @{ File = "open_source.ps1"; Function = "openSourceFolder"; Call = "Start-Process"; Reason = "エクスプローラーで選ぶ（元のファイルは確かめ済み。プロセスの起動は待たない）" }
+        @{ File = "open_source.ps1"; Function = "openExportedFile"; Call = "Invoke-Item"; Reason = "出力したファイル（このツールが今書いた .xlsx・.csv・.tsv）を既定のアプリで開く。プロセスの起動は待たない" }
+        @{ File = "open_source.ps1"; Function = "showInExplorer"; Call = "Start-Process"; Reason = "エクスプローラーで選ぶ（開く対象は確かめ済み。プロセスの起動は待たない）" }
         @{ File = "open_source.ps1"; Function = "openWithEditor"; Call = "Start-Process"; Reason = "固定のパスのメモ帳で開く（実行・登録になる拡張子。元のファイルは確かめ済み。プロセスの起動は待たない）" }
         @{ File = "open_source.ps1"; Function = "openWithEditor"; Call = "Test-Path"; Reason = "設定のエディタ（testTextEditorPath を通ったパス）のファイルがあるかを見る（開くときの 1 回。利用者の操作時のみ）" }
-        @{ File = "open_source.ps1"; Function = "completeExport"; Call = "Invoke-Item"; Reason = "search_results.txt を開く（プロセスの起動は待たない）" }
 
         @{ File = "about_dialog.ps1"; Function = "openAboutLink"; Call = "Start-Process"; Reason = "エクスプローラーで既定のブラウザを開く（getAboutLinks に載せた 2 つのアドレスだけ。プロセスの起動は待たない）" }
 
@@ -99,7 +99,7 @@ BeforeAll {
 
         # ---- tebunko/ui/index/ ----
         @{ File = "index_detail.ps1"; Function = "openFailedFileFolder"; Call = "getPathState"; Count = 2; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
-        @{ File = "index_detail.ps1"; Function = "applyFailedFileState"; Call = "Start-Process"; Count = 2; Reason = "エクスプローラーで開く（プロセスの起動は待たない）" }
+        @{ File = "index_detail.ps1"; Function = "applyFailedFileState"; Call = "Start-Process"; Reason = "エクスプローラーで開く（プロセスの起動は待たない）" }
         @{ File = "index_list.ps1"; Function = "openIndexSourceFolder"; Call = "getPathState"; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
         @{ File = "index_tree.ps1"; Function = "expandIndexNode"; Call = "getIndexFolderChildren"; Reason = "ワークスペースの場所がローカルのときに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で読む）" }
         @{ File = "index_list.ps1"; Function = "applyIndexSourceFolderState"; Call = "Start-Process"; Reason = "エクスプローラーで開く（プロセスの起動は待たない）" }
