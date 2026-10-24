@@ -468,7 +468,7 @@ function applySort {
 
     foreach ($group in $script:groupList) {
         if ($group.Hits.Count -gt ${groupRowLimit}) {
-            $group.HitOrder = getSortedHitOrder $group.Hits $property $descending (getKindByLocation $group)
+            $group.HitOrder = getSortedHitOrder $group.Hits $property $descending $(if ($property -eq "Kind") { getKindByLocation $group } else { @{} })
             $group.Rows.Clear()
             $group.RowLimit = 0
         } else {
