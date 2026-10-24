@@ -152,7 +152,8 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             # 確認のダイアログと［インデックス管理］に、インデックスの保存先（ワークスペース）が出る。ローカルなので共有の警告は出ない（［フォルダを開く］は押さない）
             $confirmTexts = @(getGuiTexts $confirm) -join "`n"
             $confirmTexts | Should -BeLike "*インデックスの保存先*$($script:tool.Work)*"
-            $confirmTexts | Should -Not -BeLike "*共有フォルダです*"
+            $confirmTexts | Should -Not -BeLike "*共有フォルダを選択しています*"
+            testGuiVisible (findGui $S.Window -Id "IndexLocationWarning") | Should -BeFalse
             testGuiVisible (findGui $confirm -Id "OpenIndexLocationButton") | Should -BeTrue
             (getGuiText (findGui $S.Window -Id "IndexLocationText")) | Should -BeLike "$($script:tool.Work)*"
             testGuiVisible (findGui $S.Window -Id "OpenIndexLocationButton") | Should -BeTrue

@@ -1,7 +1,6 @@
 ﻿# 設定の画面の判断（tebunko\ui\settings\settings_view.ps1）のテスト。
 BeforeAll {
     . "$PSScriptRoot\..\..\..\helpers\load.ps1"
-    . "${scriptsDir}\tebunko\ui\index\index_list_view.ps1"
     . "${scriptsDir}\tebunko\ui\settings\settings_view.ps1"
 }
 
@@ -177,14 +176,21 @@ Describe "getSharedFolderWarningText・newWorkspaceConfirm（共有フォルダ�
     }
 
     It "共有フォルダを選んだときだけ、warn の行を先頭に足す（isNetwork=<net>）" -TestCases @(
-        @{ net = $true; count = 1 }
-        @{ net = $false; count = 0 }
+        @{ net = $true; entries = 0; count = 1 }
+        @{ net = $false; entries = 0; count = 0 }
+        @{ net = $true; entries = 3; count = 1 }
+        @{ net = $false; entries = 3; count = 0 }
     ) {
-        $confirm = newWorkspaceConfirm "\\server\share\ws" "C:\old" 0 @() $false @() $true $false $net
+        $confirm = newWorkspaceConfirm "\\server\share\ws" "C:\old" $entries @("a", "b", "c") $false @() $true $false $net
         $warns = @($confirm.Facts | Where-Object { $_.Title -eq (getSharedFolderWarningText) })
         $warns.Count | Should -Be $count
         if ($net) {
             $confirm.Facts[0].Kind | Should -Be "warn"
+            $confirm.Facts[0].Title | Should -Be (getSharedFolderWarningText)
+        }
+        if ($entries -gt 0) {
+            # 空でないフォルダの警告の行も残る（共有の行が上、空でない行はその下）
+            @($confirm.Facts | Where-Object { $_.Kind -eq "warn" -and $_.Title -ne (getSharedFolderWarningText) }).Count | Should -BeGreaterThan 0
         }
     }
 }
