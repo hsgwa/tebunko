@@ -139,6 +139,12 @@ Describe "testTextEditorPath" -Tag Unit {
         @{ name = "スクリプトを動かすプログラム（powershell.exe）"; path = "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"; expected = $false }
         @{ name = "スクリプトを動かすプログラム（大文字の PWSH.EXE）"; path = "C:\Program Files\PowerShell\7\PWSH.EXE"; expected = $false }
         @{ name = "スクリプトを動かすプログラム（python.exe）"; path = "C:\Python\python.exe"; expected = $false }
+        @{ name = "8.3 の短い名前（POWERS~1.EXE。表に当たらずに powershell.exe を指せる）"; path = "C:\Windows\System32\WINDOW~1\v1.0\POWERS~1.EXE"; expected = $false }
+        @{ name = "8.3 の短い名前（フォルダだけ短い）"; path = "C:\PROGRA~1\Editor\editor.exe"; expected = $false }
+        @{ name = "別のデータストリーム（a.exe:powershell.exe）"; path = "C:\x\a.exe:powershell.exe"; expected = $false }
+        @{ name = "別のデータストリーム（フォルダの途中の :）"; path = "C:\x:y\editor.exe"; expected = $false }
+        @{ name = "conhost.exe"; path = "C:\Windows\System32\conhost.exe"; expected = $false }
+        @{ name = "wt.exe（Windows Terminal）"; path = "C:\Users\test\AppData\Local\Microsoft\WindowsApps\wt.exe"; expected = $false }
         @{ name = "名前が似ているだけのエディタは通る（pythonista.exe・cmdr.exe）"; path = "C:\tools\cmdr.exe"; expected = $true }
     ) {
         param ($name, $path, $expected)
@@ -155,6 +161,8 @@ Describe "testTextEditorDenied" -Tag Unit {
         @{ name = "cscript.exe"; path = "C:\x\cscript.exe"; expected = $true }
         @{ name = "mshta.exe"; path = "C:\x\mshta.exe"; expected = $true }
         @{ name = "cmd.exe"; path = "C:\x\cmd.exe"; expected = $true }
+        @{ name = "conhost.exe"; path = "C:\x\conhost.exe"; expected = $true }
+        @{ name = "wt.exe"; path = "C:\x\wt.exe"; expected = $true }
         @{ name = "python.exe"; path = "C:\x\python.exe"; expected = $true }
         @{ name = "pythonw.exe"; path = "C:\x\pythonw.exe"; expected = $true }
         @{ name = "node.exe"; path = "C:\x\node.exe"; expected = $true }

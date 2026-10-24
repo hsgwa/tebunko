@@ -147,7 +147,7 @@ function getTextOpenListView {
 ${textEditorDenyNames} = @(
     "powershell", "powershell_ise", "pwsh", "cmd", "wscript", "cscript", "mshta", "bash", "wsl", "sh",
     "python", "pythonw", "py", "pyw", "node", "ruby", "perl", "php", "lua", "java", "javaw",
-    "regedit", "reg", "msbuild", "rundll32", "regsvr32", "msiexec", "cmstp", "installutil", "regasm", "regsvcs", "forfiles", "pcalua", "explorer"
+    "conhost", "wt", "regedit", "reg", "msbuild", "rundll32", "regsvr32", "msiexec", "cmstp", "installutil", "regasm", "regsvcs", "forfiles", "pcalua", "explorer"
 )
 
 function testTextEditorDenied {
@@ -179,7 +179,8 @@ function testTextEditorPath {
     if ($path -notmatch '^[A-Za-z]:\\[^\\]') {
         return $false
     }
-    if ($path -match '["%\[\]\*\?<>\|]' -or $path.IndexOfAny([System.IO.Path]::GetInvalidPathChars()) -ge 0) {
+    # ~ は 8.3 の短い名前（POWERS~1.EXE のように、ファイル名の表に当たらずに別のプログラムを指せる）、ドライブ文字の後ろの : は別のデータストリーム（a.exe:powershell.exe）を指せるため、どちらも拒む
+    if ($path -match '["%~\[\]\*\?<>\|]' -or $path.IndexOf(':', 2) -ge 0 -or $path.IndexOfAny([System.IO.Path]::GetInvalidPathChars()) -ge 0) {
         return $false
     }
     if ($path -match '(^|\\)\.\.?(\\|$)') {
