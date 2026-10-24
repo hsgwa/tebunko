@@ -590,8 +590,10 @@ function renameIndexTextExcludes {
         if (-not $all.ContainsKey($oldName)) {
             return
         }
-        $all[$newName] = $all[$oldName]
+        # 大文字・小文字だけの改名（abc → ABC）では、Hashtable がキーの大文字・小文字を区別しないので、先に古い値を控えて消してから、新しい名前で入れる
+        $moved = $all[$oldName]
         $all.Remove($oldName)
+        $all[$newName] = $moved
         $settings.indexTextExcludes = [ordered]@{}
         foreach ($key in @($all.Keys | Sort-Object)) {
             $settings.indexTextExcludes[$key] = @($all[$key])

@@ -576,6 +576,23 @@ Describe "readTextExtensionSettings / writeIndexTextExcludes / writeTextOpenSett
         [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8) | Should -Be $before
     }
 
+    It "大文字・小文字だけの改名（<old> → <new>）でも、取り込まない拡張子の項目は残り、新しい名前の書き方になる" -TestCases @(
+        @{ old = "abc"; new = "ABC" }
+        @{ old = "営業Sales"; new = "営業sales" }
+    ) {
+        param ($old, $new)
+        $path = Join-Path $TestDrive "textext_case_$([guid]::NewGuid()).config"
+        writeIndexTextExcludes $old @(".log", ".md") $path
+        writeIndexTextExcludes "経理" @(".csv") $path
+        renameIndexTextExcludes $old $new $path
+        $raw = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
+        $raw | Should -MatchExactly ([regex]::Escape("`"$new`""))
+        $raw | Should -Not -MatchExactly ([regex]::Escape("`"$old`""))
+        $read = (readTextExtensionSettings $path).IndexExcludes
+        ($read[$new] -join ",") | Should -Be ".log,.md"
+        ($read["経理"] -join ",") | Should -Be ".csv"
+    }
+
     It "<name>" -TestCases @(
         @{ name = "大文字は小文字にそろえ、一覧に無いもの（.exe）・文字列でないもの・重複は捨てる"; json = '{ "indexTextExcludes": { "営業": [".EXE", ".Log", 1, ".log", null] } }'; expected = ".log" }
         @{ name = "配列でない 1 つの値も 1 件として読む"; json = '{ "indexTextExcludes": { "営業": ".log" } }'; expected = ".log" }
