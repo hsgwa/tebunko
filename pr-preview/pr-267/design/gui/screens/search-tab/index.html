@@ -3570,17 +3570,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#search-tabmany-hits-sorted並べ替えたあとヒットが多いファイルは並べ替えない注記が出る遷移-27" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        search-tab/many-hits-sorted（並べ替えたあと。ヒットが多いファイルは並べ替えない注記が出る。遷移 27）
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#search-tabregex-error不正な正規表現の吹き出し遷移-24" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4496,17 +4485,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#search-tabmany-hits-sorted並べ替えたあとヒットが多いファイルは並べ替えない注記が出る遷移-27" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        search-tab/many-hits-sorted（並べ替えたあと。ヒットが多いファイルは並べ替えない注記が出る。遷移 27）
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#search-tabregex-error不正な正規表現の吹き出し遷移-24" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4617,7 +4595,6 @@
     state "search-tab/no-results" as noresults
     state "search-tab/limit" as limit
     state "search-tab/many-hits" as manyhits
-    state "search-tab/many-hits-sorted" as manysorted
     state "search-tab/regex-error" as regex
     state "search-tab/tree-none" as tree
     state "search-tab/collapsed" as collapsed
@@ -4628,7 +4605,6 @@
     initial --&gt; noresults: ［検索］（23）
     initial --&gt; limit: ［検索］（23）
     limit --&gt; manyhits: すべて開く（23）
-    manyhits --&gt; manysorted: 列見出しで並べ替え（27）
     initial --&gt; regex: 不正な正規表現（24）
     initial --&gt; tree: すべて解除（25）
     results --&gt; collapsed: すべて折りたたむ（27）
@@ -4699,8 +4675,6 @@
 <p><img alt="件数の上限で打ち切った" src="../../../../images/screens/search-tab/limit.png" /></p>
 <h3 id="search-tabmany-hits1-つのファイルのヒットが多く末尾に続きの行が出た遷移-23">search-tab/many-hits（1 つのファイルのヒットが多く、末尾に続きの行が出た。遷移 23）<a class="headerlink" href="#search-tabmany-hits1-つのファイルのヒットが多く末尾に続きの行が出た遷移-23" title="Permanent link">&para;</a></h3>
 <p><img alt="1 つのファイルのヒットが多く、末尾に続きの行が出た" src="../../../../images/screens/search-tab/many-hits.png" /></p>
-<h3 id="search-tabmany-hits-sorted並べ替えたあとヒットが多いファイルは並べ替えない注記が出る遷移-27">search-tab/many-hits-sorted（並べ替えたあと。ヒットが多いファイルは並べ替えない注記が出る。遷移 27）<a class="headerlink" href="#search-tabmany-hits-sorted並べ替えたあとヒットが多いファイルは並べ替えない注記が出る遷移-27" title="Permanent link">&para;</a></h3>
-<p><img alt="並べ替えたあと。ヒットが多いファイルは並べ替えない注記が出る" src="../../../../images/screens/search-tab/many-hits-sorted.png" /></p>
 <h3 id="search-tabregex-error不正な正規表現の吹き出し遷移-24">search-tab/regex-error（不正な正規表現の吹き出し。遷移 24）<a class="headerlink" href="#search-tabregex-error不正な正規表現の吹き出し遷移-24" title="Permanent link">&para;</a></h3>
 <p><img alt="正規表現が正しくないときの吹き出し" src="../../../../images/screens/search-tab/regex-error.png" /></p>
 <h3 id="search-tabtree-none検索対象のツリーですべて解除した注意遷移-25">search-tab/tree-none（検索対象のツリーですべて解除した注意。遷移 25）<a class="headerlink" href="#search-tabtree-none検索対象のツリーですべて解除した注意遷移-25" title="Permanent link">&para;</a></h3>
