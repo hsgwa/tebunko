@@ -494,6 +494,28 @@ Describe "readPptxUnits（スライドマスター・レイアウト・ノート
         }
     }
 
+    It "addPptxSharedUnits は、フッターを足し、readMasters が true のときだけマスターを足す" -TestCases @(
+        @{ readMasters = $false; keys = "ヘッダー・フッター" }
+        @{ readMasters = $true; keys = "ヘッダー・フッター|スライドマスター|ノートマスター" }
+    ) {
+        param ($readMasters, $keys)
+        $path = "$TestDrive\共通.pptx"
+        newMasterPptx $path
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
+        try {
+            $presentation = newXmlDocument (readZipEntry $zip "ppt/presentation.xml")
+            $units = New-Object System.Collections.Specialized.OrderedDictionary
+            $layouts = New-Object System.Collections.Generic.List[string]
+            $layouts.Add("ppt/slideLayouts/slideLayout1.xml")
+            $footers = New-Object System.Collections.Generic.List[string]
+            $footers.Add("社外秘")
+            addPptxSharedUnits $zip $presentation (readRelationships $zip "ppt/presentation.xml") $layouts $footers $readMasters $units
+            @($units.Keys) -join "|" | Should -Be $keys
+        } finally {
+            $zip.Dispose()
+        }
+    }
+
     It "readPptxMasterUnits は、場所 スライドマスター・ノートマスターを units に足す" {
         $path = "$TestDrive\まとめ.pptx"
         newMasterPptx $path
