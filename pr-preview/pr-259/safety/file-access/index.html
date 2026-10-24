@@ -4557,7 +4557,7 @@
 <ul>
 <li>出力先は 1 回ごとに別のフォルダなので、既にあるファイルを上書きしない。置き場はワークスペースの一時の置き場で、クロール対象のフォルダ・インデックスのフォルダの外にあるため、出力したファイルが次の取り込みの対象にならない。</li>
 <li>書く直前に、司令のスレッドで、置き場（<code>open_copy</code>）がワークスペースの <code>tmp</code> の中にあり、リンク（ジャンクション）で外につながっていないことを確かめ（<code>testOpenCopyDir</code>。［新規で開く］のコピーと同じ確かめ）、出力先のフォルダを作れるか・同じ名前のファイルが開かれていないかを調べる（<code>testSearchExportTarget</code>）。画面のスレッドは、出力先の文字列を組み立てるだけで、ファイルに触れない。</li>
-<li>書き終えたら、出力したファイルを既定のアプリで開く（<code>openExportedFile</code>。<code>Invoke-Item -LiteralPath</code>。このツールが今書いた .xlsx・.csv・.tsv だけを開く）。</li>
+<li>書き終えたら、出力したファイルを開く（<code>openExportedFile</code>。このツールが今書いた .xlsx・.csv・.tsv だけを開く。.xlsx は <code>Invoke-Item -LiteralPath</code> で既定のアプリ、.csv・.tsv は固定のパスのメモ帳（<code>openWithNotepad</code>））。CSV・TSV を Excel などで自動では開かないのは、検索結果の文字（クロール対象の文書の中身）の先頭が <code>=</code>・<code>+</code>・<code>-</code>・<code>@</code> のとき、表計算アプリが数式として解釈する（<code>=HYPERLINK(…)</code>・DDE）ことがあるため。値は加工しない。</li>
 </ul>
 <p>この確かめには限りがある。</p>
 <ul>
