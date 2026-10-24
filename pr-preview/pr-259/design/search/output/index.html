@@ -4278,7 +4278,7 @@
 <h1 id="検索結果ファイル">検索結果ファイル<a class="headerlink" href="#検索結果ファイル" title="Permanent link">&para;</a></h1>
 <p>扱うこと: 検索結果のファイル（Excel ブック・CSV・TSV）の出力フォーマット、ヒット 1 行の組み立て、ヒットから元のファイル名・場所・行番号を求める方法。扱わないこと: 検索の仕様そのもの（<a href="../">検索</a>）。先に読むページ: <a href="../">検索</a>、<a href="../../index-data/format/">インデックスのファイルの形</a>。</p>
 <h2 id="出力フォーマットexcel-ブックcsvtsv">出力フォーマット（Excel ブック・CSV・TSV）<a class="headerlink" href="#出力フォーマットexcel-ブックcsvtsv" title="Permanent link">&para;</a></h2>
-<p>画面の［出力 ▾］で、表示中の結果（絞り込み後）を、利用者が選んだ場所に書き出す。種類は <code>.xlsx</code>（Excel ブック）・<code>.csv</code>・<code>.tsv</code>。件数の上限を超えて表に入らなかった分（<a href="../#上限を超えた分の数え上げと書き溜め">上限を超えた分</a>）も、検索が最後まで進んでいれば続けて書く。</p>
+<p>画面の［出力 ▾］で、表示中の結果（絞り込み後）を、作業フォルダの一時の置き場に書き出し、書けたら既定のアプリで開く。種類は <code>.xlsx</code>（Excel ブック）・<code>.csv</code>・<code>.tsv</code>。件数の上限を超えて表に入らなかった分（<a href="../#上限を超えた分の数え上げと書き溜め">上限を超えた分</a>）も、検索が最後まで進んでいれば続けて書く。</p>
 <ul>
 <li><strong>Excel ブック（.xlsx）</strong>: 1 シート。1 行目が見出し <code>ファイル名</code>・<code>場所</code>・<code>種別</code>・<code>行</code>・<code>該当行</code> の 5 列で、ヒット 1 件が 1 行。該当行は、元の列のセルを <code>│</code> でつないで 1 セルに入れる（画面の表と同じ）。セルは文字列として書く（数式として解釈しない）。1 シートの行の上限は 1,048,576 行（見出しを含む）で、超えた分は書かず、ステータスに件数を添える。</li>
 <li><strong>CSV・TSV</strong>: 1 行目が見出し <code>ファイル名</code>・<code>場所</code>・<code>種別</code>・<code>行</code>・<code>A</code>・<code>B</code>…（該当行の最大セル数分の列名）。ヒット 1 件が 1 行で、該当行は元の列ごとに 1 列に分ける。UTF-8（BOM 付き）、改行は CRLF。CSV はコンマ区切りで、RFC 4180 のとおりコンマ・改行・<code>"</code> を含むセルを <code>"</code> で囲む。TSV はタブ区切りで、同じく囲む。</li>

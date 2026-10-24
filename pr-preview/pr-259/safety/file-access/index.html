@@ -4425,9 +4425,9 @@
 <td><code>tebunko.bat</code>、<code>tebunko/ui/startup_error.ps1</code> の <code>writeStartupErrorFile</code></td>
 </tr>
 <tr>
-<td>利用者が指定した出力先</td>
-<td>［出力 ▾］の出力先（.xlsx・.csv・.tsv。出力先のダイアログで選ぶ。クロール対象のフォルダ・インデックスのフォルダの中は選べない）と、書き終えてから置き換えるまでの間だけ残る <code>&lt;出力先&gt;.new</code>、溢れの置き場所が使えない CSV・TSV のときだけ作る本文の一時ファイル <code>&lt;出力先&gt;.part</code>（どちらも強制終了すると残ることがある。次の出力の始めに消す）</td>
-<td>画面のダイアログで利用者が指定</td>
+<td>検索結果の出力先</td>
+<td>［出力 ▾］の出力先（.xlsx・.csv・.tsv）。保存のダイアログは出さず、<code>work/tmp/&lt;PC の鍵&gt;/open_copy/&lt;12 桁の文字&gt;/検索結果_&lt;ワード&gt;_&lt;日時&gt;.&lt;拡張子&gt;</code> に決める（［新規で開く］のコピーと同じ置き場。起動のたびに、最後に使ってから 1 日より古いものを消す）。書き終えてから置き換えるまでの間だけ残る <code>&lt;出力先&gt;.new</code>、溢れの置き場所が使えない CSV・TSV のときだけ作る本文の一時ファイル <code>&lt;出力先&gt;.part</code>（どちらも強制終了すると残ることがある）</td>
+<td>画面の［出力 ▾］（利用者が押す）</td>
 </tr>
 <tr>
 <td>利用者が指定したエクスポート先</td>
@@ -4553,15 +4553,16 @@
 </tbody>
 </table>
 <h3 id="検索結果の出力先の確かめ">検索結果の出力先の確かめ<a class="headerlink" href="#検索結果の出力先の確かめ" title="Permanent link">&para;</a></h3>
-<p>［出力 ▾］の出力先は、利用者が出力先のダイアログで選んだ名前だけから決める（<code>resolveExportTarget</code>。ほかのパスから出力先を作らない。<code>tests/meta/safety.Tests.ps1</code> が確かめる）。書く前に、次の 2 つを確かめる。</p>
+<p>［出力 ▾］の出力先は、画面が決める名前（<code>newExportTarget</code>。作業フォルダの一時の置き場の中だけ）から作り、利用者の入力や元のファイルのパスからは作らない（<code>tests/meta/safety.Tests.ps1</code> が確かめる）。書く前後に、次のことをする。</p>
 <ul>
-<li>出力先のダイアログの確定のとき、出力先がクロール対象のフォルダ・インデックスのフォルダの中なら断る（<code>testExportForbiddenPath</code>）。出力したファイルが次の取り込みの対象になるのを防ぐため。確かめるのは文字列の比べだけで、ファイルには触れない。</li>
-<li>書く直前に、司令のスレッドで出力先のフォルダを作れるか・同じ名前のファイルが開かれていないかを調べる（<code>testSearchExportTarget</code>）。</li>
+<li>出力先は 1 回ごとに別のフォルダなので、既にあるファイルを上書きしない。置き場はワークスペースの一時の置き場で、クロール対象のフォルダ・インデックスのフォルダの外にあるため、出力したファイルが次の取り込みの対象にならない。</li>
+<li>書く直前に、司令のスレッドで出力先のフォルダを作れるか・同じ名前のファイルが開かれていないかを調べる（<code>testSearchExportTarget</code>）。画面のスレッドは、出力先の文字列を組み立てるだけで、ファイルに触れない。</li>
+<li>書き終えたら、出力したファイルを既定のアプリで開く（<code>openExportedFile</code>。<code>Invoke-Item -LiteralPath</code>。このツールが今書いた .xlsx・.csv・.tsv だけを開く）。</li>
 </ul>
 <p>この確かめには限りがある。</p>
 <ul>
-<li>文字列の比べのため、ドライブの割り当て（<code>subst</code>・割り当てたネットワークドライブ）、UNC パスとドライブ文字の別の書き方、ジャンクション（フォルダのリンク）、8.3 形式の短い名前を通した書き方では、同じ場所を指していても見抜けない。見抜けないときは、出力したファイルが次の取り込みの対象になることがある（取り込みでは、ほかのファイルと同じく、読み取りだけを行う）。</li>
-<li>出力先のダイアログは OS のものなので、届かない共有を選ぶと、OS のダイアログが応答を待つ間、画面が止まることがある。tebunko は、ダイアログが閉じたあとの出力先に、画面のスレッドでは触れない（有無の確かめも書き込みも、司令のスレッドで行う）。</li>
+<li>一時の置き場のファイルは、起動のたびに 1 日より古いものを消す。残したいときは、開いたアプリで［名前を付けて保存］する。開いたままのファイルは消せずに残り、次の起動で消す。</li>
+<li>置き場がワークスペースの外にリンクしていると、書く先も外になる（［新規で開く］のコピーを作る・消すときは置き場がリンクでないことを確かめるが、出力では画面のスレッドでファイルに触れないため、書く側の確かめは <code>testSearchExportTarget</code> だけ）。</li>
 </ul>
 <h2 id="取り込み対象のファイルは書き換えない">取り込み対象のファイルは書き換えない<a class="headerlink" href="#取り込み対象のファイルは書き換えない" title="Permanent link">&para;</a></h2>
 <p>本ツールは、クロール対象フォルダのファイルを<strong>直接開かない</strong>。作業フォルダへコピーし、そのコピーだけを開く（<code>tebunko/indexer/extract_office.ps1:192</code>・<code>434</code> と <code>tebunko/indexer/extract_text.ps1</code>（<code>extractTextFile</code>）の <code>invokeWithSourceCopy</code>。中で <code>copyFileShared</code> を呼ぶ）。コピー元は読み取り専用で開く（<code>shared/core/fs.ps1:140</code>。<code>FileAccess::Read</code> で開き、ほかのアプリの読み書き・削除を妨げない）。</p>
