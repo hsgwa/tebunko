@@ -68,6 +68,8 @@ BeforeAll {
         return $timer
     }
     function toggleFileGroup { param($group) }
+    function activateResultItem { param($item) }
+    function testResultSorted { return $false }
     function showConfirm { param([string]$title, [string]$heading, [string]$hint, [object[]]$facts, [object[]]$choices) }
     function selectFolder { param([string]$description, [string]$initial, $owner, [bool]$knownExisting) }
     function factGone { param([string]$title, [string]$detail) "Gone ${title}" }
@@ -1534,16 +1536,16 @@ Describe "画面の操作" -Tag Unit {
         Should -Invoke openSource -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeNew} }
     }
 
-    It "Enter は、見出しの行では閉じる・開く、ほかの行では元のファイルを開く" {
+    It "Enter は、見出し・続きの行では閉じる開く・続きを出す（activateResultItem）、ほかの行では元のファイルを開く" {
         Mock openSource { }
-        Mock toggleFileGroup { }
+        Mock activateResultItem { $item -is [FileGroup] }
         $group = [FileGroup]::new()
 
         $ui.ResultGrid.SelectedItem = $group
         $e = [pscustomobject]@{ Key = "Return"; Handled = $false }
         & $ui.ResultGrid.Handlers["PreviewKeyDown"] $null $e
         $e.Handled | Should -Be $true
-        Should -Invoke toggleFileGroup -Times 1 -Exactly
+        Should -Invoke activateResultItem -Times 1 -Exactly -ParameterFilter { [object]::ReferenceEquals($item, $group) }
         Should -Invoke openSource -Times 0 -Exactly
 
         $ui.ResultGrid.SelectedItem = newRow
@@ -1616,6 +1618,12 @@ Describe "右クリックのメニュー" -Tag Unit {
         }
 
         It "選んでいる項目が無ければ出さない" {
+            showResultMenu $null -1 | Should -Be $false
+            Should -Invoke setContextMenuItems -Times 0 -Exactly
+        }
+
+        It "「続き」の行を選んでいるときは出さない（開く元のファイルが無い）" {
+            $ui.ResultGrid.SelectedItem = [MoreRowsItem]::new()
             showResultMenu $null -1 | Should -Be $false
             Should -Invoke setContextMenuItems -Times 0 -Exactly
         }
