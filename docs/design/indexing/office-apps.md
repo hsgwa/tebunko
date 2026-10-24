@@ -79,7 +79,7 @@ flowchart TD
 
 ## Word・PowerPoint のテキスト読み取り（`scripts/shared/office/office_reader.ps1`）
 
-`.docx` `.pptx` を ZIP として開き（`System.IO.Compression`）、XML を `XmlReader` で先頭から順に読む（`readXmlLines`）。Word（WordprocessingML、`w:`）と PowerPoint（DrawingML、`a:`）で同じ処理を使い、名前空間だけを切り替える。
+`.docx` `.pptx` を ZIP として開き（`System.IO.Compression`）、XML を `XmlReader` で先頭から順に読む（`readXmlLines`）。Word（WordprocessingML、`w:`）と PowerPoint（DrawingML、`a:`）で同じ処理を使い、名前空間だけを切り替える。`$skipAllPlaceholders` を渡すと、種類を問わずプレースホルダー（`p:ph` のある `p:sp`）の文字を読まない（PowerPoint のスライドマスター・レイアウト・ノートマスターの見本の文字を除く。プレースホルダーに入れた表 `p:graphicFrame` は対象外）。
 
 ZIP の部品（エントリ）を読む `readZipEntry` は、展開後の大きさに部品 1 つにつき 100MB・1 ファイルの合計 300MB の上限を設け、超えたら簡潔な文言で例外にする（ヘッダーの大きさを偽って小さく見せた部品も検知する）。`XmlDocument` を作るところ（`newXmlDocument`）はすべて DTD（`<!DOCTYPE>`）の処理を禁止する。どちらも [Office ファイルを開くときの設定](../../safety/checks.md#office-ファイルを開くときの設定) を参照。
 
