@@ -1374,6 +1374,7 @@ one.xlsx"; Format = $format } }
         ($script:opened -join "|") | Should -Be $out
         $ui.ExportButtonText.Text | Should -Be "出力"
         $ui.ExportMenuPart.Visibility | Should -Be "Visible"
+        $ui.ExportIcon.Visibility | Should -Be "Visible"
         $script:exportJob | Should -BeNullOrEmpty
     }
 
