@@ -317,9 +317,12 @@ function toggleIndexFiles {
     $requestBox = $script:indexFilesRequest
     $requestBox.Value++
     $requestId = $requestBox.Value
-    $ui.IndexFilesPanel.Visibility = "Visible"
+    $panel = $ui.IndexFilesPanel
+    $panel.Visibility = "Visible"
     $ui.IndexFilesGrid.ItemsSource = $null
     $ui.IndexFilesHeading.Text = "読み込み中…"
+    # 詳細欄は縦にスクロールし、一覧は一番下にある。開いても見えない（何も出ないように見える）ため、見える所まで送る
+    $panel.BringIntoView()
     $labels = getIndexFileStateLabels
     # 呼ぶ関数は変数で捕まえてから閉じ込める（裏の仕事の結果を受けるところからは、関数の名前が見つからないため。openFailedFileFolder と同じ）
     $makeHeading = ${function:getIndexFilesHeading}
@@ -341,6 +344,7 @@ function toggleIndexFiles {
         $entries = $output[0]
         $heading.Text = & $makeHeading ($entries.Rows.Count) ($entries.Failed) ($entries.Pending)
         $grid.ItemsSource = $entries.Rows
+        $panel.BringIntoView()
     }.GetNewClosure() (getWorkspaceJobQueue $workspace.StatusFile)
 }
 

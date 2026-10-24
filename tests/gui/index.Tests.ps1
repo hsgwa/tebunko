@@ -195,6 +195,16 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             waitGui $S "取り込んだファイルが並ぶ" ${guiDefaultTimeout} {
                 (getGuiText (findGui $S.Window -Id "IndexFilesHeading")) -like "ファイル * 件*"
             } | Out-Null
+            # 押したら、一覧の見出しが窓の中に見える（詳細欄をスクロールしないと見えない所に開いて、何も出ないように見えるのを防ぐ）
+            Start-Sleep -Milliseconds 500
+            $headingRect = (findGui $S.Window -Id "IndexFilesHeading").Current.BoundingRectangle
+            $paneRect = (findGui $S.Window -Id "IndexDetailTitle").Current.BoundingRectangle
+            $winRect = $S.Window.Current.BoundingRectangle
+            $headingRect.Top | Should -BeGreaterThan $paneRect.Bottom -Because "一覧の見出しが詳細の見出しの下にある"
+            $headingRect.Bottom | Should -BeLessThan $winRect.Bottom -Because "一覧の見出しが窓の中に見える"
+            # 表の最初の行まで見える（見出しだけが端に見えている状態にしない）
+            $firstRow = @(getGuiGridRows (findGui $S.Window -Id "IndexFilesGrid"))[0]
+            $firstRow.Current.IsOffscreen | Should -BeFalse -Because "一覧の最初の行が見える所まで送ってある"
             $fileRows = @(getGuiGridRows (findGui $S.Window -Id "IndexFilesGrid"))
             $fileRows.Count | Should -BeGreaterThan 1
             ($fileRows | ForEach-Object { (getGuiRowTexts $_) -join " " }) -join "`n" | Should -BeLike "*壊れた文書.docx*失敗*"
