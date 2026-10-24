@@ -169,6 +169,31 @@ Describe "testWorkspaceChoice" -Tag Unit {
     }
 }
 
+Describe "getSharedFolderWarningText・newWorkspaceConfirm（共有フォルダの警告）" -Tag Unit {
+    It "警告の文は短い 1 文で、確かめさせる言い方をしない" {
+        getSharedFolderWarningText | Should -Be "共有フォルダを選択しています。他のユーザーが閲覧できる可能性があります。"
+        getSharedFolderWarningText | Should -Not -Match "確かめてください|同じか"
+    }
+
+    It "共有フォルダを選んだときだけ、warn の行を先頭に足す（isNetwork=<net>）" -TestCases @(
+        @{ net = $true; entries = 0; count = 1 }
+        @{ net = $false; entries = 0; count = 0 }
+        @{ net = $true; entries = 3; count = 1 }
+        @{ net = $false; entries = 3; count = 0 }
+    ) {
+        $confirm = newWorkspaceConfirm "\\server\share\ws" "C:\old" $entries @("a", "b", "c") $false @() $true $false $net
+        $warns = @($confirm.Facts | Where-Object { $_.Title -eq (getSharedFolderWarningText) })
+        $warns.Count | Should -Be $count
+        if ($net) {
+            $confirm.Facts[0].Kind | Should -Be "warn"
+            $confirm.Facts[0].Title | Should -Be (getSharedFolderWarningText)
+        }
+        if ($entries -gt 0) {
+            # 空でないフォルダの警告の行も残る（共有の行が上、空でない行はその下）
+            @($confirm.Facts | Where-Object { $_.Kind -eq "warn" -and $_.Title -ne (getSharedFolderWarningText) }).Count | Should -BeGreaterThan 0
+        }
+    }
+}
 Describe "newWorkspaceConfirm" -Tag Unit {
     It "空のフォルダなら、移す先を見出しに、移動中は使えないことを補足に出し、移動するボタンを 1 つ出す" {
         $confirm = newWorkspaceConfirm "D:\データ" "C:\tool\work" 0
