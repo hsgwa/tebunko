@@ -4380,8 +4380,8 @@
 </tr>
 <tr>
 <td>10</td>
-<td>［結果をファイルに出力］</td>
-<td>表示中の結果を <code>work/search_results.txt</code>（<a href="../../search/">検索</a> と同じ形式）に出力して開く（<a href="#結果をファイルに出力">結果をファイルに出力</a>）</td>
+<td>［出力 ▾］</td>
+<td>表示中の結果を Excel ブック・CSV・TSV のファイルに出力する。本体を押すと最後に出力できた種類で、▾ を押すとメニューから選んだ種類で、そのまま出力する。書けたら出力したファイルを開く（Excel ブックは既定のアプリ、CSV・TSV はメモ帳）（<a href="#結果をファイルに出力">結果をファイルに出力</a>）</td>
 </tr>
 <tr>
 <td>11</td>
@@ -4553,7 +4553,7 @@
 <tbody>
 <tr>
 <td>場所</td>
-<td>行ごとの場所の表記（<code>describeHitPlace</code>）。Excel は場所ごとの表記にセル番地を足し（<code>[シート]売上!B12</code>。1 行の中で複数のセルが一致したときは、ほかの数を <code>ほか N</code> で付ける。セル番地が求まらないときは <code>[シート]売上 12 行目</code>）、図形・コメントは図形の左上・コメントのセルを足す（<code>[シート]売上!D5</code>。求まらないときは通し番号のため行番号を出さず <code>[シート]売上</code>）、ヘッダー・フッターは行にセル番地が無いため <code>[シート]売上</code> だけを出す。Word・PowerPoint は場所ごとの表記のまま（<code>describePlace</code>。<a href="../../search/">検索</a> <a href="../../search/output/#出力フォーマットworksearch_resultstxt">出力フォーマット</a>。種類の見出しは付けない）。Word のページは目安のため「（目安）」を付ける。幅より長いときはツールチップで全文を出す。並べ替えは TSV の名前（<code>Location</code>。<code>ページ003</code> のように桁をそろえてある）→ 行番号の順で行う</td>
+<td>行ごとの場所の表記（<code>describeHitPlace</code>）。Excel は場所ごとの表記にセル番地を足し（<code>[シート]売上!B12</code>。1 行の中で複数のセルが一致したときは、ほかの数を <code>ほか N</code> で付ける。セル番地が求まらないときは <code>[シート]売上 12 行目</code>）、図形・コメントは図形の左上・コメントのセルを足す（<code>[シート]売上!D5</code>。求まらないときは通し番号のため行番号を出さず <code>[シート]売上</code>）、ヘッダー・フッターは行にセル番地が無いため <code>[シート]売上</code> だけを出す。Word・PowerPoint は場所ごとの表記のまま（<code>describePlace</code>。<a href="../../search/">検索</a> <a href="../../search/output/#出力フォーマットexcel-ブックcsvtsv">出力フォーマット</a>。種類の見出しは付けない）。Word のページは目安のため「（目安）」を付ける。幅より長いときはツールチップで全文を出す。並べ替えは TSV の名前（<code>Location</code>。<code>ページ003</code> のように桁をそろえてある）→ 行番号の順で行う</td>
 <td><code>[シート]売上!B12</code> / <code>[シート]売上!B12 ほか 2</code> / <code>[シート]売上!D5</code> / <code>3 ページ（目安）</code> / <code>スライド 2（非表示）</code></td>
 </tr>
 <tr>
@@ -4587,15 +4587,17 @@
 </ul>
 <h2 id="結果をファイルに出力">結果をファイルに出力<a class="headerlink" href="#結果をファイルに出力" title="Permanent link">&para;</a></h2>
 <ul>
-<li>表示中の結果（絞り込み後。閉じているファイルの行も含む）を <code>work/search_results.txt</code> に出力し、既定のアプリで開く。ステータスには <code>search_results.txt に出力しました（N 件）</code> と表示する。</li>
-<li>件数の上限を超えて表に入らなかった分（<a href="#検索の実行">検索の実行</a>で一時ファイルに溜めた溢れ）も、同じファイルに書く。表の分に続けて溢れを検索の順に書き、絞り込み中は溢れの分も同じ絞り込み（<code>testHitFilter</code>）にかける。書く処理は検索の司令のスレッド（<code>SearchService.Export</code>）が行い、画面のスレッドは 200 ミリ秒ごとに進み具合を見るだけにする（<code>tebunko/search/search_export.ps1</code>）。</li>
+<li>ボタンは分割ボタン［出力 ▾］（本体 <code>ExportButton</code> と ▾ <code>ExportMenuButton</code> を 1 つの枠にまとめる。高さ 24・角丸 4・枠は入力欄と同じ色・地なし・文字 11。青は hover のときだけ）。本体を押すと、最後に出力できた種類（初めは Excel ブック）で出力する。▾ のメニューには <code>Excel ブック (.xlsx)</code>・<code>CSV (.csv)</code>・<code>TSV (.tsv)</code> があり、項目を選ぶと、その形式でそのまま出力する（印は付けない。選んで書けた種類が、次の本体の［出力］の形式になる。画面を開くたびに Excel ブックに戻る。<code>setting.config</code> には残さない）。検索する前に出力しようとしても、出力せず、<code>先に検索してください。</code> と表示する。</li>
+<li>出力先は、保存のダイアログを出さず、作業フォルダの一時の置き場に決める（<code>newExportTarget</code>）。<code>work/tmp/&lt;PC の鍵&gt;/open_copy/&lt;12 桁の文字&gt;/検索結果_&lt;ワード&gt;_&lt;日時&gt;.&lt;拡張子&gt;</code> で、1 回ごとに別のフォルダなので、同じ名前が重ならない（開いたままのファイルがあっても上書きしない）。置き場は［新規で開く］のコピーと同じで、起動のたびに、最後に使ってから 1 日より古いものだけを消す（<code>clearOldOpenCopies</code>。開いているものは残る）。出力先を決めるときは、ファイルに触らない（フォルダは書く側の司令のスレッドが作る）。</li>
+<li>ほかの場所に残したいときは、開いたアプリ（Excel など）で［名前を付けて保存］する。</li>
+<li>表示中の結果（絞り込み後。閉じているファイルの行も含む）を書く。件数の上限を超えて表に入らなかった分（<a href="#検索の実行">検索の実行</a>で一時ファイルに溜めた溢れ）も書く。表の分に続けて溢れを検索の順に書き、絞り込み中は溢れの分も同じ絞り込み（<code>testHitFilter</code>）にかける。書く処理は検索の司令のスレッド（<code>SearchService.Export</code>）が行い、画面のスレッドは 200 ミリ秒ごとに進み具合を見るだけにする（<code>tebunko/search/search_export.ps1</code>）。</li>
 <li>溢れを書いた出力では、並べ替えは当てず、検索の順で書く（並べ替え中なら、ステータスにそう添える）。</li>
-<li>書いている間、ボタンの文字は <code>出力を中止</code> になり、押すと中止する。中止・失敗のときは前の <code>search_results.txt</code> をそのまま残す（一時ファイルに書き終えてから置き換える）。</li>
+<li>書いている間、ボタンは本体だけの <code>出力を中止</code> になり、▾ は隠れる。押すと中止する。中止・失敗のときは、書きかけの一時ファイル（<code>.new</code>）を消す。</li>
 <li>検索の途中で押したときは、検索が終わってから書く（もう一度押すと取り消す）。新しく検索したときと、検索結果を消したときは、出力も止める。</li>
 <li>溢れが使えないとき（総数を数える時間切れ・溢れを書けなかった・検索を途中で止めた）は、表に出ている分だけを書き、ステータスにその理由を添える。</li>
-<li>形式は <a href="../../search/output/">検索結果ファイル</a> のとおり。出力は <code>tebunko/search/search_export.ps1</code> の <code>invokeSearchExport</code> が司令のスレッドで行う（表の分と溢れを同じ形で書く。1 行・件数の行の組み立ては <code>search_run.ps1</code> の <code>getSearchResultLine</code> / <code>getSearchResultColumnCount</code> / <code>getSearchResultCountLine</code>、画面のコピーと共通。<a href="../implementation/#実装構成">実装構成</a>）。</li>
-<li>絞り込み中は、見出しの件数を表示中の件数とし、ステータスに <code>絞り込み後の K 件を search_results.txt に出力しました</code> と表示する（U7）。</li>
-<li>書き込めないときは、検索画面の上の橙の帯に出す（閉じられる。<a href="../indexing-run/#帯とステータスバー">帯とステータスバー</a>）。ファイルが開かれているときは <code>search_results.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。</code>、読み取り専用・権限が無いときは <code>search_results.txt に書き込む権限がありません（読み取り専用など）。&lt;パス&gt; を確かめてから、もう一度出力してください。</code>。</li>
+<li>形式は <a href="../../search/output/">検索結果ファイル</a> のとおり。Excel ブックは 5 列（ファイル名・場所・種別・行・該当行）、CSV・TSV は該当行をタブで列に分ける。Excel ブックは 1 シート 1,048,576 行（見出しを含む）までで、超えた分は書かず、ステータスに件数を添える。セルは 32,767 文字までで、超えた分は切る。出力は <code>tebunko/search/search_export.ps1</code> の <code>invokeSearchExport</code> が司令のスレッドで行う（Excel ブックは <code>shared/office/xlsx_writer.ps1</code>、CSV・TSV は <code>shared/core/csv_writer.ps1</code>。1 行の組み立ては <code>search_run.ps1</code> の <code>toResultCells</code>。<a href="../implementation/#実装構成">実装構成</a>）。書き終えたら、出力したファイルを開く（<code>openExportedFile</code>。Excel ブックは既定のアプリ（Excel）、CSV・TSV は数式を解釈しないメモ帳（<code>openWithNotepad</code>）。CSV・TSV を表計算アプリで自動では開かない: 先頭が <code>=</code>・<code>+</code>・<code>-</code>・<code>@</code> のセルが数式として動くのを避けるため、値は加工せずに開き方で避ける。開けなければ、ステータスに出力先のパスを添える）。</li>
+<li>絞り込み中は、見出しの件数を表示中の件数とし、ステータスに <code>絞り込み後の K 件を &lt;名前&gt; に出力しました</code> と表示する（U7）。</li>
+<li>書き込めないときは、検索画面の上の橙の帯に出す（閉じられる。<a href="../indexing-run/#帯とステータスバー">帯とステータスバー</a>）。ファイルが開かれているときは <code>&lt;名前&gt; に書き込めません。開いているアプリを閉じてから、もう一度出力してください。</code>、読み取り専用・権限が無いときは <code>&lt;名前&gt; に書き込む権限がありません（読み取り専用など）。&lt;パス&gt; を確かめてから、もう一度出力してください。</code>。</li>
 <li>まだ検索していなければ <code>先に検索してください。</code> と表示する。</li>
 <li>出力の文言は <a href="../messages/">メッセージ</a> の「ステータス・帯」の結果を出力した行にまとめた（<code>open_source_view.ps1</code> の <code>getExport*Text</code>）。</li>
 </ul>
