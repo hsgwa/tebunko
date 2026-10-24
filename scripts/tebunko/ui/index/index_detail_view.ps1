@@ -17,7 +17,7 @@ function getIndexDetailItem {
 
 function getIndexFileStateLabels {
     # 取り込んだファイルの一覧の「状態」の文言（Kind → 文言）。Kind は getIndexFileEntries と同じ（Done / Failed / Pending）
-    return @{ Done = "取り込み済"; Failed = "失敗"; Pending = "未取り込み" }
+    return @{ Done = "取り込み済"; Failed = "失敗"; Pending = "未取り込み"; NoReason = "（原因は記録されていません）" }
 }
 
 function selectIndexFileRows {
@@ -41,6 +41,17 @@ function getIndexFailedEntryView {
 
     if ($failedCount -le 0) { return @{ Shown = $false; Text = "" } }
     return @{ Shown = $true; Text = ("更新に失敗したファイル {0:#,0} 件" -f $failedCount) }
+}
+
+function getIndexFilesEmptyNotice {
+    # 絞り込みの結果が 0 件のときの案内。失敗のみで 0 件なら「失敗したファイルはありません」、それ以外は空（見出しの要約を出す）
+    param (
+        [string]$filter,
+        [int]$shownCount
+    )
+
+    if ($filter -eq "Failed" -and $shownCount -le 0) { return "失敗したファイルはありません" }
+    return ""
 }
 
 function getIndexFilesHeading {

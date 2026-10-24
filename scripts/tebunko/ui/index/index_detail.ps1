@@ -257,6 +257,7 @@ function applyIndexingState {
 }
 
 $script:indexFilesEntries = $null   # 開いている一覧の中身（getIndexFileEntries の結果。「すべて」「失敗のみ」の切り替えで読み直さないため）
+$script:indexFilesSummary = ""     # 一覧の見出しの要約（絞り込みで案内に替えたあと戻すため）
 $script:indexFilesFilter = "All"    # 一覧の絞り込み（All / Failed）
 $script:indexFilesName = ""      # 取り込んだファイルの一覧を開いているインデックスの名前（空は閉じている）
 $script:indexFilesRequest = [ref]0   # 一覧を読む依頼の番号（古い依頼の結果は捨てる。[ref] のまま閉じ込める）
@@ -280,7 +281,10 @@ function setIndexFilesFilter {
     $ui.IndexFilesAllRadio.IsChecked = ($script:indexFilesFilter -eq "All")
     $ui.IndexFilesFailedRadio.IsChecked = ($script:indexFilesFilter -eq "Failed")
     if ($null -ne $script:indexFilesEntries) {
-        $ui.IndexFilesGrid.ItemsSource = @(selectIndexFileRows $script:indexFilesEntries.Rows $script:indexFilesFilter)
+        $shown = @(selectIndexFileRows $script:indexFilesEntries.Rows $script:indexFilesFilter)
+        $ui.IndexFilesGrid.ItemsSource = $shown
+        $notice = getIndexFilesEmptyNotice $script:indexFilesFilter $shown.Count
+        $ui.IndexFilesHeading.Text = if ($notice) { $notice } else { $script:indexFilesSummary }
     }
 }
 
@@ -291,7 +295,7 @@ function applyIndexFileEntries {
     )
 
     $script:indexFilesEntries = $entries
-    $ui.IndexFilesHeading.Text = getIndexFilesHeading ($entries.Rows.Count) ($entries.Failed) ($entries.Pending)
+    $script:indexFilesSummary = getIndexFilesHeading ($entries.Rows.Count) ($entries.Failed) ($entries.Pending)
     setIndexFilesFilter $script:indexFilesFilter
     # 行ができて一覧が伸びたあとの高さで送る（配置を決めてから）
     $ui.IndexFilesPanel.UpdateLayout()
@@ -327,7 +331,7 @@ function toggleIndexFiles {
     $panel.UpdateLayout()
     $panel.BringIntoView()
     $labels = getIndexFileStateLabels
-    # 呼ぶ関数は変数で捕まえてから閉じ込める（裏の仕事の結果を受けるところからは、関数の名前が見つからないため。openFailedFileFolder と同じ）
+    # 呼ぶ関数は変数で捕まえてから閉じ込める（裏の仕事の結果を受けるところからは、関数の名前が見つからないため。openListedFileFolder と同じ）
     $applyEntries = ${function:applyIndexFileEntries}
     $heading = $ui.IndexFilesHeading
     startJob {

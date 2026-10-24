@@ -47,7 +47,7 @@ function getIndexFileEntries {
         $keys.Add($rest)
         $items.Add([pscustomobject]@{
             RelPath = $rest; UpdatedText = $(if ($row.更新日時.Length -ge 16) { $row.更新日時.Substring(0, 16) } else { [string]$row.更新日時 }); Kind = $kind; StateText = [string]$labels[$kind]; SourcePath = $(if ($base) { $base + "\" + $rest } else { "" })
-            Reason = $(if ($kind -eq "Failed") { [string]$row.エラー } else { "" })
+            Reason = $(if ($kind -ne "Failed") { "" } elseif ($row.エラー) { [string]$row.エラー } else { [string]$labels.NoReason })
         })
     }
     # 型を明示する（引数の型が曖昧だと、並べ替えが別の（並べ替えた結果を返さない）呼び方になる）

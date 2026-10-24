@@ -324,6 +324,15 @@ Describe "selectIndexFileRows / getIndexFailedEntryView（失敗の絞り込み�
         (@(selectIndexFileRows $rows $filter | ForEach-Object { $_.RelPath })) -join "," | Should -Be $expected
     }
 
+    It "<label>" -TestCases @(
+        @{ label = "失敗のみで 0 件なら案内を出す"; filter = "Failed"; count = 0; expected = "失敗したファイルはありません" }
+        @{ label = "失敗のみで 1 件以上なら出さない"; filter = "Failed"; count = 2; expected = "" }
+        @{ label = "すべてで 0 件でも出さない（見出しの要約が「まだ取り込んだファイルはありません」を言う）"; filter = "All"; count = 0; expected = "" }
+    ) {
+        param ($label, $filter, $count, $expected)
+        getIndexFilesEmptyNotice $filter $count | Should -Be $expected
+    }
+
     It "行が無い・null でも空を返す" {
         @(selectIndexFileRows @() "Failed").Count | Should -Be 0
         @(selectIndexFileRows $null "All").Count | Should -Be 0
