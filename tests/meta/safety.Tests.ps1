@@ -633,6 +633,12 @@ Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を�
             if ($t.File -eq "office_embedded.ps1") {
                 return $true  # 埋め込みを読むファイルは、部品を直接開かない（readZipEntry・readZipEntryBytes を通す）
             }
+            if ($t.File -eq "xlsx_writer.ps1") {
+                # 検索結果を書き出す側（書き込み専用の entry.Open()）。読む側ではない。外すのは書き込みの関数 2 つの中だけ
+                $ast = [System.Management.Automation.Language.Parser]::ParseFile($t.Path, [ref]$null, [ref]$null)
+                $writers = @($ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -in @("addXlsxEntry", "newXlsxWriter") }, $true))
+                return @($writers | Where-Object { $t.Line -ge $_.Extent.StartLineNumber -and $t.Line -le $_.Extent.EndLineNumber }).Count -eq 0
+            }
             $t.File -ne "office_reader.ps1" -or @($ranges | Where-Object { $t.Line -ge $_[0] -and $t.Line -lt $_[1] }).Count -eq 0
         })
         (@($outside | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
@@ -727,6 +733,18 @@ Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を�
 Describe "取り込み対象のファイルを書き換えないこと（docs/safety/file-access.md「取り込み対象のファイルは書き換えない」）" -Tag Meta {
     # 書き込み・削除の API に元のパスを渡さないことは、変数の名前でなく書く API そのものを見る
     # tests/meta/source_write.Tests.ps1（書く API の許可リスト）と remove_entry.Tests.ps1（消す入口）が守る
+
+    It "検索結果の出力先（OutputPath）は、作業フォルダの一時の置き場の名前（newExportTarget の Path）からだけ作る" {
+        $requests = @($code | Where-Object { $_.Text -match 'newExportRequest\s+\$' })
+        ($requests.Count -gt 0) | Should -Be $true
+        (@($requests | Where-Object { $_.File -ne "open_source.ps1" -or $_.Text -notmatch 'newExportRequest\s+\$snapshot\.Shared\s+\$target\.Path\s' } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
+        # $target は newExportTarget の結果だけ（出力先を利用者の入力や元のファイルのパスから作らない）
+        $targets = @($code | Where-Object { $_.Text -match 'newExportTarget\s+\$format' })
+        $targets.Count | Should -Be 1
+        $targets[0].File | Should -Be "open_source.ps1"
+        # ほかの所で OutputPath に値を入れない（要求の作り方は newExportRequest の 1 か所）
+        (@($code | Where-Object { $_.Text -match '\.OutputPath\s*=[^=]' } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
+    }
 
     It "原本を読むのはコピーを作る処理（copyFileShared）だけ" {
         # copyFileShared は読み取りだけで開き、コピー先（作業フォルダ）へ書く
@@ -1092,14 +1110,15 @@ Describe "検索結果から開くとき、シェルで開く処理が決まっ�
 
         # 関数 × API の表（docs/safety/checks.md「外部プロセスの起動」）。足すときは、表と守り（下の It）を同じ PR で直す
         $allowedUses = @(
-            "applyFailedFileState|Start-Process", "applyFailedFileState|Start-Process",
+            "applyFailedFileState|Start-Process",
+            "applyIndexLocationState|Start-Process",
             "applyIndexSourceFolderState|Start-Process",
-            "completeExport|Invoke-Item",
             "openAboutLink|Start-Process",
-            "openSourceFolder|Start-Process",
             "openWithNotepad|Start-Process",
+            "openExportedFile|Invoke-Item",
             "openWithShell|Invoke-Item", "openWithShell|Process::Start", "openWithShell|ProcessStartInfo", "openWithShell|UseShellExecute",
-            "showErrorDialog|Start-Process"
+            "showErrorDialog|Start-Process",
+            "showInExplorer|Start-Process"
         ) | Sort-Object
     }
 
@@ -1152,6 +1171,7 @@ Invoke-Item $y
     It "フォルダを開く所は、フォルダとして確かめてから explorer.exe に渡す" {
         # ファイルをフォルダとして渡すと、そのファイルが既定のアプリで実行される
         (getFunctionText "applyIndexSourceFolderState") | Should -Match 'getIndexSourceFolderKind'
+        (getFunctionText "applyIndexLocationState") | Should -Match 'getIndexSourceFolderKind'
         (getFunctionText "getIndexSourceFolderKind") | Should -Match 'IsDirectory'
         (getFunctionText "applyFailedFileState") | Should -Match 'dirState\.IsDirectory'
     }

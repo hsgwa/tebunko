@@ -1,4 +1,4 @@
-﻿# 検索結果の組み立て・書き出しと、インデックスの有無・件数（検索そのものは content_index_search.ps1）。
+﻿# 検索結果の組み立てと、インデックスの有無・件数（検索そのものは content_index_search.ps1）。
 
 function toResultLine {
     # 検索結果1件を "ファイル名<TAB>場所<TAB>種別<TAB>行番号<TAB>該当行" に整形する。場所・種別は場所ごとの表記（describePlace。画面の見出しの要約と同じ）。
@@ -294,16 +294,6 @@ function getSearchResultColumnCount {
     return (countTsvFields $line) - 4
 }
 
-function getSearchResultCountLine {
-    # 検索結果ファイルの 1 ワード分の先頭の行（件数の行）
-    param (
-        [string]$word,
-        [int]$count
-    )
-
-    return "【検索文字列　${word}】 ${count} 件"
-}
-
 function toSearchResultLines {
     # 検索結果を検索結果ファイルの形式にし、@{ Header（見出し行）; Lines } を返す（画面のファイル出力・コピーで共通）。
     # Excelに貼り付けたときに元のセル位置が分かるよう、行番号（TSVの行番号 = Excelの行番号）を付け、
@@ -322,19 +312,45 @@ function toSearchResultLines {
     return @{ Header = (toResultHeader $columnCount); Lines = $lines }
 }
 
-function writeSearchResult {
-    # 1ワード分の検索結果（メモリ上の全件）を検索結果ファイルの形式で書き出す。画面の［結果をファイルに出力］は、全件をメモリに持たない書き方（search_export.ps1）で、同じ部品（getSearchResult*）から同じ形を作る
+function toResultCells {
+    # 検索結果 1 件を、ファイルに出力するときの列（string[]）にする。純粋な関数（形式ごとの列の分け方はここで決める）。
+    #   xlsx: ファイル名・場所・種別・行・該当行の 5 列（該当行のセルは画面の表と同じ " │ " でつないで 1 セル）
+    #   csv・tsv: ファイル名・場所・種別・行・該当行のセル…（セルごとに 1 列。2 つは区切りだけが違い、列は同じ）
+    # ファイル名（相対フォルダ付き）・場所の制御文字はスペースにし、セルの中の CR は LF にそろえる
     param (
-        [System.IO.TextWriter]$writer,
-        [string]$word,
-        [object[]]$hits
+        [string]$relDir,
+        [string]$book,
+        [string]$location,
+        [int]$lineNumber,
+        [string]$line,
+        [string]$format
     )
 
-    $result = toSearchResultLines $hits
-    $writer.WriteLine((getSearchResultCountLine $word $result.Lines.Count))
-    $writer.WriteLine($result.Header)
-    foreach ($line in $result.Lines) {
-        $writer.WriteLine($line)
+    $controls = '[\x00-\x1F]'
+    $book = [regex]::Replace($book, $controls, " ")
+    $described = describePlace $book $location
+    $name = $book
+    if ($relDir) {
+        $name = [regex]::Replace($relDir, $controls, " ") + "\" + $name
     }
-    $writer.WriteLine("")
+    $cells = New-Object System.Collections.Generic.List[string]
+    $cells.Add($name)
+    $cells.Add([regex]::Replace($described.Place, $controls, " "))
+    $cells.Add($described.Kind)
+    $cells.Add([string]$lineNumber)
+
+    if ((getContentIndexFileKind $book) -eq "Excel") {
+        # 囲みの " を外し、セル内改行（U+2028）を LF に戻す
+        $hitCells = @((splitTsvCells $line) | ForEach-Object { $_.Replace(${cellNewLine}, "`n") })
+    } else {
+        $hitCells = @($line.Split("`t"))
+    }
+    $hitCells = @($hitCells | ForEach-Object { $_.Replace("`r`n", "`n").Replace("`r", "`n") })
+
+    if ($format -eq "xlsx") {
+        $cells.Add(($hitCells -join " │ "))
+    } else {
+        $cells.AddRange([string[]]$hitCells)
+    }
+    return , $cells.ToArray()
 }

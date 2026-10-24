@@ -18,7 +18,7 @@
             "IndexingProgressDetail", "IndexingStopButton", "IndexingResumeButton", "IndexingSearchButton", "IndexingBannerClose",
             "IndexNoticeHost") }
         @{ File = "index\index_list.xaml"; Slot = "IndexListHost"; Names = @(
-            "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "ActionsButton", "ActionsMenu", "ActionUpdate", "ActionExport", "ActionImport", "ActionDelete", "SelectionCountText", "SelectAllCheckBox", "IndexingButton", "IndexingHint", "StatusColumnHeader",
+            "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "ActionsButton", "ActionsMenu", "ActionUpdate", "ActionExport", "ActionImport", "ActionDelete", "SelectionCountText", "SelectAllCheckBox", "IndexingButton", "IndexingHint", "StatusColumnHeader", "IndexLocationLabel", "IndexLocationInfo", "IndexLocationText", "IndexLocationWarning", "OpenIndexLocationButton",
             "IndexRowMenu", "RowMenuUpdate", "RowMenuOpenFolder", "RemoveIndexButton", "ExportIndexButton") }
         @{ File = "index\index_detail.xaml"; Slot = "IndexDetailHost"; Names = @(
             "IndexDetailTitle", "IndexSummaryText",
@@ -38,7 +38,7 @@
         @{ File = "search\target_tree.xaml"; Slot = "NavPaneHost"; Names = @(
             "IndexTree", "CheckAllIndexButton", "UncheckAllIndexButton", "TargetCountText") }
         @{ File = "search\result_list.xaml"; Slot = "ResultListHost"; Names = @(
-            "SummaryText", "SearchProgress", "FilterBox", "FilterPlaceholder", "ExpandAllButton", "CollapseAllButton", "ExportButton", "ExportButtonText",
+            "SummaryText", "SearchProgress", "FilterBox", "FilterPlaceholder", "ExpandAllButton", "CollapseAllButton", "ExportButton", "ExportButtonText", "ExportGroup", "ExportIcon", "ExportMenuPart", "ExportMenuButton", "MenuExportXlsx", "MenuExportCsv", "MenuExportTsv",
             "ResultGrid", "NoHitText",
             "ResultMenu", "MenuOpen", "MenuOpenReadOnly", "MenuOpenNew", "MenuOpenFolder", "MenuCopy", "MenuCopyPath", "MenuToggleGroup") }
         @{ File = "search\preview.xaml"; Slot = "PreviewHost"; Names = @(

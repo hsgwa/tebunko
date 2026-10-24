@@ -97,7 +97,7 @@ Describe "検索結果の行（本文インデックスのファイルのヒッ�
         (toSearchResultLines @($hit)).Lines[0] | Should -Be "[確定]見積.xlsx`t[シート]見積`t図形`t1`tF2`t`"納期は`n別途`""
     }
 }
-Describe "getSearchResultLine / getSearchResultColumnCount / getSearchResultCountLine" -Tag Unit {
+Describe "getSearchResultLine / getSearchResultColumnCount" -Tag Unit {
     It "相対フォルダがあればファイル名の前に付け、無ければ付けない" -ForEach @(
         @{ RelDir = ""; Expected = "A社.xlsx`t[シート]Sheet1`tセル`t3`tりんご" }
         @{ RelDir = "営業部\2024"; Expected = "営業部\2024\A社.xlsx`t[シート]Sheet1`tセル`t3`tりんご" }
@@ -111,13 +111,9 @@ Describe "getSearchResultLine / getSearchResultColumnCount / getSearchResultCoun
     ) {
         getSearchResultColumnCount $Line | Should -Be $Expected
     }
-
-    It "件数の行" {
-        getSearchResultCountLine "りんご" 12 | Should -Be "【検索文字列　りんご】 12 件"
-    }
 }
 
-Describe "toSearchResultLines / writeSearchResult" -Tag Io {
+Describe "toSearchResultLines" -Tag Io {
     BeforeAll {
         $index = Join-Path $TestDrive "result"
         newTsv "$index\x\A社.xlsx\Sheet1.tsv" @("a`t`"りんご${cellNewLine}みかん`"`tc")
@@ -132,19 +128,37 @@ Describe "toSearchResultLines / writeSearchResult" -Tag Io {
         $result.Lines[0] | Should -Be "x\A社.xlsx`t[シート]Sheet1`tセル`t1`ta`t`"りんご`nみかん`"`tc"
         $result.Lines[1] | Should -Be "文書.docx`t1 ページ（目安）`t本文`t1`t`"`"`"引用`"`"で始まる りんご`""
     }
+}
 
-    It "検索結果ファイルの形式（02_検索.md）で書き出す" {
-        $writer = New-Object System.IO.StringWriter
-        writeSearchResult $writer "りんご" $hits
-        $lines = $writer.ToString() -split "`r`n"
-        $lines[0] | Should -Be "【検索文字列　りんご】 2 件"
-        $lines[1] | Should -Be "ファイル名`t場所`t種別`t行`tA`tB`tC"
-        $lines[4] | Should -Be ""
+Describe "toResultCells" -Tag Unit {
+    BeforeDiscovery {
+        $nl = [string][char]0x2028
+        $xl = "a`t`"1行目${nl}2行目`"`tc"
+        $wd = "表`t`"見出し`"`tx"
+        $cases = @(
+            @{ name = "xlsx: Excel の行は セルを ` │ ` でつなぎ 1 セルにする"; Format = "xlsx"; Book = "A.xlsx"; Line = $xl; Rest = @("a │ 1行目`n2行目 │ c") }
+            @{ name = "csv: Excel の行は 囲みを外し セルに分ける"; Format = "csv"; Book = "A.xlsx"; Line = $xl; Rest = @("a", "1行目`n2行目", "c") }
+            @{ name = "tsv: Excel の行は csv と同じ列になる"; Format = "tsv"; Book = "A.xlsx"; Line = $xl; Rest = @("a", "1行目`n2行目", "c") }
+            @{ name = "xlsx: Word の行は タブを ` │ ` にする"; Format = "xlsx"; Book = "d.docx"; Line = $wd; Rest = @("表 │ `"見出し`" │ x") }
+            @{ name = "csv: Word の行は タブで分けるだけ（`" を加工しない）"; Format = "csv"; Book = "d.docx"; Line = $wd; Rest = @("表", "`"見出し`"", "x") }
+            @{ name = "tsv: Word の行は csv と同じ"; Format = "tsv"; Book = "d.docx"; Line = $wd; Rest = @("表", "`"見出し`"", "x") }
+            @{ name = "csv: セルの中の CR は LF にそろえる"; Format = "csv"; Book = "d.docx"; Line = "a`r`nb`rc"; Rest = @("a`nb`nc") }
+            @{ name = "xlsx: セルの中の CR は LF にそろえる"; Format = "xlsx"; Book = "d.docx"; Line = "a`r`nb`rc"; Rest = @("a`nb`nc") }
+        )
     }
 
-    It "0 件なら見出しの2行と空行だけ書き出す" {
-        $writer = New-Object System.IO.StringWriter
-        writeSearchResult $writer "無い" @()
-        $writer.ToString() | Should -Be "【検索文字列　無い】 0 件`r`nファイル名`t場所`t種別`t行`r`n`r`n"
+    It "<name>" -ForEach $cases {
+        $described = describePlace $Book "S"
+        $cells = toResultCells "" $Book "S" 3 $Line $Format
+        $expected = @($Book, $described.Place, $described.Kind, "3") + $Rest
+        $cells.Count | Should -Be $expected.Count
+        for ($i = 0; $i -lt $expected.Count; $i++) { $cells[$i] | Should -Be $expected[$i] }
+    }
+
+    It "相対フォルダを付け、ファイル名・相対フォルダ・場所の制御文字はスペースにする（<_>）" -ForEach @("xlsx", "csv", "tsv") {
+        $cells = toResultCells "営`t業\x`r`n" "A`tB.xlsx" "シ`tート`n名" 5 "x" $_
+        $cells[0] | Should -Be "営 業\x  \A B.xlsx"
+        $cells[1] | Should -Not -Match '[\x00-\x1F]'
+        $cells[3] | Should -Be "5"
     }
 }
