@@ -681,6 +681,22 @@ Describe "openWithEditor" -Tag Io {
         getTextEditorNotice | Should -Be "設定のエディタ（textEditorPath）が使えないため、メモ帳で開きます。"
     }
 
+    It "保存済みの設定に、スクリプトを動かすプログラム（ファイルがある）が書いてあっても、使わずメモ帳で開き、専用の知らせを出す" -TestCases @(
+        @{ leaf = "powershell.exe" }
+        @{ leaf = "PYTHON.EXE" }
+        @{ leaf = "wscript.exe" }
+    ) {
+        param ($leaf)
+        $editor = Join-Path $TestDrive $leaf
+        [System.IO.File]::WriteAllText($editor, "dummy")
+        Mock readTextExtensionSettings { @{ IndexExcludes = @{}; Notepad = @(); EditorPath = $editor } }.GetNewClosure()
+        Mock Start-Process { }
+
+        openWithEditor "$TestDrive\起動.ps1" | Should -Be $true
+        Should -Invoke Start-Process -Times 1 -Exactly -ParameterFilter { $FilePath -eq "$env:SystemRoot\System32\notepad.exe" }
+        getTextEditorNotice | Should -Be "設定のエディタ（textEditorPath）は、スクリプトを動かすプログラムのため使えません。メモ帳で開きます。"
+    }
+
     It "notepadOnly のときは、設定のエディタが使える値でも使わず、固定のメモ帳で開き、知らせも出さない（出力した CSV・TSV 用）" {
         $editor = Join-Path $TestDrive "表計算.exe"
         [System.IO.File]::WriteAllText($editor, "dummy")

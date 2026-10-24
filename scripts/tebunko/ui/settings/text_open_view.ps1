@@ -142,6 +142,29 @@ function getTextOpenListView {
     }
 }
 
+# エディタに指定できない、スクリプトや命令を動かすプログラムのファイル名（拡張子なし。小文字）。実行・登録になる拡張子のファイルをエディタに渡すと、
+# そのスクリプトが動いてしまうため。この表は漏れうる（ここに無い、別のプログラムでスクリプトを動かせるものは防げない）。docs/safety/checks.md「エディタの差し替え」に限界を書く
+${textEditorDenyNames} = @(
+    "powershell", "powershell_ise", "pwsh", "cmd", "wscript", "cscript", "mshta", "bash", "wsl", "sh",
+    "python", "pythonw", "py", "pyw", "node", "ruby", "perl", "php", "lua", "java", "javaw",
+    "regedit", "reg", "msbuild", "rundll32", "regsvr32", "msiexec", "cmstp", "installutil", "regasm", "regsvcs", "forfiles", "pcalua", "explorer"
+)
+
+function testTextEditorDenied {
+    # エディタに指定されたパスが、スクリプトや命令を動かすプログラム（${textEditorDenyNames}）か。ファイル名だけを見る
+    # （大文字・小文字を区別せず、フォルダの付いた形・拡張子の有無も同じに扱う。区切りは \ と /）
+    param (
+        $path
+    )
+
+    if ($path -isnot [string] -or $path -eq "") {
+        return $false
+    }
+    $leaf = $path.Substring($path.LastIndexOfAny([char[]]@([char]92, [char]47)) + 1).Trim().TrimEnd(".", " ").ToLowerInvariant()
+    $name = $(if ($leaf.EndsWith(".exe")) { $leaf.Substring(0, $leaf.Length - 4) } else { $leaf })
+    return (${textEditorDenyNames} -contains $name)
+}
+
 function testTextEditorPath {
     # 設定 textEditorPath の値が、使ってよい形か（文字列だけを見る。ファイルがあるかは openWithEditor の側で確かめる）。
     # ドライブ文字から始まる絶対パスで、拡張子が .exe。UNC・相対・環境変数（%）・引用符・引数付きの書き方、
@@ -162,7 +185,11 @@ function testTextEditorPath {
     if ($path -match '(^|\\)\.\.?(\\|$)') {
         return $false
     }
-    return $path.EndsWith(".exe", [System.StringComparison]::OrdinalIgnoreCase)
+    if (-not $path.EndsWith(".exe", [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $false
+    }
+    # スクリプトや命令を動かすプログラムはエディタにできない（実行・登録になる拡張子のファイルを渡すと動いてしまうため）
+    return (-not (testTextEditorDenied $path))
 }
 
 function getTextEditorChoice {
@@ -178,6 +205,9 @@ function getTextEditorChoice {
     if ($configured -is [string] -and $configured -ne "") {
         if ((testTextEditorPath $configured) -and $exists) {
             return @{ Path = $configured; Notice = ""; Label = [System.IO.Path]::GetFileNameWithoutExtension($configured) }
+        }
+        if (testTextEditorDenied $configured) {
+            return @{ Path = $notepad; Notice = "設定のエディタ（textEditorPath）は、スクリプトを動かすプログラムのため使えません。メモ帳で開きます。"; Label = "メモ帳" }
         }
         return @{ Path = $notepad; Notice = "設定のエディタ（textEditorPath）が使えないため、メモ帳で開きます。"; Label = "メモ帳" }
     }

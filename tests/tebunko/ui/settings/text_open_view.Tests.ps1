@@ -136,9 +136,47 @@ Describe "testTextEditorPath" -Tag Unit {
         @{ name = ".exe でない"; path = "C:\tools\editor.bat"; expected = $false }
         @{ name = ".exe でない（.com）"; path = "C:\tools\editor.com"; expected = $false }
         @{ name = ".exe で終わらない"; path = "C:\tools\editor.exe.txt"; expected = $false }
+        @{ name = "スクリプトを動かすプログラム（powershell.exe）"; path = "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"; expected = $false }
+        @{ name = "スクリプトを動かすプログラム（大文字の PWSH.EXE）"; path = "C:\Program Files\PowerShell\7\PWSH.EXE"; expected = $false }
+        @{ name = "スクリプトを動かすプログラム（python.exe）"; path = "C:\Python\python.exe"; expected = $false }
+        @{ name = "名前が似ているだけのエディタは通る（pythonista.exe・cmdr.exe）"; path = "C:\tools\cmdr.exe"; expected = $true }
     ) {
         param ($name, $path, $expected)
         testTextEditorPath $path | Should -Be $expected
+    }
+}
+
+Describe "testTextEditorDenied" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "powershell.exe"; path = "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"; expected = $true }
+        @{ name = "pwsh.exe（大文字）"; path = "D:\PWSH.EXE"; expected = $true }
+        @{ name = "powershell_ise.exe"; path = "C:\x\powershell_ise.exe"; expected = $true }
+        @{ name = "wscript.exe"; path = "C:\x\wscript.exe"; expected = $true }
+        @{ name = "cscript.exe"; path = "C:\x\cscript.exe"; expected = $true }
+        @{ name = "mshta.exe"; path = "C:\x\mshta.exe"; expected = $true }
+        @{ name = "cmd.exe"; path = "C:\x\cmd.exe"; expected = $true }
+        @{ name = "python.exe"; path = "C:\x\python.exe"; expected = $true }
+        @{ name = "pythonw.exe"; path = "C:\x\pythonw.exe"; expected = $true }
+        @{ name = "node.exe"; path = "C:\x\node.exe"; expected = $true }
+        @{ name = "regedit.exe"; path = "C:\Windows\regedit.exe"; expected = $true }
+        @{ name = "rundll32.exe"; path = "C:\Windows\System32\rundll32.exe"; expected = $true }
+        @{ name = "msbuild.exe"; path = "C:\x\msbuild.exe"; expected = $true }
+        @{ name = "explorer.exe"; path = "C:\Windows\explorer.exe"; expected = $true }
+        @{ name = "フォルダ区切りが / でも同じ"; path = "C:/x/powershell.exe"; expected = $true }
+        @{ name = "拡張子が無くても同じ（名前だけ）"; path = "C:\x\Powershell"; expected = $true }
+        @{ name = "末尾の . や空白は Windows が無視するので同じ"; path = "C:\x\powershell.exe. "; expected = $true }
+        @{ name = "ふつうのエディタ（notepad++.exe）は拒まない"; path = "C:\Program Files\Notepad++\notepad++.exe"; expected = $false }
+        @{ name = "名前が似ているだけ（cmdr.exe・pythonista.exe）は拒まない"; path = "C:\x\pythonista.exe"; expected = $false }
+        @{ name = "フォルダ名が powershell でもファイル名が違えば拒まない"; path = "C:\powershell\editor.exe"; expected = $false }
+        @{ name = "空"; path = ""; expected = $false }
+        @{ name = "null"; path = $null; expected = $false }
+    ) {
+        param ($name, $path, $expected)
+        testTextEditorDenied $path | Should -Be $expected
+    }
+
+    It "拒む表の名前は、すべて小文字で拡張子が付かない" {
+        @(${textEditorDenyNames} | Where-Object { $_ -cne $_.ToLowerInvariant() -or $_.EndsWith(".exe") }).Count | Should -Be 0
     }
 }
 
@@ -164,7 +202,19 @@ Describe "getTextEditorChoice / getTextEditorLabel / addTextEditorNotice" -Tag U
         }
     }
 
+    It "スクリプトを動かすプログラムは、ファイルがあってもメモ帳で開き、それ専用の知らせを出す（保存済みの設定に書いてあっても）" -TestCases @(
+        @{ configured = "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" }
+        @{ configured = "C:\Python\PYTHON.EXE" }
+        @{ configured = "C:\Windows\System32\cmd.exe" }
+    ) {
+        param ($configured)
+        $choice = getTextEditorChoice $configured $true $script:notepad
+        $choice.Path | Should -Be $script:notepad
+        $choice.Notice | Should -Be "設定のエディタ（textEditorPath）は、スクリプトを動かすプログラムのため使えません。メモ帳で開きます。"
+    }
+
     It "エディタの名前は、設定が空・使えない値なら「メモ帳（既定）」、使える値ならファイル名" -TestCases @(
+        @{ configured = "C:\Windows\System32\cmd.exe"; expected = "メモ帳（既定）" }
         @{ configured = ""; expected = "メモ帳（既定）" }
         @{ configured = "D:\tools\editor.bat"; expected = "メモ帳（既定）" }
         @{ configured = "D:\tools\MyEditor.exe"; expected = "MyEditor" }
