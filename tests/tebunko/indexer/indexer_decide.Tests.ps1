@@ -14,20 +14,21 @@ BeforeAll {
 }
 
 Describe "getExtractVersion" -Tag Unit {
-    It "Excel・Word・PowerPoint の新形式と .doc は 4、.ppt・旧形式・バイナリ形式は 1・2（大文字の拡張子も同じ）" {
+    It "Excel・Word の新形式と .doc は 4、PowerPoint は 5、旧形式・バイナリ形式は 1（大文字の拡張子も同じ）" {
         # Excel の新形式は、ヘッダー・フッターを読む版で 4
         getExtractVersion "売上\a.xlsx" | Should -Be 4
         getExtractVersion "売上\a.XLSM" | Should -Be 4
         # Excel の旧形式・バイナリ形式は、図形・コメント・グラフ・SmartArt を読まない
         getExtractVersion "売上\a.xls" | Should -Be 1
         getExtractVersion "売上\a.xlsb" | Should -Be 1
-        # Word・PowerPoint の新形式は、埋め込みの中の文字を読む版で 4
-        foreach ($ext in @(".docx", ".docm", ".pptx", ".PPTM")) {
+        # Word の新形式は、埋め込みの中の文字を読む版で 4。.doc も Word が新形式に変換した後に埋め込みが残るため 4
+        foreach ($ext in @(".docx", ".docm", ".doc")) {
             getExtractVersion "売上\a$ext" | Should -Be 4
         }
-        # .doc は Word が新形式に変換した後も埋め込みが残るため 4。.ppt は変換後に埋め込みが残らないため上げていない
-        getExtractVersion "売上\a.doc" | Should -Be 4
-        getExtractVersion "売上\a.PPT" | Should -Be 2
+        # PowerPoint は、スライドマスター・ノートマスターを読む版で 5（.ppt も .pptx に変換して読むため上げる）
+        foreach ($ext in @(".pptx", ".PPTM", ".ppt", ".PPT")) {
+            getExtractVersion "売上\a$ext" | Should -Be 5
+        }
         getExtractVersion "売上\a.txt" | Should -Be 1
     }
 }
@@ -45,14 +46,24 @@ Describe "getIngestDecision（抽出版）" -Tag Unit {
         (getIngestDecision (newRow ${stateDone} -version "3" -relPath "売上\a.xlsm") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "outdated"
         (getIngestDecision (newRow ${stateDone} -version "4") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "done"
         (getIngestDecision (newRow ${stateDone} -version "3" -relPath "報告\a.docx") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "outdated"
-        (getIngestDecision (newRow ${stateDone} -version "4" -relPath "報告\a.pptx") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "done"
+        (getIngestDecision (newRow ${stateDone} -version "4" -relPath "報告\a.docx") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "done"
+    }
+
+    It "スライドマスター・ノートマスターをまだ読まなかった版の .pptx・.pptm・.ppt は取り込み直し、Excel・Word は取り込み直さない" {
+        foreach ($case in @(@("a.pptx", "4"), @("a.pptm", "3"), @("a.ppt", "2"), @("a.pptx", ""))) {
+            (getIngestDecision (newRow ${stateDone} -version $case[1] -relPath "報告\$($case[0])") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "outdated"
+        }
+        foreach ($name in @("a.pptx", "a.pptm", "a.ppt")) {
+            (getIngestDecision (newRow ${stateDone} -version "5" -relPath "報告\$name") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "done"
+        }
+        (getIngestDecision (newRow ${stateDone} -version "4" -relPath "報告\a.xlsx") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "done"
+        (getIngestDecision (newRow ${stateDone} -version "4" -relPath "報告\a.docx") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "done"
     }
 
     It "グラフの項目名をまだ読まなかった版（抽出版 2）の .xlsx・.docx は取り込み直す（outdated）" {
         (getIngestDecision (newRow ${stateDone} -version "2") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "outdated"
         (getIngestDecision (newRow ${stateDone} -version "2" -relPath "報告\a.docx") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "outdated"
-        # .ppt は版を上げていないため、抽出版 2 でも取り込み直さない
-        (getIngestDecision (newRow ${stateDone} -version "2" -relPath "報告\a.ppt") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "done"
+        (getIngestDecision (newRow ${stateDone} -version "2" -relPath "報告\a.xls") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "done"
     }
 }
 
