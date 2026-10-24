@@ -4467,7 +4467,7 @@
 <h3 id="仮の部分">仮の部分<a class="headerlink" href="#仮の部分" title="Permanent link">&para;</a></h3>
 <p>終わりの失敗は、メッセージボックスではなく、この画面の上の橙の帯に出す（<code>getNoticeBannerView</code>。閉じられる。<a href="../indexing-run/#帯とステータスバー">帯とステータスバー</a>）。文言（<code>getIndexBulkResultView</code>）は仮で、後で決める。</p>
 <h2 id="名前とフォルダパスの編集">名前とフォルダパスの編集<a class="headerlink" href="#名前とフォルダパスの編集" title="Permanent link">&para;</a></h2>
-<p>追加・編集のダイアログは無い。名前とフォルダパスは、詳細の「基本設定」の欄（<code>IndexDetailName</code>・<code>IndexDetailPath</code>）で直接直す。フォルダパスの下の「サブフォルダを含める」（<code>IndexDetailSubfolders</code>。既定は付いている）を外すと、そのフォルダの直下のファイルだけを取り込む（押したときに設定の <code>subfolders</code> へ保存する。次の更新から効き、サブフォルダにあったファイルはインデックスから外れる）。</p>
+<p>追加・編集のダイアログは無い。名前とフォルダパスは、詳細の「基本設定」の欄（<code>IndexDetailName</code>・<code>IndexDetailPath</code>）で直接直す。フォルダパスの下の「サブフォルダを含める」（<code>IndexDetailSubfolders</code>。既定は付いている）を外すと、そのフォルダの直下のファイルだけを取り込む（押したときに設定の <code>subfolders</code> へ保存する。次の更新から効き、サブフォルダにあったファイルはインデックスから外れる）。外した行は、一覧のパスの右に札「直下のみ」（<code>TopOnlyTag</code>。付いている行には出さない）が付き、次の更新までステータスが <code>要更新</code> になる</p>
 <pre class="mermaid"><code>stateDiagram-v2
     state "入力中" as Input
     state "確かめる" as Check
