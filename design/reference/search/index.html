@@ -4339,7 +4339,7 @@
     T --&gt; E["searchContentIndexFiles&lt;br&gt;読み込みと照合（作業が 2 つ以上なら並列）"]
     E --&gt; P["readContentIndexPlaces&lt;br&gt;一致の位置から元のファイル・場所・行"]
     E --&gt; F["Hits"]
-    F --&gt; G["toSearchResultLines / writeSearchResult&lt;br&gt;検索結果ファイル"]</code></pre>
+    F --&gt; G["toSearchResultLines&lt;br&gt;コピー用の行"]</code></pre>
 <table>
 <thead>
 <tr>
@@ -4517,16 +4517,16 @@
 <td>columnCount</td>
 <td>string</td>
 <td>見出し行 <code>ファイル名&lt;TAB&gt;場所&lt;TAB&gt;種別&lt;TAB&gt;行&lt;TAB&gt;A&lt;TAB&gt;B…</code> を返す</td>
-<td><a href="../../search/output/#出力フォーマットworksearch_resultstxt">検索結果ファイル</a></td>
+<td><a href="../../search/output/#出力フォーマットexcel-ブックcsvtsv">検索結果ファイル</a></td>
 <td>検索</td>
 </tr>
 <tr>
 <td><code>getSearchResultLine</code></td>
 <td>relDir, book, location, lineNumber, line</td>
 <td>string</td>
-<td>結果の 1 行（相対フォルダ付き <code>toResultLine</code>）。コピーとファイル出力で共通</td>
+<td>結果の 1 行（相対フォルダ付き <code>toResultLine</code>）。コピーで使う</td>
 <td>同上</td>
-<td><code>toSearchResultLines</code>・<code>invokeSearchExport</code></td>
+<td><code>toSearchResultLines</code></td>
 </tr>
 <tr>
 <td><code>getSearchResultColumnCount</code></td>
@@ -4534,37 +4534,21 @@
 <td>int</td>
 <td>1 行の見出しに要る列の数（ファイル名・場所・種別・行番号の 4 列を除いたセルの数）</td>
 <td>同上</td>
-<td><code>toSearchResultLines</code>・<code>invokeSearchExport</code></td>
-</tr>
-<tr>
-<td><code>getSearchResultCountLine</code></td>
-<td>word, count</td>
-<td>string</td>
-<td><code>【検索文字列　X】 N 件</code> の行</td>
-<td>同上</td>
-<td><code>writeSearchResult</code>・<code>invokeSearchExport</code></td>
+<td><code>toSearchResultLines</code></td>
 </tr>
 <tr>
 <td><code>toSearchResultLines</code></td>
 <td>hits</td>
 <td><code>@{Header; Lines}</code></td>
-<td>検索結果ファイルの見出し行と各行（<code>getSearchResultLine</code>、最大セル数の <code>toResultHeader</code>）</td>
+<td>コピー用の見出し行と各行（<code>getSearchResultLine</code>、最大セル数の <code>toResultHeader</code>）</td>
 <td>同上</td>
 <td>画面（コピー）</td>
 </tr>
 <tr>
-<td><code>writeSearchResult</code></td>
-<td>writer, word, hits</td>
-<td>–</td>
-<td>1 ワード分の <code>【検索文字列　X】 N 件</code>・見出し行・各行・空行を、メモリ上の全件から書き出す。画面の［結果をファイルに出力］は全件をメモリに持たないので <code>invokeSearchExport</code> を使い、同じ形になることをテストで確かめる</td>
-<td>同上</td>
-<td>テスト（書き出しの基準）</td>
-</tr>
-<tr>
 <td><code>newExportRequest</code></td>
-<td>source, outputPath, shownHits, filterText, word</td>
+<td>source, outputPath, shownHits, filterText, word, format（既定 <code>xlsx</code>）, tmpRoot（既定は空）</td>
 <td>hashtable（Synchronized）</td>
-<td>書き出しの要求（<code>Kind = "Export"</code>）。表の分（値だけ）・絞り込みの文字列・元の検索の要求を持つ。<code>Outcome</code>・<code>Written</code>・<code>Scope</code>・<code>HeadOnlyReason</code>・<code>Error</code>・<code>Finished</code> を司令が書く</td>
+<td>書き出しの要求（<code>Kind = "Export"</code>）。表の分（値だけ）・絞り込みの文字列・書く形式（xlsx / csv / tsv）・元の検索の要求を持つ。<code>Outcome</code>（Done / Cancelled / Locked / Denied / Failed）・<code>Written</code>・<code>Scope</code>・<code>HeadOnlyReason</code>・<code>TruncatedCells</code>・<code>DroppedRows</code>・<code>Error</code>・<code>Finished</code> を司令が書く</td>
 <td><a href="../../gui/search-tab/#結果をファイルに出力">結果をファイルに出力</a></td>
 <td><code>startExport</code>（画面）・<code>SearchService.Export</code></td>
 </tr>
@@ -4636,7 +4620,7 @@
 <td><code>invokeSearchExport</code></td>
 <td>request（<code>newExportRequest</code> の要求）</td>
 <td>なし</td>
-<td>［結果をファイルに出力］の書き出し。表の分と溢れのファイルを本文の一時ファイルに書き、<code>.new</code> に見出し付きで組み、<code>search_results.txt</code> と置き換える。結果は要求の <code>Outcome</code>（Done / Cancelled / Locked / Denied / Failed）・<code>Written</code>・<code>Scope</code> に残す</td>
+<td>［出力 ▾］の書き出し。xlsx は <code>.new</code> にストリームで直接書き、csv・tsv は本文を一時ファイルに書いてから <code>.new</code> に見出し付きで組み、出力先と置き換える。<code>tmpRoot</code> があれば、出力先の置き場（<code>open_copy</code>）がリンクでないことを書く前に確かめる（<code>testOpenCopyDir</code>）。結果は要求の <code>Outcome</code>・<code>Written</code>・<code>Scope</code> に残す</td>
 <td><a href="../../gui/search-tab/#結果をファイルに出力">結果をファイルに出力</a></td>
 <td>検索の司令（<code>SearchService</code>）</td>
 </tr>
