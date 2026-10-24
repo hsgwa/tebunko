@@ -55,10 +55,10 @@ Describe "getIndexDetailRowPlan" -Tag Unit {
 Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
     BeforeAll {
         function newDetailItem {
-            param ($name = "営業", $enabled = $true, $fileCount = "1,234", $last = "09/30 10:00", $folderStatus = "フォルダがあります")
+            param ($name = "営業", $enabled = $true, $fileCount = "1,234", $last = "09/30 10:00", $folderStatus = "フォルダがあります", $failed = 2, $pending = 3)
             return @{
                 Name = $name; Path = "C:\共有\営業部"; Enabled = $enabled; FolderStatus = $folderStatus
-                IndexText = "最新"; IndexLevel = "Ok"; IndexSub = ""; FileCountText = $fileCount; LastIngestedText = $last
+                IndexText = "最新"; IndexLevel = "Ok"; IndexSub = ""; FileCountText = $fileCount; LastIngestedText = $last; FailedCount = $failed; PendingCount = $pending
             }
         }
     }
@@ -185,8 +185,10 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         $view.Badge.Level | Should -Be "Ok"
         $view.Updated | Should -Be "最終更新 09/30 10:00"
         $view.Count | Should -Be "1,234 ファイル"
-        ($view.Rows | ForEach-Object { $_.Label }) -join "," | Should -Be "対象ファイル数,最終更新"
+        ($view.Rows | ForEach-Object { $_.Label }) -join "," | Should -Be "対象ファイル数,最終更新,うち失敗,うち未取り込み"
         $view.Rows[0].Value | Should -Be "1,234 ファイル"
+        $view.Rows[2].Value | Should -Be "2 件"
+        $view.Rows[3].Value | Should -Be "3 件"
     }
 
     It "<label>: 出せない値は空にするか、言い換える" -TestCases @(
@@ -206,6 +208,8 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         @{ label = "値が変わると変わる"; changed = @{ fileCount = "99" } }
         @{ label = "日時が変わると変わる"; changed = @{ last = "" } }
         @{ label = "フォルダの状態が変わると変わる"; changed = @{ folderStatus = "" } }
+        @{ label = "失敗の件数が変わると変わる"; changed = @{ failed = 5 } }
+        @{ label = "未取り込みの件数が変わると変わる"; changed = @{ pending = 9 } }
     ) {
         param ($label, $changed)
         $base = (getIndexDetailView @(newDetailItem)).RowsKey
@@ -265,5 +269,83 @@ Describe "getIndexDetailEditDecision（詳細の名前・フォルダパスの�
         $result = getIndexDetailEditDecision "売上" $folder $target $list $leftovers
         $result.Action | Should -Be $action
         $result.Message | Should -BeLike $message
+    }
+}
+
+Describe "getIndexFileStateLabels / getIndexFilesHeading（取り込んだファイルの一覧）" -Tag Unit {
+    It "状態の文言は 3 つの種類にそろっている" {
+        $labels = getIndexFileStateLabels
+        $labels.Done | Should -Be "取り込み済"
+        $labels.Failed | Should -Be "失敗"
+        $labels.Pending | Should -Be "未取り込み"
+    }
+
+    It "<label>" -TestCases @(
+        @{ label = "0 件"; total = 0; failed = 0; pending = 0; expected = "まだ取り込んだファイルはありません" }
+        @{ label = "失敗・未取り込みなし"; total = 1234; failed = 0; pending = 0; expected = "ファイル 1,234 件" }
+        @{ label = "失敗あり"; total = 1234; failed = 5; pending = 0; expected = "ファイル 1,234 件（うち失敗 5 件）" }
+        @{ label = "未取り込みあり"; total = 1234; failed = 0; pending = 7; expected = "ファイル 1,234 件（うち未取り込み 7 件）" }
+        @{ label = "失敗も未取り込みもあり"; total = 1234; failed = 5; pending = 7; expected = "ファイル 1,234 件（うち失敗 5 件・未取り込み 7 件）" }
+    ) {
+        param ($label, $total, $failed, $pending, $expected)
+        getIndexFilesHeading $total $failed $pending | Should -Be $expected
+    }
+}
+
+Describe "getIndexDetailInfoRows（インデックス情報の行）" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "取り込んだ件数があれば、失敗・未取り込みの行も出す"; has = $true; labels = "対象ファイル数,最終更新,うち失敗,うち未取り込み" }
+        @{ label = "まだ取り込んでいなければ、2 行だけ"; has = $false; labels = "対象ファイル数,最終更新" }
+    ) {
+        param ($label, $has, $labels)
+        $item = @{ FileCountText = "10"; LastIngestedText = ""; FailedCount = 1; PendingCount = 0 }
+        $rows = getIndexDetailInfoRows $item $has
+        ($rows | ForEach-Object { $_.Label }) -join "," | Should -Be $labels
+        $rows[1].Value | Should -Be "－"
+    }
+}
+
+Describe "selectIndexFileRows / getIndexFailedEntryView（失敗の絞り込みと入口）" -Tag Unit {
+    BeforeAll {
+        $script:rows = @(
+            [pscustomobject]@{ RelPath = "a.docx"; Kind = "Failed" }
+            [pscustomobject]@{ RelPath = "b.xlsx"; Kind = "Done" }
+            [pscustomobject]@{ RelPath = "c.pptx"; Kind = "Pending" }
+            [pscustomobject]@{ RelPath = "d.ppt"; Kind = "Failed" }
+        )
+    }
+
+    It "<label>" -TestCases @(
+        @{ label = "すべては全部を元の順で返す"; filter = "All"; expected = "a.docx,b.xlsx,c.pptx,d.ppt" }
+        @{ label = "失敗のみは失敗の行だけを元の順で返す"; filter = "Failed"; expected = "a.docx,d.ppt" }
+        @{ label = "分からない名前はすべて扱い"; filter = ""; expected = "a.docx,b.xlsx,c.pptx,d.ppt" }
+    ) {
+        param ($label, $filter, $expected)
+        (@(selectIndexFileRows $rows $filter | ForEach-Object { $_.RelPath })) -join "," | Should -Be $expected
+    }
+
+    It "<label>" -TestCases @(
+        @{ label = "失敗のみで 0 件なら案内を出す"; filter = "Failed"; count = 0; expected = "失敗したファイルはありません" }
+        @{ label = "失敗のみで 1 件以上なら出さない"; filter = "Failed"; count = 2; expected = "" }
+        @{ label = "すべてで 0 件でも出さない（見出しの要約が「まだ取り込んだファイルはありません」を言う）"; filter = "All"; count = 0; expected = "" }
+    ) {
+        param ($label, $filter, $count, $expected)
+        getIndexFilesEmptyNotice $filter $count | Should -Be $expected
+    }
+
+    It "行が無い・null でも空を返す" {
+        @(selectIndexFileRows @() "Failed").Count | Should -Be 0
+        @(selectIndexFileRows $null "All").Count | Should -Be 0
+    }
+
+    It "<label>" -TestCases @(
+        @{ label = "失敗が 0 件なら入口を出さない"; count = 0; shown = $false; text = "" }
+        @{ label = "失敗があれば件数つきで出す"; count = 2; shown = $true; text = "更新に失敗したファイル 2 件" }
+        @{ label = "千の位は区切る"; count = 1234; shown = $true; text = "更新に失敗したファイル 1,234 件" }
+    ) {
+        param ($label, $count, $shown, $text)
+        $view = getIndexFailedEntryView $count
+        $view.Shown | Should -Be $shown
+        $view.Text | Should -Be $text
     }
 }

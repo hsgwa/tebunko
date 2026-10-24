@@ -202,7 +202,7 @@ function getIndexingEndText {
         $counts = "成功 ${success} 件 / 失敗 ${failed} 件"
         $parts = New-Object System.Collections.Generic.List[string]
         if ($failed -gt 0) {
-            $parts.Add("失敗したファイルと原因は「更新に失敗したファイル」の一覧で確認できます。")
+            $parts.Add("失敗したファイルと原因は「ファイルの一覧」（失敗のみ）で確認できます。")
         }
         if ($cloudText) {
             $parts.Add($cloudText)

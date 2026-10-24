@@ -84,7 +84,7 @@ function getIngestDecision {
     return @{ Ingest = $true; Reason = "updated" }
 }
 
-# 利用者が使っている PowerPoint のために取り込めなかったファイルの理由（取り込み一覧の「エラー」列と、更新に失敗したファイルの一覧に出す。
+# 利用者が使っている PowerPoint のために取り込めなかったファイルの理由（取り込み一覧の「エラー」列と、［ファイルの一覧］の失敗の行の ToolTip に出す。
 # 状態は「未取り込み」のまま残すので、閉じてからの次の更新で、再取り込みを選ばなくても取り込む）
 ${postponedReasonRunning} = "PowerPoint が起動していたため取り込めませんでした。PowerPoint を閉じてから、もう一度更新してください。"
 ${postponedReasonInUse}   = "PowerPoint を使っている方がいたため取り込めませんでした。PowerPoint を保存して閉じてから、もう一度更新してください。"
