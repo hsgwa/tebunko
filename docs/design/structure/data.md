@@ -21,7 +21,7 @@ tebunko が読み書きするファイルとフォルダの一覧（置き場ご
 | `work/tmp/<PC の鍵>/<PID>/` | 取り込みの作業領域（下の説明） |
 | `work/indexing_log.txt` | インデクサの表示内容の記録（実行ごとに新しく書く。先頭に版と環境の見出し）。前回の分は `work/indexing_log_previous.txt` |
 | `work/gui_error_log.txt` | 画面で起きた予期しないエラーの記録（追記。1 MB 以上で `work/gui_error_log_previous.txt` へ移す） |
-| `work/search_results.txt` | 画面の［結果をファイルに出力］で書き出す検索結果 |
+| `work/search_results.txt` | 前の版が［結果をファイルに出力］で書き出した検索結果（今の版は書かない。消さない） |
 | `work/indexing.lock` | インデックス作成の鍵のファイル（空。インデックス作成・エクスポート・インポートの間だけあり、閉じると消える。ほかのセッション・PC との重なりを防ぐ） |
 | `work/test/`・`work/release/`・`work/site/`・`work/cache/` | 開発用の出力（テスト結果とカバレッジ・配布物・設計書のサイト・サイトを作るときのキャッシュ） |
 
@@ -103,7 +103,6 @@ flowchart LR
     W --> ST["StatusFile<br>Dir\store\ingest_status.tsv"]
     W --> IG["JournalFile<br>Dir\store\journal\ingest.tsv"]
     W --> OP["OfficePidRoot<br>Dir\office_pids"]
-    W --> RS["ResultFile<br>Dir\search_results.txt"]
     W --> LK["LockFile<br>Dir\indexing.lock"]
     W --> IL["IndexingLogFile<br>Dir\indexing_log.txt"]
     W --> GE["GuiErrorLogFile<br>Dir\gui_error_log.txt"]
@@ -133,7 +132,6 @@ flowchart LR
 | `StatusFile` | `<Dir>\store\ingest_status.tsv` |
 | `OldStatusFile` | `<Dir>\ingest_status.tsv`（前の版の取り込み一覧。作り直しが終わったら消す） |
 | `JournalFile` | `<Dir>\store\journal\ingest.tsv` |
-| `ResultFile` | `<Dir>\search_results.txt` |
 | `LockFile` | `<Dir>\indexing.lock`（インデックス作成の鍵のファイル） |
 | `IndexingLogFile` | `<Dir>\indexing_log.txt`（インデクサの表示内容の記録。実行ごとに新しく書き、前回の分は `IndexingLogPreviousFile` へ移す） |
 | `IndexingLogPreviousFile` | `<Dir>\indexing_log_previous.txt`（前回のインデックス作成の記録） |

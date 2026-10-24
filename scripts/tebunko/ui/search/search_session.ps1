@@ -187,7 +187,7 @@ function finishSearch {
     if ($shared.Error) {
         $ui.SummaryText.Text = "検索できませんでした"
         setStatus "検索できませんでした：$($shared.Error)"
-        $script:exportPending = $false
+        $script:exportPending = $null
         updateExportButton
         return
     }

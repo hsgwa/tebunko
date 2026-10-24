@@ -236,6 +236,7 @@ BeforeAll {
     # 書く API を使ってよい関数。足すときは Reason に、書き先が取り込み対象でなく、ワークスペースの置き場か利用者が選んだ出力先であることを書く。
     # File = scripts からの相対パス、Owner = 関数（クラスのメソッドを含む）の名前、Calls = その関数が使う呼び出し（関数ごとに 1 行）
     ${writeAllowed} = @(
+        @{ File = "shared\core\csv_writer.ps1"; Owner = "writeCsvFile"; Calls = @("CopyTo", "FileAccess.Write", "FileMode.Create", "FileStream::new"); Reason = "検索結果を CSV・TSV に書く（利用者が選んだ出力先の隣の一時ファイル）" }
         @{ File = "shared\core\close_trace.ps1"; Owner = "writeCloseTrace"; Calls = @("AppendAllText"); Reason = "閉じる処理の診断記録に追記する（ログの置き場）" }
         @{ File = "shared\core\data_dir.ps1"; Owner = "testWritableFolder"; Calls = @("FileAccess.Write", "FileMode.CreateNew", "New-Object FileStream"); Reason = "設定の置き場に書けるかを、使い捨てのファイル（その場で消す）で確かめる。置き場は呼ぶ側が決めたツールのフォルダ" }
         @{ File = "shared\core\diagnostics.ps1"; Owner = "rotateLogFile"; Calls = @("Move", "Replace"); Reason = "診断ログの世代を入れ替える（ログの置き場の中）" }
@@ -246,6 +247,7 @@ BeforeAll {
         @{ File = "shared\core\fs.ps1"; Owner = "writeListFile"; Calls = @("WriteAllLines"); Reason = "一覧・設定のファイルを書く。書き先は呼ぶ側がワークスペースか設定の置き場から決める" }
         @{ File = "shared\core\fs.ps1"; Owner = "writeTextLinesAtomic"; Calls = @("Move", "Replace", "WriteAllLines"); Reason = "一時ファイルに書いて置き換える。書き先は呼ぶ側がワークスペースか設定の置き場から決める" }
         @{ File = "shared\core\tsv_file.ps1"; Owner = "prettyTsv"; Calls = @("WriteAllText"); Reason = "Excel が出した作業フォルダの TSV（UTF-16）を整形して UTF-8 で書き直す" }
+        @{ File = "shared\office\xlsx_writer.ps1"; Owner = "newXlsxWriter"; Calls = @("FileAccess.Write", "FileMode.Create", "New-Object FileStream", "New-Object StreamWriter"); Reason = "検索結果を Excel ブックに書く（利用者が選んだ出力先の隣の一時ファイル）" }
         @{ File = "shared\office\office_process.ps1"; Owner = "addOfficeRecord"; Calls = @("Delete", "Move", "WriteAllText"); Reason = "起こした Office のプロセスの記録を書く・置き換える（ワークスペースの外の一時の場所）" }
         @{ File = "shared\office\office_process.ps1"; Owner = "readOfficeRecords"; Calls = @("Delete"); Reason = "起こした Office のプロセスの記録を読んだあと、壊れた記録を消す（ワークスペースの外の一時の場所）" }
         @{ File = "shared\office\office_process.ps1"; Owner = "removeOfficeRecord"; Calls = @("Delete"); Reason = "起こした Office のプロセスの記録を消す（ワークスペースの外の一時の場所）" }
@@ -284,8 +286,7 @@ BeforeAll {
         @{ File = "tebunko\search\search_export.ps1"; Owner = "invokeSearchExport"; Calls = @("Move", "Replace"); Reason = "検索結果の出力ファイルを、利用者が選んだ出力先へ移す（同名のファイルを置き換える）" }
         @{ File = "tebunko\search\search_export.ps1"; Owner = "removeSearchExportTemp"; Calls = @("Delete"); Reason = "検索結果の出力の一時ファイルを消す（作業フォルダ）" }
         @{ File = "tebunko\search\search_export.ps1"; Owner = "testSearchExportTarget"; Calls = @("FileAccess.ReadWrite", "Open"); Reason = "出力先に書けるかを、開くだけで確かめる（書き込まない。出力先は利用者が選んだ場所）" }
-        @{ File = "tebunko\search\search_export.ps1"; Owner = "writeSearchExportBody"; Calls = @("FileAccess.Write", "FileMode.Create", "FileStream::new", "StreamWriter::new"); Reason = "検索結果の本体を作業フォルダの一時ファイルへ書く" }
-        @{ File = "tebunko\search\search_export.ps1"; Owner = "writeSearchExportFile"; Calls = @("CopyTo", "FileAccess.Write", "FileMode.Create", "FileStream::new", "StreamWriter::new"); Reason = "検索結果を出力ファイルへ書く（利用者が選んだ出力先）" }
+        @{ File = "tebunko\search\search_export.ps1"; Owner = "newSearchExportSink"; Calls = @("FileAccess.Write", "FileMode.Create", "FileStream::new", "StreamWriter::new"); Reason = "検索結果の出力を、一時ファイルへ書き出す口を開く（書き先は出力先の隣か作業フォルダの一時ファイル）" }
         @{ File = "tebunko\search\search_overflow.ps1"; Owner = "newSearchOverflowWriter"; Calls = @("FileAccess.Write", "FileMode.Create", "FileStream::new", "StreamWriter::new"); Reason = "検索結果の溢れを作業フォルダへ書く（根は TmpRoot の search_overflow）" }
         @{ File = "tebunko\ui\open_source.ps1"; Owner = "openInExcel"; Calls = @("Open"); Reason = "利用者が選んだ開き方で元を開く（tebunko は書かない。「通常」で開いたあとの保存は利用者の操作）" }
         @{ File = "tebunko\ui\settings\settings.ps1"; Owner = "updateSearchLimitView"; Calls = @("IsReadOnly ="); Reason = "画面の入力欄の IsReadOnly（ファイルではない）" }

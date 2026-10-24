@@ -357,7 +357,7 @@ function applyFailedFileState {
     )
 
     if ($state.State -eq ${pathStateFound} -and !$state.IsDirectory) {
-        Start-Process -FilePath "explorer.exe" -ArgumentList "/select,`"${path}`""
+        [void](showInExplorer $path)
         return
     }
     if ($state.State -eq ${pathStateUnreachable}) {
