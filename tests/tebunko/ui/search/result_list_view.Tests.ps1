@@ -145,18 +145,98 @@ Describe "getPreviewRowHeight" -Tag Unit {
     }
 }
 
-Describe "selectShownRows" -Tag Unit {
-    It "絞り込みが空ならすべて、あれば名前が合うファイルの行だけを元の順で返す" {
-        $rows = @((newTestRow 1 "A" -book "見積.xlsx"), (newTestRow 2 "B" -book "請求.xlsx"), (newTestRow 3 "C" -book "見積.xlsx"))
-        (selectShownRows $rows "").Count | Should -Be 3
-        $shown = selectShownRows $rows "見積"
-        $shown.Count | Should -Be 2
-        $shown[0].Order | Should -Be 1
-        $shown[1].Order | Should -Be 3
+Describe "getGroupRowTarget" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "ヒットが上限以下なら全件"; hits = 800; limit = 0; expected = 800 }
+        @{ name = "ヒットが多いなら既定の上限（1,000）まで"; hits = 100000; limit = 0; expected = 1000 }
+        @{ name = "続きを出したあとは、増えた上限まで"; hits = 100000; limit = 3000; expected = 3000 }
+        @{ name = "増えた上限よりヒットが少なければ全件"; hits = 2500; limit = 3000; expected = 2500 }
+    ) {
+        param ($name, $hits, $limit, $expected)
+        getGroupRowTarget $hits $limit | Should -Be $expected
+    }
+}
+
+Describe "getNextRowLimit" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "最初（0）は上限の次"; limit = 0; expected = 2000 }
+        @{ name = "続きを出すたびに、上限の分ずつ増える"; limit = 2000; expected = 3000 }
+    ) {
+        param ($name, $limit, $expected)
+        getNextRowLimit $limit | Should -Be $expected
+    }
+}
+
+Describe "getSortRowTarget" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "上限以下なら並べ替えるので全件"; hits = 1000; expected = 1000 }
+        @{ name = "上限を超えるなら並べ替えないので 1 件"; hits = 1001; expected = 1 }
+    ) {
+        param ($name, $hits, $expected)
+        getSortRowTarget $hits | Should -Be $expected
+    }
+}
+
+Describe "getMoreRowsText" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "残りが多いときは上限の件数ずつ"; remaining = 99000; expected = "続きの 1,000 件を表示（残り 99,000 件）" }
+        @{ name = "残りが上限より少ないときは残りの件数"; remaining = 250; expected = "続きの 250 件を表示（残り 250 件）" }
+    ) {
+        param ($name, $remaining, $expected)
+        getMoreRowsText $remaining | Should -Be $expected
+    }
+}
+
+Describe "getSortedHitOrder（getHitOrderByLine・getHitOrderByNumber）" -Tag Unit {
+    BeforeAll {
+        function newHit([string]$location, [int]$lineNumber, [string]$line) {
+            return [pscustomobject]@{ Location = $location; LineNumber = $lineNumber; Line = $line }
+        }
     }
 
-    It "ファイル名に無い語（該当行にだけある語）では空の一覧" {
-        (selectShownRows @((newTestRow 1 "請求の行" -book "見積.xlsx")) "請求").Count | Should -Be 0
+    It "<name>" -TestCases @(
+        @{ name = "行（該当行）の昇順。大文字・小文字は区別せず、同じ値は見つかった順"; property = "Line"; descending = $false; expected = "1,3,0,2" }
+        @{ name = "行（該当行）の降順。同じ値は見つかった順のまま"; property = "Line"; descending = $true; expected = "0,2,1,3" }
+        @{ name = "行番号の昇順。同じ値は見つかった順"; property = "LineNumber"; descending = $false; expected = "1,3,0,2" }
+        @{ name = "行番号の降順。同じ値は見つかった順のまま"; property = "LineNumber"; descending = $true; expected = "0,2,1,3" }
+    ) {
+        param ($name, $property, $descending, $expected)
+        # 該当行と行番号の順位が同じになるように作る（0: b・5 / 1: A・1 / 2: B・5 / 3: a・1）
+        $hits = @((newHit "シート" 5 "b"), (newHit "シート" 1 "A"), (newHit "シート" 5 "B"), (newHit "シート" 1 "a"))
+        (getSortedHitOrder $hits $property $descending) -join "," | Should -Be $expected
+    }
+
+    It "場所の順 → 行番号の順（A10 が A9 の前に来ない）。降順はその逆で、同じ値は見つかった順" {
+        $hits = @((newHit "売上" 10 "x"), (newHit "売上" 9 "x"), (newHit "仕入" 1 "x"), (newHit "売上" 9 "x"))
+        (getSortedHitOrder $hits "Location" $false) -join "," | Should -Be "2,1,3,0"
+        (getSortedHitOrder $hits "Location" $true) -join "," | Should -Be "0,1,3,2"
+    }
+
+    It "該当行が無い（null）ヒットは空として扱う" {
+        $hits = @((newHit "シート" 1 "b"), (newHit "シート" 2 $null), (newHit "シート" 3 "a"))
+        (getSortedHitOrder $hits "Line" $false) -join "," | Should -Be "1,2,0"
+    }
+
+    It "種別（Kind）は、場所ごとの種別の順。同じ種別の中は見つかった順（降順も同じ）" {
+        $hits = @((newHit "売上" 1 "x"), (newHit "売上[図形]" 1 "x"), (newHit "仕入" 1 "x"), (newHit "売上[コメント]" 1 "x"))
+        $kinds = @{ "売上" = "セル"; "仕入" = "セル"; "売上[図形]" = "図形"; "売上[コメント]" = "コメント" }
+        $asc = getSortedHitOrder $hits "Kind" $false $kinds
+        # カルチャーの順は Sort-Object と同じ
+        $expected = @($hits | ForEach-Object { $kinds[$_.Location] } | Sort-Object -Unique)
+        (@($asc | ForEach-Object { $kinds[$hits[$_].Location] } | Select-Object -Unique)) -join "," | Should -Be ($expected -join ",")
+        $ties = @($asc | Where-Object { $kinds[$hits[$_].Location] -eq "セル" })
+        $ties -join "," | Should -Be "0,2"
+        $desc = getSortedHitOrder $hits "Kind" $true $kinds
+        (@($desc | ForEach-Object { $kinds[$hits[$_].Location] } | Select-Object -Unique)) -join "," | Should -Be ((@($expected)[($expected.Count - 1)..0]) -join ",")
+        @($desc | Where-Object { $kinds[$hits[$_].Location] -eq "セル" }) -join "," | Should -Be "0,2"
+    }
+
+    It "並べ替えない項目は null" {
+        $null -eq (getSortedHitOrder @((newHit "シート" 1 "a")) "Order" $false) | Should -Be $true
+    }
+
+    It "ヒットが 0 件でも落ちない" {
+        (getSortedHitOrder @() "Line" $false).Count | Should -Be 0
     }
 }
 
@@ -179,6 +259,40 @@ Describe "getResultItems" -Tag Unit {
         $items = getResultItems @($a, $b)
         $items.Count | Should -Be 1
         [object]::ReferenceEquals($items[0], $b) | Should -Be $true
+    }
+}
+
+Describe "getGroupDisplayCount" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "ヒットを持たなければ、作ってある行すべて"; shown = 7; hits = 0; limit = 0; expected = 7 }
+        @{ name = "上限を超えるファイルは、全件の行を作ってあっても上限まで"; shown = 5000; hits = 5000; limit = 0; expected = 1000 }
+        @{ name = "続きを出したあとは、増えた上限まで"; shown = 5000; hits = 5000; limit = 2000; expected = 2000 }
+        @{ name = "作ってある行が上限より少なければ、その数"; shown = 300; hits = 5000; limit = 0; expected = 300 }
+    ) {
+        param ($name, $shown, $hits, $limit, $expected)
+        getGroupDisplayCount $shown $hits $limit | Should -Be $expected
+    }
+}
+
+Describe "getResultItems（続きの行）" -Tag Unit {
+    It "全件の行を作ってあっても、上限までの行だけ並べる" {
+        $rows = 1..5 | ForEach-Object { newTestRow $_ "a$_" }
+        $a = newTestGroup 1 $rows $true
+        $a | Add-Member -NotePropertyName Hits -NotePropertyValue (1..2000)
+        $a | Add-Member -NotePropertyName RowLimit -NotePropertyValue 3
+        $items = getResultItems @($a)
+        $items.Count | Should -Be 4
+        $items[3].Line | Should -Be "a3"
+    }
+
+    It "開いているファイルだけ、行の末尾に続きの行を並べる" {
+        $a = newTestGroup 1 @((newTestRow 1 "a1")) $true
+        $a | Add-Member -NotePropertyName MoreRow -NotePropertyValue "続き A"
+        $b = newTestGroup 2 @((newTestRow 2 "b1"))
+        $b | Add-Member -NotePropertyName MoreRow -NotePropertyValue "続き B"
+        $items = getResultItems @($a, $b)
+        $items.Count | Should -Be 4
+        $items[2] | Should -Be "続き A"
     }
 }
 
@@ -223,6 +337,20 @@ Describe "sortFileGroups" -Tag Unit {
         $sorted = sortFileGroups @($b, $a) "LineNumber" $false
         [object]::ReferenceEquals($sorted[0], $a) | Should -Be $true
         @($a.Rows | ForEach-Object { $_.Order }) -join "," | Should -Be "1,2"
+    }
+}
+
+Describe "sortFileGroups（ヒットが多いファイル）" -Tag Unit {
+    It "上限を超えるファイルの行は並べ替えず（先に並べ替えたヒットの順に作ってある）、ファイルの順は先頭の行の値で決める" {
+        # big は先頭の行が最小（1）になるよう、並べ替えたヒットの順に作ってある行
+        $big = newTestGroup 1 @((newTestRow 9 "x" 1), (newTestRow 0 "x" 30), (newTestRow 3 "x" 4))
+        $big | Add-Member -NotePropertyName Hits -NotePropertyValue (1..5)
+        $small = newTestGroup 2 @((newTestRow 5 "y" 20), (newTestRow 6 "y" 10))
+        $sorted = sortFileGroups @($small, $big) "LineNumber" $false 3
+        @($big.Rows | ForEach-Object { $_.LineNumber }) -join "," | Should -Be "1,30,4"
+        @($small.Rows | ForEach-Object { $_.LineNumber }) -join "," | Should -Be "10,20"
+        [object]::ReferenceEquals($sorted[0], $big) | Should -Be $true
+        [object]::ReferenceEquals($sorted[1], $small) | Should -Be $true
     }
 }
 
