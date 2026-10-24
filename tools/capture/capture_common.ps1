@@ -16,7 +16,7 @@ ${captureIds} = @(
     "search-tab/regex-error", "search-tab/tree-none", "search-tab/collapsed", "search-tab/filtered",
     "search-tab/missing-source", "search-tab/min-width",
     "settings-tab/normal", "settings-tab/limit-none", "settings-tab/limit-error", "settings-tab/running-warning", "settings-tab/empty-confirm", "settings-tab/nonempty-confirm",
-    "settings-tab/index-confirm", "settings-tab/invalid-warning"
+    "settings-tab/index-confirm", "settings-tab/invalid-warning", "settings-tab/text-open"
 )
 
 function resolveCaptureIds {

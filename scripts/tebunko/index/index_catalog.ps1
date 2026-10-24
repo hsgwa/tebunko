@@ -80,6 +80,13 @@ class IndexCatalog {
         # 外したフォルダの記録（searchExcludes）は旧名・新名の下のものを消す（付け替えず、検索対象に戻す）
         removeSearchExcludesUnder $from $this.SettingsPath
         removeSearchExcludesUnder $to $this.SettingsPath
+        # インデックスごとの、取り込まないテキストの拡張子も、新しい名前に付け替える（外したフォルダの記録と同じく、設定を書けなくても改名は成功にする）
+        try {
+            renameIndexTextExcludes $oldName $newName $this.SettingsPath
+        } catch {
+            # 付け替えられなかった絞り込みは、既定（全部取り込む）に戻るだけで、インデックスは壊れない
+            Write-Verbose "取り込まない拡張子の項目を付け替えられませんでした: ${oldName}"
+        }
     }
 
     [hashtable] RenameIndexWithSource([string]$oldName, [string]$newName, $folders) {
@@ -131,6 +138,13 @@ class IndexCatalog {
         removeGramIndexOfWorkspace $name $dir
         # 外したフォルダの記録（searchExcludes）も消す
         removeSearchExcludesUnder $target $this.SettingsPath
+        # インデックスごとの、取り込まないテキストの拡張子の項目も消す（設定を書けなくても削除は成功にする）
+        try {
+            writeIndexTextExcludes $name @() $this.SettingsPath
+        } catch {
+            # 古い項目が残るだけ（同じ名前で作り直すと、前の絞り込みが効く）
+            Write-Verbose "取り込まない拡張子の項目を消せませんでした: ${name}"
+        }
     }
 
     [object[]] RemoveIndexes([string[]]$names) {

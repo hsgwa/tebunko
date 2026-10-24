@@ -111,6 +111,7 @@ stateDiagram-v2
 | `settings-tab/running-warning` | 更新中に［変更…］（メッセージボックス） | 21 |
 | `settings-tab/empty-confirm` | 空のフォルダを選んだときの確認 | 31 |
 | `settings-tab/nonempty-confirm` | 空でないフォルダを選んだときの確認 | 32 |
+| `settings-tab/text-open` | テキストの開き方のダイアログ（.csv・.html をエディタで開くに変えた） | – |
 | `settings-tab/index-confirm` | インデックスのあるフォルダを選んだときの確認 | 33 |
 | `settings-tab/invalid-warning` | 使えないフォルダを選んだときの警告 | 34 |
 

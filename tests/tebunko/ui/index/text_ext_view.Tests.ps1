@@ -1,0 +1,110 @@
+﻿# インデックスごとの「取り込む拡張子」の文言と判断（tebunko\ui\index\text_ext_view.ps1）のテスト
+BeforeAll {
+    . "$PSScriptRoot\..\..\..\helpers\load.ps1"
+    . "${scriptsDir}\tebunko\ui\index\text_ext_view.ps1"
+}
+
+Describe "getIndexTextExtensionRows" -Tag Unit {
+    It "件数が分からない（数え中）ときは、固定の一覧の順で、件数は null" {
+        $rows = @(getIndexTextExtensionRows $null @())
+        $rows.Count | Should -Be 75
+        (($rows | ForEach-Object { $_.Extension }) -join ",") | Should -Be (${textExtensions} -join ",")
+        @($rows | Where-Object { $null -ne $_.Count }).Count | Should -Be 0
+        @($rows | Where-Object { -not $_.Checked }).Count | Should -Be 0
+    }
+
+    It "件数の多い順（同じ件数は拡張子の名前順）で、0 件は末尾にまとめる" {
+        $counts = @{ ".txt" = 100; ".csv" = 100; ".log" = 5; ".md" = 1 }
+        $rows = @(getIndexTextExtensionRows $counts @())
+        (($rows[0..3] | ForEach-Object { $_.Extension }) -join ",") | Should -Be ".csv,.txt,.log,.md"
+        @($rows | Where-Object { $_.Count -eq 0 }).Count | Should -Be 71
+        @($rows[4..74] | Where-Object { $_.Count -ne 0 }).Count | Should -Be 0
+        # 0 件の群も名前順
+        (($rows[4..74] | ForEach-Object { $_.Extension }) -join ",") | Should -Be ((($rows[4..74] | ForEach-Object { $_.Extension }) | Sort-Object) -join ",")
+    }
+
+    It "取り込まない拡張子は外した行（チェックなし・変えた）になる。大文字の設定も当てはまる" {
+        $rows = @(getIndexTextExtensionRows @{ ".log" = 3 } @(".LOG", ".md"))
+        $log = $rows | Where-Object { $_.Extension -eq ".log" }
+        $log.Checked | Should -BeFalse
+        $log.Changed | Should -BeTrue
+        $log.Count | Should -Be 3
+        (@($rows | Where-Object { -not $_.Checked } | ForEach-Object { $_.Extension }) | Sort-Object) -join "," | Should -Be ".log,.md"
+    }
+}
+
+Describe "convertIndexTextExtensionRows" -Tag Unit {
+    It "チェックを外した行を、固定の一覧の順で返す" {
+        $rows = @(
+            @{ Extension = ".md"; Checked = $false }
+            @{ Extension = ".txt"; Checked = $true }
+            @{ Extension = ".log"; Checked = $false }
+        )
+        (@(convertIndexTextExtensionRows $rows) -join ",") | Should -Be ".md,.log"
+    }
+
+    It "固定の一覧に無い拡張子は捨てる。全部チェックなら空" {
+        @(convertIndexTextExtensionRows @(@{ Extension = ".exe"; Checked = $false })).Count | Should -Be 0
+        @(convertIndexTextExtensionRows @(getIndexTextExtensionRows @{} @())).Count | Should -Be 0
+    }
+
+    It "行を作って戻すと、設定の値と同じになる（往復。固定の一覧の順）" {
+        (@(convertIndexTextExtensionRows @(getIndexTextExtensionRows @{ ".log" = 2 } @(".log", ".md"))) -join ",") | Should -Be ".md,.log"
+    }
+}
+
+Describe "getIndexTextExtensionSummary / formatTextExtensionCount" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "数え中で何も外していない"; counts = $null; excluded = @(); expected = "対象のフォルダを数えています…（件数は数え終わると出ます）" }
+        @{ name = "数え中で外している"; counts = $null; excluded = @(".log", ".md"); expected = "外した拡張子 2 個（対象のフォルダを数えています…）" }
+        @{ name = "何も外していない"; counts = @{ ".txt" = 13000; ".log" = 150 }; excluded = @(); expected = "テキストファイル 13,150 件 ・ すべて取り込む" }
+        @{ name = "外した"; counts = @{ ".txt" = 10350; ".log" = 2800 }; excluded = @(".log"); expected = "取り込む 10,350 件（外した 2,800 件）" }
+        @{ name = "件数 0 の拡張子を外しても、外したことは件数に出る"; counts = @{ ".txt" = 5 }; excluded = @(".log"); expected = "取り込む 5 件（外した 0 件）" }
+        @{ name = "テキストが 0 件"; counts = @{}; excluded = @(); expected = "テキストファイル 0 件 ・ すべて取り込む" }
+    ) {
+        param ($name, $counts, $excluded, $expected)
+        getIndexTextExtensionSummary @(getIndexTextExtensionRows $counts $excluded) | Should -Be $expected
+    }
+
+    It "件数の文字は 3 桁区切り、数え中は …" {
+        formatTextExtensionCount 1234567 | Should -Be "1,234,567"
+        formatTextExtensionCount 0 | Should -Be "0"
+        formatTextExtensionCount $null | Should -Be "…"
+    }
+}
+
+Describe "getIndexTextExtensionListView" -Tag Unit {
+    BeforeAll {
+        $script:rows = @(getIndexTextExtensionRows @{ ".txt" = 100; ".log" = 20; ".csv" = 5 } @(".log"))
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "絞らなければ 75 個すべてと、取り込む件数の要約"; filter = ""; removedOnly = $false; count = 75; summary = "取り込む 105 件（外した 20 件）"; empty = $false }
+        @{ name = "［外したものだけ］は外した 1 個だけ"; filter = ""; removedOnly = $true; count = 1; summary = "外したもの 1 個を表示"; empty = $false }
+        @{ name = "文字で絞る（点なし・大文字も同じ）"; filter = "LOG"; removedOnly = $false; count = 1; summary = "75 個中 1 個を表示"; empty = $false }
+        @{ name = "文字と［外したものだけ］は両方に合うものだけ"; filter = "txt"; removedOnly = $true; count = 0; summary = "75 個中 0 個を表示"; empty = $true }
+        @{ name = "合うものが無ければ一致なし"; filter = "zzz"; removedOnly = $false; count = 0; summary = "75 個中 0 個を表示"; empty = $true }
+    ) {
+        param ($name, $filter, $removedOnly, $count, $summary, $empty)
+        $view = getIndexTextExtensionListView $script:rows $filter $removedOnly
+        @($view.Visible).Count | Should -Be $count
+        $view.Summary | Should -Be $summary
+        $view.Empty | Should -Be $empty
+    }
+
+    It "件数 0 の拡張子の数を返す" {
+        (getIndexTextExtensionListView $script:rows "" $false).ZeroCount | Should -Be 72
+        (getIndexTextExtensionListView @(getIndexTextExtensionRows $null @()) "" $false).ZeroCount | Should -Be 0
+    }
+}
+
+Describe "getIndexTextExtensionDialogTexts" -Tag Unit {
+    It "題と注にインデックスの名前が入り、文言がそろっている" {
+        $texts = getIndexTextExtensionDialogTexts "営業部"
+        $texts.Title | Should -Be "取り込む拡張子 - 営業部"
+        $texts.Note | Should -BeLike "*このインデックス（営業部）から外します*"
+        foreach ($key in @("Title", "Note", "Extension", "Count", "Reset", "UncheckAll", "Ok", "Cancel", "RemovedOnly", "FilterPlaceholder", "Empty")) {
+            $texts[$key] | Should -Not -BeNullOrEmpty -Because $key
+        }
+    }
+}

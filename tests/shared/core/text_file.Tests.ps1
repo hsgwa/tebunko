@@ -366,3 +366,62 @@ Describe "splitTextLines" -Tag Unit {
         (splitTextLines "").Count | Should -Be 0
     }
 }
+
+Describe "getTextTargetExtensions" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "除かなければ固定の一覧のすべて"; excluded = @(); notContain = @(); count = 75 }
+        @{ name = "引数を渡さなくても固定の一覧のすべて"; excluded = $null; notContain = @(); count = 75 }
+        @{ name = ".log を除く"; excluded = @(".log"); notContain = @(".log"); count = 74 }
+        @{ name = "大文字でも除く"; excluded = @(".LOG", ".Txt"); notContain = @(".log", ".txt"); count = 73 }
+        @{ name = "固定の一覧に無い .exe を渡しても増えない"; excluded = @(".exe"); notContain = @(".exe"); count = 75 }
+        @{ name = "メモ帳で開く拡張子も除ける"; excluded = @(".bat"); notContain = @(".bat"); count = 74 }
+    ) {
+        param ($name, $excluded, $notContain, $count)
+        $result = @(getTextTargetExtensions $excluded)
+        $result.Count | Should -Be $count
+        foreach ($extension in $notContain) {
+            $result | Should -Not -Contain $extension
+        }
+        # 固定の一覧の外は、渡し方にかかわらず入らない
+        @($result | Where-Object { ${textExtensions} -notcontains $_ }).Count | Should -Be 0
+    }
+
+    It "固定の一覧の順を保つ" {
+        $result = @(getTextTargetExtensions @(".csv"))
+        ($result -join ",") | Should -Be ((${textExtensions} | Where-Object { $_ -ne ".csv" }) -join ",")
+    }
+}
+
+Describe "getTextOpenWay / testTextOpenWithNotepad の追加分" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = ".txt は既定のアプリ"; path = "a.txt"; extra = @(); expected = "default" }
+        @{ name = ".txt を追加でメモ帳"; path = "a.txt"; extra = @(".txt"); expected = "notepad" }
+        @{ name = "大文字のパス・追加でもメモ帳"; path = "A.TXT"; extra = @(".Txt"); expected = "notepad" }
+        @{ name = ".bat は追加に無くてもメモ帳"; path = "a.bat"; extra = @(); expected = "notepad" }
+        @{ name = "末尾のピリオドを無視してメモ帳（a.ps1.）"; path = "a.ps1."; extra = @(); expected = "notepad" }
+        @{ name = "追加に入れていない拡張子は既定のアプリ"; path = "a.csv"; extra = @(".txt"); expected = "default" }
+        @{ name = "固定の一覧に無い .exe は追加に入れても既定のアプリのまま（メモ帳にもしない）"; path = "a.exe"; extra = @(".exe"); expected = "default" }
+    ) {
+        param ($name, $path, $extra, $expected)
+        getTextOpenWay $path $extra | Should -Be $expected
+        testTextOpenWithNotepad $path $extra | Should -Be ($expected -eq "notepad")
+    }
+}
+
+Describe "getTextExtensionCounts" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "空・引数なしは空"; names = @(); expected = "" }
+        @{ name = "拡張子ごとに数える（大文字・小文字は同じ）"; names = @("a.txt", "b.TXT", "c.log", "d.Log", "e.log"); expected = ".log=3,.txt=2" }
+        @{ name = "パスでも拡張子だけを見る"; names = @("C:\data\営業\a.csv", "b\c.d\e.csv"); expected = ".csv=2" }
+        @{ name = "固定の一覧に無い拡張子（Office・PDF・.exe）は数えない"; names = @("a.xlsx", "b.pdf", "c.exe", "d.zip", "e.txt"); expected = ".txt=1" }
+        @{ name = "拡張子の無い名前は数えない"; names = @("README", ".gitignore2"); expected = "" }
+    ) {
+        param ($name, $names, $expected)
+        $counts = getTextExtensionCounts $names
+        (($counts.Keys | Sort-Object | ForEach-Object { "$_=$($counts[$_])" }) -join ",") | Should -Be $expected
+    }
+
+    It "引数なしでも例外にならず、空のハッシュテーブルを返す" {
+        (getTextExtensionCounts).Count | Should -Be 0
+    }
+}
