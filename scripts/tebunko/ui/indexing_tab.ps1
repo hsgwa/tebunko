@@ -65,6 +65,7 @@ function buildPlanRows {
         $row.Level = $view.Level
         $row.DetailText = $view.DetailText
         $row.Subfolders = [bool]$view.Subfolders
+        $row.Choosable = [bool]$view.Choosable
         $row.OriginalSubfolders = [bool]$view.Subfolders
         $row.TopOnlyText = getIndexTopOnlyTagText $row.Subfolders
         $row.PlannedStatusText = $view.StatusText
@@ -97,24 +98,14 @@ function updateIndexingRecountView {
     # 「サブフォルダを含める」の選びを変えた行があれば、行・合計・説明・主ボタンを数え直しの見せ方にする（文言は getIndexingRecountView）
     $d = $script:confirmDialog
     $rows = @($d.Ctrl.PlanGrid.ItemsSource)
-    $changed = 0
-    foreach ($row in $rows) {
-        $row.Changed = ($row.Subfolders -ne $row.OriginalSubfolders)
-        $row.TopOnlyText = getIndexTopOnlyTagText $row.Subfolders
-        if ($row.Changed) { $changed++ }
-    }
+    $changed = @($rows | Where-Object { $_.Subfolders -ne $_.OriginalSubfolders }).Count
     $recount = getIndexingRecountView $rows.Count $changed
+    # 行の見せ方だけを置く（行が通知して、その行だけが描き直る。一覧全体を描き直すと、チェックが入れ直されて、この処理がまた呼ばれる）
     foreach ($row in $rows) {
-        if ($row.Changed) {
-            $row.StatusText = $recount.RowStatusText
-            $row.Level = $recount.RowLevel
-        } else {
-            $row.StatusText = $row.PlannedStatusText
-            $row.Level = $row.PlannedLevel
-        }
-    }
-    if ($d.Window.IsLoaded) {
-        $d.Ctrl.PlanGrid.Items.Refresh()   # 開く前（読み込み前）は、まだ描いていないので要らない
+        $isChanged = ($row.Subfolders -ne $row.OriginalSubfolders)
+        $status = if ($isChanged) { $recount.RowStatusText } else { $row.PlannedStatusText }
+        $level = if ($isChanged) { $recount.RowLevel } else { $row.PlannedLevel }
+        $row.SetView($isChanged, (getIndexTopOnlyTagText $row.Subfolders), $status, $level)
     }
     $d.Ctrl.RecountHint.Visibility = if ($recount.Changed) { "Visible" } else { "Collapsed" }
     $d.Ctrl.RecountHintText.Text = $recount.HintText
@@ -161,6 +152,19 @@ function showIndexingNothingNote {
     $ctrl.NoteText.Visibility = "Visible"
     $ctrl.NoteText.Text = "更新日時が変わらないまま中身が変わったファイルは、更新の対象になりません。" +
         "そのインデックスを一から作り直すときは、［削除］してから追加し直してください。"
+}
+
+function connectPlanGridChoice {
+    # 確認の一覧の「サブフォルダを含める」のチェック（行ごと）の付け外しを受けて、onChange を呼ぶ。
+    # UI オートメーションの切り替えは Click を起こさないため Checked・Unchecked で受ける。onChange の中で一覧全体を描き直さないこと（チェックが入れ直されて、また呼ばれる）
+    param (
+        $grid,
+        [scriptblock]$onChange
+    )
+
+    $handler = [System.Windows.RoutedEventHandler]{ & $onChange }.GetNewClosure()
+    $grid.AddHandler([System.Windows.Controls.Primitives.ToggleButton]::CheckedEvent, $handler)
+    $grid.AddHandler([System.Windows.Controls.Primitives.ToggleButton]::UncheckedEvent, $handler)
 }
 
 function getIndexingDialogRecountPlan {
@@ -212,9 +216,7 @@ function showIndexingConfirmDialog {
     $ctrl.RetryCheck.Add_Click({ safe { updateIndexingConfirmTotal } })
     $ctrl.CloudCheck.Add_Click({ safe { updateIndexingConfirmTotal } })
     # 「サブフォルダを含める」のチェック（行ごと）。付け外しは DataGrid の中のチェックから上がってくる（UI オートメーションの切り替えは Click を起こさないため Checked・Unchecked で受ける）
-    $onToggle = [System.Windows.RoutedEventHandler]{ safe { updateIndexingConfirmTotal } }
-    $ctrl.PlanGrid.AddHandler([System.Windows.Controls.Primitives.ToggleButton]::CheckedEvent, $onToggle)
-    $ctrl.PlanGrid.AddHandler([System.Windows.Controls.Primitives.ToggleButton]::UncheckedEvent, $onToggle)
+    connectPlanGridChoice $ctrl.PlanGrid { safe { updateIndexingConfirmTotal } }
     $ctrl.StartButton.Add_Click({
         safe {
             $d = $script:confirmDialog
@@ -574,6 +576,30 @@ function getIndexingFinishCounts {
     return $counts
 }
 
+function showIndexingFinishBar {
+    # 終わり・中止の帯の棒（処理した割合。1 件も無ければ 0）
+    param (
+        $progress
+    )
+
+    $ui.IndexingProgress.IsIndeterminate = $false
+    $ui.IndexingProgress.Value = if ($progress -and $progress.Processed -gt 0) { $progress.Processed / ($progress.Processed + $progress.Remaining) } else { 0 }
+}
+
+function resumeIndexingAfterRecount {
+    # 数え直しのあとの始め直し（applyIndexingRecount）をして、始まったか（または準備に入ったか）を返す。
+    # 始め直せなかったとき（前の版の確かめで［更新し直す］を選ばなかった・ワークスペースが塞がっているなど）は、ふだんの取りやめの表示に落とす
+    param (
+        $recount
+    )
+
+    applyIndexingRecount $recount
+    if (isIndexingOrPreparing) {
+        return $true
+    }
+    $script:indexingCanceledAtConfirm = $true
+    return $false
+}
 function applyIndexingRecount {
     # 確認で選びを変えたときの数え直し。インデクサが終わったあと（鍵が外れたあと）に、選びを一覧の行に入れて設定へ書き、同じ対象で始め直す
     param (
@@ -616,14 +642,14 @@ function finishIndexing {
     $script:indexingEta = ""
     $recount = $script:indexingRecount   # 確認で選びを変えた（印は confirmIndexingTargets が立てる）
     $script:indexingRecount = $null
-    if ($null -ne $recount -and $exitCode -eq 2) {
-        applyIndexingRecount $recount
+    if ($null -ne $recount -and $exitCode -eq 2 -and (resumeIndexingAfterRecount $recount)) {
         return
     }
 
+
+
     $counts = getIndexingFinishCounts $progress
-    $ui.IndexingProgress.IsIndeterminate = $false
-    $ui.IndexingProgress.Value = if ($progress -and $progress.Processed -gt 0) { $progress.Processed / ($progress.Processed + $progress.Remaining) } else { 0 }
+    showIndexingFinishBar $progress
 
     if ($exitCode -eq 1) {
         # インデックス作成を続けられないエラー（クロール対象フォルダが無い など）

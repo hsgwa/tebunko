@@ -19,7 +19,7 @@ function newPlanViewRows {
         # 空の配列を渡すと @($plan) に $null が 1 つ入るため、ここで外す
         if ($null -eq $item) { continue }
         if (@($onlyNames).Count -gt 0 -and $item.区分 -ne ${planKindDropped} -and @($onlyNames) -notcontains [string]$item.インデックス名) { continue }
-        $row = @{ Name = $item.インデックス名; Path = $item.元のフォルダ; Subfolders = ($subfolders[[string]$item.インデックス名] -ne $false) }
+        $row = @{ Name = $item.インデックス名; Path = $item.元のフォルダ; Subfolders = ($subfolders[[string]$item.インデックス名] -ne $false); Choosable = ($item.区分 -ne ${planKindDropped}) }
         if ($item.区分 -eq ${planKindDropped}) {
             # 選んだものだけの回でも出す（［更新を開始］で消えるため、利用者に見せずに消さない）
             $row.TotalText = "－"

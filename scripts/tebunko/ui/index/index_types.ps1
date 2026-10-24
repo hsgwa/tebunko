@@ -16,7 +16,8 @@ class DetailRow {
 }
 
 # インデックス更新の確認ダイアログに出すインデックス 1 件（取り込み予定.tsv の 1 行）
-class PlanRow {
+# 確認ダイアログの一覧の 1 行。選びを変えたときに、行の見せ方（札・状態・件数の色）だけを知らせて描き直す（一覧全体は描き直さない）
+class PlanRow : NotifyBase {
     [string]$Name
     [string]$Path
     [string]$TotalText    # 対象ファイル数（"1,243"。数えない行は "－"）
@@ -29,6 +30,17 @@ class PlanRow {
     [string]$TopOnlyText = ""   # 名前の右の札の文言（今の選びが直下だけのときだけ。getIndexTopOnlyTagText）
     [string]$PlannedStatusText   # 数え直しの前に出していたバッジ（選びを元に戻すと復元する）
     [string]$PlannedLevel
+    [bool]$Choosable = $true   # 「サブフォルダを含める」を選べる行か（削除予定の行は選べない）
+
+    PlanRow() {}   # 既定のコンストラクタを明示する（理由は shared/ui/types.ps1 の NotifyBase）
+
+    # 選びを変えたあとの見せ方を置く。変わったものだけ通知する（同じ値を置いても通知しない）
+    [void] SetView([bool]$changed, [string]$topOnlyText, [string]$statusText, [string]$level) {
+        if ($this.Changed -ne $changed) { $this.Changed = $changed; $this.Raise("Changed") }
+        if ($this.TopOnlyText -ne $topOnlyText) { $this.TopOnlyText = $topOnlyText; $this.Raise("TopOnlyText") }
+        if ($this.StatusText -ne $statusText) { $this.StatusText = $statusText; $this.Raise("StatusText") }
+        if ($this.Level -ne $level) { $this.Level = $level; $this.Raise("Level") }
+    }
 }
 
 # ［インデックス管理］のインデックス一覧 1 件。プログラムから変えたときに画面へ反映するため通知する。
