@@ -153,3 +153,23 @@ Describe "PendingPublish（外し終えていない削除 Unpublished）" -Tag U
         $flush[$script:folder].Contains("b.xlsx") | Should -Be $true
     }
 }
+
+Describe "PendingPublish.SnapshotRemovals / RestoreRemovals" -Tag Unit {
+    It "写しへ戻すと、写しのあとに足した無くなったファイルの記録は消え、写しの中身は戻る。写しは何度戻しても変わらない" {
+        $pending = [PendingPublish]::new()
+        $pending.Add("営業\前.docx", $true)
+        $snapshot = $pending.SnapshotRemovals()
+        $pending.Add("営業\後.docx", $true)
+        $pending.Add("経理\別.docx", $true)
+
+        $pending.RestoreRemovals($snapshot)
+
+        $names = @($pending.Unpublished.Values | ForEach-Object { $_ } | ForEach-Object { $_ })
+        $names | Should -Be @("前.docx")
+        @($pending.Folders.Keys).Count | Should -Be 1
+        # 戻したあとに足しても、写しは書き換わらない（もう一度戻せる）
+        $pending.Add("営業\また.docx", $true)
+        $pending.RestoreRemovals($snapshot)
+        @($pending.Unpublished.Values | ForEach-Object { $_ } | ForEach-Object { $_ }) | Should -Be @("前.docx")
+    }
+}

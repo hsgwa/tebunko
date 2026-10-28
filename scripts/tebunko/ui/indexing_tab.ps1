@@ -666,20 +666,39 @@ function showIndexingFinishBar {
 }
 
 function applyConfirmedChoices {
-    # 確認で確かめた「サブフォルダを含める」の選びを、一覧の行に入れて設定へ書く。インデクサが終わったあと（SaveNames と重ならなくなってから）に呼ぶ
+    # 確認で確かめた「サブフォルダを含める」の選びを、一覧の行に入れて設定へ書く。インデクサが終わったあと（SaveNames と重ならなくなってから）に呼ぶ。
+    # その選びで取り込み終えた（終わり方が 0）ときは、［要更新］の印を立てない。取りやめ・エラーで終わったときは、まだ取り込み直していないので立てる
     param (
-        $choices  # @{ Name; Subfolders } の配列
+        $choices,  # @{ Name; Subfolders } の配列
+        [int]$exitCode
     )
 
     foreach ($change in @($choices)) {
         foreach ($item in $script:targetItems) {
-            if ([string]$item.Name -eq [string]$change.Name) {
-                $item.SetSubfolders([bool]$change.Subfolders, (getIndexTopOnlyTagText ([bool]$change.Subfolders)))
+            if ([string]$item.Name -ne [string]$change.Name) { continue }
+            $tag = getIndexTopOnlyTagText ([bool]$change.Subfolders)
+            if ($exitCode -eq 0) {
+                $item.SetSubfoldersDone([bool]$change.Subfolders, $tag)
+            } else {
+                $item.SetSubfolders([bool]$change.Subfolders, $tag)
             }
         }
     }
     saveTargets -Quiet
     updateIndexDetailPanel
+}
+
+function writeConfirmedChoices {
+    # 確認で確かめた選び（数え直しに送ったもの）の控えがあれば、設定へ書く（取りやめで終わったときも書く。控えが無ければ書かない）。控えは 1 回で消す
+    param (
+        [int]$exitCode
+    )
+
+    $choices = $script:indexingConfirmedChoices
+    $script:indexingConfirmedChoices = $null
+    if ($choices) {
+        applyConfirmedChoices $choices $exitCode
+    }
 }
 
 function finishIndexing {
@@ -703,13 +722,7 @@ function finishIndexing {
     $script:indexingSession = $null
     $script:indexingOnlyNames = @()
     $script:indexingEta = ""
-    $choices = $script:indexingConfirmedChoices   # 確認で確かめた選び（数え直しに送ったもの）。取りやめで終わったときも書く
-    $script:indexingConfirmedChoices = $null
-    if ($choices) {
-        applyConfirmedChoices $choices
-    }
-
-
+    writeConfirmedChoices $exitCode   # 確認で確かめた選び。取りやめで終わったときも書く
 
     $counts = getIndexingFinishCounts $progress
     showIndexingFinishBar $progress

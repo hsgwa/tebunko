@@ -59,6 +59,10 @@ BeforeAll {
         $script:indexingConfirmedChoices = $null
     }
 
+    function setConfirmedChoices { param ($choices) $script:indexingConfirmedChoices = $choices }
+
+    function getConfirmedChoices { return $script:indexingConfirmedChoices }
+
     function getConfirmDialogState { return $script:confirmDialog }
     function setConfirmDialogState {
         # indexing_tab.ps1 の関数が読む状態は、その関数と同じスコープ（この BeforeAll）に置く
@@ -146,18 +150,41 @@ Describe "数え直しの流れ（確認を開いたまま）" -Tag Unit {
         function isIndexing { return $true }
     }
 
-    It "確かめた選びを行に入れて設定へ書く。選ばなかった行は変えない（applyConfirmedChoices）" -Skip:(!$sta) {
+    It "終わり方が <label> のとき、選びは行に入れて設定へ書き、［要更新］の印は <marked>（applyConfirmedChoices）" -Skip:(!$sta) -TestCases @(
+        @{ label = "0（その選びで取り込み終えた）"; exitCode = 0; marked = $false }
+        @{ label = "2（取りやめ。取り込んでいない）"; exitCode = 2; marked = $true }
+        @{ label = "1（エラー）"; exitCode = 1; marked = $true }
+    ) {
+        param ($label, $exitCode, $marked)
         $script:recountLog = New-Object System.Collections.Generic.List[string]
         $a = New-Object FolderItem; $a.Name = "営業"
         $b = New-Object FolderItem; $b.Name = "顧客"
         $script:targetItems = @($a, $b)
 
-        applyConfirmedChoices @(@{ Name = "営業"; Subfolders = $false })
+        applyConfirmedChoices @(@{ Name = "営業"; Subfolders = $false }) $exitCode
 
         @($script:recountLog) | Should -Be @("save:営業=False,顧客=True", "detail")
         $a.TopOnlyText | Should -Be "直下のみ"
-        $a.SubfoldersChanged | Should -BeTrue
+        $a.SubfoldersChanged | Should -Be $marked
         $b.Subfolders | Should -BeTrue
+    }
+
+    It "writeConfirmedChoices: 控えがあれば書く（取りやめで終わったときも）・控えが無ければ書かない。控えは 1 回で消える" -Skip:(!$sta) -TestCases @(
+        @{ label = "取り込み終えた（0）"; exitCode = 0; choices = @(@{ Name = "営業"; Subfolders = $false }); saved = $true }
+        @{ label = "取りやめ（2）"; exitCode = 2; choices = @(@{ Name = "営業"; Subfolders = $false }); saved = $true }
+        @{ label = "控えが無い（確認で選びを変えずに終わった）"; exitCode = 2; choices = $null; saved = $false }
+    ) {
+        param ($label, $exitCode, $choices, $saved)
+        $script:recountLog = New-Object System.Collections.Generic.List[string]
+        $a = New-Object FolderItem; $a.Name = "営業"
+        $script:targetItems = @($a)
+        setConfirmedChoices $choices
+
+        writeConfirmedChoices $exitCode
+
+        (@($script:recountLog | Where-Object { $_ -like "save:*" }).Count -gt 0) | Should -Be $saved
+        $a.Subfolders | Should -Be (-not $saved)
+        (getConfirmedChoices) | Should -BeNullOrEmpty
     }
 
     It "［数え直して続ける］: 開いたまま全部の行が数え中になり、返事（Recount）をインデクサに返す。新しい Plan が届くと、一覧が差し替わって主ボタンが［更新を開始］に戻る" -Skip:(!$sta) {

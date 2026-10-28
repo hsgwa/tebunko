@@ -62,6 +62,11 @@ Describe "applyRecountChoices" -Tag Unit {
         @($result | ForEach-Object { $_.Enabled }) | Should -Be @($true, $false)
     }
 
+    It "名前がまだ無い新しいフォルダ（Name が空）は、1 回目に割り当てた名前を写しに入れる（数え直しのたびに割り当て直さず、同じ名前にする）" {
+        $result = @(applyRecountChoices (newTargets) $assigned @())
+        @($result | ForEach-Object { $_.Name }) | Should -Be @("売上", "経理")
+    }
+
     It "元のクロール対象フォルダの一覧は書き換えない（写しに当てる）" {
         $targets = newTargets
         [void](applyRecountChoices $targets $assigned @(@{ Name = "売上"; Subfolders = $false }))
@@ -158,5 +163,30 @@ Describe "waitForIngestApproval" -Tag Io {
         $names = @($pending.Unpublished.Values | ForEach-Object { $_ } | ForEach-Object { $_ })
         $names.Count | Should -Be 1
         $names[0] | Should -Be "無い.docx"
+    }
+
+    It "外して数え直し→付け直して数え直し→開始、と進めても、前の数えにしか無い削除は残らない（サブフォルダのファイルが本文インデックスから外れて検索に出なくなるのを防ぐ）" {
+        # 取り込み済みのサブフォルダのファイル（前回の行と更新日時・サイズが同じ＝済）
+        $info = Get-Item -LiteralPath "$root\下\奥.docx"
+        $updated = formatFileTime $info.LastWriteTime
+        $status = newStatus
+        $status.Rows["src\下\奥.docx"] = (newStatusRow "src\下\奥.docx" $updated ([string]$info.Length) ${stateDone} 1 $updated)
+        $planner = newCrawledPlanner $targetFolders $status
+        $name = [string]$planner.Folders[0].Name
+        $pending = New-Object PendingPublish
+        foreach ($removed in $planner.RemovedPaths) { $pending.Add($removed, $true) }
+        @($pending.Unpublished.Values).Count | Should -Be 0 -Because "最初の数え（サブフォルダも含める）では、奥.docx は無くなっていない"
+        $reporter = newFakeReporter @(
+            @{ Recount = $true; Changes = @(@{ Name = $name; Subfolders = $false }) },
+            @{ Recount = $true; Changes = @(@{ Name = $name; Subfolders = $true }) },
+            @{ RetryFailed = $false })
+
+        $result = waitForIngestApproval $planner $reporter (newIndexerChannel) $targetFolders $status $null $pending 60
+
+        $reporter.Calls | Should -Be 3
+        $result.Planner.RemovedPaths.Count | Should -Be 0
+        # 1 回目の数え直し（直下だけ）で「無くなった」ことにした奥.docx は、付け直したあとの数えでは済のまま。外す記録に残してはならない
+        @($pending.Unpublished.Values | ForEach-Object { $_ } | ForEach-Object { $_ }).Count | Should -Be 0
+        @($pending.Folders.Values | ForEach-Object { $_ } | ForEach-Object { $_ }).Count | Should -Be 0
     }
 }

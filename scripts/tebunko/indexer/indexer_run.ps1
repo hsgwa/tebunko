@@ -820,7 +820,10 @@ function applyRecountChoices {
     foreach ($item in @($targetFolders)) {
         $changed = @($changes | Where-Object { $pathOf.ContainsKey([string]$_.Name) -and [string]$pathOf[[string]$_.Name] -eq [string]$item.Path }) | Select-Object -First 1
         $subfolders = if ($changed) { [bool]$changed.Subfolders } else { $item.Subfolders }
-        $copy.Add([pscustomobject]@{ Name = $item.Name; Path = $item.Path; Enabled = $item.Enabled; Subfolders = $subfolders })
+        # 名前は、1 回目に割り当てた名前（名前がまだ無い新しいフォルダでも、数え直しのたびに割り当て直さず、同じ名前にする）
+        $assignedName = @($assignedFolders | Where-Object { [string]$_.Path -eq [string]$item.Path } | ForEach-Object { $_.Name }) | Select-Object -First 1
+        $name = if ($assignedName) { $assignedName } else { $item.Name }
+        $copy.Add([pscustomobject]@{ Name = $name; Path = $item.Path; Enabled = $item.Enabled; Subfolders = $subfolders })
     }
     return , $copy.ToArray()
 }
@@ -839,6 +842,7 @@ function waitForIngestApproval {
         [int]$timeoutMinutes
     )
 
+    $removals = $pending.SnapshotRemovals()   # 数え直しのたびに、この写しへ戻してから新しい数えの分を足す
     $answer = $reporter.WaitForApproval(${indexingPhaseConfirm}, $planner.Plan.ToArray(), $planner.Targets.Count, $planner.Failed.Count, $timeoutMinutes)
     while ($null -ne $answer -and $answer.Recount) {
         $targetFolders = applyRecountChoices $targetFolders $planner.Folders $answer.Changes
@@ -851,7 +855,8 @@ function waitForIngestApproval {
         }
         writeIndexerLog "選びを変えたため、取り込み対象を数え直します。"
         $recounted.Crawl($indexCounts, { }, { [bool]$channel.Stop }.GetNewClosure())
-        # 無くなったファイルの削除の記録は、集合に入れるので、前の数えと重なっても 1 回になる
+        # 無くなったファイルの削除の記録は、前の数えの分を捨てて（写しへ戻して）から、今の数えの分だけを足す
+        $pending.RestoreRemovals($removals)
         foreach ($removedPath in $recounted.RemovedPaths) { $pending.Add($removedPath, $true) }
         $planner = $recounted
         if ($planner.Stopped -or $channel.Stop) {
