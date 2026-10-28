@@ -23,8 +23,17 @@ class PlanRow : NotifyBase {
     [string]$PlannedStatusText   # 数え直しの前に出していたバッジ（選びを元に戻すと復元する）
     [string]$PlannedLevel
     [bool]$Choosable = $true   # 「サブフォルダを含める」を選べる行か（削除予定の行は選べない）
+    [bool]$Editable = $true   # 今、チェックを触れるか（選べる行で、数え直している間でないとき）
 
     PlanRow() {}   # 既定のコンストラクタを明示する（理由は shared/ui/types.ps1 の NotifyBase）
+
+    # 数え直している間の見せ方（件数・状態・チェックの可否）を置く。変わったものだけ通知する
+    [void] SetCounting([string]$totalText, [string]$statusText, [string]$level, [bool]$editable) {
+        if ($this.TotalText -ne $totalText) { $this.TotalText = $totalText; $this.Raise("TotalText") }
+        if ($this.StatusText -ne $statusText) { $this.StatusText = $statusText; $this.Raise("StatusText") }
+        if ($this.Level -ne $level) { $this.Level = $level; $this.Raise("Level") }
+        if ($this.Editable -ne $editable) { $this.Editable = $editable; $this.Raise("Editable") }
+    }
 
     # 選びを変えたあとの見せ方を置く。変わったものだけ通知する（同じ値を置いても通知しない）
     [void] SetView([bool]$changed, [string]$topOnlyText, [string]$statusText, [string]$level) {

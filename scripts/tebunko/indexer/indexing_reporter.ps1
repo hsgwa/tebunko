@@ -20,14 +20,19 @@ class IndexingReporter {
 
     [object] WaitForApproval([string]$phase, $plan, [int]$targetCount, [int]$failedCount, [int]$timeoutMinutes) {
         # 取り込み対象の件数を画面に渡し、［更新を開始］か［キャンセル］の返事を待つ。
-        #   取り込む → @{ RetryFailed; IncludeCloud } / 取りやめ（中止を求められた場合を含む） → $null
+        #   取り込む → @{ RetryFailed; IncludeCloud } / 数え直す → @{ Recount; Changes }（呼ぶ側が数え直して、もう一度呼ぶ） / 取りやめ（中止を求められた場合を含む） → $null
         # 画面が返事をしないまま待ち続けないよう、timeoutMinutes で打ち切って取りやめる。
         # ローカル変数はプロパティ名 Channel と大文字・小文字だけの違いにしない（$ch にする。PowerShell のクラスは
         # 同名（大文字・小文字を区別しない）のローカル変数への代入をプロパティへの代入と見なし、$this. を要求してエラーになる）
         $ch = $this.Channel
         [void]$ch.Answered.Reset()
         $ch.Answer = $null
+        if ($ch.Stop) {
+            # 数え直しの最中に［キャンセル］が来ていた（Reset で知らせが消えるので、ここで見る）。待たずに取りやめる
+            return $null
+        }
         $ch.Plan = @($plan)
+        $ch.PlanVersion = [int]$ch.PlanVersion + 1   # 画面は開いたまま、この数が上がったのを見て一覧を差し替える
         writeIndexingProgress $phase 0 $targetCount $failedCount "更新する内容を画面で確認しています…" $ch
         writeIndexerLog ""
         writeIndexerLog "取り込み対象を画面に表示しました。［更新を開始］が押されるまで待ちます。（${timeoutMinutes} 分待っても返事が無ければ取りやめます）"

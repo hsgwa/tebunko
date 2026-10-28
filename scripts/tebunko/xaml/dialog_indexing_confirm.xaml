@@ -127,7 +127,7 @@
           <DataGridTemplateColumn Header="サブフォルダを含める" Width="150">
             <DataGridTemplateColumn.CellTemplate>
               <DataTemplate>
-                <CheckBox IsChecked="{Binding Subfolders, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding Choosable}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                <CheckBox IsChecked="{Binding Subfolders, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding Editable}" HorizontalAlignment="Center" VerticalAlignment="Center"
                           AutomationProperties.Name="サブフォルダを含める" ToolTip="外すと、この行の元のフォルダの直下のファイルだけを取り込みます" />
               </DataTemplate>
             </DataGridTemplateColumn.CellTemplate>

@@ -50,6 +50,16 @@ BeforeAll {
         }
         return $found.ToArray()
     }
+    function setRecountSession {
+        # 数え直しの関数が読む状態（確認ダイアログの状態・動いているインデックス作成の受け渡しの口）は、その関数と同じスコープに置く
+        param ($channel, $dialogState)
+        $script:indexingSession = [pscustomobject]@{ Channel = $channel }
+        $script:confirmDialog = $dialogState
+        $script:indexingOnlyNames = @()
+        $script:indexingConfirmedChoices = $null
+    }
+
+    function getConfirmDialogState { return $script:confirmDialog }
     function setConfirmDialogState {
         # indexing_tab.ps1 の関数が読む状態は、その関数と同じスコープ（この BeforeAll）に置く
         param ($dialogState)
@@ -61,7 +71,7 @@ BeforeAll {
         param ([string]$name, [bool]$choosable = $true)
         $row = [PlanRow]::new()
         $row.Name = $name; $row.Path = "C:\data\$name"; $row.TotalText = "3"; $row.StatusText = "要更新"; $row.Level = "Wait"
-        $row.PlannedStatusText = "要更新"; $row.PlannedLevel = "Wait"; $row.Choosable = $choosable
+        $row.PlannedStatusText = "要更新"; $row.PlannedLevel = "Wait"; $row.Choosable = $choosable; $row.Editable = $choosable
         return $row
     }
 }
@@ -128,37 +138,61 @@ Describe "確認ダイアログの「サブフォルダを含める」" -Tag Uni
     }
 }
 
-Describe "数え直しの流れ（applyIndexingRecount）" -Tag Unit {
+Describe "数え直しの流れ（確認を開いたまま）" -Tag Unit {
     BeforeAll {
-        # 呼び先は記録するだけの偽物にする（本物は設定を書き、インデクサを始める）
+        # 呼び先は記録するだけの偽物にする（本物は設定を書く）
         function saveTargets { param ([switch]$Quiet) $script:recountLog.Add("save:" + (($script:targetItems | ForEach-Object { "$($_.Name)=$($_.Subfolders)" }) -join ",")) }
         function updateIndexDetailPanel { $script:recountLog.Add("detail") }
-        function updateIndexingButton { $script:recountLog.Add("button") }
-        function startIndexing { param ([string[]]$onlyNames = @()) $script:recountLog.Add("start:" + ($onlyNames -join ",")) }
+        function isIndexing { return $true }
     }
 
-    It "選びを行に入れて設定へ書いてから、同じ対象（選んだ名前）で始め直す。選ばなかった行は変えない" -Skip:(!$sta) {
+    It "確かめた選びを行に入れて設定へ書く。選ばなかった行は変えない（applyConfirmedChoices）" -Skip:(!$sta) {
         $script:recountLog = New-Object System.Collections.Generic.List[string]
         $a = New-Object FolderItem; $a.Name = "営業"
         $b = New-Object FolderItem; $b.Name = "顧客"
         $script:targetItems = @($a, $b)
 
-        applyIndexingRecount @{ OnlyNames = @("営業"); Changes = @(@{ Name = "営業"; Subfolders = $false }) }
+        applyConfirmedChoices @(@{ Name = "営業"; Subfolders = $false })
 
-        @($script:recountLog) | Should -Be @("save:営業=False,顧客=True", "detail", "button", "start:営業")
-        $a.Subfolders | Should -BeFalse
+        @($script:recountLog) | Should -Be @("save:営業=False,顧客=True", "detail")
         $a.TopOnlyText | Should -Be "直下のみ"
         $a.SubfoldersChanged | Should -BeTrue
         $b.Subfolders | Should -BeTrue
     }
 
-    It "［すべて更新］のとき（選んだ名前が空）は、空のまま始め直す" -Skip:(!$sta) {
-        $script:recountLog = New-Object System.Collections.Generic.List[string]
-        $a = New-Object FolderItem; $a.Name = "営業"
-        $script:targetItems = @($a)
+    It "［数え直して続ける］: 開いたまま全部の行が数え中になり、返事（Recount）をインデクサに返す。新しい Plan が届くと、一覧が差し替わって主ボタンが［更新を開始］に戻る" -Skip:(!$sta) {
+        $dialog = loadXaml "${scriptsDir}\tebunko\xaml\dialog_indexing_confirm.xaml"
+        $ctrl = @{}
+        foreach ($name in @("StartButton", "TotalText", "PlanGrid", "RecountHint", "RecountHintText", "RetryCheck", "CloudWarnText", "CloudCheck", "CloudRememberCheck")) { $ctrl[$name] = $dialog.FindName($name) }
+        $rows = @((newPlanRow "営業"), (newPlanRow "顧客"))
+        $ctrl.PlanGrid.ItemsSource = $rows
+        $channel = newIndexerChannel
+        setRecountSession $channel @{ Window = $dialog; Ctrl = $ctrl; Plan = @() }
 
-        applyIndexingRecount @{ OnlyNames = @(); Changes = @(@{ Name = "営業"; Subfolders = $false }) }
+        startIndexingRecount (getConfirmDialogState) @(@{ Name = "営業"; Subfolders = $false })
 
-        @($script:recountLog)[-1] | Should -Be "start:"
+        $channel.Answer.Recount | Should -BeTrue
+        $channel.Answered.WaitOne(0) | Should -BeTrue
+        @($rows | ForEach-Object { $_.StatusText }) | Should -Be @("数え中", "数え中")
+        @($rows | ForEach-Object { $_.TotalText }) | Should -Be @("…", "…")
+        @($rows | ForEach-Object { $_.Editable }) | Should -Be @($false, $false)
+        $ctrl.StartButton.Content | Should -Be "数え直しています…"
+        $ctrl.StartButton.IsEnabled | Should -BeFalse
+        $ctrl.TotalText.Text | Should -Be "更新対象: 数え直しています…（［キャンセル］で取りやめ）"
+        # 新しい Plan が届く（PlanVersion が上がる）まで、一覧は差し替えない
+        checkIndexingRecountResult
+        $ctrl.PlanGrid.ItemsSource | Should -Be $rows
+
+        $channel.Plan = @((newIngestPlanRow "営業" "C:\data\営業" ${planKindIngest} 2 1 1 0 0 0 0), (newIngestPlanRow "顧客" "C:\data\顧客" ${planKindIngest} 5 0 0 0 0 0 0))
+        $channel.PlanVersion = 1
+        checkIndexingRecountResult
+
+        $newRows = @($ctrl.PlanGrid.ItemsSource)
+        @($newRows | ForEach-Object { $_.TotalText }) | Should -Be @("2", "5")
+        @($newRows | ForEach-Object { $_.Name }) | Should -Be @("営業", "顧客")
+        $ctrl.StartButton.IsEnabled | Should -BeTrue
+        $ctrl.StartButton.Content | Should -Be "更新を開始"
+        $script:indexingConfirmedChoices.Count | Should -Be 1
+        $script:indexingConfirmedChoices[0].Name | Should -Be "営業"
     }
 }

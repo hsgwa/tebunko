@@ -805,6 +805,63 @@ function completeIngestJob {
     flushPendingPublish $pending $run.Journal -Stage "IngestFlush"
 }
 
+function applyRecountChoices {
+    # 確認で選びを変えたとき（Recount の Changes。@{ Name; Subfolders } の配列）を、クロール対象フォルダの写しに当てて返す
+    # （設定には書かない。書くのは画面が、インデクサが終わったあと）。名前からフォルダ（Path）を引いて、その項目の Subfolders を替える
+    param (
+        $targetFolders,
+        $assignedFolders,  # 名前を割り当てたフォルダ（@{ Name; Path } の並び）
+        $changes
+    )
+
+    $pathOf = @{}
+    foreach ($folder in @($assignedFolders)) { $pathOf[[string]$folder.Name] = [string]$folder.Path }
+    $copy = New-Object System.Collections.Generic.List[object]
+    foreach ($item in @($targetFolders)) {
+        $changed = @($changes | Where-Object { $pathOf.ContainsKey([string]$_.Name) -and [string]$pathOf[[string]$_.Name] -eq [string]$item.Path }) | Select-Object -First 1
+        $subfolders = if ($changed) { [bool]$changed.Subfolders } else { $item.Subfolders }
+        $copy.Add([pscustomobject]@{ Name = $item.Name; Path = $item.Path; Enabled = $item.Enabled; Subfolders = $subfolders })
+    }
+    return , $copy.ToArray()
+}
+
+function waitForIngestApproval {
+    # 画面の確認の返事を待つ。選びを変えた返事（Recount）のときは、その選びで数え直して、新しい Plan でもう一度待つ（確認は閉じない）。
+    # 戻り値: @{ Answer（取り込む・取りやめ。数え直しは含まない）; Planner（今の数えの結果。数え直していれば新しいもの） }
+    param (
+        $planner,
+        $reporter,
+        $channel,
+        $targetFolders,
+        $status,
+        $indexCounts,
+        $pending,
+        [int]$timeoutMinutes
+    )
+
+    $answer = $reporter.WaitForApproval(${indexingPhaseConfirm}, $planner.Plan.ToArray(), $planner.Targets.Count, $planner.Failed.Count, $timeoutMinutes)
+    while ($null -ne $answer -and $answer.Recount) {
+        $targetFolders = applyRecountChoices $targetFolders $planner.Folders $answer.Changes
+        $recounted = [IngestPlanner]::new(@{
+            Unchecked = ${planKindUnchecked}; Missing = ${planKindMissing}; Dropped = ${planKindDropped}; StateFailed = ${stateFailed}
+        })
+        $recounted.AssignNames($targetFolders, $status)
+        if (@($channel.OnlyNames).Count -gt 0) {
+            $channel.OnlySkipped = @($recounted.SelectOnly([string[]]@($channel.OnlyNames)))
+        }
+        writeIndexerLog "選びを変えたため、取り込み対象を数え直します。"
+        $recounted.Crawl($indexCounts, { }, { [bool]$channel.Stop }.GetNewClosure())
+        # 無くなったファイルの削除の記録は、集合に入れるので、前の数えと重なっても 1 回になる
+        foreach ($removedPath in $recounted.RemovedPaths) { $pending.Add($removedPath, $true) }
+        $planner = $recounted
+        if ($planner.Stopped -or $channel.Stop) {
+            return @{ Answer = $null; Planner = $planner }
+        }
+        $answer = $reporter.WaitForApproval(${indexingPhaseConfirm}, $planner.Plan.ToArray(), $planner.Targets.Count, $planner.Failed.Count, $timeoutMinutes)
+    }
+    return @{ Answer = $answer; Planner = $planner }
+}
+
 function invokeIndexerBody {
     # invokeIndexer の本体（鍵を取り、ログを開いた後）。終了コードを返す。続けられないエラーは例外にする。
     # 取り込み一覧・今回の失敗と消えた行は StatusLedger（$ledger）、強制終了からの復旧の記録は IngestJournal（$journal）、
@@ -1000,7 +1057,10 @@ function invokeIndexerBody {
     }
     if ($channel.ConfirmTargets) {
         $script:ingestTiming.Mark()
-        $answer = $reporter.WaitForApproval(${indexingPhaseConfirm}, $plan.ToArray(), $targets.Count, $failed.Count, $approvalTimeoutMinutes)
+        $approval = waitForIngestApproval $planner $reporter $channel $targetFolders $status $indexCounts $pending $approvalTimeoutMinutes
+        $answer = $approval.Answer
+        $planner = $approval.Planner
+        $rows = $planner.Rows; $targets = $planner.Targets; $failed = $planner.Failed; $plan = $planner.Plan; $cloudAll = $planner.Cloud
         $script:ingestTiming.Lap("Wait")
         if ($null -eq $answer) {
             return (cancelBeforeIngest "画面で取りやめたため、取り込みません。（取り込み一覧は前回のままです）")

@@ -757,6 +757,62 @@ Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
         $progress.Failed | Should -Be 1
     }
 
+    It "確認で選びを変えた返事（Recount）が来たら、閉じずに数え直して Plan をもう一度出し、続けて［更新を開始］の返事で直下のファイルだけを取り込む。setting.config は書き換えない（<label>）" -TestCases @(@{ label = "［すべて更新］"; only = @() }, @{ label = "行の［更新］（選んだ名前）"; only = @("総務") }) {
+        param ($label, $only)
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "総務"; path = $source; enabled = $true })
+        $global:recountHits = 0
+        $global:recountPlanFiles = @()
+        $answers = $approvalLine.Clone()
+        $answers.Action = {
+            $global:recountHits++
+            $global:recountPlanFiles += @($channel.Plan)[0].ファイル数
+            if ($global:recountHits -eq 1) {
+                answerIndexingPlan $channel @{ Recount = $true; Changes = @(@{ Name = "総務"; Subfolders = $false }) }
+            } else {
+                answerIndexingPlan $channel @{ RetryFailed = $false }
+            }
+        }
+        try {
+            runIndexer $root @{ ConfirmTargets = $true; OnlyNames = $only } @($answers) | Should -Be 0
+            $global:recountHits | Should -Be 2
+            # 1 回目はサブフォルダも含めた件数、2 回目は直下だけ（資料\提案.pptx の分だけ減る）
+            ($global:recountPlanFiles[0] - $global:recountPlanFiles[1]) | Should -Be 1
+        } finally {
+            Remove-Variable -Name recountHits, recountPlanFiles -Scope Global -ErrorAction SilentlyContinue
+        }
+        $rows = (readTestStatus $root).Rows
+        $rows.ContainsKey("総務\議事録.docx") | Should -BeTrue
+        $rows.ContainsKey("総務\資料\提案.pptx") | Should -BeFalse
+        (getTargetFolders "$root\setting.config")[0].Subfolders | Should -BeTrue -Because "設定に書くのは画面が、インデクサが終わったあと"
+    }
+
+    It "数え直しの前に無くなっていたファイルの削除は、数え直しても 1 回だけ（二重に入らない）で、取り込みは 0 で終わる" {
+        $edited = newSourceFolder "会計"
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "会計"; path = $edited; enabled = $true })
+        runIndexer $root | Should -Be 0
+        Remove-Item -LiteralPath "$edited\議事録.docx"
+        $global:recountHits = 0
+        $answers = $approvalLine.Clone()
+        $answers.Action = {
+            $global:recountHits++
+            if ($global:recountHits -eq 1) {
+                answerIndexingPlan $channel @{ Recount = $true; Changes = @(@{ Name = "会計"; Subfolders = $false }) }
+            } else {
+                answerIndexingPlan $channel @{ RetryFailed = $false }
+            }
+        }
+        try {
+            runIndexer $root @{ ConfirmTargets = $true } @($answers) | Should -Be 0
+        } finally {
+            Remove-Variable -Name recountHits -Scope Global -ErrorAction SilentlyContinue
+        }
+        $rows = (readTestStatus $root).Rows
+        $rows.ContainsKey("会計\議事録.docx") | Should -BeFalse
+        $rows.ContainsKey("会計\資料\提案.pptx") | Should -BeFalse
+    }
+
     It "取り込みの途中で中止を求められたら、残りを未取り込みのまま 2 で終わる" {
         $root = newRoot
         writeTestSettings $root @(@{ name = "総務"; path = $source; enabled = $true })

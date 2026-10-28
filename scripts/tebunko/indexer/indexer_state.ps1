@@ -98,7 +98,7 @@ function newIndexerChannel {
         RetryFailed = $retryFailed; IncludeCloud = $includeCloud; ConfirmTargets = $confirmTargets; Workers = $workers
         OnlyNames = @($onlyNames | Where-Object { $_ }); OnlySkipped = @()
         Progress = $null; Stop = $false
-        Plan = $null; Answer = $null; Answered = New-Object System.Threading.ManualResetEvent($false)
+        Plan = $null; PlanVersion = 0; Answer = $null; Answered = New-Object System.Threading.ManualResetEvent($false)
         Error = ""; ExitCode = $null; CloudSkipped = 0; StageTimings = $null
         OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'
         UserOfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'
@@ -147,7 +147,7 @@ function requestIndexingStop {
 }
 
 function answerIndexingPlan {
-    # 確認の返事を返す。取り込む → @{ RetryFailed; IncludeCloud } ／ 取りやめ → $null
+    # 確認の返事を返す。取り込む → @{ RetryFailed; IncludeCloud } ／ 数え直す → @{ Recount = $true; Changes }（画面は確認を開いたまま待つ）／ 取りやめ → $null
     param (
         $channel,
         $answer

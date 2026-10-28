@@ -647,3 +647,17 @@ Describe "getIndexingRecountView" -Tag Unit {
         $view.RowLevel | Should -Be "Wait"
     }
 }
+
+Describe "getIndexingRecountingView" -Tag Unit {
+    It "数え直している間: 行は数え中・件数は…・チェックは押せず、主ボタンは数え直しています…で押せない" {
+        $view = getIndexingRecountingView
+        $view.RowStatusText | Should -Be "数え中"
+        $view.RowLevel | Should -Be "Run"
+        $view.RowCountText | Should -Be "…"
+        $view.RowEditable | Should -BeFalse
+        $view.ButtonText | Should -Be "数え直しています…"
+        $view.ButtonEnabled | Should -BeFalse
+        $view.TotalText | Should -Be "更新対象: 数え直しています…（［キャンセル］で取りやめ）"
+        $view.HintText | Should -Be "件数を数え直しています…"
+    }
+}

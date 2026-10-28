@@ -86,6 +86,30 @@ Describe "IndexingReporter.WaitForApproval" -Tag Io {
         $reporter.WaitForApproval(${indexingPhaseConfirm}, $plan, 2, 1, 0) | Should -BeNullOrEmpty
     }
 
+    It "呼ぶたびに PlanVersion を 1 つ上げる（画面は開いたまま、この数の変わるのを見て一覧を差し替える）" {
+        $channel = newIndexerChannel
+        $reporter = [IndexingReporter]::new($channel)
+        $channel.PlanVersion | Should -Be 0
+        $job = startAnswer $channel @{ Recount = $true; Changes = @() }
+        ($reporter.WaitForApproval(${indexingPhaseConfirm}, $plan, 2, 1, 60)).Recount | Should -BeTrue
+        [void](endAnswer $job)
+        $channel.PlanVersion | Should -Be 1
+        $job = startAnswer $channel @{ RetryFailed = $false }
+        [void]$reporter.WaitForApproval(${indexingPhaseConfirm}, $plan, 2, 1, 60)
+        [void](endAnswer $job)
+        $channel.PlanVersion | Should -Be 2
+    }
+
+    It "待ち始めに中止が立っていれば、待たずに `$null を返す（数え直しの最中の［キャンセル］の知らせが Reset で消えて、時間切れまで待ち続けないため）" {
+        $channel = newIndexerChannel
+        $reporter = [IndexingReporter]::new($channel)
+        $channel.Stop = $true
+        $timer = [System.Diagnostics.Stopwatch]::StartNew()
+        $reporter.WaitForApproval(${indexingPhaseConfirm}, $plan, 2, 1, 60) | Should -BeNullOrEmpty
+        $timer.Elapsed.TotalSeconds | Should -BeLessThan 5
+        $channel.Plan | Should -BeNullOrEmpty
+    }
+
     It "制限時間を過ぎても返事が無ければ `$null を返し、取り込み予定を外す" {
         $channel = newIndexerChannel
         $reporter = [IndexingReporter]::new($channel)

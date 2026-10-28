@@ -94,6 +94,22 @@ function getIndexingRecountView {
     }
 }
 
+function getIndexingRecountingView {
+    # 確認ダイアログを開いたまま数え直している間の見せ方。全部の行を「数え中」・件数は「…」にし、チェックは押せなくし、
+    # 主ボタンは「数え直しています…」で押せなくする（［キャンセル］は押せる）。
+    # 戻り値: @{ TotalText; HintText; ButtonText; ButtonEnabled; RowCountText; RowStatusText; RowLevel; RowEditable }
+    return @{
+        TotalText = "更新対象: 数え直しています…（［キャンセル］で取りやめ）"
+        HintText = "件数を数え直しています…"
+        ButtonText = "数え直しています…"
+        ButtonEnabled = $false
+        RowCountText = "…"
+        RowStatusText = "数え中"
+        RowLevel = "Run"
+        RowEditable = $false
+    }
+}
+
 function getIndexingConfirmChoiceChanges {
     # 確認ダイアログで、元の選びから変えた行を返す（［更新を開始］を押したとき、差があれば数え直しにする）。
     # 行は @{ Name; Subfolders } の配列（元は newPlanViewRows の行、今はダイアログで選び直したあとの行）。

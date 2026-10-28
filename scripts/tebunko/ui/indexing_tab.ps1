@@ -66,6 +66,7 @@ function buildPlanRows {
         $row.DetailText = $view.DetailText
         $row.Subfolders = [bool]$view.Subfolders
         $row.Choosable = [bool]$view.Choosable
+        $row.Editable = [bool]$view.Choosable
         $row.OriginalSubfolders = [bool]$view.Subfolders
         $row.TopOnlyText = getIndexTopOnlyTagText $row.Subfolders
         $row.PlannedStatusText = $view.StatusText
@@ -97,6 +98,9 @@ function updateIndexingConfirmTotal {
 function updateIndexingRecountView {
     # 「サブフォルダを含める」の選びを変えた行があれば、行・合計・説明・主ボタンを数え直しの見せ方にする（文言は getIndexingRecountView）
     $d = $script:confirmDialog
+    if ($d.Counting) {
+        return   # 数え直している間は、見せ方を startIndexingRecount が置いている
+    }
     $rows = @($d.Ctrl.PlanGrid.ItemsSource)
     $changed = @($rows | Where-Object { $_.Subfolders -ne $_.OriginalSubfolders }).Count
     $recount = getIndexingRecountView $rows.Count $changed
@@ -179,6 +183,90 @@ function getIndexingDialogRecountPlan {
     return getIndexingRecountPlan (getIndexingConfirmChoiceChanges $original $current) @($script:indexingOnlyNames)
 }
 
+function closeIndexingConfirmState {
+    # 確認ダイアログを閉じたあとの片づけ（数え直しの結果を見る時計を止め、ダイアログの状態を捨てる）
+    $d = $script:confirmDialog
+    if ($null -ne $d -and $null -ne $d.Timer) {
+        $d.Timer.Stop()
+    }
+    $script:confirmDialog = $null
+}
+
+function startIndexingRecount {
+    # 確認ダイアログで選びを変えて［数え直して続ける］を押したとき。ダイアログは開いたまま、返事（Recount）をインデクサに返し、
+    # 数え中の見せ方（getIndexingRecountingView）にして、新しい Plan が届く（PlanVersion が上がる）のを 1 秒ごとに見る
+    param (
+        $d,
+        $changes  # @{ Name; Subfolders } の配列（今回変えた行）
+    )
+
+    $channel = $script:indexingSession.Channel
+    # 確かめた選びを控える（終わったあとに設定へ書く。数え直しのあとの［キャンセル］でも書く）。同じ名前は新しいほうにする
+    $changedNames = @($changes | ForEach-Object { $_.Name })
+    $kept = @($script:indexingConfirmedChoices | Where-Object { $_ -and ($changedNames -notcontains $_.Name) })
+    $script:indexingConfirmedChoices = @($kept) + @($changes)
+    $view = getIndexingRecountingView
+    $d.Counting = $true
+    $d.PlanVersion = [int]$channel.PlanVersion
+    foreach ($row in @($d.Ctrl.PlanGrid.ItemsSource)) {
+        $row.SetCounting($view.RowCountText, $view.RowStatusText, $view.RowLevel, $view.RowEditable)
+    }
+    $d.Ctrl.TotalText.Text = $view.TotalText
+    $d.Ctrl.RecountHintText.Text = $view.HintText
+    $d.Ctrl.RecountHint.Visibility = "Visible"
+    $d.Ctrl.StartButton.Content = $view.ButtonText
+    $d.Ctrl.StartButton.IsEnabled = $view.ButtonEnabled
+    answerIndexingPlan $channel @{ Recount = $true; Changes = @($changes) }
+    if ($null -eq $d.Timer) {
+        $d.Timer = New-Object System.Windows.Threading.DispatcherTimer
+        $d.Timer.Interval = [TimeSpan]::FromSeconds(1)
+        $d.Timer.Add_Tick({ safe { checkIndexingRecountResult } })
+    }
+    $d.Timer.Start()
+}
+
+function checkIndexingRecountResult {
+    # 数え直している間、1 秒ごとに呼ぶ。新しい Plan が届いていれば、開いたまま一覧を差し替える。インデクサが終わっていれば（時間切れ・エラー）閉じる
+    $d = $script:confirmDialog
+    if ($null -eq $d -or !$d.Counting) {
+        return
+    }
+    if (!(isIndexing)) {
+        $d.Timer.Stop()
+        $d.Window.DialogResult = $false
+        return
+    }
+    $channel = $script:indexingSession.Channel
+    if ([int]$channel.PlanVersion -le [int]$d.PlanVersion -or $null -eq $channel.Plan) {
+        return
+    }
+    updateIndexingConfirmPlan $d $channel.Plan
+}
+
+function updateIndexingConfirmPlan {
+    # 数え直した結果（新しい Plan）で、開いたまま一覧・合計・注記を差し替える。選びは今のチェックのまま（元の選びも今の選びにそろえる）。
+    # 自動では始めない（主ボタンは［更新を開始］に戻して、もう一度押してもらう）
+    param (
+        $d,
+        $plan  # readIngestPlan の結果
+    )
+
+    $choices = @{}
+    foreach ($row in @($d.Ctrl.PlanGrid.ItemsSource)) { $choices[[string]$row.Name] = [bool]$row.Subfolders }
+    $rows = buildPlanRows $plan
+    foreach ($row in $rows) {
+        if ($choices.ContainsKey([string]$row.Name)) { $row.Subfolders = $choices[[string]$row.Name] }
+        $row.OriginalSubfolders = $row.Subfolders
+        $row.TopOnlyText = getIndexTopOnlyTagText $row.Subfolders
+    }
+    $d.Counting = $false
+    $d.Plan = $plan
+    $d.Ctrl.PlanGrid.ItemsSource = $rows
+    $d.Ctrl.StartButton.IsEnabled = $true
+    $d.Timer.Stop()
+    updateIndexingConfirmTotal
+}
+
 function showIndexingConfirmDialog {
     # インデックス作成の確認。インデクサが数えた結果（インデックスごとの取り込み対象の件数）を出して、取り込むかどうかを選んでもらう。
     #   取り込む → @{ RetryFailed; IncludeCloud } ／ 取りやめ → $null
@@ -224,9 +312,8 @@ function showIndexingConfirmDialog {
             $view = $d.View
             $recountPlan = getIndexingDialogRecountPlan $d.Ctrl.PlanGrid
             if ($recountPlan.Recount) {
-                # 選びを変えた。件数が変わるので、この確認は閉じて数え直す（クラウドの確認・設定の書き込みは、数え直したあとの確認で行う）
-                $d.Answer = @{ Recount = $true; Changes = $recountPlan.Changes }
-                $d.Window.DialogResult = $true
+                # 選びを変えた。件数が変わるので、確認は開いたまま数え直す（クラウドの確認は、数え直したあとの［更新を開始］で行う）
+                startIndexingRecount $d $recountPlan.Changes
                 return
             }
             if (testIndexingCloudNeedsConfirm $view.Include $d.SavedCloud) {
@@ -254,7 +341,7 @@ function showIndexingConfirmDialog {
         # 取り込むものが無いときは、どう閉じても同じ（インデクサはそのまま終わる）
         $answer = @{ RetryFailed = $false; IncludeCloud = $false }
     }
-    $script:confirmDialog = $null
+    closeIndexingConfirmState
     return $answer
 }
 
@@ -280,15 +367,6 @@ function confirmIndexingTargets {
         $script:indexingCanceledAtConfirm = $true
         $ui.IndexingStopButton.IsEnabled = $false
         $ui.IndexingProgressText.Text = "更新を取りやめています…"
-        $ui.IndexingProgressDetail.Text = ""
-        answerIndexingPlan $channel $null
-        return
-    }
-    if ($answer.Recount) {
-        # 選びを変えた。インデクサは取りやめで終わらせ、終わったあと（finishIndexing）に選びを書いて、同じ対象でやり直す
-        $script:indexingRecount = @{ OnlyNames = @($script:indexingOnlyNames); Changes = @($answer.Changes) }
-        $ui.IndexingStopButton.IsEnabled = $false
-        $ui.IndexingProgressText.Text = "数え直しています…"
         $ui.IndexingProgressDetail.Text = ""
         answerIndexingPlan $channel $null
         return
@@ -395,6 +473,7 @@ function continueStartIndexing {
     $script:indexingEta = ""
     $script:indexingConfirmed = $false
     $script:indexingCanceledAtConfirm = $false
+    $script:indexingConfirmedChoices = $null
     # 空なら今までどおり（状態層は enabled かつ onlyNames に入るものだけを取り込む）
     $channel = newIndexerChannel -confirmTargets $true -onlyNames $script:indexingOnlyNames
     $script:indexingSession = newIndexingSession $channel
@@ -586,27 +665,13 @@ function showIndexingFinishBar {
     $ui.IndexingProgress.Value = if ($progress -and $progress.Processed -gt 0) { $progress.Processed / ($progress.Processed + $progress.Remaining) } else { 0 }
 }
 
-function resumeIndexingAfterRecount {
-    # 数え直しのあとの始め直し（applyIndexingRecount）をして、始まったか（または準備に入ったか）を返す。
-    # 始め直せなかったとき（前の版の確かめで［更新し直す］を選ばなかった・ワークスペースが塞がっているなど）は、ふだんの取りやめの表示に落とす
+function applyConfirmedChoices {
+    # 確認で確かめた「サブフォルダを含める」の選びを、一覧の行に入れて設定へ書く。インデクサが終わったあと（SaveNames と重ならなくなってから）に呼ぶ
     param (
-        $recount
+        $choices  # @{ Name; Subfolders } の配列
     )
 
-    applyIndexingRecount $recount
-    if (isIndexingOrPreparing) {
-        return $true
-    }
-    $script:indexingCanceledAtConfirm = $true
-    return $false
-}
-function applyIndexingRecount {
-    # 確認で選びを変えたときの数え直し。インデクサが終わったあと（鍵が外れたあと）に、選びを一覧の行に入れて設定へ書き、同じ対象で始め直す
-    param (
-        $recount  # @{ OnlyNames; Changes（@{ Name; Subfolders } の配列） }
-    )
-
-    foreach ($change in @($recount.Changes)) {
+    foreach ($change in @($choices)) {
         foreach ($item in $script:targetItems) {
             if ([string]$item.Name -eq [string]$change.Name) {
                 $item.SetSubfolders([bool]$change.Subfolders, (getIndexTopOnlyTagText ([bool]$change.Subfolders)))
@@ -615,8 +680,6 @@ function applyIndexingRecount {
     }
     saveTargets -Quiet
     updateIndexDetailPanel
-    updateIndexingButton
-    startIndexing @($recount.OnlyNames)
 }
 
 function finishIndexing {
@@ -640,10 +703,10 @@ function finishIndexing {
     $script:indexingSession = $null
     $script:indexingOnlyNames = @()
     $script:indexingEta = ""
-    $recount = $script:indexingRecount   # 確認で選びを変えた（印は confirmIndexingTargets が立てる）
-    $script:indexingRecount = $null
-    if ($null -ne $recount -and $exitCode -eq 2 -and (resumeIndexingAfterRecount $recount)) {
-        return
+    $choices = $script:indexingConfirmedChoices   # 確認で確かめた選び（数え直しに送ったもの）。取りやめで終わったときも書く
+    $script:indexingConfirmedChoices = $null
+    if ($choices) {
+        applyConfirmedChoices $choices
     }
 
 
