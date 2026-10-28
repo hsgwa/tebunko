@@ -79,6 +79,8 @@ class FolderItem : NotifyBase {
     [void] SetSubfolders([bool]$value, [string]$tagText) { if ($this.Subfolders -ne $value) { $this.Subfolders = $value; $this.TopOnlyText = $tagText; $this.SubfoldersChanged = $true; $this.SubfoldersChangedAt = [datetime]::Now; $this.Raise("Subfolders"); $this.Raise("TopOnlyText") } }
     # 選びを設定へ書いて、その選びで取り込み終えたあと（［要更新］の印は立てない）
     [void] SetSubfoldersDone([bool]$value, [string]$tagText) { if ($this.Subfolders -ne $value) { $this.Subfolders = $value; $this.TopOnlyText = $tagText; $this.Raise("Subfolders"); $this.Raise("TopOnlyText") } }
+    # その回で取り込み終えたので、［要更新］の印を消す
+    [void] ClearSubfoldersChanged() { $this.SubfoldersChanged = $false }
     [void] SetEnabled([bool]$value) { if ($this.Enabled -ne $value) { $this.Enabled = $value; $this.Raise("Enabled") } }
     [void] SetRowChecked([bool]$value) { if ($this.Checked -ne $value) { $this.Checked = $value; $this.Raise("Checked") } }
     [void] SetName([string]$value) { if ($this.Name -ne $value) { $this.Name = $value; $this.Raise("Name") } }

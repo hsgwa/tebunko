@@ -839,10 +839,13 @@ function waitForIngestApproval {
         $status,
         $indexCounts,
         $pending,
-        [int]$timeoutMinutes
+        [int]$timeoutMinutes,
+        $removals = $null  # 1 回目の数えの削除を足す前の写し（司令が渡す）。無ければ、今の記録を写す
     )
 
-    $removals = $pending.SnapshotRemovals()   # 数え直しのたびに、この写しへ戻してから新しい数えの分を足す
+    if ($null -eq $removals) {
+        $removals = $pending.SnapshotRemovals()   # 数え直しのたびに、この写しへ戻してから新しい数えの分を足す
+    }
     $answer = $reporter.WaitForApproval(${indexingPhaseConfirm}, $planner.Plan.ToArray(), $planner.Targets.Count, $planner.Failed.Count, $timeoutMinutes)
     while ($null -ne $answer -and $answer.Recount) {
         $targetFolders = applyRecountChoices $targetFolders $planner.Folders $answer.Changes
@@ -1023,6 +1026,8 @@ function invokeIndexerBody {
     # フォルダを読むごと・ファイルを調べる途中で中止を見る（中止を求められたら読んだところまでで止める）
     $planner.Crawl($indexCounts, $onCrawlFolder, { [bool]$channel.Stop }.GetNewClosure())
     $script:ingestTiming.Lap("Crawl")
+    # 数え直しで戻せるよう、1 回目の数えの削除を足す前の写しを取っておく（waitForIngestApproval に渡す）
+    $removalsBeforeCrawl = $pending.SnapshotRemovals()
     foreach ($removedPath in $planner.RemovedPaths) {
         $pending.Add($removedPath, $true)
     }
@@ -1062,7 +1067,7 @@ function invokeIndexerBody {
     }
     if ($channel.ConfirmTargets) {
         $script:ingestTiming.Mark()
-        $approval = waitForIngestApproval $planner $reporter $channel $targetFolders $status $indexCounts $pending $approvalTimeoutMinutes
+        $approval = waitForIngestApproval $planner $reporter $channel $targetFolders $status $indexCounts $pending $approvalTimeoutMinutes $removalsBeforeCrawl
         $answer = $approval.Answer
         $planner = $approval.Planner
         $rows = $planner.Rows; $targets = $planner.Targets; $failed = $planner.Failed; $plan = $planner.Plan; $cloudAll = $planner.Cloud

@@ -169,6 +169,23 @@ Describe "数え直しの流れ（確認を開いたまま）" -Tag Unit {
         $b.Subfolders | Should -BeTrue
     }
 
+    It "終わり方が <label> のとき、その回の行（<round>）の［要更新］の印は、選びを変えていなくても <cleared>（writeConfirmedChoices）" -Skip:(!$sta) -TestCases @(
+        @{ label = "0（取り込み終えた）・全部の回"; exitCode = 0; round = @(); cleared = @("営業", "顧客") }
+        @{ label = "0（取り込み終えた）・選んだ回"; exitCode = 0; round = @("営業"); cleared = @("営業") }
+        @{ label = "2（取りやめ）"; exitCode = 2; round = @(); cleared = @() }
+        @{ label = "1（エラー）"; exitCode = 1; round = @(); cleared = @() }
+    ) {
+        param ($label, $exitCode, $round, $cleared)
+        $script:recountLog = New-Object System.Collections.Generic.List[string]
+        $items = @("営業", "顧客") | ForEach-Object { $item = New-Object FolderItem; $item.Name = $_; $item.Enabled = $true; $item.SubfoldersChanged = $true; $item }
+        $script:targetItems = @($items)
+        setConfirmedChoices $null   # 前の回の取りやめで印が立ったまま。今回は選びを変えていない
+
+        writeConfirmedChoices $exitCode $round
+
+        @($items | Where-Object { -not $_.SubfoldersChanged } | ForEach-Object { $_.Name }) | Should -Be $cleared
+    }
+
     It "writeConfirmedChoices: 控えがあれば書く（取りやめで終わったときも）・控えが無ければ書かない。控えは 1 回で消える" -Skip:(!$sta) -TestCases @(
         @{ label = "取り込み終えた（0）"; exitCode = 0; choices = @(@{ Name = "営業"; Subfolders = $false }); saved = $true }
         @{ label = "取りやめ（2）"; exitCode = 2; choices = @(@{ Name = "営業"; Subfolders = $false }); saved = $true }

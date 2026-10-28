@@ -689,15 +689,23 @@ function applyConfirmedChoices {
 }
 
 function writeConfirmedChoices {
-    # 確認で確かめた選び（数え直しに送ったもの）の控えがあれば、設定へ書く（取りやめで終わったときも書く。控えが無ければ書かない）。控えは 1 回で消す
+    # 確認で確かめた選び（数え直しに送ったもの）の控えがあれば、設定へ書く（取りやめで終わったときも書く。控えが無ければ書かない）。控えは 1 回で消す。
+    # 取り込み終えた（終わり方 0）ときは、その回の行（roundNames。空なら全部）の［要更新］の印を、選びを変えていなくても消す
+    # （前の回の取りやめで立った印が、直下だけの回は新しく取り込むものが無く、取り込み日時も進まないために、残り続けるのを防ぐ）
     param (
-        [int]$exitCode
+        [int]$exitCode,
+        [string[]]$roundNames = @()
     )
 
     $choices = $script:indexingConfirmedChoices
     $script:indexingConfirmedChoices = $null
     if ($choices) {
         applyConfirmedChoices $choices $exitCode
+    }
+    if ($exitCode -eq 0) {
+        foreach ($item in @($script:targetItems | Where-Object { $_.Enabled -and (@($roundNames).Count -eq 0 -or $roundNames -contains $_.Name) })) {
+            $item.ClearSubfoldersChanged()
+        }
     }
 }
 
@@ -720,9 +728,10 @@ function finishIndexing {
     # インデクサのスレッドを片づける（終わっているため待たない）
     $session.Close()
     $script:indexingSession = $null
+    $roundNames = @($script:indexingOnlyNames)
     $script:indexingOnlyNames = @()
     $script:indexingEta = ""
-    writeConfirmedChoices $exitCode   # 確認で確かめた選び。取りやめで終わったときも書く
+    writeConfirmedChoices $exitCode $roundNames   # 確認で確かめた選び。取りやめで終わったときも書く
 
     $counts = getIndexingFinishCounts $progress
     showIndexingFinishBar $progress

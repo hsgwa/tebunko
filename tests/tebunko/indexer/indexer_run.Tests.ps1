@@ -165,6 +165,26 @@ Describe "waitForIngestApproval" -Tag Io {
         $names[0] | Should -Be "無い.docx"
     }
 
+    It "設定は直下だけ・一覧にはサブフォルダの行がある状態で始めても、付け直して数え直し→開始で、サブフォルダのファイルは本文インデックスから外れない（1 回目の数えの削除の記録も、数え直しで取り直す）" {
+        # 前の回がエラーで終わり、設定は false なのに、取り込み一覧にはサブフォルダの行が残っている
+        $info = Get-Item -LiteralPath "$root\下\奥.docx"
+        $updated = formatFileTime $info.LastWriteTime
+        $status = newStatus
+        $status.Rows["src\下\奥.docx"] = (newStatusRow "src\下\奥.docx" $updated ([string]$info.Length) ${stateDone} 1 $updated)
+        $directOnly = @([pscustomobject]@{ Name = ""; Path = $root; Enabled = $true; Subfolders = $false })
+        $pending = New-Object PendingPublish
+        $removals = $pending.SnapshotRemovals()   # 司令は、1 回目の数えの削除を足す前に写しを取って渡す
+        $planner = newCrawledPlanner $directOnly $status
+        foreach ($removed in $planner.RemovedPaths) { $pending.Add($removed, $true) }
+        @($pending.Unpublished.Values | ForEach-Object { $_ } | ForEach-Object { $_ }).Count | Should -Be 1 -Because "1 回目（直下だけ）の数えでは奥.docx は無くなったことになる"
+        $name = [string]$planner.Folders[0].Name
+        $reporter = newFakeReporter @(@{ Recount = $true; Changes = @(@{ Name = $name; Subfolders = $true }) }, @{ RetryFailed = $false })
+
+        [void](waitForIngestApproval $planner $reporter (newIndexerChannel) $directOnly $status $null $pending 60 $removals)
+
+        @($pending.Unpublished.Values | ForEach-Object { $_ } | ForEach-Object { $_ }).Count | Should -Be 0
+    }
+
     It "外して数え直し→付け直して数え直し→開始、と進めても、前の数えにしか無い削除は残らない（サブフォルダのファイルが本文インデックスから外れて検索に出なくなるのを防ぐ）" {
         # 取り込み済みのサブフォルダのファイル（前回の行と更新日時・サイズが同じ＝済）
         $info = Get-Item -LiteralPath "$root\下\奥.docx"
