@@ -110,17 +110,18 @@ Describe "createTargetList（サブフォルダ・無くなったファイル）
         $result.Plan.新規 | Should -Be 1
     }
 
-    It "一覧にあって元のファイルが無くなったものは、インデックスを消して一覧から除く" {
+    It "一覧にあって元のファイルが無くなったものは、一覧から除いて Removed に返し、インデックスのフォルダは消さない" {
         $gone = Join-Path ${indexDir} "経理\消えた.xlsx"
         [System.IO.Directory]::CreateDirectory($gone) | Out-Null
         [System.IO.File]::WriteAllText("$gone\Sheet1.tsv", "1`t見積")
         $previous = newPrevious @((newStatusRow "経理\消えた.xlsx" "2024/01/01 00:00:00" "10" ${stateDone} 1 "2024/01/01 00:00:00"))
         $result = createTargetList $folder $previous $null
         @($result.Rows | Where-Object { $_.相対パス -eq "経理\消えた.xlsx" }).Count | Should -Be 0
-        Test-Path -LiteralPath $gone | Should -Be $false
+        @($result.Removed) | Should -Be @("経理\消えた.xlsx")
+        Test-Path -LiteralPath $gone | Should -Be $true
     }
 
-    It "中止の合図（shouldStop）が、一覧化のどの時点で立っても、Stopped を返し、無くなったファイルのインデックスは消さない" -TestCases @(
+    It "中止の合図（shouldStop）が、一覧化のどの時点で立っても、止まったなら Stopped と空の Removed を返し、インデックスは消さない" -TestCases @(
         @{ from = 1 }
         @{ from = 2 }
         @{ from = 3 }
@@ -139,9 +140,9 @@ Describe "createTargetList（サブフォルダ・無くなったファイル）
         } finally {
             Remove-Variable -Name planStopCalls, planStopFrom -Scope Global -ErrorAction SilentlyContinue
         }
-        # 止まったなら、何も消さない（止まらずに最後まで進んだ回は、無くなったファイルとして消える）
+        # 数えるだけで何も消さない（止まらずに最後まで進んだ回は、無くなったファイルとして Removed に返す）
+        Test-Path -LiteralPath $gone | Should -Be $true
         if ($result.Stopped) {
-            Test-Path -LiteralPath $gone | Should -Be $true
             @($result.Removed).Count | Should -Be 0
         } else {
             $result.Removed.Count | Should -Be 1
@@ -164,7 +165,7 @@ Describe "createTargetList（サブフォルダ・無くなったファイル）
         Test-Path -LiteralPath $other | Should -Be $true
     }
 
-    It "置き場の外を指す相対パスの行は、外のフォルダを消さず、例外にもしない" -TestCases @(
+    It "置き場の外を指す相対パスの行があっても、数えは例外にならず、removeBookDir は外のフォルダを消さずにログに出す" -TestCases @(
         @{ rel = "経理\..\..\外\消えた.xlsx"; outsideName = "外" }
         @{ rel = "経理\..\..\index2外\消えた.xlsx"; outsideName = "index2外" }   # 置き場の名前で始まるだけの別のフォルダ
         @{ rel = "経理\..\.."; outsideName = "外" }
@@ -176,7 +177,8 @@ Describe "createTargetList（サブフォルダ・無くなったファイル）
         [System.IO.File]::WriteAllText("$outside\消えた.xlsx\Sheet1.tsv", "1`t見積")
         [System.IO.File]::WriteAllText("$TestDrive\残る.txt", "a")
         $previous = newPrevious @((newStatusRow $rel "2024/01/01 00:00:00" "10" ${stateDone} 1 "2024/01/01 00:00:00"))
-        { createTargetList $folder $previous $null } | Should -Not -Throw
+        $result = createTargetList $folder $previous $null
+        removeBookDir (getBookDir $result.Removed[0])
         Test-Path -LiteralPath "$outside\消えた.xlsx\Sheet1.tsv" | Should -Be $true
         Test-Path -LiteralPath "$TestDrive\残る.txt" | Should -Be $true
         Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*削除しませんでした*" -and $color -eq "Yellow" }
@@ -631,6 +633,17 @@ Describe "IngestPlanner" -Tag Io {
         $planner = newPlanner $folders @($gone)
         $planner.Crawl((newCounts @{ "売上\消えた.xlsx" = 1 }), $null)
         @($planner.RemovedPaths) | Should -Be @("売上\消えた.xlsx")
+    }
+
+    It "取りやめるときは、元のファイルが無くなったファイルの前回の行も残す（インデックスは消していないので、次の回にまた無くなったファイルとして見つける）" {
+        $folders = @([pscustomobject]@{ Path = $source; Name = "売上"; Enabled = $true })
+        $gone = newStatusRow "売上\消えた.xlsx" "2000/01/01 00:00:00" "1" ${stateDone}
+        $planner = newPlanner $folders @($gone)
+        $planner.Crawl((newCounts @{ "売上\消えた.xlsx" = 1 }), $null)
+        $keep = @($planner.KeepForCancel())
+        @($keep | ForEach-Object { $_.相対パス }) | Should -Be @("売上\消えた.xlsx")
+        [object]::ReferenceEquals($keep[0], $gone) | Should -Be $true
+        @($planner.Rows | ForEach-Object { $_.相対パス }) | Should -Not -Contain "売上\消えた.xlsx"
     }
 
     It "クロールで、取り込み対象・チェックなし・フォルダなし・外れたインデックスを画面に出す件数に分ける" {

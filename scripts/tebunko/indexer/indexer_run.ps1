@@ -828,6 +828,21 @@ function applyRecountChoices {
     return , $copy.ToArray()
 }
 
+function applyRemovedPaths {
+    # 元のファイルが無くなったファイル（IngestPlanner の RemovedPaths）のインデックスを消し、本文インデックスから外す予定を $pending に足す。
+    # 数えるときには消さず、取り込みを始めると決まったあと（画面の［更新を開始］・画面なしの実行）に、まとめてここで行う。
+    # 取り込み一覧を書き直す前に呼ぶ（行を一覧から消す前に、外す予定の記録を先に書くため）
+    param (
+        $removedPaths,
+        $pending
+    )
+
+    foreach ($removedPath in @($removedPaths)) {
+        removeBookDir (getBookDir $removedPath)
+        $pending.Add($removedPath, $true)
+    }
+}
+
 function waitForIngestApproval {
     # 画面の確認の返事を待つ。選びを変えた返事（Recount）のときは、その選びで数え直して、新しい Plan でもう一度待つ（確認は閉じない）。
     # 戻り値: @{ Answer（取り込む・取りやめ。数え直しは含まない）; Planner（今の数えの結果。数え直していれば新しいもの） }
@@ -838,14 +853,9 @@ function waitForIngestApproval {
         $targetFolders,
         $status,
         $indexCounts,
-        $pending,
-        [int]$timeoutMinutes,
-        $removals = $null  # 1 回目の数えの削除を足す前の写し（司令が渡す）。無ければ、今の記録を写す
+        [int]$timeoutMinutes
     )
 
-    if ($null -eq $removals) {
-        $removals = $pending.SnapshotRemovals()   # 数え直しのたびに、この写しへ戻してから新しい数えの分を足す
-    }
     $answer = $reporter.WaitForApproval(${indexingPhaseConfirm}, $planner.Plan.ToArray(), $planner.Targets.Count, $planner.Failed.Count, $timeoutMinutes)
     while ($null -ne $answer -and $answer.Recount) {
         $targetFolders = applyRecountChoices $targetFolders $planner.Folders $answer.Changes
@@ -858,9 +868,6 @@ function waitForIngestApproval {
         }
         writeIndexerLog "選びを変えたため、取り込み対象を数え直します。"
         $recounted.Crawl($indexCounts, { }, { [bool]$channel.Stop }.GetNewClosure())
-        # 無くなったファイルの削除の記録は、前の数えの分を捨てて（写しへ戻して）から、今の数えの分だけを足す
-        $pending.RestoreRemovals($removals)
-        foreach ($removedPath in $recounted.RemovedPaths) { $pending.Add($removedPath, $true) }
         $planner = $recounted
         if ($planner.Stopped -or $channel.Stop) {
             return @{ Answer = $null; Planner = $planner }
@@ -1026,11 +1033,6 @@ function invokeIndexerBody {
     # フォルダを読むごと・ファイルを調べる途中で中止を見る（中止を求められたら読んだところまでで止める）
     $planner.Crawl($indexCounts, $onCrawlFolder, { [bool]$channel.Stop }.GetNewClosure())
     $script:ingestTiming.Lap("Crawl")
-    # 数え直しで戻せるよう、1 回目の数えの削除を足す前の写しを取っておく（waitForIngestApproval に渡す）
-    $removalsBeforeCrawl = $pending.SnapshotRemovals()
-    foreach ($removedPath in $planner.RemovedPaths) {
-        $pending.Add($removedPath, $true)
-    }
     $rows = $planner.Rows
     $targets = $planner.Targets
     $failed = $planner.Failed
@@ -1063,11 +1065,11 @@ function invokeIndexerBody {
     }
     if ($planner.Stopped -or $channel.Stop) {
         # 一覧化の途中で中止を求められた。確認は出さずに取りやめる
-        return (cancelBeforeIngest "中止の要求を受けたため、取り込み対象の一覧化を中止しました。（読み終えたフォルダで無くなっていたファイルは取り込み一覧から外し、ほかは前回のままです）")
+        return (cancelBeforeIngest "中止の要求を受けたため、取り込み対象の一覧化を中止しました。（取り込み一覧は前回のままです）")
     }
     if ($channel.ConfirmTargets) {
         $script:ingestTiming.Mark()
-        $approval = waitForIngestApproval $planner $reporter $channel $targetFolders $status $indexCounts $pending $approvalTimeoutMinutes $removalsBeforeCrawl
+        $approval = waitForIngestApproval $planner $reporter $channel $targetFolders $status $indexCounts $approvalTimeoutMinutes
         $answer = $approval.Answer
         $planner = $approval.Planner
         $rows = $planner.Rows; $targets = $planner.Targets; $failed = $planner.Failed; $plan = $planner.Plan; $cloudAll = $planner.Cloud
@@ -1135,6 +1137,8 @@ function invokeIndexerBody {
         }
     }
 
+    # 元のファイルが無くなったファイルのインデックスは、取り込みを始めると決まったここで消す（取りやめでは消さない）
+    applyRemovedPaths $planner.RemovedPaths $pending
     $planner.ApplyFailed($retryTargets)
     # 前回、取り込み中に強制終了したファイルは最後に回す（続けて $interruptLimit 回強制終了したファイルは失敗とする）。
     # 最後に回したファイルは、取り込みを始めるまでジャーナルに「持」で残す（その前にまた止まっても、回数が分かるように）

@@ -92,7 +92,7 @@ Describe "waitForIngestApproval" -Tag Io {
         $reporter = newFakeReporter @(@{ RetryFailed = $false })
         $channel = newIndexerChannel
 
-        $result = waitForIngestApproval $planner $reporter $channel $targetFolders $status $null (New-Object PendingPublish) 60
+        $result = waitForIngestApproval $planner $reporter $channel $targetFolders $status $null 60
 
         $result.Answer.RetryFailed | Should -BeFalse
         [object]::ReferenceEquals($result.Planner, $planner) | Should -BeTrue
@@ -104,7 +104,7 @@ Describe "waitForIngestApproval" -Tag Io {
         $planner = newCrawledPlanner $targetFolders $status
         $reporter = newFakeReporter @($null)
 
-        $result = waitForIngestApproval $planner $reporter (newIndexerChannel) $targetFolders $status $null (New-Object PendingPublish) 60
+        $result = waitForIngestApproval $planner $reporter (newIndexerChannel) $targetFolders $status $null 60
 
         $result.Answer | Should -BeNullOrEmpty
         $reporter.Calls | Should -Be 1
@@ -121,7 +121,7 @@ Describe "waitForIngestApproval" -Tag Io {
         $reporter.Answers.Enqueue(@{ Recount = $true; Changes = @(@{ Name = $name; Subfolders = $false }) })
         $reporter.Answers.Enqueue(@{ RetryFailed = $false })
 
-        $result = waitForIngestApproval $planner $reporter (newIndexerChannel) $targetFolders $status $null (New-Object PendingPublish) 60
+        $result = waitForIngestApproval $planner $reporter (newIndexerChannel) $targetFolders $status $null 60
 
         $reporter.Calls | Should -Be 2
         @($reporter.PlanSizes) | Should -Be @(2, 1)
@@ -141,72 +141,95 @@ Describe "waitForIngestApproval" -Tag Io {
         # 返事を返す直前に、画面が［キャンセル］を押した（数え直しの最中）ことにする
         $reporter.OnCall = { $channel.Stop = $true }.GetNewClosure()
 
-        $result = waitForIngestApproval $planner $reporter $channel $targetFolders $status $null (New-Object PendingPublish) 60
+        $result = waitForIngestApproval $planner $reporter $channel $targetFolders $status $null 60
 
         $result.Answer | Should -BeNullOrEmpty
         $reporter.Calls | Should -Be 1
     }
 
-    It "数え直しの前に無くなっていたファイルの削除は、数え直しても 1 件だけ記録する（二重に入らない）" {
+    It "数え直しの前に無くなっていたファイルは、数え直しても RemovedPaths に 1 件だけ入る（二重に入らない）" {
         $status = newStatus
         # 名前は、クロール対象フォルダの名前（フォルダ名の src）から割り当てられる
         $lostRow = newStatusRow "src\無い.docx" "2024/01/01 00:00:00" "10" ${stateDone} 1 "2024/01/01 00:00:00"
         $status.Rows["src\無い.docx"] = $lostRow
         $planner = newCrawledPlanner $targetFolders $status
         $name = [string]$planner.Folders[0].Name
-        $pending = New-Object PendingPublish
-        foreach ($removed in $planner.RemovedPaths) { $pending.Add($removed, $true) }
         $reporter = newFakeReporter @(@{ Recount = $true; Changes = @(@{ Name = $name; Subfolders = $false }) }, @{ RetryFailed = $false })
 
-        [void](waitForIngestApproval $planner $reporter (newIndexerChannel) $targetFolders $status $null $pending 60)
+        $result = waitForIngestApproval $planner $reporter (newIndexerChannel) $targetFolders $status $null 60
 
-        $names = @($pending.Unpublished.Values | ForEach-Object { $_ } | ForEach-Object { $_ })
-        $names.Count | Should -Be 1
-        $names[0] | Should -Be "無い.docx"
+        @($result.Planner.RemovedPaths) | Should -Be @("src\無い.docx")
     }
 
-    It "設定は直下だけ・一覧にはサブフォルダの行がある状態で始めても、付け直して数え直し→開始で、サブフォルダのファイルは本文インデックスから外れない（1 回目の数えの削除の記録も、数え直しで取り直す）" {
+    It "数え直しではインデックスのフォルダを消さない（消すのは［更新を開始］のあと）" {
+        $status = newStatus
+        $bookDir = getBookDir "src\無い.docx"
+        [System.IO.Directory]::CreateDirectory($bookDir) | Out-Null
+        $status.Rows["src\無い.docx"] = (newStatusRow "src\無い.docx" "2024/01/01 00:00:00" "10" ${stateDone} 1 "2024/01/01 00:00:00")
+        $planner = newCrawledPlanner $targetFolders $status
+        $name = [string]$planner.Folders[0].Name
+        $reporter = newFakeReporter @(@{ Recount = $true; Changes = @(@{ Name = $name; Subfolders = $false }) }, @{ RetryFailed = $false })
+
+        [void](waitForIngestApproval $planner $reporter (newIndexerChannel) $targetFolders $status $null 60)
+
+        Test-Path -LiteralPath $bookDir | Should -BeTrue
+    }
+
+    It "設定は直下だけ・一覧にはサブフォルダの行がある状態で始めても、付け直して数え直すと、サブフォルダのファイルは無くなったことにならない" {
         # 前の回がエラーで終わり、設定は false なのに、取り込み一覧にはサブフォルダの行が残っている
         $info = Get-Item -LiteralPath "$root\下\奥.docx"
         $updated = formatFileTime $info.LastWriteTime
         $status = newStatus
         $status.Rows["src\下\奥.docx"] = (newStatusRow "src\下\奥.docx" $updated ([string]$info.Length) ${stateDone} 1 $updated)
         $directOnly = @([pscustomobject]@{ Name = ""; Path = $root; Enabled = $true; Subfolders = $false })
-        $pending = New-Object PendingPublish
-        $removals = $pending.SnapshotRemovals()   # 司令は、1 回目の数えの削除を足す前に写しを取って渡す
         $planner = newCrawledPlanner $directOnly $status
-        foreach ($removed in $planner.RemovedPaths) { $pending.Add($removed, $true) }
-        @($pending.Unpublished.Values | ForEach-Object { $_ } | ForEach-Object { $_ }).Count | Should -Be 1 -Because "1 回目（直下だけ）の数えでは奥.docx は無くなったことになる"
+        $planner.RemovedPaths.Count | Should -Be 1 -Because "1 回目（直下だけ）の数えでは奥.docx は無くなったことになる"
         $name = [string]$planner.Folders[0].Name
         $reporter = newFakeReporter @(@{ Recount = $true; Changes = @(@{ Name = $name; Subfolders = $true }) }, @{ RetryFailed = $false })
 
-        [void](waitForIngestApproval $planner $reporter (newIndexerChannel) $directOnly $status $null $pending 60 $removals)
+        $result = waitForIngestApproval $planner $reporter (newIndexerChannel) $directOnly $status $null 60
 
-        @($pending.Unpublished.Values | ForEach-Object { $_ } | ForEach-Object { $_ }).Count | Should -Be 0
+        $result.Planner.RemovedPaths.Count | Should -Be 0
     }
 
-    It "外して数え直し→付け直して数え直し→開始、と進めても、前の数えにしか無い削除は残らない（サブフォルダのファイルが本文インデックスから外れて検索に出なくなるのを防ぐ）" {
-        # 取り込み済みのサブフォルダのファイル（前回の行と更新日時・サイズが同じ＝済）
+    It "外して数え直し→付け直して数え直し→開始、と進めても、前の数えにしか無い削除は残らない" {
         $info = Get-Item -LiteralPath "$root\下\奥.docx"
         $updated = formatFileTime $info.LastWriteTime
         $status = newStatus
         $status.Rows["src\下\奥.docx"] = (newStatusRow "src\下\奥.docx" $updated ([string]$info.Length) ${stateDone} 1 $updated)
         $planner = newCrawledPlanner $targetFolders $status
         $name = [string]$planner.Folders[0].Name
-        $pending = New-Object PendingPublish
-        foreach ($removed in $planner.RemovedPaths) { $pending.Add($removed, $true) }
-        @($pending.Unpublished.Values).Count | Should -Be 0 -Because "最初の数え（サブフォルダも含める）では、奥.docx は無くなっていない"
+        $planner.RemovedPaths.Count | Should -Be 0 -Because "最初の数え（サブフォルダも含める）では、奥.docx は無くなっていない"
         $reporter = newFakeReporter @(
             @{ Recount = $true; Changes = @(@{ Name = $name; Subfolders = $false }) },
             @{ Recount = $true; Changes = @(@{ Name = $name; Subfolders = $true }) },
             @{ RetryFailed = $false })
 
-        $result = waitForIngestApproval $planner $reporter (newIndexerChannel) $targetFolders $status $null $pending 60
+        $result = waitForIngestApproval $planner $reporter (newIndexerChannel) $targetFolders $status $null 60
 
         $reporter.Calls | Should -Be 3
         $result.Planner.RemovedPaths.Count | Should -Be 0
-        # 1 回目の数え直し（直下だけ）で「無くなった」ことにした奥.docx は、付け直したあとの数えでは済のまま。外す記録に残してはならない
-        @($pending.Unpublished.Values | ForEach-Object { $_ } | ForEach-Object { $_ }).Count | Should -Be 0
-        @($pending.Folders.Values | ForEach-Object { $_ } | ForEach-Object { $_ }).Count | Should -Be 0
+    }
+}
+
+Describe "applyRemovedPaths" -Tag Io {
+    It "無くなったファイルのインデックスのフォルダを消し、外す予定を `$pending に足す" {
+        ${indexDir} = Join-Path $TestDrive "index_apply"
+        $workspace = newTestWorkspace @{ IndexDir = ${indexDir} }
+        $bookDir = getBookDir "src\無い.docx"
+        [System.IO.Directory]::CreateDirectory($bookDir) | Out-Null
+        $pending = New-Object PendingPublish
+
+        applyRemovedPaths @("src\無い.docx") $pending
+
+        Test-Path -LiteralPath $bookDir | Should -BeFalse
+        $names = @($pending.Unpublished.Values | ForEach-Object { $_ } | ForEach-Object { $_ })
+        $names | Should -Be @("無い.docx")
+    }
+
+    It "空でも何もしない" {
+        $pending = New-Object PendingPublish
+        { applyRemovedPaths @() $pending } | Should -Not -Throw
+        $pending.Unpublished.Count | Should -Be 0
     }
 }

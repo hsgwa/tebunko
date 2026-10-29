@@ -813,6 +813,86 @@ Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
         $rows.ContainsKey("会計\資料\提案.pptx") | Should -BeFalse
     }
 
+    Context "無くなったファイルのインデックスの削除（［更新を開始］のあと）" {
+        BeforeEach {
+            $script:vanishName = "無くなる$([guid]::NewGuid().ToString('N').Substring(0, 6))"
+            $script:vanishSource = newSourceFolder $script:vanishName
+            $script:vanishRoot = newRoot
+            writeTestSettings $script:vanishRoot @(@{ name = $script:vanishName; path = $script:vanishSource; enabled = $true })
+            runIndexer $script:vanishRoot | Should -Be 0
+            $script:vanishText = { (@(Get-ChildItem -LiteralPath "$($script:vanishRoot)\work\store\content\$($script:vanishName)" -Recurse -Filter "content_index.*.tsv" | ForEach-Object { Get-Content -Raw -LiteralPath $_.FullName }) -join "") }
+            (& $script:vanishText) | Should -Match "TC21-01"
+        }
+
+        It "無くなったファイルがあるとき、確認で取りやめると、取り込み一覧の行も本文インデックスも残る" {
+            Remove-Item -LiteralPath "$($script:vanishSource)\資料\提案.pptx"
+            $cancel = $approvalLine.Clone()
+            $cancel.Action = { answerIndexingPlan $channel $null }
+
+            runIndexer $script:vanishRoot @{ ConfirmTargets = $true } @($cancel) | Should -Be 2
+
+            (readTestStatus $script:vanishRoot).Rows.ContainsKey("$($script:vanishName)\資料\提案.pptx") | Should -BeTrue
+            (& $script:vanishText) | Should -Match "TC21-01"
+        }
+
+        It "直下だけに変えて数え直したあと取りやめると、サブフォルダ側のインデックスは残る" {
+            $global:vanishHits = 0
+            $name = $script:vanishName
+            $answers = $approvalLine.Clone()
+            $answers.Action = {
+                $global:vanishHits++
+                if ($global:vanishHits -eq 1) {
+                    answerIndexingPlan $channel @{ Recount = $true; Changes = @(@{ Name = $name; Subfolders = $false }) }
+                } else {
+                    answerIndexingPlan $channel $null
+                }
+            }
+            try {
+                runIndexer $script:vanishRoot @{ ConfirmTargets = $true } @($answers) | Should -Be 2
+                $global:vanishHits | Should -Be 2
+            } finally {
+                Remove-Variable -Name vanishHits -Scope Global -ErrorAction SilentlyContinue
+            }
+
+            (readTestStatus $script:vanishRoot).Rows.ContainsKey("$($script:vanishName)\資料\提案.pptx") | Should -BeTrue
+            (& $script:vanishText) | Should -Match "TC21-01"
+        }
+
+        It "［更新を開始］すると、無くなったファイルのインデックスが消えて検索に出ない" {
+            Remove-Item -LiteralPath "$($script:vanishSource)\資料\提案.pptx"
+            $approve = $approvalLine.Clone()
+            $approve.Action = { answerIndexingPlan $channel @{ RetryFailed = $false } }
+
+            runIndexer $script:vanishRoot @{ ConfirmTargets = $true } @($approve) | Should -Be 0
+
+            (readTestStatus $script:vanishRoot).Rows.ContainsKey("$($script:vanishName)\資料\提案.pptx") | Should -BeFalse
+            (& $script:vanishText) | Should -Not -Match "TC21-01"
+        }
+
+        It "確認を出さない実行でも、無くなったファイルのインデックスは消える" {
+            Remove-Item -LiteralPath "$($script:vanishSource)\資料\提案.pptx"
+
+            runIndexer $script:vanishRoot | Should -Be 0
+
+            (readTestStatus $script:vanishRoot).Rows.ContainsKey("$($script:vanishName)\資料\提案.pptx") | Should -BeFalse
+            (& $script:vanishText) | Should -Not -Match "TC21-01"
+        }
+
+        It "［更新を開始］のあと、取り込み一覧を書き直す前に、外す予定の記録が書かれている（強制終了しても次の回に外せる）" {
+            Remove-Item -LiteralPath "$($script:vanishSource)\資料\提案.pptx"
+            $global:pendingRecorded = -1
+            $probe = @{ Script = $runPath; Pattern = '^\s+writeStatusKeepingDropped \$ledger \$folders \$rows\.ToArray\(\)'; Action = { $global:pendingRecorded = @(readPendingRemovals).Count } }
+            $approve = $approvalLine.Clone()
+            $approve.Action = { answerIndexingPlan $channel @{ RetryFailed = $false } }
+            try {
+                runIndexer $script:vanishRoot @{ ConfirmTargets = $true } @($approve, $probe) | Should -Be 0
+                $global:pendingRecorded | Should -BeGreaterThan 0
+            } finally {
+                Remove-Variable -Name pendingRecorded -Scope Global -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
     It "取り込みの途中で中止を求められたら、残りを未取り込みのまま 2 で終わる" {
         $root = newRoot
         writeTestSettings $root @(@{ name = "総務"; path = $source; enabled = $true })

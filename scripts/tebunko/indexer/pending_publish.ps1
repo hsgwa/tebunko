@@ -38,28 +38,6 @@ class PendingPublish {
         }
     }
 
-    [object] SnapshotRemovals() {
-        # 無くなった元のファイルの記録（Folders・Unpublished。中の集合まで）の写しを返す。確認で選びを変えて数え直すとき、数え直しのたびに
-        # この写しへ戻してから新しい数えの分を足す（前の数えにしか無い削除を残さないため。残すと、取り込み直されないファイルが本文インデックスから外れる）
-        return @{ Folders = $this.CopyRemovalSets($this.Folders); Unpublished = $this.CopyRemovalSets($this.Unpublished) }
-    }
-
-    [void] RestoreRemovals($snapshot) {
-        # SnapshotRemovals の写しへ戻す（写しは書き換えない。何度でも戻せる）
-        $this.Folders = $this.CopyRemovalSets($snapshot.Folders)
-        $this.Unpublished = $this.CopyRemovalSets($snapshot.Unpublished)
-    }
-
-    hidden [System.Collections.Generic.Dictionary[string,object]] CopyRemovalSets($source) {
-        $copy = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
-        foreach ($key in $source.Keys) {
-            $set = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-            foreach ($name in $source[$key]) { [void]$set.Add($name) }
-            $copy[$key] = $set
-        }
-        return $copy
-    }
-
     [void] Restore([string]$folder, [string[]]$names) {
         # 前の回に外し終えていなかった、無くなった元のファイル名を戻す（書き出し待ちにも、外し終えていない記録にも入れる）
         if (!$this.Folders.ContainsKey($folder)) {

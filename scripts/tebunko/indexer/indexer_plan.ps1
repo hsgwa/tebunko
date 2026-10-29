@@ -201,12 +201,12 @@ function createTargetList {
     #            各要素は @{ RelPath; Row（取り込むときの行）; Old; Failed; Length; PendingOld }。
     #            Rows には前回の行をそのまま入れる（前回の行が無い・前回未完了のときは入れない）
     #   Plan   : 画面の確認に出す件数（newIngestPlanRow。取り込み予定.tsv の1行）
-    #   Removed: 元のファイルが無くなったファイルの相対パス（呼び出し元が本文インデックスのファイルから外す）
-    #   Stopped: shouldStop が $true を返して途中で止めた。このときほかの値は空で、何も消していない（呼び出し元は前回の行をそのまま残す）
+    #   Removed: 元のファイルが無くなったファイルの相対パス（ここでは何も消さない。呼び出し元が、取り込みを始めるときにインデックスを消す）
+    #   Stopped: shouldStop が $true を返して途中で止めた。このときほかの値は空（呼び出し元は前回の行をそのまま残す）
     # 行の相対パスは "インデックス名\フォルダからの相対パス"（= work\index からの相対パス）とする。
     # ・前回の一覧と更新日時・サイズが同じで取り込み済み（済）のファイルは取り込まない
     # ・取り込み済みでも、インデックス（TSV）が無くなっていれば取り込み直す（利用者が work\index を直接削除した場合など）
-    # ・元ファイルが無くなったファイルは、インデックスを削除して一覧から除く（アクセスできないフォルダがあった場合は除かない）
+    # ・元ファイルが無くなったファイルは、一覧から除いて Removed に返す（インデックスは呼び出し元が消す。アクセスできないフォルダがあった場合は除かない）
     param (
         $folder,   # @{ Path; Name; Subfolders }（Subfolders が $false のときは直下のファイルだけを取り込む）
         $previous, # readStatusFile の Rows（相対パス → 行）
@@ -321,7 +321,7 @@ function createTargetList {
         $rows.Add($row)
     }
 
-    # 元のファイルが無くなったものの削除（取り返しがつかない）の前に、中止を見る
+    # 無くなったファイルを調べる前に、中止を見る
     if ($null -ne $shouldStop -and (& $shouldStop)) {
         return $stoppedResult
     }
@@ -334,7 +334,6 @@ function createTargetList {
             $rows.Add($previous[$relPath])
             continue
         }
-        removeBookDir (getBookDir $relPath)
         $removed.Add($relPath)
     }
 
@@ -394,7 +393,7 @@ class IngestPlanner {
     # クラウドにだけあるファイル（createTargetList の Cloud。取り込むかは確認の後に司令が決める）
     [System.Collections.Generic.List[object]]$Cloud
     [System.Collections.Generic.List[object]]$Plan
-    # 元のファイルが無くなったファイルの相対パス（司令が本文インデックスのファイルから外す）
+    # 元のファイルが無くなったファイルの相対パス（司令が、取り込みを始めるときにインデックスを消して本文インデックスのファイルから外す）
     [System.Collections.Generic.List[string]]$RemovedPaths
     # 前回、取り込み中に強制終了して最後に回したファイル（相対パス → 回数）
     $Carried
@@ -465,7 +464,7 @@ class IngestPlanner {
         # クロール対象フォルダを順に検索して、Rows・Targets・Failed・Plan・RemovedPaths を組み立てる。
         # onFolder: フォルダを検索する直前に呼ぶ（司令が進み具合を画面に出す。$null なら何もしない）
         # shouldStop: 中止を求められたかを返す（$null なら止めない）。フォルダごと・フォルダの中でも見て、$true なら、
-        #   止めたフォルダとまだのフォルダは「取り込まないフォルダ」と同じに前回の行をそのまま残し、Stopped を立てる（何も消さない）
+        #   止めたフォルダとまだのフォルダは「取り込まないフォルダ」と同じに前回の行をそのまま残し、Stopped を立てる
         if ($null -eq $this.Folders) {
             throw "IngestPlanner: Crawl の前に AssignNames を呼んでください"
         }
@@ -529,6 +528,13 @@ class IngestPlanner {
         foreach ($item in $this.Cloud) {
             if ($item.PendingOld) {
                 $keep.Add($item.Old)
+            }
+        }
+        # 元のファイルが無くなったファイルは、取りやめでは何も消さないので、前回の行をそのまま残す（次の回にまた無くなったファイルとして見つける）
+        foreach ($relPath in $this.RemovedPaths) {
+            $old = $null
+            if ($this.Previous.TryGetValue($relPath, [ref]$old)) {
+                $keep.Add($old)
             }
         }
         foreach ($row in $this.Rows) {
