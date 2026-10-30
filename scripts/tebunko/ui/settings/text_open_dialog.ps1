@@ -251,7 +251,7 @@ function showTextOpenDialog {
     }
     $chosen = @($ctx.Rows | ForEach-Object { @{ Extension = $_.Extension; Way = (getTextOpenControlWay $_) } })
     try {
-        writeTextOpenSettings @(convertTextOpenRows $chosen)
+        writeTextOpenSettings @(addOutOfListExtensions @(convertTextOpenRows $chosen) (readTextExtensionSettings).Notepad)
     } catch {
         showMessage "設定を保存できませんでした。もう一度お試しください。" "OK" "Warning" | Out-Null
         return

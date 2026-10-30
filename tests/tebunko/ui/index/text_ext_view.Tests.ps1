@@ -171,3 +171,15 @@ Describe "getIndexTextExtensionDialogTexts" -Tag Unit {
         $note | Should -BeLike "*このインデックス（営業部）から外します。${expected}Excel・Word・PowerPoint は、ここでは選べません。"
     }
 }
+
+Describe "75 個の外の値を保つ（addOutOfListExtensions と書き込み）" -Tag Io {
+    It "75 個の外を持つ設定で、選びを変えない OK は「変わっていない」になり、書いても 75 個の外が残る" {
+        $path = Join-Path $TestDrive "outside_keep.config"
+        writeIndexTextExcludes "営業" @(".log", ".exe") $path
+        $current = @((readTextExtensionSettings $path).IndexExcludes["営業"])
+        $result = @(addOutOfListExtensions @(".log") $current)
+        testIndexTextExcludesChanged $result $current | Should -BeFalse
+        writeIndexTextExcludes "営業" $result $path
+        ((readTextExtensionSettings $path).IndexExcludes["営業"] | Sort-Object) -join "," | Should -Be ".exe,.log"
+    }
+}

@@ -511,6 +511,9 @@ function changeIndexTextExtensions {
     $entry = $(if ($script:textExtState.Counts.ContainsKey($item.Name)) { $script:textExtState.Counts[$item.Name] } else { $null })
     $row = getIndexTextExtensionDetailRow $current $entry
     $result = showIndexTextExtensionsDialog -Owner $window -IndexName $item.Name -Excluded $current -Counts $row.Counts -CountsSource $row.Source -CountsTime $row.Time
+    if ($null -ne $result) {
+        $result = @(addOutOfListExtensions $result $current)
+    }
     if ($null -eq $result -or -not (testIndexTextExcludesChanged $result $current)) {
         return
     }

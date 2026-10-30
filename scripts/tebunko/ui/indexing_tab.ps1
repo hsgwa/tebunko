@@ -130,6 +130,9 @@ function changeIndexingTextExtensions {
     $planRow = @($d.Plan | Where-Object { $null -ne $_ -and $_.区分 -eq ${planKindIngest} -and [string]$_.インデックス名 -eq $name })[0]
     $counts = $(if ($planRow -and $null -ne $planRow.TextExtensionCounts) { $planRow.TextExtensionCounts } else { @{} })
     $selected = showIndexTextExtensionsDialog -Owner $d.Window -IndexName $name -Excluded $current -Counts $counts -CountsSource "now" -CountsTime ""
+    if ($null -ne $selected) {
+        $selected = @(addOutOfListExtensions $selected $current)
+    }
     if ($null -eq $selected -or -not (testIndexingTextExcludesChanged $current @($selected))) {
         return
     }

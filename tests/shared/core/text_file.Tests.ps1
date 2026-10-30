@@ -425,3 +425,15 @@ Describe "getTextExtensionCounts" -Tag Unit {
         (getTextExtensionCounts).Count | Should -Be 0
     }
 }
+
+Describe "addOutOfListExtensions" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "今の値のうち 75 個に無いものを足す（大文字は 75 個の中か外かを小文字で見る）"; chosen = @(".txt"); current = @(".log", ".exe", ".XYZ"); expected = ".txt,.exe,.XYZ" }
+        @{ name = "75 個の中の今の値は足さない（選び直した結果が優先）"; chosen = @(".md"); current = @(".log", ".txt"); expected = ".md" }
+        @{ name = "どちらも空なら空"; chosen = @(); current = @(); expected = "" }
+        @{ name = "文字列でない今の値は無視する"; chosen = @(".md"); current = @(1, $null, ".exe"); expected = ".md,.exe" }
+    ) {
+        param ($name, $chosen, $current, $expected)
+        (@(addOutOfListExtensions $chosen $current) -join ",") | Should -Be $expected
+    }
+}

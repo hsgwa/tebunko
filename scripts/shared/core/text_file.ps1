@@ -410,3 +410,15 @@ function readTextFile {
     }
     return (splitTextLines (decodeTextBytes $bytes $encodingName))
 }
+
+function addOutOfListExtensions {
+    # ダイアログで選んだ拡張子（chosen。75 個の中だけ）に、今の設定の値（current）のうち ${textExtensions}（75 個）に無いものを足して返す。
+    # ダイアログは 75 個しか扱わないので、そのまま書くと 75 個の外の値（後の版で選べる拡張子など）が設定から消える。書く前・比べる前に足す
+    param (
+        [object[]]$chosen = @(),
+        [object[]]$current = @()
+    )
+
+    $outside = @(@($current) | Where-Object { $_ -is [string] -and ${textExtensions} -notcontains $_.ToLowerInvariant() })
+    return @(@($chosen) + $outside)
+}
