@@ -63,6 +63,19 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         }
     }
 
+    It "選んだ行の Subfolders（<label>）を返す。何も選んでいない・複数のときは既定の true" -TestCases @(
+        @{ label = "false"; value = $false; expected = $false }
+        @{ label = "true"; value = $true; expected = $true }
+        @{ label = "未設定は含める"; value = $null; expected = $true }
+    ) {
+        param ($label, $value, $expected)
+        $item = newDetailItem
+        if ($null -ne $value) { $item.Subfolders = $value }
+        (getIndexDetailView @($item)).Subfolders | Should -Be $expected
+        (getIndexDetailView @()).Subfolders | Should -BeTrue
+        (getIndexDetailView @($item, $item) 2).Subfolders | Should -BeTrue
+    }
+
     It "<label>: 中身を出さず、見出しだけを出す" -TestCases @(
         @{ label = "何も選んでいない（空）"; items = @() }
         @{ label = "何も選んでいない（null）"; items = @($null) }

@@ -159,9 +159,11 @@ function findTargetFiles {
     # （設定に書かれたパスは、末尾の \ ・ドライブ文字と UNC パスなど書き方が違うことがあるため、文字数で切り出さない）。
     # tebunko が作ったファイル（getTebunkoExcludeDirs のフォルダの下・名前で分かるファイル）は対象に含めない
     # shouldStop: 省略できる。フォルダ 1 つを読むごとに見て、$true を返したら読むのをやめる（中止を求められたとき）
+    # TopOnly: 対象フォルダの直下のファイルだけを探す（サブフォルダの中は読まない。設定の subfolders が false のとき）
     param (
         [string]$targetFolder,
-        [scriptblock]$shouldStop = $null
+        [scriptblock]$shouldStop = $null,
+        [switch]$TopOnly
     )
 
     # \\?\ を付けないと、パスが約248文字を超えるフォルダの中を検索できない（アクセスできないフォルダ扱いになる）。
@@ -169,7 +171,7 @@ function findTargetFiles {
     $root = (Resolve-Path -LiteralPath $targetFolder).ProviderPath
     # 中のリンクは辿らず、飛ばしたものは Links に入れる（先の、対象の外のファイルを読まないため）。
     # クロール対象フォルダそのものはリンクでもよい（利用者が選んだ場所のため、その先の中を読む）
-    $tree = getFilesNoFollow $root -shouldStop $shouldStop
+    $tree = getFilesNoFollow $root -shouldStop $shouldStop -TopOnly:$TopOnly
     if ($tree.Stopped) {
         return @{ Root = $root; Files = @(); Links = @($tree.Links); HasError = $tree.HasError; Stopped = $true }
     }
@@ -191,6 +193,26 @@ function findTargetFiles {
     return @{ Root = $root; Files = $files; Links = @($tree.Links); HasError = $tree.HasError; Stopped = $false }
 }
 
+function getSubfolderRemovedCounts {
+    # 直下だけに変えたフォルダ（今の Subfolders が false で、前回取り込んだときの IngestedSubfolders が true）について、
+    # 無くなったファイル（removedPaths）のうちサブフォルダ側のもの（インデックス名のあとに区切りがもう 1 つある相対パス）の数を、
+    # インデックス名 → 件数 の表で返す（確認の「サブフォルダ側の N 件をインデックスから外します」の元。追加の走査はしない）。該当しない名前は入れない
+    param (
+        [object[]]$folders,        # @{ Name; Subfolders; IngestedSubfolders }
+        [string[]]$removedPaths
+    )
+
+    $counts = @{}
+    foreach ($folder in @($folders | Where-Object { $_ -and $_.Subfolders -eq $false -and $_.IngestedSubfolders -ne $false })) {
+        $prefix = "$($folder.Name)\"
+        $count = @($removedPaths | Where-Object {
+            $_.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase) -and $_.IndexOf("\", $prefix.Length) -ge 0
+        }).Count
+        $counts[[string]$folder.Name] = $count
+    }
+    return $counts
+}
+
 function createTargetList {
     # クロール対象フォルダを1つ検索して取り込み一覧の行を作り直し、次を返す。
     #   Rows   : 全ファイルの行 / Targets: 取り込む行 / Failed: 前回失敗し、更新の無い行
@@ -199,14 +221,14 @@ function createTargetList {
     #            各要素は @{ RelPath; Row（取り込むときの行）; Old; Failed; Length; PendingOld }。
     #            Rows には前回の行をそのまま入れる（前回の行が無い・前回未完了のときは入れない）
     #   Plan   : 画面の確認に出す件数（newIngestPlanRow。取り込み予定.tsv の1行）
-    #   Removed: 元のファイルが無くなったファイルの相対パス（呼び出し元が本文インデックスのファイルから外す）
-    #   Stopped: shouldStop が $true を返して途中で止めた。このときほかの値は空で、何も消していない（呼び出し元は前回の行をそのまま残す）
+    #   Removed: 元のファイルが無くなったファイルの相対パス（ここでは何も消さない。呼び出し元が、取り込みを始めるときにインデックスを消す）
+    #   Stopped: shouldStop が $true を返して途中で止めた。このときほかの値は空（呼び出し元は前回の行をそのまま残す）
     # 行の相対パスは "インデックス名\フォルダからの相対パス"（= work\index からの相対パス）とする。
     # ・前回の一覧と更新日時・サイズが同じで取り込み済み（済）のファイルは取り込まない
     # ・取り込み済みでも、インデックス（TSV）が無くなっていれば取り込み直す（利用者が work\index を直接削除した場合など）
-    # ・元ファイルが無くなったファイルは、インデックスを削除して一覧から除く（アクセスできないフォルダがあった場合は除かない）
+    # ・元ファイルが無くなったファイルは、一覧から除いて Removed に返す（インデックスは呼び出し元が消す。アクセスできないフォルダがあった場合は除かない）
     param (
-        $folder,   # @{ Path; Name }
+        $folder,   # @{ Path; Name; Subfolders }（Subfolders が $false のときは直下のファイルだけを取り込む）
         $previous, # readStatusFile の Rows（相対パス → 行）
         $counts,   # getIndexTsvCounts の結果（インデックスの実体。$null なら確認しない）
         [scriptblock]$shouldStop = $null # 省略できる。フォルダを読むごと・ファイルを調べる途中で見て、$true なら途中で止める
@@ -216,7 +238,7 @@ function createTargetList {
     $stoppedResult = @{
         Rows = @(); Targets = @(); Failed = @(); Cloud = @(); Plan = $null; Removed = @(); Stopped = $true
     }
-    $scan = findTargetFiles $folder.Path $shouldStop
+    $scan = findTargetFiles $folder.Path $shouldStop -TopOnly:($folder.Subfolders -eq $false)
     if ($scan.Stopped) {
         return $stoppedResult
     }
@@ -319,7 +341,7 @@ function createTargetList {
         $rows.Add($row)
     }
 
-    # 元のファイルが無くなったものの削除（取り返しがつかない）の前に、中止を見る
+    # 無くなったファイルを調べる前に、中止を見る
     if ($null -ne $shouldStop -and (& $shouldStop)) {
         return $stoppedResult
     }
@@ -332,7 +354,6 @@ function createTargetList {
             $rows.Add($previous[$relPath])
             continue
         }
-        removeBookDir (getBookDir $relPath)
         $removed.Add($relPath)
     }
 
@@ -377,7 +398,7 @@ function createTargetList {
 #   KeepForCancel（取りやめるとき）か ApplyFailed → ApplyInterrupted → FolderByName。Crawl は AssignNames より前なら例外にする。
 # メソッドの中のローカル変数は、プロパティと大文字・小文字だけの違いにしない
 class IngestPlanner {
-    # 名前を割り当てたクロール対象フォルダ（@{ Path; Name; Enabled } の並び）
+    # 名前を割り当てたクロール対象フォルダ（@{ Path; Name; Enabled; Subfolders } の並び）
     [object[]]$Folders
     # 前回の取り込み一覧の行（相対パス → 行）
     $Previous
@@ -392,7 +413,7 @@ class IngestPlanner {
     # クラウドにだけあるファイル（createTargetList の Cloud。取り込むかは確認の後に司令が決める）
     [System.Collections.Generic.List[object]]$Cloud
     [System.Collections.Generic.List[object]]$Plan
-    # 元のファイルが無くなったファイルの相対パス（司令が本文インデックスのファイルから外す）
+    # 元のファイルが無くなったファイルの相対パス（司令が、取り込みを始めるときにインデックスを消して本文インデックスのファイルから外す）
     [System.Collections.Generic.List[string]]$RemovedPaths
     # 前回、取り込み中に強制終了して最後に回したファイル（相対パス → 回数）
     $Carried
@@ -463,7 +484,7 @@ class IngestPlanner {
         # クロール対象フォルダを順に検索して、Rows・Targets・Failed・Plan・RemovedPaths を組み立てる。
         # onFolder: フォルダを検索する直前に呼ぶ（司令が進み具合を画面に出す。$null なら何もしない）
         # shouldStop: 中止を求められたかを返す（$null なら止めない）。フォルダごと・フォルダの中でも見て、$true なら、
-        #   止めたフォルダとまだのフォルダは「取り込まないフォルダ」と同じに前回の行をそのまま残し、Stopped を立てる（何も消さない）
+        #   止めたフォルダとまだのフォルダは「取り込まないフォルダ」と同じに前回の行をそのまま残し、Stopped を立てる
         if ($null -eq $this.Folders) {
             throw "IngestPlanner: Crawl の前に AssignNames を呼んでください"
         }
@@ -512,6 +533,14 @@ class IngestPlanner {
         foreach ($item in $this.Dropped) {
             $this.Plan.Add((newIngestPlanRow $item.Name $item.Path $this.Kinds.Dropped))
         }
+        # 直下だけに変えたフォルダの、サブフォルダ側で外れる件数を、確認に渡す Plan の行に入れる
+        $removedCounts = getSubfolderRemovedCounts $this.Folders @($this.RemovedPaths)
+        foreach ($row in $this.Plan) {
+            # 取り込む行だけ（取り込まない行の区分は kinds にある。クラスの本体では $script: 変数を読まない）
+            if (@($this.Kinds.Unchecked, $this.Kinds.Missing, $this.Kinds.Dropped) -contains $row.区分) { continue }
+            $removed = if ($removedCounts.ContainsKey([string]$row.インデックス名)) { [int]$removedCounts[[string]$row.インデックス名] } else { 0 }
+            $row | Add-Member -NotePropertyName SubfolderRemovedCount -NotePropertyValue $removed -Force
+        }
     }
 
     [object[]] KeepForCancel() {
@@ -527,6 +556,13 @@ class IngestPlanner {
         foreach ($item in $this.Cloud) {
             if ($item.PendingOld) {
                 $keep.Add($item.Old)
+            }
+        }
+        # 元のファイルが無くなったファイルは、取りやめでは何も消さないので、前回の行をそのまま残す（次の回にまた無くなったファイルとして見つける）
+        foreach ($relPath in $this.RemovedPaths) {
+            $old = $null
+            if ($this.Previous.TryGetValue($relPath, [ref]$old)) {
+                $keep.Add($old)
             }
         }
         foreach ($row in $this.Rows) {

@@ -2,6 +2,7 @@
 BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
     . "${scriptsDir}\tebunko\ui\indexing_view.ps1"
+    . "${scriptsDir}\tebunko\ui\index\index_list_view.ps1"  # getIndexTopOnlyTagText（札の文言）
 
     function newPlanItem {
         param ([string]$kind, [int]$files = 0, [int]$targets = 0, [int]$new = 0, [int]$updated = 0, [int]$failed = 0,
@@ -53,6 +54,77 @@ Describe "newPlanViewRows" -Tag Unit {
     It "行が無ければ空の配列" {
         $views = newPlanViewRows @()
         @($views).Count | Should -Be 0
+    }
+}
+
+Describe "newPlanViewRows（直下のみの札）" -Tag Unit {
+    It "subfolders が <label> の名前の行の TopOnlyText は「<text>」" -TestCases @(
+        @{ label = "false"; subfolders = @{ "売上" = $false }; text = "直下のみ" }
+        @{ label = "true"; subfolders = @{ "売上" = $true }; text = "" }
+        @{ label = "表に無い"; subfolders = @{}; text = "" }
+    ) {
+        param ($label, $subfolders, $text)
+        $row = (newPlanViewRows (newPlanItem ${planKindIngest} 120 12 10 2) @() $subfolders)[0]
+        $row.TopOnlyText | Should -Be $text
+    }
+}
+
+Describe "newPlanViewRows（サブフォルダ側を外すだけの行）" -Tag Unit {
+    It "取り込むファイルが無くても、外す件数（SubfolderRemovedCount）が <removed> 件なら、ステータスは「<status>」" -TestCases @(
+        @{ removed = 3; status = "要更新"; level = "Wait"; detail = "サブフォルダ側の 3 件をインデックスから外します" }
+        @{ removed = 0; status = "最新"; level = "Ok"; detail = "すべて最新です" }
+    ) {
+        param ($removed, $status, $level, $detail)
+        $item = newPlanItem ${planKindIngest} 10 0
+        $item | Add-Member -NotePropertyName SubfolderRemovedCount -NotePropertyValue $removed
+        $row = (newPlanViewRows @($item))[0]
+        $row.StatusText | Should -Be $status
+        $row.Level | Should -Be $level
+        $row.DetailText | Should -Be $detail
+    }
+}
+
+Describe "getIndexingSubfolderRemovalNote・getIndexingSubfolderRemovalCount" -Tag Unit {
+    It "件数 <count> の文言は「<text>」" -TestCases @(
+        @{ count = 0; text = "" }
+        @{ count = 3; text = "サブフォルダ側の 3 件をインデックスから外します" }
+        @{ count = 1234; text = "サブフォルダ側の 1,234 件をインデックスから外します" }
+    ) {
+        param ($count, $text)
+        getIndexingSubfolderRemovalNote $count | Should -Be $text
+    }
+
+    It "確認に出す件数は、取り込む行の SubfolderRemovedCount の合計（選んだものだけの回は選んだ名前だけ。値が無い行は 0）" {
+        $a = newPlanItem ${planKindIngest} 10 1 1 0 0 0 0 0 0 "売上"
+        $a | Add-Member -NotePropertyName SubfolderRemovedCount -NotePropertyValue 2
+        $b = newPlanItem ${planKindIngest} 10 1 1 0 0 0 0 0 0 "経理"
+        $b | Add-Member -NotePropertyName SubfolderRemovedCount -NotePropertyValue 5
+        $c = newPlanItem ${planKindIngest} 10 1 1 0 0 0 0 0 0 "総務"
+        getIndexingSubfolderRemovalCount @($a, $b, $c) | Should -Be 7
+        getIndexingSubfolderRemovalCount @($a, $b, $c) @("売上") | Should -Be 2
+    }
+
+    It "サブフォルダ側を外す件数があれば、取り込むファイルが無くても『何も無い』にせず、［更新を開始］と取りやめを選べる（閉じるだけにすると、見せたまま消してしまう）" {
+        isIndexingConfirmNothing 0 0 0 0 0 | Should -Be $true
+        isIndexingConfirmNothing 0 0 0 0 3 | Should -Be $false
+        $text = getIndexingConfirmText 0 0 $false 1 0 0 $false 3
+        $text.Button | Should -Be "更新を開始"
+        $text.Total | Should -Be 0
+        $a = newPlanItem ${planKindIngest} 10 0 0 0 0 0 0 0 0 "売上"
+        $a | Add-Member -NotePropertyName SubfolderRemovedCount -NotePropertyValue 3
+        $view = getIndexingConfirmView @($a)
+        $view.Nothing | Should -Be $false
+        $view.Confirm.Button | Should -Be "更新を開始"
+    }
+
+    It "getIndexingConfirmView は、件数があれば SubfolderRemovalNote に文言を、無ければ空を返す" -TestCases @(
+        @{ removed = 4; note = "サブフォルダ側の 4 件をインデックスから外します" }
+        @{ removed = 0; note = "" }
+    ) {
+        param ($removed, $note)
+        $a = newPlanItem ${planKindIngest} 10 1 1 0 0 0 0 0 0 "売上"
+        $a | Add-Member -NotePropertyName SubfolderRemovedCount -NotePropertyValue $removed
+        (getIndexingConfirmView @($a)).SubfolderRemovalNote | Should -Be $note
     }
 }
 

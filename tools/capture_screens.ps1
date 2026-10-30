@@ -1,4 +1,4 @@
-﻿# 現行の画面を、状態ごとに全部（41 枚）自動で撮る道具。GUI を直す前の記録として docs\images\screens\ に置き、
+﻿# 現行の画面を、状態ごとに全部（43 枚）自動で撮る道具。GUI を直す前の記録として docs\images\screens\ に置き、
 # docs\design\gui\screens\ の写真として載せる。詳しい経緯・撮る状態の一覧・撮らないものは docs\design\gui\screens\index.md。
 #
 #   .\tools\capture_screens.ps1                 すべての状態を撮り直す
@@ -410,6 +410,62 @@ function captureCloudScene {
     }
 }
 
+function captureTopOnlyScene {
+    # index-tab/top-only（詳細の「サブフォルダを含める」を外した。一覧の札「直下のみ」と［要更新］）と、
+    # index-tab/start-confirm-top-only（その更新の確認。札と「サブフォルダ側の N 件をインデックスから外します」の 1 行）
+    param ($Ids, $Root, $OutDir, $UserName, $ComputerName, $UserProfile, $Sizes)
+    if ($Ids -notcontains "index-tab/top-only" -and $Ids -notcontains "index-tab/start-confirm-top-only") { return }
+
+    $dir = Join-Path $Root "toponly"
+    $tool = newGuiTool $dir
+    $source = Join-Path (Join-Path $Root "toponly-元") "営業"
+    newGuiSourceFolder $source
+    $sub = Join-Path $source "2024"
+    [void][IO.Directory]::CreateDirectory($sub)
+    Copy-Item -LiteralPath (Join-Path (getGuiRepoRoot) "tests\testdata\office\Word\基本.docx") -Destination (Join-Path $sub "見積.docx")
+    $config = readGuiConfig $tool
+    $config | Add-Member -NotePropertyName targetFolders -NotePropertyValue @(@{ name = "営業"; path = $source; enabled = $true }) -Force
+    writeGuiConfig $tool.Dir $config
+
+    $S = startGui $tool "toponly"
+    try {
+        invokeGuiScene $S {
+            selectGuiTab $S "IndexTab" "IndexingButton"
+            setGuiStep $S "取り込む"
+            startGuiIndexing $S
+            waitGui $S "取り込みの完了" ${guiIndexTimeout} {
+                (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*" -and (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
+            } | Out-Null
+
+            setGuiStep $S "詳細の「サブフォルダを含める」を外す"
+            selectGui @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
+            waitGui $S "詳細が出る" ${guiDefaultTimeout} { findGui $S.Window -Id "IndexDetailSubfolders" } | Out-Null
+            toggleGui (findGui $S.Window -Id "IndexDetailSubfolders")
+            waitGui $S "札と［要更新］が出る" ${guiDefaultTimeout} {
+                $texts = (getGuiRowTexts @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]) -join " "
+                $texts -like "*直下のみ*" -and $texts -like "*要更新*"
+            } | Out-Null
+            captureGuiState -S $S -Id "index-tab/top-only" -Ids $Ids -OutDir $OutDir `
+                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
+
+            setGuiStep $S "［すべて更新］（サブフォルダ側を外す確認）"
+            clickGui $S $S.Window "IndexingButton" "［すべて更新］"
+            $confirm = waitGuiWindow $S "取り込みの確認" -Id "StartButton" -Timeout ${guiIndexTimeout}
+            captureGuiState -S $S -Id "index-tab/start-confirm-top-only" -Ids $Ids -OutDir $OutDir `
+                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($confirm)
+            clickGui $S $confirm "CancelButton" "確認の［キャンセル］"
+            waitGuiWindowClosed $S $confirm "取り込みの確認"
+            waitGui $S "取りやめた更新が終わる" ${guiIndexTimeout} {
+                $b = findGui $S.Window -Id "IndexingButton"
+                $b.Current.IsEnabled -and $b.Current.Name -eq "すべて更新"
+            } | Out-Null
+            closeGui $S
+        }
+    } finally {
+        stopGui $S
+    }
+}
+
 function captureHeavyScene {
     # index-tab の running・stop-confirm・interrupted、settings-tab/running-warning、window/close-confirm
     param ($Ids, $Root, $OutDir, $UserName, $ComputerName, $UserProfile, $Sizes)
@@ -818,6 +874,7 @@ try {
     captureStarterScene      $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureFailedScene       $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureCloudScene        $ids $root $OutDir $userName $computerName $userProfile $sizes
+    captureTopOnlyScene      $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureHeavyScene        $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureSearchScene       $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureSettingsScene     $ids $root $OutDir $userName $computerName $userProfile $sizes

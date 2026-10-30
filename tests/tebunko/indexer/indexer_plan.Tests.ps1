@@ -110,17 +110,18 @@ Describe "createTargetList（サブフォルダ・無くなったファイル）
         $result.Plan.新規 | Should -Be 1
     }
 
-    It "一覧にあって元のファイルが無くなったものは、インデックスを消して一覧から除く" {
+    It "一覧にあって元のファイルが無くなったものは、一覧から除いて Removed に返し、インデックスのフォルダは消さない" {
         $gone = Join-Path ${indexDir} "経理\消えた.xlsx"
         [System.IO.Directory]::CreateDirectory($gone) | Out-Null
         [System.IO.File]::WriteAllText("$gone\Sheet1.tsv", "1`t見積")
         $previous = newPrevious @((newStatusRow "経理\消えた.xlsx" "2024/01/01 00:00:00" "10" ${stateDone} 1 "2024/01/01 00:00:00"))
         $result = createTargetList $folder $previous $null
         @($result.Rows | Where-Object { $_.相対パス -eq "経理\消えた.xlsx" }).Count | Should -Be 0
-        Test-Path -LiteralPath $gone | Should -Be $false
+        @($result.Removed) | Should -Be @("経理\消えた.xlsx")
+        Test-Path -LiteralPath $gone | Should -Be $true
     }
 
-    It "中止の合図（shouldStop）が、一覧化のどの時点で立っても、Stopped を返し、無くなったファイルのインデックスは消さない" -TestCases @(
+    It "中止の合図（shouldStop）が、一覧化のどの時点で立っても、止まったなら Stopped と空の Removed を返し、インデックスは消さない" -TestCases @(
         @{ from = 1 }
         @{ from = 2 }
         @{ from = 3 }
@@ -139,9 +140,9 @@ Describe "createTargetList（サブフォルダ・無くなったファイル）
         } finally {
             Remove-Variable -Name planStopCalls, planStopFrom -Scope Global -ErrorAction SilentlyContinue
         }
-        # 止まったなら、何も消さない（止まらずに最後まで進んだ回は、無くなったファイルとして消える）
+        # 数えるだけで何も消さない（止まらずに最後まで進んだ回は、無くなったファイルとして Removed に返す）
+        Test-Path -LiteralPath $gone | Should -Be $true
         if ($result.Stopped) {
-            Test-Path -LiteralPath $gone | Should -Be $true
             @($result.Removed).Count | Should -Be 0
         } else {
             $result.Removed.Count | Should -Be 1
@@ -164,7 +165,7 @@ Describe "createTargetList（サブフォルダ・無くなったファイル）
         Test-Path -LiteralPath $other | Should -Be $true
     }
 
-    It "置き場の外を指す相対パスの行は、外のフォルダを消さず、例外にもしない" -TestCases @(
+    It "置き場の外を指す相対パスの行があっても、数えは例外にならず、removeBookDir は外のフォルダを消さずにログに出す" -TestCases @(
         @{ rel = "経理\..\..\外\消えた.xlsx"; outsideName = "外" }
         @{ rel = "経理\..\..\index2外\消えた.xlsx"; outsideName = "index2外" }   # 置き場の名前で始まるだけの別のフォルダ
         @{ rel = "経理\..\.."; outsideName = "外" }
@@ -176,7 +177,8 @@ Describe "createTargetList（サブフォルダ・無くなったファイル）
         [System.IO.File]::WriteAllText("$outside\消えた.xlsx\Sheet1.tsv", "1`t見積")
         [System.IO.File]::WriteAllText("$TestDrive\残る.txt", "a")
         $previous = newPrevious @((newStatusRow $rel "2024/01/01 00:00:00" "10" ${stateDone} 1 "2024/01/01 00:00:00"))
-        { createTargetList $folder $previous $null } | Should -Not -Throw
+        $result = createTargetList $folder $previous $null
+        removeBookDir (getBookDir $result.Removed[0])
         Test-Path -LiteralPath "$outside\消えた.xlsx\Sheet1.tsv" | Should -Be $true
         Test-Path -LiteralPath "$TestDrive\残る.txt" | Should -Be $true
         Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*削除しませんでした*" -and $color -eq "Yellow" }
@@ -633,6 +635,17 @@ Describe "IngestPlanner" -Tag Io {
         @($planner.RemovedPaths) | Should -Be @("売上\消えた.xlsx")
     }
 
+    It "取りやめるときは、元のファイルが無くなったファイルの前回の行も残す（インデックスは消していないので、次の回にまた無くなったファイルとして見つける）" {
+        $folders = @([pscustomobject]@{ Path = $source; Name = "売上"; Enabled = $true })
+        $gone = newStatusRow "売上\消えた.xlsx" "2000/01/01 00:00:00" "1" ${stateDone}
+        $planner = newPlanner $folders @($gone)
+        $planner.Crawl((newCounts @{ "売上\消えた.xlsx" = 1 }), $null)
+        $keep = @($planner.KeepForCancel())
+        @($keep | ForEach-Object { $_.相対パス }) | Should -Be @("売上\消えた.xlsx")
+        [object]::ReferenceEquals($keep[0], $gone) | Should -Be $true
+        @($planner.Rows | ForEach-Object { $_.相対パス }) | Should -Not -Contain "売上\消えた.xlsx"
+    }
+
     It "クロールで、取り込み対象・チェックなし・フォルダなし・外れたインデックスを画面に出す件数に分ける" {
         $folders = @(
             [pscustomobject]@{ Path = $source; Name = "売上"; Enabled = $true }
@@ -881,5 +894,109 @@ Describe "IngestPlanner（クラウドにだけあるファイル）" -Tag Io {
         $keep = @($planner.KeepForCancel())
         $keep.Count | Should -Be 1
         [object]::ReferenceEquals($keep[0], $pendingRow) | Should -Be $true
+    }
+}
+
+Describe "getSubfolderRemovedCounts（直下だけに変えたとき、サブフォルダ側で外れる件数）" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "直下だけに変えた（前回は再帰）フォルダは、サブフォルダ側の相対パスだけ数える（直下の無くなったファイルは数えない）"
+           folders = @([pscustomobject]@{ Name = "経理"; Subfolders = $false; IngestedSubfolders = $true })
+           removed = @("経理\2024\下.docx", "経理\2024\奥\深.docx", "経理\直下.docx"); expected = @{ "経理" = 2 } }
+        @{ label = "前回の値が無い（再帰とみなす）ときも数える"
+           folders = @([pscustomobject]@{ Name = "経理"; Subfolders = $false; IngestedSubfolders = $null })
+           removed = @("経理\a\b.docx"); expected = @{ "経理" = 1 } }
+        @{ label = "もともと直下だけ（前回も false）のフォルダは数えない"
+           folders = @([pscustomobject]@{ Name = "経理"; Subfolders = $false; IngestedSubfolders = $false })
+           removed = @("経理\a\b.docx"); expected = @{} }
+        @{ label = "変えていない（含める）フォルダは数えない"
+           folders = @([pscustomobject]@{ Name = "経理"; Subfolders = $true; IngestedSubfolders = $true })
+           removed = @("経理\a\b.docx"); expected = @{} }
+        @{ label = "名前が前方一致するほかのインデックスのパスは数えない"
+           folders = @([pscustomobject]@{ Name = "経理"; Subfolders = $false; IngestedSubfolders = $true })
+           removed = @("経理2\a\b.docx"); expected = @{ "経理" = 0 } }
+    ) {
+        param ($label, $folders, $removed, $expected)
+        $counts = getSubfolderRemovedCounts $folders $removed
+        $counts.Count | Should -Be $expected.Count
+        foreach ($key in $expected.Keys) { $counts[$key] | Should -Be $expected[$key] }
+    }
+}
+
+Describe "IngestPlanner の Plan の SubfolderRemovedCount" -Tag Io {
+    BeforeAll {
+        $kinds = @{ Unchecked = ${planKindUnchecked}; Missing = ${planKindMissing}; Dropped = ${planKindDropped}; StateFailed = ${stateFailed} }
+        ${indexDir} = Join-Path $TestDrive "index_removed_count"
+        $workspace = newTestWorkspace @{ IndexDir = ${indexDir} }
+        $source = Join-Path $TestDrive "removed_count_src"
+        [System.IO.Directory]::CreateDirectory("$source\下") | Out-Null
+        [System.IO.File]::WriteAllText("$source\直下.docx", "dummy")
+        [System.IO.File]::WriteAllText("$source\下\奥.docx", "dummy")
+        function newCountPlanner([bool]$subfolders, $ingested) {
+            $planner = [IngestPlanner]::new($kinds)
+            $info = Get-Item -LiteralPath "$source\直下.docx"
+            $status = @{ Folders = @(); Rows = (newPrevious @(
+                (newStatusRow "経理\下\消えた.docx" "2000/01/01 00:00:00" "1" ${stateDone}),
+                (newStatusRow "経理\下\奥\消えた2.docx" "2000/01/01 00:00:00" "1" ${stateDone}),
+                (newStatusRow "経理\消えた直下.docx" "2000/01/01 00:00:00" "1" ${stateDone}))) }
+            $planner.AssignNames(@([pscustomobject]@{ Name = "経理"; Path = $source; Enabled = $true; Subfolders = $subfolders; IngestedSubfolders = $ingested }), $status)
+            $planner.Crawl((newCounts @{ "経理\下\消えた.docx" = 1; "経理\下\奥\消えた2.docx" = 1; "経理\消えた直下.docx" = 1 }), $null)
+            return $planner
+        }
+    }
+
+    It "直下だけに変えたフォルダの Plan の行に、サブフォルダ側の前回の行の数が入る（直下で本当に無くなったファイルは数えない）" {
+        $planner = newCountPlanner $false $true
+        @($planner.RemovedPaths).Count | Should -Be 3
+        @($planner.Plan)[0].SubfolderRemovedCount | Should -Be 2
+    }
+
+    It "変えていないフォルダ（含める）の行は 0 になる" {
+        $planner = newCountPlanner $true $true
+        @($planner.Plan)[0].SubfolderRemovedCount | Should -Be 0
+    }
+
+    It "もともと直下だけ（前回も false）のフォルダの行は 0 になる" {
+        $planner = newCountPlanner $false $false
+        @($planner.Plan)[0].SubfolderRemovedCount | Should -Be 0
+    }
+}
+
+Describe "createTargetList（直下だけ）" -Tag Io {
+    BeforeAll {
+        $source = Join-Path $TestDrive "top"
+        [System.IO.Directory]::CreateDirectory("$source\2024") | Out-Null
+        [System.IO.File]::WriteAllText("$source\直下.docx", "dummy")
+        [System.IO.File]::WriteAllText("$source\2024\下.docx", "dummy")
+        ${indexDir} = Join-Path $TestDrive "index_top"
+        $workspace = newTestWorkspace @{ IndexDir = ${indexDir} }
+        $settings = Join-Path $TestDrive "top_setting.json"
+        # 設定から読み、名前を割り当てた形（インデクサが createTargetList に渡す形）で組む
+        function newTopFolder([bool]$subfolders) {
+            writeTargetFolders @([pscustomobject]@{ Name = "経理"; Path = $source; Enabled = $true; Subfolders = $subfolders }) $settings
+            return @(assignIndexNames @(getTargetFolders $settings) @())[0]
+        }
+    }
+
+    It "findTargetFiles -TopOnly は、サブフォルダのファイルを入れない" {
+        @((findTargetFiles $source).Files | ForEach-Object { $_.Name } | Sort-Object) | Should -Be @("下.docx", "直下.docx")
+        @((findTargetFiles $source -TopOnly).Files | ForEach-Object { $_.Name }) | Should -Be @("直下.docx")
+    }
+
+    It "Subfolders が <label> のとき、Files に入るのは <count> 件" -TestCases @(
+        @{ label = "true"; value = $true; count = 2 }
+        @{ label = "false"; value = $false; count = 1 }
+    ) {
+        param ($label, $value, $count)
+        $result = createTargetList (newTopFolder $value) (newPrevious) $null
+        $result.Rows.Count | Should -Be $count
+        $result.Targets.Count | Should -Be $count
+    }
+
+    It "直下だけに変えると、前回取り込んだサブフォルダ側のファイルは Removed になる" {
+        $before = createTargetList (newTopFolder $true) (newPrevious) $null
+        $previous = newPrevious $before.Rows
+        $result = createTargetList (newTopFolder $false) $previous $null
+        @($result.Removed) | Should -Be @("経理\2024\下.docx")
+        @($result.Rows | ForEach-Object { $_.相対パス }) | Should -Be @("経理\直下.docx")
     }
 }

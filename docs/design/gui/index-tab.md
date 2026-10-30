@@ -56,7 +56,7 @@
 
 ## 名前とフォルダパスの編集
 
-追加・編集のダイアログは無い。名前とフォルダパスは、詳細の「基本設定」の欄（`IndexDetailName`・`IndexDetailPath`）で直接直す。
+追加・編集のダイアログは無い。名前とフォルダパスは、詳細の「基本設定」の欄（`IndexDetailName`・`IndexDetailPath`）で直接直す。その下のチェック「サブフォルダを含める」（`IndexDetailSubfolders`。既定は付いている＝設定の `subfolders`。説明の行は出さない）は、付け外しをその場で設定に書く（`changeIndexSubfolders`）。更新中・ほかの処理の間は名前・フォルダパスの欄と同じく押せない。外した行は、一覧のパスの右に札「直下のみ」（`TopOnlyTag`。付いている行には出さない）が付く。ステータスは、今の設定（`subfolders`）と前回取り込んだときの設定（`ingestedSubfolders`。インデクサが取り込み終えたときだけ書く）の差から求め（`testIndexSubfoldersPending`）、違えば `要更新`（一覧の行と詳細の「インデックス」の箱の両方）にする。チェックを戻せば差が無くなって外れ、画面を開き直しても設定から求めるので残る。確認ダイアログでは選ばない
 
 ```mermaid
 stateDiagram-v2

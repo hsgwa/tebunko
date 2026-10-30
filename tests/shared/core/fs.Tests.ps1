@@ -1715,3 +1715,35 @@ Describe "testCloudOnlyAttributes" -Tag Unit {
         }
     }
 }
+
+Describe "getFilesNoFollow（TopOnly）" -Tag Io {
+    It "TopOnly を付けると直下のファイルだけを返し、サブフォルダの中は読まない（付けなければ今までどおり下まで読む）" {
+        $dir = "$TestDrive\toponly\普通"
+        writeListFile "$dir\a.tsv" @("a")
+        writeListFile "$dir\下\b.tsv" @("b")
+        writeListFile "$dir\下\さらに下\c.tsv" @("c")
+
+        $top = getFilesNoFollow $dir -TopOnly
+        @($top.Files | ForEach-Object { $_.Name }) | Should -Be @("a.tsv")
+        @($top.Directories | ForEach-Object { $_.Name }) | Should -Be @("下")
+        @((getFilesNoFollow $dir).Files).Count | Should -Be 3
+    }
+
+    It "TopOnly でも、直下のリンクは辿らずに Links に入れる" {
+        $dir = "$TestDrive\toponly\リンク"
+        $outside = "$TestDrive\toponly\外"
+        writeListFile "$dir\a.tsv" @("a")
+        writeListFile "$outside\x.tsv" @("x")
+        $link = "$dir\リンク"
+        $made = $false
+        try {
+            New-Item -ItemType Junction -Path $link -Target $outside -ErrorAction Stop | Out-Null
+            $made = $true
+        } catch { $made = $false }
+        if (-not $made) { Set-ItResult -Skipped -Because "ジャンクションを作れない"; return }
+
+        $top = getFilesNoFollow $dir -TopOnly
+        @($top.Files | ForEach-Object { $_.Name }) | Should -Be @("a.tsv")
+        @($top.Links) | Should -Be @($link)
+    }
+}

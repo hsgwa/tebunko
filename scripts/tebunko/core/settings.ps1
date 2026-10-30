@@ -251,11 +251,14 @@ function updateSettings {
 }
 
 function getTargetFolders {
-    # クロール対象フォルダの一覧（記載順）を返す: @{ Name; Path; Enabled }。
+    # クロール対象フォルダの一覧（記載順）を返す: @{ Name; Path; Enabled; Subfolders; IngestedSubfolders }。
     #   Name   : インデックス名（work\index 直下のフォルダ名）。インデックスの「名前」で、フォルダの置き場所（Path）とは分けて持つ。
     #            Path を書き換えても Name が同じなら同じインデックスとして扱う（取り込み直さない）。空なら取り込み時に割り当てる（assignIndexNames）
     #   Path   : そのフォルダが今置かれている場所
     #   Enabled: false はチェックなし（登録のみで取り込まない）
+    #   Subfolders: false は直下のファイルだけを取り込む（キーが無ければ true = サブフォルダも含める）
+    #   IngestedSubfolders: 前回取り込んだときの Subfolders（インデクサだけが書く。キーが無ければ true = 前回は再帰で取り込んだとみなす）。
+    #            今の Subfolders との差で、画面の［要更新］を求める
     # 同じフォルダ・同じ名前は最初のものだけ使う（名前の重複は、2 つ目以降を空にして割り当て直す）。
     # フォルダ名として使えない名前（.. ・最後が . ・使えない文字など）も空にして割り当て直す（予約名の aux.backup・CON.txt は、既にある名前なのでそのまま使う）。
     # 書き方が違うだけで同じフォルダを指す場合（ネットワークドライブと UNC パスなど）も同じフォルダとみなす
@@ -288,21 +291,61 @@ function getTargetFolders {
         if ($name -ne "" -and -not $seenName.Add($name)) {
             $name = ""
         }
-        $folders.Add([pscustomobject]@{ Name = $name; Path = $folder; Enabled = ($item.enabled -ne $false) })
+        $folders.Add([pscustomobject]@{ Name = $name; Path = $folder; Enabled = ($item.enabled -ne $false); Subfolders = ($item.subfolders -ne $false); IngestedSubfolders = ($item.ingestedSubfolders -ne $false) })
     }
     return $folders.ToArray()
 }
 
 function writeTargetFolders {
-    # クロール対象フォルダの一覧（@{ Name; Path; Enabled } の配列）を保存する
+    # クロール対象フォルダの一覧（@{ Name; Path; Enabled; Subfolders } の配列）を保存する。
+    # 前回取り込んだときの設定（ingestedSubfolders）は、渡された項目に IngestedSubfolders があればその値、無ければファイルにある値をパスで引いて保つ
+    # （画面は IngestedSubfolders を持たずに渡すので、インデクサが書いた値を画面の古い値で上書きしない。ファイルにも無ければ書かない）
     param (
         [object[]]$folders,
         [string]$path = ${settingsFile}
     )
 
-    updateSettings "targetFolders" ([object[]]@($folders | Where-Object { $_ } | ForEach-Object {
-        [pscustomobject]@{ name = [string]$_.Name; path = $_.Path; enabled = [bool]$_.Enabled }
-    })) $path
+    invokeSettingsLocked -path $path -action {
+        $settings = readSettings $path
+        $ingested = @{}
+        foreach ($old in @($settings.targetFolders)) {
+            if ($null -ne $old.ingestedSubfolders) { $ingested[(normalizeFolderPath ([string]$old.path))] = [bool]$old.ingestedSubfolders }
+        }
+        $settings["targetFolders"] = [object[]]@($folders | Where-Object { $_ } | ForEach-Object {
+            $entry = [ordered]@{ name = [string]$_.Name; path = $_.Path; enabled = [bool]$_.Enabled; subfolders = ($_.Subfolders -ne $false) }
+            $key = normalizeFolderPath ([string]$_.Path)
+            if ($null -ne $_.PSObject.Properties["IngestedSubfolders"]) {
+                $entry["ingestedSubfolders"] = ($_.IngestedSubfolders -ne $false)
+            } elseif ($ingested.ContainsKey($key)) {
+                $entry["ingestedSubfolders"] = $ingested[$key]
+            }
+            [pscustomobject]$entry
+        })
+        writeSettings $settings $path
+    }
+}
+
+function setIngestedSubfolders {
+    # インデクサが取り込み終えたフォルダの、そのとき使った subfolders（前回取り込んだときの設定）を書く。
+    # values: パス → bool の表（渡したパスの項目の ingestedSubfolders だけを書き、ほかの項目と値は変えない）。
+    # 設定を読み直して書く（読む → 書くを排他の中で行う。画面での変更を消さない）
+    param (
+        [hashtable]$values,
+        [string]$path = ${settingsFile}
+    )
+
+    $byPath = @{}
+    foreach ($key in $values.Keys) { $byPath[(normalizeFolderPath ([string]$key))] = [bool]$values[$key] }
+    invokeSettingsLocked -path $path -action {
+        $settings = readSettings $path
+        $items = @($settings.targetFolders)
+        foreach ($item in $items) {
+            $key = normalizeFolderPath ([string]$item.path)
+            if ($byPath.ContainsKey($key)) { $item | Add-Member -NotePropertyName ingestedSubfolders -NotePropertyValue $byPath[$key] -Force }
+        }
+        $settings["targetFolders"] = [object[]]$items
+        writeSettings $settings $path
+    }
 }
 
 function mergeAssignedIndexNames {
@@ -331,7 +374,7 @@ function mergeAssignedIndexNames {
         if ($name -eq "" -and $assignedNames.ContainsKey([string]$item.Path) -and $used.Add($assignedNames[[string]$item.Path])) {
             $name = $assignedNames[[string]$item.Path]
         }
-        $result.Add([pscustomobject]@{ Name = $name; Path = $item.Path; Enabled = $item.Enabled })
+        $result.Add([pscustomobject]@{ Name = $name; Path = $item.Path; Enabled = $item.Enabled; Subfolders = $item.Subfolders; IngestedSubfolders = $item.IngestedSubfolders })
     }
     return $result.ToArray()
 }
@@ -407,7 +450,7 @@ function setIndexSourceFolder {
         $targets = @(getTargetFolders $path)
         if (@($targets | Where-Object { & $same $_.Name }).Count -gt 0) {
             writeTargetFolders @($targets | ForEach-Object {
-                if (& $same $_.Name) { [pscustomobject]@{ Name = $_.Name; Path = $folder; Enabled = $_.Enabled } } else { $_ }
+                if (& $same $_.Name) { [pscustomobject]@{ Name = $_.Name; Path = $folder; Enabled = $_.Enabled; Subfolders = $_.Subfolders; IngestedSubfolders = $_.IngestedSubfolders } } else { $_ }
             }) $path
             return
         }
