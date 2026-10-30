@@ -4626,8 +4626,12 @@
 <td>1 行 1 インデックス（設定の順）。列は「フォルダ名」「対象ファイル数」（右寄せ）「ステータス」（<code>StatusBadge</code>）。ボタンは右下に［キャンセル］［更新を開始］の順（主は右）。フォルダ名に カーソルを置くと元のフォルダを、バッジに置くと内訳を ToolTip に出す</td>
 </tr>
 <tr>
-<td>「サブフォルダを含める」</td>
-<td>一覧の列（行ごとのチェック。既定は付いている＝設定の <code>subfolders</code>）。外した行は、名前の右に札 <code>直下のみ</code>（<code>getIndexTopOnlyTagText</code>）。元の選びから変えた行は、件数を灰色にして状態を <code>取り込み直し</code>（黄）にする。変えた行が 1 つでもあれば、合計を <code>更新対象: N フォルダ（件数は数え直したあとに出ます）</code>、表のすぐ下に <code>選びを変えたので、件数を数え直します</code>、主ボタンを <code>数え直して続ける</code> にする（<code>getIndexingRecountView</code>）。［数え直して続ける］を押すと、<strong>ダイアログは開いたまま</strong>、返事 <code>@{ Recount; Changes }</code> をインデクサに返し、全部の行を <code>数え中</code>（件数 <code>…</code>）・チェックは押せない・主ボタンは <code>数え直しています…</code>（押せない。［キャンセル］は押せる）にする（<code>getIndexingRecountingView</code>・<code>startIndexingRecount</code>）。インデクサは、その選びで取り込み対象を数え直し（<code>waitForIngestApproval</code>。設定には書かない）、新しい Plan で確認をもう一度待つ（受け渡しの口の <code>PlanVersion</code> が 1 つ上がる）。ダイアログは 1 秒ごとに <code>PlanVersion</code> を見て、上がっていれば開いたまま一覧・合計を差し替え（<code>updateIndexingConfirmPlan</code>）、主ボタンを <code>更新を開始</code> に戻す。自動では始めない。出直した一覧で何も変えずに［更新を開始］を押せば始まる。確かめた選びは控えておき、インデクサが終わったあと（<code>finishIndexing</code>）に一覧の行へ入れて設定へ書く（数え直しのあとの［キャンセル］でも書く。数え直しに送る前の［キャンセル］では書かない。その選びで取り込み終えた（終わり方 0）ときは、一覧の［要更新］の印を立てず、取りやめ・エラーで終わったときだけ立てる。<code>writeConfirmedChoices</code>・<code>applyConfirmedChoices</code>）。インデクサは、数え直すたびに、無くなったファイルの削除の記録を数え直す前の写し（<code>PendingPublish.SnapshotRemovals</code>）へ戻してから、今の数えの分だけを足す（前の数えにしか無い削除を残さない）。行の見せ方を替えるときは、行（<code>PlanRow</code>）が値を通知する形にし、一覧全体を描き直さない（描き直すとチェックが入れ直されて、付け外しの出来事が止まらずに続くため）</td>
+<td>札 <code>直下のみ</code></td>
+<td>一覧の行の名前の右に、設定が「サブフォルダを含めない」（<code>subfolders</code> が <code>false</code>）の行だけ出す読み取りだけの札（<code>TopOnlyText</code>・<code>getIndexTopOnlyTagText</code>）。ここでは選べない（選ぶのは［インデックス管理］の詳細の「サブフォルダを含める」）。付いている行には何も出さない</td>
+</tr>
+<tr>
+<td>『サブフォルダ側の N 件をインデックスから外します』</td>
+<td>合計（<code>TotalText</code>）のすぐ下の 1 行（<code>SubfolderRemovalNote</code>。11 の淡い文字）。直下だけに変えたフォルダ（今の設定が <code>false</code>・前回取り込んだときが <code>true</code>）で、サブフォルダ側の前回の行がなくなったファイルとして外れる件数（Plan の行の <code>SubfolderRemovedCount</code> の合計。追加の走査はしない）。0 件のときは出さない（<code>getIndexingSubfolderRemovalNote</code>）。［更新を開始］を押すと、その件数のインデックスを削除する</td>
 </tr>
 <tr>
 <td>「ステータス」の表示</td>

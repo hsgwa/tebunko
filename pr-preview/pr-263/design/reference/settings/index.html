@@ -4423,18 +4423,26 @@
 <tr>
 <td><code>getTargetFolders</code></td>
 <td>path（既定 <code>$settingsFile</code>）</td>
-<td><code>@{Name; Path; Enabled; Subfolders}</code> の配列</td>
-<td>クロール対象フォルダ（<code>targetFolders</code>。記載順）。Name はインデックス名、Path は今の置き場所（分けて持つ）。<code>enabled</code> が <code>false</code> はチェックなし（Enabled = <code>$false</code>）。<code>subfolders</code> が <code>false</code> は直下のファイルだけを取り込む（Subfolders = <code>$false</code>。キーが無ければ <code>$true</code> = サブフォルダも含める）。同じフォルダ・同じ名前は最初のものだけ（書き方が違うだけで同じフォルダも <code>testSameFolder</code> で同一とみなす。重複した名前は空にして割り当て直す）</td>
+<td><code>@{Name; Path; Enabled; Subfolders; IngestedSubfolders}</code> の配列</td>
+<td>クロール対象フォルダ（<code>targetFolders</code>。記載順）。Name はインデックス名、Path は今の置き場所（分けて持つ）。<code>enabled</code> が <code>false</code> はチェックなし（Enabled = <code>$false</code>）。<code>subfolders</code> が <code>false</code> は直下のファイルだけを取り込む（Subfolders = <code>$false</code>。キーが無ければ <code>$true</code> = サブフォルダも含める）。<code>ingestedSubfolders</code> は前回取り込んだときの <code>subfolders</code>（IngestedSubfolders。インデクサだけが書く。キーが無ければ <code>$true</code> = 前回は再帰で取り込んだとみなす）。同じフォルダ・同じ名前は最初のものだけ（書き方が違うだけで同じフォルダも <code>testSameFolder</code> で同一とみなす。重複した名前は空にして割り当て直す）</td>
 <td><a href="../../indexing/crawl/#クロール対象フォルダgettargetfolders">クロール対象フォルダと取り込み対象</a></td>
 <td>インデックス作成・画面</td>
 </tr>
 <tr>
 <td><code>writeTargetFolders</code></td>
-<td>folders（<code>@{Name; Path; Enabled; Subfolders}</code> の配列）, path（既定 <code>$settingsFile</code>）</td>
+<td>folders（<code>@{Name; Path; Enabled; Subfolders}</code> の配列。<code>IngestedSubfolders</code> があればそれも）, path（既定 <code>$settingsFile</code>）</td>
 <td>–</td>
-<td>クロール対象フォルダを <code>targetFolders</code> に保存（名前・<code>subfolders</code> も保存する。Subfolders を持たない項目は <code>true</code> で書く）</td>
+<td>クロール対象フォルダを <code>targetFolders</code> に保存（名前・<code>subfolders</code> も保存する。Subfolders を持たない項目は <code>true</code> で書く）。<code>ingestedSubfolders</code> は、渡した項目に IngestedSubfolders があればその値、無ければファイルにある値をパスで引いて保つ（画面の古い値で上書きしない。ファイルにも無ければ書かない）</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>setIngestedSubfolders</code></td>
+<td>values（パス → bool の表）, path（既定 <code>$settingsFile</code>）</td>
+<td>–</td>
+<td>インデクサが取り込み終えたフォルダの、そのとき使った <code>subfolders</code> を <code>ingestedSubfolders</code> に書く（渡したパスの項目だけ。読み直して排他の中で書く）</td>
 <td>同上</td>
-<td>インデックス作成・画面</td>
+<td>インデックス作成（<code>recordIngestedSettings</code>）</td>
 </tr>
 <tr>
 <td><code>mergeAssignedIndexNames</code> / <code>saveAssignedIndexNames</code></td>
