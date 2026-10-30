@@ -505,8 +505,7 @@ function readContentIndexBookNamesStreaming {
     )
 
     $names = New-Object System.Collections.Generic.List[string]
-    $pattern = [regex]::new("^$([regex]::Escape((getContentIndexBookHeadPrefix)))([^
-]*)", [System.Text.RegularExpressions.RegexOptions]::Multiline)
+    $pattern = [regex]::new("^$([regex]::Escape((getContentIndexBookHeadPrefix)))([^\r\n]*)", [System.Text.RegularExpressions.RegexOptions]::Multiline)
     $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
     try {
         $stream = [System.IO.FileStream]::new((toLongPath $path), [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
