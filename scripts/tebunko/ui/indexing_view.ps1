@@ -7,7 +7,7 @@ function newPlanViewRows {
     # 更新の予定（取り込み予定.tsv の行）を、確認のダイアログに出す形にする。
     # 行は Name・Path・TotalText（対象ファイル数）・StatusText（バッジの文言）・Level（バッジの色。Wait / Ok / None / Ng）・DetailText（バッジの ToolTip）
     #   onlyNames: 選んだものだけの回のインデックス名（空なら全部）。選ばなかったものは出さない（「対象外」とも出さない）
-    #   subfolders: インデックス名 → 設定の subfolders（$false は直下のファイルだけを取り込む）。行の Subfolders になる。無い名前は $true（サブフォルダも含める）
+    #   subfolders: インデックス名 → 設定の subfolders（$false は直下のファイルだけを取り込む）。行の TopOnlyText（名前の右の札。読み取りだけ）になる。無い名前は札を出さない
     param (
         $plan,  # readIngestPlan の結果
         [string[]]$onlyNames = @(),
@@ -19,7 +19,7 @@ function newPlanViewRows {
         # 空の配列を渡すと @($plan) に $null が 1 つ入るため、ここで外す
         if ($null -eq $item) { continue }
         if (@($onlyNames).Count -gt 0 -and $item.区分 -ne ${planKindDropped} -and @($onlyNames) -notcontains [string]$item.インデックス名) { continue }
-        $row = @{ Name = $item.インデックス名; Path = $item.元のフォルダ; Subfolders = ($subfolders[[string]$item.インデックス名] -ne $false); Choosable = ($item.区分 -ne ${planKindDropped}) }
+        $row = @{ Name = $item.インデックス名; Path = $item.元のフォルダ; TopOnlyText = (getIndexTopOnlyTagText $subfolders[[string]$item.インデックス名]) }
         if ($item.区分 -eq ${planKindDropped}) {
             # 選んだものだけの回でも出す（［更新を開始］で消えるため、利用者に見せずに消さない）
             $row.TotalText = "－"
@@ -70,87 +70,6 @@ function newPlanViewRows {
         $rows.Add($row)
     }
     return , $rows.ToArray()
-}
-
-function getIndexingRecountView {
-    # 確認ダイアログで選びを変えたときの見せ方。変えた行があれば、合計・説明・主ボタンを数え直しの文言にする。
-    #   rowCount: 一覧の行の数 / changedCount: 選びを変えた行の数
-    # 戻り値: @{ Changed; TotalText; HintText; ButtonText; RowStatusText; RowLevel }（Changed が $false のときほかは空。今までの文言のまま）
-    param (
-        [int]$rowCount,
-        [int]$changedCount
-    )
-
-    if ($changedCount -le 0) {
-        return @{ Changed = $false; TotalText = ""; HintText = ""; ButtonText = ""; RowStatusText = ""; RowLevel = "" }
-    }
-    return @{
-        Changed = $true
-        TotalText = "更新対象: {0:#,0} フォルダ（件数は数え直したあとに出ます）" -f $rowCount
-        HintText = "選びを変えたので、件数を数え直します"
-        ButtonText = "数え直して続ける"
-        RowStatusText = "取り込み直し"
-        RowLevel = "Wait"
-    }
-}
-
-function getIndexingRecountingView {
-    # 確認ダイアログを開いたまま数え直している間の見せ方。全部の行を「数え中」・件数は「…」にし、チェックは押せなくし、
-    # 主ボタンは「数え直しています…」で押せなくする（［キャンセル］は押せる）。
-    # 戻り値: @{ TotalText; HintText; ButtonText; ButtonEnabled; RowCountText; RowStatusText; RowLevel; RowEditable }
-    return @{
-        TotalText = "更新対象: 数え直しています…（［キャンセル］で取りやめ）"
-        HintText = "件数を数え直しています…"
-        ButtonText = "数え直しています…"
-        ButtonEnabled = $false
-        RowCountText = "…"
-        RowStatusText = "数え中"
-        RowLevel = "Run"
-        RowEditable = $false
-    }
-}
-
-function getIndexingConfirmChoiceChanges {
-    # 確認ダイアログで、元の選びから変えた行を返す（［更新を開始］を押したとき、差があれば数え直しにする）。
-    # 行は @{ Name; Subfolders } の配列（元は newPlanViewRows の行、今はダイアログで選び直したあとの行）。
-    # 戻り値: 変えた行の @{ Name; Subfolders }（今の値）の配列。差が無ければ空
-    param (
-        [object[]]$original,
-        [object[]]$current
-    )
-
-    $before = @{}
-    foreach ($row in @($original | Where-Object { $null -ne $_ })) {
-        $before[[string]$row.Name] = ($row.Subfolders -ne $false)
-    }
-    $changes = New-Object System.Collections.Generic.List[object]
-    foreach ($row in @($current | Where-Object { $null -ne $_ })) {
-        $name = [string]$row.Name
-        $now = ($row.Subfolders -ne $false)
-        if ($before.ContainsKey($name) -and $before[$name] -ne $now) {
-            $changes.Add(@{ Name = $name; Subfolders = $now })
-        }
-    }
-    return , $changes.ToArray()
-}
-
-function getIndexingRecountPlan {
-    # ［更新を開始］で、数え直しにするかと、数え直した後にやり直す対象を決める。
-    #   changes   : getIndexingConfirmChoiceChanges の結果
-    #   onlyNames : 今の回の選んだインデックス名（［すべて更新］なら空。やり直しでもそのまま使う）
-    #   canceled  : ［キャンセル］で取りやめたか（取りやめのときは何も書かず、数え直しにもしない）
-    # 戻り値: @{ Recount（数え直すか）; OnlyNames; Changes（設定に書く選び。数え直さないときは空） }
-    param (
-        [object[]]$changes,
-        [string[]]$onlyNames = @(),
-        [bool]$canceled = $false
-    )
-
-    $changes = @($changes | Where-Object { $null -ne $_ })
-    if ($canceled -or $changes.Count -eq 0) {
-        return @{ Recount = $false; OnlyNames = @($onlyNames); Changes = @() }
-    }
-    return @{ Recount = $true; OnlyNames = @($onlyNames); Changes = $changes }
 }
 
 function getIndexingSkippedView {
@@ -376,6 +295,33 @@ function getIndexingConfirmFolderCount {
     return $folders
 }
 
+function getIndexingSubfolderRemovalNote {
+    # 確認の合計の下に出す 1 行。直下だけに変えたフォルダで、サブフォルダ側のファイルをインデックスから外す件数（0 件なら出さない＝空）
+    param (
+        [int]$count
+    )
+
+    if ($count -le 0) {
+        return ""
+    }
+    return "サブフォルダ側の {0:#,0} 件をインデックスから外します" -f $count
+}
+
+function getIndexingSubfolderRemovalCount {
+    # 確認に出す、サブフォルダ側で外れる件数の合計（Plan の行の SubfolderRemovedCount。選んだものだけの回は、選んだ名前の行だけ）
+    param (
+        [object[]]$plan,  # readIngestPlan の結果
+        [string[]]$onlyNames = @()
+    )
+
+    $total = 0
+    foreach ($item in @($plan | Where-Object { $null -ne $_ -and $_.区分 -eq ${planKindIngest} })) {
+        if (-not (testIndexingPlanSelected $item $onlyNames)) { continue }
+        $total += [int]$item.SubfolderRemovedCount
+    }
+    return $total
+}
+
 function getIndexingDroppedCount {
     # 確認に出す「削除予定」（設定から外れたインデックス）の数。選んだものだけの回でも数える
     param (
@@ -392,10 +338,11 @@ function isIndexingConfirmNothing {
         [int]$targets,  # 更新対象のファイル数
         [int]$failed,   # 前回失敗したファイル数
         [int]$dropped,  # 削除予定のインデックスの数（getIndexingDroppedCount）
-        [int]$cloud = 0 # クラウドにだけあるファイル数（1 件でもあれば、ダウンロードして取り込むかを選べるよう、閉じるだけにしない）
+        [int]$cloud = 0, # クラウドにだけあるファイル数（1 件でもあれば、ダウンロードして取り込むかを選べるよう、閉じるだけにしない）
+        [int]$removed = 0 # 直下だけに変えたフォルダで、サブフォルダ側のインデックスを外す件数（あれば、閉じるだけにしない。閉じることが承認扱いになり、見せたまま消してしまうため）
     )
 
-    return ($targets -eq 0 -and $failed -eq 0 -and $dropped -eq 0 -and $cloud -eq 0)
+    return ($targets -eq 0 -and $failed -eq 0 -and $dropped -eq 0 -and $cloud -eq 0 -and $removed -eq 0)
 }
 
 function getIndexingConfirmIntro {
@@ -419,7 +366,8 @@ function getIndexingConfirmText {
         [int]$folders = 0,  # 更新するフォルダの数（失敗分を含めるかは呼び出し側で数える）
         [int]$dropped = 0,  # 削除予定のインデックスの数（getIndexingDroppedCount）
         [int]$cloud = 0,    # クラウドにだけあるファイル数（getIndexingCloudView。取り込み対象には数えていない）
-        [bool]$includeCloud = $false  # クラウドにだけあるファイルもダウンロードして取り込むか
+        [bool]$includeCloud = $false,  # クラウドにだけあるファイルもダウンロードして取り込むか
+        [int]$removed = 0              # サブフォルダ側のインデックスを外す件数（getIndexingSubfolderRemovalCount。あれば閉じるだけにしない）
     )
 
     $total = $targets
@@ -437,6 +385,10 @@ function getIndexingConfirmText {
     }
     if ($dropped -gt 0) {
         return @{ Total = 0; Text = "更新が必要なファイルはありません。" + $tail; Button = "更新を開始" }
+    }
+    if ($removed -gt 0) {
+        # 外すだけの回（直下だけに変えて、取り込む新しいファイルは無い）。件数は、合計の下の 1 行（getIndexingSubfolderRemovalNote）に出す
+        return @{ Total = 0; Text = "更新が必要なファイルはありません。" + $cloudText; Button = "更新を開始" }
     }
     if ($cloud -gt 0) {
         # 閉じるだけにしない（［更新を開始］で、クラウドにだけあるため残すファイルの扱いを進める。取りやめは［キャンセル］）
@@ -602,11 +554,13 @@ function getIndexingConfirmView {
     $cloudAll = getIndexingCloudView $plan $true $onlyNames
     $folders = getIndexingConfirmFolderCount $plan $retry $include $onlyNames
 
+    $removedCount = getIndexingSubfolderRemovalCount $plan $onlyNames
     return @{
+        SubfolderRemovalNote = (getIndexingSubfolderRemovalNote $removedCount)
         Targets        = $targets
         Failed         = $failed
         Dropped        = $dropped
-        Nothing        = (isIndexingConfirmNothing $targets ($failed + $cloudFailed) $dropped $cloudAll.Count)
+        Nothing        = (isIndexingConfirmNothing $targets ($failed + $cloudFailed) $dropped $cloudAll.Count $removedCount)
         RetryVisible   = $retryVisible
         RetryText      = $retryText
         Retry          = $retry
@@ -615,6 +569,6 @@ function getIndexingConfirmView {
         Include        = $include
         CloudWarn      = $(if ($cloudVisible) { getIndexingCloudWarning $cloud.Count $cloud.Bytes } else { "" })
         CloudCheckText = $(if ($cloudVisible) { getIndexingCloudCheckText $cloud.Count } else { "" })
-        Confirm        = (getIndexingConfirmText $targets $failed $retry $folders $dropped $cloud.Count $include)
+        Confirm        = (getIndexingConfirmText $targets $failed $retry $folders $dropped $cloud.Count $include $removedCount)
     }
 }

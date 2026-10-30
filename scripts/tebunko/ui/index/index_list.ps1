@@ -166,7 +166,8 @@ function newFolderItem {
         [string]$path,
         [bool]$enabled,
         [string]$name = "",
-        [bool]$subfolders = $true
+        [bool]$subfolders = $true,
+        [bool]$ingestedSubfolders = $true
     )
 
     $item = New-Object FolderItem
@@ -174,6 +175,7 @@ function newFolderItem {
     $item.Path = $path
     $item.Enabled = $enabled
     $item.Subfolders = $subfolders
+    $item.IngestedSubfolders = $ingestedSubfolders
     $item.TopOnlyText = getIndexTopOnlyTagText $subfolders
     $item.FileCountText = "－"
     $item.LastIngestedText = ""
@@ -281,7 +283,7 @@ function fillTargetItems {
     try {
         $script:targetItems.Clear()
         foreach ($folder in $folders) {
-            $newItem = newFolderItem $folder.Path $folder.Enabled $folder.Name ($folder.Subfolders -ne $false)
+            $newItem = newFolderItem $folder.Path $folder.Enabled $folder.Name ($folder.Subfolders -ne $false) ($folder.IngestedSubfolders -ne $false)
             $newItem.Checked = ($folder.Name -and $checkedNames -contains $folder.Name)
             $script:targetItems.Add($newItem)
         }
@@ -347,6 +349,15 @@ function refreshIndexViewsKeepingStatus {
     setStatus $notice
 }
 
+function syncIngestedSubfolders {
+    # 設定の ingestedSubfolders（前回取り込んだときの subfolders。インデクサだけが書く）を、一覧の行（FolderItem）に読み直す。突き合わせる鍵はパス
+    $byPath = @{}
+    foreach ($folder in @(getTargetFolders)) { $byPath[[string]$folder.Path] = $folder.IngestedSubfolders }
+    foreach ($item in $script:targetItems) {
+        if ($byPath.ContainsKey([string]$item.Path)) { $item.IngestedSubfolders = [bool]$byPath[[string]$item.Path] }
+    }
+}
+
 function applyIndexStats {
     # 取り込み一覧の集計（getIndexStats）を一覧の各行のファイル数・最終更新・「ステータス」列に反映する。
     #   indexing: インデックス作成中か（getIndexRowView にそのまま渡す）
@@ -356,6 +367,9 @@ function applyIndexStats {
         $formatState = $null    # getWorkspaceIndexFormat の結果（インデックスの格納形式の状態）。無ければ $null
     )
 
+    if (!$indexing) {
+        syncIngestedSubfolders   # インデクサが書いた「前回取り込んだときの設定」を読み直す（［要更新］の差の元）
+    }
     foreach ($item in $script:targetItems) {
         $stat = $null
         $formatEntry = $null
@@ -376,14 +390,11 @@ function applyIndexStats {
             } else {
                 ""
             }
-            if ($item.SubfoldersChanged -and $ingested -gt $item.SubfoldersChangedAt) {
-                $item.SubfoldersChanged = $false   # 設定を変えたあとに更新済み
-            }
             $item.FailedCount = [int]$stat.Failed
             $item.PendingCount = [int]$stat.Pending
             $item.SetStats(("{0:#,0}" -f $stat.Total), ("更新済み {0:#,0} 件 ・ 未更新 {1:#,0} 件 ・ 失敗 {2:#,0} 件" -f $stat.Done, $stat.Pending, $stat.Failed), $lastText)
         }
-        $row = getIndexRowView $stat $indexing $item.Enabled (getIndexingRatio) (testIndexInRound $item) (testIndexExporting $item) $formatEntry $item.SubfoldersChanged
+        $row = getIndexRowView $stat $indexing $item.Enabled (getIndexingRatio) (testIndexInRound $item) (testIndexExporting $item) $formatEntry (testIndexSubfoldersPending $item.Subfolders $item.IngestedSubfolders)
         $item.SetIndexState($row.Text, $row.ToolTip, $row.Level, $row.Sub, [double]$row.Percent)
         setIndexRowActions $item
     }

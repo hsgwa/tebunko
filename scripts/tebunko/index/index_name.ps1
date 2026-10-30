@@ -43,7 +43,7 @@ function newIndexName {
 }
 
 function assignIndexNames {
-    # クロール対象フォルダ（getTargetFolders）にインデックス名を割り当て、@{ Path; Enabled; Subfolders; Name } の配列を返す。
+    # クロール対象フォルダ（getTargetFolders）にインデックス名を割り当て、@{ Path; Enabled; Subfolders; IngestedSubfolders; Name } の配列を返す。
     # インデックス名は設定に持つ（getTargetFolders の Name）。フォルダの置き場所（Path）を書き換えても名前は変わらないため、
     # フォルダを移しても同じインデックスとして扱える（インデックスを作り直さない）。
     # 名前が無い場合（新しく追加したフォルダ）は、前回の取り込み一覧の同じパスの名前を使い、
@@ -83,7 +83,7 @@ function assignIndexNames {
             }
             [void]$used.Add($name)
         }
-        $result.Add([pscustomobject]@{ Path = $folder.Path; Enabled = $folder.Enabled; Subfolders = $folder.Subfolders; Name = $name })
+        $result.Add([pscustomobject]@{ Path = $folder.Path; Enabled = $folder.Enabled; Subfolders = $folder.Subfolders; IngestedSubfolders = $folder.IngestedSubfolders; Name = $name })
     }
     return $result.ToArray()
 }

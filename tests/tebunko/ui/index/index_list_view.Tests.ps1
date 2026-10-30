@@ -141,6 +141,48 @@ Describe "getIndexTabButtonsEnabled" -Tag Unit {
     }
 }
 
+Describe "getIndexTopOnlyTagText（直下のみの札）" -Tag Unit {
+    It "Subfolders が <label> のとき、札の文言は「<text>」" -TestCases @(
+        @{ label = "false（直下だけ）"; value = $false; text = "直下のみ" }
+        @{ label = "true（含める）"; value = $true; text = "" }
+        @{ label = "未設定（既定は含める）"; value = $null; text = "" }
+    ) {
+        param ($label, $value, $text)
+        getIndexTopOnlyTagText $value | Should -Be $text
+    }
+}
+
+Describe "testIndexSubfoldersPending（サブフォルダの設定が前回取り込んだときと違うか）" -Tag Unit {
+    It "今 <now>・前回 <ingested> → <expected>" -TestCases @(
+        @{ now = $false; ingested = $true; expected = $true }
+        @{ now = $true; ingested = $true; expected = $false }
+        @{ now = $false; ingested = $false; expected = $false }
+        @{ now = $true; ingested = $false; expected = $true }
+        @{ now = $false; ingested = $null; expected = $true }
+        @{ now = $true; ingested = $null; expected = $false }
+    ) {
+        param ($now, $ingested, $expected)
+        testIndexSubfoldersPending $now $ingested | Should -Be $expected
+    }
+}
+
+Describe "getIndexRowView（サブフォルダの設定の差）" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "差があれば、取り込み済みでも要更新（キー無し＝前回は含めるで、今 false の行を含む）"; stat = @{ Total = 10; Done = 10; Pending = 0; Failed = 0 }; pending = $true; text = "要更新"; level = "Wait" }
+        @{ label = "差が無ければ元の状態（最新）"; stat = @{ Total = 10; Done = 10; Pending = 0; Failed = 0 }; pending = $false; text = "最新"; level = "Ok" }
+        @{ label = "まだ作っていない行は、差があっても未作成を先に返す"; stat = $null; pending = $true; text = "未作成"; level = "None" }
+    ) {
+        param ($label, $stat, $pending, $text, $level)
+        $view = getIndexRowView $stat $false $true 0.0 $true $false $null $pending
+        $view.Text | Should -Be $text
+        $view.Level | Should -Be $level
+    }
+
+    It "差があっても、更新中の行は更新中を優先する" {
+        (getIndexRowView @{ Total = 10; Done = 3; Pending = 7; Failed = 0 } $true $true 0.5 $true $false $null $true).Text | Should -Be "更新中"
+    }
+}
+
 Describe "getIndexCheckedItems（チェックを付けている行）" -Tag Unit {
     It "Checked の行だけを返す（チェックは保存しないその場の選び。設定の enabled とは別）" {
         $items = @(@{ Name = "営業"; Checked = $true; Enabled = $false }, @{ Name = "経理"; Checked = $false; Enabled = $true }, $null, @{ Name = "人事"; Checked = $true })
@@ -268,17 +310,6 @@ Describe "getIndexRowActions（行の右端のボタン）" -Tag Unit {
     }
 }
 
-Describe "getIndexTopOnlyTagText（一覧の札）" -Tag Unit {
-    It "Subfolders が <label> のとき、札の文言は「<text>」" -TestCases @(
-        @{ label = "false（直下だけ）"; value = $false; text = "直下のみ" }
-        @{ label = "true"; value = $true; text = "" }
-        @{ label = "無い（既定）"; value = $null; text = "" }
-    ) {
-        param ($label, $value, $text)
-        getIndexTopOnlyTagText $value | Should -Be $text
-    }
-}
-
 Describe "getIndexRowView" -Tag Unit {
     It "<label>" -TestCases @(
         @{ label = "更新中・チェックあり: 更新中（Pending があっても優先）"
@@ -305,16 +336,6 @@ Describe "getIndexRowView" -Tag Unit {
         $view.Text | Should -Be $text
         $view.Sub | Should -Be $sub
         $view.Level | Should -Be $level
-    }
-
-    It "サブフォルダの設定を変えたあと（subfoldersChanged）は、取り込み済みでも要更新。更新中・未作成はそちらを優先する" -TestCases @(
-        @{ stat = @{ Total = 10; Done = 10; Pending = 0; Failed = 0 }; indexing = $false; text = "要更新" }
-        @{ stat = @{ Total = 10; Done = 10; Pending = 0; Failed = 1 }; indexing = $false; text = "要更新" }
-        @{ stat = @{ Total = 10; Done = 3; Pending = 7; Failed = 0 }; indexing = $true; text = "更新中" }
-        @{ stat = $null; indexing = $false; text = "未作成" }
-    ) {
-        param ($stat, $indexing, $text)
-        (getIndexRowView $stat $indexing $true -1.0 $true $false $null $true).Text | Should -Be $text
     }
 
     It "更新中の行は、進みの割合（0〜1）から「更新中 N%」と棒の長さ（Percent）を出す。割合が分からなければ割合なし" -TestCases @(

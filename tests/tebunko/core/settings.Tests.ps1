@@ -919,3 +919,60 @@ Describe "targetFolders の subfolders（直下だけ）" -Tag Io {
         $folders[0].Subfolders | Should -Be $false
     }
 }
+
+Describe "targetFolders の ingestedSubfolders（前回取り込んだときの設定）" -Tag Io {
+    It "ingestedSubfolders が <label> のとき IngestedSubfolders は <expected>（無ければ前回は再帰とみなす）" -TestCases @(
+        @{ label = "無い"; json = '{ "path": "C:\\data\\a", "subfolders": false }'; expected = $true }
+        @{ label = "true"; json = '{ "path": "C:\\data\\a", "ingestedSubfolders": true }'; expected = $true }
+        @{ label = "false"; json = '{ "path": "C:\\data\\a", "ingestedSubfolders": false }'; expected = $false }
+    ) {
+        param ($label, $json, $expected)
+        $path = "$TestDrive\ingested_read_$label.json"
+        [System.IO.File]::WriteAllText($path, "{ `"targetFolders`": [ $json ] }", ${utf8Bom})
+        @(getTargetFolders $path)[0].IngestedSubfolders | Should -Be $expected
+    }
+
+    It "setIngestedSubfolders は、渡したパスの項目の分だけを書き、ほかの項目と値は変えない" {
+        $path = "$TestDrive\ingested_set.json"
+        writeTargetFolders @(
+            [pscustomobject]@{ Name = "見積"; Path = "C:\data\見積"; Enabled = $true; Subfolders = $false },
+            [pscustomobject]@{ Name = "営業"; Path = "C:\data\営業"; Enabled = $true; Subfolders = $true }
+        ) $path
+        setIngestedSubfolders @{ "C:\data\見積" = $false } $path
+        $folders = @(getTargetFolders $path)
+        $folders[0].IngestedSubfolders | Should -Be $false
+        $folders[0].Subfolders | Should -Be $false
+        $folders[1].IngestedSubfolders | Should -Be $true
+        ([System.IO.File]::ReadAllText($path)) | Should -Not -Match "営業[^}]*ingestedSubfolders"
+    }
+
+    It "writeTargetFolders は、渡した一覧に IngestedSubfolders が無くても、ファイルにある値をパスで保つ（画面の古い値で上書きしない）" {
+        $path = "$TestDrive\ingested_keep.json"
+        writeTargetFolders @([pscustomobject]@{ Name = "見積"; Path = "C:\data\見積"; Enabled = $true; Subfolders = $true }) $path
+        setIngestedSubfolders @{ "C:\data\見積" = $false } $path
+        # 画面は IngestedSubfolders を持たずに保存する（名前と有効・無効だけを変える）
+        writeTargetFolders @([pscustomobject]@{ Name = "見積"; Path = "C:\data\見積"; Enabled = $false; Subfolders = $false }) $path
+        $folder = @(getTargetFolders $path)[0]
+        $folder.IngestedSubfolders | Should -Be $false
+        $folder.Enabled | Should -Be $false
+        $folder.Subfolders | Should -Be $false
+    }
+
+    It "ファイルに値が無い項目は、writeTargetFolders でも ingestedSubfolders を書かない" {
+        $path = "$TestDrive\ingested_none.json"
+        writeTargetFolders @([pscustomobject]@{ Name = "見積"; Path = "C:\data\見積"; Enabled = $true; Subfolders = $false }) $path
+        ([System.IO.File]::ReadAllText($path)) | Should -Not -Match "ingestedSubfolders"
+    }
+
+    It "名前の割り当て・パスの付け替えのあとも ingestedSubfolders が保たれる" {
+        $path = "$TestDrive\ingested_assign.json"
+        writeTargetFolders @([pscustomobject]@{ Name = ""; Path = "C:\data\見積"; Enabled = $true; Subfolders = $false }) $path
+        setIngestedSubfolders @{ "C:\data\見積" = $false } $path
+        [void](saveAssignedIndexNames @([pscustomobject]@{ Name = "見積"; Path = "C:\data\見積"; Enabled = $true; Subfolders = $true }) $path)
+        @(getTargetFolders $path)[0].IngestedSubfolders | Should -Be $false
+        setIndexSourceFolder "見積" "D:\新\見積" $path
+        $moved = @(getTargetFolders $path)[0]
+        $moved.Path | Should -Be "D:\新\見積"
+        $moved.IngestedSubfolders | Should -Be $false
+    }
+}

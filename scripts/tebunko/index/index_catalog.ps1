@@ -167,6 +167,11 @@ class IndexCatalog {
         return @(saveAssignedIndexNames $assigned $this.SettingsPath)
     }
 
+    [void] StoreIngestedSubfolders($values) {
+        # 取り込み終えたフォルダが使った subfolders（パス → bool の表）を、設定の ingestedSubfolders に書く（インデクサだけが書く）
+        setIngestedSubfolders $values $this.SettingsPath
+    }
+
     [void] SaveTargets($folders) {
         # インデックスの一覧（@{ Name; Path; Enabled; Subfolders } の配列）を設定に書く
         writeTargetFolders $folders $this.SettingsPath

@@ -1,8 +1,8 @@
 {
     "targetFolders": [
-        { "name": "資料", "path": "C:\\tebunko_golden\\source\\資料", "enabled": true },
+        { "name": "資料", "path": "C:\\tebunko_golden\\source\\資料", "enabled": true, "ingestedSubfolders": true },
         { "name": "(株)山田商事", "path": "C:\\tebunko_golden\\source\\(株)山田商事", "enabled": false, "subfolders": false },
-        { "name": "共有資料", "path": "C:\\tebunko_golden\\source\\共有資料", "enabled": true, "subfolders": true }
+        { "name": "共有資料", "path": "C:\\tebunko_golden\\source\\共有資料", "enabled": true, "subfolders": true, "ingestedSubfolders": false }
     ],
     "indexSources": [
         { "name": "共有資料", "path": "\\\\golden-server\\共有資料" }
@@ -23,9 +23,9 @@
     "ingestThreads": 2,
     "functions": {
         "getTargetFolders": [
-            { "Name": "資料", "Path": "C:\\tebunko_golden\\source\\資料", "Enabled": true, "Subfolders": true },
-            { "Name": "(株)山田商事", "Path": "C:\\tebunko_golden\\source\\(株)山田商事", "Enabled": false, "Subfolders": false },
-            { "Name": "共有資料", "Path": "C:\\tebunko_golden\\source\\共有資料", "Enabled": true, "Subfolders": true }
+            { "Name": "資料", "Path": "C:\\tebunko_golden\\source\\資料", "Enabled": true, "Subfolders": true, "IngestedSubfolders": true },
+            { "Name": "(株)山田商事", "Path": "C:\\tebunko_golden\\source\\(株)山田商事", "Enabled": false, "Subfolders": false, "IngestedSubfolders": true },
+            { "Name": "共有資料", "Path": "C:\\tebunko_golden\\source\\共有資料", "Enabled": true, "Subfolders": true, "IngestedSubfolders": false }
         ],
         "readIndexSources": [
             { "Name": "共有資料", "Path": "\\\\golden-server\\共有資料" }

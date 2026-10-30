@@ -2,6 +2,7 @@
 BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
     . "${scriptsDir}\tebunko\ui\indexing_view.ps1"
+    . "${scriptsDir}\tebunko\ui\index\index_list_view.ps1"  # getIndexTopOnlyTagText（札の文言）
 
     function newPlanItem {
         param ([string]$kind, [int]$files = 0, [int]$targets = 0, [int]$new = 0, [int]$updated = 0, [int]$failed = 0,
@@ -53,6 +54,62 @@ Describe "newPlanViewRows" -Tag Unit {
     It "行が無ければ空の配列" {
         $views = newPlanViewRows @()
         @($views).Count | Should -Be 0
+    }
+}
+
+Describe "newPlanViewRows（直下のみの札）" -Tag Unit {
+    It "subfolders が <label> の名前の行の TopOnlyText は「<text>」" -TestCases @(
+        @{ label = "false"; subfolders = @{ "売上" = $false }; text = "直下のみ" }
+        @{ label = "true"; subfolders = @{ "売上" = $true }; text = "" }
+        @{ label = "表に無い"; subfolders = @{}; text = "" }
+    ) {
+        param ($label, $subfolders, $text)
+        $row = (newPlanViewRows (newPlanItem ${planKindIngest} 120 12 10 2) @() $subfolders)[0]
+        $row.TopOnlyText | Should -Be $text
+    }
+}
+
+Describe "getIndexingSubfolderRemovalNote・getIndexingSubfolderRemovalCount" -Tag Unit {
+    It "件数 <count> の文言は「<text>」" -TestCases @(
+        @{ count = 0; text = "" }
+        @{ count = 3; text = "サブフォルダ側の 3 件をインデックスから外します" }
+        @{ count = 1234; text = "サブフォルダ側の 1,234 件をインデックスから外します" }
+    ) {
+        param ($count, $text)
+        getIndexingSubfolderRemovalNote $count | Should -Be $text
+    }
+
+    It "確認に出す件数は、取り込む行の SubfolderRemovedCount の合計（選んだものだけの回は選んだ名前だけ。値が無い行は 0）" {
+        $a = newPlanItem ${planKindIngest} 10 1 1 0 0 0 0 0 0 "売上"
+        $a | Add-Member -NotePropertyName SubfolderRemovedCount -NotePropertyValue 2
+        $b = newPlanItem ${planKindIngest} 10 1 1 0 0 0 0 0 0 "経理"
+        $b | Add-Member -NotePropertyName SubfolderRemovedCount -NotePropertyValue 5
+        $c = newPlanItem ${planKindIngest} 10 1 1 0 0 0 0 0 0 "総務"
+        getIndexingSubfolderRemovalCount @($a, $b, $c) | Should -Be 7
+        getIndexingSubfolderRemovalCount @($a, $b, $c) @("売上") | Should -Be 2
+    }
+
+    It "サブフォルダ側を外す件数があれば、取り込むファイルが無くても『何も無い』にせず、［更新を開始］と取りやめを選べる（閉じるだけにすると、見せたまま消してしまう）" {
+        isIndexingConfirmNothing 0 0 0 0 0 | Should -Be $true
+        isIndexingConfirmNothing 0 0 0 0 3 | Should -Be $false
+        $text = getIndexingConfirmText 0 0 $false 1 0 0 $false 3
+        $text.Button | Should -Be "更新を開始"
+        $text.Total | Should -Be 0
+        $a = newPlanItem ${planKindIngest} 10 0 0 0 0 0 0 0 0 "売上"
+        $a | Add-Member -NotePropertyName SubfolderRemovedCount -NotePropertyValue 3
+        $view = getIndexingConfirmView @($a)
+        $view.Nothing | Should -Be $false
+        $view.Confirm.Button | Should -Be "更新を開始"
+    }
+
+    It "getIndexingConfirmView は、件数があれば SubfolderRemovalNote に文言を、無ければ空を返す" -TestCases @(
+        @{ removed = 4; note = "サブフォルダ側の 4 件をインデックスから外します" }
+        @{ removed = 0; note = "" }
+    ) {
+        param ($removed, $note)
+        $a = newPlanItem ${planKindIngest} 10 1 1 0 0 0 0 0 0 "売上"
+        $a | Add-Member -NotePropertyName SubfolderRemovedCount -NotePropertyValue $removed
+        (getIndexingConfirmView @($a)).SubfolderRemovalNote | Should -Be $note
     }
 }
 
@@ -592,72 +649,5 @@ Describe "getIndexingConfirmText（失敗分の更新し直し × クラウド�
         $view.Total | Should -Be $total
         $view.Text | Should -Be $text
         $view.Button | Should -Be "更新を開始"
-    }
-}
-
-Describe "newPlanViewRows（Subfolders）" -Tag Unit {
-    It "設定の subfolders を行の Subfolders にする（false は false、true・無い名前は true）" {
-        $plan = @((newPlanItem ${planKindIngest} 1 0 0 0 0 0 0 0 0 "見積"), (newPlanItem ${planKindIngest} 1 0 0 0 0 0 0 0 0 "営業"), (newPlanItem ${planKindIngest} 1 0 0 0 0 0 0 0 0 "経理"))
-        $rows = newPlanViewRows $plan @() @{ "見積" = $false; "営業" = $true }
-        @($rows | ForEach-Object { $_.Subfolders }) | Should -Be @($false, $true, $true)
-    }
-}
-
-Describe "getIndexingConfirmChoiceChanges" -Tag Unit {
-    It "<label>" -TestCases @(
-        @{ label = "変えていない: 差なし"; original = @(@{ Name = "見積"; Subfolders = $true }); current = @(@{ Name = "見積"; Subfolders = $true }); names = @() }
-        @{ label = "1 行だけ外した: その名前と false を返す"; original = @(@{ Name = "見積"; Subfolders = $true }, @{ Name = "営業"; Subfolders = $true }); current = @(@{ Name = "見積"; Subfolders = $false }, @{ Name = "営業"; Subfolders = $true }); names = @("見積:False") }
-        @{ label = "直下だけの行を付け直した: true を返す"; original = @(@{ Name = "見積"; Subfolders = $false }); current = @(@{ Name = "見積"; Subfolders = $true }); names = @("見積:True") }
-        @{ label = "元に無い名前は見ない"; original = @(@{ Name = "見積"; Subfolders = $true }); current = @(@{ Name = "営業"; Subfolders = $false }); names = @() }
-        @{ label = "空: 差なし"; original = @(); current = @(); names = @() }
-    ) {
-        param ($label, $original, $current, $names)
-        $changes = getIndexingConfirmChoiceChanges $original $current
-        @($changes | ForEach-Object { "$($_.Name):$($_.Subfolders)" }) | Should -Be $names
-    }
-}
-
-Describe "getIndexingRecountPlan" -Tag Unit {
-    It "<label>" -TestCases @(
-        @{ label = "差あり: 数え直す（選んだ名前はそのまま）"; changes = @(@{ Name = "見積"; Subfolders = $false }); only = @("見積"); canceled = $false; recount = $true; onlyOut = @("見積"); count = 1 }
-        @{ label = "差あり・［すべて更新］: 数え直す（名前は空のまま）"; changes = @(@{ Name = "見積"; Subfolders = $false }); only = @(); canceled = $false; recount = $true; onlyOut = @(); count = 1 }
-        @{ label = "差なし: 数え直さない（そのまま開始する）"; changes = @(); only = @("見積"); canceled = $false; recount = $false; onlyOut = @("見積"); count = 0 }
-        @{ label = "取りやめ: 差があっても数え直さず、何も書かない"; changes = @(@{ Name = "見積"; Subfolders = $false }); only = @("見積"); canceled = $true; recount = $false; onlyOut = @("見積"); count = 0 }
-    ) {
-        param ($label, $changes, $only, $canceled, $recount, $onlyOut, $count)
-        $plan = getIndexingRecountPlan $changes $only $canceled
-        $plan.Recount | Should -Be $recount
-        @($plan.OnlyNames) | Should -Be $onlyOut
-        @($plan.Changes).Count | Should -Be $count
-    }
-}
-
-Describe "getIndexingRecountView" -Tag Unit {
-    It "選びを変えた行が 0 のとき: 今までの文言のまま（Changed は偽）" {
-        (getIndexingRecountView 3 0).Changed | Should -BeFalse
-    }
-
-    It "選びを変えた行があるとき: 合計・説明・主ボタン・行の状態を数え直しの文言にする" {
-        $view = getIndexingRecountView 2 1
-        $view.Changed | Should -BeTrue
-        $view.TotalText | Should -Be "更新対象: 2 フォルダ（件数は数え直したあとに出ます）"
-        $view.HintText | Should -Be "選びを変えたので、件数を数え直します"
-        $view.ButtonText | Should -Be "数え直して続ける"
-        $view.RowStatusText | Should -Be "取り込み直し"
-        $view.RowLevel | Should -Be "Wait"
-    }
-}
-
-Describe "getIndexingRecountingView" -Tag Unit {
-    It "数え直している間: 行は数え中・件数は…・チェックは押せず、主ボタンは数え直しています…で押せない" {
-        $view = getIndexingRecountingView
-        $view.RowStatusText | Should -Be "数え中"
-        $view.RowLevel | Should -Be "Run"
-        $view.RowCountText | Should -Be "…"
-        $view.RowEditable | Should -BeFalse
-        $view.ButtonText | Should -Be "数え直しています…"
-        $view.ButtonEnabled | Should -BeFalse
-        $view.TotalText | Should -Be "更新対象: 数え直しています…（［キャンセル］で取りやめ）"
-        $view.HintText | Should -Be "件数を数え直しています…"
     }
 }

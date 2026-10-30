@@ -805,27 +805,28 @@ function completeIngestJob {
     flushPendingPublish $pending $run.Journal -Stage "IngestFlush"
 }
 
-function applyRecountChoices {
-    # 確認で選びを変えたとき（Recount の Changes。@{ Name; Subfolders } の配列）を、クロール対象フォルダの写しに当てて返す
-    # （設定には書かない。書くのは画面が、インデクサが終わったあと）。名前からフォルダ（Path）を引いて、その項目の Subfolders を替える
+function recordIngestedSettings {
+    # 取り込み終えた回（終わり方 0）のあとに、その回に取り込んだフォルダ（行の［更新］なら選んだものだけ。チェックなし・フォルダなしは入らない）が
+    # 使った subfolders を、設定の ingestedSubfolders に書く（前回取り込んだときの設定。画面の［要更新］は今の設定との差で求める）。
+    # 取りやめ・中止・エラーの回では呼ばない。書けなくても取り込みの結果は変えず、ログに残す
     param (
-        $targetFolders,
-        $assignedFolders,  # 名前を割り当てたフォルダ（@{ Name; Path } の並び）
-        $changes
+        $planner,
+        $catalog
     )
 
-    $pathOf = @{}
-    foreach ($folder in @($assignedFolders)) { $pathOf[[string]$folder.Name] = [string]$folder.Path }
-    $copy = New-Object System.Collections.Generic.List[object]
-    foreach ($item in @($targetFolders)) {
-        $changed = @($changes | Where-Object { $pathOf.ContainsKey([string]$_.Name) -and [string]$pathOf[[string]$_.Name] -eq [string]$item.Path }) | Select-Object -First 1
-        $subfolders = if ($changed) { [bool]$changed.Subfolders } else { $item.Subfolders }
-        # 名前は、1 回目に割り当てた名前（名前がまだ無い新しいフォルダでも、数え直しのたびに割り当て直さず、同じ名前にする）
-        $assignedName = @($assignedFolders | Where-Object { [string]$_.Path -eq [string]$item.Path } | ForEach-Object { $_.Name }) | Select-Object -First 1
-        $name = if ($assignedName) { $assignedName } else { $item.Name }
-        $copy.Add([pscustomobject]@{ Name = $name; Path = $item.Path; Enabled = $item.Enabled; Subfolders = $subfolders })
+    $names = @($planner.Plan | Where-Object { $_.区分 -eq ${planKindIngest} } | ForEach-Object { [string]$_.インデックス名 })
+    $values = @{}
+    foreach ($folder in @($planner.Folders | Where-Object { $_ -and $names -contains [string]$_.Name })) {
+        $values[[string]$folder.Path] = ($folder.Subfolders -ne $false)
     }
-    return , $copy.ToArray()
+    if ($values.Count -eq 0) {
+        return
+    }
+    try {
+        $catalog.StoreIngestedSubfolders($values)
+    } catch {
+        writeIndexerLog "前回取り込んだときのサブフォルダの設定を保存できませんでした。画面の［要更新］の判定が実際と合わないことがあります。（$($_.Exception.Message)）" "Yellow"
+    }
 }
 
 function applyRemovedPaths {
@@ -841,40 +842,6 @@ function applyRemovedPaths {
         removeBookDir (getBookDir $removedPath)
         $pending.Add($removedPath, $true)
     }
-}
-
-function waitForIngestApproval {
-    # 画面の確認の返事を待つ。選びを変えた返事（Recount）のときは、その選びで数え直して、新しい Plan でもう一度待つ（確認は閉じない）。
-    # 戻り値: @{ Answer（取り込む・取りやめ。数え直しは含まない）; Planner（今の数えの結果。数え直していれば新しいもの） }
-    param (
-        $planner,
-        $reporter,
-        $channel,
-        $targetFolders,
-        $status,
-        $indexCounts,
-        [int]$timeoutMinutes
-    )
-
-    $answer = $reporter.WaitForApproval(${indexingPhaseConfirm}, $planner.Plan.ToArray(), $planner.Targets.Count, $planner.Failed.Count, $timeoutMinutes)
-    while ($null -ne $answer -and $answer.Recount) {
-        $targetFolders = applyRecountChoices $targetFolders $planner.Folders $answer.Changes
-        $recounted = [IngestPlanner]::new(@{
-            Unchecked = ${planKindUnchecked}; Missing = ${planKindMissing}; Dropped = ${planKindDropped}; StateFailed = ${stateFailed}
-        })
-        $recounted.AssignNames($targetFolders, $status)
-        if (@($channel.OnlyNames).Count -gt 0) {
-            $channel.OnlySkipped = @($recounted.SelectOnly([string[]]@($channel.OnlyNames)))
-        }
-        writeIndexerLog "選びを変えたため、取り込み対象を数え直します。"
-        $recounted.Crawl($indexCounts, { }, { [bool]$channel.Stop }.GetNewClosure())
-        $planner = $recounted
-        if ($planner.Stopped -or $channel.Stop) {
-            return @{ Answer = $null; Planner = $planner }
-        }
-        $answer = $reporter.WaitForApproval(${indexingPhaseConfirm}, $planner.Plan.ToArray(), $planner.Targets.Count, $planner.Failed.Count, $timeoutMinutes)
-    }
-    return @{ Answer = $answer; Planner = $planner }
 }
 
 function invokeIndexerBody {
@@ -1069,10 +1036,7 @@ function invokeIndexerBody {
     }
     if ($channel.ConfirmTargets) {
         $script:ingestTiming.Mark()
-        $approval = waitForIngestApproval $planner $reporter $channel $targetFolders $status $indexCounts $approvalTimeoutMinutes
-        $answer = $approval.Answer
-        $planner = $approval.Planner
-        $rows = $planner.Rows; $targets = $planner.Targets; $failed = $planner.Failed; $plan = $planner.Plan; $cloudAll = $planner.Cloud
+        $answer = $reporter.WaitForApproval(${indexingPhaseConfirm}, $plan.ToArray(), $targets.Count, $failed.Count, $approvalTimeoutMinutes)
         $script:ingestTiming.Lap("Wait")
         if ($null -eq $answer) {
             return (cancelBeforeIngest "画面で取りやめたため、取り込みません。（取り込み一覧は前回のままです）")
@@ -1183,6 +1147,7 @@ function invokeIndexerBody {
         completeRoundIndexes $roundNames
         $reporter.Progress(${indexingPhaseFinish}, 0, 0, 0, $(if ($cloudSkipped -eq 0) { "更新が必要なファイルはありませんでした" } else { "クラウドにだけあるファイルは、ダウンロードせずに残しました" }))
         removeTmpDir
+        recordIngestedSettings $planner $catalog
         return 0
     }
 
@@ -1381,5 +1346,6 @@ function invokeIndexerBody {
     if ($stopped) {
         return 2
     }
+    recordIngestedSettings $planner $catalog
     return 0
 }

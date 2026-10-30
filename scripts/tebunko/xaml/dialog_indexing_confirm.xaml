@@ -60,13 +60,6 @@
       </StackPanel>
     </Border>
 
-    <!-- 選びを変えたときの 1 行（件数を数え直すこと。getIndexingRecountView）。表のすぐ下に出す -->
-    <StackPanel x:Name="RecountHint" DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="2,10,0,0" Visibility="Collapsed">
-      <Path Data="{StaticResource Icon.RefreshCw}" Width="13" Height="13" Stretch="Uniform" Stroke="{StaticResource Accent}" StrokeThickness="2"
-            StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" VerticalAlignment="Center" Margin="0,0,6,0" />
-      <TextBlock x:Name="RecountHintText" Style="{StaticResource Meta}" FontSize="12" VerticalAlignment="Center" />
-    </StackPanel>
-
     <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
       <!-- 見出し。左のアイコンは、確認のメッセージ（dialog_confirm.xaml）と同じ「?」 -->
       <DockPanel>
@@ -83,7 +76,11 @@
     <Border BorderBrush="{StaticResource Border.Soft}" BorderThickness="1" CornerRadius="6" ClipToBounds="True">
       <DockPanel>
       <Border DockPanel.Dock="Bottom" Background="{StaticResource Bg.Summary}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,1,0,0" Padding="12,8">
-        <TextBlock x:Name="TotalText" Style="{StaticResource Label.Strong}" TextWrapping="Wrap" />
+        <StackPanel>
+          <TextBlock x:Name="TotalText" Style="{StaticResource Label.Strong}" TextWrapping="Wrap" />
+          <!-- 直下だけに変えたフォルダで、サブフォルダ側を外す件数（getIndexingSubfolderRemovalNote。0 件のときは隠す） -->
+          <TextBlock x:Name="SubfolderRemovalNote" Style="{StaticResource Meta}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
+        </StackPanel>
       </Border>
       <DataGrid x:Name="PlanGrid" MinHeight="120" BorderThickness="0" CanUserAddRows="False" SelectionMode="Single" CanUserSortColumns="False">
         <DataGrid.Columns>
@@ -92,8 +89,8 @@
               <DataTemplate>
                 <StackPanel Orientation="Horizontal" ToolTip="{Binding Path}">
                   <TextBlock Style="{StaticResource Cell.Key}" Text="{Binding Name}" />
-                  <!-- 今の選びが「サブフォルダを含めない」の行だけに出す札（TopOnlyText が空なら隠す） -->
-                  <Border Background="{StaticResource Bg.Tag}" CornerRadius="3" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
+                  <!-- 設定が「サブフォルダを含めない」の行だけに出す札（読み取りだけ。選ぶのは［インデックス管理］の詳細）。TopOnlyText が空なら隠す -->
+                  <Border Background="{StaticResource Bg.Tag}" CornerRadius="3" Padding="6,1" Margin="6,0,0,0" VerticalAlignment="Center">
                     <TextBlock Text="{Binding TopOnlyText}" FontSize="10" FontWeight="Medium" Foreground="{StaticResource Ink.Muted}" />
                     <Border.Style>
                       <Style TargetType="Border">
@@ -110,25 +107,7 @@
           <DataGridTemplateColumn Header="対象ファイル数" Width="120">
             <DataGridTemplateColumn.CellTemplate>
               <DataTemplate>
-                <TextBlock HorizontalAlignment="Stretch">
-                  <TextBlock.Style>
-                    <Style TargetType="TextBlock" BasedOn="{StaticResource Cell.Number}">
-                      <Setter Property="Text" Value="{Binding TotalText}" />
-                      <Style.Triggers>
-                        <!-- 選びを変えた行は、件数が古いので灰色にする（数え直したあとに出直す） -->
-                        <DataTrigger Binding="{Binding Changed}" Value="True"><Setter Property="Foreground" Value="{StaticResource Ink.Muted}" /></DataTrigger>
-                      </Style.Triggers>
-                    </Style>
-                  </TextBlock.Style>
-                </TextBlock>
-              </DataTemplate>
-            </DataGridTemplateColumn.CellTemplate>
-          </DataGridTemplateColumn>
-          <DataGridTemplateColumn Header="サブフォルダを含める" Width="150">
-            <DataGridTemplateColumn.CellTemplate>
-              <DataTemplate>
-                <CheckBox IsChecked="{Binding Subfolders, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding Editable}" HorizontalAlignment="Center" VerticalAlignment="Center"
-                          AutomationProperties.Name="サブフォルダを含める" ToolTip="外すと、この行の元のフォルダの直下のファイルだけを取り込みます" />
+                <TextBlock Style="{StaticResource Cell.Number}" HorizontalAlignment="Stretch" Text="{Binding TotalText}" />
               </DataTemplate>
             </DataGridTemplateColumn.CellTemplate>
           </DataGridTemplateColumn>

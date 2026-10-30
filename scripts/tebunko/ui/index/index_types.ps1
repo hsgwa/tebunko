@@ -8,40 +8,14 @@ class DetailRow {
 }
 
 # インデックス更新の確認ダイアログに出すインデックス 1 件（取り込み予定.tsv の 1 行）
-# 確認ダイアログの一覧の 1 行。選びを変えたときに、行の見せ方（札・状態・件数の色）だけを知らせて描き直す（一覧全体は描き直さない）
-class PlanRow : NotifyBase {
+class PlanRow {
     [string]$Name
     [string]$Path
     [string]$TotalText    # 対象ファイル数（"1,243"。数えない行は "－"）
     [string]$StatusText   # ステータスのバッジの文言（"要更新" / "最新" / "対象外" / "フォルダなし"）
     [string]$Level        # バッジの色（Wait / Ok / None / Ng）
     [string]$DetailText   # バッジの ToolTip（更新するファイルの内訳）
-    [bool]$Subfolders = $true   # 「サブフォルダを含める」の今の選び（ダイアログのチェック。TwoWay）
-    [bool]$OriginalSubfolders = $true   # ダイアログを開いたときの選び（設定の値）。違えば数え直しになる
-    [bool]$Changed = $false   # 選びを元から変えたか（変えた行は件数を灰色にして［取り込み直し］と出す）
-    [string]$TopOnlyText = ""   # 名前の右の札の文言（今の選びが直下だけのときだけ。getIndexTopOnlyTagText）
-    [string]$PlannedStatusText   # 数え直しの前に出していたバッジ（選びを元に戻すと復元する）
-    [string]$PlannedLevel
-    [bool]$Choosable = $true   # 「サブフォルダを含める」を選べる行か（削除予定の行は選べない）
-    [bool]$Editable = $true   # 今、チェックを触れるか（選べる行で、数え直している間でないとき）
-
-    PlanRow() {}   # 既定のコンストラクタを明示する（理由は shared/ui/types.ps1 の NotifyBase）
-
-    # 数え直している間の見せ方（件数・状態・チェックの可否）を置く。変わったものだけ通知する
-    [void] SetCounting([string]$totalText, [string]$statusText, [string]$level, [bool]$editable) {
-        if ($this.TotalText -ne $totalText) { $this.TotalText = $totalText; $this.Raise("TotalText") }
-        if ($this.StatusText -ne $statusText) { $this.StatusText = $statusText; $this.Raise("StatusText") }
-        if ($this.Level -ne $level) { $this.Level = $level; $this.Raise("Level") }
-        if ($this.Editable -ne $editable) { $this.Editable = $editable; $this.Raise("Editable") }
-    }
-
-    # 選びを変えたあとの見せ方を置く。変わったものだけ通知する（同じ値を置いても通知しない）
-    [void] SetView([bool]$changed, [string]$topOnlyText, [string]$statusText, [string]$level) {
-        if ($this.Changed -ne $changed) { $this.Changed = $changed; $this.Raise("Changed") }
-        if ($this.TopOnlyText -ne $topOnlyText) { $this.TopOnlyText = $topOnlyText; $this.Raise("TopOnlyText") }
-        if ($this.StatusText -ne $statusText) { $this.StatusText = $statusText; $this.Raise("StatusText") }
-        if ($this.Level -ne $level) { $this.Level = $level; $this.Raise("Level") }
-    }
+    [string]$TopOnlyText = ""   # 名前の右の札の文言（設定が直下だけの行だけ。getIndexTopOnlyTagText。読み取りだけで、ここでは選ばない）
 }
 
 # ［インデックス管理］のインデックス一覧 1 件。プログラムから変えたときに画面へ反映するため通知する。
@@ -51,8 +25,7 @@ class FolderItem : NotifyBase {
     [string]$Path
     [bool]$Subfolders = $true   # 設定の subfolders（false は元のフォルダの直下のファイルだけを取り込む）
     [string]$TopOnlyText = ""   # 一覧のパスの右に出す札の文言（Subfolders が false のときだけ。空なら札を出さない。getIndexTopOnlyTagText）
-    [datetime]$SubfoldersChangedAt = [datetime]::MinValue   # SubfoldersChanged にした時刻（これより新しい更新で戻す）
-    [bool]$SubfoldersChanged = $false   # 画面で subfolders を変えたあと、まだ更新していない（次の更新までステータスを［要更新］にする。保存しない）
+    [bool]$IngestedSubfolders = $true   # 前回取り込んだときの subfolders（設定の ingestedSubfolders。インデクサだけが書く。差があれば［要更新］）
     [bool]$Enabled         # 設定の enabled（［すべて更新］で更新する対象か。画面にチェックは出さない）
     [bool]$Checked         # 一覧のチェック（一時の選択。保存しない。［アクション ▼］・行の操作の対象）
     [string]$StatusText
@@ -76,11 +49,7 @@ class FolderItem : NotifyBase {
 
     FolderItem() {}   # 既定のコンストラクタを明示する（理由は shared\ui\types.ps1 の NotifyBase）
 
-    [void] SetSubfolders([bool]$value, [string]$tagText) { if ($this.Subfolders -ne $value) { $this.Subfolders = $value; $this.TopOnlyText = $tagText; $this.SubfoldersChanged = $true; $this.SubfoldersChangedAt = [datetime]::Now; $this.Raise("Subfolders"); $this.Raise("TopOnlyText") } }
-    # 選びを設定へ書いて、その選びで取り込み終えたあと（［要更新］の印は立てない）
-    [void] SetSubfoldersDone([bool]$value, [string]$tagText) { if ($this.Subfolders -ne $value) { $this.Subfolders = $value; $this.TopOnlyText = $tagText; $this.Raise("Subfolders"); $this.Raise("TopOnlyText") } }
-    # その回で取り込み終えたので、［要更新］の印を消す
-    [void] ClearSubfoldersChanged() { $this.SubfoldersChanged = $false }
+    [void] SetSubfolders([bool]$value, [string]$tagText) { if ($this.Subfolders -ne $value) { $this.Subfolders = $value; $this.TopOnlyText = $tagText; $this.Raise("Subfolders"); $this.Raise("TopOnlyText") } }
     [void] SetEnabled([bool]$value) { if ($this.Enabled -ne $value) { $this.Enabled = $value; $this.Raise("Enabled") } }
     [void] SetRowChecked([bool]$value) { if ($this.Checked -ne $value) { $this.Checked = $value; $this.Raise("Checked") } }
     [void] SetName([string]$value) { if ($this.Name -ne $value) { $this.Name = $value; $this.Raise("Name") } }

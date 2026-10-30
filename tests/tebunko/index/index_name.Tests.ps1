@@ -613,4 +613,16 @@ Describe "assignIndexNames（Subfolders）" -Tag Unit {
         $folders[1].Subfolders | Should -Be $true
         $folders[2].Subfolders | Should -BeNullOrEmpty
     }
+
+    It "IngestedSubfolders（前回取り込んだときの設定。false・true・無し）も引き継ぐ" {
+        $targets = @(
+            [pscustomobject]@{ Name = ""; Path = "C:\data\見積"; Enabled = $true; Subfolders = $false; IngestedSubfolders = $false },
+            [pscustomobject]@{ Name = "営業"; Path = "C:\data\営業"; Enabled = $true; Subfolders = $true; IngestedSubfolders = $true },
+            [pscustomobject]@{ Name = ""; Path = "C:\data\経理"; Enabled = $true }
+        )
+        $folders = @(assignIndexNames $targets @())
+        $folders[0].IngestedSubfolders | Should -Be $false
+        $folders[1].IngestedSubfolders | Should -Be $true
+        $folders[2].IngestedSubfolders | Should -BeNullOrEmpty
+    }
 }

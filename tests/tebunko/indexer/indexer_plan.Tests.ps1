@@ -897,6 +897,70 @@ Describe "IngestPlanner（クラウドにだけあるファイル）" -Tag Io {
     }
 }
 
+Describe "getSubfolderRemovedCounts（直下だけに変えたとき、サブフォルダ側で外れる件数）" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "直下だけに変えた（前回は再帰）フォルダは、サブフォルダ側の相対パスだけ数える（直下の無くなったファイルは数えない）"
+           folders = @([pscustomobject]@{ Name = "経理"; Subfolders = $false; IngestedSubfolders = $true })
+           removed = @("経理\2024\下.docx", "経理\2024\奥\深.docx", "経理\直下.docx"); expected = @{ "経理" = 2 } }
+        @{ label = "前回の値が無い（再帰とみなす）ときも数える"
+           folders = @([pscustomobject]@{ Name = "経理"; Subfolders = $false; IngestedSubfolders = $null })
+           removed = @("経理\a\b.docx"); expected = @{ "経理" = 1 } }
+        @{ label = "もともと直下だけ（前回も false）のフォルダは数えない"
+           folders = @([pscustomobject]@{ Name = "経理"; Subfolders = $false; IngestedSubfolders = $false })
+           removed = @("経理\a\b.docx"); expected = @{} }
+        @{ label = "変えていない（含める）フォルダは数えない"
+           folders = @([pscustomobject]@{ Name = "経理"; Subfolders = $true; IngestedSubfolders = $true })
+           removed = @("経理\a\b.docx"); expected = @{} }
+        @{ label = "名前が前方一致するほかのインデックスのパスは数えない"
+           folders = @([pscustomobject]@{ Name = "経理"; Subfolders = $false; IngestedSubfolders = $true })
+           removed = @("経理2\a\b.docx"); expected = @{ "経理" = 0 } }
+    ) {
+        param ($label, $folders, $removed, $expected)
+        $counts = getSubfolderRemovedCounts $folders $removed
+        $counts.Count | Should -Be $expected.Count
+        foreach ($key in $expected.Keys) { $counts[$key] | Should -Be $expected[$key] }
+    }
+}
+
+Describe "IngestPlanner の Plan の SubfolderRemovedCount" -Tag Io {
+    BeforeAll {
+        $kinds = @{ Unchecked = ${planKindUnchecked}; Missing = ${planKindMissing}; Dropped = ${planKindDropped}; StateFailed = ${stateFailed} }
+        ${indexDir} = Join-Path $TestDrive "index_removed_count"
+        $workspace = newTestWorkspace @{ IndexDir = ${indexDir} }
+        $source = Join-Path $TestDrive "removed_count_src"
+        [System.IO.Directory]::CreateDirectory("$source\下") | Out-Null
+        [System.IO.File]::WriteAllText("$source\直下.docx", "dummy")
+        [System.IO.File]::WriteAllText("$source\下\奥.docx", "dummy")
+        function newCountPlanner([bool]$subfolders, $ingested) {
+            $planner = [IngestPlanner]::new($kinds)
+            $info = Get-Item -LiteralPath "$source\直下.docx"
+            $status = @{ Folders = @(); Rows = (newPrevious @(
+                (newStatusRow "経理\下\消えた.docx" "2000/01/01 00:00:00" "1" ${stateDone}),
+                (newStatusRow "経理\下\奥\消えた2.docx" "2000/01/01 00:00:00" "1" ${stateDone}),
+                (newStatusRow "経理\消えた直下.docx" "2000/01/01 00:00:00" "1" ${stateDone}))) }
+            $planner.AssignNames(@([pscustomobject]@{ Name = "経理"; Path = $source; Enabled = $true; Subfolders = $subfolders; IngestedSubfolders = $ingested }), $status)
+            $planner.Crawl((newCounts @{ "経理\下\消えた.docx" = 1; "経理\下\奥\消えた2.docx" = 1; "経理\消えた直下.docx" = 1 }), $null)
+            return $planner
+        }
+    }
+
+    It "直下だけに変えたフォルダの Plan の行に、サブフォルダ側の前回の行の数が入る（直下で本当に無くなったファイルは数えない）" {
+        $planner = newCountPlanner $false $true
+        @($planner.RemovedPaths).Count | Should -Be 3
+        @($planner.Plan)[0].SubfolderRemovedCount | Should -Be 2
+    }
+
+    It "変えていないフォルダ（含める）の行は 0 になる" {
+        $planner = newCountPlanner $true $true
+        @($planner.Plan)[0].SubfolderRemovedCount | Should -Be 0
+    }
+
+    It "もともと直下だけ（前回も false）のフォルダの行は 0 になる" {
+        $planner = newCountPlanner $false $false
+        @($planner.Plan)[0].SubfolderRemovedCount | Should -Be 0
+    }
+}
+
 Describe "createTargetList（直下だけ）" -Tag Io {
     BeforeAll {
         $source = Join-Path $TestDrive "top"

@@ -193,6 +193,26 @@ function findTargetFiles {
     return @{ Root = $root; Files = $files; Links = @($tree.Links); HasError = $tree.HasError; Stopped = $false }
 }
 
+function getSubfolderRemovedCounts {
+    # 直下だけに変えたフォルダ（今の Subfolders が false で、前回取り込んだときの IngestedSubfolders が true）について、
+    # 無くなったファイル（removedPaths）のうちサブフォルダ側のもの（インデックス名のあとに区切りがもう 1 つある相対パス）の数を、
+    # インデックス名 → 件数 の表で返す（確認の「サブフォルダ側の N 件をインデックスから外します」の元。追加の走査はしない）。該当しない名前は入れない
+    param (
+        [object[]]$folders,        # @{ Name; Subfolders; IngestedSubfolders }
+        [string[]]$removedPaths
+    )
+
+    $counts = @{}
+    foreach ($folder in @($folders | Where-Object { $_ -and $_.Subfolders -eq $false -and $_.IngestedSubfolders -ne $false })) {
+        $prefix = "$($folder.Name)\"
+        $count = @($removedPaths | Where-Object {
+            $_.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase) -and $_.IndexOf("\", $prefix.Length) -ge 0
+        }).Count
+        $counts[[string]$folder.Name] = $count
+    }
+    return $counts
+}
+
 function createTargetList {
     # クロール対象フォルダを1つ検索して取り込み一覧の行を作り直し、次を返す。
     #   Rows   : 全ファイルの行 / Targets: 取り込む行 / Failed: 前回失敗し、更新の無い行
@@ -512,6 +532,14 @@ class IngestPlanner {
 
         foreach ($item in $this.Dropped) {
             $this.Plan.Add((newIngestPlanRow $item.Name $item.Path $this.Kinds.Dropped))
+        }
+        # 直下だけに変えたフォルダの、サブフォルダ側で外れる件数を、確認に渡す Plan の行に入れる
+        $removedCounts = getSubfolderRemovedCounts $this.Folders @($this.RemovedPaths)
+        foreach ($row in $this.Plan) {
+            # 取り込む行だけ（取り込まない行の区分は kinds にある。クラスの本体では $script: 変数を読まない）
+            if (@($this.Kinds.Unchecked, $this.Kinds.Missing, $this.Kinds.Dropped) -contains $row.区分) { continue }
+            $removed = if ($removedCounts.ContainsKey([string]$row.インデックス名)) { [int]$removedCounts[[string]$row.インデックス名] } else { 0 }
+            $row | Add-Member -NotePropertyName SubfolderRemovedCount -NotePropertyValue $removed -Force
         }
     }
 

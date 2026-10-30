@@ -157,8 +157,6 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             testGuiVisible (findGui $confirm -Id "OpenIndexLocationButton") | Should -BeTrue
             (getGuiText (findGui $S.Window -Id "IndexLocationText")) | Should -BeLike "$($script:tool.Work)*"
             testGuiVisible (findGui $S.Window -Id "OpenIndexLocationButton") | Should -BeTrue
-            # 確認の一覧の行は UI オートメーションに出ないため、行ごとの「サブフォルダを含める」の切り替えは、判断層の単体テストと撮影（index-tab/start-confirm）で確かめる
-            @(getGuiTexts $confirm) | Should -Contain "サブフォルダを含める"
             clickGui $S $confirm "CancelButton" "［キャンセル］"
             waitGuiWindowClosed $S $confirm "取り込みの確認"
             waitGui $S "取りやめて［すべて更新］に戻る" ${guiDefaultTimeout} {
@@ -272,6 +270,66 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
 # S3 は、取り込みの最中に操作する。読み取りのスレッドを 1 つ（ingestThreads）にして、ファイルの数を多めにし、
 # 「中止」してもすぐには終わらないようにする。取り込みが終わってしまったときは「間に合わなかった」と分かる文言で失敗にする
 # （$script:s3Copies を増やす）
+Describe "S2 詳細の『サブフォルダを含める』" -Tag Gui {
+    BeforeAll {
+        $script:envBefore = getGuiEnvSnapshot
+        $script:tool = newGuiTool $TestDrive
+        $script:source = Join-Path $TestDrive "元のフォルダ\営業"
+        newGuiSourceFolder $script:source
+        $config = readGuiConfig $script:tool
+        $config | Add-Member -NotePropertyName targetFolders -NotePropertyValue @(@{ name = "営業"; path = $script:source; enabled = $true }) -Force
+        writeGuiConfig $script:tool.Dir $config
+    }
+
+    It "外すと設定にすぐ書かれ、札『直下のみ』と［要更新］が出る。付け直すと外れ、一覧を読み直しても残る。行を選び直しただけでは書かない" {
+        $S = startGui $script:tool "S2sub"
+        invokeGuiScene $S {
+            getGuiSelectedTab $S | Should -Be "IndexTab"
+            setGuiStep $S "取り込む（［すべて更新］→［更新を開始］）"
+            startGuiIndexing $S
+            waitGui $S "取り込みの完了" ${guiIndexTimeout} {
+                (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*" -and (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
+            } | Out-Null
+            $rowTexts = { (getGuiRowTexts @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]) -join " " }
+            (& $rowTexts) | Should -Not -BeLike "*直下のみ*"
+            (& $rowTexts) | Should -Not -BeLike "*要更新*"
+
+            setGuiStep $S "行を選ぶ（付いている。選び直しただけでは設定を書き換えない）"
+            selectGui @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
+            waitGui $S "詳細の見出し（営業）" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexDetailTitle")) -eq "営業 - 詳細" } | Out-Null
+            $box = findGui $S.Window -Id "IndexDetailSubfolders"
+            $box.Current.IsEnabled | Should -BeTrue
+            getGuiToggleState $box | Should -Be "On"
+            $configWriteTime = (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc
+            selectGui @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
+            Start-Sleep -Milliseconds 500
+            (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc | Should -Be $configWriteTime
+
+            setGuiStep $S "外す → 設定に subfolders: false・札と［要更新］"
+            toggleGui (findGui $S.Window -Id "IndexDetailSubfolders")
+            waitGui $S "設定に false が書かれる" ${guiDefaultTimeout} { (readGuiConfig $script:tool).targetFolders[0].subfolders -eq $false } | Out-Null
+            waitGui $S "札と［要更新］が出る" ${guiDefaultTimeout} { (& $rowTexts) -like "*直下のみ*" -and (& $rowTexts) -like "*要更新*" } | Out-Null
+
+            setGuiStep $S "付け直す → 設定は true・［要更新］が外れる"
+            toggleGui (findGui $S.Window -Id "IndexDetailSubfolders")
+            waitGui $S "設定が true に戻る" ${guiDefaultTimeout} { (readGuiConfig $script:tool).targetFolders[0].subfolders -eq $true } | Out-Null
+            waitGui $S "札と［要更新］が消える" ${guiDefaultTimeout} { (& $rowTexts) -notlike "*直下のみ*" -and (& $rowTexts) -notlike "*要更新*" } | Out-Null
+
+            setGuiStep $S "外したまま、タブを移って戻っても［要更新］が残る"
+            toggleGui (findGui $S.Window -Id "IndexDetailSubfolders")
+            waitGui $S "［要更新］が出る" ${guiDefaultTimeout} { (& $rowTexts) -like "*要更新*" } | Out-Null
+            selectGuiTab $S "SearchTab"
+            selectGuiTab $S "IndexTab" "IndexGrid"
+            waitGui $S "戻っても札と［要更新］が残る" ${guiDefaultTimeout} { (& $rowTexts) -like "*直下のみ*" -and (& $rowTexts) -like "*要更新*" } | Out-Null
+            closeGui $S
+        }
+    }
+
+    It "利用者の環境に触っていない（Office のプロセスの数も変わらない）" {
+        compareGuiEnvSnapshot $script:envBefore (getGuiEnvSnapshot) | Should -BeNullOrEmpty
+    }
+}
+
 Describe "S3 作成中の操作" -Tag Gui {
     BeforeAll {
         $script:envBefore = getGuiEnvSnapshot
@@ -304,6 +362,7 @@ Describe "S3 作成中の操作" -Tag Gui {
             $row = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
             selectGui $row
             waitGui $S "詳細に進み具合の棒が出る" ${guiDefaultTimeout} { findGui $S.Window -Id "IndexingProgressBar" } | Out-Null
+            (findGui $S.Window -Id "IndexDetailSubfolders").Current.IsEnabled | Should -BeFalse -Because "更新中は『サブフォルダを含める』が押せない"
             waitGui $S "行に［中止］が出る" ${guiDefaultTimeout} { findGui $row -Id "IndexRowStopButton" } | Out-Null
 
             # ［エクスポート…］［削除…］［インポート…］は［アクション ▾］のメニューの中。開いて、押せないことを確かめてから Esc で閉じる

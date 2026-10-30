@@ -145,7 +145,7 @@ function getIndexDetailView {
     #                   LastIngestedText; FailedCount・PendingCount（取り込み一覧の失敗・未取り込みの件数。省くと 0）}
     #   multiCount    : 2 以上なら、詳細は出さず「N 件を選択中」と案内だけにする（getIndexDetailMultiCount）
     #   running       : 更新の進み具合（@{ Ratio; Processed; Total; Failed; Eta; Current }）。更新中の行の「インデックス」の箱に出す。無ければ $null
-    # 戻り値: @{ Title; Selected; Name; Path;  FolderStatus; FolderBrush（フォルダの状態の文の色のキー。ある = Ok／無い = Danger.Text／確認中・何も出さない = Ink.Muted）;
+    # 戻り値: @{ Title; Selected; Name; Path; Subfolders（サブフォルダを含めるか。設定の subfolders）; FolderStatus; FolderBrush（フォルダの状態の文の色のキー。ある = Ok／無い = Danger.Text／確認中・何も出さない = Ink.Muted）;
     #            FolderIcon（文の左に出すアイコン。ある = Check／無い = Close／確認中・何も出さない = 空。theme.xaml の Icon.<名前>）; Badge（@{ Text; Level }）; Updated; Count;
     #            Rows（右の「インデックス情報」の @{ Label; Value } の配列）; RowsKey;
     #            Multi（複数を選んでいるか）; Hint（Multi のときの案内）;
@@ -159,7 +159,7 @@ function getIndexDetailView {
 
     $noRun = @{ Shown = $false; Value = 0.0; CountText = ""; FileText = "" }
     $none = @{
-        Title = "インデックスの状態"; Selected = $false; Name = ""; Path = ""; FolderStatus = ""; FolderMissing = $false; FolderBrush = "Ink.Muted"; FolderIcon = ""
+        Title = "インデックスの状態"; Selected = $false; Name = ""; Path = ""; Subfolders = $true; FolderStatus = ""; FolderMissing = $false; FolderBrush = "Ink.Muted"; FolderIcon = ""
         Badge = @{ Text = ""; Level = "None" }; Updated = ""; Count = ""; Rows = @(); RowsKey = ""
         Multi = $false; Hint = ""; Run = $noRun; Error = ""; ErrorHint = ""
     }
@@ -218,7 +218,7 @@ function getIndexDetailView {
     ) -join "`t"
     $rowsKey = $fixed + "`n" + (@($rows | ForEach-Object { "$($_.Label)`t$($_.Value)" }) -join "`n")
     return @{
-        Title = "$($item.Name) - 詳細"; Selected = $true; Name = [string]$item.Name; Path = [string]$item.Path
+        Title = "$($item.Name) - 詳細"; Selected = $true; Name = [string]$item.Name; Path = [string]$item.Path; Subfolders = ($item.Subfolders -ne $false)
         FolderStatus = [string]$item.FolderStatus; FolderMissing = [bool]$item.FolderMissing; FolderBrush = $folderBrush; FolderIcon = $folderIcon
         Badge = $badge
         Updated = $updated; Count = $count; Rows = @($rows); RowsKey = $rowsKey

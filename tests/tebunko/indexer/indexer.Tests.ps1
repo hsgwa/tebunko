@@ -757,62 +757,6 @@ Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
         $progress.Failed | Should -Be 1
     }
 
-    It "確認で選びを変えた返事（Recount）が来たら、閉じずに数え直して Plan をもう一度出し、続けて［更新を開始］の返事で直下のファイルだけを取り込む。setting.config は書き換えない（<label>）" -TestCases @(@{ label = "［すべて更新］"; only = @() }, @{ label = "行の［更新］（選んだ名前）"; only = @("総務") }) {
-        param ($label, $only)
-        $root = newRoot
-        writeTestSettings $root @(@{ name = "総務"; path = $source; enabled = $true })
-        $global:recountHits = 0
-        $global:recountPlanFiles = @()
-        $answers = $approvalLine.Clone()
-        $answers.Action = {
-            $global:recountHits++
-            $global:recountPlanFiles += @($channel.Plan)[0].ファイル数
-            if ($global:recountHits -eq 1) {
-                answerIndexingPlan $channel @{ Recount = $true; Changes = @(@{ Name = "総務"; Subfolders = $false }) }
-            } else {
-                answerIndexingPlan $channel @{ RetryFailed = $false }
-            }
-        }
-        try {
-            runIndexer $root @{ ConfirmTargets = $true; OnlyNames = $only } @($answers) | Should -Be 0
-            $global:recountHits | Should -Be 2
-            # 1 回目はサブフォルダも含めた件数、2 回目は直下だけ（資料\提案.pptx の分だけ減る）
-            ($global:recountPlanFiles[0] - $global:recountPlanFiles[1]) | Should -Be 1
-        } finally {
-            Remove-Variable -Name recountHits, recountPlanFiles -Scope Global -ErrorAction SilentlyContinue
-        }
-        $rows = (readTestStatus $root).Rows
-        $rows.ContainsKey("総務\議事録.docx") | Should -BeTrue
-        $rows.ContainsKey("総務\資料\提案.pptx") | Should -BeFalse
-        (getTargetFolders "$root\setting.config")[0].Subfolders | Should -BeTrue -Because "設定に書くのは画面が、インデクサが終わったあと"
-    }
-
-    It "数え直しの前に無くなっていたファイルの削除は、数え直しても 1 回だけ（二重に入らない）で、取り込みは 0 で終わる" {
-        $edited = newSourceFolder "会計"
-        $root = newRoot
-        writeTestSettings $root @(@{ name = "会計"; path = $edited; enabled = $true })
-        runIndexer $root | Should -Be 0
-        Remove-Item -LiteralPath "$edited\議事録.docx"
-        $global:recountHits = 0
-        $answers = $approvalLine.Clone()
-        $answers.Action = {
-            $global:recountHits++
-            if ($global:recountHits -eq 1) {
-                answerIndexingPlan $channel @{ Recount = $true; Changes = @(@{ Name = "会計"; Subfolders = $false }) }
-            } else {
-                answerIndexingPlan $channel @{ RetryFailed = $false }
-            }
-        }
-        try {
-            runIndexer $root @{ ConfirmTargets = $true } @($answers) | Should -Be 0
-        } finally {
-            Remove-Variable -Name recountHits -Scope Global -ErrorAction SilentlyContinue
-        }
-        $rows = (readTestStatus $root).Rows
-        $rows.ContainsKey("会計\議事録.docx") | Should -BeFalse
-        $rows.ContainsKey("会計\資料\提案.pptx") | Should -BeFalse
-    }
-
     Context "無くなったファイルのインデックスの削除（［更新を開始］のあと）" {
         BeforeEach {
             $script:vanishName = "無くなる$([guid]::NewGuid().ToString('N').Substring(0, 6))"
@@ -835,27 +779,40 @@ Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
             (& $script:vanishText) | Should -Match "TC21-01"
         }
 
-        It "直下だけに変えて数え直したあと取りやめると、サブフォルダ側のインデックスは残る" {
-            $global:vanishHits = 0
-            $name = $script:vanishName
-            $answers = $approvalLine.Clone()
-            $answers.Action = {
-                $global:vanishHits++
-                if ($global:vanishHits -eq 1) {
-                    answerIndexingPlan $channel @{ Recount = $true; Changes = @(@{ Name = $name; Subfolders = $false }) }
-                } else {
-                    answerIndexingPlan $channel $null
-                }
-            }
-            try {
-                runIndexer $script:vanishRoot @{ ConfirmTargets = $true } @($answers) | Should -Be 2
-                $global:vanishHits | Should -Be 2
-            } finally {
-                Remove-Variable -Name vanishHits -Scope Global -ErrorAction SilentlyContinue
-            }
+        It "直下だけに設定を変えて取りやめると、サブフォルダ側のインデックスは残り、前回の設定（ingestedSubfolders）は変わらない" {
+            writeTestSettings $script:vanishRoot @(@{ name = $script:vanishName; path = $script:vanishSource; enabled = $true; subfolders = $false })
+            $cancel = $approvalLine.Clone()
+            $cancel.Action = { answerIndexingPlan $channel $null }
+
+            runIndexer $script:vanishRoot @{ ConfirmTargets = $true } @($cancel) | Should -Be 2
 
             (readTestStatus $script:vanishRoot).Rows.ContainsKey("$($script:vanishName)\資料\提案.pptx") | Should -BeTrue
             (& $script:vanishText) | Should -Match "TC21-01"
+            @(getTargetFolders "$($script:vanishRoot)\setting.config")[0].IngestedSubfolders | Should -BeTrue
+        }
+
+        It "直下だけに設定を変えて［更新を開始］すると、サブフォルダ側が消え、前回の設定が false になる（確認には『サブフォルダ側の N 件』を出す）" {
+            writeTestSettings $script:vanishRoot @(@{ name = $script:vanishName; path = $script:vanishSource; enabled = $true; subfolders = $false })
+            $global:planRemovedCount = $null
+            $approve = $approvalLine.Clone()
+            $approve.Action = { $global:planRemovedCount = @($channel.Plan)[0].SubfolderRemovedCount; answerIndexingPlan $channel @{ RetryFailed = $false } }
+            try {
+                runIndexer $script:vanishRoot @{ ConfirmTargets = $true } @($approve) | Should -Be 0
+                $global:planRemovedCount | Should -Be 1
+            } finally {
+                Remove-Variable -Name planRemovedCount -Scope Global -ErrorAction SilentlyContinue
+            }
+
+            (readTestStatus $script:vanishRoot).Rows.ContainsKey("$($script:vanishName)\資料\提案.pptx") | Should -BeFalse
+            (& $script:vanishText) | Should -Not -Match "TC21-01"
+            @(getTargetFolders "$($script:vanishRoot)\setting.config")[0].IngestedSubfolders | Should -BeFalse
+        }
+
+        It "含める設定のまま更新して終わると、前回の設定は true で書かれる。確認を出さない実行でも書く" {
+            runIndexer $script:vanishRoot | Should -Be 0
+            $folder = @(getTargetFolders "$($script:vanishRoot)\setting.config")[0]
+            $folder.IngestedSubfolders | Should -BeTrue
+            $folder.Subfolders | Should -BeTrue
         }
 
         It "［更新を開始］すると、無くなったファイルのインデックスが消えて検索に出ない" {
@@ -891,6 +848,26 @@ Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
                 Remove-Variable -Name pendingRecorded -Scope Global -ErrorAction SilentlyContinue
             }
         }
+    }
+
+    It "行の［更新］（選んだ名前だけ）のとき、ほかのフォルダの前回の設定は書かない。チェックなしのフォルダも書かない" {
+        $picked = newSourceFolder "選ぶ"
+        $other = newSourceFolder "選ばない"
+        $off = newSourceFolder "外す"
+        $root = newRoot
+        writeTestSettings $root @(
+            @{ name = "選ぶ"; path = $picked; enabled = $true; subfolders = $false },
+            @{ name = "選ばない"; path = $other; enabled = $true; subfolders = $false },
+            @{ name = "外す"; path = $off; enabled = $false; subfolders = $false })
+        $approve = $approvalLine.Clone()
+        $approve.Action = { answerIndexingPlan $channel @{ RetryFailed = $false } }
+
+        runIndexer $root @{ ConfirmTargets = $true; OnlyNames = @("選ぶ") } @($approve) | Should -Be 0
+
+        $folders = @(getTargetFolders "$root\setting.config")
+        ($folders | Where-Object { $_.Name -eq "選ぶ" }).IngestedSubfolders | Should -BeFalse
+        ($folders | Where-Object { $_.Name -eq "選ばない" }).IngestedSubfolders | Should -BeTrue
+        ($folders | Where-Object { $_.Name -eq "外す" }).IngestedSubfolders | Should -BeTrue
     }
 
     It "取り込みの途中で中止を求められたら、残りを未取り込みのまま 2 で終わる" {

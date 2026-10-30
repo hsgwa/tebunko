@@ -1,215 +1,11 @@
-﻿# インデックス作成の司令（tebunko\indexer\indexer_run.ps1）のうち、確認の返事を待って、選びを変えた返事（Recount）なら数え直す所
-# （applyRecountChoices・waitForIngestApproval）のテスト。司令全体を通す確かめは indexer.Tests.ps1 にある。
+﻿# インデックス作成の司令（tebunko\indexer\indexer_run.ps1）のうち、数えたあと・取り込み終えたあとの処理の関数
+# （applyRemovedPaths・recordIngestedSettings）のテスト。司令全体を通す確かめは indexer.Tests.ps1 にある。
 BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
     . "${scriptsDir}\tebunko\indexer\indexer_plan.ps1"
     . "${scriptsDir}\tebunko\indexer\index_migrate.ps1"  # findDroppedIndexes（IngestPlanner）
     . "${scriptsDir}\tebunko\indexer\pending_publish.ps1"  # PendingPublish
     . "${scriptsDir}\tebunko\indexer\indexer_run.ps1"
-
-    function newPrevious {
-        $map = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
-        return , $map
-    }
-
-    function newCrawledPlanner {
-        # 名前を割り当てて数えた IngestPlanner（司令が最初に作るものと同じ手順）
-        param ($targetFolders, $status)
-        $planner = [IngestPlanner]::new(@{
-            Unchecked = ${planKindUnchecked}; Missing = ${planKindMissing}; Dropped = ${planKindDropped}; StateFailed = ${stateFailed}
-        })
-        $planner.AssignNames($targetFolders, $status)
-        $planner.Crawl($null, { }, { $false })
-        return $planner
-    }
-
-    function newFakeReporter {
-        # 画面の返事を順に返す偽物（呼ばれた回数と、渡された Plan を控える）
-        param ([object[]]$answers)
-        $reporter = [pscustomobject]@{ Answers = (New-Object System.Collections.Queue); Calls = 0; PlanSizes = (New-Object System.Collections.Generic.List[int]); OnCall = $null }
-        foreach ($answer in $answers) { $reporter.Answers.Enqueue($answer) }
-        Add-Member -InputObject $reporter -MemberType ScriptMethod -Name WaitForApproval -Value {
-            param ($phase, $plan, $targetCount, $failedCount, $timeoutMinutes)
-            $this.Calls++
-            $this.PlanSizes.Add(@($plan | ForEach-Object { $_.ファイル数 } | Measure-Object -Sum).Sum)
-            if ($null -ne $this.OnCall) { & $this.OnCall }
-            return $this.Answers.Dequeue()
-        }
-        return $reporter
-    }
-}
-
-Describe "applyRecountChoices" -Tag Unit {
-    BeforeAll {
-        $assigned = @([pscustomobject]@{ Name = "売上"; Path = "C:\data\売上" }, [pscustomobject]@{ Name = "経理"; Path = "C:\data\経理" })
-        function newTargets {
-            return @(
-                [pscustomobject]@{ Name = ""; Path = "C:\data\売上"; Enabled = $true; Subfolders = $true },
-                [pscustomobject]@{ Name = ""; Path = "C:\data\経理"; Enabled = $false; Subfolders = $true }
-            )
-        }
-    }
-
-    It "<label>" -TestCases @(
-        @{ label = "名前に当たる項目の Subfolders だけを替える（ほかの値は引き継ぐ）"; changes = @(@{ Name = "売上"; Subfolders = $false }); expected = @($false, $true) }
-        @{ label = "名前の無い Change は無視する"; changes = @(@{ Name = "存在しない"; Subfolders = $false }); expected = @($true, $true) }
-        @{ label = "Change が無ければそのまま写す"; changes = @(); expected = @($true, $true) }
-        @{ label = "2 つとも替える"; changes = @(@{ Name = "売上"; Subfolders = $false }, @{ Name = "経理"; Subfolders = $false }); expected = @($false, $false) }
-    ) {
-        param ($label, $changes, $expected)
-        $result = @(applyRecountChoices (newTargets) $assigned $changes)
-        @($result | ForEach-Object { $_.Subfolders }) | Should -Be $expected
-        @($result | ForEach-Object { $_.Enabled }) | Should -Be @($true, $false)
-    }
-
-    It "名前がまだ無い新しいフォルダ（Name が空）は、1 回目に割り当てた名前を写しに入れる（数え直しのたびに割り当て直さず、同じ名前にする）" {
-        $result = @(applyRecountChoices (newTargets) $assigned @())
-        @($result | ForEach-Object { $_.Name }) | Should -Be @("売上", "経理")
-    }
-
-    It "元のクロール対象フォルダの一覧は書き換えない（写しに当てる）" {
-        $targets = newTargets
-        [void](applyRecountChoices $targets $assigned @(@{ Name = "売上"; Subfolders = $false }))
-        $targets[0].Subfolders | Should -BeTrue
-    }
-}
-
-Describe "waitForIngestApproval" -Tag Io {
-    BeforeAll {
-        $root = Join-Path $TestDrive "src"
-        [System.IO.Directory]::CreateDirectory("$root\下") | Out-Null
-        [System.IO.File]::WriteAllText("$root\直下.docx", "dummy")
-        [System.IO.File]::WriteAllText("$root\下\奥.docx", "dummy")
-        ${indexDir} = Join-Path $TestDrive "index_run"
-        $workspace = newTestWorkspace @{ IndexDir = ${indexDir} }
-        $targetFolders = @([pscustomobject]@{ Name = ""; Path = $root; Enabled = $true; Subfolders = $true })
-        function newStatus { return @{ Folders = @(); Rows = (newPrevious); LegacyFolders = @() } }
-    }
-
-    It "ふつうの返事（取り込む）は、数え直さずにそのまま返す" {
-        $status = newStatus
-        $planner = newCrawledPlanner $targetFolders $status
-        $reporter = newFakeReporter @(@{ RetryFailed = $false })
-        $channel = newIndexerChannel
-
-        $result = waitForIngestApproval $planner $reporter $channel $targetFolders $status $null 60
-
-        $result.Answer.RetryFailed | Should -BeFalse
-        [object]::ReferenceEquals($result.Planner, $planner) | Should -BeTrue
-        $reporter.Calls | Should -Be 1
-    }
-
-    It "取りやめの返事（`$null）は、そのまま `$null で返す" {
-        $status = newStatus
-        $planner = newCrawledPlanner $targetFolders $status
-        $reporter = newFakeReporter @($null)
-
-        $result = waitForIngestApproval $planner $reporter (newIndexerChannel) $targetFolders $status $null 60
-
-        $result.Answer | Should -BeNullOrEmpty
-        $reporter.Calls | Should -Be 1
-    }
-
-    It "選びを変えた返事（Recount）なら、その選びで数え直し、新しい Plan（直下だけの件数）でもう一度待つ" {
-        $status = newStatus
-        $planner = newCrawledPlanner $targetFolders $status
-        $planner.Plan[0].ファイル数 | Should -Be 2
-        $reporter = newFakeReporter @(@{ Recount = $true; Changes = @(@{ Name = "売上"; Subfolders = $false }) }, @{ RetryFailed = $false })
-        # 数えるときに付いた名前（売上）に合わせて、Change の名前を引く
-        $reporter.Answers.Clear()
-        $name = [string]$planner.Folders[0].Name
-        $reporter.Answers.Enqueue(@{ Recount = $true; Changes = @(@{ Name = $name; Subfolders = $false }) })
-        $reporter.Answers.Enqueue(@{ RetryFailed = $false })
-
-        $result = waitForIngestApproval $planner $reporter (newIndexerChannel) $targetFolders $status $null 60
-
-        $reporter.Calls | Should -Be 2
-        @($reporter.PlanSizes) | Should -Be @(2, 1)
-        $result.Answer.RetryFailed | Should -BeFalse
-        [object]::ReferenceEquals($result.Planner, $planner) | Should -BeFalse
-        $result.Planner.Targets.Count | Should -Be 1
-        # 元のクロール対象フォルダの一覧は書き換えない（設定に書くのは画面）
-        $targetFolders[0].Subfolders | Should -BeTrue
-    }
-
-    It "数え直しの最中に中止が立つと、数え終えたところで待たずに取りやめの返事（`$null）で返す" {
-        $status = newStatus
-        $planner = newCrawledPlanner $targetFolders $status
-        $name = [string]$planner.Folders[0].Name
-        $channel = newIndexerChannel
-        $reporter = newFakeReporter @(@{ Recount = $true; Changes = @(@{ Name = $name; Subfolders = $false }) })
-        # 返事を返す直前に、画面が［キャンセル］を押した（数え直しの最中）ことにする
-        $reporter.OnCall = { $channel.Stop = $true }.GetNewClosure()
-
-        $result = waitForIngestApproval $planner $reporter $channel $targetFolders $status $null 60
-
-        $result.Answer | Should -BeNullOrEmpty
-        $reporter.Calls | Should -Be 1
-    }
-
-    It "数え直しの前に無くなっていたファイルは、数え直しても RemovedPaths に 1 件だけ入る（二重に入らない）" {
-        $status = newStatus
-        # 名前は、クロール対象フォルダの名前（フォルダ名の src）から割り当てられる
-        $lostRow = newStatusRow "src\無い.docx" "2024/01/01 00:00:00" "10" ${stateDone} 1 "2024/01/01 00:00:00"
-        $status.Rows["src\無い.docx"] = $lostRow
-        $planner = newCrawledPlanner $targetFolders $status
-        $name = [string]$planner.Folders[0].Name
-        $reporter = newFakeReporter @(@{ Recount = $true; Changes = @(@{ Name = $name; Subfolders = $false }) }, @{ RetryFailed = $false })
-
-        $result = waitForIngestApproval $planner $reporter (newIndexerChannel) $targetFolders $status $null 60
-
-        @($result.Planner.RemovedPaths) | Should -Be @("src\無い.docx")
-    }
-
-    It "数え直しではインデックスのフォルダを消さない（消すのは［更新を開始］のあと）" {
-        $status = newStatus
-        $bookDir = getBookDir "src\無い.docx"
-        [System.IO.Directory]::CreateDirectory($bookDir) | Out-Null
-        $status.Rows["src\無い.docx"] = (newStatusRow "src\無い.docx" "2024/01/01 00:00:00" "10" ${stateDone} 1 "2024/01/01 00:00:00")
-        $planner = newCrawledPlanner $targetFolders $status
-        $name = [string]$planner.Folders[0].Name
-        $reporter = newFakeReporter @(@{ Recount = $true; Changes = @(@{ Name = $name; Subfolders = $false }) }, @{ RetryFailed = $false })
-
-        [void](waitForIngestApproval $planner $reporter (newIndexerChannel) $targetFolders $status $null 60)
-
-        Test-Path -LiteralPath $bookDir | Should -BeTrue
-    }
-
-    It "設定は直下だけ・一覧にはサブフォルダの行がある状態で始めても、付け直して数え直すと、サブフォルダのファイルは無くなったことにならない" {
-        # 前の回がエラーで終わり、設定は false なのに、取り込み一覧にはサブフォルダの行が残っている
-        $info = Get-Item -LiteralPath "$root\下\奥.docx"
-        $updated = formatFileTime $info.LastWriteTime
-        $status = newStatus
-        $status.Rows["src\下\奥.docx"] = (newStatusRow "src\下\奥.docx" $updated ([string]$info.Length) ${stateDone} 1 $updated)
-        $directOnly = @([pscustomobject]@{ Name = ""; Path = $root; Enabled = $true; Subfolders = $false })
-        $planner = newCrawledPlanner $directOnly $status
-        $planner.RemovedPaths.Count | Should -Be 1 -Because "1 回目（直下だけ）の数えでは奥.docx は無くなったことになる"
-        $name = [string]$planner.Folders[0].Name
-        $reporter = newFakeReporter @(@{ Recount = $true; Changes = @(@{ Name = $name; Subfolders = $true }) }, @{ RetryFailed = $false })
-
-        $result = waitForIngestApproval $planner $reporter (newIndexerChannel) $directOnly $status $null 60
-
-        $result.Planner.RemovedPaths.Count | Should -Be 0
-    }
-
-    It "外して数え直し→付け直して数え直し→開始、と進めても、前の数えにしか無い削除は残らない" {
-        $info = Get-Item -LiteralPath "$root\下\奥.docx"
-        $updated = formatFileTime $info.LastWriteTime
-        $status = newStatus
-        $status.Rows["src\下\奥.docx"] = (newStatusRow "src\下\奥.docx" $updated ([string]$info.Length) ${stateDone} 1 $updated)
-        $planner = newCrawledPlanner $targetFolders $status
-        $name = [string]$planner.Folders[0].Name
-        $planner.RemovedPaths.Count | Should -Be 0 -Because "最初の数え（サブフォルダも含める）では、奥.docx は無くなっていない"
-        $reporter = newFakeReporter @(
-            @{ Recount = $true; Changes = @(@{ Name = $name; Subfolders = $false }) },
-            @{ Recount = $true; Changes = @(@{ Name = $name; Subfolders = $true }) },
-            @{ RetryFailed = $false })
-
-        $result = waitForIngestApproval $planner $reporter (newIndexerChannel) $targetFolders $status $null 60
-
-        $reporter.Calls | Should -Be 3
-        $result.Planner.RemovedPaths.Count | Should -Be 0
-    }
 }
 
 Describe "applyRemovedPaths" -Tag Io {
@@ -231,5 +27,83 @@ Describe "applyRemovedPaths" -Tag Io {
         $pending = New-Object PendingPublish
         { applyRemovedPaths @() $pending } | Should -Not -Throw
         $pending.Unpublished.Count | Should -Be 0
+    }
+}
+
+Describe "recordIngestedSettings" -Tag Unit {
+    BeforeAll {
+        function newRecordPlanner {
+            # 名前を割り当てた Folders と、取り込む行（区分 = 取り込む）を持つ IngestPlanner（Crawl は通さない）
+            param ($folders, $plan)
+            $planner = [IngestPlanner]::new(@{
+                Unchecked = ${planKindUnchecked}; Missing = ${planKindMissing}; Dropped = ${planKindDropped}; StateFailed = ${stateFailed}
+            })
+            $planner.Folders = @($folders)
+            foreach ($row in $plan) { $planner.Plan.Add($row) }
+            return $planner
+        }
+
+        function newFakeCatalog {
+            $catalog = [pscustomobject]@{ Written = $null; Fail = $false }
+            Add-Member -InputObject $catalog -MemberType ScriptMethod -Name StoreIngestedSubfolders -Value {
+                param ($values)
+                if ($this.Fail) { throw "書けません" }
+                $this.Written = $values
+            }
+            return $catalog
+        }
+    }
+
+    It "取り込んだフォルダ（区分が取り込む）が使った subfolders を、パスを鍵にして書く。チェックなし・フォルダなしの行は書かない" {
+        $planner = newRecordPlanner @(
+            [pscustomobject]@{ Name = "売上"; Path = "C:\data\売上"; Enabled = $true; Subfolders = $false },
+            [pscustomobject]@{ Name = "経理"; Path = "C:\data\経理"; Enabled = $true; Subfolders = $true },
+            [pscustomobject]@{ Name = "総務"; Path = "C:\data\総務"; Enabled = $false; Subfolders = $false },
+            [pscustomobject]@{ Name = "企画"; Path = "C:\data\企画"; Enabled = $true; Subfolders = $false }
+        ) @(
+            (newIngestPlanRow "売上" "C:\data\売上" ${planKindIngest}),
+            (newIngestPlanRow "経理" "C:\data\経理" ${planKindIngest}),
+            (newIngestPlanRow "総務" "C:\data\総務" ${planKindUnchecked}),
+            (newIngestPlanRow "企画" "C:\data\企画" ${planKindMissing})
+        )
+        $catalog = newFakeCatalog
+
+        recordIngestedSettings $planner $catalog
+
+        $catalog.Written.Count | Should -Be 2
+        $catalog.Written["C:\data\売上"] | Should -BeFalse
+        $catalog.Written["C:\data\経理"] | Should -BeTrue
+    }
+
+    It "選んだものだけの回は、選ばなかったフォルダ（Plan に取り込む行が無い）を書かない" {
+        $planner = newRecordPlanner @(
+            [pscustomobject]@{ Name = "売上"; Path = "C:\data\売上"; Enabled = $true; Subfolders = $false },
+            [pscustomobject]@{ Name = "経理"; Path = "C:\data\経理"; Enabled = $true; Subfolders = $false }
+        ) @((newIngestPlanRow "売上" "C:\data\売上" ${planKindIngest}))
+        $catalog = newFakeCatalog
+
+        recordIngestedSettings $planner $catalog
+
+        @($catalog.Written.Keys) | Should -Be @("C:\data\売上")
+    }
+
+    It "書く対象が無ければ、設定を書かない" {
+        $planner = newRecordPlanner @([pscustomobject]@{ Name = "売上"; Path = "C:\data\売上"; Enabled = $false; Subfolders = $true }) @((newIngestPlanRow "売上" "C:\data\売上" ${planKindUnchecked}))
+        $catalog = newFakeCatalog
+
+        recordIngestedSettings $planner $catalog
+
+        $catalog.Written | Should -BeNullOrEmpty
+    }
+
+    It "書けなくても例外にせず、ログに黄色で残す" {
+        Mock writeIndexerLog {}
+        $planner = newRecordPlanner @([pscustomobject]@{ Name = "売上"; Path = "C:\data\売上"; Enabled = $true; Subfolders = $false }) @((newIngestPlanRow "売上" "C:\data\売上" ${planKindIngest}))
+        $catalog = newFakeCatalog
+        $catalog.Fail = $true
+
+        { recordIngestedSettings $planner $catalog } | Should -Not -Throw
+
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*前回取り込んだときのサブフォルダの設定を保存できませんでした*" -and $color -eq "Yellow" }
     }
 }
