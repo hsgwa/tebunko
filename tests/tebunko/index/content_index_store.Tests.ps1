@@ -143,8 +143,7 @@ Describe "readContentIndexBookNamesStreaming" -Tag Io {
 
     It "版の行だけなら空の配列" {
         writeUtf16 "$TestDrive\names\only.tsv" "$rs 版=2`n"
-        $names = readContentIndexBookNamesStreaming "$TestDrive
-ames\only.tsv"
+        $names = readContentIndexBookNamesStreaming "$TestDrive\names\only.tsv"
         @($names).Count | Should -Be 0
     }
 
@@ -161,9 +160,7 @@ ames\only.tsv"
     It "最後の行に改行が無くても読む。読めないファイルは空の配列" {
         writeUtf16 "$TestDrive\names\last.tsv" "$rs ファイル名=最後.xlsx"
         ((readContentIndexBookNamesStreaming "$TestDrive\names\last.tsv") -join "|") | Should -Be "最後.xlsx"
-        $none = readContentIndexBookNamesStreaming "$TestDrive
-ames
-one.tsv"
+        $none = readContentIndexBookNamesStreaming "$TestDrive\names\none.tsv"
         @($none).Count | Should -Be 0
     }
 }

@@ -306,3 +306,23 @@ Describe "getIndexExportOmittedText" -Tag Unit {
         getIndexExportOmittedText @(@{ Path = "a.tsv"; Books = @("a.csv") }) 32MB | Should -BeLike "*（32 MB を超えるため*"
     }
 }
+
+Describe "getIndexExportStatusText・getIndexBulkStatusText" -Tag Unit {
+    It "getIndexExportStatusText: <label>" -TestCases @(
+        @{ label = "含めなかったものが無ければ、そのまま"; omitted = @(); expected = "書き出しました（2 ファイル）" }
+        @{ label = "あれば「。」でつなぐ"; omitted = @(@{ Path = "a.tsv"; Books = @("a.csv") }); expected = "書き出しました（2 ファイル）。1 件のインデックスのファイルを含めませんでした（64 MB を超えるため。元のファイル: a.csv）" }
+    ) {
+        param ($label, $omitted, $expected)
+        getIndexExportStatusText "書き出しました（2 ファイル）" $omitted 64MB | Should -Be $expected
+    }
+
+    It "getIndexBulkStatusText: <label>" -TestCases @(
+        @{ label = "エクスポート・含めなかったものが無い"; operation = "エクスポート"; results = @([pscustomobject]@{ Ok = $true; Omitted = @() }); expected = "2 件" }
+        @{ label = "エクスポート・Omitted の無い結果(失敗)が混ざる"; operation = "エクスポート"; results = @([pscustomobject]@{ Ok = $false; Omitted = @() }, [pscustomobject]@{ Ok = $true; Omitted = @(@{ Path = "a.tsv"; Books = @("a.csv") }) }); expected = "2 件。1 件のインデックスのファイルを含めませんでした（64 MB を超えるため。元のファイル: a.csv）" }
+        @{ label = "2 つのインデックスの分を合わせる"; operation = "エクスポート"; results = @([pscustomobject]@{ Omitted = @(@{ Path = "a.tsv"; Books = @("a.csv") }) }, [pscustomobject]@{ Omitted = @(@{ Path = "b.tsv"; Books = @("b.csv") }) }); expected = "2 件。2 件のインデックスのファイルを含めませんでした（64 MB を超えるため。元のファイル: a.csv, b.csv）" }
+        @{ label = "削除は Omitted を見ない"; operation = "削除"; results = @([pscustomobject]@{ Name = "x"; Ok = $true }); expected = "2 件" }
+    ) {
+        param ($label, $operation, $results, $expected)
+        getIndexBulkStatusText $operation "2 件" $results 64MB | Should -Be $expected
+    }
+}

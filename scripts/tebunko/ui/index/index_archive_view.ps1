@@ -277,3 +277,36 @@ function getIndexExportOmittedText {
     }
     return "{0:#,0} 件のインデックスのファイルを含めませんでした（{1}）" -f $omitted.Count, $detail
 }
+
+
+function getIndexExportStatusText {
+    # エクスポートの結果のステータス(status)に、含めなかったファイルの知らせ(getIndexExportOmittedText)を「。」でつないで足す。無ければ status のまま
+    param (
+        [string]$status,
+        $omitted,         # exportIndex の戻り値の Omitted
+        [long]$maxBytes
+    )
+
+    $text = getIndexExportOmittedText $omitted $maxBytes
+    if ($text -eq "") {
+        return $status
+    }
+    return "${status}。${text}"
+}
+
+
+function getIndexBulkStatusText {
+    # まとめての操作(operation)の結果のステータス(status)を返す。"エクスポート"のときだけ、結果の Omitted(1 件ごと)を集めて知らせを足す(削除などは status のまま)
+    param (
+        [string]$operation,
+        [string]$status,
+        [object[]]$results,
+        [long]$maxBytes
+    )
+
+    if ($operation -ne "エクスポート") {
+        return $status
+    }
+    $omitted = @($results | Where-Object { $null -ne $_ } | ForEach-Object { @($_.Omitted) } | Where-Object { $null -ne $_ })
+    return (getIndexExportStatusText $status $omitted $maxBytes)
+}

@@ -157,12 +157,7 @@ function continueExport {
             exportIndexToFolder $name $folder $ws $settingsPath
         } @($name, $folder, $workspace.Dir, $workspace.StatusFile, ${settingsFile}) {
             param ($result)
-            $text = "インデックス [$($result.Name)] を「$($result.Path)」に書き出しました（$($result.Files) ファイル）"
-            $omittedText = getIndexExportOmittedText $result.Omitted ${contentIndexSearchMaxBytes}
-            if ($omittedText) {
-                $text += "。${omittedText}"
-            }
-            setStatus $text
+            setStatus (getIndexExportStatusText "インデックス [$($result.Name)] を「$($result.Path)」に書き出しました（$($result.Files) ファイル）" $result.Omitted ${contentIndexSearchMaxBytes})
         }
         return
     }
@@ -187,12 +182,7 @@ function showBulkIndexResult {
     )
 
     $view = getIndexBulkResultView $operation $results
-    $status = $view.Status
-    $omittedText = getIndexExportOmittedText @($results | Where-Object { $null -ne $_ } | ForEach-Object { @($_.Omitted) }) ${contentIndexSearchMaxBytes}
-    if ($omittedText) {
-        $status += "。${omittedText}"
-    }
-    setStatus $status
+    setStatus (getIndexBulkStatusText $operation $view.Status $results ${contentIndexSearchMaxBytes})
     if ($view.HasFailure) {
         showNoticeBanner "IndexNotice" "IndexOpFailed" "$($view.FailureHeading)`n$($view.FailureDetail)"
     } else {
