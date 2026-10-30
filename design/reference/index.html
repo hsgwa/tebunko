@@ -4239,7 +4239,7 @@
 </tr>
 <tr>
 <td><code>tebunko/indexer/indexer_plan.ps1</code></td>
-<td><code>findTargetFiles</code> / <code>createTargetList</code> / <code>selectOnlyNames</code>（選んだインデックス名を、更新できるものとできないものに分ける）</td>
+<td><code>findTargetFiles</code>（<code>-TopOnly</code> で直下だけ） / <code>createTargetList</code> / <code>getSubfolderRemovedCounts</code>（直下だけに変えたとき、サブフォルダ側で外れる件数） / <code>selectOnlyNames</code>（選んだインデックス名を、更新できるものとできないものに分ける）</td>
 <td><a href="../indexing/target-decision/#取り込み対象の決定createtargetlist">取り込み対象の決定</a>、<a href="../indexing/flow/">インデックス作成のメインフロー</a></td>
 </tr>
 <tr>
@@ -4304,7 +4304,7 @@
 </tr>
 <tr>
 <td><code>tebunko/indexer/indexer_run.ps1</code></td>
-<td><code>invokeIndexer</code> / <code>invokeIndexerBody</code> / <code>getIngestWorkerCount</code> / <code>runIngestWorker</code> / <code>invokeIngestTask</code> / <code>completeIngestJob</code> / <code>flushPendingPublish</code> / <code>publishFlushable</code> / <code>addStageTiming</code> / <code>addIngestResultTiming</code> / <code>addPostponedTiming</code> / <code>addReceivedTiming</code> / <code>postponeAbandonedEntries</code> / <code>postponeUndispatched</code> / <code>dropVanishedFile</code> / <code>invokeTimedIngest</code> / <code>publishTsvTimed</code> / <code>writeStageTimingLog</code></td>
+<td><code>invokeIndexer</code> / <code>invokeIndexerBody</code> / <code>getIngestWorkerCount</code> / <code>runIngestWorker</code> / <code>invokeIngestTask</code> / <code>completeIngestJob</code> / <code>applyRemovedPaths</code>（確認で［更新を開始］のあと、無くなったファイルのインデックスを消す） / <code>recordIngestedSettings</code>（取り込み終えた回のあと、使った subfolders を設定の ingestedSubfolders に書く） / <code>flushPendingPublish</code> / <code>publishFlushable</code> / <code>addStageTiming</code> / <code>addIngestResultTiming</code> / <code>addPostponedTiming</code> / <code>addReceivedTiming</code> / <code>postponeAbandonedEntries</code> / <code>postponeUndispatched</code> / <code>dropVanishedFile</code> / <code>invokeTimedIngest</code> / <code>publishTsvTimed</code> / <code>writeStageTimingLog</code></td>
 <td><a href="../indexing/flow/">インデックス作成のメインフロー</a>、<a href="../indexing/parallel/">取り込みの並列化</a></td>
 </tr>
 <tr>
