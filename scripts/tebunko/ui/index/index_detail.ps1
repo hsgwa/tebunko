@@ -2,7 +2,7 @@
 
 # 詳細の左右の部品。名前の一覧（shell\regions.ps1）に足さず、読み込んだ中身から取る
 foreach ($detailName in @(
-        "IndexDetailBody", "IndexDetailName", "IndexDetailPath", "IndexDetailPathButton", "IndexDetailEditError", "IndexDetailFolderStatus", "IndexDetailFolderIcon",
+        "IndexDetailBody", "IndexDetailName", "IndexDetailPath", "IndexDetailPathButton", "IndexDetailSubfolders", "IndexDetailEditError", "IndexDetailFolderStatus", "IndexDetailFolderIcon",
         "IndexDetailBadge", "IndexDetailBadgeText", "IndexDetailBadgeSub", "IndexErrorText", "IndexErrorHintText", "IndexDetailUpdated", "IndexDetailCount",
         "IndexingDetailPanel", "IndexingProgressBar", "IndexingCountText", "IndexingFileText", "MultiSelectHintText",
         "IndexFilesButton", "IndexFilesPanel", "IndexFilesCloseButton", "IndexFilesHeading", "IndexFilesGrid",
@@ -168,6 +168,7 @@ function updateIndexingButton {
     # 名前とフォルダパスの欄は、動いている処理が無く、1 件選んでいるときだけ直せる
     $ui.IndexDetailName.IsEnabled = $buttons.Edit
     $ui.IndexDetailPath.IsEnabled = $buttons.Edit
+    $ui.IndexDetailSubfolders.IsEnabled = $buttons.Edit   # 更新中・ほかの処理の間は押せない
     # 行の右クリックのメニュー（対象は押した行。可否は getIndexRowMenuEnabled）
     $pressed = $ui.IndexGrid.SelectedItem
     $menu = getIndexRowMenuEnabled $blocker ($null -ne $pressed) $(if ($pressed) { $pressed.IndexLevel } else { "None" }) ($null -ne $pressed -and [bool]$pressed.Path)
@@ -454,6 +455,16 @@ function getIndexTargetItem {
     return getIndexDetailItem $ui.IndexGrid.SelectedItem @(getIndexCheckedItems @($script:targetItems))
 }
 
+function setIndexDetailSubfolders {
+    # 詳細の『サブフォルダを含める』に行の値を入れる。入れ直している間は、チェックの出来事で設定を書かない（changeIndexSubfolders が見る）
+    param (
+        [bool]$value
+    )
+
+    $script:indexDetailApplying = $true
+    try { $ui.IndexDetailSubfolders.IsChecked = $value } finally { $script:indexDetailApplying = $false }
+}
+
 function updateIndexDetailPanel {
     # 選んだインデックスの値の行を出す（文言の組み立ては getIndexDetailView）。
     # 選びなおしたとき・取り込みの集計が届いたときに呼ぶ
@@ -462,7 +473,7 @@ function updateIndexDetailPanel {
     $item = getIndexDetailItem $ui.IndexGrid.SelectedItem $checkedItems
     if ($null -ne $item) {
         $selected = @(@{
-            Name = $item.Name; Path = $item.Path; Enabled = $item.Enabled; FolderStatus = $item.StatusText
+            Name = $item.Name; Path = $item.Path; Enabled = $item.Enabled; Subfolders = $item.Subfolders; FolderStatus = $item.StatusText
             FolderMissing = ($item.StatusChecked -and !$item.FolderExists); FolderChecked = [bool]$item.StatusChecked
             IndexText = $item.IndexText; IndexLevel = $item.IndexLevel; IndexSub = $item.IndexSub; FileCountText = $item.FileCountText
             LastIngestedText = $item.LastIngestedText; FailedCount = $item.FailedCount; PendingCount = $item.PendingCount
@@ -500,6 +511,7 @@ function updateIndexDetailPanel {
         $ui.IndexDetailName.Text = $view.Name
         $ui.IndexDetailPath.Text = $view.Path
     }
+    setIndexDetailSubfolders $view.Subfolders
     $ui.IndexDetailFolderStatus.Text = $view.FolderStatus
     $ui.IndexDetailFolderStatus.Foreground = themeBrush $view.FolderBrush
     # 文の左のアイコン（Lucide の check・x）。空なら隠す

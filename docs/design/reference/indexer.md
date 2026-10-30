@@ -125,7 +125,7 @@
 | `SaveNames` | targetFolders, save（割り当てた名前を受け取って保存し、保存した一覧を返すスクリプトブロック） | – | 名前の無いフォルダがあったときだけ `save` を呼び、`Folders` を保存した一覧にする（保存の間に設定から外れた・名前を付けられなかったフォルダは落とす。司令は `IndexCatalog.StoreAssignedNames` を呼ぶ `save` を渡す） |
 | `SelectOnly` | onlyNames | 更新できない名前（`@{Name; Reason}` の並び） | 選んだインデックスだけを更新する場合の当てはめ |
 | `Crawl` | indexCounts, onFolder | – | フォルダごとに取り込み対象・チェックなし・フォルダなしに分け、`Rows`・`Targets`・`Failed`・`Plan` を組み立てる。`onFolder` は検索の直前に呼ぶ（進み具合を出す。例外は包まずにそのまま伝える） |
-| `KeepForCancel` | – | 取り込み一覧に書く行 | 取りやめるとき、取り込み対象の行（とクラウドにだけあって前回未完了の行）を前回の記録のままにする |
+| `KeepForCancel` | – | 取り込み一覧に書く行 | 取りやめるとき、取り込み対象の行（とクラウドにだけあって前回未完了の行・元のファイルが無くなったファイルの行）を前回の記録のままにする |
 | `ApplyFailed` | retry | – | 前回失敗した行を、再取り込みする（`Targets` に足す）かスキップするか |
 | `ApplyInterrupted` | entries, interruptLimit | – | 前回強制終了したファイルを最後に回し（`Carried`）、上限に達したものは失敗にする |
 | `FolderByName` | – | インデックス名 → フォルダ | 取り込みのワーカーへ渡すための対応 |

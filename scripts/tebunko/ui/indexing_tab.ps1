@@ -51,7 +51,11 @@ function buildPlanRows {
 
     $rows = New-Object System.Collections.Generic.List[PlanRow]
     # , で包んだ戻り値は、そのまま foreach に渡すと空のときも 1 回まわるため、変数に受けてから回す
-    $views = newPlanViewRows $plan $script:indexingOnlyNames
+    $subfolders = @{}
+    foreach ($item in $script:targetItems) {
+        if ($item.Name) { $subfolders[[string]$item.Name] = [bool]$item.Subfolders }
+    }
+    $views = newPlanViewRows $plan $script:indexingOnlyNames $subfolders
     foreach ($view in $views) {
         $row = [PlanRow]::new()
         $row.Name = $view.Name
@@ -60,6 +64,7 @@ function buildPlanRows {
         $row.StatusText = $view.StatusText
         $row.Level = $view.Level
         $row.DetailText = $view.DetailText
+        $row.TopOnlyText = $view.TopOnlyText
         $rows.Add($row)
     }
     return , $rows.ToArray()
@@ -70,6 +75,8 @@ function updateIndexingConfirmTotal {
     $view = getIndexingConfirmView $d.Plan @($script:indexingOnlyNames) ([bool]$d.Ctrl.RetryCheck.IsChecked) ([bool]$d.Ctrl.CloudCheck.IsChecked)
     $d.View = $view
     $d.Ctrl.TotalText.Text = $view.Confirm.Text
+    $d.Ctrl.SubfolderRemovalNote.Text = $view.SubfolderRemovalNote
+    $d.Ctrl.SubfolderRemovalNote.Visibility = $(if ($view.SubfolderRemovalNote) { "Visible" } else { "Collapsed" })
     $d.Ctrl.StartButton.Content = $view.Confirm.Button
     $d.Ctrl.RetryCheck.Visibility = $(if ($view.RetryVisible) { "Visible" } else { "Collapsed" })
     $d.Ctrl.RetryCheck.Content = $view.RetryText
@@ -119,7 +126,7 @@ function showIndexingConfirmDialog {
     $dialog = loadWindow "${xamlDir}\dialog_indexing_confirm.xaml"
     $dialog.Owner = $window
     $ctrl = @{}
-    foreach ($name in @("StartButton", "CancelButton", "RetryCheck", "CloudWarnText", "CloudCheck", "CloudRememberCheck", "TotalText", "NoteText", "IntroText", "PlanGrid", "IndexLocationText", "IndexLocationNote", "IndexLocationWarning", "IndexLocationStatus", "OpenIndexLocationButton")) {
+    foreach ($name in @("StartButton", "CancelButton", "RetryCheck", "CloudWarnText", "CloudCheck", "CloudRememberCheck", "TotalText", "SubfolderRemovalNote", "NoteText", "IntroText", "PlanGrid", "IndexLocationText", "IndexLocationNote", "IndexLocationWarning", "IndexLocationStatus", "OpenIndexLocationButton")) {
         $ctrl[$name] = $dialog.FindName($name)
     }
     # 設定の cloudFiles は開くときに 1 回だけ読む（開始するとき、変わったときだけ書き戻す）

@@ -162,13 +162,18 @@ class IndexCatalog {
     }
 
     [object[]] StoreAssignedNames($assigned) {
-        # 割り当てた名前（assignIndexNames の結果）を設定に保存し、保存した一覧（@{ Name; Path; Enabled }）を返す。
+        # 割り当てた名前（assignIndexNames の結果）を設定に保存し、保存した一覧（@{ Name; Path; Enabled; Subfolders }）を返す。
         # インデクサが、司令のスレッドで作ったこのクラスの経由で名前を保存する
         return @(saveAssignedIndexNames $assigned $this.SettingsPath)
     }
 
+    [void] StoreIngestedSubfolders($values) {
+        # 取り込み終えたフォルダが使った subfolders（パス → bool の表）を、設定の ingestedSubfolders に書く（インデクサだけが書く）
+        setIngestedSubfolders $values $this.SettingsPath
+    }
+
     [void] SaveTargets($folders) {
-        # インデックスの一覧（@{ Name; Path; Enabled } の配列）を設定に書く
+        # インデックスの一覧（@{ Name; Path; Enabled; Subfolders } の配列）を設定に書く
         writeTargetFolders $folders $this.SettingsPath
     }
 

@@ -76,14 +76,31 @@
     <Border BorderBrush="{StaticResource Border.Soft}" BorderThickness="1" CornerRadius="6" ClipToBounds="True">
       <DockPanel>
       <Border DockPanel.Dock="Bottom" Background="{StaticResource Bg.Summary}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,1,0,0" Padding="12,8">
-        <TextBlock x:Name="TotalText" Style="{StaticResource Label.Strong}" TextWrapping="Wrap" />
+        <StackPanel>
+          <TextBlock x:Name="TotalText" Style="{StaticResource Label.Strong}" TextWrapping="Wrap" />
+          <!-- 直下だけに変えたフォルダで、サブフォルダ側を外す件数（getIndexingSubfolderRemovalNote。0 件のときは隠す） -->
+          <TextBlock x:Name="SubfolderRemovalNote" Style="{StaticResource Meta}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
+        </StackPanel>
       </Border>
       <DataGrid x:Name="PlanGrid" MinHeight="120" BorderThickness="0" CanUserAddRows="False" SelectionMode="Single" CanUserSortColumns="False">
         <DataGrid.Columns>
           <DataGridTemplateColumn Header="フォルダ名" Width="*">
             <DataGridTemplateColumn.CellTemplate>
               <DataTemplate>
-                <TextBlock Style="{StaticResource Cell.Key}" Text="{Binding Name}" ToolTip="{Binding Path}" />
+                <StackPanel Orientation="Horizontal" ToolTip="{Binding Path}">
+                  <TextBlock Style="{StaticResource Cell.Key}" Text="{Binding Name}" />
+                  <!-- 設定が「サブフォルダを含めない」の行だけに出す札（読み取りだけ。選ぶのは［インデックス管理］の詳細）。TopOnlyText が空なら隠す -->
+                  <Border Background="{StaticResource Bg.Tag}" CornerRadius="3" Padding="6,1" Margin="6,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding TopOnlyText}" FontSize="10" FontWeight="Medium" Foreground="{StaticResource Ink.Muted}" />
+                    <Border.Style>
+                      <Style TargetType="Border">
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding TopOnlyText}" Value=""><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </Border.Style>
+                  </Border>
+                </StackPanel>
               </DataTemplate>
             </DataGridTemplateColumn.CellTemplate>
           </DataGridTemplateColumn>
