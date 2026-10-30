@@ -681,7 +681,7 @@ Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を�
     It "受け取る zip（index_archive.ps1）のエントリーを開く（.Open()）のは、書き込みの 2 つと上限付きの読み取りの 2 つの関数だけで、ReadToEnd は使わない" {
         # 申告の大きさ（送り手が書ける）に頼らず、実際に読んだ大きさを数えて打ち切る関数（readArchiveEntryBytesLimited・extractArchiveEntryToFile）を通さずに
         # 中身を全量読む処理が足されないよう、関数の行範囲で確かめる
-        $archiveLines = @($code | Where-Object { $_.File -eq "index_archive.ps1" })
+        $archiveLines = @($code | Where-Object { $_.File -eq "index_archive.ps1" -and $_.Path -notmatch '\\ui\\' })   # 同じ名前の画面層のファイルの関数の行が、範囲の終わりに混ざらないよう外す
         $funcStarts = @($archiveLines | Where-Object { $_.Text -match '^\s*function\s+\w+' } | Sort-Object Line)
         $ranges = @()
         foreach ($fn in @("writeArchiveBytes", "writeArchiveFile", "readArchiveEntryBytesLimited", "extractArchiveEntryToFile")) {

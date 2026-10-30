@@ -493,3 +493,70 @@ function readContentIndexLines {
     return @{ Rows = $rows.ToArray(); End = ($rows.Count -lt $count); Marks = $newMarks }
 }
 
+
+
+function readContentIndexBookNamesStreaming {
+    # 本文インデックスのファイル（UTF-16LE）に入っている元のファイルの相対パス（「ファイル名=」の行の値）を、先頭から順に配列で返す。
+    # 大きすぎて丸ごとは読み込めないファイルのために、文字単位で区切り読みし、メモリには 1 行ぶんの上限（maxLineChars）までしか持たない。
+    # 上限を超える行は改行まで読み捨てる（StreamReader.ReadLine は長い行を丸ごと読むので使わない）。読めなければ空の配列
+    param (
+        [string]$path,
+        [int]$maxLineChars = 32768
+    )
+
+    $names = New-Object System.Collections.Generic.List[string]
+    $pattern = [regex]::new("^$([regex]::Escape([string]${contentIndexMark})) ファイル名=([^\r\n]*)", [System.Text.RegularExpressions.RegexOptions]::Multiline)
+    $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
+    try {
+        $stream = [System.IO.FileStream]::new((toLongPath $path), [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
+    } catch [System.IO.IOException] {
+        return , @()
+    } catch [System.UnauthorizedAccessException] {
+        return , @()
+    }
+    try {
+        $reader = [System.IO.StreamReader]::new($stream, [System.Text.Encoding]::Unicode, $true)
+        $buffer = New-Object char[] 65536
+        $carry = ""
+        $discarding = $false
+        while ($true) {
+            $got = $reader.Read($buffer, 0, $buffer.Length)
+            if ($got -le 0) { break }
+            $text = $carry + [string]::new($buffer, 0, $got)
+            if ($discarding) {
+                # 上限を超えた行の続きは、改行まで捨てる
+                $newline = $text.IndexOf([char]10)
+                if ($newline -lt 0) { $carry = ""; continue }
+                $text = $text.Substring($newline + 1)
+                $discarding = $false
+            }
+            $last = $text.LastIndexOf([char]10)
+            if ($last -lt 0) {
+                $carry = $text
+                $complete = ""
+            } else {
+                $complete = $text.Substring(0, $last + 1)
+                $carry = $text.Substring($last + 1)
+            }
+            foreach ($match in $pattern.Matches($complete)) {
+                if ($match.Length -le $maxLineChars) {
+                    $names.Add((decodeContentIndexValue $match.Groups[1].Value))
+                }
+            }
+            if ($carry.Length -gt $maxLineChars) {
+                $carry = ""
+                $discarding = $true
+            }
+        }
+        # 最後の行に改行が無いとき
+        if (!$discarding -and $carry.Length -gt 0) {
+            $match = $pattern.Match($carry)
+            if ($match.Success -and $match.Length -le $maxLineChars) {
+                $names.Add((decodeContentIndexValue $match.Groups[1].Value))
+            }
+        }
+    } finally {
+        $stream.Dispose()
+    }
+    return , $names.ToArray()
+}

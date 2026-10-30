@@ -122,3 +122,48 @@ Describe "publishIndexFolders: 書き終えたフォルダ（Published）" -Tag 
         @($result.Published).Count | Should -Be 0
     }
 }
+Describe "readContentIndexBookNamesStreaming" -Tag Io {
+    BeforeAll {
+        function script:writeUtf16 {
+            param ([string]$path, [string]$text)
+            [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($path)) | Out-Null
+            [System.IO.File]::WriteAllText($path, $text, [System.Text.Encoding]::Unicode)
+        }
+        $script:rs = [string][char]0x1E
+    }
+
+    It "複数の元のファイルの名前を順に返す（版の行・場所の行・本文は名前にしない。% で符号化した値は戻す）" {
+        $text = "$rs 版=2`n$rs ファイル名=A社.xlsx`n$rs シート=Sheet1`n本文`n$rs ファイル名=見積%25B.xlsx`r`n本文2`n"
+        writeUtf16 "$TestDrive\names\ok.tsv" $text
+
+        $names = readContentIndexBookNamesStreaming "$TestDrive\names\ok.tsv"
+
+        ($names -join "|") | Should -Be "A社.xlsx|見積%B.xlsx"
+    }
+
+    It "版の行だけなら空の配列" {
+        writeUtf16 "$TestDrive\names\only.tsv" "$rs 版=2`n"
+        $names = readContentIndexBookNamesStreaming "$TestDrive
+ames\only.tsv"
+        @($names).Count | Should -Be 0
+    }
+
+    It "行の長さの上限を超える行は飛ばし、その行の続きを次の名前と取り違えない（読み込みの区切りをまたぐ長い行も同じ）" {
+        $long = "あ" * 100000
+        $text = "$rs ファイル名=前.xlsx`n$rs ファイル名=$long`n$long`n$rs ファイル名=後.xlsx`n"
+        writeUtf16 "$TestDrive\names\long.tsv" $text
+
+        $names = readContentIndexBookNamesStreaming "$TestDrive\names\long.tsv" 1000
+
+        ($names -join "|") | Should -Be "前.xlsx|後.xlsx"
+    }
+
+    It "最後の行に改行が無くても読む。読めないファイルは空の配列" {
+        writeUtf16 "$TestDrive\names\last.tsv" "$rs ファイル名=最後.xlsx"
+        ((readContentIndexBookNamesStreaming "$TestDrive\names\last.tsv") -join "|") | Should -Be "最後.xlsx"
+        $none = readContentIndexBookNamesStreaming "$TestDrive
+ames
+one.tsv"
+        @($none).Count | Should -Be 0
+    }
+}

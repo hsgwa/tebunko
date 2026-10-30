@@ -250,3 +250,30 @@ function getIndexImportNotice {
     # 中身（名前・日時・ファイル数・大きさ・版）は getIndexImportHeader の枠に出す
     return "名前と、元のフォルダの場所を変えられます。"
 }
+
+
+function getIndexExportOmittedText {
+    # エクスポートで、インポートできない大きさのため zip に入れなかった本文インデックスのファイルがあるときの、ステータスに足す文言。
+    # 無ければ空文字列。元のファイルは最大 5 件まで並べ、残りは「ほか M 件」にする
+    param (
+        $omitted,         # exportIndex の戻り値の Omitted（@{ Path; Books } の配列）
+        [long]$maxBytes   # 上限（contentIndexSearchMaxBytes）。文言の「64 MB」はここから作る
+    )
+
+    $omitted = @($omitted | Where-Object { $null -ne $_ })
+    if ($omitted.Count -eq 0) {
+        return ""
+    }
+    $books = @($omitted | ForEach-Object { @($_.Books) })
+    $reason = "$([long]($maxBytes / 1MB)) MB を超えるため"
+    $detail = $reason
+    if ($books.Count -gt 0) {
+        $shown = (@($books | Select-Object -First 5)) -join ", "
+        $others = $books.Count - 5
+        if ($others -ge 1) {
+            $shown += " ほか {0:#,0} 件" -f $others
+        }
+        $detail = "${reason}。元のファイル: ${shown}"
+    }
+    return "{0:#,0} 件のインデックスのファイルを含めませんでした（{1}）" -f $omitted.Count, $detail
+}

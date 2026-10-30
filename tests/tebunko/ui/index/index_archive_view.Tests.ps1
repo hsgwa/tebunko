@@ -289,3 +289,20 @@ Describe "testIndexImportInput（元のフォルダの重なり）" -Tag Unit {
         testIndexImportInput "C:\data\売上" "売上" $items | Should -Be ""
     }
 }
+
+Describe "getIndexExportOmittedText" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "0 件は空文字列"; omitted = @(); expected = "" }
+        @{ label = "null は空文字列"; omitted = $null; expected = "" }
+        @{ label = "1 件（元のファイル 2 つ）"; omitted = @(@{ Path = "a.tsv"; Books = @("a.csv", "b.csv") }); expected = "1 件のインデックスのファイルを含めませんでした（64 MB を超えるため。元のファイル: a.csv, b.csv）" }
+        @{ label = "元のファイルが分からないときは理由だけ"; omitted = @(@{ Path = "a.tsv"; Books = @() }); expected = "1 件のインデックスのファイルを含めませんでした（64 MB を超えるため）" }
+        @{ label = "元のファイルは 5 件まで並べ、残りは「ほか M 件」"; omitted = @(@{ Path = "a.tsv"; Books = @("1", "2", "3", "4") }, @{ Path = "b.tsv"; Books = @("5", "6", "7") }); expected = "2 件のインデックスのファイルを含めませんでした（64 MB を超えるため。元のファイル: 1, 2, 3, 4, 5 ほか 2 件）" }
+    ) {
+        param ($label, $omitted, $expected)
+        getIndexExportOmittedText $omitted 64MB | Should -Be $expected
+    }
+
+    It "上限の MB は引数から作る" {
+        getIndexExportOmittedText @(@{ Path = "a.tsv"; Books = @("a.csv") }) 32MB | Should -BeLike "*（32 MB を超えるため*"
+    }
+}
