@@ -4335,9 +4335,9 @@
 <tbody>
 <tr>
 <td><code>targetFolders</code></td>
-<td><code>{name, path, enabled}</code> の配列</td>
+<td><code>{name, path, enabled, subfolders, ingestedSubfolders}</code> の配列</td>
 <td>空</td>
-<td>クロール対象フォルダ（記載順）。<code>name</code> は<strong>インデックス名</strong>（<code>&lt;ワークスペース&gt;\store\content</code> 直下のフォルダ名）、<code>path</code> は<strong>そのフォルダが今置かれている場所</strong>。名前と置き場所を分けて持つため、フォルダを移したときは <code>path</code> の値を書き換えるだけでよい（インデックスは作り直さない。<a href="../../indexing/crawl/#クロール対象フォルダとインデックス名">クロール対象フォルダと取り込み対象</a>）。<code>name</code> が空ならインデックス作成時に割り当てて保存する。<code>enabled</code> が <code>false</code> はチェックなし（登録のみで取り込まない）。<code>enabled</code> が無ければチェックあり（<a href="../../indexing/crawl/#クロール対象フォルダgettargetfolders">クロール対象フォルダと取り込み対象</a>）</td>
+<td>クロール対象フォルダ（記載順）。<code>name</code> は<strong>インデックス名</strong>（<code>&lt;ワークスペース&gt;\store\content</code> 直下のフォルダ名）、<code>path</code> は<strong>そのフォルダが今置かれている場所</strong>。名前と置き場所を分けて持つため、フォルダを移したときは <code>path</code> の値を書き換えるだけでよい（インデックスは作り直さない。<a href="../../indexing/crawl/#クロール対象フォルダとインデックス名">クロール対象フォルダと取り込み対象</a>）。<code>name</code> が空ならインデックス作成時に割り当てて保存する。<code>enabled</code> が <code>false</code> はチェックなし（登録のみで取り込まない）。<code>enabled</code> が無ければチェックあり。<code>subfolders</code> が <code>false</code> は、そのフォルダの直下のファイルだけを取り込む（サブフォルダの中は取り込まない）。<code>subfolders</code> が無ければ <code>true</code>（サブフォルダも含める。今までどおり）。<code>ingestedSubfolders</code> は、前回取り込んだときに使った <code>subfolders</code>（インデクサだけが、取り込み終えた回に書く。取りやめ・中止・エラーの回では書かない）。画面は、今の <code>subfolders</code> との差で［要更新］を求める。無ければ <code>true</code>（前回は再帰で取り込んだとみなす。新しい版に上げた直後の既存のインデックスは再帰で作ってあるため）（<a href="../../indexing/crawl/#クロール対象フォルダgettargetfolders">クロール対象フォルダと取り込み対象</a>）</td>
 <td><code>getTargetFolders</code> / <code>writeTargetFolders</code></td>
 </tr>
 <tr>
