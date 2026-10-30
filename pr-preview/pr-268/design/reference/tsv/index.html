@@ -5189,6 +5189,22 @@
 <td>画面</td>
 </tr>
 <tr>
+<td><code>getContentIndexBookHeadPrefix</code></td>
+<td>–</td>
+<td>string</td>
+<td>本文インデックスで元のファイル 1 つの始まりを表す行の、値の前までの部分（<code>&lt;RS&gt; ファイル名=</code>）。書き出し・分割・名前の取り出しが同じ書式を使うための 1 か所</td>
+<td>同上</td>
+<td><code>convertToContentIndexText</code>・<code>splitContentIndexTextByBook</code>・<code>readContentIndexBookNamesStreaming</code></td>
+</tr>
+<tr>
+<td><code>readContentIndexBookNamesStreaming</code></td>
+<td>path, maxLineChars（既定 32768）</td>
+<td>string の配列</td>
+<td>本文インデックスのファイルに入っている元のファイルの名前（<code>ファイル名=</code> の行の値）を、全体を読み込まずに区切り読みで集める。上限を超える行は改行まで読み捨てる。読めなければ空の配列。エクスポートが、大きすぎて含めなかったファイルの元のファイルを知らせるために使う</td>
+<td><code>writeContentIndexFilesToArchive</code></td>
+<td></td>
+</tr>
+<tr>
 <td><code>readContentIndexRange</code></td>
 <td>path, start, end, firstLine, lines, baseLine（既定 1）, checkpoints</td>
 <td>string / null</td>
