@@ -250,3 +250,63 @@ function getIndexImportNotice {
     # 中身（名前・日時・ファイル数・大きさ・版）は getIndexImportHeader の枠に出す
     return "名前と、元のフォルダの場所を変えられます。"
 }
+
+
+function getIndexExportOmittedText {
+    # エクスポートで、インポートできない大きさのため zip に入れなかった本文インデックスのファイルがあるときの、ステータスに足す文言。
+    # 無ければ空文字列。元のファイルは最大 5 件まで並べ、残りは「ほか M 件」にする
+    param (
+        $omitted,         # exportIndex の戻り値の Omitted（@{ Path; Books } の配列）
+        [long]$maxBytes   # 上限（contentIndexSearchMaxBytes）。文言の「64 MB」はここから作る
+    )
+
+    $omitted = @($omitted | Where-Object { $null -ne $_ })
+    if ($omitted.Count -eq 0) {
+        return ""
+    }
+    $books = @($omitted | ForEach-Object { @($_.Books) })
+    $reason = "$([long]($maxBytes / 1MB)) MB を超えるため"
+    $detail = $reason
+    if ($books.Count -gt 0) {
+        $shown = (@($books | Select-Object -First 5)) -join ", "
+        $others = $books.Count - 5
+        if ($others -ge 1) {
+            $shown += " ほか {0:#,0} 件" -f $others
+        }
+        $detail = "${reason}。元のファイル: ${shown}"
+    }
+    return "{0:#,0} 件のインデックスのファイルを含めませんでした（{1}）" -f $omitted.Count, $detail
+}
+
+
+function getIndexExportStatusText {
+    # エクスポートの結果のステータス(status)に、含めなかったファイルの知らせ(getIndexExportOmittedText)を「。」でつないで足す。無ければ status のまま
+    param (
+        [string]$status,
+        $omitted,         # exportIndex の戻り値の Omitted
+        [long]$maxBytes
+    )
+
+    $text = getIndexExportOmittedText $omitted $maxBytes
+    if ($text -eq "") {
+        return $status
+    }
+    return "${status}。${text}"
+}
+
+
+function getIndexBulkStatusText {
+    # まとめての操作(operation)の結果のステータス(status)を返す。"エクスポート"のときだけ、結果の Omitted(1 件ごと)を集めて知らせを足す(削除などは status のまま)
+    param (
+        [string]$operation,
+        [string]$status,
+        [object[]]$results,
+        [long]$maxBytes
+    )
+
+    if ($operation -ne "エクスポート") {
+        return $status
+    }
+    $omitted = @($results | Where-Object { $null -ne $_ } | ForEach-Object { @($_.Omitted) } | Where-Object { $null -ne $_ })
+    return (getIndexExportStatusText $status $omitted $maxBytes)
+}

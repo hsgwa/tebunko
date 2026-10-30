@@ -683,19 +683,21 @@ Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を�
     It "受け取る zip（index_archive.ps1）のエントリーを開く（.Open()）のは、書き込みの 2 つと上限付きの読み取りの 2 つの関数だけで、ReadToEnd は使わない" {
         # 申告の大きさ（送り手が書ける）に頼らず、実際に読んだ大きさを数えて打ち切る関数（readArchiveEntryBytesLimited・extractArchiveEntryToFile）を通さずに
         # 中身を全量読む処理が足されないよう、関数の行範囲で確かめる
+        # 同じ名前のファイルが 2 つある（index\index_archive.ps1・ui\index\index_archive.ps1）ので、関数の範囲はパスごとに取る
         $archiveLines = @($code | Where-Object { $_.File -eq "index_archive.ps1" })
         $funcStarts = @($archiveLines | Where-Object { $_.Text -match '^\s*function\s+\w+' } | Sort-Object Line)
         $ranges = @()
         foreach ($fn in @("writeArchiveBytes", "writeArchiveFile", "readArchiveEntryBytesLimited", "extractArchiveEntryToFile")) {
-            $start = ($funcStarts | Where-Object { $_.Text -match "function\s+$fn\b" }).Line
-            $start | Should -Not -BeNullOrEmpty
-            $end = ($funcStarts | Where-Object { $_.Line -gt $start } | Sort-Object Line | Select-Object -First 1).Line
+            $startRow = @($funcStarts | Where-Object { $_.Text -match "function\s+$fn\b" })[0]
+            $startRow | Should -Not -BeNullOrEmpty
+            $start = $startRow.Line
+            $end = ($funcStarts | Where-Object { $_.Path -eq $startRow.Path -and $_.Line -gt $start } | Sort-Object Line | Select-Object -First 1).Line
             if (-not $end) { $end = [int]::MaxValue }
-            $ranges += , @($start, $end)
+            $ranges += , @($start, $end, $startRow.Path)
         }
         $opens = @($archiveLines | Where-Object { $_.Text -match '\.Open\(\)' })
         ($opens.Count -gt 0) | Should -Be $true  # 対象 0 件で通ってしまうのを防ぐ
-        $outside = @($opens | Where-Object { $o = $_; @($ranges | Where-Object { $o.Line -ge $_[0] -and $o.Line -lt $_[1] }).Count -eq 0 })
+        $outside = @($opens | Where-Object { $o = $_; @($ranges | Where-Object { $o.Path -eq $_[2] -and $o.Line -ge $_[0] -and $o.Line -lt $_[1] }).Count -eq 0 })
         (@($outside | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
         (findPattern $archiveLines 'ReadToEnd') | Should -Be ""
     }
