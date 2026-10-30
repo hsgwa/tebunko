@@ -467,7 +467,7 @@ function captureTopOnlyScene {
 }
 
 function captureTextExtensionsScene {
-    # index-tab/text-extensions（詳細の「取り込む拡張子」の［変更…］で開いたダイアログ。前回の更新で数えた件数と、日時つきの注）
+    # index-tab/text-extensions（詳細の「取り込み対象の拡張子」の［変更…］で開いたダイアログ。前回の更新で数えた件数と、日時つきの注）
     param ($Ids, $Root, $OutDir, $UserName, $ComputerName, $UserProfile, $Sizes)
     if ($Ids -notcontains "index-tab/text-extensions") { return }
 
@@ -494,15 +494,15 @@ function captureTextExtensionsScene {
                 (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*" -and (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
             } | Out-Null
 
-            setGuiStep $S "行を選び、詳細の「取り込む拡張子」の［変更…］"
+            setGuiStep $S "行を選び、詳細の「取り込み対象の拡張子」の［変更…］"
             selectGui @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
             waitGui $S "詳細が出る" ${guiDefaultTimeout} { findGui $S.Window -Id "ChangeIndexTextExtensionsButton" } | Out-Null
-            clickGui $S $S.Window "ChangeIndexTextExtensionsButton" "取り込む拡張子の［変更…］"
-            $dialog = waitGuiWindow $S "取り込む拡張子のダイアログ" -Id "TextExtOkButton"
+            clickGui $S $S.Window "ChangeIndexTextExtensionsButton" "取り込み対象の拡張子の［変更…］"
+            $dialog = waitGuiWindow $S "取り込み対象の拡張子のダイアログ" -Id "TextExtOkButton"
             captureGuiState -S $S -Id "index-tab/text-extensions" -Ids $Ids -OutDir $OutDir `
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($dialog)
             clickGui $S $dialog "TextExtCancelButton" "ダイアログの［キャンセル］"
-            waitGuiWindowClosed $S $dialog "取り込む拡張子のダイアログ"
+            waitGuiWindowClosed $S $dialog "取り込み対象の拡張子のダイアログ"
             closeGui $S
         }
     } finally {

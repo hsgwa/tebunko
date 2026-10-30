@@ -353,7 +353,7 @@ runIndexer $root | Should -Be 0
 writeIndexTextExcludes "資料" @(".log") $settingsPath
 runIndexer $root | Should -Be 0
 @((readTestStatus $root).Rows.Keys | ForEach-Object { [System.IO.Path]::GetFileName($_) }) | Should -Be @("メモ.txt")
-(Get-Content -LiteralPath "$root\work\indexing_log.txt" -Raw) | Should -Match "取り込まないにした拡張子のファイル 1 件は、インデックスから除きます"
+(Get-Content -LiteralPath "$root\work\indexing_log.txt" -Raw) | Should -Match "対象外にした拡張子のファイル 1 件は、インデックスから除きます"
 }
 
 

@@ -230,7 +230,7 @@ function writeRemovedTargetLog {
         $excludedCount = @($removed | Where-Object { $extensions -notcontains [System.IO.Path]::GetExtension($_).ToLowerInvariant() }).Count
     }
     if ($excludedCount -gt 0) {
-        writeIndexerLog "    取り込まないにした拡張子のファイル $excludedCount 件は、インデックスから除きます。"
+        writeIndexerLog "    対象外にした拡張子のファイル $excludedCount 件は、インデックスから除きます。"
     }
     if (@($removed).Count -gt $excludedCount) {
         writeIndexerLog "    元ファイルが無くなった $(@($removed).Count - $excludedCount) 件は、インデックスから除きます。"
@@ -292,7 +292,7 @@ function createTargetList {
     #            各要素は @{ RelPath; Row（取り込むときの行）; Old; Failed; Length; PendingOld }。
     #            Rows には前回の行をそのまま入れる（前回の行が無い・前回未完了のときは入れない）
     #   Plan   : 画面の確認に出す件数（newIngestPlanRow。取り込み予定.tsv の1行）
-    #   Removed: 元のファイルが無くなったファイル・取り込まないにした拡張子のファイルの相対パス（ここでは何も消さない。呼び出し元が、取り込みを始めるときにインデックスを消す）
+    #   Removed: 元のファイルが無くなったファイル・対象外にした拡張子のファイルの相対パス（ここでは何も消さない。呼び出し元が、取り込みを始めるときにインデックスを消す）
     #   TextCounts: テキストの拡張子ごとの件数（拡張子 → 件数。取り込まない拡張子の分も含む。findTargetFiles の TextCounts）
     #   Stopped: shouldStop が $true を返して途中で止めた。このときほかの値は空（呼び出し元は前回の行をそのまま残す）
     # 行の相対パスは "インデックス名\フォルダからの相対パス"（= work\index からの相対パス）とする。

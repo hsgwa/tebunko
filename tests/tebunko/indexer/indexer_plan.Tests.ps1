@@ -995,7 +995,7 @@ Describe "getTargetExtensionList / 取り込まない拡張子（createTargetLis
         @($result.Rows | Where-Object { $_.相対パス -eq "拡張子\a.log" }).Count | Should -Be 0
         # ここでは消さない（取り込みを始めると決まったあとに呼び出し元が消す）
         Test-Path -LiteralPath $logBook | Should -Be $true
-        Should -Invoke writeIndexerLog -Times 1 -Exactly -ParameterFilter { $text -like "*取り込まないにした拡張子のファイル 1 件は、インデックスから除きます*" }
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -ParameterFilter { $text -like "*対象外にした拡張子のファイル 1 件は、インデックスから除きます*" }
         Should -Invoke writeIndexerLog -Times 0 -Exactly -ParameterFilter { $text -like "*元ファイルが無くなった*" }
     }
 
@@ -1048,7 +1048,7 @@ Describe "writeRemovedTargetLog" -Tag Unit {
         writeRemovedTargetLog $removed $extensions
         $excludedTimes = [int]($excluded -gt 0)
         $goneTimes = [int]($gone -gt 0)
-        Should -Invoke writeIndexerLog -Times $excludedTimes -Exactly -ParameterFilter { $text -eq "    取り込まないにした拡張子のファイル $excluded 件は、インデックスから除きます。" }
+        Should -Invoke writeIndexerLog -Times $excludedTimes -Exactly -ParameterFilter { $text -eq "    対象外にした拡張子のファイル $excluded 件は、インデックスから除きます。" }
         Should -Invoke writeIndexerLog -Times $goneTimes -Exactly -ParameterFilter { $text -eq "    元ファイルが無くなった $gone 件は、インデックスから除きます。" }
         Should -Invoke writeIndexerLog -Times ($excludedTimes + $goneTimes) -Exactly
     }

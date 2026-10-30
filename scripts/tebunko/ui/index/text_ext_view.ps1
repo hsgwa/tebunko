@@ -1,4 +1,4 @@
-﻿# インデックスごとの「取り込む拡張子」（インデックスを取り込む前の確認ダイアログから開くダイアログ）の、文言と判断（判断層）。
+﻿# インデックスごとの「取り込み対象の拡張子」（インデックスを取り込む前の確認ダイアログから開くダイアログ）の、文言と判断（判断層）。
 # 画面に触らないため、そのままテストできる（tests/tebunko/ui/index/text_ext_view.Tests.ps1）。
 # 選べるのは shared\core\text_file.ps1 の ${textExtensions} の拡張子だけ（足せない。Excel・Word・PowerPoint・PDF は選べない）。
 # 設定は core\settings.ps1 の indexTextExcludes（インデックス名 → 取り込まない拡張子）。件数は、インデックス作成の数える段階（findTargetFiles の TextCounts）が
@@ -53,19 +53,41 @@ function formatTextExtensionCount {
     return ([int]$count).ToString("N0", [System.Globalization.CultureInfo]::InvariantCulture)
 }
 
-function getIndexTextExtensionBriefSummary {
-    # 詳細の行・件数が無いときのダイアログの要約。何も外していなければ「75 個すべて取り込む」、外していれば「取り込む 73 個（外した 2 個）」。
-    # excluded は取り込まない拡張子（${textExtensions} に無いものは数えない）
+function getIndexTextExtensionCountSummary {
+    # 取り込み対象のファイル数の要約。何も外していなければ「すべて取り込み（10,350 件）」、外していれば「10,350 件（対象外 2,800 件）」。
+    # excluded は対象外にした拡張子、counts は拡張子 → 件数（${textExtensions} の中のものだけ数える）。件数が無い（$null）ときは空
     param (
-        [object[]]$excluded = @()
+        [object[]]$excluded = @(),
+        $counts = $null
     )
 
-    $removed = @(${textExtensions} | Where-Object { @($excluded | ForEach-Object { ([string]$_).ToLowerInvariant() }) -contains $_ })
-    $all = @(${textExtensions}).Count
-    if ($removed.Count -eq 0) {
-        return "${all} 個すべて取り込む"
+    if ($null -eq $counts) {
+        return ""
     }
-    return "取り込む $($all - $removed.Count) 個（外した $($removed.Count) 個）"
+    $skip = @(@($excluded) | ForEach-Object { ([string]$_).ToLowerInvariant() })
+    $kept = 0
+    $removed = 0
+    foreach ($extension in @($counts.Keys)) {
+        if (${textExtensions} -notcontains ([string]$extension).ToLowerInvariant()) { continue }
+        if ($skip -contains ([string]$extension).ToLowerInvariant()) { $removed += [int]$counts[$extension] } else { $kept += [int]$counts[$extension] }
+    }
+    if ($removed -eq 0) {
+        return "すべて取り込み（$(formatTextExtensionCount $kept) 件）"
+    }
+    return "$(formatTextExtensionCount $kept) 件（対象外 $(formatTextExtensionCount $removed) 件）"
+}
+
+function getIndexTextExtensionBriefSummary {
+    # 詳細の行・確認の表の要約。件数があれば getIndexTextExtensionCountSummary。件数が無い（$null）ときは、「更新すると、件数が出ます」（拡張子の数は言わない）
+    param (
+        [object[]]$excluded = @(),
+        $counts = $null
+    )
+
+    if ($null -ne $counts) {
+        return getIndexTextExtensionCountSummary $excluded $counts
+    }
+    return "更新すると、件数が出ます"
 }
 
 function testIndexTextExcludesChanged {
@@ -109,8 +131,8 @@ function getIndexTextExtensionDetailRow {
     $time = $(if ($has) { [string]$entry.Time } else { "" })
     $source = $(if ($has) { "previous" } else { "none" })
     return @{
-        Summary = getIndexTextExtensionBriefSummary $excluded
-        Caption = getIndexTextExtensionCountNote $source $time
+        Summary = getIndexTextExtensionBriefSummary $excluded $(if ($has) { $entry.Counts } else { $null })
+        Caption = $(if ($has) { getIndexTextExtensionCountNote $source $time } else { "" })
         Source  = $source
         Time    = $time
         Counts  = $(if ($has) { $entry.Counts } else { $null })
@@ -139,43 +161,37 @@ function getIndexTextExtensionDetailView {
 }
 
 function getIndexTextExtensionSummary {
-    # 確認ダイアログの行と、ダイアログの要約。rows は @{ Extension; Count; Checked } の並び。
-    # 何も外していなければ「テキストファイル 13,150 件 ・ すべて取り込む」、外していれば「取り込む 10,350 件（外した 2,800 件）」。
-    # 件数が無い（$null）ときは個数で言う（getIndexTextExtensionBriefSummary）
+    # ダイアログの上の要約。rows は @{ Extension; Count; Checked } の並び。件数があれば「取り込み対象 10,350 件（対象外 2,800 件）」、
+    # 何も外していなければ「取り込み対象 13,150 件（対象外 0 件）」。件数が無い（$null）ときは getIndexTextExtensionBriefSummary
     param (
         [object[]]$rows
     )
 
     $all = @($rows)
     $removed = @($all | Where-Object { -not $_.Checked })
-    $noCounts = (@($all | Where-Object { $null -eq $_.Count }).Count -gt 0)
-    if ($noCounts) {
-        # 件数が無いとき（控えが無い）は、個数で言う
+    if (@($all | Where-Object { $null -eq $_.Count }).Count -gt 0) {
         return getIndexTextExtensionBriefSummary @($removed | ForEach-Object { $_.Extension })
     }
     $total = [int](@($all | ForEach-Object { [int]$_.Count } | Measure-Object -Sum).Sum)
-    if ($removed.Count -eq 0) {
-        return "テキストファイル $(formatTextExtensionCount $total) 件 ・ すべて取り込む"
-    }
     $removedCount = [int](@($removed | ForEach-Object { [int]$_.Count } | Measure-Object -Sum).Sum)
-    return "取り込む $(formatTextExtensionCount ($total - $removedCount)) 件（外した $(formatTextExtensionCount $removedCount) 件）"
+    return "取り込み対象 $(formatTextExtensionCount ($total - $removedCount)) 件（対象外 $(formatTextExtensionCount $removedCount) 件）"
 }
 
 function getIndexTextExtensionListView {
-    # ダイアログの一覧の見せ方。rows は @{ Extension; Count; Checked } の並び、filter は絞り込み欄の文字、removedOnly は［外したものだけ］。
+    # ダイアログの一覧の見せ方。rows は @{ Extension; Count; Checked } の並び、filter は絞り込み欄の文字、keptOnly は［取り込むものだけ］。
     # 返す値: @{ Visible（見せる拡張子の並び）; Summary（要約）; Empty（一致が無いか）; ZeroCount（件数 0 の拡張子の数）}
     # 絞り込みは、拡張子に含まれるか（大文字・小文字を区別せず、先頭の . は有っても無くてもよい）。要約は
-    # 何も絞らないとき取り込む件数の要約、文字で絞るとき「75 個中 2 個を表示」、［外したものだけ］のとき「外したもの N 個を表示」
+    # 何も絞らないとき取り込む件数の要約、文字で絞るとき「75 個中 2 個を表示」、［取り込むものだけ］のとき「取り込むもの N 個を表示」
     param (
         [object[]]$rows,
         [string]$filter = "",
-        [bool]$removedOnly = $false
+        [bool]$keptOnly = $false
     )
 
     $needle = ([string]$filter).Trim().ToLowerInvariant().TrimStart(".")
     $visible = New-Object System.Collections.Generic.List[string]
     foreach ($row in @($rows)) {
-        if ($removedOnly -and $row.Checked) {
+        if ($keptOnly -and -not $row.Checked) {
             continue
         }
         if ($needle -ne "" -and -not $row.Extension.TrimStart(".").Contains($needle)) {
@@ -185,8 +201,6 @@ function getIndexTextExtensionListView {
     }
     if ($needle -ne "") {
         $summary = "$(@($rows).Count) 個中 $($visible.Count) 個を表示"
-    } elseif ($removedOnly) {
-        $summary = "外したもの $($visible.Count) 個を表示"
     } else {
         $summary = getIndexTextExtensionSummary $rows
     }
@@ -227,15 +241,15 @@ function getIndexTextExtensionDialogTexts {
         default { "まだ件数がありません。更新すると、件数が出ます。" }
     }
     return @{
-        Title             = "取り込む拡張子 - ${indexName}"
-        Note              = "チェックを外した拡張子のファイルは、次のインデックス作成で、このインデックス（${indexName}）から外します。${countSentence}Excel・Word・PowerPoint は、ここでは選べません。"
+        Title             = "取り込み対象の拡張子 - ${indexName}"
+        Note              = "チェックを外した拡張子は対象外になり、そのファイルは、次のインデックス作成で、このインデックス（${indexName}）から外します。${countSentence}Excel・Word・PowerPoint は、ここでは選べません。"
         Extension         = "拡張子"
         Count             = "件数 $([char]0x25BC)"
         Reset             = "既定に戻す"
         UncheckAll        = "すべて外す"
         Ok                = "OK"
         Cancel            = "キャンセル"
-        RemovedOnly       = "外したものだけ"
+        KeptOnly          = "取り込み対象のみ表示"
         FilterPlaceholder = "拡張子で絞り込み"
         Empty             = "一致する拡張子がありません"
     }

@@ -31,7 +31,7 @@ BeforeAll {
     # 画面の型を使うファイルは読み込まず、必要な関数だけを取り出す
     # （dot-source は、この場の scope で行う）
     foreach ($source in @(
-            @{ File = "${scriptsDir}\tebunko\ui\indexing_tab.ps1"; Names = @("startIndexing", "finishWorkspaceCheck", "confirmIndexingTargets", "changeIndexingTextExtensions", "restartIndexingIfRequested", "getIndexingScanText") }
+            @{ File = "${scriptsDir}\tebunko\ui\indexing_tab.ps1"; Names = @("startIndexing", "finishWorkspaceCheck", "confirmIndexingTargets", "changeIndexingTextExtensions", "restartIndexingIfRequested", "startIndexingForRestart", "waitAndRestartIndexing", "getIndexingScanText") }
             @{ File = "${scriptsDir}\tebunko\ui\index\index_list.ps1"; Names = @("isIndexing", "isIndexingOrPreparing") }
         )) {
         $ast = [System.Management.Automation.Language.Parser]::ParseFile($source.File, [ref]$null, [ref]$null)
@@ -352,6 +352,21 @@ Describe "確認での取り込む拡張子の変更と、始め直し" -Tag Uni
         restartIndexingIfRequested 2
 
         Should -Invoke startIndexing -Times 1 -ParameterFilter { (@($onlyNames) -join ",") -eq "売上,経理" }
+        $script:indexingRestart | Should -BeNullOrEmpty
+    }
+
+    It "一覧の読み込みが続いている（targetsNaming。ネットワークのワークスペース）間は、すぐには呼ばず、待つ関数に任せる（更新の流れが消えない）" {
+        Mock waitAndRestartIndexing {}
+        $script:indexingRestart = @{ OnlyNames = @("売上") }
+        $script:targetsNaming = $true
+        try {
+            restartIndexingIfRequested 2
+        } finally {
+            $script:targetsNaming = $false
+        }
+
+        Should -Invoke startIndexing -Times 0
+        Should -Invoke waitAndRestartIndexing -Times 1 -ParameterFilter { (@($onlyNames) -join ",") -eq "売上" }
         $script:indexingRestart | Should -BeNullOrEmpty
     }
 

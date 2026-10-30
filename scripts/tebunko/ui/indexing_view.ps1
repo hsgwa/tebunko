@@ -55,7 +55,7 @@ function newPlanViewRows {
             if (@($textExt.Choices | Where-Object { $_ }).Count -gt 0) {
                 $excluded = @($textExt.Excludes[[string]$item.インデックス名] | Where-Object { $_ })
                 $row.TextExtShown = $true
-                $row.TextExtSummary = getIndexingTextExtSummary $excluded @($textExt.Choices)
+                $row.TextExtSummary = getIndexingTextExtSummary $excluded $(if ($null -ne $item.TextExtensionCounts) { $item.TextExtensionCounts } else { $null })
                 $row.TextExtTip = getIndexingTextExtTip $excluded @($textExt.Choices) ([int]$textExt.Executable)
             }
             $removeNotes = @((getIndexingSubfolderRemovalNote ([int]$item.SubfolderRemovedCount)), (getIndexingTextExcludeRemovalNote ([int]$item.TextExcludeRemovedCount)) | Where-Object { $_ })
@@ -339,7 +339,7 @@ function getIndexingTextExcludeRemovalNote {
     if ($count -le 0) {
         return ""
     }
-    return "取り込まない拡張子のファイル {0:#,0} 件をインデックスから外します" -f $count
+    return "対象外にした拡張子のファイル {0:#,0} 件を、インデックスから外します" -f $count
 }
 
 function getIndexingTextExcludeRemovalCount {
@@ -363,30 +363,27 @@ function getIndexingTextExcludeRemovalCount {
 }
 
 function getIndexingTextExtSummary {
-    # 確認の表の「取り込む拡張子」の要約。取り込まない拡張子（excluded）が無ければ「75 個すべて取り込む」、あれば「取り込む 73 個（外した 2 個）」。
-    # 選べる拡張子（choices）の中にあるものだけを外した数に数える
+    # 確認の表の「取り込み対象の拡張子」の要約。件数（counts。拡張子 → 件数。この回に数えたもの）があれば
+    # 「すべて取り込み（10,350 件）」「10,350 件（対象外 2,800 件）」、無ければ「更新すると、件数が出ます」（getIndexTextExtensionBriefSummary）
     param (
         [object[]]$excluded = @(),
-        [object[]]$choices = @()  # 選べる拡張子の一覧
+        $counts = $null
     )
 
-    $all = @($choices)
-    $removed = @($all | Where-Object { @($excluded | ForEach-Object { ([string]$_).ToLowerInvariant() }) -contains $_ }).Count
-    if ($removed -eq 0) {
-        return "{0} 個すべて取り込む" -f $all.Count
-    }
-    return "取り込む {0} 個（外した {1} 個）" -f ($all.Count - $removed), $removed
+    return getIndexTextExtensionBriefSummary $excluded $counts
 }
 
 function getIndexingTextExtTip {
-    # 要約の ToolTip。何も外していないときだけ、実行・登録になる拡張子も含むが、取り込むだけで実行はされないことを添える（外していれば空）
+    # 要約の ToolTip。何も外していないときだけ、実行・登録になる拡張子も含むが、取り込むだけで実行はされないことを添える（外していれば空）。
+    # choices は選べる拡張子の一覧（外した数を、この中にあるものだけ数える）
     param (
         [object[]]$excluded = @(),
         [object[]]$choices = @(),
         [int]$executable = 0  # 選べる拡張子のうち、実行・登録になるものの数
     )
 
-    if ((getIndexingTextExtSummary $excluded $choices) -notlike "*すべて取り込む") {
+    $skip = @(@($excluded) | ForEach-Object { ([string]$_).ToLowerInvariant() })
+    if (@(@($choices) | Where-Object { $skip -contains $_ }).Count -gt 0) {
         return ""
     }
     return "実行・登録になる {0} 個（.bat・.ps1 など）を含みます。取り込むだけで、実行はされません。" -f $executable
@@ -402,7 +399,7 @@ function getIndexingTextExtGuide {
     if ($anyExcluded -or -not $anyRow) {
         return ""
     }
-    return "各インデックスの［変更…］で、取り込むテキストの拡張子を選べます。拡張子ごとの件数は、いま数えた結果です。"
+    return "各インデックスの［変更…］で、取り込み対象の拡張子を選べます。拡張子ごとの件数は、いま数えた結果です。"
 }
 
 function testIndexingTextExcludesChanged {

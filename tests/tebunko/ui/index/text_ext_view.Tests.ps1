@@ -55,12 +55,12 @@ Describe "convertIndexTextExtensionRows" -Tag Unit {
 
 Describe "getIndexTextExtensionSummary / formatTextExtensionCount" -Tag Unit {
     It "<name>" -TestCases @(
-        @{ name = "件数なしで何も外していない"; counts = $null; excluded = @(); expected = "75 個すべて取り込む" }
-        @{ name = "件数なしで外している"; counts = $null; excluded = @(".log", ".md"); expected = "取り込む 73 個（外した 2 個）" }
-        @{ name = "何も外していない"; counts = @{ ".txt" = 13000; ".log" = 150 }; excluded = @(); expected = "テキストファイル 13,150 件 ・ すべて取り込む" }
-        @{ name = "外した"; counts = @{ ".txt" = 10350; ".log" = 2800 }; excluded = @(".log"); expected = "取り込む 10,350 件（外した 2,800 件）" }
-        @{ name = "件数 0 の拡張子を外しても、外したことは件数に出る"; counts = @{ ".txt" = 5 }; excluded = @(".log"); expected = "取り込む 5 件（外した 0 件）" }
-        @{ name = "テキストが 0 件"; counts = @{}; excluded = @(); expected = "テキストファイル 0 件 ・ すべて取り込む" }
+        @{ name = "件数なしで何も外していない"; counts = $null; excluded = @(); expected = "更新すると、件数が出ます" }
+        @{ name = "件数なしで外している"; counts = $null; excluded = @(".log", ".md"); expected = "更新すると、件数が出ます" }
+        @{ name = "何も外していない"; counts = @{ ".txt" = 13000; ".log" = 150 }; excluded = @(); expected = "取り込み対象 13,150 件（対象外 0 件）" }
+        @{ name = "外した"; counts = @{ ".txt" = 10350; ".log" = 2800 }; excluded = @(".log"); expected = "取り込み対象 10,350 件（対象外 2,800 件）" }
+        @{ name = "件数 0 の拡張子を外しても、外したことは件数に出る"; counts = @{ ".txt" = 5 }; excluded = @(".log"); expected = "取り込み対象 5 件（対象外 0 件）" }
+        @{ name = "テキストが 0 件"; counts = @{}; excluded = @(); expected = "取り込み対象 0 件（対象外 0 件）" }
     ) {
         param ($name, $counts, $excluded, $expected)
         getIndexTextExtensionSummary @(getIndexTextExtensionRows $counts $excluded) | Should -Be $expected
@@ -79,14 +79,14 @@ Describe "getIndexTextExtensionListView" -Tag Unit {
     }
 
     It "<name>" -TestCases @(
-        @{ name = "絞らなければ 75 個すべてと、取り込む件数の要約"; filter = ""; removedOnly = $false; count = 75; summary = "取り込む 105 件（外した 20 件）"; empty = $false }
-        @{ name = "［外したものだけ］は外した 1 個だけ"; filter = ""; removedOnly = $true; count = 1; summary = "外したもの 1 個を表示"; empty = $false }
-        @{ name = "文字で絞る（点なし・大文字も同じ）"; filter = "LOG"; removedOnly = $false; count = 1; summary = "75 個中 1 個を表示"; empty = $false }
-        @{ name = "文字と［外したものだけ］は両方に合うものだけ"; filter = "txt"; removedOnly = $true; count = 0; summary = "75 個中 0 個を表示"; empty = $true }
-        @{ name = "合うものが無ければ一致なし"; filter = "zzz"; removedOnly = $false; count = 0; summary = "75 個中 0 個を表示"; empty = $true }
+        @{ name = "絞らなければ 75 個すべてと、取り込む件数の要約"; filter = ""; keptOnly = $false; count = 75; summary = "取り込み対象 105 件（対象外 20 件）"; empty = $false }
+        @{ name = "［取り込み対象のみ表示］は取り込む 74 個"; filter = ""; keptOnly = $true; count = 74; summary = "取り込み対象 105 件（対象外 20 件）"; empty = $false }
+        @{ name = "文字で絞る（点なし・大文字も同じ）"; filter = "LOG"; keptOnly = $false; count = 1; summary = "75 個中 1 個を表示"; empty = $false }
+        @{ name = "文字と［取り込み対象のみ表示］は両方に合うものだけ"; filter = "txt"; keptOnly = $true; count = 1; summary = "75 個中 1 個を表示"; empty = $false }
+        @{ name = "合うものが無ければ一致なし"; filter = "zzz"; keptOnly = $false; count = 0; summary = "75 個中 0 個を表示"; empty = $true }
     ) {
-        param ($name, $filter, $removedOnly, $count, $summary, $empty)
-        $view = getIndexTextExtensionListView $script:rows $filter $removedOnly
+        param ($name, $filter, $keptOnly, $count, $summary, $empty)
+        $view = getIndexTextExtensionListView $script:rows $filter $keptOnly
         @($view.Visible).Count | Should -Be $count
         $view.Summary | Should -Be $summary
         $view.Empty | Should -Be $empty
@@ -128,13 +128,13 @@ Describe "getIndexTextExtensionCountNote / getIndexTextExtensionDetailRow" -Tag 
 
     It "詳細の行: 控えがあれば日時つきの見出しと件数、無ければ初回の見出し" {
         $row = getIndexTextExtensionDetailRow @(".log") @{ Time = "2024/10/14 15:30"; Counts = @{ ".txt" = 3 } }
-        $row.Summary | Should -Be "取り込む 74 個（外した 1 個）"
+        $row.Summary | Should -Be "すべて取り込み（3 件）"
         $row.Caption | Should -Be "前回の更新（2024/10/14 15:30）の件数です"
         $row.Source | Should -Be "previous"
         $row.Counts[".txt"] | Should -Be 3
         $none = getIndexTextExtensionDetailRow @() $null
-        $none.Summary | Should -Be "75 個すべて取り込む"
-        $none.Caption | Should -Be "更新すると、件数が出ます"
+        $none.Summary | Should -Be "更新すると、件数が出ます"
+        $none.Caption | Should -Be ""
         $none.Source | Should -Be "none"
         $none.Counts | Should -BeNullOrEmpty
     }
@@ -153,9 +153,9 @@ Describe "getIndexTextExtensionZeroHeader" -Tag Unit {
 Describe "getIndexTextExtensionDialogTexts" -Tag Unit {
     It "題と注にインデックスの名前が入り、文言がそろっている" {
         $texts = getIndexTextExtensionDialogTexts "営業部"
-        $texts.Title | Should -Be "取り込む拡張子 - 営業部"
+        $texts.Title | Should -Be "取り込み対象の拡張子 - 営業部"
         $texts.Note | Should -BeLike "*このインデックス（営業部）から外します*"
-        foreach ($key in @("Title", "Note", "Extension", "Count", "Reset", "UncheckAll", "Ok", "Cancel", "RemovedOnly", "FilterPlaceholder", "Empty")) {
+        foreach ($key in @("Title", "Note", "Extension", "Count", "Reset", "UncheckAll", "Ok", "Cancel", "KeptOnly", "FilterPlaceholder", "Empty")) {
             $texts[$key] | Should -Not -BeNullOrEmpty -Because $key
         }
     }

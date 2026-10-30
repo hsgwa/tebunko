@@ -116,20 +116,20 @@
             </DataGridTemplateColumn.CellTemplate>
           </DataGridTemplateColumn>
           <!-- 取り込む拡張子の要約と［変更…］（この回で取り込む行だけ。TextExtShown が false なら隠す）。［変更…］は ChangeIndexTextExtensionsButton（Tag にインデックス名） -->
-          <DataGridTemplateColumn Header="取り込む拡張子" Width="230">
+          <DataGridTemplateColumn Header="取り込み対象の拡張子" Width="250" MinWidth="230">
             <DataGridTemplateColumn.CellTemplate>
               <DataTemplate>
-                <StackPanel Orientation="Horizontal">
+                <WrapPanel Orientation="Horizontal">
                   <TextBlock x:Name="IndexTextExtSummary" Style="{StaticResource Cell.Key}" Text="{Binding TextExtSummary}" ToolTip="{Binding TextExtTip}" VerticalAlignment="Center" />
                   <Button x:Name="ChangeIndexTextExtensionsButton" Content="変更…" Tag="{Binding Name}" Height="22" Padding="8,0" Margin="8,0,0,0" VerticalAlignment="Center" />
-                  <StackPanel.Style>
-                    <Style TargetType="StackPanel">
+                  <WrapPanel.Style>
+                    <Style TargetType="WrapPanel">
                       <Style.Triggers>
                         <DataTrigger Binding="{Binding TextExtShown}" Value="False"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
                       </Style.Triggers>
                     </Style>
-                  </StackPanel.Style>
-                </StackPanel>
+                  </WrapPanel.Style>
+                </WrapPanel>
               </DataTemplate>
             </DataGridTemplateColumn.CellTemplate>
           </DataGridTemplateColumn>

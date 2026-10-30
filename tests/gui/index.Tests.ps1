@@ -327,7 +327,7 @@ Describe "S2 詳細の『サブフォルダを含める』" -Tag Gui {
     }
 }
 
-Describe "S2 詳細の『取り込む拡張子』" -Tag Gui {
+Describe "S2 詳細の『取り込み対象の拡張子』" -Tag Gui {
     BeforeAll {
         $script:envBefore = getGuiEnvSnapshot
         $script:tool = newGuiTool $TestDrive
@@ -350,25 +350,25 @@ Describe "S2 詳細の『取り込む拡張子』" -Tag Gui {
             $rowTexts = { (getGuiRowTexts @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]) -join " " }
             (& $rowTexts) | Should -Not -BeLike "*要更新*"
 
-            setGuiStep $S "行を選ぶ（詳細の『取り込む拡張子』は全部取り込む）"
+            setGuiStep $S "行を選ぶ（詳細の『取り込み対象の拡張子』は全部取り込む）"
             selectGui @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
             waitGui $S "詳細の見出し（営業）" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexDetailTitle")) -eq "営業 - 詳細" } | Out-Null
-            (getGuiText (findGui $S.Window -Id "IndexDetailTextExtSummary")) | Should -Be "75 個すべて取り込む"
+            (getGuiText (findGui $S.Window -Id "IndexDetailTextExtSummary")) | Should -Be "すべて取り込み（0 件）"
             $change = findGui $S.Window -Id "ChangeIndexTextExtensionsButton"
             $change.Current.IsEnabled | Should -BeTrue
 
             setGuiStep $S "［変更…］で .log を外す → 設定に indexTextExcludes・［要更新］"
             invokeGui $S $change "［変更…］" -NoWait
-            $dialog = waitGuiWindow $S "取り込む拡張子のダイアログ" -Id "TextExtOkButton"
+            $dialog = waitGuiWindow $S "取り込み対象の拡張子のダイアログ" -Id "TextExtOkButton"
             toggleGui (findGui $dialog -Name ".log" -Type CheckBox)
             invokeGui $S (findGui $dialog -Id "TextExtOkButton") "［OK］"
             waitGui $S "設定に .log が書かれる" ${guiDefaultTimeout} { @((readGuiConfig $script:tool).indexTextExcludes."営業") -contains ".log" } | Out-Null
             waitGui $S "一覧の行に［要更新］が出る" ${guiDefaultTimeout} { (& $rowTexts) -like "*要更新*" } | Out-Null
-            (getGuiText (findGui $S.Window -Id "IndexDetailTextExtSummary")) | Should -Be "取り込む 74 個（外した 1 個）"
+            (getGuiText (findGui $S.Window -Id "IndexDetailTextExtSummary")) | Should -Be "すべて取り込み（0 件）"
 
             setGuiStep $S "もう一度開いて .log を戻す → 設定から消え、［要更新］が外れる"
             invokeGui $S (findGui $S.Window -Id "ChangeIndexTextExtensionsButton") "［変更…］" -NoWait
-            $dialog = waitGuiWindow $S "取り込む拡張子のダイアログ" -Id "TextExtOkButton"
+            $dialog = waitGuiWindow $S "取り込み対象の拡張子のダイアログ" -Id "TextExtOkButton"
             toggleGui (findGui $dialog -Name ".log" -Type CheckBox)
             invokeGui $S (findGui $dialog -Id "TextExtOkButton") "［OK］"
             waitGui $S "設定から .log が消える" ${guiDefaultTimeout} { @((readGuiConfig $script:tool).indexTextExcludes."営業") -notcontains ".log" } | Out-Null
@@ -418,7 +418,7 @@ Describe "S3 作成中の操作" -Tag Gui {
             selectGui $row
             waitGui $S "詳細に進み具合の棒が出る" ${guiDefaultTimeout} { findGui $S.Window -Id "IndexingProgressBar" } | Out-Null
             (findGui $S.Window -Id "IndexDetailSubfolders").Current.IsEnabled | Should -BeFalse -Because "更新中は『サブフォルダを含める』が押せない"
-            (findGui $S.Window -Id "ChangeIndexTextExtensionsButton").Current.IsEnabled | Should -BeFalse -Because "更新中は『取り込む拡張子』の［変更…］が押せない"
+            (findGui $S.Window -Id "ChangeIndexTextExtensionsButton").Current.IsEnabled | Should -BeFalse -Because "更新中は『取り込み対象の拡張子』の［変更…］が押せない"
             waitGui $S "行に［中止］が出る" ${guiDefaultTimeout} { findGui $row -Id "IndexRowStopButton" } | Out-Null
 
             # ［エクスポート…］［削除…］［インポート…］は［アクション ▾］のメニューの中。開いて、押せないことを確かめてから Esc で閉じる

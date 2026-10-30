@@ -245,15 +245,15 @@ Describe "getIndexDetailView（取り込む拡張子の行）" -Tag Unit {
 
     It "<name>" -TestCases @(
         @{ name = "既定（全部取り込む・控え無し）"; excludes = @(); ingested = @(); entry = $null; editable = $true
-           summary = "75 個すべて取り込む"; caption = "更新すると、件数が出ます"; stale = $false; enabled = $true; source = "none" }
+           summary = "更新すると、件数が出ます"; caption = ""; stale = $false; enabled = $true; source = "none" }
         @{ name = "前回の控えあり"; excludes = @(); ingested = @(); entry = @{ Time = "2024/10/14 15:30"; Counts = @{ ".txt" = 3 } }; editable = $true
-           summary = "75 個すべて取り込む"; caption = "前回の更新（2024/10/14 15:30）の件数です"; stale = $false; enabled = $true; source = "previous" }
+           summary = "すべて取り込み（3 件）"; caption = "前回の更新（2024/10/14 15:30）の件数です"; stale = $false; enabled = $true; source = "previous" }
         @{ name = "外して、前回は全部取り込んだ（キー無し）→ 差あり"; excludes = @(".log"); ingested = $null; entry = $null; editable = $true
-           summary = "取り込む 74 個（外した 1 個）"; caption = "更新すると、件数が出ます"; stale = $true; enabled = $true; source = "none" }
+           summary = "更新すると、件数が出ます"; caption = ""; stale = $true; enabled = $true; source = "none" }
         @{ name = "前回と同じ外し方なら差なし"; excludes = @(".log"); ingested = @(".LOG"); entry = $null; editable = $true
-           summary = "取り込む 74 個（外した 1 個）"; caption = "更新すると、件数が出ます"; stale = $false; enabled = $true; source = "none" }
+           summary = "更新すると、件数が出ます"; caption = ""; stale = $false; enabled = $true; source = "none" }
         @{ name = "更新中は［変更…］を押せない"; excludes = @(); ingested = @(); entry = $null; editable = $false
-           summary = "75 個すべて取り込む"; caption = "更新すると、件数が出ます"; stale = $false; enabled = $false; source = "none" }
+           summary = "更新すると、件数が出ます"; caption = ""; stale = $false; enabled = $false; source = "none" }
     ) {
         param ($name, $excludes, $ingested, $entry, $editable, $summary, $caption, $stale, $enabled, $source)
         $item = @{ Name = "営業"; Path = "C:\共有\営業部"; TextExcludes = $excludes; TextExcludesIngested = $ingested; TextCountsEntry = $entry; TextExtEditable = $editable }

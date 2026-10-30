@@ -3,6 +3,7 @@ BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
     . "${scriptsDir}\tebunko\ui\indexing_view.ps1"
     . "${scriptsDir}\tebunko\ui\index\index_list_view.ps1"  # getIndexTopOnlyTagText（札の文言）
+    . "${scriptsDir}\tebunko\ui\index\text_ext_view.ps1"  # getIndexTextExtensionBriefSummary（拡張子の要約）
 
     function newPlanItem {
         param ([string]$kind, [int]$files = 0, [int]$targets = 0, [int]$new = 0, [int]$updated = 0, [int]$failed = 0,
@@ -670,8 +671,8 @@ Describe "getIndexingConfirmText（失敗分の更新し直し × クラウド�
 Describe "取り込む拡張子の確認の文言（getIndexingTextExcludeRemovalNote・getIndexingRecountBandText ほか）" -Tag Unit {
     It "外す件数 <count> の文言は「<text>」" -TestCases @(
         @{ count = 0; text = "" }
-        @{ count = 1; text = "取り込まない拡張子のファイル 1 件をインデックスから外します" }
-        @{ count = 12345; text = "取り込まない拡張子のファイル 12,345 件をインデックスから外します" }
+        @{ count = 1; text = "対象外にした拡張子のファイル 1 件を、インデックスから外します" }
+        @{ count = 12345; text = "対象外にした拡張子のファイル 12,345 件を、インデックスから外します" }
     ) {
         param ($count, $text)
         getIndexingTextExcludeRemovalNote $count | Should -Be $text
@@ -686,14 +687,15 @@ Describe "取り込む拡張子の確認の文言（getIndexingTextExcludeRemova
         getIndexingRecountBandText $count | Should -Be $text
     }
 
-    It "要約は、外した拡張子 <excluded> のとき「<text>」（固定の一覧の外・大文字小文字違いも正しく数える）" -TestCases @(
-        @{ excluded = @(); text = "75 個すべて取り込む" }
-        @{ excluded = @(".log", ".csv"); text = "取り込む 73 個（外した 2 個）" }
-        @{ excluded = @(".LOG", ".zzz"); text = "取り込む 74 個（外した 1 個）" }
+    It "要約は、<name>のとき「<text>」（拡張子の数は言わず、取り込み対象のファイル数を出す。大文字小文字違い・固定の一覧の外も正しく数える）" -TestCases @(
+        @{ name = "件数が無い"; excluded = @(".log"); counts = $null; text = "更新すると、件数が出ます" }
+        @{ name = "何も外していない"; excluded = @(); counts = @{ ".txt" = 5 }; text = "すべて取り込み（5 件）" }
+        @{ name = "外している"; excluded = @(".log", ".csv"); counts = @{ ".txt" = 5; ".log" = 2; ".csv" = 1 }; text = "5 件（対象外 3 件）" }
+        @{ name = "大文字・固定の一覧の外の指定"; excluded = @(".LOG", ".zzz"); counts = @{ ".txt" = 5; ".log" = 2; ".zzz" = 9 }; text = "5 件（対象外 2 件）" }
+        @{ name = "外した拡張子の件数が 0"; excluded = @(".log"); counts = @{ ".txt" = 5 }; text = "すべて取り込み（5 件）" }
     ) {
-        param ($excluded, $text)
-        $choices = @(${textExtensions})
-        getIndexingTextExtSummary $excluded $choices | Should -Be $text
+        param ($name, $excluded, $counts, $text)
+        getIndexingTextExtSummary $excluded $counts | Should -Be $text
     }
 
     It "ToolTip は、何も外していないときだけ『取り込むだけで実行はされない』を添える" {
@@ -724,7 +726,7 @@ Describe "取り込む拡張子の確認の文言（getIndexingTextExcludeRemova
     It "取り込む行にだけ拡張子の要約を付け、外している名前は外した数を出す" {
         $rows = newPlanViewRows @((newPlanItem ${planKindIngest} 10 1 1 0 0 0 0 0 0 "売上"), (newPlanItem ${planKindMissing} 0 0 0 0 0 0 0 0 0 "経理")) @() @{} @{ Excludes = @{ "売上" = @(".log") }; Choices = @(${textExtensions}); Executable = 15 }
         $rows[0].TextExtShown | Should -Be $true
-        $rows[0].TextExtSummary | Should -Be "取り込む 74 個（外した 1 個）"
+        $rows[0].TextExtSummary | Should -Be "更新すると、件数が出ます"
         $rows[0].TextExtTip | Should -Be ""
         $rows[1].TextExtShown | Should -Be $false
         $rows[1].TextExtSummary | Should -Be ""
@@ -740,11 +742,11 @@ Describe "取り込む拡張子の確認の文言（getIndexingTextExcludeRemova
         getIndexingTextExcludeRemovalCount @($a, $a2, $b) | Should -Be 7
         getIndexingTextExcludeRemovalCount @($a, $a2, $b) @("経理") | Should -Be 3
         $view = getIndexingConfirmView @($a, $a2, $b)
-        $view.TextExcludeRemovalNote | Should -Be "取り込まない拡張子のファイル 7 件をインデックスから外します"
+        $view.TextExcludeRemovalNote | Should -Be "対象外にした拡張子のファイル 7 件を、インデックスから外します"
         $view.SubfolderRemovalNote | Should -Be ""
         $view.Nothing | Should -Be $false
         $rows = newPlanViewRows @($a)
         $rows[0].StatusText | Should -Be "要更新"
-        $rows[0].DetailText | Should -Be "取り込まない拡張子のファイル 4 件をインデックスから外します"
+        $rows[0].DetailText | Should -Be "対象外にした拡張子のファイル 4 件を、インデックスから外します"
     }
 }

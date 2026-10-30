@@ -638,11 +638,48 @@ function restartIndexingIfRequested {
     if ($null -eq $request -or $exitCode -eq 1) {
         return
     }
-    $script:indexingRecounting = $true   # 始め直しの数えの間だけ、帯に数えたファイル数を出す（getIndexingScanText）
-    startIndexing -onlyNames @($request.OnlyNames)
+    if ($script:targetsNaming) {
+        # ネットワークのワークスペースでは、終わった回のあとの一覧の読み込み（インデックス名の割り当て）が裏で続いていて、
+        # 今 startIndexing を呼ぶと黙って断られ、更新の流れが消える。終わるまで待ってから始め直す
+        waitAndRestartIndexing @($request.OnlyNames)
+        return
+    }
+    startIndexingForRestart @($request.OnlyNames)
+}
+
+function startIndexingForRestart {
+    # 始め直しの数えを始める（startIndexing）。数えの間だけ、帯に数えたファイル数を出す（getIndexingScanText）
+    param (
+        [string[]]$onlyNames
+    )
+
+    $script:indexingRecounting = $true
+    startIndexing -onlyNames @($onlyNames)
     if ($null -eq $script:indexingSession -and -not $script:indexingPreparing) {
         $script:indexingRecounting = $false   # 始められなかった（ほかの操作の最中など）
     }
+}
+
+function waitAndRestartIndexing {
+    # 一覧の読み込みが終わる（targetsNaming が下りる）まで 0.3 秒ごとに見て、終わったら始め直す。最大 45 秒待ち、それでも終わらなければ諦める
+    param (
+        [string[]]$onlyNames
+    )
+
+    $state = @{ Tries = 0; Names = @($onlyNames) }
+    # GetNewClosure したブロックの中では関数を名前で探せないことがあるため、関数は先に変数へ入れて & で呼ぶ
+    $start = ${function:startIndexingForRestart}
+    $timer = New-Object System.Windows.Threading.DispatcherTimer
+    $timer.Interval = [TimeSpan]::FromMilliseconds(300)
+    $timer.Add_Tick({
+            $state.Tries++
+            if ($script:targetsNaming -and $state.Tries -lt 150) { return }
+            $timer.Stop()
+            if (-not $script:targetsNaming) {
+                try { & $start $state.Names } catch { Write-Verbose "始め直しを始められませんでした" }
+            }
+        }.GetNewClosure())
+    $timer.Start()
 }
 
 function getIndexingScanText {

@@ -95,9 +95,9 @@ function updateIndexTextExtensionDialogView {
 
     $current = @($ctx.Rows | ForEach-Object { @{ Extension = $_.Extension; Count = $_.RowCount; Checked = [bool]$_.Check.IsChecked } })
     $filterText = [string]$ctx.Controls.TextExtFilterBox.Text
-    $changedOnly = [bool]$ctx.Controls.TextExtChangedOnly.IsChecked
-    $view = getIndexTextExtensionListView $current $filterText $changedOnly
-    $filtering = ($filterText.Trim() -ne "" -or $changedOnly)
+    $keptOnly = [bool]$ctx.Controls.TextExtChangedOnly.IsChecked
+    $view = getIndexTextExtensionListView $current $filterText $keptOnly
+    $filtering = ($filterText.Trim() -ne "" -or $keptOnly)
     $muted = $ctx.Controls.Dialog.FindResource("Ink.Muted")
     $normal = $ctx.Controls.Dialog.FindResource("Ink.Body")
     $accentSoft = $ctx.Controls.Dialog.FindResource("Accent.Soft")
@@ -146,7 +146,7 @@ function newIndexTextExtensionDialogControls {
     $ctrl.CountHeader.Text = $texts.Count
     $ctrl.TextExtEmpty.Text = $texts.Empty
     $ctrl.TextExtFilterPlaceholder.Text = $texts.FilterPlaceholder
-    $ctrl.TextExtChangedOnly.Content = $texts.RemovedOnly
+    $ctrl.TextExtChangedOnly.Content = $texts.KeptOnly
     $ctrl.TextExtResetButton.Content = $texts.Reset
     $ctrl.TextExtUncheckAllButton.Content = $texts.UncheckAll
     $ctrl.TextExtCancelButton.Content = $texts.Cancel

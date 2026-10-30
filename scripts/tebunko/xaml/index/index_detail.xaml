@@ -119,12 +119,12 @@
                   <ColumnDefinition Width="98" />
                   <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Style="{StaticResource Label}" Text="取り込む拡張子" VerticalAlignment="Top" Margin="0,5,0,0" />
+                <TextBlock Style="{StaticResource Label}" Text="取り込み対象の拡張子" VerticalAlignment="Top" Margin="0,5,0,0" />
                 <StackPanel Grid.Column="1">
                   <StackPanel Orientation="Horizontal">
                     <TextBlock x:Name="IndexDetailTextExtSummary" VerticalAlignment="Center" AutomationProperties.AutomationId="IndexDetailTextExtSummary" />
                     <Button x:Name="ChangeIndexTextExtensionsButton" Content="変更…" MinWidth="64" Margin="12,0,0,0"
-                            AutomationProperties.AutomationId="ChangeIndexTextExtensionsButton" AutomationProperties.Name="取り込む拡張子を変える" />
+                            AutomationProperties.AutomationId="ChangeIndexTextExtensionsButton" AutomationProperties.Name="取り込み対象の拡張子を変える" />
                     <Border x:Name="IndexDetailTextExtStaleBadge" Style="{StaticResource StatusBadge}" Margin="8,0,0,0" VerticalAlignment="Center" Visibility="Collapsed"
                             AutomationProperties.AutomationId="IndexDetailTextExtStaleBadge">
                       <TextBlock x:Name="IndexDetailTextExtStaleBadgeText" FontSize="11" FontWeight="SemiBold" />

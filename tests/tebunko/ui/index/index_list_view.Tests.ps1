@@ -185,8 +185,8 @@ Describe "getIndexRowView（サブフォルダの設定の差）" -Tag Unit {
 
 Describe "getIndexRowView（取り込む拡張子の設定の差）" -Tag Unit {
     It "<label>" -TestCases @(
-        @{ label = "拡張子の差だけでも要更新。ToolTip は拡張子の文"; stat = @{ Total = 10; Done = 10; Pending = 0; Failed = 0 }; sub = $false; ext = $true; text = "要更新"; tip = "*取り込む拡張子の設定が、前回取り込んだときと違います*" }
-        @{ label = "どちらの差もあれば両方の文"; stat = @{ Total = 10; Done = 10; Pending = 0; Failed = 0 }; sub = $true; ext = $true; text = "要更新"; tip = "*サブフォルダを含めるかと取り込む拡張子の設定*" }
+        @{ label = "拡張子の差だけでも要更新。ToolTip は拡張子の文"; stat = @{ Total = 10; Done = 10; Pending = 0; Failed = 0 }; sub = $false; ext = $true; text = "要更新"; tip = "*取り込み対象の拡張子の設定が、前回取り込んだときと違います*" }
+        @{ label = "どちらの差もあれば両方の文"; stat = @{ Total = 10; Done = 10; Pending = 0; Failed = 0 }; sub = $true; ext = $true; text = "要更新"; tip = "*サブフォルダを含めるかと取り込み対象の拡張子の設定*" }
         @{ label = "サブフォルダの差だけは今までの文"; stat = @{ Total = 10; Done = 10; Pending = 0; Failed = 0 }; sub = $true; ext = $false; text = "要更新"; tip = "*サブフォルダを含めるかの設定が、前回取り込んだときと違います*" }
         @{ label = "差が無ければ最新"; stat = @{ Total = 10; Done = 10; Pending = 0; Failed = 0 }; sub = $false; ext = $false; text = "最新"; tip = "更新済み*" }
         @{ label = "まだ作っていない行は未作成のまま"; stat = $null; sub = $false; ext = $true; text = "未作成"; tip = "まだ更新していません*" }
