@@ -527,6 +527,15 @@ Describe "indexTextExcludesIngested（前回取り込んだときの取り込ま
         (newSettings).indexTextExcludesIngested.Count | Should -Be 0
     }
 
+    It "setIndexTextExcludesTable は、名前の順に並べたオブジェクトとして設定へ入れる" {
+        $settings = @{}
+        setIndexTextExcludesTable $settings "indexTextExcludes" @{ "経理" = @(".md"); "営業" = @(".log", ".csv") }
+        @($settings["indexTextExcludes"].Keys) | Should -Be @("営業", "経理")
+        ($settings["indexTextExcludes"]["営業"] -join ",") | Should -Be ".log,.csv"
+        setIndexTextExcludesTable $settings "indexTextExcludes" @{}
+        $settings["indexTextExcludes"].Count | Should -Be 0
+    }
+
     It "setIngestedTextExcludes は渡した名前の項目だけを書き、空なら項目を消す。取り込まない拡張子（今の設定）とほかの名前は変えない" {
         $path = "$TestDrive\ingested_set.config"
         writeIndexTextExcludes "営業" @(".log") $path

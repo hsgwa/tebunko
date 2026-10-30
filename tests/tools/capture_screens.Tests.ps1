@@ -133,6 +133,7 @@ Describe "撮る場面（capture_screens.ps1）" -Tag Unit {
     It "場面の関数は、すべて撮影の本体から呼ばれている（足した場面を呼び忘れない）。captureTopOnlyScene も含む" {
         $scenes = @([regex]::Matches($script:captureScript, '(?m)^function (capture\w+Scene) \{') | ForEach-Object { $_.Groups[1].Value })
         $scenes | Should -Contain "captureTopOnlyScene"
+        $scenes | Should -Contain "captureTextExtensionsScene"
         foreach ($scene in $scenes) {
             [regex]::Matches($script:captureScript, "(?m)^\s+$scene\s+\`$ids ").Count | Should -Be 1 -Because "$scene を本体から 1 回呼ぶ"
         }
