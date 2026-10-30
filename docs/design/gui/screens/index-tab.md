@@ -23,6 +23,9 @@ stateDiagram-v2
     state "index-tab/delete-confirm" as del
     state "index-tab/start-confirm" as start
     state "index-tab/cloud-confirm" as cloud
+    state "index-tab/top-only" as toponly
+    state "index-tab/start-confirm-top-only" as starttop
+    state "index-tab/text-extensions" as textext
     state "index-tab/running" as running
     state "index-tab/stop-confirm" as stop
     state "index-tab/interrupted" as interrupted
@@ -36,6 +39,11 @@ stateDiagram-v2
     start --> running: ［更新を開始］
     normal --> cloud: 開始（クラウドにだけあるファイルがある。17）
     cloud --> running: ［更新を開始］
+    normal --> toponly: 詳細の「サブフォルダを含める」を外す（3）
+    toponly --> starttop: 開始（17）
+    starttop --> toponly: ［キャンセル］
+    normal --> textext: 詳細の「取り込む拡張子」の［変更…］（3）
+    textext --> normal: ［OK］（選びが変わればその場で保存）・［キャンセル］
     running --> stop: ［中止］（19）
     stop --> running: ［キャンセル］
     stop --> interrupted: ［中止する］
@@ -95,6 +103,24 @@ stateDiagram-v2
 ![更新の確認ダイアログ・クラウドにだけあるファイルの欄](../../../images/screens/index-tab/cloud-confirm.png)
 
 写真のクラウドにだけあるファイルは、Offline 属性を付けた見本で代わりにしている。
+
+### index-tab/top-only（詳細の「サブフォルダを含める」を外した。遷移 3）
+
+![詳細の「サブフォルダを含める」を外した](../../../images/screens/index-tab/top-only.png)
+
+### index-tab/start-confirm-top-only（同・更新の確認ダイアログ。遷移 17）
+
+![同・更新の確認ダイアログ](../../../images/screens/index-tab/start-confirm-top-only.png)
+
+名前の右の札「直下のみ」は読み取りだけ。合計の下の 1 行は、直下だけに変えたフォルダで、サブフォルダ側のインデックスを外す件数（0 件のときは出さない）。
+
+### index-tab/text-extensions（詳細の「取り込む拡張子」の［変更…］で開いたダイアログ。遷移 3）
+
+![取り込む拡張子のダイアログ](../../../images/screens/index-tab/text-extensions.png)
+
+75 個のチェックを、件数の多い順（同じ件数は名前順）に並べる。件数と棒は、前回の更新で数えた結果（注に日時が出る）。件数が 0 の拡張子は末尾の 1 行にまとめて折りたたむ。前回の件数がまだ無いとき（初回）は、件数の列・棒・0 件のまとめを出さず、注に「更新すると、件数が出ます」と出す。［OK］で選びが変わっていれば、その場で設定に書く（詳細の行の要約が変わり、前回取り込んだときと違えば［要更新］が出る）。
+
+詳細の「取り込む拡張子」の行は、基本設定の「サブフォルダを含める」の下にある。要約（「75 個すべて取り込む」「取り込む 73 個（外した 2 個）」）・［変更…］・［要更新］の札と、下の小さな件数の見出し（「前回の更新（日時）の件数です」または「更新すると、件数が出ます」）。更新中は［変更…］が押せない。
 
 ### index-tab/running（更新中。遷移 17・20）
 

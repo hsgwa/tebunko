@@ -5,10 +5,10 @@ BeforeAll {
 }
 
 Describe "getIndexTextExtensionRows" -Tag Unit {
-    It "件数が分からない（数え中）ときは、固定の一覧の順で、件数は null" {
+    It "件数が無いときは、名前順で、件数は null" {
         $rows = @(getIndexTextExtensionRows $null @())
         $rows.Count | Should -Be 75
-        (($rows | ForEach-Object { $_.Extension }) -join ",") | Should -Be (${textExtensions} -join ",")
+        (($rows | ForEach-Object { $_.Extension }) -join ",") | Should -Be ((@(${textExtensions}) | Sort-Object) -join ",")
         @($rows | Where-Object { $null -ne $_.Count }).Count | Should -Be 0
         @($rows | Where-Object { -not $_.Checked }).Count | Should -Be 0
     }
@@ -55,8 +55,8 @@ Describe "convertIndexTextExtensionRows" -Tag Unit {
 
 Describe "getIndexTextExtensionSummary / formatTextExtensionCount" -Tag Unit {
     It "<name>" -TestCases @(
-        @{ name = "数え中で何も外していない"; counts = $null; excluded = @(); expected = "対象のフォルダを数えています…（件数は数え終わると出ます）" }
-        @{ name = "数え中で外している"; counts = $null; excluded = @(".log", ".md"); expected = "外した拡張子 2 個（対象のフォルダを数えています…）" }
+        @{ name = "件数なしで何も外していない"; counts = $null; excluded = @(); expected = "75 個すべて取り込む" }
+        @{ name = "件数なしで外している"; counts = $null; excluded = @(".log", ".md"); expected = "取り込む 73 個（外した 2 個）" }
         @{ name = "何も外していない"; counts = @{ ".txt" = 13000; ".log" = 150 }; excluded = @(); expected = "テキストファイル 13,150 件 ・ すべて取り込む" }
         @{ name = "外した"; counts = @{ ".txt" = 10350; ".log" = 2800 }; excluded = @(".log"); expected = "取り込む 10,350 件（外した 2,800 件）" }
         @{ name = "件数 0 の拡張子を外しても、外したことは件数に出る"; counts = @{ ".txt" = 5 }; excluded = @(".log"); expected = "取り込む 5 件（外した 0 件）" }
@@ -98,6 +98,58 @@ Describe "getIndexTextExtensionListView" -Tag Unit {
     }
 }
 
+Describe "testIndexTextExcludesChanged" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "同じ"; current = @(".log"); applied = @(".log"); expected = $false }
+        @{ name = "違う"; current = @(".log"); applied = @(".csv"); expected = $true }
+        @{ name = "順だけ違う"; current = @(".log", ".csv"); applied = @(".csv", ".log"); expected = $false }
+        @{ name = "大文字小文字だけ違う"; current = @(".LOG"); applied = @(".log"); expected = $false }
+        @{ name = "変えて戻した（差なし）"; current = @(); applied = @(); expected = $false }
+        @{ name = "前回が控え無し（null）で今が空 = 差なし"; current = @(); applied = $null; expected = $false }
+        @{ name = "前回が空で今が空でない = 差あり"; current = @(".log"); applied = @(); expected = $true }
+        @{ name = "前回が控え無しで今が空でない = 差あり"; current = @(".log"); applied = $null; expected = $true }
+        @{ name = "今が空で前回が空でない = 差あり"; current = $null; applied = @(".log"); expected = $true }
+    ) {
+        param ($name, $current, $applied, $expected)
+        testIndexTextExcludesChanged $current $applied | Should -Be $expected
+    }
+}
+
+Describe "getIndexTextExtensionCountNote / getIndexTextExtensionDetailRow" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "前回の控え"; source = "previous"; time = "2024/10/14 15:30"; expected = "前回の更新（2024/10/14 15:30）の件数です" }
+        @{ name = "控え無し"; source = "none"; time = ""; expected = "更新すると、件数が出ます" }
+        @{ name = "日時が空の前回は控え無しと同じ"; source = "previous"; time = ""; expected = "更新すると、件数が出ます" }
+        @{ name = "確認ダイアログから開いたときは空"; source = "now"; time = ""; expected = "" }
+    ) {
+        param ($name, $source, $time, $expected)
+        getIndexTextExtensionCountNote $source $time | Should -Be $expected
+    }
+
+    It "詳細の行: 控えがあれば日時つきの見出しと件数、無ければ初回の見出し" {
+        $row = getIndexTextExtensionDetailRow @(".log") @{ Time = "2024/10/14 15:30"; Counts = @{ ".txt" = 3 } }
+        $row.Summary | Should -Be "取り込む 74 個（外した 1 個）"
+        $row.Caption | Should -Be "前回の更新（2024/10/14 15:30）の件数です"
+        $row.Source | Should -Be "previous"
+        $row.Counts[".txt"] | Should -Be 3
+        $none = getIndexTextExtensionDetailRow @() $null
+        $none.Summary | Should -Be "75 個すべて取り込む"
+        $none.Caption | Should -Be "更新すると、件数が出ます"
+        $none.Source | Should -Be "none"
+        $none.Counts | Should -BeNullOrEmpty
+    }
+}
+
+Describe "getIndexTextExtensionZeroHeader" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "折りたたみ中"; expanded = $false; expected = "＞ 件数 0 の拡張子 62 個（折りたたみ中。開くと選べます）" }
+        @{ name = "開いているとき"; expanded = $true; expected = "▼ 件数 0 の拡張子 62 個（開いて選ぶ。見つかったときに効く設定）" }
+    ) {
+        param ($name, $expanded, $expected)
+        getIndexTextExtensionZeroHeader 62 $expanded | Should -Be $expected
+    }
+}
+
 Describe "getIndexTextExtensionDialogTexts" -Tag Unit {
     It "題と注にインデックスの名前が入り、文言がそろっている" {
         $texts = getIndexTextExtensionDialogTexts "営業部"
@@ -106,5 +158,16 @@ Describe "getIndexTextExtensionDialogTexts" -Tag Unit {
         foreach ($key in @("Title", "Note", "Extension", "Count", "Reset", "UncheckAll", "Ok", "Cancel", "RemovedOnly", "FilterPlaceholder", "Empty")) {
             $texts[$key] | Should -Not -BeNullOrEmpty -Because $key
         }
+    }
+
+    It "注の件数の文は、件数の出どころで 3 通りに切り替わる" -TestCases @(
+        @{ source = "previous"; time = "2024/10/14 15:30"; expected = "件数は、前回の更新（2024/10/14 15:30）で数えた結果です。" }
+        @{ source = "now"; time = ""; expected = "件数は、いま数えた結果です。" }
+        @{ source = "none"; time = ""; expected = "まだ件数がありません。更新すると、件数が出ます。" }
+        @{ source = "previous"; time = ""; expected = "まだ件数がありません。更新すると、件数が出ます。" }
+    ) {
+        param ($source, $time, $expected)
+        $note = (getIndexTextExtensionDialogTexts "営業部" $source $time).Note
+        $note | Should -BeLike "*このインデックス（営業部）から外します。${expected}Excel・Word・PowerPoint は、ここでは選べません。"
     }
 }

@@ -1,4 +1,4 @@
-﻿# 現行の画面を、状態ごとに全部（42 枚）自動で撮る道具。GUI を直す前の記録として docs\images\screens\ に置き、
+﻿# 現行の画面を、状態ごとに全部（45 枚）自動で撮る道具。GUI を直す前の記録として docs\images\screens\ に置き、
 # docs\design\gui\screens\ の写真として載せる。詳しい経緯・撮る状態の一覧・撮らないものは docs\design\gui\screens\index.md。
 #
 #   .\tools\capture_screens.ps1                 すべての状態を撮り直す
@@ -407,6 +407,106 @@ function captureCloudScene {
     } finally {
         stopGui $S
         foreach ($file in $offline) { [IO.File]::SetAttributes($file.FullName, [IO.FileAttributes]::Normal) }
+    }
+}
+
+function captureTopOnlyScene {
+    # index-tab/top-only（詳細の「サブフォルダを含める」を外した。一覧の札「直下のみ」と［要更新］）と、
+    # index-tab/start-confirm-top-only（その更新の確認。札と「サブフォルダ側の N 件をインデックスから外します」の 1 行）
+    param ($Ids, $Root, $OutDir, $UserName, $ComputerName, $UserProfile, $Sizes)
+    if ($Ids -notcontains "index-tab/top-only" -and $Ids -notcontains "index-tab/start-confirm-top-only") { return }
+
+    $dir = Join-Path $Root "toponly"
+    $tool = newGuiTool $dir
+    $source = Join-Path (Join-Path $Root "toponly-元") "営業"
+    newGuiSourceFolder $source
+    $sub = Join-Path $source "2024"
+    [void][IO.Directory]::CreateDirectory($sub)
+    Copy-Item -LiteralPath (Join-Path (getGuiRepoRoot) "tests\testdata\office\Word\基本.docx") -Destination (Join-Path $sub "見積.docx")
+    $config = readGuiConfig $tool
+    $config | Add-Member -NotePropertyName targetFolders -NotePropertyValue @(@{ name = "営業"; path = $source; enabled = $true }) -Force
+    writeGuiConfig $tool.Dir $config
+
+    $S = startGui $tool "toponly"
+    try {
+        invokeGuiScene $S {
+            selectGuiTab $S "IndexTab" "IndexingButton"
+            setGuiStep $S "取り込む"
+            startGuiIndexing $S
+            waitGui $S "取り込みの完了" ${guiIndexTimeout} {
+                (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*" -and (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
+            } | Out-Null
+
+            setGuiStep $S "詳細の「サブフォルダを含める」を外す"
+            selectGui @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
+            waitGui $S "詳細が出る" ${guiDefaultTimeout} { findGui $S.Window -Id "IndexDetailSubfolders" } | Out-Null
+            toggleGui (findGui $S.Window -Id "IndexDetailSubfolders")
+            waitGui $S "札と［要更新］が出る" ${guiDefaultTimeout} {
+                $texts = (getGuiRowTexts @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]) -join " "
+                $texts -like "*直下のみ*" -and $texts -like "*要更新*"
+            } | Out-Null
+            captureGuiState -S $S -Id "index-tab/top-only" -Ids $Ids -OutDir $OutDir `
+                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
+
+            setGuiStep $S "［すべて更新］（サブフォルダ側を外す確認）"
+            clickGui $S $S.Window "IndexingButton" "［すべて更新］"
+            $confirm = waitGuiWindow $S "取り込みの確認" -Id "StartButton" -Timeout ${guiIndexTimeout}
+            captureGuiState -S $S -Id "index-tab/start-confirm-top-only" -Ids $Ids -OutDir $OutDir `
+                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($confirm)
+            clickGui $S $confirm "CancelButton" "確認の［キャンセル］"
+            waitGuiWindowClosed $S $confirm "取り込みの確認"
+            waitGui $S "取りやめた更新が終わる" ${guiIndexTimeout} {
+                $b = findGui $S.Window -Id "IndexingButton"
+                $b.Current.IsEnabled -and $b.Current.Name -eq "すべて更新"
+            } | Out-Null
+            closeGui $S
+        }
+    } finally {
+        stopGui $S
+    }
+}
+
+function captureTextExtensionsScene {
+    # index-tab/text-extensions（詳細の「取り込む拡張子」の［変更…］で開いたダイアログ。前回の更新で数えた件数と、日時つきの注）
+    param ($Ids, $Root, $OutDir, $UserName, $ComputerName, $UserProfile, $Sizes)
+    if ($Ids -notcontains "index-tab/text-extensions") { return }
+
+    $dir = Join-Path $Root "textext"
+    $tool = newGuiTool $dir
+    $source = Join-Path (Join-Path $Root "textext-元") "営業"
+    newGuiSourceFolder $source
+    # 件数の列と棒に差が出るよう、拡張子の違うテキストを置く
+    $samples = @{ "議事録" = ".txt"; "メモ" = ".txt"; "手順" = ".md"; "一覧" = ".csv"; "動作記録" = ".log" }
+    foreach ($name in $samples.Keys) {
+        [IO.File]::WriteAllText((Join-Path $source ($name + $samples[$name])), "サンプル`r`n", (New-Object System.Text.UTF8Encoding($true)))
+    }
+    $config = readGuiConfig $tool
+    $config | Add-Member -NotePropertyName targetFolders -NotePropertyValue @(@{ name = "営業"; path = $source; enabled = $true }) -Force
+    writeGuiConfig $tool.Dir $config
+
+    $S = startGui $tool "textext"
+    try {
+        invokeGuiScene $S {
+            selectGuiTab $S "IndexTab" "IndexingButton"
+            setGuiStep $S "取り込む（件数の控えを作る）"
+            startGuiIndexing $S
+            waitGui $S "取り込みの完了" ${guiIndexTimeout} {
+                (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*" -and (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
+            } | Out-Null
+
+            setGuiStep $S "行を選び、詳細の「取り込む拡張子」の［変更…］"
+            selectGui @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
+            waitGui $S "詳細が出る" ${guiDefaultTimeout} { findGui $S.Window -Id "ChangeIndexTextExtensionsButton" } | Out-Null
+            clickGui $S $S.Window "ChangeIndexTextExtensionsButton" "取り込む拡張子の［変更…］"
+            $dialog = waitGuiWindow $S "取り込む拡張子のダイアログ" -Id "TextExtOkButton"
+            captureGuiState -S $S -Id "index-tab/text-extensions" -Ids $Ids -OutDir $OutDir `
+                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($dialog)
+            clickGui $S $dialog "TextExtCancelButton" "ダイアログの［キャンセル］"
+            waitGuiWindowClosed $S $dialog "取り込む拡張子のダイアログ"
+            closeGui $S
+        }
+    } finally {
+        stopGui $S
     }
 }
 
@@ -829,6 +929,8 @@ try {
     captureStarterScene      $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureFailedScene       $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureCloudScene        $ids $root $OutDir $userName $computerName $userProfile $sizes
+    captureTopOnlyScene      $ids $root $OutDir $userName $computerName $userProfile $sizes
+    captureTextExtensionsScene $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureHeavyScene        $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureSearchScene       $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureSettingsScene     $ids $root $OutDir $userName $computerName $userProfile $sizes

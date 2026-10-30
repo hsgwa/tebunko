@@ -26,6 +26,7 @@
     "workspaceFolder": "",
     "searchLimit": 10000,
     "indexTextExcludes": {},
+  "indexTextExcludesIngested": {},
     "notepadTextExtensions": [],
     "textEditorPath": "",
     "ingestThreads": 0
@@ -34,7 +35,7 @@
 
 | キー | 型 | 既定値 | 内容 | 読み書きする関数 |
 |---|---|---|---|---|
-| `targetFolders` | `{name, path, enabled}` の配列 | 空 | クロール対象フォルダ（記載順）。`name` は**インデックス名**（`<ワークスペース>\store\content` 直下のフォルダ名）、`path` は**そのフォルダが今置かれている場所**。名前と置き場所を分けて持つため、フォルダを移したときは `path` の値を書き換えるだけでよい（インデックスは作り直さない。[クロール対象フォルダと取り込み対象](../indexing/crawl.md#クロール対象フォルダとインデックス名)）。`name` が空ならインデックス作成時に割り当てて保存する。`enabled` が `false` はチェックなし（登録のみで取り込まない）。`enabled` が無ければチェックあり（[クロール対象フォルダと取り込み対象](../indexing/crawl.md#クロール対象フォルダgettargetfolders)） | `getTargetFolders` / `writeTargetFolders` |
+| `targetFolders` | `{name, path, enabled, subfolders, ingestedSubfolders}` の配列 | 空 | クロール対象フォルダ（記載順）。`name` は**インデックス名**（`<ワークスペース>\store\content` 直下のフォルダ名）、`path` は**そのフォルダが今置かれている場所**。名前と置き場所を分けて持つため、フォルダを移したときは `path` の値を書き換えるだけでよい（インデックスは作り直さない。[クロール対象フォルダと取り込み対象](../indexing/crawl.md#クロール対象フォルダとインデックス名)）。`name` が空ならインデックス作成時に割り当てて保存する。`enabled` が `false` はチェックなし（登録のみで取り込まない）。`enabled` が無ければチェックあり。`subfolders` が `false` は、そのフォルダの直下のファイルだけを取り込む（サブフォルダの中は取り込まない）。`subfolders` が無ければ `true`（サブフォルダも含める。今までどおり）。`ingestedSubfolders` は、前回取り込んだときに使った `subfolders`（インデクサだけが、取り込み終えた回に書く。取りやめ・中止・エラーの回では書かない）。画面は、今の `subfolders` との差で［要更新］を求める。無ければ `true`（前回は再帰で取り込んだとみなす。新しい版に上げた直後の既存のインデックスは再帰で作ってあるため）（[クロール対象フォルダと取り込み対象](../indexing/crawl.md#クロール対象フォルダgettargetfolders)） | `getTargetFolders` / `writeTargetFolders` |
 | `indexSources` | `{name, path}` の配列 | 空 | インデックス作成の対象にしないインデックスの元のフォルダ（インデックス名 → 今の置き場所）。別の PC・場所で作ったインデックスを検索するとき、元のファイルを開くために使う（[元のフォルダの特定](../gui/open-file.md#元のフォルダの特定インデックスを別の-pc場所で使う場合)） | `readIndexSources` / `writeIndexSources` / `setIndexSourceFolder` |
 | `searchExcludes` | `{path, subfolders}` の配列 | 空 | 画面の検索対象のツリーでチェックを外したフォルダ（フルパス）。`subfolders` が `false` はフォルダ直下のファイルだけを外す。利便性のための一時的な記録で、インデックスの名前を変えたり削除したりするとそのインデックスの下の記録は消える（外したフォルダは検索対象に戻る）。空ならすべてを検索する（[検索](../search/index.md#インデックスの一覧getsearchindexes)） | `readSearchExcludes` / `writeSearchExcludes` / `removeSearchExcludesUnder` |
 | `useRegex` | true / false | false | ［正規表現を使う］の状態 | `readSearchOption` / `writeSearchOption` |
@@ -47,6 +48,7 @@
 | `workspaceFolder` | 文字列 | 空 | ワークスペース（インデックス・取り込み一覧・ログを置くフォルダ）。空なら既定の `%USERPROFILE%\Documents\tebunko_ws`（[データの置き場所とパスの決め方](data.md)）。既定の場所を選んだときも空で保存する。手で書いた相対パスは設定ファイルのフォルダから、`%変数%` は展開して読む | `getWorkDir` / `writeWorkspaceFolder` |
 | `searchLimit` | 数値 | 10000 | 画面の検索結果の件数の上限。この件数に達したら検索を打ち切る（[検索タブ](../gui/search-tab.md)）。範囲は 1,000〜100,000 で、範囲の外は近い端（999 は 1,000、200,000 は 100,000）にする。0 は制限なし（打ち切らない）。負の数・数値にできない値は既定値にする。設定の画面の「検索結果」で変えられ、確定すると書き、次の検索から効く（手で書き換えたときは起動し直す） | `readSearchLimit`（`getSearchLimit`） |
 | `indexTextExcludes` | オブジェクト（インデックス名 → 文字列の配列） | 空のオブジェクト | インデックスごとの、取り込まないテキストの拡張子（`.log` など。[対象の拡張子](../indexing/text.md#対象の拡張子)の 75 個の中のもの）。キーはインデックスの名前（`targetFolders[].name` と同じ。同じ名前のフォルダが複数あっても 1 か所で決める）。項目が無い名前は 75 個すべて取り込む。読むときは小文字にそろえ、75 個に無いもの（`.exe` など）・文字列でないもの・重複を捨て、オブジェクトでない値・配列が空になる名前は項目を作らない。1 件だけの値（`".log"`）も 1 件の配列として読む。インデックス作成の確認で選び（［更新を開始］で書く）、次のインデックス作成から効く（[取り込み対象の決定](../indexing/target-decision.md)）。インデックスを削除したときは項目を消し、名前を変えたときはキーを付け替える（`IndexCatalog`）。エクスポートの zip を取り込んだインデックスには付いてこない（既定で取り込む） | `readTextExtensionSettings` / `writeIndexTextExcludes`・`renameIndexTextExcludes` |
+| `indexTextExcludesIngested` | オブジェクト（インデックス名 → 文字列の配列） | 空のオブジェクト | 前回取り込んだときの `indexTextExcludes`（インデクサだけが、取り込み終えた回〔終わり方 0〕に、その名前の有効なフォルダをすべて回したときだけ書く）。画面の［要更新］は、今の `indexTextExcludes` との差から毎回計算する（印は保存しない。変えたあと元に戻せば消える）。名前の項目が無ければ「前回は全部取り込んだ」とみなす（前の版は必ず全部取り込んでいたため）。読み方・インデックスの削除（消す）と名前の変更（付け替える）は `indexTextExcludes` と同じ | `readTextExtensionSettings` / `setIngestedTextExcludes` |
 | `notepadTextExtensions` | 文字列の配列 | 空 | 検索結果から開くとき、既定のアプリの代わりにエディタで開くテキストの拡張子（既定のアプリで開く 60 個の中のもの）。既定の空は、60 個を既定のアプリで開く。エディタ固定の 15 個（`.bat` など）は書かなくても常にエディタなので、ここには書かない（書いてあっても無視する）。読み方は `indexTextExcludes` の配列と同じ。全体で 1 つ（インデックスごとには持たない）。開くたびに読む | `readTextExtensionSettings` / `writeTextOpenSettings` |
 | `textEditorPath` | 文字列 | 空 | 「エディタで開く」に使うプログラムのパス。空はメモ帳（固定のパス `%SystemRoot%\System32\notepad.exe`）。値があるときは、ドライブ文字から始まる絶対パスの `.exe`（UNC・相対・環境変数・引数・引用符・`[` `]` `*` `?` は不可。`testTextEditorPath`）で、スクリプトや命令を動かすプログラム（`powershell.exe`・`python.exe` など。表は[エディタの差し替え](../../safety/checks.md)）でなく、ファイルがあるときだけ使う。通らなければ既定のアプリには戻さずメモ帳で開き、知らせる。この版では設定の画面から変えない（設定ファイルを手で書き換える。画面で選べるのは将来の対応） | `readTextExtensionSettings`（`openWithEditor` が使う） |
 | `ingestThreads` | 数値 | 0 | インデックス作成で、Office を使わずに読むファイル（`.docx`・`.pptx` など）を並べて取り込む読み取りのスレッドの数（1〜4。4 より大きい値は 4 にする）。0 はコア数 − 1（1〜4）にする。取り込むファイルの数より多くはしない。Excel・Word・PowerPoint のファイルは、この値にかかわらず種類ごとにスレッド 1 つ・Office 1 つで取り込む。画面には出さない（手で書き換える）（[取り込みの並列化](../indexing/parallel.md)） | `readSettings`（インデクサの `getIngestWorkerCount`） |
@@ -68,7 +70,7 @@ flowchart TD
 - 記載の無いキー・未知のキー・値が `null` のキーは無視する（キーが増えても古い設定ファイルをそのまま読める）。
 - 真偽値のキーは、手で `"false"` のような文字列に書き換えても `true` / `false` として読む（`toSettingBool`）。読めない値は既定値にする。
 - 数値のキー（`ingestThreads`・`searchLimit`）は、手で `"2"` のような文字列に書き換えても数値として読む。数値にできない値は既定値にする。
-- テキストの拡張子のキー（`indexTextExcludes`・`notepadTextExtensions`）は、既定からの差だけを持つ（後の版でテキストの拡張子が増えても、その拡張子は既定の扱いになる）。前の版はこの 3 つのキーを知らないので無視する（前の版に戻して設定を 1 つでも保存すると、前の版は知っているキーだけを書くので 3 つのキーは消え、取り込む拡張子・開き方・エディタが既定に戻る。壊れはしない）。
+- テキストの拡張子のキー（`indexTextExcludes`・`indexTextExcludesIngested`・`notepadTextExtensions`）は、既定からの差だけを持つ（後の版でテキストの拡張子が増えても、その拡張子は既定の扱いになる）。前の版はこの 3 つのキーを知らないので無視する（前の版に戻して設定を 1 つでも保存すると、前の版は知っているキーだけを書くので 3 つのキーは消え、取り込む拡張子・開き方・エディタが既定に戻る。壊れはしない）。
 - 保存（`updateSettings`）は、保存のたびにファイルを読み直し、変えたキーだけを書き換える。ほかのキーは、ほかの画面・処理が保存した内容を保つ。UTF-8（BOM なし）。
 - 保存は、書き込みの途中で止まっても設定ファイルが壊れないよう、一時ファイル（`setting.config.tmp`）に書いてから置き換える（`writeTextLinesAtomic`）。
 - 「読み直す → 変える → 書く」の一続きは、設定ファイルごとの名前付きミューテックス（`Local\tebunko_settings_<getFolderKey 設定ファイルのパス>`。`invokeSettingsLocked`）の中で行う。画面・インデクサ（別のプロセスも）が同時に保存しても、互いの変更を消さない。待つのは 5 秒で、過ぎたら例外にする。同じ Windows のセッションの中だけの排他（別のセッションからは排他しない）。

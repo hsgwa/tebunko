@@ -70,20 +70,41 @@
       </DockPanel>
       <!-- 削除予定のインデックスがあるときだけ出す一文（getIndexingConfirmIntro） -->
       <TextBlock x:Name="IntroText" Style="{StaticResource Meta}" Margin="0,6,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
+      <!-- 初めて（どのインデックスも拡張子を外していない）とき、表の［変更…］で拡張子を選べることを案内する一文（getIndexingTextExtGuide） -->
+      <TextBlock x:Name="TextExtGuideText" Style="{StaticResource Meta}" Margin="0,6,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
     </StackPanel>
 
     <!-- 表と、いちばん下の合計の行（更新するフォルダ数・ファイル数。薄い地）を 1 つの枠に入れる -->
     <Border BorderBrush="{StaticResource Border.Soft}" BorderThickness="1" CornerRadius="6" ClipToBounds="True">
       <DockPanel>
       <Border DockPanel.Dock="Bottom" Background="{StaticResource Bg.Summary}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,1,0,0" Padding="12,8">
-        <TextBlock x:Name="TotalText" Style="{StaticResource Label.Strong}" TextWrapping="Wrap" />
+        <StackPanel>
+          <TextBlock x:Name="TotalText" Style="{StaticResource Label.Strong}" TextWrapping="Wrap" />
+          <!-- 直下だけに変えたフォルダで、サブフォルダ側を外す件数（getIndexingSubfolderRemovalNote。0 件のときは隠す） -->
+          <TextBlock x:Name="SubfolderRemovalNote" Style="{StaticResource Meta}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
+          <!-- 取り込まない拡張子にしたファイルを外す件数（getIndexingTextExcludeRemovalNote。0 件のときは隠す。SubfolderRemovalNote とは独立に出し入れする） -->
+          <TextBlock x:Name="TextExcludeRemovalNote" Style="{StaticResource Meta}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
+        </StackPanel>
       </Border>
       <DataGrid x:Name="PlanGrid" MinHeight="120" BorderThickness="0" CanUserAddRows="False" SelectionMode="Single" CanUserSortColumns="False">
         <DataGrid.Columns>
           <DataGridTemplateColumn Header="フォルダ名" Width="*">
             <DataGridTemplateColumn.CellTemplate>
               <DataTemplate>
-                <TextBlock Style="{StaticResource Cell.Key}" Text="{Binding Name}" ToolTip="{Binding Path}" />
+                <StackPanel Orientation="Horizontal" ToolTip="{Binding Path}">
+                  <TextBlock Style="{StaticResource Cell.Key}" Text="{Binding Name}" />
+                  <!-- 設定が「サブフォルダを含めない」の行だけに出す札（読み取りだけ。選ぶのは［インデックス管理］の詳細）。TopOnlyText が空なら隠す -->
+                  <Border Background="{StaticResource Bg.Tag}" CornerRadius="3" Padding="6,1" Margin="6,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding TopOnlyText}" FontSize="10" FontWeight="Medium" Foreground="{StaticResource Ink.Muted}" />
+                    <Border.Style>
+                      <Style TargetType="Border">
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding TopOnlyText}" Value=""><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </Border.Style>
+                  </Border>
+                </StackPanel>
               </DataTemplate>
             </DataGridTemplateColumn.CellTemplate>
           </DataGridTemplateColumn>
@@ -91,6 +112,24 @@
             <DataGridTemplateColumn.CellTemplate>
               <DataTemplate>
                 <TextBlock Style="{StaticResource Cell.Number}" HorizontalAlignment="Stretch" Text="{Binding TotalText}" />
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
+          <!-- 取り込む拡張子の要約と［変更…］（この回で取り込む行だけ。TextExtShown が false なら隠す）。［変更…］は ChangeIndexTextExtensionsButton（Tag にインデックス名） -->
+          <DataGridTemplateColumn Header="取り込む拡張子" Width="230">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate>
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock x:Name="IndexTextExtSummary" Style="{StaticResource Cell.Key}" Text="{Binding TextExtSummary}" ToolTip="{Binding TextExtTip}" VerticalAlignment="Center" />
+                  <Button x:Name="ChangeIndexTextExtensionsButton" Content="変更…" Tag="{Binding Name}" Height="22" Padding="8,0" Margin="8,0,0,0" VerticalAlignment="Center" />
+                  <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding TextExtShown}" Value="False"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </StackPanel.Style>
+                </StackPanel>
               </DataTemplate>
             </DataGridTemplateColumn.CellTemplate>
           </DataGridTemplateColumn>

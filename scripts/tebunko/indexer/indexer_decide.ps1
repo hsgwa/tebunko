@@ -404,3 +404,30 @@ function convertFromPendingRemoveLines {
     }
     return $result.ToArray()
 }
+
+function getFullyIngestedIndexNames {
+    # その回で取り込みを回したフォルダ（ranPaths）から、「その名前の有効なフォルダをすべて回した」インデックス名の配列を返す。
+    # 取り込んだときの設定（取り込まない拡張子）は名前単位なので、同じ名前のフォルダの 1 つだけを回した回では、名前の記録を更新しない
+    # （残ったフォルダに、外した拡張子のファイルが残ったまま［要更新］が消えないように）。
+    # folders: @{ Name; Path; Enabled } の並び（クロール対象フォルダ）。有効なフォルダが 1 つも無い名前は返さない
+    param (
+        [string[]]$ranPaths,
+        [object[]]$folders
+    )
+
+    $ran = @{}
+    foreach ($path in @($ranPaths)) { $ran[([string]$path).ToLowerInvariant()] = $true }
+    $enabledByName = @{}
+    foreach ($folder in @($folders | Where-Object { $_ -and $_.Enabled -ne $false -and $_.Name })) {
+        $name = [string]$folder.Name
+        if (-not $enabledByName.ContainsKey($name)) { $enabledByName[$name] = New-Object System.Collections.Generic.List[string] }
+        $enabledByName[$name].Add(([string]$folder.Path).ToLowerInvariant())
+    }
+    $result = New-Object System.Collections.Generic.List[string]
+    foreach ($name in @($enabledByName.Keys | Sort-Object)) {
+        if (@($enabledByName[$name] | Where-Object { -not $ran.ContainsKey($_) }).Count -eq 0) {
+            $result.Add($name)
+        }
+    }
+    return $result.ToArray()
+}

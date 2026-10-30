@@ -87,6 +87,12 @@ class IndexCatalog {
             # 付け替えられなかった絞り込みは、既定（全部取り込む）に戻るだけで、インデックスは壊れない
             Write-Verbose "取り込まない拡張子の項目を付け替えられませんでした: ${oldName}"
         }
+        # 前の回に数えた拡張子ごとの件数の控えも付け替える（控えは消えても困らないので、書けなくても改名は成功にする）
+        try {
+            renameTextExtCounts $oldName $newName $this.Workspace.TextExtCountsFile
+        } catch {
+            Write-Verbose "拡張子ごとの件数の控えを付け替えられませんでした: ${oldName}"
+        }
     }
 
     [hashtable] RenameIndexWithSource([string]$oldName, [string]$newName, $folders) {
@@ -140,10 +146,16 @@ class IndexCatalog {
         removeSearchExcludesUnder $target $this.SettingsPath
         # インデックスごとの、取り込まないテキストの拡張子の項目も消す（設定を書けなくても削除は成功にする）
         try {
-            writeIndexTextExcludes $name @() $this.SettingsPath
+            removeIndexTextExcludes $name $this.SettingsPath
         } catch {
             # 古い項目が残るだけ（同じ名前で作り直すと、前の絞り込みが効く）
             Write-Verbose "取り込まない拡張子の項目を消せませんでした: ${name}"
+        }
+        # 前の回に数えた拡張子ごとの件数の控えも消す（消えても困らない控えなので、消せなくても削除は成功にする）
+        try {
+            removeTextExtCounts $name $this.Workspace.TextExtCountsFile
+        } catch {
+            Write-Verbose "拡張子ごとの件数の控えを消せませんでした: ${name}"
         }
     }
 
@@ -176,13 +188,28 @@ class IndexCatalog {
     }
 
     [object[]] StoreAssignedNames($assigned) {
-        # 割り当てた名前（assignIndexNames の結果）を設定に保存し、保存した一覧（@{ Name; Path; Enabled }）を返す。
+        # 割り当てた名前（assignIndexNames の結果）を設定に保存し、保存した一覧（@{ Name; Path; Enabled; Subfolders }）を返す。
         # インデクサが、司令のスレッドで作ったこのクラスの経由で名前を保存する
         return @(saveAssignedIndexNames $assigned $this.SettingsPath)
     }
 
+    [void] StoreIngestedSubfolders($values) {
+        # 取り込み終えたフォルダが使った subfolders（パス → bool の表）を、設定の ingestedSubfolders に書く（インデクサだけが書く）
+        setIngestedSubfolders $values $this.SettingsPath
+    }
+
+    [void] StoreIngestedTextExcludes($values) {
+        # 取り込み終えたインデックスが使った取り込まない拡張子（インデックス名 → 拡張子の配列の表）を、設定の indexTextExcludesIngested に書く（インデクサだけが書く）
+        setIngestedTextExcludes $values $this.SettingsPath
+    }
+
+    [void] StoreTextExtCounts([string]$name, $counts, [string]$time) {
+        # そのインデックスの、前の回に数えた拡張子ごとの件数の控えを書く（インデクサだけが書く）
+        writeTextExtCounts $name $(if ($null -ne $counts) { $counts } else { @{} }) $time $this.Workspace.TextExtCountsFile
+    }
+
     [void] SaveTargets($folders) {
-        # インデックスの一覧（@{ Name; Path; Enabled } の配列）を設定に書く
+        # インデックスの一覧（@{ Name; Path; Enabled; Subfolders } の配列）を設定に書く
         writeTargetFolders $folders $this.SettingsPath
     }
 

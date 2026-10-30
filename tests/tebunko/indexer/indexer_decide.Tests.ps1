@@ -237,3 +237,22 @@ Describe "convertToPendingRemoveLines / convertFromPendingRemoveLines" -Tag Unit
         @(convertFromPendingRemoveLines @()).Count | Should -Be 0
     }
 }
+
+Describe "getFullyIngestedIndexNames" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "名前の有効なフォルダをすべて回した名前だけ返す"; ran = @("C:\a", "C:\b", "C:\c"); folders = @(
+            [pscustomobject]@{ Name = "営業"; Path = "C:\a"; Enabled = $true }, [pscustomobject]@{ Name = "営業"; Path = "C:\b"; Enabled = $true },
+            [pscustomobject]@{ Name = "経理"; Path = "C:\c"; Enabled = $true }); expected = @("営業", "経理") }
+        @{ name = "同じ名前のフォルダの 1 つだけを回した名前は返さない"; ran = @("C:\a"); folders = @(
+            [pscustomobject]@{ Name = "営業"; Path = "C:\a"; Enabled = $true }, [pscustomobject]@{ Name = "営業"; Path = "C:\b"; Enabled = $true }); expected = @() }
+        @{ name = "チェックなしのフォルダは数えない（有効なものをすべて回せばよい）。有効なフォルダが無い名前は返さない"; ran = @("C:\a"); folders = @(
+            [pscustomobject]@{ Name = "営業"; Path = "C:\a"; Enabled = $true }, [pscustomobject]@{ Name = "営業"; Path = "C:\b"; Enabled = $false },
+            [pscustomobject]@{ Name = "総務"; Path = "C:\z"; Enabled = $false }); expected = @("営業") }
+        @{ name = "パスの大文字・小文字は区別しない"; ran = @("c:\A"); folders = @(
+            [pscustomobject]@{ Name = "営業"; Path = "C:\a"; Enabled = $true }); expected = @("営業") }
+        @{ name = "回したフォルダが無ければ空"; ran = @(); folders = @([pscustomobject]@{ Name = "営業"; Path = "C:\a"; Enabled = $true }); expected = @() }
+    ) {
+        param ($name, $ran, $folders, $expected)
+        @(getFullyIngestedIndexNames $ran $folders) | Should -Be $expected
+    }
+}

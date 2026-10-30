@@ -28,7 +28,7 @@
 | `recoverIngestJournal` | ledger, journal, pending, channel, reporter | `@{Resume; Unpublished}` | 始めの復旧。前回のジャーナル（と前の版の `ingesting.txt`）から、やり直す仕事を決め、書き出していないフォルダを先に書き出す。ジャーナルが読めないときは今ある書き出し前のフォルダを書き出す。書き出せなかった・中止で飛ばしたフォルダは Unpublished に入れ、次の回のジャーナルへ「未」で持ち越す | 同上 | インデックス作成 |
 | `writeStatusWithJournal` | journal, ledger, folders, rows, keptDropped, previous, [-Finish] | – | 取り込み一覧を書き直す。前に「書」を足し、-Finish のときは書き直したあとに「終」を足す。最後にジャーナルを閉じる | 同上 | インデックス作成 |
 | `getLegacyIngestingPath` / `readLegacyIngesting` / `removeLegacyIngesting` | – | パス / `@{RelPath; Count}` の配列 / – | 前の版の `ingesting.txt` を始めに 1 度だけ読んで、ジャーナルの復旧に足し、読んだあとに消す（`ingest_journal.ps1`） | 同上 | インデックス作成 |
-| `newIndexerChannel` | retryFailed, confirmTargets, workers（既定 -1）, onlyNames（既定は空）, includeCloud（既定 `$false`） | 受け渡しの口（`[hashtable]::Synchronized`） | 画面とインデクサの受け渡しの口を作る（`RetryFailed`・`ConfirmTargets`・`Workers`・`OnlyNames`（更新するインデックス名。空ならチェックの付いたものすべて）・`OnlySkipped`（`OnlyNames` のうち更新できなかった名前と理由）・`Progress`・`Stop`・`Plan`・`Answer`・`Answered`・`Error`・`ExitCode`・`Notice`・`Postponed`・`IncludeCloud`（クラウドにだけあるファイルもダウンロードして取り込むか）・`CloudSkipped`（ダウンロードせずに残した件数）・`OfficePids`）。`Workers` は -1 で設定・コア数から決める、0 で司令のスレッドで取り込む（テスト） | [画面とインデクサの受け渡し](../structure/threads.md#画面とインデクサの受け渡し) | 画面・indexer.ps1 |
+| `newIndexerChannel` | retryFailed, confirmTargets, workers（既定 -1）, onlyNames（既定は空）, includeCloud（既定 `$false`） | 受け渡しの口（`[hashtable]::Synchronized`） | 画面とインデクサの受け渡しの口を作る（`RetryFailed`・`ConfirmTargets`・`Workers`・`OnlyNames`（更新するインデックス名。空ならチェックの付いたものすべて）・`OnlySkipped`（`OnlyNames` のうち更新できなかった名前と理由）・`CountedFiles`（取り込み対象を探す間に数えたファイルの数。列挙で 1000 件ごとに増える。確認のために数え直しているときの帯に出す）・`Progress`・`Stop`・`Plan`・`Answer`・`Answered`・`Error`・`ExitCode`・`Notice`・`Postponed`・`IncludeCloud`（クラウドにだけあるファイルもダウンロードして取り込むか）・`CloudSkipped`（ダウンロードせずに残した件数）・`OfficePids`）。`Workers` は -1 で設定・コア数から決める、0 で司令のスレッドで取り込む（テスト） | [画面とインデクサの受け渡し](../structure/threads.md#画面とインデクサの受け渡し) | 画面・indexer.ps1 |
 | `writeIndexingProgress` | phase, processed, remaining, failed, detail, channel（既定はいま動いているインデックス作成の口） | – | インデックス作成の進み具合を受け渡しの口の `Progress` に入れる（口が無ければ何もしない） | [インデックス作成のメインフロー](../indexing/flow.md) | インデックス作成（1 ファイルにつき 1 回） |
 | `readIndexingProgress` | channel | `@{Phase; Processed; Remaining; Failed; Detail}` / `$null` | インデックス作成の進み具合を受け渡しの口から読む（まだ無ければ `$null`）。画面が 1 秒ごとに呼ぶ（数万行の取り込み一覧を読み直さない） | [インデックス作成の実行](../gui/indexing-run.md#更新の進み具合) | 画面 |
 | `requestIndexingStop` | channel | – | 中止を求める（`Stop` を立て、確認を待っていれば取りやめの返事にする） | 同上 | 画面 |
@@ -127,10 +127,20 @@
 | `TextExcludes`（プロパティ） | – | hashtable | インデックスごとの、取り込まないテキストの拡張子（インデックス名 → 拡張子の配列）。`Crawl` が、フォルダのインデックス名で `getTargetExtensionList` を作って `createTargetList` に渡す。`$null` のまま `Crawl` を呼ぶと、始めに 1 回だけ設定（`indexTextExcludes`）を読む |
 | `TextCountsByIndex`（プロパティ） | – | hashtable | インデックス名 → 拡張子 → 件数（テキストの拡張子ごとの件数。取り込まない拡張子の分も。同じ名前の複数のフォルダは合計）。`Crawl` が `createTargetList` の `TextCounts` から足す |
 | `Crawl` | indexCounts, onFolder | – | フォルダごとに取り込み対象・チェックなし・フォルダなしに分け、`Rows`・`Targets`・`Failed`・`Plan` を組み立てる。`onFolder` は検索の直前に呼ぶ（進み具合を出す。例外は包まずにそのまま伝える） |
-| `KeepForCancel` | – | 取り込み一覧に書く行 | 取りやめるとき、取り込み対象の行（とクラウドにだけあって前回未完了の行）を前回の記録のままにする |
+| `KeepForCancel` | – | 取り込み一覧に書く行 | 取りやめるとき、取り込み対象の行（とクラウドにだけあって前回未完了の行・元のファイルが無くなったファイルの行）を前回の記録のままにする |
 | `ApplyFailed` | retry | – | 前回失敗した行を、再取り込みする（`Targets` に足す）かスキップするか |
 | `ApplyInterrupted` | entries, interruptLimit | – | 前回強制終了したファイルを最後に回し（`Carried`）、上限に達したものは失敗にする |
 | `FolderByName` | – | インデックス名 → フォルダ | 取り込みのワーカーへ渡すための対応 |
+
+## インデックスごとの拡張子ごとの件数の控え（`tebunko/core/text_ext_counts.ps1`）
+
+| 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |
+|---|---|---|---|---|---|
+| `readTextExtCounts` | path（既定 `$workspace.TextExtCountsFile`） | インデックス名 → `@{Time; Counts}` の表 | 前の回に数えた拡張子ごとの件数の控えを読む。無い・壊れている・形が違う項目は、空（その名前の項目なし）にする | [データの置き場所](../structure/io-files.md) | 詳細の「取り込む拡張子」 |
+| `writeTextExtCounts` | name, counts（拡張子 → 件数）, time, path | – | そのインデックスの項目だけを書き換える（ほかの名前は残す。`.tmp` を経由して置き換える） | 同上 | `IndexCatalog.StoreTextExtCounts` |
+| `writeTextExtCountsTable` | table, path | – | 控えの表を丸ごと書く（`.tmp` を経由して置き換える） | 同上 | 上の関数 |
+| `renameTextExtCounts` | oldName, newName, path | – | 改名で項目のキーを付け替える（古い名前の項目が無ければ何もしない） | 同上 | `IndexCatalog.RenameIndex` |
+| `removeTextExtCounts` | name, path | – | 削除でその名前の項目を消す（無ければ何もしない） | 同上 | `IndexCatalog.RemoveIndex` |
 
 ## 取り込み直すかの判断（`tebunko/indexer/indexer_decide.ps1`）
 
@@ -142,6 +152,7 @@
 | `getIngestApp` | relPath | string | 取り込みに最初に要る Office のアプリ（表（`$officeFileKinds`）の Excel の拡張子は `Excel`、`.doc` は `Word`、`.ppt` は `PowerPoint`。それ以外（`.docx`・`.docm`・`.pptx`・`.pptm`、テキストの拡張子、`.pdf`）は Office が要らず空） | [取り込みの並列化](../indexing/parallel.md) | インデックス作成（司令） |
 | `getRerouteApp` | relPath | string | Office を使わずに読めず、Office が要ると分かったファイルの回し先のアプリ（`getOfficeFileKind` が `PowerPoint`（`.pptx` `.pptm` `.ppt`）なら `PowerPoint`、ほかは `Word`） | 同上 | インデックス作成（司令） |
 | `selectIngestWorker` | workers（ワーカーごとの `@{Busy; Owns; Abandoned}`）, app, capacity | `@{Kind=Worker／Wait／Abandoned; Index}` | 取り込むファイルの渡し先を決める。Office が要るファイルは、そのアプリの持ち主へ（満杯なら `Wait`、持ち主が諦めていれば `Abandoned`）。持ち主がいなければ、持ち主のいないワーカーのうちいちばん空いているもの。Office が要らないファイルは、持ち主のいないワーカーのうちいちばん空いているもの（無ければ、諦めていないいちばん空いているもの）。すべて諦めていれば `Abandoned` | 同上 | `IngestDispatcher` |
+| `getFullyIngestedIndexNames` | ranPaths（その回で取り込みを回したフォルダのパス）, folders（`@{Name; Path; Enabled}`） | 名前の配列 | 名前の有効なフォルダをすべて回したインデックス名（同じ名前のフォルダの 1 つだけを回した回では、取り込んだときの取り込まない拡張子を更新しない）。有効なフォルダが無い名前は返さない | 同上 | recordIngestedTextExtensions |
 
 ## インデックス名とインデックスの管理（`tebunko/index/index_name.ps1`・`index_store.ps1`）
 

@@ -51,6 +51,7 @@ function writeGoldenSettings {
     if (Get-Command writeIndexTextExcludes -ErrorAction SilentlyContinue) {
         writeIndexTextExcludes "資料" @(".log") $path
         writeIndexTextExcludes "(株)山田商事" @(".md", ".csv") $path
+        setIngestedTextExcludes @{ "資料" = @(".log") } $path
         writeTextOpenSettings @(".html") $path
         updateSettings "textEditorPath" "D:\golden\editor.exe" $path
     }

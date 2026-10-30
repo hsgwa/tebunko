@@ -1,12 +1,12 @@
 ﻿# インデックス管理の画面の一覧（状態の保持・フォルダの状態の調べ・一覧の読み込みと更新）。
 
 function getTargetsKey {
-    # クロール対象フォルダの一覧（@{ Path; Enabled } の配列）を比べるための文字列
+    # クロール対象フォルダの一覧（@{ Path; Enabled; Subfolders } の配列）を比べるための文字列
     param (
         [object[]]$folders
     )
 
-    return (@($folders | Where-Object { $_ } | ForEach-Object { "$($_.Enabled)`t$($_.Path)" }) -join "`n")
+    return (@($folders | Where-Object { $_ } | ForEach-Object { "$($_.Enabled)`t$($_.Subfolders -ne $false)`t$($_.Path)" }) -join "`n")
 }
 
 $script:targetItems = New-Object 'System.Collections.ObjectModel.ObservableCollection[object]'
@@ -165,13 +165,18 @@ function newFolderItem {
     param (
         [string]$path,
         [bool]$enabled,
-        [string]$name = ""
+        [string]$name = "",
+        [bool]$subfolders = $true,
+        [bool]$ingestedSubfolders = $true
     )
 
     $item = New-Object FolderItem
     $item.Name = $name
     $item.Path = $path
     $item.Enabled = $enabled
+    $item.Subfolders = $subfolders
+    $item.IngestedSubfolders = $ingestedSubfolders
+    $item.TopOnlyText = getIndexTopOnlyTagText $subfolders
     $item.FileCountText = "－"
     $item.LastIngestedText = ""
     # フォルダの有無は一覧に加えた後にまとめて調べる（refreshFolderStatus）
@@ -268,7 +273,7 @@ function finishTargetsNaming {
 }
 
 function fillTargetItems {
-    # 画面の一覧を folders（@{ Name; Path; Enabled }）の内容に置き換える。checkedNames の名前の行はチェックを付ける
+    # 画面の一覧を folders（@{ Name; Path; Enabled; Subfolders }）の内容に置き換える。checkedNames の名前の行はチェックを付ける
     param (
         [object[]]$folders,
         [string[]]$checkedNames
@@ -278,7 +283,7 @@ function fillTargetItems {
     try {
         $script:targetItems.Clear()
         foreach ($folder in $folders) {
-            $newItem = newFolderItem $folder.Path $folder.Enabled $folder.Name
+            $newItem = newFolderItem $folder.Path $folder.Enabled $folder.Name ($folder.Subfolders -ne $false) ($folder.IngestedSubfolders -ne $false)
             $newItem.Checked = ($folder.Name -and $checkedNames -contains $folder.Name)
             $script:targetItems.Add($newItem)
         }
@@ -295,7 +300,7 @@ function saveTargets {
     # 一覧を設定に書く。保存した旨のステータスは出す。-Quiet のときは出さない（更新を始めるときの保存は、更新を始めるか確認で決まるため、文を出さない）
     param ([switch]$Quiet)
 
-    (newIndexCatalog $workspace.Dir).SaveTargets(@($script:targetItems | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Path = $_.Path; Enabled = $_.Enabled } }))
+    (newIndexCatalog $workspace.Dir).SaveTargets(@($script:targetItems | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Path = $_.Path; Enabled = $_.Enabled; Subfolders = $_.Subfolders } }))
     $script:savedTargets = getTargetsKey @(getTargetFolders)
     if (!$Quiet) {
         setStatus "インデックス一覧を保存しました（$(Get-Date -Format 'H:mm')）"
@@ -344,6 +349,31 @@ function refreshIndexViewsKeepingStatus {
     setStatus $notice
 }
 
+function syncIngestedSubfolders {
+    # 設定の ingestedSubfolders（前回取り込んだときの subfolders。インデクサだけが書く）を、一覧の行（FolderItem）に読み直す。突き合わせる鍵はパス
+    $byPath = @{}
+    foreach ($folder in @(getTargetFolders)) { $byPath[[string]$folder.Path] = $folder.IngestedSubfolders }
+    foreach ($item in $script:targetItems) {
+        if ($byPath.ContainsKey([string]$item.Path)) { $item.IngestedSubfolders = [bool]$byPath[[string]$item.Path] }
+    }
+}
+
+# インデックスごとの取り込む拡張子の設定と件数の控え（syncIndexTextExtensions が読み直す。一覧を描き直すたびにファイルを読まないよう、ここに控える）。
+# Excludes: 今の設定、Ingested: 前回取り込んだときの設定（インデクサだけが書く）、Counts: 件数の控え（インデックス名 → @{ Time; Counts }）。どれもインデックス名がキー
+$script:textExtState = @{ Excludes = @{}; Ingested = @{}; Counts = @{} }
+
+function syncIndexTextExtensions {
+    # 設定の indexTextExcludes・indexTextExcludesIngested と、件数の控えを読み直す。読めないときは前の値のまま（控えの無い状態に戻さない）。
+    # 件数の控えはワークスペースの中にあるので、ワークスペースがネットワークの場所のときは、画面が止まらないよう読まず、控え無しとして扱う
+    try {
+        $settings = readTextExtensionSettings
+        $counts = $(if (testNetworkPath $workspace.Dir) { @{} } else { readTextExtCounts })
+        $script:textExtState = @{ Excludes = $settings.IndexExcludes; Ingested = $settings.IndexExcludesIngested; Counts = $counts }
+    } catch {
+        Write-Verbose "取り込む拡張子の設定を読み直せませんでした"
+    }
+}
+
 function applyIndexStats {
     # 取り込み一覧の集計（getIndexStats）を一覧の各行のファイル数・最終更新・「ステータス」列に反映する。
     #   indexing: インデックス作成中か（getIndexRowView にそのまま渡す）
@@ -353,6 +383,10 @@ function applyIndexStats {
         $formatState = $null    # getWorkspaceIndexFormat の結果（インデックスの格納形式の状態）。無ければ $null
     )
 
+    if (!$indexing) {
+        syncIngestedSubfolders   # インデクサが書いた「前回取り込んだときの設定」を読み直す（［要更新］の差の元）
+        syncIndexTextExtensions   # 取り込む拡張子の設定・前回取り込んだときの設定・件数の控えも読み直す
+    }
     foreach ($item in $script:targetItems) {
         $stat = $null
         $formatEntry = $null
@@ -377,7 +411,7 @@ function applyIndexStats {
             $item.PendingCount = [int]$stat.Pending
             $item.SetStats(("{0:#,0}" -f $stat.Total), ("更新済み {0:#,0} 件 ・ 未更新 {1:#,0} 件 ・ 失敗 {2:#,0} 件" -f $stat.Done, $stat.Pending, $stat.Failed), $lastText)
         }
-        $row = getIndexRowView $stat $indexing $item.Enabled (getIndexingRatio) (testIndexInRound $item) (testIndexExporting $item) $formatEntry
+        $row = getIndexRowView $stat $indexing $item.Enabled (getIndexingRatio) (testIndexInRound $item) (testIndexExporting $item) $formatEntry (testIndexSubfoldersPending $item.Subfolders $item.IngestedSubfolders) (testIndexItemTextExcludesPending $item)
         $item.SetIndexState($row.Text, $row.ToolTip, $row.Level, $row.Sub, [double]$row.Percent)
         setIndexRowActions $item
     }
@@ -394,6 +428,16 @@ function applyIndexStats {
 }
 
 $script:indexFileTotal = 0
+
+function testIndexItemTextExcludesPending {
+    # 行のインデックスの、取り込む拡張子の今の設定が、前回取り込んだときの設定と違うか（同じインデックスの複数のフォルダの行は同じ値。差から毎回求め、保存しない）
+    param ($item)
+
+    if ([string]::IsNullOrEmpty([string]$item.Name)) {
+        return $false
+    }
+    return (testIndexTextExcludesChanged (getIndexTextExcludesOf $script:textExtState.Excludes $item.Name) (getIndexTextExcludesOf $script:textExtState.Ingested $item.Name))
+}
 
 function testIndexInRound {
     # 今の回で更新する行か（選んだものだけの回では、選んだ名前の行だけ）

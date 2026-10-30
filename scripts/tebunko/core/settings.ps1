@@ -91,6 +91,7 @@ function newSettings {
         cloudFiles         = ${cloudFilesAsk}  # クラウドにだけあるファイルの扱い: ask（ダウンロードせずに残す。確認の画面で選べる）/ download（ダウンロードして取り込む）。知らない値は ask（readCloudFiles）
         searchLimit        = ${searchLimitDefault}  # 検索結果の件数の上限（${searchLimitMin}～${searchLimitMax}。0 は制限なし、範囲の外は近い端、数値にできない・負の数は既定。getSearchLimit）
         indexTextExcludes      = [ordered]@{}  # インデックスごとの、取り込まないテキストの拡張子: インデックス名 → ${textExtensions} の中の拡張子の配列（既定は空＝全部取り込む。readTextExtensionSettings）
+        indexTextExcludesIngested = [ordered]@{}  # 前回取り込んだときの indexTextExcludes（インデクサだけが書く。インデックス名 → 取り込まなかった拡張子の配列。名前の項目が無ければ前回は全部取り込んだ。［要更新］の差の元）
         notepadTextExtensions  = @()  # 既定のアプリの代わりにエディタで開くテキストの拡張子（${textOpenExtensions} の中から。既定は空。readTextExtensionSettings）
         textEditorPath         = ""   # 「エディタで開く」に使うプログラムのパス（空はメモ帳。書き換えるのは設定ファイルを手で直すときだけ。testTextEditorPath を通ったものだけ使う）
         ingestThreads      = 0        # Office を使わずに読むファイル（.docx・.pptx など）の読み取りのスレッドの数（1～4。0 はコア数から決める。getIngestWorkerCount）。Excel・Word・PowerPoint は種類ごとに 1 つ
@@ -129,7 +130,7 @@ function readSettings {
             continue
         }
         if ($settings[$key] -is [System.Collections.IDictionary]) {
-            # オブジェクトのキー（indexTextExcludes）は、読んだ値をそのまま持つ（整えるのは normalizeIndexTextExcludes）
+            # オブジェクトのキー（indexTextExcludes・indexTextExcludesIngested）は、読んだ値をそのまま持つ（整えるのは normalizeIndexTextExcludes）
             $settings[$key] = $property.Value
         } elseif ($settings[$key] -is [array]) {
             $settings[$key] = @($property.Value | Where-Object { $null -ne $_ })
@@ -257,11 +258,14 @@ function updateSettings {
 }
 
 function getTargetFolders {
-    # クロール対象フォルダの一覧（記載順）を返す: @{ Name; Path; Enabled }。
+    # クロール対象フォルダの一覧（記載順）を返す: @{ Name; Path; Enabled; Subfolders; IngestedSubfolders }。
     #   Name   : インデックス名（work\index 直下のフォルダ名）。インデックスの「名前」で、フォルダの置き場所（Path）とは分けて持つ。
     #            Path を書き換えても Name が同じなら同じインデックスとして扱う（取り込み直さない）。空なら取り込み時に割り当てる（assignIndexNames）
     #   Path   : そのフォルダが今置かれている場所
     #   Enabled: false はチェックなし（登録のみで取り込まない）
+    #   Subfolders: false は直下のファイルだけを取り込む（キーが無ければ true = サブフォルダも含める）
+    #   IngestedSubfolders: 前回取り込んだときの Subfolders（インデクサだけが書く。キーが無ければ true = 前回は再帰で取り込んだとみなす）。
+    #            今の Subfolders との差で、画面の［要更新］を求める
     # 同じフォルダ・同じ名前は最初のものだけ使う（名前の重複は、2 つ目以降を空にして割り当て直す）。
     # フォルダ名として使えない名前（.. ・最後が . ・使えない文字など）も空にして割り当て直す（予約名の aux.backup・CON.txt は、既にある名前なのでそのまま使う）。
     # 書き方が違うだけで同じフォルダを指す場合（ネットワークドライブと UNC パスなど）も同じフォルダとみなす
@@ -294,21 +298,61 @@ function getTargetFolders {
         if ($name -ne "" -and -not $seenName.Add($name)) {
             $name = ""
         }
-        $folders.Add([pscustomobject]@{ Name = $name; Path = $folder; Enabled = ($item.enabled -ne $false) })
+        $folders.Add([pscustomobject]@{ Name = $name; Path = $folder; Enabled = ($item.enabled -ne $false); Subfolders = ($item.subfolders -ne $false); IngestedSubfolders = ($item.ingestedSubfolders -ne $false) })
     }
     return $folders.ToArray()
 }
 
 function writeTargetFolders {
-    # クロール対象フォルダの一覧（@{ Name; Path; Enabled } の配列）を保存する
+    # クロール対象フォルダの一覧（@{ Name; Path; Enabled; Subfolders } の配列）を保存する。
+    # 前回取り込んだときの設定（ingestedSubfolders）は、渡された項目に IngestedSubfolders があればその値、無ければファイルにある値をパスで引いて保つ
+    # （画面は IngestedSubfolders を持たずに渡すので、インデクサが書いた値を画面の古い値で上書きしない。ファイルにも無ければ書かない）
     param (
         [object[]]$folders,
         [string]$path = ${settingsFile}
     )
 
-    updateSettings "targetFolders" ([object[]]@($folders | Where-Object { $_ } | ForEach-Object {
-        [pscustomobject]@{ name = [string]$_.Name; path = $_.Path; enabled = [bool]$_.Enabled }
-    })) $path
+    invokeSettingsLocked -path $path -action {
+        $settings = readSettings $path
+        $ingested = @{}
+        foreach ($old in @($settings.targetFolders)) {
+            if ($null -ne $old.ingestedSubfolders) { $ingested[(normalizeFolderPath ([string]$old.path))] = [bool]$old.ingestedSubfolders }
+        }
+        $settings["targetFolders"] = [object[]]@($folders | Where-Object { $_ } | ForEach-Object {
+            $entry = [ordered]@{ name = [string]$_.Name; path = $_.Path; enabled = [bool]$_.Enabled; subfolders = ($_.Subfolders -ne $false) }
+            $key = normalizeFolderPath ([string]$_.Path)
+            if ($null -ne $_.PSObject.Properties["IngestedSubfolders"]) {
+                $entry["ingestedSubfolders"] = ($_.IngestedSubfolders -ne $false)
+            } elseif ($ingested.ContainsKey($key)) {
+                $entry["ingestedSubfolders"] = $ingested[$key]
+            }
+            [pscustomobject]$entry
+        })
+        writeSettings $settings $path
+    }
+}
+
+function setIngestedSubfolders {
+    # インデクサが取り込み終えたフォルダの、そのとき使った subfolders（前回取り込んだときの設定）を書く。
+    # values: パス → bool の表（渡したパスの項目の ingestedSubfolders だけを書き、ほかの項目と値は変えない）。
+    # 設定を読み直して書く（読む → 書くを排他の中で行う。画面での変更を消さない）
+    param (
+        [hashtable]$values,
+        [string]$path = ${settingsFile}
+    )
+
+    $byPath = @{}
+    foreach ($key in $values.Keys) { $byPath[(normalizeFolderPath ([string]$key))] = [bool]$values[$key] }
+    invokeSettingsLocked -path $path -action {
+        $settings = readSettings $path
+        $items = @($settings.targetFolders)
+        foreach ($item in $items) {
+            $key = normalizeFolderPath ([string]$item.path)
+            if ($byPath.ContainsKey($key)) { $item | Add-Member -NotePropertyName ingestedSubfolders -NotePropertyValue $byPath[$key] -Force }
+        }
+        $settings["targetFolders"] = [object[]]$items
+        writeSettings $settings $path
+    }
 }
 
 function mergeAssignedIndexNames {
@@ -337,7 +381,7 @@ function mergeAssignedIndexNames {
         if ($name -eq "" -and $assignedNames.ContainsKey([string]$item.Path) -and $used.Add($assignedNames[[string]$item.Path])) {
             $name = $assignedNames[[string]$item.Path]
         }
-        $result.Add([pscustomobject]@{ Name = $name; Path = $item.Path; Enabled = $item.Enabled })
+        $result.Add([pscustomobject]@{ Name = $name; Path = $item.Path; Enabled = $item.Enabled; Subfolders = $item.Subfolders; IngestedSubfolders = $item.IngestedSubfolders })
     }
     return $result.ToArray()
 }
@@ -413,7 +457,7 @@ function setIndexSourceFolder {
         $targets = @(getTargetFolders $path)
         if (@($targets | Where-Object { & $same $_.Name }).Count -gt 0) {
             writeTargetFolders @($targets | ForEach-Object {
-                if (& $same $_.Name) { [pscustomobject]@{ Name = $_.Name; Path = $folder; Enabled = $_.Enabled } } else { $_ }
+                if (& $same $_.Name) { [pscustomobject]@{ Name = $_.Name; Path = $folder; Enabled = $_.Enabled; Subfolders = $_.Subfolders; IngestedSubfolders = $_.IngestedSubfolders } } else { $_ }
             }) $path
             return
         }
@@ -537,7 +581,7 @@ function normalizeIndexTextExcludes {
 }
 
 function readTextExtensionSettings {
-    # テキストの拡張子の設定を @{ IndexExcludes（インデックス名 → 取り込まない拡張子の配列）; Notepad（エディタで開く拡張子）; EditorPath（エディタのパス。空はメモ帳） } で返す。
+    # テキストの拡張子の設定を @{ IndexExcludes（インデックス名 → 取り込まない拡張子の配列）; IndexExcludesIngested（前回取り込んだときの IndexExcludes。名前の項目が無ければ前回は全部取り込んだ）; Notepad（エディタで開く拡張子）; EditorPath（エディタのパス。空はメモ帳） } で返す。
     # 拡張子は ${textExtensions} の中のものだけ（キーが無ければ空）
     param (
         [string]$path = ${settingsFile}
@@ -546,6 +590,7 @@ function readTextExtensionSettings {
     $settings = readSettings $path
     return @{
         IndexExcludes = (normalizeIndexTextExcludes $settings.indexTextExcludes)
+        IndexExcludesIngested = (normalizeIndexTextExcludes $settings.indexTextExcludesIngested)
         Notepad       = @(normalizeTextExtensions $settings.notepadTextExtensions)
         EditorPath    = [string]$settings.textEditorPath
     }
@@ -568,16 +613,28 @@ function writeIndexTextExcludes {
         } else {
             $all[$name] = $excludedValue
         }
-        $settings.indexTextExcludes = [ordered]@{}
-        foreach ($key in @($all.Keys | Sort-Object)) {
-            $settings.indexTextExcludes[$key] = @($all[$key])
-        }
+        setIndexTextExcludesTable $settings "indexTextExcludes" $all
         writeSettings $settings $path
     }
 }
 
+function setIndexTextExcludesTable {
+    # 設定の表（indexTextExcludes・indexTextExcludesIngested。名前 → 配列の Hashtable）を、名前の順に並べたオブジェクトにして設定へ入れる
+    param (
+        $settings,
+        [string]$key,
+        [hashtable]$table
+    )
+
+    $settings[$key] = [ordered]@{}
+    foreach ($name in @($table.Keys | Sort-Object)) {
+        $settings[$key][$name] = @($table[$name])
+    }
+}
+
 function renameIndexTextExcludes {
-    # インデックスの名前を変えたとき、取り込まない拡張子の項目のキーを付け替える（新しい名前の項目があれば古い名前のものに置き換える）。古い名前の項目が無ければ何もしない
+    # インデックスの名前を変えたとき、取り込まない拡張子の項目（今の設定と、前回取り込んだときの設定）のキーを付け替える
+    # （新しい名前の項目があれば古い名前のものに置き換える）。古い名前の項目が無ければ何もしない
     param (
         [string]$oldName,
         [string]$newName,
@@ -586,18 +643,71 @@ function renameIndexTextExcludes {
 
     invokeSettingsLocked -path $path -action {
         $settings = readSettings $path
-        $all = normalizeIndexTextExcludes $settings.indexTextExcludes
-        if (-not $all.ContainsKey($oldName)) {
-            return
+        $changed = $false
+        foreach ($key in @("indexTextExcludes", "indexTextExcludesIngested")) {
+            $all = normalizeIndexTextExcludes $settings[$key]
+            if (-not $all.ContainsKey($oldName)) {
+                continue
+            }
+            # 大文字・小文字だけの改名（abc → ABC）では、Hashtable がキーの大文字・小文字を区別しないので、先に古い値を控えて消してから、新しい名前で入れる
+            $moved = $all[$oldName]
+            $all.Remove($oldName)
+            $all[$newName] = $moved
+            setIndexTextExcludesTable $settings $key $all
+            $changed = $true
         }
-        # 大文字・小文字だけの改名（abc → ABC）では、Hashtable がキーの大文字・小文字を区別しないので、先に古い値を控えて消してから、新しい名前で入れる
-        $moved = $all[$oldName]
-        $all.Remove($oldName)
-        $all[$newName] = $moved
-        $settings.indexTextExcludes = [ordered]@{}
-        foreach ($key in @($all.Keys | Sort-Object)) {
-            $settings.indexTextExcludes[$key] = @($all[$key])
+        if ($changed) {
+            writeSettings $settings $path
         }
+    }
+}
+
+function removeIndexTextExcludes {
+    # インデックスを削除したとき、そのインデックスの取り込まない拡張子の項目（今の設定と、前回取り込んだときの設定）を消す。項目が無ければ何もしない
+    param (
+        [string]$name,
+        [string]$path = ${settingsFile}
+    )
+
+    invokeSettingsLocked -path $path -action {
+        $settings = readSettings $path
+        $changed = $false
+        foreach ($key in @("indexTextExcludes", "indexTextExcludesIngested")) {
+            $all = normalizeIndexTextExcludes $settings[$key]
+            if ($all.ContainsKey($name)) {
+                $all.Remove($name)
+                setIndexTextExcludesTable $settings $key $all
+                $changed = $true
+            }
+        }
+        if ($changed) {
+            writeSettings $settings $path
+        }
+    }
+}
+
+function setIngestedTextExcludes {
+    # インデクサが取り込み終えたインデックスの、そのとき使った取り込まない拡張子（前回取り込んだときの設定）を書く。
+    # values: インデックス名 → 取り込まなかった拡張子の配列の表（渡した名前の項目だけを書き、空なら項目を消す。ほかの名前は変えない）。
+    # 設定を読み直して書く（読む → 書くを排他の中で行う。画面での変更を消さない）
+    param (
+        [hashtable]$values,
+        [string]$path = ${settingsFile}
+    )
+
+    $normalized = @{}
+    foreach ($name in @($values.Keys)) { $normalized[[string]$name] = @(normalizeTextExtensions $values[$name]) }
+    invokeSettingsLocked -path $path -action {
+        $settings = readSettings $path
+        $all = normalizeIndexTextExcludes $settings.indexTextExcludesIngested
+        foreach ($name in @($normalized.Keys)) {
+            if ($normalized[$name].Count -eq 0) {
+                $all.Remove($name)
+            } else {
+                $all[$name] = $normalized[$name]
+            }
+        }
+        setIndexTextExcludesTable $settings "indexTextExcludesIngested" $all
         writeSettings $settings $path
     }
 }

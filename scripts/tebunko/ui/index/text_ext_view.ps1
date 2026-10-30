@@ -24,7 +24,8 @@ function getIndexTextExtensionRows {
         $rows.Add(@{ Extension = $extension; Count = $count; Checked = $checked; Changed = (-not $checked) })
     }
     if ($null -eq $counts) {
-        return $rows.ToArray()
+        # 件数が無いときは名前順
+        return @($rows | Sort-Object -Property @{ Expression = { $_.Extension }; Descending = $false })
     }
     return @($rows | Sort-Object -Property @{ Expression = { $_.Count }; Descending = $true }, @{ Expression = { $_.Extension }; Descending = $false })
 }
@@ -52,22 +53,105 @@ function formatTextExtensionCount {
     return ([int]$count).ToString("N0", [System.Globalization.CultureInfo]::InvariantCulture)
 }
 
+function getIndexTextExtensionBriefSummary {
+    # 詳細の行・件数が無いときのダイアログの要約。何も外していなければ「75 個すべて取り込む」、外していれば「取り込む 73 個（外した 2 個）」。
+    # excluded は取り込まない拡張子（${textExtensions} に無いものは数えない）
+    param (
+        [object[]]$excluded = @()
+    )
+
+    $removed = @(${textExtensions} | Where-Object { @($excluded | ForEach-Object { ([string]$_).ToLowerInvariant() }) -contains $_ })
+    $all = @(${textExtensions}).Count
+    if ($removed.Count -eq 0) {
+        return "${all} 個すべて取り込む"
+    }
+    return "取り込む $($all - $removed.Count) 個（外した $($removed.Count) 個）"
+}
+
+function testIndexTextExcludesChanged {
+    # 今の設定（current）が、前回取り込んだときの設定（applied）と違うか。違えば［要更新］。
+    # 順・大文字小文字・重なりは無視して比べる。$null や空は「何も外していない」
+    param (
+        $current,
+        $applied
+    )
+
+    $normalize = { param ($list) (@(@($list) | Where-Object { $null -ne $_ -and ([string]$_) -ne "" } | ForEach-Object { ([string]$_).ToLowerInvariant() } | Sort-Object -Unique) -join "`n") }
+    return ((& $normalize $current) -ne (& $normalize $applied))
+}
+
+function getIndexTextExtensionCountNote {
+    # 詳細の「取り込む拡張子」の行の、件数の見出し。source は件数の出どころ:
+    # previous（前回の控え。time は控えの日時）→「前回の更新（日時）の件数です」、none（控え無し）→「更新すると、件数が出ます」、now（確認ダイアログ）→ 空
+    param (
+        [string]$source = "none",
+        [string]$time = ""
+    )
+
+    if ($source -eq "now") {
+        return ""
+    }
+    if ($source -eq "previous" -and $time -ne "") {
+        return "前回の更新（${time}）の件数です"
+    }
+    return "更新すると、件数が出ます"
+}
+
+function getIndexTextExtensionDetailRow {
+    # 詳細の「取り込む拡張子」の行。excluded はそのインデックスの取り込まない拡張子、entry は件数の控え（readTextExtCounts のその名前の値。無ければ $null）。
+    # 戻り値: @{ Summary（要約）; Caption（件数の見出し）; Source（previous か none）; Time（控えの日時）; Counts（控えの件数。無ければ $null） }
+    param (
+        [object[]]$excluded = @(),
+        $entry = $null
+    )
+
+    $has = ($null -ne $entry -and $null -ne $entry.Counts)
+    $time = $(if ($has) { [string]$entry.Time } else { "" })
+    $source = $(if ($has) { "previous" } else { "none" })
+    return @{
+        Summary = getIndexTextExtensionBriefSummary $excluded
+        Caption = getIndexTextExtensionCountNote $source $time
+        Source  = $source
+        Time    = $time
+        Counts  = $(if ($has) { $entry.Counts } else { $null })
+    }
+}
+
+function getIndexTextExtensionDetailView {
+    # 詳細の「取り込む拡張子」の行の見せ方。item は詳細の行（TextExcludes・TextExcludesIngested・TextCountsEntry・TextExtEditable。省いた項目は、全部取り込む・控え無し・押せる）。
+    # $null（何も選んでいない）なら空で、［変更…］は押せない。
+    # 戻り値: @{ Summary（要約）; Caption（件数の見出し）; Stale（［要更新］の札を出すか。今の設定と前回取り込んだときの差）; ChangeEnabled（［変更…］を押せるか）;
+    #            CountsSource・CountsTime・Counts（ダイアログに渡す件数の出どころ・日時・件数）}
+    param (
+        $item = $null
+    )
+
+    if ($null -eq $item) {
+        return @{ Summary = ""; Caption = ""; Stale = $false; ChangeEnabled = $false; CountsSource = "none"; CountsTime = ""; Counts = $null }
+    }
+    $row = getIndexTextExtensionDetailRow @($item.TextExcludes) $item.TextCountsEntry
+    return @{
+        Summary = $row.Summary; Caption = $row.Caption
+        Stale = (testIndexTextExcludesChanged $item.TextExcludes $item.TextExcludesIngested)
+        ChangeEnabled = ($item.TextExtEditable -ne $false)
+        CountsSource = $row.Source; CountsTime = $row.Time; Counts = $row.Counts
+    }
+}
+
 function getIndexTextExtensionSummary {
     # 確認ダイアログの行と、ダイアログの要約。rows は @{ Extension; Count; Checked } の並び。
-    # 数え中（件数が $null）は「対象のフォルダを数えています…」、何も外していなければ「テキストファイル 13,150 件 ・ すべて取り込む」、
-    # 外していれば「取り込む 10,350 件（外した 2,800 件）」。件数が分からないとき（数え中）に外していれば「外した N 個」
+    # 何も外していなければ「テキストファイル 13,150 件 ・ すべて取り込む」、外していれば「取り込む 10,350 件（外した 2,800 件）」。
+    # 件数が無い（$null）ときは個数で言う（getIndexTextExtensionBriefSummary）
     param (
         [object[]]$rows
     )
 
     $all = @($rows)
     $removed = @($all | Where-Object { -not $_.Checked })
-    $counting = (@($all | Where-Object { $null -eq $_.Count }).Count -gt 0)
-    if ($counting) {
-        if ($removed.Count -eq 0) {
-            return "対象のフォルダを数えています…（件数は数え終わると出ます）"
-        }
-        return "外した拡張子 $($removed.Count) 個（対象のフォルダを数えています…）"
+    $noCounts = (@($all | Where-Object { $null -eq $_.Count }).Count -gt 0)
+    if ($noCounts) {
+        # 件数が無いとき（控えが無い）は、個数で言う
+        return getIndexTextExtensionBriefSummary @($removed | ForEach-Object { $_.Extension })
     }
     $total = [int](@($all | ForEach-Object { [int]$_.Count } | Measure-Object -Sum).Sum)
     if ($removed.Count -eq 0) {
@@ -114,15 +198,37 @@ function getIndexTextExtensionListView {
     }
 }
 
-function getIndexTextExtensionDialogTexts {
-    # ダイアログの文言。indexName はインデックスの名前
+function getIndexTextExtensionZeroHeader {
+    # 一覧の末尾の、件数 0 の拡張子をまとめた行の文。expanded は開いているか
     param (
-        [string]$indexName
+        [int]$count,
+        [bool]$expanded = $false
     )
 
+    if ($expanded) {
+        return "▼ 件数 0 の拡張子 ${count} 個（開いて選ぶ。見つかったときに効く設定）"
+    }
+    return "＞ 件数 0 の拡張子 ${count} 個（折りたたみ中。開くと選べます）"
+}
+
+function getIndexTextExtensionDialogTexts {
+    # ダイアログの文言。indexName はインデックスの名前。
+    # countsSource は件数の出どころ（previous = 詳細から・前回の件数、now = 確認ダイアログから・今数えた件数、none = 件数なし）、countsTime は前回の控えの日時。
+    # 注の文は、件数の出どころで 3 通りに切り替わる
+    param (
+        [string]$indexName,
+        [string]$countsSource = "none",
+        [string]$countsTime = ""
+    )
+
+    $countSentence = switch ($countsSource) {
+        "now" { "件数は、いま数えた結果です。" }
+        "previous" { $(if ($countsTime -ne "") { "件数は、前回の更新（${countsTime}）で数えた結果です。" } else { "まだ件数がありません。更新すると、件数が出ます。" }) }
+        default { "まだ件数がありません。更新すると、件数が出ます。" }
+    }
     return @{
         Title             = "取り込む拡張子 - ${indexName}"
-        Note              = "チェックを外した拡張子のファイルは、次のインデックス作成で、このインデックス（${indexName}）から外します。件数は、対象のフォルダにあるファイルを数えた結果です（数えた時点の件数）。Excel・Word・PowerPoint は、ここでは選べません。"
+        Note              = "チェックを外した拡張子のファイルは、次のインデックス作成で、このインデックス（${indexName}）から外します。${countSentence}Excel・Word・PowerPoint は、ここでは選べません。"
         Extension         = "拡張子"
         Count             = "件数"
         Reset             = "既定に戻す"

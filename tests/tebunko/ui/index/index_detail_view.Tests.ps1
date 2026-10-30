@@ -3,6 +3,7 @@ BeforeAll {
     . "$PSScriptRoot\..\..\..\helpers\load.ps1"
     . "${scriptsDir}\tebunko\ui\index\index_list_view.ps1"
     . "${scriptsDir}\tebunko\ui\index\index_edit_view.ps1"
+    . "${scriptsDir}\tebunko\ui\index\text_ext_view.ps1"
     . "${scriptsDir}\tebunko\ui\index\index_detail_view.ps1"
 
     function newItem {
@@ -61,6 +62,19 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
                 IndexText = "最新"; IndexLevel = "Ok"; IndexSub = ""; FileCountText = $fileCount; LastIngestedText = $last; FailedCount = $failed; PendingCount = $pending
             }
         }
+    }
+
+    It "選んだ行の Subfolders（<label>）を返す。何も選んでいない・複数のときは既定の true" -TestCases @(
+        @{ label = "false"; value = $false; expected = $false }
+        @{ label = "true"; value = $true; expected = $true }
+        @{ label = "未設定は含める"; value = $null; expected = $true }
+    ) {
+        param ($label, $value, $expected)
+        $item = newDetailItem
+        if ($null -ne $value) { $item.Subfolders = $value }
+        (getIndexDetailView @($item)).Subfolders | Should -Be $expected
+        (getIndexDetailView @()).Subfolders | Should -BeTrue
+        (getIndexDetailView @($item, $item) 2).Subfolders | Should -BeTrue
     }
 
     It "<label>: 中身を出さず、見出しだけを出す" -TestCases @(
@@ -218,6 +232,37 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
 
     It "何も選んでいないときの行の鍵は空" {
         (getIndexDetailView @()).RowsKey | Should -Be ""
+    }
+}
+
+Describe "getIndexDetailView（取り込む拡張子の行）" -Tag Unit {
+    It "何も選んでいなければ空で、［変更…］は押せない" {
+        $view = getIndexDetailView @() 0 $null
+        $view.TextExt.Summary | Should -Be ""
+        $view.TextExt.Stale | Should -BeFalse
+        $view.TextExt.ChangeEnabled | Should -BeFalse
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "既定（全部取り込む・控え無し）"; excludes = @(); ingested = @(); entry = $null; editable = $true
+           summary = "75 個すべて取り込む"; caption = "更新すると、件数が出ます"; stale = $false; enabled = $true; source = "none" }
+        @{ name = "前回の控えあり"; excludes = @(); ingested = @(); entry = @{ Time = "2024/10/14 15:30"; Counts = @{ ".txt" = 3 } }; editable = $true
+           summary = "75 個すべて取り込む"; caption = "前回の更新（2024/10/14 15:30）の件数です"; stale = $false; enabled = $true; source = "previous" }
+        @{ name = "外して、前回は全部取り込んだ（キー無し）→ 差あり"; excludes = @(".log"); ingested = $null; entry = $null; editable = $true
+           summary = "取り込む 74 個（外した 1 個）"; caption = "更新すると、件数が出ます"; stale = $true; enabled = $true; source = "none" }
+        @{ name = "前回と同じ外し方なら差なし"; excludes = @(".log"); ingested = @(".LOG"); entry = $null; editable = $true
+           summary = "取り込む 74 個（外した 1 個）"; caption = "更新すると、件数が出ます"; stale = $false; enabled = $true; source = "none" }
+        @{ name = "更新中は［変更…］を押せない"; excludes = @(); ingested = @(); entry = $null; editable = $false
+           summary = "75 個すべて取り込む"; caption = "更新すると、件数が出ます"; stale = $false; enabled = $false; source = "none" }
+    ) {
+        param ($name, $excludes, $ingested, $entry, $editable, $summary, $caption, $stale, $enabled, $source)
+        $item = @{ Name = "営業"; Path = "C:\共有\営業部"; TextExcludes = $excludes; TextExcludesIngested = $ingested; TextCountsEntry = $entry; TextExtEditable = $editable }
+        $view = getIndexDetailView @($item) 0 $null
+        $view.TextExt.Summary | Should -Be $summary
+        $view.TextExt.Caption | Should -Be $caption
+        $view.TextExt.Stale | Should -Be $stale
+        $view.TextExt.ChangeEnabled | Should -Be $enabled
+        $view.TextExt.CountsSource | Should -Be $source
     }
 }
 

@@ -236,6 +236,7 @@ BeforeAll {
     # 書く API を使ってよい関数。足すときは Reason に、書き先が取り込み対象でなく、ワークスペースの置き場か利用者が選んだ出力先であることを書く。
     # File = scripts からの相対パス、Owner = 関数（クラスのメソッドを含む）の名前、Calls = その関数が使う呼び出し（関数ごとに 1 行）
     ${writeAllowed} = @(
+        @{ File = "tebunko\core\text_ext_counts.ps1"; Owner = "writeTextExtCountsTable"; Calls = @("Delete", "Move", "WriteAllText"); Reason = "拡張子ごとの件数の控え（ワークスペースの store\text_ext_counts.json）を、一時ファイルを経由して置き換える" }
         @{ File = "shared\core\csv_writer.ps1"; Owner = "writeCsvFile"; Calls = @("CopyTo", "FileAccess.Write", "FileMode.Create", "FileStream::new"); Reason = "検索結果を CSV・TSV に書く（利用者が選んだ出力先の隣の一時ファイル）" }
         @{ File = "shared\core\close_trace.ps1"; Owner = "writeCloseTrace"; Calls = @("AppendAllText"); Reason = "閉じる処理の診断記録に追記する（ログの置き場）" }
         @{ File = "shared\core\data_dir.ps1"; Owner = "testWritableFolder"; Calls = @("FileAccess.Write", "FileMode.CreateNew", "New-Object FileStream"); Reason = "設定の置き場に書けるかを、使い捨てのファイル（その場で消す）で確かめる。置き場は呼ぶ側が決めたツールのフォルダ" }

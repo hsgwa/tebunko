@@ -104,6 +104,7 @@ BeforeAll {
         @{ File = "index_list.ps1"; Function = "openIndexLocation"; Call = "getPathState"; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
         @{ File = "index_list.ps1"; Function = "applyIndexLocationState"; Call = "Start-Process"; Reason = "エクスプローラーで開く（プロセスの起動は待たない）" }
         @{ File = "index_tree.ps1"; Function = "expandIndexNode"; Call = "getIndexFolderChildren"; Reason = "ワークスペースの場所がローカルのときに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で読む）" }
+        @{ File = "index_list.ps1"; Function = "syncIndexTextExtensions"; Call = "readTextExtCounts"; Reason = "ワークスペースの場所がローカルのときに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら読まず、控え無しとして扱う）" }
         @{ File = "index_list.ps1"; Function = "applyIndexSourceFolderState"; Call = "Start-Process"; Reason = "エクスプローラーで開く（プロセスの起動は待たない）" }
 
         # ---- shared/ui/shell.ps1・folder_dialog.ps1 ----
