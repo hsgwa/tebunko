@@ -87,6 +87,12 @@ function getContentIndexFileName {
 }
 
 
+function getContentIndexBookHeadPrefix {
+    # 本文インデックスで、元のファイル 1 つの始まりを表す行の、値の前までの部分（「<RS> ファイル名=」）
+    return "$([string]${contentIndexMark}) ファイル名="
+}
+
+
 function readContentIndexFileName {
     # 本文インデックスのファイルの名前から @{ Extension; Part } を返す。本文インデックスのファイルの名前でなければ $null
     # （番号が大きすぎて整数にできない名前も、本文インデックスのファイルの名前とはみなさない）
@@ -277,7 +283,7 @@ function convertBookToContentIndexBlock {
     $mark = [string]${contentIndexMark}
     $name = [string]$book.Name
     $sb = New-Object System.Text.StringBuilder
-    [void]$sb.Append("$mark ファイル名=").Append((encodeContentIndexValue $name)).Append("`n")
+    [void]$sb.Append((getContentIndexBookHeadPrefix)).Append((encodeContentIndexValue $name)).Append("`n")
     $kind = getContentIndexFileKind $name
     if ($kind) {
         [void]$sb.Append("$mark 種類=$kind`n")
@@ -485,7 +491,7 @@ function splitContentIndexTextByBook {
     if ($text.Length -eq 0) {
         return , $books
     }
-    $head = "$([string]${contentIndexMark}) ファイル名="
+    $head = getContentIndexBookHeadPrefix
     $firstEnd = $text.IndexOf([char]10)
     if ($firstEnd -lt 0 -or !(testContentIndexVersionLine $text.Substring(0, $firstEnd))) {
         throw (getIndexRebuildMessage)

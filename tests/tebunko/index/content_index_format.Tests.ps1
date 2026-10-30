@@ -395,3 +395,10 @@ Describe "getContentIndexPublishSkippedText" -Tag Unit {
         getContentIndexPublishSkippedText $rel $stage $reason | Should -BeExactly $expected
     }
 }
+
+Describe "getContentIndexBookHeadPrefix" -Tag Unit {
+    It "元のファイルの始まりの行の接頭辞は、書き出した文字列の「ファイル名=」の行の始まりと同じ" {
+        $text = convertToContentIndexText @(@{ Name = "A社.xlsx"; Places = @(@{ Place = "Sheet1"; Text = "x`ty`n" }) })
+        $text.Contains((getContentIndexBookHeadPrefix) + "A社.xlsx") | Should -BeTrue
+    }
+}
