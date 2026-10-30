@@ -240,3 +240,21 @@ function getIndexTextExtensionDialogTexts {
         Empty             = "一致する拡張子がありません"
     }
 }
+
+function getTextExtCountsFromPlan {
+    # 取り込みを終えた回の計画の行（kind の行だけ）から、インデックス名 → @{ Time; Counts } の表を作る（件数の控えと同じ形）。
+    # ネットワークの場所のワークスペースでは、画面が控えのファイルを読まないので、終わり方 0 の回の件数をこの形でメモリに持つ
+    param (
+        $plan,
+        [string]$kind,
+        [string]$time
+    )
+
+    $result = @{}
+    foreach ($row in @($plan | Where-Object { $null -ne $_ -and $_.区分 -eq $kind })) {
+        $counts = @{}
+        foreach ($extension in @($row.TextExtensionCounts.Keys)) { $counts[[string]$extension] = [int]$row.TextExtensionCounts[$extension] }
+        $result[[string]$row.インデックス名] = @{ Time = $time; Counts = $counts }
+    }
+    return $result
+}

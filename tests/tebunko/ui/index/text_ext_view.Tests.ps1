@@ -183,3 +183,23 @@ Describe "75 個の外の値を保つ（addOutOfListExtensions と書き込み�
         ((readTextExtensionSettings $path).IndexExcludes["営業"] | Sort-Object) -join "," | Should -Be ".exe,.log"
     }
 }
+
+Describe "getTextExtCountsFromPlan" -Tag Unit {
+    It "取り込んだ行（kind の行）だけを、インデックス名 → @{ Time; Counts } にする。取り込まない行・null は入れない" {
+        $plan = @(
+            [pscustomobject]@{ 区分 = "取り込む"; インデックス名 = "営業"; TextExtensionCounts = @{ ".txt" = 3; ".log" = 1 } },
+            [pscustomobject]@{ 区分 = "対象外"; インデックス名 = "経理"; TextExtensionCounts = @{ ".md" = 1 } },
+            $null
+        )
+        $result = getTextExtCountsFromPlan $plan "取り込む" "2024/10/14 15:30"
+        @($result.Keys) | Should -Be @("営業")
+        $result["営業"].Time | Should -Be "2024/10/14 15:30"
+        $result["営業"].Counts[".txt"] | Should -Be 3
+        $result["営業"].Counts[".log"] | Should -Be 1
+    }
+
+    It "計画が空なら空" {
+        (getTextExtCountsFromPlan @() "取り込む" "t").Count | Should -Be 0
+        (getTextExtCountsFromPlan $null "取り込む" "t").Count | Should -Be 0
+    }
+}

@@ -555,7 +555,7 @@ function finishIndexing {
     }
     $exitCode = $session.GetExitCode()
     $errorText = $session.GetError()
-    $onlySkipped = @($session.Channel.OnlySkipped)
+    $onlySkipped = @($session.Channel.OnlySkipped); if ($exitCode -eq 0) { rememberTextExtCounts $session.Channel.Plan }
     # インデクサのスレッドを片づける（終わっているため待たない）
     $session.Close()
     $script:indexingSession = $null
