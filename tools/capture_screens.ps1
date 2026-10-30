@@ -874,7 +874,7 @@ try {
     captureStarterScene      $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureFailedScene       $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureCloudScene        $ids $root $OutDir $userName $computerName $userProfile $sizes
-captureTopOnlyScene      $ids $root $OutDir $userName $computerName $userProfile $sizes
+    captureTopOnlyScene      $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureHeavyScene        $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureSearchScene       $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureSettingsScene     $ids $root $OutDir $userName $computerName $userProfile $sizes
