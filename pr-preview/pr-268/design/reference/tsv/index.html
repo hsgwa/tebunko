@@ -4775,6 +4775,13 @@
 <td><code>findTargetFiles</code>（<code>TextCounts</code>）</td>
 </tr>
 <tr>
+<td><code>addOutOfListExtensions</code></td>
+<td>chosen（ダイアログで選んだ拡張子）, current（今の設定の値）</td>
+<td>拡張子の配列</td>
+<td>chosen に、current のうち <code>$textExtensions</code>（75 個）に無いものを足して返す。ダイアログは 75 個だけを扱うので、書く前・比べる前に足し、75 個の外の値が設定から消えないようにする</td>
+<td><a href="../../indexing/text/#対象の拡張子">対象の拡張子</a></td>
+</tr>
+<tr>
 <td><code>getTextTargetExtensions</code></td>
 <td>excluded（省略可）</td>
 <td>string[]</td>
