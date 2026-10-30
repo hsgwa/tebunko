@@ -4423,18 +4423,26 @@
 <tr>
 <td><code>getTargetFolders</code></td>
 <td>path（既定 <code>$settingsFile</code>）</td>
-<td><code>@{Name; Path; Enabled}</code> の配列</td>
-<td>クロール対象フォルダ（<code>targetFolders</code>。記載順）。Name はインデックス名、Path は今の置き場所（分けて持つ）。<code>enabled</code> が <code>false</code> はチェックなし（Enabled = <code>$false</code>）。同じフォルダ・同じ名前は最初のものだけ（書き方が違うだけで同じフォルダも <code>testSameFolder</code> で同一とみなす。重複した名前は空にして割り当て直す）</td>
+<td><code>@{Name; Path; Enabled; Subfolders; IngestedSubfolders}</code> の配列</td>
+<td>クロール対象フォルダ（<code>targetFolders</code>。記載順）。Name はインデックス名、Path は今の置き場所（分けて持つ）。<code>enabled</code> が <code>false</code> はチェックなし（Enabled = <code>$false</code>）。<code>subfolders</code> が <code>false</code> は直下のファイルだけを取り込む（Subfolders = <code>$false</code>。キーが無ければ <code>$true</code> = サブフォルダも含める）。<code>ingestedSubfolders</code> は前回取り込んだときの <code>subfolders</code>（IngestedSubfolders。インデクサだけが書く。キーが無ければ <code>$true</code> = 前回は再帰で取り込んだとみなす）。同じフォルダ・同じ名前は最初のものだけ（書き方が違うだけで同じフォルダも <code>testSameFolder</code> で同一とみなす。重複した名前は空にして割り当て直す）</td>
 <td><a href="../../indexing/crawl/#クロール対象フォルダgettargetfolders">クロール対象フォルダと取り込み対象</a></td>
 <td>インデックス作成・画面</td>
 </tr>
 <tr>
 <td><code>writeTargetFolders</code></td>
-<td>folders（<code>@{Name; Path; Enabled}</code> の配列）, path（既定 <code>$settingsFile</code>）</td>
+<td>folders（<code>@{Name; Path; Enabled; Subfolders}</code> の配列。<code>IngestedSubfolders</code> があればそれも）, path（既定 <code>$settingsFile</code>）</td>
 <td>–</td>
-<td>クロール対象フォルダを <code>targetFolders</code> に保存（名前も保存する）</td>
+<td>クロール対象フォルダを <code>targetFolders</code> に保存（名前・<code>subfolders</code> も保存する。Subfolders を持たない項目は <code>true</code> で書く）。<code>ingestedSubfolders</code> は、渡した項目に IngestedSubfolders があればその値、無ければファイルにある値をパスで引いて保つ（画面の古い値で上書きしない。ファイルにも無ければ書かない）</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>setIngestedSubfolders</code></td>
+<td>values（パス → bool の表）, path（既定 <code>$settingsFile</code>）</td>
+<td>–</td>
+<td>インデクサが取り込み終えたフォルダの、そのとき使った <code>subfolders</code> を <code>ingestedSubfolders</code> に書く（渡したパスの項目だけ。読み直して排他の中で書く）</td>
 <td>同上</td>
-<td>インデックス作成・画面</td>
+<td>インデックス作成（<code>recordIngestedSettings</code>）</td>
 </tr>
 <tr>
 <td><code>mergeAssignedIndexNames</code> / <code>saveAssignedIndexNames</code></td>
@@ -4527,8 +4535,8 @@
 <tr>
 <td><code>readTextExtensionSettings</code></td>
 <td>path（既定 <code>$settingsFile</code>）</td>
-<td><code>@{IndexExcludes; Notepad; EditorPath}</code></td>
-<td>テキストの拡張子の設定を読む。IndexExcludes は <code>indexTextExcludes</code>（インデックス名 → 取り込まない拡張子の配列のハッシュテーブル）、Notepad は <code>notepadTextExtensions</code>（エディタで開く拡張子）、EditorPath は <code>textEditorPath</code>（空はメモ帳）。拡張子は小文字にそろえ、<code>$textExtensions</code> に無いもの・文字列でないもの・重複を捨てる（<code>normalizeTextExtensions</code>・<code>normalizeIndexTextExcludes</code>）。キーが無ければ空</td>
+<td><code>@{IndexExcludes; IndexExcludesIngested; Notepad; EditorPath}</code></td>
+<td>テキストの拡張子の設定を読む。IndexExcludes は <code>indexTextExcludes</code>（インデックス名 → 取り込まない拡張子の配列のハッシュテーブル）、IndexExcludesIngested は <code>indexTextExcludesIngested</code>（前回取り込んだときの IndexExcludes。名前の項目が無ければ前回は全部取り込んだ）、Notepad は <code>notepadTextExtensions</code>（エディタで開く拡張子）、EditorPath は <code>textEditorPath</code>（空はメモ帳）。拡張子は小文字にそろえ、<code>$textExtensions</code> に無いもの・文字列でないもの・重複を捨てる（<code>normalizeTextExtensions</code>・<code>normalizeIndexTextExcludes</code>）。キーが無ければ空</td>
 <td><a href="../../structure/settings-file/">設定ファイル（setting.config）</a></td>
 <td>取り込み（<code>IngestPlanner.Crawl</code>）、<code>openWithEditor</code>、<code>testTextOpenWithNotepadBySettings</code>、設定の画面</td>
 </tr>
@@ -4544,9 +4552,33 @@
 <td><code>renameIndexTextExcludes</code></td>
 <td>oldName, newName, path（既定 <code>$settingsFile</code>）</td>
 <td>–</td>
-<td>改名で、取り込まない拡張子の項目のキーを付け替える（古い名前の項目が無ければ何もしない）</td>
+<td>改名で、取り込まない拡張子の項目（今の設定と、前回取り込んだときの設定）のキーを付け替える（古い名前の項目が無ければ何もしない）</td>
 <td>同上</td>
 <td><code>IndexCatalog.RenameIndex</code></td>
+</tr>
+<tr>
+<td><code>removeIndexTextExcludes</code></td>
+<td>name, path（既定 <code>$settingsFile</code>）</td>
+<td>–</td>
+<td>インデックスの削除で、取り込まない拡張子の項目（今の設定と、前回取り込んだときの設定）を消す（項目が無ければ何もしない）</td>
+<td>同上</td>
+<td><code>IndexCatalog.RemoveIndex</code></td>
+</tr>
+<tr>
+<td><code>setIngestedTextExcludes</code></td>
+<td>values（インデックス名 → 取り込まなかった拡張子の配列の表）, path（既定 <code>$settingsFile</code>）</td>
+<td>–</td>
+<td>インデクサが取り込み終えたインデックスの、そのとき使った取り込まない拡張子を <code>indexTextExcludesIngested</code> に書く（渡した名前の項目だけ。空なら項目を消す。読み直して排他の中で書く）</td>
+<td>同上</td>
+<td><code>IndexCatalog.StoreIngestedTextExcludes</code></td>
+</tr>
+<tr>
+<td><code>setIndexTextExcludesTable</code></td>
+<td>settings, key, table</td>
+<td>–</td>
+<td>設定の表（<code>indexTextExcludes</code>・<code>indexTextExcludesIngested</code>）を、名前の順に並べたオブジェクトにして設定へ入れる</td>
+<td>–</td>
+<td><code>writeIndexTextExcludes</code> ほか</td>
 </tr>
 <tr>
 <td><code>writeTextOpenSettings</code></td>
