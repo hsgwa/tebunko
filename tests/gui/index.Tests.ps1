@@ -267,9 +267,6 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
     }
 }
 
-# S3 は、取り込みの最中に操作する。読み取りのスレッドを 1 つ（ingestThreads）にして、ファイルの数を多めにし、
-# 「中止」してもすぐには終わらないようにする。取り込みが終わってしまったときは「間に合わなかった」と分かる文言で失敗にする
-# （$script:s3Copies を増やす）
 Describe "S2 詳細の『サブフォルダを含める』" -Tag Gui {
     BeforeAll {
         $script:envBefore = getGuiEnvSnapshot
@@ -330,6 +327,9 @@ Describe "S2 詳細の『サブフォルダを含める』" -Tag Gui {
     }
 }
 
+# S3 は、取り込みの最中に操作する。読み取りのスレッドを 1 つ（ingestThreads）にして、ファイルの数を多めにし、
+# 「中止」してもすぐには終わらないようにする。取り込みが終わってしまったときは「間に合わなかった」と分かる文言で失敗にする
+# （$script:s3Copies を増やす）
 Describe "S3 作成中の操作" -Tag Gui {
     BeforeAll {
         $script:envBefore = getGuiEnvSnapshot

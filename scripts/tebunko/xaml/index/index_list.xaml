@@ -151,10 +151,12 @@
                 <DataTemplate>
                   <Grid>
                     <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="*" />
                       <ColumnDefinition Width="Auto" />
+                      <ColumnDefinition Width="Auto" />
+                      <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Style="{StaticResource Cell.Meta}" Text="{Binding Path}" Tag="TrimTip" />
+                    <!-- 札はパスの文字のすぐ右（8 空け）に付ける。文字は長いときだけ MaxWidth で省略する -->
+                    <TextBlock Style="{StaticResource Cell.Meta}" Text="{Binding Path}" Tag="TrimTip" MaxWidth="320" />
                     <!-- 設定で「サブフォルダを含める」を外した行だけに出す札（既定の行には何も出さない） -->
                     <Border x:Name="TopOnlyTag" Grid.Column="1" Background="{StaticResource Bg.Tag}" CornerRadius="3" Padding="6,1" Margin="8,0,0,0"
                             VerticalAlignment="Center" ToolTip="サブフォルダは含めず、直下のファイルだけを取り込みます">

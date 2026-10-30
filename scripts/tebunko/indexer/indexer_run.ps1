@@ -1015,7 +1015,7 @@ function invokeIndexerBody {
     $includeCloud = [bool]$channel.IncludeCloud
 
     # 取りやめ。取り込み対象にした行は前回の記録のまま（一覧に無かったファイルは記録しない）にする。
-    # 取り込み一覧自体は書き直す（無くなったファイルの削除を反映する必要があるため）
+    # 取り込み一覧自体は書き直す（KeepForCancel が前回の行を残し、無くなったファイルの行も含めて前回のまま。済の行を保つ。何も消さない）
     function cancelBeforeIngest {
         param ([string]$message)
 

@@ -69,6 +69,21 @@ Describe "newPlanViewRows（直下のみの札）" -Tag Unit {
     }
 }
 
+Describe "newPlanViewRows（サブフォルダ側を外すだけの行）" -Tag Unit {
+    It "取り込むファイルが無くても、外す件数（SubfolderRemovedCount）が <removed> 件なら、ステータスは「<status>」" -TestCases @(
+        @{ removed = 3; status = "要更新"; level = "Wait"; detail = "サブフォルダ側の 3 件をインデックスから外します" }
+        @{ removed = 0; status = "最新"; level = "Ok"; detail = "すべて最新です" }
+    ) {
+        param ($removed, $status, $level, $detail)
+        $item = newPlanItem ${planKindIngest} 10 0
+        $item | Add-Member -NotePropertyName SubfolderRemovedCount -NotePropertyValue $removed
+        $row = (newPlanViewRows @($item))[0]
+        $row.StatusText | Should -Be $status
+        $row.Level | Should -Be $level
+        $row.DetailText | Should -Be $detail
+    }
+}
+
 Describe "getIndexingSubfolderRemovalNote・getIndexingSubfolderRemovalCount" -Tag Unit {
     It "件数 <count> の文言は「<text>」" -TestCases @(
         @{ count = 0; text = "" }
