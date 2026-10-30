@@ -5411,8 +5411,8 @@
 <tr>
 <td><code>exportIndex</code></td>
 <td>name, destPath, ws（既定 <code>$workspace</code>）, settingsPath（既定 <code>$settingsFile</code>）</td>
-<td><code>@{Name; Path; Files; Bytes}</code></td>
-<td>1 つのインデックスを 1 つの zip に書き出す。インデックス作成のロックを取り、入れる前の TSV が残っていれば例外。<code>&lt;destPath&gt;.tmp</code> に書いてから置き換える</td>
+<td><code>@{Name; Path; Files; Bytes; Omitted}</code></td>
+<td>1 つのインデックスを 1 つの zip に書き出す。インデックス作成のロックを取り、入れる前の TSV が残っていれば例外。<code>&lt;destPath&gt;.tmp</code> に書いてから置き換える。インポートが断る大きさ（<code>testImportedContentIndexFile</code>）の本文インデックスのファイルは zip に入れず、<code>Omitted</code>（<code>@{Path; Books}</code> の配列。<code>Books</code> は中に入っていた元のファイル）に控える</td>
 <td>同上</td>
 <td>画面（［エクスポート…］）</td>
 </tr>
@@ -5425,9 +5425,17 @@
 <td>画面（［エクスポート…］の別スレッド）</td>
 </tr>
 <tr>
+<td><code>writeContentIndexFilesToArchive</code></td>
+<td>archive, indexDir, contentIndexFiles, manifestFiles</td>
+<td><code>@{Bytes; Omitted}</code></td>
+<td>本文インデックスのファイルを zip に入れ、目録の <code>files</code> に足す。インポートが断る大きさのファイルは入れず、<code>readContentIndexBookNamesStreaming</code> で元のファイルの名前を集めて <code>Omitted</code> に控える</td>
+<td>同上</td>
+<td><code>exportIndexCore</code></td>
+</tr>
+<tr>
 <td><code>exportIndexes</code></td>
 <td>names, destination（フォルダ）, ws, settingsPath</td>
-<td><code>@{Name; Ok; Reason; Path}</code> の配列（名前ごと）</td>
+<td><code>@{Name; Ok; Reason; Path; Omitted}</code> の配列（名前ごと）</td>
 <td>選んだインデックスを、書き出し先のフォルダにインデックス 1 つにつき zip 1 つで書き出す。<code>exportIndexToFolder</code> を 1 つずつ呼び、1 つ失敗しても残りを続ける（<code>Reason</code> は失敗の理由、<code>Path</code> は書き出した zip。失敗なら空）。zip の形・ファイル名は 1 つずつの書き出しと同じ</td>
 <td>同上</td>
 <td>画面（［エクスポート…］の別スレッド）</td>
