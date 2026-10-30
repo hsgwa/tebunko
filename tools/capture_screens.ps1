@@ -728,7 +728,7 @@ function captureSearchScene {
 }
 
 function captureSettingsScene {
-    # settings-tab の normal・limit-none・limit-error・empty-confirm・nonempty-confirm・index-confirm・invalid-warning・text-extensions
+    # settings-tab の normal・limit-none・limit-error・empty-confirm・nonempty-confirm・index-confirm・invalid-warning・text-open
     param ($Ids, $Root, $OutDir, $UserName, $ComputerName, $UserProfile, $Sizes)
 
     $needed = @("settings-tab/normal", "settings-tab/limit-none", "settings-tab/limit-error", "settings-tab/empty-confirm", "settings-tab/nonempty-confirm", "settings-tab/index-confirm", "settings-tab/invalid-warning", "settings-tab/text-open")

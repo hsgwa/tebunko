@@ -478,14 +478,15 @@ Describe "normalizeTextExtensions" -Tag Unit {
         @{ name = "null は空"; values = $null; expected = "" }
         @{ name = "空の配列は空"; values = @(); expected = "" }
         @{ name = "点のある拡張子はそのまま"; values = @(".log"); expected = ".log" }
-        @{ name = "点の無いもの（log）は、固定の一覧に無いので捨てる"; values = @("log"); expected = "" }
+        @{ name = "点で始まらないもの（log）は捨てる"; values = @("log"); expected = "" }
+        @{ name = "空白・パスの区切り・ワイルドカードを含むものは捨てる"; values = @(".a b", ".a\b", ".a/b", ".a*", ".a?"); expected = "" }
         @{ name = "大文字は小文字にそろえる"; values = @(".LOG", ".Txt"); expected = ".log,.txt" }
         @{ name = "重複は 1 つにする（大文字・小文字の違いも）"; values = @(".log", ".LOG", ".log"); expected = ".log" }
         @{ name = "前後の空白は取る"; values = @("  .log  "); expected = ".log" }
         @{ name = "空の文字列・空白だけは捨てる"; values = @("", "   "); expected = "" }
         @{ name = "文字列 1 個（配列でない）も 1 件として読む"; values = ".log"; expected = ".log" }
         @{ name = "文字列でない値は捨てる"; values = @(1, $true, $null, ".csv"); expected = ".csv" }
-        @{ name = "固定の一覧に無い拡張子（.exe）は捨てる。実行されうる .bat は固定の一覧にあるので残す"; values = @(".exe", ".bat"); expected = ".bat" }
+        @{ name = "固定の一覧に無い拡張子（.exe）も形が正しければ持つ（75 個に絞るのは使う側）"; values = @(".exe", ".bat"); expected = ".exe,.bat" }
         @{ name = "入力の順を保つ"; values = @(".md", ".csv", ".log"); expected = ".md,.csv,.log" }
     ) {
         param ($name, $values, $expected)
@@ -505,8 +506,8 @@ Describe "normalizeIndexTextExcludes" -Tag Unit {
         @{ name = "ふつうの項目（Hashtable）"; value = @{ "営業" = @(".log") }; expected = "営業=.log" }
         @{ name = "名前の値が配列でない（1 件の文字列）も 1 件として読む"; value = ([pscustomobject]@{ "営業" = ".log" }); expected = "営業=.log" }
         @{ name = "大文字は小文字にそろえる"; value = ([pscustomobject]@{ "営業" = @(".LOG", ".Md") }); expected = "営業=.log,.md" }
-        @{ name = "75 個に無い拡張子（.exe）は捨てる"; value = ([pscustomobject]@{ "営業" = @(".exe", ".log") }); expected = "営業=.log" }
-        @{ name = "75 個に無い拡張子だけの名前は項目にしない"; value = ([pscustomobject]@{ "営業" = @(".exe", ".com") }); expected = "" }
+        @{ name = "75 個に無い拡張子（.exe）も持つ"; value = ([pscustomobject]@{ "営業" = @(".exe", ".log") }); expected = "営業=.exe,.log" }
+        @{ name = "形の正しくない値だけの名前は項目にしない"; value = ([pscustomobject]@{ "営業" = @("exe", ".a b") }); expected = "" }
         @{ name = "重複は 1 つにする"; value = ([pscustomobject]@{ "営業" = @(".log", ".LOG", ".log") }); expected = "営業=.log" }
         @{ name = "空の配列の名前は項目にしない（ほかの名前は残す）"; value = ([pscustomobject]@{ "営業" = @(); "経理" = @(".md") }); expected = "経理=.md" }
         @{ name = "文字列でない要素は捨てる"; value = ([pscustomobject]@{ "営業" = @(1, $true, ".log") }); expected = "営業=.log" }
@@ -644,9 +645,9 @@ Describe "readTextExtensionSettings / writeIndexTextExcludes / writeTextOpenSett
     }
 
     It "<name>" -TestCases @(
-        @{ name = "大文字は小文字にそろえ、一覧に無いもの（.exe）・文字列でないもの・重複は捨てる"; json = '{ "indexTextExcludes": { "営業": [".EXE", ".Log", 1, ".log", null] } }'; expected = ".log" }
+        @{ name = "大文字は小文字にそろえ、文字列でないもの・形の違うもの・重複は捨てる。75 個に無い .exe は持つ"; json = '{ "indexTextExcludes": { "営業": [".EXE", ".Log", 1, ".log", null, "a b"] } }'; expected = ".exe,.log" }
         @{ name = "配列でない 1 つの値も 1 件として読む"; json = '{ "indexTextExcludes": { "営業": ".log" } }'; expected = ".log" }
-        @{ name = "一覧に無いものだけなら、項目は無い（全部取り込む）"; json = '{ "indexTextExcludes": { "営業": [".exe", ".bat.exe"] } }'; expected = "" }
+        @{ name = "形の正しくないものだけなら、項目は無い（全部取り込む）"; json = '{ "indexTextExcludes": { "営業": ["exe", "a b"] } }'; expected = "" }
         @{ name = "オブジェクトでない値（配列・文字列・数）は無いものとして読む"; json = '{ "indexTextExcludes": [".log"] }'; expected = "" }
         @{ name = "文字列の値も無いものとして読む"; json = '{ "indexTextExcludes": ".log" }'; expected = "" }
         @{ name = "数の値も無いものとして読む"; json = '{ "indexTextExcludes": 5 }'; expected = "" }
@@ -659,12 +660,12 @@ Describe "readTextExtensionSettings / writeIndexTextExcludes / writeTextOpenSett
         $actual | Should -Be $expected
     }
 
-    It "開き方は、実行・登録になる拡張子（常にエディタ）を書かず、一覧に無いものは捨てる。ほかのキーは保つ" {
+    It "開き方は、実行・登録になる拡張子（常にエディタ）を書かない（75 個に無いものは捨てずに持つ）。ほかのキーは保つ" {
         $path = "$TestDrive\textext_open.config"
         writeIndexTextExcludes "営業" @(".log") $path
         writeTextOpenSettings @(".html", ".BAT", ".exe", ".css") $path
         $read = readTextExtensionSettings $path
-        (@($read.Notepad) -join ",") | Should -Be ".html,.css"
+        (@($read.Notepad) -join ",") | Should -Be ".html,.exe,.css"
         ($read.IndexExcludes["営業"] -join ",") | Should -Be ".log"
     }
 

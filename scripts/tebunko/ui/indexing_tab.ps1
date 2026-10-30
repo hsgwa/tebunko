@@ -133,7 +133,12 @@ function changeIndexingTextExtensions {
     if ($null -eq $selected -or -not (testIndexingTextExcludesChanged $current @($selected))) {
         return
     }
-    writeIndexTextExcludes $name @($selected)
+    try {
+        writeIndexTextExcludes $name @($selected)
+    } catch {
+        showMessage "設定を保存できませんでした。もう一度お試しください。" "OK" "Warning" | Out-Null
+        return
+    }
     $script:indexingRestart = @{ OnlyNames = @($script:indexingOnlyNames) }
     $d.Window.DialogResult = $false
 }

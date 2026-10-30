@@ -841,7 +841,7 @@ function recordIngestedTextExtensions {
 
     $rows = @($planner.Plan | Where-Object { $_.区分 -eq ${planKindIngest} })
     try {
-        $time = formatFileTime (Get-Date)
+        $time = (Get-Date).ToString("yyyy/MM/dd HH:mm")
         foreach ($name in @($rows | ForEach-Object { [string]$_.インデックス名 } | Select-Object -Unique)) {
             $catalog.StoreTextExtCounts($name, $planner.TextCountsByIndex[$name], $time)
         }
@@ -981,7 +981,7 @@ function invokeIndexerBody {
         writeIndexerLog "取り込み一覧に読めない行が $($status.Rejected) 行ありました（無視しました）。" "Yellow"
     }
     $planner = [IngestPlanner]::new(@{
-        Unchecked = ${planKindUnchecked}; Missing = ${planKindMissing}; Dropped = ${planKindDropped}; StateFailed = ${stateFailed}; Channel = $script:indexerChannel
+        Unchecked = ${planKindUnchecked}; Missing = ${planKindMissing}; Dropped = ${planKindDropped}; StateFailed = ${stateFailed}; Channel = $script:indexerChannel; TextExcludes = (readTextExtensionSettings).IndexExcludes
     })
     $catalog = [IndexCatalog]::new($workspace, ${settingsFile}, $ledger)
     $planner.AssignNames($targetFolders, $status)

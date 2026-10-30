@@ -635,7 +635,7 @@ Describe "IngestPlanner" -Tag Io {
         @($planner.RemovedPaths) | Should -Be @("売上\消えた.xlsx")
     }
 
-    It "TextExcludes を入れなければ、Crawl は設定の indexTextExcludes（インデックスごと）を始めに 1 回だけ読んで使う。ほかのインデックスには効かない" {
+    It "作るときのハッシュテーブルの TextExcludes（インデックス名 → 取り込まない拡張子）を使う。ほかのインデックスには効かない。無ければ全部取り込む" {
         $dirA = Join-Path $TestDrive "planner-ext-a"
         $dirB = Join-Path $TestDrive "planner-ext-b"
         foreach ($dir in @($dirA, $dirB)) {
@@ -647,18 +647,15 @@ Describe "IngestPlanner" -Tag Io {
             [pscustomobject]@{ Path = $dirA; Name = "営業"; Enabled = $true }
             [pscustomobject]@{ Path = $dirB; Name = "経理"; Enabled = $true }
         )
-        $before = $null
-        if (Test-Path -LiteralPath $settingsFile) { $before = [System.IO.File]::ReadAllBytes($settingsFile) }
-        writeIndexTextExcludes "営業" @(".log") $settingsFile
-        try {
-            $planner = newPlanner $folders @()
-            $planner.Crawl((newCounts), $null)
-            @($planner.Targets | ForEach-Object { $_.相対パス } | Sort-Object) | Should -Be @("営業\b.txt", "経理\a.log", "経理\b.txt")
-            $planner.TextExcludes["営業"] | Should -Be @(".log")
-        } finally {
-            # 前の中身に戻す（ほかの It も同じファイルを使うため、消さない。もともと無ければ消す）
-            if ($null -ne $before) { [System.IO.File]::WriteAllBytes($settingsFile, $before) } else { Remove-Item -LiteralPath $settingsFile -Force -ErrorAction SilentlyContinue }
-        }
+        $withKinds = @{} + $kinds
+        $withKinds.TextExcludes = @{ "営業" = @(".log") }
+        $planner = [IngestPlanner]::new($withKinds)
+        $planner.AssignNames($folders, @{ Folders = @(); Rows = (newPrevious @()) })
+        $planner.Crawl((newCounts), $null)
+        @($planner.Targets | ForEach-Object { $_.相対パス } | Sort-Object) | Should -Be @("営業\b.txt", "経理\a.log", "経理\b.txt")
+        $none = newPlanner $folders @()
+        $none.Crawl((newCounts), $null)
+        @($none.Targets).Count | Should -Be 4
     }
 
     It "TextExcludes を先に入れたときは、設定を読まずにそれを使う（同じ名前の複数のフォルダは同じ一覧になる）" {

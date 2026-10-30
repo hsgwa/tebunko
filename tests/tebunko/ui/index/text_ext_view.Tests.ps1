@@ -142,8 +142,8 @@ Describe "getIndexTextExtensionCountNote / getIndexTextExtensionDetailRow" -Tag 
 
 Describe "getIndexTextExtensionZeroHeader" -Tag Unit {
     It "<name>" -TestCases @(
-        @{ name = "折りたたみ中"; expanded = $false; expected = "＞ 件数 0 の拡張子 62 個（折りたたみ中。開くと選べます）" }
-        @{ name = "開いているとき"; expanded = $true; expected = "▼ 件数 0 の拡張子 62 個（開いて選ぶ。見つかったときに効く設定）" }
+        @{ name = "折りたたみ中"; expanded = $false; expected = "$([char]0x25B8) 件数 0 の拡張子 62 個（折りたたみ中。開くと選べます）" }
+        @{ name = "開いているとき"; expanded = $true; expected = "$([char]0x25BE) 件数 0 の拡張子 62 個（開いて選ぶ。見つかったときに効く設定）" }
     ) {
         param ($name, $expanded, $expected)
         getIndexTextExtensionZeroHeader 62 $expanded | Should -Be $expected

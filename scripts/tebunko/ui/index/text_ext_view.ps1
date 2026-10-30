@@ -206,9 +206,9 @@ function getIndexTextExtensionZeroHeader {
     )
 
     if ($expanded) {
-        return "▼ 件数 0 の拡張子 ${count} 個（開いて選ぶ。見つかったときに効く設定）"
+        return "$([char]0x25BE) 件数 0 の拡張子 ${count} 個（開いて選ぶ。見つかったときに効く設定）"
     }
-    return "＞ 件数 0 の拡張子 ${count} 個（折りたたみ中。開くと選べます）"
+    return "$([char]0x25B8) 件数 0 の拡張子 ${count} 個（折りたたみ中。開くと選べます）"
 }
 
 function getIndexTextExtensionDialogTexts {
@@ -230,7 +230,7 @@ function getIndexTextExtensionDialogTexts {
         Title             = "取り込む拡張子 - ${indexName}"
         Note              = "チェックを外した拡張子のファイルは、次のインデックス作成で、このインデックス（${indexName}）から外します。${countSentence}Excel・Word・PowerPoint は、ここでは選べません。"
         Extension         = "拡張子"
-        Count             = "件数"
+        Count             = "件数 $([char]0x25BC)"
         Reset             = "既定に戻す"
         UncheckAll        = "すべて外す"
         Ok                = "OK"

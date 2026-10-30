@@ -850,8 +850,9 @@ Describe "取り込み対象の拡張子が固定であること（docs/safety/c
         $json = ConvertTo-Json -Depth 4 @{ indexTextExcludes = @{ "営業" = $dangerous }; notepadTextExtensions = @($dangerous + ${textNotepadExtensions}) }
         [System.IO.File]::WriteAllText($config, $json, (New-Object System.Text.UTF8Encoding($false)))
         $read = readTextExtensionSettings $config
-        @($read.IndexExcludes.Keys).Count | Should -Be 0 -Because "固定の一覧に無い拡張子だけの指定は、項目にならない"
-        @($read.Notepad | Where-Object { ${textExtensions} -notcontains $_ }).Count | Should -Be 0
+        # 読む側は形を整えるだけで 75 個の外も持つ（書き戻しで消さないため）。75 個に絞るのは使う側
+        @($read.IndexExcludes["営業"]).Count | Should -Be $dangerous.Count
+        @(getTextTargetExtensions $read.IndexExcludes["営業"] | Where-Object { ${textExtensions} -notcontains $_ }).Count | Should -Be 0 -Because "固定の一覧に無い拡張子は、取り込む一覧に入らない"
 
         # 取り込む一覧は、固定の一覧の部分集合（どんな設定でも増えない）
         foreach ($excluded in @(@(), $dangerous, @(".txt", ".log"), @(${textExtensions}))) {

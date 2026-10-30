@@ -492,8 +492,8 @@ class IngestPlanner {
     # Crawl を中止で途中で止めた（止めたフォルダ・まだのフォルダは、前回の行をそのまま Rows に入れてある）
     [bool]$Stopped
     # インデックスごとの、取り込まないテキストの拡張子（インデックス名 → 拡張子の配列）。Crawl が、フォルダのインデックス名で
-    # 取り込む拡張子の一覧（getTargetExtensionList）を作って createTargetList に渡す。$null のまま Crawl を呼ぶと、設定（indexTextExcludes）を
-    # Crawl の始めに 1 回だけ読む（途中で設定を変えても次の回から効く）
+    # 取り込む拡張子の一覧（getTargetExtensionList）を作って createTargetList に渡す。作るときのハッシュテーブルの TextExcludes（司令が
+    # 始めに 1 回だけ設定の indexTextExcludes を読んで渡す。途中で設定を変えても次の回から効く）で受け取る。無ければ空（全部取り込む）
     [hashtable]$TextExcludes
     # インデックス名ごとの、テキストの拡張子ごとの件数（インデックス名 → 拡張子 → 件数。同じ名前の複数のフォルダは合計）。確認ダイアログの「取り込む拡張子」が使う
     [hashtable]$TextCountsByIndex
@@ -511,6 +511,9 @@ class IngestPlanner {
         $this.Kinds = $kinds
         if ($kinds.ContainsKey("Channel")) {
             $this.Channel = $kinds.Channel
+        }
+        if ($kinds.ContainsKey("TextExcludes")) {
+            $this.TextExcludes = $kinds.TextExcludes
         }
         $this.Rows = New-Object System.Collections.Generic.List[object]
         $this.Targets = New-Object System.Collections.Generic.List[object]
@@ -574,7 +577,7 @@ class IngestPlanner {
             throw "IngestPlanner: Crawl の前に AssignNames を呼んでください"
         }
         if ($null -eq $this.TextExcludes) {
-            $this.TextExcludes = (readTextExtensionSettings).IndexExcludes
+            $this.TextExcludes = @{}
         }
         foreach ($folder in $this.Folders) {
             if (-not $this.Stopped -and $null -ne $shouldStop -and (& $shouldStop)) {

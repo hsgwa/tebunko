@@ -136,7 +136,7 @@ function newIndexTextExtensionDialogControls {
     $dialog.Owner = $owner
     $dialog.Title = $texts.Title
     $ctrl = @{ Dialog = $dialog }
-    foreach ($name in @("TextExtTitle", "NoteText", "ExtensionHeader", "CountHeader", "RowsPanel", "TextExtList", "TextExtEmpty", "TextExtSummary", "TextExtChangedOnly",
+    foreach ($name in @("TextExtTitle", "NoteText", "ExtensionHeader", "CountHeader", "BarHeader", "RowsPanel", "TextExtList", "TextExtEmpty", "TextExtSummary", "TextExtChangedOnly",
             "TextExtFilterBox", "TextExtFilterPlaceholder", "TextExtResetButton", "TextExtUncheckAllButton", "TextExtCancelButton", "TextExtOkButton")) {
         $ctrl[$name] = $dialog.FindName($name)
     }
@@ -176,6 +176,7 @@ function showIndexTextExtensionsDialog {
     $dialog = $ctrl.Dialog
     if (-not $hasCounts) {
         $ctrl.CountHeader.Visibility = "Collapsed"
+        $ctrl.BarHeader.Visibility = "Collapsed"
     }
     $maxCount = $(if ($hasCounts) { [int](@($rows | ForEach-Object { [int]$_.Count } | Measure-Object -Maximum).Maximum) } else { 0 })
 

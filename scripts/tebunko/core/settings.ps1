@@ -540,7 +540,9 @@ function writeFileKinds {
 }
 
 function normalizeTextExtensions {
-    # 設定から読んだテキストの拡張子の値を、小文字にそろえた ${textExtensions} の中のものだけにして返す（重複・文字列でないもの・一覧に無いもの（.exe など）は捨てる）
+    # 設定から読んだテキストの拡張子の値の形を整えて返す。文字列でないもの・`.` で始まらないもの・空白や \ / * ? を含むもの・重複は捨て、小文字にそろえる。
+    # ${textExtensions}（75 個）に無い拡張子も捨てない（後の版で選べる拡張子が増えても、書き戻しで消さないため）。
+    # 75 個に絞るのは使う側（getTextTargetExtensions・getTextOpenWay）
     param (
         $values
     )
@@ -551,7 +553,7 @@ function normalizeTextExtensions {
             continue
         }
         $extension = $value.Trim().ToLowerInvariant()
-        if (${textExtensions} -contains $extension -and -not $result.Contains($extension)) {
+        if ($extension -match '^\.[^\s\\/*?]+$' -and -not $result.Contains($extension)) {
             $result.Add($extension)
         }
     }
@@ -582,7 +584,7 @@ function normalizeIndexTextExcludes {
 
 function readTextExtensionSettings {
     # テキストの拡張子の設定を @{ IndexExcludes（インデックス名 → 取り込まない拡張子の配列）; IndexExcludesIngested（前回取り込んだときの IndexExcludes。名前の項目が無ければ前回は全部取り込んだ）; Notepad（エディタで開く拡張子）; EditorPath（エディタのパス。空はメモ帳） } で返す。
-    # 拡張子は ${textExtensions} の中のものだけ（キーが無ければ空）
+    # 拡張子は形だけ整えたもの（75 個の外も持つ。キーが無ければ空）
     param (
         [string]$path = ${settingsFile}
     )
