@@ -157,7 +157,7 @@ function continueExport {
             exportIndexToFolder $name $folder $ws $settingsPath
         } @($name, $folder, $workspace.Dir, $workspace.StatusFile, ${settingsFile}) {
             param ($result)
-            setStatus "インデックス [$($result.Name)] を「$($result.Path)」に書き出しました（$($result.Files) ファイル）"
+            setStatus (getIndexExportStatusText "インデックス [$($result.Name)] を「$($result.Path)」に書き出しました（$($result.Files) ファイル）" $result.Omitted ${contentIndexSearchMaxBytes})
         }
         return
     }
@@ -182,7 +182,7 @@ function showBulkIndexResult {
     )
 
     $view = getIndexBulkResultView $operation $results
-    setStatus $view.Status
+    setStatus (getIndexBulkStatusText $operation $view.Status $results ${contentIndexSearchMaxBytes})
     if ($view.HasFailure) {
         showNoticeBanner "IndexNotice" "IndexOpFailed" "$($view.FailureHeading)`n$($view.FailureDetail)"
     } else {
