@@ -388,20 +388,45 @@ function openWithShell {
     return (-not $verb)
 }
 
-function openWithNotepad {
-    # ファイルをメモ帳（固定のパス）で開く。.bat・.ps1・.js など、既定のアプリで開くと実行・登録になる拡張子はこちらを使う
+function openWithEditor {
+    # ファイルを「エディタ」で開く。.bat・.ps1・.js など、既定のアプリで開くと実行・登録になる拡張子と、設定でエディタにした拡張子はこちらを使う
     # （openWithShell・Invoke-Item は使わない。既定のアプリの登録がどうなっていても実行されない）。
-    # メモ帳が無い（Windows 11 の「オプション機能」で外された等）・起動できないときは、既定のアプリには戻さずに $false を返す
+    # エディタは、既定は固定のパスのメモ帳。設定 textEditorPath があり、testTextEditorPath を通り、ファイルがあるときだけそのプログラムで開く
+    # （通らなければ既定のアプリには戻さずメモ帳で開き、$script:textEditorNotice に知らせの文言を入れる。呼ぶ側が getTextEditorNotice で読む）。
+    # メモ帳が無い（Windows 11 の「オプション機能」で外された等）・起動できないときは、既定のアプリには戻さずに $false を返す。
+    # notepadOnly: 設定のエディタを使わず、いつも固定のメモ帳で開く（出力した CSV・TSV を開くとき。表計算アプリなどが指定されていても、数式として動かさないため）
     param (
-        [string]$path
+        [string]$path,
+        [switch]$notepadOnly
     )
 
+    $script:textEditorNotice = ""
+    $notepad = "$env:SystemRoot\System32\notepad.exe"
+    $configured = ""
     try {
-        Start-Process -FilePath "$env:SystemRoot\System32\notepad.exe" -ArgumentList "`"${path}`""
+        if (-not $notepadOnly) {
+            $configured = [string](readTextExtensionSettings).EditorPath
+        }
+    } catch {
+        $configured = ""
+    }
+    $exists = $false
+    if ($configured -ne "" -and (testTextEditorPath $configured)) {
+        $exists = [bool](Test-Path -LiteralPath $configured -PathType Leaf)
+    }
+    $choice = getTextEditorChoice $configured $exists $notepad
+    $script:textEditorNotice = $choice.Notice
+    try {
+        Start-Process -FilePath $choice.Path -ArgumentList "`"${path}`""
         return $true
     } catch {
         return $false
     }
+}
+
+function getTextEditorNotice {
+    # 直前の openWithEditor が、設定のエディタを使えずメモ帳で開いたときの知らせ（無ければ空）
+    return [string]$script:textEditorNotice
 }
 
 function setExcelAutomationSecurity {
@@ -618,6 +643,22 @@ function openSource {
     }.GetNewClosure()
 }
 
+function testTextOpenWithNotepadBySettings {
+    # テキストのパスをエディタで開くか。実行・登録になる拡張子（エディタ固定の一覧）は常にエディタ、そのほかは設定でエディタにした拡張子に入っているとき。
+    # 開くたびに設定を読む（読めなければ設定なしと同じ）
+    param (
+        [string]$path
+    )
+
+    $extra = @()
+    try {
+        $extra = @((readTextExtensionSettings).Notepad)
+    } catch {
+        $extra = @()
+    }
+    return (testTextOpenWithNotepad $path $extra)
+}
+
 function finishOpenCopy {
     # 裏の仕事で作った、新規で開くためのコピーを開く（openFoundSource の続き。画面のスレッドで動く）
     #   copyPath: コピーのパス（作れなかったときは空）
@@ -634,11 +675,11 @@ function finishOpenCopy {
         setStatus (getOpenCopyFailedStatus $path $reason)
         return
     }
-    if ($isText -and (testTextOpenWithNotepad $copyPath)) {
-        if (openWithNotepad $copyPath) {
-            setStatus (getOpenCopyOpenedStatus $path $copyPath "メモ帳")
+    if ($isText -and (testTextOpenWithNotepadBySettings $copyPath)) {
+        if (openWithEditor $copyPath) {
+            setStatus (addTextEditorNotice (getOpenCopyOpenedStatus $path $copyPath "エディタ") (getTextEditorNotice))
         } else {
-            setStatus "メモ帳で開けませんでした：${path}"
+            setStatus "エディタで開けませんでした：${path}"
         }
     } else {
         [void](openWithShell $copyPath ${openModeNormal})
@@ -720,12 +761,12 @@ function openFoundSource {
     } elseif ($row.IsText) {
         # テキストは既定のアプリに開き方（読み取り専用・新規）の動詞が無いことが多く、毎回「開けなかったため…」と出るのを避けるため、
         # 動詞を試さずにそのまま開く（openWithShell に通常の開き方を渡すと動詞を試さない）。行への移動はしない。
-        # .bat・.ps1・.js など、既定のアプリで開くと実行・登録になる拡張子はメモ帳で開く
-        if (testTextOpenWithNotepad $path) {
-            if (openWithNotepad $path) {
-                setStatus "メモ帳で開きました：${shownPath}"
+        # .bat・.ps1・.js など、既定のアプリで開くと実行・登録になる拡張子と、設定でエディタにした拡張子はエディタで開く
+        if (testTextOpenWithNotepadBySettings $path) {
+            if (openWithEditor $path) {
+                setStatus (addTextEditorNotice "エディタで開きました：${shownPath}" (getTextEditorNotice))
             } else {
-                setStatus "メモ帳で開けませんでした：${shownPath}"
+                setStatus "エディタで開けませんでした：${shownPath}"
             }
         } else {
             # 断られたとき（取り込み対象の名前でない）は、openWithShell が知らせたステータスを残す
@@ -876,7 +917,7 @@ function newExportTarget {
 }
 
 function openExportedFile {
-    # 出力したファイルを開く。Excel ブック（.xlsx）は既定のアプリ（Excel）で、CSV・TSV はメモ帳で開く（Excel などの表計算アプリで開くと、
+    # 出力したファイルを開く。Excel ブック（.xlsx）は既定のアプリ（Excel）で、CSV・TSV は固定のメモ帳（設定のエディタは使わない）で開く（Excel などの表計算アプリで開くと、
     # 先頭が = + - @ のセルが数式として動くことがあるため。値は加工しない）。開けなければ $false（プロセスの起動は待たない）。
     # 開くのは、このツールが今書いた .xlsx・.csv・.tsv だけ（名前は newExportTarget が決める）。[ ] をワイルドカードにしないよう -LiteralPath
     param (
@@ -884,7 +925,7 @@ function openExportedFile {
     )
 
     if ($path -match '\.(csv|tsv)$') {
-        return (openWithNotepad $path)
+        return (openWithEditor $path -notepadOnly)
     }
     try {
         Invoke-Item -LiteralPath $path -ErrorAction Stop

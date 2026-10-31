@@ -418,11 +418,13 @@ Describe "危険な処理を使っていないこと（docs/safety/checks.md「�
         (findPattern $code $script:bannedCodePatterns.Remote) | Should -Be ""
     }
 
-    It "外部プロセスの起動は explorer.exe・notepad.exe だけ" {
-        # notepad.exe は固定のパス（$env:SystemRoot\System32\notepad.exe）だけを許す（既定のアプリの登録に頼らない）
+    It "外部プロセスの起動は explorer.exe・固定のメモ帳（エラー記録）と、openWithEditor が getTextEditorChoice で選んだエディタ（固定のメモ帳か、testTextEditorPath を通ったもの）だけ" {
+        # エディタは、利用者が自分の設定ファイル（setting.config の textEditorPath）に書いたものだけ。既定はメモ帳の固定のパス（$env:SystemRoot\System32\notepad.exe。既定のアプリの登録に頼らない）
         $starts = @($code | Where-Object { $_.Text -match 'Start-Process' })
-        (@($starts | Where-Object { $_.Text -notmatch 'explorer\.exe' -and $_.Text -notmatch 'SystemRoot.*System32\\notepad\.exe' } |
+        (@($starts | Where-Object { $_.Text -notmatch 'explorer\.exe' -and $_.Text -notmatch 'SystemRoot.*System32\\notepad\.exe' -and $_.Text -notmatch 'Start-Process -FilePath \$choice\.Path ' } |
             ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
+        # エディタの起動は 1 か所（openWithEditor。選ぶ処理を通ることは、下の「openWithEditor は …」で確かめる）
+        @($starts | Where-Object { $_.Text -match '\$choice\.Path' }).Count | Should -Be 1
     }
 
     It "ProcessStartInfo・[System.Diagnostics.Process]::Start を使うのは open_source.ps1 の openWithShell だけ（1 か所）" {
@@ -842,6 +844,38 @@ Describe "取り込み対象の拡張子が固定であること（docs/safety/c
         }
         (@(${textNotepadExtensions}) | Where-Object { ${textOpenExtensions} -contains $_ }) | Should -BeNullOrEmpty
     }
+
+    It "設定で取り込む・開き方を変えても、固定の一覧の外を取り込まず、実行されうる拡張子を既定のアプリで開かない" {
+        # 設定ファイルに危険な拡張子や、実行されうる拡張子を含む指定を書いても、設定を読む関数と一覧を作る関数を通すと固定の一覧の外に出ない
+        $config = Join-Path $TestDrive "safety_text_ext.config"
+        $dangerous = @(".exe", ".com", ".scr", ".hta", ".lnk", ".msi", ".ts")
+        $json = ConvertTo-Json -Depth 4 @{ indexExtensionExcludes = @{ "営業" = $dangerous }; notepadTextExtensions = @($dangerous + ${textNotepadExtensions}) }
+        [System.IO.File]::WriteAllText($config, $json, (New-Object System.Text.UTF8Encoding($false)))
+        $read = readTextExtensionSettings $config
+        # 読む側は形を整えるだけで 75 個の外も持つ（書き戻しで消さないため）。75 個に絞るのは使う側
+        @($read.IndexExcludes["営業"]).Count | Should -Be $dangerous.Count
+        @(getTextTargetExtensions $read.IndexExcludes["営業"] | Where-Object { ${textExtensions} -notcontains $_ }).Count | Should -Be 0 -Because "固定の一覧に無い拡張子は、取り込む一覧に入らない"
+
+        # 取り込む一覧は、固定の一覧の部分集合（どんな設定でも増えない）
+        foreach ($excluded in @(@(), $dangerous, @(".txt", ".log"), @(${textExtensions}))) {
+            $targets = @(getTextTargetExtensions $excluded)
+            @($targets | Where-Object { ${textExtensions} -notcontains $_ }).Count | Should -Be 0
+            foreach ($ext in $dangerous) {
+                $targets | Should -Not -Contain $ext
+            }
+        }
+
+        # 実行・登録になる拡張子は、設定が空でも、すべての拡張子を追加にしても、メモ帳で開く（"default" にならない）
+        foreach ($extra in @(@(), @(${textOpenExtensions}), @(${textExtensions}), $dangerous)) {
+            foreach ($ext in @(${textNotepadExtensions})) {
+                (getTextOpenWay "a${ext}" $extra) | Should -Be "notepad" -Because "拡張子 ${ext} は追加の指定にかかわらずメモ帳のはず"
+            }
+        }
+        # 固定の一覧の外（.exe など）は、追加にしてもメモ帳の対象にならない
+        foreach ($ext in $dangerous) {
+            (getTextOpenWay "a${ext}" @($dangerous)) | Should -Be "default"
+        }
+    }
 }
 
 Describe "書き込み先が限られていること（docs/safety/file-access.md「書き込み・削除する場所」）" -Tag Meta {
@@ -1115,7 +1149,7 @@ Describe "検索結果から開くとき、シェルで開く処理が決まっ�
             "applyIndexLocationState|Start-Process",
             "applyIndexSourceFolderState|Start-Process",
             "openAboutLink|Start-Process",
-            "openWithNotepad|Start-Process",
+            "openWithEditor|Start-Process",
             "openExportedFile|Invoke-Item",
             "openWithShell|Invoke-Item", "openWithShell|Process::Start", "openWithShell|ProcessStartInfo", "openWithShell|UseShellExecute",
             "showErrorDialog|Start-Process",
@@ -1177,7 +1211,15 @@ Invoke-Item $y
         (getFunctionText "applyFailedFileState") | Should -Match 'dirState\.IsDirectory'
     }
 
-    It "openWithNotepad は固定の notepad.exe を起動する" {
-        (getFunctionText "openWithNotepad") | Should -Match 'System32\\notepad\.exe'
+    It "openWithEditor は、getTextEditorChoice が選んだエディタ（既定は固定の notepad.exe。設定の値は testTextEditorPath を通り、ファイルがあるものだけ）を起動する" {
+        $editor = getFunctionText "openWithEditor"
+        $editor | Should -Match 'System32\\notepad\.exe'
+        $editor | Should -Match 'getTextEditorChoice'
+        $editor | Should -Match 'testTextEditorPath'
+        $editor | Should -Match 'Test-Path -LiteralPath \$configured -PathType Leaf'
+        # 選ぶ処理は、形を確かめた値だけを使い、通らなければメモ帳に戻す（既定のアプリには戻さない）
+        $choice = getFunctionText "getTextEditorChoice"
+        $choice | Should -Match 'testTextEditorPath'
+        $choice | Should -Not -Match 'Invoke-Item|openWithShell'
     }
 }

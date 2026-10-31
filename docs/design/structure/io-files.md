@@ -74,6 +74,7 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 | `work/system_index/`・`work/system_index_state.tsv`（前の版が作った検索用のファイル） | 消す | インデックス作成の始めと、インポートの取り込む前に消す（読まず、書かない。[片付け](../index-data/format.md#前の版が作った検索用のファイルの片付けremoveoldsystemindex)） |
 | `work/store/ingest_status.tsv`（`.tmp` を経由して置き換える） | 読む・書く | 取り込み一覧 |
 | `work/store/pending_remove.tsv`（`.tmp` を経由して置き換える。0 件なら消す） | 読む・書く・消す | 本文インデックスから外し終えていない、無くなった元のファイルの記録。次のインデックス作成の始めに読み、外し終えたら消す。`work/store/` の中なので、移すときも `store\` ごと移り、作り直しで置き場ごと消える |
+| `work/store/text_ext_counts.json`（`.tmp` を経由して置き換える） | 読む・書く | インデックスごとの、前の回に数えたテキストの拡張子ごとの件数と数えた日時。詳細の「取り込む拡張子」が前の回の件数として出す。そのインデックスを含む回が終わり方 0 で終わったときだけインデクサが書き、インデックスの削除で消し、名前の変更で付け替える。消えても・読めなくても困らない控え（読めなければ控え無しとして扱い、次の回で書き直す）。`work/store/` の中なので、移すときも `store\` ごと移る。エクスポートの zip には入れない |
 | `work/content_index/`・`work/ingest_status.tsv`（前の版の置き場） | 読む（古い形式かの判定）・消す | 読まず、検索もしない。作り直しが終わったインデックスの分から消す |
 | `work/store/journal/ingest.tsv` | 読む・追記する | 取り込みのジャーナル |
 | `work/publish/<PID>/`（`import/new/`・`import/previous/` を含む） | 読む・書く | 本文インデックスに入れる直前の TSV と、インポートの展開先 |
@@ -126,7 +127,8 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 | 場所 | 読む／書く | 使うところ |
 |---|---|---|
 | `%USERPROFILE%`（`GetFolderPath("UserProfile")`） | 読む（パスを組み立てる） | 既定のワークスペースの場所（`getDefaultWorkDir`） |
-| `%SystemRoot%\System32\notepad.exe` | 起動する | ログ・拡張子が危ないファイルを開く（`openWithNotepad`・［ログを開く］） |
+| `%SystemRoot%\System32\notepad.exe` | 起動する | ログ・拡張子が危ないファイルを開く（`openWithEditor` の既定のエディタ・［ログを開く］） |
+| 設定 `textEditorPath` のプログラム（`.exe`） | 起動する（あるときだけ） | 「エディタで開く」に使う。利用者が自分の設定ファイルに書いた絶対パスで、`testTextEditorPath` を通り、ファイルがあるときだけ。通らなければメモ帳（`openWithEditor`） |
 | `%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe` | 起動する | 起動口（`tebunko.bat`・`tebunko.exe`）。PATH からは探さない |
 | `explorer.exe` | 起動する | ［フォルダを開く］・フォルダの選択・「バージョン情報」のリンク（決まった 2 つのアドレスを既定のブラウザで開く） |
 | `%SystemRoot%\System32\ntoskrnl.exe` | 読む（ファイルの版だけ） | ログの見出しの OS の版（`getEnvironmentInfo`） |

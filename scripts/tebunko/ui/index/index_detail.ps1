@@ -2,13 +2,15 @@
 
 # 詳細の左右の部品。名前の一覧（shell\regions.ps1）に足さず、読み込んだ中身から取る
 foreach ($detailName in @(
-        "IndexDetailBody", "IndexDetailName", "IndexDetailPath", "IndexDetailPathButton", "IndexDetailSubfolders", "IndexDetailEditError", "IndexDetailFolderStatus", "IndexDetailFolderIcon",
+        "IndexDetailBody", "IndexDetailName", "IndexDetailPath", "IndexDetailPathButton", "IndexDetailSubfolders", "IndexDetailTextExtSummary", "ChangeIndexTextExtensionsButton", "IndexDetailTextExtStaleBadge", "IndexDetailTextExtStaleBadgeText", "IndexDetailTextExtCaption", "IndexDetailEditError", "IndexDetailFolderStatus", "IndexDetailFolderIcon",
         "IndexDetailBadge", "IndexDetailBadgeText", "IndexDetailBadgeSub", "IndexErrorText", "IndexErrorHintText", "IndexDetailUpdated", "IndexDetailCount",
         "IndexingDetailPanel", "IndexingProgressBar", "IndexingCountText", "IndexingFileText", "MultiSelectHintText",
         "IndexFilesButton", "IndexFilesPanel", "IndexFilesCloseButton", "IndexFilesHeading", "IndexFilesGrid",
         "FailedFilesEntry", "FailedFilesHeading", "ShowFailedFilesButton", "IndexFilesFilter", "IndexFilesAllRadio", "IndexFilesFailedRadio")) {
     $ui[$detailName] = $ui.IndexDetailHost.Content.FindName($detailName)
 }
+# 詳細の「取り込む拡張子」の［変更…］（拡張子を選ぶダイアログを開き、［OK］で選びが変わっていればその場で設定に書く）
+$ui.ChangeIndexTextExtensionsButton.Add_Click({ safe { changeIndexTextExtensions } })
 # 読み取り中のファイルは、「…」で切れているときだけ全文をツールチップで見せる（名前とフォルダパスは入力欄で、欄の中で読める）
 addTrimmedToolTip $ui.IndexingFileText
 
@@ -169,6 +171,7 @@ function updateIndexingButton {
     $ui.IndexDetailName.IsEnabled = $buttons.Edit
     $ui.IndexDetailPath.IsEnabled = $buttons.Edit
     $ui.IndexDetailSubfolders.IsEnabled = $buttons.Edit   # 更新中・ほかの処理の間は押せない
+    $ui.ChangeIndexTextExtensionsButton.IsEnabled = $buttons.Edit   # 同じ（取り込む拡張子の［変更…］）
     # 行の右クリックのメニュー（対象は押した行。可否は getIndexRowMenuEnabled）
     $pressed = $ui.IndexGrid.SelectedItem
     $menu = getIndexRowMenuEnabled $blocker ($null -ne $pressed) $(if ($pressed) { $pressed.IndexLevel } else { "None" }) ($null -ne $pressed -and [bool]$pressed.Path)
@@ -465,6 +468,81 @@ function setIndexDetailSubfolders {
     try { $ui.IndexDetailSubfolders.IsChecked = $value } finally { $script:indexDetailApplying = $false }
 }
 
+function getIndexTextExcludesOf {
+    # 控えた設定（$script:textExtState）の、そのインデックスの値。無ければ空の配列
+    param (
+        $table,
+        [string]$name
+    )
+
+    if ($null -eq $table -or [string]::IsNullOrEmpty($name) -or -not $table.ContainsKey($name)) {
+        return @()
+    }
+    return , @($table[$name])
+}
+
+function getIndexTextExtItemValues {
+    # getIndexDetailView に渡す、そのインデックスの取り込む拡張子の値（今の設定・前回取り込んだときの設定・件数の控えの値）
+    param (
+        [string]$name
+    )
+
+    $entry = $(if ($name -and $script:textExtState.Counts.ContainsKey($name)) { $script:textExtState.Counts[$name] } else { $null })
+    return @{
+        TextExcludes = (getIndexTextExcludesOf $script:textExtState.Excludes $name)
+        TextExcludesIngested = (getIndexTextExcludesOf $script:textExtState.Ingested $name)
+        TextCountsEntry = $entry
+        TextExtEditable = (getIndexTabButtonsEnabled (getCurrentIndexJobBlocker) $true).Edit   # 更新中・ほかの処理の間は押せない
+    }
+}
+
+function changeIndexTextExtensions {
+    # 詳細の「取り込む拡張子」の［変更…］。ダイアログを開き、［OK］で選びが変わっていれば、設定（indexExtensionExcludes）にすぐ書いて一覧・詳細を直す。
+    # ［要更新］は印を持たず、前回取り込んだときの設定との差から求めるので、描き直すだけでよい（testIndexTextExcludesChanged）。更新中・ほかの処理の間は何もしない
+    if (!$ui.ChangeIndexTextExtensionsButton.IsEnabled -or (isIndexingOrPreparing)) {
+        return
+    }
+    $item = getIndexTargetItem
+    if ($null -eq $item -or [string]::IsNullOrEmpty($item.Name)) {
+        return
+    }
+    syncIndexTextExtensions
+    $current = getIndexTextExcludesOf $script:textExtState.Excludes $item.Name
+    $entry = $(if ($script:textExtState.Counts.ContainsKey($item.Name)) { $script:textExtState.Counts[$item.Name] } else { $null })
+    $row = getIndexTextExtensionDetailRow $current $entry
+    $result = showIndexTextExtensionsDialog -Owner $window -IndexName $item.Name -Excluded $current -Counts $row.Counts -CountsSource $row.Source -CountsTime $row.Time
+    if ($null -ne $result) {
+        $result = @(addOutOfListExtensions $result $current @(getIndexSelectableExtensions))
+    }
+    if ($null -eq $result -or -not (testIndexTextExcludesChanged $result $current)) {
+        return
+    }
+    try {
+        writeIndexTextExcludes $item.Name $result
+    } catch {
+        showMessage "設定を保存できませんでした。もう一度お試しください。" "OK" "Warning" | Out-Null
+        return
+    }
+    if ($null -ne $script:indexingState) {
+        applyIndexStats $script:indexingState.IndexStats (isIndexing) $script:indexingState.Format
+    } else {
+        syncIndexTextExtensions
+        updateIndexDetailPanel
+    }
+}
+
+function setIndexDetailTextExt {
+    # 詳細の「取り込む拡張子」の行に、getIndexDetailView の TextExt（要約・件数の見出し・［要更新］の札・［変更…］の可否）を入れる
+    param (
+        $textExt
+    )
+
+    $ui.IndexDetailTextExtSummary.Text = $textExt.Summary
+    $ui.IndexDetailTextExtCaption.Text = $textExt.Caption
+    setIndexBadge $ui.IndexDetailTextExtStaleBadge $ui.IndexDetailTextExtStaleBadgeText $(if ($textExt.Stale) { "要更新" } else { "" }) "Wait"
+    $ui.ChangeIndexTextExtensionsButton.IsEnabled = $textExt.ChangeEnabled
+}
+
 function updateIndexDetailPanel {
     # 選んだインデックスの値の行を出す（文言の組み立ては getIndexDetailView）。
     # 選びなおしたとき・取り込みの集計が届いたときに呼ぶ
@@ -477,7 +555,7 @@ function updateIndexDetailPanel {
             FolderMissing = ($item.StatusChecked -and !$item.FolderExists); FolderChecked = [bool]$item.StatusChecked
             IndexText = $item.IndexText; IndexLevel = $item.IndexLevel; IndexSub = $item.IndexSub; FileCountText = $item.FileCountText
             LastIngestedText = $item.LastIngestedText; FailedCount = $item.FailedCount; PendingCount = $item.PendingCount
-        })
+        } + (getIndexTextExtItemValues $item.Name))
     }
     # 選んだインデックスが変わったら、開いている一覧は閉じる（別のインデックスの一覧を見せない）
     $listName = if ($null -ne $item) { [string]$item.Name } else { "" }
@@ -512,6 +590,7 @@ function updateIndexDetailPanel {
         $ui.IndexDetailPath.Text = $view.Path
     }
     setIndexDetailSubfolders $view.Subfolders
+    setIndexDetailTextExt $view.TextExt
     $ui.IndexDetailFolderStatus.Text = $view.FolderStatus
     $ui.IndexDetailFolderStatus.Foreground = themeBrush $view.FolderBrush
     # 文の左のアイコン（Lucide の check・x）。空なら隠す

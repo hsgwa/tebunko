@@ -25,6 +25,7 @@ stateDiagram-v2
     state "index-tab/cloud-confirm" as cloud
     state "index-tab/top-only" as toponly
     state "index-tab/start-confirm-top-only" as starttop
+    state "index-tab/text-extensions" as textext
     state "index-tab/running" as running
     state "index-tab/stop-confirm" as stop
     state "index-tab/interrupted" as interrupted
@@ -41,6 +42,8 @@ stateDiagram-v2
     normal --> toponly: 詳細の「サブフォルダを含める」を外す（3）
     toponly --> starttop: 開始（17）
     starttop --> toponly: ［キャンセル］
+    normal --> textext: 詳細の「取り込み対象の拡張子」の［変更…］（3）
+    textext --> normal: ［OK］（選びが変わればその場で保存）・［キャンセル］
     running --> stop: ［中止］（19）
     stop --> running: ［キャンセル］
     stop --> interrupted: ［中止する］
@@ -110,6 +113,20 @@ stateDiagram-v2
 ![同・更新の確認ダイアログ](../../../images/screens/index-tab/start-confirm-top-only.png)
 
 名前の右の札「直下のみ」は読み取りだけ。合計の下の 1 行は、直下だけに変えたフォルダで、サブフォルダ側のインデックスを外す件数（0 件のときは出さない）。
+
+### index-tab/text-extensions（詳細の「取り込む拡張子」の［変更…］で開いたダイアログ。遷移 3）
+
+![取り込み対象の拡張子のダイアログ](../../../images/screens/index-tab/text-extensions.png)
+
+Excel（4 個）・Word（3 個）・PowerPoint（3 個）・PDF（1 個）・テキスト（75 個）の見出しで分け、計 86 個のチェックを、見出しの中で件数の多い順（同じ件数は名前順）に並べる。見出しの行にも 3 状態のチェックがあり、全部が取り込み対象ならチェック・一部だけ外していれば青い枠に「−」・全部外していれば空の枠で、押すとその種類をまとめて取り込み対象にする（全部のときは全部外す）。外した行は薄く出る。見出しの折りたたみはしない（常に展開）。上の『取り込み対象のみ表示』のチェックと検索欄で絞れる（見出しは、見せる行がある種類だけ残る）。説明文に Excel・Word・PowerPoint を選べないという文は無い（選べるため）。件数と棒は、前回の更新で数えた結果（注に日時が出る）。件数が 0 のテキストの拡張子は、テキストの見出しの末尾の 1 行にまとめて折りたたむ（Office・PDF の 0 件の拡張子は、その種類の中の末尾に並ぶだけ）。撮る状態では、Excel・PDF・テキストは全部、Word は .docm だけ外し（一部）、PowerPoint は 3 つとも外している（全部外し）。前回の件数がまだ無いとき（初回）は、件数の列・棒・0 件のまとめを出さず、注に「更新すると、件数が出ます」と出す。［OK］で選びが変わっていれば、その場で設定に書く（詳細の行の要約が変わり、前回取り込んだときと違えば［要更新］が出る）。
+
+詳細の「取り込み対象の拡張子」の行は、基本設定の「サブフォルダを含める」の下にある。要約（「すべて取り込み」「対象外あり」）・［変更…］・［要更新］の札。更新中は［変更…］が押せない。
+
+### index-tab/confirm-text-extensions（更新の確認ダイアログの［変更…］で開いたダイアログ。遷移 17）
+
+![更新の確認から開いた取り込み対象の拡張子のダイアログ](../../../images/screens/index-tab/confirm-text-extensions.png)
+
+更新の確認ダイアログの表の列「取り込み対象の拡張子」の［変更…］で開く。形は上と同じで、件数と棒はいま数えた結果（注は「件数は、いま数えた結果です。」）。見出しの 3 状態の選びも同じ（Excel・PDF・テキストは全部、Word は一部、PowerPoint は全部外し）。［OK］で選びが変わっていれば、設定に書いて数え直し、確認が出し直される。［キャンセル］・変わらない［OK］では、開いたままの確認に戻る。
 
 ### index-tab/running（更新中。遷移 17・20）
 

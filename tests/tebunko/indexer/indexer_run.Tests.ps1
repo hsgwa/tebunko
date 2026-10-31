@@ -50,6 +50,8 @@ Describe "recordIngestedSettings" -Tag Unit {
                 if ($this.Fail) { throw "書けません" }
                 $this.Written = $values
             }
+            Add-Member -InputObject $catalog -MemberType ScriptMethod -Name StoreIngestedTextExcludes -Value { param ($values) }
+            Add-Member -InputObject $catalog -MemberType ScriptMethod -Name StoreTextExtCounts -Value { param ($name, $counts, $time) }
             return $catalog
         }
     }
@@ -105,5 +107,78 @@ Describe "recordIngestedSettings" -Tag Unit {
         { recordIngestedSettings $planner $catalog } | Should -Not -Throw
 
         Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*前回取り込んだときのサブフォルダの設定を保存できませんでした*" -and $color -eq "Yellow" }
+    }
+}
+
+Describe "recordIngestedTextExtensions" -Tag Unit {
+    BeforeAll {
+        function newExtPlanner {
+            param ($folders, $plan, $excludes, $counts)
+            $planner = [IngestPlanner]::new(@{
+                Unchecked = ${planKindUnchecked}; Missing = ${planKindMissing}; Dropped = ${planKindDropped}; StateFailed = ${stateFailed}
+            })
+            $planner.Folders = @($folders)
+            foreach ($row in $plan) { $planner.Plan.Add($row) }
+            $planner.TextExcludes = $excludes
+            foreach ($name in @($counts.Keys)) { $planner.TextCountsByIndex[$name] = $counts[$name] }
+            return $planner
+        }
+
+        function newExtCatalog {
+            $catalog = [pscustomobject]@{ WrittenExcludes = $null; WrittenCounts = @(); Fail = $false }
+            Add-Member -InputObject $catalog -MemberType ScriptMethod -Name StoreIngestedTextExcludes -Value { param ($values) if ($this.Fail) { throw "書けません" }; $this.WrittenExcludes = $values }
+            Add-Member -InputObject $catalog -MemberType ScriptMethod -Name StoreTextExtCounts -Value { param ($name, $counts, $time) $this.WrittenCounts += @(@{ Name = $name; Counts = $counts; Time = $time }) }
+            return $catalog
+        }
+    }
+
+    It "取り込んだインデックスの件数の控えを書き、名前の有効なフォルダをすべて回した名前だけ、使った取り込まない拡張子を書く" {
+        $planner = newExtPlanner @(
+            [pscustomobject]@{ Name = "営業"; Path = "C:\a"; Enabled = $true },
+            [pscustomobject]@{ Name = "営業"; Path = "C:\b"; Enabled = $true },
+            [pscustomobject]@{ Name = "経理"; Path = "C:\c"; Enabled = $true }
+        ) @(
+            (newIngestPlanRow "営業" "C:\a" ${planKindIngest}),
+            (newIngestPlanRow "経理" "C:\c" ${planKindIngest})
+        ) @{ "営業" = @(".log"); "経理" = @() } @{ "営業" = @{ ".txt" = 3 }; "経理" = @{ ".md" = 1 } }
+        $catalog = newExtCatalog
+
+        recordIngestedTextExtensions $planner $catalog
+
+        @($catalog.WrittenCounts | ForEach-Object { $_.Name } | Sort-Object) | Should -Be @("営業", "経理")
+        $catalog.WrittenCounts[0].Time | Should -Match '^\d{4}/\d{2}/\d{2} '
+        # 営業は C:\b を回していないので書かない。経理は全部回したので（空の一覧として）書く
+        @($catalog.WrittenExcludes.Keys) | Should -Be @("経理")
+        @($catalog.WrittenExcludes["経理"]).Count | Should -Be 0
+    }
+
+    It "全部回した名前の取り込まない拡張子を、そのまま書く" {
+        $planner = newExtPlanner @([pscustomobject]@{ Name = "営業"; Path = "C:\a"; Enabled = $true }) @((newIngestPlanRow "営業" "C:\a" ${planKindIngest})) @{ "営業" = @(".log", ".md") } @{}
+        $catalog = newExtCatalog
+
+        recordIngestedTextExtensions $planner $catalog
+
+        ($catalog.WrittenExcludes["営業"] -join ",") | Should -Be ".log,.md"
+    }
+
+    It "取り込んでいない行（チェックなし・フォルダなし）は書かない" {
+        $planner = newExtPlanner @([pscustomobject]@{ Name = "営業"; Path = "C:\a"; Enabled = $false }) @((newIngestPlanRow "営業" "C:\a" ${planKindUnchecked})) @{} @{}
+        $catalog = newExtCatalog
+
+        recordIngestedTextExtensions $planner $catalog
+
+        $catalog.WrittenCounts.Count | Should -Be 0
+        $catalog.WrittenExcludes | Should -BeNullOrEmpty
+    }
+
+    It "書けなくても例外にせず、ログに黄色で残す" {
+        Mock writeIndexerLog {}
+        $planner = newExtPlanner @([pscustomobject]@{ Name = "営業"; Path = "C:\a"; Enabled = $true }) @((newIngestPlanRow "営業" "C:\a" ${planKindIngest})) @{ "営業" = @(".log") } @{}
+        $catalog = newExtCatalog
+        $catalog.Fail = $true
+
+        { recordIngestedTextExtensions $planner $catalog } | Should -Not -Throw
+
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*前回取り込んだときの拡張子の設定・拡張子ごとの件数を保存できませんでした*" -and $color -eq "Yellow" }
     }
 }

@@ -7,17 +7,6 @@ class DetailRow {
     [string]$Value
 }
 
-# インデックス更新の確認ダイアログに出すインデックス 1 件（取り込み予定.tsv の 1 行）
-class PlanRow {
-    [string]$Name
-    [string]$Path
-    [string]$TotalText    # 対象ファイル数（"1,243"。数えない行は "－"）
-    [string]$StatusText   # ステータスのバッジの文言（"要更新" / "最新" / "対象外" / "フォルダなし"）
-    [string]$Level        # バッジの色（Wait / Ok / None / Ng）
-    [string]$DetailText   # バッジの ToolTip（更新するファイルの内訳）
-    [string]$TopOnlyText = ""   # 名前の右の札の文言（設定が直下だけの行だけ。getIndexTopOnlyTagText。読み取りだけで、ここでは選ばない）
-}
-
 # ［インデックス管理］のインデックス一覧 1 件。プログラムから変えたときに画面へ反映するため通知する。
 # 行のチェックの TwoWay バインドは値の往復に使い、保存はチェックボックスの Click で行う（PS class はセッターにロジックを書けないため）
 class FolderItem : NotifyBase {
