@@ -25,6 +25,9 @@ ${contentIndexFileMaxBytes} = 4MB
 # 読む本文インデックスのファイル 1 つの大きさの上限（バイト。検索も、インデックス作成で前のファイルとまぜるときも使う）。超えるファイルは読まずに飛ばす。
 # 1 つのファイルは丸ごと読み、並列の検索は最大 4 スレッドなので、同時に持つのは最大でこの 4 倍（正しく作ったファイルは contentIndexFileMaxBytes が目安）
 ${contentIndexSearchMaxBytes} = 64MB
+# 元のファイル 1 つで上限を超えるときの、取り込み一覧のエラーの列の文言。上限は文字の量（UTF-16 のバイト数）のため、「ファイルサイズ」とは書かない。
+# 読み込んだときの上限から作る（テストが上限を小さくしても、文言は変わらない）
+${contentIndexTooLargeMessage} = "ファイルの文字が多すぎるため更新できません（上限 $([int](${contentIndexSearchMaxBytes} / 1MB)) MB）。"
 # インデックスの格納形式の版（本文インデックスの「版=」の行・目録の版・zip の目録の版はすべてこの 1 つの番号にそろえる）。
 # 読み飛ばしても古い版が誤らない列・キーを足すときは上げない。意味を変える・無いと古い版が誤るものを足すときは上げる（format.md「目録の版の規則」）
 ${indexFormatVersion} = 2
@@ -391,6 +394,31 @@ function measureContentIndexPartBytes {
     return [long]$chars * 2
 }
 
+function measureContentIndexPlaceChars {
+    # 本文インデックスのファイルに入る、場所 1 つ分（メタ情報の行＋中身）の文字数を返す（convertBookToContentIndexBlock と同じ作り方）。
+    # 元のファイル 1 つの大きさは、「ファイル名=」の行から最後の行までの先頭部分（Places を空にしたまとまり）にこの値を足して求める
+    param (
+        [string]$book,
+        [string]$place,
+        [string]$text
+    )
+
+    $mark = [string]${contentIndexMark}
+    $meta = convertPlaceToContentIndexMeta $book $place
+    $chars = 0
+    foreach ($key in $meta.Keys) {
+        $chars += "$mark ".Length + ([string]$key).Length + 1 + (encodeContentIndexValue ([string]$meta[$key])).Length + 1
+    }
+    return [long]($chars + (convertToContentIndexBody $text).Length)
+}
+
+
+function getContentIndexTooLargeMessage {
+    # 元のファイル 1 つで本文インデックスのファイルが検索の上限（contentIndexSearchMaxBytes）を超えるときの、取り込み一覧のエラーの列の文言
+    return ${contentIndexTooLargeMessage}
+}
+
+
 function testContentIndexCellPrefixed {
     # 場所の行が「セル番地 + 区切りのタブ + 文字」の形か（Excel の図形・コメント）を返す。検索は、この形の行では区切りのタブより後だけを照合する
     param (
@@ -531,6 +559,17 @@ function getContentIndexBodyText {
 function getIndexRebuildMessage {
     # 古い形式のインデックスを知らせる文言（1 か所）。本文インデックスの版の例外・一覧のステータス・インデクサのログ・zip の取り込みの断りで使う
     return ${indexRebuildMessage}
+}
+
+
+function getContentIndexDroppedText {
+    # 検索の上限を超えていた前の本文インデックスのファイルを外したことを、ログ（黄色）に出す 1 行
+    param (
+        [string]$rel,
+        [int]$count
+    )
+
+    return "    大きすぎるインデックスのファイルを外しました（${rel}）。中の ${count} 件は次の更新で取り込み直します"
 }
 
 

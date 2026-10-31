@@ -2419,6 +2419,43 @@ Describe "取り込みのジャーナルの復旧と書き出し（flushPendingP
         }
     }
 
+    It "上限を超える本文インデックスのファイルがあるフォルダは、書き出し前の TSV が無くても、始めの書き出しに足す（上限を超えないフォルダは足さない）" {
+        ${contentIndexSearchMaxBytes} = 1KB
+        $rc = newRecoverEnv -folders @()
+        $workspace = $rc.Workspace
+        foreach ($name in "営業", "総務") {
+            [System.IO.Directory]::CreateDirectory("$($workspace.IndexDir)\$name") | Out-Null
+        }
+        $big = ((1..200 | ForEach-Object { "巨大な行の単価 $_" }) -join "`n") + "`n"
+        writeContentIndexFile "$($workspace.IndexDir)\営業\content_index.xlsx.001.tsv" (convertToContentIndexText @(@{ Name = "A.xlsx"; Places = @(@{ Place = "S"; Text = $big }) }))
+        writeContentIndexFile "$($workspace.IndexDir)\総務\content_index.xlsx.001.tsv" (convertToContentIndexText @(@{ Name = "A.xlsx"; Places = @(@{ Place = "S"; Text = "x`n" }) }))
+        $script:expectedKeys = "$($workspace.IndexDir)\営業"
+        $result = recoverIngestJournal $rc.Ledger $rc.Journal $rc.Pending $rc.Channel $rc.Reporter
+        @($result.Unpublished).Count | Should -Be 0
+        Should -Invoke publishIndexFolders -Times 1 -Exactly -Scope It -ParameterFilter { ((@($pending.Keys) | Sort-Object) -join "|") -eq $script:expectedKeys }
+    }
+
+    It "selectFinishStatusRows: 書き出しで外した上限超えのファイルの中の元のファイルは、この回に済になっていても「未取り込み」・エラー空に戻し、無くなった行は除く" {
+        $ledger = [StatusLedger]::new([pscustomobject]@{ StatusFile = "$TestDrive\select_status.tsv" })
+        $pending = [PendingPublish]::new()
+        $pending.AddRequeued([string[]]@("営業\A.xlsx", ""))
+        [void]$ledger.DroppedRows.Add("営業\C.xlsx")
+        $rows = @(
+            (newStatusRow "営業\A.xlsx" "2024/01/01 00:00:00" "100" ${stateDone} "1" "2024/01/01 00:00:00" "" "1")
+            (newStatusRow "営業\B.xlsx" "2024/01/01 00:00:00" "100" ${stateDone} "1" "2024/01/01 00:00:00" "" "1")
+            (newStatusRow "営業\C.xlsx" "2024/01/01 00:00:00" "100" ${stateDone} "1" "2024/01/01 00:00:00" "" "1")
+        )
+        $rows[0].エラー = "前のエラー"
+        $selected = selectFinishStatusRows $rows $ledger $pending
+        @($selected).Count | Should -Be 2
+        $selected[0].相対パス | Should -Be "営業\A.xlsx"
+        $selected[0].状態 | Should -Be ${stateNew}
+        $selected[0].エラー | Should -Be ""
+        $selected[1].状態 | Should -Be ${stateDone}
+        $rows[0].状態 | Should -Be ${stateDone}
+        $pending.Requeued.Count | Should -Be 1
+    }
+
     It "前の版の ingesting.txt があれば、止まった仕事に足す。ジャーナルにも同じ仕事があるときは重ねない" {
         $rc = newRecoverEnv @("始`t営業\a.xlsx`t1")
         $workspace = $rc.Workspace

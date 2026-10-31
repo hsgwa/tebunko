@@ -519,6 +519,7 @@ function publishFlushable {
         # 外す予定の記録を先に残す（書き出しが落ちる・強制終了しても、次の回に外し直せるように）
         savePendingRemovals $pending
         $published = publishIndexFolders $flush
+        $pending.AddRequeued([string[]]@($published.Requeued))
         # 書き終えたフォルダの分だけ記録から外す（飛ばしたフォルダの分は残る）
         $pending.MarkPublished([string[]]@($published.Published), $flush)
         savePendingRemovals $pending
@@ -590,6 +591,13 @@ function recoverIngestJournal {
             $leftover.Add($folder)
         }
     }
+    # 前の版が作った、検索の上限を超える本文インデックスのファイルのあるフォルダも書き出し直す（外して、中の元のファイルを取り込み直しにする）
+    if (!$channel.Stop) {
+        $oversize = findOversizeContentIndexFolders $workspace.IndexDir
+        foreach ($folder in $oversize) {
+            if (@($leftover | Where-Object { $_ -ieq $folder }).Count -eq 0) { $leftover.Add($folder) }
+        }
+    }
     # 次の回へ持ち越すフォルダ: 中止で飛ばしたら全部、書き出しを試したら書き出せなかったものだけ
     $unpublished = New-Object System.Collections.Generic.List[string]
     if ($channel.Stop) {
@@ -602,6 +610,28 @@ function recoverIngestJournal {
     }
     flushLeftovers $pending $journal $reporter $leftover -Stop:([bool]$channel.Stop) -Failed $unpublished
     return @{ Resume = $resume; Unpublished = $unpublished.ToArray() }
+}
+
+function selectFinishStatusRows {
+    # 終わりの取り込み一覧に書く行を選ぶ。取り込みの直前に元のファイルが無くなった行（DroppedRows）は除く。
+    # 書き出しで上限超えの本文インデックスのファイルを外した元のファイル（pending.Requeued）の行は、この回の結果（済など）より優先して
+    # 「未取り込み」・エラー空に戻す（次の更新で取り込み直す）
+    param (
+        $rows,
+        $ledger,
+        $pending
+    )
+
+    $selected = New-Object System.Collections.Generic.List[object]
+    foreach ($row in @($rows | Where-Object { $_ -and !$ledger.DroppedRows.Contains([string]$_.相対パス) })) {
+        if ($pending.Requeued.Contains([string]$row.相対パス)) {
+            $row = $row.PSObject.Copy()
+            $row.状態 = ${stateNew}
+            $row.エラー = ""
+        }
+        $selected.Add($row)
+    }
+    return , $selected.ToArray()
 }
 
 function writeStatusWithJournal {
@@ -1286,7 +1316,7 @@ function invokeIndexerBody {
         # 取り込みの直前に無くなっていたファイルの行は除く（次回の検索でも見つからず、インデックスも削除済み）。
         # 書き直し終えたら「終」を足す（書き直しの途中で止まっても、印があるので、次の始めは取り込み中だった仕事を全部やり直す側に倒れる）
         savePendingRemovals $pending
-        writeStatusWithJournal $journal $ledger $folders @($rows | Where-Object { $_ -and !$ledger.DroppedRows.Contains([string]$_.相対パス) }) $keptDropped $previous -Finish
+        writeStatusWithJournal $journal $ledger $folders (selectFinishStatusRows $rows $ledger $pending) $keptDropped $previous -Finish
         # 初めて取り込んだインデックスは、最初に書き出した時点ではまだフォルダが無いため、ここでもう一度書く
         # （work\content_index\<インデックス名>\source_folder.txt。インデックス 1 個だけをコピーしても元のファイルの場所が分かる）
         writeSourceFolderFile $folders
