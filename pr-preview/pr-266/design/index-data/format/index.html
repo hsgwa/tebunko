@@ -2663,6 +2663,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#分けた塊版-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        分けた塊（版 3）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#図形コメントの場所excelwordpowerpoint-で共通の決まり" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4467,6 +4478,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#分けた塊版-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        分けた塊（版 3）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#図形コメントの場所excelwordpowerpoint-で共通の決まり" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4772,6 +4794,7 @@ work/store/content/&lt;インデックス名&gt;/   … 本文インデックス
 <li>形式の版は、<strong>古い版の tebunko が読めなくなる変更</strong>をしたときに上げる（置き場の場所・本文インデックスの形・取り込み一覧の列の意味を変えるなど）。上げたら、前の版のものは「古い形式です。作り直してください」になり、利用者が作り直す。</li>
 <li>版を上げずに足してよいのは、<strong>古い版が読み飛ばして困らないもの</strong>だけ。目録に新しいキーや列を足す、<code>store/</code> の下に新しいフォルダを足す、など。知らないものは読み飛ばす決まりのため。</li>
 <li>版を上げるときは、<code>indexFormatVersion</code>（<code>content_index_format.ps1</code>）と zip の <code>formatVersion</code> をそろえ、互換の見本（<code>tests/testdata/compat/index/v&lt;版&gt;+store/</code>）を足す。</li>
+<li><strong>例外: 分けた塊を入れた本文インデックスのファイルだけ、1 行目が <code>版=3</code></strong>（<code>contentIndexSplitVersion</code>。<a href="#分けた塊版-3">分けた塊（版 3）</a>）。新しい版は 2 と 3 を読み、古い版は 3 のファイルを読み飛ばす（読み飛ばして誤らないため。古い版が誤って読む形（続きの塊の行番号を 1 からと数える・更新で古い塊を残す）を <code>版=2</code> のまま置かないようにした）。目録の版・zip の <code>formatVersion</code>・<code>indexFormatVersion</code> は上げない（分けたファイルが無いインデックスは、古い版でそのまま使える）。</li>
 </ul>
 <h3 id="前の前の版の-index-の扱いgetlegacyindexstate">前の前の版の index\ の扱い（<code>getLegacyIndexState</code>）<a class="headerlink" href="#前の前の版の-index-の扱いgetlegacyindexstate" title="Permanent link">&para;</a></h3>
 <p>フォルダ名・ファイル名を <code>content_index</code> にそろえる前の版（前の前の版）が使っていた <code>index\</code> は、そのままでは読めない（フォルダ名・ファイル名が違う）。新しい版はここを読まず、消しもしない。</p>
@@ -4840,7 +4863,7 @@ B2→確定版
 </tr>
 <tr>
 <td>分け方</td>
-<td>1 つの本文インデックスのファイルが 4MB（<code>$contentIndexFileMaxBytes</code>）以上になったら、それ以上元のファイルを足さず、次の番号の本文インデックスのファイルに足す（<code>planContentIndexParts</code>）。更新した元のファイルは今入っている本文インデックスのファイルの中で入れ替え、無くなった元のファイルは外す。変わらない本文インデックスのファイルは書き直さない。元のファイルが無くなった本文インデックスのファイルは消す（番号は詰めない）。1 つの元のファイルは 2 つの本文インデックスのファイルにまたがらない。4MB は足すのをやめる目安で、検索が読む上限（64MB。<code>contentIndexSearchMaxBytes</code>）とは別。1 つの元のファイルだけで 64MB を超えるものは入れず、取り込みの失敗にする（<a href="../publish/">本文インデックスへの書き出し</a>）</td>
+<td>1 つの本文インデックスのファイルが 4MB（<code>$contentIndexFileMaxBytes</code>）以上になったら、それ以上元のファイルを足さず、次の番号の本文インデックスのファイルに足す（<code>planContentIndexParts</code>）。更新した元のファイルは今入っている本文インデックスのファイルの中で入れ替え、無くなった元のファイルは外す。変わらない本文インデックスのファイルは書き直さない。元のファイルが無くなった本文インデックスのファイルは消す（番号は詰めない）。1 つの元のファイルは、64MB を超えないかぎり 2 つの本文インデックスのファイルにまたがらない。4MB は足すのをやめる目安で、検索が読む上限（64MB。<code>contentIndexSearchMaxBytes</code>）とは別。1 つの元のファイルだけで 64MB を超えるものは、約 4MB の塊に分け、塊ごとに専用の本文インデックスのファイル（<code>版=3</code>）に入れる（下の「分けた塊（版 3）」。<a href="../publish/">本文インデックスへの書き出し</a>）。1 行がそれだけで 64MB を超えるときだけ、入れず取り込みの失敗にする</td>
 </tr>
 </tbody>
 </table>
@@ -4855,8 +4878,8 @@ B2→確定版
 <tbody>
 <tr>
 <td><code>版</code></td>
-<td><code>2</code></td>
-<td>形式の版。ファイルの 1 行目。今の版と違えば例外にする（<code>readContentIndexPlaces</code>）。版を上げる規則は下の「目録の版の規則」</td>
+<td><code>2</code>（分けた塊を入れたファイルは <code>3</code>）</td>
+<td>形式の版。ファイルの 1 行目。読める版（2・3）と違えば例外にする（<code>readContentIndexPlaces</code>）。版を上げる規則は下の「目録の版の規則」</td>
 </tr>
 <tr>
 <td><code>ファイル名</code></td>
@@ -4888,6 +4911,11 @@ B2→確定版
 <td><code>はい</code></td>
 <td>非表示のスライド（PowerPoint）だけに付ける</td>
 </tr>
+<tr>
+<td><code>開始行</code></td>
+<td>正の整数（<code>2</code> 以上）</td>
+<td>分けた塊（版 3）のうち、場所の途中から始まるものだけに付ける。その塊の最初の行が、場所の何行目か（無い・正の整数でないときは <code>1</code>。<code>readContentIndexPlaces</code> が <code>FirstLine</code> に入れる）</td>
+</tr>
 </tbody>
 </table>
 <ul>
@@ -4896,6 +4924,15 @@ B2→確定版
 <li>メタ情報の行は検索しない（ファイル名・シート名の語には一致しない。<a href="../../search/speed/">検索を速くする仕組み</a>）。</li>
 <li><strong>PDF ファイル</strong>（<code>.pdf</code>）は、場所がページ（<code>ページ001</code> …。<code>部分=ページ001</code>・<code>対象=本文</code>）。文字の無いページは TSV を作らない（<a href="../../indexing/pdf/">PDF ファイルの読み取り</a>）。</li>
 <li><strong>テキストファイル</strong>（<code>.txt</code> 等）は、場所が「本文」の 1 つだけ（<code>部分=本文</code>・<code>対象=本文</code>）。行番号がそのまま元のファイルの行番号になる（<a href="../../indexing/text/">テキストファイルの読み取り</a>）。</li>
+</ul>
+<h3 id="分けた塊版-3">分けた塊（版 3）<a class="headerlink" href="#分けた塊版-3" title="Permanent link">&para;</a></h3>
+<p>1 つの元のファイルだけで本文インデックスのファイルが 64MB（<code>contentIndexSearchMaxBytes</code>）を超えるとき（何十万行の Excel・大きな CSV やログ）は、約 4MB（<code>contentIndexFileMaxBytes</code>）の塊に分けて入れる（<code>splitContentIndexBookBlock</code>。64MB 以下の元のファイルは分けない）。</p>
+<ul>
+<li><strong>切り方</strong>: 場所（シート・ページなど）の切れ目で切ることを優先する。1 つの場所が 1 つの塊に入らないときだけ、その場所を行の切れ目で切る。大きな場所は新しい塊の頭から始め、続きの塊に <code>開始行=&lt;N&gt;</code>（その塊の最初の行が、場所の何行目か）を付ける。どの塊も、頭の <code>ファイル名=</code>・<code>種類=</code> と場所のメタ情報の行を繰り返す。1 行が目安（4MB）を超えるときは、その行だけの塊にする（64MB 以下なら入る。超えるときだけ取り込みの失敗）。</li>
+<li><strong>置き方</strong>: 塊は 1 つずつ専用の本文インデックスのファイルに入れ、ほかの元のファイルとはまぜない。番号は、その拡張子の最後の番号の次から続けて振る。分けた塊のファイルの 1 行目は <code>版=3</code>（分けないファイルは今までどおり <code>版=2</code>）。あとから来る小さな元のファイルは、版 3 のファイルには足さない（版 2 の最後のファイル、無ければ次の番号の新しい版 2 のファイルに足す）。</li>
+<li><strong>更新</strong>: 取り込み直す・無くなったときは、前の塊をどの番号のファイルからもすべて外し（外れて空になったファイルは消す）、取り込み直すなら新しい塊を入れ直す。64MB 以下になった元のファイルは、分けずに版 2 のファイルに戻る。</li>
+<li><strong>読む</strong>: 検索は <code>版=2</code> と <code>版=3</code> のファイルを読み、結果の行番号は場所の中の通しの番号にする（<code>開始行</code> があればそこから数える。開くときに選ぶ Excel の行も同じ番号）。プレビューは、選んだ行の前後や読み足しが塊の切れ目をまたぐとき、同じフォルダ・同じ拡張子の前の塊・続きの塊のファイルも読む（<code>readContentIndexLinesAcrossParts</code>。分けた場所は必ず塊の頭から始まるので、各ファイルの先頭だけ読んで見つける）。</li>
+<li><strong>目録・zip の版は上げない</strong>（<code>indexFormatVersion</code> と zip の <code>formatVersion</code> は 2 のまま。下の「目録の版の規則」）。</li>
 </ul>
 <h3 id="図形コメントの場所excelwordpowerpoint-で共通の決まり">図形・コメントの場所（Excel・Word・PowerPoint で共通の決まり）<a class="headerlink" href="#図形コメントの場所excelwordpowerpoint-で共通の決まり" title="Permanent link">&para;</a></h3>
 <p>本文（セル・段落）以外の文字は、<strong><code>&lt;元の場所&gt;[&lt;種類&gt;]</code></strong> という場所（TSV）に分けて出力する。種類ごとに、検索に含めるかを画面で選べる（［図形も検索］［コメントも検索］。<a href="../../search/">検索</a> の検索仕様）。</p>
@@ -5093,6 +5130,11 @@ content_index/&lt;相対フォルダ&gt;/content_index.&lt;拡張子&gt;.&lt;番
 <h2 id="前の版との互換">前の版との互換<a class="headerlink" href="#前の版との互換" title="Permanent link">&para;</a></h2>
 <p>前の版が作った本文インデックス・取り込み一覧・エクスポートの zip を、新しい版がそのまま読めることを、見本（golden）で確かめる（<a href="../../testing/unit-index/">テストの進め方</a>）。見本は <code>tests/testdata/compat/index/&lt;見本の名前&gt;/</code>（<code>source/</code>・<code>ws/</code>・<code>export.zip</code>・<code>file_times.tsv</code>・<code>expected.json</code>。作り方は <a href="https://github.com/hsgwa/tebunko/blob/main/tests/testdata/README.md">tests/testdata/README.md</a>）に置く。</p>
 <p><strong>何を変えると見本が要るか</strong>: 上に書いた形式（本文インデックスの行・メタ情報、2-gram の索引の形、取り込み一覧の列、エクスポート zip の目録・配置）のどれかを変える PR。変えたら、新しい見本を 1 つ足す（上書きではなく追加。古い見本も読めることを確かめ続けるため）。</p>
+<p><strong>新しい版で作ったインデックスは、新しい版で使う</strong>: 64MB を超える元のファイルがあるフォルダは、新しい版で分けた塊のファイル（<code>版=3</code>）を作る。古い版（分ける前の版）は、そのファイルを次のように扱う。誤った結果を黙って出すことはない。
+- 検索: <code>版=3</code> のファイルだけを「読めなかったインデックスのファイル」として飛ばす（同じフォルダのほかの元のファイルは出る）。
+- ［更新］: 前のファイルを読むときに例外になり、分けたファイルがあるフォルダは丸ごと書き出されない（同じフォルダの小さな元のファイルも、古い版では書き出されない）。TSV が残り、黄色のログが毎回出る。
+- zip のインポート: 読めないファイルが 1 つでもあると zip 全体が断られる。
+影響が出るのは 64MB を超える元のファイルがあるフォルダだけで、古い版に戻す・古い版へ zip を渡すことはまれ。0.x の間は、新しい版へ上げてもらえば済む。新しい版は、前の版が作ったインデックスをそのまま読む（作り直しも移行の手順も要らない）。</p>
 <p><strong>見本は足すだけ</strong>で、既にある見本を変える・消すのはタイトルに <code>!</code> を付けた PR だけができる（CI の <code>pr-title</code> が確かめる。<a href="../../testing/ci/">CI</a>）。<code>!</code> の PR が見本を消したときは、どれを・どの PR で・なぜ消したかを次の表に 1 行残す。</p>
 <table>
 <thead>
