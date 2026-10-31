@@ -176,6 +176,45 @@ Describe "indexer.ps1（続けられないエラー）" -Tag Io {
     }
 }
 
+Describe "indexer.ps1（前の版が作った 64MB を超える本文インデックスのファイル）" -Tag Slow {
+    # 別のプロセスの上限は下げられないため、実際に 64MB を超えるファイルを作る（中身は流して書く）。毎回のテストでは流さない
+
+    It "同じ拡張子の小さい本文インデックスのファイルが残るフォルダでも、取り込む対象が無い更新で外れ、中の元のファイルが同じ回に取り込み直されて検索に戻る" {
+        $root = newRoot
+        $dir = newSourceFolder "上限超え"
+        writeTestSettings $root @(@{ name = ""; path = $dir; enabled = $true })
+        runIndexer $root | Should -Be 0
+        $folder = "$root\work\store\content\上限超え"
+        $file = "$folder\content_index.docx.001.tsv"
+        [System.IO.File]::Exists($file) | Should -Be $true
+
+        # 前の版が作った形: 議事録.docx を入れた、検索の上限（64MB）を超えるファイルと、別の docx を入れた小さいファイル
+        writeContentIndexFile $file (convertToContentIndexText @(@{ Name = "議事録.docx"; Places = @(@{ Place = "ページ001"; Text = "先頭`n" }) }))
+        $stream = New-Object System.IO.FileStream($file, [System.IO.FileMode]::Append)
+        $writer = New-Object System.IO.StreamWriter($stream, (New-Object System.Text.UnicodeEncoding($false, $false)))
+        try {
+            $line = ("あ" * 999) + "`n"
+            for ($i = 0; $i -lt 36000; $i++) { $writer.Write($line) }
+        } finally {
+            $writer.Dispose()
+        }
+        writeContentIndexFile "$folder\content_index.docx.002.tsv" (convertToContentIndexText @(@{ Name = "別.docx"; Places = @(@{ Place = "ページ001"; Text = "別の文書`n" }) }))
+        (Get-Item -LiteralPath $file).Length | Should -BeGreaterThan ${contentIndexSearchMaxBytes}
+
+        runIndexer $root | Should -Be 0
+
+        $status = readTestStatus $root
+        $status.Rows["上限超え\議事録.docx"].状態 | Should -Be ${stateDone}
+        foreach ($item in @(Get-ChildItem -LiteralPath $folder -Filter "content_index.docx.*.tsv" -File)) {
+            $item.Length | Should -BeLessThan 1MB
+        }
+        $names = @(Get-ChildItem -LiteralPath $folder -Filter "content_index.docx.*.tsv" -File | ForEach-Object { splitContentIndexTextByBook (readContentIndexText $_.FullName) } | ForEach-Object { $_.Name })
+        $names | Should -Contain "議事録.docx"
+        $names | Should -Contain "別.docx"
+        readTestError | Should -BeNullOrEmpty
+    }
+}
+
 Describe "indexer.ps1（取り込み）" -Tag Io {
     BeforeAll {
         $source = newSourceFolder "営業"
@@ -229,31 +268,6 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         foreach ($entry in @(Get-ChildItem -LiteralPath "$root\work\store\content\営業" -File)) {
             $entry.Name | Should -Match "^[\x20-\x7E]+$"
         }
-    }
-
-    It "前の版が作った 64MB を超える本文インデックスのファイルは、取り込む対象が無い更新でも外れ、中の元のファイルが同じ回に取り込み直されて検索に戻る" {
-        $root = newRoot
-        $dir = newSourceFolder "上限超え"
-        writeTestSettings $root @(@{ name = ""; path = $dir; enabled = $true })
-        runIndexer $root | Should -Be 0
-        $file = "$root\work\store\content\上限超え\content_index.docx.001.tsv"
-        [System.IO.File]::Exists($file) | Should -Be $true
-
-        # 前の版が作った形: 議事録.docx を入れた、検索の上限（64MB）を超えるファイル
-        $sb = New-Object System.Text.StringBuilder
-        $line = "あ" * 999 + "`n"
-        for ($i = 0; $i -lt 36000; $i++) { [void]$sb.Append($line) }
-        writeContentIndexFile $file (convertToContentIndexText @(@{ Name = "議事録.docx"; Places = @(@{ Place = "ページ001"; Text = $sb.ToString() }) }))
-        $sb = $null
-        (Get-Item -LiteralPath $file).Length | Should -BeGreaterThan ${contentIndexSearchMaxBytes}
-
-        runIndexer $root | Should -Be 0
-
-        $status = readTestStatus $root
-        $status.Rows["上限超え\議事録.docx"].状態 | Should -Be ${stateDone}
-        (Get-Item -LiteralPath $file).Length | Should -BeLessThan 1MB
-        (readContentIndexText $file) | Should -BeLike "*議事録.docx*"
-        readTestError | Should -BeNullOrEmpty
     }
 
     It "subfolders を false にして更新すると、サブフォルダのファイルが取り込み一覧と本文インデックスから外れ、true に戻すと取り込み直す" {
