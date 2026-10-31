@@ -2304,6 +2304,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="対象の拡張子">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#設定で選ぶ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        設定で選ぶ
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4259,6 +4276,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="対象の拡張子">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#設定で選ぶ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        設定で選ぶ
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4356,13 +4390,26 @@
 <h1 id="テキストファイルの読み取り">テキストファイルの読み取り<a class="headerlink" href="#テキストファイルの読み取り" title="Permanent link">&para;</a></h1>
 <p>扱うこと: テキストファイル（<code>.txt</code> <code>.py</code> <code>.java</code> など）の対象の拡張子、既定のアプリで開くかメモ帳で開くかの判定、文字コードの判定、行への分け方、大きさの上限、tebunko が作ったファイルの除外。扱わないこと: Office ファイルの取り込み（<a href="../crawl/">クロール対象フォルダと取り込み対象</a>・<a href="../excel/">Excel</a>・<a href="../office-apps/">Word・PowerPoint の共通処理と Office アプリの管理</a>）、検索時の長い行の扱い（<a href="../../search/output/#長い行を切る">検索結果の出力</a>）。先に読むページ: <a href="../crawl/">クロール対象フォルダと取り込み対象</a>、<a href="../target-decision/">取り込み対象の決定</a>。</p>
 <h2 id="対象の拡張子">対象の拡張子<a class="headerlink" href="#対象の拡張子" title="Permanent link">&para;</a></h2>
-<p><code>${textExtensions}</code>（<code>shared/core/text_file.ps1</code>）に固定する 75 個。大文字・小文字は区別しない。ソースコード・設定ファイルなど、文字コードを適切に選べれば読めるものを広く含む。<code>setting.config</code> で拡張子を足す仕組みは無い（<code>tests/meta/safety.Tests.ps1</code> が、Office の拡張子・PDF の拡張子（<a href="../pdf/">PDF ファイルの読み取り</a>）と合わせて 86 個の固定の一覧ちょうどであることを確かめる）。RTF（表示用の解釈が要る形式）など読み方が別に要る形式、<code>.exe</code> <code>.com</code> <code>.scr</code> <code>.hta</code> <code>.wsf</code> <code>.wsh</code> <code>.jse</code> <code>.vbe</code> <code>.lnk</code> <code>.url</code> <code>.msi</code> <code>.cpl</code> <code>.inf</code>（実行・登録に使われるファイル）・<code>.ts</code> は対象外。<code>.html</code> <code>.htm</code> は対象（下の <code>${textOpenExtensions}</code>。表示用の解釈が要る形式だが、タグを含めたテキストとして検索できるほうが有用なため対象に含めた）。</p>
+<p><code>${textExtensions}</code>（<code>shared/core/text_file.ps1</code>）に固定する 75 個。大文字・小文字は区別しない。ソースコード・設定ファイルなど、文字コードを適切に選べれば読めるものを広く含む。<code>setting.config</code> で拡張子を足す仕組みは無い（設定で選べるのはこの 75 個の中だけで、取り込まないものを外す・メモ帳で開くものを増やす方向だけ。下の「設定で選ぶ」。<code>tests/meta/safety.Tests.ps1</code> が、Office の拡張子・PDF の拡張子（<a href="../pdf/">PDF ファイルの読み取り</a>）と合わせて 86 個の固定の一覧ちょうどであることを確かめる）。RTF（表示用の解釈が要る形式）など読み方が別に要る形式、<code>.exe</code> <code>.com</code> <code>.scr</code> <code>.hta</code> <code>.wsf</code> <code>.wsh</code> <code>.jse</code> <code>.vbe</code> <code>.lnk</code> <code>.url</code> <code>.msi</code> <code>.cpl</code> <code>.inf</code>（実行・登録に使われるファイル）・<code>.ts</code> は対象外。<code>.html</code> <code>.htm</code> は対象（下の <code>${textOpenExtensions}</code>。表示用の解釈が要る形式だが、タグを含めたテキストとして検索できるほうが有用なため対象に含めた）。</p>
 <p><code>${textExtensions}</code> は次の 2 つを合わせたもの。</p>
 <ul>
 <li><strong><code>${textOpenExtensions}</code>（60 個。既定のアプリで開く）</strong>: <code>.txt</code> <code>.csv</code> <code>.tsv</code> <code>.md</code> <code>.log</code> <code>.json</code> <code>.xml</code> に加え、<code>.c</code> <code>.h</code> <code>.cpp</code> <code>.cc</code> <code>.cxx</code> <code>.hpp</code> <code>.cs</code> <code>.java</code> <code>.kt</code> <code>.kts</code> <code>.go</code> <code>.rs</code> <code>.swift</code> <code>.scala</code> <code>.dart</code> <code>.vb</code> <code>.bas</code> <code>.pas</code> <code>.asm</code> <code>.m</code> <code>.r</code> <code>.jl</code> <code>.hs</code> <code>.ex</code> <code>.exs</code> <code>.erl</code> <code>.clj</code> <code>.groovy</code> <code>.jsx</code> <code>.tsx</code> <code>.vue</code> <code>.sql</code> <code>.yaml</code> <code>.yml</code> <code>.toml</code> <code>.ini</code> <code>.cfg</code> <code>.conf</code> <code>.properties</code> <code>.gradle</code> <code>.cmake</code> <code>.proto</code> <code>.graphql</code> <code>.tf</code> <code>.html</code> <code>.htm</code> <code>.css</code> <code>.scss</code> <code>.less</code> <code>.rst</code> <code>.tex</code> <code>.diff</code> <code>.patch</code>。</li>
 <li><strong><code>${textNotepadExtensions}</code>（15 個。メモ帳で開く）</strong>: <code>.bat</code> <code>.cmd</code> <code>.ps1</code> <code>.vbs</code> <code>.js</code> <code>.reg</code> <code>.sh</code> <code>.py</code> <code>.rb</code> <code>.pl</code> <code>.php</code> <code>.lua</code> <code>.mjs</code> <code>.psm1</code> <code>.psd1</code>。既定のアプリで開くと実行・登録になるため、検索結果から［開く］で開くときは既定のアプリではなくメモ帳（固定のパス <code>%SystemRoot%\System32\notepad.exe</code>）で開く（<a href="../../gui/open-file/">検索結果からファイルを開く</a>）。取り込み・検索の対象かどうかの判定（<code>testTextExtension</code>）はこの 15 個も含める。</li>
 </ul>
 <p>拡張子だけが対象の判定基準で、拡張子の無いファイル・除外リストの仕組みは無い。</p>
+<h3 id="設定で選ぶ">設定で選ぶ<a class="headerlink" href="#設定で選ぶ" title="Permanent link">&para;</a></h3>
+<p>利用者は、次の 2 つを別々に選べる。取り込み対象の拡張子は Office 10 個・PDF・このテキスト 75 個の 86 個の中だけ（足せない）、開き方はこの 75 個の中だけ。</p>
+<ul>
+<li><strong>取り込み対象の拡張子（インデックスごと）</strong>: インデックスの名前ごとに、取り込まない拡張子を選ぶ。インデックスを取り込む前の確認ダイアログの［変更…］から開くダイアログ「取り込み対象の拡張子 - ＜インデックス名＞」（拡張子ごとの件数つきのチェック一覧）で選ぶ（<a href="../../gui/index-tab/">インデックス管理</a>）。既定は 86 個（Office 10 個・PDF・テキスト 75 個）すべて取り込む。Office・PDF も対象外にできる（外したものは、テキストと同じく更新のあとにインデックスから外れ、戻すと新規として取り込む。抽出のしかたは変わらないので、抽出版は上げない）。設定は <code>setting.config</code> の <code>indexExtensionExcludes</code>（インデックス名 → 取り込まない拡張子）。検索の絞り込みの <code>fileKinds</code> は検索のときに見る種類で、これはインデックスに入れるかどうかで、別のもの。複数のフォルダを持つインデックスも 1 か所で決める。</li>
+<li>
+<p><strong>開き方（拡張子ごと・全体）</strong>: 検索結果の［開く］で、拡張子ごとに「既定のアプリで開く」か「エディタで開く」かを選ぶ。［設定］の「テキストファイル」の「テキストの開き方」の［変更…］で選ぶ（<a href="../../gui/settings-tab/">設定タブ</a>）。<code>${textNotepadExtensions}</code> の 15 個は「既定のアプリで開く」を選べない（エディタ固定）。設定は <code>notepadTextExtensions</code>（エディタで開く拡張子。60 個の中から）。エディタの既定はメモ帳で、設定 <code>textEditorPath</code> で差し替えられる形になっている（この版では設定ファイルを手で書き換える。画面で選べるのは将来の対応）。</p>
+</li>
+<li>
+<p>取り込む一覧は <code>getIndexTargetExtensions</code>（Office・PDF・テキストの 86 個から取り込まないものを除く）で作る。<code>IngestPlanner.Crawl</code> が始めに 1 回だけ設定を読み、フォルダのインデックス名で一覧を作って <code>createTargetList</code> に渡す（途中で変えても次の回から効く）。拡張子ごとの件数は、数える段階（<code>findTargetFiles</code>）が列挙したファイルから数える（Office・PDF・テキストの分を、取り込まない拡張子の分も。tebunko が作ったファイルは除く。<code>getTargetExtensionCounts</code>）。</p>
+</li>
+<li>開き方は <code>getTextOpenWay</code>（15 個は常に <code>notepad</code>＝エディタ、そのほかは設定の <code>notepadTextExtensions</code> に入っていればエディタ）で決め、エディタで開くときは <code>openWithEditor</code> を通る。開くたびに設定を読む。</li>
+<li>検索側の「テキストかどうかの見分け」（<code>testTextExtension</code>）と、インデックスの中のフォルダの見分け（<code>${indexBookDirPattern}</code>）は 75 個のまま。取り込まないにした拡張子のインデックスも、外すまでは正しく読める。</li>
+</ul>
 <h2 id="文字コードの判定detecttextencoding">文字コードの判定（<code>detectTextEncoding</code>）<a class="headerlink" href="#文字コードの判定detecttextencoding" title="Permanent link">&para;</a></h2>
 <p>バイト列だけを見て判定する（画面にもファイルにも触らない判断層の関数）。上から順に、最初に当たったものを使う。<strong>判定できないもの（あいまいなものを含む）は取り込まない</strong>（誤った文字コードで読んで化けたまま検索対象にしない）。</p>
 <pre class="mermaid"><code>flowchart TD
