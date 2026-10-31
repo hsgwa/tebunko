@@ -207,7 +207,7 @@ if ($Index) {
     invokeChild "measure_index.ps1" @("-Tool", $Tool, "-Index", $Index, "-Work", $Work, "-Out", $indexJson, "-SampleMs", $SampleMs)
     $indexRaw = readJson $indexJson
     $indexSamples = @($indexRaw.Samples)
-    $indexResult = [ordered]@{ Pack = $indexRaw.Pack; Resources = (getPhaseResources $indexSamples $cores); PeakWorkingSetMB = $indexRaw.PeakWorkingSetMB }
+    $indexResult = [ordered]@{ Pack = $indexRaw.Pack; Gram = $indexRaw.Gram; Resources = (getPhaseResources $indexSamples $cores); PeakWorkingSetMB = $indexRaw.PeakWorkingSetMB }
 }
 
 # 3. 検索（語ごとに別のプロセス）
@@ -233,6 +233,7 @@ for ($w = 0; $w -lt $wordList.Count; $w++) {
     $res = @(getPhaseResources @($r.Samples) $cores | Where-Object { $_.Phase -eq "検索" })
     $search.Add([ordered]@{
         Name = $r.Name; Regex = [bool]$r.Regex; Mode = [string]$r.Mode; Hits = $rows[0].Hits; Truncated = [bool]$rows[0].Truncated; Packs = $rows[0].Packs
+        AllPacks = $rows[0].AllPacks; GramUsed = @($rows | Where-Object { $_.GramUsed -eq $true }).Count; Runs = $rows.Count; FirstShownMs = $rows[0].ShownMs
         TotalMs = getStats (valuesOf $rows "TotalMs")
         ShownMs = getStats (valuesOf $rows "ShownMs")
         HitTotal = $rows[0].HitTotal
@@ -304,9 +305,9 @@ if ($Index -and $Preview -gt 0) {
     }
 }
 
-# result.json（形式の版 5。版 2 で Preview を足し、版 3 で Preview.Words[].FullRead・ReadTextCallsUncached を足し、版 4 で Preview.Words[].BuildFirstMs・BuildRestMs と Render.FirstMs・RestMs を足し、版 5 で Preview.Words[].CreatedCells・ReadMore と Render.Elements・ScrollMs・RenderRetainedMB を足した）
+# result.json（形式の版 6。版 6 で Index.Gram と Search[].AllPacks・GramUsed・Runs・FirstShownMs を足し、版 2 で Preview を足し、版 3 で Preview.Words[].FullRead・ReadTextCallsUncached を足し、版 4 で Preview.Words[].BuildFirstMs・BuildRestMs と Render.FirstMs・RestMs を足し、版 5 で Preview.Words[].CreatedCells・ReadMore と Render.Elements・ScrollMs・RenderRetainedMB を足した。版 5 までの Search は gram 索引なしの数字）
 $run.SearchMode = (@($search | ForEach-Object { $_.Mode } | Select-Object -Unique) -join ",")
-$result = [ordered]@{ Schema = 5; Run = $run; Index = $indexResult; Search = $(if ($Index) { $search.ToArray() } else { $null }); Ingest = $ingestResult; Xlsx = $xlsxResult; Export = $exportResult
+$result = [ordered]@{ Schema = 6; Run = $run; Index = $indexResult; Search = $(if ($Index) { $search.ToArray() } else { $null }); Ingest = $ingestResult; Xlsx = $xlsxResult; Export = $exportResult
     Preview = $(if ($Index -and $Preview -gt 0) { [ordered]@{ Count = $Preview; Render = [bool]$Render; Words = $previewWords.ToArray(); Skipped = $previewSkipped.ToArray() } } else { $null })
     Typing = $(if ($Index -and $Typing -gt 0) { [ordered]@{
         Mode = [string]$typingRaw[0].Mode; Count = $Typing; IntervalMs = $TypingIntervalMs; MinLength = $TypingMinLength
@@ -358,6 +359,12 @@ if ($indexResult -and $indexResult.Pack) {
     addMetric "index_tsv_mb" "" "value" $indexResult.Pack.TsvMB "MB"
     addMetric "index_pack_mb" "" "value" $indexResult.Pack.PackMB "MB"
 }
+if ($indexResult -and $indexResult.Gram -and !$indexResult.Gram.Skipped) {
+    addMetric "gram_seconds" "" "value" $indexResult.Gram.Seconds "s"
+    addMetric "gram_files" "" "value" $indexResult.Gram.Files "count"
+    addMetric "gram_mb" "" "value" $indexResult.Gram.MB "MB"
+    addMetric "gram_failed" "" "max" $indexResult.Gram.Failed "count"
+}
 $packPhase = @($(if ($indexResult) { $indexResult.Resources }) | Where-Object { $_.Phase -eq "pack の作成" })
 if ($packPhase.Count) {
     addMetric "index_cpu_seconds" "" "value" $packPhase[0].CpuSeconds "s"
@@ -372,6 +379,10 @@ foreach ($s in $search) {
         foreach ($stat in @("Min", "Median", "Mean", "Max")) { addMetric $part[0] $s.Name $stat.ToLower() $part[1][$stat] "ms" }
     }
     addMetric "search_hits" $s.Name "value" $s.Hits "count"
+    addMetric "search_packs" $s.Name "value" $s.Packs "count"
+    addMetric "search_all_packs" $s.Name "value" $s.AllPacks "count"
+    addMetric "search_gram_used" $s.Name "value" $s.GramUsed "count"
+    addMetric "search_first_shown_ms" $s.Name "value" $s.FirstShownMs "ms"
     addMetric "search_working_set_mb" $s.Name "max" $s.WorkingSetMaxMB "MB"
     addMetric "search_working_set_per10_mb" $s.Name "value" $s.WorkingSetPer10MB "MB"
     addMetric "search_handles" $s.Name "last" $s.HandlesLast "count"
@@ -572,6 +583,11 @@ if ($indexResult.Pack) {
 } else {
     add "渡したインデックスに TSV が無いため、測っていない。"
 }
+$gramLines = @(getPerfGramLines $indexResult.Gram)
+if ($gramLines.Count -gt 0) {
+    add
+    foreach ($l in $gramLines) { add $l }
+}
 add
 add "「CPU」はこのプロセスの使用率（全コアを使い切ると 100%）、「PC の CPU」は PC 全体の使用率の平均。ワーキングセットのピークは $($indexResult.PeakWorkingSetMB) MB。"
 add
@@ -613,12 +629,16 @@ if ($run.SearchMode -eq "service") {
     add "語ごとに新しいプロセスを起動し、同じプロセスで $Count 回続けて検索した。測った版には検索の司令のスレッド（SearchService）が無いので、その版の画面と同じく、検索のたびに新しいスレッドで lib.ps1 を読み込み、集約ファイルを列挙して照合した（上限 1 万件）。1 回目は画面を開き直した直後の検索に当たり、たいてい最大の値になる。"
 }
 add
-add "| 語 | ヒット件数 | 総数（HitTotal） | 最小 | 中央値 | 平均 | 最大 | 表がそろうまで（ShownMs。中央値／最大） | lib.ps1 の読み込み（中央値／最大） | 列挙（中央値／最大） | 照合（中央値／最大） |"
-add "|---|---|---|---|---|---|---|---|---|---|---|"
+add "「列挙」は、gram 索引で絞る時間を含む。「照合した pack」は、gram 索引で絞った後の数／全部の数（gram 索引を使わなかった語は「–／全部」）。「1 回目」は、語ごとの新しいプロセスの 1 回目（画面を開いた直後に当たる）の ShownMs、「数え終わるまで」は TotalMs。「gram を使った回数」が 0 の語、またはこの列が無い結果は、gram 索引なしの数字なので、比べるときは区別する。"
+add
+add "| 語 | ヒット件数 | 総数（HitTotal） | 最小 | 中央値 | 平均 | 最大 | 表がそろうまで（ShownMs。中央値／最大） | lib.ps1 の読み込み（中央値／最大） | 列挙（中央値／最大） | 照合（中央値／最大） | 1 回目（ShownMs。N=1） | 数え終わるまで（TotalMs。中央値／最大） | 照合した pack（gram で絞った数／全部） | gram を使った回数／回数 |"
+add "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"
 foreach ($s in $search) {
-    add ("| {0} | {1}{2} | {12} | {3} ms | {4} ms | {5} ms | {6} ms | {13}／{14} ms | {7} | {8}／{9} ms | {10}／{11} ms |" -f $s.Name, $s.Hits, $(if ($s.Truncated) { "+" } else { "" }),
+    add ("| {0} | {1}{2} | {12} | {3} ms | {4} ms | {5} ms | {6} ms | {13}／{14} ms | {7} | {8}／{9} ms | {10}／{11} ms | {15} | {16}／{17} ms | {18} | {19}／{20} |" -f $s.Name, $s.Hits, $(if ($s.Truncated) { "+" } else { "" }),
         (ms $s.TotalMs "Min"), (ms $s.TotalMs "Median"), (ms $s.TotalMs "Mean"), (ms $s.TotalMs "Max"),
-        $(if ($s.LoadMs) { "{0}／{1} ms" -f (ms $s.LoadMs "Median"), (ms $s.LoadMs "Max") } else { "–" }), (ms $s.ListMs "Median"), (ms $s.ListMs "Max"), (ms $s.MatchMs "Median"), (ms $s.MatchMs "Max"), $(if ($null -ne $s.HitTotal) { "{0:N0}" -f [int]$s.HitTotal } else { "–" }), (ms $s.ShownMs "Median"), (ms $s.ShownMs "Max"))
+        $(if ($s.LoadMs) { "{0}／{1} ms" -f (ms $s.LoadMs "Median"), (ms $s.LoadMs "Max") } else { "–" }), (ms $s.ListMs "Median"), (ms $s.ListMs "Max"), (ms $s.MatchMs "Median"), (ms $s.MatchMs "Max"), $(if ($null -ne $s.HitTotal) { "{0:N0}" -f [int]$s.HitTotal } else { "–" }), (ms $s.ShownMs "Median"), (ms $s.ShownMs "Max"),
+        $(if ($null -ne $s.FirstShownMs) { "{0:N0} ms" -f $s.FirstShownMs } else { "–" }), (ms $s.TotalMs "Median"), (ms $s.TotalMs "Max"),
+        (formatPerfPacks $s.Packs $s.AllPacks $s.GramUsed), $(if ($null -ne $s.GramUsed) { $s.GramUsed } else { "–" }), $(if ($null -ne $s.Runs) { $s.Runs } else { $Count }))
 }
 add
 add "### 検索のリソース"
