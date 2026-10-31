@@ -4643,7 +4643,23 @@
 <td><code>recoverIngestJournal</code></td>
 <td>ledger, journal, pending, channel, reporter</td>
 <td><code>@{Resume; Unpublished}</code></td>
-<td>始めの復旧。前回のジャーナル（と前の版の <code>ingesting.txt</code>）から、やり直す仕事を決め、書き出していないフォルダを先に書き出す。ジャーナルが読めないときは今ある書き出し前のフォルダを書き出す。書き出せなかった・中止で飛ばしたフォルダは Unpublished に入れ、次の回のジャーナルへ「未」で持ち越す</td>
+<td>始めの復旧。前回のジャーナル（と前の版の <code>ingesting.txt</code>）から、やり直す仕事を決め、書き出していないフォルダを先に書き出す。ジャーナルが読めないときは今ある書き出し前のフォルダを書き出す。検索の上限を超える本文インデックスのファイルがあるフォルダも書き出し待ちに足す（<code>findOversizeContentIndexFolders</code>）。書き出せなかった・中止で飛ばしたフォルダは Unpublished に入れ、次の回のジャーナルへ「未」で持ち越す</td>
+<td>同上</td>
+<td>インデックス作成</td>
+</tr>
+<tr>
+<td><code>applyStartupRequeued</code></td>
+<td>ledger, pending, status</td>
+<td>–</td>
+<td>始めの書き出しで外した上限超えのファイルの中の元のファイル（<code>pending.Requeued</code>）の行を、取り込み一覧のファイルと前回の行（<code>status.Rows</code>）で「未取り込み」・エラー空にして保存し、印を空にする（同じ回で取り込み直す）</td>
+<td>同上</td>
+<td>インデックス作成</td>
+</tr>
+<tr>
+<td><code>selectFinishStatusRows</code></td>
+<td>rows, ledger, pending</td>
+<td>行の並び</td>
+<td>終わりの取り込み一覧に書く行を選ぶ。取りやめた行（<code>DroppedRows</code>）は除き、書き出しで上限超えのファイルを外した元のファイル（<code>pending.Requeued</code>）の行は「未取り込み」・エラー空に戻す（この回の結果より優先）</td>
 <td>同上</td>
 <td>インデックス作成</td>
 </tr>
@@ -4832,6 +4848,12 @@
 <td>folders, taken</td>
 <td>–</td>
 <td>本文インデックスのファイルを書き終えたフォルダの、そのとき書き出した名前（<code>taken</code>。<code>TakeAll</code> などの戻り値）だけを、<code>Unpublished</code>（外し終えていない削除。<code>TakeAll</code> などでは消えない）から外す。同じ回に書き出しを飛ばした名前は残る</td>
+</tr>
+<tr>
+<td><code>AddRequeued</code></td>
+<td>relPaths</td>
+<td>–</td>
+<td>書き出しで外した上限超えの本文インデックスのファイルの中の元のファイル（インデックスからの相対パス）を、取り込み直し（<code>Requeued</code>）に足す。終わりの取り込み一覧で「未取り込み」に戻す</td>
 </tr>
 <tr>
 <td><code>AddPending</code></td>
@@ -5086,13 +5108,13 @@
 <td><code>TextExcludes</code>（プロパティ）</td>
 <td>–</td>
 <td>hashtable</td>
-<td>インデックスごとの、取り込まないテキストの拡張子（インデックス名 → 拡張子の配列）。<code>Crawl</code> が、フォルダのインデックス名で <code>getTargetExtensionList</code> を作って <code>createTargetList</code> に渡す。<code>$null</code> のまま <code>Crawl</code> を呼ぶと、始めに 1 回だけ設定（<code>indexTextExcludes</code>）を読む</td>
+<td>インデックスごとの、取り込まない拡張子（Office・PDF・テキストも。インデックス名 → 拡張子の配列）。<code>Crawl</code> が、フォルダのインデックス名で <code>getTargetExtensionList</code> を作って <code>createTargetList</code> に渡す。<code>$null</code> のまま <code>Crawl</code> を呼ぶと、始めに 1 回だけ設定（<code>indexExtensionExcludes</code>）を読む</td>
 </tr>
 <tr>
 <td><code>TextCountsByIndex</code>（プロパティ）</td>
 <td>–</td>
 <td>hashtable</td>
-<td>インデックス名 → 拡張子 → 件数（テキストの拡張子ごとの件数。取り込まない拡張子の分も。同じ名前の複数のフォルダは合計）。<code>Crawl</code> が <code>createTargetList</code> の <code>TextCounts</code> から足す</td>
+<td>インデックス名 → 拡張子 → 件数（Office・PDF・テキストの拡張子ごとの件数。取り込まない拡張子の分も。同じ名前の複数のフォルダは合計）。<code>Crawl</code> が <code>createTargetList</code> の <code>TextCounts</code> から足す</td>
 </tr>
 <tr>
 <td><code>Crawl</code></td>
@@ -5217,6 +5239,30 @@
 <td>取り込むかどうかと理由（<code>done</code> / <code>failed</code> / <code>new</code> / <code>updated</code> / <code>pending</code> / <code>lost</code> / <code>outdated</code>）。更新日時・サイズが同じでも、TSV が欠けていれば <code>lost</code>、前の抽出版なら <code>outdated</code> で取り込み直す</td>
 <td>同上</td>
 <td>createTargetList</td>
+</tr>
+<tr>
+<td><code>getIndexSelectableExtensions</code></td>
+<td>–</td>
+<td>string[]</td>
+<td>取り込み対象として選べる拡張子の全部（小文字。Office 10 個・PDF・テキスト 75 個の 86 個。並びは Office・PDF・テキスト）</td>
+<td><a href="../../indexing/target-decision/">取り込み対象の決定</a></td>
+<td><code>getIndexTargetExtensions</code>・<code>getTargetExtensionCounts</code>・取り込み対象の拡張子のダイアログ</td>
+</tr>
+<tr>
+<td><code>getIndexTargetExtensions</code></td>
+<td>excluded（省略可）</td>
+<td>string[]</td>
+<td>選べる 86 個から excluded（取り込まないと選んだ拡張子。大文字・小文字を区別せず、86 個に無いものは無視）を除いた一覧</td>
+<td>同上</td>
+<td><code>getTargetExtensionList</code>（<code>IngestPlanner.Crawl</code>）</td>
+</tr>
+<tr>
+<td><code>getTargetExtensionCounts</code></td>
+<td>names（ファイル名・パスの並び）</td>
+<td>ハッシュテーブル（拡張子 → 件数）</td>
+<td>86 個の拡張子ごとの件数（小文字。86 個に無い拡張子は数えない）</td>
+<td>同上</td>
+<td><code>findTargetFiles</code>（<code>TextCounts</code>）</td>
 </tr>
 <tr>
 <td><code>getIngestApp</code></td>

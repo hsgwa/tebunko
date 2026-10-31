@@ -4239,7 +4239,11 @@
 </tr>
 <tr>
 <td>取り込まない拡張子（<code>indexer_plan.Tests.ps1</code>）</td>
-<td><code>getTargetExtensionList</code>、取り込まないにした拡張子を除いた一覧での <code>findTargetFiles</code>、前に取り込んだ取り込まない拡張子のファイルが <code>Removed</code> に入りインデックスから外れること（ログが「取り込まないにした拡張子」と「元ファイルが無くなった」に分かれる）、取り込むに戻すと新規として数えること（<code>$TestDrive</code>）</td>
+<td><code>getTargetExtensionList</code>、取り込まないにした拡張子を除いた一覧での <code>findTargetFiles</code>、前に取り込んだ取り込まない拡張子のファイルが <code>Removed</code> に入りインデックスから外れること（ログが「取り込まないにした拡張子」と「元ファイルが無くなった」に分かれる）、取り込むに戻すと新規として数えること（<code>$TestDrive</code>）。Office・PDF（<code>.xlsx</code> <code>.pdf</code>）も同じに扱い、Office 10 個をすべて対象外にした回は Office を起動しない（<code>getApp</code> の Mock が 0 回）</td>
+</tr>
+<tr>
+<td>取り込み対象の拡張子の判断（<code>indexer_decide.Tests.ps1</code>）</td>
+<td><code>getIndexSelectableExtensions</code>（86 個）・<code>getIndexTargetExtensions</code>（対象外を除く。大文字・86 個の外・Office をすべて除く場合）・<code>getTargetExtensionCounts</code>（Office・PDF・テキストの件数）の表</td>
 </tr>
 <tr>
 <td><code>IngestPlanner</code>（<code>indexer_plan.Tests.ps1</code>）</td>

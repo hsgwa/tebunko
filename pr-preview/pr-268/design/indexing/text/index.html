@@ -4398,14 +4398,14 @@
 </ul>
 <p>拡張子だけが対象の判定基準で、拡張子の無いファイル・除外リストの仕組みは無い。</p>
 <h3 id="設定で選ぶ">設定で選ぶ<a class="headerlink" href="#設定で選ぶ" title="Permanent link">&para;</a></h3>
-<p>利用者は、次の 2 つを別々に選べる。どちらも選べるのは、この 75 個の中だけ（足せない）。</p>
+<p>利用者は、次の 2 つを別々に選べる。取り込み対象の拡張子は Office 10 個・PDF・このテキスト 75 個の 86 個の中だけ（足せない）、開き方はこの 75 個の中だけ。</p>
 <ul>
-<li><strong>取り込み対象の拡張子（インデックスごと）</strong>: インデックスの名前ごとに、取り込まない拡張子を選ぶ。インデックスを取り込む前の確認ダイアログの［変更…］から開くダイアログ「取り込み対象の拡張子 - ＜インデックス名＞」（拡張子ごとの件数つきのチェック一覧）で選ぶ（<a href="../../gui/index-tab/">インデックス管理</a>）。既定は 75 個すべて取り込む。設定は <code>setting.config</code> の <code>indexTextExcludes</code>（インデックス名 → 取り込まない拡張子）。複数のフォルダを持つインデックスも 1 か所で決める。</li>
+<li><strong>取り込み対象の拡張子（インデックスごと）</strong>: インデックスの名前ごとに、取り込まない拡張子を選ぶ。インデックスを取り込む前の確認ダイアログの［変更…］から開くダイアログ「取り込み対象の拡張子 - ＜インデックス名＞」（拡張子ごとの件数つきのチェック一覧）で選ぶ（<a href="../../gui/index-tab/">インデックス管理</a>）。既定は 86 個（Office 10 個・PDF・テキスト 75 個）すべて取り込む。Office・PDF も対象外にできる（外したものは、テキストと同じく更新のあとにインデックスから外れ、戻すと新規として取り込む。抽出のしかたは変わらないので、抽出版は上げない）。設定は <code>setting.config</code> の <code>indexExtensionExcludes</code>（インデックス名 → 取り込まない拡張子）。検索の絞り込みの <code>fileKinds</code> は検索のときに見る種類で、これはインデックスに入れるかどうかで、別のもの。複数のフォルダを持つインデックスも 1 か所で決める。</li>
 <li>
 <p><strong>開き方（拡張子ごと・全体）</strong>: 検索結果の［開く］で、拡張子ごとに「既定のアプリで開く」か「エディタで開く」かを選ぶ。［設定］の「テキストファイル」の「テキストの開き方」の［変更…］で選ぶ（<a href="../../gui/settings-tab/">設定タブ</a>）。<code>${textNotepadExtensions}</code> の 15 個は「既定のアプリで開く」を選べない（エディタ固定）。設定は <code>notepadTextExtensions</code>（エディタで開く拡張子。60 個の中から）。エディタの既定はメモ帳で、設定 <code>textEditorPath</code> で差し替えられる形になっている（この版では設定ファイルを手で書き換える。画面で選べるのは将来の対応）。</p>
 </li>
 <li>
-<p>取り込む一覧は <code>getTextTargetExtensions</code>（75 個から取り込まないものを除く）で作る。<code>IngestPlanner.Crawl</code> が始めに 1 回だけ設定を読み、フォルダのインデックス名で一覧を作って <code>createTargetList</code> に渡す（途中で変えても次の回から効く）。拡張子ごとの件数は、数える段階（<code>findTargetFiles</code>）が列挙したファイルから数える（取り込まない拡張子の分も。tebunko が作ったファイルは除く。<code>getTextExtensionCounts</code>）。</p>
+<p>取り込む一覧は <code>getIndexTargetExtensions</code>（Office・PDF・テキストの 86 個から取り込まないものを除く）で作る。<code>IngestPlanner.Crawl</code> が始めに 1 回だけ設定を読み、フォルダのインデックス名で一覧を作って <code>createTargetList</code> に渡す（途中で変えても次の回から効く）。拡張子ごとの件数は、数える段階（<code>findTargetFiles</code>）が列挙したファイルから数える（Office・PDF・テキストの分を、取り込まない拡張子の分も。tebunko が作ったファイルは除く。<code>getTargetExtensionCounts</code>）。</p>
 </li>
 <li>開き方は <code>getTextOpenWay</code>（15 個は常に <code>notepad</code>＝エディタ、そのほかは設定の <code>notepadTextExtensions</code> に入っていればエディタ）で決め、エディタで開くときは <code>openWithEditor</code> を通る。開くたびに設定を読む。</li>
 <li>検索側の「テキストかどうかの見分け」（<code>testTextExtension</code>）と、インデックスの中のフォルダの見分け（<code>${indexBookDirPattern}</code>）は 75 個のまま。取り込まないにした拡張子のインデックスも、外すまでは正しく読める。</li>
@@ -4490,7 +4490,7 @@
 <h2 id="行への分け方splittextlines">行への分け方（<code>splitTextLines</code>）<a class="headerlink" href="#行への分け方splittextlines" title="Permanent link">&para;</a></h2>
 <p>行の分け方は <code>StreamReader.ReadLine</code> と同じ（CRLF・LF・CR のどれでも 1 行）。途中の空の行も捨てない（1 行目 = ファイルの 1 行目。本文インデックスの行番号がそのまま元のファイルの行番号になる）。行末の空白は取り除き（<code>TrimEnd</code>）、末尾の空の行は捨てる。</p>
 <h2 id="大きさの上限">大きさの上限<a class="headerlink" href="#大きさの上限" title="Permanent link">&para;</a></h2>
-<p>元のファイルが <code>${textFileMaxBytes}</code>（10MB）を超えるものは、コピーも読みもせず（元の大きさをメタデータで見る。元は開かない） <code>ファイルサイズが大きすぎるため更新できません。</code> の失敗にする（Office のファイルのサイズの上限と同じ文言にそろえた）。バイナリと判定したものは <code>テキストファイルではないため更新できません。</code> の失敗にする。読み取り中の例外も、Office のファイルと同じく失敗にする（<a href="../errors-ingest/#ファイルごとの失敗取り込み一覧のエラー列">ファイルごとの失敗</a>）。</p>
+<p>元のファイルが <code>${textFileMaxBytes}</code>（10MB）を超えるものは、コピーも読みもせず（元の大きさをメタデータで見る。元は開かない） <code>ファイルサイズが大きすぎるため更新できません（上限 10 MB）。</code> の失敗にする（<code>${textFileTooLargeMessage}</code>。Office のファイルの文言と同じ形で、上限の値を付けた。Office の ZIP と PDF の上限は、悪用のヒントになるため値を出さない短い文言のまま）。バイナリと判定したものは <code>テキストファイルではないため更新できません。</code> の失敗にする。読み取り中の例外も、Office のファイルと同じく失敗にする（<a href="../errors-ingest/#ファイルごとの失敗取り込み一覧のエラー列">ファイルごとの失敗</a>）。</p>
 <p>空のファイル・空の行だけのファイルは、TSV 0 個の「済」とし、次のインデックス作成で「インデックスが無い」として取り込み直さない（中身が空の Office のファイルと同じ扱い）。</p>
 <h2 id="テキストファイルの抽出処理extracttextfile">テキストファイルの抽出処理（<code>extractTextFile</code>）<a class="headerlink" href="#テキストファイルの抽出処理extracttextfile" title="Permanent link">&para;</a></h2>
 <p><code>tebunko/indexer/extract_text.ps1</code> の <code>extractTextFile</code> は、元のファイルに影響を出さないため、元を作業領域の <code>source.copy</code>（<code>.tsv</code> にならない固定の名前。消せずに残っても TSV として公開されない）に <code>copyFileShared</code>（読み取りだけ・<code>FileShare.ReadWrite | Delete</code>）でコピーし、コピーを <code>shared/core/text_file.ps1</code> の <code>readTextFile</code>（ファイルを開いて読む状態層の関数）で読み、TSV を書く前にコピーを消す（<code>finally</code>。消せなかったときは黙らず取り込みの失敗にする。作業領域の中身は本文インデックスに回るため、コピーを残さない）。強制終了で残ったコピーは、次のファイルの前と次のインデックス作成の始めに作業フォルダごと片付けられる。排他で開かれたファイルはコピーできず、取り込みの失敗になる。大きさの上限は、コピーの前に元の大きさで確かめる（コピーを読むときの確かめは、コピー中に大きくなった場合の保険）。書きかけのファイルをコピーしたときの中身は、直接読む場合と同じ。<code>readTextFile</code> が返す行の並びを、<code>tebunko/indexer/extract_text.ps1</code> の <code>extractTextFile</code> が場所「本文」の TSV 1 つに書き出す（<code>writeUnits</code> と違い、途中の空の行を捨てない）。取り込み（<code>ingestFile</code>。<code>tebunko/indexer/extract_office.ps1</code>）は、対象の拡張子ならここに回し、Office を使わずに読む仕事で取り込む（<a href="../parallel/">取り込みの並列化</a>）。</p>
