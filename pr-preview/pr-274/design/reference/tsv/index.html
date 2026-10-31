@@ -4516,7 +4516,7 @@
 </tr>
 <tr>
 <td><code>getFilesNoFollow</code></td>
-<td>root, -IncludeHidden, -SkipUnknown, -TopOnly</td>
+<td>root, -IncludeHidden, -SkipUnknown, -TopOnly, -shouldStop, -onProgress（ファイルが 1000 件増えるごとに数を伝える）</td>
 <td><code>@{ Files; Directories; Links; HasError; Reason }</code></td>
 <td>root の下のファイル・フォルダを、リンクのフォルダへ降りずに集める（<code>Get-ChildItem -Recurse</code>・<code>AllDirectories</code> の代わり）。ジャンクション・シンボリックリンクは <code>Links</code> に入れ、中へ降りない（リンクの先のファイルは <code>Files</code> に入らない）。root そのものはリンクかどうか見ず、先の中を集める。Hidden は、既定では除く（<code>-IncludeHidden</code> で含める。System だけのものは入れる）。<code>-TopOnly</code> を付けると root の直下だけを読み、サブフォルダの下へは進まない（直下のリンクは <code>Links</code> に入る）。並びは <code>Get-ChildItem -Recurse</code> と同じ（フォルダごとに、その中身を並べてから、サブフォルダの下へ進む）。<code>getLinkKind</code> が <code>Unknown</code> のフォルダ（OneDrive のオンデマンドのフォルダなど）は、既定では降り、<code>-SkipUnknown</code> を付けると降りずに <code>Links</code> に入れる。読めないフォルダがあっても例外にせず <code>HasError</code> を <code>$true</code>・<code>Reason</code> にして、読めたところを返す</td>
 <td><a href="../../../safety/file-access/">ファイルの読み書きの範囲</a></td>
@@ -4768,10 +4768,38 @@
 <td>ingestFile, getContentIndexFileKind, describePlace, findTargetFiles（<code>$targetExtensions</code>）</td>
 </tr>
 <tr>
+<td><code>getTextExtensionCounts</code></td>
+<td>names（ファイル名・パスの並び）</td>
+<td>ハッシュテーブル（拡張子 → 件数）</td>
+<td><code>$textExtensions</code> の拡張子ごとの件数（小文字。Office・PDF・一覧に無い拡張子は数えない。取り込みの件数は Office・PDF も数える <code>getTargetExtensionCounts</code>）</td>
+<td>テキストだけを数える呼び出し元</td>
+</tr>
+<tr>
+<td><code>addOutOfListExtensions</code></td>
+<td>chosen（ダイアログで選んだ拡張子）, current（今の設定の値）</td>
+<td>拡張子の配列</td>
+<td>chosen に、current のうち <code>$textExtensions</code>（75 個）に無いものを足して返す。ダイアログは 75 個だけを扱うので、書く前・比べる前に足し、75 個の外の値が設定から消えないようにする</td>
+<td><a href="../../indexing/text/#対象の拡張子">対象の拡張子</a></td>
+</tr>
+<tr>
+<td><code>getTextTargetExtensions</code></td>
+<td>excluded（省略可）</td>
+<td>string[]</td>
+<td><code>$textExtensions</code> から excluded（取り込まないと選んだ拡張子。大文字・小文字を区別せず、一覧に無いものは無視）を除いた一覧（<code>$textExtensions</code> の順）</td>
+<td>–</td>
+</tr>
+<tr>
+<td><code>getTextOpenWay</code></td>
+<td>path, notepadExtra（省略可）</td>
+<td><code>"notepad"</code> / <code>"default"</code></td>
+<td>テキストの開き方。<code>$textNotepadExtensions</code> は常に <code>notepad</code>、notepadExtra に入る <code>$textExtensions</code> の拡張子も <code>notepad</code>。終わりの <code>.</code> と空白は落としてから見る</td>
 <td><code>testTextOpenWithNotepad</code></td>
-<td>path</td>
+</tr>
+<tr>
+<td><code>testTextOpenWithNotepad</code></td>
+<td>path, notepadExtra（省略可）</td>
 <td>bool</td>
-<td>拡張子が、既定のアプリではなくメモ帳で開く拡張子（<code>$textNotepadExtensions</code>。開くと実行・登録になるもの。大文字・小文字を区別しない。終わりの <code>.</code> と空白は Windows が無視して開くので、落としてから見る）か</td>
+<td>拡張子が、既定のアプリではなくメモ帳で開く拡張子（<code>$textNotepadExtensions</code>。開くと実行・登録になるもの。notepadExtra は設定でメモ帳にした拡張子。大文字・小文字を区別しない。終わりの <code>.</code> と空白は Windows が無視して開くので、落としてから見る）か</td>
 <td>openFoundSource（<a href="../../gui/open-file/">元のファイルを開く</a>）</td>
 </tr>
 <tr>

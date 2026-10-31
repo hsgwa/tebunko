@@ -3152,6 +3152,24 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［設定］タブ
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -3168,6 +3186,36 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="目次">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#テキストファイル開き方エディタ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        テキストファイル（開き方・エディタ）
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -4124,6 +4172,25 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#テキストファイル開き方エディタ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        テキストファイル（開き方・エディタ）
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -4143,13 +4210,29 @@
 
 
 <h1 id="設定タブ">［設定］タブ<a class="headerlink" href="#設定タブ" title="Permanent link">&para;</a></h1>
-<p>扱うこと: ワークスペース（インデックス・取り込み一覧・ログの置き場所）の表示・変更、設定ファイルの場所の表示、検索結果の件数の上限の変更。扱わないこと: 設定ファイルの中身そのもの（<a href="../../structure/settings-file/">設定ファイル（setting.config）</a>）。先に読むページ: <a href="../">画面</a>、<a href="../../structure/data/">データの置き場所とパスの決め方</a>。</p>
+<p>扱うこと: ワークスペース（インデックス・取り込み一覧・ログの置き場所）の表示・変更、設定ファイルの場所の表示、検索結果の件数の上限の変更、テキストファイルの拡張子の扱いの変更。扱わないこと: 設定ファイルの中身そのもの（<a href="../../structure/settings-file/">設定ファイル（setting.config）</a>）。先に読むページ: <a href="../">画面</a>、<a href="../../structure/data/">データの置き場所とパスの決め方</a>。</p>
 <p>設定の画面（<code>xaml\settings\settings.xaml</code>・<code>ui\settings\settings.ps1</code>）は、題と説明は置かず、節ごとの枠つきのカードを縦に並べる。いまの節は「インデックス設定」（「ワークスペース」と「設定ファイル」の 2 つの行）と「検索結果」（「検索結果の件数の上限」の行）で、最大並列処理数の行は置かない。中身の左端は、検索・インデックス管理と同じ位置（窓の中身の左端から 16）にそろえ、上の余白は 16。中身の幅は最大 880 で、左に寄せる。節は <code>Section.Card</code>（枠つきの面）の中に、<code>Section.Header</code>（見出しの帯。高さ 32）と <code>Section.Row</code>（行。上に細い線）を縦に並べて作り、節（カード）の間は 16 にする（2 つ目からのカードに <code>Margin="0,16,0,0"</code> を付ける）。値を見せるだけの箱は <code>Field.ReadOnly</code>（高さ 30）。節を足すときもこの形で作る。中身が窓の高さを超えるときは、画面全体が縦にスクロールする。左の欄の最後の画面にする。</p>
 <p><strong>検索結果の件数の上限</strong>（<code>searchLimit</code>）は、「検索結果」の節の行で変える。右に［制限あり］（ラジオ）と数の欄・<code>件</code>、その下に［制限なし］（ラジオ）を置き、下に範囲と既定（<code>1,000～100,000 件の範囲で指定できます。既定は 10,000 件です。</code>）と、重さの注意（<code>getSearchLimitTexts</code>）を出す。判断は判断層の <code>getSearchLimitView</code>・<code>getSearchLimitInputDecision</code>（<code>settings_view.ps1</code>）が行う。</p>
 <ul>
 <li>［制限あり］: 欄に数を入れ、Enter か欄から出たときに確定し、Esc で今の値に戻す。全角の数字・前後の空白は受ける。<code>,</code> は表示だけのものなので、どこにあっても無視する（表示された <code>10,000</code> の桁を足し引きしてもそのまま受ける）。範囲の外・数字でない文字は、欄の直下の理由（<code>SearchLimitInputError</code>。欄の枠も赤にする。場所はいつも空けておき、出ても下の行が動かない）に直し方を出して、変えない。</li>
 <li>［制限なし］: 選ぶとすぐ確定し、欄の数は既定を残して見せる。<code>searchLimit</code> は 0 になり、検索は打ち切らず、打ち切りの文言も出さない。</li>
 <li>確定すると <code>writeSearchLimit</code> で <code>setting.config</code> に書き、画面の控え（<code>$script:searchLimit</code>）を直す。次の検索から効き、実行中の検索は変わらない。書けなかったときは理由を出して今の値に戻す。</li>
+</ul>
+<h2 id="テキストファイル開き方エディタ">テキストファイル（開き方・エディタ）<a class="headerlink" href="#テキストファイル開き方エディタ" title="Permanent link">&para;</a></h2>
+<p>「テキストファイル」の節に 2 つの行を置く。節は［インデックス設定］の節と［検索結果］の節の間に並ぶ（設計では「ファイルの開き方」の節の直後。その節ができたらその次にそろえる）。どの拡張子を取り込むかは、ここでは選ばない（インデックスごとに、インデックスの更新の確認で選ぶ。<a href="../index-tab/">インデックス管理</a>）。</p>
+<ul>
+<li><strong>テキストの開き方</strong>: 題・説明・今の状態の要約（<code>getTextOpenSummary</code>。既定のままなら <code>すべて既定のままです（エディタで開くのは、実行・登録になる 15 個）</code>、変えていれば <code>変更したもの 2 個（エディタで開く）</code>）と［変更…］。［変更…］でダイアログ「テキストの開き方」（<code>ui\settings\text_open_dialog.ps1</code>・<code>xaml\dialog_text_open.xaml</code>。幅 720）を開く。</li>
+<li><strong>エディタ</strong>: 題・説明（<code>「エディタで開く」に使うアプリです。今はメモ帳（既定）だけです。</code>。名前は <code>getTextEditorLabel</code>。設定 <code>textEditorPath</code> が空・使えない値なら <code>メモ帳（既定）</code>）・「将来の対応」の印・［変更…］。［変更…］は押せない（エディタを画面で選べるのは将来の対応）。</li>
+</ul>
+<p>ダイアログ「テキストの開き方」:</p>
+<ul>
+<li>上に説明（<code>検索結果・プレビューからテキストファイルを開くときの開き方を、拡張子ごとに選びます（全インデックス共通）。…</code>）、その下に要約（<code>getTextOpenListView</code>）と［変更したものだけ］・絞り込み欄（<code>拡張子で絞り込み</code>）を置く。要約は、絞らないとき <code>変更したもの N 個（エディタで開く）</code>／<code>すべて既定のままです（…）</code>、［変更したものだけ］のとき <code>変更したもの N 個を表示</code>、文字で絞るとき <code>75 個中 N 個を表示</code>。絞り込みは拡張子に含まれるか（大文字・小文字を区別せず、先頭の <code>.</code> は有っても無くてもよい）。合うものが無いときは <code>一致する拡張子がありません</code>。</li>
+<li>一覧は 75 行で、高さ 342 に固定してスクロールする（絞り込みで行が減っても、一覧・ダイアログの高さは変えない）。行は、左に変えた印の青い点（変えていない行でも場所は取る）・拡張子・開き方を 1 回押して選ぶ 2 つのボタン（「既定のアプリで開く」「エディタで開く」。RadioButton）。選んでいる開き方は薄い青の地。</li>
+<li>実行・登録になる 15 個（<code>.bat</code> <code>.cmd</code> <code>.ps1</code> <code>.vbs</code> <code>.js</code> <code>.reg</code> <code>.sh</code> <code>.py</code> <code>.rb</code> <code>.pl</code> <code>.php</code> <code>.lua</code> <code>.mjs</code> <code>.psm1</code> <code>.psd1</code>）は一覧の末尾にまとめ、見出し <code>実行・登録になる形式（「エディタで開く」だけ選べます）</code> を前に置く。「既定のアプリで開く」は押せず（薄い文字）、右に <code>実行できる形式のため、エディタ固定</code> と出す。新しい拡張子は足せない。</li>
+<li>一覧の下に、エディタの行（<code>エディタ  メモ帳（既定）  「エディタで開く」に使うアプリ。いまはメモ帳だけ  [将来の対応]  [変更…]</code>。［変更…］は押せない）。その下は、左に［既定に戻す］、右に［キャンセル］［OK］。［既定に戻す］は行を既定（60 個は既定のアプリ、15 個はエディタ）にするだけで、保存は［OK］。［キャンセル］は何も変えない。タブの順は 絞り込み欄 → 行 → ［既定に戻す］［キャンセル］［OK］。</li>
+<li>［OK］で <code>writeTextOpenSettings</code> が <code>setting.config</code> の <code>notepadTextExtensions</code> に書く（既定からの差だけ。エディタ固定の 15 個は書かない）。その場で保存し、インデックス作成中も変えられる（開くたびに読むため）。書けなかったときは <code>設定を保存できませんでした。もう一度お試しください。</code> と出し、設定は変えない。</li>
+<li>判断（行・選べる開き方・設定に書く値・一覧の見せ方・要約・文言・エディタのパスの確かめ）は <code>ui\settings\text_open_view.ps1</code>（<code>getTextOpenRows</code>・<code>convertTextOpenRows</code>・<code>getTextOpenListView</code>・<code>getTextOpenSummary</code>・<code>getTextOpenDialogTexts</code>・<code>testTextEditorPath</code>・<code>getTextEditorChoice</code>）。</li>
+<li>取り込む・開くへの効き方は<a href="../../indexing/text/#設定で選ぶ">テキストファイル</a>。</li>
 </ul>
 <p>今の画面の写真は<a href="../screens/settings-tab/">画面設計（現行）</a>にある。</p>
 <p><strong>ワークスペース</strong>は、インデックス・取り込み一覧・ログ（<code>work</code> の中身。<a href="../../structure/folders/">配布物と開発用のフォルダ構成</a>）を置くフォルダ。既定は <code>%USERPROFILE%\Documents\tebunko_ws</code>（<a href="../../structure/data/">データの置き場所とパスの決め方</a>）。</p>

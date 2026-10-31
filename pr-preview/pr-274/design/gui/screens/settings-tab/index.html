@@ -3543,6 +3543,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#settings-tabtext-openテキストの開き方のダイアログ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        settings-tab/text-open（テキストの開き方のダイアログ）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#settings-tablimit-none件数の上限が制限なし" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4386,6 +4397,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#settings-tabtext-openテキストの開き方のダイアログ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        settings-tab/text-open（テキストの開き方のダイアログ）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#settings-tablimit-none件数の上限が制限なし" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4508,6 +4530,9 @@
     state "settings-tab/nonempty-confirm" as nonempty
     state "settings-tab/index-confirm" as index
     state "settings-tab/invalid-warning" as invalid
+    state "settings-tab/text-open" as textext
+    normal --&gt; textext: テキストファイルの［変更…］
+    textext --&gt; normal: ［キャンセル］
     normal --&gt; limitnone: 件数の上限で［制限なし］を選ぶ
     limitnone --&gt; normal: ［制限あり］を選ぶ
     normal --&gt; limiterror: 件数の上限に正しくない値を入れて Enter
@@ -4562,6 +4587,8 @@
 <h2 id="写真">写真<a class="headerlink" href="#写真" title="Permanent link">&para;</a></h2>
 <h3 id="settings-tabnormal既定でないワークスペース遷移-7">settings-tab/normal（既定でないワークスペース。遷移 7）<a class="headerlink" href="#settings-tabnormal既定でないワークスペース遷移-7" title="Permanent link">&para;</a></h3>
 <p><img alt="既定でないワークスペース" src="../../../../images/screens/settings-tab/normal.png" /></p>
+<h3 id="settings-tabtext-openテキストの開き方のダイアログ">settings-tab/text-open（テキストの開き方のダイアログ）<a class="headerlink" href="#settings-tabtext-openテキストの開き方のダイアログ" title="Permanent link">&para;</a></h3>
+<p><img alt="テキストの開き方のダイアログ" src="../../../../images/screens/settings-tab/text-open.png" /></p>
 <h3 id="settings-tablimit-none件数の上限が制限なし">settings-tab/limit-none（件数の上限が［制限なし］）<a class="headerlink" href="#settings-tablimit-none件数の上限が制限なし" title="Permanent link">&para;</a></h3>
 <p><img alt="件数の上限が［制限なし］" src="../../../../images/screens/settings-tab/limit-none.png" /></p>
 <h3 id="settings-tablimit-error件数の上限の入力が正しくない">settings-tab/limit-error（件数の上限の入力が正しくない）<a class="headerlink" href="#settings-tablimit-error件数の上限の入力が正しくない" title="Permanent link">&para;</a></h3>
