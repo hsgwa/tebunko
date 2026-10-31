@@ -26,7 +26,6 @@ BeforeAll {
     # Lines・Depth（今の長さと段。これを超えたら落ちる）・Reason。80 行以下かつ 4 段以下になったら、一覧から消す。
     # 分けるのは、それぞれの関数を触るときに行う（ここに載せるだけで、分けない）
     ${sizeAllowed} = @(
-        @{ Name = "content_index_format.ps1:readContentIndexPlaces"; Lines = 65; Depth = 5; Reason = "今ある長い・深い関数。分けるのは、この関数を触る refactor で行う" }
         @{ Name = "content_index_search.ps1:searchContentIndex"; Lines = 159; Depth = 7; Reason = "今ある長い・深い関数。分けるのは、この関数を触る refactor で行う" }
         @{ Name = "content_index_search.ps1:searchContentIndexFiles"; Lines = 380; Depth = 11; Reason = "今ある長い・深い関数。分けるのは、この関数を触る refactor で行う" }
         @{ Name = "content_index_store.ps1:readContentIndexLines"; Lines = 114; Depth = 6; Reason = "今ある長い・深い関数。分けるのは、この関数を触る refactor で行う" }
