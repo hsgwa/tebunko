@@ -449,6 +449,13 @@ Describe "perf_common.ps1 の gram 索引の計測の部品" -Tag Unit {
         getPerfGramWorkDir $index | Should -Be $expect
     }
 
+    It "Workspace クラスが無い版では、置き場の形が合っていても $null を返す" {
+        # 型の有無は -as [type] で見る。存在しない型名に差し替えた関数で、同じ分岐を通す
+        $body = (Get-Command getPerfGramWorkDir -CommandType Function).ScriptBlock.ToString().Replace("'Workspace' -as [type]", "'NoSuchWorkspaceType' -as [type]")
+        $noType = [scriptblock]::Create("param (`$index)`n" + $body.Substring($body.IndexOf("if (!`$index)")))
+        & $noType "C:\perf\ws\store\content\perfdata" | Should -BeNullOrEmpty
+    }
+
     It "<name>" -TestCases @(
         @{ name = "gram で絞れた語は、絞った数／全部"; packs = 12; all = 1500; used = 20; expect = "12／1,500" }
         @{ name = "gram を使わなかった語は、–／全部"; packs = 1500; all = 1500; used = 0; expect = "–／1,500" }

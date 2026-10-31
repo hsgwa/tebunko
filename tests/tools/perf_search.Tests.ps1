@@ -67,8 +67,32 @@ Describe "検索と pack の作成の速さ" -Tag Slow {
     }
 
     It "検索の中央値と pack の作成が上限以内で、件数と pack の数が合う" {
-        $problems = getSearchPerfProblems $result $rows $searchLimitsMs $expected $packLimitSeconds
+        $problems = (getSearchPerfProblems $result $rows $searchLimitsMs $expected $packLimitSeconds) + (getGramPerfProblems $result $rows)
         ($problems -join "`n") | Should -BeNullOrEmpty
+    }
+}
+
+Describe "gram 索引の判定（getGramPerfProblems）" -Tag Unit {
+    BeforeAll {
+        function newGramFixture($gram, [string]$used) {
+            return @{
+                Result = [pscustomobject]@{ Index = [pscustomobject]@{ Gram = $(if ($gram) { [pscustomobject]$gram } else { $null }) } }
+                Rows = @([pscustomobject]@{ Word = "まれ"; GramUsed = $used }, [pscustomobject]@{ Word = "大量"; GramUsed = "False" })
+            }
+        }
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "作れて、まれで使えていれば合格"; gram = @{ Skipped = $null; Failed = 0 }; used = "True"; expect = $null }
+        @{ name = "gram の結果が無ければ返す"; gram = $null; used = "True"; expect = "gram 索引の作成の結果がありません" }
+        @{ name = "作らなかったら理由つきで返す"; gram = @{ Skipped = "置き場の形" }; used = "True"; expect = "gram 索引を作っていません（置き場の形）" }
+        @{ name = "作成に失敗があれば返す"; gram = @{ Skipped = $null; Failed = 2 }; used = "True"; expect = "gram 索引の作成に失敗したインデックスがあります（2 件）" }
+        @{ name = "まれで使っていなければ返す"; gram = @{ Skipped = $null; Failed = 0 }; used = "False"; expect = "検索 まれ: gram 索引を使った回がありません" }
+    ) {
+        param ($gram, $used, $expect)
+        $f = newGramFixture $gram $used
+        $problems = getGramPerfProblems $f.Result $f.Rows
+        if ($null -eq $expect) { $problems | Should -BeNullOrEmpty } else { $problems | Should -Contain $expect }
     }
 }
 
@@ -126,8 +150,8 @@ Describe "検索と pack の作成の判定（getSearchPerfProblems）" -Tag Uni
         @{ name = "照合した pack が 0 の回があれば返す"; change = { param($f) (getRows $f "まれ")[0].Packs = 0 }; expect = "検索 まれ: 照合した pack の数が 521 と違う回が 1 回（最初は 0）" }
         @{ name = "gram 索引で絞った回は、照合した pack が全部より少なくても合格"; change = { param($f) $r = (getRows $f "まれ")[0]; Add-Member -InputObject $r -NotePropertyName GramUsed -NotePropertyValue "True" -Force; Add-Member -InputObject $r -NotePropertyName AllPacks -NotePropertyValue 521 -Force; $r.Packs = 3 }; expect = $null }
         @{ name = "gram 索引で絞って全部が外れた回（0 件の語）も合格"; change = { param($f) $r = (getRows $f "0 件")[0]; Add-Member -InputObject $r -NotePropertyName GramUsed -NotePropertyValue "True" -Force; $r.Packs = 0 }; expect = $null }
-        @{ name = "gram 索引で絞った回の pack が全部より多ければ返す"; change = { param($f) $r = (getRows $f "まれ")[0]; Add-Member -InputObject $r -NotePropertyName GramUsed -NotePropertyValue "True" -Force; $r.Packs = 600 }; expect = "検索 まれ: 照合した pack の数が 521 と違う回が 1 回（最初は 600）" }
-        @{ name = "gram 索引で絞った回の全部の数（AllPacks）が pack の数と違えば返す"; change = { param($f) $r = (getRows $f "まれ")[0]; Add-Member -InputObject $r -NotePropertyName GramUsed -NotePropertyValue "True" -Force; Add-Member -InputObject $r -NotePropertyName AllPacks -NotePropertyValue 400 -Force; $r.Packs = 3 }; expect = "検索 まれ: 照合した pack の数が 521 と違う回が 1 回（最初は 3）" }
+        @{ name = "gram 索引で絞った回の pack が全部より多ければ返す"; change = { param($f) $r = (getRows $f "まれ")[0]; Add-Member -InputObject $r -NotePropertyName GramUsed -NotePropertyValue "True" -Force; $r.Packs = 600 }; expect = "検索 まれ: gram 索引で絞った回の照合した pack が 0〜521 の外の回が 1 回（最初は 600）" }
+        @{ name = "gram 索引で絞った回の全部の数（AllPacks）が pack の数と違えば返す"; change = { param($f) $r = (getRows $f "まれ")[0]; Add-Member -InputObject $r -NotePropertyName GramUsed -NotePropertyValue "True" -Force; Add-Member -InputObject $r -NotePropertyName AllPacks -NotePropertyValue 400 -Force; $r.Packs = 3 }; expect = "検索 まれ: 全部の数（AllPacks）が 521 と違う回が 1 回（最初は 400）" }
         @{ name = "SearchMode が runspace なら返す"; change = { param($f) $f.Result.Run.SearchMode = "runspace" }; expect = "検索の流れが service ではありません（runspace）" }
         @{ name = "pack の作成が上限を超えたら返す"; change = { param($f) $f.Result.Index.Pack.Seconds = 90.5 }; expect = "pack の作成: 90.5 秒（上限 90 秒）" }
         @{ name = "期待する件数が無ければ返す"; change = { param($f) $script:noExpected = $true }; expect = "検索 まれ: 期待する件数がありません" }

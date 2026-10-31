@@ -46,6 +46,8 @@ function getPerfGramWorkDir {
     )
 
     if (!$index) { return $null }
+    # Workspace クラスが無い版（置き場の名前を Workspace が持つ前）は、gram 索引の置き場を割り出せない
+    if (-not ('Workspace' -as [type])) { return $null }
     # 置き場の名前は Workspace クラスだけが持つ（呼ぶ前に、測る tebunko の lib.ps1 かその core\workspace.ps1 を読み込んでおく）
     $content = [System.IO.Path]::GetDirectoryName($index.TrimEnd("\", "/"))
     if (!$content) { return $null }
@@ -528,16 +530,46 @@ function getSearchPerfProblems {
             }
         }
         # gram 索引で絞った回（GramUsed）は、照合した pack が 0〜全部の間（0 件の語は全部が外れる）。全部の数（AllPacks）は pack の数と同じ。絞らない回は全部を照合する
-        $badPacks = @($mine | Where-Object {
-            if ("$($_.GramUsed)" -eq "True") {
-                [int]$_.Packs -lt 0 -or [int]$_.Packs -gt $packCount -or ($null -ne $_.AllPacks -and "$($_.AllPacks)" -ne "" -and [int]$_.AllPacks -ne $packCount)
-            } else {
-                [int]$_.Packs -le 0 -or [int]$_.Packs -ne $packCount
-            }
-        })
+        $gramRows = @($mine | Where-Object { "$($_.GramUsed)" -eq "True" })
+        $badPacks = @($mine | Where-Object { "$($_.GramUsed)" -ne "True" -and ([int]$_.Packs -le 0 -or [int]$_.Packs -ne $packCount) })
         if ($badPacks.Count) {
             $problems.Add("検索 ${name}: 照合した pack の数が $packCount と違う回が $($badPacks.Count) 回（最初は $($badPacks[0].Packs)）")
         }
+        $outside = @($gramRows | Where-Object { [int]$_.Packs -lt 0 -or [int]$_.Packs -gt $packCount })
+        if ($outside.Count) {
+            $problems.Add("検索 ${name}: gram 索引で絞った回の照合した pack が 0〜$packCount の外の回が $($outside.Count) 回（最初は $($outside[0].Packs)）")
+        }
+        $badAll = @($gramRows | Where-Object { $null -ne $_.AllPacks -and "$($_.AllPacks)" -ne "" -and [int]$_.AllPacks -ne $packCount })
+        if ($badAll.Count) {
+            $problems.Add("検索 ${name}: 全部の数（AllPacks）が $packCount と違う回が $($badAll.Count) 回（最初は $($badAll[0].AllPacks)）")
+        }
+    }
+    return , $problems.ToArray()
+}
+
+function getGramPerfProblems {
+    # 検索の回帰テストで、gram 索引が作られ、検索が使ったかの判定。合わないものの一覧を返す。空なら合格
+    #   result : measure_perf.ps1 の result.json（Index.Gram を見る）
+    #   rows   : searches.csv の行
+    #   word   : gram で絞れる語の名前（既定は「まれ」）。この語の GramUsed が 1 回以上あること
+    param (
+        $result,
+        [object[]]$rows,
+        [string]$word = "まれ"
+    )
+
+    $problems = New-Object System.Collections.Generic.List[string]
+    $gram = $result.Index.Gram
+    if ($null -eq $gram) {
+        $problems.Add("gram 索引の作成の結果がありません")
+    } elseif ($gram.Skipped) {
+        $problems.Add("gram 索引を作っていません（$($gram.Skipped)）")
+    } elseif ([int]$gram.Failed -gt 0) {
+        $problems.Add("gram 索引の作成に失敗したインデックスがあります（$($gram.Failed) 件）")
+    }
+    $used = @($rows | Where-Object { $_.Word -eq $word -and "$($_.GramUsed)" -eq "True" })
+    if ($used.Count -eq 0) {
+        $problems.Add("検索 ${word}: gram 索引を使った回がありません")
     }
     return , $problems.ToArray()
 }

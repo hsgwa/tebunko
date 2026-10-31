@@ -32,8 +32,11 @@ $Name = [string]$spec.Name
 $Word = [string]$spec.Word
 $Regex = [bool]$spec.Regex
 # 検索先と workDir の渡し方。gram 索引が効く形でなければ、今までどおり文字列で渡す
-$gramWork = getPerfGramWorkDir $Index
-$canPassWorkDir = $gramWork -and (Get-Command newSearchRequest -CommandType Function -ErrorAction SilentlyContinue) -and (Get-Command newSearchRequest).Parameters.ContainsKey("workDir")
+# 要求に workDir を渡せない版（gram 索引より前）は、置き場の形を調べず、今までどおり文字列で渡す
+$gramWork = $null
+$hasWorkDir = (Get-Command newSearchRequest -CommandType Function -ErrorAction SilentlyContinue) -and (Get-Command newSearchRequest).Parameters.ContainsKey("workDir")
+if ($hasWorkDir) { $gramWork = getPerfGramWorkDir $Index }
+$canPassWorkDir = [bool]$gramWork
 $searchFolders = @($Index)
 if ($canPassWorkDir) { $searchFolders = @(@{ Root = ([Workspace]::new($gramWork)).IndexDir; RelPath = [System.IO.Path]::GetFileName($Index.TrimEnd("\", "/")); Recurse = $true }) }
 $mode = if (Get-Command newSearchService -CommandType Function -ErrorAction SilentlyContinue) { "service" } else { "runspace" }
@@ -42,7 +45,7 @@ $mode = if (Get-Command newSearchService -CommandType Function -ErrorAction Sile
 # 待つ間隔は短くするが、Windows のタイマーの細かさ（約 15 ミリ秒）より細かくは測れない
 function invokeServiceSearch($service) {
     $watch = [System.Diagnostics.Stopwatch]::StartNew()
-    $newRequest = if ($canPassWorkDir) { newSearchRequest $Word (!$Regex) $searchFolders $Limit @{} $gramWork } else { newSearchRequest $Word (!$Regex) $searchFolders $Limit }
+    $newRequest = if ($canPassWorkDir) { newSearchRequest $Word (!$Regex) $searchFolders $Limit -workDir $gramWork } else { newSearchRequest $Word (!$Regex) $searchFolders $Limit }
     $request = $service.Request($newRequest)
     $listMs = $null
     $shownMs = $null

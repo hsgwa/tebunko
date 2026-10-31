@@ -52,7 +52,8 @@ try {
     }
 
     # gram 索引の作成
-    $gramWork = getPerfGramWorkDir $Index
+    $gramWork = $null
+    if (Get-Command updateGramIndexes -CommandType Function -ErrorAction SilentlyContinue) { $gramWork = getPerfGramWorkDir $Index }
     if (!(Get-Command updateGramIndexes -CommandType Function -ErrorAction SilentlyContinue)) {
         $result.Gram = [ordered]@{ Skipped = "測る版に gram 索引が無い" }
     } elseif (!$gramWork) {
