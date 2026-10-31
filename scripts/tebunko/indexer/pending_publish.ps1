@@ -12,8 +12,12 @@ class PendingPublish {
     # フォルダ（フルパス）→ まだ本文インデックスから外し終えていない、無くなった元のファイル名の集まり。
     # 取り出し（TakeAll・TakeFlushable）では消えず、書き出し終えた（MarkPublished）ときに外れる。司令がワークスペースの記録ファイルに残す
     [System.Collections.Generic.Dictionary[string,object]]$Unpublished
+    # 本文インデックスのファイルが上限を超えていて外し、取り込み直しにする元のファイルの、インデックスからの相対パス。
+    # インデックス作成の終わりの取り込み一覧で「未取り込み」に戻す（次の更新で取り込み直す）
+    [System.Collections.Generic.HashSet[string]]$Requeued
 
     PendingPublish() {
+        $this.Requeued = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
         $this.Unpublished = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
         $this.Folders = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
         $this.Busy = New-Object 'System.Collections.Generic.Dictionary[string,int]' ([System.StringComparer]::OrdinalIgnoreCase)
@@ -64,6 +68,13 @@ class PendingPublish {
             if ($this.Unpublished[$folder].Count -eq 0) {
                 [void]$this.Unpublished.Remove($folder)
             }
+        }
+    }
+
+    [void] AddRequeued([string[]]$relPaths) {
+        # 書き出しで外した上限超えのファイルの中の元のファイルを、取り込み直しにする
+        foreach ($relPath in $relPaths) {
+            if ($relPath) { [void]$this.Requeued.Add($relPath) }
         }
     }
 

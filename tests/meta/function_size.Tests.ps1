@@ -29,7 +29,6 @@ BeforeAll {
         @{ Name = "content_index_format.ps1:readContentIndexPlaces"; Lines = 65; Depth = 5; Reason = "今ある長い・深い関数。分けるのは、この関数を触る refactor で行う" }
         @{ Name = "content_index_search.ps1:searchContentIndex"; Lines = 159; Depth = 7; Reason = "今ある長い・深い関数。分けるのは、この関数を触る refactor で行う" }
         @{ Name = "content_index_search.ps1:searchContentIndexFiles"; Lines = 380; Depth = 11; Reason = "今ある長い・深い関数。分けるのは、この関数を触る refactor で行う" }
-        @{ Name = "content_index_store.ps1:convertFolderToContentIndex"; Lines = 86; Depth = 3; Reason = "今ある長い・深い関数。分けるのは、この関数を触る refactor で行う" }
         @{ Name = "content_index_store.ps1:readContentIndexLines"; Lines = 114; Depth = 6; Reason = "今ある長い・深い関数。分けるのは、この関数を触る refactor で行う" }
         @{ Name = "content_index_store.ps1:readContentIndexRange"; Lines = 55; Depth = 5; Reason = "今ある長い・深い関数。分けるのは、この関数を触る refactor で行う" }
         @{ Name = "extract_office.ps1:extractDocument"; Lines = 108; Depth = 4; Reason = "今ある長い・深い関数。分けるのは、この関数を触る refactor で行う" }

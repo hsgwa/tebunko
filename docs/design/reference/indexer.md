@@ -25,7 +25,9 @@
 | `convertToIngestJournalLine` | kind, fields | string | ジャーナルの 1 記録（版・回・書・始・持・未・出・終）を 1 行の文字列にする。列のタブ・改行はスペースにする | 同上 | インデックス作成 |
 | `newIngestJournalHead` | version, stamp, rowCount, carried, unpublished | string の配列 | 新しい回のジャーナルの頭の行（版・回・持ち越した仕事の「持」・書き出せていないフォルダの「未」の順）を組み立てる（判断層） | 同上 | インデックス作成 |
 | `convertFromIngestJournal` | lines, statusRelPaths, 上限 | `@{Valid; Finished; Aligned; Folders; Resume}` | 前回のジャーナルの行と取り込み一覧の相対パスから、始めの復旧の内容（先に書き出すフォルダ・やり直す仕事）を決める。ファイルには触らない（判断層） | 同上 | インデックス作成 |
-| `recoverIngestJournal` | ledger, journal, pending, channel, reporter | `@{Resume; Unpublished}` | 始めの復旧。前回のジャーナル（と前の版の `ingesting.txt`）から、やり直す仕事を決め、書き出していないフォルダを先に書き出す。ジャーナルが読めないときは今ある書き出し前のフォルダを書き出す。書き出せなかった・中止で飛ばしたフォルダは Unpublished に入れ、次の回のジャーナルへ「未」で持ち越す | 同上 | インデックス作成 |
+| `recoverIngestJournal` | ledger, journal, pending, channel, reporter | `@{Resume; Unpublished}` | 始めの復旧。前回のジャーナル（と前の版の `ingesting.txt`）から、やり直す仕事を決め、書き出していないフォルダを先に書き出す。ジャーナルが読めないときは今ある書き出し前のフォルダを書き出す。検索の上限を超える本文インデックスのファイルがあるフォルダも書き出し待ちに足す（`findOversizeContentIndexFolders`）。書き出せなかった・中止で飛ばしたフォルダは Unpublished に入れ、次の回のジャーナルへ「未」で持ち越す | 同上 | インデックス作成 |
+| `applyStartupRequeued` | ledger, pending, status | – | 始めの書き出しで外した上限超えのファイルの中の元のファイル（`pending.Requeued`）の行を、取り込み一覧のファイルと前回の行（`status.Rows`）で「未取り込み」・エラー空にして保存し、印を空にする（同じ回で取り込み直す） | 同上 | インデックス作成 |
+| `selectFinishStatusRows` | rows, ledger, pending | 行の並び | 終わりの取り込み一覧に書く行を選ぶ。取りやめた行（`DroppedRows`）は除き、書き出しで上限超えのファイルを外した元のファイル（`pending.Requeued`）の行は「未取り込み」・エラー空に戻す（この回の結果より優先） | 同上 | インデックス作成 |
 | `writeStatusWithJournal` | journal, ledger, folders, rows, keptDropped, previous, [-Finish] | – | 取り込み一覧を書き直す。前に「書」を足し、-Finish のときは書き直したあとに「終」を足す。最後にジャーナルを閉じる | 同上 | インデックス作成 |
 | `getLegacyIngestingPath` / `readLegacyIngesting` / `removeLegacyIngesting` | – | パス / `@{RelPath; Count}` の配列 / – | 前の版の `ingesting.txt` を始めに 1 度だけ読んで、ジャーナルの復旧に足し、読んだあとに消す（`ingest_journal.ps1`） | 同上 | インデックス作成 |
 | `newIndexerChannel` | retryFailed, confirmTargets, workers（既定 -1）, onlyNames（既定は空）, includeCloud（既定 `$false`） | 受け渡しの口（`[hashtable]::Synchronized`） | 画面とインデクサの受け渡しの口を作る（`RetryFailed`・`ConfirmTargets`・`Workers`・`OnlyNames`（更新するインデックス名。空ならチェックの付いたものすべて）・`OnlySkipped`（`OnlyNames` のうち更新できなかった名前と理由）・`CountedFiles`（取り込み対象を探す間に数えたファイルの数。列挙で 1000 件ごとに増える。確認のために数え直しているときの帯に出す）・`Progress`・`Stop`・`Plan`・`Answer`・`Answered`・`Error`・`ExitCode`・`Notice`・`Postponed`・`IncludeCloud`（クラウドにだけあるファイルもダウンロードして取り込むか）・`CloudSkipped`（ダウンロードせずに残した件数）・`OfficePids`）。`Workers` は -1 で設定・コア数から決める、0 で司令のスレッドで取り込む（テスト） | [画面とインデクサの受け渡し](../structure/threads.md#画面とインデクサの受け渡し) | 画面・indexer.ps1 |
@@ -62,6 +64,7 @@
 | `MarkFolder` | folder | – | 前回のインデックス作成で本文インデックスに入れていないフォルダを、無くなったファイルの記録無しで書き出し待ちにする |
 | `Restore` | folder, names | – | 前の回に外し終えていなかった、無くなった元のファイル名を、書き出し待ちと `Unpublished` の両方に戻す |
 | `MarkPublished` | folders, taken | – | 本文インデックスのファイルを書き終えたフォルダの、そのとき書き出した名前（`taken`。`TakeAll` などの戻り値）だけを、`Unpublished`（外し終えていない削除。`TakeAll` などでは消えない）から外す。同じ回に書き出しを飛ばした名前は残る |
+| `AddRequeued` | relPaths | – | 書き出しで外した上限超えの本文インデックスのファイルの中の元のファイル（インデックスからの相対パス）を、取り込み直し（`Requeued`）に足す。終わりの取り込み一覧で「未取り込み」に戻す |
 | `AddPending` | folder | – | 取り込み対象を数えるとき、そのファイルの分だけ「まだ渡していない数」を 1 つ足す |
 | `Dispatch` | folder | – | ファイルを 1 つ渡す（まだ渡していない数を 1 減らし、取り込み中の数を 1 増やす） |
 | `Skip` | folder | – | ファイルを 1 つ、渡さずに済ませる（元のファイルが無くなった等。まだ渡していない数だけ減らす） |

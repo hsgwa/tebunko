@@ -294,7 +294,7 @@ Describe "readTextFile" -Tag Io {
 
     It "大きさの上限（差し替えた小さい値）を超えるファイルは、決めた文言で失敗にする" {
         $path = writeBytesFile (toUtf8Bytes "12345678")
-        { readTextFile $path 4 } | Should -Throw "ファイルサイズが大きすぎるため更新できません。"
+        { readTextFile $path 4 } | Should -Throw "ファイルサイズが大きすぎるため更新できません（上限 10 MB）。"
     }
 
     It "バイナリと判定したファイルは、決めた文言で失敗にする" {

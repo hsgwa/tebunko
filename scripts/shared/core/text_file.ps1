@@ -31,6 +31,9 @@ ${textExtensions} = @(${textOpenExtensions}) + @(${textNotepadExtensions})
 # 元のファイルがこの大きさ（バイト）を超えたら、読まずに失敗にする
 ${textFileMaxBytes} = 10MB
 
+# テキストの大きさの上限を超えたときの文言（上限の値を付ける。PDF・Office の ZIP は悪用のヒントになるため、値を出さない ${fileTooLargeMessage} のまま）
+${textFileTooLargeMessage} = "ファイルサイズが大きすぎるため更新できません（上限 $([int](${textFileMaxBytes} / 1MB)) MB）。"
+
 # BOM の無い UTF-16 の判定に使う閾値（docs/design/indexing/text.md）。
 #   先頭 ${textUtf16SampleBytes} バイト（偶数バイトに切り詰める）を 2 バイトずつの組として数え、
 #   偶数の位置・奇数の位置のどちらかの NUL の割合が ${textUtf16NulRatioThreshold} 以上で、
@@ -391,7 +394,7 @@ function readTextFile {
     $stream = [System.IO.FileStream]::new((toLongPath $path), [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
     try {
         if ($stream.Length -gt $maxBytes) {
-            throw ${fileTooLargeMessage}
+            throw ${textFileTooLargeMessage}
         }
         $bytes = New-Object byte[] ([int]$stream.Length)
         $read = 0
