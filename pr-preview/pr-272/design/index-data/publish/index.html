@@ -4288,7 +4288,7 @@
 <li><strong>検索の上限（<code>contentIndexSearchMaxBytes</code> = 64MB）を超える本文インデックスのファイル</strong>: 書く側も読む側と同じ上限で判定する。検索はファイル単位で飛ばすため、上限を超えるファイルができると、同じファイルの小さな元のファイルまで検索に出なくなるため。<ul>
 <li>取り込み（<code>publishTsv</code>）: 置き場へ移す前に、その元のファイルだけを入れた本文インデックスのファイルの大きさを求め（<code>assertContentIndexBookFits</code>。書き出しと同じ数え方）、上限を超えるなら移さず取り込みの失敗にする（文言は <a href="../../indexing/errors-ingest/">取り込み一覧のエラー</a>）。</li>
 <li>書き出し（<code>convertFolderToContentIndex</code>）: 新しく入れる元のファイルが 1 つで上限を超えるときは入れず（前のコピーも外す）、取り込み直しにする（保険）。前の本文インデックスのファイルが上限を超えているときは、丸ごとは読まず、中の元のファイル名だけを流れで読み（<code>readContentIndexBookNamesStreaming</code>）、そのファイルを消して、中の元のファイルを取り込み直しにする（<code>readPreviousContentIndexParts</code>）。この回に入れ替える元のファイルは、取り込み直しにしない。</li>
-<li>取り込み直し: 戻り値の <code>Requeued</code>（<code>publishIndexFolders</code>）を <code>PendingPublish.Requeued</code> に集め、インデックス作成の終わりの取り込み一覧の書き直しで、その行を「未取り込み」・エラー空にする（<code>selectFinishStatusRows</code>。この回の取り込みの結果より優先する）。次の更新で取り込み直され、小さい元のファイルは検索に戻り、上限を超える元のファイルは取り込みの失敗になる。外したことは黄色のログに 1 行出る（<a href="../../indexing/log-warnings-index/">まとめの警告</a>）。</li>
+<li>取り込み直し: 戻り値の <code>Requeued</code>（<code>publishIndexFolders</code>）を <code>PendingPublish.Requeued</code> に集める。始めの書き出しで外した分は、書き出しの直後に（取り込み対象を決める前に）取り込み一覧のファイルと前回の行で「未取り込み」・エラー空にして保存し（<code>applyStartupRequeued</code>）、同じ回で取り込み直す（取り込む対象が 0 件・取りやめ・強制終了でも、外した元のファイルが「済」のまま検索に出なくならない）。取り込みの途中の書き出しで外した分は、終わりの書き直しで同じ行にする（<code>selectFinishStatusRows</code>。この回の結果より優先する）。小さい元のファイルは検索に戻り、上限を超える元のファイルは取り込みの失敗になる。外したことは黄色のログに 1 行出る（<a href="../../indexing/log-warnings-index/">まとめの警告</a>）。</li>
 <li>始めの書き出し（<code>recoverIngestJournal</code>）: TSV が残っていないフォルダでも、上限を超える本文インデックスのファイルがあるフォルダ（<code>findOversizeContentIndexFolders</code>。ファイルの大きさだけで見て、中身は読まない）を書き出し待ちに足す。</li>
 </ul>
 </li>

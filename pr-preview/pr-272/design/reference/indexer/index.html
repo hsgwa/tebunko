@@ -4626,6 +4626,14 @@
 <td>インデックス作成</td>
 </tr>
 <tr>
+<td><code>applyStartupRequeued</code></td>
+<td>ledger, pending, status</td>
+<td>–</td>
+<td>始めの書き出しで外した上限超えのファイルの中の元のファイル（<code>pending.Requeued</code>）の行を、取り込み一覧のファイルと前回の行（<code>status.Rows</code>）で「未取り込み」・エラー空にして保存し、印を空にする（同じ回で取り込み直す）</td>
+<td>同上</td>
+<td>インデックス作成</td>
+</tr>
+<tr>
 <td><code>selectFinishStatusRows</code></td>
 <td>rows, ledger, pending</td>
 <td>行の並び</td>
