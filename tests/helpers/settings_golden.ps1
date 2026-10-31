@@ -47,4 +47,12 @@ function writeGoldenSettings {
     if ((newSettings).Contains("searchLimit")) {
         updateSettings "searchLimit" 20000 $path
     }
+    # テキストの拡張子の扱い（インデックスごとの取り込まない拡張子・エディタで開く拡張子・エディタのパス。この版より前の版には無いので、関数があるときだけ書く）
+    if (Get-Command writeIndexTextExcludes -ErrorAction SilentlyContinue) {
+        writeIndexTextExcludes "資料" @(".log", ".pdf") $path
+        writeIndexTextExcludes "(株)山田商事" @(".md", ".csv", ".xlsx") $path
+        setIngestedTextExcludes @{ "資料" = @(".log", ".pdf") } $path
+        writeTextOpenSettings @(".html") $path
+        updateSettings "textEditorPath" "D:\golden\editor.exe" $path
+    }
 }

@@ -124,6 +124,26 @@ function getIndexTabButtonsEnabled {
     }
 }
 
+function getIndexTopOnlyTagText {
+    # 一覧のパスの右に出す札の文言。「サブフォルダを含める」を外した（直下のファイルだけを取り込む）行だけに出し、含める行は空（札を出さない）
+    param (
+        $subfolders
+    )
+
+    return $(if ($subfolders -eq $false) { "直下のみ" } else { "" })
+}
+
+function testIndexSubfoldersPending {
+    # 「サブフォルダを含める」の今の設定（subfolders）が、前回取り込んだときの設定（ingestedSubfolders）と違うか。違えば［要更新］。
+    # 前回の値が無い（$null）ときは、前回は再帰（含める）で取り込んだとみなして比べる（新しい版に上げた直後の既存のインデックスは再帰で作ってあるため）
+    param (
+        $subfolders,
+        $ingestedSubfolders
+    )
+
+    return (($subfolders -ne $false) -ne ($ingestedSubfolders -ne $false))
+}
+
 function getIndexStatusHelpText {
     # 一覧の「ステータス」列の見出しのツールヒント（状態の名前と意味。行のバッジの名前と同じ言葉を使う）
     return @(
@@ -252,22 +272,6 @@ function getIndexRowActions {
     return @{ Action = $action; UpdateEnabled = ($blocker -eq "") }
 }
 
-function selectFailedRowsForIndex {
-    # 「更新に失敗したファイル」に出す行を、詳細に出しているインデックスの分だけにする。
-    # indexName が空（行を選んでいない・2 件以上にチェックしている）ときは、全部をそのまま返す。
-    # 失敗の行の相対パス（work\index からの相対）の先頭の名前が、indexName と同じ（大文字・小文字は区別しない）ものだけを残す。
-    # 前方一致では絞らない（「営業」で「営業部」の行を拾わない）
-    param (
-        [object[]]$failedRows,  # getIndexingState の FailedRows（相対パスを持つ行）
-        [string]$indexName
-    )
-
-    $rows = @($failedRows | Where-Object { $null -ne $_ })
-    if (!$indexName) { return $rows }
-    $prefix = $indexName + "\"
-    return @($rows | Where-Object { ([string]$_.相対パス).StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase) })
-}
-
 function getIndexRowView {
     # 一覧の「ステータス」列（本文の更新の状態）の文言・補足・ツールヒント・色の区分を返す。@{ Text; Sub; ToolTip; Level }
     #   Text は状態の名前だけ（数字を含めない）。Sub は、バッジの右に小さく出す補足（更新中の「45%」、途中で止まったときの「残り N 件」。無ければ空文字列）
@@ -277,6 +281,8 @@ function getIndexRowView {
     #   ratio    : 更新全体の進み（0～1。分からないときは負の値）。更新中の補足に「45%」と出し、棒の長さにする
     #   inRound  : 今の回で更新するインデックスか（選んだものだけの回では、選ばなかった行は $false）
     #   exporting: エクスポートで書き出している最中の行か（バッジは「エクスポート中」。更新中と同じ Run の色。棒は出さない）
+    #   subfoldersPending: 「サブフォルダを含める」の今の設定が、前回取り込んだときの設定と違うか（testIndexSubfoldersPending。取り込み済みでも［要更新］にする）
+    #   textExcludesPending: 取り込む拡張子の今の設定が、前回取り込んだときの設定と違うか（testIndexTextExcludesChanged。subfoldersPending と同じく、取り込み済みでも［要更新］にする）
     #   formatEntry: getIndexFormatState のそのインデックスの値（State; Searchable; Message）。無ければ $null。
     #                古い形式・作り直しの途中・新しい版のときは、本文の状態の代わりにその旨を出す
     # 返す値の Percent は棒の長さ（0～100）。更新中でなければ 0
@@ -287,7 +293,9 @@ function getIndexRowView {
         [double]$ratio = -1.0,
         [bool]$inRound = $true,
         [bool]$exporting = $false,
-        $formatEntry = $null
+        $formatEntry = $null,
+        [bool]$subfoldersPending = $false,
+        [bool]$textExcludesPending = $false
     )
 
     if ($exporting) {
@@ -313,11 +321,21 @@ function getIndexRowView {
     if ($null -eq $stat -or $stat.Total -eq 0) {
         return @{ Text = "未作成"; Sub = ""; Level = "None"; ToolTip = addIndexRowNotice "まだ更新していません。［すべて更新］か、行の［更新］で作ります。" $notice }
     }
+    if ($subfoldersPending -or $textExcludesPending) {
+        $reason = if ($subfoldersPending -and $textExcludesPending) {
+            "サブフォルダを含めるかと取り込み対象の拡張子の設定が、前回取り込んだときと違います。次の更新で反映します（直下だけにしたときのサブフォルダのファイルと、対象外にした拡張子のファイルは、インデックスから外します）。"
+        } elseif ($subfoldersPending) {
+            "サブフォルダを含めるかの設定が、前回取り込んだときと違います。次の更新で反映します（直下だけにしたときは、サブフォルダにあったファイルをインデックスから外します）。"
+        } else {
+            "取り込み対象の拡張子の設定が、前回取り込んだときと違います。次の更新で反映します（対象外にした拡張子のファイルは、インデックスから外します）。"
+        }
+        return @{ Text = "要更新"; Sub = ""; Level = "Wait"; ToolTip = addIndexRowNotice $reason $notice }
+    }
     if ($stat.Pending -ge 1) {
         return @{ Text = "要更新"; Sub = "残り $($stat.Pending) 件"; Level = "Wait"; ToolTip = addIndexRowNotice "未更新 $($stat.Pending) 件です。次の更新で続きから更新します。" $notice }
     }
     if ($stat.Failed -ge 1) {
-        return @{ Text = "警告"; Sub = ""; Level = "Warn"; ToolTip = addIndexRowNotice "失敗 $($stat.Failed) 件です。原因は下の「更新に失敗したファイル」で見られます。失敗したファイル以外は検索できます。" $notice }
+        return @{ Text = "警告"; Sub = ""; Level = "Warn"; ToolTip = addIndexRowNotice "失敗 $($stat.Failed) 件です。原因は詳細の［ファイルの一覧］（失敗のみ）で見られます。失敗したファイル以外は検索できます。" $notice }
     }
     return @{ Text = "最新"; Sub = ""; Level = "Ok"; ToolTip = addIndexRowNotice "更新済み $($stat.Total) 件です。" $notice }
 }

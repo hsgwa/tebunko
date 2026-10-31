@@ -527,11 +527,12 @@ function getFilesNoFollow {
     # OneDrive のオンデマンドのフォルダなど）は、SkipUnknown が無ければ降りる（読むだけのため）。属性を書くときは SkipUnknown を付け、降りずに Links に入れる。
     # Hidden の付いたものは、IncludeHidden が無ければ入れない（Get-ChildItem の既定と同じ。System だけのものは入れる）。
     # 並びは Get-ChildItem -Recurse と同じ（フォルダごとに、その中身を並べてから、サブフォルダの下へ進む）
+    # TopOnly を付けると root の直下だけを読み、サブフォルダの下へは進まない（直下のフォルダは Directories に入る。直下のリンクは Links に入る）
+    # onProgress: 省略できる。見つけたファイルの数が前に伝えたときから 1000 件増えるごとに、そのときの数を引数にして呼ぶ（進み具合を出すため）
     param (
         [string]$root,
-        [switch]$IncludeHidden,
-        [switch]$SkipUnknown,
-        [scriptblock]$shouldStop = $null
+        [switch]$IncludeHidden, [switch]$SkipUnknown, [switch]$TopOnly,
+        [scriptblock]$shouldStop = $null, [scriptblock]$onProgress = $null
     )
 
     $files = New-Object System.Collections.Generic.List[object]
@@ -540,6 +541,7 @@ function getFilesNoFollow {
     $hasError = $false
     $reason = ""
     $stopped = $false
+    $reported = 0
     $reparseFlag = [System.IO.FileAttributes]::ReparsePoint
     $hiddenFlag = [System.IO.FileAttributes]::Hidden
     $pending = New-Object System.Collections.Generic.Stack[string]
@@ -576,7 +578,7 @@ function getFilesNoFollow {
             }
             if ($entry -is [System.IO.DirectoryInfo]) {
                 $directories.Add($entry)
-                $subDirectories.Add($entry.FullName)
+                if (!$TopOnly) { $subDirectories.Add($entry.FullName) }
             } else {
                 $files.Add($entry)
             }
@@ -585,6 +587,7 @@ function getFilesNoFollow {
         for ($i = $subDirectories.Count - 1; $i -ge 0; $i--) {
             $pending.Push($subDirectories[$i])
         }
+        if ($null -ne $onProgress -and ($files.Count - $reported) -ge 1000) { $reported = $files.Count; $null = & $onProgress $reported }
     }
     return @{ Files = $files.ToArray(); Directories = $directories.ToArray(); Links = $links.ToArray(); HasError = $hasError; Reason = $reason; Stopped = $stopped }
 }

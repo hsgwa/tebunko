@@ -76,7 +76,8 @@ BeforeAll {
         @{ File = "open_source.ps1"; Function = "openWithShell"; Call = "Invoke-Item"; Reason = "既定のアプリで開く（元のファイルは確かめ済み。プロセスの起動は待たない）" }
         @{ File = "open_source.ps1"; Function = "openExportedFile"; Call = "Invoke-Item"; Reason = "出力したファイル（このツールが今書いた .xlsx・.csv・.tsv）を既定のアプリで開く。プロセスの起動は待たない" }
         @{ File = "open_source.ps1"; Function = "showInExplorer"; Call = "Start-Process"; Reason = "エクスプローラーで選ぶ（開く対象は確かめ済み。プロセスの起動は待たない）" }
-        @{ File = "open_source.ps1"; Function = "openWithNotepad"; Call = "Start-Process"; Reason = "固定のパスのメモ帳で開く（実行・登録になる拡張子。元のファイルは確かめ済み。プロセスの起動は待たない）" }
+        @{ File = "open_source.ps1"; Function = "openWithEditor"; Call = "Start-Process"; Reason = "固定のパスのメモ帳で開く（実行・登録になる拡張子。元のファイルは確かめ済み。プロセスの起動は待たない）" }
+        @{ File = "open_source.ps1"; Function = "openWithEditor"; Call = "Test-Path"; Reason = "設定のエディタ（testTextEditorPath を通ったパス）のファイルがあるかを見る（開くときの 1 回。利用者の操作時のみ）" }
 
         @{ File = "about_dialog.ps1"; Function = "openAboutLink"; Call = "Start-Process"; Reason = "エクスプローラーで既定のブラウザを開く（getAboutLinks に載せた 2 つのアドレスだけ。プロセスの起動は待たない）" }
 
@@ -97,12 +98,13 @@ BeforeAll {
         @{ File = "settings.ps1"; Function = "applyWorkspace"; Call = "testWritableFolder"; Count = 2; Reason = "選んだ直後のフォルダ（［変更…］・［既定に戻す］で選んだ場所）に書き込めるか" }
 
         # ---- tebunko/ui/index/ ----
-        @{ File = "index_detail.ps1"; Function = "openFailedFileFolder"; Call = "getPathState"; Count = 2; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
+        @{ File = "index_detail.ps1"; Function = "openListedFileFolder"; Call = "getPathState"; Count = 2; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
         @{ File = "index_detail.ps1"; Function = "applyFailedFileState"; Call = "Start-Process"; Reason = "エクスプローラーで開く（プロセスの起動は待たない）" }
         @{ File = "index_list.ps1"; Function = "openIndexSourceFolder"; Call = "getPathState"; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
         @{ File = "index_list.ps1"; Function = "openIndexLocation"; Call = "getPathState"; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
         @{ File = "index_list.ps1"; Function = "applyIndexLocationState"; Call = "Start-Process"; Reason = "エクスプローラーで開く（プロセスの起動は待たない）" }
         @{ File = "index_tree.ps1"; Function = "expandIndexNode"; Call = "getIndexFolderChildren"; Reason = "ワークスペースの場所がローカルのときに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で読む）" }
+        @{ File = "index_list.ps1"; Function = "syncIndexTextExtensions"; Call = "readTextExtCounts"; Reason = "ワークスペースの場所がローカルのときに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら読まず、控え無しとして扱う）" }
         @{ File = "index_list.ps1"; Function = "applyIndexSourceFolderState"; Call = "Start-Process"; Reason = "エクスプローラーで開く（プロセスの起動は待たない）" }
 
         # ---- shared/ui/shell.ps1・folder_dialog.ps1 ----

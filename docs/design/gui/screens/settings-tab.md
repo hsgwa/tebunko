@@ -25,6 +25,9 @@ stateDiagram-v2
     state "settings-tab/nonempty-confirm" as nonempty
     state "settings-tab/index-confirm" as index
     state "settings-tab/invalid-warning" as invalid
+    state "settings-tab/text-open" as textext
+    normal --> textext: テキストファイルの［変更…］
+    textext --> normal: ［キャンセル］
     normal --> limitnone: 件数の上限で［制限なし］を選ぶ
     limitnone --> normal: ［制限あり］を選ぶ
     normal --> limiterror: 件数の上限に正しくない値を入れて Enter
@@ -59,6 +62,10 @@ stateDiagram-v2
 ### settings-tab/normal（既定でないワークスペース。遷移 7）
 
 ![既定でないワークスペース](../../../images/screens/settings-tab/normal.png)
+
+### settings-tab/text-open（テキストの開き方のダイアログ）
+
+![テキストの開き方のダイアログ](../../../images/screens/settings-tab/text-open.png)
 
 ### settings-tab/limit-none（件数の上限が［制限なし］）
 

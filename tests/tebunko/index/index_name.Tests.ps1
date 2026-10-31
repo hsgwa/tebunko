@@ -600,3 +600,29 @@ Describe "testSourceBookName" -Tag Unit {
         testSourceBookName $book | Should -Be $expected
     }
 }
+
+Describe "assignIndexNames（Subfolders）" -Tag Unit {
+    It "Subfolders（false・true・無し）を、名前を割り当てたあとの項目にも引き継ぐ" {
+        $targets = @(
+            [pscustomobject]@{ Name = ""; Path = "C:\data\見積"; Enabled = $true; Subfolders = $false },
+            [pscustomobject]@{ Name = "営業"; Path = "C:\data\営業"; Enabled = $true; Subfolders = $true },
+            [pscustomobject]@{ Name = ""; Path = "C:\data\経理"; Enabled = $true }
+        )
+        $folders = @(assignIndexNames $targets @())
+        $folders[0].Subfolders | Should -Be $false
+        $folders[1].Subfolders | Should -Be $true
+        $folders[2].Subfolders | Should -BeNullOrEmpty
+    }
+
+    It "IngestedSubfolders（前回取り込んだときの設定。false・true・無し）も引き継ぐ" {
+        $targets = @(
+            [pscustomobject]@{ Name = ""; Path = "C:\data\見積"; Enabled = $true; Subfolders = $false; IngestedSubfolders = $false },
+            [pscustomobject]@{ Name = "営業"; Path = "C:\data\営業"; Enabled = $true; Subfolders = $true; IngestedSubfolders = $true },
+            [pscustomobject]@{ Name = ""; Path = "C:\data\経理"; Enabled = $true }
+        )
+        $folders = @(assignIndexNames $targets @())
+        $folders[0].IngestedSubfolders | Should -Be $false
+        $folders[1].IngestedSubfolders | Should -Be $true
+        $folders[2].IngestedSubfolders | Should -BeNullOrEmpty
+    }
+}

@@ -25,10 +25,12 @@
 | `convertToIngestJournalLine` | kind, fields | string | ジャーナルの 1 記録（版・回・書・始・持・未・出・終）を 1 行の文字列にする。列のタブ・改行はスペースにする | 同上 | インデックス作成 |
 | `newIngestJournalHead` | version, stamp, rowCount, carried, unpublished | string の配列 | 新しい回のジャーナルの頭の行（版・回・持ち越した仕事の「持」・書き出せていないフォルダの「未」の順）を組み立てる（判断層） | 同上 | インデックス作成 |
 | `convertFromIngestJournal` | lines, statusRelPaths, 上限 | `@{Valid; Finished; Aligned; Folders; Resume}` | 前回のジャーナルの行と取り込み一覧の相対パスから、始めの復旧の内容（先に書き出すフォルダ・やり直す仕事）を決める。ファイルには触らない（判断層） | 同上 | インデックス作成 |
-| `recoverIngestJournal` | ledger, journal, pending, channel, reporter | `@{Resume; Unpublished}` | 始めの復旧。前回のジャーナル（と前の版の `ingesting.txt`）から、やり直す仕事を決め、書き出していないフォルダを先に書き出す。ジャーナルが読めないときは今ある書き出し前のフォルダを書き出す。書き出せなかった・中止で飛ばしたフォルダは Unpublished に入れ、次の回のジャーナルへ「未」で持ち越す | 同上 | インデックス作成 |
+| `recoverIngestJournal` | ledger, journal, pending, channel, reporter | `@{Resume; Unpublished}` | 始めの復旧。前回のジャーナル（と前の版の `ingesting.txt`）から、やり直す仕事を決め、書き出していないフォルダを先に書き出す。ジャーナルが読めないときは今ある書き出し前のフォルダを書き出す。検索の上限を超える本文インデックスのファイルがあるフォルダも書き出し待ちに足す（`findOversizeContentIndexFolders`）。書き出せなかった・中止で飛ばしたフォルダは Unpublished に入れ、次の回のジャーナルへ「未」で持ち越す | 同上 | インデックス作成 |
+| `applyStartupRequeued` | ledger, pending, status | – | 始めの書き出しで外した上限超えのファイルの中の元のファイル（`pending.Requeued`）の行を、取り込み一覧のファイルと前回の行（`status.Rows`）で「未取り込み」・エラー空にして保存し、印を空にする（同じ回で取り込み直す） | 同上 | インデックス作成 |
+| `selectFinishStatusRows` | rows, ledger, pending | 行の並び | 終わりの取り込み一覧に書く行を選ぶ。取りやめた行（`DroppedRows`）は除き、書き出しで上限超えのファイルを外した元のファイル（`pending.Requeued`）の行は「未取り込み」・エラー空に戻す（この回の結果より優先） | 同上 | インデックス作成 |
 | `writeStatusWithJournal` | journal, ledger, folders, rows, keptDropped, previous, [-Finish] | – | 取り込み一覧を書き直す。前に「書」を足し、-Finish のときは書き直したあとに「終」を足す。最後にジャーナルを閉じる | 同上 | インデックス作成 |
 | `getLegacyIngestingPath` / `readLegacyIngesting` / `removeLegacyIngesting` | – | パス / `@{RelPath; Count}` の配列 / – | 前の版の `ingesting.txt` を始めに 1 度だけ読んで、ジャーナルの復旧に足し、読んだあとに消す（`ingest_journal.ps1`） | 同上 | インデックス作成 |
-| `newIndexerChannel` | retryFailed, confirmTargets, workers（既定 -1）, onlyNames（既定は空）, includeCloud（既定 `$false`） | 受け渡しの口（`[hashtable]::Synchronized`） | 画面とインデクサの受け渡しの口を作る（`RetryFailed`・`ConfirmTargets`・`Workers`・`OnlyNames`（更新するインデックス名。空ならチェックの付いたものすべて）・`OnlySkipped`（`OnlyNames` のうち更新できなかった名前と理由）・`Progress`・`Stop`・`Plan`・`Answer`・`Answered`・`Error`・`ExitCode`・`Notice`・`Postponed`・`IncludeCloud`（クラウドにだけあるファイルもダウンロードして取り込むか）・`CloudSkipped`（ダウンロードせずに残した件数）・`OfficePids`）。`Workers` は -1 で設定・コア数から決める、0 で司令のスレッドで取り込む（テスト） | [画面とインデクサの受け渡し](../structure/threads.md#画面とインデクサの受け渡し) | 画面・indexer.ps1 |
+| `newIndexerChannel` | retryFailed, confirmTargets, workers（既定 -1）, onlyNames（既定は空）, includeCloud（既定 `$false`） | 受け渡しの口（`[hashtable]::Synchronized`） | 画面とインデクサの受け渡しの口を作る（`RetryFailed`・`ConfirmTargets`・`Workers`・`OnlyNames`（更新するインデックス名。空ならチェックの付いたものすべて）・`OnlySkipped`（`OnlyNames` のうち更新できなかった名前と理由）・`CountedFiles`（取り込み対象を探す間に数えたファイルの数。列挙で 1000 件ごとに増える。確認のために数え直しているときの帯に出す）・`Progress`・`Stop`・`Plan`・`Answer`・`Answered`・`Error`・`ExitCode`・`Notice`・`Postponed`・`IncludeCloud`（クラウドにだけあるファイルもダウンロードして取り込むか）・`CloudSkipped`（ダウンロードせずに残した件数）・`OfficePids`）。`Workers` は -1 で設定・コア数から決める、0 で司令のスレッドで取り込む（テスト） | [画面とインデクサの受け渡し](../structure/threads.md#画面とインデクサの受け渡し) | 画面・indexer.ps1 |
 | `writeIndexingProgress` | phase, processed, remaining, failed, detail, channel（既定はいま動いているインデックス作成の口） | – | インデックス作成の進み具合を受け渡しの口の `Progress` に入れる（口が無ければ何もしない） | [インデックス作成のメインフロー](../indexing/flow.md) | インデックス作成（1 ファイルにつき 1 回） |
 | `readIndexingProgress` | channel | `@{Phase; Processed; Remaining; Failed; Detail}` / `$null` | インデックス作成の進み具合を受け渡しの口から読む（まだ無ければ `$null`）。画面が 1 秒ごとに呼ぶ（数万行の取り込み一覧を読み直さない） | [インデックス作成の実行](../gui/indexing-run.md#更新の進み具合) | 画面 |
 | `requestIndexingStop` | channel | – | 中止を求める（`Stop` を立て、確認を待っていれば取りやめの返事にする） | 同上 | 画面 |
@@ -62,6 +64,7 @@
 | `MarkFolder` | folder | – | 前回のインデックス作成で本文インデックスに入れていないフォルダを、無くなったファイルの記録無しで書き出し待ちにする |
 | `Restore` | folder, names | – | 前の回に外し終えていなかった、無くなった元のファイル名を、書き出し待ちと `Unpublished` の両方に戻す |
 | `MarkPublished` | folders, taken | – | 本文インデックスのファイルを書き終えたフォルダの、そのとき書き出した名前（`taken`。`TakeAll` などの戻り値）だけを、`Unpublished`（外し終えていない削除。`TakeAll` などでは消えない）から外す。同じ回に書き出しを飛ばした名前は残る |
+| `AddRequeued` | relPaths | – | 書き出しで外した上限超えの本文インデックスのファイルの中の元のファイル（インデックスからの相対パス）を、取り込み直し（`Requeued`）に足す。終わりの取り込み一覧で「未取り込み」に戻す |
 | `AddPending` | folder | – | 取り込み対象を数えるとき、そのファイルの分だけ「まだ渡していない数」を 1 つ足す |
 | `Dispatch` | folder | – | ファイルを 1 つ渡す（まだ渡していない数を 1 減らし、取り込み中の数を 1 増やす） |
 | `Skip` | folder | – | ファイルを 1 つ、渡さずに済ませる（元のファイルが無くなった等。まだ渡していない数だけ減らす） |
@@ -124,11 +127,23 @@
 | `AssignNames` | targetFolders, status（`@{Folders; Rows; Rejected; LegacyFolders}`） | – | インデックス名を割り当て、前回の一覧と外れたインデックスを覚える（前回の名前に `LegacyFolders` も足して、外れたインデックスを調べる） |
 | `SaveNames` | targetFolders, save（割り当てた名前を受け取って保存し、保存した一覧を返すスクリプトブロック） | – | 名前の無いフォルダがあったときだけ `save` を呼び、`Folders` を保存した一覧にする（保存の間に設定から外れた・名前を付けられなかったフォルダは落とす。司令は `IndexCatalog.StoreAssignedNames` を呼ぶ `save` を渡す） |
 | `SelectOnly` | onlyNames | 更新できない名前（`@{Name; Reason}` の並び） | 選んだインデックスだけを更新する場合の当てはめ |
+| `TextExcludes`（プロパティ） | – | hashtable | インデックスごとの、取り込まない拡張子（Office・PDF・テキストも。インデックス名 → 拡張子の配列）。`Crawl` が、フォルダのインデックス名で `getTargetExtensionList` を作って `createTargetList` に渡す。`$null` のまま `Crawl` を呼ぶと、始めに 1 回だけ設定（`indexExtensionExcludes`）を読む |
+| `TextCountsByIndex`（プロパティ） | – | hashtable | インデックス名 → 拡張子 → 件数（Office・PDF・テキストの拡張子ごとの件数。取り込まない拡張子の分も。同じ名前の複数のフォルダは合計）。`Crawl` が `createTargetList` の `TextCounts` から足す |
 | `Crawl` | indexCounts, onFolder | – | フォルダごとに取り込み対象・チェックなし・フォルダなしに分け、`Rows`・`Targets`・`Failed`・`Plan` を組み立てる。`onFolder` は検索の直前に呼ぶ（進み具合を出す。例外は包まずにそのまま伝える） |
-| `KeepForCancel` | – | 取り込み一覧に書く行 | 取りやめるとき、取り込み対象の行（とクラウドにだけあって前回未完了の行）を前回の記録のままにする |
+| `KeepForCancel` | – | 取り込み一覧に書く行 | 取りやめるとき、取り込み対象の行（とクラウドにだけあって前回未完了の行・元のファイルが無くなったファイルの行）を前回の記録のままにする |
 | `ApplyFailed` | retry | – | 前回失敗した行を、再取り込みする（`Targets` に足す）かスキップするか |
 | `ApplyInterrupted` | entries, interruptLimit | – | 前回強制終了したファイルを最後に回し（`Carried`）、上限に達したものは失敗にする |
 | `FolderByName` | – | インデックス名 → フォルダ | 取り込みのワーカーへ渡すための対応 |
+
+## インデックスごとの拡張子ごとの件数の控え（`tebunko/core/text_ext_counts.ps1`）
+
+| 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |
+|---|---|---|---|---|---|
+| `readTextExtCounts` | path（既定 `$workspace.TextExtCountsFile`） | インデックス名 → `@{Time; Counts}` の表 | 前の回に数えた拡張子ごとの件数の控えを読む。無い・壊れている・形が違う項目は、空（その名前の項目なし）にする | [データの置き場所](../structure/io-files.md) | 詳細の「取り込む拡張子」 |
+| `writeTextExtCounts` | name, counts（拡張子 → 件数）, time, path | – | そのインデックスの項目だけを書き換える（ほかの名前は残す。`.tmp` を経由して置き換える） | 同上 | `IndexCatalog.StoreTextExtCounts` |
+| `writeTextExtCountsTable` | table, path | – | 控えの表を丸ごと書く（`.tmp` を経由して置き換える） | 同上 | 上の関数 |
+| `renameTextExtCounts` | oldName, newName, path | – | 改名で項目のキーを付け替える（古い名前の項目が無ければ何もしない） | 同上 | `IndexCatalog.RenameIndex` |
+| `removeTextExtCounts` | name, path | – | 削除でその名前の項目を消す（無ければ何もしない） | 同上 | `IndexCatalog.RemoveIndex` |
 
 ## 取り込み直すかの判断（`tebunko/indexer/indexer_decide.ps1`）
 
@@ -137,9 +152,13 @@
 | `getExtractVersion` | path | int | ファイルの形式（拡張子）の今の抽出版（読み取る内容の版。`.xlsx` `.xlsm` はグラフの項目名を読まず、グラフ・SmartArt・ヘッダー・フッターを読む 4、`.docx` `.docm` `.doc` は埋め込みを読む 4、`.pptx` `.pptm` `.ppt` はスライドマスター・ノートマスターを読む 5、ほかは 1） | [取り込み対象の決定](../indexing/target-decision.md#取り込み対象の決定createtargetlist) | testExtractOutdated、インデックス作成（取り込み一覧の抽出版の列） |
 | `testExtractOutdated` | row | bool | 取り込み一覧の行が、今の抽出版より前の版で取り込んだものか（抽出版の列が空なら 1） | 同上 | getIngestDecision |
 | `getIngestDecision` | old（前回の行 / `$null`）, updated, size, indexComplete | `@{Ingest; Reason}` | 取り込むかどうかと理由（`done` / `failed` / `new` / `updated` / `pending` / `lost` / `outdated`）。更新日時・サイズが同じでも、TSV が欠けていれば `lost`、前の抽出版なら `outdated` で取り込み直す | 同上 | createTargetList |
+| `getIndexSelectableExtensions` | – | string[] | 取り込み対象として選べる拡張子の全部（小文字。Office 10 個・PDF・テキスト 75 個の 86 個。並びは Office・PDF・テキスト） | [取り込み対象の決定](../indexing/target-decision.md) | `getIndexTargetExtensions`・`getTargetExtensionCounts`・取り込み対象の拡張子のダイアログ |
+| `getIndexTargetExtensions` | excluded（省略可） | string[] | 選べる 86 個から excluded（取り込まないと選んだ拡張子。大文字・小文字を区別せず、86 個に無いものは無視）を除いた一覧 | 同上 | `getTargetExtensionList`（`IngestPlanner.Crawl`） |
+| `getTargetExtensionCounts` | names（ファイル名・パスの並び） | ハッシュテーブル（拡張子 → 件数） | 86 個の拡張子ごとの件数（小文字。86 個に無い拡張子は数えない） | 同上 | `findTargetFiles`（`TextCounts`） |
 | `getIngestApp` | relPath | string | 取り込みに最初に要る Office のアプリ（表（`$officeFileKinds`）の Excel の拡張子は `Excel`、`.doc` は `Word`、`.ppt` は `PowerPoint`。それ以外（`.docx`・`.docm`・`.pptx`・`.pptm`、テキストの拡張子、`.pdf`）は Office が要らず空） | [取り込みの並列化](../indexing/parallel.md) | インデックス作成（司令） |
 | `getRerouteApp` | relPath | string | Office を使わずに読めず、Office が要ると分かったファイルの回し先のアプリ（`getOfficeFileKind` が `PowerPoint`（`.pptx` `.pptm` `.ppt`）なら `PowerPoint`、ほかは `Word`） | 同上 | インデックス作成（司令） |
 | `selectIngestWorker` | workers（ワーカーごとの `@{Busy; Owns; Abandoned}`）, app, capacity | `@{Kind=Worker／Wait／Abandoned; Index}` | 取り込むファイルの渡し先を決める。Office が要るファイルは、そのアプリの持ち主へ（満杯なら `Wait`、持ち主が諦めていれば `Abandoned`）。持ち主がいなければ、持ち主のいないワーカーのうちいちばん空いているもの。Office が要らないファイルは、持ち主のいないワーカーのうちいちばん空いているもの（無ければ、諦めていないいちばん空いているもの）。すべて諦めていれば `Abandoned` | 同上 | `IngestDispatcher` |
+| `getFullyIngestedIndexNames` | ranPaths（その回で取り込みを回したフォルダのパス）, folders（`@{Name; Path; Enabled}`） | 名前の配列 | 名前の有効なフォルダをすべて回したインデックス名（同じ名前のフォルダの 1 つだけを回した回では、取り込んだときの取り込まない拡張子を更新しない）。有効なフォルダが無い名前は返さない | 同上 | recordIngestedTextExtensions |
 
 ## インデックス名とインデックスの管理（`tebunko/index/index_name.ps1`・`index_store.ps1`）
 
@@ -154,6 +173,7 @@
 | `testIndexName` | name, usedNames | string（使えれば空） | 新しく付けるインデックス名として使えるか調べ、使えない理由を返す（フォルダ名の決め `getFolderNameProblemText`（空・前後の空白・255 文字超・使えない文字・末尾の `.`・Windows の予約語）に、ほかと重複を足す）。`newIndexName` が作る名前は必ず通る。`IndexCatalog.RenameIndex` は新しい名前を、これで確かめる | [名前とフォルダパスの編集](../gui/index-tab.md#名前とフォルダパスの編集) | 画面 |
 | `testStoredIndexName` | name | string（使えれば空） | 保存してあるインデックス名（設定・取り込み一覧・状態のフォルダから読んだもの）として使えるか調べる。`testIndexName` との違いは、Windows の予約名（`aux.backup`・`CON.txt` など）を拒まないこと（既にある実在のフォルダの名前を空にせず使い続けるため）。置き場の外へ出る名前・最後の `.` や前後の空白・使えない文字は拒む。`IndexCatalog.RenameIndex` は元の名前を、`RemoveIndex` は消す前に名前を、これで確かめる（通らない名前は何も動かさず例外にする） | 同上 | testIndexRelPath, assignIndexNames, `IndexCatalog` |
 | `testStatusRowFailed` | row | bool | 取り込み一覧の行を失敗に数えるか。状態が `失敗` の行と、`未取り込み` でエラーの列に理由がある行（利用者の PowerPoint のために取り込めなかったファイル。次の更新で取り込むため状態は `未取り込み` のまま） | [取り込み一覧](../indexing/ingest-list.md) | `getIndexStats`・`getIndexingState` |
+| `getIndexFileEntries` | indexName, labels, path | `@{Rows; Done; Failed; Pending}` | あるインデックスに取り込んだファイルの一覧（取り込み一覧のそのインデックスの行。`readStatusFile` で読む）を、画面の表に出す形で返す。Rows は `@{RelPath（インデックス名を除いた相対パス）; UpdatedText; Kind（Done / Failed / Pending。失敗は `testStatusRowFailed` と同じ数え方）; StateText（labels から）; Reason; SourcePath（取り込み一覧に記録した元のフォルダから組んだ元のファイルのパス。記録が無ければ空）}` の配列（相対パスの順）。画面の裏の仕事で動く | [インデックス一覧の管理](../gui/index-tab.md)の［ファイルの一覧］ | 詳細欄 |
 | `getWorkspaceIndexFolders` | ws | `@{Name; Path}` の配列 | ワークスペースに残っているインデックスを名前と前回の元のフォルダの組で集める（取り込み一覧のフォルダの行は名前と Path、インデックスのフォルダ（`store\content\`・古い `content_index\`）の直下にだけあって行の無いものは Path を空にする）。設定から外れたまま残してあるものを含む | [名前とフォルダパスの編集](../gui/index-tab.md#名前とフォルダパスの編集) | `getImportUsedIndexNames`・画面（`refreshLeftoverIndexes`） |
 | `getIndexStats` | rows（readStatusFile の Rows） | 名前 → `@{Total; Done; Pending; Failed; LastIngested}` | 取り込み一覧の行をインデックス名ごとに集計する（一覧の「ファイル」「最終取り込み」。`未取り込み` でエラーがある行は `Failed` に数え、`Pending` に数えない） | [一覧の列](../gui/index-tab.md#一覧の列) | 画面（getIndexingState 経由） |
 | `getSearchIndexes` | dir（既定 `$workspace.IndexDir`）, statusPath, settingsPath | `@{Name; Path; SourcePath}` の配列 | インデックスの一覧（`work\store\content` 直下のフォルダ 1 つがインデックス 1 つ）。並びは［インデックス管理］の一覧と同じで、一覧に無いもの（コピーしたインデックスなど）は名前順で後ろ。`SourcePath` は元のフォルダ（分からなければ空） | [インデックスの一覧](../search/index.md#インデックスの一覧getsearchindexes) | 画面（検索対象のツリー） |
@@ -184,9 +204,10 @@
 | 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |
 |---|---|---|---|---|---|
 | `getIndexTsvFilesNoFollow` | indexDir | FileInfo の配列 | インデックスのフォルダの下の `.tsv` を、リンクのフォルダへ降りずに集める（`getFilesNoFollow`）。置き場の中にリンクがあっても、先のファイルは zip に入れず、親を指すリンク（輪）でも止まらない。最後まで読めなかったときは `インデックスのフォルダを最後まで読めませんでした` の例外 | 同上 | `exportIndex`・`getIndexExportSize` |
-| `exportIndex` | name, destPath, ws（既定 `$workspace`）, settingsPath（既定 `$settingsFile`） | `@{Name; Path; Files; Bytes}` | 1 つのインデックスを 1 つの zip に書き出す。インデックス作成のロックを取り、入れる前の TSV が残っていれば例外。`<destPath>.tmp` に書いてから置き換える | 同上 | 画面（［エクスポート…］） |
+| `exportIndex` | name, destPath, ws（既定 `$workspace`）, settingsPath（既定 `$settingsFile`） | `@{Name; Path; Files; Bytes; Omitted}` | 1 つのインデックスを 1 つの zip に書き出す。インデックス作成のロックを取り、入れる前の TSV が残っていれば例外。`<destPath>.tmp` に書いてから置き換える。インポートが断る大きさ（`testImportedContentIndexFile`）の本文インデックスのファイルは zip に入れず、`Omitted`（`@{Path; Books}` の配列。`Books` は中に入っていた元のファイル）に控える | 同上 | 画面（［エクスポート…］） |
 | `exportIndexToFolder` | name, folder, ws, settingsPath | `exportIndex` と同じ | 書き出し先のフォルダを確かめ（無ければ `書き出し先のフォルダが見つかりません：<フォルダ>` の例外）、そのフォルダにある zip の名前から `getExportFileName` で重ならない名前を決め、`exportIndex` で書き出す | 同上 | 画面（［エクスポート…］の別スレッド） |
-| `exportIndexes` | names, destination（フォルダ）, ws, settingsPath | `@{Name; Ok; Reason; Path}` の配列（名前ごと） | 選んだインデックスを、書き出し先のフォルダにインデックス 1 つにつき zip 1 つで書き出す。`exportIndexToFolder` を 1 つずつ呼び、1 つ失敗しても残りを続ける（`Reason` は失敗の理由、`Path` は書き出した zip。失敗なら空）。zip の形・ファイル名は 1 つずつの書き出しと同じ | 同上 | 画面（［エクスポート…］の別スレッド） |
+| `writeContentIndexFilesToArchive` | archive, indexDir, contentIndexFiles, manifestFiles | `@{Bytes; Omitted}` | 本文インデックスのファイルを zip に入れ、目録の `files` に足す。インポートが断る大きさのファイルは入れず、`readContentIndexBookNamesStreaming` で元のファイルの名前を集めて `Omitted` に控える | 同上 | `exportIndexCore` |
+| `exportIndexes` | names, destination（フォルダ）, ws, settingsPath | `@{Name; Ok; Reason; Path; Omitted}` の配列（名前ごと） | 選んだインデックスを、書き出し先のフォルダにインデックス 1 つにつき zip 1 つで書き出す。`exportIndexToFolder` を 1 つずつ呼び、1 つ失敗しても残りを続ける（`Reason` は失敗の理由、`Path` は書き出した zip。失敗なら空）。zip の形・ファイル名は 1 つずつの書き出しと同じ | 同上 | 画面（［エクスポート…］の別スレッド） |
 | `readIndexArchiveInfo` | zipPath | `@{IndexName; SourceFolder; Files; Bytes; FormatVersion; AppVersion}` | zip の目録を読んで確かめる（インポートはしない）。インポートの確認ダイアログの既定値に使う | 同上 | 画面（［インポート…］） |
 | `getImportArchiveInfo` | zipPath | `readIndexArchiveInfo` の結果に `SourceExists`（元のフォルダがあるか。ローカルのドライブでなければ有無を調べず `$null`）を足したもの | インポートの確認ダイアログ用。目録の元のフォルダが共有フォルダでも、接続を待たない | 同上 | 画面（［インポート…］の別スレッド） |
 | `importIndex` | zipPath, collisionMode（`Rename`/`Overwrite`/`Cancel`）, name, sourceFolder, ws, settingsPath, getFreeSpace, progress（省ける。`Done`・`Total` を持つ Synchronized の hashtable。展開した大きさを書く） | `@{Name; SourcePath; Enabled; Files; Bytes; Warnings}`（`Cancel` は `$null`） | zip から 1 つのインデックスをインポートする。目録の確かめ（版 1 の zip は断る）・展開・前の版のワークスペースの片付け・設定への登録・`store\content\<名前>\` の入れ替え・取り込み一覧の書き直しを行う。途中で失敗したら逆の操作で戻す | 同上 | 画面（［インポート…］） |

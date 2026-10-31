@@ -124,6 +124,45 @@
         </StackPanel>
       </Border>
 
+      <!-- テキストファイルの開き方（検索結果から開くとき、拡張子ごとに既定のアプリかエディタか。設定 notepadTextExtensions）とエディタ（設定 textEditorPath。いまはメモ帳だけ）。
+           選ぶのはダイアログ（text_open_dialog.ps1）。要約の文言は text_open_view.ps1。どの拡張子を取り込むかは、インデックスの更新の確認で選ぶ -->
+      <Border Style="{StaticResource Section.Card}" Margin="0,16,0,0">
+        <StackPanel>
+          <Border Style="{StaticResource Section.Header}">
+            <TextBlock Style="{StaticResource Label.Strong}" VerticalAlignment="Center" Text="テキストファイル" />
+          </Border>
+
+          <Border Style="{StaticResource Section.Row}" BorderThickness="0">
+            <DockPanel>
+              <Button x:Name="ChangeTextExtensionsButton" DockPanel.Dock="Right" Content="変更…" MinWidth="64" Margin="12,0,0,0" VerticalAlignment="Center"
+                      AutomationProperties.AutomationId="ChangeTextExtensionsButton"
+                      ToolTip="拡張子ごとに、検索結果から開くときのアプリ（既定のアプリ・エディタ）を選びます" />
+              <StackPanel>
+                <TextBlock Style="{StaticResource Body}" FontWeight="SemiBold" Foreground="{StaticResource Ink.Strong}" Text="テキストの開き方" />
+                <TextBlock x:Name="TextExtensionHint" Style="{StaticResource Meta}" Margin="0,2,0,0" TextWrapping="Wrap" />
+                <TextBlock x:Name="TextExtensionSummary" Style="{StaticResource Meta}" Margin="0,2,0,0" TextWrapping="Wrap"
+                           AutomationProperties.AutomationId="TextExtensionSummary" />
+              </StackPanel>
+            </DockPanel>
+          </Border>
+
+          <!-- エディタ（いまはメモ帳だけ。選べるのは将来の対応のため、［変更…］は押せない） -->
+          <Border Style="{StaticResource Section.Row}">
+            <DockPanel>
+              <Button x:Name="ChangeEditorButton" DockPanel.Dock="Right" Content="変更…" MinWidth="64" Margin="12,0,0,0" VerticalAlignment="Center" IsEnabled="False"
+                      AutomationProperties.AutomationId="ChangeEditorButton" />
+              <Border DockPanel.Dock="Right" Margin="12,0,0,0" Padding="8,2" CornerRadius="9" VerticalAlignment="Center" Background="{StaticResource Warn.Soft}">
+                <TextBlock Style="{StaticResource Micro}" Foreground="{StaticResource Warn.Strong}" Text="将来の対応" />
+              </Border>
+              <StackPanel>
+                <TextBlock Style="{StaticResource Body}" FontWeight="SemiBold" Foreground="{StaticResource Ink.Strong}" Text="エディタ" />
+                <TextBlock x:Name="EditorHint" Style="{StaticResource Meta}" Margin="0,2,0,0" TextWrapping="Wrap" />
+              </StackPanel>
+            </DockPanel>
+          </Border>
+        </StackPanel>
+      </Border>
+
       <!-- 検索結果の件数の上限（設定 searchLimit）。制限なしは 0。確定すると、次の検索から効く（文言と可否は settings_view.ps1 の getSearchLimit*） -->
       <Border Style="{StaticResource Section.Card}" Margin="0,16,0,0">
         <StackPanel>
@@ -159,6 +198,7 @@
           </Border>
         </StackPanel>
       </Border>
+
     </StackPanel>
   </Grid>
 </ScrollViewer>

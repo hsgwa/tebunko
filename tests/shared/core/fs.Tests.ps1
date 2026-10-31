@@ -1715,3 +1715,60 @@ Describe "testCloudOnlyAttributes" -Tag Unit {
         }
     }
 }
+
+Describe "getFilesNoFollow（TopOnly）" -Tag Io {
+    It "TopOnly を付けると直下のファイルだけを返し、サブフォルダの中は読まない（付けなければ今までどおり下まで読む）" {
+        $dir = "$TestDrive\toponly\普通"
+        writeListFile "$dir\a.tsv" @("a")
+        writeListFile "$dir\下\b.tsv" @("b")
+        writeListFile "$dir\下\さらに下\c.tsv" @("c")
+
+        $top = getFilesNoFollow $dir -TopOnly
+        @($top.Files | ForEach-Object { $_.Name }) | Should -Be @("a.tsv")
+        @($top.Directories | ForEach-Object { $_.Name }) | Should -Be @("下")
+        @((getFilesNoFollow $dir).Files).Count | Should -Be 3
+    }
+
+    It "TopOnly でも、直下のリンクは辿らずに Links に入れる" {
+        $dir = "$TestDrive\toponly\リンク"
+        $outside = "$TestDrive\toponly\外"
+        writeListFile "$dir\a.tsv" @("a")
+        writeListFile "$outside\x.tsv" @("x")
+        $link = "$dir\リンク"
+        $made = $false
+        try {
+            New-Item -ItemType Junction -Path $link -Target $outside -ErrorAction Stop | Out-Null
+            $made = $true
+        } catch { $made = $false }
+        if (-not $made) { Set-ItResult -Skipped -Because "ジャンクションを作れない"; return }
+
+        $top = getFilesNoFollow $dir -TopOnly
+        @($top.Files | ForEach-Object { $_.Name }) | Should -Be @("a.tsv")
+        @($top.Links) | Should -Be @($link)
+    }
+}
+
+Describe "getFilesNoFollow（onProgress）" -Tag Io {
+    It "見つけたファイルが 1000 件増えるごとに、そのときの数を引数にして呼ぶ" {
+        $dir = Join-Path $TestDrive "progress"
+        [System.IO.Directory]::CreateDirectory("$dir\a") | Out-Null
+        [System.IO.Directory]::CreateDirectory("$dir\b") | Out-Null
+        foreach ($i in 1..600) { [System.IO.File]::WriteAllText("$dir\a\$i.txt", "x") }
+        foreach ($i in 1..600) { [System.IO.File]::WriteAllText("$dir\b\$i.txt", "x") }
+        $global:fsProgressCalls = New-Object System.Collections.Generic.List[int]
+        try {
+            $tree = getFilesNoFollow $dir -onProgress { param ($count) $global:fsProgressCalls.Add($count) }
+            @($tree.Files).Count | Should -Be 1200
+            @($global:fsProgressCalls) | Should -Be @(1200)
+        } finally {
+            Remove-Variable fsProgressCalls -Scope Global -ErrorAction SilentlyContinue
+        }
+    }
+
+    It "指定しなければ何も起きない" {
+        $dir = Join-Path $TestDrive "progress_none"
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        [System.IO.File]::WriteAllText("$dir\1.txt", "x")
+        @((getFilesNoFollow $dir).Files).Count | Should -Be 1
+    }
+}

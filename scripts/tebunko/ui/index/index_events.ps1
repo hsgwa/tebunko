@@ -30,6 +30,9 @@ foreach ($editBox in @($ui.IndexDetailName, $ui.IndexDetailPath)) {
         }
     })
 }
+# 詳細の『サブフォルダを含める』: 付け外しをすぐ設定に書く（UI オートメーションの切り替えは Click を起こさないため Checked・Unchecked で受ける）
+$ui.IndexDetailSubfolders.Add_Checked({ safe { changeIndexSubfolders } })
+$ui.IndexDetailSubfolders.Add_Unchecked({ safe { changeIndexSubfolders } })
 # 行の右クリックの［更新］は、行の右端の［更新］と同じ処理（押した行だけを更新する）
 $ui.RowMenuUpdate.Add_Click({
     safe {

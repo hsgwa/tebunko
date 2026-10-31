@@ -149,7 +149,39 @@
             <DataGridTemplateColumn Header="パス" Width="*">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
-                  <TextBlock Style="{StaticResource Cell.Meta}" Text="{Binding Path}" Tag="TrimTip" />
+                  <Grid>
+                    <!-- 札の無い行（ふつうの行）は今までどおり、列の幅いっぱいまで出して、長いときは「…」で省略する -->
+                    <TextBlock Text="{Binding Path}" Tag="TrimTip">
+                      <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource Cell.Meta}">
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding TopOnlyText}" Value=""><Setter Property="Visibility" Value="Visible" /></DataTrigger>
+                          </Style.Triggers>
+                          <Setter Property="Visibility" Value="Collapsed" />
+                        </Style>
+                      </TextBlock.Style>
+                    </TextBlock>
+                    <!-- 設定で「サブフォルダを含める」を外した行は、札をパスの文字のすぐ右（8 空け）に付ける。文字は長いときだけ MaxWidth で省略する -->
+                    <Grid>
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                      </Grid.ColumnDefinitions>
+                      <TextBlock Style="{StaticResource Cell.Meta}" Text="{Binding Path}" Tag="TrimTip" MaxWidth="240" />
+                      <Border x:Name="TopOnlyTag" Grid.Column="1" Background="{StaticResource Bg.Tag}" CornerRadius="3" Padding="6,1" Margin="8,0,0,0"
+                              VerticalAlignment="Center" ToolTip="サブフォルダは含めず、直下のファイルだけを取り込みます">
+                        <TextBlock Text="{Binding TopOnlyText}" FontSize="10" FontWeight="Medium" Foreground="{StaticResource Ink.Muted}" />
+                      </Border>
+                      <Grid.Style>
+                        <Style TargetType="Grid">
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding TopOnlyText}" Value=""><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </Grid.Style>
+                    </Grid>
+                  </Grid>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>

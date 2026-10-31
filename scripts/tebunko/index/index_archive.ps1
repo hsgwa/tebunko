@@ -71,7 +71,7 @@ function writeArchiveFile {
 }
 
 function exportIndex {
-    # 1 つのインデックスを 1 つの zip に書き出す: @{ Name; Path; Files; Bytes }。画面にも利用者にも問い合わせない。
+    # 1 つのインデックスを 1 つの zip に書き出す: @{ Name; Path; Files; Bytes; Omitted }。Omitted は大きすぎて入れなかった本文インデックスのファイル（writeContentIndexFilesToArchive）。画面にも利用者にも問い合わせない。
     # インデックス作成のロックを取れなければ例外（ほかで実行中）
     param (
         [string]$name,
@@ -113,7 +113,7 @@ function exportIndexToFolder {
 function exportIndexes {
     # 選んだインデックスを、書き出し先のフォルダの中の zip にまとめて書き出す（インデックス 1 つにつき zip 1 つ）。
     # 1 つずつ exportIndexToFolder を呼び、途中で 1 つ失敗しても残りを続ける。
-    # 戻り値は名前ごとの結果の配列（@{ Name; Ok; Reason; Path }）。Reason は失敗したときの理由（成功なら ""）、Path は書き出した zip（失敗なら ""）。
+    # 戻り値は名前ごとの結果の配列（@{ Name; Ok; Reason; Path; Omitted }）。Omitted は exportIndex と同じ（失敗なら空）。Reason は失敗したときの理由（成功なら ""）、Path は書き出した zip（失敗なら ""）。
     # 画面のスレッドでは呼ばず、別スレッドの仕事の中で呼ぶ
     param (
         [string[]]$names,
@@ -126,9 +126,9 @@ function exportIndexes {
     foreach ($name in @($names)) {
         try {
             $exported = exportIndexToFolder $name $destination $ws $settingsPath
-            $results.Add([pscustomobject]@{ Name = $name; Ok = $true; Reason = ""; Path = $exported.Path })
+            $results.Add([pscustomobject]@{ Name = $name; Ok = $true; Reason = ""; Path = $exported.Path; Omitted = @($exported.Omitted) })
         } catch {
-            $results.Add([pscustomobject]@{ Name = $name; Ok = $false; Reason = $_.Exception.Message; Path = "" })
+            $results.Add([pscustomobject]@{ Name = $name; Ok = $false; Reason = $_.Exception.Message; Path = ""; Omitted = @() })
         }
     }
     return , $results.ToArray()
@@ -236,12 +236,8 @@ function exportIndexCore {
             $manifestFiles.Add([ordered]@{ path = ${indexArchiveStatusEntryName}; size = [long]$statusBytes.Length; sha256 = (getBytesSha256 $statusBytes) })
             $totalBytes += $statusBytes.Length
 
-            foreach ($rel in $contentIndexFiles) {
-                $entryPath = "content_index/" + $rel.Replace("\", "/")
-                $written = writeArchiveFile $archive $entryPath (Join-Path $indexDir $rel)
-                $manifestFiles.Add([ordered]@{ path = $entryPath; size = [long]$written.Size; sha256 = $written.Sha256 })
-                $totalBytes += $written.Size
-            }
+            $contentResult = writeContentIndexFilesToArchive $archive $indexDir $contentIndexFiles $manifestFiles
+            $totalBytes += $contentResult.Bytes
 
             $sourceFolder = ""
             $ownFile = readSourceFolderFile $indexDir
@@ -285,7 +281,35 @@ function exportIndexCore {
         }
         throw
     }
-    return @{ Name = $name; Path = $destPath; Files = $manifestFiles.Count; Bytes = $totalBytes }
+    return @{ Name = $name; Path = $destPath; Files = $manifestFiles.Count; Bytes = $totalBytes; Omitted = @($contentResult.Omitted) }
+}
+
+function writeContentIndexFilesToArchive {
+    # 本文インデックスのファイルを zip に入れ、目録の files（manifestFiles）に足す。
+    # インポートが断る大きさ（testImportedContentIndexFile と同じ判定）のファイルは、書き出せても読み込めないので、入れずに Omitted に控える。
+    # 戻り値: @{ Bytes（入れたバイト数）; Omitted（入れなかったファイルの配列 @{ Path（インデックスの中の相対パス）; Books（中に入っていた元のファイルの相対パス）} ）}
+    param (
+        $archive,
+        [string]$indexDir,
+        [string[]]$contentIndexFiles,   # インデックスのフォルダからの相対パス
+        $manifestFiles
+    )
+
+    $bytes = [long]0
+    $omitted = New-Object System.Collections.Generic.List[object]
+    foreach ($rel in $contentIndexFiles) {
+        $source = Join-Path $indexDir $rel
+        $size = ([System.IO.FileInfo]::new((toLongPath $source))).Length
+        if (testImportedContentIndexFile $size $null) {
+            $omitted.Add(@{ Path = $rel; Books = (readContentIndexBookNamesStreaming $source) })
+            continue
+        }
+        $entryPath = "content_index/" + $rel.Replace("\", "/")
+        $written = writeArchiveFile $archive $entryPath $source
+        $manifestFiles.Add([ordered]@{ path = $entryPath; size = [long]$written.Size; sha256 = $written.Sha256 })
+        $bytes += $written.Size
+    }
+    return @{ Bytes = $bytes; Omitted = $omitted.ToArray() }
 }
 
 function readArchiveEntryBytesLimited {
@@ -604,15 +628,16 @@ function expandImportArchive {
                 }
             } else {
                 # 本文インデックスのファイル: 大きすぎれば展開しない。展開して SHA-256 を比べたあと、検索と更新が読めるかを確かめる
-                $reason = testImportedContentIndexFile $size $null
-                if (!$reason) {
-                    $rel = $path.Substring("content_index/".Length).Replace("/", "\")
-                    $target = Join-Path $newDir $rel
-                    extractArchiveEntryToFile $entry $size $sha256 $target $workDir $progress
-                    $reason = testImportedContentIndexFile $size (readContentIndexText $target)
+                $sizeReason = testImportedContentIndexFile $size $null
+                if ($sizeReason) {
+                    throw "インデックスのファイル「${path}」を読み込めません（${sizeReason}）。この版の tebunko でエクスポートし直すと、大きすぎるファイルを含めずに書き出せます。"
                 }
-                if ($reason) {
-                    throw "インデックスのファイル「${path}」を読み込めません（${reason}）。エクスポートした側で更新し直してから、もう一度エクスポートしてください。"
+                $rel = $path.Substring("content_index/".Length).Replace("/", "\")
+                $target = Join-Path $newDir $rel
+                extractArchiveEntryToFile $entry $size $sha256 $target $workDir $progress
+                $readReason = testImportedContentIndexFile $size (readContentIndexText $target)
+                if ($readReason) {
+                    throw "インデックスのファイル「${path}」を読み込めません（${readReason}）。エクスポートした側で更新し直してから、もう一度エクスポートしてください。"
                 }
             }
         }

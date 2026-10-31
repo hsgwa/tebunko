@@ -152,4 +152,12 @@ Describe "PendingPublish（外し終えていない削除 Unpublished）" -Tag U
         $flush[$script:folder].Contains("a.xlsx") | Should -Be $true
         $flush[$script:folder].Contains("b.xlsx") | Should -Be $true
     }
+
+    It "AddRequeued は、取り込み直しにする相対パスを重ねずに集め、空の名前は入れない" {
+        $pending = [PendingPublish]::new()
+        $pending.AddRequeued([string[]]@("営業\A.xlsx", "営業\a.xlsx", "", "営業\B.xlsx"))
+
+        $pending.Requeued.Count | Should -Be 2
+        $pending.Requeued.Contains("営業\b.xlsx") | Should -Be $true
+    }
 }

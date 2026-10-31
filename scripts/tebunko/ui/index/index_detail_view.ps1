@@ -15,6 +15,62 @@ function getIndexDetailItem {
     return $null
 }
 
+function getIndexFileStateLabels {
+    # 取り込んだファイルの一覧の「状態」の文言（Kind → 文言）。Kind は getIndexFileEntries と同じ（Done / Failed / Pending）
+    return @{ Done = "取り込み済"; Failed = "失敗"; Pending = "未取り込み"; NoReason = "（原因は記録されていません）" }
+}
+
+function selectIndexFileRows {
+    # 一覧に出す行を、絞り込みで選ぶ。filter が Failed なら失敗の行（Kind が Failed）だけ、それ以外は全部。行は元の順のまま
+    param (
+        [object[]]$rows,
+        [string]$filter = "All"
+    )
+
+    $all = @($rows | Where-Object { $null -ne $_ })
+    # 呼ぶ側は @() で受ける（1 件でも空でも配列にするため）
+    if ($filter -ne "Failed") { return $all }
+    return @($all | Where-Object { $_.Kind -eq "Failed" })
+}
+
+function getIndexFailedEntryView {
+    # 詳細の「更新に失敗したファイル N 件［一覧で見る］」の 1 行。失敗が 1 件以上あるときだけ出す
+    param (
+        [int]$failedCount
+    )
+
+    if ($failedCount -le 0) { return @{ Shown = $false; Text = "" } }
+    return @{ Shown = $true; Text = ("更新に失敗したファイル {0:#,0} 件" -f $failedCount) }
+}
+
+function getIndexFilesEmptyNotice {
+    # 絞り込みの結果が 0 件のときの案内。失敗のみで 0 件なら「失敗したファイルはありません」、それ以外は空（見出しの要約を出す）
+    param (
+        [string]$filter,
+        [int]$shownCount
+    )
+
+    if ($filter -eq "Failed" -and $shownCount -le 0) { return "失敗したファイルはありません" }
+    return ""
+}
+
+function getIndexFilesHeading {
+    # 取り込んだファイルの一覧の見出し（total は一覧の行の数。済・失敗・未取り込みの全部）。total が 0 のときは「まだ取り込んだファイルはありません」
+    param (
+        [int]$total,
+        [int]$failed = 0,
+        [int]$pending = 0
+    )
+
+    if ($total -le 0) { return "まだ取り込んだファイルはありません" }
+    $text = "ファイル {0:#,0} 件" -f $total
+    $notes = New-Object 'System.Collections.Generic.List[string]'
+    if ($failed -gt 0) { $notes.Add(("失敗 {0:#,0} 件" -f $failed)) }
+    if ($pending -gt 0) { $notes.Add(("未取り込み {0:#,0} 件" -f $pending)) }
+    if ($notes.Count -gt 0) { $text += "（うち" + ($notes -join "・") + "）" }
+    return $text
+}
+
 function getIndexDetailMultiCount {
     # 詳細欄を「N 件を選択中」にするときの N（そうしないときは 0）。2 件以上チェックしているときだけ、その件数を返す。
     # 0 件・1 件のときは 0（詳細欄は押した行のまま）
@@ -64,18 +120,38 @@ function getIndexDetailEditDecision {
     return @{ Action = "Apply"; Message = ""; Name = $newName; Path = $newPath }
 }
 
+function getIndexDetailInfoRows {
+    # 詳細の右の「インデックス情報」の @{ Label; Value } の並び。getIndexDetailView が使う（hasCount: 取り込んだ件数が分かるか）。
+    # 一覧（［ファイルの一覧］）を開かなくても、失敗・未取り込みの件数が分かるようにする（取り込んだ分があるときだけ）
+    param (
+        $item,
+        [bool]$hasCount
+    )
+
+    $rows = New-Object 'System.Collections.Generic.List[object]'
+    [void]$rows.Add(@{ Label = "対象ファイル数"; Value = $(if ($hasCount) { "$($item.FileCountText) ファイル" } else { "－" }) })
+    [void]$rows.Add(@{ Label = "最終更新"; Value = $(if ($item.LastIngestedText) { [string]$item.LastIngestedText } else { "－" }) })
+    if ($hasCount) {
+        [void]$rows.Add(@{ Label = "うち失敗"; Value = ("{0:#,0} 件" -f [int]$item.FailedCount) })
+        [void]$rows.Add(@{ Label = "うち未取り込み"; Value = ("{0:#,0} 件" -f [int]$item.PendingCount) })
+    }
+    return , $rows.ToArray()
+}
+
 function getIndexDetailView {
     # インデックスの詳細のパネルに出す内容を返す。1 つ選んでいるときだけ中身を出す
     # （何も選んでいない・複数のときは見出しだけ。一覧の下の合計は別の部品）。
     #   items         : 選んでいる行。@{ Name; Path; Enabled; FolderStatus; FolderMissing（元のフォルダが無いと分かったか）; FolderChecked（有無を調べ終えたか。$false のときだけ「確認中」。省くと調べ終えたものとする）; IndexText; IndexLevel; IndexSub; FileCountText;
-    #                   LastIngestedText }
+    #                   LastIngestedText; FailedCount・PendingCount（取り込み一覧の失敗・未取り込みの件数。省くと 0）;
+    #                   TextExcludes（そのインデックスの取り込まない拡張子）・TextExcludesIngested（前回取り込んだときのもの）・TextCountsEntry（件数の控えのその名前の値 @{ Time; Counts }。無ければ $null。省くと 全部取り込む・控え無し）; TextExtEditable（取り込む拡張子の［変更…］を押せるか。更新中・ほかの処理の間は $false。省くと $true）}
     #   multiCount    : 2 以上なら、詳細は出さず「N 件を選択中」と案内だけにする（getIndexDetailMultiCount）
     #   running       : 更新の進み具合（@{ Ratio; Processed; Total; Failed; Eta; Current }）。更新中の行の「インデックス」の箱に出す。無ければ $null
-    # 戻り値: @{ Title; Selected; Name; Path; FolderStatus; FolderBrush（フォルダの状態の文の色のキー。ある = Ok／無い = Danger.Text／確認中・何も出さない = Ink.Muted）;
+    # 戻り値: @{ Title; Selected; Name; Path; Subfolders（サブフォルダを含めるか。設定の subfolders）; FolderStatus; FolderBrush（フォルダの状態の文の色のキー。ある = Ok／無い = Danger.Text／確認中・何も出さない = Ink.Muted）;
     #            FolderIcon（文の左に出すアイコン。ある = Check／無い = Close／確認中・何も出さない = 空。theme.xaml の Icon.<名前>）; Badge（@{ Text; Level }）; Updated; Count;
     #            Rows（右の「インデックス情報」の @{ Label; Value } の配列）; RowsKey;
     #            Multi（複数を選んでいるか）; Hint（Multi のときの案内）;
     #            Run（@{ Shown（更新中の棒・件数・ファイル名を出すか）; Value（0～1）; CountText; FileText }）;
+    #            TextExt（「取り込む拡張子」の行。@{ Summary（要約）; Caption（件数の見出し）; Stale（［要更新］の札を出すか。今の設定と前回取り込んだときの差）; ChangeEnabled（［変更…］を押せるか）; CountsSource・CountsTime・Counts（ダイアログに渡す件数の出どころ・日時・件数）}）;
     #            Error・ErrorHint（元のフォルダが無いときの理由と直し方。無ければ空。バッジは「エラー」の Ng になる） }
     param (
         [object[]]$items,
@@ -85,9 +161,9 @@ function getIndexDetailView {
 
     $noRun = @{ Shown = $false; Value = 0.0; CountText = ""; FileText = "" }
     $none = @{
-        Title = "インデックスの状態"; Selected = $false; Name = ""; Path = ""; FolderStatus = ""; FolderMissing = $false; FolderBrush = "Ink.Muted"; FolderIcon = ""
+        Title = "インデックスの状態"; Selected = $false; Name = ""; Path = ""; Subfolders = $true; FolderStatus = ""; FolderMissing = $false; FolderBrush = "Ink.Muted"; FolderIcon = ""
         Badge = @{ Text = ""; Level = "None" }; Updated = ""; Count = ""; Rows = @(); RowsKey = ""
-        Multi = $false; Hint = ""; Run = $noRun; Error = ""; ErrorHint = ""
+        Multi = $false; Hint = ""; Run = $noRun; Error = ""; ErrorHint = ""; TextExt = (getIndexTextExtensionDetailView $null)
     }
     if ($multiCount -ge 2) {
         $multi = $none.Clone()
@@ -106,9 +182,7 @@ function getIndexDetailView {
     $count = if ($hasCount) { "$($item.FileCountText) ファイル" } else { "まだ更新していません" }
     $updated = if ($item.LastIngestedText) { "最終更新 $($item.LastIngestedText)" } else { "" }
 
-    $rows = New-Object 'System.Collections.Generic.List[object]'
-    [void]$rows.Add(@{ Label = "対象ファイル数"; Value = $(if ($hasCount) { "$($item.FileCountText) ファイル" } else { "－" }) })
-    [void]$rows.Add(@{ Label = "最終更新"; Value = $(if ($item.LastIngestedText) { [string]$item.LastIngestedText } else { "－" }) })
+    $rows = getIndexDetailInfoRows $item $hasCount
 
     $run = $noRun
     if ($item.IndexLevel -eq "Run") {
@@ -146,10 +220,10 @@ function getIndexDetailView {
     ) -join "`t"
     $rowsKey = $fixed + "`n" + (@($rows | ForEach-Object { "$($_.Label)`t$($_.Value)" }) -join "`n")
     return @{
-        Title = "$($item.Name) - 詳細"; Selected = $true; Name = [string]$item.Name; Path = [string]$item.Path
+        Title = "$($item.Name) - 詳細"; Selected = $true; Name = [string]$item.Name; Path = [string]$item.Path; Subfolders = ($item.Subfolders -ne $false)
         FolderStatus = [string]$item.FolderStatus; FolderMissing = [bool]$item.FolderMissing; FolderBrush = $folderBrush; FolderIcon = $folderIcon
         Badge = $badge
-        Updated = $updated; Count = $count; Rows = $rows.ToArray(); RowsKey = $rowsKey
-        Multi = $false; Hint = ""; Run = $run; Error = $errorText; ErrorHint = $errorHint
+        Updated = $updated; Count = $count; Rows = @($rows); RowsKey = $rowsKey
+        Multi = $false; Hint = ""; Run = $run; Error = $errorText; ErrorHint = $errorHint; TextExt = (getIndexTextExtensionDetailView $item)
     }
 }

@@ -185,8 +185,12 @@ function convertFolderToContentIndex {
     # 元のファイルが無くなった本文インデックスのファイルは消す。removeTsv なら、本文インデックスのファイルを書き終えた後に、
     # 読み込んだ元のファイルのフォルダ（TSV）を消す（TSV は一時的な置き場で、残すとインデックスの容量が倍になるため）。
     # 書き終える前に止まっても、TSV か前の本文インデックスのファイルのどちらかに中身が残る。
+    # 検索の上限（contentIndexSearchMaxBytes）を超えるものは入れない（検索はファイル単位で飛ばし、同じファイルの小さな元のファイルも検索に出なくなるため）:
+    #   ・新しく入れる元のファイルが 1 つで上限を超えるときは、入れずに外し（前の本文インデックスのファイルにあれば、そのコピーも外す）、取り込み直しにする
+    #   ・前の本文インデックスのファイルが上限を超えるときは、丸ごとは読まず、中の元のファイル名だけを読んで、そのファイルを消し、中の元のファイルを取り込み直しにする
     # @{ Books; Tsv; Chars; Files（本文インデックスのファイルの数）; Written（書き直した数）;
-    #    Texts（そのフォルダのすべての本文インデックスのファイルの中身） } を返す
+    #    Texts（そのフォルダのすべての本文インデックスのファイルの中身）;
+    #    Requeued（取り込み直しにする元のファイル名）; Dropped（消した上限超えのファイル @{ File; Count（取り込み直しにする数） }） } を返す
     param (
         [string]$folder,
         [string]$destFolder,
@@ -196,39 +200,18 @@ function convertFolderToContentIndex {
     )
 
     $books = getIndexFolderBooks $folder
-    $tsvCount = 0
-    $newBooks = New-Object System.Collections.Generic.List[hashtable]
-    foreach ($book in $books) {
-        foreach ($place in $book.Places) {
-            $place.Text = [System.IO.File]::ReadAllText($place.Path)
-            $tsvCount++
-        }
-        $newBooks.Add(@{ Name = $book.Name; Block = (convertBookToContentIndexBlock $book) })
-    }
-    $longDest = toLongPath $destFolder
-    # 前の本文インデックスのファイル（番号の付いた名前のもの）を読む
-    $parts = New-Object System.Collections.Generic.List[hashtable]
-    $oldTexts = @{}
-    if ([System.IO.Directory]::Exists($longDest)) {
-        foreach ($old in [System.IO.Directory]::GetFiles($longDest, ${contentIndexFilePattern})) {
-            $info = readContentIndexFileName ([System.IO.Path]::GetFileName($old))
-            if ($null -eq $info) { continue }
-            # 大きすぎるファイルは丸ごと読まない（メモリを使い切らないため。例外にして、呼ぶ側がそのフォルダを飛ばす）
-            $oldSize = [System.IO.FileInfo]::new((toLongPath $old)).Length
-            if ($oldSize -gt ${contentIndexSearchMaxBytes}) {
-                throw "インデックスのファイルが大きすぎます（${oldSize} バイト）: $([System.IO.Path]::GetFileName($old))"
-            }
-            $text = readContentIndexText $old
-            $oldTexts[(getContentIndexFileName $info.Extension $info.Part)] = $text
-            $parts.Add(@{ Extension = $info.Extension; Part = $info.Part; Books = (splitContentIndexTextByBook $text) })
-        }
-    }
-
-    $plan = planContentIndexParts $parts $newBooks $removeBooks $maxBytes
+    $new = readNewContentIndexBooks $books
+    $keep = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($name in (@($removeBooks) + @($new.Books | ForEach-Object { $_.Name }))) { [void]$keep.Add($name) }
+    $previous = readPreviousContentIndexParts (toLongPath $destFolder) $keep
+    $oldTexts = $previous.Texts
+    $requeue = @($new.TooLarge) + @($previous.Requeue)
+    $plan = planContentIndexParts $previous.Parts $new.Books (@($removeBooks) + @($new.TooLarge)) $maxBytes
     $texts = New-Object System.Collections.Generic.List[string]
     $bookTotal = 0
     $written = 0
     $chars = 0L
+    $writtenNames = @{}
     foreach ($part in $plan) {
         $name = getContentIndexFileName $part.Extension $part.Part
         $path = Join-Path $destFolder $name
@@ -244,6 +227,7 @@ function convertFolderToContentIndex {
             }
             $text = convertToContentIndexText $part.Books
             writeContentIndexFile $path $text
+            $writtenNames[$name] = $true
             $written++
         } else {
             $text = $oldTexts[$name]
@@ -252,6 +236,10 @@ function convertFolderToContentIndex {
         $bookTotal += $part.Books.Count
         $chars += $text.Length
     }
+    foreach ($file in $previous.Remove) {
+        # 上限を超えていた前のファイルは、新しいものを書き終えてから消す（同じ名前に書き直したものは消さない）
+        if (!$writtenNames.ContainsKey($file)) { [System.IO.File]::Delete((toLongPath (Join-Path $destFolder $file))) }
+    }
     if ($removeTsv) {
         foreach ($book in $books) {
             $bookDir = [System.IO.Path]::GetDirectoryName($book.Places[0].Path)
@@ -259,7 +247,122 @@ function convertFolderToContentIndex {
             [void](removeDirectoryUnder $bookDir $folder)
         }
     }
-    return @{ Books = $bookTotal; Tsv = $tsvCount; Chars = $chars; Files = $texts.Count; Written = $written; Texts = [string[]]$texts.ToArray() }
+    return @{ Books = $bookTotal; Tsv = $new.Tsv; Chars = $chars; Files = $texts.Count; Written = $written; Texts = [string[]]$texts.ToArray(); Requeued = [string[]]$requeue; Dropped = $previous.Dropped }
+}
+
+function readNewContentIndexBooks {
+    # 本文インデックスのファイルに入れる元のファイル（getIndexFolderBooks の結果）の TSV を読み、入れるまとまりを作る。
+    # 1 つで検索の上限（contentIndexSearchMaxBytes）を超える元のファイルは入れず、名前を TooLarge に入れる（取り込み直しにする）。
+    # @{ Books（@{ Name; Block } の並び）; TooLarge（入れなかった元のファイル名）; Tsv（読んだ TSV の数） } を返す
+    param (
+        $books
+    )
+
+    $newBooks = New-Object System.Collections.Generic.List[hashtable]
+    $tooLarge = New-Object System.Collections.Generic.List[string]
+    $tsvCount = 0
+    foreach ($book in $books) {
+        foreach ($place in $book.Places) {
+            $place.Text = [System.IO.File]::ReadAllText($place.Path)
+            $tsvCount++
+        }
+        $block = convertBookToContentIndexBlock $book
+        if ((measureContentIndexPartBytes @(@{ Block = $block })) -gt ${contentIndexSearchMaxBytes}) {
+            $tooLarge.Add($book.Name)
+        } else {
+            $newBooks.Add(@{ Name = $book.Name; Block = $block })
+        }
+    }
+    return @{ Books = $newBooks; TooLarge = $tooLarge.ToArray(); Tsv = $tsvCount }
+}
+
+function getOversizeRequeueNames {
+    # 上限を超える本文インデックスのファイルの中の元のファイル名のうち、取り込み直しにするもの（keep に無いもの）を返す。
+    # ファイルは丸ごとは読まず、名前だけを流れで読む（readContentIndexBookNamesStreaming）
+    param (
+        [string]$path,
+        $keep
+    )
+
+    $names = readContentIndexBookNamesStreaming $path
+    return , @($names | Where-Object { !$keep.Contains($_) })
+}
+
+function readPreviousContentIndexParts {
+    # 前の本文インデックスのファイル（番号の付いた名前のもの。longDest のフォルダの直下）を読む。
+    #   keep: 取り込み直しにしない元のファイル名（この回に入れ替える・外す元のファイル）
+    # 検索の上限（contentIndexSearchMaxBytes）を超えるファイルは、丸ごとは読まない（メモリを使い切らないため）。中の元のファイル名だけを流れで読み
+    # （readContentIndexBookNamesStreaming）、keep に無いものを取り込み直しにして、そのファイルは消す対象にする。
+    # @{ Parts（planContentIndexParts に渡す前のファイルの並び）; Texts（ファイル名 → 中身）; Requeue（取り込み直しにする元のファイル名）;
+    #    Remove（消す上限超えのファイル名）; Dropped（@{ File; Count（取り込み直しにする数） } の並び） } を返す
+    param (
+        [string]$longDest,
+        $keep
+    )
+
+    $parts = New-Object System.Collections.Generic.List[hashtable]
+    $texts = @{}
+    $requeue = New-Object System.Collections.Generic.List[string]
+    $remove = New-Object System.Collections.Generic.List[string]
+    $dropped = New-Object System.Collections.Generic.List[hashtable]
+    if ([System.IO.Directory]::Exists($longDest)) {
+        foreach ($old in [System.IO.Directory]::GetFiles($longDest, ${contentIndexFilePattern})) {
+            $file = [System.IO.Path]::GetFileName($old)
+            $info = readContentIndexFileName $file
+            if ($null -eq $info) { continue }
+            if ([System.IO.FileInfo]::new((toLongPath $old)).Length -gt ${contentIndexSearchMaxBytes}) {
+                $names = getOversizeRequeueNames $old $keep
+                $requeue.AddRange([string[]]$names)
+                $remove.Add($file)
+                $dropped.Add(@{ File = $file; Count = $names.Count })
+                continue
+            }
+            $text = readContentIndexText $old
+            $texts[(getContentIndexFileName $info.Extension $info.Part)] = $text
+            $parts.Add(@{ Extension = $info.Extension; Part = $info.Part; Books = (splitContentIndexTextByBook $text) })
+        }
+    }
+    return @{ Parts = $parts; Texts = $texts; Requeue = $requeue.ToArray(); Remove = $remove.ToArray(); Dropped = $dropped.ToArray() }
+}
+
+function findOversizeContentIndexFolders {
+    # 本文インデックスのファイルが検索の上限（contentIndexSearchMaxBytes）を超えるフォルダ（フルパス）を返す（前の版が作ったもの。中身は読まない）。
+    # インデックス作成の始めに、変わっていないフォルダでも書き出し直して直すために使う
+    param (
+        [string]$root
+    )
+
+    $found = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $items = findContentIndexFiles $root
+    foreach ($item in $items) {
+        if ($item.Size -gt ${contentIndexSearchMaxBytes}) {
+            [void]$found.Add($(if ($item.RelDir) { "$($root.TrimEnd("\"))\$($item.RelDir)" } else { $root.TrimEnd("\") }))
+        }
+    }
+    return , @($found)
+}
+
+function assertContentIndexBookFits {
+    # 作業フォルダ dir の TSV（元のファイル bookName 1 つぶん）だけを入れた本文インデックスのファイルが、検索の上限（maxBytes）を超えるなら例外にする
+    # （置き場へ移す前に、取り込みの失敗として取り込み一覧に残すため）。大きさは書き出しと同じ数え方（UTF-16 のバイト数・BOM と版の行を含む）。
+    # TSV は 1 つずつ読む。TSV のバイト数から上限に届かないと分かれば、読まない
+    param (
+        [string]$dir,
+        [string]$bookName,
+        [long]$maxBytes = ${contentIndexSearchMaxBytes}
+    )
+
+    $files = @([System.IO.Directory]::GetFiles((toLongPath $dir), "*.tsv"))
+    $bytes = measureContentIndexPartBytes @(@{ Block = (convertBookToContentIndexBlock @{ Name = $bookName; Places = @() }) })
+    $sum = 0L
+    foreach ($file in $files) { $sum += [System.IO.FileInfo]::new($file).Length }
+    # UTF-8 の TSV は、文字数がバイト数以下。場所ごとのメタ情報の行は 8192 バイトに収まる
+    if ($bytes + $sum * 2 + 8192L * $files.Count -le $maxBytes) { return }
+    foreach ($file in $files) {
+        $place = convertIndexFileNameToPlace ([System.IO.Path]::GetFileNameWithoutExtension($file))
+        $bytes += (measureContentIndexPlaceChars $bookName $place ([System.IO.File]::ReadAllText($file))) * 2
+        if ($bytes -gt $maxBytes) { throw (getContentIndexTooLargeMessage) }
+    }
 }
 
 function updateFolderContentIndex {
@@ -338,10 +441,11 @@ function publishIndexFolders {
     # インデックス作成で TSV を置いた・元のファイルが無くなったフォルダを、まとめて書き出す。フォルダごとに次を続けて行う:
     #   1. 本文インデックスのファイルを書く（前の本文インデックスのファイルとまぜ、無くなった元のファイルは外す）
     #   2. 元のファイルごとのフォルダの TSV を消す
-    # @{ Count（書き出したフォルダの数）; Skipped（飛ばしたフォルダの @{ Rel; Stage; Reason } の配列）; Published（本文インデックスのファイルを書き終えたフォルダ。引数のキーのまま。リンクで飛ばしたものは含まない）} を返す。
+    # @{ Count（書き出したフォルダの数）; Skipped（飛ばしたフォルダの @{ Rel; Stage; Reason } の配列）; Published（本文インデックスのファイルを書き終えたフォルダ。引数のキーのまま。リンクで飛ばしたものは含まない）;
+    #    Requeued（取り込み直しにする元のファイルの、インデックスからの相対パス）} を返す。
     #   pending: フォルダ（フルパス）→ 無くなった元のファイル名の集まり
     # 例外はフォルダごとに受け止め、失敗したフォルダは飛ばして残りを続ける（飛ばしたことはログに黄色で出す）:
-    #   ・前の本文インデックスのファイルを読む所（書く前。壊れている・大きすぎる・読めないなど）で落ちたら、何も消さず・書き換えない
+    #   ・前の本文インデックスのファイルを読む所（書く前。壊れている・読めないなど）で落ちたら、何も消さず・書き換えない
     #     （TSV も壊れたファイルも残る。次のインデックス作成の始めに、またまとめ直しを試す）。
     #     書き込みの途中（置き場所が作れない・ファイルを書けない）や TSV の削除で落ちたときは、書いたものと残った TSV が混ざるが、次の回に TSV を入れ直して直る
     param (
@@ -351,6 +455,7 @@ function publishIndexFolders {
 
     $skipped = New-Object System.Collections.Generic.List[hashtable]
     $published = New-Object System.Collections.Generic.List[string]
+    $requeued = New-Object System.Collections.Generic.List[string]
     $fullRoot = [System.IO.Path]::GetFullPath((fromLongPath $indexRoot)).TrimEnd("\")
     foreach ($folder in @($pending.Keys)) {
         # 書く・消す前に、置き場（indexRoot）の下で途中にリンク（ジャンクション等）が無いことを確かめる。
@@ -363,18 +468,22 @@ function publishIndexFolders {
             continue
         }
         $stage = "インデックスの書き出し"
+        $rel = if ($isRoot) { "" } else { $fullFolder.Substring($fullRoot.Length).TrimStart("\") }
         try {
-            [void](updateFolderContentIndex $folder ([string[]]@($pending[$folder])))
+            $result = updateFolderContentIndex $folder ([string[]]@($pending[$folder]))
             # 本文インデックスのファイルを書き終えたフォルダ
             $published.Add($folder)
+            foreach ($name in $result.Requeued) { $requeued.Add($(if ($rel) { "${rel}\$name" } else { $name })) }
+            foreach ($drop in $result.Dropped) {
+                writeIndexerLog (getContentIndexDroppedText $(if ($rel) { "${rel}\$($drop.File)" } else { $drop.File }) $drop.Count) "Yellow"
+            }
         } catch {
-            $rel = if ($isRoot) { "" } else { $fullFolder.Substring($fullRoot.Length).TrimStart("\") }
             $reason = $_.Exception.Message
             $skipped.Add(@{ Rel = $rel; Stage = $stage; Reason = $reason })
             writeIndexerLog (getContentIndexPublishSkippedText $rel $stage $reason) "Yellow"
         }
     }
-    return @{ Count = $published.Count; Skipped = $skipped.ToArray(); Published = $published.ToArray() }
+    return @{ Count = $published.Count; Skipped = $skipped.ToArray(); Published = $published.ToArray(); Requeued = $requeued.ToArray() }
 }
 
 
@@ -493,3 +602,70 @@ function readContentIndexLines {
     return @{ Rows = $rows.ToArray(); End = ($rows.Count -lt $count); Marks = $newMarks }
 }
 
+
+
+function readContentIndexBookNamesStreaming {
+    # 本文インデックスのファイル（UTF-16LE）に入っている元のファイルの相対パス（「ファイル名=」の行の値）を、先頭から順に配列で返す。
+    # 大きすぎて丸ごとは読み込めないファイルのために、文字単位で区切り読みし、メモリには 1 行ぶんの上限（maxLineChars）までしか持たない。
+    # 上限を超える行は改行まで読み捨てる（StreamReader.ReadLine は長い行を丸ごと読むので使わない）。読めなければ空の配列
+    param (
+        [string]$path,
+        [int]$maxLineChars = 32768
+    )
+
+    $names = New-Object System.Collections.Generic.List[string]
+    $pattern = [regex]::new("^$([regex]::Escape((getContentIndexBookHeadPrefix)))([^\r\n]*)", [System.Text.RegularExpressions.RegexOptions]::Multiline)
+    $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
+    try {
+        $stream = [System.IO.FileStream]::new((toLongPath $path), [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
+    } catch [System.IO.IOException] {
+        return , @()
+    } catch [System.UnauthorizedAccessException] {
+        return , @()
+    }
+    try {
+        $reader = [System.IO.StreamReader]::new($stream, [System.Text.Encoding]::Unicode, $true)
+        $buffer = New-Object char[] 65536
+        $carry = ""
+        $discarding = $false
+        while ($true) {
+            $got = $reader.Read($buffer, 0, $buffer.Length)
+            if ($got -le 0) { break }
+            $text = $carry + [string]::new($buffer, 0, $got)
+            if ($discarding) {
+                # 上限を超えた行の続きは、改行まで捨てる
+                $newline = $text.IndexOf([char]10)
+                if ($newline -lt 0) { $carry = ""; continue }
+                $text = $text.Substring($newline + 1)
+                $discarding = $false
+            }
+            $last = $text.LastIndexOf([char]10)
+            if ($last -lt 0) {
+                $carry = $text
+                $complete = ""
+            } else {
+                $complete = $text.Substring(0, $last + 1)
+                $carry = $text.Substring($last + 1)
+            }
+            foreach ($match in $pattern.Matches($complete)) {
+                if ($match.Length -le $maxLineChars) {
+                    $names.Add((decodeContentIndexValue $match.Groups[1].Value))
+                }
+            }
+            if ($carry.Length -gt $maxLineChars) {
+                $carry = ""
+                $discarding = $true
+            }
+        }
+        # 最後の行に改行が無いとき
+        if (!$discarding -and $carry.Length -gt 0) {
+            $match = $pattern.Match($carry)
+            if ($match.Success -and $match.Length -le $maxLineChars) {
+                $names.Add((decodeContentIndexValue $match.Groups[1].Value))
+            }
+        }
+    } finally {
+        $stream.Dispose()
+    }
+    return , $names.ToArray()
+}

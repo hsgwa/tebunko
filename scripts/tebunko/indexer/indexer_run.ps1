@@ -519,6 +519,7 @@ function publishFlushable {
         # 外す予定の記録を先に残す（書き出しが落ちる・強制終了しても、次の回に外し直せるように）
         savePendingRemovals $pending
         $published = publishIndexFolders $flush
+        $pending.AddRequeued([string[]]@($published.Requeued))
         # 書き終えたフォルダの分だけ記録から外す（飛ばしたフォルダの分は残る）
         $pending.MarkPublished([string[]]@($published.Published), $flush)
         savePendingRemovals $pending
@@ -590,6 +591,13 @@ function recoverIngestJournal {
             $leftover.Add($folder)
         }
     }
+    # 前の版が作った、検索の上限を超える本文インデックスのファイルのあるフォルダも書き出し直す（外して、中の元のファイルを取り込み直しにする）
+    if (!$channel.Stop) {
+        $oversize = findOversizeContentIndexFolders $workspace.IndexDir
+        foreach ($folder in $oversize) {
+            if (@($leftover | Where-Object { $_ -ieq $folder }).Count -eq 0) { $leftover.Add($folder) }
+        }
+    }
     # 次の回へ持ち越すフォルダ: 中止で飛ばしたら全部、書き出しを試したら書き出せなかったものだけ
     $unpublished = New-Object System.Collections.Generic.List[string]
     if ($channel.Stop) {
@@ -602,6 +610,53 @@ function recoverIngestJournal {
     }
     flushLeftovers $pending $journal $reporter $leftover -Stop:([bool]$channel.Stop) -Failed $unpublished
     return @{ Resume = $resume; Unpublished = $unpublished.ToArray() }
+}
+
+function selectFinishStatusRows {
+    # 終わりの取り込み一覧に書く行を選ぶ。取り込みの直前に元のファイルが無くなった行（DroppedRows）は除く。
+    # 書き出しで上限超えの本文インデックスのファイルを外した元のファイル（pending.Requeued）の行は、この回の結果（済など）より優先して
+    # 「未取り込み」・エラー空に戻す（次の更新で取り込み直す）
+    param (
+        $rows,
+        $ledger,
+        $pending
+    )
+
+    $selected = New-Object System.Collections.Generic.List[object]
+    foreach ($row in @($rows | Where-Object { $_ -and !$ledger.DroppedRows.Contains([string]$_.相対パス) })) {
+        if ($pending.Requeued.Contains([string]$row.相対パス)) {
+            $row = $row.PSObject.Copy()
+            $row.状態 = ${stateNew}
+            $row.エラー = ""
+        }
+        $selected.Add($row)
+    }
+    return , $selected.ToArray()
+}
+
+function applyStartupRequeued {
+    # 始めの書き出しで、上限を超える本文インデックスのファイルを外して取り込み直しにした元のファイル（pending.Requeued）を、
+    # すぐ取り込み一覧（ファイルと、前回の行 status.Rows）で「未取り込み」・エラー空にして保存し、印は空にする。
+    # 取り込みの終わりまで待たない（取り込む対象が 0 件・取りやめ・強制終了でも、外した元のファイルが「済」のまま検索に出なくならない）。
+    # 前回の行を書き換えるので、この回の取り込み対象に入り、同じ回で取り込み直される
+    param (
+        $ledger,
+        $pending,
+        $status
+    )
+
+    $changed = $false
+    foreach ($rel in @($pending.Requeued)) {
+        if ($status.Rows.ContainsKey($rel)) {
+            $status.Rows[$rel].状態 = ${stateNew}
+            $status.Rows[$rel].エラー = ""
+            $changed = $true
+        }
+    }
+    $pending.Requeued.Clear()
+    if ($changed) {
+        $ledger.WriteStatus($status.Folders.ToArray(), @($status.Rows.Values))
+    }
 }
 
 function writeStatusWithJournal {
@@ -805,6 +860,73 @@ function completeIngestJob {
     flushPendingPublish $pending $run.Journal -Stage "IngestFlush"
 }
 
+function recordIngestedSettings {
+    # 取り込み終えた回（終わり方 0）のあとに、その回に取り込んだフォルダ（行の［更新］なら選んだものだけ。チェックなし・フォルダなしは入らない）が
+    # 使った subfolders を、設定の ingestedSubfolders に書く（前回取り込んだときの設定。画面の［要更新］は今の設定との差で求める）。
+    # 取りやめ・中止・エラーの回では呼ばない。書けなくても取り込みの結果は変えず、ログに残す
+    param (
+        $planner,
+        $catalog
+    )
+
+    $names = @($planner.Plan | Where-Object { $_.区分 -eq ${planKindIngest} } | ForEach-Object { [string]$_.インデックス名 })
+    $values = @{}
+    foreach ($folder in @($planner.Folders | Where-Object { $_ -and $names -contains [string]$_.Name })) {
+        $values[[string]$folder.Path] = ($folder.Subfolders -ne $false)
+    }
+    recordIngestedTextExtensions $planner $catalog
+    if ($values.Count -eq 0) {
+        return
+    }
+    try {
+        $catalog.StoreIngestedSubfolders($values)
+    } catch {
+        writeIndexerLog "前回取り込んだときのサブフォルダの設定を保存できませんでした。画面の［要更新］の判定が実際と合わないことがあります。（$($_.Exception.Message)）" "Yellow"
+    }
+}
+
+function recordIngestedTextExtensions {
+    # 取り込み終えた回（終わり方 0）のあとに、そのインデックスの拡張子ごとの件数の控え（詳細の「取り込む拡張子」に前の回の件数として出す）を書き、
+    # その名前の有効なフォルダをすべて回した名前だけ、使った取り込まない拡張子を設定の indexExtensionExcludesIngested に書く
+    # （前回取り込んだときの設定。画面の［要更新］は今の設定との差で求める）。書けなくても取り込みの結果は変えず、ログに残す
+    param (
+        $planner,
+        $catalog
+    )
+
+    $rows = @($planner.Plan | Where-Object { $_.区分 -eq ${planKindIngest} })
+    try {
+        $time = (Get-Date).ToString("yyyy/MM/dd HH:mm")
+        foreach ($name in @($rows | ForEach-Object { [string]$_.インデックス名 } | Select-Object -Unique)) {
+            $catalog.StoreTextExtCounts($name, $planner.TextCountsByIndex[$name], $time)
+        }
+        $values = @{}
+        foreach ($name in @(getFullyIngestedIndexNames @($rows | ForEach-Object { [string]$_.元のフォルダ }) $planner.Folders)) {
+            $values[$name] = @($planner.TextExcludes[$name])
+        }
+        if ($values.Count -gt 0) {
+            $catalog.StoreIngestedTextExcludes($values)
+        }
+    } catch {
+        writeIndexerLog "前回取り込んだときの拡張子の設定・拡張子ごとの件数を保存できませんでした。画面の［要更新］の判定・件数の表示が実際と合わないことがあります。（$($_.Exception.Message)）" "Yellow"
+    }
+}
+
+function applyRemovedPaths {
+    # 元のファイルが無くなったファイル（IngestPlanner の RemovedPaths）のインデックスを消し、本文インデックスから外す予定を $pending に足す。
+    # 数えるときには消さず、取り込みを始めると決まったあと（画面の［更新を開始］・画面なしの実行）に、まとめてここで行う。
+    # 取り込み一覧を書き直す前に呼ぶ（行を一覧から消す前に、外す予定の記録を先に書くため）
+    param (
+        $removedPaths,
+        $pending
+    )
+
+    foreach ($removedPath in @($removedPaths)) {
+        removeBookDir (getBookDir $removedPath)
+        $pending.Add($removedPath, $true)
+    }
+}
+
 function invokeIndexerBody {
     # invokeIndexer の本体（鍵を取り、ログを開いた後）。終了コードを返す。続けられないエラーは例外にする。
     # 取り込み一覧・今回の失敗と消えた行は StatusLedger（$ledger）、強制終了からの復旧の記録は IngestJournal（$journal）、
@@ -847,7 +969,7 @@ function invokeIndexerBody {
 
         # 回を最後まで終えた（中止・フォルダが見えなくなったときは呼ばれない。1 ファイルの制限時間は、そのファイルの失敗になるだけで回は続く）インデックスは、取り込めなかった
         # ファイルがあっても「作り終えた」にする。失敗は取り込み一覧に残り、一覧では「警告」になる。
-        # 後回しにしたファイル（利用者の PowerPoint が使えなかったなど）は「未取り込み」のまま理由を書いて残し、失敗に数える（一覧は「警告」、「更新に失敗したファイル」に出る）。次の更新で取り込む。
+        # 後回しにしたファイル（利用者の PowerPoint が使えなかったなど）は「未取り込み」のまま理由を書いて残し、失敗に数える（一覧は「警告」、［ファイルの一覧］の失敗に出る）。次の更新で取り込む。
         # 失敗を理由に外すと、取り込めないファイルは毎回失敗するため、いつまでも「作り直し中」のままになる
         if (@($names).Count -eq 0) {
             return
@@ -914,7 +1036,7 @@ function invokeIndexerBody {
         writeIndexerLog "取り込み一覧に読めない行が $($status.Rejected) 行ありました（無視しました）。" "Yellow"
     }
     $planner = [IngestPlanner]::new(@{
-        Unchecked = ${planKindUnchecked}; Missing = ${planKindMissing}; Dropped = ${planKindDropped}; StateFailed = ${stateFailed}
+        Unchecked = ${planKindUnchecked}; Missing = ${planKindMissing}; Dropped = ${planKindDropped}; StateFailed = ${stateFailed}; Channel = $script:indexerChannel; TextExcludes = (readTextExtensionSettings).IndexExcludes
     })
     $catalog = [IndexCatalog]::new($workspace, ${settingsFile}, $ledger)
     $planner.AssignNames($targetFolders, $status)
@@ -927,6 +1049,7 @@ function invokeIndexerBody {
     $journal = [IngestJournal]::new($workspace.JournalFile)
     $recovered = recoverIngestJournal $ledger $journal $pending $channel $reporter
     $resume = $recovered.Resume
+    applyStartupRequeued $ledger $pending $status
 
     # 新しく割り当てたインデックス名を設定に保存する
     $planner.SaveNames($targetFolders, { param($assigned) $catalog.StoreAssignedNames($assigned) }.GetNewClosure())
@@ -961,9 +1084,6 @@ function invokeIndexerBody {
     # フォルダを読むごと・ファイルを調べる途中で中止を見る（中止を求められたら読んだところまでで止める）
     $planner.Crawl($indexCounts, $onCrawlFolder, { [bool]$channel.Stop }.GetNewClosure())
     $script:ingestTiming.Lap("Crawl")
-    foreach ($removedPath in $planner.RemovedPaths) {
-        $pending.Add($removedPath, $true)
-    }
     $rows = $planner.Rows
     $targets = $planner.Targets
     $failed = $planner.Failed
@@ -979,7 +1099,7 @@ function invokeIndexerBody {
     $includeCloud = [bool]$channel.IncludeCloud
 
     # 取りやめ。取り込み対象にした行は前回の記録のまま（一覧に無かったファイルは記録しない）にする。
-    # 取り込み一覧自体は書き直す（無くなったファイルの削除を反映する必要があるため）
+    # 取り込み一覧自体は書き直す（KeepForCancel が前回の行を残し、無くなったファイルの行も含めて前回のまま。済の行を保つ。何も消さない）
     function cancelBeforeIngest {
         param ([string]$message)
 
@@ -996,7 +1116,7 @@ function invokeIndexerBody {
     }
     if ($planner.Stopped -or $channel.Stop) {
         # 一覧化の途中で中止を求められた。確認は出さずに取りやめる
-        return (cancelBeforeIngest "中止の要求を受けたため、取り込み対象の一覧化を中止しました。（読み終えたフォルダで無くなっていたファイルは取り込み一覧から外し、ほかは前回のままです）")
+        return (cancelBeforeIngest "中止の要求を受けたため、取り込み対象の一覧化を中止しました。（取り込み一覧は前回のままです）")
     }
     if ($channel.ConfirmTargets) {
         $script:ingestTiming.Mark()
@@ -1065,6 +1185,8 @@ function invokeIndexerBody {
         }
     }
 
+    # 元のファイルが無くなったファイルのインデックスは、取り込みを始めると決まったここで消す（取りやめでは消さない）
+    applyRemovedPaths $planner.RemovedPaths $pending
     $planner.ApplyFailed($retryTargets)
     # 前回、取り込み中に強制終了したファイルは最後に回す（続けて $interruptLimit 回強制終了したファイルは失敗とする）。
     # 最後に回したファイルは、取り込みを始めるまでジャーナルに「持」で残す（その前にまた止まっても、回数が分かるように）
@@ -1109,6 +1231,7 @@ function invokeIndexerBody {
         completeRoundIndexes $roundNames
         $reporter.Progress(${indexingPhaseFinish}, 0, 0, 0, $(if ($cloudSkipped -eq 0) { "更新が必要なファイルはありませんでした" } else { "クラウドにだけあるファイルは、ダウンロードせずに残しました" }))
         removeTmpDir
+        recordIngestedSettings $planner $catalog
         return 0
     }
 
@@ -1247,7 +1370,7 @@ function invokeIndexerBody {
         # 取り込みの直前に無くなっていたファイルの行は除く（次回の検索でも見つからず、インデックスも削除済み）。
         # 書き直し終えたら「終」を足す（書き直しの途中で止まっても、印があるので、次の始めは取り込み中だった仕事を全部やり直す側に倒れる）
         savePendingRemovals $pending
-        writeStatusWithJournal $journal $ledger $folders @($rows | Where-Object { $_ -and !$ledger.DroppedRows.Contains([string]$_.相対パス) }) $keptDropped $previous -Finish
+        writeStatusWithJournal $journal $ledger $folders (selectFinishStatusRows $rows $ledger $pending) $keptDropped $previous -Finish
         # 初めて取り込んだインデックスは、最初に書き出した時点ではまだフォルダが無いため、ここでもう一度書く
         # （work\content_index\<インデックス名>\source_folder.txt。インデックス 1 個だけをコピーしても元のファイルの場所が分かる）
         writeSourceFolderFile $folders
@@ -1307,5 +1430,6 @@ function invokeIndexerBody {
     if ($stopped) {
         return 2
     }
+    recordIngestedSettings $planner $catalog
     return 0
 }
