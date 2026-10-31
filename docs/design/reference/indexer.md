@@ -26,6 +26,7 @@
 | `newIngestJournalHead` | version, stamp, rowCount, carried, unpublished | string の配列 | 新しい回のジャーナルの頭の行（版・回・持ち越した仕事の「持」・書き出せていないフォルダの「未」の順）を組み立てる（判断層） | 同上 | インデックス作成 |
 | `convertFromIngestJournal` | lines, statusRelPaths, 上限 | `@{Valid; Finished; Aligned; Folders; Resume}` | 前回のジャーナルの行と取り込み一覧の相対パスから、始めの復旧の内容（先に書き出すフォルダ・やり直す仕事）を決める。ファイルには触らない（判断層） | 同上 | インデックス作成 |
 | `recoverIngestJournal` | ledger, journal, pending, channel, reporter | `@{Resume; Unpublished}` | 始めの復旧。前回のジャーナル（と前の版の `ingesting.txt`）から、やり直す仕事を決め、書き出していないフォルダを先に書き出す。ジャーナルが読めないときは今ある書き出し前のフォルダを書き出す。検索の上限を超える本文インデックスのファイルがあるフォルダも書き出し待ちに足す（`findOversizeContentIndexFolders`）。書き出せなかった・中止で飛ばしたフォルダは Unpublished に入れ、次の回のジャーナルへ「未」で持ち越す | 同上 | インデックス作成 |
+| `applyStartupRequeued` | ledger, pending, status | – | 始めの書き出しで外した上限超えのファイルの中の元のファイル（`pending.Requeued`）の行を、取り込み一覧のファイルと前回の行（`status.Rows`）で「未取り込み」・エラー空にして保存し、印を空にする（同じ回で取り込み直す） | 同上 | インデックス作成 |
 | `selectFinishStatusRows` | rows, ledger, pending | 行の並び | 終わりの取り込み一覧に書く行を選ぶ。取りやめた行（`DroppedRows`）は除き、書き出しで上限超えのファイルを外した元のファイル（`pending.Requeued`）の行は「未取り込み」・エラー空に戻す（この回の結果より優先） | 同上 | インデックス作成 |
 | `writeStatusWithJournal` | journal, ledger, folders, rows, keptDropped, previous, [-Finish] | – | 取り込み一覧を書き直す。前に「書」を足し、-Finish のときは書き直したあとに「終」を足す。最後にジャーナルを閉じる | 同上 | インデックス作成 |
 | `getLegacyIngestingPath` / `readLegacyIngesting` / `removeLegacyIngesting` | – | パス / `@{RelPath; Count}` の配列 / – | 前の版の `ingesting.txt` を始めに 1 度だけ読んで、ジャーナルの復旧に足し、読んだあとに消す（`ingest_journal.ps1`） | 同上 | インデックス作成 |

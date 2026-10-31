@@ -634,6 +634,31 @@ function selectFinishStatusRows {
     return , $selected.ToArray()
 }
 
+function applyStartupRequeued {
+    # 始めの書き出しで、上限を超える本文インデックスのファイルを外して取り込み直しにした元のファイル（pending.Requeued）を、
+    # すぐ取り込み一覧（ファイルと、前回の行 status.Rows）で「未取り込み」・エラー空にして保存し、印は空にする。
+    # 取り込みの終わりまで待たない（取り込む対象が 0 件・取りやめ・強制終了でも、外した元のファイルが「済」のまま検索に出なくならない）。
+    # 前回の行を書き換えるので、この回の取り込み対象に入り、同じ回で取り込み直される
+    param (
+        $ledger,
+        $pending,
+        $status
+    )
+
+    $changed = $false
+    foreach ($rel in @($pending.Requeued)) {
+        if ($status.Rows.ContainsKey($rel)) {
+            $status.Rows[$rel].状態 = ${stateNew}
+            $status.Rows[$rel].エラー = ""
+            $changed = $true
+        }
+    }
+    $pending.Requeued.Clear()
+    if ($changed) {
+        $ledger.WriteStatus($status.Folders.ToArray(), @($status.Rows.Values))
+    }
+}
+
 function writeStatusWithJournal {
     # 取り込み一覧を書き直す。書き直すと「回」の行数が合わなくなるので、前に「書」の印を足す（途中で止まっても、次の始めは取り込み中だった仕事を全部やり直す側に倒れる）。
     # -Finish は、書き直し終えたら「終」を足す（書き出せなかったフォルダがあっても書く。そのフォルダは「出」が無いことで次の始めに残る）。
@@ -996,6 +1021,7 @@ function invokeIndexerBody {
     $journal = [IngestJournal]::new($workspace.JournalFile)
     $recovered = recoverIngestJournal $ledger $journal $pending $channel $reporter
     $resume = $recovered.Resume
+    applyStartupRequeued $ledger $pending $status
 
     # 新しく割り当てたインデックス名を設定に保存する
     $planner.SaveNames($targetFolders, { param($assigned) $catalog.StoreAssignedNames($assigned) }.GetNewClosure())

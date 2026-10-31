@@ -231,6 +231,31 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         }
     }
 
+    It "前の版が作った 64MB を超える本文インデックスのファイルは、取り込む対象が無い更新でも外れ、中の元のファイルが同じ回に取り込み直されて検索に戻る" {
+        $root = newRoot
+        $dir = newSourceFolder "上限超え"
+        writeTestSettings $root @(@{ name = ""; path = $dir; enabled = $true })
+        runIndexer $root | Should -Be 0
+        $file = "$root\work\store\content\上限超え\content_index.docx.001.tsv"
+        [System.IO.File]::Exists($file) | Should -Be $true
+
+        # 前の版が作った形: 議事録.docx を入れた、検索の上限（64MB）を超えるファイル
+        $sb = New-Object System.Text.StringBuilder
+        $line = "あ" * 999 + "`n"
+        for ($i = 0; $i -lt 36000; $i++) { [void]$sb.Append($line) }
+        writeContentIndexFile $file (convertToContentIndexText @(@{ Name = "議事録.docx"; Places = @(@{ Place = "ページ001"; Text = $sb.ToString() }) }))
+        $sb = $null
+        (Get-Item -LiteralPath $file).Length | Should -BeGreaterThan ${contentIndexSearchMaxBytes}
+
+        runIndexer $root | Should -Be 0
+
+        $status = readTestStatus $root
+        $status.Rows["上限超え\議事録.docx"].状態 | Should -Be ${stateDone}
+        (Get-Item -LiteralPath $file).Length | Should -BeLessThan 1MB
+        (readContentIndexText $file) | Should -BeLike "*議事録.docx*"
+        readTestError | Should -BeNullOrEmpty
+    }
+
     It "subfolders を false にして更新すると、サブフォルダのファイルが取り込み一覧と本文インデックスから外れ、true に戻すと取り込み直す" {
         $root = newRoot
         writeTestSettings $root @(@{ name = "営業"; path = $source; enabled = $true })
@@ -1877,6 +1902,22 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
         $result.Message | Should -BeNullOrEmpty
     }
 
+    It "元のファイルの文字が検索の上限を超えるときは、置き場へ移さず、決めた文言の失敗として返す" {
+        . "${scriptsDir}\tebunko\indexer\extract_text.ps1"
+        $workspace = newTestWorkspace @{} "$TestDrive\fit_task_ws"
+        ${tmpDir} = Join-Path $TestDrive "fit_task_tmp"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+        $source = Join-Path $TestDrive "fit_task.txt"
+        [System.IO.File]::WriteAllText($source, ((1..300 | ForEach-Object { "長い行の文字 $_" }) -join "`r`n"))
+        ${contentIndexSearchMaxBytes} = 1KB
+
+        $result = invokeIngestTask @{ RelPath = "営業\fit_task.txt"; SourcePath = $source } 10
+
+        $result.Ok | Should -Be $false
+        $result.Message | Should -Be "ファイルの文字が多すぎるため更新できません（上限 64 MB）。"
+        [System.IO.Directory]::Exists("$($workspace.IndexDir)\営業\fit_task.txt") | Should -Be $false
+    }
+
     It "本文（word/document.xml）が部品のサイズの上限を超えた .docx は、Office を使わず簡潔なメッセージで失敗にする" {
         ${tmpDir} = Join-Path $TestDrive "big_for_indexer_tmp"
         [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
@@ -2433,6 +2474,28 @@ Describe "取り込みのジャーナルの復旧と書き出し（flushPendingP
         $result = recoverIngestJournal $rc.Ledger $rc.Journal $rc.Pending $rc.Channel $rc.Reporter
         @($result.Unpublished).Count | Should -Be 0
         Should -Invoke publishIndexFolders -Times 1 -Exactly -Scope It -ParameterFilter { ((@($pending.Keys) | Sort-Object) -join "|") -eq $script:expectedKeys }
+    }
+
+    It "applyStartupRequeued: 取り込み直しの元のファイルの行をすぐ「未取り込み」・エラー空にして保存し、印を空にする（行が無いものは無視する）" {
+        $rc = newRecoverEnv -folders @()
+        $ledger = [StatusLedger]::new([pscustomobject]@{ StatusFile = "$TestDrive\apply_status.tsv" })
+        $folders = @([pscustomobject]@{ Path = "C:\共有\営業部"; Name = "営業" })
+        writeStatusFile $folders @(
+            (newStatusRow "営業\A.xlsx" "2024/01/01 00:00:00" "100" ${stateDone} "1" "2024/01/01 00:00:00" "" "1")
+            (newStatusRow "営業\B.xlsx" "2024/01/01 00:00:00" "100" ${stateDone} "1" "2024/01/01 00:00:00" "" "1")
+        ) "$TestDrive\apply_status.tsv"
+        $status = readStatusFile "$TestDrive\apply_status.tsv"
+        $pending = [PendingPublish]::new()
+        $pending.AddRequeued([string[]]@("営業\A.xlsx", "営業\無い.xlsx"))
+
+        applyStartupRequeued $ledger $pending $status
+
+        $pending.Requeued.Count | Should -Be 0
+        $status.Rows["営業\A.xlsx"].状態 | Should -Be ${stateNew}
+        $saved = readStatusFile "$TestDrive\apply_status.tsv"
+        $saved.Rows["営業\A.xlsx"].状態 | Should -Be ${stateNew}
+        $saved.Rows["営業\B.xlsx"].状態 | Should -Be ${stateDone}
+        $saved.Folders.Count | Should -Be 1
     }
 
     It "selectFinishStatusRows: 書き出しで外した上限超えのファイルの中の元のファイルは、この回に済になっていても「未取り込み」・エラー空に戻し、無くなった行は除く" {
