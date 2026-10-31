@@ -402,3 +402,26 @@ Describe "getContentIndexBookHeadPrefix" -Tag Unit {
         $text.Contains((getContentIndexBookHeadPrefix) + "A社.xlsx") | Should -BeTrue
     }
 }
+
+Describe "measureContentIndexPlaceChars（書き出す本文インデックスのファイルの大きさと同じ数え方）" -Tag Unit {
+    It "場所を足した分の文字数が、convertToContentIndexText が作る文字列の長さの増え方と一致する（<name>）" -TestCases @(
+        @{ name = "CRLF"; book = "A.xlsx"; place = "売上"; text = "単価`r`n数量`r`n" }
+        @{ name = "CR のみ"; book = "A.xlsx"; place = "売上"; text = "単価`r数量" }
+        @{ name = "区切り文字 U+001C〜U+001F"; book = "B.docx"; place = "ページ001"; text = "あ$([char]0x1C)い$([char]0x1D)う$([char]0x1E)え$([char]0x1F)お`n" }
+        @{ name = "空の場所"; book = "C.pptx"; place = "スライド001"; text = "" }
+        @{ name = "符号化が要る場所の名前"; book = "D.xlsx"; place = "a%b[図形]"; text = "x`n" }
+    ) {
+        $without = convertToContentIndexText @(@{ Name = $book; Places = @() })
+        $with = convertToContentIndexText @(@{ Name = $book; Places = @(@{ Place = $place; Text = $text }) })
+        (measureContentIndexPlaceChars $book $place $text) | Should -Be ($with.Length - $without.Length)
+        # 1 つのまとまりの大きさ（BOM を含む UTF-16 のバイト数）は、書き出す文字列の長さ×2＋2
+        (measureContentIndexPartBytes @(@{ Block = (convertBookToContentIndexBlock @{ Name = $book; Places = @(@{ Place = $place; Text = $text }) }) })) | Should -Be ($with.Length * 2 + 2)
+    }
+}
+
+Describe "getContentIndexTooLargeMessage / getContentIndexDroppedText" -Tag Unit {
+    It "上限（64 MB）を含む文言と、外したファイル・件数を含む 1 行を返す" {
+        getContentIndexTooLargeMessage | Should -Be "ファイルの文字が多すぎるため更新できません（上限 64 MB）。"
+        getContentIndexDroppedText "営業\content_index.xlsx.001.tsv" 3 | Should -Be "    大きすぎるインデックスのファイルを外しました（営業\content_index.xlsx.001.tsv）。中の 3 件は次の更新で取り込み直します"
+    }
+}

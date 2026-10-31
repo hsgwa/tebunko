@@ -3,11 +3,14 @@
 function publishTsv {
     # 作業フォルダのTSVを、そのファイルのインデックスのフォルダへ移動する。
     # 途中で強制終了されても一部のシートだけのインデックスが残らないよう、
-    # 出力用のフォルダ（work\publish\<PID>）に集めてからフォルダごと入れ替える（publishIndexFiles）
+    # 出力用のフォルダ（work\publish\<PID>）に集めてからフォルダごと入れ替える（publishIndexFiles）。
+    # 移す前に、この元のファイルだけの本文インデックスのファイルが検索の上限を超えないかを確かめ、超えるなら例外にする（取り込みの失敗として取り込み一覧に残る。
+    # 超えたまま置くと、同じ本文インデックスのファイルの小さな元のファイルまで検索に出なくなる）
     param (
         [string]$bookDir
     )
 
+    assertContentIndexBookFits $tmpDir ([System.IO.Path]::GetFileName($bookDir))
     publishIndexFiles $tmpDir $bookDir (Join-Path $workspace.PublishDir ([System.IO.Path]::GetFileName($bookDir))) $workspace.IndexDir $workspace.PublishDir
 }
 
