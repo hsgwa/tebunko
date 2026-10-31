@@ -5,9 +5,9 @@ BeforeAll {
 }
 
 Describe "captureIds" -Tag Unit {
-    It "46 件あり、重複が無い" {
-        ${captureIds}.Count | Should -Be 46
-        (${captureIds} | Select-Object -Unique).Count | Should -Be 46
+    It "47 件あり、重複が無い" {
+        ${captureIds}.Count | Should -Be 47
+        (${captureIds} | Select-Object -Unique).Count | Should -Be 47
     }
 
     It "すべて <画面>/<状態> の形" {
@@ -142,6 +142,7 @@ Describe "撮る場面（capture_screens.ps1）" -Tag Unit {
     It "状態の ID <id> は、場面の中で撮っている（一覧に足して撮り忘れない）" -TestCases @(
         @{ id = "index-tab/top-only" }
         @{ id = "index-tab/start-confirm-top-only" }
+        @{ id = "index-tab/import-confirm" }
     ) {
         param ($id)
         $script:captureScript | Should -Match ('captureGuiState -S \$S -Id "' + [regex]::Escape($id) + '"')

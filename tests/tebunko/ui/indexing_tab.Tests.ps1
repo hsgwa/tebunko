@@ -31,7 +31,7 @@ BeforeAll {
     # 画面の型を使うファイルは読み込まず、必要な関数だけを取り出す
     # （dot-source は、この場の scope で行う）
     foreach ($source in @(
-            @{ File = "${scriptsDir}\tebunko\ui\indexing_tab.ps1"; Names = @("startIndexing", "finishWorkspaceCheck", "confirmIndexingTargets", "changeIndexingTextExtensions", "restartIndexingIfRequested", "startIndexingForRestart", "waitAndRestartIndexing", "getIndexingScanText", "finishIndexing", "finishImportConfirm", "applyImportConfirmText") }
+            @{ File = "${scriptsDir}\tebunko\ui\indexing_tab.ps1"; Names = @("startIndexing", "finishWorkspaceCheck", "confirmIndexingTargets", "changeIndexingTextExtensions", "restartIndexingIfRequested", "startIndexingForRestart", "waitAndRestartIndexing", "getIndexingScanText", "finishIndexing", "finishImportConfirm", "applyImportConfirmText", "updateIndexingConfirmTotal") }
             @{ File = "${scriptsDir}\tebunko\ui\index\index_list.ps1"; Names = @("isIndexing", "isIndexingOrPreparing") }
         )) {
         $ast = [System.Management.Automation.Language.Parser]::ParseFile($source.File, [ref]$null, [ref]$null)
@@ -188,6 +188,36 @@ Describe "startIndexing の confirmText" -Tag Unit {
     }
 }
 
+Describe "updateIndexingConfirmTotal の主ボタン" -Tag Unit {
+    BeforeEach {
+        $names = @("StartButton", "TotalText", "SubfolderRemovalNote", "TextExcludeRemovalNote", "RetryCheck", "CloudWarnText", "CloudCheck", "CloudRememberCheck")
+        $ctrl = @{}
+        foreach ($name in $names) {
+            $ctrl[$name] = [pscustomobject]@{ Content = ""; Text = ""; Visibility = ""; IsChecked = $false; IsEnabled = $false }
+        }
+        $script:confirmDialog = @{ Plan = @(); Ctrl = $ctrl; View = $null }
+        $script:indexingOnlyNames = @("営業")
+        Mock getIndexingConfirmView {
+            @{ Confirm = @{ Text = "合計"; Button = "更新を開始" }; SubfolderRemovalNote = ""; TextExcludeRemovalNote = ""; RetryVisible = $false; RetryText = ""
+                CloudVisible = $false; CloudWarn = ""; CloudCheckText = ""; Include = $false }
+        }
+    }
+
+    It "<label>" -TestCases @(
+        @{ label = "インポートの回は、何度書き直しても主ボタンは［作成する（更新を開始）］のまま"; text = @{ StartText = "作成する（更新を開始）" }; expected = "作成する（更新を開始）" }
+        @{ label = "ふだんの更新は、判断層が決めた文言"; text = $null; expected = "更新を開始" }
+    ) {
+        param ($label, $text, $expected)
+        $script:indexingConfirmText = $text
+
+        updateIndexingConfirmTotal
+        updateIndexingConfirmTotal
+
+        $script:confirmDialog.Ctrl.StartButton.Content | Should -Be $expected
+        $script:indexingConfirmText = $null
+    }
+}
+
 Describe "applyImportConfirmText" -Tag Unit {
     It "窓の題・見出し・説明・［あとで］と、取り込んだ行のステータスだけを差し替える" {
         $heading = [pscustomobject]@{ Text = "インデックス更新の確認" }
@@ -241,6 +271,22 @@ Describe "finishIndexing（インポートの後の確認）" -Tag Unit {
             $script:ui[$name] = [pscustomobject]@{ IsIndeterminate = $false; Value = 0; Text = ""; Visibility = "" }
         }
         $script:indexingConfirmText = @{ SkippedStatus = "取りやめの文" }
+        $script:indexingRestart = $null
+    }
+
+    It "拡張子を変えて取りやめた回（始め直しの印あり）は、取りやめの文を出さず、帯も閉じない" {
+        $script:indexingCanceledAtConfirm = $true
+        $script:indexingRestart = @{ OnlyNames = @("営業"); ConfirmText = $script:indexingConfirmText }
+        $script:indexingSession = [pscustomobject]@{ Channel = @{ OnlySkipped = @(); Plan = @{} } } |
+            Add-Member -MemberType ScriptMethod -Name GetExitCode -Value { 2 } -PassThru |
+            Add-Member -MemberType ScriptMethod -Name GetError -Value { "" } -PassThru |
+            Add-Member -MemberType ScriptMethod -Name Close -Value { } -PassThru |
+            Add-Member -MemberType ScriptMethod -Name GetCloudSkipped -Value { @() } -PassThru
+
+        finishIndexing
+
+        $script:bannerClosed | Should -Be 0
+        @($script:statuses).Count | Should -Be 0
     }
 
     It "<label>" -TestCases @(
@@ -428,6 +474,27 @@ Describe "確認での取り込む拡張子の変更と、始め直し" -Tag Uni
         $script:confirmDialog.Window.DialogResult | Should -Be $false
         # ダイアログには、今数えた件数と今の選びを渡す
         Should -Invoke showIndexTextExtensionsDialog -Times 1 -ParameterFilter { $IndexName -eq "売上" -and $CountsSource -eq "now" -and $Counts[".log"] -eq 5 -and (@($Excluded) -join ",") -eq ".log" }
+    }
+
+    It "インポートの後の確認で選びを変えたら、始め直しの印に確認の文言を持たせ、始め直しの startIndexing にそのまま渡す" {
+        Mock showIndexTextExtensionsDialog { , @(".log", ".csv") }
+        $script:indexingConfirmText = @{ Title = "売上 をインポートしました" }
+
+        changeIndexingTextExtensions "売上"
+        restartIndexingIfRequested 2
+
+        Should -Invoke startIndexing -Times 1 -ParameterFilter { $confirmText.Title -eq "売上 をインポートしました" }
+        $script:indexingConfirmText = $null
+    }
+
+    It "ふだんの更新の確認で選びを変えたら、始め直しに確認の文言を渡さない" {
+        Mock showIndexTextExtensionsDialog { , @(".log", ".csv") }
+        $script:indexingConfirmText = $null
+
+        changeIndexingTextExtensions "売上"
+        restartIndexingIfRequested 2
+
+        Should -Invoke startIndexing -Times 1 -ParameterFilter { $null -eq $confirmText }
     }
 
     It "全部戻す（空の配列）［OK］も、選びが変わったものとして書く" {

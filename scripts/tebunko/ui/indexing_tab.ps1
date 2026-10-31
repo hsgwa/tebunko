@@ -143,7 +143,8 @@ function changeIndexingTextExtensions {
         showMessage "設定を保存できませんでした。もう一度お試しください。" "OK" "Warning" | Out-Null
         return
     }
-    $script:indexingRestart = @{ OnlyNames = @($script:indexingOnlyNames) }
+    # インポートの後の確認なら、始め直しも同じ文言で開く（確認が 2 回にならず、文言も変わらない）
+    $script:indexingRestart = @{ OnlyNames = @($script:indexingOnlyNames); ConfirmText = $script:indexingConfirmText }
     $d.Window.DialogResult = $false
 }
 
@@ -584,7 +585,8 @@ function finishImportConfirm {
 
     $importText = $script:indexingConfirmText
     $script:indexingConfirmText = $null
-    if ($importText -and $exitCode -eq 2 -and $script:indexingCanceledAtConfirm) {
+    # 拡張子を変えた始め直し（indexingRestart）は、取りやめではない。同じ文言で開き直すので、取りやめの文は出さない
+    if ($importText -and $exitCode -eq 2 -and $script:indexingCanceledAtConfirm -and $null -eq $script:indexingRestart) {
         closeIndexingBanner
         setStatus $importText.SkippedStatus
     }
@@ -691,20 +693,21 @@ function restartIndexingIfRequested {
     if ($script:targetsNaming) {
         # ネットワークのワークスペースでは、終わった回のあとの一覧の読み込み（インデックス名の割り当て）が裏で続いていて、
         # 今 startIndexing を呼ぶと黙って断られ、更新の流れが消える。終わるまで待ってから始め直す
-        waitAndRestartIndexing @($request.OnlyNames)
+        waitAndRestartIndexing @($request.OnlyNames) $request.ConfirmText
         return
     }
-    startIndexingForRestart @($request.OnlyNames)
+    startIndexingForRestart @($request.OnlyNames) $request.ConfirmText
 }
 
 function startIndexingForRestart {
     # 始め直しの数えを始める（startIndexing）。数えの間だけ、帯に数えたファイル数を出す（getIndexingScanText）
     param (
-        [string[]]$onlyNames
+        [string[]]$onlyNames,
+        $confirmText = $null   # インポートの後の確認の文言（startIndexing の confirmText）
     )
 
     $script:indexingRecounting = $true
-    startIndexing -onlyNames @($onlyNames)
+    startIndexing -onlyNames @($onlyNames) -confirmText $confirmText
     if ($null -eq $script:indexingSession -and -not $script:indexingPreparing) {
         $script:indexingRecounting = $false   # 始められなかった（ほかの操作の最中など）
     }
@@ -713,10 +716,11 @@ function startIndexingForRestart {
 function waitAndRestartIndexing {
     # 一覧の読み込みが終わる（targetsNaming が下りる）まで 0.3 秒ごとに見て、終わったら始め直す。最大 45 秒待ち、それでも終わらなければ諦める
     param (
-        [string[]]$onlyNames
+        [string[]]$onlyNames,
+        $confirmText = $null
     )
 
-    $state = @{ Tries = 0; Names = @($onlyNames) }
+    $state = @{ Tries = 0; Names = @($onlyNames); ConfirmText = $confirmText }
     # GetNewClosure したブロックの中では、関数を名前で探せないことがあり、$script: の変数も読めない（閉じ込めた側の空の変数になる）。
     # 関数は先に変数へ入れて & で呼び、$script: の変数は閉じ込めの外のブロックで読む
     $start = ${function:startIndexingForRestart}
@@ -732,7 +736,7 @@ function waitAndRestartIndexing {
             if ($action -eq "wait") { return }
             $timer.Stop()
             if ($action -eq "start") {
-                try { & $start $state.Names } catch { Write-Verbose "始め直しを始められませんでした" }
+                try { & $start $state.Names $state.ConfirmText } catch { Write-Verbose "始め直しを始められませんでした" }
             } else {
                 & $notify $giveUpText
             }

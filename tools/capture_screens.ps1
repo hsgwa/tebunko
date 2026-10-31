@@ -466,6 +466,65 @@ function captureTopOnlyScene {
     }
 }
 
+function captureImportConfirmScene {
+    # index-tab/import-confirm（［インポート…］が終わった後に出る、インポート用の文言の更新の確認ダイアログ。1 回だけ出す形）。
+    # 取り込み → エクスポート → 削除 → インポートして、確認が出たところを撮り、［あとで］で閉じる
+    param ($Ids, $Root, $OutDir, $UserName, $ComputerName, $UserProfile, $Sizes)
+    if ($Ids -notcontains "index-tab/import-confirm") { return }
+
+    $dir = Join-Path $Root "importconfirm"
+    $tool = newGuiTool $dir
+    $source = Join-Path (Join-Path $Root "importconfirm-元") "営業"
+    newGuiSourceFolder $source
+    $config = readGuiConfig $tool
+    $config | Add-Member -NotePropertyName targetFolders -NotePropertyValue @(@{ name = "営業"; path = $source; enabled = $true }) -Force
+    writeGuiConfig $tool.Dir $config
+    $dest = Join-Path $Root "importconfirm-先"
+    [void][IO.Directory]::CreateDirectory($dest)
+
+    $S = startGui $tool "importconfirm"
+    try {
+        invokeGuiScene $S {
+            selectGuiTab $S "IndexTab" "IndexingButton"
+            setGuiStep $S "取り込む"
+            startGuiIndexing $S
+            waitGui $S "取り込みの完了" ${guiIndexTimeout} {
+                (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*" -and (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
+            } | Out-Null
+
+            setGuiStep $S "エクスポートして、一覧から削除する"
+            $row = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
+            selectGui $row
+            checkGuiRow $S $row
+            clickGuiAction $S "ActionExport" "［エクスポート…］"
+            $dialog = waitGuiWindow $S "エクスポートのダイアログ" -Id "ExportPathBox"
+            setGuiText $S (findGui $dialog -Id "ExportPathBox") $dest
+            clickGui $S $dialog "ExportButton" "［エクスポート］"
+            waitGuiWindowClosed $S $dialog "エクスポートのダイアログ"
+            waitGui $S "書き出しの完了" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "StatusText")) -like "*書き出しました*" } | Out-Null
+            $zip = @(Get-ChildItem -LiteralPath $dest -Filter "*.zip")[0].FullName
+            clickGuiAction $S "ActionDelete" "［削除…］"
+            answerGuiConfirm $S "削除の確認" "インデックスを削除しますか" "削除する"
+            waitGui $S "一覧から消える" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count -eq 0 } | Out-Null
+
+            setGuiStep $S "インポートして、終わった後の確認を撮る"
+            clickGuiAction $S "ActionImport" "［インポート…］"
+            useGuiFileOpenPicker $S $zip
+            $dialog = waitGuiWindow $S "インポートのダイアログ" -Id "NameBox"
+            clickGui $S $dialog "ImportButton" "［インポート］"
+            waitGuiWindowClosed $S $dialog "インポートのダイアログ"
+            $confirm = waitGuiWindow $S "インポート後の更新の確認" -Id "HeadingText" -Text "高速化のためのインデックスを作成しますか？" -Timeout ${guiIndexTimeout}
+            captureGuiState -S $S -Id "index-tab/import-confirm" -Ids $Ids -OutDir $OutDir `
+                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($confirm)
+            clickGui $S $confirm "CancelButton" "確認の［あとで］"
+            waitGuiWindowClosed $S $confirm "インポート後の更新の確認"
+            closeGui $S
+        }
+    } finally {
+        stopGui $S
+    }
+}
+
 function captureTextExtensionsScene {
     # index-tab/text-extensions（詳細の「取り込み対象の拡張子」の［変更…］で開いたダイアログ。前回の更新で数えた件数と、日時つきの注）と、
     # index-tab/confirm-text-extensions（更新の確認の［変更…］で開いたダイアログ。いま数えた件数の注）。
@@ -951,6 +1010,7 @@ try {
     captureFailedScene       $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureCloudScene        $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureTopOnlyScene      $ids $root $OutDir $userName $computerName $userProfile $sizes
+        captureImportConfirmScene   $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureTextExtensionsScene $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureHeavyScene        $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureSearchScene       $ids $root $OutDir $userName $computerName $userProfile $sizes
