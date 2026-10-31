@@ -16,7 +16,7 @@ function extractTextFile {
     )
 
     if ([System.IO.FileInfo]::new((toLongPath $sourcePath)).Length -gt $maxBytes) {
-        throw ${fileTooLargeMessage}
+        throw ${textFileTooLargeMessage}
     }
     $copyPath = Join-Path $outDir "source.copy"
     $lines = invokeWithSourceCopy $sourcePath $copyPath { readTextFile $copyPath $maxBytes } $null $timing

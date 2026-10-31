@@ -176,6 +176,45 @@ Describe "indexer.ps1（続けられないエラー）" -Tag Io {
     }
 }
 
+Describe "indexer.ps1（前の版が作った 64MB を超える本文インデックスのファイル）" -Tag Slow {
+    # 別のプロセスの上限は下げられないため、実際に 64MB を超えるファイルを作る（中身は流して書く）。毎回のテストでは流さない
+
+    It "同じ拡張子の小さい本文インデックスのファイルが残るフォルダでも、取り込む対象が無い更新で外れ、中の元のファイルが同じ回に取り込み直されて検索に戻る" {
+        $root = newRoot
+        $dir = newSourceFolder "上限超え"
+        writeTestSettings $root @(@{ name = ""; path = $dir; enabled = $true })
+        runIndexer $root | Should -Be 0
+        $folder = "$root\work\store\content\上限超え"
+        $file = "$folder\content_index.docx.001.tsv"
+        [System.IO.File]::Exists($file) | Should -Be $true
+
+        # 前の版が作った形: 議事録.docx を入れた、検索の上限（64MB）を超えるファイルと、別の docx を入れた小さいファイル
+        writeContentIndexFile $file (convertToContentIndexText @(@{ Name = "議事録.docx"; Places = @(@{ Place = "ページ001"; Text = "先頭`n" }) }))
+        $stream = New-Object System.IO.FileStream($file, [System.IO.FileMode]::Append)
+        $writer = New-Object System.IO.StreamWriter($stream, (New-Object System.Text.UnicodeEncoding($false, $false)))
+        try {
+            $line = ("あ" * 999) + "`n"
+            for ($i = 0; $i -lt 36000; $i++) { $writer.Write($line) }
+        } finally {
+            $writer.Dispose()
+        }
+        writeContentIndexFile "$folder\content_index.docx.002.tsv" (convertToContentIndexText @(@{ Name = "別.docx"; Places = @(@{ Place = "ページ001"; Text = "別の文書`n" }) }))
+        (Get-Item -LiteralPath $file).Length | Should -BeGreaterThan ${contentIndexSearchMaxBytes}
+
+        runIndexer $root | Should -Be 0
+
+        $status = readTestStatus $root
+        $status.Rows["上限超え\議事録.docx"].状態 | Should -Be ${stateDone}
+        foreach ($item in @(Get-ChildItem -LiteralPath $folder -Filter "content_index.docx.*.tsv" -File)) {
+            $item.Length | Should -BeLessThan 1MB
+        }
+        $names = @(Get-ChildItem -LiteralPath $folder -Filter "content_index.docx.*.tsv" -File | ForEach-Object { splitContentIndexTextByBook (readContentIndexText $_.FullName) } | ForEach-Object { $_.Name })
+        $names | Should -Contain "議事録.docx"
+        $names | Should -Contain "別.docx"
+        readTestError | Should -BeNullOrEmpty
+    }
+}
+
 Describe "indexer.ps1（取り込み）" -Tag Io {
     BeforeAll {
         $source = newSourceFolder "営業"
@@ -1877,6 +1916,22 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
         $result.Message | Should -BeNullOrEmpty
     }
 
+    It "元のファイルの文字が検索の上限を超えるときは、置き場へ移さず、決めた文言の失敗として返す" {
+        . "${scriptsDir}\tebunko\indexer\extract_text.ps1"
+        $workspace = newTestWorkspace @{} "$TestDrive\fit_task_ws"
+        ${tmpDir} = Join-Path $TestDrive "fit_task_tmp"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+        $source = Join-Path $TestDrive "fit_task.txt"
+        [System.IO.File]::WriteAllText($source, ((1..300 | ForEach-Object { "長い行の文字 $_" }) -join "`r`n"))
+        ${contentIndexSearchMaxBytes} = 1KB
+
+        $result = invokeIngestTask @{ RelPath = "営業\fit_task.txt"; SourcePath = $source } 10
+
+        $result.Ok | Should -Be $false
+        $result.Message | Should -Be "ファイルの文字が多すぎるため更新できません（上限 64 MB）。"
+        [System.IO.Directory]::Exists("$($workspace.IndexDir)\営業\fit_task.txt") | Should -Be $false
+    }
+
     It "本文（word/document.xml）が部品のサイズの上限を超えた .docx は、Office を使わず簡潔なメッセージで失敗にする" {
         ${tmpDir} = Join-Path $TestDrive "big_for_indexer_tmp"
         [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
@@ -2417,6 +2472,65 @@ Describe "取り込みのジャーナルの復旧と書き出し（flushPendingP
         } else {
             Should -Invoke publishIndexFolders -Times 1 -Exactly -Scope It -ParameterFilter { ((@($pending.Keys) | Sort-Object) -join "|") -eq $script:expectedKeys }
         }
+    }
+
+    It "上限を超える本文インデックスのファイルがあるフォルダは、書き出し前の TSV が無くても、始めの書き出しに足す（上限を超えないフォルダは足さない）" {
+        ${contentIndexSearchMaxBytes} = 1KB
+        $rc = newRecoverEnv -folders @()
+        $workspace = $rc.Workspace
+        foreach ($name in "営業", "総務") {
+            [System.IO.Directory]::CreateDirectory("$($workspace.IndexDir)\$name") | Out-Null
+        }
+        $big = ((1..200 | ForEach-Object { "巨大な行の単価 $_" }) -join "`n") + "`n"
+        writeContentIndexFile "$($workspace.IndexDir)\営業\content_index.xlsx.001.tsv" (convertToContentIndexText @(@{ Name = "A.xlsx"; Places = @(@{ Place = "S"; Text = $big }) }))
+        writeContentIndexFile "$($workspace.IndexDir)\総務\content_index.xlsx.001.tsv" (convertToContentIndexText @(@{ Name = "A.xlsx"; Places = @(@{ Place = "S"; Text = "x`n" }) }))
+        $script:expectedKeys = "$($workspace.IndexDir)\営業"
+        $result = recoverIngestJournal $rc.Ledger $rc.Journal $rc.Pending $rc.Channel $rc.Reporter
+        @($result.Unpublished).Count | Should -Be 0
+        Should -Invoke publishIndexFolders -Times 1 -Exactly -Scope It -ParameterFilter { ((@($pending.Keys) | Sort-Object) -join "|") -eq $script:expectedKeys }
+    }
+
+    It "applyStartupRequeued: 取り込み直しの元のファイルの行をすぐ「未取り込み」・エラー空にして保存し、印を空にする（行が無いものは無視する）" {
+        $rc = newRecoverEnv -folders @()
+        $ledger = [StatusLedger]::new([pscustomobject]@{ StatusFile = "$TestDrive\apply_status.tsv" })
+        $folders = @([pscustomobject]@{ Path = "C:\共有\営業部"; Name = "営業" })
+        writeStatusFile $folders @(
+            (newStatusRow "営業\A.xlsx" "2024/01/01 00:00:00" "100" ${stateDone} "1" "2024/01/01 00:00:00" "" "1")
+            (newStatusRow "営業\B.xlsx" "2024/01/01 00:00:00" "100" ${stateDone} "1" "2024/01/01 00:00:00" "" "1")
+        ) "$TestDrive\apply_status.tsv"
+        $status = readStatusFile "$TestDrive\apply_status.tsv"
+        $pending = [PendingPublish]::new()
+        $pending.AddRequeued([string[]]@("営業\A.xlsx", "営業\無い.xlsx"))
+
+        applyStartupRequeued $ledger $pending $status
+
+        $pending.Requeued.Count | Should -Be 0
+        $status.Rows["営業\A.xlsx"].状態 | Should -Be ${stateNew}
+        $saved = readStatusFile "$TestDrive\apply_status.tsv"
+        $saved.Rows["営業\A.xlsx"].状態 | Should -Be ${stateNew}
+        $saved.Rows["営業\B.xlsx"].状態 | Should -Be ${stateDone}
+        $saved.Folders.Count | Should -Be 1
+    }
+
+    It "selectFinishStatusRows: 書き出しで外した上限超えのファイルの中の元のファイルは、この回に済になっていても「未取り込み」・エラー空に戻し、無くなった行は除く" {
+        $ledger = [StatusLedger]::new([pscustomobject]@{ StatusFile = "$TestDrive\select_status.tsv" })
+        $pending = [PendingPublish]::new()
+        $pending.AddRequeued([string[]]@("営業\A.xlsx", ""))
+        [void]$ledger.DroppedRows.Add("営業\C.xlsx")
+        $rows = @(
+            (newStatusRow "営業\A.xlsx" "2024/01/01 00:00:00" "100" ${stateDone} "1" "2024/01/01 00:00:00" "" "1")
+            (newStatusRow "営業\B.xlsx" "2024/01/01 00:00:00" "100" ${stateDone} "1" "2024/01/01 00:00:00" "" "1")
+            (newStatusRow "営業\C.xlsx" "2024/01/01 00:00:00" "100" ${stateDone} "1" "2024/01/01 00:00:00" "" "1")
+        )
+        $rows[0].エラー = "前のエラー"
+        $selected = selectFinishStatusRows $rows $ledger $pending
+        @($selected).Count | Should -Be 2
+        $selected[0].相対パス | Should -Be "営業\A.xlsx"
+        $selected[0].状態 | Should -Be ${stateNew}
+        $selected[0].エラー | Should -Be ""
+        $selected[1].状態 | Should -Be ${stateDone}
+        $rows[0].状態 | Should -Be ${stateDone}
+        $pending.Requeued.Count | Should -Be 1
     }
 
     It "前の版の ingesting.txt があれば、止まった仕事に足す。ジャーナルにも同じ仕事があるときは重ねない" {
