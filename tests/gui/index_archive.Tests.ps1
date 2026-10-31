@@ -76,7 +76,9 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
                 (getGuiText (findGui $S.Window -Id "StatusText")) -like "*インポートしました*次の更新までは、検索が遅くなることがあります。"
             } | Out-Null
             Test-Path -LiteralPath "$($script:tool.Work)\store\gram\営業\toc.tsv" | Should -BeFalse -Because "取りやめたので、2-gram の索引は作らない"
-            testGuiIndexing $S | Should -BeFalse -Because "取りやめたのでインデックス作成は始まらない"
+            # 取りやめでは何も取り込まずにインデクサが終わる（終わるまでは作成中の表示）。終わったあとも、ステータスは取りやめの文のまま
+            waitGui $S "取りやめた更新が終わる" ${guiIndexTimeout} { -not (testGuiIndexing $S) } | Out-Null
+            (getGuiText (findGui $S.Window -Id "StatusText")) | Should -BeLike "*次の更新までは、検索が遅くなることがあります。"
             $row = waitGui $S "一覧に戻る" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")) | Select-Object -First 1 }
             (getGuiRowTexts $row) | Should -Contain "営業"
             Test-Path -LiteralPath "$($script:tool.Work)\store\content\営業" | Should -BeTrue
