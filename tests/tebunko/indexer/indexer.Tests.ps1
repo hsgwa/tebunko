@@ -1916,13 +1916,13 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
         $result.Message | Should -BeNullOrEmpty
     }
 
-    It "元のファイルの文字が検索の上限を超えるときは、置き場へ移さず、決めた文言の失敗として返す" {
+    It "元のファイルの 1 行が検索の上限を超えるときは、置き場へ移さず、決めた文言の失敗として返す" {
         . "${scriptsDir}\tebunko\indexer\extract_text.ps1"
         $workspace = newTestWorkspace @{} "$TestDrive\fit_task_ws"
         ${tmpDir} = Join-Path $TestDrive "fit_task_tmp"
         [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
         $source = Join-Path $TestDrive "fit_task.txt"
-        [System.IO.File]::WriteAllText($source, ((1..300 | ForEach-Object { "長い行の文字 $_" }) -join "`r`n"))
+        [System.IO.File]::WriteAllText($source, ("前の行`r`n" + ("あ" * 1000) + "`r`n後の行"))
         ${contentIndexSearchMaxBytes} = 1KB
 
         $result = invokeIngestTask @{ RelPath = "営業\fit_task.txt"; SourcePath = $source } 10
@@ -1930,6 +1930,21 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
         $result.Ok | Should -Be $false
         $result.Message | Should -Be "ファイルの文字が多すぎるため更新できません（上限 64 MB）。"
         [System.IO.Directory]::Exists("$($workspace.IndexDir)\営業\fit_task.txt") | Should -Be $false
+    }
+
+    It "元のファイルの文字が検索の上限を超えても、1 行ずつが上限以内なら失敗にせず置き場へ移す（書き出しで塊に分ける）" {
+        . "${scriptsDir}\tebunko\indexer\extract_text.ps1"
+        $workspace = newTestWorkspace @{} "$TestDrive\fit_task_split_ws"
+        ${tmpDir} = Join-Path $TestDrive "fit_task_split_tmp"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+        $source = Join-Path $TestDrive "fit_task_split.txt"
+        [System.IO.File]::WriteAllText($source, ((1..300 | ForEach-Object { "長い行の文字 $_" }) -join "`r`n"))
+        ${contentIndexSearchMaxBytes} = 1KB
+
+        $result = invokeIngestTask @{ RelPath = "営業\fit_task_split.txt"; SourcePath = $source } 10
+
+        $result.Ok | Should -Be $true
+        [System.IO.Directory]::Exists("$($workspace.IndexDir)\営業\fit_task_split.txt") | Should -Be $true
     }
 
     It "本文（word/document.xml）が部品のサイズの上限を超えた .docx は、Office を使わず簡潔なメッセージで失敗にする" {
