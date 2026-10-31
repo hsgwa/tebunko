@@ -204,16 +204,17 @@ Describe "updateIndexingConfirmTotal の主ボタン" -Tag Unit {
     }
 
     It "<label>" -TestCases @(
-        @{ label = "インポートの回は、何度書き直しても主ボタンは［作成する（更新を開始）］のまま"; text = @{ StartText = "作成する（更新を開始）" }; expected = "作成する（更新を開始）" }
-        @{ label = "ふだんの更新は、判断層が決めた文言"; text = $null; expected = "更新を開始" }
+        @{ label = "インポートの回は、何度書き直しても主ボタンは［作成する（更新を開始）］のまま、合計の 1 行は隠れる"; text = @{ StartText = "作成する（更新を開始）" }; expected = "作成する（更新を開始）"; total = "Collapsed" }
+        @{ label = "ふだんの更新は、判断層が決めた文言"; text = $null; expected = "更新を開始"; total = "Visible" }
     ) {
-        param ($label, $text, $expected)
+        param ($label, $text, $expected, $total)
         $script:indexingConfirmText = $text
 
         updateIndexingConfirmTotal
         updateIndexingConfirmTotal
 
         $script:confirmDialog.Ctrl.StartButton.Content | Should -Be $expected
+        $script:confirmDialog.Ctrl.TotalText.Visibility | Should -Be $total -Because "インポートの回は合計の 1 行を出さない"
         $script:indexingConfirmText = $null
     }
 }

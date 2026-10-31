@@ -74,6 +74,8 @@ function updateIndexingConfirmTotal {
     $view = getIndexingConfirmView $d.Plan @($script:indexingOnlyNames) ([bool]$d.Ctrl.RetryCheck.IsChecked) ([bool]$d.Ctrl.CloudCheck.IsChecked)
     $d.View = $view
     $d.Ctrl.TotalText.Text = $view.Confirm.Text
+    # インポートの回は合計の 1 行を出さない（取り込むものが 0 件のとき「すべて最新です」が、行の『要更新』・主ボタンと食い違うため）
+    $d.Ctrl.TotalText.Visibility = $(if ($script:indexingConfirmText) { "Collapsed" } else { "Visible" })
     $d.Ctrl.SubfolderRemovalNote.Text = $view.SubfolderRemovalNote
     $d.Ctrl.SubfolderRemovalNote.Visibility = $(if ($view.SubfolderRemovalNote) { "Visible" } else { "Collapsed" })
     $d.Ctrl.TextExcludeRemovalNote.Text = $view.TextExcludeRemovalNote
