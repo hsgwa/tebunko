@@ -700,7 +700,9 @@ function readContentIndexLinesAcrossParts {
     # readContentIndexLines と同じ（本文インデックスのファイル path の中の、元のファイル book・場所 location の firstLine 行目から count 行を返す）だが、
     # 1 つの場所が複数の塊のファイル（版 3。splitContentIndexBookBlock）に分かれているときは、前の塊・続きの塊のファイルも読み、
     # 行の番号は場所の中の通しの番号（検索の結果の行番号と同じ）で返す。分けたファイルでなければ readContentIndexLines をそのまま呼ぶ
-    # 戻り値は readContentIndexLines と同じ形（Marks は最後に読んだファイルのもの）
+    # 戻り値は readContentIndexLines と同じ形。Marks は最後に読んだ 1 つのファイルのものだけ（画面は控えを 1 つだけ持つため）。
+    # 塊の切れ目をまたいだ直後の読みは、控えのパスが合わず、その塊のファイル（約 4MB）を読み直す。読むのは切れ目をまたぐときだけで、
+    # 同じ塊の中を続けて読むときは控えが効く
     param (
         [string]$path,
         [string]$book,

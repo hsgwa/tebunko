@@ -31,7 +31,8 @@ ${contentIndexSearchMaxBytes} = 64MB
 # 元のファイル 1 つで上限を超えるときの、取り込み一覧のエラーの列の文言。上限は文字の量（UTF-16 のバイト数）のため、「ファイルサイズ」とは書かない。
 # 読み込んだときの上限から作る（テストが上限を小さくしても、文言は変わらない）
 ${contentIndexTooLargeMessage} = "ファイルの文字が多すぎるため更新できません（上限 $([int](${contentIndexSearchMaxBytes} / 1MB)) MB）。"
-# インデックスの格納形式の版（本文インデックスの「版=」の行・目録の版・zip の目録の版はすべてこの 1 つの番号にそろえる）。
+# インデックスの格納形式の版（本文インデックスの「版=」の行・目録の版・zip の目録の版はすべてこの 1 つの番号にそろえる。
+# 例外は、分けた塊を入れたファイルの「版=3」だけ（下の contentIndexSplitVersion）。）
 # 読み飛ばしても古い版が誤らない列・キーを足すときは上げない。意味を変える・無いと古い版が誤るものを足すときは上げる（format.md「目録の版の規則」）
 ${indexFormatVersion} = 2
 ${contentIndexVersion} = ${indexFormatVersion}
@@ -464,7 +465,8 @@ function splitContentIndexBookBlock {
     # 1 つで maxBytes（UTF-16 のバイト数・BOM と版の行を含む）以下なら、分けずに 1 つ（convertBookToContentIndexBlock と同じ）。
     # 超えるなら、約 chunkBytes の塊に分ける。場所（シート・ページなど）の切れ目で切ることを優先し、1 つの場所が 1 つの塊に入らないときだけ
     # その場所を行の切れ目で切る（場所の途中から始まる塊には「開始行=<N>」を付ける）。どの塊も、頭の「ファイル名=」「種類=」の行を繰り返す。
-    # 1 行がそれだけで maxBytes を超えるなど、maxBytes におさまらない塊ができるときは例外にする
+    # 1 行がそれだけで maxBytes を超えるなど、maxBytes におさまらない塊ができるときは例外にする。
+    # 分けるときは、塊にした場所の Text（book の Places の中身）を空にする（メモリを減らすため。分けたあとの book は使わない）
     param (
         $book,
         [long]$maxBytes = ${contentIndexSearchMaxBytes},
@@ -486,7 +488,10 @@ function splitContentIndexBookBlock {
     $chunks = New-Object System.Collections.Generic.List[string]
     $current = @{ Sb = $null; Used = 0L }
     foreach ($place in $book.Places) {
-        addContentIndexPlaceToChunks $chunks $current $head (getContentIndexPlaceMetaText $name ([string]$place.Place)) (convertToContentIndexBody ([string]$place.Text)) $limit
+        $body = convertToContentIndexBody ([string]$place.Text)
+        # 塊にした場所の読んだ TSV は、もう使わない（大きな元のファイルで、メモリに同じ中身を何通りも持たないため。呼び出し側の book の Text を空にする）
+        $place.Text = $null
+        addContentIndexPlaceToChunks $chunks $current $head (getContentIndexPlaceMetaText $name ([string]$place.Place)) $body $limit
     }
     if ($null -ne $current.Sb) { $chunks.Add($current.Sb.ToString()) }
     foreach ($chunk in $chunks) {

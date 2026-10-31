@@ -252,6 +252,7 @@ Describe "splitContentIndexBookBlock" -Tag Unit {
 
     It "場所の切れ目で切り、どの塊も目安以下で、つなぐと元の中身と同じになる（場所の途中から始まる塊は無いので「開始行」も無い）" {
         $book = newSplitBook "見積.xlsx" @(@("S1", (newLines 1 40)), @("S2", (newLines 1 40)), @("S3", (newLines 1 40)))
+        $whole = convertBookToContentIndexBlock $book
         $chunks = splitContentIndexBookBlock $book 5000 3000
         $chunks.Count | Should -BeGreaterThan 1
         foreach ($chunk in $chunks) {
@@ -260,7 +261,7 @@ Describe "splitContentIndexBookBlock" -Tag Unit {
             $chunk | Should -Not -BeLike "*開始行*"
         }
         $body = ($chunks | ForEach-Object { getContentIndexBodyText $_ }) -join ""
-        $body | Should -BeExactly ((getContentIndexBodyText (convertBookToContentIndexBlock $book)))
+        $body | Should -BeExactly (getContentIndexBodyText $whole)
         $places = @($chunks | ForEach-Object { (readContentIndexPlaces ("$rs 版=3`n" + $_)) | ForEach-Object { $_.Location } })
         $places | Should -Be @("S1", "S2", "S3")
     }
@@ -302,7 +303,8 @@ Describe "splitContentIndexBookBlock" -Tag Unit {
         $chunks = splitContentIndexBookBlock $book 7000 2000
         $chunks.Count | Should -BeGreaterThan 1
         (@($chunks | Where-Object { $_ -like "*$huge*" })).Count | Should -Be 1
-        { splitContentIndexBookBlock $book 6000 2000 } | Should -Throw (getContentIndexTooLargeMessage)
+        $again = newSplitBook "ログ.txt" @(, @("本文", ("前`n$filler`n$huge`n後`n")))
+        { splitContentIndexBookBlock $again 6000 2000 } | Should -Throw (getContentIndexTooLargeMessage)
     }
 
     It "開始行は正の整数だけを受け付ける（それ以外は 1）" -TestCases @(
