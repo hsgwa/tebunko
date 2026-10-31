@@ -26,6 +26,7 @@ stateDiagram-v2
     state "index-tab/top-only" as toponly
     state "index-tab/start-confirm-top-only" as starttop
     state "index-tab/text-extensions" as textext
+    state "index-tab/import-confirm" as importconfirm
     state "index-tab/running" as running
     state "index-tab/stop-confirm" as stop
     state "index-tab/interrupted" as interrupted
@@ -44,6 +45,9 @@ stateDiagram-v2
     starttop --> toponly: ［キャンセル］
     normal --> textext: 詳細の「取り込み対象の拡張子」の［変更…］（3）
     textext --> normal: ［OK］（選びが変わればその場で保存）・［キャンセル］
+    normal --> importconfirm: ［インポート…］が終わる（元のフォルダがこの PC にある。17）
+    importconfirm --> running: ［作成する（更新を開始）］
+    importconfirm --> normal: ［あとで］
     running --> stop: ［中止］（19）
     stop --> running: ［キャンセル］
     stop --> interrupted: ［中止する］
@@ -113,6 +117,12 @@ stateDiagram-v2
 ![同・更新の確認ダイアログ](../../../images/screens/index-tab/start-confirm-top-only.png)
 
 名前の右の札「直下のみ」は読み取りだけ。合計の下の 1 行は、直下だけに変えたフォルダで、サブフォルダ側のインデックスを外す件数（0 件のときは出さない）。
+
+### index-tab/import-confirm（インポートが終わった後の更新の確認ダイアログ。遷移 17）
+
+![インポートが終わった後の更新の確認ダイアログ](../../../images/screens/index-tab/import-confirm.png)
+
+窓の題は「<名前> をインポートしました」、見出しは「高速化のためのインデックスを作成しますか？」。見出しの下に「高速化のためのインデックスを作成します。作成しなくても検索はできます（結果は同じ）。」を出す。一覧は取り込んだ 1 行で、ステータスは『要更新』。ボタンは［あとで］（取りやめ。Esc・×も同じ）と［作成する（更新を開始）］。一覧の下の合計の 1 行は出さない。
 
 ### index-tab/text-extensions（詳細の「取り込む拡張子」の［変更…］で開いたダイアログ。遷移 3）
 

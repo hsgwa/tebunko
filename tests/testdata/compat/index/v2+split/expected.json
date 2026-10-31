@@ -1,0 +1,27 @@
+{
+    "indexName": "資料",
+    "ingestList": [
+        { "relativePath": "ログ.txt", "status": "済", "extractVersion": 1 },
+        { "relativePath": "メモ.csv", "status": "済", "extractVersion": 1 }
+    ],
+    "searches": [
+        {
+            "word": "行1の説明",
+            "hits": [
+                { "relativePath": "ログ.txt", "location": "本文", "line": "1,分割の単価,行1の説明,ああああああああああああああああああああ" }
+            ]
+        },
+        {
+            "word": "行100の説明",
+            "hits": [
+                { "relativePath": "ログ.txt", "location": "本文", "line": "100,分割の単価,行100の説明,ああああああああああああああああああああ" }
+            ]
+        },
+        {
+            "word": "メモの単価",
+            "hits": [
+                { "relativePath": "メモ.csv", "location": "本文", "line": "メモの単価" }
+            ]
+        }
+    ]
+}

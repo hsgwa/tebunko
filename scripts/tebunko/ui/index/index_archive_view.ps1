@@ -251,6 +251,62 @@ function getIndexImportNotice {
     return "名前と、元のフォルダの場所を変えられます。"
 }
 
+function getImportProgressView {
+    # インポートの進み具合（展開した大きさ Done・全体の大きさ Total。バイト）から、帯に出す内容を返す。
+    # 戻り値: @{ Text; Detail; Value（0 から 1）; Indeterminate }。
+    # 全体が分からない間（目録の確かめ・空き容量の確かめ）と、展開が終わった後（入れ替え・設定の書き込み）は、割合の分からない表示にする
+    param (
+        [long]$done,
+        [long]$total
+    )
+
+    if ($total -le 0) {
+        return @{ Text = "インポートしています…"; Detail = ""; Value = 0.0; Indeterminate = $true }
+    }
+    if ($done -ge $total) {
+        return @{ Text = "インポートを仕上げています…"; Detail = ""; Value = 1.0; Indeterminate = $true }
+    }
+    $ratio = [double]$done / [double]$total
+    return @{
+        Text = "インポートしています（$([int][Math]::Floor($ratio * 100))%）"
+        Detail = "$(formatArchiveSize $done) / $(formatArchiveSize $total)"
+        Value = $ratio
+        Indeterminate = $false
+    }
+}
+
+function getImportIndexingConfirm {
+    # インポートが終わった後の、更新の確認ダイアログ（1 回だけ出す）に渡す文言（importIndex の戻り値から）。
+    # 戻り値: @{ Name（取り込んだ名前）; Title（窓の題）; Heading; Hint（見出しの下の説明）; StartText（主ボタン）; CancelText; RowStatus（一覧の行のステータス）; SkippedStatus（取りやめたときのステータスバー）}。
+    # 元のフォルダがこの PC に無いとき（Enabled が偽）は $null（更新を始めると、設定の enabled が真に書き換わってしまうため尋ねない）
+    param (
+        $result
+    )
+
+    if (!$result.Enabled) {
+        return $null
+    }
+    return @{
+        Name = [string]$result.Name
+        Title = "$($result.Name) をインポートしました"
+        Heading = "高速化のためのインデックスを作成しますか？"
+        Hint = "高速化のためのインデックスを作成します。作成しなくても検索はできます（結果は同じ）。"
+        StartText = "作成する（更新を開始）"
+        CancelText = "あとで"
+        RowStatus = "要更新"
+        SkippedStatus = (getImportSkippedIndexingStatus $result)
+    }
+}
+
+function getImportSkippedIndexingStatus {
+    # 続けて更新しなかったとき（確認を取りやめた・元のフォルダが無くて尋ねなかった）のステータス。
+    # getImportResultStatus の文に、高速化のためのインデックスが、次に更新するまでは無いことを足す
+    param (
+        $result
+    )
+
+    return "$(getImportResultStatus $result) 次の更新までは、検索が遅くなることがあります。"
+}
 
 function getIndexExportOmittedText {
     # エクスポートで、インポートできない大きさのため zip に入れなかった本文インデックスのファイルがあるときの、ステータスに足す文言。
