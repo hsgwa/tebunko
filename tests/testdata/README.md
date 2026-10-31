@@ -304,7 +304,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests\testdata\text\make_tes
 
 前の版が作った本文インデックス・取り込み一覧・エクスポートの zip を、今のコードがそのまま読めることを確かめるための見本（golden）。[前の版との互換](../../docs/design/index-data/format.md#前の版との互換) も参照。
 
-一覧（`tests\testdata\compat\index\<見本の名前>\`。今は `v0.3.1+english-names`（Excel・Word・PowerPoint・テキスト）と `v0.4.0+embedded-objects`（Excel のブックを埋め込んだ Word・PowerPoint。`[埋め込みN]` の場所）と `v0.4.0+pdf`（PDF。`ページN` の場所。日本語のフォントの対応表・相互参照のストリーム・オブジェクトのストリームを使うもの。メタデータに作成者などを持たない自作）と `v2+store`（版番号つきの格納形式。`ws\store\` に目録 `format.tsv`・取り込み一覧・本文インデックスを置く。Excel・Word・PowerPoint・PDF・テキスト）の 4 つ）:
+一覧（`tests\testdata\compat\index\<見本の名前>\`。今は `v0.3.1+english-names`（Excel・Word・PowerPoint・テキスト）と `v0.4.0+embedded-objects`（Excel のブックを埋め込んだ Word・PowerPoint。`[埋め込みN]` の場所）と `v0.4.0+pdf`（PDF。`ページN` の場所。日本語のフォントの対応表・相互参照のストリーム・オブジェクトのストリームを使うもの。メタデータに作成者などを持たない自作）と `v2+store`（版番号つきの格納形式。`ws\store\` に目録 `format.tsv`・取り込み一覧・本文インデックスを置く。Excel・Word・PowerPoint・PDF・テキスト）と `v2+split`（1 つの元のファイルを複数の本文インデックスのファイルに分けた形。分けた塊のファイルは `版=3`。上限を小さくして作ったテキスト 2 つだけの見本で、`index_compat.Tests.ps1` の専用の確かめ k で読む。ほかの見本のような取り込み直しの確かめ（d〜g）には使わない）の 5 つ）:
 
 | 中身 | 内容 |
 |---|---|
@@ -323,6 +323,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests\testdata\text\make_tes
 3. `exportIndex` でそのワークスペースを zip に書き出す。
 4. `tools\make_index_golden.ps1 -WorkspaceDir <ワークスペース> -ExportZip <zip> -SampleDir tests\testdata\compat\index\<見本の名前>` で、`ws\`・`export.zip`・`file_times.tsv` を見本へコピー・作成する（ワークスペースは `C:\tebunko_golden\ws`）。
 5. `expected.json` は手で書く（このスクリプトは作らない）。
+
+`v2+split` だけは、手順 2 の `indexer.ps1` を動かさずに作った（64MB を超えるファイルを見本に置けないため）。上限（`contentIndexSearchMaxBytes` を 4KB、`contentIndexFileMaxBytes` を 2KB）を下げて、`convertFolderToContentIndex` で本文インデックスを書き、取り込み一覧・目録を作って `exportIndex` で書き出した。そのあと手順 4 からは同じ。
 
 **`source\` の `.md` ファイルに相対リンクを書かない。** `tests\meta\links.Tests.ps1` がリポジトリ内の全 Markdown のリンクを確かめるため、見本の中の壊れたリンク（見本どうしを指すリンクなど）があると、関係のない変更でもテストが落ちる。
 
