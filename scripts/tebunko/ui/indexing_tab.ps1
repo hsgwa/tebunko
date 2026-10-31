@@ -78,7 +78,8 @@ function updateIndexingConfirmTotal {
     $d.Ctrl.SubfolderRemovalNote.Visibility = $(if ($view.SubfolderRemovalNote) { "Visible" } else { "Collapsed" })
     $d.Ctrl.TextExcludeRemovalNote.Text = $view.TextExcludeRemovalNote
     $d.Ctrl.TextExcludeRemovalNote.Visibility = $(if ($view.TextExcludeRemovalNote) { "Visible" } else { "Collapsed" })
-    $d.Ctrl.StartButton.Content = $view.Confirm.Button
+    # インポートの回は、主ボタンの文言を差し替える（チェックを押すたびに書き直すので、ここで当てる）
+    $d.Ctrl.StartButton.Content = $(if ($script:indexingConfirmText) { $script:indexingConfirmText.StartText } else { $view.Confirm.Button })
     $d.Ctrl.RetryCheck.Visibility = $(if ($view.RetryVisible) { "Visible" } else { "Collapsed" })
     $d.Ctrl.RetryCheck.Content = $view.RetryText
     $cloudVisibility = $(if ($view.CloudVisible) { "Visible" } else { "Collapsed" })
@@ -167,6 +168,32 @@ function initIndexingConfirmTextExt {
         })
 }
 
+function applyImportConfirmText {
+    # インポートの後の確認: 窓の題・見出し・見出しの下の説明・［あとで］・取り込んだ行のステータスを差し替える（文言は getImportIndexingConfirm が決める）。文言が無ければ何もしない
+    param (
+        $dialog,
+        [hashtable]$ctrl,
+        $rows,
+        $importText
+    )
+
+    if (!$importText) {
+        return
+    }
+    $dialog.Title = $importText.Title
+    $dialog.FindName("HeadingText").Text = $importText.Heading
+    $hint = $dialog.FindName("ImportIndexHint")
+    $hint.Text = $importText.Hint
+    $hint.Visibility = "Visible"
+    $ctrl.CancelButton.Content = $importText.CancelText
+    foreach ($row in @($rows)) {
+        if ([string]$row.Name -ieq $importText.Name) {
+            $row.StatusText = $importText.RowStatus
+            $row.Level = "Wait"
+        }
+    }
+}
+
 function showIndexingConfirmDialog {
     # インデックス作成の確認。インデクサが数えた結果（インデックスごとの取り込み対象の件数）を出して、取り込むかどうかを選んでもらう。
     #   取り込む → @{ RetryFailed; IncludeCloud } ／ 取りやめ → $null
@@ -186,7 +213,10 @@ function showIndexingConfirmDialog {
     $textExcludes = (readTextExtensionSettings).IndexExcludes
     $script:confirmDialog = @{ Window = $dialog; Ctrl = $ctrl; Plan = $plan; SavedCloud = $savedCloud; TextExcludes = $textExcludes; View = $null; Answer = $null }
 
-    $ctrl.PlanGrid.ItemsSource = buildPlanRows $plan @{ Excludes = $textExcludes; Choices = @(getIndexSelectableExtensions); Executable = @(${textNotepadExtensions}).Count }
+    $rows = buildPlanRows $plan @{ Excludes = $textExcludes; Choices = @(getIndexSelectableExtensions); Executable = @(${textNotepadExtensions}).Count }
+    $importText = $script:indexingConfirmText
+    applyImportConfirmText $dialog $ctrl $rows $importText
+    $ctrl.PlanGrid.ItemsSource = $rows
     $ctrl.IntroText.Text = getIndexingConfirmIntro (getIndexingDroppedCount $plan)
     $ctrl.IntroText.Visibility = if ($ctrl.IntroText.Text) { "Visible" } else { "Collapsed" }
     $ctrl.CloudRememberCheck.Content = ${indexingCloudRememberText}
@@ -199,7 +229,8 @@ function showIndexingConfirmDialog {
     initIndexingConfirmTextExt $script:confirmDialog
     updateIndexingConfirmTotal
     # 削除予定があるときは、取りやめと［更新を開始］を選べるままにする（閉じるだけにすると、見せたまま消してしまう）
-    $nothing = [bool]$script:confirmDialog.View.Nothing
+    # インポートの回は、取り込むものが無くても［あとで］を選べる（選べないと 1 回の確認にならない）ので、Nothing として扱わない
+    $nothing = [bool]$script:confirmDialog.View.Nothing -and -not $importText
     if ($nothing) {
         # 取り込むものが無いときは、閉じるだけ（［キャンセル］との違いが無い）
         $ctrl.CancelButton.Visibility = "Collapsed"
@@ -283,7 +314,8 @@ function startIndexing {
     # ワークスペースがネットワークの場所なら、前の版のインデックスの有無と届くかどうかを裏の列で確かめてから、続きを始める
     # （届かない場所を画面のスレッドで調べると、画面が止まる）。確かめている間は、ほかの操作を止める
     param (
-        [string[]]$onlyNames = @()
+        [string[]]$onlyNames = @(),
+        $confirmText = $null   # インポートの後の更新だけが渡す確認の文言（getImportIndexingConfirm の結果）。省けばふだんの確認
     )
 
     if ((isIndexingOrPreparing) -or $script:targetsNaming) {
@@ -299,7 +331,7 @@ function startIndexing {
     }
 
     if ((getWorkspaceJobQueue $workspace.Dir) -ne "network") {
-        continueStartIndexing (getLegacyIndexState $workspace.Dir) $onlyNames
+        continueStartIndexing (getLegacyIndexState $workspace.Dir) $onlyNames $confirmText
         return
     }
 
@@ -316,7 +348,7 @@ function startIndexing {
         @{ Unreachable = $false; LegacyState = (getLegacyIndexState $dir) }
     } @($workspace.Dir) {
         param ($output, $errorText)
-        & $finish $output $errorText $onlyNames
+        & $finish $output $errorText $onlyNames $confirmText
     }.GetNewClosure() (getWorkspaceJobQueue $workspace.Dir)
 }
 
@@ -325,7 +357,8 @@ function finishWorkspaceCheck {
     param (
         $output,
         [string]$errorText,
-        [string[]]$onlyNames
+        [string[]]$onlyNames,
+        $confirmText = $null
     )
 
     $script:indexingPreparing = $false
@@ -337,14 +370,15 @@ function finishWorkspaceCheck {
     }
     # 確かめ中の文を消す（以後の確認を断っても、続きを始めても、残さない）
     setStatus ""
-    continueStartIndexing $result.LegacyState $onlyNames
+    continueStartIndexing $result.LegacyState $onlyNames $confirmText
 }
 
 function continueStartIndexing {
     # startIndexing の続き。前の版のインデックスがあれば確かめ、インデクサを始める
     param (
         $legacyState,        # getLegacyIndexState の結果
-        [string[]]$onlyNames
+        [string[]]$onlyNames,
+        $confirmText = $null  # startIndexing の confirmText
     )
 
     # 前の版のインデックス（index\）があり、まだ取り込み直していなければ、始める前に確かめる
@@ -356,6 +390,7 @@ function continueStartIndexing {
         }
     }
 
+    $script:indexingConfirmText = $confirmText
     $script:indexingOnlyNames = @($onlyNames | Where-Object { $_ })
     foreach ($item in $script:targetItems) {
         if ($script:indexingOnlyNames -contains $item.Name) {
@@ -541,6 +576,20 @@ function updateIndexingProgress {
     updateIndexDetailPanel
 }
 
+function finishImportConfirm {
+    # インポートの後の確認の後始末。確認で［あとで］を選んだ（取りやめ）なら、取りやめの帯を閉じ、ステータスバーで知らせる。どの終わり方でも文言を消し、次の回に持ち越さない
+    param (
+        [int]$exitCode
+    )
+
+    $importText = $script:indexingConfirmText
+    $script:indexingConfirmText = $null
+    if ($importText -and $exitCode -eq 2 -and $script:indexingCanceledAtConfirm) {
+        closeIndexingBanner
+        setStatus $importText.SkippedStatus
+    }
+}
+
 function finishIndexing {
     $script:indexingTimer.Stop()
     closeIndexingWait
@@ -608,6 +657,7 @@ function finishIndexing {
     $ui.IndexingProgress.Visibility = "Collapsed"
     # 更新中の帯を閉じていても、終わりの知らせは出す
     $ui.IndexingProgressPanel.Visibility = "Visible"
+    finishImportConfirm $exitCode
     $skippedView = getIndexingSkippedView $onlySkipped
     if ($skippedView -and $exitCode -ne 1) {
         # メッセージを読んでいる間に成功の帯が消えないよう、時計を止め、閉じたあとから数え直す

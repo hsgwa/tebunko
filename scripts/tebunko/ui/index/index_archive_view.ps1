@@ -276,7 +276,8 @@ function getImportProgressView {
 }
 
 function getImportIndexingConfirm {
-    # インポートが終わった後に、続けて更新するかを尋ねる文（importIndex の戻り値から）。戻り値: @{ Title（窓の題。インポートが終わったことを伝える）; Heading; Hint; CreateText; CancelText }。
+    # インポートが終わった後の、更新の確認ダイアログ（1 回だけ出す）に渡す文言（importIndex の戻り値から）。
+    # 戻り値: @{ Name（取り込んだ名前）; Title（窓の題）; Heading; Hint（見出しの下の説明）; StartText（主ボタン）; CancelText; RowStatus（一覧の行のステータス）; SkippedStatus（取りやめたときのステータスバー）}。
     # 元のフォルダがこの PC に無いとき（Enabled が偽）は $null（更新を始めると、設定の enabled が真に書き換わってしまうため尋ねない）
     param (
         $result
@@ -286,11 +287,14 @@ function getImportIndexingConfirm {
         return $null
     }
     return @{
+        Name = [string]$result.Name
         Title = "$($result.Name) をインポートしました"
         Heading = "高速化のためのインデックスを作成しますか？"
-        Hint = "作成すると検索が速くなります。作成しなくても検索はできます（結果は同じ）。"
-        CreateText = "作成する"
+        Hint = "高速化のためのインデックスを作成します。作成しなくても検索はできます（結果は同じ）。"
+        StartText = "作成する（更新を開始）"
         CancelText = "あとで"
+        RowStatus = "要更新"
+        SkippedStatus = (getImportSkippedIndexingStatus $result)
     }
 }
 

@@ -306,13 +306,16 @@ Describe "getImportProgressView" -Tag Unit {
 }
 
 Describe "getImportIndexingConfirm" -Tag Unit {
-    It "元のフォルダがあれば、importIndex が返した名前で尋ね、2-gram の索引のことを添える" {
-        $confirm = getImportIndexingConfirm @{ Name = "営業(2)"; Enabled = $true }
+    It "元のフォルダがあれば、importIndex が返した名前で、確認ダイアログに渡す文言を返す" {
+        $confirm = getImportIndexingConfirm @{ Name = "営業(2)"; Files = 3; Warnings = @(); Enabled = $true }
+        $confirm.Name | Should -Be "営業(2)"
         $confirm.Title | Should -Be "営業(2) をインポートしました"
         $confirm.Heading | Should -Be "高速化のためのインデックスを作成しますか？"
-        $confirm.CreateText | Should -Be "作成する"
+        $confirm.Hint | Should -Be "高速化のためのインデックスを作成します。作成しなくても検索はできます（結果は同じ）。"
+        $confirm.StartText | Should -Be "作成する（更新を開始）"
         $confirm.CancelText | Should -Be "あとで"
-        $confirm.Hint | Should -Be "作成すると検索が速くなります。作成しなくても検索はできます（結果は同じ）。"
+        $confirm.RowStatus | Should -Be "要更新"
+        $confirm.SkippedStatus | Should -Be "インデックス [営業(2)] をインポートしました（3 ファイル）。 次の更新までは、検索が遅くなることがあります。"
     }
 
     It "元のフォルダがこの PC に無ければ尋ねない" {
@@ -336,7 +339,7 @@ Describe "インポート後の画面に出す文言" -Tag Unit {
         $confirm = getImportIndexingConfirm $result
         $texts = @(
             (getImportProgressView 1MB 4MB).Text, (getImportProgressView 1MB 4MB).Detail, (getImportProgressView 4MB 4MB).Text,
-            $confirm.Title, $confirm.Heading, $confirm.Hint, $confirm.CreateText, $confirm.CancelText, (getImportSkippedIndexingStatus $result)
+            $confirm.Title, $confirm.Heading, $confirm.Hint, $confirm.StartText, $confirm.CancelText, $confirm.RowStatus, $confirm.SkippedStatus, (getImportSkippedIndexingStatus $result)
         )
         foreach ($text in $texts) {
             $text | Should -Not -Match "2-gram|索引|更新しますか|更新する"

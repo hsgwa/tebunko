@@ -855,8 +855,11 @@ function importIndexCore {
             throw "元のフォルダを指定してください。"
         }
 
+        $totalBytes = [long]0
         $fileEntries = @($manifest.files)
-        $totalBytes = [long](($fileEntries | ForEach-Object { [long]$_.size } | Measure-Object -Sum).Sum)
+        foreach ($file in $fileEntries) {
+            $totalBytes += [long]$file.size
+        }
         if ($null -ne $progress) { $progress.Total = $totalBytes }
         $spaceReason = testImportFreeSpace $totalBytes ([System.IO.Path]::GetPathRoot($ws.Dir)) $getFreeSpace
         if ($spaceReason) {

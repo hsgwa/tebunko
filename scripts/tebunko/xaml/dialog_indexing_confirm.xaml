@@ -66,8 +66,10 @@
         <Path DockPanel.Dock="Left" Data="{StaticResource Icon.CircleQuestionMark}" Width="20" Height="20" Stretch="Uniform" Margin="0,0,10,0"
               VerticalAlignment="Center" Stroke="{StaticResource Accent}" StrokeThickness="1.8"
               StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
-        <TextBlock Style="{StaticResource DialogHeading}" Text="インデックス更新の確認" VerticalAlignment="Center" />
+        <TextBlock x:Name="HeadingText" Style="{StaticResource DialogHeading}" Text="インデックス更新の確認" VerticalAlignment="Center" />
       </DockPanel>
+      <!-- インポートの後の確認だけで出す、見出しの下の説明（getImportIndexingConfirm の Hint） -->
+      <TextBlock x:Name="ImportIndexHint" Style="{StaticResource Meta}" Margin="0,6,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
       <!-- 削除予定のインデックスがあるときだけ出す一文（getIndexingConfirmIntro） -->
       <TextBlock x:Name="IntroText" Style="{StaticResource Meta}" Margin="0,6,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
       <!-- 初めて（どのインデックスも拡張子を外していない）とき、表の［変更…］で拡張子を選べることを案内する一文（getIndexingTextExtGuide） -->

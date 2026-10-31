@@ -434,15 +434,12 @@ function continueImportIndex {
         # インポートは別スレッドで設定・取り込み一覧を直接書き換えるため、一覧を読み直す（$script:targetItems には無い変更）
         loadTargets
         refreshIndexViews
+        # 先に「次の更新までは…」の文を出す（確認の前に更新が黙って戻っても、インポートできた案内が残る。始まれば確認のところで消え、取りやめなら同じ文が出る）
         setStatus (getImportSkippedIndexingStatus $result)
-        # 続けて更新するかを尋ねる（作成すると検索が速くなる（内部では更新で 2-gram の索引ができる））。名前は importIndex が返した最終の名前
+        # 元のフォルダがこの PC にあれば、更新の確認を 1 回だけ、インポート用の文言で出す（作成すると検索が速くなる）。名前は importIndex が返した最終の名前
         $confirm = getImportIndexingConfirm $result
         if ($null -ne $confirm) {
-            $answer = showConfirm $confirm.Heading @(@{ Text = $confirm.CreateText; Value = "update" }) -hint $confirm.Hint -title $confirm.Title -cancelText $confirm.CancelText
-            if ($answer -eq "update") {
-                setStatus (getImportResultStatus $result)
-                startIndexing @($result.Name)
-            }
+            startIndexing -onlyNames @($result.Name) -confirmText $confirm
         }
     } @($zipPath, $result.Path) "" $progress
 }
