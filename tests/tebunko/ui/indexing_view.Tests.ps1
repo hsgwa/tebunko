@@ -750,3 +750,20 @@ Describe "取り込む拡張子の確認の文言（getIndexingTextExcludeRemova
         $rows[0].DetailText | Should -Be "対象外にした拡張子のファイル 4 件を、インデックスから外します"
     }
 }
+
+Describe "getIndexingRestartWaitAction" -Tag Unit {
+    It "読み込み中 <naming>・待った回数 <tries>/<max> は「<expected>」" -TestCases @(
+        @{ naming = $false; tries = 1; max = 150; expected = "start" }
+        @{ naming = $false; tries = 150; max = 150; expected = "start" }
+        @{ naming = $true; tries = 1; max = 150; expected = "wait" }
+        @{ naming = $true; tries = 149; max = 150; expected = "wait" }
+        @{ naming = $true; tries = 150; max = 150; expected = "giveup" }
+    ) {
+        param ($naming, $tries, $max, $expected)
+        getIndexingRestartWaitAction $naming $tries $max | Should -Be $expected
+    }
+
+    It "諦めたときの文は、もう一度［更新］を頼む" {
+        getIndexingRestartGiveUpText | Should -BeLike "*もう一度［更新］してください。"
+    }
+}

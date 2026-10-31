@@ -667,16 +667,24 @@ function waitAndRestartIndexing {
     )
 
     $state = @{ Tries = 0; Names = @($onlyNames) }
-    # GetNewClosure したブロックの中では関数を名前で探せないことがあるため、関数は先に変数へ入れて & で呼ぶ
+    # GetNewClosure したブロックの中では、関数を名前で探せないことがあり、$script: の変数も読めない（閉じ込めた側の空の変数になる）。
+    # 関数は先に変数へ入れて & で呼び、$script: の変数は閉じ込めの外のブロックで読む
     $start = ${function:startIndexingForRestart}
+    $decide = ${function:getIndexingRestartWaitAction}
+    $giveUpText = getIndexingRestartGiveUpText
+    $notify = ${function:setStatus}
+    $isNaming = { [bool]$script:targetsNaming }
     $timer = New-Object System.Windows.Threading.DispatcherTimer
     $timer.Interval = [TimeSpan]::FromMilliseconds(300)
     $timer.Add_Tick({
             $state.Tries++
-            if ($script:targetsNaming -and $state.Tries -lt 150) { return }
+            $action = & $decide (& $isNaming) $state.Tries 150
+            if ($action -eq "wait") { return }
             $timer.Stop()
-            if (-not $script:targetsNaming) {
+            if ($action -eq "start") {
                 try { & $start $state.Names } catch { Write-Verbose "始め直しを始められませんでした" }
+            } else {
+                & $notify $giveUpText
             }
         }.GetNewClosure())
     $timer.Start()

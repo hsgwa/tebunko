@@ -679,3 +679,27 @@ function getIndexingConfirmView {
         Confirm        = (getIndexingConfirmText $targets $failed $retry $folders $dropped $cloud.Count $include $removedCount)
     }
 }
+
+function getIndexingRestartWaitAction {
+    # 確認で拡張子を変えたあとの始め直しを、一覧の読み込み（インデックス名の割り当て）が終わるまで待つ間の、1 回ごとの判断。
+    # naming は読み込みが続いているか、tries は待った回数（今回を含む）、maxTries は待つ上限。
+    # 戻り値: "wait"（まだ待つ）／"start"（読み込みが終わった。始め直す）／"giveup"（待ちきれない。諦めて利用者に知らせる）
+    param (
+        [bool]$naming,
+        [int]$tries,
+        [int]$maxTries
+    )
+
+    if (-not $naming) {
+        return "start"
+    }
+    if ($tries -ge $maxTries) {
+        return "giveup"
+    }
+    return "wait"
+}
+
+function getIndexingRestartGiveUpText {
+    # 始め直しを諦めたときに状態の文に出す 1 文
+    return "インデックスの一覧を読み込み中のため、更新を始め直せませんでした。もう一度［更新］してください。"
+}

@@ -119,7 +119,7 @@
                   <ColumnDefinition Width="98" />
                   <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Style="{StaticResource Label}" Text="取り込み対象の拡張子" VerticalAlignment="Top" Margin="0,5,0,0" />
+                <TextBlock Style="{StaticResource Label}" Text="取り込み対象の拡張子" TextWrapping="Wrap" VerticalAlignment="Top" Margin="0,5,0,0" />
                 <StackPanel Grid.Column="1">
                   <StackPanel Orientation="Horizontal">
                     <TextBlock x:Name="IndexDetailTextExtSummary" VerticalAlignment="Center" AutomationProperties.AutomationId="IndexDetailTextExtSummary" />
