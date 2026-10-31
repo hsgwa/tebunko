@@ -468,10 +468,10 @@ function captureTopOnlyScene {
 
 function captureTextExtensionsScene {
     # index-tab/text-extensions（詳細の「取り込み対象の拡張子」の［変更…］で開いたダイアログ。前回の更新で数えた件数と、日時つきの注）と、
-    # indexing-confirm/text-extensions（更新の確認の［変更…］で開いたダイアログ。いま数えた件数の注）。
+    # index-tab/confirm-text-extensions（更新の確認の［変更…］で開いたダイアログ。いま数えた件数の注）。
     # 見出しの 3 状態が写るよう、Excel・PDF・テキストは全部、Word は .docm だけ外し（一部）、PowerPoint は 3 つとも外す（全部外し）
     param ($Ids, $Root, $OutDir, $UserName, $ComputerName, $UserProfile, $Sizes)
-    if ($Ids -notcontains "index-tab/text-extensions" -and $Ids -notcontains "indexing-confirm/text-extensions") { return }
+    if ($Ids -notcontains "index-tab/text-extensions" -and $Ids -notcontains "index-tab/confirm-text-extensions") { return }
 
     $dir = Join-Path $Root "textext"
     $tool = newGuiTool $dir
@@ -514,7 +514,7 @@ function captureTextExtensionsScene {
             $confirm = waitGuiWindow $S "取り込みの確認" -Id "StartButton" -Timeout ${guiIndexTimeout}
             clickGui $S $confirm "ChangeIndexTextExtensionsButton" "確認の拡張子の［変更…］"
             $dialog = waitGuiWindow $S "取り込み対象の拡張子のダイアログ" -Id "TextExtOkButton"
-            captureGuiState -S $S -Id "indexing-confirm/text-extensions" -Ids $Ids -OutDir $OutDir `
+            captureGuiState -S $S -Id "index-tab/confirm-text-extensions" -Ids $Ids -OutDir $OutDir `
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Primary $confirm -Extra @($dialog)
             clickGui $S $dialog "TextExtCancelButton" "ダイアログの［キャンセル］"
             waitGui $S "ダイアログが閉じる" ${guiDefaultTimeout} { @(getGuiOtherWindows $S | Where-Object { findGui $_ -Id "TextExtOkButton" }).Count -eq 0 } | Out-Null

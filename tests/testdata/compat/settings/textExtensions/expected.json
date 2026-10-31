@@ -46,7 +46,7 @@
         "readOpenMode": "readOnly",
         "readCloudFiles": "download",
         "readSearchLimit": 20000,
-        "readTextExtensionSettings": { "IndexExcludes": { "資料": [".log"], "(株)山田商事": [".md", ".csv"] }, "IndexExcludesIngested": { "資料": [".log"] }, "Notepad": [".html"], "EditorPath": "D:\\golden\\editor.exe" },
+        "readTextExtensionSettings": { "IndexExcludes": { "資料": [".log", ".pdf"], "(株)山田商事": [".md", ".csv", ".xlsx"] }, "IndexExcludesIngested": { "資料": [".log", ".pdf"] }, "Notepad": [".html"], "EditorPath": "D:\\golden\\editor.exe" },
         "getWorkDir": "C:\\tebunko_golden\\ws"
     }
 }

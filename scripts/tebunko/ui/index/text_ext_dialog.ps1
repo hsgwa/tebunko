@@ -239,6 +239,36 @@ function newIndexTextExtensionDialogControls {
     return $ctrl
 }
 
+function addIndexTextExtensionDialogRows {
+    # 一覧の行を RowsPanel に足す（見出しの行を挟む。テキストの中の件数 0 の拡張子は末尾に並び、その前にまとめの行を置く）。
+    # 戻り値: @{ Rows（拡張子の行の部品）; Headings（見出しの行の部品）; ZeroHeader（まとめの行。無ければ $null） }
+    param (
+        $dialog,
+        $panel,
+        [object[]]$rows,
+        [bool]$hasCounts,
+        [int]$maxCount
+    )
+
+    $rowControls = New-Object System.Collections.Generic.List[object]
+    $headingControls = New-Object System.Collections.Generic.List[object]
+    $zeroHeader = $null
+    foreach ($row in $rows) {
+        if ($row.Heading) {
+            $headingControls.Add((addIndexExtensionHeadingRow $dialog $panel $row))
+            continue
+        }
+        if ($hasCounts -and $null -eq $zeroHeader -and $row.Group -eq "テキスト" -and [int]$row.Count -eq 0) {
+            $zeroHeader = newIndexTextExtensionZeroHeader $dialog
+            [void]$panel.Children.Add($zeroHeader.Border)
+        }
+        $control = addIndexTextExtensionRow $dialog $panel $row $hasCounts $maxCount
+        $control.RowCount = $row.Count
+        $rowControls.Add($control)
+    }
+    return @{ Rows = $rowControls.ToArray(); Headings = $headingControls.ToArray(); ZeroHeader = $zeroHeader }
+}
+
 function showIndexTextExtensionsDialog {
     # 「取り込み対象の拡張子 - 〈インデックス名〉」を開く。戻り値: ［OK］なら新しい取り込まない拡張子の配列（Office・PDF・テキストを含む。変わらなくても配列。空配列も有効）、［キャンセル］・閉じたときは $null。
     #   Excluded    今の取り込まない拡張子
@@ -265,24 +295,9 @@ function showIndexTextExtensionsDialog {
     }
     $maxCount = $(if ($hasCounts) { [int](@($rows | Where-Object { -not $_.Heading } | ForEach-Object { [int]$_.Count } | Measure-Object -Maximum).Maximum) } else { 0 })
 
-    # 行を足す（見出しの行を挟む。テキストの中の件数 0 の拡張子は末尾に並び、その前にまとめの行を置く）
-    $rowControls = New-Object System.Collections.Generic.List[object]
-    $headingControls = New-Object System.Collections.Generic.List[object]
-    $zeroHeader = $null
-    foreach ($row in $rows) {
-        if ($row.Heading) {
-            $headingControls.Add((addIndexExtensionHeadingRow $dialog $ctrl.RowsPanel $row))
-            continue
-        }
-        if ($hasCounts -and $null -eq $zeroHeader -and $row.Group -eq "テキスト" -and [int]$row.Count -eq 0) {
-            $zeroHeader = newIndexTextExtensionZeroHeader $dialog
-            [void]$ctrl.RowsPanel.Children.Add($zeroHeader.Border)
-        }
-        $control = addIndexTextExtensionRow $dialog $ctrl.RowsPanel $row $hasCounts $maxCount
-        $control.RowCount = $row.Count
-        $rowControls.Add($control)
-    }
-    $ctx = @{ Rows = $rowControls.ToArray(); Headings = $headingControls.ToArray(); Controls = $ctrl; ZeroHeader = $zeroHeader; HasCounts = $hasCounts; State = @{ ZeroExpanded = $false; Suspend = $false; Busy = $false } }
+    $built = addIndexTextExtensionDialogRows $dialog $ctrl.RowsPanel $rows $hasCounts $maxCount
+    $zeroHeader = $built.ZeroHeader
+    $ctx = @{ Rows = $built.Rows; Headings = $built.Headings; Controls = $ctrl; ZeroHeader = $zeroHeader; HasCounts = $hasCounts; State = @{ ZeroExpanded = $false; Suspend = $false; Busy = $false } }
 
     # 選び・絞り込み・開閉が変わったら、一覧の見せ方を直す（ハンドラは関数を名前で呼ばず、実体を変数に取って & で呼ぶ）
     $refresh = ${function:updateIndexTextExtensionDialogView}
