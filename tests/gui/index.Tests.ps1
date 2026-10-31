@@ -353,7 +353,7 @@ Describe "S2 詳細の『取り込み対象の拡張子』" -Tag Gui {
             setGuiStep $S "行を選ぶ（詳細の『取り込み対象の拡張子』は全部取り込む）"
             selectGui @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
             waitGui $S "詳細の見出し（営業）" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexDetailTitle")) -eq "営業 - 詳細" } | Out-Null
-            (getGuiText (findGui $S.Window -Id "IndexDetailTextExtSummary")) | Should -Be "すべて取り込み（0 件）"
+            (getGuiText (findGui $S.Window -Id "IndexDetailTextExtSummary")) | Should -Be "すべて取り込み"
             $change = findGui $S.Window -Id "ChangeIndexTextExtensionsButton"
             $change.Current.IsEnabled | Should -BeTrue
 
@@ -364,7 +364,7 @@ Describe "S2 詳細の『取り込み対象の拡張子』" -Tag Gui {
             invokeGui $S (findGui $dialog -Id "TextExtOkButton") "［OK］"
             waitGui $S "設定に .log が書かれる" ${guiDefaultTimeout} { @((readGuiConfig $script:tool).indexTextExcludes."営業") -contains ".log" } | Out-Null
             waitGui $S "一覧の行に［要更新］が出る" ${guiDefaultTimeout} { (& $rowTexts) -like "*要更新*" } | Out-Null
-            (getGuiText (findGui $S.Window -Id "IndexDetailTextExtSummary")) | Should -Be "すべて取り込み（0 件）"
+            (getGuiText (findGui $S.Window -Id "IndexDetailTextExtSummary")) | Should -Be "対象外あり"
 
             setGuiStep $S "もう一度開いて .log を戻す → 設定から消え、［要更新］が外れる"
             invokeGui $S (findGui $S.Window -Id "ChangeIndexTextExtensionsButton") "［変更…］" -NoWait

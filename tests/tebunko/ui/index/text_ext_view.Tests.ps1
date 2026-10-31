@@ -115,25 +115,16 @@ Describe "testIndexTextExcludesChanged" -Tag Unit {
     }
 }
 
-Describe "getIndexTextExtensionCountNote / getIndexTextExtensionDetailRow" -Tag Unit {
-    It "<name>" -TestCases @(
-        @{ name = "前回の控え"; source = "previous"; time = "2024/10/14 15:30"; expected = "前回の更新（2024/10/14 15:30）の件数です" }
-        @{ name = "控え無し"; source = "none"; time = ""; expected = "更新すると、件数が出ます" }
-        @{ name = "日時が空の前回は控え無しと同じ"; source = "previous"; time = ""; expected = "更新すると、件数が出ます" }
-        @{ name = "確認ダイアログから開いたときは空"; source = "now"; time = ""; expected = "" }
-    ) {
-        param ($name, $source, $time, $expected)
-        getIndexTextExtensionCountNote $source $time | Should -Be $expected
-    }
-
-    It "詳細の行: 控えがあれば日時つきの見出しと件数、無ければ初回の見出し" {
+Describe "getIndexTextExtensionDetailRow" -Tag Unit {
+    It "詳細の行: 要約は件数を言わない。控えの日時と件数は、ダイアログに渡すために持つ" {
         $row = getIndexTextExtensionDetailRow @(".log") @{ Time = "2024/10/14 15:30"; Counts = @{ ".txt" = 3 } }
-        $row.Summary | Should -Be "すべて取り込み（3 件）"
-        $row.Caption | Should -Be "前回の更新（2024/10/14 15:30）の件数です"
+        $row.Summary | Should -Be "対象外あり"
+        $row.Caption | Should -Be ""
+        $row.Time | Should -Be "2024/10/14 15:30"
         $row.Source | Should -Be "previous"
         $row.Counts[".txt"] | Should -Be 3
         $none = getIndexTextExtensionDetailRow @() $null
-        $none.Summary | Should -Be "更新すると、件数が出ます"
+        $none.Summary | Should -Be "すべて取り込み"
         $none.Caption | Should -Be ""
         $none.Source | Should -Be "none"
         $none.Counts | Should -BeNullOrEmpty

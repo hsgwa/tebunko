@@ -55,7 +55,7 @@ function newPlanViewRows {
             if (@($textExt.Choices | Where-Object { $_ }).Count -gt 0) {
                 $excluded = @($textExt.Excludes[[string]$item.インデックス名] | Where-Object { $_ })
                 $row.TextExtShown = $true
-                $row.TextExtSummary = getIndexingTextExtSummary $excluded $(if ($null -ne $item.TextExtensionCounts) { $item.TextExtensionCounts } else { $null })
+                $row.TextExtSummary = getIndexingTextExtSummary $excluded
                 $row.TextExtTip = getIndexingTextExtTip $excluded @($textExt.Choices) ([int]$textExt.Executable)
             }
             $removeNotes = @((getIndexingSubfolderRemovalNote ([int]$item.SubfolderRemovedCount)), (getIndexingTextExcludeRemovalNote ([int]$item.TextExcludeRemovedCount)) | Where-Object { $_ })
@@ -363,14 +363,13 @@ function getIndexingTextExcludeRemovalCount {
 }
 
 function getIndexingTextExtSummary {
-    # 確認の表の「取り込み対象の拡張子」の要約。件数（counts。拡張子 → 件数。この回に数えたもの）があれば
-    # 「すべて取り込み（10,350 件）」「10,350 件（対象外 2,800 件）」、無ければ「更新すると、件数が出ます」（getIndexTextExtensionBriefSummary）
+    # 確認の表の「取り込み対象の拡張子」の行の要約。何も外していなければ「すべて取り込み」、外していれば「対象外あり」
+    # （件数は言わない。件数は表の「対象ファイル数」の列で見える。getIndexTextExtensionBriefSummary）
     param (
-        [object[]]$excluded = @(),
-        $counts = $null
+        [object[]]$excluded = @()
     )
 
-    return getIndexTextExtensionBriefSummary $excluded $counts
+    return getIndexTextExtensionBriefSummary $excluded
 }
 
 function getIndexingTextExtTip {

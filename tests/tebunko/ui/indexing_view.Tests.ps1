@@ -687,15 +687,14 @@ Describe "取り込む拡張子の確認の文言（getIndexingTextExcludeRemova
         getIndexingRecountBandText $count | Should -Be $text
     }
 
-    It "要約は、<name>のとき「<text>」（拡張子の数は言わず、取り込み対象のファイル数を出す。大文字小文字違い・固定の一覧の外も正しく数える）" -TestCases @(
-        @{ name = "件数が無い"; excluded = @(".log"); counts = $null; text = "更新すると、件数が出ます" }
-        @{ name = "何も外していない"; excluded = @(); counts = @{ ".txt" = 5 }; text = "すべて取り込み（5 件）" }
-        @{ name = "外している"; excluded = @(".log", ".csv"); counts = @{ ".txt" = 5; ".log" = 2; ".csv" = 1 }; text = "5 件（対象外 3 件）" }
-        @{ name = "大文字・固定の一覧の外の指定"; excluded = @(".LOG", ".zzz"); counts = @{ ".txt" = 5; ".log" = 2; ".zzz" = 9 }; text = "5 件（対象外 2 件）" }
-        @{ name = "外した拡張子の件数が 0"; excluded = @(".log"); counts = @{ ".txt" = 5 }; text = "すべて取り込み（5 件）" }
+    It "要約は、外した拡張子 <excluded> のとき「<text>」（件数も拡張子の数も言わない。大文字小文字違い・固定の一覧の外も正しく見分ける）" -TestCases @(
+        @{ excluded = @(); text = "すべて取り込み" }
+        @{ excluded = @(".log", ".csv"); text = "対象外あり" }
+        @{ excluded = @(".LOG", ".zzz"); text = "対象外あり" }
+        @{ excluded = @(".zzz"); text = "すべて取り込み" }
     ) {
-        param ($name, $excluded, $counts, $text)
-        getIndexingTextExtSummary $excluded $counts | Should -Be $text
+        param ($excluded, $text)
+        getIndexingTextExtSummary $excluded | Should -Be $text
     }
 
     It "ToolTip は、何も外していないときだけ『取り込むだけで実行はされない』を添える" {
@@ -726,7 +725,7 @@ Describe "取り込む拡張子の確認の文言（getIndexingTextExcludeRemova
     It "取り込む行にだけ拡張子の要約を付け、外している名前は外した数を出す" {
         $rows = newPlanViewRows @((newPlanItem ${planKindIngest} 10 1 1 0 0 0 0 0 0 "売上"), (newPlanItem ${planKindMissing} 0 0 0 0 0 0 0 0 0 "経理")) @() @{} @{ Excludes = @{ "売上" = @(".log") }; Choices = @(${textExtensions}); Executable = 15 }
         $rows[0].TextExtShown | Should -Be $true
-        $rows[0].TextExtSummary | Should -Be "更新すると、件数が出ます"
+        $rows[0].TextExtSummary | Should -Be "対象外あり"
         $rows[0].TextExtTip | Should -Be ""
         $rows[1].TextExtShown | Should -Be $false
         $rows[1].TextExtSummary | Should -Be ""
