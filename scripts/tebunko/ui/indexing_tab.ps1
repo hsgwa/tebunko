@@ -131,7 +131,7 @@ function changeIndexingTextExtensions {
     $counts = $(if ($planRow -and $null -ne $planRow.TextExtensionCounts) { $planRow.TextExtensionCounts } else { @{} })
     $selected = showIndexTextExtensionsDialog -Owner $d.Window -IndexName $name -Excluded $current -Counts $counts -CountsSource "now" -CountsTime ""
     if ($null -ne $selected) {
-        $selected = @(addOutOfListExtensions $selected $current)
+        $selected = @(addOutOfListExtensions $selected $current @(getIndexSelectableExtensions))
     }
     if ($null -eq $selected -or -not (testIndexingTextExcludesChanged $current @($selected))) {
         return
@@ -186,7 +186,7 @@ function showIndexingConfirmDialog {
     $textExcludes = (readTextExtensionSettings).IndexExcludes
     $script:confirmDialog = @{ Window = $dialog; Ctrl = $ctrl; Plan = $plan; SavedCloud = $savedCloud; TextExcludes = $textExcludes; View = $null; Answer = $null }
 
-    $ctrl.PlanGrid.ItemsSource = buildPlanRows $plan @{ Excludes = $textExcludes; Choices = @(${textExtensions}); Executable = @(${textNotepadExtensions}).Count }
+    $ctrl.PlanGrid.ItemsSource = buildPlanRows $plan @{ Excludes = $textExcludes; Choices = @(getIndexSelectableExtensions); Executable = @(${textNotepadExtensions}).Count }
     $ctrl.IntroText.Text = getIndexingConfirmIntro (getIndexingDroppedCount $plan)
     $ctrl.IntroText.Visibility = if ($ctrl.IntroText.Text) { "Visible" } else { "Collapsed" }
     $ctrl.CloudRememberCheck.Content = ${indexingCloudRememberText}

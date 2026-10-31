@@ -521,20 +521,20 @@ Describe "normalizeIndexTextExcludes" -Tag Unit {
 }
 
 
-Describe "indexTextExcludesIngested（前回取り込んだときの取り込まない拡張子）" -Tag Io {
+Describe "indexExtensionExcludesIngested（前回取り込んだときの取り込まない拡張子）" -Tag Io {
     It "キーが無ければ空（全部取り込んだ）。既定は空のオブジェクト" {
         $path = "$TestDrive\ingested_none.config"
         (readTextExtensionSettings $path).IndexExcludesIngested.Count | Should -Be 0
-        (newSettings).indexTextExcludesIngested.Count | Should -Be 0
+        (newSettings).indexExtensionExcludesIngested.Count | Should -Be 0
     }
 
     It "setIndexTextExcludesTable は、名前の順に並べたオブジェクトとして設定へ入れる" {
         $settings = @{}
-        setIndexTextExcludesTable $settings "indexTextExcludes" @{ "経理" = @(".md"); "営業" = @(".log", ".csv") }
-        @($settings["indexTextExcludes"].Keys) | Should -Be @("営業", "経理")
-        ($settings["indexTextExcludes"]["営業"] -join ",") | Should -Be ".log,.csv"
-        setIndexTextExcludesTable $settings "indexTextExcludes" @{}
-        $settings["indexTextExcludes"].Count | Should -Be 0
+        setIndexTextExcludesTable $settings "indexExtensionExcludes" @{ "経理" = @(".md"); "営業" = @(".log", ".csv") }
+        @($settings["indexExtensionExcludes"].Keys) | Should -Be @("営業", "経理")
+        ($settings["indexExtensionExcludes"]["営業"] -join ",") | Should -Be ".log,.csv"
+        setIndexTextExcludesTable $settings "indexExtensionExcludes" @{}
+        $settings["indexExtensionExcludes"].Count | Should -Be 0
     }
 
     It "setIngestedTextExcludes は渡した名前の項目だけを書き、空なら項目を消す。取り込まない拡張子（今の設定）とほかの名前は変えない" {
@@ -579,7 +579,7 @@ Describe "readTextExtensionSettings / writeIndexTextExcludes / writeTextOpenSett
         @($read.Notepad).Count | Should -Be 0
         $read.EditorPath | Should -Be ""
         @((newSettings).notepadTextExtensions).Count | Should -Be 0
-        (newSettings).indexTextExcludes.Count | Should -Be 0
+        (newSettings).indexExtensionExcludes.Count | Should -Be 0
         (newSettings).textEditorPath | Should -Be ""
         (newSettings).Contains("excludedTextExtensions") | Should -BeFalse
     }
@@ -611,7 +611,7 @@ Describe "readTextExtensionSettings / writeIndexTextExcludes / writeTextOpenSett
         writeIndexTextExcludes "経理" @() $path
         (readTextExtensionSettings $path).IndexExcludes.Count | Should -Be 0
         # 設定ファイルには空のオブジェクトで残る
-        [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8) | Should -Match '"indexTextExcludes":\s*\{\s*\}'
+        [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8) | Should -Match '"indexExtensionExcludes":\s*\{\s*\}'
     }
 
     It "改名で項目のキーを付け替える。古い名前の項目が無ければ何もしない。新しい名前の項目があれば置き換える" {
@@ -645,12 +645,12 @@ Describe "readTextExtensionSettings / writeIndexTextExcludes / writeTextOpenSett
     }
 
     It "<name>" -TestCases @(
-        @{ name = "大文字は小文字にそろえ、文字列でないもの・形の違うもの・重複は捨てる。75 個に無い .exe は持つ"; json = '{ "indexTextExcludes": { "営業": [".EXE", ".Log", 1, ".log", null, "a b"] } }'; expected = ".exe,.log" }
-        @{ name = "配列でない 1 つの値も 1 件として読む"; json = '{ "indexTextExcludes": { "営業": ".log" } }'; expected = ".log" }
-        @{ name = "形の正しくないものだけなら、項目は無い（全部取り込む）"; json = '{ "indexTextExcludes": { "営業": ["exe", "a b"] } }'; expected = "" }
-        @{ name = "オブジェクトでない値（配列・文字列・数）は無いものとして読む"; json = '{ "indexTextExcludes": [".log"] }'; expected = "" }
-        @{ name = "文字列の値も無いものとして読む"; json = '{ "indexTextExcludes": ".log" }'; expected = "" }
-        @{ name = "数の値も無いものとして読む"; json = '{ "indexTextExcludes": 5 }'; expected = "" }
+        @{ name = "大文字は小文字にそろえ、文字列でないもの・形の違うもの・重複は捨てる。75 個に無い .exe は持つ"; json = '{ "indexExtensionExcludes": { "営業": [".EXE", ".Log", 1, ".log", null, "a b"] } }'; expected = ".exe,.log" }
+        @{ name = "配列でない 1 つの値も 1 件として読む"; json = '{ "indexExtensionExcludes": { "営業": ".log" } }'; expected = ".log" }
+        @{ name = "形の正しくないものだけなら、項目は無い（全部取り込む）"; json = '{ "indexExtensionExcludes": { "営業": ["exe", "a b"] } }'; expected = "" }
+        @{ name = "オブジェクトでない値（配列・文字列・数）は無いものとして読む"; json = '{ "indexExtensionExcludes": [".log"] }'; expected = "" }
+        @{ name = "文字列の値も無いものとして読む"; json = '{ "indexExtensionExcludes": ".log" }'; expected = "" }
+        @{ name = "数の値も無いものとして読む"; json = '{ "indexExtensionExcludes": 5 }'; expected = "" }
     ) {
         param ($name, $json, $expected)
         $path = Join-Path $TestDrive "textext_$([guid]::NewGuid()).config"
@@ -1177,5 +1177,25 @@ Describe "targetFolders の ingestedSubfolders（前回取り込んだときの�
         $moved = @(getTargetFolders $path)[0]
         $moved.Path | Should -Be "D:\新\見積"
         $moved.IngestedSubfolders | Should -Be $false
+    }
+}
+
+Describe "indexExtensionExcludes に Office・PDF も書ける" -Tag Io {
+    It "writeIndexTextExcludes で .xlsx・.pdf を書き、設定を読み直しても同じ値で読める（ほかのインデックスは変えない）" {
+        $path = Join-Path $TestDrive "ext_office.config"
+        writeIndexTextExcludes "営業" @(".xlsx", ".PDF", ".log") $path
+        writeIndexTextExcludes "経理" @(".docx") $path
+        $read = readTextExtensionSettings $path
+        (@($read.IndexExcludes["営業"]) -join ",") | Should -Be ".xlsx,.pdf,.log"
+        (@($read.IndexExcludes["経理"]) -join ",") | Should -Be ".docx"
+        [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8) | Should -Match '"indexExtensionExcludes"'
+    }
+
+    It "前回取り込んだときの値（indexExtensionExcludesIngested）にも .xlsx・.pdf を書いて読める" {
+        $path = Join-Path $TestDrive "ext_office_ingested.config"
+        setIngestedTextExcludes @{ "営業" = @(".xlsx", ".pdf") } $path
+        $read = readTextExtensionSettings $path
+        (@($read.IndexExcludesIngested["営業"]) -join ",") | Should -Be ".xlsx,.pdf"
+        [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8) | Should -Match '"indexExtensionExcludesIngested"'
     }
 }

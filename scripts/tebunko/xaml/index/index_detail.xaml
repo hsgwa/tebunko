@@ -112,7 +112,7 @@
               <!-- 取り込むときにサブフォルダを含めるか（設定の subfolders）。付け外しはその場で設定に書く（changeIndexSubfolders）。説明の行は出さない -->
               <CheckBox x:Name="IndexDetailSubfolders" Content="サブフォルダを含める" Margin="98,10,0,0" AutomationProperties.AutomationId="IndexDetailSubfolders"
                         ToolTip="外すと、このフォルダの直下のファイルだけを取り込みます（次の更新で反映します）" />
-              <!-- 取り込む拡張子（インデックスごと。設定の indexTextExcludes）。要約と［変更…］・［要更新］の札、下に件数の見出し（前回の控えの日時つき）。
+              <!-- 取り込む拡張子（インデックスごと。設定の indexExtensionExcludes）。要約と［変更…］・［要更新］の札、下に件数の見出し（前回の控えの日時つき）。
                    ［変更…］で拡張子を選ぶダイアログを開き、［OK］でその場で設定に書く（changeIndexTextExtensions）。更新中は押せない -->
               <Grid Margin="0,10,0,0">
                 <Grid.ColumnDefinitions>

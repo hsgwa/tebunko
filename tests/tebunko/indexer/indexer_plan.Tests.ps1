@@ -1007,7 +1007,7 @@ Describe "getTargetExtensionList / 取り込まない拡張子（createTargetLis
         Should -Invoke writeIndexerLog -Times 0 -Exactly -ParameterFilter { $text -like "*取り込まないにした拡張子*" }
     }
 
-    It "拡張子ごとの件数は、取り込まない拡張子の分も数え、Office・PDF・tebunko が作ったファイルは数えない" {
+    It "拡張子ごとの件数は、取り込まない拡張子の分も数え、Office・PDF も数え、tebunko が作ったファイルは数えない" {
         $countSource = Join-Path $TestDrive "src_counts"
         [System.IO.Directory]::CreateDirectory($countSource) | Out-Null
         foreach ($name in @("a.log", "b.LOG", "c.txt", "d.xlsx", "e.pdf", "f.zip", "content_index.xlsx.001.tsv", "system_index_state.tsv")) {
@@ -1016,8 +1016,8 @@ Describe "getTargetExtensionList / 取り込まない拡張子（createTargetLis
         $result = findTargetFiles $countSource $null (getTargetExtensionList @(".log"))
         $result.TextCounts[".log"] | Should -Be 2
         $result.TextCounts[".txt"] | Should -Be 1
-        $result.TextCounts.ContainsKey(".xlsx") | Should -BeFalse
-        $result.TextCounts.ContainsKey(".pdf") | Should -BeFalse
+        $result.TextCounts[".xlsx"] | Should -Be 1
+        $result.TextCounts[".pdf"] | Should -Be 1
         $result.TextCounts.ContainsKey(".zip") | Should -BeFalse
         # tebunko が作った TSV は、拡張子 .tsv の件数に入らない
         $result.TextCounts.ContainsKey(".tsv") | Should -BeFalse
@@ -1225,5 +1225,78 @@ Describe "IngestPlanner の Plan の TextExtensionCounts・TextExcludeRemovedCou
         $channel.CountedFiles | Should -Be 4
         $none = newTextPlanner $kinds
         { $none.Crawl((newCounts), $null) } | Should -Not -Throw
+    }
+}
+
+Describe "Office・PDF を取り込まない拡張子にする（IngestPlanner の Crawl・findTargetFiles）" -Tag Io {
+    BeforeAll {
+        . "${scriptsDir}\shared\office\office_app.ps1"  # getApp（Office を起動する入口。Mock して呼ばれないことを確かめる）
+        ${indexDir} = Join-Path $TestDrive "index_office_ext"
+        $workspace = newTestWorkspace @{ IndexDir = ${indexDir} }
+        $dirA = Join-Path $TestDrive "officeext_a"
+        $dirB = Join-Path $TestDrive "officeext_b"
+        foreach ($dir in @($dirA, $dirB)) {
+            [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+            foreach ($name in @("a.xlsx", "b.pdf", "c.txt")) {
+                [System.IO.File]::WriteAllText((Join-Path $dir $name), "x")
+            }
+        }
+        function newOfficePlanner($excludes, $previousRows = @()) {
+            $kinds = @{ Unchecked = ${planKindUnchecked}; Missing = ${planKindMissing}; Dropped = ${planKindDropped}; StateFailed = ${stateFailed} }
+            $planner = [IngestPlanner]::new($kinds)
+            $status = @{ Folders = @(); Rows = (newPrevious $previousRows) }
+            $planner.AssignNames(@(
+                [pscustomobject]@{ Name = "営業"; Path = $dirA; Enabled = $true; Subfolders = $true; IngestedSubfolders = $true },
+                [pscustomobject]@{ Name = "経理"; Path = $dirB; Enabled = $true; Subfolders = $true; IngestedSubfolders = $true }), $status)
+            $planner.TextExcludes = $excludes
+            return $planner
+        }
+    }
+
+    BeforeEach {
+        Mock writeIndexerLog {}
+    }
+
+    It "A だけ .xlsx と .pdf を対象外にすると、A の findTargetFiles は返さず B は返す" {
+        $a = findTargetFiles $dirA $null (getTargetExtensionList @(".xlsx", ".pdf"))
+        $b = findTargetFiles $dirB $null (getTargetExtensionList @())
+        (@($a.Files | ForEach-Object { $_.Name }) -join ",") | Should -Be "c.txt"
+        (@($b.Files | ForEach-Object { $_.Name } | Sort-Object) -join ",") | Should -Be "a.xlsx,b.pdf,c.txt"
+        # 対象外にしたものの件数も数える
+        $a.TextCounts[".xlsx"] | Should -Be 1
+        $a.TextCounts[".pdf"] | Should -Be 1
+    }
+
+    It "前に取り込んだ .xlsx・.pdf は Removed と TextExcludeRemovedCount に入り、他のインデックスは外れず、戻すと新規として数える" {
+        $previousRows = @(
+            (newStatusRow "営業\a.xlsx" "2000/01/01 00:00:00" "1" ${stateDone}),
+            (newStatusRow "営業\b.pdf" "2000/01/01 00:00:00" "1" ${stateDone}),
+            (newStatusRow "経理\a.xlsx" "2000/01/01 00:00:00" "1" ${stateDone}))
+        $planner = newOfficePlanner @{ "営業" = @(".xlsx", ".pdf") } $previousRows
+        $planner.Crawl((newCounts @{ "営業\a.xlsx" = 1; "営業\b.pdf" = 1; "経理\a.xlsx" = 1 }), $null)
+        $rows = @($planner.Plan)
+        $rows[0].インデックス名 | Should -Be "営業"
+        $rows[0].TextExcludeRemovedCount | Should -Be 2
+        $rows[0].TextExtensionCounts[".xlsx"] | Should -Be 1
+        $rows[0].TextExtensionCounts[".pdf"] | Should -Be 1
+        $rows[1].TextExcludeRemovedCount | Should -Be 0
+        @($planner.RemovedPaths | Sort-Object) | Should -Be @("営業\a.xlsx", "営業\b.pdf")
+
+        # 戻す（対象外なし）と、前に取り込んだ行が無ければ新規として対象に入り、外す件数は 0
+        $back = newOfficePlanner @{} @()
+        $back.Crawl((newCounts), $null)
+        @($back.Targets | Where-Object { $_.相対パス -eq "営業\a.xlsx" }).Count | Should -Be 1
+        @($back.Targets | Where-Object { $_.相対パス -eq "営業\b.pdf" }).Count | Should -Be 1
+        @($back.Plan)[0].TextExcludeRemovedCount | Should -Be 0
+    }
+
+    It "Office 10 個をすべて対象外にしたインデックスだけの回では、Office の要るファイルが取り込みの対象に入らず、Office を起動しない（.xlsx があっても）" {
+        Mock getApp {}
+        $planner = newOfficePlanner @{ "営業" = @(${officeExtensions}); "経理" = @(${officeExtensions}) } @()
+        $planner.Crawl((newCounts), $null)
+        @($planner.Targets | Where-Object { $_.相対パス -match '\.xlsx$' }).Count | Should -Be 0
+        @($planner.Targets | Where-Object { (getIngestApp $_.相対パス) -ne "" }).Count | Should -Be 0
+        (@($planner.Targets | ForEach-Object { $_.相対パス } | Sort-Object) -join ",") | Should -Be "営業\b.pdf,営業\c.txt,経理\b.pdf,経理\c.txt"
+        Should -Invoke getApp -Times 0 -Exactly
     }
 }

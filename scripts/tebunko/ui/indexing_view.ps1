@@ -12,7 +12,7 @@ function newPlanViewRows {
         $plan,  # readIngestPlan の結果
         [string[]]$onlyNames = @(),
         [hashtable]$subfolders = @{},
-        [hashtable]$textExt = @{}  # 取り込む拡張子の欄: Excludes（インデックス名 → 取り込まない拡張子。設定の indexTextExcludes）・Choices（選べる拡張子の一覧）・Executable（そのうち実行・登録になる拡張子の数）。Choices が無ければ欄を出さない
+        [hashtable]$textExt = @{}  # 取り込む拡張子の欄: Excludes（インデックス名 → 取り込まない拡張子。設定の indexExtensionExcludes）・Choices（選べる拡張子の一覧）・Executable（そのうち実行・登録になる拡張子の数）。Choices が無ければ欄を出さない
     )
 
     $rows = New-Object System.Collections.Generic.List[object]

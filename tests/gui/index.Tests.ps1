@@ -338,7 +338,7 @@ Describe "S2 詳細の『取り込み対象の拡張子』" -Tag Gui {
         writeGuiConfig $script:tool.Dir $config
     }
 
-    It "［変更…］で .log を外すと設定にすぐ書かれ、一覧の行に［要更新］が出る。戻すと消える" {
+    It "［変更…］で .log を外すと設定にすぐ書かれ、一覧の行に［要更新］が出る。戻すと消える。見出しの『Excel』を押すと Excel の拡張子がまとめて外れ、もう一度押すと戻る" {
         $S = startGui $script:tool "S2ext"
         invokeGuiScene $S {
             getGuiSelectedTab $S | Should -Be "IndexTab"
@@ -357,12 +357,12 @@ Describe "S2 詳細の『取り込み対象の拡張子』" -Tag Gui {
             $change = findGui $S.Window -Id "ChangeIndexTextExtensionsButton"
             $change.Current.IsEnabled | Should -BeTrue
 
-            setGuiStep $S "［変更…］で .log を外す → 設定に indexTextExcludes・［要更新］"
+            setGuiStep $S "［変更…］で .log を外す → 設定に indexExtensionExcludes・［要更新］"
             invokeGui $S $change "［変更…］" -NoWait
             $dialog = waitGuiWindow $S "取り込み対象の拡張子のダイアログ" -Id "TextExtOkButton"
             toggleGui (findGui $dialog -Name ".log" -Type CheckBox)
             invokeGui $S (findGui $dialog -Id "TextExtOkButton") "［OK］"
-            waitGui $S "設定に .log が書かれる" ${guiDefaultTimeout} { @((readGuiConfig $script:tool).indexTextExcludes."営業") -contains ".log" } | Out-Null
+            waitGui $S "設定に .log が書かれる" ${guiDefaultTimeout} { @((readGuiConfig $script:tool).indexExtensionExcludes."営業") -contains ".log" } | Out-Null
             waitGui $S "一覧の行に［要更新］が出る" ${guiDefaultTimeout} { (& $rowTexts) -like "*要更新*" } | Out-Null
             (getGuiText (findGui $S.Window -Id "IndexDetailTextExtSummary")) | Should -Be "対象外あり"
 
@@ -371,8 +371,30 @@ Describe "S2 詳細の『取り込み対象の拡張子』" -Tag Gui {
             $dialog = waitGuiWindow $S "取り込み対象の拡張子のダイアログ" -Id "TextExtOkButton"
             toggleGui (findGui $dialog -Name ".log" -Type CheckBox)
             invokeGui $S (findGui $dialog -Id "TextExtOkButton") "［OK］"
-            waitGui $S "設定から .log が消える" ${guiDefaultTimeout} { @((readGuiConfig $script:tool).indexTextExcludes."営業") -notcontains ".log" } | Out-Null
+            waitGui $S "設定から .log が消える" ${guiDefaultTimeout} { @((readGuiConfig $script:tool).indexExtensionExcludes."営業") -notcontains ".log" } | Out-Null
             waitGui $S "［要更新］が消える" ${guiDefaultTimeout} { (& $rowTexts) -notlike "*要更新*" } | Out-Null
+            setGuiStep $S "［変更…］で見出し『Excel』を押す → .xlsx などが全部外れる"
+            invokeGui $S (findGui $S.Window -Id "ChangeIndexTextExtensionsButton") "［変更…］" -NoWait
+            $dialog = waitGuiWindow $S "取り込み対象の拡張子のダイアログ" -Id "TextExtOkButton"
+            $heading = findGui $dialog -Id "TextExtGroup_Excel" -Type CheckBox
+            getGuiToggleState $heading | Should -Be "On"
+            toggleGui $heading
+            waitGui $S "Excel の行が全部外れ、見出しが空になる" ${guiDefaultTimeout} {
+                (getGuiToggleState (findGui $dialog -Name ".xlsx" -Type CheckBox)) -eq "Off" -and (getGuiToggleState (findGui $dialog -Id "TextExtGroup_Excel" -Type CheckBox)) -eq "Off"
+            } | Out-Null
+            (getGuiToggleState (findGui $dialog -Name ".docx" -Type CheckBox)) | Should -Be "On"
+            invokeGui $S (findGui $dialog -Id "TextExtOkButton") "［OK］"
+            waitGui $S "設定に Excel の 4 つが書かれる" ${guiDefaultTimeout} { try { (@((readGuiConfig $script:tool).indexExtensionExcludes."営業") | Sort-Object) -join "," -eq ".xls,.xlsb,.xlsm,.xlsx" } catch { $false } } | Out-Null
+
+            setGuiStep $S "もう一度開いて .xlsx だけ戻す → 見出しは一部。見出しを押すと全部戻り、設定から消える"
+            invokeGui $S (findGui $S.Window -Id "ChangeIndexTextExtensionsButton") "［変更…］" -NoWait
+            $dialog = waitGuiWindow $S "取り込み対象の拡張子のダイアログ" -Id "TextExtOkButton"
+            toggleGui (findGui $dialog -Name ".xlsx" -Type CheckBox)
+            waitGui $S "見出しが一部になる" ${guiDefaultTimeout} { (getGuiToggleState (findGui $dialog -Id "TextExtGroup_Excel" -Type CheckBox)) -eq "Indeterminate" } | Out-Null
+            toggleGui (findGui $dialog -Id "TextExtGroup_Excel" -Type CheckBox)
+            waitGui $S "Excel の行が全部戻る" ${guiDefaultTimeout} { (getGuiToggleState (findGui $dialog -Name ".xls" -Type CheckBox)) -eq "On" -and (getGuiToggleState (findGui $dialog -Id "TextExtGroup_Excel" -Type CheckBox)) -eq "On" } | Out-Null
+            invokeGui $S (findGui $dialog -Id "TextExtOkButton") "［OK］"
+            waitGui $S "設定から Excel の分が消える" ${guiDefaultTimeout} { try { @((readGuiConfig $script:tool).indexExtensionExcludes."営業" | Where-Object { $_ }).Count -eq 0 } catch { $false } } | Out-Null
             closeGui $S
         }
     }

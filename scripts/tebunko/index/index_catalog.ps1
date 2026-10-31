@@ -199,7 +199,7 @@ class IndexCatalog {
     }
 
     [void] StoreIngestedTextExcludes($values) {
-        # 取り込み終えたインデックスが使った取り込まない拡張子（インデックス名 → 拡張子の配列の表）を、設定の indexTextExcludesIngested に書く（インデクサだけが書く）
+        # 取り込み終えたインデックスが使った取り込まない拡張子（インデックス名 → 拡張子の配列の表）を、設定の indexExtensionExcludesIngested に書く（インデクサだけが書く）
         setIngestedTextExcludes $values $this.SettingsPath
     }
 

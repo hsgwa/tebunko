@@ -256,3 +256,52 @@ Describe "getFullyIngestedIndexNames" -Tag Unit {
         @(getFullyIngestedIndexNames $ran $folders) | Should -Be $expected
     }
 }
+
+Describe "getIndexSelectableExtensions・getIndexTargetExtensions・getTargetExtensionCounts" -Tag Unit {
+    It "選べる拡張子は Office 10 個・PDF・テキスト 75 個の 86 個で、重ならず、すべて小文字" {
+        $all = @(getIndexSelectableExtensions)
+        $all.Count | Should -Be 86
+        @($all | Select-Object -Unique).Count | Should -Be 86
+        @($all | Where-Object { $_ -cne $_.ToLowerInvariant() }).Count | Should -Be 0
+        foreach ($ext in @(${officeExtensions}) + @(${pdfExtensions}) + @(${textExtensions})) { $all | Should -Contain $ext }
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "除かなければ 86 個すべて"; excluded = @(); notContain = @(); count = 86 }
+        @{ name = "引数を渡さなくても 86 個すべて"; excluded = $null; notContain = @(); count = 86 }
+        @{ name = "Office の .xlsx を除く"; excluded = @(".xlsx"); notContain = @(".xlsx"); count = 85 }
+        @{ name = "PDF を除く"; excluded = @(".pdf"); notContain = @(".pdf"); count = 85 }
+        @{ name = "テキストの .log を除く"; excluded = @(".log"); notContain = @(".log"); count = 85 }
+        @{ name = "大文字でも除く"; excluded = @(".XLSX", ".Pdf", ".LOG"); notContain = @(".xlsx", ".pdf", ".log"); count = 83 }
+        @{ name = "86 個に無い .exe・.zip を渡しても増えず、減りもしない"; excluded = @(".exe", ".zip"); notContain = @(".exe", ".zip"); count = 86 }
+        @{ name = "Office 10 個をすべて除くと PDF とテキストの 76 個"; excluded = @(${officeExtensions}); notContain = @(${officeExtensions}); count = 76 }
+    ) {
+        param ($name, $excluded, $notContain, $count)
+        $result = @(getIndexTargetExtensions $excluded)
+        $result.Count | Should -Be $count
+        foreach ($extension in $notContain) { $result | Should -Not -Contain $extension }
+        # 86 個の外は、渡し方にかかわらず入らない
+        $selectable = @(getIndexSelectableExtensions)
+        @($result | Where-Object { $selectable -notcontains $_ }).Count | Should -Be 0
+    }
+
+    It "選べる並びの順を保つ" {
+        $result = @(getIndexTargetExtensions @(".pdf", ".csv"))
+        ($result -join ",") | Should -Be ((@(getIndexSelectableExtensions) | Where-Object { $_ -notin @(".pdf", ".csv") }) -join ",")
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "空・引数なしは空"; names = @(); expected = "" }
+        @{ name = "Office・PDF・テキストを拡張子ごとに数える（大文字・小文字は同じ）"; names = @("a.xlsx", "b.XLSX", "c.pdf", "d.PDF", "e.pdf", "f.txt", "g.docx"); expected = ".docx=1,.pdf=3,.txt=1,.xlsx=2" }
+        @{ name = "パスでも拡張子だけを見る"; names = @("C:\data\営業\a.xlsx", "b\c.d\e.csv"); expected = ".csv=1,.xlsx=1" }
+        @{ name = "86 個に無い拡張子（.exe・.zip・拡張子なし）は数えない"; names = @("a.exe", "b.zip", "README", "c.pdf"); expected = ".pdf=1" }
+    ) {
+        param ($name, $names, $expected)
+        $counts = getTargetExtensionCounts $names
+        (($counts.Keys | Sort-Object | ForEach-Object { "$_=$($counts[$_])" }) -join ",") | Should -Be $expected
+    }
+
+    It "引数なしでも例外にならず、空のハッシュテーブルを返す" {
+        (getTargetExtensionCounts).Count | Should -Be 0
+    }
+}

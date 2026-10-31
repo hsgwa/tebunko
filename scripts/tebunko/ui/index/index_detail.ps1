@@ -497,7 +497,7 @@ function getIndexTextExtItemValues {
 }
 
 function changeIndexTextExtensions {
-    # 詳細の「取り込む拡張子」の［変更…］。ダイアログを開き、［OK］で選びが変わっていれば、設定（indexTextExcludes）にすぐ書いて一覧・詳細を直す。
+    # 詳細の「取り込む拡張子」の［変更…］。ダイアログを開き、［OK］で選びが変わっていれば、設定（indexExtensionExcludes）にすぐ書いて一覧・詳細を直す。
     # ［要更新］は印を持たず、前回取り込んだときの設定との差から求めるので、描き直すだけでよい（testIndexTextExcludesChanged）。更新中・ほかの処理の間は何もしない
     if (!$ui.ChangeIndexTextExtensionsButton.IsEnabled -or (isIndexingOrPreparing)) {
         return
@@ -512,7 +512,7 @@ function changeIndexTextExtensions {
     $row = getIndexTextExtensionDetailRow $current $entry
     $result = showIndexTextExtensionsDialog -Owner $window -IndexName $item.Name -Excluded $current -Counts $row.Counts -CountsSource $row.Source -CountsTime $row.Time
     if ($null -ne $result) {
-        $result = @(addOutOfListExtensions $result $current)
+        $result = @(addOutOfListExtensions $result $current @(getIndexSelectableExtensions))
     }
     if ($null -eq $result -or -not (testIndexTextExcludesChanged $result $current)) {
         return

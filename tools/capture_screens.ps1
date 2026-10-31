@@ -1,4 +1,4 @@
-﻿# 現行の画面を、状態ごとに全部（45 枚）自動で撮る道具。GUI を直す前の記録として docs\images\screens\ に置き、
+﻿# 現行の画面を、状態ごとに全部（46 枚）自動で撮る道具。GUI を直す前の記録として docs\images\screens\ に置き、
 # docs\design\gui\screens\ の写真として載せる。詳しい経緯・撮る状態の一覧・撮らないものは docs\design\gui\screens\index.md。
 #
 #   .\tools\capture_screens.ps1                 すべての状態を撮り直す
@@ -467,9 +467,11 @@ function captureTopOnlyScene {
 }
 
 function captureTextExtensionsScene {
-    # index-tab/text-extensions（詳細の「取り込み対象の拡張子」の［変更…］で開いたダイアログ。前回の更新で数えた件数と、日時つきの注）
+    # index-tab/text-extensions（詳細の「取り込み対象の拡張子」の［変更…］で開いたダイアログ。前回の更新で数えた件数と、日時つきの注）と、
+    # indexing-confirm/text-extensions（更新の確認の［変更…］で開いたダイアログ。いま数えた件数の注）。
+    # 見出しの 3 状態が写るよう、Excel・PDF・テキストは全部、Word は .docm だけ外し（一部）、PowerPoint は 3 つとも外す（全部外し）
     param ($Ids, $Root, $OutDir, $UserName, $ComputerName, $UserProfile, $Sizes)
-    if ($Ids -notcontains "index-tab/text-extensions") { return }
+    if ($Ids -notcontains "index-tab/text-extensions" -and $Ids -notcontains "indexing-confirm/text-extensions") { return }
 
     $dir = Join-Path $Root "textext"
     $tool = newGuiTool $dir
@@ -494,6 +496,9 @@ function captureTextExtensionsScene {
                 (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*" -and (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
             } | Out-Null
 
+            setGuiStep $S "対象外を設定に書く（Word は .docm だけ・PowerPoint は 3 つとも）"
+            writeIndexTextExcludes "営業" @(".docm", ".pptx", ".pptm", ".ppt") $tool.Config
+
             setGuiStep $S "行を選び、詳細の「取り込み対象の拡張子」の［変更…］"
             selectGui @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
             waitGui $S "詳細が出る" ${guiDefaultTimeout} { findGui $S.Window -Id "ChangeIndexTextExtensionsButton" } | Out-Null
@@ -503,6 +508,22 @@ function captureTextExtensionsScene {
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($dialog)
             clickGui $S $dialog "TextExtCancelButton" "ダイアログの［キャンセル］"
             waitGuiWindowClosed $S $dialog "取り込み対象の拡張子のダイアログ"
+
+            setGuiStep $S "［すべて更新］→ 確認の［変更…］"
+            clickGui $S $S.Window "IndexingButton" "［すべて更新］"
+            $confirm = waitGuiWindow $S "取り込みの確認" -Id "StartButton" -Timeout ${guiIndexTimeout}
+            clickGui $S $confirm "ChangeIndexTextExtensionsButton" "確認の拡張子の［変更…］"
+            $dialog = waitGuiWindow $S "取り込み対象の拡張子のダイアログ" -Id "TextExtOkButton"
+            captureGuiState -S $S -Id "indexing-confirm/text-extensions" -Ids $Ids -OutDir $OutDir `
+                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Primary $confirm -Extra @($dialog)
+            clickGui $S $dialog "TextExtCancelButton" "ダイアログの［キャンセル］"
+            waitGui $S "ダイアログが閉じる" ${guiDefaultTimeout} { @(getGuiOtherWindows $S | Where-Object { findGui $_ -Id "TextExtOkButton" }).Count -eq 0 } | Out-Null
+            clickGui $S $confirm "CancelButton" "確認の［キャンセル］"
+            waitGuiWindowClosed $S $confirm "取り込みの確認"
+            waitGui $S "取りやめた更新が終わる" ${guiIndexTimeout} {
+                $b = findGui $S.Window -Id "IndexingButton"
+                $b.Current.IsEnabled -and $b.Current.Name -eq "すべて更新"
+            } | Out-Null
             closeGui $S
         }
     } finally {

@@ -1,16 +1,16 @@
 ﻿# クロール（どのファイルを取り込むかを数え、画面の返事を待つ）。
 
 # 取り込み対象の拡張子（Office は shared\office\office_file_kind_view.ps1、テキストは shared\core\text_file.ps1、PDF は shared\core\pdf_file.ps1）
-# （設定で取り込まないと選んだテキストの拡張子を除いた一覧は getTargetExtensionList。ここは選べる範囲の上限）
-$targetExtensions = @(${officeExtensions}) + @(${textExtensions}) + @(${pdfExtensions})
+# （設定で取り込まないと選んだ拡張子を除いた一覧は getTargetExtensionList。ここは選べる範囲の上限）
+$targetExtensions = @(${officeExtensions}) + @(${pdfExtensions}) + @(${textExtensions})
 
 function getTargetExtensionList {
-    # 今回のインデックス作成で取り込む拡張子の一覧（Office・テキスト・PDF）。excluded は設定で取り込まないと選んだテキストの拡張子
+    # 今回のインデックス作成で取り込む拡張子の一覧（Office・PDF・テキストの全部から、設定で取り込まないと選んだ拡張子を除いたもの。getIndexTargetExtensions）
     param (
         [object[]]$excluded = @()
     )
 
-    return @(@(${officeExtensions}) + @(getTextTargetExtensions $excluded) + @(${pdfExtensions}))
+    return @(getIndexTargetExtensions $excluded)
 }
 
 # tebunko が作ったファイルを、名前だけで見分けるパターン（テキストの拡張子のものだけに当たる。どこにあっても外す）。
@@ -169,7 +169,7 @@ function findTargetFiles {
     # （設定に書かれたパスは、末尾の \ ・ドライブ文字と UNC パスなど書き方が違うことがあるため、文字数で切り出さない）。
     # tebunko が作ったファイル（getTebunkoExcludeDirs のフォルダの下・名前で分かるファイル）は対象に含めない
     # shouldStop: 省略できる。フォルダ 1 つを読むごとに見て、$true を返したら読むのをやめる（中止を求められたとき）
-    # TextCounts（戻り値）: テキストの拡張子ごとの件数（拡張子 → 件数。取り込まない拡張子の分も含む）
+    # TextCounts（戻り値）: 選べる拡張子（Office・PDF・テキスト）ごとの件数（拡張子 → 件数。取り込まない拡張子の分も含む）
     # Enumerated（戻り値）: 列挙で見つけたファイルの数（取り込み対象でないものも含む。進み具合の数え）
     # extensions: 省略できる。取り込む拡張子の一覧（小文字）。省略すると $targetExtensions（選べる範囲の上限）
     # TopOnly: 対象フォルダの直下のファイルだけを探す（サブフォルダの中は読まない。設定の subfolders が false のとき）
@@ -210,8 +210,8 @@ function findTargetFiles {
         if ((testTextExtension $_.Name) -and (testTebunkoOwnFileName $_.Name)) { return $false }
         return $true
     })
-    # テキストの拡張子ごとの件数（tebunko が作ったファイルを除いた後。取り込まないにした拡張子の分も数える）
-    $textCounts = getTextExtensionCounts @($candidates | ForEach-Object { $_.Name })
+    # 選べる拡張子（Office・PDF・テキスト）ごとの件数（tebunko が作ったファイルを除いた後。取り込まないにした拡張子の分も数える）
+    $textCounts = getTargetExtensionCounts @($candidates | ForEach-Object { $_.Name })
     $files = @($candidates | Where-Object { $extensions -contains $_.Extension.ToLower() })
 
     return @{ Root = $root; Files = $files; Links = @($tree.Links); HasError = $tree.HasError; Stopped = $false; TextCounts = $textCounts; Enumerated = @($tree.Files).Count }
@@ -293,7 +293,7 @@ function createTargetList {
     #            Rows には前回の行をそのまま入れる（前回の行が無い・前回未完了のときは入れない）
     #   Plan   : 画面の確認に出す件数（newIngestPlanRow。取り込み予定.tsv の1行）
     #   Removed: 元のファイルが無くなったファイル・対象外にした拡張子のファイルの相対パス（ここでは何も消さない。呼び出し元が、取り込みを始めるときにインデックスを消す）
-    #   TextCounts: テキストの拡張子ごとの件数（拡張子 → 件数。取り込まない拡張子の分も含む。findTargetFiles の TextCounts）
+    #   TextCounts: 選べる拡張子（Office・PDF・テキスト）ごとの件数（拡張子 → 件数。取り込まない拡張子の分も含む。findTargetFiles の TextCounts）
     #   Stopped: shouldStop が $true を返して途中で止めた。このときほかの値は空（呼び出し元は前回の行をそのまま残す）
     # 行の相対パスは "インデックス名\フォルダからの相対パス"（= work\index からの相対パス）とする。
     # ・前回の一覧と更新日時・サイズが同じで取り込み済み（済）のファイルは取り込まない
@@ -493,7 +493,7 @@ class IngestPlanner {
     [bool]$Stopped
     # インデックスごとの、取り込まないテキストの拡張子（インデックス名 → 拡張子の配列）。Crawl が、フォルダのインデックス名で
     # 取り込む拡張子の一覧（getTargetExtensionList）を作って createTargetList に渡す。作るときのハッシュテーブルの TextExcludes（司令が
-    # 始めに 1 回だけ設定の indexTextExcludes を読んで渡す。途中で設定を変えても次の回から効く）で受け取る。無ければ空（全部取り込む）
+    # 始めに 1 回だけ設定の indexExtensionExcludes を読んで渡す。途中で設定を変えても次の回から効く）で受け取る。無ければ空（全部取り込む）
     [hashtable]$TextExcludes
     # インデックス名ごとの、テキストの拡張子ごとの件数（インデックス名 → 拡張子 → 件数。同じ名前の複数のフォルダは合計）。確認ダイアログの「取り込む拡張子」が使う
     [hashtable]$TextCountsByIndex

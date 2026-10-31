@@ -68,9 +68,9 @@
 | 関数 | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
 | `testTextExtension` | path | bool | 拡張子が対象のテキストの拡張子（`$textExtensions`。大文字・小文字を区別しない）か | ingestFile, getContentIndexFileKind, describePlace, findTargetFiles（`$targetExtensions`） |
-| `getTextExtensionCounts` | names（ファイル名・パスの並び） | ハッシュテーブル（拡張子 → 件数） | `$textExtensions` の拡張子ごとの件数（小文字。Office・PDF・一覧に無い拡張子は数えない） | `findTargetFiles`（`TextCounts`） |
+| `getTextExtensionCounts` | names（ファイル名・パスの並び） | ハッシュテーブル（拡張子 → 件数） | `$textExtensions` の拡張子ごとの件数（小文字。Office・PDF・一覧に無い拡張子は数えない。取り込みの件数は Office・PDF も数える `getTargetExtensionCounts`） | テキストだけを数える呼び出し元 |
 | `addOutOfListExtensions` | chosen（ダイアログで選んだ拡張子）, current（今の設定の値） | 拡張子の配列 | chosen に、current のうち `$textExtensions`（75 個）に無いものを足して返す。ダイアログは 75 個だけを扱うので、書く前・比べる前に足し、75 個の外の値が設定から消えないようにする | [対象の拡張子](../indexing/text.md#対象の拡張子) | 取り込む拡張子・テキストの開き方の［OK］ |
-| `getTextTargetExtensions` | excluded（省略可） | string[] | `$textExtensions` から excluded（取り込まないと選んだ拡張子。大文字・小文字を区別せず、一覧に無いものは無視）を除いた一覧（`$textExtensions` の順） | `getTargetExtensionList` |
+| `getTextTargetExtensions` | excluded（省略可） | string[] | `$textExtensions` から excluded（取り込まないと選んだ拡張子。大文字・小文字を区別せず、一覧に無いものは無視）を除いた一覧（`$textExtensions` の順） | – |
 | `getTextOpenWay` | path, notepadExtra（省略可） | `"notepad"` / `"default"` | テキストの開き方。`$textNotepadExtensions` は常に `notepad`、notepadExtra に入る `$textExtensions` の拡張子も `notepad`。終わりの `.` と空白は落としてから見る | `testTextOpenWithNotepad` |
 | `testTextOpenWithNotepad` | path, notepadExtra（省略可） | bool | 拡張子が、既定のアプリではなくメモ帳で開く拡張子（`$textNotepadExtensions`。開くと実行・登録になるもの。notepadExtra は設定でメモ帳にした拡張子。大文字・小文字を区別しない。終わりの `.` と空白は Windows が無視して開くので、落としてから見る）か | openFoundSource（[元のファイルを開く](../gui/open-file.md)） |
 | `detectTextEncoding` | bytes | string / `$null` | バイト列だけから文字コード（`UTF8` / `UTF16LE` / `UTF16BE` / `ShiftJIS` / `EUCJP` / `ISO2022JP`）を判定する。判定できない・あいまいなものは `$null`（取り込まない） | readTextFile |

@@ -436,4 +436,9 @@ Describe "addOutOfListExtensions" -Tag Unit {
         param ($name, $chosen, $current, $expected)
         (@(addOutOfListExtensions $chosen $current) -join ",") | Should -Be $expected
     }
+
+    It "一覧（choices）を渡すと、その外の値だけを足す（Office・PDF を含む 86 個のダイアログ）" {
+        $choices = @(".xlsx", ".pdf", ".txt", ".log")
+        (@(addOutOfListExtensions @(".xlsx") @(".pdf", ".exe", ".XLSX", ".docm") $choices) -join ",") | Should -Be ".xlsx,.exe,.docm"
+    }
 }

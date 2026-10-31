@@ -832,7 +832,7 @@ function recordIngestedSettings {
 
 function recordIngestedTextExtensions {
     # 取り込み終えた回（終わり方 0）のあとに、そのインデックスの拡張子ごとの件数の控え（詳細の「取り込む拡張子」に前の回の件数として出す）を書き、
-    # その名前の有効なフォルダをすべて回した名前だけ、使った取り込まない拡張子を設定の indexTextExcludesIngested に書く
+    # その名前の有効なフォルダをすべて回した名前だけ、使った取り込まない拡張子を設定の indexExtensionExcludesIngested に書く
     # （前回取り込んだときの設定。画面の［要更新］は今の設定との差で求める）。書けなくても取り込みの結果は変えず、ログに残す
     param (
         $planner,

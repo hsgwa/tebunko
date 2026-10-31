@@ -203,6 +203,41 @@ function splitCloudItems {
     return @{ Included = $included; Skipped = $skipped }
 }
 
+function getIndexSelectableExtensions {
+    # 取り込み対象として選べる拡張子の全部（小文字。Office 10 個・PDF・テキスト 75 個の 86 個。固定の一覧で、増やせない）。
+    # 並びは Office・PDF・テキストの順
+    return @(@(${officeExtensions}) + @(${pdfExtensions}) + @(${textExtensions}))
+}
+
+function getIndexTargetExtensions {
+    # インデックスごとの取り込み対象の拡張子の一覧（Office・PDF・テキストの全部）。選べる 86 個（getIndexSelectableExtensions）から、
+    # excluded（取り込まないと選んだ拡張子）を除く。大文字・小文字を区別せず、86 個に無いものは無視する（固定の一覧の外は増えない）
+    param (
+        [object[]]$excluded = @()
+    )
+
+    $skip = @(@($excluded) | ForEach-Object { ([string]$_).ToLowerInvariant() })
+    return @(getIndexSelectableExtensions | Where-Object { $skip -notcontains $_ })
+}
+
+function getTargetExtensionCounts {
+    # ファイル名（またはパス）の一覧から、選べる拡張子（Office・PDF・テキストの 86 個）ごとの件数を返す: 拡張子（小文字）→ 件数。
+    # 86 個に無い拡張子は数えない
+    param (
+        [string[]]$names = @()
+    )
+
+    $selectable = @(getIndexSelectableExtensions)
+    $counts = @{}
+    foreach ($name in @($names)) {
+        $extension = [System.IO.Path]::GetExtension([string]$name).ToLowerInvariant()
+        if ($selectable -contains $extension) {
+            $counts[$extension] = 1 + [int]$counts[$extension]
+        }
+    }
+    return $counts
+}
+
 # ----------------------------------------------------------------------------
 # 取り込みのジャーナル（store\journal\ingest.tsv。司令だけが 1 行ずつ追記する。読み書きは ingest_journal.ps1）の行の形と読み方
 # ----------------------------------------------------------------------------

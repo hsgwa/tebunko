@@ -35,13 +35,13 @@ Describe "確認ダイアログの［変更…］" -Tag Gui {
             (findGui $confirm -Id "StartButton") | Should -Not -BeNullOrEmpty
             (readTextExtensionSettings $script:tool.Config).IndexExcludes.Count | Should -Be 0
 
-            setGuiStep $S "［変更…］で .log を外して［OK］→ 確認が出し直される"
+            setGuiStep $S "［変更…］で .xlsx を外して［OK］→ 確認が出し直される"
             clickGui $S $confirm "ChangeIndexTextExtensionsButton" "確認の拡張子の［変更…］"
             $dialog = waitGuiWindow $S "取り込み対象の拡張子のダイアログ" -Id "TextExtOkButton"
-            toggleGui (findGui $dialog -Name ".log" -Type "CheckBox")
+            toggleGui (findGui $dialog -Name ".xlsx" -Type "CheckBox")
             clickGui $S $dialog "TextExtOkButton" "ダイアログの［OK］"
             waitGui $S "ダイアログと最初の確認が閉じる" ${guiDefaultTimeout} { @(getGuiOtherWindows $S | Where-Object { (findGui $_ -Id "TextExtOkButton") -or (findGui $_ -Id "StartButton") }).Count -eq 0 } | Out-Null
-            (@((readTextExtensionSettings $script:tool.Config).IndexExcludes["営業"]) -join ",") | Should -Be ".log"
+            (@((readTextExtensionSettings $script:tool.Config).IndexExcludes["営業"]) -join ",") | Should -Be ".xlsx"
             $again = waitGuiWindow $S "出し直された確認" -Id "StartButton" -Timeout ${guiIndexTimeout}
             clickGui $S $again "CancelButton" "［キャンセル］"
             waitGuiWindowClosed $S $again "出し直された確認"

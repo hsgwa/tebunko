@@ -124,8 +124,8 @@
 | `AssignNames` | targetFolders, status（`@{Folders; Rows; Rejected; LegacyFolders}`） | – | インデックス名を割り当て、前回の一覧と外れたインデックスを覚える（前回の名前に `LegacyFolders` も足して、外れたインデックスを調べる） |
 | `SaveNames` | targetFolders, save（割り当てた名前を受け取って保存し、保存した一覧を返すスクリプトブロック） | – | 名前の無いフォルダがあったときだけ `save` を呼び、`Folders` を保存した一覧にする（保存の間に設定から外れた・名前を付けられなかったフォルダは落とす。司令は `IndexCatalog.StoreAssignedNames` を呼ぶ `save` を渡す） |
 | `SelectOnly` | onlyNames | 更新できない名前（`@{Name; Reason}` の並び） | 選んだインデックスだけを更新する場合の当てはめ |
-| `TextExcludes`（プロパティ） | – | hashtable | インデックスごとの、取り込まないテキストの拡張子（インデックス名 → 拡張子の配列）。`Crawl` が、フォルダのインデックス名で `getTargetExtensionList` を作って `createTargetList` に渡す。`$null` のまま `Crawl` を呼ぶと、始めに 1 回だけ設定（`indexTextExcludes`）を読む |
-| `TextCountsByIndex`（プロパティ） | – | hashtable | インデックス名 → 拡張子 → 件数（テキストの拡張子ごとの件数。取り込まない拡張子の分も。同じ名前の複数のフォルダは合計）。`Crawl` が `createTargetList` の `TextCounts` から足す |
+| `TextExcludes`（プロパティ） | – | hashtable | インデックスごとの、取り込まない拡張子（Office・PDF・テキストも。インデックス名 → 拡張子の配列）。`Crawl` が、フォルダのインデックス名で `getTargetExtensionList` を作って `createTargetList` に渡す。`$null` のまま `Crawl` を呼ぶと、始めに 1 回だけ設定（`indexExtensionExcludes`）を読む |
+| `TextCountsByIndex`（プロパティ） | – | hashtable | インデックス名 → 拡張子 → 件数（Office・PDF・テキストの拡張子ごとの件数。取り込まない拡張子の分も。同じ名前の複数のフォルダは合計）。`Crawl` が `createTargetList` の `TextCounts` から足す |
 | `Crawl` | indexCounts, onFolder | – | フォルダごとに取り込み対象・チェックなし・フォルダなしに分け、`Rows`・`Targets`・`Failed`・`Plan` を組み立てる。`onFolder` は検索の直前に呼ぶ（進み具合を出す。例外は包まずにそのまま伝える） |
 | `KeepForCancel` | – | 取り込み一覧に書く行 | 取りやめるとき、取り込み対象の行（とクラウドにだけあって前回未完了の行・元のファイルが無くなったファイルの行）を前回の記録のままにする |
 | `ApplyFailed` | retry | – | 前回失敗した行を、再取り込みする（`Targets` に足す）かスキップするか |
@@ -149,6 +149,9 @@
 | `getExtractVersion` | path | int | ファイルの形式（拡張子）の今の抽出版（読み取る内容の版。`.xlsx` `.xlsm` はグラフの項目名を読まず、グラフ・SmartArt・ヘッダー・フッターを読む 4、`.docx` `.docm` `.doc` は埋め込みを読む 4、`.pptx` `.pptm` `.ppt` はスライドマスター・ノートマスターを読む 5、ほかは 1） | [取り込み対象の決定](../indexing/target-decision.md#取り込み対象の決定createtargetlist) | testExtractOutdated、インデックス作成（取り込み一覧の抽出版の列） |
 | `testExtractOutdated` | row | bool | 取り込み一覧の行が、今の抽出版より前の版で取り込んだものか（抽出版の列が空なら 1） | 同上 | getIngestDecision |
 | `getIngestDecision` | old（前回の行 / `$null`）, updated, size, indexComplete | `@{Ingest; Reason}` | 取り込むかどうかと理由（`done` / `failed` / `new` / `updated` / `pending` / `lost` / `outdated`）。更新日時・サイズが同じでも、TSV が欠けていれば `lost`、前の抽出版なら `outdated` で取り込み直す | 同上 | createTargetList |
+| `getIndexSelectableExtensions` | – | string[] | 取り込み対象として選べる拡張子の全部（小文字。Office 10 個・PDF・テキスト 75 個の 86 個。並びは Office・PDF・テキスト） | [取り込み対象の決定](../indexing/target-decision.md) | `getIndexTargetExtensions`・`getTargetExtensionCounts`・取り込み対象の拡張子のダイアログ |
+| `getIndexTargetExtensions` | excluded（省略可） | string[] | 選べる 86 個から excluded（取り込まないと選んだ拡張子。大文字・小文字を区別せず、86 個に無いものは無視）を除いた一覧 | 同上 | `getTargetExtensionList`（`IngestPlanner.Crawl`） |
+| `getTargetExtensionCounts` | names（ファイル名・パスの並び） | ハッシュテーブル（拡張子 → 件数） | 86 個の拡張子ごとの件数（小文字。86 個に無い拡張子は数えない） | 同上 | `findTargetFiles`（`TextCounts`） |
 | `getIngestApp` | relPath | string | 取り込みに最初に要る Office のアプリ（表（`$officeFileKinds`）の Excel の拡張子は `Excel`、`.doc` は `Word`、`.ppt` は `PowerPoint`。それ以外（`.docx`・`.docm`・`.pptx`・`.pptm`、テキストの拡張子、`.pdf`）は Office が要らず空） | [取り込みの並列化](../indexing/parallel.md) | インデックス作成（司令） |
 | `getRerouteApp` | relPath | string | Office を使わずに読めず、Office が要ると分かったファイルの回し先のアプリ（`getOfficeFileKind` が `PowerPoint`（`.pptx` `.pptm` `.ppt`）なら `PowerPoint`、ほかは `Word`） | 同上 | インデックス作成（司令） |
 | `selectIngestWorker` | workers（ワーカーごとの `@{Busy; Owns; Abandoned}`）, app, capacity | `@{Kind=Worker／Wait／Abandoned; Index}` | 取り込むファイルの渡し先を決める。Office が要るファイルは、そのアプリの持ち主へ（満杯なら `Wait`、持ち主が諦めていれば `Abandoned`）。持ち主がいなければ、持ち主のいないワーカーのうちいちばん空いているもの。Office が要らないファイルは、持ち主のいないワーカーのうちいちばん空いているもの（無ければ、諦めていないいちばん空いているもの）。すべて諦めていれば `Abandoned` | 同上 | `IngestDispatcher` |

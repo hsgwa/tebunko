@@ -849,7 +849,7 @@ Describe "取り込み対象の拡張子が固定であること（docs/safety/c
         # 設定ファイルに危険な拡張子や、実行されうる拡張子を含む指定を書いても、設定を読む関数と一覧を作る関数を通すと固定の一覧の外に出ない
         $config = Join-Path $TestDrive "safety_text_ext.config"
         $dangerous = @(".exe", ".com", ".scr", ".hta", ".lnk", ".msi", ".ts")
-        $json = ConvertTo-Json -Depth 4 @{ indexTextExcludes = @{ "営業" = $dangerous }; notepadTextExtensions = @($dangerous + ${textNotepadExtensions}) }
+        $json = ConvertTo-Json -Depth 4 @{ indexExtensionExcludes = @{ "営業" = $dangerous }; notepadTextExtensions = @($dangerous + ${textNotepadExtensions}) }
         [System.IO.File]::WriteAllText($config, $json, (New-Object System.Text.UTF8Encoding($false)))
         $read = readTextExtensionSettings $config
         # 読む側は形を整えるだけで 75 個の外も持つ（書き戻しで消さないため）。75 個に絞るのは使う側

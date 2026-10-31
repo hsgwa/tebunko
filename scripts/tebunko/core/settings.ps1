@@ -90,8 +90,8 @@ function newSettings {
         workspaceFolder    = ""       # ワークスペース（インデックス・取り込み一覧・ログを置くフォルダ）。空なら既定（%USERPROFILE%\Documents\tebunko_ws。getDefaultWorkDir）
         cloudFiles         = ${cloudFilesAsk}  # クラウドにだけあるファイルの扱い: ask（ダウンロードせずに残す。確認の画面で選べる）/ download（ダウンロードして取り込む）。知らない値は ask（readCloudFiles）
         searchLimit        = ${searchLimitDefault}  # 検索結果の件数の上限（${searchLimitMin}～${searchLimitMax}。0 は制限なし、範囲の外は近い端、数値にできない・負の数は既定。getSearchLimit）
-        indexTextExcludes      = [ordered]@{}  # インデックスごとの、取り込まないテキストの拡張子: インデックス名 → ${textExtensions} の中の拡張子の配列（既定は空＝全部取り込む。readTextExtensionSettings）
-        indexTextExcludesIngested = [ordered]@{}  # 前回取り込んだときの indexTextExcludes（インデクサだけが書く。インデックス名 → 取り込まなかった拡張子の配列。名前の項目が無ければ前回は全部取り込んだ。［要更新］の差の元）
+        indexExtensionExcludes      = [ordered]@{}  # インデックスごとの、取り込まないテキストの拡張子: インデックス名 → ${textExtensions} の中の拡張子の配列（既定は空＝全部取り込む。readTextExtensionSettings）
+        indexExtensionExcludesIngested = [ordered]@{}  # 前回取り込んだときの indexExtensionExcludes（インデクサだけが書く。インデックス名 → 取り込まなかった拡張子の配列。名前の項目が無ければ前回は全部取り込んだ。［要更新］の差の元）
         notepadTextExtensions  = @()  # 既定のアプリの代わりにエディタで開くテキストの拡張子（${textOpenExtensions} の中から。既定は空。readTextExtensionSettings）
         textEditorPath         = ""   # 「エディタで開く」に使うプログラムのパス（空はメモ帳。書き換えるのは設定ファイルを手で直すときだけ。testTextEditorPath を通ったものだけ使う）
         ingestThreads      = 0        # Office を使わずに読むファイル（.docx・.pptx など）の読み取りのスレッドの数（1～4。0 はコア数から決める。getIngestWorkerCount）。Excel・Word・PowerPoint は種類ごとに 1 つ
@@ -130,7 +130,7 @@ function readSettings {
             continue
         }
         if ($settings[$key] -is [System.Collections.IDictionary]) {
-            # オブジェクトのキー（indexTextExcludes・indexTextExcludesIngested）は、読んだ値をそのまま持つ（整えるのは normalizeIndexTextExcludes）
+            # オブジェクトのキー（indexExtensionExcludes・indexExtensionExcludesIngested）は、読んだ値をそのまま持つ（整えるのは normalizeIndexTextExcludes）
             $settings[$key] = $property.Value
         } elseif ($settings[$key] -is [array]) {
             $settings[$key] = @($property.Value | Where-Object { $null -ne $_ })
@@ -561,7 +561,7 @@ function normalizeTextExtensions {
 }
 
 function normalizeIndexTextExcludes {
-    # 設定から読んだ indexTextExcludes（インデックス名 → 取り込まない拡張子の配列のオブジェクト）を、名前 → 配列の Hashtable にして返す。
+    # 設定から読んだ indexExtensionExcludes（インデックス名 → 取り込まない拡張子の配列のオブジェクト）を、名前 → 配列の Hashtable にして返す。
     # オブジェクトでない値・配列が読めない名前・空の配列になる名前は、既定（全部取り込む）として項目を作らない
     param (
         $value
@@ -591,8 +591,8 @@ function readTextExtensionSettings {
 
     $settings = readSettings $path
     return @{
-        IndexExcludes = (normalizeIndexTextExcludes $settings.indexTextExcludes)
-        IndexExcludesIngested = (normalizeIndexTextExcludes $settings.indexTextExcludesIngested)
+        IndexExcludes = (normalizeIndexTextExcludes $settings.indexExtensionExcludes)
+        IndexExcludesIngested = (normalizeIndexTextExcludes $settings.indexExtensionExcludesIngested)
         Notepad       = @(normalizeTextExtensions $settings.notepadTextExtensions)
         EditorPath    = [string]$settings.textEditorPath
     }
@@ -609,19 +609,19 @@ function writeIndexTextExcludes {
     $excludedValue = @(normalizeTextExtensions $excluded)
     invokeSettingsLocked -path $path -action {
         $settings = readSettings $path
-        $all = normalizeIndexTextExcludes $settings.indexTextExcludes
+        $all = normalizeIndexTextExcludes $settings.indexExtensionExcludes
         if ($excludedValue.Count -eq 0) {
             $all.Remove($name)
         } else {
             $all[$name] = $excludedValue
         }
-        setIndexTextExcludesTable $settings "indexTextExcludes" $all
+        setIndexTextExcludesTable $settings "indexExtensionExcludes" $all
         writeSettings $settings $path
     }
 }
 
 function setIndexTextExcludesTable {
-    # 設定の表（indexTextExcludes・indexTextExcludesIngested。名前 → 配列の Hashtable）を、名前の順に並べたオブジェクトにして設定へ入れる
+    # 設定の表（indexExtensionExcludes・indexExtensionExcludesIngested。名前 → 配列の Hashtable）を、名前の順に並べたオブジェクトにして設定へ入れる
     param (
         $settings,
         [string]$key,
@@ -646,7 +646,7 @@ function renameIndexTextExcludes {
     invokeSettingsLocked -path $path -action {
         $settings = readSettings $path
         $changed = $false
-        foreach ($key in @("indexTextExcludes", "indexTextExcludesIngested")) {
+        foreach ($key in @("indexExtensionExcludes", "indexExtensionExcludesIngested")) {
             $all = normalizeIndexTextExcludes $settings[$key]
             if (-not $all.ContainsKey($oldName)) {
                 continue
@@ -674,7 +674,7 @@ function removeIndexTextExcludes {
     invokeSettingsLocked -path $path -action {
         $settings = readSettings $path
         $changed = $false
-        foreach ($key in @("indexTextExcludes", "indexTextExcludesIngested")) {
+        foreach ($key in @("indexExtensionExcludes", "indexExtensionExcludesIngested")) {
             $all = normalizeIndexTextExcludes $settings[$key]
             if ($all.ContainsKey($name)) {
                 $all.Remove($name)
@@ -701,7 +701,7 @@ function setIngestedTextExcludes {
     foreach ($name in @($values.Keys)) { $normalized[[string]$name] = @(normalizeTextExtensions $values[$name]) }
     invokeSettingsLocked -path $path -action {
         $settings = readSettings $path
-        $all = normalizeIndexTextExcludes $settings.indexTextExcludesIngested
+        $all = normalizeIndexTextExcludes $settings.indexExtensionExcludesIngested
         foreach ($name in @($normalized.Keys)) {
             if ($normalized[$name].Count -eq 0) {
                 $all.Remove($name)
@@ -709,7 +709,7 @@ function setIngestedTextExcludes {
                 $all[$name] = $normalized[$name]
             }
         }
-        setIndexTextExcludesTable $settings "indexTextExcludesIngested" $all
+        setIndexTextExcludesTable $settings "indexExtensionExcludesIngested" $all
         writeSettings $settings $path
     }
 }

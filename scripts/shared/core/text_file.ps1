@@ -412,13 +412,16 @@ function readTextFile {
 }
 
 function addOutOfListExtensions {
-    # ダイアログで選んだ拡張子（chosen。75 個の中だけ）に、今の設定の値（current）のうち ${textExtensions}（75 個）に無いものを足して返す。
-    # ダイアログは 75 個しか扱わないので、そのまま書くと 75 個の外の値（後の版で選べる拡張子など）が設定から消える。書く前・比べる前に足す
+    # ダイアログで選んだ拡張子（chosen。ダイアログが扱う一覧 choices の中だけ）に、今の設定の値（current）のうち choices に無いものを足して返す。
+    # choices の既定は ${textExtensions}（75 個。テキストの開き方のダイアログ）。取り込み対象の拡張子のダイアログは、選べる 86 個（Office・PDF・テキスト）を渡す。
+    # ダイアログは choices の分しか扱わないので、そのまま書くと外の値（後の版で選べる拡張子など）が設定から消える。書く前・比べる前に足す
     param (
         [object[]]$chosen = @(),
-        [object[]]$current = @()
+        [object[]]$current = @(),
+        [object[]]$choices = @()
     )
 
-    $outside = @(@($current) | Where-Object { $_ -is [string] -and ${textExtensions} -notcontains $_.ToLowerInvariant() })
+    if (@($choices).Count -eq 0) { $choices = @(${textExtensions}) }
+    $outside = @(@($current) | Where-Object { $_ -is [string] -and @($choices) -notcontains $_.ToLowerInvariant() })
     return @(@($chosen) + $outside)
 }

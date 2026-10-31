@@ -378,7 +378,7 @@ function rememberTextExtCounts {
 }
 
 function syncIndexTextExtensions {
-    # 設定の indexTextExcludes・indexTextExcludesIngested と、件数の控えを読み直す。読めないときは前の値のまま（控えの無い状態に戻さない）。
+    # 設定の indexExtensionExcludes・indexExtensionExcludesIngested と、件数の控えを読み直す。読めないときは前の値のまま（控えの無い状態に戻さない）。
     # 件数の控えはワークスペースの中にあるので、ワークスペースがネットワークの場所のときは、画面が止まらないよう読まず、控え無しとして扱う
     try {
         $settings = readTextExtensionSettings

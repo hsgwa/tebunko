@@ -5,9 +5,9 @@ BeforeAll {
 }
 
 Describe "captureIds" -Tag Unit {
-    It "45 件あり、重複が無い" {
-        ${captureIds}.Count | Should -Be 45
-        (${captureIds} | Select-Object -Unique).Count | Should -Be 45
+    It "46 件あり、重複が無い" {
+        ${captureIds}.Count | Should -Be 46
+        (${captureIds} | Select-Object -Unique).Count | Should -Be 46
     }
 
     It "すべて <画面>/<状態> の形" {
