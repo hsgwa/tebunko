@@ -4391,14 +4391,9 @@
 </thead>
 <tbody>
 <tr>
-<td><code>インデックスのファイルが大きすぎます（&lt;N&gt; バイト）: &lt;パス&gt;</code></td>
-<td>本文インデックスのファイルが、読み込みの大きさの上限を超えている（<code>convertFolderToContentIndex</code>）</td>
-<td>元のファイルを分けるなどして、インデックスを作り直す</td>
-</tr>
-<tr>
 <td><code>インデックスのファイルが大きすぎます</code></td>
-<td>検索で読む本文インデックスのファイルが、読み込みの大きさの上限を超えている（<code>searchContentIndexFiles</code>）</td>
-<td>同上</td>
+<td>検索で読む本文インデックスのファイルが、読み込みの大きさの上限を超えている（<code>searchContentIndexFiles</code>）。この版は上限を超えるファイルを作らず、前の版が作ったものは次の更新で外して取り込み直す（<a href="../../index-data/publish/">本文インデックスへの書き出し</a>）</td>
+<td>更新する（インデックスの作成）</td>
 </tr>
 <tr>
 <td><code>インデックスのファイルの形が崩れています（ファイル名の行に改行がありません）</code></td>
