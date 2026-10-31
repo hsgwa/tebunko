@@ -38,6 +38,25 @@ function getToolIndexDir {
     return ([Workspace]::new($work)).IndexDir
 }
 
+function getPerfGramWorkDir {
+    # 本文インデックスの置き場（-Index）が <W>\store\content\<名前> の形のとき、<W>（ワークスペース）を返す。違えば $null。
+    # gram 索引は <W>\store\gram\<名前> に作られ、検索はワークスペースの置き場（store\content）の直下の名前で探すので、この形でなければ gram 索引は効かない
+    param (
+        [string]$index
+    )
+
+    if (!$index) { return $null }
+    # 置き場の名前は Workspace クラスだけが持つ（呼ぶ前に、測る tebunko の lib.ps1 かその core\workspace.ps1 を読み込んでおく）
+    $content = [System.IO.Path]::GetDirectoryName($index.TrimEnd("\", "/"))
+    if (!$content) { return $null }
+    $store = [System.IO.Path]::GetDirectoryName($content)
+    if (!$store) { return $null }
+    $candidate = [System.IO.Path]::GetDirectoryName($store)
+    if (!$candidate) { return $null }
+    if (!([Workspace]::new($candidate)).IndexDir.Equals($content, [System.StringComparison]::OrdinalIgnoreCase)) { return $null }
+    return $candidate
+}
+
 function getChildCrashEvents {
     # from から to までの間に Application ログへ載った、powershell.exe の異常終了に関するイベント（Application Error・.NET Runtime・Windows Error Reporting）を、
     # 1 件 1 行の文字列で返す。件数は maxCount 件、1 件は maxLength 文字まで。読めなければ空を返す
@@ -174,6 +193,38 @@ $perfTakeSample = {
         PcCpuPercent = $pcCpu; PcFreeMB = $pcFree
     })
     $p.Dispose()
+}
+
+function formatPerfPacks {
+    # 検索の表の「照合した pack（gram で絞った数／全部）」の 1 つ分。gram 索引を使わなかった語（回数が 0）は、絞った数を「–」にして全部だけ出す
+    param (
+        $packs,
+        $allPacks,
+        [int]$gramUsed
+    )
+
+    $all = if ($null -ne $allPacks) { "{0:N0}" -f [int]$allPacks } else { "–" }
+    if ($gramUsed -le 0 -or $null -eq $packs) { return "–／$all" }
+    return ("{0:N0}／{1}" -f [int]$packs, $all)
+}
+
+function getPerfGramLines {
+    # 「インデックス作成」の節に足す、gram 索引の作成の行。作らなかったときは理由を書く。gram の結果が無ければ空
+    param (
+        $gram
+    )
+
+    if ($null -eq $gram) { return @() }
+    if ($gram.Skipped) {
+        return @("gram 索引は作らなかった（$($gram.Skipped)）。この結果の検索は gram 索引なしの数字になる。")
+    }
+    return @(
+        "pack の作成のあと、検索が使う gram 索引を作った（updateGramIndexes。作成の失敗は、そのインデックスを飛ばして続ける）。",
+        "",
+        "| gram 索引の作成 | ファイル | 合計 | 失敗したインデックス |",
+        "|---|---|---|---|",
+        ("| {0:N1} 秒 | {1:N0} | {2:N1} MB | {3} |" -f $gram.Seconds, $gram.Files, $gram.MB, $gram.Failed)
+    )
 }
 
 function startResourceMonitor {
@@ -407,7 +458,7 @@ function thinOut {
 function getSearchPerfProblems {
     # 検索と pack の作成の回帰テストの判定。合わないものの一覧（文字列の配列）を返す。空なら合格。
     #   result      : measure_perf.ps1 の result.json（ConvertFrom-Json したもの）
-    #   rows        : searches.csv の行（Word・Hits・HitTotal・Truncated・Packs）。1 回ごとの値
+    #   rows        : searches.csv の行（Word・Hits・HitTotal・Truncated・Packs・GramUsed・AllPacks）。1 回ごとの値
     #   limits      : 語の名前 → 検索の中央値の上限（ms）。比べる値は ShownMs（表がそろうまで）の中央値（無ければ TotalMs）
     #   expected    : 語の名前 → 期待する件数（数、または "10000+" = 1 万件で打ち切り）
     #   packLimitSeconds : pack の作成の秒の上限
@@ -476,7 +527,14 @@ function getSearchPerfProblems {
                 $problems.Add("検索 ${name}: 総数（HitTotal）が回ごとに違う（$((@($totals | Select-Object -Unique)) -join '・')）")
             }
         }
-        $badPacks = @($mine | Where-Object { [int]$_.Packs -le 0 -or [int]$_.Packs -ne $packCount })
+        # gram 索引で絞った回（GramUsed）は、照合した pack が 0〜全部の間（0 件の語は全部が外れる）。全部の数（AllPacks）は pack の数と同じ。絞らない回は全部を照合する
+        $badPacks = @($mine | Where-Object {
+            if ("$($_.GramUsed)" -eq "True") {
+                [int]$_.Packs -lt 0 -or [int]$_.Packs -gt $packCount -or ($null -ne $_.AllPacks -and "$($_.AllPacks)" -ne "" -and [int]$_.AllPacks -ne $packCount)
+            } else {
+                [int]$_.Packs -le 0 -or [int]$_.Packs -ne $packCount
+            }
+        })
         if ($badPacks.Count) {
             $problems.Add("検索 ${name}: 照合した pack の数が $packCount と違う回が $($badPacks.Count) 回（最初は $($badPacks[0].Packs)）")
         }

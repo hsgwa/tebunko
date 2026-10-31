@@ -3,6 +3,8 @@
 #   service  … #102 以降。検索の司令のスレッド（newSearchService）をプロセスで 1 つ作り、要求（newSearchRequest）を順に送る。
 #              lib.ps1 の読み込みと照合のプールの用意は、司令のスレッドが始めに 1 回だけ行う（1 回目の検索の時間に含まれる）
 #   runspace … #102 より前。検索のたびに新しい Runspace で lib.ps1 を読み込み、列挙して照合する（newSearchService が無い版）
+# 置き場が <W>\store\content\<名前> の形で、要求に workDir を渡せる版では、検索先を画面と同じ形（Root = <W>\store\content・RelPath = <名前>）で渡し、
+# 要求に workDir も渡す（検索が <W>\store\gram の gram 索引を探せる）。GramUsed は gram 索引で絞ったか、AllPacks は絞る前の全部の pack の数（Packs は照合した数）。
 # 検索のキャッシュ（newTsvTextCache）は、画面と同じくプロセスで 1 つを持ち続ける。1 回目は「画面を開き直した直後の検索」に当たる。
 # -Limit は検索結果の件数の上限（既定 10000。0 は制限なし。設定 searchLimit と同じ）。
 # 検索する語は -WordFile の JSON（Name・Word・Regex）で受け取る（日本語や正規表現を引数で渡すと崩れることがあるため）。
@@ -29,13 +31,19 @@ $spec = [System.IO.File]::ReadAllText($WordFile, [System.Text.Encoding]::UTF8) |
 $Name = [string]$spec.Name
 $Word = [string]$spec.Word
 $Regex = [bool]$spec.Regex
+# 検索先と workDir の渡し方。gram 索引が効く形でなければ、今までどおり文字列で渡す
+$gramWork = getPerfGramWorkDir $Index
+$canPassWorkDir = $gramWork -and (Get-Command newSearchRequest -CommandType Function -ErrorAction SilentlyContinue) -and (Get-Command newSearchRequest).Parameters.ContainsKey("workDir")
+$searchFolders = @($Index)
+if ($canPassWorkDir) { $searchFolders = @(@{ Root = ([Workspace]::new($gramWork)).IndexDir; RelPath = [System.IO.Path]::GetFileName($Index.TrimEnd("\", "/")); Recurse = $true }) }
 $mode = if (Get-Command newSearchService -CommandType Function -ErrorAction SilentlyContinue) { "service" } else { "runspace" }
 
 # service: 要求を 1 つ送り、終わるまで待つ。列挙が終わった時刻（IndexTotal が -1 から件数になった時刻）で、列挙と照合の時間を分ける。
 # 待つ間隔は短くするが、Windows のタイマーの細かさ（約 15 ミリ秒）より細かくは測れない
 function invokeServiceSearch($service) {
     $watch = [System.Diagnostics.Stopwatch]::StartNew()
-    $request = $service.Request((newSearchRequest $Word (!$Regex) @($Index) $Limit))
+    $newRequest = if ($canPassWorkDir) { newSearchRequest $Word (!$Regex) $searchFolders $Limit @{} $gramWork } else { newSearchRequest $Word (!$Regex) $searchFolders $Limit }
+    $request = $service.Request($newRequest)
     $listMs = $null
     $shownMs = $null
     while (!$request.Finished) {
@@ -54,7 +62,7 @@ function invokeServiceSearch($service) {
     $hits = 0
     $hit = $null
     while ($request.Queue.TryDequeue([ref]$hit)) { $hits++ }
-    return @{ TotalMs = $totalMs; ShownMs = $shownMs; HitTotal = $hitTotal; LoadMs = $null; ListMs = $listMs; MatchMs = $totalMs - $listMs; Packs = [int]$request.IndexTotal; Hits = $hits; Truncated = [bool]$request.Truncated }
+    return @{ TotalMs = $totalMs; ShownMs = $shownMs; HitTotal = $hitTotal; LoadMs = $null; ListMs = $listMs; MatchMs = $totalMs - $listMs; Packs = [int]$request.IndexTotal; GramUsed = [bool]$request.GramUsed; Hits = $hits; Truncated = [bool]$request.Truncated }
 }
 
 # runspace: #102 より前の画面の流れ（検索のたびに新しい Runspace で lib.ps1 を読み込む）
@@ -69,7 +77,7 @@ $runspaceScript = {
     if (!$filesName) { throw "取得した本文インデックスの一覧に項目がありません" }
     $files = $found[$filesName]
     $r = & $searchIndex $word $files $simple $Limit -cache $cache
-    @{ LoadMs = $load; ListMs = $list; MatchMs = $step.Elapsed.TotalMilliseconds; TotalMs = $total.Elapsed.TotalMilliseconds; ShownMs = $total.Elapsed.TotalMilliseconds; HitTotal = $null; Packs = $files.Count; Hits = $r.Hits.Count; Truncated = [bool]$r.Truncated }
+    @{ LoadMs = $load; ListMs = $list; MatchMs = $step.Elapsed.TotalMilliseconds; TotalMs = $total.Elapsed.TotalMilliseconds; ShownMs = $total.Elapsed.TotalMilliseconds; HitTotal = $null; Packs = $files.Count; GramUsed = $false; Hits = $r.Hits.Count; Truncated = [bool]$r.Truncated }
 }
 function invokeRunspaceSearch($cache) {
     $ps = [powershell]::Create()
@@ -88,13 +96,15 @@ $searches = New-Object System.Collections.Generic.List[object]
 $service = $null
 try {
     $cache = newTsvTextCache
+    # 絞る前の全部の pack の数（ループの前に 1 回だけ数える。検索の時間には含めない）
+    $allPacks = @(getTebunkoProperty (& $getFiles @($Index)) @("ContentIndexFiles", "Packs")).Count
     setMonitorPhase $monitor "検索"
     # 画面を開いたときに当たる（司令のスレッドを始める。lib.ps1 の読み込みは司令のスレッドで行われ、1 回目の検索の時間に含まれる）
     if ($mode -eq "service") { $service = newSearchService $cache }
     for ($i = 1; $i -le $Count; $i++) {
         $r = if ($mode -eq "service") { invokeServiceSearch $service } else { invokeRunspaceSearch $cache }
         $row = [ordered]@{ N = $i; TotalMs = (roundMs $r.TotalMs); ShownMs = (roundMs $r.ShownMs); HitTotal = $r.HitTotal; LoadMs = (roundMs $r.LoadMs); ListMs = (roundMs $r.ListMs)
-            MatchMs = (roundMs $r.MatchMs); Packs = $r.Packs; Hits = $r.Hits; Truncated = $r.Truncated }
+            MatchMs = (roundMs $r.MatchMs); Packs = $r.Packs; AllPacks = $allPacks; GramUsed = $r.GramUsed; Hits = $r.Hits; Truncated = $r.Truncated }
         $snap = getProcessSnapshot
         foreach ($k in $snap.Keys) { $row[$k] = $snap[$k] }
         $searches.Add($row)

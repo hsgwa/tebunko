@@ -45,7 +45,7 @@ Describe "検索と pack の作成の速さ" -Tag Slow {
 
         # スクリプトは同じプロセスで動かす（Windows PowerShell 5.1 は -File で起動すると、param の既定値の $PSScriptRoot が空になるため）
         $global:LASTEXITCODE = 0
-        $index = Join-Path $TestDrive "index"
+        $index = Join-Path $TestDrive "ws\store\content\perfdata"
         $work = Join-Path $TestDrive "work"
         $out = Join-Path $repo "work\test\perf-search"
         if (Test-Path -LiteralPath $out) { Remove-Item -LiteralPath $out -Recurse -Force }
@@ -124,6 +124,10 @@ Describe "検索と pack の作成の判定（getSearchPerfProblems）" -Tag Uni
         @{ name = "10000+ で HitTotal の記録が無ければ返す"; change = { param($f) (getRows $f "大量")[0].HitTotal = "" }; expect = "検索 大量: 総数（HitTotal）が 10000 より大きくない回が 1 回（最初は -1）" }
         @{ name = "pack の数が少ない回があれば返す"; change = { param($f) (getRows $f "0 件")[1].Packs = 300 }; expect = "検索 0 件: 照合した pack の数が 521 と違う回が 1 回（最初は 300）" }
         @{ name = "照合した pack が 0 の回があれば返す"; change = { param($f) (getRows $f "まれ")[0].Packs = 0 }; expect = "検索 まれ: 照合した pack の数が 521 と違う回が 1 回（最初は 0）" }
+        @{ name = "gram 索引で絞った回は、照合した pack が全部より少なくても合格"; change = { param($f) $r = (getRows $f "まれ")[0]; Add-Member -InputObject $r -NotePropertyName GramUsed -NotePropertyValue "True" -Force; Add-Member -InputObject $r -NotePropertyName AllPacks -NotePropertyValue 521 -Force; $r.Packs = 3 }; expect = $null }
+        @{ name = "gram 索引で絞って全部が外れた回（0 件の語）も合格"; change = { param($f) $r = (getRows $f "0 件")[0]; Add-Member -InputObject $r -NotePropertyName GramUsed -NotePropertyValue "True" -Force; $r.Packs = 0 }; expect = $null }
+        @{ name = "gram 索引で絞った回の pack が全部より多ければ返す"; change = { param($f) $r = (getRows $f "まれ")[0]; Add-Member -InputObject $r -NotePropertyName GramUsed -NotePropertyValue "True" -Force; $r.Packs = 600 }; expect = "検索 まれ: 照合した pack の数が 521 と違う回が 1 回（最初は 600）" }
+        @{ name = "gram 索引で絞った回の全部の数（AllPacks）が pack の数と違えば返す"; change = { param($f) $r = (getRows $f "まれ")[0]; Add-Member -InputObject $r -NotePropertyName GramUsed -NotePropertyValue "True" -Force; Add-Member -InputObject $r -NotePropertyName AllPacks -NotePropertyValue 400 -Force; $r.Packs = 3 }; expect = "検索 まれ: 照合した pack の数が 521 と違う回が 1 回（最初は 3）" }
         @{ name = "SearchMode が runspace なら返す"; change = { param($f) $f.Result.Run.SearchMode = "runspace" }; expect = "検索の流れが service ではありません（runspace）" }
         @{ name = "pack の作成が上限を超えたら返す"; change = { param($f) $f.Result.Index.Pack.Seconds = 90.5 }; expect = "pack の作成: 90.5 秒（上限 90 秒）" }
         @{ name = "期待する件数が無ければ返す"; change = { param($f) $script:noExpected = $true }; expect = "検索 まれ: 期待する件数がありません" }
