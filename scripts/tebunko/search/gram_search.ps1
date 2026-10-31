@@ -99,6 +99,6 @@ function getGramContentIndexFiles {
         return $null
     }
     $index.ContentIndexFiles = $files.ToArray()
-    $index.Gram = @{ Total = $all.Count; Candidates = $files.Count }
+    $index.Gram = @{ Total = $all.Count; Candidates = $files.Count }; $index.All = $all
     return $index
 }

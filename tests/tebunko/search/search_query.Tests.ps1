@@ -200,3 +200,53 @@ Describe "testHitFilter" -Tag Unit {
         testHitFilter $Book $Filter | Should -Be $Expected
     }
 }
+
+Describe "getNarrowSearchReason" -Tag Unit {
+    BeforeAll {
+        function newNarrowBase([hashtable]$over = @{}) {
+            $base = @{
+                Word = "見積"; SimpleMatch = $true; CaseSensitive = $false; FileFilter = ""; IncludeShapes = $true; IncludeComments = $true
+                Folders = @(@{ Root = "C:\idx"; RelPath = ""; Recurse = $true }); WorkDir = "C:\ws"; Limit = 10000
+            }
+            foreach ($key in $over.Keys) { $base[$key] = $over[$key] }
+            return $base
+        }
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "文字どおりの語が長くなる"; prev = @{}; next = @{ Word = "見積書" }; expected = "Narrow" }
+        @{ name = "前に足す"; prev = @{ Word = "積書" }; next = @{ Word = "見積書" }; expected = "Narrow" }
+        @{ name = "空白も文字"; prev = @{}; next = @{ Word = "見積 書類" }; expected = "Narrow" }
+        @{ name = "区別しない（大文字・小文字）"; prev = @{ Word = "abc" }; next = @{ Word = "ABCD" }; expected = "Narrow" }
+        @{ name = "区別する（同じ大文字・小文字）"; prev = @{ Word = "abc"; CaseSensitive = $true }; next = @{ Word = "abcd"; CaseSensitive = $true }; expected = "Narrow" }
+        @{ name = "区別するとき大文字・小文字が違えば含まない"; prev = @{ Word = "abc"; CaseSensitive = $true }; next = @{ Word = "ABCD"; CaseSensitive = $true }; expected = "NotContained" }
+        @{ name = "全角は含まない"; prev = @{ Word = "abc" }; next = @{ Word = "ＡＢＣＤ" }; expected = "NotContained" }
+        @{ name = "同じ語は絞らない"; prev = @{}; next = @{ Word = "見積" }; expected = "NotLonger" }
+        @{ name = "短い語は絞らない"; prev = @{ Word = "見積書" }; next = @{ Word = "見積" }; expected = "NotLonger" }
+        @{ name = "含まない語"; prev = @{}; next = @{ Word = "見本あ" }; expected = "NotContained" }
+        @{ name = "正規表現オンでも記号が無ければ絞る"; prev = @{ SimpleMatch = $false }; next = @{ Word = "見積書"; SimpleMatch = $false }; expected = "Narrow" }
+        @{ name = "不正な正規表現は文字どおり"; prev = @{ Word = "見積("; SimpleMatch = $false }; next = @{ Word = "見積(書"; SimpleMatch = $false }; expected = "Narrow" }
+        @{ name = "新しい語が正規表現"; prev = @{ SimpleMatch = $false }; next = @{ Word = "見積.書"; SimpleMatch = $false }; expected = "Regex" }
+        @{ name = "正規表現オンで空白を含む語"; prev = @{ SimpleMatch = $false }; next = @{ Word = "見積 書"; SimpleMatch = $false }; expected = "Regex" }
+        @{ name = "OR の正規表現"; prev = @{ Word = "見積|請求"; SimpleMatch = $false }; next = @{ Word = "見積|請求書"; SimpleMatch = $false }; expected = "Regex" }
+        @{ name = "正規表現の前の語"; prev = @{ Word = "見積."; SimpleMatch = $false }; next = @{ Word = "見積.書"; SimpleMatch = $false }; expected = "Regex" }
+        @{ name = "区別を変えた"; prev = @{}; next = @{ Word = "見積書"; CaseSensitive = $true }; expected = "Condition" }
+        @{ name = "対象ファイルの種類を足した"; prev = @{ FileFilter = "*.xlsx" }; next = @{ Word = "見積書"; FileFilter = "*.xlsx;*.docx" }; expected = "Condition" }
+        @{ name = "図形を外した"; prev = @{}; next = @{ Word = "見積書"; IncludeShapes = $false }; expected = "Condition" }
+        @{ name = "コメントを外した"; prev = @{}; next = @{ Word = "見積書"; IncludeComments = $false }; expected = "Condition" }
+        @{ name = "検索対象を足した"; prev = @{}; next = @{ Word = "見積書"; Folders = @(@{ Root = "C:\idx"; RelPath = ""; Recurse = $true }, @{ Root = "C:\other"; RelPath = ""; Recurse = $true }) }; expected = "Condition" }
+        @{ name = "検索対象の Recurse が違う"; prev = @{}; next = @{ Word = "見積書"; Folders = @(@{ Root = "C:\idx"; RelPath = ""; Recurse = $false }) }; expected = "Condition" }
+        @{ name = "ワークスペースが違う"; prev = @{}; next = @{ Word = "見積書"; WorkDir = "C:\ws2" }; expected = "Condition" }
+        @{ name = "上限が違う"; prev = @{}; next = @{ Word = "見積書"; Limit = 100 }; expected = "Condition" }
+        @{ name = "検索対象の文字列とハッシュは同じ"; prev = @{ Folders = @("C:\IDX") }; next = @{ Word = "見積書" }; expected = "Narrow" }
+        @{ name = "上限なし"; prev = @{ Limit = 0 }; next = @{ Word = "見積書"; Limit = 0 }; expected = "NoLimit" }
+    ) {
+        $previous = newNarrowBase $prev
+        $request = newNarrowBase $next
+        getNarrowSearchReason $previous $request | Should -Be $expected
+    }
+
+    It "前の記録が無ければ NoRecord" {
+        getNarrowSearchReason $null (newNarrowBase @{ Word = "見積書" }) | Should -Be "NoRecord"
+    }
+}
