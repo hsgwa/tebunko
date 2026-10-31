@@ -65,10 +65,20 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             clickGui $S $dialog "ImportButton" "［インポート］"
             waitGuiWindowClosed $S $dialog "インポートのダイアログ"
 
-            setGuiStep $S "インポートの完了"
+            setGuiStep $S "インポートの完了 → 続けて更新するかの確認（取りやめる）"
+            # 更新の確認が 1 回だけ出る（題は「<名前> をインポートしました」。ほかの確認を挟まない）
+            $confirm = waitGuiWindow $S "インポート後の更新の確認" -Id "HeadingText" -Text "高速化のためのインデックスを作成しますか？" -Timeout ${guiIndexTimeout}
+            $confirm.Current.Name | Should -BeLike "*をインポートしました"
+            getGuiText (findGui $confirm -Id "ImportIndexHint") | Should -Be "高速化のためのインデックスを作成します。作成しなくても検索はできます（結果は同じ）。"
+            clickGui $S $confirm "CancelButton" "確認の［あとで］"
+            waitGuiWindowClosed $S $confirm "インポート後の更新の確認"
             waitGui $S "インポートの完了" ${guiDefaultTimeout} {
-                (getGuiText (findGui $S.Window -Id "StatusText")) -like "*インポートしました*"
+                (getGuiText (findGui $S.Window -Id "StatusText")) -like "*インポートしました*次の更新までは、検索が遅くなることがあります。"
             } | Out-Null
+            Test-Path -LiteralPath "$($script:tool.Work)\store\gram\営業\toc.tsv" | Should -BeFalse -Because "取りやめたので、2-gram の索引は作らない"
+            # 取りやめでは何も取り込まずにインデクサが終わる（終わるまでは作成中の表示）。終わったあとも、ステータスは取りやめの文のまま
+            waitGui $S "取りやめた更新が終わる" ${guiIndexTimeout} { -not (testGuiIndexing $S) } | Out-Null
+            (getGuiText (findGui $S.Window -Id "StatusText")) | Should -BeLike "*次の更新までは、検索が遅くなることがあります。"
             $row = waitGui $S "一覧に戻る" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")) | Select-Object -First 1 }
             (getGuiRowTexts $row) | Should -Contain "営業"
             Test-Path -LiteralPath "$($script:tool.Work)\store\content\営業" | Should -BeTrue
@@ -85,8 +95,13 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             getGuiText (findGui $dialog -Id "CollisionNotice") | Should -Be "今のインデックス [営業] は、インポートするもので置き換わります。"
             clickGui $S $dialog "ImportButton" "［インポート］"
             waitGuiWindowClosed $S $dialog "インポートのダイアログ"
-            waitGui $S "置き換えの完了" ${guiDefaultTimeout} {
-                (getGuiText (findGui $S.Window -Id "StatusText")) -like "*インポートしました*"
+            setGuiStep $S "置き換えの完了 → 続けて更新する"
+            $confirm = waitGuiWindow $S "インポート後の更新の確認" -Id "HeadingText" -Text "高速化のためのインデックスを作成しますか？" -Timeout ${guiIndexTimeout}
+            $confirm.Current.Name | Should -BeLike "*をインポートしました" -Because "確認は 1 回だけで、題はインポート用の文言"
+            clickGui $S $confirm "StartButton" "確認の［作成する（更新を開始）］"
+            waitGuiWindowClosed $S $confirm "インポート後の更新の確認"
+            waitGui $S "更新の完了で 2-gram の索引ができる" ${guiIndexTimeout} {
+                Test-Path -LiteralPath "$($script:tool.Work)\store\gram\営業\toc.tsv"
             } | Out-Null
             @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count | Should -Be 1 -Because "置き換えたので増えない"
 
@@ -195,6 +210,12 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             clickGui $S $dialog "ImportButton" "［インポート］"
             waitGuiWindowClosed $S $dialog "インポートのダイアログ"
 
+            # 更新の確認が 1 回だけ出る（題は「<名前> をインポートしました」。ほかの確認を挟まない）
+            $confirm = waitGuiWindow $S "インポート後の更新の確認" -Id "HeadingText" -Text "高速化のためのインデックスを作成しますか？" -Timeout ${guiIndexTimeout}
+            $confirm.Current.Name | Should -BeLike "*をインポートしました"
+            getGuiText (findGui $confirm -Id "ImportIndexHint") | Should -Be "高速化のためのインデックスを作成します。作成しなくても検索はできます（結果は同じ）。"
+            clickGui $S $confirm "CancelButton" "確認の［あとで］"
+            waitGuiWindowClosed $S $confirm "インポート後の更新の確認"
             waitGui $S "インポートの完了" ${guiDefaultTimeout} {
                 (getGuiText (findGui $S.Window -Id "StatusText")).Contains("インデックス [営業] をインポートしました")
             } | Out-Null
