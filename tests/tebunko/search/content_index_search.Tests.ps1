@@ -1227,3 +1227,32 @@ Describe "壊れた・大きすぎる本文インデックスのファイルは�
         ($thrown -is [System.Text.RegularExpressions.RegexMatchTimeoutException] -or $thrown.InnerException -is [System.Text.RegularExpressions.RegexMatchTimeoutException]) | Should -Be $true
     }
 }
+
+Describe "分けた塊（版 3）のファイルの検索" -Tag Io {
+    BeforeAll {
+        $script:splitRoot = Join-Path $TestDrive "split_search"
+        [void][System.IO.Directory]::CreateDirectory($script:splitRoot)
+        # 1 つの場所（本文）の 90 行を、約 1KB の塊 3 つ以上に分けて、版 3 のファイルに 1 塊ずつ置く
+        $book = @{ Name = "ログ.csv"; Places = @(@{ Place = "本文"; Text = ((@(1..90 | ForEach-Object { "行$_ の単価 " + ("あ" * 10) })) -join "`r`n") + "`r`n" }) }
+        $script:splitChunks = splitContentIndexBookBlock $book 2000 1000
+        for ($i = 0; $i -lt $script:splitChunks.Count; $i++) {
+            writeContentIndexFile "$($script:splitRoot)\$(getContentIndexFileName 'csv' ($i + 1))" (convertToContentIndexText @(@{ Name = "ログ.csv"; Block = $script:splitChunks[$i] }) ${contentIndexSplitVersion})
+        }
+    }
+
+    It "どの照合のしかた（<mode>）でも、2 つ目以降の塊の行の行番号は、場所の中の通しの番号になる" -TestCases @(
+        @{ mode = "lines" }
+        @{ mode = "scan" }
+    ) {
+        param ($mode)
+        $script:splitChunks.Count | Should -BeGreaterThan 2
+        $found = getContentIndexFiles @($script:splitRoot)
+        $search = newSearchRegex "行(7|88) の単価" $false $false
+        $textRegex = if ($mode -eq "scan") { $null } else { $search.TextRegex }
+        $result = searchContentIndexFiles $found.ContentIndexFiles 0 $found.ContentIndexFiles.Count $search.Regex -1 $textRegex $search.ScanMode
+        $numbers = @($result.Hits | ForEach-Object { $_.LineNumber } | Sort-Object)
+        $numbers | Should -Be @(7, 88)
+        foreach ($hit in $result.Hits) { $hit.Line | Should -BeLike "行$($hit.LineNumber) の単価*" }
+        $result.Skipped.Count | Should -Be 0
+    }
+}

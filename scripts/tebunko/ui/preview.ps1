@@ -59,7 +59,7 @@ function showDetail {
     $count = $row.LineNumber - $first + 1 + ${previewFirstLines}
     startJob {
         param ($id, $path, $book, $location, $first, $count, $cache, $marks)
-        $result = readContentIndexLines $path $book $location $first $count $cache $marks
+        $result = readContentIndexLinesAcrossParts $path $book $location $first $count $cache $marks
         @{ Id = $id; Context = @($result.Rows); End = $result.End; Marks = $result.Marks }
     } @($script:previewRequest, [System.IO.Path]::Combine($row.Root, $row.RelPath), $row.Book, $row.Location, $first, $count, $script:tsvCache, $script:previewMarks) {
         param ($output, $errorText)
@@ -203,7 +203,7 @@ function startReadMore {
     startJob {
         param ($id, $side, $path, $book, $location, $first, $count, $cache, $marks)
         try {
-            $result = readContentIndexLines $path $book $location $first $count $cache $marks
+            $result = readContentIndexLinesAcrossParts $path $book $location $first $count $cache $marks
             @{ Id = $id; Side = $side; Failed = $false; First = $first; Rows = @($result.Rows); End = $result.End; Marks = $result.Marks }
         } catch {
             @{ Id = $id; Side = $side; Failed = $true }

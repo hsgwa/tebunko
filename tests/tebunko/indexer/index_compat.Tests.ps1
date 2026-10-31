@@ -7,7 +7,8 @@ BeforeDiscovery {
     $compatIndexRoot = Join-Path (Resolve-Path "$PSScriptRoot\..\..").Path "testdata\compat\index"
     # 今の形式（ws\store\ のある見本）と、前の形式（ws\content_index\ だけの見本）に分ける。前の形式の見本は「古い形式」の入力（index_compat j）
     $allSamples = @([System.IO.Directory]::GetDirectories($compatIndexRoot))
-    $samples = @($allSamples | Where-Object { [System.IO.Directory]::Exists("$_\ws\store") } | ForEach-Object { @{ Sample = [System.IO.Path]::GetFileName($_) } })
+    # 分けた塊の見本（v2+split）は、Excel・Word などの取り込み直しの確かめ（d〜g）に合わない中身のため、専用の確かめ（k）で読む
+    $samples = @($allSamples | Where-Object { [System.IO.Directory]::Exists("$_\ws\store") -and [System.IO.Path]::GetFileName($_) -ne "v2+split" } | ForEach-Object { @{ Sample = [System.IO.Path]::GetFileName($_) } })
     $oldSamples = @($allSamples | Where-Object { ![System.IO.Directory]::Exists("$_\ws\store") } | ForEach-Object { @{ Sample = [System.IO.Path]::GetFileName($_) } })
 }
 
@@ -395,5 +396,57 @@ Describe "古い形式（index_compat j）" -Tag Io {
         $status = readStatusFile $ws.StatusFile
         $status.Rows.Count | Should -Be $s.Expected.ingestList.Count
         assertSearchHitsMatchExpected $s $compat.WorkDir
+    }
+}
+
+Describe "分けた塊（版 3）の見本（index_compat k）" -Tag Io {
+    It "v2+split: 見本をそのまま読み、検索の結果が見本と同じで、行番号が場所の中の通しの番号になる" {
+        $s = getSample "v2+split"
+        $ws = [Workspace]::new($s.WsDir)
+
+        (getWorkspaceIndexFormat $ws).Indexes[$s.IndexName].State | Should -Be "Current"
+        assertIngestListMatchesExpected $s (readStatusFile $ws.StatusFile)
+        assertSearchHitsMatchExpected $s $s.WsDir
+
+        $files = @(Get-ChildItem -LiteralPath $ws.IndexDir -Recurse -File -Filter "content_index.txt.*.tsv" | Sort-Object Name)
+        $files.Count | Should -BeGreaterThan 2
+        foreach ($file in $files) { getContentIndexTextVersion (readContentIndexText $file.FullName) | Should -Be ${contentIndexSplitVersion} }
+        getContentIndexTextVersion (readContentIndexText (Get-ChildItem -LiteralPath $ws.IndexDir -Recurse -File -Filter "content_index.csv.001.tsv").FullName) | Should -Be ${contentIndexVersion}
+
+        $index = getContentIndexFiles @(@{ Root = $ws.IndexDir; RelPath = ""; Recurse = $true })
+        $found = searchContentIndex "行100の説明" $index.ContentIndexFiles $true 0
+        @($found.Hits).Count | Should -Be 1
+        $found.Hits[0].LineNumber | Should -Be 100
+        @($found.Skipped).Count | Should -Be 0
+    }
+
+    It "v2+split: 塊の切れ目をまたぐ行を、場所の中の通しの番号で読める（readContentIndexLinesAcrossParts）" {
+        $s = getSample "v2+split"
+        $ws = [Workspace]::new($s.WsDir)
+        $files = @(Get-ChildItem -LiteralPath $ws.IndexDir -Recurse -File -Filter "content_index.txt.*.tsv" | Sort-Object Name)
+        $second = $files[2].FullName
+        $secondFirst = (readContentIndexPlaces (readContentIndexText $second))[0].FirstLine
+        $secondFirst | Should -BeGreaterThan 1
+
+        $result = readContentIndexLinesAcrossParts $second "ログ.txt" "本文" ($secondFirst - 2) 4
+
+        @($result.Rows | ForEach-Object { $_.LineNumber }) | Should -Be @(($secondFirst - 2)..($secondFirst + 1))
+        $result.Rows[0].Line | Should -BeLike "$($secondFirst - 2),分割の単価,*"
+        $result.Rows[3].Line | Should -BeLike "$($secondFirst + 1),分割の単価,*"
+    }
+
+    It "v2+split: importIndex で export.zip を空のワークスペースに取り込むと、検索結果・取り込み一覧が見本と同じになる" {
+        $s = getSample "v2+split"
+        $root = Join-Path $TestDrive "k_split"
+        $ws = [Workspace]::new("$root\work")
+        [System.IO.Directory]::CreateDirectory($ws.Dir) | Out-Null
+        $settingsPath = "$root\setting.config"
+        writeSettings (newSettings) $settingsPath
+
+        [void](importIndex "$($s.Dir)\export.zip" "Overwrite" "" "" $ws $settingsPath)
+
+        assertIngestListMatchesExpected $s (readStatusFile $ws.StatusFile)
+        assertSearchHitsMatchExpected $s $ws.Dir
+        @(Get-ChildItem -LiteralPath $ws.IndexDir -Recurse -File -Filter "content_index.txt.*.tsv").Count | Should -BeGreaterThan 2
     }
 }
