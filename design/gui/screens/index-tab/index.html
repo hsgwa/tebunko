@@ -3575,6 +3575,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#index-tabimport-confirmインポートが終わった後の更新の確認ダイアログ遷移-17" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        index-tab/import-confirm（インポートが終わった後の更新の確認ダイアログ。遷移 17）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#index-tabtext-extensions詳細の取り込む拡張子の変更で開いたダイアログ遷移-3" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4562,6 +4573,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#index-tabimport-confirmインポートが終わった後の更新の確認ダイアログ遷移-17" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        index-tab/import-confirm（インポートが終わった後の更新の確認ダイアログ。遷移 17）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#index-tabtext-extensions詳細の取り込む拡張子の変更で開いたダイアログ遷移-3" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4685,6 +4707,7 @@
     state "index-tab/top-only" as toponly
     state "index-tab/start-confirm-top-only" as starttop
     state "index-tab/text-extensions" as textext
+    state "index-tab/import-confirm" as importconfirm
     state "index-tab/running" as running
     state "index-tab/stop-confirm" as stop
     state "index-tab/interrupted" as interrupted
@@ -4703,6 +4726,9 @@
     starttop --&gt; toponly: ［キャンセル］
     normal --&gt; textext: 詳細の「取り込み対象の拡張子」の［変更…］（3）
     textext --&gt; normal: ［OK］（選びが変わればその場で保存）・［キャンセル］
+    normal --&gt; importconfirm: ［インポート…］が終わる（元のフォルダがこの PC にある。17）
+    importconfirm --&gt; running: ［作成する（更新を開始）］
+    importconfirm --&gt; normal: ［あとで］
     running --&gt; stop: ［中止］（19）
     stop --&gt; running: ［キャンセル］
     stop --&gt; interrupted: ［中止する］
@@ -4785,6 +4811,9 @@
 <h3 id="index-tabstart-confirm-top-only同更新の確認ダイアログ遷移-17">index-tab/start-confirm-top-only（同・更新の確認ダイアログ。遷移 17）<a class="headerlink" href="#index-tabstart-confirm-top-only同更新の確認ダイアログ遷移-17" title="Permanent link">&para;</a></h3>
 <p><img alt="同・更新の確認ダイアログ" src="../../../../images/screens/index-tab/start-confirm-top-only.png" /></p>
 <p>名前の右の札「直下のみ」は読み取りだけ。合計の下の 1 行は、直下だけに変えたフォルダで、サブフォルダ側のインデックスを外す件数（0 件のときは出さない）。</p>
+<h3 id="index-tabimport-confirmインポートが終わった後の更新の確認ダイアログ遷移-17">index-tab/import-confirm（インポートが終わった後の更新の確認ダイアログ。遷移 17）<a class="headerlink" href="#index-tabimport-confirmインポートが終わった後の更新の確認ダイアログ遷移-17" title="Permanent link">&para;</a></h3>
+<p><img alt="インポートが終わった後の更新の確認ダイアログ" src="../../../../images/screens/index-tab/import-confirm.png" /></p>
+<p>窓の題は「&lt;名前&gt; をインポートしました」、見出しは「高速化のためのインデックスを作成しますか？」。見出しの下に「高速化のためのインデックスを作成します。作成しなくても検索はできます（結果は同じ）。」を出す。一覧は取り込んだ 1 行で、ステータスは『要更新』。ボタンは［あとで］（取りやめ。Esc・×も同じ）と［作成する（更新を開始）］。一覧の下の合計の 1 行は出さない。</p>
 <h3 id="index-tabtext-extensions詳細の取り込む拡張子の変更で開いたダイアログ遷移-3">index-tab/text-extensions（詳細の「取り込む拡張子」の［変更…］で開いたダイアログ。遷移 3）<a class="headerlink" href="#index-tabtext-extensions詳細の取り込む拡張子の変更で開いたダイアログ遷移-3" title="Permanent link">&para;</a></h3>
 <p><img alt="取り込み対象の拡張子のダイアログ" src="../../../../images/screens/index-tab/text-extensions.png" /></p>
 <p>Excel（4 個）・Word（3 個）・PowerPoint（3 個）・PDF（1 個）・テキスト（75 個）の見出しで分け、計 86 個のチェックを、見出しの中で件数の多い順（同じ件数は名前順）に並べる。見出しの行にも 3 状態のチェックがあり、全部が取り込み対象ならチェック・一部だけ外していれば青い枠に「−」・全部外していれば空の枠で、押すとその種類をまとめて取り込み対象にする（全部のときは全部外す）。外した行は薄く出る。見出しの折りたたみはしない（常に展開）。上の『取り込み対象のみ表示』のチェックと検索欄で絞れる（見出しは、見せる行がある種類だけ残る）。説明文に Excel・Word・PowerPoint を選べないという文は無い（選べるため）。件数と棒は、前回の更新で数えた結果（注に日時が出る）。件数が 0 のテキストの拡張子は、テキストの見出しの末尾の 1 行にまとめて折りたたむ（Office・PDF の 0 件の拡張子は、その種類の中の末尾に並ぶだけ）。撮る状態では、Excel・PDF・テキストは全部、Word は .docm だけ外し（一部）、PowerPoint は 3 つとも外している（全部外し）。前回の件数がまだ無いとき（初回）は、件数の列・棒・0 件のまとめを出さず、注に「更新すると、件数が出ます」と出す。［OK］で選びが変わっていれば、その場で設定に書く（詳細の行の要約が変わり、前回取り込んだときと違えば［要更新］が出る）。</p>

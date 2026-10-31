@@ -5601,7 +5601,7 @@
 </tr>
 <tr>
 <td><code>importIndex</code></td>
-<td>zipPath, collisionMode（<code>Rename</code>/<code>Overwrite</code>/<code>Cancel</code>）, name, sourceFolder, ws, settingsPath</td>
+<td>zipPath, collisionMode（<code>Rename</code>/<code>Overwrite</code>/<code>Cancel</code>）, name, sourceFolder, ws, settingsPath, getFreeSpace, progress（省ける。<code>Done</code>・<code>Total</code> を持つ Synchronized の hashtable。展開した大きさを書く）</td>
 <td><code>@{Name; SourcePath; Enabled; Files; Bytes; Warnings}</code>（<code>Cancel</code> は <code>$null</code>）</td>
 <td>zip から 1 つのインデックスをインポートする。目録の確かめ（版 1 の zip は断る）・展開・前の版のワークスペースの片付け・設定への登録・<code>store\content\&lt;名前&gt;\</code> の入れ替え・取り込み一覧の書き直しを行う。途中で失敗したら逆の操作で戻す</td>
 <td>同上</td>
