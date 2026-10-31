@@ -4156,6 +4156,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#インデックスごとの拡張子ごとの件数の控えtebunkocoretext_ext_countsps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        インデックスごとの拡張子ごとの件数の控え（tebunko/core/text_ext_counts.ps1）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#取り込み直すかの判断tebunkoindexerindexer_decideps1" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4402,6 +4413,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#インデックスごとの拡張子ごとの件数の控えtebunkocoretext_ext_countsps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        インデックスごとの拡張子ごとの件数の控え（tebunko/core/text_ext_counts.ps1）
+      
+    </span>
+  </a>
   
 </li>
       
@@ -4661,7 +4683,7 @@
 <td><code>newIndexerChannel</code></td>
 <td>retryFailed, confirmTargets, workers（既定 -1）, onlyNames（既定は空）, includeCloud（既定 <code>$false</code>）</td>
 <td>受け渡しの口（<code>[hashtable]::Synchronized</code>）</td>
-<td>画面とインデクサの受け渡しの口を作る（<code>RetryFailed</code>・<code>ConfirmTargets</code>・<code>Workers</code>・<code>OnlyNames</code>（更新するインデックス名。空ならチェックの付いたものすべて）・<code>OnlySkipped</code>（<code>OnlyNames</code> のうち更新できなかった名前と理由）・<code>Progress</code>・<code>Stop</code>・<code>Plan</code>・<code>Answer</code>・<code>Answered</code>・<code>Error</code>・<code>ExitCode</code>・<code>Notice</code>・<code>Postponed</code>・<code>IncludeCloud</code>（クラウドにだけあるファイルもダウンロードして取り込むか）・<code>CloudSkipped</code>（ダウンロードせずに残した件数）・<code>OfficePids</code>）。<code>Workers</code> は -1 で設定・コア数から決める、0 で司令のスレッドで取り込む（テスト）</td>
+<td>画面とインデクサの受け渡しの口を作る（<code>RetryFailed</code>・<code>ConfirmTargets</code>・<code>Workers</code>・<code>OnlyNames</code>（更新するインデックス名。空ならチェックの付いたものすべて）・<code>OnlySkipped</code>（<code>OnlyNames</code> のうち更新できなかった名前と理由）・<code>CountedFiles</code>（取り込み対象を探す間に数えたファイルの数。列挙で 1000 件ごとに増える。確認のために数え直しているときの帯に出す）・<code>Progress</code>・<code>Stop</code>・<code>Plan</code>・<code>Answer</code>・<code>Answered</code>・<code>Error</code>・<code>ExitCode</code>・<code>Notice</code>・<code>Postponed</code>・<code>IncludeCloud</code>（クラウドにだけあるファイルもダウンロードして取り込むか）・<code>CloudSkipped</code>（ダウンロードせずに残した件数）・<code>OfficePids</code>）。<code>Workers</code> は -1 で設定・コア数から決める、0 で司令のスレッドで取り込む（テスト）</td>
 <td><a href="../../structure/threads/#画面とインデクサの受け渡し">画面とインデクサの受け渡し</a></td>
 <td>画面・indexer.ps1</td>
 </tr>
@@ -5083,6 +5105,18 @@
 <td>選んだインデックスだけを更新する場合の当てはめ</td>
 </tr>
 <tr>
+<td><code>TextExcludes</code>（プロパティ）</td>
+<td>–</td>
+<td>hashtable</td>
+<td>インデックスごとの、取り込まない拡張子（Office・PDF・テキストも。インデックス名 → 拡張子の配列）。<code>Crawl</code> が、フォルダのインデックス名で <code>getTargetExtensionList</code> を作って <code>createTargetList</code> に渡す。<code>$null</code> のまま <code>Crawl</code> を呼ぶと、始めに 1 回だけ設定（<code>indexExtensionExcludes</code>）を読む</td>
+</tr>
+<tr>
+<td><code>TextCountsByIndex</code>（プロパティ）</td>
+<td>–</td>
+<td>hashtable</td>
+<td>インデックス名 → 拡張子 → 件数（Office・PDF・テキストの拡張子ごとの件数。取り込まない拡張子の分も。同じ名前の複数のフォルダは合計）。<code>Crawl</code> が <code>createTargetList</code> の <code>TextCounts</code> から足す</td>
+</tr>
+<tr>
 <td><code>Crawl</code></td>
 <td>indexCounts, onFolder</td>
 <td>–</td>
@@ -5111,6 +5145,61 @@
 <td>–</td>
 <td>インデックス名 → フォルダ</td>
 <td>取り込みのワーカーへ渡すための対応</td>
+</tr>
+</tbody>
+</table>
+<h2 id="インデックスごとの拡張子ごとの件数の控えtebunkocoretext_ext_countsps1">インデックスごとの拡張子ごとの件数の控え（<code>tebunko/core/text_ext_counts.ps1</code>）<a class="headerlink" href="#インデックスごとの拡張子ごとの件数の控えtebunkocoretext_ext_countsps1" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>関数</th>
+<th>入力</th>
+<th>出力</th>
+<th>概要</th>
+<th>詳細</th>
+<th>使用元</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>readTextExtCounts</code></td>
+<td>path（既定 <code>$workspace.TextExtCountsFile</code>）</td>
+<td>インデックス名 → <code>@{Time; Counts}</code> の表</td>
+<td>前の回に数えた拡張子ごとの件数の控えを読む。無い・壊れている・形が違う項目は、空（その名前の項目なし）にする</td>
+<td><a href="../../structure/io-files/">データの置き場所</a></td>
+<td>詳細の「取り込む拡張子」</td>
+</tr>
+<tr>
+<td><code>writeTextExtCounts</code></td>
+<td>name, counts（拡張子 → 件数）, time, path</td>
+<td>–</td>
+<td>そのインデックスの項目だけを書き換える（ほかの名前は残す。<code>.tmp</code> を経由して置き換える）</td>
+<td>同上</td>
+<td><code>IndexCatalog.StoreTextExtCounts</code></td>
+</tr>
+<tr>
+<td><code>writeTextExtCountsTable</code></td>
+<td>table, path</td>
+<td>–</td>
+<td>控えの表を丸ごと書く（<code>.tmp</code> を経由して置き換える）</td>
+<td>同上</td>
+<td>上の関数</td>
+</tr>
+<tr>
+<td><code>renameTextExtCounts</code></td>
+<td>oldName, newName, path</td>
+<td>–</td>
+<td>改名で項目のキーを付け替える（古い名前の項目が無ければ何もしない）</td>
+<td>同上</td>
+<td><code>IndexCatalog.RenameIndex</code></td>
+</tr>
+<tr>
+<td><code>removeTextExtCounts</code></td>
+<td>name, path</td>
+<td>–</td>
+<td>削除でその名前の項目を消す（無ければ何もしない）</td>
+<td>同上</td>
+<td><code>IndexCatalog.RemoveIndex</code></td>
 </tr>
 </tbody>
 </table>
@@ -5152,6 +5241,30 @@
 <td>createTargetList</td>
 </tr>
 <tr>
+<td><code>getIndexSelectableExtensions</code></td>
+<td>–</td>
+<td>string[]</td>
+<td>取り込み対象として選べる拡張子の全部（小文字。Office 10 個・PDF・テキスト 75 個の 86 個。並びは Office・PDF・テキスト）</td>
+<td><a href="../../indexing/target-decision/">取り込み対象の決定</a></td>
+<td><code>getIndexTargetExtensions</code>・<code>getTargetExtensionCounts</code>・取り込み対象の拡張子のダイアログ</td>
+</tr>
+<tr>
+<td><code>getIndexTargetExtensions</code></td>
+<td>excluded（省略可）</td>
+<td>string[]</td>
+<td>選べる 86 個から excluded（取り込まないと選んだ拡張子。大文字・小文字を区別せず、86 個に無いものは無視）を除いた一覧</td>
+<td>同上</td>
+<td><code>getTargetExtensionList</code>（<code>IngestPlanner.Crawl</code>）</td>
+</tr>
+<tr>
+<td><code>getTargetExtensionCounts</code></td>
+<td>names（ファイル名・パスの並び）</td>
+<td>ハッシュテーブル（拡張子 → 件数）</td>
+<td>86 個の拡張子ごとの件数（小文字。86 個に無い拡張子は数えない）</td>
+<td>同上</td>
+<td><code>findTargetFiles</code>（<code>TextCounts</code>）</td>
+</tr>
+<tr>
 <td><code>getIngestApp</code></td>
 <td>relPath</td>
 <td>string</td>
@@ -5174,6 +5287,14 @@
 <td>取り込むファイルの渡し先を決める。Office が要るファイルは、そのアプリの持ち主へ（満杯なら <code>Wait</code>、持ち主が諦めていれば <code>Abandoned</code>）。持ち主がいなければ、持ち主のいないワーカーのうちいちばん空いているもの。Office が要らないファイルは、持ち主のいないワーカーのうちいちばん空いているもの（無ければ、諦めていないいちばん空いているもの）。すべて諦めていれば <code>Abandoned</code></td>
 <td>同上</td>
 <td><code>IngestDispatcher</code></td>
+</tr>
+<tr>
+<td><code>getFullyIngestedIndexNames</code></td>
+<td>ranPaths（その回で取り込みを回したフォルダのパス）, folders（<code>@{Name; Path; Enabled}</code>）</td>
+<td>名前の配列</td>
+<td>名前の有効なフォルダをすべて回したインデックス名（同じ名前のフォルダの 1 つだけを回した回では、取り込んだときの取り込まない拡張子を更新しない）。有効なフォルダが無い名前は返さない</td>
+<td>同上</td>
+<td>recordIngestedTextExtensions</td>
 </tr>
 </tbody>
 </table>
