@@ -4240,7 +4240,7 @@
 <li>撮る間はマウス・キーボードに触らない（<a href="../../testing/gui-smoke/#画面のスモークテスト">画面のスモークテスト</a>と同じ。共通の関数 <code>tests/gui/gui_helpers.ps1</code> を使い回す）。</li>
 </ul>
 <h2 id="撮る状態の一覧">撮る状態の一覧<a class="headerlink" href="#撮る状態の一覧" title="Permanent link">&para;</a></h2>
-<p>「遷移」は<a href="../../testing/gui-smoke/#画面のスモークテスト">画面遷移の一覧</a>の番号。計 42 枚。</p>
+<p>「遷移」は<a href="../../testing/gui-smoke/#画面のスモークテスト">画面遷移の一覧</a>の番号。計 46 枚。</p>
 <p><strong>本体・共通（<code>window</code>）</strong></p>
 <table>
 <thead>
@@ -4344,6 +4344,26 @@
 <td>17</td>
 </tr>
 <tr>
+<td><code>index-tab/top-only</code></td>
+<td>詳細の「サブフォルダを含める」を外した（一覧の札「直下のみ」と［要更新］）</td>
+<td>3</td>
+</tr>
+<tr>
+<td><code>index-tab/start-confirm-top-only</code></td>
+<td>同・更新の確認ダイアログ（札と「サブフォルダ側の N 件をインデックスから外します」の 1 行）</td>
+<td>17</td>
+</tr>
+<tr>
+<td><code>index-tab/text-extensions</code></td>
+<td>詳細の「取り込み対象の拡張子」の［変更…］で開いたダイアログ（Excel・Word・PowerPoint・PDF・テキストの見出しと 3 状態のチェック。前回の更新で数えた件数と日時つきの注）</td>
+<td>3</td>
+</tr>
+<tr>
+<td><code>index-tab/confirm-text-extensions</code></td>
+<td>更新の確認ダイアログの［変更…］で開いた、同じダイアログ（いま数えた件数の注。確認の上に重ねて撮る）</td>
+<td>17</td>
+</tr>
+<tr>
 <td><code>index-tab/running</code></td>
 <td>更新中（更新の帯・行の［中止］・全体の進み・ステータスバーの 1 行。［＋ フォルダを追加］と［アクション ▾］の項目が押せない）</td>
 <td>17・20</td>
@@ -4360,7 +4380,12 @@
 </tr>
 <tr>
 <td><code>index-tab/failed</code></td>
-<td>失敗したファイルの一覧があり、タブに ⚠</td>
+<td>失敗したファイルがあり（詳細に入口の 1 行）、タブに ⚠</td>
+<td>18</td>
+</tr>
+<tr>
+<td><code>index-tab/files</code></td>
+<td>失敗の入口の［一覧で見る］で、［ファイルの一覧］が失敗のみで開いた</td>
 <td>18</td>
 </tr>
 </tbody>
@@ -4476,6 +4501,11 @@
 <td><code>settings-tab/nonempty-confirm</code></td>
 <td>空でないフォルダを選んだときの確認</td>
 <td>32</td>
+</tr>
+<tr>
+<td><code>settings-tab/text-open</code></td>
+<td>テキストの開き方のダイアログ（.csv・.html をエディタで開くに変えた）</td>
+<td>–</td>
 </tr>
 <tr>
 <td><code>settings-tab/index-confirm</code></td>

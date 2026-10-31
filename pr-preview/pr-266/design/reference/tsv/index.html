@@ -4516,9 +4516,9 @@
 </tr>
 <tr>
 <td><code>getFilesNoFollow</code></td>
-<td>root, -IncludeHidden, -SkipUnknown</td>
+<td>root, -IncludeHidden, -SkipUnknown, -TopOnly, -shouldStop, -onProgress（ファイルが 1000 件増えるごとに数を伝える）</td>
 <td><code>@{ Files; Directories; Links; HasError; Reason }</code></td>
-<td>root の下のファイル・フォルダを、リンクのフォルダへ降りずに集める（<code>Get-ChildItem -Recurse</code>・<code>AllDirectories</code> の代わり）。ジャンクション・シンボリックリンクは <code>Links</code> に入れ、中へ降りない（リンクの先のファイルは <code>Files</code> に入らない）。root そのものはリンクかどうか見ず、先の中を集める。Hidden は、既定では除く（<code>-IncludeHidden</code> で含める。System だけのものは入れる）。並びは <code>Get-ChildItem -Recurse</code> と同じ（フォルダごとに、その中身を並べてから、サブフォルダの下へ進む）。<code>getLinkKind</code> が <code>Unknown</code> のフォルダ（OneDrive のオンデマンドのフォルダなど）は、既定では降り、<code>-SkipUnknown</code> を付けると降りずに <code>Links</code> に入れる。読めないフォルダがあっても例外にせず <code>HasError</code> を <code>$true</code>・<code>Reason</code> にして、読めたところを返す</td>
+<td>root の下のファイル・フォルダを、リンクのフォルダへ降りずに集める（<code>Get-ChildItem -Recurse</code>・<code>AllDirectories</code> の代わり）。ジャンクション・シンボリックリンクは <code>Links</code> に入れ、中へ降りない（リンクの先のファイルは <code>Files</code> に入らない）。root そのものはリンクかどうか見ず、先の中を集める。Hidden は、既定では除く（<code>-IncludeHidden</code> で含める。System だけのものは入れる）。<code>-TopOnly</code> を付けると root の直下だけを読み、サブフォルダの下へは進まない（直下のリンクは <code>Links</code> に入る）。並びは <code>Get-ChildItem -Recurse</code> と同じ（フォルダごとに、その中身を並べてから、サブフォルダの下へ進む）。<code>getLinkKind</code> が <code>Unknown</code> のフォルダ（OneDrive のオンデマンドのフォルダなど）は、既定では降り、<code>-SkipUnknown</code> を付けると降りずに <code>Links</code> に入れる。読めないフォルダがあっても例外にせず <code>HasError</code> を <code>$true</code>・<code>Reason</code> にして、読めたところを返す</td>
 <td><a href="../../../safety/file-access/">ファイルの読み書きの範囲</a></td>
 <td><code>findTargetFiles</code>・<code>getIndexTsvFilesNoFollow</code></td>
 </tr>
@@ -4768,10 +4768,38 @@
 <td>ingestFile, getContentIndexFileKind, describePlace, findTargetFiles（<code>$targetExtensions</code>）</td>
 </tr>
 <tr>
+<td><code>getTextExtensionCounts</code></td>
+<td>names（ファイル名・パスの並び）</td>
+<td>ハッシュテーブル（拡張子 → 件数）</td>
+<td><code>$textExtensions</code> の拡張子ごとの件数（小文字。Office・PDF・一覧に無い拡張子は数えない。取り込みの件数は Office・PDF も数える <code>getTargetExtensionCounts</code>）</td>
+<td>テキストだけを数える呼び出し元</td>
+</tr>
+<tr>
+<td><code>addOutOfListExtensions</code></td>
+<td>chosen（ダイアログで選んだ拡張子）, current（今の設定の値）</td>
+<td>拡張子の配列</td>
+<td>chosen に、current のうち <code>$textExtensions</code>（75 個）に無いものを足して返す。ダイアログは 75 個だけを扱うので、書く前・比べる前に足し、75 個の外の値が設定から消えないようにする</td>
+<td><a href="../../indexing/text/#対象の拡張子">対象の拡張子</a></td>
+</tr>
+<tr>
+<td><code>getTextTargetExtensions</code></td>
+<td>excluded（省略可）</td>
+<td>string[]</td>
+<td><code>$textExtensions</code> から excluded（取り込まないと選んだ拡張子。大文字・小文字を区別せず、一覧に無いものは無視）を除いた一覧（<code>$textExtensions</code> の順）</td>
+<td>–</td>
+</tr>
+<tr>
+<td><code>getTextOpenWay</code></td>
+<td>path, notepadExtra（省略可）</td>
+<td><code>"notepad"</code> / <code>"default"</code></td>
+<td>テキストの開き方。<code>$textNotepadExtensions</code> は常に <code>notepad</code>、notepadExtra に入る <code>$textExtensions</code> の拡張子も <code>notepad</code>。終わりの <code>.</code> と空白は落としてから見る</td>
 <td><code>testTextOpenWithNotepad</code></td>
-<td>path</td>
+</tr>
+<tr>
+<td><code>testTextOpenWithNotepad</code></td>
+<td>path, notepadExtra（省略可）</td>
 <td>bool</td>
-<td>拡張子が、既定のアプリではなくメモ帳で開く拡張子（<code>$textNotepadExtensions</code>。開くと実行・登録になるもの。大文字・小文字を区別しない。終わりの <code>.</code> と空白は Windows が無視して開くので、落としてから見る）か</td>
+<td>拡張子が、既定のアプリではなくメモ帳で開く拡張子（<code>$textNotepadExtensions</code>。開くと実行・登録になるもの。notepadExtra は設定でメモ帳にした拡張子。大文字・小文字を区別しない。終わりの <code>.</code> と空白は Windows が無視して開くので、落としてから見る）か</td>
 <td>openFoundSource（<a href="../../gui/open-file/">元のファイルを開く</a>）</td>
 </tr>
 <tr>
@@ -5113,9 +5141,49 @@
 <td>convertFolderToContentIndex</td>
 </tr>
 <tr>
+<td><code>measureContentIndexPlaceChars</code></td>
+<td>book, place, text</td>
+<td>long</td>
+<td>場所 1 つ分（メタ情報の行＋中身）の本文インデックスの文字数（<code>convertBookToContentIndexBlock</code> と同じ作り方）</td>
+<td>同上</td>
+<td>assertContentIndexBookFits</td>
+</tr>
+<tr>
+<td><code>getContentIndexTooLargeMessage</code> / <code>getContentIndexDroppedText</code></td>
+<td>– / rel, count</td>
+<td>string</td>
+<td>1 つの元のファイルで検索の上限を超えるときの取り込み一覧の文言 / 上限超えのファイルを外したときの黄色のログの 1 行</td>
+<td><a href="../../indexing/errors-ingest/">取り込み一覧のエラー</a></td>
+<td>assertContentIndexBookFits, publishIndexFolders</td>
+</tr>
+<tr>
+<td><code>assertContentIndexBookFits</code></td>
+<td>dir, bookName, maxBytes</td>
+<td>–</td>
+<td>作業フォルダの TSV（元のファイル 1 つぶん）だけの本文インデックスのファイルが検索の上限を超えるなら例外にする（TSV を 1 つずつ読む。バイト数から届かないと分かれば読まない）</td>
+<td><a href="../../index-data/publish/">本文インデックスへの書き出し</a></td>
+<td>publishTsv</td>
+</tr>
+<tr>
+<td><code>readNewContentIndexBooks</code> / <code>readPreviousContentIndexParts</code> / <code>getOversizeRequeueNames</code></td>
+<td>books / longDest, keep / path, keep</td>
+<td><code>@{Books; TooLarge; Tsv}</code> / <code>@{Parts; Texts; Requeue; Remove; Dropped}</code> / string[]</td>
+<td>入れる元のファイルの TSV を読み、1 つで上限を超えるものを分ける / 前の本文インデックスのファイルを読み、上限を超えるファイルは名前だけ流れで読んで消す対象と取り込み直しにする</td>
+<td>同上</td>
+<td>convertFolderToContentIndex</td>
+</tr>
+<tr>
+<td><code>findOversizeContentIndexFolders</code></td>
+<td>root</td>
+<td>string[]</td>
+<td>本文インデックスのファイルが検索の上限を超えるフォルダ（フルパス）を返す（ファイルの大きさだけで見る）</td>
+<td>同上</td>
+<td>recoverIngestJournal</td>
+</tr>
+<tr>
 <td><code>convertFolderToContentIndex</code></td>
 <td>folder, destFolder, removeBooks, removeTsv</td>
-<td><code>@{Books; Tsv; Chars; Files; Texts}</code></td>
+<td><code>@{Books; Tsv; Chars; Files; Texts; Requeued; Dropped}</code></td>
 <td>フォルダ 1 つの TSV から拡張子ごとの本文インデックスのファイルを書く。前の本文インデックスのファイルとまぜ（TSV のある元のファイルは入れ替え、removeBooks は外し、ほかは写す）、元のファイルが無くなった拡張子の本文インデックスのファイルは消す。removeTsv なら書き終えた後に TSV のフォルダを消す。Texts は書いた中身</td>
 <td>同上</td>
 <td>updateFolderContentIndex</td>
@@ -5147,7 +5215,7 @@
 <tr>
 <td><code>publishIndexFolders</code></td>
 <td>pending（フォルダ → 無くなった元のファイル名）, indexRoot</td>
-<td><code>@{ Count（書き出したフォルダの数）; Skipped（飛ばしたフォルダの</code>@{ Rel; Stage; Reason }<code>）; Published（本文インデックスのファイルを書き終えたフォルダ）}</code></td>
+<td><code>@{ Count（書き出したフォルダの数）; Skipped（飛ばしたフォルダの</code>@{ Rel; Stage; Reason }<code>）; Published（本文インデックスのファイルを書き終えたフォルダ）; Requeued（取り込み直しにする元のファイルの、インデックスからの相対パス）}</code></td>
 <td>フォルダごとに、本文インデックスに書き（<code>updateFolderContentIndex</code>）、TSV を消し。フォルダの 1 つが失敗しても例外にせず、そのフォルダを飛ばして残りを続け、ログに黄色で出す（本文インデックスを書き終える前なら何も書き換えない）</td>
 <td>同上</td>
 <td>インデックス作成（indexer_run.ps1 の flushPending）</td>
@@ -5159,6 +5227,22 @@
 <td>本文インデックスのファイルの中の元のファイル book・場所 location の firstLine 行目から count 行を返す（行の数え方は検索と同じ。<code>Rows</code> は <code>@{LineNumber; Line}</code> の並び。<code>End</code> は count 行に満たなかった＝その先にもう行が無い）。cache（<code>newTsvTextCache</code>）に同じ本文インデックスのファイルの内容があれば読み直さない。無ければ、<code>marks</code>（前に読んだときの控え。ファイルのパス・更新日時・サイズ・場所の一覧・場所ごとの 200 行ごとの文字の位置）が今のファイルのものである間は、場所の一覧を使い回し、控えのうち目当てに一番近い所から必要な行までだけを読む（<code>readContentIndexRange</code>）。<code>marks</code> が無い・別のファイルのもの・更新日時かサイズが違うとき、範囲を読めないとき、読んでいる間にファイルが置き換わったときは、ファイルの全体を読む（初めて開くファイルの最初の読みはこれに当たる）。更新した控えを <code>Marks</code> で返す（引数で渡し戻り値で受ける。複数のスレッドで動くため <code>$script:</code> に持たない。渡された控えは書き換えない）。更新日時もサイズも同じまま中身だけが書き換わったファイルは、控えが古いことを見分けられない。読めない・見つからなければ空</td>
 <td><a href="../../gui/preview/">選択行のプレビュー</a></td>
 <td>画面</td>
+</tr>
+<tr>
+<td><code>getContentIndexBookHeadPrefix</code></td>
+<td>–</td>
+<td>string</td>
+<td>本文インデックスで元のファイル 1 つの始まりを表す行の、値の前までの部分（<code>&lt;RS&gt; ファイル名=</code>）。書き出し・分割・名前の取り出しが同じ書式を使うための 1 か所</td>
+<td>同上</td>
+<td><code>convertToContentIndexText</code>・<code>splitContentIndexTextByBook</code>・<code>readContentIndexBookNamesStreaming</code></td>
+</tr>
+<tr>
+<td><code>readContentIndexBookNamesStreaming</code></td>
+<td>path, maxLineChars（既定 32768）</td>
+<td>string の配列</td>
+<td>本文インデックスのファイルに入っている元のファイルの名前（<code>ファイル名=</code> の行の値）を、全体を読み込まずに区切り読みで集める。上限を超える行は改行まで読み捨てる。読めなければ空の配列。エクスポートが、大きすぎて含めなかったファイルの元のファイルを知らせるために使う</td>
+<td><code>writeContentIndexFilesToArchive</code></td>
+<td></td>
 </tr>
 <tr>
 <td><code>readContentIndexRange</code></td>

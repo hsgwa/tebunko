@@ -4227,7 +4227,7 @@
 </tr>
 <tr>
 <td><code>createTargetList</code> / <code>findTargetFiles</code></td>
-<td>新規・更新あり・前回未完了・インデックスなし・前の抽出版は取り込み対象、更新の無い取り込み済み・前回失敗は対象外、元のファイルが無くなったらインデックスと行を消す（本文インデックスから外すよう <code>Removed</code> で返す）、アクセスできないフォルダがあったときは行とインデックスを残す、tebunko が作ったファイル（ワークスペース・名前で分かるもの）は対象に含めない、ジャンクション・親を指す輪・ファイルのシンボリックリンクは辿らず取り込まずに 1 件 1 行でログに出す（リンクかどうか確かめられないものは取り込む）、クロール対象フォルダそのものがリンクなら、これまでどおり先の中を読み、中のリンクだけを辿らない、中止の合図（<code>shouldStop</code>）が立てば一覧化を途中で止め（<code>Stopped</code>）、無くなったファイルのインデックスは消さない（<code>IngestPlanner.Crawl</code> も残りのフォルダの前回の行を残す）</td>
+<td>新規・更新あり・前回未完了・インデックスなし・前の抽出版は取り込み対象、更新の無い取り込み済み・前回失敗は対象外、元のファイルが無くなったら行を一覧から除いて <code>Removed</code> で返す（インデックスはここでは消さない。［更新を開始］のあとに <code>applyRemovedPaths</code> が消し、本文インデックスから外す）、アクセスできないフォルダがあったときは行とインデックスを残す、tebunko が作ったファイル（ワークスペース・名前で分かるもの）は対象に含めない、ジャンクション・親を指す輪・ファイルのシンボリックリンクは辿らず取り込まずに 1 件 1 行でログに出す（リンクかどうか確かめられないものは取り込む）、クロール対象フォルダそのものがリンクなら、これまでどおり先の中を読み、中のリンクだけを辿らない、<code>Subfolders</code> が <code>false</code>（<code>-TopOnly</code>）なら直下のファイルだけを取り込み、前回取り込んだサブフォルダ側のファイルは <code>Removed</code> になる（直下のリンクは辿らず <code>Links</code> に入る）、中止の合図（<code>shouldStop</code>）が立てば一覧化を途中で止め（<code>Stopped</code>）、無くなったファイルのインデックスは消さない（<code>IngestPlanner.Crawl</code> も残りのフォルダの前回の行を残す）</td>
 </tr>
 <tr>
 <td><code>StatusLedger</code>（<code>indexer_state.Tests.ps1</code>）</td>
@@ -4236,6 +4236,14 @@
 <tr>
 <td><code>PendingPublish</code>（<code>pending_publish.Tests.ps1</code>）</td>
 <td>取り込んだ・無くなったファイルの記録、外し終えていない削除（Unpublished。取り出しても残り、MarkPublished で外れ、Restore で戻る）、取り込み中・まだ渡していないファイルが 1 つでもあるフォルダは取り出さない、無くなれば取り出せる、一度取り出したフォルダは消える</td>
+</tr>
+<tr>
+<td>取り込まない拡張子（<code>indexer_plan.Tests.ps1</code>）</td>
+<td><code>getTargetExtensionList</code>、取り込まないにした拡張子を除いた一覧での <code>findTargetFiles</code>、前に取り込んだ取り込まない拡張子のファイルが <code>Removed</code> に入りインデックスから外れること（ログが「取り込まないにした拡張子」と「元ファイルが無くなった」に分かれる）、取り込むに戻すと新規として数えること（<code>$TestDrive</code>）。Office・PDF（<code>.xlsx</code> <code>.pdf</code>）も同じに扱い、Office 10 個をすべて対象外にした回は Office を起動しない（<code>getApp</code> の Mock が 0 回）</td>
+</tr>
+<tr>
+<td>取り込み対象の拡張子の判断（<code>indexer_decide.Tests.ps1</code>）</td>
+<td><code>getIndexSelectableExtensions</code>（86 個）・<code>getIndexTargetExtensions</code>（対象外を除く。大文字・86 個の外・Office をすべて除く場合）・<code>getTargetExtensionCounts</code>（Office・PDF・テキストの件数）の表</td>
 </tr>
 <tr>
 <td><code>IngestPlanner</code>（<code>indexer_plan.Tests.ps1</code>）</td>
