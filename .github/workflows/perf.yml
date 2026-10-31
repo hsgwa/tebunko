@@ -69,7 +69,7 @@ env:
 jobs:
   perf:
     runs-on: windows-latest
-    timeout-minutes: 120
+    timeout-minutes: 360
     steps:
       - name: 計測スクリプトをチェックアウトする
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -100,7 +100,7 @@ jobs:
           $ErrorActionPreference = "Stop"
           $work = Join-Path $env:RUNNER_TEMP "perf"
           $watch = [System.Diagnostics.Stopwatch]::StartNew()
-          & .\perfdata\tools\new_index.ps1 -Dest (Join-Path $work "index") -Scale ([double]::Parse($env:SCALE, [System.Globalization.CultureInfo]::InvariantCulture))
+          & .\perfdata\tools\new_index.ps1 -Dest (Join-Path $work "store\content\perfdata") -Scale ([double]::Parse($env:SCALE, [System.Globalization.CultureInfo]::InvariantCulture))
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           [System.IO.File]::WriteAllText((Join-Path $work "data_seconds.txt"), $watch.Elapsed.TotalSeconds.ToString([System.Globalization.CultureInfo]::InvariantCulture))
 
@@ -141,7 +141,7 @@ jobs:
           if ($env:EXPORT -ne "0") { $export.Export = [int]$env:EXPORT }
           $typing = @{}
           if ($env:TYPING -ne "0") { $typing.Typing = [int]$env:TYPING; $typing.TypingMinLength = [int]$env:TYPING_MIN_LENGTH }
-          & .\tool\tools\measure_perf.ps1 @office @xlsx @export @typing -Index (Join-Path $work "index") -Work $work -Tool target -Words perfdata\words.tsv -Count ([int]$env:COUNT) -Label "$env:REF ($short) scale $env:SCALE" -RunId $env:RUN_ID -Ref $env:REF -Sha $sha -Scale $env:SCALE -DataSeconds $data -Out (Join-Path $work "result")
+          & .\tool\tools\measure_perf.ps1 @office @xlsx @export @typing -Index (Join-Path $work "store\content\perfdata") -Work $work -Tool target -Words perfdata\words.tsv -Count ([int]$env:COUNT) -Label "$env:REF ($short) scale $env:SCALE" -RunId $env:RUN_ID -Ref $env:REF -Sha $sha -Scale $env:SCALE -DataSeconds $data -Out (Join-Path $work "result")
 
       - name: 結果を Summary に書き出す
         if: always()
