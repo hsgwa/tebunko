@@ -874,6 +874,7 @@ function recordIngestedSettings {
     foreach ($folder in @($planner.Folders | Where-Object { $_ -and $names -contains [string]$_.Name })) {
         $values[[string]$folder.Path] = ($folder.Subfolders -ne $false)
     }
+    recordIngestedTextExtensions $planner $catalog
     if ($values.Count -eq 0) {
         return
     }
@@ -881,6 +882,33 @@ function recordIngestedSettings {
         $catalog.StoreIngestedSubfolders($values)
     } catch {
         writeIndexerLog "前回取り込んだときのサブフォルダの設定を保存できませんでした。画面の［要更新］の判定が実際と合わないことがあります。（$($_.Exception.Message)）" "Yellow"
+    }
+}
+
+function recordIngestedTextExtensions {
+    # 取り込み終えた回（終わり方 0）のあとに、そのインデックスの拡張子ごとの件数の控え（詳細の「取り込む拡張子」に前の回の件数として出す）を書き、
+    # その名前の有効なフォルダをすべて回した名前だけ、使った取り込まない拡張子を設定の indexExtensionExcludesIngested に書く
+    # （前回取り込んだときの設定。画面の［要更新］は今の設定との差で求める）。書けなくても取り込みの結果は変えず、ログに残す
+    param (
+        $planner,
+        $catalog
+    )
+
+    $rows = @($planner.Plan | Where-Object { $_.区分 -eq ${planKindIngest} })
+    try {
+        $time = (Get-Date).ToString("yyyy/MM/dd HH:mm")
+        foreach ($name in @($rows | ForEach-Object { [string]$_.インデックス名 } | Select-Object -Unique)) {
+            $catalog.StoreTextExtCounts($name, $planner.TextCountsByIndex[$name], $time)
+        }
+        $values = @{}
+        foreach ($name in @(getFullyIngestedIndexNames @($rows | ForEach-Object { [string]$_.元のフォルダ }) $planner.Folders)) {
+            $values[$name] = @($planner.TextExcludes[$name])
+        }
+        if ($values.Count -gt 0) {
+            $catalog.StoreIngestedTextExcludes($values)
+        }
+    } catch {
+        writeIndexerLog "前回取り込んだときの拡張子の設定・拡張子ごとの件数を保存できませんでした。画面の［要更新］の判定・件数の表示が実際と合わないことがあります。（$($_.Exception.Message)）" "Yellow"
     }
 }
 
@@ -1008,7 +1036,7 @@ function invokeIndexerBody {
         writeIndexerLog "取り込み一覧に読めない行が $($status.Rejected) 行ありました（無視しました）。" "Yellow"
     }
     $planner = [IngestPlanner]::new(@{
-        Unchecked = ${planKindUnchecked}; Missing = ${planKindMissing}; Dropped = ${planKindDropped}; StateFailed = ${stateFailed}
+        Unchecked = ${planKindUnchecked}; Missing = ${planKindMissing}; Dropped = ${planKindDropped}; StateFailed = ${stateFailed}; Channel = $script:indexerChannel; TextExcludes = (readTextExtensionSettings).IndexExcludes
     })
     $catalog = [IndexCatalog]::new($workspace, ${settingsFile}, $ledger)
     $planner.AssignNames($targetFolders, $status)

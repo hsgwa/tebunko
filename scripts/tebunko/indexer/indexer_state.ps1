@@ -83,6 +83,7 @@ function newIndexerChannel {
     #   インデクサが書く: Progress（readIndexingProgress の形）・Plan（取り込み予定）・Error・ExitCode（0 完了 / 1 エラー / 2 中止）・
     #                     CloudSkipped（クラウドにだけあるため、ダウンロードせずに残した件数）・
     #                     OnlySkipped（OnlyNames のうち、更新できなかった名前の @{ Name; Reason } の配列）
+    #                     CountedFiles（取り込み対象を探す間に数えたファイルの数。1000 件ごとに増える。確認のために数え直しているときの帯に出す）
     #                     StageTimings（段階ごとの時間と、取り込みの種類ごとの時間。IngestTiming.ToHashtable の @{ Stages; Kinds }。回の終わりに入る）
     #   OfficePids: インデックス作成が起動した Office の PID → @{ ProcessName; StartTicks }（閉じるときに止まらなければ、名前と起動時刻が合う PID だけを止める）
     #   UserOfficePids: 取り込み中に見える窓があった（利用者が使った）PowerPoint の PID → @{ ProcessName; StartTicks }（制限時間を過ぎても、閉じるときも止めない）
@@ -99,7 +100,7 @@ function newIndexerChannel {
         OnlyNames = @($onlyNames | Where-Object { $_ }); OnlySkipped = @()
         Progress = $null; Stop = $false
         Plan = $null; Answer = $null; Answered = New-Object System.Threading.ManualResetEvent($false)
-        Error = ""; ExitCode = $null; CloudSkipped = 0; StageTimings = $null
+        Error = ""; ExitCode = $null; CloudSkipped = 0; StageTimings = $null; CountedFiles = 0
         OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'
         UserOfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'
     })

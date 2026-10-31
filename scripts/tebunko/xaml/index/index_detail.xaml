@@ -112,6 +112,27 @@
               <!-- 取り込むときにサブフォルダを含めるか（設定の subfolders）。付け外しはその場で設定に書く（changeIndexSubfolders）。説明の行は出さない -->
               <CheckBox x:Name="IndexDetailSubfolders" Content="サブフォルダを含める" Margin="98,10,0,0" AutomationProperties.AutomationId="IndexDetailSubfolders"
                         ToolTip="外すと、このフォルダの直下のファイルだけを取り込みます（次の更新で反映します）" />
+              <!-- 取り込む拡張子（インデックスごと。設定の indexExtensionExcludes）。要約と［変更…］・［要更新］の札、下に件数の見出し（前回の控えの日時つき）。
+                   ［変更…］で拡張子を選ぶダイアログを開き、［OK］でその場で設定に書く（changeIndexTextExtensions）。更新中は押せない -->
+              <Grid Margin="0,10,0,0">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="98" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Style="{StaticResource Label}" VerticalAlignment="Top" Margin="0,5,0,0"><Run Text="取り込み対象の" /><LineBreak /><Run Text="拡張子" /></TextBlock>
+                <StackPanel Grid.Column="1">
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock x:Name="IndexDetailTextExtSummary" VerticalAlignment="Center" AutomationProperties.AutomationId="IndexDetailTextExtSummary" />
+                    <Button x:Name="ChangeIndexTextExtensionsButton" Content="変更…" MinWidth="64" Margin="12,0,0,0"
+                            AutomationProperties.AutomationId="ChangeIndexTextExtensionsButton" AutomationProperties.Name="取り込み対象の拡張子を変える" />
+                    <Border x:Name="IndexDetailTextExtStaleBadge" Style="{StaticResource StatusBadge}" Margin="8,0,0,0" VerticalAlignment="Center" Visibility="Collapsed"
+                            AutomationProperties.AutomationId="IndexDetailTextExtStaleBadge">
+                      <TextBlock x:Name="IndexDetailTextExtStaleBadgeText" FontSize="11" FontWeight="SemiBold" />
+                    </Border>
+                  </StackPanel>
+                  <TextBlock x:Name="IndexDetailTextExtCaption" Style="{StaticResource Meta}" FontSize="11" Margin="0,2,0,0" AutomationProperties.AutomationId="IndexDetailTextExtCaption" />
+                </StackPanel>
+              </Grid>
               <Border Style="{StaticResource InfoCard}" Margin="0,10,0,0">
                 <StackPanel>
                   <StackPanel Orientation="Horizontal">

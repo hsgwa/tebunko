@@ -5,9 +5,9 @@ BeforeAll {
 }
 
 Describe "captureIds" -Tag Unit {
-    It "43 件あり、重複が無い" {
-        ${captureIds}.Count | Should -Be 43
-        (${captureIds} | Select-Object -Unique).Count | Should -Be 43
+    It "46 件あり、重複が無い" {
+        ${captureIds}.Count | Should -Be 46
+        (${captureIds} | Select-Object -Unique).Count | Should -Be 46
     }
 
     It "すべて <画面>/<状態> の形" {
@@ -133,6 +133,7 @@ Describe "撮る場面（capture_screens.ps1）" -Tag Unit {
     It "場面の関数は、すべて撮影の本体から呼ばれている（足した場面を呼び忘れない）。captureTopOnlyScene も含む" {
         $scenes = @([regex]::Matches($script:captureScript, '(?m)^function (capture\w+Scene) \{') | ForEach-Object { $_.Groups[1].Value })
         $scenes | Should -Contain "captureTopOnlyScene"
+        $scenes | Should -Contain "captureTextExtensionsScene"
         foreach ($scene in $scenes) {
             [regex]::Matches($script:captureScript, "(?m)^\s+$scene\s+\`$ids ").Count | Should -Be 1 -Because "$scene を本体から 1 回呼ぶ"
         }
