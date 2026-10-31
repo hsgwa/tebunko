@@ -4977,17 +4977,45 @@
 </tr>
 <tr>
 <td><code>convertToContentIndexText</code></td>
-<td>books</td>
+<td>books, version（既定 <code>contentIndexVersion</code>）</td>
 <td>string</td>
-<td>元のファイルの並び（TSV から新しく作るもの、または前の本文インデックスから写すまとまり）から、本文インデックスの文字列を作る</td>
-<td>convertFolderToContentIndex</td>
+<td>元のファイルの並び（TSV から新しく作るもの、または前の本文インデックスから写すまとまり）から、本文インデックスの文字列を作る。1 行目の版は version（分けた塊のファイルは <code>contentIndexSplitVersion</code>）</td>
+<td>convertFolderToContentIndex, writeContentIndexPart</td>
+</tr>
+<tr>
+<td><code>getContentIndexPlaceMetaText</code></td>
+<td>book, place</td>
+<td>string</td>
+<td>場所 1 つ分のメタ情報の行（<code>&lt;RS&gt; キー=値</code> を LF で並べたもの）</td>
+<td>convertBookToContentIndexBlock, measureContentIndexPlaceChars, splitContentIndexBookBlock</td>
+</tr>
+<tr>
+<td><code>splitContentIndexBookBlock</code></td>
+<td>book（<code>@{Name; Places}</code>）, maxBytes（既定 <code>contentIndexSearchMaxBytes</code>）, chunkBytes（既定 <code>contentIndexFileMaxBytes</code>）</td>
+<td>string の並び</td>
+<td>元のファイル 1 つの、本文インデックスに入れるまとまりを返す。maxBytes 以下なら分けずに 1 つ。超えるなら約 chunkBytes の塊に分ける（場所の切れ目を優先し、1 つの場所が 1 つの塊に入らないときだけ行で切って、続きの塊に <code>開始行</code> を付ける。<a href="../../index-data/format/#分けた塊版-3">分けた塊</a>）。塊が maxBytes におさまらない（1 行が大きすぎる）ときは例外</td>
+<td>readNewContentIndexBooks</td>
+</tr>
+<tr>
+<td><code>addContentIndexPlaceToChunks</code></td>
+<td>chunks, current, head, meta, body, limit</td>
+<td>–</td>
+<td><code>splitContentIndexBookBlock</code> の、場所 1 つ分（開いている塊に入るなら足し、入らなければ閉じて新しい塊から始め、1 つの塊に入らない場所は行で切る）</td>
+<td>splitContentIndexBookBlock</td>
 </tr>
 <tr>
 <td><code>readContentIndexPlaces</code></td>
 <td>text</td>
-<td><code>@{Book; Location; CellPrefixed; Start; End}</code> の並び</td>
-<td>本文インデックスの文字列から、場所ごとの元のファイル名・場所の名前・行の先頭がセル番地か（<code>CellPrefixed</code>。Excel の図形・コメントが <code>$true</code>。<code>testContentIndexCellPrefixed</code>）・中身の範囲を先頭から順に返す。版が違えば例外</td>
-<td>検索（searchContentIndexFiles）、readContentIndexLines</td>
+<td><code>@{Book; Location; CellPrefixed; FirstLine; Start; End}</code> の並び</td>
+<td>本文インデックスの文字列から、場所ごとの元のファイル名・場所の名前・行の先頭がセル番地か（<code>CellPrefixed</code>。Excel の図形・コメントが <code>$true</code>。<code>testContentIndexCellPrefixed</code>）・場所の最初の行が場所の何行目か（<code>FirstLine</code>。分けた塊の <code>開始行</code>。ふつうは 1）・中身の範囲を先頭から順に返す。版が 2・3 でなければ例外</td>
+<td>検索（searchContentIndexFiles）、readContentIndexLines、addContentIndexPlace</td>
+</tr>
+<tr>
+<td><code>addContentIndexPlace</code></td>
+<td>places, current, meta, end</td>
+<td>–</td>
+<td><code>readContentIndexPlaces</code> の、場所 1 つを閉じる処理（終わりの位置・場所の名前・セル番地の判定・開始行を決めて places に足す。開いてよい名前でない場所は足さない）</td>
+<td>readContentIndexPlaces（検索のスレッドにも読み込む）</td>
 </tr>
 <tr>
 <td><code>testContentIndexCellPrefixed</code></td>
@@ -5043,8 +5071,15 @@
 <td><code>testContentIndexVersionLine</code></td>
 <td>line</td>
 <td>bool</td>
-<td>本文インデックスの先頭行が今の版の <code>版=</code> の行か</td>
+<td>本文インデックスの先頭行が読める版（2、分けた塊のファイルの 3）の <code>版=</code> の行か</td>
 <td>testIndexFileCurrentVersion</td>
+</tr>
+<tr>
+<td><code>getContentIndexTextVersion</code></td>
+<td>text</td>
+<td>int</td>
+<td>本文インデックスの文字列の版（1 行目が <code>版=3</code> なら <code>contentIndexSplitVersion</code>、それ以外は <code>contentIndexVersion</code>）</td>
+<td>readPreviousContentIndexParts, readContentIndexHeadPlace</td>
 </tr>
 <tr>
 <td><code>readIndexFormat</code> / <code>writeIndexFormat</code></td>
@@ -5160,7 +5195,7 @@
 <td><code>assertContentIndexBookFits</code></td>
 <td>dir, bookName, maxBytes</td>
 <td>–</td>
-<td>作業フォルダの TSV（元のファイル 1 つぶん）だけの本文インデックスのファイルが検索の上限を超えるなら例外にする（TSV を 1 つずつ読む。バイト数から届かないと分かれば読まない）</td>
+<td>作業フォルダの TSV（元のファイル 1 つぶん）の 1 行が、それだけで本文インデックスのファイルを検索の上限より大きくするなら例外にする（元のファイルが大きいだけなら塊に分けて入れるので通す。バイト数から届かないと分かれば読まない）</td>
 <td><a href="../../index-data/publish/">本文インデックスへの書き出し</a></td>
 <td>publishTsv</td>
 </tr>
@@ -5168,7 +5203,7 @@
 <td><code>readNewContentIndexBooks</code> / <code>readPreviousContentIndexParts</code> / <code>getOversizeRequeueNames</code></td>
 <td>books / longDest, keep / path, keep</td>
 <td><code>@{Books; TooLarge; Tsv}</code> / <code>@{Parts; Texts; Requeue; Remove; Dropped}</code> / string[]</td>
-<td>入れる元のファイルの TSV を読み、1 つで上限を超えるものを分ける / 前の本文インデックスのファイルを読み、上限を超えるファイルは名前だけ流れで読んで消す対象と取り込み直しにする</td>
+<td>入れる元のファイルの TSV を読み、1 つで上限を超えるものは塊に分ける（<code>Books</code> の <code>Chunks</code>）。分けても入らないものは <code>TooLarge</code> に入れる / 前の本文インデックスのファイルを読み（<code>Parts</code> の各要素に <code>Version</code>）、上限を超えるファイルは名前だけ流れで読んで消す対象と取り込み直しにする</td>
 <td>同上</td>
 <td>convertFolderToContentIndex</td>
 </tr>
@@ -5187,6 +5222,14 @@
 <td>フォルダ 1 つの TSV から拡張子ごとの本文インデックスのファイルを書く。前の本文インデックスのファイルとまぜ（TSV のある元のファイルは入れ替え、removeBooks は外し、ほかは写す）、元のファイルが無くなった拡張子の本文インデックスのファイルは消す。removeTsv なら書き終えた後に TSV のフォルダを消す。Texts は書いた中身</td>
 <td>同上</td>
 <td>updateFolderContentIndex</td>
+</tr>
+<tr>
+<td><code>writeContentIndexPart</code></td>
+<td>part, destFolder, oldTexts</td>
+<td>string</td>
+<td>計画（<code>planContentIndexParts</code>）の本文インデックスのファイル 1 つを書き（書き直しが要らなければ書かずに前の中身を返す）、中身を返す。1 行目の版は part の <code>Version</code></td>
+<td>同上</td>
+<td>convertFolderToContentIndex</td>
 </tr>
 <tr>
 <td><code>updateFolderContentIndex</code></td>
@@ -5226,7 +5269,31 @@
 <td><code>@{Rows; End; Marks}</code></td>
 <td>本文インデックスのファイルの中の元のファイル book・場所 location の firstLine 行目から count 行を返す（行の数え方は検索と同じ。<code>Rows</code> は <code>@{LineNumber; Line}</code> の並び。<code>End</code> は count 行に満たなかった＝その先にもう行が無い）。cache（<code>newTsvTextCache</code>）に同じ本文インデックスのファイルの内容があれば読み直さない。無ければ、<code>marks</code>（前に読んだときの控え。ファイルのパス・更新日時・サイズ・場所の一覧・場所ごとの 200 行ごとの文字の位置）が今のファイルのものである間は、場所の一覧を使い回し、控えのうち目当てに一番近い所から必要な行までだけを読む（<code>readContentIndexRange</code>）。<code>marks</code> が無い・別のファイルのもの・更新日時かサイズが違うとき、範囲を読めないとき、読んでいる間にファイルが置き換わったときは、ファイルの全体を読む（初めて開くファイルの最初の読みはこれに当たる）。更新した控えを <code>Marks</code> で返す（引数で渡し戻り値で受ける。複数のスレッドで動くため <code>$script:</code> に持たない。渡された控えは書き換えない）。更新日時もサイズも同じまま中身だけが書き換わったファイルは、控えが古いことを見分けられない。読めない・見つからなければ空</td>
 <td><a href="../../gui/preview/">選択行のプレビュー</a></td>
+<td>readContentIndexLinesAcrossParts</td>
+</tr>
+<tr>
+<td><code>readContentIndexLinesAcrossParts</code></td>
+<td>path, book, location, firstLine, count, cache, marks</td>
+<td><code>@{Rows; End; Marks}</code></td>
+<td><code>readContentIndexLines</code> と同じだが、場所が複数の塊のファイル（版 3）に分かれているときは、前の塊・続きの塊のファイルも読み、行の番号を場所の中の通しの番号で返す。分けたファイルでなければ <code>readContentIndexLines</code> をそのまま呼ぶ</td>
+<td><a href="../../gui/preview/">選択行のプレビュー</a></td>
 <td>画面</td>
+</tr>
+<tr>
+<td><code>readContentIndexHeadPlace</code></td>
+<td>path, chars（既定 8192）</td>
+<td><code>@{Split; Place}</code> / null</td>
+<td>本文インデックスのファイルの先頭だけを読み、分けた塊のファイルか（版 3）と、最初の場所（<code>readContentIndexPlaces</code> の 1 件）を返す。読めなければ <code>$null</code></td>
+<td>同上</td>
+<td>readContentIndexLinesAcrossParts, getContentIndexSplitChain</td>
+</tr>
+<tr>
+<td><code>getContentIndexSplitChain</code></td>
+<td>path, book, location, head</td>
+<td><code>@{Path; FirstLine}</code> の並び</td>
+<td>分けた場所のすべての塊のファイル（同じフォルダ・同じ拡張子で、先頭の場所が同じ元のファイル・場所のもの）を、場所の中の位置の順に返す</td>
+<td>同上</td>
+<td>readContentIndexLinesAcrossParts</td>
 </tr>
 <tr>
 <td><code>getContentIndexBookHeadPrefix</code></td>

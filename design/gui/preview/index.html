@@ -4268,7 +4268,7 @@
 </tr>
 <tr>
 <td>表示する行</td>
-<td><strong>最初は選択行の前後 50 行ずつ（最大 101 行。<code>previewFirstLines</code>）</strong>を読んで出す。高さに入る行数より多く読み、縦にスクロールして見られる。高さを変えても読み直さない。選択行は、プレビューの上から 3 行目に来るよう縦にスクロールする（位置は判断層の <code>getPreviewTopRow</code>。選択行の前が 2 行に満たなければ先頭から）<br>行は<strong>仮想化</strong>して、見えている行（と前後の余白）だけ画面の要素を作る（<code>PreviewRows</code> のテンプレートの中のスクロール <code>PreviewScroll</code> に <code>VirtualizingStackPanel</code>。<code>Recycling</code>・縦のスクロールは行の単位）。行の数が増えても要素の数は増えない<br>本文インデックスのファイルから、ヒットの元のファイル・場所（<code>Book</code>・<code>Location</code>）の中の該当の行だけを取り出す（<code>readContentIndexLines</code>、<a href="../implementation/#実装構成">実装構成</a>）。Excel は場所の N 行目がシートの N 行目なので、元のシートの前後の行になる。場所の先頭・末尾では、ある行だけを表示する</td>
+<td><strong>最初は選択行の前後 50 行ずつ（最大 101 行。<code>previewFirstLines</code>）</strong>を読んで出す。高さに入る行数より多く読み、縦にスクロールして見られる。高さを変えても読み直さない。選択行は、プレビューの上から 3 行目に来るよう縦にスクロールする（位置は判断層の <code>getPreviewTopRow</code>。選択行の前が 2 行に満たなければ先頭から）<br>行は<strong>仮想化</strong>して、見えている行（と前後の余白）だけ画面の要素を作る（<code>PreviewRows</code> のテンプレートの中のスクロール <code>PreviewScroll</code> に <code>VirtualizingStackPanel</code>。<code>Recycling</code>・縦のスクロールは行の単位）。行の数が増えても要素の数は増えない<br>本文インデックスのファイルから、ヒットの元のファイル・場所（<code>Book</code>・<code>Location</code>）の中の該当の行だけを取り出す（<code>readContentIndexLines</code>、<a href="../implementation/#実装構成">実装構成</a>）。Excel は場所の N 行目がシートの N 行目なので、元のシートの前後の行になる。場所の先頭・末尾では、ある行だけを表示する<br>64MB を超える元のファイルは複数の本文インデックスのファイルに分けて入っている（<a href="../../index-data/format/#分けた塊版-3">分けた塊</a>）。その場合は、選んだ行の前後や読み足しが塊の切れ目をまたぐとき、前の塊・続きの塊のファイルも読み、行の番号は場所の中の通しの番号で出す（<code>readContentIndexLinesAcrossParts</code>。ファイルの先頭だけを読んで、同じ場所の塊を見つける）</td>
 </tr>
 <tr>
 <td>読み込みの速さ</td>

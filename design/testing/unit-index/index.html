@@ -4411,7 +4411,7 @@
 <td>場所の名前（シート・ページ・スライド・非表示・ノート・図形・コメント・Excel のヘッダー・フッター・それ以外の部分）とメタ情報の往復、組み立て直して同じにならない名前はそのまま持つ</td>
 </tr>
 <tr>
-<td><code>getContentIndexFileName</code> / <code>readContentIndexFileName</code> / <code>planContentIndexParts</code> / <code>splitContentIndexBooksByExtension</code> / <code>encodeContentIndexValue</code> / <code>decodeContentIndexValue</code> / <code>convertToContentIndexBody</code></td>
+<td><code>getContentIndexFileName</code> / <code>readContentIndexFileName</code> / <code>planContentIndexParts</code>（分けた塊の置き方を含む）/ <code>splitContentIndexBookBlock</code>（分け方・開始行）/ <code>splitContentIndexBooksByExtension</code> / <code>encodeContentIndexValue</code> / <code>decodeContentIndexValue</code> / <code>convertToContentIndexBody</code></td>
 <td>本文インデックスのファイルの名前、拡張子ごとの分け方、値の <code>%XX</code> の往復、中身の改行を LF にそろえ U+001C〜U+001F を除く</td>
 </tr>
 <tr>
