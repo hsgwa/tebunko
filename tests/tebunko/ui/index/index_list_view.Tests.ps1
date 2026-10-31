@@ -183,6 +183,25 @@ Describe "getIndexRowView（サブフォルダの設定の差）" -Tag Unit {
     }
 }
 
+Describe "getIndexRowView（取り込む拡張子の設定の差）" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "拡張子の差だけでも要更新。ToolTip は拡張子の文"; stat = @{ Total = 10; Done = 10; Pending = 0; Failed = 0 }; sub = $false; ext = $true; text = "要更新"; tip = "*取り込み対象の拡張子の設定が、前回取り込んだときと違います*" }
+        @{ label = "どちらの差もあれば両方の文"; stat = @{ Total = 10; Done = 10; Pending = 0; Failed = 0 }; sub = $true; ext = $true; text = "要更新"; tip = "*サブフォルダを含めるかと取り込み対象の拡張子の設定*" }
+        @{ label = "サブフォルダの差だけは今までの文"; stat = @{ Total = 10; Done = 10; Pending = 0; Failed = 0 }; sub = $true; ext = $false; text = "要更新"; tip = "*サブフォルダを含めるかの設定が、前回取り込んだときと違います*" }
+        @{ label = "差が無ければ最新"; stat = @{ Total = 10; Done = 10; Pending = 0; Failed = 0 }; sub = $false; ext = $false; text = "最新"; tip = "更新済み*" }
+        @{ label = "まだ作っていない行は未作成のまま"; stat = $null; sub = $false; ext = $true; text = "未作成"; tip = "まだ更新していません*" }
+    ) {
+        param ($label, $stat, $sub, $ext, $text, $tip)
+        $view = getIndexRowView $stat $false $true 0.0 $true $false $null $sub $ext
+        $view.Text | Should -Be $text
+        $view.ToolTip | Should -BeLike $tip
+    }
+
+    It "更新中の行は、拡張子の差があっても更新中を優先する" {
+        (getIndexRowView @{ Total = 10; Done = 3; Pending = 7; Failed = 0 } $true $true 0.5 $true $false $null $false $true).Text | Should -Be "更新中"
+    }
+}
+
 Describe "getIndexCheckedItems（チェックを付けている行）" -Tag Unit {
     It "Checked の行だけを返す（チェックは保存しないその場の選び。設定の enabled とは別）" {
         $items = @(@{ Name = "営業"; Checked = $true; Enabled = $false }, @{ Name = "経理"; Checked = $false; Enabled = $true }, $null, @{ Name = "人事"; Checked = $true })

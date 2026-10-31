@@ -3,6 +3,7 @@ BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
     . "${scriptsDir}\tebunko\ui\indexing_view.ps1"
     . "${scriptsDir}\tebunko\ui\index\index_list_view.ps1"  # getIndexTopOnlyTagText（札の文言）
+    . "${scriptsDir}\tebunko\ui\index\text_ext_view.ps1"  # getIndexTextExtensionBriefSummary（拡張子の要約）
 
     function newPlanItem {
         param ([string]$kind, [int]$files = 0, [int]$targets = 0, [int]$new = 0, [int]$updated = 0, [int]$failed = 0,
@@ -664,5 +665,104 @@ Describe "getIndexingConfirmText（失敗分の更新し直し × クラウド�
         $view.Total | Should -Be $total
         $view.Text | Should -Be $text
         $view.Button | Should -Be "更新を開始"
+    }
+}
+
+Describe "取り込む拡張子の確認の文言（getIndexingTextExcludeRemovalNote・getIndexingRecountBandText ほか）" -Tag Unit {
+    It "外す件数 <count> の文言は「<text>」" -TestCases @(
+        @{ count = 0; text = "" }
+        @{ count = 1; text = "対象外にした拡張子のファイル 1 件を、インデックスから外します" }
+        @{ count = 12345; text = "対象外にした拡張子のファイル 12,345 件を、インデックスから外します" }
+    ) {
+        param ($count, $text)
+        getIndexingTextExcludeRemovalNote $count | Should -Be $text
+    }
+
+    It "数えの帯の文は、数えたファイル数 <count> のとき「<text>」" -TestCases @(
+        @{ count = 0; text = "数えています…" }
+        @{ count = 1000; text = "数えています…（1,000 ファイル）" }
+        @{ count = 12345; text = "数えています…（12,345 ファイル）" }
+    ) {
+        param ($count, $text)
+        getIndexingRecountBandText $count | Should -Be $text
+    }
+
+    It "要約は、外した拡張子 <excluded> のとき「<text>」（件数も拡張子の数も言わない。大文字小文字違い・固定の一覧の外も正しく見分ける）" -TestCases @(
+        @{ excluded = @(); text = "すべて取り込み" }
+        @{ excluded = @(".log", ".csv"); text = "対象外あり" }
+        @{ excluded = @(".LOG", ".zzz"); text = "対象外あり" }
+        @{ excluded = @(".zzz"); text = "すべて取り込み" }
+    ) {
+        param ($excluded, $text)
+        getIndexingTextExtSummary $excluded | Should -Be $text
+    }
+
+    It "ToolTip は、何も外していないときだけ『取り込むだけで実行はされない』を添える" {
+        $choices = @(${textExtensions})
+        getIndexingTextExtTip @() $choices 15 | Should -BeLike "*15 個*取り込むだけで、実行はされません。"
+        getIndexingTextExtTip @(".log") $choices 15 | Should -Be ""
+    }
+
+    It "初回の案内は、どの行も外していなくて、欄が出る行があるときだけ出す" -TestCases @(
+        @{ any = $false; row = $true; empty = $false }
+        @{ any = $true; row = $true; empty = $true }
+        @{ any = $false; row = $false; empty = $true }
+    ) {
+        param ($any, $row, $empty)
+        ((getIndexingTextExtGuide $any $row) -eq "") | Should -Be $empty
+    }
+
+    It "選びが変わったかは、順と大文字小文字を無視して比べる" -TestCases @(
+        @{ before = @(".log", ".csv"); after = @(".CSV", ".log"); changed = $false }
+        @{ before = @(); after = @(); changed = $false }
+        @{ before = @(".log"); after = @(); changed = $true }
+        @{ before = @(); after = @(".log"); changed = $true }
+    ) {
+        param ($before, $after, $changed)
+        testIndexingTextExcludesChanged $before $after | Should -Be $changed
+    }
+
+    It "取り込む行にだけ拡張子の要約を付け、外している名前は外した数を出す" {
+        $rows = newPlanViewRows @((newPlanItem ${planKindIngest} 10 1 1 0 0 0 0 0 0 "売上"), (newPlanItem ${planKindMissing} 0 0 0 0 0 0 0 0 0 "経理")) @() @{} @{ Excludes = @{ "売上" = @(".log") }; Choices = @(${textExtensions}); Executable = 15 }
+        $rows[0].TextExtShown | Should -Be $true
+        $rows[0].TextExtSummary | Should -Be "対象外あり"
+        $rows[0].TextExtTip | Should -Be ""
+        $rows[1].TextExtShown | Should -Be $false
+        $rows[1].TextExtSummary | Should -Be ""
+    }
+
+    It "外す件数は、同じ名前の行を 1 回だけ足し、選んだ名前の行だけ数える。確認の文は独立に出し、外すだけの回は『何も無い』にしない" {
+        $a = newPlanItem ${planKindIngest} 10 0 0 0 0 0 0 0 0 "売上"
+        $a | Add-Member -NotePropertyName TextExcludeRemovedCount -NotePropertyValue 4
+        $a2 = newPlanItem ${planKindIngest} 10 0 0 0 0 0 0 0 0 "売上"
+        $a2 | Add-Member -NotePropertyName TextExcludeRemovedCount -NotePropertyValue 4
+        $b = newPlanItem ${planKindIngest} 10 0 0 0 0 0 0 0 0 "経理"
+        $b | Add-Member -NotePropertyName TextExcludeRemovedCount -NotePropertyValue 3
+        getIndexingTextExcludeRemovalCount @($a, $a2, $b) | Should -Be 7
+        getIndexingTextExcludeRemovalCount @($a, $a2, $b) @("経理") | Should -Be 3
+        $view = getIndexingConfirmView @($a, $a2, $b)
+        $view.TextExcludeRemovalNote | Should -Be "対象外にした拡張子のファイル 7 件を、インデックスから外します"
+        $view.SubfolderRemovalNote | Should -Be ""
+        $view.Nothing | Should -Be $false
+        $rows = newPlanViewRows @($a)
+        $rows[0].StatusText | Should -Be "要更新"
+        $rows[0].DetailText | Should -Be "対象外にした拡張子のファイル 4 件を、インデックスから外します"
+    }
+}
+
+Describe "getIndexingRestartWaitAction" -Tag Unit {
+    It "読み込み中 <naming>・待った回数 <tries>/<max> は「<expected>」" -TestCases @(
+        @{ naming = $false; tries = 1; max = 150; expected = "start" }
+        @{ naming = $false; tries = 150; max = 150; expected = "start" }
+        @{ naming = $true; tries = 1; max = 150; expected = "wait" }
+        @{ naming = $true; tries = 149; max = 150; expected = "wait" }
+        @{ naming = $true; tries = 150; max = 150; expected = "giveup" }
+    ) {
+        param ($naming, $tries, $max, $expected)
+        getIndexingRestartWaitAction $naming $tries $max | Should -Be $expected
+    }
+
+    It "諦めたときの文は、もう一度［更新］を頼む" {
+        getIndexingRestartGiveUpText | Should -BeLike "*もう一度［更新］してください。"
     }
 }

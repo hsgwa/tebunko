@@ -1747,3 +1747,28 @@ Describe "getFilesNoFollow（TopOnly）" -Tag Io {
         @($top.Links) | Should -Be @($link)
     }
 }
+
+Describe "getFilesNoFollow（onProgress）" -Tag Io {
+    It "見つけたファイルが 1000 件増えるごとに、そのときの数を引数にして呼ぶ" {
+        $dir = Join-Path $TestDrive "progress"
+        [System.IO.Directory]::CreateDirectory("$dir\a") | Out-Null
+        [System.IO.Directory]::CreateDirectory("$dir\b") | Out-Null
+        foreach ($i in 1..600) { [System.IO.File]::WriteAllText("$dir\a\$i.txt", "x") }
+        foreach ($i in 1..600) { [System.IO.File]::WriteAllText("$dir\b\$i.txt", "x") }
+        $global:fsProgressCalls = New-Object System.Collections.Generic.List[int]
+        try {
+            $tree = getFilesNoFollow $dir -onProgress { param ($count) $global:fsProgressCalls.Add($count) }
+            @($tree.Files).Count | Should -Be 1200
+            @($global:fsProgressCalls) | Should -Be @(1200)
+        } finally {
+            Remove-Variable fsProgressCalls -Scope Global -ErrorAction SilentlyContinue
+        }
+    }
+
+    It "指定しなければ何も起きない" {
+        $dir = Join-Path $TestDrive "progress_none"
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        [System.IO.File]::WriteAllText("$dir\1.txt", "x")
+        @((getFilesNoFollow $dir).Files).Count | Should -Be 1
+    }
+}

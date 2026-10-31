@@ -142,7 +142,8 @@ function getIndexDetailView {
     # インデックスの詳細のパネルに出す内容を返す。1 つ選んでいるときだけ中身を出す
     # （何も選んでいない・複数のときは見出しだけ。一覧の下の合計は別の部品）。
     #   items         : 選んでいる行。@{ Name; Path; Enabled; FolderStatus; FolderMissing（元のフォルダが無いと分かったか）; FolderChecked（有無を調べ終えたか。$false のときだけ「確認中」。省くと調べ終えたものとする）; IndexText; IndexLevel; IndexSub; FileCountText;
-    #                   LastIngestedText; FailedCount・PendingCount（取り込み一覧の失敗・未取り込みの件数。省くと 0）}
+    #                   LastIngestedText; FailedCount・PendingCount（取り込み一覧の失敗・未取り込みの件数。省くと 0）;
+    #                   TextExcludes（そのインデックスの取り込まない拡張子）・TextExcludesIngested（前回取り込んだときのもの）・TextCountsEntry（件数の控えのその名前の値 @{ Time; Counts }。無ければ $null。省くと 全部取り込む・控え無し）; TextExtEditable（取り込む拡張子の［変更…］を押せるか。更新中・ほかの処理の間は $false。省くと $true）}
     #   multiCount    : 2 以上なら、詳細は出さず「N 件を選択中」と案内だけにする（getIndexDetailMultiCount）
     #   running       : 更新の進み具合（@{ Ratio; Processed; Total; Failed; Eta; Current }）。更新中の行の「インデックス」の箱に出す。無ければ $null
     # 戻り値: @{ Title; Selected; Name; Path; Subfolders（サブフォルダを含めるか。設定の subfolders）; FolderStatus; FolderBrush（フォルダの状態の文の色のキー。ある = Ok／無い = Danger.Text／確認中・何も出さない = Ink.Muted）;
@@ -150,6 +151,7 @@ function getIndexDetailView {
     #            Rows（右の「インデックス情報」の @{ Label; Value } の配列）; RowsKey;
     #            Multi（複数を選んでいるか）; Hint（Multi のときの案内）;
     #            Run（@{ Shown（更新中の棒・件数・ファイル名を出すか）; Value（0～1）; CountText; FileText }）;
+    #            TextExt（「取り込む拡張子」の行。@{ Summary（要約）; Caption（件数の見出し）; Stale（［要更新］の札を出すか。今の設定と前回取り込んだときの差）; ChangeEnabled（［変更…］を押せるか）; CountsSource・CountsTime・Counts（ダイアログに渡す件数の出どころ・日時・件数）}）;
     #            Error・ErrorHint（元のフォルダが無いときの理由と直し方。無ければ空。バッジは「エラー」の Ng になる） }
     param (
         [object[]]$items,
@@ -161,7 +163,7 @@ function getIndexDetailView {
     $none = @{
         Title = "インデックスの状態"; Selected = $false; Name = ""; Path = ""; Subfolders = $true; FolderStatus = ""; FolderMissing = $false; FolderBrush = "Ink.Muted"; FolderIcon = ""
         Badge = @{ Text = ""; Level = "None" }; Updated = ""; Count = ""; Rows = @(); RowsKey = ""
-        Multi = $false; Hint = ""; Run = $noRun; Error = ""; ErrorHint = ""
+        Multi = $false; Hint = ""; Run = $noRun; Error = ""; ErrorHint = ""; TextExt = (getIndexTextExtensionDetailView $null)
     }
     if ($multiCount -ge 2) {
         $multi = $none.Clone()
@@ -222,6 +224,6 @@ function getIndexDetailView {
         FolderStatus = [string]$item.FolderStatus; FolderMissing = [bool]$item.FolderMissing; FolderBrush = $folderBrush; FolderIcon = $folderIcon
         Badge = $badge
         Updated = $updated; Count = $count; Rows = @($rows); RowsKey = $rowsKey
-        Multi = $false; Hint = ""; Run = $run; Error = $errorText; ErrorHint = $errorHint
+        Multi = $false; Hint = ""; Run = $run; Error = $errorText; ErrorHint = $errorHint; TextExt = (getIndexTextExtensionDetailView $item)
     }
 }

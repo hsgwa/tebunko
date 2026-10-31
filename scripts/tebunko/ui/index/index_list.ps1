@@ -358,6 +358,38 @@ function syncIngestedSubfolders {
     }
 }
 
+# インデックスごとの取り込む拡張子の設定と件数の控え（syncIndexTextExtensions が読み直す。一覧を描き直すたびにファイルを読まないよう、ここに控える）。
+# Excludes: 今の設定、Ingested: 前回取り込んだときの設定（インデクサだけが書く）、Counts: 件数の控え（インデックス名 → @{ Time; Counts }）。どれもインデックス名がキー
+$script:textExtState = @{ Excludes = @{}; Ingested = @{}; Counts = @{} }
+
+# ネットワークの場所のワークスペースで使う、画面を開いてから取り込み終えた回の拡張子ごとの件数（インデックス名 → @{ Time; Counts }）
+$script:textExtCountsMemory = @{}
+
+function rememberTextExtCounts {
+    # 終わり方 0 で終わった回の計画の行（Channel.Plan）の拡張子ごとの件数を、メモリに持つ（インデクサが書く控えと同じ内容・同じ日時の形）
+    param (
+        $plan
+    )
+
+    $now = (Get-Date).ToString("yyyy/MM/dd HH:mm")
+    foreach ($entry in (getTextExtCountsFromPlan $plan ${planKindIngest} $now).GetEnumerator()) {
+        $script:textExtCountsMemory[$entry.Key] = $entry.Value
+    }
+}
+
+function syncIndexTextExtensions {
+    # 設定の indexExtensionExcludes・indexExtensionExcludesIngested と、件数の控えを読み直す。読めないときは前の値のまま（控えの無い状態に戻さない）。
+    # 件数の控えはワークスペースの中にあるので、ワークスペースがネットワークの場所のときは、画面が止まらないよう読まず、控え無しとして扱う
+    try {
+        $settings = readTextExtensionSettings
+        # ネットワークの場所では、控えのファイルは読まず、終わり方 0 の回のあとにメモリへ入れた件数（rememberTextExtCounts）を使う
+        $counts = $(if (testNetworkPath $workspace.Dir) { $script:textExtCountsMemory } else { readTextExtCounts })
+        $script:textExtState = @{ Excludes = $settings.IndexExcludes; Ingested = $settings.IndexExcludesIngested; Counts = $counts }
+    } catch {
+        Write-Verbose "取り込む拡張子の設定を読み直せませんでした"
+    }
+}
+
 function applyIndexStats {
     # 取り込み一覧の集計（getIndexStats）を一覧の各行のファイル数・最終更新・「ステータス」列に反映する。
     #   indexing: インデックス作成中か（getIndexRowView にそのまま渡す）
@@ -369,6 +401,7 @@ function applyIndexStats {
 
     if (!$indexing) {
         syncIngestedSubfolders   # インデクサが書いた「前回取り込んだときの設定」を読み直す（［要更新］の差の元）
+        syncIndexTextExtensions   # 取り込む拡張子の設定・前回取り込んだときの設定・件数の控えも読み直す
     }
     foreach ($item in $script:targetItems) {
         $stat = $null
@@ -394,7 +427,7 @@ function applyIndexStats {
             $item.PendingCount = [int]$stat.Pending
             $item.SetStats(("{0:#,0}" -f $stat.Total), ("更新済み {0:#,0} 件 ・ 未更新 {1:#,0} 件 ・ 失敗 {2:#,0} 件" -f $stat.Done, $stat.Pending, $stat.Failed), $lastText)
         }
-        $row = getIndexRowView $stat $indexing $item.Enabled (getIndexingRatio) (testIndexInRound $item) (testIndexExporting $item) $formatEntry (testIndexSubfoldersPending $item.Subfolders $item.IngestedSubfolders)
+        $row = getIndexRowView $stat $indexing $item.Enabled (getIndexingRatio) (testIndexInRound $item) (testIndexExporting $item) $formatEntry (testIndexSubfoldersPending $item.Subfolders $item.IngestedSubfolders) (testIndexItemTextExcludesPending $item)
         $item.SetIndexState($row.Text, $row.ToolTip, $row.Level, $row.Sub, [double]$row.Percent)
         setIndexRowActions $item
     }
@@ -411,6 +444,16 @@ function applyIndexStats {
 }
 
 $script:indexFileTotal = 0
+
+function testIndexItemTextExcludesPending {
+    # 行のインデックスの、取り込む拡張子の今の設定が、前回取り込んだときの設定と違うか（同じインデックスの複数のフォルダの行は同じ値。差から毎回求め、保存しない）
+    param ($item)
+
+    if ([string]::IsNullOrEmpty([string]$item.Name)) {
+        return $false
+    }
+    return (testIndexTextExcludesChanged (getIndexTextExcludesOf $script:textExtState.Excludes $item.Name) (getIndexTextExcludesOf $script:textExtState.Ingested $item.Name))
+}
 
 function testIndexInRound {
     # 今の回で更新する行か（選んだものだけの回では、選んだ名前の行だけ）

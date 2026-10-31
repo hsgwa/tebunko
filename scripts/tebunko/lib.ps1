@@ -12,6 +12,7 @@
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\parts.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\paths.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\status_file.ps1".Replace('`', '``')))
+. ([WildcardPattern]::Escape("$PSScriptRoot\core\text_ext_counts.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\core\source_name.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\index\index_name.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\index\index_store.ps1".Replace('`', '``')))

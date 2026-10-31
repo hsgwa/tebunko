@@ -19,6 +19,7 @@ BeforeAll {
     function selectScreen { param($name) }
     function showIndexingConfirmDialog { param ($plan) $script:dialogAnswer }
     function answerIndexingPlan { param ($channel, $answer) }
+    function showIndexTextExtensionsDialog { param ($Owner, $IndexName, $Excluded, $Counts, $CountsSource, $CountsTime) $null }  # 拡張子を選ぶダイアログ（画面。Mock で差し替える）
     function continueStartIndexing {
         # 続きの中身（前の版のインデックスの確かめとインデクサの開始）は画面を使うため、受け取った引数だけを記録する
         param ($legacyState, [string[]]$onlyNames)
@@ -30,7 +31,7 @@ BeforeAll {
     # 画面の型を使うファイルは読み込まず、必要な関数だけを取り出す
     # （dot-source は、この場の scope で行う）
     foreach ($source in @(
-            @{ File = "${scriptsDir}\tebunko\ui\indexing_tab.ps1"; Names = @("startIndexing", "finishWorkspaceCheck", "confirmIndexingTargets") }
+            @{ File = "${scriptsDir}\tebunko\ui\indexing_tab.ps1"; Names = @("startIndexing", "finishWorkspaceCheck", "confirmIndexingTargets", "changeIndexingTextExtensions", "restartIndexingIfRequested", "startIndexingForRestart", "waitAndRestartIndexing", "getIndexingScanText") }
             @{ File = "${scriptsDir}\tebunko\ui\index\index_list.ps1"; Names = @("isIndexing", "isIndexingOrPreparing") }
         )) {
         $ast = [System.Management.Automation.Language.Parser]::ParseFile($source.File, [ref]$null, [ref]$null)
@@ -292,5 +293,118 @@ Describe "getWorkspaceCheckingStatus / getWorkspaceUnreachableStatus" -Tag Unit 
 
     It "届かないときは、場所を添えて知らせる" {
         getWorkspaceUnreachableStatus "\\fileserver\共有\ws" | Should -Be "ワークスペースに接続できません：\\fileserver\共有\ws"
+    }
+}
+
+Describe "確認での取り込む拡張子の変更と、始め直し" -Tag Unit {
+    BeforeEach {
+        $script:indexingRestart = $null
+        $script:indexingRecounting = $false
+        $script:indexingOnlyNames = @("売上")
+        $script:indexingSession = $null
+        $script:indexingPreparing = $false
+        $window = [pscustomobject]@{ DialogResult = $null }
+        $planRow = [pscustomobject]@{ インデックス名 = "売上"; 区分 = ${planKindIngest}; TextExtensionCounts = @{ ".log" = 5 } }
+        $script:confirmDialog = @{ Window = $window; Plan = @($planRow); TextExcludes = @{ "売上" = @(".log") } }
+        Mock writeIndexTextExcludes { }
+        Mock startIndexing { }
+    }
+
+    It "選びが変わった［OK］は、設定にすぐ書き、同じ対象での始め直しの印を立てて、確認を取りやめとして閉じる" {
+        Mock showIndexTextExtensionsDialog { , @(".log", ".csv") }
+
+        changeIndexingTextExtensions "売上"
+
+        Should -Invoke writeIndexTextExcludes -Times 1 -ParameterFilter { $name -eq "売上" -and (@($excluded) -join ",") -eq ".log,.csv" }
+        $script:indexingRestart.OnlyNames | Should -Be @("売上")
+        $script:confirmDialog.Window.DialogResult | Should -Be $false
+        # ダイアログには、今数えた件数と今の選びを渡す
+        Should -Invoke showIndexTextExtensionsDialog -Times 1 -ParameterFilter { $IndexName -eq "売上" -and $CountsSource -eq "now" -and $Counts[".log"] -eq 5 -and (@($Excluded) -join ",") -eq ".log" }
+    }
+
+    It "全部戻す（空の配列）［OK］も、選びが変わったものとして書く" {
+        Mock showIndexTextExtensionsDialog { , @() }
+
+        changeIndexingTextExtensions "売上"
+
+        Should -Invoke writeIndexTextExcludes -Times 1
+        $script:indexingRestart | Should -Not -BeNullOrEmpty
+    }
+
+    It "［キャンセル］と、選びが変わらない［OK］では、何もしない" -TestCases @(
+        @{ result = "cancel" }
+        @{ result = "same" }
+    ) {
+        param ($result)
+        if ($result -eq "cancel") { Mock showIndexTextExtensionsDialog { $null } } else { Mock showIndexTextExtensionsDialog { , @(".LOG") } }
+
+        changeIndexingTextExtensions "売上"
+
+        Should -Invoke writeIndexTextExcludes -Times 0
+        $script:indexingRestart | Should -BeNullOrEmpty
+        $script:confirmDialog.Window.DialogResult | Should -BeNullOrEmpty
+    }
+
+    It "取りやめた回が終わったら、同じ onlyNames で startIndexing を 1 回だけ呼び、印は消える（2 回目は呼ばない）" {
+        $script:indexingRestart = @{ OnlyNames = @("売上", "経理") }
+
+        restartIndexingIfRequested 2
+        restartIndexingIfRequested 2
+
+        Should -Invoke startIndexing -Times 1 -ParameterFilter { (@($onlyNames) -join ",") -eq "売上,経理" }
+        $script:indexingRestart | Should -BeNullOrEmpty
+    }
+
+    It "一覧の読み込みが続いている（targetsNaming。ネットワークのワークスペース）間は、すぐには呼ばず、待つ関数に任せる（更新の流れが消えない）" {
+        Mock waitAndRestartIndexing {}
+        $script:indexingRestart = @{ OnlyNames = @("売上") }
+        $script:targetsNaming = $true
+        try {
+            restartIndexingIfRequested 2
+        } finally {
+            $script:targetsNaming = $false
+        }
+
+        Should -Invoke startIndexing -Times 0
+        Should -Invoke waitAndRestartIndexing -Times 1 -ParameterFilter { (@($onlyNames) -join ",") -eq "売上" }
+        $script:indexingRestart | Should -BeNullOrEmpty
+    }
+
+    It "エラーで終わった回では始め直さず、印を消す" {
+        $script:indexingRestart = @{ OnlyNames = @("売上") }
+
+        restartIndexingIfRequested 1
+
+        Should -Invoke startIndexing -Times 0
+        $script:indexingRestart | Should -BeNullOrEmpty
+        $script:indexingRecounting | Should -Be $false
+    }
+
+    It "印が無ければ何も呼ばない" {
+        restartIndexingIfRequested 0
+
+        Should -Invoke startIndexing -Times 0
+    }
+
+    It "startIndexing が断られた（インデクサも準備中も無いまま）ときは、印も数えの印も消えて、もう呼ばない" {
+        $script:indexingRestart = @{ OnlyNames = @() }
+
+        restartIndexingIfRequested 2
+        restartIndexingIfRequested 2
+
+        Should -Invoke startIndexing -Times 1
+        $script:indexingRestart | Should -BeNullOrEmpty
+        $script:indexingRecounting | Should -Be $false
+    }
+
+    It "始め直しの数えの間だけ、帯に数えたファイル数を出す（ふだんは今までの文。口が無いときは読まない）" {
+        $script:indexingSession = @{ Channel = @{ CountedFiles = 1240 } }
+        getIndexingScanText | Should -Be "更新するファイルを調べています…"
+        $script:indexingRecounting = $true
+        getIndexingScanText | Should -Be "数えています…（1,240 ファイル）"
+        $script:indexingSession = @{ Channel = @{ CountedFiles = 0 } }
+        getIndexingScanText | Should -Be "数えています…"
+        $script:indexingSession = $null
+        getIndexingScanText | Should -Be "更新するファイルを調べています…"
     }
 }
