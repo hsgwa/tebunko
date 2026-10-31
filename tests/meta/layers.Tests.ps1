@@ -223,6 +223,7 @@ Describe "依存の向き（ファイル単位）" -Tag Meta {
             newAllowances "tebunko/index/index_name.ps1" "shared/core/pdf_file.ps1" @('$pdfExtensions', "testPdfExtension") $moved "移すと消える"
             newAllowances "tebunko/index/index_name.ps1" "shared/core/text_file.ps1" @('$textExtensions', "testTextExtension") $moved "移すと消える"
             newAllowances "tebunko/indexer/indexer_decide.ps1" "tebunko/core/paths.ps1" @('$stateDone', '$stateFailed', '$stateNew') $moved "移すと消える"
+            # indexer_decide・text_ext_view から拡張子の定数（$textExtensions・$pdfExtensions）への依存は、定数だけを読む。定数を判断層の 1 ファイルに移す起票の案があり、移すと消える
             newAllowances "tebunko/indexer/indexer_decide.ps1" "shared/core/pdf_file.ps1" @('$pdfExtensions') $moved "移すと消える"
             newAllowances "tebunko/indexer/indexer_decide.ps1" "shared/core/text_file.ps1" @('$textExtensions') $moved "移すと消える"
             newAllowances "tebunko/search/search_query.ps1" "shared/core/pdf_file.ps1" @('$pdfExtensions') $moved "移すと消える"

@@ -90,7 +90,7 @@ function newSettings {
         workspaceFolder    = ""       # ワークスペース（インデックス・取り込み一覧・ログを置くフォルダ）。空なら既定（%USERPROFILE%\Documents\tebunko_ws。getDefaultWorkDir）
         cloudFiles         = ${cloudFilesAsk}  # クラウドにだけあるファイルの扱い: ask（ダウンロードせずに残す。確認の画面で選べる）/ download（ダウンロードして取り込む）。知らない値は ask（readCloudFiles）
         searchLimit        = ${searchLimitDefault}  # 検索結果の件数の上限（${searchLimitMin}～${searchLimitMax}。0 は制限なし、範囲の外は近い端、数値にできない・負の数は既定。getSearchLimit）
-        indexExtensionExcludes      = [ordered]@{}  # インデックスごとの、取り込まないテキストの拡張子: インデックス名 → ${textExtensions} の中の拡張子の配列（既定は空＝全部取り込む。readTextExtensionSettings）
+        indexExtensionExcludes      = [ordered]@{}  # インデックスごとの、取り込まない（対象外にした）拡張子: インデックス名 → 拡張子の配列（Office・PDF・テキストの 86 個の中。getIndexSelectableExtensions。既定は空＝全部取り込む。readTextExtensionSettings）
         indexExtensionExcludesIngested = [ordered]@{}  # 前回取り込んだときの indexExtensionExcludes（インデクサだけが書く。インデックス名 → 取り込まなかった拡張子の配列。名前の項目が無ければ前回は全部取り込んだ。［要更新］の差の元）
         notepadTextExtensions  = @()  # 既定のアプリの代わりにエディタで開くテキストの拡張子（${textOpenExtensions} の中から。既定は空。readTextExtensionSettings）
         textEditorPath         = ""   # 「エディタで開く」に使うプログラムのパス（空はメモ帳。書き換えるのは設定ファイルを手で直すときだけ。testTextEditorPath を通ったものだけ使う）
