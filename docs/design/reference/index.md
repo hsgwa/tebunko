@@ -14,7 +14,7 @@ flowchart LR
     settings["core/settings.ps1・workspace.ps1・source_name.ps1<br>core/fs.ps1・folder.ps1"] --> P1["settings.md"]
     indexer["core/status_file.ps1・text_ext_counts.ps1・diagnostics.ps1<br>indexer/indexer_state.ps1<br>indexer_decide.ps1・index/index_name.ps1・index_store.ps1<br>index_archive_rules.ps1・index_archive.ps1"] --> P2["indexer.md"]
     tsv["core/fs.ps1・text.ps1・text_file.ps1<br>index/index_name.ps1・index_store.ps1・content_index_format.ps1・content_index_store.ps1"] --> P3["tsv.md"]
-    search["search/search_query.ps1・content_index_search.ps1<br>search_run.ps1・search_service.ps1・source_map.ps1"] --> P4["search.md"]
+    search["search/search_query.ps1・content_index_search.ps1<br>search_run.ps1・search_narrow.ps1・search_service.ps1・source_map.ps1"] --> P4["search.md"]
 ```
 
 ## lib.ps1 から読み込まれない部品

@@ -33,6 +33,8 @@ Describe "newSearchRequest" -Tag Unit {
         $request.IncludeComments | Should -Be $true
         $request.WorkDir | Should -Be "C:\ws"
         $request.GramUsed | Should -Be $false
+        $request.Narrowed | Should -Be $false
+        $request.NarrowReason | Should -BeNullOrEmpty
         $request.Total | Should -Be -1
         $request.Finished | Should -Be $false
         $request.IsSynchronized | Should -Be $true
@@ -196,6 +198,9 @@ Describe "invokeSearchRequest（どの段で中止されても、先の段に進
             getSearchOverflowDir = "溢れの置き場所の名前を組み立てるだけ"
             testSearchOverflowRoot = "検索の始めに 1 回、置き場所の根を確かめるだけ（検索の中身の段ではない）"
             removeSearchOverflow = "検索の始めに 1 回、前の溢れを消すだけ（検索の中身の段ではない）"
+            initSearchOverflow = "検索の始めに 1 回、溢れの置き場所を決めるだけ（検索の中身の段ではない）"
+            tryNarrowSearch = "絞る段。列挙の後と選んだ後で自分で中止を見る（search_narrow.Tests.ps1）"
+            updateSearchRecord = "最後まで終えた後に、次の要求のための記録を置き換えるだけ"
         }
         $parse = { param ($path) [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$null) }
         $defined = New-Object System.Collections.Generic.HashSet[string]
@@ -241,6 +246,35 @@ Describe "SearchService" -Tag Io {
             [object]::ReferenceEquals($thread, $service.PowerShell) | Should -Be $true
             $service.IsRunning() | Should -Be $true
             $service.GetFailure() | Should -Be ""
+        } finally {
+            $service.Close()
+        }
+    }
+
+    It "語が長くなった次の要求は前の結果から絞り、読んだ内容の整理（世代を進める）をしない" {
+        $cache = newTsvTextCache
+        $service = newSearchService $cache 2
+        try {
+            $first = $service.Request((newSearchRequest "単" $true @($contentIndexRoot) 100))
+            waitRequest $first | Should -Be $true
+            $first.Narrowed | Should -Be $false
+            (takeHits $first).Count | Should -Be 3
+            # 司令が整理（世代を進める）のは要求が終わった後なので、少し待つ
+            $watch = [System.Diagnostics.Stopwatch]::StartNew()
+            while ($cache.Generation[0] -lt 1 -and $watch.Elapsed.TotalSeconds -lt 10) { Start-Sleep -Milliseconds 20 }
+            $generation = $cache.Generation[0]
+            $generation | Should -BeGreaterThan 0
+            $second = $service.Request((newSearchRequest "単価" $true @($contentIndexRoot) 100))
+            waitRequest $second | Should -Be $true
+            $second.Narrowed | Should -Be $true
+            (takeHits $second).Count | Should -Be 3
+            Start-Sleep -Milliseconds 300
+            $cache.Generation[0] | Should -Be $generation
+            # 同じ語をもう一度渡すと全体を探し直す（整理もする）
+            $third = $service.Request((newSearchRequest "単価" $true @($contentIndexRoot) 100))
+            waitRequest $third | Should -Be $true
+            $third.Narrowed | Should -Be $false
+            (takeHits $third).Count | Should -Be 3
         } finally {
             $service.Close()
         }

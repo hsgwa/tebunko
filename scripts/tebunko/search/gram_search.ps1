@@ -4,7 +4,7 @@
 #   索引が無い・読めない・壊れている、ファイルが索引より新しい（更新日時か大きさが違う）・索引に載っていないものは、必ず照合する。
 
 function getGramContentIndexFiles {
-    # 照合する本文インデックスのファイルを、getContentIndexFiles と同じ形（@{ Folders; ContentIndexFiles }）に Gram（@{ Total; Candidates }）を足して返す。
+    # 照合する本文インデックスのファイルを、getContentIndexFiles と同じ形（@{ Folders; ContentIndexFiles }）に Gram（@{ Total; Candidates }）と All（gram 索引で絞る前の、列挙したすべての本文インデックスのファイル。前の結果の使い回しが、インデックスが変わっていないことを確かめるのに使う）を足して返す。
     # 絞り込みを使えないとき（検索語（正規表現なら必ず含まれる文字）から 2-gram を作れない・gram 索引の置き場が無い）と、1 つも外せなかったときは $null
     # （呼び出し側が getContentIndexFiles ですべての本文インデックスのファイルを集める）。
     #   simpleMatch: 文字どおりに探すか（正規表現のときは、式から必ず含まれる文字を取り出して絞る）
@@ -99,6 +99,6 @@ function getGramContentIndexFiles {
         return $null
     }
     $index.ContentIndexFiles = $files.ToArray()
-    $index.Gram = @{ Total = $all.Count; Candidates = $files.Count }
+    $index.Gram = @{ Total = $all.Count; Candidates = $files.Count }; $index.All = $all
     return $index
 }

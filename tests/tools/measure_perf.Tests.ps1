@@ -234,14 +234,15 @@ Describe "perf_common.ps1 の入力しながらの検索の部品" -Tag Unit {
 
     It "1 回ごとの記録から、2 回目以降の統計・全回の統計・1 回目の値・回数の合計を作る" {
         $attempts = @(
-            @{ FirstHitMs = 50; FinishMs = 80; WaitPrevMs = 5; IntervalMs = @(140); LagMs = @(2, 10); RequestMs = @(1, 2); Hits = 1; Truncated = $false; Packs = 5; GramUsed = $false; CancelledSteps = 1 }
-            @{ FirstHitMs = $null; FinishMs = 60; WaitPrevMs = 0; IntervalMs = @(145); LagMs = @(1, 3); RequestMs = @(1, 1); Hits = 0; Truncated = $false; Packs = 5; GramUsed = $true; CancelledSteps = 0 }
-            @{ FirstHitMs = 40; FinishMs = 70; WaitPrevMs = 2; IntervalMs = @(150); LagMs = @(0, 5); RequestMs = @(1, 2); Hits = 1; Truncated = $false; Packs = 5; GramUsed = $true; CancelledSteps = 2 }
+            @{ FirstHitMs = 50; FinishMs = 80; WaitPrevMs = 5; IntervalMs = @(140); LagMs = @(2, 10); RequestMs = @(1, 2); Hits = 1; Truncated = $false; Packs = 5; GramUsed = $false; Narrowed = $false; CancelledSteps = 1 }
+            @{ FirstHitMs = $null; FinishMs = 60; WaitPrevMs = 0; IntervalMs = @(145); LagMs = @(1, 3); RequestMs = @(1, 1); Hits = 0; Truncated = $false; Packs = 5; GramUsed = $true; Narrowed = $true; CancelledSteps = 0 }
+            @{ FirstHitMs = 40; FinishMs = 70; WaitPrevMs = 2; IntervalMs = @(150); LagMs = @(0, 5); RequestMs = @(1, 2); Hits = 1; Truncated = $false; Packs = 5; GramUsed = $true; Narrowed = $true; CancelledSteps = 2 }
         )
         $r = newTypingWordResult -name "まれ" -regex $false -steps 2 -attempts $attempts
         $r.Skipped | Should -BeNullOrEmpty
         $r.Hits | Should -Be 1   # 最後（3 回目）の要求の結果
         $r.GramUsed | Should -Be 2   # 全回のうち gram 索引を使った回数
+        $r.Narrowed | Should -Be 2   # 全回のうち前の結果から絞った回数
         $r.CancelledSteps | Should -Be 2   # 2 回目以降（0 + 2）の合計
         $r.FirstHitMs.Median | Should -Be 40   # 2 回目以降（$null を除く）
         $r.FirstHitMs.Count | Should -Be 1
@@ -596,6 +597,8 @@ Describe "measure_perf.ps1" -Tag Io {
         $byName["無い"].FirstHitMs | Should -BeNullOrEmpty   # ヒットが無い語
         $byName["まれ"].FirstHitMs.Max | Should -Not -BeGreaterThan $byName["まれ"].FinishMs.Max
         @(Import-Csv "$out\typing.csv").Count | Should -Be 6   # 語の数（3）× -Typing（2）
+        @(Import-Csv "$out\typing.csv")[0].PSObject.Properties.Name -contains "Narrowed" | Should -Be $true
+        [System.IO.File]::ReadAllText("$out\summary.md") | Should -Match "前の結果から絞った回数"
         $metrics = @(Import-Csv "$out\metrics.csv")
         @($metrics | Where-Object { $_.metric -eq "typing_finish_ms" -and $_.stat -eq "median" }).Count | Should -Be 3
     }
