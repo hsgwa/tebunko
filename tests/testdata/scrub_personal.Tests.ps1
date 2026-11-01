@@ -222,6 +222,61 @@ Describe "scrub_personal.ps1" -Tag Io {
         }
     }
 
+    It "中の ZIP が壊れていて開けないときは、止まらずに、そのエントリをバイト列として名前を置き換える" {
+        $broken = [byte[]](@(0x50, 0x4B, 0x03, 0x04) + $utf8.GetBytes("壊れた $name の中身"))
+        $docx = Join-Path $dir "壊れた埋め込み.docx"
+        newZip $docx @(
+            @{ Name = "word/embeddings/Broken.xlsx"; Bytes = $broken }
+            @{ Name = "word/document.xml"; Text = "<w:t>$fullName</w:t>" }
+        )
+        runScrub @($fullName, $name)
+
+        $outer = readZip $docx
+        $utf8.GetString($outer["word/document.xml"]) | Should -Be "<w:t>test</w:t>"
+        $after = $outer["word/embeddings/Broken.xlsx"]
+        $after.Length | Should -Be $broken.Length
+        $utf8.GetString($after) | Should -Not -Match $name
+        @($after[0..3]) -join "," | Should -Be "80,75,3,4"
+    }
+
+    It "ZIP の入れ子は 3 段目までを書き換え、4 段目の ZIP は開かずにバイト列のまま残す" {
+        # 1 段目 = ファイル自身。4 段目（3 段目の ZIP の中の ZIP）は開かない。中のエントリは圧縮されるので、バイト列としても名前は見えない
+        $core = "<cp:coreProperties><dc:creator>$fullName</dc:creator></cp:coreProperties>"
+        $made = @{}
+        foreach ($level in 4, 3, 2) {
+            $path = Join-Path $dir "level$level.zip"
+            $entries = @(@{ Name = "docProps/core.xml"; Text = $core })
+            if ($level -lt 4) { $entries += @{ Name = "inner.zip"; Bytes = $made[$level + 1] } }
+            newZip $path $entries
+            $made[$level] = [System.IO.File]::ReadAllBytes($path)
+            Remove-Item -LiteralPath $path
+        }
+        $docx = Join-Path $dir "入れ子.docx"
+        newZip $docx @(
+            @{ Name = "docProps/core.xml"; Text = $core }
+            @{ Name = "inner.zip"; Bytes = $made[2] }
+        )
+        runScrub @($fullName, $name)
+
+        function readZipBytes([byte[]]$bytes) {
+            $tmp = Join-Path $dir ("tmp" + [guid]::NewGuid().ToString("N") + ".zip")
+            [System.IO.File]::WriteAllBytes($tmp, $bytes)
+            return readZip $tmp
+        }
+        $expected = '<cp:coreProperties><dc:creator>test</dc:creator></cp:coreProperties>'
+        $level1 = readZip $docx
+        $utf8.GetString($level1["docProps/core.xml"]) | Should -Be $expected
+        $level2 = readZipBytes $level1["inner.zip"]
+        $utf8.GetString($level2["docProps/core.xml"]) | Should -Be $expected
+        $level3 = readZipBytes $level2["inner.zip"]
+        $utf8.GetString($level3["docProps/core.xml"]) | Should -Be $expected
+        # 4 段目は開かないので、バイト列のまま（長さも中身も変わらず、中の名前は残る）
+        $level3["inner.zip"].Length | Should -Be $made[4].Length
+        ($level3["inner.zip"] -join ",") | Should -Be ($made[4] -join ",")
+        $level4 = readZipBytes $level3["inner.zip"]
+        $utf8.GetString($level4["docProps/core.xml"]) | Should -Be $core
+    }
+
     It "名前が無いファイルは書き換えない（更新日時が変わらない）" {
         $docx = Join-Path $dir "無関係.docx"
         newZip $docx @(@{ Name = "docProps/core.xml"; Text = '<dc:creator>test</dc:creator>' })
