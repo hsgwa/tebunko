@@ -1885,7 +1885,7 @@ Describe "readDocxUnits・readPptxUnits・readXlsxObjectUnits（部品がサイ�
 }
 
 Describe "readDocxUnits / readPptxUnits（実物のグラフ・SmartArt）" -Tag Io {
-    # Word・PowerPoint で作った実物のファイル（tests/testdata/README.md の TC32）。
+    # Word・PowerPoint で作った実物のファイル（tests/testdata/README.md の TC32-1・TC32-2）。
     # 読む関数は Office を使わないため、Io のタグで CI でも流れる。ファイルが無ければ落ちる（飛ばさない）
     It "<file> の <place> は「<expected>」になり、項目名・数値と埋め込みブックは出ない" -TestCases @(
         @{ file = "Word\グラフとSmartArt.docx"; place = "ページ001[図形]"; expected = "TC32 Word SmartArt のテキスト|TC32 Word グラフのタイトル TC32 系列名"; kind = "docx" }

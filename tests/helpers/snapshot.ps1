@@ -12,6 +12,10 @@ function assertSnapshot {
 
     $actualText = $actual.Replace("`r`n", "`n")
     if ($env:TEBUNKO_UPDATE_SNAPSHOT -eq "1") {
+        if ($env:CI -eq "true") {
+            throw "CI では TEBUNKO_UPDATE_SNAPSHOT=1 で期待値を書き直せません（外してください）: $expectedPath"
+        }
+        Write-Warning "TEBUNKO_UPDATE_SNAPSHOT=1 のため、比べずに期待値を書き直しました: $expectedPath"
         [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($expectedPath)) | Out-Null
         [System.IO.File]::WriteAllText($expectedPath, $actualText, (New-Object System.Text.UTF8Encoding($false)))
         return

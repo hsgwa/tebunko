@@ -103,7 +103,7 @@ Pester 5 はテストを「探す段階」と「流す段階」に分けて動�
 
 抽出した結果（本文インデックスのファイルの全文）を期待値のファイルと比べるテストがある（`tests/tebunko/indexer/indexer_office.Tests.ps1`。比べる関数は `tests/helpers/snapshot.ps1` の `assertSnapshot`）。期待値は `tests/testdata/snapshot/`（Office が要る形式は `office/`、要らない形式は `io/`。UTF-8（BOM なし）・LF）。違えば最初に違う行を出して落ちる。
 
-本文インデックスの形式の版を上げる、取り出しの中身を変えるなど、期待値が変わるのが正しい変更のときは、環境変数 `TEBUNKO_UPDATE_SNAPSHOT=1` を付けて流すと、比べずに期待値を書き直す。Office が要る形式（`office/`）は Office の入った機械で `-Tag Office` を付けて流す。書き直した差分を PR に載せ、変わった行が意図どおりかを確かめる。
+本文インデックスの形式の版を上げる、取り出しの中身を変えるなど、期待値が変わるのが正しい変更のときは、環境変数 `TEBUNKO_UPDATE_SNAPSHOT=1` を付けて流すと、比べずに期待値を書き直す。Office が要る形式（`office/`）は Office の入った機械で `-Tag Office` を付けて流す。書き直した差分を PR に載せ、変わった行が意図どおりかを確かめる。書き直したときは、書き直したファイルを `Write-Warning` に出す。CI（環境変数 `CI` が `true`）で `TEBUNKO_UPDATE_SNAPSHOT=1` が立っていたら、書き直さずに例外にする（期待値を黙って上書きして通らないように）。
 
 Pester 5 は除外（`ExcludeTag`）をタグ（`Tag`）より優先するため、`-Tag` に明示したタグは既定の除外から取り除く（`-Tag Slow`・`-Tag Gui` が 0 件にならない）。`-ExcludeTag` を渡すと既定の除外が丸ごと置き換わる（`-Tag Slow -ExcludeTag Manual` は今までどおり動く）。
 
