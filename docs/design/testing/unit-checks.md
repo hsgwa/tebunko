@@ -13,6 +13,7 @@ flowchart LR
 
 | 対象 | 主な確認内容 |
 |---|---|
+| `check_commit.ps1` | 一時の git リポジトリにステージした Office ファイルの、ZIP の中の ZIP（グラフの埋め込みブック）にある作成者名を見つけて止める（出力に外のエントリ名を含む）、作成者が `test` なら通す、開けない中の ZIP はバイト列として調べて止まらない |
 | `check_commit_message.ps1` | 形が合うタイトルを通し、違うものを止める、git が自動で作るメッセージは調べない、コメント行と空行を飛ばして最初の行を調べる、CRLF のファイル、空のメッセージは通す |
 | `check_signoff.ps1` | 作者の `Signed-off-by` があり、ほかの `Signed-off-by:` の行（山かっこ無し・後ろに文字が続く・山かっこが 2 つ・名前だけの行を含む）が無ければ通す、無い・作者の形でない行が 1 つでもあれば止める（出力に違う行のメールアドレスは出さず、`-Range` は SHA だけ）、コメント行と `git commit -v` の差分の中は数えない、マージコミット・bot は調べない |
 | `check_release_tag.ps1` | 形が合うタグを通し、形が違うもの（`v1.0`・`V1.0.0`・`v01.0.0`・全角の数字・接尾辞・末尾の改行など）を止める。指すコミットが main にあれば通し、無いときと、参照を解決できないときは、別の理由の文言で止める |
@@ -26,7 +27,7 @@ flowchart LR
 
 **テストデータの個人情報の除去（`tests/testdata/scrub_personal`）**
 
-タグ `Io` で、テストデータから個人情報を取り除く `tests/testdata/scrub_personal.ps1` を検証する（OOXML・ODF・`.xlsb` の中のバイナリ・旧形式・Shift_JIS のテキスト、壊れた ZIP、隠し属性・読み取り専用属性）。
+タグ `Io` で、テストデータから個人情報を取り除く `tests/testdata/scrub_personal.ps1` を検証する（OOXML・ODF・`.xlsb` の中のバイナリ・旧形式・Shift_JIS のテキスト、ZIP の中の ZIP（グラフの埋め込みブック）、壊れた ZIP、隠し属性・読み取り専用属性）。
 
 **安全性の検査（`tests/meta/safety.Tests.ps1`）**
 
