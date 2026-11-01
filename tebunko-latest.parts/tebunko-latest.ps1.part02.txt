@@ -1,3 +1,173 @@
+        # ほかの人が作ったワークスペースを使うとき、一覧をそのワークスペースに合わせる（合わせないままインデックス作成をすると、
+        # 一覧に無いインデックスは、インデックス更新の確認に「削除予定」として出る。findDroppedIndexes）。取り込み一覧が無ければ一覧は変えない
+        # 前の版のワークスペースは取り込み一覧がワークスペース直下（OldStatusFile）にあるため、そちらも読む。
+        # 移行の途中（まだ作り直していないインデックスがある）は両方にあるので、新しい方を先に、無い名前を前の版から足す
+        $target = newWorkspace $dir.TrimEnd("\")
+        $map = [ordered]@{}
+        foreach ($statusPath in @($target.StatusFile, $target.OldStatusFile)) {
+            $part = getIndexNameMap $statusPath
+            foreach ($name in $part.Keys) {
+                if (!$map.Contains($name)) {
+                    $map[$name] = $part[$name]
+                }
+            }
+        }
+        if ($map.Count -eq 0) {
+            return 0
+        }
+        writeTargetFolders @($map.Keys | ForEach-Object { [pscustomobject]@{ Name = $_; Path = $map[$_]; Enabled = $true } }) $this.SettingsPath
+        return $map.Count
+    }
+
+    hidden [string] MoveEntry([string]$source, [string]$dest, [int]$tries, [int]$waitMilliseconds) {
+        # ファイル・フォルダを 1 つ移す。同じドライブならそのまま移し（フォルダは moveDirectoryRetry で試し直す）、
+        # 別のドライブのフォルダは写してから元を消す（Directory.Move は別のドライブへ移せないため）。
+        # 写している途中で失敗したら、写した分を消して例外にする。
+        # 写し終えたあとに元を消せなければ、移し先を正として例外にせず、残った元の場所を返す（消せたら空の文字）
+        $longSource = toLongPath $source
+        $longDest = toLongPath $dest
+        if (![System.IO.Directory]::Exists($longSource)) {
+            # File.Move は別のドライブへも移せる
+            [System.IO.File]::Move($longSource, $longDest)
+            return ""
+        }
+        if (testSameDriveRoot $source $dest) {
+            moveDirectoryRetry $source $dest $tries $waitMilliseconds
+            return ""
+        }
+        try {
+            $this.CopyTree($longSource, $longDest)
+        } catch {
+            $original = $_
+            try {
+                removeDirectoryRetry $dest
+            } catch {
+                # 片付けに失敗しても、元の失敗の理由を隠さない
+            }
+            throw $original
+        }
+        try {
+            removeDirectoryRetry $source
+        } catch {
+            return $source
+        }
+        return ""
+    }
+
+    hidden [void] CopyTree([string]$source, [string]$dest) {
+        # フォルダを中身ごと写す（\\?\ 付きのパスを受け取る）
+        [System.IO.Directory]::CreateDirectory($dest) | Out-Null
+        foreach ($file in [System.IO.Directory]::GetFiles($source)) {
+            [System.IO.File]::Copy($file, [System.IO.Path]::Combine($dest, [System.IO.Path]::GetFileName($file)))
+        }
+        foreach ($sub in [System.IO.Directory]::GetDirectories($source)) {
+            $this.CopyTree($sub, [System.IO.Path]::Combine($dest, [System.IO.Path]::GetFileName($sub)))
+        }
+    }
+}
+
+# ［新規で開く］のためのコピー（テキスト・PDF など、「新規」の開き方が無い種類のファイル）の作成と片付け（状態層）。
+# コピーは $workspace.TmpRoot\<PC の鍵>\open_copy\<12 桁の文字>\<元の名前>（コピー yyyyMMdd-HHmm）.<拡張子> に置く（getOpenCopyDir・getOpenCopyName）。
+# 片付けは GUI の起動時にだけ行い、1 日より古いものを消す（開いているコピーは消せずに残る。閉じるときには消さない）。
+# 作る・消すときは、置き場所がワークスペースの TmpRoot\<PC の鍵>\open_copy そのものであり、リンク（ジャンクション・シンボリックリンク）で
+# 外へつながっていないことを確かめてから行う（testOpenCopyDir）。
+
+# open_copy の置き場所の名前（片付けが、消してよい場所かを見るときにも使う）
+${openCopyDirName} = "open_copy"
+# 開くためのコピーを残す日数（これより古いものを起動時に消す）
+${openCopyKeepDays} = 1
+
+function getOpenCopyDir {
+    # 開くためのコピーを置くフォルダ（$workspace.TmpRoot\<PC の鍵>\open_copy）を返す。文字列を組み立てるだけで、ファイルには触らない。
+    # 取り込みの作業フォルダ（<PC の鍵>\<PID>）と同じ親の下に置くが、名前が数字でないため、取り込みの片付け（removeStaleProcessDirs）は触らない
+    param (
+        [Workspace]$workspace
+    )
+
+    return Join-Path $workspace.TmpRoot (Join-Path (getMachineKey) ${openCopyDirName})
+}
+
+function testOpenCopyDir {
+    # copyDir が、open_copy の置き場所として使ってよいものか。コピーの作成・片付けは、これが真のときだけ行う。
+    #   絶対パス（ドライブ付き・UNC）で、途中に .. や余計な区切りを含まず、tmpRoot\<PC の鍵>\open_copy と一致すること
+    #   copyDir・その親（<PC の鍵>）・その親（tmpRoot）が、リンク（ジャンクション・シンボリックリンク。testPathIsLink）でないこと（まだ無ければ問題にしない）
+    # 空・ドライブの直下・相対パス・別の場所の open_copy・リンクの先は $false
+    param (
+        [string]$copyDir,
+        [string]$tmpRoot
+    )
+
+    if (!$copyDir -or !$copyDir.Trim() -or !$tmpRoot -or !$tmpRoot.Trim()) {
+        return $false
+    }
+    $trimmed = $copyDir.TrimEnd([char]92, [char]47)
+    if ($trimmed -notmatch '^([A-Za-z]:\\|\\\\[^\\])' -or $tmpRoot -notmatch '^([A-Za-z]:\\|\\\\[^\\])') {
+        return $false
+    }
+    try {
+        $full = [System.IO.Path]::GetFullPath($trimmed)
+        $expected = [System.IO.Path]::GetFullPath((Join-Path (Join-Path $tmpRoot (getMachineKey)) ${openCopyDirName}))
+    } catch {
+        return $false
+    }
+    if (![string]::Equals($trimmed, $full, [System.StringComparison]::OrdinalIgnoreCase) -or
+        ![string]::Equals($full, $expected.TrimEnd([char]92), [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $false
+    }
+    $keyDir = [System.IO.Path]::GetDirectoryName($full)
+    foreach ($checked in @($full, $keyDir, [System.IO.Path]::GetDirectoryName($keyDir))) {
+        if (testPathIsLink $checked) {
+            return $false
+        }
+    }
+    return $true
+}
+
+function getOpenCopyName {
+    # 開くためのコピーの名前 <元の名前>（コピー yyyyMMdd-HHmm）.<拡張子>（コピーだと分かる名前にする）。
+    # パスの区切りが紛れていても、ファイル名だけを使う。名前が空なら空文字。
+    # 同じ名前のコピーが重ならないよう、置く場所は copySourceForOpen が 1 回ごとに別のフォルダにする
+    param (
+        [string]$book,
+        [datetime]$now = (Get-Date)
+    )
+
+    $leaf = [System.IO.Path]::GetFileName(([string]$book).TrimEnd('.', ' ').Replace("/", "\"))
+    if (!$leaf) {
+        return ""
+    }
+    $extension = [System.IO.Path]::GetExtension($leaf)
+    $baseName = $leaf.Substring(0, $leaf.Length - $extension.Length)
+    $stamp = $now.ToString("yyyyMMdd-HHmm", [System.Globalization.CultureInfo]::InvariantCulture)
+    return "${baseName}（コピー ${stamp}）${extension}"
+}
+
+function getOpenCopyBlocker {
+    # コピーを作らずに断る理由（ファイルには触らない）。作れるなら空文字。
+    #   NoName  … 名前が空
+    #   TooLong … コピーのパスが長すぎる（260 文字の制限）
+    # 名前に [ ] を含んでも断らない（コピーも開くのも、パスをそのまま（リテラルで）扱う）
+    param (
+        [string]$book,
+        [string]$copyDir,
+        [datetime]$now = (Get-Date)
+    )
+
+    $name = getOpenCopyName $book $now
+    if (!$name) {
+        return "NoName"
+    }
+    # <copyDir>\<12 桁>\<名前>
+    if ($copyDir.TrimEnd([char]92).Length + 1 + 12 + 1 + $name.Length -ge 259) {
+        return "TooLong"
+    }
+    return ""
+}
+
+function copySourceForOpen {
+    # 元のファイルのコピーを copyDir の下に作る（元のファイルは変えない）。@{ Path; Reason } を返す。
+    #   作れたとき: Path = コピーのパス、Reason = ""
+    #   作れなかったとき: Path = ""、Reason = Place（置き場所の確かめで断った）・NoName／TooLong（getOpenCopyBlocker の結果）・Failed（作る・書くのに失敗した）
     # 同じ名前のコピーが重ならないよう、1 回ごとに別のフォルダ（copyDir\<12 桁の文字>）に置く。名前は getOpenCopyName。
     param (
         [string]$sourcePath,
@@ -6399,6 +6569,70 @@ function testHitFilter {
     return (("" + $book).IndexOf($filterText, [System.StringComparison]::CurrentCultureIgnoreCase) -ge 0)
 }
 
+
+function testLiteralSearchWord {
+    # 検索語が、照合の式として文字どおりの 1 つの文字列か。文字どおりに探す指定か、正規表現を使う指定でも語に正規表現の記号が無いとき（Escape しても変わらない）は $true
+    param (
+        [string]$word,
+        [bool]$simpleMatch
+    )
+
+    return (newSearchRegex $word $simpleMatch $false).SimpleMatch -or ([regex]::Escape($word) -eq $word)
+}
+
+function toSearchFolderKeys {
+    # 検索対象（文字列、または @{ Root; RelPath; Recurse } の並び）を、比べるための "Root|RelPath|Recurse" の並び（大文字・小文字は区別しない）にする。
+    # 文字列は getContentIndexFiles と同じく @{ Root = <文字列>; RelPath = ""; Recurse = $true } とみなす
+    param (
+        $folders
+    )
+
+    return @(@($folders) | ForEach-Object {
+        $target = $_
+        if ($target -is [string]) {
+            $target = @{ Root = $target; RelPath = ""; Recurse = $true }
+        }
+        ("{0}|{1}|{2}" -f [string]$target.Root, ([string]$target.RelPath).Trim("\"), [bool]$target.Recurse).ToLowerInvariant()
+    })
+}
+
+function getNarrowSearchReason {
+    # 検索語が前の検索の語より長くなったとき、前の検索のヒットの行だけを照合し直してよいかを返す（前の結果の使い回し）。
+    # "Narrow"（絞ってよい）か、絞らない理由の符号を返す。インデックスが変わっていないこと（今の列挙が前と同じ）は、状態層で確かめる。
+    #   previous: 前の検索の記録（Word; SimpleMatch; CaseSensitive; FileFilter; IncludeShapes; IncludeComments; Folders; WorkDir; Limit）。無ければ $null
+    #   request : 新しい要求（同じ項目を持つ）
+    # 符号: NoRecord（記録なし）/ NoLimit（上限なし）/ Regex（どちらかの語が正規表現）/ NotLonger（新しい語が前の語より長くない）/
+    #       NotContained（新しい語の中に前の語が無い）/ Condition（語以外の条件が違う）
+    param (
+        $previous,
+        $request
+    )
+
+    if ($null -eq $previous) { return "NoRecord" }
+    if ([int]$previous.Limit -le 0 -or [int]$request.Limit -le 0) { return "NoLimit" }
+    $previousWord = [string]$previous.Word
+    $word = [string]$request.Word
+    if (!(testLiteralSearchWord $previousWord ([bool]$previous.SimpleMatch)) -or !(testLiteralSearchWord $word ([bool]$request.SimpleMatch))) { return "Regex" }
+    if ($word.Length -le $previousWord.Length) { return "NotLonger" }
+    $same = ([bool]$previous.CaseSensitive -eq [bool]$request.CaseSensitive) -and
+        ([string]$previous.FileFilter -ceq [string]$request.FileFilter) -and
+        ([bool]$previous.IncludeShapes -eq [bool]$request.IncludeShapes) -and
+        ([bool]$previous.IncludeComments -eq [bool]$request.IncludeComments) -and
+        ([string]$previous.WorkDir).Equals([string]$request.WorkDir, [System.StringComparison]::OrdinalIgnoreCase) -and
+        ([int]$previous.Limit -eq [int]$request.Limit)
+    if (!$same) { return "Condition" }
+    $previousKeys = @(toSearchFolderKeys $previous.Folders)
+    $keys = @(toSearchFolderKeys $request.Folders)
+    if ($previousKeys.Count -ne $keys.Count) { return "Condition" }
+    for ($i = 0; $i -lt $keys.Count; $i++) {
+        if ($previousKeys[$i] -ne $keys[$i]) { return "Condition" }
+    }
+    $options = [System.Text.RegularExpressions.RegexOptions]::CultureInvariant
+    if (![bool]$request.CaseSensitive) { $options = $options -bor [System.Text.RegularExpressions.RegexOptions]::IgnoreCase }
+    if (![regex]::new([regex]::Escape($previousWord), $options).IsMatch($word)) { return "NotContained" }
+    return "Narrow"
+}
+
 # 検索用の索引（gram 索引）に使う 2-gram の決まり（判断層。ファイルにも画面にも触らない）。
 # 本文の隣り合う 2 文字を値（uint32）にして索引に入れる。ワードを含む本文には、ワードのすべての 2-gram が必ず入っているので、
 # 検索語の 2-gram を含まないファイルは、照合しなくてよい。
@@ -6466,7 +6700,7 @@ function addTextGrams {
 #   索引が無い・読めない・壊れている、ファイルが索引より新しい（更新日時か大きさが違う）・索引に載っていないものは、必ず照合する。
 
 function getGramContentIndexFiles {
-    # 照合する本文インデックスのファイルを、getContentIndexFiles と同じ形（@{ Folders; ContentIndexFiles }）に Gram（@{ Total; Candidates }）を足して返す。
+    # 照合する本文インデックスのファイルを、getContentIndexFiles と同じ形（@{ Folders; ContentIndexFiles }）に Gram（@{ Total; Candidates }）と All（gram 索引で絞る前の、列挙したすべての本文インデックスのファイル。前の結果の使い回しが、インデックスが変わっていないことを確かめるのに使う）を足して返す。
     # 絞り込みを使えないとき（正規表現・検索語から 2-gram を作れない・gram 索引の置き場が無い）と、1 つも外せなかったときは $null
     # （呼び出し側が getContentIndexFiles ですべての本文インデックスのファイルを集める）。
     #   simpleMatch: 文字どおりに探すか（正規表現のときは絞れない）
@@ -6561,7 +6795,7 @@ function getGramContentIndexFiles {
         return $null
     }
     $index.ContentIndexFiles = $files.ToArray()
-    $index.Gram = @{ Total = $all.Count; Candidates = $files.Count }
+    $index.Gram = @{ Total = $all.Count; Candidates = $files.Count }; $index.All = $all
     return $index
 }
 
@@ -6675,7 +6909,7 @@ function newSearchRequest {
     # 検索の要求 1 つを作る（画面が作り、検索の司令のスレッド（SearchService）が invokeSearchRequest で実行する）。
     # 画面と司令のスレッドの両方から読み書きするため、Synchronized の hashtable にする。
     #   画面が書く: 検索条件・Stop（取り消し）
-    #   司令が書く: Queue（ヒット）・Done / Total / IndexTotal / Scanned（進み具合）・Folders・GramUsed（gram 索引で絞ったか）・Truncated（上限を超えた。数えている途中でも立つ）/ HitTotal（上限を超えた分も含む件数。数えている途中は今までの件数。中止・総数の時間切れは -1）/ CountTimeout / OverflowDir（溢れの置き場所。書き溜めないときは空）/ OverflowFailed / Cancelled / Error・Skipped（飛ばした本文インデックスのファイルのパス）・Finished
+    #   司令が書く: Narrowed（前の検索のヒットだけを照合し直して答えたか）・NarrowReason（絞るかの判定の符号。前の検索の記録を渡さないときは $null）・Queue（ヒット）・Done / Total / IndexTotal / Scanned（進み具合）・Folders・GramUsed（gram 索引で絞ったか）・Truncated（上限を超えた。数えている途中でも立つ）/ HitTotal（上限を超えた分も含む件数。数えている途中は今までの件数。中止・総数の時間切れは -1）/ CountTimeout / OverflowDir（溢れの置き場所。書き溜めないときは空）/ OverflowFailed / Cancelled / Error・Skipped（飛ばした本文インデックスのファイルのパス）・Finished
     #   workDir: gram 索引を探すワークスペース（司令のスレッドは lib.ps1 を読み込んだときのワークスペースを覚えているため、画面から渡す）
     param (
         [string]$word,
@@ -6692,22 +6926,77 @@ function newSearchRequest {
         Word = $word; SimpleMatch = $simpleMatch; Folders = $folders; Limit = $limit; WorkDir = $workDir
         CaseSensitive = [bool]$option.CaseSensitive; FileFilter = (newFileKindFilter $option.FileKinds)
         IncludeShapes = ($option.IncludeShapes -ne $false); IncludeComments = ($option.IncludeComments -ne $false)
-        GramUsed = $false
+        GramUsed = $false; Narrowed = $false; NarrowReason = $null
         Queue = New-Object 'System.Collections.Concurrent.ConcurrentQueue[object]'
         Stop = $false; Finished = $false; Done = 0; Total = -1; IndexTotal = -1; Scanned = 0
         Truncated = $false; HitTotal = 0; CountTimeout = $false; OverflowDir = ""; OverflowFailed = $false; Cancelled = $false; Error = $null; Skipped = @()
     })
 }
 
+function initSearchOverflow {
+    # 前の検索の溢れを消し、上限があるときだけ、この検索の溢れの置き場所を決める（作るのは、溢れが出たときに照合のスレッドが行う）
+    param (
+        [hashtable]$request,
+        $own
+    )
+
+    [void](removeSearchOverflow (getSearchOverflowPidDir $own.TmpRoot) $own.TmpRoot)
+    if ($request.Limit -gt 0) {
+        if (testSearchOverflowRoot (getSearchOverflowRoot $own.TmpRoot) $own.TmpRoot) {
+            $request.OverflowDir = getSearchOverflowDir $own.TmpRoot $request.Number
+        } else {
+            $request.OverflowFailed = $true
+        }
+    }
+}
+
 function invokeSearchRequest {
+    # 検索の要求を実行する（invokeSearchRequestBody）。処理の記録（shared/core/trace.ps1）の search の、司令のスレッドの分の始めと終わりを控える。
+    # 終わりの名前には抜けた理由（error・cancelled・narrow〈前の検索のヒットだけを照合し直した〉・done）を付ける。
+    # 書くのは、画面が見る Finished が立ったあと（画面を待たせない）
+    param (
+        [hashtable]$request,
+        $pool = $null,
+        $cache = $null,
+        $narrowState = $null
+    )
+
+    markTrace "search" "司令: 受け取り"
+    invokeSearchRequestBody $request $pool $cache $narrowState
+    $reason = if ($request.Error) { "error" } elseif ($request.Cancelled) { "cancelled" } elseif ($request.Narrowed) { "narrow" } else { "done" }
+    markTrace "search" "司令: 終わり ($reason)"
+    if (testTrace "search") {
+        writeTrace "search" ([Workspace]::new($request.WorkDir).TraceDir)
+    }
+}
+
+function setSearchResult {
+    # searchContentIndex の結果（総数・打ち切り・件数・時間切れ・溢れ・取り消し・飛ばしたファイル）を要求に入れる
+    param (
+        [hashtable]$request,
+        $result
+    )
+
+    $request.Total = $result.Total
+    $request.Truncated = $result.Truncated
+    $request.HitTotal = $result.HitTotal
+    $request.CountTimeout = $result.CountTimeout
+    if ($result.OverflowFailed) { $request.OverflowFailed = $true }
+    $request.Cancelled = $result.Cancelled
+    $request.Skipped = @($result.Skipped)
+}
+
+function invokeSearchRequestBody {
     # 検索の要求（newSearchRequest）を実行し、ヒットと進み具合を要求に少しずつ入れる。最後に Finished を立てる。
     # 例外は投げずに Error に入れる。始める前に取り消されていたら（次の要求が来た等）、何もせずに Cancelled にする。
     #   pool : 照合のプール（newContentIndexWorkerPool）。$null なら searchContentIndex が必要なときだけ作る
     #   cache: 読んだ本文インデックスのファイルの内容の入れ物（newTsvTextCache）
+    #   narrowState: 前の検索の結果の入れ物（@{ Record = $null }。search_narrow.ps1。$null なら使い回さない）
     param (
         [hashtable]$request,
         $pool = $null,
-        $cache = $null
+        $cache = $null,
+        $narrowState = $null
     )
 
     try {
@@ -6718,19 +7007,16 @@ function invokeSearchRequest {
         $word = $request.Word
         $folders = $request.Folders
         $own = [Workspace]::new($request.WorkDir)
-        # 前の検索の溢れを消し、上限があるときだけ、この検索の溢れの置き場所を決める（作るのは、溢れが出たときに照合のスレッドが行う）
-        [void](removeSearchOverflow (getSearchOverflowPidDir $own.TmpRoot) $own.TmpRoot)
-        if ($request.Limit -gt 0) {
-            if (testSearchOverflowRoot (getSearchOverflowRoot $own.TmpRoot) $own.TmpRoot) {
-                $request.OverflowDir = getSearchOverflowDir $own.TmpRoot $request.Number
-            } else {
-                $request.OverflowFailed = $true
-            }
+        initSearchOverflow $request $own
+        # 語が前の語を含む形で長くなったときは、前のヒットの行だけを照合し直す（本文インデックスのファイルは読まない）
+        if ($null -ne $narrowState -and (tryNarrowSearch $request $narrowState)) {
+            return
         }
         # gram 索引で、検索語のすべての 2-gram を含むファイルだけに絞る（索引を使えなければ $null）
         $index = getGramContentIndexFiles $word $request.SimpleMatch $folders -indexRoot $own.IndexDir -gramRoot $own.GramDir `
             -onProgress { param ($count) $request.Scanned = $count } -stopSignal $request
         $request.GramUsed = ($null -ne $index)
+        markTrace "search" "司令: gram 索引で絞り終え"
         # gram 索引の絞り込みの途中で止められたとき、$null を受けて全部の列挙に進まない
         if ($request.Stop) {
             $request.Cancelled = $true
@@ -6740,11 +7026,14 @@ function invokeSearchRequest {
             # 途中の件数を画面に伝える（止まって見えないように）
             $index = getContentIndexFiles $folders { param ($count) $request.Scanned = $count } -stopSignal $request
         }
+        markTrace "search" "司令: ファイルの列挙の終わり"
         # 列挙の途中で止められたとき、照合に進まない
         if ($request.Stop) {
             $request.Cancelled = $true
             return
         }
+        $allFiles = @(if ($index.All) { $index.All } else { $index.ContentIndexFiles })
+        $collected = if ($null -ne $narrowState -and $request.Limit -gt 0) { New-Object System.Collections.Generic.List[object] } else { $null }
         $request.Folders = $index.Folders
         $request.Total = $index.ContentIndexFiles.Count
         $request.IndexTotal = $index.ContentIndexFiles.Count
@@ -6755,6 +7044,7 @@ function invokeSearchRequest {
             param ($done, $total, $newHits, $hitTotal)
             foreach ($hit in $newHits) {
                 $request.Queue.Enqueue($hit)
+                if ($null -ne $collected) { $collected.Add($hit) }
             }
             $request.Total = $total
             $request.Done = $done
@@ -6762,13 +7052,11 @@ function invokeSearchRequest {
             $request.HitTotal = $hitTotal
             if ($request.Limit -gt 0 -and $hitTotal -gt $request.Limit) { $request.Truncated = $true }
         } -stopSignal $request
-        $request.Total = $result.Total
-        $request.Truncated = $result.Truncated
-        $request.HitTotal = $result.HitTotal
-        $request.CountTimeout = $result.CountTimeout
-        if ($result.OverflowFailed) { $request.OverflowFailed = $true }
-        $request.Cancelled = $result.Cancelled
-        $request.Skipped = @($result.Skipped)
+        markTrace "search" "司令: searchContentIndex の終わり"
+        setSearchResult $request $result
+        if ($null -ne $narrowState -and !$request.Cancelled) {
+            updateSearchRecord $request $narrowState $folders $allFiles $collected
+        }
     } catch {
         $request.Error = $_.Exception.Message
     } finally {
@@ -8206,12 +8494,19 @@ function getContentIndexFiles {
 # 司令のスレッドで動かすスクリプト。要求の列が閉じられる（Close）まで、要求を 1 つずつ実行する。
 # lib の部品（Prelude）は SearchService.Start が、この param ブロックのあとにつなぐ（joinWorkerScript）
 ${searchServiceScript} = {
-    param ($requests, $cache, $workers)
+    param ($requests, $cache, $workers, $traceInfo = $null)
     # 読み込めなければスレッドを終える（画面は IsRunning・GetFailure で知り、次の要求で作り直す）
     $ErrorActionPreference = "Stop"
     initWorkspace
     $ErrorActionPreference = "Continue"
+    # 前の検索の結果（最後まで検索し終えた要求の記録。語が長くなったとき、前のヒットだけを照合し直すのに使う）
+    $narrowState = @{ Record = $null }
     $pool = if ($workers -gt 1) { newContentIndexWorkerPool $workers } else { $null }
+    # 処理の記録（shared/core/trace.ps1）を、画面と同じ指定・同じ起点で入れる。用意が済んだ時刻は画面のスレッドが読む（GetReadyTicks）
+    if ($null -ne $traceInfo) {
+        initTrace $traceInfo.Spec $traceInfo.OriginTicks
+        $traceInfo.ReadyTicks = [DateTime]::UtcNow.Ticks
+    }
     # 溢れを書いた（かもしれない）tmp の根。ワークスペースを切り替えると、要求の WorkDir が変わるため、起動時の $workspace とは限らない
     $overflowRoots = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     try {
@@ -8230,8 +8525,9 @@ ${searchServiceScript} = {
                 }
             }
             if ($requestRoot) { [void]$overflowRoots.Add($requestRoot) }
-            invokeSearchRequest $request $pool $cache
-            if ($cache) {
+            invokeSearchRequest $request $pool $cache $narrowState
+            # 絞った要求は何も読まないので、整理しない（直前の全体の検索で使った内容を追い出さないため）
+            if ($cache -and !$request.Narrowed) {
                 [void](trimTsvTextCache $cache)
             }
         }
@@ -8282,7 +8578,7 @@ class SearchService {
         $ps = [powershell]::Create()
         $ps.Runspace = $rs
         $joined = if ($this.LibLoad.Prelude) { joinWorkerScript $this.LibLoad.Prelude $this.Script } else { $this.Script }
-        [void]$ps.AddScript($joined).AddArgument($this.Requests).AddArgument($this.Cache).AddArgument($this.Workers)
+        [void]$ps.AddScript($joined).AddArgument($this.Requests).AddArgument($this.Cache).AddArgument($this.Workers).AddArgument($this.LibLoad.Trace)
         $this.Runspace = $rs
         $this.PowerShell = $ps
         $this.Handle = $ps.BeginInvoke()
@@ -8291,6 +8587,15 @@ class SearchService {
     [bool] IsRunning() {
         # 司令のスレッドが動いているか（lib.ps1 を読み込めなかった等で止まっていれば $false）
         return $null -ne $this.PowerShell -and !$this.Handle.IsCompleted
+    }
+
+    [long] GetReadyTicks() {
+        # 司令のスレッドの用意（lib.ps1 の読み込みと照合のプール）が済んだ時刻（UTC の Ticks）。処理の記録が入っていない・まだ済んでいなければ 0
+        $info = $this.LibLoad.Trace
+        if ($null -eq $info) {
+            return 0
+        }
+        return [long]$info.ReadyTicks
     }
 
     [string] GetFailure() {
@@ -8379,7 +8684,178 @@ function newSearchService {
     )
 
     $libLoad = getPartLoad lib
+    # 処理の記録を入れているときだけ、司令のスレッドへ指定と起点を渡す
+    if (testTraceActive) {
+        $libLoad.Trace = [hashtable]::Synchronized(@{ Spec = (getTraceSpec).Spec; OriginTicks = (getTraceSpec).OriginTicks; ReadyTicks = [long]0 })
+    }
     return [SearchService]::new(${searchServiceScript}.ToString(), $libLoad, $cache, $workers, ${searchServiceCloseMilliseconds})
+}
+
+# 前の検索の結果を使い回す（状態層）。検索語が前の語を含む形で長くなったとき（「見積」→「見積書」）、
+# 前の検索のヒットの行だけを新しい語で照合し直し、本文インデックスのファイルを読まずに結果を出す。結果は全体を探し直したときと同じになる。
+# 絞ってよいかの判定は getNarrowSearchReason（search_query.ps1）。ここでは、前の検索の記録を作る・本文インデックスのファイルの一覧が同じかを比べる・
+# ヒットを選ぶ・絞った検索を実行する。
+
+function testRecordableHitLines {
+    # ヒットの行が、元の行そのままか。テキストファイルの長い行は表示用に切って "…" を付ける（truncateHitLine）ため、
+    # 切られた可能性のある行（テキストの行で、先頭か末尾が "…"）があれば $false（その行では新しい語の照合が全体の検索と変わりうる）
+    param (
+        $hits
+    )
+
+    foreach ($hit in $hits) {
+        $line = [string]$hit.Line
+        if (($line.StartsWith("…") -or $line.EndsWith("…")) -and (getContentIndexFileKind $hit.Book) -eq "テキスト") {
+            return $false
+        }
+    }
+    return $true
+}
+
+function newSearchRecord {
+    # 最後まで検索し終えた要求の記録を作る（次の要求が絞れるかの判定と、絞った検索で使う）。記録できないとき（上限なし・打ち切り・飛ばしたファイルあり・切った行あり）は $null
+    #   request: 終えた要求（Word などの条件）/ folders: 要求の検索対象（invokeSearchRequest が Folders を列挙の結果で上書きする前の値）
+    #   files  : 列挙した本文インデックスのファイルのすべて（gram 索引で絞る前）/ hits: ヒットの一覧（画面に渡した同じオブジェクト）
+    param (
+        [hashtable]$request,
+        $folders,
+        $files,
+        $hits
+    )
+
+    if ($request.Limit -le 0 -or $request.Truncated -or $request.CountTimeout -or $request.Cancelled -or @($request.Skipped).Count -gt 0) {
+        return $null
+    }
+    if (!(testRecordableHitLines $hits)) {
+        return $null
+    }
+    $paths = [string[]]::new($files.Count)
+    $ticks = [long[]]::new($files.Count)
+    $sizes = [long[]]::new($files.Count)
+    for ($i = 0; $i -lt $files.Count; $i++) {
+        $paths[$i] = [string]$files[$i].Path
+        $ticks[$i] = [long]$files[$i].Ticks
+        $sizes[$i] = [long]$files[$i].Size
+    }
+    return @{
+        Word = $request.Word; SimpleMatch = $request.SimpleMatch; CaseSensitive = $request.CaseSensitive; FileFilter = $request.FileFilter
+        IncludeShapes = $request.IncludeShapes; IncludeComments = $request.IncludeComments; Folders = $folders; WorkDir = $request.WorkDir; Limit = $request.Limit
+        Paths = $paths; Ticks = $ticks; Sizes = $sizes; Hits = $hits
+    }
+}
+
+function testSearchRecordFiles {
+    # 今の本文インデックスのファイルの一覧が、記録した一覧と同じか（件数・順番・パス・更新日時・大きさ）。1 つでも違えば $false（書き直された・足された・消えた）
+    param (
+        $record,
+        $files
+    )
+
+    if ($files.Count -ne $record.Paths.Length) {
+        return $false
+    }
+    for ($i = 0; $i -lt $files.Count; $i++) {
+        $file = $files[$i]
+        if (!([string]$file.Path).Equals($record.Paths[$i], [System.StringComparison]::OrdinalIgnoreCase) -or [long]$file.Ticks -ne $record.Ticks[$i] -or [long]$file.Size -ne $record.Sizes[$i]) {
+            return $false
+        }
+    }
+    return $true
+}
+
+function selectNarrowHits {
+    # 記録のヒットのうち、新しい語の正規表現に一致する行だけを、順番を保って返す。判定は全体の検索の 1 行ずつの照合と同じ
+    # （Excel の図形・コメントの行は、区切りのタブより後から始まる一致だけをヒットにする）
+    param (
+        $record,
+        [string]$word,
+        [bool]$caseSensitive
+    )
+
+    $regex = (newSearchRegex $word $true $caseSensitive).Regex
+    $selected = New-Object System.Collections.Generic.List[object]
+    foreach ($hit in $record.Hits) {
+        $line = [string]$hit.Line
+        if (!$regex.IsMatch($line)) {
+            continue
+        }
+        if ((testCellPrefixedPlace $hit.Book (splitObjectPlace $hit.Location).Kind) -and !(testCellPrefixedHit $regex $line)) {
+            continue
+        }
+        $selected.Add($hit)
+    }
+    return , $selected
+}
+
+function invokeNarrowSearch {
+    # 絞ってよいと判定された要求を、記録のヒットから実行する。今の本文インデックスのファイルの一覧が記録と違えば（IndexChanged）、
+    # 何も変えずに $false を返し、呼び出し側が全体の検索に進む。絞れたら要求にヒットと進み具合を入れ、記録を置き換えて $true を返す。
+    # 取り消されたら要求を Cancelled にして $true を返す（記録は変えない）
+    #   state: @{ Record } 前の検索の記録の入れ物
+    param (
+        [hashtable]$request,
+        [hashtable]$state
+    )
+
+    $record = $state.Record
+    $listing = getContentIndexFiles $request.Folders { param ($count) $request.Scanned = $count } -stopSignal $request
+    if ($request.Stop) {
+        $request.Cancelled = $true
+        return $true
+    }
+    if (!(testSearchRecordFiles $record $listing.ContentIndexFiles)) {
+        $request.NarrowReason = "IndexChanged"
+        return $false
+    }
+    $selected = selectNarrowHits $record $request.Word $request.CaseSensitive
+    if ($request.Stop) {
+        $request.Cancelled = $true
+        return $true
+    }
+    foreach ($hit in $selected) {
+        $request.Queue.Enqueue($hit)
+    }
+    $count = $listing.ContentIndexFiles.Count
+    $request.Folders = $listing.Folders
+    $request.Scanned = $count
+    $request.Total = $count
+    $request.IndexTotal = $count
+    $request.Done = $count
+    $request.HitTotal = $selected.Count
+    $request.Narrowed = $true
+    $request.NarrowReason = "Narrow"
+    $state.Record = $record.Clone()
+    $state.Record.Word = $request.Word
+    $state.Record.SimpleMatch = $request.SimpleMatch
+    $state.Record.Hits = $selected
+    return $true
+}
+
+function tryNarrowSearch {
+    # 前の検索の記録から絞ってよいか判定し（NarrowReason に符号を入れる）、絞ってよければ絞った検索を実行する。要求に答えた（取り消しを含む）なら $true、全体の検索に進むなら $false
+    param (
+        [hashtable]$request,
+        [hashtable]$state
+    )
+
+    $request.NarrowReason = getNarrowSearchReason $state.Record $request
+    return ($request.NarrowReason -eq "Narrow") -and (invokeNarrowSearch $request $state)
+}
+
+function updateSearchRecord {
+    # 最後まで検索し終えた要求なら、記録を置き換える（記録できないときは前の記録を残す）
+    param (
+        [hashtable]$request,
+        [hashtable]$state,
+        $folders,
+        $files,
+        $hits
+    )
+
+    $record = newSearchRecord $request $folders $files $hits
+    if ($null -ne $record) {
+        $state.Record = $record
+    }
 }
 
 # 検索結果から元のファイルの場所を求める（source_folder.txt の読み書きを含む）。
@@ -13761,7 +14237,7 @@ function removeBookDir {
 
 function getTebunkoExcludeDirs {
     # 除外するフォルダ（tebunko が作ったワークスペース）の一覧を返す。
-    #   ・今のワークスペース（$workspace.Entries()。本文インデックスの置き場 store・前の版の content_index と index・system_index 等）
+    #   ・今のワークスペース（$workspace.OwnedEntries()。Entries() に処理の記録の trace を足したもの。本文インデックスの置き場 store・前の版の content_index と index・system_index 等）
     #   ・スキャンで見つけたファイルの中に、ほかのワークスペースの目印があれば、そのフォルダの Entries() も外す
     #     目印は、前の版の取り込み一覧（ワークスペース直下の ingest_status.tsv）・今の版の取り込み一覧（store\ingest_status.tsv）・
     #     今の版の目録（store\format.tsv。ありふれた名前なので、親が store で、中身が目録として読めるときだけ）
@@ -13776,7 +14252,7 @@ function getTebunkoExcludeDirs {
     $formatFileName = [System.IO.Path]::GetFileName($workspace.FormatFile)
     $storeDirName = [System.IO.Path]::GetFileName($workspace.StoreDir)
     $dirs = New-Object System.Collections.Generic.List[string]
-    $dirs.AddRange([string[]]$workspace.Entries())
+    $dirs.AddRange([string[]]$workspace.OwnedEntries())
     foreach ($file in $scannedFiles) {
         if ($file.Name -ne $statusFileName -and $file.Name -ne $formatFileName) {
             continue
@@ -13803,7 +14279,7 @@ function getTebunkoExcludeDirs {
             $otherDir = [System.IO.Path]::GetDirectoryName($otherDir)
         }
         if ($otherDir) {
-            $dirs.AddRange([string[]]([Workspace]::new($otherDir).Entries()))
+            $dirs.AddRange([string[]]([Workspace]::new($otherDir).OwnedEntries()))
         }
     }
     return @($dirs | Where-Object { $_ } | Select-Object -Unique)
@@ -17900,6 +18376,158 @@ function writeCloseTrace {
         [System.IO.File]::AppendAllText($Path, $line, (New-Object System.Text.UTF8Encoding($false)))
     } catch {
     }
+}
+
+# 処理の記録（どこにどれぐらい時間がかかったかを、区分ごとに入り切りできる形で控えて書く）。
+#
+# 区切りの場所に markTrace を置き、区間の終わりで writeTrace が控えをファイルへ足す。
+# 入れる区分は指定（initTrace に渡す文字列。区分名をカンマで並べる。* で全部。空なら全部切り）で決め、
+# 指定の元（環境変数 TEBUNKO_TRACE）は呼び出し側が読む（gui.ps1 の先頭の 1 か所。検索の司令のスレッドへは文字列で渡す）。
+# 切りの区分は何もしない。書けなくても例外を出さない（記録のせいで本来の処理を止めない）。
+# 控えはスレッド（Runspace）ごと。書くファイルもスレッドごとに分け、同時に書いても混ざらないようにする。
+# 経過は initTrace に渡した起点（UTC の Ticks）からのミリ秒。スレッドの間で同じ起点を渡せば、そろって読める（docs/design/testing/perf.md）。
+
+# 2 回読み込まれても控えを消さないよう、無いときだけ作る（gui.ps1 が先に読み込む）
+if ($null -eq (Get-Variable -Name traceState -Scope Script -ErrorAction SilentlyContinue)) {
+    $script:traceState = @{
+        # 入っている区分（* のときは All）
+        Categories = @{}
+        All = $false
+        Spec = ""
+        OriginTicks = [DateTime]::UtcNow.Ticks
+        # 区分ごとの控え（@(Ticks, 区分, 名前, スレッド) の並び）
+        Buffers = @{}
+        # 書き終えて、以後は控えを積まない区分
+        Closed = @{}
+    }
+}
+
+function initTrace {
+    param (
+        [string]$Spec,
+        # 経過の起点（UTC の Ticks）。0 なら今
+        [long]$OriginTicks = 0
+    )
+
+    $state = $script:traceState
+    $state.Categories = @{}
+    $state.All = $false
+    # 控えと -Once の印も作り直す（指定を替えたら、前の控えを持ち越さない）
+    $state.Buffers = @{}
+    $state.Closed = @{}
+    $state.Spec = "$Spec"
+    foreach ($name in @("$Spec".Split(","))) {
+        $trimmed = $name.Trim()
+        if ($trimmed -eq "*") {
+            $state.All = $true
+        } elseif ($trimmed -ne "") {
+            $state.Categories[$trimmed] = $true
+        }
+    }
+    if ($OriginTicks -gt 0) {
+        $state.OriginTicks = $OriginTicks
+    } else {
+        $state.OriginTicks = [DateTime]::UtcNow.Ticks
+    }
+}
+
+function getTraceSpec {
+    # initTrace に渡した指定と起点。ほかのスレッドへ渡して、同じ指定・同じ起点で initTrace させるために使う
+    return @{ Spec = $script:traceState.Spec; OriginTicks = $script:traceState.OriginTicks }
+}
+
+function testTraceActive {
+    # どれかの区分が入っているか
+    $state = $script:traceState
+    return $state.All -or $state.Categories.Count -gt 0
+}
+
+function testTrace {
+    param (
+        [string]$Category
+    )
+
+    $state = $script:traceState
+    return $state.All -or $state.Categories.ContainsKey($Category)
+}
+
+function markTrace {
+    param (
+        [string]$Category,
+        [string]$Name,
+        # 別のスレッドで起きた時刻（UTC の Ticks）を、その時刻で控えるとき。0 なら今
+        [long]$AtTicks = 0
+    )
+
+    $state = $script:traceState
+    if (-not ($state.All -or $state.Categories.ContainsKey($Category))) {
+        return
+    }
+    if ($state.Closed.ContainsKey($Category)) {
+        return
+    }
+    if (-not $state.Buffers.ContainsKey($Category)) {
+        $state.Buffers[$Category] = New-Object System.Collections.Generic.List[object]
+    }
+    $ticks = if ($AtTicks -gt 0) { $AtTicks } else { [DateTime]::UtcNow.Ticks }
+    $state.Buffers[$Category].Add(@($ticks, $Category, $Name, [System.Threading.Thread]::CurrentThread.ManagedThreadId))
+}
+
+function writeTrace {
+    # 区分の控えだけをファイル（<書き出す場所>\<起点の日時>_<PID>_<スレッド>.tsv）の末尾に足し、その区分の控えを空にする。
+    # -Once を付けた区分は、以後このプロセスでは控えを積まない（起動のように 1 回だけ書く区分）
+    param (
+        [string]$Category,
+        [string]$TraceDir,
+        [switch]$Once
+    )
+
+    try {
+        $state = $script:traceState
+        if ($Once) {
+            $state.Closed[$Category] = $true
+        }
+        if (-not $state.Buffers.ContainsKey($Category)) {
+            return
+        }
+        $items = $state.Buffers[$Category].ToArray()
+        $state.Buffers.Remove($Category)
+        if ($items.Count -eq 0 -or [string]::IsNullOrEmpty($TraceDir)) {
+            return
+        }
+        if (testTraceNetworkPath $TraceDir) {
+            return
+        }
+        $threadId = [System.Threading.Thread]::CurrentThread.ManagedThreadId
+        $origin = [DateTime]::SpecifyKind([DateTime]::new([long]$state.OriginTicks), [DateTimeKind]::Utc)
+        $file = Join-Path $TraceDir ("{0}_{1}_{2}.tsv" -f $origin.ToLocalTime().ToString("yyyyMMdd-HHmmss"), $PID, $threadId)
+        $builder = New-Object System.Text.StringBuilder
+        if (-not [System.IO.File]::Exists($file)) {
+            [void]$builder.Append("時刻`t経過ミリ秒`t区分`t名前`tスレッド`r`n")
+        }
+        foreach ($item in $items) {
+            $time = ([DateTime]::SpecifyKind([DateTime]::new([long]$item[0]), [DateTimeKind]::Utc)).ToLocalTime().ToString("HH:mm:ss.fffffff")
+            $elapsed = ($item[0] - $state.OriginTicks) / 10000.0
+            $name = "$($item[2])" -replace "[\t\r\n]", " "
+            [void]$builder.Append(("{0}`t{1}`t{2}`t{3}`t{4}`r`n" -f $time, $elapsed.ToString("0.000", [System.Globalization.CultureInfo]::InvariantCulture), $item[1], $name, $item[3]))
+        }
+        [void][System.IO.Directory]::CreateDirectory($TraceDir)
+        [System.IO.File]::AppendAllText($file, $builder.ToString(), (New-Object System.Text.UTF8Encoding($false)))
+    } catch {
+        $null = $_
+    }
+}
+
+function testTraceNetworkPath {
+    # ネットワークの場所には書かない（遅い・止まるため）。folder.ps1 の testNetworkPath があればそれで、無ければ \\ で始まるかで見る
+    param (
+        [string]$Path
+    )
+
+    if ($null -ne (Get-Command -Name testNetworkPath -CommandType Function -ErrorAction SilentlyContinue)) {
+        return [bool](testNetworkPath $Path)
+    }
+    return $Path.StartsWith("\\") -and -not $Path.StartsWith("\\?\")
 }
 
 # スレッドのプール（WorkerPool）。ランスペースと PowerShell のインスタンスを使い回し、仕事のたびに作って捨てない。
@@ -23189,12 +23817,14 @@ function testDefaultWorkspace {
     if (![System.IO.Directory]::Exists($folder)) {
         return $result
     }
-    # 設定ファイルと、それに付いてできるファイルは数えない（既定のワークスペースは、書き込めないときの設定ファイルの置き場所でもある）
+    # 設定ファイルと、それに付いてできるファイルは数えない（既定のワークスペースは、書き込めないときの設定ファイルの置き場所でもある）。
+    # 処理の記録（trace。環境変数 TEBUNKO_TRACE を付けたときだけできる診断用のフォルダ）も数えない
+    $known = [Workspace]::new($folder)
+    $traceName = [System.IO.Path]::GetFileName($known.TraceDir)
     $names = @(foreach ($entry in (selectFirstEntries ([System.IO.Directory]::EnumerateFileSystemEntries($folder)) 1000)) {
         $name = [System.IO.Path]::GetFileName($entry)
-        if (-not (testSettingsFileName $name)) { $name }
+        if (-not (testSettingsFileName $name) -and $name -ne $traceName) { $name }
     })
-    $known = [Workspace]::new($folder)
     $knownNames = @($known.StoreDir, $known.OldIndexDir, $known.LegacyIndexDir, $known.OldStatusFile) | ForEach-Object { [System.IO.Path]::GetFileName($_) }
     if ($names.Count -eq 0 -or @($names | Where-Object { $knownNames -contains $_ }).Count -gt 0) {
         return $result
@@ -23405,6 +24035,8 @@ class Workspace {
     # このツールが起動した Office の PID の記録の置き場所（下は <PC の鍵>\<PID>.txt と分かれる。getOfficePidDir・shared/office/office_process.ps1）。
     # 画面を起動したとき、前回残った Office を確認して止めるために使う。tmp の下には置かない（tmp は片付けで消える場所で、記録は画面ごと落ちた後に読むため）
     [string]$OfficePidRoot
+    # 処理の記録（shared/core/trace.ps1。環境変数 TEBUNKO_TRACE を付けて起動したときだけできる診断用のフォルダ。ワークスペースを移すときには移さない）
+    [string]$TraceDir
 
     Workspace([string]$dir) {
         $this.Dir = $dir
@@ -23430,6 +24062,7 @@ class Workspace {
         $this.GuiErrorLogPreviousFile = "$dir\gui_error_log_previous.txt"
         $this.TmpRoot = "$dir\tmp"
         $this.OfficePidRoot = "$dir\office_pids"
+        $this.TraceDir = "$dir\trace"
     }
 
     # ワークスペースを移すときに移すもの（tebunko が作るファイル・フォルダ）。利用者のほかのファイルは含めない。
@@ -23438,6 +24071,11 @@ class Workspace {
     # OldIndexDir・OldStatusFile・LegacyIndexDir は、あれば前の版のワークスペースとして tebunko のものと扱う（あるものだけが WorkspaceMover.ListEntries で拾われる）
     # 前の版の取り込み中のファイルの記録（ワークスペース直下の ingesting.txt）は含めない。新しい版は始めに 1 度だけ読んで消す一時的な跡で、
     # 移すときに残っても取り込み直しが増えるだけ（取り込み一覧が前回のままなので、止まったファイルは更新ありのまま次の回で取り込まれる）
+    # クロールから外す、tebunko のフォルダ・ファイル。Entries() に、移さないもの（処理の記録 TraceDir。診断用）を足す
+    [string[]] OwnedEntries() {
+        return @($this.Entries()) + @($this.TraceDir)
+    }
+
     [string[]] Entries() {
         return @($this.StoreDir, $this.OldIndexDir, $this.OldStatusFile, $this.LegacyIndexDir,
             $this.LockFile, $this.IndexingLogFile, $this.GuiErrorLogFile,
@@ -28291,172 +28929,3 @@ function findGramInSegment {
     $base = $segment.Header.Layout.GramsPos
     while ($low -le $high) {
         $middle = $low + (($high - $low) -shr 1)
-        $found = [System.BitConverter]::ToUInt32((readGramBytes $segment.Stream ($base + 4L * $middle) 4), 0)
-        if ($found -eq $gram) {
-            return $middle
-        }
-        if ($found -lt $gram) {
-            $low = $middle + 1
-        } else {
-            $high = $middle - 1
-        }
-    }
-    return -1
-}
-
-function getGramCandidates {
-    # 区画の中で、検索語のすべての 2-gram（grams）を含むファイルの番号（Names の位置）の集まりを HashSet[int] で返す
-    param (
-        $segment,
-        [uint32[]]$grams
-    )
-
-    $starts = New-Object 'int[]' $grams.Length
-    $counts = New-Object 'int[]' $grams.Length
-    for ($i = 0; $i -lt $grams.Length; $i++) {
-        $k = findGramInSegment $segment $grams[$i]
-        if ($k -lt 0) {
-            return New-Object 'System.Collections.Generic.HashSet[int]'
-        }
-        $pair = readGramArray $segment.Stream ($segment.Header.Layout.OffsetsPos + 4L * $k) 2 'int' 4
-        $starts[$i] = $pair[0]
-        $counts[$i] = $pair[1] - $pair[0]
-    }
-    # 少ないものから読む（共通部分が空になればそれ以上読まない）
-    [System.Array]::Sort($counts, $starts)
-    $rows = New-Object System.Collections.Generic.List[object]
-    for ($i = 0; $i -lt $grams.Length; $i++) {
-        if ($counts[$i] -le 0) {
-            return New-Object 'System.Collections.Generic.HashSet[int]'
-        }
-        $rows.Add((readGramArray $segment.Stream ($segment.Header.Layout.PostingsPos + 4L * $starts[$i]) $counts[$i] 'int' 4))
-    }
-    return , (intersectGramRows $rows.ToArray())
-}
-
-function readGramToc {
-    # 目録を読む（convertFromGramToc の形）。無い・読めない・形が違うときは $null
-    param (
-        [string]$dir
-    )
-
-    $path = "$($dir.TrimEnd('\'))\${gramTocFileName}"
-    if (![System.IO.File]::Exists((toLongPath $path))) {
-        return $null
-    }
-    try {
-        $stream = openGramShared $path 4096
-        try {
-            $reader = [System.IO.StreamReader]::new($stream, [System.Text.Encoding]::UTF8, $true)
-            return convertFromGramToc ($reader.ReadToEnd() -split "\r?\n")
-        } finally {
-            $stream.Dispose()
-        }
-    } catch {
-        return $null
-    }
-}
-
-function writeGramToc {
-    # 目録を書く。一時ファイルに書き終えてから置き換える（途中で止まっても前の目録が残る）
-    param (
-        [string]$dir,
-        $toc
-    )
-
-    $path = toLongPath "$($dir.TrimEnd('\'))\${gramTocFileName}"
-    $tmp = "$path.tmp"
-    [System.IO.File]::WriteAllText($tmp, ((convertToGramToc $toc) -join "`r`n") + "`r`n", (New-Object System.Text.UTF8Encoding($false)))
-    if ([System.IO.File]::Exists($path)) {
-        [System.IO.File]::Replace($tmp, $path, [NullString]::Value)
-    } else {
-        [System.IO.File]::Move($tmp, $path)
-    }
-}
-
-function removeGramFilesNotInToc {
-    # 目録（seg・old）に載っていない区画と、書きかけの一時ファイルを消す。消せなくても（開かれている）エラーにしない。
-    # toc が $null（目録が無い・読めない）なら、区画をすべて消す
-    param (
-        [string]$dir,
-        $toc
-    )
-
-    $longDir = toLongPath $dir
-    if (![System.IO.Directory]::Exists($longDir)) {
-        return
-    }
-    $keep = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-    if ($toc) {
-        foreach ($segment in $toc.Segments) { [void]$keep.Add($segment.Name) }
-        foreach ($name in $toc.Old) { [void]$keep.Add($name) }
-    }
-    foreach ($pattern in @(${gramSegmentFilePattern}, "*.tmp")) {
-        foreach ($file in [System.IO.Directory]::GetFiles($longDir, $pattern)) {
-            if (!$keep.Contains([System.IO.Path]::GetFileName($file))) {
-                try { [System.IO.File]::Delete($file) } catch { }
-            }
-        }
-    }
-}
-
-function getFileGramValues {
-    # 本文インデックスのファイル 1 つの 2-gram を、重複なし・昇順の uint32[] で返す。
-    # 読む前と後でファイルの更新日時・大きさが、数えたとき（ticks・size）と同じときだけ返す（読む間に書き換わったら、
-    # 古い日時に新しい中身の 2-gram を付けてしまうため）。読めない・大きすぎるときは $null（索引に載せず、必ず照合する）
-    param (
-        [string]$path,
-        [long]$ticks,
-        [long]$size
-    )
-
-    try {
-        if ($size -gt ${contentIndexSearchMaxBytes}) {
-            return $null
-        }
-        $info = [System.IO.FileInfo]::new((toLongPath $path))
-        if ($info.Length -ne $size -or $info.LastWriteTimeUtc.Ticks -ne $ticks) {
-            return $null
-        }
-        $set = New-Object 'System.Collections.Generic.HashSet[uint32]'
-        addTextGrams $set (getContentIndexBodyText (readContentIndexText $path))
-        $after = [System.IO.FileInfo]::new((toLongPath $path))
-        if ($after.Length -ne $size -or $after.LastWriteTimeUtc.Ticks -ne $ticks) {
-            return $null
-        }
-        $values = New-Object 'uint32[]' $set.Count
-        $set.CopyTo($values)
-        [System.Array]::Sort($values)
-        return , $values
-    } catch {
-        return $null
-    }
-}
-
-function getFilesGramValues {
-    # 本文インデックスのファイル（items。@{ Path; Ticks; Size }）の 2-gram を数える（並列）。items と同じ順の配列を返す
-    # （数えられなかったものは $null）。shouldStop が $true を返したら、始めていない分を数えずに $null を返す
-    param (
-        [object[]]$items,
-        [int]$workers = 0,
-        [scriptblock]$shouldStop = $null
-    )
-
-    $results = New-Object 'object[]' $items.Count
-    if ($items.Count -eq 0) {
-        return , $results
-    }
-    # 1 つの作業にまとめるファイルの範囲
-    $tasks = New-Object System.Collections.Generic.List[hashtable]
-    $start = 0
-    $bytes = 0L
-    for ($i = 0; $i -lt $items.Count; $i++) {
-        $bytes += [long]$items[$i].Size
-        if ($bytes -ge ${gramTaskBytes} -or ($i - $start + 1) -ge ${gramTaskFiles} -or $i -eq $items.Count - 1) {
-            $tasks.Add(@{ Start = $start; Count = $i - $start + 1 })
-            $start = $i + 1
-            $bytes = 0L
-        }
-    }
-    if ($workers -le 0) {
-        $workers = [Math]::Min([Environment]::ProcessorCount, ${gramWorkerMax})
