@@ -170,6 +170,58 @@ Describe "scrub_personal.ps1" -Tag Io {
         $utf8.GetString([System.IO.File]::ReadAllBytes($txt)) | Should -Be "C:\Users\test\x"
     }
 
+    It "ZIP の中の ZIP（埋め込みブック）の作成者・名前も消す" {
+        # グラフに埋め込まれたブック（word/embeddings/*.xlsx）。中の ZIP は圧縮されたバイト列なので、開かないと名前が見えない
+        $inner = Join-Path $dir "inner.xlsx"
+        newZip $inner @(
+            @{ Name = "[Content_Types].xml"; Text = "<Types/>"; Stored = $true }
+            @{ Name = "docProps/core.xml"; Text = "<cp:coreProperties><dc:creator>$fullName</dc:creator></cp:coreProperties>" }
+            @{ Name = "xl/workbook.xml"; Text = "<workbook><x15ac:absPath url=""C:\Users\$name\Documents""/></workbook>" }
+        )
+        $docx = Join-Path $dir "グラフ.docx"
+        newZip $docx @(
+            @{ Name = "[Content_Types].xml"; Text = "<Types/>"; Stored = $true }
+            @{ Name = "word/embeddings/Book.xlsx"; Bytes = [System.IO.File]::ReadAllBytes($inner) }
+            @{ Name = "word/document.xml"; Text = "<w:t>本文</w:t>" }
+        )
+        # 書き換えないエントリの圧縮後の大きさ（圧縮し直されたかを見る）
+        $innerBefore = New-Object System.IO.Compression.ZipArchive((New-Object System.IO.MemoryStream(, [System.IO.File]::ReadAllBytes($inner))))
+        $innerTypesSize = $innerBefore.GetEntry("[Content_Types].xml").CompressedLength
+        $innerBefore.Dispose()
+        Remove-Item -LiteralPath $inner
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($docx)
+        $outerTypesSize = $zip.GetEntry("[Content_Types].xml").CompressedLength
+        $zip.Dispose()
+        runScrub @($fullName, $name)
+
+        $outer = readZip $docx
+        @($outer.Keys) -join "," | Should -Be "[Content_Types].xml,word/embeddings/Book.xlsx,word/document.xml"
+        $utf8.GetString($outer["word/document.xml"]) | Should -Be '<w:t>本文</w:t>'
+        $archive = New-Object System.IO.Compression.ZipArchive((New-Object System.IO.MemoryStream(, $outer["word/embeddings/Book.xlsx"])))
+        try {
+            @($archive.Entries | ForEach-Object { $_.FullName }) -join "," | Should -Be "[Content_Types].xml,docProps/core.xml,xl/workbook.xml"
+            $texts = @{}
+            foreach ($entry in $archive.Entries) {
+                $reader = New-Object System.IO.StreamReader($entry.Open(), $utf8)
+                $texts[$entry.FullName] = $reader.ReadToEnd()
+                $reader.Dispose()
+            }
+            $texts["docProps/core.xml"] | Should -Be '<cp:coreProperties><dc:creator>test</dc:creator></cp:coreProperties>'
+            $texts["xl/workbook.xml"] | Should -Be '<workbook><x15ac:absPath url="C:\Users\test\Documents"/></workbook>'
+            # 書き換えなかったエントリは、そのまま残る
+            $archive.GetEntry("[Content_Types].xml").CompressedLength | Should -Be $innerTypesSize
+        } finally {
+            $archive.Dispose()
+        }
+        # 外側の書き換えなかったエントリも、そのまま残る
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($docx)
+        try {
+            $zip.GetEntry("[Content_Types].xml").CompressedLength | Should -Be $outerTypesSize
+        } finally {
+            $zip.Dispose()
+        }
+    }
+
     It "名前が無いファイルは書き換えない（更新日時が変わらない）" {
         $docx = Join-Path $dir "無関係.docx"
         newZip $docx @(@{ Name = "docProps/core.xml"; Text = '<dc:creator>test</dc:creator>' })
