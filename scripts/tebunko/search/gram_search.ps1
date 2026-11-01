@@ -5,9 +5,9 @@
 
 function getGramContentIndexFiles {
     # 照合する本文インデックスのファイルを、getContentIndexFiles と同じ形（@{ Folders; ContentIndexFiles }）に Gram（@{ Total; Candidates }）を足して返す。
-    # 絞り込みを使えないとき（正規表現・検索語から 2-gram を作れない・gram 索引の置き場が無い）と、1 つも外せなかったときは $null
+    # 絞り込みを使えないとき（検索語（正規表現なら必ず含まれる文字）から 2-gram を作れない・gram 索引の置き場が無い）と、1 つも外せなかったときは $null
     # （呼び出し側が getContentIndexFiles ですべての本文インデックスのファイルを集める）。
-    #   simpleMatch: 文字どおりに探すか（正規表現のときは絞れない）
+    #   simpleMatch: 文字どおりに探すか（正規表現のときは、式から必ず含まれる文字を取り出して絞る）
     #   folders    : getContentIndexFiles と同じ（文字列、または @{ Root; RelPath; Recurse }）
     #   stopSignal : Stop を持つもの（検索の要求。$null は止めない）。Stop が立ったら、フォルダの列挙とインデックス名ごとの絞り込みの切れ目で止め、$null を返す（呼び出し側が Stop を見て終える）
     param (
@@ -20,8 +20,8 @@ function getGramContentIndexFiles {
         $stopSignal = $null
     )
 
-    $grams = getSearchGramValues $word
-    if (!(testGramIndexUsable $simpleMatch $grams) -or ![System.IO.Directory]::Exists((toLongPath $gramRoot))) {
+    $grams = getSearchGramValues (getGramSearchText $word $simpleMatch)
+    if (!(testGramIndexUsable $grams) -or ![System.IO.Directory]::Exists((toLongPath $gramRoot))) {
         return $null
     }
     $index = getContentIndexFiles $folders $onProgress $stopSignal

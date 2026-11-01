@@ -22,11 +22,12 @@ BeforeAll {
 
 Describe "testGramIndexUsable" -Tag Unit {
     It "<name>" -TestCases @(
-        @{ name = "文字どおりで 2-gram があれば使える"; simple = $true; word = "ab"; expected = $true }
-        @{ name = "正規表現は使えない"; simple = $false; word = "ab"; expected = $false }
-        @{ name = "2-gram が作れない語は使えない"; simple = $true; word = "a"; expected = $false }
+        @{ name = "2-gram があれば使える"; word = "ab"; expected = $true }
+        @{ name = "2-gram が作れない語は使えない"; word = "a"; expected = $false }
+        @{ name = "正規表現から取り出した文字に 2-gram があれば使える"; word = "見積 書"; expected = $true }
+        @{ name = "取り出せない正規表現は使えない"; word = ""; expected = $false }
     ) {
-        testGramIndexUsable $simple (getSearchGramValues $word) | Should -Be $expected
+        testGramIndexUsable (getSearchGramValues $word) | Should -Be $expected
     }
 }
 
