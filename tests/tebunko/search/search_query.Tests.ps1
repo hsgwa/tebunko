@@ -250,3 +250,21 @@ Describe "getNarrowSearchReason" -Tag Unit {
         getNarrowSearchReason $null (newNarrowBase @{ Word = "見積書" }) | Should -Be "NoRecord"
     }
 }
+
+Describe "検索語・検索対象の比べ（前の結果の使い回し）" -Tag Unit {
+    It "testLiteralSearchWord: <word>（正規表現 <regex>）は <expected>" -TestCases @(
+        @{ word = "見積"; regex = $false; expected = $true }
+        @{ word = "見積"; regex = $true; expected = $true }
+        @{ word = "見積.書"; regex = $true; expected = $false }
+        @{ word = "見積 書"; regex = $true; expected = $false }
+        @{ word = "見積("; regex = $true; expected = $true }
+    ) {
+        testLiteralSearchWord $word (!$regex) | Should -Be $expected
+    }
+
+    It "toSearchFolderKeys: 文字列とハッシュは同じ形になる" {
+        $a = @(toSearchFolderKeys @("C:\IDX"))
+        $b = @(toSearchFolderKeys @(@{ Root = "c:\idx"; RelPath = "\"; Recurse = $true }))
+        $a | Should -Be $b
+    }
+}

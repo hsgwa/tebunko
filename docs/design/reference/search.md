@@ -74,7 +74,7 @@ flowchart LR
 | 関数 | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
 | `getSearchGramValues` | word | 値の配列 | 検索語から、照合に使う 2-gram の値を作る（空白で区切った部分の隣り合う 2 文字。小文字にそろえ、多いときは 16 個に均等に間引く） | getGramContentIndexFiles |
-| `getGramContentIndexFiles` | word, simpleMatch, folders, indexRoot, gramRoot, onProgress, stopSignal（`Stop` を持つもの。列挙とインデックス名ごとに見て、立っていれば `$null`） | `@{Folders; ContentIndexFiles; Gram（@{Total; Candidates}）}` / `$null` | 検索語の 2-gram をすべて含むと分かったファイルだけに、照合する本文インデックスのファイルを絞る。正規表現・2-gram が作れない・索引の置き場が無い・1 つも外せなかったときは `$null`（呼ぶ側が `getContentIndexFiles` ですべてを集める） | 検索（`search_run.ps1`） |
+| `getGramContentIndexFiles` | word, simpleMatch, folders, indexRoot, gramRoot, onProgress, stopSignal（`Stop` を持つもの。列挙とインデックス名ごとに見て、立っていれば `$null`） | `@{Folders; ContentIndexFiles; Gram（@{Total; Candidates}）; All（絞る前のすべての本文インデックスのファイル）}` / `$null` | 検索語の 2-gram をすべて含むと分かったファイルだけに、照合する本文インデックスのファイルを絞る。正規表現・2-gram が作れない・索引の置き場が無い・1 つも外せなかったときは `$null`（呼ぶ側が `getContentIndexFiles` ですべてを集める） | 検索（`search_run.ps1`） |
 
 ## スレッドとプール（`shared/core/worker_pool.ps1`・`tebunko/search/search_service.ps1`・`tebunko/indexer/indexing_session.ps1`）
 

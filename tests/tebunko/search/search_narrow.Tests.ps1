@@ -182,22 +182,6 @@ Describe "前の結果の使い回し" -Tag Io {
 }
 
 Describe "前の結果の使い回しの部品" -Tag Unit {
-    It "testLiteralSearchWord: <word>（正規表現 <regex>）は <expected>" -TestCases @(
-        @{ word = "見積"; regex = $false; expected = $true }
-        @{ word = "見積"; regex = $true; expected = $true }
-        @{ word = "見積.書"; regex = $true; expected = $false }
-        @{ word = "見積 書"; regex = $true; expected = $false }
-        @{ word = "見積("; regex = $true; expected = $true }
-    ) {
-        testLiteralSearchWord $word (!$regex) | Should -Be $expected
-    }
-
-    It "toSearchFolderKeys: 文字列とハッシュは同じ形になる" {
-        $a = @(toSearchFolderKeys @("C:\IDX"))
-        $b = @(toSearchFolderKeys @(@{ Root = "c:\idx"; RelPath = "\"; Recurse = $true }))
-        $a | Should -Be $b
-    }
-
     It "testRecordableHitLines: テキストの先頭か末尾が … の行だけ偽" {
         testRecordableHitLines @([pscustomobject]@{ Book = "a.xlsx"; Line = "…あ" }) | Should -Be $true
         testRecordableHitLines @([pscustomobject]@{ Book = "a.log"; Line = "あ" }) | Should -Be $true
@@ -233,7 +217,18 @@ Describe "前の結果の使い回しの部品" -Tag Unit {
             testSearchRecordFiles $record @($script:files[0], @{ Path = "C:\idx.tsv"; Ticks = 7; Size = 11 }) | Should -Be $false
         }
 
-        It "selectNarrowHits: 一致する行だけ選び、図形・コメントはセル番地だけの一致を除く" {
+        It "selectNarrowHits: 図形・コメントの行は、セル番地だけに一致する語では選ばない" {
+            $cellHits = @(
+                [pscustomobject]@{ Book = "a.xlsx"; Location = "S[図形]"; LineNumber = 1; Line = "C2`t2個" }
+                [pscustomobject]@{ Book = "a.xlsx"; Location = "S"; LineNumber = 2; Line = "C2" }
+            )
+            $record = newSearchRecord $script:req @("C:\idx") $script:files $cellHits
+            $selected = selectNarrowHits $record "C2" $false
+            $selected.Count | Should -Be 1
+            $selected[0].LineNumber | Should -Be 2
+        }
+
+        It "selectNarrowHits: 一致する行だけ選ぶ" {
             $record = newSearchRecord $script:req @("C:\idx") $script:files $script:hits
             $selected = selectNarrowHits $record "見積書" $false
             $selected.Count | Should -Be 1
@@ -247,5 +242,29 @@ Describe "前の結果の使い回しの部品" -Tag Unit {
             invokeNarrowSearch $next @{ Record = $record } | Should -Be $false
             $next.NarrowReason | Should -Be "IndexChanged"
         }
+    }
+}
+
+Describe "前の結果の使い回し（gram 索引で絞った検索の後）" -Tag Io {
+    It "gram 索引で一部だけを照合した検索の後でも、絞れて、結果は全体を探し直したものと同じ" {
+        $tsv = Join-Path $TestDrive "narrow_gram_tsv"
+        newTsv "$tsv\x\A社.xlsx\Sheet1.tsv" @("見積書`t100")
+        newTsv "$tsv\y\B社.xlsx\Sheet1.tsv" @("別の本文")
+        $idx = Join-Path $TestDrive "narrow_gram_idx"
+        $all = newContentIndexFiles $tsv $idx
+        $partial = @{ Folders = @(); ContentIndexFiles = @($all | Select-Object -First 1); All = $all }
+        Mock getGramContentIndexFiles { $partial }
+        $state = @{ Record = $null }
+        $first = newSearchRequest "見積" $true @($idx) 10000
+        invokeSearchRequest $first $null $null $state
+        $first.GramUsed | Should -Be $true
+        $first.Total | Should -Be 1
+        $second = newSearchRequest "見積書" $true @($idx) 10000
+        invokeSearchRequest $second $null $null $state
+        $second.Narrowed | Should -Be $true
+        $second.Total | Should -Be 2
+        $full = newSearchRequest "見積書" $true @($idx) 10000
+        invokeSearchRequest $full
+        ((hitKeys $second) -join "`n") | Should -Be ((hitKeys $full) -join "`n")
     }
 }
