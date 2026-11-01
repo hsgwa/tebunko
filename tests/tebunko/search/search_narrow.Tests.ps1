@@ -180,3 +180,72 @@ Describe "前の結果の使い回し" -Tag Io {
         $state.Record | Should -BeNullOrEmpty
     }
 }
+
+Describe "前の結果の使い回しの部品" -Tag Unit {
+    It "testLiteralSearchWord: <word>（正規表現 <regex>）は <expected>" -TestCases @(
+        @{ word = "見積"; regex = $false; expected = $true }
+        @{ word = "見積"; regex = $true; expected = $true }
+        @{ word = "見積.書"; regex = $true; expected = $false }
+        @{ word = "見積 書"; regex = $true; expected = $false }
+        @{ word = "見積("; regex = $true; expected = $true }
+    ) {
+        testLiteralSearchWord $word (!$regex) | Should -Be $expected
+    }
+
+    It "toSearchFolderKeys: 文字列とハッシュは同じ形になる" {
+        $a = @(toSearchFolderKeys @("C:\IDX"))
+        $b = @(toSearchFolderKeys @(@{ Root = "c:\idx"; RelPath = "\"; Recurse = $true }))
+        $a | Should -Be $b
+    }
+
+    It "testRecordableHitLines: テキストの先頭か末尾が … の行だけ偽" {
+        testRecordableHitLines @([pscustomobject]@{ Book = "a.xlsx"; Line = "…あ" }) | Should -Be $true
+        testRecordableHitLines @([pscustomobject]@{ Book = "a.log"; Line = "あ" }) | Should -Be $true
+        testRecordableHitLines @([pscustomobject]@{ Book = "a.log"; Line = "あ…" }) | Should -Be $false
+    }
+
+    Context "記録" {
+        BeforeEach {
+            $script:req = newSearchRequest "見積" $true @("C:\idx") 100
+            $script:files = @(@{ Path = "C:\idx.tsv"; Ticks = 5; Size = 10 }, @{ Path = "C:\idx.tsv"; Ticks = 6; Size = 11 })
+            $script:hits = @(
+                [pscustomobject]@{ Book = "a.xlsx"; Location = "S"; LineNumber = 1; Line = "見積書" }
+                [pscustomobject]@{ Book = "a.xlsx"; Location = "S[図形]"; LineNumber = 2; Line = "見積`t納期" }
+                [pscustomobject]@{ Book = "a.xlsx"; Location = "S"; LineNumber = 3; Line = "見積" }
+            )
+        }
+
+        It "newSearchRecord: 終えた要求なら記録を作り、記録できない要求は null" {
+            $record = newSearchRecord $script:req @("C:\idx") $script:files $script:hits
+            $record.Paths.Count | Should -Be 2
+            $record.Word | Should -Be "見積"
+            $script:req.Truncated = $true
+            newSearchRecord $script:req @("C:\idx") $script:files $script:hits | Should -BeNullOrEmpty
+            $script:req.Truncated = $false
+            $script:req.Skipped = @("x")
+            newSearchRecord $script:req @("C:\idx") $script:files $script:hits | Should -BeNullOrEmpty
+        }
+
+        It "testSearchRecordFiles: 同じ一覧だけ真" {
+            $record = newSearchRecord $script:req @("C:\idx") $script:files $script:hits
+            testSearchRecordFiles $record $script:files | Should -Be $true
+            testSearchRecordFiles $record @($script:files[0]) | Should -Be $false
+            testSearchRecordFiles $record @($script:files[0], @{ Path = "C:\idx.tsv"; Ticks = 7; Size = 11 }) | Should -Be $false
+        }
+
+        It "selectNarrowHits: 一致する行だけ選び、図形・コメントはセル番地だけの一致を除く" {
+            $record = newSearchRecord $script:req @("C:\idx") $script:files $script:hits
+            $selected = selectNarrowHits $record "見積書" $false
+            $selected.Count | Should -Be 1
+            $selected[0].LineNumber | Should -Be 1
+        }
+
+        It "invokeNarrowSearch: 一覧が違えば false を返し、IndexChanged にする" {
+            $record = newSearchRecord $script:req @("C:\idx") $script:files $script:hits
+            Mock getContentIndexFiles { return @{ Folders = @(); ContentIndexFiles = @(@{ Path = "C:\idx\z.tsv"; Ticks = 1; Size = 1 }) } }
+            $next = newSearchRequest "見積書" $true @("C:\idx") 100
+            invokeNarrowSearch $next @{ Record = $record } | Should -Be $false
+            $next.NarrowReason | Should -Be "IndexChanged"
+        }
+    }
+}
