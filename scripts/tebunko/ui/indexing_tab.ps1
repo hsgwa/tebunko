@@ -295,6 +295,7 @@ function confirmIndexingTargets {
     $ui.IndexingProgressText.Text = "更新する内容を確認してください"
     $ui.IndexingProgressDetail.Text = "更新するインデックスの一覧を表示しています。"
     $answer = showIndexingConfirmDialog $plan
+    markTrace "index" "確認の画面を閉じる"
     if ($null -eq $answer) {
         # 取りやめ。インデクサは何も取り込まずに終わる
         $script:indexingCanceledAtConfirm = $true
@@ -324,6 +325,7 @@ function startIndexing {
     if ((isIndexingOrPreparing) -or $script:targetsNaming) {
         return
     }
+    markTrace "index" "開始の押下"
 
     # 既定のワークスペースにほかのファイルが置いてあれば、始めずに［設定］で別のフォルダを選んでもらう
     $workspaceBlock = getWorkspaceBlockMessage
@@ -413,6 +415,8 @@ function continueStartIndexing {
     # 空なら今までどおり（状態層は enabled かつ onlyNames に入るものだけを取り込む）
     $channel = newIndexerChannel -confirmTargets $true -onlyNames $script:indexingOnlyNames
     $script:indexingSession = newIndexingSession $channel
+    $script:indexTraceProgress = $false
+    markTrace "index" "インデクサのプロセスを起動"
 
     showIndexingPanel
     updateIndexingButton
@@ -488,6 +492,26 @@ function closeIndexingWait {
     closeWaitDialog $handle
 }
 
+function updateIndexingEta {
+    # 残り時間の目安（最初の1件が終わってからの速さで計算する）を求めて、帯に出す
+    param (
+        $progress
+    )
+
+    $now = Get-Date
+    if ($null -eq $script:indexingRate) {
+        $script:indexingRate = @{ Time = $now; Processed = $progress.Processed }
+    }
+    $done = $progress.Processed - $script:indexingRate.Processed
+    if ($progress.Remaining -eq 0) {
+        $script:indexingEta = ""
+    } elseif ($done -gt 0) {
+        $seconds = ($now - $script:indexingRate.Time).TotalSeconds / $done * $progress.Remaining
+        $script:indexingEta = if ($seconds -lt 60) { "残り 1 分未満" } else { "残り約 $([math]::Ceiling($seconds / 60)) 分" }
+    }
+    $ui.IndexingProgressEta.Text = $script:indexingEta
+}
+
 function updateIndexingProgress {
     if (!(isIndexing)) {
         finishIndexing
@@ -500,6 +524,10 @@ function updateIndexingProgress {
         return
     }
     $stopping = !$ui.IndexingStopButton.IsEnabled
+    if (-not $script:indexTraceProgress) {
+        $script:indexTraceProgress = $true
+        markTrace "index" "最初の進み具合"
+    }
 
     $total = $progress.Processed + $progress.Remaining
     updateIndexingWait $progress
@@ -553,19 +581,7 @@ function updateIndexingProgress {
     }
     $ui.IndexingProgressText.Text = $text + "）"
 
-    # 残り時間の目安（最初の1件が終わってからの速さで計算する）
-    $now = Get-Date
-    if ($null -eq $script:indexingRate) {
-        $script:indexingRate = @{ Time = $now; Processed = $progress.Processed }
-    }
-    $done = $progress.Processed - $script:indexingRate.Processed
-    if ($progress.Remaining -eq 0) {
-        $script:indexingEta = ""
-    } elseif ($done -gt 0) {
-        $seconds = ($now - $script:indexingRate.Time).TotalSeconds / $done * $progress.Remaining
-        $script:indexingEta = if ($seconds -lt 60) { "残り 1 分未満" } else { "残り約 $([math]::Ceiling($seconds / 60)) 分" }
-    }
-    $ui.IndexingProgressEta.Text = $script:indexingEta
+    updateIndexingEta $progress
     if (!$stopping) {
         $ui.IndexingProgressDetail.Text = if ($progress.Current) { "読み取り中のファイル：$($progress.Current)" } else { "" }
     }
@@ -594,7 +610,27 @@ function finishImportConfirm {
     }
 }
 
+function showIndexingFinishCounts {
+    # 終わったときの進み具合の棒を決め、件数の文（成功・失敗・残り）を返す。1 件も処理していなければ空
+    param (
+        $progress
+    )
+
+    $ui.IndexingProgress.IsIndeterminate = $false
+    if (-not ($progress -and $progress.Processed -gt 0)) {
+        $ui.IndexingProgress.Value = 0
+        return ""
+    }
+    $counts = "成功 $($progress.Processed - $progress.Failed) 件 / 失敗 $($progress.Failed) 件"
+    if ($progress.Remaining -gt 0) {
+        $counts += " / 残り $($progress.Remaining) 件"
+    }
+    $ui.IndexingProgress.Value = $progress.Processed / ($progress.Processed + $progress.Remaining)
+    return $counts
+}
+
 function finishIndexing {
+    markTrace "index" "終わりを受ける"
     $script:indexingTimer.Stop()
     closeIndexingWait
     $script:indexingView = $null
@@ -615,18 +651,7 @@ function finishIndexing {
     $script:indexingOnlyNames = @()
     $script:indexingEta = ""
 
-    $counts = ""
-    if ($progress -and $progress.Processed -gt 0) {
-        $counts = "成功 $($progress.Processed - $progress.Failed) 件 / 失敗 $($progress.Failed) 件"
-        if ($progress.Remaining -gt 0) {
-            $counts += " / 残り $($progress.Remaining) 件"
-        }
-        $ui.IndexingProgress.IsIndeterminate = $false
-        $ui.IndexingProgress.Value = $progress.Processed / ($progress.Processed + $progress.Remaining)
-    } else {
-        $ui.IndexingProgress.IsIndeterminate = $false
-        $ui.IndexingProgress.Value = 0
-    }
+    $counts = showIndexingFinishCounts $progress
 
     if ($exitCode -eq 1) {
         # インデックス作成を続けられないエラー（クロール対象フォルダが無い など）
@@ -676,6 +701,8 @@ function finishIndexing {
     refreshIndexSummary
     loadIndexTree  # 新しいインデックス・フォルダをツリーに出す
     refreshLeftoverIndexes   # 外れたインデックスの削除や、新しい取り込みで、残っているインデックスが変わった
+    markTrace "index" "一覧・ツリーの読み直しの終わり"
+    writeTrace "index" $workspace.TraceDir
     restartIndexingIfRequested $exitCode
 }
 
@@ -758,25 +785,7 @@ function getIndexingScanText {
 
 $script:indexingTimer = newTimer 1000 { safe { updateIndexingProgress } }
 
-$ui.IndexFilesGrid.Add_MouseDoubleClick({
-    param ($sender, $e)
-    # 行の上でのダブルクリックだけを対象にする（列見出し・スクロールバーは除く）
-    $element = $e.OriginalSource
-    while ($element -and !($element -is [System.Windows.Controls.DataGridRow])) {
-        if ($element -is [System.Windows.Controls.Primitives.DataGridColumnHeader] -or $element -is [System.Windows.Controls.Primitives.ScrollBar]) {
-            return
-        }
-        $element = [System.Windows.Media.VisualTreeHelper]::GetParent($element)
-    }
-    if ($element) {
-        safe { openIndexFileFolder }
-    }
-})
-$ui.IndexFilesButton.Add_Click({ safe { toggleIndexFiles } })
-$ui.ShowFailedFilesButton.Add_Click({ safe { toggleIndexFiles "Failed" } })
-$ui.IndexFilesAllRadio.Add_Click({ safe { setIndexFilesFilter "All" } })
-$ui.IndexFilesFailedRadio.Add_Click({ safe { setIndexFilesFilter "Failed" } })
-$ui.IndexFilesCloseButton.Add_Click({ safe { closeIndexFiles } })
+$ui.IndexFilesButton.Add_Click({ safe { openIndexFilesDialog } })
 $ui.IndexingButton.Add_Click({ safe { startIndexing } })
 $ui.IndexingStopButton.Add_Click({ safe { stopIndexing } })
 $ui.IndexingResumeButton.Add_Click({ safe { startIndexing } })

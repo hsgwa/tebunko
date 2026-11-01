@@ -155,8 +155,19 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         $view.Multi | Should -BeTrue
         $view.Selected | Should -BeFalse
         $view.Hint | Should -Be "1 件だけ選ぶと、ここに詳細を表示します。"
-        (getIndexDetailView @(newDetailItem) 1).Multi | Should -BeFalse
-        (getIndexDetailView @(newDetailItem) 0).Hint | Should -Be ""
+    }
+
+    It "案内（Hint）: <label>" -TestCases @(
+        @{ label = "何も選んでいない（選んだ行 0 件・multiCount 0）"; items = @(); multi = 0; hint = "一覧で 1 件選ぶと、ここに詳細を表示します。"; isMulti = $false }
+        @{ label = "2 件を選んでいる（multiCount 2）"; items = @(); multi = 2; hint = "1 件だけ選ぶと、ここに詳細を表示します。"; isMulti = $true }
+        @{ label = "1 件選んでいる"; items = @(1); multi = 0; hint = ""; isMulti = $false }
+    ) {
+        param ($label, $items, $multi, $hint, $isMulti)
+        $rows = @($items | ForEach-Object { newDetailItem })
+        $view = getIndexDetailView $rows $multi
+        $view.Hint | Should -Be $hint
+        $view.Multi | Should -Be $isMulti
+        $view.Title | Should -Be $(if ($items.Count -eq 1) { "営業 - 詳細" } elseif ($multi -ge 2) { "2 件を選択中" } else { "インデックスの状態" })
     }
 
     It "更新中の行は、棒の長さ・件数と残り時間・読み取り中のファイルを返す" {
@@ -337,6 +348,17 @@ Describe "getIndexFileStateLabels / getIndexFilesHeading（取り込んだファ
     }
 }
 
+Describe "getIndexFilesDialogTitle / getIndexFilesLoadingText（ファイルの一覧のダイアログの文言）" -Tag Unit {
+    It "題は「<インデックス名> のファイル」" {
+        getIndexFilesDialogTitle "営業" | Should -Be "営業 のファイル"
+    }
+
+    It "読み込み中・読み込めなかったときの見出し" {
+        getIndexFilesLoadingText | Should -Be "ファイルの一覧を読み込んでいます…"
+        getIndexFilesLoadFailedText | Should -Be "ファイルの一覧を読み込めませんでした"
+    }
+}
+
 Describe "getIndexDetailInfoRows（インデックス情報の行）" -Tag Unit {
     It "<label>" -TestCases @(
         @{ label = "取り込んだ件数があれば、失敗・未取り込みの行も出す"; has = $true; labels = "対象ファイル数,最終更新,うち失敗,うち未取り込み" }
@@ -350,7 +372,7 @@ Describe "getIndexDetailInfoRows（インデックス情報の行）" -Tag Unit 
     }
 }
 
-Describe "selectIndexFileRows / getIndexFailedEntryView（失敗の絞り込みと入口）" -Tag Unit {
+Describe "selectIndexFileRows / getIndexFilesOpenFilter（失敗の絞り込みと開く絞り込み）" -Tag Unit {
     BeforeAll {
         $script:rows = @(
             [pscustomobject]@{ RelPath = "a.docx"; Kind = "Failed" }
@@ -370,7 +392,7 @@ Describe "selectIndexFileRows / getIndexFailedEntryView（失敗の絞り込み�
     }
 
     It "<label>" -TestCases @(
-        @{ label = "失敗のみで 0 件なら案内を出す"; filter = "Failed"; count = 0; expected = "失敗したファイルはありません" }
+        @{ label = "失敗のみで 0 件なら案内を出す"; filter = "Failed"; count = 0; expected = "失敗したファイルはありません。" }
         @{ label = "失敗のみで 1 件以上なら出さない"; filter = "Failed"; count = 2; expected = "" }
         @{ label = "すべてで 0 件でも出さない（見出しの要約が「まだ取り込んだファイルはありません」を言う）"; filter = "All"; count = 0; expected = "" }
     ) {
@@ -378,19 +400,26 @@ Describe "selectIndexFileRows / getIndexFailedEntryView（失敗の絞り込み�
         getIndexFilesEmptyNotice $filter $count | Should -Be $expected
     }
 
+    It "3 万行でも、絞り込みの行の数と順が合う" {
+        $big = @(1..30000 | ForEach-Object { [pscustomobject]@{ RelPath = "f$_.docx"; Kind = $(if ($_ % 100 -eq 0) { "Failed" } else { "Done" }) } })
+        foreach ($filter in "All", "Failed") {
+            $shown = @(selectIndexFileRows $big $filter)
+            $shown.Count | Should -Be $(if ($filter -eq "Failed") { 300 } else { 30000 })
+            $shown[0].RelPath | Should -Be $(if ($filter -eq "Failed") { "f100.docx" } else { "f1.docx" })
+        }
+    }
+
     It "行が無い・null でも空を返す" {
         @(selectIndexFileRows @() "Failed").Count | Should -Be 0
         @(selectIndexFileRows $null "All").Count | Should -Be 0
     }
 
-    It "<label>" -TestCases @(
-        @{ label = "失敗が 0 件なら入口を出さない"; count = 0; shown = $false; text = "" }
-        @{ label = "失敗があれば件数つきで出す"; count = 2; shown = $true; text = "更新に失敗したファイル 2 件" }
-        @{ label = "千の位は区切る"; count = 1234; shown = $true; text = "更新に失敗したファイル 1,234 件" }
+    It "［ファイルの一覧］は、<label>" -TestCases @(
+        @{ label = "失敗が 0 件ならすべてで開く"; count = 0; expected = "All" }
+        @{ label = "失敗が 1 件なら失敗のみで開く"; count = 1; expected = "Failed" }
+        @{ label = "失敗が多くても失敗のみで開く"; count = 1234; expected = "Failed" }
     ) {
-        param ($label, $count, $shown, $text)
-        $view = getIndexFailedEntryView $count
-        $view.Shown | Should -Be $shown
-        $view.Text | Should -Be $text
+        param ($label, $count, $expected)
+        getIndexFilesOpenFilter $count | Should -Be $expected
     }
 }

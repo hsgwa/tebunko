@@ -281,6 +281,19 @@ Describe "findTargetFiles（tebunko が作ったものの除外）" -Tag Io {
         @($scan.Files | ForEach-Object { $_.Name } | Sort-Object) -join "," | Should -Be "my.txt,my.xlsx"
     }
 
+    It "今のワークスペースと、ほかのワークスペースの処理の記録（trace の TSV）は外れる（取り込み直しの元にならない）" {
+        $wsDir = Join-Path $source "ws"
+        $workspace = newTestWorkspace @{} $wsDir
+        newFile "ws\trace\20261102-000000_100_1.tsv"
+        newFile "ws\my.txt"
+        newFile "other\ingest_status.tsv"
+        newFile "other\trace\20261102-000000_200_1.tsv"
+        newFile "other\memo.txt"
+
+        $scan = findTargetFiles $source
+        @($scan.Files | ForEach-Object { $_.Name } | Sort-Object) -join "," | Should -Be "memo.txt,my.txt"
+    }
+
     It "ingest_status.tsv のある別のフォルダ（ほかのワークスペース）の content_index の下は外れる" {
         $workspace = newTestWorkspace @{} (Join-Path $TestDrive "ws-out-of-tree2")
         newFile "other-ws\ingest_status.tsv"

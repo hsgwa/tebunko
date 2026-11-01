@@ -290,6 +290,7 @@ Describe "フォルダを消す・移す・作る入口" -Tag Meta {
             @{ File = "tebunko\search\search_overflow.ps1"; Owner = "newSearchOverflowWriter"; Call = "Directory.CreateDirectory"; Reason = "溢れのファイルの置き場所（検索の始めに testSearchOverflowRoot で、根が TmpRoot の search_overflow そのものでリンクでないと確かめた dir）を作るだけ。照合のスレッドが書き始めるときに作る（消さない）" }
             @{ File = "shared\office\office_process.ps1"; Owner = "addOfficeRecord"; Call = "Directory.CreateDirectory"; Reason = "Office の記録ファイルの親フォルダを作るだけ（ワークスペースの外の一時の場所。消さない）" }
             @{ File = "shared\ui\app_host.ps1"; Owner = "writeErrorLog"; Call = "Directory.CreateDirectory"; Reason = "エラーログの親フォルダを作るだけ（消さない）" }
+            @{ File = "shared\core\trace.ps1"; Owner = "writeTrace"; Call = "Directory.CreateDirectory"; Reason = "処理の記録（trace フォルダ）を作るだけ（消さない。診断用で、ネットワークの場所には作らない）" }
             @{ File = "tebunko\core\workspace_mover.ps1"; Owner = "CopyTree"; Call = "Directory.CreateDirectory"; Reason = "ワークスペースを移すときの、移し先の中の複写。移し先は利用者が選んだ（検査済みの）フォルダで、リンクの先はたどらない" }
             @{ File = "tebunko\core\workspace_mover.ps1"; Owner = "MoveEntries"; Call = "Directory.CreateDirectory"; Reason = "ワークスペースを移すときの、利用者が選んだ移し先を作る" }
             @{ File = "tebunko\core\workspace_mover.ps1"; Owner = "MoveEntry"; Call = "moveDirectoryRetry"; Reason = "ワークスペースを移すときの、利用者が選んだ移し先への移動（検査済み。掴まれていても試し直す）" }

@@ -38,6 +38,7 @@
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\settings\settings.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\settings\text_open_dialog.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\index\text_ext_dialog.ps1".Replace('`', '``')))
+    . ([WildcardPattern]::Escape("$TebunkoDir\ui\index\index_files_dialog.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\about_dialog.ps1".Replace('`', '``')))
     . ([WildcardPattern]::Escape("$TebunkoDir\ui\leftover_dialog.ps1".Replace('`', '``')))
     stepSplash 90
