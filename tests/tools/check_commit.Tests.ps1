@@ -56,7 +56,7 @@ AfterAll {
     restoreGitEnv $script:savedGitEnv
 }
 
-Describe "check_commit.ps1（ZIP の中の ZIP）" -Tag Io {
+Describe "check_commit.ps1 の findInZip（ZIP の中の ZIP）" -Tag Io {
     It "ZIP の中の ZIP の作成者名を見つける" {
         # 埋め込みブックの作成者だけに名前がある（外側の core.xml は test）。中の ZIP は圧縮されたバイト列なので、開かないと見えない
         $result = checkEmbedded (newBook ("Yamada" + " Taro"))
