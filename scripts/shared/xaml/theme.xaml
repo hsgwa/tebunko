@@ -538,6 +538,39 @@
   </Style>
   <Style TargetType="Button" BasedOn="{StaticResource Button.Base}" />
 
+  <!-- 小さいボタン（詳細欄の［ファイルの一覧］［一覧で見る］と、ファイルの一覧のダイアログの［閉じる］）。文字 11・余白 10,3 -->
+  <Style x:Key="Button.Small" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="Height" Value="NaN" />
+    <Setter Property="Padding" Value="10,3" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="BorderBrush" Value="{StaticResource Border.Soft}" />
+  </Style>
+
+  <!-- ［すべて｜失敗のみ］の切り替え（2 つ並んだ切り替え。選んだ方は地が Bg.Hover。太字にしない） -->
+  <Style x:Key="SegmentRadio" TargetType="RadioButton">
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="RadioButton">
+          <Border x:Name="Face" Background="Transparent" CornerRadius="5" Padding="10,3">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Face" Property="Background" Value="{StaticResource Bg.Hover}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.45" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+
   <!-- 主ボタンだけ塗り＋太字。画面に 1 つ -->
   <Style x:Key="Primary" TargetType="Button" BasedOn="{StaticResource Button.Base}">
     <Setter Property="FontSize" Value="13" />

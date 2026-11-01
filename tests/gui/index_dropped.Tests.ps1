@@ -26,7 +26,7 @@ Describe "S10 設定から外れたインデックスの削除予定" -Tag Gui {
             clickGui $S $confirm "StartButton" "確認の［更新を開始］"
             waitGuiWindowClosed $S $confirm "取り込みの確認"
             waitGui $S "取り込みの完了" ${guiIndexTimeout} {
-                (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*" -and
+                (getGuiText (findGui $S.Window -Id "IndexFooterFiles")) -like "合計: [1-9]*" -and
                     (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
             } | Out-Null
             closeGui $S

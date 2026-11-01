@@ -51,7 +51,7 @@ stateDiagram-v2
 
 ## 撮る状態の一覧
 
-「遷移」は[画面遷移の一覧](../../testing/gui-smoke.md#画面のスモークテスト)の番号。計 47 枚。
+「遷移」は[画面遷移の一覧](../../testing/gui-smoke.md#画面のスモークテスト)の番号。計 48 枚。
 
 **本体・共通（`window`）**
 
@@ -73,6 +73,7 @@ stateDiagram-v2
 |---|---|---|
 | `index-tab/empty` | インデックスが無い | 3 |
 | `index-tab/normal` | インデックスがあり、更新済み | 7 |
+| `index-tab/unselected` | インデックスがあるが、何も選んでいない（詳細は案内の 1 文だけ） | 7 |
 | `index-tab/interrupted` | 前回の作成が中断している（起動時） | 4 |
 | `index-tab/delete-confirm` | 削除の確認 | 15 |
 | `index-tab/checked` | 行のチェックを付けた（［アクション ▾］の対象） | 16 |
@@ -87,7 +88,7 @@ stateDiagram-v2
 | `index-tab/stop-confirm` | 中止の確認 | 19 |
 | `index-tab/done` | 更新が終わった（失敗なし） | 18 |
 | `index-tab/failed` | 失敗したファイルがあり（詳細に入口の 1 行）、タブに ⚠ | 18 |
-| `index-tab/files` | 失敗の入口の［一覧で見る］で、［ファイルの一覧］が失敗のみで開いた | 18 |
+| `index-tab/files` | 失敗の入口の［一覧で見る］で、ファイルの一覧のダイアログが失敗のみで開いた | 18 |
 
 **［検索］（`search-tab`）**
 

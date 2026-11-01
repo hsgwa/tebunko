@@ -159,6 +159,19 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         (getIndexDetailView @(newDetailItem) 0).Hint | Should -Be ""
     }
 
+    It "案内（Hint）: <label>" -TestCases @(
+        @{ label = "何も選んでいない（選んだ行 0 件・multiCount 0）"; items = @(); multi = 0; hint = "一覧で 1 件選ぶと、ここに詳細を表示します。"; isMulti = $false }
+        @{ label = "2 件を選んでいる（multiCount 2）"; items = @(); multi = 2; hint = "1 件だけ選ぶと、ここに詳細を表示します。"; isMulti = $true }
+        @{ label = "1 件選んでいる"; items = @(1); multi = 0; hint = ""; isMulti = $false }
+    ) {
+        param ($label, $items, $multi, $hint, $isMulti)
+        $rows = @($items | ForEach-Object { newDetailItem })
+        $view = getIndexDetailView $rows $multi
+        $view.Hint | Should -Be $hint
+        $view.Multi | Should -Be $isMulti
+        $view.Title | Should -Be $(if ($items.Count -eq 1) { "営業 - 詳細" } elseif ($multi -ge 2) { "2 件を選択中" } else { "インデックスの状態" })
+    }
+
     It "更新中の行は、棒の長さ・件数と残り時間・読み取り中のファイルを返す" {
         $item = newDetailItem
         $item.IndexLevel = "Run"; $item.IndexText = "更新中"
@@ -337,6 +350,16 @@ Describe "getIndexFileStateLabels / getIndexFilesHeading（取り込んだファ
     }
 }
 
+Describe "getIndexFilesDialogTitle / getIndexFilesLoadingText（ファイルの一覧のダイアログの文言）" -Tag Unit {
+    It "題は「<インデックス名> のファイル」" {
+        getIndexFilesDialogTitle "営業" | Should -Be "営業 のファイル"
+    }
+
+    It "読み込み中の見出し" {
+        getIndexFilesLoadingText | Should -Be "ファイルの一覧を読み込んでいます…"
+    }
+}
+
 Describe "getIndexDetailInfoRows（インデックス情報の行）" -Tag Unit {
     It "<label>" -TestCases @(
         @{ label = "取り込んだ件数があれば、失敗・未取り込みの行も出す"; has = $true; labels = "対象ファイル数,最終更新,うち失敗,うち未取り込み" }
@@ -370,7 +393,7 @@ Describe "selectIndexFileRows / getIndexFailedEntryView（失敗の絞り込み�
     }
 
     It "<label>" -TestCases @(
-        @{ label = "失敗のみで 0 件なら案内を出す"; filter = "Failed"; count = 0; expected = "失敗したファイルはありません" }
+        @{ label = "失敗のみで 0 件なら案内を出す"; filter = "Failed"; count = 0; expected = "失敗したファイルはありません。" }
         @{ label = "失敗のみで 1 件以上なら出さない"; filter = "Failed"; count = 2; expected = "" }
         @{ label = "すべてで 0 件でも出さない（見出しの要約が「まだ取り込んだファイルはありません」を言う）"; filter = "All"; count = 0; expected = "" }
     ) {

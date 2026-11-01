@@ -758,25 +758,8 @@ function getIndexingScanText {
 
 $script:indexingTimer = newTimer 1000 { safe { updateIndexingProgress } }
 
-$ui.IndexFilesGrid.Add_MouseDoubleClick({
-    param ($sender, $e)
-    # 行の上でのダブルクリックだけを対象にする（列見出し・スクロールバーは除く）
-    $element = $e.OriginalSource
-    while ($element -and !($element -is [System.Windows.Controls.DataGridRow])) {
-        if ($element -is [System.Windows.Controls.Primitives.DataGridColumnHeader] -or $element -is [System.Windows.Controls.Primitives.ScrollBar]) {
-            return
-        }
-        $element = [System.Windows.Media.VisualTreeHelper]::GetParent($element)
-    }
-    if ($element) {
-        safe { openIndexFileFolder }
-    }
-})
-$ui.IndexFilesButton.Add_Click({ safe { toggleIndexFiles } })
-$ui.ShowFailedFilesButton.Add_Click({ safe { toggleIndexFiles "Failed" } })
-$ui.IndexFilesAllRadio.Add_Click({ safe { setIndexFilesFilter "All" } })
-$ui.IndexFilesFailedRadio.Add_Click({ safe { setIndexFilesFilter "Failed" } })
-$ui.IndexFilesCloseButton.Add_Click({ safe { closeIndexFiles } })
+$ui.IndexFilesButton.Add_Click({ safe { openIndexFilesDialog } })
+$ui.ShowFailedFilesButton.Add_Click({ safe { openIndexFilesDialog "Failed" } })
 $ui.IndexingButton.Add_Click({ safe { startIndexing } })
 $ui.IndexingStopButton.Add_Click({ safe { stopIndexing } })
 $ui.IndexingResumeButton.Add_Click({ safe { startIndexing } })

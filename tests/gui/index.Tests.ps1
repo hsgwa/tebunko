@@ -75,16 +75,16 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             selectGui $row
             waitGui $S "詳細の見出し（営業）" ${guiDefaultTimeout} { (& $detailTitle) -eq "営業 - 詳細" } | Out-Null
 
-            # 窓を低くしても、詳細を縦にスクロールして、一番下の「すべてのインデックスの合計」まで届く（使えない理由と手順の出し分けは、判断層の単体テストで確かめる）
+            # 窓を低くしても、詳細を縦にスクロールして、一番下の「インデックス」の箱の件数まで届く（使えない理由と手順の出し分けは、判断層の単体テストで確かめる）
             setGuiStep $S "詳細のスクロール"
             resizeGuiWindow $S 1024 600
             [math]::Round($S.Window.Current.BoundingRectangle.Width) | Should -BeGreaterThan 1000
             [math]::Round($S.Window.Current.BoundingRectangle.Width) | Should -BeLessThan 1100
-            $summaryText = waitGuiById $S $S.Window "IndexSummaryText"
+            $countText = waitGuiById $S $S.Window "IndexDetailCount"
             $scrollItem = $null
-            if ($summaryText.TryGetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern, [ref]$scrollItem)) { $scrollItem.ScrollIntoView() }
-            waitGui $S "合計までスクロールで届く" ${guiDefaultTimeout} {
-                $rect = (findGui $S.Window -Id "IndexSummaryText").Current.BoundingRectangle
+            if ($countText.TryGetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern, [ref]$scrollItem)) { $scrollItem.ScrollIntoView() }
+            waitGui $S "件数までスクロールで届く" ${guiDefaultTimeout} {
+                $rect = (findGui $S.Window -Id "IndexDetailCount").Current.BoundingRectangle
                 $rect.Bottom -le $S.Window.Current.BoundingRectangle.Bottom
             } | Out-Null
             resizeGuiWindow $S 1280 800
@@ -164,7 +164,7 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
                 $b.Current.IsEnabled -and $b.Current.Name -eq "すべて更新"
             } | Out-Null
             @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count | Should -Be 1
-            waitGui $S "「まだインデックスがありません」" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "まだインデックスがありません*" } | Out-Null
+            waitGui $S "まだ取り込んでいない（合計 0 ファイル）" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexFooterFiles")) -like "合計: 0 ファイル" } | Out-Null
 
             setGuiStep $S "［すべて更新］→ 確認で［すべて更新］"
             $sw = [Diagnostics.Stopwatch]::StartNew()
@@ -176,7 +176,7 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             # 取り込みが終わると、完了の表示と失敗したファイルの一覧が出る（#18）
             setGuiStep $S "取り込みの完了・失敗したファイルの一覧"
             waitGui $S "取り込みの完了（集約ファイルができ、失敗 1 件が出る）" ${guiIndexTimeout} {
-                (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*" -and
+                (getGuiText (findGui $S.Window -Id "IndexFooterFiles")) -like "合計: [1-9]*" -and
                     (getGuiText (findGui $S.Window -Id "FailedFilesHeading")) -like "*失敗したファイル 1 件*" -and
                     (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
             } | Out-Null
@@ -184,15 +184,17 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             # 失敗は 1 行の入口になり、［一覧で見る］で［ファイルの一覧］が「失敗のみ」で開く
             testGuiVisible (findGui $S.Window -Id "ShowFailedFilesButton") | Should -BeTrue
             clickGui $S $S.Window "ShowFailedFilesButton" "失敗の入口の［一覧で見る］"
+            $filesDialog = waitGuiWindow $S "取り込んだファイルの一覧のダイアログ（失敗のみ）" -Id "IndexFilesGrid"
             waitGui $S "失敗のみの一覧が出る" ${guiDefaultTimeout} {
-                (getGuiText (findGui $S.Window -Id "IndexFilesHeading")) -like "ファイル * 件*" -and
-                    @(getGuiGridRows (findGui $S.Window -Id "IndexFilesGrid")).Count -ge 1
+                (getGuiText (findGui $filesDialog -Id "IndexFilesHeading")) -like "ファイル * 件*" -and
+                    @(getGuiGridRows (findGui $filesDialog -Id "IndexFilesGrid")).Count -ge 1
             } | Out-Null
-            $failedOnly = @(getGuiGridRows (findGui $S.Window -Id "IndexFilesGrid"))
+            $failedOnly = @(getGuiGridRows (findGui $filesDialog -Id "IndexFilesGrid"))
             $failedOnly.Count | Should -Be 1 -Because "失敗のみなので、失敗の 1 件だけ並ぶ"
             (getGuiRowTexts $failedOnly[0]) -join " " | Should -BeLike "*壊れた文書.docx*失敗*"
-            clickGui $S $S.Window "IndexFilesCloseButton" "［閉じる］"
-            waitGui $S "一覧が閉じる" ${guiDefaultTimeout} { !(testGuiVisible (findGui $S.Window -Id "IndexFilesGrid")) } | Out-Null
+            testGuiVisible (findGui $filesDialog -Id "IndexFilesEmptyText") | Should -BeFalse
+            clickGui $S $filesDialog "IndexFilesCloseButton" "［閉じる］"
+            waitGuiWindowClosed $S $filesDialog "ファイルの一覧"
             # 失敗のあるだけの行は、エラーでなく警告の表示で、行の［更新］が使える
             $failRow = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
             $failRowTexts = (getGuiRowTexts $failRow) -join " "
@@ -210,25 +212,37 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             (findGui $S.Window -Id "IndexFilesButton").Current.BoundingRectangle.Left | Should -BeGreaterThan ($winRect.Left + $winRect.Width / 2)
             (getGuiTexts $S.Window) -join "`n" | Should -BeLike "*うち失敗*うち未取り込み*"
             clickGui $S $S.Window "IndexFilesButton" "詳細の［ファイルの一覧］"
+            # 別窓のダイアログ（詳細欄の下に開いて、スクロールしないと見えない形ではない）。題は「<インデックス名> のファイル」
+            $filesDialog = waitGuiWindow $S "取り込んだファイルの一覧のダイアログ" -Id "IndexFilesGrid"
+            $filesDialog.Current.Name | Should -Be "資料 のファイル"
             waitGui $S "取り込んだファイルが並ぶ" ${guiDefaultTimeout} {
-                (getGuiText (findGui $S.Window -Id "IndexFilesHeading")) -like "ファイル * 件*"
+                (getGuiText (findGui $filesDialog -Id "IndexFilesHeading")) -like "ファイル * 件*" -and
+                    @(getGuiGridRows (findGui $filesDialog -Id "IndexFilesGrid")).Count -gt 1
             } | Out-Null
-            # 押したら、一覧の見出しが窓の中に見える（詳細欄をスクロールしないと見えない所に開いて、何も出ないように見えるのを防ぐ）
-            $headingRect = (findGui $S.Window -Id "IndexFilesHeading").Current.BoundingRectangle
-            $paneRect = (findGui $S.Window -Id "IndexDetailTitle").Current.BoundingRectangle
-            $winRect = $S.Window.Current.BoundingRectangle
-            $headingRect.Top | Should -BeGreaterThan $paneRect.Bottom -Because "一覧の見出しが詳細の見出しの下にある"
-            $headingRect.Bottom | Should -BeLessThan $winRect.Bottom -Because "一覧の見出しが窓の中に見える"
-            # 表の最初の行まで見える（見出しだけが端に見えている状態にしない）
-            waitGui $S "一覧の最初の行が見える所まで送られる" ${guiDefaultTimeout} {
-                $rows = @(getGuiGridRows (findGui $S.Window -Id "IndexFilesGrid"))
-                $rows.Count -gt 0 -and !$rows[0].Current.IsOffscreen
-            } | Out-Null
-            $fileRows = @(getGuiGridRows (findGui $S.Window -Id "IndexFilesGrid"))
-            $fileRows.Count | Should -BeGreaterThan 1
+            $fileRows = @(getGuiGridRows (findGui $filesDialog -Id "IndexFilesGrid"))
             ($fileRows | ForEach-Object { (getGuiRowTexts $_) -join " " }) -join "`n" | Should -BeLike "*壊れた文書.docx*失敗*"
-            clickGui $S $S.Window "IndexFilesCloseButton" "［閉じる］"
-            waitGui $S "一覧が閉じる" ${guiDefaultTimeout} { !(testGuiVisible (findGui $S.Window -Id "IndexFilesGrid")) } | Out-Null
+            (getGuiText (findGui $filesDialog -Id "IndexFilesHint")) | Should -BeLike "ダブルクリックでファイルの場所を開きます*"
+
+            # ［失敗のみ］で失敗の行だけに絞り、［すべて］で戻る（読み直さない）
+            selectGui (waitGuiById $S $filesDialog "IndexFilesFailedRadio")   # ラジオボタンは Invoke でなく選択（SelectionItemPattern）で切り替える
+            waitGui $S "失敗の行だけになる" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $filesDialog -Id "IndexFilesGrid")).Count -eq 1 } | Out-Null
+            selectGui (waitGuiById $S $filesDialog "IndexFilesAllRadio")
+            waitGui $S "全部の行に戻る" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $filesDialog -Id "IndexFilesGrid")).Count -gt 1 } | Out-Null
+
+            # 窓を広げると、表が窓の高さに合わせて伸びる
+            $gridBefore = (findGui $filesDialog -Id "IndexFilesGrid").Current.BoundingRectangle.Height
+            $dialogRect = $filesDialog.Current.BoundingRectangle
+            $filesDialog.GetCurrentPattern([System.Windows.Automation.TransformPattern]::Pattern).Resize($dialogRect.Width, $dialogRect.Height + 120)
+            waitGui $S "表が伸びる" ${guiDefaultTimeout} { (findGui $filesDialog -Id "IndexFilesGrid").Current.BoundingRectangle.Height -gt $gridBefore + 60 } | Out-Null
+
+            # Esc でも閉じる（［閉じる］は IsCancel）。開き直したときは前の絞り込みを持ち越さず、［ファイルの一覧］はすべてで開く
+            pressGuiKey $filesDialog 0x1B
+            waitGuiWindowClosed $S $filesDialog "ファイルの一覧（Esc）"
+            clickGui $S $S.Window "IndexFilesButton" "詳細の［ファイルの一覧］（開き直し）"
+            $filesDialog = waitGuiWindow $S "取り込んだファイルの一覧のダイアログ（開き直し）" -Id "IndexFilesGrid"
+            waitGui $S "全部の行が並ぶ" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $filesDialog -Id "IndexFilesGrid")).Count -gt 1 } | Out-Null
+            clickGui $S $filesDialog "IndexFilesCloseButton" "［閉じる］"
+            waitGuiWindowClosed $S $filesDialog "ファイルの一覧"
 
             # 更新が終わった帯には［検索する］が出る。押すと検索の画面に切り替わる
             setGuiStep $S "帯の［検索する］"
@@ -282,10 +296,15 @@ Describe "S2 詳細の『サブフォルダを含める』" -Tag Gui {
         $S = startGui $script:tool "S2sub"
         invokeGuiScene $S {
             getGuiSelectedTab $S | Should -Be "IndexTab"
+            # 何も選んでいないとき、詳細は見出しと案内の 1 文だけ（詳細の中身は畳まれる）
+            setGuiStep $S "何も選んでいない詳細"
+            waitGui $S "案内の 1 文が出る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "MultiSelectHintText")) -eq "一覧で 1 件選ぶと、ここに詳細を表示します。" } | Out-Null
+            (getGuiText (findGui $S.Window -Id "IndexDetailTitle")) | Should -Be "インデックスの状態"
+            testGuiVisible (findGui $S.Window -Id "IndexDetailName") | Should -BeFalse
             setGuiStep $S "取り込む（［すべて更新］→［更新を開始］）"
             startGuiIndexing $S
             waitGui $S "取り込みの完了" ${guiIndexTimeout} {
-                (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*" -and (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
+                (getGuiText (findGui $S.Window -Id "IndexFooterFiles")) -like "合計: [1-9]*" -and (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
             } | Out-Null
             $rowTexts = { (getGuiRowTexts @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]) -join " " }
             (& $rowTexts) | Should -Not -BeLike "*直下のみ*"
@@ -345,7 +364,7 @@ Describe "S2 詳細の『取り込み対象の拡張子』" -Tag Gui {
             setGuiStep $S "取り込む（［すべて更新］→［更新を開始］）"
             startGuiIndexing $S
             waitGui $S "取り込みの完了" ${guiIndexTimeout} {
-                (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*" -and (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
+                (getGuiText (findGui $S.Window -Id "IndexFooterFiles")) -like "合計: [1-9]*" -and (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
             } | Out-Null
             $rowTexts = { (getGuiRowTexts @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]) -join " " }
             (& $rowTexts) | Should -Not -BeLike "*要更新*"

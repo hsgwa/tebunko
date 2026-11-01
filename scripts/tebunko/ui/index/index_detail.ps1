@@ -5,8 +5,7 @@ foreach ($detailName in @(
         "IndexDetailBody", "IndexDetailName", "IndexDetailPath", "IndexDetailPathButton", "IndexDetailSubfolders", "IndexDetailTextExtSummary", "ChangeIndexTextExtensionsButton", "IndexDetailTextExtStaleBadge", "IndexDetailTextExtStaleBadgeText", "IndexDetailTextExtCaption", "IndexDetailEditError", "IndexDetailFolderStatus", "IndexDetailFolderIcon",
         "IndexDetailBadge", "IndexDetailBadgeText", "IndexDetailBadgeSub", "IndexErrorText", "IndexErrorHintText", "IndexDetailUpdated", "IndexDetailCount",
         "IndexingDetailPanel", "IndexingProgressBar", "IndexingCountText", "IndexingFileText", "MultiSelectHintText",
-        "IndexFilesButton", "IndexFilesPanel", "IndexFilesCloseButton", "IndexFilesHeading", "IndexFilesGrid",
-        "FailedFilesEntry", "FailedFilesHeading", "ShowFailedFilesButton", "IndexFilesFilter", "IndexFilesAllRadio", "IndexFilesFailedRadio")) {
+        "IndexFilesButton", "FailedFilesEntry", "FailedFilesHeading", "ShowFailedFilesButton")) {
     $ui[$detailName] = $ui.IndexDetailHost.Content.FindName($detailName)
 }
 # 詳細の「取り込む拡張子」の［変更…］（拡張子を選ぶダイアログを開き、［OK］で選びが変わっていればその場で設定に書く）
@@ -254,62 +253,14 @@ function applyIndexingState {
 
     # 失敗したファイルは、詳細の入口（FailedFilesEntry）から［ファイルの一覧］を「失敗のみ」で開いて見る（applyIndexStats が詳細も更新する）
     applyIndexStats $state.IndexStats (isIndexing) $state.Format
-    updateIndexSummaryText
     updateIndexingButton
     updateIndexingResume
     updateIndexTabBadge
 }
 
-$script:indexFilesEntries = $null   # 開いている一覧の中身（getIndexFileEntries の結果。「すべて」「失敗のみ」の切り替えで読み直さないため）
-$script:indexFilesSummary = ""     # 一覧の見出しの要約（絞り込みで案内に替えたあと戻すため）
-$script:indexFilesFilter = "All"    # 一覧の絞り込み（All / Failed）
-$script:indexFilesName = ""      # 取り込んだファイルの一覧を開いているインデックスの名前（空は閉じている）
-$script:indexFilesRequest = [ref]0   # 一覧を読む依頼の番号（古い依頼の結果は捨てる。[ref] のまま閉じ込める）
-
-function closeIndexFiles {
-    # 取り込んだファイルの一覧を閉じる（表の行も手放す）
-    $script:indexFilesName = ""
-    $script:indexFilesEntries = $null
-    $script:indexFilesRequest.Value++
-    $ui.IndexFilesPanel.Visibility = "Collapsed"
-    $ui.IndexFilesGrid.ItemsSource = $null
-}
-
-function setIndexFilesFilter {
-    # 開いている一覧を「すべて」「失敗のみ」に絞る（読み直さない。filter は All / Failed）。まだ読み込めていなければ、あとで読めたときに使う
-    param (
-        [string]$filter
-    )
-
-    $script:indexFilesFilter = if ($filter -eq "Failed") { "Failed" } else { "All" }
-    $ui.IndexFilesAllRadio.IsChecked = ($script:indexFilesFilter -eq "All")
-    $ui.IndexFilesFailedRadio.IsChecked = ($script:indexFilesFilter -eq "Failed")
-    if ($null -ne $script:indexFilesEntries) {
-        $shown = @(selectIndexFileRows $script:indexFilesEntries.Rows $script:indexFilesFilter)
-        $ui.IndexFilesGrid.ItemsSource = $shown
-        $notice = getIndexFilesEmptyNotice $script:indexFilesFilter $shown.Count
-        $ui.IndexFilesHeading.Text = if ($notice) { $notice } else { $script:indexFilesSummary }
-    }
-}
-
-function applyIndexFileEntries {
-    # 読み込めた一覧（getIndexFileEntries の結果）を画面に出す。見出し・絞り込みどおりの行・見える所までの送り
-    param (
-        $entries
-    )
-
-    $script:indexFilesEntries = $entries
-    $script:indexFilesSummary = getIndexFilesHeading ($entries.Rows.Count) ($entries.Failed) ($entries.Pending)
-    setIndexFilesFilter $script:indexFilesFilter
-    # 行ができて一覧が伸びたあとの高さで送る（配置を決めてから）
-    $ui.IndexFilesPanel.UpdateLayout()
-    $ui.IndexFilesPanel.BringIntoView()
-}
-
-function toggleIndexFiles {
-    # ［ファイルの一覧］: 詳細に出しているインデックスの、取り込んだファイルの一覧を開く（開いていれば読み直す）。
+function openIndexFilesDialog {
+    # ［ファイルの一覧］: 詳細に出しているインデックスの、取り込んだファイルの一覧をダイアログで開く（index_files_dialog.ps1）。
     # filter が Failed なら「失敗のみ」で開く（失敗の入口の［一覧で見る］）
-    # 取り込み一覧は数万行になることがあるため、読み込みと整形は裏のスレッドで行い、届いたら表に渡すだけにする
     param (
         [string]$filter = "All"
     )
@@ -318,47 +269,7 @@ function toggleIndexFiles {
     if ($null -eq $item) {
         return
     }
-    $name = [string]$item.Name
-    $script:indexFilesName = $name
-    $script:indexFilesEntries = $null
-    $script:indexFilesFilter = if ($filter -eq "Failed") { "Failed" } else { "All" }
-    $ui.IndexFilesAllRadio.IsChecked = ($script:indexFilesFilter -eq "All")
-    $ui.IndexFilesFailedRadio.IsChecked = ($script:indexFilesFilter -eq "Failed")
-    $requestBox = $script:indexFilesRequest
-    $requestBox.Value++
-    $requestId = $requestBox.Value
-    $panel = $ui.IndexFilesPanel
-    $panel.Visibility = "Visible"
-    $ui.IndexFilesGrid.ItemsSource = $null
-    $ui.IndexFilesHeading.Text = "読み込み中…"
-    # 詳細欄は縦にスクロールし、一覧は一番下にある。開いても見えない（何も出ないように見える）ため、見える所まで送る
-    $panel.UpdateLayout()
-    $panel.BringIntoView()
-    $labels = getIndexFileStateLabels
-    # 呼ぶ関数は変数で捕まえてから閉じ込める（裏の仕事の結果を受けるところからは、関数の名前が見つからないため。openListedFileFolder と同じ）
-    $applyEntries = ${function:applyIndexFileEntries}
-    $heading = $ui.IndexFilesHeading
-    startJob {
-        param ($path, $indexName, $labels)
-        getIndexFileEntries -indexName $indexName -labels $labels -path $path
-    } @($workspace.StatusFile, $name, $labels) {
-        param ($output, $errorText)
-        if ($requestId -ne $requestBox.Value) {
-            # 待っている間に別のインデックスを選んだ・閉じた。前の依頼は捨てる
-            return
-        }
-        if ($errorText -or !$output -or $output.Count -eq 0) {
-            $heading.Text = "ファイルの一覧を読み込めませんでした"
-            return
-        }
-        # 閉じ込めたブロックの中では $script: が本物のスクリプトのスコープでないため、状態に触る処理は関数（applyIndexFileEntries）に任せる
-        & $applyEntries $output[0]
-    }.GetNewClosure() (getWorkspaceJobQueue $workspace.StatusFile)
-}
-
-function openIndexFileFolder {
-    # 一覧で選んだファイルの場所を開く（元のファイルのパスは、一覧を読んだときに、取り込み一覧に記録した元のフォルダから組んである。失敗の一覧と同じ）
-    openListedFileFolder $ui.IndexFilesGrid.SelectedItem
+    showIndexFilesDialog -Owner $window -IndexName ([string]$item.Name) -Filter $filter
 }
 
 $script:failedFileRequest = [ref]0  # 失敗したファイルを確かめる依頼の番号（findSourceFile の $script:openSourceRequest と同じ理由で [ref] のまま閉じ込める）
@@ -557,11 +468,6 @@ function updateIndexDetailPanel {
             LastIngestedText = $item.LastIngestedText; FailedCount = $item.FailedCount; PendingCount = $item.PendingCount
         } + (getIndexTextExtItemValues $item.Name))
     }
-    # 選んだインデックスが変わったら、開いている一覧は閉じる（別のインデックスの一覧を見せない）
-    $listName = if ($null -ne $item) { [string]$item.Name } else { "" }
-    if ($script:indexFilesName -and $listName -ne $script:indexFilesName) {
-        closeIndexFiles
-    }
     # 更新に失敗したファイルの入口（1 行）。選んでいるインデックスの失敗の件数を出す
     $entry = getIndexFailedEntryView $(if ($null -ne $item) { [int]$item.FailedCount } else { 0 })
     $ui.FailedFilesEntry.Visibility = if ($entry.Shown) { "Visible" } else { "Collapsed" }
@@ -572,7 +478,7 @@ function updateIndexDetailPanel {
     $ui.IndexDetailTitle.Text = $view.Title
     $ui.IndexDetailBody.Visibility = if ($view.Selected) { "Visible" } else { "Collapsed" }
     $ui.MultiSelectHintText.Text = $view.Hint
-    $ui.MultiSelectHintText.Visibility = if ($view.Multi) { "Visible" } else { "Collapsed" }
+    $ui.MultiSelectHintText.Visibility = if ($view.Hint) { "Visible" } else { "Collapsed" }
     # 更新中の行では、最終更新・件数の代わりに進み具合（棒・件数と残り時間・ファイル名）を出す
     $ui.IndexingDetailPanel.Visibility = if ($view.Run.Shown) { "Visible" } else { "Collapsed" }
     $ui.IndexingProgressBar.Value = $view.Run.Value
@@ -624,24 +530,6 @@ function updateIndexDetailPanel {
     }
 }
 
-function updateIndexSummaryText {
-    $summary = $script:indexSummary
-    if ($null -eq $summary) {
-        $ui.IndexSummaryText.Text = "確認中…"
-        return
-    }
-    if ($summary["Count"] -eq 0) {
-        $ui.IndexSummaryText.Text = "まだインデックスがありません。"
-        return
-    }
-    $text = "集約ファイル $($summary['Count'].ToString('N0')) 件 ・ 最終更新 $(formatTime $summary['LastWrite'])"
-    $state = $script:indexingState
-    if ($state -and $state.Done -gt 0) {
-        $text = "更新済み $($state.Done.ToString('N0')) ファイル（$text）"
-    }
-    $ui.IndexSummaryText.Text = $text
-}
-
 function refreshIndexSummary {
     # 本文インデックスのファイルの件数は数えるのに時間がかかることがあるため、別スレッドで数える
     if ($script:summaryRunning) {
@@ -663,7 +551,6 @@ function refreshIndexSummary {
         } elseif ($output -and $output.Count -gt 0) {
             $script:indexSummary = $output[0]
         }
-        updateIndexSummaryText
         updateSearchTarget
         if ($script:summaryAgain) {
             refreshIndexSummary

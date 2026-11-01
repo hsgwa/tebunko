@@ -305,7 +305,7 @@ function captureStarterScene {
 
             setGuiStep $S "取り込みの完了"
             waitGui $S "取り込みの完了" ${guiIndexTimeout} {
-                (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*" -and
+                (getGuiText (findGui $S.Window -Id "IndexFooterFiles")) -like "合計: [1-9]*" -and
                     (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
             } | Out-Null
             captureGuiState -S $S -Id "index-tab/done" -Ids $Ids -OutDir $OutDir `
@@ -321,9 +321,9 @@ function captureStarterScene {
 }
 
 function captureFailedScene {
-    # index-tab/failed（失敗したファイルの一覧があり、タブに ⚠）
+    # index-tab/unselected（行はあるが何も選んでいない）・index-tab/failed（失敗したファイルの一覧があり、タブに ⚠）・index-tab/files
     param ($Ids, $Root, $OutDir, $UserName, $ComputerName, $UserProfile, $Sizes)
-    if ($Ids -notcontains "index-tab/failed" -and $Ids -notcontains "index-tab/files") { return }
+    if ($Ids -notcontains "index-tab/failed" -and $Ids -notcontains "index-tab/files" -and $Ids -notcontains "index-tab/unselected") { return }
 
     $dir = Join-Path $Root "failed"
     $tool = newGuiTool $dir
@@ -336,12 +336,16 @@ function captureFailedScene {
     $S = startGui $tool "failed"
     invokeGuiScene $S {
         selectGuiTab $S "IndexTab" "IndexingButton"
+        # 何も選んでいない詳細（行はあるが、まだ選んでいない。詳細は見出しと案内の 1 文だけ）
+        waitGui $S "詳細の案内の 1 文が出る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "MultiSelectHintText")) -eq "一覧で 1 件選ぶと、ここに詳細を表示します。" } | Out-Null
+        captureGuiState -S $S -Id "index-tab/unselected" -Ids $Ids -OutDir $OutDir `
+            -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
         # 失敗の入口は、選んだインデックスの詳細に出るため、行を選んでおく
         selectGui @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
         setGuiStep $S "取り込みの完了（失敗あり）"
         startGuiIndexing $S
         waitGui $S "取り込みの完了・失敗 1 件" ${guiIndexTimeout} {
-            (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*" -and
+            (getGuiText (findGui $S.Window -Id "IndexFooterFiles")) -like "合計: [1-9]*" -and
                 (getGuiText (findGui $S.Window -Id "FailedFilesHeading")) -like "*失敗したファイル 1 件*" -and
                 (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
         } | Out-Null
@@ -358,12 +362,15 @@ function captureFailedScene {
         # index-tab/files（失敗の入口の［一覧で見る］で、［ファイルの一覧］が失敗のみで開いた）
         if ($Ids -contains "index-tab/files") {
             clickGui $S $S.Window "ShowFailedFilesButton" "失敗の入口の［一覧で見る］"
+            $filesDialog = waitGuiWindow $S "ファイルの一覧のダイアログ" -Id "IndexFilesGrid"
             waitGui $S "ファイルの一覧が出る" ${guiDefaultTimeout} {
-                (getGuiText (findGui $S.Window -Id "IndexFilesHeading")) -like "ファイル * 件*" -and
-                    @(getGuiGridRows (findGui $S.Window -Id "IndexFilesGrid")).Count -ge 1
+                (getGuiText (findGui $filesDialog -Id "IndexFilesHeading")) -like "ファイル * 件*" -and
+                    @(getGuiGridRows (findGui $filesDialog -Id "IndexFilesGrid")).Count -ge 1
             } | Out-Null
             captureGuiState -S $S -Id "index-tab/files" -Ids $Ids -OutDir $OutDir `
-                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
+                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($filesDialog)
+            clickGui $S $filesDialog "IndexFilesCloseButton" "［閉じる］"
+            waitGuiWindowClosed $S $filesDialog "ファイルの一覧"
         }
         closeGui $S
     }
@@ -434,7 +441,7 @@ function captureTopOnlyScene {
             setGuiStep $S "取り込む"
             startGuiIndexing $S
             waitGui $S "取り込みの完了" ${guiIndexTimeout} {
-                (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*" -and (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
+                (getGuiText (findGui $S.Window -Id "IndexFooterFiles")) -like "合計: [1-9]*" -and (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
             } | Out-Null
 
             setGuiStep $S "詳細の「サブフォルダを含める」を外す"
@@ -489,7 +496,7 @@ function captureImportConfirmScene {
             setGuiStep $S "取り込む"
             startGuiIndexing $S
             waitGui $S "取り込みの完了" ${guiIndexTimeout} {
-                (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*" -and (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
+                (getGuiText (findGui $S.Window -Id "IndexFooterFiles")) -like "合計: [1-9]*" -and (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
             } | Out-Null
 
             setGuiStep $S "エクスポートして、一覧から削除する"
@@ -552,7 +559,7 @@ function captureTextExtensionsScene {
             setGuiStep $S "取り込む（件数の控えを作る）"
             startGuiIndexing $S
             waitGui $S "取り込みの完了" ${guiIndexTimeout} {
-                (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*" -and (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
+                (getGuiText (findGui $S.Window -Id "IndexFooterFiles")) -like "合計: [1-9]*" -and (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
             } | Out-Null
 
             setGuiStep $S "対象外を設定に書く（Word は .docm だけ・PowerPoint は 3 つとも）"

@@ -30,7 +30,6 @@ Describe "S9 ナビの画面の切り替えと F5" -Tag Gui {
             # 起動時の読み込みがそれを読んでしまい、ナビの切り替えでの読み直しと区別できなくなる
             setGuiStep $S "［インデックス管理］で起動時の読み込みの終わりを待つ"
             selectGuiTab $S "IndexTab" "IndexingButton"
-            waitGui $S "起動時の読み込みが終わる（集約ファイルが無い）" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "まだインデックスがありません*" } | Out-Null
             waitGui $S "起動時の読み込みが終わる（取り込みの状態に残りが無い）" ${guiDefaultTimeout} { (getGuiIndexingBannerText $S) -notlike "*残り*" } | Out-Null
 
             setGuiStep $S "［検索］へ移る"
@@ -42,17 +41,13 @@ Describe "S9 ナビの画面の切り替えと F5" -Tag Gui {
             waitGui $S "状態が読み直される（残り 1 件）" ${guiDefaultTimeout} { (getGuiIndexingBannerText $S) -like "*残り 1 件*" } | Out-Null
 
             setGuiStep $S "取り込み一覧と集約ファイルを書き換えて F5"
-            waitGui $S "集約ファイルはまだ無い" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "まだインデックスがありません*" } | Out-Null
             & $writeStatus 2
             $contentIndexDir = "$($script:tool.Work)\store\content"
             [IO.Directory]::CreateDirectory($contentIndexDir) | Out-Null
             [IO.File]::WriteAllText("$contentIndexDir\content_index.xlsx.tsv", "x`r`n", (New-Object Text.UTF8Encoding($true)))
             pressGuiKey $S.Window 0x74
-            # F5 だけが読み直すもの（本文インデックスのファイルの件数）でも待ち、Activated と区別する
-            waitGui $S "F5 で読み直される（残り 2 件・集約ファイル）" ${guiDefaultTimeout} {
-                (getGuiIndexingBannerText $S) -like "*残り 2 件*" -and
-                    (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*"
-            } | Out-Null
+            # 窓はもう前面で Activated は起きないので、取り込み一覧の読み直し（残り 2 件）は F5 によるもの
+            waitGui $S "F5 で読み直される（残り 2 件）" ${guiDefaultTimeout} { (getGuiIndexingBannerText $S) -like "*残り 2 件*" } | Out-Null
             closeGui $S
         }
     }
