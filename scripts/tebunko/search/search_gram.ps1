@@ -78,7 +78,8 @@ function skipRegexClass {
             continue
         }
         if ($c -eq '[') {
-            $depth++
+            # 入れ子になるのは引き算（-[）のときだけ。それ以外の [ は文字
+            if ($pattern[$i - 1] -eq '-') { $depth++ }
         } elseif ($c -eq ']') {
             $depth--
             if ($depth -eq 0) { return $i + 1 }
@@ -122,6 +123,27 @@ function skipRegexGroup {
     return -1
 }
 
+function skipRegexQuantifier {
+    # 正規表現の { の位置 start が、量指定（{n}・{n,}・{n,m}）なら } の次の位置を返す。量指定の形でなければ -1
+    # （.NET では量指定でない { はただの文字で、中に | や ( が来うる。呼び出し側は読むのをあきらめる）
+    param (
+        [string]$text,
+        [int]$start
+    )
+
+    $length = $text.Length
+    $i = $start + 1
+    $digits = $i
+    while ($i -lt $length -and $text[$i] -ge '0' -and $text[$i] -le '9') { $i++ }
+    if ($i -eq $digits) { return -1 }
+    if ($i -lt $length -and $text[$i] -eq ',') {
+        $i++
+        while ($i -lt $length -and $text[$i] -ge '0' -and $text[$i] -le '9') { $i++ }
+    }
+    if ($i -lt $length -and $text[$i] -eq '}') { return $i + 1 }
+    return -1
+}
+
 function readRegexEscape {
     # 正規表現の \ の位置 start の逃がしを読み、@{ Next; Literal } を返す。Next は次の位置（読めなければ -1）。
     # Literal は英数字でない文字の逃がし（\. など）の文字で、英数字の逃がし（\d \x41 \k<a> など）は $null（区切る。デコードしない）。
@@ -155,6 +177,13 @@ function readRegexEscape {
             return @{ Next = -1; Literal = $null }
         }
         $i = $close + 1
+    } elseif ($e -ceq 'p' -or $e -ceq 'P') {
+        # \p{L} の {...} まで読み飛ばす
+        $close = if ($i -lt $length -and $text[$i] -eq '{') { $text.IndexOf('}', $i + 1) } else { -1 }
+        if ($close -lt 0) {
+            return @{ Next = -1; Literal = $null }
+        }
+        $i = $close + 1
     } elseif ([char]::IsDigit($e)) {
         while ($i -lt $length -and [char]::IsDigit($text[$i])) { $i++ }
     }
@@ -166,8 +195,8 @@ function getRegexRequiredText {
     # 式を前から 1 回だけ読む（正規表現を使わない・再帰しない）。いちばん外側の連接だけを見て、迷う書き方は全部あきらめる（空文字）。
     #   取り出す: ふつうの文字・英数字でない文字の逃がし（\. など）
     #   区切る: . ^ $ [...] (...) (?:...) 英数字の逃がし（\d \x41 \k<a> など。デコードしない）・空白
-    #   直前の 1 文字を捨てて区切る: ? * {（{ から } までは読み飛ばす）。+ は直前の 1 文字を残して区切る。量指定の後ろの ? + は読み飛ばす
-    #   あきらめる: いちばん外側の |・(? の後ろが : 以外・閉じていない・閉じすぎ・末尾の \
+    #   直前の 1 文字を捨てて区切る: ? * {n} {n,} {n,m}（量指定の形でない { はあきらめる）。+ は直前の 1 文字を残して区切る。量指定の後ろの ? + は読み飛ばす
+    #   あきらめる: いちばん外側の |・量指定の形でない {・(? の後ろが : 以外・閉じていない・閉じすぎ・末尾の \
     param (
         [string]$pattern
     )
@@ -216,9 +245,8 @@ function getRegexRequiredText {
             $flush = $true
             $quantifier = $true
         } elseif ($c -ceq '{') {
-            $close = $text.IndexOf('}', $i + 1)
-            if ($close -lt 0) { return "" }
-            $i = $close + 1
+            $i = skipRegexQuantifier $text $i
+            if ($i -lt 0) { return "" }
             if ($current.Length -gt 0) { $current.Length-- }
             $flush = $true
             $quantifier = $true

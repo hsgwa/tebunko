@@ -57,6 +57,7 @@ Describe "skipRegexClass・skipRegexGroup" -Tag Unit {
         @{ pattern = '[^]a]c'; expected = 5 }
         @{ pattern = '[a\]b]c'; expected = 6 }
         @{ pattern = '[a-z-[aeiou]]c'; expected = 13 }
+        @{ pattern = '[[]a]c'; expected = 3 }
         @{ pattern = '[ab'; expected = -1 }
     ) {
         skipRegexClass $pattern 0 | Should -Be $expected
@@ -119,8 +120,17 @@ Describe "getRegexRequiredText" -Tag Unit {
         @{ pattern = '\d*cd'; expected = 'cd' }
         @{ pattern = 'ab{1,3}?c'; expected = 'a c' }
         @{ pattern = 'ab+?c'; expected = 'ab c' }
-        @{ pattern = 'a{x}bc'; expected = 'bc' }
+        @{ pattern = 'a{x}bc'; expected = '' }
         @{ pattern = 'a{x'; expected = '' }
+        @{ pattern = 'ab{c|d}ef'; expected = '' }
+        @{ pattern = '{x|y}zw'; expected = '' }
+        @{ pattern = 'a{1|(b)}cd'; expected = '' }
+        @{ pattern = 'a{,5}bc'; expected = '' }
+        @{ pattern = 'a{2,}bc'; expected = 'bc' }
+        @{ pattern = 'a{2,3}bc'; expected = 'bc' }
+        @{ pattern = '[[]a|b]cd'; expected = '' }
+        @{ pattern = '[[]ab]cd'; expected = 'ab]cd' }
+        @{ pattern = '\p{L'; expected = '' }
         @{ pattern = 'ab\'; expected = '' }
         @{ pattern = 'ab)c'; expected = '' }
         @{ pattern = 'ＡＢ.*ｃ'; expected = 'ＡＢ ｃ' }
@@ -145,6 +155,33 @@ Describe "getRegexRequiredText" -Tag Unit {
         $elapsed = (Measure-Command { $result = getRegexRequiredText ($long + "bc") }).TotalSeconds
         $result | Should -Be "bc"
         $elapsed | Should -BeLessThan 1
+    }
+}
+
+Describe "getRegexRequiredText と実際の一致" -Tag Unit {
+    It "取り出した文字は、正しい式のどの一致にも含まれる（記号多めの乱数の式）" {
+        $random = New-Object System.Random 20261101
+        $alphabet = [char[]]'ab{}|()[]?*+.^$\-,12:'
+        $samples = @('ab', 'abc', 'a{b', 'b}a', '[a]', 'a|b', 'aab', 'abab', 'a1b2', '(a)', 'ba', 'a-b', 'a,b', 'a.b', 'a{1}', 'a{1,2}b', 'b{', '{a}', 'ab)', '[a', 'a]', 'a?b')
+        $bad = New-Object System.Collections.Generic.List[string]
+        for ($n = 0; $n -lt 3000; $n++) {
+            $length = $random.Next(2, 10)
+            $chars = for ($k = 0; $k -lt $length; $k++) { $alphabet[$random.Next($alphabet.Length)] }
+            $pattern = -join $chars
+            $regex = $null
+            try { $regex = New-Object System.Text.RegularExpressions.Regex($pattern, [System.Text.RegularExpressions.RegexOptions]::CultureInvariant, [TimeSpan]::FromSeconds(1)) } catch { continue }
+            $required = getRegexRequiredText $pattern
+            if ($required -eq '') { continue }
+            $parts = $required -split ' '
+            foreach ($sample in $samples) {
+                foreach ($m in $regex.Matches($sample)) {
+                    foreach ($part in $parts) {
+                        if (!$m.Value.Contains($part)) { $bad.Add("$pattern -> $required (一致 $($m.Value))") }
+                    }
+                }
+            }
+        }
+        ($bad | Select-Object -First 5) -join "`n" | Should -BeNullOrEmpty
     }
 }
 
