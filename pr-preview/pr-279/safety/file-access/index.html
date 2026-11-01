@@ -4621,7 +4621,7 @@
 <p>OneDrive・SharePoint のオンデマンドで、中身がこの PC に無いファイルは、フォルダの一覧と同時に分かる属性だけで見分け、既定ではファイルを開かない。開けばダウンロードが始まり、ネットワークの帯域・ディスクの空きを使い、ファイルがこの PC に残るため。利用者が確認のダイアログで選んだとき（または設定 <code>cloudFiles</code> が <code>download</code> のとき）だけ、ほかのファイルと同じようにコピーして読む。見分けのための属性の読み取りは、ファイルを書き換えない。</p>
 <h2 id="読み取りのみであることの実証">読み取りのみであることの実証<a class="headerlink" href="#読み取りのみであることの実証" title="Permanent link">&para;</a></h2>
 <p>静的な確認に加えて、実際に動かして確認できる。第三者が再現できる手順は次の 2 つ。</p>
-<p><strong>手順 A: ハッシュの比較</strong></p>
+<p><strong>手順 A: ハッシュ・属性・更新日時の比較</strong></p>
 <div class="highlight"><pre><span></span><code><span class="nv">$target</span> <span class="p">=</span> <span class="s2">"C:\確認用\対象フォルダ"</span>
 <span class="nv">$before</span> <span class="p">=</span> <span class="nb">Get-ChildItem</span> <span class="nv">$target</span> <span class="n">-Recurse</span> <span class="o">-File</span> <span class="p">|</span> <span class="nb">Get-FileHash</span>
 <span class="c"># ここで tebunko.bat を起動し、$target を対象にインデックスを作成する</span>
