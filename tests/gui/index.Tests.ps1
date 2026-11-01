@@ -192,6 +192,11 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             $failedOnly = @(getGuiGridRows (findGui $filesDialog -Id "IndexFilesGrid"))
             $failedOnly.Count | Should -Be 1 -Because "失敗のみなので、失敗の 1 件だけ並ぶ"
             (getGuiRowTexts $failedOnly[0]) -join " " | Should -BeLike "*壊れた文書.docx*失敗*"
+            # 失敗の原因が表の「原因」の列に読める（ツールチップに頼らない）
+            $failedCells = @(getGuiRowTexts $failedOnly[0])
+            $failedCells.Count | Should -BeGreaterOrEqual 4
+            $failedCells[$failedCells.Count - 1] | Should -Not -BeNullOrEmpty -Because "失敗の行に原因の文がある"
+            (getGuiTexts $filesDialog) | Should -Contain "原因"
             testGuiVisible (findGui $filesDialog -Id "IndexFilesEmptyText") | Should -BeFalse
             clickGui $S $filesDialog "IndexFilesCloseButton" "［閉じる］"
             waitGuiWindowClosed $S $filesDialog "ファイルの一覧"

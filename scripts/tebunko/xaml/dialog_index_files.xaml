@@ -93,6 +93,14 @@
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
+            <!-- 失敗の原因（失敗の行だけに文がある。失敗が 1 件も無いときは列ごと隠す。index_files_dialog.ps1）。ツールチップが出ない場面でも読めるよう、列で見せる -->
+            <DataGridTemplateColumn Header="原因" Width="280" Visibility="Collapsed">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding Reason}" ToolTip="{Binding Reason}" FontSize="11" Style="{StaticResource Cell.Meta}" TextWrapping="NoWrap" />
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
           </DataGrid.Columns>
         </DataGrid>
         <!-- 失敗のみで 0 件のときの案内（表の中央） -->

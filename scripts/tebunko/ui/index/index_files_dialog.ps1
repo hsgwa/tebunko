@@ -47,6 +47,8 @@ function applyIndexFilesEntries {
     $ctx.State.Entries = $entries
     $ctx.Controls.IndexFilesHeading.Text = getIndexFilesHeading ($entries.Rows.Count) ($entries.Failed) ($entries.Pending)
     $ctx.Controls.IndexFilesFilter.IsEnabled = $true
+    # 失敗したファイルがあるときだけ、原因の列（4 列目）を出す
+    $ctx.Controls.IndexFilesGrid.Columns[3].Visibility = $(if ([int]$entries.Failed -gt 0) { "Visible" } else { "Collapsed" })
     applyIndexFilesFilter $ctx
 }
 
