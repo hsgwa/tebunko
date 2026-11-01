@@ -4116,10 +4116,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#検索tebunkosearchsearch_queryps1content_index_searchps1search_runps1" class="md-nav__link">
+  <a href="#検索tebunkosearchsearch_queryps1content_index_searchps1search_runps1search_narrowps1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        検索（tebunko/search/search_query.ps1・content_index_search.ps1・search_run.ps1）
+        検索（tebunko/search/search_query.ps1・content_index_search.ps1・search_run.ps1・search_narrow.ps1）
       
     </span>
   </a>
@@ -4238,10 +4238,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#検索tebunkosearchsearch_queryps1content_index_searchps1search_runps1" class="md-nav__link">
+  <a href="#検索tebunkosearchsearch_queryps1content_index_searchps1search_runps1search_narrowps1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        検索（tebunko/search/search_query.ps1・content_index_search.ps1・search_run.ps1）
+        検索（tebunko/search/search_query.ps1・content_index_search.ps1・search_run.ps1・search_narrow.ps1）
       
     </span>
   </a>
@@ -4331,7 +4331,7 @@
 
 <h1 id="部品ごとの関数検索スレッド元のファイル画面">部品ごとの関数（検索・スレッド・元のファイル・画面）<a class="headerlink" href="#部品ごとの関数検索スレッド元のファイル画面" title="Permanent link">&para;</a></h1>
 <p>扱うこと: 検索（<code>search_query.ps1</code>・<code>content_index_search.ps1</code>・<code>search_overflow.ps1</code>・<code>search_export.ps1</code>・<code>search_run.ps1</code>）、スレッドとプール（<code>worker_pool.ps1</code>・<code>search_service.ps1</code>・<code>indexing_session.ps1</code>）、元のファイルの特定（<code>source_map.ps1</code>）、画面が使う集計・設定・Office プロセスの関数一覧。扱わないこと: TSV・本文インデックスそのものの関数（<a href="../tsv/">部品ごとの関数（TSV と本文インデックス）</a>）。先に読むページ: <a href="../">部品から関数一覧を引く</a>。</p>
-<h2 id="検索tebunkosearchsearch_queryps1content_index_searchps1search_runps1">検索（<code>tebunko/search/search_query.ps1</code>・<code>content_index_search.ps1</code>・<code>search_run.ps1</code>）<a class="headerlink" href="#検索tebunkosearchsearch_queryps1content_index_searchps1search_runps1" title="Permanent link">&para;</a></h2>
+<h2 id="検索tebunkosearchsearch_queryps1content_index_searchps1search_runps1search_narrowps1">検索（<code>tebunko/search/search_query.ps1</code>・<code>content_index_search.ps1</code>・<code>search_run.ps1</code>・<code>search_narrow.ps1</code>）<a class="headerlink" href="#検索tebunkosearchsearch_queryps1content_index_searchps1search_runps1search_narrowps1" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart LR
     A["getContentIndexFiles&lt;br&gt;本文インデックスのファイルを列挙"] --&gt; B["searchContentIndex"]
     B --&gt; C["newSearchRegex / newFileFilter / newPlaceExclude&lt;br&gt;条件を正規表現に"]
@@ -4492,13 +4492,101 @@
 <td><code>newSearchRequest</code></td>
 <td>word, simpleMatch, folders, limit, option, workDir（既定 <code>$workspace.Dir</code>）</td>
 <td>検索の要求（<code>[hashtable]::Synchronized</code>）</td>
-<td>検索 1 回分の要求を作る。画面が条件と <code>Stop</code>（取り消し）を書き、検索の司令がヒット（<code>Queue</code>）・進み具合・<code>Finished</code> を書く</td>
+<td>検索 1 回分の要求を作る。画面が条件と <code>Stop</code>（取り消し）を書き、検索の司令がヒット（<code>Queue</code>）・進み具合・<code>Finished</code>・<code>Narrowed</code>（前の結果から絞って答えたか）・<code>NarrowReason</code>（絞るかの判定の符号）を書く</td>
 <td><a href="../../structure/threads/#寿命">プロセスとスレッド</a></td>
 <td>画面</td>
 </tr>
 <tr>
+<td><code>testLiteralSearchWord</code></td>
+<td>word, simpleMatch</td>
+<td>bool</td>
+<td>検索語が照合の式として文字どおりの 1 つの文字列か（正規表現を使う指定でも、語に正規表現の記号が無ければ真）</td>
+<td><a href="../../search/speed/">速さ</a></td>
+<td><code>getNarrowSearchReason</code></td>
+</tr>
+<tr>
+<td><code>toSearchFolderKeys</code></td>
+<td>folders</td>
+<td>string[]</td>
+<td>検索対象（文字列か <code>@{ Root; RelPath; Recurse }</code>）を比べるための文字列の並びにする</td>
+<td>同上</td>
+<td><code>getNarrowSearchReason</code></td>
+</tr>
+<tr>
+<td><code>getNarrowSearchReason</code></td>
+<td>previous, request</td>
+<td>string</td>
+<td>前の検索の記録と新しい要求から、前のヒットだけを照合し直してよいか（<code>Narrow</code>）か、絞らない理由の符号を返す。判断層</td>
+<td>同上</td>
+<td><code>tryNarrowSearch</code></td>
+</tr>
+<tr>
+<td><code>testRecordableHitLines</code></td>
+<td>hits</td>
+<td>bool</td>
+<td>ヒットの行が元の行そのままか（テキストの長い行を切った可能性があれば偽）</td>
+<td>同上</td>
+<td><code>newSearchRecord</code></td>
+</tr>
+<tr>
+<td><code>newSearchRecord</code></td>
+<td>request, folders, files, hits</td>
+<td>hashtable</td>
+<td>最後まで検索し終えた要求の記録（条件・一覧・ヒット）を作る。記録できないときは <code>$null</code></td>
+<td>同上</td>
+<td><code>updateSearchRecord</code></td>
+</tr>
+<tr>
+<td><code>testSearchRecordFiles</code></td>
+<td>record, files</td>
+<td>bool</td>
+<td>今の本文インデックスのファイルの一覧が記録と同じか</td>
+<td>同上</td>
+<td><code>invokeNarrowSearch</code></td>
+</tr>
+<tr>
+<td><code>selectNarrowHits</code></td>
+<td>record, word, caseSensitive</td>
+<td>List</td>
+<td>記録のヒットのうち新しい語に一致する行を、順番を保って返す</td>
+<td>同上</td>
+<td><code>invokeNarrowSearch</code></td>
+</tr>
+<tr>
+<td><code>invokeNarrowSearch</code></td>
+<td>request, state</td>
+<td>bool</td>
+<td>絞った検索を実行する。一覧が変わっていれば <code>$false</code>（全体の検索に進む）</td>
+<td>同上</td>
+<td><code>tryNarrowSearch</code></td>
+</tr>
+<tr>
+<td><code>tryNarrowSearch</code></td>
+<td>request, state</td>
+<td>bool</td>
+<td>判定して、絞れるなら絞った検索を実行する</td>
+<td>同上</td>
 <td><code>invokeSearchRequest</code></td>
-<td>request, pool, cache</td>
+</tr>
+<tr>
+<td><code>updateSearchRecord</code></td>
+<td>request, state, folders, files, hits</td>
+<td>–</td>
+<td>最後まで終えた要求なら記録を置き換える</td>
+<td>同上</td>
+<td><code>invokeSearchRequest</code></td>
+</tr>
+<tr>
+<td><code>initSearchOverflow</code></td>
+<td>request, own</td>
+<td>–</td>
+<td>前の溢れを消し、上限があるときだけ溢れの置き場所を決める</td>
+<td>同上</td>
+<td><code>invokeSearchRequest</code></td>
+</tr>
+<tr>
+<td><code>invokeSearchRequest</code></td>
+<td>request, pool, cache, narrowState（前の結果の入れ物。省略すると使い回さない）</td>
 <td>–</td>
 <td>検索の要求を実行し、ヒットと進み具合を要求に少しずつ入れる。例外は投げずに <code>Error</code> に入れる。始める前に取り消されていたら何もせずに <code>Cancelled</code> にする。gram 索引・列挙・照合には要求そのものを <code>-stopSignal</code> として渡し、gram 索引・列挙の後に <code>Stop</code> を見て、立っていれば先の段に進まず <code>Cancelled</code> にする</td>
 <td>同上</td>
@@ -4681,7 +4769,7 @@
 <tr>
 <td><code>getGramContentIndexFiles</code></td>
 <td>word, simpleMatch, folders, indexRoot, gramRoot, onProgress, stopSignal（<code>Stop</code> を持つもの。列挙とインデックス名ごとに見て、立っていれば <code>$null</code>）</td>
-<td><code>@{Folders; ContentIndexFiles; Gram（@{Total; Candidates}）}</code> / <code>$null</code></td>
+<td><code>@{Folders; ContentIndexFiles; Gram（@{Total; Candidates}）; All（絞る前のすべての本文インデックスのファイル）}</code> / <code>$null</code></td>
 <td>検索語の 2-gram をすべて含むと分かったファイルだけに、照合する本文インデックスのファイルを絞る。正規表現・2-gram が作れない・索引の置き場が無い・1 つも外せなかったときは <code>$null</code>（呼ぶ側が <code>getContentIndexFiles</code> ですべてを集める）</td>
 <td>検索（<code>search_run.ps1</code>）</td>
 </tr>
