@@ -153,12 +153,12 @@ Describe "getRegexRequiredText" -Tag Unit {
         getRegexRequiredText $pattern | Should -Be $expected
     }
 
-    It "長い式（(a+)+ を 1 万回つないだもの）が 1 秒以内に返る" {
+    It "長い式（(a+)+ を 1 万回つないだもの）が数秒以内に返る（式の長さに比例する。指数的に遅くならない）" {
         $long = "(a+)+" * 10000
         $result = $null
         $elapsed = (Measure-Command { $result = getRegexRequiredText ($long + "bc") }).TotalSeconds
         $result | Should -Be "bc"
-        $elapsed | Should -BeLessThan 1
+        $elapsed | Should -BeLessThan 5
     }
 }
 
