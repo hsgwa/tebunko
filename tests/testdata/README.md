@@ -23,10 +23,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests\testdata\make_testdata
 - **生成し直すと、実行した人の情報が Office ファイルに埋め込まれる。** リポジトリは公開しているため、コミットする前に必ず取り除く。
   - `make_testdata.ps1` は最後に `scrub_personal.ps1` を呼んで取り除く。名前は Windows のユーザー名・プロファイルのフォルダ名・Office のユーザー名（レジストリ）から集める。Microsoft アカウントの表示名などそれ以外の名前が入る場合は、`scrub_personal.ps1 -Names "<名前>"` で追加して実行し直す。
   - 取り残しは、コミット時に pre-commit フック（`tools/check_commit.ps1`）が止める。CI も同じ検査をする。
-  - 置き換え方: ZIP（OOXML・ODF）は中の XML を書き換え、書き換えないエントリは元の圧縮データのまま残す。旧形式・PDF・`.xlsb` の `xl/workbook.bin` はレコード長とオフセットが崩れるため、バイト長を変えずに `test_` のように `_` で埋める。
+  - 置き換え方: ZIP（OOXML・ODF）は中の XML を書き換え、書き換えないエントリは元の圧縮データのまま残す。中のエントリが ZIP（グラフの埋め込みブックなど）なら、それも開いて同じ決まりで書き換える。旧形式・PDF・`.xlsb` の `xl/workbook.bin` はレコード長とオフセットが崩れるため、バイト長を変えずに `test_` のように `_` で埋める。
   - 埋め込まれる場所は次のとおり。
     - `docProps\core.xml` の `dc:creator` `cp:lastModifiedBy`（ODF は `meta.xml` の `meta:initial-creator`）… Office の利用者名
     - `xl\workbook.xml` の `x15ac:absPath`、`xl\workbook.bin`（`.xlsb`）… 保存時の絶対パス（`%TEMP%` 配下のため Windows のユーザー名を含む）
+    - `word\embeddings\*.xlsx`・`ppt\embeddings\*.xlsx`（Word・PowerPoint のグラフが埋め込むブック。ZIP の中の ZIP）の中の `docProps\core.xml` と `xl\workbook.xml` … 上の 2 つと同じもの。中の ZIP は圧縮されたバイト列で、外側の XML のようには名前が見えないため、`scrub_personal.ps1` と `check_commit.ps1` は中の ZIP も開いて調べる（3 段まで）
     - `word\comments.xml` `word\people.xml` `word\document.xml`（変更履歴）`ppt\authors.xml` `xl\comments1.xml`、`xl\pivotCache\pivotCacheDefinition1.xml` … コメント・変更履歴の作成者名、頭文字、Microsoft アカウント ID
     - `xl\externalLinks\_rels\externalLink1.xml.rels` … 外部リンク先の絶対パス
     - 旧形式（`.doc` `.xls` `.ppt`）の SummaryInformation、`.pdf` の `/Author` と XMP … Office の利用者名
@@ -189,6 +190,7 @@ Word・PowerPoint のインデックス作成の確認用。
 | — | `Word\空文書.docx` | 空の文書 | 文字列なし |
 | TC20-F01〜09 | `Word\形式\` | `.doc` `.docm`、拡張子が大文字の `.DOCX` `.DOC`、`.rtf` `.dotx` `.odt` `.pdf` `.txt` | 形式違い。取り込み対象は `.doc` `.docm` `.DOCX` `.DOC` だけ（拡張子の大文字・小文字は区別しない） |
 | TC27-01〜16 | `Word\高度.docx` | 目次、ブックマークと相互参照、多階層の箇条書き、画像（代替テキスト付き）、コメントと返信、書式だけの変更履歴、コンテンツコントロール、索引項目、数式、セクション区切り（横向き・2 段組み・セクションごとのヘッダー） | 目次・相互参照はフィールドの結果が入る。箇条書きは 3 階層 |
+| TC32 | `Word\グラフとSmartArt.docx` | 本文に置いたグラフ（タイトル「TC32 Word グラフのタイトル」、系列名「TC32 系列名」、項目名「TC32 項目1」、値 `987654`）と SmartArt（ノード「TC32 Word SmartArt のテキスト」）が 1 つずつ。グラフは Excel のブックを埋め込む（`word\embeddings\`） | 場所 `ページ001[図形]` に「TC32 Word SmartArt のテキスト」「TC32 Word グラフのタイトル TC32 系列名」が 1 行ずつ（この順）。「TC32 項目」と `987654` は出ない。埋め込みブックは `[埋め込み<N>]` の場所に出ない。Word の COM で作った（`manual\` は使っていない） |
 | TC20-E01〜08 | `Word\異常系\` | 読み取りパスワード付き（`.docx`・`.doc`）、書き込みパスワード付き、壊れたファイル、0 バイト、`~$ロックファイル.docx`（隠し属性）、中身が doc の `.docx`、中身が docx の `.doc`、中身が RTF・HTML の `.doc` | 読み取りパスワードは `openpw`、書き込みパスワードは `writepw` |
 
 確認結果（Word）:
@@ -197,7 +199,7 @@ Word・PowerPoint のインデックス作成の確認用。
 - 検索できる: 本文、表（結合セル・入れ子の表）、脚注、文末脚注、ヘッダー、フッター、ハイパーリンクの表示文字列、QUOTE フィールドの結果、隠し文字、ルビ（「かんじ」）、変更履歴で追加した段落。
 - 本文のテキストボックス・図形内のテキストは `ページ001[図形]`（種別「図形」）、コメントは `ページ001[コメント]`（種別「コメント」）に出る。`本文以外.docx` は「TC20 図形のテキスト」「TC20 テキストボックスのテキスト」と「TC20 コメントのテキスト」、`高度.docx` はコメントと返信（「TC27 コメント本体のテキスト」「TC27 コメントへの返信のテキスト」）が 1 件ずつ入る。
 - 検索できない: 変更履歴で削除した文字列、代替テキスト、ハイパーリンクの URL、索引項目（`XE` フィールド）。
-- SmartArt・グラフはテストデータに無い（作成できなかった）。読み取りは `tests\shared\office\office_reader.Tests.ps1` の手で書いた XML で確かめている。
+- SmartArt・グラフは `Word\グラフとSmartArt.docx`（TC32。下の表）にある。読み取りは `tests\shared\office\office_reader.Tests.ps1` の、手で書いた XML と、この実物のファイルで確かめている。
 - `高度.docx` では、目次・相互参照・コンテンツコントロールの中の文字、2 つ目のセクションのヘッダー（`ヘッダー・フッター`）も検索できる。
 - 読み取りパスワード付きの 2 件だけが失敗する。拡張子と中身が違うもの（中身が doc の `.docx`、中身が RTF・HTML の `.doc` など）は Word で開き直して取り込まれる。中身がテキストの `壊れたファイル.docx` もテキストとして読まれ、その文字列が検索できる。0 バイトの `空ファイル.docx` は成功扱いで TSV は 0 件。
 
@@ -207,12 +209,13 @@ Word・PowerPoint のインデックス作成の確認用。
 |---|---|---|---|
 | TC21-01〜13 | `PowerPoint\基本.pptx` | タイトル・サブタイトル、箇条書き（インデントあり）、ノート、段落内改行、`:` を含む段落、記号、CP932 外の文字、タブ。最後に作ったスライドを 2 枚目に移動 | 4 枚。PowerPoint は保存時にスライドのファイル名を表示順に振り直すため、`slide2.xml` が移動したスライド（TC21-13）になる。**ノートの「TC21 ノートのテキスト」は「TC21 」と「ノートのテキスト」の 2 つの `a:r` に分かれている**（段落内の `a:t` を連結しないと検索でヒットしない） |
 | — | `PowerPoint\並べ替え（XML編集）.pptx` | ファイル名の順と表示順が違う | `基本.pptx` の `presentation.xml` の `p:sldIdLst` を逆順に書き換えたもの。表示順の 1 枚目は `slide4.xml`（TC21-07）、最後は `slide1.xml`（TC21-01）。PowerPoint で開けることを確認済み |
-| TC21-O00〜06、T00〜02、L00 | `PowerPoint\本文以外.pptx` | テキストボックス、図形、代替テキスト、グループ化した図形、縦書き、表（セル内の段落、結合）、ハイパーリンク（表示文字列と URL）、フッター、コメント、何も入力していないプレースホルダー | `p:grpSp`、`a:tbl`、`gridSpan` がある。フッターの「TC21 フッターのテキスト」も run が分かれている。URL（`TC21-hidden-url`）は rels にだけある。4 枚目は空のプレースホルダーだけ（「クリックしてタイトルを入力」は文字列として保存されない）。SmartArt はこの環境では作れなかった（レイアウト一覧が 0 件。作れない場合は警告を出して飛ばす） |
+| TC21-O00〜06、T00〜02、L00 | `PowerPoint\本文以外.pptx` | テキストボックス、図形、代替テキスト、グループ化した図形、縦書き、表（セル内の段落、結合）、ハイパーリンク（表示文字列と URL）、フッター、コメント、何も入力していないプレースホルダー | `p:grpSp`、`a:tbl`、`gridSpan` がある。フッターの「TC21 フッターのテキスト」も run が分かれている。URL（`TC21-hidden-url`）は rels にだけある。4 枚目は空のプレースホルダーだけ（「クリックしてタイトルを入力」は文字列として保存されない）。SmartArt は `グラフとSmartArt.pptx`（TC32）にある |
 | TC21-S01〜03 | `PowerPoint\非表示スライド.pptx` | 非表示スライド、セクション（「TC21 セクション名1」「TC21 セクション名2」） | 2 枚目が `show="0"` |
 | TC21-M001〜100 | `PowerPoint\多数スライド.pptx` | 100 枚 | 100 枚目のタイトルは「TC21 最終スライド」 |
 | — | `PowerPoint\空.pptx` | スライド 0 枚 | スライドなし |
 | TC21-F01〜09 | `PowerPoint\形式\` | `.ppt` `.pptm`、拡張子が大文字の `.PPTX` `.PPT`、`.ppsx` `.pps` `.potx` `.odp` `.pdf` | 形式違い。取り込み対象は `.ppt` `.pptm` `.PPTX` `.PPT` だけ（拡張子の大文字・小文字は区別しない） |
-| TC28-01〜09 | `PowerPoint\高度.pptx` | 4:3 のスライドサイズ、スライドマスター・レイアウトに置いた文字（場所 `スライドマスター` に出る）、5 階層の箇条書き、長いノート（33 段落）、WordArt、画像（代替テキスト付き）、日付・スライド番号のプレースホルダ、非表示スライドのノート | グラフはこの環境では追加できなかった（`AddChart2` が失敗する） |
+| TC32-01 | `PowerPoint\グラフとSmartArt.pptx` | 1 枚に置いたグラフ（タイトル「TC32 PowerPoint グラフのタイトル」、系列名「TC32 系列名」、項目名「TC32 項目1」、値 `987654`）と SmartArt（ノード「TC32 PowerPoint SmartArt のテキスト」）。グラフは Excel のブックを埋め込む（`ppt\embeddings\`） | 場所 `スライド001[図形]` に「TC32 PowerPoint グラフのタイトル TC32 系列名」「TC32 PowerPoint SmartArt のテキスト」が 1 行ずつ（この順）。「TC32 項目」と `987654` は出ない。PowerPoint の COM で作った。グラフを置くにはウィンドウのあるプレゼンテーションが要り、ブックの変更がグラフの保存内容に届かないため、系列名・項目名・値はグラフの側にも直接書いている |
+| TC28-01〜09 | `PowerPoint\高度.pptx` | 4:3 のスライドサイズ、スライドマスター・レイアウトに置いた文字（場所 `スライドマスター` に出る）、5 階層の箇条書き、長いノート（33 段落）、WordArt、画像（代替テキスト付き）、日付・スライド番号のプレースホルダ、非表示スライドのノート | グラフは `グラフとSmartArt.pptx`（TC32）にある |
 | TC31-01〜03 | `PowerPoint\マスターとレイアウト.pptx` | スライド 3 枚（1・2 枚目は同じレイアウト）、スライドマスターとレイアウトに置いたテキストボックス（同じ文字を両方に置く）、見本の文字を書き換えたプレースホルダー、どのスライドも使わないレイアウトのテキストボックス、ノートマスターのテキストボックスと本文の見本の文字の書き換え | 場所 `スライドマスター` に「TC31 マスターのテキスト」「TC31 レイアウトのテキスト」が 1 行ずつ（この順）、場所 `ノートマスター` に「TC31 ノートマスターのテキスト」が 1 行。「TC31 見本の文字」「TC31 ノートの見本の文字」「TC31 使っていないレイアウト」は出ない |
 | TC21-E01〜05 | `PowerPoint\異常系\` | 読み取りパスワード付き（`.pptx`・`.ppt`）、壊れたファイル、0 バイト、`~$ロックファイル.pptx`（隠し属性）、中身が ppt の `.pptx`、中身が pptx の `.ppt` | パスワードは `openpw` |
 
@@ -398,4 +401,5 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests\testdata\text\make_tes
 | `TC31` | 7 | PowerPoint のスライドマスター・レイアウト・ノートマスター（スライドのタイトル 3 行、ノートのテキスト 1 行、マスター・レイアウト・ノートマスターの 3 行。見本の文字と使っていないレイアウトは「TC31」を含んでも出ない） |
 | `TC29` | 5 | 使用範囲が膨らんだシート（データの範囲だけが出力される） |
 | `TC30` | 8 | グラフ・SmartArt・グラフシート（セルの値と、図形の場所の両方でヒットする） |
+| `TC32` | 7 | Word・PowerPoint のグラフ・SmartArt（Word は本文 2 行と図形 2 行、PowerPoint はスライドのタイトル 1 行と図形 2 行） |
 | `該当なしの文字列XYZ` | 0 | ヒットなし |

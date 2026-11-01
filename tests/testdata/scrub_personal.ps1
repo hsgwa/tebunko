@@ -137,8 +137,12 @@ function scrubXml([string]$text, [string[]]$names) {
     return $text
 }
 
-# ZIP のエントリ 1 つ分の中身を置き換えた結果を返す。変わらなければ $null
-function scrubEntry([string]$entryName, [byte[]]$bytes, [string[]]$names) {
+# ZIP の中の ZIP（グラフに埋め込まれたブックなど）を開く段数の上限。壊れたデータで終わらなくならないよう置く
+$maxZipDepth = 3
+
+# ZIP のエントリ 1 つ分の中身を置き換えた結果を返す。変わらなければ $null。
+# 中身が ZIP（埋め込みブックなど）なら、開いて中の XML も同じ決まりで書き換える（$depth は今の段数）
+function scrubEntry([string]$entryName, [byte[]]$bytes, [string[]]$names, [int]$depth = 1) {
     if ($entryName -match $zipXmlPattern) {
         $utf8 = New-Object System.Text.UTF8Encoding($false)
         $hasBom = $bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF
@@ -149,6 +153,16 @@ function scrubEntry([string]$entryName, [byte[]]$bytes, [string[]]$names) {
         $body = $utf8.GetBytes($new)
         if (!$hasBom) { return ,$body }
         return ,([byte[]](@(0xEF, 0xBB, 0xBF) + $body))
+    }
+    if ($depth -lt $maxZipDepth -and (isZipBytes $bytes)) {
+        try {
+            $inner = scrubZipBytes $bytes $names ($depth + 1)
+            if ($null -eq $inner) { return $null }
+            return ,$inner
+        } catch {
+            # 壊れた ZIP はバイト列として扱う
+            Write-Verbose "ZIP として開けない: $entryName"
+        }
     }
     $copy = [byte[]]$bytes.Clone()
     if ((scrubBytesInPlace $copy $names) -eq 0) { return $null }
@@ -162,25 +176,20 @@ function readEntry($entry) {
     return ,$buffer.ToArray()
 }
 
-# ZIP を書き換える。置き換えたエントリの数を返す
-function scrubZip([string]$file, [string[]]$names) {
-    # 1. 読み取りで、書き換えが要るエントリだけを選ぶ
+# 書き換えが要るエントリだけを選ぶ（読み取り。名前 → 新しい中身）
+function collectZipChanges($archive, [string[]]$names, [int]$depth) {
     $changes = @{}
-    $archive = [System.IO.Compression.ZipFile]::OpenRead($file)
-    try {
-        foreach ($entry in $archive.Entries) {
-            if ($entry.FullName.EndsWith("/")) { continue }
-            $new = scrubEntry $entry.FullName (readEntry $entry) $names
-            if ($null -ne $new) { $changes[$entry.FullName] = $new }
-        }
-    } finally {
-        $archive.Dispose()
+    foreach ($entry in $archive.Entries) {
+        if ($entry.FullName.EndsWith("/")) { continue }
+        $new = scrubEntry $entry.FullName (readEntry $entry) $names $depth
+        if ($null -ne $new) { $changes[$entry.FullName] = $new }
     }
-    if ($changes.Count -eq 0) { return 0 }
+    return $changes
+}
 
-    # 2. 更新モードで、そのエントリだけを書き換える（開かなかったエントリは元の圧縮データのまま書き戻される）
-    $stream = [System.IO.File]::Open($file, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite)
-    $archive = New-Object System.IO.Compression.ZipArchive($stream, [System.IO.Compression.ZipArchiveMode]::Update)
+# 更新モードで、選んだエントリだけを書き換える（開かなかったエントリは元の圧縮データのまま書き戻される）
+function writeZipChanges([System.IO.Stream]$stream, $changes) {
+    $archive = New-Object System.IO.Compression.ZipArchive($stream, [System.IO.Compression.ZipArchiveMode]::Update, $true)
     try {
         foreach ($entry in @($archive.Entries)) {
             if (!$changes.ContainsKey($entry.FullName)) { continue }
@@ -195,9 +204,53 @@ function scrubZip([string]$file, [string[]]$names) {
         }
     } finally {
         $archive.Dispose()
+    }
+}
+
+# ZIP を書き換える。置き換えたエントリの数を返す
+function scrubZip([string]$file, [string[]]$names) {
+    $archive = [System.IO.Compression.ZipFile]::OpenRead($file)
+    try {
+        $changes = collectZipChanges $archive $names 1
+    } finally {
+        $archive.Dispose()
+    }
+    if ($changes.Count -eq 0) { return 0 }
+
+    $stream = [System.IO.File]::Open($file, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite)
+    try {
+        writeZipChanges $stream $changes
+    } finally {
         $stream.Dispose()
     }
     return $changes.Count
+}
+
+# バイト列の ZIP（ZIP の中の ZIP）を書き換えた新しいバイト列を返す。変わらなければ $null。
+# 開けなければ例外（呼び出し元がバイト列として扱う）
+function scrubZipBytes([byte[]]$bytes, [string[]]$names, [int]$depth = 2) {
+    $source = New-Object System.IO.MemoryStream(, $bytes)
+    $archive = New-Object System.IO.Compression.ZipArchive($source, [System.IO.Compression.ZipArchiveMode]::Read)
+    try {
+        $changes = collectZipChanges $archive $names $depth
+    } finally {
+        $archive.Dispose()
+        $source.Dispose()
+    }
+    if ($changes.Count -eq 0) { return $null }
+
+    $target = New-Object System.IO.MemoryStream
+    try {
+        $target.Write($bytes, 0, $bytes.Length)
+        writeZipChanges $target $changes
+        return ,$target.ToArray()
+    } finally {
+        $target.Dispose()
+    }
+}
+
+function isZipBytes([byte[]]$bytes) {
+    return $bytes.Length -ge 4 -and $bytes[0] -eq 0x50 -and $bytes[1] -eq 0x4B -and $bytes[2] -eq 0x03 -and $bytes[3] -eq 0x04
 }
 
 function isZip([string]$file) {
