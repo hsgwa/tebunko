@@ -303,6 +303,17 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests\testdata\text\make_tes
 
 確かめ方は `tests\shared\core\text_file.Tests.ps1` の `Describe "readTextFile（対象の拡張子ごとの実ファイル。tests\testdata\text）"`（タグ `Io`）。全 75 個が対象の拡張子であること、メモ帳固定かどうかが拡張子どおりであること、`readTextFile` で「山田」を読み込めること、異常系 2 個が失敗すること、大きいテキスト.log が 64KB を超えて成功することを確かめる。
 
+## 抽出結果の期待値（`snapshot\`）
+
+`tests\tebunko\indexer\indexer_office.Tests.ps1` が、テストデータ（`office\`・`text\`）から作った本文インデックスのファイルの全文と比べる期待値。UTF-8（BOM なし）・LF の `.txt`。区切りの U+001E（`<RS>`）もそのまま入っている。
+
+| フォルダ | 中身 | 比べるテスト |
+|---|---|---|
+| `office\` | `.xlsx`・`.xls`・`.doc`・`.ppt`（`indexer.ps1` を本物の Office で通した結果） | `Office` タグ |
+| `io\` | `.docx`・`.pptx`・`.pdf`・`.txt`（取り出しの関数と本文インデックスの組み立ての結果。`.docx`・`.pptx` は `Office` タグでも同じ期待値と比べる） | `Io` タグ（CI で毎回） |
+
+`compat\` の見本との違い: `compat\` は前の版が作った固定の見本で、変えると前の版と互換が無くなる（`!`）。`snapshot\` は今の版の出力で、取り出しや形式を変える PR が `TEBUNKO_UPDATE_SNAPSHOT=1` で作り直し、差分を PR に載せる（作り直し方は [run.md](../../docs/design/testing/run.md#snapshot-の作り直し)）。
+
 ## 前の版のファイル（`compat\`）
 
 前の版が作った本文インデックス・取り込み一覧・エクスポートの zip を、今のコードがそのまま読めることを確かめるための見本（golden）。[前の版との互換](../../docs/design/index-data/format.md#前の版との互換) も参照。
