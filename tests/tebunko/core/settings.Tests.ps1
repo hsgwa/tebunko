@@ -795,6 +795,8 @@ Describe "testSettingsFileName / testDefaultWorkspace（設定ファイルとそ
         @{ Case = "似た名前（.bak）があれば使えない"; Names = @("setting.config", "setting.config.bak"); Usable = $false }
         @{ Case = "似た名前（my_setting.config）があれば使えない"; Names = @("my_setting.config"); Usable = $false }
         @{ Case = "ほかのファイルが 1 つでもあれば使えない"; Names = @("setting.config", "README.md"); Usable = $false }
+        @{ Case = "処理の記録（trace）だけが残っていても使える（別の場所へ移したあとに残る診断用のフォルダ）"; Names = @("setting.config", "trace"); Usable = $true }
+        @{ Case = "trace があっても、ほかのファイルがあれば使えない"; Names = @("trace", "README.md"); Usable = $false }
     ) {
         $dir = "$TestDrive\既定-" + [guid]::NewGuid().ToString("N")
         [System.IO.Directory]::CreateDirectory($dir) | Out-Null

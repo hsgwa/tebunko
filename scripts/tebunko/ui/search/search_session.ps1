@@ -59,6 +59,7 @@ function startSearch {
     # 件数の上限は検索ごとに控える（設定の画面で変えても、走っている検索には効かない。打ち切りの文言も、この検索の上限で出す）
     $limit = $script:searchLimit
     $shared = $script:searchService.Request((newSearchRequest $word $simpleMatch $folders $limit $option))
+    markSearchSentTrace
     $script:search = @{
         Shared = $shared
         Limit = $limit
@@ -73,6 +74,16 @@ function startSearch {
     setStatus "検索しています：${word}"
     updateSearchButton
     $script:searchTimer.Start()
+}
+
+# 処理の記録（shared/core/trace.ps1）の search・startup。要求を渡した時（司令のスレッドの用意が済んだ時刻と、検索の送り）を控える
+function markSearchSentTrace {
+    $readyTicks = $script:searchService.GetReadyTicks()
+    if ($readyTicks -gt 0) {
+        markTrace "startup" "08 検索の司令の用意が済む" -AtTicks $readyTicks
+    }
+    markTrace "search" "画面: 送り"
+    markTrace "startup" "09 検索の送り"
 }
 
 function cancelSearch {
@@ -137,6 +148,11 @@ function pumpSearch {
         $script:hitCount++
     }
     flushResults
+    if ($script:hitCount -gt 0 -and !$s.TraceFirstRow) {
+        $s.TraceFirstRow = $true
+        markTrace "search" "画面: 最初の行"
+        markTrace "startup" "10 表に最初の行が出る"
+    }
 
     if ($shared.Total -gt 0) {
         $ratio = $shared.Done / $shared.Total
@@ -175,6 +191,10 @@ function finishSearch {
     $s = $script:search
     $script:search = $null
     $script:searchTimer.Stop()
+    markTrace "search" "画面: 総数"
+    markTrace "startup" "11 総数が決まる"
+    writeTrace "startup" $workspace.TraceDir -Once
+    writeTrace "search" $workspace.TraceDir
 
     $shared = $s.Shared
     $ui.SearchProgress.Visibility = "Collapsed"

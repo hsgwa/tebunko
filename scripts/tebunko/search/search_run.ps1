@@ -108,7 +108,7 @@ function newSearchRequest {
     # 検索の要求 1 つを作る（画面が作り、検索の司令のスレッド（SearchService）が invokeSearchRequest で実行する）。
     # 画面と司令のスレッドの両方から読み書きするため、Synchronized の hashtable にする。
     #   画面が書く: 検索条件・Stop（取り消し）
-    #   司令が書く: Queue（ヒット）・Done / Total / IndexTotal / Scanned（進み具合）・Folders・GramUsed（gram 索引で絞ったか）・Truncated（上限を超えた。数えている途中でも立つ）/ HitTotal（上限を超えた分も含む件数。数えている途中は今までの件数。中止・総数の時間切れは -1）/ CountTimeout / OverflowDir（溢れの置き場所。書き溜めないときは空）/ OverflowFailed / Cancelled / Error・Skipped（飛ばした本文インデックスのファイルのパス）・Finished
+    #   司令が書く: Narrowed（前の検索のヒットだけを照合し直して答えたか）・NarrowReason（絞るかの判定の符号。前の検索の記録を渡さないときは $null）・Queue（ヒット）・Done / Total / IndexTotal / Scanned（進み具合）・Folders・GramUsed（gram 索引で絞ったか）・Truncated（上限を超えた。数えている途中でも立つ）/ HitTotal（上限を超えた分も含む件数。数えている途中は今までの件数。中止・総数の時間切れは -1）/ CountTimeout / OverflowDir（溢れの置き場所。書き溜めないときは空）/ OverflowFailed / Cancelled / Error・Skipped（飛ばした本文インデックスのファイルのパス）・Finished
     #   workDir: gram 索引を探すワークスペース（司令のスレッドは lib.ps1 を読み込んだときのワークスペースを覚えているため、画面から渡す）
     param (
         [string]$word,
@@ -125,22 +125,77 @@ function newSearchRequest {
         Word = $word; SimpleMatch = $simpleMatch; Folders = $folders; Limit = $limit; WorkDir = $workDir
         CaseSensitive = [bool]$option.CaseSensitive; FileFilter = (newFileKindFilter $option.FileKinds)
         IncludeShapes = ($option.IncludeShapes -ne $false); IncludeComments = ($option.IncludeComments -ne $false)
-        GramUsed = $false
+        GramUsed = $false; Narrowed = $false; NarrowReason = $null
         Queue = New-Object 'System.Collections.Concurrent.ConcurrentQueue[object]'
         Stop = $false; Finished = $false; Done = 0; Total = -1; IndexTotal = -1; Scanned = 0
         Truncated = $false; HitTotal = 0; CountTimeout = $false; OverflowDir = ""; OverflowFailed = $false; Cancelled = $false; Error = $null; Skipped = @()
     })
 }
 
+function initSearchOverflow {
+    # 前の検索の溢れを消し、上限があるときだけ、この検索の溢れの置き場所を決める（作るのは、溢れが出たときに照合のスレッドが行う）
+    param (
+        [hashtable]$request,
+        $own
+    )
+
+    [void](removeSearchOverflow (getSearchOverflowPidDir $own.TmpRoot) $own.TmpRoot)
+    if ($request.Limit -gt 0) {
+        if (testSearchOverflowRoot (getSearchOverflowRoot $own.TmpRoot) $own.TmpRoot) {
+            $request.OverflowDir = getSearchOverflowDir $own.TmpRoot $request.Number
+        } else {
+            $request.OverflowFailed = $true
+        }
+    }
+}
+
 function invokeSearchRequest {
+    # 検索の要求を実行する（invokeSearchRequestBody）。処理の記録（shared/core/trace.ps1）の search の、司令のスレッドの分の始めと終わりを控える。
+    # 終わりの名前には抜けた理由（error・cancelled・narrow〈前の検索のヒットだけを照合し直した〉・done）を付ける。
+    # 書くのは、画面が見る Finished が立ったあと（画面を待たせない）
+    param (
+        [hashtable]$request,
+        $pool = $null,
+        $cache = $null,
+        $narrowState = $null
+    )
+
+    markTrace "search" "司令: 受け取り"
+    invokeSearchRequestBody $request $pool $cache $narrowState
+    $reason = if ($request.Error) { "error" } elseif ($request.Cancelled) { "cancelled" } elseif ($request.Narrowed) { "narrow" } else { "done" }
+    markTrace "search" "司令: 終わり ($reason)"
+    if (testTrace "search") {
+        writeTrace "search" ([Workspace]::new($request.WorkDir).TraceDir)
+    }
+}
+
+function setSearchResult {
+    # searchContentIndex の結果（総数・打ち切り・件数・時間切れ・溢れ・取り消し・飛ばしたファイル）を要求に入れる
+    param (
+        [hashtable]$request,
+        $result
+    )
+
+    $request.Total = $result.Total
+    $request.Truncated = $result.Truncated
+    $request.HitTotal = $result.HitTotal
+    $request.CountTimeout = $result.CountTimeout
+    if ($result.OverflowFailed) { $request.OverflowFailed = $true }
+    $request.Cancelled = $result.Cancelled
+    $request.Skipped = @($result.Skipped)
+}
+
+function invokeSearchRequestBody {
     # 検索の要求（newSearchRequest）を実行し、ヒットと進み具合を要求に少しずつ入れる。最後に Finished を立てる。
     # 例外は投げずに Error に入れる。始める前に取り消されていたら（次の要求が来た等）、何もせずに Cancelled にする。
     #   pool : 照合のプール（newContentIndexWorkerPool）。$null なら searchContentIndex が必要なときだけ作る
     #   cache: 読んだ本文インデックスのファイルの内容の入れ物（newTsvTextCache）
+    #   narrowState: 前の検索の結果の入れ物（@{ Record = $null }。search_narrow.ps1。$null なら使い回さない）
     param (
         [hashtable]$request,
         $pool = $null,
-        $cache = $null
+        $cache = $null,
+        $narrowState = $null
     )
 
     try {
@@ -151,19 +206,16 @@ function invokeSearchRequest {
         $word = $request.Word
         $folders = $request.Folders
         $own = [Workspace]::new($request.WorkDir)
-        # 前の検索の溢れを消し、上限があるときだけ、この検索の溢れの置き場所を決める（作るのは、溢れが出たときに照合のスレッドが行う）
-        [void](removeSearchOverflow (getSearchOverflowPidDir $own.TmpRoot) $own.TmpRoot)
-        if ($request.Limit -gt 0) {
-            if (testSearchOverflowRoot (getSearchOverflowRoot $own.TmpRoot) $own.TmpRoot) {
-                $request.OverflowDir = getSearchOverflowDir $own.TmpRoot $request.Number
-            } else {
-                $request.OverflowFailed = $true
-            }
+        initSearchOverflow $request $own
+        # 語が前の語を含む形で長くなったときは、前のヒットの行だけを照合し直す（本文インデックスのファイルは読まない）
+        if ($null -ne $narrowState -and (tryNarrowSearch $request $narrowState)) {
+            return
         }
         # gram 索引で、検索語のすべての 2-gram を含むファイルだけに絞る（索引を使えなければ $null）
         $index = getGramContentIndexFiles $word $request.SimpleMatch $folders -indexRoot $own.IndexDir -gramRoot $own.GramDir `
             -onProgress { param ($count) $request.Scanned = $count } -stopSignal $request
         $request.GramUsed = ($null -ne $index)
+        markTrace "search" "司令: gram 索引で絞り終え"
         # gram 索引の絞り込みの途中で止められたとき、$null を受けて全部の列挙に進まない
         if ($request.Stop) {
             $request.Cancelled = $true
@@ -173,11 +225,14 @@ function invokeSearchRequest {
             # 途中の件数を画面に伝える（止まって見えないように）
             $index = getContentIndexFiles $folders { param ($count) $request.Scanned = $count } -stopSignal $request
         }
+        markTrace "search" "司令: ファイルの列挙の終わり"
         # 列挙の途中で止められたとき、照合に進まない
         if ($request.Stop) {
             $request.Cancelled = $true
             return
         }
+        $allFiles = @(if ($index.All) { $index.All } else { $index.ContentIndexFiles })
+        $collected = if ($null -ne $narrowState -and $request.Limit -gt 0) { New-Object System.Collections.Generic.List[object] } else { $null }
         $request.Folders = $index.Folders
         $request.Total = $index.ContentIndexFiles.Count
         $request.IndexTotal = $index.ContentIndexFiles.Count
@@ -188,6 +243,7 @@ function invokeSearchRequest {
             param ($done, $total, $newHits, $hitTotal)
             foreach ($hit in $newHits) {
                 $request.Queue.Enqueue($hit)
+                if ($null -ne $collected) { $collected.Add($hit) }
             }
             $request.Total = $total
             $request.Done = $done
@@ -195,13 +251,11 @@ function invokeSearchRequest {
             $request.HitTotal = $hitTotal
             if ($request.Limit -gt 0 -and $hitTotal -gt $request.Limit) { $request.Truncated = $true }
         } -stopSignal $request
-        $request.Total = $result.Total
-        $request.Truncated = $result.Truncated
-        $request.HitTotal = $result.HitTotal
-        $request.CountTimeout = $result.CountTimeout
-        if ($result.OverflowFailed) { $request.OverflowFailed = $true }
-        $request.Cancelled = $result.Cancelled
-        $request.Skipped = @($result.Skipped)
+        markTrace "search" "司令: searchContentIndex の終わり"
+        setSearchResult $request $result
+        if ($null -ne $narrowState -and !$request.Cancelled) {
+            updateSearchRecord $request $narrowState $folders $allFiles $collected
+        }
     } catch {
         $request.Error = $_.Exception.Message
     } finally {

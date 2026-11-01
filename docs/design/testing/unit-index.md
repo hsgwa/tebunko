@@ -98,7 +98,7 @@ flowchart LR
 | `searchContentIndex`（`limit`・`overflowDir`） | 上限（なし・1・途中・ちょうど・手前）× 検索語 × 1 スレッドと並列で、表 + 溢れのファイルを全件の順に並べると、上限なしの結果と同じ行・同じ順・同じ件数になる。`HitTotal`・`Truncated`・進行中の件数。正規表現（行頭・先読み・空行）でも同じ。上限に届かなければフォルダを作らない。書けない置き場所は `OverflowFailed` で表と件数はそのまま。中止は `HitTotal` が -1。上限を超えた後の時間切れは `CountTimeout`、手前なら中止 |
 | 合図つきの照合のスクリプト（`contentIndexWorkerScript`） | 時間切れでも Hits を返して時間切れの欄に 1 を書く、止める印が立てば数えている最中も止まる。Excel の図形のセル番地だけの一致・長いテキストの行は表と同じ扱い |
 | `getSearchOverflowDir` / `testSearchOverflowRoot` / `removeSearchOverflow` / `removeStaleSearchOverflow` / `readSearchOverflowLines` / `getSearchOverflowFiles` | 置き場所の組み立て、根・途中のリンクや範囲外には作らず消さない、`<PID>` のフォルダを中ごと消す、起動時は動いていないプロセスのものだけを消す（今の PID・数字でない名前・ほかの PC の鍵は残す）、行の中の CR で行を分けない、作業の番号の順（head → 作業のファイル）に並べる |
-| `invokeSearchRequest` | 上限を超えると `HitTotal`・`Truncated`・溢れの置き場所を要求に入れ、次の検索で前の溢れを消す。上限なしは置き場所を決めない |
+| `invokeSearchRequest` | 前の語を含む形で長くなった要求は前のヒットだけで答え（`search_narrow.Tests.ps1`）、一覧が変わったら全体を探し直す。上限を超えると `HitTotal`・`Truncated`・溢れの置き場所を要求に入れ、次の検索で前の溢れを消す。上限なしは置き場所を決めない |
 
 **前の版との互換（`tests/tebunko/indexer/index_compat`・`tests/tebunko/core/settings_compat`・`tests/meta/compat`）**
 
