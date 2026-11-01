@@ -151,14 +151,20 @@ $after  = Get-ChildItem $target -Recurse -File | Get-FileHash
 Compare-Object $before $after -Property Path,Hash   # 何も出力されなければ、原本は 1 バイトも変わっていない
 ```
 
-属性と更新日時は、フォルダも含めて比べる（`-File` を付けない）。
+属性と更新日時は、フォルダも含めて比べる（`-File` を付けない）。フォルダの更新日時は親の一覧の値だと遅れて反映されることがあるので、フォルダ自身から読む。`$target` 自身は `-Recurse` の一覧に含まれないので、`Get-Item` で足す。
 
 ```powershell
 $target = "C:\確認用\対象フォルダ"
+function Get-State($path) {
+    @(Get-Item $path -Force) + @(Get-ChildItem $path -Recurse -Force) | ForEach-Object {
+        $written = if ($_.PSIsContainer) { [System.IO.Directory]::GetLastWriteTimeUtc($_.FullName) } else { $_.LastWriteTimeUtc }
+        [pscustomobject]@{ FullName = $_.FullName; Attributes = $_.Attributes; LastWriteTimeUtc = $written }
+    }
+}
 $props  = 'FullName','Attributes','LastWriteTimeUtc'
-$before = Get-ChildItem $target -Recurse -Force | Select-Object $props
+$before = Get-State $target
 # ここで tebunko.bat を起動し、$target を対象にインデックスを作成する
-$after  = Get-ChildItem $target -Recurse -Force | Select-Object $props
+$after  = Get-State $target
 Compare-Object $before $after -Property $props   # 何も出力されなければ、属性と更新日時は変わっていない
 ```
 
