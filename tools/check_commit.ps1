@@ -170,8 +170,9 @@ function isZip([byte[]]$bytes) {
     return $bytes.Length -ge 4 -and $bytes[0] -eq 0x50 -and $bytes[1] -eq 0x4B -and $bytes[2] -eq 0x03 -and $bytes[3] -eq 0x04
 }
 
-# ZIP（Office の新形式・ODF）は展開して、中のファイルを 1 つずつ調べる
-function findInZip([byte[]]$bytes) {
+# ZIP（Office の新形式・ODF）は展開して、中のファイルを 1 つずつ調べる。
+# 中のファイルが ZIP（グラフに埋め込まれたブックなど）なら、さらに開く（3 段まで。$depth は今の段数）
+function findInZip([byte[]]$bytes, [int]$depth = 1) {
     $found = New-Object System.Collections.Generic.List[string]
     $archive = New-Object System.IO.Compression.ZipArchive((New-Object System.IO.MemoryStream(, $bytes)), [System.IO.Compression.ZipArchiveMode]::Read)
     try {
@@ -179,7 +180,18 @@ function findInZip([byte[]]$bytes) {
             $buffer = New-Object System.IO.MemoryStream
             $stream = $entry.Open()
             try { $stream.CopyTo($buffer) } finally { $stream.Dispose() }
-            foreach ($item in (findInBytes $buffer.ToArray())) {
+            $data = $buffer.ToArray()
+            $items = $null
+            if ($depth -lt 3 -and (isZip $data)) {
+                try {
+                    $items = @(findInZip $data ($depth + 1))
+                } catch {
+                    # 開けない ZIP は、下のとおりバイト列として調べる
+                    $items = $null
+                }
+            }
+            if ($null -eq $items) { $items = @(findInBytes $data) }
+            foreach ($item in $items) {
                 $found.Add("$($entry.FullName) の $item")
             }
         }

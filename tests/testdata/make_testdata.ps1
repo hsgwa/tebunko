@@ -1265,6 +1265,7 @@ try {
         "TC27",
         "TC28",
         "TC29",
+        "TC32",
         "該当なしの文字列XYZ"
     ) -join "`r`n") + "`r`n")
     writeText "$ConfigDir\検索ワード_不正な正規表現.txt" "[閉じていない`r`n(`r`n*`r`n山田`r`n"
@@ -1556,6 +1557,43 @@ try {
         saveDoc $doc "Word\高度.docx"
     }
 
+    runCase "TC32-1 Word グラフとSmartArt" {
+        $doc = $word.Documents.Add()
+        [void](addParagraph $doc "TC32 グラフの段落")
+        # 末尾の空の段落にグラフを置く（InlineShapes は行の中に置く）
+        $range = $doc.Paragraphs.Item($doc.Paragraphs.Count - 1).Range
+        $range.Collapse(1)  # wdCollapseStart
+        try {
+            $chartShape = $doc.InlineShapes.AddChart2(-1, 51, $range)  # 51 = 集合縦棒
+            $chart = $chartShape.Chart
+            $chart.ChartData.Activate()
+            $chartBook = $null
+            for ($k = 0; $k -lt 20 -and $null -eq $chartBook; $k++) {
+                Start-Sleep -Seconds 1  # ブックが開くのを待つ
+                $chartBook = $chart.ChartData.Workbook
+            }
+            $chartSheet = $chartBook.ActiveSheet
+            $chartSheet.Range("B1").Value2 = "TC32 系列名"
+            $chartSheet.Range("A2").Value2 = "TC32 項目1"
+            $chartSheet.Range("B2").Value2 = 987654
+            $chart.SetSourceData("='" + $chartSheet.Name + "'!`$A`$1:`$B`$2")
+            $chartBook.Close()
+            $chart.HasTitle = $true
+            $chart.ChartTitle.Text = "TC32 Word グラフのタイトル"
+        } catch {
+            Write-Host "  （グラフを追加できませんでした: $($_.Exception.Message)）" -ForegroundColor Yellow
+        }
+        [void](addParagraph $doc "TC32 SmartArt の段落")
+        try {
+            $anchor = $doc.Paragraphs.Item($doc.Paragraphs.Count - 1).Range
+            $smartArt = $doc.Shapes.AddSmartArt($word.SmartArtLayouts.Item(1), 50, 300, 300, 200, $anchor)
+            $smartArt.SmartArt.AllNodes.Item(1).TextFrame2.TextRange.Text = "TC32 Word SmartArt のテキスト"
+        } catch {
+            Write-Host "  （SmartArt を追加できませんでした: $($_.Exception.Message)）" -ForegroundColor Yellow
+        }
+        saveDoc $doc "Word\グラフとSmartArt.docx"
+    }
+
     runCase "TC22 同名で種類違い（Word）" {
         simpleDoc "混在\同名.docx" "TC22-docx"
     }
@@ -1668,12 +1706,6 @@ if (@(Get-Process powerpnt -ErrorAction SilentlyContinue).Count -gt 0) {
             } catch {
                 Write-Host "  （コメントを追加できませんでした）" -ForegroundColor Yellow
             }
-            try {
-                $smartArt = $slide.Shapes.AddSmartArt($ppt.SmartArtLayouts.Item(1), 50, 200, 500, 250)
-                $smartArt.SmartArt.AllNodes.Item(1).TextFrame2.TextRange.Text = "TC21 SmartArtのテキスト"
-            } catch {
-                Write-Host "  （SmartArt を追加できませんでした）" -ForegroundColor Yellow
-            }
 
             # 何も入力していないプレースホルダー（「クリックしてタイトルを入力」は文字列ではない）
             [void](addSlide $pres $ppLayoutText)
@@ -1767,22 +1799,6 @@ if (@(Get-Process powerpnt -ErrorAction SilentlyContinue).Count -gt 0) {
                 Write-Host "  （日付・スライド番号を設定できませんでした）" -ForegroundColor Yellow
             }
 
-            # グラフ（Excel のデータを埋め込む）
-            $slide = addSlide $pres $ppLayoutTitleOnly "TC28-08 グラフ"
-            try {
-                $chartShape = $slide.Shapes.AddChart2(-1, 51, 50, 120, 500, 300)  # 51 = 集合縦棒
-                $chart = $chartShape.Chart
-                $chart.HasTitle = $true
-                $chart.ChartTitle.Text = "TC28 グラフのタイトル"
-                $chart.ChartData.Activate()
-                $chartBook = $chart.ChartData.Workbook
-                $chartSheet = $chartBook.Worksheets.Item(1)
-                $chartSheet.Range("A2").Value2 = "TC28 グラフの項目名"
-                $chartBook.Application.Quit()
-            } catch {
-                Write-Host "  （グラフを追加できませんでした: $($_.Exception.Message)）" -ForegroundColor Yellow
-            }
-
             # 非表示スライドにもノートを付ける
             $slide = addSlide $pres $ppLayoutTitleOnly "TC28-09 非表示スライド（ノート付き）"
             $slide.SlideShowTransition.Hidden = -1
@@ -1850,6 +1866,50 @@ if (@(Get-Process powerpnt -ErrorAction SilentlyContinue).Count -gt 0) {
             }
 
             savePres $pres "PowerPoint\マスターとレイアウト.pptx"
+        }
+
+        runCase "TC32-2 PowerPoint グラフとSmartArt" {
+            # グラフのデータを開くには、ウィンドウのあるプレゼンテーションが要る（ウィンドウなしだと AddChart2 が失敗する）
+            $pres = $ppt.Presentations.Add(-1)
+            $slide = addSlide $pres $ppLayoutTitleOnly "TC32-01 グラフとSmartArt"
+            # グラフ（Excel のデータを埋め込む）
+            try {
+                $chartShape = $slide.Shapes.AddChart2(-1, 51, 50, 120, 400, 300)  # 51 = 集合縦棒
+                $chart = $chartShape.Chart
+                $chart.ChartData.Activate()
+                $chartBook = $null
+                for ($k = 0; $k -lt 20 -and $null -eq $chartBook; $k++) {
+                    Start-Sleep -Seconds 1  # ブックが開くのを待つ
+                    $chartBook = $chart.ChartData.Workbook
+                }
+                $chartSheet = $chartBook.ActiveSheet  # このブックは Worksheets が使えない
+                $chartSheet.Range("B1").Value2 = "TC32 系列名"
+                $chartSheet.Range("A2").Value2 = "TC32 項目1"
+                $chartSheet.Range("B2").Value2 = 987654
+                Start-Sleep -Seconds 3  # 変更がグラフに届くのを待つ
+                # ブックの変更がグラフの保存内容に届かないため、系列名・項目名・数値はグラフの側にも直接書く
+                $chart.SeriesCollection(1).Name = "TC32 系列名"
+                $chart.SeriesCollection(1).XValues = [object[]]@("TC32 項目1")
+                $chart.SeriesCollection(1).Values = [object[]]@(987654)
+                # 既定の系列 2・3 は、系列名を 1 と同じにする（読み取りは同じ文字を 1 回にまとめるため、結果に混ざらない）
+                $chart.SeriesCollection(2).Name = "TC32 系列名"
+                $chart.SeriesCollection(3).Name = "TC32 系列名"
+                Start-Sleep -Seconds 2
+                $chartBook.Close()
+                Start-Sleep -Seconds 2  # ブックが閉じ終わる前にプレゼンテーションを閉じると失敗する
+                $chart.HasTitle = $true
+                $chart.ChartTitle.Text = "TC32 PowerPoint グラフのタイトル"
+            } catch {
+                Write-Host "  （グラフを追加できませんでした: $($_.Exception.Message)）" -ForegroundColor Yellow
+            }
+            try {
+                $smartArt = $slide.Shapes.AddSmartArt($ppt.SmartArtLayouts.Item(1), 480, 120, 400, 300)
+                $smartArt.SmartArt.AllNodes.Item(1).TextFrame2.TextRange.Text = "TC32 PowerPoint SmartArt のテキスト"
+            } catch {
+                Write-Host "  （SmartArt を追加できませんでした: $($_.Exception.Message)）" -ForegroundColor Yellow
+            }
+            Start-Sleep -Seconds 2
+            savePres $pres "PowerPoint\グラフとSmartArt.pptx"
         }
 
         runCase "TC22 同名で種類違い（PowerPoint）" {
