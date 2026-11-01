@@ -340,7 +340,7 @@ function captureFailedScene {
         waitGui $S "詳細の案内の 1 文が出る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "MultiSelectHintText")) -eq "一覧で 1 件選ぶと、ここに詳細を表示します。" } | Out-Null
         captureGuiState -S $S -Id "index-tab/unselected" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
-        # 失敗の入口は、選んだインデックスの詳細に出るため、行を選んでおく
+        # 詳細（［ファイルの一覧］・情報の表の「うち失敗」）は、選んだインデックスのものが出るため、行を選んでおく
         selectGui @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
         setGuiStep $S "取り込みの完了（失敗あり）"
         startGuiIndexing $S
