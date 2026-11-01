@@ -34,7 +34,7 @@ BeforeAll {
         @{ Name = "extract_office.ps1:extractWorkbook"; Lines = 156; Depth = 5; Reason = "今ある長い・深い関数。分けるのは、この関数を触る refactor で行う" }
         @{ Name = "gram_index_store.ps1:getFilesGramValues"; Lines = 91; Depth = 4; Reason = "今ある長い・深い関数。分けるのは、この関数を触る refactor で行う" }
         @{ Name = "gram_index_store.ps1:updateGramIndexOf"; Lines = 112; Depth = 4; Reason = "今ある長い・深い関数。分けるのは、この関数を触る refactor で行う" }
-        @{ Name = "gram_search.ps1:getGramContentIndexFiles"; Lines = 100; Depth = 4; Reason = "今ある長い・深い関数。分けるのは、この関数を触る refactor で行う" }
+        @{ Name = "gram_search.ps1:getGramContentIndexFiles"; Lines = 99; Depth = 4; Reason = "今ある長い・深い関数。分けるのは、この関数を触る refactor で行う" }
         @{ Name = "gui_main.ps1:startGui"; Lines = 128; Depth = 2; Reason = "今ある長い・深い関数。分けるのは、この関数を触る refactor で行う" }
         @{ Name = "index_archive.ps1:exportIndexCore"; Lines = 113; Depth = 4; Reason = "今ある長い・深い関数。分けるのは、この関数を触る refactor で行う" }
         @{ Name = "index_archive.ps1:importIndexCore"; Lines = 114; Depth = 5; Reason = "今ある長い・深い関数。分けるのは、この関数を触る refactor で行う" }
