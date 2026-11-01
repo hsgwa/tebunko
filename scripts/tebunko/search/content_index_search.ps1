@@ -188,7 +188,7 @@ function searchContentIndexFiles {
                             $needLine = !$counting -or $wantOverflow
                             $line = $null
                             if ($needLine) {
-                                if ($pos -lt 0) { $pos = $place.Start; $number = 1 }
+                                if ($pos -lt 0) { $pos = $place.Start; $number = $place.FirstLine }
                                 # 前に数えた位置から行の先頭までの改行を数える（Substring を作らない）
                                 while ($pos -lt $lineStart) {
                                     $n = $text.IndexOf($lf, $pos, $lineStart - $pos)
@@ -287,7 +287,7 @@ function searchContentIndexFiles {
                     if ($exclude -and $exclude.IsMatch($place.Book)) { continue }
                     if ($excludePlace -and $excludePlace.IsMatch($place.Location)) { continue }
                     $isTextBook = ((getContentIndexFileKind $place.Book) -eq "テキスト")
-                    $number = 0
+                    $number = $place.FirstLine - 1
                     $pos = $place.Start
                     while ($pos -lt $place.End) {
                         $n = $text.IndexOf($lf, $pos, $place.End - $pos)
@@ -426,8 +426,8 @@ function newContentIndexWorkerPool {
         [int]$workers = (getWorkerCount)
     )
 
-    $state = newWorkerState @("searchContentIndexFiles", "testCellPrefixedHit", "readContentIndexPlaces", "getIndexRebuildMessage", "testContentIndexCellPrefixed", "testCellPrefixedPlace", "convertContentIndexMetaToPlace", "decodeContentIndexValue", "getContentIndexFileKind", "getOfficeFileKind", "testTextExtension", "testPdfExtension", "truncateHitLine", "newSearchOverflowWriter", "testSourceBookName") `
-        @("contentIndexMark", "contentIndexVersion", "indexRebuildMessage", "officeFileKinds", "contentIndexPlaceKeys", "placeKindShape", "placeKindComment", "placeKindHeaderFooter", "placeKindEmbed", "textExtensions", "pdfExtensions", "officeExtensions", "displayControlChars", "hitLineMaxChars", "hitLineBeforeMatchChars", "contentIndexSearchMaxBytes")
+    $state = newWorkerState @("searchContentIndexFiles", "testCellPrefixedHit", "readContentIndexPlaces", "addContentIndexPlace", "getIndexRebuildMessage", "testContentIndexCellPrefixed", "testCellPrefixedPlace", "convertContentIndexMetaToPlace", "decodeContentIndexValue", "getContentIndexFileKind", "getOfficeFileKind", "testTextExtension", "testPdfExtension", "truncateHitLine", "newSearchOverflowWriter", "testSourceBookName") `
+        @("contentIndexMark", "contentIndexVersion", "contentIndexSplitVersion", "indexRebuildMessage", "officeFileKinds", "contentIndexPlaceKeys", "placeKindShape", "placeKindComment", "placeKindHeaderFooter", "placeKindEmbed", "textExtensions", "pdfExtensions", "officeExtensions", "displayControlChars", "hitLineMaxChars", "hitLineBeforeMatchChars", "contentIndexSearchMaxBytes")
     return [WorkerPool]::new($workers, $state, $Host, "Normal")
 }
 

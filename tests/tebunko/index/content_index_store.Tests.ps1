@@ -97,8 +97,9 @@ Describe "検索の上限（contentIndexSearchMaxBytes）を超える本文イ�
         Mock writeIndexerLog {}
     }
 
-    It "(a) 上限を超える元のファイルは置き場へ移さず取り込みの失敗にし、同じフォルダの小さな元のファイルは検索に出る" {
+    It "(a) 上限を超える元のファイルは取り込みの失敗にせず、塊に分けて入れる。どのファイルも上限以下で、小さな元のファイルも分けた元のファイルも検索に出る" {
         ${contentIndexSearchMaxBytes} = 4KB
+        ${contentIndexFileMaxBytes} = 2KB
         $workspace = newTestWorkspace @{} "$TestDrive\fit_ws"
         $tmpDir = "$TestDrive\fit_ws\tmp"
         $pending = New-Object 'System.Collections.Generic.Dictionary[string,object]'
@@ -107,18 +108,95 @@ Describe "検索の上限（contentIndexSearchMaxBytes）を超える本文イ�
         publishTsv (getBookDir "営業\A.xlsx")
         Remove-Item -LiteralPath "$tmpDir\*" -Force
         newBigBookTsv $tmpDir
-        $caught = $null
-        try { publishTsv (getBookDir "営業\B.xlsx") } catch { $caught = $_.Exception.Message }
-        $caught | Should -Be "ファイルの文字が多すぎるため更新できません（上限 64 MB）。"
-        [System.IO.Directory]::Exists("$($workspace.IndexDir)\営業\B.xlsx") | Should -Be $false
+        { publishTsv (getBookDir "営業\B.xlsx") } | Should -Not -Throw
 
         $result = publishIndexFolders $pending $workspace.IndexDir
         @($result.Skipped).Count | Should -Be 0
+        @($result.Requeued).Count | Should -Be 0
         $found = getContentIndexFiles @($workspace.IndexDir)
         foreach ($file in $found.ContentIndexFiles) { $file.Size | Should -BeLessOrEqual ${contentIndexSearchMaxBytes} }
         $search = searchContentIndex "単価" $found.ContentIndexFiles $true
         @($search.Hits | Where-Object { $_.Book -eq "A.xlsx" }).Count | Should -Be 1
+        @($search.Hits | Where-Object { $_.Book -eq "B.xlsx" }).Count | Should -Be 200
         @($search.Skipped).Count | Should -Be 0
+        $last = @($search.Hits | Where-Object { $_.Book -eq "B.xlsx" -and $_.Line -like "*単価 150 *" })
+        $last.Count | Should -Be 1
+        $last[0].LineNumber | Should -Be 150
+    }
+
+    It "(a) 1 行がそれだけで上限を超える元のファイルだけは、取り込みの失敗にする（同じフォルダの小さな元のファイルは検索に出る）" {
+        ${contentIndexSearchMaxBytes} = 4KB
+        ${contentIndexFileMaxBytes} = 2KB
+        $workspace = newTestWorkspace @{} "$TestDrive\fit_ws_line"
+        $tmpDir = "$TestDrive\fit_ws_line\tmp"
+        newTsv "$tmpDir\$(toIndexFileName "S")" @("前の行", ("あ" * 3000), "後の行")
+        $caught = $null
+        try { publishTsv (getBookDir "営業\B.xlsx") } catch { $caught = $_.Exception.Message }
+        $caught | Should -Be "ファイルの文字が多すぎるため更新できません（上限 64 MB）。"
+        [System.IO.Directory]::Exists("$($workspace.IndexDir)\営業\B.xlsx") | Should -Be $false
+    }
+
+    It "分けた元のファイルを小さくして取り込み直すと、分けた塊のファイルは消え、版 2 のファイルに戻る。無くなったときも塊をすべて外す" {
+        ${contentIndexSearchMaxBytes} = 4KB
+        ${contentIndexFileMaxBytes} = 2KB
+        $dir = Join-Path $TestDrive "split_again\営業"
+        newTsv "$dir\A.xlsx\$(toIndexFileName "S")" @("小さい単価")
+        newBigBookTsv "$dir\B.xlsx"
+        [void](convertFolderToContentIndex $dir $dir @() $true)
+        $files = @(Get-ChildItem -LiteralPath $dir -Filter "content_index.*.tsv" | Sort-Object Name)
+        $files.Count | Should -BeGreaterThan 2
+        $versions = @($files | ForEach-Object { getContentIndexTextVersion (readContentIndexText $_.FullName) })
+        $versions[0] | Should -Be 2
+        @($versions | Select-Object -Skip 1 | Select-Object -Unique) | Should -Be @(3)
+
+        newTsv "$dir\B.xlsx\$(toIndexFileName "S")" @("小さくなった単価")
+        [void](convertFolderToContentIndex $dir $dir @() $true)
+        $after = @(Get-ChildItem -LiteralPath $dir -Filter "content_index.*.tsv")
+        $after.Count | Should -Be 1
+        getContentIndexTextVersion (readContentIndexText $after[0].FullName) | Should -Be 2
+        (readContentIndexText $after[0].FullName) | Should -BeLike "*小さくなった単価*"
+
+        newBigBookTsv "$dir\B.xlsx"
+        [void](convertFolderToContentIndex $dir $dir @() $true)
+        @(Get-ChildItem -LiteralPath $dir -Filter "content_index.*.tsv").Count | Should -BeGreaterThan 2
+        [void](convertFolderToContentIndex $dir $dir @("B.xlsx") $false)
+        $final = @(Get-ChildItem -LiteralPath $dir -Filter "content_index.*.tsv")
+        $final.Count | Should -Be 1
+        (readContentIndexText $final[0].FullName) | Should -Not -BeLike "*巨大な行*"
+    }
+
+    It "readContentIndexLinesAcrossParts: 塊の切れ目をまたぐ行・続きの塊の途中の行を、場所の中の通しの番号で返す。分けていないファイルは readContentIndexLines と同じ" {
+        ${contentIndexSearchMaxBytes} = 4KB
+        ${contentIndexFileMaxBytes} = 2KB
+        $dir = Join-Path $TestDrive "split_lines\営業"
+        newTsv "$dir\A.xlsx\$(toIndexFileName "S")" @("小さい単価")
+        newBigBookTsv "$dir\B.xlsx"
+        [void](convertFolderToContentIndex $dir $dir @() $true)
+        $files = @(Get-ChildItem -LiteralPath $dir -Filter "content_index.xlsx.*.tsv" | Sort-Object Name)
+        $second = $files[2].FullName
+        $secondFirst = (readContentIndexPlaces (readContentIndexText $second))[0].FirstLine
+        $secondFirst | Should -BeGreaterThan 1
+
+        # 2 つ目の塊の最初の行の前後（前の塊にまたがる）
+        $around = readContentIndexLinesAcrossParts $second "B.xlsx" "S" ($secondFirst - 3) 6
+        @($around.Rows | ForEach-Object { $_.LineNumber }) | Should -Be @(($secondFirst - 3)..($secondFirst + 2))
+        $around.Rows[0].Line | Should -BeLike "巨大な行の単価 $($secondFirst - 3) *"
+        $around.Rows[5].Line | Should -BeLike "巨大な行の単価 $($secondFirst + 2) *"
+        $around.End | Should -Be $false
+
+        # 3 つ目以降へ続けて読み、場所の終わりでは End になる
+        $tail = readContentIndexLinesAcrossParts $second "B.xlsx" "S" 190 50
+        @($tail.Rows | ForEach-Object { $_.LineNumber }) | Should -Be @(190..200)
+        $tail.End | Should -Be $true
+
+        # 控え（Marks）を渡して続けて読んでも同じ
+        $again = readContentIndexLinesAcrossParts $second "B.xlsx" "S" ($secondFirst - 3) 6 $null $tail.Marks
+        @($again.Rows | ForEach-Object { $_.LineNumber }) | Should -Be @(($secondFirst - 3)..($secondFirst + 2))
+
+        # 分けていないファイル
+        $small = readContentIndexLinesAcrossParts $files[0].FullName "A.xlsx" "S" 1 5
+        @($small.Rows | ForEach-Object { $_.LineNumber }) | Should -Be @(1)
+        $small.End | Should -Be $true
     }
 
     It "(b) 上限を超える前の本文インデックスのファイルがあるフォルダは、書き出しが失敗せず、ファイルを外して中の元のファイルを取り込み直しにする" {
@@ -231,9 +309,9 @@ Describe "検索の上限（contentIndexSearchMaxBytes）を超える本文イ�
         @(findOversizeContentIndexFolders $root) | Should -Be @("$root\営業")
     }
 
-    It "assertContentIndexBookFits: 大きさの数え方は書き出す本文インデックスのファイルと同じ（上限ちょうどは通り、1 バイト少ないと落ちる）" {
+    It "assertContentIndexBookFits: 1 行がそれだけで上限を超えるときだけ落ちる。大きさの数え方は書き出す本文インデックスのファイルと同じ（上限ちょうどは通り、1 バイト少ないと落ちる）" {
         $dir = "$TestDrive\fit_exact"
-        newTsv "$dir\$(toIndexFileName "S")" @("単価 1", "単価 2")
+        newTsv "$dir\$(toIndexFileName "S")" @("単価 1")
         $text = [System.IO.File]::ReadAllText("$dir\$(toIndexFileName "S")")
         $exact = measureContentIndexPartBytes @(@{ Block = (convertBookToContentIndexBlock @{ Name = "A.xlsx"; Places = @(@{ Place = "S"; Text = $text }) }) })
         { assertContentIndexBookFits $dir "A.xlsx" $exact } | Should -Not -Throw
@@ -313,5 +391,61 @@ Describe "readContentIndexBookNamesStreaming" -Tag Io {
         ((readContentIndexBookNamesStreaming "$TestDrive\names\last.tsv") -join "|") | Should -Be "最後.xlsx"
         $none = readContentIndexBookNamesStreaming "$TestDrive\names\none.tsv"
         @($none).Count | Should -Be 0
+    }
+}
+
+Describe "分けた塊のファイルの部品（writeContentIndexPart・readContentIndexHeadPlace・getContentIndexSplitChain）" -Tag Io {
+    BeforeAll {
+        function script:newSplitFolder {
+            # 約 4KB の元のファイルを 2KB の塊に分けた本文インデックスのファイルを作り、フォルダを返す
+            param ([string]$name)
+            ${contentIndexSearchMaxBytes} = 3KB
+            ${contentIndexFileMaxBytes} = 2KB
+            $dir = Join-Path $TestDrive $name
+            newTsv "$dir\A.csv\$(toIndexFileName "S")" @("小さい")
+            newTsv "$dir\B.csv\$(toIndexFileName "S")" @(1..80 | ForEach-Object { "行 $_ " + ("あ" * 20) })
+            [void](convertFolderToContentIndex $dir $dir @() $true)
+            return $dir
+        }
+    }
+
+    It "writeContentIndexPart: 書き直しが要るときは part の版で書いて中身を返し、要らないときは書かずに前の中身を返す" {
+        $dir = Join-Path $TestDrive "part_write"
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        $part = @{ Extension = "csv"; Part = 2; Books = @(@{ Name = "B.csv"; Block = ("$([char]0x1E) ファイル名=B.csv`n") }); Changed = $true; Version = ${contentIndexSplitVersion} }
+
+        $text = writeContentIndexPart $part $dir @{}
+
+        $text | Should -BeLike "$([char]0x1E) 版=3`n*"
+        (readContentIndexText "$dir\content_index.csv.002.tsv") | Should -BeExactly $text
+        $part.Changed = $false
+        writeContentIndexPart $part $dir @{ "content_index.csv.002.tsv" = "前の中身" } | Should -BeExactly "前の中身"
+    }
+
+    It "readContentIndexHeadPlace: 分けた塊のファイルは Split と最初の場所（開始行つき）を返し、分けないファイルは Split が偽、読めなければ null" {
+        $dir = newSplitFolder "head_place"
+        $files = @(Get-ChildItem -LiteralPath $dir -Filter "content_index.csv.*.tsv" | Sort-Object Name)
+
+        (readContentIndexHeadPlace $files[0].FullName).Split | Should -Be $false
+        $second = readContentIndexHeadPlace $files[2].FullName
+        $second.Split | Should -Be $true
+        $second.Place.Book | Should -Be "B.csv"
+        $second.Place.FirstLine | Should -BeGreaterThan 1
+        readContentIndexHeadPlace "$dir\無い.tsv" | Should -BeNullOrEmpty
+    }
+
+    It "getContentIndexSplitChain: 同じ場所の塊のファイルを、場所の中の位置の順に返す。先頭の場所が違うときは、そのファイルだけ" {
+        $dir = newSplitFolder "split_chain"
+        $files = @(Get-ChildItem -LiteralPath $dir -Filter "content_index.csv.*.tsv" | Sort-Object Name)
+        $head = readContentIndexHeadPlace $files[2].FullName
+
+        $chain = getContentIndexSplitChain $files[2].FullName "B.csv" "S" $head
+
+        $chain.Count | Should -Be ($files.Count - 1)
+        @($chain | ForEach-Object { $_.FirstLine }) | Should -Be @($chain | ForEach-Object { $_.FirstLine } | Sort-Object)
+        $chain[0].FirstLine | Should -Be 1
+        $other = getContentIndexSplitChain $files[2].FullName "A.csv" "S" $head
+        @($other).Count | Should -Be 1
+        $other[0].Path | Should -Be $files[2].FullName
     }
 }

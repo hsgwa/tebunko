@@ -10,6 +10,9 @@
 #
 # ・メタ情報の行は「RS（U+001E）、半角スペース、キー=値」。1 行に 1 項目。
 #   ファイル名= で新しいファイル、シート= ページ= スライド= 部分= で新しい場所が始まる。知らないキーは読み飛ばす
+# ・1 つで contentIndexSearchMaxBytes を超える元のファイルは、約 contentIndexFileMaxBytes の塊に分けて、塊ごとに専用の本文インデックスのファイルに入れる
+#   （1 行目は「版=3」。分けないファイルは「版=2」のまま）。どの塊も、頭の「ファイル名=」「種類=」と場所のメタ情報の行を繰り返す。
+#   場所の途中から始まる塊には「開始行=<N>」（その塊の最初の行が、場所の何行目か。無ければ 1）を付ける
 # ・中身には U+001C～U+001F を入れない（書くときに取り除く）ため、行の先頭が RS ならメタ情報の行
 # ・改行は LF にそろえる。行の分け方は StreamReader.ReadLine と同じ（CRLF・LF・CR）にし、行番号を変えない
 # ・文字コードは UTF-16LE（BOM 付き。content_index_store.ps1 が読み書きする）
@@ -28,10 +31,13 @@ ${contentIndexSearchMaxBytes} = 64MB
 # 元のファイル 1 つで上限を超えるときの、取り込み一覧のエラーの列の文言。上限は文字の量（UTF-16 のバイト数）のため、「ファイルサイズ」とは書かない。
 # 読み込んだときの上限から作る（テストが上限を小さくしても、文言は変わらない）
 ${contentIndexTooLargeMessage} = "ファイルの文字が多すぎるため更新できません（上限 $([int](${contentIndexSearchMaxBytes} / 1MB)) MB）。"
-# インデックスの格納形式の版（本文インデックスの「版=」の行・目録の版・zip の目録の版はすべてこの 1 つの番号にそろえる）。
+# インデックスの格納形式の版（本文インデックスの「版=」の行・目録の版・zip の目録の版はすべてこの 1 つの番号にそろえる。
+# 例外は、分けた塊を入れたファイルの「版=3」だけ（下の contentIndexSplitVersion）。）
 # 読み飛ばしても古い版が誤らない列・キーを足すときは上げない。意味を変える・無いと古い版が誤るものを足すときは上げる（format.md「目録の版の規則」）
 ${indexFormatVersion} = 2
 ${contentIndexVersion} = ${indexFormatVersion}
+# 元のファイルを分けた塊を入れた本文インデックスのファイルだけの版（目録・zip の版は上げない。古い版はこのファイルだけ読み飛ばす。format.md「目録の版の規則」）
+${contentIndexSplitVersion} = 3
 ${contentIndexMark} = [char]0x1E
 
 # 古い形式（前の版のインデックス）を利用者に知らせる文言。画面の一覧・インデクサのログ・取り込みの断りで同じ文言を使う
@@ -292,11 +298,25 @@ function convertBookToContentIndexBlock {
         [void]$sb.Append("$mark 種類=$kind`n")
     }
     foreach ($place in $book.Places) {
-        $meta = convertPlaceToContentIndexMeta $name ([string]$place.Place)
-        foreach ($key in $meta.Keys) {
-            [void]$sb.Append("$mark ").Append($key).Append("=").Append((encodeContentIndexValue ([string]$meta[$key]))).Append("`n")
-        }
+        [void]$sb.Append((getContentIndexPlaceMetaText $name ([string]$place.Place)))
         [void]$sb.Append((convertToContentIndexBody ([string]$place.Text)))
+    }
+    return $sb.ToString()
+}
+
+
+function getContentIndexPlaceMetaText {
+    # 場所 1 つ分のメタ情報の行（「<RS> キー=値」を LF で並べたもの）を返す
+    param (
+        [string]$book,
+        [string]$place
+    )
+
+    $mark = [string]${contentIndexMark}
+    $meta = convertPlaceToContentIndexMeta $book $place
+    $sb = New-Object System.Text.StringBuilder
+    foreach ($key in $meta.Keys) {
+        [void]$sb.Append("$mark ").Append($key).Append("=").Append((encodeContentIndexValue ([string]$meta[$key]))).Append("`n")
     }
     return $sb.ToString()
 }
@@ -304,13 +324,15 @@ function convertBookToContentIndexBlock {
 
 function convertToContentIndexText {
     # 元のファイルの並びから、本文インデックスのファイルの文字列を作る（この順に書く）。
-    #   books: convertBookToContentIndexBlock に渡せるもの（@{ Name; Places } か @{ Name; Block }）の並び
+    #   books  : convertBookToContentIndexBlock に渡せるもの（@{ Name; Places } か @{ Name; Block }）の並び
+    #   version: 1 行目に書く版（分けた塊を入れるファイルは contentIndexSplitVersion。既定は contentIndexVersion）
     param (
-        $books
+        $books,
+        [int]$version = ${contentIndexVersion}
     )
 
     $sb = New-Object System.Text.StringBuilder
-    [void]$sb.Append("$([string]${contentIndexMark}) 版=${contentIndexVersion}`n")
+    [void]$sb.Append("$([string]${contentIndexMark}) 版=${version}`n")
     foreach ($book in $books) {
         [void]$sb.Append((convertBookToContentIndexBlock $book))
     }
@@ -320,16 +342,19 @@ function convertToContentIndexText {
 
 function planContentIndexParts {
     # フォルダ 1 つの、拡張子ごと・番号ごとの本文インデックスのファイルに、どの元のファイルを入れるかを決める。
-    #   parts  : 前の本文インデックスのファイルの並び。@{ Extension; Part; Books（@{ Name; Block } の並び。ファイルの中の順） }
-    #   books  : 足す・入れ替える元のファイル（@{ Name; Block }）。元のファイル名の順に足す
+    #   parts  : 前の本文インデックスのファイルの並び。@{ Extension; Part; Books（@{ Name; Block } の並び。ファイルの中の順）; Version（省略は 2。分けた塊のファイルは 3） }
+    #   books  : 足す・入れ替える元のファイル（@{ Name; Block }。分けて入れるものは @{ Name; Chunks（塊の文字列の並び。splitContentIndexBookBlock の結果） }）。元のファイル名の順に足す
     #   remove : 外す元のファイル名
     #   maxBytes: この大きさ（UTF-16 のバイト数）以上の本文インデックスのファイルには、もう足さない
     # 決め方:
     #   ・入れ替える元のファイルは、今入っている本文インデックスのファイルの同じ位置で入れ替える（ほかの本文インデックスのファイルへ移さない）
     #   ・外す元のファイルは、入っている本文インデックスのファイルから外す
     #   ・新しい元のファイルは、その拡張子の最後の番号の本文インデックスのファイルが maxBytes 未満ならそこに、以上なら次の番号の新しい本文インデックスのファイルに足す
-    #   ・1 つの元のファイルは 2 つの本文インデックスのファイルにまたがらない（1 つで maxBytes を超えても、その 1 つで 1 つの本文インデックスのファイルにする）
-    # @{ Extension; Part; Books; Changed（書き直しが要る） } の並び（拡張子・番号の順）を返す。
+    #   ・分けた塊（Chunks）は、1 つずつ専用の本文インデックスのファイル（版 3）に入れる。その拡張子の最後の番号の次から続けて振り、ほかの元のファイルとはまぜない。
+    #     分けた塊を入れたファイルには、あとから足す元のファイルも足さない（版 2 の最後のファイル、無ければ次の番号の新しい版 2 のファイルに足す）
+    #   ・版 3 のファイルの塊は、同じ名前の元のファイルを入れ替える・外すときに、どの番号のファイルからも外す（入れ替えは、分けないなら版 2 のファイルに、分けるなら新しい版 3 のファイルに入れ直す）
+    #   ・分けない元のファイルは 1 つの本文インデックスのファイルにおさめる（1 つで maxBytes を超えても、その 1 つで 1 つの本文インデックスのファイルにする）
+    # @{ Extension; Part; Books; Changed（書き直しが要る）; Version（ファイルの 1 行目に書く版） } の並び（拡張子・番号の順）を返す。
     # 元のファイルが無くなった本文インデックスのファイルは、Books が空で Changed が $true（消す）
     param (
         $parts,
@@ -347,37 +372,65 @@ function planContentIndexParts {
     foreach ($part in @($parts | Sort-Object { $_.Extension }, { $_.Part })) {
         $kept = New-Object System.Collections.Generic.List[object]
         $changed = $false
+        $isSplit = ([int]$part.Version -eq ${contentIndexSplitVersion})
         foreach ($book in $part.Books) {
             $name = [string]$book.Name
-            if ($removeSet.Contains($name)) {
+            $next = if ($replace.ContainsKey($name)) { $replace[$name] } else { $null }
+            if ($removeSet.Contains($name) -or ($isSplit -and $null -ne $next)) {
                 $changed = $true
-            } elseif ($replace.ContainsKey($name)) {
-                $kept.Add($replace[$name])
+            } elseif ($null -ne $next -and $null -eq $next.Chunks) {
+                $kept.Add($next)
                 [void]$replace.Remove($name)
+                $changed = $true
+            } elseif ($null -ne $next) {
                 $changed = $true
             } else {
                 $kept.Add($book)
             }
         }
-        $plan.Add(@{ Extension = [string]$part.Extension; Part = [int]$part.Part; Books = $kept; Changed = $changed })
+        $plan.Add(@{ Extension = [string]$part.Extension; Part = [int]$part.Part; Books = $kept; Changed = $changed; Version = $(if ($isSplit) { ${contentIndexSplitVersion} } else { ${contentIndexVersion} }) })
     }
 
     # 新しい元のファイル（どの本文インデックスのファイルにも無かったもの）を、元のファイル名の順に足す
     foreach ($book in @($replace.Values | Sort-Object { [string]$_.Name })) {
-        $extension = getContentIndexExtension ([string]$book.Name)
-        $last = $null
-        foreach ($p in $plan) {
-            if ($p.Extension -eq $extension -and ($null -eq $last -or $p.Part -gt $last.Part)) { $last = $p }
-        }
-        if ($null -eq $last -or (measureContentIndexPartBytes $last.Books) -ge $maxBytes) {
-            $number = if ($null -eq $last) { 1 } else { $last.Part + 1 }
-            $last = @{ Extension = $extension; Part = $number; Books = (New-Object System.Collections.Generic.List[object]); Changed = $true }
-            $plan.Add($last)
-        }
-        $last.Books.Add($book)
-        $last.Changed = $true
+        addContentIndexBookToPlan $plan $book $maxBytes
     }
     return , @($plan | Sort-Object { $_.Extension }, { $_.Part })
+}
+
+
+function addContentIndexBookToPlan {
+    # planContentIndexParts の計画（plan）に、どの本文インデックスのファイルにも無い元のファイル 1 つを足す。
+    # 分ける元のファイル（Chunks）は塊ごとに新しい版 3 のファイルを、分けない元のファイルは版 2 の最後のファイル（maxBytes 以上なら次の番号の新しいファイル）に足す
+    param (
+        $plan,
+        $book,
+        [long]$maxBytes
+    )
+
+    $extension = getContentIndexExtension ([string]$book.Name)
+    $last = $null
+    $lastNumber = 0
+    foreach ($p in $plan) {
+        if ($p.Extension -ne $extension) { continue }
+        if ($p.Part -gt $lastNumber) { $lastNumber = $p.Part }
+        if ($p.Version -ne ${contentIndexSplitVersion} -and ($null -eq $last -or $p.Part -gt $last.Part)) { $last = $p }
+    }
+    if ($null -ne $book.Chunks) {
+        foreach ($chunk in $book.Chunks) {
+            $lastNumber++
+            $single = New-Object System.Collections.Generic.List[object]
+            $single.Add(@{ Name = [string]$book.Name; Block = [string]$chunk })
+            $plan.Add(@{ Extension = $extension; Part = $lastNumber; Books = $single; Changed = $true; Version = ${contentIndexSplitVersion} })
+        }
+        return
+    }
+    if ($null -eq $last -or (measureContentIndexPartBytes $last.Books) -ge $maxBytes) {
+        $last = @{ Extension = $extension; Part = $lastNumber + 1; Books = (New-Object System.Collections.Generic.List[object]); Changed = $true; Version = ${contentIndexVersion} }
+        $plan.Add($last)
+    }
+    $last.Books.Add($book)
+    $last.Changed = $true
 }
 
 
@@ -403,13 +456,90 @@ function measureContentIndexPlaceChars {
         [string]$text
     )
 
-    $mark = [string]${contentIndexMark}
-    $meta = convertPlaceToContentIndexMeta $book $place
-    $chars = 0
-    foreach ($key in $meta.Keys) {
-        $chars += "$mark ".Length + ([string]$key).Length + 1 + (encodeContentIndexValue ([string]$meta[$key])).Length + 1
+    return [long]((getContentIndexPlaceMetaText $book $place).Length + (convertToContentIndexBody $text).Length)
+}
+
+
+function splitContentIndexBookBlock {
+    # 元のファイル 1 つ（book: @{ Name; Places（@{ Place; Text } の並び） }）の、本文インデックスのファイルに入れるまとまりの文字列の並びを返す。
+    # 1 つで maxBytes（UTF-16 のバイト数・BOM と版の行を含む）以下なら、分けずに 1 つ（convertBookToContentIndexBlock と同じ）。
+    # 超えるなら、約 chunkBytes の塊に分ける。場所（シート・ページなど）の切れ目で切ることを優先し、1 つの場所が 1 つの塊に入らないときだけ
+    # その場所を行の切れ目で切る（場所の途中から始まる塊には「開始行=<N>」を付ける）。どの塊も、頭の「ファイル名=」「種類=」の行を繰り返す。
+    # 1 行がそれだけで maxBytes を超えるなど、maxBytes におさまらない塊ができるときは例外にする。
+    # 分けるときは、塊にした場所の Text（book の Places の中身）を空にする（メモリを減らすため。分けたあとの book は使わない）
+    param (
+        $book,
+        [long]$maxBytes = ${contentIndexSearchMaxBytes},
+        [long]$chunkBytes = ${contentIndexFileMaxBytes}
+    )
+
+    $name = [string]$book.Name
+    $head = convertBookToContentIndexBlock @{ Name = $name; Places = @() }
+    # 本文インデックスのファイルの、BOM と版の行の文字数
+    $base = 1 + ("$([string]${contentIndexMark}) 版=${contentIndexSplitVersion}`n").Length
+    $total = $base + $head.Length
+    foreach ($place in $book.Places) {
+        $total += measureContentIndexPlaceChars $name ([string]$place.Place) ([string]$place.Text)
     }
-    return [long]($chars + (convertToContentIndexBody $text).Length)
+    if ($total * 2 -le $maxBytes) {
+        return , @((convertBookToContentIndexBlock $book))
+    }
+    $limit = [long][Math]::Floor($chunkBytes / 2) - $base
+    $chunks = New-Object System.Collections.Generic.List[string]
+    $current = @{ Sb = $null; Used = 0L }
+    foreach ($place in $book.Places) {
+        $body = convertToContentIndexBody ([string]$place.Text)
+        # 塊にした場所の読んだ TSV は、もう使わない（大きな元のファイルで、メモリに同じ中身を何通りも持たないため。呼び出し側の book の Text を空にする）
+        $place.Text = $null
+        addContentIndexPlaceToChunks $chunks $current $head (getContentIndexPlaceMetaText $name ([string]$place.Place)) $body $limit
+    }
+    if ($null -ne $current.Sb) { $chunks.Add($current.Sb.ToString()) }
+    foreach ($chunk in $chunks) {
+        if (($base + $chunk.Length) * 2 -gt $maxBytes) { throw (getContentIndexTooLargeMessage) }
+    }
+    return , $chunks.ToArray()
+}
+
+
+function addContentIndexPlaceToChunks {
+    # splitContentIndexBookBlock の、場所 1 つ分。開いている塊（current.Sb）に入るなら足す。入らなければ塊を閉じて（chunks に足す）新しい塊から始め、
+    # 場所が 1 つの塊（limit 文字）に入らなければ、行の切れ目で切って続きの塊に「開始行」を付けて入れる。
+    #   head: 塊の頭（「ファイル名=」「種類=」の行）  meta: 場所のメタ情報の行  body: 場所の中身（convertToContentIndexBody の結果）
+    param (
+        $chunks,
+        $current,
+        [string]$head,
+        [string]$meta,
+        [string]$body,
+        [long]$limit
+    )
+
+    if ($null -ne $current.Sb -and $current.Used + $meta.Length + $body.Length -le $limit) {
+        [void]$current.Sb.Append($meta).Append($body)
+        $current.Used += $meta.Length + $body.Length
+        return
+    }
+    if ($null -ne $current.Sb) { $chunks.Add($current.Sb.ToString()) }
+    $lineNumber = 1
+    $pos = 0
+    do {
+        $metaHere = if ($lineNumber -gt 1) { $meta + "$([string]${contentIndexMark}) 開始行=$lineNumber`n" } else { $meta }
+        $current.Sb = New-Object System.Text.StringBuilder
+        [void]$current.Sb.Append($head).Append($metaHere)
+        $room = $limit - $head.Length - $metaHere.Length
+        $end = $body.Length
+        if ($body.Length - $pos -gt $room) {
+            $cut = $(if ($room -gt 0) { $body.LastIndexOf([char]10, $pos + $room - 1, $room) } else { -1 })
+            if ($cut -lt $pos) { $cut = $body.IndexOf([char]10, $pos) }
+            $end = $cut + 1
+        }
+        $piece = $body.Substring($pos, $end - $pos)
+        [void]$current.Sb.Append($piece)
+        $current.Used = $head.Length + $metaHere.Length + $piece.Length
+        $lineNumber += $piece.Length - $piece.Replace("`n", "").Length
+        $pos = $end
+        if ($pos -lt $body.Length) { $chunks.Add($current.Sb.ToString()) }
+    } while ($pos -lt $body.Length)
 }
 
 
@@ -442,8 +572,9 @@ function testCellPrefixedPlace {
 
 
 function readContentIndexPlaces {
-    # 本文インデックスのファイルの文字列を読み、場所ごとの @{ Book; Location（今の場所の名前）; CellPrefixed（行の先頭がセル番地と区切りのタブか）; Start（中身の先頭の位置）; End（中身の終わりの次の位置） }
-    # を先頭から順に返す。版が分からないときは例外にする
+    # 本文インデックスのファイルの文字列を読み、場所ごとの @{ Book; Location（今の場所の名前）; CellPrefixed（行の先頭がセル番地と区切りのタブか）;
+    # FirstLine（この場所の最初の行が、場所の何行目か。分けた塊の途中からのときは「開始行」。ふつうは 1）; Start（中身の先頭の位置）; End（中身の終わりの次の位置） }
+    # を先頭から順に返す。版が分からないときは例外にする（版 2 と、分けた塊のファイルの版 3 を読む）
     param (
         [string]$text
     )
@@ -465,26 +596,20 @@ function readContentIndexPlaces {
             $key = $line.Substring(0, $eq)
             $value = decodeContentIndexValue $line.Substring($eq + 1)
             if ($key -eq "版") {
-                if ($value -ne [string]${contentIndexVersion}) {
+                if ($value -ne [string]${contentIndexVersion} -and $value -ne [string]${contentIndexSplitVersion}) {
                     throw (getIndexRebuildMessage)
                 }
                 $versionSeen = $true
             } elseif ($key -eq "ファイル名" -or $placeKeys -contains $key) {
                 if ($current) {
-                    $current.End = $pos
-                    # 開いてよい名前でない場所（書き換えたインデックスの .hta など）は、検索にもプレビューにも出さない
-                    if (testSourceBookName $current.Book) {
-                        $current.Location = convertContentIndexMetaToPlace $meta
-                        $current.CellPrefixed = testContentIndexCellPrefixed $current.Book $meta
-                        $places.Add($current)
-                    }
+                    addContentIndexPlace $places $current $meta $pos
                     $current = $null
                 }
                 if ($key -eq "ファイル名") {
                     $book = $value
                 } else {
                     $meta = [ordered]@{ $key = $value }
-                    $current = @{ Book = $book; Location = ""; CellPrefixed = $false; Start = $lineEnd + 1; End = $lineEnd + 1 }
+                    $current = @{ Book = $book; Location = ""; CellPrefixed = $false; FirstLine = 1; Start = $lineEnd + 1; End = $lineEnd + 1 }
                 }
             } elseif ($current) {
                 $meta[$key] = $value
@@ -494,17 +619,37 @@ function readContentIndexPlaces {
         $pos = if ($lineEnd -lt $text.Length) { $text.IndexOf($mark, $lineEnd + 1) } else { -1 }
     }
     if ($current) {
-        $current.End = $text.Length
-        if (testSourceBookName $current.Book) {
-            $current.Location = convertContentIndexMetaToPlace $meta
-            $current.CellPrefixed = testContentIndexCellPrefixed $current.Book $meta
-            $places.Add($current)
-        }
+        addContentIndexPlace $places $current $meta $text.Length
     }
     if (!$versionSeen -and $text.Length -gt 0) {
         throw (getIndexRebuildMessage)
     }
     return , $places
+}
+
+
+function addContentIndexPlace {
+    # readContentIndexPlaces の、場所 1 つを閉じる処理。場所の終わりの位置を入れ、名前・セル番地の判定・開始行を決めて places に足す
+    param (
+        $places,
+        $current,
+        $meta,
+        [int]$end
+    )
+
+    $current.End = $end
+    # 開いてよい名前でない場所（書き換えたインデックスの .hta など）は、検索にもプレビューにも出さない
+    if (!(testSourceBookName $current.Book)) {
+        return
+    }
+    $current.Location = convertContentIndexMetaToPlace $meta
+    $current.CellPrefixed = testContentIndexCellPrefixed $current.Book $meta
+    # 開始行は正の整数だけを受け付ける（それ以外は 1。形が崩れていても行番号がずれるだけ）
+    $firstLine = 0
+    if ([int]::TryParse([string]$meta["開始行"], [ref]$firstLine) -and $firstLine -gt 0) {
+        $current.FirstLine = $firstLine
+    }
+    $places.Add($current)
 }
 
 
@@ -589,12 +734,25 @@ function getContentIndexPublishSkippedText {
 
 
 function testContentIndexVersionLine {
-    # 本文インデックスの 1 行目（RS + " 版=<値>"）が、今の版かどうか
+    # 本文インデックスの 1 行目（RS + " 版=<値>"）が、読める版（版 2 か、分けた塊のファイルの版 3）かどうか
     param (
         [string]$line
     )
 
-    return ($line.TrimEnd("`r") -ceq "$([string]${contentIndexMark}) 版=${indexFormatVersion}")
+    $text = $line.TrimEnd("`r")
+    $mark = [string]${contentIndexMark}
+    return ($text -ceq "$mark 版=${indexFormatVersion}") -or ($text -ceq "$mark 版=${contentIndexSplitVersion}")
+}
+
+
+function getContentIndexTextVersion {
+    # 本文インデックスのファイルの文字列の版（分けた塊のファイルなら contentIndexSplitVersion、それ以外は contentIndexVersion。1 行目だけを見る）
+    param (
+        [string]$text
+    )
+
+    $isSplit = $text.StartsWith("$([string]${contentIndexMark}) 版=${contentIndexSplitVersion}`n", [System.StringComparison]::Ordinal)
+    return $(if ($isSplit) { ${contentIndexSplitVersion} } else { ${contentIndexVersion} })
 }
 
 
