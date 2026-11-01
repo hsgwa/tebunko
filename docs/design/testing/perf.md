@@ -72,3 +72,61 @@ gh workflow run perf.yml -f ref=<測る ref> -f scale=0.1 -f ingest=200
 | 取り込み一覧 | ワークスペースの `store\ingest_status.tsv`。見出しの `相対パス`・`状態`。状態の値 `済`・`失敗` |
 | 取り込んだ結果 | 最後の回のワークスペース（`<作業フォルダ>\ingest\ws`。`measure_ingest.ps1` は次の回の始めまで消さない）の下に、本文インデックスのファイル `content_index.*.tsv`（[インデックスのファイルの形](../index-data/format.md#配置命名規則)の形。サブフォルダの下にもできる）があること。取り込みの回帰テスト（`perf_ingest.Tests.ps1`）が、数と合計の大きさを数える |
 
+
+## 処理の記録（trace）と、起動から最初の検索までの計測
+
+処理のどこにどれぐらい時間がかかったかを、区分ごとに入り切りできる形で記録する口。普段は何もしない（環境変数 `TEBUNKO_TRACE` が無ければ、控えもファイルも作らない）。速さの直しの前に、まず「どこに時間がかかっているか」を実測で見るために使う。
+
+| 項目 | 中身 |
+|---|---|
+| 口 | `scripts/shared/core/trace.ps1`（`initTrace`・`testTrace`・`markTrace`・`writeTrace`）。ツールを知らない。書けなくても例外を出さない |
+| 入り切り | 環境変数 `TEBUNKO_TRACE` に区分名をカンマで並べる（例 `startup,search`。`*` で全部。空・未設定なら全部切り）。読むのは `gui.ps1` の先頭の 1 か所だけ。検索の司令のスレッドには、`SearchService` が同じ指定と同じ起点を渡す |
+| 経過の起点 | 画面のプロセスの起動時刻。スレッドの間で同じ起点を使うので、画面と司令のスレッドの記録を並べて読める |
+| 出力先 | ワークスペースの `trace\<プロセスの起動日時>_<PID>_<スレッドの番号>.tsv`。列は 時刻・経過ミリ秒・区分・名前・スレッド。ネットワークのワークスペースには書かない。スレッドごとに別のファイルなので、混ざらない。ワークスペースを移すときには移さない（診断用） |
+| 書く時 | 区分ごとに、1 回の区間が終わった時にまとめて 1 回（下の表）。`startup` は最初の検索の 1 回だけ（`-Once`） |
+| 区切りを入れるときの注意 | `GetNewClosure()` したスクリプトブロック（`startWorkspaceMove` の終わりの処理など）の中からは、関数を名前で呼べない（`markTrace` も同じ）。区切りは、そのコールバックが呼ぶ関数（`finishWorkspaceMove` など）の中に置く |
+| 入れない所 | インデクサ（別プロセス）。インデクサの中の段階ごとの時間は、取り込みの段階のログ（`IngestTiming`）にある |
+
+### 区分と入れ所
+
+| 区分 | 区間（始まり → 区切り → 終わり） | 書く時 |
+|---|---|---|
+| `startup` | 下の区切り 1〜11 | `finishSearch`（最初の 1 回） |
+| `search` | 画面: 送り（`startSearch`）→ 最初の行（`pumpSearch`）→ 総数（`finishSearch`）。司令のスレッド: 受け取り → gram 索引で絞り終え → ファイルの列挙の終わり → `searchContentIndex` の終わり → 終わり（`narrow`・`cancelled`・`error`・`done` を名前に付ける） | 画面は `finishSearch`、司令は `invokeSearchRequest` の終わり |
+| `preview` | 行を選ぶ（`showDetail`）→ 本文が入る（`applyDetail`）。続きを読む: `startReadMore` → `applyReadMore` | `applyDetail`・`applyReadMore` の終わり |
+| `archive` | 始め（`startIndexArchiveJob`。名前に エクスポート／インポート が付く。ダイアログの前の準備の仕事〈大きさを数える・目録を読む〉と本番の仕事の 2 回通るので、記録も 2 組出る）→ 最初の進み具合（`updateImportProgress`。進み具合が 0 でなくなった最初の 1 回）→ 裏の仕事の終わり → 一覧・ツリーの読み直しの終わり | 読み直しの終わり（失敗のときは裏の仕事の終わり） |
+| `workspace` | 移動の始め（`startWorkspaceMove`）→ 裏の移動の終わり（`finishWorkspaceMove` の始め）→ 画面の読み直しの終わり（`finishWorkspaceMove`） | `finishWorkspaceMove` の終わり |
+| `index` | 開始の押下（`startIndexing`）→ 確認の画面を閉じる（`confirmIndexingTargets`）→ インデクサのプロセスを起動（`continueStartIndexing`）→ 最初の進み具合（`updateIndexingProgress`）→ 終わりを受ける（`finishIndexing` の始め）→ 一覧・ツリーの読み直しの終わり | `finishIndexing` の終わり |
+
+入れ所は `tests/meta/trace_points.Tests.ps1` が確かめる（関数を移す・名前を変えるときは、その表も直す）。
+
+### 起動から最初の検索までの区切り（`startup`）
+
+| 区切り | 区間の終点 | 取る所 |
+|---|---|---|
+| 1 | PowerShell の起動（プロセスの開始 → `gui.ps1` の先頭） | `gui.ps1` |
+| 2 | WPF の読み込みと起動中の表示（`stepSplash 5`） | `stepSplash` |
+| 3 | `shared.ps1`・`settings.ps1`・`lib.ps1` ほかの読み込み（`stepSplash 50`） | `stepSplash` |
+| 4 | 多重起動の判定・ワークスペース・XAML と部品の読み込み（→ `Loaded`） | `window_events.ps1` |
+| 5 | 窓が出る（`Loaded` → `ContentRendered`） | `window_events.ps1` |
+| 6 | 起動時の読み込みの画面のスレッドの分（`loadStartupData` の終わり） | `startup.ps1` |
+| 7 | 裏の列に出したインデックスのツリーが画面に入る | `applyIndexTreeData` |
+| 8 | 検索の司令のスレッドの用意が済む（画面と並んで進むので、他の区間とは重ねて読む） | `markSearchSentTrace` |
+| 9 | 検索の送り | `markSearchSentTrace` |
+| 10 | 表に最初の行が出る | `pumpSearch` |
+| 11 | 総数が決まる | `finishSearch` |
+| 12 | 送りまでに、窓が入力を受け付けなかった最長の時間（外から測る） | `measure_startup.ps1` |
+
+### 測り方（手元の Windows）
+
+```
+.\tools\perf\measure_startup.ps1 -Workspace <インデックス入りのワークスペース> -Words "語1","語2" -Count 5 -Out <結果のファイル>
+.\tools\perf\read_trace.ps1 -Dir <ワークスペース>\trace -Category preview
+```
+
+- `measure_startup.ps1` は、ツール（`scripts\`）を一時フォルダに写し、`-Workspace` を指す設定ファイルを置いて、`TEBUNKO_TRACE=startup,search` で画面を起動する（語ごとに、1 回目は温めとして別に出し、あと `-Count` 回）。窓が出たら UI オートメーションで語を入れて検索を押し、記録に `startup` の行が書かれたら閉じる。起こしたプロセスの PID だけを閉じる・止める（名前で探して止めない）。記録は `-Workspace` の `trace\` に書かれ、読んだあとにその回の分を消す。
+- 起動は `tebunko.bat` と同じ呼び出しの形（`powershell.exe -Command "& gui.ps1"`）。`tebunko.bat` は子のプロセスを `start` で切り離すため、PID を控えられない。
+- 表は区間の長さ（終点 - 始まり）と経過（起点から）の、中央値と最大。区間の始まりは表の中の前の区切り（8 は `stepSplash 50`）。外から測った「起動 → 記録が書かれる」と区切り 11 の経過の差も添える。
+- `read_trace.ps1` はどの区分の記録にも使える（`-Category`）。区切りの定義を渡さないときは、記録に出てきた名前を経過の中央値の順に並べる。
+- 検索の中の内訳（読み込みと照合）は、`measure_search.ps1` の `LoadMs`・`ListMs`・`MatchMs` で補う。
+- 速さの計測は、手元でなく CI（`perf.yml`）で行うのが基本。この計測は、直す所を決めるための一度きりの切り分けで、`perf.yml` には入れていない。
