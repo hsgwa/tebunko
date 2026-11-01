@@ -4490,7 +4490,8 @@
 <li>検索の要求（<code>newSearchRequest</code>。<code>[hashtable]::Synchronized</code>）は、<code>invokeSearchRequest</code> が実行する。要求の <code>Stop</code> が取り消しの札になる。新しい要求を出すと、前の要求の <code>Stop</code> を立てて取り消す。</li>
 <li>検索の件数が上限を超えると、照合の各スレッドは、作業ごとの欄を持つ合図（<code>[int[]]</code>。欄は 1 つのスレッドだけが書く）を見て、行を作らずに数えるだけに切り替える。溢れた行は照合のスレッドが <code>search_overflow</code> のファイルに書き溜め、画面を閉じるときと起動時（裏）に消す（<a href="../../search/#上限を超えた分の数え上げと書き溜め">上限を超えた分</a>）。</li>
 <li>［出力 ▾］は、検索の司令のスレッドが要求（<code>Kind = "Export"</code>）として順に行う（<code>SearchService.Export</code>、<code>invokeSearchExport</code>）。表の分と溢れのファイルを読んで書くので、画面のスレッドは書かず、200 ミリ秒ごとに進み具合（<code>Written</code>・<code>Finished</code>）を見るだけにする。実行中の検索は止めない（溢れも消さない）。新しい検索と検索結果を消す操作は、出力も止める（<code>Stop</code>）。</li>
-<li>検索 1 回が終わるたびに、検索の司令が読んだ内容のキャッシュを整理する（<code>trimTsvTextCache</code>。<a href="../closing/#gc-とメモリ">GC とメモリ</a>）。</li>
+<li>検索 1 回が終わるたびに、検索の司令が読んだ内容のキャッシュを整理する（<code>trimTsvTextCache</code>。<a href="../closing/#gc-とメモリ">GC とメモリ</a>）。ただし、前の検索のヒットだけを照合し直して答えた要求（<code>Narrowed</code>）の後は整理しない（何も読まないので、直前の全体の検索で使った内容を追い出さないため）。</li>
+<li>検索の司令は、最後まで検索し終えた要求の結果（条件・本文インデックスのファイルの一覧・ヒット）を 1 つ持つ（<code>narrowState</code>）。次の要求が前の語を含む形で長くなったときの絞り込みに使う（<a href="../../search/speed/">速さ</a>）。</li>
 </ul>
 <h2 id="画面とインデクサの受け渡し">画面とインデクサの受け渡し<a class="headerlink" href="#画面とインデクサの受け渡し" title="Permanent link">&para;</a></h2>
 <p>画面とインデクサは、同じプロセスのメモリ上の受け渡しの口（<code>newIndexerChannel</code>。<code>[hashtable]::Synchronized</code>）でやり取りする。ファイルでの受け渡しは行わない。画面は進み具合を 1 秒ごとに口から読む。画面が書く欄は <code>RetryFailed</code>・<code>IncludeCloud</code>・<code>ConfirmTargets</code>・<code>Workers</code>・<code>Stop</code>・<code>Answer</code>・<code>OnlyNames</code>（更新するインデックス名の配列。空なら、チェックの付いたものすべて）で、インデクサが書く欄は <code>Progress</code>・<code>Plan</code>・<code>Error</code>・<code>ExitCode</code>・<code>CloudSkipped</code>・<code>OnlySkipped</code>（<code>OnlyNames</code> のうち更新できなかった名前と理由）・<code>OfficePids</code> である。</p>
