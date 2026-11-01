@@ -538,7 +538,7 @@
   </Style>
   <Style TargetType="Button" BasedOn="{StaticResource Button.Base}" />
 
-  <!-- 小さいボタン（詳細欄の［ファイルの一覧］［一覧で見る］と、ファイルの一覧のダイアログの［閉じる］）。文字 11・余白 10,3 -->
+  <!-- 小さいボタン（詳細欄の［ファイルの一覧］と、ファイルの一覧のダイアログの［閉じる］）。文字 11・余白 10,3 -->
   <Style x:Key="Button.Small" TargetType="Button" BasedOn="{StaticResource Button.Base}">
     <Setter Property="MinWidth" Value="0" />
     <Setter Property="Height" Value="NaN" />

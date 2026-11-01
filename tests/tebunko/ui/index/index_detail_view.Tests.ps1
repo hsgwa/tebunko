@@ -372,7 +372,7 @@ Describe "getIndexDetailInfoRows（インデックス情報の行）" -Tag Unit 
     }
 }
 
-Describe "selectIndexFileRows / getIndexFailedEntryView（失敗の絞り込みと入口）" -Tag Unit {
+Describe "selectIndexFileRows / getIndexFilesOpenFilter（失敗の絞り込みと開く絞り込み）" -Tag Unit {
     BeforeAll {
         $script:rows = @(
             [pscustomobject]@{ RelPath = "a.docx"; Kind = "Failed" }
@@ -414,14 +414,12 @@ Describe "selectIndexFileRows / getIndexFailedEntryView（失敗の絞り込み�
         @(selectIndexFileRows $null "All").Count | Should -Be 0
     }
 
-    It "<label>" -TestCases @(
-        @{ label = "失敗が 0 件なら入口を出さない"; count = 0; shown = $false; text = "" }
-        @{ label = "失敗があれば件数つきで出す"; count = 2; shown = $true; text = "更新に失敗したファイル 2 件" }
-        @{ label = "千の位は区切る"; count = 1234; shown = $true; text = "更新に失敗したファイル 1,234 件" }
+    It "［ファイルの一覧］は、<label>" -TestCases @(
+        @{ label = "失敗が 0 件ならすべてで開く"; count = 0; expected = "All" }
+        @{ label = "失敗が 1 件なら失敗のみで開く"; count = 1; expected = "Failed" }
+        @{ label = "失敗が多くても失敗のみで開く"; count = 1234; expected = "Failed" }
     ) {
-        param ($label, $count, $shown, $text)
-        $view = getIndexFailedEntryView $count
-        $view.Shown | Should -Be $shown
-        $view.Text | Should -Be $text
+        param ($label, $count, $expected)
+        getIndexFilesOpenFilter $count | Should -Be $expected
     }
 }

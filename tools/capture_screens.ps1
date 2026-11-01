@@ -346,22 +346,14 @@ function captureFailedScene {
         startGuiIndexing $S
         waitGui $S "取り込みの完了・失敗 1 件" ${guiIndexTimeout} {
             (getGuiText (findGui $S.Window -Id "IndexFooterFiles")) -like "合計: [1-9]*" -and
-                (getGuiText (findGui $S.Window -Id "FailedFilesHeading")) -like "*失敗したファイル 1 件*" -and
+                ((getGuiTexts $S.Window) -join "`n") -like "*うち失敗*1 件*" -and
                 (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
         } | Out-Null
-        # 詳細欄は縦にスクロールし、失敗の入口（1 行）は情報の表の下にあるため、見える所まで送ってから撮る
-        try {
-            $entry = findGui $S.Window -Id "ShowFailedFilesButton"
-            $entry.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView()
-        } catch {
-            # 送れなくても撮れる（入口が見えない写真になるだけ）
-            Write-Verbose "入口まで送れなかった: $($_.Exception.Message)"
-        }
         captureGuiState -S $S -Id "index-tab/failed" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
-        # index-tab/files（失敗の入口の［一覧で見る］で、［ファイルの一覧］が失敗のみで開いた）
+        # index-tab/files（失敗があるので、［ファイルの一覧］が失敗のみで開いた）
         if ($Ids -contains "index-tab/files") {
-            clickGui $S $S.Window "ShowFailedFilesButton" "失敗の入口の［一覧で見る］"
+            clickGui $S $S.Window "IndexFilesButton" "詳細の［ファイルの一覧］"
             $filesDialog = waitGuiWindow $S "ファイルの一覧のダイアログ" -Id "IndexFilesGrid"
             waitGui $S "ファイルの一覧が出る" ${guiDefaultTimeout} {
                 (getGuiText (findGui $filesDialog -Id "IndexFilesHeading")) -like "ファイル * 件*" -and

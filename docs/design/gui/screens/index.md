@@ -88,7 +88,7 @@ stateDiagram-v2
 | `index-tab/stop-confirm` | 中止の確認 | 19 |
 | `index-tab/done` | 更新が終わった（失敗なし） | 18 |
 | `index-tab/failed` | 失敗したファイルがあり（詳細に入口の 1 行）、タブに ⚠ | 18 |
-| `index-tab/files` | 失敗の入口の［一覧で見る］で、ファイルの一覧のダイアログが失敗のみで開いた | 18 |
+| `index-tab/files` | 失敗があるインデックスで［ファイルの一覧］を押して、ダイアログが失敗のみで開いた | 18 |
 
 **［検索］（`search-tab`）**
 

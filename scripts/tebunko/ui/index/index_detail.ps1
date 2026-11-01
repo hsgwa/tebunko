@@ -5,7 +5,7 @@ foreach ($detailName in @(
         "IndexDetailBody", "IndexDetailName", "IndexDetailPath", "IndexDetailPathButton", "IndexDetailSubfolders", "IndexDetailTextExtSummary", "ChangeIndexTextExtensionsButton", "IndexDetailTextExtStaleBadge", "IndexDetailTextExtStaleBadgeText", "IndexDetailTextExtCaption", "IndexDetailEditError", "IndexDetailFolderStatus", "IndexDetailFolderIcon",
         "IndexDetailBadge", "IndexDetailBadgeText", "IndexDetailBadgeSub", "IndexErrorText", "IndexErrorHintText", "IndexDetailUpdated", "IndexDetailCount",
         "IndexingDetailPanel", "IndexingProgressBar", "IndexingCountText", "IndexingFileText", "MultiSelectHintText",
-        "IndexFilesButton", "FailedFilesEntry", "FailedFilesHeading", "ShowFailedFilesButton")) {
+        "IndexFilesButton")) {
     $ui[$detailName] = $ui.IndexDetailHost.Content.FindName($detailName)
 }
 # 詳細の「取り込む拡張子」の［変更…］（拡張子を選ぶダイアログを開き、［OK］で選びが変わっていればその場で設定に書く）
@@ -251,7 +251,7 @@ function applyIndexingState {
 
     $script:indexingState = $state
 
-    # 失敗したファイルは、詳細の入口（FailedFilesEntry）から［ファイルの一覧］を「失敗のみ」で開いて見る（applyIndexStats が詳細も更新する）
+    # 失敗したファイルは、詳細の［ファイルの一覧］が「失敗のみ」で開いて見せる（applyIndexStats が詳細も更新する）
     applyIndexStats $state.IndexStats (isIndexing) $state.Format
     updateIndexingButton
     updateIndexingResume
@@ -260,16 +260,12 @@ function applyIndexingState {
 
 function openIndexFilesDialog {
     # ［ファイルの一覧］: 詳細に出しているインデックスの、取り込んだファイルの一覧をダイアログで開く（index_files_dialog.ps1）。
-    # filter が Failed なら「失敗のみ」で開く（失敗の入口の［一覧で見る］）
-    param (
-        [string]$filter = "All"
-    )
-
+    # 失敗が 1 件以上あれば「失敗のみ」、無ければ「すべて」で開く（getIndexFilesOpenFilter）
     $item = getIndexTargetItem
     if ($null -eq $item) {
         return
     }
-    showIndexFilesDialog -Owner $window -IndexName ([string]$item.Name) -Filter $filter
+    showIndexFilesDialog -Owner $window -IndexName ([string]$item.Name) -Filter (getIndexFilesOpenFilter ([int]$item.FailedCount))
 }
 
 $script:failedFileRequest = [ref]0  # 失敗したファイルを確かめる依頼の番号（findSourceFile の $script:openSourceRequest と同じ理由で [ref] のまま閉じ込める）
@@ -468,10 +464,6 @@ function updateIndexDetailPanel {
             LastIngestedText = $item.LastIngestedText; FailedCount = $item.FailedCount; PendingCount = $item.PendingCount
         } + (getIndexTextExtItemValues $item.Name))
     }
-    # 更新に失敗したファイルの入口（1 行）。選んでいるインデックスの失敗の件数を出す
-    $entry = getIndexFailedEntryView $(if ($null -ne $item) { [int]$item.FailedCount } else { 0 })
-    $ui.FailedFilesEntry.Visibility = if ($entry.Shown) { "Visible" } else { "Collapsed" }
-    $ui.FailedFilesHeading.Text = $entry.Text
     $multiCount = getIndexDetailMultiCount $checkedItems.Count
     $view = getIndexDetailView $selected $multiCount $script:indexingView
 

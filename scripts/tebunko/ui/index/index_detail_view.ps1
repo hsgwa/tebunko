@@ -39,14 +39,14 @@ function selectIndexFileRows {
     return $selected.ToArray()
 }
 
-function getIndexFailedEntryView {
-    # 詳細の「更新に失敗したファイル N 件［一覧で見る］」の 1 行。失敗が 1 件以上あるときだけ出す
+function getIndexFilesOpenFilter {
+    # ［ファイルの一覧］をどの絞り込みで開くか。失敗が 1 件以上なら "Failed"（失敗のみ）、無ければ "All"（すべて）
     param (
         [int]$failedCount
     )
 
-    if ($failedCount -le 0) { return @{ Shown = $false; Text = "" } }
-    return @{ Shown = $true; Text = ("更新に失敗したファイル {0:#,0} 件" -f $failedCount) }
+    if ($failedCount -gt 0) { return "Failed" }
+    return "All"
 }
 
 function getIndexFilesEmptyNotice {

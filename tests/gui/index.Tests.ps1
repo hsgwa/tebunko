@@ -177,13 +177,13 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             setGuiStep $S "取り込みの完了・失敗したファイルの一覧"
             waitGui $S "取り込みの完了（集約ファイルができ、失敗 1 件が出る）" ${guiIndexTimeout} {
                 (getGuiText (findGui $S.Window -Id "IndexFooterFiles")) -like "合計: [1-9]*" -and
-                    (getGuiText (findGui $S.Window -Id "FailedFilesHeading")) -like "*失敗したファイル 1 件*" -and
+                    ((getGuiTexts $S.Window) -join "`n") -like "*うち失敗*1 件*" -and
                     (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
             } | Out-Null
             $S.Timing["取り込み"] = [Math]::Round($sw.Elapsed.TotalSeconds, 1)
-            # 失敗は 1 行の入口になり、［一覧で見る］で［ファイルの一覧］が「失敗のみ」で開く
-            testGuiVisible (findGui $S.Window -Id "ShowFailedFilesButton") | Should -BeTrue
-            clickGui $S $S.Window "ShowFailedFilesButton" "失敗の入口の［一覧で見る］"
+            # 失敗があれば、入口は［ファイルの一覧］だけで、それが「失敗のみ」で開く（失敗の入口の行は無い）
+            findGui $S.Window -Id "ShowFailedFilesButton" | Should -BeNullOrEmpty
+            clickGui $S $S.Window "IndexFilesButton" "詳細の［ファイルの一覧］（失敗あり）"
             $filesDialog = waitGuiWindow $S "取り込んだファイルの一覧のダイアログ（失敗のみ）" -Id "IndexFilesGrid"
             waitGui $S "失敗のみの一覧が出る" ${guiDefaultTimeout} {
                 (getGuiText (findGui $filesDialog -Id "IndexFilesHeading")) -like "ファイル * 件*" -and
@@ -220,16 +220,19 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             # 別窓のダイアログ（詳細欄の下に開いて、スクロールしないと見えない形ではない）。題は「<インデックス名> のファイル」
             $filesDialog = waitGuiWindow $S "取り込んだファイルの一覧のダイアログ" -Id "IndexFilesGrid"
             $filesDialog.Current.Name | Should -Be "資料 のファイル"
-            waitGui $S "取り込んだファイルが並ぶ" ${guiDefaultTimeout} {
+            waitGui $S "取り込んだファイルが並ぶ（失敗があるので失敗のみ）" ${guiDefaultTimeout} {
                 (getGuiText (findGui $filesDialog -Id "IndexFilesHeading")) -like "ファイル * 件*" -and
-                    @(getGuiGridRows (findGui $filesDialog -Id "IndexFilesGrid")).Count -gt 1
+                    @(getGuiGridRows (findGui $filesDialog -Id "IndexFilesGrid")).Count -ge 1
             } | Out-Null
+            # ［すべて］に切り替えると、取り込んだファイルが全部並ぶ（読み直さない）
+            selectGui (waitGuiById $S $filesDialog "IndexFilesAllRadio")   # ラジオボタンは Invoke でなく選択（SelectionItemPattern）で切り替える
+            waitGui $S "全部の行が並ぶ" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $filesDialog -Id "IndexFilesGrid")).Count -gt 1 } | Out-Null
             $fileRows = @(getGuiGridRows (findGui $filesDialog -Id "IndexFilesGrid"))
             ($fileRows | ForEach-Object { (getGuiRowTexts $_) -join " " }) -join "`n" | Should -BeLike "*壊れた文書.docx*失敗*"
             (getGuiText (findGui $filesDialog -Id "IndexFilesHint")) | Should -BeLike "ダブルクリックでファイルの場所を開きます*"
 
-            # ［失敗のみ］で失敗の行だけに絞り、［すべて］で戻る（読み直さない）
-            selectGui (waitGuiById $S $filesDialog "IndexFilesFailedRadio")   # ラジオボタンは Invoke でなく選択（SelectionItemPattern）で切り替える
+            # ［失敗のみ］で失敗の行だけに絞り、［すべて］で戻る
+            selectGui (waitGuiById $S $filesDialog "IndexFilesFailedRadio")
             waitGui $S "失敗の行だけになる" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $filesDialog -Id "IndexFilesGrid")).Count -eq 1 } | Out-Null
             selectGui (waitGuiById $S $filesDialog "IndexFilesAllRadio")
             waitGui $S "全部の行に戻る" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $filesDialog -Id "IndexFilesGrid")).Count -gt 1 } | Out-Null
@@ -240,12 +243,12 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             $filesDialog.GetCurrentPattern([System.Windows.Automation.TransformPattern]::Pattern).Resize($dialogRect.Width, $dialogRect.Height + 120)
             waitGui $S "表が伸びる" ${guiDefaultTimeout} { (findGui $filesDialog -Id "IndexFilesGrid").Current.BoundingRectangle.Height -gt $gridBefore + 60 } | Out-Null
 
-            # Esc でも閉じる（［閉じる］は IsCancel）。開き直したときは前の絞り込みを持ち越さず、［ファイルの一覧］はすべてで開く
+            # Esc でも閉じる（［閉じる］は IsCancel）。開き直したときは前の絞り込み（すべて）を持ち越さず、失敗があるので失敗のみで開く
             pressGuiKey $filesDialog 0x1B
             waitGuiWindowClosed $S $filesDialog "ファイルの一覧（Esc）"
             clickGui $S $S.Window "IndexFilesButton" "詳細の［ファイルの一覧］（開き直し）"
             $filesDialog = waitGuiWindow $S "取り込んだファイルの一覧のダイアログ（開き直し）" -Id "IndexFilesGrid"
-            waitGui $S "全部の行が並ぶ" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $filesDialog -Id "IndexFilesGrid")).Count -gt 1 } | Out-Null
+            waitGui $S "失敗の行だけが並ぶ" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $filesDialog -Id "IndexFilesGrid")).Count -eq 1 } | Out-Null
             clickGui $S $filesDialog "IndexFilesCloseButton" "［閉じる］"
             waitGuiWindowClosed $S $filesDialog "ファイルの一覧"
 

@@ -759,7 +759,6 @@ function getIndexingScanText {
 $script:indexingTimer = newTimer 1000 { safe { updateIndexingProgress } }
 
 $ui.IndexFilesButton.Add_Click({ safe { openIndexFilesDialog } })
-$ui.ShowFailedFilesButton.Add_Click({ safe { openIndexFilesDialog "Failed" } })
 $ui.IndexingButton.Add_Click({ safe { startIndexing } })
 $ui.IndexingStopButton.Add_Click({ safe { stopIndexing } })
 $ui.IndexingResumeButton.Add_Click({ safe { startIndexing } })
