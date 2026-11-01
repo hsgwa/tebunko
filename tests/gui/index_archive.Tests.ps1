@@ -24,7 +24,7 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             selectGuiTab $S "IndexTab" "IndexingButton"
             startGuiIndexing $S
             waitGui $S "取り込みの完了" ${guiIndexTimeout} {
-                (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*"
+                (getGuiText (findGui $S.Window -Id "IndexFooterFiles")) -like "合計: [1-9]*"
             } | Out-Null
 
             setGuiStep $S "［エクスポート…］"
@@ -128,7 +128,7 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             selectGuiTab $S "IndexTab" "IndexingButton"
             startGuiIndexing $S
             waitGui $S "取り込みの完了" ${guiIndexTimeout} {
-                (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*"
+                (getGuiText (findGui $S.Window -Id "IndexFooterFiles")) -like "合計: [1-9]*"
             } | Out-Null
 
             setGuiStep $S "2 件にチェックを付けてまとめて［エクスポート…］"
