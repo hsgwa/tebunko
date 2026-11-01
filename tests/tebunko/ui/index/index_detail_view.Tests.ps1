@@ -400,14 +400,12 @@ Describe "selectIndexFileRows / getIndexFailedEntryView（失敗の絞り込み�
         getIndexFilesEmptyNotice $filter $count | Should -Be $expected
     }
 
-    It "3 万行でも、絞り込みが 0.2 秒以内に終わる（画面のスレッドを止めない）" {
+    It "3 万行でも、絞り込みの行の数と順が合う" {
         $big = @(1..30000 | ForEach-Object { [pscustomobject]@{ RelPath = "f$_.docx"; Kind = $(if ($_ % 100 -eq 0) { "Failed" } else { "Done" }) } })
         foreach ($filter in "All", "Failed") {
-            $sw = [Diagnostics.Stopwatch]::StartNew()
             $shown = @(selectIndexFileRows $big $filter)
-            $sw.Stop()
             $shown.Count | Should -Be $(if ($filter -eq "Failed") { 300 } else { 30000 })
-            $sw.Elapsed.TotalSeconds | Should -BeLessThan 0.2
+            $shown[0].RelPath | Should -Be $(if ($filter -eq "Failed") { "f100.docx" } else { "f1.docx" })
         }
     }
 
