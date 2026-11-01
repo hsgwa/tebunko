@@ -4476,6 +4476,10 @@
 <td>区分ごとに、1 回の区間が終わった時にまとめて 1 回（下の表）。<code>startup</code> は最初の検索の 1 回だけ（<code>-Once</code>）</td>
 </tr>
 <tr>
+<td>区切りを入れるときの注意</td>
+<td><code>GetNewClosure()</code> したスクリプトブロック（<code>startWorkspaceMove</code> の終わりの処理など）の中からは、関数を名前で呼べない（<code>markTrace</code> も同じ）。区切りは、そのコールバックが呼ぶ関数（<code>finishWorkspaceMove</code> など）の中に置く</td>
+</tr>
+<tr>
 <td>入れない所</td>
 <td>インデクサ（別プロセス）。インデクサの中の段階ごとの時間は、取り込みの段階のログ（<code>IngestTiming</code>）にある</td>
 </tr>
