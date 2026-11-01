@@ -4451,7 +4451,7 @@
 </tr>
 <tr>
 <td><code>invokeSearchRequest</code></td>
-<td>上限を超えると <code>HitTotal</code>・<code>Truncated</code>・溢れの置き場所を要求に入れ、次の検索で前の溢れを消す。上限なしは置き場所を決めない</td>
+<td>前の語を含む形で長くなった要求は前のヒットだけで答え（<code>search_narrow.Tests.ps1</code>）、一覧が変わったら全体を探し直す。上限を超えると <code>HitTotal</code>・<code>Truncated</code>・溢れの置き場所を要求に入れ、次の検索で前の溢れを消す。上限なしは置き場所を決めない</td>
 </tr>
 </tbody>
 </table>
