@@ -3700,6 +3700,56 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#処理の記録traceと起動から最初の検索までの計測" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        処理の記録（trace）と、起動から最初の検索までの計測
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="処理の記録（trace）と、起動から最初の検索までの計測">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#区分と入れ所" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        区分と入れ所
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#起動から最初の検索までの区切りstartup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        起動から最初の検索までの区切り（startup）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#測り方手元の-windows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        測り方（手元の Windows）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -4233,6 +4283,56 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#処理の記録traceと起動から最初の検索までの計測" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        処理の記録（trace）と、起動から最初の検索までの計測
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="処理の記録（trace）と、起動から最初の検索までの計測">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#区分と入れ所" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        区分と入れ所
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#起動から最初の検索までの区切りstartup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        起動から最初の検索までの区切り（startup）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#測り方手元の-windows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        測り方（手元の Windows）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -4345,6 +4445,173 @@
 </tr>
 </tbody>
 </table>
+<h2 id="処理の記録traceと起動から最初の検索までの計測">処理の記録（trace）と、起動から最初の検索までの計測<a class="headerlink" href="#処理の記録traceと起動から最初の検索までの計測" title="Permanent link">&para;</a></h2>
+<p>処理のどこにどれぐらい時間がかかったかを、区分ごとに入り切りできる形で記録する口。普段は何もしない（環境変数 <code>TEBUNKO_TRACE</code> が無ければ、控えもファイルも作らない）。速さの直しの前に、まず「どこに時間がかかっているか」を実測で見るために使う。</p>
+<table>
+<thead>
+<tr>
+<th>項目</th>
+<th>中身</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>口</td>
+<td><code>scripts/shared/core/trace.ps1</code>（<code>initTrace</code>・<code>testTrace</code>・<code>markTrace</code>・<code>writeTrace</code>）。ツールを知らない。書けなくても例外を出さない</td>
+</tr>
+<tr>
+<td>入り切り</td>
+<td>環境変数 <code>TEBUNKO_TRACE</code> に区分名をカンマで並べる（例 <code>startup,search</code>。<code>*</code> で全部。空・未設定なら全部切り）。読むのは <code>gui.ps1</code> の先頭の 1 か所だけ。検索の司令のスレッドには、<code>SearchService</code> が同じ指定と同じ起点を渡す</td>
+</tr>
+<tr>
+<td>経過の起点</td>
+<td>画面のプロセスの起動時刻。スレッドの間で同じ起点を使うので、画面と司令のスレッドの記録を並べて読める</td>
+</tr>
+<tr>
+<td>出力先</td>
+<td>ワークスペースの <code>trace\&lt;プロセスの起動日時&gt;_&lt;PID&gt;_&lt;スレッドの番号&gt;.tsv</code>。列は 時刻・経過ミリ秒・区分・名前・スレッド。ネットワークのワークスペースには書かない。スレッドごとに別のファイルなので、混ざらない。ワークスペースを移すときには移さない（診断用）</td>
+</tr>
+<tr>
+<td>書く時</td>
+<td>区分ごとに、1 回の区間が終わった時にまとめて 1 回（下の表）。<code>startup</code> は最初の検索の 1 回だけ（<code>-Once</code>）</td>
+</tr>
+<tr>
+<td>区切りを入れるときの注意</td>
+<td><code>GetNewClosure()</code> したスクリプトブロック（<code>startWorkspaceMove</code> の終わりの処理など）の中からは、関数を名前で呼べない（<code>markTrace</code> も同じ）。区切りは、そのコールバックが呼ぶ関数（<code>finishWorkspaceMove</code> など）の中に置く</td>
+</tr>
+<tr>
+<td>入れない所</td>
+<td>インデクサ（別プロセス）。インデクサの中の段階ごとの時間は、取り込みの段階のログ（<code>IngestTiming</code>）にある</td>
+</tr>
+</tbody>
+</table>
+<h3 id="区分と入れ所">区分と入れ所<a class="headerlink" href="#区分と入れ所" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>区分</th>
+<th>区間（始まり → 区切り → 終わり）</th>
+<th>書く時</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>startup</code></td>
+<td>下の区切り 1〜11</td>
+<td><code>finishSearch</code>（最初の 1 回）</td>
+</tr>
+<tr>
+<td><code>search</code></td>
+<td>画面: 送り（<code>startSearch</code>）→ 最初の行（<code>pumpSearch</code>）→ 総数（<code>finishSearch</code>）。司令のスレッド: 受け取り → gram 索引で絞り終え → ファイルの列挙の終わり → <code>searchContentIndex</code> の終わり → 終わり（<code>narrow</code>・<code>cancelled</code>・<code>error</code>・<code>done</code> を名前に付ける）</td>
+<td>画面は <code>finishSearch</code>、司令は <code>invokeSearchRequest</code> の終わり</td>
+</tr>
+<tr>
+<td><code>preview</code></td>
+<td>行を選ぶ（<code>showDetail</code>）→ 本文が入る（<code>applyDetail</code>）。続きを読む: <code>startReadMore</code> → <code>applyReadMore</code></td>
+<td><code>applyDetail</code>・<code>applyReadMore</code> の終わり</td>
+</tr>
+<tr>
+<td><code>archive</code></td>
+<td>始め（<code>startIndexArchiveJob</code>。名前に エクスポート／インポート が付く。ダイアログの前の準備の仕事〈大きさを数える・目録を読む〉と本番の仕事の 2 回通るので、記録も 2 組出る）→ 最初の進み具合（<code>updateImportProgress</code>。進み具合が 0 でなくなった最初の 1 回）→ 裏の仕事の終わり → 一覧・ツリーの読み直しの終わり</td>
+<td>読み直しの終わり（失敗のときは裏の仕事の終わり）</td>
+</tr>
+<tr>
+<td><code>workspace</code></td>
+<td>移動の始め（<code>startWorkspaceMove</code>）→ 裏の移動の終わり（<code>finishWorkspaceMove</code> の始め）→ 画面の読み直しの終わり（<code>finishWorkspaceMove</code>）</td>
+<td><code>finishWorkspaceMove</code> の終わり</td>
+</tr>
+<tr>
+<td><code>index</code></td>
+<td>開始の押下（<code>startIndexing</code>）→ 確認の画面を閉じる（<code>confirmIndexingTargets</code>）→ インデクサのプロセスを起動（<code>continueStartIndexing</code>）→ 最初の進み具合（<code>updateIndexingProgress</code>）→ 終わりを受ける（<code>finishIndexing</code> の始め）→ 一覧・ツリーの読み直しの終わり</td>
+<td><code>finishIndexing</code> の終わり</td>
+</tr>
+</tbody>
+</table>
+<p>入れ所は <code>tests/meta/trace_points.Tests.ps1</code> が確かめる（関数を移す・名前を変えるときは、その表も直す）。</p>
+<h3 id="起動から最初の検索までの区切りstartup">起動から最初の検索までの区切り（<code>startup</code>）<a class="headerlink" href="#起動から最初の検索までの区切りstartup" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>区切り</th>
+<th>区間の終点</th>
+<th>取る所</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>PowerShell の起動（プロセスの開始 → <code>gui.ps1</code> の先頭）</td>
+<td><code>gui.ps1</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td>WPF の読み込みと起動中の表示（<code>stepSplash 5</code>）</td>
+<td><code>stepSplash</code></td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>shared.ps1</code>・<code>settings.ps1</code>・<code>lib.ps1</code> ほかの読み込み（<code>stepSplash 50</code>）</td>
+<td><code>stepSplash</code></td>
+</tr>
+<tr>
+<td>4</td>
+<td>多重起動の判定・ワークスペース・XAML と部品の読み込み（→ <code>Loaded</code>）</td>
+<td><code>window_events.ps1</code></td>
+</tr>
+<tr>
+<td>5</td>
+<td>窓が出る（<code>Loaded</code> → <code>ContentRendered</code>）</td>
+<td><code>window_events.ps1</code></td>
+</tr>
+<tr>
+<td>6</td>
+<td>起動時の読み込みの画面のスレッドの分（<code>loadStartupData</code> の終わり）</td>
+<td><code>startup.ps1</code></td>
+</tr>
+<tr>
+<td>7</td>
+<td>裏の列に出したインデックスのツリーが画面に入る</td>
+<td><code>applyIndexTreeData</code></td>
+</tr>
+<tr>
+<td>8</td>
+<td>検索の司令のスレッドの用意が済む（画面と並んで進むので、他の区間とは重ねて読む）</td>
+<td><code>markSearchSentTrace</code></td>
+</tr>
+<tr>
+<td>9</td>
+<td>検索の送り</td>
+<td><code>markSearchSentTrace</code></td>
+</tr>
+<tr>
+<td>10</td>
+<td>表に最初の行が出る</td>
+<td><code>pumpSearch</code></td>
+</tr>
+<tr>
+<td>11</td>
+<td>総数が決まる</td>
+<td><code>finishSearch</code></td>
+</tr>
+<tr>
+<td>12</td>
+<td>送りまでに、窓が入力を受け付けなかった最長の時間（外から測る）</td>
+<td><code>measure_startup.ps1</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="測り方手元の-windows">測り方（手元の Windows）<a class="headerlink" href="#測り方手元の-windows" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>.\tools\perf\measure_startup.ps1 -Workspace &lt;インデックス入りのワークスペース&gt; -Words "語1","語2" -Count 5 -Out &lt;結果のファイル&gt;
+.\tools\perf\read_trace.ps1 -Dir &lt;ワークスペース&gt;\trace -Category preview
+</code></pre></div>
+<ul>
+<li><code>measure_startup.ps1</code> は、ツール（<code>scripts\</code>）を一時フォルダに写し、<code>-Workspace</code> を指す設定ファイルを置いて、<code>TEBUNKO_TRACE=startup,search</code> で画面を起動する（語ごとに、1 回目は温めとして別に出し、あと <code>-Count</code> 回）。窓が出たら UI オートメーションで語を入れて検索を押し、記録に <code>startup</code> の行が書かれたら閉じる。起こしたプロセスの PID だけを閉じる・止める（名前で探して止めない）。記録は <code>-Workspace</code> の <code>trace\</code> に書かれ、読んだあとにその回の分を消す。</li>
+<li>起動は <code>tebunko.bat</code> と同じ呼び出しの形（<code>powershell.exe -Command "&amp; gui.ps1"</code>）。<code>tebunko.bat</code> は子のプロセスを <code>start</code> で切り離すため、PID を控えられない。</li>
+<li>表は区間の長さ（終点 - 始まり）と経過（起点から）の、中央値と最大。区間の始まりは表の中の前の区切り（8 は <code>stepSplash 50</code>）。外から測った「起動 → 記録が書かれる」と区切り 11 の経過の差も添える。</li>
+<li><code>read_trace.ps1</code> はどの区分の記録にも使える（<code>-Category</code>）。区切りの定義を渡さないときは、記録に出てきた名前を経過の中央値の順に並べる。</li>
+<li>検索の中の内訳（読み込みと照合）は、<code>measure_search.ps1</code> の <code>LoadMs</code>・<code>ListMs</code>・<code>MatchMs</code> で補う。</li>
+<li>速さの計測は、手元でなく CI（<code>perf.yml</code>）で行うのが基本。この計測は、直す所を決めるための一度きりの切り分けで、<code>perf.yml</code> には入れていない。</li>
+</ul>
 
 
 
