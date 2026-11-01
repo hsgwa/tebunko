@@ -56,8 +56,8 @@ Describe "skipRegexClass・skipRegexGroup" -Tag Unit {
         @{ pattern = '[ab]c'; expected = 4 }
         @{ pattern = '[^]a]c'; expected = 5 }
         @{ pattern = '[a\]b]c'; expected = 6 }
-        @{ pattern = '[a-z-[aeiou]]c'; expected = 13 }
-        @{ pattern = '[[]a]c'; expected = 3 }
+        @{ pattern = '[a-z-[aeiou]]c'; expected = -1 }
+        @{ pattern = '[[]a]c'; expected = -1 }
         @{ pattern = '[ab'; expected = -1 }
     ) {
         skipRegexClass $pattern 0 | Should -Be $expected
@@ -129,7 +129,11 @@ Describe "getRegexRequiredText" -Tag Unit {
         @{ pattern = 'a{2,}bc'; expected = 'bc' }
         @{ pattern = 'a{2,3}bc'; expected = 'bc' }
         @{ pattern = '[[]a|b]cd'; expected = '' }
-        @{ pattern = '[[]ab]cd'; expected = 'ab]cd' }
+        @{ pattern = '[[]ab]cd'; expected = '' }
+        @{ pattern = '[a\-[b]|x]cd'; expected = '' }
+        @{ pattern = '[-[b]|x]cd'; expected = '' }
+        @{ pattern = '[^-[b]|x]cd'; expected = '' }
+        @{ pattern = '[a\-[b]|x]]cd'; expected = '' }
         @{ pattern = '\p{L'; expected = '' }
         @{ pattern = 'ab\'; expected = '' }
         @{ pattern = 'ab)c'; expected = '' }
@@ -140,7 +144,7 @@ Describe "getRegexRequiredText" -Tag Unit {
         @{ pattern = '\012bc'; expected = 'bc' }
         @{ pattern = '\k<n>bc'; expected = 'bc' }
         @{ pattern = '\p{L}bc'; expected = 'bc' }
-        @{ pattern = '[a-z-[aeiou]]bc'; expected = 'bc' }
+        @{ pattern = '[a-z-[aeiou]]bc'; expected = '' }
         @{ pattern = '[]a]bc'; expected = 'bc' }
         @{ pattern = '(a[)]b)cd'; expected = 'cd' }
         @{ pattern = '(a(b)c)de'; expected = 'de' }
@@ -162,10 +166,10 @@ Describe "getRegexRequiredText と実際の一致" -Tag Unit {
     It "取り出した文字は、正しい式のどの一致にも含まれる（記号多めの乱数の式）" {
         $random = New-Object System.Random 20261101
         $alphabet = [char[]]'ab{}|()[]?*+.^$\-,12:'
-        $samples = @('ab', 'abc', 'a{b', 'b}a', '[a]', 'a|b', 'aab', 'abab', 'a1b2', '(a)', 'ba', 'a-b', 'a,b', 'a.b', 'a{1}', 'a{1,2}b', 'b{', '{a}', 'ab)', '[a', 'a]', 'a?b')
+        $samples = @('ab', 'abc', 'a{b', 'b}a', '[a]', 'a|b', 'aab', 'abab', 'a1b2', '(a)', 'ba', 'a-b', 'a,b', 'a.b', 'a{1}', 'a{1,2}b', 'b{', '{a}', 'ab)', '[a', 'a]', 'a?b', '-', 'z', 'x]cd', 'a-', '[b', 'zcd', 'a^b', 'a|b]cd')
         $bad = New-Object System.Collections.Generic.List[string]
         for ($n = 0; $n -lt 3000; $n++) {
-            $length = $random.Next(2, 10)
+            $length = $random.Next(2, 13)
             $chars = for ($k = 0; $k -lt $length; $k++) { $alphabet[$random.Next($alphabet.Length)] }
             $pattern = -join $chars
             $regex = $null

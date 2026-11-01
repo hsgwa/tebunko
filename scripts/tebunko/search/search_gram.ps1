@@ -60,7 +60,7 @@ function addTextGrams {
 
 function skipRegexClass {
     # 正規表現の文字クラス（[ の位置 start から）を読み飛ばし、閉じ ] の次の位置を返す。閉じていなければ -1。
-    # 文字クラスの引き算（[a-z-[aeiou]]）の入れ子は数で数える。\ の次の 1 文字は読み飛ばす
+    # クラスの中に [ があれば（引き算 [a-z-[aeiou]] を含む）あきらめて -1 を返す。\ の次の 1 文字は読み飛ばす
     param (
         [string]$pattern,
         [int]$start
@@ -70,7 +70,6 @@ function skipRegexClass {
     $length = $pattern.Length
     if ($i -lt $length -and $pattern[$i] -eq '^') { $i++ }
     if ($i -lt $length -and $pattern[$i] -eq ']') { $i++ }
-    $depth = 1
     while ($i -lt $length) {
         $c = $pattern[$i]
         if ($c -eq '\') {
@@ -78,11 +77,11 @@ function skipRegexClass {
             continue
         }
         if ($c -eq '[') {
-            # 入れ子になるのは引き算（-[）のときだけ。それ以外の [ は文字
-            if ($pattern[$i - 1] -eq '-') { $depth++ }
-        } elseif ($c -eq ']') {
-            $depth--
-            if ($depth -eq 0) { return $i + 1 }
+            # クラスの中の [（引き算 -[ を含む）は、入れ子かただの文字かを決めきれないので、あきらめる
+            return -1
+        }
+        if ($c -eq ']') {
+            return $i + 1
         }
         $i++
     }
