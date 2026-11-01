@@ -1067,6 +1067,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#確かめ方属性と更新日時" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        確かめ方（属性と更新日時）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#リンクは辿らない" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4320,6 +4331,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#確かめ方属性と更新日時" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        確かめ方（属性と更新日時）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#リンクは辿らない" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4584,7 +4606,14 @@
 <p>テキストファイル（<code>.txt</code> 等）も、Office と同じく作業フォルダの <code>source.copy</code> へコピーし（<code>invokeWithSourceCopy</code>）、そのコピーを読み（<code>shared/core/text_file.ps1</code> の <code>readTextFile</code>）、読み終えたら消す。原本は直接読まず、書き込みの API には渡さない。</p>
 <p>PDF ファイルもテキストファイルと同じく、作業フォルダの <code>source.copy</code> へコピーし（<code>invokeWithSourceCopy</code>）、そのコピーを読み（<code>shared/core/pdf_file.ps1</code> の <code>readPdfFile</code>）、TSV を書く前に消す（<code>extractPdfFile</code>）。</p>
 <p><code>tests/meta/safety.Tests.ps1</code> の「取り込み対象のファイルを書き換えないこと」が、原本を読むのは <code>copyFileShared</code> の読み取りだけであること、<code>SaveAs</code> の保存先が作業フォルダだけであること、Word・PowerPoint を読み取り専用で開くことを確かめる（Excel を読み取り専用で開くことは「Office ファイルを安全に開くこと」が確かめる）。</p>
-<p>書く API は、変数の名前でなく呼び出しそのものを見る許可リストで守る。ファイルに書く・属性や日時を変える・ファイルを作る呼び出し（<code>SetAttributes</code>・<code>Set*Time</code>・<code>WriteAll*</code>・<code>FileMode</code>・<code>FileAccess</code>・<code>FileStream</code>・<code>StreamWriter</code>・<code>Set-Content</code>・<code>Out-File</code>・<code>Copy-Item</code> など）は、書き先がワークスペースの置き場か利用者が選んだ出力先だと確かめた関数の中だけに置く。一覧は <code>tests/meta/source_write.Tests.ps1</code> にあり、一覧に無い関数に足すと CI の <code>test</code> が落ちる。動かして確かめるのは <code>tests/tebunko/indexer/source_unchanged.Tests.ps1</code> で、テキスト・PDF・Word・PowerPoint・読み取り専用・パスワード付きのファイルと、外のフォルダを指すジャンクションを置いたフォルダで、インデックスの作成・更新・エクスポート・削除の前後に、元のフォルダと外のフォルダのファイルの数・ハッシュ・属性・作成日時・更新日時が変わらないことを比べる（Excel と旧形式を含む分はタグ <code>Office</code> で CI では流れない。Office の入った機械で、リリース前に <code>.\tests\run.ps1 -Tag Office</code> を流す。<a href="../../design/testing/ci/">CI</a>）。</p>
+<p>書く API は、変数の名前でなく呼び出しそのものを見る許可リストで守る。ファイルに書く・属性や日時を変える・ファイルを作る呼び出し（<code>SetAttributes</code>・<code>Set*Time</code>・<code>WriteAll*</code>・<code>FileMode</code>・<code>FileAccess</code>・<code>FileStream</code>・<code>StreamWriter</code>・<code>Set-Content</code>・<code>Out-File</code>・<code>Copy-Item</code> など）は、書き先がワークスペースの置き場か利用者が選んだ出力先だと確かめた関数の中だけに置く。一覧は <code>tests/meta/source_write.Tests.ps1</code> にあり、一覧に無い関数に足すと CI の <code>test</code> が落ちる。動かして確かめるものは<a href="#確かめ方属性と更新日時">確かめ方（属性と更新日時）</a>にある。</p>
+<h3 id="確かめ方属性と更新日時">確かめ方（属性と更新日時）<a class="headerlink" href="#確かめ方属性と更新日時" title="Permanent link">&para;</a></h3>
+<p>変わらないことを確かめるのは、ファイルの中身（ハッシュ）、属性、作成日時、更新日時。フォルダの更新日時も含める。動かして確かめるのは <code>tests/tebunko/indexer/source_unchanged.Tests.ps1</code> で、テキスト・PDF・Word・PowerPoint・読み取り専用・パスワード付きのファイルと、外のフォルダを指すジャンクションを置いたフォルダで、インデックスの作成・更新・エクスポート・削除の前後に、元のフォルダと外のフォルダのファイルの数・ハッシュ・属性・作成日時・更新日時が変わらないことを比べる（Excel と旧形式を含む分はタグ <code>Office</code> で CI では流れない。Office の入った機械で、リリース前に <code>.\tests\run.ps1 -Tag Office</code> を流す。<a href="../../design/testing/ci/">CI</a>）。</p>
+<ul>
+<li>属性は値全体で比べる。読み取り専用に限らず、アーカイブや <code>NotContentIndexed</code> が付く・外れる変化も見逃さない。</li>
+<li>フォルダの更新日時は、フォルダ自身から読んで比べる。元のフォルダの横に一時ファイルを作って消すような動きがあると、フォルダの更新日時が変わるので見つかる。</li>
+<li>書く API を許可リストの関数にだけ置くことは <code>tests/meta/source_write.Tests.ps1</code> が、動かした前後の比較は <code>source_unchanged.Tests.ps1</code> が守る。</li>
+</ul>
 <h3 id="リンクは辿らない">リンクは辿らない<a class="headerlink" href="#リンクは辿らない" title="Permanent link">&para;</a></h3>
 <p>クロール対象フォルダの中にあるジャンクション・シンボリックリンクは辿らない。リンクの先のフォルダへ降りず、リンクのファイルも取り込まない（<code>getFilesNoFollow</code>）。先が取り込み対象の外（別のドライブ・共有・システムのフォルダ）でも、親を指す輪でも、読まない。飛ばしたリンクは 1 件 1 行でログに出す。クロール対象フォルダそのものがリンクのときは、利用者が選んだ場所のため、これまでどおりその先の中を読む（中のリンクだけを辿らない）。</p>
 <p>同じく、インデックスの zip への書き出しも、置き場の中のリンクへは降りず、リンク自身にも触れない。再帰の列挙（<code>Get-ChildItem -Recurse</code>・<code>SearchOption.AllDirectories</code>）を、許した関数の一覧の外で書けないことは、<code>tests/meta/link_safety.Tests.ps1</code> が確かめる（一覧にあるのは、リンクを辿っても読むだけで済む関数）。</p>
@@ -4592,12 +4621,26 @@
 <p>OneDrive・SharePoint のオンデマンドで、中身がこの PC に無いファイルは、フォルダの一覧と同時に分かる属性だけで見分け、既定ではファイルを開かない。開けばダウンロードが始まり、ネットワークの帯域・ディスクの空きを使い、ファイルがこの PC に残るため。利用者が確認のダイアログで選んだとき（または設定 <code>cloudFiles</code> が <code>download</code> のとき）だけ、ほかのファイルと同じようにコピーして読む。見分けのための属性の読み取りは、ファイルを書き換えない。</p>
 <h2 id="読み取りのみであることの実証">読み取りのみであることの実証<a class="headerlink" href="#読み取りのみであることの実証" title="Permanent link">&para;</a></h2>
 <p>静的な確認に加えて、実際に動かして確認できる。第三者が再現できる手順は次の 2 つ。</p>
-<p><strong>手順 A: ハッシュの比較</strong></p>
+<p><strong>手順 A: ハッシュ・属性・更新日時の比較</strong></p>
 <div class="highlight"><pre><span></span><code><span class="nv">$target</span> <span class="p">=</span> <span class="s2">"C:\確認用\対象フォルダ"</span>
 <span class="nv">$before</span> <span class="p">=</span> <span class="nb">Get-ChildItem</span> <span class="nv">$target</span> <span class="n">-Recurse</span> <span class="o">-File</span> <span class="p">|</span> <span class="nb">Get-FileHash</span>
 <span class="c"># ここで tebunko.bat を起動し、$target を対象にインデックスを作成する</span>
 <span class="nv">$after</span>  <span class="p">=</span> <span class="nb">Get-ChildItem</span> <span class="nv">$target</span> <span class="n">-Recurse</span> <span class="o">-File</span> <span class="p">|</span> <span class="nb">Get-FileHash</span>
 <span class="nb">Compare-Object</span> <span class="nv">$before</span> <span class="nv">$after</span> <span class="n">-Property</span> <span class="n">Path</span><span class="p">,</span><span class="n">Hash</span>   <span class="c"># 何も出力されなければ、原本は 1 バイトも変わっていない</span>
+</code></pre></div>
+<p>属性と更新日時は、フォルダも含めて比べる（<code>-File</code> を付けない）。フォルダの更新日時は親の一覧の値だと遅れて反映されることがあるので、フォルダ自身から読む。<code>$target</code> 自身は <code>-Recurse</code> の一覧に含まれないので、<code>Get-Item</code> で足す。</p>
+<div class="highlight"><pre><span></span><code><span class="nv">$target</span> <span class="p">=</span> <span class="s2">"C:\確認用\対象フォルダ"</span>
+<span class="k">function</span> <span class="nb">Get-State</span><span class="p">(</span><span class="nv">$path</span><span class="p">)</span> <span class="p">{</span>
+    <span class="p">@(</span><span class="nb">Get-Item</span> <span class="nv">$path</span> <span class="n">-Force</span><span class="p">)</span> <span class="p">+</span> <span class="p">@(</span><span class="nb">Get-ChildItem</span> <span class="nv">$path</span> <span class="n">-Recurse</span> <span class="n">-Force</span><span class="p">)</span> <span class="p">|</span> <span class="k">ForEach</span><span class="n">-Object</span> <span class="p">{</span>
+        <span class="nv">$written</span> <span class="p">=</span> <span class="k">if</span> <span class="p">(</span><span class="nv">$_</span><span class="p">.</span><span class="n">PSIsContainer</span><span class="p">)</span> <span class="p">{</span> <span class="no">[System.IO.Directory]</span><span class="p">::</span><span class="n">GetLastWriteTimeUtc</span><span class="p">(</span><span class="nv">$_</span><span class="p">.</span><span class="n">FullName</span><span class="p">)</span> <span class="p">}</span> <span class="k">else</span> <span class="p">{</span> <span class="nv">$_</span><span class="p">.</span><span class="n">LastWriteTimeUtc</span> <span class="p">}</span>
+        <span class="no">[pscustomobject]</span><span class="p">@{</span> <span class="n">FullName</span> <span class="p">=</span> <span class="nv">$_</span><span class="p">.</span><span class="n">FullName</span><span class="p">;</span> <span class="n">Attributes</span> <span class="p">=</span> <span class="nv">$_</span><span class="p">.</span><span class="n">Attributes</span><span class="p">;</span> <span class="n">LastWriteTimeUtc</span> <span class="p">=</span> <span class="nv">$written</span> <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+<span class="nv">$props</span>  <span class="p">=</span> <span class="s1">'FullName'</span><span class="p">,</span><span class="s1">'Attributes'</span><span class="p">,</span><span class="s1">'LastWriteTimeUtc'</span>
+<span class="nv">$before</span> <span class="p">=</span> <span class="nb">Get-State</span> <span class="nv">$target</span>
+<span class="c"># ここで tebunko.bat を起動し、$target を対象にインデックスを作成する</span>
+<span class="nv">$after</span>  <span class="p">=</span> <span class="nb">Get-State</span> <span class="nv">$target</span>
+<span class="nb">Compare-Object</span> <span class="nv">$before</span> <span class="nv">$after</span> <span class="n">-Property</span> <span class="nv">$props</span>   <span class="c"># 何も出力されなければ、属性と更新日時は変わっていない</span>
 </code></pre></div>
 <p><strong>手順 B: 書き込み権限を外して実行</strong></p>
 <p>対象フォルダに読み取りの権限だけを与えたアカウントで、インデックス作成を最後まで実行する。書き込みを試みていれば失敗するため、完走することが「読み取りのみ」の裏付けになる。</p>
