@@ -4769,7 +4769,7 @@
 <tr>
 <td><code>getGramContentIndexFiles</code></td>
 <td>word, simpleMatch, folders, indexRoot, gramRoot, onProgress, stopSignal（<code>Stop</code> を持つもの。列挙とインデックス名ごとに見て、立っていれば <code>$null</code>）</td>
-<td><code>@{Folders; ContentIndexFiles; Gram（@{Total; Candidates}）}</code> / <code>$null</code></td>
+<td><code>@{Folders; ContentIndexFiles; Gram（@{Total; Candidates}）; All（絞る前のすべての本文インデックスのファイル）}</code> / <code>$null</code></td>
 <td>検索語の 2-gram をすべて含むと分かったファイルだけに、照合する本文インデックスのファイルを絞る。正規表現・2-gram が作れない・索引の置き場が無い・1 つも外せなかったときは <code>$null</code>（呼ぶ側が <code>getContentIndexFiles</code> ですべてを集める）</td>
 <td>検索（<code>search_run.ps1</code>）</td>
 </tr>

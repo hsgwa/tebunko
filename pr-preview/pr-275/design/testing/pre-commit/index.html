@@ -4425,7 +4425,7 @@
 </tr>
 </tbody>
 </table>
-<p>Office ファイル（ZIP）は展開して中の XML・バイナリを 1 つずつ調べる。旧形式（<code>.doc</code> <code>.xls</code> <code>.ppt</code>）・PDF などはバイト列を UTF-8 と UTF-16LE の両方で読んで調べる。中身は作業ツリーではなく git に記録される内容を読む（改行だけは、git が LF にして記録するため作業ツリーのファイルで調べる）。例示用として通す名前・ドメインを増やすときは <code>tools/check_commit.ps1</code> の先頭で行う。</p>
+<p>Office ファイル（ZIP）は展開して中の XML・バイナリを 1 つずつ調べる。中のファイルがさらに ZIP（Word・PowerPoint のグラフが埋め込むブックなど）なら、それも開いて調べる（3 段まで。中の ZIP は圧縮されたバイト列で、そのままでは作成者名が見えない）。旧形式（<code>.doc</code> <code>.xls</code> <code>.ppt</code>）・PDF などはバイト列を UTF-8 と UTF-16LE の両方で読んで調べる。中身は作業ツリーではなく git に記録される内容を読む（改行だけは、git が LF にして記録するため作業ツリーのファイルで調べる）。例示用として通す名前・ドメインを増やすときは <code>tools/check_commit.ps1</code> の先頭で行う。</p>
 
 
 
