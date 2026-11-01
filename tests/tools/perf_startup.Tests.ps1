@@ -195,3 +195,81 @@ Describe "getStartupSearchTable（最初の検索の内訳）" -Tag Unit {
         (getStartupSearchTable $runs) | Should -Match "回数 0 回（失敗 1 回は除く）"
     }
 }
+
+Describe "formatTraceMs・newTraceDefsFromRuns・readTraceLines" -Tag Unit {
+    It "formatTraceMs: <Value> は <Expected>" -TestCases @(
+        @{ Value = $null; Expected = "–" }
+        @{ Value = 1234.6; Expected = "1235" }
+        @{ Value = 0.4; Expected = "0" }
+    ) {
+        formatTraceMs $Value | Should -Be $Expected
+    }
+
+    It "newTraceDefsFromRuns: 経過の中央値の順に並べ、前の区切りを区間の始まりにする。失敗の回は数えない" {
+        $runs = @(
+            @{ Markers = @{ b = 300.0; a = 100.0 }; Failed = $false }
+            @{ Markers = @{ b = 500.0; a = 200.0 }; Failed = $false }
+            @{ Markers = @{ b = 1.0; a = 99999.0 }; Failed = $true }
+        )
+
+        $defs = @(newTraceDefsFromRuns $runs)
+
+        $defs.Count | Should -Be 2
+        $defs[0].Key | Should -Be "a"
+        $defs[0].Previous | Should -BeNullOrEmpty
+        $defs[1].Key | Should -Be "b"
+        $defs[1].Previous | Should -Be "a"
+    }
+
+    It "readTraceLines: 書いているプロセスが開いたままのファイルも読め、無いファイルは空" {
+        $file = Join-Path $TestDrive "open_lines.tsv"
+        $writer = New-Object System.IO.FileStream($file, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::ReadWrite)
+        try {
+            $bytes = [System.Text.Encoding]::UTF8.GetBytes("a`r`nb`r`n")
+            $writer.Write($bytes, 0, $bytes.Length)
+            $writer.Flush()
+
+            @(readTraceLines $file | Where-Object { $_ }) | Should -Be @("a", "b")
+        } finally {
+            $writer.Dispose()
+        }
+        @(readTraceLines (Join-Path $TestDrive "nothing.tsv")).Count | Should -Be 0
+    }
+}
+
+Describe "区切りの定義（getStartupTraceDefs・getSearchTraceDefs）" -Tag Unit {
+    It "startup は区切り 1〜12 で、前の区切りは定義の中にあり、記録の名前（stepSplash 以外は番号つき）と合う" {
+        $defs = @(getStartupTraceDefs)
+
+        $defs.Count | Should -Be 12
+        $keys = @($defs | ForEach-Object { $_.Key })
+        ($keys | Select-Object -Unique).Count | Should -Be 12
+        foreach ($def in $defs) {
+            if ($def.Previous) { $keys | Should -Contain $def.Previous }
+        }
+        # 記録に書く名前（scripts の markTrace "startup" の名前）が、定義の名前と合っている
+        $source = (Get-ChildItem -LiteralPath "$PSScriptRoot\..\..\scripts\tebunko" -Recurse -Filter "*.ps1" | ForEach-Object { [System.IO.File]::ReadAllText($_.FullName, [System.Text.Encoding]::UTF8) }) -join "`n"
+        foreach ($key in @($keys | Where-Object { $_ -match '^[0-9]{2} ' })) {
+            $source.Contains('"' + $key + '"') | Should -BeTrue -Because "記録に「$key」を書く所が scripts に無い（名前を変えたときは定義も直す）"
+        }
+    }
+
+    It "search の定義の名前は、記録に書く名前と合っている" {
+        $source = (Get-ChildItem -LiteralPath "$PSScriptRoot\..\..\scripts\tebunko" -Recurse -Filter "*.ps1" | ForEach-Object { [System.IO.File]::ReadAllText($_.FullName, [System.Text.Encoding]::UTF8) }) -join "`n"
+        $defs = @(getSearchTraceDefs)
+
+        $defs.Count | Should -Be 7
+        foreach ($def in $defs) {
+            $source.Contains('"' + $def.Key + '"') | Should -BeTrue -Because "記録に「$($def.Key)」を書く所が scripts に無い"
+        }
+    }
+}
+
+Describe "invokeStartupMeasureAll（入力の検査）" -Tag Unit {
+    It "-Workspace が無い・存在しないときは、画面を起動せずに例外にする" -TestCases @(
+        @{ Workspace = "" }
+        @{ Workspace = "C:\存在しない\ワークスペース" }
+    ) {
+        { invokeStartupMeasureAll "" $Workspace @("語") 1 5 "" } | Should -Throw "*-Workspace*"
+    }
+}

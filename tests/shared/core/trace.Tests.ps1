@@ -174,3 +174,30 @@ Describe "スレッドの間での起点" -Tag Io {
         }
     }
 }
+
+Describe "getTraceSpec・testTraceActive（ほかのスレッドへ渡す指定）" -Tag Unit {
+    It "initTrace に渡した指定と起点を返し、どれかの区分が入っていれば testTraceActive が真になる" -TestCases @(
+        @{ Spec = "startup,search"; Active = $true }
+        @{ Spec = "*"; Active = $true }
+        @{ Spec = ""; Active = $false }
+        @{ Spec = " , "; Active = $false }
+    ) {
+        $origin = [DateTime]::UtcNow.Ticks - 5000
+        initTrace $Spec $origin
+
+        (getTraceSpec).Spec | Should -Be $Spec
+        (getTraceSpec).OriginTicks | Should -Be $origin
+        testTraceActive | Should -Be $Active
+    }
+}
+
+Describe "testTraceNetworkPath" -Tag Unit {
+    It "<Path> は、ネットワークの場所か: <Expected>" -TestCases @(
+        @{ Path = "\\server\share\trace"; Expected = $true }
+        @{ Path = "\\?\UNC\server\share\trace"; Expected = $true }
+        @{ Path = "C:\work\trace"; Expected = $false }
+        @{ Path = "\\?\C:\work\trace"; Expected = $false }
+    ) {
+        testTraceNetworkPath $Path | Should -Be $Expected
+    }
+}
