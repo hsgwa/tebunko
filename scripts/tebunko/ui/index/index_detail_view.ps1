@@ -27,10 +27,16 @@ function selectIndexFileRows {
         [string]$filter = "All"
     )
 
-    $all = @($rows | Where-Object { $null -ne $_ })
+    # 数万行でも画面のスレッドを 0.2 秒以上止めないよう、パイプラインを使わずに 1 回のループで選ぶ
+    $failedOnly = ($filter -eq "Failed")
+    $selected = New-Object 'System.Collections.Generic.List[object]'
+    foreach ($row in $rows) {
+        if ($null -ne $row -and (!$failedOnly -or $row.Kind -eq "Failed")) {
+            $selected.Add($row)
+        }
+    }
     # 呼ぶ側は @() で受ける（1 件でも空でも配列にするため）
-    if ($filter -ne "Failed") { return $all }
-    return @($all | Where-Object { $_.Kind -eq "Failed" })
+    return $selected.ToArray()
 }
 
 function getIndexFailedEntryView {
@@ -74,6 +80,11 @@ function getIndexFilesHeading {
 function getIndexFilesLoadingText {
     # 取り込んだファイルの一覧を読み込んでいる間の見出し
     return "ファイルの一覧を読み込んでいます…"
+}
+
+function getIndexFilesLoadFailedText {
+    # 取り込んだファイルの一覧を読み込めなかったときの見出し
+    return "ファイルの一覧を読み込めませんでした"
 }
 
 function getIndexFilesDialogTitle {

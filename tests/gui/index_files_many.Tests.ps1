@@ -1,6 +1,6 @@
 ﻿# 画面のスモークテスト: 取り込んだファイルが数万件あるインデックスで、［ファイルの一覧］のダイアログを開いてから件数が出るまでと、
 # 表を末尾までスクロールしたときの応答が、決めた秒数以内であること（表は見えている行だけ作る＝仮想化）。
-# 秒数は GitHub Actions の Windows の実行機で、通常の 5 倍ほどの余裕を見て決めた上限（遅くなったことに気づくための目安で、速さの計測ではない）。
+# 秒数は GitHub Actions の Windows の実行機の実測（開くまで 12 秒ほど）に、混んだときの余裕を見て決めた上限（遅くなったことに気づくための目安で、速さの計測ではない）。
 # 流すのは Gui タグ（gui.yml）。共通の関数は gui_helpers.ps1。index_many.Tests.ps1 と同じ形。
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
@@ -11,8 +11,8 @@ Describe "S2d 取り込んだファイルが 30,000 件ある" -Tag Gui {
     BeforeAll {
         $script:envBefore = getGuiEnvSnapshot
         $script:fileCount = 30000
-        $script:openLimitSeconds = 20
-        $script:scrollLimitSeconds = 10
+        $script:openLimitSeconds = 60
+        $script:scrollLimitSeconds = 30
         $script:tool = newGuiTool $TestDrive
         $config = readGuiConfig $script:tool
         $config | Add-Member -NotePropertyName targetFolders -NotePropertyValue @(@{ name = "営業"; path = (Join-Path $TestDrive "元のフォルダ\営業"); enabled = $true }) -Force

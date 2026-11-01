@@ -98,6 +98,7 @@ function showIndexFilesDialog {
 
     $labels = getIndexFileStateLabels
     $heading = $ctrl.IndexFilesHeading
+    $failedText = ${function:getIndexFilesLoadFailedText}
     startJob {
         param ($path, $indexName, $labels)
         getIndexFileEntries -indexName $indexName -labels $labels -path $path
@@ -108,7 +109,7 @@ function showIndexFilesDialog {
             return
         }
         if ($errorText -or !$output -or $output.Count -eq 0) {
-            $heading.Text = "ファイルの一覧を読み込めませんでした"
+            $heading.Text = & $failedText
             return
         }
         & $applyEntries $ctx $output[0]

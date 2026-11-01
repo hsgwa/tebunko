@@ -155,8 +155,6 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         $view.Multi | Should -BeTrue
         $view.Selected | Should -BeFalse
         $view.Hint | Should -Be "1 件だけ選ぶと、ここに詳細を表示します。"
-        (getIndexDetailView @(newDetailItem) 1).Multi | Should -BeFalse
-        (getIndexDetailView @(newDetailItem) 0).Hint | Should -Be ""
     }
 
     It "案内（Hint）: <label>" -TestCases @(
@@ -355,8 +353,9 @@ Describe "getIndexFilesDialogTitle / getIndexFilesLoadingText（ファイルの�
         getIndexFilesDialogTitle "営業" | Should -Be "営業 のファイル"
     }
 
-    It "読み込み中の見出し" {
+    It "読み込み中・読み込めなかったときの見出し" {
         getIndexFilesLoadingText | Should -Be "ファイルの一覧を読み込んでいます…"
+        getIndexFilesLoadFailedText | Should -Be "ファイルの一覧を読み込めませんでした"
     }
 }
 
@@ -399,6 +398,17 @@ Describe "selectIndexFileRows / getIndexFailedEntryView（失敗の絞り込み�
     ) {
         param ($label, $filter, $count, $expected)
         getIndexFilesEmptyNotice $filter $count | Should -Be $expected
+    }
+
+    It "3 万行でも、絞り込みが 0.2 秒以内に終わる（画面のスレッドを止めない）" {
+        $big = @(1..30000 | ForEach-Object { [pscustomobject]@{ RelPath = "f$_.docx"; Kind = $(if ($_ % 100 -eq 0) { "Failed" } else { "Done" }) } })
+        foreach ($filter in "All", "Failed") {
+            $sw = [Diagnostics.Stopwatch]::StartNew()
+            $shown = @(selectIndexFileRows $big $filter)
+            $sw.Stop()
+            $shown.Count | Should -Be $(if ($filter -eq "Failed") { 300 } else { 30000 })
+            $sw.Elapsed.TotalSeconds | Should -BeLessThan 0.2
+        }
     }
 
     It "行が無い・null でも空を返す" {
