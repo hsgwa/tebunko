@@ -7,9 +7,12 @@ function newPlanViewRows {
     # 更新の予定（取り込み予定.tsv の行）を、確認のダイアログに出す形にする。
     # 行は Name・Path・TotalText（対象ファイル数）・StatusText（バッジの文言）・Level（バッジの色。Wait / Ok / None / Ng）・DetailText（バッジの ToolTip）
     #   onlyNames: 選んだものだけの回のインデックス名（空なら全部）。選ばなかったものは出さない（「対象外」とも出さない）
+    #   subfolders: インデックス名 → 設定の subfolders（$false は直下のファイルだけを取り込む）。行の TopOnlyText（名前の右の札。読み取りだけ）になる。無い名前は札を出さない
     param (
         $plan,  # readIngestPlan の結果
-        [string[]]$onlyNames = @()
+        [string[]]$onlyNames = @(),
+        [hashtable]$subfolders = @{},
+        [hashtable]$textExt = @{}  # 取り込む拡張子の欄: Excludes（インデックス名 → 取り込まない拡張子。設定の indexExtensionExcludes）・Choices（選べる拡張子の一覧）・Executable（そのうち実行・登録になる拡張子の数）。Choices が無ければ欄を出さない
     )
 
     $rows = New-Object System.Collections.Generic.List[object]
@@ -17,7 +20,7 @@ function newPlanViewRows {
         # 空の配列を渡すと @($plan) に $null が 1 つ入るため、ここで外す
         if ($null -eq $item) { continue }
         if (@($onlyNames).Count -gt 0 -and $item.区分 -ne ${planKindDropped} -and @($onlyNames) -notcontains [string]$item.インデックス名) { continue }
-        $row = @{ Name = $item.インデックス名; Path = $item.元のフォルダ }
+        $row = @{ Name = $item.インデックス名; Path = $item.元のフォルダ; TopOnlyText = (getIndexTopOnlyTagText $subfolders[[string]$item.インデックス名]); TextExtShown = $false; TextExtSummary = ""; TextExtTip = "" }
         if ($item.区分 -eq ${planKindDropped}) {
             # 選んだものだけの回でも出す（［更新を開始］で消えるため、利用者に見せずに消さない）
             $row.TotalText = "－"
@@ -49,10 +52,17 @@ function newPlanViewRows {
                     $parts.Add("$($pair[0]) $('{0:#,0}' -f $pair[1]) 件")
                 }
             }
-            if ($item.取り込み対象 -gt 0) {
+            if (@($textExt.Choices | Where-Object { $_ }).Count -gt 0) {
+                $excluded = @($textExt.Excludes[[string]$item.インデックス名] | Where-Object { $_ })
+                $row.TextExtShown = $true
+                $row.TextExtSummary = getIndexingTextExtSummary $excluded
+                $row.TextExtTip = getIndexingTextExtTip $excluded @($textExt.Choices) ([int]$textExt.Executable)
+            }
+            $removeNotes = @((getIndexingSubfolderRemovalNote ([int]$item.SubfolderRemovedCount)), (getIndexingTextExcludeRemovalNote ([int]$item.TextExcludeRemovedCount)) | Where-Object { $_ })
+            if ($item.取り込み対象 -gt 0 -or $removeNotes.Count -gt 0) {
                 $row.StatusText = "要更新"
                 $row.Level = "Wait"
-                $row.DetailText = "更新するファイル {0:#,0} 件（{1}）" -f $item.取り込み対象, ($parts -join " / ")
+                $row.DetailText = if ($item.取り込み対象 -gt 0) { "更新するファイル {0:#,0} 件（{1}）" -f $item.取り込み対象, ($parts -join " / ") } else { $removeNotes -join "`n" }
             } elseif ($item.クラウド -gt 0) {
                 # 取り込み対象は無いが、クラウドにだけあるため残すファイルがある。「最新」とは言わず、注意の色で出す
                 # （クラウドにだけある前回失敗は、更新し直す指定が無ければ取り込み対象にならない。手元の前回失敗と同じく「最新」のまま内訳に出す）
@@ -202,7 +212,7 @@ function getIndexingEndText {
         $counts = "成功 ${success} 件 / 失敗 ${failed} 件"
         $parts = New-Object System.Collections.Generic.List[string]
         if ($failed -gt 0) {
-            $parts.Add("失敗したファイルと原因は「更新に失敗したファイル」の一覧で確認できます。")
+            $parts.Add("失敗したファイルと原因は「ファイルの一覧」（失敗のみ）で確認できます。")
         }
         if ($cloudText) {
             $parts.Add($cloudText)
@@ -293,6 +303,128 @@ function getIndexingConfirmFolderCount {
     return $folders
 }
 
+function getIndexingSubfolderRemovalNote {
+    # 確認の合計の下に出す 1 行。直下だけに変えたフォルダで、サブフォルダ側のファイルをインデックスから外す件数（0 件なら出さない＝空）
+    param (
+        [int]$count
+    )
+
+    if ($count -le 0) {
+        return ""
+    }
+    return "サブフォルダ側の {0:#,0} 件をインデックスから外します" -f $count
+}
+
+function getIndexingSubfolderRemovalCount {
+    # 確認に出す、サブフォルダ側で外れる件数の合計（Plan の行の SubfolderRemovedCount。選んだものだけの回は、選んだ名前の行だけ）
+    param (
+        [object[]]$plan,  # readIngestPlan の結果
+        [string[]]$onlyNames = @()
+    )
+
+    $total = 0
+    foreach ($item in @($plan | Where-Object { $null -ne $_ -and $_.区分 -eq ${planKindIngest} })) {
+        if (-not (testIndexingPlanSelected $item $onlyNames)) { continue }
+        $total += [int]$item.SubfolderRemovedCount
+    }
+    return $total
+}
+
+function getIndexingTextExcludeRemovalNote {
+    # 確認の合計の下に出す 1 行。取り込まないにした拡張子のファイルをインデックスから外す件数（0 件なら出さない＝空）
+    param (
+        [int]$count
+    )
+
+    if ($count -le 0) {
+        return ""
+    }
+    return "対象外にした拡張子のファイル {0:#,0} 件を、インデックスから外します" -f $count
+}
+
+function getIndexingTextExcludeRemovalCount {
+    # 確認に出す、取り込まないにした拡張子のために外す件数の合計（Plan の行の TextExcludeRemovedCount。選んだものだけの回は、選んだ名前の行だけ）。
+    # 同じ名前のフォルダが複数あっても、件数はインデックス名ごとに数えた値なので、名前ごとに 1 回だけ足す
+    param (
+        [object[]]$plan,  # readIngestPlan の結果
+        [string[]]$onlyNames = @()
+    )
+
+    $total = 0
+    $seen = @{}
+    foreach ($item in @($plan | Where-Object { $null -ne $_ -and $_.区分 -eq ${planKindIngest} })) {
+        if (-not (testIndexingPlanSelected $item $onlyNames)) { continue }
+        $name = [string]$item.インデックス名
+        if ($seen.ContainsKey($name)) { continue }
+        $seen[$name] = $true
+        $total += [int]$item.TextExcludeRemovedCount
+    }
+    return $total
+}
+
+function getIndexingTextExtSummary {
+    # 確認の表の「取り込み対象の拡張子」の行の要約。何も外していなければ「すべて取り込み」、外していれば「対象外あり」
+    # （件数は言わない。件数は表の「対象ファイル数」の列で見える。getIndexTextExtensionBriefSummary）
+    param (
+        [object[]]$excluded = @()
+    )
+
+    return getIndexTextExtensionBriefSummary $excluded
+}
+
+function getIndexingTextExtTip {
+    # 要約の ToolTip。何も外していないときだけ、実行・登録になる拡張子も含むが、取り込むだけで実行はされないことを添える（外していれば空）。
+    # choices は選べる拡張子の一覧（外した数を、この中にあるものだけ数える）
+    param (
+        [object[]]$excluded = @(),
+        [object[]]$choices = @(),
+        [int]$executable = 0  # 選べる拡張子のうち、実行・登録になるものの数
+    )
+
+    $skip = @(@($excluded) | ForEach-Object { ([string]$_).ToLowerInvariant() })
+    if (@(@($choices) | Where-Object { $skip -contains $_ }).Count -gt 0) {
+        return ""
+    }
+    return "実行・登録になる {0} 個（.bat・.ps1 など）を含みます。取り込むだけで、実行はされません。" -f $executable
+}
+
+function getIndexingTextExtGuide {
+    # 確認の説明の一文。どのインデックスも拡張子を外していない（初めて）ときだけ、確認の表で件数を見て選べることを案内する（外したものがあれば空）
+    param (
+        [bool]$anyExcluded = $false,  # 取り込む行のどれかが、拡張子を外している
+        [bool]$anyRow = $true         # 「取り込む拡張子」の欄が出る行がある
+    )
+
+    if ($anyExcluded -or -not $anyRow) {
+        return ""
+    }
+    return "各インデックスの［変更…］で、取り込み対象の拡張子を選べます。拡張子ごとの件数は、いま数えた結果です。"
+}
+
+function testIndexingTextExcludesChanged {
+    # 取り込まない拡張子の選びが変わったか。順と大文字・小文字は無視して比べる
+    param (
+        [object[]]$before = @(),
+        [object[]]$after = @()
+    )
+
+    $a = @($before | Where-Object { $_ } | ForEach-Object { ([string]$_).ToLowerInvariant() } | Sort-Object -Unique)
+    $b = @($after | Where-Object { $_ } | ForEach-Object { ([string]$_).ToLowerInvariant() } | Sort-Object -Unique)
+    return (($a -join "`n") -ne ($b -join "`n"))
+}
+
+function getIndexingRecountBandText {
+    # 確認で拡張子の選びを変えて始め直した、数えの間の帯の文。数えたファイル数があれば添える（まだ無い・0 のときは文だけ）
+    param (
+        [int]$count = 0
+    )
+
+    if ($count -le 0) {
+        return "数えています…"
+    }
+    return "数えています…（{0:#,0} ファイル）" -f $count
+}
+
 function getIndexingDroppedCount {
     # 確認に出す「削除予定」（設定から外れたインデックス）の数。選んだものだけの回でも数える
     param (
@@ -309,10 +441,11 @@ function isIndexingConfirmNothing {
         [int]$targets,  # 更新対象のファイル数
         [int]$failed,   # 前回失敗したファイル数
         [int]$dropped,  # 削除予定のインデックスの数（getIndexingDroppedCount）
-        [int]$cloud = 0 # クラウドにだけあるファイル数（1 件でもあれば、ダウンロードして取り込むかを選べるよう、閉じるだけにしない）
+        [int]$cloud = 0, # クラウドにだけあるファイル数（1 件でもあれば、ダウンロードして取り込むかを選べるよう、閉じるだけにしない）
+        [int]$removed = 0 # 直下だけに変えたフォルダで、サブフォルダ側のインデックスを外す件数（あれば、閉じるだけにしない。閉じることが承認扱いになり、見せたまま消してしまうため）
     )
 
-    return ($targets -eq 0 -and $failed -eq 0 -and $dropped -eq 0 -and $cloud -eq 0)
+    return ($targets -eq 0 -and $failed -eq 0 -and $dropped -eq 0 -and $cloud -eq 0 -and $removed -eq 0)
 }
 
 function getIndexingConfirmIntro {
@@ -336,7 +469,8 @@ function getIndexingConfirmText {
         [int]$folders = 0,  # 更新するフォルダの数（失敗分を含めるかは呼び出し側で数える）
         [int]$dropped = 0,  # 削除予定のインデックスの数（getIndexingDroppedCount）
         [int]$cloud = 0,    # クラウドにだけあるファイル数（getIndexingCloudView。取り込み対象には数えていない）
-        [bool]$includeCloud = $false  # クラウドにだけあるファイルもダウンロードして取り込むか
+        [bool]$includeCloud = $false,  # クラウドにだけあるファイルもダウンロードして取り込むか
+        [int]$removed = 0              # サブフォルダ側のインデックスを外す件数（getIndexingSubfolderRemovalCount。あれば閉じるだけにしない）
     )
 
     $total = $targets
@@ -354,6 +488,10 @@ function getIndexingConfirmText {
     }
     if ($dropped -gt 0) {
         return @{ Total = 0; Text = "更新が必要なファイルはありません。" + $tail; Button = "更新を開始" }
+    }
+    if ($removed -gt 0) {
+        # 外すだけの回（直下だけに変えて、取り込む新しいファイルは無い）。件数は、合計の下の 1 行（getIndexingSubfolderRemovalNote）に出す
+        return @{ Total = 0; Text = "更新が必要なファイルはありません。" + $cloudText; Button = "更新を開始" }
     }
     if ($cloud -gt 0) {
         # 閉じるだけにしない（［更新を開始］で、クラウドにだけあるため残すファイルの扱いを進める。取りやめは［キャンセル］）
@@ -519,11 +657,16 @@ function getIndexingConfirmView {
     $cloudAll = getIndexingCloudView $plan $true $onlyNames
     $folders = getIndexingConfirmFolderCount $plan $retry $include $onlyNames
 
+    $removedCount = getIndexingSubfolderRemovalCount $plan $onlyNames
+    $textRemovedCount = getIndexingTextExcludeRemovalCount $plan $onlyNames
+    $removedCount += $textRemovedCount   # 外すだけの回かの判断には、サブフォルダ側と取り込まない拡張子の分を合わせる
     return @{
+        SubfolderRemovalNote = (getIndexingSubfolderRemovalNote (getIndexingSubfolderRemovalCount $plan $onlyNames))
+        TextExcludeRemovalNote = (getIndexingTextExcludeRemovalNote $textRemovedCount)
         Targets        = $targets
         Failed         = $failed
         Dropped        = $dropped
-        Nothing        = (isIndexingConfirmNothing $targets ($failed + $cloudFailed) $dropped $cloudAll.Count)
+        Nothing        = (isIndexingConfirmNothing $targets ($failed + $cloudFailed) $dropped $cloudAll.Count $removedCount)
         RetryVisible   = $retryVisible
         RetryText      = $retryText
         Retry          = $retry
@@ -532,6 +675,30 @@ function getIndexingConfirmView {
         Include        = $include
         CloudWarn      = $(if ($cloudVisible) { getIndexingCloudWarning $cloud.Count $cloud.Bytes } else { "" })
         CloudCheckText = $(if ($cloudVisible) { getIndexingCloudCheckText $cloud.Count } else { "" })
-        Confirm        = (getIndexingConfirmText $targets $failed $retry $folders $dropped $cloud.Count $include)
+        Confirm        = (getIndexingConfirmText $targets $failed $retry $folders $dropped $cloud.Count $include $removedCount)
     }
+}
+
+function getIndexingRestartWaitAction {
+    # 確認で拡張子を変えたあとの始め直しを、一覧の読み込み（インデックス名の割り当て）が終わるまで待つ間の、1 回ごとの判断。
+    # naming は読み込みが続いているか、tries は待った回数（今回を含む）、maxTries は待つ上限。
+    # 戻り値: "wait"（まだ待つ）／"start"（読み込みが終わった。始め直す）／"giveup"（待ちきれない。諦めて利用者に知らせる）
+    param (
+        [bool]$naming,
+        [int]$tries,
+        [int]$maxTries
+    )
+
+    if (-not $naming) {
+        return "start"
+    }
+    if ($tries -ge $maxTries) {
+        return "giveup"
+    }
+    return "wait"
+}
+
+function getIndexingRestartGiveUpText {
+    # 始め直しを諦めたときに状態の文に出す 1 文
+    return "インデックスの一覧を読み込み中のため、更新を始め直せませんでした。もう一度［更新］してください。"
 }

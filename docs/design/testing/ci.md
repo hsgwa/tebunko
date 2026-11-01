@@ -24,7 +24,7 @@ GitHub Actions のワークフローは次のとおり。使うアクション�
 | `codeql.yml` | `analyze`（ほか `pr-comment`） | PR、main への push、毎週 1 回 | ワークフローの静的解析 | ○ |
 | `scorecard.yml` | `analysis` | main への push、ブランチ保護の変更、毎週 1 回 | OpenSSF Scorecard の採点 | – |
 | `release.yml` | `guard`・`test`・`release` | `v` で始まるタグの push、手動（`workflow_dispatch`。タグを打たずに配布物を作る手順だけ試す） | テストのうえ、配布 zip とインストーラーを GitHub Release に載せる | – |
-| `gui.yml` | `gui-smoke`（ほか `pr-comment`） | PR、main への push | 本物の画面を windows ランナーで開き、画面遷移（[画面のスモークテスト](gui-smoke.md)）を UI オートメーションで確かめる | –（必須にしない。しばらく安定して通ることを見てから、持ち主が決める） |
+| `gui.yml` | `gui-smoke`（ほか `pr-comment`・手動の `gui-repeat`） | PR、main への push | 本物の画面を windows ランナーで開き、画面遷移（[画面のスモークテスト](gui-smoke.md)）を UI オートメーションで確かめる | –（必須にしない。しばらく安定して通ることを見てから、持ち主が決める） |
 | `perf.yml` | `perf` | 手動（`workflow_dispatch`） | Office からの取り込み（.docx・.pptx）・本文インデックスの作成・検索の速さとリソースの推移を測る | – |
 | `gram.yml` | `gram`（perfdata・zipf の 2 つ） | 手動（`workflow_dispatch`） | 2-gram 索引の形ごとの大きさ・作成と検索の時間・最大メモリを測る（`tools/measure_gram.ps1`） | – |
 | `perf-check.yml` | `search`・`ingest`（ほか `pr-comment`） | PR にラベル `perf-check` を付けたとき（付けたあとの push でも）、main への push（速さに効くファイルが変わったとき）、手動 | 検索・本文インデックスの作成・取り込み（.docx・.pptx）の速さを上限と比べる（回帰テスト） | –（流した PR で落ちていればマージしない） |
@@ -39,8 +39,8 @@ pull request と main への push のたびに windows ランナーで実行す�
 - **どのワークフローも、`shell: powershell` の `run` は ASCII だけで書く。** Actions は `run` の内容を BOM の無い UTF-8 の一時スクリプトにして渡すが、Windows PowerShell 5.1 はこれを ANSI として読むため、日本語などの ASCII 以外の文字があると文字化けして構文エラーになる。メッセージなどで日本語が要るときは `tools/` の BOM 付き UTF-8 のスクリプトに移して呼び出す（`shell: pwsh` はこの制限を受けない）。`tests/meta/encoding.Tests.ps1` の「shell: powershell の run は ASCII だけ」が確かめる
 - ランナーには Windows に最初から入っている Pester 3.4 もある。`tests/run.ps1` は `Import-Module Pester -RequiredVersion 5.9.0` で版を指定し、CI は 5.9.0 が無ければ入れる（版は `test.yml` の `PESTER_VERSION` と `tests/run.ps1` の 2 か所で同じにする）
 - スクリプトの改行はランナーの `core.autocrlf` に左右されないよう、`.gitattributes` で `.ps1`・`.xaml`・`.bat` を CRLF に固定している
-- ランナーに Office は入っていないため、タグ `Office` のテストは既定で外れる。COM を使うインデックス作成の確認は手元で行う（[結合テスト（手動）](index.md#結合テスト手動)）
-- あわせて PSScriptAnalyzer の `Error` を 0 件に保つ（`TypeNotFound` は除く）。PSScriptAnalyzer の版は `test.yml` で固定する（新しい版でルールが増えて、コードを変えずに CI が落ちるのを防ぐ。Dependabot の対象外のため、上げるときは版を書き換えた PR で指摘が 0 件のままか確かめる）。安全性の検査（`tests/meta/safety.Tests.ps1`）はタグ `Meta` のため既定で実行される
+- ランナーに Office は入っていないため、タグ `Office` のテストは既定で外れる。COM を使うインデックス作成の確認は手元で行う（[結合テスト（手動）](index.md#結合テスト手動)）。元のファイルが変わらないことの通しのテスト（`tests/tebunko/indexer/source_unchanged.Tests.ps1`）のうち Excel・旧形式の PowerPoint を含む分もタグ `Office` で、CI では流れない。Office の入った Windows の機械で、リリースを出す前に `.\tests\run.ps1 -Tag Office` を流して失敗 0 を確かめる（Word・PowerPoint の新形式・PDF・ジャンクションの分は `Io` で CI の `test` が流す）。CI の必須チェックにはしない（ランナーに Office が無く、常に失敗するため）
+- あわせて `tools/check_analyzer.ps1` で PSScriptAnalyzer の全規則と、5.1 に無い構文・コマンドを検査する（指摘は `tests/meta/PSScriptAnalyzer.baseline.tsv` の件数より増えても減っても失敗。Windows PowerShell 5.1 でだけ動く。コミット前のフックは、ステージした `.ps1` だけを `-Path` で同じように検査する。[コミット前に動く検査](pre-commit.md)）。PSScriptAnalyzer の版は `test.yml` で固定する（Dependabot の対象外のため、上げるときは版を書き換えた PR で `-UpdateBaseline` してベースラインを直す）。安全性の検査（`tests/meta/safety.Tests.ps1`）はタグ `Meta` のため既定で実行される
 - テストの前に `tools/check_commit.ps1` で、追跡している全ファイルと全コミットの作者を検査する（下の「公開してはいけない内容の検査」）。作者を全履歴で調べるため `fetch-depth: 0` で取得する
 - PR では、PR のコミットに作者の `Signed-off-by` があり、作者と違うアドレスの行が無いかを `tools/check_signoff.ps1 -Range HEAD^1..HEAD^2` で確かめる。pull_request では PR をマージした形のコミットを取り出すため、1 つ目の親が main、2 つ目の親が PR の先頭になる。その間だけを調べるので、main から取り込んだコミットと、決まりを作る前の履歴（`Signed-off-by` が無い）は調べない。マージコミットと bot（作者が `...[bot]@users.noreply.github.com`）のコミットも調べない
 - 同じブランチに続けて push したときは、古い実行を取り消す（`concurrency`）
@@ -72,6 +72,7 @@ PR と Issue のタイトルを `tools/check_commit_message.ps1 -Title` で確�
 - `tests\run.ps1 -Ci` は使わない。カバレッジの下限を確かめるが、画面は別のプロセスで動くので計測できず、`Gui` だけを流すと下限を割るため
 - 1 回に 8〜9 分ほどかかる（場面ごとの秒数は各場面の出力に出る）。`timeout-minutes` は 20。同じブランチに続けて push したときは、古い実行を取り消す（`concurrency`）
 - 落ちたときの材料（画面の画像・写した先の `gui_error_log.txt`・`indexing_log.txt`・窓の一覧）は、成否にかかわらず成果物 `gui-smoke-results`（`work/test/gui/<場面>/`）として保存する
+- **稀な落ち方の率は `gui-repeat` で測る。** `gui.yml` の `gui-repeat` は、画面を閉じる場面と起動失敗の記録のテスト（入力 `paths` の既定の 4 ファイル）を `repeat` 回（既定 50、上限 50）、5 本の matrix（`shard`）に分けて流す。1 本は `repeat / 5` 回で、`timeout-minutes` は 90。途中で落ちても続け、回ごとに「成功・終了コード 5・閉じない・記録の待ち切れ・そのほか」を数え、集計の job（`gui-repeat-summary`）が Summary に表で書く。落ちた回の材料は成果物 `gui-repeat-<shard>` に残る。手動（`workflow_dispatch`）のときだけ動き、PR・push の `gui-smoke` は変えない（手動で呼ぶと `gui-smoke` も一緒に動く）。測っている間に push すると `concurrency` で取り消されるので、push しない
 - **落ちたときの再実行は 1 回まで。** 2 回続けて同じ段階で落ちたら、偶然ではなく直すものとして扱う（画面の文言を変えたときは、探している文言のテストを直す）
 - **S6 も手元で流す。** 既定のワークスペースは環境変数 `TEBUNKO_DEFAULT_WORKSPACE` で差し替えた場所で画面を起動するため、利用者の既定のワークスペースには触れない
 - ツールは `scripts/` を `$TestDrive` に写して起動し、設定ファイルもワークスペースも写した先に置く。作業ツリーの `setting.config`・`work\index`、`%LOCALAPPDATA%\tebunko`、`Documents\tebunko_ws` が、流す前後で変わらないことも各場面で確かめる

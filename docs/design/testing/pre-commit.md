@@ -1,11 +1,11 @@
-# コミット前に動く検査
+﻿# コミット前に動く検査
 
 扱うこと: pre-commit・commit-msg フックの内容、変更したファイルから流すテストの選び方、公開してはいけない内容の検査（個人情報・文字コード）。先に読むページ: [CI](ci.md)。
 
 ```mermaid
 flowchart TD
     C["git commit"] --> P1["pre-commit 1: check_commit.ps1 -Staged"]
-    P1 --> P2["pre-commit 2: run_commit_tests.ps1（対応するテストだけ）"]
+    P1 --> P2["pre-commit 2: run_commit_tests.ps1（対応するテストと、.ps1 の静的解析）"]
     P2 --> M1["commit-msg 1: check_commit_message.ps1"]
     M1 --> M2["commit-msg 2: check_signoff.ps1"]
     M2 --> OK["コミット成立"]
@@ -23,7 +23,7 @@ clone したら 1 回だけ次を実行する。`core.hooksPath` を `tools/hook
 | フック | 順 | 内容 | 所要時間の目安 |
 |---|---|---|---|
 | `pre-commit` | 1 | `tools/check_commit.ps1 -Staged`：ステージした内容と、これから作るコミットの作者を検査する | 数秒 |
-| `pre-commit` | 2 | `tools/run_commit_tests.ps1`：ステージした変更に対応するテストだけを、既定のタグ（`Unit`・`Io`・`Meta`）で流す。失敗したテストだけを表示する。選び方は下の表。全テストと静的解析は CI で行う | 変更による（文書だけなら 20 秒ほど、全部流すと 1 分半ほど） |
+| `pre-commit` | 2 | `tools/run_commit_tests.ps1`：ステージした変更に対応するテストだけを、既定のタグ（`Unit`・`Io`・`Meta`）で流す。失敗したテストだけを表示する。選び方は下の表。あわせて、ステージした `scripts/`・`tools/`・`tests/` の `.ps1` だけに PSScriptAnalyzer をかけ（`tools/check_analyzer.ps1 -Path`。下の「静的解析」）、指摘がベースラインより増えたら失敗にする。全テストと全体の静的解析は CI で行う | 変更による（文書だけなら 20 秒ほど、全部流すと 1 分半ほど） |
 | `commit-msg` | 1 | `tools/check_commit_message.ps1 -Path <メッセージのファイル>`：1 行目が Conventional Commits の形（`feat: ...` など。AGENTS.md「GitHub の運用」）か。`#` で始まる行と空行は飛ばし、git が自動で作るメッセージ（`Merge ...` `Revert "..."` `fixup! ...` など）は調べない | – |
 | `commit-msg` | 2 | `tools/check_signoff.ps1 -Path <メッセージのファイル>`：作者（`git var GIT_AUTHOR_IDENT`）のメールアドレスの `Signed-off-by:` 行があり、作者と違うメールアドレスの `Signed-off-by:` 行が無いか（`git commit -s` で付く。大文字・小文字は区別しない）。`#` で始まる行と、`git commit -v` の切り取り線より後ろ（差分）は数えない。マージコミット（1 行目が `Merge `）と bot の作者は調べない | – |
 
@@ -31,17 +31,29 @@ clone したら 1 回だけ次を実行する。`core.hooksPath` を `tools/hook
 
 | 変更したファイル | 流すテスト |
 |---|---|
-| `scripts/<パス>.ps1` | `tests/<パス>.Tests.ps1` と `meta/structure`・`meta/layers`（`scripts/tebunko/indexer.ps1` は `tests/tebunko/indexer/indexer.Tests.ps1`） |
+| `scripts/<パス>.ps1` | `tests/<パス>.Tests.ps1` と `meta/structure`・`meta/layers`・`meta/error_messages`・`meta/function_size`（`scripts/tebunko/indexer.ps1` は `tests/tebunko/indexer/indexer.Tests.ps1`） |
 | `scripts/` の `.xaml` | `meta/structure`・`meta/table_border`（表に外枠を付けない）・`meta/settings_file_text`（設定ファイルの場所の欄の見た目） |
 | `tests/` の `*.Tests.ps1` | そのテスト |
 | `tools/<名前>.ps1` | `tests/tools/<名前>.Tests.ps1`（無ければ流さない）。`check_markdown_links.ps1` は `meta/links` も |
 | `tests/testdata/scrub_personal.ps1` | `tests/testdata/scrub_personal.Tests.ps1` |
+| `docs/design/indexing/` の `errors*.md`・`log-warnings*.md`、`docs/design/gui/` の `messages*.md` | `meta/error_messages`（利用者に出す文言が一覧にあるか）と `meta/links` |
 | `.md`・`docs/` の中 | `meta/links` |
 | `tests/gui/` の中（画面のスモークテスト） | 流さない（CI の `gui.yml` と、手元の `-Tag Gui` で流す） |
 | 対応するテストが無い・消した `scripts/` の `.ps1`、`tests/` のほかのファイル（`run.ps1`・`helpers/`・`testdata/` など） | 速いテスト（`Unit`・`Meta`）を全部 |
 | それ以外（`.github/`・画像・設定など） | 流さない |
 
 文字コードは `check_commit.ps1 -Staged` が確かめるため、`meta/encoding` はフックでは流さない。
+
+### 静的解析
+
+`run_commit_tests.ps1` は、テストのあとに、ステージした `scripts/`・`tools/`・`tests/` の `.ps1` だけに `tools/check_analyzer.ps1 -Path <相対パス>` をかける（`-ListAnalyzer -Files <パス>` で対象だけ出せる）。
+
+- そのファイルの（ファイル・規則）の件数だけを `tests/meta/PSScriptAnalyzer.baseline.tsv` と比べ、増えても減っても失敗にする（直して減らしたら、ベースラインも同じコミットで直す）。ほかのファイルの増減は見ない。
+- 検査するのは作業ツリーのファイルで、部分ステージの中身ではない。消した・名前を変えて元が無い `.ps1` は飛ばす。
+- 一部のファイルだけでベースラインを書き直すとほかのファイルの行が消えるため、`-Path` と `-UpdateBaseline` は一緒に使えない（終了コード 2）。
+- ベースラインは CI が固定した版（`.github/workflows/test.yml` の `PSSA_VERSION`）の件数なので、フックもその版を読み、`PSSA_VERSION` に入れて `check_analyzer.ps1` に渡す。その版が手元に入っていないときは、注意を出して飛ばす（版が違うと件数がずれ、コードを変えなくても失敗するため）。
+- PSScriptAnalyzer が入っていない手元と、Windows PowerShell 以外（pwsh）で動いたときは、注意を出して飛ばす（失敗にしない。全体は CI が検査する）。フックは `powershell.exe` で動く。最初のファイルの解析に 30 秒ほどかかるが（`Invoke-ScriptAnalyzer` の初回。1 回だけ。`Import-Module` は 0.5 秒ほど）、あとのファイルは 1 つ 1～2 秒ほど。
+- 「ブランチを最新にする」で main を取り込むときはフックを通らないため、main の更新で新しく当たる指摘は CI で見つかる。
 
 引っかかったら内容を直す。`git commit --no-verify` で飛ばしても、CI で同じ検査が走る（コミットメッセージは、squash merge で main のコミットになる PR のタイトルを CI が確かめる）。フックは git for Windows の sh が読むため LF で保存する（`.gitattributes` で固定）。
 
@@ -59,4 +71,4 @@ clone したら 1 回だけ次を実行する。`core.hooksPath` を `tools/hook
 | ファイル名・フォルダ名 | UTF-8 で 255 バイトを超えるもの（上の Scorecard の制約） | — |
 | コミットの作者・コミッター | GitHub の noreply 以外のメールアドレス | `noreply@github.com`（GitHub 上でマージしたときのコミッター） |
 
-Office ファイル（ZIP）は展開して中の XML・バイナリを 1 つずつ調べる。旧形式（`.doc` `.xls` `.ppt`）・PDF などはバイト列を UTF-8 と UTF-16LE の両方で読んで調べる。中身は作業ツリーではなく git に記録される内容を読む（改行だけは、git が LF にして記録するため作業ツリーのファイルで調べる）。例示用として通す名前・ドメインを増やすときは `tools/check_commit.ps1` の先頭で行う。
+Office ファイル（ZIP）は展開して中の XML・バイナリを 1 つずつ調べる。中のファイルがさらに ZIP（Word・PowerPoint のグラフが埋め込むブックなど）なら、それも開いて調べる（3 段まで。中の ZIP は圧縮されたバイト列で、そのままでは作成者名が見えない）。旧形式（`.doc` `.xls` `.ppt`）・PDF などはバイト列を UTF-8 と UTF-16LE の両方で読んで調べる。中身は作業ツリーではなく git に記録される内容を読む（改行だけは、git が LF にして記録するため作業ツリーのファイルで調べる）。例示用として通す名前・ドメインを増やすときは `tools/check_commit.ps1` の先頭で行う。

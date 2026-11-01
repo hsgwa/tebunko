@@ -3,11 +3,14 @@
 function publishTsv {
     # 作業フォルダのTSVを、そのファイルのインデックスのフォルダへ移動する。
     # 途中で強制終了されても一部のシートだけのインデックスが残らないよう、
-    # 出力用のフォルダ（work\publish\<PID>）に集めてからフォルダごと入れ替える（publishIndexFiles）
+    # 出力用のフォルダ（work\publish\<PID>）に集めてからフォルダごと入れ替える（publishIndexFiles）。
+    # 移す前に、この元のファイルだけの本文インデックスのファイルが検索の上限を超えないかを確かめ、超えるなら例外にする（取り込みの失敗として取り込み一覧に残る。
+    # 超えたまま置くと、同じ本文インデックスのファイルの小さな元のファイルまで検索に出なくなる）
     param (
         [string]$bookDir
     )
 
+    assertContentIndexBookFits $tmpDir ([System.IO.Path]::GetFileName($bookDir))
     publishIndexFiles $tmpDir $bookDir (Join-Path $workspace.PublishDir ([System.IO.Path]::GetFileName($bookDir))) $workspace.IndexDir $workspace.PublishDir
 }
 
@@ -71,6 +74,8 @@ function removeStaleTmpDirs {
     # 強制終了などで残った、ほかの（終了済みの）プロセスの作業フォルダ
     # （ワークスペースの tmp\<PC の鍵>\<PID>・work\publish\<PID>・前の版までの %TEMP%\tebunko\<PID>）を削除する。
     # 空になった親（tmp\<PC の鍵>・publish・${legacyTmpParent}。tmp\<PC の鍵> はさらに tmp 自体も）も消す
+    # work\publish\<PID> は PC ごとに分かれていない（PID が自分の PC で動いていなければ消す）。共有フォルダのワークスペースで
+    # ほかの PC が取り込み中のものを消さないのは、この関数がインデックス作成の鍵（enterIndexerLock。別の PC とも排他）の中でだけ呼ばれるため
     # 途中にリンク（ジャンクション・シンボリックリンク）があるときは、先のフォルダを消さないよう、片付けない
     # （removeStaleProcessDirs が、親ごとの根の下で途中にリンクが無いことを確かめる）
     $keyDir = Split-Path (getWorkspaceTmpDir $workspace) -Parent

@@ -20,7 +20,9 @@ Describe "convertPlaceToContentIndexMeta / convertContentIndexMetaToPlace" -Tag 
             @("提案.pptx", "スライド001_ノート", "スライド=1|対象=ノート"),
             @("提案.pptx", "スライド002（非表示）", "スライド=2|対象=本文|非表示=はい"),
             @("提案.pptx", "スライド002（非表示）[図形]", "スライド=2|対象=図形|非表示=はい"),
-            @("提案.pptx", "ヘッダー・フッター", "部分=ヘッダー・フッター|対象=本文")
+            @("提案.pptx", "ヘッダー・フッター", "部分=ヘッダー・フッター|対象=本文"),
+            @("提案.pptx", "スライドマスター", "部分=スライドマスター|対象=本文"),
+            @("提案.pptx", "ノートマスター", "部分=ノートマスター|対象=本文")
         )
         foreach ($c in $cases) {
             $meta = convertPlaceToContentIndexMeta $c[0] $c[1]
@@ -171,6 +173,211 @@ Describe "planContentIndexParts" -Tag Unit {
     }
 }
 
+Describe "planContentIndexParts（分けた塊）" -Tag Unit {
+    BeforeAll {
+        function newChunkBook([string]$name, [int[]]$chunkChars) {
+            return @{ Name = $name; Chunks = @($chunkChars | ForEach-Object { "y" * $_ }) }
+        }
+        function newPlainBook([string]$name, [int]$chars) {
+            return @{ Name = $name; Block = ("x" * $chars) }
+        }
+        function describeSplitPlan($plan) {
+            return (@($plan | ForEach-Object { "{0}.{1}:v{2}:{3}:{4}" -f $_.Extension, $_.Part, $_.Version, (@($_.Books | ForEach-Object { $_.Name }) -join "+"), $(if ($_.Changed) { "書く" } else { "そのまま" }) }) -join " | ")
+        }
+    }
+
+    It "分けた塊は、その拡張子の最後の番号の次から、1 つずつ専用の版 3 のファイルに置く" {
+        $parts = @(@{ Extension = "xlsx"; Part = 1; Books = @((newPlainBook "a.xlsx" 10)); Version = 2 })
+        $plan = planContentIndexParts $parts @((newChunkBook "big.xlsx" @(100, 100, 50)), (newPlainBook "z.csv" 10)) @() 4000
+        describeSplitPlan $plan | Should -Be "csv.1:v2:z.csv:書く | xlsx.1:v2:a.xlsx:そのまま | xlsx.2:v3:big.xlsx:書く | xlsx.3:v3:big.xlsx:書く | xlsx.4:v3:big.xlsx:書く"
+        ($plan | Where-Object { $_.Part -eq 3 -and $_.Extension -eq "xlsx" }).Books[0].Block.Length | Should -Be 100
+    }
+
+    It "取り込み直しで分けた元のファイルを入れ替える・外すときは、すべての番号の前の塊を外し、新しい塊を最後の番号の次から入れ直す" {
+        $parts = @(
+            @{ Extension = "xlsx"; Part = 1; Books = @((newPlainBook "a.xlsx" 10)); Version = 2 },
+            @{ Extension = "xlsx"; Part = 2; Books = @((newPlainBook "big.xlsx" 10)); Version = 3 },
+            @{ Extension = "xlsx"; Part = 3; Books = @((newPlainBook "big.xlsx" 10)); Version = 3 },
+            @{ Extension = "xlsx"; Part = 4; Books = @((newPlainBook "other.xlsx" 10)); Version = 3 }
+        )
+        describeSplitPlan (planContentIndexParts $parts @((newChunkBook "big.xlsx" @(100, 100))) @() 4000) | Should -Be "xlsx.1:v2:a.xlsx:そのまま | xlsx.2:v3::書く | xlsx.3:v3::書く | xlsx.4:v3:other.xlsx:そのまま | xlsx.5:v3:big.xlsx:書く | xlsx.6:v3:big.xlsx:書く"
+        describeSplitPlan (planContentIndexParts $parts @() @("big.xlsx") 4000) | Should -Be "xlsx.1:v2:a.xlsx:そのまま | xlsx.2:v3::書く | xlsx.3:v3::書く | xlsx.4:v3:other.xlsx:そのまま"
+    }
+
+    It "取り込み直しで小さくなった元のファイルは、分けずに版 2 のファイルに戻り、版 3 のファイルは空になる（消す）" {
+        $parts = @(
+            @{ Extension = "xlsx"; Part = 1; Books = @((newPlainBook "a.xlsx" 10)); Version = 2 },
+            @{ Extension = "xlsx"; Part = 2; Books = @((newPlainBook "big.xlsx" 10)); Version = 3 }
+        )
+        describeSplitPlan (planContentIndexParts $parts @((newPlainBook "big.xlsx" 20)) @() 4000) | Should -Be "xlsx.1:v2:a.xlsx+big.xlsx:書く | xlsx.2:v3::書く"
+    }
+
+    It "版 3 のファイルが最後の番号でも、あとから来る小さな元のファイルは足さない（版 2 の最後のファイル、無ければ次の番号の新しい版 2 のファイル）" {
+        $v3Only = @(@{ Extension = "xlsx"; Part = 1; Books = @((newPlainBook "big.xlsx" 10)); Version = 3 })
+        describeSplitPlan (planContentIndexParts $v3Only @((newPlainBook "s.xlsx" 10)) @() 4000) | Should -Be "xlsx.1:v3:big.xlsx:そのまま | xlsx.2:v2:s.xlsx:書く"
+        $mixed = @(
+            @{ Extension = "xlsx"; Part = 1; Books = @((newPlainBook "a.xlsx" 10)); Version = 2 },
+            @{ Extension = "xlsx"; Part = 2; Books = @((newPlainBook "big.xlsx" 10)); Version = 3 }
+        )
+        describeSplitPlan (planContentIndexParts $mixed @((newPlainBook "s.xlsx" 10)) @() 4000) | Should -Be "xlsx.1:v2:a.xlsx+s.xlsx:書く | xlsx.2:v3:big.xlsx:そのまま"
+    }
+
+    It "分けない元のファイルだけを足したとき、版 3 のファイルは Changed にならない" {
+        $parts = @(@{ Extension = "xlsx"; Part = 1; Books = @((newPlainBook "big.xlsx" 10)); Version = 3 })
+        $plan = planContentIndexParts $parts @((newPlainBook "csvonly.csv" 10)) @() 4000
+        ($plan | Where-Object { $_.Extension -eq "xlsx" }).Changed | Should -Be $false
+    }
+}
+
+Describe "splitContentIndexBookBlock" -Tag Unit {
+    BeforeAll {
+        function newSplitBook([string]$name, $places) {
+            return @{ Name = $name; Places = @($places | ForEach-Object { @{ Place = $_[0]; Text = $_[1] } }) }
+        }
+        function newLines([int]$from, [int]$to) {
+            return ((@($from..$to | ForEach-Object { "行 $_ " + ("あ" * 20) })) -join "`n") + "`n"
+        }
+        function getChunkBytes([string]$chunk) {
+            return (measureContentIndexPartBytes @(@{ Block = $chunk }))
+        }
+        $script:rs = [string][char]0x1E
+    }
+
+    It "上限以下なら分けずに、convertBookToContentIndexBlock と同じ 1 つを返す" {
+        $book = newSplitBook "見積.xlsx" @(, @("S", (newLines 1 10)))
+        $chunks = splitContentIndexBookBlock $book 100000 4000
+        $chunks.Count | Should -Be 1
+        $chunks[0] | Should -BeExactly (convertBookToContentIndexBlock $book)
+    }
+
+    It "場所の切れ目で切り、どの塊も目安以下で、つなぐと元の中身と同じになる（場所の途中から始まる塊は無いので「開始行」も無い）" {
+        $book = newSplitBook "見積.xlsx" @(@("S1", (newLines 1 40)), @("S2", (newLines 1 40)), @("S3", (newLines 1 40)))
+        $whole = convertBookToContentIndexBlock $book
+        $chunks = splitContentIndexBookBlock $book 5000 3000
+        $chunks.Count | Should -BeGreaterThan 1
+        foreach ($chunk in $chunks) {
+            (getChunkBytes $chunk) | Should -BeLessOrEqual 3000
+            $chunk | Should -BeLike "${rs} ファイル名=見積.xlsx`n${rs} 種類=Excel`n*"
+            $chunk | Should -Not -BeLike "*開始行*"
+        }
+        $body = ($chunks | ForEach-Object { getContentIndexBodyText $_ }) -join ""
+        $body | Should -BeExactly (getContentIndexBodyText $whole)
+        $places = @($chunks | ForEach-Object { (readContentIndexPlaces ("$rs 版=3`n" + $_)) | ForEach-Object { $_.Location } })
+        $places | Should -Be @("S1", "S2", "S3")
+    }
+
+    It "1 つの場所が大きいときだけ行で切り、続きの塊に「開始行」を正しく付ける（行番号が通しになる）" {
+        $book = newSplitBook "ログ.csv" @(, @("本文", (newLines 1 300)))
+        $chunks = splitContentIndexBookBlock $book 5000 3000
+        $chunks.Count | Should -BeGreaterThan 2
+        $expectedFirst = 1
+        $all = New-Object System.Collections.Generic.List[string]
+        for ($i = 0; $i -lt $chunks.Count; $i++) {
+            (getChunkBytes $chunks[$i]) | Should -BeLessOrEqual 3000
+            $text = "$rs 版=3`n" + $chunks[$i]
+            $place = (readContentIndexPlaces $text)[0]
+            $place.FirstLine | Should -Be $expectedFirst
+            if ($i -eq 0) { $chunks[$i] | Should -Not -BeLike "*開始行*" } else { $chunks[$i] | Should -BeLike "*${rs} 開始行=${expectedFirst}`n*" }
+            $lines = @((getContentIndexBodyText $chunks[$i]) -split "`n" | Where-Object { $_ -ne "" })
+            foreach ($line in $lines) { $all.Add($line) }
+            $expectedFirst += $lines.Count
+        }
+        $all.Count | Should -Be 300
+        $all[0] | Should -BeLike "行 1 *"
+        $all[299] | Should -BeLike "行 300 *"
+    }
+
+    It "大きな場所の後ろの小さな場所は、最後の塊に続けて入る。場所が先頭から始まる塊の中の場所は「開始行」を持たない" {
+        $book = newSplitBook "見積.xlsx" @(@("大", (newLines 1 100)), @("小", "末尾`n"))
+        $chunks = splitContentIndexBookBlock $book 5000 3000
+        $last = $chunks[$chunks.Count - 1]
+        $last | Should -BeLike "*${rs} シート=小`n*"
+        $places = readContentIndexPlaces ("$rs 版=3`n" + $last)
+        ($places | Where-Object { $_.Location -eq "小" }).FirstLine | Should -Be 1
+    }
+
+    It "1 行が目安を超えるときは、その行だけの塊になる（上限以下）。上限を超えるときだけ例外" {
+        $huge = "あ" * 3000
+        $filler = (@(1..3 | ForEach-Object { "い" * 400 }) -join "`n")
+        $book = newSplitBook "ログ.txt" @(, @("本文", ("前`n$filler`n$huge`n後`n")))
+        $chunks = splitContentIndexBookBlock $book 7000 2000
+        $chunks.Count | Should -BeGreaterThan 1
+        (@($chunks | Where-Object { $_ -like "*$huge*" })).Count | Should -Be 1
+        $again = newSplitBook "ログ.txt" @(, @("本文", ("前`n$filler`n$huge`n後`n")))
+        { splitContentIndexBookBlock $again 6000 2000 } | Should -Throw (getContentIndexTooLargeMessage)
+    }
+
+    It "開始行は正の整数だけを受け付ける（それ以外は 1）" -TestCases @(
+        @{ value = "5"; expected = 5 }
+        @{ value = "0"; expected = 1 }
+        @{ value = "-3"; expected = 1 }
+        @{ value = "あ"; expected = 1 }
+        @{ value = ""; expected = 1 }
+    ) {
+        param ($value, $expected)
+        $text = "$rs 版=3`n$rs ファイル名=A.xlsx`n$rs シート=S`n$rs 対象=本文`n$rs 開始行=$value`nx`n"
+        (readContentIndexPlaces $text)[0].FirstLine | Should -Be $expected
+    }
+}
+
+Describe "readContentIndexPlaces（版）" -Tag Unit {
+    It "版 2 は FirstLine が 1、版 3 は開始行から、版 4 は例外" {
+        $rs = [string][char]0x1E
+        $v2 = "$rs 版=2`n$rs ファイル名=A.xlsx`n$rs シート=S`n$rs 対象=本文`nx`n"
+        (readContentIndexPlaces $v2)[0].FirstLine | Should -Be 1
+        (readContentIndexPlaces $v2.Replace("版=2", "版=3").Replace("対象=本文`n", "対象=本文`n$rs 開始行=7`n"))[0].FirstLine | Should -Be 7
+        { readContentIndexPlaces $v2.Replace("版=2", "版=4") } | Should -Throw (getIndexRebuildMessage)
+    }
+
+    It "getContentIndexTextVersion: 1 行目が版 3 のときだけ 3" {
+        $rs = [string][char]0x1E
+        getContentIndexTextVersion "$rs 版=3`nx" | Should -Be 3
+        getContentIndexTextVersion "$rs 版=2`nx" | Should -Be 2
+        getContentIndexTextVersion "" | Should -Be 2
+    }
+}
+
+Describe "分けた塊の部品（getContentIndexPlaceMetaText・addContentIndexPlace・addContentIndexPlaceToChunks・addContentIndexBookToPlan）" -Tag Unit {
+    BeforeAll { $script:rs = [string][char]0x1E }
+
+    It "getContentIndexPlaceMetaText: 場所のメタ情報の行を LF で並べる" {
+        getContentIndexPlaceMetaText "見積.xlsx" "S[図形]" | Should -BeExactly "${rs} シート=S`n${rs} 対象=図形`n"
+        getContentIndexPlaceMetaText "ログ.txt" "本文" | Should -BeExactly "${rs} 部分=本文`n${rs} 対象=本文`n"
+    }
+
+    It "addContentIndexPlace: 終わりの位置・場所の名前・開始行を入れて足す。開いてよい名前でない元のファイルの場所は足さない" {
+        $places = New-Object System.Collections.Generic.List[hashtable]
+        $meta = [ordered]@{ "シート" = "S"; "対象" = "本文"; "開始行" = "9" }
+        addContentIndexPlace $places @{ Book = "A.xlsx"; Location = ""; CellPrefixed = $false; FirstLine = 1; Start = 10; End = 10 } $meta 99
+        addContentIndexPlace $places @{ Book = "evil.hta"; Location = ""; CellPrefixed = $false; FirstLine = 1; Start = 10; End = 10 } $meta 99
+        $places.Count | Should -Be 1
+        $places[0].End | Should -Be 99
+        $places[0].Location | Should -Be "S"
+        $places[0].FirstLine | Should -Be 9
+    }
+
+    It "addContentIndexPlaceToChunks: 開いている塊に入るなら足し、入らなければ塊を閉じて新しい塊から始める" {
+        $chunks = New-Object System.Collections.Generic.List[string]
+        $current = @{ Sb = $null; Used = 0L }
+        addContentIndexPlaceToChunks $chunks $current "H`n" "M1`n" "aaaa`n" 30
+        addContentIndexPlaceToChunks $chunks $current "H`n" "M2`n" "bbbb`n" 30
+        $chunks.Count | Should -Be 0
+        $current.Sb.ToString() | Should -BeExactly "H`nM1`naaaa`nM2`nbbbb`n"
+        addContentIndexPlaceToChunks $chunks $current "H`n" "M3`n" (("c" * 15) + "`n") 30
+        $chunks.Count | Should -Be 1
+        $chunks[0] | Should -BeExactly "H`nM1`naaaa`nM2`nbbbb`n"
+        $current.Sb.ToString() | Should -BeExactly ("H`nM3`n" + ("c" * 15) + "`n")
+    }
+
+    It "addContentIndexBookToPlan: 分ける元のファイルは塊ごとに新しい版 3 のファイルへ、分けない元のファイルは版 2 の最後のファイルへ足す" {
+        $plan = New-Object System.Collections.Generic.List[hashtable]
+        $plan.Add(@{ Extension = "txt"; Part = 1; Books = (New-Object System.Collections.Generic.List[object]); Changed = $false; Version = 2 })
+        addContentIndexBookToPlan $plan @{ Name = "big.txt"; Chunks = @("a", "b") } 4000
+        addContentIndexBookToPlan $plan @{ Name = "s.txt"; Block = "x" } 4000
+        (@($plan | ForEach-Object { "{0}:v{1}:{2}" -f $_.Part, $_.Version, (@($_.Books | ForEach-Object { $_.Name }) -join "+") }) -join " ") | Should -Be "1:v2:s.txt 2:v3:big.txt 3:v3:big.txt"
+    }
+}
+
 Describe "encodeContentIndexValue / decodeContentIndexValue" -Tag Unit {
     It "改行・制御文字・% を符号化し、タブはそのまま残して戻せる" {
         $value = "50%引き`n2行目`t" + [char]0x1E
@@ -251,6 +458,20 @@ Describe "convertToContentIndexText / readContentIndexPlaces" -Tag Unit {
         $places = readContentIndexPlaces "$mark 版=2`n$mark ファイル名=a.xlsx`n$mark シート=S`n$mark 対象=図形"
         $places.Count | Should -Be 1
         $places[0].Location | Should -Be "S[図形]"
+    }
+
+    It "ファイル名が取り込み対象の名前でない場所（<Book>）は返さず、前後の正しい場所は返す" -ForEach @(
+        @{ Book = "evil.hta" }
+        @{ Book = "..\x.xlsx" }
+        @{ Book = "%01a.txt" }
+        @{ Book = "a/b.txt" }
+    ) {
+        $mark = [string][char]0x1E
+        $text = "$mark 版=2`n$mark ファイル名=前.xlsx`n$mark シート=S`n$mark 対象=本文`nA`n" +
+            "$mark ファイル名=$Book`n$mark シート=T`n$mark 対象=本文`nB`n" +
+            "$mark ファイル名=後.docx`n$mark ページ=1`n$mark 対象=本文`nC`n"
+        $places = @(readContentIndexPlaces $text)
+        ($places | ForEach-Object { $_.Book }) -join "," | Should -Be "前.xlsx,後.docx"
     }
 
     It "<Book> の <Target> の場所は、行の先頭がセル番地か（CellPrefixed）= <Expected>" -ForEach @(
@@ -355,11 +576,13 @@ Describe "getIndexFormatState（インデックスの状態の表）" -Tag Unit 
 }
 
 Describe "testContentIndexVersionLine" -Tag Unit {
-    It "1 行目「<label>」は今の版か = <expected>" -TestCases @(
+    It "1 行目「<label>」は読める版か = <expected>" -TestCases @(
         @{ label = "RS 版=2"; line = "$([char]0x1E) 版=2"; expected = $true }
         @{ label = "RS 版=2 CR"; line = "$([char]0x1E) 版=2`r"; expected = $true }
         @{ label = "RS 版=1"; line = "$([char]0x1E) 版=1"; expected = $false }
-        @{ label = "RS 版=3"; line = "$([char]0x1E) 版=3"; expected = $false }
+        @{ label = "RS 版=3（分けた塊のファイル）"; line = "$([char]0x1E) 版=3"; expected = $true }
+        @{ label = "RS 版=3 CR"; line = "$([char]0x1E) 版=3`r"; expected = $true }
+        @{ label = "RS 版=4"; line = "$([char]0x1E) 版=4"; expected = $false }
         @{ label = "版=2"; line = "版=2"; expected = $false }
         @{ label = "空"; line = ""; expected = $false }
     ) {
@@ -377,5 +600,35 @@ Describe "getContentIndexPublishSkippedText" -Tag Unit {
     ) {
         param ($label, $rel, $stage, $reason, $expected)
         getContentIndexPublishSkippedText $rel $stage $reason | Should -BeExactly $expected
+    }
+}
+
+Describe "getContentIndexBookHeadPrefix" -Tag Unit {
+    It "元のファイルの始まりの行の接頭辞は、書き出した文字列の「ファイル名=」の行の始まりと同じ" {
+        $text = convertToContentIndexText @(@{ Name = "A社.xlsx"; Places = @(@{ Place = "Sheet1"; Text = "x`ty`n" }) })
+        $text.Contains((getContentIndexBookHeadPrefix) + "A社.xlsx") | Should -BeTrue
+    }
+}
+
+Describe "measureContentIndexPlaceChars（書き出す本文インデックスのファイルの大きさと同じ数え方）" -Tag Unit {
+    It "場所を足した分の文字数が、convertToContentIndexText が作る文字列の長さの増え方と一致する（<name>）" -TestCases @(
+        @{ name = "CRLF"; book = "A.xlsx"; place = "売上"; text = "単価`r`n数量`r`n" }
+        @{ name = "CR のみ"; book = "A.xlsx"; place = "売上"; text = "単価`r数量" }
+        @{ name = "区切り文字 U+001C〜U+001F"; book = "B.docx"; place = "ページ001"; text = "あ$([char]0x1C)い$([char]0x1D)う$([char]0x1E)え$([char]0x1F)お`n" }
+        @{ name = "空の場所"; book = "C.pptx"; place = "スライド001"; text = "" }
+        @{ name = "符号化が要る場所の名前"; book = "D.xlsx"; place = "a%b[図形]"; text = "x`n" }
+    ) {
+        $without = convertToContentIndexText @(@{ Name = $book; Places = @() })
+        $with = convertToContentIndexText @(@{ Name = $book; Places = @(@{ Place = $place; Text = $text }) })
+        (measureContentIndexPlaceChars $book $place $text) | Should -Be ($with.Length - $without.Length)
+        # 1 つのまとまりの大きさ（BOM を含む UTF-16 のバイト数）は、書き出す文字列の長さ×2＋2
+        (measureContentIndexPartBytes @(@{ Block = (convertBookToContentIndexBlock @{ Name = $book; Places = @(@{ Place = $place; Text = $text }) }) })) | Should -Be ($with.Length * 2 + 2)
+    }
+}
+
+Describe "getContentIndexTooLargeMessage / getContentIndexDroppedText" -Tag Unit {
+    It "上限（64 MB）を含む文言と、外したファイル・件数を含む 1 行を返す" {
+        getContentIndexTooLargeMessage | Should -Be "ファイルの文字が多すぎるため更新できません（上限 64 MB）。"
+        getContentIndexDroppedText "営業\content_index.xlsx.001.tsv" 3 | Should -Be "    大きすぎるインデックスのファイルを外しました（営業\content_index.xlsx.001.tsv）。中の 3 件は次の更新で取り込み直します"
     }
 }

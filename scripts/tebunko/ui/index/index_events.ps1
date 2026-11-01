@@ -30,6 +30,9 @@ foreach ($editBox in @($ui.IndexDetailName, $ui.IndexDetailPath)) {
         }
     })
 }
+# 詳細の『サブフォルダを含める』: 付け外しをすぐ設定に書く（UI オートメーションの切り替えは Click を起こさないため Checked・Unchecked で受ける）
+$ui.IndexDetailSubfolders.Add_Checked({ safe { changeIndexSubfolders } })
+$ui.IndexDetailSubfolders.Add_Unchecked({ safe { changeIndexSubfolders } })
 # 行の右クリックの［更新］は、行の右端の［更新］と同じ処理（押した行だけを更新する）
 $ui.RowMenuUpdate.Add_Click({
     safe {
@@ -38,6 +41,17 @@ $ui.RowMenuUpdate.Add_Click({
     }
 })
 $ui.RowMenuOpenFolder.Add_Click({ safe { openIndexSourceFolder } })
+$ui.OpenIndexLocationButton.Add_Click({
+    safe {
+        openIndexLocation {
+            param ($text)
+            # 開けたときの空の文言は、確かめている間の文言だけを消す（ほかの処理のステータスは消さない）
+            if ($text -ne "" -or ([string]$ui.StatusText.Text).StartsWith((getIndexLocationOpenStatus "Checking" ""))) {
+                setStatus $text
+            }
+        }
+    }
+})
 $ui.IndexDetailPathButton.Add_Click({ safe { changeIndexFolder } })
 $ui.RemoveIndexButton.Add_Click({ safe { deleteIndex } })
 $ui.ExportIndexButton.Add_Click({ safe { newExportIndex } })

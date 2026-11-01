@@ -284,6 +284,7 @@ Describe "フォルダを消す・移す・作る入口" -Tag Meta {
             @{ File = "shared\core\fs.ps1"; Owner = "moveDirectoryUnder"; Call = "moveDirectoryRetry"; Reason = "入口そのもの（置き場の下かを確かめてから移す）" }
             @{ File = "shared\core\fs.ps1"; Owner = "newDirectoryUnder"; Call = "Directory.CreateDirectory"; Reason = "入口そのもの（置き場の下かを確かめてから作る）" }
             @{ File = "shared\core\fs.ps1"; Owner = "moveDirectoryRetry"; Call = "Directory.Move"; Reason = "移す処理の本体（呼ぶ側が moveDirectoryUnder で確かめる）" }
+            @{ File = "tebunko\core\text_ext_counts.ps1"; Owner = "writeTextExtCountsTable"; Call = "Directory.CreateDirectory"; Reason = "件数の控え 1 ファイルの親フォルダ（ワークスペースの store）を作るだけ。消さない" }
             @{ File = "shared\core\fs.ps1"; Owner = "writeListFile"; Call = "Directory.CreateDirectory"; Reason = "書き込む 1 ファイルの親フォルダを作るだけ（置き場は呼ぶ側が決めたファイルのパス。消さない）" }
             @{ File = "shared\core\fs.ps1"; Owner = "writeTextLinesAtomic"; Call = "Directory.CreateDirectory"; Reason = "書き込む 1 ファイルの親フォルダを作るだけ（消さない）" }
             @{ File = "tebunko\search\search_overflow.ps1"; Owner = "newSearchOverflowWriter"; Call = "Directory.CreateDirectory"; Reason = "溢れのファイルの置き場所（検索の始めに testSearchOverflowRoot で、根が TmpRoot の search_overflow そのものでリンクでないと確かめた dir）を作るだけ。照合のスレッドが書き始めるときに作る（消さない）" }
@@ -300,9 +301,9 @@ Describe "フォルダを消す・移す・作る入口" -Tag Meta {
             @{ File = "tebunko\index\index_store.ps1"; Owner = "publishIndexFiles"; Call = "Directory.Move"; Reason = "置き場の下かを testRemovablePath で、移す前に両側とも確かめてから移す（別ドライブでは必ず IOException になり、moveDirectoryRetry の待ち直しが本ごとにかかるため、1 件ずつ移す fallback へすぐ落とす。moveDirectoryUnder を使わない）" }
             @{ File = "tebunko\indexer\ingest_journal.ps1"; Owner = "AddRecord"; Call = "Directory.CreateDirectory"; Reason = "ジャーナルファイルの親フォルダ（store\journal）を作るだけ（消さない）" }
             @{ File = "tebunko\indexer\indexer_run.ps1"; Owner = "invokeIndexerBody"; Call = "Directory.CreateDirectory"; Reason = "ワークスペースの根（PublishDir・IndexDir・Dir）そのものを作る（置き場自身。消さない）" }
-            @{ File = "tebunko\indexer\indexer_run.ps1"; Owner = "invokeIndexer"; Call = "Directory.CreateDirectory"; Reason = "ワークスペースの根そのものを作る（置き場自身。消さない）" }
+            @{ File = "tebunko\indexer\indexer_state.ps1"; Owner = "enterIndexerLock"; Call = "Directory.CreateDirectory"; Reason = "ワークスペースの根そのものを作る（鍵のファイルを置く置き場自身。消さない）" }
             @{ File = "tebunko\indexer\indexer_run.ps1"; Owner = "(スクリプト直下)"; Call = "Directory.CreateDirectory"; Reason = "ワークスペースの根そのものを作る（置き場自身。消さない）" }
-            @{ File = "tebunko\ui\open_source.ps1"; Owner = "exportResults"; Call = "Directory.CreateDirectory"; Reason = "ワークスペースの根そのものを作る（置き場自身。消さない）" }
+            @{ File = "tebunko\search\search_export.ps1"; Owner = "testSearchExportTarget"; Call = "Directory.CreateDirectory"; Reason = "利用者が選んだ出力先のフォルダが無ければ作る（置き場自身。消さない）" }
             @{ File = "tebunko\ui\settings\settings.ps1"; Owner = "applyWorkspace"; Call = "Directory.CreateDirectory"; Reason = "利用者が設定画面で選んだワークスペースの根を作る（置き場自身。消さない）" }
             @{ File = "tebunko\ui\settings\settings.ps1"; Owner = "resetWorkspace"; Call = "Directory.CreateDirectory"; Reason = "利用者が選んだワークスペースの根の下のフォルダを作る（消さない）" }
         )

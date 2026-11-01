@@ -136,7 +136,33 @@ function getWorkspaceInputDecision {
     return @{ Action = "Apply"; Message = ""; Path = $folder }
 }
 
+function getSharedFolderWarningText {
+    # 保存先（ワークスペース）が共有フォルダのときの警告の文（ワークスペースの性質の文なので、ワークスペースの判断層のここに置く）。［インデックス管理］の帯・インデックス更新の確認の帯・ワークスペースを変える確認の警告の行で、同じ文を使う。
+    # アクセス権の違いは判定できないので、確かめさせる言い方はしない
+    return "共有フォルダを選択しています。他のユーザーが閲覧できる可能性があります。"
+}
+
 function newWorkspaceConfirm {
+    # newWorkspaceConfirmBody の結果に、選んだ場所が共有フォルダのときだけ、警告の行（warn）を先頭に足す（引数は newWorkspaceConfirmBody と同じ。最後の isNetwork は選んだ場所が共有か）
+    param (
+        [string]$folder,
+        [string]$current,
+        [int]$entryCount,
+        [string[]]$sampleNames = @(),
+        [bool]$countCapped = $false,
+        [string[]]$workspaceNames = @(),
+        [bool]$canMakeSub = $true,
+        [bool]$toDefault = $false,
+        [bool]$isNetwork = $false
+    )
+
+    $confirm = newWorkspaceConfirmBody $folder $current $entryCount $sampleNames $countCapped $workspaceNames $canMakeSub $toDefault
+    if ($isNetwork) {
+        $confirm.Facts = @(@{ Kind = "warn"; Title = (getSharedFolderWarningText); Detail = "" }) + @($confirm.Facts)
+    }
+    return $confirm
+}
+function newWorkspaceConfirmBody {
     # ワークスペースを変える前の確認ダイアログの中身:
     #   @{ Title; Heading; Facts（@{ Kind = "next" / "kept" / "warn"; Title; Detail } の配列）; Hint; Choices（@{ Text; Value; Danger; Careful } の配列。最後が主なボタン） }
     # ワークスペースには空のフォルダを選んでもらう。空でなければ警告し、中にワークスペースのフォルダを作るか、そのまま使うかを選ばせる。

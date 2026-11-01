@@ -250,3 +250,119 @@ function getIndexImportNotice {
     # 中身（名前・日時・ファイル数・大きさ・版）は getIndexImportHeader の枠に出す
     return "名前と、元のフォルダの場所を変えられます。"
 }
+
+function getImportProgressView {
+    # インポートの進み具合（展開した大きさ Done・全体の大きさ Total。バイト）から、帯に出す内容を返す。
+    # 戻り値: @{ Text; Detail; Value（0 から 1）; Indeterminate }。
+    # 全体が分からない間（目録の確かめ・空き容量の確かめ）と、展開が終わった後（入れ替え・設定の書き込み）は、割合の分からない表示にする
+    param (
+        [long]$done,
+        [long]$total
+    )
+
+    if ($total -le 0) {
+        return @{ Text = "インポートしています…"; Detail = ""; Value = 0.0; Indeterminate = $true }
+    }
+    if ($done -ge $total) {
+        return @{ Text = "インポートを仕上げています…"; Detail = ""; Value = 1.0; Indeterminate = $true }
+    }
+    $ratio = [double]$done / [double]$total
+    return @{
+        Text = "インポートしています（$([int][Math]::Floor($ratio * 100))%）"
+        Detail = "$(formatArchiveSize $done) / $(formatArchiveSize $total)"
+        Value = $ratio
+        Indeterminate = $false
+    }
+}
+
+function getImportIndexingConfirm {
+    # インポートが終わった後の、更新の確認ダイアログ（1 回だけ出す）に渡す文言（importIndex の戻り値から）。
+    # 戻り値: @{ Name（取り込んだ名前）; Title（窓の題）; Heading; Hint（見出しの下の説明）; StartText（主ボタン）; CancelText; RowStatus（一覧の行のステータス）; SkippedStatus（取りやめたときのステータスバー）}。
+    # 元のフォルダがこの PC に無いとき（Enabled が偽）は $null（更新を始めると、設定の enabled が真に書き換わってしまうため尋ねない）
+    param (
+        $result
+    )
+
+    if (!$result.Enabled) {
+        return $null
+    }
+    return @{
+        Name = [string]$result.Name
+        Title = "$($result.Name) をインポートしました"
+        Heading = "高速化のためのインデックスを作成しますか？"
+        Hint = "高速化のためのインデックスを作成します。作成しなくても検索はできます（結果は同じ）。"
+        StartText = "作成する（更新を開始）"
+        CancelText = "あとで"
+        RowStatus = "要更新"
+        SkippedStatus = (getImportSkippedIndexingStatus $result)
+    }
+}
+
+function getImportSkippedIndexingStatus {
+    # 続けて更新しなかったとき（確認を取りやめた・元のフォルダが無くて尋ねなかった）のステータス。
+    # getImportResultStatus の文に、高速化のためのインデックスが、次に更新するまでは無いことを足す
+    param (
+        $result
+    )
+
+    return "$(getImportResultStatus $result) 次の更新までは、検索が遅くなることがあります。"
+}
+
+function getIndexExportOmittedText {
+    # エクスポートで、インポートできない大きさのため zip に入れなかった本文インデックスのファイルがあるときの、ステータスに足す文言。
+    # 無ければ空文字列。元のファイルは最大 5 件まで並べ、残りは「ほか M 件」にする
+    param (
+        $omitted,         # exportIndex の戻り値の Omitted（@{ Path; Books } の配列）
+        [long]$maxBytes   # 上限（contentIndexSearchMaxBytes）。文言の「64 MB」はここから作る
+    )
+
+    $omitted = @($omitted | Where-Object { $null -ne $_ })
+    if ($omitted.Count -eq 0) {
+        return ""
+    }
+    $books = @($omitted | ForEach-Object { @($_.Books) })
+    $reason = "$([long]($maxBytes / 1MB)) MB を超えるため"
+    $detail = $reason
+    if ($books.Count -gt 0) {
+        $shown = (@($books | Select-Object -First 5)) -join ", "
+        $others = $books.Count - 5
+        if ($others -ge 1) {
+            $shown += " ほか {0:#,0} 件" -f $others
+        }
+        $detail = "${reason}。元のファイル: ${shown}"
+    }
+    return "{0:#,0} 件のインデックスのファイルを含めませんでした（{1}）" -f $omitted.Count, $detail
+}
+
+
+function getIndexExportStatusText {
+    # エクスポートの結果のステータス(status)に、含めなかったファイルの知らせ(getIndexExportOmittedText)を「。」でつないで足す。無ければ status のまま
+    param (
+        [string]$status,
+        $omitted,         # exportIndex の戻り値の Omitted
+        [long]$maxBytes
+    )
+
+    $text = getIndexExportOmittedText $omitted $maxBytes
+    if ($text -eq "") {
+        return $status
+    }
+    return "${status}。${text}"
+}
+
+
+function getIndexBulkStatusText {
+    # まとめての操作(operation)の結果のステータス(status)を返す。"エクスポート"のときだけ、結果の Omitted(1 件ごと)を集めて知らせを足す(削除などは status のまま)
+    param (
+        [string]$operation,
+        [string]$status,
+        [object[]]$results,
+        [long]$maxBytes
+    )
+
+    if ($operation -ne "エクスポート") {
+        return $status
+    }
+    $omitted = @($results | Where-Object { $null -ne $_ } | ForEach-Object { @($_.Omitted) } | Where-Object { $null -ne $_ })
+    return (getIndexExportStatusText $status $omitted $maxBytes)
+}

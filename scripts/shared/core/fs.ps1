@@ -154,18 +154,29 @@ function invokeWithSourceCopy {
     # extraFiles は、読む処理が途中で作った作業ファイルの一覧（List[string]。読む処理の中で足してよい）。コピーと一緒に、あれば消す。
     # 消せなかったとき: 読む処理が例外なら、その例外をそのまま通す（消せなかったことは握る）。
     #   読む処理が成功したのに消せなかったときだけ「作業領域のコピーを消せませんでした: <元のメッセージ>」を投げる。
+    # timing（hashtable。既定 $null）を渡すと、copyFileShared にかかったミリ秒を timing['CopyMs'] に足す（無ければ作る）。性能の計測用。$null のときは何もしない。
     # readBlock は子のスコープで動くので、中で代入した変数は呼んだ側に残らない。要る値は出力（戻り値）で返す。
     # 読む処理の中の COM の呼び出しなどの出力が混ざらないよう、出力は [void]・$null = で捨て、返す値は最後に 1 つだけ出す
     param (
         [string]$sourcePath,
         [string]$copyPath,
         [scriptblock]$readBlock,
-        [System.Collections.Generic.List[string]]$extraFiles = $null
+        [System.Collections.Generic.List[string]]$extraFiles = $null,
+        [hashtable]$timing = $null
     )
 
     $removeError = $null
     try {
-        copyFileShared $sourcePath $copyPath
+        if ($null -ne $timing) {
+            $watch = [System.Diagnostics.Stopwatch]::StartNew()
+            try {
+                copyFileShared $sourcePath $copyPath
+            } finally {
+                $timing['CopyMs'] = [double]$timing['CopyMs'] + $watch.Elapsed.TotalMilliseconds
+            }
+        } else {
+            copyFileShared $sourcePath $copyPath
+        }
         # 読む処理の出力は、まとめずにそのまま呼んだ側へ流す（配列・hashtable・何も出さない、のどれも、直接呼んだときと同じ形で届く）
         & $readBlock
     } finally {
@@ -516,11 +527,12 @@ function getFilesNoFollow {
     # OneDrive のオンデマンドのフォルダなど）は、SkipUnknown が無ければ降りる（読むだけのため）。属性を書くときは SkipUnknown を付け、降りずに Links に入れる。
     # Hidden の付いたものは、IncludeHidden が無ければ入れない（Get-ChildItem の既定と同じ。System だけのものは入れる）。
     # 並びは Get-ChildItem -Recurse と同じ（フォルダごとに、その中身を並べてから、サブフォルダの下へ進む）
+    # TopOnly を付けると root の直下だけを読み、サブフォルダの下へは進まない（直下のフォルダは Directories に入る。直下のリンクは Links に入る）
+    # onProgress: 省略できる。見つけたファイルの数が前に伝えたときから 1000 件増えるごとに、そのときの数を引数にして呼ぶ（進み具合を出すため）
     param (
         [string]$root,
-        [switch]$IncludeHidden,
-        [switch]$SkipUnknown,
-        [scriptblock]$shouldStop = $null
+        [switch]$IncludeHidden, [switch]$SkipUnknown, [switch]$TopOnly,
+        [scriptblock]$shouldStop = $null, [scriptblock]$onProgress = $null
     )
 
     $files = New-Object System.Collections.Generic.List[object]
@@ -529,6 +541,7 @@ function getFilesNoFollow {
     $hasError = $false
     $reason = ""
     $stopped = $false
+    $reported = 0
     $reparseFlag = [System.IO.FileAttributes]::ReparsePoint
     $hiddenFlag = [System.IO.FileAttributes]::Hidden
     $pending = New-Object System.Collections.Generic.Stack[string]
@@ -565,7 +578,7 @@ function getFilesNoFollow {
             }
             if ($entry -is [System.IO.DirectoryInfo]) {
                 $directories.Add($entry)
-                $subDirectories.Add($entry.FullName)
+                if (!$TopOnly) { $subDirectories.Add($entry.FullName) }
             } else {
                 $files.Add($entry)
             }
@@ -574,6 +587,7 @@ function getFilesNoFollow {
         for ($i = $subDirectories.Count - 1; $i -ge 0; $i--) {
             $pending.Push($subDirectories[$i])
         }
+        if ($null -ne $onProgress -and ($files.Count - $reported) -ge 1000) { $reported = $files.Count; $null = & $onProgress $reported }
     }
     return @{ Files = $files.ToArray(); Directories = $directories.ToArray(); Links = $links.ToArray(); HasError = $hasError; Reason = $reason; Stopped = $stopped }
 }
@@ -793,6 +807,50 @@ function newAppMutex {
     $createdNew = $false
     $mutex = New-Object System.Threading.Mutex($true, "Local\${app}_${name}_${key}", [ref]$createdNew)
     return @{ Mutex = $mutex; Acquired = $createdNew }
+}
+
+function openLockFile {
+    # 鍵のファイルを、ほかから開けない形（FileShare.None）で開いて返す。閉じると消える（DeleteOnClose）。
+    # ほかが持っていれば $null。持っているかどうかは「ファイルがあるか」でなく「開けるか」で決める
+    # （強制終了で残ったファイルは誰も開いていないので開ける。プロセスが終われば OS が閉じる）。
+    # ミューテックス（newAppMutex）と違い、別のセッション・別の PC・別のパスの書き方でも効く（共有フォルダでも、サーバーが開き方を守る場合）
+    # 共有違反・ロック違反（Win32 の 32・33）は「ほかが持っている」。アクセス拒否（Win32 の 5）は、前の持ち主が閉じた直後で
+    # ファイルが削除待ちのときにも起きるため、32・33 と同じく attempts の回数までやり直す。最後まで拒否なら例外にする。
+    # それ以外の失敗（親フォルダが無い・接続できないなど）は、そのまま投げる
+    #   attempts: 試す回数（1 なら待たずに 1 回だけ）。画面のスレッドでは 1 にする
+    param (
+        [string]$path,
+        [int]$attempts = 3,
+        [int]$waitMilliseconds = 200
+    )
+
+    $longPath = toLongPath $path
+    $denied = $false
+    for ($i = 1; $i -le $attempts; $i++) {
+        try {
+            return [System.IO.FileStream]::new($longPath, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite,
+                [System.IO.FileShare]::None, 4096, [System.IO.FileOptions]::DeleteOnClose)
+        } catch {
+            $inner = $_.Exception
+            while ($inner -is [System.Management.Automation.MethodInvocationException] -and $null -ne $inner.InnerException) {
+                $inner = $inner.InnerException
+            }
+            if ($inner -is [System.UnauthorizedAccessException]) {
+                $denied = $true
+            } elseif ($inner -is [System.IO.IOException] -and (($inner.HResult -band 0xFFFF) -eq 32 -or ($inner.HResult -band 0xFFFF) -eq 33)) {
+                $denied = $false
+            } else {
+                throw
+            }
+        }
+        if ($i -lt $attempts) {
+            Start-Sleep -Milliseconds $waitMilliseconds
+        }
+    }
+    if ($denied) {
+        throw "インデックス作成の鍵のファイル（${path}）を開けませんでした。ほかのインデックス作成が終わった直後か、ワークスペースに書き込む権限がありません。しばらく待ってからやり直し、続くときはワークスペースのフォルダに書き込めるかを確かめてください。"
+    }
+    return $null
 }
 
 function getPathErrorKind {

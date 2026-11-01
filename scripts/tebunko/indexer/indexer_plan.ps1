@@ -1,7 +1,17 @@
 ﻿# クロール（どのファイルを取り込むかを数え、画面の返事を待つ）。
 
 # 取り込み対象の拡張子（Office は shared\office\office_file_kind_view.ps1、テキストは shared\core\text_file.ps1、PDF は shared\core\pdf_file.ps1）
-$targetExtensions = @(${officeExtensions}) + @(${textExtensions}) + @(${pdfExtensions})
+# （設定で取り込まないと選んだ拡張子を除いた一覧は getTargetExtensionList。ここは選べる範囲の上限）
+$targetExtensions = @(${officeExtensions}) + @(${pdfExtensions}) + @(${textExtensions})
+
+function getTargetExtensionList {
+    # 今回のインデックス作成で取り込む拡張子の一覧（Office・PDF・テキストの全部から、設定で取り込まないと選んだ拡張子を除いたもの。getIndexTargetExtensions）
+    param (
+        [object[]]$excluded = @()
+    )
+
+    return @(getIndexTargetExtensions $excluded)
+}
 
 # tebunko が作ったファイルを、名前だけで見分けるパターン（テキストの拡張子のものだけに当たる。どこにあっても外す）。
 #   ・今の版の本文インデックス（content_index.xlsx.001.tsv 等。contentIndexFileNamePattern と同じ組み立て）
@@ -159,20 +169,33 @@ function findTargetFiles {
     # （設定に書かれたパスは、末尾の \ ・ドライブ文字と UNC パスなど書き方が違うことがあるため、文字数で切り出さない）。
     # tebunko が作ったファイル（getTebunkoExcludeDirs のフォルダの下・名前で分かるファイル）は対象に含めない
     # shouldStop: 省略できる。フォルダ 1 つを読むごとに見て、$true を返したら読むのをやめる（中止を求められたとき）
+    # TextCounts（戻り値）: 選べる拡張子（Office・PDF・テキスト）ごとの件数（拡張子 → 件数。取り込まない拡張子の分も含む）
+    # Enumerated（戻り値）: 列挙で見つけたファイルの数（取り込み対象でないものも含む。進み具合の数え）
+    # extensions: 省略できる。取り込む拡張子の一覧（小文字）。省略すると $targetExtensions（選べる範囲の上限）
+    # TopOnly: 対象フォルダの直下のファイルだけを探す（サブフォルダの中は読まない。設定の subfolders が false のとき）
+    # onCounted: 省略できる。見つけたファイルが 1000 件増えるごとに、そのフォルダでそれまでに見つけた数を引数にして呼ぶ（getFilesNoFollow の onProgress）
     param (
         [string]$targetFolder,
-        [scriptblock]$shouldStop = $null
+        [scriptblock]$shouldStop = $null,
+        [string[]]$extensions = $null,
+        [switch]$TopOnly,
+        [scriptblock]$onCounted = $null
     )
+
+    if ($null -eq $extensions) {
+        $extensions = $targetExtensions
+    }
 
     # \\?\ を付けないと、パスが約248文字を超えるフォルダの中を検索できない（アクセスできないフォルダ扱いになる）。
     # 見つかったファイルの FullName は \\?\ 付きになる（fromLongPath で戻す）
     $root = (Resolve-Path -LiteralPath $targetFolder).ProviderPath
     # 中のリンクは辿らず、飛ばしたものは Links に入れる（先の、対象の外のファイルを読まないため）。
     # クロール対象フォルダそのものはリンクでもよい（利用者が選んだ場所のため、その先の中を読む）
-    $tree = getFilesNoFollow $root -shouldStop $shouldStop
+    $tree = getFilesNoFollow $root -shouldStop $shouldStop -TopOnly:$TopOnly -onProgress $onCounted
     if ($tree.Stopped) {
         return @{ Root = $root; Files = @(); Links = @($tree.Links); HasError = $tree.HasError; Stopped = $true }
     }
+    # 列挙は選べる上限（$targetExtensions）で 1 回だけ行い、拡張子ごとの件数を数えてから、取り込む一覧（extensions）で絞る
     $scanned = @($tree.Files | Where-Object { ($targetExtensions -contains $_.Extension.ToLower()) -and -not $_.Name.StartsWith('~$') })
 
     # 除外するフォルダの \\?\ 付きの前方一致の文字列を先に作る（ファイルごとにドライブの割り当てをたどる処理は呼ばない）。
@@ -181,14 +204,84 @@ function findTargetFiles {
     $excludeDirPrefixes = @(getTebunkoExcludeDirs $scanned | ForEach-Object { (toLongPath $_).TrimEnd("\") } | Where-Object {
         $_.Equals($longRootPrefix, [System.StringComparison]::OrdinalIgnoreCase) -or $_.StartsWith("$longRootPrefix\", [System.StringComparison]::OrdinalIgnoreCase)
     })
-    $files = @($scanned | Where-Object {
+    $candidates = @($scanned | Where-Object {
         if ($excludeDirPrefixes.Count -gt 0 -and (testUnderAnyDir $_.FullName $excludeDirPrefixes)) { return $false }
         # 名前で分かる tebunko のファイル（content_index.*.tsv 等）は、テキストの拡張子にしか当たらないため、それだけ調べる
         if ((testTextExtension $_.Name) -and (testTebunkoOwnFileName $_.Name)) { return $false }
         return $true
     })
+    # 選べる拡張子（Office・PDF・テキスト）ごとの件数（tebunko が作ったファイルを除いた後。取り込まないにした拡張子の分も数える）
+    $textCounts = getTargetExtensionCounts @($candidates | ForEach-Object { $_.Name })
+    $files = @($candidates | Where-Object { $extensions -contains $_.Extension.ToLower() })
 
-    return @{ Root = $root; Files = $files; Links = @($tree.Links); HasError = $tree.HasError; Stopped = $false }
+    return @{ Root = $root; Files = $files; Links = @($tree.Links); HasError = $tree.HasError; Stopped = $false; TextCounts = $textCounts; Enumerated = @($tree.Files).Count }
+}
+
+function writeRemovedTargetLog {
+    # インデックスから除くファイルの件数をログに出す。前に取り込んだ行の拡張子が extensions に無いものは「取り込まないにした」と数え
+    # （元のファイルの有無は調べない。どちらも外す）、そのほか（元ファイルが無くなった）と分ける。extensions が $null なら、すべて「無くなった」
+    param (
+        [string[]]$removed,
+        [string[]]$extensions
+    )
+
+    $excludedCount = 0
+    if ($null -ne $extensions) {
+        $excludedCount = @($removed | Where-Object { $extensions -notcontains [System.IO.Path]::GetExtension($_).ToLowerInvariant() }).Count
+    }
+    if ($excludedCount -gt 0) {
+        writeIndexerLog "    対象外にした拡張子のファイル $excludedCount 件は、インデックスから除きます。"
+    }
+    if (@($removed).Count -gt $excludedCount) {
+        writeIndexerLog "    元ファイルが無くなった $(@($removed).Count - $excludedCount) 件は、インデックスから除きます。"
+    }
+}
+
+function getSubfolderRemovedCounts {
+    # 直下だけに変えたフォルダ（今の Subfolders が false で、前回取り込んだときの IngestedSubfolders が true）について、
+    # 無くなったファイル（removedPaths）のうちサブフォルダ側のもの（インデックス名のあとに区切りがもう 1 つある相対パス）の数を、
+    # インデックス名 → 件数 の表で返す（確認の「サブフォルダ側の N 件をインデックスから外します」の元。追加の走査はしない）。該当しない名前は入れない
+    param (
+        [object[]]$folders,        # @{ Name; Subfolders; IngestedSubfolders }
+        [string[]]$removedPaths
+    )
+
+    $counts = @{}
+    foreach ($folder in @($folders | Where-Object { $_ -and $_.Subfolders -eq $false -and $_.IngestedSubfolders -ne $false })) {
+        $prefix = "$($folder.Name)\"
+        $count = @($removedPaths | Where-Object {
+            $_.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase) -and $_.IndexOf("\", $prefix.Length) -ge 0
+        }).Count
+        $counts[[string]$folder.Name] = $count
+    }
+    return $counts
+}
+
+function getTextExcludeRemovedCounts {
+    # 取り込まないにした拡張子のために、インデックスから外すファイル（removedPaths のうち、拡張子が excludes のその名前の一覧にあるもの）の数を、
+    # インデックス名 → 件数 の表で返す（確認の「取り込まない拡張子のファイル N 件をインデックスから外します」の元。ログに出す数と同じ）。
+    # サブフォルダを含めないに変えて外れるファイル（getSubfolderRemovedCounts が数えるもの）は、そちらの 1 行に数えるのでここには数えない
+    # （2 行の合計が、実際に外す数と同じになる）。外すものが無い名前は入れない
+    param (
+        [object[]]$folders,        # @{ Name; Subfolders; IngestedSubfolders }
+        [string[]]$removedPaths,
+        [hashtable]$excludes       # インデックス名 → 取り込まない拡張子の配列
+    )
+
+    $counts = @{}
+    foreach ($name in @($excludes.Keys)) {
+        $excluded = @($excludes[$name])
+        if ($excluded.Count -eq 0) { continue }
+        $prefix = "$name\"
+        $changedToTopOnly = @($folders | Where-Object { $_ -and [string]$_.Name -eq $name -and $_.Subfolders -eq $false -and $_.IngestedSubfolders -ne $false }).Count -gt 0
+        $count = @($removedPaths | Where-Object {
+            $_.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase) -and
+            ($excluded -contains [System.IO.Path]::GetExtension($_).ToLowerInvariant()) -and
+            -not ($changedToTopOnly -and $_.IndexOf("\", $prefix.Length) -ge 0)
+        }).Count
+        if ($count -gt 0) { $counts[[string]$name] = $count }
+    }
+    return $counts
 }
 
 function createTargetList {
@@ -199,24 +292,27 @@ function createTargetList {
     #            各要素は @{ RelPath; Row（取り込むときの行）; Old; Failed; Length; PendingOld }。
     #            Rows には前回の行をそのまま入れる（前回の行が無い・前回未完了のときは入れない）
     #   Plan   : 画面の確認に出す件数（newIngestPlanRow。取り込み予定.tsv の1行）
-    #   Removed: 元のファイルが無くなったファイルの相対パス（呼び出し元が本文インデックスのファイルから外す）
-    #   Stopped: shouldStop が $true を返して途中で止めた。このときほかの値は空で、何も消していない（呼び出し元は前回の行をそのまま残す）
+    #   Removed: 元のファイルが無くなったファイル・対象外にした拡張子のファイルの相対パス（ここでは何も消さない。呼び出し元が、取り込みを始めるときにインデックスを消す）
+    #   TextCounts: 選べる拡張子（Office・PDF・テキスト）ごとの件数（拡張子 → 件数。取り込まない拡張子の分も含む。findTargetFiles の TextCounts）
+    #   Stopped: shouldStop が $true を返して途中で止めた。このときほかの値は空（呼び出し元は前回の行をそのまま残す）
     # 行の相対パスは "インデックス名\フォルダからの相対パス"（= work\index からの相対パス）とする。
     # ・前回の一覧と更新日時・サイズが同じで取り込み済み（済）のファイルは取り込まない
     # ・取り込み済みでも、インデックス（TSV）が無くなっていれば取り込み直す（利用者が work\index を直接削除した場合など）
-    # ・元ファイルが無くなったファイルは、インデックスを削除して一覧から除く（アクセスできないフォルダがあった場合は除かない）
+    # ・元ファイルが無くなったファイルは、一覧から除いて Removed に返す（インデックスは呼び出し元が消す。アクセスできないフォルダがあった場合は除かない）
     param (
-        $folder,   # @{ Path; Name }
+        $folder,   # @{ Path; Name; Subfolders }（Subfolders が $false のときは直下のファイルだけを取り込む）
         $previous, # readStatusFile の Rows（相対パス → 行）
         $counts,   # getIndexTsvCounts の結果（インデックスの実体。$null なら確認しない）
-        [scriptblock]$shouldStop = $null # 省略できる。フォルダを読むごと・ファイルを調べる途中で見て、$true なら途中で止める
+        [scriptblock]$shouldStop = $null, # 省略できる。フォルダを読むごと・ファイルを調べる途中で見て、$true なら途中で止める
+        [string[]]$extensions = $null, # 省略できる。取り込む拡張子の一覧（findTargetFiles の extensions）。前に取り込んだ行の拡張子が一覧に無ければ「取り込まないにした」ものとして外す
+        [scriptblock]$onCounted = $null # 省略できる。ファイルを見つけた数を伝える（findTargetFiles の onCounted）
     )
 
     $prefix = "$($folder.Name)\"
     $stoppedResult = @{
         Rows = @(); Targets = @(); Failed = @(); Cloud = @(); Plan = $null; Removed = @(); Stopped = $true
     }
-    $scan = findTargetFiles $folder.Path $shouldStop
+    $scan = findTargetFiles $folder.Path $shouldStop $extensions -TopOnly:($folder.Subfolders -eq $false) -onCounted $onCounted
     if ($scan.Stopped) {
         return $stoppedResult
     }
@@ -319,7 +415,7 @@ function createTargetList {
         $rows.Add($row)
     }
 
-    # 元のファイルが無くなったものの削除（取り返しがつかない）の前に、中止を見る
+    # 無くなったファイルを調べる前に、中止を見る
     if ($null -ne $shouldStop -and (& $shouldStop)) {
         return $stoppedResult
     }
@@ -332,7 +428,6 @@ function createTargetList {
             $rows.Add($previous[$relPath])
             continue
         }
-        removeBookDir (getBookDir $relPath)
         $removed.Add($relPath)
     }
 
@@ -349,9 +444,7 @@ function createTargetList {
     if ($count.Lost -gt 0) {
         writeIndexerLog "    インデックス（TSV）が無くなった・壊れている $($count.Lost) 件は取り込み直します。（インデックスを直接削除した・0 バイトのTSVが残っている）" "Yellow"
     }
-    if ($removed.Count -gt 0) {
-        writeIndexerLog "    元ファイルが無くなった $($removed.Count) 件は、インデックスから除きます。"
-    }
+    writeRemovedTargetLog $removed.ToArray() $extensions
     if ($scan.HasError) {
         writeIndexerLog "    アクセスできないフォルダがあったため、元ファイルが無くなったかどうかの確認は行いませんでした。" "Yellow"
     }
@@ -359,7 +452,7 @@ function createTargetList {
     $plan = newIngestPlanRow $folder.Name $folder.Path ${planKindIngest} $scan.Files.Count $targets.Count `
         $count.New $count.Updated $count.Pending $count.Lost $failed.Count `
         $cloudCount $cloudFailedCount $cloudBytes $cloudFailedBytes
-    return @{ Rows = $rows; Targets = $targets; Failed = $failed; Cloud = $cloud; Plan = $plan; Removed = $removed.ToArray(); Stopped = $false }
+    return @{ Rows = $rows; Targets = $targets; Failed = $failed; Cloud = $cloud; Plan = $plan; Removed = $removed.ToArray(); Stopped = $false; TextCounts = $scan.TextCounts; Enumerated = $scan.Enumerated }
 }
 
 # ----------------------------------------------------------------------------
@@ -377,7 +470,7 @@ function createTargetList {
 #   KeepForCancel（取りやめるとき）か ApplyFailed → ApplyInterrupted → FolderByName。Crawl は AssignNames より前なら例外にする。
 # メソッドの中のローカル変数は、プロパティと大文字・小文字だけの違いにしない
 class IngestPlanner {
-    # 名前を割り当てたクロール対象フォルダ（@{ Path; Name; Enabled } の並び）
+    # 名前を割り当てたクロール対象フォルダ（@{ Path; Name; Enabled; Subfolders } の並び）
     [object[]]$Folders
     # 前回の取り込み一覧の行（相対パス → 行）
     $Previous
@@ -392,12 +485,21 @@ class IngestPlanner {
     # クラウドにだけあるファイル（createTargetList の Cloud。取り込むかは確認の後に司令が決める）
     [System.Collections.Generic.List[object]]$Cloud
     [System.Collections.Generic.List[object]]$Plan
-    # 元のファイルが無くなったファイルの相対パス（司令が本文インデックスのファイルから外す）
+    # 元のファイルが無くなったファイルの相対パス（司令が、取り込みを始めるときにインデックスを消して本文インデックスのファイルから外す）
     [System.Collections.Generic.List[string]]$RemovedPaths
     # 前回、取り込み中に強制終了して最後に回したファイル（相対パス → 回数）
     $Carried
     # Crawl を中止で途中で止めた（止めたフォルダ・まだのフォルダは、前回の行をそのまま Rows に入れてある）
     [bool]$Stopped
+    # インデックスごとの、取り込まないテキストの拡張子（インデックス名 → 拡張子の配列）。Crawl が、フォルダのインデックス名で
+    # 取り込む拡張子の一覧（getTargetExtensionList）を作って createTargetList に渡す。作るときのハッシュテーブルの TextExcludes（司令が
+    # 始めに 1 回だけ設定の indexExtensionExcludes を読んで渡す。途中で設定を変えても次の回から効く）で受け取る。無ければ空（全部取り込む）
+    [hashtable]$TextExcludes
+    # インデックス名ごとの、テキストの拡張子ごとの件数（インデックス名 → 拡張子 → 件数。同じ名前の複数のフォルダは合計）。確認ダイアログの「取り込む拡張子」が使う
+    [hashtable]$TextCountsByIndex
+    # 画面とインデクサの受け渡しの口（newIndexerChannel）。あれば、列挙の間に数えたファイルの数を CountedFiles に書く（画面なしの実行では $null）
+    $Channel
+    hidden [int]$CountedBase
     hidden $Kinds
 
     IngestPlanner([hashtable]$kinds) {
@@ -407,12 +509,19 @@ class IngestPlanner {
             }
         }
         $this.Kinds = $kinds
+        if ($kinds.ContainsKey("Channel")) {
+            $this.Channel = $kinds.Channel
+        }
+        if ($kinds.ContainsKey("TextExcludes")) {
+            $this.TextExcludes = $kinds.TextExcludes
+        }
         $this.Rows = New-Object System.Collections.Generic.List[object]
         $this.Targets = New-Object System.Collections.Generic.List[object]
         $this.Failed = New-Object System.Collections.Generic.List[object]
         $this.Cloud = New-Object System.Collections.Generic.List[object]
         $this.Plan = New-Object System.Collections.Generic.List[object]
         $this.RemovedPaths = New-Object System.Collections.Generic.List[string]
+        $this.TextCountsByIndex = @{}
         $this.Carried = New-Object 'System.Collections.Generic.Dictionary[string,int]' ([System.StringComparer]::OrdinalIgnoreCase)
     }
 
@@ -463,9 +572,12 @@ class IngestPlanner {
         # クロール対象フォルダを順に検索して、Rows・Targets・Failed・Plan・RemovedPaths を組み立てる。
         # onFolder: フォルダを検索する直前に呼ぶ（司令が進み具合を画面に出す。$null なら何もしない）
         # shouldStop: 中止を求められたかを返す（$null なら止めない）。フォルダごと・フォルダの中でも見て、$true なら、
-        #   止めたフォルダとまだのフォルダは「取り込まないフォルダ」と同じに前回の行をそのまま残し、Stopped を立てる（何も消さない）
+        #   止めたフォルダとまだのフォルダは「取り込まないフォルダ」と同じに前回の行をそのまま残し、Stopped を立てる
         if ($null -eq $this.Folders) {
             throw "IngestPlanner: Crawl の前に AssignNames を呼んでください"
+        }
+        if ($null -eq $this.TextExcludes) {
+            $this.TextExcludes = @{}
         }
         foreach ($folder in $this.Folders) {
             if (-not $this.Stopped -and $null -ne $shouldStop -and (& $shouldStop)) {
@@ -486,7 +598,7 @@ class IngestPlanner {
                 if ($null -ne $onFolder) {
                     $null = & $onFolder $folder
                 }
-                $list = createTargetList $folder $this.Previous $indexCounts $shouldStop
+                $list = createTargetList $folder $this.Previous $indexCounts $shouldStop @(getTargetExtensionList @($this.TextExcludes[[string]$folder.Name])) $this.NewCountedReporter()
                 if ($list.Stopped) {
                     $this.Stopped = $true
                 } else {
@@ -496,6 +608,8 @@ class IngestPlanner {
                     $this.Cloud.AddRange($list.Cloud)
                     $this.Plan.Add($list.Plan)
                     $this.RemovedPaths.AddRange([string[]]@($list.Removed))
+                    $this.AddTextCounts([string]$folder.Name, $list.TextCounts)
+                    $this.AddCounted([int]$list.Enumerated)
                     continue
                 }
             }
@@ -512,6 +626,52 @@ class IngestPlanner {
         foreach ($item in $this.Dropped) {
             $this.Plan.Add((newIngestPlanRow $item.Name $item.Path $this.Kinds.Dropped))
         }
+        # 直下だけに変えたフォルダの、サブフォルダ側で外れる件数を、確認に渡す Plan の行に入れる
+        $removedCounts = getSubfolderRemovedCounts $this.Folders @($this.RemovedPaths)
+        foreach ($row in $this.Plan) {
+            # 取り込む行だけ（取り込まない行の区分は kinds にある。クラスの本体では $script: 変数を読まない）
+            if (@($this.Kinds.Unchecked, $this.Kinds.Missing, $this.Kinds.Dropped) -contains $row.区分) { continue }
+            $removed = if ($removedCounts.ContainsKey([string]$row.インデックス名)) { [int]$removedCounts[[string]$row.インデックス名] } else { 0 }
+            $row | Add-Member -NotePropertyName SubfolderRemovedCount -NotePropertyValue $removed -Force
+        }
+        # 取り込まないにした拡張子のために外す件数（確認の予告）と、拡張子ごとの件数を、インデックス名ごとに計画の行へ入れる
+        $textRemoved = getTextExcludeRemovedCounts $this.Folders @($this.RemovedPaths) $this.TextExcludes
+        foreach ($row in $this.Plan) {
+            if (@($this.Kinds.Unchecked, $this.Kinds.Missing, $this.Kinds.Dropped) -contains $row.区分) { continue }
+            $name = [string]$row.インデックス名
+            $removed = $(if ($textRemoved.ContainsKey($name)) { [int]$textRemoved[$name] } else { 0 })
+            $counts = $(if ($this.TextCountsByIndex.ContainsKey($name)) { $this.TextCountsByIndex[$name] } else { @{} })
+            $row | Add-Member -NotePropertyName TextExcludeRemovedCount -NotePropertyValue $removed -Force
+            $row | Add-Member -NotePropertyName TextExtensionCounts -NotePropertyValue $counts -Force
+        }
+    }
+
+    [scriptblock] NewCountedReporter() {
+        # 列挙の間（1000 件ごと）に、数えたファイルの数を受け渡しの口の CountedFiles に書くスクリプトブロック。口が無ければ $null（何もしない）
+        if ($null -eq $this.Channel) {
+            return $null
+        }
+        $sink = $this.Channel
+        $start = $this.CountedBase
+        return { param ($count) $sink.CountedFiles = $start + [int]$count }.GetNewClosure()
+    }
+
+    [void] AddCounted([int]$enumerated) {
+        # フォルダ 1 つの列挙が終わったとき、見つけた数を足して書く（次のフォルダの数えの出発点）
+        $this.CountedBase += $enumerated
+        if ($null -ne $this.Channel) {
+            $this.Channel.CountedFiles = $this.CountedBase
+        }
+    }
+
+    [void] AddTextCounts([string]$name, $counts) {
+        # インデックス名ごとの件数に、このフォルダの件数を足す
+        if (-not $this.TextCountsByIndex.ContainsKey($name)) {
+            $this.TextCountsByIndex[$name] = @{}
+        }
+        foreach ($extension in @($counts.Keys)) {
+            $this.TextCountsByIndex[$name][$extension] = [int]$this.TextCountsByIndex[$name][$extension] + [int]$counts[$extension]
+        }
     }
 
     [object[]] KeepForCancel() {
@@ -527,6 +687,13 @@ class IngestPlanner {
         foreach ($item in $this.Cloud) {
             if ($item.PendingOld) {
                 $keep.Add($item.Old)
+            }
+        }
+        # 元のファイルが無くなったファイルは、取りやめでは何も消さないので、前回の行をそのまま残す（次の回にまた無くなったファイルとして見つける）
+        foreach ($relPath in $this.RemovedPaths) {
+            $old = $null
+            if ($this.Previous.TryGetValue($relPath, [ref]$old)) {
+                $keep.Add($old)
             }
         }
         foreach ($row in $this.Rows) {

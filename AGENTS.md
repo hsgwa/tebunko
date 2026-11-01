@@ -103,6 +103,8 @@ git config user.email <ID>+<アカウント名>@users.noreply.github.com
 - `shared/` はツールを知らない。ツール同士も互いを読み込まない。
 - 判断層（`*_view.ps1`・`index_name.ps1`・`source_name.ps1`・`content_index_format.ps1`・`search_query.ps1`・`search_gram.ps1`・`gram_index.ps1`・`indexer_decide.ps1`・`text.ps1`）は `$ui` / `$window` / WPF の型に触らない。判断層のファイルは、判断層でない状態層（ファイル・COM を読み書きする層）にも依存しない（今ある依存は `tests/meta/layers.Tests.ps1` の例外の一覧に理由つきで載せ、増やさない）。画面に出す文言や可否の判定はここに置き、テストを書く。
 - 状態層（`tebunko/` の `core/`・`index/`・`indexer/`・`search/`、`shared/` の `core/`・`office/`）は画面に触らない（`$ui` / `$window` / `System.Windows` を書かない）。画面以外の読み込み口（`shared/shared.ps1`・`tebunko/lib.ps1`・`indexer.ps1`・`tebunko/indexer/indexer_lib.ps1`）から `ui/` のファイルを読み込まない。
+- 関数・メソッドは 80 行・入れ子 4 段以内にする。超えているものは `tests/meta/function_size.Tests.ps1` の許可の一覧に理由つきで載せ、増やさず、長くしない。
+- 利用者に出すエラー・警告の文言（`throw`・`writeIndexerLog` の Yellow・Red など）を足したら、同じ PR で設計書の一覧（`docs/design/indexing/errors*.md`・`log-warnings*.md`・`docs/design/gui/messages*.md`）に全文を載せる。利用者に届かない文言は `tests/meta/error_messages.Tests.ps1` の除外の一覧に理由つきで足す。
 - 足したファイルは、必ず読み込み口（`shared/shared.ps1`・`tebunko/lib.ps1`・`gui.ps1`・`indexer.ps1`・`tebunko/indexer/indexer_lib.ps1`）から読み込む。
 - スクリプト・XAML は BOM 付き UTF-8・CRLF で保存する。
 
@@ -127,7 +129,7 @@ git config user.email <ID>+<アカウント名>@users.noreply.github.com
 clone したら `.\tools\install_hooks.ps1` を 1 回実行する（`core.hooksPath` を `tools/hooks` にする）。以後コミットのたびに次が動く。
 
 - `tools/check_commit.ps1 -Staged` … 上の「個人情報を書かない」と文字コードの決まりを、ステージした内容で機械的に確かめる。
-- `tools/run_commit_tests.ps1` … ステージした変更に対応するテストだけを流す（`scripts/<パス>.ps1` なら `tests/<パス>.Tests.ps1` と構成のテスト、`.md` ならリンクの検査）。どこに効くか分からない変更（`tests/run.ps1`・`tests/helpers/`・対応するテストが無いスクリプトなど）のときは速いテスト（`Unit`・`Meta`）を全部流す。全テストは CI が流す。
+- `tools/run_commit_tests.ps1` … ステージした変更に対応するテストだけを流す（`scripts/<パス>.ps1` なら `tests/<パス>.Tests.ps1` と構成のテスト、`.md` ならリンクの検査）。どこに効くか分からない変更（`tests/run.ps1`・`tests/helpers/`・対応するテストが無いスクリプトなど）のときは速いテスト（`Unit`・`Meta`）を全部流す。あわせて、ステージした `scripts/`・`tools/`・`tests/` の `.ps1` だけに PSScriptAnalyzer をかけ（`tools/check_analyzer.ps1 -Path`）、ベースラインより指摘が増えたら止める（PSScriptAnalyzer が無い手元では注意を出して飛ばす）。全テストと全体の静的解析は CI が流す。
 - `tools/check_commit_message.ps1`（`commit-msg` フック）… コミットメッセージの 1 行目が上の「GitHub の運用」の形であること。
 - `tools/check_signoff.ps1`（`commit-msg` フック）… 作者の `Signed-off-by` が付いていること。
 

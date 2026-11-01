@@ -3,12 +3,15 @@
 #
 #   .\tools\measure_perf.ps1 -Index <TSV のインデックス> -Work <作業フォルダ> -Words <words.tsv>
 #   .\tools\measure_perf.ps1 -Office <Office ファイルのフォルダ> -Work <作業フォルダ>
-#   -Index・-Office・-Xlsx は、少なくとも 1 つを指定する（いくつでもよい）。指定しなかった側は測らず、result.json の Index・Search・Ingest は null になる
+#   -Index・-Office・-Xlsx・-Export は、少なくとも 1 つを指定する（いくつでもよい）。指定しなかった側は測らず、result.json の Index・Search・Ingest は null になる
 #   -Office   … Office からの取り込みを測る。取り込む Office ファイルのフォルダ（tools\perf\new_ingest_data.ps1 で作る）。
 #                測る tebunko の scripts を写して取り込むので、利用者の設定・既定のワークスペースには触らない。Excel・Word・PowerPoint の実機が要る種類は、データにあるときだけ使う
 #   -Xlsx     … Excel のブックを Office を使わずに ZIP から読む部分（readXlsxObjectUnits。シートの流れ読み）を測る、普通のブックを読む回数（既定 0 は測らない）。
 #                ブックはその場で作る（tools\perf\xlsx_data.ps1）。普通のブック（シート 1 枚）を -Xlsx 回、同じシートの部品を指す <sheet> を並べたブックを 1 回読む
 #   -XlsxRows・-XlsxManyRows … -Xlsx で作るブックの行の数（普通のブック／<sheet> を並べたブック）。指定しないと measure_xlsx.ps1 の既定（200000／50000）。小さくして動きの確かめに使える
+#   -Export   … 検索結果をファイルに書き出す部分（invokeSearchExport。Excel ブック・CSV・TSV）を測る、形式ごとの書き出しの回数（既定 0 は測らない）。
+#                測る元は、その場で作る合成のヒット（Excel・Word・複数行・タブを含むセルを混ぜる）。tools\perf\measure_export.ps1 を起動する
+#   -ExportHits … -Export で書き出すヒットの件数（既定 10000）
 #   -Threads  … 取り込みの、Office を使わずに読むファイル（.docx・.pptx）の読み取りのスレッドの数（既定 2）
 #   -Repeat   … 取り込みを測る回数（既定 3）。1 回ごとに新しいプロセス・空のワークスペースで流す（Office の起動を含む、初めての取り込みの時間）
 #   -Index    … 場所ごとの TSV（取り込みの一時置き場の形。tebunko-perfdata の new_index.ps1 で作る）。
@@ -31,6 +34,7 @@
 #
 # 流れ（それぞれ別のプロセスで動かし、リソースが混ざらないようにする）:
 #   0. Excel の流れ読み … -Xlsx が 0 でないときだけ。tools\perf\measure_xlsx.ps1 を起動する
+#   0b. 書き出し       … -Export が 0 でないときだけ。tools\perf\measure_export.ps1 を起動する
 #   1. 取り込み        … tools\perf\measure_ingest.ps1（起動口の indexer.ps1 で Office ファイルを取り込む。-Repeat 回）
 #   2. インデックス作成 … tools\perf\measure_index.ps1（インデクサと同じ publishIndexFolders。Office からの取り込みは含まない）
 #   3. 検索            … 語ごとに tools\perf\measure_search.ps1 を起動し、同じプロセスで -Count 回続けて検索する
@@ -45,6 +49,7 @@
 #   searches.csv        … 検索 1 回ごとの時間・ヒット件数・メモリ
 #   typing.csv          … 入力しながらの検索の、1 回の入力ごとの時間・ヒット件数・メモリ（-Typing のときだけ）
 #   resource-xlsx.csv   … Excel の流れ読みのリソースの記録（-Xlsx のときだけ）
+#   resource-export.csv … 書き出しのリソースの記録（-Export のときだけ）
 #   preview.csv         … プレビュー 1 回ごとの読み込み・表を作る時間・セルの数・メモリ（-Preview のときだけ）
 #   resource-ingest.csv・resource-index.csv・resource-search.csv・resource-typing.csv … リソースの記録（-SampleMs ごと。取り込みは段階が変わるたびにも記録する）
 param (
@@ -53,6 +58,8 @@ param (
     [int]$Xlsx = 0,
     [int]$XlsxRows,
     [int]$XlsxManyRows,
+    [int]$Export = 0,
+    [int]$ExportHits = 10000,
     [Parameter(Mandatory = $true)][string]$Work,
     [string]$Tool = (Split-Path $PSScriptRoot -Parent),
     [string]$Words,
@@ -80,7 +87,8 @@ param (
 $ErrorActionPreference = "Stop"
 . ([WildcardPattern]::Escape("$PSScriptRoot\perf\perf_common.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\perf\ingest_common.ps1".Replace('`', '``')))
-if (!$Index -and !$Office -and $Xlsx -le 0) { throw "-Index・-Office・-Xlsx の少なくとも 1 つを指定してください。" }
+if (!$Index -and !$Office -and $Xlsx -le 0 -and $Export -le 0) { throw "-Index・-Office・-Xlsx・-Export の少なくとも 1 つを指定してください。" }
+if ($Export -gt 0 -and $ExportHits -le 0) { throw "-ExportHits は 1 以上にしてください。" }
 if ($Typing -eq 1) { throw "-Typing は 0 か 2 以上にしてください。" }
 if ($Preview -lt 0) { throw "-Preview は 0 以上にしてください。" }
 if ($Render -and $Preview -le 0) { throw "-Render は -Preview と一緒に指定してください。" }
@@ -154,6 +162,29 @@ if ($Xlsx -gt 0) {
     }
 }
 
+# 0b. 検索結果の書き出し（別のプロセス）。-Export が 0 のときは測らない
+$exportResult = $null
+$exportRaw = $null
+if ($Export -gt 0) {
+    Write-Information "検索結果の書き出しを測ります。" -InformationAction Continue
+    $exportJson = Join-Path $raw "export.json"
+    invokeChild "measure_export.ps1" @("-Tool", $Tool, "-Work", $Work, "-Out", $exportJson, "-Repeat", $Export, "-Hits", $ExportHits, "-SampleMs", $SampleMs)
+    $exportRaw = readJson $exportJson
+    $exportFormats = New-Object System.Collections.Generic.List[object]
+    foreach ($f in @($exportRaw.Formats)) {
+        $exportFormats.Add([ordered]@{
+            Format = [string]$f.Format; SizeMB = $f.SizeMB
+            Ms = getStats ([double[]]@(@($f.Runs) | ForEach-Object { $_.Ms }))
+            Written = $f.Runs[0].Written
+            Failures = @(@($f.Runs) | Where-Object { $_.Outcome -ne "Done" }).Count
+        })
+    }
+    $exportResult = [ordered]@{
+        Repeat = $Export; Hits = $exportRaw.Hits; Formats = $exportFormats.ToArray()
+        Resources = (getPhaseResources @($exportRaw.Samples) $cores); PeakWorkingSetMB = $exportRaw.PeakWorkingSetMB
+    }
+}
+
 # 1. Office からの取り込み（1 回ごとに別のプロセス）
 $ingestResult = $null
 $ingestRuns = New-Object System.Collections.Generic.List[object]
@@ -176,7 +207,7 @@ if ($Index) {
     invokeChild "measure_index.ps1" @("-Tool", $Tool, "-Index", $Index, "-Work", $Work, "-Out", $indexJson, "-SampleMs", $SampleMs)
     $indexRaw = readJson $indexJson
     $indexSamples = @($indexRaw.Samples)
-    $indexResult = [ordered]@{ Pack = $indexRaw.Pack; Resources = (getPhaseResources $indexSamples $cores); PeakWorkingSetMB = $indexRaw.PeakWorkingSetMB }
+    $indexResult = [ordered]@{ Pack = $indexRaw.Pack; Gram = $indexRaw.Gram; Resources = (getPhaseResources $indexSamples $cores); PeakWorkingSetMB = $indexRaw.PeakWorkingSetMB }
 }
 
 # 3. 検索（語ごとに別のプロセス）
@@ -202,6 +233,7 @@ for ($w = 0; $w -lt $wordList.Count; $w++) {
     $res = @(getPhaseResources @($r.Samples) $cores | Where-Object { $_.Phase -eq "検索" })
     $search.Add([ordered]@{
         Name = $r.Name; Regex = [bool]$r.Regex; Mode = [string]$r.Mode; Hits = $rows[0].Hits; Truncated = [bool]$rows[0].Truncated; Packs = $rows[0].Packs
+        AllPacks = $rows[0].AllPacks; GramUsed = @($rows | Where-Object { $_.GramUsed -eq $true }).Count; Runs = $rows.Count; FirstShownMs = $rows[0].ShownMs
         TotalMs = getStats (valuesOf $rows "TotalMs")
         ShownMs = getStats (valuesOf $rows "ShownMs")
         HitTotal = $rows[0].HitTotal
@@ -273,9 +305,9 @@ if ($Index -and $Preview -gt 0) {
     }
 }
 
-# result.json（形式の版 5。版 2 で Preview を足し、版 3 で Preview.Words[].FullRead・ReadTextCallsUncached を足し、版 4 で Preview.Words[].BuildFirstMs・BuildRestMs と Render.FirstMs・RestMs を足し、版 5 で Preview.Words[].CreatedCells・ReadMore と Render.Elements・ScrollMs・RenderRetainedMB を足した）
+# result.json（形式の版 6。版 6 で Index.Gram と Search[].AllPacks・GramUsed・Runs・FirstShownMs を足し、版 2 で Preview を足し、版 3 で Preview.Words[].FullRead・ReadTextCallsUncached を足し、版 4 で Preview.Words[].BuildFirstMs・BuildRestMs と Render.FirstMs・RestMs を足し、版 5 で Preview.Words[].CreatedCells・ReadMore と Render.Elements・ScrollMs・RenderRetainedMB を足した。版 5 までの Search は gram 索引なしの数字）
 $run.SearchMode = (@($search | ForEach-Object { $_.Mode } | Select-Object -Unique) -join ",")
-$result = [ordered]@{ Schema = 5; Run = $run; Index = $indexResult; Search = $(if ($Index) { $search.ToArray() } else { $null }); Ingest = $ingestResult; Xlsx = $xlsxResult
+$result = [ordered]@{ Schema = 6; Run = $run; Index = $indexResult; Search = $(if ($Index) { $search.ToArray() } else { $null }); Ingest = $ingestResult; Xlsx = $xlsxResult; Export = $exportResult
     Preview = $(if ($Index -and $Preview -gt 0) { [ordered]@{ Count = $Preview; Render = [bool]$Render; Words = $previewWords.ToArray(); Skipped = $previewSkipped.ToArray() } } else { $null })
     Typing = $(if ($Index -and $Typing -gt 0) { [ordered]@{
         Mode = [string]$typingRaw[0].Mode; Count = $Typing; IntervalMs = $TypingIntervalMs; MinLength = $TypingMinLength
@@ -303,6 +335,15 @@ if ($xlsxResult) {
     if ($xlsxPhases.Count) { addMetric "xlsx_many_working_set_mb" "" "max" $xlsxPhases[0].WorkingSetMaxMB "MB" }
     addMetric "xlsx_peak_working_set_mb" "" "max" $xlsxResult.PeakWorkingSetMB "MB"
 }
+if ($exportResult) {
+    foreach ($f in $exportResult.Formats) {
+        foreach ($stat in @("Min", "Median", "Mean", "Max")) { addMetric "export_$($f.Format)_ms" "" $stat.ToLower() $f.Ms[$stat] "ms" }
+        addMetric "export_$($f.Format)_written" "" "value" $f.Written "count"
+        addMetric "export_$($f.Format)_failures" "" "max" $f.Failures "count"
+        addMetric "export_$($f.Format)_size_mb" "" "value" $f.SizeMB "MB"
+    }
+    addMetric "export_peak_working_set_mb" "" "max" $exportResult.PeakWorkingSetMB "MB"
+}
 if ($ingestResult) {
     addMetric "ingest_files" "" "value" $ingestResult.Total "count"
     addMetric "ingest_failed" "" "max" $ingestResult.Failed "count"
@@ -318,6 +359,12 @@ if ($indexResult -and $indexResult.Pack) {
     addMetric "index_tsv_mb" "" "value" $indexResult.Pack.TsvMB "MB"
     addMetric "index_pack_mb" "" "value" $indexResult.Pack.PackMB "MB"
 }
+if ($indexResult -and $indexResult.Gram -and !$indexResult.Gram.Skipped) {
+    addMetric "gram_seconds" "" "value" $indexResult.Gram.Seconds "s"
+    addMetric "gram_files" "" "value" $indexResult.Gram.Files "count"
+    addMetric "gram_mb" "" "value" $indexResult.Gram.MB "MB"
+    addMetric "gram_failed" "" "max" $indexResult.Gram.Failed "count"
+}
 $packPhase = @($(if ($indexResult) { $indexResult.Resources }) | Where-Object { $_.Phase -eq "pack の作成" })
 if ($packPhase.Count) {
     addMetric "index_cpu_seconds" "" "value" $packPhase[0].CpuSeconds "s"
@@ -332,6 +379,10 @@ foreach ($s in $search) {
         foreach ($stat in @("Min", "Median", "Mean", "Max")) { addMetric $part[0] $s.Name $stat.ToLower() $part[1][$stat] "ms" }
     }
     addMetric "search_hits" $s.Name "value" $s.Hits "count"
+    addMetric "search_packs" $s.Name "value" $s.Packs "count"
+    addMetric "search_all_packs" $s.Name "value" $s.AllPacks "count"
+    addMetric "search_gram_used" $s.Name "value" $s.GramUsed "count"
+    addMetric "search_first_shown_ms" $s.Name "value" $s.FirstShownMs "ms"
     addMetric "search_working_set_mb" $s.Name "max" $s.WorkingSetMaxMB "MB"
     addMetric "search_working_set_per10_mb" $s.Name "value" $s.WorkingSetPer10MB "MB"
     addMetric "search_handles" $s.Name "last" $s.HandlesLast "count"
@@ -377,6 +428,8 @@ foreach ($p in $previewWords) {
         addMetric "preview_render_rows" $p.Name "value" $p.Render.Rows "count"
         addMetric "preview_render_elements" $p.Name "value" $p.Render.Elements "count"
         addMetric "preview_render_scroll_ms" $p.Name "value" $p.Render.ScrollMs "ms"
+        addMetric "preview_render_hscroll_ms" $p.Name "value" $p.Render.HScrollMs "ms"
+        addMetric "preview_render_hscroll_changes" $p.Name "value" $p.Render.HScrollChanges "count"
         addMetric "preview_render_retained_mb" $p.Name "value" $p.Render.RenderRetainedMB "MB"
     }
 }
@@ -385,6 +438,9 @@ foreach ($p in $previewWords) {
 # searches.csv・resource-*.csv
 if ($xlsxRaw) {
     [System.IO.File]::WriteAllLines((Join-Path $Out "resource-xlsx.csv"), [string[]]@(@($xlsxRaw.Samples) | ConvertTo-Csv -NoTypeInformation), $utf8Bom)
+}
+if ($exportRaw) {
+    [System.IO.File]::WriteAllLines((Join-Path $Out "resource-export.csv"), [string[]]@(@($exportRaw.Samples) | ConvertTo-Csv -NoTypeInformation), $utf8Bom)
 }
 if ($ingestRuns.Count) {
     $ingestSampleRows = for ($i = 0; $i -lt $ingestRuns.Count; $i++) { foreach ($sm in @($ingestRuns[$i].Samples)) { $o = [ordered]@{ Run = $i + 1 }; foreach ($p in $sm.PSObject.Properties) { $o[$p.Name] = $p.Value }; [pscustomobject]$o } }
@@ -459,6 +515,27 @@ if ($xlsxResult) {
         add ("| {0} | {1:N1} 秒 | {2:N1} 秒 | {3}% | {4:N0} MB | {5:N0} MB | {6}/{7}/{8} |" -f $p.Phase, $p.Seconds, $p.CpuSeconds, $p.CpuPercent, $p.WorkingSetMaxMB, $p.ManagedMaxMB, $p.Gc0, $p.Gc1, $p.Gc2)
     }
 }
+if ($exportResult) {
+    $er = $exportResult
+    add
+    add "## 検索結果の書き出し"
+    add
+    add "検索結果をファイルに書き出す部分（invokeSearchExport）の時間。元は、その場で作った合成のヒット $($er.Hits) 件（Excel・Word・複数行・タブを含むセルを混ぜた。表に出ている分だけで、上限を超えた分は無い）。形式ごとに $($er.Repeat) 回書いた。同じ ref の数字どうし、または測る版どうしで比べる。"
+    add
+    add "| 形式 | 書いた件数 | 書けなかった回数 | ファイルの大きさ | 最小 | 中央値 | 平均 | 最大 |"
+    add "|---|---|---|---|---|---|---|---|"
+    foreach ($f in $er.Formats) {
+        add ("| {0} | {1} | {2} | {3} MB | {4:N0} ms | {5:N0} ms | {6:N0} ms | {7:N0} ms |" -f $f.Format, $f.Written, $f.Failures, $f.SizeMB, $f.Ms.Min, $f.Ms.Median, $f.Ms.Mean, $f.Ms.Max)
+    }
+    add
+    add "ワーキングセットのピークは $($er.PeakWorkingSetMB) MB。"
+    add
+    add "| 段階 | 時間 | CPU 時間 | CPU | ワーキングセット | マネージドヒープ | GC 回数（0/1/2 世代） |"
+    add "|---|---|---|---|---|---|---|"
+    foreach ($p in $er.Resources) {
+        add ("| {0} | {1:N1} 秒 | {2:N1} 秒 | {3}% | {4:N0} MB | {5:N0} MB | {6}/{7}/{8} |" -f $p.Phase, $p.Seconds, $p.CpuSeconds, $p.CpuPercent, $p.WorkingSetMaxMB, $p.ManagedMaxMB, $p.Gc0, $p.Gc1, $p.Gc2)
+    }
+}
 if ($ingestResult) {
     $ig = $ingestResult
     add
@@ -506,6 +583,11 @@ if ($indexResult.Pack) {
 } else {
     add "渡したインデックスに TSV が無いため、測っていない。"
 }
+$gramLines = @(getPerfGramLines $indexResult.Gram)
+if ($gramLines.Count -gt 0) {
+    add
+    foreach ($l in $gramLines) { add $l }
+}
 add
 add "「CPU」はこのプロセスの使用率（全コアを使い切ると 100%）、「PC の CPU」は PC 全体の使用率の平均。ワーキングセットのピークは $($indexResult.PeakWorkingSetMB) MB。"
 add
@@ -547,12 +629,16 @@ if ($run.SearchMode -eq "service") {
     add "語ごとに新しいプロセスを起動し、同じプロセスで $Count 回続けて検索した。測った版には検索の司令のスレッド（SearchService）が無いので、その版の画面と同じく、検索のたびに新しいスレッドで lib.ps1 を読み込み、集約ファイルを列挙して照合した（上限 1 万件）。1 回目は画面を開き直した直後の検索に当たり、たいてい最大の値になる。"
 }
 add
-add "| 語 | ヒット件数 | 総数（HitTotal） | 最小 | 中央値 | 平均 | 最大 | 表がそろうまで（ShownMs。中央値／最大） | lib.ps1 の読み込み（中央値／最大） | 列挙（中央値／最大） | 照合（中央値／最大） |"
-add "|---|---|---|---|---|---|---|---|---|---|---|"
+add "「列挙」は、gram 索引で絞る時間を含む。「照合した pack」は、gram 索引で絞った後の数／全部の数（gram 索引を使わなかった語は「–／全部」）。「1 回目」は、語ごとの新しいプロセスの 1 回目（画面を開いた直後に当たる）の ShownMs、「数え終わるまで」は TotalMs。「gram を使った回数」が 0 の語、またはこの列が無い結果は、gram 索引なしの数字なので、比べるときは区別する。"
+add
+add "| 語 | ヒット件数 | 総数（HitTotal） | 最小 | 中央値 | 平均 | 最大 | 表がそろうまで（ShownMs。中央値／最大） | lib.ps1 の読み込み（中央値／最大） | 列挙（中央値／最大） | 照合（中央値／最大） | 1 回目（ShownMs。N=1） | 数え終わるまで（TotalMs。中央値／最大） | 照合した pack（gram で絞った数／全部） | gram を使った回数／回数 |"
+add "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"
 foreach ($s in $search) {
-    add ("| {0} | {1}{2} | {12} | {3} ms | {4} ms | {5} ms | {6} ms | {13}／{14} ms | {7} | {8}／{9} ms | {10}／{11} ms |" -f $s.Name, $s.Hits, $(if ($s.Truncated) { "+" } else { "" }),
+    add ("| {0} | {1}{2} | {12} | {3} ms | {4} ms | {5} ms | {6} ms | {13}／{14} ms | {7} | {8}／{9} ms | {10}／{11} ms | {15} | {16}／{17} ms | {18} | {19}／{20} |" -f $s.Name, $s.Hits, $(if ($s.Truncated) { "+" } else { "" }),
         (ms $s.TotalMs "Min"), (ms $s.TotalMs "Median"), (ms $s.TotalMs "Mean"), (ms $s.TotalMs "Max"),
-        $(if ($s.LoadMs) { "{0}／{1} ms" -f (ms $s.LoadMs "Median"), (ms $s.LoadMs "Max") } else { "–" }), (ms $s.ListMs "Median"), (ms $s.ListMs "Max"), (ms $s.MatchMs "Median"), (ms $s.MatchMs "Max"), $(if ($null -ne $s.HitTotal) { "{0:N0}" -f [int]$s.HitTotal } else { "–" }), (ms $s.ShownMs "Median"), (ms $s.ShownMs "Max"))
+        $(if ($s.LoadMs) { "{0}／{1} ms" -f (ms $s.LoadMs "Median"), (ms $s.LoadMs "Max") } else { "–" }), (ms $s.ListMs "Median"), (ms $s.ListMs "Max"), (ms $s.MatchMs "Median"), (ms $s.MatchMs "Max"), $(if ($null -ne $s.HitTotal) { "{0:N0}" -f [int]$s.HitTotal } else { "–" }), (ms $s.ShownMs "Median"), (ms $s.ShownMs "Max"),
+        $(if ($null -ne $s.FirstShownMs) { "{0:N0} ms" -f $s.FirstShownMs } else { "–" }), (ms $s.TotalMs "Median"), (ms $s.TotalMs "Max"),
+        (formatPerfPacks $s.Packs $s.AllPacks $s.GramUsed), $(if ($null -ne $s.GramUsed) { $s.GramUsed } else { "–" }), $(if ($null -ne $s.Runs) { $s.Runs } else { $Count }))
 }
 add
 add "### 検索のリソース"
@@ -693,15 +779,16 @@ if ($renderWords.Count -gt 0) {
     add
     add "### プレビューの描画"
     add
-    add "セルの数が最大だったプレビューの表を、画面を出さずに preview.xaml の部品へ入れ、Measure・Arrange・UpdateLayout までにかかった時間（$(@($renderWords[0].Render.RenderMs).Count) 回。値は出すだけで、上限と比べない）。表の行と列は、見えている範囲だけ部品ができる。1 回目は部品の初期化が入るので、2 回目以降と分けて出す。「部品の数」は部品の木にある部品の数、「スクロール」は下と右の端へ 4 段階で動かして見える範囲を作り直した合計、「残った増え」（RenderRetainedMB）は、表を持ったまま描画を繰り返し、GC をしたあとのマネージドヒープの、描画の前からの増え（表と部品を保持している間の値。手放したあとの値ではない）。"
+    add "セルの数が最大だったプレビューの表を、画面を出さずに preview.xaml の部品へ入れ、Measure・Arrange・UpdateLayout までにかかった時間（$(@($renderWords[0].Render.RenderMs).Count) 回。値は出すだけで、上限と比べない）。表の行と列は、見えている範囲だけ部品ができる。1 回目は部品の初期化が入るので、2 回目以降と分けて出す。「部品の数」は部品の木にある部品の数、「スクロール」は下と右の端へ 4 段階で動かして見える範囲を作り直した合計、「横スクロール」は左端から 30 px 刻みで続けて 1 画面ぶん右へ動かした合計（括弧は、その間に見えている列の範囲を決め直した回数）、「残った増え」（RenderRetainedMB）は、表を持ったまま描画を繰り返し、GC をしたあとのマネージドヒープの、描画の前からの増え（表と部品を保持している間の値。手放したあとの値ではない）。"
     add
-    add "| 語 | 行 | 列 | セルの数 | 描画 1 回目 | 描画 2 回目以降（中央値／最大） | ワーキングセット（前／後） | 部品の数 | スクロール | 残った増え |"
-    add "|---|---|---|---|---|---|---|---|---|---|"
+    add "| 語 | 行 | 列 | セルの数 | 描画 1 回目 | 描画 2 回目以降（中央値／最大） | ワーキングセット（前／後） | 部品の数 | スクロール | 横スクロール | 残った増え |"
+    add "|---|---|---|---|---|---|---|---|---|---|---|"
     foreach ($p in $renderWords) {
-        add ("| {0} | {1} | {2} | {3:N0} | {4:N1} ms | {5}／{6} ms | {7:N0}／{8:N0} MB | {9} | {10} | {11} |" -f $p.Name, $p.Render.Rows, $p.Render.Columns, $p.Render.Cells, $p.Render.FirstMs,
+        add ("| {0} | {1} | {2} | {3:N0} | {4:N1} ms | {5}／{6} ms | {7:N0}／{8:N0} MB | {9} | {10} | {11} | {12} |" -f $p.Name, $p.Render.Rows, $p.Render.Columns, $p.Render.Cells, $p.Render.FirstMs,
             (msDecimal $p.Render.RestMs "Median"), (msDecimal $p.Render.RestMs "Max"), $p.Render.WorkingSetBeforeMB, $p.Render.WorkingSetAfterMB,
             $(if ($null -ne $p.Render.Elements) { "{0:N0}" -f $p.Render.Elements } else { "-" }),
             $(if ($null -ne $p.Render.ScrollMs) { "{0:N1} ms" -f $p.Render.ScrollMs } else { "-" }),
+            $(if ($null -ne $p.Render.HScrollMs) { "{0:N1} ms（{1} 回）" -f $p.Render.HScrollMs, $p.Render.HScrollChanges } else { "-" }),
             $(if ($null -ne $p.Render.RenderRetainedMB) { "{0:N1} MB" -f $p.Render.RenderRetainedMB } else { "-" }))
     }
 }

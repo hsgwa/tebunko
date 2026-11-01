@@ -1,12 +1,12 @@
 ﻿# インデックス管理の画面の一覧（状態の保持・フォルダの状態の調べ・一覧の読み込みと更新）。
 
 function getTargetsKey {
-    # クロール対象フォルダの一覧（@{ Path; Enabled } の配列）を比べるための文字列
+    # クロール対象フォルダの一覧（@{ Path; Enabled; Subfolders } の配列）を比べるための文字列
     param (
         [object[]]$folders
     )
 
-    return (@($folders | Where-Object { $_ } | ForEach-Object { "$($_.Enabled)`t$($_.Path)" }) -join "`n")
+    return (@($folders | Where-Object { $_ } | ForEach-Object { "$($_.Enabled)`t$($_.Subfolders -ne $false)`t$($_.Path)" }) -join "`n")
 }
 
 $script:targetItems = New-Object 'System.Collections.ObjectModel.ObservableCollection[object]'
@@ -71,11 +71,13 @@ function isIndexingOrPreparing {
 function getCurrentIndexJobBlocker {
     # いま動いている処理の名前（getIndexJobBlocker の結果。無ければ空文字列）。画面の状態から集める。
     #   extraIndexing: ほかに「インデックス作成中」とみなすもの（画面を使わずに起動したインデクサなど）
+    #   indexerUnchecked: ほかのインデックス作成が動いていないかを確かめられなかった（testIndexerRunning の Error）
     param (
-        [bool]$extraIndexing = $false
+        [bool]$extraIndexing = $false,
+        [bool]$indexerUnchecked = $false
     )
 
-    return (getIndexJobBlocker ((isIndexingOrPreparing) -or $extraIndexing) ([bool]$script:indexBusy) ([bool]$script:archiveBusy) ([bool]$script:targetsNaming) ([bool]$script:workspaceMoving))
+    return (getIndexJobBlocker ((isIndexingOrPreparing) -or $extraIndexing) ([bool]$script:indexBusy) ([bool]$script:archiveBusy) ([bool]$script:targetsNaming) ([bool]$script:workspaceMoving) $indexerUnchecked)
 }
 
 $script:folderCheckRunning = $false
@@ -163,13 +165,18 @@ function newFolderItem {
     param (
         [string]$path,
         [bool]$enabled,
-        [string]$name = ""
+        [string]$name = "",
+        [bool]$subfolders = $true,
+        [bool]$ingestedSubfolders = $true
     )
 
     $item = New-Object FolderItem
     $item.Name = $name
     $item.Path = $path
     $item.Enabled = $enabled
+    $item.Subfolders = $subfolders
+    $item.IngestedSubfolders = $ingestedSubfolders
+    $item.TopOnlyText = getIndexTopOnlyTagText $subfolders
     $item.FileCountText = "－"
     $item.LastIngestedText = ""
     # フォルダの有無は一覧に加えた後にまとめて調べる（refreshFolderStatus）
@@ -183,8 +190,8 @@ function loadTargets {
     # 設定のインデックス一覧を画面の一覧に読み込む。
     # 名前の決まっていないインデックス（設定ファイルを直接書き換えた場合など）には、ここで名前を割り当てて確定する。
     # 一覧・編集・削除はインデックス名で扱うため、画面に出す時点で名前があるようにする（インデクサと同じ assignIndexNames を使う）。
-    # 名前を決めるには取り込み一覧（ワークスペースの中）を読む。ワークスペースがネットワークの場所なら裏の列で読み、
-    # 終わるまで一覧は空のまま（届かない場所で画面のスレッドが止まらないように）
+    # 名前を決めるには取り込み一覧（ワークスペースの中）を読み、保存する。ローカルでもネットワークでも裏の列で行い、
+    # 終わるまで一覧は空のまま（数に比例する読み書きや、届かない場所で画面のスレッドが止まらないように）
     $requestBox = $script:targetsLoadRequest
     $requestBox.Value++
     $script:targetsNaming = $false
@@ -192,37 +199,33 @@ function loadTargets {
     $checkedNames = @(getIndexCheckedItems @($script:targetItems) | ForEach-Object { $_.Name })
     $folders = @(getTargetFolders)
     if (@($folders | Where-Object { $_ -and !$_.Name }).Count -gt 0) {
-        if ((getWorkspaceJobQueue $workspace.Dir) -eq "network") {
-            $script:targetItems.Clear()
-            # 名前が決まって一覧を読み込み直すまで、ほかの操作を止める（空の一覧に保存して、設定のほかのインデックスを消さないため）
-            $script:targetsNaming = $true
-            try {
-                updateIndexListView
-                updateIndexingButton
-                setStatus (getIndexNamingStatus)
-                $requestId = $requestBox.Value
-                $finish = ${function:finishTargetsNaming}   # 終わったときの処理は、関数を変数に取って呼ぶ（クロージャからは関数の名前を引けないため）
-                startJob {
-                    param ($folders, $workspaceDir)
-                    # インスタンスは裏のスレッドへ渡せないため、場所から作り直す
-                    [void]((newIndexCatalog $workspaceDir).AssignAndSaveNames($folders))
-                } @(,$folders + @($workspace.Dir)) {
-                    param ($output, $errorText)
-                    if ($requestId -ne $requestBox.Value) {
-                        # 待っている間にもう一度読み込んだ・ワークスペースを切り替えた。この結果は捨てる
-                        return
-                    }
-                    & $finish $errorText $checkedNames
-                }.GetNewClosure() (getWorkspaceJobQueue $workspace.Dir)
-            } catch {
-                # 裏の仕事を出せなかったときは、印を戻す（残ると、ほかの操作が止まったままになる）
-                $script:targetsNaming = $false
-                throw
-            }
-            return
+        $script:targetItems.Clear()
+        # 名前が決まって一覧を読み込み直すまで、ほかの操作を止める（空の一覧に保存して、設定のほかのインデックスを消さないため）
+        $script:targetsNaming = $true
+        try {
+            updateIndexListView
+            updateIndexingButton
+            setStatus (getIndexNamingStatus)
+            $requestId = $requestBox.Value
+            $finish = ${function:finishTargetsNaming}   # 終わったときの処理は、関数を変数に取って呼ぶ（クロージャからは関数の名前を引けないため）
+            startJob {
+                param ($folders, $workspaceDir)
+                # インスタンスは裏のスレッドへ渡せないため、場所から作り直す
+                [void]((newIndexCatalog $workspaceDir).AssignAndSaveNames($folders))
+            } @(,$folders + @($workspace.Dir)) {
+                param ($output, $errorText)
+                if ($requestId -ne $requestBox.Value) {
+                    # 待っている間にもう一度読み込んだ・ワークスペースを切り替えた。この結果は捨てる
+                    return
+                }
+                & $finish $errorText $checkedNames
+            }.GetNewClosure() (getWorkspaceJobQueue $workspace.Dir)
+        } catch {
+            # 裏の仕事を出せなかったときは、印を戻す（残ると、ほかの操作が止まったままになる）
+            $script:targetsNaming = $false
+            throw
         }
-        [void]((newIndexCatalog $workspace.Dir).AssignAndSaveNames($folders))
-        $folders = @(getTargetFolders)
+        return
     }
     fillTargetItems $folders $checkedNames
 }
@@ -270,7 +273,7 @@ function finishTargetsNaming {
 }
 
 function fillTargetItems {
-    # 画面の一覧を folders（@{ Name; Path; Enabled }）の内容に置き換える。checkedNames の名前の行はチェックを付ける
+    # 画面の一覧を folders（@{ Name; Path; Enabled; Subfolders }）の内容に置き換える。checkedNames の名前の行はチェックを付ける
     param (
         [object[]]$folders,
         [string[]]$checkedNames
@@ -280,7 +283,7 @@ function fillTargetItems {
     try {
         $script:targetItems.Clear()
         foreach ($folder in $folders) {
-            $newItem = newFolderItem $folder.Path $folder.Enabled $folder.Name
+            $newItem = newFolderItem $folder.Path $folder.Enabled $folder.Name ($folder.Subfolders -ne $false) ($folder.IngestedSubfolders -ne $false)
             $newItem.Checked = ($folder.Name -and $checkedNames -contains $folder.Name)
             $script:targetItems.Add($newItem)
         }
@@ -297,7 +300,7 @@ function saveTargets {
     # 一覧を設定に書く。保存した旨のステータスは出す。-Quiet のときは出さない（更新を始めるときの保存は、更新を始めるか確認で決まるため、文を出さない）
     param ([switch]$Quiet)
 
-    (newIndexCatalog $workspace.Dir).SaveTargets(@($script:targetItems | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Path = $_.Path; Enabled = $_.Enabled } }))
+    (newIndexCatalog $workspace.Dir).SaveTargets(@($script:targetItems | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Path = $_.Path; Enabled = $_.Enabled; Subfolders = $_.Subfolders } }))
     $script:savedTargets = getTargetsKey @(getTargetFolders)
     if (!$Quiet) {
         setStatus "インデックス一覧を保存しました（$(Get-Date -Format 'H:mm')）"
@@ -334,9 +337,9 @@ function refreshIndexViews {
 }
 
 function refreshIndexViewsKeepingStatus {
-    # 失敗の知らせ（$notice）を出したまま、画面を読み直す。ネットワークのワークスペースでは検索対象のツリーが裏で読み直され、
+    # 失敗の知らせ（$notice）を出したまま、画面を読み直す。検索対象のツリーは裏で読み直され、
     # 届かないときはその結果がステータスを「接続できません」で上書きするため、その 1 回はステータスを書かせない
-    # （接続できない旨は検索対象の欄に出る）。ローカルの読み直しが同じ呼び出しの中で終わる場合のため、読み直したあとにも書く
+    # （接続できない旨は検索対象の欄に出る）。読み直しの開始でもステータスが変わりうるため、開始のあとにも書く
     param (
         [string]$notice
     )
@@ -344,6 +347,47 @@ function refreshIndexViewsKeepingStatus {
     $script:indexTreeKeepStatus = $true
     refreshIndexViews
     setStatus $notice
+}
+
+function syncIngestedSubfolders {
+    # 設定の ingestedSubfolders（前回取り込んだときの subfolders。インデクサだけが書く）を、一覧の行（FolderItem）に読み直す。突き合わせる鍵はパス
+    $byPath = @{}
+    foreach ($folder in @(getTargetFolders)) { $byPath[[string]$folder.Path] = $folder.IngestedSubfolders }
+    foreach ($item in $script:targetItems) {
+        if ($byPath.ContainsKey([string]$item.Path)) { $item.IngestedSubfolders = [bool]$byPath[[string]$item.Path] }
+    }
+}
+
+# インデックスごとの取り込む拡張子の設定と件数の控え（syncIndexTextExtensions が読み直す。一覧を描き直すたびにファイルを読まないよう、ここに控える）。
+# Excludes: 今の設定、Ingested: 前回取り込んだときの設定（インデクサだけが書く）、Counts: 件数の控え（インデックス名 → @{ Time; Counts }）。どれもインデックス名がキー
+$script:textExtState = @{ Excludes = @{}; Ingested = @{}; Counts = @{} }
+
+# ネットワークの場所のワークスペースで使う、画面を開いてから取り込み終えた回の拡張子ごとの件数（インデックス名 → @{ Time; Counts }）
+$script:textExtCountsMemory = @{}
+
+function rememberTextExtCounts {
+    # 終わり方 0 で終わった回の計画の行（Channel.Plan）の拡張子ごとの件数を、メモリに持つ（インデクサが書く控えと同じ内容・同じ日時の形）
+    param (
+        $plan
+    )
+
+    $now = (Get-Date).ToString("yyyy/MM/dd HH:mm")
+    foreach ($entry in (getTextExtCountsFromPlan $plan ${planKindIngest} $now).GetEnumerator()) {
+        $script:textExtCountsMemory[$entry.Key] = $entry.Value
+    }
+}
+
+function syncIndexTextExtensions {
+    # 設定の indexExtensionExcludes・indexExtensionExcludesIngested と、件数の控えを読み直す。読めないときは前の値のまま（控えの無い状態に戻さない）。
+    # 件数の控えはワークスペースの中にあるので、ワークスペースがネットワークの場所のときは、画面が止まらないよう読まず、控え無しとして扱う
+    try {
+        $settings = readTextExtensionSettings
+        # ネットワークの場所では、控えのファイルは読まず、終わり方 0 の回のあとにメモリへ入れた件数（rememberTextExtCounts）を使う
+        $counts = $(if (testNetworkPath $workspace.Dir) { $script:textExtCountsMemory } else { readTextExtCounts })
+        $script:textExtState = @{ Excludes = $settings.IndexExcludes; Ingested = $settings.IndexExcludesIngested; Counts = $counts }
+    } catch {
+        Write-Verbose "取り込む拡張子の設定を読み直せませんでした"
+    }
 }
 
 function applyIndexStats {
@@ -355,6 +399,10 @@ function applyIndexStats {
         $formatState = $null    # getWorkspaceIndexFormat の結果（インデックスの格納形式の状態）。無ければ $null
     )
 
+    if (!$indexing) {
+        syncIngestedSubfolders   # インデクサが書いた「前回取り込んだときの設定」を読み直す（［要更新］の差の元）
+        syncIndexTextExtensions   # 取り込む拡張子の設定・前回取り込んだときの設定・件数の控えも読み直す
+    }
     foreach ($item in $script:targetItems) {
         $stat = $null
         $formatEntry = $null
@@ -366,6 +414,8 @@ function applyIndexStats {
         }
         if ($null -eq $stat) {
             $item.SetStats("－", "まだ更新していません", "")
+            $item.FailedCount = 0
+            $item.PendingCount = 0
         } else {
             $ingested = [datetime]::MinValue
             $lastText = if ($stat.LastIngested -and [datetime]::TryParseExact($stat.LastIngested, "yyyy/MM/dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$ingested)) {
@@ -373,9 +423,11 @@ function applyIndexStats {
             } else {
                 ""
             }
+            $item.FailedCount = [int]$stat.Failed
+            $item.PendingCount = [int]$stat.Pending
             $item.SetStats(("{0:#,0}" -f $stat.Total), ("更新済み {0:#,0} 件 ・ 未更新 {1:#,0} 件 ・ 失敗 {2:#,0} 件" -f $stat.Done, $stat.Pending, $stat.Failed), $lastText)
         }
-        $row = getIndexRowView $stat $indexing $item.Enabled (getIndexingRatio) (testIndexInRound $item) (testIndexExporting $item) $formatEntry
+        $row = getIndexRowView $stat $indexing $item.Enabled (getIndexingRatio) (testIndexInRound $item) (testIndexExporting $item) $formatEntry (testIndexSubfoldersPending $item.Subfolders $item.IngestedSubfolders) (testIndexItemTextExcludesPending $item)
         $item.SetIndexState($row.Text, $row.ToolTip, $row.Level, $row.Sub, [double]$row.Percent)
         setIndexRowActions $item
     }
@@ -392,6 +444,16 @@ function applyIndexStats {
 }
 
 $script:indexFileTotal = 0
+
+function testIndexItemTextExcludesPending {
+    # 行のインデックスの、取り込む拡張子の今の設定が、前回取り込んだときの設定と違うか（同じインデックスの複数のフォルダの行は同じ値。差から毎回求め、保存しない）
+    param ($item)
+
+    if ([string]::IsNullOrEmpty([string]$item.Name)) {
+        return $false
+    }
+    return (testIndexTextExcludesChanged (getIndexTextExcludesOf $script:textExtState.Excludes $item.Name) (getIndexTextExcludesOf $script:textExtState.Ingested $item.Name))
+}
 
 function testIndexInRound {
     # 今の回で更新する行か（選んだものだけの回では、選んだ名前の行だけ）
@@ -443,7 +505,7 @@ function updateSelectedIndexes {
     startIndexing $names
 }
 
-$script:indexSourceRequest = [ref]0  # ［元のフォルダを開く］の確かめの依頼の番号（openFailedFileFolder と同じ理由で [ref] のまま閉じ込める）
+$script:indexSourceRequest = [ref]0  # ［元のフォルダを開く］の確かめの依頼の番号（openListedFileFolder と同じ理由で [ref] のまま閉じ込める）
 
 function applyIndexSourceFolderState {
     # openIndexSourceFolder の続き（getPathState の結果を画面に反映する）。フォルダが見つかれば、エクスプローラーで開く
@@ -491,6 +553,82 @@ function openIndexSourceFolder {
         return
     }
     setStatus (getIndexSourceFolderStatus "Checking" $path)
+    $otherState = ${pathStateOther}
+    startJob {
+        param ($path)
+        getPathState $path
+    } @($path) {
+        param ($output, $errorText)
+        if ($errorText) {
+            & $apply @{ State = $otherState; IsDirectory = $false; Message = $errorText }
+        } else {
+            & $apply $output[0]
+        }
+    }.GetNewClosure() (getWorkspaceJobQueue $path)
+}
+
+$script:indexLocationRequest = [ref]0  # 保存先の［フォルダを開く］の確かめの依頼の番号（openIndexSourceFolder と同じ理由で [ref] のまま閉じ込める）
+
+function updateIndexLocationView {
+    # ［インデックス管理］の保存先の行（ワークスペースのフォルダ。共有のときは警告も）を、今のワークスペースに合わせる。
+    # 文言は判断層（getIndexLocationView）。ネットワークかどうかは共有に接続せずに見分ける（testNetworkPath）
+    $dir = [string]$workspace.Dir
+    $view = getIndexLocationView $dir (testNetworkPath $dir)
+    $ui.IndexLocationLabel.Text = $view.Heading
+    $ui.IndexLocationText.Text = $view.Path
+    # パスと注意書きは、情報の印とパスのツールチップで読める（一覧の邪魔をしない）
+    $tip = "$($view.Path)`n$($view.Note)"
+    $ui.IndexLocationText.ToolTip = $tip
+    $ui.IndexLocationInfo.ToolTip = $tip
+    $ui.IndexLocationWarning.Text = $view.Warning
+    $ui.IndexLocationWarning.Visibility = if ($view.Warning) { "Visible" } else { "Collapsed" }
+}
+
+function applyIndexLocationState {
+    # openIndexLocation の続き（getPathState の結果を画面に反映する）。フォルダが見つかれば、エクスプローラーで開く。
+    # 開けないときの文言は showMessage に渡す（タブはステータス、確認のダイアログはダイアログの中）
+    param (
+        $state,
+        [string]$path,
+        [scriptblock]$showMessage
+    )
+
+    $kind = getIndexSourceFolderKind $state
+    if ($kind -eq "Open") {
+        Start-Process -FilePath "explorer.exe" -ArgumentList "`"${path}`""
+        & $showMessage ""
+        return
+    }
+    & $showMessage (getIndexLocationOpenStatus $kind $path $state.Message)
+}
+
+function openIndexLocation {
+    # 保存先（ワークスペースのフォルダ）をエクスプローラーで開く。タブと確認のダイアログの［フォルダを開く］の共通の入口。
+    # 無い・つながらない・開けないときの文言は showMessage（文字を受け取る処理）に渡す。
+    # ネットワークにあれば裏のスレッドで確かめ、画面のスレッドは待たない
+    param (
+        [scriptblock]$showMessage
+    )
+
+    $path = [string]$workspace.Dir
+    $requestBox = $script:indexLocationRequest
+    $requestBox.Value++
+    $requestId = $requestBox.Value
+    $applyState = ${function:applyIndexLocationState}
+    $apply = {
+        param ($state)
+        if ($requestId -ne $requestBox.Value) {
+            # 待っている間にもう一度押した。前の依頼は捨てる
+            return
+        }
+        & $applyState $state $path $showMessage
+    }.GetNewClosure()
+
+    if (!(testNetworkPath $path)) {
+        & $apply (getPathState $path)
+        return
+    }
+    & $showMessage (getIndexLocationOpenStatus "Checking" $path)
     $otherState = ${pathStateOther}
     startJob {
         param ($path)

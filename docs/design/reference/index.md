@@ -12,7 +12,7 @@
 ```mermaid
 flowchart LR
     settings["core/settings.ps1・workspace.ps1・source_name.ps1<br>core/fs.ps1・folder.ps1"] --> P1["settings.md"]
-    indexer["core/status_file.ps1・diagnostics.ps1<br>indexer/indexer_state.ps1<br>indexer_decide.ps1・index/index_name.ps1・index_store.ps1<br>index_archive_rules.ps1・index_archive.ps1"] --> P2["indexer.md"]
+    indexer["core/status_file.ps1・text_ext_counts.ps1・diagnostics.ps1<br>indexer/indexer_state.ps1<br>indexer_decide.ps1・index/index_name.ps1・index_store.ps1<br>index_archive_rules.ps1・index_archive.ps1"] --> P2["indexer.md"]
     tsv["core/fs.ps1・text.ps1・text_file.ps1<br>index/index_name.ps1・index_store.ps1・content_index_format.ps1・content_index_store.ps1"] --> P3["tsv.md"]
     search["search/search_query.ps1・content_index_search.ps1<br>search_run.ps1・search_service.ps1・source_map.ps1"] --> P4["search.md"]
 ```
@@ -26,26 +26,29 @@ flowchart LR
 | `tebunko/ui/shell/nav_view.ps1`（判断層） | `getScreenOrder` / `isScreenName` / `getNextScreen` / `getShortcutAction` | [画面の実装構成](../gui/implementation.md#実装構成) |
 | `tebunko/ui/shell/status_bar_view.ps1`（判断層） | `getIndexingStatusLine`・`getStatusBarView` | [画面の実装構成](../gui/implementation.md#実装構成) |
 | `tebunko/ui/shell/notice_banner_view.ps1`（判断層） | `getNoticeBannerView` | [画面の実装構成](../gui/implementation.md#実装構成) |
+| `tebunko/ui/index/text_ext_view.ps1`（判断層） | `getIndexExtensionGroups` / `getIndexExtensionGroupState` / `getIndexExtensionGroupToggle` / `setIndexExtensionGroup` / `getIndexTextExtensionRows` / `getIndexTextExtensionDetailView` / `convertIndexTextExtensionRows` / `getIndexTextExtensionSummary` / `getIndexTextExtensionBriefSummary` / `getIndexTextExtensionListView` / `getIndexTextExtensionCountNote` / `getIndexTextExtensionDetailRow` / `getIndexTextExtensionZeroHeader` / `getIndexTextExtensionDialogTexts` / `testIndexTextExcludesChanged` / `formatTextExtensionCount`（取り込み対象の拡張子の行・種類の見出しと 3 状態・要約・件数の見出し・差の判定・ダイアログの文言。Office・PDF・テキストの 86 個を扱う） | [［インデックス管理］タブ](../gui/index-tab.md) |
+| `tebunko/ui/index/text_ext_dialog.ps1` | `showIndexTextExtensionsDialog`（取り込む拡張子を選ぶダイアログ。戻り値は取り込まない拡張子の配列、キャンセルは `$null`）/ `addIndexTextExtensionRow` / `updateIndexTextExtensionDialogView` | [［インデックス管理］タブ](../gui/index-tab.md) |
 | `tebunko/ui/shell/nav.ps1` | `getCurrentScreen` / `selectScreen` / `invokeShortcutAction` | [画面の実装構成](../gui/implementation.md#実装構成) |
 | `shared/office/office_embedded.ps1` | `readEmbeddedObjectLines`（埋め込んだ Office のファイルの文字）/ `readEmbeddedPackageLines` / `readXlsxCellLines` / `readXlsxSheetCellLines` / `readXlsxSharedStrings` / `newEmbeddedState` / `addEmbeddedOutputChars` | [Word の埋め込みの読み取り](../indexing/word.md#埋め込みの読み取りreadembeddedobjectlines)、[PowerPoint](../indexing/powerpoint.md) |
-| `shared/office/office_reader.ps1` | `isZipFile` / `isCompoundFile` / `readZipEntryBytes` / `readDocxUnits` / `readDocxUnitsFromZip` / `readPptxUnits` / `readPptxUnitsFromZip` / `readXlsxObjectUnits`（ヘッダー・フッターは `readXlsxSheetHeaderFooter` / `readXlsxHeaderFooterLines` / `getHeaderFooterLines`） | [Word・PowerPoint の共通処理と Office アプリの管理](../indexing/office-apps.md#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1)、[Excel](../indexing/excel.md)、[Word](../indexing/word.md)、[PowerPoint](../indexing/powerpoint.md) |
+| `shared/office/office_reader.ps1` | `isZipFile` / `isCompoundFile` / `readZipEntryBytes` / `readDocxUnits` / `readDocxUnitsFromZip` / `readPptxUnits` / `readPptxUnitsFromZip`（マスター・レイアウト・ノートマスターは `readPptxMasterPartLines` / `getPptxLayoutMasterPart` / `addPptxLayoutPart` / `readPptxMasterUnits` / `addPptxSharedUnits`） / `readXlsxObjectUnits`（ヘッダー・フッターは `readXlsxSheetHeaderFooter` / `readXlsxHeaderFooterLines` / `getHeaderFooterLines`） | [Word・PowerPoint の共通処理と Office アプリの管理](../indexing/office-apps.md#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1)、[Excel](../indexing/excel.md)、[Word](../indexing/word.md)、[PowerPoint](../indexing/powerpoint.md) |
 | `shared/office/office_file_kind_view.ps1`（判断層） | `getOfficeFileKind` / `getOfficeExtensionsOfKind` | [ファイルとフォルダ](settings.md) |
 | `shared/office/office_protection_view.ps1`（判断層） | `getOfficeProtectionKind` / `getProtectionFailureText` / `testOfficeOutput` / `testWorkbookFormat` / `getWordOpenFormat` | [暗号化されたファイルの判定](../indexing/office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1) |
 | `shared/office/office_protection.ps1` | `readFileHead` / `readCompoundEntryNames` / `getOfficeFileProtection` | [暗号化されたファイルの判定](../indexing/office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1) |
 | `shared/office/office_app.ps1` | `getApp` / `getOwnSessionProcessIds` / `resolveLongName` / `resolveOwnDir` / `isUnderDir` / `getWorkbookSplit` / `releaseWorkbookSplit` / `getForeignWorkbookCount` / `testProcessHasWindow` / `handOverForeignApp` / `untrackApp` / `keepUndecidedApp` / `quitApp` / `quitKeptApp` / `restoreHandedOverApp` / `releaseHandedOverApp` / `handOverApp` / `retryKeptApps` / `testProcessExists` / `getMonotonicMilliseconds` / `waitKeptApps` / `stopApp` / `stopAllApps` / `getWatchdogVerdict` / `OfficeWatchdog`（クラス） | [Word・PowerPoint の共通処理と Office アプリの管理](../indexing/office-apps.md#office-アプリexcelwordpowerpointの管理) |
-| `tebunko/indexer/indexer_plan.ps1` | `findTargetFiles` / `createTargetList` / `selectOnlyNames`（選んだインデックス名を、更新できるものとできないものに分ける） | [取り込み対象の決定](../indexing/target-decision.md#取り込み対象の決定createtargetlist)、[インデックス作成のメインフロー](../indexing/flow.md) |
+| `tebunko/indexer/indexer_plan.ps1` | `findTargetFiles`（`-TopOnly` で直下だけ・`-onCounted` で数えた数を伝える） / `createTargetList` / `getSubfolderRemovedCounts`（直下だけに変えたとき、サブフォルダ側で外れる件数） / `getTextExcludeRemovedCounts`（取り込まないにした拡張子のために外れる件数） / `selectOnlyNames`（選んだインデックス名を、更新できるものとできないものに分ける） | [取り込み対象の決定](../indexing/target-decision.md#取り込み対象の決定createtargetlist)、[インデックス作成のメインフロー](../indexing/flow.md) |
 | `tebunko/indexer/extract_office.ps1` | `ingestFile` / `extractWorkbook` / `extractDocument` / `writeUnits` | [Excel](../indexing/excel.md)、[Word・PowerPoint の共通処理と Office アプリの管理](../indexing/office-apps.md#wordpowerpoint-の抽出処理extractdocument) |
 | `tebunko/indexer/extract_text.ps1` | `extractTextFile` | [テキストファイルの読み取り](../indexing/text.md#テキストファイルの抽出処理extracttextfile) |
 | `tebunko/indexer/extract_pdf.ps1` | `extractPdfFile` | [PDF ファイルの読み取り](../indexing/pdf.md#取り込みの流れ) |
 | `shared/core/pdf_crypt.ps1` | `newPdfCrypt` `getPdfKeyR56` `getPdfStreamCryptMethod` `unprotectPdfData` `getPdfSha` `invokePdfAesCbc` `getPdfCryptHashR56` | [PDF ファイルの読み取り](../indexing/pdf.md#暗号化された-pdf) |
 | `shared/core/pdf_file.ps1` | `readPdfPages` `readPdfFile` `testPdfExtension` `newPdfLimits` | [PDF ファイルの読み取り](../indexing/pdf.md) |
 | `tebunko/indexer/index_migrate.ps1` | `publishTsv` / `initTmpDir` / `newDirectoryReplacingExisting` / `newWorkerTmpDir` / `removeStaleTmpDirs` / `removeEmptyDir` / `findDroppedIndexes` / `getDroppedStatusRows` / `writeStatusKeepingDropped` / `removeDroppedFolders` | [クロール対象フォルダと取り込み対象](../indexing/crawl.md)、[インデックスのファイルの形](../index-data/format.md#配置命名規則) |
+| `tebunko/indexer/ingest_timing.ps1` | `IngestTiming`（`Start` / `Mark` / `Lap` / `AddStage` / `Finish` / `AddFile` / `AddPostponed` / `ToHashtable` / `FormatLogLines`） | [取り込みの並列化](../indexing/parallel.md)、[警告・お知らせ](../indexing/log-warnings.md) |
 | `tebunko/indexer/pending_publish.ps1` | `PendingPublish`（`Add` / `MarkFolder` / `AddPending` / `Dispatch` / `Skip` / `Complete` / `TakeFlushable` / `TakeAll`） | [入れ替えと書き出し](../index-data/publish.md)「本文インデックスへの書き出し」、[取り込みの並列化](../indexing/parallel.md) |
 | `tebunko/indexer/indexer_plan.ps1`（`IngestPlanner`） | `IngestPlanner`（`AssignNames` / `SaveNames` / `SelectOnly` / `Crawl` / `KeepForCancel` / `ApplyFailed` / `ApplyInterrupted` / `FolderByName`） | [取り込み対象の決定](../indexing/target-decision.md)、[クラスと関数の使い分け](../structure/classes.md) |
 | `tebunko/indexer/indexing_reporter.ps1` | `IndexingReporter`（`Progress` / `WaitForApproval`） | [インデックス作成のメインフロー](../indexing/flow.md)、[取り込み対象の決定](../indexing/target-decision.md#取り込み予定画面の確認に出す件数) |
-| `tebunko/indexer/ingest_dispatcher.ps1` | `IngestDispatcher`（`Start` / `BeginPass` / `DispatchNext` / `Submit` / `SetInlineResult` / `Receive` / `TakeAbandonedWorker` / `StopIfRequested` / `InflightCount` / `GetInflightCount` / `Stop`） | [取り込みの並列化](../indexing/parallel.md)、[クラスと関数の使い分け](../structure/classes.md) |
+| `tebunko/indexer/ingest_dispatcher.ps1` | `IngestDispatcher`（`Start` / `BeginPass` / `DispatchNext` / `Submit` / `SetInlineResult` / `Receive` / `TakeAbandonedWorker` / `StopIfRequested` / `LastResult` / `InflightCount` / `GetInflightCount` / `Stop`） | [取り込みの並列化](../indexing/parallel.md)、[クラスと関数の使い分け](../structure/classes.md) |
 | `tebunko/indexer/ingest_journal.ps1` | `IngestJournal`（`ReadPrevious` / `AddRecord` / `Reset` / `Close`）、`getLegacyIngestingPath` / `readLegacyIngesting` / `removeLegacyIngesting` | [取り込み一覧](../indexing/ingest-list.md#ジャーナルの形) |
-| `tebunko/indexer/indexer_run.ps1` | `invokeIndexer` / `invokeIndexerBody` / `getIngestWorkerCount` / `runIngestWorker` / `invokeIngestTask` / `completeIngestJob` / `flushPendingPublish` | [インデックス作成のメインフロー](../indexing/flow.md)、[取り込みの並列化](../indexing/parallel.md) |
+| `tebunko/indexer/indexer_run.ps1` | `invokeIndexer` / `invokeIndexerBody` / `getIngestWorkerCount` / `runIngestWorker` / `invokeIngestTask` / `completeIngestJob` / `applyRemovedPaths`（確認で［更新を開始］のあと、無くなったファイルのインデックスを消す） / `recordIngestedSettings`（取り込み終えた回のあと、使った subfolders を設定の ingestedSubfolders に書く） / `recordIngestedTextExtensions`（同じく、拡張子ごとの件数の控えと、使った取り込まない拡張子を書く） / `flushPendingPublish` / `publishFlushable` / `addStageTiming` / `addIngestResultTiming` / `addPostponedTiming` / `addReceivedTiming` / `postponeAbandonedEntries` / `postponeUndispatched` / `dropVanishedFile` / `invokeTimedIngest` / `publishTsvTimed` / `writeStageTimingLog` | [インデックス作成のメインフロー](../indexing/flow.md)、[取り込みの並列化](../indexing/parallel.md) |
 | `shared/ui/*`・`tebunko/ui/*` | 画面の部品（`showConfirm`・`selectFolder` など） | [画面の実装構成](../gui/implementation.md#実装構成) |
 
 ## インデクサ・画面（検索）が使う関数
@@ -88,8 +91,9 @@ flowchart LR
     GR --> SI["searchContentIndex"]
     SI --> NSR["newSearchRegex / newFileFilter / newPlaceExclude"]
     SI --> STF["searchContentIndexFiles<br>（.NET の StreamReader＋regex）"] --> RPP
-    GR --> WSR["writeSearchResult"] --> TSR["toSearchResultLines"]
-    TSR --> TRL
+    GR --> WSR["invokeSearchExport"] --> GSL["getSearchResultLine"]
+    GR --> TSR["toSearchResultLines"] --> GSL
+    GSL --> TRL
     TSR --> CTF
     TSR --> TRH --> TCN
 ```
@@ -105,7 +109,7 @@ flowchart LR
         TF["getTargetFolders / writeTargetFolders"]
         CS["getIndexingState"] --> RSF2["readStatusFile"]
         SUM["getIndexSummary / testIndexExists"]
-        SI2["searchContentIndex / toSearchResultLines / writeSearchResult"]
+        SI2["searchContentIndex / toSearchResultLines / invokeSearchExport"]
         RPC["readContentIndexLines（選択行のプレビュー）"]
         RSP["resolveSourcePath"] --> SL["getSourceLocation"] --> SFM["getSourceFolderMap"] --> INM["getIndexNameMap"] --> RSF2
         SFM --> RSFF["readSourceFolderFile"]

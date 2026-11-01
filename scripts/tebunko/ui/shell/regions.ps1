@@ -18,12 +18,11 @@
             "IndexingProgressDetail", "IndexingStopButton", "IndexingResumeButton", "IndexingSearchButton", "IndexingBannerClose",
             "IndexNoticeHost") }
         @{ File = "index\index_list.xaml"; Slot = "IndexListHost"; Names = @(
-            "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "ActionsButton", "ActionsMenu", "ActionUpdate", "ActionExport", "ActionImport", "ActionDelete", "SelectionCountText", "SelectAllCheckBox", "IndexingButton", "IndexingHint", "StatusColumnHeader",
+            "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "ActionsButton", "ActionsMenu", "ActionUpdate", "ActionExport", "ActionImport", "ActionDelete", "SelectionCountText", "SelectAllCheckBox", "IndexingButton", "IndexingHint", "StatusColumnHeader", "IndexLocationLabel", "IndexLocationInfo", "IndexLocationText", "IndexLocationWarning", "OpenIndexLocationButton",
             "IndexRowMenu", "RowMenuUpdate", "RowMenuOpenFolder", "RemoveIndexButton", "ExportIndexButton") }
         @{ File = "index\index_detail.xaml"; Slot = "IndexDetailHost"; Names = @(
             "IndexDetailTitle", "IndexSummaryText",
-            "IndexDetailRows",
-            "FailedPanel", "FailedHeading", "FailedGrid") }
+            "IndexDetailRows") }
         @{ File = "search\search.xaml"; Slot = "ContentHost"; Screen = "SearchTab"; Names = @(
             "SearchBarHost", "ResultListHost", "PreviewHost", "DetailRow", "PreviewSplitter", "ResultEmptyState", "GoIndexTabButton",
             "SearchNoticeHost") }
@@ -38,7 +37,7 @@
         @{ File = "search\target_tree.xaml"; Slot = "NavPaneHost"; Names = @(
             "IndexTree", "CheckAllIndexButton", "UncheckAllIndexButton", "TargetCountText") }
         @{ File = "search\result_list.xaml"; Slot = "ResultListHost"; Names = @(
-            "SummaryText", "SearchProgress", "FilterBox", "FilterPlaceholder", "ExpandAllButton", "CollapseAllButton", "ExportButton",
+            "SummaryText", "SearchProgress", "FilterBox", "FilterPlaceholder", "ExpandAllButton", "CollapseAllButton", "ExportButton", "ExportButtonText", "ExportGroup", "ExportIcon", "ExportMenuPart", "ExportMenuButton", "MenuExportXlsx", "MenuExportCsv", "MenuExportTsv",
             "ResultGrid", "NoHitText",
             "ResultMenu", "MenuOpen", "MenuOpenReadOnly", "MenuOpenNew", "MenuOpenFolder", "MenuCopy", "MenuCopyPath", "MenuToggleGroup") }
         @{ File = "search\preview.xaml"; Slot = "PreviewHost"; Names = @(
@@ -47,7 +46,7 @@
             "PreviewPlaceholder", "PreviewMenu", "MenuPreviewOpen", "MenuPreviewCopy", "MenuPreviewCopyRow") }
         @{ File = "settings\settings.xaml"; Slot = "ContentHost"; Screen = "SettingsTab"; Names = @(
             "WorkspaceBox", "WorkspaceInputError", "WorkspaceNote", "WorkspaceCaution", "WorkspaceHowTo", "ChangeWorkspaceButton", "ResetWorkspaceButton", "SettingsFileText", "SettingsFileNote",
-            "SearchLimitedRadio", "SearchNoneRadio", "SearchLimitBox", "SearchLimitInputError", "SearchLimitRange", "SearchLimitCaution") }
+            "SearchLimitedRadio", "SearchNoneRadio", "SearchLimitBox", "SearchLimitInputError", "SearchLimitRange", "SearchLimitCaution", "TextExtensionHint", "TextExtensionSummary", "ChangeTextExtensionsButton", "EditorHint", "ChangeEditorButton") }
     )
 
     foreach ($name in @("NavHost", "ContentHost", "StatusBarHost", "ScrimOverlay",

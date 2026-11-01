@@ -343,6 +343,27 @@ Describe "readIndexArchiveInfo" -Tag Io {
 }
 
 Describe "importIndex" -Tag Io {
+    It "進み具合: -progress を渡すと、終わったとき Done が Total（目録の大きさの合計）と等しい" {
+        $fixtureA = newIndexFixture "$TestDrive\progress_a" "営業" "C:\共有\営業部"
+        $dest = "$TestDrive\progress.zip"
+        exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
+        $manifest = (openIndexArchive $dest)
+        try {
+            $expected = [long]0
+            foreach ($file in @($manifest.Manifest.files)) { $expected += [long]$file.size }
+        } finally {
+            $manifest.Archive.Dispose()
+        }
+
+        $progress = [hashtable]::Synchronized(@{ Done = [long]0; Total = [long]0 })
+        $wsB = [Workspace]::new("$TestDrive\progress_b")
+        importIndex $dest ${importCollisionRename} "" "D:\別の場所\営業部" $wsB "$TestDrive\progress_b\setting.config" -progress $progress | Out-Null
+
+        $expected | Should -BeGreaterThan 0
+        $progress.Total | Should -Be $expected
+        $progress.Done | Should -Be $expected
+    }
+
     It "往復: 別のワークスペース・別の元のフォルダへインポートすると検索でき、場所が新しい元のフォルダになる" {
         $fixtureA = newIndexFixture "$TestDrive\roundtrip_a" "営業" "C:\共有\営業部"
         $dest = "$TestDrive\roundtrip.zip"
@@ -1345,5 +1366,155 @@ Describe "getImportArchiveInfo" -Tag Io {
         Mock readIndexArchiveInfo { @{ IndexName = "営業"; SourceFolder = "" } }
 
         (getImportArchiveInfo "$TestDrive\dummy.zip").SourceExists | Should -Be $false
+    }
+}
+
+Describe "大きすぎる本文インデックスのファイルを含めずに書き出す" -Tag Io {
+    BeforeAll {
+        function script:newOversizedFixture {
+            # newIndexFixture に、元のファイル 2 つ（巨大.csv・巨大2.csv）が入った本文インデックスのファイル（8KB 前後）を足す。
+            # 取り込み一覧にも "資料\巨大.csv" の行を足す。呼び出し側は、上限を 4KB に下げてから使う
+            param ([string]$dir)
+
+            $fixture = newIndexFixture $dir "営業" "C:\共有\営業部"
+            $ws = $fixture.Workspace
+            $line = ("あ" * 100) + "`n"
+            $books = @(
+                @{ Name = "巨大.csv"; Places = @(@{ Place = "Sheet1"; Text = ($line * 40) }) }
+                @{ Name = "巨大2.csv"; Places = @(@{ Place = "Sheet1"; Text = ($line * 40) }) }
+            )
+            $bigDir = Join-Path $ws.IndexDir "営業\資料"
+            [System.IO.Directory]::CreateDirectory((toLongPath $bigDir)) | Out-Null
+            $bigPath = Join-Path $bigDir (getContentIndexFileName "csv")
+            [System.IO.File]::WriteAllText((toLongPath $bigPath), (convertToContentIndexText $books), (New-Object System.Text.UTF8Encoding($true)))
+            $status = readStatusFile $ws.StatusFile
+            $rows = @(getStatusRowArray $status)
+            $rows += (newStatusRow "営業\資料\巨大.csv" "2024/01/01 00:00:00" "100" ${stateDone} "1" "2024/01/01 00:00:00" "" ([string](getExtractVersion "巨大.csv")))
+            writeStatusFile @($status.Folders.ToArray()) $rows $ws.StatusFile
+            return $fixture
+        }
+    }
+
+    It "往復: 上限を超えるファイルは含めず Omitted に元のファイル名を入れ、インポートは成功し、取り込み一覧の行は残る" {
+        ${contentIndexSearchMaxBytes} = 4KB
+        $fixture = newOversizedFixture "$TestDrive\omit_a"
+        $dest = "$TestDrive\omit.zip"
+
+        $exported = exportIndex "営業" $dest $fixture.Workspace $fixture.SettingsPath
+
+        @($exported.Omitted).Count | Should -Be 1
+        $exported.Omitted[0].Path | Should -Be "資料\$(getContentIndexFileName 'csv')"
+        (@($exported.Omitted[0].Books) -join "|") | Should -Be "巨大.csv|巨大2.csv"
+        $exported.Files | Should -Be 2
+
+        $wsB = [Workspace]::new("$TestDrive\omit_b")
+        $result = importIndex $dest ${importCollisionRename} "" "D:\別の場所\営業部" $wsB "$TestDrive\omit_b\setting.config"
+
+        $result.Name | Should -Be "営業"
+        @(Get-ChildItem -LiteralPath $wsB.IndexDir -Recurse -File -Filter "*.tsv" | ForEach-Object { $_.Name }) | Should -Be @("content_index.xlsx.001.tsv")
+        (readSearchWord $wsB "鉛筆").Count | Should -Be 1
+        $paths = @(getStatusRowArray (readStatusFile $wsB.StatusFile) | ForEach-Object { $_.相対パス })
+        $paths | Should -Contain "営業\資料\巨大.csv"
+        $paths | Should -Contain "営業\見積\A社.xlsx"
+    }
+
+    It "全部が上限内なら Omitted は空で、目録の files は今までと同じ" {
+        $fixture = newIndexFixture "$TestDrive\omit_none" "営業" "C:\共有\営業部"
+        $dest = "$TestDrive\omit_none.zip"
+
+        $exported = exportIndex "営業" $dest $fixture.Workspace $fixture.SettingsPath
+
+        @($exported.Omitted).Count | Should -Be 0
+        $exported.Files | Should -Be 2
+    }
+
+    It "本文インデックスのファイルが全部上限を超えても、書き出し、インポートも成功する（0 件）" {
+        ${contentIndexSearchMaxBytes} = 100
+        $fixture = newIndexFixture "$TestDrive\omit_all" "営業" "C:\共有\営業部"
+        $dest = "$TestDrive\omit_all.zip"
+
+        $exported = exportIndex "営業" $dest $fixture.Workspace $fixture.SettingsPath
+
+        @($exported.Omitted).Count | Should -Be 1
+        @($exported.Omitted[0].Books) | Should -Be @("A社.xlsx")
+        $exported.Files | Should -Be 1
+        $wsB = [Workspace]::new("$TestDrive\omit_all_b")
+        { importIndex $dest ${importCollisionRename} "" "D:\別の場所\営業部" $wsB "$TestDrive\omit_all_b\setting.config" } | Should -Not -Throw
+    }
+
+    It "大きすぎるファイルの入った zip（含めずに書き出す前の版の zip）をインポートすると、書き出し直す案内の文言で断られる" {
+        $fixture = newOversizedFixture "$TestDrive\omit_old"
+        $dest = "$TestDrive\omit_old.zip"
+        exportIndex "営業" $dest $fixture.Workspace $fixture.SettingsPath | Out-Null
+
+        ${contentIndexSearchMaxBytes} = 4KB
+        $wsB = [Workspace]::new("$TestDrive\omit_old_b")
+        $message = ""
+        try {
+            importIndex $dest ${importCollisionRename} "" "D:\別の場所\営業部" $wsB "$TestDrive\omit_old_b\setting.config" | Out-Null
+        } catch {
+            $message = $_.Exception.Message
+        }
+
+        $message | Should -BeLike "*を読み込めません（大きさが上限（0 MB）を超えています）。この版の tebunko でエクスポートし直すと、大きすぎるファイルを含めずに書き出せます。"
+        $message | Should -Not -BeLike "*更新し直して*"
+    }
+
+    It "writeContentIndexFilesToArchive: 上限内のファイルだけを zip と目録に入れ、超えたものは Omitted に控える" {
+        ${contentIndexSearchMaxBytes} = 4KB
+        $fixture = newOversizedFixture "$TestDrive\omit_direct"
+        $indexDir = Join-Path $fixture.Workspace.IndexDir "営業"
+        $files = @("見積\$(getContentIndexFileName 'xlsx')", "資料\$(getContentIndexFileName 'csv')")
+        $manifestFiles = New-Object System.Collections.Generic.List[object]
+        $zipPath = "$TestDrive\omit_direct.zip"
+        $archive = [System.IO.Compression.ZipFile]::Open($zipPath, [System.IO.Compression.ZipArchiveMode]::Create, [System.Text.Encoding]::UTF8)
+        try {
+            $result = writeContentIndexFilesToArchive $archive $indexDir $files $manifestFiles
+        } finally {
+            $archive.Dispose()
+        }
+
+        @($manifestFiles | ForEach-Object { $_.path }) | Should -Be @("content_index/見積/content_index.xlsx.001.tsv")
+        @($result.Omitted).Count | Should -Be 1
+        $result.Omitted[0].Path | Should -Be $files[1]
+        $result.Bytes | Should -Be $manifestFiles[0].size
+    }
+
+    It "exportIndexes: 結果に Omitted が付く（含めなかったものがあるときと、失敗したとき）" {
+        ${contentIndexSearchMaxBytes} = 4KB
+        $fixture = newOversizedFixture "$TestDrive\omit_bulk"
+        $folder = "$TestDrive\omit_bulk_out"
+        [System.IO.Directory]::CreateDirectory($folder) | Out-Null
+
+        $results = exportIndexes @("営業", "無い名前") $folder $fixture.Workspace $fixture.SettingsPath
+
+        $results[0].Ok | Should -Be $true
+        @($results[0].Omitted).Count | Should -Be 1
+        $results[1].Ok | Should -Be $false
+        @($results[1].Omitted).Count | Should -Be 0
+    }
+}
+
+Describe "分けた塊（版 3）のファイルを含むインデックスの往復" -Tag Io {
+    It "exportIndex してから importIndex すると成功し、分けた元のファイルの後ろの行も検索できる（含めなかったものは無い）" {
+        ${contentIndexSearchMaxBytes} = 4KB
+        ${contentIndexFileMaxBytes} = 2KB
+        $fixture = newIndexFixture "$TestDrive\split_a" "営業" "C:\共有\営業部"
+        $splitDir = Join-Path $fixture.Workspace.IndexDir "営業\資料"
+        newTsv "$splitDir\巨大.csv\$(toIndexFileName "Sheet1")" @(1..120 | ForEach-Object { "巨大な行 $_ 単価 " + ("あ" * 20) })
+        [void](convertFolderToContentIndex $splitDir $splitDir @() $true)
+        $files = @(Get-ChildItem -LiteralPath $splitDir -Filter "content_index.csv.*.tsv")
+        $files.Count | Should -BeGreaterThan 2
+        $dest = "$TestDrive\split_a.zip"
+
+        $exported = exportIndex "営業" $dest $fixture.Workspace $fixture.SettingsPath
+
+        @($exported.Omitted).Count | Should -Be 0
+        $wsB = [Workspace]::new("$TestDrive\split_a_b")
+        { importIndex $dest ${importCollisionRename} "" "D:\別の場所\営業部" $wsB "$TestDrive\split_a_b\setting.config" } | Should -Not -Throw
+        @(Get-ChildItem -LiteralPath $wsB.IndexDir -Recurse -File -Filter "content_index.csv.*.tsv").Count | Should -Be $files.Count
+        $hits = readSearchWord $wsB "巨大な行 110 単価"
+        $hits.Count | Should -Be 1
+        $hits[0].LineNumber | Should -Be 110
     }
 }

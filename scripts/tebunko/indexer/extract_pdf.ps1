@@ -12,14 +12,15 @@ function extractPdfFile {
         [string]$sourcePath,
         [string]$outDir,
         [long]$maxBytes = ${pdfFileMaxBytes},
-        [hashtable]$limits = $null
+        [hashtable]$limits = $null,
+        [hashtable]$timing = $null
     )
 
     if ([System.IO.FileInfo]::new((toLongPath $sourcePath)).Length -gt $maxBytes) {
         throw ${fileTooLargeMessage}
     }
     $copyPath = Join-Path $outDir "source.copy"
-    $pages = invokeWithSourceCopy $sourcePath $copyPath { readPdfFile $copyPath $maxBytes $limits }
+    $pages = invokeWithSourceCopy $sourcePath $copyPath { readPdfFile $copyPath $maxBytes $limits } $null $timing
     $units = [ordered]@{}
     for ($i = 0; $i -lt $pages.Count; $i++) {
         addUnitLines $units ("ページ{0:D3}" -f ($i + 1)) ($pages[$i] -split "`n")

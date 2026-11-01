@@ -2,6 +2,7 @@
 BeforeAll {
     $measure = "$PSScriptRoot\..\..\tools\measure_perf.ps1"
     . "$PSScriptRoot\..\..\tools\perf\perf_common.ps1"
+    . "$PSScriptRoot\..\..\scripts\tebunko\core\workspace.ps1"
 
     function writeTsv([string]$path, [string[]]$lines) {
         [void][System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($path))
@@ -391,8 +392,9 @@ Describe "perf_common.ps1 のプレビューの部品" -Tag Unit {
     }
 
     It "描画の結果は、部品の数・スクロールの時間・残るメモリを引き継ぐ" {
-        $r = newRenderResult ([pscustomobject]@{ Cells = 1; Rows = 1; Columns = 1; Elements = 321; ScrollMs = 12.5; RenderRetainedMB = 3.2; RenderMs = @(5.0); WorkingSetBeforeMB = 1.0; WorkingSetAfterMB = 1.0 })
+        $r = newRenderResult ([pscustomobject]@{ Cells = 1; Rows = 1; Columns = 1; Elements = 321; ScrollMs = 12.5; HScrollMs = 8.5; HScrollChanges = 2; RenderRetainedMB = 3.2; RenderMs = @(5.0); WorkingSetBeforeMB = 1.0; WorkingSetAfterMB = 1.0 })
         ($r.Elements, $r.ScrollMs, $r.RenderRetainedMB) | Should -Be @(321, 12.5, 3.2)
+        ($r.HScrollMs, $r.HScrollChanges) | Should -Be @(8.5, 2)
     }
 
     It "<name>" -TestCases @(
@@ -432,6 +434,54 @@ Describe "perf_common.ps1 のプレビューの部品" -Tag Unit {
     }
 }
 
+Describe "perf_common.ps1 の gram 索引の計測の部品" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "<W>\store\content\<名前> の形なら <W> を返す"; index = "C:\perf\ws\store\content\perfdata"; expect = "C:\perf\ws" }
+        @{ name = "末尾の \ があっても <W> を返す"; index = "C:\perf\ws\store\content\perfdata\"; expect = "C:\perf\ws" }
+        @{ name = "大文字小文字は区別しない"; index = "C:\perf\ws\Store\Content\perfdata"; expect = "C:\perf\ws" }
+        @{ name = "親が content でなければ `$null"; index = "C:\perf\ws\store\index\perfdata"; expect = $null }
+        @{ name = "その親が store でなければ `$null"; index = "C:\perf\ws\work\content\perfdata"; expect = $null }
+        @{ name = "従来の置き場（work\index）は `$null"; index = "C:\perf\work\index"; expect = $null }
+        @{ name = "浅すぎる場所は `$null"; index = "C:\perfdata"; expect = $null }
+        @{ name = "空は `$null"; index = ""; expect = $null }
+    ) {
+        param ($index, $expect)
+        getPerfGramWorkDir $index | Should -Be $expect
+    }
+
+    It "Workspace クラスが無い版では、置き場の形が合っていても $null を返す" {
+        # 型の有無は -as [type] で見る。存在しない型名に差し替えた関数で、同じ分岐を通す
+        $body = (Get-Command getPerfGramWorkDir -CommandType Function).ScriptBlock.ToString().Replace("'Workspace' -as [type]", "'NoSuchWorkspaceType' -as [type]")
+        $noType = [scriptblock]::Create("param (`$index)`n" + $body.Substring($body.IndexOf("if (!`$index)")))
+        & $noType "C:\perf\ws\store\content\perfdata" | Should -BeNullOrEmpty
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "gram で絞れた語は、絞った数／全部"; packs = 12; all = 1500; used = 20; expect = "12／1,500" }
+        @{ name = "gram を使わなかった語は、–／全部"; packs = 1500; all = 1500; used = 0; expect = "–／1,500" }
+        @{ name = "全部の数が無ければ、–／–"; packs = 5; all = $null; used = 0; expect = "–／–" }
+    ) {
+        param ($packs, $all, $used, $expect)
+        formatPerfPacks $packs $all $used | Should -Be $expect
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "gram の結果が無ければ空"; gram = $null; expect = @() }
+        @{ name = "作らなかったときは理由を出す"; gram = [pscustomobject]@{ Skipped = "置き場の形" }; expect = @("gram 索引は作らなかった（置き場の形）。この結果の検索は gram 索引なしの数字になる。") }
+    ) {
+        param ($gram, $expect)
+        $lines = @(getPerfGramLines $gram)
+        $lines.Count | Should -Be $expect.Count
+        for ($i = 0; $i -lt $expect.Count; $i++) { $lines[$i] | Should -Be $expect[$i] }
+    }
+
+    It "作ったときは、秒・ファイル数・大きさ・失敗の表を出す" {
+        $lines = @(getPerfGramLines ([pscustomobject]@{ Seconds = 12.34; Files = 1500; MB = 7.5; Failed = 0; Skipped = $null }))
+        $lines[-1] | Should -Be "| 12.3 秒 | 1,500 | 7.5 MB | 0 |"
+        ($lines -join "`n") | Should -Match "gram 索引の作成"
+    }
+}
+
 Describe "measure_perf.ps1" -Tag Io {
     # 取り込みの一時置き場の形（<フォルダ>\<ファイル名.xlsx>\<場所>.tsv）の小さなインデックスと、検索する語の表
     BeforeAll {
@@ -449,7 +499,7 @@ Describe "measure_perf.ps1" -Tag Io {
     }
 
     It "形式の版と実行の情報を書く" {
-        $result.Schema | Should -Be 5
+        $result.Schema | Should -Be 6
         $result.Run.RunId | Should -Be "1"
         $result.Run.Ref | Should -Be "main"
         $result.Run.Count | Should -Be 3
@@ -498,6 +548,26 @@ Describe "measure_perf.ps1" -Tag Io {
         @($metrics | Where-Object { $_.metric -eq "index_seconds" }).Count | Should -Be 1
         @($metrics | Where-Object { $_.run_id -ne "1" -or $_.sha -ne "abc1234" }).Count | Should -Be 0
         (Get-Content "$out\metrics.csv" -TotalCount 1) | Should -Match '"run_id","date","ref","sha","scale","metric","word","stat","value","unit"$'
+    }
+
+    It "置き場が <W>\store\content\<名前> の形でなければ、gram 索引は作らず、検索は gram なしの数字で出す" {
+        $result.Index.Gram.Skipped | Should -Be "置き場の形"
+        foreach ($s in $result.Search) {
+            $s.GramUsed | Should -Be 0
+            $s.Runs | Should -Be 3
+            $s.AllPacks | Should -Be 2
+            $s.FirstShownMs | Should -Not -BeNullOrEmpty
+        }
+        $md = [System.IO.File]::ReadAllText("$out\summary.md")
+        $md | Should -Match "gram 索引は作らなかった（置き場の形）"
+        $md | Should -Match "照合した pack（gram で絞った数／全部）"
+        $md | Should -Match "1 回目（ShownMs。N=1）"
+        $md | Should -Match "数え終わるまで（TotalMs。中央値／最大）"
+        $md | Should -Match "\| 無い \|.*\| –／2 \| 0／3 \|"
+        $first = @(Import-Csv "$out\searches.csv")[0]
+        $first.PSObject.Properties.Name -contains "GramUsed" | Should -Be $true
+        $first.PSObject.Properties.Name -contains "AllPacks" | Should -Be $true
+        @(Import-Csv "$out\metrics.csv" | Where-Object { $_.metric -eq "search_all_packs" -and $_.word -eq "まれ" }).Count | Should -Be 1
     }
 
     It "summary.md に表とグラフを書き、パスを書かない" {
@@ -606,7 +676,7 @@ Describe "measure_perf.ps1" -Tag Io {
         $w = Join-Path $TestDrive "preview-full"
         & $measure -Index $index -Work $w -Words $words -Count 1 -Preview 3 -PreviewFullRead -SampleMs 50 6>$null | Out-Null
         $r = [System.IO.File]::ReadAllText("$w\result\result.json") | ConvertFrom-Json
-        $r.Schema | Should -Be 5
+        $r.Schema | Should -Be 6
         foreach ($p in $r.Preview.Words) {
             $p.FullRead | Should -Not -BeNullOrEmpty
             $p.FullRead.Name | Should -Be $p.Name
@@ -732,6 +802,17 @@ Describe "取り込みの計測の部品（ingest_common.ps1）" -Tag Unit {
         $s["仕上げ"] | Should -Be 0.3
     }
 
+    It "受け渡しの口の StageTimings は、あれば返し、項目が無い・空なら何も返さない" -TestCases @(
+        @{ channel = @{ StageTimings = @{ Stages = @{ Total = 1.0 }; Kinds = @{} } }; has = $true }
+        @{ channel = @{ StageTimings = $null }; has = $false }
+        @{ channel = @{ Progress = 1 }; has = $false }
+        @{ channel = $null; has = $false }
+    ) {
+        param ($channel, $has)
+        $r = getIngestStageTimings $channel
+        if ($has) { $r.Stages.Total | Should -Be 1.0 } else { $r | Should -BeNullOrEmpty }
+    }
+
     It "<name>は失敗にする" -TestCases @(
         @{ name = "取り込みの段階が読めなかったとき"; phases = @(@{ Name = "クロール"; StartMs = 0; EndMs = 500 }, @{ Name = "仕上げ"; StartMs = 500; EndMs = 700 }); message = "*取り込みの段階が読めませんでした*" }
         @{ name = "段階が 1 つも読めなかったとき"; phases = @(); message = "*取り込みの段階が読めませんでした*" }
@@ -855,7 +936,7 @@ Describe "measure_perf.ps1 -Xlsx" -Tag Io {
     }
 
     It "Excel の流れ読みを測り、読んだ場所の数・行の数・失敗の数・時間を書く" {
-        $result.Schema | Should -Be 5
+        $result.Schema | Should -Be 6
         $result.Xlsx.Repeat | Should -Be 2
         $result.Xlsx.Rows | Should -Be 50
         $result.Xlsx.ManyRows | Should -Be 20
@@ -908,6 +989,68 @@ Describe "measure_perf.ps1 -Xlsx" -Tag Io {
         $after | Should -Be $configBefore
     }
 }
+Describe "measure_perf.ps1 -Export" -Tag Io {
+    BeforeAll {
+        $measure = "$PSScriptRoot\..\..\tools\measure_perf.ps1"
+        $repoConfig = Join-Path (Resolve-Path "$PSScriptRoot\..\..").ProviderPath "setting.config"
+        $configBefore = if (Test-Path -LiteralPath $repoConfig) { (Get-FileHash $repoConfig).Hash } else { $null }
+        $work = Join-Path $TestDrive "export-work"
+        & $measure -Export 2 -ExportHits 40 -Work $work -SampleMs 20 -RunId "9" -Sha "abc1234" 6>$null | Out-Null
+        $out = Join-Path $work "result"
+        $result = [System.IO.File]::ReadAllText("$out\result.json") | ConvertFrom-Json
+    }
+
+    It "形式ごとに書き出しを測り、書いた件数・失敗の数・時間を書く" {
+        $result.Export.Repeat | Should -Be 2
+        $result.Export.Hits | Should -Be 40
+        @($result.Export.Formats | ForEach-Object { $_.Format }) -join "," | Should -Be "xlsx,csv,tsv"
+        foreach ($f in @($result.Export.Formats)) {
+            $f.Written | Should -Be 40
+            $f.Failures | Should -Be 0
+            $f.Ms.Count | Should -Be 2
+            $f.SizeMB | Should -BeGreaterOrEqual 0
+        }
+        @($result.Export.Resources | ForEach-Object { $_.Phase }) | Should -Contain "xlsx"
+        @($result.Export.Resources | ForEach-Object { $_.Phase }) | Should -Contain "tsv"
+    }
+
+    It "-Export だけのときは、Index・Search・Ingest・Xlsx を null にする" {
+        $result.Index | Should -BeNullOrEmpty
+        $result.Search | Should -BeNullOrEmpty
+        $result.Ingest | Should -BeNullOrEmpty
+        $result.Xlsx | Should -BeNullOrEmpty
+        [System.IO.File]::Exists("$out\resource-export.csv") | Should -Be $true
+    }
+
+    It "metrics.csv に export_ の行を書く" {
+        $metrics = @(Import-Csv "$out\metrics.csv")
+        foreach ($format in @("xlsx", "csv", "tsv")) {
+            foreach ($stat in @("min", "median", "mean", "max")) {
+                @($metrics | Where-Object { $_.metric -eq "export_${format}_ms" -and $_.stat -eq $stat }).Count | Should -Be 1
+            }
+            @($metrics | Where-Object { $_.metric -eq "export_${format}_written" }).value | Should -Be "40"
+            @($metrics | Where-Object { $_.metric -eq "export_${format}_failures" }).value | Should -Be "0"
+        }
+        @($metrics | Where-Object { $_.metric -eq "export_peak_working_set_mb" }).Count | Should -Be 1
+    }
+
+    It "summary.md に「検索結果の書き出し」の表を書き、パスを書かない" {
+        $md = [System.IO.File]::ReadAllText("$out\summary.md")
+        $md | Should -Match "## 検索結果の書き出し"
+        $md.Contains($TestDrive) | Should -Be $false
+        [System.IO.File]::ReadAllText("$out\result.json").Contains($TestDrive) | Should -Be $false
+    }
+
+    It "-ExportHits が 0 以下なら止める" {
+        { & $measure -Export 1 -ExportHits 0 -Work (Join-Path $TestDrive "bad") 6>$null } | Should -Throw "*-ExportHits*"
+    }
+
+    It "リポジトリの setting.config を作らず、変えない" {
+        $after = if (Test-Path -LiteralPath $repoConfig) { (Get-FileHash $repoConfig).Hash } else { $null }
+        $after | Should -Be $configBefore
+    }
+}
+
 Describe "measure_perf.ps1 -Office" -Tag Io {
     BeforeAll {
         $measure = "$PSScriptRoot\..\..\tools\measure_perf.ps1"
@@ -923,7 +1066,7 @@ Describe "measure_perf.ps1 -Office" -Tag Io {
     }
 
     It "取り込みを測り、ファイル数・成功・失敗・スレッドの数・時間を書く" {
-        $result.Schema | Should -Be 5
+        $result.Schema | Should -Be 6
         $result.Ingest.Total | Should -Be 4
         $result.Ingest.Done | Should -Be 4
         $result.Ingest.Failed | Should -Be 0
@@ -1006,6 +1149,55 @@ Describe "measure_perf.ps1 -Office" -Tag Io {
     }
 
     It "-Index も -Office も無いときは失敗にする" {
-        { & $measure -Work (Join-Path $TestDrive "none") 6>$null } | Should -Throw "*-Index・-Office・-Xlsx*"
+        { & $measure -Work (Join-Path $TestDrive "none") 6>$null } | Should -Throw "*-Index・-Office・-Xlsx・-Export*"
+    }
+}
+
+Describe "measure_export.ps1 の newExportPerfHits" -Tag Unit {
+    It "指定した件数の合成のヒットを返し、4 種類のセルを混ぜる" {
+        $script = "$PSScriptRoot\..\..\tools\perf\measure_export.ps1"
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $script).ProviderPath, [ref]$null, [ref]$null)
+        $fn = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq "newExportPerfHits" }, $true)
+        . ([scriptblock]::Create($fn.Extent.Text))
+        $hits = @(newExportPerfHits 8)
+        $hits.Count | Should -Be 8
+        @($hits | Where-Object { $_.Line.Contains("`t") }).Count | Should -BeGreaterThan 0
+        @($hits | Where-Object { $_.Line.Contains("`n") }).Count | Should -BeGreaterThan 0
+        @($hits | Where-Object { $_.Location -eq "" }).Count | Should -BeGreaterThan 0
+    }
+}
+
+Describe "measure_perf.ps1（置き場が <W>\store\content\<名前> の形）" -Tag Io {
+    BeforeAll {
+        $ws = Join-Path $TestDrive "ws"
+        $index = Join-Path $ws "store\content\perfdata"
+        writeTsv "$index\営業\見積.xlsx\シート1.tsv" @("1`t見積書の山田`t山田", "2`tりんごの佐藤`t佐藤")
+        writeTsv "$index\総務\名簿.xlsx\シート1.tsv" @("10`t鈴木の名簿`t総務", "11`tみかんの田中`t総務")
+        $words = Join-Path $TestDrive "words2.tsv"
+        writeTsv $words @("名前`t語`t正規表現`t件数", "無い`t該当無し`tfalse`t0", "まれ`t見積書`tfalse`t1")
+        $out = Join-Path $ws "result"
+        & $measure -Index $index -Work $ws -Words $words -Count 2 -SampleMs 50 -Label "テスト" -RunId "1" -Ref "main" -Sha "abc1234" -Scale "0.1" -DataSeconds 1 6>$null | Out-Null
+        $result = [System.IO.File]::ReadAllText("$out\result.json") | ConvertFrom-Json
+    }
+
+    It "pack を作ったあとに gram 索引を作り、秒・ファイル数・大きさを書く" {
+        $result.Index.Gram.Skipped | Should -BeNullOrEmpty
+        $result.Index.Gram.Files | Should -BeGreaterThan 0
+        $result.Index.Gram.Failed | Should -Be 0
+        $result.Index.Gram.Seconds | Should -Not -BeNullOrEmpty
+        [System.IO.Directory]::Exists("$ws\store\gram") | Should -Be $true
+        @($result.Index.Resources | ForEach-Object { $_.Phase }) -contains "gram 索引の作成" | Should -Be $true
+        @(Import-Csv "$out\metrics.csv" | Where-Object { $_.metric -eq "gram_files" }).Count | Should -Be 1
+    }
+
+    It "検索が gram 索引で絞り、照合した pack が全部より少なくなる" {
+        $byName = @{}
+        foreach ($s in $result.Search) { $byName[$s.Name] = $s }
+        $byName["まれ"].GramUsed | Should -Be 2
+        $byName["まれ"].AllPacks | Should -Be 2
+        $byName["まれ"].Packs | Should -BeLessThan 2
+        $byName["まれ"].Hits | Should -Be 1
+        $md = [System.IO.File]::ReadAllText("$out\summary.md")
+        $md | Should -Match "\| まれ \|.*\| 1／2 \| 2／2 \|"
     }
 }

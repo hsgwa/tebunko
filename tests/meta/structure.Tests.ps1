@@ -15,7 +15,6 @@ Describe "パス定義" -Tag Meta {
         $workspace.LegacyIndexDir | Should -Be "$($workspace.Dir)\index"
         $workspace.TmpRoot | Should -Be "$($workspace.Dir)\tmp"
         $workspace.PublishDir | Should -Be "$($workspace.Dir)\publish\$PID"
-        $workspace.ResultFile | Should -Be "$($workspace.Dir)\search_results.txt"
     }
 }
 
@@ -86,6 +85,8 @@ Describe "カバレッジの計測の対象（画面層だけを分母から外�
         @{ file = "tebunko\ui\index\index_detail.ps1" }
         @{ file = "tebunko\ui\index\index_events.ps1" }
         @{ file = "tebunko\ui\settings\settings.ps1" }
+        @{ file = "tebunko\ui\settings\text_open_dialog.ps1" }
+        @{ file = "tebunko\ui\index\text_ext_dialog.ps1" }
         @{ file = "tebunko\ui\about_dialog.ps1" }
         @{ file = "tebunko\ui\leftover_dialog.ps1" }
         @{ file = "shared\ui\shell.ps1" }
@@ -981,7 +982,19 @@ Describe "ダイアログは暗幕付きで出す" -Tag Meta {
     It "gui_main.ps1 は、ShowDialog() の finally のあとで画面のスレッドの Dispatcher を止める（止めないと、閉じたあとの PowerShell の終了で、まれに終了コード 5 になる。closing.md）" {
         $here = (Resolve-Path "$PSScriptRoot\..").Path
         $text = [System.IO.File]::ReadAllText("$here\..\scripts\tebunko\ui\gui_main.ps1")
-        $text | Should -Match '\$window\.ShowDialog\(\)\r?\n    \} finally \{[\s\S]*?\r?\n    \}\r?\n(\s*#[^\r\n]*\r?\n)*\s*\[System\.Windows\.Threading\.Dispatcher\]::CurrentDispatcher\.InvokeShutdown\(\)'
+        # 間には、コメントと、閉じる処理の記録（writeCloseTrace）の行だけを許す
+        $text | Should -Match '\$window\.ShowDialog\(\)\r?\n    \} finally \{[\s\S]*?\r?\n    \}\r?\n(\s*(#|writeCloseTrace)[^\r\n]*\r?\n)*\s*\[System\.Windows\.Threading\.Dispatcher\]::CurrentDispatcher\.InvokeShutdown\(\)'
+    }
+
+    It "gui_main.ps1 は、ShowDialog() の finally の各段（Close・Abandon など）の前に、閉じる処理の記録（writeCloseTrace）を書く（止まった段を後から読めるようにする。closing.md）" {
+        $here = (Resolve-Path "$PSScriptRoot\..").Path
+        $lines = [System.IO.File]::ReadAllLines("$here\..\scripts\tebunko\ui\gui_main.ps1")
+        $stages = @('\$script:indexingSession\.Close\(\)', '\$script:searchService\.Close\(\)', '\$script:backgroundQueue\.Abandon\(\)', '\$script:networkQueue\.Abandon\(\)', '\[System\.Windows\.Threading\.Dispatcher\]::CurrentDispatcher\.InvokeShutdown\(\)')
+        foreach ($stage in $stages) {
+            $index = @(0..($lines.Count - 1) | Where-Object { $lines[$_] -match "^\s*$stage" })
+            $index.Count | Should -Be 1 -Because $stage
+            $lines[$index[0] - 1] | Should -Match '^\s*writeCloseTrace ' -Because $stage
+        }
     }
 
     It "startGui（gui_main.ps1）は 150 行以下。中身は shell\ の下のファイルに分けて読み込む" {
@@ -1000,7 +1013,8 @@ Describe "メッセージは自前の画面で出す" -Tag Meta {
         # shell.ps1 の showMessage … 自前の画面を出せないときの予備（別のスレッドから呼ばれた・画面の定義が読めない）
         # gui_main.ps1 … 二重起動の知らせ。画面の部品（loadWindow・テーマ）を読み込む前で、自前の画面を出せない
         # startup_error.ps1 … 起動の失敗の知らせ。制限言語モード・WPF が読めない場面でも知らせるため、標準のまま
-        $allowed = @("shell.ps1", "gui_main.ps1", "startup_error.ps1")
+        # folder_dialog.ps1 … 保存のダイアログの［保存］（OS のボタン）を押した時点の確かめ（FileOk）の知らせ。OS のダイアログが親なので、OS 標準のまま出す
+        $allowed = @("shell.ps1", "gui_main.ps1", "startup_error.ps1", "folder_dialog.ps1")
         $here = (Resolve-Path "$PSScriptRoot\..").Path
         $hits = @(Get-ChildItem "$here\..\scripts" -Recurse -Filter *.ps1 | Where-Object { $allowed -notcontains $_.Name } | ForEach-Object {
             $file = $_
@@ -1071,7 +1085,7 @@ Describe "フォルダ名に特別な文字が入っていても、本物の読�
             $outText = $process.StandardOutput.ReadToEnd()
             $process.WaitForExit(60000) | Out-Null
         } finally {
-            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+            stopStartedProcess $process
         }
         $outText.Trim() | Should -Be "loaded"
     }

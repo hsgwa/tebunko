@@ -260,6 +260,33 @@ Describe "SearchService" -Tag Io {
         }
     }
 
+    It "Export は、実行中の検索を取り消さず、溢れを残したまま書き出し、Cancel は書き出しも止める" {
+        $ws = Join-Path $TestDrive "ws_export"
+        $own = [Workspace]::new($ws)
+        $out = Join-Path $ws "export_result.xlsx"
+        $service = newSearchService (newTsvTextCache) 1
+        try {
+            $search = $service.Request((newSearchRequest "単価" $true @($contentIndexRoot) 1 @{} $ws))
+            waitRequest $search | Should -Be $true
+            $search.Truncated | Should -Be $true
+            $shown = @(takeHits $search)
+            $export = $service.Export((newExportRequest $search $out $shown "" "単価" "xlsx"))
+            $search.Stop | Should -Not -Be $true
+            waitRequest $export | Should -Be $true
+            $export.Outcome | Should -Be "Done"
+            $export.Written | Should -Be 3
+            # 溢れ（検索の続きの置き場所）は書き出しのあとも残る
+            [System.IO.Directory]::Exists($search.OverflowDir) | Should -Be $true
+            # 書き出しも Cancel で止まる
+            $next = $service.Export((newExportRequest $search $out $shown "" "単価" "xlsx"))
+            $service.Cancel()
+            $next.Stop | Should -Be $true
+            waitRequest $next | Should -Be $true
+        } finally {
+            $service.Close()
+        }
+    }
+
     It "閉じるとスレッドを止める。Close は何度呼んでもよい" {
         $service = newSearchService $null 1
         $service.IsRunning() | Should -Be $true
@@ -305,6 +332,38 @@ Describe "SearchService" -Tag Io {
             $request = $service.Request((newSearchRequest "単価" $true @($contentIndexRoot) 0))
             waitRequest $request | Should -Be $true
             (takeHits $request).Count | Should -Be 3
+        } finally {
+            $service.Close()
+        }
+    }
+
+    It "司令のスレッドが止まっているときの Export は、スレッドを作り直し、溢れは消えているので表の分だけを書く" {
+        $ws = Join-Path $TestDrive "ws_export_rebuild"
+        $out = Join-Path $ws "export_result.xlsx"
+        $brokenLibLoad = @{
+            State   = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault2()
+            Prelude = ". '$(Join-Path $TestDrive "無い.ps1")'"
+        }
+        $service = [SearchService]::new(${searchServiceScript}.ToString(), $brokenLibLoad, $null, 1, ${searchServiceCloseMilliseconds})
+        try {
+            $watch = [System.Diagnostics.Stopwatch]::StartNew()
+            while ($service.IsRunning() -and $watch.Elapsed.TotalSeconds -lt 30) {
+                Start-Sleep -Milliseconds 20
+            }
+            $service.IsRunning() | Should -Be $false
+            $service.LibLoad = $libLoad
+            $source = @{
+                WorkDir = $ws; Truncated = $true; CountTimeout = $false; OverflowFailed = $false; Cancelled = $false
+                OverflowDir = (Join-Path $TestDrive "消えた溢れ")
+            }
+            $shown = @([pscustomobject]@{ RelDir = ""; Book = "A社.xlsx"; Location = "Sheet1"; LineNumber = 1; Line = "単価`t105" })
+            $export = $service.Export((newExportRequest $source $out $shown "" "単価" "xlsx"))
+            $service.IsRunning() | Should -Be $true
+            waitRequest $export | Should -Be $true
+            $export.Outcome | Should -Be "Done"
+            $export.Scope | Should -Be "HeadOnly"
+            $export.HeadOnlyReason | Should -Be "OverflowFailed"
+            $export.Written | Should -Be 1
         } finally {
             $service.Close()
         }
@@ -446,6 +505,25 @@ Describe "検索の司令のスクリプト（searchServiceScript）" -Tag Io {
         (takeHits $second).Count | Should -Be 1
         # 検索 1 回ごとに世代を進める（trimTsvTextCache）
         $cache.Generation[0] | Should -Be 2
+    }
+
+    It "書き出しの要求は invokeSearchExport で実行し、検索の世代は進めない" {
+        $ws = Join-Path $TestDrive "script_export_ws"
+        $out = Join-Path $ws "export_result.xlsx"
+        $search = newSearchRequest "単価" $true @($contentIndexRoot) 0 @{} $ws
+        $requests = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
+        $requests.Add($search)
+        $cache = newTsvTextCache
+        $export = newExportRequest $search $out @() "" "単価" "xlsx"
+        $requests.Add($export)
+        $requests.CompleteAdding()
+
+        & ${searchServiceScript} $requests $cache 1
+
+        $export.Finished | Should -Be $true
+        $export.Outcome | Should -Be "Done"
+        # 検索の 1 回だけ世代が進む（書き出しでは進めない）
+        $cache.Generation[0] | Should -Be 1
     }
 }
 

@@ -14,10 +14,12 @@
 #   4（.docx / .docm / .doc / .pptx / .pptm）: Word・PowerPoint に埋め込んだ Office のファイル（Word 文書・Excel ブック・
 #      PowerPoint）の中の文字を、"ページNNN[埋め込みN]"・"スライドNNN[埋め込みN]" として読む
 #      （.doc は Word が新形式に変換した後も埋め込みが残るため上げる。.ppt は変換後に埋め込みが残らないため上げない）。
+#   5（.pptx / .pptm / .ppt）: PowerPoint のスライドマスター・レイアウト・ノートマスターの、プレースホルダー以外の文字を
+#      "スライドマスター"・"ノートマスター" として読む（.ppt も .pptx に変換してから読むため、ここで上げる）。
 ${extractVersions} = @{
     ".xlsx" = 4; ".xlsm" = 4
     ".docx" = 4; ".docm" = 4; ".doc" = 4
-    ".pptx" = 4; ".pptm" = 4; ".ppt" = 2
+    ".pptx" = 5; ".pptm" = 5; ".ppt" = 5
 }
 
 function getExtractVersion {
@@ -82,7 +84,7 @@ function getIngestDecision {
     return @{ Ingest = $true; Reason = "updated" }
 }
 
-# 利用者が使っている PowerPoint のために取り込めなかったファイルの理由（取り込み一覧の「エラー」列と、更新に失敗したファイルの一覧に出す。
+# 利用者が使っている PowerPoint のために取り込めなかったファイルの理由（取り込み一覧の「エラー」列と、［ファイルの一覧］の失敗の行の ToolTip に出す。
 # 状態は「未取り込み」のまま残すので、閉じてからの次の更新で、再取り込みを選ばなくても取り込む）
 ${postponedReasonRunning} = "PowerPoint が起動していたため取り込めませんでした。PowerPoint を閉じてから、もう一度更新してください。"
 ${postponedReasonInUse}   = "PowerPoint を使っている方がいたため取り込めませんでした。PowerPoint を保存して閉じてから、もう一度更新してください。"
@@ -199,6 +201,41 @@ function splitCloudItems {
         }
     }
     return @{ Included = $included; Skipped = $skipped }
+}
+
+function getIndexSelectableExtensions {
+    # 取り込み対象として選べる拡張子の全部（小文字。Office 10 個・PDF・テキスト 75 個の 86 個。固定の一覧で、増やせない）。
+    # 並びは Office・PDF・テキストの順
+    return @(@(${officeExtensions}) + @(${pdfExtensions}) + @(${textExtensions}))
+}
+
+function getIndexTargetExtensions {
+    # インデックスごとの取り込み対象の拡張子の一覧（Office・PDF・テキストの全部）。選べる 86 個（getIndexSelectableExtensions）から、
+    # excluded（取り込まないと選んだ拡張子）を除く。大文字・小文字を区別せず、86 個に無いものは無視する（固定の一覧の外は増えない）
+    param (
+        [object[]]$excluded = @()
+    )
+
+    $skip = @(@($excluded) | ForEach-Object { ([string]$_).ToLowerInvariant() })
+    return @(getIndexSelectableExtensions | Where-Object { $skip -notcontains $_ })
+}
+
+function getTargetExtensionCounts {
+    # ファイル名（またはパス）の一覧から、選べる拡張子（Office・PDF・テキストの 86 個）ごとの件数を返す: 拡張子（小文字）→ 件数。
+    # 86 個に無い拡張子は数えない
+    param (
+        [string[]]$names = @()
+    )
+
+    $selectable = @(getIndexSelectableExtensions)
+    $counts = @{}
+    foreach ($name in @($names)) {
+        $extension = [System.IO.Path]::GetExtension([string]$name).ToLowerInvariant()
+        if ($selectable -contains $extension) {
+            $counts[$extension] = 1 + [int]$counts[$extension]
+        }
+    }
+    return $counts
 }
 
 # ----------------------------------------------------------------------------
@@ -399,6 +436,33 @@ function convertFromPendingRemoveLines {
             continue
         }
         $result.Add(@{ Folder = $fields[0]; Name = $fields[1] })
+    }
+    return $result.ToArray()
+}
+
+function getFullyIngestedIndexNames {
+    # その回で取り込みを回したフォルダ（ranPaths）から、「その名前の有効なフォルダをすべて回した」インデックス名の配列を返す。
+    # 取り込んだときの設定（取り込まない拡張子）は名前単位なので、同じ名前のフォルダの 1 つだけを回した回では、名前の記録を更新しない
+    # （残ったフォルダに、外した拡張子のファイルが残ったまま［要更新］が消えないように）。
+    # folders: @{ Name; Path; Enabled } の並び（クロール対象フォルダ）。有効なフォルダが 1 つも無い名前は返さない
+    param (
+        [string[]]$ranPaths,
+        [object[]]$folders
+    )
+
+    $ran = @{}
+    foreach ($path in @($ranPaths)) { $ran[([string]$path).ToLowerInvariant()] = $true }
+    $enabledByName = @{}
+    foreach ($folder in @($folders | Where-Object { $_ -and $_.Enabled -ne $false -and $_.Name })) {
+        $name = [string]$folder.Name
+        if (-not $enabledByName.ContainsKey($name)) { $enabledByName[$name] = New-Object System.Collections.Generic.List[string] }
+        $enabledByName[$name].Add(([string]$folder.Path).ToLowerInvariant())
+    }
+    $result = New-Object System.Collections.Generic.List[string]
+    foreach ($name in @($enabledByName.Keys | Sort-Object)) {
+        if (@($enabledByName[$name] | Where-Object { -not $ran.ContainsKey($_) }).Count -eq 0) {
+            $result.Add($name)
+        }
     }
     return $result.ToArray()
 }

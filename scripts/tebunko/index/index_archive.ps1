@@ -71,7 +71,7 @@ function writeArchiveFile {
 }
 
 function exportIndex {
-    # 1 つのインデックスを 1 つの zip に書き出す: @{ Name; Path; Files; Bytes }。画面にも利用者にも問い合わせない。
+    # 1 つのインデックスを 1 つの zip に書き出す: @{ Name; Path; Files; Bytes; Omitted }。Omitted は大きすぎて入れなかった本文インデックスのファイル（writeContentIndexFilesToArchive）。画面にも利用者にも問い合わせない。
     # インデックス作成のロックを取れなければ例外（ほかで実行中）
     param (
         [string]$name,
@@ -80,16 +80,14 @@ function exportIndex {
         [string]$settingsPath = ${settingsFile}
     )
 
-    $lock = newAppMutex "indexer" $ws.Dir ${appId}
+    $lock = enterIndexerLock $ws.Dir
     if (!$lock.Acquired) {
-        $lock.Mutex.Dispose()
         throw "更新中はエクスポートできません。更新が終わってからやり直してください。"
     }
     try {
         return (exportIndexCore $name $destPath $ws $settingsPath)
     } finally {
-        $lock.Mutex.ReleaseMutex()
-        $lock.Mutex.Dispose()
+        exitIndexerLock $lock
     }
 }
 
@@ -115,7 +113,7 @@ function exportIndexToFolder {
 function exportIndexes {
     # 選んだインデックスを、書き出し先のフォルダの中の zip にまとめて書き出す（インデックス 1 つにつき zip 1 つ）。
     # 1 つずつ exportIndexToFolder を呼び、途中で 1 つ失敗しても残りを続ける。
-    # 戻り値は名前ごとの結果の配列（@{ Name; Ok; Reason; Path }）。Reason は失敗したときの理由（成功なら ""）、Path は書き出した zip（失敗なら ""）。
+    # 戻り値は名前ごとの結果の配列（@{ Name; Ok; Reason; Path; Omitted }）。Omitted は exportIndex と同じ（失敗なら空）。Reason は失敗したときの理由（成功なら ""）、Path は書き出した zip（失敗なら ""）。
     # 画面のスレッドでは呼ばず、別スレッドの仕事の中で呼ぶ
     param (
         [string[]]$names,
@@ -128,9 +126,9 @@ function exportIndexes {
     foreach ($name in @($names)) {
         try {
             $exported = exportIndexToFolder $name $destination $ws $settingsPath
-            $results.Add([pscustomobject]@{ Name = $name; Ok = $true; Reason = ""; Path = $exported.Path })
+            $results.Add([pscustomobject]@{ Name = $name; Ok = $true; Reason = ""; Path = $exported.Path; Omitted = @($exported.Omitted) })
         } catch {
-            $results.Add([pscustomobject]@{ Name = $name; Ok = $false; Reason = $_.Exception.Message; Path = "" })
+            $results.Add([pscustomobject]@{ Name = $name; Ok = $false; Reason = $_.Exception.Message; Path = ""; Omitted = @() })
         }
     }
     return , $results.ToArray()
@@ -238,12 +236,8 @@ function exportIndexCore {
             $manifestFiles.Add([ordered]@{ path = ${indexArchiveStatusEntryName}; size = [long]$statusBytes.Length; sha256 = (getBytesSha256 $statusBytes) })
             $totalBytes += $statusBytes.Length
 
-            foreach ($rel in $contentIndexFiles) {
-                $entryPath = "content_index/" + $rel.Replace("\", "/")
-                $written = writeArchiveFile $archive $entryPath (Join-Path $indexDir $rel)
-                $manifestFiles.Add([ordered]@{ path = $entryPath; size = [long]$written.Size; sha256 = $written.Sha256 })
-                $totalBytes += $written.Size
-            }
+            $contentResult = writeContentIndexFilesToArchive $archive $indexDir $contentIndexFiles $manifestFiles
+            $totalBytes += $contentResult.Bytes
 
             $sourceFolder = ""
             $ownFile = readSourceFolderFile $indexDir
@@ -287,7 +281,35 @@ function exportIndexCore {
         }
         throw
     }
-    return @{ Name = $name; Path = $destPath; Files = $manifestFiles.Count; Bytes = $totalBytes }
+    return @{ Name = $name; Path = $destPath; Files = $manifestFiles.Count; Bytes = $totalBytes; Omitted = @($contentResult.Omitted) }
+}
+
+function writeContentIndexFilesToArchive {
+    # 本文インデックスのファイルを zip に入れ、目録の files（manifestFiles）に足す。
+    # インポートが断る大きさ（testImportedContentIndexFile と同じ判定）のファイルは、書き出せても読み込めないので、入れずに Omitted に控える。
+    # 戻り値: @{ Bytes（入れたバイト数）; Omitted（入れなかったファイルの配列 @{ Path（インデックスの中の相対パス）; Books（中に入っていた元のファイルの相対パス）} ）}
+    param (
+        $archive,
+        [string]$indexDir,
+        [string[]]$contentIndexFiles,   # インデックスのフォルダからの相対パス
+        $manifestFiles
+    )
+
+    $bytes = [long]0
+    $omitted = New-Object System.Collections.Generic.List[object]
+    foreach ($rel in $contentIndexFiles) {
+        $source = Join-Path $indexDir $rel
+        $size = ([System.IO.FileInfo]::new((toLongPath $source))).Length
+        if (testImportedContentIndexFile $size $null) {
+            $omitted.Add(@{ Path = $rel; Books = (readContentIndexBookNamesStreaming $source) })
+            continue
+        }
+        $entryPath = "content_index/" + $rel.Replace("\", "/")
+        $written = writeArchiveFile $archive $entryPath $source
+        $manifestFiles.Add([ordered]@{ path = $entryPath; size = [long]$written.Size; sha256 = $written.Sha256 })
+        $bytes += $written.Size
+    }
+    return @{ Bytes = $bytes; Omitted = $omitted.ToArray() }
 }
 
 function readArchiveEntryBytesLimited {
@@ -455,7 +477,8 @@ function extractArchiveEntryToFile {
         [long]$expectedSize,
         [string]$expectedSha256,
         [string]$destPath,
-        [string]$root
+        [string]$root,
+        $progress = $null
     )
 
     # 書き出すのは、root の下で途中にリンクが無いときだけ。同じ名前のファイルが既にあれば上書きせず、例外にする（CreateNew）
@@ -480,6 +503,9 @@ function extractArchiveEntryToFile {
                 }
                 [void]$sha.TransformBlock($buffer, 0, $read, $buffer, 0)
                 $dest.Write($buffer, 0, $read)
+                if ($null -ne $progress) {
+                    $progress.Done = [long]$progress.Done + $read
+                }
             }
         } finally {
             $dest.Dispose()
@@ -511,6 +537,7 @@ function getWorkspaceFreeSpace {
 
 function importIndex {
     # zip から 1 つのインデックスをインポートする: @{ Name; SourcePath; Enabled; Files; Bytes; Warnings }。
+    # progress は省ける: [hashtable]::Synchronized(@{ Done = 0L; Total = 0L })。展開の前に Total を目録の大きさの合計にし、展開するたびに Done を足す（画面が別スレッドから読む）。
     # collisionMode（Rename・Overwrite・Cancel）が Cancel なら $null を返す（ワークスペースは変えない）。
     # name・sourceFolder を省くと目録の値を使う。インデックス作成のロックを取れなければ例外
     param (
@@ -520,19 +547,18 @@ function importIndex {
         [string]$sourceFolder = "",
         $ws = $workspace,
         [string]$settingsPath = ${settingsFile},
-        [scriptblock]$getFreeSpace = { param ($root) getWorkspaceFreeSpace $root }
+        [scriptblock]$getFreeSpace = { param ($root) getWorkspaceFreeSpace $root },
+        $progress = $null
     )
 
-    $lock = newAppMutex "indexer" $ws.Dir ${appId}
+    $lock = enterIndexerLock $ws.Dir
     if (!$lock.Acquired) {
-        $lock.Mutex.Dispose()
         throw "更新中はインポートできません。更新が終わってからやり直してください。"
     }
     try {
-        return (importIndexCore $zipPath $collisionMode $name $sourceFolder $ws $settingsPath $getFreeSpace)
+        return (importIndexCore $zipPath $collisionMode $name $sourceFolder $ws $settingsPath $getFreeSpace $progress)
     } finally {
-        $lock.Mutex.ReleaseMutex()
-        $lock.Mutex.Dispose()
+        exitIndexerLock $lock
     }
 }
 
@@ -571,7 +597,8 @@ function expandImportArchive {
         [string]$workDir,
         [string]$finalName,
         [string]$folder,
-        [string]$workRoot
+        [string]$workRoot,
+        $progress = $null
     )
 
     $newDir = Join-Path $workDir "new"
@@ -591,7 +618,7 @@ function expandImportArchive {
             $size = [long]$file.size
             $sha256 = [string]$file.sha256
             if ($path -ceq ${indexArchiveStatusEntryName}) {
-                extractArchiveEntryToFile $entry $size $sha256 $statusTmpPath $workDir
+                extractArchiveEntryToFile $entry $size $sha256 $statusTmpPath $workDir $progress
                 $bytes = [System.IO.File]::ReadAllBytes((toLongPath $statusTmpPath))
                 $text = ${utf8Bom}.GetString($bytes)
                 $statusLines = @($text -split "\r?\n" | Where-Object { $_ -ne "" })
@@ -601,15 +628,16 @@ function expandImportArchive {
                 }
             } else {
                 # 本文インデックスのファイル: 大きすぎれば展開しない。展開して SHA-256 を比べたあと、検索と更新が読めるかを確かめる
-                $reason = testImportedContentIndexFile $size $null
-                if (!$reason) {
-                    $rel = $path.Substring("content_index/".Length).Replace("/", "\")
-                    $target = Join-Path $newDir $rel
-                    extractArchiveEntryToFile $entry $size $sha256 $target $workDir
-                    $reason = testImportedContentIndexFile $size (readContentIndexText $target)
+                $sizeReason = testImportedContentIndexFile $size $null
+                if ($sizeReason) {
+                    throw "インデックスのファイル「${path}」を読み込めません（${sizeReason}）。この版の tebunko でエクスポートし直すと、大きすぎるファイルを含めずに書き出せます。"
                 }
-                if ($reason) {
-                    throw "インデックスのファイル「${path}」を読み込めません（${reason}）。エクスポートした側で更新し直してから、もう一度エクスポートしてください。"
+                $rel = $path.Substring("content_index/".Length).Replace("/", "\")
+                $target = Join-Path $newDir $rel
+                extractArchiveEntryToFile $entry $size $sha256 $target $workDir $progress
+                $readReason = testImportedContentIndexFile $size (readContentIndexText $target)
+                if ($readReason) {
+                    throw "インデックスのファイル「${path}」を読み込めません（${readReason}）。エクスポートした側で更新し直してから、もう一度エクスポートしてください。"
                 }
             }
         }
@@ -800,7 +828,8 @@ function importIndexCore {
         [string]$sourceFolder,
         $ws,
         [string]$settingsPath,
-        [scriptblock]$getFreeSpace
+        [scriptblock]$getFreeSpace,
+        $progress = $null
     )
 
     $opened = openIndexArchive $zipPath
@@ -831,6 +860,7 @@ function importIndexCore {
         foreach ($file in $fileEntries) {
             $totalBytes += [long]$file.size
         }
+        if ($null -ne $progress) { $progress.Total = $totalBytes }
         $spaceReason = testImportFreeSpace $totalBytes ([System.IO.Path]::GetPathRoot($ws.Dir)) $getFreeSpace
         if ($spaceReason) {
             throw $spaceReason
@@ -852,7 +882,7 @@ function importIndexCore {
         }
 
         $workDir = Join-Path $ws.PublishDir "import"
-        $expanded = expandImportArchive $archive $fileEntries $workDir $finalName $folder $ws.PublishDir
+        $expanded = expandImportArchive $archive $fileEntries $workDir $finalName $folder $ws.PublishDir $progress
         $targetIndexDir = Join-Path $ws.IndexDir $finalName
         try {
             # 前の版が作ったシステムインデックスは、この版では使わない。消せなくても取り込みは続け、警告に 1 行足す（次のインデックス作成でも消す）

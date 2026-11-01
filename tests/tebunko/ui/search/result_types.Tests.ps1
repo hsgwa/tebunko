@@ -558,6 +558,14 @@ Describe "HitRow の静的な関数" -Tag Unit {
         [HitRow]::ToDisplay($null) | Should -Be ""
     }
 
+    It "ToDisplay は制御文字と向きを変える文字（U+202E など）を U+FFFD にする" {
+        $bad = @(0x0, 0x7, 0x1B, 0x7F, 0x9F, 0x61C, 0x200E, 0x202A, 0x202E, 0x2066, 0x2069)
+        foreach ($code in $bad) {
+            [HitRow]::ToDisplay("a$([char]$code)b") | Should -Be "a$([char]0xFFFD)b" -Because ("U+{0:X4}" -f $code)
+        }
+        [HitRow]::ToDisplay("見積 abc") | Should -Be "見積 abc"
+    }
+
     It "HasMatch は<name>" -TestCases @(
         @{ name = "語句を大文字小文字を区別せずに探す"; text = "ABC"; word = "b"; pattern = $null; expected = $true }
         @{ name = "語句が無ければ一致しない"; text = "ABC"; word = "x"; pattern = $null; expected = $false }
@@ -747,6 +755,29 @@ Describe "HitRow.BuildPreview" -Tag Unit {
             [object]::ReferenceEquals($second, $first) | Should -Be $false
             $second[1] | Should -Be $table.Columns[0].Width
             $second[$table.Columns.Count] | Should -Be ($first[$table.Columns.Count] + 50)
+        }
+
+        It "行の幅（RowWidth）は、行番号と全部の列の幅の合計で、範囲を決め直しても変わらない。列の幅が変わったら変わる" {
+            $table = newWideTable
+            $total = [HitRow]::NumberWidth + $table.Prefix()[$table.Columns.Count]
+            $table.Window.RowWidth | Should -Be $total
+            [void]$table.SetWindow(1495, 1499, 100, 200)
+            $table.Window.RowWidth | Should -Be $total
+            [void]$table.SetWindow(0, 40, 0, 300)
+            $table.Window.RowWidth | Should -Be $total
+            $table.Columns[0].SetWidth($table.Columns[0].Width + 50)
+            [void]$table.SetWindow(0, 40, 0, 300)
+            $table.Window.RowWidth | Should -Be ($total + 50)
+        }
+
+        It "UpdateRowWidth は、範囲を決め直さなくても、行の幅を今の列の幅に合わせる（見出しをドラッグしている間）" {
+            $table = newWideTable
+            $total = $table.Window.RowWidth
+            $versionBefore = $table.WindowVersion
+            $table.Columns[0].SetWidth($table.Columns[0].Width + 50)
+            $table.UpdateRowWidth()
+            $table.Window.RowWidth | Should -Be ($total + 50)
+            $table.WindowVersion | Should -Be $versionBefore
         }
 
         It "セルは、見えている行の、見えている列の範囲の分だけ作る" {

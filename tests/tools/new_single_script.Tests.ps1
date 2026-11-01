@@ -86,7 +86,7 @@ BeforeAll {
             $null = $stdout.Result
             $exitCode = $process.ExitCode
         } finally {
-            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+            stopStartedProcess $process
             $process.Dispose()
         }
         $logPath = Join-Path $workspace "indexing_log.txt"
@@ -315,6 +315,12 @@ $x = 1 # Invoke-WebRequest も行内コメントなら見ない
 
         $hits | Should -Match "Network"
         (@([regex]::Matches($hits, "Network")).Count) | Should -Be 1
+    }
+
+    It "findBannedCode: 小文字で書いた .NET のレジストリの型も見つける" {
+        $hits = findBannedCode "[microsoft.win32.registry]::currentuser"
+
+        $hits | Should -Match "Registry"
     }
 }
 

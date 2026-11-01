@@ -16,11 +16,15 @@ function startGui {
     # （docs/design/structure/closing.md「GC とメモリ」）
     [System.Runtime.GCSettings]::LatencyMode = [System.Runtime.GCLatencyMode]::SustainedLowLatency
 
+    # 閉じる処理の記録先（環境変数 TEBUNKO_CLOSE_TRACE。無ければ記録しない）。環境変数を読むのはここだけ
+    # （shared/core/close_trace.ps1 の writeCloseTrace に渡す。docs/design/structure/closing.md「閉じるときの順番」）
+    $script:closeTracePath = $env:TEBUNKO_CLOSE_TRACE
+
     ${previewFirstLines}    = 50   # 行を選んだときに、プレビューへ最初に出す選択行の前後の行数（それぞれ）
     ${previewReadAheadLines} = 20  # 見えている行が、読んである範囲の端からこの行数以内に近づいたら、その向きに読み足す
     ${previewChunkLines}    = 200  # 1 回に読み足す行数（持つ行が上限を超えたとき、遠い側から捨てる行数も同じ）
     ${previewMaxRows}       = 3000 # プレビューに持つ行の上限（超えたら、見ている所から遠い側を捨てる）
-    ${previewColumnMargin}  = 3    # 見えている列の左右に、先に作っておく列の数（横にスクロールするたびにセルを作り直さないため）
+    ${previewColumnSpread}  = 1; ${previewColumnMargin} = 3   # 見えている幅の左右に先に作る列を、見える幅の何倍ぶん（Spread）と何列（Margin）にするか。見えている列が作った範囲の中にある間は、範囲を決め直さない（横にスクロールするたびにセルを作り直さないため）
     ${previewCellRowMargin} = 10   # 見えている行の上下に、先にセルを作っておく行の数
     ${backgroundWorkers} = 2  # startJob のスレッドの数
 
@@ -100,18 +104,26 @@ function startGui {
         # （docs/design/structure/closing.md「閉じるときの順番」）。片づける順番はそのまま変えない。
         # 画面の裏の仕事（$script:backgroundQueue・$script:networkQueue）だけ、止まった仕事（届かない共有の
         # Test-Path など、OS の呼び出しで戻らないもの）を待たずに戻る Abandon（前は Close）を使う
+        # 各段の前に、段の名前を記録する（記録先があるときだけ。止まった段を後から読むため）
+        writeCloseTrace -Path $script:closeTracePath -Step "finally: タイマーを止める"
         $script:closeTimer.Stop()
         $script:indexingTimer.Stop()
+        writeCloseTrace -Path $script:closeTracePath -Step "finally: closeIndexingWait"
         try { closeIndexingWait } catch { }
         if ($script:indexingSession) {
+            writeCloseTrace -Path $script:closeTracePath -Step "finally: indexingSession.Close"
             $script:indexingSession.Close()
         }
+        writeCloseTrace -Path $script:closeTracePath -Step "finally: searchService.Close"
         $script:searchService.Close()
         $script:jobTimer.Stop()
+        writeCloseTrace -Path $script:closeTracePath -Step "finally: backgroundQueue.Abandon"
         $script:backgroundQueue.Abandon()
         if ($script:networkQueue) {
+            writeCloseTrace -Path $script:closeTracePath -Step "finally: networkQueue.Abandon"
             $script:networkQueue.Abandon()
         }
+        writeCloseTrace -Path $script:closeTracePath -Step "finally: activateEvent・mutex"
         $activateTimer.Stop()
         $activateEvent.Close()
         $mutex.ReleaseMutex()
@@ -120,5 +132,6 @@ function startGui {
     # 画面のスレッドの Dispatcher を止める。止めずに戻ると、PowerShell が終わるときの片づけで、まれに終了コード 5 で終わることがある
     # （docs/design/structure/closing.md「閉じるときの順番」）。例外で抜けるときは通らない
     # （起動の失敗を知らせる画面（reportStartupFailure）が、この Dispatcher を使うため）
+    writeCloseTrace -Path $script:closeTracePath -Step "InvokeShutdown"
     [System.Windows.Threading.Dispatcher]::CurrentDispatcher.InvokeShutdown()
 }

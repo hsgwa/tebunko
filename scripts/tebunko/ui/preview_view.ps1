@@ -63,24 +63,16 @@ function getPreviewTrim {
     return @{ Side = "bottom"; Count = $count }
 }
 
-function getPreviewColumnWindow {
-    # 横にスクロールしたとき、画面に見えている列の範囲を決める（見えている列だけセルを作るため）。
-    # 戻り値は @{ First; Last; Left; Right }。First・Last は作る最初と最後の列（見えている列の左右に margin 列ずつ足す。0 から。
-    # 列が 0 のときは First = 0・Last = -1）、Left・Right は、作らない左の列・右の列の幅の合計。
-    # 列の幅は累積（prefix[i] = 先頭から i 列分の幅の合計。長さは列の数 + 1）で受け取り、境目は二分探索で探す
-    # （列が非常に多くても、スクロールのたびに列の数だけ繰り返さない。累積は PreviewTable.Prefix が、幅が変わるまで使い回す）
+function getPreviewColumnSpan {
+    # 累積 prefix の中で、横の範囲 start～end（行番号の列を除いた位置）にかかる最初と最後の列。@{ First; Last }（列が 0 のときは First = 0・Last = -1）
     param (
         [double[]]$prefix,
-        [double]$offset,          # 横にスクロールした位置（行番号の列を含む行の左端から）
-        [double]$viewportWidth,   # スクロールの見える幅
-        [double]$numberWidth,     # 行番号の列の幅
-        [int]$margin = 3          # 見えている列の左右に足して作る列の数
+        [double]$start,
+        [double]$end
     )
 
     $count = $prefix.Length - 1
-    if ($count -le 0) { return @{ First = 0; Last = -1; Left = 0.0; Right = 0.0 } }
-    $start = [Math]::Max(0, $offset - $numberWidth)
-    $end = $start + [Math]::Max(0, $viewportWidth)
+    if ($count -le 0) { return @{ First = 0; Last = -1 } }
     # 左端が start を超える最初の列（右端 prefix[i + 1] が start より大きい最小の i）
     $low = 0
     $high = $count
@@ -88,22 +80,51 @@ function getPreviewColumnWindow {
         $mid = [int][Math]::Floor(($low + $high) / 2)
         if ($prefix[$mid + 1] -gt $start) { $high = $mid } else { $low = $mid + 1 }
     }
-    if ($low -ge $count) {
-        $first = $count - 1
-        $last = $count - 1
-    } else {
-        $first = $low
-        # 右端が end に届く最初の列（無ければ最後の列）
-        $low = $first
-        $high = $count
-        while ($low -lt $high) {
-            $mid = [int][Math]::Floor(($low + $high) / 2)
-            if ($prefix[$mid + 1] -ge $end) { $high = $mid } else { $low = $mid + 1 }
-        }
-        $last = [Math]::Min($low, $count - 1)
+    if ($low -ge $count) { return @{ First = $count - 1; Last = $count - 1 } }
+    $first = $low
+    # 右端が end に届く最初の列（無ければ最後の列）
+    $low = $first
+    $high = $count
+    while ($low -lt $high) {
+        $mid = [int][Math]::Floor(($low + $high) / 2)
+        if ($prefix[$mid + 1] -ge $end) { $high = $mid } else { $low = $mid + 1 }
     }
-    $first = [Math]::Max(0, $first - $margin)
-    $last = [Math]::Min($count - 1, $last + $margin)
+    return @{ First = $first; Last = [Math]::Min($low, $count - 1) }
+}
+
+function getPreviewColumnWindow {
+    # 横にスクロールしたとき、画面に見えている列の範囲を決める（見えている列だけセルを作るため）。
+    # 戻り値は @{ First; Last; Left; Right }。First・Last は作る最初と最後の列（見えている列の左右に spread 画面ぶんと margin 列ずつ足す。0 から。
+    # 列が 0 のときは First = 0・Last = -1）、Left・Right は、作らない左の列・右の列の幅の合計。
+    # 今の範囲（currentFirst・currentLast）を渡したとき、見えている列がその中にある間は、範囲を決め直さずに今の範囲を返す
+    # （少しスクロールするたびにセルを全部作り直さないため）
+    # 列の幅は累積（prefix[i] = 先頭から i 列分の幅の合計。長さは列の数 + 1）で受け取り、境目は二分探索で探す
+    # （列が非常に多くても、スクロールのたびに列の数だけ繰り返さない。累積は PreviewTable.Prefix が、幅が変わるまで使い回す）
+    param (
+        [double[]]$prefix,
+        [double]$offset,          # 横にスクロールした位置（行番号の列を含む行の左端から）
+        [double]$viewportWidth,   # スクロールの見える幅
+        [double]$numberWidth,     # 行番号の列の幅
+        [int]$margin = 3,         # 見えている列の左右に足して作る列の数
+        [int]$currentFirst = -1,  # 今作っている範囲の最初の列（無ければ -1）
+        [int]$currentLast = -1,   # 今作っている範囲の最後の列
+        [double]$spread = 0       # 見えている幅の左右に、見える幅の何倍ずつ先に作るか
+    )
+
+    $count = $prefix.Length - 1
+    if ($count -le 0) { return @{ First = 0; Last = -1; Left = 0.0; Right = 0.0 } }
+    $start = [Math]::Max(0, $offset - $numberWidth)
+    $width = [Math]::Max(0, $viewportWidth)
+    $visible = getPreviewColumnSpan $prefix $start ($start + $width)
+    if ($currentFirst -ge 0 -and $currentLast -ge $currentFirst -and $currentLast -lt $count -and
+        $visible.First -ge $currentFirst -and $visible.Last -le $currentLast) {
+        $first = $currentFirst
+        $last = $currentLast
+    } else {
+        $span = getPreviewColumnSpan $prefix ([Math]::Max(0, $start - $spread * $width)) ($start + $width + $spread * $width)
+        $first = [Math]::Max(0, $span.First - $margin)
+        $last = [Math]::Min($count - 1, $span.Last + $margin)
+    }
     return @{ First = $first; Last = $last; Left = $prefix[$first]; Right = [Math]::Max(0.0, $prefix[$count] - $prefix[$last + 1]) }
 }
 

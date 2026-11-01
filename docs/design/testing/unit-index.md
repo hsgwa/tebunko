@@ -15,6 +15,7 @@ flowchart LR
 | 対象 | 主な確認内容 |
 |---|---|
 | `toSafeFileName`・`getFolderNameProblemText`・`testPlainFolderName`（`text.Tests.ps1`。ファイルに触らない単体テスト） | 禁止文字の全角化、`/` → `／`、`"` → `”`、使用可能文字は不変。フォルダ名の確かめ（空・前後の空白・長すぎる・使えない文字・最後の `.`・予約名） |
+| `testSourceBookName`（`index_name.Tests.ps1`）・`formatDisplayText`（`text.Tests.ps1`） | 取り込み対象の拡張子（Office・テキスト・PDF）だけ真、`.hta`・`.lnk`・`.exe`・拡張子なし・区切りや `..`・`:`・制御文字・向きを変える文字を含む名前・終わりの `.` や空白で拡張子を隠した名前は偽。表示用の文字列は制御文字・向きを変える文字を U+FFFD にし、タブ・改行は `keepLineBreaks` のときだけ残す |
 | `toLongPath` / `fromLongPath`・長いパス | `\\?\`・`\\?\UNC\` の付け外し、260 文字を超えるパスの読み書き |
 | `copyFileShared` | ほかのアプリが書き込み用に開いているファイルもコピーでき、コピー中もほかのアプリの書き込みを妨げない |
 | `invokeWithSourceCopy` | 読む処理の戻り値・出力をそのまま返す、読む処理が失敗してもコピーと追加のファイルを消す、読めたのにコピーを消せないときは取り込みの失敗にする、元のファイルが無いときは読む処理を呼ばない |
@@ -31,6 +32,7 @@ flowchart LR
 | `removeDirectoryUnder` / `moveDirectoryUnder` | 置き場の下のフォルダを消す・移して真、置き場の外・置き場そのものは何もせず偽、途中の階層がジャンクションなら（置き場の下に見えても）リンクの先を消さず移さず偽、消す・移すフォルダそのものがジャンクションなら（途中ではないため）リンクだけを外し先は消さない、置き場そのものがジャンクションの構成では下を今までどおり消せる、元と先で根が違うときは `sourceRoot` で渡す |
 | `newDirectoryUnder` | 根の下に途中の階層ごと作る（すでにあっても真）、途中がジャンクションなら何も作らず偽でリンクの先に書かない、根そのものがジャンクションでも作れる、根の下でない・似た名前・空のパスは偽、作ったあとにリンクに替わっていれば偽 |
 | `invokeWithNamedMutex` | 出力を返し手放す、例外でも手放す、同じスレッドの入れ子は通す、別のスレッドが持ったままなら時間切れの例外、持ったまま終わったスレッドの後は abandoned として続ける |
+| `openLockFile` | 1 つ目は開けて開いている間は 2 つ目が `$null`、残った誰も開いていないファイルは開ける、閉じるとファイルが消える、親フォルダが無いなどは例外、アクセス拒否は最後まで続けば鍵のファイルを開けなかった例外、やり直しの間にほかが閉じれば開ける、別のプロセスが開いている間は `$null` でそのプロセスを止めると開ける |
 | `newAppMutex` | 同じ処理・同じ配置フォルダでは 2 つ目を取得できない、処理の種類・配置フォルダが違えば同時に取得できる、名前は `Local\<app>_<name>_<鍵>`、app が空なら例外 |
 | `formatTime` | 空は空、当日は時刻だけ、前の日以前は月日つき |
 | `replaceCellNewLine` | `"` 内の改行（LF・CR・CRLF）は U+2028 に置き換え、`"` 外の改行は保持 |
@@ -84,7 +86,7 @@ flowchart LR
 | 対象 | 主な確認内容 |
 |---|---|
 | `convertPlaceToContentIndexMeta` / `convertContentIndexMetaToPlace` | 場所の名前（シート・ページ・スライド・非表示・ノート・図形・コメント・Excel のヘッダー・フッター・それ以外の部分）とメタ情報の往復、組み立て直して同じにならない名前はそのまま持つ |
-| `getContentIndexFileName` / `readContentIndexFileName` / `planContentIndexParts` / `splitContentIndexBooksByExtension` / `encodeContentIndexValue` / `decodeContentIndexValue` / `convertToContentIndexBody` | 本文インデックスのファイルの名前、拡張子ごとの分け方、値の `%XX` の往復、中身の改行を LF にそろえ U+001C〜U+001F を除く |
+| `getContentIndexFileName` / `readContentIndexFileName` / `planContentIndexParts`（分けた塊の置き方を含む）/ `splitContentIndexBookBlock`（分け方・開始行）/ `splitContentIndexBooksByExtension` / `encodeContentIndexValue` / `decodeContentIndexValue` / `convertToContentIndexBody` | 本文インデックスのファイルの名前、拡張子ごとの分け方、値の `%XX` の往復、中身の改行を LF にそろえ U+001C〜U+001F を除く |
 | `convertToContentIndexText` / `readContentIndexPlaces` | 文字列にしてから読み戻すと、元のファイル・場所・中身の範囲が同じになる、Excel の図形・コメントだけ `CellPrefixed` が `$true`（Word・PowerPoint・Excel のセル・ヘッダー・フッターは `$false`）、版の無い・違う本文インデックスのファイルは例外 |
 | `convertFolderToContentIndex` / `updateFolderContentIndex` / `findIndexFoldersWithBooks` / `publishIndexFolders` | フォルダごと・拡張子ごとに作る、元のファイルが無くなった拡張子の本文インデックスのファイルは消す、UTF-16LE（BOM 付き）で一時ファイルを残さない、置かれた TSV を入れて TSV を消し変わらない元のファイルは写す、TSV の残ったフォルダを見つけて本文インデックスに入れる、前の本文インデックスが壊れた・大きすぎるフォルダは書き換えずに飛ばして残りを書き出す（`tebunko/index/content_index_store.Tests.ps1`） |
 | `searchContentIndex` / `getContentIndexFiles` / `readContentIndexLines` | 結果が TSV を 1 行ずつ照合したときと同じ（改行の種類・照合のしかた・検索語ごと）、大文字・小文字・図形とコメントの除外・対象ファイル、上限・中止（ファイル 1 件ごとに止まる・作業スレッドの本体も止まる・列挙はフォルダ 1 つごとに止まる・並列で止めたあとも同じプールで検索できる）・並列・キャッシュ（書き直したら読み直す）、全文への照合の時間切れは 1 行ずつに切り替える、列挙（フォルダの一部・直下だけ・無いフォルダ）、プレビューの前後の行（キャッシュが無くても、あるときと同じ行を返す・同じファイルの続けての選択と、書き直したあとの選択で変わらない）。Excel の図形・コメントの行は、セル番地だけに一致する語（`C2`・`2`・`C`）ではヒットにならず、文字（文字の中のタブを含む）に一致すればヒットになる、除いた行があっても行番号がずれない、除いた行は件数・上限に数えない（1 スレッドと並列で同じ）、複数行（セル内改行）の文字は 2 行目以降の語でも一致し番地だけでは一致しない、`"` を含む文字は囲み・`""` の形のまま照合する |

@@ -190,9 +190,9 @@ function copyDataRangeToTempSheet {
 }
 
 function extractWorkbook {
-    # Excelファイルをシートごとに作業フォルダへTSV出力し、出力したシート数を返す
+    # Excelファイルをシートごとに作業フォルダへTSV出力し、出力したシート数を返す。timing はコピーの時間を足す入れ物（invokeWithSourceCopy）
     param (
-        [string]$sourcePath
+        [string]$sourcePath, [hashtable]$timing = $null
     )
 
     $bookName = [System.IO.Path]::GetFileName($sourcePath)
@@ -324,7 +324,7 @@ function extractWorkbook {
             releaseComObject $wb
         }
         @{ Sheets = $sheets; ObjectUnits = $objectUnits }
-    }
+    } $null $timing
     $sheets = $read.Sheets
     $objectUnits = $read.ObjectUnits
 
@@ -435,9 +435,9 @@ function verifyOfficeOutputIsZip {
 }
 
 function extractDocument {
-    # Word・PowerPointのファイルを場所（ページ・スライド）ごとに作業フォルダへTSV出力し、出力した数を返す
+    # Word・PowerPointのファイルを場所（ページ・スライド）ごとに作業フォルダへTSV出力し、出力した数を返す。timing はコピーの時間を足す入れ物（invokeWithSourceCopy）
     param (
-        [string]$sourcePath
+        [string]$sourcePath, [hashtable]$timing = $null
     )
 
     $isWord = ((getAppName $sourcePath) -eq "Word")
@@ -539,25 +539,26 @@ function extractDocument {
             writeIndexerLog "    埋め込みを読み取れませんでした: $failure" "Yellow"
         }
         $units
-    } $workFiles
+    } $workFiles $timing
     return (writeUnits $units $tmpDir)
 }
 
 function ingestFile {
-    # 1ファイルを取り込み、作成したTSVの数を返す。
+    # 1ファイルを取り込み、作成したTSVの数を返す。timing（hashtable。既定 $null）は、コピーの時間の合計を timing['CopyMs'] に足す入れ物で、各入口から invokeWithSourceCopy へそのまま渡す。
     # テキストの拡張子（textExtensions）・PDF の拡張子（pdfExtensions）は Office を使わずに読んで取り込む（extract_text.ps1・extract_pdf.ps1）
     param (
-        [string]$sourcePath
+        [string]$sourcePath,
+        [hashtable]$timing = $null
     )
 
     if (testTextExtension $sourcePath) {
-        return (extractTextFile $sourcePath $tmpDir)
+        return (extractTextFile $sourcePath $tmpDir -timing $timing)
     }
     if (testPdfExtension $sourcePath) {
-        return (extractPdfFile $sourcePath $tmpDir)
+        return (extractPdfFile $sourcePath $tmpDir -timing $timing)
     }
     if ((getAppName $sourcePath) -eq "Excel") {
-        return (extractWorkbook $sourcePath)
+        return (extractWorkbook $sourcePath -timing $timing)
     }
-    return (extractDocument $sourcePath)
+    return (extractDocument $sourcePath -timing $timing)
 }

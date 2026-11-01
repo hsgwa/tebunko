@@ -114,13 +114,23 @@ Describe "testTextOpenWithNotepad" -Tag Unit {
         @{ name = ".js はメモ帳（実行になるため）"; path = "a.js"; expected = $true }
         @{ name = ".reg はメモ帳（登録になるため）"; path = "a.reg"; expected = $true }
         @{ name = ".sh はメモ帳（実行になるため）"; path = "a.sh"; expected = $true }
-        @{ name = ".py は既定のアプリ"; path = "a.py"; expected = $false }
+        @{ name = ".py はメモ帳（解釈器で実行になるため）"; path = "a.py"; expected = $true }
+        @{ name = ".PHP はメモ帳（大文字でも）"; path = "a.PHP"; expected = $true }
+        @{ name = ".rb・.pl・.lua はメモ帳"; path = "a.rb"; expected = $true }
+        @{ name = ".pl はメモ帳"; path = "a.pl"; expected = $true }
+        @{ name = ".lua はメモ帳"; path = "a.lua"; expected = $true }
+        @{ name = ".mjs はメモ帳"; path = "a.mjs"; expected = $true }
+        @{ name = ".psm1 はメモ帳"; path = "a.psm1"; expected = $true }
+        @{ name = ".psd1 はメモ帳"; path = "a.psd1"; expected = $true }
+        @{ name = "末尾のピリオドは Windows が無視するので、メモ帳（evil.js.）"; path = "evil.js."; expected = $true }
+        @{ name = "末尾の空白は Windows が無視するので、メモ帳（evil.ps1 ）"; path = "evil.ps1 "; expected = $true }
         @{ name = ".java は既定のアプリ"; path = "a.java"; expected = $false }
         @{ name = ".cpp は既定のアプリ"; path = "a.cpp"; expected = $false }
         @{ name = ".txt は既定のアプリ"; path = "a.txt"; expected = $false }
+        @{ name = ".html は既定のアプリ"; path = "a.html"; expected = $false }
+        @{ name = ".csv は既定のアプリ"; path = "a.csv"; expected = $false }
+        @{ name = ".md は既定のアプリ"; path = "a.md"; expected = $false }
         @{ name = ".vb（Visual Basic のソース）は既定のアプリ（.vbs と混同しない）"; path = "a.vb"; expected = $false }
-        @{ name = ".psm1（PowerShell モジュール）は既定のアプリ（.ps1 と混同しない）"; path = "a.psm1"; expected = $false }
-        @{ name = ".mjs（JavaScript モジュール）は既定のアプリ（.js と混同しない）"; path = "a.mjs"; expected = $false }
         @{ name = ".jsx は既定のアプリ（.js と混同しない）"; path = "a.jsx"; expected = $false }
     ) {
         param ($name, $path, $expected)
@@ -284,7 +294,7 @@ Describe "readTextFile" -Tag Io {
 
     It "大きさの上限（差し替えた小さい値）を超えるファイルは、決めた文言で失敗にする" {
         $path = writeBytesFile (toUtf8Bytes "12345678")
-        { readTextFile $path 4 } | Should -Throw "ファイルサイズが大きすぎるため更新できません。"
+        { readTextFile $path 4 } | Should -Throw "ファイルサイズが大きすぎるため更新できません（上限 10 MB）。"
     }
 
     It "バイナリと判定したファイルは、決めた文言で失敗にする" {
@@ -301,7 +311,7 @@ Describe "readTextFile" -Tag Io {
 Describe "readTextFile（対象の拡張子ごとの実ファイル。tests\testdata\text）" -Tag Io {
     BeforeDiscovery {
         ${textSampleDir} = (Resolve-Path "$PSScriptRoot\..\..\testdata\text").Path
-        ${notepadExtSet} = @(".bat", ".cmd", ".ps1", ".vbs", ".js", ".reg", ".sh")
+        ${notepadExtSet} = @(".bat", ".cmd", ".ps1", ".vbs", ".js", ".reg", ".sh", ".py", ".rb", ".pl", ".php", ".lua", ".mjs", ".psm1", ".psd1")
         ${sampleFiles} = Get-ChildItem ${textSampleDir} -File |
             Where-Object { $_.Name -notin @("make_testdata.ps1", "大きいテキスト.log") }
         ${sampleCases} = ${sampleFiles} | ForEach-Object {
@@ -354,5 +364,81 @@ Describe "splitTextLines" -Tag Unit {
 
     It "空文字列は空の配列を返す" {
         (splitTextLines "").Count | Should -Be 0
+    }
+}
+
+Describe "getTextTargetExtensions" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "除かなければ固定の一覧のすべて"; excluded = @(); notContain = @(); count = 75 }
+        @{ name = "引数を渡さなくても固定の一覧のすべて"; excluded = $null; notContain = @(); count = 75 }
+        @{ name = ".log を除く"; excluded = @(".log"); notContain = @(".log"); count = 74 }
+        @{ name = "大文字でも除く"; excluded = @(".LOG", ".Txt"); notContain = @(".log", ".txt"); count = 73 }
+        @{ name = "固定の一覧に無い .exe を渡しても増えない"; excluded = @(".exe"); notContain = @(".exe"); count = 75 }
+        @{ name = "メモ帳で開く拡張子も除ける"; excluded = @(".bat"); notContain = @(".bat"); count = 74 }
+    ) {
+        param ($name, $excluded, $notContain, $count)
+        $result = @(getTextTargetExtensions $excluded)
+        $result.Count | Should -Be $count
+        foreach ($extension in $notContain) {
+            $result | Should -Not -Contain $extension
+        }
+        # 固定の一覧の外は、渡し方にかかわらず入らない
+        @($result | Where-Object { ${textExtensions} -notcontains $_ }).Count | Should -Be 0
+    }
+
+    It "固定の一覧の順を保つ" {
+        $result = @(getTextTargetExtensions @(".csv"))
+        ($result -join ",") | Should -Be ((${textExtensions} | Where-Object { $_ -ne ".csv" }) -join ",")
+    }
+}
+
+Describe "getTextOpenWay / testTextOpenWithNotepad の追加分" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = ".txt は既定のアプリ"; path = "a.txt"; extra = @(); expected = "default" }
+        @{ name = ".txt を追加でメモ帳"; path = "a.txt"; extra = @(".txt"); expected = "notepad" }
+        @{ name = "大文字のパス・追加でもメモ帳"; path = "A.TXT"; extra = @(".Txt"); expected = "notepad" }
+        @{ name = ".bat は追加に無くてもメモ帳"; path = "a.bat"; extra = @(); expected = "notepad" }
+        @{ name = "末尾のピリオドを無視してメモ帳（a.ps1.）"; path = "a.ps1."; extra = @(); expected = "notepad" }
+        @{ name = "追加に入れていない拡張子は既定のアプリ"; path = "a.csv"; extra = @(".txt"); expected = "default" }
+        @{ name = "固定の一覧に無い .exe は追加に入れても既定のアプリのまま（メモ帳にもしない）"; path = "a.exe"; extra = @(".exe"); expected = "default" }
+    ) {
+        param ($name, $path, $extra, $expected)
+        getTextOpenWay $path $extra | Should -Be $expected
+        testTextOpenWithNotepad $path $extra | Should -Be ($expected -eq "notepad")
+    }
+}
+
+Describe "getTextExtensionCounts" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "空・引数なしは空"; names = @(); expected = "" }
+        @{ name = "拡張子ごとに数える（大文字・小文字は同じ）"; names = @("a.txt", "b.TXT", "c.log", "d.Log", "e.log"); expected = ".log=3,.txt=2" }
+        @{ name = "パスでも拡張子だけを見る"; names = @("C:\data\営業\a.csv", "b\c.d\e.csv"); expected = ".csv=2" }
+        @{ name = "固定の一覧に無い拡張子（Office・PDF・.exe）は数えない"; names = @("a.xlsx", "b.pdf", "c.exe", "d.zip", "e.txt"); expected = ".txt=1" }
+        @{ name = "拡張子の無い名前は数えない"; names = @("README", ".gitignore2"); expected = "" }
+    ) {
+        param ($name, $names, $expected)
+        $counts = getTextExtensionCounts $names
+        (($counts.Keys | Sort-Object | ForEach-Object { "$_=$($counts[$_])" }) -join ",") | Should -Be $expected
+    }
+
+    It "引数なしでも例外にならず、空のハッシュテーブルを返す" {
+        (getTextExtensionCounts).Count | Should -Be 0
+    }
+}
+
+Describe "addOutOfListExtensions" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "今の値のうち 75 個に無いものを足す（大文字は 75 個の中か外かを小文字で見る）"; chosen = @(".txt"); current = @(".log", ".exe", ".XYZ"); expected = ".txt,.exe,.XYZ" }
+        @{ name = "75 個の中の今の値は足さない（選び直した結果が優先）"; chosen = @(".md"); current = @(".log", ".txt"); expected = ".md" }
+        @{ name = "どちらも空なら空"; chosen = @(); current = @(); expected = "" }
+        @{ name = "文字列でない今の値は無視する"; chosen = @(".md"); current = @(1, $null, ".exe"); expected = ".md,.exe" }
+    ) {
+        param ($name, $chosen, $current, $expected)
+        (@(addOutOfListExtensions $chosen $current) -join ",") | Should -Be $expected
+    }
+
+    It "一覧（choices）を渡すと、その外の値だけを足す（Office・PDF を含む 86 個のダイアログ）" {
+        $choices = @(".xlsx", ".pdf", ".txt", ".log")
+        (@(addOutOfListExtensions @(".xlsx") @(".pdf", ".exe", ".XLSX", ".docm") $choices) -join ",") | Should -Be ".xlsx,.exe,.docm"
     }
 }

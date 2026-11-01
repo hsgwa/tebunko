@@ -14,20 +14,21 @@ BeforeAll {
 }
 
 Describe "getExtractVersion" -Tag Unit {
-    It "Excel・Word・PowerPoint の新形式と .doc は 4、.ppt・旧形式・バイナリ形式は 1・2（大文字の拡張子も同じ）" {
+    It "Excel・Word の新形式と .doc は 4、PowerPoint は 5、旧形式・バイナリ形式は 1（大文字の拡張子も同じ）" {
         # Excel の新形式は、ヘッダー・フッターを読む版で 4
         getExtractVersion "売上\a.xlsx" | Should -Be 4
         getExtractVersion "売上\a.XLSM" | Should -Be 4
         # Excel の旧形式・バイナリ形式は、図形・コメント・グラフ・SmartArt を読まない
         getExtractVersion "売上\a.xls" | Should -Be 1
         getExtractVersion "売上\a.xlsb" | Should -Be 1
-        # Word・PowerPoint の新形式は、埋め込みの中の文字を読む版で 4
-        foreach ($ext in @(".docx", ".docm", ".pptx", ".PPTM")) {
+        # Word の新形式は、埋め込みの中の文字を読む版で 4。.doc も Word が新形式に変換した後に埋め込みが残るため 4
+        foreach ($ext in @(".docx", ".docm", ".doc")) {
             getExtractVersion "売上\a$ext" | Should -Be 4
         }
-        # .doc は Word が新形式に変換した後も埋め込みが残るため 4。.ppt は変換後に埋め込みが残らないため上げていない
-        getExtractVersion "売上\a.doc" | Should -Be 4
-        getExtractVersion "売上\a.PPT" | Should -Be 2
+        # PowerPoint は、スライドマスター・ノートマスターを読む版で 5（.ppt も .pptx に変換して読むため上げる）
+        foreach ($ext in @(".pptx", ".PPTM", ".ppt", ".PPT")) {
+            getExtractVersion "売上\a$ext" | Should -Be 5
+        }
         getExtractVersion "売上\a.txt" | Should -Be 1
     }
 }
@@ -45,14 +46,24 @@ Describe "getIngestDecision（抽出版）" -Tag Unit {
         (getIngestDecision (newRow ${stateDone} -version "3" -relPath "売上\a.xlsm") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "outdated"
         (getIngestDecision (newRow ${stateDone} -version "4") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "done"
         (getIngestDecision (newRow ${stateDone} -version "3" -relPath "報告\a.docx") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "outdated"
-        (getIngestDecision (newRow ${stateDone} -version "4" -relPath "報告\a.pptx") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "done"
+        (getIngestDecision (newRow ${stateDone} -version "4" -relPath "報告\a.docx") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "done"
+    }
+
+    It "スライドマスター・ノートマスターをまだ読まなかった版の .pptx・.pptm・.ppt は取り込み直し、Excel・Word は取り込み直さない" {
+        foreach ($case in @(@("a.pptx", "4"), @("a.pptm", "3"), @("a.ppt", "2"), @("a.pptx", ""))) {
+            (getIngestDecision (newRow ${stateDone} -version $case[1] -relPath "報告\$($case[0])") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "outdated"
+        }
+        foreach ($name in @("a.pptx", "a.pptm", "a.ppt")) {
+            (getIngestDecision (newRow ${stateDone} -version "5" -relPath "報告\$name") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "done"
+        }
+        (getIngestDecision (newRow ${stateDone} -version "4" -relPath "報告\a.xlsx") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "done"
+        (getIngestDecision (newRow ${stateDone} -version "4" -relPath "報告\a.docx") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "done"
     }
 
     It "グラフの項目名をまだ読まなかった版（抽出版 2）の .xlsx・.docx は取り込み直す（outdated）" {
         (getIngestDecision (newRow ${stateDone} -version "2") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "outdated"
         (getIngestDecision (newRow ${stateDone} -version "2" -relPath "報告\a.docx") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "outdated"
-        # .ppt は版を上げていないため、抽出版 2 でも取り込み直さない
-        (getIngestDecision (newRow ${stateDone} -version "2" -relPath "報告\a.ppt") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "done"
+        (getIngestDecision (newRow ${stateDone} -version "2" -relPath "報告\a.xls") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "done"
     }
 }
 
@@ -224,5 +235,73 @@ Describe "convertToPendingRemoveLines / convertFromPendingRemoveLines" -Tag Unit
     It "行が無ければ空" {
         @(convertToPendingRemoveLines @()).Count | Should -Be 0
         @(convertFromPendingRemoveLines @()).Count | Should -Be 0
+    }
+}
+
+Describe "getFullyIngestedIndexNames" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "名前の有効なフォルダをすべて回した名前だけ返す"; ran = @("C:\a", "C:\b", "C:\c"); folders = @(
+            [pscustomobject]@{ Name = "営業"; Path = "C:\a"; Enabled = $true }, [pscustomobject]@{ Name = "営業"; Path = "C:\b"; Enabled = $true },
+            [pscustomobject]@{ Name = "経理"; Path = "C:\c"; Enabled = $true }); expected = @("営業", "経理") }
+        @{ name = "同じ名前のフォルダの 1 つだけを回した名前は返さない"; ran = @("C:\a"); folders = @(
+            [pscustomobject]@{ Name = "営業"; Path = "C:\a"; Enabled = $true }, [pscustomobject]@{ Name = "営業"; Path = "C:\b"; Enabled = $true }); expected = @() }
+        @{ name = "チェックなしのフォルダは数えない（有効なものをすべて回せばよい）。有効なフォルダが無い名前は返さない"; ran = @("C:\a"); folders = @(
+            [pscustomobject]@{ Name = "営業"; Path = "C:\a"; Enabled = $true }, [pscustomobject]@{ Name = "営業"; Path = "C:\b"; Enabled = $false },
+            [pscustomobject]@{ Name = "総務"; Path = "C:\z"; Enabled = $false }); expected = @("営業") }
+        @{ name = "パスの大文字・小文字は区別しない"; ran = @("c:\A"); folders = @(
+            [pscustomobject]@{ Name = "営業"; Path = "C:\a"; Enabled = $true }); expected = @("営業") }
+        @{ name = "回したフォルダが無ければ空"; ran = @(); folders = @([pscustomobject]@{ Name = "営業"; Path = "C:\a"; Enabled = $true }); expected = @() }
+    ) {
+        param ($name, $ran, $folders, $expected)
+        @(getFullyIngestedIndexNames $ran $folders) | Should -Be $expected
+    }
+}
+
+Describe "getIndexSelectableExtensions・getIndexTargetExtensions・getTargetExtensionCounts" -Tag Unit {
+    It "選べる拡張子は Office 10 個・PDF・テキスト 75 個の 86 個で、重ならず、すべて小文字" {
+        $all = @(getIndexSelectableExtensions)
+        $all.Count | Should -Be 86
+        @($all | Select-Object -Unique).Count | Should -Be 86
+        @($all | Where-Object { $_ -cne $_.ToLowerInvariant() }).Count | Should -Be 0
+        foreach ($ext in @(${officeExtensions}) + @(${pdfExtensions}) + @(${textExtensions})) { $all | Should -Contain $ext }
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "除かなければ 86 個すべて"; excluded = @(); notContain = @(); count = 86 }
+        @{ name = "引数を渡さなくても 86 個すべて"; excluded = $null; notContain = @(); count = 86 }
+        @{ name = "Office の .xlsx を除く"; excluded = @(".xlsx"); notContain = @(".xlsx"); count = 85 }
+        @{ name = "PDF を除く"; excluded = @(".pdf"); notContain = @(".pdf"); count = 85 }
+        @{ name = "テキストの .log を除く"; excluded = @(".log"); notContain = @(".log"); count = 85 }
+        @{ name = "大文字でも除く"; excluded = @(".XLSX", ".Pdf", ".LOG"); notContain = @(".xlsx", ".pdf", ".log"); count = 83 }
+        @{ name = "86 個に無い .exe・.zip を渡しても増えず、減りもしない"; excluded = @(".exe", ".zip"); notContain = @(".exe", ".zip"); count = 86 }
+        @{ name = "Office 10 個をすべて除くと PDF とテキストの 76 個"; excluded = @(${officeExtensions}); notContain = @(${officeExtensions}); count = 76 }
+    ) {
+        param ($name, $excluded, $notContain, $count)
+        $result = @(getIndexTargetExtensions $excluded)
+        $result.Count | Should -Be $count
+        foreach ($extension in $notContain) { $result | Should -Not -Contain $extension }
+        # 86 個の外は、渡し方にかかわらず入らない
+        $selectable = @(getIndexSelectableExtensions)
+        @($result | Where-Object { $selectable -notcontains $_ }).Count | Should -Be 0
+    }
+
+    It "選べる並びの順を保つ" {
+        $result = @(getIndexTargetExtensions @(".pdf", ".csv"))
+        ($result -join ",") | Should -Be ((@(getIndexSelectableExtensions) | Where-Object { $_ -notin @(".pdf", ".csv") }) -join ",")
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "空・引数なしは空"; names = @(); expected = "" }
+        @{ name = "Office・PDF・テキストを拡張子ごとに数える（大文字・小文字は同じ）"; names = @("a.xlsx", "b.XLSX", "c.pdf", "d.PDF", "e.pdf", "f.txt", "g.docx"); expected = ".docx=1,.pdf=3,.txt=1,.xlsx=2" }
+        @{ name = "パスでも拡張子だけを見る"; names = @("C:\data\営業\a.xlsx", "b\c.d\e.csv"); expected = ".csv=1,.xlsx=1" }
+        @{ name = "86 個に無い拡張子（.exe・.zip・拡張子なし）は数えない"; names = @("a.exe", "b.zip", "README", "c.pdf"); expected = ".pdf=1" }
+    ) {
+        param ($name, $names, $expected)
+        $counts = getTargetExtensionCounts $names
+        (($counts.Keys | Sort-Object | ForEach-Object { "$_=$($counts[$_])" }) -join ",") | Should -Be $expected
+    }
+
+    It "引数なしでも例外にならず、空のハッシュテーブルを返す" {
+        (getTargetExtensionCounts).Count | Should -Be 0
     }
 }

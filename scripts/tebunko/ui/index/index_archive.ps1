@@ -11,7 +11,8 @@ function startIndexArchiveJob {
         [object[]]$arguments,
         [scriptblock]$onSuccess,     # 成功したときに画面のスレッドで行うこと { param($output) }
         [string[]]$paths = @(),      # 仕事が触る、ワークスペースのほかの場所（書き出し先・取り込む zip）。ワークスペースと合わせて、裏の列を選ぶ
-        [string]$busyText = ""       # 動いている間のステータス。空なら「<operation>しています…」
+        [string]$busyText = "",      # 動いている間のステータス。空なら「<operation>しています…」
+        $progress = $null            # 仕事が進み具合を書く入れ物（[hashtable]::Synchronized(@{ Done; Total })）。あれば帯に出す
     )
 
     $script:archiveBusy = $true
@@ -19,9 +20,13 @@ function startIndexArchiveJob {
     $script:archiveJobOnSuccess = $onSuccess
     updateIndexingButton
     setStatus $(if ($busyText) { $busyText } else { "${operation}しています…" })
+    if ($null -ne $progress) {
+        startImportProgress $progress
+    }
     startJob $scriptBlock $arguments {
         param ($output, $errorText)
         $script:archiveBusy = $false
+        stopImportProgress
         setExportingRows @()
         if ($errorText) {
             setStatus "$($script:archiveJobOperation)に失敗しました：${errorText}"
@@ -34,6 +39,52 @@ function startIndexArchiveJob {
         updateIndexingButton
     } (getWorkspaceJobQueue (@($workspace.Dir) + @($paths)))
 }
+
+function startImportProgress {
+    # インポートの間、インデックス管理の帯に進み具合を出す（中止のボタンは出さない）。タイマーで入れ物を読み直す
+    param ($progress)
+
+    $script:importProgress = $progress
+    setIndexingBanner "info" "importing"
+    $ui.IndexingBannerClose.Visibility = "Collapsed"   # 閉じるは出さない（中止のボタンも出さない。設計どおり）
+    $ui.IndexingProgressPanel.Visibility = "Visible"
+    $ui.IndexingProgress.Visibility = "Visible"
+    $ui.IndexingResumeButton.Visibility = "Collapsed"
+    $ui.IndexingStopButton.Visibility = "Collapsed"
+    $ui.IndexingSearchButton.Visibility = "Collapsed"
+    $ui.IndexingProgressEta.Text = ""
+    updateImportProgress
+    $script:importProgressTimer.Start()
+}
+
+function updateImportProgress {
+    if ($null -eq $script:importProgress) {
+        return
+    }
+    $view = getImportProgressView ([long]$script:importProgress.Done) ([long]$script:importProgress.Total)
+    $ui.IndexingProgress.IsIndeterminate = $view.Indeterminate
+    $ui.IndexingProgress.Value = $view.Value
+    $ui.IndexingProgressText.Text = $view.Text
+    $ui.IndexingProgressDetail.Text = $view.Detail
+}
+
+function stopImportProgress {
+    # 帯を元に戻す。成功・失敗・上書きの取りやめのどれでも呼ぶ。仕事が進み具合を使っていなければ何もしない
+    $script:importProgressTimer.Stop()
+    if ($null -eq $script:importProgress) {
+        return
+    }
+    $script:importProgress = $null
+    $ui.IndexingProgress.IsIndeterminate = $false
+    $ui.IndexingProgress.Value = 0
+    $ui.IndexingProgressText.Text = ""
+    $ui.IndexingProgressDetail.Text = ""
+    resetIndexingBanner
+    updateIndexingResume   # 中断した更新があれば、その帯を出し直す
+}
+
+$script:importProgress = $null
+$script:importProgressTimer = newTimer 200 { safe { updateImportProgress } }
 
 function showIndexExportDialog {
     # エクスポートのダイアログ。書き出し先のフォルダを返す（キャンセルは $null）
@@ -157,7 +208,7 @@ function continueExport {
             exportIndexToFolder $name $folder $ws $settingsPath
         } @($name, $folder, $workspace.Dir, $workspace.StatusFile, ${settingsFile}) {
             param ($result)
-            setStatus "インデックス [$($result.Name)] を「$($result.Path)」に書き出しました（$($result.Files) ファイル）"
+            setStatus (getIndexExportStatusText "インデックス [$($result.Name)] を「$($result.Path)」に書き出しました（$($result.Files) ファイル）" $result.Omitted ${contentIndexSearchMaxBytes})
         }
         return
     }
@@ -182,7 +233,7 @@ function showBulkIndexResult {
     )
 
     $view = getIndexBulkResultView $operation $results
-    setStatus $view.Status
+    setStatus (getIndexBulkStatusText $operation $view.Status $results ${contentIndexSearchMaxBytes})
     if ($view.HasFailure) {
         showNoticeBanner "IndexNotice" "IndexOpFailed" "$($view.FailureHeading)`n$($view.FailureDetail)"
     } else {
@@ -337,7 +388,7 @@ function newImportIndex {
 
     # onSuccess は別のスレッドの完了を受けて、あとから（別の呼び出しの流れで）実行される。
     # $zipPath（この関数のローカル変数）を参照するため、GetNewClosure() で今の値を取り込む。
-    # continueImportIndex は名前のまま呼ばず、openFailedFileFolder と同じく ${function:...} で先に
+    # continueImportIndex は名前のまま呼ばず、openListedFileFolder と同じく ${function:...} で先に
     # 関数の実体を変数に取り込んでから & で呼ぶ（GetNewClosure() したスクリプトブロックは、
     # tebunko.bat の起動（powershell -Command "...; & gui.ps1"）のように呼び出しが入れ子になっていると、
     # 名前による関数の解決ができないため）
@@ -369,12 +420,13 @@ function continueImportIndex {
     }
 
     $collisionMode = $result.CollisionMode
+    $progress = [hashtable]::Synchronized(@{ Done = [long]0; Total = [long]0 })
 
     startIndexArchiveJob "インポート" {
-        param ($zipPath, $collisionMode, $name, $sourceFolder, $dir, $settingsPath)
+        param ($zipPath, $collisionMode, $name, $sourceFolder, $dir, $settingsPath, $progress)
         $ws = [Workspace]::new($dir)
-        importIndex $zipPath $collisionMode $name $sourceFolder $ws $settingsPath
-    } @($zipPath, $collisionMode, $result.Name, $result.Path, $workspace.Dir, ${settingsFile}) {
+        importIndex $zipPath $collisionMode $name $sourceFolder $ws $settingsPath -progress $progress
+    } @($zipPath, $collisionMode, $result.Name, $result.Path, $workspace.Dir, ${settingsFile}, $progress) {
         param ($result)
         if ($null -eq $result) {
             return  # Cancel で置き換えなかった
@@ -382,6 +434,12 @@ function continueImportIndex {
         # インポートは別スレッドで設定・取り込み一覧を直接書き換えるため、一覧を読み直す（$script:targetItems には無い変更）
         loadTargets
         refreshIndexViews
-        setStatus (getImportResultStatus $result)
-    } @($zipPath, $result.Path)
+        # 先に「次の更新までは…」の文を出す（確認の前に更新が黙って戻っても、インポートできた案内が残る。始まれば確認のところで消え、取りやめなら同じ文が出る）
+        setStatus (getImportSkippedIndexingStatus $result)
+        # 元のフォルダがこの PC にあれば、更新の確認を 1 回だけ、インポート用の文言で出す（作成すると検索が速くなる）。名前は importIndex が返した最終の名前
+        $confirm = getImportIndexingConfirm $result
+        if ($null -ne $confirm) {
+            startIndexing -onlyNames @($result.Name) -confirmText $confirm
+        }
+    } @($zipPath, $result.Path) "" $progress
 }

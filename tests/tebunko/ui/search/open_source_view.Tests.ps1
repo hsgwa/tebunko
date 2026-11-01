@@ -180,16 +180,6 @@ Describe "getSourceOpenMode / getSourceReadOnlyFailedStatus" -Tag Unit {
     }
 }
 
-Describe "getResultSaveFailedText" -Tag Unit {
-    It "<kind> の文" -TestCases @(
-        @{ kind = "Locked"; expected = "search_results.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。" }
-        @{ kind = "Denied"; expected = "search_results.txt に書き込む権限がありません（読み取り専用など）。C:\w\search_results.txt を確かめてから、もう一度出力してください。" }
-    ) {
-        param ($kind, $expected)
-        getResultSaveFailedText $kind "C:\w\search_results.txt" | Should -Be $expected
-    }
-}
-
 Describe "getOfficeOpenKind と取り込みの対象の拡張子（officeExtensions）" -Tag Unit {
     It "取り込みの対象の拡張子は、すべて Excel か Office に分かれる" {
         foreach ($extension in ${officeExtensions}) {
@@ -257,3 +247,105 @@ Describe "getOpenCopyOpenedStatus" -Tag Unit {
     }
 }
 
+Describe "表示する名前・パスの制御文字（getSourceBookRejectedStatus ほか）" -Tag Unit {
+    BeforeAll {
+        $rlo = [string][char]0x202E
+        $repl = [string][char]0xFFFD
+    }
+
+    It "開かない理由に、ファイル名を入れる" {
+        getSourceBookRejectedStatus "evil.hta" | Should -Be "取り込み対象のファイル名ではないため、開きません：evil.hta"
+    }
+
+    It "ファイル名・パスの制御文字（RLO・C0）は U+FFFD にして出す" {
+        getSourceBookRejectedStatus ("a" + $rlo + "txt.hta") | Should -Be "取り込み対象のファイル名ではないため、開きません：a${repl}txt.hta"
+        getSourceNotFoundStatus ("C:\data\x" + [string][char]1 + ".xlsx") | Should -Be "元のファイルが見つかりません：C:\data\x${repl}.xlsx"
+    }
+
+    It "確認の画面の見出しと中身の制御文字も U+FFFD にする" {
+        $dialog = getSourceConfirmDialog ("a" + $rlo + ".xlsx") "受領" ("C:\共有" + $rlo + "x") $false $true
+        $dialog.Heading | Should -BeLike "a${repl}.xlsx *"
+        $dialog.Detail | Should -Be "C:\共有${repl}x"
+    }
+}
+
+Describe "結果の出力の文言" -Tag Unit {
+    It "出力に失敗した文（<kind>）" -ForEach @(
+        @{ kind = "Locked"; expected = "結果.xlsx に書き込めません。開いているアプリを閉じてから、もう一度出力してください。" }
+        @{ kind = "Denied"; expected = "結果.xlsx に書き込む権限がありません（読み取り専用など）。C:\w\結果.xlsx を確かめてから、もう一度出力してください。" }
+    ) {
+        getResultSaveFailedText $kind "C:\w\結果.xlsx" | Should -Be $expected
+    }
+
+    It "出力ボタンの文字: 待ち・書き込み中は「出力を中止」" -ForEach @(
+        @{ Busy = $false; Expected = "出力" }
+        @{ Busy = $true; Expected = "出力を中止" }
+    ) {
+        getExportButtonText $Busy | Should -Be $Expected
+    }
+
+    It "XAML の ExportButtonText の初期値は、ふだんの文字（getExportButtonText $false）と同じ" {
+        $xaml = Get-Content -LiteralPath "${scriptsDir}\tebunko\xaml\search\result_list.xaml" -Raw -Encoding UTF8
+        $xaml | Should -Match ([regex]::Escape('x:Name="ExportButtonText" Text="' + (getExportButtonText $false) + '"'))
+    }
+
+    It "<Name>" -ForEach @(
+        @{ Name = "表がすべて・絞り込みなし"; Params = @("a.xlsx", "All", 1234, $false); Expected = "a.xlsx に 1,234 件を出力しました（出力したファイルを開きます）" }
+        @{ Name = "表がすべて・絞り込み"; Params = @("a.csv", "All", 5, $true); Expected = "絞り込み後の 5 件を a.csv に出力しました" }
+        @{ Name = "溢れも含む"; Params = @("a.tsv", "Overflow", 100000, $false); Expected = "表に入らなかった分も含めて、全 100,000 件を a.tsv に出力しました" }
+        @{ Name = "溢れも含む・絞り込み"; Params = @("a.tsv", "Overflow", 70, $true); Expected = "表に入らなかった分も含めて、絞り込み後の 70 件を a.tsv に出力しました" }
+        @{ Name = "溢れも含む・並べ替え中"; Params = @("a.tsv", "Overflow", 9, $false, "", $true); Expected = "表に入らなかった分も含めて、全 9 件を a.tsv に出力しました（件数が多いため、並べ替えは当てずに検索の順で出力しました）" }
+        @{ Name = "先頭だけ（総数の時間切れ）"; Params = @("a.csv", "HeadOnly", 50, $false, "CountTimeout"); Expected = "表に出ている 50 件だけを a.csv に出力しました（総数を数える時間が切れたため、残りは出力していません）" }
+        @{ Name = "先頭だけ（溢れを書けなかった）"; Params = @("a.csv", "HeadOnly", 50, $false, "OverflowFailed"); Expected = "表に出ている 50 件だけを a.csv に出力しました（表に入らない分を一時ファイルに書けなかったため、残りは出力していません）" }
+        @{ Name = "先頭だけ（検索を止めた）"; Params = @("a.csv", "HeadOnly", 50, $true, "Cancelled"); Expected = "表に出ている 50 件だけを a.csv に出力しました（検索を途中で止めたため、残りは出力していません）" }
+        @{ Name = "先頭だけ（理由が不明）"; Params = @("a.csv", "HeadOnly", 1, $false, ""); Expected = "表に出ている 1 件だけを a.csv に出力しました（残りは出力していません）" }
+        @{ Name = "Excel の行の上限で書かなかった分"; Params = @("a.xlsx", "All", 1048575, $false, "", $false, 1500, 0); Expected = "a.xlsx に 1,048,575 件を出力しました（出力したファイルを開きます）（1,500 件は Excel の行の上限を超えたため書いていません。全件は CSV か TSV で出力してください）" }
+        @{ Name = "長すぎて切ったセル"; Params = @("a.xlsx", "All", 3, $false, "", $false, 0, 2); Expected = "a.xlsx に 3 件を出力しました（出力したファイルを開きます）（2 個のセルは長すぎるため、途中で切りました）" }
+    ) {
+        getExportDoneText @Params | Should -Be $Expected
+    }
+
+    It "待ち・書き込み中・中止・失敗・確認などの文言" {
+        getExportWaitingText | Should -Be "検索が終わってから出力します…"
+        getExportWritingText 12345 | Should -Be "検索結果を出力中…（12,345 件）"
+        getExportCancelledText | Should -Be "出力を中止しました。出力先のファイルは変えていません。"
+        getExportFailedText "ディスクが一杯です" | Should -Be "検索結果を出力できませんでした：ディスクが一杯です"
+        getExportFailedText "" | Should -Be "検索結果を出力できませんでした"
+        getExportOpenFailedText "a.xlsx" 1234 "C:\w\a.xlsx" | Should -Be "a.xlsx に 1,234 件を出力しました。ファイルを開けなかったため、C:\w\a.xlsx を開いてください"
+        getSavedFileName "" | Should -Be ""
+        getSavedFileName "C:\w\x\" | Should -Be "x"
+    }
+}
+
+Describe "出力の種類（吹き出し）" -Tag Unit {
+    It "最後の種類は、書けたときだけ替わる（現在 <current>・書いた <written> → <expected>）" -ForEach @(
+        @{ current = "xlsx"; written = "csv"; expected = "csv" }
+        @{ current = "csv"; written = ""; expected = "csv" }
+        @{ current = ""; written = ""; expected = "xlsx" }
+        @{ current = "tsv"; written = "x"; expected = "tsv" }
+    ) {
+        getLastExportFormat $current $written | Should -Be $expected
+    }
+
+    It "吹き出し（<format>・待ち中 <busy>）" -ForEach @(
+        @{ format = "xlsx"; busy = $false; expected = "Excel ブック (.xlsx) で出力します" }
+        @{ format = "csv"; busy = $false; expected = "CSV (.csv) で出力します" }
+        @{ format = "tsv"; busy = $false; expected = "TSV (.tsv) で出力します" }
+        @{ format = ""; busy = $false; expected = "Excel ブック (.xlsx) で出力します" }
+        @{ format = "csv"; busy = $true; expected = "出力を中止します" }
+    ) {
+        getExportButtonToolTip $format $busy | Should -Be $expected
+    }
+}
+
+Describe "getDefaultExportName" -Tag Unit {
+    It "既定の名前: <word> → <expected>" -ForEach @(
+        @{ word = "りんご"; expected = "検索結果_りんご_20261022_103005" }
+        @{ word = 'a/b:c*"d'; expected = "検索結果_a_b_c__d_20261022_103005" }
+        @{ word = ""; expected = "検索結果_20261022_103005" }
+        @{ word = ("あ" * 40); expected = "検索結果_" + ("あ" * 30) + "_20261022_103005" }
+        @{ word = ("あ" * 29 + [char]::ConvertFromUtf32(0x20BB7) + "い"); expected = "検索結果_" + ("あ" * 29) + "_20261022_103005" }
+    ) {
+        getDefaultExportName $word ([datetime]"2026-10-22 10:30:05") | Should -Be $expected
+    }
+}

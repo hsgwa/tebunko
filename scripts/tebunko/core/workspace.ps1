@@ -34,8 +34,11 @@ class Workspace {
     [string]$JournalFile
     # 本文インデックスから外し終えていない、無くなった元のファイルの記録（書き出しを飛ばした・落ちた・強制終了した回の次の回に外し直す）
     [string]$PendingRemoveFile
-    [string]$ResultFile
+    # インデックスごとの、前の回に数えたテキストの拡張子ごとの件数の控え（text_ext_counts.ps1。消えても・読めなくても困らない）
+    [string]$TextExtCountsFile
     # インデックス作成の記録。画面とインデクサの受け渡しはメモリ上で行う（indexer_state.ps1 の newIndexerChannel）
+    # インデックス作成の間だけ開いておく鍵のファイル（空。別のセッション・PC・パスの書き方からの同時のインデックス作成を防ぐ。openLockFile）
+    [string]$LockFile
     [string]$IndexingLogFile  # インデクサの表示内容の記録（実行ごとに上書き）
     [string]$GuiErrorLogFile  # 画面で起きた予期しないエラーの記録（追記。原因を後から追えるようにする。1 MB で下の前回の分に回す）
     [string]$IndexingLogPreviousFile  # 前回のインデックス作成の記録（インデックス作成を始めるとき、今の記録をここへ移す）
@@ -62,7 +65,9 @@ class Workspace {
         $this.StatusFile = "$dir\store\ingest_status.tsv"
         $this.JournalFile = "$dir\store\journal\ingest.tsv"
         $this.PendingRemoveFile = "$dir\store\pending_remove.tsv"
-        $this.ResultFile = "$dir\search_results.txt"
+        $this.TextExtCountsFile = "$dir\store\text_ext_counts.json"
+        # ドライブの直下（Y: の根）でも区切りを二重にしない（長いパスの形にしたとき、区切りが二重のパスは開けない）
+        $this.LockFile = $dir.TrimEnd("\") + "\indexing.lock"
         $this.IndexingLogFile = "$dir\indexing_log.txt"
         $this.GuiErrorLogFile = "$dir\gui_error_log.txt"
         $this.IndexingLogPreviousFile = "$dir\indexing_log_previous.txt"
@@ -79,7 +84,7 @@ class Workspace {
     # 移すときに残っても取り込み直しが増えるだけ（取り込み一覧が前回のままなので、止まったファイルは更新ありのまま次の回で取り込まれる）
     [string[]] Entries() {
         return @($this.StoreDir, $this.OldIndexDir, $this.OldStatusFile, $this.LegacyIndexDir,
-            $this.ResultFile, $this.IndexingLogFile, $this.GuiErrorLogFile,
+            $this.LockFile, $this.IndexingLogFile, $this.GuiErrorLogFile,
             $this.IndexingLogPreviousFile, $this.GuiErrorLogPreviousFile, [System.IO.Path]::GetDirectoryName($this.PublishDir), $this.TmpRoot, $this.OfficePidRoot)
     }
 }

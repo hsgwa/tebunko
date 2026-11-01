@@ -8,6 +8,7 @@
 #   ・失敗したら、画面の画像とログを work\test\gui\<場面>\ に残す（CI は成果物に上げる）
 # 詳細は docs\design\testing\gui-smoke.md「画面のスモークテスト」。
 
+. "$PSScriptRoot\..\helpers\process.ps1"
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Drawing, System.Windows.Forms
 
 # 既定のワークスペースを求める・前後を比べる関数（tools\run_isolated.ps1・tests\run.ps1 と同じもの）
@@ -138,10 +139,14 @@ function startGuiProcess {
     assertNotRealWorkspace $Tool.DefaultWorkspace
     $previousWorkspace = $env:TEBUNKO_DEFAULT_WORKSPACE
     $env:TEBUNKO_DEFAULT_WORKSPACE = $Tool.DefaultWorkspace
+    # 閉じる処理の記録（本体の gui_main.ps1 が、段ごとに 1 行ずつ足す）を、場面ごとの作業フォルダに置く。失敗の材料に写す（saveGuiEvidence）
+    $previousCloseTrace = $env:TEBUNKO_CLOSE_TRACE
+    $env:TEBUNKO_CLOSE_TRACE = Join-Path $Tool.Work "close_trace.txt"
     try {
         $p = Start-Process powershell.exe -ArgumentList @("-NoProfile", "-STA", "-ExecutionPolicy", "RemoteSigned", "-Command", $command) -PassThru -WindowStyle Hidden
     } finally {
         $env:TEBUNKO_DEFAULT_WORKSPACE = $previousWorkspace
+        $env:TEBUNKO_CLOSE_TRACE = $previousCloseTrace
     }
     $null = $p.Handle   # ExitCode を取るため、起動の直後にハンドルを持つ
     return $p
@@ -183,12 +188,11 @@ function stopGui {
     # 画面が残っていれば止め、裏の呼び出しを片づける（終了コードは、閉じる操作の側で確かめる）
     param ($S)
 
-    foreach ($extra in @($S.Extra)) {
-        if ($extra -and !$extra.HasExited) { Stop-Process -Id $extra.Id -Force -ErrorAction SilentlyContinue }
-    }
-    if ($S.Process -and !$S.Process.HasExited) {
-        Stop-Process -Id $S.Process.Id -Force -ErrorAction SilentlyContinue
-        [void]$S.Process.WaitForExit(10000)
+    # 止められずに投げられても、あとの片づけを飛ばさない（例外は控えて、片づけを終えてから最初の 1 件を投げ直す）
+    $stopErrors = New-Object System.Collections.Generic.List[object]
+    foreach ($target in @(@($S.Extra) + @($S.Process))) {
+        if (-not $target) { continue }
+        try { stopStartedProcess $target } catch { $stopErrors.Add($_) }
     }
     foreach ($item in @($S.Async)) {
         try {
@@ -196,6 +200,7 @@ function stopGui {
         } catch { }
     }
     try { $S.Pool.Close() } catch { }
+    if ($stopErrors.Count -gt 0) { throw $stopErrors[0] }
 }
 
 function closeGui {
@@ -206,12 +211,41 @@ function closeGui {
     $processId = $S.Process.Id
     $pattern = $S.Window.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern)
     $pattern.Close()
-    waitGui $S "画面が終了する" $Timeout -AllowExited { $S.Process.HasExited } | Out-Null
+    try {
+        waitGui $S "画面が終了する" $Timeout -AllowExited { $S.Process.HasExited } | Out-Null
+    } catch {
+        # 閉じても終わらない。止める前に、生きているプロセスの各スレッドの状態とイベントログを材料に残す（saveGuiEvidence が閉じない.txt に写す）
+        $S.StuckInfo = @(getGuiThreadInfo $processId) + @(getGuiCrashInfo $processId)
+        throw
+    }
     if ($S.Process.ExitCode -ne 0) {
         # reportStartupFailure（gui.ps1）を通らない終了（native の障害など）は原因が分からないため、Windows のイベントログを材料に残す
         $S.CrashInfo = getGuiCrashInfo $processId
         throw "画面の終了コードが 0 ではない（$($S.Process.ExitCode)）"
     }
+}
+
+function getGuiThreadInfo {
+    # 生きているプロセスの各スレッドの ThreadState と WaitReason（待ちのときだけ取れる）。閉じても終わらない原因を追う材料にする
+    param ([int]$ProcessId)
+
+    try {
+        $process = Get-Process -Id $ProcessId -ErrorAction Stop
+        return @($process.Threads | ForEach-Object {
+            $reason = ""
+            try { if ($_.ThreadState -eq "Wait") { $reason = [string]$_.WaitReason } } catch { }
+            "スレッド $($_.Id): ThreadState=$($_.ThreadState) WaitReason=$reason"
+        })
+    } catch {
+        return @("スレッドの状態を読めなかった: $($_.Exception.Message)")
+    }
+}
+
+function getGuiCrashPatterns {
+    # イベントログの本文からプロセス ID を探す文字列。本文には 10 進でも 16 進（0x 付き・無し）でも書かれるため、3 通り返す
+    # （-like は大文字と小文字を区別しないので、16 進の大小は問わない）
+    param ([int]$ProcessId)
+    return @("$ProcessId", ("0x{0:x}" -f $ProcessId), ("{0:x}" -f $ProcessId))
 }
 
 function getGuiCrashInfo {
@@ -220,8 +254,9 @@ function getGuiCrashInfo {
     param ([int]$ProcessId)
 
     try {
+        $patterns = @(getGuiCrashPatterns $ProcessId)
         $events = Get-WinEvent -FilterHashtable @{ LogName = "Application"; StartTime = (Get-Date).AddMinutes(-5) } -ErrorAction SilentlyContinue |
-            Where-Object { $_.Message -like "*$ProcessId*" } | Select-Object -First 5
+            Where-Object { $message = $_.Message; @($patterns | Where-Object { $message -like "*$_*" }).Count -gt 0 } | Select-Object -First 5
         return @($events | ForEach-Object { "[$($_.TimeCreated)] $($_.ProviderName)（ID $($_.Id)）: $($_.Message)" })
     } catch {
         return @("イベントログを読めなかった: $($_.Exception.Message)")
@@ -602,12 +637,15 @@ function saveGuiEvidence {
         } catch {
             "画像を撮れなかった: $($_.Exception.Message)" | Set-Content -LiteralPath "$dest\画像なし.txt" -Encoding UTF8
         }
-        foreach ($name in "gui_error_log.txt", "indexing_log.txt") {
+        foreach ($name in "gui_error_log.txt", "indexing_log.txt", "close_trace.txt") {
             $file = Join-Path $S.Tool.Work $name
             if (Test-Path -LiteralPath $file) { Copy-Item -LiteralPath $file -Destination $dest -Force }
         }
         if ($S.CrashInfo) {
             $S.CrashInfo | Set-Content -LiteralPath "$dest\クラッシュ情報.txt" -Encoding UTF8
+        }
+        if ($S.StuckInfo) {
+            $S.StuckInfo | Set-Content -LiteralPath "$dest\閉じない.txt" -Encoding UTF8
         }
         $tree = New-Object System.Collections.ArrayList
         foreach ($w in @(getGuiTopWindows $S)) {
@@ -622,10 +660,10 @@ function invokeGuiScene {
     # 場面 1 つ分の操作（Body）を実行する。まず本体の窓を待ち（waitGuiStarted）、それから Body を実行する。
     # 失敗したら、どの手順で止まったかを文言に足し、失敗の材料を残して例外にする（起動そのものの失敗も含む）。
     # 終わったら（失敗しても）画面を止める
-    param ($S, [scriptblock]$Body)
+    param ($S, [scriptblock]$Body, [switch]$NoWait)
 
     try {
-        waitGuiStarted $S
+        if (!$NoWait) { waitGuiStarted $S }
         & $Body
     } catch {
         $message = "[$($S.Scene)・手順: $($S.Step)] $($_.Exception.Message)"
@@ -1049,4 +1087,41 @@ function testGuiIndexing {
     param ($S)
     $button = findGui $S.Window -Id "IndexingButton"
     return ($button -and $button.Current.Name -eq "更新中…")
+}
+
+function measureGuiStall {
+    # 画面を起動してから Done が真を返すまでの間に、画面が応答しなかった一番長い時間（秒）を測って返す（invokeGuiScene -NoWait の中で呼ぶ）。
+    # 100ms ごとに、画面の窓を探して Done を調べる。画面のスレッドが仕事で塞がっていると、この UI オートメーションの問い合わせは
+    # 返らずに待たされるため、1 回の問い合わせにかかった時間がそのまま止まって見えた時間になる。
+    # 数えるのは、窓が最初に出た問い合わせの次の回から（窓が出るまでの待ちと、その回の用意は起動の時間で、止まりではない）。
+    # 全体は $Timeout 秒で打ち切り、例外にする。窓が見つかったら $S.Window に入れる
+    param ($S, [scriptblock]$Done, [int]$Timeout = 120)
+
+    $longest = 0.0
+    $seen = $false
+    $count = 0
+    $total = [Diagnostics.Stopwatch]::StartNew()
+    while ($true) {
+        if ($S.Process.HasExited) { throw "画面が終了した（終了コード $($S.Process.ExitCode)）。止まりの測定の途中" }
+        $counted = $seen   # 窓が出た回の次の回から数える（窓が出た回は、起動と窓の用意の待ちを含むため）
+        $query = [Diagnostics.Stopwatch]::StartNew()
+        $tops = @(getGuiTopWindows $S)
+        if ($tops.Count -gt 0) { $seen = $true }
+        $finished = $false
+        if (!$S.Window) {
+            foreach ($w in $tops) {
+                if (findGui $w -Id "NavList") { $S.Window = $w; break }
+            }
+        }
+        if ($S.Window) { $finished = [bool](& $Done) }
+        $query.Stop()
+        if ($counted) {
+            $longest = [Math]::Max($longest, $query.Elapsed.TotalSeconds)
+            $count++
+        }
+        if ($finished) { break }
+        if ($total.Elapsed.TotalSeconds -gt $Timeout) { throw "止まりの測定の終わりの条件が $Timeout 秒以内に整わなかった" }
+        Start-Sleep -Milliseconds 100
+    }
+    return @{ Longest = [Math]::Round($longest, 2); Total = [Math]::Round($total.Elapsed.TotalSeconds, 1); Queries = $count }
 }

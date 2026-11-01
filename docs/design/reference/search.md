@@ -1,6 +1,6 @@
 ﻿# 部品ごとの関数（検索・スレッド・元のファイル・画面）
 
-扱うこと: 検索（`search_query.ps1`・`content_index_search.ps1`・`search_overflow.ps1`・`search_run.ps1`）、スレッドとプール（`worker_pool.ps1`・`search_service.ps1`・`indexing_session.ps1`）、元のファイルの特定（`source_map.ps1`）、画面が使う集計・設定・Office プロセスの関数一覧。扱わないこと: TSV・本文インデックスそのものの関数（[部品ごとの関数（TSV と本文インデックス）](tsv.md)）。先に読むページ: [部品から関数一覧を引く](index.md)。
+扱うこと: 検索（`search_query.ps1`・`content_index_search.ps1`・`search_overflow.ps1`・`search_export.ps1`・`search_run.ps1`）、スレッドとプール（`worker_pool.ps1`・`search_service.ps1`・`indexing_session.ps1`）、元のファイルの特定（`source_map.ps1`）、画面が使う集計・設定・Office プロセスの関数一覧。扱わないこと: TSV・本文インデックスそのものの関数（[部品ごとの関数（TSV と本文インデックス）](tsv.md)）。先に読むページ: [部品から関数一覧を引く](index.md)。
 
 ## 検索（`tebunko/search/search_query.ps1`・`content_index_search.ps1`・`search_run.ps1`）
 
@@ -12,7 +12,7 @@ flowchart LR
     T --> E["searchContentIndexFiles<br>読み込みと照合（作業が 2 つ以上なら並列）"]
     E --> P["readContentIndexPlaces<br>一致の位置から元のファイル・場所・行"]
     E --> F["Hits"]
-    F --> G["toSearchResultLines / writeSearchResult<br>検索結果ファイル"]
+    F --> G["toSearchResultLines<br>コピー用の行"]
 ```
 
 | 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |
@@ -32,14 +32,16 @@ flowchart LR
 | `testCellPrefixedHit` | regex, line | bool | セル番地 + 区切りのタブ + 文字の行（Excel の図形・コメント）で、最初のタブより後から始まる一致があるか（開始位置つきの `IsMatch`。タブが無い行は `$false`） | 同上 | searchContentIndexFiles（並列検索のスレッドでも動く） |
 | `searchContentIndex` | word, contentIndexFiles, simpleMatch, limit, stopSignal（検索の要求など `Stop` を持つもの。ファイル 1 件ごとに見て、作業スレッドにも渡す。`$null` は止めない）, caseSensitive, fileFilter, workerCount（並列のスレッド数。0 は自動で最大 4）, cache（`newTsvTextCache`）, includeShapes, includeComments（図形・コメントの場所も検索するか。`newPlaceExclude`）, taskBytes, onProgress（`{ param($done, $total, $newHits, $hitTotal) }`。done・total は本文インデックスのファイルの数、hitTotal は今までの件数）, pool（照合のプール `newContentIndexWorkerPool`。`$null` なら並列にするときだけ作って最後に閉じる）, checkEvery（作業が合図を見るヒットの間隔）, overflowDir（溢れの置き場所。空は書き溜めない） | `@{Hits; SimpleMatch; Total; Truncated; HitTotal; CountTimeout; OverflowFailed; Cancelled; Skipped}`（`Truncated` は上限を超えたこと、`HitTotal` は上限を超えた分も含む件数で、中止・総数の時間切れは -1。`Skipped` は飛ばした本文インデックスのファイルのパスの一覧） | 本文インデックスを検索する（照合は `searchContentIndexFiles`＝.NET の `StreamReader`＋`[regex]`）。Hits は PSCustomObject（Root・RelPath（本文インデックスのファイル）・RelDir・FileName・Book・Location・LineNumber・Line）。Total は本文インデックスのファイルの数。作業（約 16MB）ごとに進捗を知らせ、中止に対応する。件数の上限（`limit`）を超えても打ち切らず、表（Hits）には上限までを入れ、超えた分は数え続けて `HitTotal` にする（作業の返した行のうち表に入らない分は、`overflowDir` の `<作業の番号>.head.tsv` に書く）。作業が 2 つ以上なら複数スレッドで並行して検索する（結果の順は変わらない）。照合が時間切れになれば例外にする | [検索](../search/index.md) | 検索・画面 |
 | `newTsvTextCache` | maxChars（既定 6,400 万文字） | `@{Texts; Chars; MaxChars; Generation}` | 検索で読んだ本文インデックスのファイルの内容と場所の一覧を次の検索・プレビューで使い回す入れ物（パス → 更新日時・サイズ・内容・場所の一覧・最後に使った世代）。更新日時・サイズが変わった本文インデックスのファイルは読み直す。追い出しは `trimTsvTextCache` | [検索を速くする仕組み](../search/speed.md) | 画面 |
-| `newContentIndexWorkerPool` | workers（既定 `getWorkerCount`） | `WorkerPool` | 本文インデックスの照合のプールを作る（各スレッドには照合に要る関数と値だけを読み込む。`searchContentIndexFiles`・`testCellPrefixedHit`・`readContentIndexPlaces`・`testContentIndexCellPrefixed`・`testCellPrefixedPlace`・`convertContentIndexMetaToPlace`・`decodeContentIndexValue`・`getContentIndexFileKind`・`testTextExtension`・`truncateHitLine`・`newSearchOverflowWriter` と、`textExtensions`・`hitLineMaxChars`・`hitLineBeforeMatchChars` などの定数。優先度は Normal） | [プロセスとスレッド](../structure/threads.md#寿命) | 検索の司令（`SearchService`）、searchContentIndex |
+| `newContentIndexWorkerPool` | workers（既定 `getWorkerCount`） | `WorkerPool` | 本文インデックスの照合のプールを作る（各スレッドには照合に要る関数と値だけを読み込む。`searchContentIndexFiles`・`testCellPrefixedHit`・`readContentIndexPlaces`・`testContentIndexCellPrefixed`・`testCellPrefixedPlace`・`convertContentIndexMetaToPlace`・`decodeContentIndexValue`・`getContentIndexFileKind`・`testTextExtension`・`testSourceBookName`・`truncateHitLine`・`newSearchOverflowWriter` と、`textExtensions`・`officeExtensions`・`displayControlChars`・`hitLineMaxChars`・`hitLineBeforeMatchChars` などの定数。優先度は Normal） | [プロセスとスレッド](../structure/threads.md#寿命) | 検索の司令（`SearchService`）、searchContentIndex |
 | `trimTsvTextCache` | cache, keepRatio（既定 0.9） | 追い出した数 | 検索 1 回の後に呼ぶ。上限の keepRatio を超えていたら、今の世代で使わなかったものを古い世代から追い出し、世代を 1 つ進める | [閉じるときの順番と GC](../structure/closing.md#gc-とメモリ) | 検索の司令 |
 | `newSearchRequest` | word, simpleMatch, folders, limit, option, workDir（既定 `$workspace.Dir`） | 検索の要求（`[hashtable]::Synchronized`） | 検索 1 回分の要求を作る。画面が条件と `Stop`（取り消し）を書き、検索の司令がヒット（`Queue`）・進み具合・`Finished` を書く | [プロセスとスレッド](../structure/threads.md#寿命) | 画面 |
 | `invokeSearchRequest` | request, pool, cache | – | 検索の要求を実行し、ヒットと進み具合を要求に少しずつ入れる。例外は投げずに `Error` に入れる。始める前に取り消されていたら何もせずに `Cancelled` にする。gram 索引・列挙・照合には要求そのものを `-stopSignal` として渡し、gram 索引・列挙の後に `Stop` を見て、立っていれば先の段に進まず `Cancelled` にする | 同上 | 検索の司令 |
 | `toResultLine` | book, location, lineNumber, line | string | `ファイル名<TAB>場所<TAB>種別<TAB>行番号<TAB>該当行` を返す（場所・種別は `describePlace` の表記）。Excel はセル内改行を LF に戻し、Word・PowerPoint は `"` で始まるセルを `"` で囲む。場所のタブ・改行（Excel のシート名に付けられる）はスペースにする | [検索結果ファイル](../search/output.md#1-行の組み立て) | 検索 |
-| `toResultHeader` | columnCount | string | 見出し行 `ファイル名<TAB>場所<TAB>種別<TAB>行<TAB>A<TAB>B…` を返す | [検索結果ファイル](../search/output.md#出力フォーマットworksearch_resultstxt) | 検索 |
-| `toSearchResultLines` | hits | `@{Header; Lines}` | 検索結果ファイルの見出し行と各行（相対フォルダ付き `toResultLine`、最大セル数の `toResultHeader`） | 同上 | 検索・画面 |
-| `writeSearchResult` | writer, word, hits | – | 1 ワード分の `【検索文字列　X】 N 件`・見出し行・各行・空行を書き出す | 同上 | 検索・画面 |
+| `toResultHeader` | columnCount | string | 見出し行 `ファイル名<TAB>場所<TAB>種別<TAB>行<TAB>A<TAB>B…` を返す | [検索結果ファイル](../search/output.md#出力フォーマットexcel-ブックcsvtsv) | 検索 |
+| `getSearchResultLine` | relDir, book, location, lineNumber, line | string | 結果の 1 行（相対フォルダ付き `toResultLine`）。コピーで使う | 同上 | `toSearchResultLines` |
+| `getSearchResultColumnCount` | line | int | 1 行の見出しに要る列の数（ファイル名・場所・種別・行番号の 4 列を除いたセルの数） | 同上 | `toSearchResultLines` |
+| `toSearchResultLines` | hits | `@{Header; Lines}` | コピー用の見出し行と各行（`getSearchResultLine`、最大セル数の `toResultHeader`） | 同上 | 画面（コピー） |
+| `newExportRequest` | source, outputPath, shownHits, filterText, word, format（既定 `xlsx`）, tmpRoot（既定は空） | hashtable（Synchronized） | 書き出しの要求（`Kind = "Export"`）。表の分（値だけ）・絞り込みの文字列・書く形式（xlsx / csv / tsv）・元の検索の要求を持つ。`Outcome`（Done / Cancelled / Locked / Denied / Failed）・`Written`・`Scope`・`HeadOnlyReason`・`TruncatedCells`・`DroppedRows`・`Error`・`Finished` を司令が書く | [結果をファイルに出力](../gui/search-tab.md#結果をファイルに出力) | `startExport`（画面）・`SearchService.Export` |
 | `getSearchOverflowRoot` | tmpRoot | string | 溢れを置く根（`tmpRoot\<PC の鍵>\search_overflow`）を組み立てる（ファイルには触らない） | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | `getSearchOverflowPidDir`・`removeStaleSearchOverflow` |
 | `getSearchOverflowPidDir` | tmpRoot | string | このプロセスの溢れのフォルダ（根`\<PID>`）。次の検索の始めと閉じるときに中ごと消す | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | `invokeSearchRequest`・検索のスレッド |
 | `getSearchOverflowDir` | tmpRoot, requestNumber | string | 検索の要求 1 つの溢れのフォルダ（根`\<PID>\<要求の番号>`） | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | `invokeSearchRequest` |
@@ -48,6 +50,9 @@ flowchart LR
 | `newSearchOverflowWriter` | dir, name | StreamWriter または `$null` | 溢れのファイルを BOM なしの UTF-8・LF で作って開く。作れない・開けないときは `$null`（照合のスレッドからも呼ぶため .NET だけで書く） | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | `searchContentIndexFiles`・`searchContentIndex` |
 | `writeSearchOverflowHits` | writer, hits | bool | 司令が、表に入らなかった行を溢れの head のファイルに書き足す。書けなければ `$false` | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | `searchContentIndex` |
 | `getSearchOverflowFiles` | dir | パスの並び | 溢れのファイルを、全件の順（作業の番号の順に、head → 作業のファイル）に並べる。フォルダが無ければ空 | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | `readSearchOverflowLines`・書き出し |
+| `invokeSearchExport` | request（`newExportRequest` の要求） | なし | ［出力 ▾］の書き出し。xlsx は `.new` にストリームで直接書き、csv・tsv は本文を一時ファイルに書いてから `.new` に見出し付きで組み、出力先と置き換える。`tmpRoot` があれば、出力先の置き場（`open_copy`）がリンクでないことを書く前に確かめる（`testOpenCopyDir`）。結果は要求の `Outcome`・`Written`・`Scope` に残す | [結果をファイルに出力](../gui/search-tab.md#結果をファイルに出力) | 検索の司令（`SearchService`） |
+| `getSearchExportScope` | source（検索の要求） | `@{Scope; Reason}` | 何を書くかを決める（All / Overflow / HeadOnly と、HeadOnly の理由） | [結果をファイルに出力](../gui/search-tab.md#結果をファイルに出力) | `invokeSearchExport` |
+| `testHitFilter` | book, filterText | bool | 元のファイル名が絞り込みに合うか（空は全部合う。大文字・小文字を区別しない部分一致） | [結果の絞り込み](../gui/search-tab.md#絞り込み) | `HitRow.MatchesFileName`・`invokeSearchExport` |
 | `readSearchOverflowLines` | dir | string の並び | 溢れの全件を全件の順の行で返す（全部をメモリに読むので、テスト・小さい量向け） | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | テスト |
 | `removeStaleSearchOverflow` | tmpRoot, isAlive | int | 強制終了などで残った溢れを、起動時に消す。動いていないプロセスの `<PID>` だけ消し、消した数を返す | [上限を超えた分の数え上げと書き溜め](../search/index.md#上限を超えた分の数え上げと書き溜め) | 起動（`startup.ps1` のバックグラウンドの処理） |
 
@@ -70,7 +75,7 @@ flowchart LR
 | `getWorkerCount` | max（既定 4）, processors | int | プールのスレッドの数の既定（コア数 − 1。1〜max） | 検索・インデックス作成 |
 | `WorkerPool` | size, state, host, priority | – | ランスペースと PowerShell のインスタンスを使い回すプール。`Submit`（仕事を始める）・`Receive`（終わりを待って出力を返す）・`Cancel`・`Close`。`Priority` は仕事を始めるたびにスレッドに設定する。`Prelude` は各スレッドで最初の仕事の前に 1 回だけ実行する | 照合のプール・BackgroundQueue |
 | `BackgroundQueue` | size, prelude, host | – | 画面から頼まれる短い仕事のスレッド（画面は 2 つで作る）。`Post`（仕事を始める）・`Poll`（終わった仕事の onDone を画面のスレッドで呼び、残りの数を返す）・`Close` | startJob（`shell.ps1`） |
-| `newSearchService` / `SearchService` | libPath, cache, workers | `SearchService` | 検索の司令のスレッド（画面を開いている間 1 つ）。`Request`（前の要求を取り消して新しい要求を渡す。スレッドが止まっていれば作り直す）・`Cancel`・`IsRunning`・`GetFailure`・`Close`（5 秒待って止まらなければスレッドを止める） | 画面 |
+| `newSearchService` / `SearchService` | libPath, cache, workers | `SearchService` | 検索の司令のスレッド（画面を開いている間 1 つ）。`Request`（前の要求を取り消して新しい要求を渡す。スレッドが止まっていれば作り直す）・`Export`（書き出しの要求を渡す。実行中の検索は取り消さない。作り直したときは溢れが消えているので表の分だけになる）・`Cancel`・`IsRunning`・`GetFailure`・`Close`（5 秒待って止まらなければスレッドを止める） | 画面 |
 | `newIndexingSession` / `IndexingSession` | indexerPath, channel | `IndexingSession` | インデックス作成 1 回分のスレッド（MTA・BelowNormal）を作り、`indexer.ps1 -Channel <channel>` を実行する。`IsRunning`・`Stop`・`Wait`・`GetExitCode`（終了コードが無ければ 1）・`GetError`・`GetCloudSkipped`（クラウドにだけあるため残した件数。無ければ 0）・`KillOffice`（`OfficePids` に記録した Office だけを、プロセス名と起動時刻を確かめて止める）・`Close` | 画面 |
 
 ### 元のファイルの特定・画面
@@ -93,7 +98,7 @@ flowchart LR
 | 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |
 |---|---|---|---|---|---|
 | `readSearchOption` / `writeSearchOption` | path（既定 `$settingsFile`） / option（`@{UseRegex; CaseSensitive; IncludeShapes; IncludeComments}` のうち変える項目）, path | `@{UseRegex; CaseSensitive; IncludeShapes; IncludeComments}` / – | 画面の検索条件（`setting.config` の `useRegex` / `caseSensitive` / `fileFilter` / `includeShapes` / `includeComments`。無ければオフ・空、図形とコメントはオン）。保存は option にある項目だけを変える | [設定ファイル（setting.config）](../structure/settings-file.md) | 画面 |
-| `getIndexingState` | since, path | `@{Exists; Folders; Total; Pending; Failed; Done; IngestedSince; Updated; FailedRows; IndexStats}` | 取り込み一覧の状態ごとの件数、since 以降に取り込んだ件数、失敗したファイルの行（FailedRows。取り込み日時の新しい順。`未取り込み` でエラーの列に理由がある行も入る。`testStatusRowFailed`）、インデックス名ごとの集計（IndexStats。`getIndexStats`。取り込み一覧を読み直さずに済むよう同じ読み込みから作る） | [状態と操作の流れ](../gui/state-flow.md) | 画面 |
+| `getIndexingState` | since, path | `@{Exists; Folders; Total; Pending; Failed; Done; IngestedSince; Updated; IndexStats}` | 取り込み一覧の状態ごとの件数、since 以降に取り込んだ件数、失敗の件数（`未取り込み` でエラーの列に理由がある行も入る。`testStatusRowFailed`）、インデックス名ごとの集計（IndexStats。`getIndexStats`。取り込み一覧を読み直さずに済むよう同じ読み込みから作る） | [状態と操作の流れ](../gui/state-flow.md) | 画面 |
 | `getOfficeProcesses` | recordDir, selfId, selfStartTicks | `@{Id; ProcessName; AppName; StartTime; HasWindow; Owned; Owner}` の配列 | 実行中の Excel・Word・PowerPoint。記録（`office_pids`）と照らして `Owned`（記録と同じプロセスか）・`Owner`（Self／Other／Gone）を付ける。`HasWindow` は `MainWindowHandle` が 0 でないこと | [前回残った Office の確認](../gui/leftover-office.md) | 画面 |
 | `stopOfficeProcesses` | targets, recordDir | `@{Id; Stopped; Status; Reason}` の配列 | 止める直前に PID が記録と同じプロセスか照らし直し、同じものだけ `Stop-Process -Force` で終了する。`Status` は Stopped／Changed／Gone／Failed | 同上 | 画面 |
 | `compareOfficeProcess` | process, processName, startTicks | `Same`／`Different`／`Unknown` | 控えた名前・起動時刻との比べ方。ハンドルを先に開く。開けない・控えが無い・起動時刻が読めないときは `Unknown`、名前か起動時刻が違えば `Different` | 同上 | `isSameOfficeProcess`・`quitApp` |

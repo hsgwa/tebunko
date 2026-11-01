@@ -221,6 +221,8 @@ BeforeAll {
                 $name = $match.Groups[1].Value.ToLowerInvariant()
                 if ($name -eq "tebunko_default_workspace" -and $line.File -eq "settings.ps1") {
                     $workspaceEnvCount++
+                } elseif ($name -eq "tebunko_close_trace" -and $line.File -eq "gui_main.ps1") {
+                    # 閉じる処理の記録先（画面のスモークテストが差し込む）。読むのは gui_main.ps1 の起動時の 1 か所
                 } elseif ($allowedEnv -notcontains $name) {
                     $problems.Add("環境変数: $($line.File):$($line.Line) $($match.Value)")
                 }
@@ -352,6 +354,44 @@ Describe "危険な処理を使っていないこと（docs/safety/checks.md「�
         (findPattern $code $script:bannedCodePatterns.Registry) | Should -Be ""
     }
 
+    It "レジストリの検査は <label> を見つける" -TestCases @(
+        @{ label = ".NET の Registry の OpenSubKey"; line = "[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Software\x')" }
+        @{ label = ".NET の RegistryKey の OpenBaseKey"; line = "`$k = [Microsoft.Win32.RegistryKey]::OpenBaseKey('CurrentUser', 'Default')" }
+        @{ label = "using namespace の後の [Registry]"; line = "[Registry]::LocalMachine" }
+        @{ label = "Registry:: プロバイダー"; line = "Get-ChildItem 'Registry::HKEY_CURRENT_USER\Software'" }
+        @{ label = "New-PSDrive -PSProvider Registry"; line = "New-PSDrive -Name R -PSProvider Registry -Root x" }
+        @{ label = "HKCR ドライブ"; line = "Get-Item HKCR:\.txt" }
+        @{ label = "Remove-ItemProperty"; line = "Remove-ItemProperty -Path `$p -Name x" }
+        @{ label = "WScript.Shell の RegRead"; line = "(New-Object -ComObject WScript.Shell).RegRead(`$p)" }
+        @{ label = "WMI の StdRegProv"; line = "Invoke-CimMethod -ClassName StdRegProv -MethodName GetStringValue" }
+        @{ label = "reg.exe query"; line = "& reg.exe query x" }
+        @{ label = "reg add"; line = "reg add x /v y" }
+        @{ label = "CreateSubKey"; line = "`$k.CreateSubKey('x')" }
+        @{ label = "小文字の型名"; line = "[microsoft.win32.registry]::currentuser" }
+    ) {
+        param ($label, $line)
+        $file = Join-Path $TestDrive "registry_hit.ps1"
+        [System.IO.File]::WriteAllText($file, $line + "`r`n", (New-Object System.Text.UTF8Encoding($true)))
+        (findPattern (getCodeLines @($file)) $script:bannedCodePatterns.Registry) | Should -Not -Be ""
+    }
+
+    It "レジストリの検査は <label> を見つけない" -TestCases @(
+        @{ label = "コメント行"; line = "# [Microsoft.Win32.Registry] は使わない" }
+        @{ label = "行末のコメント"; line = "`$a = 1 # OpenSubKey は使わない" }
+        @{ label = "registered を含む変数名"; line = "`$registered = `$true" }
+        @{ label = "regex"; line = "`$regex = [regex]'a'" }
+        @{ label = "リフレクションの GetValue"; line = "`$field.GetValue(`$obj)" }
+        @{ label = "Get-CimInstance"; line = "Get-CimInstance -ClassName Win32_LogicalDisk" }
+        @{ label = "Get-ItemProperty"; line = "Get-ItemProperty -LiteralPath `$file" }
+        @{ label = "SaveFileDialog"; line = "[Microsoft.Win32.SaveFileDialog]::new()" }
+        @{ label = "using namespace Microsoft.Win32"; line = "using namespace Microsoft.Win32" }
+    ) {
+        param ($label, $line)
+        $file = Join-Path $TestDrive "registry_miss.ps1"
+        [System.IO.File]::WriteAllText($file, $line + "`r`n", (New-Object System.Text.UTF8Encoding($true)))
+        (findPattern (getCodeLines @($file)) $script:bannedCodePatterns.Registry) | Should -Be ""
+    }
+
     It "権限・サービス・自動起動を変更しない" {
         (findPattern $code $script:bannedCodePatterns.PrivilegeService) | Should -Be ""
     }
@@ -378,11 +418,13 @@ Describe "危険な処理を使っていないこと（docs/safety/checks.md「�
         (findPattern $code $script:bannedCodePatterns.Remote) | Should -Be ""
     }
 
-    It "外部プロセスの起動は explorer.exe・notepad.exe だけ" {
-        # notepad.exe は固定のパス（$env:SystemRoot\System32\notepad.exe）だけを許す（既定のアプリの登録に頼らない）
+    It "外部プロセスの起動は explorer.exe・固定のメモ帳（エラー記録）と、openWithEditor が getTextEditorChoice で選んだエディタ（固定のメモ帳か、testTextEditorPath を通ったもの）だけ" {
+        # エディタは、利用者が自分の設定ファイル（setting.config の textEditorPath）に書いたものだけ。既定はメモ帳の固定のパス（$env:SystemRoot\System32\notepad.exe。既定のアプリの登録に頼らない）
         $starts = @($code | Where-Object { $_.Text -match 'Start-Process' })
-        (@($starts | Where-Object { $_.Text -notmatch 'explorer\.exe' -and $_.Text -notmatch 'SystemRoot.*System32\\notepad\.exe' } |
+        (@($starts | Where-Object { $_.Text -notmatch 'explorer\.exe' -and $_.Text -notmatch 'SystemRoot.*System32\\notepad\.exe' -and $_.Text -notmatch 'Start-Process -FilePath \$choice\.Path ' } |
             ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
+        # エディタの起動は 1 か所（openWithEditor。選ぶ処理を通ることは、下の「openWithEditor は …」で確かめる）
+        @($starts | Where-Object { $_.Text -match '\$choice\.Path' }).Count | Should -Be 1
     }
 
     It "ProcessStartInfo・[System.Diagnostics.Process]::Start を使うのは open_source.ps1 の openWithShell だけ（1 か所）" {
@@ -593,6 +635,12 @@ Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を�
             if ($t.File -eq "office_embedded.ps1") {
                 return $true  # 埋め込みを読むファイルは、部品を直接開かない（readZipEntry・readZipEntryBytes を通す）
             }
+            if ($t.File -eq "xlsx_writer.ps1") {
+                # 検索結果を書き出す側（書き込み専用の entry.Open()）。読む側ではない。外すのは書き込みの関数 2 つの中だけ
+                $ast = [System.Management.Automation.Language.Parser]::ParseFile($t.Path, [ref]$null, [ref]$null)
+                $writers = @($ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -in @("addXlsxEntry", "newXlsxWriter") }, $true))
+                return @($writers | Where-Object { $t.Line -ge $_.Extent.StartLineNumber -and $t.Line -le $_.Extent.EndLineNumber }).Count -eq 0
+            }
             $t.File -ne "office_reader.ps1" -or @($ranges | Where-Object { $t.Line -ge $_[0] -and $t.Line -lt $_[1] }).Count -eq 0
         })
         (@($outside | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
@@ -635,19 +683,21 @@ Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を�
     It "受け取る zip（index_archive.ps1）のエントリーを開く（.Open()）のは、書き込みの 2 つと上限付きの読み取りの 2 つの関数だけで、ReadToEnd は使わない" {
         # 申告の大きさ（送り手が書ける）に頼らず、実際に読んだ大きさを数えて打ち切る関数（readArchiveEntryBytesLimited・extractArchiveEntryToFile）を通さずに
         # 中身を全量読む処理が足されないよう、関数の行範囲で確かめる
-        $archiveLines = @($code | Where-Object { $_.File -eq "index_archive.ps1" })
+        # 画面層にも同じ名前のファイル（ui\index\index_archive.ps1）があるので、状態層の index\index_archive.ps1 だけに絞る
+        $archiveLines = @($code | Where-Object { $_.File -eq "index_archive.ps1" -and $_.Path -notmatch "[\\/]ui[\\/]" })
         $funcStarts = @($archiveLines | Where-Object { $_.Text -match '^\s*function\s+\w+' } | Sort-Object Line)
         $ranges = @()
         foreach ($fn in @("writeArchiveBytes", "writeArchiveFile", "readArchiveEntryBytesLimited", "extractArchiveEntryToFile")) {
-            $start = ($funcStarts | Where-Object { $_.Text -match "function\s+$fn\b" }).Line
-            $start | Should -Not -BeNullOrEmpty
-            $end = ($funcStarts | Where-Object { $_.Line -gt $start } | Sort-Object Line | Select-Object -First 1).Line
+            $startRow = @($funcStarts | Where-Object { $_.Text -match "function\s+$fn\b" })[0]
+            $startRow | Should -Not -BeNullOrEmpty
+            $start = $startRow.Line
+            $end = ($funcStarts | Where-Object { $_.Path -eq $startRow.Path -and $_.Line -gt $start } | Sort-Object Line | Select-Object -First 1).Line
             if (-not $end) { $end = [int]::MaxValue }
-            $ranges += , @($start, $end)
+            $ranges += , @($start, $end, $startRow.Path)
         }
         $opens = @($archiveLines | Where-Object { $_.Text -match '\.Open\(\)' })
         ($opens.Count -gt 0) | Should -Be $true  # 対象 0 件で通ってしまうのを防ぐ
-        $outside = @($opens | Where-Object { $o = $_; @($ranges | Where-Object { $o.Line -ge $_[0] -and $o.Line -lt $_[1] }).Count -eq 0 })
+        $outside = @($opens | Where-Object { $o = $_; @($ranges | Where-Object { $o.Path -eq $_[2] -and $o.Line -ge $_[0] -and $o.Line -lt $_[1] }).Count -eq 0 })
         (@($outside | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
         (findPattern $archiveLines 'ReadToEnd') | Should -Be ""
     }
@@ -684,13 +734,19 @@ Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を�
 }
 
 Describe "取り込み対象のファイルを書き換えないこと（docs/safety/file-access.md「取り込み対象のファイルは書き換えない」）" -Tag Meta {
-    It "元のファイルのパスを書き込み・削除の API に渡さない" {
-        # 書き込み・削除の呼び出し行に、取り込み対象（原本）を指す変数が現れないこと。
-        # 原本は作業フォルダへコピーしてから開くため、書き込み先は常にコピー側（$tmpPath・$destPath・$copyPath 等）になる。
-        # $targetFolder・$folder.Path = クロール対象フォルダ、$row.SourcePath = 検索結果の元のファイル
-        $writes = @($code | Where-Object { $_.Text -match 'Remove-Item|WriteAllText|WriteAllLines|StreamWriter|\.SaveAs|\[System\.IO\.(File|Directory)\]::Move|Move-Item' })
-        ($writes.Count -gt 0) | Should -Be $true
-        (@($writes | Where-Object { $_.Text -match '\$targetFolder|\$row\.SourcePath|\$folder\.Path' } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
+    # 書き込み・削除の API に元のパスを渡さないことは、変数の名前でなく書く API そのものを見る
+    # tests/meta/source_write.Tests.ps1（書く API の許可リスト）と remove_entry.Tests.ps1（消す入口）が守る
+
+    It "検索結果の出力先（OutputPath）は、作業フォルダの一時の置き場の名前（newExportTarget の Path）からだけ作る" {
+        $requests = @($code | Where-Object { $_.Text -match 'newExportRequest\s+\$' })
+        ($requests.Count -gt 0) | Should -Be $true
+        (@($requests | Where-Object { $_.File -ne "open_source.ps1" -or $_.Text -notmatch 'newExportRequest\s+\$snapshot\.Shared\s+\$target\.Path\s' } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
+        # $target は newExportTarget の結果だけ（出力先を利用者の入力や元のファイルのパスから作らない）
+        $targets = @($code | Where-Object { $_.Text -match 'newExportTarget\s+\$format' })
+        $targets.Count | Should -Be 1
+        $targets[0].File | Should -Be "open_source.ps1"
+        # ほかの所で OutputPath に値を入れない（要求の作り方は newExportRequest の 1 か所）
+        (@($code | Where-Object { $_.Text -match '\.OutputPath\s*=[^=]' } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
     }
 
     It "原本を読むのはコピーを作る処理（copyFileShared）だけ" {
@@ -755,11 +811,12 @@ Describe "取り込み対象の拡張子が固定であること（docs/safety/c
         . "$here\helpers\load.ps1"
     }
 
-    It "テキストの拡張子がちょうど 75（既定のアプリで開く 68＋メモ帳で開く 7）で、Office と合わせて 85 ちょうどである" {
+    It "テキストの拡張子がちょうど 75（既定のアプリで開く 60＋メモ帳で開く 15）で、Office と合わせて 85 ちょうどである" {
         # 足したら必ずここが落ち、docs/safety/checks.md の見直し（開くと実行される種類を含まないか）を促す
         @(${textExtensions}).Count | Should -Be 75
-        @(${textNotepadExtensions}).Count | Should -Be 7
-        $expectedNotepad = @(".bat", ".cmd", ".ps1", ".vbs", ".js", ".reg", ".sh")
+        @(${textOpenExtensions}).Count | Should -Be 60
+        @(${textNotepadExtensions}).Count | Should -Be 15
+        $expectedNotepad = @(".bat", ".cmd", ".ps1", ".vbs", ".js", ".reg", ".sh", ".py", ".rb", ".pl", ".php", ".lua", ".mjs", ".psm1", ".psd1")
         (@(${textNotepadExtensions}) | Sort-Object) -join "," | Should -Be (($expectedNotepad | Sort-Object) -join ",")
         # メモ帳で開く拡張子はテキストの拡張子に含まれ、既定のアプリで開く拡張子とは重ならない
         (@(${textNotepadExtensions}) | Where-Object { ${textExtensions} -notcontains $_ }) | Should -BeNullOrEmpty
@@ -786,6 +843,38 @@ Describe "取り込み対象の拡張子が固定であること（docs/safety/c
             (testTextOpenWithNotepad "a${ext}") | Should -Be $true -Because "拡張子 ${ext} はメモ帳で開く一覧のはず"
         }
         (@(${textNotepadExtensions}) | Where-Object { ${textOpenExtensions} -contains $_ }) | Should -BeNullOrEmpty
+    }
+
+    It "設定で取り込む・開き方を変えても、固定の一覧の外を取り込まず、実行されうる拡張子を既定のアプリで開かない" {
+        # 設定ファイルに危険な拡張子や、実行されうる拡張子を含む指定を書いても、設定を読む関数と一覧を作る関数を通すと固定の一覧の外に出ない
+        $config = Join-Path $TestDrive "safety_text_ext.config"
+        $dangerous = @(".exe", ".com", ".scr", ".hta", ".lnk", ".msi", ".ts")
+        $json = ConvertTo-Json -Depth 4 @{ indexExtensionExcludes = @{ "営業" = $dangerous }; notepadTextExtensions = @($dangerous + ${textNotepadExtensions}) }
+        [System.IO.File]::WriteAllText($config, $json, (New-Object System.Text.UTF8Encoding($false)))
+        $read = readTextExtensionSettings $config
+        # 読む側は形を整えるだけで 75 個の外も持つ（書き戻しで消さないため）。75 個に絞るのは使う側
+        @($read.IndexExcludes["営業"]).Count | Should -Be $dangerous.Count
+        @(getTextTargetExtensions $read.IndexExcludes["営業"] | Where-Object { ${textExtensions} -notcontains $_ }).Count | Should -Be 0 -Because "固定の一覧に無い拡張子は、取り込む一覧に入らない"
+
+        # 取り込む一覧は、固定の一覧の部分集合（どんな設定でも増えない）
+        foreach ($excluded in @(@(), $dangerous, @(".txt", ".log"), @(${textExtensions}))) {
+            $targets = @(getTextTargetExtensions $excluded)
+            @($targets | Where-Object { ${textExtensions} -notcontains $_ }).Count | Should -Be 0
+            foreach ($ext in $dangerous) {
+                $targets | Should -Not -Contain $ext
+            }
+        }
+
+        # 実行・登録になる拡張子は、設定が空でも、すべての拡張子を追加にしても、メモ帳で開く（"default" にならない）
+        foreach ($extra in @(@(), @(${textOpenExtensions}), @(${textExtensions}), $dangerous)) {
+            foreach ($ext in @(${textNotepadExtensions})) {
+                (getTextOpenWay "a${ext}" $extra) | Should -Be "notepad" -Because "拡張子 ${ext} は追加の指定にかかわらずメモ帳のはず"
+            }
+        }
+        # 固定の一覧の外（.exe など）は、追加にしてもメモ帳の対象にならない
+        foreach ($ext in $dangerous) {
+            (getTextOpenWay "a${ext}" @($dangerous)) | Should -Be "default"
+        }
     }
 }
 
@@ -920,7 +1009,12 @@ Describe "サードパーティの静的解析（docs/safety/scans.md「静的�
 
     BeforeAll {
         if (@(Get-Module -ListAvailable PSScriptAnalyzer).Count -gt 0) {
-            Import-Module PSScriptAnalyzer -ErrorAction SilentlyContinue
+            # CI は PSSA_VERSION で版を固定している（.github\workflows\test.yml）。無ければ入っている版
+            if ($env:PSSA_VERSION) {
+                Import-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION -ErrorAction SilentlyContinue
+            } else {
+                Import-Module PSScriptAnalyzer -ErrorAction SilentlyContinue
+            }
         }
         $securitySettings = "$PSScriptRoot\PSScriptAnalyzer.security.psd1"
 
@@ -991,5 +1085,141 @@ Describe "第三者が検証するための資料がそろっていること（d
         $sbom.PSObject.Properties.Name -contains "dependencies" | Should -Be $false
         # 前提ソフトウェア（同梱しないもの）は metadata.properties に記載する
         @($sbom.metadata.properties | Where-Object { $_.name -eq "tebunko:prerequisite" }).Count -gt 0 | Should -Be $true
+    }
+}
+
+Describe "検索結果から開くとき、シェルで開く処理が決まった所にだけあること（docs/safety/checks.md「外部プロセスの起動」）" -Tag Meta {
+    BeforeAll {
+        $rootDir = (Resolve-Path "$PSScriptRoot\..\..").Path
+
+        function getShellOpenUses {
+            # コード（文字列）の中で、プロセス・シェルで開く API を書いている所を "関数名|API" の一覧で返す。
+            # API: Invoke-Item（ii）・Start-Process（start・saps）・ProcessStartInfo・[Diagnostics.Process]::Start・UseShellExecute。
+            # 関数の外（ファイルの直下）は "(外)" とする。別名・型名の書き方違いも見る
+            param (
+                [string]$code
+            )
+
+            $tokens = $null
+            $errors = $null
+            $ast = [System.Management.Automation.Language.Parser]::ParseInput($code, [ref]$tokens, [ref]$errors)
+            $commandNames = @{ "invoke-item" = "Invoke-Item"; "ii" = "Invoke-Item"; "start-process" = "Start-Process"; "start" = "Start-Process"; "saps" = "Start-Process" }
+            $uses = New-Object System.Collections.Generic.List[string]
+            $nodes = $ast.FindAll({ param ($n) $true }, $true)
+            foreach ($node in $nodes) {
+                $api = $null
+                if ($node -is [System.Management.Automation.Language.CommandAst]) {
+                    $first = $node.CommandElements[0]
+                    if ($first -is [System.Management.Automation.Language.StringConstantExpressionAst]) {
+                        $api = $commandNames[$first.Value.ToLowerInvariant()]
+                    }
+                } elseif ($node -is [System.Management.Automation.Language.TypeExpressionAst]) {
+                    if ($node.TypeName.FullName -match '(^|\.)ProcessStartInfo$') { $api = "ProcessStartInfo" }
+                } elseif ($node -is [System.Management.Automation.Language.StringConstantExpressionAst]) {
+                    # New-Object System.Diagnostics.ProcessStartInfo(...) の型名
+                    if ($node.Value -match '(^|\.)ProcessStartInfo$') { $api = "ProcessStartInfo" }
+                } elseif ($node -is [System.Management.Automation.Language.InvokeMemberExpressionAst]) {
+                    if ($node.Static -and $node.Member.Value -eq "Start" -and $node.Expression.ToString() -match 'Process\]?$') { $api = "Process::Start" }
+                } elseif ($node -is [System.Management.Automation.Language.MemberExpressionAst]) {
+                    if ($node.Member -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $node.Member.Value -eq "UseShellExecute") { $api = "UseShellExecute" }
+                }
+                if (-not $api) { continue }
+                $owner = $node.Parent
+                while ($owner -and $owner -isnot [System.Management.Automation.Language.FunctionDefinitionAst]) { $owner = $owner.Parent }
+                $name = if ($owner) { $owner.Name } else { "(外)" }
+                $uses.Add("${name}|${api}")
+            }
+            return , @($uses | Sort-Object)
+        }
+
+        function getFunctionText {
+            param ([string]$name)
+            foreach ($file in (Get-ChildItem -LiteralPath "$rootDir\scripts" -Recurse -Filter *.ps1)) {
+                $tokens = $null; $errors = $null
+                $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors)
+                $found = $ast.Find({ param ($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }, $true)
+                if ($found) { return $found.Extent.Text }
+            }
+            return ""
+        }
+
+        # 関数 × API の表（docs/safety/checks.md「外部プロセスの起動」）。足すときは、表と守り（下の It）を同じ PR で直す
+        $allowedUses = @(
+            "applyFailedFileState|Start-Process",
+            "applyIndexLocationState|Start-Process",
+            "applyIndexSourceFolderState|Start-Process",
+            "openAboutLink|Start-Process",
+            "openWithEditor|Start-Process",
+            "openExportedFile|Invoke-Item",
+            "openWithShell|Invoke-Item", "openWithShell|Process::Start", "openWithShell|ProcessStartInfo", "openWithShell|UseShellExecute",
+            "showErrorDialog|Start-Process",
+            "showInExplorer|Start-Process"
+        ) | Sort-Object
+    }
+
+    It "見本: 別名・型名の書き方違い・関数の外の書き方も見つける" {
+        $sample = @'
+function evil1 { ii $x; saps "a"; start "b" }
+function evil2 { $i = New-Object System.Diagnostics.ProcessStartInfo($p); $i.UseShellExecute = $true; [System.Diagnostics.Process]::Start($i) }
+function evil3 { $i = [System.Diagnostics.ProcessStartInfo]::new($p) }
+function fine { Get-Item $x }
+Invoke-Item $y
+'@
+        $uses = getShellOpenUses $sample
+        ($uses -join ",") | Should -Be ((@(
+            "(外)|Invoke-Item", "evil1|Invoke-Item", "evil1|Start-Process", "evil1|Start-Process",
+            "evil2|Process::Start", "evil2|ProcessStartInfo", "evil2|UseShellExecute", "evil3|ProcessStartInfo"
+        ) | Sort-Object) -join ",")
+    }
+
+    It "scripts の中でシェルで開く API を書いているのは、表に載せた関数・API だけである" {
+        $all = New-Object System.Collections.Generic.List[string]
+        foreach ($file in (Get-ChildItem -LiteralPath "$rootDir\scripts" -Recurse -Filter *.ps1)) {
+            $code = [System.IO.File]::ReadAllText($file.FullName)
+            foreach ($use in (getShellOpenUses $code)) { $all.Add("$use") }
+        }
+        ($all | Sort-Object) -join "`n" | Should -Be ($allowedUses -join "`n")
+    }
+
+    It "openWithShell は、開く前に testSourceBookName で名前を確かめる" {
+        # コメントや文字列に出てくる名前に惑わされないよう、構文木で「呼び出し」の位置を比べる
+        $tree = [System.Management.Automation.Language.Parser]::ParseInput((getFunctionText "openWithShell"), [ref]$null, [ref]$null)
+        $gate = @($tree.FindAll({ param ($n) $n -is [System.Management.Automation.Language.CommandAst] -and $n.GetCommandName() -eq "testSourceBookName" }, $true))
+        $gate.Count | Should -BeGreaterThan 0
+        $apis = @($tree.FindAll({ param ($n)
+            ($n -is [System.Management.Automation.Language.CommandAst] -and $n.GetCommandName() -in @("New-Object", "Invoke-Item", "Start-Process")) -or
+            ($n -is [System.Management.Automation.Language.InvokeMemberExpressionAst] -and $n.Extent.Text -match 'Process\]::Start')
+        }, $true))
+        $apis.Count | Should -BeGreaterThan 0
+        # 確かめは、どの API よりも前にある
+        foreach ($api in $apis) {
+            $gate[0].Extent.StartOffset | Should -BeLessThan $api.Extent.StartOffset
+        }
+    }
+
+    It "openSource は、元のファイルを探す前に testSourceBookName で名前を確かめる" {
+        $text = getFunctionText "openSource"
+        $text.IndexOf("testSourceBookName") | Should -BeGreaterThan -1
+        $text.IndexOf("testSourceBookName") | Should -BeLessThan $text.IndexOf("findSourceFile")
+    }
+
+    It "フォルダを開く所は、フォルダとして確かめてから explorer.exe に渡す" {
+        # ファイルをフォルダとして渡すと、そのファイルが既定のアプリで実行される
+        (getFunctionText "applyIndexSourceFolderState") | Should -Match 'getIndexSourceFolderKind'
+        (getFunctionText "applyIndexLocationState") | Should -Match 'getIndexSourceFolderKind'
+        (getFunctionText "getIndexSourceFolderKind") | Should -Match 'IsDirectory'
+        (getFunctionText "applyFailedFileState") | Should -Match 'dirState\.IsDirectory'
+    }
+
+    It "openWithEditor は、getTextEditorChoice が選んだエディタ（既定は固定の notepad.exe。設定の値は testTextEditorPath を通り、ファイルがあるものだけ）を起動する" {
+        $editor = getFunctionText "openWithEditor"
+        $editor | Should -Match 'System32\\notepad\.exe'
+        $editor | Should -Match 'getTextEditorChoice'
+        $editor | Should -Match 'testTextEditorPath'
+        $editor | Should -Match 'Test-Path -LiteralPath \$configured -PathType Leaf'
+        # 選ぶ処理は、形を確かめた値だけを使い、通らなければメモ帳に戻す（既定のアプリには戻さない）
+        $choice = getFunctionText "getTextEditorChoice"
+        $choice | Should -Match 'testTextEditorPath'
+        $choice | Should -Not -Match 'Invoke-Item|openWithShell'
     }
 }

@@ -66,7 +66,7 @@ Describe "describeIngestError" -Tag Io {
 }
 
 Describe "getIndexingState" -Tag Io {
-    It "失敗したファイルの行を、取り込み日時の新しい順で FailedRows に返す" {
+    It "状態ごとの件数を数える（失敗はインデックスごとの集計にも入る）" {
         $path = "$TestDrive\status_state.tsv"
         writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(
             (newStatusRow "data\済.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/19 10:00:00"),
@@ -79,13 +79,10 @@ Describe "getIndexingState" -Tag Io {
         $state.Done | Should -Be 1
         $state.Pending | Should -Be 1
         $state.Failed | Should -Be 2
-        $state.FailedRows.Count | Should -Be 2
-        $state.FailedRows[0].相対パス | Should -Be "data\新しい失敗.docx"
-        $state.FailedRows[0].エラー | Should -Be "原因B"
-        $state.FailedRows[1].相対パス | Should -Be "data\古い失敗.xlsx"
+        $state.IndexStats["data"].Failed | Should -Be 2
     }
 
-    It "「未取り込み」でエラー（理由）が書いてある行（利用者のPowerPointのために取り込めなかったファイル）は、待ちではなく失敗に数え、FailedRows に理由付きで返す。エラーが空の「未取り込み」は待ちのまま" {
+    It "「未取り込み」でエラー（理由）が書いてある行（利用者のPowerPointのために取り込めなかったファイル）は、待ちではなく失敗に数える。エラーが空の「未取り込み」は待ちのまま" {
         $path = "$TestDrive\status_state_postponed.tsv"
         writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(
             (newStatusRow "data\済.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/19 10:00:00"),
@@ -97,17 +94,14 @@ Describe "getIndexingState" -Tag Io {
         $state.Done | Should -Be 1
         $state.Pending | Should -Be 1
         $state.Failed | Should -Be 1
-        $state.FailedRows.Count | Should -Be 1
-        $state.FailedRows[0].相対パス | Should -Be "data\PowerPoint.ppt"
-        $state.FailedRows[0].エラー | Should -Be ${postponedReasonRunning}
         $state.IndexStats["data"].Failed | Should -Be 1
         $state.IndexStats["data"].Pending | Should -Be 1
     }
 
-    It "取り込み一覧が無ければ FailedRows は空" {
+    It "取り込み一覧が無ければ件数は 0" {
         $state = getIndexingState -path "$TestDrive\none.tsv"
         $state.Exists | Should -Be $false
-        @($state.FailedRows).Count | Should -Be 0
+        $state.Failed | Should -Be 0
     }
 }
 
@@ -187,19 +181,126 @@ Describe "requestIndexingStop / answerIndexingPlan" -Tag Unit {
 }
 
 Describe "testIndexerRunning" -Tag Io {
-    It "インデックス作成の鍵をほかが持っていれば `$true、持っていなければ `$false（調べた後は鍵を持たない）" {
-        $work = Join-Path $TestDrive "running_work"
-        testIndexerRunning $work | Should -Be $false
-        testIndexerRunning $work | Should -Be $false
-        $other = newAppMutex "indexer" $work "tebunko"
+    It "ミューテックスだけ・鍵のファイルだけのどちらをほかが持っていても Running（Error 無し）。調べた後はどちらも持たない" -TestCases @(
+        @{ name = "ミューテックスだけ"; kind = "mutex" }
+        @{ name = "鍵のファイルだけ（別のセッション・PC の代わり）"; kind = "file" }
+    ) {
+        param ($name, $kind)
+        $work = Join-Path $TestDrive "running_$kind"
+        $none = testIndexerRunning $work
+        $none.Running | Should -Be $false
+        $none.Error | Should -Be ""
+        [System.IO.Directory]::Exists($work) | Should -Be $false
+        [System.IO.Directory]::CreateDirectory($work) | Out-Null
+        if ($kind -eq "mutex") {
+            $other = newAppMutex "indexer" $work "tebunko"
+        } else {
+            $other = openLockFile "$work\indexing.lock" 1
+        }
         try {
             # 同じスレッドが持つ鍵も「動いている」と数える（画面のインデクサのスレッドが持っているとき）
-            testIndexerRunning $work | Should -Be $true
+            $state = testIndexerRunning $work
+            $state.Running | Should -Be $true
+            $state.Error | Should -Be ""
         } finally {
-            $other.Mutex.ReleaseMutex()
-            $other.Mutex.Dispose()
+            if ($kind -eq "mutex") {
+                $other.Mutex.ReleaseMutex()
+                $other.Mutex.Dispose()
+            } else {
+                $other.Dispose()
+            }
         }
-        testIndexerRunning $work | Should -Be $false
+        (testIndexerRunning $work).Running | Should -Be $false
+        # 調べた後は鍵のファイルを残さず、どちらも持たない
+        [System.IO.File]::Exists("$work\indexing.lock") | Should -Be $false
+        $again = enterIndexerLock $work
+        try {
+            $again.Acquired | Should -Be $true
+        } finally {
+            exitIndexerLock $again
+        }
+    }
+
+    It "残った鍵のファイル（誰も開いていない）だけなら Running でない" {
+        $work = Join-Path $TestDrive "running_leftover"
+        [System.IO.Directory]::CreateDirectory($work) | Out-Null
+        [System.IO.File]::WriteAllText("$work\indexing.lock", "")
+        (testIndexerRunning $work).Running | Should -Be $false
+    }
+
+    It "鍵のファイルを調べて例外になったとき（アクセス拒否）は、例外にせず Running と Error を返す。やり直さず、すぐ返る" {
+        $work = Join-Path $TestDrive "running_denied"
+        [System.IO.Directory]::CreateDirectory($work) | Out-Null
+        [System.IO.File]::WriteAllText("$work\indexing.lock", "")
+        [System.IO.File]::SetAttributes("$work\indexing.lock", [System.IO.FileAttributes]::ReadOnly)
+        try {
+            $watch = [System.Diagnostics.Stopwatch]::StartNew()
+            $state = testIndexerRunning $work
+            $watch.Stop()
+            $state.Running | Should -Be $true
+            $state.Error | Should -Match "インデックス作成の鍵のファイル"
+            # openLockFile の既定のやり直し（3 回・200 ミリ秒の待ち）より十分短い
+            $watch.ElapsedMilliseconds | Should -BeLessThan 300
+        } finally {
+            [System.IO.File]::SetAttributes("$work\indexing.lock", [System.IO.FileAttributes]::Normal)
+        }
+    }
+}
+
+Describe "enterIndexerLock / exitIndexerLock" -Tag Io {
+    It "取れれば鍵のファイルとミューテックスを持ち、放すと両方とも取れる状態に戻る（2 回放しても例外にならない）" {
+        $work = Join-Path $TestDrive "lock_enter"
+        $lock = enterIndexerLock $work
+        $lock.Acquired | Should -Be $true
+        [System.IO.File]::Exists("$work\indexing.lock") | Should -Be $true
+        $second = enterIndexerLock $work
+        $second.Acquired | Should -Be $false
+        exitIndexerLock $lock
+        { exitIndexerLock $lock } | Should -Not -Throw
+        { exitIndexerLock $second } | Should -Not -Throw
+        [System.IO.File]::Exists("$work\indexing.lock") | Should -Be $false
+        $third = enterIndexerLock $work
+        try {
+            $third.Acquired | Should -Be $true
+        } finally {
+            exitIndexerLock $third
+        }
+    }
+
+    It "鍵のファイルを取れないとき・例外になったときは、ミューテックスも放している（直後に取れる）" -TestCases @(
+        @{ name = "ほかが鍵のファイルを持っている"; kind = "held" }
+        @{ name = "鍵のファイルで例外（アクセス拒否）"; kind = "denied" }
+    ) {
+        param ($name, $kind)
+        $work = Join-Path $TestDrive "lock_fail_$kind"
+        [System.IO.Directory]::CreateDirectory($work) | Out-Null
+        $holder = $null
+        if ($kind -eq "held") {
+            $holder = openLockFile "$work\indexing.lock" 1
+        } else {
+            [System.IO.File]::WriteAllText("$work\indexing.lock", "")
+            [System.IO.File]::SetAttributes("$work\indexing.lock", [System.IO.FileAttributes]::ReadOnly)
+        }
+        try {
+            if ($kind -eq "held") {
+                (enterIndexerLock $work 1).Acquired | Should -Be $false
+            } else {
+                { enterIndexerLock $work 1 } | Should -Throw "インデックス作成の鍵のファイル*"
+            }
+            # ミューテックスが残っていないこと
+            $mutex = newAppMutex "indexer" $work "tebunko"
+            try {
+                $mutex.Acquired | Should -Be $true
+            } finally {
+                $mutex.Mutex.ReleaseMutex()
+                $mutex.Mutex.Dispose()
+            }
+        } finally {
+            if ($holder) { $holder.Dispose() }
+            if ($kind -eq "denied") {
+                [System.IO.File]::SetAttributes("$work\indexing.lock", [System.IO.FileAttributes]::Normal)
+            }
+        }
     }
 }
 

@@ -97,6 +97,16 @@ Describe "invokeWithSourceCopy" -Tag Io {
         @(invokeWithSourceCopy $source $copy { "a" }).Count | Should -Be 1
     }
 
+    It "timing を渡すとコピーの時間が足され、渡さなければ今までと同じ" {
+        $timing = @{ CopyMs = 5.0 }
+        invokeWithSourceCopy $source $copy { "x" } $null $timing | Should -Be "x"
+        $timing.CopyMs | Should -BeGreaterThan 5.0
+        $first = $timing.CopyMs
+        invokeWithSourceCopy $source $copy { "y" } $null $timing | Should -Be "y"
+        $timing.CopyMs | Should -BeGreaterThan $first
+        invokeWithSourceCopy $source $copy { "z" } | Should -Be "z"
+    }
+
     It "読む処理がコピーを読める" {
         invokeWithSourceCopy $source $copy { [System.IO.File]::ReadAllText($copy) } | Should -Be "あいう"
     }
@@ -1457,6 +1467,133 @@ Describe "newAppMutex" -Tag Io {
     }
 }
 
+Describe "openLockFile" -Tag Io {
+    BeforeAll {
+        . "$PSScriptRoot\..\..\helpers\process.ps1"
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "1 つ目は開け、開いている間は 2 つ目が `$null"; setup = "none" }
+        @{ name = "誰も開いていない残ったファイルは開ける（残ったロックの片付けが要らない）"; setup = "leftover" }
+    ) {
+        param ($name, $setup)
+        $path = Join-Path $TestDrive "lock_$setup.lock"
+        if ($setup -eq "leftover") {
+            [System.IO.File]::WriteAllText($path, "")
+        }
+        $first = openLockFile $path 1
+        try {
+            $first | Should -Not -BeNullOrEmpty
+            openLockFile $path 1 | Should -BeNullOrEmpty
+        } finally {
+            $first.Dispose()
+        }
+    }
+
+    It "閉じるとファイルが消え、また開ける" {
+        $path = Join-Path $TestDrive "lock_close.lock"
+        $first = openLockFile $path
+        [System.IO.File]::Exists($path) | Should -Be $true
+        $first.Dispose()
+        [System.IO.File]::Exists($path) | Should -Be $false
+        $again = openLockFile $path
+        try {
+            $again | Should -Not -BeNullOrEmpty
+        } finally {
+            $again.Dispose()
+        }
+    }
+
+    It "親フォルダが無いなど、やり直しの対象でない失敗は例外になる" {
+        { openLockFile (Join-Path $TestDrive "無いフォルダ\a.lock") 1 } | Should -Throw
+    }
+
+    It "アクセス拒否（Win32 の 5。削除待ちのファイルも同じ失敗になる。ここでは読み取り専用のファイルで起こす）は、最後まで続けば鍵のファイルを開けなかった例外になる（待たずに 1 回でも同じ）" -TestCases @(
+        @{ attempts = 1 }
+        @{ attempts = 2 }
+    ) {
+        param ($attempts)
+        $path = Join-Path $TestDrive "lock_denied_$attempts.lock"
+        [System.IO.File]::WriteAllText($path, "")
+        [System.IO.File]::SetAttributes($path, [System.IO.FileAttributes]::ReadOnly)
+        try {
+            { openLockFile $path $attempts 50 } | Should -Throw "インデックス作成の鍵のファイル（*を開けませんでした。*"
+        } finally {
+            [System.IO.File]::SetAttributes($path, [System.IO.FileAttributes]::Normal)
+        }
+    }
+
+    It "アクセス拒否（Win32 の 5）でも、やり直しの間に開けるようになれば開ける（読み取り専用が外れるまで待つ）" {
+        # 削除待ちのファイルは、この OS（削除を名前から先に外す）では再現できない。読み取り専用のファイルを、やり直しの間に外して起こす
+        $path = Join-Path $TestDrive "lock_denied_retry.lock"
+        [System.IO.File]::WriteAllText($path, "")
+        [System.IO.File]::SetAttributes($path, [System.IO.FileAttributes]::ReadOnly)
+        $releaser = [powershell]::Create().AddScript({ param ($p) Start-Sleep -Milliseconds 300; [System.IO.File]::SetAttributes($p, [System.IO.FileAttributes]::Normal) }).AddArgument($path)
+        $handle = $releaser.BeginInvoke()
+        try {
+            $stream = openLockFile $path 20 100
+            try {
+                $stream | Should -Not -BeNullOrEmpty
+            } finally {
+                $stream.Dispose()
+            }
+        } finally {
+            $releaser.EndInvoke($handle)
+            $releaser.Dispose()
+            if ([System.IO.File]::Exists($path)) {
+                [System.IO.File]::SetAttributes($path, [System.IO.FileAttributes]::Normal)
+            }
+        }
+    }
+
+    It "共有違反（Win32 の 32）で持たれていても、やり直しの間にほかが閉じれば開ける" {
+        $path = Join-Path $TestDrive "lock_retry.lock"
+        $holder = openLockFile $path 1
+        $closer = [powershell]::Create().AddScript({ param ($h) Start-Sleep -Milliseconds 300; $h.Dispose() }).AddArgument($holder)
+        $handle = $closer.BeginInvoke()
+        try {
+            $stream = openLockFile $path 20 100
+            try {
+                $stream | Should -Not -BeNullOrEmpty
+            } finally {
+                $stream.Dispose()
+            }
+        } finally {
+            $closer.EndInvoke($handle)
+            $closer.Dispose()
+        }
+    }
+
+    It "別のプロセスが開いている間は `$null。そのプロセスを止めると開ける（強制終了で残らない）" {
+        $path = Join-Path $TestDrive "lock_child.lock"
+        $ready = Join-Path $TestDrive "lock_child.ready"
+        $scriptPath = Join-Path $TestDrive "lock_child.ps1"
+        [System.IO.File]::WriteAllText($scriptPath, @"
+`$s = New-Object System.IO.FileStream('$path', [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None, 4096, [System.IO.FileOptions]::DeleteOnClose)
+[System.IO.File]::WriteAllText('$ready', 'ok')
+Start-Sleep -Seconds 120
+"@)
+        $child = Start-Process powershell.exe -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $scriptPath) -PassThru -WindowStyle Hidden
+        $null = $child.Handle
+        try {
+            $deadline = [DateTime]::UtcNow.AddSeconds(30)
+            while (![System.IO.File]::Exists($ready) -and [DateTime]::UtcNow -lt $deadline) {
+                Start-Sleep -Milliseconds 100
+            }
+            [System.IO.File]::Exists($ready) | Should -Be $true
+            openLockFile $path 1 | Should -BeNullOrEmpty
+        } finally {
+            stopStartedProcess $child
+        }
+        $stream = openLockFile $path 5 100
+        try {
+            $stream | Should -Not -BeNullOrEmpty
+        } finally {
+            $stream.Dispose()
+        }
+    }
+}
+
 Describe "writeTextLinesAtomic（文字コード）" -Tag Io {
     It "既定は BOM 付き UTF-8、encoding を渡せば BOM なし UTF-8 で書く" {
         $path = "$TestDrive\atomic\文字コード.txt"
@@ -1576,5 +1713,62 @@ Describe "testCloudOnlyAttributes" -Tag Unit {
         } finally {
             [System.IO.File]::SetAttributes($path, [System.IO.FileAttributes]::Normal)
         }
+    }
+}
+
+Describe "getFilesNoFollow（TopOnly）" -Tag Io {
+    It "TopOnly を付けると直下のファイルだけを返し、サブフォルダの中は読まない（付けなければ今までどおり下まで読む）" {
+        $dir = "$TestDrive\toponly\普通"
+        writeListFile "$dir\a.tsv" @("a")
+        writeListFile "$dir\下\b.tsv" @("b")
+        writeListFile "$dir\下\さらに下\c.tsv" @("c")
+
+        $top = getFilesNoFollow $dir -TopOnly
+        @($top.Files | ForEach-Object { $_.Name }) | Should -Be @("a.tsv")
+        @($top.Directories | ForEach-Object { $_.Name }) | Should -Be @("下")
+        @((getFilesNoFollow $dir).Files).Count | Should -Be 3
+    }
+
+    It "TopOnly でも、直下のリンクは辿らずに Links に入れる" {
+        $dir = "$TestDrive\toponly\リンク"
+        $outside = "$TestDrive\toponly\外"
+        writeListFile "$dir\a.tsv" @("a")
+        writeListFile "$outside\x.tsv" @("x")
+        $link = "$dir\リンク"
+        $made = $false
+        try {
+            New-Item -ItemType Junction -Path $link -Target $outside -ErrorAction Stop | Out-Null
+            $made = $true
+        } catch { $made = $false }
+        if (-not $made) { Set-ItResult -Skipped -Because "ジャンクションを作れない"; return }
+
+        $top = getFilesNoFollow $dir -TopOnly
+        @($top.Files | ForEach-Object { $_.Name }) | Should -Be @("a.tsv")
+        @($top.Links) | Should -Be @($link)
+    }
+}
+
+Describe "getFilesNoFollow（onProgress）" -Tag Io {
+    It "見つけたファイルが 1000 件増えるごとに、そのときの数を引数にして呼ぶ" {
+        $dir = Join-Path $TestDrive "progress"
+        [System.IO.Directory]::CreateDirectory("$dir\a") | Out-Null
+        [System.IO.Directory]::CreateDirectory("$dir\b") | Out-Null
+        foreach ($i in 1..600) { [System.IO.File]::WriteAllText("$dir\a\$i.txt", "x") }
+        foreach ($i in 1..600) { [System.IO.File]::WriteAllText("$dir\b\$i.txt", "x") }
+        $global:fsProgressCalls = New-Object System.Collections.Generic.List[int]
+        try {
+            $tree = getFilesNoFollow $dir -onProgress { param ($count) $global:fsProgressCalls.Add($count) }
+            @($tree.Files).Count | Should -Be 1200
+            @($global:fsProgressCalls) | Should -Be @(1200)
+        } finally {
+            Remove-Variable fsProgressCalls -Scope Global -ErrorAction SilentlyContinue
+        }
+    }
+
+    It "指定しなければ何も起きない" {
+        $dir = Join-Path $TestDrive "progress_none"
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        [System.IO.File]::WriteAllText("$dir\1.txt", "x")
+        @((getFilesNoFollow $dir).Files).Count | Should -Be 1
     }
 }

@@ -83,6 +83,8 @@ function newIndexerChannel {
     #   インデクサが書く: Progress（readIndexingProgress の形）・Plan（取り込み予定）・Error・ExitCode（0 完了 / 1 エラー / 2 中止）・
     #                     CloudSkipped（クラウドにだけあるため、ダウンロードせずに残した件数）・
     #                     OnlySkipped（OnlyNames のうち、更新できなかった名前の @{ Name; Reason } の配列）
+    #                     CountedFiles（取り込み対象を探す間に数えたファイルの数。1000 件ごとに増える。確認のために数え直しているときの帯に出す）
+    #                     StageTimings（段階ごとの時間と、取り込みの種類ごとの時間。IngestTiming.ToHashtable の @{ Stages; Kinds }。回の終わりに入る）
     #   OfficePids: インデックス作成が起動した Office の PID → @{ ProcessName; StartTicks }（閉じるときに止まらなければ、名前と起動時刻が合う PID だけを止める）
     #   UserOfficePids: 取り込み中に見える窓があった（利用者が使った）PowerPoint の PID → @{ ProcessName; StartTicks }（制限時間を過ぎても、閉じるときも止めない）
     param (
@@ -98,7 +100,7 @@ function newIndexerChannel {
         OnlyNames = @($onlyNames | Where-Object { $_ }); OnlySkipped = @()
         Progress = $null; Stop = $false
         Plan = $null; Answer = $null; Answered = New-Object System.Threading.ManualResetEvent($false)
-        Error = ""; ExitCode = $null; CloudSkipped = 0
+        Error = ""; ExitCode = $null; CloudSkipped = 0; StageTimings = $null; CountedFiles = 0
         OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'
         UserOfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,object]'
     })
@@ -159,22 +161,89 @@ function answerIndexingPlan {
     [void]$channel.Answered.Set()
 }
 
+function enterIndexerLock {
+    # インデックス作成の鍵を取る: @{ Mutex; Stream; Acquired }。取れなければ Acquired は $false（どちらも持たない）。
+    # 鍵は 2 つ。ミューテックス（同じセッションの重なりを、ディスクに触らずに見分ける）と、ワークスペースの鍵のファイル
+    # （別のセッション・別の PC・別のパスの書き方の重なりを防ぐ。openLockFile）。ミューテックスを先に取る。
+    # ワークスペースの共有フォルダが落ちているなどで鍵のファイルが例外になったときは、ミューテックスを放してから投げ直す。
+    # 取るときは待たない（取れなければすぐ返す）ので、デッドロックしない。放すのは exitIndexerLock
+    #   attempts: 鍵のファイルを開く回数（画面のスレッドでは 1）
+    param (
+        [string]$dir = $workspace.Dir,
+        [int]$attempts = 3
+    )
+
+    $mutex = newAppMutex "indexer" $dir ${appId}
+    if (!$mutex.Acquired) {
+        $mutex.Mutex.Dispose()
+        return @{ Mutex = $null; Stream = $null; Acquired = $false }
+    }
+    $stream = $null
+    try {
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        $stream = openLockFile ([Workspace]::new($dir).LockFile) $attempts
+    } catch {
+        $mutex.Mutex.ReleaseMutex()
+        $mutex.Mutex.Dispose()
+        throw
+    }
+    if ($null -eq $stream) {
+        $mutex.Mutex.ReleaseMutex()
+        $mutex.Mutex.Dispose()
+        return @{ Mutex = $null; Stream = $null; Acquired = $false }
+    }
+    return @{ Mutex = $mutex.Mutex; Stream = $stream; Acquired = $true }
+}
+
+function exitIndexerLock {
+    # enterIndexerLock で取った鍵を、取った順の逆（鍵のファイル → ミューテックス）に放す。
+    # 逆にすると、同じセッションの次の起動がミューテックスだけ取れて鍵のファイルで断られることがある。
+    # 片方だけ持っているときも、もう一度呼ばれたときも例外にしない
+    param (
+        $lock
+    )
+
+    if ($null -eq $lock) {
+        return
+    }
+    if ($null -ne $lock.Stream) {
+        try { $lock.Stream.Dispose() } catch { <# 放すのは例外にしない決まり（片付けの失敗で、作成の結果を変えない） #> }
+        $lock.Stream = $null
+    }
+    if ($null -ne $lock.Mutex) {
+        try { $lock.Mutex.ReleaseMutex() } catch { <# 取っていない・ほかのスレッドが取った場合も例外にしない #> }
+        try { $lock.Mutex.Dispose() } catch { <# 同上 #> }
+        $lock.Mutex = $null
+    }
+}
+
 function testIndexerRunning {
-    # この work でインデックス作成が動いているか（画面のスレッド・画面を使わない indexer.ps1 のどちらでも）。
-    # インデックス作成が持つ鍵（newAppMutex "indexer"）を取れるかで調べ、取れたらすぐ放す
+    # このワークスペースでインデックス作成が動いているか（画面のスレッド・画面を使わない indexer.ps1 のどちらでも）: @{ Running; Error }。
+    # インデックス作成の鍵（enterIndexerLock）を 1 回だけ（待たずに）取れるかで調べ、取れたらすぐ放す。画面のスレッドから呼ぶので、やり直さない。
+    # ワークスペースのフォルダが無ければ（届かない共有を含む）、鍵のファイルは見ず（作らず）、ミューテックスだけで決める。
+    # 鍵を取るときに例外になったとき（アクセス拒否など）は、安全な側に倒して Running = $true・Error = 例外の文面にする
     param (
         [string]$dir = $workspace.Dir
     )
 
-    $mutex = newAppMutex "indexer" $dir ${appId}
-    try {
-        return !$mutex.Acquired
-    } finally {
+    if (![System.IO.Directory]::Exists((toLongPath $dir))) {
+        $mutex = newAppMutex "indexer" $dir ${appId}
         if ($mutex.Acquired) {
             $mutex.Mutex.ReleaseMutex()
         }
         $mutex.Mutex.Dispose()
+        return @{ Running = !$mutex.Acquired; Error = "" }
     }
+    try {
+        $lock = enterIndexerLock $dir 1
+    } catch {
+        return @{ Running = $true; Error = $_.Exception.Message }
+    }
+    if (!$lock.Acquired) {
+        return @{ Running = $true; Error = "" }
+    }
+    exitIndexerLock $lock
+    return @{ Running = $false; Error = "" }
 }
 
 function writeZipSizeLimitLog {
@@ -323,14 +392,14 @@ function removeStatusIndexName {
 function getIndexingState {
     # 取り込み一覧からインデックス作成の状態を返す:
     #   @{ Exists; Folders（クロール対象フォルダ @{ Path; Name } の配列）; Total; Pending（未取り込み）; Failed; Done; IngestedSince（since 以降に取り込んだ件数）; Updated（取り込み一覧の更新日時）;
-    #      FailedRows（失敗したファイルの行。取り込み日時の新しい順）; IndexStats（インデックス名ごとの集計。getIndexStats）;
+    #      IndexStats（インデックス名ごとの集計。getIndexStats）;
     #      Format（格納形式の状態。getWorkspaceIndexFormat の結果。画面の裏の仕事が入れる。ここでは $null） }
     param (
         [datetime]$since = [datetime]::MaxValue,
         [string]$path = $workspace.StatusFile
     )
 
-    $state = @{ Exists = $false; Folders = @(); Total = 0; Pending = 0; Failed = 0; Done = 0; IngestedSince = 0; Updated = $null; FailedRows = @(); IndexStats = (getIndexStats $null); Format = $null }
+    $state = @{ Exists = $false; Folders = @(); Total = 0; Pending = 0; Failed = 0; Done = 0; IngestedSince = 0; Updated = $null; IndexStats = (getIndexStats $null); Format = $null }
     if (!(Test-Path -LiteralPath $path)) {
         return $state
     }
@@ -344,11 +413,9 @@ function getIndexingState {
     # since を指定しないとき（画面の集計）は、行ごとの日時の解析（数万行では数秒かかる）を省く
     $countSince = ($since -ne [datetime]::MaxValue)
     $sinceSecond = if ($countSince) { $since.AddTicks(-($since.Ticks % [timespan]::TicksPerSecond)) } else { $since }
-    $failedRows = New-Object System.Collections.Generic.List[object]
     foreach ($row in $status.Rows.Values) {
         if (testStatusRowFailed $row) {
             $state.Failed++
-            $failedRows.Add($row)
         } elseif ($row.状態 -eq ${stateNew}) {
             $state.Pending++
         } elseif ($row.状態 -eq ${stateDone}) {
@@ -360,8 +427,6 @@ function getIndexingState {
             $state.IngestedSince++
         }
     }
-    # 取り込み日時は "yyyy/MM/dd HH:mm:ss" のため、文字列の順で新しい順に並ぶ
-    $state.FailedRows = @($failedRows | Sort-Object -Property @{ Expression = { [string]$_.取り込み日時 }; Descending = $true }, @{ Expression = { $_.相対パス } })
     return $state
 }
 

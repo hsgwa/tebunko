@@ -58,10 +58,14 @@ class PreviewWindow : NotifyBase {
     [int]$Last = -1
     [double]$LeftSpace
     [double]$RightSpace
+    [double]$RowWidth   # 行の幅（行番号 + 全部の列の幅）。セルの作り直しの途中で行が測られても、横にスクロールできる広さが変わらないよう、行の幅に束ねる
     PreviewWindow() {}   # 既定のコンストラクタを明示する（理由は shared\ui\types.ps1 の NotifyBase）
     [void] SetSpaces([double]$left, [double]$right) {
         if ($this.LeftSpace -ne $left) { $this.LeftSpace = $left; $this.Raise("LeftSpace") }
         if ($this.RightSpace -ne $right) { $this.RightSpace = $right; $this.Raise("RightSpace") }
+    }
+    [void] SetRowWidth([double]$width) {
+        if ($this.RowWidth -ne $width) { $this.RowWidth = $width; $this.Raise("RowWidth") }
     }
 }
 
@@ -258,8 +262,14 @@ class PreviewTable {
 
     # 見えている列の範囲（first～last）と、その左右の空きの幅を決める。範囲が変わったら、作ってあるセルは古い範囲のものなので捨てる
     # （EnsureCells が、見えている行について今の範囲で作り直す）。範囲が変わったら $true
+    # 行の幅（行番号 + 全列の幅の合計）を今の列の幅で決め直す。列の幅が変わったとき（範囲は決め直さないドラッグ中も）に呼ぶ
+    [void] UpdateRowWidth() {
+        $this.Window.SetRowWidth([HitRow]::NumberWidth + $this.Prefix()[$this.Columns.Count])
+    }
+
     [bool] SetWindow([int]$first, [int]$last, [double]$left, [double]$right) {
         $this.Window.SetSpaces($left, $right)
+        $this.UpdateRowWidth()
         if ($first -eq $this.Window.First -and $last -eq $this.Window.Last) { return $false }
         $this.Window.First = $first
         $this.Window.Last = $last
@@ -351,6 +361,9 @@ class FileGroup : NotifyBase {
     [string]$Book
     [string]$RelDir
     [string]$FullPath
+    [string]$BookDisplay      # 結果の表に出す Book・RelDir・FullPath（制御文字・向きを変える文字を置き換えたもの。formatDisplayText。開く・コピーには上の元の値を使う）
+    [string]$RelDirDisplay
+    [string]$FullPathDisplay
     [string]$AppKind        # Excel / Word / PowerPoint（アイコンの色と文字を決める。どれでもなければ空）
     [string]$LocationText   # ヒットした場所の要約（「[シート]4月 ほか 2 か所」。読み上げに使う）
     [string]$LocationPrefix # 見出しの右端の件数の前に付ける場所（「[シート]4月 ほか 2 か所 ・ 」）。場所が 1 か所だけのときは空（行の「場所」列と重なるため）
@@ -364,6 +377,15 @@ class FileGroup : NotifyBase {
     # 結果の表での状態（result_list.ps1 が使う）。InView は見出しを表に入れたか、DisplayedCount は見出しの下に入れた行の数
     [bool]$InView
     [int]$DisplayedCount
+    # 行を作る件数の上限（0 は既定の groupRowLimit）。「続き」を出すたびに増やす。上限を超えたヒットは、続きを出すまで行にしない
+    [int]$RowLimit
+    # 並べ替えているときの、ヒット（Hits）の並び順（見つかった順の番号。表の行はこの順に作る）。ヒットが上限を超えるファイルだけ
+    # （全件の行は作らないので、生のヒットを並べ替えておく）。無ければ見つかった順
+    [int[]]$HitOrder
+    # 見出しの下の行の末尾に出す「続き」の行（残りのヒットがあるとき。無ければ $null）と、それを表に入れているか
+    [object]$MoreRow
+    [bool]$MoreInView
+    [bool]$IsMoreRow = $false   # 常に $false（結果の表で、「続き」の行と区別する）
     hidden [System.Collections.Generic.HashSet[string]]$locations = [System.Collections.Generic.HashSet[string]]::new()
     hidden [System.Collections.Generic.List[string]]$labels = [System.Collections.Generic.List[string]]::new()
 
@@ -408,6 +430,22 @@ class FileGroup : NotifyBase {
     }
 }
 
+# 結果の表で、開いているファイルの行の末尾に出す「続き」の行（ヒットが上限を超えたファイル）。選ぶ・Enter・クリックで、次の分の行を足す（result_list.ps1 の showMoreGroupRows）
+class MoreRowsItem : NotifyBase {
+    [bool]$IsMoreRow = $true      # 結果の表で「続き」の行の形にする（search/result_list.xaml の MoreRow）
+    [bool]$IsFileHeader = $false
+    [FileGroup]$Group
+    [string]$Text                 # 行に出す文言（getMoreRowsText）
+
+    MoreRowsItem() {}   # 既定のコンストラクタを明示する（理由は shared\ui\types.ps1 の NotifyBase）
+
+    [void] SetText([string]$text) {
+        if ($this.Text -eq $text) { return }
+        $this.Text = $text
+        $this.Raise("Text")
+    }
+}
+
 # 検索結果の1行。生成時は生データのみ。表示用（DisplayLine・Segments・MatchCell・MatchCount）は Prepare() で作る（可視行だけ）。
 # 表示用の各項目は Prepare() 後に PropertyChanged を出す（LoadingRow より前にバインドされても更新されるように）
 class HitRow : NotifyBase {
@@ -416,6 +454,7 @@ class HitRow : NotifyBase {
     # 図形・コメントの場所 "<元の場所>[<種類>]"。クラスからはスクリプトの関数が見えないため、値はクラスの定義の後で入れる（newObjectPlaceKindPattern）。
     # Excel の図形・コメントの 1 行は "<セル番地><TAB><文字>"。ヘッダー・フッターの 1 行は文字だけ（セル番地が無い）
     static [regex] $ObjectPlaceRegex
+    static [regex] $DisplayControlRegex
     static [char] $CellNewLine = [char]0x2028   # TSV のセル内改行（shared\core\text.ps1 の cellNewLine）
     static [int] $LeadLength = 40
     static [int] $MaxDisplay = 600
@@ -450,6 +489,7 @@ class HitRow : NotifyBase {
     [System.Collections.Generic.List[Segment]]$Segments
     [bool]$Prepared
     [bool]$IsFileHeader     # 常に $false（結果の表で、見出しの行と区別する）
+    [bool]$IsMoreRow        # 常に $false（結果の表で、「続き」の行と区別する）
     [int]$Order             # そのファイルの中で見つかった順（並べ替えで同じ値のときの順）
     [FileGroup]$FileGroup   # 元のファイルの見出し（同じファイルの行で共有する）
 
@@ -520,13 +560,13 @@ class HitRow : NotifyBase {
 
     # 絞り込み。元のファイル名（拡張子を含む。フォルダは含まない）への部分一致（大文字小文字を区別しない）。空文字は常に合う。
     [bool] MatchesFileName([string]$text) {
-        $ci = [System.StringComparison]::CurrentCultureIgnoreCase
-        return (("" + $this.Book).IndexOf($text, $ci) -ge 0)
+        return (testHitFilter $this.Book $text)
     }
 
     static [string] ToDisplay([string]$text) {
         if ($null -eq $text) { return "" }
-        return $text.Replace("`t", " │ ").Replace([HitRow]::CellNewLine, [char]0x21b5)
+        # タブ・改行のほかの制御文字と向きを変える文字は、置き換え文字にする（formatDisplayText -keepLineBreaks と同じ並び。末尾で displayControlChars から作る）
+        return [HitRow]::DisplayControlRegex.Replace($text.Replace("`t", " │ ").Replace([HitRow]::CellNewLine, [char]0x21b5), [string][char]0xFFFD)
     }
 
     # FindMatches が 1 件以上返すか（一致の一覧を作らずに調べる。表示する行ごとにセルの数だけ呼ぶため）
@@ -656,6 +696,7 @@ class HitRow : NotifyBase {
         $total = 0.0
         foreach ($column in $table.Columns) { $total += $column.Width }
         $table.Window.SetSpaces(0, $total)
+        $table.Window.SetRowWidth([HitRow]::NumberWidth + $total)
         return $table
     }
 
@@ -773,3 +814,6 @@ class HitRow : NotifyBase {
 
 # index_name.ps1 の newObjectPlaceKindPattern を使うため、lib.ps1 を先に読み込んでおくこと
 [HitRow]::ObjectPlaceRegex = [regex]::new((newObjectPlaceKindPattern))
+
+# 制御文字・向きを変える文字の並びは shared\core\text.ps1 の displayControlChars（formatDisplayText -keepLineBreaks と同じ）
+[HitRow]::DisplayControlRegex = [regex]::new('[\x00-\x08\x0B\x0C\x0E-\x1F' + ${displayControlChars} + ']')

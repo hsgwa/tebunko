@@ -125,6 +125,12 @@ Describe "describePlace" -Tag Unit {
         described "提案.pptx" "スライド002[図形]" | Should -Be "スライド 2|図形"
     }
 
+    It "PowerPoint のスライドマスターは本文、ノートマスターはノート（図形の種類が付けば、その種別）" {
+        described "提案.pptx" "スライドマスター" | Should -Be "スライドマスター|本文"
+        described "提案.pptx" "ノートマスター" | Should -Be "ノートマスター|ノート"
+        described "提案.pptx" "ノートマスター[図形]" | Should -Be "ノートマスター|図形"
+    }
+
     It "場所が空なら空" {
         described "a.docx" "" | Should -Be "|本文"
     }
@@ -175,6 +181,9 @@ Describe "toIndexFileName" -Tag Unit {
         @{ name = "非表示のスライドは slide_<番号>_hidden"; place = "スライド002（非表示）"; fileName = "slide_002_hidden.tsv"; ascii = $true }
         @{ name = "スライドのノートは slide_<番号>_notes"; place = "スライド002_ノート"; fileName = "slide_002_notes.tsv"; ascii = $true }
         @{ name = "ふつうのスライドは slide_<番号>"; place = "スライド002"; fileName = "slide_002.tsv"; ascii = $true }
+        @{ name = "スライドマスターは slide_master"; place = "スライドマスター"; fileName = "slide_master.tsv"; ascii = $true }
+        @{ name = "ノートマスターは notes_master"; place = "ノートマスター"; fileName = "notes_master.tsv"; ascii = $true }
+        @{ name = "ノートマスターの図形は末尾に [shape]"; place = "ノートマスター[図形]"; fileName = "notes_master[shape].tsv"; ascii = $true }
         @{ name = "ヘッダー・フッターは header_footer"; place = "ヘッダー・フッター"; fileName = "header_footer.tsv"; ascii = $true }
         @{ name = "脚注は doc_footnotes"; place = "脚注"; fileName = "doc_footnotes.tsv"; ascii = $true }
         @{ name = "文書は doc_whole"; place = "文書"; fileName = "doc_whole.tsv"; ascii = $true }
@@ -559,5 +568,61 @@ Describe "newIndexName（入れ子の集合）" -Tag Unit {
         $set = New-Object 'System.Collections.Generic.HashSet[string]'
         [void]$set.Add("営業"); [void]$set.Add("経理")
         newIndexName "C:\data\営業" @(, $set) | Should -Be "営業(2)"
+    }
+}
+
+Describe "testSourceBookName" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "Office の拡張子"; book = "a.xlsx"; expected = $true }
+        @{ name = "大文字の拡張子"; book = "a.TXT"; expected = $true }
+        @{ name = "PDF"; book = "a.pdf"; expected = $true }
+        @{ name = "末尾のピリオドは Windows が無視するので、拡張子は手前で見る"; book = "a.xlsx."; expected = $true }
+        @{ name = "末尾の空白も同じ"; book = "a.txt "; expected = $true }
+        @{ name = "日本語の名前"; book = "見積（最終）.docx"; expected = $true }
+        @{ name = "取り込み対象でない拡張子（.hta）"; book = "a.hta"; expected = $false }
+        @{ name = "ショートカット（.lnk）"; book = "a.lnk"; expected = $false }
+        @{ name = "インターネットショートカット（.url）"; book = "a.url"; expected = $false }
+        @{ name = "実行ファイル（.exe）"; book = "a.exe"; expected = $false }
+        @{ name = "マクロ入りテンプレート（.dotm）は対象外"; book = "a.dotm"; expected = $false }
+        @{ name = "上の階層を指す名前"; book = '..\a.xlsx'; expected = $false }
+        @{ name = "区切り（\）を含む名前"; book = 'sub\a.xlsx'; expected = $false }
+        @{ name = "区切り（/）を含む名前"; book = "a/b.txt"; expected = $false }
+        @{ name = "代替データストリームの指定"; book = "a.xlsm::`$DATA"; expected = $false }
+        @{ name = "表示の向きを変える文字（RLO）を含む名前"; book = "a" + [string][char]0x202E + "txt.exe"; expected = $false }
+        @{ name = "制御文字（U+0001）を含む名前"; book = "a" + [string][char]1 + ".txt"; expected = $false }
+        @{ name = "C1 制御文字（U+0085）を含む名前"; book = "a" + [string][char]0x85 + ".txt"; expected = $false }
+        @{ name = "ピリオドだけ"; book = "."; expected = $false }
+        @{ name = "ピリオド 2 つ"; book = ".."; expected = $false }
+        @{ name = "拡張子が無い"; book = "readme"; expected = $false }
+        @{ name = "空"; book = ""; expected = $false }
+    ) {
+        param ($name, $book, $expected)
+        testSourceBookName $book | Should -Be $expected
+    }
+}
+
+Describe "assignIndexNames（Subfolders）" -Tag Unit {
+    It "Subfolders（false・true・無し）を、名前を割り当てたあとの項目にも引き継ぐ" {
+        $targets = @(
+            [pscustomobject]@{ Name = ""; Path = "C:\data\見積"; Enabled = $true; Subfolders = $false },
+            [pscustomobject]@{ Name = "営業"; Path = "C:\data\営業"; Enabled = $true; Subfolders = $true },
+            [pscustomobject]@{ Name = ""; Path = "C:\data\経理"; Enabled = $true }
+        )
+        $folders = @(assignIndexNames $targets @())
+        $folders[0].Subfolders | Should -Be $false
+        $folders[1].Subfolders | Should -Be $true
+        $folders[2].Subfolders | Should -BeNullOrEmpty
+    }
+
+    It "IngestedSubfolders（前回取り込んだときの設定。false・true・無し）も引き継ぐ" {
+        $targets = @(
+            [pscustomobject]@{ Name = ""; Path = "C:\data\見積"; Enabled = $true; Subfolders = $false; IngestedSubfolders = $false },
+            [pscustomobject]@{ Name = "営業"; Path = "C:\data\営業"; Enabled = $true; Subfolders = $true; IngestedSubfolders = $true },
+            [pscustomobject]@{ Name = ""; Path = "C:\data\経理"; Enabled = $true }
+        )
+        $folders = @(assignIndexNames $targets @())
+        $folders[0].IngestedSubfolders | Should -Be $false
+        $folders[1].IngestedSubfolders | Should -Be $true
+        $folders[2].IngestedSubfolders | Should -BeNullOrEmpty
     }
 }

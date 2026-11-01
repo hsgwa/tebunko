@@ -137,26 +137,81 @@ Describe "indexer.ps1（続けられないエラー）" -Tag Io {
         $log | Should -Match "クロール対象フォルダがありません"
     }
 
-    It "同じ置き場所でほかのインデックス作成が動いていれば、そのインデックス作成のログに触らずに 1 で終わる" {
+    It "ほかのインデックス作成が動いていれば（<name>）、そのインデックス作成のログに触らずに 1 で終わる" -TestCases @(
+        @{ name = "同じセッションのミューテックス"; kind = "mutex" }
+        @{ name = "別のセッション・PC・パスの書き方の代わり（ミューテックスは持たず、鍵のファイルだけ）"; kind = "file" }
+    ) {
+        param ($name, $kind)
         $root = newRoot
         writeTestSettings $root @(@{ name = "営業"; path = $TestDrive; enabled = $true })
         # 実行中のインデックス作成が画面とやり取りしているファイル
         $files = @("indexing_log.txt")
-        foreach ($name in $files) {
-            [System.IO.File]::WriteAllText("$root\work\$name", "実行中")
+        foreach ($fileName in $files) {
+            [System.IO.File]::WriteAllText("$root\work\$fileName", "実行中")
         }
-        $other = newAppMutex "indexer" "$root\work" "tebunko"
+        # ほかの PC が取り込み中の出力用のフォルダ（PID はこの PC で動いていないもの）。片付けで消さない
+        $foreign = "$root\work\publish\999999\import"
+        [System.IO.Directory]::CreateDirectory($foreign) | Out-Null
+        if ($kind -eq "mutex") {
+            $other = newAppMutex "indexer" "$root\work" "tebunko"
+        } else {
+            $other = openLockFile "$root\work\indexing.lock" 1
+        }
         try {
             runIndexer $root | Should -Be 1
         } finally {
-            $other.Mutex.Dispose()
+            if ($kind -eq "mutex") {
+                $other.Mutex.Dispose()
+            } else {
+                $other.Dispose()
+            }
         }
-        foreach ($name in $files) {
-            [System.IO.File]::ReadAllText("$root\work\$name") | Should -Be "実行中"
+        foreach ($fileName in $files) {
+            [System.IO.File]::ReadAllText("$root\work\$fileName") | Should -Be "実行中"
         }
+        [System.IO.Directory]::Exists($foreign) | Should -Be $true
         # 鍵が取れなかったときは、前回の分へ移さない
         [System.IO.File]::Exists("$root\work\indexing_log_previous.txt") | Should -Be $false
         readTestError | Should -Match "ほかのインデックス作成が実行中です"
+    }
+}
+
+Describe "indexer.ps1（前の版が作った 64MB を超える本文インデックスのファイル）" -Tag Slow {
+    # 別のプロセスの上限は下げられないため、実際に 64MB を超えるファイルを作る（中身は流して書く）。毎回のテストでは流さない
+
+    It "同じ拡張子の小さい本文インデックスのファイルが残るフォルダでも、取り込む対象が無い更新で外れ、中の元のファイルが同じ回に取り込み直されて検索に戻る" {
+        $root = newRoot
+        $dir = newSourceFolder "上限超え"
+        writeTestSettings $root @(@{ name = ""; path = $dir; enabled = $true })
+        runIndexer $root | Should -Be 0
+        $folder = "$root\work\store\content\上限超え"
+        $file = "$folder\content_index.docx.001.tsv"
+        [System.IO.File]::Exists($file) | Should -Be $true
+
+        # 前の版が作った形: 議事録.docx を入れた、検索の上限（64MB）を超えるファイルと、別の docx を入れた小さいファイル
+        writeContentIndexFile $file (convertToContentIndexText @(@{ Name = "議事録.docx"; Places = @(@{ Place = "ページ001"; Text = "先頭`n" }) }))
+        $stream = New-Object System.IO.FileStream($file, [System.IO.FileMode]::Append)
+        $writer = New-Object System.IO.StreamWriter($stream, (New-Object System.Text.UnicodeEncoding($false, $false)))
+        try {
+            $line = ("あ" * 999) + "`n"
+            for ($i = 0; $i -lt 36000; $i++) { $writer.Write($line) }
+        } finally {
+            $writer.Dispose()
+        }
+        writeContentIndexFile "$folder\content_index.docx.002.tsv" (convertToContentIndexText @(@{ Name = "別.docx"; Places = @(@{ Place = "ページ001"; Text = "別の文書`n" }) }))
+        (Get-Item -LiteralPath $file).Length | Should -BeGreaterThan ${contentIndexSearchMaxBytes}
+
+        runIndexer $root | Should -Be 0
+
+        $status = readTestStatus $root
+        $status.Rows["上限超え\議事録.docx"].状態 | Should -Be ${stateDone}
+        foreach ($item in @(Get-ChildItem -LiteralPath $folder -Filter "content_index.docx.*.tsv" -File)) {
+            $item.Length | Should -BeLessThan 1MB
+        }
+        $names = @(Get-ChildItem -LiteralPath $folder -Filter "content_index.docx.*.tsv" -File | ForEach-Object { splitContentIndexTextByBook (readContentIndexText $_.FullName) } | ForEach-Object { $_.Name })
+        $names | Should -Contain "議事録.docx"
+        $names | Should -Contain "別.docx"
+        readTestError | Should -BeNullOrEmpty
     }
 }
 
@@ -213,6 +268,29 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         foreach ($entry in @(Get-ChildItem -LiteralPath "$root\work\store\content\営業" -File)) {
             $entry.Name | Should -Match "^[\x20-\x7E]+$"
         }
+    }
+
+    It "subfolders を false にして更新すると、サブフォルダのファイルが取り込み一覧と本文インデックスから外れ、true に戻すと取り込み直す" {
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "営業"; path = $source; enabled = $true })
+        runIndexer $root | Should -Be 0
+        (readTestStatus $root).Rows.ContainsKey("営業\資料\提案.pptx") | Should -Be $true
+        $contentText = { (@(Get-ChildItem -LiteralPath "$root\work\store\content\営業" -Recurse -Filter "content_index.*.tsv" | ForEach-Object { Get-Content -Raw -LiteralPath $_.FullName }) -join "") }
+        # 提案.pptx の中の語（TC21-01）が、サブフォルダ側のファイルの目印
+        (& $contentText) | Should -Match "TC21-01"
+
+        writeTestSettings $root @(@{ name = "営業"; path = $source; enabled = $true; subfolders = $false })
+        runIndexer $root | Should -Be 0
+        $rows = (readTestStatus $root).Rows
+        $rows.ContainsKey("営業\資料\提案.pptx") | Should -Be $false
+        $rows["営業\議事録.docx"].状態 | Should -Be ${stateDone}
+        (& $contentText) | Should -Match "議事録"
+        (& $contentText) | Should -Not -Match "TC21-01"
+
+        writeTestSettings $root @(@{ name = "営業"; path = $source; enabled = $true; subfolders = $true })
+        runIndexer $root | Should -Be 0
+        (readTestStatus $root).Rows["営業\資料\提案.pptx"].状態 | Should -Be ${stateDone}
+        (& $contentText) | Should -Match "TC21-01"
     }
 
     It "作成中は、取り込み一覧に 1 件ごとに結果が追記され、画面が読む「取り込み済み＋失敗」の件数が途中で増える" {
@@ -289,7 +367,36 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         (Get-Content -LiteralPath "$root\work\indexing_log.txt" -Raw) | Should -Match "スキップ"
     }
 
-    It "前回取り込み中に強制終了したファイルは最後に回して取り込む" {
+    It "設定で取り込まないにしたテキストの拡張子は取り込まず、前に取り込んだものはインデックスから外す（戻すと取り込む）" {
+$textSource = Join-Path $TestDrive "取り込まない拡張子"
+[System.IO.Directory]::CreateDirectory($textSource) | Out-Null
+[System.IO.File]::WriteAllText("$textSource\メモ.txt", "メモの内容", [System.Text.Encoding]::UTF8)
+[System.IO.File]::WriteAllText("$textSource\記録.log", "記録の内容", [System.Text.Encoding]::UTF8)
+$root = Join-Path $TestDrive "取り込まない拡張子用"
+[System.IO.Directory]::CreateDirectory("$root\work") | Out-Null
+$folders = @(@{ name = "資料"; path = $textSource; enabled = $true })
+$settingsPath = "$root\setting.config"
+
+# .log を取り込まない: メモ.txt だけ取り込む
+writeTestSettings $root $folders
+writeIndexTextExcludes "資料" @(".log") $settingsPath
+runIndexer $root | Should -Be 0
+@((readTestStatus $root).Rows.Keys | ForEach-Object { [System.IO.Path]::GetFileName($_) }) | Should -Be @("メモ.txt")
+
+# 取り込むに戻す: .log を新しく取り込む
+writeIndexTextExcludes "資料" @() $settingsPath
+runIndexer $root | Should -Be 0
+@((readTestStatus $root).Rows.Keys | ForEach-Object { [System.IO.Path]::GetFileName($_) } | Sort-Object).Count | Should -Be 2
+
+# また取り込まないにする: 取り込み一覧とインデックスから外れ、ログが「取り込まないにした拡張子」になる
+writeIndexTextExcludes "資料" @(".log") $settingsPath
+runIndexer $root | Should -Be 0
+@((readTestStatus $root).Rows.Keys | ForEach-Object { [System.IO.Path]::GetFileName($_) }) | Should -Be @("メモ.txt")
+(Get-Content -LiteralPath "$root\work\indexing_log.txt" -Raw) | Should -Match "対象外にした拡張子のファイル 1 件は、インデックスから除きます"
+}
+
+
+It "前回取り込み中に強制終了したファイルは最後に回して取り込む" {
         $root = newRoot
         writeTestSettings $root @(@{ name = "営業"; path = $source; enabled = $true })
         # 「始」だけで「終」の無いジャーナル（取り込みの途中で強制終了した跡）
@@ -438,12 +545,11 @@ Describe "indexer.ps1（後回しの司令の流れ。実際のPowerPointは使�
             $progress = readTestProgress
             $progress.Failed | Should -Be 1
             $progress.Remaining | Should -Be 0
-            # 画面の「更新に失敗したファイル」の一覧（getIndexingState）に理由付きで出る。待ちの件数には入らない
+            # 失敗の件数（getIndexingState）に入る。待ちの件数には入らない
             $indexingState = getIndexingState ([datetime]::MaxValue) "$root\work\store\ingest_status.tsv"
             $indexingState.Failed | Should -Be 1
             $indexingState.Pending | Should -Be 0
-            @($indexingState.FailedRows).Count | Should -Be 1
-            $indexingState.FailedRows[0].エラー | Should -Be ${postponedReasonRunning}
+            (readStatusFile "$root\work\store\ingest_status.tsv").Rows.Values | Where-Object { $_.エラー } | ForEach-Object { $_.エラー } | Should -Be ${postponedReasonRunning}
             (Get-Content -LiteralPath "$root\work\indexing_log.txt" -Raw) | Should -Match "PowerPoint を閉じてからもう一度更新すると、そのまま取り込みます"
             (Get-Content -LiteralPath "$root\work\indexing_log.txt" -Raw) | Should -Not -Match "失敗分も再取り込みする"
             # stopAllApps は後片付け（finally）で 1 回だけ呼ばれる。後回しを取り込んだ件数に数えると
@@ -675,6 +781,21 @@ Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
         (readTestProgress).Detail | Should -Be "インデックス作成を取りやめました"
     }
 
+    It "取りやめても、段階ごとの時間の行がログに出る" {
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "総務"; path = $source; enabled = $true })
+        $cancel = $approvalLine.Clone()
+        # 返事を待った時間（画面の確認待ち）が、全体に含めずに別に出ることを確かめるため、返事を少し遅らせる
+        $cancel.Action = { Start-Sleep -Milliseconds 300; answerIndexingPlan $channel $null }
+
+        runIndexer $root @{ ConfirmTargets = $true } @($cancel) | Should -Be 2
+        $log = [System.IO.File]::ReadAllText("$root\work\indexing_log.txt")
+        $log | Should -Match "段階ごとの時間（秒）: "
+        $log | Should -Match "画面の確認待ち [0-9.]+（全体に含めない）"
+        $stages = $script:lastChannel.StageTimings.Stages
+        $stages.Wait | Should -BeGreaterThan 0.2
+    }
+
     It "確認を待つとき（ConfirmTargets）、取りやめたら、更新されたファイルの行も前回の記録のまま残す（次回も更新ありになる）" {
         $edited = newSourceFolder "企画"
         $root = newRoot
@@ -702,6 +823,119 @@ Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
         $progress = readTestProgress
         $progress.Processed | Should -Be 1
         $progress.Failed | Should -Be 1
+    }
+
+    Context "無くなったファイルのインデックスの削除（［更新を開始］のあと）" {
+        BeforeEach {
+            $script:vanishName = "無くなる$([guid]::NewGuid().ToString('N').Substring(0, 6))"
+            $script:vanishSource = newSourceFolder $script:vanishName
+            $script:vanishRoot = newRoot
+            writeTestSettings $script:vanishRoot @(@{ name = $script:vanishName; path = $script:vanishSource; enabled = $true })
+            runIndexer $script:vanishRoot | Should -Be 0
+            $script:vanishText = { (@(Get-ChildItem -LiteralPath "$($script:vanishRoot)\work\store\content\$($script:vanishName)" -Recurse -Filter "content_index.*.tsv" | ForEach-Object { Get-Content -Raw -LiteralPath $_.FullName }) -join "") }
+            (& $script:vanishText) | Should -Match "TC21-01"
+        }
+
+        It "無くなったファイルがあるとき、確認で取りやめると、取り込み一覧の行も本文インデックスも残る" {
+            Remove-Item -LiteralPath "$($script:vanishSource)\資料\提案.pptx"
+            $cancel = $approvalLine.Clone()
+            $cancel.Action = { answerIndexingPlan $channel $null }
+
+            runIndexer $script:vanishRoot @{ ConfirmTargets = $true } @($cancel) | Should -Be 2
+
+            (readTestStatus $script:vanishRoot).Rows.ContainsKey("$($script:vanishName)\資料\提案.pptx") | Should -BeTrue
+            (& $script:vanishText) | Should -Match "TC21-01"
+        }
+
+        It "直下だけに設定を変えて取りやめると、サブフォルダ側のインデックスは残り、前回の設定（ingestedSubfolders）は変わらない" {
+            writeTestSettings $script:vanishRoot @(@{ name = $script:vanishName; path = $script:vanishSource; enabled = $true; subfolders = $false })
+            $cancel = $approvalLine.Clone()
+            $cancel.Action = { answerIndexingPlan $channel $null }
+
+            runIndexer $script:vanishRoot @{ ConfirmTargets = $true } @($cancel) | Should -Be 2
+
+            (readTestStatus $script:vanishRoot).Rows.ContainsKey("$($script:vanishName)\資料\提案.pptx") | Should -BeTrue
+            (& $script:vanishText) | Should -Match "TC21-01"
+            @(getTargetFolders "$($script:vanishRoot)\setting.config")[0].IngestedSubfolders | Should -BeTrue
+        }
+
+        It "直下だけに設定を変えて［更新を開始］すると、サブフォルダ側が消え、前回の設定が false になる（確認には『サブフォルダ側の N 件』を出す）" {
+            writeTestSettings $script:vanishRoot @(@{ name = $script:vanishName; path = $script:vanishSource; enabled = $true; subfolders = $false })
+            $global:planRemovedCount = $null
+            $approve = $approvalLine.Clone()
+            $approve.Action = { $global:planRemovedCount = @($channel.Plan)[0].SubfolderRemovedCount; answerIndexingPlan $channel @{ RetryFailed = $false } }
+            try {
+                runIndexer $script:vanishRoot @{ ConfirmTargets = $true } @($approve) | Should -Be 0
+                $global:planRemovedCount | Should -Be 1
+            } finally {
+                Remove-Variable -Name planRemovedCount -Scope Global -ErrorAction SilentlyContinue
+            }
+
+            (readTestStatus $script:vanishRoot).Rows.ContainsKey("$($script:vanishName)\資料\提案.pptx") | Should -BeFalse
+            (& $script:vanishText) | Should -Not -Match "TC21-01"
+            @(getTargetFolders "$($script:vanishRoot)\setting.config")[0].IngestedSubfolders | Should -BeFalse
+        }
+
+        It "含める設定のまま更新して終わると、前回の設定は true で書かれる。確認を出さない実行でも書く" {
+            runIndexer $script:vanishRoot | Should -Be 0
+            $folder = @(getTargetFolders "$($script:vanishRoot)\setting.config")[0]
+            $folder.IngestedSubfolders | Should -BeTrue
+            $folder.Subfolders | Should -BeTrue
+        }
+
+        It "［更新を開始］すると、無くなったファイルのインデックスが消えて検索に出ない" {
+            Remove-Item -LiteralPath "$($script:vanishSource)\資料\提案.pptx"
+            $approve = $approvalLine.Clone()
+            $approve.Action = { answerIndexingPlan $channel @{ RetryFailed = $false } }
+
+            runIndexer $script:vanishRoot @{ ConfirmTargets = $true } @($approve) | Should -Be 0
+
+            (readTestStatus $script:vanishRoot).Rows.ContainsKey("$($script:vanishName)\資料\提案.pptx") | Should -BeFalse
+            (& $script:vanishText) | Should -Not -Match "TC21-01"
+        }
+
+        It "確認を出さない実行でも、無くなったファイルのインデックスは消える" {
+            Remove-Item -LiteralPath "$($script:vanishSource)\資料\提案.pptx"
+
+            runIndexer $script:vanishRoot | Should -Be 0
+
+            (readTestStatus $script:vanishRoot).Rows.ContainsKey("$($script:vanishName)\資料\提案.pptx") | Should -BeFalse
+            (& $script:vanishText) | Should -Not -Match "TC21-01"
+        }
+
+        It "［更新を開始］のあと、取り込み一覧を書き直す前に、外す予定の記録が書かれている（強制終了しても次の回に外せる）" {
+            Remove-Item -LiteralPath "$($script:vanishSource)\資料\提案.pptx"
+            $global:pendingRecorded = -1
+            $probe = @{ Script = $runPath; Pattern = '^\s+writeStatusKeepingDropped \$ledger \$folders \$rows\.ToArray\(\)'; Action = { $global:pendingRecorded = @(readPendingRemovals).Count } }
+            $approve = $approvalLine.Clone()
+            $approve.Action = { answerIndexingPlan $channel @{ RetryFailed = $false } }
+            try {
+                runIndexer $script:vanishRoot @{ ConfirmTargets = $true } @($approve, $probe) | Should -Be 0
+                $global:pendingRecorded | Should -BeGreaterThan 0
+            } finally {
+                Remove-Variable -Name pendingRecorded -Scope Global -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    It "行の［更新］（選んだ名前だけ）のとき、ほかのフォルダの前回の設定は書かない。チェックなしのフォルダも書かない" {
+        $picked = newSourceFolder "選ぶ"
+        $other = newSourceFolder "選ばない"
+        $off = newSourceFolder "外す"
+        $root = newRoot
+        writeTestSettings $root @(
+            @{ name = "選ぶ"; path = $picked; enabled = $true; subfolders = $false },
+            @{ name = "選ばない"; path = $other; enabled = $true; subfolders = $false },
+            @{ name = "外す"; path = $off; enabled = $false; subfolders = $false })
+        $approve = $approvalLine.Clone()
+        $approve.Action = { answerIndexingPlan $channel @{ RetryFailed = $false } }
+
+        runIndexer $root @{ ConfirmTargets = $true; OnlyNames = @("選ぶ") } @($approve) | Should -Be 0
+
+        $folders = @(getTargetFolders "$root\setting.config")
+        ($folders | Where-Object { $_.Name -eq "選ぶ" }).IngestedSubfolders | Should -BeFalse
+        ($folders | Where-Object { $_.Name -eq "選ばない" }).IngestedSubfolders | Should -BeTrue
+        ($folders | Where-Object { $_.Name -eq "外す" }).IngestedSubfolders | Should -BeTrue
     }
 
     It "取り込みの途中で中止を求められたら、残りを未取り込みのまま 2 で終わる" {
@@ -1063,7 +1297,7 @@ Describe "indexer.ps1（制限時間）" -Tag Io {
         $root = newRoot
         writeTestSettings $root @(@{ name = "監査"; path = $source; enabled = $true })
         # 取り込みの直前に、見張り（OfficeWatchdog）が制限時間を過ぎたと判断した状態にする
-        $timeout = @{ Script = $runPath; Pattern = '^\s+\$result\.TsvCount = ingestFile'; Action = { $officeWatchdog.State.TimedOut = $true } }
+        $timeout = @{ Script = $runPath; Pattern = '^\s+\$result\.TsvCount = invokeTimedIngest'; Action = { $officeWatchdog.State.TimedOut = $true } }
 
         runIndexer $root @{} @($timeout) | Should -Be 0
         $status = readTestStatus $root
@@ -1239,6 +1473,33 @@ Describe "indexer.ps1（取り込みのスレッド）" -Tag Io {
             }
             return , $lines.ToArray()
         }
+    }
+
+    It "段階ごとの時間と種類ごとの時間が、スレッドを使っても使わなくても、ログと受け渡しの口（StageTimings）に出る（Workers = <workers>）" -TestCases @(
+        @{ workers = 0 }
+        @{ workers = 3 }
+    ) {
+        param ($workers)
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "並列"; path = $source; enabled = $true })
+        runIndexer $root @{ Workers = $workers } | Should -Be 0
+
+        $timings = $script:lastChannel.StageTimings
+        $timings.Stages.Total | Should -BeGreaterThan 0
+        $timings.Stages.Ingest | Should -BeGreaterThan 0
+        $timings.Stages.Gram | Should -BeGreaterThan 0
+        ($timings.Stages.Startup + $timings.Stages.Crawl + $timings.Stages.Ingest + $timings.Stages.FinishFlush + $timings.Stages.Gram + $timings.Stages.Other) | Should -BeGreaterThan ($timings.Stages.Total - 0.01)
+        ($timings.Stages.Startup + $timings.Stages.Crawl + $timings.Stages.Ingest + $timings.Stages.FinishFlush + $timings.Stages.Gram + $timings.Stages.Other) | Should -BeLessThan ($timings.Stages.Total + 0.01)
+        $timings.Kinds[".docx"].Ok | Should -Be 2
+        $timings.Kinds[".docx"].Count | Should -Be 2
+        $timings.Kinds[".pptx"].Ok | Should -Be 2
+        $timings.Kinds[".pptx"].Failed | Should -Be 1
+        $timings.Kinds[".pptx"].Count | Should -Be 3
+        $timings.Kinds[".docx"].AvgMs | Should -BeGreaterThan 0
+        $log = [System.IO.File]::ReadAllText("$root\work\indexing_log.txt")
+        $log | Should -Match "段階ごとの時間（秒）: 起動 .* / クロール .* / 取り込み .*（うちまとめ .*） / 仕上げのまとめ .* / gram 索引 .* / その他 .* / 全体 "
+        $log | Should -Match "  \.docx 2 件: 抽出 "
+        $log | Should -Match "  \.pptx 3 件: 抽出 .*（失敗 1・"
     }
 
     It "取り込みのスレッドで取り込んでも、取り込み一覧・本文インデックスのファイルはスレッドを使わないときと同じになる" {
@@ -1682,6 +1943,37 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
         $result.Stopped | Should -Be $true
         $result.Ok | Should -Be $false
         $result.Message | Should -BeNullOrEmpty
+    }
+
+    It "元のファイルの 1 行が検索の上限を超えるときは、置き場へ移さず、決めた文言の失敗として返す" {
+        . "${scriptsDir}\tebunko\indexer\extract_text.ps1"
+        $workspace = newTestWorkspace @{} "$TestDrive\fit_task_ws"
+        ${tmpDir} = Join-Path $TestDrive "fit_task_tmp"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+        $source = Join-Path $TestDrive "fit_task.txt"
+        [System.IO.File]::WriteAllText($source, ("前の行`r`n" + ("あ" * 1000) + "`r`n後の行"))
+        ${contentIndexSearchMaxBytes} = 1KB
+
+        $result = invokeIngestTask @{ RelPath = "営業\fit_task.txt"; SourcePath = $source } 10
+
+        $result.Ok | Should -Be $false
+        $result.Message | Should -Be "ファイルの文字が多すぎるため更新できません（上限 64 MB）。"
+        [System.IO.Directory]::Exists("$($workspace.IndexDir)\営業\fit_task.txt") | Should -Be $false
+    }
+
+    It "元のファイルの文字が検索の上限を超えても、1 行ずつが上限以内なら失敗にせず置き場へ移す（書き出しで塊に分ける）" {
+        . "${scriptsDir}\tebunko\indexer\extract_text.ps1"
+        $workspace = newTestWorkspace @{} "$TestDrive\fit_task_split_ws"
+        ${tmpDir} = Join-Path $TestDrive "fit_task_split_tmp"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+        $source = Join-Path $TestDrive "fit_task_split.txt"
+        [System.IO.File]::WriteAllText($source, ((1..300 | ForEach-Object { "長い行の文字 $_" }) -join "`r`n"))
+        ${contentIndexSearchMaxBytes} = 1KB
+
+        $result = invokeIngestTask @{ RelPath = "営業\fit_task_split.txt"; SourcePath = $source } 10
+
+        $result.Ok | Should -Be $true
+        [System.IO.Directory]::Exists("$($workspace.IndexDir)\営業\fit_task_split.txt") | Should -Be $true
     }
 
     It "本文（word/document.xml）が部品のサイズの上限を超えた .docx は、Office を使わず簡潔なメッセージで失敗にする" {
@@ -2224,6 +2516,65 @@ Describe "取り込みのジャーナルの復旧と書き出し（flushPendingP
         } else {
             Should -Invoke publishIndexFolders -Times 1 -Exactly -Scope It -ParameterFilter { ((@($pending.Keys) | Sort-Object) -join "|") -eq $script:expectedKeys }
         }
+    }
+
+    It "上限を超える本文インデックスのファイルがあるフォルダは、書き出し前の TSV が無くても、始めの書き出しに足す（上限を超えないフォルダは足さない）" {
+        ${contentIndexSearchMaxBytes} = 1KB
+        $rc = newRecoverEnv -folders @()
+        $workspace = $rc.Workspace
+        foreach ($name in "営業", "総務") {
+            [System.IO.Directory]::CreateDirectory("$($workspace.IndexDir)\$name") | Out-Null
+        }
+        $big = ((1..200 | ForEach-Object { "巨大な行の単価 $_" }) -join "`n") + "`n"
+        writeContentIndexFile "$($workspace.IndexDir)\営業\content_index.xlsx.001.tsv" (convertToContentIndexText @(@{ Name = "A.xlsx"; Places = @(@{ Place = "S"; Text = $big }) }))
+        writeContentIndexFile "$($workspace.IndexDir)\総務\content_index.xlsx.001.tsv" (convertToContentIndexText @(@{ Name = "A.xlsx"; Places = @(@{ Place = "S"; Text = "x`n" }) }))
+        $script:expectedKeys = "$($workspace.IndexDir)\営業"
+        $result = recoverIngestJournal $rc.Ledger $rc.Journal $rc.Pending $rc.Channel $rc.Reporter
+        @($result.Unpublished).Count | Should -Be 0
+        Should -Invoke publishIndexFolders -Times 1 -Exactly -Scope It -ParameterFilter { ((@($pending.Keys) | Sort-Object) -join "|") -eq $script:expectedKeys }
+    }
+
+    It "applyStartupRequeued: 取り込み直しの元のファイルの行をすぐ「未取り込み」・エラー空にして保存し、印を空にする（行が無いものは無視する）" {
+        $rc = newRecoverEnv -folders @()
+        $ledger = [StatusLedger]::new([pscustomobject]@{ StatusFile = "$TestDrive\apply_status.tsv" })
+        $folders = @([pscustomobject]@{ Path = "C:\共有\営業部"; Name = "営業" })
+        writeStatusFile $folders @(
+            (newStatusRow "営業\A.xlsx" "2024/01/01 00:00:00" "100" ${stateDone} "1" "2024/01/01 00:00:00" "" "1")
+            (newStatusRow "営業\B.xlsx" "2024/01/01 00:00:00" "100" ${stateDone} "1" "2024/01/01 00:00:00" "" "1")
+        ) "$TestDrive\apply_status.tsv"
+        $status = readStatusFile "$TestDrive\apply_status.tsv"
+        $pending = [PendingPublish]::new()
+        $pending.AddRequeued([string[]]@("営業\A.xlsx", "営業\無い.xlsx"))
+
+        applyStartupRequeued $ledger $pending $status
+
+        $pending.Requeued.Count | Should -Be 0
+        $status.Rows["営業\A.xlsx"].状態 | Should -Be ${stateNew}
+        $saved = readStatusFile "$TestDrive\apply_status.tsv"
+        $saved.Rows["営業\A.xlsx"].状態 | Should -Be ${stateNew}
+        $saved.Rows["営業\B.xlsx"].状態 | Should -Be ${stateDone}
+        $saved.Folders.Count | Should -Be 1
+    }
+
+    It "selectFinishStatusRows: 書き出しで外した上限超えのファイルの中の元のファイルは、この回に済になっていても「未取り込み」・エラー空に戻し、無くなった行は除く" {
+        $ledger = [StatusLedger]::new([pscustomobject]@{ StatusFile = "$TestDrive\select_status.tsv" })
+        $pending = [PendingPublish]::new()
+        $pending.AddRequeued([string[]]@("営業\A.xlsx", ""))
+        [void]$ledger.DroppedRows.Add("営業\C.xlsx")
+        $rows = @(
+            (newStatusRow "営業\A.xlsx" "2024/01/01 00:00:00" "100" ${stateDone} "1" "2024/01/01 00:00:00" "" "1")
+            (newStatusRow "営業\B.xlsx" "2024/01/01 00:00:00" "100" ${stateDone} "1" "2024/01/01 00:00:00" "" "1")
+            (newStatusRow "営業\C.xlsx" "2024/01/01 00:00:00" "100" ${stateDone} "1" "2024/01/01 00:00:00" "" "1")
+        )
+        $rows[0].エラー = "前のエラー"
+        $selected = selectFinishStatusRows $rows $ledger $pending
+        @($selected).Count | Should -Be 2
+        $selected[0].相対パス | Should -Be "営業\A.xlsx"
+        $selected[0].状態 | Should -Be ${stateNew}
+        $selected[0].エラー | Should -Be ""
+        $selected[1].状態 | Should -Be ${stateDone}
+        $rows[0].状態 | Should -Be ${stateDone}
+        $pending.Requeued.Count | Should -Be 1
     }
 
     It "前の版の ingesting.txt があれば、止まった仕事に足す。ジャーナルにも同じ仕事があるときは重ねない" {

@@ -150,35 +150,78 @@ Describe "reportStartupFailure（記録の経路の切り替え）" -Tag Gui {
     # 記録が書けたことを確認したらプロセスごと止める
     BeforeAll {
         function startReportStartupFailureProcess {
+            # 子を起こし、プロセスと、印・標準出力・標準エラーのファイルのパスを 1 つにして返す
             param ([string[]]$setupLines, [string]$message)
-            $scriptFile = Join-Path $TestDrive "scenario_$([guid]::NewGuid().ToString('N')).ps1"
+            $id = [guid]::NewGuid().ToString('N')
+            $scriptFile = Join-Path $TestDrive "scenario_$id.ps1"
+            # 子の進み具合の印（始まった時・WPF の Add-Type の後・reportStartupFailure が戻った後）を書くファイル。
+            # 待ち切れたとき、どの段まで来たかを失敗の文言に出す。記録を書いた時刻は、記録のファイルの更新時刻で見る
+            $markFile = Join-Path $TestDrive "scenario_$id.mark.txt"
+            $outFile = Join-Path $TestDrive "scenario_$id.out.txt"
+            $errFile = Join-Path $TestDrive "scenario_$id.err.txt"
+            # 子のスクリプトに書く、印を足す 1 行（段の名前と、そのときの時刻）
+            $markCommand = { param ([string]$label) "Add-Content -LiteralPath '$markFile' -Value ('$label ' + (Get-Date -Format 'o'))" }.GetNewClosure()
             $lines = @(
+                (& $markCommand "子の開始")
                 "Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase"
+                (& $markCommand "WPF の Add-Type の後")
                 ". '$scriptsDir\tebunko\ui\startup_error_view.ps1'"
                 ". '$scriptsDir\tebunko\ui\startup_error.ps1'"
             ) + $setupLines + @(
                 "try { throw '$message' } catch { reportStartupFailure `$_ | Out-Null }"
+                (& $markCommand "reportStartupFailure の後")
             )
             Set-Content -LiteralPath $scriptFile -Value $lines -Encoding UTF8
-            return Start-Process -FilePath "powershell.exe" `
+            $process = Start-Process -FilePath "powershell.exe" `
                 -ArgumentList @("-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", $scriptFile) `
-                -PassThru -WindowStyle Hidden
+                -PassThru -WindowStyle Hidden -RedirectStandardOutput $outFile -RedirectStandardError $errFile
+            # Windows PowerShell 5.1 は、ハンドルを持っておかないと、終わった後の ExitCode が空になる
+            $null = $process.Handle
+            return [pscustomobject]@{ Process = $process; Mark = $markFile; Out = $outFile; Err = $errFile }
+        }
+
+        function readFileOrEmpty {
+            param ([string]$path)
+            if (Test-Path -LiteralPath $path) { return (Get-Content -LiteralPath $path -Raw) }
+            return ""
+        }
+
+        function getScenarioDiagnosis {
+            # 待ち切れたとき・子が記録を書かずに終わったときの失敗の文言。どの印まで来たか・子が生きているか・終了コード・出力を並べる
+            param ($scenario, [string]$path)
+            $marks = if (Test-Path -LiteralPath $scenario.Mark) { (Get-Content -LiteralPath $scenario.Mark) -join " / " } else { "(印なし。子のスクリプトが始まっていない)" }
+            $state = if ($scenario.Process.HasExited) { "終わっている（終了コード $($scenario.Process.ExitCode)）" } else { "生きている" }
+            return "記録のファイルができなかった（$path）。子: $state。印: $marks。標準出力: [$(readFileOrEmpty $scenario.Out)] 標準エラー: [$(readFileOrEmpty $scenario.Err)]"
+        }
+
+        function getSecondsFromStartMark {
+            # 最初の印「子の開始」の時刻から、記録のファイルの更新時刻までの秒数。印が読めなければ "?"
+            param ($scenario, [string]$path)
+            if (-not (Test-Path -LiteralPath $scenario.Mark)) { return "?" }
+            $first = @(Get-Content -LiteralPath $scenario.Mark -TotalCount 1)
+            if ($first.Count -eq 0) { return "?" }
+            $startTime = [datetime]($first[0] -split " ")[-1]
+            return [Math]::Round(((Get-Item -LiteralPath $path).LastWriteTime - $startTime).TotalSeconds, 1)
         }
 
         function waitForFile {
-            param ([string]$path, [int]$timeoutSeconds = 10)
+            # 記録のファイルができるか、子が終わるかの早い方まで待つ（上限は guiDefaultTimeout にそろえた 30 秒）。
+            # 子が記録を書かずに終わったときは、待たずに失敗にする。できたら $true
+            param ($scenario, [string]$path, [int]$timeoutSeconds = 30)
             $watch = [System.Diagnostics.Stopwatch]::StartNew()
-            while (-not (Test-Path -LiteralPath $path) -and $watch.Elapsed.TotalSeconds -lt $timeoutSeconds) {
+            while (-not (Test-Path -LiteralPath $path) -and -not $scenario.Process.HasExited -and $watch.Elapsed.TotalSeconds -lt $timeoutSeconds) {
                 Start-Sleep -Milliseconds 100
             }
-            return Test-Path -LiteralPath $path
+            if (Test-Path -LiteralPath $path) {
+                Write-Host "[記録まで] 待ち $([Math]::Round($watch.Elapsed.TotalSeconds, 1)) 秒・子の開始から記録まで $(getSecondsFromStartMark $scenario $path) 秒"
+                return $true
+            }
+            throw (getScenarioDiagnosis $scenario $path)
         }
     }
 
     AfterEach {
-        if ($script:scenarioProcess -and -not $script:scenarioProcess.HasExited) {
-            Stop-Process -Id $script:scenarioProcess.Id -Force -ErrorAction SilentlyContinue
-        }
+        if ($script:scenario) { stopStartedProcess $script:scenario.Process }
     }
 
     It "app_host.ps1 を読み込む前は、ツールのフォルダの startup_error.txt に記録する" {
@@ -186,10 +229,10 @@ Describe "reportStartupFailure（記録の経路の切り替え）" -Tag Gui {
         [System.IO.Directory]::CreateDirectory($tool) | Out-Null
         # paths.ps1 が決める ${rootDir} をテスト用のフォルダにする（本物の作業ツリーに記録を作らないため）
         $setup = @("`$rootDir = '$tool'")
-        $script:scenarioProcess = startReportStartupFailureProcess $setup "読み込み前の失敗"
+        $script:scenario = startReportStartupFailureProcess $setup "読み込み前の失敗"
 
         $recordFile = Join-Path $tool "startup_error.txt"
-        (waitForFile $recordFile) | Should -Be $true
+        (waitForFile $script:scenario $recordFile) | Should -Be $true
         (Get-Content -LiteralPath $recordFile -Raw) | Should -Match "読み込み前の失敗"
     }
 
@@ -199,9 +242,9 @@ Describe "reportStartupFailure（記録の経路の切り替え）" -Tag Gui {
             ". '$scriptsDir\shared\ui\app_host.ps1'"
             "setGuiErrorLogSource { '$logFile' } `$null"
         )
-        $script:scenarioProcess = startReportStartupFailureProcess $setup "読み込み後の失敗"
+        $script:scenario = startReportStartupFailureProcess $setup "読み込み後の失敗"
 
-        (waitForFile $logFile) | Should -Be $true
+        (waitForFile $script:scenario $logFile) | Should -Be $true
         (Get-Content -LiteralPath $logFile -Raw) | Should -Match "読み込み後の失敗"
     }
 }

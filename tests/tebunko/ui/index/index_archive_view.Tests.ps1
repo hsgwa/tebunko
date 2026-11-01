@@ -289,3 +289,97 @@ Describe "testIndexImportInput（元のフォルダの重なり）" -Tag Unit {
         testIndexImportInput "C:\data\売上" "売上" $items | Should -Be ""
     }
 }
+
+Describe "getImportProgressView" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "全体が分からない間は割合の分からない表示"; done = 0; total = 0; text = "インポートしています…"; detail = ""; indeterminate = $true; value = 0.0 }
+        @{ label = "途中は割合と大きさ"; done = 1MB; total = 4MB; text = "インポートしています（25%）"; detail = "1.0 MB / 4.0 MB"; indeterminate = $false; value = 0.25 }
+        @{ label = "展開が終わった後は割合の分からない表示"; done = 4MB; total = 4MB; text = "インポートを仕上げています…"; detail = ""; indeterminate = $true; value = 1.0 }
+    ) {
+        param ($label, $done, $total, $text, $detail, $indeterminate, $value)
+        $view = getImportProgressView $done $total
+        $view.Text | Should -Be $text
+        $view.Detail | Should -Be $detail
+        $view.Indeterminate | Should -Be $indeterminate
+        $view.Value | Should -Be $value
+    }
+}
+
+Describe "getImportIndexingConfirm" -Tag Unit {
+    It "元のフォルダがあれば、importIndex が返した名前で、確認ダイアログに渡す文言を返す" {
+        $confirm = getImportIndexingConfirm @{ Name = "営業(2)"; Files = 3; Warnings = @(); Enabled = $true }
+        $confirm.Name | Should -Be "営業(2)"
+        $confirm.Title | Should -Be "営業(2) をインポートしました"
+        $confirm.Heading | Should -Be "高速化のためのインデックスを作成しますか？"
+        $confirm.Hint | Should -Be "高速化のためのインデックスを作成します。作成しなくても検索はできます（結果は同じ）。"
+        $confirm.StartText | Should -Be "作成する（更新を開始）"
+        $confirm.CancelText | Should -Be "あとで"
+        $confirm.RowStatus | Should -Be "要更新"
+        $confirm.SkippedStatus | Should -Be "インデックス [営業(2)] をインポートしました（3 ファイル）。 次の更新までは、検索が遅くなることがあります。"
+    }
+
+    It "元のフォルダがこの PC に無ければ尋ねない" {
+        getImportIndexingConfirm @{ Name = "営業"; Enabled = $false } | Should -BeNullOrEmpty
+    }
+}
+
+Describe "getImportSkippedIndexingStatus" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "Warnings が無い"; warnings = @(); expected = "インデックス [営業] をインポートしました（3 ファイル）。 次の更新までは、検索が遅くなることがあります。" }
+        @{ label = "Warnings があれば間に入る"; warnings = @("注意です。"); expected = "インデックス [営業] をインポートしました（3 ファイル）。 注意です。 次の更新までは、検索が遅くなることがあります。" }
+    ) {
+        param ($label, $warnings, $expected)
+        getImportSkippedIndexingStatus @{ Name = "営業"; Files = 3; Warnings = $warnings } | Should -Be $expected
+    }
+}
+
+Describe "インポート後の画面に出す文言" -Tag Unit {
+    It "内部の言葉（2-gram・索引）と、前の言い方（更新しますか・更新する）を画面に出さない" {
+        $result = @{ Name = "営業"; Files = 1; Warnings = @(); Enabled = $true }
+        $confirm = getImportIndexingConfirm $result
+        $texts = @(
+            (getImportProgressView 1MB 4MB).Text, (getImportProgressView 1MB 4MB).Detail, (getImportProgressView 4MB 4MB).Text,
+            $confirm.Title, $confirm.Heading, $confirm.Hint, $confirm.StartText, $confirm.CancelText, $confirm.RowStatus, $confirm.SkippedStatus, (getImportSkippedIndexingStatus $result)
+        )
+        foreach ($text in $texts) {
+            $text | Should -Not -Match "2-gram|索引|更新しますか|更新する"
+        }
+    }
+}
+
+Describe "getIndexExportOmittedText" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "0 件は空文字列"; omitted = @(); expected = "" }
+        @{ label = "null は空文字列"; omitted = $null; expected = "" }
+        @{ label = "1 件（元のファイル 2 つ）"; omitted = @(@{ Path = "a.tsv"; Books = @("a.csv", "b.csv") }); expected = "1 件のインデックスのファイルを含めませんでした（64 MB を超えるため。元のファイル: a.csv, b.csv）" }
+        @{ label = "元のファイルが分からないときは理由だけ"; omitted = @(@{ Path = "a.tsv"; Books = @() }); expected = "1 件のインデックスのファイルを含めませんでした（64 MB を超えるため）" }
+        @{ label = "元のファイルは 5 件まで並べ、残りは「ほか M 件」"; omitted = @(@{ Path = "a.tsv"; Books = @("1", "2", "3", "4") }, @{ Path = "b.tsv"; Books = @("5", "6", "7") }); expected = "2 件のインデックスのファイルを含めませんでした（64 MB を超えるため。元のファイル: 1, 2, 3, 4, 5 ほか 2 件）" }
+    ) {
+        param ($label, $omitted, $expected)
+        getIndexExportOmittedText $omitted 64MB | Should -Be $expected
+    }
+
+    It "上限の MB は引数から作る" {
+        getIndexExportOmittedText @(@{ Path = "a.tsv"; Books = @("a.csv") }) 32MB | Should -BeLike "*（32 MB を超えるため*"
+    }
+}
+
+Describe "getIndexExportStatusText・getIndexBulkStatusText" -Tag Unit {
+    It "getIndexExportStatusText: <label>" -TestCases @(
+        @{ label = "含めなかったものが無ければ、そのまま"; omitted = @(); expected = "書き出しました（2 ファイル）" }
+        @{ label = "あれば「。」でつなぐ"; omitted = @(@{ Path = "a.tsv"; Books = @("a.csv") }); expected = "書き出しました（2 ファイル）。1 件のインデックスのファイルを含めませんでした（64 MB を超えるため。元のファイル: a.csv）" }
+    ) {
+        param ($label, $omitted, $expected)
+        getIndexExportStatusText "書き出しました（2 ファイル）" $omitted 64MB | Should -Be $expected
+    }
+
+    It "getIndexBulkStatusText: <label>" -TestCases @(
+        @{ label = "エクスポート・含めなかったものが無い"; operation = "エクスポート"; results = @([pscustomobject]@{ Ok = $true; Omitted = @() }); expected = "2 件" }
+        @{ label = "エクスポート・Omitted の無い結果(失敗)が混ざる"; operation = "エクスポート"; results = @([pscustomobject]@{ Ok = $false; Omitted = @() }, [pscustomobject]@{ Ok = $true; Omitted = @(@{ Path = "a.tsv"; Books = @("a.csv") }) }); expected = "2 件。1 件のインデックスのファイルを含めませんでした（64 MB を超えるため。元のファイル: a.csv）" }
+        @{ label = "2 つのインデックスの分を合わせる"; operation = "エクスポート"; results = @([pscustomobject]@{ Omitted = @(@{ Path = "a.tsv"; Books = @("a.csv") }) }, [pscustomobject]@{ Omitted = @(@{ Path = "b.tsv"; Books = @("b.csv") }) }); expected = "2 件。2 件のインデックスのファイルを含めませんでした（64 MB を超えるため。元のファイル: a.csv, b.csv）" }
+        @{ label = "削除は Omitted を見ない"; operation = "削除"; results = @([pscustomobject]@{ Name = "x"; Ok = $true }); expected = "2 件" }
+    ) {
+        param ($label, $operation, $results, $expected)
+        getIndexBulkStatusText $operation "2 件" $results 64MB | Should -Be $expected
+    }
+}

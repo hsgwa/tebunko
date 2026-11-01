@@ -28,7 +28,7 @@ function newIndex {
     if (!(testIndexOperable "追加")) {
         return
     }
-    $path = selectFolder "インデックスにする、Office ファイルのあるフォルダを選んでください" "" $window $false
+    $path = selectFolder "インデックスにする、ファイル（Excel・PowerPoint・Word・PDF・テキスト）のあるフォルダを選んでください" "" $window $false
     if (!$path) {
         return
     }
@@ -185,6 +185,27 @@ function commitIndexDetailEdit {
     applyIndexEdit $item @{ Path = $decision.Path; Name = $decision.Name }
 }
 
+$script:indexDetailApplying = $false   # 詳細に値を入れ直している間（updateIndexDetailPanel）。この間のチェックの出来事では設定を書かない
+
+function changeIndexSubfolders {
+    # 詳細の『サブフォルダを含める』を付け外ししたとき。行の Subfolders を替え（札も替える）、設定にすぐ書く。
+    # ［要更新］は印を持たず、今の設定と前回取り込んだときの設定の差から求める（testIndexSubfoldersPending）ので、行を描き直すだけでよい。
+    # 値を入れ直している間・更新中（欄が押せない間）・行の値と同じときは何もしない
+    if ($script:indexDetailApplying -or !$ui.IndexDetailSubfolders.IsEnabled) {
+        return
+    }
+    $item = getIndexTargetItem
+    $value = [bool]$ui.IndexDetailSubfolders.IsChecked
+    if ($null -eq $item -or $item.Subfolders -eq $value) {
+        return
+    }
+    $item.SetSubfolders($value, (getIndexTopOnlyTagText $value))
+    saveTargets -Quiet
+    if ($null -ne $script:indexingState) {
+        applyIndexStats $script:indexingState.IndexStats (isIndexing) $script:indexingState.Format
+    }
+}
+
 function changeIndexFolder {
     # 詳細のフォルダパスの［変更…］。フォルダを選ぶ画面を出し、選んだ場所をフォルダパスの欄に入れて、欄に直接入力したときと同じ確かめ・同じ反映で変える。
     # 取り消したとき・同じフォルダを選んだときは何も変えない
@@ -195,7 +216,7 @@ function changeIndexFolder {
     $initial = normalizeFolderPath $item.Path
     # 開始フォルダの有無は、直前の refreshFolderStatus の結果がそのまま使えるときだけ調べずに使う
     $knownExisting = $item.StatusChecked -and $item.FolderExists
-    $path = selectFolder "インデックスにする、Office ファイルのあるフォルダを選んでください" $initial $window $knownExisting
+    $path = selectFolder "インデックスにする、ファイル（Excel・PowerPoint・Word・PDF・テキスト）のあるフォルダを選んでください" $initial $window $knownExisting
     if (!$path) {
         return
     }

@@ -11,8 +11,8 @@ ${textOpenExtensions} = @(
     ".txt", ".csv", ".tsv", ".md", ".log", ".json", ".xml",
     ".c", ".h", ".cpp", ".cc", ".cxx", ".hpp", ".cs", ".java", ".kt", ".kts",
     ".go", ".rs", ".swift", ".scala", ".dart", ".vb", ".bas", ".pas", ".asm",
-    ".m", ".r", ".jl", ".hs", ".ex", ".exs", ".erl", ".clj", ".groovy", ".lua",
-    ".py", ".rb", ".pl", ".php", ".psm1", ".psd1", ".jsx", ".tsx", ".mjs", ".vue",
+    ".m", ".r", ".jl", ".hs", ".ex", ".exs", ".erl", ".clj", ".groovy",
+    ".jsx", ".tsx", ".vue",
     ".sql", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf", ".properties",
     ".gradle", ".cmake", ".proto", ".graphql", ".tf",
     ".html", ".htm", ".css", ".scss", ".less", ".rst", ".tex", ".diff", ".patch"
@@ -20,13 +20,19 @@ ${textOpenExtensions} = @(
 
 # 実行・登録が既定の動作になるため、既定のアプリではなくメモ帳で開く、取り込み対象のテキストファイルの拡張子（小文字）。
 # ${textOpenExtensions} と合わせて ${textExtensions} になる。足す・減らすと tests\meta\safety.Tests.ps1 が固定の一覧で確かめる
-${textNotepadExtensions} = @(".bat", ".cmd", ".ps1", ".vbs", ".js", ".reg", ".sh")
+${textNotepadExtensions} = @(
+    ".bat", ".cmd", ".ps1", ".vbs", ".js", ".reg", ".sh",
+    ".py", ".rb", ".pl", ".php", ".lua", ".mjs", ".psm1", ".psd1"
+)
 
 # 取り込み対象にするテキストファイルの拡張子（小文字。上の 2 つを合わせたもの）
 ${textExtensions} = @(${textOpenExtensions}) + @(${textNotepadExtensions})
 
 # 元のファイルがこの大きさ（バイト）を超えたら、読まずに失敗にする
 ${textFileMaxBytes} = 10MB
+
+# テキストの大きさの上限を超えたときの文言（上限の値を付ける。PDF・Office の ZIP は悪用のヒントになるため、値を出さない ${fileTooLargeMessage} のまま）
+${textFileTooLargeMessage} = "ファイルサイズが大きすぎるため更新できません（上限 $([int](${textFileMaxBytes} / 1MB)) MB）。"
 
 # BOM の無い UTF-16 の判定に使う閾値（docs/design/indexing/text.md）。
 #   先頭 ${textUtf16SampleBytes} バイト（偶数バイトに切り詰める）を 2 バイトずつの組として数え、
@@ -65,15 +71,62 @@ function testTextExtension {
     return (${textExtensions} -contains $extension)
 }
 
-function testTextOpenWithNotepad {
-    # ファイル名（またはパス）の拡張子が、既定のアプリではなくメモ帳で開くテキストの拡張子か（大文字・小文字を区別しない）。
-    # .bat・.ps1・.js など、既定のアプリで開くと実行・登録になる拡張子がこちら
+function getTextExtensionCounts {
+    # ファイル名（またはパス）の一覧から、テキストの拡張子（${textExtensions}）ごとの件数を返す: 拡張子（小文字）→ 件数。
+    # ${textExtensions} に無い拡張子（Office・PDF・そのほか）は数えない
     param (
-        [string]$path
+        [string[]]$names = @()
     )
 
-    $extension = [System.IO.Path]::GetExtension($path).ToLowerInvariant()
-    return (${textNotepadExtensions} -contains $extension)
+    $counts = @{}
+    foreach ($name in @($names)) {
+        $extension = [System.IO.Path]::GetExtension([string]$name).ToLowerInvariant()
+        if (${textExtensions} -contains $extension) {
+            $counts[$extension] = 1 + [int]$counts[$extension]
+        }
+    }
+    return $counts
+}
+
+function getTextTargetExtensions {
+    # 取り込み対象のテキストの拡張子（${textExtensions} の順）から、取り込まないと選んだ拡張子を除いた一覧を返す。
+    # excluded のうち ${textExtensions} に無いものは無視する（固定の一覧の外は増えない）。大文字・小文字を区別しない
+    param (
+        [object[]]$excluded = @()
+    )
+
+    $skip = @(@($excluded) | ForEach-Object { ([string]$_).ToLowerInvariant() })
+    return @(${textExtensions} | Where-Object { $skip -notcontains $_ })
+}
+
+function getTextOpenWay {
+    # テキストの検索結果を開く方法を "notepad"（メモ帳）か "default"（既定のアプリ）で返す。
+    # ${textNotepadExtensions} は常にメモ帳（実行・登録になるため）。notepadExtra に入る ${textExtensions} の拡張子もメモ帳
+    param (
+        [string]$path,
+        [object[]]$notepadExtra = @()
+    )
+
+    $extension = [System.IO.Path]::GetExtension(([string]$path).TrimEnd('.', ' ')).ToLowerInvariant()
+    if (${textNotepadExtensions} -contains $extension) {
+        return "notepad"
+    }
+    $extra = @(@($notepadExtra) | ForEach-Object { ([string]$_).ToLowerInvariant() })
+    if (${textExtensions} -contains $extension -and $extra -contains $extension) {
+        return "notepad"
+    }
+    return "default"
+}
+
+function testTextOpenWithNotepad {
+    # ファイル名（またはパス）の拡張子が、既定のアプリではなくメモ帳で開くテキストの拡張子か（大文字・小文字を区別しない）。
+    # .bat・.ps1・.js など、既定のアプリで開くと実行・登録になる拡張子は常にこちら。notepadExtra は利用者が選んだ追加分
+    param (
+        [string]$path,
+        [object[]]$notepadExtra = @()
+    )
+
+    return ((getTextOpenWay $path $notepadExtra) -eq "notepad")
 }
 
 function getStrictUtf8Encoding {
@@ -341,7 +394,7 @@ function readTextFile {
     $stream = [System.IO.FileStream]::new((toLongPath $path), [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
     try {
         if ($stream.Length -gt $maxBytes) {
-            throw ${fileTooLargeMessage}
+            throw ${textFileTooLargeMessage}
         }
         $bytes = New-Object byte[] ([int]$stream.Length)
         $read = 0
@@ -359,4 +412,19 @@ function readTextFile {
         throw "テキストファイルではないため更新できません。"
     }
     return (splitTextLines (decodeTextBytes $bytes $encodingName))
+}
+
+function addOutOfListExtensions {
+    # ダイアログで選んだ拡張子（chosen。ダイアログが扱う一覧 choices の中だけ）に、今の設定の値（current）のうち choices に無いものを足して返す。
+    # choices の既定は ${textExtensions}（75 個。テキストの開き方のダイアログ）。取り込み対象の拡張子のダイアログは、選べる 86 個（Office・PDF・テキスト）を渡す。
+    # ダイアログは choices の分しか扱わないので、そのまま書くと外の値（後の版で選べる拡張子など）が設定から消える。書く前・比べる前に足す
+    param (
+        [object[]]$chosen = @(),
+        [object[]]$current = @(),
+        [object[]]$choices = @()
+    )
+
+    if (@($choices).Count -eq 0) { $choices = @(${textExtensions}) }
+    $outside = @(@($current) | Where-Object { $_ -is [string] -and @($choices) -notcontains $_.ToLowerInvariant() })
+    return @(@($chosen) + $outside)
 }

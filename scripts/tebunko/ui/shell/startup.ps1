@@ -6,9 +6,10 @@
         loadTargets
         refreshIndexingState
         loadIndexTree
-        # 検索対象のツリーを読み込んだので、［検索］の可否を決め直す
+        # 検索対象のツリーの読み込みを始めたので、［検索］の可否（読み込み中は検索できない）を決め直す
         updateSearchButton
         refreshIndexSummary
+        updateIndexLocationView
     }
 
     function ensureNetworkDriveCache {
@@ -47,14 +48,14 @@
     function loadStartupData {
         try {
             loadWorkspaceViews
-            # 前の版のインデックス（index\）が見つかれば、その知らせを覚える（ネットワークの場所は裏で調べ、分かったらステータスに出す）
+            # 前の版のインデックス（index\）が見つかれば、その知らせを覚える（裏で調べ、分かったらステータスに出す）
             refreshLegacyIndexMessage
             ensureNetworkDriveCache
         } finally {
             $script:startupLoaded = $true
         }
         # 起動時に出した知らせ（既定のワークスペースが使えない・前の版のインデックスがある）は、読み込みが終わっても消さない
-        setStatus $(if ($script:workspaceBlock) { $script:workspaceBlock } elseif ($script:legacyIndexMessage) { $script:legacyIndexMessage } else { "" })
+        setStatus $(if ($script:workspaceBlock) { $script:workspaceBlock } else { "" })
         # 前回のインデックス作成が起動したまま残った Office があれば、終了するか確認する（記録の読み取りは裏で行う）
         startLeftoverCheck
         # 前の版が作った検索用のファイル（system_index\）を裏で消す

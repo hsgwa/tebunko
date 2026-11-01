@@ -370,6 +370,35 @@ Describe "OfficeWatchdog（1 ファイルの制限時間の監視）" -Tag Unit 
         }
         $watchdog.IsRunning() | Should -Be $false
     }
+
+    It "Stop のあとに Start すると、見張りのスレッドが動き続ける（Stop の印を戻す）" {
+        $watchdog = [OfficeWatchdog]::new([string[]]@("NoSuchOfficeApp"))
+        try {
+            $watchdog.Start()
+            $watchdog.Stop()
+            $watchdog.Start()
+            $watchdog.IsRunning() | Should -Be $true
+            $watchdog.State.Stop | Should -Be $false
+            Start-Sleep -Milliseconds 1200
+            $watchdog.Thread.Handle.IsCompleted | Should -Be $false
+        } finally {
+            $watchdog.Stop()
+        }
+        $watchdog.IsRunning() | Should -Be $false
+    }
+
+    It "Start を 2 回呼んでも、スレッドは 1 本のまま（前の参照を失わない）。Stop 1 回で止まる" {
+        $watchdog = [OfficeWatchdog]::new([string[]]@("NoSuchOfficeApp"))
+        try {
+            $watchdog.Start()
+            $first = $watchdog.Thread
+            $watchdog.Start()
+            [object]::ReferenceEquals($watchdog.Thread, $first) | Should -Be $true
+        } finally {
+            $watchdog.Stop()
+        }
+        $watchdog.IsRunning() | Should -Be $false
+    }
 }
 
 # 実際に子プロセスを起動して、制限時間を過ぎたときに止めるプロセスを確かめる
@@ -407,7 +436,26 @@ Describe "OfficeWatchdog（実際のプロセスを止める）" -Tag Io {
             $child.WaitForExit($(if ($killed) { 10000 } else { 1500 })) | Should -Be $killed
         } finally {
             if ($watchdog) { $watchdog.Stop() }
-            if (-not $child.HasExited) { $child.Kill() }
+            stopStartedProcess $child
+        }
+    }
+
+    It "Stop のあとに Start し直しても、制限時間を過ぎたら TimedOut を立て、自分が起動したプロセスを止める" {
+        $child = startHarmlessChild
+        $watchdog = $null
+        try {
+            $watchdog = [OfficeWatchdog]::new([string[]]@($child.ProcessName))
+            $watchdog.State.Pids = @(@{ Id = $child.Id; ProcessName = $child.ProcessName; StartTicks = (getOfficeStartTicks $child) })
+            $watchdog.Start()
+            $watchdog.Stop()
+            $watchdog.Start()
+            $watchdog.State.Deadline = [datetime]::Now.AddSeconds(-1)
+            waitTimedOut $watchdog
+            $watchdog.State.TimedOut | Should -Be $true
+            $child.WaitForExit(10000) | Should -Be $true
+        } finally {
+            if ($watchdog) { $watchdog.Stop() }
+            stopStartedProcess $child
         }
     }
 
@@ -432,7 +480,7 @@ Describe "OfficeWatchdog（実際のプロセスを止める）" -Tag Io {
             $watchdog.State.Deadline | Should -Be ([datetime]::MaxValue)
         } finally {
             if ($watchdog) { $watchdog.Stop() }
-            if (-not $child.HasExited) { $child.Kill() }
+            stopStartedProcess $child
         }
     }
 
@@ -507,7 +555,7 @@ Describe "OfficeWatchdog（利用者が使っているプロセスは止めな�
         } finally {
             $env:TEBUNKO_TEST_FAKE_WINDOW = $null
             if ($watchdog) { $watchdog.Stop() }
-            if (-not $child.HasExited) { $child.Kill() }
+            stopStartedProcess $child
         }
     }
 
@@ -529,7 +577,7 @@ Describe "OfficeWatchdog（利用者が使っているプロセスは止めな�
         } finally {
             $env:TEBUNKO_TEST_FAKE_WINDOW = $null
             if ($watchdog) { $watchdog.Stop() }
-            if (-not $child.HasExited) { $child.Kill() }
+            stopStartedProcess $child
         }
     }
 
@@ -551,7 +599,7 @@ Describe "OfficeWatchdog（利用者が使っているプロセスは止めな�
         } finally {
             $env:TEBUNKO_TEST_FAKE_WINDOW = $null
             if ($watchdog) { $watchdog.Stop() }
-            if (-not $child.HasExited) { $child.Kill() }
+            stopStartedProcess $child
         }
     }
 
@@ -575,7 +623,7 @@ Describe "OfficeWatchdog（利用者が使っているプロセスは止めな�
         } finally {
             $env:TEBUNKO_TEST_FAKE_WINDOW = $null
             if ($watchdog) { $watchdog.Stop() }
-            if (-not $child.HasExited) { $child.Kill() }
+            stopStartedProcess $child
         }
     }
 
@@ -600,7 +648,7 @@ Describe "OfficeWatchdog（利用者が使っているプロセスは止めな�
         } finally {
             $env:TEBUNKO_TEST_FAKE_WINDOW = $null
             if ($watchdog) { $watchdog.Stop() }
-            if (-not $child.HasExited) { $child.Kill() }
+            stopStartedProcess $child
         }
     }
 
@@ -620,7 +668,7 @@ Describe "OfficeWatchdog（利用者が使っているプロセスは止めな�
         } finally {
             $env:TEBUNKO_TEST_FAKE_WINDOW = $null
             if ($watchdog) { $watchdog.Stop() }
-            if (-not $child.HasExited) { $child.Kill() }
+            stopStartedProcess $child
         }
     }
 }

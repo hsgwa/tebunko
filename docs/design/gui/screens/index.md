@@ -51,7 +51,7 @@ stateDiagram-v2
 
 ## 撮る状態の一覧
 
-「遷移」は[画面遷移の一覧](../../testing/gui-smoke.md#画面のスモークテスト)の番号。計 42 枚。
+「遷移」は[画面遷移の一覧](../../testing/gui-smoke.md#画面のスモークテスト)の番号。計 47 枚。
 
 **本体・共通（`window`）**
 
@@ -78,10 +78,16 @@ stateDiagram-v2
 | `index-tab/checked` | 行のチェックを付けた（［アクション ▾］の対象） | 16 |
 | `index-tab/start-confirm` | 更新の確認ダイアログ（件数・失敗分の更新し直し） | 17 |
 | `index-tab/cloud-confirm` | 更新の確認ダイアログ・クラウドにだけあるファイルの欄（警告とダウンロードして取り込むチェック） | 17 |
+| `index-tab/top-only` | 詳細の「サブフォルダを含める」を外した（一覧の札「直下のみ」と［要更新］） | 3 |
+| `index-tab/start-confirm-top-only` | 同・更新の確認ダイアログ（札と「サブフォルダ側の N 件をインデックスから外します」の 1 行） | 17 |
+| `index-tab/text-extensions` | 詳細の「取り込み対象の拡張子」の［変更…］で開いたダイアログ（Excel・Word・PowerPoint・PDF・テキストの見出しと 3 状態のチェック。前回の更新で数えた件数と日時つきの注） | 3 |
+| `index-tab/import-confirm` | インポートが終わった後の、更新の確認ダイアログ（インポート用の題・見出し・説明・一覧の 1 行『要更新』・［あとで］と［作成する（更新を開始）］） | 17 |
+| `index-tab/confirm-text-extensions` | 更新の確認ダイアログの［変更…］で開いた、同じダイアログ（いま数えた件数の注。確認の上に重ねて撮る） | 17 |
 | `index-tab/running` | 更新中（更新の帯・行の［中止］・全体の進み・ステータスバーの 1 行。［＋ フォルダを追加］と［アクション ▾］の項目が押せない） | 17・20 |
 | `index-tab/stop-confirm` | 中止の確認 | 19 |
 | `index-tab/done` | 更新が終わった（失敗なし） | 18 |
-| `index-tab/failed` | 失敗したファイルの一覧があり、タブに ⚠ | 18 |
+| `index-tab/failed` | 失敗したファイルがあり（詳細に入口の 1 行）、タブに ⚠ | 18 |
+| `index-tab/files` | 失敗の入口の［一覧で見る］で、［ファイルの一覧］が失敗のみで開いた | 18 |
 
 **［検索］（`search-tab`）**
 
@@ -92,6 +98,7 @@ stateDiagram-v2
 | `search-tab/results` | 結果あり（ファイルごとの見出し・行を選んだプレビュー） | 23 |
 | `search-tab/no-results` | 結果が 0 件 | 23 |
 | `search-tab/limit` | 件数の上限で打ち切った | 23 |
+| `search-tab/many-hits` | 1 つのファイルのヒットが多く、末尾に続きの行が出た | 23 |
 | `search-tab/regex-error` | 不正な正規表現の吹き出し | 24 |
 | `search-tab/tree-none` | 検索対象のツリーですべて解除した注意 | 25 |
 | `search-tab/collapsed` | 結果をすべて折りたたんだ | 27 |
@@ -109,6 +116,7 @@ stateDiagram-v2
 | `settings-tab/running-warning` | 更新中に［変更…］（メッセージボックス） | 21 |
 | `settings-tab/empty-confirm` | 空のフォルダを選んだときの確認 | 31 |
 | `settings-tab/nonempty-confirm` | 空でないフォルダを選んだときの確認 | 32 |
+| `settings-tab/text-open` | テキストの開き方のダイアログ（.csv・.html をエディタで開くに変えた） | – |
 | `settings-tab/index-confirm` | インデックスのあるフォルダを選んだときの確認 | 33 |
 | `settings-tab/invalid-warning` | 使えないフォルダを選んだときの警告 | 34 |
 

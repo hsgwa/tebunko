@@ -112,7 +112,7 @@ $Channel.ExitCode = 2
             $reused.HasExited | Should -Be $false
         } finally {
             foreach ($process in @($target, $other, $reused)) {
-                if (!$process.HasExited) { $process.Kill() }
+                stopStartedProcess $process
             }
             $session.Close()
         }
@@ -135,7 +135,7 @@ $Channel.ExitCode = 2
             $marked.HasExited | Should -Be $false
         } finally {
             foreach ($process in @($marked, $staleMark)) {
-                if (!$process.HasExited) { $process.Kill() }
+                stopStartedProcess $process
             }
             $session.Close()
         }
@@ -156,7 +156,7 @@ $Channel.ExitCode = 2
             $withWindow.HasExited | Should -Be $false
         } finally {
             foreach ($process in @($withWindow, $noWindow)) {
-                if (!$process.HasExited) { $process.Kill() }
+                stopStartedProcess $process
             }
             $session.Close()
         }

@@ -97,6 +97,7 @@ function clearSearchView {
         $taskbar.ProgressState = "None"
     }
     $script:lastSearch = $null
+    clearExport
     $script:sourceFolderMaps = @{}
     $ui.FilterBox.Text = ""
     $script:filterText = ""
@@ -186,6 +187,8 @@ function finishSearch {
     if ($shared.Error) {
         $ui.SummaryText.Text = "検索できませんでした"
         setStatus "検索できませんでした：$($shared.Error)"
+        $script:exportPending = $null
+        updateExportButton
         return
     }
 
@@ -216,6 +219,8 @@ function finishSearch {
         $status += "　更新中のため、更新の途中のインデックスを検索しています。"
     }
     setStatus $status
+    # 検索の途中で押された出力を始める（ステータスは書き込み中の文言に替わる）
+    startPendingExport
 }
 
 # 検索結果を表に移す 1 回あたりの時間（ミリ秒）。タイマーの間隔（100 ミリ秒）より短くし、その間も画面が操作できるようにする

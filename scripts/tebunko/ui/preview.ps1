@@ -59,7 +59,7 @@ function showDetail {
     $count = $row.LineNumber - $first + 1 + ${previewFirstLines}
     startJob {
         param ($id, $path, $book, $location, $first, $count, $cache, $marks)
-        $result = readContentIndexLines $path $book $location $first $count $cache $marks
+        $result = readContentIndexLinesAcrossParts $path $book $location $first $count $cache $marks
         @{ Id = $id; Context = @($result.Rows); End = $result.End; Marks = $result.Marks }
     } @($script:previewRequest, [System.IO.Path]::Combine($row.Root, $row.RelPath), $row.Book, $row.Location, $first, $count, $script:tsvCache, $script:previewMarks) {
         param ($output, $errorText)
@@ -90,7 +90,7 @@ function applyDetail {
     $path = if ($row.RelDir) { "$($row.RelDir)\$($row.Book)" } else { $row.Book }
     $table = $row.BuildPreview([int[]]@($context | ForEach-Object { $_.LineNumber }), [string[]]@($context | ForEach-Object { $_.Line }))
 
-    $title = "${path} ・ $($row.PlaceDisplay) ・ $($row.Kind)"
+    $title = formatDisplayText "${path} ・ $($row.PlaceDisplay) ・ $($row.Kind)"
     $ui.DetailTitle.Text = $title
     $ui.DetailTitle.ToolTip = $title
 
@@ -144,11 +144,12 @@ function updatePreviewWindow {
     # 列見出しをドラッグしている間は、範囲を決め直さない（見出しを入れ替えると、ドラッグしている見出しの部品が作り直されて途切れる）。
     # 縦にスクロールして見えた行のセルだけ作り、ドラッグが終わったら決め直す
     if ($script:previewDragging) {
+        $table.UpdateRowWidth()   # 行の幅は、広げた列の分だけ今のうちに合わせる（右側が切れないように）
         updatePreviewCells
         return
     }
     if ($null -eq $offset) { $offset = $ui.PreviewScroll.HorizontalOffset }
-    $window = getPreviewColumnWindow $table.Prefix() $offset $ui.PreviewScroll.ViewportWidth ([HitRow]::NumberWidth) ${previewColumnMargin}
+    $window = getPreviewColumnWindow $table.Prefix() $offset $ui.PreviewScroll.ViewportWidth ([HitRow]::NumberWidth) ${previewColumnMargin} $table.Window.First $table.Window.Last ${previewColumnSpread}
     if ($table.SetWindow($window.First, $window.Last, $window.Left, $window.Right)) {
         $ui.PreviewHeader.ItemsSource = $table.WindowColumns()
     }
@@ -202,7 +203,7 @@ function startReadMore {
     startJob {
         param ($id, $side, $path, $book, $location, $first, $count, $cache, $marks)
         try {
-            $result = readContentIndexLines $path $book $location $first $count $cache $marks
+            $result = readContentIndexLinesAcrossParts $path $book $location $first $count $cache $marks
             @{ Id = $id; Side = $side; Failed = $false; First = $first; Rows = @($result.Rows); End = $result.End; Marks = $result.Marks }
         } catch {
             @{ Id = $id; Side = $side; Failed = $true }

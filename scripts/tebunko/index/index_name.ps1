@@ -43,7 +43,7 @@ function newIndexName {
 }
 
 function assignIndexNames {
-    # クロール対象フォルダ（getTargetFolders）にインデックス名を割り当て、@{ Path; Enabled; Name } の配列を返す。
+    # クロール対象フォルダ（getTargetFolders）にインデックス名を割り当て、@{ Path; Enabled; Subfolders; IngestedSubfolders; Name } の配列を返す。
     # インデックス名は設定に持つ（getTargetFolders の Name）。フォルダの置き場所（Path）を書き換えても名前は変わらないため、
     # フォルダを移しても同じインデックスとして扱える（インデックスを作り直さない）。
     # 名前が無い場合（新しく追加したフォルダ）は、前回の取り込み一覧の同じパスの名前を使い、
@@ -83,7 +83,7 @@ function assignIndexNames {
             }
             [void]$used.Add($name)
         }
-        $result.Add([pscustomobject]@{ Path = $folder.Path; Enabled = $folder.Enabled; Name = $name })
+        $result.Add([pscustomobject]@{ Path = $folder.Path; Enabled = $folder.Enabled; Subfolders = $folder.Subfolders; IngestedSubfolders = $folder.IngestedSubfolders; Name = $name })
     }
     return $result.ToArray()
 }
@@ -250,6 +250,8 @@ function convertPlaceBaseToFixedFileName {
     if ($base -match '^スライド(\d+)_ノート$') { return "slide_$($Matches[1])_notes" }
     if ($base -match '^スライド(\d+)$') { return "slide_$($Matches[1])" }
     if ($base -eq "ヘッダー・フッター") { return "header_footer" }
+    if ($base -eq "スライドマスター") { return "slide_master" }
+    if ($base -eq "ノートマスター") { return "notes_master" }
     if ($base -eq "脚注") { return "doc_footnotes" }
     if ($base -eq "文書") { return "doc_whole" }
     if ($base -eq "本文") { return "doc_body" }
@@ -267,6 +269,8 @@ function convertFixedFileNameToPlaceBase {
     if ($fileBase -match '^slide_(\d+)_notes$') { return "スライド$($Matches[1])_ノート" }
     if ($fileBase -match '^slide_(\d+)$') { return "スライド$($Matches[1])" }
     if ($fileBase -eq "header_footer") { return "ヘッダー・フッター" }
+    if ($fileBase -eq "slide_master") { return "スライドマスター" }
+    if ($fileBase -eq "notes_master") { return "ノートマスター" }
     if ($fileBase -eq "doc_footnotes") { return "脚注" }
     if ($fileBase -eq "doc_whole") { return "文書" }
     if ($fileBase -eq "doc_body") { return "本文" }
@@ -397,6 +401,7 @@ function describePlace {
     #                / "売上[ヘッダー・フッター]" → [シート]売上・ヘッダー・フッター
     #   Word       : "ページ003" → 3 ページ（目安）・本文（ページは保存時の区切りから数えた目安のため）/ "脚注" → 脚注・本文
     #   PowerPoint : "スライド002（非表示）" → スライド 2（非表示）・本文 / "スライド002_ノート" → スライド 2・ノート
+    #                / "スライドマスター" → スライドマスター・本文 / "ノートマスター" → ノートマスター・ノート
     #   テキスト   : "本文" → 空・本文（場所は 1 つだけのため、表の「場所」の列は describeHitPlace の "N 行目" だけで足りる）
     # 種別は、図形・コメントなら場所の種類の名前そのまま（検索条件の［図形も検索］［コメントも検索］と同じ言葉）。
     # 埋め込みは番号を付けた "埋め込み 1"（場所は元の場所のページ・スライドの表記のまま）
@@ -432,7 +437,10 @@ function describePlace {
     if ($base -match '^スライド(\d+)(（非表示）)?$') {
         return @{ Place = "スライド $([int]$Matches[1])$($Matches[2])"; Kind = $(if ($kind) { $kind } else { "本文" }) }
     }
-    # ヘッダー・フッター・脚注など、番号の無い場所
+    if ($base -eq "ノートマスター") {
+        return @{ Place = $base; Kind = $(if ($kind) { $kind } else { "ノート" }) }
+    }
+    # ヘッダー・フッター・脚注・スライドマスターなど、番号の無い場所
     return @{ Place = $base; Kind = $(if ($kind) { $kind } else { "本文" }) }
 }
 
@@ -469,3 +477,25 @@ function describeHitPlace {
 # インデックスの「元のファイル名のフォルダ」と分かる名前（Office・テキスト・PDF の拡張子で終わる）
 # （testIndexBookName もこの正規表現で判定する。Office の拡張子は officeExtensions の表から作る）
 ${indexBookDirPattern} = "(?:$(((${officeExtensions} + ${textExtensions} + ${pdfExtensions}) | ForEach-Object { [regex]::Escape($_) }) -join '|'))$"
+
+function testSourceBookName {
+    # インデックスの「ファイル名」（Book）が、開いてよい名前か。開く直前と、インデックスを読むときに使う。
+    # 区切り（\ /）・: ・無効な文字・制御文字・向きを変える文字（U+202E など）を含まない 1 つの名前で、
+    # 終わりの . と空白（Windows が無視して開く）を落とした拡張子が、取り込み対象（Office・テキスト・PDF）にあるときだけ真。
+    # 書き換えたインデックスで .hta・.lnk・.exe などを開かせない・拡張子を偽らせないための関門
+    param (
+        $book
+    )
+
+    $name = [string]$book
+    if (!$name -or [regex]::IsMatch($name, '[\\/:*?"<>|\x00-\x1F' + ${displayControlChars} + ']')) {
+        return $false
+    }
+    $name = $name.TrimEnd('.', ' ')
+    $dot = $name.LastIndexOf('.')
+    if ($name -eq "" -or $dot -lt 0) {
+        return $false
+    }
+    $extension = $name.Substring($dot).ToLowerInvariant()
+    return ((@(${officeExtensions}) + @(${textExtensions}) + @(${pdfExtensions})) -contains $extension)
+}

@@ -36,6 +36,7 @@ sequenceDiagram
 - **バックグラウンド・ネットワークを調べる列は、`Close` ではなく `BackgroundQueue.Abandon` で片づける。** 届かない共有の `Test-Path` など、OS の呼び出しで戻らない仕事があると、`Close`（`WorkerPool.Cancel` → `PowerShell.Stop()` → `Dispose()`）は止まるまで待ってしまう。`Abandon` は、終わった仕事は片づけ、終わっていない仕事には止める依頼（`BeginStop`）だけを出してすぐ戻る。終わっていない仕事の `PowerShell` とランスペースのプールは `Dispose` せず、後始末はプロセスの終わりに任せる。`WorkerPool.Cancel`・`BackgroundQueue.Close` 自体の動き（止まるまで待つ）は変えない。中止した検索がその後にヒットや件数を書かないことが、検索の中止（[取り込みの並列化](../indexing/parallel.md)ではなく `content_index_search.ps1` の中止）で前提になっているため。
 - **多重起動の鍵（ミューテックス）は、止まった裏の仕事を待たずにすぐ放す。** 画面はすぐ消え、前のプロセスは止まった呼び出しが戻った後（OS の呼び出しの分だけ）に自分で終わる。次の起動は、鍵が放たれていれば数秒以内にできる。
 - **最後に、画面のスレッドの Dispatcher を止める（`InvokeShutdown`）。** 止めずに `startGui` から戻ると、PowerShell が終わるときの片づけで、まれに終了コード 5 で終わることがある。例外で抜けるときは止めない（起動の失敗を知らせる画面が同じ Dispatcher を使うため）。二重起動で早く抜ける道筋（`exit`）も通らず、この直しの対象にしていない。
+- **止まった段を後から読めるよう、環境変数 `TEBUNKO_CLOSE_TRACE` にファイルのパスがあるときだけ、各段の前に段の名前と時刻を 1 行ずつ足して書く**（`writeCloseTrace -Path <記録先> -Step <段>`。`shared/core/close_trace.ps1`）。環境変数を読むのは `gui_main.ps1` の起動時の 1 か所だけで、記録先は引数で渡す。段は、`Closing` のハンドラの先頭・`enterIndexingStopFlow` の先頭・`finally` の各段（`indexingSession.Close`・`searchService.Close`・`backgroundQueue.Abandon`・`networkQueue.Abandon` など）・`InvokeShutdown` の前。書けなくても例外は出さない（記録のせいで閉じる処理を止めない）。環境変数が無ければ何も書かず、動きは変わらない。画面のスモークテストは、場面ごとの作業フォルダの `close_trace.txt` にして起動し、失敗の材料に写す。
 - 閉じる処理の途中で予期しない例外が起きたら、知らせたうえで、インデックス作成中なら確認を出さずに止める流れに入り、そうでなければそのまま閉じる。
 
 ## インデックスの削除・名前の変更の途中で閉じるとき

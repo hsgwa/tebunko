@@ -12,7 +12,7 @@
 - 右上に「検索ワード」の欄と［検索］、その下に種類のチップ（Excel・Word・PowerPoint・テキスト・PDF）、［ファイル内の対象 ▾］（本文・図形・コメント）、右に「大文字・小文字を区別」「正規表現」。
 - 正規表現が正しくないとき・種類を 1 つも選んでいないときは、その下に出る吹き出し（[エラーの吹き出し](../search-tab.md#エラーの吹き出し)）で知らせる。
 - 結果は、［すべて開く］［すべて折りたたむ］、「ファイル名で絞り込み」の欄、場所・種別・該当行の表。
-- 表の下に、プレビュー（選んだ行の前後）、［開く］（［▾］で開き方の選択）・［フォルダを開く］、［結果をファイルに出力］。
+- 表の下に、プレビュー（選んだ行の前後）、［開く］（［▾］で開き方の選択）・［フォルダを開く］、［出力 ▾］。
 
 ## 状態と遷移
 
@@ -23,6 +23,7 @@ stateDiagram-v2
     state "search-tab/results" as results
     state "search-tab/no-results" as noresults
     state "search-tab/limit" as limit
+    state "search-tab/many-hits" as manyhits
     state "search-tab/regex-error" as regex
     state "search-tab/tree-none" as tree
     state "search-tab/collapsed" as collapsed
@@ -32,6 +33,7 @@ stateDiagram-v2
     initial --> results: ［検索］（23）
     initial --> noresults: ［検索］（23）
     initial --> limit: ［検索］（23）
+    limit --> manyhits: すべて開く（23）
     initial --> regex: 不正な正規表現（24）
     initial --> tree: すべて解除（25）
     results --> collapsed: すべて折りたたむ（27）
@@ -77,6 +79,10 @@ stateDiagram-v2
 ### search-tab/limit（件数の上限で打ち切った。遷移 23）
 
 ![件数の上限で打ち切った](../../../images/screens/search-tab/limit.png)
+
+### search-tab/many-hits（1 つのファイルのヒットが多く、末尾に続きの行が出た。遷移 23）
+
+![1 つのファイルのヒットが多く、末尾に続きの行が出た](../../../images/screens/search-tab/many-hits.png)
 
 ### search-tab/regex-error（不正な正規表現の吹き出し。遷移 24）
 

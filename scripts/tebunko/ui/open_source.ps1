@@ -357,6 +357,12 @@ function openWithShell {
         [switch]$noFallback
     )
 
+    # 最後の守り: 取り込み対象の名前でないものは、どの開き方でも開かない（書き換えたインデックスの .hta・.lnk・.exe など）
+    $leaf = $path.Substring($path.LastIndexOfAny([char[]]@([char]92, [char]47)) + 1)
+    if (!(testSourceBookName $leaf)) {
+        setStatus (getSourceBookRejectedStatus $leaf)
+        return $false
+    }
     $verb = switch ($mode) {
         ${openModeReadOnly} { "OpenAsReadOnly" }
         ${openModeNew}      { "New" }
@@ -382,20 +388,45 @@ function openWithShell {
     return (-not $verb)
 }
 
-function openWithNotepad {
-    # ファイルをメモ帳（固定のパス）で開く。.bat・.ps1・.js など、既定のアプリで開くと実行・登録になる拡張子はこちらを使う
+function openWithEditor {
+    # ファイルを「エディタ」で開く。.bat・.ps1・.js など、既定のアプリで開くと実行・登録になる拡張子と、設定でエディタにした拡張子はこちらを使う
     # （openWithShell・Invoke-Item は使わない。既定のアプリの登録がどうなっていても実行されない）。
-    # メモ帳が無い（Windows 11 の「オプション機能」で外された等）・起動できないときは、既定のアプリには戻さずに $false を返す
+    # エディタは、既定は固定のパスのメモ帳。設定 textEditorPath があり、testTextEditorPath を通り、ファイルがあるときだけそのプログラムで開く
+    # （通らなければ既定のアプリには戻さずメモ帳で開き、$script:textEditorNotice に知らせの文言を入れる。呼ぶ側が getTextEditorNotice で読む）。
+    # メモ帳が無い（Windows 11 の「オプション機能」で外された等）・起動できないときは、既定のアプリには戻さずに $false を返す。
+    # notepadOnly: 設定のエディタを使わず、いつも固定のメモ帳で開く（出力した CSV・TSV を開くとき。表計算アプリなどが指定されていても、数式として動かさないため）
     param (
-        [string]$path
+        [string]$path,
+        [switch]$notepadOnly
     )
 
+    $script:textEditorNotice = ""
+    $notepad = "$env:SystemRoot\System32\notepad.exe"
+    $configured = ""
     try {
-        Start-Process -FilePath "$env:SystemRoot\System32\notepad.exe" -ArgumentList "`"${path}`""
+        if (-not $notepadOnly) {
+            $configured = [string](readTextExtensionSettings).EditorPath
+        }
+    } catch {
+        $configured = ""
+    }
+    $exists = $false
+    if ($configured -ne "" -and (testTextEditorPath $configured)) {
+        $exists = [bool](Test-Path -LiteralPath $configured -PathType Leaf)
+    }
+    $choice = getTextEditorChoice $configured $exists $notepad
+    $script:textEditorNotice = $choice.Notice
+    try {
+        Start-Process -FilePath $choice.Path -ArgumentList "`"${path}`""
         return $true
     } catch {
         return $false
     }
+}
+
+function getTextEditorNotice {
+    # 直前の openWithEditor が、設定のエディタを使えずメモ帳で開いたときの知らせ（無ければ空）
+    return [string]$script:textEditorNotice
 }
 
 function setExcelAutomationSecurity {
@@ -574,7 +605,7 @@ function showResultMenu {
         return $false
     }
     $item = $ui.ResultGrid.SelectedItem
-    if ($null -eq $item) {
+    if ($null -eq $item -or $item -is [MoreRowsItem]) {
         return $false
     }
 
@@ -599,12 +630,33 @@ function openSource {
     if ($null -eq $row) {
         return
     }
+    # 取り込み対象の名前でなければ、元のファイルを探す前に開かない（書き換えたインデックスで、実行になるファイルを開かせない）
+    if (!(testSourceBookName $row.Book)) {
+        setStatus (getSourceBookRejectedStatus $row.Book)
+        return
+    }
     # 呼ぶ関数は変数で捕まえてから閉じ込める（findSourceFile の $apply と同じ理由）
     $openFound = ${function:openFoundSource}
     findSourceFile $row {
         param ($path, $name)
         & $openFound $path $row $mode $name
     }.GetNewClosure()
+}
+
+function testTextOpenWithNotepadBySettings {
+    # テキストのパスをエディタで開くか。実行・登録になる拡張子（エディタ固定の一覧）は常にエディタ、そのほかは設定でエディタにした拡張子に入っているとき。
+    # 開くたびに設定を読む（読めなければ設定なしと同じ）
+    param (
+        [string]$path
+    )
+
+    $extra = @()
+    try {
+        $extra = @((readTextExtensionSettings).Notepad)
+    } catch {
+        $extra = @()
+    }
+    return (testTextOpenWithNotepad $path $extra)
 }
 
 function finishOpenCopy {
@@ -623,11 +675,11 @@ function finishOpenCopy {
         setStatus (getOpenCopyFailedStatus $path $reason)
         return
     }
-    if ($isText -and (testTextOpenWithNotepad $copyPath)) {
-        if (openWithNotepad $copyPath) {
-            setStatus (getOpenCopyOpenedStatus $path $copyPath "メモ帳")
+    if ($isText -and (testTextOpenWithNotepadBySettings $copyPath)) {
+        if (openWithEditor $copyPath) {
+            setStatus (addTextEditorNotice (getOpenCopyOpenedStatus $path $copyPath "エディタ") (getTextEditorNotice))
         } else {
-            setStatus "メモ帳で開けませんでした：${path}"
+            setStatus "エディタで開けませんでした：${path}"
         }
     } else {
         [void](openWithShell $copyPath ${openModeNormal})
@@ -646,6 +698,7 @@ function openFoundSource {
 
     # もらったインデックス（このワークスペースで自分が作ったのではないもの）のマクロを持てる形式は、読み取り専用で開く
     $received = testSourceReceived $indexName @((getConfirmedSourceNames).Crawled)
+    $shownPath = formatDisplayText $path   # ステータスに出すパス（制御文字・向きを変える文字は置き換える）
     $openMode = getSourceOpenMode $path $mode $received
     $mode = $openMode.Mode
     $strict = $openMode.Strict
@@ -675,7 +728,7 @@ function openFoundSource {
             return
         }
         $window.Cursor = [System.Windows.Input.Cursors]::AppStarting
-        setStatus "コピーを作っています：${path}"
+        setStatus "コピーを作っています：${shownPath}"
         # 呼ぶ関数は変数で捕まえてから閉じ込める（遠く離れたスレッド・タイマーから呼ばれても見つかるように）
         $finish = ${function:finishOpenCopy}
         startJob {
@@ -687,20 +740,20 @@ function openFoundSource {
             & $finish $path $isText ([string]$copied.Path) ([string]$copied.Reason)
         }.GetNewClosure() (getWorkspaceJobQueue @([System.IO.Path]::GetDirectoryName($path), $copyDir))
     } elseif ($row.IsExcel) {
-        setStatus "Excel で開いています：${path}"
+        setStatus "Excel で開いています：${shownPath}"
         $window.Cursor = [System.Windows.Input.Cursors]::Wait
         try {
             # 図形・コメントの場所（"<シート名>[図形]" 等）は、そのシートの図形の左上・コメントのセルを選ぶ
             openInExcel $path (splitObjectPlace $row.Location).Base $row.MatchCell $mode
-            setStatus "${how}：${path}${notice}"
+            setStatus "${how}：${shownPath}${notice}"
         } catch {
             # Excel を操作できない場合（ダイアログを表示中など）は、ファイルを開くだけにする
             if (openWithShell $path $mode -noFallback:$strict) {
-                setStatus "${how}（該当セルへの移動はできませんでした）：${path}${notice}"
+                setStatus "${how}（該当セルへの移動はできませんでした）：${shownPath}${notice}"
             } elseif ($strict) {
                 setStatus (getSourceReadOnlyFailedStatus $path)
             } else {
-                setStatus "${fallback}（該当セルへの移動はできませんでした）：${path}"
+                setStatus "${fallback}（該当セルへの移動はできませんでした）：${shownPath}"
             }
         } finally {
             $window.Cursor = $null
@@ -708,28 +761,31 @@ function openFoundSource {
     } elseif ($row.IsText) {
         # テキストは既定のアプリに開き方（読み取り専用・新規）の動詞が無いことが多く、毎回「開けなかったため…」と出るのを避けるため、
         # 動詞を試さずにそのまま開く（openWithShell に通常の開き方を渡すと動詞を試さない）。行への移動はしない。
-        # .bat・.ps1・.js など、既定のアプリで開くと実行・登録になる拡張子はメモ帳で開く
-        if (testTextOpenWithNotepad $path) {
-            if (openWithNotepad $path) {
-                setStatus "メモ帳で開きました：${path}"
+        # .bat・.ps1・.js など、既定のアプリで開くと実行・登録になる拡張子と、設定でエディタにした拡張子はエディタで開く
+        if (testTextOpenWithNotepadBySettings $path) {
+            if (openWithEditor $path) {
+                setStatus (addTextEditorNotice "エディタで開きました：${shownPath}" (getTextEditorNotice))
             } else {
-                setStatus "メモ帳で開けませんでした：${path}"
+                setStatus "エディタで開けませんでした：${shownPath}"
             }
         } else {
-            [void](openWithShell $path ${openModeNormal})
-            setStatus "開きました：${path}"
+            # 断られたとき（取り込み対象の名前でない）は、openWithShell が知らせたステータスを残す
+            if (openWithShell $path ${openModeNormal}) {
+                setStatus "開きました：${shownPath}"
+            }
         }
     } elseif (testPdfExtension $path) {
         # PDF は既定のアプリに開き方（読み取り専用・新規）の動詞が無いことが多く、毎回「開けなかったため…」と出るのを避けるため、
         # 動詞を試さずにそのまま開く。ページへの移動はしない
-        [void](openWithShell $path ${openModeNormal})
-        setStatus "開きました：${path}"
+        if (openWithShell $path ${openModeNormal}) {
+            setStatus "開きました：${shownPath}"
+        }
     } elseif (openWithShell $path $mode -noFallback:$strict) {
-        setStatus "${how}：${path}${notice}"
+        setStatus "${how}：${shownPath}${notice}"
     } elseif ($strict) {
         setStatus (getSourceReadOnlyFailedStatus $path)
     } else {
-        setStatus "${fallback}：${path}"
+        setStatus "${fallback}：${shownPath}"
     }
 }
 
@@ -740,7 +796,22 @@ function openSourceFolder {
     }
     findSourceFile $row {
         param ($path)
+        [void](showInExplorer $path)
+    }
+}
+
+function showInExplorer {
+    # エクスプローラーでファイルを選んで見せる。開けなければ $false（プロセスの起動は待たない。Excel などでファイルを開くことはしない）
+    param (
+        [string]$path
+    )
+
+    try {
         Start-Process -FilePath "explorer.exe" -ArgumentList "/select,`"${path}`""
+        return $true
+    } catch {
+        writeErrorLog "エクスプローラーでファイルを見せられませんでした" $_
+        return $false
     }
 }
 
@@ -799,40 +870,227 @@ function completeCopySourcePath {
     setStatus "パスをコピーしました：${path}"
 }
 
+# ---- 結果をファイルに出力する ----
+# 書くのは検索の司令のスレッド（SearchService.Export。search_export.ps1）。画面は出力先を選んでもらい、要求を渡し、タイマーで進み具合を見て、
+# 終わったら出力したファイルを既定のアプリで開く（出力先はダイアログで選ばず、作業フォルダの一時の置き場に書く）。
+# 出力ボタンは、待ち・書き込みの間は「出力を中止」になり、押すと止める。
+$script:exportJob = $null       # 書き込み中の出力 @{ Request; Filtered; Sorted; Target; Snapshot }
+$script:exportPending = $null   # 検索が終わるのを待っている出力の出力先（@{ Path; Format; Added }）。無ければ $null
+$script:lastExportFormat = "xlsx"  # 本体の［出力］で使う種類（最後に出力できた種類）。画面を開くたびに Excel ブックに戻る（setting.config には残さない）
+
+function updateExportButton {
+    $busy = [bool]($script:exportJob -or $script:exportPending)
+    $ui.ExportButtonText.Text = getExportButtonText $busy
+    $ui.ExportButton.ToolTip = getExportButtonToolTip $script:lastExportFormat $busy
+    $ui.ExportMenuPart.Visibility = if ($busy) { "Collapsed" } else { "Visible" }
+    # 出力中は、本体だけの［出力を中止］（アイコンも隠す）
+    $ui.ExportIcon.Visibility = if ($busy) { "Collapsed" } else { "Visible" }
+}
+
+function cancelExport {
+    # 出力を中止する。待っている出力はその場で取りやめ、書き込み中の出力は司令のスレッドに止めてもらう（止まったら completeExport が知らせる）
+    if ($script:exportPending) {
+        $script:exportPending = $null
+        updateExportButton
+        setStatus (getExportCancelledText)
+        return
+    }
+    if ($script:exportJob) {
+        $script:exportJob.Request.Stop = $true
+    }
+}
+
+function newExportTarget {
+    # 出力先を、ダイアログを出さずに決める。作業フォルダの TmpRoot\<PC の鍵>\open_copy\<12 桁の文字>\検索結果_<語>_<日時>.<拡張子>（文字列を組み立てるだけで、ファイルには触れない）。
+    # 1 回ごとに別のフォルダにするので、同じ名前が重ならない（開いたままのファイルがあっても上書きしない）。フォルダは書く側（司令のスレッド）が作る。
+    # 古いものは、起動時の片付け（clearOldOpenCopies）が 1 日たってから消す。format が分からなければ Excel ブック。@{ Path; Format } を返す
+    param (
+        [string]$format
+    )
+
+    if (!(testExportFormat $format)) {
+        $format = "xlsx"
+    }
+    $word = if ($null -ne $script:lastSearch) { [string]$script:lastSearch.Word } else { "" }
+    $dir = Join-Path (getOpenCopyDir $workspace) ([guid]::NewGuid().ToString("N").Substring(0, 12))
+    return @{ Path = (Join-Path $dir "$(getDefaultExportName $word (Get-Date)).${format}"); Format = $format }
+}
+
+function openExportedFile {
+    # 出力したファイルを開く。Excel ブック（.xlsx）は既定のアプリ（Excel）で、CSV・TSV は固定のメモ帳（設定のエディタは使わない）で開く（Excel などの表計算アプリで開くと、
+    # 先頭が = + - @ のセルが数式として動くことがあるため。値は加工しない）。開けなければ $false（プロセスの起動は待たない）。
+    # 開くのは、このツールが今書いた .xlsx・.csv・.tsv だけ（名前は newExportTarget が決める）。[ ] をワイルドカードにしないよう -LiteralPath
+    param (
+        [string]$path
+    )
+
+    if ($path -match '\.(csv|tsv)$') {
+        return (openWithEditor $path -notepadOnly)
+    }
+    try {
+        Invoke-Item -LiteralPath $path -ErrorAction Stop
+        return $true
+    } catch {
+        writeErrorLog "出力したファイルを開けませんでした" $_
+        return $false
+    }
+}
+
+function startExport {
+    # target: 出力先（newExportTarget の結果）
+    param (
+        $target
+    )
+
+    hideNoticeBanner "SearchNotice"
+    $s = $script:lastSearch
+    $filter = $script:filterText
+    $sorted = testResultSorted
+    $snapshot = @{
+        Shared = $s.Shared
+        Word   = $s.Word
+        Filter = $filter
+        Sorted = $sorted
+        Hits   = (getExportHits ([bool]$s.Shared.Truncated) $filter $sorted)
+    }
+    # 出力先は毎回新しい名前なので、既にあるかの確かめも上書きの確認も要らない。置き場の確かめは、書く側（司令のスレッド）が行う
+    $request = newExportRequest $snapshot.Shared $target.Path $snapshot.Hits $snapshot.Filter $snapshot.Word $target.Format $workspace.TmpRoot
+    $script:exportJob = @{ Request = $request; Filtered = ($snapshot.Filter -ne ""); Sorted = $snapshot.Sorted; Target = $target }
+    [void]$script:searchService.Export($request)
+    updateExportButton
+    setStatus (getExportWritingText 0)
+    $script:exportTimer.Start()
+}
+
+function clickExportButton {
+    # ［出力］（本体）を押したとき。待ち・書き込み中は中止、ふだんは最後に出力できた種類で出力する
+    if ($script:exportJob -or $script:exportPending) {
+        cancelExport
+        return
+    }
+    exportResults $script:lastExportFormat
+}
+
+function openExportMenu {
+    # ［▼］を押したとき。形式のメニューを、ボタンの右端にそろえて開く（待ち・書き込み中は ▼ が隠れていて押せない）
+    if ($script:exportJob -or $script:exportPending) {
+        return
+    }
+    $menu = $ui.ExportMenuButton.ContextMenu
+    $menu.PlacementTarget = $ui.ExportGroup
+    $menu.Placement = [System.Windows.Controls.Primitives.PlacementMode]::Bottom
+    # 見た目（theme.xaml の ContextMenu）の枠の幅は 216 なので、右端をボタンにそろえるには 216 を引く。幅を変えたらここも直す
+    $menu.HorizontalOffset = $ui.ExportGroup.ActualWidth - $menu.MinWidth
+    $menu.VerticalOffset = 4
+    $menu.IsOpen = $true
+}
+
 function exportResults {
-    if ($null -eq $script:lastSearch) {
+    # ［出力 ▼］のメニューの入り口。種類（xlsx・csv・tsv）を必ず受け取る。待ち・書き込み中は何もしない（右クリックなどでメニューが開いても、選んだだけで中止や新しい要求にならない。中止は clickExportButton）
+    param (
+        [Parameter(Mandatory)]
+        [string]$format
+    )
+
+    if ($script:exportJob -or $script:exportPending) {
+        return
+    }
+    if ($null -eq $script:lastSearch -and !$script:search) {
         setStatus "先に検索してください。"
         return
     }
-    $rows = getViewRows
-    hideNoticeBanner "SearchNotice"
-    try {
-        [System.IO.Directory]::CreateDirectory($workspace.Dir) | Out-Null
-        $writer = New-Object System.IO.StreamWriter($workspace.ResultFile, $false, ${utf8Bom})
-        try {
-            writeSearchResult $writer $script:lastSearch.Word $rows
-        } finally {
-            $writer.Close()
-        }
-    } catch [System.IO.IOException] {
-        $message = getResultSaveFailedText "Locked" $workspace.ResultFile
-        setStatus $message
-        showNoticeBanner "SearchNotice" "ResultSaveFailed" $message
-        return
-    } catch [System.UnauthorizedAccessException] {
-        # 読み取り専用・書き込み権限が無いときは、アプリを閉じても直らないため別の文言にする
-        $message = getResultSaveFailedText "Denied" $workspace.ResultFile
-        setStatus $message
-        showNoticeBanner "SearchNotice" "ResultSaveFailed" $message
+    $target = newExportTarget $format
+    if ($script:search) {
+        # 検索の途中の出力は、検索が終わってから書く（溢れが揃うまで、全件は書けない）
+        $script:exportPending = $target
+        updateExportButton
+        setStatus (getExportWaitingText)
         return
     }
-    Invoke-Item -LiteralPath $workspace.ResultFile
-    if ($rows.Count -lt $script:hitCount) {
-        setStatus "絞り込み後の $($rows.Count.ToString('N0')) 件を search_results.txt に出力しました"
-    } else {
-        setStatus "search_results.txt に出力しました（$($rows.Count.ToString('N0')) 件）"
+    startExport $target
+}
+
+function exportResultsAs {
+    # ［出力 ▼］のメニューから種類を選んだとき。選んだ種類で出力先を尋ねて出力する（メニューに印は付けない）
+    param (
+        [string]$format
+    )
+
+    exportResults $format
+}
+
+function startPendingExport {
+    # 検索が終わったとき、待っていた出力があれば始める
+    $target = $script:exportPending
+    if (!$target) {
+        return
+    }
+    $script:exportPending = $null
+    startExport $target
+}
+
+function pumpExport {
+    $job = $script:exportJob
+    if ($null -eq $job) {
+        $script:exportTimer.Stop()
+        return
+    }
+    $request = $job.Request
+    if (!$request.Finished -and !$script:searchService.IsRunning()) {
+        # 司令のスレッドが止まった。次の検索で作り直す
+        $request.Error = $script:searchService.GetFailure()
+        $request.Outcome = "Failed"
+        $request.Finished = $true
+    }
+    if ($request.Finished) {
+        completeExport
+        return
+    }
+    setStatus (getExportWritingText ([int]$request.Written))
+}
+
+function completeExport {
+    $job = $script:exportJob
+    $script:exportJob = $null
+    $script:exportTimer.Stop()
+    updateExportButton
+    $request = $job.Request
+    $name = getSavedFileName $request.OutputPath
+    switch ($request.Outcome) {
+        "Done" {
+            $script:lastExportFormat = getLastExportFormat $script:lastExportFormat $request.Format
+            updateExportButton
+            $written = [int]$request.Written
+            setStatus (getExportDoneText $name $request.Scope $written $job.Filtered $request.HeadOnlyReason $job.Sorted ([int]$request.DroppedRows) ([int]$request.TruncatedCells))
+            if (!(openExportedFile $request.OutputPath)) {
+                setStatus (getExportOpenFailedText $name $written $request.OutputPath)
+            }
+        }
+        "Cancelled" {
+            setStatus (getExportCancelledText)
+        }
+        { $_ -in @("Locked", "Denied") } {
+            # 読み取り専用・書き込み権限が無い（Denied）ときは、アプリを閉じても直らないため別の文言にする
+            $message = getResultSaveFailedText $request.Outcome $request.OutputPath
+            setStatus $message
+            showNoticeBanner "SearchNotice" "ResultSaveFailed" $message
+        }
+        default {
+            setStatus (getExportFailedText $request.Error)
+        }
     }
 }
+
+function clearExport {
+    # ワークスペースを変えたとき: 待っている出力は取りやめ、書き込み中の出力は止める
+    $script:exportPending = $null
+    if ($script:exportJob) {
+        $script:exportJob.Request.Stop = $true
+    }
+    updateExportButton
+}
+
+$script:exportTimer = newTimer 200 { safe { pumpExport } }
 
 $ui.ResultGrid.Add_MouseDoubleClick({
     param ($sender, $e)
@@ -846,11 +1104,9 @@ $ui.ResultGrid.Add_MouseDoubleClick({
 $ui.ResultGrid.Add_PreviewKeyDown({
     param ($sender, $e)
     if ($e.Key -eq "Return") {
-        # 見出しの行では閉じる・開く。行では元のファイルを開く
+        # 見出しの行では閉じる・開く。「続き」の行では次の分を出す。行では元のファイルを開く
         safe {
-            if ($ui.ResultGrid.SelectedItem -is [FileGroup]) {
-                toggleFileGroup $ui.ResultGrid.SelectedItem
-            } else {
+            if (!(activateResultItem $ui.ResultGrid.SelectedItem)) {
                 openSource
             }
         }
@@ -915,4 +1171,9 @@ $ui.MenuToggleGroup.Add_Click({
 })
 $ui.MenuCopy.Add_Click({ safe { copySelectedRows } })
 $ui.MenuCopyPath.Add_Click({ safe { copySourcePath } })
-$ui.ExportButton.Add_Click({ safe { exportResults } })
+$ui.ExportButton.Add_Click({ safe { clickExportButton } })
+$ui.ExportMenuButton.Add_Click({ safe { openExportMenu } })
+$ui.MenuExportXlsx.Add_Click({ safe { exportResultsAs "xlsx" } })
+$ui.MenuExportCsv.Add_Click({ safe { exportResultsAs "csv" } })
+$ui.MenuExportTsv.Add_Click({ safe { exportResultsAs "tsv" } })
+updateExportButton

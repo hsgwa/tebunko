@@ -11,14 +11,15 @@ function extractTextFile {
     param (
         [string]$sourcePath,
         [string]$outDir,
-        [long]$maxBytes = ${textFileMaxBytes}
+        [long]$maxBytes = ${textFileMaxBytes},
+        [hashtable]$timing = $null
     )
 
     if ([System.IO.FileInfo]::new((toLongPath $sourcePath)).Length -gt $maxBytes) {
-        throw ${fileTooLargeMessage}
+        throw ${textFileTooLargeMessage}
     }
     $copyPath = Join-Path $outDir "source.copy"
-    $lines = invokeWithSourceCopy $sourcePath $copyPath { readTextFile $copyPath $maxBytes }
+    $lines = invokeWithSourceCopy $sourcePath $copyPath { readTextFile $copyPath $maxBytes } $null $timing
     if ($lines.Count -eq 0) {
         return 0
     }

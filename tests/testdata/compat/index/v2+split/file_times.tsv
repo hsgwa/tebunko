@@ -1,0 +1,10 @@
+﻿# 見本のフォルダからの相対パス（/ 区切り）<TAB>Ticks。source/ は DateTimeKind なし（更新日時の文字列をそのまま解いた値）、ws/ は UTC
+source/ログ.txt	639290376000000000
+source/メモ.csv	639290376000000000
+ws/store/content/資料/content_index.csv.001.tsv	639290376291849690
+ws/store/content/資料/content_index.txt.001.tsv	639290376291966221
+ws/store/content/資料/content_index.txt.002.tsv	639290376292078069
+ws/store/content/資料/content_index.txt.003.tsv	639290376292098149
+ws/store/content/資料/content_index.txt.004.tsv	639290376292138397
+ws/store/content/資料/content_index.txt.005.tsv	639290376292178565
+ws/store/content/資料/source_folder.txt	639290361492871005

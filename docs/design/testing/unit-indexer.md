@@ -24,13 +24,17 @@ flowchart LR
 | `getIndexingState` | 状態ごとの件数、失敗したファイルの行の並び（`未取り込み` でエラーがある行は失敗に数え、エラーが空の `未取り込み` は待ちのまま）、指定した時刻以降に取り込んだ件数 |
 | `newIndexerChannel` / `writeIndexingProgress` / `readIndexingProgress` | 画面が決めた条件を入れスレッドをまたいで使える形にする、段階・件数・内容の往復（タブ・改行はスペース）、受け渡しの口が無ければ何もしない |
 | `requestIndexingStop` / `answerIndexingPlan` | 中止を求めると確認を待っていても待つのをやめる、取り込む返事は中止にしない、取りやめの返事（`$null`）は中止にする |
-| `testIndexerRunning` | インデックス作成の鍵をほかが持っていれば `$true`、調べた後は鍵を持たない |
+| `testIndexerRunning` | ミューテックスだけ・鍵のファイルだけのどちらをほかが持っていても Running（Error 無し）、調べた後は鍵を持たない、残った鍵のファイル（誰も開いていない）だけなら Running でない、アクセス拒否は Running と Error を返し待たずに返る |
+| `enterIndexerLock` / `exitIndexerLock` | 取れれば両方持ち放すと取れる状態に戻る（2 回放しても例外にならない）、鍵のファイルを取れない・例外のときはミューテックスも放している |
+| 鍵の取り方（`tests/meta/locks.Tests.ps1`） | `newAppMutex "indexer"` を書くのは `indexer_state.ps1` だけ、`enterIndexerLock` はミューテックスの後に鍵のファイルを開く |
 | `writeIndexerLog`（`tests/tebunko/core/diagnostics`） | ログを開いていればログに書く、コンソールに出すときは色を付ける、ログに書けなくても止めない |
 | `getExtractVersion` / `getIngestDecision` | 形式ごとの抽出版、取り込むかどうかと理由（新規・更新あり・前回未完了（`未取り込み` でエラーがあっても同じ）・インデックスなし・前回失敗・前の抽出版） |
 | `getIngestApp` / `getRerouteApp` / `selectIngestWorker` | Excel はすべて Excel、旧形式の Word・PowerPoint はそのアプリ、新形式は Office が要らない（空）。回し直すときは、PowerPoint のファイルは PowerPoint、それ以外は Word。表（`$officeFileKinds`）に無い拡張子（`.pptz` など）は Office とみなさない。渡し先は、持ち主へ（満杯なら待つ・諦めていれば後回し）・持ち主がいなければ持ち主のいないいちばん空いているワーカー・Office が要らないファイルは持ち主のいないワーカーを先に・すべて諦めていれば後回し（`-TestCases` の表） |
-| `createTargetList` / `findTargetFiles` | 新規・更新あり・前回未完了・インデックスなし・前の抽出版は取り込み対象、更新の無い取り込み済み・前回失敗は対象外、元のファイルが無くなったらインデックスと行を消す（本文インデックスから外すよう `Removed` で返す）、アクセスできないフォルダがあったときは行とインデックスを残す、tebunko が作ったファイル（ワークスペース・名前で分かるもの）は対象に含めない、ジャンクション・親を指す輪・ファイルのシンボリックリンクは辿らず取り込まずに 1 件 1 行でログに出す（リンクかどうか確かめられないものは取り込む）、クロール対象フォルダそのものがリンクなら、これまでどおり先の中を読み、中のリンクだけを辿らない、中止の合図（`shouldStop`）が立てば一覧化を途中で止め（`Stopped`）、無くなったファイルのインデックスは消さない（`IngestPlanner.Crawl` も残りのフォルダの前回の行を残す） |
+| `createTargetList` / `findTargetFiles` | 新規・更新あり・前回未完了・インデックスなし・前の抽出版は取り込み対象、更新の無い取り込み済み・前回失敗は対象外、元のファイルが無くなったら行を一覧から除いて `Removed` で返す（インデックスはここでは消さない。［更新を開始］のあとに `applyRemovedPaths` が消し、本文インデックスから外す）、アクセスできないフォルダがあったときは行とインデックスを残す、tebunko が作ったファイル（ワークスペース・名前で分かるもの）は対象に含めない、ジャンクション・親を指す輪・ファイルのシンボリックリンクは辿らず取り込まずに 1 件 1 行でログに出す（リンクかどうか確かめられないものは取り込む）、クロール対象フォルダそのものがリンクなら、これまでどおり先の中を読み、中のリンクだけを辿らない、`Subfolders` が `false`（`-TopOnly`）なら直下のファイルだけを取り込み、前回取り込んだサブフォルダ側のファイルは `Removed` になる（直下のリンクは辿らず `Links` に入る）、中止の合図（`shouldStop`）が立てば一覧化を途中で止め（`Stopped`）、無くなったファイルのインデックスは消さない（`IngestPlanner.Crawl` も残りのフォルダの前回の行を残す） |
 | `StatusLedger`（`indexer_state.Tests.ps1`） | コンストラクタで渡した `Workspace` の場所を読み書きする（既存の関数と同じ結果）、今回の失敗・元ファイルが無くなった行を集める |
 | `PendingPublish`（`pending_publish.Tests.ps1`） | 取り込んだ・無くなったファイルの記録、外し終えていない削除（Unpublished。取り出しても残り、MarkPublished で外れ、Restore で戻る）、取り込み中・まだ渡していないファイルが 1 つでもあるフォルダは取り出さない、無くなれば取り出せる、一度取り出したフォルダは消える |
+| 取り込まない拡張子（`indexer_plan.Tests.ps1`） | `getTargetExtensionList`、取り込まないにした拡張子を除いた一覧での `findTargetFiles`、前に取り込んだ取り込まない拡張子のファイルが `Removed` に入りインデックスから外れること（ログが「取り込まないにした拡張子」と「元ファイルが無くなった」に分かれる）、取り込むに戻すと新規として数えること（`$TestDrive`）。Office・PDF（`.xlsx` `.pdf`）も同じに扱い、Office 10 個をすべて対象外にした回は Office を起動しない（`getApp` の Mock が 0 回） |
+| 取り込み対象の拡張子の判断（`indexer_decide.Tests.ps1`） | `getIndexSelectableExtensions`（86 個）・`getIndexTargetExtensions`（対象外を除く。大文字・86 個の外・Office をすべて除く場合）・`getTargetExtensionCounts`（Office・PDF・テキストの件数）の表 |
 | `IngestPlanner`（`indexer_plan.Tests.ps1`） | 名前の割り当てと外れたインデックス、クロールでの取り込み・チェックなし・フォルダなしの分け方、選んだインデックスだけの更新、取りやめるときの行、前回の失敗の再取り込み、強制終了したファイルを最後に回す・失敗にする、名前の保存（`$TestDrive` の設定。保存の間に外れたフォルダを落とす）、`kinds` の不足と呼ぶ順番の例外、元のファイルが無くなったファイル |
 | `IndexingReporter`（`indexing_reporter.Tests.ps1`） | 進み具合を受け渡しの口に書く、画面の返事を受け渡しの口で待つ（返事は別のスレッドから渡す。中止・前に残った返事・制限時間を含む） |
 | `IngestDispatcher`（`ingest_dispatcher.Tests.ps1`） | 渡す順番とワーカーの空き、先読みで満杯の持ち主のファイルを飛ばす、元のファイルが無くなった・クロール対象フォルダが無い・中止、諦めたワーカーの取り込み中・列のファイルの後回し（`TakeAbandonedWorker`）、回し直し先の持ち主が諦めていたとき、遅れて届いた結果を捨てる、後回しの理由、止まった取り込みスレッド、`Stop` が諦めたワーカーのスレッドを待たない |
@@ -42,6 +46,14 @@ flowchart LR
 | `completeIngestJob`（`indexer.Tests.ps1`） | 司令の結果の受け方（成功・失敗・後回し・渡さずに残したファイルの後回し・中止）が、取り込み一覧・書き出し待ち・進み具合・ログに反映される（取り込みのワーカーの数 0 の形で、司令のスレッドから呼ぶ） |
 | `runIngestWorker` / `invokeIngestTask`（ワーカー） | 列の順に取り込み、結果を 1 件に 1 つ返して、列が閉じられたら終わる、Office を使わないファイルだけを取り込んだワーカーは Office を起動し直さない。「Office が要る」の例外なら、失敗にせず回し直し（`Reroute`）として返し、Office も終了しない。利用者の PowerPoint が使用中の例外なら、失敗にせず後回し（`Postponed`）として返し（司令が理由付きの失敗として数える）、Office も終了しない。後回しは取り込んだ件数に数えず、起動し直しを早めない。**暗号化の判定でOfficeにまだ触れていない失敗**（[暗号化されたファイルの判定](../indexing/office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1)の`throwProtectionFailure`）は失敗にするがOfficeは終了しない。ふつうの失敗は今までどおりOfficeを終了する。**諦められたワーカー**（制限時間を過ぎても利用者の PowerPoint を止めなかったとき）のファイルは、取り込む前・取り込んだ後・例外のどこでも、公開せず `Postponed` を返し、Office を終了しない。司令は、そのワーカーの取り込み中と列のファイル、持ち主が諦めたワーカーのアプリのファイルを、理由付きの失敗にして（状態は「未取り込み」のまま）、遅れて届いた結果は捨て、スレッドの終わりを待たずに止める。回し直し先の持ち主のワーカーを諦めていれば渡さずに後回しにする（司令の流れ）。諦めたワーカーのスレッドが正常に終わっても失敗にしない（`IngestDispatcher` の `Receive`）。取り込みのスレッドのスクリプトが、ワーカーの状態と利用者が使った印の入れ物を見張りに渡し、諦めたワーカーでは Office を片づけない（配線） |
 | `IndexingSession`（`indexing_session`） | インデクサを別のスレッド（MTA・優先度を下げる）で動かし終了コードを返す、中止を求めると受け渡しの口の `Stop` を立てて返事を待つのをやめさせる、終了コードを入れずに止まったら 1 と止まった理由、インデクサが入れたエラーの内容、`Close` は動いていれば中止を求めて待つ（何度呼んでもよい）、`KillOffice` は記録した PID のうちプロセス名と起動時刻が同じものだけを止める（利用者が使っていた印のあるものと、窓のある PowerPoint は止めない） |
+
+**元のファイルが変わらないこと（`tests/tebunko/indexer/source_unchanged`）**
+
+| テスト | 確かめること |
+|---|---|
+| `source_unchanged`（`-Tag Io`） | テキスト・PDF・Word・PowerPoint・読み取り専用・パスワード付きのファイルと、外のフォルダを指すジャンクションを置いたフォルダで、インデックスの作成・更新・エクスポート・削除の前後に、元のフォルダと外のフォルダのファイルの数・種類・ハッシュ・属性・作成日時・更新日時（ファイルのみ）が変わらない。ジャンクションの先は取り込まれない。ジャンクションを作れない環境ではジャンクションの分を飛ばし、ジャンクションの無い場面だけで確かめる |
+| `source_unchanged`（`-Tag Office`） | 上に Excel（パスワード付きを含む）と旧形式の PowerPoint を足した場面。Office がある機械でだけ流れ、CI の既定では外れる（Office の入った機械で、リリース前に `.\tests\run.ps1 -Tag Office` を流す。[CI](ci.md)） |
+| 比べ方の自己テスト（`-Tag Io`） | 中身の書き換え（日時を戻した場合も）・更新日時だけ・作成日時だけ・属性だけ・削除・追加のどれも、前後の比べが見逃さない |
 
 **スレッドとプール（`tests/shared/core/worker_pool`・`tests/tebunko/search/search_service`）**
 

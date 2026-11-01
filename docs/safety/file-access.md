@@ -6,13 +6,14 @@
 
 | 場所 | 内容 | 定義 |
 |---|---|---|
-| `work/` 配下（既定は `%USERPROFILE%\Documents\tebunko_ws`。テスト・実機の確かめでは環境変数 `TEBUNKO_DEFAULT_WORKSPACE` の場所に差し替わる。利用者が画面で選んだフォルダ（ワークスペース）にも置ける） | 本文インデックス（`work/store/content/`）、取り込み一覧・制御用ファイル、検索結果、ログ（`indexing_log.txt`・`gui_error_log.txt` と、それぞれ前回の分 `*_previous.txt`。インデックス作成を始めるとき・1 MB 以上のとき、前回の分へ移す。移すときは前の `*_previous.txt` を上書きする。先頭には版と環境の見出しを書く: [ログに書く版と環境の情報](disclosure.md#ログに書く版と環境の情報)） | `tebunko/core/paths.ps1`（`$workspace`）、`tebunko/core/workspace.ps1`（`Workspace`） |
+| `work/` 配下（既定は `%USERPROFILE%\Documents\tebunko_ws`。テスト・実機の確かめでは環境変数 `TEBUNKO_DEFAULT_WORKSPACE` の場所に差し替わる。利用者が画面で選んだフォルダ（ワークスペース）にも置ける） | 本文インデックス（`work/store/content/`）、取り込み一覧・制御用ファイル、インデックス作成の鍵のファイル（`indexing.lock`。空のファイルで、インデックス作成・エクスポート・インポートの間だけ作り、閉じると消える）、検索結果、ログ（`indexing_log.txt`・`gui_error_log.txt` と、それぞれ前回の分 `*_previous.txt`。インデックス作成を始めるとき・1 MB 以上のとき、前回の分へ移す。移すときは前の `*_previous.txt` を上書きする。先頭には版と環境の見出しを書く: [ログに書く版と環境の情報](disclosure.md#ログに書く版と環境の情報)） | `tebunko/core/paths.ps1`（`$workspace`）、`tebunko/core/workspace.ps1`（`Workspace`） |
 | `work/office_pids/<PC の鍵>/<PID>.txt` | インデックス作成が起動した Office の PID の記録（起動時の確認で、記録のあるものだけを終了するため）。Office を終了したとき・起動時の確認のときに消す | `tebunko/core/workspace.ps1`（`OfficePidRoot`）、`shared/office/office_process.ps1`（`addOfficeRecord`） |
 | `work/tmp/<PC の鍵>/<PID>` 配下（ワークスペースのパスに `[` `]` があるか長すぎるときは作らない。どのファイルも中間 TSV などをこの作業領域に作るため、テキストファイルを含めすべての取り込みをスキップする） | 取り込みの作業領域（原本のコピー・中間 TSV）。インデックス作成の完了時・開始時に空にする | `tebunko/indexer/index_migrate.ps1` の `initTmpDir` |
+| `work/tmp/<PC の鍵>/search_overflow/<PID>/`（`<PID>` の下に検索の要求ごとの `<要求の番号>\*.tsv` と、［出力 ▾］の本文の一時ファイル `export\body.tmp`。根が `tmpRoot\<PC の鍵>\search_overflow` そのものでリンクでないときだけ作る） | 上限を超えた検索結果の溢れ（検索の続きの置き場所）と、その書き出しの途中の本文。次の検索の始め・画面を閉じるときに中ごと消す。強制終了で残ったものは、次の起動時に、動いていないプロセスの `<PID>` のものだけを消す | `tebunko/search/search_overflow.ps1`、`tebunko/search/search_export.ps1` の `getSearchExportBodyPath` |
 | `work/tmp/<PC の鍵>/open_copy/<12 桁の英数字>/<ファイル名>`（`<PID>` の下ではない。強制終了の片付けは数字の名前のフォルダだけを消すので残る） | ［新規で開く］のコピー（Office 以外の元のファイルを共有で読んで写したもの。開いたアプリが使う間は消さない）。起動のたびに 1 回、最後に使ってから 1 日より古いものだけを消す | `tebunko/core/open_copy.ps1` の `copySourceForOpen`・`clearOldOpenCopies` |
 | `setting.config`（ツールを置いたフォルダの直下。書き込めないときは既定のワークスペース `%USERPROFILE%\Documents\tebunko_ws` の直下） | 画面が保存する設定（クロール対象フォルダ・検索対象インデックス・`work` の置き場所など）。書き込めない場所（Program Files・読み取り専用の共有フォルダ）に置いたときだけ、ワークスペースの既定の場所に置く（[データの置き場所とパスの決め方](../design/structure/data.md)）。保存のときの一時ファイル `setting.config.tmp` と、壊れた設定の退避 `setting.config.broken-<日時>` も同じフォルダに置く | `shared/core/data_dir.ps1`、`tebunko/core/settings.ps1` の `getSettingsFilePath` |
 | `startup_error.txt`（ツールを置いたフォルダの直下。書き込めなければ作らない） | 起動そのものに失敗したとき（画面が開く前）の記録（`gui.ps1` の追記は、1 MB 以上なら次の記録を書く前に `startup_error_previous.txt` へ移す）。起動の前はワークスペースが決まらないため、ツールのフォルダに置く（[起動に失敗したときの知らせ](disclosure.md#起動に失敗したときの知らせtebunkobat)） | `tebunko.bat`、`tebunko/ui/startup_error.ps1` の `writeStartupErrorFile` |
-| 利用者が指定した出力先 | ［結果をファイルに出力］の保存先（既定は `work\search_results.txt`） | 画面のダイアログで利用者が指定 |
+| 検索結果の出力先 | ［出力 ▾］の出力先（.xlsx・.csv・.tsv）。保存のダイアログは出さず、`work/tmp/<PC の鍵>/open_copy/<12 桁の文字>/検索結果_<ワード>_<日時>.<拡張子>` に決める（［新規で開く］のコピーと同じ置き場。起動のたびに、最後に使ってから 1 日より古いものを消す）。書き終えてから置き換えるまでの間だけ残る `<出力先>.new`、溢れの置き場所が使えない CSV・TSV のときだけ作る本文の一時ファイル `<出力先>.part`（どちらも強制終了すると残ることがある） | 画面の［出力 ▾］（利用者が押す） |
 | 利用者が指定したエクスポート先 | インデックスのエクスポート（`exportIndex`）の保存先の zip と、書き終えてから置き換えるまでの間だけ残る `<保存先>.tmp`（強制終了すると残ることがある） | 画面のダイアログで利用者が指定 |
 
 単一 .ps1 版（試験版）は、`tebunko.bat` の代わりに `.ps1` ファイル自身を実行する形のため、上の表の「ツールを置いたフォルダ」は `.ps1` ファイル自身がある場所を指す。`setting.config` は `.ps1` のある場所に置き、書き込めないときは既定のワークスペースの直下に置く（`getSettingsFilePath`。zip 版と同じ決め方）。ワークスペースの既定の置き場所（`%USERPROFILE%\Documents\tebunko_ws`）は、別のフォルダに置いた zip 版と同じ場所になる（[単一 PowerShell のビルド](../design/structure/single-script.md)「実行時の違い」）。
@@ -23,13 +24,13 @@
 
 削除の対象になるフォルダの置き場（`store\`・`content_index\`・`tmp\`）そのものが、利用者によって別の場所へのリンク（ジャンクション）にされているときは、これまでどおり使える（置き場そのものは調べない）。この場合、リンクの先に新しいフォルダが作られることはあるが、先の既存のファイルを消す・上書きすることはない。削除の前に確かめてから消すまでの間に、別のプロセスがフォルダをリンクに差し替えることは想定していない（`removeTreeNoFollow` は、下りる直前と、フォルダのファイルを消す直前にもう一度リンクかどうかを確かめて、この間を短くしている）。
 
-［設定］でワークスペースを変えるときは、前のワークスペースの中の本ツールが作ったファイル・フォルダ（`Workspace.Entries`：`store`・前の版の `content_index`・前の前の版の `index`・状態・ログ・`publish`）だけを新しいワークスペースへ移す（`WorkspaceMover.ChangeWorkspace`）。別のドライブへは写してから元を削除する（元を消せなければ移し先を正とし、元に残ったフォルダの場所を警告で知らせて、利用者が手で消す）。選んだフォルダにすでにインデックスなどがあり、利用者が［消して、最初からやり直す］を選んだときは、そのフォルダの本ツールのファイル・フォルダ（同じ `Workspace.Entries`）だけを削除する（`WorkspaceMover.RemoveEntries`）。利用者がワークスペースに置いたほかのファイルは移さず、削除しない。
+［設定］でワークスペースを変えるときは、前のワークスペースの中の本ツールが作ったファイル・フォルダ（`Workspace.Entries`：`store`・前の版の `content_index`・前の前の版の `index`・状態・鍵のファイル・ログ・`publish`）だけを新しいワークスペースへ移す（`WorkspaceMover.ChangeWorkspace`）。別のドライブへは写してから元を削除する（元を消せなければ移し先を正とし、元に残ったフォルダの場所を警告で知らせて、利用者が手で消す）。選んだフォルダにすでにインデックスなどがあり、利用者が［消して、最初からやり直す］を選んだときは、そのフォルダの本ツールのファイル・フォルダ（同じ `Workspace.Entries`）だけを削除する（`WorkspaceMover.RemoveEntries`）。利用者がワークスペースに置いたほかのファイルは移さず、削除しない。
 
 前の版が作った `system_index\`（フォルダ）と `system_index_state.tsv`（ファイル）は、この版では使わない。画面の起動のとき（裏の仕事）、インデックスの作成と更新の始め、インデックスのインポートで登録する前に、`removeOldSystemIndex` が消す（フォルダは `removeDirectoryUnder`、ファイルは `removeFileUnder` を通す。途中にリンクがあれば消さずに記録に出し、続ける。リンクそのものは、先を辿らずに消す）。ワークスペースを移す・書き出す・消す対象には含めない。前の版の `index\` そのものは読まず、削除しない（利用者が消す）。
 
 作り直しが最後まで終わったインデックスについて、前の版の置き場（`content_index\<名前>\`。空になれば `content_index\` と前の版の `ingest_status.tsv` も）は、インデクサが消す（`removeOldIndexOf`）。消す対象は、前の版の置き場として決めた 2 つ（`oldIndexEntries`）の配列に書いたものと、作り終えたインデックスのフォルダだけで、インデックスの名前が空・`.`・`..`・ファイル名に使えない文字を含むときは何も消さない。フォルダはジャンクションを辿らずに消し（`removeDirectoryUnder`）、中止したときは消さない。
 
-インデックスのインポート（`importIndex`）の書き込みは、ワークスペースの中（`publish\<PID>\import\`・`store\content\<名前>\`・取り込み一覧・目録・`setting.config`）だけである。zip から展開したファイルは、確かめた目録のパスからだけファイル名を組み立てる（zip のエントリー名は使わない）。インポートを始めるときは、エクスポートと同じくインデックス作成のロック（`newAppMutex "indexer"`）を取り、ほかの操作と同時に走らせない。
+インデックスのインポート（`importIndex`）の書き込みは、ワークスペースの中（`publish\<PID>\import\`・`store\content\<名前>\`・取り込み一覧・目録・`setting.config`）だけである。zip から展開したファイルは、確かめた目録のパスからだけファイル名を組み立てる（zip のエントリー名は使わない）。インポートを始めるときは、エクスポートと同じくインデックス作成の鍵（`enterIndexerLock`。ミューテックスと鍵のファイル）を取り、ほかの操作と同時に走らせない。
 
 **状態ファイルの値を信用しない。** ワークスペースは共有でき、`store\ingest_status.tsv`・`store\format.tsv`・`store\journal\ingest.tsv`・と設定の `targetFolders` は他の人が書き換えられる。そこから読んだインデックス名・相対パスは、読むときに確かめ（取り込み一覧・状態ファイルは `testStoredIndexName`・`testIndexRelPath`、設定の名前は `getTargetFolders` が `getFolderNameProblemText`。`..`・最後の `.` や空白・使えない文字を含むものは、行なら読み飛ばし、設定の名前なら空にして割り当て直す。`aux.backup` のような予約名は、既にある実在のフォルダの名前なので、空にも読み飛ばしにもせず、そのまま使い続ける。厳しくするのは新しく付ける名前（`newIndexName`・画面の入力・インポート）だけ）、フォルダを消す・移す前にも、先が置き場（`content_index`）の下であることを `testPathUnder` で確かめる（`removeBookDir`・`IndexCatalog.RemoveIndex`・`IndexCatalog.RenameIndex`）。外を指すものは消さず、黄色のログに出す（`RemoveIndex`・`RenameIndex` は例外にして、フォルダも取り込み一覧も動かさない）。`RenameIndex` は元の名前を `testStoredIndexName`、新しい名前を `testIndexName` で、`RemoveIndex` は名前を `testStoredIndexName` で確かめる（最後が `.` のような今の決まりに合わない名前は、設定を読むときに空になって届かない）。予約名のフォルダは `Test-Path` では無いことになるため、フォルダの有無は `Directory.Exists`（`removeDirectoryRetry` の中）で見る。設定から外れたインデックスの削除（`removeDroppedFolders`）は、名前でパスを組まず、`content_index` 直下のフォルダを一覧して名前が同じものだけを消す。今の名前の決まりに合わない前の版の名前（最後が `.` など）は、取り込み一覧の読み込みで分けて、同じ確認で削除できる。ジャーナルから読んだ相対パス（やり直す仕事・書き出すフォルダ）も、読むときに `testIndexRelPath` で確かめ、使えないものは読み飛ばす。
 
@@ -68,10 +69,22 @@ scan 'OleDb','CommandText','NotContentIndexed'
 | 利用者ごとの設定データ | `setting.config`（ツールのフォルダに書き込めるときはその直下。書き込めないときだけ、既定のワークスペース `%USERPROFILE%\Documents\tebunko_ws` の直下） | 画面が保存する設定 | ツールを置いたフォルダ（`Program Files`・読み取り専用の共有フォルダ）に書けないときの代わりの場所。`%LOCALAPPDATA%\tebunko` には置かない（ツールのフォルダ自体が `%LOCALAPPDATA%\Programs\tebunko` にあるインストーラー版では、書き込めるのでその直下に置く）。ワークスペースより先に（設定を読む前に）決まる必要があるため、ワークスペースの既定の場所に固定する |
 | 起動失敗の記録 | ツールのフォルダの `startup_error.txt`（書けなければ作らない） | 起動に失敗した理由・日時・実行環境の情報 | 画面が開く前（ワークスペースも設定も読めないことがある）に書くため、ツールのフォルダにする |
 | Office アプリの PID | メモリ上の `OfficePids`（画面を閉じるとき用）と、ワークスペースの `office_pids\<PC の鍵>\<PID>.txt`（次の起動時の確認用） | 起動した Office の PID → プロセス名・起動時刻・起動した側の PID | 画面を閉じるときは、応答の無い Office だけを、PID とプロセス名・起動時刻が控えたものと同じときに止める。強制終了などで残ったものは、次の起動時に記録のあるものだけを確認して止めるため、ファイルに残す |
-| 書き込み中の一時ファイル（`<保存先>.tmp`。置き換えたら消える） | 書く先のすぐ隣（`setting.config.tmp`・`store\ingest_status.tsv.tmp`・`store\format.tsv.tmp` などの TSV の隣・利用者が指定したエクスポート/インポート先の隣 など） | 書き込み中の内容 | 途中で強制終了してもファイルが壊れないよう、一時ファイルに書いてから置き換える（`writeTextLinesAtomic` など）。置き換え（`File.Replace`）は同じフォルダ内でしか使えない |
+| 書き込み中の一時ファイル（`<出力先>.tmp`。置き換えたら消える） | 書く先のすぐ隣（`setting.config.tmp`・`store\ingest_status.tsv.tmp`・`store\format.tsv.tmp` などの TSV の隣・利用者が指定したエクスポート/インポート先の隣・［出力 ▾］の出力先の隣の `<出力先>.new` など） | 書き込み中の内容 | 途中で強制終了してもファイルが壊れないよう、一時ファイルに書いてから置き換える（`writeTextLinesAtomic` など）。置き換え（`File.Replace`）は同じフォルダ内でしか使えない |
 | 書き込みテストの確認用 | ツールのフォルダ直下 `.tebunko_write_test_<GUID>.tmp` | 空（`DeleteOnClose` でファイルを閉じた瞬間に消える） | 起動のたびに、ツールのフォルダに書き込めるかを確かめるため（`testWritableFolder`） |
 | Office・PowerShell が自分で書く一時ファイル | `%TEMP%` 配下（本ツールは関与しない） | Office のロックファイル（`~$<ファイル名>`）・自動回復用のファイルなど、PowerShell・.NET ランタイムが内部で使う一時ファイル | tebunko が選べる場所ではなく、Office・PowerShell・.NET 自身の既定の動きのため |
 | 開発用の出力 | リポジトリ直下 `work/test/`・`work/release/`・`work/site/`・`work/cache/`（配布物には含めない） | テスト結果・カバレッジ・配布 zip・設計書のサイト・サイトのビルドキャッシュ | 開発・CI の道具（`tests/run.ps1`・`tools/`）が使う出力で、配布した tebunko 自体は書かない |
+
+### 検索結果の出力先の確かめ
+
+［出力 ▾］の出力先は、画面が決める名前（`newExportTarget`。作業フォルダの一時の置き場の中だけ）から作り、利用者の入力や元のファイルのパスからは作らない（`tests/meta/safety.Tests.ps1` が確かめる）。書く前後に、次のことをする。
+
+- 出力先は 1 回ごとに別のフォルダなので、既にあるファイルを上書きしない。置き場はワークスペースの一時の置き場で、クロール対象のフォルダ・インデックスのフォルダの外にあるため、出力したファイルが次の取り込みの対象にならない。
+- 書く直前に、司令のスレッドで、置き場（`open_copy`）がワークスペースの `tmp` の中にあり、リンク（ジャンクション）で外につながっていないことを確かめ（`testOpenCopyDir`。［新規で開く］のコピーと同じ確かめ）、出力先のフォルダを作れるか・同じ名前のファイルが開かれていないかを調べる（`testSearchExportTarget`）。画面のスレッドは、出力先の文字列を組み立てるだけで、ファイルに触れない。
+- 書き終えたら、出力したファイルを開く（`openExportedFile`。このツールが今書いた .xlsx・.csv・.tsv だけを開く。.xlsx は `Invoke-Item -LiteralPath` で既定のアプリ、.csv・.tsv は固定のパスのメモ帳（`openWithEditor` の `-notepadOnly`。設定のエディタ `textEditorPath` は使わない））。CSV・TSV を Excel などで自動では開かないのは、検索結果の文字（クロール対象の文書の中身）の先頭が `=`・`+`・`-`・`@` のとき、表計算アプリが数式として解釈する（`=HYPERLINK(…)`・DDE）ことがあるため。値は加工しない。
+
+この確かめには限りがある。
+
+- 一時の置き場のファイルは、起動のたびに 1 日より古いものを消す。残したいときは、開いたアプリで［名前を付けて保存］する。開いたままのファイルは消せずに残り、次の起動で消す。
 
 ## 取り込み対象のファイルは書き換えない
 
@@ -102,7 +115,9 @@ Office の `SaveAs` は 3 か所あるが、保存先は常に作業フォルダ
 
 PDF ファイルもテキストファイルと同じく、作業フォルダの `source.copy` へコピーし（`invokeWithSourceCopy`）、そのコピーを読み（`shared/core/pdf_file.ps1` の `readPdfFile`）、TSV を書く前に消す（`extractPdfFile`）。
 
-`tests/meta/safety.Tests.ps1` の「取り込み対象のファイルを書き換えないこと」が、原本のパスを書き込み・削除の API に渡さないこと、原本を読むのは `copyFileShared` の読み取りだけであること、`SaveAs` の保存先が作業フォルダだけであること、Word・PowerPoint を読み取り専用で開くことを確かめる（Excel を読み取り専用で開くことは「Office ファイルを安全に開くこと」が確かめる）。
+`tests/meta/safety.Tests.ps1` の「取り込み対象のファイルを書き換えないこと」が、原本を読むのは `copyFileShared` の読み取りだけであること、`SaveAs` の保存先が作業フォルダだけであること、Word・PowerPoint を読み取り専用で開くことを確かめる（Excel を読み取り専用で開くことは「Office ファイルを安全に開くこと」が確かめる）。
+
+書く API は、変数の名前でなく呼び出しそのものを見る許可リストで守る。ファイルに書く・属性や日時を変える・ファイルを作る呼び出し（`SetAttributes`・`Set*Time`・`WriteAll*`・`FileMode`・`FileAccess`・`FileStream`・`StreamWriter`・`Set-Content`・`Out-File`・`Copy-Item` など）は、書き先がワークスペースの置き場か利用者が選んだ出力先だと確かめた関数の中だけに置く。一覧は `tests/meta/source_write.Tests.ps1` にあり、一覧に無い関数に足すと CI の `test` が落ちる。動かして確かめるのは `tests/tebunko/indexer/source_unchanged.Tests.ps1` で、テキスト・PDF・Word・PowerPoint・読み取り専用・パスワード付きのファイルと、外のフォルダを指すジャンクションを置いたフォルダで、インデックスの作成・更新・エクスポート・削除の前後に、元のフォルダと外のフォルダのファイルの数・ハッシュ・属性・作成日時・更新日時が変わらないことを比べる（Excel と旧形式を含む分はタグ `Office` で CI では流れない。Office の入った機械で、リリース前に `.\tests\run.ps1 -Tag Office` を流す。[CI](../design/testing/ci.md)）。
 
 ### リンクは辿らない
 

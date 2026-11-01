@@ -149,6 +149,14 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             setGuiStep $S "［すべて更新］→ 確認で［キャンセル］"
             clickGui $S $S.Window "IndexingButton" "［すべて更新］"
             $confirm = waitGuiWindow $S "取り込みの確認のダイアログ" -Id "StartButton" -Timeout ${guiIndexTimeout}
+            # 確認のダイアログと［インデックス管理］に、インデックスの保存先（ワークスペース）が出る。ローカルなので共有の警告は出ない（［フォルダを開く］は押さない）
+            $confirmTexts = @(getGuiTexts $confirm) -join "`n"
+            $confirmTexts | Should -BeLike "*インデックスの保存先*$($script:tool.Work)*"
+            $confirmTexts | Should -Not -BeLike "*共有フォルダを選択しています*"
+            testGuiVisible (findGui $S.Window -Id "IndexLocationWarning") | Should -BeFalse
+            testGuiVisible (findGui $confirm -Id "OpenIndexLocationButton") | Should -BeTrue
+            (getGuiText (findGui $S.Window -Id "IndexLocationText")) | Should -BeLike "$($script:tool.Work)*"
+            testGuiVisible (findGui $S.Window -Id "OpenIndexLocationButton") | Should -BeTrue
             clickGui $S $confirm "CancelButton" "［キャンセル］"
             waitGuiWindowClosed $S $confirm "取り込みの確認"
             waitGui $S "取りやめて［すべて更新］に戻る" ${guiDefaultTimeout} {
@@ -169,12 +177,22 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             setGuiStep $S "取り込みの完了・失敗したファイルの一覧"
             waitGui $S "取り込みの完了（集約ファイルができ、失敗 1 件が出る）" ${guiIndexTimeout} {
                 (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*" -and
-                    (getGuiText (findGui $S.Window -Id "FailedHeading")) -like "*失敗したファイル 1 件*" -and
+                    (getGuiText (findGui $S.Window -Id "FailedFilesHeading")) -like "*失敗したファイル 1 件*" -and
                     (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
             } | Out-Null
             $S.Timing["取り込み"] = [Math]::Round($sw.Elapsed.TotalSeconds, 1)
-            @(getGuiGridRows (findGui $S.Window -Id "FailedGrid")).Count | Should -Be 1
-            (getGuiRowTexts @(getGuiGridRows (findGui $S.Window -Id "FailedGrid"))[0]) -join " " | Should -BeLike "*壊れた文書.docx*"
+            # 失敗は 1 行の入口になり、［一覧で見る］で［ファイルの一覧］が「失敗のみ」で開く
+            testGuiVisible (findGui $S.Window -Id "ShowFailedFilesButton") | Should -BeTrue
+            clickGui $S $S.Window "ShowFailedFilesButton" "失敗の入口の［一覧で見る］"
+            waitGui $S "失敗のみの一覧が出る" ${guiDefaultTimeout} {
+                (getGuiText (findGui $S.Window -Id "IndexFilesHeading")) -like "ファイル * 件*" -and
+                    @(getGuiGridRows (findGui $S.Window -Id "IndexFilesGrid")).Count -ge 1
+            } | Out-Null
+            $failedOnly = @(getGuiGridRows (findGui $S.Window -Id "IndexFilesGrid"))
+            $failedOnly.Count | Should -Be 1 -Because "失敗のみなので、失敗の 1 件だけ並ぶ"
+            (getGuiRowTexts $failedOnly[0]) -join " " | Should -BeLike "*壊れた文書.docx*失敗*"
+            clickGui $S $S.Window "IndexFilesCloseButton" "［閉じる］"
+            waitGui $S "一覧が閉じる" ${guiDefaultTimeout} { !(testGuiVisible (findGui $S.Window -Id "IndexFilesGrid")) } | Out-Null
             # 失敗のあるだけの行は、エラーでなく警告の表示で、行の［更新］が使える
             $failRow = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
             $failRowTexts = (getGuiRowTexts $failRow) -join " "
@@ -184,6 +202,33 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             testGuiVisible $rowUpdate | Should -BeTrue
             $rowUpdate.Current.IsEnabled | Should -BeTrue
             Test-Path -LiteralPath "$($script:tool.Work)\store\content\資料" | Should -BeTrue
+
+            # ［ファイルの一覧］: 取り込んだファイルが並び、失敗したものが分かる。［閉じる］で閉じる
+            setGuiStep $S "［ファイルの一覧］"
+            # 入口は右の列「インデックス情報」の見出しの右端（見本どおり。窓の右半分にあり、情報の欄に「うち失敗」「うち未取り込み」が出る）
+            $winRect = $S.Window.Current.BoundingRectangle
+            (findGui $S.Window -Id "IndexFilesButton").Current.BoundingRectangle.Left | Should -BeGreaterThan ($winRect.Left + $winRect.Width / 2)
+            (getGuiTexts $S.Window) -join "`n" | Should -BeLike "*うち失敗*うち未取り込み*"
+            clickGui $S $S.Window "IndexFilesButton" "詳細の［ファイルの一覧］"
+            waitGui $S "取り込んだファイルが並ぶ" ${guiDefaultTimeout} {
+                (getGuiText (findGui $S.Window -Id "IndexFilesHeading")) -like "ファイル * 件*"
+            } | Out-Null
+            # 押したら、一覧の見出しが窓の中に見える（詳細欄をスクロールしないと見えない所に開いて、何も出ないように見えるのを防ぐ）
+            $headingRect = (findGui $S.Window -Id "IndexFilesHeading").Current.BoundingRectangle
+            $paneRect = (findGui $S.Window -Id "IndexDetailTitle").Current.BoundingRectangle
+            $winRect = $S.Window.Current.BoundingRectangle
+            $headingRect.Top | Should -BeGreaterThan $paneRect.Bottom -Because "一覧の見出しが詳細の見出しの下にある"
+            $headingRect.Bottom | Should -BeLessThan $winRect.Bottom -Because "一覧の見出しが窓の中に見える"
+            # 表の最初の行まで見える（見出しだけが端に見えている状態にしない）
+            waitGui $S "一覧の最初の行が見える所まで送られる" ${guiDefaultTimeout} {
+                $rows = @(getGuiGridRows (findGui $S.Window -Id "IndexFilesGrid"))
+                $rows.Count -gt 0 -and !$rows[0].Current.IsOffscreen
+            } | Out-Null
+            $fileRows = @(getGuiGridRows (findGui $S.Window -Id "IndexFilesGrid"))
+            $fileRows.Count | Should -BeGreaterThan 1
+            ($fileRows | ForEach-Object { (getGuiRowTexts $_) -join " " }) -join "`n" | Should -BeLike "*壊れた文書.docx*失敗*"
+            clickGui $S $S.Window "IndexFilesCloseButton" "［閉じる］"
+            waitGui $S "一覧が閉じる" ${guiDefaultTimeout} { !(testGuiVisible (findGui $S.Window -Id "IndexFilesGrid")) } | Out-Null
 
             # 更新が終わった帯には［検索する］が出る。押すと検索の画面に切り替わる
             setGuiStep $S "帯の［検索する］"
@@ -214,6 +259,143 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
 
             closeGui $S
             Write-Host ("S2 の秒数: " + (($S.Timing.GetEnumerator() | ForEach-Object { "$($_.Key) $($_.Value)" }) -join "・"))
+        }
+    }
+
+    It "利用者の環境に触っていない（Office のプロセスの数も変わらない）" {
+        compareGuiEnvSnapshot $script:envBefore (getGuiEnvSnapshot) | Should -BeNullOrEmpty
+    }
+}
+
+Describe "S2 詳細の『サブフォルダを含める』" -Tag Gui {
+    BeforeAll {
+        $script:envBefore = getGuiEnvSnapshot
+        $script:tool = newGuiTool $TestDrive
+        $script:source = Join-Path $TestDrive "元のフォルダ\営業"
+        newGuiSourceFolder $script:source
+        $config = readGuiConfig $script:tool
+        $config | Add-Member -NotePropertyName targetFolders -NotePropertyValue @(@{ name = "営業"; path = $script:source; enabled = $true }) -Force
+        writeGuiConfig $script:tool.Dir $config
+    }
+
+    It "外すと設定にすぐ書かれ、札『直下のみ』と［要更新］が出る。付け直すと外れ、一覧を読み直しても残る。行を選び直しただけでは書かない" {
+        $S = startGui $script:tool "S2sub"
+        invokeGuiScene $S {
+            getGuiSelectedTab $S | Should -Be "IndexTab"
+            setGuiStep $S "取り込む（［すべて更新］→［更新を開始］）"
+            startGuiIndexing $S
+            waitGui $S "取り込みの完了" ${guiIndexTimeout} {
+                (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*" -and (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
+            } | Out-Null
+            $rowTexts = { (getGuiRowTexts @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]) -join " " }
+            (& $rowTexts) | Should -Not -BeLike "*直下のみ*"
+            (& $rowTexts) | Should -Not -BeLike "*要更新*"
+
+            setGuiStep $S "行を選ぶ（付いている。選び直しただけでは設定を書き換えない）"
+            selectGui @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
+            waitGui $S "詳細の見出し（営業）" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexDetailTitle")) -eq "営業 - 詳細" } | Out-Null
+            $box = findGui $S.Window -Id "IndexDetailSubfolders"
+            $box.Current.IsEnabled | Should -BeTrue
+            getGuiToggleState $box | Should -Be "On"
+            $configWriteTime = (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc
+            selectGui @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
+            Start-Sleep -Milliseconds 500
+            (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc | Should -Be $configWriteTime
+
+            setGuiStep $S "外す → 設定に subfolders: false・札と［要更新］"
+            toggleGui (findGui $S.Window -Id "IndexDetailSubfolders")
+            waitGui $S "設定に false が書かれる" ${guiDefaultTimeout} { (readGuiConfig $script:tool).targetFolders[0].subfolders -eq $false } | Out-Null
+            waitGui $S "札と［要更新］が出る" ${guiDefaultTimeout} { (& $rowTexts) -like "*直下のみ*" -and (& $rowTexts) -like "*要更新*" } | Out-Null
+
+            setGuiStep $S "付け直す → 設定は true・［要更新］が外れる"
+            toggleGui (findGui $S.Window -Id "IndexDetailSubfolders")
+            waitGui $S "設定が true に戻る" ${guiDefaultTimeout} { (readGuiConfig $script:tool).targetFolders[0].subfolders -eq $true } | Out-Null
+            waitGui $S "札と［要更新］が消える" ${guiDefaultTimeout} { (& $rowTexts) -notlike "*直下のみ*" -and (& $rowTexts) -notlike "*要更新*" } | Out-Null
+
+            setGuiStep $S "外したまま、タブを移って戻っても［要更新］が残る"
+            toggleGui (findGui $S.Window -Id "IndexDetailSubfolders")
+            waitGui $S "［要更新］が出る" ${guiDefaultTimeout} { (& $rowTexts) -like "*要更新*" } | Out-Null
+            selectGuiTab $S "SearchTab"
+            selectGuiTab $S "IndexTab" "IndexGrid"
+            waitGui $S "戻っても札と［要更新］が残る" ${guiDefaultTimeout} { (& $rowTexts) -like "*直下のみ*" -and (& $rowTexts) -like "*要更新*" } | Out-Null
+            closeGui $S
+        }
+    }
+
+    It "利用者の環境に触っていない（Office のプロセスの数も変わらない）" {
+        compareGuiEnvSnapshot $script:envBefore (getGuiEnvSnapshot) | Should -BeNullOrEmpty
+    }
+}
+
+Describe "S2 詳細の『取り込み対象の拡張子』" -Tag Gui {
+    BeforeAll {
+        $script:envBefore = getGuiEnvSnapshot
+        $script:tool = newGuiTool $TestDrive
+        $script:source = Join-Path $TestDrive "元のフォルダ\営業"
+        newGuiSourceFolder $script:source
+        $config = readGuiConfig $script:tool
+        $config | Add-Member -NotePropertyName targetFolders -NotePropertyValue @(@{ name = "営業"; path = $script:source; enabled = $true }) -Force
+        writeGuiConfig $script:tool.Dir $config
+    }
+
+    It "［変更…］で .log を外すと設定にすぐ書かれ、一覧の行に［要更新］が出る。戻すと消える。見出しの『Excel』を押すと Excel の拡張子がまとめて外れ、もう一度押すと戻る" {
+        $S = startGui $script:tool "S2ext"
+        invokeGuiScene $S {
+            getGuiSelectedTab $S | Should -Be "IndexTab"
+            setGuiStep $S "取り込む（［すべて更新］→［更新を開始］）"
+            startGuiIndexing $S
+            waitGui $S "取り込みの完了" ${guiIndexTimeout} {
+                (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*" -and (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
+            } | Out-Null
+            $rowTexts = { (getGuiRowTexts @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]) -join " " }
+            (& $rowTexts) | Should -Not -BeLike "*要更新*"
+
+            setGuiStep $S "行を選ぶ（詳細の『取り込み対象の拡張子』は全部取り込む）"
+            selectGui @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
+            waitGui $S "詳細の見出し（営業）" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexDetailTitle")) -eq "営業 - 詳細" } | Out-Null
+            (getGuiText (findGui $S.Window -Id "IndexDetailTextExtSummary")) | Should -Be "すべて取り込み"
+            $change = findGui $S.Window -Id "ChangeIndexTextExtensionsButton"
+            $change.Current.IsEnabled | Should -BeTrue
+
+            setGuiStep $S "［変更…］で .log を外す → 設定に indexExtensionExcludes・［要更新］"
+            invokeGui $S $change "［変更…］" -NoWait
+            $dialog = waitGuiWindow $S "取り込み対象の拡張子のダイアログ" -Id "TextExtOkButton"
+            toggleGui (findGui $dialog -Name ".log" -Type CheckBox)
+            invokeGui $S (findGui $dialog -Id "TextExtOkButton") "［OK］"
+            waitGui $S "設定に .log が書かれる" ${guiDefaultTimeout} { @((readGuiConfig $script:tool).indexExtensionExcludes."営業") -contains ".log" } | Out-Null
+            waitGui $S "一覧の行に［要更新］が出る" ${guiDefaultTimeout} { (& $rowTexts) -like "*要更新*" } | Out-Null
+            (getGuiText (findGui $S.Window -Id "IndexDetailTextExtSummary")) | Should -Be "対象外あり"
+
+            setGuiStep $S "もう一度開いて .log を戻す → 設定から消え、［要更新］が外れる"
+            invokeGui $S (findGui $S.Window -Id "ChangeIndexTextExtensionsButton") "［変更…］" -NoWait
+            $dialog = waitGuiWindow $S "取り込み対象の拡張子のダイアログ" -Id "TextExtOkButton"
+            toggleGui (findGui $dialog -Name ".log" -Type CheckBox)
+            invokeGui $S (findGui $dialog -Id "TextExtOkButton") "［OK］"
+            waitGui $S "設定から .log が消える" ${guiDefaultTimeout} { @((readGuiConfig $script:tool).indexExtensionExcludes."営業") -notcontains ".log" } | Out-Null
+            waitGui $S "［要更新］が消える" ${guiDefaultTimeout} { (& $rowTexts) -notlike "*要更新*" } | Out-Null
+            setGuiStep $S "［変更…］で見出し『Excel』を押す → .xlsx などが全部外れる"
+            invokeGui $S (findGui $S.Window -Id "ChangeIndexTextExtensionsButton") "［変更…］" -NoWait
+            $dialog = waitGuiWindow $S "取り込み対象の拡張子のダイアログ" -Id "TextExtOkButton"
+            $heading = findGui $dialog -Id "TextExtGroup_Excel" -Type CheckBox
+            getGuiToggleState $heading | Should -Be "On"
+            toggleGui $heading
+            waitGui $S "Excel の行が全部外れ、見出しが空になる" ${guiDefaultTimeout} {
+                (getGuiToggleState (findGui $dialog -Name ".xlsx" -Type CheckBox)) -eq "Off" -and (getGuiToggleState (findGui $dialog -Id "TextExtGroup_Excel" -Type CheckBox)) -eq "Off"
+            } | Out-Null
+            (getGuiToggleState (findGui $dialog -Name ".docx" -Type CheckBox)) | Should -Be "On"
+            invokeGui $S (findGui $dialog -Id "TextExtOkButton") "［OK］"
+            waitGui $S "設定に Excel の 4 つが書かれる" ${guiDefaultTimeout} { try { (@((readGuiConfig $script:tool).indexExtensionExcludes."営業") | Sort-Object) -join "," -eq ".xls,.xlsb,.xlsm,.xlsx" } catch { $false } } | Out-Null
+
+            setGuiStep $S "もう一度開いて .xlsx だけ戻す → 見出しは一部。見出しを押すと全部戻り、設定から消える"
+            invokeGui $S (findGui $S.Window -Id "ChangeIndexTextExtensionsButton") "［変更…］" -NoWait
+            $dialog = waitGuiWindow $S "取り込み対象の拡張子のダイアログ" -Id "TextExtOkButton"
+            toggleGui (findGui $dialog -Name ".xlsx" -Type CheckBox)
+            waitGui $S "見出しが一部になる" ${guiDefaultTimeout} { (getGuiToggleState (findGui $dialog -Id "TextExtGroup_Excel" -Type CheckBox)) -eq "Indeterminate" } | Out-Null
+            toggleGui (findGui $dialog -Id "TextExtGroup_Excel" -Type CheckBox)
+            waitGui $S "Excel の行が全部戻る" ${guiDefaultTimeout} { (getGuiToggleState (findGui $dialog -Name ".xls" -Type CheckBox)) -eq "On" -and (getGuiToggleState (findGui $dialog -Id "TextExtGroup_Excel" -Type CheckBox)) -eq "On" } | Out-Null
+            invokeGui $S (findGui $dialog -Id "TextExtOkButton") "［OK］"
+            waitGui $S "設定から Excel の分が消える" ${guiDefaultTimeout} { try { @((readGuiConfig $script:tool).indexExtensionExcludes."営業" | Where-Object { $_ }).Count -eq 0 } catch { $false } } | Out-Null
+            closeGui $S
         }
     }
 
@@ -257,6 +439,8 @@ Describe "S3 作成中の操作" -Tag Gui {
             $row = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
             selectGui $row
             waitGui $S "詳細に進み具合の棒が出る" ${guiDefaultTimeout} { findGui $S.Window -Id "IndexingProgressBar" } | Out-Null
+            (findGui $S.Window -Id "IndexDetailSubfolders").Current.IsEnabled | Should -BeFalse -Because "更新中は『サブフォルダを含める』が押せない"
+            (findGui $S.Window -Id "ChangeIndexTextExtensionsButton").Current.IsEnabled | Should -BeFalse -Because "更新中は『取り込み対象の拡張子』の［変更…］が押せない"
             waitGui $S "行に［中止］が出る" ${guiDefaultTimeout} { findGui $row -Id "IndexRowStopButton" } | Out-Null
 
             # ［エクスポート…］［削除…］［インポート…］は［アクション ▾］のメニューの中。開いて、押せないことを確かめてから Esc で閉じる

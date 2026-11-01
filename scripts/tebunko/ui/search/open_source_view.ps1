@@ -27,13 +27,22 @@ function getSourceLookupFailedStatus {
     return "元のファイルの場所を調べられませんでした"
 }
 
+function getSourceBookRejectedStatus {
+    # インデックスの「ファイル名」が、開いてよい名前（testSourceBookName）でなかったときのステータス。開かない
+    param (
+        [string]$book
+    )
+
+    return "取り込み対象のファイル名ではないため、開きません：$(formatDisplayText $book)"
+}
+
 function getSourceNotFoundStatus {
     # 見つからない・確認で選ばなかったときのステータス
     param (
         [string]$path
     )
 
-    return "元のファイルが見つかりません：${path}"
+    return "元のファイルが見つかりません：$(formatDisplayText $path)"
 }
 
 function getSourceUnreachableStatus {
@@ -164,9 +173,9 @@ function getSourceConfirmDialog {
         $hint = "開くと、このフォルダに接続し、Windows のサインイン情報が送られることがあります。心当たりのない場所なら、［フォルダを選ぶ］で別のフォルダを選んでください。" + $hint
     }
     return @{
-        Heading  = "${book} の元のフォルダを確かめてください"
+        Heading  = "$(formatDisplayText $book) の元のフォルダを確かめてください"
         Title    = "インデックス [${name}] に書かれた元のフォルダ"
-        Detail   = $folder
+        Detail   = (formatDisplayText $folder)
         Hint     = $hint
         UseText  = "このフォルダを使う"
         PickText = "フォルダを選ぶ"
@@ -282,16 +291,204 @@ function getSourceReadOnlyFailedStatus {
 
     return "もらったインデックスのファイルは読み取り専用で開けなかったため、開きませんでした。［ファイルのパスをコピー］で場所を調べ、確かめてから開いてください：${path}"
 }
+function getSavedFileName {
+    # 出力のメッセージに出す、出力したファイルの名前（パスの最後）
+    param (
+        [string]$path
+    )
+
+    if (!$path) {
+        return ""
+    }
+    return [System.IO.Path]::GetFileName($path.TrimEnd("\"))
+}
+
 function getResultSaveFailedText {
-    # 検索結果を search_results.txt に書けなかったときの文（ステータスと検索画面の上の帯に同じ文を出す）
+    # 検索結果を出力先に書けなかったときの文（ステータスと検索画面の上の帯に同じ文を出す）
     #   kind: Locked（ほかのアプリが開いている）/ Denied（読み取り専用・書き込み権限が無い。アプリを閉じても直らない）
     param (
         [string]$kind,
-        [string]$resultFile
+        [string]$outputPath
     )
 
+    $name = getSavedFileName $outputPath
     if ($kind -eq "Denied") {
-        return "search_results.txt に書き込む権限がありません（読み取り専用など）。${resultFile} を確かめてから、もう一度出力してください。"
+        return "${name} に書き込む権限がありません（読み取り専用など）。${outputPath} を確かめてから、もう一度出力してください。"
     }
-    return "search_results.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。"
+    return "${name} に書き込めません。開いているアプリを閉じてから、もう一度出力してください。"
 }
+
+function getExportButtonText {
+    # 出力ボタンの文字。出力の待ち・書き込み中は押すと中止になるので、そう読めるようにする
+    param (
+        [bool]$busy
+    )
+
+    if ($busy) {
+        return "出力を中止"
+    }
+    return "出力"
+}
+
+function getExportWaitingText {
+    # 検索の途中で出力を押したとき（検索が終わってから書く）のステータス
+    return "検索が終わってから出力します…"
+}
+
+function getExportWritingText {
+    # 書き込み中のステータス（written は書いた件数）
+    param (
+        [int]$written
+    )
+
+    return "検索結果を出力中…（$($written.ToString('N0')) 件）"
+}
+
+function getExportCancelledText {
+    return "出力を中止しました。出力先のファイルは変えていません。"
+}
+
+function getExportFailedText {
+    # 書き込みに失敗した（ロック・権限以外）ときのステータス
+    param (
+        [string]$message
+    )
+
+    if ($message) {
+        return "検索結果を出力できませんでした：${message}"
+    }
+    return "検索結果を出力できませんでした"
+}
+
+function getExportOpenFailedText {
+    # 書き終わったが、出力したファイルを開けなかったときのステータス
+    param (
+        [string]$name,
+        [int]$count,
+        [string]$path
+    )
+
+    return "${name} に $($count.ToString('N0')) 件を出力しました。ファイルを開けなかったため、${path} を開いてください"
+}
+
+function getExportHeadOnlyReasonText {
+    # 表に出ている分だけを書いた理由（reason は検索の終わりの状態。CountTimeout / OverflowFailed / Cancelled）
+    param (
+        [string]$reason
+    )
+
+    switch ($reason) {
+        "CountTimeout" { return "総数を数える時間が切れたため、残りは出力していません" }
+        "OverflowFailed" { return "表に入らない分を一時ファイルに書けなかったため、残りは出力していません" }
+        "Cancelled" { return "検索を途中で止めたため、残りは出力していません" }
+    }
+    return "残りは出力していません"
+}
+
+function getExportDoneText {
+    # 書き終わったときのステータス（name は出力したファイルの名前）
+    #   scope: All（表がすべて）/ Overflow（表に入らなかった分も書いた）/ HeadOnly（表に出ている分だけ。reason が理由）
+    #   filtered: 絞り込み中か。sorted: 並べ替え中か（Overflow のときだけ、並べ替えは当てないと添える）
+    #   droppedRows: Excel の行の上限で書かなかった件数。truncatedCells: 長すぎて途中で切ったセルの数
+    param (
+        [string]$name,
+        [string]$scope,
+        [int]$count,
+        [bool]$filtered,
+        [string]$reason = "",
+        [bool]$sorted = $false,
+        [int]$droppedRows = 0,
+        [int]$truncatedCells = 0
+    )
+
+    $number = $count.ToString('N0')
+    $text = ""
+    switch ($scope) {
+        "HeadOnly" {
+            $text = "表に出ている ${number} 件だけを ${name} に出力しました（$(getExportHeadOnlyReasonText $reason)）"
+        }
+        "Overflow" {
+            $head = if ($filtered) { "表に入らなかった分も含めて、絞り込み後の ${number} 件" } else { "表に入らなかった分も含めて、全 ${number} 件" }
+            $tail = if ($sorted) { "（件数が多いため、並べ替えは当てずに検索の順で出力しました）" } else { "" }
+            $text = "${head}を ${name} に出力しました${tail}"
+        }
+        default {
+            if ($filtered) {
+                $text = "絞り込み後の ${number} 件を ${name} に出力しました"
+            } else {
+                $text = "${name} に ${number} 件を出力しました（出力したファイルを開きます）"
+            }
+        }
+    }
+    if ($droppedRows -gt 0) {
+        $text += "（$($droppedRows.ToString('N0')) 件は Excel の行の上限を超えたため書いていません。全件は CSV か TSV で出力してください）"
+    }
+    if ($truncatedCells -gt 0) {
+        $text += "（$($truncatedCells.ToString('N0')) 個のセルは長すぎるため、途中で切りました）"
+    }
+    return $text
+}
+
+function testExportFormat {
+    param (
+        [string]$format
+    )
+
+    return $format -in @("xlsx", "csv", "tsv")
+}
+
+function getLastExportFormat {
+    # 本体の［出力］で使う種類。書けたときだけ、書いた種類に替える
+    param (
+        [string]$current,
+        [string]$written
+    )
+
+    if (testExportFormat $written) {
+        return $written
+    }
+    if (testExportFormat $current) {
+        return $current
+    }
+    return "xlsx"
+}
+
+function getExportButtonToolTip {
+    # ［出力］（本体）の吹き出し。出力の待ち・書き込み中は、押すと中止になる
+    param (
+        [string]$format,
+        [bool]$busy
+    )
+
+    if ($busy) {
+        return "出力を中止します"
+    }
+    $label = switch ($format) {
+        "csv" { "CSV (.csv)" }
+        "tsv" { "TSV (.tsv)" }
+        default { "Excel ブック (.xlsx)" }
+    }
+    return "${label} で出力します"
+}
+
+function getDefaultExportName {
+    # 出力先のファイル名（拡張子なし）: 検索結果_<語>_<日時>。ファイル名に使えない文字は _、語は 30 文字まで
+    param (
+        [string]$word,
+        [datetime]$now
+    )
+
+    $safe = [regex]::Replace([string]$word, '[\\/:*?"<>|\x00-\x1F]', "_")
+    if ($safe.Length -gt 30) {
+        $safe = $safe.Substring(0, 30)
+        if ([char]::IsHighSurrogate($safe[29])) {
+            $safe = $safe.Substring(0, 29)
+        }
+    }
+    $stamp = $now.ToString("yyyyMMdd_HHmmss")
+    if ($safe.Trim()) {
+        return "検索結果_${safe}_${stamp}"
+    }
+    return "検索結果_${stamp}"
+}
+

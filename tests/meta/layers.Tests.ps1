@@ -211,6 +211,7 @@ Describe "依存の向き（ファイル単位）" -Tag Meta {
             # indexer → search
             newAllowances "tebunko/indexer/indexer_run.ps1" "tebunko/search/source_map.ps1" @("writeSourceFolderFile") "情報源フォルダのファイルを書く writeSourceFolderFile を index へ移すと消える（ファイルの持ち主は index）"
             # index → indexer（クラス）
+            newAllowances "tebunko/index/index_archive.ps1" "tebunko/indexer/indexer_state.ps1" @("enterIndexerLock", "exitIndexerLock") "インデックス作成の鍵を取る・放す関数（エクスポート・インポートもインデックス作成と同じ鍵を取る）を index へ移すと消える"
             newAllowances "tebunko/index/index_catalog.ps1" "tebunko/indexer/indexer_state.ps1" @("[StatusLedger]") "取り込み一覧の台帳のクラス StatusLedger を index へ移すと消える（台帳は index が使う）"
             # 判断層 → 画面層（クラス）
             newAllowances "tebunko/ui/search/result_list_view.ps1" "tebunko/ui/search/result_types.ps1" @("[FileGroup]", "[HitRow]") "結果の行のクラス FileGroup・HitRow を、画面に触らない判断層のファイルへ移すと消える"
@@ -222,7 +223,13 @@ Describe "依存の向き（ファイル単位）" -Tag Meta {
             newAllowances "tebunko/index/index_name.ps1" "shared/core/pdf_file.ps1" @('$pdfExtensions', "testPdfExtension") $moved "移すと消える"
             newAllowances "tebunko/index/index_name.ps1" "shared/core/text_file.ps1" @('$textExtensions', "testTextExtension") $moved "移すと消える"
             newAllowances "tebunko/indexer/indexer_decide.ps1" "tebunko/core/paths.ps1" @('$stateDone', '$stateFailed', '$stateNew') $moved "移すと消える"
+            # indexer_decide・text_ext_view から拡張子の定数（$textExtensions・$pdfExtensions）への依存は、定数だけを読む。定数を判断層の 1 ファイルに移す起票の案があり、移すと消える
+            newAllowances "tebunko/indexer/indexer_decide.ps1" "shared/core/pdf_file.ps1" @('$pdfExtensions') $moved "移すと消える"
+            newAllowances "tebunko/indexer/indexer_decide.ps1" "shared/core/text_file.ps1" @('$textExtensions') $moved "移すと消える"
             newAllowances "tebunko/search/search_query.ps1" "shared/core/pdf_file.ps1" @('$pdfExtensions') $moved "移すと消える"
+            newAllowances "tebunko/ui/settings/text_open_view.ps1" "shared/core/text_file.ps1" @('$textExtensions', '$textNotepadExtensions') $moved "移すと消える"
+            newAllowances "tebunko/ui/index/text_ext_view.ps1" "shared/core/text_file.ps1" @('$textExtensions') $moved "移すと消える"
+            newAllowances "tebunko/ui/index/text_ext_view.ps1" "shared/core/pdf_file.ps1" @('$pdfExtensions') $moved "移すと消える"
             newAllowances "tebunko/search/search_query.ps1" "shared/core/text_file.ps1" @('$textExtensions') $moved "移すと消える"
             newAllowances "tebunko/search/search_query.ps1" "tebunko/core/settings.ps1" @('$fileKindNames') $moved "移すと消える"
             newAllowances "tebunko/ui/index/index_archive_view.ps1" "shared/core/folder.ps1" @("normalizeFolderPath", "testFolderUnder", "testSameFolder") $moved "移すと消える"

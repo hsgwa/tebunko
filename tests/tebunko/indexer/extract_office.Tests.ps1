@@ -691,6 +691,22 @@ Describe "ingestFile" -Tag Io {
         ingestFile "a.docx" | Should -Be "Word・PowerPoint"
         ingestFile "a.ppt" | Should -Be "Word・PowerPoint"
     }
+
+    It "<path> は、timing を <entry> の入口へそのまま渡す（コピーの時間を種類ごとに数えるため）" -TestCases @(
+        @{ path = "a.txt"; entry = "extractTextFile" }
+        @{ path = "a.pdf"; entry = "extractPdfFile" }
+        @{ path = "a.xlsx"; entry = "extractWorkbook" }
+        @{ path = "a.docx"; entry = "extractDocument" }
+    ) {
+        param($path, $entry)
+        $timing = @{ CopyMs = 0.0 }
+        . "${scriptsDir}\tebunko\indexer\extract_text.ps1"
+        . "${scriptsDir}\tebunko\indexer\extract_pdf.ps1"
+        Mock extractTextFile { 1 }
+        Mock extractPdfFile { 1 }
+        [void](ingestFile $path $timing)
+        Should -Invoke $entry -Times 1 -Exactly -Scope It -ParameterFilter { $null -ne $timing -and $timing.ContainsKey("CopyMs") }
+    }
 }
 
 Describe "extractDocument（読み取りのスレッド）" -Tag Io {
