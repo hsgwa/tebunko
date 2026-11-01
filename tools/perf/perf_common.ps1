@@ -864,7 +864,7 @@ function newTypingWordResult {
     #   steps   : 送った語の数（getTypingSteps の結果の数）。並びが空だった語は 0
     #   skipped : 測らなかった理由（並びが空の語）。$null なら測った
     # 統計（Min・Median・Mean・Max・Count）は getStats を使う。FirstHitMs・FinishMs・WaitPrevMs は 2 回目以降（attempts の 2 件目から）、
-    # IntervalMs・LagMs・RequestMs は全回（1 回目を含む）から作る。CancelledSteps は 2 回目以降の合計、GramUsed は全回の合計（回数）。
+    # IntervalMs・LagMs・RequestMs は全回（1 回目を含む）から作る。CancelledSteps は 2 回目以降の合計、GramUsed・Narrowed（最後の要求が前の結果から絞って答えた）は全回の合計（回数）。
     param (
         [string]$name,
         [bool]$regex,
@@ -882,7 +882,7 @@ function newTypingWordResult {
     if ($skipped -or $attempts.Count -eq 0) {
         return [ordered]@{
             Name = $name; Regex = $regex; Steps = $steps
-            Hits = $null; Truncated = $null; Packs = $null; GramUsed = $null; CancelledSteps = $null
+            Hits = $null; Truncated = $null; Packs = $null; GramUsed = $null; Narrowed = $null; CancelledSteps = $null
             FirstHitMs = $null; FinishMs = $null; WaitPrevMs = $null; IntervalMs = $null; LagMs = $null; RequestMs = $null
             First = $null
             WorkingSetMaxMB = $null; CpuSeconds = $null; Gc0 = $null; Gc1 = $null; Gc2 = $null
@@ -909,6 +909,7 @@ function newTypingWordResult {
         Name = $name; Regex = $regex; Steps = $steps
         Hits = [int]$last.Hits; Truncated = [bool]$last.Truncated; Packs = [int]$last.Packs
         GramUsed = @($attempts | Where-Object { $_.GramUsed }).Count
+        Narrowed = @($attempts | Where-Object { $_.Narrowed }).Count
         CancelledSteps = [int]((@($rest | ForEach-Object { [int]$_.CancelledSteps }) | Measure-Object -Sum).Sum)
         FirstHitMs = getStats (flattenTypingValues $rest "FirstHitMs")
         FinishMs = getStats (flattenTypingValues $rest "FinishMs")

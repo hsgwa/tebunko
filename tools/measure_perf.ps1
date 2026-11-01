@@ -460,7 +460,7 @@ if ($Index -and $Typing -gt 0) {
             [pscustomobject][ordered]@{
                 Word = $r.Name; N = $a.N; Steps = $a.Steps; FirstHitMs = $a.FirstHitMs; FinishMs = $a.FinishMs; WaitPrevMs = $a.WaitPrevMs
                 IntervalMaxMs = (arrMax $a.IntervalMs); LagMaxMs = (arrMax $a.LagMs); RequestMaxMs = (arrMax $a.RequestMs)
-                Hits = $a.Hits; Truncated = $a.Truncated; Packs = $a.Packs; GramUsed = $a.GramUsed; CancelledSteps = $a.CancelledSteps
+                Hits = $a.Hits; Truncated = $a.Truncated; Packs = $a.Packs; GramUsed = $a.GramUsed; Narrowed = $a.Narrowed; CancelledSteps = $a.CancelledSteps
                 WorkingSetMB = $a.WorkingSetMB; ManagedMB = $a.ManagedMB; Handles = $a.Handles; Threads = $a.Threads
             }
         }
@@ -676,17 +676,17 @@ if ($typingMode -ne "service") {
     add "語を $TypingMinLength 文字目から 1 文字ずつ、$TypingIntervalMs ms おきに、画面と同じ検索の司令のスレッド（SearchService）へ要求した（新しい要求は前の要求を取り消す）。これを 1 回の入力として $Typing 回繰り返した。時間は最後の要求を渡した時点（要求を渡す時間を含む）から数え、画面に描くまでは含まない。統計は 2 回目以降（読んだ内容が残った状態）で取り、1 回目は画面を開き直した直後の入力に当たる。時刻は Windows のタイマーの細かさの分、大きく出る側に最大で約 16 ms の誤差がある。画面はヒットを 100 ms ごとに取り込むため、画面に出るまでは最大で約 100 ms 長くなる。"
     $skippedWords = @($typingWords | Where-Object { $_.Skipped })
     add
-    add "| 語 | 送った語の数 | ヒット件数 | 最初のヒットまで（中央値／最大） | 終わるまで（中央値／最大） | 前の検索が止まるまで（中央値／最大） | 1 回目（最初のヒット／終わり） | 照合した pack | gram 索引（使った回数／回数） |"
-    add "|---|---|---|---|---|---|---|---|---|"
+    add "| 語 | 送った語の数 | ヒット件数 | 最初のヒットまで（中央値／最大） | 終わるまで（中央値／最大） | 前の検索が止まるまで（中央値／最大） | 1 回目（最初のヒット／終わり） | 照合した pack | gram 索引（使った回数／回数） | 前の結果から絞った回数／回数 |"
+    add "|---|---|---|---|---|---|---|---|---|---|"
     foreach ($t in $typingWords) {
         if ($t.Skipped) {
-            add ("| {0} | – | – | – | – | – | – | – | – |" -f $t.Name)
+            add ("| {0} | – | – | – | – | – | – | – | – | – |" -f $t.Name)
             continue
         }
-        add ("| {0} | {1} | {2}{3} | {4}／{5} ms | {6}／{7} ms | {8}／{9} ms | {10}／{11} ms | {12} | {13}／{14} |" -f $t.Name, $t.Steps, $t.Hits, $(if ($t.Truncated) { "+" } else { "" }),
+        add ("| {0} | {1} | {2}{3} | {4}／{5} ms | {6}／{7} ms | {8}／{9} ms | {10}／{11} ms | {12} | {13}／{14} | {15}／{14} |" -f $t.Name, $t.Steps, $t.Hits, $(if ($t.Truncated) { "+" } else { "" }),
             (msOf $t.FirstHitMs "Median"), (msOf $t.FirstHitMs "Max"), (msOf $t.FinishMs "Median"), (msOf $t.FinishMs "Max"), (msOf $t.WaitPrevMs "Median"), (msOf $t.WaitPrevMs "Max"),
             $(if ($null -ne $t.First.FirstHitMs) { "{0:N0}" -f $t.First.FirstHitMs } else { "–" }), $(if ($null -ne $t.First.FinishMs) { "{0:N0}" -f $t.First.FinishMs } else { "–" }),
-            $t.Packs, $t.GramUsed, $Typing)
+            $t.Packs, $t.GramUsed, $Typing, $t.Narrowed)
     }
     add
     add "### 入力しながらの検索のリソース"
