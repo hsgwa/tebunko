@@ -2,7 +2,7 @@
 
 扱うこと: 検索（`search_query.ps1`・`content_index_search.ps1`・`search_overflow.ps1`・`search_export.ps1`・`search_run.ps1`）、スレッドとプール（`worker_pool.ps1`・`search_service.ps1`・`indexing_session.ps1`）、元のファイルの特定（`source_map.ps1`）、画面が使う集計・設定・Office プロセスの関数一覧。扱わないこと: TSV・本文インデックスそのものの関数（[部品ごとの関数（TSV と本文インデックス）](tsv.md)）。先に読むページ: [部品から関数一覧を引く](index.md)。
 
-## 検索（`tebunko/search/search_query.ps1`・`content_index_search.ps1`・`search_run.ps1`）
+## 検索（`tebunko/search/search_query.ps1`・`content_index_search.ps1`・`search_run.ps1`・`search_narrow.ps1`）
 
 ```mermaid
 flowchart LR
@@ -34,8 +34,19 @@ flowchart LR
 | `newTsvTextCache` | maxChars（既定 6,400 万文字） | `@{Texts; Chars; MaxChars; Generation}` | 検索で読んだ本文インデックスのファイルの内容と場所の一覧を次の検索・プレビューで使い回す入れ物（パス → 更新日時・サイズ・内容・場所の一覧・最後に使った世代）。更新日時・サイズが変わった本文インデックスのファイルは読み直す。追い出しは `trimTsvTextCache` | [検索を速くする仕組み](../search/speed.md) | 画面 |
 | `newContentIndexWorkerPool` | workers（既定 `getWorkerCount`） | `WorkerPool` | 本文インデックスの照合のプールを作る（各スレッドには照合に要る関数と値だけを読み込む。`searchContentIndexFiles`・`testCellPrefixedHit`・`readContentIndexPlaces`・`testContentIndexCellPrefixed`・`testCellPrefixedPlace`・`convertContentIndexMetaToPlace`・`decodeContentIndexValue`・`getContentIndexFileKind`・`testTextExtension`・`testSourceBookName`・`truncateHitLine`・`newSearchOverflowWriter` と、`textExtensions`・`officeExtensions`・`displayControlChars`・`hitLineMaxChars`・`hitLineBeforeMatchChars` などの定数。優先度は Normal） | [プロセスとスレッド](../structure/threads.md#寿命) | 検索の司令（`SearchService`）、searchContentIndex |
 | `trimTsvTextCache` | cache, keepRatio（既定 0.9） | 追い出した数 | 検索 1 回の後に呼ぶ。上限の keepRatio を超えていたら、今の世代で使わなかったものを古い世代から追い出し、世代を 1 つ進める | [閉じるときの順番と GC](../structure/closing.md#gc-とメモリ) | 検索の司令 |
-| `newSearchRequest` | word, simpleMatch, folders, limit, option, workDir（既定 `$workspace.Dir`） | 検索の要求（`[hashtable]::Synchronized`） | 検索 1 回分の要求を作る。画面が条件と `Stop`（取り消し）を書き、検索の司令がヒット（`Queue`）・進み具合・`Finished` を書く | [プロセスとスレッド](../structure/threads.md#寿命) | 画面 |
-| `invokeSearchRequest` | request, pool, cache | – | 検索の要求を実行し、ヒットと進み具合を要求に少しずつ入れる。例外は投げずに `Error` に入れる。始める前に取り消されていたら何もせずに `Cancelled` にする。gram 索引・列挙・照合には要求そのものを `-stopSignal` として渡し、gram 索引・列挙の後に `Stop` を見て、立っていれば先の段に進まず `Cancelled` にする | 同上 | 検索の司令 |
+| `newSearchRequest` | word, simpleMatch, folders, limit, option, workDir（既定 `$workspace.Dir`） | 検索の要求（`[hashtable]::Synchronized`） | 検索 1 回分の要求を作る。画面が条件と `Stop`（取り消し）を書き、検索の司令がヒット（`Queue`）・進み具合・`Finished`・`Narrowed`（前の結果から絞って答えたか）・`NarrowReason`（絞るかの判定の符号）を書く | [プロセスとスレッド](../structure/threads.md#寿命) | 画面 |
+| `testLiteralSearchWord` | word, simpleMatch | bool | 検索語が照合の式として文字どおりの 1 つの文字列か（正規表現を使う指定でも、語に正規表現の記号が無ければ真） | [速さ](../search/speed.md) | `getNarrowSearchReason` |
+| `toSearchFolderKeys` | folders | string[] | 検索対象（文字列か `@{ Root; RelPath; Recurse }`）を比べるための文字列の並びにする | 同上 | `getNarrowSearchReason` |
+| `getNarrowSearchReason` | previous, request | string | 前の検索の記録と新しい要求から、前のヒットだけを照合し直してよいか（`Narrow`）か、絞らない理由の符号を返す。判断層 | 同上 | `tryNarrowSearch` |
+| `testRecordableHitLines` | hits | bool | ヒットの行が元の行そのままか（テキストの長い行を切った可能性があれば偽） | 同上 | `newSearchRecord` |
+| `newSearchRecord` | request, folders, files, hits | hashtable | 最後まで検索し終えた要求の記録（条件・一覧・ヒット）を作る。記録できないときは `$null` | 同上 | `updateSearchRecord` |
+| `testSearchRecordFiles` | record, files | bool | 今の本文インデックスのファイルの一覧が記録と同じか | 同上 | `invokeNarrowSearch` |
+| `selectNarrowHits` | record, word, caseSensitive | List | 記録のヒットのうち新しい語に一致する行を、順番を保って返す | 同上 | `invokeNarrowSearch` |
+| `invokeNarrowSearch` | request, state | bool | 絞った検索を実行する。一覧が変わっていれば `$false`（全体の検索に進む） | 同上 | `tryNarrowSearch` |
+| `tryNarrowSearch` | request, state | bool | 判定して、絞れるなら絞った検索を実行する | 同上 | `invokeSearchRequest` |
+| `updateSearchRecord` | request, state, folders, files, hits | – | 最後まで終えた要求なら記録を置き換える | 同上 | `invokeSearchRequest` |
+| `initSearchOverflow` | request, own | – | 前の溢れを消し、上限があるときだけ溢れの置き場所を決める | 同上 | `invokeSearchRequest` |
+| `invokeSearchRequest` | request, pool, cache, narrowState（前の結果の入れ物。省略すると使い回さない） | – | 検索の要求を実行し、ヒットと進み具合を要求に少しずつ入れる。例外は投げずに `Error` に入れる。始める前に取り消されていたら何もせずに `Cancelled` にする。gram 索引・列挙・照合には要求そのものを `-stopSignal` として渡し、gram 索引・列挙の後に `Stop` を見て、立っていれば先の段に進まず `Cancelled` にする | 同上 | 検索の司令 |
 | `toResultLine` | book, location, lineNumber, line | string | `ファイル名<TAB>場所<TAB>種別<TAB>行番号<TAB>該当行` を返す（場所・種別は `describePlace` の表記）。Excel はセル内改行を LF に戻し、Word・PowerPoint は `"` で始まるセルを `"` で囲む。場所のタブ・改行（Excel のシート名に付けられる）はスペースにする | [検索結果ファイル](../search/output.md#1-行の組み立て) | 検索 |
 | `toResultHeader` | columnCount | string | 見出し行 `ファイル名<TAB>場所<TAB>種別<TAB>行<TAB>A<TAB>B…` を返す | [検索結果ファイル](../search/output.md#出力フォーマットexcel-ブックcsvtsv) | 検索 |
 | `getSearchResultLine` | relDir, book, location, lineNumber, line | string | 結果の 1 行（相対フォルダ付き `toResultLine`）。コピーで使う | 同上 | `toSearchResultLines` |

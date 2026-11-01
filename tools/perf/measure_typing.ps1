@@ -116,7 +116,7 @@ function invokeTypingAttempt {
         IntervalMs = @($intervals.ToArray() | ForEach-Object { roundMs $_ })
         LagMs = @($lags.ToArray() | ForEach-Object { roundMs $_ })
         RequestMs = @($reqTimes.ToArray() | ForEach-Object { roundMs $_ })
-        Hits = $hits; Truncated = [bool]$last.Truncated; Packs = [int]$last.IndexTotal; GramUsed = [bool]$last.GramUsed
+        Hits = $hits; Truncated = [bool]$last.Truncated; Packs = [int]$last.IndexTotal; GramUsed = [bool]$last.GramUsed; Narrowed = [bool]$last.Narrowed
         CancelledSteps = $cancelledSteps
     }
     $snap = getProcessSnapshot
