@@ -11,9 +11,12 @@ Describe "assertSnapshot" -Tag Unit {
         [System.IO.File]::WriteAllText($path, "1 行目`n2 行目`n", $utf8)
         $saved = $env:TEBUNKO_UPDATE_SNAPSHOT
         $env:TEBUNKO_UPDATE_SNAPSHOT = $null
+        $savedCi = $env:CI
+        $env:CI = $null
     }
     AfterEach {
         $env:TEBUNKO_UPDATE_SNAPSHOT = $saved
+        $env:CI = $savedCi
     }
 
     It "<name>" -TestCases @(
@@ -49,5 +52,21 @@ Describe "assertSnapshot" -Tag Unit {
         [System.IO.File]::ReadAllText($newPath, $utf8) | Should -BeExactly "新規`n"
         $env:TEBUNKO_UPDATE_SNAPSHOT = $null
         { assertSnapshot "別`n中身`n" $path } | Should -Not -Throw
+    }
+
+    It "TEBUNKO_UPDATE_SNAPSHOT=1 で書き直したら、書き直したファイルを Warning に出す" {
+        $env:TEBUNKO_UPDATE_SNAPSHOT = "1"
+        $WarningPreference = "Continue"
+        $warned = @(assertSnapshot "別`n" $path 3>&1)
+        $warned.Count | Should -Be 1
+        $warned[0] | Should -BeOfType ([System.Management.Automation.WarningRecord])
+        "$($warned[0])" | Should -BeLike "*$path*"
+    }
+
+    It "CI で TEBUNKO_UPDATE_SNAPSHOT=1 が立っていたら、throw し、期待値を書き換えない" {
+        $env:TEBUNKO_UPDATE_SNAPSHOT = "1"
+        $env:CI = "true"
+        { assertSnapshot "別`n" $path } | Should -Throw -ExpectedMessage "*CI では*"
+        [System.IO.File]::ReadAllText($path, $utf8) | Should -BeExactly "1 行目`n2 行目`n"
     }
 }

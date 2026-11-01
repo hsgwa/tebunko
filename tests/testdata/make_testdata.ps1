@@ -272,6 +272,17 @@ function simpleDoc {
     saveDoc $doc $relPath $format $password
 }
 
+function waitChartBook {
+    # グラフのデータを開き（Activate 済みとする）、ブックが開くのを待って返す。開かなければ $null
+    param ($chart)
+    $chartBook = $null
+    for ($k = 0; $k -lt 20 -and $null -eq $chartBook; $k++) {
+        Start-Sleep -Seconds 1  # ブックが開くのを待つ
+        $chartBook = $chart.ChartData.Workbook
+    }
+    return $chartBook
+}
+
 function addSlide {
     # 末尾にスライドを追加する。title を指定するとタイトルに設定する
     param (
@@ -1567,11 +1578,7 @@ try {
             $chartShape = $doc.InlineShapes.AddChart2(-1, 51, $range)  # 51 = 集合縦棒
             $chart = $chartShape.Chart
             $chart.ChartData.Activate()
-            $chartBook = $null
-            for ($k = 0; $k -lt 20 -and $null -eq $chartBook; $k++) {
-                Start-Sleep -Seconds 1  # ブックが開くのを待つ
-                $chartBook = $chart.ChartData.Workbook
-            }
+            $chartBook = waitChartBook $chart
             $chartSheet = $chartBook.ActiveSheet
             $chartSheet.Range("B1").Value2 = "TC32 系列名"
             $chartSheet.Range("A2").Value2 = "TC32 項目1"
@@ -1877,23 +1884,18 @@ if (@(Get-Process powerpnt -ErrorAction SilentlyContinue).Count -gt 0) {
                 $chartShape = $slide.Shapes.AddChart2(-1, 51, 50, 120, 400, 300)  # 51 = 集合縦棒
                 $chart = $chartShape.Chart
                 $chart.ChartData.Activate()
-                $chartBook = $null
-                for ($k = 0; $k -lt 20 -and $null -eq $chartBook; $k++) {
-                    Start-Sleep -Seconds 1  # ブックが開くのを待つ
-                    $chartBook = $chart.ChartData.Workbook
-                }
+                $chartBook = waitChartBook $chart
                 $chartSheet = $chartBook.ActiveSheet  # このブックは Worksheets が使えない
                 $chartSheet.Range("B1").Value2 = "TC32 系列名"
                 $chartSheet.Range("A2").Value2 = "TC32 項目1"
                 $chartSheet.Range("B2").Value2 = 987654
                 Start-Sleep -Seconds 3  # 変更がグラフに届くのを待つ
+                # 既定の系列 2・3 は、系列を Delete() すると PowerPoint が応答しなくなるため、元データの範囲を縮めて 1 系列にする
+                $chart.SetSourceData("='" + $chartSheet.Name + "'!`$A`$1:`$B`$2")
                 # ブックの変更がグラフの保存内容に届かないため、系列名・項目名・数値はグラフの側にも直接書く
                 $chart.SeriesCollection(1).Name = "TC32 系列名"
                 $chart.SeriesCollection(1).XValues = [object[]]@("TC32 項目1")
                 $chart.SeriesCollection(1).Values = [object[]]@(987654)
-                # 既定の系列 2・3 は、系列名を 1 と同じにする（読み取りは同じ文字を 1 回にまとめるため、結果に混ざらない）
-                $chart.SeriesCollection(2).Name = "TC32 系列名"
-                $chart.SeriesCollection(3).Name = "TC32 系列名"
                 Start-Sleep -Seconds 2
                 $chartBook.Close()
                 Start-Sleep -Seconds 2  # ブックが閉じ終わる前にプレゼンテーションを閉じると失敗する
