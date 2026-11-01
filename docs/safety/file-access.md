@@ -117,7 +117,15 @@ PDF ファイルもテキストファイルと同じく、作業フォルダの 
 
 `tests/meta/safety.Tests.ps1` の「取り込み対象のファイルを書き換えないこと」が、原本を読むのは `copyFileShared` の読み取りだけであること、`SaveAs` の保存先が作業フォルダだけであること、Word・PowerPoint を読み取り専用で開くことを確かめる（Excel を読み取り専用で開くことは「Office ファイルを安全に開くこと」が確かめる）。
 
-書く API は、変数の名前でなく呼び出しそのものを見る許可リストで守る。ファイルに書く・属性や日時を変える・ファイルを作る呼び出し（`SetAttributes`・`Set*Time`・`WriteAll*`・`FileMode`・`FileAccess`・`FileStream`・`StreamWriter`・`Set-Content`・`Out-File`・`Copy-Item` など）は、書き先がワークスペースの置き場か利用者が選んだ出力先だと確かめた関数の中だけに置く。一覧は `tests/meta/source_write.Tests.ps1` にあり、一覧に無い関数に足すと CI の `test` が落ちる。動かして確かめるのは `tests/tebunko/indexer/source_unchanged.Tests.ps1` で、テキスト・PDF・Word・PowerPoint・読み取り専用・パスワード付きのファイルと、外のフォルダを指すジャンクションを置いたフォルダで、インデックスの作成・更新・エクスポート・削除の前後に、元のフォルダと外のフォルダのファイルの数・ハッシュ・属性・作成日時・更新日時が変わらないことを比べる（Excel と旧形式を含む分はタグ `Office` で CI では流れない。Office の入った機械で、リリース前に `.\tests\run.ps1 -Tag Office` を流す。[CI](../design/testing/ci.md)）。
+書く API は、変数の名前でなく呼び出しそのものを見る許可リストで守る。ファイルに書く・属性や日時を変える・ファイルを作る呼び出し（`SetAttributes`・`Set*Time`・`WriteAll*`・`FileMode`・`FileAccess`・`FileStream`・`StreamWriter`・`Set-Content`・`Out-File`・`Copy-Item` など）は、書き先がワークスペースの置き場か利用者が選んだ出力先だと確かめた関数の中だけに置く。一覧は `tests/meta/source_write.Tests.ps1` にあり、一覧に無い関数に足すと CI の `test` が落ちる。動かして確かめるものは[確かめ方（属性と更新日時）](#確かめ方属性と更新日時)にある。
+
+### 確かめ方（属性と更新日時）
+
+変わらないことを確かめるのは、ファイルの中身（ハッシュ）、属性、作成日時、更新日時。フォルダの更新日時も含める。動かして確かめるのは `tests/tebunko/indexer/source_unchanged.Tests.ps1` で、テキスト・PDF・Word・PowerPoint・読み取り専用・パスワード付きのファイルと、外のフォルダを指すジャンクションを置いたフォルダで、インデックスの作成・更新・エクスポート・削除の前後に、元のフォルダと外のフォルダのファイルの数・ハッシュ・属性・作成日時・更新日時が変わらないことを比べる（Excel と旧形式を含む分はタグ `Office` で CI では流れない。Office の入った機械で、リリース前に `.\tests\run.ps1 -Tag Office` を流す。[CI](../design/testing/ci.md)）。
+
+- 属性は値全体で比べる。読み取り専用に限らず、アーカイブや `NotContentIndexed` が付く・外れる変化も見逃さない。
+- フォルダの更新日時は、フォルダ自身から読んで比べる。元のフォルダの横に一時ファイルを作って消すような動きがあると、フォルダの更新日時が変わるので見つかる。
+- 書く API を許可リストの関数にだけ置くことは `tests/meta/source_write.Tests.ps1` が、動かした前後の比較は `source_unchanged.Tests.ps1` が守る。
 
 ### リンクは辿らない
 
@@ -141,6 +149,17 @@ $before = Get-ChildItem $target -Recurse -File | Get-FileHash
 # ここで tebunko.bat を起動し、$target を対象にインデックスを作成する
 $after  = Get-ChildItem $target -Recurse -File | Get-FileHash
 Compare-Object $before $after -Property Path,Hash   # 何も出力されなければ、原本は 1 バイトも変わっていない
+```
+
+属性と更新日時は、フォルダも含めて比べる（`-File` を付けない）。
+
+```powershell
+$target = "C:\確認用\対象フォルダ"
+$props  = 'FullName','Attributes','LastWriteTimeUtc'
+$before = Get-ChildItem $target -Recurse -Force | Select-Object $props
+# ここで tebunko.bat を起動し、$target を対象にインデックスを作成する
+$after  = Get-ChildItem $target -Recurse -Force | Select-Object $props
+Compare-Object $before $after -Property $props   # 何も出力されなければ、属性と更新日時は変わっていない
 ```
 
 **手順 B: 書き込み権限を外して実行**
