@@ -247,3 +247,67 @@ function testHitFilter {
     }
     return (("" + $book).IndexOf($filterText, [System.StringComparison]::CurrentCultureIgnoreCase) -ge 0)
 }
+
+
+function testLiteralSearchWord {
+    # 検索語が、照合の式として文字どおりの 1 つの文字列か。文字どおりに探す指定か、正規表現を使う指定でも語に正規表現の記号が無いとき（Escape しても変わらない）は $true
+    param (
+        [string]$word,
+        [bool]$simpleMatch
+    )
+
+    return (newSearchRegex $word $simpleMatch $false).SimpleMatch -or ([regex]::Escape($word) -eq $word)
+}
+
+function toSearchFolderKeys {
+    # 検索対象（文字列、または @{ Root; RelPath; Recurse } の並び）を、比べるための "Root|RelPath|Recurse" の並び（大文字・小文字は区別しない）にする。
+    # 文字列は getContentIndexFiles と同じく @{ Root = <文字列>; RelPath = ""; Recurse = $true } とみなす
+    param (
+        $folders
+    )
+
+    return @(@($folders) | ForEach-Object {
+        $target = $_
+        if ($target -is [string]) {
+            $target = @{ Root = $target; RelPath = ""; Recurse = $true }
+        }
+        ("{0}|{1}|{2}" -f [string]$target.Root, ([string]$target.RelPath).Trim("\"), [bool]$target.Recurse).ToLowerInvariant()
+    })
+}
+
+function getNarrowSearchReason {
+    # 検索語が前の検索の語より長くなったとき、前の検索のヒットの行だけを照合し直してよいかを返す（前の結果の使い回し）。
+    # "Narrow"（絞ってよい）か、絞らない理由の符号を返す。インデックスが変わっていないこと（今の列挙が前と同じ）は、状態層で確かめる。
+    #   previous: 前の検索の記録（Word; SimpleMatch; CaseSensitive; FileFilter; IncludeShapes; IncludeComments; Folders; WorkDir; Limit）。無ければ $null
+    #   request : 新しい要求（同じ項目を持つ）
+    # 符号: NoRecord（記録なし）/ NoLimit（上限なし）/ Regex（どちらかの語が正規表現）/ NotLonger（新しい語が前の語より長くない）/
+    #       NotContained（新しい語の中に前の語が無い）/ Condition（語以外の条件が違う）
+    param (
+        $previous,
+        $request
+    )
+
+    if ($null -eq $previous) { return "NoRecord" }
+    if ([int]$previous.Limit -le 0 -or [int]$request.Limit -le 0) { return "NoLimit" }
+    $previousWord = [string]$previous.Word
+    $word = [string]$request.Word
+    if (!(testLiteralSearchWord $previousWord ([bool]$previous.SimpleMatch)) -or !(testLiteralSearchWord $word ([bool]$request.SimpleMatch))) { return "Regex" }
+    if ($word.Length -le $previousWord.Length) { return "NotLonger" }
+    $same = ([bool]$previous.CaseSensitive -eq [bool]$request.CaseSensitive) -and
+        ([string]$previous.FileFilter -ceq [string]$request.FileFilter) -and
+        ([bool]$previous.IncludeShapes -eq [bool]$request.IncludeShapes) -and
+        ([bool]$previous.IncludeComments -eq [bool]$request.IncludeComments) -and
+        ([string]$previous.WorkDir).Equals([string]$request.WorkDir, [System.StringComparison]::OrdinalIgnoreCase) -and
+        ([int]$previous.Limit -eq [int]$request.Limit)
+    if (!$same) { return "Condition" }
+    $previousKeys = @(toSearchFolderKeys $previous.Folders)
+    $keys = @(toSearchFolderKeys $request.Folders)
+    if ($previousKeys.Count -ne $keys.Count) { return "Condition" }
+    for ($i = 0; $i -lt $keys.Count; $i++) {
+        if ($previousKeys[$i] -ne $keys[$i]) { return "Condition" }
+    }
+    $options = [System.Text.RegularExpressions.RegexOptions]::CultureInvariant
+    if (![bool]$request.CaseSensitive) { $options = $options -bor [System.Text.RegularExpressions.RegexOptions]::IgnoreCase }
+    if (![regex]::new([regex]::Escape($previousWord), $options).IsMatch($word)) { return "NotContained" }
+    return "Narrow"
+}
