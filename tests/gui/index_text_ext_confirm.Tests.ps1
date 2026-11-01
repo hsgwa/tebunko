@@ -60,7 +60,7 @@ Describe "確認ダイアログの［変更…］" -Tag Gui {
             setGuiStep $S "取り込む"
             startGuiIndexing $S
             waitGui $S "取り込みの完了" ${guiIndexTimeout} {
-                (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*" -and (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
+                (getGuiText (findGui $S.Window -Id "IndexFooterFiles")) -like "合計: [1-9]*" -and (findGui $S.Window -Id "IndexingButton").Current.IsEnabled
             } | Out-Null
 
             setGuiStep $S ".log を対象外にして［すべて更新］→ 確認の［変更…］で .txt も外して［OK］"
