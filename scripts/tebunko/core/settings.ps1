@@ -837,12 +837,14 @@ function testDefaultWorkspace {
     if (![System.IO.Directory]::Exists($folder)) {
         return $result
     }
-    # 設定ファイルと、それに付いてできるファイルは数えない（既定のワークスペースは、書き込めないときの設定ファイルの置き場所でもある）
+    # 設定ファイルと、それに付いてできるファイルは数えない（既定のワークスペースは、書き込めないときの設定ファイルの置き場所でもある）。
+    # 処理の記録（trace。環境変数 TEBUNKO_TRACE を付けたときだけできる診断用のフォルダ）も数えない
+    $known = [Workspace]::new($folder)
+    $traceName = [System.IO.Path]::GetFileName($known.TraceDir)
     $names = @(foreach ($entry in (selectFirstEntries ([System.IO.Directory]::EnumerateFileSystemEntries($folder)) 1000)) {
         $name = [System.IO.Path]::GetFileName($entry)
-        if (-not (testSettingsFileName $name)) { $name }
+        if (-not (testSettingsFileName $name) -and $name -ne $traceName) { $name }
     })
-    $known = [Workspace]::new($folder)
     $knownNames = @($known.StoreDir, $known.OldIndexDir, $known.LegacyIndexDir, $known.OldStatusFile) | ForEach-Object { [System.IO.Path]::GetFileName($_) }
     if ($names.Count -eq 0 -or @($names | Where-Object { $knownNames -contains $_ }).Count -gt 0) {
         return $result

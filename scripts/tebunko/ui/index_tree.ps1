@@ -102,6 +102,7 @@ function applyIndexTreeData {
             setStatus (getWorkspaceUnreachableText $workspace.Dir)
         }
         updateSearchTarget
+        markTrace "startup" "07 インデックスのツリーが画面に入る"
         return
     }
 
@@ -128,6 +129,7 @@ function applyIndexTreeData {
         }
     }
     updateSearchTarget
+    markTrace "startup" "07 インデックスのツリーが画面に入る"
 }
 
 function expandIndexNode {

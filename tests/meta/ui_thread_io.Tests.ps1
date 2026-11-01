@@ -61,6 +61,12 @@ BeforeAll {
         @{ File = "gui_main.ps1"; Function = "startGui"; Call = "writeCloseTrace"; Count = 8; Reason = "閉じる処理の各段の前に、段の名前を 1 行足す（環境変数 TEBUNKO_CLOSE_TRACE が指すローカルのファイルへ。画面のスモークテストの失敗の調べ用で、無ければ何もしない。閉じるときだけ）" }
         @{ File = "closing.ps1"; Function = "enterIndexingStopFlow"; Call = "writeCloseTrace"; Reason = "閉じる処理の段の名前を 1 行足す（TEBUNKO_CLOSE_TRACE が指すローカルのファイル。無ければ何もしない。閉じるときだけ）" }
         @{ File = "closing.ps1"; Function = ""; Call = "writeCloseTrace"; Reason = "閉じる処理の段の名前を 1 行足す（Closing のハンドラ。TEBUNKO_CLOSE_TRACE が指すローカルのファイル。無ければ何もしない。閉じるときだけ）" }
+        @{ File = "search_session.ps1"; Function = "finishSearch"; Call = "writeTrace"; Count = 2; Reason = "処理の記録（trace.ps1。環境変数 TEBUNKO_TRACE を付けたときだけ、区分ごとに 1 回の区間が終わった時に、ワークスペースの trace フォルダへ小さな TSV を 1 回足す。ネットワークのワークスペースには書かない。付けなければ何もしない）" }
+        @{ File = "preview.ps1"; Function = "applyDetail"; Call = "writeTrace"; Reason = "処理の記録（trace.ps1。環境変数 TEBUNKO_TRACE を付けたときだけ、区分ごとに 1 回の区間が終わった時に、ワークスペースの trace フォルダへ小さな TSV を 1 回足す。ネットワークのワークスペースには書かない。付けなければ何もしない）" }
+        @{ File = "preview.ps1"; Function = "applyReadMore"; Call = "writeTrace"; Reason = "処理の記録（trace.ps1。環境変数 TEBUNKO_TRACE を付けたときだけ、区分ごとに 1 回の区間が終わった時に、ワークスペースの trace フォルダへ小さな TSV を 1 回足す。ネットワークのワークスペースには書かない。付けなければ何もしない）" }
+        @{ File = "index_archive.ps1"; Function = "startIndexArchiveJob"; Call = "writeTrace"; Count = 2; Reason = "処理の記録（trace.ps1。環境変数 TEBUNKO_TRACE を付けたときだけ、区分ごとに 1 回の区間が終わった時に、ワークスペースの trace フォルダへ小さな TSV を 1 回足す。ネットワークのワークスペースには書かない。付けなければ何もしない）" }
+        @{ File = "settings.ps1"; Function = "finishWorkspaceMove"; Call = "writeTrace"; Reason = "処理の記録（trace.ps1。環境変数 TEBUNKO_TRACE を付けたときだけ、区分ごとに 1 回の区間が終わった時に、ワークスペースの trace フォルダへ小さな TSV を 1 回足す。ネットワークのワークスペースには書かない。付けなければ何もしない）" }
+        @{ File = "indexing_tab.ps1"; Function = "finishIndexing"; Call = "writeTrace"; Reason = "処理の記録（trace.ps1。環境変数 TEBUNKO_TRACE を付けたときだけ、区分ごとに 1 回の区間が終わった時に、ワークスペースの trace フォルダへ小さな TSV を 1 回足す。ネットワークのワークスペースには書かない。付けなければ何もしない）" }
 
         # ---- tebunko/ui/workspace_jobs.ps1 ----
         @{ File = "workspace_jobs.ps1"; Function = "testStartupIndexExists"; Call = "testIndexExists"; Reason = "ローカルの場所だけ（ネットワークの場所は先に真を返し、呼ばない）" }

@@ -19,7 +19,7 @@
 
 | フォルダ | 置くもの |
 |---|---|
-| `scripts/shared/core/` | パス定義（`paths.ps1`）・ファイルの読み書き（`fs.ps1`）・データの置き場所（`data_dir.ps1`）・TSV とセルの文字列（`text.ps1`）・テキストファイルの対象の拡張子・文字コードの判定・読み込み（`text_file.ps1`。取り込みのファイルが大きすぎるときの文言もここ）・TSV のファイルの読み書き（`tsv_file.ps1`）・フォルダのパスと一覧（`folder.ps1`）・スレッドのプール（`worker_pool.ps1`。`WorkerPool`・`BackgroundQueue`）・配布物の版の記録（`version.ps1`。`VERSION.txt` の読み取り）・診断情報とログの世代（`diagnostics_view.ps1`（判断層）・`diagnostics.ps1`（状態層）。ログの先頭に書く版と環境の見出しと、ログの入れ替え） |
+| `scripts/shared/core/` | パス定義（`paths.ps1`）・ファイルの読み書き（`fs.ps1`）・データの置き場所（`data_dir.ps1`）・TSV とセルの文字列（`text.ps1`）・テキストファイルの対象の拡張子・文字コードの判定・読み込み（`text_file.ps1`。取り込みのファイルが大きすぎるときの文言もここ）・TSV のファイルの読み書き（`tsv_file.ps1`）・フォルダのパスと一覧（`folder.ps1`）・スレッドのプール（`worker_pool.ps1`。`WorkerPool`・`BackgroundQueue`）・処理の記録（`trace.ps1`。環境変数 `TEBUNKO_TRACE` のときだけ、どこに時間がかかったかを控えて書く）・配布物の版の記録（`version.ps1`。`VERSION.txt` の読み取り）・診断情報とログの世代（`diagnostics_view.ps1`（判断層）・`diagnostics.ps1`（状態層）。ログの先頭に書く版と環境の見出しと、ログの入れ替え） |
 | `scripts/shared/office/` | Office ファイルの拡張子と種類の表・種類の判定（判断層 `office_file_kind_view.ps1`）・プロセスの一覧と強制終了（`office_process.ps1`）・Office ファイルを ZIP として読む処理（`office_reader.ps1`）とその中の埋め込みファイルを読む処理（`office_embedded.ps1`）・Office アプリ（COM）の起動と終了（`office_app.ps1`）・暗号化されたファイルの種類の判定（判断層 `office_protection_view.ps1`）とその読み取り（`office_protection.ps1`） |
 | `scripts/shared/ui/` | 画面の土台と共通部品（`types.ps1`・`app_host.ps1`・`shell.ps1`・`folder_dialog.ps1`） |
 | `scripts/tebunko/core/` | tebunko のパス定義（`paths.ps1`）・取り込み一覧の読み書き（`status_file.ps1`）・元のフォルダを記録できる名前の判断（判断層 `source_name.ps1`）・診断の見出しとインデックス作成のログ（`diagnostics.ps1`）・設定ファイル（`settings.ps1`）・検索対象でチェックを外したフォルダの読み書きとフォルダの比べ方（`search_excludes.ps1`）・ワークスペース（`workspace.ps1`）・ワークスペースの切り替え（`workspace_mover.ps1`。`WorkspaceMover`）・［新規で開く］のコピーの作成と片付け（`open_copy.ps1`） |

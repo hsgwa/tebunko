@@ -74,6 +74,7 @@
         } @($workspace.TmpRoot) {
             param ($output, $errorText)
         } (getWorkspaceJobQueue @($workspace.Dir, $workspace.TmpRoot))
+        markTrace "startup" "06 起動時の読み込み（画面のスレッドの分）"
     }
 
     # ---- 起動 ----
