@@ -4628,12 +4628,18 @@
 <span class="nv">$after</span>  <span class="p">=</span> <span class="nb">Get-ChildItem</span> <span class="nv">$target</span> <span class="n">-Recurse</span> <span class="o">-File</span> <span class="p">|</span> <span class="nb">Get-FileHash</span>
 <span class="nb">Compare-Object</span> <span class="nv">$before</span> <span class="nv">$after</span> <span class="n">-Property</span> <span class="n">Path</span><span class="p">,</span><span class="n">Hash</span>   <span class="c"># 何も出力されなければ、原本は 1 バイトも変わっていない</span>
 </code></pre></div>
-<p>属性と更新日時は、フォルダも含めて比べる（<code>-File</code> を付けない）。</p>
+<p>属性と更新日時は、フォルダも含めて比べる（<code>-File</code> を付けない）。フォルダの更新日時は親の一覧の値だと遅れて反映されることがあるので、フォルダ自身から読む。<code>$target</code> 自身は <code>-Recurse</code> の一覧に含まれないので、<code>Get-Item</code> で足す。</p>
 <div class="highlight"><pre><span></span><code><span class="nv">$target</span> <span class="p">=</span> <span class="s2">"C:\確認用\対象フォルダ"</span>
+<span class="k">function</span> <span class="nb">Get-State</span><span class="p">(</span><span class="nv">$path</span><span class="p">)</span> <span class="p">{</span>
+    <span class="p">@(</span><span class="nb">Get-Item</span> <span class="nv">$path</span> <span class="n">-Force</span><span class="p">)</span> <span class="p">+</span> <span class="p">@(</span><span class="nb">Get-ChildItem</span> <span class="nv">$path</span> <span class="n">-Recurse</span> <span class="n">-Force</span><span class="p">)</span> <span class="p">|</span> <span class="k">ForEach</span><span class="n">-Object</span> <span class="p">{</span>
+        <span class="nv">$written</span> <span class="p">=</span> <span class="k">if</span> <span class="p">(</span><span class="nv">$_</span><span class="p">.</span><span class="n">PSIsContainer</span><span class="p">)</span> <span class="p">{</span> <span class="no">[System.IO.Directory]</span><span class="p">::</span><span class="n">GetLastWriteTimeUtc</span><span class="p">(</span><span class="nv">$_</span><span class="p">.</span><span class="n">FullName</span><span class="p">)</span> <span class="p">}</span> <span class="k">else</span> <span class="p">{</span> <span class="nv">$_</span><span class="p">.</span><span class="n">LastWriteTimeUtc</span> <span class="p">}</span>
+        <span class="no">[pscustomobject]</span><span class="p">@{</span> <span class="n">FullName</span> <span class="p">=</span> <span class="nv">$_</span><span class="p">.</span><span class="n">FullName</span><span class="p">;</span> <span class="n">Attributes</span> <span class="p">=</span> <span class="nv">$_</span><span class="p">.</span><span class="n">Attributes</span><span class="p">;</span> <span class="n">LastWriteTimeUtc</span> <span class="p">=</span> <span class="nv">$written</span> <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
 <span class="nv">$props</span>  <span class="p">=</span> <span class="s1">'FullName'</span><span class="p">,</span><span class="s1">'Attributes'</span><span class="p">,</span><span class="s1">'LastWriteTimeUtc'</span>
-<span class="nv">$before</span> <span class="p">=</span> <span class="nb">Get-ChildItem</span> <span class="nv">$target</span> <span class="n">-Recurse</span> <span class="n">-Force</span> <span class="p">|</span> <span class="nb">Select-Object</span> <span class="nv">$props</span>
+<span class="nv">$before</span> <span class="p">=</span> <span class="nb">Get-State</span> <span class="nv">$target</span>
 <span class="c"># ここで tebunko.bat を起動し、$target を対象にインデックスを作成する</span>
-<span class="nv">$after</span>  <span class="p">=</span> <span class="nb">Get-ChildItem</span> <span class="nv">$target</span> <span class="n">-Recurse</span> <span class="n">-Force</span> <span class="p">|</span> <span class="nb">Select-Object</span> <span class="nv">$props</span>
+<span class="nv">$after</span>  <span class="p">=</span> <span class="nb">Get-State</span> <span class="nv">$target</span>
 <span class="nb">Compare-Object</span> <span class="nv">$before</span> <span class="nv">$after</span> <span class="n">-Property</span> <span class="nv">$props</span>   <span class="c"># 何も出力されなければ、属性と更新日時は変わっていない</span>
 </code></pre></div>
 <p><strong>手順 B: 書き込み権限を外して実行</strong></p>
