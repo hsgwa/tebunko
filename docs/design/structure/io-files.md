@@ -79,6 +79,7 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 | `work/store/journal/ingest.tsv` | 読む・追記する | 取り込みのジャーナル |
 | `work/publish/<PID>/`（`import/new/`・`import/previous/` を含む） | 読む・書く | 本文インデックスに入れる直前の TSV と、インポートの展開先 |
 | `work/tmp/<PC の鍵>/<PID>/w<番号>/` | 読む・書く | 取り込みの作業領域。元のファイルのコピー・抽出途中のファイル |
+| `work/trace/<起点の日時>_<PID>_<スレッドの番号>.tsv` | 追記する | 処理の記録（環境変数 `TEBUNKO_TRACE` を付けて起動したときだけ。`trace.ps1`。ネットワークのワークスペースには書かない。docs/design/testing/perf.md） |
 | `work/office_pids/<PC の鍵>/<PID>.tmp`→`<PID>.txt` | 読む・書く | このツールが起動した Office の記録（`office_process.ps1`。`.tmp` に書いてから `.txt` に改名）。起動時の確認で読む |
 | `work/indexing_log.txt` | 書く | インデクサの表示内容（実行ごとに上書き。`writeIndexerLog`）。先頭に版と環境の見出しを書く。［ログを開く］で Notepad が開く |
 | `work/indexing_log_previous.txt` | 書く | 前回のインデックス作成の記録。インデックス作成が二重起動の鍵を取った後、今の `indexing_log.txt` をここへ移す（あれば上書き） |
@@ -196,6 +197,7 @@ tebunko が作るファイルとフォルダが、何年使っても溜まり続
 | `publish` | 実行ごとに `<PID>` を作る | 終了時・インポートの後に消す。残りは次のインデックス作成の始めに消す |
 | `tmp` | 実行ごとに `<PC の鍵>\<PID>` を作る | 終了時に消す。強制終了の残りは次のインデックス作成の始めに、この PC の終わったプロセスの分を消す。共有のワークスペースでは、ほかの PC の残りは消えない（別に直す） |
 | `office_pids` | Office を起動するたびに `<PC の鍵>\<PID>.txt` | Office を閉じたら消す。残りは画面の起動時の確かめで消す |
+| `trace`（`Entries()` には入れない。診断用） | 環境変数 `TEBUNKO_TRACE` を付けて起動したときだけ、プロセスとスレッドごとに 1 ファイル | 自動では消さない（診断が済んだら、利用者が消してよい）。ワークスペースを移すときも移さない |
 
 ### ツールのフォルダ
 

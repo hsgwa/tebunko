@@ -8,7 +8,7 @@
 # 司令のスレッドで動かすスクリプト。要求の列が閉じられる（Close）まで、要求を 1 つずつ実行する。
 # lib の部品（Prelude）は SearchService.Start が、この param ブロックのあとにつなぐ（joinWorkerScript）
 ${searchServiceScript} = {
-    param ($requests, $cache, $workers)
+    param ($requests, $cache, $workers, $traceInfo = $null)
     # 読み込めなければスレッドを終える（画面は IsRunning・GetFailure で知り、次の要求で作り直す）
     $ErrorActionPreference = "Stop"
     initWorkspace
@@ -16,6 +16,11 @@ ${searchServiceScript} = {
     # 前の検索の結果（最後まで検索し終えた要求の記録。語が長くなったとき、前のヒットだけを照合し直すのに使う）
     $narrowState = @{ Record = $null }
     $pool = if ($workers -gt 1) { newContentIndexWorkerPool $workers } else { $null }
+    # 処理の記録（shared/core/trace.ps1）を、画面と同じ指定・同じ起点で入れる。用意が済んだ時刻は画面のスレッドが読む（GetReadyTicks）
+    if ($null -ne $traceInfo) {
+        initTrace $traceInfo.Spec $traceInfo.OriginTicks
+        $traceInfo.ReadyTicks = [DateTime]::UtcNow.Ticks
+    }
     # 溢れを書いた（かもしれない）tmp の根。ワークスペースを切り替えると、要求の WorkDir が変わるため、起動時の $workspace とは限らない
     $overflowRoots = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     try {
@@ -87,7 +92,7 @@ class SearchService {
         $ps = [powershell]::Create()
         $ps.Runspace = $rs
         $joined = if ($this.LibLoad.Prelude) { joinWorkerScript $this.LibLoad.Prelude $this.Script } else { $this.Script }
-        [void]$ps.AddScript($joined).AddArgument($this.Requests).AddArgument($this.Cache).AddArgument($this.Workers)
+        [void]$ps.AddScript($joined).AddArgument($this.Requests).AddArgument($this.Cache).AddArgument($this.Workers).AddArgument($this.LibLoad.Trace)
         $this.Runspace = $rs
         $this.PowerShell = $ps
         $this.Handle = $ps.BeginInvoke()
@@ -96,6 +101,15 @@ class SearchService {
     [bool] IsRunning() {
         # 司令のスレッドが動いているか（lib.ps1 を読み込めなかった等で止まっていれば $false）
         return $null -ne $this.PowerShell -and !$this.Handle.IsCompleted
+    }
+
+    [long] GetReadyTicks() {
+        # 司令のスレッドの用意（lib.ps1 の読み込みと照合のプール）が済んだ時刻（UTC の Ticks）。処理の記録が入っていない・まだ済んでいなければ 0
+        $info = $this.LibLoad.Trace
+        if ($null -eq $info) {
+            return 0
+        }
+        return [long]$info.ReadyTicks
     }
 
     [string] GetFailure() {
@@ -184,5 +198,9 @@ function newSearchService {
     )
 
     $libLoad = getPartLoad lib
+    # 処理の記録を入れているときだけ、司令のスレッドへ指定と起点を渡す
+    if (testTraceActive) {
+        $libLoad.Trace = [hashtable]::Synchronized(@{ Spec = (getTraceSpec).Spec; OriginTicks = (getTraceSpec).OriginTicks; ReadyTicks = [long]0 })
+    }
     return [SearchService]::new(${searchServiceScript}.ToString(), $libLoad, $cache, $workers, ${searchServiceCloseMilliseconds})
 }

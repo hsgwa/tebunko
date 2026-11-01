@@ -54,6 +54,7 @@
     })
 
     $window.Add_Loaded({
+        markTrace "startup" "04 画面の組み立て（Loaded）"
         safe {
             if ((getCurrentScreen) -eq "SearchTab") {
                 $ui.WordBox.Focus() | Out-Null
@@ -80,6 +81,7 @@
     # 画面を描き終わったら、起動中の表示を閉じ、一覧の読み込みと別スレッドでの集計を始める。
     # ウィンドウを出す前に行うと、そのぶん画面が出るのが遅れるため（一覧は読み込むまで空で出る）
     $window.Add_ContentRendered({
+        markTrace "startup" "05 窓が出る（ContentRendered）"
         closeSplash
         # 描いた画面が映ってから読み込むよう、描画より優先度の低い Background で行う
         $window.Dispatcher.BeginInvoke([action]{ safe { loadStartupData } }, [System.Windows.Threading.DispatcherPriority]::Background) | Out-Null

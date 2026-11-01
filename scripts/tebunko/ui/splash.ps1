@@ -79,6 +79,7 @@ function stepSplash {
         return
     }
     $script:splash.FindName("SplashProgress").Value = $percent
+    markTrace "startup" "stepSplash $percent"
     # 自分のスレッドの Dispatcher に優先度 Background の空の仕事を渡し、それより優先度の高い描画・入力を先に処理させる
     $script:splash.Dispatcher.Invoke([action]{ }, [System.Windows.Threading.DispatcherPriority]::Background)
 }
