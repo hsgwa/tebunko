@@ -20,11 +20,23 @@ BeforeAll {
     $reporterPath = "${scriptsDir}\tebunko\indexer\indexing_reporter.ps1"
 
     function getOfficeProcessIds {
-        # 今動いている Excel・Word・PowerPoint の PID
+        # 走らせる前から無かった Excel・Word・PowerPoint のうち、$since より後に起きたものの PID。
+        # COM で起きる Office の親は走らせた powershell ではないため、親では絞れない。時刻で絞れば、先に起きていたほかのテストの Office を数えない
+        param ([int[]]$before, [datetime]$since)
+        $ids = foreach ($process in @(Get-Process -Name EXCEL, WINWORD, POWERPNT -ErrorAction SilentlyContinue)) {
+            if ($before -contains $process.Id) { continue }
+            try { $startedAt = $process.StartTime } catch { continue }
+            if ($startedAt -gt $since) { $process.Id }
+        }
+        return @($ids)
+    }
+
+    function getRunningOfficeProcessIds {
+        # 今動いている Excel・Word・PowerPoint の PID（走らせる前の控え）
         return @(Get-Process -Name EXCEL, WINWORD, POWERPNT -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
     }
 
-    function newSnapshotText {
+    function replaceSnapshotRoots {
         # 比べる前の置き換え。本文インデックスのファイルに作業フォルダの絶対パスが入るなら、ここで <ROOT> にする
         param ([string]$text, [string[]]$roots)
         foreach ($root in $roots) {
@@ -55,12 +67,13 @@ Describe "indexer.ps1 を本物の Office で通しで動かす" -Tag Office {
 
         $root = newRoot
         writeTestSettings $root @(@{ name = "営業"; path = $source; enabled = $true }, @{ name = "補助"; path = $other; enabled = $true })
-        $officeBefore = getOfficeProcessIds
+        $officeBefore = getRunningOfficeProcessIds
+        $startedAt = Get-Date
         $firstExit = runIndexer $root @{ Workers = 1 }
         # Office が終わるのを少し待つ（後始末は非同期）
         $deadline = (Get-Date).AddSeconds(15)
         do {
-            $leftover = @(getOfficeProcessIds | Where-Object { $officeBefore -notcontains $_ })
+            $leftover = @(getOfficeProcessIds $officeBefore $startedAt)
             if ($leftover.Count -eq 0) { break }
             Start-Sleep -Milliseconds 500
         } while ((Get-Date) -lt $deadline)
@@ -92,26 +105,32 @@ Describe "indexer.ps1 を本物の Office で通しで動かす" -Tag Office {
     }
 
     It "本文インデックスのファイルの全文が期待値と同じ（<ext>）" -TestCases @(
-        @{ ext = "xlsx"; folder = "";       expected = "office\xlsx.txt" }
-        @{ ext = "xls";  folder = "\資料"; expected = "office\xls.txt" }
-        @{ ext = "doc";  folder = "\資料"; expected = "office\doc.txt" }
-        @{ ext = "ppt";  folder = "\資料"; expected = "office\ppt.txt" }
-        @{ ext = "docx"; folder = "";       expected = "io\docx.txt" }
-        @{ ext = "pptx"; folder = "";       expected = "io\pptx.txt" }
+        # xlsx の期待値は、Excel の表示形が OS の地域設定に従うため、ja-JP でない機械では比べない
+        @{ ext = "xlsx"; folder = "";       expected = "office\xlsx.txt"; skip = ((Get-Culture).Name -ne "ja-JP") }
+        @{ ext = "xls";  folder = "\資料"; expected = "office\xls.txt"; skip = $false }
+        @{ ext = "doc";  folder = "\資料"; expected = "office\doc.txt"; skip = $false }
+        @{ ext = "ppt";  folder = "\資料"; expected = "office\ppt.txt"; skip = $false }
+        @{ ext = "docx"; folder = "";       expected = "io\docx.txt"; skip = $false }
+        @{ ext = "pptx"; folder = "";       expected = "io\pptx.txt"; skip = $false }
     ) {
-        param ($ext, $folder, $expected)
+        param ($ext, $folder, $expected, $skip)
+        if ($skip) {
+            Set-ItResult -Skipped -Because "地域設定が ja-JP でないため（Excel の表示形が揺れる）"
+            return
+        }
         $text = readContentIndexText "$contentDir$folder\content_index.$ext.001.tsv"
         $text | Should -Match "^$([regex]::Escape([string]${contentIndexMark})) 版=2\n"
-        assertSnapshot (newSnapshotText $text @($TestDrive)) "$snapshotDir\$expected"
+        assertSnapshot (replaceSnapshotRoots $text @($TestDrive)) "$snapshotDir\$expected"
     }
 
     It "2 回目は取り込み済みのファイルを飛ばし、Office を起動しない" {
         $before = (readTestStatus $root).Rows["営業\基本.xlsx"].取り込み日時
-        $officeBefore = getOfficeProcessIds
+        $officeBefore = getRunningOfficeProcessIds
+        $startedAt = Get-Date
         runIndexer $root @{ Workers = 1 } | Should -Be 0
         (readTestProgress).Detail | Should -Be "更新が必要なファイルはありませんでした"
         (readTestStatus $root).Rows["営業\基本.xlsx"].取り込み日時 | Should -Be $before
-        @(getOfficeProcessIds | Where-Object { $officeBefore -notcontains $_ }).Count | Should -Be 0
+        @(getOfficeProcessIds $officeBefore $startedAt).Count | Should -Be 0
     }
 
     It "設定からフォルダを外して確認で進めると、そのインデックスが消える（補助は残る）" {
@@ -149,6 +168,6 @@ Describe "Office の要らない形式の抽出結果が期待値と同じ" -Tag
         $result.Books | Should -Be 1
         $text = readContentIndexText "$dest\content_index.$name.001.tsv"
         $text | Should -Match "^$([regex]::Escape([string]${contentIndexMark})) 版=2\n"
-        assertSnapshot (newSnapshotText $text @($TestDrive)) "$snapshotDir\io\$name.txt"
+        assertSnapshot (replaceSnapshotRoots $text @($TestDrive)) "$snapshotDir\io\$name.txt"
     }
 }
