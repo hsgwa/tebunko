@@ -34,6 +34,7 @@
 . ([WildcardPattern]::Escape("$PSScriptRoot\search\search_export.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\search\content_index_search.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\search\search_service.ps1".Replace('`', '``')))
+. ([WildcardPattern]::Escape("$PSScriptRoot\search\search_narrow.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\search\source_map.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\index\index_archive_rules.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\index\index_archive.ps1".Replace('`', '``')))

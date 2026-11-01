@@ -13,6 +13,8 @@ ${searchServiceScript} = {
     $ErrorActionPreference = "Stop"
     initWorkspace
     $ErrorActionPreference = "Continue"
+    # 前の検索の結果（最後まで検索し終えた要求の記録。語が長くなったとき、前のヒットだけを照合し直すのに使う）
+    $narrowState = @{ Record = $null }
     $pool = if ($workers -gt 1) { newContentIndexWorkerPool $workers } else { $null }
     # 溢れを書いた（かもしれない）tmp の根。ワークスペースを切り替えると、要求の WorkDir が変わるため、起動時の $workspace とは限らない
     $overflowRoots = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -32,8 +34,9 @@ ${searchServiceScript} = {
                 }
             }
             if ($requestRoot) { [void]$overflowRoots.Add($requestRoot) }
-            invokeSearchRequest $request $pool $cache
-            if ($cache) {
+            invokeSearchRequest $request $pool $cache $narrowState
+            # 絞った要求は何も読まないので、整理しない（直前の全体の検索で使った内容を追い出さないため）
+            if ($cache -and !$request.Narrowed) {
                 [void](trimTsvTextCache $cache)
             }
         }
