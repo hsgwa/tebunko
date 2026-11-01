@@ -85,6 +85,11 @@ class Workspace {
     # OldIndexDir・OldStatusFile・LegacyIndexDir は、あれば前の版のワークスペースとして tebunko のものと扱う（あるものだけが WorkspaceMover.ListEntries で拾われる）
     # 前の版の取り込み中のファイルの記録（ワークスペース直下の ingesting.txt）は含めない。新しい版は始めに 1 度だけ読んで消す一時的な跡で、
     # 移すときに残っても取り込み直しが増えるだけ（取り込み一覧が前回のままなので、止まったファイルは更新ありのまま次の回で取り込まれる）
+    # クロールから外す、tebunko のフォルダ・ファイル。Entries() に、移さないもの（処理の記録 TraceDir。診断用）を足す
+    [string[]] OwnedEntries() {
+        return @($this.Entries()) + @($this.TraceDir)
+    }
+
     [string[]] Entries() {
         return @($this.StoreDir, $this.OldIndexDir, $this.OldStatusFile, $this.LegacyIndexDir,
             $this.LockFile, $this.IndexingLogFile, $this.GuiErrorLogFile,

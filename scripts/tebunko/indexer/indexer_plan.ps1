@@ -95,7 +95,7 @@ function removeBookDir {
 
 function getTebunkoExcludeDirs {
     # 除外するフォルダ（tebunko が作ったワークスペース）の一覧を返す。
-    #   ・今のワークスペース（$workspace.Entries()。本文インデックスの置き場 store・前の版の content_index と index・system_index 等）
+    #   ・今のワークスペース（$workspace.OwnedEntries()。Entries() に処理の記録の trace を足したもの。本文インデックスの置き場 store・前の版の content_index と index・system_index 等）
     #   ・スキャンで見つけたファイルの中に、ほかのワークスペースの目印があれば、そのフォルダの Entries() も外す
     #     目印は、前の版の取り込み一覧（ワークスペース直下の ingest_status.tsv）・今の版の取り込み一覧（store\ingest_status.tsv）・
     #     今の版の目録（store\format.tsv。ありふれた名前なので、親が store で、中身が目録として読めるときだけ）
@@ -110,7 +110,7 @@ function getTebunkoExcludeDirs {
     $formatFileName = [System.IO.Path]::GetFileName($workspace.FormatFile)
     $storeDirName = [System.IO.Path]::GetFileName($workspace.StoreDir)
     $dirs = New-Object System.Collections.Generic.List[string]
-    $dirs.AddRange([string[]]$workspace.Entries())
+    $dirs.AddRange([string[]]$workspace.OwnedEntries())
     foreach ($file in $scannedFiles) {
         if ($file.Name -ne $statusFileName -and $file.Name -ne $formatFileName) {
             continue
@@ -137,7 +137,7 @@ function getTebunkoExcludeDirs {
             $otherDir = [System.IO.Path]::GetDirectoryName($otherDir)
         }
         if ($otherDir) {
-            $dirs.AddRange([string[]]([Workspace]::new($otherDir).Entries()))
+            $dirs.AddRange([string[]]([Workspace]::new($otherDir).OwnedEntries()))
         }
     }
     return @($dirs | Where-Object { $_ } | Select-Object -Unique)

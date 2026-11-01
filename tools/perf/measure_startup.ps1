@@ -34,7 +34,7 @@ function getStartupTraceDefs {
         @{ Key = "04 画面の組み立て（Loaded）"; Label = "多重起動の判定・ワークスペース・XAML と部品の読み込み（→ Loaded）"; Previous = "stepSplash 50"; Kind = "mark" }
         @{ Key = "05 窓が出る（ContentRendered）"; Label = "窓が出る（Loaded → ContentRendered）"; Previous = "04 画面の組み立て（Loaded）"; Kind = "mark" }
         @{ Key = "06 起動時の読み込み（画面のスレッドの分）"; Label = "起動時の読み込み（画面のスレッドの分）"; Previous = "05 窓が出る（ContentRendered）"; Kind = "mark" }
-        @{ Key = "07 インデックスのツリーが画面に入る"; Label = "ツリー・一覧が画面に入る（裏の列）"; Previous = "06 起動時の読み込み（画面のスレッドの分）"; Kind = "mark" }
+        @{ Key = "07 インデックスのツリーが画面に入る"; Label = "ツリーが画面に入る（裏の列）"; Previous = "06 起動時の読み込み（画面のスレッドの分）"; Kind = "mark" }
         @{ Key = "08 検索の司令の用意が済む"; Label = "検索の司令のスレッドの用意が済む（共通部品の読み込み後から。画面と並んで進む）"; Previous = "stepSplash 50"; Kind = "mark" }
         @{ Key = "09 検索の送り"; Label = "検索の送り（ツリーが入ってから。道具が語を入れて押す）"; Previous = "07 インデックスのツリーが画面に入る"; Kind = "mark" }
         @{ Key = "10 表に最初の行が出る"; Label = "表に最初の行が出る"; Previous = "09 検索の送り"; Kind = "mark" }

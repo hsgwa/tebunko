@@ -76,6 +76,19 @@ Describe "処理の記録の区切りの入れ所" -Tag Meta {
         $hits.Count | Should -BeGreaterThan 0
     }
 
+    It "GetNewClosure() したスクリプトブロックの中に、markTrace・writeTrace を直接書かない（クロージャの中からは関数を名前で呼べない）" {
+        $found = New-Object System.Collections.Generic.List[string]
+        foreach ($file in Get-ChildItem -LiteralPath "${scriptsDir}\tebunko" -Recurse -Filter "*.ps1") {
+            $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$null)
+            $closures = $ast.FindAll({ param ($n) $n -is [System.Management.Automation.Language.InvokeMemberExpressionAst] -and "$($n.Member.Value)" -eq "GetNewClosure" -and $n.Expression -is [System.Management.Automation.Language.ScriptBlockExpressionAst] }, $true)
+            foreach ($closure in $closures) {
+                $calls = $closure.Expression.FindAll({ param ($n) $n -is [System.Management.Automation.Language.CommandAst] -and $n.GetCommandName() -in @("markTrace", "writeTrace") }, $true)
+                foreach ($call in $calls) { $found.Add("$($file.Name):$($call.Extent.StartLineNumber)") }
+            }
+        }
+        @($found) | Should -BeNullOrEmpty
+    }
+
     It "markTrace・writeTrace に渡す区分は、決めた 6 つだけ" {
         $known = @("startup", "search", "preview", "archive", "workspace", "index")
         $used = @(Get-ChildItem -LiteralPath "${scriptsDir}\tebunko" -Recurse -Filter "*.ps1" | Select-String -Pattern '(?:markTrace|writeTrace)\s+"([^"]+)"' |

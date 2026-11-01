@@ -42,7 +42,14 @@ Describe "Workspace" -Tag Unit {
         @((getIndexSummary).Missing) | Should -Be @("$TestDrive\別\store\content")
     }
 
-    It "Entries() が前の版の index（LegacyIndexDir）と一時フォルダ（TmpRoot）を含む" {
+    It "OwnedEntries() は Entries() に処理の記録（TraceDir）を足す。Entries()（移すもの）には TraceDir を入れない" {
+$target = [Workspace]::new("C:\ws")
+@($target.OwnedEntries()) | Should -Contain $target.TraceDir
+@($target.OwnedEntries()) | Should -Contain $target.StoreDir
+@($target.Entries()) | Should -Not -Contain $target.TraceDir
+}
+
+It "Entries() が前の版の index（LegacyIndexDir）と一時フォルダ（TmpRoot）を含む" {
         $target = [Workspace]::new("$TestDrive\entries")
 
         @($target.Entries()) | Should -Contain $target.LegacyIndexDir

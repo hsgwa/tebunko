@@ -104,6 +104,21 @@ Describe "markTrace・writeTrace" -Tag Io {
         ($rows[0] -split "`t")[3] | Should -Be "a b  c"
     }
 
+    It "initTrace をやり直すと、前の控えと -Once の印は持ち越さない" {
+        markTrace "startup" "前の控え"
+        writeTrace "startup" $traceDir -Once
+        markTrace "search" "書かれていない控え"
+
+        initTrace "startup,search"
+        markTrace "startup" "新しい控え"
+        markTrace "search" "新しい検索の控え"
+        writeTrace "startup" $traceDir
+        writeTrace "search" $traceDir
+
+        $names = @(readTraceRows $traceDir | ForEach-Object { ($_ -split "`t")[3] })
+        $names | Should -Be @("前の控え", "新しい控え", "新しい検索の控え")
+    }
+
     It "-Once で書いた区分は、以後 markTrace しても控えが増えない（2 回目の検索の形）" {
         markTrace "startup" "起動"
         writeTrace "startup" $traceDir -Once

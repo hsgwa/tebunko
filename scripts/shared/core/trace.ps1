@@ -32,6 +32,9 @@ function initTrace {
     $state = $script:traceState
     $state.Categories = @{}
     $state.All = $false
+    # 控えと -Once の印も作り直す（指定を替えたら、前の控えを持ち越さない）
+    $state.Buffers = @{}
+    $state.Closed = @{}
     $state.Spec = "$Spec"
     foreach ($name in @("$Spec".Split(","))) {
         $trimmed = $name.Trim()
