@@ -78,7 +78,7 @@ Pester 5 はテストを「探す段階」と「流す段階」に分けて動�
 | `Unit` | ファイルに触らないもの（判断層、画面の部品を偽物にしたもの） | 不要 | する |
 | `Io` | ファイルの読み書き（`$TestDrive` の中で完結する） | 不要 | する |
 | `Meta` | 構成を守るテスト・安全性の検査 | 不要（PSScriptAnalyzer があれば静的解析も行う） | する |
-| `Office` | Excel・Word・PowerPoint の COM を実際に動かすもの（`indexer.Tests.ps1` の「利用者のPowerPointが起動している場合」。ほかは `Mock` で確かめる） | 必要 | しない（`-All` で実行） |
+| `Office` | Excel・Word・PowerPoint の COM を実際に動かすもの（`indexer.Tests.ps1` の「利用者のPowerPointが起動している場合」と、`indexer_office.Tests.ps1` の `indexer.ps1` の通し・本文インデックスの全文の比べ。ほかは `Mock` で確かめる。`.\tests\run.ps1 -Tag Office -Path tests\tebunko\indexer\indexer_office.Tests.ps1`） | 必要 | しない（`-All` で実行） |
 | `Gui` | 本物の画面（`scripts/tebunko/gui.ps1`）を別のプロセスで開いて UI オートメーションで操作するもの（`tests/gui/`。[画面のスモークテスト](gui-smoke.md)） | 不要（Windows の画面が要る。ランナーの Windows で動く） | しない（`-Tag Gui`・`-All` で実行。CI は `gui.yml`） |
 | `Slow` | 時間のかかるもの（検索・本文インデックスの作成・取り込みの速さの回帰テスト。`tests/tools/perf_*.Tests.ps1`。[`perf-check.yml`](perf-check.md)） | 検索の側は tebunko-perfdata（データを作るスクリプトのリポジトリ）が要る | しない（`-All` または `-Tag Slow` で実行） |
 | `Manual` | 手で確かめるもの（今は該当するテストが無い） | – | しない（`-All` でも実行しない） |
@@ -98,6 +98,12 @@ Pester 5 はテストを「探す段階」と「流す段階」に分けて動�
 ```
 
 いずれも失敗したテストの数を終了コードにする（フックと CI が見る）。1 件も実行しなかったときも失敗にする（終了コード 1）。タグの打ち間違いで、何も確かめないまま通るのを防ぐため。
+
+### snapshot の作り直し
+
+抽出した結果（本文インデックスのファイルの全文）を期待値のファイルと比べるテストがある（`tests/tebunko/indexer/indexer_office.Tests.ps1`。比べる関数は `tests/helpers/snapshot.ps1` の `assertSnapshot`）。期待値は `tests/testdata/snapshot/`（Office が要る形式は `office/`、要らない形式は `io/`。UTF-8（BOM なし）・LF）。違えば最初に違う行を出して落ちる。
+
+本文インデックスの形式の版を上げる、取り出しの中身を変えるなど、期待値が変わるのが正しい変更のときは、環境変数 `TEBUNKO_UPDATE_SNAPSHOT=1` を付けて流すと、比べずに期待値を書き直す。Office が要る形式（`office/`）は Office の入った機械で `-Tag Office` を付けて流す。書き直した差分を PR に載せ、変わった行が意図どおりかを確かめる。
 
 Pester 5 は除外（`ExcludeTag`）をタグ（`Tag`）より優先するため、`-Tag` に明示したタグは既定の除外から取り除く（`-Tag Slow`・`-Tag Gui` が 0 件にならない）。`-ExcludeTag` を渡すと既定の除外が丸ごと置き換わる（`-Tag Slow -ExcludeTag Manual` は今までどおり動く）。
 
