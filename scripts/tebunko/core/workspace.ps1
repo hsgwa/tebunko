@@ -49,6 +49,8 @@ class Workspace {
     # このツールが起動した Office の PID の記録の置き場所（下は <PC の鍵>\<PID>.txt と分かれる。getOfficePidDir・shared/office/office_process.ps1）。
     # 画面を起動したとき、前回残った Office を確認して止めるために使う。tmp の下には置かない（tmp は片付けで消える場所で、記録は画面ごと落ちた後に読むため）
     [string]$OfficePidRoot
+    # 処理の記録（shared/core/trace.ps1。環境変数 TEBUNKO_TRACE を付けて起動したときだけできる診断用のフォルダ。ワークスペースを移すときには移さない）
+    [string]$TraceDir
 
     Workspace([string]$dir) {
         $this.Dir = $dir
@@ -74,6 +76,7 @@ class Workspace {
         $this.GuiErrorLogPreviousFile = "$dir\gui_error_log_previous.txt"
         $this.TmpRoot = "$dir\tmp"
         $this.OfficePidRoot = "$dir\office_pids"
+        $this.TraceDir = "$dir\trace"
     }
 
     # ワークスペースを移すときに移すもの（tebunko が作るファイル・フォルダ）。利用者のほかのファイルは含めない。

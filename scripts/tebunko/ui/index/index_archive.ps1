@@ -15,6 +15,8 @@ function startIndexArchiveJob {
         $progress = $null            # 仕事が進み具合を書く入れ物（[hashtable]::Synchronized(@{ Done; Total })）。あれば帯に出す
     )
 
+    markTrace "archive" "${operation}: 始め"
+    $script:archiveTraceProgress = $false
     $script:archiveBusy = $true
     $script:archiveJobOperation = $operation
     $script:archiveJobOnSuccess = $onSuccess
@@ -25,18 +27,22 @@ function startIndexArchiveJob {
     }
     startJob $scriptBlock $arguments {
         param ($output, $errorText)
+        markTrace "archive" "$($script:archiveJobOperation): 裏の仕事の終わり"
         $script:archiveBusy = $false
         stopImportProgress
         setExportingRows @()
         if ($errorText) {
             setStatus "$($script:archiveJobOperation)に失敗しました：${errorText}"
             updateIndexingButton
+            writeTrace "archive" $workspace.TraceDir
             return
         }
         if ($output -and $output.Count -gt 0 -and $script:archiveJobOnSuccess) {
             & $script:archiveJobOnSuccess $output[0]
         }
         updateIndexingButton
+        markTrace "archive" "$($script:archiveJobOperation): 一覧・ツリーの読み直しの終わり"
+        writeTrace "archive" $workspace.TraceDir
     } (getWorkspaceJobQueue (@($workspace.Dir) + @($paths)))
 }
 
@@ -60,6 +66,10 @@ function startImportProgress {
 function updateImportProgress {
     if ($null -eq $script:importProgress) {
         return
+    }
+    if (-not $script:archiveTraceProgress -and [long]$script:importProgress.Done -gt 0) {
+        $script:archiveTraceProgress = $true
+        markTrace "archive" "$($script:archiveJobOperation): 最初の進み具合"
     }
     $view = getImportProgressView ([long]$script:importProgress.Done) ([long]$script:importProgress.Total)
     $ui.IndexingProgress.IsIndeterminate = $view.Indeterminate

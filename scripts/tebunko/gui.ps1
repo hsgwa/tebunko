@@ -14,6 +14,12 @@
 . ([WildcardPattern]::Escape("$PSScriptRoot\ui\startup_error.ps1".Replace('`', '``')))
 
 try {
+    # 処理の記録（shared/core/trace.ps1）。環境変数 TEBUNKO_TRACE（区分名をカンマで並べる。* で全部。無ければ記録しない）を読むのはここだけ。
+    # 経過の起点は、このプロセスの起動時刻（記録を入れるときだけ調べる）
+    . ([WildcardPattern]::Escape("$PSScriptRoot\..\shared\core\trace.ps1".Replace('`', '``')))
+    $script:traceSpec = $env:TEBUNKO_TRACE
+    initTrace $script:traceSpec $(if ($script:traceSpec) { [System.Diagnostics.Process]::GetCurrentProcess().StartTime.ToUniversalTime().Ticks } else { 0 })
+    markTrace "startup" "01 PowerShell の起動"
     Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms
 
     # ---- 起動中の表示 ----

@@ -239,6 +239,7 @@ BeforeAll {
         @{ File = "tebunko\core\text_ext_counts.ps1"; Owner = "writeTextExtCountsTable"; Calls = @("Delete", "Move", "WriteAllText"); Reason = "拡張子ごとの件数の控え（ワークスペースの store\text_ext_counts.json）を、一時ファイルを経由して置き換える" }
         @{ File = "shared\core\csv_writer.ps1"; Owner = "writeCsvFile"; Calls = @("CopyTo", "FileAccess.Write", "FileMode.Create", "FileStream::new"); Reason = "検索結果を CSV・TSV に書く（利用者が選んだ出力先の隣の一時ファイル）" }
         @{ File = "shared\core\close_trace.ps1"; Owner = "writeCloseTrace"; Calls = @("AppendAllText"); Reason = "閉じる処理の診断記録に追記する（ログの置き場）" }
+        @{ File = "shared\core\trace.ps1"; Owner = "writeTrace"; Calls = @("AppendAllText"); Reason = "処理の記録（ワークスペースの trace フォルダ）に追記する（診断用。環境変数 TEBUNKO_TRACE を付けたときだけ。ネットワークの場所には書かない）" }
         @{ File = "shared\core\data_dir.ps1"; Owner = "testWritableFolder"; Calls = @("FileAccess.Write", "FileMode.CreateNew", "New-Object FileStream"); Reason = "設定の置き場に書けるかを、使い捨てのファイル（その場で消す）で確かめる。置き場は呼ぶ側が決めたツールのフォルダ" }
         @{ File = "shared\core\diagnostics.ps1"; Owner = "rotateLogFile"; Calls = @("Move", "Replace"); Reason = "診断ログの世代を入れ替える（ログの置き場の中）" }
         @{ File = "shared\core\fs.ps1"; Owner = "copyFileShared"; Calls = @("CopyTo", "FileAccess.Write", "FileMode.Create", "New-Object FileStream"); Reason = "元のファイルは読み取りだけで開き、書くのは作業フォルダの写し（書き先は呼ぶ側が作業フォルダから組み立てる）" }

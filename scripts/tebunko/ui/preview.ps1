@@ -35,6 +35,7 @@ function clearDetail {
 }
 
 function showDetail {
+    markTrace "preview" "行を選ぶ"
     $row = getCurrentHitRow
     if ($null -eq $row) {
         clearDetail
@@ -129,6 +130,8 @@ function applyDetail {
     $ui.PreviewScroll.UpdateLayout()
     updatePreviewWindow $offset
     updatePreviewReadMore
+    markTrace "preview" "本文が入る"
+    writeTrace "preview" $workspace.TraceDir
 }
 
 function updatePreviewWindow {
@@ -199,6 +202,7 @@ function startReadMore {
     # 読む行・番号は、読み足す表のもの（行を切り替えている間も、古い表に別の行の番号を混ぜない）
     $table = $script:previewTable
     $row = $table.Owner
+    markTrace "preview" "続きを読む: 始め ($($request.Side))"
     $table.ShowMessage($request.Side, "読み込み中…")
     startJob {
         param ($id, $side, $path, $book, $location, $first, $count, $cache, $marks)
@@ -300,6 +304,8 @@ function applyReadMore {
     # 読み足した行に列が増えていれば、列の範囲を決め直す（右の空きの幅が変わる）。見えている行のセルも作る
     updatePreviewWindow
     updatePreviewReadMore
+    markTrace "preview" "続きを読む: 表に入る ($side)"
+    writeTrace "preview" $workspace.TraceDir
 }
 
 function fitPreviewWidth {

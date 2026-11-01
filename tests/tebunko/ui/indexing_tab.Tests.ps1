@@ -31,7 +31,7 @@ BeforeAll {
     # 画面の型を使うファイルは読み込まず、必要な関数だけを取り出す
     # （dot-source は、この場の scope で行う）
     foreach ($source in @(
-            @{ File = "${scriptsDir}\tebunko\ui\indexing_tab.ps1"; Names = @("startIndexing", "finishWorkspaceCheck", "confirmIndexingTargets", "changeIndexingTextExtensions", "restartIndexingIfRequested", "startIndexingForRestart", "waitAndRestartIndexing", "getIndexingScanText", "finishIndexing", "finishImportConfirm", "applyImportConfirmText", "updateIndexingConfirmTotal") }
+            @{ File = "${scriptsDir}\tebunko\ui\indexing_tab.ps1"; Names = @("startIndexing", "finishWorkspaceCheck", "confirmIndexingTargets", "changeIndexingTextExtensions", "restartIndexingIfRequested", "startIndexingForRestart", "waitAndRestartIndexing", "getIndexingScanText", "finishIndexing", "showIndexingFinishCounts", "finishImportConfirm", "applyImportConfirmText", "updateIndexingConfirmTotal") }
             @{ File = "${scriptsDir}\tebunko\ui\index\index_list.ps1"; Names = @("isIndexing", "isIndexingOrPreparing") }
         )) {
         $ast = [System.Management.Automation.Language.Parser]::ParseFile($source.File, [ref]$null, [ref]$null)
