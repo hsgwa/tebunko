@@ -4498,7 +4498,7 @@
 <p>いずれも失敗したテストの数を終了コードにする（フックと CI が見る）。1 件も実行しなかったときも失敗にする（終了コード 1）。タグの打ち間違いで、何も確かめないまま通るのを防ぐため。</p>
 <h3 id="snapshot-の作り直し">snapshot の作り直し<a class="headerlink" href="#snapshot-の作り直し" title="Permanent link">&para;</a></h3>
 <p>抽出した結果（本文インデックスのファイルの全文）を期待値のファイルと比べるテストがある（<code>tests/tebunko/indexer/indexer_office.Tests.ps1</code>。比べる関数は <code>tests/helpers/snapshot.ps1</code> の <code>assertSnapshot</code>）。期待値は <code>tests/testdata/snapshot/</code>（Office が要る形式は <code>office/</code>、要らない形式は <code>io/</code>。UTF-8（BOM なし）・LF）。違えば最初に違う行を出して落ちる。</p>
-<p>本文インデックスの形式の版を上げる、取り出しの中身を変えるなど、期待値が変わるのが正しい変更のときは、環境変数 <code>TEBUNKO_UPDATE_SNAPSHOT=1</code> を付けて流すと、比べずに期待値を書き直す。Office が要る形式（<code>office/</code>）は Office の入った機械で <code>-Tag Office</code> を付けて流す。書き直した差分を PR に載せ、変わった行が意図どおりかを確かめる。</p>
+<p>本文インデックスの形式の版を上げる、取り出しの中身を変えるなど、期待値が変わるのが正しい変更のときは、環境変数 <code>TEBUNKO_UPDATE_SNAPSHOT=1</code> を付けて流すと、比べずに期待値を書き直す。Office が要る形式（<code>office/</code>）は Office の入った機械で <code>-Tag Office</code> を付けて流す。書き直した差分を PR に載せ、変わった行が意図どおりかを確かめる。書き直したときは、書き直したファイルを <code>Write-Warning</code> に出す。CI（環境変数 <code>CI</code> が <code>true</code>）で <code>TEBUNKO_UPDATE_SNAPSHOT=1</code> が立っていたら、書き直さずに例外にする（期待値を黙って上書きして通らないように）。</p>
 <p>Pester 5 は除外（<code>ExcludeTag</code>）をタグ（<code>Tag</code>）より優先するため、<code>-Tag</code> に明示したタグは既定の除外から取り除く（<code>-Tag Slow</code>・<code>-Tag Gui</code> が 0 件にならない）。<code>-ExcludeTag</code> を渡すと既定の除外が丸ごと置き換わる（<code>-Tag Slow -ExcludeTag Manual</code> は今までどおり動く）。</p>
 <p><code>-Tag</code>・<code>-ExcludeTag</code> はカンマ区切りの文字列でも受け取る。<code>powershell.exe -File</code> で呼ぶと <code>-Tag Unit,Meta</code> は配列にならず 1 つの文字列で渡るため（pre-commit フックがこの呼び方）。</p>
 <p><strong>カバレッジ</strong></p>
