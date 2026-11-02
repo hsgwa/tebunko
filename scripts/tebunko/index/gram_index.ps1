@@ -25,14 +25,12 @@ ${gramSegmentLimit} = 8
 ${gramBatchPostings} = 12000000
 
 function testGramIndexUsable {
-    # gram 索引で絞れるか。文字どおりに探すとき（simpleMatch）で、検索語から 2-gram を作れるとき（grams は getSearchGramValues の結果）だけ $true
-    # （正規表現では、必ず含まれる文字を決められないため絞れない）
+    # gram 索引で絞れるか。検索語（正規表現なら必ず含まれる文字）から 2-gram を作れるとき（grams は getSearchGramValues の結果）だけ $true
     param (
-        [bool]$simpleMatch,
         [uint32[]]$grams
     )
 
-    return ($simpleMatch -and $grams.Count -gt 0)
+    return ($grams.Count -gt 0)
 }
 
 function getGramSegmentLayout {
