@@ -141,6 +141,39 @@ Describe "invokeSearchRequest" -Tag Io {
         $request.Error | Should -Be "読めません"
         $request.Finished | Should -Be $true
     }
+
+    It "処理の記録（search）を入れると、司令の分の始めと、終わり（<Reason>）を、ワークスペースの trace に書く" -TestCases @(
+        @{ Reason = "done"; Stop = $false; Throw = $false }
+        @{ Reason = "cancelled"; Stop = $true; Throw = $false }
+        @{ Reason = "error"; Stop = $false; Throw = $true }
+    ) {
+        initTrace "search"
+        try {
+            if ($Throw) { Mock getContentIndexFiles { throw "読めません" } }
+            $workDir = Join-Path $TestDrive ("trace_ws_" + $Reason)
+            $request = newSearchRequest "単価" $true @($contentIndexRoot) 0 -workDir $workDir
+            $request.Stop = $Stop
+
+            invokeSearchRequest $request
+
+            $traceDir = ([Workspace]::new($workDir)).TraceDir
+            $text = [System.IO.File]::ReadAllText(@(Get-ChildItem -LiteralPath $traceDir -Filter "*.tsv")[0].FullName, [System.Text.Encoding]::UTF8)
+            $text | Should -Match "search\t司令: 受け取り"
+            $text | Should -Match ("search\t司令: 終わり \(" + $Reason + "\)")
+        } finally {
+            initTrace ""
+        }
+    }
+
+    It "処理の記録を入れなければ、trace のフォルダを作らない" {
+        initTrace ""
+        $workDir = Join-Path $TestDrive "trace_ws_off"
+        $request = newSearchRequest "単価" $true @($contentIndexRoot) 0 -workDir $workDir
+
+        invokeSearchRequest $request
+
+        Test-Path -LiteralPath ([Workspace]::new($workDir)).TraceDir | Should -Be $false
+    }
 }
 
 Describe "invokeSearchRequest（どの段で中止されても、先の段に進まない）" -Tag Io {
@@ -201,6 +234,7 @@ Describe "invokeSearchRequest（どの段で中止されても、先の段に進
             initSearchOverflow = "検索の始めに 1 回、溢れの置き場所を決めるだけ（検索の中身の段ではない）"
             tryNarrowSearch = "絞る段。列挙の後と選んだ後で自分で中止を見る（search_narrow.Tests.ps1）"
             updateSearchRecord = "最後まで終えた後に、次の要求のための記録を置き換えるだけ"
+            setSearchResult = "searchContentIndex の結果を要求に入れるだけ（照合は終わっている）"
         }
         $parse = { param ($path) [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$null) }
         $defined = New-Object System.Collections.Generic.HashSet[string]
@@ -211,7 +245,8 @@ Describe "invokeSearchRequest（どの段で中止されても、先の段に進
                 }
             }
         }
-        $body = (Get-Command invokeSearchRequest).ScriptBlock.Ast
+        # invokeSearchRequest は処理の記録を足して invokeSearchRequestBody を呼ぶだけ。段は本体にある
+        $body = (Get-Command invokeSearchRequestBody).ScriptBlock.Ast
         $called = @($body.FindAll({ param ($node) $node -is [System.Management.Automation.Language.CommandAst] }, $true) |
                 ForEach-Object { $_.GetCommandName() } | Where-Object { $_ -and $defined.Contains($_) } | Sort-Object -Unique)
         $called.Count | Should -BeGreaterThan 0
@@ -251,7 +286,42 @@ Describe "SearchService" -Tag Io {
         }
     }
 
-    It "語が長くなった次の要求は前の結果から絞り、読んだ内容の整理（世代を進める）をしない" {
+    It "処理の記録（search）を入れると、司令のスレッドが同じ起点で記録を書き、用意が済んだ時刻を画面のスレッドが読める" {
+    initTrace "search"
+    $workDir = Join-Path $TestDrive "service_trace_ws"
+    $service = newSearchService (newTsvTextCache) 1
+    try {
+        $request = $service.Request((newSearchRequest "単価" $true @($contentIndexRoot) 0 -workDir $workDir))
+        waitRequest $request | Should -Be $true
+        $service.GetReadyTicks() | Should -BeGreaterThan 0
+        # 記録は Finished を立てたあとに書く。少し待つ
+        $traceDir = ([Workspace]::new($workDir)).TraceDir
+        $watch = [System.Diagnostics.Stopwatch]::StartNew()
+        while (-not (Test-Path -LiteralPath $traceDir) -and $watch.Elapsed.TotalSeconds -lt 10) { Start-Sleep -Milliseconds 20 }
+        $text = [System.IO.File]::ReadAllText(@(Get-ChildItem -LiteralPath $traceDir -Filter "*.tsv")[0].FullName, [System.Text.Encoding]::UTF8)
+        $text | Should -Match "search\t司令: 受け取り"
+        $text | Should -Match "search\t司令: 終わり \(done\)"
+    } finally {
+        $service.Close()
+        initTrace ""
+    }
+}
+
+It "処理の記録を入れなければ、用意が済んだ時刻は 0 のままで、記録のファイルは作らない" {
+    initTrace ""
+    $workDir = Join-Path $TestDrive "service_notrace_ws"
+    $service = newSearchService (newTsvTextCache) 1
+    try {
+        $request = $service.Request((newSearchRequest "単価" $true @($contentIndexRoot) 0 -workDir $workDir))
+        waitRequest $request | Should -Be $true
+        $service.GetReadyTicks() | Should -Be 0
+        Test-Path -LiteralPath ([Workspace]::new($workDir)).TraceDir | Should -Be $false
+    } finally {
+        $service.Close()
+    }
+}
+
+It "語が長くなった次の要求は前の結果から絞り、読んだ内容の整理（世代を進める）をしない" {
         $cache = newTsvTextCache
         $service = newSearchService $cache 2
         try {

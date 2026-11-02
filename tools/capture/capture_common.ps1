@@ -9,7 +9,7 @@
 ${captureIds} = @(
     "window/about", "window/close-confirm", "window/settings-broken",
     "window/leftover", "window/leftover-open", "window/leftover-many", "window/leftover-search", "window/leftover-killed", "window/leftover-partial",
-    "index-tab/empty", "index-tab/normal", "index-tab/interrupted",
+    "index-tab/empty", "index-tab/normal", "index-tab/unselected", "index-tab/interrupted",
     "index-tab/delete-confirm", "index-tab/checked", "index-tab/start-confirm", "index-tab/cloud-confirm",
     "index-tab/top-only", "index-tab/start-confirm-top-only", "index-tab/text-extensions", "index-tab/confirm-text-extensions", "index-tab/import-confirm",
     "index-tab/running", "index-tab/stop-confirm", "index-tab/done", "index-tab/failed", "index-tab/files",

@@ -47,7 +47,6 @@ BeforeAll {
         @{ Name = "indexer_run.ps1:completeIngestJob"; Lines = 90; Depth = 3; Reason = "今ある長い・深い関数。分けるのは、この関数を触る refactor で行う" }
         @{ Name = "indexer_run.ps1:invokeIndexerBody"; Lines = 509; Depth = 5; Reason = "今ある長い・深い関数。分けるのは、この関数を触る refactor で行う" }
         @{ Name = "indexer_run.ps1:invokeIngestTask"; Lines = 111; Depth = 3; Reason = "今ある長い・深い関数。分けるのは、この関数を触る refactor で行う" }
-        @{ Name = "indexing_tab.ps1:finishIndexing"; Lines = 84; Depth = 2; Reason = "今ある長い・深い関数。分けるのは、この関数を触る refactor で行う" }
         @{ Name = "indexing_tab.ps1:updateIndexingProgress"; Lines = 90; Depth = 3; Reason = "今ある長い・深い関数。分けるのは、この関数を触る refactor で行う" }
         @{ Name = "office_app.ps1:OfficeWatchdog.Start"; Lines = 96; Depth = 5; Reason = "今ある長い・深い関数。分けるのは、この関数を触る refactor で行う" }
         @{ Name = "office_embedded.ps1:readEmbeddedPackageLines"; Lines = 43; Depth = 5; Reason = "今ある長い・深い関数。分けるのは、この関数を触る refactor で行う" }
