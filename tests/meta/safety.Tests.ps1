@@ -1223,5 +1223,8 @@ Invoke-Item $y
         $choice = getFunctionText "getTextEditorChoice"
         $choice | Should -Match 'testTextEditorPath'
         $choice | Should -Not -Match 'Invoke-Item|openWithShell'
+        # 別の名前にコピーしたスクリプトを動かすプログラムは、版の情報の元の名前で拒む（読んでから起動する）
+        $editor | Should -Match 'getTextEditorVersionNames'
+        $choice | Should -Match 'testTextEditorDeniedByVersion'
     }
 }

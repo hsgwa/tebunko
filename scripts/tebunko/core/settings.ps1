@@ -598,6 +598,21 @@ function readTextExtensionSettings {
     }
 }
 
+function getTextEditorVersionNames {
+    # エディタに指定された実行ファイルの版の情報の「元の名前（OriginalFilename）」と「内部名（InternalName）」を読む（ファイルを読むだけ。プロセスは起動しない）。
+    # 返す値: @{ Ok（読めたか。例外なら $false）; OriginalFilename; InternalName }。版の情報が無ければ Ok は $true で、名前は空
+    param (
+        [string]$path
+    )
+
+    try {
+        $info = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($path)
+        return @{ Ok = $true; OriginalFilename = [string]$info.OriginalFilename; InternalName = [string]$info.InternalName }
+    } catch {
+        return @{ Ok = $false; OriginalFilename = ""; InternalName = "" }
+    }
+}
+
 function writeIndexTextExcludes {
     # そのインデックス（名前）の、取り込まない拡張子を保存する。ほかのインデックス・ほかのキーは保つ（読む → 書くを 1 回の鍵の中で行う）。空なら項目を消す
     param (

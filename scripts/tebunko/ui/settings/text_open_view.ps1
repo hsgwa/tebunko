@@ -165,6 +165,32 @@ function testTextEditorDenied {
     return (${textEditorDenyNames} -contains $name)
 }
 
+function testTextEditorDeniedByVersion {
+    # 実行ファイルの版の情報の元の名前（OriginalFilename）か内部名（InternalName）が、スクリプトや命令を動かすプログラム（${textEditorDenyNames}）か。
+    # 別の名前にコピーしたものを止めるため。末尾は .mui を 1 回、そのあと .exe か .dll を 1 回外す（繰り返さない）。大文字・小文字は区別しない
+    param (
+        $originalFilename,
+        $internalName
+    )
+
+    foreach ($value in @($originalFilename, $internalName)) {
+        if ($value -isnot [string] -or $value -eq "") {
+            continue
+        }
+        $name = $value.Trim().TrimEnd(".", " ").ToLowerInvariant()
+        if ($name.EndsWith(".mui")) {
+            $name = $name.Substring(0, $name.Length - 4)
+        }
+        if ($name.EndsWith(".exe") -or $name.EndsWith(".dll")) {
+            $name = $name.Substring(0, $name.Length - 4)
+        }
+        if (${textEditorDenyNames} -contains $name) {
+            return $true
+        }
+    }
+    return $false
+}
+
 function testTextEditorPath {
     # 設定 textEditorPath の値が、使ってよい形か（文字列だけを見る。ファイルがあるかは openWithEditor の側で確かめる）。
     # ドライブ文字から始まる絶対パスで、拡張子が .exe。UNC・相対・環境変数（%）・引用符・引数付きの書き方、
@@ -196,18 +222,30 @@ function testTextEditorPath {
 function getTextEditorChoice {
     # 「エディタで開く」に使うプログラムを決める。configured は設定 textEditorPath、exists は configured のファイルがあるか（呼ぶ側が調べる）、
     # notepad は固定のメモ帳のパス。返す値: @{ Path（起動するプログラム）; Notice（使えなかったときの知らせ。無ければ空）; Label（画面に出す名前） }
-    # 空ならメモ帳。値があっても、形が正しくない・ファイルが無いときは、既定のアプリには戻さずメモ帳で開き、知らせる
+    # 空ならメモ帳。値があっても、形が正しくない・ファイルが無いときは、既定のアプリには戻さずメモ帳で開き、知らせる。
+    # versionNames: 版の情報（getTextEditorVersionNames の値 @{ Ok; OriginalFilename; InternalName }）。省略は「読んでいない」で、名前だけで決める。
+    # 読めなかった（Ok が $false）とき、元の名前・内部名が表に当たるときは、スクリプトを動かすプログラムとして拒む（どちらも空なら拒まない）
     param (
         $configured,
         [bool]$exists,
-        [string]$notepad
+        [string]$notepad,
+        $versionNames = $null
     )
 
     if ($configured -is [string] -and $configured -ne "") {
-        if ((testTextEditorPath $configured) -and $exists) {
+        $deniedByVersion = $false
+        $unreadable = $false
+        if ($versionNames -is [hashtable]) {
+            if (-not $versionNames.Ok) {
+                $unreadable = $true
+            } else {
+                $deniedByVersion = testTextEditorDeniedByVersion $versionNames.OriginalFilename $versionNames.InternalName
+            }
+        }
+        if ((testTextEditorPath $configured) -and $exists -and -not $deniedByVersion -and -not $unreadable) {
             return @{ Path = $configured; Notice = ""; Label = [System.IO.Path]::GetFileNameWithoutExtension($configured) }
         }
-        if (testTextEditorDenied $configured) {
+        if ((testTextEditorDenied $configured) -or $deniedByVersion) {
             return @{ Path = $notepad; Notice = "設定のエディタ（textEditorPath）は、スクリプトを動かすプログラムのため使えません。メモ帳で開きます。"; Label = "メモ帳" }
         }
         return @{ Path = $notepad; Notice = "設定のエディタ（textEditorPath）が使えないため、メモ帳で開きます。"; Label = "メモ帳" }
