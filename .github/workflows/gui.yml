@@ -58,7 +58,7 @@ jobs:
       # 失敗したときの画面の画像とエラーの記録（work\test\gui\）
       - name: 失敗の材料の保存
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: gui-smoke-results
           path: work/test/gui/
@@ -127,7 +127,7 @@ jobs:
 
       - name: 結果の保存
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: gui-repeat-${{ matrix.shard }}
           path: repeat-results/

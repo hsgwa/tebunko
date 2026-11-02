@@ -1,4 +1,4 @@
-﻿# テストの自動実行（GitHub Actions）
+# テストの自動実行（GitHub Actions）
 #
 # Windows PowerShell 5.1 は windows ランナーに最初から入っている。テストは Pester 5.9.0 で書く（tests\run.ps1 が版を指定して読み込む。
 # ランナーに無ければ入れる）。
@@ -96,7 +96,7 @@ jobs:
 
       - name: テスト結果の保存
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: test-results
           path: work/test/
