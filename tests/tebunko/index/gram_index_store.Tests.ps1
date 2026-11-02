@@ -60,10 +60,12 @@ Describe "gram 索引を作って絞る" -Tag Io {
         }
     }
 
-    It "正規表現・2-gram を作れない語・置き場が無いときは絞らない（\$null）" {
+    It "正規表現でも、必ず含まれる文字で絞る。取り出せない式・2-gram を作れない語・置き場が無いときは絞らない（\$null）" {
         $tree = newGramTree "$TestDrive\s2"
         [void](updateGramIndexOf $tree.Index $tree.Gram "営業")
-        candidateRels "モニター" $tree $false | Should -BeNullOrEmpty
+        candidateRels "モニ.ー" $tree $false | Should -Be "営業\a\content_index.xlsx.001.tsv"
+        candidateRels '^\d{5}\t' $tree $false | Should -BeNullOrEmpty
+        candidateRels "モニ|見積" $tree $false | Should -BeNullOrEmpty
         candidateRels "a" $tree | Should -BeNullOrEmpty
         $none = getGramContentIndexFiles "モニター" $true @($tree.Index) $tree.Index "$TestDrive\s2\nothing"
         $none | Should -BeNullOrEmpty
@@ -524,5 +526,42 @@ Describe "前の版の gram 索引（tests\testdata\compat\gram\v1）が今の�
         } finally {
             closeGramSegments @($segment)
         }
+    }
+}
+
+Describe "正規表現で、候補で照合した結果が全部で照合した結果と同じ" -Tag Io {
+    It "<word>（<name>）" -TestCases @(
+        @{ name = "区別しない"; word = 'モニ.ー'; case = $false; narrow = $true; isNull = $false }
+        @{ name = "区別しない"; word = '見積.*書'; case = $false; narrow = $false; isNull = $false }
+        @{ name = "区別しない"; word = '千代田区 見積\w'; case = $false; narrow = $false; isNull = $false }
+        @{ name = "区別しない"; word = '保守サ+ービス'; case = $false; narrow = $true; isNull = $false }
+        @{ name = "区別しない"; word = '27イン?チ'; case = $false; narrow = $false; isNull = $false }
+        @{ name = "区別しない"; word = 'HELLO.*'; case = $false; narrow = $true; isNull = $false }
+        @{ name = "区別する"; word = 'hello.*'; case = $true; narrow = $true; isNull = $false }
+        @{ name = "区別する"; word = 'Hello.*'; case = $true; narrow = $true; isNull = $false }
+        @{ name = "不正な式は文字どおり"; word = 'a\.bc**'; case = $false; narrow = $true; isNull = $false }
+        @{ name = "不正な式は文字どおり"; word = '見積\.書\1'; case = $false; narrow = $true; isNull = $false }
+        @{ name = "リテラルが無い式"; word = '\d{2}.'; case = $false; narrow = $false; isNull = $true }
+        @{ name = "外側に | を持つ式"; word = 'モニ.ー|Hello'; case = $false; narrow = $false; isNull = $true }
+    ) {
+        $base = "$TestDrive\rx$([guid]::NewGuid().ToString('N'))"
+        $tree = newGramTree $base
+        putContentIndex $tree.Index "営業" "d" "D.xlsx" 'a\.bc** と 見積\.書\1 の文字どおりの行' | Out-Null
+        putContentIndex $tree.Index "営業" "e" "E.xlsx" "見積もり書 見積書 hello 請求書" | Out-Null
+        [void](updateGramIndexOf $tree.Index $tree.Gram "営業")
+        $files = getContentIndexFiles @($tree.Index)
+        $full = searchContentIndex $word $files.ContentIndexFiles $false 0 $null $case
+        $gram = getGramContentIndexFiles $word $false @($tree.Index) $tree.Index $tree.Gram
+        if ($isNull) {
+            $gram | Should -BeNullOrEmpty
+            return
+        }
+        $gram | Should -Not -BeNullOrEmpty
+        if ($narrow) {
+            $gram.Gram.Candidates | Should -BeLessThan $gram.Gram.Total
+        }
+        $narrowed = searchContentIndex $word $gram.ContentIndexFiles $false 0 $null $case
+        $full.Hits.Count | Should -BeGreaterThan 0
+        (@($narrowed.Hits | ForEach-Object { "$($_.RelPath):$($_.LineNumber):$($_.Book)" }) -join "|") | Should -Be (@($full.Hits | ForEach-Object { "$($_.RelPath):$($_.LineNumber):$($_.Book)" }) -join "|")
     }
 }
