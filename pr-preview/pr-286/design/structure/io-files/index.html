@@ -4792,6 +4792,11 @@
 <td>取り込みの作業領域。元のファイルのコピー・抽出途中のファイル</td>
 </tr>
 <tr>
+<td><code>work/trace/&lt;起点の日時&gt;_&lt;PID&gt;_&lt;スレッドの番号&gt;.tsv</code></td>
+<td>追記する</td>
+<td>処理の記録（環境変数 <code>TEBUNKO_TRACE</code> を付けて起動したときだけ。<code>trace.ps1</code>。ネットワークのワークスペースには書かない。docs/design/testing/perf.md）</td>
+</tr>
+<tr>
 <td><code>work/office_pids/&lt;PC の鍵&gt;/&lt;PID&gt;.tmp</code>→<code>&lt;PID&gt;.txt</code></td>
 <td>読む・書く</td>
 <td>このツールが起動した Office の記録（<code>office_process.ps1</code>。<code>.tmp</code> に書いてから <code>.txt</code> に改名）。起動時の確認で読む</td>
@@ -5174,6 +5179,11 @@
 <td><code>office_pids</code></td>
 <td>Office を起動するたびに <code>&lt;PC の鍵&gt;\&lt;PID&gt;.txt</code></td>
 <td>Office を閉じたら消す。残りは画面の起動時の確かめで消す</td>
+</tr>
+<tr>
+<td><code>trace</code>（<code>Entries()</code> には入れない。診断用）</td>
+<td>環境変数 <code>TEBUNKO_TRACE</code> を付けて起動したときだけ、プロセスとスレッドごとに 1 ファイル</td>
+<td>自動では消さない（診断が済んだら、利用者が消してよい）。ワークスペースを移すときも移さない</td>
 </tr>
 </tbody>
 </table>

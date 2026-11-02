@@ -4498,8 +4498,8 @@
 <h2 id="tebunko-が作ったファイルの除外">tebunko が作ったファイルの除外<a class="headerlink" href="#tebunko-が作ったファイルの除外" title="Permanent link">&para;</a></h2>
 <p><code>.tsv</code> <code>.txt</code> などを取り込み対象にすると、tebunko 自身が作るファイル（本文インデックス・取り込み一覧・ログ・検索結果ファイル）まで取り込んでしまい、すべての語が二重にヒットする。<code>findTargetFiles</code>（<code>tebunko/indexer/indexer_plan.ps1</code>）は、クロール対象の拡張子で列挙した後、次のいずれかに当たるファイルを除く。</p>
 <ol>
-<li><strong>今のワークスペース</strong>: <code>$workspace.Entries()</code>（<code>store</code>・前の版の <code>content_index</code>・前の前の版の <code>index</code>・ログ等）の下・そのもの。拡張子にかかわらない。</li>
-<li><strong>ほかの tebunko のワークスペース</strong>: 目印は次の 3 つ。前の版の取り込み一覧（ワークスペース直下の <code>ingest_status.tsv</code>）、今の版の取り込み一覧（<code>store\ingest_status.tsv</code>）、今の版の目録（<code>store\format.tsv</code>）。目録はありふれた名前なので、親が <code>store</code> で、中身が目録として読める（<code>readIndexFormat</code> が <code>Missing</code>・<code>Broken</code> でない）ときだけ目印にする。利用者のフォルダの <code>format.tsv</code> と、ロックされるなどで読めない目録は目印にしない。列挙したファイルの中に目印があれば、そのフォルダ（親が <code>store</code> なら 1 つ上）をワークスペースとみなし、<code>Entries()</code> の下も同じく除く（以前の既定の場所・切り替える前のワークスペース・ほかの人のワークスペースに対応）。</li>
+<li><strong>今のワークスペース</strong>: <code>$workspace.OwnedEntries()</code>（<code>Entries()</code> に処理の記録の <code>trace</code> を足したもの。<code>store</code>・前の版の <code>content_index</code>・前の前の版の <code>index</code>・ログ等）の下・そのもの。拡張子にかかわらない。</li>
+<li><strong>ほかの tebunko のワークスペース</strong>: 目印は次の 3 つ。前の版の取り込み一覧（ワークスペース直下の <code>ingest_status.tsv</code>）、今の版の取り込み一覧（<code>store\ingest_status.tsv</code>）、今の版の目録（<code>store\format.tsv</code>）。目録はありふれた名前なので、親が <code>store</code> で、中身が目録として読める（<code>readIndexFormat</code> が <code>Missing</code>・<code>Broken</code> でない）ときだけ目印にする。利用者のフォルダの <code>format.tsv</code> と、ロックされるなどで読めない目録は目印にしない。列挙したファイルの中に目印があれば、そのフォルダ（親が <code>store</code> なら 1 つ上）をワークスペースとみなし、<code>OwnedEntries()</code> の下も同じく除く（以前の既定の場所・切り替える前のワークスペース・ほかの人のワークスペースに対応）。</li>
 <li><strong>名前で分かる tebunko のファイル</strong>: 本文インデックス（<code>content_index.*.tsv</code>）・前の版の集約ファイル（<code>content.*.tsv</code>）・前の版のシステムインデックス（<code>system_index*.txt</code>・<code>システムインデックス*.txt</code>）は、どこにあっても除く。</li>
 <li><strong><code>~$</code> で始まる一時ファイル</strong>（既存の除外をそのまま続ける）。</li>
 </ol>
