@@ -4,4 +4,4 @@
 #   pip-compile --generate-hashes --strip-extras tools/mkdocs/requirements.in
 # MkDocs 2.0 は Material テーマ・プラグインと互換がないため 1 系にとどめる
 mkdocs>=1.6,<2
-mkdocs-material==9.7.7
+mkdocs-material==9.8.0
