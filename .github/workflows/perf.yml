@@ -1,4 +1,4 @@
-﻿# 性能とリソースを手動で測る（Office からの取り込み・インデックス作成・検索・入力しながらの検索を、それぞれ別のプロセスで）。結果はジョブの Summary と artifact に出力する。
+# 性能とリソースを手動で測る（Office からの取り込み・インデックス作成・検索・入力しながらの検索を、それぞれ別のプロセスで）。結果はジョブの Summary と artifact に出力する。
 # 数字は result.json と metrics.csv（1 行 1 指標。後で Grafana などに入れるため）にも書く。
 #
 # Actions の画面か `gh workflow run perf.yml -f ref=<ref> -f scale=0.1 -f ingest=200 -f typing=10 -f xlsx=5` で起動する。
@@ -154,7 +154,7 @@ jobs:
 
       - name: 結果を artifact にアップロードする
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: perf-${{ github.run_id }}
           path: ${{ runner.temp }}/perf/result
