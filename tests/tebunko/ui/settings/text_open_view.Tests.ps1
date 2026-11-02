@@ -188,6 +188,26 @@ Describe "testTextEditorDenied" -Tag Unit {
     }
 }
 
+Describe "testTextEditorDeniedByVersion" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "PowerShell.EXE.MUI"; original = "PowerShell.EXE.MUI"; internal = ""; expected = $true }
+        @{ name = "拡張子なしの内部名 POWERSHELL"; original = ""; internal = "POWERSHELL"; expected = $true }
+        @{ name = "Cmd.Exe.MUI"; original = "Cmd.Exe.MUI"; internal = ""; expected = $true }
+        @{ name = "pwsh.dll"; original = "pwsh.dll"; internal = ""; expected = $true }
+        @{ name = "python.exe"; original = "python.exe"; internal = ""; expected = $true }
+        @{ name = "wscript.exe"; original = "wscript.exe"; internal = ""; expected = $true }
+        @{ name = "内部名だけが当たっても拒む"; original = "editor.exe"; internal = "cmd"; expected = $true }
+        @{ name = "ふつうのエディタ（notepad++.exe）は拒まない"; original = "notepad++.exe"; internal = "notepad++"; expected = $false }
+        @{ name = "NOTEPAD.EXE.MUI は拒まない"; original = "NOTEPAD.EXE.MUI"; internal = "Notepad"; expected = $false }
+        @{ name = "外すのは .mui を 1 回、そのあと .exe か .dll を 1 回だけ（繰り返さない）"; original = "powershell.exe.exe"; internal = ""; expected = $false }
+        @{ name = "どちらも空"; original = ""; internal = ""; expected = $false }
+        @{ name = "どちらも null"; original = $null; internal = $null; expected = $false }
+    ) {
+        param ($name, $original, $internal, $expected)
+        testTextEditorDeniedByVersion $original $internal | Should -Be $expected
+    }
+}
+
 Describe "getTextEditorChoice / getTextEditorLabel / addTextEditorNotice" -Tag Unit {
     BeforeAll {
         $script:notepad = "C:\Windows\System32\notepad.exe"
@@ -219,6 +239,19 @@ Describe "getTextEditorChoice / getTextEditorLabel / addTextEditorNotice" -Tag U
         $choice = getTextEditorChoice $configured $true $script:notepad
         $choice.Path | Should -Be $script:notepad
         $choice.Notice | Should -Be "設定のエディタ（textEditorPath）は、スクリプトを動かすプログラムのため使えません。メモ帳で開きます。"
+    }
+
+    It "名前は通っても、版の情報（<name>）で決まる" -TestCases @(
+        @{ name = "元の名前がスクリプトを動かすプログラム"; names = @{ Ok = $true; OriginalFilename = "PowerShell.EXE.MUI"; InternalName = "POWERSHELL" }; denied = $true; notice = "設定のエディタ（textEditorPath）は、スクリプトを動かすプログラムのため使えません。メモ帳で開きます。" }
+        @{ name = "読み取りに失敗（Ok が false）"; names = @{ Ok = $false; OriginalFilename = ""; InternalName = "" }; denied = $true; notice = "設定のエディタ（textEditorPath）が使えないため、メモ帳で開きます。" }
+        @{ name = "版の情報が空"; names = @{ Ok = $true; OriginalFilename = ""; InternalName = "" }; denied = $false; notice = "" }
+        @{ name = "ふつうのエディタ"; names = @{ Ok = $true; OriginalFilename = "NOTEPAD.EXE.MUI"; InternalName = "Notepad" }; denied = $false; notice = "" }
+        @{ name = "省略（読んでいない）"; names = $null; denied = $false; notice = "" }
+    ) {
+        param ($name, $names, $denied, $notice)
+        $choice = getTextEditorChoice "D:\tools\editor.exe" $true $script:notepad $names
+        $choice.Path | Should -Be $(if ($denied) { $script:notepad } else { "D:\tools\editor.exe" })
+        $choice.Notice | Should -Be $notice
     }
 
     It "エディタの名前は、設定が空・使えない値なら「メモ帳（既定）」、使える値ならファイル名" -TestCases @(

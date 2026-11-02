@@ -676,6 +676,29 @@ Describe "readTextExtensionSettings / writeIndexTextExcludes / writeTextOpenSett
     }
 }
 
+Describe "getTextEditorVersionNames" -Tag Io {
+    It "実物の実行ファイルの元の名前・内部名を読む（プロセスは起動しない）" {
+        $names = getTextEditorVersionNames "$env:SystemRoot\System32\cmd.exe"
+        $names.Ok | Should -Be $true
+        $names.OriginalFilename | Should -Match '^cmd\.exe'
+        $names.InternalName | Should -Not -BeNullOrEmpty
+    }
+
+    It "版の情報が無いファイルは、読めた（Ok）うえで名前が空" {
+        $path = "$TestDrive\dummy.exe"
+        [System.IO.File]::WriteAllText($path, "dummy")
+        $names = getTextEditorVersionNames $path
+        $names.Ok | Should -Be $true
+        $names.OriginalFilename | Should -BeNullOrEmpty
+        $names.InternalName | Should -BeNullOrEmpty
+    }
+
+    It "読めないパス（ファイルが無い）は Ok が false" {
+        $names = getTextEditorVersionNames "$TestDrive\存在しない\x.exe"
+        $names.Ok | Should -Be $false
+    }
+}
+
 Describe "readSearchOption / writeSearchOption" -Tag Io {
     # writes: 順に保存する項目、expected: 読み込んだときの値
     It "<name>" -TestCases @(

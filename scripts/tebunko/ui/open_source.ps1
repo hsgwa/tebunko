@@ -414,7 +414,12 @@ function openWithEditor {
     if ($configured -ne "" -and (testTextEditorPath $configured)) {
         $exists = [bool](Test-Path -LiteralPath $configured -PathType Leaf)
     }
-    $choice = getTextEditorChoice $configured $exists $notepad
+    $versionNames = $null
+    if ($exists) {
+        # 別の名前にコピーしたスクリプトを動かすプログラムを、版の情報の元の名前で拒む（読めなければ拒む側）
+        $versionNames = getTextEditorVersionNames $configured
+    }
+    $choice = getTextEditorChoice $configured $exists $notepad $versionNames
     $script:textEditorNotice = $choice.Notice
     try {
         Start-Process -FilePath $choice.Path -ArgumentList "`"${path}`""
