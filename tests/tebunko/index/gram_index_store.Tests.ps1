@@ -561,7 +561,7 @@ Describe "正規表現で、候補で照合した結果が全部で照合した�
             $gram.Gram.Candidates | Should -BeLessThan $gram.Gram.Total
         }
         $narrowed = searchContentIndex $word $gram.ContentIndexFiles $false 0 $null $case
-        $full.Hits.Count | Should -BeGreaterThan 0
-        (@($narrowed.Hits | ForEach-Object { "$($_.RelPath):$($_.LineNumber):$($_.Book)" }) -join "|") | Should -Be (@($full.Hits | ForEach-Object { "$($_.RelPath):$($_.LineNumber):$($_.Book)" }) -join "|")
+        (getHitRunCount $full.Runs) | Should -BeGreaterThan 0
+        (@((expandHitRuns $narrowed.Runs) | ForEach-Object { "$($_.RelPath):$($_.LineNumber):$($_.Book)" }) -join "|") | Should -Be (@((expandHitRuns $full.Runs) | ForEach-Object { "$($_.RelPath):$($_.LineNumber):$($_.Book)" }) -join "|")
     }
 }
