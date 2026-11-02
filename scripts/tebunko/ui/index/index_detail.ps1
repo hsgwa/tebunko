@@ -122,6 +122,14 @@ function updateIndexingResume {
 }
 
 function updateIndexingButton {
+    # checkedItems（getIndexCheckedItems の結果）を省くと、ここで求める
+    param (
+        [object[]]$checkedItems
+    )
+
+    if (!$PSBoundParameters.ContainsKey("checkedItems")) {
+        $checkedItems = @(getIndexCheckedItems @($script:targetItems))
+    }
     $ready = $false
     foreach ($item in $script:targetItems) {
         # フォルダの有無は refreshFolderStatus が別スレッドで調べた結果を使う（調べ終えるまではあるものとする）
@@ -161,7 +169,7 @@ function updateIndexingButton {
 
     # インデックスの追加・編集・削除・エクスポート・インポートと、［設定］のワークスペースの［変更…］は互いに排他
     # （getIndexJobBlocker・getIndexTabButtonsEnabled。settings\settings.ps1 の testWorkspaceChangeable も同じ排他を見る）
-    $selected = $null -ne (getIndexTargetItem)
+    $selected = $null -ne (getIndexDetailItem $ui.IndexGrid.SelectedItem $checkedItems)   # getIndexTargetItem と同じ行（チェックした行は引数のものを使い、求め直さない）
     $blocker = getCurrentIndexJobBlocker
     $buttons = getIndexTabButtonsEnabled $blocker $selected
     $ui.NewIndexButton.IsEnabled = $buttons.New
@@ -178,15 +186,19 @@ function updateIndexingButton {
     $ui.RowMenuOpenFolder.IsEnabled = $menu.OpenFolder
     $ui.ExportIndexButton.IsEnabled = $menu.Export
     $ui.RemoveIndexButton.IsEnabled = $menu.Delete
-    $actions = getIndexActionsEnabled $blocker @(getIndexCheckedItems @($script:targetItems)).Count
+    $actions = getIndexActionsEnabled $blocker @($checkedItems).Count
     $ui.ActionsButton.IsEnabled = $true
     $ui.ActionUpdate.IsEnabled = $actions.Update
     $ui.ActionExport.IsEnabled = $actions.Export
     $ui.ActionImport.IsEnabled = $actions.Import
     $ui.ActionDelete.IsEnabled = $actions.Delete
-    # 行の［更新］も同じ排他（更新中はほかの行の［更新］も押せない）。行ごとのボタンを置き直す
-    foreach ($item in $script:targetItems) {
-        setIndexRowActions $item
+    # 行の［更新］も同じ排他（更新中はほかの行の［更新］も押せない）。行ごとのボタンは、前回と同じ条件なら置き直さない
+    $rowKey = getIndexRowActionsKey $blocker
+    if ($rowKey -ne $script:indexRowActionsKey) {
+        foreach ($item in $script:targetItems) {
+            setIndexRowActions $item $blocker
+        }
+        $script:indexRowActionsKey = $rowKey
     }
 }
 
@@ -452,9 +464,15 @@ function setIndexDetailTextExt {
 
 function updateIndexDetailPanel {
     # 選んだインデックスの値の行を出す（文言の組み立ては getIndexDetailView）。
-    # 選びなおしたとき・取り込みの集計が届いたときに呼ぶ
+    # 選びなおしたとき・取り込みの集計が届いたときに呼ぶ。checkedItems（getIndexCheckedItems の結果）を省くと、ここで求める
+    param (
+        [object[]]$checkedItems
+    )
+
     $selected = @()
-    $checkedItems = @(getIndexCheckedItems @($script:targetItems))
+    if (!$PSBoundParameters.ContainsKey("checkedItems")) {
+        $checkedItems = @(getIndexCheckedItems @($script:targetItems))
+    }
     $item = getIndexDetailItem $ui.IndexGrid.SelectedItem $checkedItems
     if ($null -ne $item) {
         $selected = @(@{

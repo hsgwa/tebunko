@@ -280,6 +280,7 @@ function fillTargetItems {
     )
 
     $script:loadingTargets = $true
+    $script:indexRowsVersion++   # 行がすべて新しくなる（行のボタンを置き直させる）
     try {
         $script:targetItems.Clear()
         foreach ($folder in $folders) {
@@ -403,6 +404,8 @@ function applyIndexStats {
         syncIngestedSubfolders   # インデクサが書いた「前回取り込んだときの設定」を読み直す（［要更新］の差の元）
         syncIndexTextExtensions   # 取り込む拡張子の設定・前回取り込んだときの設定・件数の控えも読み直す
     }
+    $script:indexRowsPercent = $null   # 行を置き直す。次の進み具合の反映は、割合が同じでも行に置く
+    $blocker = getCurrentIndexJobBlocker   # 行ごとに求めず、1 回だけ求めて渡す
     foreach ($item in $script:targetItems) {
         $stat = $null
         $formatEntry = $null
@@ -429,8 +432,9 @@ function applyIndexStats {
         }
         $row = getIndexRowView $stat $indexing $item.Enabled (getIndexingRatio) (testIndexInRound $item) (testIndexExporting $item) $formatEntry (testIndexSubfoldersPending $item.Subfolders $item.IngestedSubfolders) (testIndexItemTextExcludesPending $item)
         $item.SetIndexState($row.Text, $row.ToolTip, $row.Level, $row.Sub, [double]$row.Percent)
-        setIndexRowActions $item
+        setIndexRowActions $item $blocker
     }
+    $script:indexRowActionsKey = getIndexRowActionsKey $blocker
     $script:indexFileTotal = 0
     if ($null -ne $stats) {
         foreach ($item in $script:targetItems) {
@@ -481,11 +485,27 @@ function setExportingRows {
     }
 }
 
-function setIndexRowActions {
-    # 行の右端のボタン（［更新］［中止］・何も出さない）を、行の状態（IndexLevel）と動いている処理に合わせる。判断は getIndexRowActions
-    param ($item)
+$script:indexRowsVersion = 0   # 行を足す・作り直すたびに 1 つ進める（行が入れ替わって数が同じでも、控えのキーを変えるため）
+$script:indexRowActionsKey = $null   # 行のボタンを最後に全行へ置いたときの getIndexRowActionsKey
 
-    $blocker = getCurrentIndexJobBlocker
+function getIndexRowActionsKey {
+    # 行のボタンを置き直すかを決める控えのキー。動いている処理・エクスポート中の名前・行の数・行の版が前回と同じなら、置き直さない
+    param ([string]$blocker)
+
+    return ("{0}|{1}|{2}|{3}" -f $blocker, (@($script:exportingNames) -join "`n"), $script:targetItems.Count, $script:indexRowsVersion)
+}
+
+function setIndexRowActions {
+    # 行の右端のボタン（［更新］［中止］・何も出さない）を、行の状態（IndexLevel）と動いている処理に合わせる。判断は getIndexRowActions。
+    # blocker（getCurrentIndexJobBlocker の結果）を省くと、ここで求める（行を回すときは、呼び元が 1 回だけ求めて渡す）
+    param (
+        $item,
+        [string]$blocker
+    )
+
+    if (!$PSBoundParameters.ContainsKey("blocker")) {
+        $blocker = getCurrentIndexJobBlocker
+    }
     $actions = getIndexRowActions $item.IndexLevel $blocker (testIndexExporting $item)
     $item.SetRowActions($actions.Action, $actions.UpdateEnabled)
 }
@@ -644,25 +664,45 @@ function openIndexLocation {
 }
 
 function updateIndexSelectionView {
-    # 見出しの全選択（一部だけなら横棒）と、見出しの横の「N / M 件を選択中」。判断は getIndexSelectionView
-    $view = getIndexSelectionView $script:targetItems.Count @(getIndexCheckedItems @($script:targetItems)).Count
+    # 見出しの全選択（一部だけなら横棒）と、見出しの横の「N / M 件を選択中」。判断は getIndexSelectionView。
+    # checkedItems（getIndexCheckedItems の結果）を省くと、ここで求める
+    param (
+        [object[]]$checkedItems
+    )
+
+    if (!$PSBoundParameters.ContainsKey("checkedItems")) {
+        $checkedItems = @(getIndexCheckedItems @($script:targetItems))
+    }
+    $view = getIndexSelectionView $script:targetItems.Count @($checkedItems).Count
     $ui.SelectionCountText.Text = $view.CountText
     $ui.SelectionCountText.Visibility = if ($view.CountText) { "Visible" } else { "Collapsed" }
     $ui.SelectAllCheckBox.IsChecked = $view.AllChecked
     $ui.SelectAllCheckBox.IsEnabled = ($script:targetItems.Count -gt 0)
 }
 
+$script:indexRowsPercent = $null   # 更新中の行に最後に置いた割合（整数の %）。同じ間は行に触らない
+
 function updateIndexRowsProgress {
-    # 更新中の行のバッジ（「更新中」と、右の補足「45%」）と棒を、進み具合に合わせて置き直す（進み具合の更新のたびに呼ぶ）
+    # 更新中の行のバッジ（「更新中」と、右の補足「45%」）と棒を、進み具合に合わせて置き直す（進み具合の更新のたびに呼ぶ）。
+    # 割合（整数の %）が前回と同じなら何もしない。変わったときは、行の文言を enabled × 今の回の組ごとに 1 回だけ求め、補足と棒の 2 つだけを置く
+    # （Run の間は、行のボタンも詳細欄の中身も変わらない。詳細欄は updateIndexingProgress が 1 回だけ置く）
     $ratio = getIndexingRatio
+    $percent = if ($ratio -lt 0) { -1 } else { [int][math]::Floor([math]::Min($ratio, 1.0) * 100) }   # getIndexRowView の Percent と同じ求め方
+    if ($null -ne $script:indexRowsPercent -and $percent -eq $script:indexRowsPercent) {
+        return
+    }
+    $script:indexRowsPercent = $percent
+    $rows = @{}
     foreach ($item in $script:targetItems) {
         if ($item.IndexLevel -eq "Run") {
-            $row = getIndexRowView $null $true $item.Enabled $ratio (testIndexInRound $item)
-            $item.SetIndexState($row.Text, $row.ToolTip, $row.Level, $row.Sub, [double]$row.Percent)
-            setIndexRowActions $item
+            $inRound = testIndexInRound $item
+            $key = "{0}|{1}" -f [bool]$item.Enabled, $inRound
+            if (!$rows.ContainsKey($key)) {
+                $rows[$key] = getIndexRowView $null $true $item.Enabled $ratio $inRound
+            }
+            $item.SetIndexProgress($rows[$key].Sub, [double]$rows[$key].Percent)
         }
     }
-    updateIndexDetailPanel
 }
 
 function updateIndexFooter {
@@ -694,9 +734,10 @@ function updateIndexListView {
     }
     $script:indexListEmpty = $empty
     updateIndexFooter
-    updateIndexSelectionView
-    updateIndexingButton
-    updateIndexDetailPanel
+    $checkedItems = @(getIndexCheckedItems @($script:targetItems))   # 1 回の操作で 1 回だけ求め、3 つの更新に渡す
+    updateIndexSelectionView $checkedItems
+    updateIndexingButton $checkedItems
+    updateIndexDetailPanel $checkedItems
 }
 
 function testIndexOperable {
