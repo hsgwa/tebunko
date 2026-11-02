@@ -105,6 +105,8 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             } | Out-Null
             @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count | Should -Be 1 -Because "置き換えたので増えない"
 
+            # 2-gram の索引ができても、更新はまだ終わっていないことがある。更新中に閉じると「中止して閉じますか？」が出て、閉じる待ちが切れる
+            waitGui $S "更新が終わる" ${guiIndexTimeout} { -not (testGuiIndexing $S) } | Out-Null
             closeGui $S
         }
     }

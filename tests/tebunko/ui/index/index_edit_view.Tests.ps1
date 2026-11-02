@@ -124,6 +124,15 @@ Describe "getIndexJobCloseAction" -Tag Unit {
         $confirm.CloseValue | Should -Not -BeNullOrEmpty
     }
 
+    It "更新中に閉じるとき、取りやめの後始末の間（取りやめ=<canceled>・始め直し=<restart>）は <expected>" -TestCases @(
+        @{ canceled = $true; restart = $false; expected = "stop" }
+        @{ canceled = $true; restart = $true; expected = "stop" }
+        @{ canceled = $false; restart = $false; expected = "ask" }
+        @{ canceled = $false; restart = $true; expected = "ask" }
+    ) {
+        getIndexingCloseAction $canceled $restart | Should -Be $expected
+    }
+
     It "更新中に閉じるときの確認の文言を返す" {
         $confirm = getIndexingCloseConfirm
         $confirm.Title | Should -Be "更新中です"
