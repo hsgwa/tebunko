@@ -316,6 +316,7 @@ function startWorkspaceMove {
         [string]$folder
     )
 
+    markTrace "workspace" "移動の始め ($mode)"
     $script:workspaceMoving = $true
     $script:closeAfterWorkspaceMove = $false
     try {
@@ -363,6 +364,7 @@ function finishWorkspaceMove {
         [string]$errorText
     )
 
+    markTrace "workspace" "裏の移動の終わり"
     $closeRequested = [bool]$script:closeAfterWorkspaceMove
     $script:workspaceMoving = $false
     $script:closeAfterWorkspaceMove = $false
@@ -375,6 +377,7 @@ function finishWorkspaceMove {
             if (!$outcome.Close) {
                 switchWorkspace
             }
+            markTrace "workspace" "画面の読み直しの終わり"
             if ($outcome.Status -ne "") {
                 setStatus $outcome.Status
             }
@@ -392,6 +395,7 @@ function finishWorkspaceMove {
         if ($outcome.Close) {
             $window.Dispatcher.BeginInvoke([action]{ $window.Close() }) | Out-Null
         }
+        writeTrace "workspace" $workspace.TraceDir
     }
 }
 

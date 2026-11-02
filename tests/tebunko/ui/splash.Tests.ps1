@@ -2,6 +2,8 @@
 BeforeAll {
     $rootDir = (Resolve-Path "$PSScriptRoot\..\..\..").Path
     Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
+    # stepSplash は処理の記録（markTrace）を呼ぶ。gui.ps1 は splash.ps1 より先に読み込む
+    . "$rootDir\scripts\shared\core\trace.ps1"
     . "$rootDir\scripts\tebunko\ui\splash.ps1"
     $xamlPath = "$rootDir\scripts\tebunko\xaml\splash.xaml"
 }
