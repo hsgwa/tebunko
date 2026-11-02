@@ -160,9 +160,43 @@ function testTextEditorDenied {
     if ($path -isnot [string] -or $path -eq "") {
         return $false
     }
-    $leaf = $path.Substring($path.LastIndexOfAny([char[]]@([char]92, [char]47)) + 1).Trim().TrimEnd(".", " ").ToLowerInvariant()
-    $name = $(if ($leaf.EndsWith(".exe")) { $leaf.Substring(0, $leaf.Length - 4) } else { $leaf })
-    return (${textEditorDenyNames} -contains $name)
+    $leaf = $path.Substring($path.LastIndexOfAny([char[]]@([char]92, [char]47)) + 1)
+    return (${textEditorDenyNames} -contains (getTextEditorDenyKey $leaf))
+}
+
+function getTextEditorDenyKey {
+    # 表（${textEditorDenyNames}）と突き合わせる形にそろえる: 前後の空白と末尾の . を外し、小文字にして、末尾の .mui を 1 回、そのあと .exe か .dll を 1 回外す（繰り返さない）
+    param (
+        [string]$name
+    )
+
+    $key = $name.Trim().TrimEnd(".", " ").ToLowerInvariant()
+    if ($key.EndsWith(".mui")) {
+        $key = $key.Substring(0, $key.Length - 4)
+    }
+    if ($key.EndsWith(".exe") -or $key.EndsWith(".dll")) {
+        $key = $key.Substring(0, $key.Length - 4)
+    }
+    return $key
+}
+
+function testTextEditorDeniedByVersion {
+    # 実行ファイルの版の情報の元の名前（OriginalFilename）か内部名（InternalName）が、スクリプトや命令を動かすプログラム（${textEditorDenyNames}）か。
+    # 別の名前にコピーしたものを止めるため。末尾は .mui を 1 回、そのあと .exe か .dll を 1 回外す（繰り返さない）。大文字・小文字は区別しない
+    param (
+        $originalFilename,
+        $internalName
+    )
+
+    foreach ($value in @($originalFilename, $internalName)) {
+        if ($value -isnot [string] -or $value -eq "") {
+            continue
+        }
+        if (${textEditorDenyNames} -contains (getTextEditorDenyKey $value)) {
+            return $true
+        }
+    }
+    return $false
 }
 
 function testTextEditorPath {
@@ -196,18 +230,31 @@ function testTextEditorPath {
 function getTextEditorChoice {
     # 「エディタで開く」に使うプログラムを決める。configured は設定 textEditorPath、exists は configured のファイルがあるか（呼ぶ側が調べる）、
     # notepad は固定のメモ帳のパス。返す値: @{ Path（起動するプログラム）; Notice（使えなかったときの知らせ。無ければ空）; Label（画面に出す名前） }
-    # 空ならメモ帳。値があっても、形が正しくない・ファイルが無いときは、既定のアプリには戻さずメモ帳で開き、知らせる
+    # 空ならメモ帳。値があっても、形が正しくない・ファイルが無いときは、既定のアプリには戻さずメモ帳で開き、知らせる。
+    # versionNames: 版の情報（getTextEditorVersionNames の値 @{ Ok; OriginalFilename; InternalName }）。省略は「読んでいない」で、名前だけで決める。
+    # 読めなかった（Ok が $false）とき、元の名前・内部名が表に当たるときは、スクリプトを動かすプログラムとして拒む（どちらも空なら拒まない）
     param (
         $configured,
         [bool]$exists,
-        [string]$notepad
+        [string]$notepad,
+        $versionNames = $null
     )
 
     if ($configured -is [string] -and $configured -ne "") {
-        if ((testTextEditorPath $configured) -and $exists) {
+        $deniedByVersion = $false
+        $unreadable = $false
+        if ($null -ne $versionNames) {
+            # hashtable でない値は、読めなかったものとして拒む側に倒す
+            if ($versionNames -isnot [hashtable] -or -not $versionNames.Ok) {
+                $unreadable = $true
+            } else {
+                $deniedByVersion = testTextEditorDeniedByVersion $versionNames.OriginalFilename $versionNames.InternalName
+            }
+        }
+        if ((testTextEditorPath $configured) -and $exists -and -not $deniedByVersion -and -not $unreadable) {
             return @{ Path = $configured; Notice = ""; Label = [System.IO.Path]::GetFileNameWithoutExtension($configured) }
         }
-        if (testTextEditorDenied $configured) {
+        if ((testTextEditorDenied $configured) -or $deniedByVersion) {
             return @{ Path = $notepad; Notice = "設定のエディタ（textEditorPath）は、スクリプトを動かすプログラムのため使えません。メモ帳で開きます。"; Label = "メモ帳" }
         }
         return @{ Path = $notepad; Notice = "設定のエディタ（textEditorPath）が使えないため、メモ帳で開きます。"; Label = "メモ帳" }

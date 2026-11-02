@@ -697,6 +697,28 @@ Describe "openWithEditor" -Tag Io {
         getTextEditorNotice | Should -Be "設定のエディタ（textEditorPath）は、スクリプトを動かすプログラムのため使えません。メモ帳で開きます。"
     }
 
+    It "実物の powershell.exe を別の名前（editor.exe）にコピーしたものは、元の名前で見抜いて、使わずメモ帳で開き、専用の知らせを出す" {
+        $editor = Join-Path $TestDrive "editor.exe"
+        Copy-Item -LiteralPath "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -Destination $editor
+        Mock readTextExtensionSettings { @{ IndexExcludes = @{}; Notepad = @(); EditorPath = $editor } }.GetNewClosure()
+        Mock Start-Process { }
+
+        openWithEditor "$TestDrive\起動.ps1" | Should -Be $true
+        Should -Invoke Start-Process -Times 1 -Exactly -ParameterFilter { $FilePath -eq "$env:SystemRoot\System32\notepad.exe" }
+        getTextEditorNotice | Should -Be "設定のエディタ（textEditorPath）は、スクリプトを動かすプログラムのため使えません。メモ帳で開きます。"
+    }
+
+    It "実物の notepad.exe を別の名前（editor.exe）にコピーしたものは、拒まれず設定のエディタで開く" {
+        $editor = Join-Path $TestDrive "editor.exe"
+        Copy-Item -LiteralPath "$env:SystemRoot\System32\notepad.exe" -Destination $editor
+        Mock readTextExtensionSettings { @{ IndexExcludes = @{}; Notepad = @(); EditorPath = $editor } }.GetNewClosure()
+        Mock Start-Process { }
+
+        openWithEditor "$TestDrive\起動.ps1" | Should -Be $true
+        Should -Invoke Start-Process -Times 1 -Exactly -ParameterFilter { $FilePath -eq $editor }
+        getTextEditorNotice | Should -Be ""
+    }
+
     It "notepadOnly のときは、設定のエディタが使える値でも使わず、固定のメモ帳で開き、知らせも出さない（出力した CSV・TSV 用）" {
         $editor = Join-Path $TestDrive "表計算.exe"
         [System.IO.File]::WriteAllText($editor, "dummy")
