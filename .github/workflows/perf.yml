@@ -64,7 +64,7 @@ concurrency:
 
 env:
   # データ生成スクリプトのリポジトリ（https://github.com/hsgwa/tebunko-perfdata）のコミット。更新するときは手で書き換える
-  PERFDATA_SHA: 2d6c7a60ed9ae9949cc76f8ff00762d45707ee3a
+  PERFDATA_SHA: e334e6b5ecfe752bad9822ed143561be2134bb15
 
 jobs:
   perf:
