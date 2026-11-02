@@ -200,7 +200,13 @@ Describe "S4 検索の遷移" -Tag Gui {
 
             setGuiStep $S "［場所］の見出しを押して昇順"
             invokeGui $S (& $header) "［場所］の見出し"
-            waitGui $S "並べ替わる" ${guiDefaultTimeout} { $script:ascending = & $rowNames; $script:ascending -ne "" } | Out-Null
+            # 押した操作は非同期なので、順が落ち着く（0.5 秒あけて 2 回読んで同じ）まで待ってから、昇順の順として控える
+            waitGui $S "並べ替えた順が落ち着く" ${guiDefaultTimeout} {
+                $before = & $rowNames
+                Start-Sleep -Milliseconds 500
+                $script:ascending = & $rowNames
+                $script:ascending -ne "" -and $script:ascending -eq $before
+            } | Out-Null
             $ascending = $script:ascending
             $descendingNames = @($ascending -split ",")
             [array]::Reverse($descendingNames)
