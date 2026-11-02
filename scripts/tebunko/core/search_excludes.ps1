@@ -20,6 +20,31 @@ function testFolderOrUnder {
         $path.StartsWith($folder + "\", [System.StringComparison]::OrdinalIgnoreCase)
 }
 
+function findFolderOrAncestor {
+    # path 自身か、その先祖のうち、folders（HashSet[string]。OrdinalIgnoreCase・末尾の \ なし）に入っている最初のものを返す（無ければ $null）。
+    # 結果は testFolderOrUnder と同じ（大文字・小文字は区別しない・\ の区切りでだけ上る）。多くのフォルダを 1 件ずつ比べる代わりに、先祖を辞書引きする
+    param (
+        [string]$path,
+        $folders
+    )
+
+    if ($null -eq $path) {
+        return $null
+    }
+    $current = $path.TrimEnd("\")
+    while ($current -ne "") {
+        if ($folders.Contains($current)) {
+            return $current
+        }
+        $index = $current.LastIndexOf("\")
+        if ($index -le 0) {
+            return $null
+        }
+        $current = $current.Substring(0, $index)
+    }
+    return $null
+}
+
 function readSearchExcludes {
     # 画面の検索対象ツリーでチェックを外したフォルダを @{ Path; Subfolders } の配列で返す（設定が無ければ空 = すべて検索する）。
     #   Subfolders: $true はフォルダ以下すべて、$false はフォルダ直下のファイルだけを外す

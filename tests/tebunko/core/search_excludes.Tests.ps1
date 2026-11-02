@@ -116,3 +116,27 @@ Describe "moveSearchExcludes" -Tag Io {
         @($excludes | ForEach-Object { $_.Subfolders }) -join "," | Should -Be "True,False,True"
     }
 }
+
+Describe "findFolderOrAncestor" -Tag Unit {
+    It "<path> を <folders> から探すと <expected>（testFolderOrUnder と同じ結果）" -TestCases @(
+        @{ path = "C:\営業部"; folders = @("C:\営業部"); expected = "C:\営業部" }
+        @{ path = "C:\営業部\2024\東京"; folders = @("C:\営業部"); expected = "C:\営業部" }
+        @{ path = "C:\営業部\2024"; folders = @("C:\営業部", "C:\営業部\2024"); expected = "C:\営業部\2024" }
+        @{ path = "C:\Sales2\a"; folders = @("C:\Sales"); expected = $null }
+        @{ path = "c:\SALES\A"; folders = @("C:\Sales"); expected = "c:\SALES" }
+        @{ path = "C:\Sales\"; folders = @("C:\Sales"); expected = "C:\Sales" }
+        @{ path = "C:\ほか"; folders = @("C:\Sales"); expected = $null }
+        @{ path = "C:\Sales"; folders = @(); expected = $null }
+        @{ path = $null; folders = @("C:\Sales"); expected = $null }
+        @{ path = "\\server\共有\index\営業部\a"; folders = @("\\server\共有\index\営業部"); expected = "\\server\共有\index\営業部" }
+    ) {
+        $set = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+        foreach ($folder in $folders) { [void]$set.Add($folder) }
+
+        findFolderOrAncestor $path $set | Should -Be $expected
+
+        $any = $false
+        foreach ($folder in $folders) { if (testFolderOrUnder $path $folder) { $any = $true } }
+        ($null -ne $expected) | Should -Be $any
+    }
+}

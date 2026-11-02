@@ -115,16 +115,38 @@ function applyIndexTreeData {
         $script:indexRoots.Add($node)
     }
 
+    # 除外と展開のパスを、根ごとに 1 回で振り分ける（根の数 × パスの数の照合をしない）
+    $rootKeys = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($node in $script:indexRoots) {
+        [void]$rootKeys.Add($node.FullPath().TrimEnd("\"))
+    }
+    $excludesOf = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($exclude in @(readSearchExcludes)) {
-        foreach ($node in $script:indexRoots) {
-            $node.ApplyExclude($exclude.Path, $exclude.Subfolders)
-        }
+        $key = findFolderOrAncestor $exclude.Path $rootKeys
+        if ($null -eq $key) { continue }
+        if (-not $excludesOf.ContainsKey($key)) { $excludesOf[$key] = New-Object System.Collections.Generic.List[object] }
+        $excludesOf[$key].Add($exclude)
+    }
+    $expandedOf = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($path in $expanded) {
+        $key = findFolderOrAncestor $path $rootKeys
+        if ($null -eq $key) { continue }
+        if (-not $expandedOf.ContainsKey($key)) { $expandedOf[$key] = New-Object System.Collections.Generic.List[string] }
+        $expandedOf[$key].Add($path)
     }
     foreach ($node in $script:indexRoots) {
-        foreach ($path in $expanded) {
-            $found = $node.Find($path)
-            if ($found) {
-                $found.SetExpanded($true)
+        $key = $node.FullPath().TrimEnd("\")
+        if ($excludesOf.ContainsKey($key)) {
+            foreach ($exclude in $excludesOf[$key]) {
+                $node.ApplyExclude($exclude.Path, $exclude.Subfolders)
+            }
+        }
+        if ($expandedOf.ContainsKey($key)) {
+            foreach ($path in $expandedOf[$key]) {
+                $found = $node.Find($path)
+                if ($found) {
+                    $found.SetExpanded($true)
+                }
             }
         }
     }
@@ -226,12 +248,21 @@ function saveSearchExcludes {
     foreach ($node in $script:indexRoots) {
         $node.AddExcludes($excludes)
     }
-    $roots = @($script:indexRoots | Where-Object { $_.Exists } | ForEach-Object { $_.FullPath().TrimEnd("\") })
-    $kept = @(readSearchExcludes | Where-Object {
-        $path = $_.Path
-        @($roots | Where-Object { testFolderOrUnder $path $_ }).Count -eq 0
-    })
-    writeSearchExcludes (@($kept) + @($excludes.ToArray()))
+    $roots = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($node in $script:indexRoots) {
+        if ($node.Exists) { [void]$roots.Add($node.FullPath().TrimEnd("\")) }
+    }
+    $current = @(readSearchExcludes)
+    $kept = @($current | Where-Object { $null -eq (findFolderOrAncestor $_.Path $roots) })
+    $next = @($kept) + @($excludes.ToArray())
+    $same = ($next.Count -eq $current.Count)
+    for ($i = 0; $same -and $i -lt $next.Count; $i++) {
+        $same = ([string]$next[$i].Path).Equals([string]$current[$i].Path, [System.StringComparison]::Ordinal) -and
+            ([bool]$next[$i].Subfolders -eq [bool]$current[$i].Subfolders)
+    }
+    if (-not $same) {
+        writeSearchExcludes $next
+    }
 }
 
 function onIndexTreeChecked {
