@@ -320,7 +320,7 @@ Describe "getTextEditorPickResult / getTextEditorPathText / testTextEditorResetE
     It "<name>" -TestCases @(
         @{ name = "通る（ファイルあり）"; path = "C:\Tools\sakura.exe"; exists = $true; names = @{ Ok = $true; OriginalFilename = "sakura.exe"; InternalName = "sakura" }; ok = $true; message = "" }
         @{ name = "版の情報の元の名前が空なら通る"; path = "C:\Tools\sakura.exe"; exists = $true; names = @{ Ok = $true; OriginalFilename = ""; InternalName = "" }; ok = $true; message = "" }
-        @{ name = "拒む表の名前（powershell.exe）は 1 つ目の文言"; path = "C:\Windows\System32\WindowsPowerShell1.0\powershell.exe"; exists = $true; names = @{ Ok = $true; OriginalFilename = "PowerShell.EXE.MUI"; InternalName = "" }; ok = $false; message = "denied" }
+        @{ name = "拒む表の名前（powershell.exe）は 1 つ目の文言"; path = "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"; exists = $true; names = @{ Ok = $true; OriginalFilename = "PowerShell.EXE.MUI"; InternalName = "" }; ok = $false; message = "denied" }
         @{ name = "名前だけ見て拒む（ファイルが無くても 1 つ目）"; path = "powershell.exe"; exists = $false; names = $null; ok = $false; message = "denied" }
         @{ name = "名前は通るが元の名前が PowerShell.EXE.MUI なら 1 つ目の文言"; path = "C:\Tools\myedit.exe"; exists = $true; names = @{ Ok = $true; OriginalFilename = "PowerShell.EXE.MUI"; InternalName = "" }; ok = $false; message = "denied" }
         @{ name = "内部名が拒む表に当たれば 1 つ目の文言"; path = "C:\Tools\myedit.exe"; exists = $true; names = @{ Ok = $true; OriginalFilename = ""; InternalName = "cmd" }; ok = $false; message = "denied" }
