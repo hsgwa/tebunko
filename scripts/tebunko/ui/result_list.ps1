@@ -511,12 +511,15 @@ function applySort {
         if ($group.HitCount -gt ${groupRowLimit}) {
             updateGroupHitItems $group
             $group.HitOrder = getSortedHitOrder $group.HitItems $property $descending $(if ($property -eq "Kind") { getKindByLocation $group } else { @{} })
+            if ($null -eq $group.HitOrder) { $group.HitItems.Clear(); $group.ItemRun = 0 }
             $group.Rows.Clear()
             $group.RowRun = 0
             $group.RowOffset = 0
             $group.RowLimit = 0
         } else {
             $group.HitOrder = $null
+            $group.HitItems.Clear()
+            $group.ItemRun = 0
         }
         ensureRows $group (getSortRowTarget $group.HitCount)
     }
