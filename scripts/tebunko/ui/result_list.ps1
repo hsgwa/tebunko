@@ -1,5 +1,5 @@
 ﻿# ［検索］タブの結果の表の中身（ファイルごとの見出しと、開いているファイルの行）。
-# 検索のヒットは生のまま、元のファイルの見出し（FileGroup）の Hits に持つ。表の行（HitRow）は、開いたとき・絞り込み・
+# 検索のヒットは、場所ごとのまとまり（searchContentIndex の Runs の要素）のまま、元のファイルの見出し（FileGroup）の Runs に持つ。表の行（HitRow）は、開いたとき・絞り込み・
 # 並べ替え・出力・コピーのときに、必要なファイルの分だけ作る（ensureRows）。表（ResultGrid）には見出しと、開いているファイルの行だけを入れる。
 # 検索した直後はすべて閉じているので、検索中の処理はヒットをファイルごとに分けるだけで済み、ヒットが多くても速い。
 # 1 つのファイルの行は、先頭から groupRowLimit 件まで（続きの行で次の分を足す。ヒットが何万件でも固まらない）。
@@ -127,38 +127,79 @@ function testGroupShown {
     return ($script:filterText -eq "" -or (testHitFilter $group.Book $script:filterText))
 }
 
+function addHitRow {
+    # ヒット 1 件の表の行（HitRow）を作って、見出しの Rows（と、絞り込みに合うなら ShownRows）に足す。
+    #   source: Root・RelPath・RelDir・FileName・Book・Location を持つもの（まとまり、または 1 件ずつの値）/ order: 行の Order（見つかった順の番号）
+    param (
+        [FileGroup]$group,
+        $source,
+        [int]$lineNumber,
+        [string]$line,
+        [int]$order,
+        [bool]$shown
+    )
+
+    # インデックスのフォルダ（work\index）からの相対パスの先頭がインデックス名（splitIndexRelPath と同じ）
+    $relDir = [string]$source.RelDir
+    $cut = $relDir.IndexOf("\")
+    $indexName = if ($cut -lt 0) { $relDir } else { $relDir.Substring(0, $cut) }
+    $row = [HitRow]::Create($indexName, $source.Root, $source.RelPath, $relDir, $source.FileName,
+            $source.Book, $source.Location, $lineNumber, $line, $script:rowWord, $script:rowPattern)
+    $traits = getRowTraits $source.Book $source.Location
+    $described = getPlace $source.Book $source.Location $traits.FileKind
+    $row.PlaceText = $described.Place
+    $row.Kind = $described.Kind
+    $row.IsExcel = ($traits.FileKind -eq "Excel")
+    $row.IsText = $traits.IsText
+    $row.IsCellPrefixed = $traits.IsCellPrefixed
+    $row.Order = $order
+    $row.FileGroup = $group
+    $group.Rows.Add($row)
+    if ($shown) {
+        $group.ShownRows.Add($row)
+    }
+}
+
+function updateGroupHitItems {
+    # 並べ替えているファイルの、まとまりを 1 件ずつの値（HitItems）に広げる。まだ広げていないまとまりだけを足す（検索中に増えた分）
+    param (
+        [FileGroup]$group
+    )
+
+    if ($group.ItemRun -lt $group.Runs.Count) {
+        $group.HitItems.AddRange((expandHitRuns $group.Runs.GetRange($group.ItemRun, $group.Runs.Count - $group.ItemRun)))
+        $group.ItemRun = $group.Runs.Count
+    }
+}
+
 function ensureRows {
     # ファイルのヒットのうち、まだ表の行（HitRow）にしていないものを、先頭から target 件目まで行にする（既定は全部。
-    # 絞り込みに合うものは ShownRows にも入れる）。行を作るのは重い（1 万行で 1 秒を超える）ので、画面に出す分だけを渡す
+    # 絞り込みに合うものは ShownRows にも入れる）。行を作るのは重い（1 万行で 1 秒を超える）ので、画面に出す分だけを渡す。
+    # 並べ替えていないときは、まとまりの中を RowRun・RowOffset から順にたどる。並べ替えているとき（HitOrder）は、広げた値（HitItems）から作る
     param (
         [FileGroup]$group,
         [int]$target = -1
     )
 
-    $end = $(if ($target -lt 0 -or $target -gt $group.Hits.Count) { $group.Hits.Count } else { $target })
+    $end = $(if ($target -lt 0 -or $target -gt $group.HitCount) { $group.HitCount } else { $target })
     $shown = testGroupShown $group
     $order = $group.HitOrder
+    if ($null -ne $order -and $group.Rows.Count -lt $end) {
+        updateGroupHitItems $group
+    }
     for ($i = $group.Rows.Count; $i -lt $end; $i++) {
-        $hitIndex = $(if ($null -ne $order -and $i -lt $order.Length) { $order[$i] } else { $i })
-        $hit = $group.Hits[$hitIndex]
-        # インデックスのフォルダ（work\index）からの相対パスの先頭がインデックス名（splitIndexRelPath と同じ）
-        $relDir = [string]$hit.RelDir
-        $cut = $relDir.IndexOf("\")
-        $indexName = if ($cut -lt 0) { $relDir } else { $relDir.Substring(0, $cut) }
-        $row = [HitRow]::Create($indexName, $hit.Root, $hit.RelPath, $relDir, $hit.FileName,
-                $hit.Book, $hit.Location, [int]$hit.LineNumber, $hit.Line, $script:rowWord, $script:rowPattern)
-        $traits = getRowTraits $hit.Book $hit.Location
-        $described = getPlace $hit.Book $hit.Location $traits.FileKind
-        $row.PlaceText = $described.Place
-        $row.Kind = $described.Kind
-        $row.IsExcel = ($traits.FileKind -eq "Excel")
-        $row.IsText = $traits.IsText
-        $row.IsCellPrefixed = $traits.IsCellPrefixed
-        $row.Order = $hitIndex
-        $row.FileGroup = $group
-        $group.Rows.Add($row)
-        if ($shown) {
-            $group.ShownRows.Add($row)
+        if ($null -ne $order) {
+            $hitIndex = $(if ($i -lt $order.Length) { $order[$i] } else { $i })
+            $hit = $group.HitItems[$hitIndex]
+            addHitRow $group $hit ([int]$hit.LineNumber) $hit.Line $hitIndex $shown
+            continue
+        }
+        $run = $group.Runs[$group.RowRun]
+        addHitRow $group $run $run.LineNumbers[$group.RowOffset] $run.Lines[$group.RowOffset] $i $shown
+        $group.RowOffset++
+        if ($group.RowOffset -ge $run.Lines.Count) {
+            $group.RowRun++
+            $group.RowOffset = 0
         }
     }
 }
@@ -169,7 +210,7 @@ function ensureDisplayRows {
         [FileGroup]$group
     )
 
-    ensureRows $group (getGroupRowTarget $group.Hits.Count $group.RowLimit)
+    ensureRows $group (getGroupRowTarget $group.HitCount $group.RowLimit)
 }
 
 function resetShownRows {
@@ -198,7 +239,7 @@ function updateGroupCount {
         [FileGroup]$group
     )
 
-    $group.SetCount($(if (testGroupShown $group) { $group.Hits.Count } else { 0 }))
+    $group.SetCount($(if (testGroupShown $group) { $group.HitCount } else { 0 }))
 }
 
 function testResultSorted {
@@ -213,7 +254,7 @@ function updateMoreRow {
         [FileGroup]$group
     )
 
-    $remaining = $group.Hits.Count - (getGroupRowTarget $group.Hits.Count $group.RowLimit)
+    $remaining = $group.HitCount - (getGroupRowTarget $group.HitCount $group.RowLimit)
     if ($group.IsExpanded -and $remaining -gt 0 -and $group.ShownCount -gt 0) {
         if ($null -eq $group.MoreRow) {
             $group.MoreRow = [MoreRowsItem]::new()
@@ -253,7 +294,7 @@ function flushResults {
             $group.InView = $true
             $group.DisplayedCount = 0
         }
-        if ($group.IsExpanded -and ($group.DisplayedCount -lt (getGroupDisplayCount $group.ShownRows.Count $group.Hits.Count $group.RowLimit) -or $group.MoreInView -or $group.Hits.Count -gt (getGroupRowTarget $group.Hits.Count $group.RowLimit))) {
+        if ($group.IsExpanded -and ($group.DisplayedCount -lt (getGroupDisplayCount $group.ShownRows.Count $group.HitCount $group.RowLimit) -or $group.MoreInView -or $group.HitCount -gt (getGroupRowTarget $group.HitCount $group.RowLimit))) {
             insertGroupRows $group
         }
     }
@@ -270,7 +311,7 @@ function insertGroupRows {
     )
 
     $index = $script:resultItems.IndexOf($group) + 1 + $group.DisplayedCount
-    $end = getGroupDisplayCount $group.ShownRows.Count $group.Hits.Count $group.RowLimit
+    $end = getGroupDisplayCount $group.ShownRows.Count $group.HitCount $group.RowLimit
     for ($i = $group.DisplayedCount; $i -lt $end; $i++) {
         $script:resultItems.Insert($index, $group.ShownRows[$i])
         $index++
@@ -299,7 +340,7 @@ function setResultItems {
         if ($item -is [FileGroup]) {
             $item.InView = $true
             if ($item.IsExpanded) {
-                $item.DisplayedCount = getGroupDisplayCount $item.ShownRows.Count $item.Hits.Count $item.RowLimit
+                $item.DisplayedCount = getGroupDisplayCount $item.ShownRows.Count $item.HitCount $item.RowLimit
             }
         } elseif ($item -is [MoreRowsItem]) {
             $item.Group.MoreInView = $true
@@ -347,7 +388,7 @@ function toggleFileGroup {
     } else {
         $group.SetExpanded($true)
         ensureDisplayRows $group
-        if ((getGroupDisplayCount $group.ShownRows.Count $group.Hits.Count $group.RowLimit) -gt ${rebuildThreshold}) {
+        if ((getGroupDisplayCount $group.ShownRows.Count $group.HitCount $group.RowLimit) -gt ${rebuildThreshold}) {
             rebuildResults
             return
         }
@@ -368,7 +409,7 @@ function showMoreGroupRows {
     if (!$group.InView -or !$group.IsExpanded) {
         return
     }
-    $end = getGroupDisplayCount $group.ShownRows.Count $group.Hits.Count $group.RowLimit
+    $end = getGroupDisplayCount $group.ShownRows.Count $group.HitCount $group.RowLimit
     if ($end - $first -gt ${rebuildThreshold}) {
         rebuildResults
     } else {
@@ -448,10 +489,10 @@ function getKindByLocation {
     )
 
     $kinds = @{}
-    foreach ($hit in $group.Hits) {
-        $location = [string]$hit.Location
+    foreach ($run in $group.Runs) {
+        $location = [string]$run.Location
         if (!$kinds.ContainsKey($location)) {
-            $kinds[$location] = (getPlace $hit.Book $location (getRowTraits $hit.Book $location).FileKind).Kind
+            $kinds[$location] = (getPlace $run.Book $location (getRowTraits $run.Book $location).FileKind).Kind
         }
     }
     return $kinds
@@ -467,14 +508,17 @@ function applySort {
     )
 
     foreach ($group in $script:groupList) {
-        if ($group.Hits.Count -gt ${groupRowLimit}) {
-            $group.HitOrder = getSortedHitOrder $group.Hits $property $descending $(if ($property -eq "Kind") { getKindByLocation $group } else { @{} })
+        if ($group.HitCount -gt ${groupRowLimit}) {
+            updateGroupHitItems $group
+            $group.HitOrder = getSortedHitOrder $group.HitItems $property $descending $(if ($property -eq "Kind") { getKindByLocation $group } else { @{} })
             $group.Rows.Clear()
+            $group.RowRun = 0
+            $group.RowOffset = 0
             $group.RowLimit = 0
         } else {
             $group.HitOrder = $null
         }
-        ensureRows $group (getSortRowTarget $group.Hits.Count)
+        ensureRows $group (getSortRowTarget $group.HitCount)
     }
     $sorted = sortFileGroups $script:groupList $property $descending
     $script:groupList.Clear()
@@ -536,7 +580,7 @@ function getExportHits {
     $hits = New-Object 'System.Collections.Generic.List[object]'
     foreach ($group in ($script:groupList | Sort-Object Order)) {
         if (testHitFilter $group.Book $filterText) {
-            $hits.AddRange($group.Hits)
+            $hits.AddRange((expandHitRuns $group.Runs))
         }
     }
     return , $hits.ToArray()

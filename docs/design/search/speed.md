@@ -2,7 +2,7 @@
 
 扱うこと: 本文インデックスの読み込みと照合の実装、正規表現の判定（`lines`/`filter`/`scan`）、並列検索・スレッドの使い回し・読んだ内容の使い回しによる速さの実測。扱わないこと: 検索の仕様そのもの（[検索](index.md)）、検索で照合するファイルを絞る 2-gram の索引（[2-gram の索引](../index-data/gram-index.md)）。先に読むページ: [検索](index.md)。
 
-本文インデックス（[インデックスのファイルの形](../index-data/format.md#配置命名規則)）の読み込みと照合、結果 1 件の作成は PowerShell から .NET を直接呼ぶ（`tebunko/search/content_index_search.ps1` の `searchContentIndex`／`searchContentIndexFiles`。`FileStream`＋`StreamReader`＋`[regex]`。`Select-String` で 1 件ずつ結果を作ると件数が多いときに遅いため）。資産管理・EDR に注目されやすい実行時コンパイル（`Add-Type`／csc.exe）は使わない（[画面の実装](../gui/implementation.md#実行時コンパイルcscexeを使わない)。実測: 50 万行で約 0.6 秒）。
+本文インデックス（[インデックスのファイルの形](../index-data/format.md#配置命名規則)）の読み込みと照合、結果 1 件の作成は PowerShell から .NET を直接呼ぶ（`tebunko/search/content_index_search.ps1` の `searchContentIndex`／`searchContentIndexFiles`。`FileStream`＋`StreamReader`＋`[regex]`。`Select-String` で 1 件ずつ結果を作ると件数が多いときに遅いため。ヒットは場所ごとのまとまり（`Runs`。行番号と該当行の一覧を持つ hashtable）で返し、1 件ごとにオブジェクトを作らない）。資産管理・EDR に注目されやすい実行時コンパイル（`Add-Type`／csc.exe）は使わない（[画面の実装](../gui/implementation.md#実行時コンパイルcscexeを使わない)。実測: 50 万行で約 0.6 秒）。
 
 1 行ずつ PowerShell で照合すると、行数に比例して時間がかかる（1 行あたり十数マイクロ秒）。このため本文インデックスのファイルを丸ごと読み（改行は書くときに LF にそろえてある）、正規表現を全文に 1 回かける（.NET の中で走る）。**全文で一致しない本文インデックスのファイルは、そのまま飛ばす。** 一致したときだけ、メタ情報の行から場所ごとの範囲（元のファイル名・場所の名前・中身の先頭と終わりの位置）の一覧を作り（`readContentIndexPlaces`）、一致の位置から元のファイル・場所・行番号を求める（[ファイル名・場所の求め方](output.md#ファイル名場所の求め方readcontentindexplaces)）。全文にかけてよいかは `getRegexScanMode` が正規表現の書き方から判定する。
 

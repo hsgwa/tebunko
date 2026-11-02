@@ -51,7 +51,7 @@ BeforeAll {
 
         $found = getContentIndexFiles @($ws.IndexDir)
         $regex = New-Object regex ([regex]::Escape($word))
-        return , @((searchContentIndexFiles $found.ContentIndexFiles 0 $found.ContentIndexFiles.Count $regex -1 $regex "lines").Hits)
+        return , @((expandHitRuns (searchContentIndexFiles $found.ContentIndexFiles 0 $found.ContentIndexFiles.Count $regex -1 $regex "lines").Runs))
     }
 }
 

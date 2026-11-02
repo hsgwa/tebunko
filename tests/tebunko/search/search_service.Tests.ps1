@@ -15,7 +15,8 @@ BeforeAll {
         $hits = New-Object System.Collections.Generic.List[object]
         $hit = $null
         while ($request.Queue.TryDequeue([ref]$hit)) {
-            $hits.Add($hit)
+            # 要求の Queue には場所ごとのまとまりが入る。1 行ずつの形に展開して数える
+            foreach ($row in (expandHitRuns @($hit))) { $hits.Add($row) }
         }
         return , $hits
     }
@@ -116,7 +117,7 @@ Describe "invokeSearchRequest" -Tag Io {
             $job = $pool.Submit(${contentIndexWorkerScript}.ToString(), @($poolContentIndexFiles, 0, $poolContentIndexFiles.Count, $search.Regex, -1, $search.TextRegex, $search.ScanMode, $null, $null, $null, $null))
             $output = $pool.Receive($job)
             $output[0].Timeout | Should -Be $false
-            $hits = @($output[0].Hits)
+            $hits = expandHitRuns $output[0].Runs
             $hits.Count | Should -Be 1
             $hits[0].Line.Length | Should -BeLessOrEqual 1002
             $hits[0].Line | Should -Match "対象語"

@@ -278,7 +278,7 @@ Describe "getResultItems（続きの行）" -Tag Unit {
     It "全件の行を作ってあっても、上限までの行だけ並べる" {
         $rows = 1..5 | ForEach-Object { newTestRow $_ "a$_" }
         $a = newTestGroup 1 $rows $true
-        $a | Add-Member -NotePropertyName Hits -NotePropertyValue (1..2000)
+        $a | Add-Member -NotePropertyName HitCount -NotePropertyValue 2000
         $a | Add-Member -NotePropertyName RowLimit -NotePropertyValue 3
         $items = getResultItems @($a)
         $items.Count | Should -Be 4
@@ -344,7 +344,7 @@ Describe "sortFileGroups（ヒットが多いファイル）" -Tag Unit {
     It "上限を超えるファイルの行は並べ替えず（先に並べ替えたヒットの順に作ってある）、ファイルの順は先頭の行の値で決める" {
         # big は先頭の行が最小（1）になるよう、並べ替えたヒットの順に作ってある行
         $big = newTestGroup 1 @((newTestRow 9 "x" 1), (newTestRow 0 "x" 30), (newTestRow 3 "x" 4))
-        $big | Add-Member -NotePropertyName Hits -NotePropertyValue (1..5)
+        $big | Add-Member -NotePropertyName HitCount -NotePropertyValue 5
         $small = newTestGroup 2 @((newTestRow 5 "y" 20), (newTestRow 6 "y" 10))
         $sorted = sortFileGroups @($small, $big) "LineNumber" $false 3
         @($big.Rows | ForEach-Object { $_.LineNumber }) -join "," | Should -Be "1,30,4"
