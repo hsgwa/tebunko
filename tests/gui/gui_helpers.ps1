@@ -212,7 +212,17 @@ function closeGui {
     $pattern = $S.Window.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern)
     $pattern.Close()
     try {
-        waitGui $S "画面が終了する" $Timeout -AllowExited { $S.Process.HasExited } | Out-Null
+        # 閉じたあとに予定していない窓（確認・待つ間のダイアログなど）が出たら、30 秒の待ちが切れるのを待たずに、その見出しで落とす。
+        # 確認が出ることを確かめるテストは、closeGui でなく closeGuiWindowAsync を使う
+        waitGui $S "画面が終了する" $Timeout -AllowExited {
+            if ($S.Process.HasExited) { return $true }
+            $others = @()
+            try { $others = @(getGuiOtherWindows $S) } catch { $others = @() }   # 閉じ途中で窓を読めないときは、窓なしとして次の問い合わせで見直す
+            foreach ($w in $others) {
+                $texts = @(getGuiTexts $w)
+                if ($texts.Count -gt 0) { throw "閉じたら確認が出た: $($texts -join ' / ')" }
+            }
+        } | Out-Null
     } catch {
         # 閉じても終わらない。止める前に、生きているプロセスの各スレッドの状態とイベントログを材料に残す（saveGuiEvidence が閉じない.txt に写す）
         $S.StuckInfo = @(getGuiThreadInfo $processId) + @(getGuiCrashInfo $processId)

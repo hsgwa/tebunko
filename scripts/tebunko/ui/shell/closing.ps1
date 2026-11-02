@@ -41,7 +41,8 @@
     }
 
     function enterIndexingStopFlow {
-        # ふだんの「インデックス作成を止めてから閉じる」流れに入る（すでに入っていれば、足りない手順だけ補う）。
+        param ([switch]$NoWaitDialog)   # 待つ間のダイアログを出さない（確認で取りやめた後始末の間は、すぐ終わるため）
+        #ふだんの「インデックス作成を止めてから閉じる」流れに入る（すでに入っていれば、足りない手順だけ補う）。
         # 1 つずつ try で包み、失敗しても残りを進める（finally の IndexingSession.Close の打ち切りに頼らず、
         # 取り込み中のファイルの区切りで止めるため）。closeDeadline は $null のときだけ決め、
         # 途中の失敗で入り直しても延ばし直さない。closeTimer も動いていなければ動かす（M1: ここが抜けていると、
@@ -63,10 +64,12 @@
             }
         } catch { }
         # 待つ間のダイアログは、失敗しても止める流れの邪魔にしない
-        try {
-            showIndexingWait "CloseWait"
-            updateIndexingWait (getIndexingProgress) ($script:closeDeadline - (Get-Date)).TotalSeconds
-        } catch { }
+        if (!$NoWaitDialog) {
+            try {
+                showIndexingWait "CloseWait"
+                updateIndexingWait (getIndexingProgress) ($script:closeDeadline - (Get-Date)).TotalSeconds
+            } catch { }
+        }
     }
 
     $window.Add_Closing({
@@ -126,6 +129,12 @@
             $script:closeAfterIndexJob = $false
             # インデックス作成は画面のプロセスで動いているため、画面を閉じるときは止める
             if (isIndexing) {
+                if ((getIndexingCloseAction ([bool]$script:indexingCanceledAtConfirm) ($null -ne $script:indexingRestart)) -eq "stop") {
+                    # 確認のダイアログで取りやめた後始末の間。失うものが無いので、聞かず、待つ間のダイアログも出さずに止めてから閉じる
+                    $e.Cancel = $true
+                    enterIndexingStopFlow -NoWaitDialog
+                    return
+                }
                 $stopConfirm = getIndexingCloseConfirm
                 $answer = showConfirm `
                     -title $stopConfirm.Title `
