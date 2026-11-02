@@ -663,6 +663,17 @@ function openIndexLocation {
     }.GetNewClosure() (getWorkspaceJobQueue $path)
 }
 
+function resolveIndexCheckedItems {
+    # 更新の入口が受けたチェックした行（given が真のとき）をそのまま使い、省かれていれば求める。1 回の操作で求める回数を 1 回にするため
+    param (
+        [bool]$given,
+        [object[]]$checkedItems
+    )
+
+    if ($given) { return , @($checkedItems) }
+    return , @(getIndexCheckedItems @($script:targetItems))
+}
+
 function updateIndexSelectionView {
     # 見出しの全選択（一部だけなら横棒）と、見出しの横の「N / M 件を選択中」。判断は getIndexSelectionView。
     # checkedItems（getIndexCheckedItems の結果）を省くと、ここで求める
@@ -670,9 +681,7 @@ function updateIndexSelectionView {
         [object[]]$checkedItems
     )
 
-    if (!$PSBoundParameters.ContainsKey("checkedItems")) {
-        $checkedItems = @(getIndexCheckedItems @($script:targetItems))
-    }
+    $checkedItems = resolveIndexCheckedItems $PSBoundParameters.ContainsKey("checkedItems") $checkedItems
     $view = getIndexSelectionView $script:targetItems.Count @($checkedItems).Count
     $ui.SelectionCountText.Text = $view.CountText
     $ui.SelectionCountText.Visibility = if ($view.CountText) { "Visible" } else { "Collapsed" }
@@ -687,7 +696,7 @@ function updateIndexRowsProgress {
     # 割合（整数の %）が前回と同じなら何もしない。変わったときは、行の文言を enabled × 今の回の組ごとに 1 回だけ求め、補足と棒の 2 つだけを置く
     # （Run の間は、行のボタンも詳細欄の中身も変わらない。詳細欄は updateIndexingProgress が 1 回だけ置く）
     $ratio = getIndexingRatio
-    $percent = if ($ratio -lt 0) { -1 } else { [int][math]::Floor([math]::Min($ratio, 1.0) * 100) }   # getIndexRowView の Percent と同じ求め方
+    $percent = getIndexRowPercent $ratio
     if ($null -ne $script:indexRowsPercent -and $percent -eq $script:indexRowsPercent) {
         return
     }

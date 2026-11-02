@@ -127,9 +127,7 @@ function updateIndexingButton {
         [object[]]$checkedItems
     )
 
-    if (!$PSBoundParameters.ContainsKey("checkedItems")) {
-        $checkedItems = @(getIndexCheckedItems @($script:targetItems))
-    }
+    $checkedItems = resolveIndexCheckedItems $PSBoundParameters.ContainsKey("checkedItems") $checkedItems
     $ready = $false
     foreach ($item in $script:targetItems) {
         # フォルダの有無は refreshFolderStatus が別スレッドで調べた結果を使う（調べ終えるまではあるものとする）
@@ -470,9 +468,7 @@ function updateIndexDetailPanel {
     )
 
     $selected = @()
-    if (!$PSBoundParameters.ContainsKey("checkedItems")) {
-        $checkedItems = @(getIndexCheckedItems @($script:targetItems))
-    }
+    $checkedItems = resolveIndexCheckedItems $PSBoundParameters.ContainsKey("checkedItems") $checkedItems
     $item = getIndexDetailItem $ui.IndexGrid.SelectedItem $checkedItems
     if ($null -ne $item) {
         $selected = @(@{
