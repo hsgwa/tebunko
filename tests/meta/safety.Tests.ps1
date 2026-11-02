@@ -130,6 +130,38 @@ BeforeAll {
         return @{ Places = $places.ToArray(); Unchecked = $unchecked.ToArray() }
     }
 
+    function getEditorWriteViolations {
+        # スクリプトの文字列から、writeTextEditorPath を空でない値で呼ぶ所を探し、"関数名" の一覧と、
+        # その関数の中で、呼ぶより前に getTextEditorPickResult を呼んでいない（または結果の Ok を見ていない）ものの一覧を返す。
+        # 空の文字列（""・''）で呼ぶのは［メモ帳に戻す］（既定に戻すだけ）なので数えない。コードを文字列で渡せるので、通ってはいけない形で落ちることをテストで確かめられる
+        param (
+            [string]$code
+        )
+
+        $ast = [System.Management.Automation.Language.Parser]::ParseInput($code, [ref]$null, [ref]$null)
+        $calls = $ast.FindAll({ param ($node) $node -is [System.Management.Automation.Language.CommandAst] -and $node.GetCommandName() -eq "writeTextEditorPath" }, $true)
+        $places = New-Object System.Collections.Generic.List[string]
+        $unchecked = New-Object System.Collections.Generic.List[string]
+        foreach ($call in $calls) {
+            $first = $(if ($call.CommandElements.Count -gt 1) { $call.CommandElements[1] } else { $null })
+            if ($first -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $first.Value -eq "") {
+                continue
+            }
+            $owner = $call.Parent
+            while ($owner -and $owner -isnot [System.Management.Automation.Language.FunctionDefinitionAst]) {
+                $owner = $owner.Parent
+            }
+            $name = $(if ($owner) { $owner.Name } else { "(関数の外)" })
+            $places.Add($name)
+            $gates = $(if ($owner) {
+                @($owner.FindAll({ param ($node) $node -is [System.Management.Automation.Language.CommandAst] -and $node.GetCommandName() -eq "getTextEditorPickResult" -and $node.Extent.StartOffset -lt $call.Extent.StartOffset }, $true))
+            } else { @() })
+            $readsOk = $(if ($owner) { $owner.Extent.Text -match '\$result\.Ok' } else { $false })
+            if ($gates.Count -eq 0 -or -not $readsOk) { $unchecked.Add($name) }
+        }
+        return @{ Places = $places.ToArray(); Unchecked = $unchecked.ToArray() }
+    }
+
     function getSourcePathViolations {
         # 取り込みの入口の関数の中で、元のパス（変数 sourcePath）の渡し先が許した処理だけかを調べる。
         # 返す: Found = 見つけた入口の名前、Violations = 許さない渡し先の行（"関数名:行"）。コードを文字列で渡せるので、通ってはいけない形で落ちることをテストで確かめられる。
@@ -461,6 +493,29 @@ Describe "危険な処理を使っていないこと（docs/safety/checks.md「�
     ) {
         param ($name, $code, $places, $unchecked)
         $result = getKillViolations $code "StopProcess"
+        ($result.Places -join ",") | Should -Be $places
+        ($result.Unchecked -join ",") | Should -Be $unchecked
+    }
+
+    It "writeTextEditorPath を空でない値で呼ぶのは pickAndSaveTextEditor の 1 か所だけで、その前に getTextEditorPickResult の Ok を確かめている" {
+        $all = New-Object System.Collections.Generic.List[string]
+        foreach ($file in (Get-ChildItem -LiteralPath "$scriptsDir" -Recurse -Filter *.ps1)) {
+            $result = getEditorWriteViolations ([System.IO.File]::ReadAllText($file.FullName))
+            foreach ($place in $result.Places) { $all.Add("$place") }
+            foreach ($place in $result.Unchecked) { $all.Add("確かめなし:$place") }
+        }
+        ($all.ToArray() -join ",") | Should -Be "pickAndSaveTextEditor"
+    }
+
+    It "getEditorWriteViolations: <name>" -TestCases @(
+        @{ name = "確かめたあとの保存"; code = 'function a { $result = getTextEditorPickResult $p $e $v; if (-not $result.Ok) { return }; writeTextEditorPath $p }'; places = "a"; unchecked = "" }
+        @{ name = "確かめない保存"; code = 'function a { writeTextEditorPath $p }'; places = "a"; unchecked = "a" }
+        @{ name = "確かめる前の保存"; code = 'function a { writeTextEditorPath $p; $result = getTextEditorPickResult $p $e $v; $result.Ok }'; places = "a"; unchecked = "a" }
+        @{ name = "結果の Ok を見ない"; code = 'function a { $r = getTextEditorPickResult $p $e $v; writeTextEditorPath $p }'; places = "a"; unchecked = "a" }
+        @{ name = "空の保存（メモ帳に戻す）は数えない"; code = 'function a { writeTextEditorPath "" }'; places = ""; unchecked = "" }
+    ) {
+        param ($name, $code, $places, $unchecked)
+        $result = getEditorWriteViolations $code
         ($result.Places -join ",") | Should -Be $places
         ($result.Unchecked -join ",") | Should -Be $unchecked
     }

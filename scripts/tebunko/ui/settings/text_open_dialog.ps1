@@ -2,19 +2,166 @@
 # 文言・行・一覧の見せ方・設定に書く値の作り方は判断層（text_open_view.ps1）、設定の読み書きは core\settings.ps1。
 # ここは、それらをつなぎ、ダイアログ（dialog_text_open.xaml）を開いて［OK］で保存するだけ。入口は［設定］の「テキストファイル」の枠の［変更…］（ChangeTextExtensionsButton）。
 # 開き方は行ごとに 2 つのボタン（RadioButton。Tag が開き方の値）を 1 回押して選ぶ。選んだ値は、その行の RadioButton の IsChecked で読む。
-# エディタの行は、いまはメモ帳だけ（［変更…］は押せない。「将来の対応」の印）。
+# エディタの行: ［変更…］で .exe を選ぶ（pickAndSaveTextEditor。保存の前に getTextEditorPickResult で確かめる）。［メモ帳に戻す］は resetTextEditor。
+# 選んだエディタのフルパスと、選べなかった理由は、行の下の段に出す（［設定］の行と同じ。updateTextEditorPathView・setTextEditorError）。
+
+function updateTextEditorPathView {
+    # エディタのフルパスの段（選んだエディタがあるときだけ出す）と、［メモ帳に戻す］の押せる・押せないを直す
+    param (
+        $pathBlock,
+        $resetButton,
+        $configured
+    )
+
+    $pathText = getTextEditorPathText $configured
+    $pathBlock.Text = $pathText
+    $pathBlock.Visibility = $(if ($pathText -ne "") { "Visible" } else { "Collapsed" })
+    $resetButton.IsEnabled = testTextEditorResetEnabled $configured
+}
+
+function setTextEditorError {
+    # エディタを選べなかった理由の段（赤字）。空なら隠す
+    param (
+        $errorBlock,
+        [string]$message
+    )
+
+    $errorBlock.Text = $message
+    $errorBlock.Visibility = $(if ($message -ne "") { "Visible" } else { "Collapsed" })
+}
 
 function updateTextOpenSummary {
-    # ［設定］の枠に、開き方の要約とエディタの名前を出す
+    # ［設定］の枠に、開き方の要約とエディタの名前・パスを出す
     $texts = getTextOpenDialogTexts
     $ui.TextExtensionHint.Text = $texts.SettingsHint
+    $editorPath = ""
     try {
         $current = readTextExtensionSettings
         $ui.TextExtensionSummary.Text = getTextOpenSummary $current.Notepad
-        $ui.EditorHint.Text = ($texts.EditorSettingsHint -f (getTextEditorLabel $current.EditorPath))
+        $editorPath = $current.EditorPath
     } catch {
         $ui.TextExtensionSummary.Text = ""
-        $ui.EditorHint.Text = ($texts.EditorSettingsHint -f (getTextEditorLabel ""))
+    }
+    $ui.EditorHint.Text = ($texts.EditorSettingsHint -f (getTextEditorLabel $editorPath))
+    updateTextEditorPathView $ui.EditorPathText $ui.ResetEditorButton $editorPath
+}
+
+function pickAndSaveTextEditor {
+    # ［変更…］（［設定］の行・ダイアログの行の両方）から呼ぶ。.exe を選んでもらい、getTextEditorPickResult が通ったときだけ textEditorPath に保存する。
+    # 返す値: @{ Picked（選んだか。キャンセルは $false）; Saved; Message（選べなかった理由。無ければ空） }
+    param (
+        [System.Windows.Window]$owner = $window
+    )
+
+    $texts = getTextOpenDialogTexts
+    $initial = ""
+    try {
+        $dir = [System.IO.Path]::GetDirectoryName([string](readTextExtensionSettings).EditorPath)
+        if ($dir -and (Test-Path -LiteralPath $dir -PathType Container)) {
+            $initial = $dir
+        }
+    } catch {
+        $initial = ""
+    }
+    if ($initial -eq "") {
+        # 設定のエディタが無いときは、Windows のあるドライブの Program Files から始める（無ければ指定しない。OS の既定の場所）
+        $programFiles = Join-Path ([System.IO.Path]::GetPathRoot($env:SystemRoot)) "Program Files"
+        if (Test-Path -LiteralPath $programFiles -PathType Container) {
+            $initial = $programFiles
+        }
+    }
+    $chosen = selectExeFile $texts.EditorPickTitle $initial $owner
+    if (-not $chosen) {
+        return @{ Picked = $false; Saved = $false; Message = "" }
+    }
+    # ファイルを調べるのは、ドライブ文字から始まる形のときだけ（UNC など、届かないと止まりうる場所は調べず、形の違いとして断る）
+    $exists = $false
+    $versionNames = $null
+    if (testTextEditorPath $chosen) {
+        $exists = Test-Path -LiteralPath $chosen -PathType Leaf
+        if ($exists) {
+            $versionNames = getTextEditorVersionNames $chosen
+        }
+    }
+    $result = getTextEditorPickResult $chosen $exists $versionNames
+    if (-not $result.Ok) {
+        return @{ Picked = $true; Saved = $false; Message = $result.Message }
+    }
+    try {
+        writeTextEditorPath $chosen
+    } catch {
+        return @{ Picked = $true; Saved = $false; Message = "設定を保存できませんでした。もう一度お試しください。" }
+    }
+    return @{ Picked = $true; Saved = $true; Message = "" }
+}
+
+function resetTextEditor {
+    # ［メモ帳に戻す］: textEditorPath を空にして保存する。保存できたか（できなければ知らせる）を返す
+    try {
+        writeTextEditorPath ""
+    } catch {
+        showMessage "設定を保存できませんでした。もう一度お試しください。" "OK" "Warning" | Out-Null
+        return $false
+    }
+    return $true
+}
+
+function changeTextEditorFromSettings {
+    # ［設定］の「エディタ」の［変更…］
+    setTextEditorError $ui.EditorErrorText ""
+    $result = pickAndSaveTextEditor
+    if (-not $result.Picked) {
+        return
+    }
+    updateTextOpenSummary
+    setTextEditorError $ui.EditorErrorText $result.Message
+}
+
+function resetTextEditorFromSettings {
+    # ［設定］の「エディタ」の［メモ帳に戻す］
+    setTextEditorError $ui.EditorErrorText ""
+    if (resetTextEditor) {
+        updateTextOpenSummary
+    }
+}
+
+function updateTextOpenDialogEditor {
+    # ダイアログの下のエディタの行（名前・パス・［メモ帳に戻す］）を、今の設定で直す
+    param (
+        $ctrl
+    )
+
+    $editorPath = (readTextExtensionSettings).EditorPath
+    $ctrl.TextExtEditorName.Text = getTextEditorLabel $editorPath
+    updateTextEditorPathView $ctrl.TextExtEditorPath $ctrl.TextExtEditorResetButton $editorPath
+}
+
+function changeTextEditorInDialog {
+    # ダイアログの下のエディタの行の［変更…］。保存は押した時点（［OK］を待たない）。ダイアログの行と［設定］の行の両方を直す
+    param (
+        $ctrl
+    )
+
+    setTextEditorError $ctrl.TextExtEditorError ""
+    $result = pickAndSaveTextEditor $ctrl.Dialog
+    if (-not $result.Picked) {
+        return
+    }
+    updateTextOpenDialogEditor $ctrl
+    updateTextOpenSummary
+    setTextEditorError $ctrl.TextExtEditorError $result.Message
+}
+
+function resetTextEditorInDialog {
+    # ダイアログの下のエディタの行の［メモ帳に戻す］
+    param (
+        $ctrl
+    )
+
+    setTextEditorError $ctrl.TextExtEditorError ""
+    if (resetTextEditor) {
+        updateTextOpenDialogEditor $ctrl
+        updateTextOpenSummary
     }
 }
 
@@ -167,7 +314,7 @@ function newTextOpenDialogControls {
     $ctrl = @{ Dialog = $dialog }
     foreach ($name in @("NoteText", "ExtensionHeader", "WayHeader", "RowsPanel", "TextExtList", "TextExtEmpty", "TextExtSummary", "TextExtChangedOnly",
             "TextExtFilterBox", "TextExtFilterPlaceholder", "TextExtResetButton", "TextExtCancelButton", "TextExtOkButton",
-            "TextExtEditorTitle", "TextExtEditorName", "TextExtEditorHint", "TextExtEditorMarkText", "TextExtEditorChangeButton")) {
+            "TextExtEditorTitle", "TextExtEditorName", "TextExtEditorHint", "TextExtEditorChangeButton", "TextExtEditorResetButton", "TextExtEditorPath", "TextExtEditorError")) {
         $ctrl[$name] = $dialog.FindName($name)
     }
     $ctrl.NoteText.Text = $texts.Note
@@ -182,8 +329,9 @@ function newTextOpenDialogControls {
     $ctrl.TextExtEditorTitle.Text = $texts.EditorTitle
     $ctrl.TextExtEditorName.Text = getTextEditorLabel $editorPath
     $ctrl.TextExtEditorHint.Text = $texts.EditorHint
-    $ctrl.TextExtEditorMarkText.Text = $texts.FutureMark
     $ctrl.TextExtEditorChangeButton.Content = $texts.Change
+    $ctrl.TextExtEditorResetButton.Content = $texts.ResetEditor
+    updateTextEditorPathView $ctrl.TextExtEditorPath $ctrl.TextExtEditorResetButton $editorPath
     return $ctrl
 }
 
@@ -242,6 +390,11 @@ function showTextOpenDialog {
             $ctx.Rows[$i].Radios[$defaults[$i].Way].IsChecked = $true
         }
     }.GetNewClosure())
+    # エディタの行（ハンドラは関数を名前で呼ばず、実体を変数に取って & で呼ぶ）
+    $changeEditor = ${function:changeTextEditorInDialog}
+    $resetEditor = ${function:resetTextEditorInDialog}
+    $ctrl.TextExtEditorChangeButton.Add_Click({ & $changeEditor $ctrl }.GetNewClosure())
+    $ctrl.TextExtEditorResetButton.Add_Click({ & $resetEditor $ctrl }.GetNewClosure())
     $dialog = $ctrl.Dialog
     $ctrl.TextExtOkButton.Add_Click({ $dialog.DialogResult = $true }.GetNewClosure())
     & $refresh $ctx
