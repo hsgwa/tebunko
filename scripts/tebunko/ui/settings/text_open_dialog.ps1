@@ -56,7 +56,9 @@ function pickAndSaveTextEditor {
     $texts = getTextOpenDialogTexts
     $initial = ""
     try {
-        $dir = [System.IO.Path]::GetDirectoryName([string](readTextExtensionSettings).EditorPath)
+        # 今のエディタのパスは、使える形（ドライブ文字から始まる .exe）のときだけ見る（手で書かれた UNC などは調べない）
+        $configured = getTextEditorPathText (readTextExtensionSettings).EditorPath
+        $dir = $(if ($configured -ne "") { [System.IO.Path]::GetDirectoryName($configured) } else { "" })
         if ($dir -and (Test-Path -LiteralPath $dir -PathType Container)) {
             $initial = $dir
         }

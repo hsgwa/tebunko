@@ -156,7 +156,20 @@ BeforeAll {
             $gates = $(if ($owner) {
                 @($owner.FindAll({ param ($node) $node -is [System.Management.Automation.Language.CommandAst] -and $node.GetCommandName() -eq "getTextEditorPickResult" -and $node.Extent.StartOffset -lt $call.Extent.StartOffset }, $true))
             } else { @() })
-            $readsOk = $(if ($owner) { $owner.Extent.Text -match '\$result\.Ok' } else { $false })
+            # 確かめた結果を入れた変数（getTextEditorPickResult の呼び出しを右辺にする代入の左辺）の .Ok を、書く前に見ているか
+            $readsOk = $false
+            if ($owner) {
+                $assigns = @($owner.FindAll({ param ($node) $node -is [System.Management.Automation.Language.AssignmentStatementAst] -and $node.Left -is [System.Management.Automation.Language.VariableExpressionAst] -and
+                    @($node.Right.FindAll({ param ($inner) $inner -is [System.Management.Automation.Language.CommandAst] -and $inner.GetCommandName() -eq "getTextEditorPickResult" }, $true)).Count -gt 0 -and
+                    $node.Extent.StartOffset -lt $call.Extent.StartOffset }, $true))
+                foreach ($assign in $assigns) {
+                    $variable = $assign.Left.VariablePath.UserPath
+                    $reads = @($owner.FindAll({ param ($node) $node -is [System.Management.Automation.Language.MemberExpressionAst] -and $node.Member.Value -eq "Ok" -and
+                        $node.Expression -is [System.Management.Automation.Language.VariableExpressionAst] -and $node.Expression.VariablePath.UserPath -eq $variable -and
+                        $node.Extent.StartOffset -gt $assign.Extent.StartOffset -and $node.Extent.StartOffset -lt $call.Extent.StartOffset }, $true))
+                    if ($reads.Count -gt 0) { $readsOk = $true }
+                }
+            }
             if ($gates.Count -eq 0 -or -not $readsOk) { $unchecked.Add($name) }
         }
         return @{ Places = $places.ToArray(); Unchecked = $unchecked.ToArray() }
@@ -511,6 +524,8 @@ Describe "危険な処理を使っていないこと（docs/safety/checks.md「�
         @{ name = "確かめたあとの保存"; code = 'function a { $result = getTextEditorPickResult $p $e $v; if (-not $result.Ok) { return }; writeTextEditorPath $p }'; places = "a"; unchecked = "" }
         @{ name = "確かめない保存"; code = 'function a { writeTextEditorPath $p }'; places = "a"; unchecked = "a" }
         @{ name = "確かめる前の保存"; code = 'function a { writeTextEditorPath $p; $result = getTextEditorPickResult $p $e $v; $result.Ok }'; places = "a"; unchecked = "a" }
+        @{ name = "書いたあとで Ok を見る"; code = 'function a { $result = getTextEditorPickResult $p $e $v; writeTextEditorPath $p; if ($result.Ok) { 1 } }'; places = "a"; unchecked = "a" }
+        @{ name = "別の変数の Ok を見る"; code = 'function a { $r = getTextEditorPickResult $p $e $v; $x = @{ Ok = $true }; if (-not $x.Ok) { return }; writeTextEditorPath $p }'; places = "a"; unchecked = "a" }
         @{ name = "結果の Ok を見ない"; code = 'function a { $r = getTextEditorPickResult $p $e $v; writeTextEditorPath $p }'; places = "a"; unchecked = "a" }
         @{ name = "空の保存（メモ帳に戻す）は数えない"; code = 'function a { writeTextEditorPath "" }'; places = ""; unchecked = "" }
     ) {
