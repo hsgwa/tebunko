@@ -183,6 +183,45 @@ Describe "S4 検索の遷移" -Tag Gui {
         }
     }
 
+    It "並べ替えのあと見出しを開閉しても、並べ替えの状態が残り、もう一度のクリックで逆順になる" {
+        $S = startGui $script:tool "S4"
+        invokeGuiScene $S {
+            $hitRows = { getGuiHitRows (findGui $S.Window -Id "ResultGrid") }
+            $rowNames = { (@(& $hitRows) | ForEach-Object { $_.Current.Name }) -join "," }
+            $header = { findGui (findGui $S.Window -Id "ResultGrid") -Name "場所" -Type HeaderItem }
+
+            setGuiStep $S "検索して、すべて開く"
+            setGuiText $S (findGui $S.Window -Id "WordBox") "単価"
+            waitGuiEnabled $S (findGui $S.Window -Id "SearchButton") "［検索］"
+            clickGui $S $S.Window "SearchButton" "［検索］"
+            waitGui $S "該当 2 件" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "SummaryText")) -like "一致 2 件（*" } | Out-Null
+            clickGui $S $S.Window "ExpandAllButton" "［すべて開く］"
+            waitGui $S "結果の行が 2 件出る" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 2 } | Out-Null
+
+            setGuiStep $S "［場所］の見出しを押して昇順"
+            invokeGui $S (& $header) "［場所］の見出し"
+            waitGui $S "並べ替わる" ${guiDefaultTimeout} { $script:ascending = & $rowNames; $script:ascending -ne "" } | Out-Null
+            $ascending = $script:ascending
+            $descendingNames = @($ascending -split ",")
+            [array]::Reverse($descendingNames)
+            $descending = $descendingNames -join ","
+            $descending | Should -Not -Be $ascending -Because "2 件の行の順が入れ替わる（比べるための前提）"
+
+            setGuiStep $S "すべて折りたたむ → すべて開く（表の作り直し）"
+            clickGui $S $S.Window "CollapseAllButton" "［すべて折りたたむ］"
+            waitGui $S "結果の行が隠れる" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 0 } | Out-Null
+            clickGui $S $S.Window "ExpandAllButton" "［すべて開く］"
+            waitGui $S "結果の行が 2 件出る" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 2 } | Out-Null
+            (& $rowNames) | Should -Be $ascending -Because "開閉しても並べ替えた順のまま"
+
+            setGuiStep $S "もう一度［場所］の見出しを押して降順"
+            invokeGui $S (& $header) "［場所］の見出し"
+            waitGui $S "降順になる" ${guiDefaultTimeout} { (& $rowNames) -eq $descending } | Out-Null
+
+            closeGui $S
+        }
+    }
+
     It "利用者の環境に触っていない" {
         compareGuiEnvSnapshot $script:envBefore (getGuiEnvSnapshot) | Should -BeNullOrEmpty
     }

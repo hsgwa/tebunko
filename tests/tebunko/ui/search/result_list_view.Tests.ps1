@@ -439,3 +439,23 @@ Describe "getNoHitText" -Tag Unit {
         getNoHitText | Should -Be "一致する結果はありません"
     }
 }
+
+Describe "getNextSortDirection・testSortStateActive" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "並べ替えていないとき、どの項目も昇順"; state = $null; property = "Book"; descending = $false }
+        @{ name = "同じ項目の昇順の次は降順"; state = @{ Property = "Book"; Descending = $false }; property = "Book"; descending = $true }
+        @{ name = "同じ項目の降順の次は昇順"; state = @{ Property = "Book"; Descending = $true }; property = "Book"; descending = $false }
+        @{ name = "別の項目は、今が降順でも昇順"; state = @{ Property = "Book"; Descending = $true }; property = "Line"; descending = $false }
+        @{ name = "別の項目は、今が昇順でも昇順"; state = @{ Property = "Book"; Descending = $false }; property = "Line"; descending = $false }
+    ) {
+        getNextSortDirection $state $property | Should -Be $descending
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "状態が無ければ偽"; state = $null; expected = $false }
+        @{ name = "項目名が空なら偽"; state = @{ Property = ""; Descending = $false }; expected = $false }
+        @{ name = "項目名があれば真"; state = @{ Property = "Book"; Descending = $true }; expected = $true }
+    ) {
+        testSortStateActive $state | Should -Be $expected
+    }
+}

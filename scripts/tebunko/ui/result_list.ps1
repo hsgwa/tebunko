@@ -15,6 +15,7 @@ $script:places = @{}             # 場所の表示（describePlace）を、種�
 $script:rowWord = ""             # 表の行の強調に使う検索ワードと正規表現（startSearch が setRowPattern で決める）
 $script:rowPattern = $null
 $script:expandNew = $false       # 検索中に新しく見つかったファイルを開いておくか（［すべて開く］を押したら $true）
+$script:resultSort = $null       # 列見出しでの並べ替えの状態（@{ Property; Descending }。並べ替えていなければ $null）。表を作り直すと列の SortDirection は消えるので、状態はここに持つ
 $ui.ResultGrid.ItemsSource = $script:resultItems
 
 # 見出しの下の行をこの数より多く出し入れするときは、1 件ずつ入れずに表を作り直す（1 件ずつだと画面の更新が重い）
@@ -36,9 +37,7 @@ function clearResults {
     $script:rowWord = $word
     $script:rowPattern = $pattern
     $script:expandNew = $false
-    foreach ($column in $ui.ResultGrid.Columns) {
-        $column.SortDirection = $null
-    }
+    $script:resultSort = $null
     setResultItems (New-Object 'System.Collections.Generic.List[object]')
 }
 
@@ -203,7 +202,7 @@ function updateGroupCount {
 
 function testResultSorted {
     # 結果の表を列見出しで並べ替えているか
-    return [bool]($ui.ResultGrid.Columns | Where-Object { $null -ne $_.SortDirection } | Select-Object -First 1)
+    return (testSortStateActive $script:resultSort)
 }
 
 function updateMoreRow {
@@ -307,9 +306,25 @@ function setResultItems {
     }
     $script:resultItems = New-Object 'System.Collections.ObjectModel.ObservableCollection[object]' (, [System.Collections.Generic.List[object]]$items)
     $ui.ResultGrid.ItemsSource = $script:resultItems
+    showSortMark
     if ($null -ne $selected -and $script:resultItems.Contains($selected)) {
         $ui.ResultGrid.SelectedItem = $selected
         $ui.ResultGrid.ScrollIntoView($selected)
+    }
+}
+
+function showSortMark {
+    # 並べ替えの状態（$script:resultSort）に合う列の見出しに、▲▼の印を付ける（ほかの列の印は消す）。
+    # 表の ItemsSource を入れ替えると列の印が消えるので、入れ替えたあとに付け直す
+    foreach ($column in $ui.ResultGrid.Columns) {
+        $column.SortDirection = $null
+    }
+    if (!(testSortStateActive $script:resultSort)) {
+        return
+    }
+    $marked = $ui.ResultGrid.Columns | Where-Object { $_.SortMemberPath -eq $script:resultSort.Property } | Select-Object -First 1
+    if ($marked) {
+        $marked.SortDirection = if ($script:resultSort.Descending) { [System.ComponentModel.ListSortDirection]::Descending } else { [System.ComponentModel.ListSortDirection]::Ascending }
     }
 }
 
@@ -433,11 +448,8 @@ function sortResults {
     if (!$property) {
         return
     }
-    $descending = $column.SortDirection -eq [System.ComponentModel.ListSortDirection]::Ascending
-    foreach ($other in $ui.ResultGrid.Columns) {
-        $other.SortDirection = $null
-    }
-    $column.SortDirection = if ($descending) { [System.ComponentModel.ListSortDirection]::Descending } else { [System.ComponentModel.ListSortDirection]::Ascending }
+    $descending = getNextSortDirection $script:resultSort $property
+    $script:resultSort = @{ Property = $property; Descending = $descending }
     applySort $property $descending
 }
 
@@ -488,9 +500,8 @@ function applySort {
 function finishResults {
     # 検索の終わりに、表の順を整える。検索中に並べ替えていたら、あとから来た行も含めて並べ直す
     flushResults -SkipPaneHeight
-    $column = $ui.ResultGrid.Columns | Where-Object { $null -ne $_.SortDirection } | Select-Object -First 1
-    if ($column) {
-        applySort $column.SortMemberPath ($column.SortDirection -eq [System.ComponentModel.ListSortDirection]::Descending)
+    if (testSortStateActive $script:resultSort) {
+        applySort $script:resultSort.Property $script:resultSort.Descending
     } else {
         updateResultPaneHeight $script:resultItems.Count
     }

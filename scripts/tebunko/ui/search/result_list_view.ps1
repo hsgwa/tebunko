@@ -458,6 +458,29 @@ function sortFileGroups {
     return , $sortedGroups
 }
 
+function getNextSortDirection {
+    # 列見出しをクリックしたときに並べる向き（降順なら $true）。今の並べ替えの状態（項目名と向き。無ければ $null）と同じ項目なら逆の向き、
+    # 違う項目・並べ替えていないときは昇順
+    param (
+        $state,
+        [string]$property
+    )
+
+    if (!(testSortStateActive $state)) {
+        return $false
+    }
+    return $state.Property -eq $property -and !$state.Descending
+}
+
+function testSortStateActive {
+    # 並べ替えの状態（項目名と向き）があるか
+    param (
+        $state
+    )
+
+    return $null -ne $state -and ![string]::IsNullOrEmpty($state.Property)
+}
+
 function testResultMenuKeepSelection {
     # 結果の行を右クリックしたとき、今の選びを変えずにメニューを出すか。
     # ヒットした行を複数選んでいて、その中の行を右クリックしたときだけ $true（［選んだ行をコピー］のため）。
