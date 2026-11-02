@@ -186,7 +186,7 @@ function resetShownRows {
 }
 
 function ensureAllRows {
-    # すべてのファイルのヒットを、全部表の行にする（出力の前。ヒットが多いファイルは重い）
+    # すべてのファイルのヒットを、全部表の行にする（重い。出力からは使わない。getViewRows が使う）
     foreach ($group in $script:groupList) {
         ensureRows $group
     }
@@ -514,7 +514,7 @@ function getCurrentHitRow {
 }
 
 function getViewRows {
-    # 表示中（絞り込み・並べ替え後）の行。閉じているファイルの行も含む（結果をファイルに出力するときに使う）
+    # 表示中（絞り込み・並べ替え後）の行。閉じているファイルの行も含む（出力からは使わない。テストで、出力の準備 getExportHits の順と比べるのに使う）
     ensureAllRows
     return , (getShownHitRows $script:groupList).ToArray()
 }
