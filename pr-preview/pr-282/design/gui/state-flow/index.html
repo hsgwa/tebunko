@@ -4427,19 +4427,19 @@
 <tr>
 <td>未作成</td>
 <td><code>work/store/content</code> に本文インデックスのファイルが無い</td>
-<td>No.5 に <code>まだインデックスがありません。</code></td>
+<td>一覧のステータスが <code>未作成</code>、ステータスバーが <code>合計: 0 ファイル</code></td>
 <td>1</td>
 </tr>
 <tr>
 <td>中断中</td>
 <td><code>work/store/ingest_status.tsv</code> に状態が <code>未取り込み</code> の行がある（中止した場合の状態。利用者の PowerPoint のために取り込めなかったファイルも状態は <code>未取り込み</code> だが、エラーの列に理由があるので、待ちではなく失敗に数え、この表示には入らない）</td>
-<td>No.5 の次の行に <code>更新を中断しました（残り N 件）</code>（<code>getIndexingStateText</code>。<code>indexing_view.ps1</code>）、No.6 のボタンは［続きから再開（残り N 件）］</td>
+<td>更新の帯（<code>IndexingProgressText</code>）に <code>更新を中断しました（残り N 件）</code>（<code>getIndexingStateText</code>。<code>indexing_view.ps1</code>）、No.6 のボタンは［続きから再開（残り N 件）］</td>
 <td>1</td>
 </tr>
 <tr>
 <td>失敗あり</td>
 <td><code>work/store/ingest_status.tsv</code> に状態が <code>失敗</code> の行がある</td>
-<td>詳細の入口（<code>更新に失敗したファイル N 件［一覧で見る］</code>）と、［ファイルの一覧］の「失敗のみ」（ファイルごとに失敗の原因を ToolTip に表示）</td>
+<td>詳細の情報の表の <code>うち失敗 N 件</code> と、［ファイルの一覧］が開くダイアログの「失敗のみ」（ファイルごとに失敗の原因を「原因」の列に表示）</td>
 <td>2（タブ見出しに ⚠）</td>
 </tr>
 <tr>
@@ -4451,7 +4451,7 @@
 <tr>
 <td>通常</td>
 <td>上のいずれでもない</td>
-<td>No.5 に <code>更新済み N ファイル（集約ファイル M 件 ・ 最終更新 M/d H:mm）</code> のみ</td>
+<td>一覧のステータスが <code>最新</code>（ステータスバーが <code>合計: N ファイル</code>）</td>
 <td>2</td>
 </tr>
 </tbody>

@@ -4240,7 +4240,7 @@
 <li>撮る間はマウス・キーボードに触らない（<a href="../../testing/gui-smoke/#画面のスモークテスト">画面のスモークテスト</a>と同じ。共通の関数 <code>tests/gui/gui_helpers.ps1</code> を使い回す）。</li>
 </ul>
 <h2 id="撮る状態の一覧">撮る状態の一覧<a class="headerlink" href="#撮る状態の一覧" title="Permanent link">&para;</a></h2>
-<p>「遷移」は<a href="../../testing/gui-smoke/#画面のスモークテスト">画面遷移の一覧</a>の番号。計 47 枚。</p>
+<p>「遷移」は<a href="../../testing/gui-smoke/#画面のスモークテスト">画面遷移の一覧</a>の番号。計 48 枚。</p>
 <p><strong>本体・共通（<code>window</code>）</strong></p>
 <table>
 <thead>
@@ -4319,6 +4319,11 @@
 <td>7</td>
 </tr>
 <tr>
+<td><code>index-tab/unselected</code></td>
+<td>インデックスがあるが、何も選んでいない（詳細は案内の 1 文だけ）</td>
+<td>7</td>
+</tr>
+<tr>
 <td><code>index-tab/interrupted</code></td>
 <td>前回の作成が中断している（起動時）</td>
 <td>4</td>
@@ -4385,12 +4390,12 @@
 </tr>
 <tr>
 <td><code>index-tab/failed</code></td>
-<td>失敗したファイルがあり（詳細に入口の 1 行）、タブに ⚠</td>
+<td>失敗したファイルがあり（詳細の情報の表に <code>うち失敗 N 件</code>）、タブに ⚠</td>
 <td>18</td>
 </tr>
 <tr>
 <td><code>index-tab/files</code></td>
-<td>失敗の入口の［一覧で見る］で、［ファイルの一覧］が失敗のみで開いた</td>
+<td>失敗があるインデックスで［ファイルの一覧］を押して、ダイアログが失敗のみで開いた</td>
 <td>18</td>
 </tr>
 </tbody>
