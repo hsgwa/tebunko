@@ -289,21 +289,23 @@ Describe "saveSearchExcludes・setAllIndexChecked" -Tag Io {
         @(readSearchExcludes $settingsFile).Count | Should -Be 0
     }
 
-    It "名前が前方一致する 2 つのインデックスは、互いの古い記録を置き換えない" {
+    It "名前が前方一致する別の根の記録は、存在しない根の下のものを消さない" {
         $root = (Resolve-Path -LiteralPath $indexDir).ProviderPath
         newTsv "$indexDir\営業\規程.docx\ページ001.tsv" @("規程")
         $script:indexRoots.Clear()
         loadIndexTreeNow
+        # 営業部 は存在しない根（ネットワークが切れているなど）。営業 が存在する根
+        (getRoot "営業部").Exists = $false
         writeSearchExcludes @(
             [pscustomobject]@{ Path = "$root\営業部\2024"; Subfolders = $true }
-            [pscustomobject]@{ Path = "\\server\共有\index\営業部"; Subfolders = $true }
+            [pscustomobject]@{ Path = "$root\営業\古い"; Subfolders = $true }
         ) $settingsFile
         (getRoot "営業").SetChecked($false)
 
         saveSearchExcludes
 
         $saved = @(readSearchExcludes $settingsFile | ForEach-Object { $_.Path })
-        ($saved -join "|") | Should -Be "\\server\共有\index\営業部|$root\営業"
+        ($saved -join "|") | Should -Be "$root\営業部\2024|$root\営業"
     }
 
     It "保存する一覧が今の保存と同じなら、設定ファイルを書き直さない" {

@@ -140,3 +140,39 @@ Describe "findFolderOrAncestor" -Tag Unit {
         ($null -ne $expected) | Should -Be $any
     }
 }
+
+Describe "groupByFolderOrAncestor" -Tag Unit {
+    It "パスを、属するフォルダごとに振り分け、どれにも属さないものは入れない" {
+        $set = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+        foreach ($folder in @("C:\営業", "C:\営業部")) { [void]$set.Add($folder) }
+
+        $groups = groupByFolderOrAncestor @("C:\営業\a", "C:\営業部\b\c", "c:\営業部", "D:\ほか") $set
+
+        $groups.Count | Should -Be 2
+        ($groups["C:\営業"] -join ",") | Should -Be "C:\営業\a"
+        ($groups["C:\営業部"] -join ",") | Should -Be "C:\営業部\b\c,c:\営業部"
+    }
+
+    It "property を渡すと、その値のパスで振り分け、元のものを入れる" {
+        $set = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+        [void]$set.Add("C:\営業")
+        $item = [pscustomobject]@{ Path = "C:\営業\a"; Subfolders = $false }
+
+        $groups = groupByFolderOrAncestor @($item) $set "Path"
+
+        $groups["C:\営業"][0].Subfolders | Should -Be $false
+    }
+}
+
+Describe "testSameSearchExcludes" -Tag Unit {
+    It "<name> は <expected>" -TestCases @(
+        @{ name = "どちらも空"; left = @(); right = @(); expected = $true }
+        @{ name = "同じ"; left = @(@{ Path = "C:\a"; Subfolders = $true }); right = @(@{ Path = "C:\a"; Subfolders = $true }); expected = $true }
+        @{ name = "件数が違う"; left = @(@{ Path = "C:\a"; Subfolders = $true }); right = @(); expected = $false }
+        @{ name = "Subfolders が違う"; left = @(@{ Path = "C:\a"; Subfolders = $true }); right = @(@{ Path = "C:\a"; Subfolders = $false }); expected = $false }
+        @{ name = "大文字・小文字が違う"; left = @(@{ Path = "C:\a"; Subfolders = $true }); right = @(@{ Path = "C:\A"; Subfolders = $true }); expected = $false }
+        @{ name = "順だけ違う"; left = @(@{ Path = "C:\a"; Subfolders = $true }, @{ Path = "C:\b"; Subfolders = $true }); right = @(@{ Path = "C:\b"; Subfolders = $true }, @{ Path = "C:\a"; Subfolders = $true }); expected = $false }
+    ) {
+        testSameSearchExcludes $left $right | Should -Be $expected
+    }
+}

@@ -22,7 +22,7 @@ function testFolderOrUnder {
 
 function findFolderOrAncestor {
     # path 自身か、その先祖のうち、folders（HashSet[string]。OrdinalIgnoreCase・末尾の \ なし）に入っている最初のものを返す（無ければ $null）。
-    # 結果は testFolderOrUnder と同じ（大文字・小文字は区別しない・\ の区切りでだけ上る）。多くのフォルダを 1 件ずつ比べる代わりに、先祖を辞書引きする
+    # 結果は testFolderOrUnder と同じ（返すのは folders の表記ではなく、path 側の表記の先祖。大文字・小文字は区別しない・\ の区切りでだけ上る）。多くのフォルダを 1 件ずつ比べる代わりに、先祖を辞書引きする
     param (
         [string]$path,
         $folders
@@ -43,6 +43,50 @@ function findFolderOrAncestor {
         $current = $current.Substring(0, $index)
     }
     return $null
+}
+
+function groupByFolderOrAncestor {
+    # items（文字列のパス。property を渡せば、その名前の値をパスとする）を、folders（findFolderOrAncestor と同じ集合）の
+    # どのフォルダの下かで 1 回に振り分ける。戻り値は 見つかったフォルダ → items の List の辞書（OrdinalIgnoreCase）。
+    # 辞書のキーは findFolderOrAncestor の戻り値のため、folders の表記ではなく path 側の表記になる（大文字・小文字が違うことがある）。
+    # どのフォルダの下にも無いものは入らない
+    param (
+        $items,
+        $folders,
+        [string]$property = ""
+    )
+
+    $groups = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($item in @($items)) {
+        $path = if ($property) { [string]$item.$property } else { [string]$item }
+        $key = findFolderOrAncestor $path $folders
+        if ($null -eq $key) { continue }
+        if (-not $groups.ContainsKey($key)) { $groups[$key] = New-Object System.Collections.Generic.List[object] }
+        $groups[$key].Add($item)
+    }
+    return $groups
+}
+
+function testSameSearchExcludes {
+    # 2 つの除外の一覧（@{ Path; Subfolders } の配列）が、件数・順・Path（大文字・小文字も含めて）・Subfolders まで同じかを返す
+    # （順だけ違っても同じとは見なさない。保存を省いてよいかの判定に使う）
+    param (
+        [object[]]$left,
+        [object[]]$right
+    )
+
+    $left = @($left)
+    $right = @($right)
+    if ($left.Count -ne $right.Count) {
+        return $false
+    }
+    for ($i = 0; $i -lt $left.Count; $i++) {
+        if (-not ([string]$left[$i].Path).Equals([string]$right[$i].Path, [System.StringComparison]::Ordinal) -or
+            [bool]$left[$i].Subfolders -ne [bool]$right[$i].Subfolders) {
+            return $false
+        }
+    }
+    return $true
 }
 
 function readSearchExcludes {

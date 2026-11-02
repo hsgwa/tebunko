@@ -172,18 +172,11 @@ function getIndexTreeData {
         }
     }
     # パスを、属するインデックスごとに 1 回で振り分ける（インデックスの数 × パスの数の照合をしない）
-    $pathsOf = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($target in @($paths)) {
-        $target = ([string]$target).TrimEnd("\")
-        $key = findFolderOrAncestor $target $indexRoots
-        if ($null -eq $key) { continue }
-        $key = $indexRootOf[$key]
-        if (-not $pathsOf.ContainsKey($key)) { $pathsOf[$key] = New-Object System.Collections.Generic.List[string] }
-        $pathsOf[$key].Add($target)
-    }
+    $pathsOf = groupByFolderOrAncestor @(@($paths) | ForEach-Object { ([string]$_).TrimEnd("\") }) $indexRoots
     foreach ($key in @($pathsOf.Keys)) {
         foreach ($target in $pathsOf[$key]) {
-            addIndexAncestorChildren $result.Children $key $target
+            # キーは path 側の表記なので、インデックスの根の表記（目録の名前）に直す
+            addIndexAncestorChildren $result.Children $indexRootOf[$key] $target
         }
     }
     return $result

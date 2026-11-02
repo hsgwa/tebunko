@@ -120,20 +120,8 @@ function applyIndexTreeData {
     foreach ($node in $script:indexRoots) {
         [void]$rootKeys.Add($node.FullPath().TrimEnd("\"))
     }
-    $excludesOf = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($exclude in @(readSearchExcludes)) {
-        $key = findFolderOrAncestor $exclude.Path $rootKeys
-        if ($null -eq $key) { continue }
-        if (-not $excludesOf.ContainsKey($key)) { $excludesOf[$key] = New-Object System.Collections.Generic.List[object] }
-        $excludesOf[$key].Add($exclude)
-    }
-    $expandedOf = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($path in $expanded) {
-        $key = findFolderOrAncestor $path $rootKeys
-        if ($null -eq $key) { continue }
-        if (-not $expandedOf.ContainsKey($key)) { $expandedOf[$key] = New-Object System.Collections.Generic.List[string] }
-        $expandedOf[$key].Add($path)
-    }
+    $excludesOf = groupByFolderOrAncestor @(readSearchExcludes) $rootKeys "Path"
+    $expandedOf = groupByFolderOrAncestor $expanded $rootKeys
     foreach ($node in $script:indexRoots) {
         $key = $node.FullPath().TrimEnd("\")
         if ($excludesOf.ContainsKey($key)) {
@@ -255,12 +243,7 @@ function saveSearchExcludes {
     $current = @(readSearchExcludes)
     $kept = @($current | Where-Object { $null -eq (findFolderOrAncestor $_.Path $roots) })
     $next = @($kept) + @($excludes.ToArray())
-    $same = ($next.Count -eq $current.Count)
-    for ($i = 0; $same -and $i -lt $next.Count; $i++) {
-        $same = ([string]$next[$i].Path).Equals([string]$current[$i].Path, [System.StringComparison]::Ordinal) -and
-            ([bool]$next[$i].Subfolders -eq [bool]$current[$i].Subfolders)
-    }
-    if (-not $same) {
+    if (-not (testSameSearchExcludes $next $current)) {
         writeSearchExcludes $next
     }
 }
