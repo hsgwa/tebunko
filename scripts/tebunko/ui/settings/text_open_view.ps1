@@ -160,9 +160,24 @@ function testTextEditorDenied {
     if ($path -isnot [string] -or $path -eq "") {
         return $false
     }
-    $leaf = $path.Substring($path.LastIndexOfAny([char[]]@([char]92, [char]47)) + 1).Trim().TrimEnd(".", " ").ToLowerInvariant()
-    $name = $(if ($leaf.EndsWith(".exe")) { $leaf.Substring(0, $leaf.Length - 4) } else { $leaf })
-    return (${textEditorDenyNames} -contains $name)
+    $leaf = $path.Substring($path.LastIndexOfAny([char[]]@([char]92, [char]47)) + 1)
+    return (${textEditorDenyNames} -contains (getTextEditorDenyKey $leaf))
+}
+
+function getTextEditorDenyKey {
+    # 表（${textEditorDenyNames}）と突き合わせる形にそろえる: 前後の空白と末尾の . を外し、小文字にして、末尾の .mui を 1 回、そのあと .exe か .dll を 1 回外す（繰り返さない）
+    param (
+        [string]$name
+    )
+
+    $key = $name.Trim().TrimEnd(".", " ").ToLowerInvariant()
+    if ($key.EndsWith(".mui")) {
+        $key = $key.Substring(0, $key.Length - 4)
+    }
+    if ($key.EndsWith(".exe") -or $key.EndsWith(".dll")) {
+        $key = $key.Substring(0, $key.Length - 4)
+    }
+    return $key
 }
 
 function testTextEditorDeniedByVersion {
@@ -177,14 +192,7 @@ function testTextEditorDeniedByVersion {
         if ($value -isnot [string] -or $value -eq "") {
             continue
         }
-        $name = $value.Trim().TrimEnd(".", " ").ToLowerInvariant()
-        if ($name.EndsWith(".mui")) {
-            $name = $name.Substring(0, $name.Length - 4)
-        }
-        if ($name.EndsWith(".exe") -or $name.EndsWith(".dll")) {
-            $name = $name.Substring(0, $name.Length - 4)
-        }
-        if (${textEditorDenyNames} -contains $name) {
+        if (${textEditorDenyNames} -contains (getTextEditorDenyKey $value)) {
             return $true
         }
     }
@@ -235,8 +243,9 @@ function getTextEditorChoice {
     if ($configured -is [string] -and $configured -ne "") {
         $deniedByVersion = $false
         $unreadable = $false
-        if ($versionNames -is [hashtable]) {
-            if (-not $versionNames.Ok) {
+        if ($null -ne $versionNames) {
+            # hashtable でない値は、読めなかったものとして拒む側に倒す
+            if ($versionNames -isnot [hashtable] -or -not $versionNames.Ok) {
                 $unreadable = $true
             } else {
                 $deniedByVersion = testTextEditorDeniedByVersion $versionNames.OriginalFilename $versionNames.InternalName

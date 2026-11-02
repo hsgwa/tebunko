@@ -188,6 +188,18 @@ Describe "testTextEditorDenied" -Tag Unit {
     }
 }
 
+Describe "getTextEditorDenyKey" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "大文字・前後の空白・末尾の . を整える"; value = " PowerShell.EXE. "; expected = "powershell" }
+        @{ name = ".mui を 1 回、そのあと .exe を 1 回外す"; value = "Cmd.Exe.MUI"; expected = "cmd" }
+        @{ name = ".dll も外す"; value = "pwsh.dll"; expected = "pwsh" }
+        @{ name = "繰り返しては外さない"; value = "a.exe.exe"; expected = "a.exe" }
+    ) {
+        param ($name, $value, $expected)
+        getTextEditorDenyKey $value | Should -Be $expected
+    }
+}
+
 Describe "testTextEditorDeniedByVersion" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "PowerShell.EXE.MUI"; original = "PowerShell.EXE.MUI"; internal = ""; expected = $true }
@@ -246,6 +258,7 @@ Describe "getTextEditorChoice / getTextEditorLabel / addTextEditorNotice" -Tag U
         @{ name = "読み取りに失敗（Ok が false）"; names = @{ Ok = $false; OriginalFilename = ""; InternalName = "" }; denied = $true; notice = "設定のエディタ（textEditorPath）が使えないため、メモ帳で開きます。" }
         @{ name = "版の情報が空"; names = @{ Ok = $true; OriginalFilename = ""; InternalName = "" }; denied = $false; notice = "" }
         @{ name = "ふつうのエディタ"; names = @{ Ok = $true; OriginalFilename = "NOTEPAD.EXE.MUI"; InternalName = "Notepad" }; denied = $false; notice = "" }
+        @{ name = "hashtable でない値は読めなかった扱い"; names = ([pscustomobject]@{ Ok = $true; OriginalFilename = ""; InternalName = "" }); denied = $true; notice = "設定のエディタ（textEditorPath）が使えないため、メモ帳で開きます。" }
         @{ name = "省略（読んでいない）"; names = $null; denied = $false; notice = "" }
     ) {
         param ($name, $names, $denied, $notice)
