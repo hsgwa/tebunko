@@ -38,7 +38,7 @@ Describe "indexer.ps1（名前に記号があるフォルダ）" -Tag Io {
         $key = "$source\営業\$file"
         $status.Rows[$key].状態 | Should -Be ${stateDone}
         $contentIndexFiles = (getContentIndexFiles @("$workspace\store\content")).ContentIndexFiles
-        $hits = @((searchContentIndex "検索語" $contentIndexFiles $true).Hits)
+        $hits = @((expandHitRuns (searchContentIndex "検索語" $contentIndexFiles $true).Runs))
         $hits.Count | Should -Be 1
         $hits[0].Book | Should -Be $file
         $hits[0].LineNumber | Should -Be 2

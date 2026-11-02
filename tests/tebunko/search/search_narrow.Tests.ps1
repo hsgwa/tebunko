@@ -182,10 +182,21 @@ Describe "前の結果の使い回し" -Tag Io {
 }
 
 Describe "前の結果の使い回しの部品" -Tag Unit {
+    BeforeAll {
+        # 1 行 1 まとまりのヒット（検索が返す場所ごとのまとまりの形）
+        function newRun($book, $location, $lineNumber, $line) {
+            $numbers = New-Object System.Collections.Generic.List[int]
+            $numbers.Add($lineNumber)
+            $lines = New-Object System.Collections.Generic.List[string]
+            $lines.Add($line)
+            return @{ Root = "C:\idx"; RelPath = "x.tsv"; RelDir = ""; FileName = $book; Book = $book; Location = $location; LineNumbers = $numbers; Lines = $lines }
+        }
+    }
+
     It "testRecordableHitLines: テキストの先頭か末尾が … の行だけ偽" {
-        testRecordableHitLines @([pscustomobject]@{ Book = "a.xlsx"; Line = "…あ" }) | Should -Be $true
-        testRecordableHitLines @([pscustomobject]@{ Book = "a.log"; Line = "あ" }) | Should -Be $true
-        testRecordableHitLines @([pscustomobject]@{ Book = "a.log"; Line = "あ…" }) | Should -Be $false
+        testRecordableHitLines @((newRun "a.xlsx" "S" 1 "…あ")) | Should -Be $true
+        testRecordableHitLines @((newRun "a.log" "S" 1 "あ")) | Should -Be $true
+        testRecordableHitLines @((newRun "a.log" "S" 1 "あ…")) | Should -Be $false
     }
 
     Context "記録" {
@@ -193,9 +204,9 @@ Describe "前の結果の使い回しの部品" -Tag Unit {
             $script:req = newSearchRequest "見積" $true @("C:\idx") 100
             $script:files = @(@{ Path = "C:\idx.tsv"; Ticks = 5; Size = 10 }, @{ Path = "C:\idx.tsv"; Ticks = 6; Size = 11 })
             $script:hits = @(
-                [pscustomobject]@{ Book = "a.xlsx"; Location = "S"; LineNumber = 1; Line = "見積書" }
-                [pscustomobject]@{ Book = "a.xlsx"; Location = "S[図形]"; LineNumber = 2; Line = "見積`t納期" }
-                [pscustomobject]@{ Book = "a.xlsx"; Location = "S"; LineNumber = 3; Line = "見積" }
+                (newRun "a.xlsx" "S" 1 "見積書")
+                (newRun "a.xlsx" "S[図形]" 2 "見積`t納期")
+                (newRun "a.xlsx" "S" 3 "見積")
             )
         }
 
@@ -219,20 +230,20 @@ Describe "前の結果の使い回しの部品" -Tag Unit {
 
         It "selectNarrowHits: 図形・コメントの行は、セル番地だけに一致する語では選ばない" {
             $cellHits = @(
-                [pscustomobject]@{ Book = "a.xlsx"; Location = "S[図形]"; LineNumber = 1; Line = "C2`t2個" }
-                [pscustomobject]@{ Book = "a.xlsx"; Location = "S"; LineNumber = 2; Line = "C2" }
+                (newRun "a.xlsx" "S[図形]" 1 "C2`t2個")
+                (newRun "a.xlsx" "S" 2 "C2")
             )
             $record = newSearchRecord $script:req @("C:\idx") $script:files $cellHits
             $selected = selectNarrowHits $record "C2" $false
             $selected.Count | Should -Be 1
-            $selected[0].LineNumber | Should -Be 2
+            $selected[0].LineNumbers[0] | Should -Be 2
         }
 
         It "selectNarrowHits: 一致する行だけ選ぶ" {
             $record = newSearchRecord $script:req @("C:\idx") $script:files $script:hits
             $selected = selectNarrowHits $record "見積書" $false
             $selected.Count | Should -Be 1
-            $selected[0].LineNumber | Should -Be 1
+            $selected[0].LineNumbers[0] | Should -Be 1
         }
 
         It "invokeNarrowSearch: 一覧が違えば false を返し、IndexChanged にする" {

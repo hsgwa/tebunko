@@ -59,6 +59,25 @@ function getPerfGramWorkDir {
     return $candidate
 }
 
+function countQueuedHits {
+    # 検索の要求の Queue から取り出せるものを全部取り出し、ヒットの数を返す。場所ごとのまとまり（LineNumbers を持つ hashtable）なら行の数、
+    # そうでなければ（古い版の 1 件ずつの形）1 件として数える。古い版を測る perf.yml でも同じ関数で数えるため
+    param (
+        $queue
+    )
+
+    $count = 0
+    $item = $null
+    while ($queue.TryDequeue([ref]$item)) {
+        if ($item -is [hashtable] -and $item.ContainsKey("LineNumbers")) {
+            $count += $item.Lines.Count
+        } else {
+            $count++
+        }
+    }
+    return $count
+}
+
 function getChildCrashEvents {
     # from から to までの間に Application ログへ載った、powershell.exe の異常終了に関するイベント（Application Error・.NET Runtime・Windows Error Reporting）を、
     # 1 件 1 行の文字列で返す。件数は maxCount 件、1 件は maxLength 文字まで。読めなければ空を返す

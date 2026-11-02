@@ -116,10 +116,10 @@ Describe "検索の上限（contentIndexSearchMaxBytes）を超える本文イ�
         $found = getContentIndexFiles @($workspace.IndexDir)
         foreach ($file in $found.ContentIndexFiles) { $file.Size | Should -BeLessOrEqual ${contentIndexSearchMaxBytes} }
         $search = searchContentIndex "単価" $found.ContentIndexFiles $true
-        @($search.Hits | Where-Object { $_.Book -eq "A.xlsx" }).Count | Should -Be 1
-        @($search.Hits | Where-Object { $_.Book -eq "B.xlsx" }).Count | Should -Be 200
+        @((expandHitRuns $search.Runs) | Where-Object { $_.Book -eq "A.xlsx" }).Count | Should -Be 1
+        @((expandHitRuns $search.Runs) | Where-Object { $_.Book -eq "B.xlsx" }).Count | Should -Be 200
         @($search.Skipped).Count | Should -Be 0
-        $last = @($search.Hits | Where-Object { $_.Book -eq "B.xlsx" -and $_.Line -like "*単価 150 *" })
+        $last = @((expandHitRuns $search.Runs) | Where-Object { $_.Book -eq "B.xlsx" -and $_.Line -like "*単価 150 *" })
         $last.Count | Should -Be 1
         $last[0].LineNumber | Should -Be 150
     }
@@ -216,7 +216,7 @@ Describe "検索の上限（contentIndexSearchMaxBytes）を超える本文イ�
         $files.Count | Should -Be 1
         $files[0].Size | Should -BeLessOrEqual ${contentIndexSearchMaxBytes}
         $search = searchContentIndex "新しい単価" (getContentIndexFiles @("$root\index")).ContentIndexFiles $true
-        @($search.Hits).Count | Should -Be 1
+        @((expandHitRuns $search.Runs)).Count | Should -Be 1
         Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { $text -like "*大きすぎるインデックスのファイルを外しました（営業\content_index.xlsx.001.tsv）。中の 2 件は次の更新で取り込み直します" -and $color -eq "Yellow" }
     }
 
@@ -232,7 +232,7 @@ Describe "検索の上限（contentIndexSearchMaxBytes）を超える本文イ�
 
         @($result.Requeued) | Should -Be @()
         $search = searchContentIndex "入れ替えた単価" (getContentIndexFiles @("$root\index")).ContentIndexFiles $true
-        @($search.Hits | Where-Object { $_.Book -eq "A.xlsx" }).Count | Should -Be 1
+        @((expandHitRuns $search.Runs) | Where-Object { $_.Book -eq "A.xlsx" }).Count | Should -Be 1
     }
 
     It "(c) 新しく入れる元のファイルが 1 つで上限を超えるときは、入れずに取り込み直しにし、前のコピーも外す" {

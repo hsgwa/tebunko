@@ -76,7 +76,7 @@ BeforeAll {
             $folders = @(@{ Root = $ws.IndexDir; RelPath = ""; Recurse = $true })
             $index = getContentIndexFiles $folders
             $found = searchContentIndex $search.word $index.ContentIndexFiles $true 0 -caseSensitive $false -includeShapes $true -includeComments $true
-            $actualHits = @($found.Hits | ForEach-Object {
+            $actualHits = @((expandHitRuns $found.Runs) | ForEach-Object {
                 [pscustomobject]@{ relativePath = (toRelativePath $s $_.RelDir $_.Book); location = $_.Location; line = $_.Line }
             } | Sort-Object relativePath, location, line)
             $expectedHits = @($search.hits | Sort-Object relativePath, location, line)
@@ -415,8 +415,8 @@ Describe "分けた塊（版 3）の見本（index_compat k）" -Tag Io {
 
         $index = getContentIndexFiles @(@{ Root = $ws.IndexDir; RelPath = ""; Recurse = $true })
         $found = searchContentIndex "行100の説明" $index.ContentIndexFiles $true 0
-        @($found.Hits).Count | Should -Be 1
-        $found.Hits[0].LineNumber | Should -Be 100
+        @((expandHitRuns $found.Runs)).Count | Should -Be 1
+        (expandHitRuns $found.Runs)[0].LineNumber | Should -Be 100
         @($found.Skipped).Count | Should -Be 0
     }
 
