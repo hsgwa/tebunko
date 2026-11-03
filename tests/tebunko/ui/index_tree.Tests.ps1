@@ -289,6 +289,35 @@ Describe "saveSearchExcludes・setAllIndexChecked" -Tag Io {
         @(readSearchExcludes $settingsFile).Count | Should -Be 0
     }
 
+    It "名前が前方一致する別の根の記録は、存在しない根の下のものを消さない" {
+        $root = (Resolve-Path -LiteralPath $indexDir).ProviderPath
+        newTsv "$indexDir\営業\規程.docx\ページ001.tsv" @("規程")
+        $script:indexRoots.Clear()
+        loadIndexTreeNow
+        # 営業部 は存在しない根（ネットワークが切れているなど）。営業 が存在する根
+        (getRoot "営業部").Exists = $false
+        writeSearchExcludes @(
+            [pscustomobject]@{ Path = "$root\営業部\2024"; Subfolders = $true }
+            [pscustomobject]@{ Path = "$root\営業\古い"; Subfolders = $true }
+        ) $settingsFile
+        (getRoot "営業").SetChecked($false)
+
+        saveSearchExcludes
+
+        $saved = @(readSearchExcludes $settingsFile | ForEach-Object { $_.Path })
+        ($saved -join "|") | Should -Be "$root\営業部\2024|$root\営業"
+    }
+
+    It "保存する一覧が今の保存と同じなら、設定ファイルを書き直さない" {
+        (getRoot "総務部").SetChecked($false)
+        onIndexTreeChecked
+        Mock writeSearchExcludes {}
+
+        saveSearchExcludes
+
+        Should -Invoke writeSearchExcludes -Times 0 -Exactly
+    }
+
     It "すべて外す・すべてチェックする" {
         setAllIndexChecked $false
         @(getSearchTargets).Count | Should -Be 0
@@ -308,6 +337,44 @@ Describe "saveSearchExcludes・setAllIndexChecked" -Tag Io {
 
         & $handlers["CheckAll.Click"]
         isAllIndexChecked | Should -Be $true
+    }
+}
+
+Describe "applyIndexTreeData（根ごとの振り分け）" -Tag Io {
+    BeforeAll {
+        $settingsFile = "$TestDrive\setting.config"
+        $workspace = newTestWorkspace @{ IndexDir = "C:\work\index"; StatusFile = "C:\work\ingest_status.tsv" }
+    }
+
+    BeforeEach {
+        $script:indexRoots.Clear()
+        $script:sourceFolderMaps = @{}
+    }
+
+    It "除外と展開は、パスの属する根にだけ効く（名前が前方一致する根・存在しない根を含む）" {
+        $r = "C:\work\index"
+        writeSearchExcludes @(
+            [pscustomobject]@{ Path = "$r\営業部"; Subfolders = $true }
+            [pscustomobject]@{ Path = "$r\閉鎖"; Subfolders = $true }
+            [pscustomobject]@{ Path = "D:\ほか\営業"; Subfolders = $true }
+        ) $settingsFile
+        $data = @{
+            State = ${pathStateFound}; Message = ""; Root = $r; Sources = @{}; OldIndexCount = 0; Children = @{}
+            Indexes = @(
+                @{ Name = "営業"; SourcePath = ""; Exists = $true; HasSubfolders = $false }
+                @{ Name = "営業部"; SourcePath = ""; Exists = $true; HasSubfolders = $false }
+                @{ Name = "閉鎖"; SourcePath = ""; Exists = $false; HasSubfolders = $false }
+            )
+        }
+
+        applyIndexTreeData $data @("$r\営業", "$r\閉鎖", "D:\ほか\営業")
+
+        (getRoot "営業").IsChecked | Should -Be $true
+        (getRoot "営業部").IsChecked | Should -Be $false
+        (getRoot "閉鎖").IsChecked | Should -Be $false
+        (getRoot "営業").IsExpanded | Should -Be $true
+        (getRoot "営業部").IsExpanded | Should -Be $false
+        (getRoot "閉鎖").IsExpanded | Should -Be $true
     }
 }
 

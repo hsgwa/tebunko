@@ -115,16 +115,26 @@ function applyIndexTreeData {
         $script:indexRoots.Add($node)
     }
 
-    foreach ($exclude in @(readSearchExcludes)) {
-        foreach ($node in $script:indexRoots) {
-            $node.ApplyExclude($exclude.Path, $exclude.Subfolders)
-        }
-    }
+    # 除外と展開のパスを、根ごとに 1 回で振り分ける（根の数 × パスの数の照合をしない）
+    $rootKeys = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($node in $script:indexRoots) {
-        foreach ($path in $expanded) {
-            $found = $node.Find($path)
-            if ($found) {
-                $found.SetExpanded($true)
+        [void]$rootKeys.Add($node.FullPath().TrimEnd("\"))
+    }
+    $excludesOf = groupByFolderOrAncestor @(readSearchExcludes) $rootKeys "Path"
+    $expandedOf = groupByFolderOrAncestor $expanded $rootKeys
+    foreach ($node in $script:indexRoots) {
+        $key = $node.FullPath().TrimEnd("\")
+        if ($excludesOf.ContainsKey($key)) {
+            foreach ($exclude in $excludesOf[$key]) {
+                $node.ApplyExclude($exclude.Path, $exclude.Subfolders)
+            }
+        }
+        if ($expandedOf.ContainsKey($key)) {
+            foreach ($path in $expandedOf[$key]) {
+                $found = $node.Find($path)
+                if ($found) {
+                    $found.SetExpanded($true)
+                }
             }
         }
     }
@@ -226,12 +236,16 @@ function saveSearchExcludes {
     foreach ($node in $script:indexRoots) {
         $node.AddExcludes($excludes)
     }
-    $roots = @($script:indexRoots | Where-Object { $_.Exists } | ForEach-Object { $_.FullPath().TrimEnd("\") })
-    $kept = @(readSearchExcludes | Where-Object {
-        $path = $_.Path
-        @($roots | Where-Object { testFolderOrUnder $path $_ }).Count -eq 0
-    })
-    writeSearchExcludes (@($kept) + @($excludes.ToArray()))
+    $roots = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($node in $script:indexRoots) {
+        if ($node.Exists) { [void]$roots.Add($node.FullPath().TrimEnd("\")) }
+    }
+    $current = @(readSearchExcludes)
+    $kept = @($current | Where-Object { $null -eq (findFolderOrAncestor $_.Path $roots) })
+    $next = @($kept) + @($excludes.ToArray())
+    if (-not (testSameSearchExcludes $next $current)) {
+        writeSearchExcludes $next
+    }
 }
 
 function onIndexTreeChecked {

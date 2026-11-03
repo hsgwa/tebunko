@@ -31,7 +31,7 @@ BeforeAll {
     # 画面の型を使うファイルは読み込まず、必要な関数だけを取り出す
     # （dot-source は、この場の scope で行う）
     foreach ($source in @(
-            @{ File = "${scriptsDir}\tebunko\ui\indexing_tab.ps1"; Names = @("startIndexing", "finishWorkspaceCheck", "confirmIndexingTargets", "changeIndexingTextExtensions", "restartIndexingIfRequested", "startIndexingForRestart", "waitAndRestartIndexing", "getIndexingScanText", "finishIndexing", "showIndexingFinishCounts", "finishImportConfirm", "applyImportConfirmText", "updateIndexingConfirmTotal") }
+            @{ File = "${scriptsDir}\tebunko\ui\indexing_tab.ps1"; Names = @("startIndexing", "finishWorkspaceCheck", "confirmIndexingTargets", "changeIndexingTextExtensions", "restartIndexingIfRequested", "startIndexingForRestart", "waitAndRestartIndexing", "getIndexingScanText", "finishIndexing", "showIndexingFinishCounts", "finishImportConfirm", "applyImportConfirmText", "updateIndexingConfirmTotal", "updateIndexingProgress") }
             @{ File = "${scriptsDir}\tebunko\ui\index\index_list.ps1"; Names = @("isIndexing", "isIndexingOrPreparing") }
         )) {
         $ast = [System.Management.Automation.Language.Parser]::ParseFile($source.File, [ref]$null, [ref]$null)
@@ -311,6 +311,19 @@ Describe "finishIndexing（インポートの後の確認）" -Tag Unit {
         $script:bannerClosed | Should -Be $closed
         @($script:statuses) | Should -Be @($statuses)
     }
+
+    It "回の終わりで、行に置いた割合の控えを消す" {
+        $script:indexRowsPercent = 45
+        $script:indexingSession = [pscustomobject]@{ Channel = @{ OnlySkipped = @(); Plan = @{} } } |
+            Add-Member -MemberType ScriptMethod -Name GetExitCode -Value { 0 } -PassThru |
+            Add-Member -MemberType ScriptMethod -Name GetError -Value { "" } -PassThru |
+            Add-Member -MemberType ScriptMethod -Name Close -Value { } -PassThru |
+            Add-Member -MemberType ScriptMethod -Name GetCloudSkipped -Value { @() } -PassThru
+
+        finishIndexing
+
+        $script:indexRowsPercent | Should -BeNullOrEmpty
+    }
 }
 
 Describe "confirmIndexingTargets" -Tag Unit {
@@ -582,5 +595,61 @@ Describe "確認での取り込む拡張子の変更と、始め直し" -Tag Uni
         getIndexingScanText | Should -Be "数えています…"
         $script:indexingSession = $null
         getIndexingScanText | Should -Be "更新するファイルを調べています…"
+    }
+}
+
+Describe "startIndexing（行の進み具合の控え）" -Tag Unit {
+    It "新しい回の始めで、行に置いた割合の控えを消す" {
+        $script:indexingSession = $null
+        $script:indexingPreparing = $false
+        $script:targetsNaming = $false
+        $script:indexRowsPercent = 45
+        $script:workspace = newTestWorkspace @{ Dir = "\\fileserver\共有\ws" }
+        Mock getWorkspaceBlockMessage { "" }
+
+        startIndexing @("営業")
+
+        $script:indexRowsPercent | Should -BeNullOrEmpty
+    }
+}
+
+Describe "updateIndexingProgress（詳細欄の置き直し）" -Tag Unit {
+    BeforeAll {
+        function markTrace { param ($a, $b) }
+        function updateIndexingWait { param ($progress) }
+        function updateIndexTabBadge { }
+        function updateIndexRowsProgress { }
+        function updateIndexingEta { param ($progress) }
+        function getIndexingCurrentName { param ([string]$current) "営業" }
+        function getIndexTargetItem { $script:detailItem }
+        function updateIndexDetailPanel { $script:detailCalls++ }
+        function getIndexingProgress { @{ Processed = 5; Remaining = 5; Scanned = $true; Confirming = $false; Finishing = $false; Failed = 0; Current = "営業.xlsx"; Detail = "" } }
+    }
+
+    BeforeEach {
+        $script:detailCalls = 0
+        $script:detailItem = $null
+        $script:indexTraceProgress = $true
+        $script:indexingEta = ""
+        $script:taskbar = [pscustomobject]@{ ProgressState = ""; ProgressValue = 0 }
+        $script:ui = @{}
+        foreach ($name in @("IndexingProgress", "IndexingProgressText", "IndexingProgressDetail", "IndexingStopButton")) {
+            $script:ui[$name] = [pscustomobject]@{ IsIndeterminate = $false; Value = 0; Text = ""; IsEnabled = $true }
+        }
+        $script:indexingSession = [pscustomobject]@{} | Add-Member -MemberType ScriptMethod -Name IsRunning -Value { $true } -PassThru
+    }
+
+    It "<label>" -TestCases @(
+        @{ label = "詳細に出している行が更新中なら、詳細欄を置く"; item = [pscustomobject]@{ IndexLevel = "Run" }; calls = 1 }
+        @{ label = "詳細に出している行が更新中でなければ、詳細欄を置かない"; item = [pscustomobject]@{ IndexLevel = "Ok" }; calls = 0 }
+        @{ label = "詳細に出している行が無ければ、詳細欄を置かない"; item = $null; calls = 0 }
+    ) {
+        param ($label, $item, $calls)
+        $script:detailItem = $item
+
+        updateIndexingProgress
+
+        $script:detailCalls | Should -Be $calls
+        $script:indexingView.Processed | Should -Be 5
     }
 }
