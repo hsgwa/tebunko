@@ -4,6 +4,7 @@
 # 「既定のアプリで開く」を選べない（エディタ固定）。設定の読み書きは core\settings.ps1（readTextExtensionSettings・writeTextOpenSettings）。
 # 取り込むかどうか（インデックスごと）は ui\index\text_ext_view.ps1。ダイアログは ui\settings\text_open_dialog.ps1。
 # 「エディタ」は、既定はメモ帳（固定のパス）。設定 textEditorPath があり、testTextEditorPath を通り、ファイルがあるときだけそのプログラムで開く。
+# 画面で選ぶときは、保存の前に getTextEditorPickResult で確かめる（開くときの getTextEditorChoice とは別に、もう 1 回）。
 
 function getTextOpenWayText {
     # 開き方の値（default・editor）の、画面に出す文言
@@ -288,11 +289,59 @@ function getTextEditorLabel {
     return "メモ帳（既定）"
 }
 
+function getTextEditorPickResult {
+    # ［変更…］で選んだエディタのパスを、保存してよいか確かめる。返す値: @{ Ok; Message（通らないときの理由。通れば空） }
+    # exists は選んだファイルがあるか、versionNames は版の情報（getTextEditorVersionNames の値）。どちらも呼ぶ側が調べて渡す。
+    # 名前が表（${textEditorDenyNames}）に当たるか、版の情報の元の名前・内部名が当たるときは「スクリプトを動かすため」、
+    # 形が違う・ファイルが無い・版の情報を読めないときは「指定できない」。元の名前が空なら通す（開くときの getTextEditorChoice と同じ扱い）
+    param (
+        $path,
+        [bool]$exists,
+        $versionNames = $null
+    )
+
+    $texts = getTextOpenDialogTexts
+    if (testTextEditorDenied $path) {
+        return @{ Ok = $false; Message = $texts.EditorDenied }
+    }
+    if (-not (testTextEditorPath $path) -or -not $exists) {
+        return @{ Ok = $false; Message = $texts.EditorInvalid }
+    }
+    if ($versionNames -isnot [hashtable] -or -not $versionNames.Ok) {
+        return @{ Ok = $false; Message = $texts.EditorInvalid }
+    }
+    if (testTextEditorDeniedByVersion $versionNames.OriginalFilename $versionNames.InternalName) {
+        return @{ Ok = $false; Message = $texts.EditorDenied }
+    }
+    return @{ Ok = $true; Message = "" }
+}
+
+function getTextEditorPathText {
+    # ［設定］の「エディタ」の行・ダイアログの下の行に、選んだエディタのフルパスを出す文（使える形のときだけ。既定のメモ帳なら空）
+    param (
+        $configured
+    )
+
+    if ($configured -is [string] -and (testTextEditorPath $configured)) {
+        return $configured
+    }
+    return ""
+}
+
+function testTextEditorResetEnabled {
+    # ［メモ帳に戻す］を押せるか（textEditorPath が空でないとき。使えない値が手で書かれていても戻せる）
+    param (
+        $configured
+    )
+
+    return ($configured -is [string] -and $configured -ne "")
+}
+
 function getTextOpenDialogTexts {
     # ダイアログと［設定］の枠の文言
     return @{
         Title             = "テキストの開き方"
-        Note              = "検索結果・プレビューからテキストファイルを開くときの開き方を、拡張子ごとに選びます（全インデックス共通）。「エディタで開く」はメモ帳で開きます。取り込むかどうかは、インデックスの更新の確認で、インデックスごとに選べます。"
+        Note              = "検索結果・プレビューからテキストファイルを開くときの開き方を、拡張子ごとに選びます（全インデックス共通）。「エディタで開く」は、下の「エディタ」のアプリ（既定はメモ帳）で開きます。取り込むかどうかは、インデックスの更新の確認で、インデックスごとに選べます。"
         Extension         = "拡張子"
         Way               = "検索結果から開くとき"
         Reset             = "既定に戻す"
@@ -304,10 +353,13 @@ function getTextOpenDialogTexts {
         RestrictedHeader  = "実行・登録になる形式（「エディタで開く」だけ選べます）"
         RestrictedNote    = "実行できる形式のため、エディタ固定"
         EditorTitle       = "エディタ"
-        EditorHint        = "「エディタで開く」に使うアプリ。いまはメモ帳だけ"
-        EditorSettingsHint = "「エディタで開く」に使うアプリです。今は{0}だけです。"
-        FutureMark        = "将来の対応"
+        EditorHint        = "「エディタで開く」に使うアプリ"
+        EditorSettingsHint = "「エディタで開く」に使うアプリです。今は{0}です。"
         Change            = "変更…"
+        ResetEditor       = "メモ帳に戻す"
+        EditorPickTitle   = "「エディタで開く」に使うアプリを選んでください"
+        EditorDenied      = "このプログラムはスクリプトを動かせるため、エディタにできません。"
+        EditorInvalid     = "このファイルはエディタに指定できません。ドライブから始まる場所にある .exe を選んでください。"
         SettingsHint      = "拡張子ごとに、検索結果・プレビューから開くときの開き方（既定のアプリ／エディタ）を選びます（全インデックス共通）。"
     }
 }
