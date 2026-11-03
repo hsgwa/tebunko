@@ -1125,3 +1125,82 @@ Describe "getExportHits" -Tag Unit {
         $hits[0].Book | Should -Be "b.docx"
     }
 }
+
+Describe "getExportHits（並べ替え・上限内は、行を作らず表の順）" -Tag Unit {
+    BeforeEach {
+        resetResults
+    }
+
+    It "<Name>: 出力の順と中身が、行を作る経路（getViewRows）と同じ" -ForEach @(
+        @{ Name = "場所・昇順"; Property = "Location"; Desc = $false; Filter = "" }
+        @{ Name = "場所・降順"; Property = "Location"; Desc = $true; Filter = "" }
+        @{ Name = "種別"; Property = "Kind"; Desc = $false; Filter = "" }
+        @{ Name = "該当行・昇順"; Property = "Line"; Desc = $false; Filter = "" }
+        @{ Name = "該当行・降順・絞り込みあり"; Property = "Line"; Desc = $true; Filter = "docx" }
+    ) {
+        foreach ($i in 1..4) { [void](addHit "b.docx" "ページ00$i" "見積$(5 - $i)" $i) }
+        [void](addHit "a.docx" "ページ001" "請求" 7)
+        [void](addHit "c.xlsx" "4月" "`t見積" 4)
+        [void](addHit "c.xlsx" "3月" "合計" 2)
+        flushResults
+        $column = newSortColumn $Property
+        $ui.ResultGrid.Columns.Add($column)
+        if ($Desc) { $column.SortDirection = [System.ComponentModel.ListSortDirection]::Descending }
+        $script:filterText = $Filter
+        applySort $Property $Desc
+
+        $hits = getExportHits $false $Filter $true
+        $old = getViewRows
+
+        $hits.Count | Should -Be $old.Count
+        for ($i = 0; $i -lt $old.Count; $i++) {
+            foreach ($name in "RelDir", "Book", "Location", "LineNumber", "Line") {
+                $hits[$i].$name | Should -Be $old[$i].$name
+            }
+        }
+    }
+
+    It "ヒットが多いファイルと少ないファイルが混ざっても、同じ順で、行を作らない" {
+        foreach ($i in 1..2500) { [void](addHit "big.docx" "ページ$("{0:D4}" -f (2501 - $i))" "語" $i) }
+        [void](addHit "small.docx" "ページ002" "語" 1)
+        [void](addHit "small.docx" "ページ001" "語" 2)
+        flushResults
+        $column = newSortColumn "Location"
+        $ui.ResultGrid.Columns.Add($column)
+        applySort "Location" $false
+        $before = @($script:groupList | ForEach-Object { $_.Rows.Count })
+
+        $hits = getExportHits $false "" $true
+
+        @($script:groupList | ForEach-Object { $_.Rows.Count }) -join "," | Should -Be ($before -join ",")
+        $hits.Count | Should -Be 2502
+        $old = getViewRows
+        (@($hits | ForEach-Object { "$($_.Book)/$($_.Location)/$($_.LineNumber)" }) -join "|") | Should -Be ((@($old | ForEach-Object { "$($_.Book)/$($_.Location)/$($_.LineNumber)" })) -join "|")
+    }
+
+    It "行が 1 件だけで hitOrder が無いファイルも出る" {
+        [void](addHit "one.docx" "ページ001" "語" 1)
+        flushResults
+        $column = newSortColumn "Location"
+        $ui.ResultGrid.Columns.Add($column)
+        applySort "Location" $false
+
+        @(getExportHits $false "" $true).Count | Should -Be 1
+    }
+
+    It "RelDir・Line が `$null の素のヒットでも、行の経路と同じく空として出る" {
+        $group = addHit "n.docx" "ページ001" "x" 1
+        $group.Hits[0].RelDir = $null
+        $group.Hits[0].Line = $null
+        flushResults
+        $column = newSortColumn "Location"
+        $ui.ResultGrid.Columns.Add($column)
+        applySort "Location" $false
+
+        $hit = @(getExportHits $false "" $true)[0]
+        $row = (getViewRows)[0]
+
+        "$($hit.RelDir)" | Should -Be $row.RelDir
+        "$($hit.Line)" | Should -Be $row.Line
+    }
+}
