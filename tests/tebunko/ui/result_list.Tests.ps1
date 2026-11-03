@@ -112,6 +112,7 @@ Describe "clearResults" -Tag Unit {
         $column = newSortColumn "Book"
         $column.SortDirection = [System.ComponentModel.ListSortDirection]::Ascending
         $ui.ResultGrid.Columns.Add($column)
+        $script:resultSort = @{ Property = "Book"; Descending = $false }
         $script:expandNew = $true
 
         clearResults "請求" ([regex]"請求")
@@ -125,6 +126,8 @@ Describe "clearResults" -Tag Unit {
         $script:rowWord | Should -Be "請求"
         $script:rowPattern.ToString() | Should -Be "請求"
         $null -eq $column.SortDirection | Should -Be $true
+        $null -eq $script:resultSort | Should -Be $true
+        testResultSorted | Should -Be $false
     }
 }
 
@@ -627,6 +630,29 @@ Describe "sortResults・applySort" -Tag Unit {
         (getItemNames) -join "," | Should -Be "#a.docx,#b.docx,#c.docx"
     }
 
+    It "表の作り直しで列の印が消えても、並べ替えの状態が残り、印を付け直し、次のクリックで逆順になる" {
+        [void](addHit "b.docx" "ページ001" "見積" 1)
+        [void](addHit "a.docx" "ページ001" "見積" 1)
+        flushResults
+        $column = newSortColumn "Book"
+        $ui.ResultGrid.Columns.Add($column)
+        testResultSorted | Should -Be $false
+
+        sortResults $column
+        testResultSorted | Should -Be $true
+
+        # WPF が ItemsSource の入れ替えで消す動きを真似る
+        $column.SortDirection = $null
+        testResultSorted | Should -Be $true
+        rebuildResults
+        $column.SortDirection | Should -Be ([System.ComponentModel.ListSortDirection]::Ascending)
+
+        $column.SortDirection = $null
+        sortResults $column
+        $column.SortDirection | Should -Be ([System.ComponentModel.ListSortDirection]::Descending)
+        (getItemNames) -join "," | Should -Be "#b.docx,#a.docx"
+    }
+
     It "同じ値のファイル・行は、見つかった順のまま並べる" {
         $group = addHit "見積.xlsx" "4月" "`t見積" 5
         [void](addHit "見積.xlsx" "4月" "`t見積" 2)
@@ -678,8 +704,8 @@ Describe "finishResults" -Tag Unit {
         [void](addHit "b.docx" "ページ001" "見積" 1)
         flushResults
         $column = newSortColumn "Book"
-        $column.SortDirection = [System.ComponentModel.ListSortDirection]::Ascending
         $ui.ResultGrid.Columns.Add($column)
+        $script:resultSort = @{ Property = "Book"; Descending = $false }
         [void](addHit "a.docx" "ページ001" "見積" 1)
 
         finishResults
