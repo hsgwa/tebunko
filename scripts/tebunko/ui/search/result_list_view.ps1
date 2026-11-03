@@ -394,7 +394,7 @@ function getResultItems {
         }
         $items.Add($group)
         if ($group.IsExpanded) {
-            $items.AddRange($group.ShownRows.GetRange(0, (getGroupDisplayCount $group.ShownRows.Count $group.Hits.Count $group.RowLimit)))
+            $items.AddRange($group.ShownRows.GetRange(0, (getGroupDisplayCount $group.ShownRows.Count $group.HitCount $group.RowLimit)))
             if ($null -ne $group.MoreRow) {
                 $items.Add($group.MoreRow)
             }
@@ -445,7 +445,7 @@ function sortFileGroups {
     $byOrder = @{ Expression = "Order"; Descending = $false }
     $rowKeys = if ($property -eq "Location") { @($byValue, @{ Expression = "LineNumber"; Descending = $descending }, $byOrder) } else { @($byValue, $byOrder) }
     foreach ($group in $groups) {
-        if ($group.Hits.Count -gt $limit) {
+        if ($group.HitCount -gt $limit) {
             continue
         }
         $sorted = @($group.Rows | Sort-Object $rowKeys)

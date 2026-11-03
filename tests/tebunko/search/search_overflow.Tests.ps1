@@ -1,5 +1,5 @@
 ﻿# 件数の上限を超えた分の書き溜め（tebunko\search\search_overflow.ps1・content_index_search.ps1 の合図と数えるだけの照合・search_run.ps1 の置き場所の決め方）のテスト。
-# 表（Hits）+ 溢れのファイルを全件の順に並べると、上限なし（-limit 0）の Hits と同じになることを確かめる
+# 表（Runs）+ 溢れのファイルを全件の順に並べると、上限なし（-limit 0）の結果と同じになることを確かめる
 BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
 
@@ -43,14 +43,14 @@ Describe "上限を超えた分の書き溜め" -Tag Io {
         $tmp = newOverflowRoot "t-$Limit-$Mode-$Word"
         $dir = getSearchOverflowDir $tmp 1
         $workers = if ($Mode -eq "single") { 1 } else { 3 }
-        $expected = toRows (searchContentIndex $Word $contentIndexFiles $true 0 -workerCount $workers -taskBytes 1).Hits
+        $expected = toRows (expandHitRuns (searchContentIndex $Word $contentIndexFiles $true 0 -workerCount $workers -taskBytes 1).Runs)
         $result = searchContentIndex $Word $contentIndexFiles $true $Limit -workerCount $workers -taskBytes 1 -checkEvery 1 -overflowDir $dir
-        $rows = @(toRows $result.Hits) + @(readSearchOverflowLines $dir)
+        $rows = @(toRows (expandHitRuns $result.Runs)) + @(readSearchOverflowLines $dir)
         $rows.Count | Should -Be $expected.Count
         ($rows -join "`n") | Should -Be ($expected -join "`n")
         $result.HitTotal | Should -Be $expected.Count
         $result.Truncated | Should -Be ($expected.Count -gt $Limit)
-        $result.Hits.Count | Should -Be ([Math]::Min($Limit, $expected.Count))
+        (getHitRunCount $result.Runs) | Should -Be ([Math]::Min($Limit, $expected.Count))
         $result.OverflowFailed | Should -BeFalse
     }
 
@@ -64,9 +64,9 @@ Describe "上限を超えた分の書き溜め" -Tag Io {
     ) {
         $tmp = newOverflowRoot "t-regex-$Workers-$($Word -replace '\W', '_')"
         $dir = getSearchOverflowDir $tmp 1
-        $expected = toRows (searchContentIndex $Word $contentIndexFiles $false 0 -workerCount $Workers -taskBytes 1).Hits
+        $expected = toRows (expandHitRuns (searchContentIndex $Word $contentIndexFiles $false 0 -workerCount $Workers -taskBytes 1).Runs)
         $result = searchContentIndex $Word $contentIndexFiles $false 2 -workerCount $Workers -taskBytes 1 -checkEvery 1 -overflowDir $dir
-        $rows = @(toRows $result.Hits) + @(readSearchOverflowLines $dir)
+        $rows = @(toRows (expandHitRuns $result.Runs)) + @(readSearchOverflowLines $dir)
         ($rows -join "`n") | Should -Be ($expected -join "`n")
         $result.HitTotal | Should -Be $expected.Count
     }
@@ -82,9 +82,9 @@ Describe "上限を超えた分の書き溜め" -Tag Io {
 
     It "溢れの置き場所が空なら、数えるだけで書かない（HitTotal は合う）" {
         $result = searchContentIndex "多い" $contentIndexFiles $true 3 -workerCount 1
-        $result.Hits.Count | Should -Be 3
+        (getHitRunCount $result.Runs) | Should -Be 3
         $result.Truncated | Should -BeTrue
-        $result.HitTotal | Should -Be (searchContentIndex "多い" $contentIndexFiles $true 0).Hits.Count
+        $result.HitTotal | Should -Be (getHitRunCount (searchContentIndex "多い" $contentIndexFiles $true 0).Runs)
     }
 
     It "書けない置き場所（同じ名前のファイルがある）は OverflowFailed にし、表と HitTotal はそのまま" {
@@ -92,17 +92,17 @@ Describe "上限を超えた分の書き溜め" -Tag Io {
         $dir = getSearchOverflowDir $tmp 1
         [void][System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($dir))
         Set-Content -LiteralPath $dir -Value "x"
-        $all = (searchContentIndex "多い" $contentIndexFiles $true 0).Hits.Count
+        $all = (getHitRunCount (searchContentIndex "多い" $contentIndexFiles $true 0).Runs)
         $result = searchContentIndex "多い" $contentIndexFiles $true 3 -workerCount 1 -overflowDir $dir
         $result.OverflowFailed | Should -BeTrue
-        $result.Hits.Count | Should -Be 3
+        (getHitRunCount $result.Runs) | Should -Be 3
         $result.HitTotal | Should -Be $all
     }
 
     It "上限 0 は、溢れを作らず HitTotal は件数と同じ" {
         $result = searchContentIndex "多い" $contentIndexFiles $true 0 -workerCount 1
         $result.Truncated | Should -BeFalse
-        $result.HitTotal | Should -Be $result.Hits.Count
+        $result.HitTotal | Should -Be (getHitRunCount $result.Runs)
     }
 
     It "進み具合に、今までの件数（HitTotal）が付く" {
@@ -132,9 +132,9 @@ Describe "溢れの書き溜め（照合の細部）" -Tag Io {
             $dir = getSearchOverflowDir $tmp $(if ($mode -eq "single") { 1 } else { 2 })
             $workers = if ($mode -eq "single") { 1 } else { 2 }
             foreach ($word in "F1", "検索語") {
-                $expected = toRows (searchContentIndex $word $files $true 0 -workerCount $workers -taskBytes 1).Hits
+                $expected = toRows (expandHitRuns (searchContentIndex $word $files $true 0 -workerCount $workers -taskBytes 1).Runs)
                 $result = searchContentIndex $word $files $true 1 -workerCount $workers -taskBytes 1 -overflowDir "$dir-$word" -checkEvery 1
-                $rows = @(toRows $result.Hits) + @(readSearchOverflowLines "$dir-$word")
+                $rows = @(toRows (expandHitRuns $result.Runs)) + @(readSearchOverflowLines "$dir-$word")
                 ($rows -join "`n") | Should -Be ($expected -join "`n")
                 $result.HitTotal | Should -Be $expected.Count
             }
@@ -146,12 +146,12 @@ Describe "溢れの書き溜め（照合の細部）" -Tag Io {
         $mixed = @("aaab 1", "aaab 2", "aaab 3", "aaab 4")
         for ($i = 0; $i -lt 3; $i++) { newTsv "$tsvRoot\s$i\b$i.xlsx\S.tsv" $mixed }
         $files = newContentIndexFiles $tsvRoot (Join-Path $TestDrive "ov3_content_index")
-        $expected = toRows (searchContentIndex "a+b" $files $false 0 -workerCount 1 -taskBytes 1).Hits
+        $expected = toRows (expandHitRuns (searchContentIndex "a+b" $files $false 0 -workerCount 1 -taskBytes 1).Runs)
         # 1 つ目のファイルの途中（2 件目）で数えるだけに切り替わる
         $tmp = newOverflowRoot "t-redo"
         $dir = getSearchOverflowDir $tmp 1
         $result = searchContentIndex "a+b" $files $false 5 -workerCount 1 -taskBytes 1 -checkEvery 1 -overflowDir $dir
-        $rows = @(toRows $result.Hits) + @(readSearchOverflowLines $dir)
+        $rows = @(toRows (expandHitRuns $result.Runs)) + @(readSearchOverflowLines $dir)
         ($rows -join "`n") | Should -Be ($expected -join "`n")
     }
 
@@ -164,7 +164,7 @@ Describe "溢れの書き溜め（照合の細部）" -Tag Io {
         $result = searchContentIndex "(a+)+$" $files $false 2 -workerCount 1 -taskBytes 1
         $result.CountTimeout | Should -BeTrue
         $result.HitTotal | Should -Be -1
-        $result.Hits.Count | Should -Be 2
+        (getHitRunCount $result.Runs) | Should -Be 2
         $result.Truncated | Should -BeTrue
     }
 
@@ -188,7 +188,7 @@ Describe "溢れの書き溜め（照合の細部）" -Tag Io {
         $gate[1] = 10
         $output = & ${contentIndexWorkerScript} $files 0 $files.Count $search.Regex 10 $search.TextRegex $search.ScanMode $null $null $null $null $null $gate 0 64 ""
         $output.Timeout | Should -BeTrue
-        @($output.Hits).Count | Should -Be 2
+        @((expandHitRuns $output.Runs)).Count | Should -Be 2
         $gate[4] | Should -Be 1
     }
 
@@ -216,12 +216,12 @@ Describe "溢れの書き溜め（照合の細部）" -Tag Io {
         $expectedRows = @()
         $tableRows = @()
         for ($s = 0; $s -lt $Slots; $s++) {
-            $expected = toRows (searchContentIndexFiles $files $s 1 $lineRegex -1 $textRegex "lines").Hits
+            $expected = toRows (expandHitRuns (searchContentIndexFiles $files $s 1 $lineRegex -1 $textRegex "lines").Runs)
             $found = searchContentIndexFiles $files $s 1 $lineRegex 1 $textRegex "lines" $null $null $null $null $null $gate $s 1 $dir
             $found.Timeout | Should -BeFalse
             $found.OverflowFailed | Should -BeFalse
             $found.Count | Should -Be $expected.Count
-            $own = toRows $found.Hits
+            $own = toRows (expandHitRuns $found.Runs)
             # 表は上限 + 1 件（上限を超えたと分かる 1 件）まで。残りは溢れのファイルに入る
             # （2 つ目の作業は、前の作業の件数だけで上限を超えているので、表に行を作らず数えるだけ）
             $tableCount = if ($s -eq 0) { 2 } else { 0 }
@@ -371,5 +371,40 @@ Describe "splitContentIndexTasks（先頭の作業を小さくする）" -Tag Un
         $next = 0
         foreach ($task in $tasks) { $task.Start | Should -Be $next; $next += $task.Count }
         $next | Should -Be $files.Count
+    }
+}
+
+Describe "resetSearchOverflowWriter" -Tag Io {
+    It "書いた行を、指定した位置まで切り戻し、続きをそこから書ける" {
+        $dir = Join-Path $TestDrive "reset_ok"
+        $writer = newSearchOverflowWriter $dir "0.tsv"
+        $writer.WriteLine("1行目")
+        $writer.Flush()
+        $pos = $writer.BaseStream.Position
+        $writer.WriteLine("消える行")
+        (resetSearchOverflowWriter $writer $pos) | Should -BeTrue
+        $writer.WriteLine("2行目")
+        $writer.Dispose()
+        @(readSearchOverflowLines $dir) -join "," | Should -Be "1行目,2行目"
+    }
+
+    It "書けない（閉じた）writer は、閉じ直して偽を返す" {
+        $dir = Join-Path $TestDrive "reset_ng"
+        $writer = newSearchOverflowWriter $dir "0.tsv"
+        $writer.Dispose()
+        (resetSearchOverflowWriter $writer 0) | Should -BeFalse
+    }
+}
+
+Describe "writeSearchOverflowHits" -Tag Io {
+    It "まとまりの中の行を、1 行ずつ <RelDir>\t<Book>\t<Location>\t<行番号>\t<行> の形で書く" {
+        $dir = Join-Path $TestDrive "write_runs"
+        $run = @{ RelDir = "営業"; Book = "見積.xlsx"; Location = "4月"
+            LineNumbers = [System.Collections.Generic.List[int]]::new(); Lines = [System.Collections.Generic.List[string]]::new() }
+        foreach ($n in 2, 5) { $run.LineNumbers.Add($n); $run.Lines.Add("行$n") }
+        $writer = newSearchOverflowWriter $dir "0.head.tsv"
+        (writeSearchOverflowHits $writer @($run, $run)) | Should -BeTrue
+        $writer.Dispose()
+        @(readSearchOverflowLines $dir) -join "|" | Should -Be ((@("営業`t見積.xlsx`t4月`t2`t行2", "営業`t見積.xlsx`t4月`t5`t行5") * 2) -join "|")
     }
 }

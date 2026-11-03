@@ -205,7 +205,7 @@ Describe "長いパス（260文字超）" -Tag Io {
             $rel = @($index.ContentIndexFiles | ForEach-Object { $_.RelPath } | Sort-Object)
             $rel | Should -Be @("$deepRel\content_index.xlsx.001.tsv", "content_index.xlsx.001.tsv")
 
-            $hits = @((searchContentIndex "hello" $index.ContentIndexFiles).Hits)
+            $hits = @((expandHitRuns (searchContentIndex "hello" $index.ContentIndexFiles).Runs))
             $hits.Count | Should -Be 2
             @($hits | Where-Object { $_.RelDir -eq $deepRel }).Count | Should -Be 1
 

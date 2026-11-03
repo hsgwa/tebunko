@@ -96,6 +96,31 @@ Describe "gram 索引の判定（getGramPerfProblems）" -Tag Unit {
     }
 }
 
+Describe "要求の Queue のヒットの数え方（countQueuedHits）" -Tag Unit {
+    BeforeAll {
+        function newCountRun($lineCount) {
+            $numbers = New-Object System.Collections.Generic.List[int]
+            $lines = New-Object System.Collections.Generic.List[string]
+            for ($i = 1; $i -le $lineCount; $i++) { $numbers.Add($i); $lines.Add("行$i") }
+            return @{ Book = "a.xlsx"; Location = "S"; LineNumbers = $numbers; Lines = $lines }
+        }
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "空の Queue は 0"; items = { @() }; expect = 0 }
+        @{ name = "まとまりは行の数"; items = { @((newCountRun 3)) }; expect = 3 }
+        @{ name = "まとまりが複数なら行の数の合計"; items = { @((newCountRun 2), (newCountRun 5)) }; expect = 7 }
+        @{ name = "1 件ずつの形（PSCustomObject）は 1 件"; items = { @([pscustomobject]@{ Book = "a.xlsx"; LineNumber = 1; Line = "x" }) }; expect = 1 }
+        @{ name = "まとまりと 1 件ずつの形が混ざっても足す"; items = { @((newCountRun 4), [pscustomobject]@{ Book = "a.xlsx" }, [pscustomobject]@{ Book = "b.xlsx" }) }; expect = 6 }
+    ) {
+        param ($items, $expect)
+        $queue = New-Object System.Collections.Concurrent.ConcurrentQueue[object]
+        foreach ($item in (& $items)) { $queue.Enqueue($item) }
+        countQueuedHits $queue | Should -Be $expect
+        $queue.IsEmpty | Should -Be $true
+    }
+}
+
 Describe "検索と pack の作成の判定（getSearchPerfProblems）" -Tag Unit {
     BeforeAll {
         $script:limits = @{ "0 件" = 450; "まれ" = 550; "大量" = 2100; "正規表現" = 2200 }
