@@ -273,7 +273,7 @@ Describe "getTextEditorChoice / getTextEditorLabel / addTextEditorNotice" -Tag U
         @{ configured = "D:\tools\editor.bat"; expected = "メモ帳（既定）" }
         @{ configured = "D:\tools\MyEditor.exe"; expected = "MyEditor" }
     ) {
-        param ($configured, $expected)
+        param ($name, $configured, $expected)
         getTextEditorLabel $configured | Should -Be $expected
     }
 
@@ -294,13 +294,72 @@ Describe "getTextOpenWayText / getTextOpenDialogTexts" -Tag Unit {
     }
 
     It "エディタの説明にエディタの名前が入る" {
-        ((getTextOpenDialogTexts).EditorSettingsHint -f (getTextEditorLabel "")) | Should -Be "「エディタで開く」に使うアプリです。今はメモ帳（既定）だけです。"
+        ((getTextOpenDialogTexts).EditorSettingsHint -f (getTextEditorLabel "")) | Should -Be "「エディタで開く」に使うアプリです。今はメモ帳（既定）です。"
+        ((getTextOpenDialogTexts).EditorSettingsHint -f (getTextEditorLabel "C:\Tools\sakura.exe")) | Should -Be "「エディタで開く」に使うアプリです。今はsakuraです。"
+    }
+
+    It "ダイアログの説明は、エディタが選べること（既定はメモ帳）を言う" {
+        (getTextOpenDialogTexts).Note | Should -BeLike "*「エディタで開く」は、下の「エディタ」のアプリ（既定はメモ帳）で開きます。*"
     }
 
     It "ダイアログの文言がそろっている" {
         $texts = getTextOpenDialogTexts
-        foreach ($key in @("Title", "Note", "Extension", "Way", "Reset", "Ok", "Cancel", "ChangedOnly", "FilterPlaceholder", "Empty", "RestrictedHeader", "RestrictedNote", "EditorTitle", "EditorHint", "FutureMark", "Change", "SettingsHint", "EditorSettingsHint")) {
+        foreach ($key in @("Title", "Note", "Extension", "Way", "Reset", "Ok", "Cancel", "ChangedOnly", "FilterPlaceholder", "Empty", "RestrictedHeader", "RestrictedNote", "EditorTitle", "EditorHint", "Change", "SettingsHint", "EditorSettingsHint", "ResetEditor", "EditorPickTitle", "EditorDenied", "EditorInvalid")) {
             $texts[$key] | Should -Not -BeNullOrEmpty -Because $key
         }
+    }
+}
+
+Describe "getTextEditorPickResult / getTextEditorPathText / testTextEditorResetEnabled" -Tag Unit {
+    BeforeAll {
+        $script:denied = (getTextOpenDialogTexts).EditorDenied
+        $script:invalid = (getTextOpenDialogTexts).EditorInvalid
+        $script:okNames = @{ Ok = $true; OriginalFilename = "sakura.exe"; InternalName = "sakura" }
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "通る（ファイルあり）"; path = "C:\Tools\sakura.exe"; exists = $true; names = @{ Ok = $true; OriginalFilename = "sakura.exe"; InternalName = "sakura" }; ok = $true; message = "" }
+        @{ name = "版の情報の元の名前が空なら通る"; path = "C:\Tools\sakura.exe"; exists = $true; names = @{ Ok = $true; OriginalFilename = ""; InternalName = "" }; ok = $true; message = "" }
+        @{ name = "拒む表の名前（powershell.exe）は 1 つ目の文言"; path = "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"; exists = $true; names = @{ Ok = $true; OriginalFilename = "PowerShell.EXE.MUI"; InternalName = "" }; ok = $false; message = "denied" }
+        @{ name = "名前だけ見て拒む（ファイルが無くても 1 つ目）"; path = "powershell.exe"; exists = $false; names = $null; ok = $false; message = "denied" }
+        @{ name = "名前は通るが元の名前が PowerShell.EXE.MUI なら 1 つ目の文言"; path = "C:\Tools\myedit.exe"; exists = $true; names = @{ Ok = $true; OriginalFilename = "PowerShell.EXE.MUI"; InternalName = "" }; ok = $false; message = "denied" }
+        @{ name = "内部名が拒む表に当たれば 1 つ目の文言"; path = "C:\Tools\myedit.exe"; exists = $true; names = @{ Ok = $true; OriginalFilename = ""; InternalName = "cmd" }; ok = $false; message = "denied" }
+        @{ name = "UNC は 2 つ目の文言"; path = "\\srv\a.exe"; exists = $true; names = @{ Ok = $true; OriginalFilename = ""; InternalName = "" }; ok = $false; message = "invalid" }
+        @{ name = "相対パスは 2 つ目の文言"; path = "sakura.exe"; exists = $true; names = @{ Ok = $true; OriginalFilename = ""; InternalName = "" }; ok = $false; message = "invalid" }
+        @{ name = ".exe でないものは 2 つ目の文言"; path = "C:\Tools.bat"; exists = $true; names = @{ Ok = $true; OriginalFilename = ""; InternalName = "" }; ok = $false; message = "invalid" }
+        @{ name = "ファイルが無ければ 2 つ目の文言"; path = "C:\Tools\sakura.exe"; exists = $false; names = $null; ok = $false; message = "invalid" }
+        @{ name = "版の情報の読み取りに失敗（Ok が false）なら 2 つ目の文言"; path = "C:\Tools\sakura.exe"; exists = $true; names = @{ Ok = $false; OriginalFilename = ""; InternalName = "" }; ok = $false; message = "invalid" }
+        @{ name = "版の情報を渡さなければ 2 つ目の文言"; path = "C:\Tools\sakura.exe"; exists = $true; names = $null; ok = $false; message = "invalid" }
+    ) {
+        param ($name, $path, $exists, $names, $ok, $message)
+        $result = getTextEditorPickResult $path $exists $names
+        $result.Ok | Should -Be $ok
+        $expected = switch ($message) { "denied" { $script:denied } "invalid" { $script:invalid } default { "" } }
+        $result.Message | Should -Be $expected
+    }
+
+    It "文言は、拒む表は「スクリプトを動かせるため」、ほかは「ドライブから始まる場所にある .exe」" {
+        $script:denied | Should -Be "このプログラムはスクリプトを動かせるため、エディタにできません。"
+        $script:invalid | Should -Be "このファイルはエディタに指定できません。ドライブから始まる場所にある .exe を選んでください。"
+    }
+
+    It "getTextEditorPathText: <name>" -TestCases @(
+        @{ name = "選んだエディタ"; configured = "C:\Tools\sakura.exe"; expected = "C:\Tools\sakura.exe" }
+        @{ name = "空（メモ帳）"; configured = ""; expected = "" }
+        @{ name = "使えない形の値"; configured = "powershell.exe"; expected = "" }
+        @{ name = "文字列でない値"; configured = $null; expected = "" }
+    ) {
+        param ($name, $configured, $expected)
+        getTextEditorPathText $configured | Should -Be $expected
+    }
+
+    It "testTextEditorResetEnabled: <name>" -TestCases @(
+        @{ name = "選んだエディタ"; configured = "C:\Tools\sakura.exe"; expected = $true }
+        @{ name = "使えない形の値も戻せる"; configured = "powershell.exe"; expected = $true }
+        @{ name = "空"; configured = ""; expected = $false }
+        @{ name = "文字列でない値"; configured = $null; expected = $false }
+    ) {
+        param ($name, $configured, $expected)
+        testTextEditorResetEnabled $configured | Should -Be $expected
     }
 }
