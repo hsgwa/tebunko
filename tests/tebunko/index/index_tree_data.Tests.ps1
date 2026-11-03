@@ -193,6 +193,19 @@ Describe "getIndexTreeData" -Tag Io {
         (@($data.Children["$root\営業部"].Folders | ForEach-Object { $_.Name }) -join ",") | Should -Be "2024"
     }
 
+    It "パスは属するインデックスの先祖の子だけを読む（名前が前方一致するインデックスも取り違えない）" {
+        newTreeFiles $script:dir
+        newTsv "$($script:dir)\営業\規程.docx\ページ001.tsv" @("規程")
+        $root = (getIndexTreeData $script:dir $script:statusPath $script:settingsPath).Root
+
+        $data = getIndexTreeData $script:dir $script:statusPath $script:settingsPath @("$root\営業部\2024\東京", "$root\営業")
+
+        $data.Children.ContainsKey("$root\営業") | Should -Be $true
+        $data.Children.ContainsKey("$root\営業部\2024\東京") | Should -Be $true
+        $data.Children.ContainsKey("$root\総務部") | Should -Be $false
+        @($data.Children["$root\営業"].Folders).Count | Should -Be 0
+    }
+
     It "インデックスの外のパス・無いフォルダのパスは無視する" {
         newTreeFiles $script:dir
         $root = (getIndexTreeData $script:dir $script:statusPath $script:settingsPath).Root
@@ -202,6 +215,17 @@ Describe "getIndexTreeData" -Tag Io {
         $data.Children.ContainsKey("C:\ほか\営業部") | Should -Be $false
         $data.Children.ContainsKey("$root\営業部") | Should -Be $true
         $data.Children.ContainsKey("$root\営業部\無い") | Should -Be $false
+    }
+
+    It "途中のフォルダが無ければそこで止める" {
+        newTreeFiles $script:dir
+        $root = (getIndexTreeData $script:dir $script:statusPath $script:settingsPath).Root
+        $children = @{}
+
+        addIndexAncestorChildren $children "$root\営業部" "$root\営業部\無い\奥"
+
+        $children.ContainsKey("$root\営業部") | Should -Be $true
+        $children.ContainsKey("$root\営業部\無い") | Should -Be $false
     }
 }
 
