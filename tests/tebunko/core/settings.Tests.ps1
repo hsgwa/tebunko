@@ -127,6 +127,44 @@ Describe "readSettings / writeSettings" -Tag Io {
     }
 }
 
+Describe "writeTextEditorPath" -Tag Io {
+    It "<name>" -TestCases @(
+        @{ name = "パスを書いて読み直すと同じ"; first = "C:\Tools\sakura.exe"; expected = "C:\Tools\sakura.exe" }
+        @{ name = "空を書くと、メモ帳（既定）に戻る"; first = ""; expected = "" }
+    ) {
+        param ($name, $first, $expected)
+        $path = Join-Path $TestDrive "editor_$([guid]::NewGuid()).config"
+        writeTextEditorPath "C:\Old\old.exe" $path
+        writeTextEditorPath $first $path
+        (readTextExtensionSettings $path).EditorPath | Should -Be $expected
+    }
+
+    It "ほかのキー（開き方・ほかの設定）は残る" {
+        $path = "$TestDrive\editor_keep.config"
+        writeSearchOption @{ UseRegex = $true } $path
+        writeTextOpenSettings @(".css") $path
+        writeTextEditorPath "C:\Tools\sakura.exe" $path
+        (readSearchOption $path).UseRegex | Should -Be $true
+        (@((readTextExtensionSettings $path).Notepad) -join ",") | Should -Be ".css"
+        # 開き方を書き直しても、エディタは残る
+        writeTextOpenSettings @(".md") $path
+        (readTextExtensionSettings $path).EditorPath | Should -Be "C:\Tools\sakura.exe"
+    }
+
+    It "ほかのプログラムが設定ファイルを開いているときは、例外を投げ、ファイルは壊さない" {
+        $path = "$TestDrive\editor_lock.config"
+        writeTextEditorPath "C:\Tools\sakura.exe" $path
+        $before = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
+        $stream = [System.IO.File]::Open($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+        try {
+            { writeTextEditorPath "" $path } | Should -Throw
+        } finally {
+            $stream.Dispose()
+        }
+        [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8) | Should -Be $before
+    }
+}
+
 Describe "repairBrokenSettings / getSettingsRecoveryMessage" -Tag Io {
     It "壊れたファイルを中身のまま setting.config.broken-* に移してパスを返し、移した後は既定値で読める" {
         $dir = "$TestDrive\壊れた設定"

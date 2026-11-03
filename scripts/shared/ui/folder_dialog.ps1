@@ -154,6 +154,43 @@ function selectZipFile {
     return $dialog.FileName
 }
 
+function selectExeFile {
+    # 実行ファイル（.exe）を選んでもらう（Windows 標準のファイルを開くダイアログ。.lnk は実体のパスになる）。選んだファイルを返す（キャンセルは $null）。
+    # initialDirectory が空でなければ、そのフォルダから始める（呼ぶ側が、あるフォルダだけを渡す）
+    param (
+        [string]$description,
+        [string]$initialDirectory = "",
+        [System.Windows.Window]$owner = $window
+    )
+
+    $dialog = New-Object System.Windows.Forms.OpenFileDialog
+    $dialog.Title = $description
+    $dialog.Filter = "アプリ (*.exe)|*.exe"
+    $dialog.CheckFileExists = $true
+    $dialog.DereferenceLinks = $true
+    if ($initialDirectory -ne "") {
+        $dialog.InitialDirectory = $initialDirectory
+    }
+    $hwnd = [IntPtr]::Zero
+    if ($owner) {
+        $hwnd = (New-Object System.Windows.Interop.WindowInteropHelper $owner).Handle
+    }
+    $ownerWindow = New-Object System.Windows.Forms.NativeWindow
+    if ($hwnd -ne [IntPtr]::Zero) {
+        $ownerWindow.AssignHandle($hwnd)
+    }
+    try {
+        $result = $dialog.ShowDialog($ownerWindow)
+    } finally {
+        $ownerWindow.ReleaseHandle()
+        $dialog.Dispose()
+    }
+    if ($result -ne [System.Windows.Forms.DialogResult]::OK) {
+        return $null
+    }
+    return $dialog.FileName
+}
+
 function getDroppedFolders {
     param (
         [System.Windows.DragEventArgs]$e
