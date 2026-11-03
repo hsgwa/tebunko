@@ -480,3 +480,20 @@ Describe "getIndexLocationOpenStatus（保存先を開くときの文言）" -Ta
         getIndexLocationOpenStatus $kind "C:\ws" $message | Should -Be $expected
     }
 }
+
+Describe "getIndexRowPercent" -Tag Unit {
+    It "ratio <ratio> は <expected>（行の文言の Percent と同じ値）" -TestCases @(
+        @{ ratio = -1.0; expected = -1 }
+        @{ ratio = 0.0; expected = 0 }
+        @{ ratio = 0.456; expected = 45 }
+        @{ ratio = 0.999; expected = 99 }
+        @{ ratio = 1.0; expected = 100 }
+        @{ ratio = 1.5; expected = 100 }
+    ) {
+        param ($ratio, $expected)
+        getIndexRowPercent $ratio | Should -Be $expected
+        if ($ratio -ge 0) {
+            (getIndexRowView $null $true $true $ratio $true).Percent | Should -Be $expected
+        }
+    }
+}

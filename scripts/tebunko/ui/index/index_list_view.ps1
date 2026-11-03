@@ -272,6 +272,14 @@ function getIndexRowActions {
     return @{ Action = $action; UpdateEnabled = ($blocker -eq "") }
 }
 
+function getIndexRowPercent {
+    # 更新中の行に出す割合（整数の %）。ratio が負（分からない）なら -1。行の文言（getIndexRowView）と、画面の控えの比べが同じ値を使う
+    param ([double]$ratio)
+
+    if ($ratio -lt 0) { return -1 }
+    return [int][Math]::Floor([Math]::Min($ratio, 1.0) * 100)
+}
+
 function getIndexRowView {
     # 一覧の「ステータス」列（本文の更新の状態）の文言・補足・ツールヒント・色の区分を返す。@{ Text; Sub; ToolTip; Level }
     #   Text は状態の名前だけ（数字を含めない）。Sub は、バッジの右に小さく出す補足（更新中の「45%」、途中で止まったときの「残り N 件」。無ければ空文字列）
@@ -303,9 +311,9 @@ function getIndexRowView {
     }
     $notice = if (!$enabled) { "設定で［すべて更新］の対象から外れています（インデックスは残っています。行の［更新］で更新できます）。" } else { "" }
     if ($indexing -and $enabled -and $inRound) {
-        $percent = if ($ratio -ge 0) { [int][Math]::Floor([Math]::Min($ratio, 1.0) * 100) } else { 0 }
-        $sub = if ($ratio -ge 0) { "${percent}%" } else { "" }
-        return @{ Text = "更新中"; Sub = $sub; Level = "Run"; Percent = $percent; ToolTip = "インデックスを更新しています。終わると状態を表示します。" }
+        $percent = getIndexRowPercent $ratio
+        $sub = if ($percent -ge 0) { "${percent}%" } else { "" }
+        return @{ Text = "更新中"; Sub = $sub; Level = "Run"; Percent = [Math]::Max(0, $percent); ToolTip = "インデックスを更新しています。終わると状態を表示します。" }
     }
     if ($null -ne $formatEntry -and [string]$formatEntry.Message -ne "") {
         $formatView = @{
