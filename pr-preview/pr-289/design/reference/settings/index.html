@@ -4581,6 +4581,14 @@
 <td><code>writeIndexTextExcludes</code> ほか</td>
 </tr>
 <tr>
+<td><code>writeTextEditorPath</code></td>
+<td>editorPath, path（既定 <code>$settingsFile</code>）</td>
+<td>–</td>
+<td>「エディタで開く」のプログラムのパス（<code>textEditorPath</code>）だけを保存する（空はメモ帳に戻す）。値は検査しない（検査は <code>getTextEditorPickResult</code>）。<code>invokeSettingsLocked</code> の中で 1 回読み直し、ほかのキーは保つ</td>
+<td>同上</td>
+<td><code>pickAndSaveTextEditor</code>・<code>resetTextEditor</code></td>
+</tr>
+<tr>
 <td><code>writeTextOpenSettings</code></td>
 <td>notepad, path（既定 <code>$settingsFile</code>）</td>
 <td>–</td>
