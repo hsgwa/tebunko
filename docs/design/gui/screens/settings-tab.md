@@ -26,8 +26,13 @@ stateDiagram-v2
     state "settings-tab/index-confirm" as index
     state "settings-tab/invalid-warning" as invalid
     state "settings-tab/text-open" as textext
+    state "settings-tab/text-open-editor" as textexteditor
+    state "settings-tab/editor-selected" as editorselected
     normal --> textext: テキストファイルの［変更…］
     textext --> normal: ［キャンセル］
+    normal --> textexteditor: エディタを選んである状態でテキストファイルの［変更…］
+    textexteditor --> editorselected: ［OK］
+    editorselected --> normal: ［メモ帳に戻す］
     normal --> limitnone: 件数の上限で［制限なし］を選ぶ
     limitnone --> normal: ［制限あり］を選ぶ
     normal --> limiterror: 件数の上限に正しくない値を入れて Enter
@@ -66,6 +71,14 @@ stateDiagram-v2
 ### settings-tab/text-open（テキストの開き方のダイアログ）
 
 ![テキストの開き方のダイアログ](../../../images/screens/settings-tab/text-open.png)
+
+### settings-tab/text-open-editor（テキストの開き方のダイアログ。エディタを選んである）
+
+![テキストの開き方のダイアログ（エディタを選んである）](../../../images/screens/settings-tab/text-open-editor.png)
+
+### settings-tab/editor-selected（［設定］。エディタを選んである）
+
+![エディタを選んである［設定］](../../../images/screens/settings-tab/editor-selected.png)
 
 ### settings-tab/limit-none（件数の上限が［制限なし］）
 

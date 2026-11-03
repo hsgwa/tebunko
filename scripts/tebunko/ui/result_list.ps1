@@ -186,7 +186,7 @@ function resetShownRows {
 }
 
 function ensureAllRows {
-    # すべてのファイルのヒットを、全部表の行にする（出力の前。ヒットが多いファイルは重い）
+    # すべてのファイルのヒットを、全部表の行にする（重い。出力からは使わない。getViewRows が使う）
     foreach ($group in $script:groupList) {
         ensureRows $group
     }
@@ -514,14 +514,14 @@ function getCurrentHitRow {
 }
 
 function getViewRows {
-    # 表示中（絞り込み・並べ替え後）の行。閉じているファイルの行も含む（結果をファイルに出力するときに使う）
+    # 表示中（絞り込み・並べ替え後）の行。閉じているファイルの行も含む（出力からは使わない。テストで、出力の準備 getExportHits の順と比べるのに使う）
     ensureAllRows
     return , (getShownHitRows $script:groupList).ToArray()
 }
 
 function getExportHits {
     # 結果をファイルに出力するときの、表に出ている分（RelDir・Book・Location・LineNumber・Line を持つ並び）。
-    #   並べ替えていて上限を超えていない: 表の順（getViewRows。行の部品 HitRow を作る）
+    #   並べ替えていて上限を超えていない: 表の順（ファイルの順 → ファイルの中は getOrderedHits）。行の部品（HitRow）は新しく作らない
     #   それ以外: 検索の順（ファイルの見つかった順 → ファイルの中の見つかった順）。行の部品（HitRow）は作らず、ファイルの素の値を並べる。
     #            上限を超えているときは溢れの続きとして書くので並べ替えは当てない。絞り込みはファイル名で、ファイルごとに決まる
     param (
@@ -531,7 +531,13 @@ function getExportHits {
     )
 
     if ($sorted -and !$truncated) {
-        return , (getViewRows)
+        $ordered = New-Object 'System.Collections.Generic.List[object]'
+        foreach ($group in $script:groupList) {
+            if (testHitFilter $group.Book $filterText) {
+                $ordered.AddRange((getOrderedHits $group.Hits $group.HitOrder $group.Rows))
+            }
+        }
+        return , $ordered.ToArray()
     }
     $hits = New-Object 'System.Collections.Generic.List[object]'
     foreach ($group in ($script:groupList | Sort-Object Order)) {

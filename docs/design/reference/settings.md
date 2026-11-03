@@ -34,6 +34,7 @@
 | `removeIndexTextExcludes` | name, path（既定 `$settingsFile`） | – | インデックスの削除で、取り込まない拡張子の項目（今の設定と、前回取り込んだときの設定）を消す（項目が無ければ何もしない） | 同上 | `IndexCatalog.RemoveIndex` |
 | `setIngestedTextExcludes` | values（インデックス名 → 取り込まなかった拡張子の配列の表）, path（既定 `$settingsFile`） | – | インデクサが取り込み終えたインデックスの、そのとき使った取り込まない拡張子を `indexExtensionExcludesIngested` に書く（渡した名前の項目だけ。空なら項目を消す。読み直して排他の中で書く） | 同上 | `IndexCatalog.StoreIngestedTextExcludes` |
 | `setIndexTextExcludesTable` | settings, key, table | – | 設定の表（`indexExtensionExcludes`・`indexExtensionExcludesIngested`）を、名前の順に並べたオブジェクトにして設定へ入れる | – | `writeIndexTextExcludes` ほか |
+| `writeTextEditorPath` | editorPath, path（既定 `$settingsFile`） | – | 「エディタで開く」のプログラムのパス（`textEditorPath`）だけを保存する（空はメモ帳に戻す）。値は検査しない（検査は `getTextEditorPickResult`）。`invokeSettingsLocked` の中で 1 回読み直し、ほかのキーは保つ | 同上 | `pickAndSaveTextEditor`・`resetTextEditor` |
 | `writeTextOpenSettings` | notepad, path（既定 `$settingsFile`） | – | エディタで開く拡張子を保存する（エディタ固定の 15 個は書かない）。`invokeSettingsLocked` の中で 1 回読み直し、ほかのキーは保つ | 同上 | `showTextOpenDialog` |
 | `readCloudFiles` / `writeCloudFiles` | path（既定 `$settingsFile`） / mode, path | string / – | クラウドにだけあるファイルの扱い（`cloudFiles`。`ask` / `download`）を読み書きする。無い・知らない値なら `ask` | [取り込み対象の決定](../indexing/target-decision.md#クラウドにだけあるファイル) | 画面・インデクサ |
 | `readOpenMode` / `writeOpenMode` | path（既定 `$settingsFile`） / mode, path | string / – | 元のファイルの開き方（`openMode`）を読み書きする。無い・知らない値なら `normal` | [元のファイルを開く](../gui/open-file.md) | 画面 |

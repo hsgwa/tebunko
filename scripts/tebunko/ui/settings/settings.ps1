@@ -453,3 +453,5 @@ $ui.SearchNoneRadio.Add_Checked({ if (!$script:searchLimitSyncing) { safe { comm
 $ui.ChangeWorkspaceButton.Add_Click({ safe { chooseWorkspace } })
 $ui.ResetWorkspaceButton.Add_Click({ safe { resetWorkspace } })
 $ui.ChangeTextExtensionsButton.Add_Click({ safe { showTextOpenDialog } })
+$ui.ChangeEditorButton.Add_Click({ safe { changeTextEditorFromSettings } })
+$ui.ResetEditorButton.Add_Click({ safe { resetTextEditorFromSettings } })
