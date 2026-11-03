@@ -319,7 +319,7 @@ Describe "SearchService" -Tag Io {
         $service.GetReadyTicks() | Should -BeGreaterThan 0
         # 記録は Finished を立てたあとに書く。少し待つ
         $traceDir = ([Workspace]::new($workDir)).TraceDir
-        $text = waitTraceText $traceDir @("search	司令: 受け取り", "search	司令: 終わり \(done\)")
+        $text = waitTraceText $traceDir @("search\t司令: 受け取り", "search\t司令: 終わり \(done\)")
         $text | Should -Match "search\t司令: 受け取り"
         $text | Should -Match "search\t司令: 終わり \(done\)"
     } finally {
