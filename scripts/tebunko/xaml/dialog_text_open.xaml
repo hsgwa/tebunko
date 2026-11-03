@@ -73,22 +73,26 @@
       </StackPanel>
     </DockPanel>
 
-    <!-- エディタの行（いまはメモ帳だけ。［変更…］は押せない見た目で、「将来の対応」の印を付ける） -->
+    <!-- エディタの行（1 段目: 名前・説明・［変更…］・［メモ帳に戻す］。2 段目: 選んだエディタのパス。3 段目: 選べなかった理由） -->
     <Border x:Name="TextExtEditorRow" DockPanel.Dock="Bottom" Margin="0,10,0,0" Padding="12,8" CornerRadius="4"
             Background="{StaticResource Bg.Subtle}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="1">
-      <DockPanel>
-        <Button x:Name="TextExtEditorChangeButton" DockPanel.Dock="Right" Height="26" MinWidth="64" IsEnabled="False"
-                AutomationProperties.AutomationId="TextExtEditorChangeButton" />
-        <Border x:Name="TextExtEditorMark" DockPanel.Dock="Right" Margin="12,0,0,0" Padding="8,2" CornerRadius="9" VerticalAlignment="Center"
-                Background="{StaticResource Warn.Soft}">
-          <TextBlock x:Name="TextExtEditorMarkText" Style="{StaticResource Micro}" Foreground="{StaticResource Warn.Strong}" />
-        </Border>
-        <TextBlock x:Name="TextExtEditorHint" DockPanel.Dock="Right" Style="{StaticResource Meta}" Margin="12,0,0,0" VerticalAlignment="Center" />
-        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-          <TextBlock x:Name="TextExtEditorTitle" FontWeight="SemiBold" Foreground="{StaticResource Ink.Strong}" />
-          <TextBlock x:Name="TextExtEditorName" Margin="12,0,0,0" Style="{StaticResource Meta}" AutomationProperties.AutomationId="TextExtEditorName" />
-        </StackPanel>
-      </DockPanel>
+      <StackPanel>
+        <DockPanel>
+          <Button x:Name="TextExtEditorResetButton" DockPanel.Dock="Right" Height="26" MinWidth="64" Margin="8,0,0,0"
+                  AutomationProperties.AutomationId="TextExtEditorResetButton" />
+          <Button x:Name="TextExtEditorChangeButton" DockPanel.Dock="Right" Height="26" MinWidth="64"
+                  AutomationProperties.AutomationId="TextExtEditorChangeButton" />
+          <TextBlock x:Name="TextExtEditorHint" DockPanel.Dock="Right" Style="{StaticResource Meta}" Margin="12,0,12,0" VerticalAlignment="Center" />
+          <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+            <TextBlock x:Name="TextExtEditorTitle" FontWeight="SemiBold" Foreground="{StaticResource Ink.Strong}" />
+            <TextBlock x:Name="TextExtEditorName" Margin="12,0,0,0" Style="{StaticResource Meta}" AutomationProperties.AutomationId="TextExtEditorName" />
+          </StackPanel>
+        </DockPanel>
+        <TextBlock x:Name="TextExtEditorPath" Style="{StaticResource Meta}" Margin="0,4,0,0" TextWrapping="Wrap" Visibility="Collapsed"
+                   AutomationProperties.AutomationId="TextExtEditorPath" />
+        <TextBlock x:Name="TextExtEditorError" Style="{StaticResource Meta}" Margin="0,4,0,0" TextWrapping="Wrap" Visibility="Collapsed"
+                   Foreground="{StaticResource Danger.Text}" AutomationProperties.AutomationId="TextExtEditorError" />
+      </StackPanel>
     </Border>
 
     <TextBlock x:Name="NoteText" DockPanel.Dock="Top" Style="{StaticResource Meta}" TextWrapping="Wrap" />
