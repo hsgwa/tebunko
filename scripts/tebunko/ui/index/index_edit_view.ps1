@@ -95,6 +95,22 @@ function getIndexJobCloseConfirm {
     }
 }
 
+function getIndexingCloseAction {
+    # インデックスを更新中に画面を閉じようとしたときの動き。
+    #   "stop" … 聞かずに、止めてから閉じる。確認のダイアログで取りやめた後始末の間は、1 件も取り込んでいないので、中止して失うものが無い
+    #            （拡張子を変えた始め直しの印が残っていても同じ。始め直しは走らずに閉じ、拡張子の設定は確認の中で保存済み）
+    #   "ask"  … 今までどおり「中止して閉じますか？」を出す
+    param (
+        [bool]$CanceledAtConfirm,
+        [bool]$RestartPending = $false
+    )
+
+    if ($CanceledAtConfirm) {
+        return "stop"
+    }
+    return "ask"
+}
+
 function getIndexingCloseConfirm {
     # インデックスを更新中に画面を閉じようとしたときの確認（showConfirm に渡す文言）
     return @{
