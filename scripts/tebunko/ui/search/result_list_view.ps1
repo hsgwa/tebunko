@@ -273,6 +273,32 @@ function getSortedHitOrder {
     return $null
 }
 
+function getOrderedHits {
+    # ファイルの素のヒットを、表の順に並べて返す（結果の出力に使う。行の部品 HitRow を新しく作らない）。
+    #   hitOrder があれば、その順（getSortedHitOrder。ヒットが多いファイル）
+    #   無く、行が全部作ってあれば（rows の数 = ヒットの数）、行の Order（見つかった順の番号）の順 = 並べ替えた表の順
+    #   それ以外（行が足りない・並べ替えない列）は、見つかった順
+    param (
+        $hits,
+        $hitOrder,
+        $rows
+    )
+
+    $result = New-Object 'System.Collections.Generic.List[object]' $hits.Count
+    if ($null -ne $hitOrder -and $hitOrder.Length -eq $hits.Count) {
+        foreach ($index in $hitOrder) {
+            $result.Add($hits[$index])
+        }
+    } elseif ($null -ne $rows -and $rows.Count -eq $hits.Count -and $hits.Count -gt 0) {
+        foreach ($row in $rows) {
+            $result.Add($hits[$row.Order])
+        }
+    } else {
+        $result.AddRange([object[]]@($hits))
+    }
+    return , $result
+}
+
 function getHitOrderByLine {
     # 該当行（Line）の順（getSortedHitOrder）
     param (
@@ -456,6 +482,29 @@ function sortFileGroups {
     $sortedGroups = New-Object 'System.Collections.Generic.List[object]'
     $sortedGroups.AddRange([object[]]@($groups | Sort-Object $byFirst, $byOrder))
     return , $sortedGroups
+}
+
+function getNextSortDirection {
+    # 列見出しをクリックしたときに並べる向き（降順なら $true）。今の並べ替えの状態（項目名と向き。無ければ $null）と同じ項目なら逆の向き、
+    # 違う項目・並べ替えていないときは昇順
+    param (
+        $state,
+        [string]$property
+    )
+
+    if (!(testSortStateActive $state)) {
+        return $false
+    }
+    return $state.Property -eq $property -and !$state.Descending
+}
+
+function testSortStateActive {
+    # 並べ替えの状態（項目名と向き）があるか
+    param (
+        $state
+    )
+
+    return $null -ne $state -and ![string]::IsNullOrEmpty($state.Property)
 }
 
 function testResultMenuKeepSelection {

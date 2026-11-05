@@ -118,6 +118,8 @@ stateDiagram-v2
 | `settings-tab/empty-confirm` | 空のフォルダを選んだときの確認 | 31 |
 | `settings-tab/nonempty-confirm` | 空でないフォルダを選んだときの確認 | 32 |
 | `settings-tab/text-open` | テキストの開き方のダイアログ（.csv・.html をエディタで開くに変えた） | – |
+| `settings-tab/text-open-editor` | 同ダイアログで、エディタを選んである（名前・パス・［メモ帳に戻す］が押せる） | – |
+| `settings-tab/editor-selected` | ［設定］で、エディタを選んである（行の下にパス・［メモ帳に戻す］が押せる） | – |
 | `settings-tab/index-confirm` | インデックスのあるフォルダを選んだときの確認 | 33 |
 | `settings-tab/invalid-warning` | 使えないフォルダを選んだときの警告 | 34 |
 
