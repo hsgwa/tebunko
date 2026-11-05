@@ -7,6 +7,7 @@
 | 画面・場面 | ページ |
 |---|---|
 | ［インデックス管理］（一覧・詳細・追加・編集・削除・更新の確認・拡張子） | [messages-index.md](messages-index.md) |
+| インデックス作成の実行（帯・確認の合計・中止・終わり） | [messages-indexing.md](messages-indexing.md) |
 | インデックスの書き出し・読み込み・名前変更・ワークスペースの変更で断られたとき | [messages-index-ops.md](messages-index-ops.md) |
 | ［検索］・検索結果から開く・コピー・出力 | [messages-search.md](messages-search.md) |
 | ［設定］（エディタの指定） | 下の「設定」 |
