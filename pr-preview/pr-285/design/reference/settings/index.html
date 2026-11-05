@@ -4581,6 +4581,14 @@
 <td><code>writeIndexTextExcludes</code> ほか</td>
 </tr>
 <tr>
+<td><code>writeTextEditorPath</code></td>
+<td>editorPath, path（既定 <code>$settingsFile</code>）</td>
+<td>–</td>
+<td>「エディタで開く」のプログラムのパス（<code>textEditorPath</code>）だけを保存する（空はメモ帳に戻す）。値は検査しない（検査は <code>getTextEditorPickResult</code>）。<code>invokeSettingsLocked</code> の中で 1 回読み直し、ほかのキーは保つ</td>
+<td>同上</td>
+<td><code>pickAndSaveTextEditor</code>・<code>resetTextEditor</code></td>
+</tr>
+<tr>
 <td><code>writeTextOpenSettings</code></td>
 <td>notepad, path（既定 <code>$settingsFile</code>）</td>
 <td>–</td>
@@ -4846,7 +4854,28 @@
 <td>path, folder</td>
 <td>bool</td>
 <td>path が folder そのもの、または folder の下かを返す。<code>searchExcludes</code> の削除・付け替え・保存でのフォルダとその下の比べ方はここだけ。大文字・小文字を区別しない序数の比べ（<code>OrdinalIgnoreCase</code>）で、folder の末尾の <code>\</code> は外し、<code>&lt;folder&gt;\</code> で始まるものだけを「下」にする（<code>Sales</code> の下に <code>Sales2</code> は入らない）。folder が空ならどれも含まない。既知の制限: <code>\\?\</code> 付きと無し、<code>/</code> 区切り、<code>..</code>、8.3 形式の短い名前は同じ場所として扱わない（書き方は呼び出す側がそろえる）</td>
-<td><code>removeSearchExcludesUnder</code>, <code>moveSearchExcludes</code>, 検索対象のツリー（<code>saveSearchExcludes</code>）</td>
+<td><code>removeSearchExcludesUnder</code>, <code>moveSearchExcludes</code>, 検索対象のツリー（<code>saveSearchExcludes</code>）, <code>findFolderOrAncestor</code> と結果が食い違わない</td>
+</tr>
+<tr>
+<td><code>findFolderOrAncestor</code></td>
+<td>path, folders（<code>HashSet[string]</code>・<code>OrdinalIgnoreCase</code>）</td>
+<td>string または <code>$null</code></td>
+<td>path 自身か、その先祖のうち、folders に入っている最初のものを返す（無ければ <code>$null</code>）。返すのは folders の表記ではなく path 側の表記の先祖。<code>testFolderOrUnder</code> と同じ比べ方（大文字・小文字を区別しない・<code>\</code> の区切りでだけ上る）で、多くのフォルダとの照合を先祖の数ぶんの辞書引きにする。folders の要素は末尾の <code>\</code> を外しておく</td>
+<td><code>saveSearchExcludes</code>, <code>groupByFolderOrAncestor</code></td>
+</tr>
+<tr>
+<td><code>groupByFolderOrAncestor</code></td>
+<td>items, folders, property</td>
+<td>フォルダ → items の List の辞書</td>
+<td>items（パス、または property のパスを持つもの）を、<code>findFolderOrAncestor</code> で folders のどのフォルダの下かに 1 回で振り分ける。キーは path 側の表記。どの folders の下にも無いものは入らない</td>
+<td><code>applyIndexTreeData</code>, <code>getIndexTreeData</code></td>
+</tr>
+<tr>
+<td><code>testSameSearchExcludes</code></td>
+<td>left, right</td>
+<td>bool</td>
+<td>2 つの除外の一覧が、件数・順・Path（大文字・小文字を含む）・Subfolders まで同じかを返す。保存を省いてよいかの判定</td>
+<td><code>saveSearchExcludes</code></td>
 </tr>
 <tr>
 <td><code>readSearchExcludes</code> / <code>writeSearchExcludes</code></td>
