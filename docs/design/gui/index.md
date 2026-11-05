@@ -32,6 +32,7 @@ flowchart TB
 - [画面に出すメッセージの一覧](messages.md)
 - [画面に出すメッセージ：インデックス管理](messages-index.md)
 - [画面に出すメッセージ：検索と検索結果](messages-search.md)
+- [画面に出すメッセージ：インデックス作成の実行](messages-indexing.md)
 - [インデックスの書き出し・読み込み・ワークスペースのエラー](messages-index-ops.md)
 - [インデックス一覧の管理](index-tab.md)
 - [インデックス作成の実行](indexing-run.md)
