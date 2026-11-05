@@ -183,6 +183,8 @@ nav:
           - 状態と操作の流れ: design/gui/state-flow.md
           - 画面の共通の決まり: design/gui/common.md
           - 画面に出すメッセージの一覧: design/gui/messages.md
+          - 画面に出すメッセージ（インデックス管理）: design/gui/messages-index.md
+          - 画面に出すメッセージ（検索と検索結果）: design/gui/messages-search.md
           - インデックスの書き出し・読み込み・ワークスペースのエラー: design/gui/messages-index-ops.md
           - インデックス一覧の管理: design/gui/index-tab.md
           - インデックス作成の実行: design/gui/indexing-run.md
