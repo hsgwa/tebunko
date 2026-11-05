@@ -47,4 +47,25 @@ Describe "FolderItem" -Tag Unit {
         $item.IndexLevel | Should -Be "Ok"
         @($names) | Should -Be @("IndexText", "IndexToolTip", "IndexLevel", "IndexSub", "IndexPercent")
     }
+
+    It "行のボタンは、同じ値なら通知しない" {
+        $item = [FolderItem]::new()
+        $names = watchChanges $item
+        $item.SetRowActions("Stop", $true); $item.SetRowActions("Stop", $true)
+        $item.SetRowActions("Stop", $false)
+        $item.RowAction | Should -Be "Stop"
+        $item.RowUpdateEnabled | Should -Be $false
+        @($names) | Should -Be @("RowAction", "RowUpdateEnabled", "RowAction", "RowUpdateEnabled")
+    }
+
+    It "更新中の進み具合は、補足と棒の 2 つだけを通知する" {
+        $item = [FolderItem]::new()
+        $item.SetIndexState("更新中", "ヒント", "Run", "10%", 10)
+        $names = watchChanges $item
+        $item.SetIndexProgress("45%", 45)
+        $item.IndexSub | Should -Be "45%"
+        $item.IndexPercent | Should -Be 45
+        $item.IndexText | Should -Be "更新中"
+        @($names) | Should -Be @("IndexSub", "IndexPercent")
+    }
 }

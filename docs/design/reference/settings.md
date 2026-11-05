@@ -34,6 +34,7 @@
 | `removeIndexTextExcludes` | name, path（既定 `$settingsFile`） | – | インデックスの削除で、取り込まない拡張子の項目（今の設定と、前回取り込んだときの設定）を消す（項目が無ければ何もしない） | 同上 | `IndexCatalog.RemoveIndex` |
 | `setIngestedTextExcludes` | values（インデックス名 → 取り込まなかった拡張子の配列の表）, path（既定 `$settingsFile`） | – | インデクサが取り込み終えたインデックスの、そのとき使った取り込まない拡張子を `indexExtensionExcludesIngested` に書く（渡した名前の項目だけ。空なら項目を消す。読み直して排他の中で書く） | 同上 | `IndexCatalog.StoreIngestedTextExcludes` |
 | `setIndexTextExcludesTable` | settings, key, table | – | 設定の表（`indexExtensionExcludes`・`indexExtensionExcludesIngested`）を、名前の順に並べたオブジェクトにして設定へ入れる | – | `writeIndexTextExcludes` ほか |
+| `writeTextEditorPath` | editorPath, path（既定 `$settingsFile`） | – | 「エディタで開く」のプログラムのパス（`textEditorPath`）だけを保存する（空はメモ帳に戻す）。値は検査しない（検査は `getTextEditorPickResult`）。`invokeSettingsLocked` の中で 1 回読み直し、ほかのキーは保つ | 同上 | `pickAndSaveTextEditor`・`resetTextEditor` |
 | `writeTextOpenSettings` | notepad, path（既定 `$settingsFile`） | – | エディタで開く拡張子を保存する（エディタ固定の 15 個は書かない）。`invokeSettingsLocked` の中で 1 回読み直し、ほかのキーは保つ | 同上 | `showTextOpenDialog` |
 | `readCloudFiles` / `writeCloudFiles` | path（既定 `$settingsFile`） / mode, path | string / – | クラウドにだけあるファイルの扱い（`cloudFiles`。`ask` / `download`）を読み書きする。無い・知らない値なら `ask` | [取り込み対象の決定](../indexing/target-decision.md#クラウドにだけあるファイル) | 画面・インデクサ |
 | `readOpenMode` / `writeOpenMode` | path（既定 `$settingsFile`） / mode, path | string / – | 元のファイルの開き方（`openMode`）を読み書きする。無い・知らない値なら `normal` | [元のファイルを開く](../gui/open-file.md) | 画面 |
@@ -88,7 +89,10 @@
 
 | 関数 | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
-| `testFolderOrUnder` | path, folder | bool | path が folder そのもの、または folder の下かを返す。`searchExcludes` の削除・付け替え・保存でのフォルダとその下の比べ方はここだけ。大文字・小文字を区別しない序数の比べ（`OrdinalIgnoreCase`）で、folder の末尾の `\` は外し、`<folder>\` で始まるものだけを「下」にする（`Sales` の下に `Sales2` は入らない）。folder が空ならどれも含まない。既知の制限: `\\?\` 付きと無し、`/` 区切り、`..`、8.3 形式の短い名前は同じ場所として扱わない（書き方は呼び出す側がそろえる） | `removeSearchExcludesUnder`, `moveSearchExcludes`, 検索対象のツリー（`saveSearchExcludes`） |
+| `testFolderOrUnder` | path, folder | bool | path が folder そのもの、または folder の下かを返す。`searchExcludes` の削除・付け替え・保存でのフォルダとその下の比べ方はここだけ。大文字・小文字を区別しない序数の比べ（`OrdinalIgnoreCase`）で、folder の末尾の `\` は外し、`<folder>\` で始まるものだけを「下」にする（`Sales` の下に `Sales2` は入らない）。folder が空ならどれも含まない。既知の制限: `\\?\` 付きと無し、`/` 区切り、`..`、8.3 形式の短い名前は同じ場所として扱わない（書き方は呼び出す側がそろえる） | `removeSearchExcludesUnder`, `moveSearchExcludes`, 検索対象のツリー（`saveSearchExcludes`）, `findFolderOrAncestor` と結果が食い違わない |
+| `findFolderOrAncestor` | path, folders（`HashSet[string]`・`OrdinalIgnoreCase`） | string または `$null` | path 自身か、その先祖のうち、folders に入っている最初のものを返す（無ければ `$null`）。返すのは folders の表記ではなく path 側の表記の先祖。`testFolderOrUnder` と同じ比べ方（大文字・小文字を区別しない・`\` の区切りでだけ上る）で、多くのフォルダとの照合を先祖の数ぶんの辞書引きにする。folders の要素は末尾の `\` を外しておく | `saveSearchExcludes`, `groupByFolderOrAncestor` |
+| `groupByFolderOrAncestor` | items, folders, property | フォルダ → items の List の辞書 | items（パス、または property のパスを持つもの）を、`findFolderOrAncestor` で folders のどのフォルダの下かに 1 回で振り分ける。キーは path 側の表記。どの folders の下にも無いものは入らない | `applyIndexTreeData`, `getIndexTreeData` |
+| `testSameSearchExcludes` | left, right | bool | 2 つの除外の一覧が、件数・順・Path（大文字・小文字を含む）・Subfolders まで同じかを返す。保存を省いてよいかの判定 | `saveSearchExcludes` |
 | `readSearchExcludes` / `writeSearchExcludes` | path（既定 `$settingsFile`） / excludes, path | `@{Path; Subfolders}` の配列 / – | 画面の検索対象のツリーでチェックを外したフォルダ（`searchExcludes`）を読み書きする。無ければ空（すべて検索） | 画面（検索対象のツリー） |
 | `removeSearchExcludesUnder` | folder, path（既定 `$settingsFile`） | – | フォルダとその下の `searchExcludes` を消す（`Sales` を消しても `Sales2` は消さない）。設定の書き込みは `invokeSettingsLocked` の中で行い、消せなくても例外にしない（インデックスの改名・削除を止めない） | `IndexCatalog.RenameIndex` / `RemoveIndex` |
 | `moveSearchExcludes` | from, to, path（既定 `$settingsFile`） | int | 検索対象ツリーでチェックを外したフォルダ（`searchExcludes`）のうち、from の `store\content` の下のものを to の下に付け替えて保存し、付け替えた数を返す | `WorkspaceMover.ChangeWorkspace` |
