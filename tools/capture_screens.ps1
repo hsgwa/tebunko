@@ -807,10 +807,10 @@ function captureSearchScene {
 }
 
 function captureSettingsScene {
-    # settings-tab の normal・limit-none・limit-error・empty-confirm・nonempty-confirm・index-confirm・invalid-warning・text-open
+    # settings-tab の normal・limit-none・limit-error・empty-confirm・nonempty-confirm・index-confirm・invalid-warning・text-open・text-open-editor・editor-selected
     param ($Ids, $Root, $OutDir, $UserName, $ComputerName, $UserProfile, $Sizes)
 
-    $needed = @("settings-tab/normal", "settings-tab/limit-none", "settings-tab/limit-error", "settings-tab/empty-confirm", "settings-tab/nonempty-confirm", "settings-tab/index-confirm", "settings-tab/invalid-warning", "settings-tab/text-open")
+    $needed = @("settings-tab/normal", "settings-tab/limit-none", "settings-tab/limit-error", "settings-tab/empty-confirm", "settings-tab/nonempty-confirm", "settings-tab/index-confirm", "settings-tab/invalid-warning", "settings-tab/text-open", "settings-tab/text-open-editor", "settings-tab/editor-selected")
     if (@($needed | Where-Object { $Ids -contains $_ }).Count -eq 0) { return }
 
     $dir = Join-Path $Root "settings"
@@ -847,6 +847,25 @@ function captureSettingsScene {
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($textExt)
         clickGui $S $textExt "TextExtCancelButton" "［キャンセル］"
         waitGuiWindowClosed $S $textExt "テキストの開き方のダイアログ"
+
+        # エディタを選んだ状態（ファイルを選ぶダイアログは使わず、設定ファイルに書いて開く。表示の確かめだけで、起動はしない）
+        setGuiStep $S "テキストの開き方のダイアログ（エディタを選んである）"
+        $config = readGuiConfig $tool
+        $config | Add-Member -NotePropertyName textEditorPath -NotePropertyValue "C:\Program Files\sakura\sakura.exe" -Force
+        [IO.File]::WriteAllText($tool.Config, (ConvertTo-Json -InputObject $config -Depth 5), (New-Object Text.UTF8Encoding($false)))
+        clickGui $S $S.Window "ChangeTextExtensionsButton" "［変更…］（テキストの開き方）"
+        $textExt = waitGuiWindow $S "テキストの開き方のダイアログ" -Id "TextExtOkButton"
+        waitGui $S "エディタの名前が出る" ${guiDefaultTimeout} { (getGuiText (findGui $textExt -Id "TextExtEditorName")) -eq "sakura" } | Out-Null
+        captureGuiState -S $S -Id "settings-tab/text-open-editor" -Ids $Ids -OutDir $OutDir `
+            -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($textExt)
+        clickGui $S $textExt "TextExtOkButton" "［OK］"
+        waitGuiWindowClosed $S $textExt "テキストの開き方のダイアログ"
+        waitGui $S "［設定］の行に名前が出る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "EditorHint")) -like "*sakura*" } | Out-Null
+        captureGuiState -S $S -Id "settings-tab/editor-selected" -Ids $Ids -OutDir $OutDir `
+            -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
+        # 後の写真に残らないよう、［メモ帳に戻す］で既定に戻す
+        clickGui $S $S.Window "ResetEditorButton" "［メモ帳に戻す］"
+        waitGui $S "［設定］の行がメモ帳に戻る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "EditorHint")) -like "*メモ帳*" } | Out-Null
 
         setGuiStep $S "検索結果の件数の上限: 制限なし"
         selectGui (findGui $S.Window -Id "SearchNoneRadio")

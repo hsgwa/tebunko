@@ -146,17 +146,20 @@
             </DockPanel>
           </Border>
 
-          <!-- エディタ（いまはメモ帳だけ。選べるのは将来の対応のため、［変更…］は押せない） -->
+          <!-- エディタ（既定はメモ帳。［変更…］で選ぶ。選んだものがあるときだけパスを出し、［メモ帳に戻す］が押せる。設定 textEditorPath） -->
           <Border Style="{StaticResource Section.Row}">
             <DockPanel>
-              <Button x:Name="ChangeEditorButton" DockPanel.Dock="Right" Content="変更…" MinWidth="64" Margin="12,0,0,0" VerticalAlignment="Center" IsEnabled="False"
+              <Button x:Name="ResetEditorButton" DockPanel.Dock="Right" Content="メモ帳に戻す" MinWidth="64" Margin="8,0,0,0" VerticalAlignment="Center"
+                      AutomationProperties.AutomationId="ResetEditorButton" />
+              <Button x:Name="ChangeEditorButton" DockPanel.Dock="Right" Content="変更…" MinWidth="64" Margin="12,0,0,0" VerticalAlignment="Center"
                       AutomationProperties.AutomationId="ChangeEditorButton" />
-              <Border DockPanel.Dock="Right" Margin="12,0,0,0" Padding="8,2" CornerRadius="9" VerticalAlignment="Center" Background="{StaticResource Warn.Soft}">
-                <TextBlock Style="{StaticResource Micro}" Foreground="{StaticResource Warn.Strong}" Text="将来の対応" />
-              </Border>
               <StackPanel>
                 <TextBlock Style="{StaticResource Body}" FontWeight="SemiBold" Foreground="{StaticResource Ink.Strong}" Text="エディタ" />
                 <TextBlock x:Name="EditorHint" Style="{StaticResource Meta}" Margin="0,2,0,0" TextWrapping="Wrap" />
+                <TextBlock x:Name="EditorPathText" Style="{StaticResource Meta}" Margin="0,2,0,0" TextWrapping="Wrap" Visibility="Collapsed"
+                           AutomationProperties.AutomationId="EditorPathText" />
+                <TextBlock x:Name="EditorErrorText" Style="{StaticResource Meta}" Margin="0,2,0,0" TextWrapping="Wrap" Visibility="Collapsed"
+                           Foreground="{StaticResource Danger.Text}" AutomationProperties.AutomationId="EditorErrorText" />
               </StackPanel>
             </DockPanel>
           </Border>

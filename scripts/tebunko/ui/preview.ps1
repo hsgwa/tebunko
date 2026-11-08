@@ -14,7 +14,7 @@ $script:previewMarks = $null
 # 列見出しをドラッグしている間 $true（見えている列の範囲を決め直さない。updatePreviewWindow）
 $script:previewDragging = $false
 
-# 表示中の行（getViewRows）・選んでいる行（getSelectedRows）・選んでいる行 1 つ（getCurrentHitRow）は result_list.ps1
+# 表示中の行（getViewRows）・出力する素のヒット（getExportHits）・選んでいる行（getSelectedRows）・選んでいる行 1 つ（getCurrentHitRow）は result_list.ps1
 
 function clearDetail {
     # 行を選んでいないときのプレビュー。枠（と高さ）はそのままにし、中身を空にして案内を出す

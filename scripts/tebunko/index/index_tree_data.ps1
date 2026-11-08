@@ -93,6 +93,28 @@ function getIndexFolderChildren {
     return @{ HasFiles = (testIndexFolderHasFiles $dir); Folders = $folders; Error = "" }
 }
 
+function addIndexAncestorChildren {
+    # インデックスの根（indexRoot）から target まで、先祖すべての子を children（フォルダ → getIndexFolderChildren の結果）に入れる。
+    # 途中のフォルダが無ければ、そこで止める
+    param (
+        $children,
+        [string]$indexRoot,
+        [string]$target
+    )
+
+    $segments = @($target.Substring($indexRoot.Length).Split([char[]]@("\"), [System.StringSplitOptions]::RemoveEmptyEntries))
+    $current = $indexRoot
+    for ($i = 0; $i -le $segments.Count; $i++) {
+        if (-not $children.ContainsKey($current)) {
+            $children[$current] = getIndexFolderChildren $current
+        }
+        if ($i -ge $segments.Count) { return }
+        $next = $segments[$i]
+        if (-not (@($children[$current].Folders) | Where-Object { $_.Name -ieq $next })) { return }
+        $current = "$current\$next"
+    }
+}
+
 function getIndexTreeData {
     # 検索対象ツリーの材料を集める。
     #   dir: インデックスのフォルダ（work\index）  paths: 展開していたフォルダ・チェックを外したフォルダ（インデックスの根から先祖すべての子も返す）
@@ -140,25 +162,21 @@ function getIndexTreeData {
     $result.OldIndexCount = @($oldNames | Where-Object { @($currentNames) -notcontains $_ }).Count
 
     # 先祖すべての子を入れる（深い階層の展開・除外を戻すため）
+    $indexRoots = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $indexRootOf = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($index in $indexes) {
-        if (-not $index.Exists) { continue }
-        $indexRoot = "$root\$($index.Name)"
-        foreach ($target in @($paths)) {
-            $target = ([string]$target).TrimEnd("\")
-            $isRoot = $target.Equals($indexRoot, [System.StringComparison]::OrdinalIgnoreCase)
-            if (-not $isRoot -and -not $target.StartsWith("$indexRoot\", [System.StringComparison]::OrdinalIgnoreCase)) { continue }
-            $segments = @($target.Substring($indexRoot.Length).Split([char[]]@("\"), [System.StringSplitOptions]::RemoveEmptyEntries))
-            $current = $indexRoot
-            for ($i = 0; $i -le $segments.Count; $i++) {
-                if (-not $result.Children.ContainsKey($current)) {
-                    $result.Children[$current] = getIndexFolderChildren $current
-                }
-                if ($i -ge $segments.Count) { break }
-                $next = $segments[$i]
-                $known = $result.Children[$current]
-                if (-not (@($known.Folders) | Where-Object { $_.Name -ieq $next })) { break }
-                $current = "$current\$next"
-            }
+        if ($index.Exists) {
+            $indexRoot = "$root\$($index.Name)".TrimEnd("\")
+            [void]$indexRoots.Add($indexRoot)
+            $indexRootOf[$indexRoot] = $indexRoot
+        }
+    }
+    # パスを、属するインデックスごとに 1 回で振り分ける（インデックスの数 × パスの数の照合をしない）
+    $pathsOf = groupByFolderOrAncestor @(@($paths) | ForEach-Object { ([string]$_).TrimEnd("\") }) $indexRoots
+    foreach ($key in @($pathsOf.Keys)) {
+        foreach ($target in $pathsOf[$key]) {
+            # キーは path 側の表記なので、インデックスの根の表記（目録の名前）に直す
+            addIndexAncestorChildren $result.Children $indexRootOf[$key] $target
         }
     }
     return $result

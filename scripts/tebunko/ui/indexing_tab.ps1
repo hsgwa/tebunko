@@ -326,6 +326,7 @@ function startIndexing {
         return
     }
     markTrace "index" "開始の押下"
+    $script:indexRowsPercent = $null   # 新しい回。行の進み具合は、割合が同じでも置き直す
 
     # 既定のワークスペースにほかのファイルが置いてあれば、始めずに［設定］で別のフォルダを選んでもらう
     $workspaceBlock = getWorkspaceBlockMessage
@@ -592,7 +593,11 @@ function updateIndexingProgress {
         Ratio = $ratio; Processed = $progress.Processed; Total = $total; Failed = $progress.Failed
         Eta = [string]$script:indexingEta; Current = [string]$progress.Current
     }
-    updateIndexDetailPanel
+    # 詳細欄の進み具合（棒・件数と残り時間・ファイル名）は、更新中の行を詳細に出しているときだけ見える
+    $detailItem = getIndexTargetItem
+    if ($null -ne $detailItem -and $detailItem.IndexLevel -eq "Run") {
+        updateIndexDetailPanel
+    }
 }
 
 function finishImportConfirm {
@@ -634,6 +639,7 @@ function finishIndexing {
     $script:indexingTimer.Stop()
     closeIndexingWait
     $script:indexingView = $null
+    $script:indexRowsPercent = $null
     $taskbar.ProgressState = "None"
     # 完了の通知は帯で分かる（以前のタスクバーのボタンを光らせる FlashWindowEx は、実行時コンパイルを無くすため廃止した）。
     $session = $script:indexingSession
