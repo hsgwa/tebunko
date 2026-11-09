@@ -3554,6 +3554,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#settings-tabtext-open-editorテキストの開き方のダイアログエディタを選んである" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        settings-tab/text-open-editor（テキストの開き方のダイアログ。エディタを選んである）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#settings-tabeditor-selected設定エディタを選んである" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        settings-tab/editor-selected（［設定］。エディタを選んである）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#settings-tablimit-none件数の上限が制限なし" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4408,6 +4430,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#settings-tabtext-open-editorテキストの開き方のダイアログエディタを選んである" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        settings-tab/text-open-editor（テキストの開き方のダイアログ。エディタを選んである）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#settings-tabeditor-selected設定エディタを選んである" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        settings-tab/editor-selected（［設定］。エディタを選んである）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#settings-tablimit-none件数の上限が制限なし" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4531,8 +4575,13 @@
     state "settings-tab/index-confirm" as index
     state "settings-tab/invalid-warning" as invalid
     state "settings-tab/text-open" as textext
+    state "settings-tab/text-open-editor" as textexteditor
+    state "settings-tab/editor-selected" as editorselected
     normal --&gt; textext: テキストファイルの［変更…］
     textext --&gt; normal: ［キャンセル］
+    normal --&gt; textexteditor: エディタを選んである状態でテキストファイルの［変更…］
+    textexteditor --&gt; editorselected: ［OK］
+    editorselected --&gt; normal: ［メモ帳に戻す］
     normal --&gt; limitnone: 件数の上限で［制限なし］を選ぶ
     limitnone --&gt; normal: ［制限あり］を選ぶ
     normal --&gt; limiterror: 件数の上限に正しくない値を入れて Enter
@@ -4589,6 +4638,10 @@
 <p><img alt="既定でないワークスペース" src="../../../../images/screens/settings-tab/normal.png" /></p>
 <h3 id="settings-tabtext-openテキストの開き方のダイアログ">settings-tab/text-open（テキストの開き方のダイアログ）<a class="headerlink" href="#settings-tabtext-openテキストの開き方のダイアログ" title="Permanent link">&para;</a></h3>
 <p><img alt="テキストの開き方のダイアログ" src="../../../../images/screens/settings-tab/text-open.png" /></p>
+<h3 id="settings-tabtext-open-editorテキストの開き方のダイアログエディタを選んである">settings-tab/text-open-editor（テキストの開き方のダイアログ。エディタを選んである）<a class="headerlink" href="#settings-tabtext-open-editorテキストの開き方のダイアログエディタを選んである" title="Permanent link">&para;</a></h3>
+<p><img alt="テキストの開き方のダイアログ（エディタを選んである）" src="../../../../images/screens/settings-tab/text-open-editor.png" /></p>
+<h3 id="settings-tabeditor-selected設定エディタを選んである">settings-tab/editor-selected（［設定］。エディタを選んである）<a class="headerlink" href="#settings-tabeditor-selected設定エディタを選んである" title="Permanent link">&para;</a></h3>
+<p><img alt="エディタを選んである［設定］" src="../../../../images/screens/settings-tab/editor-selected.png" /></p>
 <h3 id="settings-tablimit-none件数の上限が制限なし">settings-tab/limit-none（件数の上限が［制限なし］）<a class="headerlink" href="#settings-tablimit-none件数の上限が制限なし" title="Permanent link">&para;</a></h3>
 <p><img alt="件数の上限が［制限なし］" src="../../../../images/screens/settings-tab/limit-none.png" /></p>
 <h3 id="settings-tablimit-error件数の上限の入力が正しくない">settings-tab/limit-error（件数の上限の入力が正しくない）<a class="headerlink" href="#settings-tablimit-error件数の上限の入力が正しくない" title="Permanent link">&para;</a></h3>
