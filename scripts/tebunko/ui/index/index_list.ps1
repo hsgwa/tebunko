@@ -279,6 +279,7 @@ function fillTargetItems {
         [string[]]$checkedNames
     )
 
+    stopUiWork "indexStats"   # 消す行に書かないよう、回している集計の反映を捨てる（新しい行には、次の applyIndexingState が置く）
     $script:loadingTargets = $true
     $script:indexRowsVersion++   # 行がすべて新しくなる（行のボタンを置き直させる）
     try {
@@ -393,6 +394,9 @@ function syncIndexTextExtensions {
 
 function applyIndexStats {
     # 取り込み一覧の集計（getIndexStats）を一覧の各行のファイル数・最終更新・「ステータス」列に反映する。
+    # 行の数に比例する仕事なので、画面のスレッドで一気に回さず、startUiWork（名前 indexStats）で予算ぶんずつ回す。
+    # 呼び続けられても終わるよう、回っている間の呼び出しは最後の 1 つだけ控え、今の分のあとに 1 回だけ回し直す（Requeue）。
+    # 終わったあとの表示の置き直し（OnDone）は、どの呼び元から来ても毎回行う。
     #   indexing: インデックス作成中か（getIndexRowView にそのまま渡す）
     param (
         $stats,
@@ -400,51 +404,68 @@ function applyIndexStats {
         $formatState = $null    # getWorkspaceIndexFormat の結果（インデックスの格納形式の状態）。無ければ $null
     )
 
-    if (!$indexing) {
-        syncIngestedSubfolders   # インデクサが書いた「前回取り込んだときの設定」を読み直す（［要更新］の差の元）
-        syncIndexTextExtensions   # 取り込む拡張子の設定・前回取り込んだときの設定・件数の控えも読み直す
-    }
-    $script:indexRowsPercent = $null   # 行を置き直す。次の進み具合の反映は、割合が同じでも行に置く
-    $blocker = getCurrentIndexJobBlocker   # 行ごとに求めず、1 回だけ求めて渡す
-    foreach ($item in $script:targetItems) {
-        $stat = $null
-        $formatEntry = $null
-        if ($item.Name -and $null -ne $formatState -and $formatState.Indexes.Contains($item.Name)) {
-            $formatEntry = $formatState.Indexes[$item.Name]
-        }
-        if ($item.Name -and $null -ne $stats -and $stats.ContainsKey($item.Name)) {
-            $stat = $stats[$item.Name]
-        }
-        if ($null -eq $stat) {
-            $item.SetStats("－", "まだ更新していません", "")
-            $item.FailedCount = 0
-            $item.PendingCount = 0
-        } else {
-            $ingested = [datetime]::MinValue
-            $lastText = if ($stat.LastIngested -and [datetime]::TryParseExact($stat.LastIngested, "yyyy/MM/dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$ingested)) {
-                formatTime $ingested
+    startUiWork -Name "indexStats" -Items @($script:targetItems) -WhenBusy Requeue `
+        -State @{ Stats = $stats; Indexing = $indexing; FormatState = $formatState; Blocker = $null } `
+        -OnBegin {
+            param ($state)
+            if (!$state.Indexing) {
+                syncIngestedSubfolders   # インデクサが書いた「前回取り込んだときの設定」を読み直す（［要更新］の差の元）
+                syncIndexTextExtensions   # 取り込む拡張子の設定・前回取り込んだときの設定・件数の控えも読み直す
+            }
+            $script:indexRowsPercent = $null   # 行を置き直す。次の進み具合の反映は、割合が同じでも行に置く
+            $state.Blocker = getCurrentIndexJobBlocker   # 行ごとに求めず、回し始める前に 1 回だけ求めて渡す
+        } `
+        -OnItem {
+            param ($item, $state)
+            $stats = $state.Stats
+            $formatState = $state.FormatState
+            $stat = $null
+            $formatEntry = $null
+            if ($item.Name -and $null -ne $formatState -and $formatState.Indexes.Contains($item.Name)) {
+                $formatEntry = $formatState.Indexes[$item.Name]
+            }
+            if ($item.Name -and $null -ne $stats -and $stats.ContainsKey($item.Name)) {
+                $stat = $stats[$item.Name]
+            }
+            if ($null -eq $stat) {
+                $item.SetStats("－", "まだ更新していません", "")
+                $item.FailedCount = 0
+                $item.PendingCount = 0
             } else {
-                ""
+                $ingested = [datetime]::MinValue
+                $lastText = if ($stat.LastIngested -and [datetime]::TryParseExact($stat.LastIngested, "yyyy/MM/dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$ingested)) {
+                    formatTime $ingested
+                } else {
+                    ""
+                }
+                $item.FailedCount = [int]$stat.Failed
+                $item.PendingCount = [int]$stat.Pending
+                $item.SetStats(("{0:#,0}" -f $stat.Total), ("更新済み {0:#,0} 件 ・ 未更新 {1:#,0} 件 ・ 失敗 {2:#,0} 件" -f $stat.Done, $stat.Pending, $stat.Failed), $lastText)
             }
-            $item.FailedCount = [int]$stat.Failed
-            $item.PendingCount = [int]$stat.Pending
-            $item.SetStats(("{0:#,0}" -f $stat.Total), ("更新済み {0:#,0} 件 ・ 未更新 {1:#,0} 件 ・ 失敗 {2:#,0} 件" -f $stat.Done, $stat.Pending, $stat.Failed), $lastText)
-        }
-        $row = getIndexRowView $stat $indexing $item.Enabled (getIndexingRatio) (testIndexInRound $item) (testIndexExporting $item) $formatEntry (testIndexSubfoldersPending $item.Subfolders $item.IngestedSubfolders) (testIndexItemTextExcludesPending $item)
-        $item.SetIndexState($row.Text, $row.ToolTip, $row.Level, $row.Sub, [double]$row.Percent)
-        setIndexRowActions $item $blocker
-    }
-    $script:indexRowActionsKey = getIndexRowActionsKey $blocker
-    $script:indexFileTotal = 0
-    if ($null -ne $stats) {
-        foreach ($item in $script:targetItems) {
-            if ($item.Name -and $stats.ContainsKey($item.Name)) {
-                $script:indexFileTotal += [int]$stats[$item.Name].Total
+            $row = getIndexRowView $stat $state.Indexing $item.Enabled (getIndexingRatio) (testIndexInRound $item) (testIndexExporting $item) $formatEntry (testIndexSubfoldersPending $item.Subfolders $item.IngestedSubfolders) (testIndexItemTextExcludesPending $item)
+            $item.SetIndexState($row.Text, $row.ToolTip, $row.Level, $row.Sub, [double]$row.Percent)
+            setIndexRowActions $item $state.Blocker
+        } `
+        -OnDone {
+            param ($state)
+            $stats = $state.Stats
+            $script:indexRowActionsKey = getIndexRowActionsKey $state.Blocker
+            $script:indexFileTotal = 0
+            if ($null -ne $stats) {
+                foreach ($item in $script:targetItems) {
+                    if ($item.Name -and $stats.ContainsKey($item.Name)) {
+                        $script:indexFileTotal += [int]$stats[$item.Name].Total
+                    }
+                }
             }
+            updateIndexFooter
+            updateIndexDetailPanel
+            # 行の値を読むのは updateIndexingButton だけ。残りは軽い表示の置き直し。どの呼び元から来ても毎回置く
+            # （回し直しで途中の呼び出しが捨てられても、後続が抜けないように）
+            updateIndexingButton
+            updateIndexingResume
+            updateIndexTabBadge
         }
-    }
-    updateIndexFooter
-    updateIndexDetailPanel
 }
 
 $script:indexFileTotal = 0

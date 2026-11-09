@@ -277,4 +277,211 @@ Describe "shell.ps1" -Tag Unit {
             $scrim.Visibility | Should -Be "Collapsed"
         }
     }
+
+    Context "startUiWork（画面のスレッドの分割）" {
+        BeforeAll {
+            function tickRunning {
+                # 動いているタイマーの Tick を手で 1 回ずつ呼ぶ
+                foreach ($fakeTimer in $script:fakeTimers.ToArray()) {
+                    if ($fakeTimer.Running) { & $fakeTimer.OnTick $fakeTimer $null }
+                }
+            }
+            function newTimer {
+                # タイマーは動かさない偽物。Tick の処理は取っておき、tickRunning が手で呼ぶ
+                param ([int]$milliseconds, [scriptblock]$onTick)
+                $timer = [pscustomobject]@{ Tag = $null; Interval = $milliseconds; OnTick = $onTick; Running = $false }
+                $timer | Add-Member ScriptMethod Start { $this.Running = $true }
+                $timer | Add-Member ScriptMethod Stop { $this.Running = $false }
+                $script:fakeTimers.Add($timer)
+                return $timer
+            }
+            function runningTimerCount { ($script:fakeTimers.ToArray() | Where-Object { $_.Running } | Measure-Object).Count }
+        }
+
+        BeforeEach {
+            stopAllUiWork
+            $script:fakeTimers = New-Object System.Collections.Generic.List[object]
+            $script:seen = New-Object System.Collections.Generic.List[object]
+            $script:dones = New-Object System.Collections.Generic.List[object]
+            $script:stops = 0
+            $script:clock = 0
+            $script:clockStep = 25   # 1 回の予算（60）で 3 件回る（25・50・75 の 3 件目で予算切れ）
+            Mock getUiWorkMilliseconds { $script:clock += $script:clockStep; $script:clock }
+            Mock reportUnexpectedError { }
+        }
+
+        AfterEach {
+            stopAllUiWork
+        }
+
+        It "予算内に収まる件数は、その場で全部回り、OnDone が 1 回呼ばれ、タイマーは作らない" {
+            $script:clockStep = 1
+
+            startUiWork -Name "t" -Items @(1, 2, 3) -OnItem { param ($item, $state) $script:seen.Add($item) } -OnDone { param ($state) $script:dones.Add($state) }
+
+            ($script:seen -join ",") | Should -Be "1,2,3"
+            $script:dones.Count | Should -Be 1
+            $script:fakeTimers.Count | Should -Be 0
+            testUiWorkRunning "t" | Should -BeFalse
+        }
+
+        It "予算を超える件数は、1 回目で途中まで回り、タイマーの 1 回ごとに続き、全部順に回ったあと OnDone が 1 回呼ばれる" {
+            startUiWork -Name "t" -Items @(1..7) -OnItem { param ($item, $state) $script:seen.Add($item) } -OnDone { param ($state) $script:dones.Add($state) }
+
+            ($script:seen -join ",") | Should -Be "1,2,3"
+            $script:dones.Count | Should -Be 0
+            testUiWorkRunning "t" | Should -BeTrue
+            $script:fakeTimers.Count | Should -Be 1
+            $script:fakeTimers[0].Interval | Should -Be 100
+            $script:fakeTimers[0].Tag | Should -Be "t"
+            $script:fakeTimers[0].Running | Should -BeTrue
+
+            tickRunning
+            ($script:seen -join ",") | Should -Be "1,2,3,4,5,6"
+            $script:dones.Count | Should -Be 0
+            tickRunning
+
+            ($script:seen -join ",") | Should -Be "1,2,3,4,5,6,7"
+            $script:dones.Count | Should -Be 1
+            $script:fakeTimers[0].Running | Should -BeFalse
+            testUiWorkRunning "t" | Should -BeFalse
+        }
+
+        It "-State の値が OnBegin・OnItem・OnDone に渡る（OnBegin は 1 回だけ、回し始める前）" {
+            $state = @{ Mark = "印"; Begun = 0 }
+
+            startUiWork -Name "t" -Items @(1..7) -State $state `
+                -OnBegin { param ($s) $s.Begun++; $script:seen.Add("begin:$($s.Mark)") } `
+                -OnItem { param ($item, $s) $script:seen.Add("$($s.Mark)$item") } `
+                -OnDone { param ($s) $script:dones.Add($s) }
+            completeUiWork "t"
+
+            $script:seen[0] | Should -Be "begin:印"
+            $script:seen[1] | Should -Be "印1"
+            $state.Begun | Should -Be 1
+            [object]::ReferenceEquals($script:dones[0], $state) | Should -BeTrue
+        }
+
+        It "Restart: 呼び直すと、前の OnDone は呼ばれず、前の残りも回らない" {
+            startUiWork -Name "t" -Items @(1..7) -OnItem { param ($item, $state) $script:seen.Add("a$item") } -OnDone { param ($state) $script:dones.Add("a") }
+
+            startUiWork -Name "t" -Items @(1..2) -OnItem { param ($item, $state) $script:seen.Add("b$item") } -OnDone { param ($state) $script:dones.Add("b") }
+            completeUiWork "t"
+
+            ($script:seen -join ",") | Should -Be "a1,a2,a3,b1,b2"
+            ($script:dones -join ",") | Should -Be "b"
+        }
+
+        It "Requeue: 回っている間にタイマーの 1 回ごとに呼び直し続けても、今の分は k 回以内のタイマーで OnDone まで進み、呼び直しが止んだあと 2k + 1 回以内で終わり、最後の State が渡る" {
+            $k = 3   # 7 件は 1 回に 3 件ずつで 3 回（開始 + タイマー 2 回）で回る
+            $onItem = { param ($item, $state) }
+            $onDone = { param ($state) $script:dones.Add($state.N) }
+            startUiWork -Name "t" -Items @(1..7) -OnItem $onItem -OnDone $onDone -State @{ N = 0 } -WhenBusy Requeue
+            $ticks = 0
+            $firstDoneTick = -1
+            $calls = 0
+            while ((testUiWorkRunning "t") -and $ticks -lt 40 -and $calls -lt 6) {
+                $calls++
+                startUiWork -Name "t" -Items @(1..7) -OnItem $onItem -OnDone $onDone -State @{ N = $calls } -WhenBusy Requeue
+                tickRunning
+                $ticks++
+                if ($firstDoneTick -lt 0 -and $script:dones.Count -gt 0) { $firstDoneTick = $ticks }
+            }
+            $afterTicks = 0
+            while ((testUiWorkRunning "t") -and $afterTicks -lt 40) {
+                tickRunning
+                $afterTicks++
+            }
+
+            $firstDoneTick | Should -BeGreaterThan 0
+            $firstDoneTick | Should -BeLessOrEqual $k
+            $script:dones[0] | Should -Be 0
+            testUiWorkRunning "t" | Should -BeFalse
+            $afterTicks | Should -BeLessOrEqual (2 * $k + 1)
+            $script:dones[$script:dones.Count - 1] | Should -Be $calls
+        }
+
+        It "Requeue: 控えから回し始めるとき、OnBegin をその時に呼ぶ" {
+            $onBegin = { param ($s) $script:seen.Add("begin$($s.N)") }
+            $onItem = { param ($item, $s) }
+            startUiWork -Name "t" -Items @(1..7) -OnItem $onItem -OnBegin $onBegin -State @{ N = 1 } -WhenBusy Requeue
+            startUiWork -Name "t" -Items @(1..7) -OnItem $onItem -OnBegin $onBegin -State @{ N = 2 } -WhenBusy Requeue
+            ($script:seen -join ",") | Should -Be "begin1"
+
+            completeUiWork "t"
+
+            ($script:seen -join ",") | Should -Be "begin1,begin2"
+        }
+
+        It "stopUiWork・stopAllUiWork のあとは、何も回らない（控えも回らない）" -TestCases @(
+            @{ how = "stopUiWork"; stop = { stopUiWork "t" } }
+            @{ how = "stopAllUiWork"; stop = { stopAllUiWork } }
+        ) {
+            $onItem = { param ($item, $state) $script:seen.Add($item) }
+            $onDone = { param ($state) $script:dones.Add(1) }
+            startUiWork -Name "t" -Items @(1..7) -OnItem $onItem -OnDone $onDone -WhenBusy Requeue
+            startUiWork -Name "t" -Items @(1..7) -OnItem $onItem -OnDone $onDone -WhenBusy Requeue
+
+            & $stop
+            tickRunning
+            completeUiWork "t"
+
+            ($script:seen -join ",") | Should -Be "1,2,3"
+            $script:dones.Count | Should -Be 0
+            runningTimerCount | Should -Be 0
+            testUiWorkRunning "t" | Should -BeFalse
+        }
+
+        It "completeUiWork で、残りと控えが全部回り、OnDone が呼ばれる" {
+            $onItem = { param ($item, $state) $script:seen.Add($item) }
+            $onDone = { param ($state) $script:dones.Add(1) }
+            startUiWork -Name "t" -Items @(1..7) -OnItem $onItem -OnDone $onDone -WhenBusy Requeue
+            startUiWork -Name "t" -Items @(11..12) -OnItem $onItem -OnDone $onDone -WhenBusy Requeue
+
+            completeUiWork "t"
+
+            ($script:seen -join ",") | Should -Be "1,2,3,4,5,6,7,11,12"
+            $script:dones.Count | Should -Be 2
+            runningTimerCount | Should -Be 0
+        }
+
+        It "OnItem が例外を投げると、reportUnexpectedError と OnStop が呼ばれ、その仕事は止まる" {
+            startUiWork -Name "t" -Items @(1..7) -OnItem { param ($item, $state) if ($item -eq 5) { throw "壊れた" }; $script:seen.Add($item) } `
+                -OnDone { param ($state) $script:dones.Add(1) } -OnStop { param ($state) $script:stops++ }
+
+            tickRunning
+
+            ($script:seen -join ",") | Should -Be "1,2,3,4"
+            Should -Invoke reportUnexpectedError -Times 1 -Exactly
+            $script:stops | Should -Be 1
+            $script:dones.Count | Should -Be 0
+            testUiWorkRunning "t" | Should -BeFalse
+            runningTimerCount | Should -Be 0
+        }
+
+        It "OnDone が例外を投げても、reportUnexpectedError と OnStop が呼ばれ、控えは回らない" {
+            $script:clockStep = 1
+            startUiWork -Name "t" -Items @(1..7) -OnItem { param ($item, $state) } -OnDone { param ($state) throw "壊れた" } -OnStop { param ($state) $script:stops++ }
+
+            Should -Invoke reportUnexpectedError -Times 1 -Exactly
+            $script:stops | Should -Be 1
+            testUiWorkRunning "t" | Should -BeFalse
+        }
+
+        It "呼び元が渡した一覧をあとで変えても、回る中身は変わらない" {
+            $items = @(1..7)
+            startUiWork -Name "t" -Items $items -OnItem { param ($item, $state) $script:seen.Add($item) }
+
+            $items[5] = 99
+            completeUiWork "t"
+
+            ($script:seen -join ",") | Should -Be "1,2,3,4,5,6,7"
+        }
+
+        It "Items が空でも OnDone は呼ばれる" {
+            startUiWork -Name "t" -Items @() -OnItem { param ($item, $state) } -OnDone { param ($state) $script:dones.Add(1) }
+
+            $script:dones.Count | Should -Be 1
+        }
+    }
 }
