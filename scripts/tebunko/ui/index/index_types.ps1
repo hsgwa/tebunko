@@ -53,7 +53,14 @@ class FolderItem : NotifyBase {
         $this.Raise("IndexText"); $this.Raise("IndexToolTip"); $this.Raise("IndexLevel"); $this.Raise("IndexSub"); $this.Raise("IndexPercent")
     }
     [void] SetRowActions([string]$action, [bool]$updateEnabled) {
-        $this.RowAction = $action; $this.RowUpdateEnabled = $updateEnabled
-        $this.Raise("RowAction"); $this.Raise("RowUpdateEnabled")
+        if ($this.RowAction -ne $action -or $this.RowUpdateEnabled -ne $updateEnabled) {
+            $this.RowAction = $action; $this.RowUpdateEnabled = $updateEnabled
+            $this.Raise("RowAction"); $this.Raise("RowUpdateEnabled")
+        }
+    }
+    [void] SetIndexProgress([string]$sub, [double]$percent) {
+        # 更新中の毎秒の反映。変わる補足と棒の 2 つだけを置く
+        $this.IndexSub = $sub; $this.IndexPercent = $percent
+        $this.Raise("IndexSub"); $this.Raise("IndexPercent")
     }
 }

@@ -11,6 +11,29 @@ BeforeAll {
         return $request.Finished
     }
 
+    # 別のスレッドが書く記録は、フォルダやファイルの有無でなく、読みたい中身がそろうまで待つ
+    function waitTraceText($traceDir, [string[]]$patterns, [int]$seconds = 30) {
+        $watch = [System.Diagnostics.Stopwatch]::StartNew()
+        $text = "（tsv が無い）"
+        $lastError = ""
+        while ($true) {
+            try {
+                $files = @()
+                if (Test-Path -LiteralPath $traceDir) { $files = @(Get-ChildItem -LiteralPath $traceDir -Filter "*.tsv") }
+                if ($files.Count -gt 0) {
+                    $text = (@($files | ForEach-Object { [System.IO.File]::ReadAllText($_.FullName, [System.Text.Encoding]::UTF8) }) -join "")
+                    $missing = @($patterns | Where-Object { $text -notmatch $_ })
+                    if ($missing.Count -eq 0) { return $text }
+                }
+            } catch {
+                $lastError = $_.Exception.Message
+            }
+            if ($watch.Elapsed.TotalSeconds -ge $seconds) { break }
+            Start-Sleep -Milliseconds 20
+        }
+        throw "記録の中身が $seconds 秒たってもそろわなかった。読めた中身: $text 最後の例外: $lastError"
+    }
+
     function takeHits($request) {
         $hits = New-Object System.Collections.Generic.List[object]
         $hit = $null
@@ -297,9 +320,7 @@ Describe "SearchService" -Tag Io {
         $service.GetReadyTicks() | Should -BeGreaterThan 0
         # 記録は Finished を立てたあとに書く。少し待つ
         $traceDir = ([Workspace]::new($workDir)).TraceDir
-        $watch = [System.Diagnostics.Stopwatch]::StartNew()
-        while (-not (Test-Path -LiteralPath $traceDir) -and $watch.Elapsed.TotalSeconds -lt 10) { Start-Sleep -Milliseconds 20 }
-        $text = [System.IO.File]::ReadAllText(@(Get-ChildItem -LiteralPath $traceDir -Filter "*.tsv")[0].FullName, [System.Text.Encoding]::UTF8)
+        $text = waitTraceText $traceDir @("search\t司令: 受け取り", "search\t司令: 終わり \(done\)")
         $text | Should -Match "search\t司令: 受け取り"
         $text | Should -Match "search\t司令: 終わり \(done\)"
     } finally {

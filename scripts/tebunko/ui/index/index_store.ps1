@@ -9,6 +9,7 @@ function addIndexItem {
     )
 
     $item = newFolderItem $path $true $name
+    $script:indexRowsVersion++   # 新しい行のボタンを置かせる
     $script:targetItems.Add($item)
     refreshFolderStatus
     $ui.IndexGrid.SelectedItem = $item

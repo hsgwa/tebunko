@@ -155,6 +155,17 @@ Describe "getIndexJobCloseAction" -Tag Unit {
     }
 }
 
+Describe "getIndexingCloseAction" -Tag Unit {
+    It "更新中に閉じるとき、取りやめの後始末の間（取りやめ=<canceled>・始め直し=<restart>）は <expected>" -TestCases @(
+        @{ canceled = $true; restart = $false; expected = "stop" }
+        @{ canceled = $true; restart = $true; expected = "stop" }
+        @{ canceled = $false; restart = $false; expected = "ask" }
+        @{ canceled = $false; restart = $true; expected = "ask" }
+    ) {
+        getIndexingCloseAction $canceled $restart | Should -Be $expected
+    }
+}
+
 Describe "getIndexJobBlockedMessage" -Tag Unit {
     It "blocker が空なら空文字列" {
         getIndexJobBlockedMessage "" "エクスポート" | Should -Be ""

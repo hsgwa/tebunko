@@ -93,7 +93,7 @@ function newSettings {
         indexExtensionExcludes      = [ordered]@{}  # インデックスごとの、取り込まない（対象外にした）拡張子: インデックス名 → 拡張子の配列（Office・PDF・テキストの 86 個の中。getIndexSelectableExtensions。既定は空＝全部取り込む。readTextExtensionSettings）
         indexExtensionExcludesIngested = [ordered]@{}  # 前回取り込んだときの indexExtensionExcludes（インデクサだけが書く。インデックス名 → 取り込まなかった拡張子の配列。名前の項目が無ければ前回は全部取り込んだ。［要更新］の差の元）
         notepadTextExtensions  = @()  # 既定のアプリの代わりにエディタで開くテキストの拡張子（${textOpenExtensions} の中から。既定は空。readTextExtensionSettings）
-        textEditorPath         = ""   # 「エディタで開く」に使うプログラムのパス（空はメモ帳。書き換えるのは設定ファイルを手で直すときだけ。testTextEditorPath を通ったものだけ使う）
+        textEditorPath         = ""   # 「エディタで開く」に使うプログラムのパス（空はメモ帳。［設定］の［変更…］で選ぶ（writeTextEditorPath）か、設定ファイルを手で直す。testTextEditorPath を通ったものだけ使う）
         ingestThreads      = 0        # Office を使わずに読むファイル（.docx・.pptx など）の読み取りのスレッドの数（1～4。0 はコア数から決める。getIngestWorkerCount）。Excel・Word・PowerPoint は種類ごとに 1 つ
     }
 }
@@ -598,6 +598,21 @@ function readTextExtensionSettings {
     }
 }
 
+function getTextEditorVersionNames {
+    # エディタに指定された実行ファイルの版の情報の「元の名前（OriginalFilename）」と「内部名（InternalName）」を読む（ファイルを読むだけ。プロセスは起動しない）。
+    # 返す値: @{ Ok（読めたか。例外なら $false）; OriginalFilename; InternalName }。版の情報が無ければ Ok は $true で、名前は空
+    param (
+        [string]$path
+    )
+
+    try {
+        $info = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($path)
+        return @{ Ok = $true; OriginalFilename = [string]$info.OriginalFilename; InternalName = [string]$info.InternalName }
+    } catch {
+        return @{ Ok = $false; OriginalFilename = ""; InternalName = "" }
+    }
+}
+
 function writeIndexTextExcludes {
     # そのインデックス（名前）の、取り込まない拡張子を保存する。ほかのインデックス・ほかのキーは保つ（読む → 書くを 1 回の鍵の中で行う）。空なら項目を消す
     param (
@@ -725,6 +740,21 @@ function writeTextOpenSettings {
     invokeSettingsLocked -path $path -action {
         $settings = readSettings $path
         $settings.notepadTextExtensions = $notepadValue
+        writeSettings $settings $path
+    }
+}
+
+function writeTextEditorPath {
+    # 「エディタで開く」に使うプログラムのパス（textEditorPath）だけを保存する。ほかのキーは保つ。空はメモ帳（既定）に戻す。
+    # 値は検査しない（状態層から画面の判断層は呼べないため）。空でない値を書くのは、選んだものを getTextEditorPickResult で確かめた後だけにする（tests/meta/safety.Tests.ps1 が確かめる）
+    param (
+        [string]$editorPath,
+        [string]$path = ${settingsFile}
+    )
+
+    invokeSettingsLocked -path $path -action {
+        $settings = readSettings $path
+        $settings.textEditorPath = $editorPath
         writeSettings $settings $path
     }
 }

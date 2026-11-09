@@ -113,6 +113,9 @@ BeforeAll {
         @{ File = "index_list.ps1"; Function = "syncIndexTextExtensions"; Call = "readTextExtCounts"; Reason = "ワークスペースの場所がローカルのときに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら読まず、控え無しとして扱う）" }
         @{ File = "index_list.ps1"; Function = "applyIndexSourceFolderState"; Call = "Start-Process"; Reason = "エクスプローラーで開く（プロセスの起動は待たない）" }
 
+        # ---- tebunko/ui/settings/text_open_dialog.ps1（エディタの［変更…］） ----
+        @{ File = "text_open_dialog.ps1"; Function = "pickAndSaveTextEditor"; Call = "Test-Path"; Count = 3; Reason = "ファイルを選んでもらう前の開始フォルダ（今のエディタのフォルダ・Windows のあるドライブの Program Files。ローカル）と、選んだ直後のファイル（ドライブ文字から始まる形のときだけ。UNC は調べない。利用者の操作時のみ。版の情報を読む getTextEditorVersionNames も同じ条件）" }
+
         # ---- shared/ui/shell.ps1・folder_dialog.ps1 ----
         @{ File = "shell.ps1"; Function = "showErrorDialog"; Call = "Test-Path"; Reason = "ツールのフォルダにあるエラーの記録（ローカル）" }
         @{ File = "shell.ps1"; Function = "showErrorDialog"; Call = "Start-Process"; Reason = "メモ帳で開く（プロセスの起動は待たない）" }

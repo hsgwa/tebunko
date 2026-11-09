@@ -130,6 +130,51 @@ BeforeAll {
         return @{ Places = $places.ToArray(); Unchecked = $unchecked.ToArray() }
     }
 
+    function getEditorWriteViolations {
+        # スクリプトの文字列から、writeTextEditorPath を空でない値で呼ぶ所を探し、"関数名" の一覧と、
+        # その関数の中で、呼ぶより前に getTextEditorPickResult を呼んでいない（または結果の Ok を見ていない）ものの一覧を返す。
+        # 空の文字列（""・''）で呼ぶのは［メモ帳に戻す］（既定に戻すだけ）なので数えない。コードを文字列で渡せるので、通ってはいけない形で落ちることをテストで確かめられる
+        param (
+            [string]$code
+        )
+
+        $ast = [System.Management.Automation.Language.Parser]::ParseInput($code, [ref]$null, [ref]$null)
+        $calls = $ast.FindAll({ param ($node) $node -is [System.Management.Automation.Language.CommandAst] -and $node.GetCommandName() -eq "writeTextEditorPath" }, $true)
+        $places = New-Object System.Collections.Generic.List[string]
+        $unchecked = New-Object System.Collections.Generic.List[string]
+        foreach ($call in $calls) {
+            $first = $(if ($call.CommandElements.Count -gt 1) { $call.CommandElements[1] } else { $null })
+            if ($first -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $first.Value -eq "") {
+                continue
+            }
+            $owner = $call.Parent
+            while ($owner -and $owner -isnot [System.Management.Automation.Language.FunctionDefinitionAst]) {
+                $owner = $owner.Parent
+            }
+            $name = $(if ($owner) { $owner.Name } else { "(関数の外)" })
+            $places.Add($name)
+            $gates = $(if ($owner) {
+                @($owner.FindAll({ param ($node) $node -is [System.Management.Automation.Language.CommandAst] -and $node.GetCommandName() -eq "getTextEditorPickResult" -and $node.Extent.StartOffset -lt $call.Extent.StartOffset }, $true))
+            } else { @() })
+            # 確かめた結果を入れた変数（getTextEditorPickResult の呼び出しを右辺にする代入の左辺）の .Ok を、書く前に見ているか
+            $readsOk = $false
+            if ($owner) {
+                $assigns = @($owner.FindAll({ param ($node) $node -is [System.Management.Automation.Language.AssignmentStatementAst] -and $node.Left -is [System.Management.Automation.Language.VariableExpressionAst] -and
+                    @($node.Right.FindAll({ param ($inner) $inner -is [System.Management.Automation.Language.CommandAst] -and $inner.GetCommandName() -eq "getTextEditorPickResult" }, $true)).Count -gt 0 -and
+                    $node.Extent.StartOffset -lt $call.Extent.StartOffset }, $true))
+                foreach ($assign in $assigns) {
+                    $variable = $assign.Left.VariablePath.UserPath
+                    $reads = @($owner.FindAll({ param ($node) $node -is [System.Management.Automation.Language.MemberExpressionAst] -and $node.Member.Value -eq "Ok" -and
+                        $node.Expression -is [System.Management.Automation.Language.VariableExpressionAst] -and $node.Expression.VariablePath.UserPath -eq $variable -and
+                        $node.Extent.StartOffset -gt $assign.Extent.StartOffset -and $node.Extent.StartOffset -lt $call.Extent.StartOffset }, $true))
+                    if ($reads.Count -gt 0) { $readsOk = $true }
+                }
+            }
+            if ($gates.Count -eq 0 -or -not $readsOk) { $unchecked.Add($name) }
+        }
+        return @{ Places = $places.ToArray(); Unchecked = $unchecked.ToArray() }
+    }
+
     function getSourcePathViolations {
         # 取り込みの入口の関数の中で、元のパス（変数 sourcePath）の渡し先が許した処理だけかを調べる。
         # 返す: Found = 見つけた入口の名前、Violations = 許さない渡し先の行（"関数名:行"）。コードを文字列で渡せるので、通ってはいけない形で落ちることをテストで確かめられる。
@@ -461,6 +506,31 @@ Describe "危険な処理を使っていないこと（docs/safety/checks.md「�
     ) {
         param ($name, $code, $places, $unchecked)
         $result = getKillViolations $code "StopProcess"
+        ($result.Places -join ",") | Should -Be $places
+        ($result.Unchecked -join ",") | Should -Be $unchecked
+    }
+
+    It "writeTextEditorPath を空でない値で呼ぶのは pickAndSaveTextEditor の 1 か所だけで、その前に getTextEditorPickResult の Ok を確かめている" {
+        $all = New-Object System.Collections.Generic.List[string]
+        foreach ($file in (Get-ChildItem -LiteralPath "$scriptsDir" -Recurse -Filter *.ps1)) {
+            $result = getEditorWriteViolations ([System.IO.File]::ReadAllText($file.FullName))
+            foreach ($place in $result.Places) { $all.Add("$place") }
+            foreach ($place in $result.Unchecked) { $all.Add("確かめなし:$place") }
+        }
+        ($all.ToArray() -join ",") | Should -Be "pickAndSaveTextEditor"
+    }
+
+    It "getEditorWriteViolations: <name>" -TestCases @(
+        @{ name = "確かめたあとの保存"; code = 'function a { $result = getTextEditorPickResult $p $e $v; if (-not $result.Ok) { return }; writeTextEditorPath $p }'; places = "a"; unchecked = "" }
+        @{ name = "確かめない保存"; code = 'function a { writeTextEditorPath $p }'; places = "a"; unchecked = "a" }
+        @{ name = "確かめる前の保存"; code = 'function a { writeTextEditorPath $p; $result = getTextEditorPickResult $p $e $v; $result.Ok }'; places = "a"; unchecked = "a" }
+        @{ name = "書いたあとで Ok を見る"; code = 'function a { $result = getTextEditorPickResult $p $e $v; writeTextEditorPath $p; if ($result.Ok) { 1 } }'; places = "a"; unchecked = "a" }
+        @{ name = "別の変数の Ok を見る"; code = 'function a { $r = getTextEditorPickResult $p $e $v; $x = @{ Ok = $true }; if (-not $x.Ok) { return }; writeTextEditorPath $p }'; places = "a"; unchecked = "a" }
+        @{ name = "結果の Ok を見ない"; code = 'function a { $r = getTextEditorPickResult $p $e $v; writeTextEditorPath $p }'; places = "a"; unchecked = "a" }
+        @{ name = "空の保存（メモ帳に戻す）は数えない"; code = 'function a { writeTextEditorPath "" }'; places = ""; unchecked = "" }
+    ) {
+        param ($name, $code, $places, $unchecked)
+        $result = getEditorWriteViolations $code
         ($result.Places -join ",") | Should -Be $places
         ($result.Unchecked -join ",") | Should -Be $unchecked
     }
@@ -1223,5 +1293,8 @@ Invoke-Item $y
         $choice = getFunctionText "getTextEditorChoice"
         $choice | Should -Match 'testTextEditorPath'
         $choice | Should -Not -Match 'Invoke-Item|openWithShell'
+        # 別の名前にコピーしたスクリプトを動かすプログラムは、版の情報の元の名前で拒む（読んでから起動する）
+        $editor | Should -Match 'getTextEditorVersionNames'
+        $choice | Should -Match 'testTextEditorDeniedByVersion'
     }
 }
