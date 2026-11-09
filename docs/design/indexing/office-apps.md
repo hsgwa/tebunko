@@ -174,6 +174,7 @@ stateDiagram-v2
 Excel（`Workbooks`）・Word（`Documents`）・PowerPoint（`Presentations`）で同じ流れを使う。アプリごとの違い（ファイルの一覧・自分のファイルの閉じ方・戻す設定）は、`office_app.ps1` の `$appInfo` の表にある。
 
 - **確かめ**: ファイルの一覧（`Workbooks`・`Documents`・`Presentations`）の中に、作業用フォルダの外のファイルがあるかを調べる。比較は `GetFullPath` で正規化した作業用フォルダの前方一致（大文字小文字を区別せず、末尾に `\` を付けて `tmp` と `tmp2` を取り違えない）で行い、`~` を含む短い名前は `Get-Item` で長い名前にしてから比べる。読めない名前と、`FullName` を正規化できないもの（URL・保存前の `Book1` など）は利用者のファイルと数える（データを失わない側に倒す）。確かめに使う一覧の参照は、数えたあとに放す。
+- **保護ビューの窓も数える**: 保護ビューで開かれたファイルは `Workbooks` などの一覧に出ないため、`getProtectedViewForeignCount` が `ProtectedViewWindows` の窓ごとの元ファイル（`SourcePath`・`SourceName`）を同じ方法で作業用フォルダと比べ、外なら利用者のファイルとして数える（`getForeignWorkbookCount` が足す）。元の場所が読めない窓は外と数える。窓は閉じない（`restoreHandedOverApp` の対象にしない）。`ProtectedViewWindows` 全体が読めなければ -1 にする。
 - **一覧を読めないとき**（COM が呼び出しを拒んだ。利用者が操作中のことがある）: Excel・PowerPoint は、起動で控えた PID のプロセスに見える窓があれば、利用者が使っているとみなして渡す。無ければ従来どおり終了させる（窓を中身で探すことはしない）。Word は自分で窓を隠していて窓では分からないため、渡しも終了もさせず、持ち続けて後で一覧を読み直す（`keepUndecidedApp`。空の窓を出さず、利用者のファイルも閉じない。持ち続けたことはログに 1 行書く）。持ち続けた Word は、`retryKeptApps` が一覧を読み直し、利用者のファイルがあれば渡し、自分のファイルだけなら終了させ、まだ読めなければそのまま持ち続ける。
 - **渡す処理**（`restoreHandedOverApp`。`handOverApp` と `retryKeptApps` が呼ぶ）: `handOverApp` が、監視の PID・受け渡しの口・起動の記録から外す（`retryKeptApps` からの呼び出しでは外さない。外し済みのため）。そのうえで、次を順に行う。
     1. 置き場の下と確かめられた自分の取り込み用のファイルだけを、保存せずに閉じる。1 つでも閉じられなければ、次回に一覧を取り直して閉じる（閉じたものは一覧から消えるので、二重には閉じない）。

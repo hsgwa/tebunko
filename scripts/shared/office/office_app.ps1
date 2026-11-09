@@ -157,8 +157,49 @@ function releaseWorkbookSplit {
     foreach ($book in @($split.Own) + @($split.Foreign)) { try { releaseComObject $book } catch {} }
 }
 
+function isProtectedViewSourceForeign {
+    # 保護ビューの窓 1 つの元ファイルが、置き場の外か。SourcePath がファイルを含むか、フォルダだけかは、SourceName で見分ける。
+    # 読めない（COM の例外）ときは、置き場の下と確かめられないので利用者のものと数える（データを失わない側）
+    param ($view)
+
+    try {
+        $sourcePath = [string]$view.SourcePath
+        $sourceName = [string]$view.SourceName
+        if ($sourcePath -and $sourceName -and -not $sourcePath.EndsWith($sourceName, [System.StringComparison]::OrdinalIgnoreCase)) {
+            $sourcePath = $sourcePath.TrimEnd('\') + '\' + $sourceName
+        }
+        if ($sourcePath.Contains('~')) {
+            $sourcePath = resolveLongName $sourcePath
+        }
+        return -not ($sourcePath -and $script:officeOwnDir -and (isUnderDir $sourcePath $script:officeOwnDir))
+    } catch {
+        return $true
+    }
+}
+
+function getProtectedViewForeignCount {
+    # 保護ビューで開かれたファイルのうち、元のファイルが置き場の外にあるものの数。保護ビューの窓は Workbooks などの一覧に出ないため、
+    # 別に数える。窓は閉じない（利用者のものを渡す側が閉じてはいけない）。
+    # ProtectedViewWindows 全体が読めなければ例外を投げる（呼び出し側が -1 にする）
+    param ($com)
+
+    $count = 0
+    $views = $com.ProtectedViewWindows
+    try {
+        foreach ($view in @($views)) {
+            if ($null -eq $view) { continue }
+            if (isProtectedViewSourceForeign $view) { $count++ }
+            try { releaseComObject $view } catch { $null = $_ }
+        }
+    } finally {
+        try { releaseComObject $views } catch { $null = $_ }
+    }
+    return $count
+}
+
 function getForeignWorkbookCount {
-    # アプリで利用者が開いたファイル（置き場の外）の数。読めない（COM の例外）ときは -1（分からない。handOverForeignApp が判断する）
+    # アプリで利用者が開いたファイル（置き場の外）の数。保護ビューの窓も数える。
+    # 読めない（COM の例外）ときは -1（分からない。handOverForeignApp が判断する）
     param ($com, [string]$name)
 
     try {
@@ -166,7 +207,7 @@ function getForeignWorkbookCount {
         $count = @($split.Foreign).Count
         # 取り出したファイルの参照を残すとアプリが終わらなくなるため、数えたら放す
         releaseWorkbookSplit $split
-        return $count
+        return $count + (getProtectedViewForeignCount $com)
     } catch {
         return -1
     }
