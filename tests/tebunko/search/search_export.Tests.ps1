@@ -388,6 +388,65 @@ Describe "結果のファイル出力" -Tag Io {
     }
 }
 
+Describe "上限を超えた分の照合し直し（writeSearchExportOverflow・testSearchExportIndexChanged・restartSearchExportHeadOnly）" -Tag Io {
+    BeforeAll {
+        $tsvRoot = Join-Path $TestDrive "ov_tsv"
+        for ($i = 0; $i -lt 4; $i++) { newTsv "$tsvRoot\d$i\book$i.xlsx\S.tsv" @("多い $i", "x", "多い 多い") }
+        $files = newContentIndexFiles $tsvRoot (Join-Path $TestDrive "ov_content_index")
+        $script:exportContentIndexFiles = $files
+    }
+
+    It "testSearchExportIndexChanged: 同じなら偽、大きさ・更新日時が違う・無くなったら真" -ForEach @(
+        @{ Name = "同じ"; Change = "none"; Expected = $false }
+        @{ Name = "大きさが違う"; Change = "size"; Expected = $true }
+        @{ Name = "更新日時が違う"; Change = "ticks"; Expected = $true }
+        @{ Name = "無くなった"; Change = "path"; Expected = $true }
+    ) {
+        $list = @(foreach ($f in $files) { $f.Clone() })
+        switch ($Change) {
+            "size" { $list[0].Size = [long]$list[0].Size + 1 }
+            "ticks" { $list[0].Ticks = [long]$list[0].Ticks + 1 }
+            "path" { $list[0].Path = "$($list[0].Path).無い" }
+        }
+        testSearchExportIndexChanged $list | Should -Be $Expected
+    }
+
+    It "writeSearchExportOverflow: 表の分（先頭から Limit 件）を飛ばして残りを書く" {
+        $own = [Workspace]::new((Join-Path $TestDrive "w-ov"))
+        [void][System.IO.Directory]::CreateDirectory($own.Dir)
+        $all = (searchContentIndex "多い" $files $true 0 -workerCount 1).Hits
+        $result = searchContentIndex "多い" $files $true 5 -workerCount 1
+        $out = Join-Path $own.Dir "o.csv"
+        $request = newExportRequest (newSource $own $result) $out @($result.Hits) "" "多い" "csv"
+        $state = newSearchExportSink "csv" (Join-Path $own.Dir "b.tmp") "$out.new"
+        try {
+            writeSearchExportOverflow $request $state | Should -BeTrue
+            $state.Count | Should -Be ($all.Count - 5)
+            $state.TimedOut | Should -BeFalse
+        } finally {
+            abortSearchExportSink $state
+        }
+    }
+
+    It "restartSearchExportHeadOnly: 書き直した書き手に表の分だけが入り、理由は ExportTimeout" {
+        $own = [Workspace]::new((Join-Path $TestDrive "w-restart"))
+        [void][System.IO.Directory]::CreateDirectory($own.Dir)
+        $result = searchContentIndex "多い" $files $true 3 -workerCount 1
+        $out = Join-Path $own.Dir "o.csv"
+        $request = newExportRequest (newSource $own $result) $out @($result.Hits) "" "多い" "csv"
+        $body = Join-Path $own.Dir "b.tmp"
+        $old = newSearchExportSink "csv" $body "$out.new"
+        $fresh = restartSearchExportHeadOnly $request $old $body "$out.new"
+        try {
+            $fresh.Count | Should -Be 3
+            $request.HeadOnlyReason | Should -Be "ExportTimeout"
+            $request.Scope | Should -Be "HeadOnly"
+        } finally {
+            abortSearchExportSink $fresh
+        }
+    }
+}
+
 Describe "getSearchExportScope" -Tag Unit {
     It "<Name>" -ForEach @(
         @{ Name = "上限を超えていない"; Source = @{ Truncated = $false }; Scope = "All"; Reason = "" }
