@@ -91,6 +91,7 @@ stateDiagram-v2
 | 検索の要求 1 回 | 検索の開始 | 結果の受け渡しの完了・取り消し | 要求（語・条件・取り消しの札 `Stop`）と結果の列だけ。スレッドは作らない |
 | 読んだ内容 | 本文インデックスを読む | キャッシュの予算を超えて追い出される・ファイルが変わる | 本文インデックスのファイルの内容（[GC とメモリ](closing.md#gc-とメモリ)） |
 
+- 設定ファイルと取り込み一覧の見張り（`FileSystemWatcher`。`shared/core/file_watch.ps1`）も、アプリの寿命に属する。起動時の一覧の読み込み（`loadWorkspaceViews`）の前に作り、ワークスペースを切り替えたら作り直す。閉じるときは `Closing` の流れと、後始末の `finally` で `closeFileWatches` を呼んで止める（2 回呼んでもよい）。合図は `Register-ObjectEvent`（`-Action` なし）で PowerShell のイベントの列に積むだけで、スレッドは増やさない。ネットワークの場所は見張らない。
 - アプリの寿命のスレッドは、最初に使うときに作る。ランスペースには、はじめに一度だけ関数を読み込む。検索のたびに lib.ps1 を読み込み直さない。
   - 検索の司令（`SearchService`）は、スレッドを始めたときに lib.ps1 を 1 回だけ読み込み、照合のプール（`newContentIndexWorkerPool`）を 1 回だけ作る。
   - バックグラウンド（`BackgroundQueue`）の各スレッドは、最初の仕事の前に lib.ps1 を 1 回だけ読み込む（`WorkerPool.Prelude`）。単一 .ps1 版（試験版）でも、この読み込みは `getPartLoad` がまとめて作る文字列をそのまま使うため、通常の zip 版と同じく 1 回だけ読み込む（[単一 PowerShell のビルド](single-script.md)「ビルドのロジック」）。

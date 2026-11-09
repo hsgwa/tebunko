@@ -44,6 +44,7 @@ $ui.IndexGrid.AddHandler([System.Windows.Controls.Primitives.ToggleButton]::Unch
 $script:indexListEmpty = $null  # 前回の updateIndexListView で一覧が空だったか（詳細の行の高さを動かすかの判断に使う）
 $script:indexDetailRowRestore = $null  # 空で畳む前の詳細の行の高さ（境目で変えた高さも含む）
 $script:savedTargets = $null  # 最後に読み込み・保存したインデックス一覧（getTargetsKey）。ほかでの変更の検出に使う
+$script:settingsStamp = $null  # 最後に読み込み・保存したときの設定ファイルの更新の印（getFileStamp）。窓の前面復帰で、変わったときだけ読み直すのに使う
 $script:detailEditItem = $null   # 詳細の名前・フォルダパスの欄で直している行（updateIndexDetailPanel が置く）
 $script:indexingSession = $null  # 実行中のインデックス作成（IndexingSession。終わって片づけたら $null）
 $script:indexingOnlyNames = @()  # 今の回が選んだものだけのときの、インデックス名（空なら全部）
@@ -288,6 +289,8 @@ function fillTargetItems {
             $newItem.Checked = ($folder.Name -and $checkedNames -contains $folder.Name)
             $script:targetItems.Add($newItem)
         }
+        # 印は読む前に取る（読んだあとに書き換わっても、次の前面復帰で気づける）
+        $script:settingsStamp = getFileStamp ${settingsFile}
         $script:savedTargets = getTargetsKey @(getTargetFolders)
     } finally {
         $script:loadingTargets = $false
@@ -303,6 +306,8 @@ function saveTargets {
 
     (newIndexCatalog $workspace.Dir).SaveTargets(@($script:targetItems | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Path = $_.Path; Enabled = $_.Enabled; Subfolders = $_.Subfolders } }))
     $script:savedTargets = getTargetsKey @(getTargetFolders)
+    # 自分の保存の合図で読み直さないよう、保存した直後の印を控える
+    $script:settingsStamp = getFileStamp ${settingsFile}
     if (!$Quiet) {
         setStatus "インデックス一覧を保存しました（$(Get-Date -Format 'H:mm')）"
     }
