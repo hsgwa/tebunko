@@ -1,13 +1,16 @@
 ﻿# 検索結果をファイル（.xlsx・.csv・.tsv）に出力する書き手（状態層）。画面のスレッドでは書かず、検索の司令のスレッド（search_service.ps1）が、
 # 書き出しの要求（newExportRequest）を invokeSearchExport で実行する。
 #
-# 書き出す中身: 表に出ている分（要求の ShownHits。画面が表の順に渡す）→ 件数の上限を超えて表に入らなかった分（溢れ。search_overflow.ps1）の順。
-#   溢れを含めるのは、元の検索が上限を超えていて（Truncated）、総数の時間切れ・溢れの書き損じ・検索の中止のどれでもないときだけ。
+# 書き出す中身: 表に出ている分（要求の ShownHits。画面が表の順に渡す）→ 件数の上限を超えて表に入らなかった分（溢れ）の順。
+#   溢れは検索の間には書き溜めない。出力するときに、元の検索の条件と本文インデックスのファイルの一覧（Source.ContentIndexFiles）で、上限なしに照合し直して書く
+#   （先頭から Source.Limit 件は表の分なので飛ばす。表は作業の順で先頭から Limit 件なので、照合し直した結果の先頭と一致する）。
+#   溢れを含めるのは、元の検索が上限を超えていて（Truncated）、総数の時間切れ・検索の中止のどちらでもないときだけ。
 #   それ以外は表の分だけ（「先頭だけ」）。溢れの行は元の検索の順のまま、絞り込み（FilterText）に合うものだけを書く。
-# 1 件ずつ列（toResultCells。形式ごとに決まる）にして書き手に渡す。全部をメモリに読まない（溢れは 1 ファイルずつ、区切りが LF だけの行を順に読む）。
+# 1 件ずつ列（toResultCells。形式ごとに決まる）にして書き手に渡す。全部をメモリに読まない（照合し直すヒットは、作業ごとに受け取って書き、溜めない）。
 #   .xlsx … 見出しは 5 列に決まっているので、<出力先>.new に直接ストリームで書く（xlsx_writer.ps1）。
 #   .csv・.tsv … 見出しの列の数は全件を見ないと決まらないので、本文を一時ファイル（溢れの置き場所の export\）に書きながら最大のセルの数を数え、
 #                終わってから見出し・本文を <出力先>.new に書く（csv_writer.ps1）。
+#   照合し直す間に正規表現の照合が時間切れになったら、そこまでに書いた分は捨てて表の分だけで書き直す（理由 ExportTimeout）。
 # どちらも最後に出力先と置き換える。中止・失敗のときは一時ファイルと .new を消し、出力先は前のままにする。
 
 # 溢れの置き場所（根\<PID>）の下の、書き出しの一時ファイルのフォルダ。次の検索の始めと画面を閉じるときに、溢れごと消える
@@ -25,7 +28,7 @@ function newExportRequest {
     #              FilterText（絞り込み）・Word（検索ワード。状態の文言用）・Format（xlsx / csv / tsv）・
     #              TmpRoot（出力先の置き場 open_copy を持つ作業フォルダの tmp。空でなければ、置き場がリンクでないことを書く前に確かめる）・Stop（中止）
     #   司令が書く: Written（書いた件数。途中も増える）・Outcome（Done / Cancelled / Locked / Denied / Failed）・Scope（All / Overflow / HeadOnly）・
-    #              HeadOnlyReason（先頭だけになった理由 CountTimeout / OverflowFailed / Cancelled）・TruncatedCells（.xlsx で切ったセルの数）・
+    #              HeadOnlyReason（先頭だけになった理由 CountTimeout / Cancelled / ExportTimeout）・IndexChanged（照合し直した本文インデックスのファイルが、検索のあとに変わっていた）・TruncatedCells（.xlsx で切ったセルの数）・
     #              DroppedRows（.xlsx の行の上限で書かなかった件数）・Error・Finished
     param (
         $source,
@@ -41,15 +44,16 @@ function newExportRequest {
         Kind = "Export"; Number = 0; WorkDir = $source.WorkDir; Word = $word
         Source = $source; OutputPath = $outputPath; ShownHits = $shownHits; FilterText = $filterText
         Format = $format; TmpRoot = $tmpRoot
-        Stop = $false; Finished = $false; Written = 0; Outcome = ""; Scope = ""; HeadOnlyReason = ""; TruncatedCells = 0; DroppedRows = 0; Error = $null
+        Stop = $false; Finished = $false; Written = 0; Outcome = ""; Scope = ""; HeadOnlyReason = ""; IndexChanged = $false; TruncatedCells = 0; DroppedRows = 0; Error = $null
     })
 }
 
 function getSearchExportScope {
     # 元の検索 source から、何を書き出すかを決める: @{ Scope; Reason }
     #   All     … 上限を超えていない（表がすべて）
-    #   Overflow … 上限を超えていて、溢れも書ける（溢れの置き場所 OverflowDir がある）
-    #   HeadOnly … 上限を超えているが溢れは書けない。Reason は CountTimeout（総数の時間切れ）/ OverflowFailed（溢れを書けなかった・置き場所が消えている）/ Cancelled（検索を止めた）
+    #   Overflow … 上限を超えていて、照合し直して溢れも書ける
+    #   HeadOnly … 上限を超えているが溢れは書けない。Reason は CountTimeout（総数の時間切れ）/ Cancelled（検索を止めた）。
+    #              照合し直す間の時間切れ（ExportTimeout）は、書いている途中で決まる（invokeSearchExport）
     param (
         $source
     )
@@ -57,14 +61,10 @@ function getSearchExportScope {
     if (!$source.Truncated) {
         return @{ Scope = "All"; Reason = "" }
     }
-    foreach ($reason in @("CountTimeout", "OverflowFailed", "Cancelled")) {
+    foreach ($reason in @("CountTimeout", "Cancelled")) {
         if ($source.$reason) {
             return @{ Scope = "HeadOnly"; Reason = $reason }
         }
-    }
-    # 司令のスレッドを作り直したあとなど、溢れの置き場所がもう無いときは、表の分だけ（書けなかったのと同じ扱い）
-    if (!$source.OverflowDir -or ![System.IO.Directory]::Exists($source.OverflowDir)) {
-        return @{ Scope = "HeadOnly"; Reason = "OverflowFailed" }
     }
     return @{ Scope = "Overflow"; Reason = "" }
 }
@@ -124,7 +124,7 @@ function newSearchExportSink {
         [string]$newPath
     )
 
-    $state = @{ Format = $format; Count = 0; Columns = 0; Seen = 0; Delimiter = ""; Xlsx = $null; Body = $null }
+    $state = @{ Format = $format; Count = 0; Columns = 0; Seen = 0; Delimiter = ""; Xlsx = $null; Body = $null; TimedOut = $false }
     if ($format -eq "xlsx") {
         $state.Xlsx = newXlsxWriter $newPath ${searchExportXlsxHeaders}
         return $state
@@ -191,53 +191,66 @@ function writeSearchExportShown {
     return $true
 }
 
-function writeSearchExportOverflowLine {
-    # 溢れの 1 行（RelDir<TAB>Book<TAB>Location<TAB>LineNumber<TAB>Line）を、絞り込みに合えば書く。中止されたら $false
+function testSearchExportIndexChanged {
+    # 元の検索で照合した本文インデックスのファイルの一覧（Path・Ticks・Size）が、今のファイルと違うか（無くなった・更新日時や大きさが違う）
     param (
-        [hashtable]$request,
-        [hashtable]$state,
-        [string]$text
+        $contentIndexFiles
     )
 
-    if (stepSearchExport $request $state) {
-        return $false
+    foreach ($file in $contentIndexFiles) {
+        try {
+            $info = [System.IO.FileInfo]::new((toLongPath $file.Path))
+            if (!$info.Exists -or $info.LastWriteTimeUtc.Ticks -ne $file.Ticks -or $info.Length -ne $file.Size) {
+                return $true
+            }
+        } catch {
+            return $true
+        }
     }
-    $parts = $text.Split([char[]]@([char]9), 5)
-    if ($parts.Length -lt 5 -or !(testHitFilter $parts[1] $request.FilterText)) {
-        return $true
-    }
-    addSearchExportRow $state (toResultCells $parts[0] $parts[1] $parts[2] ([int]$parts[3]) $parts[4] $state.Format)
-    return $true
+    return $false
 }
 
-function writeSearchExportOverflowFile {
-    # 溢れのファイル 1 つを、LF だけで区切った行として順に読んで書く（ファイルの全部をメモリに読まない）。中止されたら $false
+function writeSearchExportOverflow {
+    # 上限を超えて表に入らなかった分を、上限なしに照合し直して書く（表の分は、照合し直した結果の先頭から Source.Limit 件なので飛ばす）。
+    # 作業ごとにヒットを受け取って書き、溜めない。中止されたら $false。照合の時間切れは state.TimedOut を立てて $true（呼ぶ側が表の分だけで書き直す）
     param (
         [hashtable]$request,
-        [hashtable]$state,
-        [string]$path
+        [hashtable]$state
     )
 
-    $reader = [System.IO.StreamReader]::new([System.IO.FileStream]::new($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite), [System.Text.UTF8Encoding]::new($false))
+    $source = $request.Source
+    $request.IndexChanged = testSearchExportIndexChanged $source.ContentIndexFiles
+    $exportRequest = $request
+    $exportState = $state
+    $exportCtx = @{ Skip = [int]$source.Limit; Cancelled = $false }
     try {
-        $buffer = New-Object char[] 65536
-        $rest = ""
-        while (($count = $reader.Read($buffer, 0, $buffer.Length)) -gt 0) {
-            $parts = ($rest + [string]::new($buffer, 0, $count)).Split([char]10)
-            $rest = $parts[$parts.Length - 1]
-            for ($i = 0; $i -lt $parts.Length - 1; $i++) {
-                if (!(writeSearchExportOverflowLine $request $state $parts[$i])) {
-                    return $false
+        $result = searchContentIndex $source.Word $source.ContentIndexFiles ([bool]$source.SimpleMatch) 0 -caseSensitive ([bool]$source.CaseSensitive) `
+            -fileFilter ([string]$source.FileFilter) -includeShapes ([bool]$source.IncludeShapes) -includeComments ([bool]$source.IncludeComments) `
+            -keepHits $false -stopSignal $request -onProgress {
+            param ($done, $total, $newHits, $hitTotal)
+            foreach ($hit in $newHits) {
+                if ($exportCtx.Skip -gt 0) {
+                    $exportCtx.Skip--
+                    continue
                 }
+                if (stepSearchExport $exportRequest $exportState) {
+                    $exportCtx.Cancelled = $true
+                    return
+                }
+                if (!(testHitFilter $hit.Book $exportRequest.FilterText)) {
+                    continue
+                }
+                addSearchExportRow $exportState (toResultCells $hit.RelDir $hit.Book $hit.Location ([int]$hit.LineNumber) $hit.Line $exportState.Format)
             }
         }
-        if ($rest -ne "") {
-            return (writeSearchExportOverflowLine $request $state $rest)
+    } catch {
+        if ($_.Exception.Message -eq ${contentIndexTimeoutMessage}) {
+            $state.TimedOut = $true
+            return $true
         }
-        return $true
-    } finally {
-        $reader.Dispose()
+        throw
     }
+    return !($exportCtx.Cancelled -or $request.Stop -or $result.Cancelled)
 }
 
 function writeSearchExportBody {
@@ -252,11 +265,7 @@ function writeSearchExportBody {
         return $false
     }
     if ($scope.Scope -eq "Overflow") {
-        foreach ($path in (getSearchOverflowFiles $request.Source.OverflowDir)) {
-            if (!(writeSearchExportOverflowFile $request $state $path)) {
-                return $false
-            }
-        }
+        return (writeSearchExportOverflow $request $state)
     }
     return $true
 }
@@ -334,6 +343,27 @@ function removeSearchExportTemp {
     }
 }
 
+function restartSearchExportHeadOnly {
+    # 照合し直す間に時間が切れたとき、そこまでに書いた分は捨て、表の分だけで書き直す（理由 ExportTimeout）。新しい書き手の state を返す。中止されたら $null
+    param (
+        [hashtable]$request,
+        [hashtable]$state,
+        [string]$bodyPath,
+        [string]$newPath
+    )
+
+    abortSearchExportSink $state
+    removeSearchExportTemp @($bodyPath, $newPath)
+    $request.Scope = "HeadOnly"
+    $request.HeadOnlyReason = "ExportTimeout"
+    $fresh = newSearchExportSink $request.Format $bodyPath $newPath
+    if (!(writeSearchExportShown $request $fresh)) {
+        abortSearchExportSink $fresh
+        return $null
+    }
+    return $fresh
+}
+
 function invokeSearchExport {
     # 書き出しの要求（newExportRequest）を実行する。結果は要求の Outcome・Written・Scope・HeadOnlyReason・TruncatedCells・DroppedRows に入れ、最後に Finished を立てる。
     # 中止・失敗のときは、一時ファイルと .new を消し、出力先は前のままにする
@@ -378,9 +408,10 @@ function invokeSearchExport {
             $bodyPath = getSearchExportBodyPath $request
         }
         $state = newSearchExportSink $request.Format $bodyPath $newPath
-        if (!(writeSearchExportBody $request $scope $state)) {
-            $request.Outcome = "Cancelled"
-            return
+        if (!(writeSearchExportBody $request $scope $state)) { $request.Outcome = "Cancelled"; return }
+        if ($state.TimedOut) {
+            $state = restartSearchExportHeadOnly $request $state $bodyPath $newPath
+            if ($null -eq $state) { $request.Outcome = "Cancelled"; return }
         }
         $closed = closeSearchExportSink $state $bodyPath $newPath
         if ([System.IO.File]::Exists($target)) {

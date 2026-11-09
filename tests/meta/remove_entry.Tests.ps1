@@ -287,7 +287,6 @@ Describe "フォルダを消す・移す・作る入口" -Tag Meta {
             @{ File = "tebunko\core\text_ext_counts.ps1"; Owner = "writeTextExtCountsTable"; Call = "Directory.CreateDirectory"; Reason = "件数の控え 1 ファイルの親フォルダ（ワークスペースの store）を作るだけ。消さない" }
             @{ File = "shared\core\fs.ps1"; Owner = "writeListFile"; Call = "Directory.CreateDirectory"; Reason = "書き込む 1 ファイルの親フォルダを作るだけ（置き場は呼ぶ側が決めたファイルのパス。消さない）" }
             @{ File = "shared\core\fs.ps1"; Owner = "writeTextLinesAtomic"; Call = "Directory.CreateDirectory"; Reason = "書き込む 1 ファイルの親フォルダを作るだけ（消さない）" }
-            @{ File = "tebunko\search\search_overflow.ps1"; Owner = "newSearchOverflowWriter"; Call = "Directory.CreateDirectory"; Reason = "溢れのファイルの置き場所（検索の始めに testSearchOverflowRoot で、根が TmpRoot の search_overflow そのものでリンクでないと確かめた dir）を作るだけ。照合のスレッドが書き始めるときに作る（消さない）" }
             @{ File = "shared\office\office_process.ps1"; Owner = "addOfficeRecord"; Call = "Directory.CreateDirectory"; Reason = "Office の記録ファイルの親フォルダを作るだけ（ワークスペースの外の一時の場所。消さない）" }
             @{ File = "shared\ui\app_host.ps1"; Owner = "writeErrorLog"; Call = "Directory.CreateDirectory"; Reason = "エラーログの親フォルダを作るだけ（消さない）" }
             @{ File = "shared\core\trace.ps1"; Owner = "writeTrace"; Call = "Directory.CreateDirectory"; Reason = "処理の記録（trace フォルダ）を作るだけ（消さない。診断用で、ネットワークの場所には作らない）" }

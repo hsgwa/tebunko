@@ -101,14 +101,14 @@ function trimTsvTextCache {
     return $removed
 }
 
-# 検索の要求の番号（溢れの置き場所の名前に使う。画面を開いている間、要求ごとに増える）
+# 検索の要求の番号（画面を開いている間、要求ごとに増える）
 $script:searchRequestNumber = 0
 
 function newSearchRequest {
     # 検索の要求 1 つを作る（画面が作り、検索の司令のスレッド（SearchService）が invokeSearchRequest で実行する）。
     # 画面と司令のスレッドの両方から読み書きするため、Synchronized の hashtable にする。
     #   画面が書く: 検索条件・Stop（取り消し）
-    #   司令が書く: Narrowed（前の検索のヒットだけを照合し直して答えたか）・NarrowReason（絞るかの判定の符号。前の検索の記録を渡さないときは $null）・Queue（ヒット）・Done / Total / IndexTotal / Scanned（進み具合）・Folders・GramUsed（gram 索引で絞ったか）・Truncated（上限を超えた。数えている途中でも立つ）/ HitTotal（上限を超えた分も含む件数。数えている途中は今までの件数。中止・総数の時間切れは -1）/ CountTimeout / OverflowDir（溢れの置き場所。書き溜めないときは空）/ OverflowFailed / Cancelled / Error・Skipped（飛ばした本文インデックスのファイルのパス）・Finished
+    #   司令が書く: Narrowed（前の検索のヒットだけを照合し直して答えたか）・NarrowReason（絞るかの判定の符号。前の検索の記録を渡さないときは $null）・Queue（ヒット）・Done / Total / IndexTotal / Scanned（進み具合）・Folders・GramUsed（gram 索引で絞ったか）・Truncated（上限を超えた。数えている途中でも立つ）/ HitTotal（上限を超えた分も含む件数。数えている途中は今までの件数。中止・総数の時間切れは -1）/ CountTimeout / ContentIndexFiles（照合した本文インデックスのファイルの一覧。出力で上限を超えた分を照合し直すのに使う）/ Cancelled / Error・Skipped（飛ばした本文インデックスのファイルのパス）・Finished
     #   workDir: gram 索引を探すワークスペース（司令のスレッドは lib.ps1 を読み込んだときのワークスペースを覚えているため、画面から渡す）
     param (
         [string]$word,
@@ -128,25 +128,17 @@ function newSearchRequest {
         GramUsed = $false; Narrowed = $false; NarrowReason = $null
         Queue = New-Object 'System.Collections.Concurrent.ConcurrentQueue[object]'
         Stop = $false; Finished = $false; Done = 0; Total = -1; IndexTotal = -1; Scanned = 0
-        Truncated = $false; HitTotal = 0; CountTimeout = $false; OverflowDir = ""; OverflowFailed = $false; Cancelled = $false; Error = $null; Skipped = @()
+        Truncated = $false; HitTotal = 0; CountTimeout = $false; ContentIndexFiles = $null; Cancelled = $false; Error = $null; Skipped = @()
     })
 }
 
 function initSearchOverflow {
-    # 前の検索の溢れを消し、上限があるときだけ、この検索の溢れの置き場所を決める（作るのは、溢れが出たときに照合のスレッドが行う）
+    # 前の検索のあとに残った一時ファイル（出力の本文の一時ファイルなど。search_overflow\<PID>）を消す。上限を超えた分は書き溜めない
     param (
-        [hashtable]$request,
         $own
     )
 
     [void](removeSearchOverflow (getSearchOverflowPidDir $own.TmpRoot) $own.TmpRoot)
-    if ($request.Limit -gt 0) {
-        if (testSearchOverflowRoot (getSearchOverflowRoot $own.TmpRoot) $own.TmpRoot) {
-            $request.OverflowDir = getSearchOverflowDir $own.TmpRoot $request.Number
-        } else {
-            $request.OverflowFailed = $true
-        }
-    }
 }
 
 function invokeSearchRequest {
@@ -170,7 +162,7 @@ function invokeSearchRequest {
 }
 
 function setSearchResult {
-    # searchContentIndex の結果（総数・打ち切り・件数・時間切れ・溢れ・取り消し・飛ばしたファイル）を要求に入れる
+    # searchContentIndex の結果（総数・打ち切り・件数・時間切れ・取り消し・飛ばしたファイル）を要求に入れる
     param (
         [hashtable]$request,
         $result
@@ -180,7 +172,6 @@ function setSearchResult {
     $request.Truncated = $result.Truncated
     $request.HitTotal = $result.HitTotal
     $request.CountTimeout = $result.CountTimeout
-    if ($result.OverflowFailed) { $request.OverflowFailed = $true }
     $request.Cancelled = $result.Cancelled
     $request.Skipped = @($result.Skipped)
 }
@@ -206,7 +197,7 @@ function invokeSearchRequestBody {
         $word = $request.Word
         $folders = $request.Folders
         $own = [Workspace]::new($request.WorkDir)
-        initSearchOverflow $request $own
+        initSearchOverflow $own
         # 語が前の語を含む形で長くなったときは、前のヒットの行だけを照合し直す（本文インデックスのファイルは読まない）
         if ($null -ne $narrowState -and (tryNarrowSearch $request $narrowState)) {
             return
@@ -236,9 +227,9 @@ function invokeSearchRequestBody {
         $request.Folders = $index.Folders
         $request.Total = $index.ContentIndexFiles.Count
         $request.IndexTotal = $index.ContentIndexFiles.Count
+        $request.ContentIndexFiles = $index.ContentIndexFiles
         $result = searchContentIndex $word $index.ContentIndexFiles $request.SimpleMatch $request.Limit -caseSensitive $request.CaseSensitive `
             -fileFilter $request.FileFilter -cache $cache -includeShapes $request.IncludeShapes -includeComments $request.IncludeComments -pool $pool `
-            -overflowDir $request.OverflowDir `
             -onProgress {
             param ($done, $total, $newHits, $hitTotal)
             foreach ($hit in $newHits) {

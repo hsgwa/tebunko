@@ -1,9 +1,6 @@
-﻿# 検索結果が件数の上限（searchLimit）を超えたとき、表に入らない分（溢れ）の置き場所・書き手・読み手・後始末（状態層）。
-# 溢れは $workspace.TmpRoot\<PC の鍵>\search_overflow\<PID>\<要求の番号>\ に、照合の作業ごとのファイルとして書き溜める。
-#   <作業の番号>.head.tsv … 司令が、作業の返した行のうち表に入らなかった分を書く
-#   <作業の番号>.tsv      … 作業が、数えるだけに切り替えた後のヒットを書く（searchContentIndexFiles）
-# 全件の順は「表 → 作業の番号の順に（head → 作業のファイル）」で、1 スレッドで探した順と同じになる。
-# 1 行は RelDir<TAB>Book<TAB>Location<TAB>LineNumber<TAB>Line（BOM なしの UTF-8）。
+﻿# 検索の一時ファイルの置き場所・後始末（状態層）。上限を超えた分（溢れ）は、検索の間には書き溜めない（出力するときに照合し直す。search_export.ps1）。
+# ここには、出力（csv・tsv）の本文の一時ファイルが入る（根\<PID>\export\）。
+# 置き場所は $workspace.TmpRoot\<PC の鍵>\search_overflow\<PID>\ 。
 # 作る・消すときは、置き場所が TmpRoot\<PC の鍵>\search_overflow そのものであり、リンクで外へつながっていないことを確かめてから行う（testSearchOverflowRoot）。
 
 # 溢れの置き場所の名前
@@ -94,80 +91,6 @@ function removeSearchOverflow {
     } catch {
         return $false
     }
-}
-
-function newSearchOverflowWriter {
-    # 溢れのファイル（dir\name）を作って開き、BOM なしの UTF-8 の StreamWriter を返す。フォルダが無ければ作る。
-    # 作れない・開けない（容量・権限）ときは $null。照合のスレッドからも呼ぶため、.NET だけで書く（コマンドレットを使わない）
-    param (
-        [string]$dir,
-        [string]$name
-    )
-
-    try {
-        [void][System.IO.Directory]::CreateDirectory($dir)
-        $stream = [System.IO.FileStream]::new((Join-Path $dir $name), [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::Read)
-        $writer = [System.IO.StreamWriter]::new($stream, [System.Text.UTF8Encoding]::new($false))
-        # 行の区切りは LF だけにする（Line の中に CR が入っていても、読み手は LF だけで区切れる）
-        $writer.NewLine = "`n"
-        return $writer
-    } catch {
-        return $null
-    }
-}
-
-function writeSearchOverflowHits {
-    # 司令が、表に入らなかった行（searchContentIndex の Hits の要素）を、溢れの head のファイルに書き足す。
-    # writer は newSearchOverflowWriter の結果（書き始めは呼ぶ側が決める）。書けなければ $false（writer は閉じない）
-    param (
-        $writer,
-        $hits
-    )
-
-    try {
-        foreach ($hit in $hits) {
-            $writer.WriteLine("$($hit.RelDir)`t$($hit.Book)`t$($hit.Location)`t$($hit.LineNumber)`t$($hit.Line)")
-        }
-        return $true
-    } catch {
-        return $false
-    }
-}
-
-function getSearchOverflowFiles {
-    # dir の溢れのファイルを、全件の順（作業の番号の順に、head → 作業のファイル）に並べたパスの一覧を返す。フォルダが無ければ空
-    param (
-        [string]$dir
-    )
-
-    if (!$dir -or ![System.IO.Directory]::Exists($dir)) {
-        return @()
-    }
-    $entries = foreach ($path in [System.IO.Directory]::GetFiles($dir, "*.tsv")) {
-        if ([System.IO.Path]::GetFileName($path) -match '^(\d+)(\.head)?\.tsv$') {
-            [pscustomobject]@{ Slot = [int]$Matches[1]; Order = $(if ($Matches[2]) { 0 } else { 1 }); Path = $path }
-        }
-    }
-    return @($entries | Sort-Object Slot, Order | ForEach-Object { $_.Path })
-}
-
-function readSearchOverflowLines {
-    # dir の溢れの全件を、全件の順（getSearchOverflowFiles）の行の文字列で返す（1 行は RelDir<TAB>Book<TAB>Location<TAB>LineNumber<TAB>Line）。
-    # 全部をメモリに読むので、テスト・小さい量向け。書き出しは getSearchOverflowFiles を 1 ファイルずつ流して読む
-    param (
-        [string]$dir
-    )
-
-    $lines = New-Object System.Collections.Generic.List[string]
-    foreach ($path in (getSearchOverflowFiles $dir)) {
-        # 行の区切りは LF だけ（ReadAllLines は CR でも区切るため使わない）
-        $text = [System.IO.File]::ReadAllText($path, [System.Text.UTF8Encoding]::new($false))
-        if ($text.Length -eq 0) { continue }
-        $parts = $text.Split([char]10)
-        $count = if ($parts[$parts.Length - 1] -eq "") { $parts.Length - 1 } else { $parts.Length }
-        for ($i = 0; $i -lt $count; $i++) { $lines.Add($parts[$i]) }
-    }
-    return $lines.ToArray()
 }
 
 function removeStaleSearchOverflow {

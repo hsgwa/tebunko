@@ -296,7 +296,8 @@ Describe "結果の出力の文言" -Tag Unit {
         @{ Name = "溢れも含む・絞り込み"; Params = @("a.tsv", "Overflow", 70, $true); Expected = "表に入らなかった分も含めて、絞り込み後の 70 件を a.tsv に出力しました" }
         @{ Name = "溢れも含む・並べ替え中"; Params = @("a.tsv", "Overflow", 9, $false, "", $true); Expected = "表に入らなかった分も含めて、全 9 件を a.tsv に出力しました（件数が多いため、並べ替えは当てずに検索の順で出力しました）" }
         @{ Name = "先頭だけ（総数の時間切れ）"; Params = @("a.csv", "HeadOnly", 50, $false, "CountTimeout"); Expected = "表に出ている 50 件だけを a.csv に出力しました（総数を数える時間が切れたため、残りは出力していません）" }
-        @{ Name = "先頭だけ（溢れを書けなかった）"; Params = @("a.csv", "HeadOnly", 50, $false, "OverflowFailed"); Expected = "表に出ている 50 件だけを a.csv に出力しました（表に入らない分を一時ファイルに書けなかったため、残りは出力していません）" }
+        @{ Name = "先頭だけ（照合し直す時間が切れた）"; Params = @("a.csv", "HeadOnly", 50, $false, "ExportTimeout"); Expected = "表に出ている 50 件だけを a.csv に出力しました（出力のために照合し直す時間が切れたため、残りは出力していません）" }
+        @{ Name = "表に入らなかった分も書いたが、インデックスが変わっていた"; Params = @("a.csv", "Overflow", 1234, $false, "", $false, 0, 0, $true); Expected = "表に入らなかった分も含めて、全 1,234 件を a.csv に出力しました（検索の後にインデックスが変わったため、件数が検索の結果と違うことがあります）" }
         @{ Name = "先頭だけ（検索を止めた）"; Params = @("a.csv", "HeadOnly", 50, $true, "Cancelled"); Expected = "表に出ている 50 件だけを a.csv に出力しました（検索を途中で止めたため、残りは出力していません）" }
         @{ Name = "先頭だけ（理由が不明）"; Params = @("a.csv", "HeadOnly", 1, $false, ""); Expected = "表に出ている 1 件だけを a.csv に出力しました（残りは出力していません）" }
         @{ Name = "Excel の行の上限で書かなかった分"; Params = @("a.xlsx", "All", 1048575, $false, "", $false, 1500, 0); Expected = "a.xlsx に 1,048,575 件を出力しました（出力したファイルを開きます）（1,500 件は Excel の行の上限を超えたため書いていません。全件は CSV か TSV で出力してください）" }

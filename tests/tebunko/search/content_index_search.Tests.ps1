@@ -1256,3 +1256,66 @@ Describe "分けた塊（版 3）のファイルの検索" -Tag Io {
         $result.Skipped.Count | Should -Be 0
     }
 }
+
+Describe "searchContentIndexFiles（数えるだけの照合の件数は、行を作る照合の件数と同じ）" -Tag Io {
+    BeforeAll {
+        # 1 行に複数一致・空行・メタ情報の行に一致する語・図形（セル番地の行）・コメント・末尾の改行の有無を混ぜる
+        $tsvRoot = Join-Path $TestDrive "count_tsv"
+        newTsv "$tsvRoot\idx\a.xlsx\S.tsv" @("見積 見積", "", "確定", "見積 確定 見積", "a.xlsx 見積")
+        newTsv "$tsvRoot\idx\b.docx\ページ001.tsv" @("見積", "見積見積見積", "", "x")
+        newTsv "$tsvRoot\idx\c.xlsx\$(toIndexFileName "S[図形]")" @("A1`t見積", "A1`t確定", "見積`t見積")
+        newTsv "$tsvRoot\idx\c.xlsx\$(toIndexFileName "S[コメント]")" @("B2`t見積 見積")
+        newTsv "$tsvRoot\idx\e.txt\本文.tsv" @("見積 末尾")
+        $contentIndexFiles = newContentIndexFiles $tsvRoot (Join-Path $TestDrive "count_content_index")
+    }
+
+    It "「<Word>」（<Mode>・上限 <Limit>・シェイプ=<Shapes>）: 数えるだけの間の総数が、行を作ったときの件数と同じ" -ForEach @(
+        foreach ($case in @(
+                @("見積", $true), @("見積 見積", $true), @("^見積", $false), @("見積$", $false), @("^$", $false), @('$', $false), @("^", $false), @("x*", $false), @('\b', $false),
+                @("a.xlsx", $true), @("S", $true), @("種類", $true), @("見積.*見積", $false), @(".", $false), @("確定|見積", $false), @("(?<=\t)見積", $false), @("(?!見積)確定", $false))) {
+            foreach ($limit in 1, 3) {
+                foreach ($shapes in $true, $false) {
+                    @{ Word = $case[0]; Mode = $(if ($case[1]) { "文字どおり" } else { "正規表現" }); Simple = $case[1]; Limit = $limit; Shapes = $shapes }
+                }
+            }
+        }
+    ) {
+        $expected = @((searchContentIndex $Word $contentIndexFiles $Simple 0 -includeShapes $Shapes -workerCount 1).Hits).Count
+        foreach ($workers in 1, 3) {
+            $result = searchContentIndex $Word $contentIndexFiles $Simple $Limit -includeShapes $Shapes -workerCount $workers -taskBytes 1 -checkEvery 1
+            $result.HitTotal | Should -Be $expected
+        }
+    }
+
+    It "countContentIndexLineHits: 開始位置から後ろの、一致のある行の数（1 行に複数あっても 1 件・メタ情報の行は数えない・終わりの空の一致は数えない）" -ForEach @(
+        @{ Pattern = "a"; Text = "$([char]0x1E) ファイル名=a.xlsx`naa a`nb`nxa`n"; Start = 0; Expected = 2 }
+        @{ Pattern = "a"; Text = "$([char]0x1E) ファイル名=a.xlsx`naa a`nb`nxa`n"; Start = 20; Expected = 1 }
+        @{ Pattern = '$'; Text = "ab`n`ncd`n"; Start = 0; Expected = 3 }
+        @{ Pattern = '$'; Text = "ab`n`ncd"; Start = 0; Expected = 2 }  # 文字列の終わりの位置での一致は、今の数え方でも数えない
+        @{ Pattern = "^"; Text = "ab`ncd`n"; Start = 0; Expected = 2 }
+        @{ Pattern = "z"; Text = "ab`ncd`n"; Start = 0; Expected = 0 }
+        @{ Pattern = "a"; Text = "a"; Start = 1; Expected = 0 }
+    ) {
+        $options = [System.Text.RegularExpressions.RegexOptions]::Multiline
+        $textRegex = [regex]::new($Pattern, $options, [timespan]::FromSeconds(5))
+        $countRegex = newContentIndexCountRegex $textRegex
+        $start = [Math]::Min($Start, $Text.Length)
+        countContentIndexLineHits $Text $start $textRegex $countRegex | Should -Be $Expected
+    }
+
+    It "countContentIndexLineHits: 照合が時間切れなら、0 を返さずに例外で伝える" {
+        $textRegex = [regex]::new("^(a|aa)+b", [System.Text.RegularExpressions.RegexOptions]::Multiline, [timespan]::FromMilliseconds(1))
+        $text = ("a" * 40) + "!`n"
+        { countContentIndexLineHits $text 0 $textRegex (newContentIndexCountRegex $textRegex) } | Should -Throw
+    }
+
+    It "testContentIndexCountable: <Name>" -ForEach @(
+        @{ Name = "ふつうの場所だけ"; Places = @(@{ CellPrefixed = $false; End = 10 }); Length = 10; Include = $null; Expected = $true }
+        @{ Name = "セル番地の行の場所がある"; Places = @(@{ CellPrefixed = $true; End = 10 }); Length = 10; Include = $null; Expected = $false }
+        @{ Name = "元のファイル名の条件がある"; Places = @(@{ CellPrefixed = $false; End = 10 }); Length = 10; Include = [regex]"a"; Expected = $false }
+        @{ Name = "場所が無い"; Places = @(); Length = 10; Include = $null; Expected = $false }
+        @{ Name = "最後の場所より後ろに残りがある"; Places = @(@{ CellPrefixed = $false; End = 5 }); Length = 10; Include = $null; Expected = $false }
+    ) {
+        testContentIndexCountable $Places $Length $Include $null $null | Should -Be $Expected
+    }
+}

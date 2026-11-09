@@ -372,14 +372,14 @@ function getExportOpenFailedText {
 }
 
 function getExportHeadOnlyReasonText {
-    # 表に出ている分だけを書いた理由（reason は検索の終わりの状態。CountTimeout / OverflowFailed / Cancelled）
+    # 表に出ている分だけを書いた理由（reason は検索の終わりの状態か出力の途中の状態。CountTimeout / Cancelled / ExportTimeout）
     param (
         [string]$reason
     )
 
     switch ($reason) {
         "CountTimeout" { return "総数を数える時間が切れたため、残りは出力していません" }
-        "OverflowFailed" { return "表に入らない分を一時ファイルに書けなかったため、残りは出力していません" }
+        "ExportTimeout" { return "出力のために照合し直す時間が切れたため、残りは出力していません" }
         "Cancelled" { return "検索を途中で止めたため、残りは出力していません" }
     }
     return "残りは出力していません"
@@ -390,6 +390,7 @@ function getExportDoneText {
     #   scope: All（表がすべて）/ Overflow（表に入らなかった分も書いた）/ HeadOnly（表に出ている分だけ。reason が理由）
     #   filtered: 絞り込み中か。sorted: 並べ替え中か（Overflow のときだけ、並べ替えは当てないと添える）
     #   droppedRows: Excel の行の上限で書かなかった件数。truncatedCells: 長すぎて途中で切ったセルの数
+    #   indexChanged: 表に入らなかった分を照合し直す間に、検索したときの本文インデックスのファイルが変わっていた
     param (
         [string]$name,
         [string]$scope,
@@ -398,7 +399,8 @@ function getExportDoneText {
         [string]$reason = "",
         [bool]$sorted = $false,
         [int]$droppedRows = 0,
-        [int]$truncatedCells = 0
+        [int]$truncatedCells = 0,
+        [bool]$indexChanged = $false
     )
 
     $number = $count.ToString('N0')
@@ -425,6 +427,9 @@ function getExportDoneText {
     }
     if ($truncatedCells -gt 0) {
         $text += "（$($truncatedCells.ToString('N0')) 個のセルは長すぎるため、途中で切りました）"
+    }
+    if ($indexChanged -and $scope -eq "Overflow") {
+        $text += "（検索の後にインデックスが変わったため、件数が検索の結果と違うことがあります）"
     }
     return $text
 }
