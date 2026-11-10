@@ -432,6 +432,19 @@ Describe "shell.ps1" -Tag Unit {
             testUiWorkRunning "t" | Should -BeFalse
         }
 
+        It "OnItem の中で同じ名前の仕事を捨てると（stopUiWork・Restart）、捨てた仕事の残りの項目はその 1 件で止まる" -TestCases @(
+            @{ how = "stopUiWork"; act = { stopUiWork "t" } }
+            @{ how = "Restart"; act = { startUiWork -Name "t" -Items @(9) -OnItem { param ($item, $state) $script:seen.Add("new$item") } -OnDone { param ($state) $script:dones.Add("new") } } }
+        ) {
+            $script:clockStep = 1   # 予算では止まらない
+            $script:act = $act
+            startUiWork -Name "t" -Items @(1..5) -OnItem { param ($item, $state) $script:seen.Add($item); if ($item -eq 2) { & $script:act } } -OnDone { param ($state) $script:dones.Add("old") }
+
+            $seenText = $script:seen -join ","
+            if ($how -eq "stopUiWork") { $seenText | Should -Be "1,2" } else { $seenText | Should -Be "1,2,new9" }
+            $script:dones.Contains("old") | Should -BeFalse
+        }
+
         It "completeUiWork で、残りと控えが全部回り、OnDone が呼ばれる" {
             $onItem = { param ($item, $state) $script:seen.Add($item) }
             $onDone = { param ($state) $script:dones.Add(1) }

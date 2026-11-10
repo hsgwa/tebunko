@@ -731,6 +731,10 @@ function stepUiWork {
             $item = $work.Items[$work.Index]
             $work.Index++   # 先に進める（例外のあとに同じ項目をやり直さない）
             & $work.OnItem $item $work.State
+            # OnItem の中で捨てられた（stopUiWork・Restart）ら、捨てた仕事の項目をこれ以上回さない
+            if (!$script:uiWorks.ContainsKey($Name) -or ![object]::ReferenceEquals($script:uiWorks[$Name], $work)) {
+                return
+            }
             if (!$Unlimited -and ((getUiWorkMilliseconds) - $started) -ge $work.Budget) {
                 break
             }
