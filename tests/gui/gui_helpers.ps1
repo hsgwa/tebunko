@@ -1099,10 +1099,28 @@ function testGuiIndexing {
     return ($button -and $button.Current.Name -eq "更新中…")
 }
 
+function invokeGuiStallQuery {
+    # 止まりの測定の 1 回分の問い合わせ（measureGuiStall・measureGuiActionStall が使う）。画面の窓を探して Done を調べ、かかった秒を返す。
+    # 画面のスレッドが仕事で塞がっていると、この UI オートメーションの問い合わせは返らずに待たされるため、かかった秒がそのまま止まって見えた時間になる。
+    # 窓が見つかったら $S.Window に入れる。Seen は、画面の窓（起動中の表示を含む）が 1 つでも見えたか
+    param ($S, [scriptblock]$Done, [object[]]$DoneArguments = @())
+
+    $query = [Diagnostics.Stopwatch]::StartNew()
+    $tops = @(getGuiTopWindows $S)
+    $finished = $false
+    if (!$S.Window) {
+        foreach ($w in $tops) {
+            if (findGui $w -Id "NavList") { $S.Window = $w; break }
+        }
+    }
+    if ($S.Window) { $finished = [bool](& $Done @DoneArguments) }
+    $query.Stop()
+    return @{ Seconds = $query.Elapsed.TotalSeconds; Finished = $finished; Seen = ($tops.Count -gt 0) }
+}
+
 function measureGuiStall {
     # 画面を起動してから Done が真を返すまでの間に、画面が応答しなかった一番長い時間（秒）を測って返す（invokeGuiScene -NoWait の中で呼ぶ）。
-    # 100ms ごとに、画面の窓を探して Done を調べる。画面のスレッドが仕事で塞がっていると、この UI オートメーションの問い合わせは
-    # 返らずに待たされるため、1 回の問い合わせにかかった時間がそのまま止まって見えた時間になる。
+    # 100ms ごとに、画面の窓を探して Done を調べる（問い合わせの中身は invokeGuiStallQuery）。
     # 数えるのは、窓が最初に出た問い合わせの次の回から（窓が出るまでの待ちと、その回の用意は起動の時間で、止まりではない）。
     # 全体は $Timeout 秒で打ち切り、例外にする。窓が見つかったら $S.Window に入れる
     param ($S, [scriptblock]$Done, [int]$Timeout = 120)
@@ -1114,24 +1132,54 @@ function measureGuiStall {
     while ($true) {
         if ($S.Process.HasExited) { throw "画面が終了した（終了コード $($S.Process.ExitCode)）。止まりの測定の途中" }
         $counted = $seen   # 窓が出た回の次の回から数える（窓が出た回は、起動と窓の用意の待ちを含むため）
-        $query = [Diagnostics.Stopwatch]::StartNew()
-        $tops = @(getGuiTopWindows $S)
-        if ($tops.Count -gt 0) { $seen = $true }
-        $finished = $false
-        if (!$S.Window) {
-            foreach ($w in $tops) {
-                if (findGui $w -Id "NavList") { $S.Window = $w; break }
-            }
-        }
-        if ($S.Window) { $finished = [bool](& $Done) }
-        $query.Stop()
+        $result = invokeGuiStallQuery $S $Done
+        if ($result.Seen) { $seen = $true }
         if ($counted) {
-            $longest = [Math]::Max($longest, $query.Elapsed.TotalSeconds)
+            $longest = [Math]::Max($longest, $result.Seconds)
             $count++
         }
-        if ($finished) { break }
+        if ($result.Finished) { break }
         if ($total.Elapsed.TotalSeconds -gt $Timeout) { throw "止まりの測定の終わりの条件が $Timeout 秒以内に整わなかった" }
         Start-Sleep -Milliseconds 100
+    }
+    return @{ Longest = [Math]::Round($longest, 2); Total = [Math]::Round($total.Elapsed.TotalSeconds, 1); Queries = $count }
+}
+
+function measureGuiActionStall {
+    # 起動済みの画面（$S.Window がある）への操作 1 回のあとの、画面が応答しなかった一番長い時間（秒）を測って返す（invokeGuiScene の中で呼ぶ）。
+    # Action は別のスレッド（ランスペース）から出す（画面のスレッドが塞がっても、測る側が待たされないため。closeGuiWindowAsync と同じ形）。
+    # Action には $Argument（UI オートメーションの部品など）が 1 つ渡る。Action の中は、その場で Add-Type 済みの UIAutomationClient の型だけを使い、
+    # このファイルの関数は使えない。$null なら操作は出さず、Done が真になるまでの止まりを測る。
+    # Done は、操作が戻ったか（真偽）を引数に取れる。真を返したあとも $Settle 秒は問い合わせを続け、遅れて走る処理の止まりも拾う。
+    # 数え方は measureGuiStall と同じ（1 回の問い合わせの時間 = 止まって見えた時間。戻り値 Longest・Total・Queries）。$Timeout 秒で打ち切り、例外にする
+    param ($S, [scriptblock]$Action, [scriptblock]$Done, $Argument = $null, [double]$Settle = 0, [int]$Timeout = 120)
+
+    $shell = $null
+    if ($Action) {
+        $shell = [powershell]::Create()
+        $shell.RunspacePool = $S.Pool
+        $wrapper = 'param ($element, $body) Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes; & ([scriptblock]::Create($body)) $element'
+        [void]$shell.AddScript($wrapper).AddArgument($Argument).AddArgument($Action.ToString())
+        $handle = $shell.BeginInvoke()
+        [void]$S.Async.Add(@{ Shell = $shell; Result = $handle })
+    }
+    $longest = 0.0
+    $count = 0
+    $total = [Diagnostics.Stopwatch]::StartNew()
+    $settleStart = $null
+    while ($true) {
+        if ($S.Process.HasExited) { throw "画面が終了した（終了コード $($S.Process.ExitCode)）。止まりの測定の途中" }
+        $actionDone = (!$shell -or $handle.IsCompleted)
+        $result = invokeGuiStallQuery $S $Done @($actionDone)
+        $longest = [Math]::Max($longest, $result.Seconds)
+        $count++
+        if ($result.Finished -and $null -eq $settleStart) { $settleStart = [Diagnostics.Stopwatch]::StartNew() }
+        if ($null -ne $settleStart -and $settleStart.Elapsed.TotalSeconds -ge $Settle) { break }
+        if ($total.Elapsed.TotalSeconds -gt $Timeout) { throw "止まりの測定の終わりの条件が $Timeout 秒以内に整わなかった" }
+        Start-Sleep -Milliseconds 100
+    }
+    if ($shell -and $handle.IsCompleted) {
+        try { [void]$shell.EndInvoke($handle) } catch { throw "操作が出せなかった: $($_.Exception.InnerException.Message)" }
     }
     return @{ Longest = [Math]::Round($longest, 2); Total = [Math]::Round($total.Elapsed.TotalSeconds, 1); Queries = $count }
 }
