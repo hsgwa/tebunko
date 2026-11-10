@@ -1288,8 +1288,8 @@ Describe "searchContentIndexFiles（数えるだけの照合の件数は、行�
     }
 
     It "countContentIndexLineHits: 開始位置から後ろの、一致のある行の数（1 行に複数あっても 1 件・メタ情報の行は数えない・終わりの空の一致は数えない）" -ForEach @(
-        @{ Pattern = "a"; Text = "$([char]0x1E) ファイル名=a.xlsx`naa a`nb`nxa`n"; Start = 0; Expected = 2 }
-        @{ Pattern = "a"; Text = "$([char]0x1E) ファイル名=a.xlsx`naa a`nb`nxa`n"; Start = 20; Expected = 1 }
+        @{ Pattern = "a"; Text = "{RS} ファイル名=a.xlsx`naa a`nb`nxa`n"; Start = 0; Expected = 2 }
+        @{ Pattern = "a"; Text = "{RS} ファイル名=a.xlsx`naa a`nb`nxa`n"; Start = 20; Expected = 1 }
         @{ Pattern = '$'; Text = "ab`n`ncd`n"; Start = 0; Expected = 3 }
         @{ Pattern = '$'; Text = "ab`n`ncd"; Start = 0; Expected = 2 }  # 文字列の終わりの位置での一致は、今の数え方でも数えない
         @{ Pattern = "^"; Text = "ab`ncd`n"; Start = 0; Expected = 2 }
@@ -1299,6 +1299,7 @@ Describe "searchContentIndexFiles（数えるだけの照合の件数は、行�
         $options = [System.Text.RegularExpressions.RegexOptions]::Multiline
         $textRegex = [regex]::new($Pattern, $options, [timespan]::FromSeconds(5))
         $countRegex = newContentIndexCountRegex $textRegex
+        $Text = $Text.Replace("{RS}", [string][char]0x1E)
         $start = [Math]::Min($Start, $Text.Length)
         countContentIndexLineHits $Text $start $textRegex $countRegex | Should -Be $Expected
     }
