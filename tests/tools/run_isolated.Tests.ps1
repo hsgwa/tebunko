@@ -185,6 +185,18 @@ Describe "newIsolationWatch・getIsolationWatchDiffs・finishWorkspaceGuard" -Ta
     }
 }
 
+Describe "getIsolationWatchTarget" -Tag Unit {
+    It "<Case>" -TestCases @(
+        @{ Case = "文字列は除外なしのパス"; Target = "C:\a"; Path = "C:\a"; Count = 0 }
+        @{ Case = "Path と Exclude を持つ連想配列はそのまま"; Target = @{ Path = "C:\b"; Exclude = @("test") }; Path = "C:\b"; Count = 1 }
+        @{ Case = "Exclude の無い連想配列は除外なし"; Target = @{ Path = "C:\c" }; Path = "C:\c"; Count = 0 }
+    ) {
+        $t = getIsolationWatchTarget $Target
+        $t.Path | Should -Be $Path
+        @($t.Exclude).Count | Should -Be $Count
+    }
+}
+
 Describe "見張りの除外（-Exclude）" -Tag Io {
     It "除外を指定した写しは、除外のパス（test）とその下を含まず、work\testing は含む" {
         $dir = Join-Path $TestDrive "excl"
