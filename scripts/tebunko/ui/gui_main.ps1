@@ -116,8 +116,7 @@ function startGui {
         }
         writeCloseTrace -Path $script:closeTracePath -Step "finally: searchService.Close"
         $script:searchService.Close()
-        $script:jobTimer.Stop()
-        try { closeFileWatches } catch { Write-Verbose $_.Exception.Message }
+        $script:jobTimer.Stop(); try { closeFileWatches } catch { Write-Verbose $_.Exception.Message }
         writeCloseTrace -Path $script:closeTracePath -Step "finally: backgroundQueue.Abandon"
         $script:backgroundQueue.Abandon()
         if ($script:networkQueue) {
