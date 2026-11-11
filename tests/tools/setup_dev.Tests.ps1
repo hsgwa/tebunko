@@ -85,6 +85,15 @@ Describe "setup_dev.ps1" -Tag Unit {
     }
 }
 
+Describe "setup_dev.ps1 の ensureModule" -Tag Unit {
+    It "DryRun は入っていないモジュールも入れない" {
+        Mock Get-Module { @() }
+        Mock Install-Module { }
+        ensureModule "Pester" "5.9.0" $true 6>&1 | Out-Null
+        Should -Invoke Install-Module -Times 0 -Exactly
+    }
+}
+
 Describe "setup_dev.ps1 の readPinnedVersion" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "インデントと CRLF があっても読む"; text = "    PSSA_VERSION: 1.25.0`r`n"; key = "PSSA_VERSION"; expected = "1.25.0" }
