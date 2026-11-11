@@ -23,6 +23,29 @@ Describe "assertNotRealWorkspace" -Tag Unit {
     }
 }
 
+Describe "assertWorkspaceIsolated" -Tag Unit {
+    It "assertWorkspaceIsolated: <Case>" -TestCases @(
+        @{ Case = "使い捨ての中は通る"; Path = "C:\Iso\work"; Isolated = "C:\Iso"; Throws = $false }
+        @{ Case = "使い捨てと同じ場所は通る"; Path = "C:\Iso"; Isolated = "C:\Iso"; Throws = $false }
+        @{ Case = "使い捨ての外は止める"; Path = "D:\data\ws"; Isolated = "C:\Iso"; Throws = $true }
+        @{ Case = "名前が似ているだけなら止める"; Path = "C:\Iso2"; Isolated = "C:\Iso"; Throws = $true }
+        @{ Case = "空なら止める"; Path = ""; Isolated = "C:\Iso"; Throws = $true }
+    ) {
+        if ($Throws) {
+            { assertWorkspaceIsolated $Path $Isolated } | Should -Throw
+        } else {
+            { assertWorkspaceIsolated $Path $Isolated } | Should -Not -Throw
+        }
+    }
+
+    It "assertWorkspaceIsolated: 例外の文言に指している場所と workspaceFolder が入る" {
+        $message = ""
+        try { assertWorkspaceIsolated "D:\data\ws" "C:\Iso" } catch { $message = $_.Exception.Message }
+        $message | Should -Match ([regex]::Escape("D:\data\ws"))
+        $message | Should -Match "workspaceFolder"
+    }
+}
+
 Describe "getIsolationSnapshot と compareIsolationSnapshot" -Tag Io {
     It "変わらなければ違いは空、増減・変更は一覧に出る" {
         $dir = Join-Path $TestDrive "snap"
