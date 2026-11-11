@@ -33,6 +33,24 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests\testdata\make_testdata
     - 旧形式（`.doc` `.xls` `.ppt`）の SummaryInformation、`.pdf` の `/Author` と XMP … Office の利用者名
     - リポジトリに入っているファイルは、これらをすべて `test` に置き換えてある。
 
+## サンプルとの違い
+
+`tools
+ew_sample.ps1` は、手での確認・スクリーンショット用のサンプルを作る別の道具。テストデータ（`make_testdata.ps1`）は壊れたファイルや危険な名前まで含めて決まった中身を持つが、サンプルは架空の会社 `(株)山田商事` の部署・年度のフォルダに、Excel・Word・PowerPoint を既定 40 件並べるだけ。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools
+ew_sample.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tools
+ew_sample.ps1 -OutDir sample2 -Count 100
+powershell -NoProfile -ExecutionPolicy Bypass -File tools
+ew_sample.ps1 -PlanOnly
+```
+
+- 出力先（既定 `sample\`。git 管理外）は空のフォルダにする。同じ引数なら同じ中身になる。作ったあと `scrub_personal.ps1` で作成者名などを取り除く。
+- `-Count` は 500 まで。7,000 件・16 万件規模の性能用データは `tebunko-perfdata` の `new_index.ps1`・`new_books.ps1` で作る。
+- `-PlanOnly` は作るファイルの相対パスの一覧だけを返す（Office を使わない）。
+
 ## 使い方
 
 1. 画面の［インデックス管理］の［＋ フォルダを追加］で `tests\testdata\office` を追加する。
