@@ -459,14 +459,48 @@ Describe "getIndexFileEntries（インデックスに取り込んだファイル
         ($result.Done + $result.Failed + $result.Pending) | Should -Be $result.Rows.Count
     }
 
-    It "1 万件でも決めた秒数（5 秒）以内に返す" {
+    It "3 万件でも決めた秒数（5 秒）以内に返す" -Tag Slow {
         $path = "$TestDrive\big.tsv"
-        $rows = 1..10000 | ForEach-Object { newStatusRow ("営業\d{0:D2}\f{1:D5}.xlsx" -f ($_ % 50), $_) "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00" }
+        $rows = 1..30000 | ForEach-Object { newStatusRow ("営業\d{0:D2}\f{1:D5}.xlsx" -f ($_ % 50), $_) "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00" }
         writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) $rows $path
         $watch = [System.Diagnostics.Stopwatch]::StartNew()
         $result = getIndexFileEntries -indexName "営業" -labels $labels -path $path
         $watch.Stop()
-        $result.Rows.Count | Should -Be 10000
+        $result.Rows.Count | Should -Be 30000
         $watch.Elapsed.TotalSeconds | Should -BeLessThan 5
+    }
+
+    It "<name>の行は 6 つのプロパティが決めた値になる" -TestCases @(
+        @{ name = "取り込み済"; state = "Done"; updated = "2025/01/10 12:34:56"; err = ""; kind = "Done"; stateText = "取り込み済"; updatedText = "2025/01/10 12:34"; reason = "" }
+        @{ name = "失敗"; state = "Failed"; updated = "2025/01/10 12:34:56"; err = "壊れている"; kind = "Failed"; stateText = "失敗"; updatedText = "2025/01/10 12:34"; reason = "壊れている" }
+        @{ name = "原因なしの失敗"; state = "Failed"; updated = "2025/01/10"; err = ""; kind = "Failed"; stateText = "失敗"; updatedText = "2025/01/10"; reason = "（原因は記録されていません）" }
+        @{ name = "未取り込みで理由つき"; state = "New"; updated = ""; err = "PowerPoint が使えなかった"; kind = "Failed"; stateText = "失敗"; updatedText = ""; reason = "PowerPoint が使えなかった" }
+        @{ name = "未取り込みで理由なし"; state = "New"; updated = "2025/01/10 12:34:56"; err = ""; kind = "Pending"; stateText = "未取り込み"; updatedText = "2025/01/10 12:34"; reason = "" }
+    ) {
+        param ($name, $state, $updated, $err, $kind, $stateText, $updatedText, $reason)
+        $stateValue = if ($state -eq "Done") { $stateDone } elseif ($state -eq "Failed") { $stateFailed } else { $stateNew }
+        $path = "$TestDrive\row_$($name.GetHashCode()).tsv"
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data\"; Name = "営業" }) @((newStatusRow "営業\sub\a.docx" $updated "1" $stateValue "" "" $err)) $path
+        $row = (getIndexFileEntries -indexName "営業" -labels $labels -path $path).Rows[0]
+        $row.RelPath | Should -Be "sub\a.docx"
+        $row.UpdatedText | Should -Be $updatedText
+        $row.Kind | Should -Be $kind
+        $row.StateText | Should -Be $stateText
+        $row.Reason | Should -Be $reason
+        $row.SourcePath | Should -Be "C:\data\sub\a.docx"
+    }
+
+    It "エラーが `$null の行は、未取り込みなら理由なし（Pending）として返す" {
+        $row = newStatusRow "営業\a.docx" "2025/01/10 12:34:56" "1" $stateNew
+        $row.エラー = $null
+        $row.更新日時 = $null
+        $table = New-Object 'System.Collections.Generic.Dictionary[string,object]'
+        $table["営業\a.docx"] = $row
+        Mock readStatusFile { @{ Folders = @(); Rows = $table } }
+        $got = (getIndexFileEntries -indexName "営業" -labels $labels -path "x").Rows[0]
+        $got.Kind | Should -Be "Pending"
+        $got.Reason | Should -Be ""
+        $got.UpdatedText | Should -Be ""
+        $got.SourcePath | Should -Be ""
     }
 }
