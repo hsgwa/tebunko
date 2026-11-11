@@ -1170,6 +1170,7 @@ function measureGuiActionStall {
     while ($true) {
         if ($S.Process.HasExited) { throw "画面が終了した（終了コード $($S.Process.ExitCode)）。止まりの測定の途中" }
         $actionDone = (!$shell -or $handle.IsCompleted)
+        if ($shell -and $handle.IsCompleted -and $shell.HadErrors) { break }   # 操作が例外で終わった。下の EndInvoke で原因の文言で落とす（終わりの条件を待たない）
         $result = invokeGuiStallQuery $S $Done @($actionDone)
         $longest = [Math]::Max($longest, $result.Seconds)
         $count++
@@ -1180,6 +1181,7 @@ function measureGuiActionStall {
     }
     if ($shell -and $handle.IsCompleted) {
         try { [void]$shell.EndInvoke($handle) } catch { throw "操作が出せなかった: $($_.Exception.InnerException.Message)" }
+        if ($shell.HadErrors) { throw "操作が出せなかった: $($shell.Streams.Error | Select-Object -First 1)" }
     }
     return @{ Longest = [Math]::Round($longest, 2); Total = [Math]::Round($total.Elapsed.TotalSeconds, 1); Queries = $count }
 }
