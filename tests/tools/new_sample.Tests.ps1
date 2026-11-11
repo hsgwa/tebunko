@@ -1,4 +1,5 @@
 ﻿# 動作確認用のサンプルを作る tools\new_sample.ps1 のテスト
+# 一覧づくり（getSamplePlan）は -PlanOnly で、中身の文（getSampleText）は生成したファイルと一覧の突き合わせで確かめる。
 BeforeAll {
     $rootDir = (Resolve-Path "$PSScriptRoot\..\..").Path
     $newSample = "$rootDir\tools\new_sample.ps1"
