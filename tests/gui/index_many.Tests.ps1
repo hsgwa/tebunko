@@ -224,7 +224,13 @@ Describe "S13 インデックスが <count> 件・ヒット約 1 万件のとき
             waitGuiEnabled $S (findGui $S.Window -Id "SearchButton") "検索"
             clickGui $S $S.Window "SearchButton" "検索"
             $hits = $script:hitTotal.ToString("N0")
-            waitGui $S "一致 $hits 件" ${guiIndexTimeout} { (getGuiText (findGui $S.Window -Id "SummaryText")) -like "一致 $hits 件（$hits ファイル）*" } | Out-Null
+            $searchClock = [Diagnostics.Stopwatch]::StartNew()
+            try {
+                waitGui $S "一致 $hits 件" 300 { (getGuiText (findGui $S.Window -Id "SummaryText")) -like "一致 $hits 件（$hits ファイル）*" } | Out-Null
+            } catch {
+                throw ("{0}（要約欄の最後の文: 「{1}」）" -f $_.Exception.Message, (getGuiText (findGui $S.Window -Id "SummaryText")))
+            }
+            Write-Host ("S13 D（{0} 件）: 検索が終わるまで {1} 秒" -f $script:indexCount, [Math]::Round($searchClock.Elapsed.TotalSeconds, 1))
             $box = findGui $S.Window -Id "FilterBox"
             setGuiStep $S "絞り込みに 1 文字打つ止まりを測る"
             $stall = measureGuiActionStall $S -Argument $box -Action {
