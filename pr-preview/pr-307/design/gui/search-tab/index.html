@@ -2771,6 +2771,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -2899,6 +2905,90 @@
     
   
     画面に出すメッセージの一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス管理）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（検索と検索結果）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages-indexing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス作成の実行）
   
 
     
@@ -3395,7 +3485,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_17" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_20" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -3417,14 +3507,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_7_17" id="__nav_3_7_17_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_7_20" id="__nav_3_7_20_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_17_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_7_17">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_20">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4386,7 +4476,7 @@
 <tr>
 <td>11</td>
 <td>ステータス表示</td>
-<td><code>検索しました：&lt;ワード&gt; N 件</code> など（<a href="../messages/">画面に出すメッセージの一覧</a>）</td>
+<td><code>検索しました：&lt;ワード&gt; N 件</code> など（<a href="../messages-search/">画面に出すメッセージ：検索と検索結果</a>）</td>
 </tr>
 <tr>
 <td>13</td>
@@ -4421,8 +4511,8 @@
 <li><strong>検索の司令のスレッド（<code>SearchService</code>）で実行</strong>し、検索中も画面を操作できるようにする。司令のスレッドと照合のプールは画面を開いている間使い回し、検索のたびに作らない（<a href="../../structure/threads/#寿命">寿命</a>）。検索 1 回は要求（<code>newSearchRequest</code>）として渡し、新しい検索を始めると前の検索は取り消す（要求の <code>Stop</code>）。</li>
 <li>文字どおりに探すときで、2-gram の索引が使えるとき（<a href="../../index-data/gram-index/">2-gram の索引</a>）は、検索語の 2-gram をすべて含むファイルだけを照合する。正規表現のとき・索引が無いとき・作りかけのときは、すべてのファイルを照合する（結果は同じ）。</li>
 <li>本文インデックスを約 16MB ずつ検索し（<a href="../../search/speed/">検索を速くする仕組み</a>）、そのたびに進捗（No.5 のバーと <code>検索中…　該当 K 件</code>、タスクバーのアイコン）を更新する。結果は 0.1 秒ごとに表へ移し、見つかったファイルの見出しから順に表示する（<a href="../preview/#ファイルごとにまとめた表示">ファイルごとにまとめた表示</a>）。</li>
-<li>検索中は［検索］が［中止］に変わる（Esc でも中止）。中止した場合は、それまでの結果を残し、<code>中止しました（N 件まで表示）</code> と表示する。</li>
-<li><strong>件数の上限</strong>：既定は 10,000 件で、［設定］タブの「検索結果」で、1,000〜100,000 件か制限なし（<code>searchLimit</code> が 0）に変えられる（<a href="../implementation/#決めたこと">決めたこと</a> U3。確定すると次の検索から効く。検索の途中の分は変わらない）。制限なしのときは、下の文言も出ない。上限を超えても検索は最後まで続け、表に入れるのは先頭の上限の件数だけにして、総数（<code>HitTotal</code>）まで数える。数えている間は、要約欄に <code>検索中…　該当 10,000 件以上（総数を数えています：45,678 件）</code> と出し、進み具合のバーも進める（［中止］を押すと、数えるのをやめる。表は残す）。数え終えたら、要約欄は <code>全 234,567 件中 10,000 件を表示（1,234 ファイル）・2.3 秒</code>、ステータスは <code>検索しました：&lt;ワード&gt;（全 234,567 件のうち、先頭の 10,000 件を表示）。フォルダ・ファイル名の順に先頭から表示しています。ワード・対象ファイル・検索対象で絞り込んでください。</code> と表示する（絞り込みを消したときの要約欄も、秒を除いてこの形に戻す）。数えている間に中止したときは <code>中止しました（先頭の 10,000 件を表示。総数は数えていません）</code>、正規表現の照合が時間切れになったときは <code>正規表現の照合に時間がかかりすぎるため、総数を数えられませんでした（先頭の 10,000 件を表示）。正規表現を見直してください。</code> と表示する（要約欄は <code>該当 10,000 件以上（総数は数えていません）（1,234 ファイル）・2.3 秒</code>）。文言と出し分けは <code>result_list_view.ps1</code> の <code>getSearchCountingText</code>・<code>getSearchFinishSummaryText</code>・<code>getSearchFinishStatusText</code>。</li>
+<li>検索中は［検索］が［中止］に変わる（Esc でも中止）。中止した場合は、それまでの結果を残し、ステータスに中止したことと表示した件数を出す（<a href="../messages-search/#検索">文言</a>）。</li>
+<li><strong>件数の上限</strong>：既定は 10,000 件で、［設定］タブの「検索結果」で、1,000〜100,000 件か制限なし（<code>searchLimit</code> が 0）に変えられる（<a href="../implementation/#決めたこと">決めたこと</a> U3。確定すると次の検索から効く。検索の途中の分は変わらない）。制限なしのときは、下の文言も出ない。上限を超えても検索は最後まで続け、表に入れるのは先頭の上限の件数だけにして、総数（<code>HitTotal</code>）まで数える。数えている間は、要約欄に <code>検索中…　該当 10,000 件以上（総数を数えています：45,678 件）</code> と出し、進み具合のバーも進める（［中止］を押すと、数えるのをやめる。表は残す）。数え終えたら、要約欄は <code>全 234,567 件中 10,000 件を表示（1,234 ファイル）・2.3 秒</code>、ステータスは上限を超えたことと絞り込みの案内を表示する（絞り込みを消したときの要約欄も、秒を除いてこの形に戻す）。数えている間に中止したとき・正規表現の照合が時間切れになったときは、総数を数えていないことを表示する（文言は<a href="../messages-search/#検索">メッセージ（検索）</a>）（要約欄は <code>該当 10,000 件以上（総数は数えていません）（1,234 ファイル）・2.3 秒</code>）。文言と出し分けは <code>result_list_view.ps1</code> の <code>getSearchCountingText</code>・<code>getSearchFinishSummaryText</code>・<code>getSearchFinishStatusText</code>。</li>
 <li>フォルダの順・本文インデックスのファイルの名前（拡張子・番号）の順・本文インデックスのファイルの中の順に検索するため、表に出るのは先頭の上限の件数で、後ろのファイルのヒットは表に出ない（件数の多い順などで選ばれるわけではない）。利用者が「全部出ている」と誤解しないよう、メッセージで総数と先頭から表示していることを伝える。</li>
 <li>更新中でも検索できる。その場合、ステータスに <code>更新中のため、更新の途中のインデックスを検索しています。</code> と表示する（U4）。</li>
 </ul>
@@ -4463,7 +4553,7 @@
 </tr>
 <tr>
 <td>種類</td>
-<td>検索するファイルの種類を、チップ（Excel・Word・PowerPoint・テキスト・PDF）で選ぶ（既定はすべて）。選んだ種類の拡張子のファイルだけを検索する（<code>newFileKindFilter</code>）。ファイル名での絞り込みは、検索後の［絞り込み］（No.6）で行う。種類を 1 つも選んでいなければ検索を始めず、種類のチップの下に吹き出しを出す（<code>getSearchKindBalloonText</code>。選びは保存しない＝前に保存した選びのまま、設定ファイルの形は変えない）。選んだ種類に合うファイルが検索の対象に無ければ No.5 に <code>種類（Word・テキスト）に合うファイルがありません。</code> と表示する</td>
+<td>検索するファイルの種類を、チップ（Excel・Word・PowerPoint・テキスト・PDF）で選ぶ（既定はすべて）。選んだ種類の拡張子のファイルだけを検索する（<code>newFileKindFilter</code>）。ファイル名での絞り込みは、検索後の［絞り込み］（No.6）で行う。種類を 1 つも選んでいなければ検索を始めず、種類のチップの下に吹き出しを出す（<code>getSearchKindBalloonText</code>。選びは保存しない＝前に保存した選びのまま、設定ファイルの形は変えない）。選んだ種類に合うファイルが検索の対象に無ければ No.5 に合うファイルが無い旨を表示する（文言は<a href="../messages-search/#検索">メッセージ（検索）</a>）</td>
 </tr>
 <tr>
 <td>一致箇所の強調</td>
@@ -4471,7 +4561,7 @@
 </tr>
 <tr>
 <td>条件の表示</td>
-<td>既定から変えた条件があれば、ステータスを <code>検索しました：&lt;ワード&gt; N 件　条件：大文字・小文字を区別・種類：Excel・テキスト</code> とする（図形・コメントをオフにしたときは <code>図形を除く</code> <code>コメントを除く</code>）。0 件のときも同じ形（<code>検索しました：&lt;ワード&gt; 0 件</code>）で、No.5 には <code>一致する結果はありません</code> を出す（<a href="../messages/">メッセージ</a>）</td>
+<td>既定から変えた条件があれば、ステータスに条件を添える（文言は<a href="../messages-search/#検索">メッセージ（検索）</a>）。0 件のときも同じ形で、No.5 には一致が無い旨を出す</td>
 </tr>
 <tr>
 <td>設定の保存</td>
@@ -4587,7 +4677,7 @@
 </ul>
 <h2 id="結果をファイルに出力">結果をファイルに出力<a class="headerlink" href="#結果をファイルに出力" title="Permanent link">&para;</a></h2>
 <ul>
-<li>ボタンは分割ボタン［出力 ▾］（本体 <code>ExportButton</code> と ▾ <code>ExportMenuButton</code> を 1 つの枠にまとめる。高さ 24・角丸 4・枠は入力欄と同じ色・地なし・文字 11。青は hover のときだけ）。本体を押すと、最後に出力できた種類（初めは Excel ブック）で出力する。▾ のメニューには <code>Excel ブック (.xlsx)</code>・<code>CSV (.csv)</code>・<code>TSV (.tsv)</code> があり、項目を選ぶと、その形式でそのまま出力する（印は付けない。選んで書けた種類が、次の本体の［出力］の形式になる。画面を開くたびに Excel ブックに戻る。<code>setting.config</code> には残さない）。検索する前に出力しようとしても、出力せず、<code>先に検索してください。</code> と表示する。</li>
+<li>ボタンは分割ボタン［出力 ▾］（本体 <code>ExportButton</code> と ▾ <code>ExportMenuButton</code> を 1 つの枠にまとめる。高さ 24・角丸 4・枠は入力欄と同じ色・地なし・文字 11。青は hover のときだけ）。本体を押すと、最後に出力できた種類（初めは Excel ブック）で出力する。▾ のメニューには <code>Excel ブック (.xlsx)</code>・<code>CSV (.csv)</code>・<code>TSV (.tsv)</code> があり、項目を選ぶと、その形式でそのまま出力する（印は付けない。選んで書けた種類が、次の本体の［出力］の形式になる。画面を開くたびに Excel ブックに戻る。<code>setting.config</code> には残さない）。検索する前に出力しようとしても、出力せず、先に検索するよう知らせる（文言は<a href="../messages-search/#検索">メッセージ（検索）</a>の「結果の出力」）。</li>
 <li>出力先は、保存のダイアログを出さず、作業フォルダの一時の置き場に決める（<code>newExportTarget</code>）。<code>work/tmp/&lt;PC の鍵&gt;/open_copy/&lt;12 桁の文字&gt;/検索結果_&lt;ワード&gt;_&lt;日時&gt;.&lt;拡張子&gt;</code> で、1 回ごとに別のフォルダなので、同じ名前が重ならない（開いたままのファイルがあっても上書きしない）。置き場は［新規で開く］のコピーと同じで、起動のたびに、最後に使ってから 1 日より古いものだけを消す（<code>clearOldOpenCopies</code>。開いているものは残る）。出力先を決めるときは、ファイルに触らない（フォルダは書く側の司令のスレッドが作る）。</li>
 <li>ほかの場所に残したいときは、開いたアプリ（Excel など）で［名前を付けて保存］する。</li>
 <li>表示中の結果（絞り込み後。閉じているファイルの行も含む）を書く。件数の上限を超えて表に入らなかった分（<a href="#検索の実行">検索の実行</a>で一時ファイルに溜めた溢れ）も書く。表の分に続けて溢れを検索の順に書き、絞り込み中は溢れの分も同じ絞り込み（<code>testHitFilter</code>）にかける。書く処理は検索の司令のスレッド（<code>SearchService.Export</code>）が行い、画面のスレッドは 200 ミリ秒ごとに進み具合を見るだけにする（<code>tebunko/search/search_export.ps1</code>）。</li>
@@ -4596,10 +4686,10 @@
 <li>検索の途中で押したときは、検索が終わってから書く（もう一度押すと取り消す）。新しく検索したときと、検索結果を消したときは、出力も止める。</li>
 <li>溢れが使えないとき（総数を数える時間切れ・溢れを書けなかった・検索を途中で止めた）は、表に出ている分だけを書き、ステータスにその理由を添える。</li>
 <li>形式は <a href="../../search/output/">検索結果ファイル</a> のとおり。Excel ブックは 5 列（ファイル名・場所・種別・行・該当行）、CSV・TSV は該当行をタブで列に分ける。Excel ブックは 1 シート 1,048,576 行（見出しを含む）までで、超えた分は書かず、ステータスに件数を添える。セルは 32,767 文字までで、超えた分は切る。出力は <code>tebunko/search/search_export.ps1</code> の <code>invokeSearchExport</code> が司令のスレッドで行う（Excel ブックは <code>shared/office/xlsx_writer.ps1</code>、CSV・TSV は <code>shared/core/csv_writer.ps1</code>。1 行の組み立ては <code>search_run.ps1</code> の <code>toResultCells</code>。<a href="../implementation/#実装構成">実装構成</a>）。書き終えたら、出力したファイルを開く（<code>openExportedFile</code>。Excel ブックは既定のアプリ（Excel）、CSV・TSV は数式を解釈しない固定のメモ帳（<code>openWithEditor</code> の <code>-notepadOnly</code>。設定のエディタは使わない）。CSV・TSV を表計算アプリで自動では開かない: 先頭が <code>=</code>・<code>+</code>・<code>-</code>・<code>@</code> のセルが数式として動くのを避けるため、値は加工せずに開き方で避ける。開けなければ、ステータスに出力先のパスを添える）。</li>
-<li>絞り込み中は、見出しの件数を表示中の件数とし、ステータスに <code>絞り込み後の K 件を &lt;名前&gt; に出力しました</code> と表示する（U7）。</li>
-<li>書き込めないときは、検索画面の上の橙の帯に出す（閉じられる。<a href="../indexing-run/#帯とステータスバー">帯とステータスバー</a>）。ファイルが開かれているときは <code>&lt;名前&gt; に書き込めません。開いているアプリを閉じてから、もう一度出力してください。</code>、読み取り専用・権限が無いときは <code>&lt;名前&gt; に書き込む権限がありません（読み取り専用など）。&lt;パス&gt; を確かめてから、もう一度出力してください。</code>。</li>
-<li>まだ検索していなければ <code>先に検索してください。</code> と表示する。</li>
-<li>出力の文言は <a href="../messages/">メッセージ</a> の「ステータス・帯」の結果を出力した行にまとめた（<code>open_source_view.ps1</code> の <code>getExport*Text</code>）。</li>
+<li>絞り込み中は、見出しの件数を表示中の件数とし、ステータスに絞り込み後の件数を出力したことを出す（U7。<a href="../messages-search/#結果の出力">文言</a>）。</li>
+<li>書き込めないときは、検索画面の上の橙の帯に出す（閉じられる。<a href="../indexing-run/#帯とステータスバー">帯とステータスバー</a>）。文言は<a href="../messages-search/#結果の出力">文言</a>（ファイルが開かれているとき・読み取り専用や権限が無いときで分ける）。</li>
+<li>まだ検索していなければ、先に検索するよう知らせる（<a href="../messages-search/#結果の出力">文言</a>）。</li>
+<li>出力の文言は <a href="../messages-search/#結果の出力">メッセージ</a> にまとめた（<code>open_source_view.ps1</code> の <code>getExport*Text</code>）。</li>
 </ul>
 
 

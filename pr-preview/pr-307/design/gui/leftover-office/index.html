@@ -2771,6 +2771,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -2899,6 +2905,90 @@
     
   
     画面に出すメッセージの一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス管理）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（検索と検索結果）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages-indexing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス作成の実行）
   
 
     
@@ -3423,7 +3513,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_17" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_20" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -3445,14 +3535,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_7_17" id="__nav_3_7_17_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_7_20" id="__nav_3_7_20_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_17_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_7_17">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_20">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4531,19 +4621,19 @@
 <tbody>
 <tr>
 <td>すべて止めた</td>
-<td><code>Office を 3 件終了しました。</code></td>
+<td>件数だけを出す</td>
 </tr>
 <tr>
 <td>一部が変わっていた</td>
-<td><code>Office を 2 件終了しました。PID 9316 は確認の後に別のプロセスに変わったため、終了しませんでした。</code>（複数なら <code>PID 9316・9320 は…</code>）</td>
+<td>件数の文に続けて、変わった PID を出す（複数なら <code>PID 9316・9320 は…</code>）</td>
 </tr>
 <tr>
 <td>1 件も止めず、変わったものがある</td>
-<td>件数の文を出さず、<code>PID 9316 は確認の後に別のプロセスに変わったため、終了しませんでした。</code> だけ</td>
+<td>件数の文を出さず、変わった PID の文だけ</td>
 </tr>
 <tr>
 <td>失敗があった</td>
-<td>末尾に <code>PID &lt;N&gt; を終了できませんでした：&lt;理由&gt;</code></td>
+<td>末尾に失敗した PID と理由を出す</td>
 </tr>
 <tr>
 <td>何も止めず、言うことも無い</td>
@@ -4551,10 +4641,11 @@
 </tr>
 <tr>
 <td>裏の仕事そのものが失敗した（起動時の確認・［終了する］のあと）</td>
-<td><code>getLeftoverFailureText</code>。<code>Office を終了できませんでした（&lt;理由の 1 行目&gt;）。残った Office は、次に tebunko を起動したときにもう一度確認できます。</code>（確認の失敗は <code>前回残った Office を確認できませんでした（&lt;理由&gt;）。</code>）</td>
+<td><code>getLeftoverFailureText</code>（確認の失敗は別の文）</td>
 </tr>
 </tbody>
 </table>
+<p>文言は<a href="../messages/#画面全体">画面に出すメッセージの一覧の「画面全体」</a>の「残った Office」の行にある。</p>
 <h2 id="記録">記録<a class="headerlink" href="#記録" title="Permanent link">&para;</a></h2>
 <p>インデックス作成が Office を 1 つ起動し、新しいプロセスがちょうど 1 つ増えたと確かめられたときに、記録を 1 つ書く（<code>shared/office/office_app.ps1</code> の <code>getApp</code>）。</p>
 <table>
