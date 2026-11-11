@@ -225,10 +225,20 @@ Describe "S13 インデックスが <count> 件・ヒット約 1 万件のとき
             clickGui $S $S.Window "SearchButton" "検索"
             $hits = $script:hitTotal.ToString("N0")
             $searchClock = [Diagnostics.Stopwatch]::StartNew()
-            try {
-                waitGui $S "一致 $hits 件" 300 { (getGuiText (findGui $S.Window -Id "SummaryText")) -like "一致 $hits 件（$hits ファイル）*" } | Out-Null
-            } catch {
-                throw ("{0}（要約欄の最後の文: 「{1}」）" -f $_.Exception.Message, (getGuiText (findGui $S.Window -Id "SummaryText")))
+            # 要約欄の文が 120 秒動かなくなったら止まったとみなす（全体は 600 秒まで）。30 秒ごとに文を記録し、遅いのか止まったのかを見分けられるようにする
+            $lastText = ""
+            $lastChange = [Diagnostics.Stopwatch]::StartNew()
+            $lastLog = -30
+            while ($true) {
+                $text = getGuiText (findGui $S.Window -Id "SummaryText")
+                if ($text -like "一致 $hits 件（$hits ファイル）*") { break }
+                if ($text -ne $lastText) { $lastText = $text; $lastChange.Restart() }
+                $now = $searchClock.Elapsed.TotalSeconds
+                if ($now - $lastLog -ge 30) { $lastLog = $now; Write-Host ("S13 D 検索中 {0} 秒: {1}" -f [Math]::Round($now), $text) }
+                if ($lastChange.Elapsed.TotalSeconds -ge 120 -or $now -ge 600) {
+                    throw ("[S13D-{0}・手順: 起動] 一致 {1} 件 が見つからなかった（{2} 秒たった。要約欄は {3} 秒動かず、最後の文: 「{4}」）" -f $script:indexCount, $hits, [Math]::Round($now), [Math]::Round($lastChange.Elapsed.TotalSeconds), $text)
+                }
+                Start-Sleep -Milliseconds 500
             }
             Write-Host ("S13 D（{0} 件）: 検索が終わるまで {1} 秒" -f $script:indexCount, [Math]::Round($searchClock.Elapsed.TotalSeconds, 1))
             $box = findGui $S.Window -Id "FilterBox"
