@@ -2771,6 +2771,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -2899,6 +2905,90 @@
     
   
     画面に出すメッセージの一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス管理）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（検索と検索結果）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages-indexing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス作成の実行）
   
 
     
@@ -3340,7 +3430,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_17" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_20" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -3362,14 +3452,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_7_17" id="__nav_3_7_17_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_7_20" id="__nav_3_7_20_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_17_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_7_17">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_20">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4230,10 +4320,10 @@
 <li><strong>接続できない・その他のときは、上のフォルダも別名も調べない</strong>（同じサーバーで待たされるか、同じ理由で失敗するだけのため）。見つからないときだけ、<a href="../open-file/#元のファイルが見つからないとき元のフォルダを設定する">元のファイルが見つからないとき（元のフォルダを設定する）</a>の別名・フォルダを選ぶ流れに進む。</li>
 <li><strong>待っている間に別の行を開く・新しく検索する・ワークスペースを変えると、前の依頼の結果は捨てる</strong>（依頼に番号を付け、最後の依頼だけを反映する。プレビューの <code>previewRequest</code> と同じ形）。同じ行をもう一度開いても、依頼は重ねない。</li>
 <li><strong>待っている間、ステータスに <code>元のファイルを確かめています…：&lt;パス&gt;（共有フォルダに接続できないときは、しばらくかかります）</code> を出し、マウスのカーソルを <code>AppStarting</code> にする。</strong> 画面は操作できる（ほかの行を選ぶ・プレビューを見るなど）。</li>
-<li><strong>接続できないときのダイアログ</strong>: 見出しは <code>&lt;ファイル名&gt; を開けません</code>。知らせは <code>✗ 元のフォルダに接続できません</code>（<code>&lt;元のフォルダ&gt;</code>）＋ <code>→ ネットワーク・VPN の接続を確かめてから、もう一度開いてください</code>。選択肢は［フォルダを選ぶ］（選べば見つからないときと同じ流れに進む）と［閉じる］。ステータスは <code>元のフォルダに接続できません：&lt;元のフォルダ&gt;</code>。</li>
+<li><strong>接続できないときのダイアログ</strong>: 文言と選択肢は<a href="../messages-search/#元のファイルを開くコピーする">画面に出すメッセージ（元のファイルを開く）</a>にある。</li>
 <li><strong>その他のときのダイアログ</strong>: 知らせは <code>✗ 元のファイルを確かめられませんでした</code>（例外の文面）＋ <code>→ アクセスの権限・サインインを確かめてください</code>。ステータスは <code>元のファイルを確かめられませんでした：&lt;例外の文面&gt;</code>。</li>
 <li><strong>ローカルのパスには別名が無いため、ローカルのときは <code>getDriveTargets</code>（CIM）を呼ばない。</strong> ネットワークのパスで別名（ネットワークドライブ⇔UNC）を調べるときだけ、ドライブの割り当てを照会する（キャッシュが空なら裏のスレッドで照会してよい）。</li>
-<li><strong>［ファイルの一覧］の行のダブルクリック</strong>（<a href="../index-tab/">インデックス一覧の管理</a>）も同じ形にする。ステータスは <code>元のファイルを確かめています…：&lt;パス&gt;</code>、接続できないときは <code>元のフォルダに接続できません：&lt;パス&gt;</code>（見つからないときの文言とは別にする）。</li>
+<li><strong>［ファイルの一覧］の行のダブルクリック</strong>（<a href="../index-tab/">インデックス一覧の管理</a>）も同じ形にする。ステータスの文言は同じ節にある（見つからないときの文言とは別にする）。</li>
 </ul>
 <h2 id="ワークスペースがネットワークにあるとき">ワークスペースがネットワークにあるとき<a class="headerlink" href="#ワークスペースがネットワークにあるとき" title="Permanent link">&para;</a></h2>
 <p>窓を前面に戻したときの読み直し（設定ファイル・取り込み一覧の見張り）は、ネットワークの場所では見張りを作らない（<code>FileSystemWatcher</code> は SMB で通知が欠けることがあり、作るときに共有に触れて画面のスレッドが止まりうるため）。見張りが無い間は、前面復帰のたびに取り込み一覧の更新の印を裏の仕事で比べ、設定ファイルがネットワークにあるときは 60 秒に 1 回だけ、印を裏の仕事で取る（<a href="../responsiveness/">画面を固まらせない待たせ方</a>）。</p>
