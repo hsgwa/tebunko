@@ -459,6 +459,17 @@ Describe "getIndexFileEntries（インデックスに取り込んだファイル
         ($result.Done + $result.Failed + $result.Pending) | Should -Be $result.Rows.Count
     }
 
+    It "1 万件を決めた秒数（5 秒）以内に返す（退行の見張り。既定で流れる）" {
+        $path = "$TestDrive\mid.tsv"
+        $rows = 1..10000 | ForEach-Object { newStatusRow ("営業\d{0:D2}\f{1:D5}.xlsx" -f ($_ % 50), $_) "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00" }
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) $rows $path
+        $watch = [System.Diagnostics.Stopwatch]::StartNew()
+        $result = getIndexFileEntries -indexName "営業" -labels $labels -path $path
+        $watch.Stop()
+        $result.Rows.Count | Should -Be 10000
+        $watch.Elapsed.TotalSeconds | Should -BeLessThan 5
+    }
+
     It "3 万件でも決めた秒数（5 秒）以内に返す" -Tag Slow {
         $path = "$TestDrive\big.tsv"
         $rows = 1..30000 | ForEach-Object { newStatusRow ("営業\d{0:D2}\f{1:D5}.xlsx" -f ($_ % 50), $_) "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00" }
