@@ -419,7 +419,13 @@ function setAllFileGroupsExpanded {
     )
 
     $script:expandNew = $expanded
-    foreach ($group in $script:groupList) {
+    # ヒットの合計が多いときは、作る行の合計が totalRowLimit に収まるよう、ファイルごとの上限を配る
+    $limits = $(if ($expanded -and $script:groupList.Count -gt 0) { getExpandRowLimits @($script:groupList | ForEach-Object { $_.Hits.Count }) } else { $null })
+    for ($i = 0; $i -lt $script:groupList.Count; $i++) {
+        $group = $script:groupList[$i]
+        if ($null -ne $limits) {
+            $group.RowLimit = $limits[$i]
+        }
         $group.SetExpanded($expanded)
     }
     rebuildResults
@@ -478,15 +484,22 @@ function applySort {
         [bool]$descending
     )
 
+    $totalHits = 0
     foreach ($group in $script:groupList) {
-        if ($group.Hits.Count -gt ${groupRowLimit}) {
+        $totalHits += $group.Hits.Count
+    }
+    foreach ($group in $script:groupList) {
+        if (testSortByHitOrder $group.Hits.Count $totalHits) {
             $group.HitOrder = getSortedHitOrder $group.Hits $property $descending $(if ($property -eq "Kind") { getKindByLocation $group } else { @{} })
             $group.Rows.Clear()
-            $group.RowLimit = 0
+            if ($totalHits -le ${totalRowLimit}) {
+                # 合計が上限以下なら、「続き」で広げた上限を戻す。超えるときは［すべて開く］で付けた上限を保つ
+                $group.RowLimit = 0
+            }
         } else {
             $group.HitOrder = $null
         }
-        ensureRows $group (getSortRowTarget $group.Hits.Count)
+        ensureRows $group (getSortRowTarget $group.Hits.Count ${groupRowLimit} $totalHits)
     }
     $sorted = sortFileGroups $script:groupList $property $descending
     $script:groupList.Clear()

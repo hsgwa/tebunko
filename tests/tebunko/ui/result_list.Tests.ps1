@@ -471,6 +471,46 @@ Describe "toggleFileGroup" -Tag Unit {
     }
 }
 
+Describe "結果全体の行の上限" -Tag Unit {
+    BeforeEach {
+        resetResults
+        foreach ($f in 1..100) {
+            foreach ($i in 1..1000) { [void](addHit "f$("{0:D3}" -f $f).docx" "ページ$("{0:D4}" -f $i)" "見積" $i) }
+        }
+        flushResults
+        $ui.ResultGrid.Columns.Add((newSortColumn "Location"))
+    }
+
+    It "［すべて開く］でヒットの合計が上限を超えると、作る行は合計 5,000 以下になり続きの行が出る" {
+        setAllFileGroupsExpanded $true
+
+        $total = 0
+        foreach ($g in $script:groupList) { $total += $g.Rows.Count }
+        $total | Should -BeLessOrEqual 5000
+        @($script:groupList | Where-Object { $null -eq $_.MoreRow }).Count | Should -Be 0
+    }
+
+    It "合計が上限を超えるとき applySort は行を全部作らない" {
+        applySort "Location" $false
+
+        $total = 0
+        foreach ($g in $script:groupList) { $total += $g.Rows.Count }
+        $total | Should -BeLessOrEqual 5000
+    }
+
+    It "［すべて開く］のあと並べ替えても行の上限を保つ" {
+        setAllFileGroupsExpanded $true
+        applySort "LineNumber" $true
+
+        $total = 0
+        foreach ($g in $script:groupList) {
+            $g.RowLimit | Should -Be 50
+            $total += $g.Rows.Count
+        }
+        $total | Should -BeLessOrEqual 5000
+    }
+}
+
 Describe "setAllFileGroupsExpanded" -Tag Unit {
     BeforeEach { resetResults }
 
@@ -1000,7 +1040,7 @@ Describe "1 ファイルのヒットが多いとき" -Tag Unit {
 
         $script:big.Rows.Count | Should -Be 1000
         @($script:big.Rows[0..2] | ForEach-Object { $_.LineNumber }) -join "," | Should -Be "1,2,3"
-        @($small.Rows | ForEach-Object { $_.LineNumber }) -join "," | Should -Be "10,20"
+        @($small.Rows | ForEach-Object { $_.LineNumber }) -join "," | Should -Be "10"   # 合計が 5,000 件を超えるので、少ないファイルも先頭の 1 件だけ
         # ファイルの順は先頭の行の値（多: 1、少: 10）
         @($script:groupList | ForEach-Object { $_.Book }) -join "," | Should -Be "多.txt,少.txt"
 

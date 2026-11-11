@@ -5,6 +5,10 @@
 # 何万件もヒットするファイルを開いたときに画面が固まらないよう、先頭からこの数までにする
 ${groupRowLimit} = 1000
 
+# 結果全体で、［すべて開く］と並べ替えのときに作る行（HitRow）の数の上限。ヒットが少ないファイルが多数あっても、
+# 全部のファイルの行を作って画面が固まらないよう、この数までにする
+${totalRowLimit} = 5000
+
 function getSearchProgressText {
     # 検索中の要約欄
     param (
@@ -240,15 +244,49 @@ function getNextRowLimit {
     return $(if ($rowLimit -gt 0) { $rowLimit } else { ${groupRowLimit} }) + ${groupRowLimit}
 }
 
-function getSortRowTarget {
-    # 並べ替えの前に、ファイルごとに作る行の数。ヒットが limit 以下なら全件（行を並べ替えるため）、超えるなら 1 件
-    # （生のヒットを先に並べ替えてあるので、ファイルの順を決める先頭の行だけあればよい。getSortedHitOrder・sortFileGroups）
+function getExpandRowLimits {
+    # ［すべて開く］で、ファイルごとに付ける行の上限（FileGroup.RowLimit）の並び。hitCounts はファイルごとのヒットの数。
+    # ヒットの合計が total 以下なら全部 0（既定の groupRowLimit のまま）。超えるなら、total をファイル数で割った数
+    # （1 件は出す。groupRowLimit 以下）を全ファイルに付ける
+    param (
+        [int[]]$hitCounts,
+        [int]$total = ${totalRowLimit}
+    )
+
+    $sum = 0
+    foreach ($count in $hitCounts) {
+        $sum += $count
+    }
+    if ($sum -le $total) {
+        return @($hitCounts | ForEach-Object { 0 })
+    }
+    $each = [Math]::Min(${groupRowLimit}, [Math]::Max(1, [int][Math]::Floor($total / $hitCounts.Count)))
+    return @($hitCounts | ForEach-Object { $each })
+}
+
+function testSortByHitOrder {
+    # 並べ替えで、行を作らずに生のヒットを並べ替えるか。ファイルのヒットの数が limit を超えるか、全ファイルのヒットの合計
+    # （totalHits。0 は調べない）が totalRowLimit を超えるなら $true
     param (
         [int]$hitCount,
+        [int]$totalHits = 0,
         [int]$limit = ${groupRowLimit}
     )
 
-    return $(if ($hitCount -gt $limit) { 1 } else { $hitCount })
+    return ($hitCount -gt $limit -or $totalHits -gt ${totalRowLimit})
+}
+
+function getSortRowTarget {
+    # 並べ替えの前に、ファイルごとに作る行の数。ヒットが limit 以下なら全件（行を並べ替えるため）、超えるなら 1 件
+    # （生のヒットを先に並べ替えてあるので、ファイルの順を決める先頭の行だけあればよい。getSortedHitOrder・sortFileGroups）。
+    # 全ファイルのヒットの合計（totalHits。0 は調べない）が totalRowLimit を超えるときも 1 件
+    param (
+        [int]$hitCount,
+        [int]$limit = ${groupRowLimit},
+        [int]$totalHits = 0
+    )
+
+    return $(if (testSortByHitOrder $hitCount $totalHits $limit) { 1 } else { $hitCount })
 }
 
 function getSortedHitOrder {
