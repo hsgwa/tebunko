@@ -185,6 +185,34 @@ Describe "newIsolationWatch・getIsolationWatchDiffs・finishWorkspaceGuard" -Ta
     }
 }
 
+Describe "見張りの除外（-Exclude）" -Tag Io {
+    It "除外を指定した写しは、除外のパス（test）とその下を含まず、work\testing は含む" {
+        $dir = Join-Path $TestDrive "excl"
+        New-Item -ItemType Directory -Path "$dir\test\gui", "$dir\testing", "$dir\index" | Out-Null
+        [System.IO.File]::WriteAllText("$dir\test\gui\a.png", "a")
+        [System.IO.File]::WriteAllText("$dir\testing\x", "x")
+        [System.IO.File]::WriteAllText("$dir\index\a", "a")
+        $keys = @((getIsolationSnapshot $dir -Exclude @("test")).Keys)
+        $keys | Should -Contain "\testing\x"
+        $keys | Should -Contain "\index\a"
+        $keys | Should -Not -Contain "\test"
+        $keys | Should -Not -Contain "\test\gui\a.png"
+    }
+
+    It "除外した場所が前後で増えても、見張りの違いは空。除外していない場所は違いに出る" {
+        $dir = Join-Path $TestDrive "exclw"
+        New-Item -ItemType Directory -Path $dir | Out-Null
+        $watch = newIsolationWatch ([ordered]@{ "work" = @{ Path = $dir; Exclude = @("test") } })
+        New-Item -ItemType Directory -Path "$dir\test\gui" | Out-Null
+        [System.IO.File]::WriteAllText("$dir\test\gui\a.png", "a")
+        @(getIsolationWatchDiffs $watch).Count | Should -Be 0
+        New-Item -ItemType Directory -Path "$dir\index" | Out-Null
+        [System.IO.File]::WriteAllText("$dir\index\a.txt", "a")
+        $diffs = @(getIsolationWatchDiffs $watch)
+        ($diffs -join "`n") | Should -BeLike "*増えた: \index\a.txt*"
+    }
+}
+
 Describe "waitIsolationProcess" -Tag Io {
     It "待ち時間の前に終わったら、その終了コードを返す（止めない）" -TestCases @(
         @{ Code = 0 }
@@ -269,6 +297,39 @@ Describe "run_isolated.ps1" -Tag Io {
         try { & $script:runIsolated -RealWorkspace $real -Command $cmd *>&1 | ForEach-Object { $out.Add([string]$_) } } catch { $out.Add("EX: $($_.Exception.Message)") }
         ($out -join "`n") | Should -BeLike "*boom*"
         ($out -join "`n") | Should -BeLike "*増えた: \late.txt*"
+    }
+}
+
+Describe "run_isolated.ps1 の -RealWorkRoot（リポジトリの work の見張り）" -Tag Io {
+    BeforeAll {
+        function invokeWithWork([string]$name, [string]$relPath) {
+            $real = Join-Path $TestDrive "rw-$name"
+            $work = Join-Path $TestDrive "work-$name"
+            New-Item -ItemType Directory -Path $real, $work | Out-Null
+            $cmd = [scriptblock]::Create("param (`$ToolDir, `$Workspace) `$f = Join-Path '$work' '$relPath'; [void][System.IO.Directory]::CreateDirectory((Split-Path `$f)); [System.IO.File]::WriteAllText(`$f, 'x')")
+            $global:LASTEXITCODE = 0
+            $out = & $script:runIsolated -RealWorkspace $real -RealWorkRoot $work -Command $cmd *>&1 | Out-String
+            $script:exitCode = $LASTEXITCODE
+            return $out
+        }
+    }
+
+    It "確かめの間に -RealWorkRoot の work\test\ に書かれても、終了コードは 0" {
+        $text = invokeWithWork "t" "test\gui\a.png"
+        $script:exitCode | Should -Be 0 -Because $text
+        $text | Should -Match "既定のワークスペースなどに違いなし"
+    }
+
+    It "確かめの間に -RealWorkRoot の work の test 以外（work\index\a.txt）に書かれると、終了コード 1" {
+        $text = invokeWithWork "i" "index\a.txt"
+        $script:exitCode | Should -Be 1
+        $text | Should -BeLike "*増えた: \index\a.txt*"
+    }
+
+    It "確かめの間に work\testing\x に書かれると、終了コード 1（test で始まる別名は除かれない）" {
+        $text = invokeWithWork "g" "testing\x"
+        $script:exitCode | Should -Be 1
+        $text | Should -BeLike "*増えた: \testing\x*"
     }
 }
 
