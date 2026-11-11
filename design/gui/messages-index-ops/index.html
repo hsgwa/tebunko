@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://hsgwa.github.io/tebunko/design/gui/messages-index-ops/">
       
       
-        <link rel="prev" href="../messages/">
+        <link rel="prev" href="../messages-indexing/">
       
       
         <link rel="next" href="../index-tab/">
@@ -2771,6 +2771,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -2916,6 +2922,90 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス管理）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（検索と検索結果）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages-indexing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス作成の実行）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -3027,6 +3117,17 @@
     <span class="md-ellipsis">
       
         ワークスペースの変更・設定の保存と読み込み
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#エクスポートインポートのダイアログとステータス" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        エクスポート・インポートのダイアログとステータス
       
     </span>
   </a>
@@ -3384,7 +3485,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_17" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_20" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -3406,14 +3507,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_7_17" id="__nav_3_7_17_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_7_20" id="__nav_3_7_20_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_17_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_7_17">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_20">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4277,6 +4378,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#エクスポートインポートのダイアログとステータス" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        エクスポート・インポートのダイアログとステータス
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -4551,6 +4663,79 @@
 </tr>
 </tbody>
 </table>
+<h2 id="エクスポートインポートのダイアログとステータス">エクスポート・インポートのダイアログとステータス<a class="headerlink" href="#エクスポートインポートのダイアログとステータス" title="Permanent link">&para;</a></h2>
+<p>［アクション ▾］の［エクスポート…］［インポート…］と、名前の変更の進み・失敗で出す文言（断られたときのエラーは上の各節）。</p>
+<table>
+<thead>
+<tr>
+<th>表示場所</th>
+<th>条件</th>
+<th>文言</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ステータス</td>
+<td>名前を変えている / 失敗した</td>
+<td><code>インデックス [旧名] の名前を [新名] に変えています…</code> / <code>インデックス [旧名] の名前の変更に失敗しました：&lt;理由&gt;</code>（帯にも出す）</td>
+</tr>
+<tr>
+<td>ステータス</td>
+<td>エクスポートの大きさを数えている / 書き出している / 取りやめた</td>
+<td><code>エクスポートの大きさを数えています…</code> / <code>エクスポートしています…</code> / <code>エクスポートを取りやめました</code>（<code>getIndexArchiveCancelledStatus</code>）</td>
+</tr>
+<tr>
+<td>ステータス</td>
+<td>数える間に対象のインデックスが無くなった（ダイアログは開かない）</td>
+<td><code>対象のインデックスが見つかりません</code>（<code>getIndexExportMissingText</code>）</td>
+</tr>
+<tr>
+<td>ダイアログ（エクスポート）</td>
+<td>開いたとき</td>
+<td>対象の枠（名前。2 件以上は <code>N 件のインデックス</code>）の下に <code>2,530 ファイル・94.0 MB</code>（<code>getIndexExportHeader</code>）、欄の下に <code>&lt;名前&gt;_インデックス_&lt;yyyyMMdd&gt;.zip として保存します</code>、橙の枠に <code>このファイルには、元のファイルの本文と元のフォルダの場所が含まれます。元のファイルと同じように取り扱ってください。</code></td>
+</tr>
+<tr>
+<td>欄の下</td>
+<td>書き出し先が空（<code>testIndexExportInput</code>）</td>
+<td><code>書き出し先のフォルダを指定してください。</code></td>
+</tr>
+<tr>
+<td>ステータス</td>
+<td>書き出した</td>
+<td><code>インデックス [&lt;名前&gt;] を「&lt;zip のパス&gt;」に書き出しました（&lt;件数&gt; ファイル）</code></td>
+</tr>
+<tr>
+<td>ダイアログ（インポート）</td>
+<td>上の枠・元のフォルダの欄の下の 1 行（<code>getImportSourceCheckText</code>）</td>
+<td><code>エクスポートした日時 2026/09/27 10:00</code>、<code>2,530 ファイル・56.6 MB・v0.3.0</code>（<code>getIndexImportHeader</code>）。1 行は <code>見つかりました</code>（緑）/ <code>元のフォルダがこの PC に見つかりません。検索はできますが、元のフォルダを設定するまで更新できません。</code>（橙）/ <code>「&lt;名前&gt;」の元のフォルダと重なっています</code>（赤）</td>
+</tr>
+<tr>
+<td>ダイアログ（インポート）</td>
+<td>名前が今の一覧にある（<code>getImportCollisionChoiceView</code>）</td>
+<td>橙の見出し <code>同じ名前のインデックス [&lt;名前&gt;] があります</code>、選択肢 <code>別の名前にする</code> / <code>置き換える</code>（［インポート］が赤くなり、<code>今のインデックス [&lt;名前&gt;] は、インポートするもので置き換わります。</code> を添える）</td>
+</tr>
+<tr>
+<td>ダイアログ（インポート）</td>
+<td>名前が、設定から外して作業フォルダに残っているだけの名前に当たる</td>
+<td>見出し <code>作業フォルダに同じ名前のインデックス [&lt;名前&gt;] が残っています（置き換えはできません）</code>、選択肢は <code>別の名前にする</code>（<code>名前(2)</code> …）だけ</td>
+</tr>
+<tr>
+<td>帯・ステータス</td>
+<td>インポート中 / 終わった（<code>getImportProgressView</code>・<code>getImportResultStatus</code>・<code>getImportSkippedIndexingStatus</code>）</td>
+<td>展開したバイト数の割合と <code>12.0 MB / 94.0 MB</code>。終わったら件数と警告に <code>次の更新までは、検索が遅くなることがあります。</code> を足す</td>
+</tr>
+<tr>
+<td>ダイアログ（インポートのあとの確認）</td>
+<td>元のフォルダがこの PC にあるとき、数え終えた</td>
+<td>題 <code>&lt;名前&gt; をインポートしました</code>、見出し <code>高速化のためのインデックスを作成しますか？</code>、説明（<code>ImportIndexHint</code>）<code>高速化のためのインデックスを作成します。作成しなくても検索はできます（結果は同じ）。</code>、ボタン［あとで］［作成する（更新を開始）］</td>
+</tr>
+<tr>
+<td>ステータス</td>
+<td>名前・元のフォルダのダイアログを取りやめた</td>
+<td><code>インポートを取りやめました</code></td>
+</tr>
+</tbody>
+</table>
 
 
 
@@ -4586,7 +4771,7 @@
       <nav class="md-footer__inner md-grid" aria-label="フッター" >
         
           
-          <a href="../messages/" class="md-footer__link md-footer__link--prev" aria-label="前: 画面に出すメッセージの一覧">
+          <a href="../messages-indexing/" class="md-footer__link md-footer__link--prev" aria-label="前: 画面に出すメッセージ（インデックス作成の実行）">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -4596,7 +4781,7 @@
                 前
               </span>
               <div class="md-ellipsis">
-                画面に出すメッセージの一覧
+                画面に出すメッセージ（インデックス作成の実行）
               </div>
             </div>
           </a>

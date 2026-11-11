@@ -2771,6 +2771,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -2899,6 +2905,90 @@
     
   
     画面に出すメッセージの一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス管理）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（検索と検索結果）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages-indexing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス作成の実行）
   
 
     
@@ -3417,7 +3507,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_17" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_20" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -3439,14 +3529,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_7_17" id="__nav_3_7_17_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_7_20" id="__nav_3_7_20_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_17_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_7_17">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_20">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4416,7 +4506,7 @@
 </tr>
 <tr>
 <td>中断中</td>
-<td>［すべて更新］のまま。更新の帯（<a href="#更新の帯">更新の帯</a>）に <code>更新を中断しました（残り N 件）</code> と［続きから再開］を出す</td>
+<td>［すべて更新］のまま。更新の帯（<a href="#更新の帯">更新の帯</a>）に中断の知らせと［続きから再開］を出す（文言は<a href="../messages-indexing/#帯とバー">メッセージ（インデックス作成の実行）</a>）</td>
 </tr>
 <tr>
 <td>失敗あり</td>
@@ -4434,7 +4524,7 @@
 </table>
 <ul>
 <li>インデックス作成は、画面のプロセスの中のスレッドで実行する（<code>newIndexingSession</code>。インデクサの司令のスレッドが <code>scripts\tebunko\indexer.ps1 -Channel &lt;受け渡しの口&gt;</code> を実行する）。受け渡しの口（<code>newIndexerChannel -confirmTargets $true</code>）の <code>ConfirmTargets</code> で、更新の対象を数えたところでいったん止まって画面の確認（<a href="#インデックス更新の確認ダイアログ">インデックス更新の確認ダイアログ</a>）を待つ。別の <code>powershell.exe</code> は起動しない（<a href="../../structure/threads/">プロセスとスレッド</a>）。</li>
-<li>行の［更新］・メニューの［更新］は、名前の配列を渡して同じ流れで始める（<code>startIndexing</code>）。ワークスペースがネットワークにあるときは、始める前に、届くかと前の版のインデックスの有無を裏の列で確かめる（確かめている間は他の操作を止める。届かなければ <code>ワークスペースに接続できません：&lt;パス&gt;</code> を出して始めない。<a href="../network/#ワークスペースがネットワークにあるとき">ワークスペースがネットワークにあるとき</a>）。対象の <code>enabled</code> を <code>true</code> にして保存してから起動し（確認で取りやめても戻さない）、受け渡しの口の <code>OnlyNames</code> に名前を入れる。更新の確認にも、その回のインデックスだけを出す。インデクサが更新できなかった名前（<code>OnlySkipped</code>）は、終わりにメッセージで知らせる。</li>
+<li>行の［更新］・メニューの［更新］は、名前の配列を渡して同じ流れで始める（<code>startIndexing</code>）。ワークスペースがネットワークにあるときは、始める前に、届くかと前の版のインデックスの有無を裏の列で確かめる（確かめている間は他の操作を止める。届かなければ知らせて始めない（文言は<a href="../messages-indexing/#帯とバー">メッセージ（インデックス作成の実行）</a>）。<a href="../network/#ワークスペースがネットワークにあるとき">ワークスペースがネットワークにあるとき</a>）。対象の <code>enabled</code> を <code>true</code> にして保存してから起動し（確認で取りやめても戻さない）、受け渡しの口の <code>OnlyNames</code> に名前を入れる。更新の確認にも、その回のインデックスだけを出す。インデクサが更新できなかった名前（<code>OnlySkipped</code>）は、終わりにメッセージで知らせる。</li>
 <li>更新中の名前・件数・残り時間は <code>$script:indexingView</code>（<code>Name</code>・<code>Processed</code>・<code>Total</code>・<code>Failed</code>・<code>Eta</code>・<code>Ratio</code>・<code>Current</code>）に値で持ち、更新の帯・詳細の「インデックス」の箱が読む。<code>Name</code> は読み取り中のファイル（<code>&lt;名前&gt;\&lt;相対パス&gt;</code>）のインデックス名。件数は回全体（インデックスごとの件数は無い）。</li>
 <li>「インデックス作成中」は、この画面で始めたインデックス作成のスレッドが終わるまでとする（<code>isIndexing</code>）。インデックス作成の二重起動を防ぐ。</li>
 <li>画面を使わずに起動した <code>indexer.ps1</code> と重なった場合は、インデクサが鍵（ミューテックスか鍵のファイル）で止め、<code>ほかのインデックス作成が実行中です（…）。…</code> のエラーで終わる（<a href="#中止終了ログ">中止・終了・ログ</a>）。</li>
@@ -4455,13 +4545,13 @@
 <tr>
 <td>更新中</td>
 <td>青</td>
-<td><code>インデックスを更新しています（N / M 件）</code>（失敗があれば <code>・失敗 K 件</code>）。文言の右にバーと、読み取り中のファイル</td>
+<td>更新中の文（文言は<a href="../messages-indexing/#帯とバー">メッセージ（インデックス作成の実行）</a>）。文言の右にバーと、読み取り中のファイル</td>
 <td><code>残り約 N 分</code>・［中止］</td>
 </tr>
 <tr>
 <td>中断</td>
 <td>黄</td>
-<td><code>更新を中断しました（残り N 件）</code>。残りがあるまま画面を開いたときも出す</td>
+<td>中断の文（残りがあるまま画面を開いたときも出す）</td>
 <td>［続きから再開］（［すべて更新］と同じく確認のダイアログから始める）</td>
 </tr>
 <tr>
@@ -4635,7 +4725,7 @@
 </tr>
 <tr>
 <td>列「取り込み対象の拡張子」</td>
-<td>その行のインデックスの要約（<code>IndexTextExtSummary</code>。<code>getIndexingTextExtSummary</code>）と［変更…］（<code>ChangeIndexTextExtensionsButton</code>）。要約は件数も拡張子の数も言わない（件数は表の「対象ファイル数」の列で見える）: 何も外していなければ <code>すべて取り込み</code>、外していれば <code>対象外あり</code>。ToolTip（何も外していないとき） は <code>実行・登録になる 15 個（.bat・.ps1 など）を含みます。取り込むだけで、実行はされません。</code>（<code>getIndexingTextExtTip</code>）。この回で取り込む行（チェックありでフォルダがあり、削除予定でないもの）だけに出し、同じ名前の複数のフォルダの行は同じ要約になる。設定は確認を開くときに 1 回だけ読む（<code>indexExtensionExcludes</code>）</td>
+<td>その行のインデックスの要約（<code>IndexTextExtSummary</code>。<code>getIndexingTextExtSummary</code>）と［変更…］（<code>ChangeIndexTextExtensionsButton</code>）。要約は件数も拡張子の数も言わない（件数は表の「対象ファイル数」の列で見える）: 何も外していなければ・外していればで表示を分け、ToolTip（何も外していないとき）に実行・登録になる拡張子を含むことを知らせる（文言は<a href="../messages-index/#インデックス管理">メッセージ（インデックス管理）</a>。<code>getIndexingTextExtTip</code>）。この回で取り込む行（チェックありでフォルダがあり、削除予定でないもの）だけに出し、同じ名前の複数のフォルダの行は同じ要約になる。設定は確認を開くときに 1 回だけ読む（<code>indexExtensionExcludes</code>）</td>
 </tr>
 <tr>
 <td>［変更…］（取り込み対象の拡張子）</td>
@@ -4671,7 +4761,7 @@
 </tr>
 <tr>
 <td>合計</td>
-<td>表と同じ枠の最下行（薄い地・太字）に出す。更新するものがあれば <code>更新対象: N フォルダ / M ファイル（最新のフォルダは更新しません）</code>。無ければ <code>更新が必要なファイルはありません（すべて最新です）。</code> とし（クラウドにだけあるファイルが残るときは、<code>更新が必要なファイルはありません。クラウドにだけあるファイル N 件は、ダウンロードせずに残します。</code>。チェックを付ければ、その件数を足した <code>更新対象</code> にする）、注意書き <code>更新日時が変わらないまま中身が変わったファイルは、更新の対象になりません。そのインデックスを一から作り直すときは、［削除］してから追加し直してください。</code> を添える</td>
+<td>表と同じ枠の最下行（薄い地・太字）に出す。更新するものがあるとき・無いとき・クラウドにだけあるファイルが残るときで文を変え、無いときは注意書きを添える（文言は<a href="../messages-indexing/#確認ダイアログの合計">メッセージ（インデックス作成の実行）</a>）。クラウドにだけあるファイルは、チェックを付ければその件数を足した更新対象にする</td>
 </tr>
 <tr>
 <td>注意書き</td>
@@ -4715,7 +4805,7 @@
 <tr>
 <td>インデックス作成の確認待ち</td>
 <td><code>確認</code></td>
-<td>動き続けるバー（タスクバーは黄色）。<code>更新する内容を確認してください</code>、<code>更新するインデックスの一覧を表示しています。</code>。確認のダイアログを開く（<a href="#インデックス更新の確認ダイアログ">インデックス更新の確認ダイアログ</a>）</td>
+<td>動き続けるバー（タスクバーは黄色）。ステータスの文は<a href="../messages-indexing/#帯とバー">メッセージ（インデックス作成の実行）</a>。確認のダイアログを開く（<a href="#インデックス更新の確認ダイアログ">インデックス更新の確認ダイアログ</a>）</td>
 </tr>
 <tr>
 <td>更新の開始前</td>
@@ -4748,7 +4838,7 @@
 <h2 id="中止終了ログ">中止・終了・ログ<a class="headerlink" href="#中止終了ログ" title="Permanent link">&para;</a></h2>
 <ul>
 <li>確認のダイアログを出している間の取りやめは、ダイアログの［キャンセル］で行う（<a href="#インデックス更新の確認ダイアログ">インデックス更新の確認ダイアログ</a>）。</li>
-<li>インデックス作成中は、更新の帯の右に［中止］を表示する。押すと確認ダイアログ（<a href="../common/#確認ダイアログshowconfirm">確認ダイアログ</a>）を出す。見出しは <code>インデックスの更新を中止しますか？</code>、補足は <code>更新したところまでは残ります。あとで続きから再開できます。</code>、ボタンは［中止する］（既定は［キャンセル］）。［中止する］で受け渡しの口の <code>Stop</code> を立てる（<code>requestIndexingStop</code>）。インデクサは、クロールも取り込み中のファイルも待たずに止め（Office を使っているワーカーは見張りが自分のアプリを止める）、取り込めた分をまとめて終了コード 2 で終わる。止めたファイルは「未取り込み」のまま残る。終わるまでは <code>中止しています…（取り込みを止めて、取り込めた分をまとめています）</code> と表示し、待つ間のダイアログ（<a href="../common/#待つ間のダイアログshowwaitdialog">待つ間のダイアログ</a>）を出す。</li>
+<li>インデックス作成中は、更新の帯の右に［中止］を表示する。押すと確認ダイアログ（<a href="../common/#確認ダイアログshowconfirm">確認ダイアログ</a>）を出す。文言は<a href="../messages-indexing/#中止">メッセージ（インデックス作成の実行）</a>。ボタンは［中止する］（既定は［キャンセル］）。［中止する］で受け渡しの口の <code>Stop</code> を立てる（<code>requestIndexingStop</code>）。インデクサは、クロールも取り込み中のファイルも待たずに止め（Office を使っているワーカーは見張りが自分のアプリを止める）、取り込めた分をまとめて終了コード 2 で終わる。止めたファイルは「未取り込み」のまま残る。終わるまでは中止している旨を表示し、待つ間のダイアログ（<a href="../common/#待つ間のダイアログshowwaitdialog">待つ間のダイアログ</a>）を出す。</li>
 <li>インデックス作成のスレッドが終わったら、終了コード（受け渡しの口の <code>ExitCode</code>。<code>IndexingSession.GetExitCode</code>）に応じて次のように表示する。</li>
 </ul>
 <table>
@@ -4761,19 +4851,15 @@
 <tbody>
 <tr>
 <td>0</td>
-<td>判断層（<code>getIndexingEndText</code>。<code>indexing_view.ps1</code>）が、成功・失敗の件数から見出しと説明を決める（利用者の PowerPoint のために取り込めなかったファイルは、失敗の件数に入っている）（上から見て最初に当たるもの）。<br>・更新した（成功＋失敗）が 1 件以上: <code>更新が終わりました（成功 N 件 / 失敗 M 件）</code>。失敗があれば <code>失敗したファイルと原因は「ファイルの一覧」（失敗のみ）で確認できます。</code> を説明に加える<br>・どちらも 0 件で、クラウドにだけあるため残したファイルがある: <code>クラウドにだけあるファイル N 件は、ダウンロードせずに残しました（次のインデックス作成でも確かめます）。</code><br>・どちらも 0 件: <code>更新が必要なファイルはありませんでした</code><br>残したファイルがあるときは、上の最初の説明にも同じ文を加える（<code>IndexingSession.GetCloudSkipped</code>）</td>
+<td>判断層（<code>getIndexingEndText</code>。<code>indexing_view.ps1</code>）が、成功・失敗の件数と、クラウドにだけあるため残したファイル（<code>IndexingSession.GetCloudSkipped</code>）の有無から見出しと説明を決める（利用者の PowerPoint のために取り込めなかったファイルは、失敗の件数に入っている）。文言は<a href="../messages-indexing/#終わったとき">メッセージ（インデックス作成の実行）</a></td>
 </tr>
 <tr>
-<td>2（確認で取りやめた）</td>
-<td><code>更新を取りやめました</code>、<code>更新したファイルはありません。［すべて更新］を押すと、もう一度確認できます。</code></td>
-</tr>
-<tr>
-<td>2（中止した）</td>
-<td><code>更新を中止しました（成功 N 件 / 失敗 M 件 / 残り K 件）</code>、<code>次回は続きから再開できます。</code></td>
+<td>2（確認で取りやめた・中止した）</td>
+<td>取りやめたときと中止したときで文を分ける（文言は同じ節）</td>
 </tr>
 <tr>
 <td>1（続けられないエラー。クロール対象フォルダが無い など）</td>
-<td>受け渡しの口の <code>Error</code>（<code>IndexingSession.GetError</code>。無ければスレッドが止まった理由）を読み、<code>インデックスを更新できませんでした</code> とそのメッセージを表示する。同じ内容をエラーのダイアログでも出す</td>
+<td>受け渡しの口の <code>Error</code>（<code>IndexingSession.GetError</code>。無ければスレッドが止まった理由）を読み、そのメッセージを表示する。同じ内容をエラーのダイアログでも出す（文言は同じ節）</td>
 </tr>
 </tbody>
 </table>
