@@ -20,6 +20,12 @@ param (
 )
 
 $ErrorActionPreference = "Stop"
+. ([WildcardPattern]::Escape("$PSScriptRoot\..\isolation\isolation_common.ps1".Replace('`', '``')))
+# 書き込み先が利用者の既定のワークスペースの中なら、書く前に止める
+assertToolPathsNotRealWorkspace @{ Out = $Out }
+# 動かす間は、使い捨ての既定のワークスペースに差し替える（子のプロセス・Runspace にも引き継がれる）。終わったら元に戻し、既定のワークスペースの前後を比べる
+$workspaceGuard = startWorkspaceGuard -Prefix "tebunko-tool-ws"
+try {
 . ([WildcardPattern]::Escape("$PSScriptRoot\perf_common.ps1".Replace('`', '``')))
 $lib = resolveTebunkoLib $Tool
 . ([WildcardPattern]::Escape($lib.Replace('`', '``')))
@@ -122,3 +128,9 @@ $result = [ordered]@{
     PeakWorkingSetMB = [Math]::Round([System.Diagnostics.Process]::GetCurrentProcess().PeakWorkingSet64 / 1MB, 1)
 }
 [System.IO.File]::WriteAllText($Out, ($result | ConvertTo-Json -Depth 6), (New-Object System.Text.UTF8Encoding($false)))
+} finally {
+    $guardReport = finishWorkspaceGuard $workspaceGuard
+}
+if ($guardReport.ExitCode -ne 0) {
+    throw ($guardReport.Lines -join "`n")
+}

@@ -20,6 +20,12 @@ param (
 )
 
 $ErrorActionPreference = "Stop"
+. ([WildcardPattern]::Escape("$PSScriptRoot\..\isolation\isolation_common.ps1".Replace('`', '``')))
+# 書き込み先が利用者の既定のワークスペースの中なら、書く前に止める
+assertToolPathsNotRealWorkspace @{ Work = $Work; Out = $Out }
+# 動かす間は、使い捨ての既定のワークスペースに差し替える（子のプロセス・Runspace にも引き継がれる）。終わったら元に戻し、既定のワークスペースの前後を比べる
+$workspaceGuard = startWorkspaceGuard -Prefix "tebunko-tool-ws"
+try {
 . ([WildcardPattern]::Escape("$PSScriptRoot\perf_common.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\ingest_common.ps1".Replace('`', '``')))
 
@@ -90,3 +96,9 @@ $result = [ordered]@{
 }
 [System.IO.File]::WriteAllText($Out, ($result | ConvertTo-Json -Depth 6), (New-Object System.Text.UTF8Encoding($false)))
 Write-Host ("  {0:N1} 秒（取り込み {1:N1} 秒・成功 {2}・失敗 {3}）" -f $seconds, $ingestSeconds, $status.Done, $status.Failed)
+} finally {
+    $guardReport = finishWorkspaceGuard $workspaceGuard
+}
+if ($guardReport.ExitCode -ne 0) {
+    throw ($guardReport.Lines -join "`n")
+}
