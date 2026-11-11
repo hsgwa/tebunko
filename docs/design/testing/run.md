@@ -99,6 +99,8 @@ Pester 5 はテストを「探す段階」と「流す段階」に分けて動�
 
 いずれも失敗したテストの数を終了コードにする（フックと CI が見る）。1 件も実行しなかったときも失敗にする（終了コード 1）。タグの打ち間違いで、何も確かめないまま通るのを防ぐため。
 
+テストは StrictMode（Set-StrictMode -Version 2）で流す（un.ps1 が Invoke-Pester の前に掛ける）。未定義の変数・無いプロパティを読むと例外になるので、打ち間違いが $null で素通りしてテストが緑になることはない。Latest にしないのは、将来の版で厳しくなって急に落ちるのを避けるため。直せないテストファイルだけ、最上位の BeforeAll の先頭に Set-StrictMode -Off を書き、	ests/helpers/strict_mode_exceptions.ps1 の getStrictModeExceptions（パスと理由の表）に載せる。	ests/meta/strict_mode.Tests.ps1 が、一覧と Set-StrictMode -Off を書いたファイルの一致と、全部に理由があることを確かめる。増やさない（まず本番かテストを直す）。
+
 ### snapshot の作り直し
 
 抽出した結果（本文インデックスのファイルの全文）を期待値のファイルと比べるテストがある（`tests/tebunko/indexer/indexer_office.Tests.ps1`。比べる関数は `tests/helpers/snapshot.ps1` の `assertSnapshot`）。期待値は `tests/testdata/snapshot/`（Office が要る形式は `office/`、要らない形式は `io/`。UTF-8（BOM なし）・LF）。違えば最初に違う行を出して落ちる。
