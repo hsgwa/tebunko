@@ -214,6 +214,23 @@ Describe "本文インデックスのファイルの作成と検索" -Tag Io {
         (searchContentIndexFiles $contentIndexFiles 0 $contentIndexFiles.Count $search.Regex -1 $search.TextRegex $search.ScanMode $null $null $null $null @{ Stop = $true }).Hits.Count | Should -Be 0
     }
 
+    It "数えるだけの間も、本文インデックスのファイル 1 件ごとに Stop を見て、立ったら次のファイルに進まずに返る" {
+        $search = newSearchRegex "単価" $true $false
+        # 自分より前の作業の欄に上限を超える件数があるので、最初のファイルから数えるだけになる（slot 1。[0]=止める印・[1]=上限・[2..3]=件数の欄・[4..5]=時間切れの欄）
+        $newGate = { [int[]]@(0, 0, 100, 0, 0, 0) }
+        $firstOnly = searchContentIndexFiles $contentIndexFiles 0 1 $search.Regex 0 $search.TextRegex $search.ScanMode $null $null $null $null $null (& $newGate) 1
+        $firstOnly.Hits.Count | Should -Be 0
+        $firstOnly.Count | Should -BeGreaterThan 0
+        $all = searchContentIndexFiles $contentIndexFiles 0 $contentIndexFiles.Count $search.Regex 0 $search.TextRegex $search.ScanMode $null $null $null $null $null (& $newGate) 1
+        $all.Count | Should -BeGreaterThan $firstOnly.Count
+        # 2 回目に読まれたときから Stop が立つ入れ物（1 件目を数え、2 件目の前で止まる）
+        $signal = [pscustomobject]@{ Reads = 0 }
+        $signal | Add-Member -MemberType ScriptProperty -Name Stop -Value { $this.Reads++; $this.Reads -ge 2 }
+        $stopped = searchContentIndexFiles $contentIndexFiles 0 $contentIndexFiles.Count $search.Regex 0 $search.TextRegex $search.ScanMode $null $null $null $null $signal (& $newGate) 1
+        $stopped.Count | Should -Be $firstOnly.Count
+        $signal.Reads | Should -Be 2
+    }
+
     It "照合のスレッドのスクリプトも、渡された Stop を見て止まる（このスレッドで直接動かす）" {
         $search = newSearchRegex "単価" $true $false
         $firstOnly = searchContentIndexFiles $contentIndexFiles 0 1 $search.Regex -1 $search.TextRegex $search.ScanMode
