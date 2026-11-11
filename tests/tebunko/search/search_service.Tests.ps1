@@ -385,7 +385,7 @@ It "語が長くなった次の要求は前の結果から絞り、読んだ内�
         }
     }
 
-    It "Export は、実行中の検索を取り消さず、溢れを残したまま書き出し、Cancel は書き出しも止める" {
+    It "Export は、実行中の検索を取り消さず、上限を超えた分も照合し直して書き出し、Cancel は書き出しも止める" {
         $ws = Join-Path $TestDrive "ws_export"
         $own = [Workspace]::new($ws)
         $out = Join-Path $ws "export_result.xlsx"
@@ -400,8 +400,8 @@ It "語が長くなった次の要求は前の結果から絞り、読んだ内�
             waitRequest $export | Should -Be $true
             $export.Outcome | Should -Be "Done"
             $export.Written | Should -Be 3
-            # 溢れ（検索の続きの置き場所）は書き出しのあとも残る
-            [System.IO.Directory]::Exists($search.OverflowDir) | Should -Be $true
+            # 書き出しは、検索の要求（上限を超えた分を照合し直す元）を変えない
+            $search.Truncated | Should -Be $true
             # 書き出しも Cancel で止まる
             $next = $service.Export((newExportRequest $search $out $shown "" "単価" "xlsx"))
             $service.Cancel()
@@ -420,7 +420,7 @@ It "語が長くなった次の要求は前の結果から絞り、読んだ内�
         $service.IsRunning() | Should -Be $false
     }
 
-    It "ワークスペースを切り替えて検索すると、前のワークスペースの溢れを次の検索の始めに消し、閉じると今のものも消す" {
+    It "ワークスペースを切り替えて検索すると、前のワークスペースの一時ファイル（出力の本文など）を次の検索の始めに消し、閉じると今のものも消す" {
         $wsA = Join-Path $TestDrive "ws_a"
         $wsB = Join-Path $TestDrive "ws_b"
         $pidA = getSearchOverflowPidDir ([Workspace]::new($wsA).TmpRoot)
@@ -429,11 +429,14 @@ It "語が長くなった次の要求は前の結果から絞り、読んだ内�
         try {
             $first = $service.Request((newSearchRequest "単価" $true @($contentIndexRoot) 1 @{} $wsA))
             waitRequest $first | Should -Be $true
-            [System.IO.Directory]::Exists($pidA) | Should -Be $true
+            # 出力の本文の一時ファイルが残っているつもり（上限を超えた分は書き溜めないので、検索は一時ファイルを作らない）
+            [void][System.IO.Directory]::CreateDirectory("$pidA\export")
+            Set-Content -LiteralPath "$pidA\export\body.tmp" -Value "x"
             $second = $service.Request((newSearchRequest "単価" $true @($contentIndexRoot) 1 @{} $wsB))
             waitRequest $second | Should -Be $true
             [System.IO.Directory]::Exists($pidA) | Should -Be $false
-            [System.IO.Directory]::Exists($pidB) | Should -Be $true
+            [void][System.IO.Directory]::CreateDirectory("$pidB\export")
+            Set-Content -LiteralPath "$pidB\export\body.tmp" -Value "x"
         } finally {
             $service.Close()
         }
@@ -478,8 +481,7 @@ It "語が長くなった次の要求は前の結果から絞り、読んだ内�
             $service.IsRunning() | Should -Be $false
             $service.LibLoad = $libLoad
             $source = @{
-                WorkDir = $ws; Truncated = $true; CountTimeout = $false; OverflowFailed = $false; Cancelled = $false
-                OverflowDir = (Join-Path $TestDrive "消えた溢れ")
+                WorkDir = $ws; Truncated = $true; CountTimeout = $true; Cancelled = $false
             }
             $shown = @([pscustomobject]@{ RelDir = ""; Book = "A社.xlsx"; Location = "Sheet1"; LineNumber = 1; Line = "単価`t105" })
             $export = $service.Export((newExportRequest $source $out $shown "" "単価" "xlsx"))
@@ -487,7 +489,7 @@ It "語が長くなった次の要求は前の結果から絞り、読んだ内�
             waitRequest $export | Should -Be $true
             $export.Outcome | Should -Be "Done"
             $export.Scope | Should -Be "HeadOnly"
-            $export.HeadOnlyReason | Should -Be "OverflowFailed"
+            $export.HeadOnlyReason | Should -Be "CountTimeout"
             $export.Written | Should -Be 1
         } finally {
             $service.Close()

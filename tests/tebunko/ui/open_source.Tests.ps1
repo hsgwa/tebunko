@@ -1695,9 +1695,7 @@ one.xlsx"; Format = $format } }
         $workspace = newTestWorkspace @{} $workDir
         $script:lastSearch = newExportSearch $workDir "りんご" $true
         $script:lastSearch.Shared.CountTimeout = $false
-        $script:lastSearch.Shared.OverflowFailed = $false
         $script:lastSearch.Shared.Cancelled = $false
-        $script:lastSearch.Shared.OverflowDir = $TestDrive
         Mock getExportHits { , $hits }
         Mock newExportTarget { @{ Path = "$TestDrive\export_overflow\o.csv"; Format = $format } }
         [System.IO.Directory]::CreateDirectory("$TestDrive\export_overflow") | Out-Null

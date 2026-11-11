@@ -11,11 +11,12 @@ BeforeAll {
     }
 
     function script:newSource {
-        # 検索の要求の代わり（invokeSearchExport が読む欄だけ）
-        param ($own, $result, [string]$overflowDir)
+        # 検索の要求の代わり（invokeSearchExport が読む欄だけ）。上限を超えた分は、この条件と本文インデックスのファイルの一覧で照合し直す
+        param ($own, $result, [string]$unused = "", [string]$word = "多い")
         return @{
-            WorkDir = $own.Dir; OverflowDir = $overflowDir
-            Truncated = [bool]$result.Truncated; CountTimeout = $false; OverflowFailed = $false; Cancelled = $false
+            WorkDir = $own.Dir; Word = $word; SimpleMatch = $true; CaseSensitive = $false; FileFilter = ""; IncludeShapes = $true; IncludeComments = $true
+            Limit = @($result.Hits).Count; ContentIndexFiles = $script:exportContentIndexFiles
+            Truncated = [bool]$result.Truncated; CountTimeout = $false; Cancelled = $false
         }
     }
 
@@ -71,6 +72,7 @@ Describe "結果のファイル出力" -Tag Io {
             newTsv "$tsvRoot\d$i\book$i.xlsx\S.tsv" $lines
         }
         $contentIndexFiles = newContentIndexFiles $tsvRoot (Join-Path $TestDrive "ex_content_index")
+        $script:exportContentIndexFiles = $contentIndexFiles
     }
 
     Context "上限を超えた分も書く" {
@@ -89,7 +91,7 @@ Describe "結果のファイル出力" -Tag Io {
             $workers = if ($Mode -eq "single") { 1 } else { 3 }
             $all = searchContentIndex "多い" $contentIndexFiles $true 0 -workerCount $workers -taskBytes 1
             $expectedHits = @($all.Hits | Where-Object { testHitFilter $_.Book $Filter })
-            $result = searchContentIndex "多い" $contentIndexFiles $true $Limit -workerCount $workers -taskBytes 1 -checkEvery 1 -overflowDir $dir
+            $result = searchContentIndex "多い" $contentIndexFiles $true $Limit -workerCount $workers -taskBytes 1 -checkEvery 1
             $shown = @($result.Hits | Where-Object { testHitFilter $_.Book $Filter })
             $out = Join-Path $own.Dir "out.$Format"
             $request = newExportRequest (newSource $own $result $dir) $out $shown $Filter "多い" $Format
@@ -108,7 +110,7 @@ Describe "結果のファイル出力" -Tag Io {
         It "<Format>: ファイルの先頭は BOM 付きの UTF-8 で、行の区切りは CRLF" -ForEach @(@{ Format = "csv" }, @{ Format = "tsv" }) {
             $own = newExportWorkspace "w-bom-$Format"
             $dir = getSearchOverflowDir $own.TmpRoot 1
-            $result = searchContentIndex "多い" $contentIndexFiles $true 3 -workerCount 1 -overflowDir $dir
+            $result = searchContentIndex "多い" $contentIndexFiles $true 3 -workerCount 1
             $out = Join-Path $own.Dir "out.$Format"
             $request = newExportRequest (newSource $own $result $dir) $out @($result.Hits) "" "多い" $Format
             invokeSearchExport $request
@@ -120,14 +122,13 @@ Describe "結果のファイル出力" -Tag Io {
     }
 
     Context "先頭だけを書く" {
-        It "<Reason>: 溢れは書かず、表の分だけを出力して理由を残す" -ForEach @(
+        It "<Reason>: 照合し直さず、表の分だけを出力して理由を残す" -ForEach @(
             @{ Reason = "CountTimeout" }
-            @{ Reason = "OverflowFailed" }
             @{ Reason = "Cancelled" }
         ) {
             $own = newExportWorkspace "w-head-$Reason"
             $dir = getSearchOverflowDir $own.TmpRoot 1
-            $result = searchContentIndex "多い" $contentIndexFiles $true 3 -workerCount 1 -overflowDir $dir
+            $result = searchContentIndex "多い" $contentIndexFiles $true 3 -workerCount 1
             $source = newSource $own $result $dir
             $source[$Reason] = $true
             $out = Join-Path $own.Dir "out.csv"
@@ -147,7 +148,7 @@ Describe "結果のファイル出力" -Tag Io {
         BeforeEach {
             $own = newExportWorkspace "w-stop-$([guid]::NewGuid().ToString('N'))"
             $dir = getSearchOverflowDir $own.TmpRoot 1
-            $result = searchContentIndex "多い" $contentIndexFiles $true 3 -workerCount 1 -overflowDir $dir
+            $result = searchContentIndex "多い" $contentIndexFiles $true 3 -workerCount 1
             $out = Join-Path $own.Dir "out.csv"
             [System.IO.File]::WriteAllText($out, "前の結果", ${utf8Bom})
         }
@@ -275,15 +276,45 @@ Describe "結果のファイル出力" -Tag Io {
             [System.IO.File]::ReadAllText($out, [System.Text.Encoding]::UTF8) | Should -Be "前の結果"
         }
 
-        It "溢れの置き場所が消えているときは、表の分だけを書き、理由は OverflowFailed" {
-            $source = newSource $own $result ""
+        It "出力のために照合し直す間に正規表現の照合が時間切れになったら、表の分だけを書き、理由は ExportTimeout" {
+            $source = newSource $own $result
             $source.Truncated = $true
             $request = newExportRequest $source $out @($result.Hits) "" "多い" "csv"
+            Mock searchContentIndex { throw "正規表現の照合に時間がかかりすぎるため、検索を中止しました。正規表現を見直してください。" }
             invokeSearchExport $request
             $request.Outcome | Should -Be "Done"
             $request.Scope | Should -Be "HeadOnly"
-            $request.HeadOnlyReason | Should -Be "OverflowFailed"
+            $request.HeadOnlyReason | Should -Be "ExportTimeout"
             $request.Written | Should -Be 3
+            assertSameRows (readExportRows $out "csv") (getReferenceRows "csv" $result.Hits)
+        }
+
+        It "照合し直す間に本文インデックスのファイルが変わっていたら、IndexChanged を立てる（変わっていなければ立てない）" -ForEach @(
+            @{ Change = $false }
+            @{ Change = $true }
+        ) {
+            $files = @(foreach ($f in $contentIndexFiles) { $f.Clone() })
+            $source = newSource $own $result
+            $source.Truncated = $true
+            if ($Change) {
+                $files[0].Size = [long]$files[0].Size + 1
+            }
+            $source.ContentIndexFiles = $files
+            $request = newExportRequest $source $out @($result.Hits) "" "多い" "csv"
+            invokeSearchExport $request
+            $request.Outcome | Should -Be "Done"
+            $request.IndexChanged | Should -Be $Change
+        }
+
+        It "照合し直す間に中止されたら、前のファイルを残す" {
+            $source = newSource $own $result
+            $source.Truncated = $true
+            $request = newExportRequest $source $out @($result.Hits) "" "多い" "csv"
+            $script:exportRequest = $request
+            Mock searchContentIndex { $script:exportRequest.Stop = $true; return @{ Hits = @(); HitTotal = 0 } }
+            invokeSearchExport $request
+            $request.Outcome | Should -Be "Cancelled"
+            [System.IO.File]::ReadAllText($out, [System.Text.Encoding]::UTF8) | Should -Be "前の結果"
         }
 
         It "xlsx: ほかのアプリが開いているときは Locked にして、前のファイルを残す" {
@@ -357,16 +388,72 @@ Describe "結果のファイル出力" -Tag Io {
     }
 }
 
+Describe "上限を超えた分の照合し直し（writeSearchExportOverflow・testSearchExportIndexChanged・restartSearchExportHeadOnly）" -Tag Io {
+    BeforeAll {
+        $tsvRoot = Join-Path $TestDrive "ov_tsv"
+        for ($i = 0; $i -lt 4; $i++) { newTsv "$tsvRoot\d$i\book$i.xlsx\S.tsv" @("多い $i", "x", "多い 多い") }
+        $files = newContentIndexFiles $tsvRoot (Join-Path $TestDrive "ov_content_index")
+        $script:exportContentIndexFiles = $files
+    }
+
+    It "testSearchExportIndexChanged: 同じなら偽、大きさ・更新日時が違う・無くなったら真" -ForEach @(
+        @{ Name = "同じ"; Change = "none"; Expected = $false }
+        @{ Name = "大きさが違う"; Change = "size"; Expected = $true }
+        @{ Name = "更新日時が違う"; Change = "ticks"; Expected = $true }
+        @{ Name = "無くなった"; Change = "path"; Expected = $true }
+    ) {
+        $list = @(foreach ($f in $files) { $f.Clone() })
+        switch ($Change) {
+            "size" { $list[0].Size = [long]$list[0].Size + 1 }
+            "ticks" { $list[0].Ticks = [long]$list[0].Ticks + 1 }
+            "path" { $list[0].Path = "$($list[0].Path).無い" }
+        }
+        testSearchExportIndexChanged $list | Should -Be $Expected
+    }
+
+    It "writeSearchExportOverflow: 表の分（先頭から Limit 件）を飛ばして残りを書く" {
+        $own = [Workspace]::new((Join-Path $TestDrive "w-ov"))
+        [void][System.IO.Directory]::CreateDirectory($own.Dir)
+        $all = (searchContentIndex "多い" $files $true 0 -workerCount 1).Hits
+        $result = searchContentIndex "多い" $files $true 5 -workerCount 1
+        $out = Join-Path $own.Dir "o.csv"
+        $request = newExportRequest (newSource $own $result) $out @($result.Hits) "" "多い" "csv"
+        $state = newSearchExportSink "csv" (Join-Path $own.Dir "b.tmp") "$out.new"
+        try {
+            writeSearchExportOverflow $request $state | Should -BeTrue
+            $state.Count | Should -Be ($all.Count - 5)
+            $state.TimedOut | Should -BeFalse
+        } finally {
+            abortSearchExportSink $state
+        }
+    }
+
+    It "restartSearchExportHeadOnly: 書き直した書き手に表の分だけが入り、理由は ExportTimeout" {
+        $own = [Workspace]::new((Join-Path $TestDrive "w-restart"))
+        [void][System.IO.Directory]::CreateDirectory($own.Dir)
+        $result = searchContentIndex "多い" $files $true 3 -workerCount 1
+        $out = Join-Path $own.Dir "o.csv"
+        $request = newExportRequest (newSource $own $result) $out @($result.Hits) "" "多い" "csv"
+        $body = Join-Path $own.Dir "b.tmp"
+        $old = newSearchExportSink "csv" $body "$out.new"
+        $fresh = restartSearchExportHeadOnly $request $old $body "$out.new"
+        try {
+            $fresh.Count | Should -Be 3
+            $request.HeadOnlyReason | Should -Be "ExportTimeout"
+            $request.Scope | Should -Be "HeadOnly"
+        } finally {
+            abortSearchExportSink $fresh
+        }
+    }
+}
+
 Describe "getSearchExportScope" -Tag Unit {
     It "<Name>" -ForEach @(
         @{ Name = "上限を超えていない"; Source = @{ Truncated = $false }; Scope = "All"; Reason = "" }
-        @{ Name = "上限を超え、溢れが書ける"; Source = @{ Truncated = $true; CountTimeout = $false; OverflowFailed = $false; Cancelled = $false; OverflowDir = $env:TEMP }; Scope = "Overflow"; Reason = "" }
-        @{ Name = "上限を超え、溢れの置き場所が消えている"; Source = @{ Truncated = $true; CountTimeout = $false; OverflowFailed = $false; Cancelled = $false; OverflowDir = "$env:TEMP\tebunko-無い-dir" }; Scope = "HeadOnly"; Reason = "OverflowFailed" }
-        @{ Name = "上限を超え、溢れの置き場所が空"; Source = @{ Truncated = $true; CountTimeout = $false; OverflowFailed = $false; Cancelled = $false; OverflowDir = "" }; Scope = "HeadOnly"; Reason = "OverflowFailed" }
-        @{ Name = "総数の時間切れ"; Source = @{ Truncated = $true; CountTimeout = $true; OverflowFailed = $false; Cancelled = $false }; Scope = "HeadOnly"; Reason = "CountTimeout" }
-        @{ Name = "溢れを書けなかった"; Source = @{ Truncated = $true; CountTimeout = $false; OverflowFailed = $true; Cancelled = $false }; Scope = "HeadOnly"; Reason = "OverflowFailed" }
-        @{ Name = "検索を止めた"; Source = @{ Truncated = $true; CountTimeout = $false; OverflowFailed = $false; Cancelled = $true }; Scope = "HeadOnly"; Reason = "Cancelled" }
-        @{ Name = "理由が重なったら時間切れを先に"; Source = @{ Truncated = $true; CountTimeout = $true; OverflowFailed = $true; Cancelled = $true }; Scope = "HeadOnly"; Reason = "CountTimeout" }
+        @{ Name = "上限を超え、照合し直して書ける"; Source = @{ Truncated = $true; CountTimeout = $false; Cancelled = $false }; Scope = "Overflow"; Reason = "" }
+        @{ Name = "総数の時間切れ"; Source = @{ Truncated = $true; CountTimeout = $true; Cancelled = $false }; Scope = "HeadOnly"; Reason = "CountTimeout" }
+        @{ Name = "検索を止めた"; Source = @{ Truncated = $true; CountTimeout = $false; Cancelled = $true }; Scope = "HeadOnly"; Reason = "Cancelled" }
+        @{ Name = "理由が重なったら時間切れを先に"; Source = @{ Truncated = $true; CountTimeout = $true; Cancelled = $true }; Scope = "HeadOnly"; Reason = "CountTimeout" }
     ) {
         $actual = getSearchExportScope $Source
         $actual.Scope | Should -Be $Scope

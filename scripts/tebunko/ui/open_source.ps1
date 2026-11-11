@@ -1066,7 +1066,7 @@ function completeExport {
             $script:lastExportFormat = getLastExportFormat $script:lastExportFormat $request.Format
             updateExportButton
             $written = [int]$request.Written
-            setStatus (getExportDoneText $name $request.Scope $written $job.Filtered $request.HeadOnlyReason $job.Sorted ([int]$request.DroppedRows) ([int]$request.TruncatedCells))
+            setStatus (getExportDoneText $name $request.Scope $written $job.Filtered $request.HeadOnlyReason $job.Sorted ([int]$request.DroppedRows) ([int]$request.TruncatedCells) ([bool]$request.IndexChanged))
             if (!(openExportedFile $request.OutputPath)) {
                 setStatus (getExportOpenFailedText $name $written $request.OutputPath)
             }

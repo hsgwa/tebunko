@@ -289,7 +289,6 @@ BeforeAll {
         @{ File = "tebunko\search\search_export.ps1"; Owner = "removeSearchExportTemp"; Calls = @("Delete"); Reason = "検索結果の出力の一時ファイルを消す（作業フォルダ）" }
         @{ File = "tebunko\search\search_export.ps1"; Owner = "testSearchExportTarget"; Calls = @("FileAccess.ReadWrite", "Open"); Reason = "出力先に書けるかを、開くだけで確かめる（書き込まない。出力先は利用者が選んだ場所）" }
         @{ File = "tebunko\search\search_export.ps1"; Owner = "newSearchExportSink"; Calls = @("FileAccess.Write", "FileMode.Create", "FileStream::new", "StreamWriter::new"); Reason = "検索結果の出力を、一時ファイルへ書き出す口を開く（書き先は出力先の隣か作業フォルダの一時ファイル）" }
-        @{ File = "tebunko\search\search_overflow.ps1"; Owner = "newSearchOverflowWriter"; Calls = @("FileAccess.Write", "FileMode.Create", "FileStream::new", "StreamWriter::new"); Reason = "検索結果の溢れを作業フォルダへ書く（根は TmpRoot の search_overflow）" }
         @{ File = "tebunko\ui\open_source.ps1"; Owner = "openInExcel"; Calls = @("Open"); Reason = "利用者が選んだ開き方で元を開く（tebunko は書かない。「通常」で開いたあとの保存は利用者の操作）" }
         @{ File = "tebunko\ui\settings\settings.ps1"; Owner = "updateSearchLimitView"; Calls = @("IsReadOnly ="); Reason = "画面の入力欄の IsReadOnly（ファイルではない）" }
         @{ File = "tebunko\ui\startup_error.ps1"; Owner = "writeStartupErrorFile"; Calls = @("Add-Content", "Move-Item"); Reason = "起動できなかったときのエラーの記録を、ツールのフォルダへ書く" }
