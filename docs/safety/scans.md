@@ -16,7 +16,7 @@ GitHub Release の配布 zip（`tebunko-<タグ>.zip`）は、`v` で始まる�
 | `tebunko.cat`・`SHA256SUMS.txt` | リリース（zip の横） | 改ざんの確認用（`tools/new_release_files.ps1` が作る） |
 | `sbom.cdx.json` | リリース（zip の横） | 部品表（CycloneDX 1.6）。版・`serialNumber`・`timestamp` と、zip に入る全ファイルのパス・SHA-256 を載せる（`tools/new_sbom.ps1` が、配布物を作るたびに zip の中身から作る。リポジトリの `sbom.cdx.json` は雛形） |
 
-**カタログ（証明書は不要）**: Windows PowerShell 5.1 標準の `New-FileCatalog` で、`scripts/` 配下すべてと `tebunko.bat` の SHA256 を 1 つのカタログにまとめてある。受け取った側は、リリースから `tebunko.cat` もダウンロードし、zip を展開したフォルダで次を実行すれば、配布時点から 1 バイトも変わっていないことを確かめられる。
+**カタログ（証明書は不要）**: Windows PowerShell 5.1 標準の `New-FileCatalog` で、`scripts/` 配下すべてと `tebunko.bat` の SHA256 を 1 つのカタログにまとめてある。受け取った側は、リリースから `tebunko.cat` もダウンロードし、zip を展開したフォルダで次を実行すれば、カタログに載せた時点から 1 バイトも変わっていないことを確かめられる。ただし、カタログを zip と同じリリースから取ると、リリースごと差し替えられたときも `Valid` になる。カタログ自体にも来歴の署名を付けているので、下の「来歴の署名」の確認と合わせて使う。
 
 ```powershell
 Test-FileCatalog -Path .\scripts, .\tebunko.bat -CatalogFilePath <ダウンロードした tebunko.cat> -Detailed
@@ -47,8 +47,12 @@ Test-FileCatalog -Path .\scripts, .\tebunko.bat -CatalogFilePath <ダウンロ�
 **来歴の署名**: 配布 zip には、ビルドの来歴（どのコミットから、どのワークフローで作ったか）の署名を付ける（GitHub の Artifact Attestations。Sigstore の証明書で署名し、コードサイニング証明書は要らない）。受け取った側は [GitHub CLI](https://cli.github.com/) で、zip が本リポジトリのワークフローで作られ、その後変わっていないことを確かめられる。
 
 ```powershell
-gh attestation verify .\tebunko-v0.1.0.zip -R hsgwa/tebunko
+gh attestation verify .\tebunko-v0.1.0.zip -R hsgwa/tebunko --signer-workflow hsgwa/tebunko/.github/workflows/release.yml --source-ref refs/tags/v0.1.0
 ```
+
+`--signer-workflow` と `--source-ref` は、証明を出したワークフローとタグを縛る。付けないと、本リポジトリの別のブランチのワークフローが出した証明でも通る見込みのため、必ず付ける（オプションが無いときは GitHub CLI を更新する）。
+
+カタログ（`tebunko.cat`）・ハッシュ一覧（`SHA256SUMS.txt`）・部品表（`sbom.cdx.json`）にも、同じワークフローで来歴の署名を付ける。3 つで 1 つの bundle（`tebunko-<タグ>.release-files.sigstore.json`）にまとめてリリースに載せる。確かめ方は zip と同じ（ファイル名だけ変える）。
 
 署名の bundle（`tebunko-<タグ>.zip.sigstore.json`）もリリースに載せている。GitHub に問い合わせずに確かめるときは `--bundle .\tebunko-v0.1.0.zip.sigstore.json` を付ける。zip 自体の SHA256 はリリースの説明に書いてある（[複数エンジンでの検査: VirusTotal（外部へファイルを送信する）](#複数エンジンでの検査-virustotal外部へファイルを送信する) の照会に使える）。インストーラー（`tebunko-setup-<タグ>.exe`）にも同じく来歴の署名を付け、bundle（`tebunko-setup-<タグ>.exe.sigstore.json`）と SHA256 をリリースに載せる。確かめ方は zip と同じ（`gh attestation verify .\tebunko-setup-<タグ>.exe -R hsgwa/tebunko`）。
 
