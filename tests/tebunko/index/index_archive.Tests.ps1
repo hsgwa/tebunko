@@ -851,7 +851,7 @@ Describe "importIndex" -Tag Io {
         Test-Path -LiteralPath (Join-Path $wsB.PublishDir "keep_previous.txt") | Should -Be $false
     }
 
-    It "戻す（moveDirectoryUnder が失敗）: <label>。退避を戻せなくても previous を消さず、文言に残した場所が入り、印を置く" -TestCases @(
+    It "戻す（moveDirectoryUnder が失敗）: <label>。退避を戻せなくても previous を消さず、文言に残した場所が入り、印を置く（throwSwapRestoreFailed）" -TestCases @(
         @{ label = "経路 A（入れ替えが例外）・戻しが偽"; pathA = $true; restoreThrows = $false }
         @{ label = "経路 A（入れ替えが例外）・戻しが例外"; pathA = $true; restoreThrows = $true }
         @{ label = "経路 B（取り込み一覧が失敗）・戻しが偽"; pathA = $false; restoreThrows = $false }
@@ -900,7 +900,7 @@ Describe "importIndex" -Tag Io {
         @(Get-ChildItem -LiteralPath (Join-Path $wsB.PublishDir "import") -Force | ForEach-Object { $_.Name }) | Should -Be @("previous")
     }
 
-    It "戻す（TargetDir を消せない）: 戻しの前の削除が失敗しても previous が残る" {
+    It "戻す（TargetDir を消せない）: 戻しの前の削除が失敗しても previous が残る（removeImportWorkDirKeeping が previous 以外だけ消す）" {
         $fixtureA = newIndexFixture "$TestDrive\keep_rm_a" "営業" "C:\共有\営業部"
         $dest = "$TestDrive\keep_rm.zip"
         exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
@@ -921,7 +921,7 @@ Describe "importIndex" -Tag Io {
         @(Get-ChildItem -LiteralPath (Join-Path $wsB.PublishDir "import") -Force | ForEach-Object { $_.Name }) | Should -Be @("previous")
     }
 
-    It "取り込みの始め: publish\<PID> に keep_previous.txt があれば、何も消さずに throw し、文言に残した場所が入る" {
+    It "取り込みの始め: publish\<PID> に keep_previous.txt があれば、何も消さずに throw し、文言に残した場所が入る（assertNoKeptPrevious）" {
         $fixtureA = newIndexFixture "$TestDrive\keep_start_a" "営業" "C:\共有\営業部"
         $dest = "$TestDrive\keep_start.zip"
         exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
