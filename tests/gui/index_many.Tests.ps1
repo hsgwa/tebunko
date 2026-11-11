@@ -210,7 +210,7 @@ Describe "S13 インデックスが <count> 件・ヒット約 1 万件のとき
                 param ($actionDone)
                 $actionDone -and [string]$S.Window.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern).Current.WindowVisualState -eq "Normal"
             }
-            closeGui $S
+            closeGui $S -Timeout 120   # 最小化から戻した直後は、500 件の再描画で閉じるまで長くかかることがある
             Write-Host ("S13 B（{0} 件）: 一番長い止まり {1} 秒（{2} 秒・問い合わせ {3} 回）" -f $script:indexCount, $stall.Longest, $stall.Total, $stall.Queries)
             $stall.Longest | Should -BeLessThan $script:stallLimits.B
         }
