@@ -94,7 +94,7 @@ function newSettings {
         indexExtensionExcludesIngested = [ordered]@{}  # 前回取り込んだときの indexExtensionExcludes（インデクサだけが書く。インデックス名 → 取り込まなかった拡張子の配列。名前の項目が無ければ前回は全部取り込んだ。［要更新］の差の元）
         notepadTextExtensions  = @()  # 既定のアプリの代わりにエディタで開くテキストの拡張子（${textOpenExtensions} の中から。既定は空。readTextExtensionSettings）
         textEditorPath         = ""   # 「エディタで開く」に使うプログラムのパス（空はメモ帳。［設定］の［変更…］で選ぶ（writeTextEditorPath）か、設定ファイルを手で直す。testTextEditorPath を通ったものだけ使う）
-        ingestThreads      = 0        # Office を使わずに読むファイル（.docx・.pptx など）の読み取りのスレッドの数（1～4。0 はコア数から決める。getIngestWorkerCount）。Excel・Word・PowerPoint は種類ごとに 1 つ
+        ingestThreads      = 0        # Office を使わずに読むファイル（.docx・.pptx など）の読み取りのスレッドの数（1～8。0 はコアの数より 1 少ない数から決める（1～8）。getIngestWorkerCount）。Excel・Word・PowerPoint は種類ごとに 1 つ
     }
 }
 
