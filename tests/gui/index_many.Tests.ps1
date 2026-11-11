@@ -225,7 +225,7 @@ Describe "S13 インデックスが <count> 件・ヒット約 1 万件のとき
             clickGui $S $S.Window "SearchButton" "検索"
             $hits = $script:hitTotal.ToString("N0")
             $searchClock = [Diagnostics.Stopwatch]::StartNew()
-            # 要約欄の文が 120 秒動かなくなったら止まったとみなす（全体は 600 秒まで）。30 秒ごとに文を記録し、遅いのか止まったのかを見分けられるようにする
+            # 要約欄の文が 300 秒動かなくなったら止まったとみなす（全体は 900 秒まで。遅い CI の機械では 120 秒動かないことがあった）。30 秒ごとに文を記録し、遅いのか止まったのかを見分けられるようにする
             $lastText = ""
             $lastChange = [Diagnostics.Stopwatch]::StartNew()
             $lastLog = -30
@@ -235,7 +235,7 @@ Describe "S13 インデックスが <count> 件・ヒット約 1 万件のとき
                 if ($text -ne $lastText) { $lastText = $text; $lastChange.Restart() }
                 $now = $searchClock.Elapsed.TotalSeconds
                 if ($now - $lastLog -ge 30) { $lastLog = $now; Write-Host ("S13 D 検索中 {0} 秒: {1}" -f [Math]::Round($now), $text) }
-                if ($lastChange.Elapsed.TotalSeconds -ge 120 -or $now -ge 600) {
+                if ($lastChange.Elapsed.TotalSeconds -ge 300 -or $now -ge 900) {
                     throw ("[S13D-{0}・手順: 起動] 一致 {1} 件 が見つからなかった（{2} 秒たった。要約欄は {3} 秒動かず、最後の文: 「{4}」）" -f $script:indexCount, $hits, [Math]::Round($now), [Math]::Round($lastChange.Elapsed.TotalSeconds), $text)
                 }
                 Start-Sleep -Milliseconds 500
