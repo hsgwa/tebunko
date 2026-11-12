@@ -11,6 +11,17 @@ function testStatusRowFailed {
     return ($state -eq ${stateFailed}) -or ($state -eq ${stateNew} -and [string]$row.エラー -ne "")
 }
 
+class IndexFileEntry {
+    # getIndexFileEntries の 1 行（プロパティだけ。メソッドは持たない）。
+    # 裏の Runspace で作って画面の Runspace で読む。PS 5.1 の class は Runspace ごとに別の型になるため、型名や -is で判定せず、プロパティの名前でだけ読む
+    [string]$RelPath
+    [string]$UpdatedText
+    [string]$Kind
+    [string]$StateText
+    [string]$Reason
+    [string]$SourcePath
+}
+
 function getIndexFileEntries {
     # あるインデックスに取り込んだファイルの一覧（取り込み一覧のそのインデックスの行）を、画面の表に出す形で返す。画面の裏の仕事で動く（数万行を読むため）。
     # 戻り値: @{ Rows（@{ RelPath（インデックス名を除いたフォルダからの相対パス）; UpdatedText; Kind（Done / Failed / Pending）; StateText; Reason; SourcePath（取り込み一覧に記録した元のフォルダと相対パスから組んだ元のファイルのパス。フォルダの記録が無ければ空）} の配列。相対パスの順）; Done; Failed; Pending }
@@ -36,19 +47,35 @@ function getIndexFileEntries {
             break
         }
     }
+    $stateLabels = @{ Done = [string]$labels.Done; Failed = [string]$labels.Failed; Pending = [string]$labels.Pending }
+    $noReason = [string]$labels.NoReason
     foreach ($row in $status.Rows.Values) {
         $relPath = [string]$row.相対パス
         if (!$relPath.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
             continue
         }
-        $kind = if (testStatusRowFailed $row) { "Failed" } elseif ($row.状態 -eq ${stateDone}) { "Done" } else { "Pending" }
+        # 数万行を回すため、関数の呼び出しを避けて testStatusRowFailed と同じ判定をここに書く（readStatusFile と同じ理由）
+        $state = [string]$row.状態
+        $errorText = [string]$row.エラー
+        $updated = [string]$row.更新日時
+        if (($state -eq ${stateFailed}) -or ($state -eq ${stateNew} -and $errorText -ne "")) {
+            $kind = "Failed"
+        } elseif ($state -eq ${stateDone}) {
+            $kind = "Done"
+        } else {
+            $kind = "Pending"
+        }
         $result[$kind]++
         $rest = $relPath.Substring($prefix.Length)
         $keys.Add($rest)
-        $items.Add([pscustomobject]@{
-            RelPath = $rest; UpdatedText = $(if ($row.更新日時.Length -ge 16) { $row.更新日時.Substring(0, 16) } else { [string]$row.更新日時 }); Kind = $kind; StateText = [string]$labels[$kind]; SourcePath = $(if ($base) { $base + "\" + $rest } else { "" })
-            Reason = $(if ($kind -ne "Failed") { "" } elseif ($row.エラー) { [string]$row.エラー } else { [string]$labels.NoReason })
-        })
+        $entry = [IndexFileEntry]::new()
+        $entry.RelPath = $rest
+        $entry.UpdatedText = if ($updated.Length -ge 16) { $updated.Substring(0, 16) } else { $updated }
+        $entry.Kind = $kind
+        $entry.StateText = $stateLabels[$kind]
+        $entry.Reason = if ($kind -ne "Failed") { "" } elseif ($errorText -ne "") { $errorText } else { $noReason }
+        $entry.SourcePath = if ($base) { $base + "\" + $rest } else { "" }
+        $items.Add($entry)
     }
     # 型を明示する（引数の型が曖昧だと、並べ替えが別の（並べ替えた結果を返さない）呼び方になる）
     [string[]]$keyArray = $keys.ToArray()
