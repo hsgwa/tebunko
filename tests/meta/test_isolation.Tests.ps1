@@ -34,6 +34,14 @@ Describe "テストの既定のワークスペース" -Tag Meta {
         { assertNotRealWorkspace $workspace.Dir } | Should -Not -Throw
     }
 
+    It "load.ps1 は initWorkspace のあとで assertWorkspaceIsolated も呼ぶ" {
+        $text = [System.IO.File]::ReadAllText("$here\helpers\load.ps1")
+        $init = $text.IndexOf("`ninitWorkspace")
+        $assert = $text.IndexOf("assertWorkspaceIsolated")
+        $init | Should -BeGreaterThan -1
+        $assert | Should -BeGreaterThan $init
+    }
+
     It "load.ps1 は、lib.ps1 を読む前に差し替え、initWorkspace のあとに利用者の既定のワークスペースでないことを確かめる" {
         $text = [System.IO.File]::ReadAllText("$here\helpers\load.ps1")
         $set = $text.IndexOf('$env:TEBUNKO_DEFAULT_WORKSPACE =')
