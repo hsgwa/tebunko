@@ -1559,8 +1559,12 @@ Describe "getIngestWorkerCount" -Tag Unit {
         getIngestWorkerCount 0 10 3 8 | Should -Be 0
         getIngestWorkerCount 2 10 3 8 | Should -Be 2
         getIngestWorkerCount -1 10 3 8 | Should -Be 3
-        getIngestWorkerCount -1 10 9 8 | Should -Be 4
-        getIngestWorkerCount -1 10 0 8 | Should -Be 4
+        getIngestWorkerCount -1 20 6 16 | Should -Be 6
+        getIngestWorkerCount -1 20 9 16 | Should -Be 8
+        getIngestWorkerCount -1 20 0 16 | Should -Be 8
+        getIngestWorkerCount -1 20 0 12 | Should -Be 8
+        getIngestWorkerCount -1 20 0 8 | Should -Be 7
+        getIngestWorkerCount -1 3 0 16 | Should -Be 3
         getIngestWorkerCount -1 10 0 2 | Should -Be 1
         getIngestWorkerCount -1 2 0 8 | Should -Be 2
         getIngestWorkerCount 3 0 0 8 | Should -Be 0
