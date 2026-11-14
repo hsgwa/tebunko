@@ -58,6 +58,25 @@ scan 'HKLM','HKCU','HKEY_','HKCR','\bHKU\b','HKCC','Set-ItemProperty','New-ItemP
 - **検査**: 包んだ結果の全体を、構文木で確かめる。ScriptBlock の Create・`Invoke-Expression`・`iex` の呼び出しが 1 件だけで、ファイルの最後の文であり、その文の全文が決めた 1 行と一字一句同じであること（同じ文に別の式を足したら止まる）。その文を除いた全体（頭・尾・本体の文字列）に、禁止の語（`tools/script_rules.ps1` の一覧の全分類）が無いこと。1 つでも外れると、包む道具が何も書き出さずに止まる（`tests/tools/single_script_guard.Tests.ps1` が、足した Create・`iex`・引数の違い・2 行目・本体の中の語を止めることを表で確かめる）。
 - **実機で確かめた結果**: Windows 11 の Microsoft Defender ウイルス対策（既定の設定。リアルタイム保護・振る舞い監視・AMSI が有効）で、この形を含む起動を動かして確かめた（下の「[ウイルス対策ソフト・EDR での確かめ](#ウイルス対策ソフトedr-での確かめ)」）。単一 .ps1 版の起動とインデックス作成で、Defender の検知・隔離は出なかった。PowerShell 自身が残す 4104（警告レベル）の自動の記録は、この行の `[scriptblock]::Create` を含めて出る（件数は下の表の下のとおり）。Microsoft Defender for Endpoint（EDR 本体）では未確認。検知されたら、方式を決め直す。
 
+## 文字の組み立て（[char]0xNNNN）と難読化の疑い
+
+単一 .ps1 版に `[char]0xNNNN` の形が並ぶのを見て、「文字を組み立てて命令の語を隠している（難読化）のでは」と疑う審査があり得る。ここで実態を示す。
+
+- **日本語は ASCII に書き換えていない。** 日本語の本体は、包む前の平文のまま、ヒアストリング（データ）に入っている（[単一 .ps1 の包み](../design/structure/single-script.md)）。`\uXXXX` の形は使っていない。使っているのは `[char]0xNNNN` だけである。
+- **数と中身**（2026-11-09 時点の `scripts/` の `[char]0x` を含む行。16 か所）:
+
+| 用途 | 文字 | か所 | 場所 |
+|---|---|---|---|
+| 表示の記号 | `…`（U+2026）・`↵`（U+21B5）・`▾▸▼`（U+25BE・U+25B8・U+25BC） | 8 | `ui/search/result_types.ps1` 4・`ui/index/text_ext_view.ps1` 3・`shared/office/xlsx_writer.ps1` 1 |
+| 区切りの制御文字 | U+001C〜U+001F・U+2028（TSV のセル内改行） | 6 | `index/content_index_format.ps1` 3・`shared/core/text.ps1` 1・`search/content_index_search.ps1` 1・`ui/search/result_types.ps1` 1 |
+| BOM（U+FEFF）の除去 | 設定・目録の JSON の先頭 | 1 | `index/index_archive.ps1` |
+| 置換文字（U+FFFD） | 使えない文字の置き換え | 1 | `shared/core/text.ps1` |
+
+  `[char]$x` のように変数を `[char]` に変換する行（`scripts/` に約 58 行）は、文字コードの直書きの組み立てではないので、上の数に入れない。数は日付の時点のもので、増減しても用途は変わらない。
+- **難読化とみなされにくい理由**: 組み立てているのは表示の記号と区切りの制御文字だけで、命令・コマンド名・URL などの語は文字を並べて作らない。Base64・`-EncodedCommand`・文字列の連結で語を作る形・`Invoke-Expression` は無く、`[scriptblock]::Create` も末尾の 1 行だけである（[文字列を式として実行（1）の例外](#文字列を式として実行1の例外)）。本体は禁止の語の検査（`tools/script_rules.ps1`）を通ったものを、そのまま平文で包む。
+- **確かめた範囲**: Microsoft Defender ウイルス対策では、`[char]0xNNNN` を含む単一 .ps1 版の起動とインデックス作成で、検知 0 → 0 だった（[ウイルス対策ソフト・EDR での確かめ](#ウイルス対策ソフトedr-での確かめ)の場面 4。4104 の 350 件は PowerShell の自動の記録で、検知ではない）。
+- **未確認の範囲**: Microsoft Defender for Endpoint などの EDR 本体と、他社製のウイルス対策ソフトでは未確認。検知されたら、方式を決め直す。許可の求め方は[組織が許可するとき](#組織が許可するとき)にある。
+
 ## Office ファイルを開くときの設定
 
 インデックス作成のために Excel・Word・PowerPoint を COM で操作するが、アプリを起動したときに次の設定を行う（`shared/office/office_app.ps1:79-96`）。`tests/meta/safety.Tests.ps1` の「Office ファイルを安全に開くこと」がこれを確かめる。**利用者の PowerPoint には接続しない**（1 つのセッションに 1 つのプロセスしか持てず、接続すると下の設定を利用者のアプリまで書き換えてしまうため）。起動する前に自分のセッションに `POWERPNT` が無いかを確かめ、あれば設定を行わずに例外にする（[Office アプリ（Excel・Word・PowerPoint）の管理](../design/indexing/office-apps.md#office-アプリexcelwordpowerpointの管理)「PowerPoint」）。
