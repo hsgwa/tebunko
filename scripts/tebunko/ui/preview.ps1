@@ -60,14 +60,23 @@ function showDetail {
     $count = $row.LineNumber - $first + 1 + ${previewFirstLines}
     startJob {
         param ($id, $path, $book, $location, $first, $count, $cache, $marks)
-        $result = readContentIndexLinesAcrossParts $path $book $location $first $count $cache $marks
-        @{ Id = $id; Context = @($result.Rows); End = $result.End; Marks = $result.Marks }
+        try {
+            $result = readContentIndexLinesAcrossParts $path $book $location $first $count $cache $marks
+            @{ Id = $id; Context = @($result.Rows); End = $result.End; Marks = $result.Marks }
+        } catch {
+            # 失敗も番号つきで返す（古い要求の失敗で、今の要求の途中に選択行だけの表が出ないように。startReadMore と同じ形）
+            @{ Id = $id; Failed = $true }
+        }
     } @($script:previewRequest, [System.IO.Path]::Combine($row.Root, $row.RelPath), $row.Book, $row.Location, $first, $count, $script:tsvCache, $script:previewMarks) {
         param ($output, $errorText)
-        if ($output -and $output.Count -gt 0 -and $output[0].Id -eq $script:previewRequest) {
+        $hasOutput = $output -and $output.Count -gt 0
+        if ($hasOutput -and $output[0].Id -ne $script:previewRequest) {
+            return
+        }
+        if ($hasOutput -and -not $output[0].Failed) {
             $script:previewMarks = $output[0].Marks
             applyDetail $script:previewRow $output[0].Context $output[0].Marks $output[0].End
-        } elseif ($errorText -and $null -ne $script:previewRow) {
+        } elseif (($hasOutput -or $errorText) -and $null -ne $script:previewRow) {
             # 読めなければ選択行だけを出す（読み足しもしない）
             applyDetail $script:previewRow @([pscustomobject]@{ LineNumber = $script:previewRow.LineNumber; Line = $script:previewRow.Line }) $null $true -noMore
         }
