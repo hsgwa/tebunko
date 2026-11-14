@@ -55,7 +55,6 @@ BeforeAll {
         @{ Key = 'pdf_file.ps1:readPdfPages:$message'; Reason = "読み取りで投げた PDF の文言をそのまま投げ直す（元の文言は除外の一覧の Pattern で扱う）" }
         @{ Key = 'workspace_mover.ps1:WorkspaceMover.MoveEntry:$original'; Reason = "捕まえた例外を、後片付けのあとで投げ直す（元の文言は、それぞれの投げ元で一覧に載せている）" }
         @{ Key = 'index_archive.ps1:expandImportArchive:$original'; Reason = "捕まえた例外を、後片付けのあとで投げ直す（元の文言は、それぞれの投げ元で一覧に載せている）" }
-        @{ Key = 'index_archive.ps1:importIndexCore:$original'; Reason = "捕まえた例外を、後片付けのあとで投げ直す（元の文言は、それぞれの投げ元で一覧に載せている）" }
         @{ Key = 'extract_office.ps1:throwProtectionFailure:$exception'; Reason = "保護の確認で捕まえた例外を投げ直す（元の文言は、それぞれの投げ元で一覧に載せている）" }
         @{ Key = 'indexer_run.ps1:invokeIndexer:$message'; Reason = "想定していない例外のメッセージをそのまま書く（errors.md の「例外のメッセージそのまま」の行）" }
         @{ Key = 'indexer_run.ps1:cancelBeforeIngest:$message'; Reason = "引数で受けた文言を書く。呼び出し側が渡す 2 つの文言は log-warnings.md に載せているが、引数をたどる検査はまだ無く、機械では確かめていない" }

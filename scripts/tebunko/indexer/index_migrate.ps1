@@ -181,6 +181,12 @@ function removeStaleProcessDirs {
         if (Get-Process -Id ([int]$dir.Name) -ErrorAction SilentlyContinue) {
             continue  # 実行中のインデックス作成（またはPIDを再利用した別のプロセス）のものは残す
         }
+        $marker = Join-Path $dir.FullName ${keepPreviousMarkerName}
+        if ([System.IO.File]::Exists((toLongPath $marker))) {
+            # 取り込みの入れ替えを戻せず、元のインデックスを残したフォルダ。手で戻して印を消すまで消さない
+            writeIndexerLog "    取り込みを戻せず、元のインデックスを残したフォルダがあります。手で戻してから、印のファイルを消してください: $($dir.FullName)（${keepPreviousMarkerName}）" "Yellow"
+            continue
+        }
         try {
             # 中に長いパスがあっても消え、中のリンクの先は消さない。使用中などで消せなければ 1 回だけ試して次回に回す
             if (!(removeDirectoryUnder $dir.FullName $root 1)) {
