@@ -4,7 +4,7 @@
 
 利用者への返答・報告は日本語で書く（コードのコメント・ドキュメント・コミットメッセージも日本語）。
 
-ただし `.github/` の CONTRIBUTING・SECURITY・SUPPORT・CODE_OF_CONDUCT は、英語版（`<名前>.md`）を正とし、日本語版（`<名前>.ja.md`）を並べて置く。GitHub が案内に使うのは英語版の名前のファイルのため。内容を変えるときは、両方を同じ PR で直す。日本語の文書（README・`docs/` など）からは日本語版へリンクする。README は内容をよく変えるため日本語だけにする。
+ただし `.github/` の CONTRIBUTING・SECURITY・SUPPORT・CODE_OF_CONDUCT は、英語版（`<名前>.md`）を正とし、日本語版（`<名前>.ja.md`）を並べて置く。GitHub が案内に使うのは英語版の名前のファイルのため。内容を変えるときは、両方を同じ PR で直す。日本語の文書（README・`docs/` など）からは日本語版へリンクする。README は日本語を正とし、英語版（`README.en.md`）は概要・Quick start・Safety だけの要約を置く。日本語の README の該当の節を変えたら、同じ PR で英語版の該当の所も確かめる。
 
 ## GitHub の運用
 
