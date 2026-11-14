@@ -23,6 +23,40 @@ Describe "assertNotRealWorkspace" -Tag Unit {
     }
 }
 
+Describe "assertToolPathsNotRealWorkspace" -Tag Unit {
+    BeforeAll {
+        $script:real = "C:\Users\test\Documents\tebunko_ws"
+    }
+
+    It "<Case>" -TestCases @(
+        @{ Case = "既定のワークスペースと同じ場所は止める"; Path = "C:\Users\test\Documents\tebunko_ws"; Throws = $true }
+        @{ Case = "既定のワークスペースの下は止める"; Path = "C:\Users\test\Documents\tebunko_ws\work\x"; Throws = $true }
+        @{ Case = "既定のワークスペースを含む上の場所は止める"; Path = "C:\Users\test\Documents"; Throws = $true }
+        @{ Case = "別の場所は通る"; Path = "C:\temp\perf"; Throws = $false }
+        @{ Case = "名前が似ているだけなら通る"; Path = "C:\Users\test\Documents\tebunko_ws2"; Throws = $false }
+        @{ Case = "空文字は飛ばす"; Path = ""; Throws = $false }
+        @{ Case = "null は飛ばす"; Path = $null; Throws = $false }
+    ) {
+        if ($Throws) {
+            { assertToolPathsNotRealWorkspace @{ Work = $Path } $script:real } | Should -Throw "*-Work*"
+        } else {
+            { assertToolPathsNotRealWorkspace @{ Work = $Path } $script:real } | Should -Not -Throw
+        }
+    }
+
+    It "複数の中に 1 つでも既定のワークスペースがあれば、その引数の名前で止まる" {
+        { assertToolPathsNotRealWorkspace @{ Work = "C:\temp\w"; Out = "C:\Users\test\Documents\tebunko_ws\o" } $script:real } | Should -Throw "*-Out*"
+    }
+
+    It "引数が無い（空の表）なら何もしない" {
+        { assertToolPathsNotRealWorkspace @{} $script:real } | Should -Not -Throw
+    }
+
+    It "Real を省略すると、実際の既定のワークスペースを指す引数も止める" {
+        { assertToolPathsNotRealWorkspace @{ Dest = (getRealDefaultWorkspace) } } | Should -Throw "*-Dest*"
+    }
+}
+
 Describe "getIsolationSnapshot と compareIsolationSnapshot" -Tag Io {
     It "変わらなければ違いは空、増減・変更は一覧に出る" {
         $dir = Join-Path $TestDrive "snap"

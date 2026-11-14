@@ -12,6 +12,12 @@ param (
 )
 
 $ErrorActionPreference = "Stop"
+. ([WildcardPattern]::Escape("$PSScriptRoot\isolation\isolation_common.ps1".Replace('`', '``')))
+# 書き込み先が利用者の既定のワークスペースの中なら、書く前に止める
+assertToolPathsNotRealWorkspace @{ Dest = $Dest }
+# 動かす間は、使い捨ての既定のワークスペースに差し替える（子のプロセス・Runspace にも引き継がれる）。終わったら元に戻し、既定のワークスペースの前後を比べる
+$workspaceGuard = startWorkspaceGuard -Prefix "tebunko-tool-ws"
+try {
 $lib = Join-Path (Split-Path $PSScriptRoot -Parent) "scripts\tebunko\lib.ps1"
 . ([WildcardPattern]::Escape($lib.Replace('`', '``')))
 $Source = (Resolve-Path -LiteralPath $Source).ProviderPath.TrimEnd("\")
@@ -68,3 +74,9 @@ foreach ($j in $jobs) {
 }
 $pool.Dispose()
 Write-Host ("変換: フォルダ {0:N0} 件・TSV {1:N0} 件・{2:N1} MB（UTF-16） / {3:N1} 秒。残り {4:N0} 件" -f $done, $tsv, ($chars * 2 / 1MB), $watch.Elapsed.TotalSeconds, ($todo.Count - $done))
+} finally {
+    $guardReport = finishWorkspaceGuard $workspaceGuard
+}
+if ($guardReport.ExitCode -ne 0) {
+    throw ($guardReport.Lines -join "`n")
+}
