@@ -202,21 +202,25 @@ function updateIndexingButton {
 
 function refreshIndexingState {
     # 取り込み一覧の集計は、ファイルが数万行になると数秒～十数秒かかる。
-    # 画面のスレッドで行うと、起動時・タブの切り替え時に画面が固まる（応答なしになる）ため別スレッドで数える
+    # 画面のスレッドで行うと、起動時・タブの切り替え時に画面が固まる（応答なしになる）ため別スレッドで数える。
+    # -SkipIfUnchanged（窓の前面復帰だけが付ける）は、取り込み一覧の更新の印が前回の集計と同じなら集計しない（印は裏の仕事の中で取る）
+    param ([switch]$SkipIfUnchanged)
+
     if ($script:stateRunning) {
-        $script:stateAgain = $true
+        if (!$SkipIfUnchanged) {
+            $script:stateAgain = $true
+        }
         return
     }
     $script:stateRunning = $true
     $script:stateAgain = $false
     $script:stateJobPath = $workspace.StatusFile
+    $lastStamp = if ($SkipIfUnchanged) { [string]$script:indexingStateStamp } else { "" }
     startJob {
-        param ($path, $workspaceDir)
-        $state = getIndexingState -path $path
+        param ($path, $workspaceDir, $lastStamp, $skip)
         # 格納形式の状態（古い形式・作り直しの途中など）も同じ裏の仕事で調べる（置き場を数えるため）
-        $state.Format = getWorkspaceIndexFormat ([Workspace]::new($workspaceDir))
-        $state
-    } @($script:stateJobPath, [string]$workspace.Dir) {
+        getIndexingStateIfChanged -Path $path -WorkspaceDir $workspaceDir -LastStamp $lastStamp -SkipIfUnchanged:([bool]$skip)
+    } @($script:stateJobPath, [string]$workspace.Dir, $lastStamp, [bool]$SkipIfUnchanged) {
         param ($output, $errorText)
         $script:stateRunning = $false
         if ($script:stateJobPath -ne $workspace.StatusFile) {
@@ -224,7 +228,16 @@ function refreshIndexingState {
             $script:stateAgain = $true
         } elseif ($output -and $output.Count -gt 0 -and $output[0]) {
             # インデクサが書き込んでいる瞬間などは、次の機会に読み直す
-            applyIndexingState $output[0]
+            $result = $output[0]
+            $script:indexingStateStamp = [string]$result.Stamp
+            if (!$result.Unchanged) {
+                applyIndexingState $result
+            } elseif ($script:indexingState -and ((ConvertTo-Json $result.Format -Compress -Depth 4) -ne (ConvertTo-Json $script:indexingState.Format -Compress -Depth 4))) {
+                # 集計は同じで格納形式だけ変わった
+                $next = $script:indexingState.Clone()
+                $next.Format = $result.Format
+                applyIndexingState $next
+            }
         }
         if ($script:stateAgain) {
             refreshIndexingState

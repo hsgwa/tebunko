@@ -129,6 +129,15 @@
 | `joinSourcePath` | folder, rest, name | string | フォルダ・相対フォルダ・ファイル名をつなぐ（ドライブ直下でも `\` を重ねない） | – | getFolderPathAliases, 元のファイルの特定（`source_map.ps1`）, 画面 |
 | `getExistingAncestorFolder` | folder | string | folder が今もあればそのまま、無ければその上の今もあるフォルダ。どこにも無ければ空 | [フォルダ選択ダイアログ（［参照…］）](../gui/common.md#フォルダ選択ダイアログ参照) | 画面（フォルダ選択） |
 
+## ファイルの変更の見張り（`shared/core/file_watch.ps1`）
+
+| 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |
+|---|---|---|---|---|---|
+| `newFileWatch` | path | 見張り / `$null` | ファイルを `FileSystemWatcher` で見張る（合図は `Register-ObjectEvent` で列に積むだけ）。ネットワークの場所・フォルダが無い・作れないときは `$null` | [画面を前面にしたときの読み直し](../gui/responsiveness.md) | startup（見張りの作成） |
+| `testFileWatchSignaled` | watch | bool | 合図が来ていれば `$true` を返して合図を消す。メモリの中だけを見る。`Error` も合図に数える | 同上 | onWindowActivated |
+| `getFileStamp` | path | string | 更新日時と長さの 1 行。無い・読めないときは空 | 同上 | onWindowActivated, getIndexingStateIfChanged |
+| `closeFileWatch` | watch | – | 見張りを止めて片づける。2 回呼んでも失敗しない | [閉じるときの順番](../structure/closing.md) | closeFileWatches |
+
 ## 診断情報とログの世代（`shared/core/diagnostics_view.ps1`・`diagnostics.ps1`・`tebunko/core/diagnostics.ps1`）
 
 ログの先頭に書く版と環境の見出しと、ログの入れ替え。仕様は[ログに書く版と環境の情報](../../safety/disclosure.md#ログに書く版と環境の情報)と[増え方と片付け](../structure/io-files.md#増え方と片付け)。

@@ -59,6 +59,12 @@ BeforeAll {
 
         # ---- tebunko/ui/gui_main.ps1・shell/closing.ps1（閉じる処理の記録。記録先が空なら何もしない） ----
         @{ File = "gui_main.ps1"; Function = "startGui"; Call = "writeCloseTrace"; Count = 8; Reason = "閉じる処理の各段の前に、段の名前を 1 行足す（環境変数 TEBUNKO_CLOSE_TRACE が指すローカルのファイルへ。画面のスモークテストの失敗の調べ用で、無ければ何もしない。閉じるときだけ）" }
+        # ---- 窓の前面復帰で読み直す条件（FileSystemWatcher の見張り。docs/design/gui/responsiveness.md） ----
+        @{ File = "startup.ps1"; Function = "resetFileWatches"; Call = "newFileWatch"; Count = 2; Reason = "設定ファイルと取り込み一覧の見張りを作る（起動時と、ワークスペースを切り替えたとき。ネットワークの場所は見張らず、ローカルのフォルダの有無を確かめて FileSystemWatcher を作るだけで、ファイルは開かない）" }
+        @{ File = "index_list.ps1"; Function = "fillTargetItems"; Call = "getFileStamp"; Reason = "設定ファイルの更新の印（FileInfo 1 回）を控える。直前に同じファイルを getTargetFolders が読むので、新しい触り方は増えない" }
+        @{ File = "index_list.ps1"; Function = "saveTargets"; Call = "getFileStamp"; Reason = "保存した直後の設定ファイルの更新の印（FileInfo 1 回）を控える（自分の保存の合図で読み直さないため。保存は設定を書く操作の中）" }
+        @{ File = "startup.ps1"; Function = "closeFileWatches"; Call = "writeCloseTrace"; Reason = "閉じる処理の段の名前を 1 行足す（TEBUNKO_CLOSE_TRACE が指すローカルのファイル。無ければ何もしない。閉じるときだけ）" }
+        @{ File = "window_events.ps1"; Function = "onWindowActivated"; Call = "getFileStamp"; Reason = "設定ファイルの更新の印（FileInfo 1 回）を、合図がある・見張りが無い・60 秒たったときだけ取る（ネットワークの設定ファイルは画面のスレッドで取らず、裏の仕事で取る）" }
         @{ File = "closing.ps1"; Function = "enterIndexingStopFlow"; Call = "writeCloseTrace"; Reason = "閉じる処理の段の名前を 1 行足す（TEBUNKO_CLOSE_TRACE が指すローカルのファイル。無ければ何もしない。閉じるときだけ）" }
         @{ File = "closing.ps1"; Function = ""; Call = "writeCloseTrace"; Reason = "閉じる処理の段の名前を 1 行足す（Closing のハンドラ。TEBUNKO_CLOSE_TRACE が指すローカルのファイル。無ければ何もしない。閉じるときだけ）" }
         @{ File = "search_session.ps1"; Function = "finishSearch"; Call = "writeTrace"; Count = 2; Reason = "処理の記録（trace.ps1。環境変数 TEBUNKO_TRACE を付けたときだけ、区分ごとに 1 回の区間が終わった時に、ワークスペースの trace フォルダへ小さな TSV を 1 回足す。ネットワークのワークスペースには書かない。付けなければ何もしない）" }

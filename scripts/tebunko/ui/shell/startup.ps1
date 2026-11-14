@@ -1,8 +1,32 @@
 ﻿# startGui の一部: 起動時の読み込み（loadWorkspaceViews・loadStartupData）と、起動時のタブ選びなど。startGui の中で読み込む。
 
+    function resetFileWatches {
+        # 設定ファイルと取り込み一覧を見張り直す（窓の前面復帰で、変わったときだけ読み直すため。onWindowActivated）。
+        # ワークスペースを切り替えたときも呼ぶ。取り込み一覧の印は消し、次の前面復帰で必ず集計させる。
+        # ネットワークの場所は見張らない（newFileWatch が $null を返す）。設定ファイルがネットワークにあるときは、印の比較も裏で行う
+        closeFileWatches
+        $script:settingsOnNetwork = $false
+        try { $script:settingsOnNetwork = [bool](testNetworkPath ([System.IO.Path]::GetFullPath([string]${settingsFile}))) } catch { Write-Verbose $_.Exception.Message }
+        $script:settingsWatch = if ($script:settingsOnNetwork) { $null } else { newFileWatch ${settingsFile} }
+        $script:statusWatch = newFileWatch ([string]$workspace.StatusFile)
+        $script:indexingStateStamp = $null
+        $script:lastStampCheck = Get-Date
+    }
+
+    function closeFileWatches {
+        # 見張りを閉じる（2 回呼んでもよい。閉じる流れの Closing と、後始末の finally の両方で呼ぶ）
+        writeCloseTrace -Path $script:closeTracePath -Step "closeFileWatches"
+        if ($script:settingsWatch) { closeFileWatch $script:settingsWatch }
+        if ($script:statusWatch) { closeFileWatch $script:statusWatch }
+        $script:settingsWatch = $null
+        $script:statusWatch = $null
+    }
+
     function loadWorkspaceViews {
         # ワークスペースの中身（インデックスの一覧・取り込みの状態・検索対象のツリー・件数）を画面に読み込む。
         # 起動したとき（loadStartupData）と、設定の画面でワークスペースを変えたとき（settings\settings.ps1 の switchWorkspace）に呼ぶ
+        # 見張りは読み込みより先に作る（読んでから作るまでの間の変更を取りこぼさない）
+        resetFileWatches
         loadTargets
         refreshIndexingState
         loadIndexTree
