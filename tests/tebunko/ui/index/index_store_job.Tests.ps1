@@ -66,6 +66,8 @@ BeforeAll {
         . ([scriptblock]::Create($node.Extent.Text))
     }
     function updateSearchTarget { }
+    # 画面のスレッドの分割（startUiWork ほか。タイマーは偽物）
+    . "$PSScriptRoot\..\..\..\helpers\ui_work.ps1"
     $script:indexRoots = New-Object 'System.Collections.ObjectModel.ObservableCollection[object]'
 
     function runJob {

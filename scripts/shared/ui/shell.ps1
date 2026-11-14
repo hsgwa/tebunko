@@ -661,3 +661,175 @@ $script:jobTimer = newTimer 50 {
         }
     }
 }
+
+# ---- 画面のスレッドの分割（件数ぶん回す処理） ----
+
+# 件数に比例する仕事を画面のスレッドで一気に回すと、終わるまで画面が固まる。startUiWork に渡すと、
+# 1 回に予算（時間）ぶんだけ回し、残りは次のタイマーに回す（pumpSearch と同じ考え）。仕事は名前ごとに 1 つ。
+$script:uiWorks = @{}
+
+function getUiWorkMilliseconds {
+    # 予算を測る時計（ミリ秒）。テストはこの関数を差し替えて、「n 件で予算切れ」を作る
+    return ([System.Diagnostics.Stopwatch]::GetTimestamp() * 1000.0 / [System.Diagnostics.Stopwatch]::Frequency)
+}
+
+function stopUiWork {
+    # 名前の仕事を捨てる（OnDone・OnStop は呼ばない。控えた呼び出しも捨てる）
+    param ([string]$Name)
+
+    if (!$script:uiWorks.ContainsKey($Name)) {
+        return
+    }
+    $work = $script:uiWorks[$Name]
+    $script:uiWorks.Remove($Name)
+    if ($null -ne $work.Timer) {
+        $work.Timer.Stop()
+    }
+}
+
+function stopAllUiWork {
+    foreach ($name in @($script:uiWorks.Keys)) {
+        stopUiWork $name
+    }
+}
+
+function testUiWorkRunning {
+    param ([string]$Name)
+    return $script:uiWorks.ContainsKey($Name)
+}
+
+function failUiWork {
+    # OnBegin・OnItem・OnDone が例外を投げた。知らせて、仕事を止め（タイマーも控えも残さない）、OnStop を呼ぶ
+    param ($Work, $ErrorRecord)
+
+    if ($script:uiWorks.ContainsKey($Work.Name) -and [object]::ReferenceEquals($script:uiWorks[$Work.Name], $Work)) {
+        stopUiWork $Work.Name
+    }
+    try {
+        reportUnexpectedError "画面の反映中" $ErrorRecord
+    } catch { Write-Debug "$_" }
+    if ($null -ne $Work.OnStop) {
+        try {
+            & $Work.OnStop $Work.State
+        } catch {
+            try { reportUnexpectedError "画面の反映中" $_ } catch { Write-Debug "$_" }
+        }
+    }
+}
+
+function stepUiWork {
+    # 名前の仕事を予算ぶん回す。全件を回し終えたら、OnDone を呼び、控えがあればそれを回し始める。unlimited は残りを全部回す
+    param ([string]$Name, [switch]$Unlimited)
+
+    if (!$script:uiWorks.ContainsKey($Name)) {
+        return
+    }
+    $work = $script:uiWorks[$Name]
+    $started = getUiWorkMilliseconds
+    try {
+        while ($work.Index -lt $work.Items.Count) {
+            $item = $work.Items[$work.Index]
+            $work.Index++   # 先に進める（例外のあとに同じ項目をやり直さない）
+            & $work.OnItem $item $work.State
+            # OnItem の中で捨てられた（stopUiWork・Restart）ら、捨てた仕事の項目をこれ以上回さない
+            if (!$script:uiWorks.ContainsKey($Name) -or ![object]::ReferenceEquals($script:uiWorks[$Name], $work)) {
+                return
+            }
+            if (!$Unlimited -and ((getUiWorkMilliseconds) - $started) -ge $work.Budget) {
+                break
+            }
+        }
+    } catch {
+        failUiWork $work $_
+        return
+    }
+    if ($work.Index -lt $work.Items.Count) {
+        return
+    }
+    # 終わった。OnDone の中で同じ名前の仕事を始められるよう、先に外す
+    stopUiWork $Name
+    try {
+        & $work.OnDone $work.State
+    } catch {
+        failUiWork $work $_
+        return
+    }
+    if ($null -ne $work.Pending) {
+        $next = $work.Pending
+        startUiWork @next
+    }
+}
+
+function startUiWork {
+    # items の 1 件ずつに onItem { param($item, $state) } を、画面のスレッドで予算（ミリ秒）ぶんずつ回し、
+    # 全部回したら onDone { param($state) } を呼ぶ。件数が少なければ、呼んだその場で終わる。
+    #   state: onBegin・onItem・onDone・onStop に渡す値（ハッシュテーブル。呼び元の値はここで渡す）
+    #   onBegin { param($state) }: 1 回分を回し始める直前に 1 回だけ呼ぶ
+    #   onStop { param($state) }: 例外で止まったときに呼ぶ（stopUiWork で捨てたときは呼ばない）
+    #   whenBusy: 同じ名前の仕事が回っている間に呼ばれたとき。Restart = 前の分を捨てて最初から。
+    #             Requeue = 今の分を回し切り、呼ばれた分は最後の 1 つだけ控えて、そのあと 1 回だけ回す
+    param (
+        [Parameter(Mandatory)][string]$Name,
+        [object[]]$Items = @(),
+        [Parameter(Mandatory)][scriptblock]$OnItem,
+        [scriptblock]$OnDone = {},
+        $State = $null,
+        [scriptblock]$OnBegin = $null,
+        [scriptblock]$OnStop = $null,
+        [ValidateSet("Restart", "Requeue")][string]$WhenBusy = "Restart",
+        [int]$BudgetMilliseconds = 60,
+        [int]$IntervalMilliseconds = 100
+    )
+
+    if ($null -eq $State) {
+        $State = @{}
+    }
+    if ($null -eq $Items) {
+        $Items = @()
+    }
+    if ($script:uiWorks.ContainsKey($Name)) {
+        if ($WhenBusy -eq "Requeue") {
+            $script:uiWorks[$Name].Pending = @{
+                Name = $Name; Items = $Items; OnItem = $OnItem; OnDone = $OnDone; State = $State; OnBegin = $OnBegin
+                OnStop = $OnStop; WhenBusy = $WhenBusy; BudgetMilliseconds = $BudgetMilliseconds; IntervalMilliseconds = $IntervalMilliseconds
+            }
+            return
+        }
+        stopUiWork $Name
+    }
+
+    # 呼び元があとで一覧を変えても回す中身が変わらないよう、写し取る
+    $copy = [object[]]@($Items).Clone()
+    $work = @{
+        Name = $Name; Items = $copy; Index = 0; OnItem = $OnItem; OnDone = $OnDone; OnStop = $OnStop; State = $State
+        Budget = $BudgetMilliseconds; Timer = $null; Pending = $null
+    }
+    $script:uiWorks[$Name] = $work
+    if ($null -ne $OnBegin) {
+        try {
+            & $OnBegin $State
+        } catch {
+            failUiWork $work $_
+            return
+        }
+    }
+    stepUiWork $Name
+    if ($script:uiWorks.ContainsKey($Name) -and [object]::ReferenceEquals($script:uiWorks[$Name], $work)) {
+        $timer = newTimer $IntervalMilliseconds {
+            param ($sender, $e)
+            stepUiWork ([string]$sender.Tag)
+        }
+        $timer.Tag = $Name
+        $work.Timer = $timer
+        $timer.Start()
+    }
+}
+
+function completeUiWork {
+    # 名前の仕事の残りと控えを、その場で全部回して OnDone まで呼ぶ（テストと、結果をすぐ読みたいとき）
+    param ([string]$Name)
+
+    while ($script:uiWorks.ContainsKey($Name)) {
+        stepUiWork $Name -Unlimited
+    }
+}
