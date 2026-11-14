@@ -332,8 +332,6 @@ function promptSourceMissing {
                 setIndexSourceFolder $location.Name $found.Root
                 $script:sourceFolderMaps = @{}
                 setStatus "インデックス [$($location.Name)] の元のフォルダを $($found.Root) に変えました"
-            } else {
-                setStatus "開きました：$($found.Path)"
             }
             & $onFound $found.Path
             return
@@ -687,8 +685,10 @@ function finishOpenCopy {
             setStatus "エディタで開けませんでした：${path}"
         }
     } else {
-        [void](openWithShell $copyPath ${openModeNormal})
-        setStatus (getOpenCopyOpenedStatus $path $copyPath)
+        # 断られた（$false）ときは、openWithShell が出した断りのステータスを残す
+        if (openWithShell $copyPath ${openModeNormal}) {
+            setStatus (getOpenCopyOpenedStatus $path $copyPath)
+        }
     }
 }
 
@@ -801,7 +801,9 @@ function openSourceFolder {
     }
     findSourceFile $row {
         param ($path)
-        [void](showInExplorer $path)
+        if (!(showInExplorer $path)) {
+            setStatus (getSourceFolderShowFailedStatus $path)
+        }
     }
 }
 

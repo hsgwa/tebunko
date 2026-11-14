@@ -283,6 +283,15 @@ function getOpenCopyOpenedStatus {
     return "コピーを${by}新規で開きました（コピー：${copyPath}。保存してもこのコピーに書かれ、元のファイルは変わりません）：${path}"
 }
 
+function getSourceFolderShowFailedStatus {
+    # エクスプローラーで元のファイルを見せられなかったときのステータス
+    param (
+        [string]$path
+    )
+
+    return "エクスプローラーで元のファイルを見せられませんでした：${path}"
+}
+
 function getSourceReadOnlyFailedStatus {
     # 読み取り専用で開けなかったとき（通常で開くとマクロが動くことがあるため、開かない）のステータス
     param (
